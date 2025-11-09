@@ -1,0 +1,19 @@
+Metadata-Version: 2.4
+Name: parkour_tasks
+Version: 0.10.31
+Summary: Extension containing suite of environments for robot learning.
+Home-page: https://github.com/isaac-sim/IsaacLab
+Author: Isaac Lab Project Developers
+Maintainer: Isaac Lab Project Developers
+Keywords: robotics,rl,il,learning
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Isaac Sim :: 4.5.0
+Requires-Python: >=3.10
+Dynamic: author
+Dynamic: classifier
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: maintainer
+Dynamic: requires-python
+Dynamic: summary

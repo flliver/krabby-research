@@ -1,0 +1,8 @@
+setup.py
+parkour_tasks/__init__.py
+parkour_tasks/default_cfg.py
+parkour_tasks.egg-info/PKG-INFO
+parkour_tasks.egg-info/SOURCES.txt
+parkour_tasks.egg-info/dependency_links.txt
+parkour_tasks.egg-info/not-zip-safe
+parkour_tasks.egg-info/top_level.txt
