@@ -30,7 +30,8 @@ cd parkour_tasks && pip3 install -e .
 ### 1.1. Training Teacher Policy
 
 ```
-python scripts/rsl_rl/train.py --task Isaac-Extreme-Parkour-Teacher-Unitree-Go2-v0 --seed 1 --headless
+# Update to 12288 envs - twice the default for faster training
+python scripts/rsl_rl/train.py --task Isaac-Extreme-Parkour-Teacher-Unitree-Go2-v0 --seed 1 --headless --num_envs 12288
 ```
 
 ### 1.2. Training Student Policy

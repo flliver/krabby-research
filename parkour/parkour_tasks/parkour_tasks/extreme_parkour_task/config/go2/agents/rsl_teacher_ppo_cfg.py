@@ -40,7 +40,7 @@ class UnitreeGo2ParkourTeacherPPORunnerCfg(ParkourRslRlOnPolicyRunnerCfg):
         entropy_coef=0.01,
         desired_kl=0.01,
         num_learning_epochs=5,
-        num_mini_batches=4,
+        num_mini_batches=16, # Change to 16 for better performance during teacher training.
         learning_rate = 2.e-4,
         schedule="adaptive",
         gamma=0.99,
