@@ -10,10 +10,12 @@ Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Isaac Sim :: 4.5.0
 Requires-Python: >=3.10
+Requires-Dist: fast_simplification
 Dynamic: author
 Dynamic: classifier
 Dynamic: home-page
 Dynamic: keywords
 Dynamic: maintainer
+Dynamic: requires-dist
 Dynamic: requires-python
 Dynamic: summary

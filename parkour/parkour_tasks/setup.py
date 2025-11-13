@@ -33,5 +33,6 @@ setup(
         "Isaac Sim :: 4.5.0",
     ],
     zip_safe=False,
+    setup_requires=['toml'],
     install_requires=['fast_simplification']
 )
