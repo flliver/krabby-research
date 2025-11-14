@@ -14,7 +14,7 @@ class UnitreeGo2ParkourStudentPPORunnerCfg(ParkourRslRlOnPolicyRunnerCfg):
     num_steps_per_env = 24 
     max_iterations = 50000 
     save_interval = 100
-    experiment_name = "unitree_go2_parkour"
+    experiment_name = "unitree_go2_parkour_student"
     empirical_normalization = False
     policy = ParkourRslRlPpoActorCriticCfg(
         init_noise_std=1.0,
