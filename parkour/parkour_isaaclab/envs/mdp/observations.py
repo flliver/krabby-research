@@ -177,7 +177,8 @@ class image_features(ManagerTermBase):
                 processed_image = self._process_depth_image(depth_image)
                 self.depth_buffer[env_id] = torch.cat([self.depth_buffer[env_id, 1:], 
                                                     processed_image.to(self.device).unsqueeze(0)], dim=0)
-        if self.debug_vis:
+        # Only show visualization if debug_vis is enabled AND we have a render_mode (not headless)
+        if self.debug_vis and env.render_mode is not None:
             depth_images_np = self.depth_buffer[:, -2].detach().cpu().numpy()
             depth_images_norm = []
             for img in depth_images_np:
