@@ -50,6 +50,22 @@ pip install numpy==1.26.0
 python scripts/rsl_rl/train.py --task Isaac-Extreme-Parkour-Student-Unitree-Go2-v0 --seed 1 --headless
 ```
 
+## How to Visualize the Training Parameters using TensorBoard
+
+### Install TensorBoard with pip
+```
+pip install tensorboard
+```
+
+### Run TensorBoard using a Training Run
+```
+tensorboard --logdir=./logs/rsl_rl/unitree_go2_parkour_teacher/2025-11-13_21-26-55
+
+# In another terminal window or navigate to 
+open http://localhost:6006/
+```
+
+
 ## How to play your policy 
 
 ### 2.1. Pretrained Teacher Policy 
