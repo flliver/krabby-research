@@ -32,9 +32,19 @@ cd parkour_tasks && pip3 install -e .
 ```
 # Update to 12288 envs - twice the default for faster training
 python scripts/rsl_rl/train.py --task Isaac-Extreme-Parkour-Teacher-Unitree-Go2-v0 --seed 1 --headless --num_envs 12288
+
+# To restart a training from a checkpoint
+python scripts/rsl_rl/train.py --task Isaac-Extreme-Parkour-Teacher-Unitree-Go2-v0 --resume --load_run "2025-11-13_12-15-20" --num_envs 12288 --headless
 ```
 
 ### 1.2. Training Student Policy
+
+To run opencv during Student training, otherwise set `debug_vis`=False
+```
+pip install --upgrade opencv-python
+pip uninstall numpy==2.3.0
+pip install numpy==1.26.0
+```
 
 ```
 python scripts/rsl_rl/train.py --task Isaac-Extreme-Parkour-Student-Unitree-Go2-v0 --seed 1 --headless

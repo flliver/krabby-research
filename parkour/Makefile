@@ -16,11 +16,12 @@ train-teacher:
 train-teacher-resume:
 	python scripts/rsl_rl/train.py --task Isaac-Extreme-Parkour-Teacher-Unitree-Go2-v0 --seed 1 --headless --num_envs 12288 --resume $(ARGS)
 
-# --load_run 2025-11-13_21-26-55 --num_envs 6144
+# make train-student ARGS="--num_envs 12288
 train-student:
-	python scripts/rsl_rl/train.py --task Isaac-Extreme-Parkour-Student-Unitree-Go2-v0 --seed 1 --headless --num_envs 6144 $(ARGS)
+	python scripts/rsl_rl/train.py --task Isaac-Extreme-Parkour-Student-Unitree-Go2-v0 --seed 1 --headless $(ARGS)
 
 
+# make train-student-resume ARGS="--load_run 2025-11-13_21-26-55 --num_envs 6144"
 train-student-resume:
 	python scripts/rsl_rl/train.py --task Isaac-Extreme-Parkour-Student-Unitree-Go2-v0 --seed 1 --headless --resume $(ARGS)
 
@@ -31,3 +32,13 @@ play-teacher:
 
 play-student:
 	python scripts/rsl_rl/play.py --task Isaac-Extreme-Parkour-Student-Unitree-Go2-Play-v0 --num_envs 16 $(ARGS)
+
+# make eval-student ARGS="--checkpoint /home/brian/patina/krabby-research/parkour/logs/rsl_rl/unitree_go2_parkour_teacher/2025-11-13_21-26-55/model_7400.pt"
+eval-teacher:
+	python scripts/rsl_rl/evaluation.py --task Isaac-Extreme-Parkour-Teacher-Unitree-Go2-Eval-v0 $(ARGS)
+
+
+# make eval-student ARGS="--checkpoint /home/brian/patina/krabby-research/parkour/logs/rsl_rl/unitree_go2_parkour_student/2025-11-14_12-43-18/model_8500.pt"
+eval-student:
+	python scripts/rsl_rl/evaluation.py --task Isaac-Extreme-Parkour-Student-Unitree-Go2-Eval-v0 $(ARGS)
+

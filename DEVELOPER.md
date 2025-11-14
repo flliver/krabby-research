@@ -34,4 +34,3 @@ pip install "isaacsim[all,extscache]==5.1.0" --extra-index-url https://pypi.nvid
 git clone git@github.com:isaac-sim/IsaacLab.git
 ./isaaclab.sh --install
 ```
-
