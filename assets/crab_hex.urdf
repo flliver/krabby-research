@@ -1,0 +1,319 @@
+<?xml version="1.0"?>
+<robot name="crab_hex" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!--
+                ASCII GEOMETRY OVERVIEW
+                =======================
+
+                  +=================+
+                  |                 |
+                  |    4" thick     |
+                  |   square body   |
+                  |   24" x 24"     |
+                  |                 |
+                  +=================+
+                           |
+                           o  _hip_yaw axis (X axis, left/right rotation on page)
+                           |  _hip
+                           o  _hip_pitch hinge (Z axis, toward/away from page)
+                            \
+                             \ _femur (~24")
+          | ground            \
+          |                    \ _knee hinge (Y axis, down/up on page)
+tibia_tip |o====================o==o _tibia_top_joint
+          |     _tibia (~30")     3"   
+
+
+          Not Shown: _prismatic knee actuator (parallel to femur, from hip to tibia_top)            
+                                
+ -->
+
+  <!-- ========== MATERIALS ========== -->
+  <material name="gray">
+    <color rgba="0.5 0.5 0.5 1.0"/>
+  </material>
+
+  <material name="blue">
+    <color rgba="0.1 0.4 0.8 1.0"/>
+  </material>
+
+  <material name="green">
+    <color rgba="0.1 0.7 0.3 1.0"/>
+  </material>
+
+  <material name="red">
+    <color rgba="0.8 0.2 0.2 1.0"/>
+  </material>
+
+  <!-- ========== BASE LINK (BODY) ========== -->
+  <!-- 24" x 24" x 4" = 0.6096 x 0.6096 x 0.1016 m -->
+  <link name="base_link">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="10.0"/>
+      <inertia
+        ixx="0.3183" ixy="0.0" ixz="0.0"
+        iyy="0.3183" iyz="0.0"
+        izz="0.6194"/>
+    </inertial>
+
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.6096 0.6096 0.1016"/>
+      </geometry>
+      <material name="gray"/>
+    </visual>
+
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.6096 0.6096 0.1016"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- ========================================================= -->
+  <!--  LEG MACRO: 3-DOF + PRISMATIC ACTUATOR, SPIDER-LIKE STANCE -->
+  <!-- ========================================================= -->
+  <!--
+    Params:
+      name_prefix       : lf, lm, lr, rf, rm, rr
+      hip_x, hip_y      : hip joint position on body
+      femur_out_angle   : sideways yaw of leg root (rad) (about plus or minus pi over 2)
+  -->
+  <xacro:macro name="simple_leg_3dof" params="name_prefix hip_x hip_y femur_out_angle hip_y_offset">
+
+    <!-- Hip link (between body and femur) -->
+    <link name="${name_prefix}_hip">
+      <inertial>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <mass value="0.5"/>
+        <inertia
+          ixx="0.001" ixy="0.0" ixz="0.0"
+          iyy="0.001" iyz="0.0"
+          izz="0.001"/>
+      </inertial>
+
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <box size="0.06 0.16 0.06"/>
+        </geometry>
+        <material name="red"/>
+      </visual>
+
+      <collision>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <box size="0.06 0.16 0.06"/>
+        </geometry>
+      </collision>
+    </link>
+
+    <!-- Femur link (24" = 0.6096 m), mainly downward.
+         Top at z = 0, bottom at z = -0.6096. -->
+    <link name="${name_prefix}_femur">
+      <inertial>
+        <origin xyz="0 0 -0.3048" rpy="0 0 0"/>
+        <mass value="1.0"/>
+        <inertia
+          ixx="0.031" ixy="0.0" ixz="0.0"
+          iyy="0.031" iyz="0.0"
+          izz="0.001"/>
+      </inertial>
+
+      <visual>
+        <origin xyz="0 0 -0.3048" rpy="0 0 0"/>
+        <geometry>
+          <box size="0.05 0.05 0.6096"/>
+        </geometry>
+        <material name="blue"/>
+      </visual>
+
+      <collision>
+        <origin xyz="0 0 -0.3048" rpy="0 0 0"/>
+        <geometry>
+          <box size="0.05 0.05 0.6096"/>
+        </geometry>
+      </collision>
+    </link>
+
+    <!-- Tibia link (30" = 0.762 m)
+         Pivot (knee) at z = 0 in tibia frame.
+         Top at +0.0762 m (3 inches).
+         Bottom at -0.6858 m.
+         Origin at -0.3048 gives extents [-0.6858, +0.0762]. -->
+    <link name="${name_prefix}_tibia">
+      <inertial>
+        <origin xyz="0 0 -0.3048" rpy="0 0 0"/>
+        <mass value="1.0"/>
+        <inertia
+          ixx="0.048" ixy="0.0" ixz="0.0"
+          iyy="0.048" iyz="0.0"
+          izz="0.001"/>
+      </inertial>
+
+      <visual>
+        <origin xyz="0 0 -0.3048" rpy="0 0 0"/>
+        <geometry>
+          <box size="0.04 0.04 0.762"/>
+        </geometry>
+        <material name="green"/>
+      </visual>
+
+      <collision>
+        <origin xyz="0 0 -0.3048" rpy="0 0 0"/>
+        <geometry>
+          <box size="0.04 0.04 0.762"/>
+        </geometry>
+      </collision>
+    </link>
+
+    <!-- Tibia top link (lever anchor 3" above knee) -->
+    <link name="${name_prefix}_tibia_top">
+      <inertial>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <mass value="0.01"/>
+        <inertia
+          ixx="0.000001" ixy="0.0" ixz="0.0"
+          iyy="0.000001" iyz="0.0"
+          izz="0.000001"/>
+      </inertial>
+    </link>
+
+    <!-- Tibia tip link (foot at bottom of tibia) -->
+    <link name="${name_prefix}_tibia_tip">
+      <inertial>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <mass value="0.1"/>
+        <inertia
+          ixx="0.0001" ixy="0.0" ixz="0.0"
+          iyy="0.0001" iyz="0.0"
+          izz="0.0001"/>
+      </inertial>
+    </link>
+
+    <!-- Actuator link: prismatic knee actuator (visual rod) -->
+    <link name="${name_prefix}_knee_actuator">
+      <inertial>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <mass value="0.5"/>
+        <inertia
+          ixx="0.001" ixy="0.0" ixz="0.0"
+          iyy="0.001" iyz="0.0"
+          izz="0.001"/>
+      </inertial>
+
+      <visual>
+        <!-- Cylinder length 0.6096m; shift down by half so top is at joint frame -->
+        <origin xyz="0 0 -0.3598" rpy="0 0 0"/>
+        <geometry>
+          <cylinder radius="0.01" length="0.6496"/>
+        </geometry>
+        <material name="gray"/>
+      </visual>
+    </link>
+
+    <!-- ========== JOINTS ========== -->
+
+    <!-- 1) Hip yaw: base_link -> hip
+         femur_out_angle now rotates the hip frame (leg root) around Z -->
+    <joint name="${name_prefix}_hip_yaw" type="revolute">
+      <parent link="base_link"/>
+      <child link="${name_prefix}_hip"/>
+      <origin xyz="${hip_x} ${hip_y} 0.0" rpy="0 1.5707 ${femur_out_angle}"/>
+      <axis xyz="0 0 0"/>
+      <limit lower="-1.5" upper="1.5" effort="40.0" velocity="5.0"/>
+    </joint>
+
+    <!-- 2) Hip pitch: hip -> femur
+         Femur rotated down about 70 degrees (no extra yaw here). -->
+    <joint name="${name_prefix}_hip_pitch" type="revolute">
+      <parent link="${name_prefix}_hip"/>
+      <child link="${name_prefix}_femur"/>
+      <!-- pivot offset along hip's local Y to outer tip of hip bar -->
+      <origin xyz="0 0.08 0" rpy="1.9 -1.5707 0"/>
+      <axis xyz="1 0 0"/>
+      <limit lower="-1.0" upper="1.0" effort="40.0" velocity="5.0"/>
+    </joint>
+
+    <!-- 3) Knee pitch: femur -> tibia
+         Knee at end of femur; rotate tibia back toward vertical. -->
+    <joint name="${name_prefix}_knee" type="revolute">
+      <parent link="${name_prefix}_femur"/>
+      <child link="${name_prefix}_tibia"/>
+      <origin xyz="0 0 -0.6096" rpy="-1.5707 1.5707 0"/>
+      <axis xyz="0 1 0"/>
+      <limit lower="-2.0" upper="0.0" effort="40.0" velocity="5.0"/>
+    </joint>
+
+    <!-- 4) Tibia top: tibia -> tibia_top (fixed, 3" above knee) -->
+    <joint name="${name_prefix}_tibia_top_joint" type="fixed">
+      <parent link="${name_prefix}_tibia"/>
+      <child  link="${name_prefix}_tibia_top"/>
+      <origin xyz="0 0 0.0762" rpy="0 0 0"/>
+    </joint>
+
+    <!-- 5) Tibia tip: tibia -> tibia_tip (fixed, bottom of tibia) -->
+    <joint name="${name_prefix}_tibia_tip_joint" type="fixed">
+      <parent link="${name_prefix}_tibia"/>
+      <child  link="${name_prefix}_tibia_tip"/>
+      <origin xyz="0 0 -0.6858" rpy="0 0 0"/>
+    </joint>
+
+    <!-- 6) Prismatic actuator: hip -> actuator link
+         Roughly parallel to femur, starting at hip. -->
+    <joint name="${name_prefix}_knee_actuator_joint" type="prismatic">
+      <parent link="${name_prefix}_hip"/>
+      <child  link="${name_prefix}_knee_actuator"/>
+      <!-- TODO: Should attach to tibia_top_joint in USD as a closed-loop constraint -->
+      <!-- Same yaw as leg root (femur_out_angle), same pitch as femur (1.2217) -->
+      <origin xyz="-0.0 0.0 0" rpy="1.17 1.5707 0"/>
+      <axis xyz="0 0 -1"/>
+      <limit lower="0.0" upper="0.3" effort="200.0" velocity="0.2"/>
+    </joint>
+
+  </xacro:macro>
+
+  <!-- ======================= -->
+  <!--  INSTANTIATE SIX LEGS   -->
+  <!-- ======================= -->
+  <!-- Spider-like stance:
+       femur_out_angle: plus or minus 1.5708 (pi over 2) to splay outward.
+       Left legs:  femur_out_angle = -1.5708 (out to positive Y)
+       Right legs: femur_out_angle =  1.5708 (out to negative Y) -->
+
+  <!-- Left: y > 0, angles negative (outward to positive Y) -->
+  <xacro:simple_leg_3dof
+      name_prefix="lf"
+      hip_x="0.25" hip_y="0.3048"
+      femur_out_angle="-0.3"/>
+
+  <xacro:simple_leg_3dof
+      name_prefix="lm"
+      hip_x="0.0" hip_y="0.3048"
+      femur_out_angle="0"/>
+
+  <xacro:simple_leg_3dof
+      name_prefix="lr"
+      hip_x="-0.25" hip_y="0.3048"
+      femur_out_angle="0.3"/>
+
+  <!-- Right: y < 0, angles positive (mirror outward to negative Y) -->
+  <xacro:simple_leg_3dof
+      name_prefix="rf"
+      hip_x="0.25" hip_y="-0.3048"
+      femur_out_angle="3.44592"/>
+
+  <xacro:simple_leg_3dof
+      name_prefix="rm"
+      hip_x="0.0" hip_y="-0.3048"
+      femur_out_angle="3.141592"/>
+
+  <xacro:simple_leg_3dof
+      name_prefix="rr"
+      hip_x="-0.25" hip_y="-0.3048"
+      femur_out_angle="2.841592"/>
+
+</robot>
