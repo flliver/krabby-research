@@ -12,7 +12,6 @@
                   |   24" x 24"     |
                   |                 |
                   +=================+
-                           |
                            o  _hip_yaw axis (X axis, left/right rotation on page)
                            |  _hip
                            o  _hip_pitch hinge (Z axis, toward/away from page)
