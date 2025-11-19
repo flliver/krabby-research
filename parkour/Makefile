@@ -3,10 +3,13 @@
 help:
 	@echo "Available targets:"
 	@echo "  make train-teacher  - Train the teacher policy"
+	@echo "  make train-teacher-resume - Resume training the teacher policy"
 	@echo "  make train-student  - Train the student policy"
 	@echo "  make train-student-resume - Resume training the student policy"
 	@echo "  make play-teacher   - Play the teacher policy"
 	@echo "  make play-student   - Play the student policy"
+	@echo "  make eval-teacher   - Evaluate the teacher policy"
+	@echo "  make eval-student   - Evaluate the student policy"
 
 
 train-teacher:
@@ -41,4 +44,3 @@ eval-teacher:
 # make eval-student ARGS="--checkpoint /home/brian/patina/krabby-research/parkour/logs/rsl_rl/unitree_go2_parkour_student/2025-11-14_12-43-18/model_8500.pt"
 eval-student:
 	python scripts/rsl_rl/evaluation.py --task Isaac-Extreme-Parkour-Student-Unitree-Go2-Eval-v0 $(ARGS)
-

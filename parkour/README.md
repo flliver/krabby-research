@@ -37,6 +37,18 @@ python scripts/rsl_rl/train.py --task Isaac-Extreme-Parkour-Teacher-Unitree-Go2-
 python scripts/rsl_rl/train.py --task Isaac-Extreme-Parkour-Teacher-Unitree-Go2-v0 --resume --load_run "2025-11-13_12-15-20" --num_envs 12288 --headless
 ```
 
+Training the teacher policy is simplified using the Makefile targets
+
+```
+make train-teacher
+
+# To restart from a checkpoint
+make train-teacher-resume ARGS="--load_run 2025-11-13_12-15-20"
+```
+
+NOTE: Expected duration ~6 hours for 7400 iterations.
+
+
 ### 1.2. Training Student Policy
 
 To run opencv during Student training, otherwise set `debug_vis`=False
@@ -46,9 +58,59 @@ pip uninstall numpy==2.3.0
 pip install numpy==1.26.0
 ```
 
+Revert the following commit in the IsaacLab repo.  This removes the concatenation feature in ObservationManager -- Adds option to define the concatenation dimension in the `ObservationManager` and change counter update in `CommandManager` (#2393)
+```
+git revert be41bb0d0436acaec36daf210fd80d24ff76ea7e
+
+# and fix the merge conflicts...
+```
+
+This revert in IsaabLab fixes the following error during student trainings
+```
+Error executing job with overrides: []
+Traceback (most recent call last):
+  File "/home/brian/patina/IsaacLab/source/isaaclab_tasks/isaaclab_tasks/utils/hydra.py", line 101, in hydra_main
+    func(env_cfg, agent_cfg, *args, **kwargs)
+  File "/home/brian/patina/krabby-research/parkour/scripts/rsl_rl/train.py", line 146, in main
+    env = gym.make(args_cli.task, cfg=env_cfg, render_mode="rgb_array" if args_cli.video else None)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/brian/patina/krabby-research/parkour/env/lib/python3.11/site-packages/gymnasium/envs/registration.py", line 734, in make
+    env = env_creator(**env_spec_kwargs)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/brian/patina/krabby-research/parkour/parkour_isaaclab/envs/parkour_manager_based_rl_env.py", line 32, in __init__
+    super().__init__(cfg=cfg)
+  File "/home/brian/patina/krabby-research/parkour/parkour_isaaclab/envs/parkour_manager_based_env.py", line 112, in __init__
+    self.load_managers()
+  File "/home/brian/patina/krabby-research/parkour/parkour_isaaclab/envs/parkour_manager_based_rl_env.py", line 52, in load_managers
+    super().load_managers()
+  File "/home/brian/patina/krabby-research/parkour/parkour_isaaclab/envs/parkour_manager_based_env.py", line 143, in load_managers
+    self.observation_manager = ObservationManager(self.cfg.observations, self)
+                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/brian/patina/IsaacLab/source/isaaclab/isaaclab/managers/observation_manager.py", line 97, in __init__
+    dim_sum = torch.sum(term_dims[:, dim], dim=0)
+                        ~~~~~~~~~^^^^^^^^
+IndexError: index -1 is out of bounds for dimension 1 with size 0
+```
+
+Train the student 
+
 ```
 python scripts/rsl_rl/train.py --task Isaac-Extreme-Parkour-Student-Unitree-Go2-v0 --seed 1 --headless
 ```
+
+
+Training the student policy is simplified using the Makefile targets
+
+```
+make train-student
+
+# To restart from a checkpoint
+make train-student-resume ARGS="--load_run 2025-11-13_12-15-20"
+```
+
+
+NOTE: Expected duration ~24 hours for 38,000 iterations.
+
 
 ## How to Visualize the Training Parameters using TensorBoard
 
@@ -106,6 +168,15 @@ https://github.com/user-attachments/assets/82a5cecb-ffbf-4a46-8504-79188a147c40
 ```
 python scripts/rsl_rl/evaluation.py --task Isaac-Extreme-Parkour-Student-Unitree-Go2-Eval-v0 
 ```
+
+e.g.
+```
+Mean reward: 20.00$\pm$7.71
+Mean episode length: 929.70$\pm$278.06
+Mean number of waypoints: 0.92$\pm$0.19
+Mean edge violation: 0.21$\pm$0.49
+```
+
 
 ## How to deploy in IsaacLab
 
