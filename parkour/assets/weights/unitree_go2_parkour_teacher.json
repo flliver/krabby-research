@@ -1,0 +1,7 @@
+{
+  "experiment": "unitree_go2_parkour_teacher",
+  "source_path": "/home/brian/patina/krabby-research/parkour/logs/rsl_rl/unitree_go2_parkour_teacher/2025-11-13_21-26-55/model_7400.pt",
+  "run_dir": "/home/brian/patina/krabby-research/parkour/logs/rsl_rl/unitree_go2_parkour_teacher/2025-11-13_21-26-55",
+  "published_at": "2025-11-19T05:21:24.751922Z",
+  "size_bytes": 9789515
+}

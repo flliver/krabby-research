@@ -44,3 +44,7 @@ eval-teacher:
 # make eval-student ARGS="--checkpoint /home/brian/patina/krabby-research/parkour/logs/rsl_rl/unitree_go2_parkour_student/2025-11-14_12-43-18/model_8500.pt"
 eval-student:
 	python scripts/rsl_rl/evaluation.py --task Isaac-Extreme-Parkour-Student-Unitree-Go2-Eval-v0 $(ARGS)
+
+
+eval-student-headless:
+	python scripts/rsl_rl/evaluation.py --task Isaac-Extreme-Parkour-Student-Unitree-Go2-Eval-v0 --headless $(ARGS)
