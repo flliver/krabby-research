@@ -1,0 +1,533 @@
+#usda 1.0
+(
+    doc = "Enhanced house asset with materials, windows, door, UVs, and realistic scale"
+)
+
+def Xform "House"
+{
+    double3 xformOp:translate = (0, 0, 0)
+    uniform token[] xformOpOrder = ["xformOp:translate"]
+
+    ############################################
+    # MATERIALS
+    ############################################
+    def "Materials"
+    {
+        def Material "WallMaterial"
+        {
+            token outputs:surface.connect = </House/Materials/WallMaterial/PreviewSurface.outputs:surface>
+
+            def Shader "PreviewSurface"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (0.75, 0.75, 0.82)
+                float inputs:roughness = 0.5
+                float inputs:metallic = 0
+                token outputs:surface
+            }
+        }
+
+        def Material "RoofMaterial"
+        {
+            token outputs:surface.connect = </House/Materials/RoofMaterial/PreviewSurface.outputs:surface>
+
+            def Shader "PreviewSurface"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (0.6, 0.1, 0.1)
+                float inputs:roughness = 0.4
+                float inputs:metallic = 0
+                token outputs:surface
+            }
+        }
+
+        def Material "GlassMaterial"
+        {
+            token outputs:surface.connect = </House/Materials/GlassMaterial/PreviewSurface.outputs:surface>
+
+            def Shader "PreviewSurface"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (0.3, 0.4, 0.6)
+                float inputs:opacity = 0.35
+                float inputs:roughness = 0.1
+                float inputs:metallic = 0
+                token outputs:surface
+            }
+        }
+
+        def Material "DoorMaterial"
+        {
+            token outputs:surface.connect = </House/Materials/DoorMaterial/PreviewSurface.outputs:surface>
+
+            def Shader "PreviewSurface"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (0.35, 0.2, 0.05)
+                float inputs:roughness = 0.6
+                float inputs:metallic = 0
+                token outputs:surface
+            }
+        }
+    }
+
+    ############################################
+    # HOUSE GEOMETRY
+    ############################################
+    def Xform "Walls"
+    {
+        ############################################
+        # MAIN WALLS – scaled to 4m x 3m x 6m
+        ############################################
+
+        # FRONT WALL with door + window cuts
+        def Mesh "Wall_Front" (apiSchemas = ["MaterialBindingAPI"])
+        {
+            prepend rel material:binding = </House/Materials/WallMaterial>
+
+            uniform bool doubleSided = true
+            point3f[] points = [
+                (-2,  3, 0), ( 2,  3, 0),
+                ( 2,  3, 3), (-2,  3, 3),
+
+                # door opening (1m wide, 2m tall)
+                (-0.5, 3, 0), (0.5, 3, 0),
+                (0.5, 3, 2), (-0.5, 3, 2),
+
+                # window opening (1.2m wide x 1m tall)
+                (-1.8, 3, 1.2), (-0.6, 3, 1.2),
+                (-0.6, 3, 2.2), (-1.8, 3, 2.2)
+            ]
+
+            int[] faceVertexCounts = [4, 4, 4]
+            int[] faceVertexIndices = [
+                0,1,2,3,
+                4,5,6,7,
+                8,9,10,11
+            ]
+
+            # Simple UVs
+            float2[] primvars:st = [
+                (0,0), (1,0), (1,1), (0,1),
+                (0,0), (1,0), (1,1), (0,1),
+                (0,0), (1,0), (1,1), (0,1),
+            ]
+            uniform token primvars:st:interpolation = "vertex"
+        }
+
+        ############################################
+        # BACK WALL
+        ############################################
+        def Mesh "Wall_Back" (apiSchemas = ["MaterialBindingAPI"])
+        {
+            prepend rel material:binding = </House/Materials/WallMaterial>
+
+            uniform bool doubleSided = true
+            point3f[] points = [
+                (-2,-3,0), ( 2,-3,0),
+                ( 2,-3,3), (-2,-3,3)
+            ]
+
+            int[] faceVertexCounts = [4]
+            int[] faceVertexIndices = [0,1,2,3]
+
+            float2[] primvars:st = [(0,0),(1,0),(1,1),(0,1)]
+            uniform token primvars:st:interpolation = "vertex"
+        }
+
+        ############################################
+        # LEFT WALL with window
+        ############################################
+        def Mesh "Wall_Left" (apiSchemas = ["MaterialBindingAPI"])
+        {
+            prepend rel material:binding = </House/Materials/WallMaterial>
+
+            uniform bool doubleSided = true
+            point3f[] points = [
+                (-2,-3,0), (-2,3,0),
+                (-2,3,3),  (-2,-3,3),
+
+                # window opening
+                (-2, -1, 1), (-2, 1, 1),
+                (-2, 1, 2), (-2, -1, 2)
+            ]
+
+            int[] faceVertexCounts = [4,4]
+            int[] faceVertexIndices = [
+                0,1,2,3,
+                4,5,6,7
+            ]
+
+            float2[] primvars:st = [
+                (0,0),(1,0),(1,1),(0,1),
+                (0,0),(1,0),(1,1),(0,1)
+            ]
+            uniform token primvars:st:interpolation = "vertex"
+        }
+
+        ############################################
+        # RIGHT WALL
+        ############################################
+        def Mesh "Wall_Right" (apiSchemas = ["MaterialBindingAPI"])
+        {
+            prepend rel material:binding = </House/Materials/WallMaterial>
+
+            uniform bool doubleSided = true
+            point3f[] points = [
+                (2,-3,0), (2,3,0),
+                (2,3,3),  (2,-3,3)
+            ]
+
+            int[] faceVertexCounts = [4]
+            int[] faceVertexIndices = [0,1,2,3]
+
+            float2[] primvars:st = [(0,0),(1,0),(1,1),(0,1)]
+            uniform token primvars:st:interpolation = "vertex"
+        }
+    }
+
+    ############################################
+    # ROOF
+    ############################################
+    def Xform "Roof"
+    {
+        def Mesh "RoofMesh" (apiSchemas = ["MaterialBindingAPI"])
+        {
+            prepend rel material:binding = </House/Materials/RoofMaterial>
+
+            uniform bool doubleSided = true
+
+            point3f[] points = [
+                (-2, 3, 3), ( 2, 3, 3),
+                (-2,-3, 3), ( 2,-3, 3),
+                (0, 0, 4)
+            ]
+
+            int[] faceVertexCounts = [3,3,3,3]
+            int[] faceVertexIndices = [
+                0,1,4,
+                1,3,4,
+                3,2,4,
+                2,0,4
+            ]
+
+            float2[] primvars:st = [
+                (0,0),(1,0),(0.5,1),
+                (0,0),(1,0),(0.5,1),
+                (0,0),(1,0),(0.5,1),
+                (0,0),(1,0),(0.5,1)
+            ]
+            uniform token primvars:st:interpolation = "vertex"
+        }
+    }
+
+    ############################################
+    # DOOR
+    ############################################
+    def Mesh "Door" (apiSchemas = ["MaterialBindingAPI"])
+    {
+        prepend rel material:binding = </House/Materials/DoorMaterial>
+
+        uniform bool doubleSided = true
+        point3f[] points = [
+            (-0.5, 3.01, 0), (0.5, 3.01, 0),
+            (0.5, 3.01, 2),  (-0.5, 3.01, 2)
+        ]
+
+        int[] faceVertexCounts = [4]
+        int[] faceVertexIndices = [0,1,2,3]
+
+        float2[] primvars:st = [(0,0),(1,0),(1,1),(0,1)]
+        uniform token primvars:st:interpolation = "vertex"
+    }
+
+    ############################################
+    # WINDOWS (glass planes)
+    ############################################
+    def Mesh "Window_Front" (apiSchemas = ["MaterialBindingAPI"])
+    {
+        prepend rel material:binding = </House/Materials/GlassMaterial>
+
+        uniform bool doubleSided = true
+        point3f[] points = [
+            (-1.8,3.01,1.2), (-0.6,3.01,1.2),
+            (-0.6,3.01,2.2), (-1.8,3.01,2.2)
+        ]
+
+        int[] faceVertexCounts = [4]
+        int[] faceVertexIndices = [0,1,2,3]
+
+        float2[] primvars:st = [(0,0),(1,0),(1,1),(0,1)]
+        uniform token primvars:st:interpolation = "vertex"
+    }
+
+    def Mesh "Window_Left" (apiSchemas = ["MaterialBindingAPI"])
+    {
+        prepend rel material:binding = </House/Materials/GlassMaterial>
+
+        uniform bool doubleSided = true
+        point3f[] points = [
+            (-2.01,-1,1), (-2.01, 1,1),
+            (-2.01, 1,2), (-2.01,-1,2)
+        ]
+
+        int[] faceVertexCounts = [4]
+        int[] faceVertexIndices = [0,1,2,3]
+
+        float2[] primvars:st = [(0,0),(1,0),(1,1),(0,1)]
+        uniform token primvars:st:interpolation = "vertex"
+    }
+}
+
+# ------------------------------------------------------------
+# Added environment and simple landscaping primitives
+# ------------------------------------------------------------
+def Xform "Site"
+{
+    double3 xformOp:translate = (0, 0, 0)
+    uniform token[] xformOpOrder = ["xformOp:translate"]
+
+    def "Materials"
+    {
+        def Material "GrassMaterial"
+        {
+            token outputs:surface.connect = </Site/Materials/GrassMaterial/Shader.outputs:surface>
+            def Shader "Shader"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (0.10, 0.50, 0.10)
+                float inputs:roughness = 0.9
+                float inputs:metallic = 0
+                token outputs:surface
+            }
+        }
+        def Material "ConcreteMaterial"
+        {
+            token outputs:surface.connect = </Site/Materials/ConcreteMaterial/Shader.outputs:surface>
+            def Shader "Shader"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (0.55, 0.55, 0.55)
+                float inputs:roughness = 0.6
+                float inputs:metallic = 0
+                token outputs:surface
+            }
+        }
+        def Material "TrunkMaterial"
+        {
+            token outputs:surface.connect = </Site/Materials/TrunkMaterial/Shader.outputs:surface>
+            def Shader "Shader"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (0.35, 0.20, 0.05)
+                float inputs:roughness = 0.8
+                float inputs:metallic = 0
+                token outputs:surface
+            }
+        }
+        def Material "FoliageMaterial"
+        {
+            token outputs:surface.connect = </Site/Materials/FoliageMaterial/Shader.outputs:surface>
+            def Shader "Shader"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (0.05, 0.35, 0.12)
+                float inputs:roughness = 0.9
+                float inputs:metallic = 0
+                token outputs:surface
+            }
+        }
+        def Material "FenceMaterial"
+        {
+            token outputs:surface.connect = </Site/Materials/FenceMaterial/Shader.outputs:surface>
+            def Shader "Shader"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (0.55, 0.45, 0.35)
+                float inputs:roughness = 0.7
+                float inputs:metallic = 0
+                token outputs:surface
+            }
+        }
+    }
+
+    # Ground plane (40m x 40m) centered under house
+    def Mesh "Ground" (apiSchemas = ["MaterialBindingAPI"])
+    {
+        prepend rel material:binding = </Site/Materials/GrassMaterial>
+        uniform bool doubleSided = true
+        point3f[] points = [
+            (-20, -20, 0), (20, -20, 0), (20, 20, 0), (-20, 20, 0)
+        ]
+        int[] faceVertexCounts = [4]
+        int[] faceVertexIndices = [0,1,2,3]
+        float2[] primvars:st = [(0,0),(4,0),(4,4),(0,4)]
+        uniform token primvars:st:interpolation = "vertex"
+    }
+
+    # Walkway from front door outwards (1.5m wide, 6m long)
+    def Mesh "Walkway" (apiSchemas = ["MaterialBindingAPI"])
+    {
+        prepend rel material:binding = </Site/Materials/ConcreteMaterial>
+        uniform bool doubleSided = true
+        point3f[] points = [
+            (-0.75, 3.0, 0.01), (0.75, 3.0, 0.01), (0.75, 9.0, 0.01), (-0.75, 9.0, 0.01)
+        ]
+        int[] faceVertexCounts = [4]
+        int[] faceVertexIndices = [0,1,2,3]
+        float2[] primvars:st = [(0,0),(1,0),(1,3),(0,3)]
+        uniform token primvars:st:interpolation = "vertex"
+    }
+
+    # Simple tree helper: trunk (cylinder) + foliage (cone)
+    def Xform "Tree_1"
+    {
+        double3 xformOp:translate = (-5, 5, 0)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+        def Capsule "Trunk" (apiSchemas = ["MaterialBindingAPI"])
+        {
+            prepend rel material:binding = </Site/Materials/TrunkMaterial>
+            float radius = 0.15
+            float height = 2.0
+        }
+        def Cone "Foliage" (apiSchemas = ["MaterialBindingAPI"])
+        {
+            prepend rel material:binding = </Site/Materials/FoliageMaterial>
+            float height = 2.5
+            float radius = 1.5
+            double3 xformOp:translate = (0,0,2.2)
+            uniform token[] xformOpOrder = ["xformOp:translate"]
+        }
+    }
+    def Xform "Tree_2"
+    {
+        double3 xformOp:translate = (6, -4, 0)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+        def Capsule "Trunk" (apiSchemas = ["MaterialBindingAPI"])
+        {
+            prepend rel material:binding = </Site/Materials/TrunkMaterial>
+            float radius = 0.18
+            float height = 2.2
+        }
+        def Cone "Foliage" (apiSchemas = ["MaterialBindingAPI"])
+        {
+            prepend rel material:binding = </Site/Materials/FoliageMaterial>
+            float height = 2.8
+            float radius = 1.6
+            double3 xformOp:translate = (0,0,2.4)
+            uniform token[] xformOpOrder = ["xformOp:translate"]
+        }
+    }
+
+    # Low hedge along front (simple elongated box)
+    def Mesh "FrontHedge" (apiSchemas = ["MaterialBindingAPI"])
+    {
+        prepend rel material:binding = </Site/Materials/FoliageMaterial>
+        uniform bool doubleSided = true
+        # Add depth (0.30m) so hedge is a 3D box instead of a plane
+        point3f[] points = [
+            (-3.5, 2.35, 0), ( 3.5, 2.35, 0), ( 3.5, 2.35, 0.6), (-3.5, 2.35, 0.6),
+            (-3.5, 2.65, 0), ( 3.5, 2.65, 0), ( 3.5, 2.65, 0.6), (-3.5, 2.65, 0.6)
+        ]
+        int[] faceVertexCounts = [4,4,4,4,4,4]
+        int[] faceVertexIndices = [
+            0,1,2,3,  # front
+            4,5,6,7,  # back
+            3,2,6,7,  # top
+            0,1,5,4,  # bottom
+            0,4,7,3,  # left side
+            1,5,6,2   # right side
+        ]
+        float2[] primvars:st = [
+            (0,0),(1,0),(1,1),(0,1),
+            (0,0),(1,0),(1,1),(0,1)
+        ]
+        uniform token primvars:st:interpolation = "vertex"
+    }
+}
+
+# ------------------------------------------------------------
+# Fence around the house with gate on front side
+# Encloses an area roughly 14m x 14m centered on house, leaving
+# a gate opening aligned with the walkway.
+# ------------------------------------------------------------
+def Xform "Fence" {
+    double3 xformOp:translate = (0, 0, 0)
+    uniform token[] xformOpOrder = ["xformOp:translate"]
+
+    # South side (back) fence
+    def Mesh "Fence_South" (apiSchemas = ["MaterialBindingAPI"]) {
+        prepend rel material:binding = </Site/Materials/FenceMaterial>
+        uniform bool doubleSided = true
+        point3f[] points = [
+            (-7, -7, 0), (7, -7, 0), (7, -7, 1.2), (-7, -7, 1.2)
+        ]
+        int[] faceVertexCounts = [4]
+        int[] faceVertexIndices = [0,1,2,3]
+        float2[] primvars:st = [(0,0),(1,0),(1,1),(0,1)]
+        uniform token primvars:st:interpolation = "vertex"
+    }
+
+    # North side (front) fence with gate opening (-0.9..0.9 in X)
+    def Mesh "Fence_North_Left" (apiSchemas = ["MaterialBindingAPI"]) {
+        prepend rel material:binding = </Site/Materials/FenceMaterial>
+        uniform bool doubleSided = true
+        point3f[] points = [
+            (-7, 7, 0), (-0.9, 7, 0), (-0.9, 7, 1.2), (-7, 7, 1.2)
+        ]
+        int[] faceVertexCounts = [4]
+        int[] faceVertexIndices = [0,1,2,3]
+        float2[] primvars:st = [(0,0),(0.8,0),(0.8,1),(0,1)]
+        uniform token primvars:st:interpolation = "vertex"
+    }
+    def Mesh "Fence_North_Right" (apiSchemas = ["MaterialBindingAPI"]) {
+        prepend rel material:binding = </Site/Materials/FenceMaterial>
+        uniform bool doubleSided = true
+        point3f[] points = [
+            (0.9, 7, 0), (7, 7, 0), (7, 7, 1.2), (0.9, 7, 1.2)
+        ]
+        int[] faceVertexCounts = [4]
+        int[] faceVertexIndices = [0,1,2,3]
+        float2[] primvars:st = [(0,0),(0.8,0),(0.8,1),(0,1)]
+        uniform token primvars:st:interpolation = "vertex"
+    }
+
+    # East side fence
+    def Mesh "Fence_East" (apiSchemas = ["MaterialBindingAPI"]) {
+        prepend rel material:binding = </Site/Materials/FenceMaterial>
+        uniform bool doubleSided = true
+        point3f[] points = [
+            (7, -7, 0), (7, 7, 0), (7, 7, 1.2), (7, -7, 1.2)
+        ]
+        int[] faceVertexCounts = [4]
+        int[] faceVertexIndices = [0,1,2,3]
+        float2[] primvars:st = [(0,0),(1,0),(1,1),(0,1)]
+        uniform token primvars:st:interpolation = "vertex"
+    }
+
+    # West side fence
+    def Mesh "Fence_West" (apiSchemas = ["MaterialBindingAPI"]) {
+        prepend rel material:binding = </Site/Materials/FenceMaterial>
+        uniform bool doubleSided = true
+        point3f[] points = [
+            (-7, -7, 0), (-7, 7, 0), (-7, 7, 1.2), (-7, -7, 1.2)
+        ]
+        int[] faceVertexCounts = [4]
+        int[] faceVertexIndices = [0,1,2,3]
+        float2[] primvars:st = [(0,0),(1,0),(1,1),(0,1)]
+        uniform token primvars:st:interpolation = "vertex"
+    }
+
+    # Optional gate piece (simple panel) positioned slightly forward
+    def Mesh "Gate" (apiSchemas = ["MaterialBindingAPI"]) {
+        prepend rel material:binding = </Site/Materials/FenceMaterial>
+        uniform bool doubleSided = true
+        point3f[] points = [
+            (-0.9, 7.05, 0), (0.9, 7.05, 0), (0.9, 7.05, 1.2), (-0.9, 7.05, 1.2)
+        ]
+        int[] faceVertexCounts = [4]
+        int[] faceVertexIndices = [0,1,2,3]
+        float2[] primvars:st = [(0,0),(1,0),(1,1),(0,1)]
+        uniform token primvars:st:interpolation = "vertex"
+    }
+}

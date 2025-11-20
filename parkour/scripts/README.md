@@ -103,3 +103,91 @@ git commit -m "Publish latest parkour weights"
 - "No runs found": Ensure at least one timestamped run directory exists (e.g., `2025-11-18_20-23-18`).
 - "No checkpoints found": Verify that `model_*.pt` or `exported*/policy.pt` exists in the latest run.
 - Overwrite needed: Add `--force` if the destination file already exists.
+
+## gen_house_01_usda.py
+
+Generates a reproducible USD/USDA scene for the reference house environment (house, site landscaping, and fence). This script allows deterministic reconstruction of the asset without relying on a manually authored file.
+
+### Features
+- Authors hierarchy: `/House`, `/Site`, `/Fence` with sub-prims for walls, roof, door, windows, ground, walkway, trees, hedge, panels, gate.
+- Creates and binds `UsdShade.Material` prims (UsdPreviewSurface) using MaterialBindingAPI.
+- Optionally writes ASCII `.usda` for diff-friendly version control (`--ascii`).
+- Sets stage metadata: Z-up axis, meters-per-unit = 1.
+
+### Requirements
+- Python environment providing the `pxr` USD modules (Omniverse / Isaac Sim or official USD build).
+- Write permissions to the target output path.
+
+### Usage
+
+Generate binary USD (default):
+```bash
+python3 parkour/scripts/gen_house_01_usda.py --output ../assets/scenes/house_01_generated.usd --overwrite
+```
+
+Generate ASCII USDA (forced extension change):
+```bash
+python3 parkour/scripts/gen_house_01_usda.py --output ../assets/scenes/house_01_generated.usd --ascii --overwrite
+```
+
+If output already ends with `.usda` the `--ascii` flag is optional:
+```bash
+python3 parkour/scripts/gen_house_01_usda.py --output ../assets/scenes/house_01_generated.usda --overwrite
+```
+
+### Exit Codes
+- `0`: Success (file written)
+- `1`: Refused overwrite (existing file without `--overwrite`)
+- `2`: Generation failure (file missing after build)
+
+### Notes
+- The script sets the default prim to `/House` for viewer convenience.
+- Materials use consistent shader child name `PreviewSurface` (verifier tolerant to alternatives).
+
+## verify_usda_equivalence.py
+
+Compares a generated scene file against the authored reference to ensure structural and content parity (materials, meshes).
+
+### Checks Performed
+1. Prim path presence (ignores shader child naming differences: `PreviewSurface` vs `Shader`).
+2. Material diffuse colors (and opacity where present).
+3. Mesh vertex counts, face group counts, and world-space bounding boxes.
+
+### Requirements
+- Same USD Python environment as the generator (must import `pxr`).
+- Access to both original and generated scene files.
+
+### Usage
+```bash
+python3 parkour/scripts/verify_usda_equivalence.py \
+  --original parkour/assets/house/house_model.usda \
+  --generated parkour/assets/house/house_model_generated.usda
+```
+
+### Exit Codes
+- `0`: Equivalent within tolerances
+- `1`: Structural differences (missing/extra prims)
+- `2`: Geometry or material mismatches
+- `3`: Error opening stages or unexpected failure
+
+### Typical Workflow
+```bash
+# 1. Generate scene (ASCII for readability)
+python3 parkour/scripts/gen_house_01_usda.py --output parkour/assets/house/house_model_generated.usda --ascii --overwrite
+
+# 2. Verify equivalence
+python3 parkour/scripts/verify_usda_equivalence.py \
+  --original parkour/assets/house/house_model.usda \
+  --generated parkour/assets/house/house_model_generated.usda
+```
+
+### Troubleshooting
+- Missing `pxr`: Activate your USD/Omniverse environment or install official USD Python build.
+- Structural mismatches: Confirm you generated with the latest script version and did not manually edit the output.
+- Material color differences: Ensure no post-processing modified shader inputs.
+- Bounding box differences: Verify up-axis metadata (script sets Z-up) and that transforms were not applied afterward.
+
+### Version Control Tips
+- Prefer committing the ASCII `.usda` output for meaningful diffs.
+- Include both generator and verifier scripts so others can reproduce and validate assets.
+
