@@ -1,0 +1,16 @@
+# Python dependencies for Isaac Sim container
+# Base image (nvcr.io/nvidia/isaac-sim:5.1.0) already includes:
+# - Isaac Sim 5.1.0 (Kit 107.3.3)
+# - Omni
+# - PyTorch (usually pre-installed)
+# - NumPy (usually pre-installed)
+
+# ZMQ communication (inproc for internal communication)
+pyzmq>=25.0.0
+
+# Data handling
+dataclasses-json>=0.6.0
+
+# Utilities
+typing-extensions>=4.8.0
+
