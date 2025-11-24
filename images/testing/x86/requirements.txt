@@ -1,0 +1,28 @@
+# Python dependencies for x86 testing container
+# Base image (nvcr.io/nvidia/pytorch:25.10-py3) already includes:
+# - PyTorch 2.9.0a0+145a3a7
+# - torchvision 0.24.0a0+094e7af5
+# - torchaudio (version depends on PyTorch build)
+# - NumPy (version depends on PyTorch build)
+# - CUDA 9.0
+# - cuDNN 9.14.0.64
+# - TensorRT 10.13.3.9
+# - Python 3.12.3
+
+# ZMQ communication (inproc for internal communication)
+pyzmq>=25.0.0
+
+# Data handling (for version-aware serialization)
+dataclasses-json>=0.6.0
+
+# Utilities
+typing-extensions>=4.8.0
+
+# Testing framework
+pytest>=7.4.0
+pytest-cov>=4.1.0
+coverage>=7.3.0
+
+# Reinforcement learning library
+rsl-rl-lib>=2.3.1
+

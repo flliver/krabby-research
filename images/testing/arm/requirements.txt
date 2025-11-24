@@ -1,0 +1,19 @@
+# Python dependencies for ARM testing container
+# Base image (nvcr.io/nvidia/pytorch:25.10-py3-igpu) already includes:
+# - PyTorch 2.9.0a0+145a3a7
+# - NumPy (version depends on PyTorch build)
+# - CUDA 9.0
+# - cuDNN 9.10.2.21
+# - TensorRT 10.11.0.33+jp6
+
+# ZMQ communication
+pyzmq>=25.0.0
+
+# Testing framework
+pytest>=7.4.0
+pytest-cov>=4.1.0
+coverage>=7.3.0
+
+# Reinforcement learning library
+rsl-rl-lib>=2.3.1
+

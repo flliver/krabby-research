@@ -1,0 +1,55 @@
+[run]
+# Source directories to include in coverage
+# Note: These are relative to the working directory
+source = 
+    compute
+    HAL
+    locomotion
+
+# Exclude patterns (these patterns are matched against file paths)
+omit = 
+    */parkour/*
+    */tests/*
+    */test_*.py
+    */__pycache__/*
+    */.*
+    */site-packages/*
+    */dist-packages/*
+    */venv/*
+    */env/*
+
+[report]
+# Exclude lines from coverage report
+exclude_lines =
+    # Have to re-enable the standard pragma
+    pragma: no cover
+
+    # Don't complain about missing debug-only code
+    def __repr__
+    if self.debug
+
+    # Don't complain if tests don't hit defensive assertion code
+    raise AssertionError
+    raise NotImplementedError
+
+    # Don't complain if non-runnable code isn't run
+    if 0:
+    if __name__ == .__main__.:
+    if TYPE_CHECKING:
+
+    # Don't complain about abstract methods
+    @abstractmethod
+
+# Precision for coverage percentages
+precision = 2
+
+# Show missing line numbers
+show_missing = True
+
+# Skip empty files
+skip_empty = True
+
+[html]
+# Directory for HTML coverage report
+directory = tests/coverage/htmlcov
+

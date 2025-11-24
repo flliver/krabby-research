@@ -1,0 +1,30 @@
+# Docker ignore file for locomotion container
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.coverage
+*.log
+.DS_Store
+*.swp
+*.swo
+*~
+
+# Exclude test files from production image
+tests/
+*.test.py
+*_test.py
+
+# Exclude development files
+.vscode/
+.idea/
+*.md
+!README.md
+
