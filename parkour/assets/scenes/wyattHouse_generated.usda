@@ -1,0 +1,187 @@
+#usda 1.0
+(
+    defaultPrim = "WyattHouse"
+    doc = "Simple Wyatt House - Generated programmatically"
+    endTimeCode = 0
+    metersPerUnit = 1
+    startTimeCode = 0
+    upAxis = "Z"
+)
+
+def Xform "WyattHouse"
+{
+    def Scope "Materials"
+    {
+        def Material "WallMaterial"
+        {
+            token outputs:surface.connect = </WyattHouse/Materials/WallMaterial/PreviewSurface.outputs:surface>
+
+            def Shader "PreviewSurface"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (0.85, 0.85, 0.9)
+                float inputs:metallic = 0
+                float inputs:roughness = 0.6
+                token outputs:surface
+            }
+        }
+
+        def Material "RoofMaterial"
+        {
+            token outputs:surface.connect = </WyattHouse/Materials/RoofMaterial/PreviewSurface.outputs:surface>
+
+            def Shader "PreviewSurface"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (0.4, 0.2, 0.15)
+                float inputs:metallic = 0
+                float inputs:roughness = 0.5
+                token outputs:surface
+            }
+        }
+
+        def Material "DoorMaterial"
+        {
+            token outputs:surface.connect = </WyattHouse/Materials/DoorMaterial/PreviewSurface.outputs:surface>
+
+            def Shader "PreviewSurface"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (0.5, 0.3, 0.1)
+                float inputs:metallic = 0
+                float inputs:roughness = 0.7
+                token outputs:surface
+            }
+        }
+
+        def Material "WindowMaterial"
+        {
+            token outputs:surface.connect = </WyattHouse/Materials/WindowMaterial/PreviewSurface.outputs:surface>
+
+            def Shader "PreviewSurface"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                color3f inputs:diffuseColor = (0.2, 0.3, 0.5)
+                float inputs:metallic = 0
+                float inputs:opacity = 0.4
+                float inputs:roughness = 0.1
+                token outputs:surface
+            }
+        }
+    }
+
+    def Xform "Walls"
+    {
+        def Mesh "FrontWall" (
+            prepend apiSchemas = ["MaterialBindingAPI"]
+        )
+        {
+            uniform bool doubleSided = 1
+            int[] faceVertexCounts = [4]
+            int[] faceVertexIndices = [0, 1, 2, 3]
+            rel material:binding = </WyattHouse/Materials/WallMaterial>
+            point3f[] points = [(-2.5, 2, 0), (2.5, 2, 0), (2.5, 2, 3), (-2.5, 2, 3)]
+            texCoord2f[] primvars:st = [(0, 0), (1, 0), (1, 1), (0, 1)] (
+                interpolation = "vertex"
+            )
+        }
+
+        def Mesh "BackWall" (
+            prepend apiSchemas = ["MaterialBindingAPI"]
+        )
+        {
+            uniform bool doubleSided = 1
+            int[] faceVertexCounts = [4]
+            int[] faceVertexIndices = [0, 1, 2, 3]
+            rel material:binding = </WyattHouse/Materials/WallMaterial>
+            point3f[] points = [(-2.5, -2, 0), (2.5, -2, 0), (2.5, -2, 3), (-2.5, -2, 3)]
+            texCoord2f[] primvars:st = [(0, 0), (1, 0), (1, 1), (0, 1)] (
+                interpolation = "vertex"
+            )
+        }
+
+        def Mesh "LeftWall" (
+            prepend apiSchemas = ["MaterialBindingAPI"]
+        )
+        {
+            uniform bool doubleSided = 1
+            int[] faceVertexCounts = [4]
+            int[] faceVertexIndices = [0, 1, 2, 3]
+            rel material:binding = </WyattHouse/Materials/WallMaterial>
+            point3f[] points = [(-2.5, -2, 0), (-2.5, 2, 0), (-2.5, 2, 3), (-2.5, -2, 3)]
+            texCoord2f[] primvars:st = [(0, 0), (1, 0), (1, 1), (0, 1)] (
+                interpolation = "vertex"
+            )
+        }
+
+        def Mesh "RightWall" (
+            prepend apiSchemas = ["MaterialBindingAPI"]
+        )
+        {
+            uniform bool doubleSided = 1
+            int[] faceVertexCounts = [4]
+            int[] faceVertexIndices = [0, 1, 2, 3]
+            rel material:binding = </WyattHouse/Materials/WallMaterial>
+            point3f[] points = [(2.5, -2, 0), (2.5, 2, 0), (2.5, 2, 3), (2.5, -2, 3)]
+            texCoord2f[] primvars:st = [(0, 0), (1, 0), (1, 1), (0, 1)] (
+                interpolation = "vertex"
+            )
+        }
+    }
+
+    def Mesh "Roof" (
+        prepend apiSchemas = ["MaterialBindingAPI"]
+    )
+    {
+        uniform bool doubleSided = 1
+        int[] faceVertexCounts = [3, 3, 3, 3]
+        int[] faceVertexIndices = [0, 1, 4, 1, 2, 4, 2, 3, 4, 3, 0, 4]
+        rel material:binding = </WyattHouse/Materials/RoofMaterial>
+        point3f[] points = [(-2.5, 2, 3), (2.5, 2, 3), (2.5, -2, 3), (-2.5, -2, 3), (0, 0, 4.5)]
+        texCoord2f[] primvars:st = [(0, 0), (1, 0), (0.5, 1), (0, 0), (1, 0), (0.5, 1), (0, 0), (1, 0), (0.5, 1), (0, 0), (1, 0), (0.5, 1)] (
+            interpolation = "vertex"
+        )
+    }
+
+    def Mesh "Door" (
+        prepend apiSchemas = ["MaterialBindingAPI"]
+    )
+    {
+        uniform bool doubleSided = 1
+        int[] faceVertexCounts = [4]
+        int[] faceVertexIndices = [0, 1, 2, 3]
+        rel material:binding = </WyattHouse/Materials/DoorMaterial>
+        point3f[] points = [(-0.6, 2.01, 0), (0.6, 2.01, 0), (0.6, 2.01, 2.2), (-0.6, 2.01, 2.2)]
+        texCoord2f[] primvars:st = [(0, 0), (1, 0), (1, 1), (0, 1)] (
+            interpolation = "vertex"
+        )
+    }
+
+    def Mesh "WindowLeft" (
+        prepend apiSchemas = ["MaterialBindingAPI"]
+    )
+    {
+        uniform bool doubleSided = 1
+        int[] faceVertexCounts = [4]
+        int[] faceVertexIndices = [0, 1, 2, 3]
+        rel material:binding = </WyattHouse/Materials/WindowMaterial>
+        point3f[] points = [(-2.51, -0.5, 1.2), (-2.51, 0.5, 1.2), (-2.51, 0.5, 2.2), (-2.51, -0.5, 2.2)]
+        texCoord2f[] primvars:st = [(0, 0), (1, 0), (1, 1), (0, 1)] (
+            interpolation = "vertex"
+        )
+    }
+
+    def Mesh "WindowRight" (
+        prepend apiSchemas = ["MaterialBindingAPI"]
+    )
+    {
+        uniform bool doubleSided = 1
+        int[] faceVertexCounts = [4]
+        int[] faceVertexIndices = [0, 1, 2, 3]
+        rel material:binding = </WyattHouse/Materials/WindowMaterial>
+        point3f[] points = [(2.51, -0.5, 1.2), (2.51, 0.5, 1.2), (2.51, 0.5, 2.2), (2.51, -0.5, 2.2)]
+        texCoord2f[] primvars:st = [(0, 0), (1, 0), (1, 1), (0, 1)] (
+            interpolation = "vertex"
+        )
+    }
+}
