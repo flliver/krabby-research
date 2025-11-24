@@ -140,6 +140,9 @@ def create_wyatt_house(stage: Usd.Stage):
     # Create walls container
     walls_xf = UsdGeom.Xform.Define(stage, "/WyattHouse/Walls")
     
+    # Walls use consistent counter-clockwise vertex ordering for proper normals
+    # Simple UV mapping [0,0], [1,0], [1,1], [0,1] is sufficient for this geometric asset
+    
     # Front Wall
     front_wall = create_mesh(
         stage,
@@ -185,6 +188,8 @@ def create_wyatt_house(stage: Usd.Stage):
     bind_material(right_wall.GetPrim(), wall_mat)
     
     # Roof (pyramid)
+    # Note: UV coordinates repeat for each triangular face for simplicity
+    # For advanced texturing, consider using faceVarying interpolation
     roof = create_mesh(
         stage,
         "/WyattHouse/Roof",
