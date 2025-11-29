@@ -6,8 +6,8 @@ from typing import Optional
 import numpy as np
 import zmq
 
-from HAL.config import HalServerConfig
-from HAL.telemetry.types import OBS_DIM
+from hal.config import HalServerConfig
+from hal.observation.types import OBS_DIM
 
 logger = logging.getLogger(__name__)
 

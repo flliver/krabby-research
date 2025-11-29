@@ -6,9 +6,9 @@ from typing import Optional
 
 import numpy as np
 
-from HAL.ZMQ.server import HalServerBase
-from HAL.config import HalServerConfig
-from HAL.telemetry.types import (
+from hal.zmq.server import HalServerBase
+from hal.config import HalServerConfig
+from hal.observation.types import (
     NUM_PROP,
     NUM_SCAN,
     NUM_PRIV_EXPLICIT,
@@ -170,7 +170,7 @@ class JetsonHalServer(HalServerBase):
 
         return state_vector
 
-    def publish_telemetry(self) -> None:
+    def publish_observation(self) -> None:
         """Publish telemetry from real sensors in training format.
         
         Builds complete observation array matching training format:

@@ -32,8 +32,8 @@ COPY compute/ /workspace/compute/
 # Copy locomotion/jetson/ (HAL server and production runtime)
 COPY locomotion/ /workspace/locomotion/
 
-# Copy HAL/ (HAL types, ZMQ client/server, interfaces)
-COPY HAL/ /workspace/HAL/
+# Copy hal/ (HAL types, ZMQ client/server, interfaces)
+COPY hal/ /workspace/hal/
 
 # Copy parkour/ (custom RSL-RL extensions)
 # Note: policy_interface.py imports directly from parkour.scripts.rsl_rl, so we need the full path

@@ -5,9 +5,9 @@ import time
 import numpy as np
 import pytest
 
-from HAL.ZMQ.client import HalClient
-from HAL.ZMQ.server import HalServerBase
-from HAL.config import HalClientConfig, HalServerConfig
+from hal.zmq.client import HalClient
+from hal.zmq.server import HalServerBase
+from hal.config import HalClientConfig, HalServerConfig
 
 
 def test_hwm_prevents_buffer_growth():
@@ -32,7 +32,7 @@ def test_hwm_prevents_buffer_growth():
     client = HalClient(client_config, context=shared_context)
     client.initialize()
 
-    from HAL.telemetry.types import OBS_DIM
+    from hal.observation.types import OBS_DIM
     
     time.sleep(0.1)
     
@@ -104,7 +104,7 @@ def test_rapid_message_publishing():
     time.sleep(0.1)
     
     # Publish a dummy message first to establish connection
-    from HAL.telemetry.types import OBS_DIM
+    from hal.observation.types import OBS_DIM
     observation_init = np.zeros(OBS_DIM, dtype=np.float32)
     server.publish_observation(observation_init)
     client.poll(timeout_ms=1000)
@@ -114,7 +114,7 @@ def test_rapid_message_publishing():
 
     publish_count = [0]
 
-    from HAL.telemetry.types import OBS_DIM
+    from hal.observation.types import OBS_DIM
     
     def rapid_publish():
         for i in range(1000):
@@ -166,7 +166,7 @@ def test_memory_usage_bounded():
     client = HalClient(client_config, context=shared_context)
     client.initialize()
 
-    from HAL.telemetry.types import OBS_DIM
+    from hal.observation.types import OBS_DIM
     
     time.sleep(0.1)
     
@@ -213,7 +213,7 @@ def test_old_messages_dropped():
     client = HalClient(client_config, context=shared_context)
     client.initialize()
 
-    from HAL.telemetry.types import OBS_DIM
+    from hal.observation.types import OBS_DIM
     
     # With shared context and inproc, connection should be immediate
     # Give a small delay to ensure sockets are ready

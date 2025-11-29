@@ -21,7 +21,7 @@ RUN pip3 install --no-cache-dir -r /tmp/requirements.txt
 
 # Copy project code
 COPY compute/ /workspace/compute/
-COPY HAL/ /workspace/HAL/
+COPY hal/ /workspace/hal/
 # Copy parkour/ (custom RSL-RL extensions)
 # Note: policy_interface.py imports directly from parkour.scripts.rsl_rl, so we need the full path
 COPY parkour/ /workspace/parkour/

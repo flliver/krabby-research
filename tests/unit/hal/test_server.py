@@ -6,8 +6,8 @@ import numpy as np
 import pytest
 import zmq
 
-from HAL.config import HalServerConfig
-from HAL.ZMQ.server import HalServerBase
+from hal.config import HalServerConfig
+from hal.zmq.server import HalServerBase
 
 
 def test_hal_server_initialization():
@@ -39,7 +39,7 @@ def test_hal_server_context_manager():
 
 def test_publish_observation():
     """Test publishing observation telemetry."""
-    from HAL.telemetry.types import OBS_DIM
+    from hal.observation.types import OBS_DIM
     
     config = HalServerConfig.from_endpoints(
         observation_bind="inproc://test_state3",
@@ -120,7 +120,7 @@ def test_recv_joint_command():
 
 def test_hwm_behavior():
     """Test HWM=1 behavior (latest-only semantics)."""
-    from HAL.telemetry.types import OBS_DIM
+    from hal.observation.types import OBS_DIM
     
     # Use shared context for inproc connections
     shared_context = zmq.Context()
@@ -160,7 +160,7 @@ def test_hwm_behavior():
 
 def test_error_handling_invalid_shape():
     """Test error handling for invalid array shapes."""
-    from HAL.telemetry.types import OBS_DIM
+    from hal.observation.types import OBS_DIM
     
     config = HalServerConfig.from_endpoints(
         observation_bind="inproc://test_state7",
@@ -181,7 +181,7 @@ def test_error_handling_invalid_shape():
 
 def test_error_handling_not_initialized():
     """Test error handling when server not initialized."""
-    from HAL.telemetry.types import OBS_DIM
+    from hal.observation.types import OBS_DIM
     
     config = HalServerConfig.from_endpoints(
         observation_bind="inproc://test_state8",

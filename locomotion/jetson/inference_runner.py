@@ -4,8 +4,8 @@ import logging
 import time
 from typing import Optional
 
-from HAL.ZMQ.client import HalClient
-from HAL.config import HalClientConfig, HalServerConfig
+from hal.zmq.client import HalClient
+from hal.config import HalClientConfig, HalServerConfig
 from compute.parkour.policy_interface import ModelWeights, ParkourPolicyModel
 from locomotion.jetson.hal_server import JetsonHalServer
 
@@ -86,7 +86,7 @@ class InferenceRunner:
                 loop_start_ns = time.time_ns()
 
                 # Publish telemetry from real sensors
-                self.hal_server.publish_telemetry()
+                self.hal_server.publish_observation()
 
                 # Poll HAL for latest data
                 if self.hal_client:

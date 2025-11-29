@@ -13,7 +13,7 @@ import numpy as np
 import torch
 
 from compute.parkour.policy_interface import ModelWeights, ParkourPolicyModel
-from HAL.telemetry.types import NavigationCommand, ParkourModelIO, ParkourObservation, OBS_DIM
+from hal.observation.types import NavigationCommand, ParkourModelIO, ParkourObservation, OBS_DIM
 
 logging.basicConfig(
     level=logging.INFO,

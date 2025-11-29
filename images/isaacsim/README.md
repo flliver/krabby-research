@@ -6,7 +6,7 @@ This directory contains the Dockerfile for the Isaac Sim container that combines
 
 The Isaac Sim container combines:
 - **Policy inference** (`compute/parkour/`) - Policy wrapper and model inference
-- **HAL server** (`HAL/Isaac/`) - Isaac Sim HAL server with simulation integration
+- **HAL server** (`hal/Isaac/`) - Isaac Sim HAL server with simulation integration
 - **Inference runner** (`images/isaacsim/main.py`) - Combined control loop
 
 All components communicate via **inproc ZMQ** (same process, zero-copy) for optimal performance.

@@ -2,7 +2,7 @@
 
 This module provides a minimal interface that uses OnPolicyRunnerWithExtractor
 to load checkpoints and get inference policy functions. The interface converts
-numpy observations (from HAL) to torch tensors and calls the policy function
+numpy observations (from hal) to torch tensors and calls the policy function
 directly (act_inference) for zero-copy operations.
 
 This is NOT a wrapper - it's a minimal coordinator that:
@@ -23,8 +23,8 @@ import numpy as np
 import torch
 from rsl_rl.env import VecEnv
 
-from HAL.commands.types import InferenceResponse
-from HAL.telemetry.types import ParkourModelIO
+from hal.commands.types import InferenceResponse
+from hal.observation.types import ParkourModelIO
 
 logger = logging.getLogger(__name__)
 

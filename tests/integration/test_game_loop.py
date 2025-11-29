@@ -9,10 +9,10 @@ import pytest
 import torch
 import zmq
 
-from HAL.ZMQ.client import HalClient
-from HAL.ZMQ.server import HalServerBase
-from HAL.config import HalClientConfig, HalServerConfig
-from HAL.telemetry.types import NavigationCommand, OBS_DIM
+from hal.zmq.client import HalClient
+from hal.zmq.server import HalServerBase
+from hal.config import HalClientConfig, HalServerConfig
+from hal.observation.types import NavigationCommand, OBS_DIM
 from compute.testing.inference_test_runner import InferenceTestRunner
 
 
@@ -50,7 +50,7 @@ class ProtoHalServer(HalServerBase):
 
         def publish_loop():
             while self._running:
-                self.publish_telemetry()
+                self.publish_observation()
                 self.tick_count += 1
                 time.sleep(period)
 
@@ -81,7 +81,7 @@ class ProtoHalServer(HalServerBase):
         if self._command_thread:
             self._command_thread.join(timeout=1.0)
 
-    def publish_telemetry(self):
+    def publish_observation(self):
         """Publish synthetic observation in training format.
 
         Creates observation array matching training format:
@@ -107,7 +107,7 @@ class ProtoHalServer(HalServerBase):
         obs_array[-history_dim:] = 0.5  # History
 
         # Publish via base class
-        self.publish_observation(obs_array)
+        super().publish_observation(obs_array)
 
 
 class MockPolicyModel:
@@ -129,7 +129,7 @@ class MockPolicyModel:
         time.sleep(self.inference_time_ms / 1000.0)  # Simulate inference time
         self.inference_count += 1
 
-        from HAL.commands.types import InferenceResponse
+        from hal.commands.types import InferenceResponse
 
         # Return action tensor directly (matching inference output format)
         action = torch.zeros(self.action_dim, dtype=torch.float32)
@@ -162,8 +162,8 @@ def hal_setup():
 
     # Wait for connection and publish a dummy observation to establish connection
     time.sleep(0.1)
-    dummy_obs = np.zeros(OBS_DIM, dtype=np.float32)
-    server.publish_observation(dummy_obs)
+    # ProtoHalServer.publish_observation() doesn't take arguments, it generates synthetic data
+    server.publish_observation()
     time.sleep(0.05)
     client.poll(timeout_ms=100)
 
@@ -221,7 +221,7 @@ def test_game_loop_observation_tensor_correctness(hal_setup):
     - View methods correctly extract each component
     - Data type is float32
     """
-    from HAL.telemetry.types import (
+    from hal.observation.types import (
         NUM_PROP,
         NUM_SCAN,
         NUM_PRIV_EXPLICIT,
@@ -242,7 +242,9 @@ def test_game_loop_observation_tensor_correctness(hal_setup):
     observation[start : start + NUM_PRIV_LATENT] = 4.0  # Priv latent
     observation[-HISTORY_DIM:] = 5.0  # History
     
-    server.publish_observation(observation)
+    # Use base class method to publish specific observation
+    from hal.zmq.server import HalServerBase
+    HalServerBase.publish_observation(server, observation)
     time.sleep(0.1)
     client.poll(timeout_ms=1000)
     
@@ -293,7 +295,7 @@ def test_game_loop_inference_latency():
     model = MockPolicyModel(action_dim=12, inference_time_ms=8.0)
 
     # Create a simple inference response
-    from HAL.telemetry.types import ParkourModelIO
+    from hal.observation.types import ParkourModelIO
 
     # Mock model_io
     model_io = MagicMock(spec=ParkourModelIO)

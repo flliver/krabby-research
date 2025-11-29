@@ -323,7 +323,7 @@ The `hal_dump` tool inspects the current state of a HAL server, showing telemetr
 
 **New Format (Unified Observation):**
 ```bash
-python -m HAL.tools.hal_dump \
+python -m hal.tools.hal_dump \
     --observation_endpoint tcp://localhost:6001 \
     --command_endpoint tcp://localhost:6002
 ```
@@ -333,7 +333,7 @@ python -m HAL.tools.hal_dump \
 Show detailed breakdown of observation/state components:
 
 ```bash
-python -m HAL.tools.hal_dump \
+python -m hal.tools.hal_dump \
     --observation_endpoint tcp://localhost:6001 \
     --command_endpoint tcp://localhost:6002 \
     --verbose
@@ -344,7 +344,7 @@ python -m HAL.tools.hal_dump \
 For debugging in-process communication:
 
 ```bash
-python -m HAL.tools.hal_dump \
+python -m hal.tools.hal_dump \
     --observation_endpoint inproc://hal_observation \
     --command_endpoint inproc://hal_command
 ```
@@ -354,7 +354,7 @@ python -m HAL.tools.hal_dump \
 If your robot has a different number of joints:
 
 ```bash
-python -m HAL.tools.hal_dump \
+python -m hal.tools.hal_dump \
     --observation_endpoint tcp://localhost:6001 \
     --command_endpoint tcp://localhost:6002 \
     --action_dim 18 \
@@ -417,8 +417,8 @@ The HAL supports runtime debug logging that can be enabled/disabled without rest
 
 **In Code:**
 ```python
-from HAL.ZMQ.client import HalClient
-from HAL.ZMQ.server import HalServerBase
+from hal.zmq.client import HalClient
+from hal.zmq.server import HalServerBase
 
 # Enable debug logging on client
 hal_client = HalClient(config)

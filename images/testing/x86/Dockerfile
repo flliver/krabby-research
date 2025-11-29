@@ -30,8 +30,8 @@ RUN pip3 install --no-cache-dir -r /tmp/requirements.txt
 # Copy compute/ (policy interface and inference logic, including inference test runner)
 COPY compute/ /workspace/compute/
 
-# Copy HAL/ (HAL types, ZMQ client/server, interfaces)
-COPY HAL/ /workspace/HAL/
+# Copy hal/ (HAL types, ZMQ client/server, interfaces)
+COPY hal/ /workspace/hal/
 
 # Copy parkour/ (custom RSL-RL extensions)
 # Note: policy_interface.py imports directly from parkour.scripts.rsl_rl, so we need the full path

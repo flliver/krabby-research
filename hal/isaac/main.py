@@ -5,8 +5,8 @@ import logging
 
 from isaaclab.app import AppLauncher
 
-from HAL.config import HalServerConfig
-from HAL.Isaac.hal_server import IsaacSimHalServer
+from hal.config import HalServerConfig
+from hal.isaac.hal_server import IsaacSimHalServer
 
 logging.basicConfig(
     level=logging.INFO,
@@ -61,10 +61,10 @@ def main():
         try:
             while simulation_app.is_running():
                 # Step environment
-                env.step(None)  # Action will come from HAL
+                env.step(None)  # Action will come from hal
 
                 # Publish telemetry
-                hal_server.publish_telemetry()
+                hal_server.publish_observation()
 
                 # Apply joint command
                 hal_server.apply_joint_command()

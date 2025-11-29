@@ -11,7 +11,7 @@ These tests verify that the observation format matches the training format exact
 import numpy as np
 import pytest
 
-from HAL.telemetry.types import (
+from hal.observation.types import (
     NUM_PROP,
     NUM_SCAN,
     NUM_PRIV_EXPLICIT,

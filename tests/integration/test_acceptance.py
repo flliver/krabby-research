@@ -15,10 +15,10 @@ import numpy as np
 import pytest
 import torch
 
-from HAL.ZMQ.client import HalClient
-from HAL.ZMQ.server import HalServerBase
-from HAL.config import HalClientConfig, HalServerConfig
-from HAL.telemetry.types import ParkourObservation, NavigationCommand, OBS_DIM
+from hal.zmq.client import HalClient
+from hal.zmq.server import HalServerBase
+from hal.config import HalClientConfig, HalServerConfig
+from hal.observation.types import ParkourObservation, NavigationCommand, OBS_DIM
 from compute.parkour.policy_interface import ModelWeights, ParkourPolicyModel
 from compute.testing.inference_test_runner import InferenceTestRunner
 
@@ -57,7 +57,7 @@ class ProtoHalServer(HalServerBase):
 
         def publish_loop():
             while self._running:
-                self.publish_telemetry()
+                self.publish_observation()
                 self.tick_count += 1
                 time.sleep(period)
 
@@ -88,13 +88,13 @@ class ProtoHalServer(HalServerBase):
         if self._command_thread:
             self._command_thread.join(timeout=1.0)
 
-    def publish_telemetry(self):
+    def publish_observation(self):
         """Publish synthetic observation in training format.
 
         Creates observation array matching training format:
         [num_prop(53), num_scan(132), num_priv_explicit(9), num_priv_latent(29), history(530)]
         """
-        from HAL.telemetry.types import OBS_DIM
+        from hal.observation.types import OBS_DIM
 
         # Create synthetic observation in training format
         obs_array = np.zeros(OBS_DIM, dtype=np.float32)
@@ -133,7 +133,7 @@ class ProtoHalServer(HalServerBase):
         )
 
         # Publish via base class (publish_observation expects np.ndarray)
-        self.publish_observation(observation.observation)
+        super().publish_observation(observation.observation)
 
     def apply_joint_command(self, command_bytes: bytes) -> bytes:
         """Apply joint command (stub for testing).
@@ -179,10 +179,8 @@ def proto_hal_setup():
     # Wait for connection and publish a dummy observation to establish connection
     time.sleep(0.1)
     # Publish an initial observation to establish the PUB/SUB connection
-    from HAL.telemetry.types import OBS_DIM
-    import numpy as np
-    dummy_obs = np.zeros(OBS_DIM, dtype=np.float32)
-    server.publish_observation(dummy_obs)
+    # ProtoHalServer.publish_observation() doesn't take arguments, it generates synthetic data
+    server.publish_observation()
     time.sleep(0.05)
     client.poll(timeout_ms=100)
 
@@ -209,7 +207,7 @@ def test_100_tick_execution_with_proto_hal(proto_hal_setup):
             self.inference_count = 0
 
         def inference(self, model_io):
-            from HAL.commands.types import InferenceResponse
+            from hal.commands.types import InferenceResponse
 
             self.inference_count += 1
             # Return zero action tensor
@@ -294,7 +292,7 @@ def test_forward_pass_correctness():
         pytest.skip(f"Failed to load checkpoint: {e}")
 
     # Create a synthetic observation in training format
-    from HAL.telemetry.types import ParkourModelIO, OBS_DIM
+    from hal.observation.types import ParkourModelIO, OBS_DIM
     
     obs_array = np.random.randn(OBS_DIM).astype(np.float32)
     observation = ParkourObservation(
@@ -342,7 +340,7 @@ def test_inference_latency_requirement(proto_hal_setup):
             self.latencies = []
 
         def inference(self, model_io):
-            from HAL.commands.types import InferenceResponse
+            from hal.commands.types import InferenceResponse
 
             start_time = time.time_ns()
             # Simulate inference time

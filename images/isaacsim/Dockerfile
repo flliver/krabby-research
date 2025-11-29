@@ -26,8 +26,8 @@ RUN pip3 install --no-cache-dir -r /tmp/requirements.txt
 # Copy compute/parkour/ (policy wrapper and inference logic)
 COPY compute/ /workspace/compute/
 
-# Copy HAL/Isaac/ (Isaac Sim HAL server)
-COPY HAL/ /workspace/HAL/
+# Copy hal/ (HAL types, ZMQ client/server, Isaac Sim HAL server)
+COPY hal/ /workspace/hal/
 
 # Copy locomotion/isaacsim/ (Isaac Sim container entry point)
 COPY locomotion/ /workspace/locomotion/

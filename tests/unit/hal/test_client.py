@@ -6,10 +6,10 @@ import numpy as np
 import pytest
 import zmq
 
-from HAL.ZMQ.client import HalClient
-from HAL.ZMQ.server import HalServerBase
-from HAL.config import HalClientConfig, HalServerConfig
-from HAL.telemetry.types import NavigationCommand
+from hal.zmq.client import HalClient
+from hal.zmq.server import HalServerBase
+from hal.config import HalClientConfig, HalServerConfig
+from hal.observation.types import NavigationCommand
 
 
 def test_hal_client_initialization():
@@ -39,7 +39,7 @@ def test_hal_client_initialization():
 
 def test_hal_client_poll_observation():
     """Test HAL client polling for observation messages."""
-    from HAL.telemetry.types import OBS_DIM
+    from hal.observation.types import OBS_DIM
     
     # Use shared context for inproc connections (required for reliable inproc PUB/SUB)
     shared_context = zmq.Context()
@@ -84,7 +84,7 @@ def test_hal_client_poll_observation():
 
 def test_hal_client_build_model_io():
     """Test building ParkourModelIO from latest telemetry."""
-    from HAL.telemetry.types import OBS_DIM
+    from hal.observation.types import OBS_DIM
     
     # Use shared context for inproc connections
     shared_context = zmq.Context()
@@ -153,7 +153,7 @@ def test_hal_client_send_joint_command():
     time.sleep(0.1)
 
     # Create inference response with action tensor (new format)
-    from HAL.commands.types import InferenceResponse
+    from hal.commands.types import InferenceResponse
 
     action_tensor = torch.tensor([0.1, 0.2, 0.3], dtype=torch.float32)
     inference_response = InferenceResponse.create_success(
@@ -187,7 +187,7 @@ def test_hal_client_send_joint_command():
 
 def test_hal_client_timestamp_validation():
     """Test timestamp validation for stale messages."""
-    from HAL.telemetry.types import OBS_DIM
+    from hal.observation.types import OBS_DIM
     
     # Use shared context for inproc connections
     shared_context = zmq.Context()

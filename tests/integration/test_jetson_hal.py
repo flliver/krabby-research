@@ -9,9 +9,9 @@ import pytest
 
 logger = logging.getLogger(__name__)
 
-from HAL.ZMQ.client import HalClient
-from HAL.config import HalClientConfig, HalServerConfig
-from HAL.telemetry.types import NavigationCommand
+from hal.zmq.client import HalClient
+from hal.config import HalClientConfig, HalServerConfig
+from hal.observation.types import NavigationCommand
 from compute.parkour.policy_interface import ModelWeights, ParkourPolicyModel
 from compute.testing.inference_test_runner import InferenceTestRunner
 from locomotion.jetson.camera import ZedCamera, create_zed_camera
@@ -94,7 +94,7 @@ def test_jetson_hal_server_telemetry_publishing(hal_server_config, hal_client_co
     time.sleep(0.1)
 
     # Mock depth features (NUM_SCAN = 132)
-    from HAL.telemetry.types import NUM_SCAN
+    from hal.observation.types import NUM_SCAN
 
     depth_features = np.array([1.0, 2.0, 3.0] * 44, dtype=np.float32)[:NUM_SCAN]  # 132 features
     mock_camera.get_depth_features.return_value = depth_features
@@ -113,7 +113,7 @@ def test_jetson_hal_server_telemetry_publishing(hal_server_config, hal_client_co
     hal_server._build_state_vector = mock_build_state
 
     # Publish telemetry
-    hal_server.publish_telemetry()
+    hal_server.publish_observation()
 
     # Poll client
     hal_client.poll(timeout_ms=1000)
@@ -121,7 +121,7 @@ def test_jetson_hal_server_telemetry_publishing(hal_server_config, hal_client_co
     # Verify observation data received (unified observation format)
     assert hal_client._latest_observation is not None
     assert hal_client._latest_observation.observation is not None
-    from HAL.telemetry.types import OBS_DIM
+    from hal.observation.types import OBS_DIM
     assert hal_client._latest_observation.observation.shape == (OBS_DIM,)
 
     hal_client.close()
@@ -148,7 +148,7 @@ def test_jetson_hal_server_joint_command_application(hal_server_config, hal_clie
     time.sleep(0.1)
 
     # Send command from client using new API
-    from HAL.commands.types import InferenceResponse
+    from hal.commands.types import InferenceResponse
     import torch
     import threading
 
@@ -199,7 +199,7 @@ def test_jetson_hal_server_end_to_end_with_game_loop(hal_server_config, hal_clie
     mock_camera = MagicMock(spec=ZedCamera)
     mock_camera.is_ready.return_value = True
 
-    from HAL.telemetry.types import NUM_SCAN
+    from hal.observation.types import NUM_SCAN
 
     depth_features = np.zeros(NUM_SCAN, dtype=np.float32)
     depth_features[0:64] = 1.0  # Set first 64 features
@@ -232,7 +232,7 @@ def test_jetson_hal_server_end_to_end_with_game_loop(hal_server_config, hal_clie
 
         def inference(self, model_io):
             import time
-            from HAL.commands.types import InferenceResponse
+            from hal.commands.types import InferenceResponse
             import torch
 
             self.inference_count += 1
@@ -254,8 +254,8 @@ def test_jetson_hal_server_end_to_end_with_game_loop(hal_server_config, hal_clie
 
     def run_loop():
         for _ in range(10):
-            # Publish telemetry from HAL server
-            hal_server.publish_telemetry()
+            # Publish telemetry from hal server
+            hal_server.publish_observation()
 
             # Poll client
             hal_client.poll(timeout_ms=10)
@@ -338,7 +338,7 @@ def test_jetson_hal_server_network_communication():
     mock_camera = MagicMock(spec=ZedCamera)
     mock_camera.is_ready.return_value = True
 
-    from HAL.telemetry.types import NUM_SCAN
+    from hal.observation.types import NUM_SCAN
 
     depth_features = np.zeros(NUM_SCAN, dtype=np.float32)
     depth_features[0:64] = 1.0  # Set first 64 features
@@ -358,7 +358,7 @@ def test_jetson_hal_server_network_communication():
     server._build_state_vector = mock_build_state
 
     # Publish telemetry
-    server.publish_telemetry()
+    server.publish_observation()
 
     # Poll client
     client.poll(timeout_ms=2000)  # Longer timeout for network
@@ -368,7 +368,7 @@ def test_jetson_hal_server_network_communication():
     assert client._latest_observation.observation is not None
 
     # Send command
-    from HAL.commands.types import InferenceResponse
+    from hal.commands.types import InferenceResponse
     import torch
 
     action_array = np.array([0.1] * 12, dtype=np.float32)
@@ -467,7 +467,7 @@ def test_jetson_hal_server_sustained_bidirectional_messaging(hal_server_config, 
     # Mock camera to return depth features
     mock_camera = MagicMock(spec=ZedCamera)
     mock_camera.is_ready.return_value = True
-    from HAL.telemetry.types import NUM_SCAN
+    from hal.observation.types import NUM_SCAN
 
     depth_features = np.zeros(NUM_SCAN, dtype=np.float32)
     mock_camera.get_depth_features.return_value = depth_features
@@ -511,7 +511,7 @@ def test_jetson_hal_server_sustained_bidirectional_messaging(hal_server_config, 
         
         try:
             # Server publishes telemetry
-            hal_server.publish_telemetry()
+            hal_server.publish_observation()
             observations_published += 1
             
             # Client polls for telemetry
@@ -532,7 +532,7 @@ def test_jetson_hal_server_sustained_bidirectional_messaging(hal_server_config, 
                 # Create mock command
                 command = np.random.uniform(-0.5, 0.5, size=12).astype(np.float32)
                 
-                from HAL.commands.types import InferenceResponse
+                from hal.commands.types import InferenceResponse
                 import torch as torch_module
                 action_tensor = torch_module.from_numpy(command)
                 response = InferenceResponse.create_success(
@@ -615,7 +615,7 @@ def test_jetson_hal_server_joystick_input_integration(hal_server_config, hal_cli
     # Mock camera
     mock_camera = MagicMock(spec=ZedCamera)
     mock_camera.is_ready.return_value = True
-    from HAL.telemetry.types import NUM_SCAN
+    from hal.observation.types import NUM_SCAN
 
     depth_features = np.zeros(NUM_SCAN, dtype=np.float32)
     mock_camera.get_depth_features.return_value = depth_features
@@ -652,7 +652,7 @@ def test_jetson_hal_server_joystick_input_integration(hal_server_config, hal_cli
         commands_sent += 1
 
         # Publish telemetry
-        hal_server.publish_telemetry()
+        hal_server.publish_observation()
 
         # Poll client
         hal_client.poll(timeout_ms=100)

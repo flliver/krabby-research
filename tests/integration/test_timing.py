@@ -5,10 +5,10 @@ import time
 import numpy as np
 import pytest
 
-from HAL.ZMQ.client import HalClient
-from HAL.ZMQ.server import HalServerBase
-from HAL.config import HalClientConfig, HalServerConfig
-from HAL.telemetry.types import NavigationCommand
+from hal.zmq.client import HalClient
+from hal.zmq.server import HalServerBase
+from hal.config import HalClientConfig, HalServerConfig
+from hal.observation.types import NavigationCommand
 from compute.testing.inference_test_runner import InferenceTestRunner
 
 
@@ -27,7 +27,7 @@ class SlowInferenceModel:
         time.sleep(inference_time_ms / 1000.0)
         self.inference_count += 1
 
-        from HAL.commands.types import InferenceResponse
+        from hal.commands.types import InferenceResponse
         import torch
 
         action_tensor = torch.zeros(self.action_dim, dtype=torch.float32)
@@ -52,7 +52,7 @@ class FastInferenceModel:
         time.sleep(inference_time_ms / 1000.0)
         self.inference_count += 1
 
-        from HAL.commands.types import InferenceResponse
+        from hal.commands.types import InferenceResponse
         import torch
 
         action_tensor = torch.zeros(self.action_dim, dtype=torch.float32)
@@ -94,7 +94,7 @@ def test_game_loop_faster_than_inference():
     client.set_navigation_command(nav_cmd)
 
     # Continuously publish telemetry (unified observation format)
-    from HAL.telemetry.types import OBS_DIM
+    from hal.observation.types import OBS_DIM
     def publish_loop():
         observation = np.zeros(OBS_DIM, dtype=np.float32)
         for _ in range(100):
@@ -165,7 +165,7 @@ def test_inference_faster_than_game_loop():
     client.set_navigation_command(nav_cmd)
 
     # Continuously publish telemetry (unified observation format)
-    from HAL.telemetry.types import OBS_DIM
+    from hal.observation.types import OBS_DIM
     def publish_loop():
         observation = np.zeros(OBS_DIM, dtype=np.float32)
         for _ in range(100):
@@ -232,7 +232,7 @@ def test_timestamp_in_messages():
     client.set_navigation_command(nav_cmd)
 
     # Initial dummy publish/poll to establish connection
-    from HAL.telemetry.types import OBS_DIM
+    from hal.observation.types import OBS_DIM
     observation = np.zeros(OBS_DIM, dtype=np.float32)
     server.publish_observation(observation)
     client.poll(timeout_ms=100)
@@ -311,7 +311,7 @@ def test_timestamp_validation_stale_messages():
     client.set_navigation_command(old_nav_cmd)
 
     # Publish fresh telemetry (unified observation format)
-    from HAL.telemetry.types import OBS_DIM
+    from hal.observation.types import OBS_DIM
     observation = np.zeros(OBS_DIM, dtype=np.float32)
     server.publish_observation(observation)
 
@@ -359,7 +359,7 @@ def test_end_to_end_latency():
     time.sleep(0.1)
 
     # Measure send to receive latency
-    from HAL.telemetry.types import OBS_DIM
+    from hal.observation.types import OBS_DIM
     send_time_ns = time.time_ns()
     observation = np.zeros(OBS_DIM, dtype=np.float32)
     server.publish_observation(observation)

@@ -6,9 +6,9 @@ import numpy as np
 import pytest
 import zmq
 
-from HAL.ZMQ.client import HalClient
-from HAL.ZMQ.server import HalServerBase
-from HAL.config import HalClientConfig, HalServerConfig
+from hal.zmq.client import HalClient
+from hal.zmq.server import HalServerBase
+from hal.config import HalClientConfig, HalServerConfig
 
 
 def test_corrupt_message_handling():
@@ -116,7 +116,7 @@ def test_missing_multipart_messages():
     client = HalClient(client_config, context=shared_context)
     client.initialize()
 
-    from HAL.telemetry.types import OBS_DIM
+    from hal.observation.types import OBS_DIM
     
     time.sleep(0.1)
 
@@ -144,7 +144,7 @@ def test_missing_multipart_messages():
 
 def test_shape_dtype_mismatch():
     """Test handling of shape/dtype mismatches."""
-    from HAL.telemetry.types import OBS_DIM
+    from hal.observation.types import OBS_DIM
     
     server_config = HalServerConfig.from_endpoints(
         observation_bind="inproc://test_observation_shape",
@@ -191,7 +191,7 @@ def test_graceful_error_handling():
     client = HalClient(client_config, context=shared_context)
     client.initialize()
 
-    from HAL.telemetry.types import OBS_DIM
+    from hal.observation.types import OBS_DIM
     
     time.sleep(0.1)
 
@@ -238,7 +238,7 @@ def test_schema_version_validation():
     time.sleep(0.1)
 
     # Send message with unsupported schema version
-    from HAL.telemetry.types import OBS_DIM
+    from hal.observation.types import OBS_DIM
     
     context = zmq.Context()
     publisher = context.socket(zmq.PUB)
@@ -264,7 +264,7 @@ def test_schema_version_validation():
 
 def test_required_fields_validation():
     """Test validation of required fields."""
-    from HAL.telemetry.types import ParkourModelIO, ParkourObservation, NavigationCommand, OBS_DIM
+    from hal.observation.types import ParkourModelIO, ParkourObservation, NavigationCommand, OBS_DIM
 
     # Test that incomplete model_io is rejected
     incomplete_io = ParkourModelIO(

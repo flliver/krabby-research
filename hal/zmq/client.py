@@ -7,9 +7,9 @@ from typing import Optional
 import numpy as np
 import zmq
 
-from HAL.commands.types import InferenceResponse
-from HAL.config import HalClientConfig
-from HAL.telemetry.types import (
+from hal.commands.types import InferenceResponse
+from hal.config import HalClientConfig
+from hal.observation.types import (
     NavigationCommand,
     OBS_DIM,
     ParkourModelIO,

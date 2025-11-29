@@ -8,7 +8,7 @@ from typing import Optional
 import numpy as np
 import zmq
 
-from HAL.telemetry.types import (
+from hal.observation.types import (
     NUM_PROP,
     NUM_SCAN,
     NUM_PRIV_EXPLICIT,

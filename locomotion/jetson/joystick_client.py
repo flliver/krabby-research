@@ -1,4 +1,4 @@
-"""Simple joystick client for sending navigation commands to HAL.
+"""Simple joystick client for sending navigation commands to hal.
 
 This script provides a simple interface for joystick input to control the robot
 via navigation commands (vx, vy, yaw_rate) sent to the HAL client.
@@ -21,9 +21,9 @@ import sys
 import time
 from typing import Optional
 
-from HAL.ZMQ.client import HalClient
-from HAL.config import HalClientConfig
-from HAL.telemetry.types import NavigationCommand
+from hal.zmq.client import HalClient
+from hal.config import HalClientConfig
+from hal.observation.types import NavigationCommand
 
 logging.basicConfig(
     level=logging.INFO,

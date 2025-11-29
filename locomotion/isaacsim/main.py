@@ -13,9 +13,9 @@ from typing import Optional
 
 from isaaclab.app import AppLauncher
 
-from HAL.ZMQ.client import HalClient
-from HAL.config import HalClientConfig, HalServerConfig
-from HAL.Isaac.hal_server import IsaacSimHalServer
+from hal.zmq.client import HalClient
+from hal.config import HalClientConfig, HalServerConfig
+from hal.isaac.hal_server import IsaacSimHalServer
 from compute.parkour.policy_interface import ModelWeights, ParkourPolicyModel
 
 logging.basicConfig(
@@ -128,10 +128,10 @@ def main():
                 loop_start_ns = time.time_ns()
 
                 # Step Isaac Sim environment
-                env.step(None)  # Action will come from HAL/inference
+                env.step(None)  # Action will come from hal/inference
 
                 # Publish telemetry from simulation
-                hal_server.publish_telemetry()
+                hal_server.publish_observation()
 
                 # Poll HAL for latest data
                 hal_client.poll(timeout_ms=1)

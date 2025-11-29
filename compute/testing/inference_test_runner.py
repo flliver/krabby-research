@@ -19,9 +19,9 @@ from typing import Optional
 
 import numpy as np
 
-from HAL.ZMQ.client import HalClient
-from HAL.config import HalClientConfig
-from HAL.telemetry.types import NavigationCommand
+from hal.zmq.client import HalClient
+from hal.config import HalClientConfig
+from hal.observation.types import NavigationCommand
 from compute.parkour.policy_interface import ModelWeights, ParkourPolicyModel
 
 logger = logging.getLogger(__name__)

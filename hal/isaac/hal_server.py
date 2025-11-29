@@ -7,9 +7,9 @@ from typing import Optional
 import numpy as np
 import torch
 
-from HAL.ZMQ.server import HalServerBase
-from HAL.config import HalServerConfig
-from HAL.telemetry.types import OBS_DIM
+from hal.zmq.server import HalServerBase
+from hal.config import HalServerConfig
+from hal.observation.types import OBS_DIM
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +76,7 @@ class IsaacSimHalServer(HalServerBase):
         except Exception as e:
             logger.error(f"Could not cache all environment references: {e}", exc_info=True)
 
-    def publish_telemetry(self) -> None:
+    def publish_observation(self) -> None:
         """Publish telemetry from IsaacSim environment.
 
         Extracts complete observation in training format from observation_manager
@@ -135,14 +135,14 @@ class IsaacSimHalServer(HalServerBase):
                 obs_array = np.ascontiguousarray(obs_array, dtype=np.float32)
 
             # Publish complete observation in training format
-            self.publish_observation(obs_array)
+            super().publish_observation(obs_array)
 
         except Exception as e:
             logger.error(f"Error publishing telemetry: {e}", exc_info=True)
 
 
     def apply_joint_command(self) -> bool:
-        """Apply joint command received from HAL.
+        """Apply joint command received from hal.
 
         Receives command via HalServerBase and applies to action manager.
         Uses the same code path as training: action_manager.process_actions() and apply_actions().

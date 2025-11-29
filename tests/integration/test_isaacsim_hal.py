@@ -7,10 +7,10 @@ import numpy as np
 import pytest
 import torch
 
-from HAL.Isaac.hal_server import IsaacSimHalServer
-from HAL.ZMQ.client import HalClient
-from HAL.config import HalClientConfig, HalServerConfig
-from HAL.telemetry.types import NavigationCommand
+from hal.isaac.hal_server import IsaacSimHalServer
+from hal.zmq.client import HalClient
+from hal.config import HalClientConfig, HalServerConfig
+from hal.observation.types import NavigationCommand
 from compute.parkour.policy_interface import ModelWeights, ParkourPolicyModel
 from compute.testing.inference_test_runner import InferenceTestRunner
 
@@ -19,8 +19,14 @@ from compute.testing.inference_test_runner import InferenceTestRunner
 def mock_isaac_env():
     """Create a mock IsaacSim environment."""
     env = MagicMock()
+    # Create a mock scene that supports 'in' operator and items() iteration
+    mock_robot = MagicMock()
+    mock_robot.data = MagicMock()
+    mock_robot.data.joint_pos = MagicMock()
     env.scene = MagicMock()
-    env.scene.__getitem__ = MagicMock(return_value=MagicMock())  # For env.scene["robot"]
+    env.scene.__getitem__ = MagicMock(return_value=mock_robot)  # For env.scene["robot"]
+    env.scene.__contains__ = MagicMock(return_value=True)  # For "robot" in env.scene
+    env.scene.items = MagicMock(return_value=iter([("robot", mock_robot)]))  # For iteration
     env.observation_manager = MagicMock()
     env.action_manager = MagicMock()
     return env
@@ -76,12 +82,13 @@ def test_isaacsim_hal_server_camera_publishing(mock_isaac_env, hal_server_config
     time.sleep(0.1)
 
     # Mock observation manager to return complete observation in training format
-    from HAL.telemetry.types import OBS_DIM
+    from hal.observation.types import OBS_DIM
     hal_server.observation_manager = MagicMock()
     hal_server.observation_manager.compute = MagicMock(return_value={"policy": torch.zeros(OBS_DIM, dtype=torch.float32)})
+    hal_server.env.device = torch.device("cpu")
 
     # Publish telemetry
-    hal_server.publish_telemetry()
+    hal_server.publish_observation()
 
     # Poll client
     hal_client.poll(timeout_ms=1000)
@@ -114,12 +121,13 @@ def test_isaacsim_hal_server_state_publishing(mock_isaac_env, hal_server_config,
     time.sleep(0.1)
 
     # Mock observation manager to return complete observation in training format
-    from HAL.telemetry.types import OBS_DIM
+    from hal.observation.types import OBS_DIM
     hal_server.observation_manager = MagicMock()
     hal_server.observation_manager.compute = MagicMock(return_value={"policy": torch.zeros(OBS_DIM, dtype=torch.float32)})
+    hal_server.env.device = torch.device("cpu")
 
     # Publish telemetry
-    hal_server.publish_telemetry()
+    hal_server.publish_observation()
 
     # Poll client
     hal_client.poll(timeout_ms=1000)
@@ -200,7 +208,7 @@ def test_isaacsim_hal_server_end_to_end_with_game_loop(mock_isaac_env, hal_serve
     time.sleep(0.1)
 
     # Mock observation manager to return complete observation in training format
-    from HAL.telemetry.types import OBS_DIM
+    from hal.observation.types import OBS_DIM
     hal_server.observation_manager = MagicMock()
     hal_server.observation_manager.compute = MagicMock(return_value={"policy": torch.zeros(OBS_DIM, dtype=torch.float32)})
     hal_server.env.device = torch.device("cpu")
@@ -218,7 +226,7 @@ def test_isaacsim_hal_server_end_to_end_with_game_loop(mock_isaac_env, hal_serve
 
         def inference(self, model_io):
             import time
-            from HAL.commands.types import InferenceResponse
+            from hal.commands.types import InferenceResponse
 
             self.inference_count += 1
             action_tensor = torch.zeros(self.action_dim, dtype=torch.float32)
@@ -241,8 +249,8 @@ def test_isaacsim_hal_server_end_to_end_with_game_loop(mock_isaac_env, hal_serve
 
     def run_loop():
         for _ in range(10):  # Run 10 iterations
-            # Publish telemetry from HAL server
-            hal_server.publish_telemetry()
+            # Publish telemetry from hal server
+            hal_server.publish_observation()
 
             # Poll client
             hal_client.poll(timeout_ms=10)
@@ -287,7 +295,7 @@ def test_isaacsim_hal_server_behavior_matches_baseline(mock_isaac_env, hal_serve
     hal_server._extract_state_vector = lambda: np.array([0.0] * 34, dtype=np.float32)
 
     # Publish telemetry (should not raise)
-    hal_server.publish_telemetry()
+    hal_server.publish_observation()
 
     # Verify server can receive commands
     hal_server.action_manager = MagicMock()
@@ -321,12 +329,12 @@ def test_isaacsim_hal_server_with_real_zmq_communication(mock_isaac_env, hal_ser
     time.sleep(0.1)
 
     # Mock observation manager to return complete observation in training format
-    from HAL.telemetry.types import OBS_DIM
+    from hal.observation.types import OBS_DIM
     hal_server.observation_manager = MagicMock()
     hal_server.observation_manager.compute = MagicMock(return_value={"policy": torch.zeros(OBS_DIM, dtype=torch.float32)})
 
     # Publish telemetry
-    hal_server.publish_telemetry()
+    hal_server.publish_observation()
 
     # Poll client
     hal_client.poll(timeout_ms=1000)
@@ -335,7 +343,7 @@ def test_isaacsim_hal_server_with_real_zmq_communication(mock_isaac_env, hal_ser
     assert hal_client._latest_observation is not None
 
     # Send command from client
-    from HAL.commands.types import InferenceResponse
+    from hal.commands.types import InferenceResponse
 
     action_array = np.array([0.1, 0.2, 0.3] * 4, dtype=np.float32)
     action_tensor = torch.from_numpy(action_array)
@@ -344,11 +352,24 @@ def test_isaacsim_hal_server_with_real_zmq_communication(mock_isaac_env, hal_ser
         inference_latency_ms=5.0,
     )
 
+    # In REQ/REP pattern, server must be waiting before client sends
+    # Use threading to have server wait for command
+    import threading
+    received_command = [None]
+    
+    def server_receive():
+        received_command[0] = hal_server.recv_joint_command(timeout_ms=2000)
+    
+    server_thread = threading.Thread(target=server_receive)
+    server_thread.start()
+    time.sleep(0.05)  # Small delay to ensure server is waiting
+    
     # Send command
-    hal_client.send_joint_command(inference_response)
-
-    # Receive on server
-    received = hal_server.recv_joint_command(timeout_ms=1000)
+    success = hal_client.send_joint_command(inference_response)
+    assert success
+    
+    server_thread.join(timeout=2.0)
+    received = received_command[0]
     assert received is not None
     np.testing.assert_array_equal(received, action_array)
 
@@ -375,7 +396,7 @@ def test_isaacsim_hal_server_telemetry_rate(mock_isaac_env, hal_server_config, h
     publish_count = 0
 
     for _ in range(100):  # Publish 100 times
-        hal_server.publish_telemetry()
+        hal_server.publish_observation()
         publish_count += 1
         time.sleep(0.001)  # 1ms between publishes (1000 Hz theoretical max)
 
@@ -399,7 +420,7 @@ def test_isaacsim_hal_server_error_handling(mock_isaac_env, hal_server_config):
     hal_server_no_env.initialize()
 
     # Publish telemetry with no environment (should handle gracefully)
-    hal_server_no_env.publish_telemetry()  # Should not crash
+    hal_server_no_env.publish_observation()  # Should not crash
 
     # Apply command with no environment (should handle gracefully)
     result = hal_server_no_env.apply_joint_command()  # Should not crash
@@ -431,7 +452,7 @@ def test_isaacsim_hal_server_100_consecutive_command_cycles(mock_isaac_env, hal_
     time.sleep(0.1)
 
     # Mock observation manager to return valid observations
-    from HAL.telemetry.types import OBS_DIM
+    from hal.observation.types import OBS_DIM
     import torch
     
     def mock_compute_observations():
@@ -467,7 +488,7 @@ def test_isaacsim_hal_server_100_consecutive_command_cycles(mock_isaac_env, hal_
         
         try:
             # Publish telemetry
-            hal_server.publish_telemetry()
+            hal_server.publish_observation()
             observations_published += 1
             
             # Poll client
@@ -480,7 +501,7 @@ def test_isaacsim_hal_server_100_consecutive_command_cycles(mock_isaac_env, hal_
                 command = np.random.uniform(-0.5, 0.5, size=12).astype(np.float32)
                 
                 # Send command
-                from HAL.commands.types import InferenceResponse
+                from hal.commands.types import InferenceResponse
                 import torch as torch_module
                 action_tensor = torch_module.from_numpy(command)
                 response = InferenceResponse.create_success(
@@ -557,7 +578,7 @@ def test_isaacsim_hal_server_full_parkour_eval_simulation(mock_isaac_env, hal_se
     time.sleep(0.1)
 
     # Mock observation manager
-    from HAL.telemetry.types import OBS_DIM
+    from hal.observation.types import OBS_DIM
     import torch
     
     def mock_compute_observations():
@@ -605,7 +626,7 @@ def test_isaacsim_hal_server_full_parkour_eval_simulation(mock_isaac_env, hal_se
         
         try:
             # Publish telemetry
-            hal_server.publish_telemetry()
+            hal_server.publish_observation()
             observations_published += 1
             
             # Poll client
@@ -618,7 +639,7 @@ def test_isaacsim_hal_server_full_parkour_eval_simulation(mock_isaac_env, hal_se
                 command = np.random.uniform(-0.5, 0.5, size=12).astype(np.float32)
                 
                 # Send command
-                from HAL.commands.types import InferenceResponse
+                from hal.commands.types import InferenceResponse
                 import torch as torch_module
                 action_tensor = torch_module.from_numpy(command)
                 response = InferenceResponse.create_success(
@@ -681,7 +702,7 @@ def test_isaacsim_hal_server_interface_matches_evaluation_baseline(mock_isaac_en
     hal_server.initialize()
 
     # Mock observation manager to return observations in the same format as evaluation.py
-    from HAL.telemetry.types import OBS_DIM
+    from hal.observation.types import OBS_DIM
     import torch
     
     def mock_compute_observations():

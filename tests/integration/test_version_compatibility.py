@@ -5,10 +5,10 @@ import time
 import numpy as np
 import pytest
 
-from HAL.ZMQ.client import HalClient
-from HAL.ZMQ.server import HalServerBase
-from HAL.config import HalClientConfig, HalServerConfig
-from HAL.telemetry.types import NavigationCommand, ParkourObservation, OBS_DIM
+from hal.zmq.client import HalClient
+from hal.zmq.server import HalServerBase
+from hal.config import HalClientConfig, HalServerConfig
+from hal.observation.types import NavigationCommand, ParkourObservation, OBS_DIM
 
 
 def test_reading_older_schema_versions():
@@ -57,7 +57,7 @@ def test_forward_compatibility_unknown_fields():
     """Test forward compatibility (unknown fields ignored)."""
     # This tests that dataclasses with optional fields can handle
     # additional fields in future versions
-    from HAL.telemetry.types import NavigationCommand
+    from hal.observation.types import NavigationCommand
 
     # Create command with current schema
     nav_cmd = NavigationCommand.create_now(vx=1.0, vy=0.0, yaw_rate=0.5)
@@ -76,7 +76,7 @@ def test_forward_compatibility_unknown_fields():
 def test_action_dim_mismatch_detection():
     """Test action_dim mismatch detection."""
     import torch
-    from HAL.commands.types import InferenceResponse
+    from hal.commands.types import InferenceResponse
 
     # Create inference response with wrong action_dim
     action_wrong = torch.tensor([0.0] * 10, dtype=torch.float32)  # 10 instead of 12
@@ -100,7 +100,7 @@ def test_action_dim_mismatch_detection():
 
 def test_schema_version_compatibility_check():
     """Test schema version compatibility checking."""
-    from HAL.telemetry.types import ParkourModelIO, NavigationCommand
+    from hal.observation.types import ParkourModelIO, NavigationCommand
 
     # Create components with same schema version
     nav_cmd = NavigationCommand.create_now()
