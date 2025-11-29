@@ -128,7 +128,7 @@ def dump_hal_state(
 
             observation = np.frombuffer(payload, dtype=np.float32)
 
-            print(f"\n📊 Observation Telemetry:")
+            print(f"\n📊 Observation:")
             print(f"  Topic: {topic}")
             print(f"  Schema Version: {schema_version}")
             if timestamp_ns:
@@ -141,7 +141,7 @@ def dump_hal_state(
             if verbose and len(observation) == OBS_DIM:
                 dump_observation_details(observation, action_dim)
     else:
-        print("\n📊 Observation Telemetry: No data available")
+        print("\n📊 Observation: No data available")
 
     obs_sub.close()
 

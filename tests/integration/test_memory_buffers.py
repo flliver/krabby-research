@@ -5,9 +5,10 @@ import time
 import numpy as np
 import pytest
 
-from hal.zmq.client import HalClient
-from hal.zmq.server import HalServerBase
-from hal.config import HalClientConfig, HalServerConfig
+from hal.client.client import HalClient
+from hal.server.server import HalServerBase
+from hal.client.config import HalClientConfig
+from hal.server.config import HalServerConfig
 
 
 def test_hwm_prevents_buffer_growth():
@@ -15,21 +16,19 @@ def test_hwm_prevents_buffer_growth():
     import zmq
     
     # Use shared context for inproc connections
-    shared_context = zmq.Context()
-    
     server_config = HalServerConfig.from_endpoints(
         observation_bind="inproc://test_observation_hwm",
         command_bind="inproc://test_command_hwm",
-        hwm=1,
+        observation_buffer_size=1,
     )
-    server = HalServerBase(server_config, context=shared_context)
+    server = HalServerBase(server_config)
     server.initialize()
 
     client_config = HalClientConfig.from_endpoints(
         observation_endpoint="inproc://test_observation_hwm",
         command_endpoint="inproc://test_command_hwm",
     )
-    client = HalClient(client_config, context=shared_context)
+    client = HalClient(client_config, context=server.get_transport_context())
     client.initialize()
 
     from hal.observation.types import OBS_DIM
@@ -38,7 +37,7 @@ def test_hwm_prevents_buffer_growth():
     
     # Publish a dummy message first to establish connection
     observation_init = np.zeros(OBS_DIM, dtype=np.float32)
-    server.publish_observation(observation_init)
+    server.set_observation(observation_init)
     client.poll(timeout_ms=1000)
     # Connection is now established
 
@@ -48,7 +47,7 @@ def test_hwm_prevents_buffer_growth():
     for i in range(1, 101):  # Start at 1 to avoid confusion with init message
         observation = np.zeros(OBS_DIM, dtype=np.float32)
         observation[0] = float(i)
-        server.publish_observation(observation)
+        server.set_observation(observation)
         time.sleep(0.001)  # 1ms between publishes
 
     # Small delay to ensure all messages are sent
@@ -76,7 +75,6 @@ def test_hwm_prevents_buffer_growth():
 
     client.close()
     server.close()
-    shared_context.term()
 
 
 def test_rapid_message_publishing():
@@ -84,21 +82,19 @@ def test_rapid_message_publishing():
     import zmq
     
     # Use shared context for inproc connections
-    shared_context = zmq.Context()
-    
     server_config = HalServerConfig.from_endpoints(
         observation_bind="inproc://test_observation_rapid",
         command_bind="inproc://test_command_rapid",
-        hwm=1,
+        observation_buffer_size=1,
     )
-    server = HalServerBase(server_config, context=shared_context)
+    server = HalServerBase(server_config)
     server.initialize()
 
     client_config = HalClientConfig.from_endpoints(
         observation_endpoint="inproc://test_observation_rapid",
         command_endpoint="inproc://test_command_rapid",
     )
-    client = HalClient(client_config, context=shared_context)
+    client = HalClient(client_config, context=server.get_transport_context())
     client.initialize()
 
     time.sleep(0.1)
@@ -106,7 +102,7 @@ def test_rapid_message_publishing():
     # Publish a dummy message first to establish connection
     from hal.observation.types import OBS_DIM
     observation_init = np.zeros(OBS_DIM, dtype=np.float32)
-    server.publish_observation(observation_init)
+    server.set_observation(observation_init)
     client.poll(timeout_ms=1000)
 
     # Publish messages very rapidly
@@ -120,7 +116,7 @@ def test_rapid_message_publishing():
         for i in range(1000):
             observation = np.zeros(OBS_DIM, dtype=np.float32)
             observation[0] = float(i)
-            server.publish_observation(observation)
+            server.set_observation(observation)
             publish_count[0] += 1
             time.sleep(0.0001)  # 0.1ms between publishes (very fast)
 
@@ -140,7 +136,6 @@ def test_rapid_message_publishing():
 
     client.close()
     server.close()
-    shared_context.term()
 
 
 def test_memory_usage_bounded():
@@ -148,22 +143,20 @@ def test_memory_usage_bounded():
     import zmq
     
     # Use shared context for inproc connections
-    shared_context = zmq.Context()
-    
     # This is a simplified test - full memory profiling would require more tools
     server_config = HalServerConfig.from_endpoints(
         observation_bind="inproc://test_observation_memory",
         command_bind="inproc://test_command_memory",
-        hwm=1,
+        observation_buffer_size=1,
     )
-    server = HalServerBase(server_config, context=shared_context)
+    server = HalServerBase(server_config)
     server.initialize()
 
     client_config = HalClientConfig.from_endpoints(
         observation_endpoint="inproc://test_observation_memory",
         command_endpoint="inproc://test_command_memory",
     )
-    client = HalClient(client_config, context=shared_context)
+    client = HalClient(client_config, context=server.get_transport_context())
     client.initialize()
 
     from hal.observation.types import OBS_DIM
@@ -172,13 +165,13 @@ def test_memory_usage_bounded():
     
     # Publish a dummy message first to establish connection
     observation_init = np.zeros(OBS_DIM, dtype=np.float32)
-    server.publish_observation(observation_init)
+    server.set_observation(observation_init)
     client.poll(timeout_ms=1000)
 
     # Publish many messages
     for i in range(1000):
         observation = np.full(OBS_DIM, float(i), dtype=np.float32)  # Larger messages
-        server.publish_observation(observation)
+        server.set_observation(observation)
         if i % 100 == 0:
             client.poll(timeout_ms=100)
 
@@ -188,7 +181,6 @@ def test_memory_usage_bounded():
 
     client.close()
     server.close()
-    shared_context.term()
 
 
 def test_old_messages_dropped():
@@ -196,21 +188,19 @@ def test_old_messages_dropped():
     import zmq
     
     # Use shared context for inproc connections (required for reliable inproc PUB/SUB)
-    shared_context = zmq.Context()
-    
     server_config = HalServerConfig.from_endpoints(
         observation_bind="inproc://test_observation_drop",
         command_bind="inproc://test_command_drop",
-        hwm=1,
+        observation_buffer_size=1,
     )
-    server = HalServerBase(server_config, context=shared_context)
+    server = HalServerBase(server_config)
     server.initialize()
 
     client_config = HalClientConfig.from_endpoints(
         observation_endpoint="inproc://test_observation_drop",
         command_endpoint="inproc://test_command_drop",
     )
-    client = HalClient(client_config, context=shared_context)
+    client = HalClient(client_config, context=server.get_transport_context())
     client.initialize()
 
     from hal.observation.types import OBS_DIM
@@ -221,14 +211,14 @@ def test_old_messages_dropped():
 
     # Publish and poll a dummy message to establish connection
     observation_init = np.zeros(OBS_DIM, dtype=np.float32)
-    server.publish_observation(observation_init)
+    server.set_observation(observation_init)
     client.poll(timeout_ms=1000)
     # Connection is now established
 
     # Publish message 1.0 and poll - should receive it
     observation_1 = np.zeros(OBS_DIM, dtype=np.float32)
     observation_1[0] = 1.0
-    server.publish_observation(observation_1)
+    server.set_observation(observation_1)
     time.sleep(0.01)
     client.poll(timeout_ms=1000)
     assert client._latest_observation.observation[0] == 1.0
@@ -236,7 +226,7 @@ def test_old_messages_dropped():
     # Publish message 2.0 and poll - should receive it (replacing 1.0)
     observation_2 = np.zeros(OBS_DIM, dtype=np.float32)
     observation_2[0] = 2.0
-    server.publish_observation(observation_2)
+    server.set_observation(observation_2)
     time.sleep(0.01)
     client.poll(timeout_ms=1000)
     assert client._latest_observation.observation[0] == 2.0
@@ -244,7 +234,7 @@ def test_old_messages_dropped():
     # Publish message 3.0 and poll - should receive it (replacing 2.0)
     observation_3 = np.zeros(OBS_DIM, dtype=np.float32)
     observation_3[0] = 3.0
-    server.publish_observation(observation_3)
+    server.set_observation(observation_3)
     time.sleep(0.01)
     client.poll(timeout_ms=1000)
     
@@ -255,6 +245,4 @@ def test_old_messages_dropped():
 
     client.close()
     server.close()
-    shared_context.term()
-    shared_context.term()
 

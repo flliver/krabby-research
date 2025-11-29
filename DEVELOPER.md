@@ -34,3 +34,35 @@ pip install "isaacsim[all,extscache]==5.1.0" --extra-index-url https://pypi.nvid
 git clone git@github.com:isaac-sim/IsaacLab.git
 ./isaaclab.sh --install
 ```
+
+### HAL Development Setup
+
+HAL packages are organized as Python packages in `hal/krabby-hal-*/` directories. For development, install packages in editable mode:
+
+**Note:** `make install-editable` runs `pip install` commands, so ensure you have a virtual environment activated before running it.
+
+```bash
+# Install build tool (required for make build-wheels)
+pip install build
+
+# Install all HAL packages in editable mode (one-time setup)
+make install-editable
+```
+
+### Docker GPU Setup
+
+Tests require GPU access in Docker. If you see "could not select device driver" errors, configure Docker for GPU support:
+
+```bash
+./scripts/setup-docker-gpu.sh
+```
+
+This installs `nvidia-container-toolkit` and configures Docker to use it. Requires sudo access.
+
+### Running Tests
+
+Tests run inside the x86 testing Docker container. Run all tests (excluding Jetson tests):
+
+```bash
+make test
+```

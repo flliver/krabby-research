@@ -8,7 +8,7 @@ import numpy as np
 import zmq
 
 from hal.commands.types import InferenceResponse
-from hal.config import HalClientConfig
+from hal.client.config import HalClientConfig
 from hal.observation.types import (
     NavigationCommand,
     OBS_DIM,
@@ -26,9 +26,9 @@ SCHEMA_VERSION = "1.0"
 
 
 class HalClient:
-    """HAL client for subscribing to telemetry and sending commands.
+    """HAL client for subscribing to observations and sending commands.
 
-    Uses SUB socket for observation telemetry (complete observation in training format, HWM=1 for latest-only),
+    Uses SUB socket for observations (complete observation in training format, HWM=1 for latest-only),
     and REQ socket for commands (request-response pattern).
     """
 
@@ -132,10 +132,10 @@ class HalClient:
         return self._debug_enabled
 
     def poll(self, timeout_ms: int = 10) -> None:
-        """Poll for latest telemetry messages (non-blocking).
+        """Poll for latest observation messages (non-blocking).
 
         Updates latest buffers with newest messages. Old messages are
-        automatically dropped due to HWM=1.
+        automatically dropped due to buffer size=1 (latest-only semantics).
 
         Args:
             timeout_ms: Poll timeout in milliseconds (default 10ms)
@@ -239,14 +239,30 @@ class HalClient:
                     logger.debug(f"[ZMQ ERROR] observation: {e}")
                 logger.error(f"Error processing observation message: {e}")
 
+    def get_observation(self) -> Optional[np.ndarray]:
+        """Get latest observation tensor.
+        
+        Returns the latest observation in training format as a numpy array.
+        This is the complete observation tensor ready for model inference.
+        
+        Returns:
+            Observation array (shape: (OBS_DIM,)) or None if no observation available
+        """
+        if self._latest_observation is None:
+            return None
+        
+        # Return observation tensor directly
+        return self._latest_observation.observation
+    
     def build_model_io(self, max_age_ns: int = 10_000_000) -> Optional[ParkourModelIO]:
-        """Build ParkourModelIO from latest telemetry.
-
+        """Build ParkourModelIO from latest observation.
+        
         Checks that all required data has valid timestamps and is synchronized.
-
+        This method is kept for backward compatibility with models that expect ParkourModelIO.
+        
         Args:
             max_age_ns: Maximum age difference in nanoseconds (default 10ms)
-
+        
         Returns:
             ParkourModelIO if all components available and synchronized, None otherwise
         """
@@ -257,12 +273,8 @@ class HalClient:
         now_ns = time.time_ns()
         if (now_ns - self._latest_observation.timestamp_ns) > max_age_ns:
             return None
-        # Navigation command timestamp can be older (it's set once and reused)
-        # Only check that observation is recent, not nav_cmd
         
         # Check synchronization - allow nav_cmd to be older than observation
-        # (nav commands are typically set once and reused until changed)
-        # Only require that observation is recent
         observation_age_ns = now_ns - self._latest_observation.timestamp_ns
         if observation_age_ns > max_age_ns:
             return None
@@ -327,8 +339,8 @@ class HalClient:
         """
         self._latest_nav_cmd = nav
 
-    def send_joint_command(self, cmd: InferenceResponse) -> bool:
-        """Send joint command via REQ socket.
+    def put_joint_command(self, cmd: InferenceResponse) -> bool:
+        """Put/send joint command to server.
 
         Uses action array directly from inference response (zero-copy).
 

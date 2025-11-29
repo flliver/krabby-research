@@ -5,9 +5,9 @@ import time
 import numpy as np
 import pytest
 
-from hal.zmq.client import HalClient
-from hal.zmq.server import HalServerBase
-from hal.config import HalClientConfig, HalServerConfig
+from hal.client.client import HalClient
+from hal.server.server import HalServerBase
+from hal.client.config import HalClientConfig, HalServerConfig
 from hal.observation.types import NavigationCommand, ParkourObservation, OBS_DIM
 
 
@@ -16,22 +16,20 @@ def test_reading_older_schema_versions():
     import zmq
     
     # Use shared context for inproc connections
-    shared_context = zmq.Context()
-    
     # For now, we only support schema version "1.0"
     # This test verifies that we can handle version checking
     server_config = HalServerConfig.from_endpoints(
         observation_bind="inproc://test_observation_old",
         command_bind="inproc://test_command_old",
     )
-    server = HalServerBase(server_config, context=shared_context)
+    server = HalServerBase(server_config)
     server.initialize()
 
     client_config = HalClientConfig.from_endpoints(
         observation_endpoint="inproc://test_observation_old",
         command_endpoint="inproc://test_command_old",
     )
-    client = HalClient(client_config, context=shared_context)
+    client = HalClient(client_config, context=server.get_transport_context())
     client.initialize()
 
     time.sleep(0.1)
@@ -39,7 +37,7 @@ def test_reading_older_schema_versions():
     # Send message with schema version "1.0" (current)
     observation = np.zeros(OBS_DIM, dtype=np.float32)
     observation[0] = 1.0
-    server.publish_observation(observation)
+    server.set_observation(observation)
     time.sleep(0.01)
 
     client.poll(timeout_ms=1000)
@@ -50,7 +48,6 @@ def test_reading_older_schema_versions():
 
     client.close()
     server.close()
-    shared_context.term()
 
 
 def test_forward_compatibility_unknown_fields():
@@ -129,21 +126,21 @@ def test_schema_version_compatibility_check():
         observation_bind="inproc://test_observation_schema_check",
         command_bind="inproc://test_command_schema_check",
     )
-    server = HalServerBase(server_config, context=shared_context2)
+    server = HalServerBase(server_config)
     server.initialize()
 
     client_config = HalClientConfig.from_endpoints(
         observation_endpoint="inproc://test_observation_schema_check",
         command_endpoint="inproc://test_command_schema_check",
     )
-    client = HalClient(client_config, context=shared_context2)
+    client = HalClient(client_config, context=server.get_transport_context())
     client.initialize()
 
     time.sleep(0.1)
 
     # Publish a dummy observation first to establish connection
     observation_init = np.zeros(OBS_DIM, dtype=np.float32)
-    server.publish_observation(observation_init)
+    server.set_observation(observation_init)
     client.poll(timeout_ms=1000)
     # Connection is now established
 
@@ -151,10 +148,10 @@ def test_schema_version_compatibility_check():
     nav_cmd = NavigationCommand.create_now()
     client.set_navigation_command(nav_cmd)
 
-    # Publish telemetry (all with schema version "1.0")
+    # Publish observation (all with schema version "1.0")
     observation = np.zeros(OBS_DIM, dtype=np.float32)
     observation[0] = 1.0
-    server.publish_observation(observation)
+    server.set_observation(observation)
     time.sleep(0.01)
 
     client.poll(timeout_ms=1000)

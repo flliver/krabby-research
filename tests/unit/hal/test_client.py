@@ -6,9 +6,10 @@ import numpy as np
 import pytest
 import zmq
 
-from hal.zmq.client import HalClient
-from hal.zmq.server import HalServerBase
-from hal.config import HalClientConfig, HalServerConfig
+from hal.client.client import HalClient
+from hal.server.server import HalServerBase
+from hal.client.config import HalClientConfig
+from hal.server.config import HalServerConfig
 from hal.observation.types import NavigationCommand
 
 
@@ -42,20 +43,18 @@ def test_hal_client_poll_observation():
     from hal.observation.types import OBS_DIM
     
     # Use shared context for inproc connections (required for reliable inproc PUB/SUB)
-    shared_context = zmq.Context()
-    
     server_config = HalServerConfig.from_endpoints(
         observation_bind="inproc://test_state2",
         command_bind="inproc://test_command2",
     )
-    server = HalServerBase(server_config, context=shared_context)
+    server = HalServerBase(server_config)
     server.initialize()
 
     client_config = HalClientConfig.from_endpoints(
         observation_endpoint="inproc://test_state2",
         command_endpoint="inproc://test_command2",
     )
-    client = HalClient(client_config, context=shared_context)
+    client = HalClient(client_config, context=server.get_transport_context())
     client.initialize()
 
     # With shared context, connection should be established immediately
@@ -65,7 +64,7 @@ def test_hal_client_poll_observation():
     # Now publish and receive
     observation = np.zeros(OBS_DIM, dtype=np.float32)
     observation[0:3] = [1.0, 2.0, 3.0]  # Set some values
-    server.publish_observation(observation)
+    server.set_observation(observation)
     time.sleep(0.05)  # Small delay to ensure message is sent
     
     # Poll for message
@@ -83,24 +82,23 @@ def test_hal_client_poll_observation():
 
 
 def test_hal_client_build_model_io():
-    """Test building ParkourModelIO from latest telemetry."""
+    """Test building ParkourModelIO from latest observation."""
     from hal.observation.types import OBS_DIM
     
     # Use shared context for inproc connections
-    shared_context = zmq.Context()
     
     server_config = HalServerConfig.from_endpoints(
         observation_bind="inproc://test_state4",
         command_bind="inproc://test_command4",
     )
-    server = HalServerBase(server_config, context=shared_context)
+    server = HalServerBase(server_config)
     server.initialize()
 
     client_config = HalClientConfig.from_endpoints(
         observation_endpoint="inproc://test_state4",
         command_endpoint="inproc://test_command4",
     )
-    client = HalClient(client_config, context=shared_context)
+    client = HalClient(client_config, context=server.get_transport_context())
     client.initialize()
 
     # With shared context, connection should be established immediately
@@ -114,7 +112,7 @@ def test_hal_client_build_model_io():
     # Publish observation
     observation = np.zeros(OBS_DIM, dtype=np.float32)
     observation[0:5] = [1.0, 2.0, 3.0, 4.0, 5.0]  # Set some values
-    server.publish_observation(observation)
+    server.set_observation(observation)
 
     # Poll and build model IO
     client.poll(timeout_ms=1000)
@@ -129,25 +127,24 @@ def test_hal_client_build_model_io():
     server.close()
 
 
-def test_hal_client_send_joint_command():
+def test_hal_client_put_joint_command():
     """Test sending joint command via HAL client."""
     import torch
     
     # Use shared context for inproc connections
-    shared_context = zmq.Context()
     
     server_config = HalServerConfig.from_endpoints(
         observation_bind="inproc://test_state5",
         command_bind="inproc://test_command5",
     )
-    server = HalServerBase(server_config, context=shared_context)
+    server = HalServerBase(server_config)
     server.initialize()
 
     client_config = HalClientConfig.from_endpoints(
         observation_endpoint="inproc://test_state5",
         command_endpoint="inproc://test_command5",
     )
-    client = HalClient(client_config, context=shared_context)
+    client = HalClient(client_config, context=server.get_transport_context())
     client.initialize()
 
     time.sleep(0.1)
@@ -166,14 +163,14 @@ def test_hal_client_send_joint_command():
     received_command = [None]
     
     def server_receive():
-        received_command[0] = server.recv_joint_command(timeout_ms=2000)
+        received_command[0] = server.get_joint_command(timeout_ms=2000)
     
     server_thread = threading.Thread(target=server_receive)
     server_thread.start()
     time.sleep(0.05)  # Small delay to ensure server is waiting
     
     # Send command
-    success = client.send_joint_command(inference_response)
+    success = client.put_joint_command(inference_response)
     assert success
     
     server_thread.join(timeout=2.0)
@@ -190,20 +187,19 @@ def test_hal_client_timestamp_validation():
     from hal.observation.types import OBS_DIM
     
     # Use shared context for inproc connections
-    shared_context = zmq.Context()
     
     server_config = HalServerConfig.from_endpoints(
         observation_bind="inproc://test_state6",
         command_bind="inproc://test_command6",
     )
-    server = HalServerBase(server_config, context=shared_context)
+    server = HalServerBase(server_config)
     server.initialize()
 
     client_config = HalClientConfig.from_endpoints(
         observation_endpoint="inproc://test_state6",
         command_endpoint="inproc://test_command6",
     )
-    client = HalClient(client_config, context=shared_context)
+    client = HalClient(client_config, context=server.get_transport_context())
     client.initialize()
 
     # With shared context, connection should be established immediately
@@ -219,7 +215,7 @@ def test_hal_client_timestamp_validation():
 
     # Publish fresh observation
     observation = np.zeros(OBS_DIM, dtype=np.float32)
-    server.publish_observation(observation)
+    server.set_observation(observation)
 
     client.poll(timeout_ms=1000)
 

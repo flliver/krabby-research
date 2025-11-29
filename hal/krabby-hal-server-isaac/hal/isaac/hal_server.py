@@ -7,8 +7,8 @@ from typing import Optional
 import numpy as np
 import torch
 
-from hal.zmq.server import HalServerBase
-from hal.config import HalServerConfig
+from hal.server.server import HalServerBase
+from hal.server.config import HalServerConfig
 from hal.observation.types import OBS_DIM
 
 logger = logging.getLogger(__name__)
@@ -16,20 +16,19 @@ logger = logging.getLogger(__name__)
 
 class IsaacSimHalServer(HalServerBase):
     """HAL server for IsaacSim environment.
-
-    Extracts telemetry from IsaacSim environment and publishes via ZMQ.
-    Applies joint commands received via ZMQ to the environment.
+    
+    Extracts observations from IsaacSim environment and publishes via HAL.
+    Applies joint commands received via HAL to the environment.
     """
 
-    def __init__(self, config: HalServerConfig, env=None, context=None):
+    def __init__(self, config: HalServerConfig, env=None):
         """Initialize IsaacSim HAL server.
-
+        
         Args:
             config: HAL server configuration
             env: IsaacSim environment (ParkourManagerBasedRLEnv or similar)
-            context: Optional shared ZMQ context (useful for inproc connections)
         """
-        super().__init__(config, context=context)
+        super().__init__(config)
         self.env = env
         self.scene = None
         self.robot = None
@@ -76,22 +75,24 @@ class IsaacSimHalServer(HalServerBase):
         except Exception as e:
             logger.error(f"Could not cache all environment references: {e}", exc_info=True)
 
-    def publish_observation(self) -> None:
-        """Publish telemetry from IsaacSim environment.
-
-        Extracts complete observation in training format from observation_manager
-        and publishes via HalServerBase.publish_observation().
-
-        The observation matches the exact training format:
-        [num_prop(53), num_scan(132), num_priv_explicit(9), num_priv_latent(29), history(530)]
+    def set_observation(self) -> None:
+        """Set observation from IsaacSim environment.
+        
+        Extracts observation from observation_manager and publishes it via
+        the transport layer. The observation format is model-specific and should
+        match the training configuration. This implementation assumes the
+        observation_manager produces observations in the format expected by
+        the loaded model.
+        
+        Note: The exact observation format (dimensions, layout) depends on the
+        model being used. This should be configured based on the model, not
+        hardcoded.
         """
         if self.env is None:
-            logger.warning("No environment set, cannot publish telemetry")
-            return
+            raise RuntimeError("No environment set, cannot set observation")
 
         if self.observation_manager is None:
-            logger.warning("Observation manager not available, cannot publish telemetry")
-            return
+            raise RuntimeError("Observation manager not available, cannot set observation")
 
         try:
             # Compute observations using observation_manager (same as training)
@@ -135,41 +136,51 @@ class IsaacSimHalServer(HalServerBase):
                 obs_array = np.ascontiguousarray(obs_array, dtype=np.float32)
 
             # Publish complete observation in training format
-            super().publish_observation(obs_array)
+            super().set_observation(obs_array)
 
         except Exception as e:
-            logger.error(f"Error publishing telemetry: {e}", exc_info=True)
+            logger.error(f"Error setting observation: {e}", exc_info=True)
 
 
-    def apply_joint_command(self) -> bool:
-        """Apply joint command received from hal.
-
-        Receives command via HalServerBase and applies to action manager.
-        Uses the same code path as training: action_manager.process_actions() and apply_actions().
-
+    def move(self, joint_positions: Optional[np.ndarray] = None) -> bool:
+        """Move robot joints to specified positions.
+        
+        Renamed from apply_joint_command() to use verb-free naming.
+        Gets command from transport layer and applies to IsaacSim environment.
+        
+        Args:
+            joint_positions: Optional joint positions array (shape: (ACTION_DIM,)).
+                If None, gets command from transport layer.
+        
         Returns:
             True if command applied successfully, False otherwise
         """
         if self.env is None:
-            logger.warning("No environment set, cannot apply joint command")
-            return False
+            raise RuntimeError("No environment set, cannot move robot")
 
         if self.action_manager is None:
-            logger.warning("Action manager not available, cannot apply joint command")
-            return False
+            raise RuntimeError("Action manager not available, cannot move robot")
 
         try:
-            # Zero-copy conversion: receive validated bytes and create tensor directly
-            # This avoids NumPy deserialization and the read-only buffer issue
-            command_bytes = self.recv_joint_command_bytes(timeout_ms=10)
-            if command_bytes is None:
-                return False
+            # Get command from transport if not provided
+            if joint_positions is None:
+                # Zero-copy conversion: receive validated bytes and create tensor directly
+                # This avoids NumPy deserialization and the read-only buffer issue
+                command_bytes = self.recv_joint_command_bytes(timeout_ms=10)
+                if command_bytes is None:
+                    return False
 
-            # Create tensor directly from bytes (zero-copy, no NumPy intermediate)
-            # The bytes are already validated (size, dtype, shape, NaN/Inf checks)
-            command_tensor = torch.frombuffer(
-                memoryview(command_bytes), dtype=torch.float32
-            ).to(device=self.env.device)
+                # Create tensor directly from bytes (zero-copy, no NumPy intermediate)
+                # The bytes are already validated (size, dtype, shape, NaN/Inf checks)
+                command_tensor = torch.frombuffer(
+                    memoryview(command_bytes), dtype=torch.float32
+                ).to(device=self.env.device)
+            else:
+                # Convert provided numpy array to tensor
+                if isinstance(joint_positions, np.ndarray):
+                    command_tensor = torch.from_numpy(joint_positions).to(device=self.env.device, dtype=torch.float32)
+                else:
+                    command_tensor = joint_positions
 
             # Add batch dimension if needed (action_manager expects (num_envs, action_dim))
             if command_tensor.ndim == 1:
@@ -187,6 +198,6 @@ class IsaacSimHalServer(HalServerBase):
             return True
 
         except Exception as e:
-            logger.error(f"Error applying joint command: {e}", exc_info=True)
+            logger.error(f"Error moving robot: {e}", exc_info=True)
             return False
 

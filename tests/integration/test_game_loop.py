@@ -9,9 +9,9 @@ import pytest
 import torch
 import zmq
 
-from hal.zmq.client import HalClient
-from hal.zmq.server import HalServerBase
-from hal.config import HalClientConfig, HalServerConfig
+from hal.client.client import HalClient
+from hal.server.server import HalServerBase
+from hal.client.config import HalClientConfig, HalServerConfig
 from hal.observation.types import NavigationCommand, OBS_DIM
 from compute.testing.inference_test_runner import InferenceTestRunner
 
@@ -23,14 +23,13 @@ class ProtoHalServer(HalServerBase):
     exactly: [num_prop(53), num_scan(132), num_priv_explicit(9), num_priv_latent(29), history(530)]
     """
 
-    def __init__(self, config, context=None):
+    def __init__(self, config):
         """Initialize proto HAL server.
         
         Args:
             config: HAL server configuration
-            context: Optional shared ZMQ context (useful for inproc connections)
         """
-        super().__init__(config, context=context)
+        super().__init__(config)
         self.tick_count = 0
         self._running = False
         self._publish_thread = None
@@ -49,7 +48,9 @@ class ProtoHalServer(HalServerBase):
         period = 1.0 / rate_hz
 
         def publish_loop():
+            """Background loop that publishes synthetic observations at a fixed rate."""
             while self._running:
+                # Publish synthetic observation in training format
                 self.publish_observation()
                 self.tick_count += 1
                 time.sleep(period)
@@ -59,9 +60,9 @@ class ProtoHalServer(HalServerBase):
             while self._running:
                 try:
                     # Poll for commands (non-blocking with short timeout)
-                    command = self.recv_joint_command(timeout_ms=10)
+                    command = self.get_joint_command(timeout_ms=10)
                     if command is not None:
-                        # Command received and acknowledged by recv_joint_command
+                        # Command received and acknowledged by get_joint_command
                         pass
                 except Exception:
                     # Ignore errors in command handling thread
@@ -82,10 +83,13 @@ class ProtoHalServer(HalServerBase):
             self._command_thread.join(timeout=1.0)
 
     def publish_observation(self):
-        """Publish synthetic observation in training format.
+        """Set/publish synthetic observation in training format.
 
         Creates observation array matching training format:
         [num_prop(53), num_scan(132), num_priv_explicit(9), num_priv_latent(29), history(530)]
+        
+        Note: This method name is kept for backward compatibility in tests.
+        It calls set_observation() on the base class.
         """
         # Create synthetic observation in training format
         obs_array = np.zeros(OBS_DIM, dtype=np.float32)
@@ -107,7 +111,7 @@ class ProtoHalServer(HalServerBase):
         obs_array[-history_dim:] = 0.5  # History
 
         # Publish via base class
-        super().publish_observation(obs_array)
+        super().set_observation(obs_array)
 
 
 class MockPolicyModel:
@@ -144,41 +148,36 @@ class MockPolicyModel:
 def hal_setup():
     """Setup HAL server and client with shared ZMQ context for testing."""
     # Use shared context for inproc connections
-    shared_context = zmq.Context()
-    
     server_config = HalServerConfig.from_endpoints(
         observation_bind="inproc://test_obs",
         command_bind="inproc://test_command",
     )
-    server = ProtoHalServer(server_config, context=shared_context)
+    server = ProtoHalServer(server_config)
     server.initialize()
 
     client_config = HalClientConfig.from_endpoints(
         observation_endpoint="inproc://test_obs",
         command_endpoint="inproc://test_command",
     )
-    client = HalClient(client_config, context=shared_context)
+    # Use shared ZMQ context from server for inproc connections
+    client = HalClient(client_config, context=server.get_transport_context())
     client.initialize()
 
-    # Wait for connection and publish a dummy observation to establish connection
+    # Wait briefly for inproc connection to be established
     time.sleep(0.1)
-    # ProtoHalServer.publish_observation() doesn't take arguments, it generates synthetic data
-    server.publish_observation()
-    time.sleep(0.05)
     client.poll(timeout_ms=100)
 
-    yield server, client, shared_context
+    yield server, client
 
     # Cleanup
     server.stop_publishing()
     client.close()
     server.close()
-    shared_context.term()
 
 
 def test_game_loop_basic_functionality(hal_setup):
     """Test basic inference logic (game loop) functionality with mock HAL server."""
-    server, client, shared_context = hal_setup
+    server, client = hal_setup
 
     # Setup mock model
     model = MockPolicyModel(action_dim=12, inference_time_ms=5.0)
@@ -229,7 +228,7 @@ def test_game_loop_observation_tensor_correctness(hal_setup):
         HISTORY_DIM,
     )
     
-    server, client, shared_context = hal_setup
+    server, client = hal_setup
 
     # Create observation with distinct values for each component to verify structure
     observation = np.zeros(OBS_DIM, dtype=np.float32)
@@ -243,8 +242,8 @@ def test_game_loop_observation_tensor_correctness(hal_setup):
     observation[-HISTORY_DIM:] = 5.0  # History
     
     # Use base class method to publish specific observation
-    from hal.zmq.server import HalServerBase
-    HalServerBase.publish_observation(server, observation)
+    from hal.server.server import HalServerBase
+    HalServerBase.set_observation(server, observation)
     time.sleep(0.1)
     client.poll(timeout_ms=1000)
     

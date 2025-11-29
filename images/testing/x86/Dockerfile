@@ -26,12 +26,16 @@ COPY images/testing/x86/requirements.txt /tmp/requirements.txt
 # Note: Base image already includes PyTorch, NumPy, CUDA, cuDNN, TensorRT
 RUN pip3 install --no-cache-dir -r /tmp/requirements.txt
 
-# Copy project code
+# Copy and install wheels (built via 'make build-wheels')
+COPY hal/krabby-hal-client/dist/*.whl /tmp/wheels/
+COPY hal/krabby-hal-server/dist/*.whl /tmp/wheels/
+COPY hal/krabby-hal-server-isaac/dist/*.whl /tmp/wheels/
+# Note: krabby-hal-tools is excluded by default (only install when needed for debugging)
+RUN bash -c "pip3 install --no-cache-dir /tmp/wheels/*.whl"
+
+# Copy remaining code that's not in wheels
 # Copy compute/ (policy interface and inference logic, including inference test runner)
 COPY compute/ /workspace/compute/
-
-# Copy hal/ (HAL types, ZMQ client/server, interfaces)
-COPY hal/ /workspace/hal/
 
 # Copy parkour/ (custom RSL-RL extensions)
 # Note: policy_interface.py imports directly from parkour.scripts.rsl_rl, so we need the full path

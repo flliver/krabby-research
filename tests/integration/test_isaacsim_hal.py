@@ -8,8 +8,9 @@ import pytest
 import torch
 
 from hal.isaac.hal_server import IsaacSimHalServer
-from hal.zmq.client import HalClient
-from hal.config import HalClientConfig, HalServerConfig
+from hal.client.client import HalClient
+from hal.client.config import HalClientConfig
+from hal.server.config import HalServerConfig
 from hal.observation.types import NavigationCommand
 from compute.parkour.policy_interface import ModelWeights, ParkourPolicyModel
 from compute.testing.inference_test_runner import InferenceTestRunner
@@ -69,14 +70,12 @@ def test_isaacsim_hal_server_camera_publishing(mock_isaac_env, hal_server_config
     import zmq
     
     # Use shared context for inproc connections
-    shared_context = zmq.Context()
-    
     # Setup HAL server with shared context
-    hal_server = IsaacSimHalServer(hal_server_config, env=mock_isaac_env, context=shared_context)
+    hal_server = IsaacSimHalServer(hal_server_config, env=mock_isaac_env)
     hal_server.initialize()
 
-    # Setup HAL client with shared context
-    hal_client = HalClient(hal_client_config, context=shared_context)
+    # Setup HAL client with shared ZMQ context from server (for inproc connections)
+    hal_client = HalClient(hal_client_config, context=hal_server.get_transport_context())
     hal_client.initialize()
 
     time.sleep(0.1)
@@ -87,8 +86,8 @@ def test_isaacsim_hal_server_camera_publishing(mock_isaac_env, hal_server_config
     hal_server.observation_manager.compute = MagicMock(return_value={"policy": torch.zeros(OBS_DIM, dtype=torch.float32)})
     hal_server.env.device = torch.device("cpu")
 
-    # Publish telemetry
-    hal_server.publish_observation()
+    # Publish observation
+    hal_server.set_observation()
 
     # Poll client
     hal_client.poll(timeout_ms=1000)
@@ -100,7 +99,6 @@ def test_isaacsim_hal_server_camera_publishing(mock_isaac_env, hal_server_config
 
     hal_client.close()
     hal_server.close()
-    shared_context.term()
 
 
 def test_isaacsim_hal_server_state_publishing(mock_isaac_env, hal_server_config, hal_client_config):
@@ -108,14 +106,12 @@ def test_isaacsim_hal_server_state_publishing(mock_isaac_env, hal_server_config,
     import zmq
     
     # Use shared context for inproc connections
-    shared_context = zmq.Context()
-    
     # Setup HAL server with shared context
-    hal_server = IsaacSimHalServer(hal_server_config, env=mock_isaac_env, context=shared_context)
+    hal_server = IsaacSimHalServer(hal_server_config, env=mock_isaac_env)
     hal_server.initialize()
 
-    # Setup HAL client with shared context
-    hal_client = HalClient(hal_client_config, context=shared_context)
+    # Setup HAL client with shared ZMQ context from server (for inproc connections)
+    hal_client = HalClient(hal_client_config, context=hal_server.get_transport_context())
     hal_client.initialize()
 
     time.sleep(0.1)
@@ -126,8 +122,8 @@ def test_isaacsim_hal_server_state_publishing(mock_isaac_env, hal_server_config,
     hal_server.observation_manager.compute = MagicMock(return_value={"policy": torch.zeros(OBS_DIM, dtype=torch.float32)})
     hal_server.env.device = torch.device("cpu")
 
-    # Publish telemetry
-    hal_server.publish_observation()
+    # Publish observation
+    hal_server.set_observation()
 
     # Poll client
     hal_client.poll(timeout_ms=1000)
@@ -139,7 +135,6 @@ def test_isaacsim_hal_server_state_publishing(mock_isaac_env, hal_server_config,
 
     hal_client.close()
     hal_server.close()
-    shared_context.term()
 
 
 def test_isaacsim_hal_server_joint_command_application(mock_isaac_env, hal_server_config, hal_client_config):
@@ -147,14 +142,12 @@ def test_isaacsim_hal_server_joint_command_application(mock_isaac_env, hal_serve
     import zmq
     
     # Use shared context for inproc connections
-    shared_context = zmq.Context()
-    
     # Setup HAL server with shared context
-    hal_server = IsaacSimHalServer(hal_server_config, env=mock_isaac_env, context=shared_context)
+    hal_server = IsaacSimHalServer(hal_server_config, env=mock_isaac_env)
     hal_server.initialize()
 
-    # Setup HAL client with shared context
-    hal_client = HalClient(hal_client_config, context=shared_context)
+    # Setup HAL client with shared ZMQ context from server (for inproc connections)
+    hal_client = HalClient(hal_client_config, context=hal_server.get_transport_context())
     hal_client.initialize()
 
     time.sleep(0.1)
@@ -176,7 +169,7 @@ def test_isaacsim_hal_server_joint_command_application(mock_isaac_env, hal_serve
     hal_server.recv_joint_command_bytes = mock_recv_command_bytes
 
     # Apply joint command
-    result = hal_server.apply_joint_command()
+    result = hal_server.move()
 
     # Verify command was applied (or at least attempted)
     assert result is True, "apply_joint_command should return True when command is received"
@@ -187,7 +180,6 @@ def test_isaacsim_hal_server_joint_command_application(mock_isaac_env, hal_serve
 
     hal_client.close()
     hal_server.close()
-    shared_context.term()
 
 
 def test_isaacsim_hal_server_end_to_end_with_game_loop(mock_isaac_env, hal_server_config, hal_client_config):
@@ -195,14 +187,12 @@ def test_isaacsim_hal_server_end_to_end_with_game_loop(mock_isaac_env, hal_serve
     import zmq
     
     # Use shared context for inproc connections
-    shared_context = zmq.Context()
-    
     # Setup HAL server with shared context
-    hal_server = IsaacSimHalServer(hal_server_config, env=mock_isaac_env, context=shared_context)
+    hal_server = IsaacSimHalServer(hal_server_config, env=mock_isaac_env)
     hal_server.initialize()
 
     # Setup HAL client with shared context
-    hal_client = HalClient(hal_client_config, context=shared_context)
+    hal_client = HalClient(hal_client_config, context=hal_server.get_transport_context())
     hal_client.initialize()
 
     time.sleep(0.1)
@@ -249,8 +239,8 @@ def test_isaacsim_hal_server_end_to_end_with_game_loop(mock_isaac_env, hal_serve
 
     def run_loop():
         for _ in range(10):  # Run 10 iterations
-            # Publish telemetry from hal server
-            hal_server.publish_observation()
+            # Publish observation from hal server
+            hal_server.set_observation()
 
             # Poll client
             hal_client.poll(timeout_ms=10)
@@ -260,10 +250,10 @@ def test_isaacsim_hal_server_end_to_end_with_game_loop(mock_isaac_env, hal_serve
             if model_io is not None:
                 inference_result = model.inference(model_io)
                 if inference_result.success:
-                    hal_client.send_joint_command(inference_result)
+                    hal_client.put_joint_command(inference_result)
 
             # Apply joint command
-            hal_server.apply_joint_command()
+            hal_server.move()
 
             time.sleep(0.01)  # 10ms period (100Hz)
 
@@ -276,26 +266,25 @@ def test_isaacsim_hal_server_end_to_end_with_game_loop(mock_isaac_env, hal_serve
 
     hal_client.close()
     hal_server.close()
-    shared_context.term()
 
 
 def test_isaacsim_hal_server_behavior_matches_baseline(mock_isaac_env, hal_server_config):
     """Test that IsaacSim HAL server behavior matches baseline evaluation.py.
 
     This test verifies that:
-    - Telemetry is published at correct rates
+    - Observation is published at correct rates
     - Commands are applied correctly
     - The interface matches what evaluation.py expects
     """
     hal_server = IsaacSimHalServer(hal_server_config, env=mock_isaac_env)
     hal_server.initialize()
 
-    # Verify server can publish telemetry
+    # Verify server can publish observation
     hal_server._extract_depth_features = lambda: np.array([1.0] * 10, dtype=np.float32)
     hal_server._extract_state_vector = lambda: np.array([0.0] * 34, dtype=np.float32)
 
-    # Publish telemetry (should not raise)
-    hal_server.publish_observation()
+    # Publish observation (should not raise)
+    hal_server.set_observation()
 
     # Verify server can receive commands
     hal_server.action_manager = MagicMock()
@@ -305,7 +294,7 @@ def test_isaacsim_hal_server_behavior_matches_baseline(mock_isaac_env, hal_serve
     hal_server.recv_joint_command = lambda timeout_ms=100: np.array([0.0] * 12, dtype=np.float32)
 
     # Apply command (should not raise)
-    result = hal_server.apply_joint_command()
+    result = hal_server.move()
     assert result is not None
 
     hal_server.close()
@@ -316,14 +305,12 @@ def test_isaacsim_hal_server_with_real_zmq_communication(mock_isaac_env, hal_ser
     import zmq
     
     # Use shared context for inproc connections
-    shared_context = zmq.Context()
-    
     # Setup HAL server with shared context
-    hal_server = IsaacSimHalServer(hal_server_config, env=mock_isaac_env, context=shared_context)
+    hal_server = IsaacSimHalServer(hal_server_config, env=mock_isaac_env)
     hal_server.initialize()
 
     # Setup HAL client with shared context
-    hal_client = HalClient(hal_client_config, context=shared_context)
+    hal_client = HalClient(hal_client_config, context=hal_server.get_transport_context())
     hal_client.initialize()
 
     time.sleep(0.1)
@@ -333,8 +320,8 @@ def test_isaacsim_hal_server_with_real_zmq_communication(mock_isaac_env, hal_ser
     hal_server.observation_manager = MagicMock()
     hal_server.observation_manager.compute = MagicMock(return_value={"policy": torch.zeros(OBS_DIM, dtype=torch.float32)})
 
-    # Publish telemetry
-    hal_server.publish_observation()
+    # Publish observation
+    hal_server.set_observation()
 
     # Poll client
     hal_client.poll(timeout_ms=1000)
@@ -358,14 +345,14 @@ def test_isaacsim_hal_server_with_real_zmq_communication(mock_isaac_env, hal_ser
     received_command = [None]
     
     def server_receive():
-        received_command[0] = hal_server.recv_joint_command(timeout_ms=2000)
+        received_command[0] = hal_server.get_joint_command(timeout_ms=2000)
     
     server_thread = threading.Thread(target=server_receive)
     server_thread.start()
     time.sleep(0.05)  # Small delay to ensure server is waiting
     
     # Send command
-    success = hal_client.send_joint_command(inference_response)
+    success = hal_client.put_joint_command(inference_response)
     assert success
     
     server_thread.join(timeout=2.0)
@@ -375,11 +362,10 @@ def test_isaacsim_hal_server_with_real_zmq_communication(mock_isaac_env, hal_ser
 
     hal_client.close()
     hal_server.close()
-    shared_context.term()
 
 
-def test_isaacsim_hal_server_telemetry_rate(mock_isaac_env, hal_server_config, hal_client_config):
-    """Test that telemetry can be published at required rates (30-60 Hz camera, 100+ Hz state)."""
+def test_isaacsim_hal_server_observation_rate(mock_isaac_env, hal_server_config, hal_client_config):
+    """Test that observation can be published at required rates (30-60 Hz camera, 100+ Hz state)."""
     hal_server = IsaacSimHalServer(hal_server_config, env=mock_isaac_env)
     hal_server.initialize()
 
@@ -396,7 +382,7 @@ def test_isaacsim_hal_server_telemetry_rate(mock_isaac_env, hal_server_config, h
     publish_count = 0
 
     for _ in range(100):  # Publish 100 times
-        hal_server.publish_observation()
+        hal_server.set_observation()
         publish_count += 1
         time.sleep(0.001)  # 1ms between publishes (1000 Hz theoretical max)
 
@@ -419,12 +405,15 @@ def test_isaacsim_hal_server_error_handling(mock_isaac_env, hal_server_config):
     hal_server_no_env = IsaacSimHalServer(hal_server_config, env=None)
     hal_server_no_env.initialize()
 
-    # Publish telemetry with no environment (should handle gracefully)
-    hal_server_no_env.publish_observation()  # Should not crash
+    # Publish observation with no environment:
+    # In the new implementation this correctly raises a RuntimeError instead of silently succeeding.
+    with pytest.raises(RuntimeError, match="No environment set"):
+        hal_server_no_env.set_observation()
 
-    # Apply command with no environment (should handle gracefully)
-    result = hal_server_no_env.apply_joint_command()  # Should not crash
-    assert result is False  # Should return False when no environment
+    # Apply command with no environment:
+    # Likewise, move() now raises a RuntimeError when env is None.
+    with pytest.raises(RuntimeError, match="No environment set"):
+        hal_server_no_env.move()
 
     hal_server_no_env.close()
     hal_server.close()
@@ -439,14 +428,12 @@ def test_isaacsim_hal_server_100_consecutive_command_cycles(mock_isaac_env, hal_
     import zmq
     
     # Use shared context for inproc connections
-    shared_context = zmq.Context()
-    
     # Setup HAL server with shared context
-    hal_server = IsaacSimHalServer(hal_server_config, env=mock_isaac_env, context=shared_context)
+    hal_server = IsaacSimHalServer(hal_server_config, env=mock_isaac_env)
     hal_server.initialize()
 
     # Setup HAL client with shared context
-    hal_client = HalClient(hal_client_config, context=shared_context)
+    hal_client = HalClient(hal_client_config, context=hal_server.get_transport_context())
     hal_client.initialize()
 
     time.sleep(0.1)
@@ -487,8 +474,8 @@ def test_isaacsim_hal_server_100_consecutive_command_cycles(mock_isaac_env, hal_
         cycle_start = time.time()
         
         try:
-            # Publish telemetry
-            hal_server.publish_observation()
+            # Publish observation
+            hal_server.set_observation()
             observations_published += 1
             
             # Poll client
@@ -508,14 +495,14 @@ def test_isaacsim_hal_server_100_consecutive_command_cycles(mock_isaac_env, hal_
                     action=action_tensor,
                     inference_latency_ms=5.0,
                 )
-                hal_client.send_joint_command(response)
+                hal_client.put_joint_command(response)
                 
                 # Receive and apply command on server
-                if hal_server.apply_joint_command():
+                if hal_server.move():
                     commands_received += 1
                     
                     # Verify no NaN values
-                    received_cmd = hal_server.recv_joint_command(timeout_ms=10)
+                    received_cmd = hal_server.get_joint_command(timeout_ms=10)
                     if received_cmd is not None:
                         if np.any(np.isnan(received_cmd)) or np.any(np.isinf(received_cmd)):
                             errors.append(f"Cycle {cycle}: NaN or Inf in command")
@@ -551,7 +538,6 @@ def test_isaacsim_hal_server_100_consecutive_command_cycles(mock_isaac_env, hal_
     
     hal_client.close()
     hal_server.close()
-    shared_context.term()
 
 
 def test_isaacsim_hal_server_full_parkour_eval_simulation(mock_isaac_env, hal_server_config, hal_client_config):
@@ -565,14 +551,12 @@ def test_isaacsim_hal_server_full_parkour_eval_simulation(mock_isaac_env, hal_se
     import zmq
     
     # Use shared context for inproc connections
-    shared_context = zmq.Context()
-    
     # Setup HAL server with shared context
-    hal_server = IsaacSimHalServer(hal_server_config, env=mock_isaac_env, context=shared_context)
+    hal_server = IsaacSimHalServer(hal_server_config, env=mock_isaac_env)
     hal_server.initialize()
 
     # Setup HAL client with shared context
-    hal_client = HalClient(hal_client_config, context=shared_context)
+    hal_client = HalClient(hal_client_config, context=hal_server.get_transport_context())
     hal_client.initialize()
 
     time.sleep(0.1)
@@ -625,8 +609,8 @@ def test_isaacsim_hal_server_full_parkour_eval_simulation(mock_isaac_env, hal_se
                 stalls += 1
         
         try:
-            # Publish telemetry
-            hal_server.publish_observation()
+            # Publish observation
+            hal_server.set_observation()
             observations_published += 1
             
             # Poll client
@@ -646,11 +630,11 @@ def test_isaacsim_hal_server_full_parkour_eval_simulation(mock_isaac_env, hal_se
                     action=action_tensor,
                     inference_latency_ms=5.0,
                 )
-                hal_client.send_joint_command(response)
+                hal_client.put_joint_command(response)
                 commands_sent += 1
                 
                 # Apply command
-                if hal_server.apply_joint_command():
+                if hal_server.move():
                     commands_received += 1
             
             cycles_completed += 1
@@ -686,7 +670,6 @@ def test_isaacsim_hal_server_full_parkour_eval_simulation(mock_isaac_env, hal_se
     
     hal_client.close()
     hal_server.close()
-    shared_context.term()
 
 
 def test_isaacsim_hal_server_interface_matches_evaluation_baseline(mock_isaac_env, hal_server_config):

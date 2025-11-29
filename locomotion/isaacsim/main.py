@@ -13,8 +13,9 @@ from typing import Optional
 
 from isaaclab.app import AppLauncher
 
-from hal.zmq.client import HalClient
-from hal.config import HalClientConfig, HalServerConfig
+from hal.client.client import HalClient
+from hal.client.config import HalClientConfig
+from hal.server.config import HalServerConfig
 from hal.isaac.hal_server import IsaacSimHalServer
 from compute.parkour.policy_interface import ModelWeights, ParkourPolicyModel
 
@@ -103,10 +104,8 @@ def main():
             command_bind=args.command_bind,
         )
 
-        # Create and initialize HAL server with shared context for inproc
-        import zmq
-        shared_context = zmq.Context()
-        hal_server = IsaacSimHalServer(hal_server_config, env=env, context=shared_context)
+        # Create and initialize HAL server
+        hal_server = IsaacSimHalServer(hal_server_config, env=env)
         hal_server.initialize()
 
         # Create HAL client config with inproc endpoints
@@ -114,7 +113,9 @@ def main():
             observation_endpoint=args.observation_bind,
             command_endpoint=args.command_bind,
         )
-        hal_client = HalClient(hal_client_config, context=shared_context)
+        # Get transport context from server for inproc connections
+        transport_context = hal_server.get_transport_context() if "inproc://" in args.observation_bind else None
+        hal_client = HalClient(hal_client_config, transport_context=transport_context)
         hal_client.initialize()
 
         logger.info("Isaac Sim container initialized")
@@ -131,7 +132,7 @@ def main():
                 env.step(None)  # Action will come from hal/inference
 
                 # Publish telemetry from simulation
-                hal_server.publish_observation()
+                hal_server.set_observation()
 
                 # Poll HAL for latest data
                 hal_client.poll(timeout_ms=1)
@@ -144,10 +145,10 @@ def main():
 
                     if inference_result.success:
                         # Send command back to HAL server
-                        hal_client.send_joint_command(inference_result)
+                        hal_client.put_joint_command(inference_result)
 
                 # Apply joint command to simulation
-                hal_server.apply_joint_command()
+                hal_server.move()
 
                 # Timing control
                 loop_end_ns = time.time_ns()

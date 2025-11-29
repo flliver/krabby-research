@@ -8,7 +8,7 @@ import logging
 import signal
 import sys
 
-from hal.config import HalServerConfig
+from hal.server.config import HalServerConfig
 from compute.parkour.policy_interface import ModelWeights, ParkourPolicyModel
 from locomotion.jetson.inference_runner import InferenceRunner
 

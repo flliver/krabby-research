@@ -1,13 +1,13 @@
 # HAL (Hardware Abstraction Layer) Guide
 
-This guide explains how to work with the HAL for publishing telemetry, subscribing to sensor data, and sending commands.
+This guide explains how to work with the HAL for publishing observation, subscribing to sensor data, and sending commands.
 
 ## Overview
 
 The HAL uses ZMQ (ZeroMQ) for communication with three distinct channels:
 
-1. **Camera Telemetry** (PUB/SUB) - Topic: `"camera"` - HAL Server → Policy Wrapper (30-60 Hz)
-2. **State Telemetry** (PUB/SUB) - Topic: `"state"` - HAL Server → Policy Wrapper (100+ Hz)
+1. **Camera Observation** (PUB/SUB) - Topic: `"camera"` - HAL Server → Policy Wrapper (30-60 Hz)
+2. **State Observation** (PUB/SUB) - Topic: `"state"` - HAL Server → Policy Wrapper (100+ Hz)
 3. **Joint Commands** (REQ/REP) - No topic - Policy Wrapper → HAL Server (100+ Hz)
 
 All channels support both `inproc://` (same process) and `tcp://` (network) transports.
@@ -16,7 +16,7 @@ All channels support both `inproc://` (same process) and `tcp://` (network) tran
 
 ## Communication Channels
 
-### Camera Telemetry (PUB/SUB)
+### Camera Observation (PUB/SUB)
 
 - **Topic**: `"camera"`
 - **Message**: Depth features as `float32[N]` array
@@ -26,7 +26,7 @@ All channels support both `inproc://` (same process) and `tcp://` (network) tran
   - Part 2: Binary payload (`float32[N]` array serialized as binary)
 - **Semantics**: Latest-only (HWM=1)
 
-### State Telemetry (PUB/SUB)
+### State Observation (PUB/SUB)
 
 - **Topic**: `"state"`
 - **Message**: Robot state as `float32[M]` array containing base position (3), quaternion (4), base linear velocity (3), base angular velocity (3), joint positions (ACTION_DIM), joint velocities (ACTION_DIM)
@@ -42,13 +42,13 @@ All channels support both `inproc://` (same process) and `tcp://` (network) tran
 - **Response**: Acknowledgement string (`"ok"` or error message)
 - **Semantics**: Request-response pattern ensures ordering and acknowledgement
 
-## Telemetry Models
+## Observation Models
 
 Input data models for the Hardware Abstraction Layer (HAL). These represent sensor data and robot state flowing from hardware/simulation to the policy wrapper.
 
 ### Overview
 
-Telemetry models capture robot state and sensor observations. They use nested structures for code organization but are flattened to a flat tensor for policy inference.
+Observation models capture robot state and sensor observations. They use nested structures for code organization but are flattened to a flat tensor for policy inference.
 
 **Common Reusable Structures**:
 - **Position3D**: `{x, y, z}` (float, meters)
@@ -80,7 +80,7 @@ Telemetry models capture robot state and sensor observations. They use nested st
 - **features**: Array[float] (length N, model-specific) - Pre-processed depth features
 
 #### ParkourModelIO
-Combined input model aggregating all telemetry for policy inference:
+Combined input model aggregating all observation for policy inference:
 - **timestamp_ns**: Integer (nanoseconds)
 - **schema_version**: String
 - **nav_cmd**: NavigationCommand (nested)
@@ -255,8 +255,8 @@ The HAL interface must support:
 2. Bind to endpoints (inproc or TCP)
 3. Set HWM=1 for latest-only semantics on PUB sockets
 4. Main loop:
-   - Publish camera telemetry (30-60 Hz): Convert depth features to `float32` array, send as multipart `[topic, schema_version, payload]`
-   - Publish state telemetry (100+ Hz): Convert robot state to `float32` array, send as multipart `[topic, schema_version, payload]`
+   - Publish camera observation (30-60 Hz): Convert depth features to `float32` array, send as multipart `[topic, schema_version, payload]`
+   - Publish state observation (100+ Hz): Convert robot state to `float32` array, send as multipart `[topic, schema_version, payload]`
    - Receive command requests (non-blocking): Deserialize to `float32` array, apply to actuators, send acknowledgement
 
 ## HAL Client Workflow
@@ -266,7 +266,7 @@ The HAL interface must support:
 3. Subscribe to topics: `"camera"` and `"state"`
 4. Set HWM=1 for latest-only semantics on SUB sockets
 5. Main loop:
-   - Poll for telemetry messages (non-blocking with timeout)
+   - Poll for observation messages (non-blocking with timeout)
    - Receive multipart messages: `[topic, schema_version, payload]`
    - Validate schema version before deserialization
    - Deserialize payload to `float32` arrays (if schema version is compatible)
@@ -280,14 +280,14 @@ The HAL interface must support:
 All PUB/SUB channels use HWM=1 (high-watermark=1):
 - Only the latest message is kept in buffers
 - Old messages are automatically dropped
-- Subscribers always receive the most recent telemetry
+- Subscribers always receive the most recent observation
 - Prevents queue buildup and ensures real-time control uses fresh data
 
 ## Synchronization
 
 - **Topic filtering**: Subscribers must subscribe to specific topics (`"camera"` or `"state"`)
 - **Message ordering**: PUB/SUB has no guaranteed ordering; REQ/REP guarantees ordering
-- **Timestamp synchronization**: Camera and state messages should have timestamps within < 10ms of each other (see Telemetry Models section)
+- **Timestamp synchronization**: Camera and state messages should have timestamps within < 10ms of each other (see Observation Models section)
 
 ## Error Handling
 
@@ -317,7 +317,7 @@ This section explains how to use the debugging tools for the Hardware Abstractio
 
 ## hal_dump Tool
 
-The `hal_dump` tool inspects the current state of a HAL server, showing telemetry data and command endpoint status.
+The `hal_dump` tool inspects the current state of a HAL server, showing observation data and command endpoint status.
 
 ### Basic Usage
 
@@ -364,7 +364,7 @@ python -m hal.tools.hal_dump \
 ### Output Format
 
 The tool displays:
-- **Observation/Telemetry**: Shape, dtype, statistics (min/max/mean)
+- **Observation/Observation**: Shape, dtype, statistics (min/max/mean)
 - **Detailed Breakdown** (verbose mode):
   - Proprioceptive features (root angular velocity, IMU, joint positions/velocities)
   - Scan features (depth/height measurements)
@@ -381,7 +381,7 @@ HAL Server State Dump
 ================================================================================
 Timestamp: 2024-01-15 10:30:45
 
-📊 Observation Telemetry (New Format):
+📊 Observation Observation (New Format):
   Topic: observation
   Schema Version: 1.0
   Timestamp: 1705315845000000000 ns (1705315845.000000 s)
@@ -417,8 +417,8 @@ The HAL supports runtime debug logging that can be enabled/disabled without rest
 
 **In Code:**
 ```python
-from hal.zmq.client import HalClient
-from hal.zmq.server import HalServerBase
+from hal.client.client import HalClient
+from hal.server.server import HalServerBase
 
 # Enable debug logging on client
 hal_client = HalClient(config)
@@ -493,7 +493,7 @@ hal_server.set_debug(True)
 
 # Run a few cycles
 for _ in range(10):
-    hal_server.publish_telemetry()
+    hal_server.publish_observation()
     hal_client.poll(timeout_ms=100)
     # Check logs to see if data is flowing
 

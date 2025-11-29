@@ -19,8 +19,8 @@ from typing import Optional
 
 import numpy as np
 
-from hal.zmq.client import HalClient
-from hal.config import HalClientConfig
+from hal.client.client import HalClient
+from hal.client.config import HalClientConfig
 from hal.observation.types import NavigationCommand
 from compute.parkour.policy_interface import ModelWeights, ParkourPolicyModel
 
@@ -101,16 +101,16 @@ class InferenceTestRunner:
                                 f"(may cause frame drops)"
                             )
 
-                        # Send command to HAL
-                        if not self.hal_client.send_joint_command(inference_result):
-                            logger.error("Failed to send joint command")
+                        # Put command to HAL
+                        if not self.hal_client.put_joint_command(inference_result):
+                            logger.error("Failed to put joint command")
                     else:
                         logger.error(f"Inference failed: {inference_result.error_message}")
                         self.inference_not_ready_count += 1
                 else:
                     # Inference still in progress from previous call, use cached result
                     if self.last_inference_result is not None and self.last_inference_result.success:
-                        self.hal_client.send_joint_command(self.last_inference_result)
+                        self.hal_client.put_joint_command(self.last_inference_result)
                         self.dropped_frames += 1
                     else:
                         self.inference_not_ready_count += 1

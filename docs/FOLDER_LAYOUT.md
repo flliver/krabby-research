@@ -4,8 +4,13 @@ This document describes the folder structure under `/home/shriop/projects/krabs/
 
 ## Overview
 
-Currently, the project includes three new directories:
-- **`hal/`**: Hardware Abstraction Layer components, organized by observation (input) and commands (output) types/interfaces, transport implementation (ZMQ), backend implementations (Isaac), and model-specific data structures
+Currently, the project includes:
+- **`hal/`**: Hardware Abstraction Layer components, organized into wheel-based packages:
+  - **`krabby-hal-client`**: Client implementation and types (installed via wheel)
+  - **`krabby-hal-server`**: Base server class (installed via wheel)
+  - **`krabby-hal-server-isaac`**: IsaacSim server implementation (installed via wheel)
+  - **`krabby-hal-server-jetson`**: Jetson server implementation (installed via wheel)
+  - **`krabby-hal-tools`**: Debugging tools (installed via wheel)
 - **`compute/`**: Production inference and computation logic:
   - **`compute/parkour/`**: Production-ready inference implementation (used in production container)
 - **`locomotion/`**: Production runtime that combines inference logic and HAL server for robot deployment
@@ -15,9 +20,9 @@ Currently, the project includes three new directories:
   - Production: `locomotion/jetson/inference_runner.py::InferenceRunner.run()`
 
 All containers use inproc ZMQ for communication within the same process:
-- **Production container** (`images/locomotion/`): Combines inference (`compute/parkour/`) and HAL server (`locomotion/`) to run on the actual robot (Jetson/ARM)
-- **IsaacSim container** (`images/isaacsim/`): Combines inference (`compute/parkour/`) and HAL server (`hal/isaac/`) for simulation (x86)
-- **Testing containers** (`images/testing/x86/` and `images/testing/arm/`): Containers for running tests and development
+- **Production container** (`images/locomotion/`): Combines inference (`compute/parkour/`) and HAL server (`locomotion/jetson/`) to run on the actual robot (Jetson/ARM). Uses wheels: `krabby-hal-client`, `krabby-hal-server`, `krabby-hal-server-jetson`
+- **IsaacSim container** (`images/isaacsim/`): Combines inference (`compute/parkour/`) and HAL server (`krabby-hal-server-isaac`) for simulation (x86). Uses wheels: `krabby-hal-client`, `krabby-hal-server`, `krabby-hal-server-isaac`
+- **Testing containers** (`images/testing/x86/` and `images/testing/arm/`): Containers for running tests and development. Uses wheels: `krabby-hal-client`, `krabby-hal-server`, `krabby-hal-server-isaac`
 
 These are separate from the existing `parkour/` directory which contains model-specific training and evaluation code.
 
@@ -30,40 +35,43 @@ krabby-research/
 │   ├── parkour_isaaclab/             # IsaacLab environment code
 │   └── parkour_tasks/                # Task configurations
 │
-├── hal/                              # Hardware Abstraction Layer (current)
-│   ├── __init__.py
-│   ├── config.py                     # HAL configuration classes
+├── hal/                              # Hardware Abstraction Layer
+│   ├── __init__.py                   # Minimal stub (packages installed via wheels or editable mode)
 │   │
-│   ├── observation/                  # Input types and interfaces (sensor data, state)
-│   │   ├── __init__.py
-│   │   ├── types.py                  # NavigationCommand, ParkourObservation, ParkourModelIO
-│   │   └── interfaces.py             # Observation input interfaces
+│   ├── krabby-hal-client/            # HAL client package (single source of truth)
+│   │   ├── pyproject.toml
+│   │   └── hal/
+│   │       ├── client/
+│   │       │   ├── client.py         # HalClient (ZMQ logic black-boxed)
+│   │       │   └── config.py          # HalClientConfig
+│   │       ├── observation/          # Observation types (NavigationCommand, ParkourObservation, etc.)
+│   │       └── commands/             # Command types (JointCommand, InferenceResponse, etc.)
 │   │
-│   ├── commands/                     # Output types and interfaces (actuator commands)
-│   │   ├── __init__.py
-│   │   ├── types.py                  # JointCommand, InferenceResponse
-│   │   └── interfaces.py             # Command output interfaces
+│   ├── krabby-hal-server/            # HAL server base package (wheel source)
+│   │   ├── pyproject.toml
+│   │   └── hal/
+│   │       └── server/
+│   │           ├── server.py         # HalServerBase (ZMQ logic black-boxed)
+│   │           └── config.py          # HalServerConfig
 │   │
-│   ├── zmq/                          # ZMQ-based HAL implementation
-│   │   ├── __init__.py
-│   │   ├── client.py                 # HAL client implementation
-│   │   ├── server.py                 # HAL server base class
-│   │   └── transport.py              # ZMQ transport utilities
+│   ├── krabby-hal-server-isaac/      # IsaacSim HAL server package (single source of truth)
+│   │   ├── pyproject.toml
+│   │   └── hal/
+│   │       └── isaac/
+│   │           ├── hal_server.py     # IsaacSimHalServer (extends HalServerBase)
+│   │           └── main.py            # Entry point (registered as console script)
 │   │
-│   ├── isaac/                        # IsaacSim HAL backend
-│   │   ├── __init__.py
-│   │   ├── hal_server.py             # IsaacSimHalServer implementation
-│   │   ├── config.py                 # IsaacSim-specific config
-│   │   └── main.py                   # Entry point for IsaacSim HAL server
+│   ├── krabby-hal-server-jetson/    # Jetson HAL server package (wheel source)
+│   │   ├── pyproject.toml
+│   │   └── hal/
+│   │       └── jetson/
+│   │           └── hal_server.py     # JetsonHalServer (extends HalServerBase)
 │   │
-│   ├── parkour/                      # Parkour-specific HAL components
-│   │   ├── __init__.py
-│   │   └── model_io.py               # ParkourModelIO and related types
-│   │
-│   └── tools/                        # HAL debugging and utility tools
-│       ├── __init__.py
-│       ├── hal_dump.py               # CLI tool to inspect HAL state
-│       └── debug_logger.py           # Runtime debug logging utilities
+│   └── krabby-hal-tools/           # HAL debugging tools package (single source of truth)
+│       ├── pyproject.toml
+│       └── hal/
+│           └── tools/
+│               └── hal_dump.py       # CLI tool (registered as console script)
 │
 ├── compute/                          # Inference and computation logic (current)
 │   └── parkour/                      # Parkour inference implementation (used in production)
@@ -71,13 +79,14 @@ krabby-research/
 │       ├── policy_interface.py     # Parkour policy inference interface
 │       └── model_loader.py           # Model loading and checkpoint management
 │
-├── locomotion/                       # Production runtime for Jetson (current)
-│   ├── __init__.py
-│   ├── hal_server.py                 # JetsonHalServer implementation (real sensors)
-│   ├── inference_runner.py            # Production inference orchestration
-│   ├── config.py                     # Jetson-specific config
-│   ├── camera.py                     # ZED camera integration
-│   └── main.py                       # Production entry point (runs inference + HAL server on Jetson)
+├── locomotion/                       # Production runtime
+│   ├── jetson/                       # Jetson-specific runtime
+│   │   ├── hal_server.py             # JetsonHalServer implementation (real sensors, source file packaged in krabby-hal-server-jetson wheel)
+│   │   ├── inference_runner.py       # Production inference orchestration
+│   │   ├── camera.py                 # ZED camera integration
+│   │   └── main.py                   # Production entry point (runs inference + HAL server on Jetson)
+│   └── isaacsim/                     # IsaacSim runtime (if exists)
+│       └── main.py                   # IsaacSim entry point
 │
 ├── images/                           # OS images, Dockerfiles, and container configs (current)
 │   ├── locomotion/                   # Production container (Jetson: inference + HAL server, inproc ZMQ)
@@ -102,13 +111,55 @@ krabby-research/
 
 ## Key Points
 
-- **`hal/observation/`**: Input types and interfaces (NavigationCommand, ParkourObservation, ParkourModelIO)
-- **`hal/commands/`**: Output types and interfaces (JointCommand, InferenceResponse)
-- **`hal/zmq/`**: ZMQ transport implementation (client, server, transport utilities)
-- **`hal/isaac/`**: IsaacSim HAL backend implementation
+### HAL Package Structure (Wheel-based)
+- **`hal/krabby-hal-client/`**: HAL client package (installed via wheel)
+  - `hal/client/client.py`: HalClient implementation (ZMQ black-boxed)
+  - `hal/client/config.py`: HalClientConfig
+  - `hal/observation/`: Observation types (NavigationCommand, ParkourObservation, ParkourModelIO)
+  - `hal/commands/`: Command types (JointCommand, InferenceResponse)
+  
+- **`hal/krabby-hal-server/`**: HAL server base package (installed via wheel)
+  - `hal/server/server.py`: HalServerBase implementation (ZMQ black-boxed)
+  - `hal/server/config.py`: HalServerConfig
+  
+- **`hal/krabby-hal-server-isaac/`**: IsaacSim HAL server package (installed via wheel)
+  - `hal/isaac/hal_server.py`: IsaacSimHalServer (extends HalServerBase)
+  - `hal/isaac/main.py`: Entry point (console script: `krabby-hal-server-isaac`)
+  
+- **`hal/krabby-hal-server-jetson/`**: Jetson HAL server package (installed via wheel)
+  - `hal/jetson/hal_server.py`: JetsonHalServer (extends HalServerBase)
+  
+- **`hal/krabby-hal-tools/`**: HAL debugging tools package (installed via wheel)
+  - `hal/tools/hal_dump.py`: CLI tool (console script: `hal-dump`)
+
+### Single Source of Truth with Editable Installs
+
+The HAL components use a **single source of truth** approach:
+
+- **Source files** are located in `hal/krabby-hal-*/` directories (e.g., `hal/krabby-hal-client/hal/observation/`, `hal/krabby-hal-server-isaac/hal/isaac/`)
+- **No duplicate source directories** - all code lives in the wheel package directories
+- **Editable installs for development**: Run `make install-editable` to install packages in editable mode
+  - This allows you to edit files in `hal/krabby-hal-*/` directories and see changes immediately
+  - No need to rebuild wheels during development
+- **Wheel builds for distribution**: Run `make build-wheels` to create distributable wheels
+- **Production/Docker**: Install wheels from `hal/krabby-hal-*/dist/*.whl`
+
+**Development workflow:**
+```bash
+# Install packages in editable mode (one-time setup)
+make install-editable
+
+# Now you can edit files in hal/krabby-hal-*/ and changes are immediately available
+# No need to rebuild or reinstall
+
+# To build wheels for distribution/Docker
+make build-wheels
+```
+
+### Other Components
 - **`compute/parkour/`**: Production inference logic (used in production container)
-- **`locomotion/`**: Production runtime combining inference and HAL server for robot deployment
-- **`images/locomotion/`**: Production container that runs on the robot
-- **`images/isaacsim/`**: IsaacSim container for simulation
-- **`images/testing/`**: Testing containers for x86 and ARM platforms
+- **`locomotion/jetson/`**: Production runtime combining inference and HAL server for robot deployment
+- **`images/locomotion/`**: Production container that runs on the robot (uses wheels)
+- **`images/isaacsim/`**: IsaacSim container for simulation (uses wheels)
+- **`images/testing/`**: Testing containers for x86 and ARM platforms (uses wheels)
 

@@ -6,8 +6,8 @@ from typing import Optional
 
 import numpy as np
 
-from hal.zmq.server import HalServerBase
-from hal.config import HalServerConfig
+from hal.server.server import HalServerBase
+from hal.server.config import HalServerConfig
 from hal.observation.types import (
     NUM_PROP,
     NUM_SCAN,
@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 class JetsonHalServer(HalServerBase):
     """HAL server for Jetson robot deployment.
 
-    Integrates with ZED camera and real sensors to publish telemetry.
+    Integrates with ZED camera and real sensors to publish observations.
     Applies joint commands to real actuators.
     """
 
@@ -33,17 +33,15 @@ class JetsonHalServer(HalServerBase):
         config: HalServerConfig,
         camera_resolution: tuple[int, int] = (640, 480),
         camera_fps: int = 30,
-        context=None,
     ):
         """Initialize Jetson HAL server.
 
         Args:
             config: HAL server configuration
-            context: Optional shared ZMQ context (useful for inproc connections)
             camera_resolution: ZED camera resolution (width, height). Default (640, 480)
             camera_fps: ZED camera FPS. Default 30
         """
-        super().__init__(config, context=context)
+        super().__init__(config)
         self.camera_resolution = camera_resolution
         self.camera_fps = camera_fps
         # depth_feature_dim is now fixed to NUM_SCAN (132) to match training format
@@ -170,8 +168,8 @@ class JetsonHalServer(HalServerBase):
 
         return state_vector
 
-    def publish_observation(self) -> None:
-        """Publish telemetry from real sensors in training format.
+    def set_observation(self) -> None:
+        """Set observation from real sensors in training format.
         
         Builds complete observation array matching training format:
         [num_prop(53), num_scan(132), num_priv_explicit(9), num_priv_latent(29), history(530)]
@@ -281,30 +279,40 @@ class JetsonHalServer(HalServerBase):
                 )
                 return
 
-            # Publish complete observation in training format
-            self.publish_observation(observation)
+            # Publish complete observation in training format via base-class publisher
+            super().set_observation(observation)
 
         except Exception as e:
             logger.error(f"Error publishing telemetry: {e}", exc_info=True)
 
-    def apply_joint_command(self) -> bool:
-        """Apply joint command to actuators.
-
+    def move(self, joint_positions: Optional[np.ndarray] = None) -> bool:
+        """Move robot joints to specified positions.
+        
+        Renamed from apply_joint_command() to use verb-free naming.
+        Gets command from transport layer and applies to actuators.
+        
         This is a placeholder that:
         - Stores the command for state echo
         - Logs the command with timestamp
         - Does not actually apply to motors (placeholder for future implementation)
-
+        
+        Args:
+            joint_positions: Optional joint positions array (shape: (ACTION_DIM,)).
+                If None, gets command from transport layer.
+        
         Returns:
-            True if command received successfully, False otherwise
+            True if command applied successfully, False otherwise
         """
         import time
 
         try:
-            # Receive command
-            command = self.recv_joint_command(timeout_ms=10)
-            if command is None:
-                return False
+            # Get command from transport if not provided
+            if joint_positions is None:
+                command = self.get_joint_command(timeout_ms=10)
+                if command is None:
+                    return False
+            else:
+                command = joint_positions
 
             # Store command for state echo (placeholder: echo joint state from last commanded targets)
             self._last_joint_positions = command.copy()

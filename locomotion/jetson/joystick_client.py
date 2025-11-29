@@ -21,8 +21,8 @@ import sys
 import time
 from typing import Optional
 
-from hal.zmq.client import HalClient
-from hal.config import HalClientConfig
+from hal.client.client import HalClient
+from hal.client.config import HalClientConfig
 from hal.observation.types import NavigationCommand
 
 logging.basicConfig(

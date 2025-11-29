@@ -25,15 +25,20 @@ COPY images/locomotion/requirements.txt /tmp/requirements.txt
 # If ZED SDK is not available, the code will gracefully fall back to mock mode
 RUN pip3 install --no-cache-dir -r /tmp/requirements.txt
 
-# Copy project code
+# Copy and install wheels (built via 'make build-wheels')
+COPY hal/krabby-hal-client/dist/*.whl /tmp/wheels/
+COPY hal/krabby-hal-server/dist/*.whl /tmp/wheels/
+# Add krabby-hal-server-jetson wheel when created
+# Note: krabby-hal-tools is excluded by default (only install when needed for debugging)
+RUN pip3 install --no-cache-dir /tmp/wheels/krabby-hal-client-*.whl
+RUN pip3 install --no-cache-dir /tmp/wheels/krabby-hal-server-*.whl
+
+# Copy remaining code that's not in wheels
 # Copy compute/parkour/ (policy wrapper and inference logic)
 COPY compute/ /workspace/compute/
 
 # Copy locomotion/jetson/ (HAL server and production runtime)
 COPY locomotion/ /workspace/locomotion/
-
-# Copy hal/ (HAL types, ZMQ client/server, interfaces)
-COPY hal/ /workspace/hal/
 
 # Copy parkour/ (custom RSL-RL extensions)
 # Note: policy_interface.py imports directly from parkour.scripts.rsl_rl, so we need the full path

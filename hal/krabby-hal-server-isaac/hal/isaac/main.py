@@ -5,7 +5,7 @@ import logging
 
 from isaaclab.app import AppLauncher
 
-from hal.config import HalServerConfig
+from hal.server.config import HalServerConfig
 from hal.isaac.hal_server import IsaacSimHalServer
 
 logging.basicConfig(
@@ -63,11 +63,11 @@ def main():
                 # Step environment
                 env.step(None)  # Action will come from hal
 
-                # Publish telemetry
-                hal_server.publish_observation()
+                # Set observation
+                hal_server.set_observation()
 
-                # Apply joint command
-                hal_server.apply_joint_command()
+                # Move robot (get command from HAL and apply)
+                hal_server.move()
 
         except KeyboardInterrupt:
             logger.info("HAL server interrupted by user")

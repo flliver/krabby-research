@@ -6,9 +6,9 @@ import numpy as np
 import pytest
 import zmq
 
-from hal.zmq.client import HalClient
-from hal.zmq.server import HalServerBase
-from hal.config import HalClientConfig, HalServerConfig
+from hal.client.client import HalClient
+from hal.server.server import HalServerBase
+from hal.client.config import HalClientConfig, HalServerConfig
 
 
 def test_corrupt_message_handling():
@@ -33,6 +33,7 @@ def test_corrupt_message_handling():
     context = zmq.Context()
     publisher = context.socket(zmq.PUB)
     publisher.bind("inproc://test_observation_corrupt")  # observation endpoint
+    # Use a small high-water mark to exercise buffer behavior (match server config)
     publisher.setsockopt(zmq.SNDHWM, 1)
     time.sleep(0.1)
 
@@ -74,6 +75,7 @@ def test_malformed_binary_payload():
     context = zmq.Context()
     publisher = context.socket(zmq.PUB)
     publisher.bind("inproc://test_observation_malformed")  # observation endpoint
+    # Use a small high-water mark to exercise buffer behavior (match server config)
     publisher.setsockopt(zmq.SNDHWM, 1)
     time.sleep(0.1)
 
@@ -100,20 +102,18 @@ def test_missing_multipart_messages():
     # This is similar to corrupt message test
     # The client should handle messages that don't have 3 parts
     # Use shared context for inproc connections
-    shared_context = zmq.Context()
-    
     server_config = HalServerConfig.from_endpoints(
         observation_bind="inproc://test_observation_multipart",
         command_bind="inproc://test_command_multipart",
     )
-    server = HalServerBase(server_config, context=shared_context)
+    server = HalServerBase(server_config)
     server.initialize()
 
     client_config = HalClientConfig.from_endpoints(
         observation_endpoint="inproc://test_observation_multipart",
         command_endpoint="inproc://test_command_multipart",
     )
-    client = HalClient(client_config, context=shared_context)
+    client = HalClient(client_config, context=server.get_transport_context())
     client.initialize()
 
     from hal.observation.types import OBS_DIM
@@ -123,7 +123,7 @@ def test_missing_multipart_messages():
     # Send valid message first
     observation = np.zeros(OBS_DIM, dtype=np.float32)
     observation[0:3] = [1.0, 2.0, 3.0]
-    server.publish_observation(observation)
+    server.set_observation(observation)
 
     client.poll(timeout_ms=1000)
     assert client._latest_observation is not None
@@ -157,17 +157,17 @@ def test_shape_dtype_mismatch():
     # Try to publish 2D array (should fail)
     invalid_data = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
     with pytest.raises(ValueError):
-        server.publish_observation(invalid_data)
+        server.set_observation(invalid_data)
 
     # Test wrong size 1D array (should fail)
     wrong_size = np.array([1.0, 2.0, 3.0], dtype=np.float32)
     with pytest.raises(ValueError, match="shape"):
-        server.publish_observation(wrong_size)
+        server.set_observation(wrong_size)
 
     # Test dtype conversion
     data_int = np.zeros(OBS_DIM, dtype=np.int32)
     # Server should convert to float32
-    server.publish_observation(data_int)  # Should work (converted internally)
+    server.set_observation(data_int)  # Should work (converted internally)
 
     server.close()
 
@@ -175,20 +175,18 @@ def test_shape_dtype_mismatch():
 def test_graceful_error_handling():
     """Test graceful error handling (skip corrupt, use previous)."""
     # Use shared context for inproc connections
-    shared_context = zmq.Context()
-    
     server_config = HalServerConfig.from_endpoints(
         observation_bind="inproc://test_observation_graceful",
         command_bind="inproc://test_command_graceful",
     )
-    server = HalServerBase(server_config, context=shared_context)
+    server = HalServerBase(server_config)
     server.initialize()
 
     client_config = HalClientConfig.from_endpoints(
         observation_endpoint="inproc://test_observation_graceful",
         command_endpoint="inproc://test_command_graceful",
     )
-    client = HalClient(client_config, context=shared_context)
+    client = HalClient(client_config, context=server.get_transport_context())
     client.initialize()
 
     from hal.observation.types import OBS_DIM
@@ -198,7 +196,7 @@ def test_graceful_error_handling():
     # Send valid message
     observation = np.zeros(OBS_DIM, dtype=np.float32)
     observation[0:3] = [1.0, 2.0, 3.0]
-    server.publish_observation(observation)
+    server.set_observation(observation)
 
     client.poll(timeout_ms=1000)
     assert client._latest_observation is not None
@@ -243,6 +241,7 @@ def test_schema_version_validation():
     context = zmq.Context()
     publisher = context.socket(zmq.PUB)
     publisher.bind("inproc://test_observation_schema")  # observation endpoint
+    # Use a small high-water mark to exercise buffer behavior (match server config)
     publisher.setsockopt(zmq.SNDHWM, 1)
     time.sleep(0.1)
 

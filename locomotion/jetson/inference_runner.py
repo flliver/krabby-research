@@ -4,8 +4,9 @@ import logging
 import time
 from typing import Optional
 
-from hal.zmq.client import HalClient
-from hal.config import HalClientConfig, HalServerConfig
+from hal.client.client import HalClient
+from hal.client.config import HalClientConfig
+from hal.server.config import HalServerConfig
 from compute.parkour.policy_interface import ModelWeights, ParkourPolicyModel
 from locomotion.jetson.hal_server import JetsonHalServer
 
@@ -47,19 +48,22 @@ class InferenceRunner:
         observation_bind = self.hal_server.config.observation_bind
         
         if "inproc://" in observation_bind:
-            # For inproc, use the same endpoint strings
+            # For inproc, use the same endpoint strings and get transport context from server
             client_config = HalClientConfig.from_endpoints(
                 observation_endpoint=observation_bind,
                 command_endpoint=self.hal_server.config.command_bind,
             )
+            transport_context = self.hal_server.get_transport_context()
         else:
             # For TCP, convert bind to connect
             client_config = HalClientConfig.from_endpoints(
                 observation_endpoint=observation_bind.replace("bind", "connect").replace("*", "localhost"),
                 command_endpoint=self.hal_server.config.command_bind.replace("bind", "connect").replace("*", "localhost"),
             )
+            transport_context = None
 
-        self.hal_client = HalClient(client_config)
+        # Use shared ZMQ context when provided (for inproc or shared-context setups)
+        self.hal_client = HalClient(client_config, context=transport_context)
         self.hal_client.initialize()
 
         logger.info("Inference runner initialized")
@@ -85,25 +89,25 @@ class InferenceRunner:
             while self.running:
                 loop_start_ns = time.time_ns()
 
-                # Publish telemetry from real sensors
-                self.hal_server.publish_observation()
+                # Set observation from real sensors
+                self.hal_server.set_observation()
 
                 # Poll HAL for latest data
                 if self.hal_client:
                     self.hal_client.poll(timeout_ms=1)
 
-                    # Build observation
+                    # Build model IO (model expects ParkourModelIO)
                     model_io = self.hal_client.build_model_io()
                     if model_io is not None:
                         # Run inference
                         inference_result = self.model.inference(model_io)
 
                         if inference_result.success:
-                            # Send command back to HAL server
-                            self.hal_client.send_joint_command(inference_result)
+                            # Put command back to HAL server
+                            self.hal_client.put_joint_command(inference_result)
 
-                # Apply joint command to actuators
-                self.hal_server.apply_joint_command()
+                # Move robot (get command from HAL and apply)
+                self.hal_server.move()
 
                 # Timing control
                 loop_end_ns = time.time_ns()

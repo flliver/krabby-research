@@ -9,8 +9,8 @@ import pytest
 
 logger = logging.getLogger(__name__)
 
-from hal.zmq.client import HalClient
-from hal.config import HalClientConfig, HalServerConfig
+from hal.client.client import HalClient
+from hal.client.config import HalClientConfig, HalServerConfig
 from hal.observation.types import NavigationCommand
 from compute.parkour.policy_interface import ModelWeights, ParkourPolicyModel
 from compute.testing.inference_test_runner import InferenceTestRunner
@@ -70,15 +70,13 @@ def test_jetson_hal_server_camera_initialization(hal_server_config):
     pass  # Test skipped - would require Jetson hardware or ZED SDK
 
 
-def test_jetson_hal_server_telemetry_publishing(hal_server_config, hal_client_config):
-    """Test telemetry publishing from Jetson HAL server."""
+def test_jetson_hal_server_observation_publishing(hal_server_config, hal_client_config):
+    """Test observation publishing from Jetson HAL server."""
     import zmq
     
     # Use shared context for inproc connections
-    shared_context = zmq.Context()
-    
     # Setup HAL server with shared context
-    hal_server = JetsonHalServer(hal_server_config, context=shared_context)
+    hal_server = JetsonHalServer(hal_server_config)
     hal_server.initialize()
 
     # Mock camera to return depth features
@@ -87,8 +85,8 @@ def test_jetson_hal_server_telemetry_publishing(hal_server_config, hal_client_co
     mock_camera.get_depth_features.return_value = None  # Will be set below
     hal_server.zed_camera = mock_camera
 
-    # Setup HAL client with shared context
-    hal_client = HalClient(hal_client_config, context=shared_context)
+    # Setup HAL client with server's transport context
+    hal_client = HalClient(hal_client_config, context=hal_server.get_transport_context())
     hal_client.initialize()
 
     time.sleep(0.1)
@@ -112,8 +110,8 @@ def test_jetson_hal_server_telemetry_publishing(hal_server_config, hal_client_co
 
     hal_server._build_state_vector = mock_build_state
 
-    # Publish telemetry
-    hal_server.publish_observation()
+    # Publish observation
+    hal_server.set_observation()
 
     # Poll client
     hal_client.poll(timeout_ms=1000)
@@ -126,8 +124,6 @@ def test_jetson_hal_server_telemetry_publishing(hal_server_config, hal_client_co
 
     hal_client.close()
     hal_server.close()
-    shared_context.term()
-    shared_context.term()
 
 
 def test_jetson_hal_server_joint_command_application(hal_server_config, hal_client_config):
@@ -135,14 +131,12 @@ def test_jetson_hal_server_joint_command_application(hal_server_config, hal_clie
     import zmq
     
     # Use shared context for inproc connections
-    shared_context = zmq.Context()
-    
     # Setup HAL server with shared context
-    hal_server = JetsonHalServer(hal_server_config, context=shared_context)
+    hal_server = JetsonHalServer(hal_server_config)
     hal_server.initialize()
 
     # Setup HAL client with shared context
-    hal_client = HalClient(hal_client_config, context=shared_context)
+    hal_client = HalClient(hal_client_config, context=hal_server.get_transport_context())
     hal_client.initialize()
 
     time.sleep(0.1)
@@ -163,14 +157,14 @@ def test_jetson_hal_server_joint_command_application(hal_server_config, hal_clie
     received_command = [None]
     
     def server_receive():
-        received_command[0] = hal_server.recv_joint_command(timeout_ms=2000)
+        received_command[0] = hal_server.get_joint_command(timeout_ms=2000)
     
     server_thread = threading.Thread(target=server_receive)
     server_thread.start()
     time.sleep(0.05)  # Small delay to ensure server is waiting
 
     # Send command
-    success = hal_client.send_joint_command(inference_response)
+    success = hal_client.put_joint_command(inference_response)
     assert success, "Command send failed"
 
     # Wait for server to receive
@@ -181,8 +175,6 @@ def test_jetson_hal_server_joint_command_application(hal_server_config, hal_clie
 
     hal_client.close()
     hal_server.close()
-    shared_context.term()
-    shared_context.term()
 
 
 def test_jetson_hal_server_end_to_end_with_game_loop(hal_server_config, hal_client_config):
@@ -190,9 +182,7 @@ def test_jetson_hal_server_end_to_end_with_game_loop(hal_server_config, hal_clie
     import zmq
     
     # Use shared context for inproc connections
-    shared_context = zmq.Context()
-    
-    hal_server = JetsonHalServer(hal_server_config, context=shared_context)
+    hal_server = JetsonHalServer(hal_server_config)
     hal_server.initialize()
 
     # Mock camera
@@ -219,7 +209,7 @@ def test_jetson_hal_server_end_to_end_with_game_loop(hal_server_config, hal_clie
 
     hal_server._build_state_vector = mock_build_state
 
-    hal_client = HalClient(hal_client_config, context=shared_context)
+    hal_client = HalClient(hal_client_config, context=hal_server.get_transport_context())
     hal_client.initialize()
 
     time.sleep(0.1)
@@ -254,8 +244,8 @@ def test_jetson_hal_server_end_to_end_with_game_loop(hal_server_config, hal_clie
 
     def run_loop():
         for _ in range(10):
-            # Publish telemetry from hal server
-            hal_server.publish_observation()
+            # Publish observation from hal server
+            hal_server.set_observation()
 
             # Poll client
             hal_client.poll(timeout_ms=10)
@@ -265,10 +255,10 @@ def test_jetson_hal_server_end_to_end_with_game_loop(hal_server_config, hal_clie
             if model_io is not None:
                 inference_result = model.inference(model_io)
                 if inference_result.success:
-                    hal_client.send_joint_command(inference_result)
+                    hal_client.put_joint_command(inference_result)
 
             # Apply joint command
-            hal_server.apply_joint_command()
+            hal_server.move()
 
             time.sleep(0.01)  # 10ms period
 
@@ -281,8 +271,6 @@ def test_jetson_hal_server_end_to_end_with_game_loop(hal_server_config, hal_clie
 
     hal_client.close()
     hal_server.close()
-    shared_context.term()
-    shared_context.term()
 
 
 @pytest.mark.skip(
@@ -357,8 +345,8 @@ def test_jetson_hal_server_network_communication():
 
     server._build_state_vector = mock_build_state
 
-    # Publish telemetry
-    server.publish_observation()
+    # Publish observation
+    server.set_observation()
 
     # Poll client
     client.poll(timeout_ms=2000)  # Longer timeout for network
@@ -382,13 +370,13 @@ def test_jetson_hal_server_network_communication():
     received_command = [None]
     
     def server_receive():
-        received_command[0] = server.recv_joint_command(timeout_ms=3000)
+        received_command[0] = server.get_joint_command(timeout_ms=3000)
     
     server_thread = threading.Thread(target=server_receive)
     server_thread.start()
     time.sleep(0.05)  # Small delay to ensure server is waiting
 
-    success = client.send_joint_command(inference_response)
+    success = client.put_joint_command(inference_response)
     assert success
 
     # Wait for server to receive
@@ -405,9 +393,7 @@ def test_jetson_hal_server_camera_error_handling(hal_server_config):
     import zmq
     
     # Use shared context for inproc connections
-    shared_context = zmq.Context()
-    
-    hal_server = JetsonHalServer(hal_server_config, context=shared_context)
+    hal_server = JetsonHalServer(hal_server_config)
     hal_server.initialize()
 
     # Test with None camera (camera not initialized)
@@ -425,7 +411,6 @@ def test_jetson_hal_server_camera_error_handling(hal_server_config):
     assert depth_features is None  # Should handle None gracefully
 
     hal_server.close()
-    shared_context.term()
 
 
 def test_jetson_hal_server_state_error_handling(hal_server_config):
@@ -452,14 +437,12 @@ def test_jetson_hal_server_sustained_bidirectional_messaging(hal_server_config, 
     import zmq
     
     # Use shared context for inproc connections
-    shared_context = zmq.Context()
-    
     # Setup HAL server with shared context
-    hal_server = JetsonHalServer(hal_server_config, context=shared_context)
+    hal_server = JetsonHalServer(hal_server_config)
     hal_server.initialize()
 
     # Setup HAL client with shared context
-    hal_client = HalClient(hal_client_config, context=shared_context)
+    hal_client = HalClient(hal_client_config, context=hal_server.get_transport_context())
     hal_client.initialize()
 
     time.sleep(0.1)
@@ -510,11 +493,11 @@ def test_jetson_hal_server_sustained_bidirectional_messaging(hal_server_config, 
         cycle_start = time.time()
         
         try:
-            # Server publishes telemetry
-            hal_server.publish_observation()
+            # Server publishes observation
+            hal_server.set_observation()
             observations_published += 1
             
-            # Client polls for telemetry
+            # Client polls for observation
             hal_client.poll(timeout_ms=10)
             
             # Check if observation received (Jetson HAL now publishes complete observation)
@@ -539,12 +522,12 @@ def test_jetson_hal_server_sustained_bidirectional_messaging(hal_server_config, 
                     action=action_tensor,
                     inference_latency_ms=5.0,
                 )
-                hal_client.send_joint_command(response)
+                hal_client.put_joint_command(response)
                 commands_sent += 1
                 
                 # Server receives command (has 10ms timeout, so won't block long)
                 # In REQ/REP pattern, server needs to be waiting, but with timeout it returns quickly
-                if hal_server.apply_joint_command():
+                if hal_server.move():
                     commands_received += 1
             
             cycles_completed += 1
@@ -587,8 +570,6 @@ def test_jetson_hal_server_sustained_bidirectional_messaging(hal_server_config, 
     
     hal_client.close()
     hal_server.close()
-    shared_context.term()
-    shared_context.term()
 
 
 def test_jetson_hal_server_joystick_input_integration(hal_server_config, hal_client_config):
@@ -600,14 +581,12 @@ def test_jetson_hal_server_joystick_input_integration(hal_server_config, hal_cli
     import zmq
     
     # Use shared context for inproc connections
-    shared_context = zmq.Context()
-    
     # Setup HAL server with shared context
-    hal_server = JetsonHalServer(hal_server_config, context=shared_context)
+    hal_server = JetsonHalServer(hal_server_config)
     hal_server.initialize()
 
     # Setup HAL client with shared context
-    hal_client = HalClient(hal_client_config, context=shared_context)
+    hal_client = HalClient(hal_client_config, context=hal_server.get_transport_context())
     hal_client.initialize()
 
     time.sleep(0.1)
@@ -651,8 +630,8 @@ def test_jetson_hal_server_joystick_input_integration(hal_server_config, hal_cli
         hal_client.set_navigation_command(nav_cmd)
         commands_sent += 1
 
-        # Publish telemetry
-        hal_server.publish_observation()
+        # Publish observation
+        hal_server.set_observation()
 
         # Poll client
         hal_client.poll(timeout_ms=100)
@@ -675,8 +654,6 @@ def test_jetson_hal_server_joystick_input_integration(hal_server_config, hal_cli
 
     hal_client.close()
     hal_server.close()
-    shared_context.term()
-    shared_context.term()
 
 
 def test_jetson_hal_server_cleanup(hal_server_config):

@@ -245,8 +245,8 @@ Key files:
   - Provides low-latency, high-throughput messaging suitable for real-time control loops (100+ Hz)
   - Supports both local (inproc) and distributed (tcp) communication patterns
 - **ZMQ Architecture**: The HAL uses three main ZMQ channels:
-  - **Camera telemetry** (PUB/SUB): Publishes depth/RGBD frames or pre-encoded depth features
-  - **State telemetry** (PUB/SUB): Publishes robot/base pose and joint state
+  - **Camera observation** (PUB/SUB): Publishes depth/RGBD frames or pre-encoded depth features
+  - **State observation** (PUB/SUB): Publishes robot/base pose and joint state
   - **Joint command service** (REQ/REP): Receives desired joint positions from the game loop and sends acknowledgements back
 - **Message Format**: Messages use topic-prefixed multipart format with flat float32 numpy arrays for efficient serialization and minimal overhead
 
@@ -320,7 +320,7 @@ The project implements a Hardware Abstraction Layer (HAL) using ZMQ for communic
    - Testing: `compute/testing/inference_test_runner.py::InferenceTestRunner` (simulates game loop)
 
 2. **HAL Client**:
-   - ZMQ-based client that subscribes to telemetry (camera, state) and sends commands
+   - ZMQ-based client that subscribes to observation (camera, state) and sends commands
    - Maintains latest-only buffers to avoid stale data
    - Supports both `inproc://` (local) and `tcp://` (network) transports
 

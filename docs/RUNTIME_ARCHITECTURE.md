@@ -144,12 +144,12 @@ All containers use inproc ZMQ for communication within the same process. The par
 
 **Message Types**:
 
-1. **Camera Telemetry** (PUB/SUB, topic: `"camera"`)
+1. **Camera Observation** (PUB/SUB, topic: `"camera"`)
    - Format: Topic-prefixed multipart message
    - Payload: `float32[N]` array (depth features)
    - Rate: 30-60 Hz
 
-2. **State Telemetry** (PUB/SUB, topic: `"state"`)
+2. **State Observation** (PUB/SUB, topic: `"state"`)
    - Format: Topic-prefixed multipart message
    - Payload: `float32[M]` array containing:
      - Base position (3), quaternion (4)

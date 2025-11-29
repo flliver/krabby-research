@@ -6,7 +6,7 @@ from typing import Optional
 import numpy as np
 import zmq
 
-from hal.config import HalServerConfig
+from hal.server.config import HalServerConfig
 from hal.observation.types import OBS_DIM
 
 logger = logging.getLogger(__name__)
@@ -19,39 +19,52 @@ TOPIC_OBSERVATION = b"observation"  # Complete observation in training format
 
 
 class HalServerBase:
-    """Base class for HAL server using ZMQ.
-
-    Provides PUB socket for observation telemetry (complete observation in training format),
-    and REP socket for joint commands. Uses HWM=1 for latest-only semantics.
+    """Base class for HAL server.
+    
+    Provides observation publishing and joint command receiving.
+    Uses latest-only semantics (buffer size = 1).
+    
+    Note: This class uses ZMQ internally as an implementation detail.
+    The ZMQ logic is black-boxed - users of this class don't need to know
+    about ZMQ. If you need to switch to a different transport later,
+    you can create a new implementation with the same interface.
     """
 
-    def __init__(self, config: HalServerConfig, context: Optional[zmq.Context] = None):
+    def __init__(self, config: HalServerConfig):
         """Initialize HAL server.
-
+        
+        Server manages its own ZMQ context. For inproc connections,
+        clients should use the same context (obtained via get_transport_context()).
+        
         Args:
             config: Server configuration
-            context: Optional shared ZMQ context (useful for inproc connections)
         """
         self.config = config
-        self.context: Optional[zmq.Context] = context
-        self._context_owned = context is None  # Track if we own the context
+        self.context = zmq.Context()  # Server owns ZMQ context
         self.observation_socket: Optional[zmq.Socket] = None
         self.command_socket: Optional[zmq.Socket] = None
         self._initialized = False
         self._debug_enabled = False
+
+    def get_transport_context(self):
+        """Get transport context for inproc connections.
+        
+        Returns the ZMQ context that clients can use for inproc connections
+        to ensure they're in the same process.
+        
+        Returns:
+            ZMQ context for inproc connections
+        """
+        return self.context
 
     def initialize(self) -> None:
         """Initialize ZMQ context and sockets."""
         if self._initialized:
             return
 
-        if self.context is None:
-            self.context = zmq.Context()
-            self._context_owned = True
-
         # Create PUB socket for observation (complete observation in training format)
         self.observation_socket = self.context.socket(zmq.PUB)
-        self.observation_socket.setsockopt(zmq.SNDHWM, self.config.hwm)
+        self.observation_socket.setsockopt(zmq.SNDHWM, self.config.observation_buffer_size)
         if self.config.observation_bind is None:
             raise ValueError("observation_bind must be set in config")
         self.observation_socket.bind(self.config.observation_bind)
@@ -77,7 +90,7 @@ class HalServerBase:
             self.command_socket.close()
             self.command_socket = None
 
-        if self.context and self._context_owned:
+        if self.context:
             self.context.term()
             self.context = None
 
@@ -116,8 +129,8 @@ class HalServerBase:
         """
         return self._debug_enabled
 
-    def publish_observation(self, observation: np.ndarray, timestamp_ns: Optional[int] = None) -> None:
-        """Publish complete observation in training format.
+    def set_observation(self, observation: np.ndarray, timestamp_ns: Optional[int] = None) -> None:
+        """Set/publish observation to clients.
 
         Sends topic-prefixed multipart message: [topic, schema_version, payload, timestamp_bytes]
 
@@ -186,8 +199,8 @@ class HalServerBase:
                 logger.debug("[ZMQ SEND] observation: buffer full (HWM reached), message dropped")
             logger.warning("Observation socket buffer full (HWM reached), message dropped")
 
-    def recv_joint_command(self, timeout_ms: int = 100) -> Optional[np.ndarray]:
-        """Receive joint command with runtime type validation.
+    def get_joint_command(self, timeout_ms: int = 100) -> Optional[np.ndarray]:
+        """Get latest joint command from clients.
 
         Uses non-blocking poll to check for commands. If command received,
         validates payload and sends acknowledgement.

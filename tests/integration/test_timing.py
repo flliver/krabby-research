@@ -5,9 +5,9 @@ import time
 import numpy as np
 import pytest
 
-from hal.zmq.client import HalClient
-from hal.zmq.server import HalServerBase
-from hal.config import HalClientConfig, HalServerConfig
+from hal.client.client import HalClient
+from hal.server.server import HalServerBase
+from hal.client.config import HalClientConfig, HalServerConfig
 from hal.observation.types import NavigationCommand
 from compute.testing.inference_test_runner import InferenceTestRunner
 
@@ -67,21 +67,19 @@ def test_game_loop_faster_than_inference():
     import zmq
     
     # Use shared context for inproc connections
-    shared_context = zmq.Context()
-    
     # Use unified observation endpoint (new API)
     server_config = HalServerConfig.from_endpoints(
         observation_bind="inproc://test_obs_slow",
         command_bind="inproc://test_command_slow",
     )
-    server = HalServerBase(server_config, context=shared_context)
+    server = HalServerBase(server_config)
     server.initialize()
 
     client_config = HalClientConfig.from_endpoints(
         observation_endpoint="inproc://test_obs_slow",
         command_endpoint="inproc://test_command_slow",
     )
-    client = HalClient(client_config, context=shared_context)
+    client = HalClient(client_config, context=server.get_transport_context())
     client.initialize()
 
     time.sleep(0.1)
@@ -93,12 +91,12 @@ def test_game_loop_faster_than_inference():
     nav_cmd = NavigationCommand.create_now()
     client.set_navigation_command(nav_cmd)
 
-    # Continuously publish telemetry (unified observation format)
+    # Continuously publish observation (unified observation format)
     from hal.observation.types import OBS_DIM
     def publish_loop():
         observation = np.zeros(OBS_DIM, dtype=np.float32)
         for _ in range(100):
-            server.publish_observation(observation)
+            server.set_observation(observation)
             time.sleep(0.01)
 
     import threading
@@ -130,7 +128,6 @@ def test_game_loop_faster_than_inference():
 
     client.close()
     server.close()
-    shared_context.term()
 
 
 def test_inference_faster_than_game_loop():
@@ -138,21 +135,19 @@ def test_inference_faster_than_game_loop():
     import zmq
     
     # Use shared context for inproc connections
-    shared_context = zmq.Context()
-    
     # Use unified observation endpoint (new API)
     server_config = HalServerConfig.from_endpoints(
         observation_bind="inproc://test_obs_fast",
         command_bind="inproc://test_command_fast",
     )
-    server = HalServerBase(server_config, context=shared_context)
+    server = HalServerBase(server_config)
     server.initialize()
 
     client_config = HalClientConfig.from_endpoints(
         observation_endpoint="inproc://test_obs_fast",
         command_endpoint="inproc://test_command_fast",
     )
-    client = HalClient(client_config, context=shared_context)
+    client = HalClient(client_config, context=server.get_transport_context())
     client.initialize()
 
     time.sleep(0.1)
@@ -164,12 +159,12 @@ def test_inference_faster_than_game_loop():
     nav_cmd = NavigationCommand.create_now()
     client.set_navigation_command(nav_cmd)
 
-    # Continuously publish telemetry (unified observation format)
+    # Continuously publish observation (unified observation format)
     from hal.observation.types import OBS_DIM
     def publish_loop():
         observation = np.zeros(OBS_DIM, dtype=np.float32)
         for _ in range(100):
-            server.publish_observation(observation)
+            server.set_observation(observation)
             time.sleep(0.01)
 
     import threading
@@ -199,7 +194,6 @@ def test_inference_faster_than_game_loop():
 
     client.close()
     server.close()
-    shared_context.term()
 
 
 def test_timestamp_in_messages():
@@ -207,21 +201,19 @@ def test_timestamp_in_messages():
     import zmq
     
     # Use shared context for inproc connections
-    shared_context = zmq.Context()
-    
     # Use unified observation endpoint (new API)
     server_config = HalServerConfig.from_endpoints(
         observation_bind="inproc://test_obs_ts",
         command_bind="inproc://test_command_ts",
     )
-    server = HalServerBase(server_config, context=shared_context)
+    server = HalServerBase(server_config)
     server.initialize()
 
     client_config = HalClientConfig.from_endpoints(
         observation_endpoint="inproc://test_obs_ts",
         command_endpoint="inproc://test_command_ts",
     )
-    client = HalClient(client_config, context=shared_context)
+    client = HalClient(client_config, context=server.get_transport_context())
     client.initialize()
 
     time.sleep(0.1)
@@ -234,12 +226,12 @@ def test_timestamp_in_messages():
     # Initial dummy publish/poll to establish connection
     from hal.observation.types import OBS_DIM
     observation = np.zeros(OBS_DIM, dtype=np.float32)
-    server.publish_observation(observation)
+    server.set_observation(observation)
     client.poll(timeout_ms=100)
     time.sleep(0.05)
 
-    # Publish telemetry (unified observation format)
-    server.publish_observation(observation)
+    # Publish observation (unified observation format)
+    server.set_observation(observation)
 
     client.poll(timeout_ms=1000)
 
@@ -254,7 +246,6 @@ def test_timestamp_in_messages():
 
     client.close()
     server.close()
-    shared_context.term()
 
 
 def test_timestamp_precision():
@@ -284,21 +275,19 @@ def test_timestamp_validation_stale_messages():
     import zmq
     
     # Use shared context for inproc connections
-    shared_context = zmq.Context()
-    
     # Use unified observation endpoint (new API)
     server_config = HalServerConfig.from_endpoints(
         observation_bind="inproc://test_obs_stale",
         command_bind="inproc://test_command_stale",
     )
-    server = HalServerBase(server_config, context=shared_context)
+    server = HalServerBase(server_config)
     server.initialize()
 
     client_config = HalClientConfig.from_endpoints(
         observation_endpoint="inproc://test_obs_stale",
         command_endpoint="inproc://test_command_stale",
     )
-    client = HalClient(client_config, context=shared_context)
+    client = HalClient(client_config, context=server.get_transport_context())
     client.initialize()
 
     time.sleep(0.1)
@@ -310,10 +299,10 @@ def test_timestamp_validation_stale_messages():
     )
     client.set_navigation_command(old_nav_cmd)
 
-    # Publish fresh telemetry (unified observation format)
+    # Publish fresh observation (unified observation format)
     from hal.observation.types import OBS_DIM
     observation = np.zeros(OBS_DIM, dtype=np.float32)
-    server.publish_observation(observation)
+    server.set_observation(observation)
 
     client.poll(timeout_ms=1000)
 
@@ -331,7 +320,6 @@ def test_timestamp_validation_stale_messages():
 
     client.close()
     server.close()
-    shared_context.term()
 
 
 def test_end_to_end_latency():
@@ -339,21 +327,19 @@ def test_end_to_end_latency():
     import zmq
     
     # Use shared context for inproc connections
-    shared_context = zmq.Context()
-    
     # Use unified observation endpoint (new API)
     server_config = HalServerConfig.from_endpoints(
         observation_bind="inproc://test_obs_latency",
         command_bind="inproc://test_command_latency",
     )
-    server = HalServerBase(server_config, context=shared_context)
+    server = HalServerBase(server_config)
     server.initialize()
 
     client_config = HalClientConfig.from_endpoints(
         observation_endpoint="inproc://test_obs_latency",
         command_endpoint="inproc://test_command_latency",
     )
-    client = HalClient(client_config, context=shared_context)
+    client = HalClient(client_config, context=server.get_transport_context())
     client.initialize()
 
     time.sleep(0.1)
@@ -362,7 +348,7 @@ def test_end_to_end_latency():
     from hal.observation.types import OBS_DIM
     send_time_ns = time.time_ns()
     observation = np.zeros(OBS_DIM, dtype=np.float32)
-    server.publish_observation(observation)
+    server.set_observation(observation)
 
     client.poll(timeout_ms=1000)
     receive_time_ns = time.time_ns()
@@ -375,5 +361,4 @@ def test_end_to_end_latency():
 
     client.close()
     server.close()
-    shared_context.term()
 

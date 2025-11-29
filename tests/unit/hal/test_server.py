@@ -6,8 +6,8 @@ import numpy as np
 import pytest
 import zmq
 
-from hal.config import HalServerConfig
-from hal.zmq.server import HalServerBase
+from hal.server.config import HalServerConfig
+from hal.server.server import HalServerBase
 
 
 def test_hal_server_initialization():
@@ -37,8 +37,8 @@ def test_hal_server_context_manager():
         assert server._initialized
 
 
-def test_publish_observation():
-    """Test publishing observation telemetry."""
+def test_set_observation():
+    """Test setting/publishing observation."""
     from hal.observation.types import OBS_DIM
     
     config = HalServerConfig.from_endpoints(
@@ -47,17 +47,17 @@ def test_publish_observation():
     )
 
     with HalServerBase(config) as server:
-        # Create subscriber to receive message (use shared context for inproc)
-        shared_context = zmq.Context()
-        subscriber = shared_context.socket(zmq.SUB)
+        # Create subscriber to receive message (use server's transport context for inproc)
+        transport_context = server.get_transport_context()
+        subscriber = transport_context.socket(zmq.SUB)
         subscriber.connect("inproc://test_observation3")
         subscriber.setsockopt(zmq.SUBSCRIBE, b"observation")
         subscriber.setsockopt(zmq.RCVHWM, 1)
         time.sleep(0.1)  # Give subscriber time to connect
 
-        # Publish observation data
+        # Set observation data
         observation = np.zeros(OBS_DIM, dtype=np.float32)
-        server.publish_observation(observation)
+        server.set_observation(observation)
 
         # Receive message
         if subscriber.poll(1000, zmq.POLLIN):
@@ -69,24 +69,23 @@ def test_publish_observation():
             np.testing.assert_array_equal(received_data, observation)
 
         subscriber.close()
-        shared_context.term()
 
 
 
 
-def test_recv_joint_command():
-    """Test receiving joint command."""
+def test_get_joint_command():
+    """Test getting joint command."""
     # Use shared context for inproc connections
-    shared_context = zmq.Context()
     
     config = HalServerConfig.from_endpoints(
         observation_bind="inproc://test_state5",
         command_bind="inproc://test_command5",
     )
 
-    with HalServerBase(config, context=shared_context) as server:
-        # Create requester to send command (use shared context)
-        requester = shared_context.socket(zmq.REQ)
+    with HalServerBase(config) as server:
+        # Create requester to send command (use server's transport context for inproc)
+        transport_context = server.get_transport_context()
+        requester = transport_context.socket(zmq.REQ)
         requester.connect("inproc://test_command5")
         time.sleep(0.1)  # Give requester time to connect
 
@@ -95,7 +94,7 @@ def test_recv_joint_command():
         received_command = [None]
         
         def server_receive():
-            received_command[0] = server.recv_joint_command(timeout_ms=2000)
+            received_command[0] = server.get_joint_command(timeout_ms=2000)
         
         server_thread = threading.Thread(target=server_receive)
         server_thread.start()
@@ -115,25 +114,24 @@ def test_recv_joint_command():
         assert ack == b"ok"
 
         requester.close()
-    shared_context.term()
 
 
 def test_hwm_behavior():
-    """Test HWM=1 behavior (latest-only semantics)."""
+    """Test observation_buffer_size=1 behavior (latest-only semantics)."""
     from hal.observation.types import OBS_DIM
     
     # Use shared context for inproc connections
-    shared_context = zmq.Context()
     
     config = HalServerConfig.from_endpoints(
         observation_bind="inproc://test_state6",
         command_bind="inproc://test_command6",
-        hwm=1,
+        observation_buffer_size=1,
     )
 
-    with HalServerBase(config, context=shared_context) as server:
-        # Create subscriber (use shared context)
-        subscriber = shared_context.socket(zmq.SUB)
+    with HalServerBase(config) as server:
+        # Create subscriber (use server's transport context for inproc)
+        transport_context = server.get_transport_context()
+        subscriber = transport_context.socket(zmq.SUB)
         subscriber.connect("inproc://test_state6")  # Match server bind address
         subscriber.setsockopt(zmq.SUBSCRIBE, b"observation")
         subscriber.setsockopt(zmq.RCVHWM, 1)
@@ -142,10 +140,10 @@ def test_hwm_behavior():
         # Publish multiple messages rapidly
         for i in range(10):
             observation = np.full(OBS_DIM, float(i), dtype=np.float32)
-            server.publish_observation(observation)
+            server.set_observation(observation)
         time.sleep(0.1)  # Small delay to ensure messages are sent
 
-        # With HWM=1, subscriber should receive messages (with shared context, connection is reliable)
+        # With observation_buffer_size=1, subscriber should receive messages (with shared context, connection is reliable)
         received_count = 0
         while subscriber.poll(100, zmq.POLLIN):
             subscriber.recv_multipart()
@@ -155,7 +153,6 @@ def test_hwm_behavior():
         assert received_count >= 1
 
         subscriber.close()
-    shared_context.term()
 
 
 def test_error_handling_invalid_shape():
@@ -171,12 +168,12 @@ def test_error_handling_invalid_shape():
         # Try to publish 2D array (should fail)
         invalid_data = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
         with pytest.raises(ValueError):
-            server.publish_observation(invalid_data)
+            server.set_observation(invalid_data)
         
         # Try to publish wrong size 1D array (should fail)
         wrong_size = np.array([1.0, 2.0, 3.0], dtype=np.float32)
         with pytest.raises(ValueError, match="shape"):
-            server.publish_observation(wrong_size)
+            server.set_observation(wrong_size)
 
 
 def test_error_handling_not_initialized():
@@ -191,5 +188,5 @@ def test_error_handling_not_initialized():
 
     # Should raise error if not initialized
     with pytest.raises(RuntimeError, match="not initialized"):
-        server.publish_observation(np.zeros(OBS_DIM, dtype=np.float32))
+        server.set_observation(np.zeros(OBS_DIM, dtype=np.float32))
 
