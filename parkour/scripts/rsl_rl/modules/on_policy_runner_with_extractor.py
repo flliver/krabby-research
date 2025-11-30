@@ -331,6 +331,20 @@ class OnPolicyRunnerWithExtractor(OnPolicyRunner):
         additional_obs = {}
         additional_obs["delta_yaw_ok"] = extras['observations']['delta_yaw_ok'].to(self.device)
         additional_obs["depth_camera"] = extras["observations"]['depth_camera'].to(self.device)
+        # Normalize delta_yaw_ok to a 1-D boolean mask for indexing (handles (N,), (N,1) or (N,1,...) cases)
+        # def _make_mask(x: torch.Tensor) -> torch.Tensor:
+        #     # move to device already done above; ensure 1D boolean mask of length N
+        #     print(f"DEBUG _make_mask() x dim: {x.dim()} x size: {x.size()}")
+        #     if x.dim() == 1:
+        #         m = x
+        #     elif x.dim() >= 2 and x.size(1) == 1:
+        #         m = x.squeeze(1)
+        #     else:
+        #         # fallback: flatten leading batch dimension
+        #         m = x.view(x.size(0), -1)[:, 0]
+        #     return m.to(dtype=torch.bool)
+
+        # delta_yaw_ok_mask = _make_mask(additional_obs["delta_yaw_ok"])
         obs = obs.to(self.device)
 
         self.alg.depth_encoder.train()
@@ -380,6 +394,8 @@ class OnPolicyRunnerWithExtractor(OnPolicyRunner):
                     # Move to device
                     obs, dones = (obs.to(self.device), dones.to(self.device))
                 additional_obs['delta_yaw_ok'] = infos["observations"]['delta_yaw_ok']
+                # recompute mask after extras update
+                #delta_yaw_ok_mask = _make_mask(additional_obs['delta_yaw_ok'].to(self.device))
                 additional_obs['depth_camera'] = infos["observations"]['depth_camera']
                 # perform normalization
                 obs = self.obs_normalizer(obs)

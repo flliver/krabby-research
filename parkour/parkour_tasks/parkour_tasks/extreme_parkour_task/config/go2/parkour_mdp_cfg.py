@@ -85,14 +85,14 @@ class StudentObservationsCfg:
             "sensor_cfg":SceneEntityCfg("depth_camera"),
             "resize": (58, 87),
             "buffer_len": 2,
-            "debug_vis":True
+            "debug_vis":True  # Toggle this value if you want to skip the opencv dependency
             },
         )
 
     @configclass
     class DeltaYawOkPolicyCfg(ObsGroup):
-        deta_yaw_ok =  ObsTerm(
-            func=observations.obervation_delta_yaw_ok,
+        delta_yaw_ok =  ObsTerm(
+            func=observations.observation_delta_yaw_ok,
             params={            
             "parkour_name":'base_parkour',
             'threshold': 0.6
@@ -101,6 +101,7 @@ class StudentObservationsCfg:
     policy: PolicyCfg = PolicyCfg()
     depth_camera: DepthCameraPolicyCfg = DepthCameraPolicyCfg()
     delta_yaw_ok: DeltaYawOkPolicyCfg = DeltaYawOkPolicyCfg()
+    #delta_yaw_ok.concatenate_dim = 1
 
 
 @configclass
