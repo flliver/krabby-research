@@ -34,8 +34,5 @@ dev = [
 
 [tool.setuptools]
 package-dir = {"hal" = "../.."}
-packages = ["hal", "hal.server.jetson"]
-
-[tool.setuptools.package-data]
-"hal" = ["py.typed"]
+packages = ["hal.server.jetson"]
 

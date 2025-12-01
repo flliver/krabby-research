@@ -293,42 +293,6 @@ class HalClient:
             observation=self._latest_observation,
         )
 
-    def signal_ready(self, timeout_ms: int = 1000) -> bool:
-        """Signal to server that client is ready (handshake for PUB/SUB connection).
-        
-        This ensures the PUB/SUB connection is established before the server starts publishing.
-        Should be called after initialize() to establish the connection.
-        
-        Args:
-            timeout_ms: Maximum time to wait for server acknowledgement (default 1000ms)
-            
-        Returns:
-            True if server acknowledged, False if timeout or error
-        """
-        if not self._initialized:
-            raise RuntimeError("Client not initialized. Call initialize() first.")
-        
-        try:
-            # Send ready signal (use blocking send for handshake)
-            # REQ socket requires blocking send in REQ/REP pattern
-            self.command_socket.send(b"ready")
-            
-            # Wait for acknowledgement
-            if self.command_socket.poll(timeout_ms, zmq.POLLIN):
-                response = self.command_socket.recv()
-                if response == b"ready_ack":
-                    logger.info("Server acknowledged handshake - PUB/SUB connection established")
-                    return True
-                else:
-                    logger.warning(f"Unexpected handshake response: {response}")
-                    return False
-            else:
-                logger.warning(f"Handshake timeout after {timeout_ms}ms")
-                return False
-        except zmq.ZMQError as e:
-            logger.error(f"Error during handshake: {e}")
-            return False
-
     def set_navigation_command(self, nav: NavigationCommand) -> None:
         """Set navigation command.
 

@@ -1,18 +1,15 @@
 """HAL server configuration classes."""
 
 from dataclasses import dataclass
-from typing import Optional
 
 
 @dataclass
 class HalServerConfig:
     """Configuration for HAL server.
     
-    Supports both port-based and explicit endpoint configuration.
-    If endpoints are provided, they take precedence over base_port.
+    Requires explicit endpoint configuration for all bindings.
     
     Attributes:
-        base_port: Base port number (default 6000)
         observation_bind: Observation endpoint where server publishes observations.
             Examples:
                 - "inproc://hal_observation" (same process, in-memory)
@@ -39,32 +36,18 @@ class HalServerConfig:
             (REQ/REP ensures guaranteed delivery without buffer limits).
     """
     
-    base_port: int = 6000
-    observation_bind: Optional[str] = None
-    command_bind: Optional[str] = None
-    observation_buffer_size: int = 1  # Renamed from hwm
+    observation_bind: str
+    command_bind: str
+    observation_buffer_size: int = 1
     
     def __post_init__(self) -> None:
-        """Validate and set default endpoints if not provided."""
+        """Validate configuration."""
         if self.observation_buffer_size < 1:
             raise ValueError("observation_buffer_size must be >= 1")
         
-        # If observation_bind not provided, use port-based default
-        if self.observation_bind is None:
-            if self.base_port < 1024 or self.base_port > 65535:
-                raise ValueError("base_port must be in range [1024, 65535]")
-            self.observation_bind = f"tcp://*:{self.base_port + 1}"
+        if not self.observation_bind:
+            raise ValueError("observation_bind is required and cannot be empty")
         
-        # Only validate base_port if we're using port-based endpoints
-        using_explicit_endpoints = (
-            self.observation_bind is not None
-            and self.command_bind is not None
-        )
-        if not using_explicit_endpoints:
-            if self.base_port < 1024 or self.base_port > 65535:
-                raise ValueError("base_port must be in range [1024, 65535]")
-        
-        # If endpoints not provided, use port-based defaults
-        if self.command_bind is None:
-            self.command_bind = f"tcp://*:{self.base_port + 2}"
+        if not self.command_bind:
+            raise ValueError("command_bind is required and cannot be empty")
 

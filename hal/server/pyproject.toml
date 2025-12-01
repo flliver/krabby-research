@@ -35,8 +35,5 @@ dev = [
 
 [tool.setuptools]
 package-dir = {"hal" = ".."}
-packages = ["hal", "hal.server"]
-
-[tool.setuptools.package-data]
-"hal" = ["py.typed"]
+packages = ["hal.server"]
 

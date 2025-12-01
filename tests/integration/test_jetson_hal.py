@@ -311,7 +311,10 @@ def test_jetson_hal_server_network_communication():
     """
     import threading
     # Use TCP endpoints for network simulation
-    server_config = HalServerConfig(base_port=8000)
+    server_config = HalServerConfig(
+        observation_bind="tcp://*:8001",
+        command_bind="tcp://*:8002",
+    )
     server = JetsonHalServer(server_config)
     server.initialize()
 

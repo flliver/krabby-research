@@ -65,8 +65,6 @@ class HalServerBase:
         # Create PUB socket for observation (complete observation in training format)
         self.observation_socket = self.context.socket(zmq.PUB)
         self.observation_socket.setsockopt(zmq.SNDHWM, self.config.observation_buffer_size)
-        if self.config.observation_bind is None:
-            raise ValueError("observation_bind must be set in config")
         self.observation_socket.bind(self.config.observation_bind)
 
         # Create REP socket for commands
@@ -229,12 +227,6 @@ class HalServerBase:
                 # Receive command
                 command_bytes = self.command_socket.recv(zmq.NOBLOCK)
 
-                # Skip handshake messages (they're handled by wait_for_client_ready)
-                if command_bytes == b"ready":
-                    # This shouldn't happen if handshake was done properly, but handle gracefully
-                    self.command_socket.send(b"ready_ack")
-                    return None
-
                 # Debug logging (conditional to avoid overhead when disabled)
                 if self._debug_enabled:
                     logger.debug(
@@ -334,12 +326,6 @@ class HalServerBase:
                 # Receive command
                 command_bytes = self.command_socket.recv(zmq.NOBLOCK)
 
-                # Skip handshake messages (they're handled by wait_for_client_ready)
-                if command_bytes == b"ready":
-                    # This shouldn't happen if handshake was done properly, but handle gracefully
-                    self.command_socket.send(b"ready_ack")
-                    return None
-
                 # Debug logging (conditional to avoid overhead when disabled)
                 if self._debug_enabled:
                     logger.debug(
@@ -407,46 +393,4 @@ class HalServerBase:
                 return None
 
         return None
-
-    def wait_for_client_ready(self, timeout_ms: int = 1000) -> bool:
-        """Wait for client to signal it's ready (handshake for PUB/SUB connection).
-        
-        This ensures the PUB/SUB connection is established before publishing messages.
-        The client should call signal_ready() after initialization.
-        
-        Args:
-            timeout_ms: Maximum time to wait in milliseconds (default 1000ms)
-            
-        Returns:
-            True if client signaled ready, False if timeout
-        """
-        if not self._initialized:
-            raise RuntimeError("Server not initialized. Call initialize() first.")
-        
-        # Set timeout on REP socket for blocking receive
-        original_timeout = self.command_socket.getsockopt(zmq.RCVTIMEO)
-        try:
-            self.command_socket.setsockopt(zmq.RCVTIMEO, timeout_ms)
-            # Use blocking receive for handshake (REP socket pattern)
-            message = self.command_socket.recv()
-            if message == b"ready":
-                # Acknowledge handshake
-                self.command_socket.send(b"ready_ack")
-                logger.info("Client handshake received - PUB/SUB connection established")
-                # Restore original timeout
-                self.command_socket.setsockopt(zmq.RCVTIMEO, original_timeout)
-                return True
-            else:
-                # Not a handshake message
-                logger.warning(f"Unexpected message during handshake: {message}")
-                self.command_socket.setsockopt(zmq.RCVTIMEO, original_timeout)
-                return False
-        except zmq.Again:
-            logger.warning(f"Handshake timeout after {timeout_ms}ms")
-            self.command_socket.setsockopt(zmq.RCVTIMEO, original_timeout)
-            return False
-        except zmq.ZMQError as e:
-            logger.error(f"Error during handshake: {e}")
-            self.command_socket.setsockopt(zmq.RCVTIMEO, original_timeout)
-            return False
 

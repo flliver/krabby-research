@@ -43,7 +43,6 @@ def main():
     parser.add_argument("--task", type=str, required=True, help="Task name (e.g., Isaac-Parkour-Anymal-D-v0)")
     
     # HAL server arguments
-    parser.add_argument("--base_port", type=int, default=6000, help="Base port for HAL endpoints")
     parser.add_argument(
         "--observation_bind",
         type=str,

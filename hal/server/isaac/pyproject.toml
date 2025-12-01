@@ -37,8 +37,5 @@ krabby-hal-server-isaac = "hal.server.isaac.main:main"
 
 [tool.setuptools]
 package-dir = {"hal" = "../.."}
-packages = ["hal", "hal.server.isaac"]
-
-[tool.setuptools.package-data]
-"hal" = ["py.typed"]
+packages = ["hal.server.isaac"]
 

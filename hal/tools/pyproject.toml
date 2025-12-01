@@ -40,8 +40,5 @@ hal-dump = "hal.tools.hal_dump:main"
 
 [tool.setuptools]
 package-dir = {"hal" = ".."}
-packages = ["hal", "hal.tools"]
-
-[tool.setuptools.package-data]
-"hal" = ["py.typed"]
+packages = ["hal.tools"]
 

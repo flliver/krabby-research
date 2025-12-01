@@ -19,9 +19,8 @@ def main():
     """Main entry point for IsaacSim HAL server."""
     parser = argparse.ArgumentParser(description="IsaacSim HAL server")
     parser.add_argument("--task", type=str, required=True, help="Task name")
-    parser.add_argument("--base_port", type=int, default=6000, help="Base port for HAL endpoints")
-    parser.add_argument("--observation_bind", type=str, default=None, help="Observation endpoint (overrides base_port)")
-    parser.add_argument("--command_bind", type=str, default=None, help="Command endpoint (overrides base_port)")
+    parser.add_argument("--observation_bind", type=str, required=True, help="Observation endpoint (e.g., 'tcp://*:6001' or 'inproc://hal_observation')")
+    parser.add_argument("--command_bind", type=str, required=True, help="Command endpoint (e.g., 'tcp://*:6002' or 'inproc://hal_commands')")
 
     # Add AppLauncher arguments
     AppLauncher.add_app_launcher_args(parser)
@@ -43,13 +42,10 @@ def main():
         env = gym.make(args.task, cfg=env_cfg)
 
         # Create HAL server config
-        if args.observation_bind and args.command_bind:
-            config = HalServerConfig(
-                observation_bind=args.observation_bind,
-                command_bind=args.command_bind,
-            )
-        else:
-            config = HalServerConfig(base_port=args.base_port)
+        config = HalServerConfig(
+            observation_bind=args.observation_bind,
+            command_bind=args.command_bind,
+        )
 
         # Create and initialize HAL server
         hal_server = IsaacSimHalServer(config, env=env)
