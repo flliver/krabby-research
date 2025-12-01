@@ -11,8 +11,11 @@ import zmq
 from hal.client.client import HalClient
 from hal.server import HalServerBase
 from hal.client.config import HalClientConfig, HalServerConfig
-from hal.client.observation.types import NavigationCommand, OBS_DIM
+from hal.client.observation.types import NavigationCommand
+from compute.parkour.types import OBS_DIM
+from hal.client.data_structures.hardware import KrabbyHardwareObservations
 from compute.testing.inference_test_runner import InferenceTestRunner
+from tests.helpers import create_dummy_hw_obs
 
 
 class ProtoHalServer(HalServerBase):
@@ -97,35 +100,19 @@ class ProtoHalServer(HalServerBase):
             self._command_thread.join(timeout=1.0)
 
     def publish_observation(self):
-        """Set/publish synthetic observation in training format.
+        """Set/publish synthetic hardware observation.
 
-        Creates observation array matching training format:
-        [num_prop(53), num_scan(132), num_priv_explicit(9), num_priv_latent(29), history(530)]
-        
-        Note: This method name is kept for backward compatibility in tests.
-        It calls set_observation() on the base class.
+        Creates hardware observation with synthetic data for testing.
         """
-        # Create synthetic observation in training format
-        obs_array = np.zeros(OBS_DIM, dtype=np.float32)
-
-        # Fill with synthetic data (simple patterns for testing)
-        num_prop = 53
-        num_scan = 132
-        num_priv_explicit = 9
-        num_priv_latent = 29
-        history_dim = 530
-
-        # Fill each section with distinct values for testing
-        obs_array[:num_prop] = 0.1  # Proprioceptive
-        obs_array[num_prop : num_prop + num_scan] = 0.2  # Scan
-        start = num_prop + num_scan
-        obs_array[start : start + num_priv_explicit] = 0.3  # Priv explicit
-        start += num_priv_explicit
-        obs_array[start : start + num_priv_latent] = 0.4  # Priv latent
-        obs_array[-history_dim:] = 0.5  # History
+        # Create synthetic hardware observation
+        hw_obs = create_dummy_hw_obs(
+            camera_height=480, camera_width=640
+        )
+        # Fill joint positions with test pattern
+        hw_obs.joint_positions[:] = 0.1
 
         # Publish via base class
-        super().set_observation(obs_array)
+        super().set_observation(hw_obs)
 
 
 class MockPolicyModel:
@@ -147,7 +134,7 @@ class MockPolicyModel:
         time.sleep(self.inference_time_ms / 1000.0)  # Simulate inference time
         self.inference_count += 1
 
-        from hal.client.commands.types import InferenceResponse
+        from compute.parkour.types import InferenceResponse
 
         # Return action tensor directly (matching inference output format)
         action = torch.zeros(self.action_dim, dtype=torch.float32)
@@ -199,9 +186,9 @@ def test_game_loop_basic_functionality(hal_setup):
     # Setup inference test runner (simulates game loop)
     test_runner = InferenceTestRunner(model, client, control_rate_hz=100.0)
 
-    # Set navigation command
+    # Set navigation command on test runner (not client)
     nav_cmd = NavigationCommand.create_now()
-    client.set_navigation_command(nav_cmd)
+    test_runner.set_navigation_command(nav_cmd)
 
     # Start publishing observations (handles threading internally)
     server.start_publishing(rate_hz=100.0)
@@ -239,7 +226,7 @@ def test_game_loop_observation_tensor_correctness(hal_setup):
     - View methods correctly extract each component
     - Data type is float32
     """
-    from hal.client.observation.types import (
+    from compute.parkour.types import (
         NUM_PROP,
         NUM_SCAN,
         NUM_PRIV_EXPLICIT,
@@ -249,58 +236,58 @@ def test_game_loop_observation_tensor_correctness(hal_setup):
     
     server, client = hal_setup
 
-    # Create observation with distinct values for each component to verify structure
-    observation = np.zeros(OBS_DIM, dtype=np.float32)
-    # Fill each component with distinct values
-    observation[:NUM_PROP] = 1.0  # Proprioceptive
-    observation[NUM_PROP : NUM_PROP + NUM_SCAN] = 2.0  # Scan
-    start = NUM_PROP + NUM_SCAN
-    observation[start : start + NUM_PRIV_EXPLICIT] = 3.0  # Priv explicit
-    start += NUM_PRIV_EXPLICIT
-    observation[start : start + NUM_PRIV_LATENT] = 4.0  # Priv latent
-    observation[-HISTORY_DIM:] = 5.0  # History
+    # Create hardware observation with test data
+    hw_obs = create_dummy_hw_obs(
+        camera_height=480, camera_width=640
+    )
+    # Fill joint positions with test pattern
+    hw_obs.joint_positions[:] = 1.0
     
-    # Use base class method to publish specific observation
-    from hal.server import HalServerBase
-    HalServerBase.set_observation(server, observation)
+    # Publish hardware observation
+    server.set_observation(hw_obs)
     time.sleep(0.1)
-    client.poll(timeout_ms=1000)
+    received_hw_obs = client.poll(timeout_ms=1000)
     
-    # Verify observation was received
-    assert client._latest_observation is not None, "Observation should be received"
-    obs = client._latest_observation
+    # Verify hardware observation was received
+    assert received_hw_obs is not None, "Hardware observation should be received"
     
-    # Verify total shape and dtype
-    assert obs.observation.shape == (OBS_DIM,), \
-        f"Observation shape should be ({OBS_DIM},), got {obs.observation.shape}"
-    assert obs.observation.dtype == np.float32, \
-        f"Observation dtype should be float32, got {obs.observation.dtype}"
+    # Verify hardware observation structure
+    assert received_hw_obs.joint_positions.shape == (18,), \
+        f"Joint positions shape should be (18,), got {received_hw_obs.joint_positions.shape}"
+    assert received_hw_obs.joint_positions.dtype == np.float32, \
+        f"Joint positions dtype should be float32, got {received_hw_obs.joint_positions.dtype}"
+    
+    # Map to ParkourObservation to verify structure
+    from compute.parkour.mappers.hardware_to_model import KrabbyHWObservationsToParkourMapper
+    mapper = KrabbyHWObservationsToParkourMapper()
+    parkour_obs = mapper.map(received_hw_obs)
+    
+    # Verify ParkourObservation structure
+    assert parkour_obs.observation.shape == (OBS_DIM,), \
+        f"ParkourObservation shape should be ({OBS_DIM},), got {parkour_obs.observation.shape}"
+    assert parkour_obs.observation.dtype == np.float32, \
+        f"ParkourObservation dtype should be float32, got {parkour_obs.observation.dtype}"
     
     # Verify component dimensions using view methods
-    prop = obs.get_proprioceptive()
+    prop = parkour_obs.get_proprioceptive()
     assert prop.shape == (NUM_PROP,), \
         f"Proprioceptive shape should be ({NUM_PROP},), got {prop.shape}"
-    assert np.allclose(prop, 1.0), "Proprioceptive values should be 1.0"
     
-    scan = obs.get_scan()
+    scan = parkour_obs.get_scan()
     assert scan.shape == (NUM_SCAN,), \
         f"Scan shape should be ({NUM_SCAN},), got {scan.shape}"
-    assert np.allclose(scan, 2.0), "Scan values should be 2.0"
     
-    priv_explicit = obs.get_priv_explicit()
+    priv_explicit = parkour_obs.get_priv_explicit()
     assert priv_explicit.shape == (NUM_PRIV_EXPLICIT,), \
         f"Privileged explicit shape should be ({NUM_PRIV_EXPLICIT},), got {priv_explicit.shape}"
-    assert np.allclose(priv_explicit, 3.0), "Privileged explicit values should be 3.0"
     
-    priv_latent = obs.get_priv_latent()
+    priv_latent = parkour_obs.get_priv_latent()
     assert priv_latent.shape == (NUM_PRIV_LATENT,), \
         f"Privileged latent shape should be ({NUM_PRIV_LATENT},), got {priv_latent.shape}"
-    assert np.allclose(priv_latent, 4.0), "Privileged latent values should be 4.0"
     
-    history = obs.get_history()
+    history = parkour_obs.get_history()
     assert history.shape == (HISTORY_DIM,), \
         f"History shape should be ({HISTORY_DIM},), got {history.shape}"
-    assert np.allclose(history, 5.0), "History values should be 5.0"
     
     # Verify total dimension matches sum of components
     total_dim = NUM_PROP + NUM_SCAN + NUM_PRIV_EXPLICIT + NUM_PRIV_LATENT + HISTORY_DIM

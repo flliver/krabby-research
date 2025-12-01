@@ -8,6 +8,8 @@ import pytest
 from hal.client.client import HalClient
 from hal.server import HalServerBase, HalServerConfig
 from hal.client.config import HalClientConfig
+from hal.client.data_structures.hardware import KrabbyHardwareObservations
+from tests.helpers import create_dummy_hw_obs
 
 
 def test_hwm_prevents_buffer_growth():
@@ -30,13 +32,13 @@ def test_hwm_prevents_buffer_growth():
     client = HalClient(client_config, context=server.get_transport_context())
     client.initialize()
 
-    from hal.client.observation.types import OBS_DIM
-    
     time.sleep(0.1)
     
     # Publish a dummy message first to establish connection
-    observation_init = np.zeros(OBS_DIM, dtype=np.float32)
-    server.set_observation(observation_init)
+    hw_obs_init = create_dummy_hw_obs(
+        camera_height=480, camera_width=640
+    )
+    server.set_observation(hw_obs_init)
     client.poll(timeout_ms=1000)
     # Connection is now established
 
@@ -44,9 +46,11 @@ def test_hwm_prevents_buffer_growth():
     # With HWM=1, older messages are dropped, so we need to ensure
     # the subscriber receives at least some messages
     for i in range(1, 101):  # Start at 1 to avoid confusion with init message
-        observation = np.zeros(OBS_DIM, dtype=np.float32)
-        observation[0] = float(i)
-        server.set_observation(observation)
+        hw_obs = create_dummy_hw_obs(
+            camera_height=480, camera_width=640
+        )
+        hw_obs.joint_positions[0] = float(i)
+        server.set_observation(hw_obs)
         time.sleep(0.001)  # 1ms between publishes
 
     # Small delay to ensure all messages are sent
@@ -56,21 +60,16 @@ def test_hwm_prevents_buffer_growth():
     # The key test is that memory stays bounded (HWM=1), not that we get the absolute latest
     received_values = []
     for _ in range(20):
-        client.poll(timeout_ms=100)
-        if client._latest_observation is not None and client._latest_observation.observation is not None:
-            val = client._latest_observation.observation[0]
+        hw_obs = client.poll(timeout_ms=100)
+        if hw_obs is not None:
+            val = hw_obs.joint_positions[0]
             if val not in received_values:
                 received_values.append(val)
         time.sleep(0.001)
 
-    # With HWM=1, should receive messages (memory stays bounded)
-    # Verify we got at least one message
-    assert client._latest_observation is not None
-    assert client._latest_observation.observation is not None
-    
     # With HWM=1, we should receive some messages (exact value depends on timing and HWM behavior)
     # The important thing is that we received messages and memory stayed bounded
-    assert len(received_values) > 0  # We should have received at least one message
+    assert len(received_values) > 0, "Should have received at least one message"
 
     client.close()
     server.close()
@@ -99,23 +98,24 @@ def test_rapid_message_publishing():
     time.sleep(0.1)
     
     # Publish a dummy message first to establish connection
-    from hal.client.observation.types import OBS_DIM
-    observation_init = np.zeros(OBS_DIM, dtype=np.float32)
-    server.set_observation(observation_init)
+    hw_obs_init = create_dummy_hw_obs(
+        camera_height=480, camera_width=640
+    )
+    server.set_observation(hw_obs_init)
     client.poll(timeout_ms=1000)
 
     # Publish messages very rapidly
     import threading
 
     publish_count = [0]
-
-    from hal.client.observation.types import OBS_DIM
     
     def rapid_publish():
         for i in range(1000):
-            observation = np.zeros(OBS_DIM, dtype=np.float32)
-            observation[0] = float(i)
-            server.set_observation(observation)
+            hw_obs = create_dummy_hw_obs(
+                camera_height=480, camera_width=640
+            )
+            hw_obs.joint_positions[0] = float(i)
+            server.set_observation(hw_obs)
             publish_count[0] += 1
             time.sleep(0.0001)  # 0.1ms between publishes (very fast)
 
@@ -131,7 +131,8 @@ def test_rapid_message_publishing():
 
     # Memory should stay bounded (HWM=1 ensures only latest is kept)
     # Verify we got messages
-    assert client._latest_observation is not None
+    final_hw_obs = client.poll(timeout_ms=100)
+    assert final_hw_obs is not None
 
     client.close()
     server.close()
@@ -158,25 +159,29 @@ def test_memory_usage_bounded():
     client = HalClient(client_config, context=server.get_transport_context())
     client.initialize()
 
-    from hal.client.observation.types import OBS_DIM
-    
     time.sleep(0.1)
     
     # Publish a dummy message first to establish connection
-    observation_init = np.zeros(OBS_DIM, dtype=np.float32)
-    server.set_observation(observation_init)
+    hw_obs_init = create_dummy_hw_obs(
+        camera_height=480, camera_width=640
+    )
+    server.set_observation(hw_obs_init)
     client.poll(timeout_ms=1000)
 
     # Publish many messages
     for i in range(1000):
-        observation = np.full(OBS_DIM, float(i), dtype=np.float32)  # Larger messages
-        server.set_observation(observation)
+        hw_obs = create_dummy_hw_obs(
+            camera_height=480, camera_width=640
+        )
+        hw_obs.joint_positions[:] = float(i)
+        server.set_observation(hw_obs)
         if i % 100 == 0:
             client.poll(timeout_ms=100)
 
     # With HWM=1, memory should stay bounded
     # (We can't easily measure exact memory, but the system should not crash)
-    assert client._latest_observation is not None
+    final_hw_obs = client.poll(timeout_ms=100)
+    assert final_hw_obs is not None
 
     client.close()
     server.close()
@@ -202,45 +207,52 @@ def test_old_messages_dropped():
     client = HalClient(client_config, context=server.get_transport_context())
     client.initialize()
 
-    from hal.client.observation.types import OBS_DIM
-    
     # With shared context and inproc, connection should be immediate
     # Give a small delay to ensure sockets are ready
     time.sleep(0.1)
 
     # Publish and poll a dummy message to establish connection
-    observation_init = np.zeros(OBS_DIM, dtype=np.float32)
-    server.set_observation(observation_init)
+    hw_obs_init = create_dummy_hw_obs(
+        camera_height=480, camera_width=640
+    )
+    server.set_observation(hw_obs_init)
     client.poll(timeout_ms=1000)
     # Connection is now established
 
     # Publish message 1.0 and poll - should receive it
-    observation_1 = np.zeros(OBS_DIM, dtype=np.float32)
-    observation_1[0] = 1.0
-    server.set_observation(observation_1)
+    hw_obs_1 = create_dummy_hw_obs(
+        camera_height=480, camera_width=640
+    )
+    hw_obs_1.joint_positions[0] = 1.0
+    server.set_observation(hw_obs_1)
     time.sleep(0.01)
-    client.poll(timeout_ms=1000)
-    assert client._latest_observation.observation[0] == 1.0
+    received_hw_obs = client.poll(timeout_ms=1000)
+    assert received_hw_obs is not None
+    assert received_hw_obs.joint_positions[0] == 1.0
 
     # Publish message 2.0 and poll - should receive it (replacing 1.0)
-    observation_2 = np.zeros(OBS_DIM, dtype=np.float32)
-    observation_2[0] = 2.0
-    server.set_observation(observation_2)
+    hw_obs_2 = create_dummy_hw_obs(
+        camera_height=480, camera_width=640
+    )
+    hw_obs_2.joint_positions[0] = 2.0
+    server.set_observation(hw_obs_2)
     time.sleep(0.01)
-    client.poll(timeout_ms=1000)
-    assert client._latest_observation.observation[0] == 2.0
+    received_hw_obs = client.poll(timeout_ms=1000)
+    assert received_hw_obs is not None
+    assert received_hw_obs.joint_positions[0] == 2.0
 
     # Publish message 3.0 and poll - should receive it (replacing 2.0)
-    observation_3 = np.zeros(OBS_DIM, dtype=np.float32)
-    observation_3[0] = 3.0
-    server.set_observation(observation_3)
+    hw_obs_3 = create_dummy_hw_obs(
+        camera_height=480, camera_width=640
+    )
+    hw_obs_3.joint_positions[0] = 3.0
+    server.set_observation(hw_obs_3)
     time.sleep(0.01)
-    client.poll(timeout_ms=1000)
+    received_hw_obs = client.poll(timeout_ms=1000)
     
     # Should have the latest value (3.0)
-    assert client._latest_observation is not None
-    assert client._latest_observation.observation is not None
-    assert client._latest_observation.observation[0] == 3.0
+    assert received_hw_obs is not None
+    assert received_hw_obs.joint_positions[0] == 3.0
 
     client.close()
     server.close()

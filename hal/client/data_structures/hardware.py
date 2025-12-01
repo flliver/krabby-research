@@ -4,7 +4,7 @@ These structures represent raw hardware sensor data and desired joint positions.
 They are designed for zero-copy operations where possible.
 """
 
-import time
+import json
 from dataclasses import dataclass
 from typing import Optional
 
@@ -75,34 +75,97 @@ class KrabbyHardwareObservations:
         if self.confidence_map.dtype != np.float32:
             self.confidence_map = self.confidence_map.astype(np.float32)
     
-    @classmethod
-    def create_dummy(
-        cls,
-        camera_height: int = 480,
-        camera_width: int = 640,
-        timestamp_ns: Optional[int] = None,
-    ) -> "KrabbyHardwareObservations":
-        """Create dummy hardware observations for testing.
+    def to_bytes(self) -> list[bytes]:
+        """Serialize to bytes for ZMQ transport.
         
-        Args:
-            camera_height: Height of camera images (default 480)
-            camera_width: Width of camera images (default 640)
-            timestamp_ns: Optional timestamp (defaults to current time)
+        Format: multipart message with metadata and arrays:
+        - Part 0: metadata JSON (shapes, dtypes, timestamp)
+        - Part 1: joint_positions bytes
+        - Part 2: rgb_camera_1 bytes
+        - Part 3: rgb_camera_2 bytes
+        - Part 4: depth_map bytes
+        - Part 5: confidence_map bytes
         
         Returns:
-            KrabbyHardwareObservations with dummy data
+            List of bytes for multipart ZMQ message
         """
-        if timestamp_ns is None:
-            timestamp_ns = time.time_ns()
+        # Ensure arrays are contiguous and correct dtype
+        joint_pos = np.ascontiguousarray(self.joint_positions, dtype=np.float32)
+        rgb1 = np.ascontiguousarray(self.rgb_camera_1, dtype=self.rgb_camera_1.dtype)
+        rgb2 = np.ascontiguousarray(self.rgb_camera_2, dtype=self.rgb_camera_2.dtype)
+        depth = np.ascontiguousarray(self.depth_map, dtype=np.float32)
+        conf = np.ascontiguousarray(self.confidence_map, dtype=np.float32)
+        
+        # Create metadata
+        metadata = {
+            "joint_positions": {"shape": list(joint_pos.shape), "dtype": str(joint_pos.dtype)},
+            "rgb_camera_1": {"shape": list(rgb1.shape), "dtype": str(rgb1.dtype)},
+            "rgb_camera_2": {"shape": list(rgb2.shape), "dtype": str(rgb2.dtype)},
+            "depth_map": {"shape": list(depth.shape), "dtype": str(depth.dtype)},
+            "confidence_map": {"shape": list(conf.shape), "dtype": str(conf.dtype)},
+            "timestamp_ns": self.timestamp_ns,
+        }
+        
+        return [
+            json.dumps(metadata).encode("utf-8"),
+            joint_pos.tobytes(),
+            rgb1.tobytes(),
+            rgb2.tobytes(),
+            depth.tobytes(),
+            conf.tobytes(),
+        ]
+    
+    @classmethod
+    def from_bytes(cls, parts: list[bytes]) -> "KrabbyHardwareObservations":
+        """Deserialize from ZMQ multipart message.
+        
+        Args:
+            parts: List of bytes from ZMQ multipart message
+                Expected format: [metadata_json, joint_positions, rgb_camera_1, rgb_camera_2, depth_map, confidence_map]
+            
+        Returns:
+            KrabbyHardwareObservations instance
+            
+        Raises:
+            ValueError: If message format is invalid (wrong number of parts, invalid JSON, etc.)
+        """
+        if len(parts) != 6:
+            raise ValueError(f"Expected 6 parts (metadata + 5 arrays), got {len(parts)}")
+        
+        # Parse metadata - fail fast on invalid JSON
+        try:
+            metadata = json.loads(parts[0].decode("utf-8"))
+        except (json.JSONDecodeError, UnicodeDecodeError) as e:
+            raise ValueError(f"Invalid metadata JSON: {e}") from e
+        
+        # Deserialize arrays - let numpy raise errors if shapes/dtypes are wrong
+        try:
+            joint_pos = np.frombuffer(parts[1], dtype=np.dtype(metadata["joint_positions"]["dtype"]))
+            joint_pos = joint_pos.reshape(tuple(metadata["joint_positions"]["shape"])).astype(np.float32)
+            
+            rgb1 = np.frombuffer(parts[2], dtype=np.dtype(metadata["rgb_camera_1"]["dtype"]))
+            rgb1 = rgb1.reshape(tuple(metadata["rgb_camera_1"]["shape"]))
+            
+            rgb2 = np.frombuffer(parts[3], dtype=np.dtype(metadata["rgb_camera_2"]["dtype"]))
+            rgb2 = rgb2.reshape(tuple(metadata["rgb_camera_2"]["shape"]))
+            
+            depth = np.frombuffer(parts[4], dtype=np.dtype(metadata["depth_map"]["dtype"]))
+            depth = depth.reshape(tuple(metadata["depth_map"]["shape"])).astype(np.float32)
+            
+            conf = np.frombuffer(parts[5], dtype=np.dtype(metadata["confidence_map"]["dtype"]))
+            conf = conf.reshape(tuple(metadata["confidence_map"]["shape"])).astype(np.float32)
+        except (KeyError, ValueError, TypeError) as e:
+            raise ValueError(f"Error deserializing arrays: {e}") from e
         
         return cls(
-            joint_positions=np.zeros(18, dtype=np.float32),
-            rgb_camera_1=np.zeros((camera_height, camera_width, 3), dtype=np.uint8),
-            rgb_camera_2=np.zeros((camera_height, camera_width, 3), dtype=np.uint8),
-            depth_map=np.zeros((camera_height, camera_width), dtype=np.float32),
-            confidence_map=np.ones((camera_height, camera_width), dtype=np.float32),
-            timestamp_ns=timestamp_ns,
+            joint_positions=joint_pos,
+            rgb_camera_1=rgb1,
+            rgb_camera_2=rgb2,
+            depth_map=depth,
+            confidence_map=conf,
+            timestamp_ns=metadata.get("timestamp_ns", 0),
         )
+    
 
 
 @dataclass
@@ -132,21 +195,4 @@ class KrabbyDesiredJointPositions:
             # Convert to float32 if needed (creates copy)
             self.joint_positions = self.joint_positions.astype(np.float32)
     
-    @classmethod
-    def create_dummy(cls, timestamp_ns: Optional[int] = None) -> "KrabbyDesiredJointPositions":
-        """Create dummy desired joint positions for testing.
-        
-        Args:
-            timestamp_ns: Optional timestamp (defaults to current time)
-        
-        Returns:
-            KrabbyDesiredJointPositions with dummy data
-        """
-        if timestamp_ns is None:
-            timestamp_ns = time.time_ns()
-        
-        return cls(
-            joint_positions=np.zeros(18, dtype=np.float32),
-            timestamp_ns=timestamp_ns,
-        )
 

@@ -1,10 +1,10 @@
-"""Mappers for converting between hardware and model data formats.
+"""Mappers for converting between hardware and Parkour model data formats.
 
-NOTE: Mappers have been moved to the compute package.
-This module is kept for backward compatibility but will be removed in the future.
+These mappers use zero-copy operations where possible to minimize data copying.
+They handle structural transformation between hardware sensor data and Parkour
+model observation formats.
 """
 
-# Re-export from new location for backward compatibility
 from compute.parkour.mappers.hardware_to_model import KrabbyHWObservationsToParkourMapper
 from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToKrabbyHWMapper
 

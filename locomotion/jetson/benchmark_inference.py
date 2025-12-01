@@ -13,7 +13,8 @@ import numpy as np
 import torch
 
 from compute.parkour.policy_interface import ModelWeights, ParkourPolicyModel
-from hal.client.observation.types import NavigationCommand, ParkourModelIO, ParkourObservation, OBS_DIM
+from hal.client.observation.types import NavigationCommand
+from compute.parkour.types import ParkourModelIO, ParkourObservation, OBS_DIM
 
 logging.basicConfig(
     level=logging.INFO,
@@ -23,14 +24,14 @@ logger = logging.getLogger(__name__)
 
 
 def create_dummy_model_io(action_dim: int, obs_dim: int) -> ParkourModelIO:
-    """Create dummy ParkourModelIO for testing.
+    """Create dummy model IO for testing.
 
     Args:
         action_dim: Action dimension
         obs_dim: Observation dimension (should be OBS_DIM = 753)
 
     Returns:
-        ParkourModelIO with dummy data
+        Model IO with dummy data
     """
     nav_cmd = NavigationCommand.create_now(vx=0.0, vy=0.0, yaw_rate=0.0)
 

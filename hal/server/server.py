@@ -7,7 +7,7 @@ import numpy as np
 import zmq
 
 from hal.server.config import HalServerConfig  # Internal import - config is in same package
-from hal.client.observation.types import OBS_DIM
+# OBS_DIM is not used in HAL server
 
 logger = logging.getLogger(__name__)
 
@@ -127,16 +127,14 @@ class HalServerBase:
         """
         return self._debug_enabled
 
-    def set_observation(self, observation: np.ndarray, timestamp_ns: Optional[int] = None) -> None:
-        """Set/publish observation to clients.
+    def set_observation(self, hw_obs: "KrabbyHardwareObservations") -> None:
+        """Set/publish hardware observation to clients.
 
-        Sends topic-prefixed multipart message: [topic, schema_version, payload, timestamp_bytes]
-
-        Observation format: [num_prop(53), num_scan(132), num_priv_explicit(9), num_priv_latent(29), history(530)]
+        Sends topic-prefixed multipart message: [topic, schema_version, ...hw_obs_parts]
+        The timestamp is included in the hw_obs metadata, so no separate timestamp is needed.
 
         Args:
-            observation: Complete observation as float32 array of shape (OBS_DIM,)
-            timestamp_ns: Optional timestamp in nanoseconds (defaults to current time)
+            hw_obs: KrabbyHardwareObservations instance
 
         Raises:
             ValueError: If observation is invalid
@@ -146,49 +144,28 @@ class HalServerBase:
             raise RuntimeError("Server not initialized. Call initialize() first.")
 
         # Runtime type validation: Validate input type
-        if not isinstance(observation, np.ndarray):
-            raise ValueError(f"observation must be numpy array, got {type(observation)}")
-        
-        # Runtime type validation: Validate dtype
-        if observation.dtype != np.float32:
-            observation = observation.astype(np.float32, copy=False)
-        
-        # Runtime type validation: Validate shape
-        if observation.shape != (OBS_DIM,):
-            raise ValueError(f"observation shape {observation.shape} != expected ({OBS_DIM},)")
-        
-        # Runtime type validation: Validate values (check for NaN/Inf)
-        if not np.isfinite(observation).all():
-            nan_count = np.isnan(observation).sum()
-            inf_count = np.isinf(observation).sum()
-            raise ValueError(f"observation contains invalid values: {nan_count} NaN, {inf_count} Inf")
+        from hal.client.data_structures.hardware import KrabbyHardwareObservations
+        if not isinstance(hw_obs, KrabbyHardwareObservations):
+            raise ValueError(f"hw_obs must be KrabbyHardwareObservations, got {type(hw_obs)}")
 
-        # Get timestamp
-        if timestamp_ns is None:
-            import time
-            timestamp_ns = time.time_ns()
-
-        # Serialize message
+        # Serialize hardware observation
         topic = TOPIC_OBSERVATION
         schema_version = SCHEMA_VERSION.encode("utf-8")
-        payload = observation.tobytes()
-        timestamp_bytes = timestamp_ns.to_bytes(8, byteorder="big", signed=False)
+        hw_obs_parts = hw_obs.to_bytes()
 
         # Debug logging (conditional to avoid overhead when disabled)
         if self._debug_enabled:
             logger.debug(
                 f"[ZMQ SEND] observation: topic={topic.decode('utf-8')}, "
                 f"schema={schema_version.decode('utf-8')}, "
-                f"payload_size={len(payload)} bytes, "
-                f"observation_shape={observation.shape}, "
-                f"observation_dtype={observation.dtype}, "
-                f"timestamp_ns={timestamp_ns}"
+                f"timestamp_ns={hw_obs.timestamp_ns}"
             )
 
-        # Send multipart message
+        # Send multipart message: [topic, schema_version, ...hw_obs_parts]
+        # Timestamp is already included in hw_obs metadata
         try:
             self.observation_socket.send_multipart(
-                [topic, schema_version, payload, timestamp_bytes], zmq.NOBLOCK
+                [topic, schema_version] + hw_obs_parts, zmq.NOBLOCK
             )
             if self._debug_enabled:
                 logger.debug(f"[ZMQ SEND] observation: message sent successfully")

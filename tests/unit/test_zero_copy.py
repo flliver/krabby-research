@@ -13,8 +13,9 @@ import numpy as np
 import pytest
 import torch
 
-from hal.client.commands.types import InferenceResponse
-from hal.client.observation.types import (
+from hal.client.observation.types import NavigationCommand
+from compute.parkour.types import (
+    InferenceResponse,
     NUM_PROP,
     NUM_SCAN,
     NUM_PRIV_EXPLICIT,
@@ -23,7 +24,6 @@ from hal.client.observation.types import (
     OBS_DIM,
     ParkourModelIO,
     ParkourObservation,
-    NavigationCommand,
 )
 
 

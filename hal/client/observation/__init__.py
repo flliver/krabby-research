@@ -1,32 +1,7 @@
-"""Telemetry models for HAL input data."""
+"""HAL observation types."""
 
-from .types import (
-    NavigationCommand,
-    NUM_PROP,
-    NUM_SCAN,
-    NUM_PRIV_EXPLICIT,
-    NUM_PRIV_LATENT,
-    NUM_HIST,
-    HISTORY_DIM,
-    OBS_DIM,
-    ParkourModelIO,
-    ParkourObservation,
-    StudentObservation,
-    TeacherObservation,
-)
+from .types import NavigationCommand
 
 __all__ = [
     "NavigationCommand",
-    "NUM_PROP",
-    "NUM_SCAN",
-    "NUM_PRIV_EXPLICIT",
-    "NUM_PRIV_LATENT",
-    "NUM_HIST",
-    "HISTORY_DIM",
-    "OBS_DIM",
-    "ParkourModelIO",
-    "ParkourObservation",
-    "StudentObservation",
-    "TeacherObservation",
 ]
-

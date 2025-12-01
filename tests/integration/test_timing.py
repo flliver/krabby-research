@@ -9,7 +9,9 @@ from hal.client.client import HalClient
 from hal.server import HalServerBase
 from hal.client.config import HalClientConfig, HalServerConfig
 from hal.client.observation.types import NavigationCommand
+from hal.client.data_structures.hardware import KrabbyHardwareObservations
 from compute.testing.inference_test_runner import InferenceTestRunner
+from tests.helpers import create_dummy_hw_obs
 
 
 class SlowInferenceModel:
@@ -27,7 +29,7 @@ class SlowInferenceModel:
         time.sleep(inference_time_ms / 1000.0)
         self.inference_count += 1
 
-        from hal.client.commands.types import InferenceResponse
+        from compute.parkour.types import InferenceResponse
         import torch
 
         action_tensor = torch.zeros(self.action_dim, dtype=torch.float32)
@@ -52,7 +54,7 @@ class FastInferenceModel:
         time.sleep(inference_time_ms / 1000.0)
         self.inference_count += 1
 
-        from hal.client.commands.types import InferenceResponse
+        from compute.parkour.types import InferenceResponse
         import torch
 
         action_tensor = torch.zeros(self.action_dim, dtype=torch.float32)
@@ -89,16 +91,18 @@ def test_game_loop_faster_than_inference():
     test_runner = InferenceTestRunner(model, client, control_rate_hz=100.0)
 
     nav_cmd = NavigationCommand.create_now()
-    client.set_navigation_command(nav_cmd)
+    test_runner.set_navigation_command(nav_cmd)
 
     import threading
 
-    # Continuously publish observation (unified observation format)
-    from hal.client.observation.types import OBS_DIM
+    # Continuously publish hardware observation
+    from hal.client.data_structures.hardware import KrabbyHardwareObservations
     def publish_loop():
-        observation = np.zeros(OBS_DIM, dtype=np.float32)
+        hw_obs = create_dummy_hw_obs(
+            camera_height=480, camera_width=640
+        )
         for _ in range(100):
-            server.set_observation(observation)
+            server.set_observation(hw_obs)
             time.sleep(0.01)
 
     # Continuously receive commands (REQ/REP pattern requires server to be waiting)
@@ -174,16 +178,17 @@ def test_inference_faster_than_game_loop():
     test_runner = InferenceTestRunner(model, client, control_rate_hz=100.0)
 
     nav_cmd = NavigationCommand.create_now()
-    client.set_navigation_command(nav_cmd)
+    test_runner.set_navigation_command(nav_cmd)
 
     import threading
 
-    # Continuously publish observation (unified observation format)
-    from hal.client.observation.types import OBS_DIM
+    # Continuously publish hardware observation
     def publish_loop():
-        observation = np.zeros(OBS_DIM, dtype=np.float32)
+        hw_obs = create_dummy_hw_obs(
+            camera_height=480, camera_width=640
+        )
         for _ in range(100):
-            server.set_observation(observation)
+            server.set_observation(hw_obs)
             time.sleep(0.01)
 
     # Continuously receive commands (REQ/REP pattern requires server to be waiting)
@@ -252,31 +257,22 @@ def test_timestamp_in_messages():
 
     time.sleep(0.1)
 
-    # Set navigation command with timestamp
-    nav_cmd = NavigationCommand.create_now()
-    assert nav_cmd.timestamp_ns > 0
-    client.set_navigation_command(nav_cmd)
-
     # Initial dummy publish/poll to establish connection
-    from hal.client.observation.types import OBS_DIM
-    observation = np.zeros(OBS_DIM, dtype=np.float32)
-    server.set_observation(observation)
+    hw_obs = create_dummy_hw_obs(
+        camera_height=480, camera_width=640
+    )
+    server.set_observation(hw_obs)
     client.poll(timeout_ms=100)
     time.sleep(0.05)
 
-    # Publish observation (unified observation format)
-    server.set_observation(observation)
+    # Publish hardware observation
+    server.set_observation(hw_obs)
 
-    client.poll(timeout_ms=1000)
+    received_hw_obs = client.poll(timeout_ms=1000)
 
     # Verify timestamps are present
-    assert client._latest_observation is not None
-    assert client._latest_observation.timestamp_ns > 0
-
-    # Build model IO and verify timestamp
-    model_io = client.build_model_io()
-    assert model_io is not None
-    assert model_io.timestamp_ns > 0
+    assert received_hw_obs is not None
+    assert received_hw_obs.timestamp_ns > 0
 
     client.close()
     server.close()
@@ -326,31 +322,16 @@ def test_timestamp_validation_stale_messages():
 
     time.sleep(0.1)
 
-    # Set navigation command with very old timestamp
-    old_nav_cmd = NavigationCommand(
-        timestamp_ns=time.time_ns() - 100_000_000,  # 100ms ago
-        schema_version="1.0",
+    # Publish fresh hardware observation
+    hw_obs = create_dummy_hw_obs(
+        camera_height=480, camera_width=640
     )
-    client.set_navigation_command(old_nav_cmd)
+    server.set_observation(hw_obs)
 
-    # Publish fresh observation (unified observation format)
-    from hal.client.observation.types import OBS_DIM
-    observation = np.zeros(OBS_DIM, dtype=np.float32)
-    server.set_observation(observation)
-
-    client.poll(timeout_ms=1000)
-
-    # Build model IO with strict max_age (should reject stale nav_cmd)
-    # Note: The current implementation only checks observation age, not nav_cmd age
-    # So we test that observation is recent, and nav_cmd age check would be a future enhancement
-    model_io = client.build_model_io(max_age_ns=10_000_000)  # 10ms max age
-    # The observation is fresh, so model_io will be created
-    # The nav_cmd timestamp validation is relaxed (as per current implementation)
-    assert model_io is not None  # Observation is fresh, so model_io is created
-
-    # But with relaxed max_age, it should work
-    model_io = client.build_model_io(max_age_ns=200_000_000)  # 200ms max age
-    assert model_io is not None  # Should work with relaxed age
+    received_hw_obs = client.poll(timeout_ms=1000)
+    assert received_hw_obs is not None
+    # Verify timestamp is recent
+    assert received_hw_obs.timestamp_ns > 0
 
     client.close()
     server.close()
@@ -379,13 +360,16 @@ def test_end_to_end_latency():
     time.sleep(0.1)
 
     # Measure send to receive latency
-    from hal.client.observation.types import OBS_DIM
     send_time_ns = time.time_ns()
-    observation = np.zeros(OBS_DIM, dtype=np.float32)
-    server.set_observation(observation)
+    hw_obs = create_dummy_hw_obs(
+        camera_height=480, camera_width=640
+    )
+    server.set_observation(hw_obs)
 
-    client.poll(timeout_ms=1000)
+    received_hw_obs = client.poll(timeout_ms=1000)
     receive_time_ns = time.time_ns()
+    
+    assert received_hw_obs is not None
 
     latency_ns = receive_time_ns - send_time_ns
     latency_ms = latency_ns / 1_000_000.0

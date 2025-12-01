@@ -7,6 +7,8 @@ import pytest
 import zmq
 
 from hal.server import HalServerBase, HalServerConfig
+from hal.client.data_structures.hardware import KrabbyHardwareObservations
+from tests.helpers import create_dummy_hw_obs
 
 
 def test_hal_server_initialization():
@@ -37,9 +39,7 @@ def test_hal_server_context_manager():
 
 
 def test_set_observation():
-    """Test setting/publishing observation."""
-    from hal.client.observation.types import OBS_DIM
-    
+    """Test setting/publishing hardware observation."""
     config = HalServerConfig(
         observation_bind="inproc://test_state3",
         command_bind="inproc://test_command3",
@@ -49,23 +49,39 @@ def test_set_observation():
         # Create subscriber to receive message (use server's transport context for inproc)
         transport_context = server.get_transport_context()
         subscriber = transport_context.socket(zmq.SUB)
-        subscriber.connect("inproc://test_observation3")
+        subscriber.connect("inproc://test_state3")
         subscriber.setsockopt(zmq.SUBSCRIBE, b"observation")
         subscriber.setsockopt(zmq.RCVHWM, 1)
-        time.sleep(0.1)  # Give subscriber time to connect
+        time.sleep(0.2)  # Give subscriber time to connect
 
-        # Set observation data
-        observation = np.zeros(OBS_DIM, dtype=np.float32)
-        server.set_observation(observation)
+        # Set hardware observation
+        from tests.helpers import create_dummy_hw_obs
+        hw_obs = create_dummy_hw_obs(
+            camera_height=480, camera_width=640
+        )
+        server.set_observation(hw_obs)
+        time.sleep(0.1)  # Small delay to ensure message is sent
 
-        # Receive message
-        if subscriber.poll(1000, zmq.POLLIN):
-            parts = subscriber.recv_multipart()
-            assert len(parts) >= 3
-            assert parts[0] == b"observation"
-            assert parts[1] == b"1.0"  # schema version
-            received_data = np.frombuffer(parts[2], dtype=np.float32)
-            np.testing.assert_array_equal(received_data, observation)
+        # Receive message with timeout
+        poll_result = subscriber.poll(500, zmq.POLLIN)
+        assert poll_result > 0, "No message received within timeout"
+        
+        parts = subscriber.recv_multipart(zmq.NOBLOCK)
+        
+        # Validate message format
+        assert len(parts) == 8, f"Expected 8 parts (topic + schema + 6 hw_obs), got {len(parts)}"
+        assert parts[0] == b"observation", f"Expected topic 'observation', got {parts[0]}"
+        assert parts[1] == b"1.0", f"Expected schema '1.0', got {parts[1]}"
+        
+        # Extract hw_obs parts (skip topic and schema)
+        # Parts: [0:topic, 1:schema, 2:metadata, 3-7:arrays]
+        hw_obs_parts = parts[2:]  # Skip topic and schema
+        assert len(hw_obs_parts) == 6, f"Expected 6 parts for hw_obs (metadata + 5 arrays), got {len(hw_obs_parts)}"
+        
+        # Deserialize and validate
+        received_hw_obs = KrabbyHardwareObservations.from_bytes(hw_obs_parts)
+        assert received_hw_obs.joint_positions.shape == hw_obs.joint_positions.shape
+        np.testing.assert_array_equal(received_hw_obs.joint_positions, hw_obs.joint_positions)
 
         subscriber.close()
 
@@ -117,8 +133,6 @@ def test_get_joint_command():
 
 def test_hwm_behavior():
     """Test observation_buffer_size=1 behavior (latest-only semantics)."""
-    from hal.client.observation.types import OBS_DIM
-    
     # Use shared context for inproc connections
     
     config = HalServerConfig(
@@ -138,8 +152,11 @@ def test_hwm_behavior():
 
         # Publish multiple messages rapidly
         for i in range(10):
-            observation = np.full(OBS_DIM, float(i), dtype=np.float32)
-            server.set_observation(observation)
+            hw_obs = create_dummy_hw_obs(
+                camera_height=480, camera_width=640
+            )
+            hw_obs.joint_positions[:] = float(i)
+            server.set_observation(hw_obs)
         time.sleep(0.1)  # Small delay to ensure messages are sent
 
         # With observation_buffer_size=1, subscriber should receive messages (with shared context, connection is reliable)
@@ -154,31 +171,22 @@ def test_hwm_behavior():
         subscriber.close()
 
 
-def test_error_handling_invalid_shape():
-    """Test error handling for invalid array shapes."""
-    from hal.client.observation.types import OBS_DIM
-    
+def test_error_handling_invalid_type():
+    """Test error handling for invalid observation types."""
     config = HalServerConfig(
         observation_bind="inproc://test_state7",
         command_bind="inproc://test_command7",
     )
 
     with HalServerBase(config) as server:
-        # Try to publish 2D array (should fail)
-        invalid_data = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
-        with pytest.raises(ValueError):
+        # Try to publish wrong type (should fail)
+        invalid_data = np.array([1.0, 2.0, 3.0], dtype=np.float32)
+        with pytest.raises(ValueError, match="KrabbyHardwareObservations"):
             server.set_observation(invalid_data)
-        
-        # Try to publish wrong size 1D array (should fail)
-        wrong_size = np.array([1.0, 2.0, 3.0], dtype=np.float32)
-        with pytest.raises(ValueError, match="shape"):
-            server.set_observation(wrong_size)
 
 
 def test_error_handling_not_initialized():
     """Test error handling when server not initialized."""
-    from hal.client.observation.types import OBS_DIM
-    
     config = HalServerConfig(
         observation_bind="inproc://test_state8",
         command_bind="inproc://test_command8",
@@ -186,6 +194,9 @@ def test_error_handling_not_initialized():
     server = HalServerBase(config)
 
     # Should raise error if not initialized
+    hw_obs = create_dummy_hw_obs(
+        camera_height=480, camera_width=640
+    )
     with pytest.raises(RuntimeError, match="not initialized"):
-        server.set_observation(np.zeros(OBS_DIM, dtype=np.float32))
+        server.set_observation(hw_obs)
 

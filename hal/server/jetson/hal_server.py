@@ -7,14 +7,7 @@ from typing import Optional
 import numpy as np
 
 from hal.server import HalServerBase, HalServerConfig
-from hal.client.observation.types import (
-    NUM_PROP,
-    NUM_SCAN,
-    NUM_PRIV_EXPLICIT,
-    NUM_PRIV_LATENT,
-    HISTORY_DIM,
-    OBS_DIM,
-)
+from hal.client.data_structures.hardware import KrabbyHardwareObservations
 from locomotion.jetson.camera import ZedCamera, create_zed_camera  # Keep this import - camera is still in locomotion
 
 logger = logging.getLogger(__name__)
@@ -168,18 +161,11 @@ class JetsonHalServer(HalServerBase):
         return state_vector
 
     def set_observation(self) -> None:
-        """Set observation from real sensors in training format.
+        """Set observation from real sensors as hardware observations.
         
-        Builds complete observation array matching training format:
-        [num_prop(53), num_scan(132), num_priv_explicit(9), num_priv_latent(29), history(530)]
+        Constructs KrabbyHardwareObservations from raw sensor data.
         """
         try:
-            # Build depth features (scan features)
-            scan_features = self._build_depth_features()
-            if scan_features is None:
-                logger.warning("Failed to get scan features, cannot publish telemetry")
-                return
-
             # Build state vector
             state_vector = self._build_state_vector()
             if state_vector is None:
@@ -189,97 +175,58 @@ class JetsonHalServer(HalServerBase):
             # Extract components from state vector
             # Format: base_pos(3), base_quat(4), base_lin_vel(3), base_ang_vel(3),
             #         joint_pos(ACTION_DIM), joint_vel(ACTION_DIM)
-            base_pos = state_vector[0:3]
-            base_quat = state_vector[3:7]
-            base_lin_vel = state_vector[7:10]
-            base_ang_vel = state_vector[10:13]
             joint_pos = state_vector[13:13+self._action_dim]
-            joint_vel = state_vector[13+self._action_dim:13+2*self._action_dim]
-
-            # Build proprioceptive features (53 features)
-            # Training format from observations.py:
-            # root_ang_vel_b * 0.25 (3)
-            # imu_obs (roll, pitch) (2)
-            # delta_yaw (1) - placeholder 0 for now
-            # delta_yaw (1)
-            # delta_next_yaw (1) - placeholder 0 for now
-            # commands (vx, vy) (2) - placeholder 0 for now
-            # commands (vx) (1) - placeholder 0 for now
-            # env_idx_tensor (1) - placeholder 0 for now
-            # invert_env_idx_tensor (1) - placeholder 1 for now
-            # joint_pos - default_joint_pos (ACTION_DIM)
-            # joint_vel * 0.05 (ACTION_DIM)
-            # action_history_buf[:, -1] (ACTION_DIM) - placeholder 0 for now
-            # contact_fill (4) - placeholder 0 for now
-            # Total: 3 + 2 + 1 + 1 + 1 + 2 + 1 + 1 + 1 + ACTION_DIM + ACTION_DIM + ACTION_DIM + 4 = 19 + 3*ACTION_DIM
-            # For ACTION_DIM=12: 19 + 36 = 55, but training shows 53, so some components may be different
             
-            # Simplified proprioceptive features (placeholder - should match training exactly)
-            # For now, use a minimal set that matches the structure
-            proprioceptive = np.zeros(NUM_PROP, dtype=np.float32)
-            proprioceptive[0:3] = base_ang_vel * 0.25  # root_ang_vel_b * 0.25
-            # Roll, pitch from quaternion (simplified - should use euler_xyz_from_quat)
-            # For now, use placeholder
-            proprioceptive[3:5] = 0.0  # imu_obs (roll, pitch) - placeholder
-            proprioceptive[5:6] = 0.0  # delta_yaw placeholder
-            proprioceptive[6:7] = 0.0  # delta_yaw placeholder
-            proprioceptive[7:8] = 0.0  # delta_next_yaw placeholder
-            proprioceptive[8:10] = 0.0  # commands placeholder
-            proprioceptive[10:11] = 0.0  # commands placeholder
-            proprioceptive[11:12] = 0.0  # env_idx_tensor placeholder
-            proprioceptive[12:13] = 1.0  # invert_env_idx_tensor placeholder (flat terrain)
-            proprioceptive[13:13+self._action_dim] = joint_pos  # joint_pos - default_joint_pos (assuming default is 0)
-            proprioceptive[13+self._action_dim:13+2*self._action_dim] = joint_vel * 0.05  # joint_vel * 0.05
-            # Remaining features: action_history, contact_fill
-            # Pad to NUM_PROP (53)
-            if len(proprioceptive) < NUM_PROP:
-                # Should not happen, but handle gracefully
-                padding = np.zeros(NUM_PROP - len(proprioceptive), dtype=np.float32)
-                proprioceptive = np.concatenate([proprioceptive, padding])
-            elif len(proprioceptive) > NUM_PROP:
-                proprioceptive = proprioceptive[:NUM_PROP]
+            # Pad or truncate joint positions to 18 DOF (Krabby has 18 joints)
+            joint_positions = np.zeros(18, dtype=np.float32)
+            num_joints = min(len(joint_pos), 18)
+            joint_positions[:num_joints] = joint_pos[:num_joints]
 
-            # Privileged explicit features (9 features)
-            # Training format: base_lin_vel * 2.0 (3), zeros (6)
-            priv_explicit = np.zeros(NUM_PRIV_EXPLICIT, dtype=np.float32)
-            priv_explicit[0:3] = base_lin_vel * 2.0
-            # Remaining 6 are zeros (as in training)
+            # Get camera data (placeholder - ZED camera provides depth features, not raw images)
+            # For now, create dummy RGB and depth maps
+            # TODO: Get actual RGB images and depth map from ZED camera
+            camera_height, camera_width = self.camera_resolution[1], self.camera_resolution[0]
+            rgb_camera_1 = np.zeros((camera_height, camera_width, 3), dtype=np.uint8)
+            rgb_camera_2 = np.zeros((camera_height, camera_width, 3), dtype=np.uint8)
+            
+            # Try to get depth map from ZED camera
+            # If get_depth_map() is not available, create dummy depth map
+            depth_map = np.zeros((camera_height, camera_width), dtype=np.float32)
+            confidence_map = np.ones((camera_height, camera_width), dtype=np.float32)
+            
+            if self.zed_camera is not None:
+                # Try to get raw depth map if available
+                if hasattr(self.zed_camera, 'get_depth_map'):
+                    depth_map_data = self.zed_camera.get_depth_map()
+                    if depth_map_data is not None:
+                        # Resize if needed
+                        if depth_map_data.shape != (camera_height, camera_width):
+                            from scipy.ndimage import zoom
+                            zoom_factors = (camera_height / depth_map_data.shape[0], 
+                                          camera_width / depth_map_data.shape[1])
+                            depth_map = zoom(depth_map_data, zoom_factors, order=1).astype(np.float32)
+                        else:
+                            depth_map = depth_map_data.astype(np.float32)
+                
+                # Try to get RGB images if available
+                if hasattr(self.zed_camera, 'get_rgb_images'):
+                    rgb_images = self.zed_camera.get_rgb_images()
+                    if rgb_images is not None and len(rgb_images) >= 2:
+                        rgb_camera_1 = rgb_images[0]
+                        rgb_camera_2 = rgb_images[1]
 
-            # Privileged latent features (29 features)
-            # Training format: body_mass (1), body_com (3), friction (1), joint_stiffness (12), joint_damping (12)
-            # Total: 1 + 3 + 1 + 12 + 12 = 29
-            priv_latent = np.zeros(NUM_PRIV_LATENT, dtype=np.float32)
-            # Placeholder values (would need real sensor data)
-            priv_latent[0] = 1.0  # body_mass placeholder
-            priv_latent[1:4] = 0.0  # body_com placeholder
-            priv_latent[4] = 0.5  # friction placeholder
-            priv_latent[5:17] = 0.0  # joint_stiffness placeholder (normalized)
-            priv_latent[17:29] = 0.0  # joint_damping placeholder (normalized)
+            # Create hardware observation
+            hw_obs = KrabbyHardwareObservations(
+                joint_positions=joint_positions,
+                rgb_camera_1=rgb_camera_1,
+                rgb_camera_2=rgb_camera_2,
+                depth_map=depth_map,
+                confidence_map=confidence_map,
+                timestamp_ns=time.time_ns(),
+            )
 
-            # History features (530 features = 10 * 53)
-            # Placeholder: zeros for now (would need to maintain history buffer)
-            history = np.zeros(HISTORY_DIM, dtype=np.float32)
-
-            # Build complete observation array in training format
-            observation = np.concatenate([
-                proprioceptive,  # 53
-                scan_features,  # 132
-                priv_explicit,  # 9
-                priv_latent,  # 29
-                history,  # 530
-            ], dtype=np.float32)
-
-            # Validate shape
-            if observation.shape != (OBS_DIM,):
-                logger.error(
-                    f"Observation shape {observation.shape} != expected ({OBS_DIM},). "
-                    f"Components: proprioceptive={len(proprioceptive)}, scan={len(scan_features)}, "
-                    f"priv_explicit={len(priv_explicit)}, priv_latent={len(priv_latent)}, history={len(history)}"
-                )
-                return
-
-            # Publish complete observation in training format via base-class publisher
-            super().set_observation(observation)
+            # Publish hardware observation via base-class publisher
+            super().set_observation(hw_obs)
 
         except Exception as e:
             logger.error(f"Error publishing telemetry: {e}", exc_info=True)

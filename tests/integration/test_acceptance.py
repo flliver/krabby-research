@@ -19,9 +19,11 @@ import torch
 from hal.client.client import HalClient
 from hal.server import HalServerBase
 from hal.client.config import HalClientConfig, HalServerConfig
-from hal.client.observation.types import ParkourObservation, NavigationCommand, OBS_DIM
+from hal.client.observation.types import NavigationCommand
+from compute.parkour.types import ParkourObservation, OBS_DIM
 from compute.parkour.policy_interface import ModelWeights, ParkourPolicyModel
 from compute.testing.inference_test_runner import InferenceTestRunner
+from tests.helpers import create_dummy_hw_obs
 
 
 class ProtoHalServer(HalServerBase):
@@ -114,7 +116,7 @@ class ProtoHalServer(HalServerBase):
         Note: This method name is kept for backward compatibility in tests.
         It calls set_observation() on the base class.
         """
-        from hal.client.observation.types import OBS_DIM
+        from compute.parkour.types import OBS_DIM
 
         # Create synthetic observation in training format
         obs_array = np.zeros(OBS_DIM, dtype=np.float32)
@@ -145,15 +147,20 @@ class ProtoHalServer(HalServerBase):
             num_prop + num_scan + num_priv_explicit + num_priv_latent :
         ] = np.random.randn(history_dim).astype(np.float32)
 
-        # Create ParkourObservation
-        observation = ParkourObservation(
-            timestamp_ns=time.time_ns(),
-            schema_version="1.0",
-            observation=obs_array,
+        # Create hardware observation from the observation array
+        # For testing, we'll create a dummy hardware observation
+        # In production, this would come from actual sensors
+        from hal.client.data_structures.hardware import KrabbyHardwareObservations
+        
+        hw_obs = create_dummy_hw_obs(
+            camera_height=480, camera_width=640
         )
-
-        # Publish via base class (set_observation expects np.ndarray)
-        super().set_observation(observation.observation)
+        # Copy joint positions from obs_array (first 18 elements if available)
+        num_joints = min(18, len(obs_array))
+        hw_obs.joint_positions[:num_joints] = obs_array[:num_joints].astype(np.float32)
+        
+        # Publish via base class
+        super().set_observation(hw_obs)
 
     def apply_joint_command(self, command_bytes: bytes) -> bytes:
         """Apply joint command (stub for testing).
@@ -232,7 +239,7 @@ def test_100_tick_execution_with_proto_hal(proto_hal_setup):
             self.inference_count = 0
 
         def inference(self, model_io):
-            from hal.client.commands.types import InferenceResponse
+            from compute.parkour.types import InferenceResponse
 
             self.inference_count += 1
             # Return zero action tensor
@@ -246,9 +253,9 @@ def test_100_tick_execution_with_proto_hal(proto_hal_setup):
     model = MockPolicyModel()
     test_runner = InferenceTestRunner(model, client, control_rate_hz=100.0)
 
-    # Set navigation command
+    # Set navigation command on test runner
     nav_cmd = NavigationCommand.create_now(vx=1.0, vy=0.0, yaw_rate=0.0)
-    client.set_navigation_command(nav_cmd)
+    test_runner.set_navigation_command(nav_cmd)
 
     # Start publishing observations
     server.start_publishing(rate_hz=100.0)
@@ -318,7 +325,7 @@ def test_inference_latency_requirement(proto_hal_setup):
             self.latencies = []
 
         def inference(self, model_io):
-            from hal.client.commands.types import InferenceResponse
+            from compute.parkour.types import InferenceResponse
 
             start_time = time.time_ns()
             # Simulate inference time
@@ -340,7 +347,7 @@ def test_inference_latency_requirement(proto_hal_setup):
     test_runner = InferenceTestRunner(model, client, control_rate_hz=100.0)
 
     nav_cmd = NavigationCommand.create_now()
-    client.set_navigation_command(nav_cmd)
+    test_runner.set_navigation_command(nav_cmd)
 
     server.start_publishing(rate_hz=100.0)
 
@@ -420,7 +427,7 @@ def test_inference_latency_with_real_model(proto_hal_setup):
     test_runner = InferenceTestRunner(model, client, control_rate_hz=100.0)
 
     nav_cmd = NavigationCommand.create_now()
-    client.set_navigation_command(nav_cmd)
+    test_runner.set_navigation_command(nav_cmd)
 
     server.start_publishing(rate_hz=100.0)
 

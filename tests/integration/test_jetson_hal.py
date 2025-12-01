@@ -92,7 +92,7 @@ def test_jetson_hal_server_observation_publishing(hal_server_config, hal_client_
     time.sleep(0.1)
 
     # Mock depth features (NUM_SCAN = 132)
-    from hal.client.observation.types import NUM_SCAN
+    from compute.parkour.types import NUM_SCAN
 
     depth_features = np.array([1.0, 2.0, 3.0] * 44, dtype=np.float32)[:NUM_SCAN]  # 132 features
     mock_camera.get_depth_features.return_value = depth_features
@@ -114,13 +114,11 @@ def test_jetson_hal_server_observation_publishing(hal_server_config, hal_client_
     hal_server.set_observation()
 
     # Poll client
-    hal_client.poll(timeout_ms=1000)
+    hw_obs = hal_client.poll(timeout_ms=1000)
 
-    # Verify observation data received (unified observation format)
-    assert hal_client._latest_observation is not None
-    assert hal_client._latest_observation.observation is not None
-    from hal.client.observation.types import OBS_DIM
-    assert hal_client._latest_observation.observation.shape == (OBS_DIM,)
+    # Verify hardware observation data received
+    assert hw_obs is not None
+    assert hw_obs.joint_positions is not None
 
     hal_client.close()
     hal_server.close()
@@ -142,7 +140,7 @@ def test_jetson_hal_server_joint_command_application(hal_server_config, hal_clie
     time.sleep(0.1)
 
     # Send command from client using new API
-    from hal.client.commands.types import InferenceResponse
+    from compute.parkour.types import InferenceResponse
     import torch
     import threading
 
@@ -163,15 +161,21 @@ def test_jetson_hal_server_joint_command_application(hal_server_config, hal_clie
     server_thread.start()
     time.sleep(0.05)  # Small delay to ensure server is waiting
 
+    # Map inference response to hardware joint positions
+    from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToKrabbyHWMapper
+    mapper = ParkourLocomotionToKrabbyHWMapper(model_action_dim=12)
+    joint_positions = mapper.map(inference_response)
+    
     # Send command
-    success = hal_client.put_joint_command(inference_response)
+    success = hal_client.put_joint_command(joint_positions)
     assert success, "Command send failed"
 
     # Wait for server to receive
     server_thread.join(timeout=2.0)
     received = received_command[0]
     assert received is not None, "Server did not receive command"
-    np.testing.assert_array_equal(received, action_array)
+    # Should receive the mapped joint positions (18 DOF)
+    np.testing.assert_array_equal(received, joint_positions.joint_positions)
 
     hal_client.close()
     hal_server.close()
@@ -189,7 +193,7 @@ def test_jetson_hal_server_end_to_end_with_game_loop(hal_server_config, hal_clie
     mock_camera = MagicMock(spec=ZedCamera)
     mock_camera.is_ready.return_value = True
 
-    from hal.client.observation.types import NUM_SCAN
+    from compute.parkour.types import NUM_SCAN
 
     depth_features = np.zeros(NUM_SCAN, dtype=np.float32)
     depth_features[0:64] = 1.0  # Set first 64 features
@@ -222,7 +226,7 @@ def test_jetson_hal_server_end_to_end_with_game_loop(hal_server_config, hal_clie
 
         def inference(self, model_io):
             import time
-            from hal.client.commands.types import InferenceResponse
+            from compute.parkour.types import InferenceResponse
             import torch
 
             self.inference_count += 1
@@ -235,9 +239,9 @@ def test_jetson_hal_server_end_to_end_with_game_loop(hal_server_config, hal_clie
     model = MockPolicyModel()
     test_runner = InferenceTestRunner(model, hal_client, control_rate_hz=100.0)
 
-    # Set navigation command
+    # Set navigation command on test runner
     nav_cmd = NavigationCommand.create_now()
-    hal_client.set_navigation_command(nav_cmd)
+    test_runner.set_navigation_command(nav_cmd)
 
     # Run a few iterations
     import threading
@@ -248,14 +252,33 @@ def test_jetson_hal_server_end_to_end_with_game_loop(hal_server_config, hal_clie
             hal_server.set_observation()
 
             # Poll client
-            hal_client.poll(timeout_ms=10)
+            hw_obs = hal_client.poll(timeout_ms=10)
+            if hw_obs is None:
+                continue
 
-            # Build model IO and run inference
-            model_io = hal_client.build_model_io()
+            # Map hardware observation to ParkourObservation
+            from compute.parkour.mappers.hardware_to_model import KrabbyHWObservationsToParkourMapper
+            from compute.parkour.types import ParkourModelIO
+            
+            mapper = KrabbyHWObservationsToParkourMapper()
+            parkour_obs = mapper.map(hw_obs)
+            
+            # Build model IO (preserve timestamp from observation)
+            model_io = ParkourModelIO(
+                timestamp_ns=parkour_obs.timestamp_ns,
+                schema_version=parkour_obs.schema_version,
+                nav_cmd=nav_cmd,
+                observation=parkour_obs,
+            )
+            
             if model_io is not None:
                 inference_result = model.inference(model_io)
                 if inference_result.success:
-                    hal_client.put_joint_command(inference_result)
+                    # Map inference response to hardware joint positions
+                    from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToKrabbyHWMapper
+                    mapper = ParkourLocomotionToKrabbyHWMapper(model_action_dim=12)
+                    joint_positions = mapper.map(inference_result)
+                    hal_client.put_joint_command(joint_positions)
 
             # Apply joint command
             hal_server.move()
@@ -332,7 +355,7 @@ def test_jetson_hal_server_network_communication():
     mock_camera = MagicMock(spec=ZedCamera)
     mock_camera.is_ready.return_value = True
 
-    from hal.client.observation.types import NUM_SCAN
+    from compute.parkour.types import NUM_SCAN
 
     depth_features = np.zeros(NUM_SCAN, dtype=np.float32)
     depth_features[0:64] = 1.0  # Set first 64 features
@@ -355,14 +378,14 @@ def test_jetson_hal_server_network_communication():
     server.set_observation()
 
     # Poll client
-    client.poll(timeout_ms=2000)  # Longer timeout for network
+    hw_obs = client.poll(timeout_ms=2000)  # Longer timeout for network
 
-    # Verify observation data received (unified observation format)
-    assert client._latest_observation is not None
-    assert client._latest_observation.observation is not None
+    # Verify hardware observation data received
+    assert hw_obs is not None
+    assert hw_obs.joint_positions is not None
 
     # Send command
-    from hal.client.commands.types import InferenceResponse
+    from compute.parkour.types import InferenceResponse
     import torch
 
     action_array = np.array([0.1] * 12, dtype=np.float32)
@@ -382,7 +405,12 @@ def test_jetson_hal_server_network_communication():
     server_thread.start()
     time.sleep(0.05)  # Small delay to ensure server is waiting
 
-    success = client.put_joint_command(inference_response)
+    # Map inference response to hardware joint positions
+    from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToKrabbyHWMapper
+    mapper = ParkourLocomotionToKrabbyHWMapper(model_action_dim=12)
+    joint_positions = mapper.map(inference_response)
+    
+    success = client.put_joint_command(joint_positions)
     assert success
 
     # Wait for server to receive
@@ -456,7 +484,7 @@ def test_jetson_hal_server_sustained_bidirectional_messaging(hal_server_config, 
     # Mock camera to return depth features
     mock_camera = MagicMock(spec=ZedCamera)
     mock_camera.is_ready.return_value = True
-    from hal.client.observation.types import NUM_SCAN
+    from compute.parkour.types import NUM_SCAN
 
     depth_features = np.zeros(NUM_SCAN, dtype=np.float32)
     mock_camera.get_depth_features.return_value = depth_features
@@ -474,9 +502,8 @@ def test_jetson_hal_server_sustained_bidirectional_messaging(hal_server_config, 
         ]).astype(np.float32)
     hal_server._build_state_vector = mock_build_state
 
-    # Set initial navigation command (required for build_model_io)
+    # Set initial navigation command
     nav_cmd = NavigationCommand.create_now()
-    hal_client.set_navigation_command(nav_cmd)
 
     # Statistics - reduced to 3 seconds for faster test execution
     duration_seconds = 3.0
@@ -504,10 +531,10 @@ def test_jetson_hal_server_sustained_bidirectional_messaging(hal_server_config, 
             observations_published += 1
             
             # Client polls for observation
-            hal_client.poll(timeout_ms=10)
+            hw_obs = hal_client.poll(timeout_ms=10)
             
-            # Check if observation received (Jetson HAL now publishes complete observation)
-            if hal_client._latest_observation is not None:
+            # Check if observation received
+            if hw_obs is not None:
                 observations_received += 1
                 if last_observation_time is not None:
                     time_diff = time.time() - last_observation_time
@@ -515,20 +542,39 @@ def test_jetson_hal_server_sustained_bidirectional_messaging(hal_server_config, 
                         drops += 1
                 last_observation_time = time.time()
             
-            # Client sends command
-            model_io = hal_client.build_model_io()
+            # Map hardware observation and build model IO
+            if hw_obs is not None:
+                from compute.parkour.mappers.hardware_to_model import KrabbyHWObservationsToParkourMapper
+                from compute.parkour.types import ParkourModelIO
+                
+                mapper = KrabbyHWObservationsToParkourMapper()
+                parkour_obs = mapper.map(hw_obs)
+                
+                model_io = ParkourModelIO(
+                    timestamp_ns=parkour_obs.timestamp_ns,
+                    schema_version=parkour_obs.schema_version,
+                    nav_cmd=nav_cmd,
+                    observation=parkour_obs,
+                )
+            else:
+                model_io = None
+            
             if model_io is not None:
                 # Create mock command
                 command = np.random.uniform(-0.5, 0.5, size=12).astype(np.float32)
                 
-                from hal.client.commands.types import InferenceResponse
+                from compute.parkour.types import InferenceResponse
                 import torch as torch_module
                 action_tensor = torch_module.from_numpy(command)
                 response = InferenceResponse.create_success(
                     action=action_tensor,
                     inference_latency_ms=5.0,
                 )
-                hal_client.put_joint_command(response)
+                # Map inference response to hardware joint positions
+                from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToKrabbyHWMapper
+                mapper = ParkourLocomotionToKrabbyHWMapper(model_action_dim=12)
+                joint_positions = mapper.map(response)
+                hal_client.put_joint_command(joint_positions)
                 commands_sent += 1
                 
                 # Server receives command (has 10ms timeout, so won't block long)
@@ -600,7 +646,7 @@ def test_jetson_hal_server_joystick_input_integration(hal_server_config, hal_cli
     # Mock camera
     mock_camera = MagicMock(spec=ZedCamera)
     mock_camera.is_ready.return_value = True
-    from hal.client.observation.types import NUM_SCAN
+    from compute.parkour.types import NUM_SCAN
 
     depth_features = np.zeros(NUM_SCAN, dtype=np.float32)
     mock_camera.get_depth_features.return_value = depth_features
@@ -632,18 +678,30 @@ def test_jetson_hal_server_joystick_input_integration(hal_server_config, hal_cli
 
     # Send joystick commands and verify they're used
     for nav_cmd in joystick_commands:
-        # Send navigation command (simulating joystick input)
-        hal_client.set_navigation_command(nav_cmd)
         commands_sent += 1
 
         # Publish observation
         hal_server.set_observation()
 
         # Poll client
-        hal_client.poll(timeout_ms=100)
+        hw_obs = hal_client.poll(timeout_ms=100)
+        if hw_obs is None:
+            continue
 
-        # Build model IO (should include navigation command)
-        model_io = hal_client.build_model_io()
+        # Map hardware observation and build model IO with navigation command
+        from compute.parkour.mappers.hardware_to_model import KrabbyHWObservationsToParkourMapper
+        from compute.parkour.types import ParkourModelIO
+        
+        mapper = KrabbyHWObservationsToParkourMapper()
+        parkour_obs = mapper.map(hw_obs)
+        
+        model_io = ParkourModelIO(
+            timestamp_ns=parkour_obs.timestamp_ns,
+            schema_version=parkour_obs.schema_version,
+            nav_cmd=nav_cmd,
+            observation=parkour_obs,
+        )
+        
         if model_io is not None:
             # Verify navigation command is included
             if model_io.nav_cmd is not None:

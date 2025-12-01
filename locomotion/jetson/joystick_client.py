@@ -35,13 +35,14 @@ logger = logging.getLogger(__name__)
 class JoystickClient:
     """Simple joystick client for sending navigation commands."""
 
-    def __init__(self, hal_client: HalClient):
+    def __init__(self, inference_runner=None):
         """Initialize joystick client.
 
         Args:
-            hal_client: HAL client for sending navigation commands
+            inference_runner: InferenceRunner instance to set navigation commands on.
+                If None, navigation commands will be logged but not sent.
         """
-        self.hal_client = hal_client
+        self.inference_runner = inference_runner
         self.running = False
 
     def run_keyboard(self) -> None:
@@ -108,7 +109,8 @@ class JoystickClient:
 
                 # Send navigation command
                 nav_cmd = NavigationCommand.create_now(vx=vx, vy=vy, yaw_rate=yaw_rate)
-                self.hal_client.set_navigation_command(nav_cmd)
+                if self.inference_runner:
+                    self.inference_runner.set_navigation_command(nav_cmd)
                 logger.info(f"Command: vx={vx:.2f}, vy={vy:.2f}, yaw_rate={yaw_rate:.2f}")
 
                 time.sleep(0.05)  # Small delay to avoid flooding
@@ -184,7 +186,8 @@ class JoystickClient:
 
             # Send navigation command
             nav_cmd = NavigationCommand.create_now(vx=vx, vy=vy, yaw_rate=yaw_rate)
-            self.hal_client.set_navigation_command(nav_cmd)
+            if self.inference_runner:
+                self.inference_runner.set_navigation_command(nav_cmd)
 
             # Limit update rate to 20 Hz (joystick polling)
             clock.tick(20)
@@ -197,20 +200,13 @@ class JoystickClient:
 
 
 def main():
-    """Main entry point for joystick client."""
-    parser = argparse.ArgumentParser(description="Joystick client for HAL navigation commands")
-    parser.add_argument(
-        "--observation_endpoint",
-        type=str,
-        default="tcp://localhost:6001",
-        help="Observation endpoint (default: tcp://localhost:6001)",
-    )
-    parser.add_argument(
-        "--command_endpoint",
-        type=str,
-        default="tcp://localhost:6002",
-        help="Command endpoint (default: tcp://localhost:6002)",
-    )
+    """Main entry point for joystick client.
+    
+    Note: This client now requires an InferenceRunner instance to be passed.
+    For standalone use, the joystick client should be integrated into the
+    inference runner or use a shared state mechanism.
+    """
+    parser = argparse.ArgumentParser(description="Joystick client for navigation commands")
     parser.add_argument(
         "--keyboard",
         action="store_true",
@@ -227,21 +223,17 @@ def main():
     # Default to keyboard if no input method specified
     use_keyboard = args.keyboard or (not args.gamepad)
 
-    # Create HAL client config
-    config = HalClientConfig(
-        observation_endpoint=args.observation_endpoint,
-        command_endpoint=args.command_endpoint,
+    # Note: JoystickClient now requires an InferenceRunner instance
+    # For standalone use, integrate joystick input into the inference runner
+    logger.warning(
+        "JoystickClient now requires an InferenceRunner instance. "
+        "For standalone use, integrate joystick input into the inference runner."
     )
-
-    # Initialize HAL client
-    hal_client = HalClient(config)
+    
+    # Create joystick client without inference runner (commands will be logged only)
+    joystick_client = JoystickClient(inference_runner=None)
+    
     try:
-        hal_client.initialize()
-        logger.info("HAL client initialized")
-
-        # Create joystick client
-        joystick_client = JoystickClient(hal_client)
-
         # Run input loop
         if use_keyboard:
             joystick_client.run_keyboard()
@@ -253,7 +245,6 @@ def main():
     except Exception as e:
         logger.error(f"Error: {e}", exc_info=True)
     finally:
-        hal_client.close()
         logger.info("Joystick client closed")
 
 

@@ -13,7 +13,7 @@ from typing import Optional
 
 import numpy as np
 
-from hal.client.observation.types import NUM_SCAN
+from compute.parkour.types import NUM_SCAN
 
 logger = logging.getLogger(__name__)
 
@@ -220,7 +220,7 @@ class ZedCamera:
         Returns:
             Depth features as float32 array of shape (132,) matching training format
         """
-        from hal.client.observation.types import NUM_SCAN
+        from compute.parkour.types import NUM_SCAN
 
         height, width = depth_frame.shape
 

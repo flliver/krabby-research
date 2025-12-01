@@ -10,8 +10,8 @@ import logging
 import numpy as np
 import torch
 
-from hal.client.commands.types import InferenceResponse
-from hal.data_structures.hardware import KrabbyDesiredJointPositions
+from compute.parkour.types import InferenceResponse
+from hal.client.data_structures.hardware import KrabbyDesiredJointPositions
 
 logger = logging.getLogger(__name__)
 

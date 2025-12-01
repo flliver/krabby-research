@@ -42,19 +42,15 @@ krabby-research/
 │   │   ├── __init__.py               # Re-exports HalClient, HalClientConfig
 │   │   ├── client.py                 # HalClient (ZMQ logic black-boxed)
 │   │   ├── config.py                 # HalClientConfig
-│   │   ├── observation/              # Observation types (NavigationCommand, ParkourObservation, etc.)
+│   │   ├── observation/              # Observation types (NavigationCommand only)
 │   │   │   ├── __init__.py
 │   │   │   └── types.py
-│   │   ├── commands/                 # Command types (JointCommand, InferenceResponse, etc.)
+│   │   ├── commands/                 # Command types (empty, kept for future use)
 │   │   │   ├── __init__.py
 │   │   │   └── types.py
 │   │   ├── data_structures/           # Hardware data structures
 │   │   │   ├── __init__.py
-│   │   │   └── hardware.py
-│   │   ├── mappers/                   # Data mappers (hardware ↔ model)
-│   │   │   ├── __init__.py
-│   │   │   ├── hardware_to_model.py
-│   │   │   └── model_to_hardware.py
+│   │   │   └── hardware.py           # KrabbyHardwareObservations, KrabbyDesiredJointPositions
 │   │   └── pyproject.toml
 │   │
 │   ├── server/                       # HAL server base package (package: krabby-hal-server)
@@ -82,8 +78,12 @@ krabby-research/
 ├── compute/                          # Inference and computation logic (current)
 │   └── parkour/                      # Parkour inference implementation (used in production)
 │       ├── __init__.py
-│       ├── policy_interface.py     # Parkour policy inference interface
-│       └── model_loader.py           # Model loading and checkpoint management
+│       ├── policy_interface.py       # Parkour policy inference interface
+│       ├── types.py                   # Parkour-specific types (ParkourObservation, ParkourModelIO, InferenceResponse)
+│       └── mappers/                   # Data mappers (hardware ↔ model)
+│           ├── __init__.py
+│           ├── hardware_to_model.py  # KrabbyHardwareObservations → ParkourObservation
+│           └── model_to_hardware.py   # InferenceResponse → KrabbyDesiredJointPositions
 │
 ├── locomotion/                       # Production runtime
 │   ├── jetson/                       # Jetson-specific runtime
@@ -93,6 +93,12 @@ krabby-research/
 │   │                                 # Note: JetsonHalServer is in hal/server/jetson/hal_server.py
 │   └── isaacsim/                     # IsaacSim runtime
 │       └── main.py                   # IsaacSim entry point
+│
+├── tests/                            # Test suite
+│   ├── __init__.py
+│   ├── helpers.py                    # Test helpers (create_dummy_hw_obs, etc.)
+│   ├── unit/                          # Unit tests
+│   └── integration/                   # Integration tests
 │
 ├── images/                           # OS images, Dockerfiles, and container configs (current)
 │   ├── locomotion/                   # Production container (Jetson: inference + HAL server, inproc ZMQ)
@@ -125,10 +131,13 @@ The HAL packages are organized with a clean directory structure that matches the
   - `hal/client/client.py`: HalClient implementation (ZMQ black-boxed)
   - `hal/client/config.py`: HalClientConfig
   - `hal/client/__init__.py`: Re-exports `HalClient`, `HalClientConfig` for cleaner imports
-  - `hal/observation/`: Observation types (NavigationCommand, ParkourObservation, etc.)
-  - `hal/commands/`: Command types (JointCommand, InferenceResponse)
-  - `hal/data_structures/`: Hardware data structures (KrabbyHardwareObservations, etc.)
-  - `hal/mappers/`: Data mappers (hardware ↔ model conversion)
+  - `hal/client/observation/`: Observation types (NavigationCommand only - generic HAL type)
+  - `hal/client/commands/`: Command types (empty, kept for future generic types)
+  - `hal/client/data_structures/`: Hardware data structures (KrabbyHardwareObservations, KrabbyDesiredJointPositions)
+  
+**Model-specific types** (ParkourObservation, ParkourModelIO, InferenceResponse, etc.) are in `compute/parkour/types.py`.
+
+**Mappers** for converting between hardware and model formats are in `compute/parkour/mappers/`.
   
 - **`hal/server/`**: HAL server base package (package name: `krabby-hal-server`, installed via wheel)
   - `hal/server/server.py`: HalServerBase implementation (ZMQ black-boxed)
@@ -149,13 +158,29 @@ The HAL packages are organized with a clean directory structure that matches the
 
 **Import Patterns:**
 ```python
-# Using re-exports for cleaner imports
+# HAL client/server
 from hal.client import HalClient, HalClientConfig
 from hal.server import HalServerBase, HalServerConfig
 from hal.server.isaac import IsaacSimHalServer
 from hal.server.jetson import JetsonHalServer
-from hal.observation import ParkourObservation
-from hal.commands import InferenceResponse
+
+# Generic HAL types
+from hal.client.observation.types import NavigationCommand
+from hal.client.data_structures.hardware import (
+    KrabbyHardwareObservations,
+    KrabbyDesiredJointPositions,
+)
+
+# Model-specific types (Parkour)
+from compute.parkour.types import (
+    ParkourObservation,
+    ParkourModelIO,
+    InferenceResponse,
+)
+
+# Mappers
+from compute.parkour.mappers.hardware_to_model import KrabbyHWObservationsToParkourMapper
+from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToKrabbyHWMapper
 ```
 
 ### Single Source of Truth with Editable Installs

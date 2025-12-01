@@ -81,7 +81,7 @@ def test_isaacsim_hal_server_camera_publishing(mock_isaac_env, hal_server_config
     time.sleep(0.1)
 
     # Mock observation manager to return complete observation in training format
-    from hal.client.observation.types import OBS_DIM
+    from compute.parkour.types import OBS_DIM
     hal_server.observation_manager = MagicMock()
     hal_server.observation_manager.compute = MagicMock(return_value={"policy": torch.zeros(OBS_DIM, dtype=torch.float32)})
     hal_server.env.device = torch.device("cpu")
@@ -90,12 +90,11 @@ def test_isaacsim_hal_server_camera_publishing(mock_isaac_env, hal_server_config
     hal_server.set_observation()
 
     # Poll client
-    hal_client.poll(timeout_ms=1000)
+    hw_obs = hal_client.poll(timeout_ms=1000)
 
-    # Verify observation data received
-    assert hal_client._latest_observation is not None
-    assert hal_client._latest_observation.observation is not None
-    assert hal_client._latest_observation.observation.shape == (OBS_DIM,)
+    # Verify hardware observation data received
+    assert hw_obs is not None
+    assert hw_obs.joint_positions is not None
 
     hal_client.close()
     hal_server.close()
@@ -117,7 +116,7 @@ def test_isaacsim_hal_server_state_publishing(mock_isaac_env, hal_server_config,
     time.sleep(0.1)
 
     # Mock observation manager to return complete observation in training format
-    from hal.client.observation.types import OBS_DIM
+    from compute.parkour.types import OBS_DIM
     hal_server.observation_manager = MagicMock()
     hal_server.observation_manager.compute = MagicMock(return_value={"policy": torch.zeros(OBS_DIM, dtype=torch.float32)})
     hal_server.env.device = torch.device("cpu")
@@ -126,12 +125,11 @@ def test_isaacsim_hal_server_state_publishing(mock_isaac_env, hal_server_config,
     hal_server.set_observation()
 
     # Poll client
-    hal_client.poll(timeout_ms=1000)
+    hw_obs = hal_client.poll(timeout_ms=1000)
 
-    # Verify observation data received
-    assert hal_client._latest_observation is not None
-    assert hal_client._latest_observation.observation is not None
-    assert hal_client._latest_observation.observation.shape == (OBS_DIM,)
+    # Verify hardware observation data received
+    assert hw_obs is not None
+    assert hw_obs.joint_positions is not None
 
     hal_client.close()
     hal_server.close()
@@ -198,7 +196,7 @@ def test_isaacsim_hal_server_end_to_end_with_game_loop(mock_isaac_env, hal_serve
     time.sleep(0.1)
 
     # Mock observation manager to return complete observation in training format
-    from hal.client.observation.types import OBS_DIM
+    from compute.parkour.types import OBS_DIM
     hal_server.observation_manager = MagicMock()
     hal_server.observation_manager.compute = MagicMock(return_value={"policy": torch.zeros(OBS_DIM, dtype=torch.float32)})
     hal_server.env.device = torch.device("cpu")
@@ -216,7 +214,7 @@ def test_isaacsim_hal_server_end_to_end_with_game_loop(mock_isaac_env, hal_serve
 
         def inference(self, model_io):
             import time
-            from hal.client.commands.types import InferenceResponse
+            from compute.parkour.types import InferenceResponse
 
             self.inference_count += 1
             action_tensor = torch.zeros(self.action_dim, dtype=torch.float32)
@@ -230,9 +228,9 @@ def test_isaacsim_hal_server_end_to_end_with_game_loop(mock_isaac_env, hal_serve
     # Setup inference test runner (simulates game loop)
     test_runner = InferenceTestRunner(model, hal_client, control_rate_hz=100.0)
 
-    # Set navigation command
+    # Set navigation command on test runner
     nav_cmd = NavigationCommand.create_now()
-    hal_client.set_navigation_command(nav_cmd)
+    test_runner.set_navigation_command(nav_cmd)
 
     # Run a few iterations
     import threading
@@ -243,14 +241,33 @@ def test_isaacsim_hal_server_end_to_end_with_game_loop(mock_isaac_env, hal_serve
             hal_server.set_observation()
 
             # Poll client
-            hal_client.poll(timeout_ms=10)
+            hw_obs = hal_client.poll(timeout_ms=10)
+            if hw_obs is None:
+                time.sleep(0.01)
+                continue
 
-            # Build model IO and run inference
-            model_io = hal_client.build_model_io()
-            if model_io is not None:
-                inference_result = model.inference(model_io)
-                if inference_result.success:
-                    hal_client.put_joint_command(inference_result)
+            # Map hardware observation to ParkourObservation
+            from compute.parkour.mappers.hardware_to_model import KrabbyHWObservationsToParkourMapper
+            from compute.parkour.types import ParkourModelIO
+            
+            mapper = KrabbyHWObservationsToParkourMapper()
+            parkour_obs = mapper.map(hw_obs)
+            
+            # Build model IO (preserve timestamp from observation)
+            model_io = ParkourModelIO(
+                timestamp_ns=parkour_obs.timestamp_ns,
+                schema_version=parkour_obs.schema_version,
+                nav_cmd=nav_cmd,
+                observation=parkour_obs,
+            )
+            
+            inference_result = model.inference(model_io)
+            if inference_result.success:
+                # Map inference response to hardware joint positions
+                from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToKrabbyHWMapper
+                mapper = ParkourLocomotionToKrabbyHWMapper(model_action_dim=12)
+                joint_positions = mapper.map(inference_result)
+                hal_client.put_joint_command(joint_positions)
 
             # Apply joint command
             hal_server.move()
@@ -316,7 +333,7 @@ def test_isaacsim_hal_server_with_real_zmq_communication(mock_isaac_env, hal_ser
     time.sleep(0.1)
 
     # Mock observation manager to return complete observation in training format
-    from hal.client.observation.types import OBS_DIM
+    from compute.parkour.types import OBS_DIM
     hal_server.observation_manager = MagicMock()
     hal_server.observation_manager.compute = MagicMock(return_value={"policy": torch.zeros(OBS_DIM, dtype=torch.float32)})
 
@@ -324,13 +341,13 @@ def test_isaacsim_hal_server_with_real_zmq_communication(mock_isaac_env, hal_ser
     hal_server.set_observation()
 
     # Poll client
-    hal_client.poll(timeout_ms=1000)
+    hw_obs = hal_client.poll(timeout_ms=1000)
 
     # Verify data received
-    assert hal_client._latest_observation is not None
+    assert hw_obs is not None
 
     # Send command from client
-    from hal.client.commands.types import InferenceResponse
+    from compute.parkour.types import InferenceResponse
 
     action_array = np.array([0.1, 0.2, 0.3] * 4, dtype=np.float32)
     action_tensor = torch.from_numpy(action_array)
@@ -351,14 +368,20 @@ def test_isaacsim_hal_server_with_real_zmq_communication(mock_isaac_env, hal_ser
     server_thread.start()
     time.sleep(0.05)  # Small delay to ensure server is waiting
     
+    # Map inference response to hardware joint positions
+    from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToKrabbyHWMapper
+    mapper = ParkourLocomotionToKrabbyHWMapper(model_action_dim=12)
+    joint_positions = mapper.map(inference_response)
+    
     # Send command
-    success = hal_client.put_joint_command(inference_response)
+    success = hal_client.put_joint_command(joint_positions)
     assert success
     
     server_thread.join(timeout=2.0)
     received = received_command[0]
     assert received is not None
-    np.testing.assert_array_equal(received, action_array)
+    # Compare against mapped joint positions (18 DOF), not original action array (12 DOF)
+    np.testing.assert_array_equal(received, joint_positions.joint_positions)
 
     hal_client.close()
     hal_server.close()
@@ -439,7 +462,7 @@ def test_isaacsim_hal_server_100_consecutive_command_cycles(mock_isaac_env, hal_
     time.sleep(0.1)
 
     # Mock observation manager to return valid observations
-    from hal.client.observation.types import OBS_DIM
+    from compute.parkour.types import OBS_DIM
     import torch
     
     def mock_compute_observations():
@@ -456,9 +479,24 @@ def test_isaacsim_hal_server_100_consecutive_command_cycles(mock_isaac_env, hal_
     hal_server.action_manager.process_action = MagicMock()
     hal_server.action_manager.apply_action = MagicMock()
 
-    # Set navigation command (required for build_model_io)
+    # Set navigation command
     nav_cmd = NavigationCommand.create_now()
-    hal_client.set_navigation_command(nav_cmd)
+
+    # Start command receiving thread (REQ/REP pattern requires server to be waiting)
+    import threading
+    command_received = threading.Event()
+    commands_received_list = []
+    
+    def command_loop():
+        while not command_received.is_set():
+            cmd = hal_server.get_joint_command(timeout_ms=100)
+            if cmd is not None:
+                commands_received_list.append(cmd)
+                hal_server.move()  # Apply command
+    
+    cmd_thread = threading.Thread(target=command_loop, daemon=True)
+    cmd_thread.start()
+    time.sleep(0.05)  # Give thread time to start
 
     # Track statistics
     cycles_completed = 0
@@ -470,53 +508,74 @@ def test_isaacsim_hal_server_100_consecutive_command_cycles(mock_isaac_env, hal_
     period = 1.0 / 100.0  # 10ms period
     start_time = time.time()
     
-    for cycle in range(100):
-        cycle_start = time.time()
-        
-        try:
-            # Publish observation
-            hal_server.set_observation()
-            observations_published += 1
+    try:
+        for cycle in range(100):
+            cycle_start = time.time()
             
-            # Poll client
-            hal_client.poll(timeout_ms=10)
-            
-            # Build model IO and send command
-            model_io = hal_client.build_model_io()
-            if model_io is not None:
-                # Create mock command (12 DOF)
-                command = np.random.uniform(-0.5, 0.5, size=12).astype(np.float32)
+            try:
+                # Publish observation
+                hal_server.set_observation()
+                observations_published += 1
                 
-                # Send command
-                from hal.client.commands.types import InferenceResponse
-                import torch as torch_module
-                action_tensor = torch_module.from_numpy(command)
-                response = InferenceResponse.create_success(
-                    action=action_tensor,
-                    inference_latency_ms=5.0,
+                # Poll client
+                hw_obs = hal_client.poll(timeout_ms=10)
+                if hw_obs is None:
+                    continue
+            
+                # Map hardware observation to ParkourObservation
+                from compute.parkour.mappers.hardware_to_model import KrabbyHWObservationsToParkourMapper
+                from compute.parkour.types import ParkourModelIO
+                
+                mapper = KrabbyHWObservationsToParkourMapper()
+                parkour_obs = mapper.map(hw_obs)
+                
+                # Build model IO
+                model_io = ParkourModelIO(
+                    timestamp_ns=time.time_ns(),
+                    schema_version=parkour_obs.schema_version,
+                    nav_cmd=nav_cmd,
+                    observation=parkour_obs,
                 )
-                hal_client.put_joint_command(response)
                 
-                # Receive and apply command on server
-                if hal_server.move():
-                    commands_received += 1
+                if model_io is not None:
+                    # Create mock command (12 DOF)
+                    command = np.random.uniform(-0.5, 0.5, size=12).astype(np.float32)
                     
-                    # Verify no NaN values
-                    received_cmd = hal_server.get_joint_command(timeout_ms=10)
-                    if received_cmd is not None:
-                        if np.any(np.isnan(received_cmd)) or np.any(np.isinf(received_cmd)):
-                            errors.append(f"Cycle {cycle}: NaN or Inf in command")
-            
-            cycles_completed += 1
-            
-            # Sleep to maintain 100 Hz rate
-            elapsed = time.time() - cycle_start
-            sleep_time = period - elapsed
-            if sleep_time > 0:
-                time.sleep(sleep_time)
+                    # Send command
+                    from compute.parkour.types import InferenceResponse
+                    import torch as torch_module
+                    action_tensor = torch_module.from_numpy(command)
+                    response = InferenceResponse.create_success(
+                        action=action_tensor,
+                        inference_latency_ms=5.0,
+                    )
+                    # Map inference response to hardware joint positions
+                    from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToKrabbyHWMapper
+                    mapper = ParkourLocomotionToKrabbyHWMapper(model_action_dim=12)
+                    joint_positions = mapper.map(response)
+                    if hal_client.put_joint_command(joint_positions):
+                        commands_received += 1
+                        
+                        # Verify no NaN values in received commands
+                        if commands_received_list:
+                            received_cmd = commands_received_list[-1]
+                            if np.any(np.isnan(received_cmd)) or np.any(np.isinf(received_cmd)):
+                                errors.append(f"Cycle {cycle}: NaN or Inf in command")
                 
-        except Exception as e:
-            errors.append(f"Cycle {cycle}: {str(e)}")
+                cycles_completed += 1
+                
+                # Sleep to maintain 100 Hz rate
+                elapsed = time.time() - cycle_start
+                sleep_time = period - elapsed
+                if sleep_time > 0:
+                    time.sleep(sleep_time)
+                    
+            except Exception as e:
+                errors.append(f"Cycle {cycle}: {str(e)}")
+    finally:
+        # Stop command thread
+        command_received.set()
+        cmd_thread.join(timeout=1.0)
     
     elapsed_total = time.time() - start_time
     
@@ -562,7 +621,7 @@ def test_isaacsim_hal_server_full_parkour_eval_simulation(mock_isaac_env, hal_se
     time.sleep(0.1)
 
     # Mock observation manager
-    from hal.client.observation.types import OBS_DIM
+    from compute.parkour.types import OBS_DIM
     import torch
     
     def mock_compute_observations():
@@ -579,9 +638,24 @@ def test_isaacsim_hal_server_full_parkour_eval_simulation(mock_isaac_env, hal_se
     hal_server.action_manager.process_action = MagicMock()
     hal_server.action_manager.apply_action = MagicMock()
 
-    # Set navigation command (required for build_model_io)
+    # Set navigation command
     nav_cmd = NavigationCommand.create_now()
-    hal_client.set_navigation_command(nav_cmd)
+
+    # Start command receiving thread (REQ/REP pattern requires server to be waiting)
+    import threading
+    command_received = threading.Event()
+    commands_received_list = []
+    
+    def command_loop():
+        while not command_received.is_set():
+            cmd = hal_server.get_joint_command(timeout_ms=100)
+            if cmd is not None:
+                commands_received_list.append(cmd)
+                hal_server.move()  # Apply command
+    
+    cmd_thread = threading.Thread(target=command_loop, daemon=True)
+    cmd_thread.start()
+    time.sleep(0.05)  # Give thread time to start
 
     # Run for 5 seconds at 100 Hz (500 cycles)
     duration_seconds = 5.0
@@ -599,55 +673,79 @@ def test_isaacsim_hal_server_full_parkour_eval_simulation(mock_isaac_env, hal_se
     
     start_time = time.time()
     
-    for cycle in range(total_cycles):
-        cycle_start = time.time()
-        
-        # Check for stalls (cycle taking too long)
-        if cycle > 0:
-            cycle_duration = cycle_start - last_cycle_time
-            if cycle_duration > period * 2:  # More than 2x expected period
-                stalls += 1
-        
-        try:
-            # Publish observation
-            hal_server.set_observation()
-            observations_published += 1
+    try:
+        for cycle in range(total_cycles):
+            cycle_start = time.time()
             
-            # Poll client
-            hal_client.poll(timeout_ms=10)
+            # Check for stalls (cycle taking too long)
+            if cycle > 0:
+                cycle_duration = cycle_start - last_cycle_time
+                if cycle_duration > period * 2:  # More than 2x expected period
+                    stalls += 1
             
-            # Build model IO
-            model_io = hal_client.build_model_io()
-            if model_io is not None:
-                # Generate command
-                command = np.random.uniform(-0.5, 0.5, size=12).astype(np.float32)
+            try:
+                # Publish observation
+                hal_server.set_observation()
+                observations_published += 1
                 
-                # Send command
-                from hal.client.commands.types import InferenceResponse
-                import torch as torch_module
-                action_tensor = torch_module.from_numpy(command)
-                response = InferenceResponse.create_success(
-                    action=action_tensor,
-                    inference_latency_ms=5.0,
+                # Poll client
+                hw_obs = hal_client.poll(timeout_ms=10)
+                if hw_obs is None:
+                    continue
+                
+                # Map hardware observation to ParkourObservation
+                from compute.parkour.mappers.hardware_to_model import KrabbyHWObservationsToParkourMapper
+                from compute.parkour.types import ParkourModelIO
+                
+                mapper = KrabbyHWObservationsToParkourMapper()
+                parkour_obs = mapper.map(hw_obs)
+                
+                # Build model IO
+                model_io = ParkourModelIO(
+                    timestamp_ns=time.time_ns(),
+                    schema_version=parkour_obs.schema_version,
+                    nav_cmd=nav_cmd,
+                    observation=parkour_obs,
                 )
-                hal_client.put_joint_command(response)
-                commands_sent += 1
                 
-                # Apply command
-                if hal_server.move():
-                    commands_received += 1
-            
-            cycles_completed += 1
-            last_cycle_time = time.time()
-            
-            # Sleep to maintain rate
-            elapsed = time.time() - cycle_start
-            sleep_time = period - elapsed
-            if sleep_time > 0:
-                time.sleep(sleep_time)
+                if model_io is not None:
+                    # Generate command
+                    command = np.random.uniform(-0.5, 0.5, size=12).astype(np.float32)
+                    
+                    # Send command
+                    from compute.parkour.types import InferenceResponse
+                    import torch as torch_module
+                    action_tensor = torch_module.from_numpy(command)
+                    response = InferenceResponse.create_success(
+                        action=action_tensor,
+                        inference_latency_ms=5.0,
+                    )
+                    # Map inference response to hardware joint positions
+                    from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToKrabbyHWMapper
+                    mapper = ParkourLocomotionToKrabbyHWMapper(model_action_dim=12)
+                    joint_positions = mapper.map(response)
+                    if hal_client.put_joint_command(joint_positions):
+                        commands_sent += 1
+                        
+                        # Check if command was received (via command thread)
+                        if commands_received_list:
+                            commands_received += 1
                 
-        except Exception as e:
-            pytest.fail(f"Cycle {cycle} failed: {e}")
+                cycles_completed += 1
+                last_cycle_time = time.time()
+                
+                # Sleep to maintain rate
+                elapsed = time.time() - cycle_start
+                sleep_time = period - elapsed
+                if sleep_time > 0:
+                    time.sleep(sleep_time)
+                    
+            except Exception as e:
+                pytest.fail(f"Cycle {cycle} failed: {e}")
+    finally:
+        # Stop command thread
+        command_received.set()
+        cmd_thread.join(timeout=1.0)
     
     elapsed_total = time.time() - start_time
     
@@ -685,7 +783,7 @@ def test_isaacsim_hal_server_interface_matches_evaluation_baseline(mock_isaac_en
     hal_server.initialize()
 
     # Mock observation manager to return observations in the same format as evaluation.py
-    from hal.client.observation.types import OBS_DIM
+    from compute.parkour.types import OBS_DIM
     import torch
     
     def mock_compute_observations():

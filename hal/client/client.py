@@ -7,14 +7,9 @@ from typing import Optional
 import numpy as np
 import zmq
 
-from hal.client.commands.types import InferenceResponse
+# InferenceResponse is not used in HAL client
 from hal.client.config import HalClientConfig
-from hal.client.observation.types import (
-    NavigationCommand,
-    OBS_DIM,
-    ParkourModelIO,
-    ParkourObservation,
-)
+from hal.client.data_structures.hardware import KrabbyHardwareObservations
 
 logger = logging.getLogger(__name__)
 
@@ -46,8 +41,7 @@ class HalClient:
         self.command_socket: Optional[zmq.Socket] = None
 
         # Latest buffers (HWM=1 ensures only latest is kept)
-        self._latest_observation: Optional[ParkourObservation] = None
-        self._latest_nav_cmd: Optional[NavigationCommand] = None
+        self._latest_hw_obs: Optional[KrabbyHardwareObservations] = None
 
         self._initialized = False
         self._debug_enabled = False
@@ -131,8 +125,8 @@ class HalClient:
         """
         return self._debug_enabled
 
-    def poll(self, timeout_ms: int = 10) -> Optional[np.ndarray]:
-        """Poll for latest observation messages (non-blocking).
+    def poll(self, timeout_ms: int = 10) -> Optional[KrabbyHardwareObservations]:
+        """Poll for latest hardware observation messages (non-blocking).
 
         Updates latest buffers with newest messages. Old messages are
         automatically dropped due to buffer size=1 (latest-only semantics).
@@ -141,7 +135,7 @@ class HalClient:
             timeout_ms: Poll timeout in milliseconds (default 10ms)
 
         Returns:
-            Observation array (shape: (OBS_DIM,)) if new data was received,
+            KrabbyHardwareObservations if new data was received,
             None if timeout or no new data available.
 
         Raises:
@@ -150,12 +144,12 @@ class HalClient:
         if not self._initialized:
             raise RuntimeError("Client not initialized. Call initialize() first.")
 
-        # Poll observation socket (complete observation in training format)
+        # Poll observation socket for hardware observations
         if self.observation_socket.poll(timeout_ms, zmq.POLLIN):
             try:
                 parts = self.observation_socket.recv_multipart(zmq.NOBLOCK)
                 if len(parts) >= 3:
-                    topic, schema_version_bytes, payload = parts[0], parts[1], parts[2]
+                    topic, schema_version_bytes = parts[0], parts[1]
                     schema_version = schema_version_bytes.decode("utf-8")
 
                     # Debug logging (conditional to avoid overhead when disabled)
@@ -163,7 +157,7 @@ class HalClient:
                         logger.debug(
                             f"[ZMQ RECV] observation: topic={topic.decode('utf-8')}, "
                             f"schema={schema_version}, "
-                            f"payload_size={len(payload)} bytes"
+                            f"num_parts={len(parts)}"
                         )
 
                     # Validate schema version
@@ -176,138 +170,40 @@ class HalClient:
                         logger.warning(f"Unsupported schema version: {schema_version}, expected {SCHEMA_VERSION}")
                         return None
 
-                    # Runtime type validation: Validate payload size
-                    expected_size = OBS_DIM * 4  # float32 = 4 bytes
-                    if len(payload) != expected_size:
+                    # Expected format: [topic, schema_version, ...hw_obs_parts (6 parts)]
+                    # Total: 2 + 6 = 8 parts
+                    # Timestamp is included in hw_obs metadata, no separate timestamp part
+                    if len(parts) != 8:
                         logger.error(
-                            f"[ZMQ RECV] observation: Invalid payload size: {len(payload)} bytes, "
-                            f"expected {expected_size} bytes (OBS_DIM={OBS_DIM} * 4 bytes)"
+                            f"[ZMQ RECV] observation: Invalid number of parts: {len(parts)}, expected 8"
                         )
                         return None
 
-                    # Deserialize payload - observation in training format
-                    observation_array = np.frombuffer(payload, dtype=np.float32)
+                    # Extract hardware observation parts (parts 2-7)
+                    hw_obs_parts = parts[2:8]
 
-                    # Runtime type validation: Validate dtype
-                    if observation_array.dtype != np.float32:
-                        logger.error(
-                            f"[ZMQ RECV] observation: Invalid dtype: {observation_array.dtype}, expected float32"
-                        )
-                        return None
+                    # Deserialize hardware observation - let errors propagate
+                    # Timestamp is already in the hw_obs metadata
+                    hw_obs = KrabbyHardwareObservations.from_bytes(hw_obs_parts)
 
-                    # Runtime type validation: Validate shape matches training format
-                    if observation_array.shape != (OBS_DIM,):
-                        logger.error(
-                            f"[ZMQ RECV] observation: Invalid shape: {observation_array.shape}, expected ({OBS_DIM},)"
-                        )
-                        return None
-
-                    # Runtime type validation: Validate values (check for NaN/Inf)
-                    if not np.isfinite(observation_array).all():
-                        nan_count = np.isnan(observation_array).sum()
-                        inf_count = np.isinf(observation_array).sum()
-                        logger.error(
-                            f"[ZMQ RECV] observation: Invalid values: {nan_count} NaN, {inf_count} Inf"
-                        )
-                        return None
-
-                    # Debug logging after deserialization
+                    # Update latest buffer
+                    self._latest_hw_obs = hw_obs
                     if self._debug_enabled:
-                        logger.debug(
-                            f"[ZMQ RECV] observation: shape={observation_array.shape}, "
-                            f"dtype={observation_array.dtype}, "
-                            f"min={observation_array.min():.3f}, max={observation_array.max():.3f}"
-                        )
-
-                    # Extract timestamp if provided (4th part), otherwise use current time
-                    timestamp_ns = time.time_ns()
-                    if len(parts) >= 4:
-                        try:
-                            timestamp_ns = int.from_bytes(parts[3], byteorder="big", signed=False)
-                        except (ValueError, IndexError):
-                            pass  # Use current time if timestamp parsing fails
-
-                    # Create ParkourObservation (zero-copy view of the buffer)
-                    # Note: np.frombuffer creates a view, not a copy
-                    observation_copy = observation_array.copy()  # Copy here because buffer is owned by ZMQ
-                    self._latest_observation = ParkourObservation(
-                        timestamp_ns=timestamp_ns,
-                        schema_version=schema_version,
-                        observation=observation_copy,
-                    )
-                    if self._debug_enabled:
-                        logger.debug(f"[ZMQ RECV] observation: ParkourObservation created successfully")
+                        logger.debug(f"[ZMQ RECV] observation: KrabbyHardwareObservations created successfully")
                     
-                    # Return the observation array
-                    return observation_copy
+                    return hw_obs
             except zmq.ZMQError:
-                pass  # No message available
-            except Exception as e:
-                if self._debug_enabled:
-                    logger.debug(f"[ZMQ ERROR] observation: {e}")
-                logger.error(f"Error processing observation message: {e}")
+                pass  # No message available (expected for NOBLOCK)
+            # Let all other exceptions propagate (fail fast)
         
         # No new data received (timeout or no message available)
         return None
 
-    def build_model_io(self, max_age_ns: int = 10_000_000) -> Optional[ParkourModelIO]:
-        """Build ParkourModelIO from latest observation and navigation command.
-        
-        Combines the latest observation (from poll()) and navigation command into
-        a ParkourModelIO structure for model inference.
-        
-        Checks that all required data has valid timestamps and is synchronized.
-        
-        Args:
-            max_age_ns: Maximum age difference in nanoseconds (default 10ms)
-        
-        Returns:
-            ParkourModelIO if all components available and synchronized, None otherwise
-        """
-        if self._latest_observation is None or self._latest_nav_cmd is None:
-            return None
-
-        # Check timestamps are recent
-        now_ns = time.time_ns()
-        if (now_ns - self._latest_observation.timestamp_ns) > max_age_ns:
-            return None
-        
-        # Check synchronization - allow nav_cmd to be older than observation
-        observation_age_ns = now_ns - self._latest_observation.timestamp_ns
-        if observation_age_ns > max_age_ns:
-            return None
-
-        # Check schema versions are compatible
-        schema_versions = {
-            self._latest_observation.schema_version,
-            self._latest_nav_cmd.schema_version,
-        }
-        if len(schema_versions) > 1:
-            logger.warning(f"Incompatible schema versions: {schema_versions}")
-            return None
-
-        return ParkourModelIO(
-            timestamp_ns=now_ns,
-            schema_version=self._latest_observation.schema_version,
-            nav_cmd=self._latest_nav_cmd,
-            observation=self._latest_observation,
-        )
-
-    def set_navigation_command(self, nav: NavigationCommand) -> None:
-        """Set navigation command.
-
-        Args:
-            nav: Navigation command with timestamp
-        """
-        self._latest_nav_cmd = nav
-
-    def put_joint_command(self, cmd: InferenceResponse) -> bool:
+    def put_joint_command(self, cmd: "KrabbyDesiredJointPositions") -> bool:
         """Put/send joint command to server.
 
-        Uses action array directly from inference response (zero-copy).
-
         Args:
-            cmd: Inference response containing action array
+            cmd: KrabbyDesiredJointPositions containing joint positions
 
         Returns:
             True if command sent successfully, False otherwise
@@ -319,36 +215,27 @@ class HalClient:
         if not self._initialized:
             raise RuntimeError("Client not initialized. Call initialize() first.")
 
-        if not cmd.success or cmd.action is None:
-            logger.error("Cannot send failed inference response")
+        from hal.client.data_structures.hardware import KrabbyDesiredJointPositions
+        if not isinstance(cmd, KrabbyDesiredJointPositions):
+            raise ValueError(f"cmd must be KrabbyDesiredJointPositions, got {type(cmd)}")
+
+        # Validate joint positions
+        if cmd.joint_positions is None or len(cmd.joint_positions) == 0:
+            logger.error("Cannot send empty joint positions")
             return False
-
-        # Get action tensor directly (zero-copy)
-        action_tensor = cmd.get_action()
-
-        # Validate action dimension if config provides it
-        if hasattr(self.config, 'action_dim') and self.config.action_dim is not None:
-            try:
-                cmd.validate_action_dim(self.config.action_dim)
-            except ValueError as e:
-                logger.error(f"Invalid action dimension: {e}")
-                return False
-
-        # Convert to numpy for ZMQ serialization (only when needed)
-        # This creates a copy if on GPU, view if on CPU
-        action_numpy = cmd.get_action_numpy()
 
         # Serialize and send (tobytes() creates a copy, but this is necessary for ZMQ)
         try:
-            command_bytes = action_numpy.tobytes()
+            command_bytes = cmd.joint_positions.tobytes()
 
             # Debug logging (conditional to avoid overhead when disabled)
             if self._debug_enabled:
                 logger.debug(
                     f"[ZMQ SEND] command: payload_size={len(command_bytes)} bytes, "
-                    f"action_shape={action_numpy.shape}, "
-                    f"action_dtype={action_numpy.dtype}, "
-                    f"min={action_numpy.min():.3f}, max={action_numpy.max():.3f}"
+                    f"joint_positions_shape={cmd.joint_positions.shape}, "
+                    f"joint_positions_dtype={cmd.joint_positions.dtype}, "
+                    f"min={cmd.joint_positions.min():.3f}, max={cmd.joint_positions.max():.3f}, "
+                    f"timestamp_ns={cmd.timestamp_ns}"
                 )
 
             self.command_socket.send(command_bytes, zmq.NOBLOCK)

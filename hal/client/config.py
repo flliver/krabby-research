@@ -10,7 +10,7 @@ continue to work even though ``HalServerConfig`` lives in ``hal.server.config``.
 from dataclasses import dataclass
 from typing import Optional
 
-from hal.server import HalServerConfig  # re-export for backwards compatibility
+from hal.server.config import HalServerConfig  # re-export for backwards compatibility
 
 
 @dataclass

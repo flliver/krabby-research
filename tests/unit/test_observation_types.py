@@ -14,7 +14,8 @@ without requiring HAL integration.
 import numpy as np
 import pytest
 
-from hal.client.observation.types import (
+from hal.client.observation.types import NavigationCommand
+from compute.parkour.types import (
     NUM_PROP,
     NUM_SCAN,
     NUM_PRIV_EXPLICIT,
@@ -24,7 +25,6 @@ from hal.client.observation.types import (
     OBS_DIM,
     ParkourObservation,
     ParkourModelIO,
-    NavigationCommand,
 )
 
 

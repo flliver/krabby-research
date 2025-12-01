@@ -1,4 +1,4 @@
-"""Script to test loading parkour checkpoint on Jetson.
+"""Script to test loading model checkpoint on Jetson.
 
 This script verifies that checkpoints can be loaded successfully on Jetson hardware.
 """

@@ -8,7 +8,7 @@ from typing import Optional
 import numpy as np
 import zmq
 
-from hal.client.observation.types import (
+from compute.parkour.types import (
     NUM_PROP,
     NUM_SCAN,
     NUM_PRIV_EXPLICIT,
@@ -16,6 +16,7 @@ from hal.client.observation.types import (
     HISTORY_DIM,
     OBS_DIM,
 )
+from hal.client.data_structures.hardware import KrabbyHardwareObservations
 
 logging.basicConfig(
     level=logging.INFO,
@@ -120,26 +121,34 @@ def dump_hal_state(
 
     if obs_sub.poll(1000, zmq.POLLIN):
         parts = obs_sub.recv_multipart()
-        if len(parts) >= 3:
+        if len(parts) >= 8:
             topic = parts[0].decode("utf-8")
             schema_version = parts[1].decode("utf-8")
-            payload = parts[2]
-            timestamp_ns = int.from_bytes(parts[3], byteorder="big", signed=False) if len(parts) >= 4 else None
+            
+            # Deserialize hardware observation
+            hw_obs_parts = parts[2:8]
+            try:
+                hw_obs = KrabbyHardwareObservations.from_bytes(hw_obs_parts)
+                
+                # Map to model observation format for display
+                from compute.parkour.mappers.hardware_to_model import KrabbyHWObservationsToParkourMapper
+                mapper = KrabbyHWObservationsToParkourMapper()
+                model_obs = mapper.map(hw_obs)
+                observation = model_obs.observation
 
-            observation = np.frombuffer(payload, dtype=np.float32)
+                print(f"\n📊 Observation:")
+                print(f"  Topic: {topic}")
+                print(f"  Schema Version: {schema_version}")
+                timestamp_s = hw_obs.timestamp_ns / 1e9
+                print(f"  Timestamp: {hw_obs.timestamp_ns} ns ({timestamp_s:.6f} s)")
+                print(f"  Shape: {observation.shape}")
+                print(f"  Dtype: {observation.dtype}")
+                print(f"  Stats: min={observation.min():.3f}, max={observation.max():.3f}, mean={observation.mean():.3f}")
 
-            print(f"\n📊 Observation:")
-            print(f"  Topic: {topic}")
-            print(f"  Schema Version: {schema_version}")
-            if timestamp_ns:
-                timestamp_s = timestamp_ns / 1e9
-                print(f"  Timestamp: {timestamp_ns} ns ({timestamp_s:.6f} s)")
-            print(f"  Shape: {observation.shape}")
-            print(f"  Dtype: {observation.dtype}")
-            print(f"  Stats: min={observation.min():.3f}, max={observation.max():.3f}, mean={observation.mean():.3f}")
-
-            if verbose and len(observation) == OBS_DIM:
-                dump_observation_details(observation, action_dim)
+                if verbose and len(observation) == OBS_DIM:
+                    dump_observation_details(observation, action_dim)
+            except Exception as e:
+                print(f"\n📊 Observation: Error deserializing - {e}")
     else:
         print("\n📊 Observation: No data available")
 

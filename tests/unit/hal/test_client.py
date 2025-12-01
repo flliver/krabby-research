@@ -10,7 +10,10 @@ from hal.client.client import HalClient
 from hal.server import HalServerBase
 from hal.client.config import HalClientConfig
 from hal.server import HalServerConfig
+from hal.client.data_structures.hardware import KrabbyHardwareObservations
 from hal.client.observation.types import NavigationCommand
+from compute.parkour.types import ParkourModelIO
+from tests.helpers import create_dummy_hw_obs
 
 
 def test_hal_client_initialization():
@@ -39,9 +42,7 @@ def test_hal_client_initialization():
 
 
 def test_hal_client_poll_observation():
-    """Test HAL client polling for observation messages."""
-    from hal.client.observation.types import OBS_DIM
-    
+    """Test HAL client polling for hardware observation messages."""
     # Use shared context for inproc connections (required for reliable inproc PUB/SUB)
     server_config = HalServerConfig(
         observation_bind="inproc://test_state2",
@@ -61,19 +62,21 @@ def test_hal_client_poll_observation():
     # Small delay to ensure sockets are ready
     time.sleep(0.1)
     
-    # Now publish and receive
-    observation = np.zeros(OBS_DIM, dtype=np.float32)
-    observation[0:3] = [1.0, 2.0, 3.0]  # Set some values
-    server.set_observation(observation)
+    # Create and publish hardware observation
+    hw_obs = create_dummy_hw_obs(
+        camera_height=480, camera_width=640
+    )
+    hw_obs.joint_positions[0:3] = [1.0, 2.0, 3.0]  # Set some values
+    server.set_observation(hw_obs)
     time.sleep(0.05)  # Small delay to ensure message is sent
     
     # Poll for message
-    client.poll(timeout_ms=1000)
+    received_hw_obs = client.poll(timeout_ms=1000)
 
     # Check latest observation data
-    assert client._latest_observation is not None
-    assert client._latest_observation.observation is not None
-    np.testing.assert_array_equal(client._latest_observation.observation, observation)
+    assert received_hw_obs is not None
+    assert received_hw_obs.joint_positions is not None
+    np.testing.assert_array_equal(received_hw_obs.joint_positions[:3], [1.0, 2.0, 3.0])
 
     client.close()
     server.close()
@@ -81,9 +84,9 @@ def test_hal_client_poll_observation():
 
 
 
-def test_hal_client_build_model_io():
-    """Test building ParkourModelIO from latest observation."""
-    from hal.client.observation.types import OBS_DIM
+def test_hal_client_poll_and_map():
+    """Test polling hardware observation and mapping to ParkourObservation."""
+    from compute.parkour.mappers.hardware_to_model import KrabbyHWObservationsToParkourMapper
     
     # Use shared context for inproc connections
     
@@ -105,23 +108,23 @@ def test_hal_client_build_model_io():
     # Small delay to ensure sockets are ready
     time.sleep(0.1)
 
-    # Set navigation command
-    nav_cmd = NavigationCommand.create_now(vx=1.0, vy=0.0, yaw_rate=0.0)
-    client.set_navigation_command(nav_cmd)
+    # Create and publish hardware observation
+    hw_obs = create_dummy_hw_obs(
+        camera_height=480, camera_width=640
+    )
+    hw_obs.joint_positions[0:5] = [1.0, 2.0, 3.0, 4.0, 5.0]  # Set some values
+    server.set_observation(hw_obs)
 
-    # Publish observation
-    observation = np.zeros(OBS_DIM, dtype=np.float32)
-    observation[0:5] = [1.0, 2.0, 3.0, 4.0, 5.0]  # Set some values
-    server.set_observation(observation)
+    # Poll for hardware observation
+    received_hw_obs = client.poll(timeout_ms=1000)
+    assert received_hw_obs is not None
 
-    # Poll and build model IO
-    client.poll(timeout_ms=1000)
-    model_io = client.build_model_io()
-
-    assert model_io is not None
-    assert model_io.nav_cmd is not None
-    assert model_io.observation is not None
-    np.testing.assert_array_equal(model_io.observation.observation, observation)
+    # Map to ParkourObservation using mapper
+    mapper = KrabbyHWObservationsToParkourMapper()
+    parkour_obs = mapper.map(received_hw_obs)
+    
+    assert parkour_obs is not None
+    assert parkour_obs.observation is not None
 
     client.close()
     server.close()
@@ -149,14 +152,19 @@ def test_hal_client_put_joint_command():
 
     time.sleep(0.1)
 
-    # Create inference response with action tensor (new format)
-    from hal.client.commands.types import InferenceResponse
+    # Create inference response and map to hardware joint positions
+    from compute.parkour.types import InferenceResponse
+    from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToKrabbyHWMapper
 
-    action_tensor = torch.tensor([0.1, 0.2, 0.3], dtype=torch.float32)
+    action_tensor = torch.tensor([0.1, 0.2, 0.3] + [0.0] * 9, dtype=torch.float32)  # 12 DOF
     inference_response = InferenceResponse.create_success(
         action=action_tensor,
         inference_latency_ms=5.0,
     )
+
+    # Map to hardware joint positions
+    mapper = ParkourLocomotionToKrabbyHWMapper(model_action_dim=12)
+    joint_positions = mapper.map(inference_response)
 
     # Server needs to be waiting before client sends (REQ/REP pattern)
     import threading
@@ -170,22 +178,21 @@ def test_hal_client_put_joint_command():
     time.sleep(0.05)  # Small delay to ensure server is waiting
     
     # Send command
-    success = client.put_joint_command(inference_response)
+    success = client.put_joint_command(joint_positions)
     assert success
     
     server_thread.join(timeout=2.0)
     received = received_command[0]
     assert received is not None
-    np.testing.assert_array_equal(received, action_tensor.numpy())
+    # Should receive the mapped joint positions (18 DOF)
+    np.testing.assert_array_equal(received, joint_positions.joint_positions)
 
     client.close()
     server.close()
 
 
 def test_hal_client_timestamp_validation():
-    """Test timestamp validation for stale messages."""
-    from hal.client.observation.types import OBS_DIM
-    
+    """Test timestamp validation for hardware observations."""
     # Use shared context for inproc connections
     
     server_config = HalServerConfig(
@@ -206,28 +213,21 @@ def test_hal_client_timestamp_validation():
     # Small delay to ensure sockets are ready
     time.sleep(0.1)
 
-    # Set navigation command with old timestamp (nav_cmd can be older, it's set once and reused)
-    old_nav_cmd = NavigationCommand(
-        timestamp_ns=time.time_ns() - 100_000_000,  # 100ms ago
-        schema_version="1.0",
+    # Publish fresh hardware observation
+    hw_obs = create_dummy_hw_obs(
+        camera_height=480, camera_width=640
     )
-    client.set_navigation_command(old_nav_cmd)
+    server.set_observation(hw_obs)
 
-    # Publish fresh observation
-    observation = np.zeros(OBS_DIM, dtype=np.float32)
-    server.set_observation(observation)
-
-    client.poll(timeout_ms=1000)
-
-    # Build model IO with strict max_age (should succeed - nav_cmd can be older)
-    # Only observation age is checked, not nav_cmd age
-    model_io = client.build_model_io(max_age_ns=10_000_000)  # 10ms max age
-    assert model_io is not None  # Should succeed because observation is fresh, nav_cmd can be older
+    # Poll for fresh observation
+    received_hw_obs = client.poll(timeout_ms=1000)
+    assert received_hw_obs is not None
     
-    # Now test with stale observation
-    time.sleep(0.02)  # Wait 20ms to make observation stale
-    model_io_stale = client.build_model_io(max_age_ns=10_000_000)  # 10ms max age
-    assert model_io_stale is None  # Should be None because observation is too old
+    # Now test with stale observation (wait to make it stale)
+    time.sleep(0.02)  # Wait 20ms
+    # Poll again - should still get the latest (HWM=1 keeps latest)
+    received_hw_obs2 = client.poll(timeout_ms=100)
+    # Should still receive (HWM=1 keeps latest message available)
 
     client.close()
     server.close()

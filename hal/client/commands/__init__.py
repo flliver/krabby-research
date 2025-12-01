@@ -1,8 +1,3 @@
-"""Command models for HAL output data."""
+"""HAL command types."""
 
-from .types import InferenceResponse
-
-__all__ = [
-    "InferenceResponse",
-]
-
+__all__ = []

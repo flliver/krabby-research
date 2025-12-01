@@ -10,8 +10,8 @@ from typing import Optional, Type
 
 import numpy as np
 
-from hal.data_structures.hardware import KrabbyHardwareObservations
-from hal.client.observation.types import (
+from hal.client.data_structures.hardware import KrabbyHardwareObservations
+from compute.parkour.types import (
     NUM_PROP,
     NUM_SCAN,
     NUM_PRIV_EXPLICIT,

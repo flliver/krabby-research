@@ -8,7 +8,10 @@ import pytest
 from hal.client.client import HalClient
 from hal.server import HalServerBase
 from hal.client.config import HalClientConfig, HalServerConfig
-from hal.client.observation.types import NavigationCommand, ParkourObservation, OBS_DIM
+from hal.client.observation.types import NavigationCommand
+from compute.parkour.types import ParkourObservation, OBS_DIM
+from hal.client.data_structures.hardware import KrabbyHardwareObservations
+from tests.helpers import create_dummy_hw_obs
 
 
 def test_reading_older_schema_versions():
@@ -35,16 +38,17 @@ def test_reading_older_schema_versions():
     time.sleep(0.1)
 
     # Send message with schema version "1.0" (current)
-    observation = np.zeros(OBS_DIM, dtype=np.float32)
-    observation[0] = 1.0
-    server.set_observation(observation)
+    hw_obs = create_dummy_hw_obs(
+        camera_height=480, camera_width=640
+    )
+    hw_obs.joint_positions[0] = 1.0
+    server.set_observation(hw_obs)
     time.sleep(0.01)
 
-    client.poll(timeout_ms=1000)
+    received_hw_obs = client.poll(timeout_ms=1000)
 
     # Should work with current schema
-    assert client._latest_observation is not None
-    assert client._latest_observation.schema_version == "1.0"
+    assert received_hw_obs is not None
 
     client.close()
     server.close()
@@ -73,7 +77,7 @@ def test_forward_compatibility_unknown_fields():
 def test_action_dim_mismatch_detection():
     """Test action_dim mismatch detection."""
     import torch
-    from hal.client.commands.types import InferenceResponse
+    from compute.parkour.types import InferenceResponse
 
     # Create inference response with wrong action_dim
     action_wrong = torch.tensor([0.0] * 10, dtype=torch.float32)  # 10 instead of 12
@@ -97,7 +101,8 @@ def test_action_dim_mismatch_detection():
 
 def test_schema_version_compatibility_check():
     """Test schema version compatibility checking."""
-    from hal.client.observation.types import ParkourModelIO, NavigationCommand
+    from compute.parkour.types import ParkourModelIO
+    from hal.client.observation.types import NavigationCommand
 
     # Create components with same schema version
     nav_cmd = NavigationCommand.create_now()
@@ -139,27 +144,23 @@ def test_schema_version_compatibility_check():
     time.sleep(0.1)
 
     # Publish a dummy observation first to establish connection
-    observation_init = np.zeros(OBS_DIM, dtype=np.float32)
-    server.set_observation(observation_init)
+    hw_obs_init = create_dummy_hw_obs(
+        camera_height=480, camera_width=640
+    )
+    server.set_observation(hw_obs_init)
     client.poll(timeout_ms=1000)
     # Connection is now established
 
-    # Set navigation command (after connection is established, with fresh timestamp)
-    nav_cmd = NavigationCommand.create_now()
-    client.set_navigation_command(nav_cmd)
-
-    # Publish observation (all with schema version "1.0")
-    observation = np.zeros(OBS_DIM, dtype=np.float32)
-    observation[0] = 1.0
-    server.set_observation(observation)
+    # Publish observation
+    hw_obs = create_dummy_hw_obs(
+        camera_height=480, camera_width=640
+    )
+    hw_obs.joint_positions[0] = 1.0
+    server.set_observation(hw_obs)
     time.sleep(0.01)
 
-    client.poll(timeout_ms=1000)
-
-    # Build model IO - should work with compatible schema versions
-    # Use a more lenient max_age to account for timing
-    model_io = client.build_model_io(max_age_ns=100_000_000)  # 100ms
-    assert model_io is not None
+    received_hw_obs = client.poll(timeout_ms=1000)
+    assert received_hw_obs is not None
 
     client.close()
     server.close()

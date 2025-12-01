@@ -22,6 +22,7 @@ import numpy as np
 from hal.client.client import HalClient
 from hal.client.config import HalClientConfig
 from hal.client.observation.types import NavigationCommand
+from compute.parkour.types import ParkourModelIO
 from compute.parkour.policy_interface import ModelWeights, ParkourPolicyModel
 
 logger = logging.getLogger(__name__)
@@ -52,6 +53,7 @@ class InferenceTestRunner:
         self.hal_client = hal_client
         self.control_rate_hz = control_rate_hz
         self.period_s = 1.0 / control_rate_hz
+        self.nav_cmd: Optional[NavigationCommand] = None
         self.running = False
 
         # Statistics
@@ -60,6 +62,14 @@ class InferenceTestRunner:
         self.inference_not_ready_count = 0
         self.last_inference_result: Optional[object] = None
         self.inference_in_progress = False
+
+    def set_navigation_command(self, nav_cmd: NavigationCommand) -> None:
+        """Set navigation command for inference.
+        
+        Args:
+            nav_cmd: Navigation command to use for inference
+        """
+        self.nav_cmd = nav_cmd
 
     def run(self) -> None:
         """Run inference test (simulates game loop).
@@ -73,10 +83,9 @@ class InferenceTestRunner:
 
         # Set default navigation command
         try:
-            nav_cmd = NavigationCommand.create_now(vx=0.0, vy=0.0, yaw_rate=0.0)
-            self.hal_client.set_navigation_command(nav_cmd)
+            self.nav_cmd = NavigationCommand.create_now(vx=0.0, vy=0.0, yaw_rate=0.0)
         except Exception as e:
-            logger.error(f"Failed to set default navigation command: {e}", exc_info=True)
+            logger.error(f"Failed to create default navigation command: {e}", exc_info=True)
             self.running = False
             return
 
@@ -85,22 +94,35 @@ class InferenceTestRunner:
                 try:
                     loop_start_ns = time.time_ns()
 
-                    # Poll HAL for latest data (non-blocking)
-                    observation = self.hal_client.poll(timeout_ms=1)
+                    # Poll HAL for latest hardware observation (non-blocking)
+                    hw_obs = self.hal_client.poll(timeout_ms=1)
                     
-                    if observation is None:
+                    if hw_obs is None:
                         # No new data available, skip iteration
                         logger.debug("No new observation available")
                         time.sleep(self.period_s * 0.1)  # Small sleep to avoid busy-wait
                         continue
 
-                    # Build ParkourModelIO for policy interface (backward compatibility)
-                    model_io = self.hal_client.build_model_io()
-                    if model_io is None:
+                    # Map hardware observation to model observation format using mapper
+                    from compute.parkour.mappers.hardware_to_model import KrabbyHWObservationsToParkourMapper
+                    
+                    mapper = KrabbyHWObservationsToParkourMapper()
+                    model_obs = mapper.map(hw_obs)
+                    
+                    # Check if navigation command is set
+                    if self.nav_cmd is None:
                         # Navigation command not set, skip iteration
                         logger.debug("Navigation command not set, skipping inference")
                         time.sleep(self.period_s * 0.1)
                         continue
+                    
+                    # Build model IO (preserve timestamp from observation)
+                    model_io = ParkourModelIO(
+                        timestamp_ns=model_obs.timestamp_ns,
+                        schema_version=model_obs.schema_version,
+                        nav_cmd=self.nav_cmd,
+                        observation=model_obs,
+                    )
 
                     # Run inference (may take >10ms)
                     if not self.inference_in_progress:
@@ -127,8 +149,13 @@ class InferenceTestRunner:
                                     f"(may cause frame drops)"
                                 )
 
+                            # Map inference response to hardware joint positions
+                            from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToKrabbyHWMapper
+                            mapper = ParkourLocomotionToKrabbyHWMapper(model_action_dim=self.model.action_dim)
+                            joint_positions = mapper.map(inference_result)
+
                             # Put command to HAL
-                            if not self.hal_client.put_joint_command(inference_result):
+                            if not self.hal_client.put_joint_command(joint_positions):
                                 logger.error("Failed to put joint command to HAL. Frame will be dropped.")
                                 self.inference_not_ready_count += 1
                                 continue
@@ -141,7 +168,11 @@ class InferenceTestRunner:
                     else:
                         # Inference still in progress from previous call, use cached result
                         if self.last_inference_result is not None and self.last_inference_result.success:
-                            if not self.hal_client.put_joint_command(self.last_inference_result):
+                            # Map cached inference response to hardware joint positions
+                            from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToKrabbyHWMapper
+                            mapper = ParkourLocomotionToKrabbyHWMapper(model_action_dim=self.model.action_dim)
+                            joint_positions = mapper.map(self.last_inference_result)
+                            if not self.hal_client.put_joint_command(joint_positions):
                                 logger.error("Failed to put cached joint command to HAL")
                             self.dropped_frames += 1
                         else:

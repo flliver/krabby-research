@@ -6,6 +6,8 @@ from typing import Optional
 
 from hal.client.client import HalClient
 from hal.client.config import HalClientConfig
+from hal.client.observation.types import NavigationCommand
+from compute.parkour.types import ParkourModelIO
 from hal.server import HalServerConfig
 from compute.parkour.policy_interface import ModelWeights, ParkourPolicyModel
 from hal.server.jetson import JetsonHalServer
@@ -34,6 +36,7 @@ class InferenceRunner:
         self.model = model
         self.hal_server = JetsonHalServer(hal_server_config)
         self.hal_client: Optional[HalClient] = None
+        self.nav_cmd: Optional[NavigationCommand] = None
         self.running = False
 
     def initialize(self) -> None:
@@ -92,23 +95,36 @@ class InferenceRunner:
                 # Set observation from real sensors
                 self.hal_server.set_observation()
 
-                # Poll HAL for latest data
+                # Poll HAL for latest hardware observation
                 if self.hal_client:
-                    observation = self.hal_client.poll(timeout_ms=1)
+                    hw_obs = self.hal_client.poll(timeout_ms=1)
                     
-                    if observation is None:
+                    if hw_obs is None:
                         # No new observation available, skip inference this frame
                         logger.debug("No new observation available")
                         self.hal_server.move()  # Still apply any pending commands
                         continue
 
-                    # Build ParkourModelIO for policy interface (backward compatibility)
-                    model_io = self.hal_client.build_model_io()
-                    if model_io is None:
+                    # Map hardware observation to model observation format using mapper
+                    from compute.parkour.mappers.hardware_to_model import KrabbyHWObservationsToParkourMapper
+                    
+                    mapper = KrabbyHWObservationsToParkourMapper()
+                    model_obs = mapper.map(hw_obs)
+                    
+                    # Check if navigation command is set
+                    if self.nav_cmd is None:
                         # Navigation command not set, skip inference
                         logger.debug("Navigation command not set, skipping inference")
                         self.hal_server.move()  # Still apply any pending commands
                         continue
+                    
+                    # Build model IO (preserve timestamp from observation)
+                    model_io = ParkourModelIO(
+                        timestamp_ns=model_obs.timestamp_ns,
+                        schema_version=model_obs.schema_version,
+                        nav_cmd=self.nav_cmd,
+                        observation=model_obs,
+                    )
 
                     # Run inference
                     try:
@@ -117,8 +133,13 @@ class InferenceRunner:
                         if not inference_result.success:
                             raise RuntimeError(f"Inference failed: {inference_result.error_message}")
 
+                        # Map inference response to hardware joint positions
+                        from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToKrabbyHWMapper
+                        mapper = ParkourLocomotionToKrabbyHWMapper(model_action_dim=self.model.action_dim)
+                        joint_positions = mapper.map(inference_result)
+
                         # Put command back to HAL server
-                        if not self.hal_client.put_joint_command(inference_result):
+                        if not self.hal_client.put_joint_command(joint_positions):
                             raise RuntimeError("Failed to put joint command to HAL")
                     except Exception as e:
                         logger.error(f"Critical inference failure: {e}", exc_info=True)
@@ -143,6 +164,14 @@ class InferenceRunner:
             logger.info("Inference runner interrupted by user")
         finally:
             self.running = False
+
+    def set_navigation_command(self, nav_cmd: NavigationCommand) -> None:
+        """Set navigation command for inference.
+        
+        Args:
+            nav_cmd: Navigation command
+        """
+        self.nav_cmd = nav_cmd
 
     def stop(self) -> None:
         """Stop inference runner."""

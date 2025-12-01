@@ -40,7 +40,7 @@ def main():
     parser.add_argument("--device", type=str, default="cuda", choices=["cuda", "cpu"], help="Device for inference")
     
     # Isaac Sim arguments
-    parser.add_argument("--task", type=str, required=True, help="Task name (e.g., Isaac-Parkour-Anymal-D-v0)")
+    parser.add_argument("--task", type=str, required=True, help="Task name (e.g., Isaac-Anymal-D-v0)")
     
     # HAL server arguments
     parser.add_argument(
@@ -64,11 +64,12 @@ def main():
     app_launcher = AppLauncher(args)
     simulation_app = app_launcher.app
 
-    hal_server: Optional[IsaacSimHalServer] = None
-    hal_client: Optional[HalClient] = None
-    env = None
-    model: Optional[ParkourPolicyModel] = None
-    running = True
+        hal_server: Optional[IsaacSimHalServer] = None
+        hal_client: Optional[HalClient] = None
+        env = None
+        model: Optional[ParkourPolicyModel] = None
+        nav_cmd: Optional[NavigationCommand] = None
+        running = True
 
     def signal_handler(sig, frame):
         """Handle interrupt signals."""
@@ -131,22 +132,34 @@ def main():
                 # Publish telemetry from simulation
                 hal_server.set_observation()
 
-                # Poll HAL for latest data
-                observation = hal_client.poll(timeout_ms=1)
+                # Poll HAL for latest hardware observation
+                hw_obs = hal_client.poll(timeout_ms=1)
                 
-                if observation is None:
+                if hw_obs is None:
                     # No new observation available, skip inference this frame
                     logger.debug("No new observation available")
                     hal_server.move()  # Still apply any pending commands
                     continue
 
-                # Build ParkourModelIO for policy interface (backward compatibility)
-                model_io = hal_client.build_model_io()
-                if model_io is None:
-                    # Navigation command not set, skip inference
-                    logger.debug("Navigation command not set, skipping inference")
-                    hal_server.move()  # Still apply any pending commands
-                    continue
+                # Map hardware observation to model observation format using mapper
+                from compute.parkour.mappers.hardware_to_model import KrabbyHWObservationsToParkourMapper
+                from compute.parkour.types import ParkourModelIO
+                from hal.client.observation.types import NavigationCommand
+                
+                mapper = KrabbyHWObservationsToParkourMapper()
+                model_obs = mapper.map(hw_obs)
+                
+                # Check if navigation command is set (initialize with default if not)
+                if nav_cmd is None:
+                    nav_cmd = NavigationCommand.create_now(vx=0.0, vy=0.0, yaw_rate=0.0)
+                
+                # Build model IO (preserve timestamp from observation)
+                model_io = ParkourModelIO(
+                    timestamp_ns=model_obs.timestamp_ns,
+                    schema_version=model_obs.schema_version,
+                    nav_cmd=nav_cmd,
+                    observation=model_obs,
+                )
 
                 # Run inference
                 try:
@@ -155,8 +168,13 @@ def main():
                     if not inference_result.success:
                         raise RuntimeError(f"Inference failed: {inference_result.error_message}")
 
+                    # Map inference response to hardware joint positions
+                    from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToKrabbyHWMapper
+                    mapper = ParkourLocomotionToKrabbyHWMapper(model_action_dim=model.action_dim)
+                    joint_positions = mapper.map(inference_result)
+
                     # Send command back to HAL server
-                    if not hal_client.put_joint_command(inference_result):
+                    if not hal_client.put_joint_command(joint_positions):
                         raise RuntimeError("Failed to put joint command to HAL")
                 except Exception as e:
                     logger.error(f"Critical inference failure: {e}", exc_info=True)

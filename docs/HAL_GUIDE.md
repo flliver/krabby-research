@@ -7,8 +7,8 @@ This guide explains how to work with the HAL for publishing observation, subscri
 The HAL uses ZMQ (ZeroMQ) for communication with two distinct channels:
 
 1. **Observation** (PUB/SUB) - Topic: `"observation"` - HAL Server → Policy Wrapper (100+ Hz)
-   - Unified observation format containing all sensor data in training format
-   - Single `float32` array with shape `(OBS_DIM,)` ready for model inference
+   - Hardware observation format containing raw sensor data
+   - `KrabbyHardwareObservations` object with joint positions, camera images, depth map, etc.
 2. **Joint Commands** (REQ/REP) - No topic - Policy Wrapper → HAL Server (100+ Hz)
 
 All channels support both `inproc://` (same process) and `tcp://` (network) transports.
@@ -20,74 +20,67 @@ All channels support both `inproc://` (same process) and `tcp://` (network) tran
 ### Observation (PUB/SUB)
 
 - **Topic**: `"observation"`
-- **Message**: Complete observation in training format as `float32[OBS_DIM]` array
-- **Format**: Topic-prefixed multipart message `[topic_string, schema_version_string, binary_payload, timestamp_bytes]`
+- **Message**: Hardware observation data as `KrabbyHardwareObservations`
+- **Format**: Topic-prefixed multipart message `[topic_string, schema_version_string, ...hw_obs_parts]`
   - Part 0: Topic string `"observation"` (UTF-8 encoded)
   - Part 1: Schema version string (e.g., `"1.0"`, UTF-8 encoded)
-  - Part 2: Binary payload (`float32[OBS_DIM]` array serialized as binary)
-  - Part 3: Timestamp (optional, 8 bytes, nanoseconds since epoch)
+  - Parts 2-7: Hardware observation parts (6 parts total)
+    - Part 2: Metadata JSON (includes timestamp_ns, shapes, dtypes)
+    - Part 3: joint_positions bytes (18 DOF, float32)
+    - Part 4: rgb_camera_1 bytes (H×W×3, uint8)
+    - Part 5: rgb_camera_2 bytes (H×W×3, uint8)
+    - Part 6: depth_map bytes (H×W, float32)
+    - Part 7: confidence_map bytes (H×W, float32)
 - **Semantics**: Latest-only (HWM=1)
-- **Content**: Unified observation containing:
-  - Proprioceptive features (root angular velocity, IMU, joint positions/velocities, commands)
-  - Scan features (depth/height measurements)
-  - Privileged explicit features (base linear velocity)
-  - Privileged latent features (body mass, COM, friction)
-  - History buffer
+- **Content**: Raw hardware sensor data:
+  - Joint positions (18 DOF)
+  - RGB camera images (2 cameras)
+  - Depth map
+  - Confidence map
+  - Timestamp (included in metadata)
 
 ### Joint Commands (REQ/REP)
 
-- **Request**: Joint positions as `float32[ACTION_DIM]` array
+- **Request**: Joint positions as `float32[18]` array (18 DOF for Krabby robot)
 - **Response**: Acknowledgement string (`"ok"` or error message)
 - **Semantics**: Request-response pattern ensures ordering and acknowledgement
 
-## Observation Models
+## Hardware Data Structures
 
-Input data models for the Hardware Abstraction Layer (HAL). These represent sensor data and robot state flowing from hardware/simulation to the policy wrapper.
+### KrabbyHardwareObservations
 
-### Overview
+Raw hardware sensor data from the Krabby robot:
+- **joint_positions**: `float32[18]` - Joint positions (18 DOF)
+- **rgb_camera_1**: `uint8[H, W, 3]` - First RGB camera image
+- **rgb_camera_2**: `uint8[H, W, 3]` - Second RGB camera image
+- **depth_map**: `float32[H, W]` - Depth map
+- **confidence_map**: `float32[H, W]` - Confidence map
+- **timestamp_ns**: Integer (nanoseconds)
 
-Observation models capture robot state and sensor observations. They use nested structures for code organization but are flattened to a flat tensor for policy inference.
+This is the format sent by the HAL server and received by the HAL client via `poll()`.
 
-**Common Reusable Structures**:
-- **Position3D**: `{x, y, z}` (float, meters)
-- **Quaternion**: `{x, y, z, w}` (float)
-- **Vector3D**: `{x, y, z}` (float)
+### KrabbyDesiredJointPositions
 
-### Model Structures
+Desired joint positions for robot control:
+- **joint_positions**: `float32[18]` - Target joint positions (18 DOF)
+- **timestamp_ns**: Integer (nanoseconds)
 
-#### NavigationCommand
+This is the format sent to the HAL server via `put_joint_command()`.
+
+## Model-Specific Types
+
+Model-specific types (ParkourObservation, ParkourModelIO, InferenceResponse, etc.) are located in `compute.parkour.types`. These are used by the policy inference code, not by the HAL client/server directly.
+
+### NavigationCommand
+
+Generic navigation command (in `hal.client.observation.types`):
 - **timestamp_ns**: Integer (nanoseconds)
 - **schema_version**: String
 - **vx**: Float (m/s) - Forward velocity
 - **vy**: Float (m/s) - Lateral velocity
 - **yaw_rate**: Float (rad/s) - Angular velocity
 
-#### RobotState
-- **timestamp_ns**: Integer (nanoseconds)
-- **schema_version**: String
-- **base_pos**: Position3D - `{x, y, z}` (meters)
-- **base_quat**: Quaternion - `{x, y, z, w}`
-- **base_lin_vel**: Vector3D - `{x, y, z}` (m/s)
-- **base_ang_vel**: Vector3D - `{x, y, z}` (rad/s)
-- **joint_pos**: Array[float] (length ACTION_DIM) - Joint positions (radians)
-- **joint_vel**: Array[float] (length ACTION_DIM) - Joint velocities (rad/s)
-
-#### DepthObservation
-- **timestamp_ns**: Integer (nanoseconds)
-- **schema_version**: String
-- **features**: Array[float] (length N, model-specific) - Pre-processed depth features
-
-#### ParkourModelIO
-Combined input model aggregating all observation for policy inference:
-- **timestamp_ns**: Integer (nanoseconds)
-- **schema_version**: String
-- **nav_cmd**: NavigationCommand (nested)
-- **state**: RobotState (nested)
-- **depth**: DepthObservation (nested)
-
-### Inference Format
-
-The policy model expects a **flat float32 tensor** with shape `(OBS_DIM,)`. The policy wrapper converts the nested `ParkourModelIO` structure to this flat tensor format. See policy wrapper documentation for the exact conversion order and layout.
+This is a generic HAL type, not specific to any policy model.
 
 ## Coordinate Frame Conventions
 
@@ -120,7 +113,8 @@ All coordinate frames follow the **ROS (REP-103) convention**:
 - **Joint positions**: Radians, measured from zero position
 - **Joint velocities**: Rad/s
 - **Joint order**: Must match the robot's joint ordering (typically defined in URDF)
-- **For Unitree Go2**: 12 joints (4 legs × 3 joints per leg: hip_yaw, hip_pitch, knee)
+- **For Krabby robot**: 18 DOF (hardware joint positions)
+- **Model action dimension**: May differ from hardware (e.g., 12 DOF for some models)
 
 ### Navigation Command Frame
 - **vx**: Forward velocity in robot base frame (m/s, positive = forward)
@@ -145,17 +139,17 @@ All coordinate frames follow the **ROS (REP-103) convention**:
 The HAL implementation includes runtime type validation for all message payloads:
 
 ### Observation Validation
-- **Type**: Must be `numpy.ndarray`
-- **Dtype**: Must be `float32`
-- **Shape**: Must be `(OBS_DIM,)` where OBS_DIM = 753
-- **Values**: Must be finite (no NaN or Inf)
+- **Type**: Must be `KrabbyHardwareObservations`
+- **joint_positions**: Shape `(18,)`, dtype `float32`
+- **rgb_camera_1/2**: Shape `(H, W, 3)`, dtype `uint8`
+- **depth_map**: Shape `(H, W)`, dtype `float32`
+- **confidence_map**: Shape `(H, W)`, dtype `float32`
+- **timestamp_ns**: Non-negative integer
 
 ### Command Validation
-- **Payload size**: Must be multiple of 4 bytes (float32)
-- **Dtype**: Must be `float32` after deserialization
-- **Shape**: Must be 1D array
-- **Values**: Must be finite (no NaN or Inf)
-- **Action dimension**: Validated against expected ACTION_DIM (typically 12)
+- **Type**: Must be `KrabbyDesiredJointPositions`
+- **joint_positions**: Shape `(18,)`, dtype `float32`
+- **timestamp_ns**: Non-negative integer
 
 ### Error Handling
 - Invalid messages are logged and rejected
@@ -166,70 +160,40 @@ The HAL implementation includes runtime type validation for all message payloads
 
 The HAL client interface supports:
 
-- **Poll for Observation** - `poll()` returns the latest observation array directly (100+ Hz)
-- **Set Navigation Command** - Set navigation command for the robot
-- **Build ParkourModelIO** - Combine latest observation and navigation command into a single model structure (for backward compatibility with models that expect ParkourModelIO)
-- **Send Joint Command** - Send joint position commands to actuators
+- **Poll for Observation** - `poll()` returns `KrabbyHardwareObservations` if new data is available, `None` otherwise (100+ Hz)
+- **Send Joint Command** - `put_joint_command()` sends `KrabbyDesiredJointPositions` to actuators
 
-**Observation Format**: The observation is a unified `float32` array with shape `(OBS_DIM,)` containing all sensor data in training format.
+**Observation Format**: The observation is a `KrabbyHardwareObservations` object containing raw hardware sensor data (joint positions, camera images, depth map, etc.).
 
-**Synchronization**: When using `build_model_io()`, observation and navigation command should have timestamps within < 10ms of each other for 100 Hz control.
+**Mapping to Model Format**: The policy inference code uses mappers (`compute.parkour.mappers.hardware_to_model`) to convert `KrabbyHardwareObservations` to model-specific observation formats (e.g., `ParkourObservation`).
 
 ### Constraints
 
 - All floats must be `float32` dtype
 - Quaternion must be normalized
-- Joint arrays must match ACTION_DIM (model-specific, typically 12)
+- Hardware joint arrays are always 18 DOF
+- Model action dimension may differ (mappers handle conversion)
 - Depth features array must match N (model-specific)
 - Timestamps must be monotonically increasing
 - Schema versions must be compatible across all components
 
-## Command Models
+## Command Interface
 
-Output data models for the Hardware Abstraction Layer (HAL). These represent actuator commands and inference responses flowing from the policy wrapper to hardware/simulation.
-
-### Overview
-
-Command models represent policy inference output - desired actions for robot actuators. They support high-frequency updates (100+ Hz) and include validation/error handling.
-
-### Model Structures
-
-#### JointCommand
-- **timestamp_ns**: Integer (nanoseconds)
-- **schema_version**: String
-- **joint_pos**: Array[float] (length ACTION_DIM) - Desired joint positions (radians)
-
-#### InferenceResponse
-- **timestamp_ns**: Integer (nanoseconds)
-- **inference_latency_ms**: Float (milliseconds)
-- **joint_command**: JointCommand (nested)
-- **model_version**: String
-- **success**: Boolean
-- **error_message**: String (optional, if success=False)
-
-### Interface Actions
-
-The HAL interface must support:
-
-- **Send JointCommand** - Send joint position command to actuators
-- **Validate Command** - Validate command shape, dtype, and ranges before sending
-- **Get Acknowledgement** - Receive confirmation that command was received/processed
-- **Handle Errors** - Process error responses if command is rejected
+The HAL client sends joint commands via `put_joint_command()`, which accepts a `KrabbyDesiredJointPositions` object containing 18-DOF joint positions.
 
 **Request-Response Pattern**: Commands use request-response to ensure ordering and acknowledgement.
 
 ### Constraints
 
-- Array must be `float32` dtype
-- Array shape must exactly match ACTION_DIM (model-specific, typically 12)
+- Joint positions array must be `float32` dtype
+- Array shape must be `(18,)` for Krabby robot
 - Joint positions typically in range [-π, π] radians
-- Inference latency should be < 15ms for 100 Hz control (target < 10ms)
-- Commands must be generated within < 10ms from observation timestamp
+- Commands must be generated within < 10ms from observation timestamp for 100 Hz control
 
 ### Validation
 
 **Required checks**:
-- Array shape matches ACTION_DIM
+- Array shape matches (18,)
 - Array is float32 dtype
 - Timestamp is recent (not stale)
 
@@ -237,15 +201,17 @@ The HAL interface must support:
 - Joint positions within limits
 - Velocity limits (change from previous command)
 
+**Note**: Model-specific types like `InferenceResponse` are in `compute.parkour.types`. The policy inference code uses mappers (`compute.parkour.mappers.model_to_hardware`) to convert model outputs to `KrabbyDesiredJointPositions` before sending via HAL.
+
 ## Endpoints
 
-**TCP Endpoints** (configurable via `HAL_BASE_PORT`, default 6000):
-- Observation: `tcp://host:6000` (or configurable via `observation_bind`)
-- Commands: `tcp://host:6001` (or configurable via `command_bind`)
+**TCP Endpoints** (explicit configuration required):
+- Observation: Configured via `observation_bind` (e.g., `tcp://*:6001`)
+- Commands: Configured via `command_bind` (e.g., `tcp://*:6002`)
 
 **Inproc Endpoints** (same process):
-- Observation: `inproc://hal_observation` (or configurable)
-- Commands: `inproc://hal_commands` (or configurable)
+- Observation: Configured via `observation_bind` (e.g., `inproc://hal_observation`)
+- Commands: Configured via `command_bind` (e.g., `inproc://hal_commands`)
 
 ## HAL Server Workflow
 
@@ -253,26 +219,32 @@ The HAL interface must support:
 2. Bind to endpoints (inproc or TCP)
 3. Set HWM=1 for latest-only semantics on PUB socket
 4. Main loop:
-   - Build complete observation in training format (100+ Hz)
-   - Publish observation: Send as multipart `[topic, schema_version, payload, timestamp]`
-   - Receive command requests (non-blocking): Deserialize to `float32` array, apply to actuators, send acknowledgement
+   - Build `KrabbyHardwareObservations` from hardware sensors (100+ Hz)
+   - Publish observation: Send as multipart `[topic, schema_version, ...hw_obs_parts]` (8 parts total)
+   - Receive command requests (non-blocking): Deserialize to `float32[18]` array, apply to actuators, send acknowledgement
 
 ## HAL Client Workflow
 
-1. Create SUB sockets for observation, REQ socket for commands
+1. Create SUB socket for observation, REQ socket for commands
 2. Connect to endpoints
 3. Subscribe to observation topic: `"observation"`
 4. Set HWM=1 for latest-only semantics on SUB sockets
 5. Main loop:
    - Poll for observation messages (non-blocking with timeout)
-   - `poll()` returns the observation array directly if new data is available, `None` otherwise
-   - If observation received, use it for inference
-   - Send joint command as `float32` array
+   - `poll()` returns `KrabbyHardwareObservations` if new data is available, `None` otherwise
+   - If observation received, map it to model format and use for inference
+   - Map inference output to `KrabbyDesiredJointPositions`
+   - Send joint command via `put_joint_command()`
    - Wait for acknowledgement response
 
 **Example:**
 ```python
 from hal.client import HalClient, HalClientConfig
+from hal.client.data_structures.hardware import KrabbyDesiredJointPositions
+from hal.client.observation.types import NavigationCommand
+from compute.parkour.mappers.hardware_to_model import KrabbyHWObservationsToParkourMapper
+from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToKrabbyHWMapper
+from compute.parkour.types import ParkourModelIO
 
 # Initialize client
 config = HalClientConfig(
@@ -282,20 +254,39 @@ config = HalClientConfig(
 client = HalClient(config)
 client.initialize()
 
+# Initialize mappers
+hw_to_model_mapper = KrabbyHWObservationsToParkourMapper()
+model_to_hw_mapper = ParkourLocomotionToKrabbyHWMapper(model_action_dim=12)
+
 # Main control loop
+nav_cmd = NavigationCommand.create_now(vx=0.0, vy=0.0, yaw_rate=0.0)
 while running:
-    # Poll for new observation (returns observation array or None)
-    observation = client.poll(timeout_ms=10)
+    # Poll for new hardware observation
+    hw_obs = client.poll(timeout_ms=10)
     
-    if observation is None:
+    if hw_obs is None:
         # No new data available, skip this iteration
         continue
     
-    # Use observation for inference
-    action = model(observation)
+    # Map hardware observation to model format
+    parkour_obs = hw_to_model_mapper.map(hw_obs)
+    
+    # Build model IO
+    model_io = ParkourModelIO(
+        timestamp_ns=parkour_obs.timestamp_ns,
+        schema_version=parkour_obs.schema_version,
+        nav_cmd=nav_cmd,
+        observation=parkour_obs,
+    )
+    
+    # Run inference
+    inference_result = model.inference(model_io)
+    
+    # Map inference output to hardware joint positions
+    joint_positions = model_to_hw_mapper.map(inference_result)
     
     # Send command
-    client.send_joint_command(action)
+    client.put_joint_command(joint_positions)
 ```
 
 ## Latest-Only Semantics
@@ -311,8 +302,8 @@ The observation PUB/SUB channel uses HWM=1 (high-watermark=1):
 
 - **Topic filtering**: Subscribers subscribe to the `"observation"` topic
 - **Message ordering**: PUB/SUB has no guaranteed ordering; REQ/REP guarantees ordering
-- **Timestamp synchronization**: Observation messages include timestamps for age validation
-- **Navigation command**: Set separately via `set_navigation_command()` and combined with observation in `build_model_io()` if needed
+- **Timestamp synchronization**: Observation messages include timestamps in `KrabbyHardwareObservations` metadata
+- **Navigation command**: Managed by application code (e.g., `InferenceRunner`), not by HAL client
 
 ## Error Handling
 
@@ -406,29 +397,36 @@ HAL Server State Dump
 ================================================================================
 Timestamp: 2024-01-15 10:30:45
 
-📊 Observation Observation (New Format):
+📊 Observation:
   Topic: observation
   Schema Version: 1.0
   Timestamp: 1705315845000000000 ns (1705315845.000000 s)
-  Shape: (753,)
-  Dtype: float32
-  Stats: min=-1.234, max=2.456, mean=0.123
+  Hardware Observation:
+    Joint Positions: shape=(18,), dtype=float32
+    RGB Camera 1: shape=(480, 640, 3), dtype=uint8
+    RGB Camera 2: shape=(480, 640, 3), dtype=uint8
+    Depth Map: shape=(480, 640), dtype=float32
+    Confidence Map: shape=(480, 640), dtype=float32
 
-  Observation Breakdown:
-    Total Dimension: 753
-    Proprioceptive (53):
-      Root angular velocity (body frame): [0.0123, -0.0045, 0.0089]
-      IMU (roll, pitch): [0.0012, -0.0023]
-      Delta yaw: 0.0456
-      ...
-    Scan Features (132):
-      Min: -1.000, Max: 1.000, Mean: 0.123
-      ...
+  Mapped Model Observation (verbose mode):
+    Shape: (753,)
+    Dtype: float32
+    Stats: min=-1.234, max=2.456, mean=0.123
+    Observation Breakdown:
+      Total Dimension: 753
+      Proprioceptive (53):
+        Root angular velocity (body frame): [0.0123, -0.0045, 0.0089]
+        IMU (roll, pitch): [0.0012, -0.0023]
+        Delta yaw: 0.0456
+        ...
+      Scan Features (132):
+        Min: -1.000, Max: 1.000, Mean: 0.123
+        ...
 
 ⚙️  Command Endpoint:
   Status: ✅ Connected
   Response: ok
-  Test Command Shape: (12,)
+  Test Command Shape: (18,)
   Note: Commands are REQ/REP, no history available
 
 ================================================================================
@@ -469,15 +467,15 @@ When enabled, debug logging shows:
 
 **Client (Receiving):**
 ```
-[ZMQ RECV] observation: shape=(753,), dtype=float32, min=-1.234, max=2.456
-[ZMQ RECV] observation: ParkourObservation created successfully
-[ZMQ SEND] command: shape=(12,), dtype=float32, min=-0.5, max=0.5
+[ZMQ RECV] observation: topic=observation, schema=1.0, num_parts=8
+[ZMQ RECV] observation: KrabbyHardwareObservations created successfully
+[ZMQ SEND] command: payload_size=72 bytes, joint_positions_shape=(18,), dtype=float32
 ```
 
 **Server (Sending):**
 ```
-[ZMQ SEND] observation: shape=(753,), dtype=float32, min=-1.234, max=2.456
-[ZMQ RECV] command: shape=(12,), dtype=float32, min=-0.5, max=0.5
+[ZMQ SEND] observation: topic=observation, schema=1.0, num_parts=8, timestamp_ns=...
+[ZMQ RECV] command: shape=(18,), dtype=float32, min=-0.5, max=0.5
 ```
 
 ### Debug Log Format
@@ -555,13 +553,13 @@ If debug logs don't appear:
 3. Ensure logging is configured (basicConfig or similar)
 4. Check that messages are actually being sent/received
 
-### Wrong Observation Shape
+### Wrong Observation Format
 
-If observation shape doesn't match expected (753):
-1. Check that server is using correct observation format
-2. Verify NUM_PROP, NUM_SCAN, etc. match training config
-3. Use verbose mode to see detailed breakdown
-4. Compare with training observation format
+If observation deserialization fails:
+1. Check that server is sending `KrabbyHardwareObservations` format
+2. Verify message has 8 parts (topic, schema, 6 hw_obs parts)
+3. Check metadata JSON is valid
+4. Verify array shapes match expected (joint_positions: 18, cameras: H×W×3, depth/confidence: H×W)
 
 ## Debugging Best Practices
 

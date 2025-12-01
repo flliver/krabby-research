@@ -11,12 +11,8 @@ import numpy as np
 import pytest
 
 from compute.parkour.policy_interface import ModelWeights, ParkourPolicyModel
-from hal.client.observation.types import (
-    NavigationCommand,
-    OBS_DIM,
-    ParkourModelIO,
-    ParkourObservation,
-)
+from hal.client.observation.types import NavigationCommand
+from compute.parkour.types import OBS_DIM, ParkourModelIO, ParkourObservation
 
 
 class TestParkourPolicyModel:
@@ -84,7 +80,7 @@ class TestParkourPolicyModel:
     def test_inference_latency_measurement(self):
         """Test inference latency is measured correctly."""
         from unittest.mock import MagicMock
-        from hal.client.observation.types import ParkourModelIO
+        from compute.parkour.types import ParkourModelIO
 
         # Create a mock model that simulates inference time
         class MockPolicyModel:
@@ -96,7 +92,7 @@ class TestParkourPolicyModel:
 
             def inference(self, model_io):
                 import time
-                from hal.client.commands.types import InferenceResponse
+                from compute.parkour.types import InferenceResponse
                 import torch
 
                 start_time = time.time_ns()
