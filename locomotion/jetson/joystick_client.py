@@ -23,7 +23,7 @@ from typing import Optional
 
 from hal.client.client import HalClient
 from hal.client.config import HalClientConfig
-from hal.observation.types import NavigationCommand
+from hal.client.observation.types import NavigationCommand
 
 logging.basicConfig(
     level=logging.INFO,
@@ -228,7 +228,7 @@ def main():
     use_keyboard = args.keyboard or (not args.gamepad)
 
     # Create HAL client config
-    config = HalClientConfig.from_endpoints(
+    config = HalClientConfig(
         observation_endpoint=args.observation_endpoint,
         command_endpoint=args.command_endpoint,
     )

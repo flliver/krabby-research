@@ -27,9 +27,10 @@ COPY images/testing/x86/requirements.txt /tmp/requirements.txt
 RUN pip3 install --no-cache-dir -r /tmp/requirements.txt
 
 # Copy and install wheels (built via 'make build-wheels')
-COPY hal/krabby-hal-client/dist/*.whl /tmp/wheels/
-COPY hal/krabby-hal-server/dist/*.whl /tmp/wheels/
-COPY hal/krabby-hal-server-isaac/dist/*.whl /tmp/wheels/
+COPY hal/client/dist/*.whl /tmp/wheels/
+COPY hal/server/dist/*.whl /tmp/wheels/
+COPY hal/server/isaac/dist/*.whl /tmp/wheels/
+COPY hal/server/jetson/dist/*.whl /tmp/wheels/
 # Note: krabby-hal-tools is excluded by default (only install when needed for debugging)
 RUN bash -c "pip3 install --no-cache-dir /tmp/wheels/*.whl"
 

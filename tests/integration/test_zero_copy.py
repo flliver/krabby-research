@@ -10,8 +10,8 @@ import numpy as np
 import pytest
 import torch
 
-from hal.commands.types import InferenceResponse
-from hal.observation.types import (
+from hal.client.commands.types import InferenceResponse
+from hal.client.observation.types import (
     NUM_PROP,
     NUM_SCAN,
     NUM_PRIV_EXPLICIT,

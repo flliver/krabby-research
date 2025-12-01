@@ -6,9 +6,9 @@ import numpy as np
 import pytest
 
 from hal.client.client import HalClient
-from hal.server.server import HalServerBase
+from hal.server import HalServerBase
 from hal.client.config import HalClientConfig, HalServerConfig
-from hal.observation.types import NavigationCommand
+from hal.client.observation.types import NavigationCommand
 from compute.testing.inference_test_runner import InferenceTestRunner
 
 
@@ -27,7 +27,7 @@ class SlowInferenceModel:
         time.sleep(inference_time_ms / 1000.0)
         self.inference_count += 1
 
-        from hal.commands.types import InferenceResponse
+        from hal.client.commands.types import InferenceResponse
         import torch
 
         action_tensor = torch.zeros(self.action_dim, dtype=torch.float32)
@@ -52,7 +52,7 @@ class FastInferenceModel:
         time.sleep(inference_time_ms / 1000.0)
         self.inference_count += 1
 
-        from hal.commands.types import InferenceResponse
+        from hal.client.commands.types import InferenceResponse
         import torch
 
         action_tensor = torch.zeros(self.action_dim, dtype=torch.float32)
@@ -68,14 +68,14 @@ def test_game_loop_faster_than_inference():
     
     # Use shared context for inproc connections
     # Use unified observation endpoint (new API)
-    server_config = HalServerConfig.from_endpoints(
+    server_config = HalServerConfig(
         observation_bind="inproc://test_obs_slow",
         command_bind="inproc://test_command_slow",
     )
     server = HalServerBase(server_config)
     server.initialize()
 
-    client_config = HalClientConfig.from_endpoints(
+    client_config = HalClientConfig(
         observation_endpoint="inproc://test_obs_slow",
         command_endpoint="inproc://test_command_slow",
     )
@@ -91,23 +91,33 @@ def test_game_loop_faster_than_inference():
     nav_cmd = NavigationCommand.create_now()
     client.set_navigation_command(nav_cmd)
 
+    import threading
+
     # Continuously publish observation (unified observation format)
-    from hal.observation.types import OBS_DIM
+    from hal.client.observation.types import OBS_DIM
     def publish_loop():
         observation = np.zeros(OBS_DIM, dtype=np.float32)
         for _ in range(100):
             server.set_observation(observation)
             time.sleep(0.01)
 
-    import threading
+    # Continuously receive commands (REQ/REP pattern requires server to be waiting)
+    command_received = threading.Event()
+    def command_loop():
+        while not command_received.is_set():
+            server.get_joint_command(timeout_ms=100)
 
     pub_thread = threading.Thread(target=publish_loop)
     pub_thread.start()
+    
+    cmd_thread = threading.Thread(target=command_loop)
+    cmd_thread.start()
 
     # Run for short time
     def stop_after_time():
         time.sleep(0.5)  # Run for 500ms
         test_runner.stop()
+        command_received.set()
 
     stop_thread = threading.Thread(target=stop_after_time)
     stop_thread.start()
@@ -117,8 +127,10 @@ def test_game_loop_faster_than_inference():
     except Exception:
         pass
 
+    command_received.set()
     stop_thread.join()
     pub_thread.join()
+    cmd_thread.join()
 
     # Verify inference ran (may or may not have dropped frames depending on timing)
     # The key is that inference should have run without blocking
@@ -136,14 +148,14 @@ def test_inference_faster_than_game_loop():
     
     # Use shared context for inproc connections
     # Use unified observation endpoint (new API)
-    server_config = HalServerConfig.from_endpoints(
+    server_config = HalServerConfig(
         observation_bind="inproc://test_obs_fast",
         command_bind="inproc://test_command_fast",
     )
     server = HalServerBase(server_config)
     server.initialize()
 
-    client_config = HalClientConfig.from_endpoints(
+    client_config = HalClientConfig(
         observation_endpoint="inproc://test_obs_fast",
         command_endpoint="inproc://test_command_fast",
     )
@@ -159,22 +171,32 @@ def test_inference_faster_than_game_loop():
     nav_cmd = NavigationCommand.create_now()
     client.set_navigation_command(nav_cmd)
 
+    import threading
+
     # Continuously publish observation (unified observation format)
-    from hal.observation.types import OBS_DIM
+    from hal.client.observation.types import OBS_DIM
     def publish_loop():
         observation = np.zeros(OBS_DIM, dtype=np.float32)
         for _ in range(100):
             server.set_observation(observation)
             time.sleep(0.01)
 
-    import threading
+    # Continuously receive commands (REQ/REP pattern requires server to be waiting)
+    command_received = threading.Event()
+    def command_loop():
+        while not command_received.is_set():
+            server.get_joint_command(timeout_ms=100)
 
     pub_thread = threading.Thread(target=publish_loop)
     pub_thread.start()
+    
+    cmd_thread = threading.Thread(target=command_loop)
+    cmd_thread.start()
 
     def stop_after_time():
         time.sleep(0.5)
         test_runner.stop()
+        command_received.set()
 
     stop_thread = threading.Thread(target=stop_after_time)
     stop_thread.start()
@@ -184,8 +206,10 @@ def test_inference_faster_than_game_loop():
     except Exception:
         pass
 
+    command_received.set()
     stop_thread.join()
     pub_thread.join()
+    cmd_thread.join()
 
     # Verify latest result was used correctly
     assert test_runner.last_inference_result is not None
@@ -202,14 +226,14 @@ def test_timestamp_in_messages():
     
     # Use shared context for inproc connections
     # Use unified observation endpoint (new API)
-    server_config = HalServerConfig.from_endpoints(
+    server_config = HalServerConfig(
         observation_bind="inproc://test_obs_ts",
         command_bind="inproc://test_command_ts",
     )
     server = HalServerBase(server_config)
     server.initialize()
 
-    client_config = HalClientConfig.from_endpoints(
+    client_config = HalClientConfig(
         observation_endpoint="inproc://test_obs_ts",
         command_endpoint="inproc://test_command_ts",
     )
@@ -224,7 +248,7 @@ def test_timestamp_in_messages():
     client.set_navigation_command(nav_cmd)
 
     # Initial dummy publish/poll to establish connection
-    from hal.observation.types import OBS_DIM
+    from hal.client.observation.types import OBS_DIM
     observation = np.zeros(OBS_DIM, dtype=np.float32)
     server.set_observation(observation)
     client.poll(timeout_ms=100)
@@ -276,14 +300,14 @@ def test_timestamp_validation_stale_messages():
     
     # Use shared context for inproc connections
     # Use unified observation endpoint (new API)
-    server_config = HalServerConfig.from_endpoints(
+    server_config = HalServerConfig(
         observation_bind="inproc://test_obs_stale",
         command_bind="inproc://test_command_stale",
     )
     server = HalServerBase(server_config)
     server.initialize()
 
-    client_config = HalClientConfig.from_endpoints(
+    client_config = HalClientConfig(
         observation_endpoint="inproc://test_obs_stale",
         command_endpoint="inproc://test_command_stale",
     )
@@ -300,7 +324,7 @@ def test_timestamp_validation_stale_messages():
     client.set_navigation_command(old_nav_cmd)
 
     # Publish fresh observation (unified observation format)
-    from hal.observation.types import OBS_DIM
+    from hal.client.observation.types import OBS_DIM
     observation = np.zeros(OBS_DIM, dtype=np.float32)
     server.set_observation(observation)
 
@@ -328,14 +352,14 @@ def test_end_to_end_latency():
     
     # Use shared context for inproc connections
     # Use unified observation endpoint (new API)
-    server_config = HalServerConfig.from_endpoints(
+    server_config = HalServerConfig(
         observation_bind="inproc://test_obs_latency",
         command_bind="inproc://test_command_latency",
     )
     server = HalServerBase(server_config)
     server.initialize()
 
-    client_config = HalClientConfig.from_endpoints(
+    client_config = HalClientConfig(
         observation_endpoint="inproc://test_obs_latency",
         command_endpoint="inproc://test_command_latency",
     )
@@ -345,7 +369,7 @@ def test_end_to_end_latency():
     time.sleep(0.1)
 
     # Measure send to receive latency
-    from hal.observation.types import OBS_DIM
+    from hal.client.observation.types import OBS_DIM
     send_time_ns = time.time_ns()
     observation = np.zeros(OBS_DIM, dtype=np.float32)
     server.set_observation(observation)

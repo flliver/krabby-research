@@ -23,8 +23,8 @@ import numpy as np
 import torch
 from rsl_rl.env import VecEnv
 
-from hal.commands.types import InferenceResponse
-from hal.observation.types import ParkourModelIO
+from hal.client.commands.types import InferenceResponse
+from hal.client.observation.types import ParkourModelIO
 
 logger = logging.getLogger(__name__)
 

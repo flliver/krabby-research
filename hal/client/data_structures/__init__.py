@@ -1,0 +1,16 @@
+"""Hardware data structures for Krabby robot.
+
+These structures represent raw hardware sensor data and desired joint positions.
+They are designed for zero-copy operations where possible.
+"""
+
+from hal.data_structures.hardware import (
+    KrabbyDesiredJointPositions,
+    KrabbyHardwareObservations,
+)
+
+__all__ = [
+    "KrabbyHardwareObservations",
+    "KrabbyDesiredJointPositions",
+]
+

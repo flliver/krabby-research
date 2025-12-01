@@ -137,7 +137,7 @@ typing-extensions>=4.8.0
 
 # Note: This container includes both:
 # - compute/parkour/ (inference logic)
-# - hal/Isaac/ (HAL server with simulation)
+# - hal/server/isaac/ (HAL server with simulation)
 ```
 
 #### Special Considerations

@@ -11,18 +11,18 @@ logger = logging.getLogger(__name__)
 
 from hal.client.client import HalClient
 from hal.client.config import HalClientConfig, HalServerConfig
-from hal.observation.types import NavigationCommand
+from hal.client.observation.types import NavigationCommand
 from compute.parkour.policy_interface import ModelWeights, ParkourPolicyModel
 from compute.testing.inference_test_runner import InferenceTestRunner
 from locomotion.jetson.camera import ZedCamera, create_zed_camera
-from locomotion.jetson.hal_server import JetsonHalServer
+from hal.server.jetson import JetsonHalServer
 from locomotion.jetson.inference_runner import InferenceRunner
 
 
 @pytest.fixture
 def hal_server_config():
     """Create HAL server config for testing."""
-    return HalServerConfig.from_endpoints(
+    return HalServerConfig(
         observation_bind="inproc://test_jetson_observation",
         command_bind="inproc://test_jetson_command",
     )
@@ -31,7 +31,7 @@ def hal_server_config():
 @pytest.fixture
 def hal_client_config():
     """Create HAL client config for testing."""
-    return HalClientConfig.from_endpoints(
+    return HalClientConfig(
         observation_endpoint="inproc://test_jetson_observation",
         command_endpoint="inproc://test_jetson_command",
     )
@@ -92,7 +92,7 @@ def test_jetson_hal_server_observation_publishing(hal_server_config, hal_client_
     time.sleep(0.1)
 
     # Mock depth features (NUM_SCAN = 132)
-    from hal.observation.types import NUM_SCAN
+    from hal.client.observation.types import NUM_SCAN
 
     depth_features = np.array([1.0, 2.0, 3.0] * 44, dtype=np.float32)[:NUM_SCAN]  # 132 features
     mock_camera.get_depth_features.return_value = depth_features
@@ -119,7 +119,7 @@ def test_jetson_hal_server_observation_publishing(hal_server_config, hal_client_
     # Verify observation data received (unified observation format)
     assert hal_client._latest_observation is not None
     assert hal_client._latest_observation.observation is not None
-    from hal.observation.types import OBS_DIM
+    from hal.client.observation.types import OBS_DIM
     assert hal_client._latest_observation.observation.shape == (OBS_DIM,)
 
     hal_client.close()
@@ -142,7 +142,7 @@ def test_jetson_hal_server_joint_command_application(hal_server_config, hal_clie
     time.sleep(0.1)
 
     # Send command from client using new API
-    from hal.commands.types import InferenceResponse
+    from hal.client.commands.types import InferenceResponse
     import torch
     import threading
 
@@ -189,7 +189,7 @@ def test_jetson_hal_server_end_to_end_with_game_loop(hal_server_config, hal_clie
     mock_camera = MagicMock(spec=ZedCamera)
     mock_camera.is_ready.return_value = True
 
-    from hal.observation.types import NUM_SCAN
+    from hal.client.observation.types import NUM_SCAN
 
     depth_features = np.zeros(NUM_SCAN, dtype=np.float32)
     depth_features[0:64] = 1.0  # Set first 64 features
@@ -222,7 +222,7 @@ def test_jetson_hal_server_end_to_end_with_game_loop(hal_server_config, hal_clie
 
         def inference(self, model_io):
             import time
-            from hal.commands.types import InferenceResponse
+            from hal.client.commands.types import InferenceResponse
             import torch
 
             self.inference_count += 1
@@ -316,7 +316,10 @@ def test_jetson_hal_server_network_communication():
     server.initialize()
 
     # Client config pointing to server (simulating x86 → Jetson)
-    client_config = HalClientConfig.from_base_port(base_port=8000)
+    client_config = HalClientConfig(
+        observation_endpoint="tcp://localhost:8001",
+        command_endpoint="tcp://localhost:8002",
+    )
     client = HalClient(client_config)
     client.initialize()
 
@@ -326,7 +329,7 @@ def test_jetson_hal_server_network_communication():
     mock_camera = MagicMock(spec=ZedCamera)
     mock_camera.is_ready.return_value = True
 
-    from hal.observation.types import NUM_SCAN
+    from hal.client.observation.types import NUM_SCAN
 
     depth_features = np.zeros(NUM_SCAN, dtype=np.float32)
     depth_features[0:64] = 1.0  # Set first 64 features
@@ -356,7 +359,7 @@ def test_jetson_hal_server_network_communication():
     assert client._latest_observation.observation is not None
 
     # Send command
-    from hal.commands.types import InferenceResponse
+    from hal.client.commands.types import InferenceResponse
     import torch
 
     action_array = np.array([0.1] * 12, dtype=np.float32)
@@ -450,7 +453,7 @@ def test_jetson_hal_server_sustained_bidirectional_messaging(hal_server_config, 
     # Mock camera to return depth features
     mock_camera = MagicMock(spec=ZedCamera)
     mock_camera.is_ready.return_value = True
-    from hal.observation.types import NUM_SCAN
+    from hal.client.observation.types import NUM_SCAN
 
     depth_features = np.zeros(NUM_SCAN, dtype=np.float32)
     mock_camera.get_depth_features.return_value = depth_features
@@ -515,7 +518,7 @@ def test_jetson_hal_server_sustained_bidirectional_messaging(hal_server_config, 
                 # Create mock command
                 command = np.random.uniform(-0.5, 0.5, size=12).astype(np.float32)
                 
-                from hal.commands.types import InferenceResponse
+                from hal.client.commands.types import InferenceResponse
                 import torch as torch_module
                 action_tensor = torch_module.from_numpy(command)
                 response = InferenceResponse.create_success(
@@ -594,7 +597,7 @@ def test_jetson_hal_server_joystick_input_integration(hal_server_config, hal_cli
     # Mock camera
     mock_camera = MagicMock(spec=ZedCamera)
     mock_camera.is_ready.return_value = True
-    from hal.observation.types import NUM_SCAN
+    from hal.client.observation.types import NUM_SCAN
 
     depth_features = np.zeros(NUM_SCAN, dtype=np.float32)
     mock_camera.get_depth_features.return_value = depth_features

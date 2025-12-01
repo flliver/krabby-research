@@ -12,11 +12,13 @@ import time
 from typing import Optional
 
 from isaaclab.app import AppLauncher
+import gymnasium as gym
+from isaaclab_tasks.utils import parse_env_cfg
 
 from hal.client.client import HalClient
 from hal.client.config import HalClientConfig
-from hal.server.config import HalServerConfig
-from hal.isaac.hal_server import IsaacSimHalServer
+from hal.server import HalServerConfig
+from hal.server.isaac import IsaacSimHalServer
 from compute.parkour.policy_interface import ModelWeights, ParkourPolicyModel
 
 logging.basicConfig(
@@ -63,10 +65,6 @@ def main():
     app_launcher = AppLauncher(args)
     simulation_app = app_launcher.app
 
-    # Import after app launch
-    import gymnasium as gym
-    from isaaclab_tasks.utils import parse_env_cfg
-
     hal_server: Optional[IsaacSimHalServer] = None
     hal_client: Optional[HalClient] = None
     env = None
@@ -99,7 +97,7 @@ def main():
         env = gym.make(args.task, cfg=env_cfg)
 
         # Create HAL server config (inproc for production)
-        hal_server_config = HalServerConfig.from_endpoints(
+        hal_server_config = HalServerConfig(
             observation_bind=args.observation_bind,
             command_bind=args.command_bind,
         )
@@ -109,7 +107,7 @@ def main():
         hal_server.initialize()
 
         # Create HAL client config with inproc endpoints
-        hal_client_config = HalClientConfig.from_endpoints(
+        hal_client_config = HalClientConfig(
             observation_endpoint=args.observation_bind,
             command_endpoint=args.command_bind,
         )
@@ -137,15 +135,37 @@ def main():
                 # Poll HAL for latest data
                 hal_client.poll(timeout_ms=1)
 
-                # Build observation
+                # Get observation (raises RuntimeError if not available)
+                try:
+                    observation = hal_client.get_observation()
+                except RuntimeError as e:
+                    # No observation available, skip inference this frame
+                    logger.debug(f"No observation available: {e}")
+                    hal_server.move()  # Still apply any pending commands
+                    continue
+
+                # Build ParkourModelIO for policy interface (backward compatibility)
                 model_io = hal_client.build_model_io()
-                if model_io is not None:
-                    # Run inference
+                if model_io is None:
+                    # Navigation command not set, skip inference
+                    logger.debug("Navigation command not set, skipping inference")
+                    hal_server.move()  # Still apply any pending commands
+                    continue
+
+                # Run inference
+                try:
                     inference_result = model.inference(model_io)
 
-                    if inference_result.success:
-                        # Send command back to HAL server
-                        hal_client.put_joint_command(inference_result)
+                    if not inference_result.success:
+                        raise RuntimeError(f"Inference failed: {inference_result.error_message}")
+
+                    # Send command back to HAL server
+                    if not hal_client.put_joint_command(inference_result):
+                        raise RuntimeError("Failed to put joint command to HAL")
+                except Exception as e:
+                    logger.error(f"Critical inference failure: {e}", exc_info=True)
+                    # Fail fast - re-raise to stop the loop
+                    raise
 
                 # Apply joint command to simulation
                 hal_server.move()
@@ -160,7 +180,9 @@ def main():
                 else:
                     if loop_duration_s > period_s * 1.1:
                         logger.warning(
-                            f"Loop duration {loop_duration_s*1000:.2f}ms > period {period_s*1000:.2f}ms"
+                            f"Simulation is unable to keep up! "
+                            f"Frame time: {loop_duration_s*1000:.2f}ms exceeds target: {period_s*1000:.2f}ms. "
+                            f"This may cause control instability."
                         )
 
         except KeyboardInterrupt:
@@ -172,7 +194,6 @@ def main():
                 hal_server.close()
             if env:
                 env.close()
-            shared_context.term()
 
     except Exception as e:
         logger.error(f"Isaac Sim container failed: {e}", exc_info=True)

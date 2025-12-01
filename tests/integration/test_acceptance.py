@@ -16,9 +16,9 @@ import pytest
 import torch
 
 from hal.client.client import HalClient
-from hal.server.server import HalServerBase
+from hal.server import HalServerBase
 from hal.client.config import HalClientConfig, HalServerConfig
-from hal.observation.types import ParkourObservation, NavigationCommand, OBS_DIM
+from hal.client.observation.types import ParkourObservation, NavigationCommand, OBS_DIM
 from compute.parkour.policy_interface import ModelWeights, ParkourPolicyModel
 from compute.testing.inference_test_runner import InferenceTestRunner
 
@@ -98,7 +98,7 @@ class ProtoHalServer(HalServerBase):
         Note: This method name is kept for backward compatibility in tests.
         It calls set_observation() on the base class.
         """
-        from hal.observation.types import OBS_DIM
+        from hal.client.observation.types import OBS_DIM
 
         # Create synthetic observation in training format
         obs_array = np.zeros(OBS_DIM, dtype=np.float32)
@@ -164,14 +164,14 @@ def proto_hal_setup():
     import zmq
     
     # Use shared context for inproc connections
-    server_config = HalServerConfig.from_endpoints(
+    server_config = HalServerConfig(
         observation_bind="inproc://test_obs_proto",
         command_bind="inproc://test_cmd_proto",
     )
     server = ProtoHalServer(server_config)
     server.initialize()
 
-    client_config = HalClientConfig.from_endpoints(
+    client_config = HalClientConfig(
         observation_endpoint="inproc://test_obs_proto",
         command_endpoint="inproc://test_cmd_proto",
     )
@@ -208,7 +208,7 @@ def test_100_tick_execution_with_proto_hal(proto_hal_setup):
             self.inference_count = 0
 
         def inference(self, model_io):
-            from hal.commands.types import InferenceResponse
+            from hal.client.commands.types import InferenceResponse
 
             self.inference_count += 1
             # Return zero action tensor
@@ -293,7 +293,7 @@ def test_forward_pass_correctness():
         pytest.skip(f"Failed to load checkpoint: {e}")
 
     # Create a synthetic observation in training format
-    from hal.observation.types import ParkourModelIO, OBS_DIM
+    from hal.client.observation.types import ParkourModelIO, OBS_DIM
     
     obs_array = np.random.randn(OBS_DIM).astype(np.float32)
     observation = ParkourObservation(
@@ -341,7 +341,7 @@ def test_inference_latency_requirement(proto_hal_setup):
             self.latencies = []
 
         def inference(self, model_io):
-            from hal.commands.types import InferenceResponse
+            from hal.client.commands.types import InferenceResponse
 
             start_time = time.time_ns()
             # Simulate inference time

@@ -22,11 +22,11 @@ PIP    := $(VENV_PIP)
 .PHONY: build-wheels
 build-wheels:
 	@echo "Building wheels for all packages..."
-	@cd hal/krabby-hal-client && $(PYTHON) -m build --wheel
-	@cd hal/krabby-hal-server && $(PYTHON) -m build --wheel
-	@cd hal/krabby-hal-server-isaac && $(PYTHON) -m build --wheel
-	@cd hal/krabby-hal-server-jetson && $(PYTHON) -m build --wheel
-	@cd hal/krabby-hal-tools && $(PYTHON) -m build --wheel
+	@cd hal/client && $(PYTHON) -m build --wheel
+	@cd hal/server && $(PYTHON) -m build --wheel
+	@cd hal/server/isaac && $(PYTHON) -m build --wheel
+	@cd hal/server/jetson && $(PYTHON) -m build --wheel
+	@cd hal/tools && $(PYTHON) -m build --wheel
 	@echo "Wheels built in dist/ directories"
 
 .PHONY: clean
@@ -39,12 +39,12 @@ clean:
 install-editable:
 	@echo "Installing packages in editable mode (for development)..."
 	@echo "This allows you to edit source files in wheel package directories and see changes immediately."
-	@$(PIP) install -e hal/krabby-hal-client
-	@$(PIP) install -e hal/krabby-hal-server
-	@$(PIP) install -e hal/krabby-hal-server-isaac
-	@$(PIP) install -e hal/krabby-hal-server-jetson
-	@$(PIP) install -e hal/krabby-hal-tools
-	@echo "Packages installed in editable mode. Edit files in hal/krabby-hal-*/ directories."
+	@$(PIP) install -e hal/client
+	@$(PIP) install -e hal/server
+	@$(PIP) install -e hal/server/isaac
+	@$(PIP) install -e hal/server/jetson
+	@$(PIP) install -e hal/tools
+	@echo "Packages installed in editable mode. Edit files in hal/*/ directories."
 
 .PHONY: build-test-image
 build-test-image: build-wheels

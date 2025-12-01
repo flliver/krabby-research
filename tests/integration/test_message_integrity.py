@@ -7,20 +7,20 @@ import pytest
 import zmq
 
 from hal.client.client import HalClient
-from hal.server.server import HalServerBase
+from hal.server import HalServerBase
 from hal.client.config import HalClientConfig, HalServerConfig
 
 
 def test_corrupt_message_handling():
     """Test handling of corrupt messages."""
-    server_config = HalServerConfig.from_endpoints(
+    server_config = HalServerConfig(
         observation_bind="inproc://test_observation_corrupt",
         command_bind="inproc://test_command_corrupt",
     )
     server = HalServerBase(server_config)
     server.initialize()
 
-    client_config = HalClientConfig.from_endpoints(
+    client_config = HalClientConfig(
         observation_endpoint="inproc://test_observation_corrupt",
         command_endpoint="inproc://test_command_corrupt",
     )
@@ -55,14 +55,14 @@ def test_corrupt_message_handling():
 
 def test_malformed_binary_payload():
     """Test handling of malformed binary payload."""
-    server_config = HalServerConfig.from_endpoints(
+    server_config = HalServerConfig(
         observation_bind="inproc://test_observation_malformed",
         command_bind="inproc://test_command_malformed",
     )
     server = HalServerBase(server_config)
     server.initialize()
 
-    client_config = HalClientConfig.from_endpoints(
+    client_config = HalClientConfig(
         observation_endpoint="inproc://test_observation_malformed",
         command_endpoint="inproc://test_command_malformed",
     )
@@ -102,21 +102,21 @@ def test_missing_multipart_messages():
     # This is similar to corrupt message test
     # The client should handle messages that don't have 3 parts
     # Use shared context for inproc connections
-    server_config = HalServerConfig.from_endpoints(
+    server_config = HalServerConfig(
         observation_bind="inproc://test_observation_multipart",
         command_bind="inproc://test_command_multipart",
     )
     server = HalServerBase(server_config)
     server.initialize()
 
-    client_config = HalClientConfig.from_endpoints(
+    client_config = HalClientConfig(
         observation_endpoint="inproc://test_observation_multipart",
         command_endpoint="inproc://test_command_multipart",
     )
     client = HalClient(client_config, context=server.get_transport_context())
     client.initialize()
 
-    from hal.observation.types import OBS_DIM
+    from hal.client.observation.types import OBS_DIM
     
     time.sleep(0.1)
 
@@ -144,9 +144,9 @@ def test_missing_multipart_messages():
 
 def test_shape_dtype_mismatch():
     """Test handling of shape/dtype mismatches."""
-    from hal.observation.types import OBS_DIM
+    from hal.client.observation.types import OBS_DIM
     
-    server_config = HalServerConfig.from_endpoints(
+    server_config = HalServerConfig(
         observation_bind="inproc://test_observation_shape",
         command_bind="inproc://test_command_shape",
     )
@@ -175,21 +175,21 @@ def test_shape_dtype_mismatch():
 def test_graceful_error_handling():
     """Test graceful error handling (skip corrupt, use previous)."""
     # Use shared context for inproc connections
-    server_config = HalServerConfig.from_endpoints(
+    server_config = HalServerConfig(
         observation_bind="inproc://test_observation_graceful",
         command_bind="inproc://test_command_graceful",
     )
     server = HalServerBase(server_config)
     server.initialize()
 
-    client_config = HalClientConfig.from_endpoints(
+    client_config = HalClientConfig(
         observation_endpoint="inproc://test_observation_graceful",
         command_endpoint="inproc://test_command_graceful",
     )
     client = HalClient(client_config, context=server.get_transport_context())
     client.initialize()
 
-    from hal.observation.types import OBS_DIM
+    from hal.client.observation.types import OBS_DIM
     
     time.sleep(0.1)
 
@@ -219,14 +219,14 @@ def test_graceful_error_handling():
 
 def test_schema_version_validation():
     """Test schema version validation."""
-    server_config = HalServerConfig.from_endpoints(
+    server_config = HalServerConfig(
         observation_bind="inproc://test_observation_schema",
         command_bind="inproc://test_command_schema",
     )
     server = HalServerBase(server_config)
     server.initialize()
 
-    client_config = HalClientConfig.from_endpoints(
+    client_config = HalClientConfig(
         observation_endpoint="inproc://test_observation_schema",
         command_endpoint="inproc://test_command_schema",
     )
@@ -236,7 +236,7 @@ def test_schema_version_validation():
     time.sleep(0.1)
 
     # Send message with unsupported schema version
-    from hal.observation.types import OBS_DIM
+    from hal.client.observation.types import OBS_DIM
     
     context = zmq.Context()
     publisher = context.socket(zmq.PUB)
@@ -263,7 +263,7 @@ def test_schema_version_validation():
 
 def test_required_fields_validation():
     """Test validation of required fields."""
-    from hal.observation.types import ParkourModelIO, ParkourObservation, NavigationCommand, OBS_DIM
+    from hal.client.observation.types import ParkourModelIO, ParkourObservation, NavigationCommand, OBS_DIM
 
     # Test that incomplete model_io is rejected
     incomplete_io = ParkourModelIO(

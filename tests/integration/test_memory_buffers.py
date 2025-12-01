@@ -6,9 +6,8 @@ import numpy as np
 import pytest
 
 from hal.client.client import HalClient
-from hal.server.server import HalServerBase
+from hal.server import HalServerBase, HalServerConfig
 from hal.client.config import HalClientConfig
-from hal.server.config import HalServerConfig
 
 
 def test_hwm_prevents_buffer_growth():
@@ -16,7 +15,7 @@ def test_hwm_prevents_buffer_growth():
     import zmq
     
     # Use shared context for inproc connections
-    server_config = HalServerConfig.from_endpoints(
+    server_config = HalServerConfig(
         observation_bind="inproc://test_observation_hwm",
         command_bind="inproc://test_command_hwm",
         observation_buffer_size=1,
@@ -24,14 +23,14 @@ def test_hwm_prevents_buffer_growth():
     server = HalServerBase(server_config)
     server.initialize()
 
-    client_config = HalClientConfig.from_endpoints(
+    client_config = HalClientConfig(
         observation_endpoint="inproc://test_observation_hwm",
         command_endpoint="inproc://test_command_hwm",
     )
     client = HalClient(client_config, context=server.get_transport_context())
     client.initialize()
 
-    from hal.observation.types import OBS_DIM
+    from hal.client.observation.types import OBS_DIM
     
     time.sleep(0.1)
     
@@ -82,7 +81,7 @@ def test_rapid_message_publishing():
     import zmq
     
     # Use shared context for inproc connections
-    server_config = HalServerConfig.from_endpoints(
+    server_config = HalServerConfig(
         observation_bind="inproc://test_observation_rapid",
         command_bind="inproc://test_command_rapid",
         observation_buffer_size=1,
@@ -90,7 +89,7 @@ def test_rapid_message_publishing():
     server = HalServerBase(server_config)
     server.initialize()
 
-    client_config = HalClientConfig.from_endpoints(
+    client_config = HalClientConfig(
         observation_endpoint="inproc://test_observation_rapid",
         command_endpoint="inproc://test_command_rapid",
     )
@@ -100,7 +99,7 @@ def test_rapid_message_publishing():
     time.sleep(0.1)
     
     # Publish a dummy message first to establish connection
-    from hal.observation.types import OBS_DIM
+    from hal.client.observation.types import OBS_DIM
     observation_init = np.zeros(OBS_DIM, dtype=np.float32)
     server.set_observation(observation_init)
     client.poll(timeout_ms=1000)
@@ -110,7 +109,7 @@ def test_rapid_message_publishing():
 
     publish_count = [0]
 
-    from hal.observation.types import OBS_DIM
+    from hal.client.observation.types import OBS_DIM
     
     def rapid_publish():
         for i in range(1000):
@@ -144,7 +143,7 @@ def test_memory_usage_bounded():
     
     # Use shared context for inproc connections
     # This is a simplified test - full memory profiling would require more tools
-    server_config = HalServerConfig.from_endpoints(
+    server_config = HalServerConfig(
         observation_bind="inproc://test_observation_memory",
         command_bind="inproc://test_command_memory",
         observation_buffer_size=1,
@@ -152,14 +151,14 @@ def test_memory_usage_bounded():
     server = HalServerBase(server_config)
     server.initialize()
 
-    client_config = HalClientConfig.from_endpoints(
+    client_config = HalClientConfig(
         observation_endpoint="inproc://test_observation_memory",
         command_endpoint="inproc://test_command_memory",
     )
     client = HalClient(client_config, context=server.get_transport_context())
     client.initialize()
 
-    from hal.observation.types import OBS_DIM
+    from hal.client.observation.types import OBS_DIM
     
     time.sleep(0.1)
     
@@ -188,7 +187,7 @@ def test_old_messages_dropped():
     import zmq
     
     # Use shared context for inproc connections (required for reliable inproc PUB/SUB)
-    server_config = HalServerConfig.from_endpoints(
+    server_config = HalServerConfig(
         observation_bind="inproc://test_observation_drop",
         command_bind="inproc://test_command_drop",
         observation_buffer_size=1,
@@ -196,14 +195,14 @@ def test_old_messages_dropped():
     server = HalServerBase(server_config)
     server.initialize()
 
-    client_config = HalClientConfig.from_endpoints(
+    client_config = HalClientConfig(
         observation_endpoint="inproc://test_observation_drop",
         command_endpoint="inproc://test_command_drop",
     )
     client = HalClient(client_config, context=server.get_transport_context())
     client.initialize()
 
-    from hal.observation.types import OBS_DIM
+    from hal.client.observation.types import OBS_DIM
     
     # With shared context and inproc, connection should be immediate
     # Give a small delay to ensure sockets are ready

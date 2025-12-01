@@ -417,8 +417,8 @@ The HAL supports runtime debug logging that can be enabled/disabled without rest
 
 **In Code:**
 ```python
-from hal.client.client import HalClient
-from hal.server.server import HalServerBase
+from hal.client import HalClient, HalClientConfig
+from hal.server import HalServerBase, HalServerConfig
 
 # Enable debug logging on client
 hal_client = HalClient(config)

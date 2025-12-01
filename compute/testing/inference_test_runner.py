@@ -21,7 +21,7 @@ import numpy as np
 
 from hal.client.client import HalClient
 from hal.client.config import HalClientConfig
-from hal.observation.types import NavigationCommand
+from hal.client.observation.types import NavigationCommand
 from compute.parkour.policy_interface import ModelWeights, ParkourPolicyModel
 
 logger = logging.getLogger(__name__)
@@ -77,21 +77,34 @@ class InferenceTestRunner:
                 # Poll HAL for latest data (non-blocking)
                 self.hal_client.poll(timeout_ms=1)
 
-                # Build ParkourModelIO
+                # Get observation tensor (raises RuntimeError if not available)
+                try:
+                    observation = self.hal_client.get_observation()
+                except RuntimeError as e:
+                    # No new data available, skip iteration
+                    logger.debug(f"No observation available: {e}")
+                    time.sleep(self.period_s * 0.1)  # Small sleep to avoid busy-wait
+                    continue
+
+                # Build ParkourModelIO for policy interface (backward compatibility)
                 model_io = self.hal_client.build_model_io()
                 if model_io is None:
-                    # No new data available, skip iteration
-                    time.sleep(self.period_s * 0.1)  # Small sleep to avoid busy-wait
+                    # Navigation command not set, skip iteration
+                    logger.debug("Navigation command not set, skipping inference")
+                    time.sleep(self.period_s * 0.1)
                     continue
 
                 # Run inference (may take >10ms)
                 if not self.inference_in_progress:
                     # Start inference
                     self.inference_in_progress = True
-                    inference_result = self.model.inference(model_io)
-                    self.inference_in_progress = False
+                    try:
+                        inference_result = self.model.inference(model_io)
+                        self.inference_in_progress = False
 
-                    if inference_result.success:
+                        if not inference_result.success:
+                            raise RuntimeError(f"Inference failed: {inference_result.error_message}")
+
                         self.last_inference_result = inference_result
 
                         # Check inference latency
@@ -103,16 +116,21 @@ class InferenceTestRunner:
 
                         # Put command to HAL
                         if not self.hal_client.put_joint_command(inference_result):
-                            logger.error("Failed to put joint command")
-                    else:
-                        logger.error(f"Inference failed: {inference_result.error_message}")
+                            raise RuntimeError("Failed to put joint command to HAL")
+                    except Exception as e:
+                        self.inference_in_progress = False
+                        logger.error(f"Critical inference failure: {e}", exc_info=True)
                         self.inference_not_ready_count += 1
+                        # Fail fast - re-raise to stop the loop
+                        raise
                 else:
                     # Inference still in progress from previous call, use cached result
                     if self.last_inference_result is not None and self.last_inference_result.success:
-                        self.hal_client.put_joint_command(self.last_inference_result)
+                        if not self.hal_client.put_joint_command(self.last_inference_result):
+                            logger.error("Failed to put cached joint command to HAL")
                         self.dropped_frames += 1
                     else:
+                        logger.warning("Inference in progress but no valid cached result available")
                         self.inference_not_ready_count += 1
 
                 self.frame_count += 1
@@ -127,7 +145,11 @@ class InferenceTestRunner:
                 else:
                     # Loop took longer than period - log warning
                     if loop_duration_s > self.period_s * 1.1:  # More than 10% over
-                        logger.warning(f"Loop duration {loop_duration_s*1000:.2f}ms > period {self.period_s*1000:.2f}ms")
+                        logger.warning(
+                            f"Simulation is unable to keep up! "
+                            f"Frame time: {loop_duration_s*1000:.2f}ms exceeds target: {self.period_s*1000:.2f}ms. "
+                            f"This may cause control instability."
+                        )
 
                 # Log statistics periodically
                 if self.frame_count % 1000 == 0:
@@ -180,7 +202,7 @@ def run_inference_test(
     model = ParkourPolicyModel(weights, device=device)
 
     # Initialize HAL client (use unified observation endpoint)
-    config = HalClientConfig.from_endpoints(
+    config = HalClientConfig(
         observation_endpoint=hal_endpoints["observation"],
         command_endpoint=hal_endpoints["command"],
     )

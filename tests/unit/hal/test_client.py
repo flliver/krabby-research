@@ -7,22 +7,22 @@ import pytest
 import zmq
 
 from hal.client.client import HalClient
-from hal.server.server import HalServerBase
+from hal.server import HalServerBase
 from hal.client.config import HalClientConfig
-from hal.server.config import HalServerConfig
-from hal.observation.types import NavigationCommand
+from hal.server import HalServerConfig
+from hal.client.observation.types import NavigationCommand
 
 
 def test_hal_client_initialization():
     """Test HAL client initialization with inproc endpoints."""
-    server_config = HalServerConfig.from_endpoints(
+    server_config = HalServerConfig(
         observation_bind="inproc://test_observation",
         command_bind="inproc://test_command",
     )
     server = HalServerBase(server_config)
     server.initialize()
 
-    client_config = HalClientConfig.from_endpoints(
+    client_config = HalClientConfig(
         observation_endpoint="inproc://test_observation",
         command_endpoint="inproc://test_command",
     )
@@ -40,17 +40,17 @@ def test_hal_client_initialization():
 
 def test_hal_client_poll_observation():
     """Test HAL client polling for observation messages."""
-    from hal.observation.types import OBS_DIM
+    from hal.client.observation.types import OBS_DIM
     
     # Use shared context for inproc connections (required for reliable inproc PUB/SUB)
-    server_config = HalServerConfig.from_endpoints(
+    server_config = HalServerConfig(
         observation_bind="inproc://test_state2",
         command_bind="inproc://test_command2",
     )
     server = HalServerBase(server_config)
     server.initialize()
 
-    client_config = HalClientConfig.from_endpoints(
+    client_config = HalClientConfig(
         observation_endpoint="inproc://test_state2",
         command_endpoint="inproc://test_command2",
     )
@@ -83,18 +83,18 @@ def test_hal_client_poll_observation():
 
 def test_hal_client_build_model_io():
     """Test building ParkourModelIO from latest observation."""
-    from hal.observation.types import OBS_DIM
+    from hal.client.observation.types import OBS_DIM
     
     # Use shared context for inproc connections
     
-    server_config = HalServerConfig.from_endpoints(
+    server_config = HalServerConfig(
         observation_bind="inproc://test_state4",
         command_bind="inproc://test_command4",
     )
     server = HalServerBase(server_config)
     server.initialize()
 
-    client_config = HalClientConfig.from_endpoints(
+    client_config = HalClientConfig(
         observation_endpoint="inproc://test_state4",
         command_endpoint="inproc://test_command4",
     )
@@ -133,14 +133,14 @@ def test_hal_client_put_joint_command():
     
     # Use shared context for inproc connections
     
-    server_config = HalServerConfig.from_endpoints(
+    server_config = HalServerConfig(
         observation_bind="inproc://test_state5",
         command_bind="inproc://test_command5",
     )
     server = HalServerBase(server_config)
     server.initialize()
 
-    client_config = HalClientConfig.from_endpoints(
+    client_config = HalClientConfig(
         observation_endpoint="inproc://test_state5",
         command_endpoint="inproc://test_command5",
     )
@@ -150,7 +150,7 @@ def test_hal_client_put_joint_command():
     time.sleep(0.1)
 
     # Create inference response with action tensor (new format)
-    from hal.commands.types import InferenceResponse
+    from hal.client.commands.types import InferenceResponse
 
     action_tensor = torch.tensor([0.1, 0.2, 0.3], dtype=torch.float32)
     inference_response = InferenceResponse.create_success(
@@ -184,18 +184,18 @@ def test_hal_client_put_joint_command():
 
 def test_hal_client_timestamp_validation():
     """Test timestamp validation for stale messages."""
-    from hal.observation.types import OBS_DIM
+    from hal.client.observation.types import OBS_DIM
     
     # Use shared context for inproc connections
     
-    server_config = HalServerConfig.from_endpoints(
+    server_config = HalServerConfig(
         observation_bind="inproc://test_state6",
         command_bind="inproc://test_command6",
     )
     server = HalServerBase(server_config)
     server.initialize()
 
-    client_config = HalClientConfig.from_endpoints(
+    client_config = HalClientConfig(
         observation_endpoint="inproc://test_state6",
         command_endpoint="inproc://test_command6",
     )

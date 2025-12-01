@@ -6,9 +6,9 @@ from typing import Optional
 
 from hal.client.client import HalClient
 from hal.client.config import HalClientConfig
-from hal.server.config import HalServerConfig
+from hal.server import HalServerConfig
 from compute.parkour.policy_interface import ModelWeights, ParkourPolicyModel
-from locomotion.jetson.hal_server import JetsonHalServer
+from hal.server.jetson import JetsonHalServer
 
 logger = logging.getLogger(__name__)
 
@@ -49,14 +49,14 @@ class InferenceRunner:
         
         if "inproc://" in observation_bind:
             # For inproc, use the same endpoint strings and get transport context from server
-            client_config = HalClientConfig.from_endpoints(
+            client_config = HalClientConfig(
                 observation_endpoint=observation_bind,
                 command_endpoint=self.hal_server.config.command_bind,
             )
             transport_context = self.hal_server.get_transport_context()
         else:
             # For TCP, convert bind to connect
-            client_config = HalClientConfig.from_endpoints(
+            client_config = HalClientConfig(
                 observation_endpoint=observation_bind.replace("bind", "connect").replace("*", "localhost"),
                 command_endpoint=self.hal_server.config.command_bind.replace("bind", "connect").replace("*", "localhost"),
             )
@@ -96,15 +96,37 @@ class InferenceRunner:
                 if self.hal_client:
                     self.hal_client.poll(timeout_ms=1)
 
-                    # Build model IO (model expects ParkourModelIO)
+                    # Get observation (raises RuntimeError if not available)
+                    try:
+                        observation = self.hal_client.get_observation()
+                    except RuntimeError as e:
+                        # No observation available, skip inference this frame
+                        logger.debug(f"No observation available: {e}")
+                        self.hal_server.move()  # Still apply any pending commands
+                        continue
+
+                    # Build ParkourModelIO for policy interface (backward compatibility)
                     model_io = self.hal_client.build_model_io()
-                    if model_io is not None:
-                        # Run inference
+                    if model_io is None:
+                        # Navigation command not set, skip inference
+                        logger.debug("Navigation command not set, skipping inference")
+                        self.hal_server.move()  # Still apply any pending commands
+                        continue
+
+                    # Run inference
+                    try:
                         inference_result = self.model.inference(model_io)
 
-                        if inference_result.success:
-                            # Put command back to HAL server
-                            self.hal_client.put_joint_command(inference_result)
+                        if not inference_result.success:
+                            raise RuntimeError(f"Inference failed: {inference_result.error_message}")
+
+                        # Put command back to HAL server
+                        if not self.hal_client.put_joint_command(inference_result):
+                            raise RuntimeError("Failed to put joint command to HAL")
+                    except Exception as e:
+                        logger.error(f"Critical inference failure: {e}", exc_info=True)
+                        # Fail fast - re-raise to stop the loop
+                        raise
 
                 # Move robot (get command from HAL and apply)
                 self.hal_server.move()

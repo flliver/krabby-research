@@ -6,9 +6,9 @@ import numpy as np
 import pytest
 
 from hal.client.client import HalClient
-from hal.server.server import HalServerBase
+from hal.server import HalServerBase
 from hal.client.config import HalClientConfig, HalServerConfig
-from hal.observation.types import NavigationCommand, ParkourObservation, OBS_DIM
+from hal.client.observation.types import NavigationCommand, ParkourObservation, OBS_DIM
 
 
 def test_reading_older_schema_versions():
@@ -18,14 +18,14 @@ def test_reading_older_schema_versions():
     # Use shared context for inproc connections
     # For now, we only support schema version "1.0"
     # This test verifies that we can handle version checking
-    server_config = HalServerConfig.from_endpoints(
+    server_config = HalServerConfig(
         observation_bind="inproc://test_observation_old",
         command_bind="inproc://test_command_old",
     )
     server = HalServerBase(server_config)
     server.initialize()
 
-    client_config = HalClientConfig.from_endpoints(
+    client_config = HalClientConfig(
         observation_endpoint="inproc://test_observation_old",
         command_endpoint="inproc://test_command_old",
     )
@@ -54,7 +54,7 @@ def test_forward_compatibility_unknown_fields():
     """Test forward compatibility (unknown fields ignored)."""
     # This tests that dataclasses with optional fields can handle
     # additional fields in future versions
-    from hal.observation.types import NavigationCommand
+    from hal.client.observation.types import NavigationCommand
 
     # Create command with current schema
     nav_cmd = NavigationCommand.create_now(vx=1.0, vy=0.0, yaw_rate=0.5)
@@ -73,7 +73,7 @@ def test_forward_compatibility_unknown_fields():
 def test_action_dim_mismatch_detection():
     """Test action_dim mismatch detection."""
     import torch
-    from hal.commands.types import InferenceResponse
+    from hal.client.commands.types import InferenceResponse
 
     # Create inference response with wrong action_dim
     action_wrong = torch.tensor([0.0] * 10, dtype=torch.float32)  # 10 instead of 12
@@ -97,7 +97,7 @@ def test_action_dim_mismatch_detection():
 
 def test_schema_version_compatibility_check():
     """Test schema version compatibility checking."""
-    from hal.observation.types import ParkourModelIO, NavigationCommand
+    from hal.client.observation.types import ParkourModelIO, NavigationCommand
 
     # Create components with same schema version
     nav_cmd = NavigationCommand.create_now()
@@ -122,14 +122,14 @@ def test_schema_version_compatibility_check():
     
     shared_context2 = zmq.Context()
     
-    server_config = HalServerConfig.from_endpoints(
+    server_config = HalServerConfig(
         observation_bind="inproc://test_observation_schema_check",
         command_bind="inproc://test_command_schema_check",
     )
     server = HalServerBase(server_config)
     server.initialize()
 
-    client_config = HalClientConfig.from_endpoints(
+    client_config = HalClientConfig(
         observation_endpoint="inproc://test_observation_schema_check",
         command_endpoint="inproc://test_command_schema_check",
     )

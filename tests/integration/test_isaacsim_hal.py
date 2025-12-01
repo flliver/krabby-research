@@ -7,11 +7,11 @@ import numpy as np
 import pytest
 import torch
 
-from hal.isaac.hal_server import IsaacSimHalServer
+from hal.server.isaac import IsaacSimHalServer
 from hal.client.client import HalClient
 from hal.client.config import HalClientConfig
-from hal.server.config import HalServerConfig
-from hal.observation.types import NavigationCommand
+from hal.server import HalServerConfig
+from hal.client.observation.types import NavigationCommand
 from compute.parkour.policy_interface import ModelWeights, ParkourPolicyModel
 from compute.testing.inference_test_runner import InferenceTestRunner
 
@@ -36,7 +36,7 @@ def mock_isaac_env():
 @pytest.fixture
 def hal_server_config():
     """Create HAL server config for testing."""
-    return HalServerConfig.from_endpoints(
+    return HalServerConfig(
         observation_bind="inproc://test_isaac_observation",
         command_bind="inproc://test_isaac_command",
     )
@@ -45,7 +45,7 @@ def hal_server_config():
 @pytest.fixture
 def hal_client_config():
     """Create HAL client config for testing."""
-    return HalClientConfig.from_endpoints(
+    return HalClientConfig(
         observation_endpoint="inproc://test_isaac_observation",
         command_endpoint="inproc://test_isaac_command",
     )
@@ -81,7 +81,7 @@ def test_isaacsim_hal_server_camera_publishing(mock_isaac_env, hal_server_config
     time.sleep(0.1)
 
     # Mock observation manager to return complete observation in training format
-    from hal.observation.types import OBS_DIM
+    from hal.client.observation.types import OBS_DIM
     hal_server.observation_manager = MagicMock()
     hal_server.observation_manager.compute = MagicMock(return_value={"policy": torch.zeros(OBS_DIM, dtype=torch.float32)})
     hal_server.env.device = torch.device("cpu")
@@ -117,7 +117,7 @@ def test_isaacsim_hal_server_state_publishing(mock_isaac_env, hal_server_config,
     time.sleep(0.1)
 
     # Mock observation manager to return complete observation in training format
-    from hal.observation.types import OBS_DIM
+    from hal.client.observation.types import OBS_DIM
     hal_server.observation_manager = MagicMock()
     hal_server.observation_manager.compute = MagicMock(return_value={"policy": torch.zeros(OBS_DIM, dtype=torch.float32)})
     hal_server.env.device = torch.device("cpu")
@@ -198,7 +198,7 @@ def test_isaacsim_hal_server_end_to_end_with_game_loop(mock_isaac_env, hal_serve
     time.sleep(0.1)
 
     # Mock observation manager to return complete observation in training format
-    from hal.observation.types import OBS_DIM
+    from hal.client.observation.types import OBS_DIM
     hal_server.observation_manager = MagicMock()
     hal_server.observation_manager.compute = MagicMock(return_value={"policy": torch.zeros(OBS_DIM, dtype=torch.float32)})
     hal_server.env.device = torch.device("cpu")
@@ -216,7 +216,7 @@ def test_isaacsim_hal_server_end_to_end_with_game_loop(mock_isaac_env, hal_serve
 
         def inference(self, model_io):
             import time
-            from hal.commands.types import InferenceResponse
+            from hal.client.commands.types import InferenceResponse
 
             self.inference_count += 1
             action_tensor = torch.zeros(self.action_dim, dtype=torch.float32)
@@ -316,7 +316,7 @@ def test_isaacsim_hal_server_with_real_zmq_communication(mock_isaac_env, hal_ser
     time.sleep(0.1)
 
     # Mock observation manager to return complete observation in training format
-    from hal.observation.types import OBS_DIM
+    from hal.client.observation.types import OBS_DIM
     hal_server.observation_manager = MagicMock()
     hal_server.observation_manager.compute = MagicMock(return_value={"policy": torch.zeros(OBS_DIM, dtype=torch.float32)})
 
@@ -330,7 +330,7 @@ def test_isaacsim_hal_server_with_real_zmq_communication(mock_isaac_env, hal_ser
     assert hal_client._latest_observation is not None
 
     # Send command from client
-    from hal.commands.types import InferenceResponse
+    from hal.client.commands.types import InferenceResponse
 
     action_array = np.array([0.1, 0.2, 0.3] * 4, dtype=np.float32)
     action_tensor = torch.from_numpy(action_array)
@@ -439,7 +439,7 @@ def test_isaacsim_hal_server_100_consecutive_command_cycles(mock_isaac_env, hal_
     time.sleep(0.1)
 
     # Mock observation manager to return valid observations
-    from hal.observation.types import OBS_DIM
+    from hal.client.observation.types import OBS_DIM
     import torch
     
     def mock_compute_observations():
@@ -488,7 +488,7 @@ def test_isaacsim_hal_server_100_consecutive_command_cycles(mock_isaac_env, hal_
                 command = np.random.uniform(-0.5, 0.5, size=12).astype(np.float32)
                 
                 # Send command
-                from hal.commands.types import InferenceResponse
+                from hal.client.commands.types import InferenceResponse
                 import torch as torch_module
                 action_tensor = torch_module.from_numpy(command)
                 response = InferenceResponse.create_success(
@@ -562,7 +562,7 @@ def test_isaacsim_hal_server_full_parkour_eval_simulation(mock_isaac_env, hal_se
     time.sleep(0.1)
 
     # Mock observation manager
-    from hal.observation.types import OBS_DIM
+    from hal.client.observation.types import OBS_DIM
     import torch
     
     def mock_compute_observations():
@@ -623,7 +623,7 @@ def test_isaacsim_hal_server_full_parkour_eval_simulation(mock_isaac_env, hal_se
                 command = np.random.uniform(-0.5, 0.5, size=12).astype(np.float32)
                 
                 # Send command
-                from hal.commands.types import InferenceResponse
+                from hal.client.commands.types import InferenceResponse
                 import torch as torch_module
                 action_tensor = torch_module.from_numpy(command)
                 response = InferenceResponse.create_success(
@@ -685,7 +685,7 @@ def test_isaacsim_hal_server_interface_matches_evaluation_baseline(mock_isaac_en
     hal_server.initialize()
 
     # Mock observation manager to return observations in the same format as evaluation.py
-    from hal.observation.types import OBS_DIM
+    from hal.client.observation.types import OBS_DIM
     import torch
     
     def mock_compute_observations():

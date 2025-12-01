@@ -11,7 +11,7 @@ These tests verify that the observation format matches the training format exact
 import numpy as np
 import pytest
 
-from hal.observation.types import (
+from hal.client.observation.types import (
     NUM_PROP,
     NUM_SCAN,
     NUM_PRIV_EXPLICIT,

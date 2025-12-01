@@ -8,7 +8,7 @@ import logging
 import signal
 import sys
 
-from hal.server.config import HalServerConfig
+from hal.server import HalServerConfig
 from compute.parkour.policy_interface import ModelWeights, ParkourPolicyModel
 from locomotion.jetson.inference_runner import InferenceRunner
 
@@ -53,7 +53,7 @@ def main():
         model = ParkourPolicyModel(weights, device=args.device)
 
         # Create HAL server config (inproc for production)
-        hal_server_config = HalServerConfig.from_endpoints(
+        hal_server_config = HalServerConfig(
             observation_bind=args.observation_bind,
             command_bind=args.command_bind,
         )

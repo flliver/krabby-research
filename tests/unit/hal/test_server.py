@@ -6,13 +6,12 @@ import numpy as np
 import pytest
 import zmq
 
-from hal.server.config import HalServerConfig
-from hal.server.server import HalServerBase
+from hal.server import HalServerBase, HalServerConfig
 
 
 def test_hal_server_initialization():
     """Test HAL server initialization with inproc endpoints."""
-    config = HalServerConfig.from_endpoints(
+    config = HalServerConfig(
         observation_bind="inproc://test_observation",
         command_bind="inproc://test_command",
     )
@@ -29,7 +28,7 @@ def test_hal_server_initialization():
 
 def test_hal_server_context_manager():
     """Test HAL server as context manager."""
-    config = HalServerConfig.from_endpoints(
+    config = HalServerConfig(
         observation_bind="inproc://test_state2",
         command_bind="inproc://test_command2",
     )
@@ -39,9 +38,9 @@ def test_hal_server_context_manager():
 
 def test_set_observation():
     """Test setting/publishing observation."""
-    from hal.observation.types import OBS_DIM
+    from hal.client.observation.types import OBS_DIM
     
-    config = HalServerConfig.from_endpoints(
+    config = HalServerConfig(
         observation_bind="inproc://test_state3",
         command_bind="inproc://test_command3",
     )
@@ -77,7 +76,7 @@ def test_get_joint_command():
     """Test getting joint command."""
     # Use shared context for inproc connections
     
-    config = HalServerConfig.from_endpoints(
+    config = HalServerConfig(
         observation_bind="inproc://test_state5",
         command_bind="inproc://test_command5",
     )
@@ -118,11 +117,11 @@ def test_get_joint_command():
 
 def test_hwm_behavior():
     """Test observation_buffer_size=1 behavior (latest-only semantics)."""
-    from hal.observation.types import OBS_DIM
+    from hal.client.observation.types import OBS_DIM
     
     # Use shared context for inproc connections
     
-    config = HalServerConfig.from_endpoints(
+    config = HalServerConfig(
         observation_bind="inproc://test_state6",
         command_bind="inproc://test_command6",
         observation_buffer_size=1,
@@ -157,9 +156,9 @@ def test_hwm_behavior():
 
 def test_error_handling_invalid_shape():
     """Test error handling for invalid array shapes."""
-    from hal.observation.types import OBS_DIM
+    from hal.client.observation.types import OBS_DIM
     
-    config = HalServerConfig.from_endpoints(
+    config = HalServerConfig(
         observation_bind="inproc://test_state7",
         command_bind="inproc://test_command7",
     )
@@ -178,9 +177,9 @@ def test_error_handling_invalid_shape():
 
 def test_error_handling_not_initialized():
     """Test error handling when server not initialized."""
-    from hal.observation.types import OBS_DIM
+    from hal.client.observation.types import OBS_DIM
     
-    config = HalServerConfig.from_endpoints(
+    config = HalServerConfig(
         observation_bind="inproc://test_state8",
         command_bind="inproc://test_command8",
     )

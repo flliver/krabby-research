@@ -10,9 +10,9 @@ import torch
 import zmq
 
 from hal.client.client import HalClient
-from hal.server.server import HalServerBase
+from hal.server import HalServerBase
 from hal.client.config import HalClientConfig, HalServerConfig
-from hal.observation.types import NavigationCommand, OBS_DIM
+from hal.client.observation.types import NavigationCommand, OBS_DIM
 from compute.testing.inference_test_runner import InferenceTestRunner
 
 
@@ -133,7 +133,7 @@ class MockPolicyModel:
         time.sleep(self.inference_time_ms / 1000.0)  # Simulate inference time
         self.inference_count += 1
 
-        from hal.commands.types import InferenceResponse
+        from hal.client.commands.types import InferenceResponse
 
         # Return action tensor directly (matching inference output format)
         action = torch.zeros(self.action_dim, dtype=torch.float32)
@@ -148,14 +148,14 @@ class MockPolicyModel:
 def hal_setup():
     """Setup HAL server and client with shared ZMQ context for testing."""
     # Use shared context for inproc connections
-    server_config = HalServerConfig.from_endpoints(
+    server_config = HalServerConfig(
         observation_bind="inproc://test_obs",
         command_bind="inproc://test_command",
     )
     server = ProtoHalServer(server_config)
     server.initialize()
 
-    client_config = HalClientConfig.from_endpoints(
+    client_config = HalClientConfig(
         observation_endpoint="inproc://test_obs",
         command_endpoint="inproc://test_command",
     )
@@ -220,7 +220,7 @@ def test_game_loop_observation_tensor_correctness(hal_setup):
     - View methods correctly extract each component
     - Data type is float32
     """
-    from hal.observation.types import (
+    from hal.client.observation.types import (
         NUM_PROP,
         NUM_SCAN,
         NUM_PRIV_EXPLICIT,
@@ -242,7 +242,7 @@ def test_game_loop_observation_tensor_correctness(hal_setup):
     observation[-HISTORY_DIM:] = 5.0  # History
     
     # Use base class method to publish specific observation
-    from hal.server.server import HalServerBase
+    from hal.server import HalServerBase
     HalServerBase.set_observation(server, observation)
     time.sleep(0.1)
     client.poll(timeout_ms=1000)
@@ -294,7 +294,7 @@ def test_game_loop_inference_latency():
     model = MockPolicyModel(action_dim=12, inference_time_ms=8.0)
 
     # Create a simple inference response
-    from hal.observation.types import ParkourModelIO
+    from hal.client.observation.types import ParkourModelIO
 
     # Mock model_io
     model_io = MagicMock(spec=ParkourModelIO)
