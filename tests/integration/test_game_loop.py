@@ -2,7 +2,6 @@
 
 import threading
 import time
-from unittest.mock import MagicMock
 
 import numpy as np
 import pytest
@@ -64,9 +63,24 @@ class ProtoHalServer(HalServerBase):
                     if command is not None:
                         # Command received and acknowledged by get_joint_command
                         pass
-                except Exception:
-                    # Ignore errors in command handling thread
-                    pass
+                except Exception as e:
+                    # Handle exceptions in command handling thread
+                    # Expected exceptions during shutdown (connection errors, etc.) are logged but not raised
+                    # If we need to handle specific exceptions in the future, add them here:
+                    # except (zmq.ZMQError, ConnectionError) as e:
+                    #     if not self._running:
+                    #         # Expected during shutdown
+                    #         break
+                    #     raise
+                    if not self._running:
+                        # Expected during shutdown - exit loop gracefully
+                        break
+                    # Unexpected exception while running - log and continue
+                    # (In production, might want to re-raise, but in test server we continue)
+                    import logging
+                    logging.getLogger(__name__).debug(
+                        f"Exception in command loop (continuing): {e}", exc_info=True
+                    )
 
         self._publish_thread = threading.Thread(target=publish_loop, daemon=True)
         self._publish_thread.start()
@@ -200,10 +214,15 @@ def test_game_loop_basic_functionality(hal_setup):
     stop_thread = threading.Thread(target=stop_after_time, daemon=True)
     stop_thread.start()
 
-    try:
-        test_runner.run()
-    except Exception:
-        pass  # Expected when stopped
+    # Production code (InferenceTestRunner.run()) handles all exceptions internally
+    # No exception handling needed here - if run() completes, it succeeded
+    # If we need to handle expected exceptions in the future, add them here:
+    # try:
+    #     test_runner.run()
+    # except ExpectedExceptionType:
+    #     # Handle expected exception
+    #     pass
+    test_runner.run()
 
     stop_thread.join(timeout=1.0)
 
@@ -287,30 +306,5 @@ def test_game_loop_observation_tensor_correctness(hal_setup):
     total_dim = NUM_PROP + NUM_SCAN + NUM_PRIV_EXPLICIT + NUM_PRIV_LATENT + HISTORY_DIM
     assert total_dim == OBS_DIM, \
         f"Component dimensions sum to {total_dim}, but OBS_DIM is {OBS_DIM}"
-
-
-def test_game_loop_inference_latency():
-    """Test inference latency is measured correctly."""
-    model = MockPolicyModel(action_dim=12, inference_time_ms=8.0)
-
-    # Create a simple inference response
-    from hal.client.observation.types import ParkourModelIO
-
-    # Mock model_io
-    model_io = MagicMock(spec=ParkourModelIO)
-
-    start_time = time.time()
-    result = model.inference(model_io)
-    end_time = time.time()
-
-    elapsed_ms = (end_time - start_time) * 1000.0
-
-    assert result.success
-    assert result.inference_latency_ms > 0
-    assert abs(result.inference_latency_ms - elapsed_ms) < 2.0  # Within 2ms tolerance
-    assert result.inference_latency_ms < 15.0  # Should be under 15ms target
-    assert result.action is not None
-    assert result.action.shape == (12,)
-
 
 

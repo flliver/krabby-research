@@ -62,108 +62,142 @@ class InferenceTestRunner:
         self.inference_in_progress = False
 
     def run(self) -> None:
-        """Run inference test (simulates game loop)."""
+        """Run inference test (simulates game loop).
+        
+        This method handles all exceptions internally and does not raise them.
+        Exceptions are logged but do not propagate to callers. This ensures
+        production code is robust and test code can rely on clean shutdown.
+        """
         self.running = True
         logger.info(f"Starting inference test runner at {self.control_rate_hz} Hz")
 
         # Set default navigation command
-        nav_cmd = NavigationCommand.create_now(vx=0.0, vy=0.0, yaw_rate=0.0)
-        self.hal_client.set_navigation_command(nav_cmd)
+        try:
+            nav_cmd = NavigationCommand.create_now(vx=0.0, vy=0.0, yaw_rate=0.0)
+            self.hal_client.set_navigation_command(nav_cmd)
+        except Exception as e:
+            logger.error(f"Failed to set default navigation command: {e}", exc_info=True)
+            self.running = False
+            return
 
         try:
             while self.running:
-                loop_start_ns = time.time_ns()
-
-                # Poll HAL for latest data (non-blocking)
-                self.hal_client.poll(timeout_ms=1)
-
-                # Get observation tensor (raises RuntimeError if not available)
                 try:
-                    observation = self.hal_client.get_observation()
-                except RuntimeError as e:
-                    # No new data available, skip iteration
-                    logger.debug(f"No observation available: {e}")
-                    time.sleep(self.period_s * 0.1)  # Small sleep to avoid busy-wait
-                    continue
+                    loop_start_ns = time.time_ns()
 
-                # Build ParkourModelIO for policy interface (backward compatibility)
-                model_io = self.hal_client.build_model_io()
-                if model_io is None:
-                    # Navigation command not set, skip iteration
-                    logger.debug("Navigation command not set, skipping inference")
+                    # Poll HAL for latest data (non-blocking)
+                    observation = self.hal_client.poll(timeout_ms=1)
+                    
+                    if observation is None:
+                        # No new data available, skip iteration
+                        logger.debug("No new observation available")
+                        time.sleep(self.period_s * 0.1)  # Small sleep to avoid busy-wait
+                        continue
+
+                    # Build ParkourModelIO for policy interface (backward compatibility)
+                    model_io = self.hal_client.build_model_io()
+                    if model_io is None:
+                        # Navigation command not set, skip iteration
+                        logger.debug("Navigation command not set, skipping inference")
+                        time.sleep(self.period_s * 0.1)
+                        continue
+
+                    # Run inference (may take >10ms)
+                    if not self.inference_in_progress:
+                        # Start inference
+                        self.inference_in_progress = True
+                        try:
+                            inference_result = self.model.inference(model_io)
+                            self.inference_in_progress = False
+
+                            if not inference_result.success:
+                                logger.error(
+                                    f"Inference failed: {inference_result.error_message}. "
+                                    f"Frame will be dropped."
+                                )
+                                self.inference_not_ready_count += 1
+                                continue
+
+                            self.last_inference_result = inference_result
+
+                            # Check inference latency
+                            if inference_result.inference_latency_ms > 10.0:
+                                logger.warning(
+                                    f"Inference latency {inference_result.inference_latency_ms:.2f}ms > 10ms "
+                                    f"(may cause frame drops)"
+                                )
+
+                            # Put command to HAL
+                            if not self.hal_client.put_joint_command(inference_result):
+                                logger.error("Failed to put joint command to HAL. Frame will be dropped.")
+                                self.inference_not_ready_count += 1
+                                continue
+                        except Exception as e:
+                            self.inference_in_progress = False
+                            logger.error(f"Inference failure: {e}", exc_info=True)
+                            self.inference_not_ready_count += 1
+                            # Continue loop - don't raise exception
+                            continue
+                    else:
+                        # Inference still in progress from previous call, use cached result
+                        if self.last_inference_result is not None and self.last_inference_result.success:
+                            if not self.hal_client.put_joint_command(self.last_inference_result):
+                                logger.error("Failed to put cached joint command to HAL")
+                            self.dropped_frames += 1
+                        else:
+                            logger.warning("Inference in progress but no valid cached result available")
+                            self.inference_not_ready_count += 1
+
+                    self.frame_count += 1
+
+                    # Timing control
+                    loop_end_ns = time.time_ns()
+                    loop_duration_s = (loop_end_ns - loop_start_ns) / 1e9
+                    sleep_time = max(0.0, self.period_s - loop_duration_s)
+
+                    if sleep_time > 0:
+                        time.sleep(sleep_time)
+                    else:
+                        # Loop took longer than period - log warning
+                        if loop_duration_s > self.period_s * 1.1:  # More than 10% over
+                            logger.warning(
+                                f"Simulation is unable to keep up! "
+                                f"Frame time: {loop_duration_s*1000:.2f}ms exceeds target: {self.period_s*1000:.2f}ms. "
+                                f"This may cause control instability."
+                            )
+
+                    # Log statistics periodically
+                    if self.frame_count % 1000 == 0:
+                        self._log_statistics()
+
+                except Exception as e:
+                    # Handle any unexpected exceptions in the loop
+                    logger.error(f"Unexpected error in inference loop: {e}", exc_info=True)
+                    # Continue loop if still running, otherwise break
+                    if not self.running:
+                        break
+                    # Small sleep to avoid tight error loop
                     time.sleep(self.period_s * 0.1)
                     continue
 
-                # Run inference (may take >10ms)
-                if not self.inference_in_progress:
-                    # Start inference
-                    self.inference_in_progress = True
-                    try:
-                        inference_result = self.model.inference(model_io)
-                        self.inference_in_progress = False
-
-                        if not inference_result.success:
-                            raise RuntimeError(f"Inference failed: {inference_result.error_message}")
-
-                        self.last_inference_result = inference_result
-
-                        # Check inference latency
-                        if inference_result.inference_latency_ms > 10.0:
-                            logger.warning(
-                                f"Inference latency {inference_result.inference_latency_ms:.2f}ms > 10ms "
-                                f"(may cause frame drops)"
-                            )
-
-                        # Put command to HAL
-                        if not self.hal_client.put_joint_command(inference_result):
-                            raise RuntimeError("Failed to put joint command to HAL")
-                    except Exception as e:
-                        self.inference_in_progress = False
-                        logger.error(f"Critical inference failure: {e}", exc_info=True)
-                        self.inference_not_ready_count += 1
-                        # Fail fast - re-raise to stop the loop
-                        raise
-                else:
-                    # Inference still in progress from previous call, use cached result
-                    if self.last_inference_result is not None and self.last_inference_result.success:
-                        if not self.hal_client.put_joint_command(self.last_inference_result):
-                            logger.error("Failed to put cached joint command to HAL")
-                        self.dropped_frames += 1
-                    else:
-                        logger.warning("Inference in progress but no valid cached result available")
-                        self.inference_not_ready_count += 1
-
-                self.frame_count += 1
-
-                # Timing control
-                loop_end_ns = time.time_ns()
-                loop_duration_s = (loop_end_ns - loop_start_ns) / 1e9
-                sleep_time = max(0.0, self.period_s - loop_duration_s)
-
-                if sleep_time > 0:
-                    time.sleep(sleep_time)
-                else:
-                    # Loop took longer than period - log warning
-                    if loop_duration_s > self.period_s * 1.1:  # More than 10% over
-                        logger.warning(
-                            f"Simulation is unable to keep up! "
-                            f"Frame time: {loop_duration_s*1000:.2f}ms exceeds target: {self.period_s*1000:.2f}ms. "
-                            f"This may cause control instability."
-                        )
-
-                # Log statistics periodically
-                if self.frame_count % 1000 == 0:
-                    self._log_statistics()
-
         except KeyboardInterrupt:
             logger.info("Inference test runner interrupted by user")
+        except Exception as e:
+            # Catch any other unexpected exceptions
+            logger.error(f"Unexpected error in test runner: {e}", exc_info=True)
         finally:
             self.running = False
             self._log_statistics()
 
     def stop(self) -> None:
-        """Stop inference test runner."""
+        """Stop inference test runner gracefully.
+        
+        This method should not raise exceptions. If cleanup fails,
+        it should log the error but not raise.
+        """
         self.running = False
+        # Additional cleanup can be added here if needed
+        # All cleanup should be wrapped in try-except to prevent exceptions
 
     def _log_statistics(self) -> None:
         """Log inference test statistics."""

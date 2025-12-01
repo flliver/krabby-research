@@ -122,10 +122,15 @@ def test_game_loop_faster_than_inference():
     stop_thread = threading.Thread(target=stop_after_time)
     stop_thread.start()
 
-    try:
-        test_runner.run()
-    except Exception:
-        pass
+    # Production code (InferenceTestRunner.run()) handles all exceptions internally
+    # No exception handling needed here - if run() completes, it succeeded
+    # If we need to handle expected exceptions in the future, add them here:
+    # try:
+    #     test_runner.run()
+    # except ExpectedExceptionType:
+    #     # Handle expected exception
+    #     pass
+    test_runner.run()
 
     command_received.set()
     stop_thread.join()
@@ -201,10 +206,15 @@ def test_inference_faster_than_game_loop():
     stop_thread = threading.Thread(target=stop_after_time)
     stop_thread.start()
 
-    try:
-        test_runner.run()
-    except Exception:
-        pass
+    # Production code (InferenceTestRunner.run()) handles all exceptions internally
+    # No exception handling needed here - if run() completes, it succeeded
+    # If we need to handle expected exceptions in the future, add them here:
+    # try:
+    #     test_runner.run()
+    # except ExpectedExceptionType:
+    #     # Handle expected exception
+    #     pass
+    test_runner.run()
 
     command_received.set()
     stop_thread.join()

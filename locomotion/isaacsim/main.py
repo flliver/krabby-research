@@ -133,14 +133,11 @@ def main():
                 hal_server.set_observation()
 
                 # Poll HAL for latest data
-                hal_client.poll(timeout_ms=1)
-
-                # Get observation (raises RuntimeError if not available)
-                try:
-                    observation = hal_client.get_observation()
-                except RuntimeError as e:
-                    # No observation available, skip inference this frame
-                    logger.debug(f"No observation available: {e}")
+                observation = hal_client.poll(timeout_ms=1)
+                
+                if observation is None:
+                    # No new observation available, skip inference this frame
+                    logger.debug("No new observation available")
                     hal_server.move()  # Still apply any pending commands
                     continue
 

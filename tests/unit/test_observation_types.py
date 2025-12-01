@@ -1,4 +1,4 @@
-"""Tests for unified observation format validation.
+"""Unit tests for unified observation format validation.
 
 These tests verify that the observation format matches the training format exactly:
 - Total dimension (OBS_DIM = 753)
@@ -6,6 +6,9 @@ These tests verify that the observation format matches the training format exact
 - Component positioning and ordering
 - Data type (float32)
 - Format consistency across different sources
+
+These are unit tests that test the observation data structures in isolation,
+without requiring HAL integration.
 """
 
 import numpy as np

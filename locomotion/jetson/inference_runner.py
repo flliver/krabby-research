@@ -94,14 +94,11 @@ class InferenceRunner:
 
                 # Poll HAL for latest data
                 if self.hal_client:
-                    self.hal_client.poll(timeout_ms=1)
-
-                    # Get observation (raises RuntimeError if not available)
-                    try:
-                        observation = self.hal_client.get_observation()
-                    except RuntimeError as e:
-                        # No observation available, skip inference this frame
-                        logger.debug(f"No observation available: {e}")
+                    observation = self.hal_client.poll(timeout_ms=1)
+                    
+                    if observation is None:
+                        # No new observation available, skip inference this frame
+                        logger.debug("No new observation available")
                         self.hal_server.move()  # Still apply any pending commands
                         continue
 

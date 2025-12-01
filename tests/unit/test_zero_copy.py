@@ -1,9 +1,12 @@
-"""Tests for zero-copy operations in the HAL and policy interface.
+"""Unit tests for zero-copy operations in the HAL and policy interface.
 
 These tests verify that data flows through the system with minimal copying:
 - numpy → torch tensor conversion (should share memory when possible)
 - torch → numpy conversion (should share memory on CPU)
 - Action tensor passing (should be direct references, not copies)
+
+These are unit tests that test data conversion utilities in isolation,
+without requiring HAL integration.
 """
 
 import numpy as np

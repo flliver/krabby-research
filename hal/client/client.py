@@ -131,7 +131,7 @@ class HalClient:
         """
         return self._debug_enabled
 
-    def poll(self, timeout_ms: int = 10) -> None:
+    def poll(self, timeout_ms: int = 10) -> Optional[np.ndarray]:
         """Poll for latest observation messages (non-blocking).
 
         Updates latest buffers with newest messages. Old messages are
@@ -139,6 +139,10 @@ class HalClient:
 
         Args:
             timeout_ms: Poll timeout in milliseconds (default 10ms)
+
+        Returns:
+            Observation array (shape: (OBS_DIM,)) if new data was received,
+            None if timeout or no new data available.
 
         Raises:
             RuntimeError: If client not initialized
@@ -170,7 +174,7 @@ class HalClient:
                                 f"expected {SCHEMA_VERSION}"
                             )
                         logger.warning(f"Unsupported schema version: {schema_version}, expected {SCHEMA_VERSION}")
-                        return
+                        return None
 
                     # Runtime type validation: Validate payload size
                     expected_size = OBS_DIM * 4  # float32 = 4 bytes
@@ -179,7 +183,7 @@ class HalClient:
                             f"[ZMQ RECV] observation: Invalid payload size: {len(payload)} bytes, "
                             f"expected {expected_size} bytes (OBS_DIM={OBS_DIM} * 4 bytes)"
                         )
-                        return
+                        return None
 
                     # Deserialize payload - observation in training format
                     observation_array = np.frombuffer(payload, dtype=np.float32)
@@ -189,14 +193,14 @@ class HalClient:
                         logger.error(
                             f"[ZMQ RECV] observation: Invalid dtype: {observation_array.dtype}, expected float32"
                         )
-                        return
+                        return None
 
                     # Runtime type validation: Validate shape matches training format
                     if observation_array.shape != (OBS_DIM,):
                         logger.error(
                             f"[ZMQ RECV] observation: Invalid shape: {observation_array.shape}, expected ({OBS_DIM},)"
                         )
-                        return
+                        return None
 
                     # Runtime type validation: Validate values (check for NaN/Inf)
                     if not np.isfinite(observation_array).all():
@@ -205,7 +209,7 @@ class HalClient:
                         logger.error(
                             f"[ZMQ RECV] observation: Invalid values: {nan_count} NaN, {inf_count} Inf"
                         )
-                        return
+                        return None
 
                     # Debug logging after deserialization
                     if self._debug_enabled:
@@ -225,43 +229,34 @@ class HalClient:
 
                     # Create ParkourObservation (zero-copy view of the buffer)
                     # Note: np.frombuffer creates a view, not a copy
+                    observation_copy = observation_array.copy()  # Copy here because buffer is owned by ZMQ
                     self._latest_observation = ParkourObservation(
                         timestamp_ns=timestamp_ns,
                         schema_version=schema_version,
-                        observation=observation_array.copy(),  # Copy here because buffer is owned by ZMQ
+                        observation=observation_copy,
                     )
                     if self._debug_enabled:
                         logger.debug(f"[ZMQ RECV] observation: ParkourObservation created successfully")
+                    
+                    # Return the observation array
+                    return observation_copy
             except zmq.ZMQError:
                 pass  # No message available
             except Exception as e:
                 if self._debug_enabled:
                     logger.debug(f"[ZMQ ERROR] observation: {e}")
                 logger.error(f"Error processing observation message: {e}")
+        
+        # No new data received (timeout or no message available)
+        return None
 
-    def get_observation(self) -> np.ndarray:
-        """Get latest observation tensor.
-        
-        Returns the latest observation in training format as a numpy array.
-        This is the complete observation tensor ready for model inference.
-        
-        Returns:
-            Observation array (shape: (OBS_DIM,))
-            
-        Raises:
-            RuntimeError: If no observation is available
-        """
-        if self._latest_observation is None:
-            raise RuntimeError("No observation available. Ensure HAL server is publishing observations and poll() has been called.")
-        
-        # Return observation tensor directly
-        return self._latest_observation.observation
-    
     def build_model_io(self, max_age_ns: int = 10_000_000) -> Optional[ParkourModelIO]:
-        """Build ParkourModelIO from latest observation.
+        """Build ParkourModelIO from latest observation and navigation command.
+        
+        Combines the latest observation (from poll()) and navigation command into
+        a ParkourModelIO structure for model inference.
         
         Checks that all required data has valid timestamps and is synchronized.
-        This method is kept for backward compatibility with models that expect ParkourModelIO.
         
         Args:
             max_age_ns: Maximum age difference in nanoseconds (default 10ms)

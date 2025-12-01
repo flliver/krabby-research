@@ -4,11 +4,12 @@ This guide explains how to work with the HAL for publishing observation, subscri
 
 ## Overview
 
-The HAL uses ZMQ (ZeroMQ) for communication with three distinct channels:
+The HAL uses ZMQ (ZeroMQ) for communication with two distinct channels:
 
-1. **Camera Observation** (PUB/SUB) - Topic: `"camera"` - HAL Server → Policy Wrapper (30-60 Hz)
-2. **State Observation** (PUB/SUB) - Topic: `"state"` - HAL Server → Policy Wrapper (100+ Hz)
-3. **Joint Commands** (REQ/REP) - No topic - Policy Wrapper → HAL Server (100+ Hz)
+1. **Observation** (PUB/SUB) - Topic: `"observation"` - HAL Server → Policy Wrapper (100+ Hz)
+   - Unified observation format containing all sensor data in training format
+   - Single `float32` array with shape `(OBS_DIM,)` ready for model inference
+2. **Joint Commands** (REQ/REP) - No topic - Policy Wrapper → HAL Server (100+ Hz)
 
 All channels support both `inproc://` (same process) and `tcp://` (network) transports.
 
@@ -16,25 +17,22 @@ All channels support both `inproc://` (same process) and `tcp://` (network) tran
 
 ## Communication Channels
 
-### Camera Observation (PUB/SUB)
+### Observation (PUB/SUB)
 
-- **Topic**: `"camera"`
-- **Message**: Depth features as `float32[N]` array
-- **Format**: Topic-prefixed multipart message `[topic_string, schema_version_string, binary_payload]`
-  - Part 0: Topic string `"camera"` (UTF-8 encoded)
+- **Topic**: `"observation"`
+- **Message**: Complete observation in training format as `float32[OBS_DIM]` array
+- **Format**: Topic-prefixed multipart message `[topic_string, schema_version_string, binary_payload, timestamp_bytes]`
+  - Part 0: Topic string `"observation"` (UTF-8 encoded)
   - Part 1: Schema version string (e.g., `"1.0"`, UTF-8 encoded)
-  - Part 2: Binary payload (`float32[N]` array serialized as binary)
+  - Part 2: Binary payload (`float32[OBS_DIM]` array serialized as binary)
+  - Part 3: Timestamp (optional, 8 bytes, nanoseconds since epoch)
 - **Semantics**: Latest-only (HWM=1)
-
-### State Observation (PUB/SUB)
-
-- **Topic**: `"state"`
-- **Message**: Robot state as `float32[M]` array containing base position (3), quaternion (4), base linear velocity (3), base angular velocity (3), joint positions (ACTION_DIM), joint velocities (ACTION_DIM)
-- **Format**: Topic-prefixed multipart message `[topic_string, schema_version_string, binary_payload]`
-  - Part 0: Topic string `"state"` (UTF-8 encoded)
-  - Part 1: Schema version string (e.g., `"1.0"`, UTF-8 encoded)
-  - Part 2: Binary payload (`float32[M]` array serialized as binary)
-- **Semantics**: Latest-only (HWM=1)
+- **Content**: Unified observation containing:
+  - Proprioceptive features (root angular velocity, IMU, joint positions/velocities, commands)
+  - Scan features (depth/height measurements)
+  - Privileged explicit features (base linear velocity)
+  - Privileged latent features (body mass, COM, friction)
+  - History buffer
 
 ### Joint Commands (REQ/REP)
 
@@ -166,14 +164,16 @@ The HAL implementation includes runtime type validation for all message payloads
 
 ## Interface Actions
 
-The HAL interface must support:
+The HAL client interface supports:
 
-- **Get NavigationCommand** - Retrieve latest navigation command
-- **Get RobotState** - Retrieve latest robot state (100+ Hz)
-- **Get DepthObservation** - Retrieve latest depth observation (30-60 Hz)
-- **Build ParkourModelIO** - Combine latest NavigationCommand, RobotState, and DepthObservation into a single model
+- **Poll for Observation** - `poll()` returns the latest observation array directly (100+ Hz)
+- **Set Navigation Command** - Set navigation command for the robot
+- **Build ParkourModelIO** - Combine latest observation and navigation command into a single model structure (for backward compatibility with models that expect ParkourModelIO)
+- **Send Joint Command** - Send joint position commands to actuators
 
-**Synchronization**: All components in ParkourModelIO should have timestamps within < 10ms of each other for 100 Hz control.
+**Observation Format**: The observation is a unified `float32` array with shape `(OBS_DIM,)` containing all sensor data in training format.
+
+**Synchronization**: When using `build_model_io()`, observation and navigation command should have timestamps within < 10ms of each other for 100 Hz control.
 
 ### Constraints
 
@@ -240,54 +240,79 @@ The HAL interface must support:
 ## Endpoints
 
 **TCP Endpoints** (configurable via `HAL_BASE_PORT`, default 6000):
-- Camera: `tcp://host:6000`
-- State: `tcp://host:6001`
-- Commands: `tcp://host:6002`
+- Observation: `tcp://host:6000` (or configurable via `observation_bind`)
+- Commands: `tcp://host:6001` (or configurable via `command_bind`)
 
 **Inproc Endpoints** (same process):
-- Camera: `inproc://hal_camera`
-- State: `inproc://hal_state`
-- Commands: `inproc://hal_commands`
+- Observation: `inproc://hal_observation` (or configurable)
+- Commands: `inproc://hal_commands` (or configurable)
 
 ## HAL Server Workflow
 
-1. Create PUB sockets for camera and state, REP socket for commands
+1. Create PUB socket for observation, REP socket for commands
 2. Bind to endpoints (inproc or TCP)
-3. Set HWM=1 for latest-only semantics on PUB sockets
+3. Set HWM=1 for latest-only semantics on PUB socket
 4. Main loop:
-   - Publish camera observation (30-60 Hz): Convert depth features to `float32` array, send as multipart `[topic, schema_version, payload]`
-   - Publish state observation (100+ Hz): Convert robot state to `float32` array, send as multipart `[topic, schema_version, payload]`
+   - Build complete observation in training format (100+ Hz)
+   - Publish observation: Send as multipart `[topic, schema_version, payload, timestamp]`
    - Receive command requests (non-blocking): Deserialize to `float32` array, apply to actuators, send acknowledgement
 
 ## HAL Client Workflow
 
-1. Create SUB sockets for camera and state, REQ socket for commands
+1. Create SUB sockets for observation, REQ socket for commands
 2. Connect to endpoints
-3. Subscribe to topics: `"camera"` and `"state"`
+3. Subscribe to observation topic: `"observation"`
 4. Set HWM=1 for latest-only semantics on SUB sockets
 5. Main loop:
    - Poll for observation messages (non-blocking with timeout)
-   - Receive multipart messages: `[topic, schema_version, payload]`
-   - Validate schema version before deserialization
-   - Deserialize payload to `float32` arrays (if schema version is compatible)
-   - Validate array shapes match expected dimensions
-   - Build observation tensor and run inference
+   - `poll()` returns the observation array directly if new data is available, `None` otherwise
+   - If observation received, use it for inference
    - Send joint command as `float32` array
    - Wait for acknowledgement response
 
+**Example:**
+```python
+from hal.client import HalClient, HalClientConfig
+
+# Initialize client
+config = HalClientConfig(
+    observation_endpoint="inproc://hal_observation",
+    command_endpoint="inproc://hal_commands",
+)
+client = HalClient(config)
+client.initialize()
+
+# Main control loop
+while running:
+    # Poll for new observation (returns observation array or None)
+    observation = client.poll(timeout_ms=10)
+    
+    if observation is None:
+        # No new data available, skip this iteration
+        continue
+    
+    # Use observation for inference
+    action = model(observation)
+    
+    # Send command
+    client.send_joint_command(action)
+```
+
 ## Latest-Only Semantics
 
-All PUB/SUB channels use HWM=1 (high-watermark=1):
+The observation PUB/SUB channel uses HWM=1 (high-watermark=1):
 - Only the latest message is kept in buffers
 - Old messages are automatically dropped
 - Subscribers always receive the most recent observation
 - Prevents queue buildup and ensures real-time control uses fresh data
+- When `poll()` is called, it returns the latest observation if available, or `None` if no new data
 
 ## Synchronization
 
-- **Topic filtering**: Subscribers must subscribe to specific topics (`"camera"` or `"state"`)
+- **Topic filtering**: Subscribers subscribe to the `"observation"` topic
 - **Message ordering**: PUB/SUB has no guaranteed ordering; REQ/REP guarantees ordering
-- **Timestamp synchronization**: Camera and state messages should have timestamps within < 10ms of each other (see Observation Models section)
+- **Timestamp synchronization**: Observation messages include timestamps for age validation
+- **Navigation command**: Set separately via `set_navigation_command()` and combined with observation in `build_model_io()` if needed
 
 ## Error Handling
 
@@ -493,8 +518,10 @@ hal_server.set_debug(True)
 
 # Run a few cycles
 for _ in range(10):
-    hal_server.publish_observation()
-    hal_client.poll(timeout_ms=100)
+    hal_server.set_observation()  # Publish observation
+    observation = hal_client.poll(timeout_ms=100)
+    if observation is not None:
+        print(f"Received observation: shape={observation.shape}")
     # Check logs to see if data is flowing
 
 # Disable when done
