@@ -56,8 +56,15 @@ class ExtremeParkourObservations(ManagerTermBase):
         ) -> torch.Tensor:
         
         terrain_names = self.parkour_event.env_per_terrain_name
-        env_idx_tensor = torch.tensor((terrain_names != 'parkour_flat')).to(dtype = torch.bool, device=self.device)
-        invert_env_idx_tensor = torch.tensor((terrain_names == 'parkour_flat')).to(dtype = torch.bool, device=self.device)
+        # Ensure boolean flags are 2D (N,1); don't add extra dim if already (N,1)
+        env_mask = torch.as_tensor((terrain_names != 'parkour_flat'))
+        if env_mask.dim() == 1:
+            env_mask = env_mask.unsqueeze(-1)
+        env_idx_tensor = env_mask.to(self.device, dtype=torch.float)
+        inv_mask = torch.as_tensor((terrain_names == 'parkour_flat'))
+        if inv_mask.dim() == 1:
+            inv_mask = inv_mask.unsqueeze(-1)
+        invert_env_idx_tensor = inv_mask.to(self.device, dtype=torch.float)
         roll, pitch, yaw = euler_xyz_from_quat(self.asset.data.root_quat_w)
         imu_obs = torch.stack((wrap_to_pi(roll), wrap_to_pi(pitch)), dim=1).to(self.device)
         if env.common_step_counter % 5 == 0:
@@ -209,7 +216,7 @@ class image_features(ManagerTermBase):
         depth_image = (depth_image) / (self.clipping_range)  - 0.5
         return depth_image
     
-class obervation_delta_yaw_ok(ManagerTermBase):
+class observation_delta_yaw_ok(ManagerTermBase):
 
     def __init__(self, cfg: ObservationTermCfg, env: ParkourManagerBasedRLEnv):
         super().__init__(cfg, env)
@@ -227,4 +234,6 @@ class obervation_delta_yaw_ok(ManagerTermBase):
             asset: Articulation = env.scene[asset_cfg.name]
             _, _, yaw = euler_xyz_from_quat(asset.data.root_quat_w)
             self.delta_yaw = parkour_event.target_yaw - wrap_to_pi(yaw)
-        return self.delta_yaw < threshold
+
+        # Return as (N,1) float column for consistent stacking
+        return (self.delta_yaw < threshold).float().unsqueeze(-1)
