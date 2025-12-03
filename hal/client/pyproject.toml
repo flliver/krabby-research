@@ -35,5 +35,5 @@ dev = [
 
 [tool.setuptools]
 package-dir = {"hal" = ".."}
-packages = ["hal.client", "hal.client.commands", "hal.client.observation", "hal.client.data_structures"]
+packages = ["hal.client", "hal.client.observation", "hal.client.data_structures"]
 

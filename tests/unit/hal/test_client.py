@@ -24,6 +24,7 @@ def test_hal_client_initialization():
     )
     server = HalServerBase(server_config)
     server.initialize()
+    server.set_debug(True)
 
     client_config = HalClientConfig(
         observation_endpoint="inproc://test_observation",
@@ -31,6 +32,7 @@ def test_hal_client_initialization():
     )
     client = HalClient(client_config)
     client.initialize()
+    client.set_debug(True)
 
     assert client._initialized
     assert client.context is not None
@@ -50,6 +52,7 @@ def test_hal_client_poll_observation():
     )
     server = HalServerBase(server_config)
     server.initialize()
+    server.set_debug(True)
 
     client_config = HalClientConfig(
         observation_endpoint="inproc://test_state2",
@@ -57,6 +60,7 @@ def test_hal_client_poll_observation():
     )
     client = HalClient(client_config, context=server.get_transport_context())
     client.initialize()
+    client.set_debug(True)
 
     # With shared context, connection should be established immediately
     # Small delay to ensure sockets are ready
@@ -96,6 +100,7 @@ def test_hal_client_poll_and_map():
     )
     server = HalServerBase(server_config)
     server.initialize()
+    server.set_debug(True)
 
     client_config = HalClientConfig(
         observation_endpoint="inproc://test_state4",
@@ -103,6 +108,7 @@ def test_hal_client_poll_and_map():
     )
     client = HalClient(client_config, context=server.get_transport_context())
     client.initialize()
+    client.set_debug(True)
 
     # With shared context, connection should be established immediately
     # Small delay to ensure sockets are ready
@@ -142,6 +148,7 @@ def test_hal_client_put_joint_command():
     )
     server = HalServerBase(server_config)
     server.initialize()
+    server.set_debug(True)
 
     client_config = HalClientConfig(
         observation_endpoint="inproc://test_state5",
@@ -149,6 +156,7 @@ def test_hal_client_put_joint_command():
     )
     client = HalClient(client_config, context=server.get_transport_context())
     client.initialize()
+    client.set_debug(True)
 
     time.sleep(0.1)
 
@@ -166,7 +174,7 @@ def test_hal_client_put_joint_command():
     mapper = ParkourLocomotionToKrabbyHWMapper(model_action_dim=12)
     joint_positions = mapper.map(inference_response)
 
-    # Server needs to be waiting before client sends (REQ/REP pattern)
+    # Server needs to be waiting before client sends (PUSH/PULL pattern)
     import threading
     received_command = [None]
     
@@ -178,8 +186,7 @@ def test_hal_client_put_joint_command():
     time.sleep(0.05)  # Small delay to ensure server is waiting
     
     # Send command
-    success = client.put_joint_command(joint_positions)
-    assert success
+    client.put_joint_command(joint_positions)
     
     server_thread.join(timeout=2.0)
     received = received_command[0]
@@ -201,6 +208,7 @@ def test_hal_client_timestamp_validation():
     )
     server = HalServerBase(server_config)
     server.initialize()
+    server.set_debug(True)
 
     client_config = HalClientConfig(
         observation_endpoint="inproc://test_state6",
@@ -208,6 +216,7 @@ def test_hal_client_timestamp_validation():
     )
     client = HalClient(client_config, context=server.get_transport_context())
     client.initialize()
+    client.set_debug(True)
 
     # With shared context, connection should be established immediately
     # Small delay to ensure sockets are ready

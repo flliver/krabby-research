@@ -247,7 +247,7 @@ Key files:
 - **ZMQ Architecture**: The HAL uses three main ZMQ channels:
   - **Camera observation** (PUB/SUB): Publishes depth/RGBD frames or pre-encoded depth features
   - **State observation** (PUB/SUB): Publishes robot/base pose and joint state
-  - **Joint command service** (REQ/REP): Receives desired joint positions from the game loop and sends acknowledgements back
+  - **Joint command service** (PUSH/PULL): Receives desired joint positions from the game loop with FIFO ordering and backpressure (HWM=5)
 - **Message Format**: Messages use topic-prefixed multipart format with flat float32 numpy arrays for efficient serialization and minimal overhead
 
 ### Embedded Hardware

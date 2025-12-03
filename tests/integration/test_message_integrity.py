@@ -22,12 +22,16 @@ def test_corrupt_message_handling():
     server = HalServerBase(server_config)
     server.initialize()
 
+    server.set_debug(True)
+
     client_config = HalClientConfig(
         observation_endpoint="inproc://test_observation_corrupt",
         command_endpoint="inproc://test_command_corrupt",
     )
     client = HalClient(client_config)
     client.initialize()
+
+    client.set_debug(True)
 
     time.sleep(0.1)
 
@@ -64,12 +68,16 @@ def test_malformed_binary_payload():
     server = HalServerBase(server_config)
     server.initialize()
 
+    server.set_debug(True)
+
     client_config = HalClientConfig(
         observation_endpoint="inproc://test_observation_malformed",
         command_endpoint="inproc://test_command_malformed",
     )
     client = HalClient(client_config)
     client.initialize()
+
+    client.set_debug(True)
 
     time.sleep(0.1)
 
@@ -111,12 +119,16 @@ def test_missing_multipart_messages():
     server = HalServerBase(server_config)
     server.initialize()
 
+    server.set_debug(True)
+
     client_config = HalClientConfig(
         observation_endpoint="inproc://test_observation_multipart",
         command_endpoint="inproc://test_command_multipart",
     )
     client = HalClient(client_config, context=server.get_transport_context())
     client.initialize()
+
+    client.set_debug(True)
 
     time.sleep(0.1)
 
@@ -151,6 +163,8 @@ def test_invalid_type():
     server = HalServerBase(server_config)
     server.initialize()
 
+    server.set_debug(True)
+
     # Test that server validates type
     # Try to publish numpy array (should fail - needs KrabbyHardwareObservations)
     invalid_data = np.array([1.0, 2.0, 3.0], dtype=np.float32)
@@ -170,12 +184,16 @@ def test_graceful_error_handling():
     server = HalServerBase(server_config)
     server.initialize()
 
+    server.set_debug(True)
+
     client_config = HalClientConfig(
         observation_endpoint="inproc://test_observation_graceful",
         command_endpoint="inproc://test_command_graceful",
     )
     client = HalClient(client_config, context=server.get_transport_context())
     client.initialize()
+
+    client.set_debug(True)
 
     time.sleep(0.1)
 
@@ -210,12 +228,16 @@ def test_schema_version_validation():
     server = HalServerBase(server_config)
     server.initialize()
 
+    server.set_debug(True)
+
     client_config = HalClientConfig(
         observation_endpoint="inproc://test_observation_schema",
         command_endpoint="inproc://test_command_schema",
     )
     client = HalClient(client_config)
     client.initialize()
+
+    client.set_debug(True)
 
     time.sleep(0.1)
 

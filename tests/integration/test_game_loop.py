@@ -155,6 +155,7 @@ def hal_setup():
     )
     server = ProtoHalServer(server_config)
     server.initialize()
+    server.set_debug(True)
 
     client_config = HalClientConfig(
         observation_endpoint="inproc://test_obs",
@@ -163,6 +164,8 @@ def hal_setup():
     # Use shared ZMQ context from server for inproc connections
     client = HalClient(client_config, context=server.get_transport_context())
     client.initialize()
+
+    client.set_debug(True)
 
     # Wait briefly for inproc connection to be established
     time.sleep(0.1)

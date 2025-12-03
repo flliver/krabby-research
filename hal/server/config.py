@@ -21,7 +21,7 @@ class HalServerConfig:
             Examples:
                 - "inproc://hal_commands" (same process, in-memory)
                 - "tcp://*:6002" (network, all interfaces, port 6002)
-            For REP sockets, this is the bind address where the server listens
+            For PULL sockets, this is the bind address where the server listens
             for command requests.
         observation_buffer_size: Buffer size for observation PUB socket
             (default 1 for latest-only semantics). Only the latest message
@@ -32,8 +32,7 @@ class HalServerConfig:
             Cannot be None (type is `int`, not `Optional[int]`).
             
             **Note:** This only applies to observation channels (PUB/SUB).
-            Commands use REQ/REP pattern which doesn't use HWM/buffer size
-            (REQ/REP ensures guaranteed delivery without buffer limits).
+            Commands use PUSH/PULL pattern with HWM=5 for backpressure.
     """
     
     observation_bind: str

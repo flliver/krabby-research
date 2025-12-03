@@ -136,7 +136,7 @@ All containers use inproc ZMQ for communication within the same process. The par
 **Endpoints** (configurable via `HAL_BASE_PORT`, default 6000):
 - Camera: `tcp://host:6000` (PUB/SUB)
 - State: `tcp://host:6001` (PUB/SUB)
-- Commands: `tcp://host:6002` (REQ/REP)
+- Commands: `tcp://host:6002` (PUSH/PULL)
 
 ### Layer 2: HAL Contract Layer
 
@@ -157,9 +157,9 @@ All containers use inproc ZMQ for communication within the same process. The par
      - Joint positions (ACTION_DIM), joint velocities (ACTION_DIM)
    - Rate: 100+ Hz
 
-3. **Joint Commands** (REQ/REP)
-   - Request: `float32[ACTION_DIM]` (desired joint positions)
-   - Reply: `b"ok"` (acknowledgement)
+3. **Joint Commands** (PUSH/PULL)
+   - Message: `float32[ACTION_DIM]` (desired joint positions)
+   - Semantics: FIFO ordering with backpressure (HWM=5)
    - Rate: 100+ Hz
 
 ### Layer 3: Application Layer
@@ -171,7 +171,7 @@ All containers use inproc ZMQ for communication within the same process. The par
 1. **HalClient** (`locomotion/interfaces/hal/client.py`)
    - Subscribes to camera and state topics
    - Maintains latest-only buffers
-   - Sends joint commands via REQ/REP
+   - Sends joint commands via PUSH/PULL
    - Builds model input dataclass
 
 2. **Policy Model** (`locomotion/runtime/policy_wrapper.py`)
@@ -264,10 +264,10 @@ Locomotion Container (Jetson Orin)
    └─> Returns JointCommand
 
 4. InferenceRunner
-   └─> Sends JointCommand to HAL (ZMQ REQ inproc)
+   └─> Sends JointCommand to HAL (ZMQ PUSH inproc)
 
 5. HAL Server
-   └─> Receives command (ZMQ REP inproc)
+   └─> Receives command (ZMQ PULL inproc)
    └─> Applies to simulator/hardware
 ```
 
@@ -288,10 +288,10 @@ Locomotion Container (Jetson Orin)
    └─> Returns JointCommand
 
 4. HalClient
-   └─> Sends JointCommand to game loop (ZMQ REQ inproc)
+   └─> Sends JointCommand to game loop (ZMQ PUSH inproc)
 
 5. Game Loop Test Script
-   └─> Receives command (ZMQ REP inproc)
+   └─> Receives command (ZMQ PULL inproc)
    └─> Logs/validates command
 ```
 

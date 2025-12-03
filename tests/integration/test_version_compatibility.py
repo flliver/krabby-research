@@ -28,12 +28,16 @@ def test_reading_older_schema_versions():
     server = HalServerBase(server_config)
     server.initialize()
 
+    server.set_debug(True)
+
     client_config = HalClientConfig(
         observation_endpoint="inproc://test_observation_old",
         command_endpoint="inproc://test_command_old",
     )
     client = HalClient(client_config, context=server.get_transport_context())
     client.initialize()
+
+    client.set_debug(True)
 
     time.sleep(0.1)
 
@@ -134,12 +138,16 @@ def test_schema_version_compatibility_check():
     server = HalServerBase(server_config)
     server.initialize()
 
+    server.set_debug(True)
+
     client_config = HalClientConfig(
         observation_endpoint="inproc://test_observation_schema_check",
         command_endpoint="inproc://test_command_schema_check",
     )
     client = HalClient(client_config, context=server.get_transport_context())
     client.initialize()
+
+    client.set_debug(True)
 
     time.sleep(0.1)
 

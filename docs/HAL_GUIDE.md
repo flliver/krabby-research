@@ -9,7 +9,7 @@ The HAL uses ZMQ (ZeroMQ) for communication with two distinct channels:
 1. **Observation** (PUB/SUB) - Topic: `"observation"` - HAL Server → Policy Wrapper (100+ Hz)
    - Hardware observation format containing raw sensor data
    - `KrabbyHardwareObservations` object with joint positions, camera images, depth map, etc.
-2. **Joint Commands** (REQ/REP) - No topic - Policy Wrapper → HAL Server (100+ Hz)
+2. **Joint Commands** (PUSH/PULL) - No topic - Policy Wrapper → HAL Server (100+ Hz)
 
 All channels support both `inproc://` (same process) and `tcp://` (network) transports.
 
@@ -39,11 +39,10 @@ All channels support both `inproc://` (same process) and `tcp://` (network) tran
   - Confidence map
   - Timestamp (included in metadata)
 
-### Joint Commands (REQ/REP)
+### Joint Commands (PUSH/PULL)
 
-- **Request**: Joint positions as `float32[18]` array (18 DOF for Krabby robot)
-- **Response**: Acknowledgement string (`"ok"` or error message)
-- **Semantics**: Request-response pattern ensures ordering and acknowledgement
+- **Message**: Joint positions as `float32[18]` array (18 DOF for Krabby robot)
+- **Semantics**: PUSH/PULL pattern ensures FIFO ordering with backpressure (HWM=5)
 
 ## Hardware Data Structures
 
@@ -181,7 +180,7 @@ The HAL client interface supports:
 
 The HAL client sends joint commands via `put_joint_command()`, which accepts a `KrabbyDesiredJointPositions` object containing 18-DOF joint positions.
 
-**Request-Response Pattern**: Commands use request-response to ensure ordering and acknowledgement.
+**PUSH/PULL Pattern**: Commands use PUSH/PULL to ensure FIFO ordering with backpressure (HWM=5).
 
 ### Constraints
 
@@ -215,17 +214,17 @@ The HAL client sends joint commands via `put_joint_command()`, which accepts a `
 
 ## HAL Server Workflow
 
-1. Create PUB socket for observation, REP socket for commands
+1. Create PUB socket for observation, PULL socket for commands
 2. Bind to endpoints (inproc or TCP)
 3. Set HWM=1 for latest-only semantics on PUB socket
 4. Main loop:
    - Build `KrabbyHardwareObservations` from hardware sensors (100+ Hz)
    - Publish observation: Send as multipart `[topic, schema_version, ...hw_obs_parts]` (8 parts total)
-   - Receive command requests (non-blocking): Deserialize to `float32[18]` array, apply to actuators, send acknowledgement
+   - Receive command messages (non-blocking): Deserialize to `float32[18]` array, apply to actuators
 
 ## HAL Client Workflow
 
-1. Create SUB socket for observation, REQ socket for commands
+1. Create SUB socket for observation, PUSH socket for commands
 2. Connect to endpoints
 3. Subscribe to observation topic: `"observation"`
 4. Set HWM=1 for latest-only semantics on SUB sockets
@@ -235,7 +234,7 @@ The HAL client sends joint commands via `put_joint_command()`, which accepts a `
    - If observation received, map it to model format and use for inference
    - Map inference output to `KrabbyDesiredJointPositions`
    - Send joint command via `put_joint_command()`
-   - Wait for acknowledgement response
+   - Send command (blocking send for backpressure)
 
 **Example:**
 ```python
@@ -301,7 +300,7 @@ The observation PUB/SUB channel uses HWM=1 (high-watermark=1):
 ## Synchronization
 
 - **Topic filtering**: Subscribers subscribe to the `"observation"` topic
-- **Message ordering**: PUB/SUB has no guaranteed ordering; REQ/REP guarantees ordering
+- **Message ordering**: PUB/SUB has no guaranteed ordering; PUSH/PULL guarantees FIFO ordering
 - **Timestamp synchronization**: Observation messages include timestamps in `KrabbyHardwareObservations` metadata
 - **Navigation command**: Managed by application code (e.g., `InferenceRunner`), not by HAL client
 
@@ -427,7 +426,7 @@ Timestamp: 2024-01-15 10:30:45
   Status: ✅ Connected
   Response: ok
   Test Command Shape: (18,)
-  Note: Commands are REQ/REP, no history available
+  Note: Commands are PUSH/PULL, no history available
 
 ================================================================================
 ```

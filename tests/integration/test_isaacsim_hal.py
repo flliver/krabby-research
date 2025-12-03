@@ -55,6 +55,7 @@ def test_isaacsim_hal_server_initialization(mock_isaac_env, hal_server_config):
     """Test IsaacSim HAL server initialization with minimal environment."""
     hal_server = IsaacSimHalServer(hal_server_config, env=mock_isaac_env)
     hal_server.initialize()
+    hal_server.set_debug(True)
 
     assert hal_server._initialized
     assert hal_server.env is not None
@@ -73,10 +74,12 @@ def test_isaacsim_hal_server_camera_publishing(mock_isaac_env, hal_server_config
     # Setup HAL server with shared context
     hal_server = IsaacSimHalServer(hal_server_config, env=mock_isaac_env)
     hal_server.initialize()
+    hal_server.set_debug(True)
 
     # Setup HAL client with shared ZMQ context from server (for inproc connections)
     hal_client = HalClient(hal_client_config, context=hal_server.get_transport_context())
     hal_client.initialize()
+    hal_client.set_debug(True)
 
     time.sleep(0.1)
 
@@ -108,10 +111,12 @@ def test_isaacsim_hal_server_state_publishing(mock_isaac_env, hal_server_config,
     # Setup HAL server with shared context
     hal_server = IsaacSimHalServer(hal_server_config, env=mock_isaac_env)
     hal_server.initialize()
+    hal_server.set_debug(True)
 
     # Setup HAL client with shared ZMQ context from server (for inproc connections)
     hal_client = HalClient(hal_client_config, context=hal_server.get_transport_context())
     hal_client.initialize()
+    hal_client.set_debug(True)
 
     time.sleep(0.1)
 
@@ -143,10 +148,12 @@ def test_isaacsim_hal_server_joint_command_application(mock_isaac_env, hal_serve
     # Setup HAL server with shared context
     hal_server = IsaacSimHalServer(hal_server_config, env=mock_isaac_env)
     hal_server.initialize()
+    hal_server.set_debug(True)
 
     # Setup HAL client with shared ZMQ context from server (for inproc connections)
     hal_client = HalClient(hal_client_config, context=hal_server.get_transport_context())
     hal_client.initialize()
+    hal_client.set_debug(True)
 
     time.sleep(0.1)
 
@@ -158,13 +165,12 @@ def test_isaacsim_hal_server_joint_command_application(mock_isaac_env, hal_serve
     # Mock env.device
     hal_server.env.device = "cpu"
 
-    # Mock command reception to return bytes immediately (bypass ZMQ)
-    # The new zero-copy implementation uses recv_joint_command_bytes()
-    def mock_recv_command_bytes(timeout_ms=10):
+    # Mock command reception to return NumPy array immediately (bypass ZMQ)
+    def mock_get_joint_command(timeout_ms=10):
         command_array = np.array([0.1, 0.2, 0.3] * 4, dtype=np.float32)  # 12 DOF
-        return command_array.tobytes()  # Return bytes for zero-copy tensor creation
+        return command_array
 
-    hal_server.recv_joint_command_bytes = mock_recv_command_bytes
+    hal_server.get_joint_command = mock_get_joint_command
 
     # Apply joint command
     result = hal_server.move()
@@ -188,10 +194,12 @@ def test_isaacsim_hal_server_end_to_end_with_game_loop(mock_isaac_env, hal_serve
     # Setup HAL server with shared context
     hal_server = IsaacSimHalServer(hal_server_config, env=mock_isaac_env)
     hal_server.initialize()
+    hal_server.set_debug(True)
 
     # Setup HAL client with shared context
     hal_client = HalClient(hal_client_config, context=hal_server.get_transport_context())
     hal_client.initialize()
+    hal_client.set_debug(True)
 
     time.sleep(0.1)
 
@@ -247,11 +255,12 @@ def test_isaacsim_hal_server_end_to_end_with_game_loop(mock_isaac_env, hal_serve
                 continue
 
             # Map hardware observation to ParkourObservation
+            # Pass navigation command so it's included in the observation
             from compute.parkour.mappers.hardware_to_model import KrabbyHWObservationsToParkourMapper
             from compute.parkour.types import ParkourModelIO
             
             mapper = KrabbyHWObservationsToParkourMapper()
-            parkour_obs = mapper.map(hw_obs)
+            parkour_obs = mapper.map(hw_obs, nav_cmd=nav_cmd)
             
             # Build model IO (preserve timestamp from observation)
             model_io = ParkourModelIO(
@@ -295,6 +304,7 @@ def test_isaacsim_hal_server_behavior_matches_baseline(mock_isaac_env, hal_serve
     """
     hal_server = IsaacSimHalServer(hal_server_config, env=mock_isaac_env)
     hal_server.initialize()
+    hal_server.set_debug(True)
 
     # Verify server can publish observation
     hal_server._extract_depth_features = lambda: np.array([1.0] * 10, dtype=np.float32)
@@ -325,10 +335,12 @@ def test_isaacsim_hal_server_with_real_zmq_communication(mock_isaac_env, hal_ser
     # Setup HAL server with shared context
     hal_server = IsaacSimHalServer(hal_server_config, env=mock_isaac_env)
     hal_server.initialize()
+    hal_server.set_debug(True)
 
     # Setup HAL client with shared context
     hal_client = HalClient(hal_client_config, context=hal_server.get_transport_context())
     hal_client.initialize()
+    hal_client.set_debug(True)
 
     time.sleep(0.1)
 
@@ -356,7 +368,7 @@ def test_isaacsim_hal_server_with_real_zmq_communication(mock_isaac_env, hal_ser
         inference_latency_ms=5.0,
     )
 
-    # In REQ/REP pattern, server must be waiting before client sends
+    # In PUSH/PULL pattern, server must be waiting before client sends
     # Use threading to have server wait for command
     import threading
     received_command = [None]
@@ -374,8 +386,7 @@ def test_isaacsim_hal_server_with_real_zmq_communication(mock_isaac_env, hal_ser
     joint_positions = mapper.map(inference_response)
     
     # Send command
-    success = hal_client.put_joint_command(joint_positions)
-    assert success
+    hal_client.put_joint_command(joint_positions)
     
     server_thread.join(timeout=2.0)
     received = received_command[0]
@@ -423,10 +434,12 @@ def test_isaacsim_hal_server_error_handling(mock_isaac_env, hal_server_config):
     """Test error handling in IsaacSim HAL server."""
     hal_server = IsaacSimHalServer(hal_server_config, env=mock_isaac_env)
     hal_server.initialize()
+    hal_server.set_debug(True)
 
     # Test with None environment
     hal_server_no_env = IsaacSimHalServer(hal_server_config, env=None)
     hal_server_no_env.initialize()
+    hal_server_no_env.set_debug(True)
 
     # Publish observation with no environment:
     # In the new implementation this correctly raises a RuntimeError instead of silently succeeding.
@@ -454,10 +467,12 @@ def test_isaacsim_hal_server_100_consecutive_command_cycles(mock_isaac_env, hal_
     # Setup HAL server with shared context
     hal_server = IsaacSimHalServer(hal_server_config, env=mock_isaac_env)
     hal_server.initialize()
+    hal_server.set_debug(True)
 
     # Setup HAL client with shared context
     hal_client = HalClient(hal_client_config, context=hal_server.get_transport_context())
     hal_client.initialize()
+    hal_client.set_debug(True)
 
     time.sleep(0.1)
 
@@ -482,7 +497,7 @@ def test_isaacsim_hal_server_100_consecutive_command_cycles(mock_isaac_env, hal_
     # Set navigation command
     nav_cmd = NavigationCommand.create_now()
 
-    # Start command receiving thread (REQ/REP pattern requires server to be waiting)
+    # Start command receiving thread (PUSH/PULL pattern requires server to be waiting)
     import threading
     command_received = threading.Event()
     commands_received_list = []
@@ -523,11 +538,12 @@ def test_isaacsim_hal_server_100_consecutive_command_cycles(mock_isaac_env, hal_
                     continue
             
                 # Map hardware observation to ParkourObservation
+                # Pass navigation command so it's included in the observation
                 from compute.parkour.mappers.hardware_to_model import KrabbyHWObservationsToParkourMapper
                 from compute.parkour.types import ParkourModelIO
                 
                 mapper = KrabbyHWObservationsToParkourMapper()
-                parkour_obs = mapper.map(hw_obs)
+                parkour_obs = mapper.map(hw_obs, nav_cmd=nav_cmd)
                 
                 # Build model IO
                 model_io = ParkourModelIO(
@@ -553,14 +569,14 @@ def test_isaacsim_hal_server_100_consecutive_command_cycles(mock_isaac_env, hal_
                     from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToKrabbyHWMapper
                     mapper = ParkourLocomotionToKrabbyHWMapper(model_action_dim=12)
                     joint_positions = mapper.map(response)
-                    if hal_client.put_joint_command(joint_positions):
-                        commands_received += 1
-                        
-                        # Verify no NaN values in received commands
-                        if commands_received_list:
-                            received_cmd = commands_received_list[-1]
-                            if np.any(np.isnan(received_cmd)) or np.any(np.isinf(received_cmd)):
-                                errors.append(f"Cycle {cycle}: NaN or Inf in command")
+                    hal_client.put_joint_command(joint_positions)
+                    commands_received += 1
+                    
+                    # Verify no NaN values in received commands
+                    if commands_received_list:
+                        received_cmd = commands_received_list[-1]
+                        if np.any(np.isnan(received_cmd)) or np.any(np.isinf(received_cmd)):
+                            errors.append(f"Cycle {cycle}: NaN or Inf in command")
                 
                 cycles_completed += 1
                 
@@ -613,10 +629,12 @@ def test_isaacsim_hal_server_full_parkour_eval_simulation(mock_isaac_env, hal_se
     # Setup HAL server with shared context
     hal_server = IsaacSimHalServer(hal_server_config, env=mock_isaac_env)
     hal_server.initialize()
+    hal_server.set_debug(True)
 
     # Setup HAL client with shared context
     hal_client = HalClient(hal_client_config, context=hal_server.get_transport_context())
     hal_client.initialize()
+    hal_client.set_debug(True)
 
     time.sleep(0.1)
 
@@ -641,7 +659,7 @@ def test_isaacsim_hal_server_full_parkour_eval_simulation(mock_isaac_env, hal_se
     # Set navigation command
     nav_cmd = NavigationCommand.create_now()
 
-    # Start command receiving thread (REQ/REP pattern requires server to be waiting)
+    # Start command receiving thread (PUSH/PULL pattern requires server to be waiting)
     import threading
     command_received = threading.Event()
     commands_received_list = []
@@ -694,11 +712,12 @@ def test_isaacsim_hal_server_full_parkour_eval_simulation(mock_isaac_env, hal_se
                     continue
                 
                 # Map hardware observation to ParkourObservation
+                # Pass navigation command so it's included in the observation
                 from compute.parkour.mappers.hardware_to_model import KrabbyHWObservationsToParkourMapper
                 from compute.parkour.types import ParkourModelIO
                 
                 mapper = KrabbyHWObservationsToParkourMapper()
-                parkour_obs = mapper.map(hw_obs)
+                parkour_obs = mapper.map(hw_obs, nav_cmd=nav_cmd)
                 
                 # Build model IO
                 model_io = ParkourModelIO(
@@ -724,12 +743,12 @@ def test_isaacsim_hal_server_full_parkour_eval_simulation(mock_isaac_env, hal_se
                     from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToKrabbyHWMapper
                     mapper = ParkourLocomotionToKrabbyHWMapper(model_action_dim=12)
                     joint_positions = mapper.map(response)
-                    if hal_client.put_joint_command(joint_positions):
-                        commands_sent += 1
-                        
-                        # Check if command was received (via command thread)
-                        if commands_received_list:
-                            commands_received += 1
+                    hal_client.put_joint_command(joint_positions)
+                    commands_sent += 1
+                    
+                    # Check if command was received (via command thread)
+                    if commands_received_list:
+                        commands_received += 1
                 
                 cycles_completed += 1
                 last_cycle_time = time.time()
@@ -781,6 +800,7 @@ def test_isaacsim_hal_server_interface_matches_evaluation_baseline(mock_isaac_en
     """
     hal_server = IsaacSimHalServer(hal_server_config, env=mock_isaac_env)
     hal_server.initialize()
+    hal_server.set_debug(True)
 
     # Mock observation manager to return observations in the same format as evaluation.py
     from compute.parkour.types import OBS_DIM

@@ -141,17 +141,18 @@ def main():
                     hal_server.move()  # Still apply any pending commands
                     continue
 
-                # Map hardware observation to model observation format using mapper
-                from compute.parkour.mappers.hardware_to_model import KrabbyHWObservationsToParkourMapper
-                from compute.parkour.types import ParkourModelIO
-                from hal.client.observation.types import NavigationCommand
-                
-                mapper = KrabbyHWObservationsToParkourMapper()
-                model_obs = mapper.map(hw_obs)
-                
                 # Check if navigation command is set (initialize with default if not)
+                from hal.client.observation.types import NavigationCommand
                 if nav_cmd is None:
                     nav_cmd = NavigationCommand.create_now(vx=0.0, vy=0.0, yaw_rate=0.0)
+                
+                # Map hardware observation to model observation format using mapper
+                # Pass navigation command so it's included in the observation
+                from compute.parkour.mappers.hardware_to_model import KrabbyHWObservationsToParkourMapper
+                from compute.parkour.types import ParkourModelIO
+                
+                mapper = KrabbyHWObservationsToParkourMapper()
+                model_obs = mapper.map(hw_obs, nav_cmd=nav_cmd)
                 
                 # Build model IO (preserve timestamp from observation)
                 model_io = ParkourModelIO(
@@ -174,8 +175,7 @@ def main():
                     joint_positions = mapper.map(inference_result)
 
                     # Send command back to HAL server
-                    if not hal_client.put_joint_command(joint_positions):
-                        raise RuntimeError("Failed to put joint command to HAL")
+                    hal_client.put_joint_command(joint_positions)
                 except Exception as e:
                     logger.error(f"Critical inference failure: {e}", exc_info=True)
                     # Fail fast - re-raise to stop the loop

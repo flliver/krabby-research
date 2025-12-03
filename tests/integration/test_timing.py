@@ -105,7 +105,7 @@ def test_game_loop_faster_than_inference():
             server.set_observation(hw_obs)
             time.sleep(0.01)
 
-    # Continuously receive commands (REQ/REP pattern requires server to be waiting)
+    # Continuously receive commands (PUSH/PULL pattern requires server to be waiting)
     command_received = threading.Event()
     def command_loop():
         while not command_received.is_set():
@@ -191,7 +191,7 @@ def test_inference_faster_than_game_loop():
             server.set_observation(hw_obs)
             time.sleep(0.01)
 
-    # Continuously receive commands (REQ/REP pattern requires server to be waiting)
+    # Continuously receive commands (PUSH/PULL pattern requires server to be waiting)
     command_received = threading.Event()
     def command_loop():
         while not command_received.is_set():

@@ -169,7 +169,7 @@ class ProtoHalServer(HalServerBase):
             command_bytes: Joint command as float32 array bytes
 
         Returns:
-            "ok" acknowledgement
+            command sent successfully
         """
         # Validate command
         if len(command_bytes) % 4 != 0:

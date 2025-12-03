@@ -42,6 +42,8 @@ def test_jetson_hal_server_initialization(hal_server_config):
     hal_server = JetsonHalServer(hal_server_config)
     hal_server.initialize()
 
+    hal_server.set_debug(True)
+
     assert hal_server._initialized
     assert hal_server.context is not None
     assert hal_server.observation_socket is not None
@@ -79,6 +81,8 @@ def test_jetson_hal_server_observation_publishing(hal_server_config, hal_client_
     hal_server = JetsonHalServer(hal_server_config)
     hal_server.initialize()
 
+    hal_server.set_debug(True)
+
     # Mock camera to return depth features
     mock_camera = MagicMock(spec=ZedCamera)
     mock_camera.is_ready.return_value = True
@@ -88,6 +92,8 @@ def test_jetson_hal_server_observation_publishing(hal_server_config, hal_client_
     # Setup HAL client with server's transport context
     hal_client = HalClient(hal_client_config, context=hal_server.get_transport_context())
     hal_client.initialize()
+
+    hal_client.set_debug(True)
 
     time.sleep(0.1)
 
@@ -133,9 +139,13 @@ def test_jetson_hal_server_joint_command_application(hal_server_config, hal_clie
     hal_server = JetsonHalServer(hal_server_config)
     hal_server.initialize()
 
+    hal_server.set_debug(True)
+
     # Setup HAL client with shared context
     hal_client = HalClient(hal_client_config, context=hal_server.get_transport_context())
     hal_client.initialize()
+
+    hal_client.set_debug(True)
 
     time.sleep(0.1)
 
@@ -151,7 +161,7 @@ def test_jetson_hal_server_joint_command_application(hal_server_config, hal_clie
         inference_latency_ms=5.0,
     )
 
-    # Server needs to be waiting before client sends (REQ/REP pattern)
+    # Server needs to be waiting before client sends (PUSH/PULL pattern)
     received_command = [None]
     
     def server_receive():
@@ -167,8 +177,7 @@ def test_jetson_hal_server_joint_command_application(hal_server_config, hal_clie
     joint_positions = mapper.map(inference_response)
     
     # Send command
-    success = hal_client.put_joint_command(joint_positions)
-    assert success, "Command send failed"
+    hal_client.put_joint_command(joint_positions), "Command send failed"
 
     # Wait for server to receive
     server_thread.join(timeout=2.0)
@@ -188,6 +197,8 @@ def test_jetson_hal_server_end_to_end_with_game_loop(hal_server_config, hal_clie
     # Use shared context for inproc connections
     hal_server = JetsonHalServer(hal_server_config)
     hal_server.initialize()
+
+    hal_server.set_debug(True)
 
     # Mock camera
     mock_camera = MagicMock(spec=ZedCamera)
@@ -215,6 +226,8 @@ def test_jetson_hal_server_end_to_end_with_game_loop(hal_server_config, hal_clie
 
     hal_client = HalClient(hal_client_config, context=hal_server.get_transport_context())
     hal_client.initialize()
+
+    hal_client.set_debug(True)
 
     time.sleep(0.1)
 
@@ -257,11 +270,12 @@ def test_jetson_hal_server_end_to_end_with_game_loop(hal_server_config, hal_clie
                 continue
 
             # Map hardware observation to ParkourObservation
+            # Pass navigation command so it's included in the observation
             from compute.parkour.mappers.hardware_to_model import KrabbyHWObservationsToParkourMapper
             from compute.parkour.types import ParkourModelIO
             
             mapper = KrabbyHWObservationsToParkourMapper()
-            parkour_obs = mapper.map(hw_obs)
+            parkour_obs = mapper.map(hw_obs, nav_cmd=nav_cmd)
             
             # Build model IO (preserve timestamp from observation)
             model_io = ParkourModelIO(
@@ -341,6 +355,8 @@ def test_jetson_hal_server_network_communication():
     server = JetsonHalServer(server_config)
     server.initialize()
 
+    server.set_debug(True)
+
     # Client config pointing to server (simulating x86 → Jetson)
     client_config = HalClientConfig(
         observation_endpoint="tcp://localhost:8001",
@@ -348,6 +364,8 @@ def test_jetson_hal_server_network_communication():
     )
     client = HalClient(client_config)
     client.initialize()
+
+    client.set_debug(True)
 
     time.sleep(0.1)  # Give time for connection
 
@@ -395,7 +413,7 @@ def test_jetson_hal_server_network_communication():
         inference_latency_ms=5.0,
     )
 
-    # Server needs to be waiting before client sends (REQ/REP pattern)
+    # Server needs to be waiting before client sends (PUSH/PULL pattern)
     received_command = [None]
     
     def server_receive():
@@ -410,8 +428,7 @@ def test_jetson_hal_server_network_communication():
     mapper = ParkourLocomotionToKrabbyHWMapper(model_action_dim=12)
     joint_positions = mapper.map(inference_response)
     
-    success = client.put_joint_command(joint_positions)
-    assert success
+    client.put_joint_command(joint_positions)
 
     # Wait for server to receive
     server_thread.join(timeout=3.0)
@@ -429,6 +446,8 @@ def test_jetson_hal_server_camera_error_handling(hal_server_config):
     # Use shared context for inproc connections
     hal_server = JetsonHalServer(hal_server_config)
     hal_server.initialize()
+
+    hal_server.set_debug(True)
 
     # Test with None camera (camera not initialized)
     hal_server.zed_camera = None
@@ -451,6 +470,8 @@ def test_jetson_hal_server_state_error_handling(hal_server_config):
     """Test error handling when state source fails."""
     hal_server = JetsonHalServer(hal_server_config)
     hal_server.initialize()
+
+    hal_server.set_debug(True)
 
     # Test with None state
     state_vector = hal_server._build_state_vector()
@@ -475,9 +496,13 @@ def test_jetson_hal_server_sustained_bidirectional_messaging(hal_server_config, 
     hal_server = JetsonHalServer(hal_server_config)
     hal_server.initialize()
 
+    hal_server.set_debug(True)
+
     # Setup HAL client with shared context
     hal_client = HalClient(hal_client_config, context=hal_server.get_transport_context())
     hal_client.initialize()
+
+    hal_client.set_debug(True)
 
     time.sleep(0.1)
 
@@ -548,7 +573,7 @@ def test_jetson_hal_server_sustained_bidirectional_messaging(hal_server_config, 
                 from compute.parkour.types import ParkourModelIO
                 
                 mapper = KrabbyHWObservationsToParkourMapper()
-                parkour_obs = mapper.map(hw_obs)
+                parkour_obs = mapper.map(hw_obs, nav_cmd=nav_cmd)
                 
                 model_io = ParkourModelIO(
                     timestamp_ns=parkour_obs.timestamp_ns,
@@ -637,9 +662,13 @@ def test_jetson_hal_server_joystick_input_integration(hal_server_config, hal_cli
     hal_server = JetsonHalServer(hal_server_config)
     hal_server.initialize()
 
+    hal_server.set_debug(True)
+
     # Setup HAL client with shared context
     hal_client = HalClient(hal_client_config, context=hal_server.get_transport_context())
     hal_client.initialize()
+
+    hal_client.set_debug(True)
 
     time.sleep(0.1)
 
@@ -689,11 +718,12 @@ def test_jetson_hal_server_joystick_input_integration(hal_server_config, hal_cli
             continue
 
         # Map hardware observation and build model IO with navigation command
+        # Pass navigation command so it's included in the observation
         from compute.parkour.mappers.hardware_to_model import KrabbyHWObservationsToParkourMapper
         from compute.parkour.types import ParkourModelIO
         
         mapper = KrabbyHWObservationsToParkourMapper()
-        parkour_obs = mapper.map(hw_obs)
+        parkour_obs = mapper.map(hw_obs, nav_cmd=nav_cmd)
         
         model_io = ParkourModelIO(
             timestamp_ns=parkour_obs.timestamp_ns,
@@ -724,6 +754,8 @@ def test_jetson_hal_server_cleanup(hal_server_config):
     """Test proper cleanup of resources."""
     hal_server = JetsonHalServer(hal_server_config)
     hal_server.initialize()
+
+    hal_server.set_debug(True)
 
     # Mock camera
     mock_camera = MagicMock(spec=ZedCamera)

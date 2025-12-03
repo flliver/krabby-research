@@ -103,18 +103,19 @@ class InferenceTestRunner:
                         time.sleep(self.period_s * 0.1)  # Small sleep to avoid busy-wait
                         continue
 
-                    # Map hardware observation to model observation format using mapper
-                    from compute.parkour.mappers.hardware_to_model import KrabbyHWObservationsToParkourMapper
-                    
-                    mapper = KrabbyHWObservationsToParkourMapper()
-                    model_obs = mapper.map(hw_obs)
-                    
                     # Check if navigation command is set
                     if self.nav_cmd is None:
                         # Navigation command not set, skip iteration
                         logger.debug("Navigation command not set, skipping inference")
                         time.sleep(self.period_s * 0.1)
                         continue
+                    
+                    # Map hardware observation to model observation format using mapper
+                    # Pass navigation command so it's included in the observation
+                    from compute.parkour.mappers.hardware_to_model import KrabbyHWObservationsToParkourMapper
+                    
+                    mapper = KrabbyHWObservationsToParkourMapper()
+                    model_obs = mapper.map(hw_obs, nav_cmd=self.nav_cmd)
                     
                     # Build model IO (preserve timestamp from observation)
                     model_io = ParkourModelIO(
@@ -155,8 +156,10 @@ class InferenceTestRunner:
                             joint_positions = mapper.map(inference_result)
 
                             # Put command to HAL
-                            if not self.hal_client.put_joint_command(joint_positions):
-                                logger.error("Failed to put joint command to HAL. Frame will be dropped.")
+                            try:
+                                self.hal_client.put_joint_command(joint_positions)
+                            except Exception as e:
+                                logger.error(f"Failed to put joint command to HAL: {e}. Frame will be dropped.")
                                 self.inference_not_ready_count += 1
                                 continue
                         except Exception as e:
@@ -172,8 +175,10 @@ class InferenceTestRunner:
                             from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToKrabbyHWMapper
                             mapper = ParkourLocomotionToKrabbyHWMapper(model_action_dim=self.model.action_dim)
                             joint_positions = mapper.map(self.last_inference_result)
-                            if not self.hal_client.put_joint_command(joint_positions):
-                                logger.error("Failed to put cached joint command to HAL")
+                            try:
+                                self.hal_client.put_joint_command(joint_positions)
+                            except Exception as e:
+                                logger.error(f"Failed to put cached joint command to HAL: {e}")
                             self.dropped_frames += 1
                         else:
                             logger.warning("Inference in progress but no valid cached result available")

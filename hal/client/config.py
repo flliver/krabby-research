@@ -23,11 +23,11 @@ class HalClientConfig:
                 - "inproc://hal_observation" (same process, in-memory)
                 - "tcp://localhost:6001" (network, localhost only)
                 - "tcp://192.168.1.100:6001" (network, remote host)
-        command_endpoint: Command endpoint (REQ socket connect address)
+        command_endpoint: Command endpoint (PUSH socket connect address)
             Examples:
                 - "inproc://hal_commands" (same process, in-memory)
                 - "tcp://localhost:6002" (network, localhost only)
-        timeout_s: Timeout in seconds for REQ/REP operations (default 0.05)
+        timeout_s: Timeout in seconds (legacy, not used with PUSH/PULL pattern)
         action_dim: Optional action dimension for validation. If provided,
             commands will be validated to ensure they match this dimension.
             This is the number of joints/actuators (typically 12 for quadruped

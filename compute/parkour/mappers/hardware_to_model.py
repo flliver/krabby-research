@@ -11,6 +11,7 @@ from typing import Optional, Type
 import numpy as np
 
 from hal.client.data_structures.hardware import KrabbyHardwareObservations
+from hal.client.observation.types import NavigationCommand
 from compute.parkour.types import (
     NUM_PROP,
     NUM_SCAN,
@@ -48,11 +49,13 @@ class KrabbyHWObservationsToParkourMapper:
         """Initialize the mapper."""
         pass
     
-    def map(self, hw_obs: KrabbyHardwareObservations, observation_type: Type[ParkourObservation] = TeacherObservation) -> ParkourObservation:
+    def map(self, hw_obs: KrabbyHardwareObservations, nav_cmd: Optional[NavigationCommand] = None, observation_type: Type[ParkourObservation] = TeacherObservation) -> ParkourObservation:
         """Map hardware observations to model format.
         
         Args:
             hw_obs: Hardware observation data
+            nav_cmd: Optional navigation command (vx, vy, yaw_rate) to include in observation
+            observation_type: Type of observation to create (default: TeacherObservation)
             
         Returns:
             ParkourObservation in model format
@@ -66,7 +69,7 @@ class KrabbyHWObservationsToParkourMapper:
         
         # Proprioceptive features (53 dims) - from joint positions and other proprioceptive data
         # For now, pad/truncate joint positions to match NUM_PROP
-        proprioceptive = self._extract_proprioceptive(hw_obs)
+        proprioceptive = self._extract_proprioceptive(hw_obs, nav_cmd)
         
         # Scan/depth features (132 dims) - from depth map and RGB cameras
         scan = self._extract_scan_features(hw_obs)
@@ -91,14 +94,21 @@ class KrabbyHWObservationsToParkourMapper:
             timestamp_ns=hw_obs.timestamp_ns,
         )
     
-    def _extract_proprioceptive(self, hw_obs: KrabbyHardwareObservations) -> np.ndarray:
+    def _extract_proprioceptive(self, hw_obs: KrabbyHardwareObservations, nav_cmd: Optional[NavigationCommand] = None) -> np.ndarray:
         """Extract proprioceptive features from hardware observations.
         
         Args:
             hw_obs: Hardware observations
+            nav_cmd: Optional navigation command to include in proprioceptive features
             
         Returns:
             Proprioceptive features array of shape (NUM_PROP,)
+            
+        Note:
+            Navigation commands are included at positions 8-10:
+            - Position 8: vx (forward velocity)
+            - Position 9: vy (lateral velocity)
+            - Position 10: yaw_rate (angular velocity)
         """
         # Placeholder: map 18 joint positions to 53 proprioceptive features
         # In reality, this would include:
@@ -112,6 +122,12 @@ class KrabbyHWObservationsToParkourMapper:
         proprioceptive = np.zeros(NUM_PROP, dtype=np.float32)
         num_joints = min(18, NUM_PROP)
         proprioceptive[:num_joints] = hw_obs.joint_positions[:num_joints]
+        
+        # Include navigation commands at positions 8-10 (matching training format)
+        if nav_cmd is not None:
+            proprioceptive[8] = nav_cmd.vx
+            proprioceptive[9] = nav_cmd.vy
+            proprioceptive[10] = nav_cmd.yaw_rate
         
         return proprioceptive
     

@@ -24,7 +24,7 @@ class HalClient:
     """HAL client for subscribing to observations and sending commands.
 
     Uses SUB socket for observations (complete observation in training format, HWM=1 for latest-only),
-    and REQ socket for commands (request-response pattern).
+    and PUSH socket for commands (PUSH/PULL pattern with backpressure, HWM=5).
     """
 
     def __init__(self, config: HalClientConfig, context: Optional[zmq.Context] = None):
@@ -63,10 +63,9 @@ class HalClient:
             raise ValueError("observation_endpoint must be set in config")
         self.observation_socket.connect(self.config.observation_endpoint)
 
-        # Create REQ socket for commands
-        self.command_socket = self.context.socket(zmq.REQ)
-        self.command_socket.setsockopt(zmq.RCVTIMEO, int(self.config.timeout_s * 1000))
-        self.command_socket.setsockopt(zmq.SNDTIMEO, int(self.config.timeout_s * 1000))
+        # Create PUSH socket for commands (PUSH/PULL pattern with backpressure)
+        self.command_socket = self.context.socket(zmq.PUSH)
+        self.command_socket.setsockopt(zmq.SNDHWM, 5)  # Default HWM of 5 for backpressure
         self.command_socket.connect(self.config.command_endpoint)
 
         self._initialized = True
@@ -140,6 +139,7 @@ class HalClient:
 
         Raises:
             RuntimeError: If client not initialized
+            ValueError: If message format is invalid (wrong schema version, wrong number of parts)
         """
         if not self._initialized:
             raise RuntimeError("Client not initialized. Call initialize() first.")
@@ -162,22 +162,17 @@ class HalClient:
 
                     # Validate schema version
                     if schema_version != SCHEMA_VERSION:
-                        if self._debug_enabled:
-                            logger.debug(
-                                f"[ZMQ RECV] observation: unsupported schema version: {schema_version}, "
-                                f"expected {SCHEMA_VERSION}"
-                            )
-                        logger.warning(f"Unsupported schema version: {schema_version}, expected {SCHEMA_VERSION}")
-                        return None
+                        error_msg = f"Unsupported schema version: {schema_version}, expected {SCHEMA_VERSION}"
+                        logger.error(f"[ZMQ RECV] observation: {error_msg}")
+                        raise ValueError(error_msg)
 
                     # Expected format: [topic, schema_version, ...hw_obs_parts (6 parts)]
                     # Total: 2 + 6 = 8 parts
                     # Timestamp is included in hw_obs metadata, no separate timestamp part
                     if len(parts) != 8:
-                        logger.error(
-                            f"[ZMQ RECV] observation: Invalid number of parts: {len(parts)}, expected 8"
-                        )
-                        return None
+                        error_msg = f"Invalid number of parts: {len(parts)}, expected 8"
+                        logger.error(f"[ZMQ RECV] observation: {error_msg}")
+                        raise ValueError(error_msg)
 
                     # Extract hardware observation parts (parts 2-7)
                     hw_obs_parts = parts[2:8]
@@ -199,18 +194,16 @@ class HalClient:
         # No new data received (timeout or no message available)
         return None
 
-    def put_joint_command(self, cmd: "KrabbyDesiredJointPositions") -> bool:
+    def put_joint_command(self, cmd: "KrabbyDesiredJointPositions") -> None:
         """Put/send joint command to server.
 
         Args:
             cmd: KrabbyDesiredJointPositions containing joint positions
 
-        Returns:
-            True if command sent successfully, False otherwise
-
         Raises:
             RuntimeError: If client not initialized
             ValueError: If command is invalid
+            zmq.ZMQError: If sending command fails
         """
         if not self._initialized:
             raise RuntimeError("Client not initialized. Call initialize() first.")
@@ -221,52 +214,26 @@ class HalClient:
 
         # Validate joint positions
         if cmd.joint_positions is None or len(cmd.joint_positions) == 0:
-            logger.error("Cannot send empty joint positions")
-            return False
+            raise ValueError("Cannot send empty joint positions")
 
-        # Serialize and send (tobytes() creates a copy, but this is necessary for ZMQ)
-        try:
-            command_bytes = cmd.joint_positions.tobytes()
+        # Serialize and send as multipart message (metadata + array)
+        # Use blocking send for backpressure - will block if PULL socket buffer is full
+        command_parts = cmd.to_bytes()
 
-            # Debug logging (conditional to avoid overhead when disabled)
-            if self._debug_enabled:
-                logger.debug(
-                    f"[ZMQ SEND] command: payload_size={len(command_bytes)} bytes, "
-                    f"joint_positions_shape={cmd.joint_positions.shape}, "
-                    f"joint_positions_dtype={cmd.joint_positions.dtype}, "
-                    f"min={cmd.joint_positions.min():.3f}, max={cmd.joint_positions.max():.3f}, "
-                    f"timestamp_ns={cmd.timestamp_ns}"
-                )
+        # Debug logging (conditional to avoid overhead when disabled)
+        if self._debug_enabled:
+            logger.debug(
+                f"[ZMQ SEND] command: payload_size={sum(len(p) for p in command_parts)} bytes, "
+                f"joint_positions_shape={cmd.joint_positions.shape}, "
+                f"joint_positions_dtype={cmd.joint_positions.dtype}, "
+                f"min={cmd.joint_positions.min():.3f}, max={cmd.joint_positions.max():.3f}, "
+                f"timestamp_ns={cmd.timestamp_ns}"
+            )
 
-            self.command_socket.send(command_bytes, zmq.NOBLOCK)
+        # Blocking send - will block if PULL socket buffer is full (backpressure)
+        # Let ZMQ errors propagate
+        self.command_socket.send_multipart(command_parts)
 
-            if self._debug_enabled:
-                logger.debug("[ZMQ SEND] command: message sent, waiting for acknowledgement")
-
-            # Wait for acknowledgement
-            if self.command_socket.poll(int(self.config.timeout_s * 1000), zmq.POLLIN):
-                response = self.command_socket.recv()
-                if self._debug_enabled:
-                    logger.debug(f"[ZMQ RECV] command: acknowledgement={response.decode('utf-8', errors='ignore')}")
-
-                if response == b"ok":
-                    if self._debug_enabled:
-                        logger.debug("[ZMQ SEND] command: command accepted")
-                    return True
-                else:
-                    if self._debug_enabled:
-                        logger.debug(f"[ZMQ RECV] command: command rejected: {response.decode('utf-8', errors='ignore')}")
-                    logger.error(f"Command rejected: {response.decode('utf-8', errors='ignore')}")
-                    return False
-            else:
-                if self._debug_enabled:
-                    logger.debug("[ZMQ RECV] command: timeout waiting for acknowledgement")
-                logger.error("Command timeout - no acknowledgement received")
-                return False
-
-        except zmq.ZMQError as e:
-            if self._debug_enabled:
-                logger.debug(f"[ZMQ ERROR] command: {e}")
-            logger.error(f"Error sending command: {e}")
-            return False
+        if self._debug_enabled:
+            logger.debug("[ZMQ SEND] command: message sent successfully")
 

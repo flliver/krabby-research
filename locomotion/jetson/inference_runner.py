@@ -105,18 +105,19 @@ class InferenceRunner:
                         self.hal_server.move()  # Still apply any pending commands
                         continue
 
-                    # Map hardware observation to model observation format using mapper
-                    from compute.parkour.mappers.hardware_to_model import KrabbyHWObservationsToParkourMapper
-                    
-                    mapper = KrabbyHWObservationsToParkourMapper()
-                    model_obs = mapper.map(hw_obs)
-                    
                     # Check if navigation command is set
                     if self.nav_cmd is None:
                         # Navigation command not set, skip inference
                         logger.debug("Navigation command not set, skipping inference")
                         self.hal_server.move()  # Still apply any pending commands
                         continue
+                    
+                    # Map hardware observation to model observation format using mapper
+                    # Pass navigation command so it's included in the observation
+                    from compute.parkour.mappers.hardware_to_model import KrabbyHWObservationsToParkourMapper
+                    
+                    mapper = KrabbyHWObservationsToParkourMapper()
+                    model_obs = mapper.map(hw_obs, nav_cmd=self.nav_cmd)
                     
                     # Build model IO (preserve timestamp from observation)
                     model_io = ParkourModelIO(
@@ -139,8 +140,7 @@ class InferenceRunner:
                         joint_positions = mapper.map(inference_result)
 
                         # Put command back to HAL server
-                        if not self.hal_client.put_joint_command(joint_positions):
-                            raise RuntimeError("Failed to put joint command to HAL")
+                        self.hal_client.put_joint_command(joint_positions)
                     except Exception as e:
                         logger.error(f"Critical inference failure: {e}", exc_info=True)
                         # Fail fast - re-raise to stop the loop

@@ -19,6 +19,7 @@ def test_hal_server_initialization():
     )
     server = HalServerBase(config)
     server.initialize()
+    server.set_debug(True)
 
     assert server._initialized
     assert server.context is not None
@@ -35,6 +36,7 @@ def test_hal_server_context_manager():
         command_bind="inproc://test_command2",
     )
     with HalServerBase(config) as server:
+        server.set_debug(True)
         assert server._initialized
 
 
@@ -46,6 +48,7 @@ def test_set_observation():
     )
 
     with HalServerBase(config) as server:
+        server.set_debug(True)
         # Create subscriber to receive message (use server's transport context for inproc)
         transport_context = server.get_transport_context()
         subscriber = transport_context.socket(zmq.SUB)
@@ -98,13 +101,15 @@ def test_get_joint_command():
     )
 
     with HalServerBase(config) as server:
-        # Create requester to send command (use server's transport context for inproc)
+        server.set_debug(True)
+        # Create pusher to send command (use server's transport context for inproc)
         transport_context = server.get_transport_context()
-        requester = transport_context.socket(zmq.REQ)
-        requester.connect("inproc://test_command5")
-        time.sleep(0.1)  # Give requester time to connect
+        pusher = transport_context.socket(zmq.PUSH)
+        pusher.setsockopt(zmq.SNDHWM, 5)
+        pusher.connect("inproc://test_command5")
+        time.sleep(0.1)  # Give pusher time to connect
 
-        # Server needs to be waiting before client sends (REQ/REP pattern)
+        # Server needs to be waiting before client sends (PUSH/PULL pattern)
         import threading
         received_command = [None]
         
@@ -115,20 +120,22 @@ def test_get_joint_command():
         server_thread.start()
         time.sleep(0.05)  # Small delay to ensure server is waiting
 
-        # Send command
-        command = np.array([0.1, 0.2, 0.3], dtype=np.float32)
-        requester.send(command.tobytes())
+        # Send command as KrabbyDesiredJointPositions (multipart message)
+        from hal.client.data_structures.hardware import KrabbyDesiredJointPositions
+        command = np.array([0.1, 0.2, 0.3] + [0.0] * 15, dtype=np.float32)  # 18 DOF
+        joint_cmd = KrabbyDesiredJointPositions(
+            joint_positions=command,
+            timestamp_ns=time.time_ns(),
+        )
+        command_parts = joint_cmd.to_bytes()
+        pusher.send_multipart(command_parts)
 
         server_thread.join(timeout=2.0)
         received = received_command[0]
         assert received is not None
         np.testing.assert_array_equal(received, command)
 
-        # Check acknowledgement
-        ack = requester.recv()
-        assert ack == b"ok"
-
-        requester.close()
+        pusher.close()
 
 
 def test_hwm_behavior():
@@ -142,6 +149,7 @@ def test_hwm_behavior():
     )
 
     with HalServerBase(config) as server:
+        server.set_debug(True)
         # Create subscriber (use server's transport context for inproc)
         transport_context = server.get_transport_context()
         subscriber = transport_context.socket(zmq.SUB)
@@ -179,6 +187,7 @@ def test_error_handling_invalid_type():
     )
 
     with HalServerBase(config) as server:
+        server.set_debug(True)
         # Try to publish wrong type (should fail)
         invalid_data = np.array([1.0, 2.0, 3.0], dtype=np.float32)
         with pytest.raises(ValueError, match="KrabbyHardwareObservations"):

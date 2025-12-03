@@ -194,5 +194,70 @@ class KrabbyDesiredJointPositions:
         if self.joint_positions.dtype != np.float32:
             # Convert to float32 if needed (creates copy)
             self.joint_positions = self.joint_positions.astype(np.float32)
+        
+        # Runtime type validation: Validate values (check for NaN/Inf)
+        if not np.isfinite(self.joint_positions).all():
+            nan_count = np.isnan(self.joint_positions).sum()
+            inf_count = np.isinf(self.joint_positions).sum()
+            raise ValueError(f"Invalid joint_positions values: {nan_count} NaN, {inf_count} Inf")
+    
+    def to_bytes(self) -> list[bytes]:
+        """Serialize to bytes for ZMQ transport.
+        
+        Format: multipart message with metadata and array:
+        - Part 0: metadata JSON (shape, dtype, timestamp)
+        - Part 1: joint_positions bytes
+        
+        Returns:
+            List of bytes for multipart ZMQ message
+        """
+        # Ensure array is contiguous and correct dtype
+        joint_pos = np.ascontiguousarray(self.joint_positions, dtype=np.float32)
+        
+        # Create metadata
+        metadata = {
+            "joint_positions": {"shape": list(joint_pos.shape), "dtype": str(joint_pos.dtype)},
+            "timestamp_ns": self.timestamp_ns,
+        }
+        
+        return [
+            json.dumps(metadata).encode("utf-8"),
+            joint_pos.tobytes(),
+        ]
+    
+    @classmethod
+    def from_bytes(cls, parts: list[bytes]) -> "KrabbyDesiredJointPositions":
+        """Deserialize from ZMQ multipart message.
+        
+        Args:
+            parts: List of bytes from ZMQ multipart message
+                Expected format: [metadata_json, joint_positions]
+            
+        Returns:
+            KrabbyDesiredJointPositions instance
+            
+        Raises:
+            ValueError: If message format is invalid (wrong number of parts, invalid JSON, etc.)
+        """
+        if len(parts) != 2:
+            raise ValueError(f"Expected 2 parts (metadata + array), got {len(parts)}")
+        
+        # Parse metadata - fail fast on invalid JSON
+        try:
+            metadata = json.loads(parts[0].decode("utf-8"))
+        except (json.JSONDecodeError, UnicodeDecodeError) as e:
+            raise ValueError(f"Invalid metadata JSON: {e}") from e
+        
+        # Deserialize array - let numpy raise errors if shapes/dtypes are wrong
+        try:
+            joint_pos = np.frombuffer(parts[1], dtype=np.dtype(metadata["joint_positions"]["dtype"]))
+            joint_pos = joint_pos.reshape(tuple(metadata["joint_positions"]["shape"])).astype(np.float32)
+        except (KeyError, ValueError, TypeError) as e:
+            raise ValueError(f"Error deserializing array: {e}") from e
+        
+        return cls(
+            joint_positions=joint_pos,
+            timestamp_ns=metadata.get("timestamp_ns", 0),
+        )
     
 

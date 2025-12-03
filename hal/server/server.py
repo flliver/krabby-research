@@ -67,8 +67,9 @@ class HalServerBase:
         self.observation_socket.setsockopt(zmq.SNDHWM, self.config.observation_buffer_size)
         self.observation_socket.bind(self.config.observation_bind)
 
-        # Create REP socket for commands
-        self.command_socket = self.context.socket(zmq.REP)
+        # Create PULL socket for commands (PUSH/PULL pattern with backpressure)
+        self.command_socket = self.context.socket(zmq.PULL)
+        self.command_socket.setsockopt(zmq.RCVHWM, 5)  # Default HWM of 5 for backpressure
         self.command_socket.bind(self.config.command_bind)
 
         self._initialized = True
@@ -200,174 +201,31 @@ class HalServerBase:
 
         # Poll for incoming command
         if self.command_socket.poll(timeout_ms, zmq.POLLIN):
-            try:
-                # Receive command
-                command_bytes = self.command_socket.recv(zmq.NOBLOCK)
+            # Receive command as multipart message
+            command_parts = self.command_socket.recv_multipart(zmq.NOBLOCK)
 
-                # Debug logging (conditional to avoid overhead when disabled)
-                if self._debug_enabled:
-                    logger.debug(
-                        f"[ZMQ RECV] command: received {len(command_bytes)} bytes"
-                    )
+            # Debug logging (conditional to avoid overhead when disabled)
+            if self._debug_enabled:
+                total_size = sum(len(p) for p in command_parts)
+                logger.debug(
+                    f"[ZMQ RECV] command: received {len(command_parts)} parts, {total_size} bytes total"
+                )
 
-                # Runtime type validation: Validate payload size
-                if len(command_bytes) % 4 != 0:
-                    error_msg = f"Invalid command payload size: {len(command_bytes)} bytes (must be multiple of 4 for float32)"
-                    logger.error(f"[ZMQ RECV] command: {error_msg}")
-                    self.command_socket.send(b"error: invalid payload size")
-                    return None
+            # Deserialize to KrabbyDesiredJointPositions
+            # Validation is handled by from_bytes() and __post_init__()
+            from hal.client.data_structures.hardware import KrabbyDesiredJointPositions
+            command = KrabbyDesiredJointPositions.from_bytes(command_parts)
 
-                # Deserialize to numpy array
-                command = np.frombuffer(command_bytes, dtype=np.float32)
+            # Debug logging after deserialization
+            if self._debug_enabled:
+                logger.debug(
+                    f"[ZMQ RECV] command: shape={command.joint_positions.shape}, "
+                    f"dtype={command.joint_positions.dtype}, "
+                    f"min={command.joint_positions.min():.3f}, max={command.joint_positions.max():.3f}, "
+                    f"timestamp_ns={command.timestamp_ns}"
+                )
 
-                # Runtime type validation: Validate dtype
-                if command.dtype != np.float32:
-                    error_msg = f"Invalid command dtype: {command.dtype} (expected float32)"
-                    logger.error(f"[ZMQ RECV] command: {error_msg}")
-                    self.command_socket.send(b"error: invalid dtype")
-                    return None
-
-                # Runtime type validation: Validate shape (must be 1D)
-                if command.ndim != 1:
-                    error_msg = f"Invalid command shape: {command.shape} (expected 1D array)"
-                    logger.error(f"[ZMQ RECV] command: {error_msg}")
-                    self.command_socket.send(b"error: invalid shape")
-                    return None
-
-                # Runtime type validation: Validate values (check for NaN/Inf)
-                if not np.isfinite(command).all():
-                    nan_count = np.isnan(command).sum()
-                    inf_count = np.isinf(command).sum()
-                    error_msg = f"Invalid command values: {nan_count} NaN, {inf_count} Inf"
-                    logger.error(f"[ZMQ RECV] command: {error_msg}")
-                    self.command_socket.send(b"error: invalid values")
-                    return None
-
-                # Debug logging after deserialization
-                if self._debug_enabled:
-                    logger.debug(
-                        f"[ZMQ RECV] command: shape={command.shape}, "
-                        f"dtype={command.dtype}, "
-                        f"min={command.min():.3f}, max={command.max():.3f}"
-                    )
-
-                # Send acknowledgement
-                if self._debug_enabled:
-                    logger.debug("[ZMQ SEND] command: sending ok acknowledgement")
-                self.command_socket.send(b"ok")
-                return command
-
-            except zmq.ZMQError as e:
-                logger.error(f"Error receiving command: {e}")
-                if self._debug_enabled:
-                    logger.debug(f"[ZMQ ERROR] command: {e}")
-                self.command_socket.send(b"error: receive failed")
-                return None
-            except Exception as e:
-                logger.error(f"Unexpected error processing command: {e}")
-                if self._debug_enabled:
-                    logger.debug(f"[ZMQ ERROR] command: {e}")
-                self.command_socket.send(b"error: processing failed")
-                return None
-
-        return None
-
-    def recv_joint_command_bytes(self, timeout_ms: int = 100) -> Optional[bytes]:
-        """Receive joint command as raw bytes with runtime type validation.
-        
-        This method provides zero-copy access to the command bytes for direct
-        tensor creation (e.g., using torch.frombuffer()). The bytes are validated
-        but not deserialized to NumPy, avoiding the read-only buffer issue.
-        
-        Runtime validation includes:
-        - Payload size validation (must be multiple of 4 bytes for float32)
-        - Dtype validation (must be float32)
-        - Shape validation (must be 1D array)
-        - Value validation (no NaN or Inf)
-        
-        Args:
-            timeout_ms: Poll timeout in milliseconds (default 100ms)
-            
-        Returns:
-            Validated command bytes, or None if no command received or validation failed
-            
-        Raises:
-            RuntimeError: If server not initialized
-        """
-        if not self._initialized:
-            raise RuntimeError("Server not initialized. Call initialize() first.")
-
-        # Poll for incoming command
-        if self.command_socket.poll(timeout_ms, zmq.POLLIN):
-            try:
-                # Receive command
-                command_bytes = self.command_socket.recv(zmq.NOBLOCK)
-
-                # Debug logging (conditional to avoid overhead when disabled)
-                if self._debug_enabled:
-                    logger.debug(
-                        f"[ZMQ RECV] command: received {len(command_bytes)} bytes"
-                    )
-
-                # Runtime type validation: Validate payload size
-                if len(command_bytes) % 4 != 0:
-                    error_msg = f"Invalid command payload size: {len(command_bytes)} bytes (must be multiple of 4 for float32)"
-                    logger.error(f"[ZMQ RECV] command: {error_msg}")
-                    self.command_socket.send(b"error: invalid payload size")
-                    return None
-
-                # Deserialize to numpy array for validation only
-                command = np.frombuffer(command_bytes, dtype=np.float32)
-
-                # Runtime type validation: Validate dtype
-                if command.dtype != np.float32:
-                    error_msg = f"Invalid command dtype: {command.dtype} (expected float32)"
-                    logger.error(f"[ZMQ RECV] command: {error_msg}")
-                    self.command_socket.send(b"error: invalid dtype")
-                    return None
-
-                # Runtime type validation: Validate shape (must be 1D)
-                if command.ndim != 1:
-                    error_msg = f"Invalid command shape: {command.shape} (expected 1D array)"
-                    logger.error(f"[ZMQ RECV] command: {error_msg}")
-                    self.command_socket.send(b"error: invalid shape")
-                    return None
-
-                # Runtime type validation: Validate values (check for NaN/Inf)
-                if not np.isfinite(command).all():
-                    nan_count = np.isnan(command).sum()
-                    inf_count = np.isinf(command).sum()
-                    error_msg = f"Invalid command values: {nan_count} NaN, {inf_count} Inf"
-                    logger.error(f"[ZMQ RECV] command: {error_msg}")
-                    self.command_socket.send(b"error: invalid values")
-                    return None
-
-                # Debug logging after validation
-                if self._debug_enabled:
-                    logger.debug(
-                        f"[ZMQ RECV] command: shape={command.shape}, "
-                        f"dtype={command.dtype}, "
-                        f"min={command.min():.3f}, max={command.max():.3f}"
-                    )
-
-                # Send acknowledgement
-                if self._debug_enabled:
-                    logger.debug("[ZMQ SEND] command: sending ok acknowledgement")
-                self.command_socket.send(b"ok")
-                return command_bytes
-
-            except zmq.ZMQError as e:
-                logger.error(f"Error receiving command: {e}")
-                if self._debug_enabled:
-                    logger.debug(f"[ZMQ ERROR] command: {e}")
-                self.command_socket.send(b"error: receive failed")
-                return None
-            except Exception as e:
-                logger.error(f"Unexpected error processing command: {e}")
-                if self._debug_enabled:
-                    logger.debug(f"[ZMQ ERROR] command: {e}")
-                self.command_socket.send(b"error: processing failed")
-                return None
+            return command.joint_positions
 
         return None
 

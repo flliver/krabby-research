@@ -242,18 +242,15 @@ class IsaacSimHalServer(HalServerBase):
         try:
             # Get command from transport if not provided
             if joint_positions is None:
-                # Zero-copy conversion: receive validated bytes and create tensor directly
-                # This avoids NumPy deserialization and the read-only buffer issue
-                command_bytes = self.recv_joint_command_bytes(timeout_ms=10)
-                if command_bytes is None:
+                # Get command as NumPy array (already validated by base class)
+                command_array = self.get_joint_command(timeout_ms=10)
+                if command_array is None:
                     return False
 
-                # Create tensor from bytes (copy to make writable for PyTorch)
-                # The bytes are already validated (size, dtype, shape, NaN/Inf checks)
-                # Note: ZMQ returns read-only bytes, so we need to copy for PyTorch
-                command_tensor = torch.frombuffer(
-                    bytearray(command_bytes), dtype=torch.float32
-                ).to(device=self.env.device)
+                # Convert NumPy array to tensor (zero-copy when array is C-contiguous float32)
+                # get_joint_command() returns a NumPy array from np.frombuffer(), which is
+                # already a zero-copy view of the bytes and is C-contiguous float32
+                command_tensor = torch.from_numpy(command_array).to(device=self.env.device, dtype=torch.float32)
             else:
                 # Convert provided numpy array to tensor
                 if isinstance(joint_positions, np.ndarray):

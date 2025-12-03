@@ -25,12 +25,16 @@ def test_hwm_prevents_buffer_growth():
     server = HalServerBase(server_config)
     server.initialize()
 
+    server.set_debug(True)
+
     client_config = HalClientConfig(
         observation_endpoint="inproc://test_observation_hwm",
         command_endpoint="inproc://test_command_hwm",
     )
     client = HalClient(client_config, context=server.get_transport_context())
     client.initialize()
+
+    client.set_debug(True)
 
     time.sleep(0.1)
     
@@ -88,12 +92,16 @@ def test_rapid_message_publishing():
     server = HalServerBase(server_config)
     server.initialize()
 
+    server.set_debug(True)
+
     client_config = HalClientConfig(
         observation_endpoint="inproc://test_observation_rapid",
         command_endpoint="inproc://test_command_rapid",
     )
     client = HalClient(client_config, context=server.get_transport_context())
     client.initialize()
+
+    client.set_debug(True)
 
     time.sleep(0.1)
     
@@ -152,12 +160,16 @@ def test_memory_usage_bounded():
     server = HalServerBase(server_config)
     server.initialize()
 
+    server.set_debug(True)
+
     client_config = HalClientConfig(
         observation_endpoint="inproc://test_observation_memory",
         command_endpoint="inproc://test_command_memory",
     )
     client = HalClient(client_config, context=server.get_transport_context())
     client.initialize()
+
+    client.set_debug(True)
 
     time.sleep(0.1)
     
@@ -200,12 +212,16 @@ def test_old_messages_dropped():
     server = HalServerBase(server_config)
     server.initialize()
 
+    server.set_debug(True)
+
     client_config = HalClientConfig(
         observation_endpoint="inproc://test_observation_drop",
         command_endpoint="inproc://test_command_drop",
     )
     client = HalClient(client_config, context=server.get_transport_context())
     client.initialize()
+
+    client.set_debug(True)
 
     # With shared context and inproc, connection should be immediate
     # Give a small delay to ensure sockets are ready
