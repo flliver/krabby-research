@@ -5,9 +5,16 @@
 # - CUDA 9.0
 # - cuDNN 9.10.2.21
 # - TensorRT 10.11.0.33+jp6
+# - Python 3.11?
 
-# ZMQ communication
+# ZMQ communication (inproc for internal communication)
 pyzmq>=25.0.0
+
+# Data handling (for version-aware serialization)
+dataclasses-json>=0.6.0
+
+# Utilities
+typing-extensions>=4.8.0
 
 # Testing framework
 pytest>=7.4.0

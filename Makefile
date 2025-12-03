@@ -67,6 +67,14 @@ build-locomotion-image: build-wheels
 	docker build -f images/locomotion/Dockerfile -t krabby-locomotion:latest .
 	@echo "Locomotion image built: krabby-locomotion:latest"
 
+.PHONY: build-test-image-arm
+build-test-image-arm: build-wheels
+	@echo "Building ARM test Docker image..."
+	@echo "Note: This target is for building on ARM testing environment (native ARM64)"
+	@echo "      For cross-platform builds from x86_64, use buildx manually"
+	docker build -f images/testing/arm/Dockerfile -t krabby-testing-arm:latest .
+	@echo "ARM test image built: krabby-testing-arm:latest"
+
 .PHONY: test
 test: build-test-image
 	@echo "Running all tests (excluding Jetson tests) in Docker container..."
