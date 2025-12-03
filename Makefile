@@ -52,6 +52,21 @@ build-test-image: build-wheels
 	docker build -f images/testing/x86/Dockerfile -t krabby-testing-x86:latest .
 	@echo "Test image built: krabby-testing-x86:latest"
 
+.PHONY: build-isaacsim-image
+build-isaacsim-image: build-wheels
+	@echo "Building Isaac Sim Docker image..."
+	@echo "Note: Requires NVIDIA NGC authentication for base image"
+	docker build -f images/isaacsim/Dockerfile -t krabby-isaacsim:latest .
+	@echo "Isaac Sim image built: krabby-isaacsim:latest"
+
+.PHONY: build-locomotion-image
+build-locomotion-image: build-wheels
+	@echo "Building locomotion Docker image (for Jetson/ARM64)..."
+	@echo "Note: This target is for building on Jetson hardware (native ARM64)"
+	@echo "      For cross-platform builds from x86_64, use buildx manually"
+	docker build -f images/locomotion/Dockerfile -t krabby-locomotion:latest .
+	@echo "Locomotion image built: krabby-locomotion:latest"
+
 .PHONY: test
 test: build-test-image
 	@echo "Running all tests (excluding Jetson tests) in Docker container..."

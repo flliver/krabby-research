@@ -74,17 +74,62 @@ typing-extensions>=4.8.0
 # - locomotion/jetson/ (HAL server with real sensors)
 ```
 
+#### ZED SDK Installation
+
+The ZED SDK is installed automatically during the Docker build. The Dockerfile uses **ZED SDK 5.1.1 for L4T 36.4 (JetPack 6.1/6.2)** (static configuration).
+
+**Current Configuration:**
+- **ZED SDK Version**: 5.1.1
+- **L4T Version**: 36.4
+- **JetPack Version**: 6.1/6.2
+- **Target**: Jetson Orin
+- **CUDA**: 12.6
+- **Status**: Stable, recommended for Jetson Orin
+- **Download URL Format**: `https://download.stereolabs.com/zedsdk/{version}/l4t{l4t_version}/jetsons`
+- **Installer Type**: `.zstd.run` (self-extracting installer script)
+
+**Installation Process:**
+The Dockerfile downloads the ZED SDK installer from Stereolabs, extracts it, and runs the installation script in silent mode. The installer is a self-extracting `.run` file that contains the installation scripts and binaries.
+
+**Available ZED SDK versions by JetPack** (for reference):
+
+- **JetPack 7.0 (L4T 38.2) - ZED SDK 5.1** ⚠️ **BETA**
+  - **Target**: Jetson Thor
+  - **CUDA**: 13.0
+  - **Download URL**: `https://download.stereolabs.com/zedsdk/5.1.1/l4t38.2/jetsons`
+  - **Limitations**: 
+    - Video encoding/decoding is **not functional** with this version of JetPack
+    - GMSL Camera support requires drivers and a compatible partner carrier board (compatible setup will be released soon)
+  - **Status**: Beta release - use with caution for production
+  - **Note**: Not currently configured in Dockerfile. To use JetPack 7.0, modify the Dockerfile ZED SDK installation section to use `l4t38.2` instead of `l4t36.4`.
+
+- **JetPack 6.1 and 6.2 (L4T 36.4) - ZED SDK 5.1** ✅ **Currently Used**
+  - **Target**: Jetson Orin
+  - **CUDA**: 12.6
+  - **Download URL**: `https://download.stereolabs.com/zedsdk/5.1.1/l4t36.4/jetsons`
+  - **Status**: Stable, recommended for Jetson Orin
+
+**Note**: ZED SDK downloads from Stereolabs are publicly accessible (no authentication required). The download URLs use the format `/zedsdk/{version}/l4t{l4t_version}/jetsons` and redirect to the actual installer file. If the automatic download fails, you may need to:
+1. Download the ZED SDK `.run` installer manually from [Stereolabs Developer Portal](https://www.stereolabs.com/en-fr/developers/release)
+2. Copy it into the build context
+3. Modify the Dockerfile to use `COPY` instead of `wget`
+
+**References:**
+- [ZED SDK Release Notes](https://www.stereolabs.com/en-fr/developers/release)
+- [NVIDIA JetPack Downloads](https://developer.nvidia.com/embedded/jetpack/downloads)
+
 #### Special Considerations
 - **Production container** - This is what runs on the robot
 - **ARM64 architecture only** - Cannot run on x86
 - Requires JetPack/L4T base image for hardware access (JetPack 7.0 is latest, see [NVIDIA JetPack Downloads](https://developer.nvidia.com/embedded/jetpack/downloads))
 - Combines inference logic and HAL server in single container
 - Uses inproc ZMQ for communication between inference and HAL (same process)
-- ZED SDK must be installed separately (not available via pip)
+- **ZED SDK installed automatically** during Docker build (see ZED SDK Installation section above)
 - PyTorch version may differ from x86 (use Jetson-optimized builds)
 - TensorRT may be needed for optimized inference (included in JetPack)
 - Camera access requires device mounting: `--device=/dev/video0`
 - Real sensors (camera, IMU, encoders) connected via HAL server
+- **JetPack 7.0 users**: Be aware that ZED SDK 5.1 for JetPack 7.0 is in beta and has limitations (video encoding/decoding not functional)
 
 #### Runtime Requirements
 - Jetson Orin hardware

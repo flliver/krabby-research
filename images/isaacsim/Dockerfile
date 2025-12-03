@@ -7,6 +7,10 @@ FROM nvcr.io/nvidia/isaac-sim:5.1.0
 # Set working directory
 WORKDIR /workspace
 
+# Switch to root user for package installation
+# The base image runs as non-root user (isaac-sim) by default, but apt-get requires root privileges
+USER root
+
 # Install system dependencies
 # Most dependencies are included in Isaac Sim base image
 RUN apt-get update && apt-get install -y \
@@ -20,14 +24,21 @@ COPY images/isaacsim/requirements.txt /tmp/requirements.txt
 
 # Install Python dependencies
 # Note: Isaac Sim base image already includes Isaac Sim, Omni, PyTorch, NumPy
-RUN pip3 install --no-cache-dir -r /tmp/requirements.txt
+# Use --break-system-packages to bypass PEP 668 protection (acceptable in Docker containers)
+RUN pip3 install --no-cache-dir --break-system-packages -r /tmp/requirements.txt
 
-# Copy project code
+# Copy and install wheels (built via 'make build-wheels')
+# Note: Wheels must be built before building this Docker image
+COPY hal/client/dist/*.whl /tmp/wheels/
+COPY hal/server/dist/*.whl /tmp/wheels/
+COPY hal/server/isaac/dist/*.whl /tmp/wheels/
+# Note: hal/server/jetson is not needed for Isaac Sim container
+# Note: hal/tools is excluded by default (only install when needed for debugging)
+RUN bash -c "pip3 install --no-cache-dir --break-system-packages /tmp/wheels/*.whl"
+
+# Copy remaining code that's not in wheels
 # Copy compute/parkour/ (policy wrapper and inference logic)
 COPY compute/ /workspace/compute/
-
-# Copy hal/ (HAL types, ZMQ client/server, Isaac Sim HAL server)
-COPY hal/ /workspace/hal/
 
 # Copy locomotion/isaacsim/ (Isaac Sim container entry point)
 COPY locomotion/ /workspace/locomotion/
@@ -37,7 +48,7 @@ COPY locomotion/ /workspace/locomotion/
 COPY parkour/ /workspace/parkour/
 
 # Set Python path
-ENV PYTHONPATH=/workspace:$PYTHONPATH
+ENV PYTHONPATH=/workspace
 
 # Set entrypoint to combined main.py
 # This runs both Isaac Sim HAL server and policy inference in the same process
