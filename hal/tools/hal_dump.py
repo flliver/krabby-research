@@ -8,7 +8,7 @@ from typing import Optional
 import numpy as np
 import zmq
 
-from compute.parkour.types import (
+from compute.parkour.parkour_types import (
     NUM_PROP,
     NUM_SCAN,
     NUM_PRIV_EXPLICIT,

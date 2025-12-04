@@ -10,7 +10,7 @@ import logging
 import numpy as np
 import torch
 
-from compute.parkour.types import InferenceResponse
+from compute.parkour.parkour_types import InferenceResponse
 from hal.client.data_structures.hardware import KrabbyDesiredJointPositions
 
 logger = logging.getLogger(__name__)

@@ -13,8 +13,6 @@ from typing import Optional
 
 import numpy as np
 
-from compute.parkour.types import NUM_SCAN
-
 logger = logging.getLogger(__name__)
 
 
@@ -29,6 +27,7 @@ class ZedCamera:
         resolution: tuple[int, int] = (640, 480),
         fps: int = 30,
         depth_mode: str = "PERFORMANCE",
+        depth_feature_dim: int = 132,
     ):
         """Initialize ZED camera.
 
@@ -36,6 +35,7 @@ class ZedCamera:
             resolution: Camera resolution (width, height). Default (640, 480)
             fps: Frames per second. Default 30
             depth_mode: Depth mode ("PERFORMANCE", "QUALITY", "ULTRA"). Default "PERFORMANCE"
+            depth_feature_dim: Number of depth features to extract. Default 132
 
         Raises:
             RuntimeError: If camera initialization fails
@@ -43,8 +43,7 @@ class ZedCamera:
         self.resolution = resolution
         self.fps = fps
         self.depth_mode = depth_mode
-        # Use NUM_SCAN (132) from training format, not configurable depth_feature_dim
-        self.depth_feature_dim = NUM_SCAN  # Always 132 to match training format
+        self.depth_feature_dim = depth_feature_dim
 
         self.camera = None
         self.initialized = False
@@ -74,6 +73,7 @@ class ZedCamera:
                 "Install pyzed and ensure ZED SDK is installed on the system."
             ) from e
 
+        try:
             # Create camera object
             self.camera = self._zed_module.Camera()
 
@@ -87,7 +87,7 @@ class ZedCamera:
 
             init_params.camera_fps = self.fps
             init_params.depth_mode = getattr(
-                self._zed_module.DEPTH_MODE, depth_mode, self._zed_module.DEPTH_MODE.PERFORMANCE
+                self._zed_module.DEPTH_MODE, self.depth_mode, self._zed_module.DEPTH_MODE.PERFORMANCE
             )
             init_params.coordinate_units = self._zed_module.UNIT.METER
             init_params.coordinate_system = self._zed_module.COORDINATE_SYSTEM.RIGHT_HANDED_Y_UP
@@ -202,45 +202,36 @@ class ZedCamera:
         return True
 
     def _extract_depth_features(self, depth_frame: np.ndarray) -> np.ndarray:
-        """Extract depth features from depth frame matching training format.
+        """Extract depth features from depth frame.
 
-        Training uses 132 height scan features from ray-casting:
-        - Formula: clip(camera_z - hit_z - 0.3, -1, 1)
-        - 132 features from ray scanner measurements
-        - Normalized to [-1, 1] range
-
-        For ZED camera, we simulate ray-casting by:
-        1. Sampling 132 points from depth image (ray-like pattern)
+        Simulates ray-casting by:
+        1. Sampling points from depth image (ray-like pattern)
         2. Converting depth to height measurements (relative to camera)
-        3. Applying same normalization as training: clip(height - 0.3, -1, 1)
+        3. Applying normalization: clip(height - 0.3, -1, 1)
 
         Args:
             depth_frame: Depth frame (height, width) in meters
 
         Returns:
-            Depth features as float32 array of shape (132,) matching training format
+            Depth features as float32 array of shape (depth_feature_dim,)
         """
-        from compute.parkour.types import NUM_SCAN
-
         height, width = depth_frame.shape
 
-        # Training uses 132 scan features (NUM_SCAN = 132)
-        # These are height measurements from ray-casting
-        num_features = NUM_SCAN  # 132 (already imported at module level)
+        # Number of features to extract (configurable)
+        num_features = self.depth_feature_dim
 
-        # Sample 132 points from depth image to simulate ray-casting
+        # Sample points from depth image to simulate ray-casting
         # Use a pattern that covers the field of view (similar to ray scanner)
         # For a typical ray scanner, rays are cast in a fan pattern
         # We'll sample points in a grid pattern that covers the image
 
-        # Calculate sampling pattern (11x12 grid = 132 points, or similar)
-        # Use a pattern that samples from center outward (like ray scanner)
-        features = np.zeros(num_features, dtype=np.float32)
+        # Calculate sampling pattern dynamically based on num_features
+        # Find grid dimensions that approximate num_features
+        # Use approximate square root to get roughly square grid
+        grid_rows = int(np.sqrt(num_features))
+        grid_cols = (num_features + grid_rows - 1) // grid_rows  # Ceiling division
 
-        # Sample points in a pattern that mimics ray-casting
-        # Option 1: Grid sampling
-        grid_rows = 11  # Approximate square root
-        grid_cols = 12  # 11*12 = 132
+        features = np.zeros(num_features, dtype=np.float32)
 
         row_indices = np.linspace(0, height - 1, grid_rows, dtype=np.int32)
         col_indices = np.linspace(0, width - 1, grid_cols, dtype=np.int32)
@@ -264,9 +255,9 @@ class ZedCamera:
                     features[idx] = np.clip(height_measurement, -1.0, 1.0)
                     idx += 1
 
-        # Ensure we have exactly 132 features
+        # Ensure we have exactly num_features
         if idx < num_features:
-            # Pad with zeros if needed (shouldn't happen with 11x12 grid)
+            # Pad with zeros if needed (shouldn't happen with correct grid calculation)
             features[idx:] = 0.0
 
         return features.astype(np.float32)
@@ -277,7 +268,7 @@ class ZedCamera:
         Captures depth frame, validates, extracts features, and returns feature array.
 
         Returns:
-            Depth features as float32 array of shape (NUM_SCAN,), or None if capture/processing fails
+            Depth features as float32 array of shape (depth_feature_dim,), or None if capture/processing fails
         """
         # Capture depth frame
         depth_frame = self.capture_depth_frame()
@@ -331,6 +322,7 @@ def create_zed_camera(
     resolution: tuple[int, int] = (640, 480),
     fps: int = 30,
     depth_mode: str = "PERFORMANCE",
+    depth_feature_dim: int = 132,
 ) -> Optional[ZedCamera]:
     """Factory function to create ZED camera with error handling.
 
@@ -338,7 +330,7 @@ def create_zed_camera(
         resolution: Camera resolution (width, height)
         fps: Frames per second
         depth_mode: Depth mode
-        depth_feature_dim: Expected depth feature dimension
+        depth_feature_dim: Expected depth feature dimension. Default 132
 
     Returns:
         ZedCamera instance if successful, None if initialization fails
@@ -348,6 +340,7 @@ def create_zed_camera(
             resolution=resolution,
             fps=fps,
             depth_mode=depth_mode,
+            depth_feature_dim=depth_feature_dim,
         )
         return camera
     except RuntimeError as e:

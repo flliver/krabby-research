@@ -8,7 +8,14 @@ import numpy as np
 
 from hal.server import HalServerBase, HalServerConfig
 from hal.client.data_structures.hardware import KrabbyHardwareObservations
-from locomotion.jetson.camera import ZedCamera, create_zed_camera  # Keep this import - camera is still in locomotion
+from hal.server.jetson.camera import ZedCamera, create_zed_camera
+
+# Import model-specific constant here (HAL server knows about model requirements)
+try:
+    from compute.parkour.parkour_types import NUM_SCAN
+except ImportError:
+    # Fallback if parkour package not available (for testing)
+    NUM_SCAN = 132
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +43,6 @@ class JetsonHalServer(HalServerBase):
         super().__init__(config)
         self.camera_resolution = camera_resolution
         self.camera_fps = camera_fps
-        # depth_feature_dim is now fixed to NUM_SCAN (132) to match training format
         self.zed_camera: Optional[ZedCamera] = None
         self.state_source = None  # IMU/encoders (placeholder, real implementation in future)
         self.actuator_sink = None  # Motors (placeholder, real implementation in future)
@@ -54,6 +60,7 @@ class JetsonHalServer(HalServerBase):
             resolution=self.camera_resolution,
             fps=self.camera_fps,
             depth_mode="PERFORMANCE",
+            depth_feature_dim=NUM_SCAN,  # Use model-specific constant (132 for parkour)
         )
 
         if self.zed_camera is None:
@@ -231,60 +238,45 @@ class JetsonHalServer(HalServerBase):
         except Exception as e:
             logger.error(f"Error publishing telemetry: {e}", exc_info=True)
 
-    def move(self, joint_positions: Optional[np.ndarray] = None) -> bool:
-        """Move robot joints to specified positions.
+    def apply_command(self) -> None:
+        """Apply joint command from transport layer to actuators.
         
-        Renamed from apply_joint_command() to use verb-free naming.
-        Gets command from transport layer and applies to actuators.
-        
-        This is a placeholder that:
+        Gets the latest joint command from the transport layer and applies it
+        to the robot actuators. Currently a placeholder that:
         - Stores the command for state echo
         - Logs the command with timestamp
         - Does not actually apply to motors (placeholder for future implementation)
         
-        Args:
-            joint_positions: Optional joint positions array (shape: (ACTION_DIM,)).
-                If None, gets command from transport layer.
-        
-        Returns:
-            True if command applied successfully, False otherwise
+        Raises:
+            RuntimeError: If no command received from transport layer
         """
         import time
 
-        try:
-            # Get command from transport if not provided
-            if joint_positions is None:
-                command = self.get_joint_command(timeout_ms=10)
-                if command is None:
-                    return False
-            else:
-                command = joint_positions
+        # Get command instance (includes timestamp and metadata)
+        command_instance = self.get_joint_command(timeout_ms=10)
+        if command_instance is None:
+            raise RuntimeError("No command received from transport layer")
 
-            # Store command for state echo (placeholder: echo joint state from last commanded targets)
-            self._last_joint_positions = command.copy()
-            self._action_dim = len(command)
+        # Extract joint positions array from command
+        command = command_instance.joint_positions
 
-            # Log command with timestamp (as specified in requirements)
-            timestamp_ns = time.time_ns()
-            logger.info(
-                f"[JOINT COMMAND] timestamp={timestamp_ns}, "
-                f"joint_pos={command.tolist()}, "
-                f"shape={command.shape}, "
-                f"dtype={command.dtype}"
-            )
+        # Store command for state echo (placeholder: echo joint state from last commanded targets)
+        self._last_joint_positions = command.copy()
+        self._action_dim = len(command)
 
-            # Apply to actuators (placeholder, real implementation in future)
-            # Example:
-            # if self.actuator_sink is not None:
-            #     self.actuator_sink.set_joint_positions(command)
-            #     return True
+        # Log command with timestamp (as specified in requirements)
+        timestamp_ns = time.time_ns()
+        logger.info(
+            f"[JOINT COMMAND] timestamp={timestamp_ns}, "
+            f"joint_pos={command.tolist()}, "
+            f"shape={command.shape}, "
+            f"dtype={command.dtype}"
+        )
 
-            # Command is logged and stored for state echo
-            return True
-
-        except Exception as e:
-            logger.error(f"Error applying joint command: {e}")
-            return False
+        # Apply to actuators (placeholder, real implementation in future)
+        # Example:
+        # if self.actuator_sink is not None:
+        #     self.actuator_sink.set_joint_positions(command)
 
     def close(self) -> None:
         """Close camera and all server resources."""

@@ -1,18 +1,13 @@
-"""Simple joystick client for sending navigation commands to hal.
+"""Joystick teleoperation tool for controlling robot via navigation commands.
 
-This script provides a simple interface for joystick input to control the robot
-via navigation commands (vx, vy, yaw_rate) sent to the HAL client.
+This tool provides keyboard and gamepad interfaces for sending navigation commands
+to control any robot running with a ParkourInferenceClient.
 
-Usage:
-    python locomotion/jetson/joystick_client.py \
-        --observation_endpoint tcp://localhost:6001 \
-        --command_endpoint tcp://localhost:6002
+Usage with keyboard:
+    python -m hal.tools.joystick_teleoperation --keyboard
 
-For keyboard input (development/testing):
-    python locomotion/jetson/joystick_client.py --keyboard
-
-For gamepad/joystick input (requires pygame):
-    python locomotion/jetson/joystick_client.py --gamepad
+Usage with gamepad:
+    python -m hal.tools.joystick_teleoperation --gamepad
 """
 
 import argparse
@@ -21,8 +16,6 @@ import sys
 import time
 from typing import Optional
 
-from hal.client.client import HalClient
-from hal.client.config import HalClientConfig
 from hal.client.observation.types import NavigationCommand
 
 logging.basicConfig(
@@ -32,21 +25,27 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-class JoystickClient:
-    """Simple joystick client for sending navigation commands."""
+class JoystickTeleoperation:
+    """Joystick teleoperation for sending navigation commands.
 
-    def __init__(self, inference_runner=None):
-        """Initialize joystick client.
+    Can be used with keyboard or gamepad to control a robot via navigation commands.
+    """
+
+    def __init__(self, inference_client=None):
+        """Initialize joystick teleoperation.
 
         Args:
-            inference_runner: InferenceRunner instance to set navigation commands on.
+            inference_client: ParkourInferenceClient instance to send commands to.
                 If None, navigation commands will be logged but not sent.
         """
-        self.inference_runner = inference_runner
+        self.inference_client = inference_client
         self.running = False
+        self.vx = 0.0
+        self.vy = 0.0
+        self.yaw_rate = 0.0
 
     def run_keyboard(self) -> None:
-        """Run keyboard input loop (for development/testing).
+        """Run keyboard input loop.
 
         Controls:
         - W/S: Forward/backward (vx)
@@ -62,12 +61,13 @@ class JoystickClient:
             logger.error("termios not available (Windows?). Use --gamepad instead.")
             return
 
-        logger.info("Keyboard controls:")
+        logger.info("Keyboard teleoperation controls:")
         logger.info("  W/S: Forward/backward (vx)")
         logger.info("  A/D: Left/right (vy)")
         logger.info("  Q/E: Rotate left/right (yaw_rate)")
         logger.info("  Space: Stop")
         logger.info("  Esc: Exit")
+        logger.info("")
         logger.info("Press any key to start...")
 
         # Set terminal to raw mode
@@ -77,9 +77,6 @@ class JoystickClient:
             tty.setraw(fd)
 
             self.running = True
-            vx = 0.0
-            vy = 0.0
-            yaw_rate = 0.0
             step = 0.1  # Velocity step size
 
             while self.running:
@@ -91,27 +88,24 @@ class JoystickClient:
                     self.running = False
                     break
                 elif char == "w" or char == "W":
-                    vx = min(vx + step, 1.0)
+                    self.vx = min(self.vx + step, 1.0)
                 elif char == "s" or char == "S":
-                    vx = max(vx - step, -1.0)
+                    self.vx = max(self.vx - step, -1.0)
                 elif char == "a" or char == "A":
-                    vy = min(vy + step, 1.0)
+                    self.vy = min(self.vy + step, 1.0)
                 elif char == "d" or char == "D":
-                    vy = max(vy - step, -1.0)
+                    self.vy = max(self.vy - step, -1.0)
                 elif char == "q" or char == "Q":
-                    yaw_rate = min(yaw_rate + step, 1.0)
+                    self.yaw_rate = min(self.yaw_rate + step, 1.0)
                 elif char == "e" or char == "E":
-                    yaw_rate = max(yaw_rate - step, -1.0)
+                    self.yaw_rate = max(self.yaw_rate - step, -1.0)
                 elif char == " ":  # Space
-                    vx = 0.0
-                    vy = 0.0
-                    yaw_rate = 0.0
+                    self.vx = 0.0
+                    self.vy = 0.0
+                    self.yaw_rate = 0.0
 
                 # Send navigation command
-                nav_cmd = NavigationCommand.create_now(vx=vx, vy=vy, yaw_rate=yaw_rate)
-                if self.inference_runner:
-                    self.inference_runner.set_navigation_command(nav_cmd)
-                logger.info(f"Command: vx={vx:.2f}, vy={vy:.2f}, yaw_rate={yaw_rate:.2f}")
+                self._send_command()
 
                 time.sleep(0.05)  # Small delay to avoid flooding
 
@@ -123,6 +117,12 @@ class JoystickClient:
         """Run gamepad/joystick input loop.
 
         Requires pygame library.
+
+        Controls:
+        - Left stick Y: Forward/backward (vx)
+        - Left stick X: Left/right (vy)
+        - Right stick X: Rotate (yaw_rate)
+        - Start button: Exit
         """
         try:
             import pygame
@@ -145,7 +145,7 @@ class JoystickClient:
         joystick.init()
         logger.info(f"Using joystick: {joystick.get_name()}")
 
-        logger.info("Gamepad controls:")
+        logger.info("Gamepad teleoperation controls:")
         logger.info("  Left stick Y: Forward/backward (vx)")
         logger.info("  Left stick X: Left/right (vy)")
         logger.info("  Right stick X: Rotate (yaw_rate)")
@@ -169,48 +169,66 @@ class JoystickClient:
                 break
 
             # Read joystick axes
-            # Left stick (axes 0, 1): vx, vy
+            # Left stick (axes 0, 1): vy, vx
             # Right stick (axes 2, 3): yaw_rate (use axis 2)
-            vx = -joystick.get_axis(1)  # Invert Y axis (up = forward)
-            vy = joystick.get_axis(0)  # X axis (left/right)
-            yaw_rate = joystick.get_axis(2)  # Right stick X (rotation)
+            self.vx = -joystick.get_axis(1)  # Invert Y axis (up = forward)
+            self.vy = joystick.get_axis(0)  # X axis (left/right)
+            self.yaw_rate = joystick.get_axis(2)  # Right stick X (rotation)
 
             # Apply dead zone
             dead_zone = 0.1
-            if abs(vx) < dead_zone:
-                vx = 0.0
-            if abs(vy) < dead_zone:
-                vy = 0.0
-            if abs(yaw_rate) < dead_zone:
-                yaw_rate = 0.0
+            if abs(self.vx) < dead_zone:
+                self.vx = 0.0
+            if abs(self.vy) < dead_zone:
+                self.vy = 0.0
+            if abs(self.yaw_rate) < dead_zone:
+                self.yaw_rate = 0.0
 
             # Send navigation command
-            nav_cmd = NavigationCommand.create_now(vx=vx, vy=vy, yaw_rate=yaw_rate)
-            if self.inference_runner:
-                self.inference_runner.set_navigation_command(nav_cmd)
+            self._send_command()
 
             # Limit update rate to 20 Hz (joystick polling)
             clock.tick(20)
 
         pygame.quit()
 
+    def _send_command(self) -> None:
+        """Send current navigation command to inference client."""
+        nav_cmd = NavigationCommand.create_now(
+            vx=self.vx,
+            vy=self.vy,
+            yaw_rate=self.yaw_rate,
+        )
+
+        if self.inference_client:
+            self.inference_client.set_navigation_command(nav_cmd)
+
+        logger.info(
+            f"Nav command: vx={self.vx:+.2f}, vy={self.vy:+.2f}, "
+            f"yaw_rate={self.yaw_rate:+.2f}"
+        )
+
     def stop(self) -> None:
-        """Stop the joystick client."""
+        """Stop the teleoperation interface."""
         self.running = False
 
 
 def main():
-    """Main entry point for joystick client.
-    
-    Note: This client now requires an InferenceRunner instance to be passed.
-    For standalone use, the joystick client should be integrated into the
-    inference runner or use a shared state mechanism.
+    """Main entry point for joystick teleoperation tool.
+
+    Note: This tool requires a ParkourInferenceClient instance to send commands.
+    For standalone testing, commands are logged but not sent to any robot.
+
+    To integrate with a running system, import this class and pass your
+    ParkourInferenceClient instance to the constructor.
     """
-    parser = argparse.ArgumentParser(description="Joystick client for navigation commands")
+    parser = argparse.ArgumentParser(
+        description="Joystick teleoperation for robot navigation commands"
+    )
     parser.add_argument(
         "--keyboard",
         action="store_true",
-        help="Use keyboard input (for development/testing)",
+        help="Use keyboard input (default)",
     )
     parser.add_argument(
         "--gamepad",
@@ -223,31 +241,28 @@ def main():
     # Default to keyboard if no input method specified
     use_keyboard = args.keyboard or (not args.gamepad)
 
-    # Note: JoystickClient now requires an InferenceRunner instance
-    # For standalone use, integrate joystick input into the inference runner
-    logger.warning(
-        "JoystickClient now requires an InferenceRunner instance. "
-        "For standalone use, integrate joystick input into the inference runner."
-    )
-    
-    # Create joystick client without inference runner (commands will be logged only)
-    joystick_client = JoystickClient(inference_runner=None)
-    
+    logger.info("Starting joystick teleoperation in standalone mode")
+    logger.info("Note: No inference client connected - commands will be logged only")
+    logger.info("To control a robot, integrate this tool with ParkourInferenceClient")
+    logger.info("")
+
+    # Create teleoperation interface without inference client (standalone mode)
+    teleop = JoystickTeleoperation(inference_client=None)
+
     try:
         # Run input loop
         if use_keyboard:
-            joystick_client.run_keyboard()
+            teleop.run_keyboard()
         else:
-            joystick_client.run_gamepad()
+            teleop.run_gamepad()
 
     except KeyboardInterrupt:
         logger.info("Interrupted by user")
     except Exception as e:
         logger.error(f"Error: {e}", exc_info=True)
     finally:
-        logger.info("Joystick client closed")
+        logger.info("Joystick teleoperation closed")
 
 
 if __name__ == "__main__":
     main()
-

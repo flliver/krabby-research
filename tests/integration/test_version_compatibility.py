@@ -9,7 +9,7 @@ from hal.client.client import HalClient
 from hal.server import HalServerBase
 from hal.client.config import HalClientConfig, HalServerConfig
 from hal.client.observation.types import NavigationCommand
-from compute.parkour.types import ParkourObservation, OBS_DIM
+from compute.parkour.parkour_types import ParkourObservation, OBS_DIM
 from hal.client.data_structures.hardware import KrabbyHardwareObservations
 from tests.helpers import create_dummy_hw_obs
 
@@ -81,7 +81,7 @@ def test_forward_compatibility_unknown_fields():
 def test_action_dim_mismatch_detection():
     """Test action_dim mismatch detection."""
     import torch
-    from compute.parkour.types import InferenceResponse
+    from compute.parkour.parkour_types import InferenceResponse
 
     # Create inference response with wrong action_dim
     action_wrong = torch.tensor([0.0] * 10, dtype=torch.float32)  # 10 instead of 12
@@ -105,7 +105,7 @@ def test_action_dim_mismatch_detection():
 
 def test_schema_version_compatibility_check():
     """Test schema version compatibility checking."""
-    from compute.parkour.types import ParkourModelIO
+    from compute.parkour.parkour_types import ParkourModelIO
     from hal.client.observation.types import NavigationCommand
 
     # Create components with same schema version

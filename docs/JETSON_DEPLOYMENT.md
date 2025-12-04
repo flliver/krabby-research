@@ -126,7 +126,7 @@ Verify that checkpoints can be loaded on Jetson:
 docker run --rm --gpus all \
     -v /path/to/checkpoints:/workspace/checkpoints \
     krabby-testing-arm:latest \
-    python locomotion/jetson/test_checkpoint_loading.py \
+    python compute/parkour/test_checkpoint_loading.py \
         --checkpoint /workspace/checkpoints/unitree_go2_parkour_teacher.pt \
         --action_dim 12 \
         --obs_dim 753 \
@@ -141,7 +141,7 @@ Measure inference latency to ensure it meets real-time requirements (< 15ms):
 docker run --rm --gpus all \
     -v /path/to/checkpoints:/workspace/checkpoints \
     krabby-testing-arm:latest \
-    python locomotion/jetson/benchmark_inference.py \
+    python compute/parkour/benchmark_inference.py \
         --checkpoint /workspace/checkpoints/unitree_go2_parkour_teacher.pt \
         --action_dim 12 \
         --obs_dim 753 \

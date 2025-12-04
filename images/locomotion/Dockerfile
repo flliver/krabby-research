@@ -49,15 +49,9 @@ RUN pip3 install --no-cache-dir -r /tmp/requirements.txt
 COPY hal/client/dist/*.whl /tmp/wheels/
 COPY hal/server/dist/*.whl /tmp/wheels/
 COPY hal/server/jetson/dist/*.whl /tmp/wheels/
+COPY compute/parkour/dist/*.whl /tmp/wheels/
 # Note: hal/tools is excluded by default (only install when needed for debugging)
 RUN bash -c "pip3 install --no-cache-dir /tmp/wheels/*.whl"
-
-# Copy remaining code that's not in wheels
-# Copy compute/parkour/ (policy wrapper and inference logic)
-COPY compute/ /workspace/compute/
-
-# Copy locomotion/jetson/ (HAL server and production runtime)
-COPY locomotion/ /workspace/locomotion/
 
 # Copy parkour/ (custom RSL-RL extensions)
 # Note: policy_interface.py imports directly from parkour.scripts.rsl_rl, so we need the full path
@@ -66,9 +60,9 @@ COPY parkour/ /workspace/parkour/
 # Set Python path
 ENV PYTHONPATH=/workspace
 
-# Set entrypoint to production main.py
-# This runs the InferenceRunner which coordinates HAL server and policy inference
-ENTRYPOINT ["python3", "locomotion/jetson/main.py"]
+# Set entrypoint to HAL server with integrated inference
+# This runs both Jetson HAL server and policy inference in the same process
+ENTRYPOINT ["python3", "-m", "hal.server.jetson.main"]
 
 # Default arguments (can be overridden at runtime)
 # Users should provide: --checkpoint, --action_dim, --obs_dim

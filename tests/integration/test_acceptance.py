@@ -20,7 +20,7 @@ from hal.client.client import HalClient
 from hal.server import HalServerBase
 from hal.client.config import HalClientConfig, HalServerConfig
 from hal.client.observation.types import NavigationCommand
-from compute.parkour.types import ParkourObservation, OBS_DIM
+from compute.parkour.parkour_types import ParkourObservation, OBS_DIM
 from compute.parkour.policy_interface import ModelWeights, ParkourPolicyModel
 from compute.testing.inference_test_runner import InferenceTestRunner
 from tests.helpers import create_dummy_hw_obs
@@ -116,7 +116,7 @@ class ProtoHalServer(HalServerBase):
         Note: This method name is kept for backward compatibility in tests.
         It calls set_observation() on the base class.
         """
-        from compute.parkour.types import OBS_DIM
+        from compute.parkour.parkour_types import OBS_DIM
 
         # Create synthetic observation in training format
         obs_array = np.zeros(OBS_DIM, dtype=np.float32)
@@ -239,7 +239,7 @@ def test_100_tick_execution_with_proto_hal(proto_hal_setup):
             self.inference_count = 0
 
         def inference(self, model_io):
-            from compute.parkour.types import InferenceResponse
+            from compute.parkour.parkour_types import InferenceResponse
 
             self.inference_count += 1
             # Return zero action tensor
@@ -325,7 +325,7 @@ def test_inference_latency_requirement(proto_hal_setup):
             self.latencies = []
 
         def inference(self, model_io):
-            from compute.parkour.types import InferenceResponse
+            from compute.parkour.parkour_types import InferenceResponse
 
             start_time = time.time_ns()
             # Simulate inference time

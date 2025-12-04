@@ -242,7 +242,7 @@ def test_schema_version_validation():
     time.sleep(0.1)
 
     # Send message with unsupported schema version
-    from compute.parkour.types import OBS_DIM
+    from compute.parkour.parkour_types import OBS_DIM
     
     context = zmq.Context()
     publisher = context.socket(zmq.PUB)
@@ -270,7 +270,7 @@ def test_schema_version_validation():
 def test_required_fields_validation():
     """Test validation of required fields."""
     from hal.client.observation.types import NavigationCommand
-    from compute.parkour.types import ParkourModelIO, ParkourObservation, OBS_DIM
+    from compute.parkour.parkour_types import ParkourModelIO, ParkourObservation, OBS_DIM
 
     # Test that incomplete model_io is rejected
     incomplete_io = ParkourModelIO(

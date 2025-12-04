@@ -1,4 +1,4 @@
-"""Script to benchmark inference latency on Jetson.
+"""Script to benchmark inference latency.
 
 This script measures inference latency to ensure it meets real-time requirements (< 15ms target).
 """
@@ -14,7 +14,7 @@ import torch
 
 from compute.parkour.policy_interface import ModelWeights, ParkourPolicyModel
 from hal.client.observation.types import NavigationCommand
-from compute.parkour.types import ParkourModelIO, ParkourObservation, OBS_DIM
+from compute.parkour.parkour_types import ParkourModelIO, ParkourObservation, OBS_DIM
 
 logging.basicConfig(
     level=logging.INFO,
@@ -165,7 +165,7 @@ def benchmark_inference(
 
 def main():
     """Main entry point."""
-    parser = argparse.ArgumentParser(description="Benchmark inference latency on Jetson")
+    parser = argparse.ArgumentParser(description="Benchmark inference latency")
     parser.add_argument("--checkpoint", type=str, required=True, help="Path to checkpoint file")
     parser.add_argument("--action_dim", type=int, required=True, help="Action dimension")
     parser.add_argument("--obs_dim", type=int, required=True, help="Observation dimension")

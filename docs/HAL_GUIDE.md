@@ -68,7 +68,7 @@ This is the format sent to the HAL server via `put_joint_command()`.
 
 ## Model-Specific Types
 
-Model-specific types (ParkourObservation, ParkourModelIO, InferenceResponse, etc.) are located in `compute.parkour.types`. These are used by the policy inference code, not by the HAL client/server directly.
+Model-specific types (ParkourObservation, ParkourModelIO, InferenceResponse, etc.) are located in `compute.parkour.parkour_types`. These are used by the policy inference code, not by the HAL client/server directly.
 
 ### NavigationCommand
 
@@ -200,7 +200,7 @@ The HAL client sends joint commands via `put_joint_command()`, which accepts a `
 - Joint positions within limits
 - Velocity limits (change from previous command)
 
-**Note**: Model-specific types like `InferenceResponse` are in `compute.parkour.types`. The policy inference code uses mappers (`compute.parkour.mappers.model_to_hardware`) to convert model outputs to `KrabbyDesiredJointPositions` before sending via HAL.
+**Note**: Model-specific types like `InferenceResponse` are in `compute.parkour.parkour_types`. The policy inference code uses mappers (`compute.parkour.mappers.model_to_hardware`) to convert model outputs to `KrabbyDesiredJointPositions` before sending via HAL.
 
 ## Endpoints
 
@@ -243,7 +243,7 @@ from hal.client.data_structures.hardware import KrabbyDesiredJointPositions
 from hal.client.observation.types import NavigationCommand
 from compute.parkour.mappers.hardware_to_model import KrabbyHWObservationsToParkourMapper
 from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToKrabbyHWMapper
-from compute.parkour.types import ParkourModelIO
+from compute.parkour.parkour_types import ParkourModelIO
 
 # Initialize client
 config = HalClientConfig(

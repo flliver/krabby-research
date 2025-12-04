@@ -12,7 +12,7 @@ from hal.client.config import HalClientConfig
 from hal.server import HalServerConfig
 from hal.client.data_structures.hardware import KrabbyHardwareObservations
 from hal.client.observation.types import NavigationCommand
-from compute.parkour.types import ParkourModelIO
+from compute.parkour.parkour_types import ParkourModelIO
 from tests.helpers import create_dummy_hw_obs
 
 
@@ -161,7 +161,7 @@ def test_hal_client_put_joint_command():
     time.sleep(0.1)
 
     # Create inference response and map to hardware joint positions
-    from compute.parkour.types import InferenceResponse
+    from compute.parkour.parkour_types import InferenceResponse
     from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToKrabbyHWMapper
 
     action_tensor = torch.tensor([0.1, 0.2, 0.3] + [0.0] * 9, dtype=torch.float32)  # 12 DOF
@@ -192,7 +192,8 @@ def test_hal_client_put_joint_command():
     received = received_command[0]
     assert received is not None
     # Should receive the mapped joint positions (18 DOF)
-    np.testing.assert_array_equal(received, joint_positions.joint_positions)
+    # received is a KrabbyDesiredJointPositions object, access joint_positions attribute
+    np.testing.assert_array_equal(received.joint_positions, joint_positions.joint_positions)
 
     client.close()
     server.close()

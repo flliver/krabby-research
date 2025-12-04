@@ -88,9 +88,9 @@ krabby-research/
 ├── locomotion/                       # Production runtime
 │   ├── jetson/                       # Jetson-specific runtime
 │   │   ├── inference_runner.py       # Production inference orchestration
-│   │   ├── camera.py                 # ZED camera integration
 │   │   └── main.py                   # Production entry point (runs inference + HAL server on Jetson)
 │   │                                 # Note: JetsonHalServer is in hal/server/jetson/hal_server.py
+│   │                                 # Note: ZED camera integration is in hal/server/jetson/camera.py
 │   └── isaacsim/                     # IsaacSim runtime
 │       └── main.py                   # IsaacSim entry point
 │
@@ -151,6 +151,7 @@ The HAL packages are organized with a clean directory structure that matches the
   
 - **`hal/server/jetson/`**: Jetson HAL server package (package name: `krabby-hal-server-jetson`, installed via wheel)
   - `hal/server/jetson/hal_server.py`: JetsonHalServer (extends HalServerBase)
+  - `hal/server/jetson/camera.py`: ZED camera integration for depth sensing
   - `hal/server/jetson/__init__.py`: Re-exports `JetsonHalServer` for cleaner imports
   
 - **`hal/tools/`**: HAL debugging tools package (package name: `krabby-hal-tools`, installed via wheel)
@@ -172,7 +173,7 @@ from hal.client.data_structures.hardware import (
 )
 
 # Model-specific types (Parkour)
-from compute.parkour.types import (
+from compute.parkour.parkour_types import (
     ParkourObservation,
     ParkourModelIO,
     InferenceResponse,

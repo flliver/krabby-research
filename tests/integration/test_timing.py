@@ -29,7 +29,7 @@ class SlowInferenceModel:
         time.sleep(inference_time_ms / 1000.0)
         self.inference_count += 1
 
-        from compute.parkour.types import InferenceResponse
+        from compute.parkour.parkour_types import InferenceResponse
         import torch
 
         action_tensor = torch.zeros(self.action_dim, dtype=torch.float32)
@@ -54,7 +54,7 @@ class FastInferenceModel:
         time.sleep(inference_time_ms / 1000.0)
         self.inference_count += 1
 
-        from compute.parkour.types import InferenceResponse
+        from compute.parkour.parkour_types import InferenceResponse
         import torch
 
         action_tensor = torch.zeros(self.action_dim, dtype=torch.float32)

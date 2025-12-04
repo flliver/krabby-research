@@ -12,7 +12,7 @@ from hal.client.client import HalClient
 from hal.server import HalServerBase
 from hal.client.config import HalClientConfig, HalServerConfig
 from hal.client.observation.types import NavigationCommand
-from compute.parkour.types import OBS_DIM
+from compute.parkour.parkour_types import OBS_DIM
 from hal.client.data_structures.hardware import KrabbyHardwareObservations
 from compute.testing.inference_test_runner import InferenceTestRunner
 from tests.helpers import create_dummy_hw_obs
@@ -134,7 +134,7 @@ class MockPolicyModel:
         time.sleep(self.inference_time_ms / 1000.0)  # Simulate inference time
         self.inference_count += 1
 
-        from compute.parkour.types import InferenceResponse
+        from compute.parkour.parkour_types import InferenceResponse
 
         # Return action tensor directly (matching inference output format)
         action = torch.zeros(self.action_dim, dtype=torch.float32)
@@ -229,7 +229,7 @@ def test_game_loop_observation_tensor_correctness(hal_setup):
     - View methods correctly extract each component
     - Data type is float32
     """
-    from compute.parkour.types import (
+    from compute.parkour.parkour_types import (
         NUM_PROP,
         NUM_SCAN,
         NUM_PRIV_EXPLICIT,

@@ -2,7 +2,6 @@
 
 import logging
 import time
-from typing import Optional
 
 import numpy as np
 import torch
@@ -111,169 +110,150 @@ class IsaacSimHalServer(HalServerBase):
         if self.robot is None:
             raise RuntimeError("Robot not available, cannot set observation")
 
-        try:
-            # Extract joint positions from robot
-            joint_positions = np.zeros(18, dtype=np.float32)
-            if hasattr(self.robot, 'data') and hasattr(self.robot.data, 'joint_pos'):
-                joint_pos = self.robot.data.joint_pos
-                if isinstance(joint_pos, torch.Tensor):
-                    # Handle batched data (num_envs, num_joints) - take first environment
-                    if joint_pos.ndim == 2:
-                        joint_pos = joint_pos[0]
-                    joint_pos = joint_pos.cpu().numpy()
-                num_joints = min(len(joint_pos), 18)
-                joint_positions[:num_joints] = joint_pos[:num_joints].astype(np.float32)
+        # Extract joint positions from robot
+        joint_positions = np.zeros(18, dtype=np.float32)
+        if hasattr(self.robot, 'data') and hasattr(self.robot.data, 'joint_pos'):
+            joint_pos = self.robot.data.joint_pos
+            if isinstance(joint_pos, torch.Tensor):
+                # Handle batched data (num_envs, num_joints) - take first environment
+                if joint_pos.ndim == 2:
+                    joint_pos = joint_pos[0]
+                joint_pos = joint_pos.cpu().numpy()
+            num_joints = min(len(joint_pos), 18)
+            joint_positions[:num_joints] = joint_pos[:num_joints].astype(np.float32)
 
-            # Extract camera data from sensors
-            camera_height, camera_width = 480, 640
-            rgb_camera_1 = np.zeros((camera_height, camera_width, 3), dtype=np.uint8)
-            rgb_camera_2 = np.zeros((camera_height, camera_width, 3), dtype=np.uint8)
-            depth_map = np.zeros((camera_height, camera_width), dtype=np.float32)
-            confidence_map = np.ones((camera_height, camera_width), dtype=np.float32)
+        # Extract camera data from sensors
+        camera_height, camera_width = 480, 640
+        rgb_camera_1 = np.zeros((camera_height, camera_width, 3), dtype=np.uint8)
+        rgb_camera_2 = np.zeros((camera_height, camera_width, 3), dtype=np.uint8)
+        depth_map = np.zeros((camera_height, camera_width), dtype=np.float32)
+        confidence_map = np.ones((camera_height, camera_width), dtype=np.float32)
 
-            # Try to get depth data from camera sensors
-            camera_list = list(self.camera_sensors.values()) if self.camera_sensors else []
-            
-            if len(camera_list) > 0:
-                # Get depth from first camera
-                camera_0 = camera_list[0]
-                if hasattr(camera_0, 'data') and hasattr(camera_0.data, 'output'):
-                    # Try different depth output formats
-                    depth_data = None
-                    if 'distance_to_camera' in camera_0.data.output:
-                        depth_data = camera_0.data.output["distance_to_camera"]
-                    elif 'distance_to_image_plane' in camera_0.data.output:
-                        depth_data = camera_0.data.output["distance_to_image_plane"]
-                    
-                    if depth_data is not None:
-                        # Convert to numpy
-                        if isinstance(depth_data, torch.Tensor):
-                            # Handle batched data - take first environment
-                            if depth_data.ndim > 2:
-                                depth_data = depth_data[0]
-                            # Remove channel dimension if present
-                            if depth_data.ndim == 3 and depth_data.shape[-1] == 1:
-                                depth_data = depth_data.squeeze(-1)
-                            depth_np = depth_data.detach().cpu().numpy().astype(np.float32)
-                            
-                            # Resize if needed
-                            if depth_np.shape != (camera_height, camera_width):
-                                from scipy.ndimage import zoom
-                                zoom_factors = (camera_height / depth_np.shape[0], 
-                                              camera_width / depth_np.shape[1])
-                                depth_map = zoom(depth_np, zoom_factors, order=1).astype(np.float32)
-                            else:
-                                depth_map = depth_np
+        # Try to get depth data from camera sensors
+        camera_list = list(self.camera_sensors.values()) if self.camera_sensors else []
+        
+        if len(camera_list) > 0:
+            # Get depth from first camera
+            camera_0 = camera_list[0]
+            if hasattr(camera_0, 'data') and hasattr(camera_0.data, 'output'):
+                # Try different depth output formats
+                depth_data = None
+                if 'distance_to_camera' in camera_0.data.output:
+                    depth_data = camera_0.data.output["distance_to_camera"]
+                elif 'distance_to_image_plane' in camera_0.data.output:
+                    depth_data = camera_0.data.output["distance_to_image_plane"]
                 
-                # Try to get RGB from second camera or render product
-                if len(camera_list) > 1:
-                    camera_1 = camera_list[1]
-                    # Try to get RGB if available
-                    if hasattr(camera_1, 'data') and hasattr(camera_1.data, 'output'):
-                        if 'rgb' in camera_1.data.output:
-                            rgb_data = camera_1.data.output["rgb"]
-                            if isinstance(rgb_data, torch.Tensor):
-                                if rgb_data.ndim > 3:
-                                    rgb_data = rgb_data[0]
-                                rgb_np = rgb_data.detach().cpu().numpy()
-                                # Convert to uint8 if needed
-                                if rgb_np.dtype != np.uint8:
-                                    rgb_np = (rgb_np * 255).astype(np.uint8)
-                                if rgb_np.shape[:2] != (camera_height, camera_width):
-                                    from scipy.ndimage import zoom
-                                    zoom_factors = (camera_height / rgb_np.shape[0], 
-                                                  camera_width / rgb_np.shape[1], 1)
-                                    rgb_camera_2 = zoom(rgb_np, zoom_factors, order=1).astype(np.uint8)
-                                else:
-                                    rgb_camera_2 = rgb_np
-
-            # Try to get RGB from render product if available (for first camera)
-            if hasattr(self.env, 'render') and self.env.render_mode == "rgb_array":
-                try:
-                    rgb_data = self.env.render()
-                    if rgb_data is not None and rgb_data.size > 0:
-                        # rgb_data is typically (H, W, 3) uint8
-                        if rgb_data.shape[:2] != (camera_height, camera_width):
+                if depth_data is not None:
+                    # Convert to numpy
+                    if isinstance(depth_data, torch.Tensor):
+                        # Handle batched data - take first environment
+                        if depth_data.ndim > 2:
+                            depth_data = depth_data[0]
+                        # Remove channel dimension if present
+                        if depth_data.ndim == 3 and depth_data.shape[-1] == 1:
+                            depth_data = depth_data.squeeze(-1)
+                        depth_np = depth_data.detach().cpu().numpy().astype(np.float32)
+                        
+                        # Resize if needed
+                        if depth_np.shape != (camera_height, camera_width):
                             from scipy.ndimage import zoom
-                            zoom_factors = (camera_height / rgb_data.shape[0], 
-                                          camera_width / rgb_data.shape[1], 1)
-                            rgb_camera_1 = zoom(rgb_data, zoom_factors, order=1).astype(np.uint8)
+                            zoom_factors = (camera_height / depth_np.shape[0], 
+                                          camera_width / depth_np.shape[1])
+                            depth_map = zoom(depth_np, zoom_factors, order=1).astype(np.float32)
                         else:
-                            rgb_camera_1 = rgb_data.astype(np.uint8)
-                except Exception as e:
-                    logger.debug(f"Could not get RGB from render: {e}")
+                            depth_map = depth_np
+            
+            # Try to get RGB from second camera or render product
+            if len(camera_list) > 1:
+                camera_1 = camera_list[1]
+                # Try to get RGB if available
+                if hasattr(camera_1, 'data') and hasattr(camera_1.data, 'output'):
+                    if 'rgb' in camera_1.data.output:
+                        rgb_data = camera_1.data.output["rgb"]
+                        if isinstance(rgb_data, torch.Tensor):
+                            if rgb_data.ndim > 3:
+                                rgb_data = rgb_data[0]
+                            rgb_np = rgb_data.detach().cpu().numpy()
+                            # Convert to uint8 if needed
+                            if rgb_np.dtype != np.uint8:
+                                rgb_np = (rgb_np * 255).astype(np.uint8)
+                            if rgb_np.shape[:2] != (camera_height, camera_width):
+                                from scipy.ndimage import zoom
+                                zoom_factors = (camera_height / rgb_np.shape[0], 
+                                              camera_width / rgb_np.shape[1], 1)
+                                rgb_camera_2 = zoom(rgb_np, zoom_factors, order=1).astype(np.uint8)
+                            else:
+                                rgb_camera_2 = rgb_np
 
-            # Create hardware observation
-            hw_obs = KrabbyHardwareObservations(
-                joint_positions=joint_positions,
-                rgb_camera_1=rgb_camera_1,
-                rgb_camera_2=rgb_camera_2,
-                depth_map=depth_map,
-                confidence_map=confidence_map,
-                timestamp_ns=time.time_ns(),
-            )
+        # Try to get RGB from render product if available (for first camera)
+        if hasattr(self.env, 'render') and self.env.render_mode == "rgb_array":
+            try:
+                rgb_data = self.env.render()
+                if rgb_data is not None and rgb_data.size > 0:
+                    # rgb_data is typically (H, W, 3) uint8
+                    if rgb_data.shape[:2] != (camera_height, camera_width):
+                        from scipy.ndimage import zoom
+                        zoom_factors = (camera_height / rgb_data.shape[0], 
+                                      camera_width / rgb_data.shape[1], 1)
+                        rgb_camera_1 = zoom(rgb_data, zoom_factors, order=1).astype(np.uint8)
+                    else:
+                        rgb_camera_1 = rgb_data.astype(np.uint8)
+            except Exception as e:
+                logger.debug(f"Could not get RGB from render: {e}")
 
-            # Publish hardware observation via base-class publisher
-            super().set_observation(hw_obs)
+        # Create hardware observation
+        hw_obs = KrabbyHardwareObservations(
+            joint_positions=joint_positions,
+            rgb_camera_1=rgb_camera_1,
+            rgb_camera_2=rgb_camera_2,
+            depth_map=depth_map,
+            confidence_map=confidence_map,
+            timestamp_ns=time.time_ns(),
+        )
 
-        except Exception as e:
-            logger.error(f"Error setting observation: {e}", exc_info=True)
+        # Publish hardware observation via base-class publisher
+        super().set_observation(hw_obs)
 
 
-    def move(self, joint_positions: Optional[np.ndarray] = None) -> bool:
-        """Move robot joints to specified positions.
+    def apply_command(self) -> None:
+        """Apply joint command from transport layer to IsaacSim environment.
         
-        Renamed from apply_joint_command() to use verb-free naming.
-        Gets command from transport layer and applies to IsaacSim environment.
+        Gets the latest joint command from the transport layer and applies it
+        to the IsaacSim environment through the action manager.
         
-        Args:
-            joint_positions: Optional joint positions array (shape: (ACTION_DIM,)).
-                If None, gets command from transport layer.
-        
-        Returns:
-            True if command applied successfully, False otherwise
+        Raises:
+            RuntimeError: If environment or action manager not available
+            RuntimeError: If no command received from transport layer
         """
         if self.env is None:
-            raise RuntimeError("No environment set, cannot move robot")
+            raise RuntimeError("No environment set, cannot apply command")
 
         if self.action_manager is None:
-            raise RuntimeError("Action manager not available, cannot move robot")
+            raise RuntimeError("Action manager not available, cannot apply command")
 
-        try:
-            # Get command from transport if not provided
-            if joint_positions is None:
-                # Get command as NumPy array (already validated by base class)
-                command_array = self.get_joint_command(timeout_ms=10)
-                if command_array is None:
-                    return False
+        # Get command instance (includes timestamp and metadata)
+        command = self.get_joint_command(timeout_ms=10)
+        if command is None:
+            raise RuntimeError("No command received from transport layer")
 
-                # Convert NumPy array to tensor (zero-copy when array is C-contiguous float32)
-                # get_joint_command() returns a NumPy array from np.frombuffer(), which is
-                # already a zero-copy view of the bytes and is C-contiguous float32
-                command_tensor = torch.from_numpy(command_array).to(device=self.env.device, dtype=torch.float32)
-            else:
-                # Convert provided numpy array to tensor
-                if isinstance(joint_positions, np.ndarray):
-                    command_tensor = torch.from_numpy(joint_positions).to(device=self.env.device, dtype=torch.float32)
-                else:
-                    command_tensor = joint_positions
+        # Extract joint positions array from command
+        command_array = command.joint_positions
 
-            # Add batch dimension if needed (action_manager expects (num_envs, action_dim))
-            if command_tensor.ndim == 1:
-                command_tensor = command_tensor.unsqueeze(0)  # Shape: (1, ACTION_DIM)
+        # Convert NumPy array to tensor (zero-copy when array is C-contiguous float32)
+        # The joint_positions array from KrabbyDesiredJointPositions is already
+        # a zero-copy view of the bytes and is C-contiguous float32
+        command_tensor = torch.from_numpy(command_array).to(device=self.env.device, dtype=torch.float32)
 
-            # Process actions through action manager (same as training)
-            # This handles any preprocessing, clipping, etc.
-            # Note: process_action (singular) matches the API used in env.step()
-            self.action_manager.process_action(command_tensor)
+        # Add batch dimension if needed (action_manager expects (num_envs, action_dim))
+        if command_tensor.ndim == 1:
+            command_tensor = command_tensor.unsqueeze(0)  # Shape: (1, ACTION_DIM)
 
-            # Apply actions to set joint position targets (same as training)
-            # Note: apply_action (singular) matches the API used in env.step()
-            self.action_manager.apply_action()
+        # Process actions through action manager (same as training)
+        # This handles any preprocessing, clipping, etc.
+        # Note: process_action (singular) matches the API used in env.step()
+        self.action_manager.process_action(command_tensor)
 
-            return True
-
-        except Exception as e:
-            logger.error(f"Error moving robot: {e}", exc_info=True)
-            return False
+        # Apply actions to set joint position targets (same as training)
+        # Note: apply_action (singular) matches the API used in env.step()
+        self.action_manager.apply_action()
 

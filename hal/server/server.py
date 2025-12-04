@@ -175,11 +175,11 @@ class HalServerBase:
                 logger.debug("[ZMQ SEND] observation: buffer full (HWM reached), message dropped")
             logger.warning("Observation socket buffer full (HWM reached), message dropped")
 
-    def get_joint_command(self, timeout_ms: int = 100) -> Optional[np.ndarray]:
+    def get_joint_command(self, timeout_ms: int = 100) -> Optional["KrabbyDesiredJointPositions"]:
         """Get latest joint command from clients.
 
         Uses non-blocking poll to check for commands. If command received,
-        validates payload and sends acknowledgement.
+        validates payload and returns full command instance with timestamp and metadata.
 
         Runtime validation includes:
         - Payload size validation (must be multiple of 4 bytes for float32)
@@ -191,7 +191,8 @@ class HalServerBase:
             timeout_ms: Poll timeout in milliseconds (default 100ms)
 
         Returns:
-            Joint command as float32 array, or None if no command received or validation failed
+            KrabbyDesiredJointPositions instance with joint positions and timestamp,
+            or None if no command received or validation failed
 
         Raises:
             RuntimeError: If server not initialized
@@ -225,7 +226,7 @@ class HalServerBase:
                     f"timestamp_ns={command.timestamp_ns}"
                 )
 
-            return command.joint_positions
+            return command
 
         return None
 

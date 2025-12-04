@@ -5,7 +5,8 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "krabby-hal-server-jetson"
 version = "0.1.0"
-description = "HAL server implementation for Jetson"
+description = "HAL server implementation for Jetson with integrated inference"
+readme = "README.md"
 requires-python = ">=3.10"
 license = "Apache-2.0"
 authors = [
@@ -22,7 +23,8 @@ classifiers = [
 
 dependencies = [
     "krabby-hal-server>=0.1.0",
-    "krabby-hal-client>=0.1.0",  # For hal.observation.types
+    "krabby-hal-client>=0.1.0",
+    "krabby-compute-parkour>=0.1.0",
     "numpy>=1.24.0",
 ]
 
@@ -31,6 +33,9 @@ dev = [
     "pytest>=7.4.0",
     "pytest-cov>=4.1.0",
 ]
+
+[project.scripts]
+krabby-hal-server-jetson = "hal.server.jetson.main:main"
 
 [tool.setuptools]
 package-dir = {"hal" = "../.."}

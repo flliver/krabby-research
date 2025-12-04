@@ -3,9 +3,9 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "krabby-hal-server-isaac"
+name = "krabby-compute-parkour"
 version = "0.1.0"
-description = "HAL server implementation for IsaacSim with integrated inference"
+description = "Parkour policy inference client and utilities for Krabby"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "Apache-2.0"
@@ -22,12 +22,9 @@ classifiers = [
 ]
 
 dependencies = [
-    "krabby-hal-server>=0.1.0",
     "krabby-hal-client>=0.1.0",
-    "krabby-compute-parkour>=0.1.0",
     "torch>=2.0.0",
     "numpy>=1.24.0",
-    "gymnasium>=0.29.0",
 ]
 
 [project.optional-dependencies]
@@ -36,10 +33,9 @@ dev = [
     "pytest-cov>=4.1.0",
 ]
 
-[project.scripts]
-krabby-hal-server-isaac = "hal.server.isaac.main:main"
-
 [tool.setuptools]
-package-dir = {"hal" = "../.."}
-packages = ["hal.server.isaac"]
+package-dir = {"compute" = ".."}
+packages = ["compute.parkour", "compute.parkour.mappers"]
 
+[tool.setuptools.package-data]
+"compute.parkour" = ["py.typed"]

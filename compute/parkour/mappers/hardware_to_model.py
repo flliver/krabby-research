@@ -12,7 +12,7 @@ import numpy as np
 
 from hal.client.data_structures.hardware import KrabbyHardwareObservations
 from hal.client.observation.types import NavigationCommand
-from compute.parkour.types import (
+from compute.parkour.parkour_types import (
     NUM_PROP,
     NUM_SCAN,
     NUM_PRIV_EXPLICIT,

@@ -33,19 +33,16 @@ COPY hal/client/dist/*.whl /tmp/wheels/
 COPY hal/server/dist/*.whl /tmp/wheels/
 COPY hal/server/isaac/dist/*.whl /tmp/wheels/
 COPY hal/server/jetson/dist/*.whl /tmp/wheels/
+COPY compute/parkour/dist/*.whl /tmp/wheels/
 # Note: krabby-hal-tools is excluded by default (only install when needed for debugging)
 RUN bash -c "pip3 install --no-cache-dir /tmp/wheels/*.whl"
 
-# Copy remaining code that's not in wheels
-# Copy compute/ (policy interface and inference logic, including inference test runner)
+# Copy remaining code that's not in wheels (e.g., compute/testing for test runner)
 COPY compute/ /workspace/compute/
 
 # Copy parkour/ (custom RSL-RL extensions)
 # Note: policy_interface.py imports directly from parkour.scripts.rsl_rl, so we need the full path
 COPY parkour/ /workspace/parkour/
-
-# Copy locomotion/ (for Jetson HAL server tests)
-COPY locomotion/ /workspace/locomotion/
 
 # Copy tests/ (test scenarios)
 COPY tests/ /workspace/tests/

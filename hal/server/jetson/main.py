@@ -1,10 +1,9 @@
-"""Entry point for IsaacSim HAL server with integrated inference client.
+"""Production entry point for Jetson robot deployment.
 
-This entry point runs both the HAL server and inference client in the same process
-using inproc ZMQ for zero-copy communication. This is the recommended deployment
-for production use where server and client run together.
+This combines HAL server and parkour inference in the same process,
+using inproc ZMQ for communication.
 
-For standalone server mode (client runs separately), use TCP endpoints instead.
+NOTE: This is the PRODUCTION entry point that runs on the robot.
 """
 
 import argparse
@@ -13,7 +12,11 @@ import signal
 import sys
 import time
 
-from isaaclab.app import AppLauncher
+from hal.client.config import HalClientConfig
+from hal.server import HalServerConfig
+from hal.server.jetson import JetsonHalServer
+from compute.parkour.inference_client import ParkourInferenceClient
+from compute.parkour.policy_interface import ModelWeights
 
 logging.basicConfig(
     level=logging.INFO,
@@ -23,51 +26,15 @@ logger = logging.getLogger(__name__)
 
 
 def main():
-    """Main entry point for IsaacSim HAL server with integrated inference."""
-    parser = argparse.ArgumentParser(
-        description="IsaacSim HAL server with integrated inference client"
-    )
+    """Main entry point for Jetson production deployment."""
+    parser = argparse.ArgumentParser(description="Jetson production deployment with HAL server and inference")
 
     # Model arguments
-    parser.add_argument(
-        "--checkpoint",
-        type=str,
-        required=True,
-        help="Path to model checkpoint",
-    )
-    parser.add_argument(
-        "--action_dim",
-        type=int,
-        required=True,
-        help="Action dimension",
-    )
-    parser.add_argument(
-        "--obs_dim",
-        type=int,
-        required=True,
-        help="Observation dimension",
-    )
-    parser.add_argument(
-        "--control_rate",
-        type=float,
-        default=100.0,
-        help="Control loop rate in Hz",
-    )
-    parser.add_argument(
-        "--device",
-        type=str,
-        default="cuda",
-        choices=["cuda", "cpu"],
-        help="Device for inference",
-    )
-
-    # IsaacSim arguments
-    parser.add_argument(
-        "--task",
-        type=str,
-        required=True,
-        help="Task name (e.g., Isaac-Anymal-D-v0)",
-    )
+    parser.add_argument("--checkpoint", type=str, required=True, help="Path to model checkpoint")
+    parser.add_argument("--action_dim", type=int, required=True, help="Action dimension")
+    parser.add_argument("--obs_dim", type=int, required=True, help="Observation dimension")
+    parser.add_argument("--control_rate", type=float, default=100.0, help="Control loop rate in Hz")
+    parser.add_argument("--device", type=str, default="cuda", choices=["cuda", "cpu"], help="Device for inference")
 
     # HAL endpoints (inproc for same-process communication)
     parser.add_argument(
@@ -83,23 +50,7 @@ def main():
         help="Command endpoint (inproc for same-process)",
     )
 
-    # Add AppLauncher arguments
-    AppLauncher.add_app_launcher_args(parser)
     args = parser.parse_args()
-
-    # Launch IsaacLab
-    app_launcher = AppLauncher(args)
-    simulation_app = app_launcher.app
-
-    # Import after AppLauncher to avoid conflicts
-    import gymnasium as gym
-    from isaaclab_tasks.utils import parse_env_cfg
-
-    from hal.client.config import HalClientConfig
-    from hal.server import HalServerConfig
-    from hal.server.isaac import IsaacSimHalServer
-    from compute.parkour.inference_client import ParkourInferenceClient
-    from compute.parkour.policy_interface import ModelWeights
 
     # Running flag for graceful shutdown
     running = True
@@ -115,30 +66,23 @@ def main():
 
     hal_server = None
     parkour_client = None
-    env = None
 
     try:
-        # Parse environment configuration
-        env_cfg = parse_env_cfg(
-            args.task,
-            device=args.device,
-            num_envs=1,
-            use_fabric=True,
-        )
-
-        # Create environment
-        env = gym.make(args.task, cfg=env_cfg)
-        logger.info(f"Created IsaacSim environment: {args.task}")
-
-        # Create HAL server config
+        # Create HAL server config (inproc for production)
         hal_server_config = HalServerConfig(
             observation_bind=args.observation_bind,
             command_bind=args.command_bind,
         )
 
         # Create and initialize HAL server
-        hal_server = IsaacSimHalServer(hal_server_config, env=env)
+        hal_server = JetsonHalServer(hal_server_config)
         hal_server.initialize()
+
+        # Initialize hardware (camera, sensors, actuators)
+        hal_server.initialize_camera()
+        hal_server.initialize_sensors()
+        hal_server.initialize_actuators()
+
         logger.info("HAL server initialized")
 
         # Get transport context for inproc connections
@@ -171,18 +115,15 @@ def main():
         # Start inference client in separate thread
         parkour_client.start_thread(running_flag=lambda: running)
 
-        logger.info(f"Starting integrated loop at {args.control_rate} Hz")
+        logger.info(f"Starting production loop at {args.control_rate} Hz")
         period_s = 1.0 / args.control_rate
 
-        # Main loop: step simulation and publish observations
+        # Main loop: HAL server operations
         try:
-            while running and simulation_app.is_running():
+            while running:
                 loop_start_ns = time.time_ns()
 
-                # Step IsaacSim environment
-                env.step(None)
-
-                # Publish telemetry from simulation
+                # Publish observations from real sensors
                 hal_server.set_observation()
 
                 # Apply joint commands from inference client
@@ -198,7 +139,7 @@ def main():
                 else:
                     if loop_duration_s > period_s * 1.1:
                         logger.warning(
-                            f"Simulation unable to keep up! "
+                            f"Loop unable to keep up! "
                             f"Frame time: {loop_duration_s*1000:.2f}ms "
                             f"exceeds target: {period_s*1000:.2f}ms"
                         )
@@ -207,7 +148,7 @@ def main():
             logger.info("Interrupted by user")
 
     except Exception as e:
-        logger.error(f"Failed to run IsaacSim HAL server: {e}", exc_info=True)
+        logger.error(f"Jetson deployment failed: {e}", exc_info=True)
         sys.exit(1)
 
     finally:
@@ -216,9 +157,6 @@ def main():
             parkour_client.close()
         if hal_server:
             hal_server.close()
-        if env:
-            env.close()
-        simulation_app.close()
 
 
 if __name__ == "__main__":

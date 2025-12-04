@@ -1,6 +1,6 @@
-"""Script to test loading model checkpoint on Jetson.
+"""Script to test loading model checkpoint.
 
-This script verifies that checkpoints can be loaded successfully on Jetson hardware.
+This script verifies that checkpoints can be loaded successfully.
 """
 
 import argparse
@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 def test_checkpoint_loading(checkpoint_path: str, action_dim: int, obs_dim: int, device: str = "cuda"):
-    """Test loading a checkpoint on Jetson.
+    """Test loading a checkpoint.
 
     Args:
         checkpoint_path: Path to checkpoint file
@@ -94,7 +94,7 @@ def test_checkpoint_loading(checkpoint_path: str, action_dim: int, obs_dim: int,
 
 def main():
     """Main entry point."""
-    parser = argparse.ArgumentParser(description="Test checkpoint loading on Jetson")
+    parser = argparse.ArgumentParser(description="Test checkpoint loading")
     parser.add_argument("--checkpoint", type=str, required=True, help="Path to checkpoint file")
     parser.add_argument("--action_dim", type=int, required=True, help="Action dimension")
     parser.add_argument("--obs_dim", type=int, required=True, help="Observation dimension")

@@ -14,7 +14,7 @@ import pytest
 import torch
 
 from hal.client.observation.types import NavigationCommand
-from compute.parkour.types import (
+from compute.parkour.parkour_types import (
     InferenceResponse,
     NUM_PROP,
     NUM_SCAN,

@@ -27,11 +27,14 @@ build-wheels:
 	@cd hal/server/isaac && $(PYTHON) -m build --wheel
 	@cd hal/server/jetson && $(PYTHON) -m build --wheel
 	@cd hal/tools && $(PYTHON) -m build --wheel
+	@cd compute/parkour && $(PYTHON) -m build --wheel
 	@echo "Wheels built in dist/ directories"
 
 .PHONY: clean
 clean:
 	rm -rf hal/*/dist hal/*/build hal/*/*.egg-info
+	rm -rf hal/server/*/dist hal/server/*/build hal/server/*/*.egg-info
+	rm -rf compute/*/dist compute/*/build compute/*/*.egg-info
 	find . -type d -name __pycache__ -exec rm -r {} + 2>/dev/null || true
 	find . -type f -name "*.pyc" -delete
 
@@ -44,7 +47,8 @@ install-editable:
 	@$(PIP) install -e hal/server/isaac
 	@$(PIP) install -e hal/server/jetson
 	@$(PIP) install -e hal/tools
-	@echo "Packages installed in editable mode. Edit files in hal/*/ directories."
+	@$(PIP) install -e compute/parkour
+	@echo "Packages installed in editable mode. Edit files in hal/*/ and compute/*/ directories."
 
 .PHONY: build-test-image
 build-test-image: build-wheels

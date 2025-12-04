@@ -133,7 +133,10 @@ def test_get_joint_command():
         server_thread.join(timeout=2.0)
         received = received_command[0]
         assert received is not None
-        np.testing.assert_array_equal(received, command)
+        # get_joint_command now returns KrabbyDesiredJointPositions instance
+        assert hasattr(received, 'joint_positions')
+        assert hasattr(received, 'timestamp_ns')
+        np.testing.assert_array_equal(received.joint_positions, command)
 
         pusher.close()
 

@@ -22,7 +22,7 @@ import numpy as np
 from hal.client.client import HalClient
 from hal.client.config import HalClientConfig
 from hal.client.observation.types import NavigationCommand
-from compute.parkour.types import ParkourModelIO
+from compute.parkour.parkour_types import ParkourModelIO
 from compute.parkour.policy_interface import ModelWeights, ParkourPolicyModel
 
 logger = logging.getLogger(__name__)
