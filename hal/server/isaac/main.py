@@ -92,8 +92,8 @@ def main():
     simulation_app = app_launcher.app
 
     # Import after AppLauncher to avoid conflicts
-    import gymnasium as gym
     from isaaclab_tasks.utils import parse_env_cfg
+    from parkour_isaaclab.envs import ParkourManagerBasedRLEnv
 
     from hal.client.config import HalClientConfig
     from hal.server import HalServerConfig
@@ -119,6 +119,8 @@ def main():
 
     try:
         # Parse environment configuration
+        # Note: parse_env_cfg() will import parkour_tasks internally, which triggers
+        # gym registration, but we bypass gym.make() and use direct instantiation instead
         env_cfg = parse_env_cfg(
             args.task,
             device=args.device,
@@ -126,9 +128,10 @@ def main():
             use_fabric=True,
         )
 
-        # Create environment
-        env = gym.make(args.task, cfg=env_cfg)
-        logger.info(f"Created IsaacSim environment: {args.task}")
+        # Create environment using IsaacLab native API (bypassing deprecated gym.make())
+        # The environment class still implements gym.Env interface for compatibility
+        env = ParkourManagerBasedRLEnv(cfg=env_cfg, render_mode=None)
+        logger.info(f"Created IsaacSim environment: {args.task} (using direct instantiation)")
 
         # Create HAL server config
         hal_server_config = HalServerConfig(
@@ -223,3 +226,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

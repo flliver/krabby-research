@@ -911,10 +911,13 @@ def test_isaacsim_hal_server_with_real_isaaclab():
     To run: pytest tests/integration/test_isaacsim_hal.py::test_isaacsim_hal_server_with_real_isaaclab -v
     """
     from isaaclab.app import AppLauncher
-    import gymnasium as gym
     from isaaclab_tasks.utils import parse_env_cfg
+    from parkour_isaaclab.envs import ParkourManagerBasedRLEnv
 
     # This would require actual IsaacSim setup
     # For now, we provide the structure
+    # When implemented, use direct instantiation instead of gym.make():
+    # env_cfg = parse_env_cfg(task_name, ...)
+    # env = ParkourManagerBasedRLEnv(cfg=env_cfg, render_mode=None)
     pass
 
