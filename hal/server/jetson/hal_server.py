@@ -241,14 +241,23 @@ class JetsonHalServer(HalServerBase):
     def apply_command(self) -> None:
         """Apply joint command from transport layer to actuators.
         
-        Gets the latest joint command from the transport layer and applies it
-        to the robot actuators. Currently a placeholder that:
+        **Synchronous method** that applies commands **immediately** (no queuing).
+        Gets the latest command from the transport layer and applies it directly
+        to the robot actuators. Does not perform any background work to keep the
+        robot moving - the main loop must call this method regularly at the target
+        control rate (typically 100 Hz).
+        
+        Currently a placeholder implementation that:
         - Stores the command for state echo
         - Logs the command with timestamp
         - Does not actually apply to motors (placeholder for future implementation)
         
+        The robot continues moving based on the last applied command until the next
+        command is received. If this method is not called regularly, the robot will
+        stop moving after the last command's effect completes.
+        
         Raises:
-            RuntimeError: If no command received from transport layer
+            RuntimeError: If no command received from transport layer (timeout after 10ms)
         """
         import time
 

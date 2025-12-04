@@ -24,7 +24,12 @@ class IsaacSimHalServer(HalServerBase):
         
         Args:
             config: HAL server configuration
-            env: IsaacSim environment
+            env: IsaacSim environment. If provided, environment component
+                references will be cached via _cache_references().
+        
+        Note:
+            If env is provided, this will call _cache_references() to extract
+            and cache references to scene, robot, sensors, and managers.
         """
         super().__init__(config)
         self.env = env
@@ -37,7 +42,26 @@ class IsaacSimHalServer(HalServerBase):
             self._cache_references()
 
     def _cache_references(self) -> None:
-        """Cache references to environment components."""
+        """Cache references to environment components for efficient access.
+        
+        This private method exists to keep __init__ clean and readable by extracting
+        the complex initialization logic for environment component references into
+        a separate method. The method handles:
+        - Finding and caching scene, robot, and camera sensor references
+        - Caching observation and action managers
+        - Error handling and validation of required components
+        
+        This separation improves code maintainability since the caching logic is
+        substantial (~60 lines) and includes error handling that would otherwise
+        clutter __init__.
+        
+        **Important**: This method is only called from __init__ during server
+        initialization. All initialization logic for environment references should
+        remain here, not be mixed into __init__.
+        
+        Raises:
+            RuntimeError: If robot entity cannot be found in scene
+        """
         if self.env is None:
             return
 
@@ -218,12 +242,19 @@ class IsaacSimHalServer(HalServerBase):
     def apply_command(self) -> None:
         """Apply joint command from transport layer to IsaacSim environment.
         
-        Gets the latest joint command from the transport layer and applies it
-        to the IsaacSim environment through the action manager.
+        **Synchronous method** that applies commands **immediately** (no queuing).
+        Gets the latest command from the transport layer and applies it directly
+        to the action manager. Does not perform any background work to keep the
+        robot moving - the main loop must call this method regularly at the target
+        control rate (typically 100 Hz).
+        
+        The robot continues moving based on the last applied command until the next
+        command is received. If this method is not called regularly, the robot will
+        stop moving after the last command's effect completes.
         
         Raises:
             RuntimeError: If environment or action manager not available
-            RuntimeError: If no command received from transport layer
+            RuntimeError: If no command received from transport layer (timeout after 10ms)
         """
         if self.env is None:
             raise RuntimeError("No environment set, cannot apply command")

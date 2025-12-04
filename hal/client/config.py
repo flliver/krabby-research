@@ -32,6 +32,11 @@ class HalClientConfig:
             commands will be validated to ensure they match this dimension.
             This is the number of joints/actuators (typically 12 for quadruped
             robots with 3 DOF per leg).
+            
+            **Why optional?** This parameter is optional because the HAL client
+            can work with different robot configurations. If not provided, no
+            dimension validation is performed. It's recommended to provide this
+            for production use to catch dimension mismatches early.
         polling_frequency_hz: Polling frequency in Hz for observation updates
             (default 100.0). Used to calculate poll timeout.
     """
