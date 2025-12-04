@@ -84,8 +84,6 @@ def test_game_loop_faster_than_inference():
     client = HalClient(client_config, context=server.get_transport_context())
     client.initialize()
 
-    time.sleep(0.1)
-
     # Use slow inference model (18ms > 10ms period at 100Hz)
     model = SlowInferenceModel(action_dim=12)
     test_runner = InferenceTestRunner(model, client, control_rate_hz=100.0)
@@ -171,8 +169,6 @@ def test_inference_faster_than_game_loop():
     client = HalClient(client_config, context=server.get_transport_context())
     client.initialize()
 
-    time.sleep(0.1)
-
     # Use fast inference model (3ms < 10ms period at 100Hz)
     model = FastInferenceModel(action_dim=12)
     test_runner = InferenceTestRunner(model, client, control_rate_hz=100.0)
@@ -255,15 +251,12 @@ def test_timestamp_in_messages():
     client = HalClient(client_config, context=server.get_transport_context())
     client.initialize()
 
-    time.sleep(0.1)
-
     # Initial dummy publish/poll to establish connection
     hw_obs = create_dummy_hw_obs(
         camera_height=480, camera_width=640
     )
     server.set_observation(hw_obs)
     client.poll(timeout_ms=100)
-    time.sleep(0.05)
 
     # Publish hardware observation
     server.set_observation(hw_obs)
@@ -320,8 +313,6 @@ def test_timestamp_validation_stale_messages():
     client = HalClient(client_config, context=server.get_transport_context())
     client.initialize()
 
-    time.sleep(0.1)
-
     # Publish fresh hardware observation
     hw_obs = create_dummy_hw_obs(
         camera_height=480, camera_width=640
@@ -356,8 +347,6 @@ def test_end_to_end_latency():
     )
     client = HalClient(client_config, context=server.get_transport_context())
     client.initialize()
-
-    time.sleep(0.1)
 
     # Measure send to receive latency
     send_time_ns = time.time_ns()

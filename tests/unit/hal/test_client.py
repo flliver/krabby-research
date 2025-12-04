@@ -63,16 +63,12 @@ def test_hal_client_poll_observation():
     client.set_debug(True)
 
     # With shared context, connection should be established immediately
-    # Small delay to ensure sockets are ready
-    time.sleep(0.1)
-    
     # Create and publish hardware observation
     hw_obs = create_dummy_hw_obs(
         camera_height=480, camera_width=640
     )
     hw_obs.joint_positions[0:3] = [1.0, 2.0, 3.0]  # Set some values
     server.set_observation(hw_obs)
-    time.sleep(0.05)  # Small delay to ensure message is sent
     
     # Poll for message
     received_hw_obs = client.poll(timeout_ms=1000)
@@ -158,8 +154,6 @@ def test_hal_client_put_joint_command():
     client.initialize()
     client.set_debug(True)
 
-    time.sleep(0.1)
-
     # Create inference response and map to hardware joint positions
     from compute.parkour.parkour_types import InferenceResponse
     from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToKrabbyHWMapper
@@ -183,7 +177,8 @@ def test_hal_client_put_joint_command():
     
     server_thread = threading.Thread(target=server_receive)
     server_thread.start()
-    time.sleep(0.05)  # Small delay to ensure server is waiting
+    # Small delay to ensure server thread is waiting
+    time.sleep(0.01)
     
     # Send command
     client.put_joint_command(joint_positions)
@@ -234,7 +229,7 @@ def test_hal_client_timestamp_validation():
     assert received_hw_obs is not None
     
     # Now test with stale observation (wait to make it stale)
-    time.sleep(0.02)  # Wait 20ms
+    time.sleep(0.01)  # Wait 10ms
     # Poll again - should still get the latest (HWM=1 keeps latest)
     received_hw_obs2 = client.poll(timeout_ms=100)
     # Should still receive (HWM=1 keeps latest message available)

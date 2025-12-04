@@ -81,8 +81,6 @@ def test_isaacsim_hal_server_camera_publishing(mock_isaac_env, hal_server_config
     hal_client.initialize()
     hal_client.set_debug(True)
 
-    time.sleep(0.1)
-
     # Mock observation manager to return complete observation in training format
     from compute.parkour.parkour_types import OBS_DIM
     hal_server.observation_manager = MagicMock()
@@ -117,8 +115,6 @@ def test_isaacsim_hal_server_state_publishing(mock_isaac_env, hal_server_config,
     hal_client = HalClient(hal_client_config, context=hal_server.get_transport_context())
     hal_client.initialize()
     hal_client.set_debug(True)
-
-    time.sleep(0.1)
 
     # Mock observation manager to return complete observation in training format
     from compute.parkour.parkour_types import OBS_DIM
@@ -252,7 +248,6 @@ def test_isaacsim_hal_server_end_to_end_with_game_loop(mock_isaac_env, hal_serve
             # Poll client
             hw_obs = hal_client.poll(timeout_ms=10)
             if hw_obs is None:
-                time.sleep(0.01)
                 continue
 
             # Map hardware observation to ParkourObservation
@@ -390,7 +385,8 @@ def test_isaacsim_hal_server_with_real_zmq_communication(mock_isaac_env, hal_ser
     
     server_thread = threading.Thread(target=server_receive)
     server_thread.start()
-    time.sleep(0.05)  # Small delay to ensure server is waiting
+    # Small delay to ensure server thread is waiting
+    time.sleep(0.01)
     
     # Map inference response to hardware joint positions
     from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToKrabbyHWMapper
@@ -420,8 +416,6 @@ def test_isaacsim_hal_server_observation_rate(mock_isaac_env, hal_server_config,
     hal_client = HalClient(hal_client_config)
     hal_client.initialize()
 
-    time.sleep(0.1)
-
     hal_server._extract_depth_features = lambda: np.array([1.0], dtype=np.float32)
     hal_server._extract_state_vector = lambda: np.array([0.0] * 34, dtype=np.float32)
 
@@ -432,7 +426,7 @@ def test_isaacsim_hal_server_observation_rate(mock_isaac_env, hal_server_config,
     for _ in range(100):  # Publish 100 times
         hal_server.set_observation()
         publish_count += 1
-        time.sleep(0.001)  # 1ms between publishes (1000 Hz theoretical max)
+        # No sleep needed - test is measuring maximum publish rate
 
     elapsed = time.time() - start_time
     rate = publish_count / elapsed
@@ -541,7 +535,8 @@ def test_isaacsim_hal_server_100_consecutive_command_cycles(mock_isaac_env, hal_
     
     cmd_thread = threading.Thread(target=command_loop, daemon=True)
     cmd_thread.start()
-    time.sleep(0.05)  # Give thread time to start
+    # Give thread time to start
+    time.sleep(0.01)
 
     # Run 100 cycles at 100 Hz (1 second total)
     period = 1.0 / 100.0  # 10ms period
@@ -561,9 +556,6 @@ def test_isaacsim_hal_server_100_consecutive_command_cycles(mock_isaac_env, hal_
                 # Publish observation
                 hal_server.set_observation()
                 observations_published += 1
-                
-                # Small delay to ensure message is sent before polling
-                time.sleep(0.001)  # 1ms delay
                 
                 # Poll client with longer timeout to ensure we get the observation
                 hw_obs = hal_client.poll(timeout_ms=50)
@@ -736,7 +728,8 @@ def test_isaacsim_hal_server_full_parkour_eval_simulation(mock_isaac_env, hal_se
     
     cmd_thread = threading.Thread(target=command_loop, daemon=True)
     cmd_thread.start()
-    time.sleep(0.05)  # Give thread time to start
+    # Give thread time to start
+    time.sleep(0.01)
 
     # Run for 5 seconds at 100 Hz (500 cycles)
     duration_seconds = 5.0

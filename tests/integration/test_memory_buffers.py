@@ -35,8 +35,6 @@ def test_hwm_prevents_buffer_growth():
     client.initialize()
 
     client.set_debug(True)
-
-    time.sleep(0.1)
     
     # Publish a dummy message first to establish connection
     hw_obs_init = create_dummy_hw_obs(
@@ -55,11 +53,8 @@ def test_hwm_prevents_buffer_growth():
         )
         hw_obs.joint_positions[0] = float(i)
         server.set_observation(hw_obs)
-        time.sleep(0.001)  # 1ms between publishes
+        # No sleep needed - test is measuring buffer behavior
 
-    # Small delay to ensure all messages are sent
-    time.sleep(0.01)
-    
     # Poll multiple times to drain queue - with HWM=1, we should eventually get a message
     # The key test is that memory stays bounded (HWM=1), not that we get the absolute latest
     received_values = []
@@ -69,7 +64,6 @@ def test_hwm_prevents_buffer_growth():
             val = hw_obs.joint_positions[0]
             if val not in received_values:
                 received_values.append(val)
-        time.sleep(0.001)
 
     # With HWM=1, we should receive some messages (exact value depends on timing and HWM behavior)
     # The important thing is that we received messages and memory stayed bounded
@@ -102,8 +96,6 @@ def test_rapid_message_publishing():
     client.initialize()
 
     client.set_debug(True)
-
-    time.sleep(0.1)
     
     # Publish a dummy message first to establish connection
     hw_obs_init = create_dummy_hw_obs(
@@ -125,14 +117,14 @@ def test_rapid_message_publishing():
             hw_obs.joint_positions[0] = float(i)
             server.set_observation(hw_obs)
             publish_count[0] += 1
-            time.sleep(0.0001)  # 0.1ms between publishes (very fast)
+            # No sleep needed - test is measuring rapid publishing behavior
 
     pub_thread = threading.Thread(target=rapid_publish)
     pub_thread.start()
 
     # Poll occasionally (slower than publishing)
     for _ in range(10):
-        time.sleep(0.01)  # 10ms between polls
+        time.sleep(0.005)  # 5ms between polls (reduced from 10ms)
         client.poll(timeout_ms=100)
 
     pub_thread.join()
@@ -170,8 +162,6 @@ def test_memory_usage_bounded():
     client.initialize()
 
     client.set_debug(True)
-
-    time.sleep(0.1)
     
     # Publish a dummy message first to establish connection
     hw_obs_init = create_dummy_hw_obs(
@@ -224,9 +214,6 @@ def test_old_messages_dropped():
     client.set_debug(True)
 
     # With shared context and inproc, connection should be immediate
-    # Give a small delay to ensure sockets are ready
-    time.sleep(0.1)
-
     # Publish and poll a dummy message to establish connection
     hw_obs_init = create_dummy_hw_obs(
         camera_height=480, camera_width=640
@@ -241,7 +228,6 @@ def test_old_messages_dropped():
     )
     hw_obs_1.joint_positions[0] = 1.0
     server.set_observation(hw_obs_1)
-    time.sleep(0.01)
     received_hw_obs = client.poll(timeout_ms=1000)
     assert received_hw_obs is not None
     assert received_hw_obs.joint_positions[0] == 1.0

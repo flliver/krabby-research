@@ -202,11 +202,8 @@ def proto_hal_setup():
     client = HalClient(client_config, context=server.get_transport_context())
     client.initialize()
 
-    # Wait briefly for inproc connection to be established
-    time.sleep(0.1)
     # Publish an initial observation to establish the PUB/SUB connection
     server.publish_observation()
-    time.sleep(0.05)
     client.poll(timeout_ms=100)
 
     yield server, client

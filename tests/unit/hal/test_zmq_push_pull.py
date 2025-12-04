@@ -17,13 +17,15 @@ def test_zmq_push_pull_basic():
     puller = context.socket(zmq.PULL)
     puller.setsockopt(zmq.RCVHWM, 5)
     puller.bind("inproc://test_push_pull")
-    time.sleep(0.1)  # Give socket time to bind
+    # Small delay for socket to bind
+    time.sleep(0.01)
     
     # Create PUSH socket and connect
     pusher = context.socket(zmq.PUSH)
     pusher.setsockopt(zmq.SNDHWM, 5)
     pusher.connect("inproc://test_push_pull")
-    time.sleep(0.1)  # Give socket time to connect
+    # Small delay for socket to connect
+    time.sleep(0.01)
     
     # Send multipart message
     message_parts = [
@@ -80,7 +82,8 @@ def test_zmq_push_pull_with_threading():
     # Start receiver thread
     receiver = threading.Thread(target=receiver_thread)
     receiver.start()
-    time.sleep(0.1)  # Give thread time to start polling
+    # Small delay for thread to start polling
+    time.sleep(0.01)
     
     # Send message
     message_parts = [
@@ -129,7 +132,8 @@ def test_zmq_push_pull_blocking_send():
     
     receiver = threading.Thread(target=receiver_thread)
     receiver.start()
-    time.sleep(0.2)  # Ensure receiver is actively polling
+    # Small delay to ensure receiver is actively polling
+    time.sleep(0.01)
     
     # Now send (blocking)
     message_parts = [
@@ -179,7 +183,8 @@ def test_zmq_push_pull_pusher_connects_first():
     
     receiver = threading.Thread(target=receiver_thread)
     receiver.start()
-    time.sleep(0.2)  # Ensure receiver is actively polling
+    # Small delay to ensure receiver is actively polling
+    time.sleep(0.01)
     
     # Now send (blocking) - pusher was already connected
     message_parts = [
@@ -237,7 +242,8 @@ def test_zmq_push_pull_pusher_connects_before_puller_binds():
     
     receiver = threading.Thread(target=receiver_thread)
     receiver.start()
-    time.sleep(0.2)  # Ensure receiver is actively polling
+    # Small delay to ensure receiver is actively polling
+    time.sleep(0.01)
     
     # Now send (blocking) - pusher connected before puller was bound
     message_parts = [
@@ -294,7 +300,8 @@ def test_zmq_push_pull_exception_in_receiver():
     # Start receiver thread
     receiver = threading.Thread(target=receiver_thread)
     receiver.start()
-    time.sleep(0.2)  # Give thread time to start polling
+    # Small delay for thread to start polling
+    time.sleep(0.01)
     
     # Send message
     message_parts = [
@@ -359,7 +366,8 @@ def test_zmq_push_pull_mimic_hal_test_structure():
     
     server_thread = threading.Thread(target=server_receive)
     server_thread.start()
-    time.sleep(0.05)  # Small delay to ensure server is waiting
+    # Small delay to ensure server thread is waiting
+    time.sleep(0.01)
     
     # Mimic: Send command as KrabbyDesiredJointPositions (multipart message)
     command = np.array([0.1, 0.2, 0.3] + [0.0] * 15, dtype=np.float32)  # 18 DOF
@@ -474,7 +482,8 @@ def test_zmq_push_pull_mimic_hal_exact_timing():
     
     server_thread = threading.Thread(target=server_receive)
     server_thread.start()
-    time.sleep(0.05)  # Small delay to ensure server is waiting (same as HAL test)
+    # Small delay to ensure server thread is waiting (same as HAL test)
+    time.sleep(0.01)
     
     # Send command (exact same as HAL test)
     command = np.array([0.1, 0.2, 0.3] + [0.0] * 15, dtype=np.float32)  # 18 DOF

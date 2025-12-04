@@ -33,15 +33,14 @@ def test_corrupt_message_handling():
 
     client.set_debug(True)
 
-    time.sleep(0.1)
-
     # Send corrupt message directly via ZMQ
     context = zmq.Context()
     publisher = context.socket(zmq.PUB)
     publisher.bind("inproc://test_observation_corrupt")  # observation endpoint
     # Use a small high-water mark to exercise buffer behavior (match server config)
     publisher.setsockopt(zmq.SNDHWM, 1)
-    time.sleep(0.1)
+    # Small delay for socket to be ready
+    time.sleep(0.01)
 
     # Send malformed message (wrong number of parts)
     publisher.send(b"observation")  # Only topic, missing schema_version and payload
@@ -87,7 +86,8 @@ def test_malformed_binary_payload():
     publisher.bind("inproc://test_observation_malformed")  # observation endpoint
     # Use a small high-water mark to exercise buffer behavior (match server config)
     publisher.setsockopt(zmq.SNDHWM, 1)
-    time.sleep(0.1)
+    # Small delay for socket to be ready
+    time.sleep(0.01)
 
     # Send message with invalid payload (not float32 array)
     topic = b"observation"
@@ -129,8 +129,6 @@ def test_missing_multipart_messages():
     client.initialize()
 
     client.set_debug(True)
-
-    time.sleep(0.1)
 
     # Send valid message first
     hw_obs = create_dummy_hw_obs(
@@ -195,8 +193,6 @@ def test_graceful_error_handling():
 
     client.set_debug(True)
 
-    time.sleep(0.1)
-
     # Send valid message
     hw_obs = create_dummy_hw_obs(
         camera_height=480, camera_width=640
@@ -249,7 +245,8 @@ def test_schema_version_validation():
     publisher.bind("inproc://test_observation_schema")  # observation endpoint
     # Use a small high-water mark to exercise buffer behavior (match server config)
     publisher.setsockopt(zmq.SNDHWM, 1)
-    time.sleep(0.1)
+    # Small delay for socket to be ready
+    time.sleep(0.01)
 
     topic = b"observation"
     unsupported_schema = b"2.0"  # Unsupported version

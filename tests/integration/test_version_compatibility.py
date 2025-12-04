@@ -39,8 +39,6 @@ def test_reading_older_schema_versions():
 
     client.set_debug(True)
 
-    time.sleep(0.1)
-
     # Send message with schema version "1.0" (current)
     hw_obs = create_dummy_hw_obs(
         camera_height=480, camera_width=640
@@ -149,8 +147,6 @@ def test_schema_version_compatibility_check():
 
     client.set_debug(True)
 
-    time.sleep(0.1)
-
     # Publish a dummy observation first to establish connection
     hw_obs_init = create_dummy_hw_obs(
         camera_height=480, camera_width=640
@@ -165,7 +161,6 @@ def test_schema_version_compatibility_check():
     )
     hw_obs.joint_positions[0] = 1.0
     server.set_observation(hw_obs)
-    time.sleep(0.01)
 
     received_hw_obs = client.poll(timeout_ms=1000)
     assert received_hw_obs is not None

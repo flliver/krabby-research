@@ -55,7 +55,8 @@ def test_set_observation():
         subscriber.connect("inproc://test_state3")
         subscriber.setsockopt(zmq.SUBSCRIBE, b"observation")
         subscriber.setsockopt(zmq.RCVHWM, 1)
-        time.sleep(0.2)  # Give subscriber time to connect
+        # Small delay for subscriber to connect
+        time.sleep(0.05)
 
         # Set hardware observation
         from tests.helpers import create_dummy_hw_obs
@@ -63,7 +64,8 @@ def test_set_observation():
             camera_height=480, camera_width=640
         )
         server.set_observation(hw_obs)
-        time.sleep(0.1)  # Small delay to ensure message is sent
+        # Small delay to ensure message is sent
+        time.sleep(0.01)
 
         # Receive message with timeout
         poll_result = subscriber.poll(500, zmq.POLLIN)
@@ -107,7 +109,8 @@ def test_get_joint_command():
         pusher = transport_context.socket(zmq.PUSH)
         pusher.setsockopt(zmq.SNDHWM, 5)
         pusher.connect("inproc://test_command5")
-        time.sleep(0.1)  # Give pusher time to connect
+        # Small delay for pusher to connect
+        time.sleep(0.01)
 
         # Server needs to be waiting before client sends (PUSH/PULL pattern)
         import threading
@@ -118,7 +121,8 @@ def test_get_joint_command():
         
         server_thread = threading.Thread(target=server_receive)
         server_thread.start()
-        time.sleep(0.05)  # Small delay to ensure server is waiting
+        # Small delay to ensure server thread is waiting
+        time.sleep(0.01)
 
         # Send command as KrabbyDesiredJointPositions (multipart message)
         from hal.client.data_structures.hardware import KrabbyDesiredJointPositions
@@ -159,7 +163,8 @@ def test_hwm_behavior():
         subscriber.connect("inproc://test_state6")  # Match server bind address
         subscriber.setsockopt(zmq.SUBSCRIBE, b"observation")
         subscriber.setsockopt(zmq.RCVHWM, 1)
-        time.sleep(0.1)  # Give subscriber time to connect
+        # Small delay for subscriber to connect
+        time.sleep(0.01)
 
         # Publish multiple messages rapidly
         for i in range(10):
@@ -168,7 +173,8 @@ def test_hwm_behavior():
             )
             hw_obs.joint_positions[:] = float(i)
             server.set_observation(hw_obs)
-        time.sleep(0.1)  # Small delay to ensure messages are sent
+        # Small delay to ensure messages are sent
+        time.sleep(0.01)
 
         # With observation_buffer_size=1, subscriber should receive messages (with shared context, connection is reliable)
         received_count = 0

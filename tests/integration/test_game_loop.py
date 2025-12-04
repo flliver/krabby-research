@@ -168,7 +168,8 @@ def hal_setup():
     client.set_debug(True)
 
     # Wait briefly for inproc connection to be established
-    time.sleep(0.1)
+    # Publish and poll to establish connection
+    server.publish_observation()
     client.poll(timeout_ms=100)
 
     yield server, client
@@ -249,6 +250,7 @@ def test_game_loop_observation_tensor_correctness(hal_setup):
     # Publish hardware observation
     server.set_observation(hw_obs)
     time.sleep(0.1)
+    # Poll with timeout to receive observation
     received_hw_obs = client.poll(timeout_ms=1000)
     
     # Verify hardware observation was received

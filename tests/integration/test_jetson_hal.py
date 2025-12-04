@@ -94,8 +94,6 @@ def test_jetson_hal_server_observation_publishing(hal_server_config, hal_client_
 
     hal_client.set_debug(True)
 
-    time.sleep(0.1)
-
     # Mock depth features (NUM_SCAN = 132)
     from compute.parkour.parkour_types import NUM_SCAN
 
@@ -146,8 +144,6 @@ def test_jetson_hal_server_joint_command_application(hal_server_config, hal_clie
 
     hal_client.set_debug(True)
 
-    time.sleep(0.1)
-
     # Send command from client using new API
     from compute.parkour.parkour_types import InferenceResponse
     import torch
@@ -168,7 +164,8 @@ def test_jetson_hal_server_joint_command_application(hal_server_config, hal_clie
     
     server_thread = threading.Thread(target=server_receive)
     server_thread.start()
-    time.sleep(0.05)  # Small delay to ensure server is waiting
+    # Small delay to ensure server thread is waiting
+    time.sleep(0.01)
 
     # Map inference response to hardware joint positions
     from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToKrabbyHWMapper
@@ -229,8 +226,6 @@ def test_jetson_hal_server_end_to_end_with_game_loop(hal_server_config, hal_clie
     hal_client.initialize()
 
     hal_client.set_debug(True)
-
-    time.sleep(0.1)
 
     # Create mock policy model
     class MockPolicyModel:
@@ -368,7 +363,7 @@ def test_jetson_hal_server_network_communication():
 
     client.set_debug(True)
 
-    time.sleep(0.1)  # Give time for connection
+    # Connection should be ready immediately with inproc
 
     # Mock camera and state
     mock_camera = MagicMock(spec=ZedCamera)
@@ -422,7 +417,8 @@ def test_jetson_hal_server_network_communication():
     
     server_thread = threading.Thread(target=server_receive)
     server_thread.start()
-    time.sleep(0.05)  # Small delay to ensure server is waiting
+    # Small delay to ensure server thread is waiting
+    time.sleep(0.01)
 
     # Map inference response to hardware joint positions
     from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToKrabbyHWMapper
@@ -745,7 +741,8 @@ def test_jetson_hal_server_joystick_input_integration(hal_server_config, hal_cli
                 assert model_io.nav_cmd.yaw_rate == nav_cmd.yaw_rate
                 commands_used += 1
 
-        time.sleep(0.01)  # Small delay between commands
+        # Small delay between commands for test clarity
+        time.sleep(0.001)
 
     # Verify all commands were sent and used
     assert commands_sent == len(joystick_commands), f"Expected {len(joystick_commands)} commands sent, got {commands_sent}"
