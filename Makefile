@@ -80,6 +80,23 @@ install-editable:
 	@$(PIP) install -e compute/parkour
 	@echo "Packages installed in editable mode. Edit files in hal/*/ and compute/*/ directories."
 
+# Build cache directory (for heavy downloads like Isaac Lab, reused across Docker builds)
+BUILD_CACHE := $(CURDIR)/.build-cache
+ISAACLAB_CACHE := $(BUILD_CACHE)/isaaclab
+
+.PHONY: isaaclab-cache
+isaaclab-cache:
+	@echo "Setting up Isaac Lab git cache..."
+	@if [ ! -d "$(ISAACLAB_CACHE)" ]; then \
+		echo "Cloning Isaac Lab (this may take a while, progress visible below)..."; \
+		git clone --depth 1 --branch main https://github.com/isaac-sim/IsaacLab.git $(ISAACLAB_CACHE); \
+		echo "Isaac Lab cloned to $(ISAACLAB_CACHE)"; \
+	else \
+		echo "Isaac Lab cache already exists at $(ISAACLAB_CACHE)"; \
+	fi
+	@echo "Isaac Lab cache ready at $(ISAACLAB_CACHE)"
+
+
 .PHONY: build-test-image
 build-test-image: build-wheels
 	@echo "Building x86 test Docker image..."
@@ -87,7 +104,7 @@ build-test-image: build-wheels
 	@echo "Test image built: krabby-testing-x86:latest"
 
 .PHONY: build-isaacsim-image
-build-isaacsim-image: build-wheels
+build-isaacsim-image: build-wheels isaaclab-cache
 	@echo "Building Isaac Sim Docker image..."
 	@echo "Note: Requires NVIDIA NGC authentication for base image"
 	docker build -f images/isaacsim/Dockerfile -t krabby-isaacsim:latest .
@@ -111,16 +128,25 @@ build-test-image-arm: build-wheels
 
 .PHONY: test
 test: build-test-image
-	@echo "Running all tests (excluding Jetson tests) in Docker container..."
+	@echo "Running all tests (excluding Jetson and Isaac Sim tests) in Docker container..."
 	docker run --rm --gpus all \
 		krabby-testing-x86:latest \
-		pytest tests/ -v -k "not jetson"
+		pytest tests/ -v -m "not jetson and not isaacsim"
 
 .PHONY: test-coverage
 test-coverage: build-test-image
-	@echo "Running tests with coverage (excluding Jetson tests) in Docker container..."
+	@echo "Running tests with coverage (excluding Jetson and Isaac Sim tests) in Docker container..."
 	docker run --rm --gpus all \
 		-v $$(pwd)/tests/coverage:/workspace/tests/coverage \
 		krabby-testing-x86:latest \
-		pytest tests/ -v -k "not jetson" --cov=hal --cov=compute --cov-report=html --cov-report=term
+		pytest tests/ -v -m "not jetson and not isaacsim" --cov=hal --cov=compute --cov-report=html --cov-report=term
+
+.PHONY: test-isaacsim
+test-isaacsim: build-isaacsim-image
+	@echo "Running Isaac Sim tests (including real inference tests) on Isaac Sim container..."
+	@echo "Note: These tests require a checkpoint file and Isaac Lab packages"
+	docker run --rm --gpus all \
+		--entrypoint /workspace/testenv/bin/pytest \
+		krabby-isaacsim:latest \
+		tests/ -v -m isaacsim
 

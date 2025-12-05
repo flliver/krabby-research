@@ -896,12 +896,12 @@ def test_isaacsim_hal_server_interface_matches_evaluation_baseline(mock_isaac_en
     hal_server.close()
 
 
-@pytest.mark.skip(reason="Requires actual IsaacSim environment")
+@pytest.mark.isaacsim
 def test_isaacsim_hal_server_with_real_isaaclab():
     """Test with real IsaacLab environment.
 
-    This test is skipped by default as it requires IsaacSim to be installed.
-    To run: pytest tests/integration/test_isaacsim_hal.py::test_isaacsim_hal_server_with_real_isaaclab -v
+    This test requires IsaacSim to be installed.
+    Run with: make test-isaacsim
     """
     from isaaclab.app import AppLauncher
     from isaaclab_tasks.utils import parse_env_cfg

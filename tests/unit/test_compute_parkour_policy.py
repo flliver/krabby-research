@@ -4,6 +4,7 @@ These tests verify that the policy model inference produces correct outputs
 and handles various inputs correctly. They test the model independently of HAL.
 """
 
+import os
 import time
 from pathlib import Path
 
@@ -15,9 +16,48 @@ from hal.client.observation.types import NavigationCommand
 from compute.parkour.parkour_types import OBS_DIM, ParkourModelIO, ParkourObservation
 
 
+def _find_checkpoint_path() -> Path:
+    """Find checkpoint path.
+    
+    Uses PARKOUR_CHECKPOINT_PATH environment variable (should point to folder).
+    Looks for unitree_go2_parkour_teacher.pt in that folder.
+    
+    Returns:
+        Path to checkpoint file
+        
+    Raises:
+        FileNotFoundError: If environment variable not set or checkpoint not found
+    """
+    checkpoint_name = "unitree_go2_parkour_teacher.pt"
+    
+    env_path = os.getenv("PARKOUR_CHECKPOINT_PATH")
+    if not env_path:
+        raise FileNotFoundError(
+            "PARKOUR_CHECKPOINT_PATH environment variable is not set. "
+            "Set it to the path of the checkpoint folder."
+        )
+    
+    checkpoint_dir = Path(env_path)
+    if not checkpoint_dir.exists():
+        raise FileNotFoundError(
+            f"Checkpoint directory not found: {checkpoint_dir}\n"
+            f"PARKOUR_CHECKPOINT_PATH is set to: {env_path}"
+        )
+    
+    checkpoint_path = checkpoint_dir / checkpoint_name
+    if not checkpoint_path.exists():
+        raise FileNotFoundError(
+            f"Checkpoint not found: {checkpoint_path}\n"
+            f"PARKOUR_CHECKPOINT_PATH is set to: {env_path}"
+        )
+    
+    return checkpoint_path
+
+
 class TestParkourPolicyModel:
     """Tests for ParkourPolicyModel inference correctness."""
 
+    @pytest.mark.isaacsim
     def test_forward_pass_correctness(self):
         """Test forward-pass correctness by comparing outputs to reference.
 
@@ -26,12 +66,15 @@ class TestParkourPolicyModel:
 
         Note: This test requires a checkpoint file and reference outputs.
         For now, we'll test that we can load the checkpoint and run inference.
-        """
-        # Use checkpoint from project assets directory
-        checkpoint_path = Path(__file__).parent.parent.parent / "parkour" / "assets" / "weights" / "unitree_go2_parkour_teacher.pt"
         
-        if not checkpoint_path.exists():
-            pytest.skip(f"Checkpoint not found: {checkpoint_path}")
+        This test is marked with @pytest.mark.isaacsim and should be run on the
+        isaacsim image using 'make test-isaacsim'.
+        """
+        # Find checkpoint path (tries multiple locations)
+        try:
+            checkpoint_path = _find_checkpoint_path()
+        except FileNotFoundError as e:
+            pytest.fail(str(e))
 
         # Create model weights config
         weights = ModelWeights(
@@ -45,7 +88,7 @@ class TestParkourPolicyModel:
         try:
             model = ParkourPolicyModel(weights, device="cpu")  # Use CPU for testing
         except Exception as e:
-            pytest.skip(f"Failed to load checkpoint: {e}")
+            pytest.fail(f"Failed to load checkpoint: {e}")
 
         # Create a synthetic observation in training format
         obs_array = np.random.randn(OBS_DIM).astype(np.float32)

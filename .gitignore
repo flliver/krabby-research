@@ -209,3 +209,6 @@ marimo/_lsp/
 __marimo__/
 
 .vscode/settings.json
+
+# Build cache (for heavy downloads like Isaac Lab, reused across Docker builds)
+.build-cache/

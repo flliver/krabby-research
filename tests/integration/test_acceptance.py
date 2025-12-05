@@ -7,6 +7,7 @@ These tests verify core runtime requirements for HAL integration:
 Note: Model inference correctness tests are in tests/unit/test_compute_parkour_policy.py
 """
 
+import os
 import time
 import threading
 from pathlib import Path
@@ -306,120 +307,93 @@ def test_100_tick_execution_with_proto_hal(proto_hal_setup):
     assert test_runner.frame_count > 0, "Inference test should have executed at least one frame"
 
 
-def test_inference_latency_requirement(proto_hal_setup):
-    """Test that inference latency meets < 15ms requirement.
-
-    This test measures inference latency over multiple runs and verifies
-    that average and p99 latency meet the < 15ms requirement.
-    """
-    server, client = proto_hal_setup
-
-    # Create mock policy model with configurable latency
-    class LatencyTestModel:
-        def __init__(self, latency_ms: float = 5.0):
-            self.latency_ms = latency_ms
-            self.action_dim = 12
-            self.latencies = []
-
-        def inference(self, model_io):
-            from compute.parkour.parkour_types import InferenceResponse
-
-            start_time = time.time_ns()
-            # Simulate inference time
-            time.sleep(self.latency_ms / 1000.0)
-            end_time = time.time_ns()
-
-            actual_latency_ms = (end_time - start_time) / 1_000_000.0
-            self.latencies.append(actual_latency_ms)
-
-            action = torch.zeros(self.action_dim, dtype=torch.float32)
-            return InferenceResponse.create_success(
-                action=action,
-                inference_latency_ms=actual_latency_ms,
-                model_version="test",
-            )
-
-    # Test with fast inference (should easily meet < 15ms)
-    model = LatencyTestModel(latency_ms=5.0)
-    test_runner = InferenceTestRunner(model, client, control_rate_hz=100.0)
-
-    nav_cmd = NavigationCommand.create_now()
-    test_runner.set_navigation_command(nav_cmd)
-
-    server.start_publishing(rate_hz=100.0)
-
-    # Run for 0.5 seconds to collect latency samples
-    def stop_after_time():
-        time.sleep(0.5)
-        test_runner.stop()
-
-    stop_thread = threading.Thread(target=stop_after_time, daemon=True)
-    stop_thread.start()
-
-    # Production code (InferenceTestRunner.run()) handles all exceptions internally
-    # No exception handling needed here - if run() completes, it succeeded
-    # If we need to handle expected exceptions in the future, add them here:
-    # try:
-    #     test_runner.run()
-    # except ExpectedExceptionType:
-    #     # Handle expected exception
-    #     pass
-    test_runner.run()
-
-    stop_thread.join(timeout=1.0)
-
-    # Analyze latencies
-    if len(model.latencies) == 0:
-        pytest.skip("No latency samples collected")
-
-    latencies = np.array(model.latencies)
-    avg_latency = np.mean(latencies)
-    p99_latency = np.percentile(latencies, 99)
-
-    # Verify requirements
-    assert (
-        avg_latency < 15.0
-    ), f"Average latency {avg_latency:.2f}ms exceeds 15ms requirement"
-    assert (
-        p99_latency < 15.0
-    ), f"P99 latency {p99_latency:.2f}ms exceeds 15ms requirement"
-
-    # Log statistics
-    print(f"\nInference Latency Statistics:")
-    print(f"  Samples: {len(latencies)}")
-    print(f"  Average: {avg_latency:.2f}ms")
-    print(f"  P50: {np.percentile(latencies, 50):.2f}ms")
-    print(f"  P95: {np.percentile(latencies, 95):.2f}ms")
-    print(f"  P99: {p99_latency:.2f}ms")
-    print(f"  Max: {np.max(latencies):.2f}ms")
-
-
-def test_inference_latency_with_real_model(proto_hal_setup):
-    """Test inference latency with real model (if checkpoint available).
-
-    This test uses an actual checkpoint to measure real inference latency.
-    """
-    # Use checkpoint from project assets directory
-    checkpoint_path = Path(__file__).parent.parent.parent / "parkour" / "assets" / "weights" / "unitree_go2_parkour_teacher.pt"
+def _find_checkpoint_path() -> Path:
+    """Find checkpoint path.
     
+    Uses PARKOUR_CHECKPOINT_PATH environment variable (should point to folder).
+    Looks for unitree_go2_parkour_teacher.pt in that folder.
+    
+    Returns:
+        Path to checkpoint file
+        
+    Raises:
+        FileNotFoundError: If environment variable not set or checkpoint not found
+    """
+    checkpoint_name = "unitree_go2_parkour_teacher.pt"
+    
+    env_path = os.getenv("PARKOUR_CHECKPOINT_PATH")
+    if not env_path:
+        raise FileNotFoundError(
+            "PARKOUR_CHECKPOINT_PATH environment variable is not set. "
+            "Set it to the path of the checkpoint folder."
+        )
+    
+    checkpoint_dir = Path(env_path)
+    if not checkpoint_dir.exists():
+        raise FileNotFoundError(
+            f"Checkpoint directory not found: {checkpoint_dir}\n"
+            f"PARKOUR_CHECKPOINT_PATH is set to: {env_path}"
+        )
+    
+    checkpoint_path = checkpoint_dir / checkpoint_name
     if not checkpoint_path.exists():
-        pytest.skip(f"Checkpoint not found: {checkpoint_path}")
+        raise FileNotFoundError(
+            f"Checkpoint not found: {checkpoint_path}\n"
+            f"PARKOUR_CHECKPOINT_PATH is set to: {env_path}"
+        )
+    
+    return checkpoint_path
 
+
+@pytest.mark.isaacsim
+def test_inference_latency_requirement(proto_hal_setup):
+    """Test that inference latency meets < 15ms requirement with real model.
+
+    This test measures real inference latency over multiple runs and verifies
+    that average and p99 latency meet the < 15ms requirement. It uses an actual
+    checkpoint to test real inference performance.
+
+    The test uses GPU if available (CUDA), falling back to CPU. The < 15ms requirement
+    is enforced when running on GPU. CPU inference may not meet this requirement,
+    which is expected.
+
+    Checkpoint path can be configured via PARKOUR_CHECKPOINT_PATH environment variable.
+    Default: searches for parkour/assets/weights/unitree_go2_parkour_teacher.pt in common locations.
+    
+    This test is marked with @pytest.mark.isaacsim and should be run on the
+    isaacsim image using 'make test-isaacsim'.
+    """
     server, client = proto_hal_setup
+
+    # Find checkpoint path
+    try:
+        checkpoint_path = _find_checkpoint_path()
+    except FileNotFoundError as e:
+        pytest.fail(str(e))
+
+    # Determine device: use GPU if available, fallback to CPU
+    if torch.cuda.is_available():
+        device = "cuda"
+        device_name = torch.cuda.get_device_name(0)
+        enforce_latency_requirement = True
+    else:
+        device = "cpu"
+        device_name = "CPU"
+        enforce_latency_requirement = False
 
     # Create model weights config
     weights = ModelWeights(
         checkpoint_path=str(checkpoint_path),
         action_dim=12,
-        obs_dim=753,
+        obs_dim=753,  # num_prop(53) + num_scan(132) + num_priv_explicit(9) + num_priv_latent(29) + history(530)
         model_version="teacher",
     )
 
-    # Try to load the model
+    # Load the model
     try:
-        model = ParkourPolicyModel(weights, device="cpu")  # Use CPU for testing
+        model = ParkourPolicyModel(weights, device=device)
     except Exception as e:
-        pytest.skip(f"Failed to load checkpoint: {e}")
+        pytest.fail(f"Failed to load checkpoint: {e}")
 
     test_runner = InferenceTestRunner(model, client, control_rate_hz=100.0)
 
@@ -431,7 +405,8 @@ def test_inference_latency_with_real_model(proto_hal_setup):
     # Collect latencies
     latencies = []
 
-    # Monkey-patch to collect latencies
+    # Monkey-patch to collect latencies (model.inference already measures latency,
+    # but we want to measure end-to-end including any overhead)
     original_inference = model.inference
 
     def inference_with_timing(io):
@@ -466,24 +441,46 @@ def test_inference_latency_with_real_model(proto_hal_setup):
 
     # Analyze latencies
     if len(latencies) == 0:
-        pytest.skip("No latency samples collected")
+        pytest.fail("No latency samples collected - inference may not have run")
 
     latencies_array = np.array(latencies)
     avg_latency = np.mean(latencies_array)
+    p50_latency = np.percentile(latencies_array, 50)
+    p95_latency = np.percentile(latencies_array, 95)
     p99_latency = np.percentile(latencies_array, 99)
+    max_latency = np.max(latencies_array)
 
     # Log statistics
-    print(f"\nReal Model Inference Latency Statistics:")
+    print(f"\nInference Latency Statistics ({device_name}):")
+    print(f"  Device: {device_name}")
+    print(f"  Checkpoint: {checkpoint_path}")
     print(f"  Samples: {len(latencies_array)}")
     print(f"  Average: {avg_latency:.2f}ms")
-    print(f"  P50: {np.percentile(latencies_array, 50):.2f}ms")
-    print(f"  P95: {np.percentile(latencies_array, 95):.2f}ms")
+    print(f"  P50: {p50_latency:.2f}ms")
+    print(f"  P95: {p95_latency:.2f}ms")
     print(f"  P99: {p99_latency:.2f}ms")
-    print(f"  Max: {np.max(latencies_array):.2f}ms")
+    print(f"  Max: {max_latency:.2f}ms")
 
-    # Note: CPU inference may not meet < 15ms requirement
-    # This is expected - the requirement is for GPU inference
-    # We still verify the test structure works correctly
+    # Verify requirements (only enforce on GPU)
+    if enforce_latency_requirement:
+        assert (
+            avg_latency < 15.0
+        ), (
+            f"Average latency {avg_latency:.2f}ms exceeds 15ms requirement on GPU. "
+            f"This indicates inference is too slow for real-time control at 100 Hz."
+        )
+        assert (
+            p99_latency < 15.0
+        ), (
+            f"P99 latency {p99_latency:.2f}ms exceeds 15ms requirement on GPU. "
+            f"This indicates inference tail latency is too high for real-time control."
+        )
+    else:
+        # On CPU, just log that requirement is not enforced
+        print(f"\nNote: Running on CPU - < 15ms latency requirement not enforced.")
+        print(f"      GPU inference is required to meet the < 15ms target.")
+        if avg_latency >= 15.0 or p99_latency >= 15.0:
+            print(f"      Current latency would not meet requirement (avg: {avg_latency:.2f}ms, p99: {p99_latency:.2f}ms)")
 
 
 if __name__ == "__main__":

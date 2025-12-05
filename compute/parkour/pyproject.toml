@@ -35,7 +35,7 @@ dev = [
 
 [tool.setuptools]
 package-dir = {"compute" = ".."}
-packages = ["compute.parkour", "compute.parkour.mappers"]
+packages = ["compute.parkour", "compute.parkour.mappers", "compute.testing"]
 
 [tool.setuptools.package-data]
 "compute.parkour" = ["py.typed"]

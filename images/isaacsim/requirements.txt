@@ -12,5 +12,11 @@ pyzmq>=25.0.0
 dataclasses-json>=0.6.0
 
 # Utilities
-typing-extensions>=4.8.0
+# typing-extensions>=4.10.0 required for PyTorch 2.7.0 compatibility
+typing-extensions>=4.10.0
+# matplotlib>=3.5.0 required for Python 3.12 compatibility (older versions use deprecated configparser.SafeConfigParser)
+matplotlib>=3.5.0
+
+# Testing
+pytest>=7.0.0
 

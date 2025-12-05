@@ -26,7 +26,9 @@ COPY images/testing/arm/requirements.txt /tmp/requirements.txt
 
 # Install Python dependencies
 # Note: Base image already includes PyTorch, NumPy, CUDA, cuDNN, TensorRT
-RUN pip3 install --no-cache-dir -r /tmp/requirements.txt
+# Use Docker build cache mount for pip to speed up subsequent builds
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip3 install -r /tmp/requirements.txt
 
 # Copy and install wheels (built via 'make build-wheels')
 COPY hal/client/dist/*.whl /tmp/wheels/
@@ -43,6 +45,9 @@ COPY compute/ /workspace/compute/
 
 # Copy tests/ (test scenarios)
 COPY tests/ /workspace/tests/
+
+# Copy pytest configuration
+COPY pytest.ini /workspace/pytest.ini
 
 # Copy coverage configuration
 COPY .coveragerc /workspace/.coveragerc

@@ -36,6 +36,7 @@ def hal_client_config():
     )
 
 
+@pytest.mark.jetson
 def test_jetson_hal_server_initialization(hal_server_config):
     """Test Jetson HAL server initialization with inproc endpoints."""
     hal_server = JetsonHalServer(hal_server_config)
@@ -52,25 +53,20 @@ def test_jetson_hal_server_initialization(hal_server_config):
     hal_server.close()
 
 
-@pytest.mark.skipif(
-    True,  # Always skip in x86 test environment - requires Jetson hardware or pyzed
-    reason="Requires Jetson hardware or ZED SDK (pyzed) - skip in x86 test environment"
-)
-@pytest.mark.skip(
-    reason="Requires Jetson hardware or ZED SDK (pyzed) - skip in x86 test environment"
-)
+@pytest.mark.jetson
 def test_jetson_hal_server_camera_initialization(hal_server_config):
     """Test ZED camera initialization in Jetson HAL server.
     
-    Note: This test is skipped in x86 test environment because it requires:
+    Note: This test requires:
     - Jetson hardware, OR
     - ZED SDK (pyzed) installed
     
     Run this test on ARM test environment or production Jetson hardware.
     """
-    pass  # Test skipped - would require Jetson hardware or ZED SDK
+    pass  # Test implementation - requires Jetson hardware or ZED SDK
 
 
+@pytest.mark.jetson
 def test_jetson_hal_server_observation_publishing(hal_server_config, hal_client_config):
     """Test observation publishing from Jetson HAL server."""
     import zmq
@@ -127,6 +123,7 @@ def test_jetson_hal_server_observation_publishing(hal_server_config, hal_client_
     hal_server.close()
 
 
+@pytest.mark.jetson
 def test_jetson_hal_server_joint_command_application(hal_server_config, hal_client_config):
     """Test joint command application in Jetson HAL server."""
     import zmq
@@ -188,6 +185,7 @@ def test_jetson_hal_server_joint_command_application(hal_server_config, hal_clie
     hal_server.close()
 
 
+@pytest.mark.jetson
 def test_jetson_hal_server_end_to_end_with_game_loop(hal_server_config, hal_client_config):
     """Test end-to-end integration with inference logic (game loop)."""
     import zmq
@@ -306,36 +304,33 @@ def test_jetson_hal_server_end_to_end_with_game_loop(hal_server_config, hal_clie
     hal_server.close()
 
 
-@pytest.mark.skip(
-    reason="Requires Jetson hardware or ZED SDK (pyzed) - skip in x86 test environment"
-)
+@pytest.mark.jetson
 def test_jetson_hal_server_zed_camera_integration():
     """Test ZED camera integration (requires hardware).
     
-    Note: This test is skipped in x86 test environment because it requires:
+    Note: This test requires:
     - Jetson hardware, OR
     - ZED SDK (pyzed) installed
     
     Run this test on ARM test environment or production Jetson hardware.
     """
-    pass  # Test skipped - would require Jetson hardware or ZED SDK
+    pass  # Test implementation - requires Jetson hardware or ZED SDK
 
 
-@pytest.mark.skip(
-    reason="Requires Jetson hardware or ZED SDK (pyzed) - skip in x86 test environment"
-)
+@pytest.mark.jetson
 def test_jetson_hal_server_inference_runner(hal_server_config):
     """Test InferenceRunner with Jetson HAL server.
     
-    Note: This test is skipped in x86 test environment because it requires:
+    Note: This test requires:
     - Jetson hardware, OR
     - ZED SDK (pyzed) installed
     
     Run this test on ARM test environment or production Jetson hardware.
     """
-    pass  # Test skipped - would require Jetson hardware or ZED SDK
+    pass  # Test implementation - requires Jetson hardware or ZED SDK
 
 
+@pytest.mark.jetson
 def test_jetson_hal_server_network_communication():
     """Test network communication (x86 → Jetson simulation).
 
@@ -436,6 +431,7 @@ def test_jetson_hal_server_network_communication():
     server.close()
 
 
+@pytest.mark.jetson
 def test_jetson_hal_server_camera_error_handling(hal_server_config):
     """Test error handling when camera fails."""
     import zmq
@@ -463,6 +459,7 @@ def test_jetson_hal_server_camera_error_handling(hal_server_config):
     hal_server.close()
 
 
+@pytest.mark.jetson
 def test_jetson_hal_server_state_error_handling(hal_server_config):
     """Test error handling when state source fails."""
     hal_server = JetsonHalServer(hal_server_config)
@@ -478,6 +475,7 @@ def test_jetson_hal_server_state_error_handling(hal_server_config):
     hal_server.close()
 
 
+@pytest.mark.jetson
 def test_jetson_hal_server_sustained_bidirectional_messaging(hal_server_config, hal_client_config):
     """Test sustained bidirectional messaging without drops or disconnects.
     
@@ -650,6 +648,7 @@ def test_jetson_hal_server_sustained_bidirectional_messaging(hal_server_config, 
     hal_server.close()
 
 
+@pytest.mark.jetson
 def test_jetson_hal_server_joystick_input_integration(hal_server_config, hal_client_config):
     """Test joystick input integration with HAL client.
     
@@ -752,6 +751,7 @@ def test_jetson_hal_server_joystick_input_integration(hal_server_config, hal_cli
     hal_server.close()
 
 
+@pytest.mark.jetson
 def test_jetson_hal_server_cleanup(hal_server_config):
     """Test proper cleanup of resources."""
     hal_server = JetsonHalServer(hal_server_config)
