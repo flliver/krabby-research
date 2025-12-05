@@ -50,15 +50,9 @@ COPY hal/client/dist/*.whl /tmp/wheels/
 COPY hal/server/dist/*.whl /tmp/wheels/
 COPY hal/server/jetson/dist/*.whl /tmp/wheels/
 COPY compute/parkour/dist/*.whl /tmp/wheels/
+COPY parkour/dist/*.whl /tmp/wheels/
 # Note: hal/tools is excluded by default (only install when needed for debugging)
 RUN bash -c "pip3 install --no-cache-dir /tmp/wheels/*.whl"
-
-# Copy parkour/ (custom RSL-RL extensions)
-# Note: policy_interface.py imports directly from parkour.scripts.rsl_rl, so we need the full path
-COPY parkour/ /workspace/parkour/
-
-# Set Python path
-ENV PYTHONPATH=/workspace
 
 # Set entrypoint to HAL server with integrated inference
 # This runs both Jetson HAL server and policy inference in the same process

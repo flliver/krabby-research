@@ -33,16 +33,10 @@ COPY hal/client/dist/*.whl /tmp/wheels/
 COPY hal/server/dist/*.whl /tmp/wheels/
 COPY hal/server/isaac/dist/*.whl /tmp/wheels/
 COPY compute/parkour/dist/*.whl /tmp/wheels/
+COPY parkour/dist/*.whl /tmp/wheels/
 # Note: hal/server/jetson is not needed for Isaac Sim container
 # Note: hal/tools is excluded by default (only install when needed for debugging)
 RUN bash -c "pip3 install --no-cache-dir --break-system-packages /tmp/wheels/*.whl"
-
-# Copy parkour/ (custom RSL-RL extensions)
-# Note: policy_interface.py imports directly from parkour.scripts.rsl_rl, so we need the full path
-COPY parkour/ /workspace/parkour/
-
-# Set Python path
-ENV PYTHONPATH=/workspace
 
 # Set entrypoint to HAL server with integrated inference
 # This runs both Isaac Sim HAL server and policy inference in the same process

@@ -28,6 +28,7 @@ build-wheels:
 	@cd hal/server/jetson && $(PYTHON) -m build --wheel
 	@cd hal/tools && $(PYTHON) -m build --wheel
 	@cd compute/parkour && $(PYTHON) -m build --wheel
+	@$(PYTHON) build_parkour_wheel.py
 	@echo "Wheels built in dist/ directories"
 
 .PHONY: clean
