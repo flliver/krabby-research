@@ -2,8 +2,8 @@
 """Build script for parkour package wheel from repo root.
 
 This script builds the parkour package as a wheel without modifying
-any files in the parkour/ directory. It uses setup_parkour.py at the
-repo root to build with the correct package namespace (parkour.scripts.*).
+any files in the parkour/ directory. It uses setup_parkour.py in the
+scripts/wheel-build/ directory to build with the correct package namespace (parkour.scripts.*).
 """
 import subprocess
 import sys
@@ -12,7 +12,9 @@ import shutil
 from pathlib import Path
 
 # Build the wheel from repo root using setup_parkour.py
-repo_root = Path(__file__).parent
+# Script is in scripts/wheel-build/, so repo root is two levels up
+script_dir = Path(__file__).parent
+repo_root = script_dir.parent.parent
 parkour_dir = repo_root / "parkour"
 dist_dir = parkour_dir / "dist"
 
@@ -20,7 +22,7 @@ dist_dir = parkour_dir / "dist"
 dist_dir.mkdir(parents=True, exist_ok=True)
 
 # Temporarily rename setup_parkour.py to setup.py so build can find it
-setup_parkour = repo_root / "setup_parkour.py"
+setup_parkour = script_dir / "setup_parkour.py"
 setup_py = repo_root / "setup.py"
 original_setup_exists = setup_py.exists()
 
