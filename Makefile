@@ -3,21 +3,50 @@
 # 2. Otherwise, if ./testenv exists, use it
 # 3. Otherwise, fail with an error
 
+# Default target
+.DEFAULT_GOAL := test
+
 ifdef VIRTUAL_ENV
 VENV_ROOT := $(VIRTUAL_ENV)
 else
 VENV_ROOT := $(CURDIR)/testenv
 endif
 
-VENV_PYTHON := $(VENV_ROOT)/bin/python
-VENV_PIP    := $(VENV_ROOT)/bin/pip
+ifeq ($(OS),Windows_NT)
+    VENV_PYTHON := $(VENV_ROOT)/Scripts/python.exe
+    VENV_PIP    := $(VENV_ROOT)/Scripts/pip.exe
+else
+    VENV_PYTHON := $(VENV_ROOT)/bin/python
+    VENV_PIP    := $(VENV_ROOT)/bin/pip
+endif
 
+.PHONY: venv
+venv:
+	 python -m venv $(VENV_ROOT)
+	 $(VENV_PYTHON) -m pip install --progress-bar off --upgrade pip
+	 $(VENV_PYTHON) -m pip install --progress-bar off build
+
+# Allow `make venv` to run without pre-existing environment; gate the check for other targets.
+ifeq ($(filter venv,$(MAKECMDGOALS)),)
 ifeq ($(wildcard $(VENV_PYTHON)),)
 $(error No Python virtual environment found. Activate a venv (VIRTUAL_ENV) or create ./testenv with: python3.11 -m venv testenv)
+endif
 endif
 
 PYTHON := $(VENV_PYTHON)
 PIP    := $(VENV_PIP)
+
+# Docker availability check for Docker-dependent targets
+ifneq ($(filter build-test-image build-test-image-arm build-isaacsim-image build-locomotion-image test test-coverage,$(MAKECMDGOALS)),)
+ifeq ($(OS),Windows_NT)
+DOCKER_BIN := $(shell where docker 2>NUL)
+else
+DOCKER_BIN := $(shell command -v docker 2>/dev/null)
+endif
+ifeq ($(strip $(DOCKER_BIN)),)
+$(error Docker CLI not found on PATH. Install Docker Desktop and restart your shell, or ensure `docker` is available.)
+endif
+endif
 
 .PHONY: build-wheels
 build-wheels:
