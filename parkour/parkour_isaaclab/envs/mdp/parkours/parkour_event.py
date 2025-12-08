@@ -43,36 +43,59 @@ class ParkourEvent(ParkourTerm):
         self.metrics["current_goal_idx"] = torch.zeros(self.num_envs, device='cpu')
         self.dis_to_start_pos = torch.zeros(self.num_envs, device=self.device)
         self.terrain: ParkourTerrainImporter = self.env.scene.terrain
-        terrain_generator: ParkourTerrainGenerator = self.terrain.terrain_generator_class
-        parkour_terrain_cfg :ParkourTerrainGeneratorCfg = self.terrain.cfg.terrain_generator
-        self.num_goals = parkour_terrain_cfg.num_goals
-        self.env_class = torch.zeros(self.num_envs, device=self.device)
         self.env_origins = self.terrain.env_origins
-        self.terrain_type = terrain_generator.terrain_type
-        self.terrain_class = torch.from_numpy(self.terrain_type).to(self.device).to(torch.float)
-        self.env_class[:] = self.terrain_class[self.terrain.terrain_levels, self.terrain.terrain_types]
+        # Determine if terrain is generator-backed (parkour) or a generic USD/plane.
+        self._is_generator = (
+            hasattr(self.terrain, "terrain_generator_class")
+            and getattr(self.terrain.cfg, "terrain_type", None) == "generator"
+        )
+
+        if self._is_generator:
+            terrain_generator: ParkourTerrainGenerator = self.terrain.terrain_generator_class
+            parkour_terrain_cfg :ParkourTerrainGeneratorCfg = self.terrain.cfg.terrain_generator
+            self.num_goals = parkour_terrain_cfg.num_goals
+            self.env_class = torch.zeros(self.num_envs, device=self.device)
+            self.terrain_type = terrain_generator.terrain_type
+            self.terrain_class = torch.from_numpy(self.terrain_type).to(self.device).to(torch.float)
+            self.env_class[:] = self.terrain_class[self.terrain.terrain_levels, self.terrain.terrain_types]
+
+            terrain_goals = terrain_generator.goals
+            self.terrain_goals = torch.from_numpy(terrain_goals).to(self.device).to(torch.float)
+            self.env_goals = torch.zeros(
+                self.num_envs,  self.terrain_goals.shape[2] + self.num_future_goal_obs, 3,
+                device=self.device, requires_grad=False,
+            )
+            self.cur_goal_idx = torch.zeros(self.num_envs, device=self.device, requires_grad=False, dtype=torch.long)
+            temp = self.terrain_goals[self.terrain.terrain_levels, self.terrain.terrain_types]
+            last_col = temp[:, -1].unsqueeze(1)
+            self.env_goals[:] = torch.cat((temp, last_col.repeat(1, self.num_future_goal_obs, 1)), dim=1)[:]
+            if self.debug_vis:
+                self.total_heights = torch.from_numpy(terrain_generator.goal_heights).to(device = self.device)
+                self.future_goal_idx = torch.ones(self.num_goals, device=self.device, dtype=torch.bool).repeat(self.num_envs, 1)
+                self.future_goal_idx[:, 0] = False
+                self.env_per_heights = self.total_heights[self.terrain.terrain_levels, self.terrain.terrain_types]
+            self.total_terrain_names = terrain_generator.terrain_names
+            numpy_terrain_levels = self.terrain.terrain_levels.detach().cpu().numpy() ## string type can't convert to torch
+            numpy_terrain_types = self.terrain.terrain_types.detach().cpu().numpy()
+            self.env_per_terrain_name = self.total_terrain_names[numpy_terrain_levels, numpy_terrain_types]
+        else:
+            # USD/plane terrain: create simple per-env goals and neutral metadata.
+            self.num_goals = 1
+            self.env_class = torch.zeros(self.num_envs, device=self.device)
+            self.env_goals = torch.zeros(self.num_envs, 1 + self.num_future_goal_obs, 3, device=self.device, requires_grad=False)
+            # world goal: 2m ahead of each env origin in +x
+            self.env_goals[:, 0, :] = self.env_origins
+            self.env_goals[:, 0, 0] += 2.0
+            for i in range(1, 1 + self.num_future_goal_obs):
+                self.env_goals[:, i, :] = self.env_goals[:, 0, :]
+            self.cur_goal_idx = torch.zeros(self.num_envs, device=self.device, requires_grad=False, dtype=torch.long)
+            # Labels (debug/metrics) as (num_envs, 1) to match generator shape
+            self.total_terrain_names = np.array([["usd"]], dtype=object)
+            self.env_per_terrain_name = np.array([["usd"] for _ in range(self.num_envs)], dtype=object)
         
-        terrain_goals = terrain_generator.goals
-        self.terrain_goals = torch.from_numpy(terrain_goals).to(self.device).to(torch.float)
-        self.env_goals = torch.zeros(self.num_envs,  self.terrain_goals.shape[2] + self.num_future_goal_obs, 3, device=self.device, requires_grad=False)
-        self.cur_goal_idx = torch.zeros(self.num_envs, device=self.device, requires_grad=False, dtype=torch.long)
-        temp = self.terrain_goals[self.terrain.terrain_levels, self.terrain.terrain_types]
-        last_col = temp[:, -1].unsqueeze(1)
-        self.env_goals[:] = torch.cat((temp, last_col.repeat(1, self.num_future_goal_obs, 1)), dim=1)[:]
         self.cur_goals = self._gather_cur_goals()
         self.next_goals = self._gather_cur_goals(future=1)
         self.reach_goal_timer = torch.zeros(self.num_envs, dtype=torch.float).to(device = self.device)
-        
-        if self.debug_vis:
-            self.total_heights = torch.from_numpy(terrain_generator.goal_heights).to(device = self.device)
-            self.future_goal_idx = torch.ones(self.num_goals, device=self.device, dtype=torch.bool).repeat(self.num_envs, 1)
-            self.future_goal_idx[:, 0] = False
-            self.env_per_heights = self.total_heights[self.terrain.terrain_levels, self.terrain.terrain_types]
-       
-        self.total_terrain_names = terrain_generator.terrain_names
-        numpy_terrain_levels = self.terrain.terrain_levels.detach().cpu().numpy() ## string type can't convert to torch
-        numpy_terrain_types = self.terrain.terrain_types.detach().cpu().numpy()
-        self.env_per_terrain_name = self.total_terrain_names[numpy_terrain_levels, numpy_terrain_types]
         self._reset_offset = self.env.event_manager.get_term_cfg('reset_root_state').params['offset']
 
         robot_root_pos_w = self.robot.data.root_pos_w[:, :2] - self.env_origins[:, :2]
@@ -106,6 +129,17 @@ class ParkourEvent(ParkourTerm):
             if tmp_mask.numel() > 0:
                 self.future_goal_idx[tmp_mask, self.cur_goal_idx[tmp_mask]] = False
         self.cur_goal_idx[next_flag] += 1
+        # Clamp goal progression for non-generator terrains to valid range (keep at base goal).
+        if not self._is_generator:
+            # For USD/plane terrains we only have one logical goal (index 0).
+            self.cur_goal_idx[:] = 0
+        else:
+            # Generator path: prevent indexing beyond available env_goals dimension (includes future duplicates).
+            max_valid = self.env_goals.shape[1] - 1 - self.num_future_goal_obs
+            # Ensure max_valid >=0
+            if max_valid < 0:
+                max_valid = 0
+            self.cur_goal_idx = torch.clamp(self.cur_goal_idx, 0, max_valid)
         self.reach_goal_timer[next_flag] = 0
         robot_root_pos_w = self.robot.data.root_pos_w[:, :2] - self.env_origins[:, :2]
         self.reached_goal_ids = torch.norm(robot_root_pos_w - self.cur_goals[:, :2], dim=1) < self.next_goal_threshold
@@ -124,9 +158,12 @@ class ParkourEvent(ParkourTerm):
         self.next_target_yaw = torch.atan2(target_vec_norm[:, 1], target_vec_norm[:, 0])
         self.cur_goals = self._gather_cur_goals()
         self.next_goals = self._gather_cur_goals(future=1)
-        start_pos = self.env_origins[:,:2] - \
-                    torch.tensor((self.terrain.cfg.terrain_generator.size[1] + \
-                                  self._reset_offset, 0)).to(self.device)
+        if self._is_generator:
+            start_pos = self.env_origins[:,:2] - \
+                        torch.tensor((self.terrain.cfg.terrain_generator.size[1] + \
+                                      self._reset_offset, 0)).to(self.device)
+        else:
+            start_pos = self.env_origins[:, :2]
 
         self.dis_to_start_pos = torch.norm(start_pos - self.robot.data.root_pos_w[:, :2], dim=1)
 
@@ -134,9 +171,12 @@ class ParkourEvent(ParkourTerm):
         ## we are use reset_root_state events for initalize robot position in a subterrain
         ## original robot root init position is (0,0) in the subterrain axis, so we subtracted off from current robot position 
 
-        start_pos = self.env_origins[env_ids,:2] - \
-                    torch.tensor((self.terrain.cfg.terrain_generator.size[1] + \
-                                  self._reset_offset, 0)).to(self.device)
+        if self._is_generator:
+            start_pos = self.env_origins[env_ids,:2] - \
+                        torch.tensor((self.terrain.cfg.terrain_generator.size[1] + \
+                                      self._reset_offset, 0)).to(self.device)
+        else:
+            start_pos = self.env_origins[env_ids, :2]
 
         self.dis_to_start_pos = torch.norm(start_pos - self.robot.data.root_pos_w[env_ids, :2], dim=1)
         threshold = self.env.command_manager.get_command("base_velocity")[env_ids, 0] * self.episode_length_s
@@ -144,17 +184,18 @@ class ParkourEvent(ParkourTerm):
         move_down = self.dis_to_start_pos < 0.4*threshold
 
         robot_root_pos_w = self.robot.data.root_pos_w[:, :2] - self.env_origins[:, :2]
-        self.terrain.terrain_levels[env_ids] += 1 * move_up - 1 * move_down
-        # # Robots that solve the last level are sent to a random one
-        self.terrain.terrain_levels[env_ids] = torch.where(self.terrain.terrain_levels[env_ids]>=self.terrain.max_terrain_level,
-                                                   torch.randint_like(self.terrain.terrain_levels[env_ids], self.terrain.max_terrain_level),
-                                                   torch.clip(self.terrain.terrain_levels[env_ids], 0)) # (the minumum level is zero)
-        self.env_origins[env_ids] = self.terrain.terrain_origins[self.terrain.terrain_levels[env_ids], self.terrain.terrain_types[env_ids]]
-        self.env_class[env_ids] = self.terrain_class[self.terrain.terrain_levels[env_ids], self.terrain.terrain_types[env_ids]]
-        
-        temp = self.terrain_goals[self.terrain.terrain_levels, self.terrain.terrain_types]
-        last_col = temp[:, -1].unsqueeze(1)
-        self.env_goals[:] = torch.cat((temp, last_col.repeat(1, self.cfg.num_future_goal_obs, 1)), dim=1)[:]
+        if self._is_generator:
+            self.terrain.terrain_levels[env_ids] += 1 * move_up - 1 * move_down
+            # # Robots that solve the last level are sent to a random one
+            self.terrain.terrain_levels[env_ids] = torch.where(self.terrain.terrain_levels[env_ids]>=self.terrain.max_terrain_level,
+                                                       torch.randint_like(self.terrain.terrain_levels[env_ids], self.terrain.max_terrain_level),
+                                                       torch.clip(self.terrain.terrain_levels[env_ids], 0)) # (the minumum level is zero)
+            self.env_origins[env_ids] = self.terrain.terrain_origins[self.terrain.terrain_levels[env_ids], self.terrain.terrain_types[env_ids]]
+            self.env_class[env_ids] = self.terrain_class[self.terrain.terrain_levels[env_ids], self.terrain.terrain_types[env_ids]]
+            
+            temp = self.terrain_goals[self.terrain.terrain_levels, self.terrain.terrain_types]
+            last_col = temp[:, -1].unsqueeze(1)
+            self.env_goals[:] = torch.cat((temp, last_col.repeat(1, self.cfg.num_future_goal_obs, 1)), dim=1)[:]
         self.cur_goals = self._gather_cur_goals()
         self.next_goals = self._gather_cur_goals(future=1)
 
@@ -168,12 +209,21 @@ class ParkourEvent(ParkourTerm):
         target_vec_norm = self.next_target_pos_rel / (norm + 1e-5)
         self.next_target_yaw = torch.atan2(target_vec_norm[:, 1], target_vec_norm[:, 0])
 
-        numpy_terrain_levels = self.terrain.terrain_levels.detach().cpu().numpy()
-        numpy_terrain_types = self.terrain.terrain_types.detach().cpu().numpy()
-        self.env_per_terrain_name = self.total_terrain_names[numpy_terrain_levels, numpy_terrain_types]
+        if self._is_generator:
+            numpy_terrain_levels = self.terrain.terrain_levels.detach().cpu().numpy()
+            numpy_terrain_types = self.terrain.terrain_types.detach().cpu().numpy()
+            self.env_per_terrain_name = self.total_terrain_names[numpy_terrain_levels, numpy_terrain_types]
 
         self.reach_goal_timer[env_ids] = 0
         self.cur_goal_idx[env_ids] = 0
+        # Ensure indices remain valid after resample.
+        if not self._is_generator:
+            self.cur_goal_idx[env_ids] = 0
+        else:
+            max_valid = self.env_goals.shape[1] - 1 - self.num_future_goal_obs
+            if max_valid < 0:
+                max_valid = 0
+            self.cur_goal_idx = torch.clamp(self.cur_goal_idx, 0, max_valid)
 
         if self.debug_vis:
             self.future_goal_idx[env_ids, 0] = False
@@ -182,7 +232,11 @@ class ParkourEvent(ParkourTerm):
 
     def _update_metrics(self):
         # logs data
-        self.metrics["terrain_levels"] = (self.terrain.terrain_levels.float()).to(device = 'cpu')
+        if self._is_generator:
+            self.metrics["terrain_levels"] = (self.terrain.terrain_levels.float()).to(device = 'cpu')
+        else:
+            # keep zeros for USD/plane terrains
+            self.metrics["terrain_levels"] = self.metrics["terrain_levels"]
         robot_root_pos_w = self.robot.data.root_pos_w[:, :2] - self.env_origins[:, :2]
         self.metrics["far_from_current_goal"] = (torch.norm(self.cur_goals[:, :2] - robot_root_pos_w,dim =-1) - self.next_goal_threshold).to(device = 'cpu')
         self.metrics["current_goal_idx"] = self.cur_goal_idx.to(device='cpu', dtype=float)
