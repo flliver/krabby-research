@@ -5,11 +5,11 @@ They handle structural transformation between hardware sensor data and Parkour
 model observation formats.
 """
 
-from compute.parkour.mappers.hardware_to_model import KrabbyHWObservationsToParkourMapper
-from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToKrabbyHWMapper
+from compute.parkour.mappers.hardware_to_model import HWObservationsToParkourMapper
+from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToHWMapper
 
 __all__ = [
-    "KrabbyHWObservationsToParkourMapper",
-    "ParkourLocomotionToKrabbyHWMapper",
+    "HWObservationsToParkourMapper",
+    "ParkourLocomotionToHWMapper",
 ]
 

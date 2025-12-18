@@ -112,9 +112,9 @@ class InferenceTestRunner:
                     
                     # Map hardware observation to model observation format using mapper
                     # Pass navigation command so it's included in the observation
-                    from compute.parkour.mappers.hardware_to_model import KrabbyHWObservationsToParkourMapper
+                    from compute.parkour.mappers.hardware_to_model import HWObservationsToParkourMapper
                     
-                    mapper = KrabbyHWObservationsToParkourMapper()
+                    mapper = HWObservationsToParkourMapper()
                     model_obs = mapper.map(hw_obs, nav_cmd=self.nav_cmd)
                     
                     # Build model IO (preserve timestamp from observation)
@@ -151,8 +151,8 @@ class InferenceTestRunner:
                                 )
 
                             # Map inference response to hardware joint positions
-                            from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToKrabbyHWMapper
-                            mapper = ParkourLocomotionToKrabbyHWMapper(model_action_dim=self.model.action_dim)
+                            from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToHWMapper
+                            mapper = ParkourLocomotionToHWMapper(model_action_dim=self.model.action_dim)
                             joint_positions = mapper.map(inference_result)
 
                             # Put command to HAL
@@ -172,8 +172,8 @@ class InferenceTestRunner:
                         # Inference still in progress from previous call, use cached result
                         if self.last_inference_result is not None and self.last_inference_result.success:
                             # Map cached inference response to hardware joint positions
-                            from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToKrabbyHWMapper
-                            mapper = ParkourLocomotionToKrabbyHWMapper(model_action_dim=self.model.action_dim)
+                            from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToHWMapper
+                            mapper = ParkourLocomotionToHWMapper(model_action_dim=self.model.action_dim)
                             joint_positions = mapper.map(self.last_inference_result)
                             try:
                                 self.hal_client.put_joint_command(joint_positions)

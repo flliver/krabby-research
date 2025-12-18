@@ -26,7 +26,7 @@ from compute.parkour.parkour_types import (
 logger = logging.getLogger(__name__)
 
 
-class KrabbyHWObservationsToParkourMapper:
+class HWObservationsToParkourMapper:
     """Maps hardware observations to Parkour model format.
     
     Uses zero-copy operations where possible to minimize data copying.

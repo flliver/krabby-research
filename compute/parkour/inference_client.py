@@ -17,8 +17,8 @@ from hal.client.client import HalClient
 from hal.client.config import HalClientConfig
 from hal.client.observation.types import NavigationCommand
 from compute.parkour.policy_interface import ModelWeights, ParkourPolicyModel
-from compute.parkour.mappers.hardware_to_model import KrabbyHWObservationsToParkourMapper
-from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToKrabbyHWMapper
+from compute.parkour.mappers.hardware_to_model import HWObservationsToParkourMapper
+from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToHWMapper
 from compute.parkour.parkour_types import ParkourModelIO
 
 logger = logging.getLogger(__name__)
@@ -106,7 +106,7 @@ class ParkourInferenceClient:
             return True
 
         # Map hardware observation to model observation format
-        mapper = KrabbyHWObservationsToParkourMapper()
+        mapper = HWObservationsToParkourMapper()
         model_obs = mapper.map(hw_obs, nav_cmd=self.nav_cmd)
 
         # Build model IO (preserve timestamp from observation)
@@ -126,7 +126,7 @@ class ParkourInferenceClient:
                 return False
 
             # Map inference response to hardware joint positions
-            hw_mapper = ParkourLocomotionToKrabbyHWMapper(model_action_dim=self.model.action_dim)
+            hw_mapper = ParkourLocomotionToHWMapper(model_action_dim=self.model.action_dim)
             joint_positions = hw_mapper.map(inference_result)
 
             # Send command back to HAL server

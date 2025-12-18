@@ -263,8 +263,8 @@ def test_game_loop_observation_tensor_correctness(hal_setup):
         f"Joint positions dtype should be float32, got {received_hw_obs.joint_positions.dtype}"
     
     # Map to ParkourObservation to verify structure
-    from compute.parkour.mappers.hardware_to_model import KrabbyHWObservationsToParkourMapper
-    mapper = KrabbyHWObservationsToParkourMapper()
+    from compute.parkour.mappers.hardware_to_model import HWObservationsToParkourMapper
+    mapper = HWObservationsToParkourMapper()
     parkour_obs = mapper.map(received_hw_obs)
     
     # Verify ParkourObservation structure

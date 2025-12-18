@@ -21,7 +21,9 @@ from typing import Optional, Callable
 
 import numpy as np
 import torch
+import yaml
 from rsl_rl.env import VecEnv
+from parkour.scripts.rsl_rl.modules.on_policy_runner_with_extractor import OnPolicyRunnerWithExtractor
 
 from compute.parkour.parkour_types import InferenceResponse, ParkourModelIO
 
@@ -157,29 +159,6 @@ class ParkourPolicyModel:
             device=str(self.device),
         )
 
-        # Import OnPolicyRunnerWithExtractor - try multiple import paths
-        import_paths = [
-            "scripts.rsl_rl.modules.on_policy_runner_with_extractor",
-            "parkour.scripts.rsl_rl.modules.on_policy_runner_with_extractor",
-        ]
-        OnPolicyRunnerWithExtractor = None
-        last_error = None
-        
-        for import_path in import_paths:
-            try:
-                module = __import__(import_path, fromlist=["OnPolicyRunnerWithExtractor"])
-                OnPolicyRunnerWithExtractor = module.OnPolicyRunnerWithExtractor
-                break
-            except ImportError as e:
-                last_error = e
-                continue
-        
-        if OnPolicyRunnerWithExtractor is None:
-            raise ImportError(
-                f"Failed to import OnPolicyRunnerWithExtractor. "
-                f"Tried paths: {import_paths}. Last error: {last_error}"
-            ) from last_error
-
         # Initialize OnPolicyRunnerWithExtractor
         logger.info(f"Initializing OnPolicyRunnerWithExtractor with checkpoint: {checkpoint_path}")
         try:
@@ -233,8 +212,6 @@ class ParkourPolicyModel:
             config_file = Path(config_path)
             if config_file.exists():
                 try:
-                    import yaml
-
                     with open(config_file, "r") as f:
                         return yaml.safe_load(f)
                 except Exception as e:
@@ -245,8 +222,6 @@ class ParkourPolicyModel:
         config_file = checkpoint_dir / "params" / "agent.yaml"
         if config_file.exists():
             try:
-                import yaml
-
                 with open(config_file, "r") as f:
                     return yaml.safe_load(f)
             except Exception as e:

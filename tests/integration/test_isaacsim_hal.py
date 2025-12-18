@@ -252,10 +252,10 @@ def test_isaacsim_hal_server_end_to_end_with_game_loop(mock_isaac_env, hal_serve
 
             # Map hardware observation to ParkourObservation
             # Pass navigation command so it's included in the observation
-            from compute.parkour.mappers.hardware_to_model import KrabbyHWObservationsToParkourMapper
+            from compute.parkour.mappers.hardware_to_model import HWObservationsToParkourMapper
             from compute.parkour.parkour_types import ParkourModelIO
             
-            mapper = KrabbyHWObservationsToParkourMapper()
+            mapper = HWObservationsToParkourMapper()
             parkour_obs = mapper.map(hw_obs, nav_cmd=nav_cmd)
             
             # Build model IO (preserve timestamp from observation)
@@ -269,8 +269,8 @@ def test_isaacsim_hal_server_end_to_end_with_game_loop(mock_isaac_env, hal_serve
             inference_result = model.inference(model_io)
             if inference_result.success:
                 # Map inference response to hardware joint positions
-                from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToKrabbyHWMapper
-                mapper = ParkourLocomotionToKrabbyHWMapper(model_action_dim=12)
+                from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToHWMapper
+                mapper = ParkourLocomotionToHWMapper(model_action_dim=12)
                 joint_positions = mapper.map(inference_result)
                 hal_client.put_joint_command(joint_positions)
 
@@ -389,8 +389,8 @@ def test_isaacsim_hal_server_with_real_zmq_communication(mock_isaac_env, hal_ser
     time.sleep(0.01)
     
     # Map inference response to hardware joint positions
-    from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToKrabbyHWMapper
-    mapper = ParkourLocomotionToKrabbyHWMapper(model_action_dim=12)
+    from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToHWMapper
+    mapper = ParkourLocomotionToHWMapper(model_action_dim=12)
     joint_positions = mapper.map(inference_response)
     
     # Send command
@@ -565,10 +565,10 @@ def test_isaacsim_hal_server_100_consecutive_command_cycles(mock_isaac_env, hal_
                 
                 # Map hardware observation to ParkourObservation
                 # Pass navigation command so it's included in the observation
-                from compute.parkour.mappers.hardware_to_model import KrabbyHWObservationsToParkourMapper
+                from compute.parkour.mappers.hardware_to_model import HWObservationsToParkourMapper
                 from compute.parkour.parkour_types import ParkourModelIO
                 
-                mapper = KrabbyHWObservationsToParkourMapper()
+                mapper = HWObservationsToParkourMapper()
                 parkour_obs = mapper.map(hw_obs, nav_cmd=nav_cmd)
                 
                 # Build model IO
@@ -596,8 +596,8 @@ def test_isaacsim_hal_server_100_consecutive_command_cycles(mock_isaac_env, hal_
                         inference_latency_ms=5.0,
                     )
                     # Map inference response to hardware joint positions
-                    from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToKrabbyHWMapper
-                    mapper = ParkourLocomotionToKrabbyHWMapper(model_action_dim=12)
+                    from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToHWMapper
+                    mapper = ParkourLocomotionToHWMapper(model_action_dim=12)
                     joint_positions = mapper.map(response)
                     
                     # Verify no NaN values in joint positions before sending
@@ -761,10 +761,10 @@ def test_isaacsim_hal_server_full_parkour_eval_simulation(mock_isaac_env, hal_se
                 
                 # Map hardware observation to ParkourObservation
                 # Pass navigation command so it's included in the observation
-                from compute.parkour.mappers.hardware_to_model import KrabbyHWObservationsToParkourMapper
+                from compute.parkour.mappers.hardware_to_model import HWObservationsToParkourMapper
                 from compute.parkour.parkour_types import ParkourModelIO
                 
-                mapper = KrabbyHWObservationsToParkourMapper()
+                mapper = HWObservationsToParkourMapper()
                 parkour_obs = mapper.map(hw_obs, nav_cmd=nav_cmd)
                 
                 # Build model IO
@@ -788,8 +788,8 @@ def test_isaacsim_hal_server_full_parkour_eval_simulation(mock_isaac_env, hal_se
                         inference_latency_ms=5.0,
                     )
                     # Map inference response to hardware joint positions
-                    from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToKrabbyHWMapper
-                    mapper = ParkourLocomotionToKrabbyHWMapper(model_action_dim=12)
+                    from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToHWMapper
+                    mapper = ParkourLocomotionToHWMapper(model_action_dim=12)
                     joint_positions = mapper.map(response)
                     hal_client.put_joint_command(joint_positions)
                     commands_sent += 1

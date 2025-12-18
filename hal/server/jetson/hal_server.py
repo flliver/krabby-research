@@ -5,17 +5,14 @@ import time
 from typing import Optional
 
 import numpy as np
+from scipy.ndimage import zoom
 
 from hal.server import HalServerBase, HalServerConfig
 from hal.client.data_structures.hardware import HardwareObservations, JointCommand
 from hal.server.jetson.camera import ZedCamera, create_zed_camera
 
 # Import model-specific constant here (HAL server knows about model requirements)
-try:
-    from compute.parkour.parkour_types import NUM_SCAN
-except ImportError:
-    # Fallback if parkour package not available (for testing)
-    NUM_SCAN = 132
+from compute.parkour.parkour_types import NUM_SCAN
 
 logger = logging.getLogger(__name__)
 
@@ -208,7 +205,6 @@ class JetsonHalServer(HalServerBase):
                     if depth_map_data is not None:
                         # Resize if needed
                         if depth_map_data.shape != (camera_height, camera_width):
-                            from scipy.ndimage import zoom
                             zoom_factors = (camera_height / depth_map_data.shape[0], 
                                           camera_width / depth_map_data.shape[1])
                             depth_map = zoom(depth_map_data, zoom_factors, order=1).astype(np.float32)
@@ -261,8 +257,6 @@ class JetsonHalServer(HalServerBase):
         Raises:
             RuntimeError: If no command received from transport layer (timeout after 10ms)
         """
-        import time
-
         # Get command instance (includes timestamp and metadata)
         command_instance = self.get_joint_command(timeout_ms=10)
         if command_instance is None:

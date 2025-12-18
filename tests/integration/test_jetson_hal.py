@@ -165,8 +165,8 @@ def test_jetson_hal_server_joint_command_application(hal_server_config, hal_clie
     time.sleep(0.01)
 
     # Map inference response to hardware joint positions
-    from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToKrabbyHWMapper
-    mapper = ParkourLocomotionToKrabbyHWMapper(model_action_dim=12)
+    from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToHWMapper
+    mapper = ParkourLocomotionToHWMapper(model_action_dim=12)
     joint_positions = mapper.map(inference_response)
     
     # Send command
@@ -265,10 +265,10 @@ def test_jetson_hal_server_end_to_end_with_game_loop(hal_server_config, hal_clie
 
             # Map hardware observation to ParkourObservation
             # Pass navigation command so it's included in the observation
-            from compute.parkour.mappers.hardware_to_model import KrabbyHWObservationsToParkourMapper
+            from compute.parkour.mappers.hardware_to_model import HWObservationsToParkourMapper
             from compute.parkour.parkour_types import ParkourModelIO
             
-            mapper = KrabbyHWObservationsToParkourMapper()
+            mapper = HWObservationsToParkourMapper()
             parkour_obs = mapper.map(hw_obs, nav_cmd=nav_cmd)
             
             # Build model IO (preserve timestamp from observation)
@@ -283,8 +283,8 @@ def test_jetson_hal_server_end_to_end_with_game_loop(hal_server_config, hal_clie
                 inference_result = model.inference(model_io)
                 if inference_result.success:
                     # Map inference response to hardware joint positions
-                    from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToKrabbyHWMapper
-                    mapper = ParkourLocomotionToKrabbyHWMapper(model_action_dim=12)
+                    from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToHWMapper
+                    mapper = ParkourLocomotionToHWMapper(model_action_dim=12)
                     joint_positions = mapper.map(inference_result)
                     hal_client.put_joint_command(joint_positions)
 
@@ -416,8 +416,8 @@ def test_jetson_hal_server_network_communication():
     time.sleep(0.01)
 
     # Map inference response to hardware joint positions
-    from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToKrabbyHWMapper
-    mapper = ParkourLocomotionToKrabbyHWMapper(model_action_dim=12)
+    from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToHWMapper
+    mapper = ParkourLocomotionToHWMapper(model_action_dim=12)
     joint_positions = mapper.map(inference_response)
     
     client.put_joint_command(joint_positions)
@@ -564,10 +564,10 @@ def test_jetson_hal_server_sustained_bidirectional_messaging(hal_server_config, 
             
             # Map hardware observation and build model IO
             if hw_obs is not None:
-                from compute.parkour.mappers.hardware_to_model import KrabbyHWObservationsToParkourMapper
+                from compute.parkour.mappers.hardware_to_model import HWObservationsToParkourMapper
                 from compute.parkour.parkour_types import ParkourModelIO
                 
-                mapper = KrabbyHWObservationsToParkourMapper()
+                mapper = HWObservationsToParkourMapper()
                 parkour_obs = mapper.map(hw_obs, nav_cmd=nav_cmd)
                 
                 model_io = ParkourModelIO(
@@ -591,8 +591,8 @@ def test_jetson_hal_server_sustained_bidirectional_messaging(hal_server_config, 
                     inference_latency_ms=5.0,
                 )
                 # Map inference response to hardware joint positions
-                from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToKrabbyHWMapper
-                mapper = ParkourLocomotionToKrabbyHWMapper(model_action_dim=12)
+                from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToHWMapper
+                mapper = ParkourLocomotionToHWMapper(model_action_dim=12)
                 joint_positions = mapper.map(response)
                 hal_client.put_joint_command(joint_positions)
                 commands_sent += 1
@@ -719,10 +719,10 @@ def test_jetson_hal_server_joystick_input_integration(hal_server_config, hal_cli
 
         # Map hardware observation and build model IO with navigation command
         # Pass navigation command so it's included in the observation
-        from compute.parkour.mappers.hardware_to_model import KrabbyHWObservationsToParkourMapper
+        from compute.parkour.mappers.hardware_to_model import HWObservationsToParkourMapper
         from compute.parkour.parkour_types import ParkourModelIO
         
-        mapper = KrabbyHWObservationsToParkourMapper()
+        mapper = HWObservationsToParkourMapper()
         parkour_obs = mapper.map(hw_obs, nav_cmd=nav_cmd)
         
         model_io = ParkourModelIO(

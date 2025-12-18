@@ -6,6 +6,7 @@ from typing import Optional
 import numpy as np
 import zmq
 
+from hal.client.data_structures.hardware import HardwareObservations, JointCommand
 from hal.server.config import HalServerConfig  # Internal import - config is in same package
 # OBS_DIM is not used in HAL server
 
@@ -145,7 +146,6 @@ class HalServerBase:
             raise RuntimeError("Server not initialized. Call initialize() first.")
 
         # Runtime type validation: Validate input type
-        from hal.client.data_structures.hardware import HardwareObservations
         if not isinstance(hw_obs, HardwareObservations):
             raise ValueError(f"hw_obs must be HardwareObservations, got {type(hw_obs)}")
 
@@ -214,7 +214,6 @@ class HalServerBase:
 
             # Deserialize to JointCommand
             # Validation is handled by from_bytes() and __post_init__()
-            from hal.client.data_structures.hardware import JointCommand
             command = JointCommand.from_bytes(command_parts)
 
             # Debug logging after deserialization

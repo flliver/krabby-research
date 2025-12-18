@@ -241,8 +241,8 @@ The HAL client sends joint commands via `put_joint_command()`, which accepts a `
 from hal.client import HalClient, HalClientConfig
 from hal.client.data_structures.hardware import KrabbyDesiredJointPositions
 from hal.client.observation.types import NavigationCommand
-from compute.parkour.mappers.hardware_to_model import KrabbyHWObservationsToParkourMapper
-from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToKrabbyHWMapper
+from compute.parkour.mappers.hardware_to_model import HWObservationsToParkourMapper
+from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToHWMapper
 from compute.parkour.parkour_types import ParkourModelIO
 
 # Initialize client
@@ -254,8 +254,8 @@ client = HalClient(config)
 client.initialize()
 
 # Initialize mappers
-hw_to_model_mapper = KrabbyHWObservationsToParkourMapper()
-model_to_hw_mapper = ParkourLocomotionToKrabbyHWMapper(model_action_dim=12)
+hw_to_model_mapper = HWObservationsToParkourMapper()
+model_to_hw_mapper = ParkourLocomotionToHWMapper(model_action_dim=12)
 
 # Main control loop
 nav_cmd = NavigationCommand.create_now(vx=0.0, vy=0.0, yaw_rate=0.0)

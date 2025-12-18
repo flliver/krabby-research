@@ -5,6 +5,7 @@ import time
 
 import numpy as np
 import torch
+from scipy.ndimage import zoom
 
 from hal.server import HalServerBase, HalServerConfig
 from hal.client.data_structures.hardware import HardwareObservations, JointCommand
@@ -180,7 +181,6 @@ class IsaacSimHalServer(HalServerBase):
                         
                         # Resize if needed
                         if depth_np.shape != (camera_height, camera_width):
-                            from scipy.ndimage import zoom
                             zoom_factors = (camera_height / depth_np.shape[0], 
                                           camera_width / depth_np.shape[1])
                             depth_map = zoom(depth_np, zoom_factors, order=1).astype(np.float32)
@@ -202,7 +202,6 @@ class IsaacSimHalServer(HalServerBase):
                             if rgb_np.dtype != np.uint8:
                                 rgb_np = (rgb_np * 255).astype(np.uint8)
                             if rgb_np.shape[:2] != (camera_height, camera_width):
-                                from scipy.ndimage import zoom
                                 zoom_factors = (camera_height / rgb_np.shape[0], 
                                               camera_width / rgb_np.shape[1], 1)
                                 rgb_camera_2 = zoom(rgb_np, zoom_factors, order=1).astype(np.uint8)
@@ -216,7 +215,6 @@ class IsaacSimHalServer(HalServerBase):
                 if rgb_data is not None and rgb_data.size > 0:
                     # rgb_data is typically (H, W, 3) uint8
                     if rgb_data.shape[:2] != (camera_height, camera_width):
-                        from scipy.ndimage import zoom
                         zoom_factors = (camera_height / rgb_data.shape[0], 
                                       camera_width / rgb_data.shape[1], 1)
                         rgb_camera_1 = zoom(rgb_data, zoom_factors, order=1).astype(np.uint8)

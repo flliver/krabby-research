@@ -208,7 +208,6 @@ class HalClient:
         if not self._initialized:
             raise RuntimeError("Client not initialized. Call initialize() first.")
 
-        from hal.client.data_structures.hardware import JointCommand
         if not isinstance(cmd, JointCommand):
             raise ValueError(f"cmd must be JointCommand, got {type(cmd)}")
 

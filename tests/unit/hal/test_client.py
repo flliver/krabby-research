@@ -86,7 +86,7 @@ def test_hal_client_poll_observation():
 
 def test_hal_client_poll_and_map():
     """Test polling hardware observation and mapping to ParkourObservation."""
-    from compute.parkour.mappers.hardware_to_model import KrabbyHWObservationsToParkourMapper
+    from compute.parkour.mappers.hardware_to_model import HWObservationsToParkourMapper
     
     # Use shared context for inproc connections
     
@@ -122,7 +122,7 @@ def test_hal_client_poll_and_map():
     assert received_hw_obs is not None
 
     # Map to ParkourObservation using mapper
-    mapper = KrabbyHWObservationsToParkourMapper()
+    mapper = HWObservationsToParkourMapper()
     parkour_obs = mapper.map(received_hw_obs)
     
     assert parkour_obs is not None
@@ -156,7 +156,7 @@ def test_hal_client_put_joint_command():
 
     # Create inference response and map to hardware joint positions
     from compute.parkour.parkour_types import InferenceResponse
-    from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToKrabbyHWMapper
+    from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToHWMapper
 
     action_tensor = torch.tensor([0.1, 0.2, 0.3] + [0.0] * 9, dtype=torch.float32)  # 12 DOF
     inference_response = InferenceResponse.create_success(
@@ -165,7 +165,7 @@ def test_hal_client_put_joint_command():
     )
 
     # Map to hardware joint positions
-    mapper = ParkourLocomotionToKrabbyHWMapper(model_action_dim=12)
+    mapper = ParkourLocomotionToHWMapper(model_action_dim=12)
     joint_positions = mapper.map(inference_response)
 
     # Server needs to be waiting before client sends (PUSH/PULL pattern)

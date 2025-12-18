@@ -180,8 +180,8 @@ from compute.parkour.parkour_types import (
 )
 
 # Mappers
-from compute.parkour.mappers.hardware_to_model import KrabbyHWObservationsToParkourMapper
-from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToKrabbyHWMapper
+from compute.parkour.mappers.hardware_to_model import HWObservationsToParkourMapper
+from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToHWMapper
 ```
 
 ### Single Source of Truth with Editable Installs

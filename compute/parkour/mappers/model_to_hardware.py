@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 KRABBY_JOINT_COUNT = 18
 
 
-class ParkourLocomotionToKrabbyHWMapper:
+class ParkourLocomotionToHWMapper:
     """Maps Parkour model output to hardware format.
     
     Converts model navigation/locomotion output to hardware joint positions.
