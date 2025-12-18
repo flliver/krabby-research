@@ -151,7 +151,7 @@ class ProtoHalServer(HalServerBase):
         # Create hardware observation from the observation array
         # For testing, we'll create a dummy hardware observation
         # In production, this would come from actual sensors
-        from hal.client.data_structures.hardware import KrabbyHardwareObservations
+        from hal.client.data_structures.hardware import HardwareObservations
         
         hw_obs = create_dummy_hw_obs(
             camera_height=480, camera_width=640

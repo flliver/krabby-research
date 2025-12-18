@@ -8,7 +8,7 @@ import pytest
 from hal.client.client import HalClient
 from hal.server import HalServerBase, HalServerConfig
 from hal.client.config import HalClientConfig
-from hal.client.data_structures.hardware import KrabbyHardwareObservations
+from hal.client.data_structures.hardware import HardwareObservations
 from tests.helpers import create_dummy_hw_obs
 
 

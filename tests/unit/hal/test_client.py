@@ -10,7 +10,7 @@ from hal.client.client import HalClient
 from hal.server import HalServerBase
 from hal.client.config import HalClientConfig
 from hal.server import HalServerConfig
-from hal.client.data_structures.hardware import KrabbyHardwareObservations
+from hal.client.data_structures.hardware import HardwareObservations
 from hal.client.observation.types import NavigationCommand
 from compute.parkour.parkour_types import ParkourModelIO
 from tests.helpers import create_dummy_hw_obs
@@ -187,7 +187,7 @@ def test_hal_client_put_joint_command():
     received = received_command[0]
     assert received is not None
     # Should receive the mapped joint positions (18 DOF)
-    # received is a KrabbyDesiredJointPositions object, access joint_positions attribute
+    # received is a JointCommand object, access joint_positions attribute
     np.testing.assert_array_equal(received.joint_positions, joint_positions.joint_positions)
 
     client.close()

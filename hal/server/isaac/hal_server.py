@@ -7,7 +7,7 @@ import numpy as np
 import torch
 
 from hal.server import HalServerBase, HalServerConfig
-from hal.client.data_structures.hardware import KrabbyHardwareObservations
+from hal.client.data_structures.hardware import HardwareObservations, JointCommand
 
 logger = logging.getLogger(__name__)
 
@@ -122,7 +122,7 @@ class IsaacSimHalServer(HalServerBase):
     def set_observation(self) -> None:
         """Set observation from IsaacSim environment as hardware observations.
         
-        Extracts raw sensor data from environment and constructs KrabbyHardwareObservations.
+        Extracts raw sensor data from environment and constructs HardwareObservations.
         Extracts:
         - Joint positions from robot entity
         - Depth maps from camera sensors
@@ -147,7 +147,7 @@ class IsaacSimHalServer(HalServerBase):
             joint_positions[:num_joints] = joint_pos[:num_joints].astype(np.float32)
 
         # Extract camera data from sensors
-        camera_height, camera_width = 480, 640
+        camera_height, camera_width = 480, 640  # IsaacSim fixed resolution
         rgb_camera_1 = np.zeros((camera_height, camera_width, 3), dtype=np.uint8)
         rgb_camera_2 = np.zeros((camera_height, camera_width, 3), dtype=np.uint8)
         depth_map = np.zeros((camera_height, camera_width), dtype=np.float32)
@@ -226,12 +226,14 @@ class IsaacSimHalServer(HalServerBase):
                 logger.debug(f"Could not get RGB from render: {e}")
 
         # Create hardware observation
-        hw_obs = KrabbyHardwareObservations(
+        hw_obs = HardwareObservations(
             joint_positions=joint_positions,
             rgb_camera_1=rgb_camera_1,
             rgb_camera_2=rgb_camera_2,
             depth_map=depth_map,
             confidence_map=confidence_map,
+            camera_height=camera_height,
+            camera_width=camera_width,
             timestamp_ns=time.time_ns(),
         )
 
@@ -271,7 +273,7 @@ class IsaacSimHalServer(HalServerBase):
         command_array = command.joint_positions
 
         # Convert NumPy array to tensor (zero-copy when array is C-contiguous float32)
-        # The joint_positions array from KrabbyDesiredJointPositions is already
+        # The joint_positions array from JointCommand is already
         # a zero-copy view of the bytes and is C-contiguous float32
         command_tensor = torch.from_numpy(command_array).to(device=self.env.device, dtype=torch.float32)
 

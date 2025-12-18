@@ -1,4 +1,4 @@
-"""Mapper from Parkour model output to Krabby hardware format.
+"""Mapper from Parkour model output to hardware format.
 
 This mapper converts model inference output (joint locomotion embedding)
 into hardware joint position commands. It uses zero-copy operations where
@@ -11,7 +11,7 @@ import numpy as np
 import torch
 
 from compute.parkour.parkour_types import InferenceResponse
-from hal.client.data_structures.hardware import KrabbyDesiredJointPositions
+from hal.client.data_structures.hardware import JointCommand
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +20,7 @@ KRABBY_JOINT_COUNT = 18
 
 
 class ParkourLocomotionToKrabbyHWMapper:
-    """Maps Parkour model output to Krabby hardware format.
+    """Maps Parkour model output to hardware format.
     
     Converts model navigation/locomotion output to hardware joint positions.
     May be 1:1 mapping once training is complete.
@@ -31,7 +31,7 @@ class ParkourLocomotionToKrabbyHWMapper:
     - Timestamp is always copied (scalar)
     
     Note: The model typically outputs ACTION_DIM joints (usually 12 for quadruped).
-    Krabby has 18 joints, so this mapper handles the conversion. Once training
+    Hardware has 18 joints, so this mapper handles the conversion. Once training
     is complete with 18-joint output, this may become a 1:1 mapping.
     """
     
@@ -43,14 +43,14 @@ class ParkourLocomotionToKrabbyHWMapper:
         """
         self.model_action_dim = model_action_dim
     
-    def map(self, model_output: InferenceResponse) -> KrabbyDesiredJointPositions:
+    def map(self, model_output: InferenceResponse) -> JointCommand:
         """Map model output to hardware joint positions.
         
         Args:
             model_output: Model inference response containing action tensor
             
         Returns:
-            KrabbyDesiredJointPositions for hardware control
+            JointCommand for hardware control
             
         Raises:
             ValueError: If model output is invalid or failed
@@ -86,7 +86,7 @@ class ParkourLocomotionToKrabbyHWMapper:
         # Map to 18 joints
         joint_positions = self._map_to_krabby_joints(action_array)
         
-        return KrabbyDesiredJointPositions(
+        return JointCommand(
             joint_positions=joint_positions,
             timestamp_ns=model_output.timestamp_ns,
         )

@@ -7,7 +7,7 @@ import pytest
 import zmq
 
 from hal.server import HalServerBase, HalServerConfig
-from hal.client.data_structures.hardware import KrabbyHardwareObservations
+from hal.client.data_structures.hardware import HardwareObservations
 from tests.helpers import create_dummy_hw_obs
 
 
@@ -84,7 +84,7 @@ def test_set_observation():
         assert len(hw_obs_parts) == 6, f"Expected 6 parts for hw_obs (metadata + 5 arrays), got {len(hw_obs_parts)}"
         
         # Deserialize and validate
-        received_hw_obs = KrabbyHardwareObservations.from_bytes(hw_obs_parts)
+        received_hw_obs = HardwareObservations.from_bytes(hw_obs_parts)
         assert received_hw_obs.joint_positions.shape == hw_obs.joint_positions.shape
         np.testing.assert_array_equal(received_hw_obs.joint_positions, hw_obs.joint_positions)
 
@@ -124,10 +124,10 @@ def test_get_joint_command():
         # Small delay to ensure server thread is waiting
         time.sleep(0.01)
 
-        # Send command as KrabbyDesiredJointPositions (multipart message)
-        from hal.client.data_structures.hardware import KrabbyDesiredJointPositions
+        # Send command as JointCommand (multipart message)
+        from hal.client.data_structures.hardware import JointCommand
         command = np.array([0.1, 0.2, 0.3] + [0.0] * 15, dtype=np.float32)  # 18 DOF
-        joint_cmd = KrabbyDesiredJointPositions(
+        joint_cmd = JointCommand(
             joint_positions=command,
             timestamp_ns=time.time_ns(),
         )
@@ -137,7 +137,7 @@ def test_get_joint_command():
         server_thread.join(timeout=2.0)
         received = received_command[0]
         assert received is not None
-        # get_joint_command now returns KrabbyDesiredJointPositions instance
+        # get_joint_command now returns JointCommand instance
         assert hasattr(received, 'joint_positions')
         assert hasattr(received, 'timestamp_ns')
         np.testing.assert_array_equal(received.joint_positions, command)
@@ -199,7 +199,7 @@ def test_error_handling_invalid_type():
         server.set_debug(True)
         # Try to publish wrong type (should fail)
         invalid_data = np.array([1.0, 2.0, 3.0], dtype=np.float32)
-        with pytest.raises(ValueError, match="KrabbyHardwareObservations"):
+        with pytest.raises(ValueError, match="HardwareObservations"):
             server.set_observation(invalid_data)
 
 

@@ -9,7 +9,7 @@ from hal.client.client import HalClient
 from hal.server import HalServerBase
 from hal.client.config import HalClientConfig, HalServerConfig
 from hal.client.observation.types import NavigationCommand
-from hal.client.data_structures.hardware import KrabbyHardwareObservations
+from hal.client.data_structures.hardware import HardwareObservations
 from compute.testing.inference_test_runner import InferenceTestRunner
 from tests.helpers import create_dummy_hw_obs
 
@@ -94,7 +94,7 @@ def test_game_loop_faster_than_inference():
     import threading
 
     # Continuously publish hardware observation
-    from hal.client.data_structures.hardware import KrabbyHardwareObservations
+    from hal.client.data_structures.hardware import HardwareObservations
     def publish_loop():
         hw_obs = create_dummy_hw_obs(
             camera_height=480, camera_width=640

@@ -9,7 +9,7 @@ import zmq
 
 # InferenceResponse is not used in HAL client
 from hal.client.config import HalClientConfig
-from hal.client.data_structures.hardware import KrabbyHardwareObservations
+from hal.client.data_structures.hardware import HardwareObservations, JointCommand
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +41,7 @@ class HalClient:
         self.command_socket: Optional[zmq.Socket] = None
 
         # Latest buffers (HWM=1 ensures only latest is kept)
-        self._latest_hw_obs: Optional[KrabbyHardwareObservations] = None
+        self._latest_hw_obs: Optional[HardwareObservations] = None
 
         self._initialized = False
         self._debug_enabled = False
@@ -124,7 +124,7 @@ class HalClient:
         """
         return self._debug_enabled
 
-    def poll(self, timeout_ms: int = 10) -> Optional[KrabbyHardwareObservations]:
+    def poll(self, timeout_ms: int = 10) -> Optional[HardwareObservations]:
         """Poll for latest hardware observation messages (non-blocking).
 
         Updates latest buffers with newest messages. Old messages are
@@ -134,7 +134,7 @@ class HalClient:
             timeout_ms: Poll timeout in milliseconds (default 10ms)
 
         Returns:
-            KrabbyHardwareObservations if new data was received,
+            HardwareObservations if new data was received,
             None if timeout or no new data available.
 
         Raises:
@@ -179,12 +179,12 @@ class HalClient:
 
                     # Deserialize hardware observation - let errors propagate
                     # Timestamp is already in the hw_obs metadata
-                    hw_obs = KrabbyHardwareObservations.from_bytes(hw_obs_parts)
+                    hw_obs = HardwareObservations.from_bytes(hw_obs_parts)
 
                     # Update latest buffer
                     self._latest_hw_obs = hw_obs
                     if self._debug_enabled:
-                        logger.debug(f"[ZMQ RECV] observation: KrabbyHardwareObservations created successfully")
+                        logger.debug(f"[ZMQ RECV] observation: HardwareObservations created successfully")
                     
                     return hw_obs
             except zmq.ZMQError:
@@ -194,11 +194,11 @@ class HalClient:
         # No new data received (timeout or no message available)
         return None
 
-    def put_joint_command(self, cmd: "KrabbyDesiredJointPositions") -> None:
+    def put_joint_command(self, cmd: "JointCommand") -> None:
         """Put/send joint command to server.
 
         Args:
-            cmd: KrabbyDesiredJointPositions containing joint positions
+            cmd: JointCommand containing joint positions
 
         Raises:
             RuntimeError: If client not initialized
@@ -208,9 +208,9 @@ class HalClient:
         if not self._initialized:
             raise RuntimeError("Client not initialized. Call initialize() first.")
 
-        from hal.client.data_structures.hardware import KrabbyDesiredJointPositions
-        if not isinstance(cmd, KrabbyDesiredJointPositions):
-            raise ValueError(f"cmd must be KrabbyDesiredJointPositions, got {type(cmd)}")
+        from hal.client.data_structures.hardware import JointCommand
+        if not isinstance(cmd, JointCommand):
+            raise ValueError(f"cmd must be JointCommand, got {type(cmd)}")
 
         # Validate joint positions
         if cmd.joint_positions is None or len(cmd.joint_positions) == 0:

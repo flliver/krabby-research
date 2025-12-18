@@ -161,11 +161,11 @@ def test_isaacsim_hal_server_joint_command_application(mock_isaac_env, hal_serve
     # Mock env.device
     hal_server.env.device = "cpu"
 
-    # Mock command reception to return KrabbyDesiredJointPositions instance (bypass ZMQ)
+    # Mock command reception to return JointCommand instance (bypass ZMQ)
     def mock_get_joint_command(timeout_ms=10):
-        from hal.client.data_structures.hardware import KrabbyDesiredJointPositions
+        from hal.client.data_structures.hardware import JointCommand
         command_array = np.array([0.1, 0.2, 0.3] + [0.0] * 15, dtype=np.float32)  # 18 DOF
-        return KrabbyDesiredJointPositions(
+        return JointCommand(
             joint_positions=command_array,
             timestamp_ns=time.time_ns(),
         )
@@ -317,11 +317,11 @@ def test_isaacsim_hal_server_behavior_matches_baseline(mock_isaac_env, hal_serve
     # Mock env.device
     hal_server.env.device = "cpu"
 
-    # Mock command reception to return KrabbyDesiredJointPositions instance
+    # Mock command reception to return JointCommand instance
     def mock_get_joint_command(timeout_ms=100):
-        from hal.client.data_structures.hardware import KrabbyDesiredJointPositions
+        from hal.client.data_structures.hardware import JointCommand
         command_array = np.array([0.0] * 18, dtype=np.float32)
-        return KrabbyDesiredJointPositions(
+        return JointCommand(
             joint_positions=command_array,
             timestamp_ns=time.time_ns(),
         )
@@ -399,7 +399,7 @@ def test_isaacsim_hal_server_with_real_zmq_communication(mock_isaac_env, hal_ser
     server_thread.join(timeout=2.0)
     received = received_command[0]
     assert received is not None
-    # get_joint_command now returns KrabbyDesiredJointPositions instance
+    # get_joint_command now returns JointCommand instance
     assert hasattr(received, 'joint_positions')
     # Compare against mapped joint positions (18 DOF), not original action array (12 DOF)
     np.testing.assert_array_equal(received.joint_positions, joint_positions.joint_positions)

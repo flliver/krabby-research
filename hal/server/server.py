@@ -128,14 +128,14 @@ class HalServerBase:
         """
         return self._debug_enabled
 
-    def set_observation(self, hw_obs: "KrabbyHardwareObservations") -> None:
+    def set_observation(self, hw_obs: "HardwareObservations") -> None:
         """Set/publish hardware observation to clients.
 
         Sends topic-prefixed multipart message: [topic, schema_version, ...hw_obs_parts]
         The timestamp is included in the hw_obs metadata, so no separate timestamp is needed.
 
         Args:
-            hw_obs: KrabbyHardwareObservations instance
+            hw_obs: HardwareObservations instance
 
         Raises:
             ValueError: If observation is invalid
@@ -145,9 +145,9 @@ class HalServerBase:
             raise RuntimeError("Server not initialized. Call initialize() first.")
 
         # Runtime type validation: Validate input type
-        from hal.client.data_structures.hardware import KrabbyHardwareObservations
-        if not isinstance(hw_obs, KrabbyHardwareObservations):
-            raise ValueError(f"hw_obs must be KrabbyHardwareObservations, got {type(hw_obs)}")
+        from hal.client.data_structures.hardware import HardwareObservations
+        if not isinstance(hw_obs, HardwareObservations):
+            raise ValueError(f"hw_obs must be HardwareObservations, got {type(hw_obs)}")
 
         # Serialize hardware observation
         topic = TOPIC_OBSERVATION
@@ -175,7 +175,7 @@ class HalServerBase:
                 logger.debug("[ZMQ SEND] observation: buffer full (HWM reached), message dropped")
             logger.warning("Observation socket buffer full (HWM reached), message dropped")
 
-    def get_joint_command(self, timeout_ms: int = 100) -> Optional["KrabbyDesiredJointPositions"]:
+    def get_joint_command(self, timeout_ms: int = 100) -> Optional["JointCommand"]:
         """Get latest joint command from clients.
 
         Uses non-blocking poll to check for commands. If command received,
@@ -191,7 +191,7 @@ class HalServerBase:
             timeout_ms: Poll timeout in milliseconds (default 100ms)
 
         Returns:
-            KrabbyDesiredJointPositions instance with joint positions and timestamp,
+            JointCommand instance with joint positions and timestamp,
             or None if no command received or validation failed
 
         Raises:
@@ -212,10 +212,10 @@ class HalServerBase:
                     f"[ZMQ RECV] command: received {len(command_parts)} parts, {total_size} bytes total"
                 )
 
-            # Deserialize to KrabbyDesiredJointPositions
+            # Deserialize to JointCommand
             # Validation is handled by from_bytes() and __post_init__()
-            from hal.client.data_structures.hardware import KrabbyDesiredJointPositions
-            command = KrabbyDesiredJointPositions.from_bytes(command_parts)
+            from hal.client.data_structures.hardware import JointCommand
+            command = JointCommand.from_bytes(command_parts)
 
             # Debug logging after deserialization
             if self._debug_enabled:

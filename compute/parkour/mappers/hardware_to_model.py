@@ -1,4 +1,4 @@
-"""Mapper from Krabby hardware observations to Parkour model format.
+"""Mapper from hardware observations to Parkour model format.
 
 This mapper converts raw hardware sensor data into the format expected by
 the Parkour policy model. It uses zero-copy operations where possible to
@@ -10,7 +10,7 @@ from typing import Optional, Type
 
 import numpy as np
 
-from hal.client.data_structures.hardware import KrabbyHardwareObservations
+from hal.client.data_structures.hardware import HardwareObservations
 from hal.client.observation.types import NavigationCommand
 from compute.parkour.parkour_types import (
     NUM_PROP,
@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 
 class KrabbyHWObservationsToParkourMapper:
-    """Maps Krabby hardware observations to Parkour model format.
+    """Maps hardware observations to Parkour model format.
     
     Uses zero-copy operations where possible to minimize data copying.
     Only copies when structural transformation is required.
@@ -49,7 +49,7 @@ class KrabbyHWObservationsToParkourMapper:
         """Initialize the mapper."""
         pass
     
-    def map(self, hw_obs: KrabbyHardwareObservations, nav_cmd: Optional[NavigationCommand] = None, observation_type: Type[ParkourObservation] = TeacherObservation) -> ParkourObservation:
+    def map(self, hw_obs: HardwareObservations, nav_cmd: Optional[NavigationCommand] = None, observation_type: Type[ParkourObservation] = TeacherObservation) -> ParkourObservation:
         """Map hardware observations to model format.
         
         Args:
@@ -94,7 +94,7 @@ class KrabbyHWObservationsToParkourMapper:
             timestamp_ns=hw_obs.timestamp_ns,
         )
     
-    def _extract_proprioceptive(self, hw_obs: KrabbyHardwareObservations, nav_cmd: Optional[NavigationCommand] = None) -> np.ndarray:
+    def _extract_proprioceptive(self, hw_obs: HardwareObservations, nav_cmd: Optional[NavigationCommand] = None) -> np.ndarray:
         """Extract proprioceptive features from hardware observations.
         
         Args:
@@ -131,7 +131,7 @@ class KrabbyHWObservationsToParkourMapper:
         
         return proprioceptive
     
-    def _extract_scan_features(self, hw_obs: KrabbyHardwareObservations) -> np.ndarray:
+    def _extract_scan_features(self, hw_obs: HardwareObservations) -> np.ndarray:
         """Extract scan/depth features from hardware observations.
         
         Args:
@@ -139,14 +139,20 @@ class KrabbyHWObservationsToParkourMapper:
             
         Returns:
             Scan features array of shape (NUM_SCAN,)
+        
+        Note:
+            Reads camera_height and camera_width from observation structure
+            to handle variable resolution (IsaacSim: 480x640, Jetson: variable)
         """
         # Placeholder: extract depth features from depth map
         # In reality, this would involve:
         # - Processing depth map into features
         # - Possibly using RGB images for additional features
         # - Feature extraction pipeline (CNN, etc.)
+        # - Using camera_height and camera_width from observation structure
         
         # For now, flatten depth map and take first NUM_SCAN elements
+        # Mapper reads resolution from observation structure (self-describing)
         depth_flat = hw_obs.depth_map.flatten()
         scan = np.zeros(NUM_SCAN, dtype=np.float32)
         num_features = min(len(depth_flat), NUM_SCAN)
@@ -154,7 +160,7 @@ class KrabbyHWObservationsToParkourMapper:
         
         return scan
     
-    def _extract_priv_explicit(self, hw_obs: KrabbyHardwareObservations) -> np.ndarray:
+    def _extract_priv_explicit(self, hw_obs: HardwareObservations) -> np.ndarray:
         """Extract privileged explicit features from hardware observations.
         
         Args:
@@ -169,7 +175,7 @@ class KrabbyHWObservationsToParkourMapper:
         
         return np.zeros(NUM_PRIV_EXPLICIT, dtype=np.float32)
     
-    def _extract_priv_latent(self, hw_obs: KrabbyHardwareObservations) -> np.ndarray:
+    def _extract_priv_latent(self, hw_obs: HardwareObservations) -> np.ndarray:
         """Extract privileged latent features from hardware observations.
         
         Args:

@@ -369,7 +369,7 @@ def test_zmq_push_pull_mimic_hal_test_structure():
     # Small delay to ensure server thread is waiting
     time.sleep(0.01)
     
-    # Mimic: Send command as KrabbyDesiredJointPositions (multipart message)
+    # Mimic: Send command as JointCommand (multipart message)
     command = np.array([0.1, 0.2, 0.3] + [0.0] * 15, dtype=np.float32)  # 18 DOF
     command_parts = [
         b'{"joint_positions": {"shape": [18], "dtype": "float32"}, "timestamp_ns": 0}',
@@ -558,10 +558,10 @@ def test_zmq_push_pull_mimic_hal_with_class_wrapper():
     server_thread.start()
     time.sleep(0.05)
     
-    # Send using actual KrabbyDesiredJointPositions format
-    from hal.client.data_structures.hardware import KrabbyDesiredJointPositions
+    # Send using actual JointCommand format
+    from hal.client.data_structures.hardware import JointCommand
     command = np.array([0.1, 0.2, 0.3] + [0.0] * 15, dtype=np.float32)
-    joint_cmd = KrabbyDesiredJointPositions(
+    joint_cmd = JointCommand(
         joint_positions=command,
         timestamp_ns=time.time_ns(),
     )
@@ -645,10 +645,10 @@ def test_zmq_push_pull_mimic_hal_with_context_manager():
         server_thread.start()
         time.sleep(0.05)
         
-        # Send using actual KrabbyDesiredJointPositions
-        from hal.client.data_structures.hardware import KrabbyDesiredJointPositions
+        # Send using actual JointCommand
+        from hal.client.data_structures.hardware import JointCommand
         command = np.array([0.1, 0.2, 0.3] + [0.0] * 15, dtype=np.float32)
-        joint_cmd = KrabbyDesiredJointPositions(
+        joint_cmd = JointCommand(
             joint_positions=command,
             timestamp_ns=time.time_ns(),
         )
@@ -687,8 +687,8 @@ def test_zmq_push_pull_mimic_hal_exact_sequence():
         def get_joint_command(self, timeout_ms=2000):
             if self.command_socket.poll(timeout_ms, zmq.POLLIN):
                 command_parts = self.command_socket.recv_multipart(zmq.NOBLOCK)
-                from hal.client.data_structures.hardware import KrabbyDesiredJointPositions
-                command = KrabbyDesiredJointPositions.from_bytes(command_parts)
+                from hal.client.data_structures.hardware import JointCommand
+                command = JointCommand.from_bytes(command_parts)
                 return command.joint_positions
             return None
         
@@ -724,10 +724,10 @@ def test_zmq_push_pull_mimic_hal_exact_sequence():
         server_thread.start()
         time.sleep(0.05)  # Small delay to ensure server is waiting
         
-        # Send command as KrabbyDesiredJointPositions (multipart message)
-        from hal.client.data_structures.hardware import KrabbyDesiredJointPositions
+        # Send command as JointCommand (multipart message)
+        from hal.client.data_structures.hardware import JointCommand
         command = np.array([0.1, 0.2, 0.3] + [0.0] * 15, dtype=np.float32)  # 18 DOF
-        joint_cmd = KrabbyDesiredJointPositions(
+        joint_cmd = JointCommand(
             joint_positions=command,
             timestamp_ns=time.time_ns(),
         )
@@ -777,8 +777,8 @@ def test_zmq_push_pull_mimic_hal_with_observation_socket():
                 raise RuntimeError("Server not initialized")
             if self.command_socket.poll(timeout_ms, zmq.POLLIN):
                 command_parts = self.command_socket.recv_multipart(zmq.NOBLOCK)
-                from hal.client.data_structures.hardware import KrabbyDesiredJointPositions
-                command = KrabbyDesiredJointPositions.from_bytes(command_parts)
+                from hal.client.data_structures.hardware import JointCommand
+                command = JointCommand.from_bytes(command_parts)
                 return command.joint_positions
             return None
         
@@ -816,10 +816,10 @@ def test_zmq_push_pull_mimic_hal_with_observation_socket():
         server_thread.start()
         time.sleep(0.05)
         
-        # Send using actual KrabbyDesiredJointPositions
-        from hal.client.data_structures.hardware import KrabbyDesiredJointPositions
+        # Send using actual JointCommand
+        from hal.client.data_structures.hardware import JointCommand
         command = np.array([0.1, 0.2, 0.3] + [0.0] * 15, dtype=np.float32)
-        joint_cmd = KrabbyDesiredJointPositions(
+        joint_cmd = JointCommand(
             joint_positions=command,
             timestamp_ns=time.time_ns(),
         )

@@ -7,7 +7,7 @@ from typing import Optional
 import numpy as np
 
 from hal.server import HalServerBase, HalServerConfig
-from hal.client.data_structures.hardware import KrabbyHardwareObservations
+from hal.client.data_structures.hardware import HardwareObservations, JointCommand
 from hal.server.jetson.camera import ZedCamera, create_zed_camera
 
 # Import model-specific constant here (HAL server knows about model requirements)
@@ -170,7 +170,7 @@ class JetsonHalServer(HalServerBase):
     def set_observation(self) -> None:
         """Set observation from real sensors as hardware observations.
         
-        Constructs KrabbyHardwareObservations from raw sensor data.
+        Constructs HardwareObservations from raw sensor data.
         """
         try:
             # Build state vector
@@ -192,7 +192,7 @@ class JetsonHalServer(HalServerBase):
             # Get camera data (placeholder - ZED camera provides depth features, not raw images)
             # For now, create dummy RGB and depth maps
             # TODO: Get actual RGB images and depth map from ZED camera
-            camera_height, camera_width = self.camera_resolution[1], self.camera_resolution[0]
+            camera_height, camera_width = self.camera_resolution[1], self.camera_resolution[0]  # Jetson variable resolution
             rgb_camera_1 = np.zeros((camera_height, camera_width, 3), dtype=np.uint8)
             rgb_camera_2 = np.zeros((camera_height, camera_width, 3), dtype=np.uint8)
             
@@ -223,12 +223,14 @@ class JetsonHalServer(HalServerBase):
                         rgb_camera_2 = rgb_images[1]
 
             # Create hardware observation
-            hw_obs = KrabbyHardwareObservations(
+            hw_obs = HardwareObservations(
                 joint_positions=joint_positions,
                 rgb_camera_1=rgb_camera_1,
                 rgb_camera_2=rgb_camera_2,
                 depth_map=depth_map,
                 confidence_map=confidence_map,
+                camera_height=camera_height,
+                camera_width=camera_width,
                 timestamp_ns=time.time_ns(),
             )
 

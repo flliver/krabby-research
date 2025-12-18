@@ -9,7 +9,7 @@ import zmq
 from hal.client.client import HalClient
 from hal.server import HalServerBase
 from hal.client.config import HalClientConfig, HalServerConfig
-from hal.client.data_structures.hardware import KrabbyHardwareObservations
+from hal.client.data_structures.hardware import HardwareObservations
 from tests.helpers import create_dummy_hw_obs
 
 
@@ -164,9 +164,9 @@ def test_invalid_type():
     server.set_debug(True)
 
     # Test that server validates type
-    # Try to publish numpy array (should fail - needs KrabbyHardwareObservations)
+    # Try to publish numpy array (should fail - needs HardwareObservations)
     invalid_data = np.array([1.0, 2.0, 3.0], dtype=np.float32)
-    with pytest.raises(ValueError, match="KrabbyHardwareObservations"):
+    with pytest.raises(ValueError, match="HardwareObservations"):
         server.set_observation(invalid_data)
 
     server.close()

@@ -10,7 +10,7 @@ from hal.server import HalServerBase
 from hal.client.config import HalClientConfig, HalServerConfig
 from hal.client.observation.types import NavigationCommand
 from compute.parkour.parkour_types import ParkourObservation, OBS_DIM
-from hal.client.data_structures.hardware import KrabbyHardwareObservations
+from hal.client.data_structures.hardware import HardwareObservations
 from tests.helpers import create_dummy_hw_obs
 
 

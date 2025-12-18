@@ -16,7 +16,7 @@ from compute.parkour.parkour_types import (
     HISTORY_DIM,
     OBS_DIM,
 )
-from hal.client.data_structures.hardware import KrabbyHardwareObservations
+from hal.client.data_structures.hardware import HardwareObservations
 
 logging.basicConfig(
     level=logging.INFO,
@@ -128,7 +128,7 @@ def dump_hal_state(
             # Deserialize hardware observation
             hw_obs_parts = parts[2:8]
             try:
-                hw_obs = KrabbyHardwareObservations.from_bytes(hw_obs_parts)
+                hw_obs = HardwareObservations.from_bytes(hw_obs_parts)
                 
                 # Map to model observation format for display
                 from compute.parkour.mappers.hardware_to_model import KrabbyHWObservationsToParkourMapper

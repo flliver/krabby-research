@@ -12,35 +12,38 @@ import numpy as np
 
 
 @dataclass
-class KrabbyHardwareObservations:
-    """Hardware observation data from Krabby robot.
+class HardwareObservations:
+    """Hardware observation data.
     
     Contains all raw sensor data from the hardware:
     - Joint positions (18 DOF)
     - Camera data (2x RGB)
     - Depth map
     - Confidence map
-    
-    Note: This is a dummy structure for now. The real hardware spec will be
-    published soon and this structure will be updated accordingly.
+    - Camera resolution metadata (self-describing)
     
     Zero-copy guarantees:
     - Arrays are stored as numpy arrays (may be views or copies depending on source)
     - Large arrays (RGB, depth, confidence) should use views when possible
-    - Scalar values (timestamp) are copied
+    - Scalar values (timestamp, camera dimensions) are copied
     """
     
     joint_positions: np.ndarray  # Shape: (18,), dtype: float32
-    rgb_camera_1: np.ndarray  # Shape: (H, W, 3), dtype: uint8 or float32
-    rgb_camera_2: np.ndarray  # Shape: (H, W, 3), dtype: uint8 or float32
-    depth_map: np.ndarray  # Shape: (H, W), dtype: float32
-    confidence_map: np.ndarray  # Shape: (H, W), dtype: float32
+    rgb_camera_1: np.ndarray  # Shape: (camera_height, camera_width, 3), dtype: uint8 or float32
+    rgb_camera_2: np.ndarray  # Shape: (camera_height, camera_width, 3), dtype: uint8 or float32
+    depth_map: np.ndarray  # Shape: (camera_height, camera_width), dtype: float32
+    confidence_map: np.ndarray  # Shape: (camera_height, camera_width), dtype: float32
+    camera_height: int  # Height of camera images
+    camera_width: int  # Width of camera images
     timestamp_ns: int
     
     def __post_init__(self) -> None:
         """Validate hardware observations."""
         if self.timestamp_ns < 0:
             raise ValueError("timestamp_ns must be non-negative")
+        
+        if self.camera_height <= 0 or self.camera_width <= 0:
+            raise ValueError(f"Camera dimensions must be positive, got {self.camera_height}x{self.camera_width}")
         
         # Validate joint positions
         if self.joint_positions.shape != (18,):
@@ -51,14 +54,17 @@ class KrabbyHardwareObservations:
             # Convert to float32 if needed (creates copy)
             self.joint_positions = self.joint_positions.astype(np.float32)
         
-        # Validate camera arrays (check shape consistency)
+        # Validate camera arrays (check shape consistency with metadata)
+        expected_shape_2d = (self.camera_height, self.camera_width)
+        expected_shape_3d = (self.camera_height, self.camera_width, 3)
+        
         if self.rgb_camera_1.shape != self.rgb_camera_2.shape:
             raise ValueError(
                 f"Camera shapes must match: {self.rgb_camera_1.shape} != {self.rgb_camera_2.shape}"
             )
-        if len(self.rgb_camera_1.shape) != 3 or self.rgb_camera_1.shape[2] != 3:
+        if self.rgb_camera_1.shape != expected_shape_3d:
             raise ValueError(
-                f"RGB camera must be (H, W, 3), got {self.rgb_camera_1.shape}"
+                f"RGB camera must be {expected_shape_3d}, got {self.rgb_camera_1.shape}"
             )
         
         # Validate depth and confidence maps
@@ -66,8 +72,10 @@ class KrabbyHardwareObservations:
             raise ValueError(
                 f"Depth and confidence shapes must match: {self.depth_map.shape} != {self.confidence_map.shape}"
             )
-        if len(self.depth_map.shape) != 2:
-            raise ValueError(f"Depth map must be 2D, got shape {self.depth_map.shape}")
+        if self.depth_map.shape != expected_shape_2d:
+            raise ValueError(
+                f"Depth map must be {expected_shape_2d}, got {self.depth_map.shape}"
+            )
         
         # Ensure depth and confidence are float32
         if self.depth_map.dtype != np.float32:
@@ -103,6 +111,8 @@ class KrabbyHardwareObservations:
             "rgb_camera_2": {"shape": list(rgb2.shape), "dtype": str(rgb2.dtype)},
             "depth_map": {"shape": list(depth.shape), "dtype": str(depth.dtype)},
             "confidence_map": {"shape": list(conf.shape), "dtype": str(conf.dtype)},
+            "camera_height": self.camera_height,
+            "camera_width": self.camera_width,
             "timestamp_ns": self.timestamp_ns,
         }
         
@@ -116,7 +126,7 @@ class KrabbyHardwareObservations:
         ]
     
     @classmethod
-    def from_bytes(cls, parts: list[bytes]) -> "KrabbyHardwareObservations":
+    def from_bytes(cls, parts: list[bytes]) -> "HardwareObservations":
         """Deserialize from ZMQ multipart message.
         
         Args:
@@ -124,7 +134,7 @@ class KrabbyHardwareObservations:
                 Expected format: [metadata_json, joint_positions, rgb_camera_1, rgb_camera_2, depth_map, confidence_map]
             
         Returns:
-            KrabbyHardwareObservations instance
+            HardwareObservations instance
             
         Raises:
             ValueError: If message format is invalid (wrong number of parts, invalid JSON, etc.)
@@ -157,20 +167,33 @@ class KrabbyHardwareObservations:
         except (KeyError, ValueError, TypeError) as e:
             raise ValueError(f"Error deserializing arrays: {e}") from e
         
+        # Extract camera dimensions from metadata or infer from array shapes
+        camera_height = metadata.get("camera_height")
+        camera_width = metadata.get("camera_width")
+        if camera_height is None or camera_width is None:
+            # Fallback: extract from rgb_camera_1 shape if not in metadata
+            if len(rgb1.shape) >= 2:
+                camera_height = rgb1.shape[0]
+                camera_width = rgb1.shape[1]
+            else:
+                raise ValueError("Cannot determine camera dimensions from metadata or array shapes")
+        
         return cls(
             joint_positions=joint_pos,
             rgb_camera_1=rgb1,
             rgb_camera_2=rgb2,
             depth_map=depth,
             confidence_map=conf,
+            camera_height=camera_height,
+            camera_width=camera_width,
             timestamp_ns=metadata.get("timestamp_ns", 0),
         )
     
 
 
 @dataclass
-class KrabbyDesiredJointPositions:
-    """Desired joint positions for Krabby robot.
+class JointCommand:
+    """Joint command structure.
     
     Contains 18 target joint positions for hardware control.
     
@@ -226,7 +249,7 @@ class KrabbyDesiredJointPositions:
         ]
     
     @classmethod
-    def from_bytes(cls, parts: list[bytes]) -> "KrabbyDesiredJointPositions":
+    def from_bytes(cls, parts: list[bytes]) -> "JointCommand":
         """Deserialize from ZMQ multipart message.
         
         Args:
@@ -234,7 +257,7 @@ class KrabbyDesiredJointPositions:
                 Expected format: [metadata_json, joint_positions]
             
         Returns:
-            KrabbyDesiredJointPositions instance
+            JointCommand instance
             
         Raises:
             ValueError: If message format is invalid (wrong number of parts, invalid JSON, etc.)
