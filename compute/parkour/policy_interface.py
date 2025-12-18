@@ -23,7 +23,6 @@ import numpy as np
 import torch
 import yaml
 from rsl_rl.env import VecEnv
-from parkour.scripts.rsl_rl.modules.on_policy_runner_with_extractor import OnPolicyRunnerWithExtractor
 
 from compute.parkour.parkour_types import InferenceResponse, ParkourModelIO
 
@@ -158,6 +157,16 @@ class ParkourPolicyModel:
             num_actions=self.action_dim,
             device=str(self.device),
         )
+
+        # TODO: Fix this import - lazy import does NOT work, this is just a placeholder
+        # The import still fails when this code executes because importing
+        # parkour.scripts.rsl_rl.modules.on_policy_runner_with_extractor triggers
+        # parkour.scripts.rsl_rl.__init__.py, which imports from .exporter, which
+        # requires isaaclab_rl (not available in test environment).
+        # This lazy import only delays the error but doesn't prevent it.
+        # See docs/IMPORT_ISSUE_EXPLANATION.md for details.
+        # Solution needed: Install isaaclab_rl stub or make exporter import optional.
+        from parkour.scripts.rsl_rl.modules.on_policy_runner_with_extractor import OnPolicyRunnerWithExtractor
 
         # Initialize OnPolicyRunnerWithExtractor
         logger.info(f"Initializing OnPolicyRunnerWithExtractor with checkpoint: {checkpoint_path}")
