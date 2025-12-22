@@ -49,7 +49,8 @@ class KrabbyMCUSDK:
 
             if wait_feedback_timeout is not None:
                 if not self.wait_for_feedback(timeout=wait_feedback_timeout):
-                    print("[SDK] No feedback detected (motor/MCU not sending data?).")
+                    print(
+                        "[SDK] No feedback detected (motor/MCU not sending data?).")
                     self.close()
                     return False
 
@@ -154,12 +155,14 @@ class KrabbyMCUSDK:
                     return
 
             if self._movement_unresponsive(min_delta=min_delta, timeout=seconds, pwm_threshold=pwm_threshold):
-                raise RuntimeError("[SDK] Command sent but no movement detected (check motor/encoder power/wiring).")
+                raise RuntimeError(
+                    "[SDK] Command sent but no movement detected (check motor/encoder power/wiring).")
 
             time.sleep(poll_interval)
 
         if self._movement_unresponsive(min_delta=min_delta, timeout=seconds, pwm_threshold=pwm_threshold):
-            raise RuntimeError("[SDK] Command sent but no movement detected (check motor/encoder power/wiring).")
+            raise RuntimeError(
+                "[SDK] Command sent but no movement detected (check motor/encoder power/wiring).")
 
     def close(self):
         self.running = False

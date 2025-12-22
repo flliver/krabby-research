@@ -2,7 +2,8 @@
 
 ## Overview
 
-This guide covers the setup, wiring, and execution of the Single-Motor Yaw Controller for the Krabby-Uno robot.
+This guide covers the setup, wiring, and execution of the Single-Motor Yaw Controller.
+**Note:** The wiring below uses the Arduino Mega's extended headers to ensure compatibility with the MultiMoto shield (Task 2).
 
 ## Prerequisites
 
@@ -11,58 +12,57 @@ This guide covers the setup, wiring, and execution of the Single-Motor Yaw Contr
   - BTS7960 43A H-Bridge Driver
   - 12V DC Gear Motor (131:1) with Encoder
   - 12V Power Supply
-  - Jetson Orin (or Ubuntu Laptop, or Windows)
+  - Jetson Orin (or Ubuntu Laptop)
 - **Software:**
-  - Ubuntu 22.04/Windows 10+
-  - Python 3.x (`pip install -r requirements.txt`)
+  - Ubuntu 22.04
+  - Python 3.x (`pip install pyserial`)
   - Arduino IDE or CLI
 
-## 1. Wiring
+## 1. Wiring (Shield-Safe Pinout)
 
-Follow this pinout carefully. Failure to ground common pins may result in signal noise.
+**Crucial:** Do not use pins 2-13, as these will be covered by the MultiMoto shield in later tasks.
 
-| Component   | Pin Label | Arduino Mega Pin | Notes         |
-| :---------- | :-------- | :--------------- | :------------ |
-| **Encoder** | Phase A   | **D2**           | Interrupt Pin |
-| **Encoder** | Phase B   | **D3**           | Interrupt Pin |
-| **Encoder** | VCC       | 5V               | Logic Power   |
-| **Encoder** | GND       | GND              | Common Ground |
-| **Driver**  | R_EN      | **D4**           | Enable Right  |
-| **Driver**  | L_EN      | **D5**           | Enable Left   |
-| **Driver**  | R_PWM     | **D6**           | PWM Forward   |
-| **Driver**  | L_PWM     | **D7**           | PWM Reverse   |
-| **Driver**  | VCC       | 5V               | Logic Power   |
-| **Driver**  | GND       | GND              | Common Ground |
+| Component   | Pin Label | Arduino Mega Pin | Notes                         |
+| :---------- | :-------- | :--------------- | :---------------------------- |
+| **Encoder** | Phase A   | **D18**          | Interrupt Pin (Tx1)           |
+| **Encoder** | Phase B   | **D19**          | Interrupt Pin (Rx1)           |
+| **Encoder** | VCC       | 5V               | Logic Power                   |
+| **Encoder** | GND       | GND              | Common Ground                 |
+| **Driver**  | R_EN      | **D22**          | Enable Right (Digital)        |
+| **Driver**  | L_EN      | **D23**          | Enable Left (Digital)         |
+| **Driver**  | R_PWM     | **D46**          | PWM Forward (Extended Header) |
+| **Driver**  | L_PWM     | **D45**          | PWM Reverse (Extended Header) |
+| **Driver**  | VCC       | 5V               | Logic Power                   |
+| **Driver**  | GND       | GND              | Common Ground                 |
 
 _Power Connection:_ Connect 12V Battery to Driver `B+` and `B-`. Connect Motor to Driver `M+` and `M-`.
 
 ## 2. Firmware Installation
 
-1.  Open `Task1/Task1_YawControl/Task1_YawControl.ino` in Arduino IDE.
+1.  Open `Task1_YawControl/Task1_YawControl.ino` in Arduino IDE.
 2.  Select Board: **Arduino Mega or Mega 2560**.
-3.  Select Port: usually `/dev/ttyACM0` on Linux, or COM1-4 on Windows (confirm in Arduino IDE from board dropdown)
+3.  Select Port: usually `/dev/ttyACM0` on Linux.
 4.  Click **Upload**.
 
 ## 3. Running the SDK Test
 
 1.  Navigate to the SDK directory:
     ```bash
-    cd krabby-research/firmware
+    cd Task1
     ```
-2.  Setup venv and install requirements:
+2.  Install requirements:
     ```bash
-    python -m venv .venv
-    .venv/bin/activate (or .venv/Scripts/Activate.ps1 on windows)
-    pip install -r requirements.txtl
+    pip install pyserial
     ```
 3.  Run the test script:
     ```bash
-    export KRABBY_MCU_PORT=/dev/ttyACM0 (or set KRABBY_MCU_PORT=COM4 on Windows w/ whatever correct COM port is)
     python3 krabby_mcu.py
     ```
 
 ## 4. Verification
 
-- The script will attempt to move the motor to **-30 degrees** (Left), **+30 degrees** (Right), and **0 degrees** (Center).
-- Watch the terminal output. You should see `Pos:` values updating to match the target (e.g., nearing -1.0 or 1.0).
-- If the motor spins continuously without stopping, check your Encoder wiring (specifically Phase A/B order).
+- The script will attempt to sweep the motor Left, Right, and Center.
+- **Success:** You will see `Pos:` updates in the terminal matching the target.
+- **Error Handling:**
+  - If the script says `[SDK] No feedback detected`, check your **Encoder Wiring**.
+  - If the script says `Command sent but no movement`, check your **12V Power Supply** and **H-Bridge Wiring**.
