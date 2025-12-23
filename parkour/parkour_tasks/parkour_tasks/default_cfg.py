@@ -3,7 +3,7 @@ from isaaclab.assets import ArticulationCfg, AssetBaseCfg
 from isaaclab_assets.robots.unitree import UNITREE_GO2_CFG  # isort: skip
 import isaaclab.sim as sim_utils
 from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR, ISAACLAB_NUCLEUS_DIR
-from isaaclab.terrains import TerrainImporterCfg
+from isaaclab.terrains import TerrainImporterCfg, TerrainImporter
 from isaaclab.utils import configclass
 from parkour_isaaclab.terrains.parkour_terrain_importer import ParkourTerrainImporter
 from parkour_tasks.extreme_parkour_task.config.go2 import agents 
@@ -12,6 +12,10 @@ from isaaclab.sensors.ray_caster.patterns import PinholeCameraPatternCfg
 from isaaclab.envs import ViewerCfg
 import os, torch 
 from parkour_isaaclab.actuators.parkour_actuator_cfg import ParkourDCMotorCfg
+
+# Optional: load a USD scene instead of using ParkourTerrainImporter.
+# Set environment variable `PARKOUR_SCENE_USD` to the USD file path.
+PARKOUR_SCENE_USD = os.environ.get("PARKOUR_SCENE_USD", None)
 
 def quat_from_euler_xyz_tuple(roll: torch.Tensor, pitch: torch.Tensor, yaw: torch.Tensor) -> tuple:
     cy = torch.cos(yaw * 0.5)
@@ -40,26 +44,44 @@ class ParkourDefaultSceneCfg(InteractiveSceneCfg):
         ),
     )
 
-    terrain = TerrainImporterCfg(
-        class_type= ParkourTerrainImporter,
-        prim_path="/World/ground",
-        terrain_type="generator",
-        terrain_generator=None,
-        max_init_terrain_level=2,
-        collision_group=-1,
-        physics_material=sim_utils.RigidBodyMaterialCfg(
-            friction_combine_mode="average",
-            restitution_combine_mode="average",
-            static_friction=1.0,
-            dynamic_friction=1.0,
-        ),
-        visual_material=sim_utils.MdlFileCfg(
-            mdl_path=f"{ISAACLAB_NUCLEUS_DIR}/Materials/TilesMarbleSpiderWhiteBrickBondHoned/TilesMarbleSpiderWhiteBrickBondHoned.mdl",
-            project_uvw=True,
-            texture_scale=(0.25, 0.25),
-        ),
-        debug_vis=False,
-    )
+    # If a USD scene path is provided, switch terrain to load that USD.
+    if PARKOUR_SCENE_USD:
+        terrain = TerrainImporterCfg(
+            usd_path=PARKOUR_SCENE_USD,
+            terrain_type="usd",
+            prim_path="/World/ground",
+            env_spacing=1.0,
+            max_init_terrain_level=2,
+            collision_group=-1,
+            physics_material=sim_utils.RigidBodyMaterialCfg(
+                friction_combine_mode="average",
+                restitution_combine_mode="average",
+                static_friction=1.0,
+                dynamic_friction=1.0,
+            ),
+            debug_vis=False,
+        )
+    else:
+        terrain = TerrainImporterCfg(
+            class_type= ParkourTerrainImporter,
+            prim_path="/World/ground",
+            terrain_type="generator",
+            terrain_generator=None,
+            max_init_terrain_level=2,
+            collision_group=-1,
+            physics_material=sim_utils.RigidBodyMaterialCfg(
+                friction_combine_mode="average",
+                restitution_combine_mode="average",
+                static_friction=1.0,
+                dynamic_friction=1.0,
+            ),
+            visual_material=sim_utils.MdlFileCfg(
+                mdl_path=f"{ISAACLAB_NUCLEUS_DIR}/Materials/TilesMarbleSpiderWhiteBrickBondHoned/TilesMarbleSpiderWhiteBrickBondHoned.mdl",
+                project_uvw=True,
+                texture_scale=(0.25, 0.25),
+            ),
+            debug_vis=False,
+        )
     def __post_init__(self):
         self.robot.spawn.articulation_props.enabled_self_collisions = True
         self.robot.actuators['base_legs'] = ParkourDCMotorCfg(
