@@ -26,11 +26,13 @@ const float GEARBOX_MULT = 1.0;
 // Calculated Limits
 const long MAX_COUNTS = (long)((MAX_ANGLE_DEG / 360.0) * COUNTS_PER_REV * GEARBOX_MULT);
 // Note: We use a larger max for safety clamping, but target logic handles the range.
+const int DEAD_BAND = 12;
+const long SETTLE_ERROR_COUNTS = 10; // counts threshold to consider “at target”
 
-// PID Control Constants
-float Kp = 3.5; // Proportional gain
-float Ki = 0.0; // Integral gain (unused for simple pos control)
-float Kd = 0.1; // Derivative gain
+// PID Control Constants (tuned to reduce overshoot/chatter)
+float Kp = 0.8;  // Proportional gain
+float Ki = 0.0;  // Integral gain (unused for simple pos control)
+float Kd = 0.12; // Derivative gain
 
 // Globals
 volatile long encoderPosition = 0;
@@ -38,6 +40,11 @@ float targetPositionNormalized = 0.0; // -1.0 to 1.0
 long targetCounts = 0;
 unsigned long lastTelemetryTime = 0;
 const int TELEMETRY_INTERVAL_MS = 20; // ~50Hz
+bool armed = false;
+unsigned long lastCommandTime = 0;
+const unsigned long DISARM_TIMEOUT_MS = 2000; // auto-disarm 2s after last command
+unsigned long idleStartMs = 0;
+const unsigned long DISARM_IDLE_MS = 250; // disarm after 500ms of zero PWM
 
 // --- INTERRUPT ROUTINES ---
 void readEncoder()
@@ -58,6 +65,16 @@ void readEncoder()
 // --- MOTOR DRIVER HELPER ---
 void setMotorPWM(int pwm)
 {
+  if (!armed)
+  {
+    // Keep driver disabled until a command arms it
+    digitalWrite(PIN_R_EN, LOW);
+    digitalWrite(PIN_L_EN, LOW);
+    analogWrite(PIN_R_PWM, 0);
+    analogWrite(PIN_L_PWM, 0);
+    return;
+  }
+
   // pwm range: -255 (full reverse) to 255 (full forward)
 
   // Clamp PWM
@@ -67,7 +84,7 @@ void setMotorPWM(int pwm)
     pwm = -255;
 
   // Deadband (prevent buzzing at low power)
-  if (abs(pwm) < 25)
+  if (abs(pwm) < DEAD_BAND)
     pwm = 0;
 
   if (pwm > 0)
@@ -134,6 +151,19 @@ void loop()
       targetPositionNormalized = val;
       // Map normalized input to encoder counts
       targetCounts = (long)(targetPositionNormalized * MAX_COUNTS);
+
+      // Arm on first valid target command
+      armed = true;
+      lastCommandTime = millis();
+    }
+  }
+
+  // Optional auto-disarm if no commands for a while (set timeout above)
+  if (DISARM_TIMEOUT_MS > 0 && armed)
+  {
+    if ((millis() - lastCommandTime) >= DISARM_TIMEOUT_MS)
+    {
+      armed = false;
     }
   }
 
@@ -142,6 +172,29 @@ void loop()
 
   // PD Controller
   int controlSignal = (int)(error * Kp);
+
+  // Auto-disarm if PWM is effectively zero and error is small for a while
+  bool pwmActive = abs(controlSignal) >= DEAD_BAND;
+  bool atTarget = abs(error) <= SETTLE_ERROR_COUNTS;
+  if (armed && DISARM_IDLE_MS > 0)
+  {
+    if (!pwmActive && atTarget)
+    {
+      if (idleStartMs == 0)
+      {
+        idleStartMs = millis();
+      }
+      else if ((millis() - idleStartMs) >= DISARM_IDLE_MS)
+      {
+        armed = false;
+        idleStartMs = 0;
+      }
+    }
+    else
+    {
+      idleStartMs = 0;
+    }
+  }
 
   setMotorPWM(controlSignal);
 
