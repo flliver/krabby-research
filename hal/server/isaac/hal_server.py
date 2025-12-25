@@ -70,17 +70,11 @@ class IsaacSimHalServer(HalServerBase):
             # Cache scene reference
             self.scene = self.env.scene
 
-            # Cache robot reference (assuming robot is named "robot" in scene)
-            # This matches the pattern used in observations.py: env.scene[cfg.params["asset_cfg"].name]
-            if "robot" in self.scene:
-                self.robot = self.scene["robot"]
-            else:
-                # Try to find robot by iterating scene entities
-                for name, entity in self.scene.items():
-                    if hasattr(entity, "data") and hasattr(entity.data, "joint_pos"):
-                        self.robot = entity
-                        logger.info(f"Found robot entity: {name}")
-                        break
+            # Cache robot reference
+            # The scene entity names come from the scene config class attributes.
+            # Source of truth: parkour_tasks/parkour_tasks/default_cfg.py (ParkourDefaultSceneCfg)
+            # Entity name "robot" is defined by the scene config attribute name.
+            self.robot = self.scene["robot"]
 
             # Cache camera sensors if available
             self.camera_sensors = {}

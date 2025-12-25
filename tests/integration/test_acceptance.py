@@ -76,19 +76,10 @@ class ProtoHalServer(HalServerBase):
                         # Command received and acknowledged by get_joint_command
                         pass
                 except Exception as e:
-                    # Handle exceptions in command handling thread
-                    # Expected exceptions during shutdown (connection errors, etc.) are logged but not raised
-                    # If we need to handle specific exceptions in the future, add them here:
-                    # except (zmq.ZMQError, ConnectionError) as e:
-                    #     if not self._running:
-                    #         # Expected during shutdown
-                    #         break
-                    #     raise
                     if not self._running:
                         # Expected during shutdown - exit loop gracefully
                         break
                     # Unexpected exception while running - log and continue
-                    # (In production, might want to re-raise, but in test server we continue)
                     import logging
                     logging.getLogger(__name__).debug(
                         f"Exception in command loop (continuing): {e}", exc_info=True
@@ -267,14 +258,6 @@ def test_100_tick_execution_with_proto_hal(proto_hal_setup):
     stop_thread = threading.Thread(target=stop_after_time, daemon=True)
     stop_thread.start()
 
-    # Production code (InferenceTestRunner.run()) handles all exceptions internally
-    # No exception handling needed here - if run() completes, it succeeded
-    # If we need to handle expected exceptions in the future, add them here:
-    # try:
-    #     test_runner.run()
-    # except ExpectedExceptionType:
-    #     # Handle expected exception
-    #     pass
     test_runner.run()
 
     stop_thread.join(timeout=2.0)
@@ -346,24 +329,94 @@ def _find_checkpoint_path() -> Path:
 
 
 @pytest.mark.isaacsim
-def test_inference_latency_requirement(proto_hal_setup):
-    """Test that inference latency meets < 15ms requirement with real model.
+def test_inference_latency_requirement():
+    """Test that inference latency meets < 15ms requirement with real model and Isaac Sim.
 
-    This test measures real inference latency over multiple runs and verifies
-    that average and p99 latency meet the < 15ms requirement. It uses an actual
-    checkpoint to test real inference performance.
+    This test measures real inference latency over multiple runs with a real Isaac Sim
+    environment and HAL server, verifying that average and p99 latency meet the < 15ms
+    requirement. It uses an actual checkpoint and real Isaac Sim environment to test
+    end-to-end inference performance including Isaac Sim overhead.
 
     The test uses GPU if available (CUDA), falling back to CPU. The < 15ms requirement
-    is enforced when running on GPU. CPU inference may not meet this requirement,
-    which is expected.
+    is enforced when running on GPU. CPU inference may not meet this requirement, which is expected.
 
     Checkpoint path can be configured via PARKOUR_CHECKPOINT_PATH environment variable.
     Default: searches for parkour/assets/weights/unitree_go2_parkour_teacher.pt in common locations.
     
-    This test is marked with @pytest.mark.isaacsim and should be run on the
-    isaacsim image using 'make test-isaacsim'.
+    This test requires Isaac Sim to be properly initialized via AppLauncher.
+    Run with: make test-isaacsim
     """
-    server, client = proto_hal_setup
+    # Initialize AppLauncher first (required for Isaac Sim)
+    from isaaclab.app import AppLauncher
+    import argparse as argparse_module
+    
+    # Create a namespace with headless=True for AppLauncher
+    applauncher_ns = argparse_module.Namespace(headless=True)
+    app_launcher = AppLauncher(applauncher_ns)
+    simulation_app = app_launcher.app
+    
+    # Wait for simulation app to be fully ready
+    import time
+    max_wait = 30
+    waited = 0
+    while not simulation_app.is_running() and waited < max_wait:
+        time.sleep(0.1)
+        waited += 0.1
+    
+    if not simulation_app.is_running():
+        pytest.fail("SimulationApp failed to start within timeout")
+    
+    # Import required modules AFTER AppLauncher is initialized
+    from isaaclab_tasks.utils import parse_env_cfg
+    from parkour_isaaclab.envs import ParkourManagerBasedRLEnv
+    from hal.server.isaac import IsaacSimHalServer
+    from hal.server import HalServerConfig
+    from hal.client.client import HalClient
+    from hal.client.config import HalClientConfig
+    import sys
+    
+    # Import parkour_tasks to register gym environments
+    parkour_tasks_path = "/workspace/parkour/parkour_tasks"
+    if parkour_tasks_path not in sys.path:
+        sys.path.insert(0, parkour_tasks_path)
+    import parkour_tasks  # noqa: F401
+    
+    # Create environment configuration
+    task_name = "Isaac-Extreme-Parkour-Teacher-Unitree-Go2-v0"
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    
+    # Parse environment configuration
+    env_cfg = parse_env_cfg(
+        task_name,
+        device=device,
+        num_envs=1,
+        use_fabric=True,
+    )
+    
+    # Create environment using direct instantiation
+    env = ParkourManagerBasedRLEnv(cfg=env_cfg, render_mode=None)
+    
+    # Create HAL server config (use inproc for same-process communication)
+    hal_server_config = HalServerConfig(
+        observation_bind="inproc://test_obs_latency",
+        command_bind="inproc://test_cmd_latency",
+    )
+    
+    # Create and initialize HAL server with real environment
+    server = IsaacSimHalServer(hal_server_config, env=env)
+    server.initialize()
+    
+    # Create HAL client with shared context
+    client_config = HalClientConfig(
+        observation_endpoint="inproc://test_obs_latency",
+        command_endpoint="inproc://test_cmd_latency",
+    )
+    client = HalClient(client_config, context=server.get_transport_context())
+    client.initialize()
+    
+    # Publish an initial observation to establish the PUB/SUB connection
+    server.set_observation()
+    client.poll(timeout_ms=100)
 
     # Find checkpoint path
     try:
@@ -400,7 +453,19 @@ def test_inference_latency_requirement(proto_hal_setup):
     nav_cmd = NavigationCommand.create_now()
     test_runner.set_navigation_command(nav_cmd)
 
-    server.start_publishing(rate_hz=100.0)
+    # Start publishing observations from Isaac Sim at 100 Hz
+    # Use a background thread to publish observations periodically
+    publish_stop_flag = threading.Event()
+    
+    def publish_loop():
+        """Background loop that publishes observations from Isaac Sim at a fixed rate."""
+        period = 1.0 / 100.0  # 100 Hz
+        while not publish_stop_flag.is_set():
+            server.set_observation()
+            time.sleep(period)
+    
+    publish_thread = threading.Thread(target=publish_loop, daemon=True)
+    publish_thread.start()
 
     # Collect latencies
     latencies = []
@@ -427,17 +492,19 @@ def test_inference_latency_requirement(proto_hal_setup):
     stop_thread = threading.Thread(target=stop_after_time, daemon=True)
     stop_thread.start()
 
-    # Production code (InferenceTestRunner.run()) handles all exceptions internally
-    # No exception handling needed here - if run() completes, it succeeded
-    # If we need to handle expected exceptions in the future, add them here:
-    # try:
-    #     test_runner.run()
-    # except ExpectedExceptionType:
-    #     # Handle expected exception
-    #     pass
     test_runner.run()
 
     stop_thread.join(timeout=1.0)
+    
+    # Stop publishing
+    publish_stop_flag.set()
+    publish_thread.join(timeout=1.0)
+    
+    # Clean up
+    client.close()
+    server.close()
+    env.close()
+    simulation_app.close()
 
     # Analyze latencies
     if len(latencies) == 0:

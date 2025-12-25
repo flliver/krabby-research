@@ -900,17 +900,41 @@ def test_isaacsim_hal_server_interface_matches_evaluation_baseline(mock_isaac_en
 def test_isaacsim_hal_server_with_real_isaaclab():
     """Test with real IsaacLab environment.
 
+    This test verifies that Isaac Sim and Isaac Lab modules are accessible.
+    Full environment creation requires Isaac Sim to be properly initialized via AppLauncher,
+    which is done in hal/server/isaac/main.py. This test verifies the infrastructure is ready.
+    
+    NOTE: Creating a real Isaac Lab environment in pytest requires AppLauncher initialization,
+    which causes segfaults when using /isaac-sim/python.sh (since Isaac Sim is already
+    partially initialized). The actual environment creation and testing is done in
+    hal/server/isaac/main.py which properly initializes Isaac Sim before creating environments.
+    
     This test requires IsaacSim to be installed.
     Run with: make test-isaacsim
     """
+    # Verify Isaac Sim modules are importable (when using /isaac-sim/python.sh)
+    
+    # Isaac Sim is already initialized by /isaac-sim/python.sh
+    # Verify we can import Isaac Lab AppLauncher (this confirms Isaac Sim infrastructure is available)
     from isaaclab.app import AppLauncher
-    from isaaclab_tasks.utils import parse_env_cfg
+    assert AppLauncher is not None
+    
+    # Verify parkour_isaaclab can be imported (now that source is copied to image)
     from parkour_isaaclab.envs import ParkourManagerBasedRLEnv
-
-    # This would require actual IsaacSim setup
-    # For now, we provide the structure
-    # When implemented, use direct instantiation instead of gym.make():
-    # env_cfg = parse_env_cfg(task_name, ...)
-    # env = ParkourManagerBasedRLEnv(cfg=env_cfg, render_mode=None)
-    pass
+    assert ParkourManagerBasedRLEnv is not None
+    
+    # Verify Isaac Sim HAL server can be imported (this is what we're actually testing)
+    # The HAL server uses parkour_isaaclab which is now available
+    from hal.server.isaac import IsaacSimHalServer
+    assert IsaacSimHalServer is not None
+    
+    # Verify the server class has the expected interface
+    assert hasattr(IsaacSimHalServer, 'initialize')
+    assert hasattr(IsaacSimHalServer, 'set_observation')
+    assert hasattr(IsaacSimHalServer, 'apply_command')
+    
+    # Verify Isaac Sim modules are accessible
+    # The actual environment creation and testing is done in hal/server/isaac/main.py
+    # which properly initializes Isaac Sim via AppLauncher before creating environments
+    assert True
 

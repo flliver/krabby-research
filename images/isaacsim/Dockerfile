@@ -38,9 +38,10 @@ RUN if [ ! -d /workspace/isaaclab ] || [ ! -d /workspace/isaaclab/.git ]; then \
 RUN chmod +x /workspace/isaaclab/isaaclab.sh
 
 # Create virtual environment for Isaac Lab installation
-# Use system Python (whatever version the base image provides)
+# Use Isaac Sim's Python (3.11) to match Isaac Sim's Python version
+# This avoids Python version mismatches when mixing venv packages with Isaac Sim
 # Use --system-site-packages so venv can access Isaac Sim from base image
-RUN python3 -m venv --system-site-packages /workspace/testenv
+RUN /isaac-sim/python.sh -m venv --system-site-packages /workspace/testenv
 
 # Upgrade pip and install requirements into venv
 # Install typing-extensions and matplotlib before Isaac Lab to avoid compatibility issues
@@ -75,6 +76,10 @@ COPY parkour/dist/*.whl /tmp/wheels/
 RUN . /workspace/testenv/bin/activate && \
     bash -c "pip install --no-cache-dir /tmp/wheels/*.whl"
 
+# Copy parkour source so parkour_isaaclab is available
+# Note: parkour_isaaclab is not included in the wheel, so we need the source
+COPY parkour/ /workspace/parkour/
+
 # Copy test assets (checkpoints, test data, etc.) to generic test assets directory
 # This directory can be used for any test content files
 RUN mkdir -p /workspace/test_assets/checkpoints
@@ -85,9 +90,19 @@ COPY parkour/assets/weights/*.json /workspace/test_assets/checkpoints/
 COPY tests/ /workspace/tests/
 COPY pytest.ini /workspace/pytest.ini
 
+# Copy standalone test runner (no pytest - runs tests directly with AppLauncher)
+COPY images/isaacsim/test_runner.py /workspace/test_runner.py
+RUN chmod +x /workspace/test_runner.py
+COPY images/isaacsim/run_test_runner.sh /workspace/run_test_runner.sh
+RUN chmod +x /workspace/run_test_runner.sh
+
 # Set PYTHONPATH environment variable to include /workspace and Isaac Sim Python packages
 # Entrypoint uses venv Python directly, so ENV is needed
 ENV PYTHONPATH=/workspace:/isaac-sim/python_packages
+
+# Set EXP_PATH for AppLauncher (required by Isaac Lab)
+# This points to the base Python experience file
+ENV EXP_PATH=/isaac-sim/apps/isaacsim.exp.base.python.kit
 
 # Set checkpoint path for tests
 ENV PARKOUR_CHECKPOINT_PATH=/workspace/test_assets/checkpoints

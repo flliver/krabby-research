@@ -469,8 +469,6 @@ def test_jetson_hal_server_state_error_handling(hal_server_config):
 
     # Test with None state
     state_vector = hal_server._build_state_vector()
-    # Should return None (placeholder implementation)
-    # In production, would handle gracefully
 
     hal_server.close()
 

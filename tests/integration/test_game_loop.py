@@ -67,19 +67,10 @@ class ProtoHalServer(HalServerBase):
                         # Command received and acknowledged by get_joint_command
                         pass
                 except Exception as e:
-                    # Handle exceptions in command handling thread
-                    # Expected exceptions during shutdown (connection errors, etc.) are logged but not raised
-                    # If we need to handle specific exceptions in the future, add them here:
-                    # except (zmq.ZMQError, ConnectionError) as e:
-                    #     if not self._running:
-                    #         # Expected during shutdown
-                    #         break
-                    #     raise
                     if not self._running:
                         # Expected during shutdown - exit loop gracefully
                         break
                     # Unexpected exception while running - log and continue
-                    # (In production, might want to re-raise, but in test server we continue)
                     import logging
                     logging.getLogger(__name__).debug(
                         f"Exception in command loop (continuing): {e}", exc_info=True
@@ -205,14 +196,6 @@ def test_game_loop_basic_functionality(hal_setup):
     stop_thread = threading.Thread(target=stop_after_time, daemon=True)
     stop_thread.start()
 
-    # Production code (InferenceTestRunner.run()) handles all exceptions internally
-    # No exception handling needed here - if run() completes, it succeeded
-    # If we need to handle expected exceptions in the future, add them here:
-    # try:
-    #     test_runner.run()
-    # except ExpectedExceptionType:
-    #     # Handle expected exception
-    #     pass
     test_runner.run()
 
     stop_thread.join(timeout=1.0)

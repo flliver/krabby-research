@@ -57,7 +57,6 @@ def _find_checkpoint_path() -> Path:
 class TestParkourPolicyModel:
     """Tests for ParkourPolicyModel inference correctness."""
 
-    @pytest.mark.isaacsim
     def test_forward_pass_correctness(self):
         """Test forward-pass correctness by comparing outputs to reference.
 
@@ -67,8 +66,6 @@ class TestParkourPolicyModel:
         Note: This test requires a checkpoint file and reference outputs.
         For now, we'll test that we can load the checkpoint and run inference.
         
-        This test is marked with @pytest.mark.isaacsim and should be run on the
-        isaacsim image using 'make test-isaacsim'.
         """
         # Find checkpoint path (tries multiple locations)
         try:

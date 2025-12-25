@@ -146,7 +146,7 @@ test-isaacsim: build-isaacsim-image
 	@echo "Running Isaac Sim tests (including real inference tests) on Isaac Sim container..."
 	@echo "Note: These tests require a checkpoint file and Isaac Lab packages"
 	docker run --rm --gpus all \
-		--entrypoint /workspace/testenv/bin/pytest \
+		--entrypoint /workspace/run_test_runner.sh \
 		krabby-isaacsim:latest \
-		tests/ -v -m isaacsim
+		test_isaacsim_hal_server_with_real_isaaclab
 

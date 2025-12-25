@@ -24,6 +24,7 @@ import torch
 import yaml
 from rsl_rl.env import VecEnv
 
+from compute.parkour.modules.on_policy_runner_with_extractor import OnPolicyRunnerWithExtractor
 from compute.parkour.parkour_types import InferenceResponse, ParkourModelIO
 
 logger = logging.getLogger(__name__)
@@ -158,13 +159,6 @@ class ParkourPolicyModel:
             device=str(self.device),
         )
 
-        # TODO: Fix this import - lazy import does NOT work, this is just a placeholder
-        # The import still fails when this code executes because importing
-        # parkour.scripts.rsl_rl.modules.on_policy_runner_with_extractor triggers
-        # parkour.scripts.rsl_rl.__init__.py, which imports from .exporter, which
-        # requires isaaclab_rl (not available in test environment).
-        from parkour.scripts.rsl_rl.modules.on_policy_runner_with_extractor import OnPolicyRunnerWithExtractor
-
         # Initialize OnPolicyRunnerWithExtractor
         logger.info(f"Initializing OnPolicyRunnerWithExtractor with checkpoint: {checkpoint_path}")
         try:
@@ -249,6 +243,22 @@ class ParkourPolicyModel:
         return {
             "algorithm": {
                 "class_name": "PPOWithExtractor",
+                "learning_rate": 2.0e-4,
+                "dagger_update_freq": 20,
+                "value_loss_coef": 1.0,
+                "use_clipped_value_loss": True,
+                "clip_param": 0.2,
+                "entropy_coef": 0.01,
+                "desired_kl": 0.01,
+                "num_learning_epochs": 5,
+                "num_mini_batches": 16,
+                "schedule": "adaptive",
+                "gamma": 0.99,
+                "lam": 0.95,
+                "max_grad_norm": 1.0,
+                "priv_reg_coef_schedual": [0.0, 0.1, 2000.0, 3000.0],
+                "rnd_cfg": None,
+                "symmetry_cfg": None,
             },
             "estimator": {
                 "class_name": "DefaultEstimator",
@@ -256,14 +266,30 @@ class ParkourPolicyModel:
                 "num_scan": 132,
                 "num_priv_explicit": 9,
                 "num_priv_latent": 29,
+                "hidden_dims": [128, 64],
+                "learning_rate": 2.0e-4,
+                "train_with_estimated_states": False,
             },
             "depth_encoder": None,
             "policy": {
+                "class_name": "ActorCriticRMA",
                 "num_prop": 53,
                 "num_scan": 132,
                 "num_priv_explicit": 9,
                 "num_priv_latent": 29,
                 "num_hist": 10,
+                "actor_hidden_dims": [512, 256, 128],
+                "critic_hidden_dims": [512, 256, 128],
+                "scan_encoder_dims": [128, 64, 32],
+                "priv_encoder_dims": [64, 20],
+                "tanh_encoder_output": False,
+                "actor": {
+                    "class_name": "Actor",
+                    "state_history_encoder": {
+                        "class_name": "StateHistoryEncoder",
+                        "channel_size": 10,
+                    },
+                },
             },
             "empirical_normalization": False,
             "num_steps_per_env": 24,

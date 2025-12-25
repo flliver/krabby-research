@@ -52,8 +52,17 @@ COPY pytest.ini /workspace/pytest.ini
 # Copy coverage configuration
 COPY .coveragerc /workspace/.coveragerc
 
+# Copy test assets (checkpoints, test data, etc.) to generic test assets directory
+# This directory can be used for any test content files
+RUN mkdir -p /workspace/test_assets/checkpoints
+COPY parkour/assets/weights/*.pt /workspace/test_assets/checkpoints/
+COPY parkour/assets/weights/*.json /workspace/test_assets/checkpoints/
+
 # Set Python path
 ENV PYTHONPATH=/workspace
+
+# Set checkpoint path for tests (can be overridden at runtime if needed)
+ENV PARKOUR_CHECKPOINT_PATH=/workspace/test_assets/checkpoints
 
 # Set entrypoint to inference test runner script
 # This runs the test runner which simulates the game loop (inference logic) for testing
