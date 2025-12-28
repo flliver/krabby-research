@@ -96,3 +96,11 @@ _These pins are reserved in the code but not physically active yet._
 - **Runaway Detected:**
   - If the log screams `CRITICAL: RUNAWAY DETECTED`, your **Encoder wiring is reversed** relative to the motor wires.
   - **Fix:** Swap the `M+` and `M-` wires on the H-Bridge for that motor.
+
+
+- **TODOS**
+  - Motor CURRENT_LIMIT is set to 1023 right now, because when motors start they pull full VDC and cause a safety stop. Need to add some short term averaging to let motor pull full current in normal operation, but stop when staying at full power.
+  - Motors still jerk heavily when starting, it should start at a lower value and ramp up slower when starting to move. (i.e. right now it moves full 30 degree in <0.1s, it should move that full amount in maybe 1/2 second.)
+  - Reversing PWM L/R on one motor causes both motors to set runaway flag. Flag should be per motor and still let other motors run.
+  - 
+
