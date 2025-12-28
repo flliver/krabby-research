@@ -8,11 +8,10 @@
 #include <Arduino.h>
 
 // --- CONFIGURATION ---
-const int TELEMETRY_INTERVAL_MS = 100; // 10Hz update rate
-const int CURRENT_LIMIT = 1023;        // Stall detection threshold (0-1023)
+const int TELEMETRY_INTERVAL_MS = 20; // 50Hz update rate
+const int CURRENT_LIMIT = 600;        // Stall detection threshold (0-1023)
 const int PWM_RAMP_STEP = 10;         // Max PWM change per loop (Smoothing)
 const int HOMING_PWM = 60;            // Slow speed for calibration
-unsigned long lastTelemetry = 0;      // Telemetry timer
 
 class JointMotor
 {
@@ -24,9 +23,6 @@ public:
     volatile long encoderPosition = 0;
     long targetCounts = 0;
     int currentPwm = 0; // For ramping/smoothing
-    int lastStallISR = 0; // Last raw ISR value when stall triggered
-    int lastStallISL = 0; // Last raw ISL value when stall triggered
-    int lastStallPwm = 0; // PWM at stall trigger
 
     // Safety State
     bool safetyTriggered = false;
@@ -66,23 +62,10 @@ public:
     bool checkStall()
     {
         // Check current sensors on both sides of H-Bridge
-        int isR = analogRead(pinISR);
-        int isL = analogRead(pinISL);
-        if (isR > CURRENT_LIMIT || isL > CURRENT_LIMIT)
+        if (analogRead(pinISR) > CURRENT_LIMIT || analogRead(pinISL) > CURRENT_LIMIT)
         {
-            lastStallISR = isR;
-            lastStallISL = isL;
-            lastStallPwm = currentPwm;
             safetyTriggered = true;
             stopMotor();
-            Serial.print("[WARN] Stall: ISR=");
-            Serial.print(isR);
-            Serial.print(" ISL=");
-            Serial.print(isL);
-            Serial.print(" PWM=");
-            Serial.print(lastStallPwm);
-            Serial.print(" LIMIT=");
-            Serial.println(CURRENT_LIMIT);
             return true;
         }
         return false;
@@ -93,8 +76,6 @@ public:
     {
         if (runawayTriggered)
             return;
-
-        String reason = "";
 
         // Only check if we are trying to move reasonably fast
         if (abs(targetPwm) > 50)
@@ -107,36 +88,19 @@ public:
 
                 // Case A: PWM Positive (Forward), but Encoder Negative (Backward)
                 if (targetPwm > 0 && delta < -2)
-                {
                     runawayTriggered = true;
-                    reason = "Direction mismatch (PWM>0, encoder decreasing)";
-                }
 
                 // Case B: PWM Negative (Backward), but Encoder Positive (Forward)
                 if (targetPwm < 0 && delta > 2)
-                {
                     runawayTriggered = true;
-                    reason = "Direction mismatch (PWM<0, encoder increasing)";
-                }
 
                 // Case C: PWM High, but Encoder not moving (Stalled or Disconnected)
                 if (abs(delta) < 1)
-                {
                     runawayTriggered = true;
-                    reason = "No encoder movement detected";
-                }
 
                 if (runawayTriggered)
                 {
                     stopMotor(); // HARD STOP
-                    Serial.print("[CRITICAL] RUNAWAY: ");
-                    Serial.print(reason);
-                    Serial.print(" | PWM=");
-                    Serial.print(targetPwm);
-                    Serial.print(" delta=");
-                    Serial.print(delta);
-                    Serial.print(" enc=");
-                    Serial.println(encoderPosition);
                 }
 
                 lastMoveTime = now;
@@ -254,11 +218,8 @@ public:
         }
         else
         {
-            // Stop outputs but keep currentPwm so ramp logic can continue
-            digitalWrite(pinEnR, LOW);
-            digitalWrite(pinEnL, LOW);
-            analogWrite(pinPwmR, 0);
-            analogWrite(pinPwmL, 0);
+            // Stop
+            stopMotor();
         }
     }
 
@@ -322,74 +283,7 @@ void setup()
     // yawRight.home();
 }
 
-// --- TELEMETRY HELPER ---
-// Emits one line per tick with:
-// FB:posL,posR                  (normalized positions)
-// S:safeL,safeR,runL,runR       (safety flags 0/1)
-// P:pwmL,pwmR                   (commanded PWM after ramping)
-// EN:LRLR                       (EN bits: L_ENR,L_ENL,R_ENR,R_ENL)
-// CTRL:tgtL,errL,pwmTgtL,tgtR,errR,pwmTgtR (control loop internals)
-// IS:isR_L,isL_L,isR_R,isL_R          (raw current-sense ADC values)
-// Example:
-// FB:0.1234,0.5678,S:0,0,0,0,P:120,118,EN:1111,CTRL:87,12,42,90,15,52,IS:123,124,125,126
-void printTelemetry()
-{
-    // Precompute control debug values
-    long errL = yawLeft.targetCounts - yawLeft.encoderPosition;
-    long errR = yawRight.targetCounts - yawRight.encoderPosition;
-    int pwmTargetL = (int)(errL * yawLeft.Kp);
-    int pwmTargetR = (int)(errR * yawRight.Kp);
-
-    Serial.print("FB:");
-    Serial.print(yawLeft.getNormalizedPosition(), 4);
-    Serial.print(",");
-    Serial.print(yawRight.getNormalizedPosition(), 4);
-
-    Serial.print(",S:");
-    Serial.print(yawLeft.safetyTriggered);
-    Serial.print(",");
-    Serial.print(yawRight.safetyTriggered);
-    Serial.print(",");
-    Serial.print(yawLeft.runawayTriggered);
-    Serial.print(",");
-    Serial.print(yawRight.runawayTriggered);
-
-    Serial.print(",P:");
-    Serial.print(yawLeft.currentPwm);
-    Serial.print(",");
-    Serial.print(yawRight.currentPwm);
-
-    Serial.print(",EN:");
-    Serial.print(digitalRead(yawLeft.pinEnR));
-    Serial.print(digitalRead(yawLeft.pinEnL));
-    Serial.print(digitalRead(yawRight.pinEnR));
-    Serial.print(digitalRead(yawRight.pinEnL));
-
-    Serial.print(",CTRL:");
-    Serial.print(yawLeft.targetCounts);
-    Serial.print(",");
-    Serial.print(errL);
-    Serial.print(",");
-    Serial.print(pwmTargetL);
-    Serial.print(",");
-    Serial.print(yawRight.targetCounts);
-    Serial.print(",");
-    Serial.print(errR);
-    Serial.print(",");
-    Serial.print(pwmTargetR);
-
-    // Current sense raw readings (IS pins)
-    Serial.print(",IS:");
-    Serial.print(analogRead(yawLeft.pinISR));
-    Serial.print(",");
-    Serial.print(analogRead(yawLeft.pinISL));
-    Serial.print(",");
-    Serial.print(analogRead(yawRight.pinISR));
-    Serial.print(",");
-    Serial.print(analogRead(yawRight.pinISL));
-
-    Serial.println();
-}
+unsigned long lastTelemetry = 0;
 
 // --- LOOP ---
 void loop()
@@ -426,6 +320,20 @@ void loop()
     if (millis() - lastTelemetry > TELEMETRY_INTERVAL_MS)
     {
         lastTelemetry = millis();
-        printTelemetry();
+
+        // Format: "FB:PosL,PosR,S:SafeL,SafeR,RunL,RunR"
+        Serial.print("FB:");
+        Serial.print(yawLeft.getNormalizedPosition(), 4);
+        Serial.print(",");
+        Serial.print(yawRight.getNormalizedPosition(), 4);
+
+        Serial.print(",S:");
+        Serial.print(yawLeft.safetyTriggered);
+        Serial.print(",");
+        Serial.print(yawRight.safetyTriggered);
+        Serial.print(",");
+        Serial.print(yawLeft.runawayTriggered);
+        Serial.print(",");
+        Serial.println(yawRight.runawayTriggered);
     }
 }

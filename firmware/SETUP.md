@@ -1,80 +1,98 @@
-# Krabby-Uno MCU Setup Guide (Task 1)
+# Krabby-Uno MCU Setup Guide (Task 2: Dual Yaw)
 
 ## Overview
 
-This guide covers the setup, wiring, and execution of the Single-Motor Yaw Controller.
-**Note:** The wiring below uses the Arduino Mega's extended headers to ensure compatibility with the MultiMoto shield (Task 2).
+This guide covers the setup, wiring, and execution of the **Dual Hip Yaw Controller** (Left & Right). It expands on Task 1 by adding a second motor driver, integrating current sensing for obstacle detection, and establishing the pinout for the full 6-motor architecture.
 
 ## Prerequisites
 
 - **Hardware:**
   - Arduino Mega 2560 R3
-  - BTS7960 43A H-Bridge Driver
-  - 12V DC Gear Motor (131:1) with Encoder
-  - 12V Power Supply
+  - **2x** BTS7960 43A H-Bridge Drivers
+  - **2x** 12V DC Gear Motors (131:1) with Encoders
+  - **4x** Resistors (4.7kΩ to 10kΩ) for Current Sensing protection
+  - 12V Power Supply (Battery or Benchtop)
   - Jetson Orin (or Ubuntu Laptop)
 - **Software:**
   - Ubuntu 22.04
   - Python 3.x (`pip install pyserial`)
   - Arduino IDE or CLI
 
-## 1. Wiring (Shield-Safe Pinout)
+## 1. Wiring Map
 
-**Crucial:** Do not use pins 2-13, as these will be covered by the MultiMoto shield in later tasks.
-**NOTE** On dfrobot 12V motor Encoder phases seem reversed. Yellow wire, despite being marked A needs to go to 19, and white wire to 18
+**Safety Warning:** Do **not** connect the BTS7960 `R_IS` or `L_IS` pins directly to the Arduino. You **must** verify a resistor (4.7kΩ - 10kΩ) is in series to protect the MCU from over-voltage.
 
-| Component   | Pin Label | Arduino Mega Pin | Notes                         |
-| :---------- | :-------- | :--------------- | :---------------------------- |
-| **Encoder** | Phase A   | **D18**          | Interrupt Pin (Tx1)           |
-| **Encoder** | Phase B   | **D19**          | Interrupt Pin (Rx1)           |
-| **Encoder** | VCC       | 5V               | Logic Power                   |
-| **Encoder** | GND       | GND              | Common Ground                 |
-| **Driver**  | R_EN      | **D22**          | Enable Right (Digital)        |
-| **Driver**  | L_EN      | **D23**          | Enable Left (Digital)         |
-| **Driver**  | R_PWM     | **D46**          | PWM Forward (Extended Header) |
-| **Driver**  | L_PWM     | **D45**          | PWM Reverse (Extended Header) |
-| **Driver**  | VCC       | 5V               | Logic Power                   |
-| **Driver**  | GND       | GND              | Common Ground                 |
+### A. Yaw Motors (for Task 2)
 
-_Power Connection:_ Connect 12V Battery to Driver `B+` and `B-`. Connect Motor to Driver `M+` and `M-`.
+| Joint         | Driver Pin    | Arduino Pin | Function  | Notes                        |
+| :------------ | :------------ | :---------- | :-------- | :--------------------------- |
+| **LEFT YAW**  | **Encoder A** | **D18**     | Interrupt | Master Tick                  |
+| (Motor 1)     | Encoder B     | D19         | Input     | Direction                    |
+|               | R_EN          | D22         | Output    | Enable Forward               |
+|               | L_EN          | D23         | Output    | Enable Reverse               |
+|               | R_PWM         | **D46**     | PWM       | Forward Drive                |
+|               | L_PWM         | **D45**     | PWM       | Reverse Drive                |
+|               | **R_IS**      | **A4**      | Analog    | **Series Resistor Required** |
+|               | **L_IS**      | **A5**      | Analog    | **Series Resistor Required** |
+|               |               |             |           |                              |
+| **RIGHT YAW** | **Encoder A** | **D20**     | Interrupt | Master Tick                  |
+| (Motor 2)     | Encoder B     | D21         | Input     | Direction                    |
+|               | R_EN          | D24         | Output    | Enable Forward               |
+|               | L_EN          | D25         | Output    | Enable Reverse               |
+|               | R_PWM         | **D2**      | PWM       | Forward Drive                |
+|               | L_PWM         | **D3**      | PWM       | Reverse Drive                |
+|               | **R_IS**      | **A6**      | Analog    | **Series Resistor Required** |
+|               | **L_IS**      | **A7**      | Analog    | **Series Resistor Required** |
+
+_Common Connections:_
+
+- **Driver VCC:** Connect to Arduino 5V.
+- **Driver GND:** Connect to Arduino GND (Common Ground is critical).
+- **Motor Power:** Connect 12V Battery to Driver `B+` and `B-`.
+
+### B. Linear Actuators (Future Provisioning)
+
+_These pins are reserved in the code but not physically active yet._
+
+| Joint      | Pot Pin | PWM Pins | IS Pins (Safety) |
+| :--------- | :------ | :------- | :--------------- |
+| Hip Left   | A0      | D4, D5   | A8, A9           |
+| Knee Left  | A1      | D6, D7   | A10, A11         |
+| Hip Right  | A2      | D8, D9   | A12, A13         |
+| Knee Right | A3      | D10, D11 | A14, A15         |
 
 ## 2. Firmware Installation
 
-1.  Open `Task1_YawControl/Task1_YawControl.ino` in Arduino IDE.
-2.  Select Board: **Arduino Mega or Mega 2560**.
-3.  Select Port: usually `/dev/ttyACM0` on Linux.
-4.  Click **Upload**.
+1.  Open `TASK2_PHASE1/Dual_Yaw/Dual_Yaw.ino` in Arduino IDE.
+2.  **Safety Check:** Ensure `CURRENT_LIMIT` is set to `600` (approx 2.9V) in the config section.
+3.  Select Board: **Arduino Mega or Mega 2560**.
+4.  Select Port: usually `/dev/ttyACM0`.
+5.  Click **Upload**.
 
-## 3. Running the SDK Test
+## 3. Running the Test SDK
 
 1.  Navigate to the SDK directory:
     ```bash
-    cd Task1
+    cd Task2_PHASE1
     ```
-2.  Install requirements:
+2.  Run the Dual Yaw Controller:
     ```bash
-    pip install pyserial
-    ```
-3.  Run the test script:
-    ```bash
-    python3 krabby_mcu.py
+    python3 kraby_mcu_dual_yaw.py
     ```
 
-## 4. Verification
+## 4. Verification & Troubleshooting
 
-- The script will attempt to sweep the motor Left, Right, and Center.
-- **Success:** You will see `Pos:` updates in the terminal matching the target.
-- **Error Handling:**
-  - If the script says `[SDK] No feedback detected`, check your **Encoder Wiring**.
-  - If the script says `Command sent but no movement`, check your **12V Power Supply** and **H-Bridge Wiring**.
+- **Normal Operation:**
 
-## 5. Configuration Notes
+  - Script logs: `Command -> L: -0.50, R: -0.50`.
+  - Motors should move simultaneously.
+  - Telemetry should track targets: `Pos -> L: -0.498 R: -0.501`.
 
-- TODO: If you reverse pin 18/19, the motor will just sweep forever instead of recognizing/stopping.
-- TODO: Kp/Kd is currently set to avoid overshooting during movements on DFRobot 12V motor. This may change per motor, and MCU currently is not smart enough to self-adjust Kp/Kd
-- TODO: Debugging is somewhat verbose on krabby_mcu.py to help w/ motor position debugging, would be good to add a warn vs debug log at some point, and warn on non-essential misbehavior (such as overshooting on movements)
-- TODO: Motor start jerks pretty hard, would be very aggressive on large leg. Would be good to have smoother acceleration/deceleration curve on MCU side when commands are sent.
-- TODO: I added a 10k pull-down resistor to L_EN/R_EN to try to stop motor chatter while centering. However, after changing code to stop accidentally sending all commands at once, chatter doesn't happen anymore and I've removed pull-down resistors and it's all fine. So not sure if they ever need to come back at some point, but should keep in mind.
-- TODO: Sending yaw commands w/o waiting was causing chatter. Needs better lock management around control states to avoid I'm guessing
-- TODO: motor doesn't appear to have an actual home position, it just starts wherever it was, so it can slowly drift over time. Next Task should utilize IS sensor to detect forward/aft end stops. 
+- **Safety Triggered (Stall):**
 
+  - If you hold the motor shaft, the script should log: `[WARN] Obstacle Detected`.
+  - The motor will stop. You must restart the script or send `0.0` to reset.
+
+- **Runaway Detected:**
+  - If the log screams `CRITICAL: RUNAWAY DETECTED`, your **Encoder wiring is reversed** relative to the motor wires.
+  - **Fix:** Swap the `M+` and `M-` wires on the H-Bridge for that motor.
