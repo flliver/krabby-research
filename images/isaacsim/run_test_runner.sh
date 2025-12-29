@@ -1,6 +1,33 @@
 #!/bin/bash
 # Wrapper script to run test_runner.py
 # Uses /isaac-sim/python.sh to get omni modules, but test_runner.py will check for existing instance
+#
+# USAGE:
+#   Basic usage:
+#     docker run --rm --gpus all \
+#         --entrypoint /workspace/run_test_runner.sh \
+#         krabby-isaacsim:latest \
+#         [test_name]
+#
+#   Recommended usage (with unbuffered output and timeout):
+#     PYTHONUNBUFFERED=1 timeout 300 docker run --rm --gpus all \
+#         --entrypoint /workspace/run_test_runner.sh \
+#         krabby-isaacsim:latest \
+#         test_isaacsim_noop
+#
+#   If test_name is omitted, runs all registered tests.
+#   Available tests are registered in test_runner.py in the tests dictionary.
+#
+#   Options:
+#     - PYTHONUNBUFFERED=1: Shows real-time output (recommended)
+#     - timeout N: Kills test after N seconds if it stalls (recommended for long tests)
+#     - --gpus all: Required for Isaac Sim GPU access
+#
+#   Test results: Exit code 0 = PASS, Exit code 1 = FAIL
+#   Test output may be mixed with Isaac Sim initialization messages.
+#   Use exit code to determine pass/fail status.
+#
+#   See images/isaacsim/README.md for full documentation and examples.
 
 set -e
 

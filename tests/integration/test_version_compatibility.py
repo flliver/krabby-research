@@ -85,7 +85,7 @@ def test_action_dim_mismatch_detection():
     action_wrong = torch.tensor([0.0] * 10, dtype=torch.float32)  # 10 instead of 12
     response_wrong = InferenceResponse.create_success(
         action=action_wrong,
-        inference_latency_ms=5.0,
+        timing_breakdown=[],
     )
 
     # Validate with expected action_dim=12
@@ -96,7 +96,7 @@ def test_action_dim_mismatch_detection():
     action_correct = torch.tensor([0.0] * 12, dtype=torch.float32)
     response_correct = InferenceResponse.create_success(
         action=action_correct,
-        inference_latency_ms=5.0,
+        timing_breakdown=[],
     )
     response_correct.validate_action_dim(12)  # Should not raise
 

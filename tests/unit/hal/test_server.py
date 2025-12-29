@@ -130,6 +130,7 @@ def test_get_joint_command():
         joint_cmd = JointCommand(
             joint_positions=command,
             timestamp_ns=time.time_ns(),
+            observation_timestamp_ns=time.time_ns(),
         )
         command_parts = joint_cmd.to_bytes()
         pusher.send_multipart(command_parts)

@@ -296,3 +296,182 @@ def test_required_fields_validation():
 
     assert complete_io.is_complete()
 
+
+def test_timestamp_synchronization():
+    """Test that is_synchronized() correctly validates timestamp synchronization."""
+    from hal.client.observation.types import NavigationCommand
+    from compute.parkour.parkour_types import ParkourModelIO, ParkourObservation, OBS_DIM
+    import time
+
+    # Test synchronized timestamps (within 10ms default)
+    base_time_ns = time.time_ns()
+    nav_cmd = NavigationCommand.create_now()
+    nav_cmd.timestamp_ns = base_time_ns
+    
+    observation = ParkourObservation(
+        timestamp_ns=base_time_ns + 5_000_000,  # 5ms difference
+        schema_version="1.0",
+        observation=np.zeros(OBS_DIM, dtype=np.float32),
+    )
+    
+    synchronized_io = ParkourModelIO(
+        timestamp_ns=base_time_ns,
+        schema_version="1.0",
+        nav_cmd=nav_cmd,
+        observation=observation,
+    )
+    
+    assert synchronized_io.is_synchronized(), "Timestamps within 10ms should be synchronized"
+    assert synchronized_io.is_synchronized(max_age_ns=10_000_000), "Should pass with default 10ms threshold"
+    
+    # Test unsynchronized timestamps (more than 10ms apart)
+    observation_unsync = ParkourObservation(
+        timestamp_ns=base_time_ns + 15_000_000,  # 15ms difference
+        schema_version="1.0",
+        observation=np.zeros(OBS_DIM, dtype=np.float32),
+    )
+    
+    unsynchronized_io = ParkourModelIO(
+        timestamp_ns=base_time_ns,
+        schema_version="1.0",
+        nav_cmd=nav_cmd,
+        observation=observation_unsync,
+    )
+    
+    assert not unsynchronized_io.is_synchronized(), "Timestamps >10ms apart should not be synchronized"
+    assert unsynchronized_io.is_synchronized(max_age_ns=20_000_000), "Should pass with 20ms threshold"
+    
+    # Test with custom threshold
+    observation_custom = ParkourObservation(
+        timestamp_ns=base_time_ns + 5_000_000,  # 5ms difference
+        schema_version="1.0",
+        observation=np.zeros(OBS_DIM, dtype=np.float32),
+    )
+    
+    custom_io = ParkourModelIO(
+        timestamp_ns=base_time_ns,
+        schema_version="1.0",
+        nav_cmd=nav_cmd,
+        observation=observation_custom,
+    )
+    
+    # 5ms (5_000_000 ns) is > 1ms (1_000_000 ns) threshold, so should fail
+    assert not custom_io.is_synchronized(max_age_ns=1_000_000), "5ms > 1ms threshold should fail"
+    
+    # Test edge case: exactly at threshold
+    observation_exact = ParkourObservation(
+        timestamp_ns=base_time_ns + 10_000_000,  # Exactly 10ms
+        schema_version="1.0",
+        observation=np.zeros(OBS_DIM, dtype=np.float32),
+    )
+    
+    exact_io = ParkourModelIO(
+        timestamp_ns=base_time_ns,
+        schema_version="1.0",
+        nav_cmd=nav_cmd,
+        observation=observation_exact,
+    )
+    
+    assert exact_io.is_synchronized(max_age_ns=10_000_000), "Exactly at threshold should pass"
+    assert not exact_io.is_synchronized(max_age_ns=9_999_999), "Just over threshold should fail"
+    
+    # Test that incomplete IO is not synchronized
+    incomplete_io = ParkourModelIO(
+        timestamp_ns=base_time_ns,
+        schema_version="1.0",
+        nav_cmd=None,
+        observation=None,
+    )
+    
+    assert not incomplete_io.is_synchronized(), "Incomplete IO should not be synchronized"
+
+
+def test_timestamp_synchronization_realistic_sequence():
+    """Test synchronization with realistic sequence: nav_cmd created once, observations arrive continuously.
+    
+    This simulates the actual issue seen in the latency test where:
+    1. nav_cmd is created once with NavigationCommand.create_now()
+    2. Observations are published continuously with fresh timestamps
+    3. The nav_cmd timestamp becomes stale, causing synchronization failures
+    """
+    from hal.client.observation.types import NavigationCommand
+    from compute.parkour.parkour_types import ParkourModelIO, ParkourObservation, OBS_DIM
+    from hal.client.data_structures.hardware import HardwareObservations
+    from compute.parkour.mappers.hardware_to_model import HWObservationsToParkourMapper
+    import time
+    
+    # Simulate the actual sequence from the latency test
+    # Step 1: Create nav_cmd once (like in test_runner.py)
+    nav_cmd = NavigationCommand.create_now()
+    nav_cmd_timestamp = nav_cmd.timestamp_ns
+    
+    # Step 2: Simulate observations arriving continuously (like from publish_loop at 100Hz)
+    # Each observation has a fresh timestamp from set_observation()
+    mapper = HWObservationsToParkourMapper()
+    
+    # First observation: arrives quickly, should be synchronized
+    time.sleep(0.001)  # 1ms delay
+    hw_obs_1 = HardwareObservations(
+        joint_positions=np.zeros(18, dtype=np.float32),
+        rgb_camera_1=np.zeros((480, 640, 3), dtype=np.uint8),
+        rgb_camera_2=np.zeros((480, 640, 3), dtype=np.uint8),
+        depth_map=np.zeros((480, 640), dtype=np.float32),
+        confidence_map=np.ones((480, 640), dtype=np.float32),
+        camera_height=480,
+        camera_width=640,
+        timestamp_ns=time.time_ns(),  # Fresh timestamp
+    )
+    
+    parkour_obs_1 = mapper.map(hw_obs_1, nav_cmd=nav_cmd)
+    model_io_1 = ParkourModelIO(
+        timestamp_ns=parkour_obs_1.timestamp_ns,
+        schema_version=parkour_obs_1.schema_version,
+        nav_cmd=nav_cmd,  # Same nav_cmd with old timestamp
+        observation=parkour_obs_1,
+    )
+    
+    # Should be synchronized if within 10ms
+    time_diff_ns = abs(parkour_obs_1.timestamp_ns - nav_cmd_timestamp)
+    if time_diff_ns <= 10_000_000:  # 10ms
+        assert model_io_1.is_synchronized(), f"First observation should be synchronized (diff: {time_diff_ns/1e6:.2f}ms)"
+    else:
+        assert not model_io_1.is_synchronized(), f"First observation should not be synchronized (diff: {time_diff_ns/1e6:.2f}ms)"
+    
+    # Simulate multiple observations arriving (like in the test runner loop)
+    # After several iterations, the nav_cmd timestamp becomes stale
+    for i in range(5):
+        time.sleep(0.01)  # 10ms between observations (100Hz)
+        hw_obs = HardwareObservations(
+            joint_positions=np.zeros(18, dtype=np.float32),
+            rgb_camera_1=np.zeros((480, 640, 3), dtype=np.uint8),
+            rgb_camera_2=np.zeros((480, 640, 3), dtype=np.uint8),
+            depth_map=np.zeros((480, 640), dtype=np.float32),
+            confidence_map=np.ones((480, 640), dtype=np.float32),
+            camera_height=480,
+            camera_width=640,
+            timestamp_ns=time.time_ns(),  # Fresh timestamp each time
+        )
+        
+        parkour_obs = mapper.map(hw_obs, nav_cmd=nav_cmd)  # Still using same nav_cmd
+        model_io = ParkourModelIO(
+            timestamp_ns=parkour_obs.timestamp_ns,
+            schema_version=parkour_obs.schema_version,
+            nav_cmd=nav_cmd,  # Same nav_cmd with old timestamp
+            observation=parkour_obs,
+        )
+        
+        time_diff_ns = abs(parkour_obs.timestamp_ns - nav_cmd_timestamp)
+        time_diff_ms = time_diff_ns / 1e6
+        
+        # After several iterations, timestamps will be >10ms apart
+        if time_diff_ms > 10.0:
+            assert not model_io.is_synchronized(), (
+                f"Observation {i+1} should not be synchronized "
+                f"(nav_cmd age: {time_diff_ms:.2f}ms > 10ms threshold)"
+            )
+        else:
+            assert model_io.is_synchronized(), (
+                f"Observation {i+1} should be synchronized "
+                f"(nav_cmd age: {time_diff_ms:.2f}ms <= 10ms threshold)"
+            )
+

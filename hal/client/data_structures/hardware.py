@@ -203,7 +203,9 @@ class JointCommand:
     """
     
     joint_positions: np.ndarray  # Shape: (18,), dtype: float32
-    timestamp_ns: int
+    timestamp_ns: int  # Timestamp when command was created
+    observation_timestamp_ns: int  # Timestamp of the observation this command responds to.
+        # Used for tracking command-observation relationships and measuring round-trip latency.
     
     def __post_init__(self) -> None:
         """Validate desired joint positions."""
@@ -241,6 +243,7 @@ class JointCommand:
         metadata = {
             "joint_positions": {"shape": list(joint_pos.shape), "dtype": str(joint_pos.dtype)},
             "timestamp_ns": self.timestamp_ns,
+            "observation_timestamp_ns": self.observation_timestamp_ns,
         }
         
         return [
@@ -281,6 +284,7 @@ class JointCommand:
         return cls(
             joint_positions=joint_pos,
             timestamp_ns=metadata.get("timestamp_ns", 0),
+            observation_timestamp_ns=metadata.get("observation_timestamp_ns", 0),
         )
     
 

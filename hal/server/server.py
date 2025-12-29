@@ -1,6 +1,7 @@
 """HAL server base class using ZMQ for communication."""
 
 import logging
+import time
 from typing import Optional
 
 import numpy as np
@@ -191,7 +192,7 @@ class HalServerBase:
             timeout_ms: Poll timeout in milliseconds (default 100ms)
 
         Returns:
-            JointCommand instance with joint positions and timestamp,
+            JointCommand instance with joint positions, timestamp, and observation timestamp,
             or None if no command received or validation failed
 
         Raises:
@@ -218,11 +219,15 @@ class HalServerBase:
 
             # Debug logging after deserialization
             if self._debug_enabled:
+                round_trip_latency_ns = command.timestamp_ns - command.observation_timestamp_ns
+                round_trip_latency_ms = round_trip_latency_ns / 1e6
                 logger.debug(
                     f"[ZMQ RECV] command: shape={command.joint_positions.shape}, "
                     f"dtype={command.joint_positions.dtype}, "
                     f"min={command.joint_positions.min():.3f}, max={command.joint_positions.max():.3f}, "
-                    f"timestamp_ns={command.timestamp_ns}"
+                    f"timestamp_ns={command.timestamp_ns}, "
+                    f"observation_timestamp_ns={command.observation_timestamp_ns}, "
+                    f"round_trip_latency_ms={round_trip_latency_ms}"
                 )
 
             return command

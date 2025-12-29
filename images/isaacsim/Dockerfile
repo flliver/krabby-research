@@ -45,10 +45,12 @@ RUN /isaac-sim/python.sh -m venv --system-site-packages /workspace/testenv
 
 # Upgrade pip and install requirements into venv
 # Install typing-extensions and matplotlib before Isaac Lab to avoid compatibility issues
+# Note: Do NOT install scipy in venv - Isaac Sim has its own bundled scipy that must be used
 RUN --mount=type=cache,target=/root/.cache/pip \
     . /workspace/testenv/bin/activate && \
     pip install --upgrade pip && \
-    pip install -r /tmp/requirements.txt
+    pip install -r /tmp/requirements.txt && \
+    pip uninstall -y scipy || true  # Remove scipy if installed to avoid conflicts with Isaac Sim's bundled scipy
 
 # Install Isaac Lab packages using the installation script
 # Use Docker build cache mount for pip to speed up subsequent builds
@@ -59,6 +61,11 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     cd /workspace/isaaclab && \
     TERM=xterm-256color DEBIAN_FRONTEND=noninteractive ./isaaclab.sh --install || \
     echo "Warning: isaaclab.sh --install exited with error"
+
+# Remove scipy after Isaac Lab installation (Isaac Lab may install it as a dependency)
+# Isaac Sim has its own bundled scipy that must be used instead
+RUN . /workspace/testenv/bin/activate && \
+    pip uninstall -y scipy || true
 
 # Add Isaac Sim Python path to venv activation script
 RUN echo "export PYTHONPATH=\"\$PYTHONPATH:/isaac-sim/python_packages\"" >> /workspace/testenv/bin/activate
@@ -80,6 +87,10 @@ RUN . /workspace/testenv/bin/activate && \
 # Note: parkour_isaaclab is not included in the wheel, so we need the source
 COPY parkour/ /workspace/parkour/
 
+# Copy compute source so compute/testing is available (for testing tools)
+# Note: compute/testing is included in the wheel but we want latest source for development
+COPY compute/ /workspace/compute/
+
 # Copy test assets (checkpoints, test data, etc.) to generic test assets directory
 # This directory can be used for any test content files
 RUN mkdir -p /workspace/test_assets/checkpoints
@@ -92,9 +103,11 @@ COPY pytest.ini /workspace/pytest.ini
 
 # Copy standalone test runner (no pytest - runs tests directly with AppLauncher)
 COPY images/isaacsim/test_runner.py /workspace/test_runner.py
-RUN chmod +x /workspace/test_runner.py
 COPY images/isaacsim/run_test_runner.sh /workspace/run_test_runner.sh
 RUN chmod +x /workspace/run_test_runner.sh
+# Copy HAL server wrapper script
+COPY images/isaacsim/run_hal_server.sh /workspace/run_hal_server.sh
+RUN chmod +x /workspace/run_hal_server.sh
 
 # Set PYTHONPATH environment variable to include /workspace and Isaac Sim Python packages
 # Entrypoint uses venv Python directly, so ENV is needed
@@ -109,8 +122,8 @@ ENV PARKOUR_CHECKPOINT_PATH=/workspace/test_assets/checkpoints
 
 # Set entrypoint to HAL server with integrated inference
 # This runs both Isaac Sim HAL server and policy inference in the same process
-# Use venv Python since that's where Isaac Lab packages are installed
-ENTRYPOINT ["/workspace/testenv/bin/python", "-m", "hal.server.isaac.main"]
+# Use wrapper script to properly initialize Isaac Sim
+ENTRYPOINT ["/workspace/run_hal_server.sh"]
 
 # Default arguments (can be overridden at runtime)
 # Users should provide: --task, --checkpoint, --action_dim, --obs_dim

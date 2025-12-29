@@ -1,5 +1,10 @@
-"""Integration tests for IsaacSim HAL server."""
+"""Integration tests for IsaacSim HAL server.
 
+These tests use mocked Isaac Sim environments and can be run with pytest.
+For real Isaac Sim integration tests, see images/isaacsim/test_runner.py.
+"""
+
+import logging
 import time
 from unittest.mock import MagicMock, patch
 
@@ -20,14 +25,15 @@ from compute.testing.inference_test_runner import InferenceTestRunner
 def mock_isaac_env():
     """Create a mock IsaacSim environment."""
     env = MagicMock()
-    # Create a mock scene that supports 'in' operator and items() iteration
+    # Create a mock scene that supports dictionary-like access
     mock_robot = MagicMock()
     mock_robot.data = MagicMock()
     mock_robot.data.joint_pos = MagicMock()
     env.scene = MagicMock()
     env.scene.__getitem__ = MagicMock(return_value=mock_robot)  # For env.scene["robot"]
     env.scene.__contains__ = MagicMock(return_value=True)  # For "robot" in env.scene
-    env.scene.items = MagicMock(return_value=iter([("robot", mock_robot)]))  # For iteration
+    env.scene.keys = MagicMock(return_value=["robot"])  # For scene.keys() - returns entity names
+    env.scene.sensors = {}  # Sensors dict (cameras would be here)
     env.observation_manager = MagicMock()
     env.action_manager = MagicMock()
     return env
@@ -151,8 +157,6 @@ def test_isaacsim_hal_server_joint_command_application(mock_isaac_env, hal_serve
     hal_client.initialize()
     hal_client.set_debug(True)
 
-    time.sleep(0.1)
-
     # Mock action manager methods (these are what apply_joint_command actually calls)
     hal_server.action_manager = MagicMock()
     hal_server.action_manager.process_action = MagicMock()
@@ -168,6 +172,7 @@ def test_isaacsim_hal_server_joint_command_application(mock_isaac_env, hal_serve
         return JointCommand(
             joint_positions=command_array,
             timestamp_ns=time.time_ns(),
+            observation_timestamp_ns=time.time_ns(),
         )
 
     hal_server.get_joint_command = mock_get_joint_command
@@ -198,8 +203,6 @@ def test_isaacsim_hal_server_end_to_end_with_game_loop(mock_isaac_env, hal_serve
     hal_client.initialize()
     hal_client.set_debug(True)
 
-    time.sleep(0.1)
-
     # Mock observation manager to return complete observation in training format
     from compute.parkour.parkour_types import OBS_DIM
     hal_server.observation_manager = MagicMock()
@@ -225,7 +228,7 @@ def test_isaacsim_hal_server_end_to_end_with_game_loop(mock_isaac_env, hal_serve
             action_tensor = torch.zeros(self.action_dim, dtype=torch.float32)
             return InferenceResponse.create_success(
                 action=action_tensor,
-                inference_latency_ms=5.0,
+                timing_breakdown=[],
             )
 
     model = MockPolicyModel()
@@ -237,51 +240,63 @@ def test_isaacsim_hal_server_end_to_end_with_game_loop(mock_isaac_env, hal_serve
     nav_cmd = NavigationCommand.create_now()
     test_runner.set_navigation_command(nav_cmd)
 
-    # Run a few iterations
+    # Start publishing observations from hal server in background
     import threading
-
-    def run_loop():
-        for _ in range(10):  # Run 10 iterations
-            # Publish observation from hal server
+    
+    publish_stop = threading.Event()
+    
+    def publish_loop():
+        """Publish observations at 100 Hz."""
+        period = 1.0 / 100.0
+        while not publish_stop.is_set():
             hal_server.set_observation()
-
-            # Poll client
-            hw_obs = hal_client.poll(timeout_ms=10)
-            if hw_obs is None:
-                continue
-
-            # Map hardware observation to ParkourObservation
-            # Pass navigation command so it's included in the observation
-            from compute.parkour.mappers.hardware_to_model import HWObservationsToParkourMapper
-            from compute.parkour.parkour_types import ParkourModelIO
-            
-            mapper = HWObservationsToParkourMapper()
-            parkour_obs = mapper.map(hw_obs, nav_cmd=nav_cmd)
-            
-            # Build model IO (preserve timestamp from observation)
-            model_io = ParkourModelIO(
-                timestamp_ns=parkour_obs.timestamp_ns,
-                schema_version=parkour_obs.schema_version,
-                nav_cmd=nav_cmd,
-                observation=parkour_obs,
-            )
-            
-            inference_result = model.inference(model_io)
-            if inference_result.success:
-                # Map inference response to hardware joint positions
-                from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToHWMapper
-                mapper = ParkourLocomotionToHWMapper(model_action_dim=12)
-                joint_positions = mapper.map(inference_result)
-                hal_client.put_joint_command(joint_positions)
-
-            # Apply joint command
-            hal_server.apply_command()
-
-            time.sleep(0.01)  # 10ms period (100Hz)
-
-    thread = threading.Thread(target=run_loop)
-    thread.start()
-    thread.join()
+            time.sleep(period)
+    
+    # Start command receiving loop (PUSH/PULL requires server to be waiting)
+    command_stop = threading.Event()
+    
+    def command_loop():
+        """Receive and apply commands."""
+        cmd_logger = logging.getLogger(__name__)
+        while not command_stop.is_set():
+            try:
+                hal_server.apply_command()
+            except RuntimeError as e:
+                # No command available (timeout) - this is expected, continue
+                if "No command received" in str(e):
+                    time.sleep(0.001)  # Small sleep to avoid busy-wait
+                    continue
+                # Other RuntimeErrors should be logged but not break the loop
+                cmd_logger.warning(f"Command loop error: {e}")
+            except Exception as e:
+                if not command_stop.is_set():
+                    cmd_logger.warning(f"Unexpected error in command loop: {e}")
+    
+    publish_thread = threading.Thread(target=publish_loop, daemon=True)
+    publish_thread.start()
+    
+    command_thread = threading.Thread(target=command_loop, daemon=True)
+    command_thread.start()
+    
+    # Run inference test for a short time
+    def stop_after_time():
+        time.sleep(0.2)  # Run for 200ms
+        test_runner.stop()
+        publish_stop.set()
+        command_stop.set()
+    
+    stop_thread = threading.Thread(target=stop_after_time, daemon=True)
+    stop_thread.start()
+    
+    # Run inference test runner (this will poll, run inference, and send commands)
+    test_runner.run()
+    
+    # Stop threads
+    publish_stop.set()
+    command_stop.set()
+    stop_thread.join(timeout=1.0)
+    publish_thread.join(timeout=1.0)
+    command_thread.join(timeout=1.0)
 
     # Verify inference test ran
     assert model.inference_count > 0
@@ -324,6 +339,7 @@ def test_isaacsim_hal_server_behavior_matches_baseline(mock_isaac_env, hal_serve
         return JointCommand(
             joint_positions=command_array,
             timestamp_ns=time.time_ns(),
+            observation_timestamp_ns=time.time_ns(),
         )
 
     hal_server.get_joint_command = mock_get_joint_command
@@ -349,8 +365,6 @@ def test_isaacsim_hal_server_with_real_zmq_communication(mock_isaac_env, hal_ser
     hal_client.initialize()
     hal_client.set_debug(True)
 
-    time.sleep(0.1)
-
     # Mock observation manager to return complete observation in training format
     from compute.parkour.parkour_types import OBS_DIM
     hal_server.observation_manager = MagicMock()
@@ -372,7 +386,7 @@ def test_isaacsim_hal_server_with_real_zmq_communication(mock_isaac_env, hal_ser
     action_tensor = torch.from_numpy(action_array)
     inference_response = InferenceResponse.create_success(
         action=action_tensor,
-        inference_latency_ms=5.0,
+        timing_breakdown=[],
     )
 
     # In PUSH/PULL pattern, server must be waiting before client sends
@@ -391,7 +405,7 @@ def test_isaacsim_hal_server_with_real_zmq_communication(mock_isaac_env, hal_ser
     # Map inference response to hardware joint positions
     from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToHWMapper
     mapper = ParkourLocomotionToHWMapper(model_action_dim=12)
-    joint_positions = mapper.map(inference_response)
+    joint_positions = mapper.map(inference_response, observation_timestamp_ns=time.time_ns())
     
     # Send command
     hal_client.put_joint_command(joint_positions)
@@ -482,8 +496,6 @@ def test_isaacsim_hal_server_100_consecutive_command_cycles(mock_isaac_env, hal_
     hal_client.initialize()
     hal_client.set_debug(True)
 
-    time.sleep(0.1)
-
     # Mock observation manager to return valid observations
     from compute.parkour.parkour_types import OBS_DIM
     import torch
@@ -535,8 +547,6 @@ def test_isaacsim_hal_server_100_consecutive_command_cycles(mock_isaac_env, hal_
     
     cmd_thread = threading.Thread(target=command_loop, daemon=True)
     cmd_thread.start()
-    # Give thread time to start
-    time.sleep(0.01)
 
     # Run 100 cycles at 100 Hz (1 second total)
     period = 1.0 / 100.0  # 10ms period
@@ -593,12 +603,12 @@ def test_isaacsim_hal_server_100_consecutive_command_cycles(mock_isaac_env, hal_
                     action_tensor = torch_module.from_numpy(command)
                     response = InferenceResponse.create_success(
                         action=action_tensor,
-                        inference_latency_ms=5.0,
+                        timing_breakdown=[],
                     )
                     # Map inference response to hardware joint positions
                     from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToHWMapper
                     mapper = ParkourLocomotionToHWMapper(model_action_dim=12)
-                    joint_positions = mapper.map(response)
+                    joint_positions = mapper.map(response, observation_timestamp_ns=hw_obs.timestamp_ns)
                     
                     # Verify no NaN values in joint positions before sending
                     if np.any(np.isnan(joint_positions.joint_positions)) or np.any(np.isinf(joint_positions.joint_positions)):
@@ -673,8 +683,6 @@ def test_isaacsim_hal_server_full_parkour_eval_simulation(mock_isaac_env, hal_se
     hal_client.initialize()
     hal_client.set_debug(True)
 
-    time.sleep(0.1)
-
     # Mock observation manager
     from compute.parkour.parkour_types import OBS_DIM
     import torch
@@ -728,8 +736,6 @@ def test_isaacsim_hal_server_full_parkour_eval_simulation(mock_isaac_env, hal_se
     
     cmd_thread = threading.Thread(target=command_loop, daemon=True)
     cmd_thread.start()
-    # Give thread time to start
-    time.sleep(0.01)
 
     # Run for 5 seconds at 100 Hz (500 cycles)
     duration_seconds = 5.0
@@ -785,12 +791,12 @@ def test_isaacsim_hal_server_full_parkour_eval_simulation(mock_isaac_env, hal_se
                     action_tensor = torch_module.from_numpy(command)
                     response = InferenceResponse.create_success(
                         action=action_tensor,
-                        inference_latency_ms=5.0,
+                        timing_breakdown=[],
                     )
                     # Map inference response to hardware joint positions
                     from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToHWMapper
                     mapper = ParkourLocomotionToHWMapper(model_action_dim=12)
-                    joint_positions = mapper.map(response)
+                    joint_positions = mapper.map(response, observation_timestamp_ns=hw_obs.timestamp_ns)
                     hal_client.put_joint_command(joint_positions)
                     commands_sent += 1
                 
@@ -894,47 +900,4 @@ def test_isaacsim_hal_server_interface_matches_evaluation_baseline(mock_isaac_en
     # by publishing observations and receiving commands via ZMQ
     
     hal_server.close()
-
-
-@pytest.mark.isaacsim
-def test_isaacsim_hal_server_with_real_isaaclab():
-    """Test with real IsaacLab environment.
-
-    This test verifies that Isaac Sim and Isaac Lab modules are accessible.
-    Full environment creation requires Isaac Sim to be properly initialized via AppLauncher,
-    which is done in hal/server/isaac/main.py. This test verifies the infrastructure is ready.
-    
-    NOTE: Creating a real Isaac Lab environment in pytest requires AppLauncher initialization,
-    which causes segfaults when using /isaac-sim/python.sh (since Isaac Sim is already
-    partially initialized). The actual environment creation and testing is done in
-    hal/server/isaac/main.py which properly initializes Isaac Sim before creating environments.
-    
-    This test requires IsaacSim to be installed.
-    Run with: make test-isaacsim
-    """
-    # Verify Isaac Sim modules are importable (when using /isaac-sim/python.sh)
-    
-    # Isaac Sim is already initialized by /isaac-sim/python.sh
-    # Verify we can import Isaac Lab AppLauncher (this confirms Isaac Sim infrastructure is available)
-    from isaaclab.app import AppLauncher
-    assert AppLauncher is not None
-    
-    # Verify parkour_isaaclab can be imported (now that source is copied to image)
-    from parkour_isaaclab.envs import ParkourManagerBasedRLEnv
-    assert ParkourManagerBasedRLEnv is not None
-    
-    # Verify Isaac Sim HAL server can be imported (this is what we're actually testing)
-    # The HAL server uses parkour_isaaclab which is now available
-    from hal.server.isaac import IsaacSimHalServer
-    assert IsaacSimHalServer is not None
-    
-    # Verify the server class has the expected interface
-    assert hasattr(IsaacSimHalServer, 'initialize')
-    assert hasattr(IsaacSimHalServer, 'set_observation')
-    assert hasattr(IsaacSimHalServer, 'apply_command')
-    
-    # Verify Isaac Sim modules are accessible
-    # The actual environment creation and testing is done in hal/server/isaac/main.py
-    # which properly initializes Isaac Sim via AppLauncher before creating environments
-    assert True
 

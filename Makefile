@@ -143,10 +143,14 @@ test-coverage: build-test-image
 
 .PHONY: test-isaacsim
 test-isaacsim: build-isaacsim-image
-	@echo "Running Isaac Sim tests (including real inference tests) on Isaac Sim container..."
+	@echo "Running all Isaac Sim tests on Isaac Sim container..."
 	@echo "Note: These tests require a checkpoint file and Isaac Lab packages"
-	docker run --rm --gpus all \
+	@echo "Note: To run a specific test with recommended options:"
+	@echo "  PYTHONUNBUFFERED=1 timeout 300 docker run --rm --gpus all \\"
+	@echo "    --entrypoint /workspace/run_test_runner.sh \\"
+	@echo "    krabby-isaacsim:latest <test_name>"
+	@echo "See test_runner.py and run_test_runner.sh for more information"
+	PYTHONUNBUFFERED=1 timeout 600 docker run --rm --gpus all \
 		--entrypoint /workspace/run_test_runner.sh \
-		krabby-isaacsim:latest \
-		test_isaacsim_hal_server_with_real_isaaclab
+		krabby-isaacsim:latest
 

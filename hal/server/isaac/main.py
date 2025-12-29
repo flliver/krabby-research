@@ -54,7 +54,7 @@ def main():
         help="Control loop rate in Hz",
     )
     parser.add_argument(
-        "--device",
+        "--inference_device",
         type=str,
         default="cuda",
         choices=["cuda", "cpu"],
@@ -92,8 +92,22 @@ def main():
     simulation_app = app_launcher.app
 
     # Import after AppLauncher to avoid conflicts
+    import sys
     from isaaclab_tasks.utils import parse_env_cfg
     from parkour_isaaclab.envs import ParkourManagerBasedRLEnv
+    
+    # Import parkour_tasks to register gym environments
+    # Add parkour_tasks to sys.path to ensure it's found
+    parkour_tasks_path = "/workspace/parkour/parkour_tasks"
+    if parkour_tasks_path not in sys.path:
+        sys.path.insert(0, parkour_tasks_path)
+    
+    # Import packages to register gym environments
+    # This must happen before parse_env_cfg is called
+    logger.info("Importing packages to register gym environments...")
+    import isaaclab_tasks  # noqa: F401
+    import parkour_tasks  # noqa: F401
+    logger.info("Packages imported successfully")
 
     from hal.client.config import HalClientConfig
     from hal.server import HalServerConfig
@@ -123,7 +137,7 @@ def main():
         # gym registration, but we bypass gym.make() and use direct instantiation instead
         env_cfg = parse_env_cfg(
             args.task,
-            device=args.device,
+            device=args.device,  # Use AppLauncher's device for environment
             num_envs=1,
             use_fabric=True,
         )
@@ -165,7 +179,7 @@ def main():
             hal_client_config=hal_client_config,
             model_weights=model_weights,
             control_rate=args.control_rate,
-            device=args.device,
+            device=args.inference_device,
             transport_context=transport_context,
         )
         parkour_client.initialize()

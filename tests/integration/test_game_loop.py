@@ -131,8 +131,7 @@ class MockPolicyModel:
         action = torch.zeros(self.action_dim, dtype=torch.float32)
         return InferenceResponse.create_success(
             action=action,
-            inference_latency_ms=self.inference_time_ms,
-            model_version="test",
+            timing_breakdown=[],
         )
 
 

@@ -35,7 +35,7 @@ class SlowInferenceModel:
         action_tensor = torch.zeros(self.action_dim, dtype=torch.float32)
         self.last_result = InferenceResponse.create_success(
             action=action_tensor,
-            inference_latency_ms=inference_time_ms,
+            timing_breakdown=[],
         )
         return self.last_result
 
@@ -60,7 +60,7 @@ class FastInferenceModel:
         action_tensor = torch.zeros(self.action_dim, dtype=torch.float32)
         return InferenceResponse.create_success(
             action=action_tensor,
-            inference_latency_ms=inference_time_ms,
+            timing_breakdown=[],
         )
 
 
@@ -170,13 +170,23 @@ def test_inference_faster_than_game_loop():
 
     import threading
 
+    # Track how many observations were actually published (thread-safe)
+    observations_published_lock = threading.Lock()
+    observations_published_count = 0
+    publish_stop = threading.Event()
+
     # Continuously publish hardware observation
     def publish_loop():
+        nonlocal observations_published_count
         hw_obs = create_dummy_hw_obs(
             camera_height=480, camera_width=640
         )
         for _ in range(100):
+            if publish_stop.is_set():
+                break
             server.set_observation(hw_obs)
+            with observations_published_lock:
+                observations_published_count += 1
             time.sleep(0.01)
 
     # Continuously receive commands (PUSH/PULL pattern requires server to be waiting)
@@ -194,6 +204,7 @@ def test_inference_faster_than_game_loop():
     def stop_after_time():
         time.sleep(0.5)
         test_runner.stop()
+        publish_stop.set()  # Stop publishing when test runner stops
         command_received.set()
 
     stop_thread = threading.Thread(target=stop_after_time)
@@ -208,8 +219,19 @@ def test_inference_faster_than_game_loop():
 
     # Verify latest result was used correctly
     assert test_runner.last_inference_result is not None
-    # Verify no unnecessary buffering (should have low dropped frames)
-    assert test_runner.dropped_frames == 0
+    
+    # Verify we received all observations
+    # Count actual observations published during test run
+    with observations_published_lock:
+        observations_published = observations_published_count
+    observations_received = test_runner.frames_received
+    dropped_frames = observations_published - observations_received
+    
+    assert dropped_frames == 0, (
+        f"Dropped frames detected: {dropped_frames} "
+        f"(published: {observations_published}, received: {observations_received}). "
+        f"Expected to receive all published observations."
+    )
 
     client.close()
     server.close()

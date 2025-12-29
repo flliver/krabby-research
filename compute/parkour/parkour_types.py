@@ -13,7 +13,7 @@ Zero-Copy Guarantees:
 """
 
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
 
 import numpy as np
@@ -282,26 +282,22 @@ class InferenceResponse:
 
     Attributes:
         timestamp_ns: Timestamp in nanoseconds
-        inference_latency_ms: Inference latency in milliseconds
         action: Action tensor directly from inference (torch.Tensor)
-        model_version: Model version string
         success: Whether inference succeeded
         error_message: Error message if success=False (optional)
+        timing_breakdown: List of timing measurements as (label, time_ms) tuples
     """
 
     timestamp_ns: int
-    inference_latency_ms: float
     action: Optional[torch.Tensor] = None  # torch.Tensor from act_inference
-    model_version: str = "unknown"
     success: bool = True
     error_message: Optional[str] = None
+    timing_breakdown: list[tuple[str, float]] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         """Validate inference response."""
         if self.timestamp_ns < 0:
             raise ValueError("timestamp_ns must be non-negative")
-        if self.inference_latency_ms < 0:
-            raise ValueError("inference_latency_ms must be non-negative")
         if not self.success and self.error_message is None:
             self.error_message = "Inference failed (no error message provided)"
         if self.action is not None:
@@ -363,47 +359,40 @@ class InferenceResponse:
     def create_success(
         cls,
         action: torch.Tensor,
-        inference_latency_ms: float,
-        model_version: str = "unknown",
+        timing_breakdown: list[tuple[str, float]],
     ) -> "InferenceResponse":
         """Create successful inference response with action tensor.
 
         Args:
             action: Action tensor from inference (torch.Tensor from act_inference)
-            inference_latency_ms: Inference latency in milliseconds
-            model_version: Model version string
+            timing_breakdown: List of (label, time_ms) tuples for timing breakdown
 
         Returns:
             InferenceResponse with action tensor (zero-copy)
         """
         return cls(
             timestamp_ns=time.time_ns(),
-            inference_latency_ms=inference_latency_ms,
             action=action,  # Direct reference, no copy
-            model_version=model_version,
             success=True,
+            timing_breakdown=timing_breakdown,
         )
 
     @classmethod
     def create_failure(
         cls,
         error_message: str,
-        model_version: str = "unknown",
     ) -> "InferenceResponse":
         """Create failed inference response.
 
         Args:
             error_message: Error message describing the failure
-            model_version: Model version string
 
         Returns:
             InferenceResponse with success=False
         """
         return cls(
             timestamp_ns=time.time_ns(),
-            inference_latency_ms=0.0,
             action=None,
-            model_version=model_version,
             success=False,
             error_message=error_message,
         )

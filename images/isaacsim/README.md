@@ -50,6 +50,41 @@ docker run --rm --gpus all \
 
 See `docs/DOCKER_DEPENDENCIES.md` for complete dependency list.
 
+## Running Tests
+
+Isaac Sim tests use a custom test runner (`test_runner.py`) instead of pytest to properly initialize Isaac Sim via AppLauncher and manage CUDA context.
+
+**Run a specific test:**
+```bash
+PYTHONUNBUFFERED=1 timeout 300 docker run --rm --gpus all \
+    --entrypoint /workspace/run_test_runner.sh \
+    krabby-isaacsim:latest \
+    test_isaacsim_noop
+```
+
+**Run all tests:**
+```bash
+make test-isaacsim
+# Or: PYTHONUNBUFFERED=1 timeout 600 docker run --rm --gpus all \
+#     --entrypoint /workspace/run_test_runner.sh krabby-isaacsim:latest
+```
+
+**Options:**
+- `PYTHONUNBUFFERED=1` - Real-time output (recommended)
+- `timeout 300` - Kill after 5 minutes (single test) or `timeout 600` (all tests)
+- `--gpus all` - Required for GPU access
+- Last argument is test name (omit to run all)
+
+**Adding a new test:**
+1. Add function `run_test_your_test_name()` to `test_runner.py`
+2. Register in `tests` dictionary in `main()`
+3. Rebuild image: `make build-isaacsim-image`
+
+**Available tests:**
+- `test_isaacsim_noop` - Verify Isaac Sim initialization
+- `test_isaacsim_hal_server_with_real_isaaclab` - Full integration with Isaac Lab environment
+- `test_inference_latency_requirement` - Performance test (< 15ms latency, requires checkpoint)
+
 ## Notes
 
 - Requires Isaac Sim license/access (NVIDIA NGC account)

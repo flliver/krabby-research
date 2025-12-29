@@ -150,7 +150,7 @@ def test_jetson_hal_server_joint_command_application(hal_server_config, hal_clie
     action_tensor = torch.from_numpy(action_array)
     inference_response = InferenceResponse.create_success(
         action=action_tensor,
-        inference_latency_ms=5.0,
+        timing_breakdown=[],
     )
 
     # Server needs to be waiting before client sends (PUSH/PULL pattern)
@@ -167,7 +167,7 @@ def test_jetson_hal_server_joint_command_application(hal_server_config, hal_clie
     # Map inference response to hardware joint positions
     from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToHWMapper
     mapper = ParkourLocomotionToHWMapper(model_action_dim=12)
-    joint_positions = mapper.map(inference_response)
+    joint_positions = mapper.map(inference_response, observation_timestamp_ns=time.time_ns())
     
     # Send command
     hal_client.put_joint_command(joint_positions), "Command send failed"
@@ -240,7 +240,7 @@ def test_jetson_hal_server_end_to_end_with_game_loop(hal_server_config, hal_clie
             action_tensor = torch.zeros(self.action_dim, dtype=torch.float32)
             return InferenceResponse.create_success(
                 action=action_tensor,
-                inference_latency_ms=5.0,
+                timing_breakdown=[],
             )
 
     model = MockPolicyModel()
@@ -285,7 +285,7 @@ def test_jetson_hal_server_end_to_end_with_game_loop(hal_server_config, hal_clie
                     # Map inference response to hardware joint positions
                     from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToHWMapper
                     mapper = ParkourLocomotionToHWMapper(model_action_dim=12)
-                    joint_positions = mapper.map(inference_result)
+                    joint_positions = mapper.map(inference_result, observation_timestamp_ns=hw_obs.timestamp_ns)
                     hal_client.put_joint_command(joint_positions)
 
             # Apply joint command
@@ -401,7 +401,7 @@ def test_jetson_hal_server_network_communication():
     action_tensor = torch.from_numpy(action_array)
     inference_response = InferenceResponse.create_success(
         action=action_tensor,
-        inference_latency_ms=5.0,
+        timing_breakdown=[],
     )
 
     # Server needs to be waiting before client sends (PUSH/PULL pattern)
@@ -418,7 +418,7 @@ def test_jetson_hal_server_network_communication():
     # Map inference response to hardware joint positions
     from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToHWMapper
     mapper = ParkourLocomotionToHWMapper(model_action_dim=12)
-    joint_positions = mapper.map(inference_response)
+    joint_positions = mapper.map(inference_response, observation_timestamp_ns=time.time_ns())
     
     client.put_joint_command(joint_positions)
 
@@ -586,12 +586,12 @@ def test_jetson_hal_server_sustained_bidirectional_messaging(hal_server_config, 
                 action_tensor = torch_module.from_numpy(command)
                 response = InferenceResponse.create_success(
                     action=action_tensor,
-                    inference_latency_ms=5.0,
+                    timing_breakdown=[],
                 )
                 # Map inference response to hardware joint positions
                 from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToHWMapper
                 mapper = ParkourLocomotionToHWMapper(model_action_dim=12)
-                joint_positions = mapper.map(response)
+                joint_positions = mapper.map(response, observation_timestamp_ns=hw_obs.timestamp_ns)
                 hal_client.put_joint_command(joint_positions)
                 commands_sent += 1
                 
