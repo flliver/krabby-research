@@ -2,6 +2,27 @@
 
 This document specifies the base images and dependencies required for each Dockerfile.
 
+## Prerequisites
+
+### GPU Support Setup
+
+All containers that use GPU acceleration require NVIDIA Container Toolkit to be installed and configured. Use the provided setup script:
+
+```bash
+./scripts/setup-docker-gpu.sh
+```
+
+This script will:
+- Detect your Linux distribution
+- Install nvidia-container-toolkit
+- Configure Docker to use the NVIDIA runtime
+- Restart the Docker daemon
+- Verify GPU access works
+
+**Note**: You may need to restart your terminal session or log out and back in after running the script for changes to take effect.
+
+For manual installation, see the [NVIDIA Container Toolkit installation guide](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html).
+
 ## Overview
 
 The project requires four container images:
@@ -201,6 +222,29 @@ typing-extensions>=4.8.0
 - Isaac Sim license/access
 - Display (optional, for GUI): `-e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix`
 - GPU access: `--gpus all`
+
+#### X11 Forwarding for Visual Display
+To enable visual display when running Isaac Sim containers, you need to configure X11 forwarding:
+
+1. **Allow X11 access** (run once per session):
+   ```bash
+   xhost +local:docker
+   # Or more securely (only for root):
+   xhost +local:root
+   ```
+   Note: This setting is session-specific and will reset when you log out, restart your X server, or start a new X session.
+
+2. **Test X11 forwarding** (optional but recommended):
+   ```bash
+   docker run --rm --gpus all -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix --entrypoint /bin/bash krabby-isaacsim:latest -c "apt-get update && apt-get install -y x11-apps && xeyes"
+   ```
+   If you see the xeyes window appear on your host, X11 forwarding is configured correctly.
+
+3. **Make it persistent** (optional):
+   Add `xhost +local:docker` to one of:
+   - `~/.xprofile` (runs when X session starts)
+   - `~/.xsessionrc` (runs when X session starts)
+   - `~/.bashrc` or `~/.zshrc` (runs when shell starts, but only if DISPLAY is set)
 
 ---
 
