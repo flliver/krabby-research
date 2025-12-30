@@ -26,6 +26,7 @@ dependencies = [
     "krabby-hal-client>=0.1.0",
     "krabby-compute-parkour>=0.1.0",
     "numpy>=1.24.0",
+    "scipy>=1.10.0",
 ]
 
 [project.optional-dependencies]

@@ -1,9 +1,13 @@
-"""Production entry point for Jetson robot deployment.
+"""Entry point for Jetson HAL server with integrated inference client.
 
-This combines HAL server and parkour inference in the same process,
-using inproc ZMQ for communication.
+This entry point runs both the HAL server and inference client in the same process
+using inproc ZMQ for zero-copy communication. This is the recommended deployment
+for production use where server and client run together on the robot.
 
-NOTE: This is the PRODUCTION entry point that runs on the robot.
+For standalone server mode (client runs separately), use TCP endpoints instead.
+
+Gathers observations from real hardware (camera, sensors), runs inference,
+and applies commands to control the robot actuators.
 """
 
 import argparse
@@ -34,7 +38,13 @@ def main():
     parser.add_argument("--action_dim", type=int, required=True, help="Action dimension")
     parser.add_argument("--obs_dim", type=int, required=True, help="Observation dimension")
     parser.add_argument("--control_rate", type=float, default=100.0, help="Control loop rate in Hz")
-    parser.add_argument("--device", type=str, default="cuda", choices=["cuda", "cpu"], help="Device for inference")
+    parser.add_argument(
+        "--inference_device",
+        type=str,
+        default="cuda",
+        choices=["cuda", "cpu"],
+        help="Device for inference",
+    )
 
     # HAL endpoints (inproc for same-process communication)
     parser.add_argument(
@@ -106,7 +116,7 @@ def main():
             hal_client_config=hal_client_config,
             model_weights=model_weights,
             control_rate=args.control_rate,
-            device=args.device,
+            device=args.inference_device,
             transport_context=transport_context,
         )
         parkour_client.initialize()
@@ -126,8 +136,16 @@ def main():
                 # Publish observations from real sensors
                 hal_server.set_observation()
 
-                # Apply joint commands from inference client
-                hal_server.apply_command()
+                # Try to get joint command from inference client (non-blocking)
+                # This command was generated from observations we published in a PREVIOUS iteration
+                # We'll apply it in THIS iteration
+                command = hal_server.get_joint_command(timeout_ms=1)
+                if command is not None:
+                    # Apply the command to actuators
+                    hal_server.apply_command(command)
+                # If no new command available, reuse the last command to maintain current pose
+                # This allows the robot to continue while inference processes observations
+                # The robot will continue moving based on the last applied command
 
                 # Timing control
                 loop_end_ns = time.time_ns()
@@ -148,7 +166,7 @@ def main():
             logger.info("Interrupted by user")
 
     except Exception as e:
-        logger.error(f"Jetson deployment failed: {e}", exc_info=True)
+        logger.error(f"Failed to run Jetson HAL server: {e}", exc_info=True)
         sys.exit(1)
 
     finally:
