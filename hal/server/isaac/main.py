@@ -209,11 +209,12 @@ def main():
         # For video recording, use "rgb_array" 
         render_mode = "rgb_array" if args.video else None
         
-        # Create environment using IsaacLab native API (bypassing deprecated gym.make())
-        # The environment class still implements gym.Env interface for compatibility
-        env = ParkourManagerBasedRLEnv(cfg=env_cfg, render_mode=render_mode)
+        # Create environment using gym.make() to ensure proper configuration
+        # This ensures all gym environment registration and configuration is properly applied
+        import gymnasium as gym
+        env = gym.make(args.task, cfg=env_cfg, render_mode=render_mode)
         
-        logger.info(f"Created IsaacSim environment: {args.task} with {env.num_envs} parallel environments (render_mode={render_mode})")
+        logger.info(f"Created IsaacSim environment: {args.task} with {env.unwrapped.num_envs} parallel environments (render_mode={render_mode})")
 
         # Create HAL server config
         hal_server_config = HalServerConfig(
@@ -263,36 +264,49 @@ def main():
         dt = env.unwrapped.step_dt
         timestep = 0
 
+        # Reset environment before starting the loop (required by gymnasium)
+        logger.info("Resetting environment...")
+        env.reset()
+        logger.info("Environment reset complete")
+
+        # Initialize action to zero (default pose) for first iteration
+        # We'll update this with commands from inference client
+        action = torch.zeros((args.num_envs, args.action_dim), device=env.unwrapped.device, dtype=torch.float32)
+
         # Main loop: step simulation and publish observations
         try:
             while running and simulation_app.is_running():
                 loop_start_ns = time.time_ns()
 
-                # Get joint command from inference client and convert to action tensor
-                # This must happen before env.step() which requires an action
-                command = hal_server.get_joint_command(timeout_ms=10)
-                if command is None:
-                    logger.warning("No command received from inference client, using zero actions")
-                    # Create zero action tensor as fallback
-                    action = torch.zeros((args.num_envs, args.action_dim), device=env.device, dtype=torch.float32)
-                else:
+                # Step IsaacSim environment with action
+                # This generates new observations internally
+                # env.step() requires an action, so we always step with whatever action we have
+                env.step(action)
+
+                # Publish observations from the step we just performed
+                # The inference client thread will process these observations and send commands
+                # for use in the NEXT iteration
+                hal_server.set_observation()
+
+                # Try to get joint command from inference client (non-blocking)
+                # This command was generated from observations we published in a PREVIOUS iteration
+                # We'll use it in the NEXT iteration
+                command = hal_server.get_joint_command(timeout_ms=1)
+                if command is not None:
                     # Convert command to action tensor
                     # JointCommand has 18 joints, but environment expects action_dim (12) actions
                     # The mapper puts the first action_dim actions into the first action_dim joint positions
                     command_array = command.joint_positions[:args.action_dim]  # Take first action_dim joints
-                    action = torch.from_numpy(command_array).to(device=env.device, dtype=torch.float32)
+                    action = torch.from_numpy(command_array).to(device=env.unwrapped.device, dtype=torch.float32)
                     # Add batch dimension if needed (env.step expects (num_envs, action_dim))
                     if action.ndim == 1:
                         action = action.unsqueeze(0)  # Shape: (1, ACTION_DIM)
                     # Expand to match num_envs if needed
                     if action.shape[0] == 1 and args.num_envs > 1:
                         action = action.expand(args.num_envs, -1)
-
-                # Step IsaacSim environment with action
-                env.step(action)
-
-                # Publish telemetry from simulation
-                hal_server.set_observation()
+                # If no new command available, reuse the last action to maintain current pose
+                # This allows the simulation to continue while inference processes observations
+                # The action variable already contains the last used action, so no change needed
 
                 # Handle video recording limit
                 if args.video:
