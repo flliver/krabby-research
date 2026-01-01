@@ -7,13 +7,15 @@ and handles various inputs correctly. They test the model independently of HAL.
 import os
 import time
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import numpy as np
 import pytest
+import torch
 
 from compute.parkour.policy_interface import ModelWeights, ParkourPolicyModel
 from hal.client.observation.types import NavigationCommand
-from compute.parkour.parkour_types import OBS_DIM, ParkourModelIO, ParkourObservation
+from compute.parkour.parkour_types import InferenceResponse, OBS_DIM, ParkourModelIO, ParkourObservation
 
 
 def _find_checkpoint_path() -> Path:
@@ -78,7 +80,6 @@ class TestParkourPolicyModel:
             checkpoint_path=str(checkpoint_path),
             action_dim=12,
             obs_dim=753,  # num_prop(53) + num_scan(132) + num_priv_explicit(9) + num_priv_latent(29) + history(530)
-            model_version="teacher",
         )
 
         # Try to load the model (this will use OnPolicyRunnerWithExtractor)
@@ -110,7 +111,9 @@ class TestParkourPolicyModel:
         assert result.success, f"Inference failed: {result.error_message}"
         assert result.action is not None, "Action should not be None"
         assert result.action.shape == (1, 12) or result.action.shape == (12,), f"Unexpected action shape: {result.action.shape}"
-        assert result.inference_latency_ms > 0, "Latency should be positive"
+        # Check that timing breakdown exists and has positive values
+        total_latency_ms = sum(time_ms for _, time_ms in result.timing_breakdown)
+        assert total_latency_ms > 0, "Latency should be positive"
 
         # Note: Full correctness test would require:
         # 1. Recorded observations from IsaacSim (from play.py)
@@ -119,9 +122,6 @@ class TestParkourPolicyModel:
 
     def test_inference_latency_measurement(self):
         """Test inference latency is measured correctly."""
-        from unittest.mock import MagicMock
-        from compute.parkour.parkour_types import ParkourModelIO
-
         # Create a mock model that simulates inference time
         class MockPolicyModel:
             """Mock policy model for testing latency measurement."""
@@ -131,10 +131,6 @@ class TestParkourPolicyModel:
                 self.inference_count = 0
 
             def inference(self, model_io):
-                import time
-                from compute.parkour.parkour_types import InferenceResponse
-                import torch
-
                 start_time = time.time_ns()
                 # Simulate inference time
                 time.sleep(self.inference_time_ms / 1000.0)
@@ -144,10 +140,15 @@ class TestParkourPolicyModel:
                 actual_latency_ms = (end_time - start_time) / 1_000_000.0
 
                 action = torch.zeros(self.action_dim, dtype=torch.float32)
+                # Include timing breakdown to match real inference behavior
+                timing_breakdown = [
+                    ("build_observation_tensor", actual_latency_ms * 0.1),
+                    ("policy_inference", actual_latency_ms * 0.8),
+                    ("validate_and_convert", actual_latency_ms * 0.1),
+                ]
                 return InferenceResponse.create_success(
                     action=action,
-                    inference_latency_ms=actual_latency_ms,
-                    model_version="test",
+                    timing_breakdown=timing_breakdown,
                 )
 
         model = MockPolicyModel(action_dim=12, inference_time_ms=8.0)
@@ -162,9 +163,11 @@ class TestParkourPolicyModel:
         elapsed_ms = (end_time - start_time) * 1000.0
 
         assert result.success
-        assert result.inference_latency_ms > 0
-        assert abs(result.inference_latency_ms - elapsed_ms) < 2.0  # Within 2ms tolerance
-        assert result.inference_latency_ms < 15.0  # Should be under 15ms target
+        # Calculate total latency from timing breakdown
+        total_latency_ms = sum(time_ms for _, time_ms in result.timing_breakdown)
+        assert total_latency_ms > 0
+        assert abs(total_latency_ms - elapsed_ms) < 2.0  # Within 2ms tolerance
+        assert total_latency_ms < 15.0  # Should be under 15ms target
         assert result.action is not None
         assert result.action.shape == (12,)
 

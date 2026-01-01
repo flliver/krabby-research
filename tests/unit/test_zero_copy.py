@@ -173,8 +173,7 @@ class TestTorchToNumpyZeroCopy:
         action = torch.zeros(12, dtype=torch.float32)
         response = InferenceResponse.create_success(
             action=action,
-            inference_latency_ms=5.0,
-            model_version="test",
+            timing_breakdown=[],
         )
 
         # Get numpy array
@@ -192,8 +191,7 @@ class TestTorchToNumpyZeroCopy:
         action = torch.zeros(12, dtype=torch.float32, device="cuda")
         response = InferenceResponse.create_success(
             action=action,
-            inference_latency_ms=5.0,
-            model_version="test",
+            timing_breakdown=[],
         )
 
         # Get numpy array (will copy from GPU to CPU)
@@ -216,8 +214,7 @@ class TestActionTensorZeroCopy:
         # Create response
         response = InferenceResponse.create_success(
             action=action,
-            inference_latency_ms=5.0,
-            model_version="test",
+            timing_breakdown=[],
         )
 
         # Verify it's the same object (not a copy)
@@ -232,7 +229,7 @@ class TestActionTensorZeroCopy:
         action = torch.zeros(12, dtype=torch.float32)
         response = InferenceResponse.create_success(
             action=action,
-            inference_latency_ms=5.0,
+            timing_breakdown=[],
         )
 
         # Get action

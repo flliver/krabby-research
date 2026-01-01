@@ -39,14 +39,12 @@ class ModelWeights:
         config_path: Path to agent config file (agent.yaml) - optional, will try to find in checkpoint dir
         action_dim: Expected action dimension (typically 12)
         obs_dim: Expected observation dimension
-        model_version: Model version string
     """
 
     checkpoint_path: str
     config_path: Optional[str] = None
     action_dim: int = 12
     obs_dim: int = 753  # num_prop(53) + num_scan(132) + num_priv_explicit(9) + num_priv_latent(29) + history(530)
-    model_version: str = "unknown"
 
 
 class MinimalVecEnvStub(VecEnv):
@@ -70,7 +68,7 @@ class MinimalVecEnvStub(VecEnv):
         self.num_actions = num_actions
         self.num_obs = num_obs
         self.max_episode_length = 1000
-        self.unwrapped = self  # For compatibility
+        self.unwrapped = self  # For compatibility with OnPolicyRunnerWithExtractor which accesses env.unwrapped.step_dt
         self.unwrapped.step_dt = 0.01  # Default step dt
 
     def get_observations(self) -> tuple[torch.Tensor, dict]:
@@ -139,7 +137,6 @@ class ParkourPolicyModel:
         """
         self.weights = weights
         self.device = torch.device(device)
-        self.model_version = weights.model_version
         self.action_dim = weights.action_dim
         self.obs_dim = weights.obs_dim
 
@@ -189,7 +186,7 @@ class ParkourPolicyModel:
 
         logger.info(
             f"Policy model loaded successfully. Action dim: {self.action_dim}, "
-            f"Obs dim: {self.obs_dim}, Model version: {self.model_version}"
+            f"Obs dim: {self.obs_dim}"
         )
 
     def _load_config_from_checkpoint_dir(
@@ -347,17 +344,25 @@ class ParkourPolicyModel:
             InferenceResponse with action tensor and metadata
         """
         input_timestamp_ns = time.time_ns()
+        timing_breakdown = []
 
         try:
             # Build observation tensor (zero-copy numpy -> torch conversion)
+            build_start_ns = time.time_ns()
             obs_tensor = self._build_observation_tensor(io)
+            build_time_ms = (time.time_ns() - build_start_ns) / 1_000_000.0
+            timing_breakdown.append(("build_observation_tensor", build_time_ms))
 
             # Call policy function directly (act_inference with hist_encoding=True)
             # Normalization is automatically applied based on training config
+            policy_start_ns = time.time_ns()
             with torch.no_grad():
                 action_tensor = self.policy_fn(obs_tensor, hist_encoding=True)
+            policy_time_ms = (time.time_ns() - policy_start_ns) / 1_000_000.0
+            timing_breakdown.append(("policy_inference", policy_time_ms))
 
             # Validate action shape - simplified check
+            validate_start_ns = time.time_ns()
             if action_tensor.ndim == 2:
                 expected_shape = (action_tensor.shape[0], self.action_dim)
                 if action_tensor.shape[1] != self.action_dim:
@@ -371,21 +376,18 @@ class ParkourPolicyModel:
             # Ensure float32 (convert only if necessary)
             if action_tensor.dtype != torch.float32:
                 action_tensor = action_tensor.to(torch.float32)
-
-            # Calculate latency
-            inference_latency_ms = (time.time_ns() - input_timestamp_ns) / 1_000_000.0
+            validate_time_ms = (time.time_ns() - validate_start_ns) / 1_000_000.0
+            timing_breakdown.append(("validate_and_convert", validate_time_ms))
 
             # Return action tensor directly (zero-copy reference from act_inference)
             return InferenceResponse.create_success(
                 action=action_tensor,
-                inference_latency_ms=inference_latency_ms,
-                model_version=self.model_version,
+                timing_breakdown=timing_breakdown,
             )
 
         except Exception as e:
             logger.error(f"Inference failed: {e}")
             return InferenceResponse.create_failure(
                 error_message=str(e),
-                model_version=self.model_version,
             )
 

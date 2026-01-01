@@ -1,9 +1,11 @@
 """Unit tests for HAL client."""
 
+import threading
 import time
 
 import numpy as np
 import pytest
+import torch
 import zmq
 
 from hal.client.client import HalClient
@@ -12,7 +14,9 @@ from hal.client.config import HalClientConfig
 from hal.server import HalServerConfig
 from hal.client.data_structures.hardware import HardwareObservations
 from hal.client.observation.types import NavigationCommand
-from compute.parkour.parkour_types import ParkourModelIO
+from compute.parkour.mappers.hardware_to_model import HWObservationsToParkourMapper
+from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToHWMapper
+from compute.parkour.parkour_types import InferenceResponse, ParkourModelIO
 from tests.helpers import create_dummy_hw_obs
 
 
@@ -86,8 +90,6 @@ def test_hal_client_poll_observation():
 
 def test_hal_client_poll_and_map():
     """Test polling hardware observation and mapping to ParkourObservation."""
-    from compute.parkour.mappers.hardware_to_model import HWObservationsToParkourMapper
-    
     # Use shared context for inproc connections
     
     server_config = HalServerConfig(
@@ -134,8 +136,6 @@ def test_hal_client_poll_and_map():
 
 def test_hal_client_put_joint_command():
     """Test sending joint command via HAL client."""
-    import torch
-    
     # Use shared context for inproc connections
     
     server_config = HalServerConfig(
@@ -155,21 +155,17 @@ def test_hal_client_put_joint_command():
     client.set_debug(True)
 
     # Create inference response and map to hardware joint positions
-    from compute.parkour.parkour_types import InferenceResponse
-    from compute.parkour.mappers.model_to_hardware import ParkourLocomotionToHWMapper
-
     action_tensor = torch.tensor([0.1, 0.2, 0.3] + [0.0] * 9, dtype=torch.float32)  # 12 DOF
     inference_response = InferenceResponse.create_success(
         action=action_tensor,
-        inference_latency_ms=5.0,
+        timing_breakdown=[],
     )
 
     # Map to hardware joint positions
     mapper = ParkourLocomotionToHWMapper(model_action_dim=12)
-    joint_positions = mapper.map(inference_response)
+    joint_positions = mapper.map(inference_response, observation_timestamp_ns=time.time_ns())
 
     # Server needs to be waiting before client sends (PUSH/PULL pattern)
-    import threading
     received_command = [None]
     
     def server_receive():

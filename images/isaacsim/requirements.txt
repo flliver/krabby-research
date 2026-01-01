@@ -17,6 +17,18 @@ typing-extensions>=4.10.0
 # matplotlib>=3.5.0 required for Python 3.12 compatibility (older versions use deprecated configparser.SafeConfigParser)
 matplotlib>=3.5.0
 
+# Parkour terrain generation (required for mesh simplification)
+fast-simplification
+
 # Testing
 pytest>=7.0.0
+
+# Reinforcement learning library
+# Pin to 2.3.1 to match parkour code's import paths (rsl_rl.modules.normalizer)
+# Newer versions moved EmpiricalNormalization from rsl_rl.networks.normalization
+# to rsl_rl.modules.normalizer, causing import errors
+rsl-rl-lib==2.3.1
+
+# Note: scipy is NOT installed here - Isaac Sim has its own bundled scipy
+# Installing scipy in the venv causes conflicts with Isaac Sim's bundled scipy
 

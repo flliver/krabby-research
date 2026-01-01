@@ -67,8 +67,10 @@ class IsaacSimHalServer(HalServerBase):
             return
 
         try:
-            # Cache scene reference
-            self.scene = self.env.scene
+            # Cache scene reference (use unwrapped to access underlying environment)
+            # gym.make() wraps the environment, so we need to access the unwrapped version
+            unwrapped_env = self.env.unwrapped if hasattr(self.env, 'unwrapped') else self.env
+            self.scene = unwrapped_env.scene
 
             # Cache robot reference
             # The scene entity names come from the scene config class attributes.
@@ -77,9 +79,10 @@ class IsaacSimHalServer(HalServerBase):
             self.robot = self.scene["robot"]
 
             # Cache camera sensors if available
+            # Cameras are accessed via scene.sensors dictionary, which supports .items() iteration
             self.camera_sensors = {}
             if hasattr(self.scene, 'sensors'):
-                # Try to find camera sensors
+                # Find camera sensors in the sensors dictionary
                 for sensor_name, sensor in self.scene.sensors.items():
                     # Check if it's a camera-like sensor (RayCasterCamera, Camera, etc.)
                     if hasattr(sensor, 'data') and hasattr(sensor.data, 'output'):
@@ -87,16 +90,10 @@ class IsaacSimHalServer(HalServerBase):
                         if 'distance_to_camera' in sensor.data.output or 'distance_to_image_plane' in sensor.data.output:
                             self.camera_sensors[sensor_name] = sensor
                             logger.info(f"Found camera sensor: {sensor_name}")
-                # Also check scene entities for cameras
-                for name, entity in self.scene.items():
-                    if hasattr(entity, 'data') and hasattr(entity.data, 'output'):
-                        if 'distance_to_camera' in entity.data.output or 'distance_to_image_plane' in entity.data.output:
-                            self.camera_sensors[name] = entity
-                            logger.info(f"Found camera entity: {name}")
 
-            # Cache managers
-            self.observation_manager = self.env.observation_manager
-            self.action_manager = self.env.action_manager
+            # Cache managers (use unwrapped to access underlying environment)
+            self.observation_manager = unwrapped_env.observation_manager
+            self.action_manager = unwrapped_env.action_manager
 
             # Verify we have required references
             if self.robot is None:
@@ -267,7 +264,9 @@ class IsaacSimHalServer(HalServerBase):
         # Convert NumPy array to tensor (zero-copy when array is C-contiguous float32)
         # The joint_positions array from JointCommand is already
         # a zero-copy view of the bytes and is C-contiguous float32
-        command_tensor = torch.from_numpy(command_array).to(device=self.env.device, dtype=torch.float32)
+        # Use unwrapped environment to get device (gym.make() wraps the environment)
+        unwrapped_env = self.env.unwrapped if hasattr(self.env, 'unwrapped') else self.env
+        command_tensor = torch.from_numpy(command_array).to(device=unwrapped_env.device, dtype=torch.float32)
 
         # Add batch dimension if needed (action_manager expects (num_envs, action_dim))
         if command_tensor.ndim == 1:

@@ -43,11 +43,12 @@ class ParkourLocomotionToHWMapper:
         """
         self.model_action_dim = model_action_dim
     
-    def map(self, model_output: InferenceResponse) -> JointCommand:
+    def map(self, model_output: InferenceResponse, observation_timestamp_ns: int) -> JointCommand:
         """Map model output to hardware joint positions.
         
         Args:
             model_output: Model inference response containing action tensor
+            observation_timestamp_ns: Timestamp of the observation this command responds to
             
         Returns:
             JointCommand for hardware control
@@ -89,6 +90,7 @@ class ParkourLocomotionToHWMapper:
         return JointCommand(
             joint_positions=joint_positions,
             timestamp_ns=model_output.timestamp_ns,
+            observation_timestamp_ns=observation_timestamp_ns,
         )
     
     def _map_to_krabby_joints(self, model_action: np.ndarray) -> np.ndarray:

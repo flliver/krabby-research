@@ -564,6 +564,7 @@ def test_zmq_push_pull_mimic_hal_with_class_wrapper():
     joint_cmd = JointCommand(
         joint_positions=command,
         timestamp_ns=time.time_ns(),
+        observation_timestamp_ns=time.time_ns(),
     )
     command_parts = joint_cmd.to_bytes()
     pusher.send_multipart(command_parts)  # Blocking send
@@ -651,6 +652,7 @@ def test_zmq_push_pull_mimic_hal_with_context_manager():
         joint_cmd = JointCommand(
             joint_positions=command,
             timestamp_ns=time.time_ns(),
+            observation_timestamp_ns=time.time_ns(),
         )
         command_parts = joint_cmd.to_bytes()
         pusher.send_multipart(command_parts)  # Blocking send
@@ -730,6 +732,7 @@ def test_zmq_push_pull_mimic_hal_exact_sequence():
         joint_cmd = JointCommand(
             joint_positions=command,
             timestamp_ns=time.time_ns(),
+            observation_timestamp_ns=time.time_ns(),
         )
         command_parts = joint_cmd.to_bytes()
         pusher.send_multipart(command_parts)
@@ -822,6 +825,7 @@ def test_zmq_push_pull_mimic_hal_with_observation_socket():
         joint_cmd = JointCommand(
             joint_positions=command,
             timestamp_ns=time.time_ns(),
+            observation_timestamp_ns=time.time_ns(),
         )
         command_parts = joint_cmd.to_bytes()
         pusher.send_multipart(command_parts)  # Blocking send

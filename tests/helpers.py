@@ -58,5 +58,6 @@ def create_dummy_joint_positions(
     return JointCommand(
         joint_positions=np.zeros(18, dtype=np.float32),
         timestamp_ns=timestamp_ns,
+        observation_timestamp_ns=timestamp_ns,
     )
 
