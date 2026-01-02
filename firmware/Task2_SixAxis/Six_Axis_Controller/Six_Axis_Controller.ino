@@ -10,7 +10,7 @@ const int TELEMETRY_INTERVAL_MS = 50; // 20Hz update
 
 // [TUNING PARAMETER 1] Stall Safety
 // 600 ~= 3.0V from Current Sense. Adjust if false triggers occur.
-const int CURRENT_TRIP_THRESHOLD = 600;
+const int CURRENT_TRIP_THRESHOLD = 1023;
 
 // --- MOTION PROFILE ---
 // [TUNING PARAMETER 2] Acceleration Step
@@ -29,6 +29,7 @@ class YawMotor
 public:
     // Pins
     int pinPwmR, pinPwmL, pinEnR, pinEnL, pinISR, pinISL;
+    const char *name;
 
     // State
     volatile long encoderPosition = 0;
@@ -50,8 +51,9 @@ public:
     const float MAX_COUNTS = 2096.0 * (30.0 / 360.0); // ~174 counts
     float Kp = 3.5;
 
-    YawMotor(int pR, int pL, int eR, int eL, int isR, int isL)
+    YawMotor(const char *label, int pR, int pL, int eR, int eL, int isR, int isL)
     {
+        name = label;
         pinPwmR = pR;
         pinPwmL = pL;
         pinEnR = eR;
@@ -81,6 +83,10 @@ public:
         {
             safetyTriggered = true;
             stopMotor();
+            Serial.print("SAFETY:");
+            Serial.print(name);
+            Serial.print(" IS=");
+            Serial.println(maxRaw);
             return true;
         }
         return false;
@@ -114,6 +120,12 @@ public:
                 {
                     runawayTriggered = true;
                     stopMotor();
+                    Serial.print("RUNAWAY:");
+                    Serial.print(name);
+                    Serial.print(" delta=");
+                    Serial.print(delta);
+                    Serial.print(" pwm=");
+                    Serial.println(targetPwm);
                 }
                 lastMoveTime = now;
                 lastEncoderPos = encoderPosition;
@@ -142,13 +154,13 @@ public:
     {
         if (safetyTriggered || runawayTriggered)
             return;
-        if (checkStall())
-            return;
+        //if (checkStall())
+        //    return;
 
         long error = targetCounts - encoderPosition;
         int desiredPwm = (int)(error * Kp);
 
-        checkRunaway(desiredPwm);
+        //checkRunaway(desiredPwm);
 
         // Smooth Ramping
         if (millis() - lastRampTime >= RAMP_INTERVAL_MS)
@@ -219,6 +231,7 @@ class LinearActuator
 {
 public:
     int pinPwmR, pinPwmL, pinEnR, pinEnL, pinISR, pinISL, pinPot;
+    const char *name;
     int currentPwm = 0;
 
     // CALIBRATION: RAW POT VALUES
@@ -233,8 +246,9 @@ public:
     unsigned long lastRampTime = 0;
     float Kp = 2.0; // Lower Kp for linear actuators
 
-    LinearActuator(int pR, int pL, int eR, int eL, int isR, int isL, int pot)
+    LinearActuator(const char *label, int pR, int pL, int eR, int eL, int isR, int isL, int pot)
     {
+        name = label;
         pinPwmR = pR;
         pinPwmL = pL;
         pinEnR = eR;
@@ -266,6 +280,10 @@ public:
         {
             safetyTriggered = true;
             stopMotor();
+            Serial.print("SAFETY:");
+            Serial.print(name);
+            Serial.print(" IS=");
+            Serial.println(maxRaw);
             return true;
         }
         return false;
@@ -372,16 +390,16 @@ public:
 // ==========================================
 
 // 1. YAW MOTORS (Encoder) - Pins from Task 2
-YawMotor yawL(46, 45, 22, 23, A4, A5);
-YawMotor yawR(2, 3, 24, 25, A6, A7);
+YawMotor yawL("yawL", 46, 45, 22, 23, A4, A5);
+YawMotor yawR("yawR", 2, 3, 24, 25, A6, A7);
 
 // 2. LINEAR ACTUATORS (Potentiometer)
 // Using new Enable Pins 26-33 for the 4 linear drivers
 // Mapping: PWM_R, PWM_L, EN_R, EN_L, IS_R, IS_L, POT
-LinearActuator hipL(4, 5, 26, 27, A8, A9, A0);
-LinearActuator kneeL(6, 7, 28, 29, A10, A11, A1);
-LinearActuator hipR(8, 9, 30, 31, A12, A13, A2);
-LinearActuator kneeR(10, 11, 32, 33, A14, A15, A3);
+LinearActuator hipL("hipL", 4, 5, 26, 27, A8, A9, A0);
+LinearActuator kneeL("kneeL", 6, 7, 28, 29, A10, A11, A1);
+LinearActuator hipR("hipR", 8, 9, 30, 31, A12, A13, A2);
+LinearActuator kneeR("kneeR", 10, 11, 32, 33, A14, A15, A3);
 
 // --- ISRs ---
 void isrL()
@@ -499,6 +517,25 @@ void loop()
         Serial.print(analogRead(A2));
         Serial.print(",");
         Serial.print(analogRead(A3));
+
+        // Safety Flags Snapshot
+        // Order: yawL_safe, yawR_safe, yawL_run, yawR_run, hipL_safe, kneeL_safe, hipR_safe, kneeR_safe
+        Serial.print(",S:");
+        Serial.print(yawL.safetyTriggered);
+        Serial.print(",");
+        Serial.print(yawR.safetyTriggered);
+        Serial.print(",");
+        Serial.print(yawL.runawayTriggered);
+        Serial.print(",");
+        Serial.print(yawR.runawayTriggered);
+        Serial.print(",");
+        Serial.print(hipL.safetyTriggered);
+        Serial.print(",");
+        Serial.print(kneeL.safetyTriggered);
+        Serial.print(",");
+        Serial.print(hipR.safetyTriggered);
+        Serial.print(",");
+        Serial.print(kneeR.safetyTriggered);
 
         // Debug: Print Average Current (Optional, good for tuning)
         Serial.print(",AVG:");

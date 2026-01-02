@@ -1,5 +1,6 @@
 import time
 import logging
+import argparse
 from krabby_mcu_six_axis import KrabbyMCUSDK
 
 # Configure clean logging
@@ -86,7 +87,7 @@ def calibration_wizard():
                 # 4. EXECUTE PULSE (The Safety Feature)
                 # Move for only 0.2 seconds, then STOP.
                 mcu.send_command(*cmds)
-                time.sleep(0.2)
+                time.sleep(2)
                 mcu.send_command(0, 0, 0.5, 0.5, 0.5, 0.5)  # Hard Stop
                 time.sleep(0.1)  # Wait for comms to update pot value
 
@@ -98,4 +99,17 @@ def calibration_wizard():
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Krabby-Uno Linear Actuator Calibration Wizard")
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Enable verbose MCU logs (including safety/runaway alerts)")
+    args = parser.parse_args()
+
+    if args.debug:
+        # Show underlying MCU SDK debug (POS/POT) plus any safety/runaway alerts
+        logging.getLogger("KrabbySDK").setLevel(logging.DEBUG)
+        logger.setLevel(logging.DEBUG)
+
     calibration_wizard()

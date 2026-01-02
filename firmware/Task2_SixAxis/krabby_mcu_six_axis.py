@@ -21,7 +21,7 @@ def _default_port():
     for p in list_ports.comports():
         if "arduino" in (p.description or "").lower() or "arduino" in (p.manufacturer or "").lower():
             return p.device
-    return "COM4" if os.name == "nt" else "/dev/ttyACM0"
+    return "COM5" if os.name == "nt" else "/dev/ttyACM0"
 
 
 class KrabbyMCUSDK:
@@ -37,6 +37,10 @@ class KrabbyMCUSDK:
 
         # Calibration Data (Raw Analog 0-1023)
         self.latest_pots = [0, 0, 0, 0]  # HipL, KneeL, HipR, KneeR
+
+        # Safety flags snapshot (order matches S: payload)
+        # [yawL_safe, yawR_safe, yawL_run, yawR_run, hipL_safe, kneeL_safe, hipR_safe, kneeR_safe]
+        self.flags = [0] * 8
 
         self.last_feedback_ts = None
         self.thread = None
@@ -65,6 +69,8 @@ class KrabbyMCUSDK:
                 if line.startswith("FB:"):
                     self._parse_feedback(line)
                     self.last_feedback_ts = time.time()
+                elif line.startswith("SAFETY:") or line.startswith("RUNAWAY:"):
+                    logger.warning("MCU ALERT: %s", line)
                 elif "POT:" in line:
                     # Sometimes POT data might come on a separate line in debug modes
                     pass
@@ -97,17 +103,33 @@ class KrabbyMCUSDK:
                             vals.append(parts[i+k])
 
                     self.latest_pots = [int(v) for v in vals]
+                elif token.startswith("S:"):
+                    vals = [token.split(':')[1]]
+                    for k in range(1, 8):
+                        if i+k < len(parts):
+                            vals.append(parts[i+k])
+                    try:
+                        self.flags = [int(v) for v in vals]
+                    except ValueError:
+                        pass
 
         except (ValueError, IndexError):
             pass
 
         # Debug Log: Show Positions + Raw Pots for tuning
         if logger.isEnabledFor(logging.DEBUG):
-            logger.debug(
-                "POS: %s | RAW POTS: %s",
-                [round(p, 3) for p in self.latest_positions],
-                self.latest_pots
-            )
+            # Compact per-joint view: LHY/LHL/LKL/RHY/RHL/RKL
+            flags = (self.flags + [0] * 8)[:8]  # pad if malformed
+            # Yaw uses (pos, run, saf); linear uses (pos, pot, saf)
+            joints = {
+                "LHY": (round(self.latest_positions[0], 3), flags[2], flags[0]),
+                "RHY": (round(self.latest_positions[1], 3), flags[3], flags[1]),
+                "LHL": (round(self.latest_positions[2], 3), self.latest_pots[0], flags[4]),
+                "LKL": (round(self.latest_positions[3], 3), self.latest_pots[1], flags[5]),
+                "RHL": (round(self.latest_positions[4], 3), self.latest_pots[2], flags[6]),
+                "RKL": (round(self.latest_positions[5], 3), self.latest_pots[3], flags[7]),
+            }
+            logger.debug("JOINTS (joint: {pos, pot/run, saf}): %s", joints)
 
     def send_command(self, yaw_l, yaw_r, hip_l, knee_l, hip_r, knee_r):
         """
