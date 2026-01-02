@@ -71,9 +71,16 @@ def calibration_wizard():
                     break
 
                 # 3. Determine Pulse Direction
-                # We send a vector with 0.5 (stop) for all, except target
+                # Start from current positions so only the selected joint moves
+                # Positions order: [YawL, YawR, HipL, KneeL, HipR, KneeR]
+                cmds = list(mcu.latest_positions)
+                # Clamp to valid ranges in case feedback is stale
+                cmds[0] = max(-1.0, min(1.0, cmds[0]))
+                cmds[1] = max(-1.0, min(1.0, cmds[1]))
+                for j in range(2, 6):
+                    cmds[j] = max(0.0, min(1.0, cmds[j]))
+
                 # Target gets 0.7 (extend) or 0.3 (retract)
-                cmds = [0, 0, 0.5, 0.5, 0.5, 0.5]  # Neutral Stance
 
                 if cmd in ['+', 'w']:
                     cmds[idx] = 0.7  # Low speed extend

@@ -45,6 +45,13 @@ class KrabbyMCUSDK:
         # Current sense snapshot (yawL,yawR,hipL,kneeL,hipR,kneeR)
         self.currents = [0] * 6
 
+        # Commanded PWM (post-ramp) and EN state per joint
+        self.pwm = [0] * 6  # yL,yR,hL,kL,hR,kR
+        self.en = [0] * 6
+
+        # Per-side IO (R_pwm, L_pwm, EN_R, EN_L) for each joint
+        self.io = [[0, 0, 0, 0] for _ in range(6)]
+
         self.last_feedback_ts = None
         self.thread = None
         self._last_debug_log_ts = 0.0
@@ -116,6 +123,24 @@ class KrabbyMCUSDK:
                         self.flags = [int(v) for v in vals]
                     except ValueError:
                         pass
+                elif token.startswith("P:"):
+                    vals = [token.split(':')[1]]
+                    for k in range(1, 6):
+                        if i+k < len(parts):
+                            vals.append(parts[i+k])
+                    try:
+                        self.pwm = [int(v) for v in vals]
+                    except ValueError:
+                        pass
+                elif token.startswith("EN:"):
+                    vals = [token.split(':')[1]]
+                    for k in range(1, 6):
+                        if i+k < len(parts):
+                            vals.append(parts[i+k])
+                    try:
+                        self.en = [int(v) for v in vals]
+                    except ValueError:
+                        pass
                 elif token.startswith("IS:"):
                     vals = [token.split(':')[1]]
                     for k in range(1, 6):
@@ -123,6 +148,16 @@ class KrabbyMCUSDK:
                             vals.append(parts[i+k])
                     try:
                         self.currents = [int(v) for v in vals]
+                    except ValueError:
+                        pass
+                elif token.startswith("IO:"):
+                    vals = [token.split(':')[1]]
+                    for k in range(1, 24):
+                        if i+k < len(parts):
+                            vals.append(parts[i+k])
+                    try:
+                        nums = [int(v) for v in vals]
+                        self.io = [nums[j:j+4] for j in range(0, 24, 4)]
                     except ValueError:
                         pass
 
@@ -134,16 +169,48 @@ class KrabbyMCUSDK:
         if logger.isEnabledFor(logging.DEBUG) and (now - self._last_debug_log_ts) >= 0.25:
             # Compact per-joint view: LHY/LHL/LKL/RHY/RHL/RKL
             flags = (self.flags + [0] * 8)[:8]  # pad if malformed
-            # Yaw uses (pos, run, is, saf); linear uses (pos, pot, is, saf)
+            # Yaw tuple: pos,run,is,(ENL,ENR),(Lpwm,Rpwm),saf (Left first)
+            # Linear tuple: pos,pot,is,(ENL,ENR),(Lpwm,Rpwm),saf (Left first)
             joints = {
-                "LHY": (round(self.latest_positions[0], 3), flags[2], self.currents[0], flags[0]),
-                "RHY": (round(self.latest_positions[1], 3), flags[3], self.currents[1], flags[1]),
-                "LHL": (round(self.latest_positions[2], 3), self.latest_pots[0], self.currents[2], flags[4]),
-                "LKL": (round(self.latest_positions[3], 3), self.latest_pots[1], self.currents[3], flags[5]),
-                "RHL": (round(self.latest_positions[4], 3), self.latest_pots[2], self.currents[4], flags[6]),
-                "RKL": (round(self.latest_positions[5], 3), self.latest_pots[3], self.currents[5], flags[7]),
+                "LHY": (round(self.latest_positions[0], 3), flags[2], self.currents[0],
+                        (self.io[0][3], self.io[0][2]),  # ENL, ENR
+                        (self.io[0][1], self.io[0][0]),  # Lpwm, Rpwm
+                        flags[0]),
+                "RHY": (round(self.latest_positions[1], 3), flags[3], self.currents[1],
+                        (self.io[1][3], self.io[1][2]),
+                        (self.io[1][1], self.io[1][0]),
+                        flags[1]),
+                "LHL": (round(self.latest_positions[2], 3), self.latest_pots[0], self.currents[2],
+                        (self.io[2][3], self.io[2][2]),
+                        (self.io[2][1], self.io[2][0]),
+                        flags[4]),
+                "LKL": (round(self.latest_positions[3], 3), self.latest_pots[1], self.currents[3],
+                        (self.io[3][3], self.io[3][2]),
+                        (self.io[3][1], self.io[3][0]),
+                        flags[5]),
+                "RHL": (round(self.latest_positions[4], 3), self.latest_pots[2], self.currents[4],
+                        (self.io[4][3], self.io[4][2]),
+                        (self.io[4][1], self.io[4][0]),
+                        flags[6]),
+                "RKL": (round(self.latest_positions[5], 3), self.latest_pots[3], self.currents[5],
+                        (self.io[5][3], self.io[5][2]),
+                        (self.io[5][1], self.io[5][0]),
+                        flags[7]),
             }
-            logger.debug("JOINTS (joint: {pos, pot/run, is, saf}): %s", joints)
+            # Build a compact string with no spaces after commas
+            def _pair(t):
+                return f"({t[0]},{t[1]})"
+            parts = []
+            for name, vals in joints.items():
+                # vals = (..., (ENL,ENR), (Lpwm,Rpwm), ...)
+                formatted = []
+                for v in vals:
+                    if isinstance(v, tuple):
+                        formatted.append(_pair(v))
+                    else:
+                        formatted.append(str(v))
+                parts.append(f"{name}:{','.join(formatted)}")
+            logger.debug("JOINTS %s", ";".join(parts))
             self._last_debug_log_ts = now
 
     def send_command(self, yaw_l, yaw_r, hip_l, knee_l, hip_r, knee_r):

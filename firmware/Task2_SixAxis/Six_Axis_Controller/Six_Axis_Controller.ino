@@ -194,13 +194,13 @@ public:
         if (pwm > 0)
         {
             digitalWrite(pinEnR, HIGH);
-            digitalWrite(pinEnL, HIGH);
+            digitalWrite(pinEnL, LOW);
             analogWrite(pinPwmR, pwm);
             analogWrite(pinPwmL, 0);
         }
         else if (pwm < 0)
         {
-            digitalWrite(pinEnR, HIGH);
+            digitalWrite(pinEnR, LOW);
             digitalWrite(pinEnL, HIGH);
             analogWrite(pinPwmR, 0);
             analogWrite(pinPwmL, abs(pwm));
@@ -342,26 +342,32 @@ public:
             pwm = 255;
         if (pwm < -255)
             pwm = -255;
-        if (abs(pwm) < 30)
+        // Apply deadband to the commanded PWM but keep ramp state intact
+        bool inDeadband = abs(pwm) < 30;
+        if (inDeadband)
             pwm = 0;
 
         if (pwm > 0)
         {
             digitalWrite(pinEnR, HIGH);
-            digitalWrite(pinEnL, HIGH);
+            digitalWrite(pinEnL, LOW);
             analogWrite(pinPwmR, pwm);
             analogWrite(pinPwmL, 0);
         }
         else if (pwm < 0)
         {
-            digitalWrite(pinEnR, HIGH);
+            digitalWrite(pinEnR, LOW);
             digitalWrite(pinEnL, HIGH);
             analogWrite(pinPwmR, 0);
             analogWrite(pinPwmL, abs(pwm));
         }
         else
         {
-            stopMotor();
+            // Hold outputs off but keep currentPwm value so ramp can climb past deadband
+            digitalWrite(pinEnR, LOW);
+            digitalWrite(pinEnL, LOW);
+            analogWrite(pinPwmR, 0);
+            analogWrite(pinPwmL, 0);
         }
     }
 
@@ -493,6 +499,28 @@ void loop()
     {
         lastTelemetry = millis();
 
+        int enYL = digitalRead(yawL.pinEnR) || digitalRead(yawL.pinEnL);
+        int enYR = digitalRead(yawR.pinEnR) || digitalRead(yawR.pinEnL);
+        int enHL = digitalRead(hipL.pinEnR) || digitalRead(hipL.pinEnL);
+        int enKL = digitalRead(kneeL.pinEnR) || digitalRead(kneeL.pinEnL);
+        int enHR = digitalRead(hipR.pinEnR) || digitalRead(hipR.pinEnL);
+        int enKR = digitalRead(kneeR.pinEnR) || digitalRead(kneeR.pinEnL);
+
+        // Per-side PWM intents (split R/L) for visibility
+        int pwmYL_R = yawL.currentPwm > 0 ? yawL.currentPwm : 0;
+        int pwmYL_L = yawL.currentPwm < 0 ? -yawL.currentPwm : 0;
+        int pwmYR_R = yawR.currentPwm > 0 ? yawR.currentPwm : 0;
+        int pwmYR_L = yawR.currentPwm < 0 ? -yawR.currentPwm : 0;
+
+        int pwmHL_R = hipL.currentPwm > 0 ? hipL.currentPwm : 0;
+        int pwmHL_L = hipL.currentPwm < 0 ? -hipL.currentPwm : 0;
+        int pwmKL_R = kneeL.currentPwm > 0 ? kneeL.currentPwm : 0;
+        int pwmKL_L = kneeL.currentPwm < 0 ? -kneeL.currentPwm : 0;
+        int pwmHR_R = hipR.currentPwm > 0 ? hipR.currentPwm : 0;
+        int pwmHR_L = hipR.currentPwm < 0 ? -hipR.currentPwm : 0;
+        int pwmKR_R = kneeR.currentPwm > 0 ? kneeR.currentPwm : 0;
+        int pwmKR_L = kneeR.currentPwm < 0 ? -kneeR.currentPwm : 0;
+
         // Format: FB:yL,yR,hL,kL,hR,kR
         Serial.print("FB:");
         Serial.print(yawL.getPos(), 3);
@@ -536,6 +564,87 @@ void loop()
         Serial.print(hipR.safetyTriggered);
         Serial.print(",");
         Serial.print(kneeR.safetyTriggered);
+
+        // Current PWM commands (post-ramp, per joint)
+        // Order: yL,yR,hL,kL,hR,kR
+        Serial.print(",P:");
+        Serial.print(yawL.currentPwm);
+        Serial.print(",");
+        Serial.print(yawR.currentPwm);
+        Serial.print(",");
+        Serial.print(hipL.currentPwm);
+        Serial.print(",");
+        Serial.print(kneeL.currentPwm);
+        Serial.print(",");
+        Serial.print(hipR.currentPwm);
+        Serial.print(",");
+        Serial.print(kneeR.currentPwm);
+
+        // EN state per joint (1 if either EN pin is high)
+        Serial.print(",EN:");
+        Serial.print(enYL);
+        Serial.print(",");
+        Serial.print(enYR);
+        Serial.print(",");
+        Serial.print(enHL);
+        Serial.print(",");
+        Serial.print(enKL);
+        Serial.print(",");
+        Serial.print(enHR);
+        Serial.print(",");
+        Serial.print(enKR);
+
+        // Per-side PWM/EN (R_pwm,L_pwm,R_en,L_en) for each joint
+        Serial.print(",IO:");
+        Serial.print(pwmYL_R);
+        Serial.print(",");
+        Serial.print(pwmYL_L);
+        Serial.print(",");
+        Serial.print(digitalRead(yawL.pinEnR));
+        Serial.print(",");
+        Serial.print(digitalRead(yawL.pinEnL));
+        Serial.print(",");
+        Serial.print(pwmYR_R);
+        Serial.print(",");
+        Serial.print(pwmYR_L);
+        Serial.print(",");
+        Serial.print(digitalRead(yawR.pinEnR));
+        Serial.print(",");
+        Serial.print(digitalRead(yawR.pinEnL));
+
+        Serial.print(",");
+        Serial.print(pwmHL_R);
+        Serial.print(",");
+        Serial.print(pwmHL_L);
+        Serial.print(",");
+        Serial.print(digitalRead(hipL.pinEnR));
+        Serial.print(",");
+        Serial.print(digitalRead(hipL.pinEnL));
+        Serial.print(",");
+        Serial.print(pwmKL_R);
+        Serial.print(",");
+        Serial.print(pwmKL_L);
+        Serial.print(",");
+        Serial.print(digitalRead(kneeL.pinEnR));
+        Serial.print(",");
+        Serial.print(digitalRead(kneeL.pinEnL));
+
+        Serial.print(",");
+        Serial.print(pwmHR_R);
+        Serial.print(",");
+        Serial.print(pwmHR_L);
+        Serial.print(",");
+        Serial.print(digitalRead(hipR.pinEnR));
+        Serial.print(",");
+        Serial.print(digitalRead(hipR.pinEnL));
+        Serial.print(",");
+        Serial.print(pwmKR_R);
+        Serial.print(",");
+        Serial.print(pwmKR_L);
+        Serial.print(",");
+        Serial.print(digitalRead(kneeR.pinEnR));
+        Serial.print(",");
+        Serial.print(digitalRead(kneeR.pinEnL));
 
         // Debug: Print Average Current (Optional, good for tuning)
         Serial.print(",AVG:");
