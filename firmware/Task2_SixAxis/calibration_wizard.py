@@ -87,7 +87,7 @@ def calibration_wizard():
                 # 4. EXECUTE PULSE (The Safety Feature)
                 # Move for only 0.2 seconds, then STOP.
                 mcu.send_command(*cmds)
-                time.sleep(2)
+                time.sleep(5)
                 mcu.send_command(0, 0, 0.5, 0.5, 0.5, 0.5)  # Hard Stop
                 time.sleep(0.1)  # Wait for comms to update pot value
 

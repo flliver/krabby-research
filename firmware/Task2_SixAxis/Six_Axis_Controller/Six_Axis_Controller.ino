@@ -541,6 +541,20 @@ void loop()
         Serial.print(",AVG:");
         Serial.print((int)yawL.averageCurrent);
 
+        // Instant current-sense snapshot (max of the two IS pins per bridge)
+        Serial.print(",IS:");
+        Serial.print(max(analogRead(yawL.pinISR), analogRead(yawL.pinISL)));
+        Serial.print(",");
+        Serial.print(max(analogRead(yawR.pinISR), analogRead(yawR.pinISL)));
+        Serial.print(",");
+        Serial.print(max(analogRead(hipL.pinISR), analogRead(hipL.pinISL)));
+        Serial.print(",");
+        Serial.print(max(analogRead(kneeL.pinISR), analogRead(kneeL.pinISL)));
+        Serial.print(",");
+        Serial.print(max(analogRead(hipR.pinISR), analogRead(hipR.pinISL)));
+        Serial.print(",");
+        Serial.print(max(analogRead(kneeR.pinISR), analogRead(kneeR.pinISL)));
+
         Serial.println();
     }
 }

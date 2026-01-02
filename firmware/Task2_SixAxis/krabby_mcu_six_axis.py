@@ -42,8 +42,12 @@ class KrabbyMCUSDK:
         # [yawL_safe, yawR_safe, yawL_run, yawR_run, hipL_safe, kneeL_safe, hipR_safe, kneeR_safe]
         self.flags = [0] * 8
 
+        # Current sense snapshot (yawL,yawR,hipL,kneeL,hipR,kneeR)
+        self.currents = [0] * 6
+
         self.last_feedback_ts = None
         self.thread = None
+        self._last_debug_log_ts = 0.0
 
     def connect(self):
         try:
@@ -112,24 +116,35 @@ class KrabbyMCUSDK:
                         self.flags = [int(v) for v in vals]
                     except ValueError:
                         pass
+                elif token.startswith("IS:"):
+                    vals = [token.split(':')[1]]
+                    for k in range(1, 6):
+                        if i+k < len(parts):
+                            vals.append(parts[i+k])
+                    try:
+                        self.currents = [int(v) for v in vals]
+                    except ValueError:
+                        pass
 
         except (ValueError, IndexError):
             pass
 
         # Debug Log: Show Positions + Raw Pots for tuning
-        if logger.isEnabledFor(logging.DEBUG):
+        now = time.time()
+        if logger.isEnabledFor(logging.DEBUG) and (now - self._last_debug_log_ts) >= 0.25:
             # Compact per-joint view: LHY/LHL/LKL/RHY/RHL/RKL
             flags = (self.flags + [0] * 8)[:8]  # pad if malformed
-            # Yaw uses (pos, run, saf); linear uses (pos, pot, saf)
+            # Yaw uses (pos, run, is, saf); linear uses (pos, pot, is, saf)
             joints = {
-                "LHY": (round(self.latest_positions[0], 3), flags[2], flags[0]),
-                "RHY": (round(self.latest_positions[1], 3), flags[3], flags[1]),
-                "LHL": (round(self.latest_positions[2], 3), self.latest_pots[0], flags[4]),
-                "LKL": (round(self.latest_positions[3], 3), self.latest_pots[1], flags[5]),
-                "RHL": (round(self.latest_positions[4], 3), self.latest_pots[2], flags[6]),
-                "RKL": (round(self.latest_positions[5], 3), self.latest_pots[3], flags[7]),
+                "LHY": (round(self.latest_positions[0], 3), flags[2], self.currents[0], flags[0]),
+                "RHY": (round(self.latest_positions[1], 3), flags[3], self.currents[1], flags[1]),
+                "LHL": (round(self.latest_positions[2], 3), self.latest_pots[0], self.currents[2], flags[4]),
+                "LKL": (round(self.latest_positions[3], 3), self.latest_pots[1], self.currents[3], flags[5]),
+                "RHL": (round(self.latest_positions[4], 3), self.latest_pots[2], self.currents[4], flags[6]),
+                "RKL": (round(self.latest_positions[5], 3), self.latest_pots[3], self.currents[5], flags[7]),
             }
-            logger.debug("JOINTS (joint: {pos, pot/run, saf}): %s", joints)
+            logger.debug("JOINTS (joint: {pos, pot/run, is, saf}): %s", joints)
+            self._last_debug_log_ts = now
 
     def send_command(self, yaw_l, yaw_r, hip_l, knee_l, hip_r, knee_r):
         """
