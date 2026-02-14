@@ -46,5 +46,13 @@ eval-student:
 	python scripts/rsl_rl/evaluation.py --task Isaac-Extreme-Parkour-Student-Unitree-Go2-Eval-v0 $(ARGS)
 
 
+eval-house-01:
+	PARKOUR_SCENE_USD=assets/scenes/house_model_01.usd python scripts/rsl_rl/evaluation.py --task Isaac-Extreme-Parkour-Student-Unitree-Go2-Eval-v0 $(ARGS)
+
+
+eval-flat:
+	PARKOUR_SCENE_USD=assets/scenes/flat.usd python scripts/rsl_rl/evaluation.py --task Isaac-Extreme-Parkour-Student-Unitree-Go2-Eval-v0 $(ARGS)
+
+
 eval-student-headless:
 	python scripts/rsl_rl/evaluation.py --task Isaac-Extreme-Parkour-Student-Unitree-Go2-Eval-v0 --headless $(ARGS)

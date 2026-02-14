@@ -25,14 +25,27 @@ class reward_feet_edge(ManagerTermBase):
         self.asset_cfg = cfg.params["asset_cfg"]
         self.parkour_event: ParkourEvent =  env.parkour_manager.get_term(cfg.params["parkour_name"])
         self.body_id = self.contact_sensor.find_bodies('base')[0]
-        self.horizontal_scale = env.scene.terrain.cfg.terrain_generator.horizontal_scale
-        size_x, size_y = env.scene.terrain.cfg.terrain_generator.size
-        self.rows_offset = (size_x * env.scene.terrain.cfg.terrain_generator.num_rows/2)
-        self.cols_offset = (size_y * env.scene.terrain.cfg.terrain_generator.num_cols/2)
-        total_x_edge_maskes = torch.from_numpy(self.parkour_event.terrain.terrain_generator_class.x_edge_maskes).to(device = self.device)
-        self.x_edge_masks_tensor = total_x_edge_maskes.permute(0, 2, 1, 3).reshape(
-            env.scene.terrain.terrain_generator_class.total_width_pixels, env.scene.terrain.terrain_generator_class.total_length_pixels
+        # Detect if terrain is generator-backed (parkour) or generic (usd/plane)
+        terrain = env.scene.terrain
+        self._is_generator = (
+            hasattr(terrain, "terrain_generator_class")
+            and getattr(terrain.cfg, "terrain_type", None) == "generator"
         )
+        if self._is_generator:
+            self.horizontal_scale = terrain.cfg.terrain_generator.horizontal_scale
+            size_x, size_y = terrain.cfg.terrain_generator.size
+            self.rows_offset = (size_x * terrain.cfg.terrain_generator.num_rows/2)
+            self.cols_offset = (size_y * terrain.cfg.terrain_generator.num_cols/2)
+            total_x_edge_maskes = torch.from_numpy(self.parkour_event.terrain.terrain_generator_class.x_edge_maskes).to(device = self.device)
+            self.x_edge_masks_tensor = total_x_edge_maskes.permute(0, 2, 1, 3).reshape(
+                terrain.terrain_generator_class.total_width_pixels, terrain.terrain_generator_class.total_length_pixels
+            )
+        else:
+            # For USD/plane terrains, no edge masks: fall back to zeros reward.
+            self.horizontal_scale = 1.0
+            self.rows_offset = 0.0
+            self.cols_offset = 0.0
+            self.x_edge_masks_tensor = None
 
     def __call__(
         self,
@@ -41,15 +54,21 @@ class reward_feet_edge(ManagerTermBase):
         sensor_cfg: SceneEntityCfg,
         parkour_name: str,
         ) -> torch.Tensor:
+        # Determine number of bodies for shape-consistent buffers
+        contact_forces = self.contact_sensor.data.net_forces_w_history[:, 0, self.sensor_cfg.body_ids]  # (N, B, 3)
+        num_bodies = contact_forces.shape[1]
         feet_pos_x = ((self.asset.data.body_state_w[:, self.asset_cfg.body_ids ,0] + self.rows_offset)
                       /self.horizontal_scale).round().long() 
         feet_pos_y = ((self.asset.data.body_state_w[:, self.asset_cfg.body_ids ,1] + self.cols_offset)
                       /self.horizontal_scale).round().long() 
+        if not self._is_generator or self.x_edge_masks_tensor is None:
+            # No generator metadata: set feet_at_edge to zeros and return zero reward.
+            self.feet_at_edge = torch.zeros(self.num_envs, num_bodies, device=self.device, dtype=torch.bool)
+            return torch.zeros(self.num_envs, device=self.device)
         feet_pos_x = torch.clip(feet_pos_x, 0, self.x_edge_masks_tensor.shape[0]-1)
         feet_pos_y = torch.clip(feet_pos_y, 0, self.x_edge_masks_tensor.shape[1]-1)
         feet_at_edge = self.x_edge_masks_tensor[feet_pos_x, feet_pos_y]
-        contact_forces = self.contact_sensor.data.net_forces_w_history[:, 0, self.sensor_cfg.body_ids] #(N, 4, 3)
-        previous_contact_forces = self.contact_sensor.data.net_forces_w_history[:, -1, self.sensor_cfg.body_ids] # N, 4, 3
+        previous_contact_forces = self.contact_sensor.data.net_forces_w_history[:, -1, self.sensor_cfg.body_ids] # N, B, 3
         contact = torch.norm(contact_forces, dim=-1) > 2.
         last_contacts = torch.norm(previous_contact_forces, dim=-1) > 2.
         contact_filt = torch.logical_or(contact, last_contacts) 
