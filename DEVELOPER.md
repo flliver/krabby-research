@@ -19,8 +19,19 @@ sudo apt install python3.11 python3.11-venv
 ```
 python3.11 -m venv testenv
 source testenv/bin/activate
-pip3 install -U torch==2.7.0 torchvision==0.22.0 --index-url https://download.pytorch.org/whl/cu130
+pip3 install -U torch==2.7.0 torchvision==0.22.0 --index-url https://download.pytorch.org/whl/cu128
 ```
+
+**Note:** PyTorch wheels bundle their own CUDA runtime, so the `cu128` wheel works
+even though the host CUDA Toolkit is 13.0. The `cu128` index is the first stable
+PyTorch release with prebuilt sm_120 (Blackwell, RTX 50-series) kernels. The `cu130`
+stable wheels do not yet include sm_120 — using them on an RTX 5080 produces:
+
+```
+RuntimeError: CUDA error: no kernel image is available for execution on the device
+```
+
+See `docs/PYTORCH_GPU_SUPPORT.md` for the full GPU support matrix.
 
 ### Install IsaacSim
 

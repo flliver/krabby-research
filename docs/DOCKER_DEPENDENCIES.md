@@ -23,6 +23,36 @@ This script will:
 
 For manual installation, see the [NVIDIA Container Toolkit installation guide](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html).
 
+### Required `docker run` flags for PyTorch containers
+
+Any container running PyTorch with multiprocessing (which includes the IsaacSim,
+locomotion, testing, and any future ML containers) **must** be started with
+`--shm-size=8g`:
+
+```bash
+docker run --rm --gpus all --shm-size=8g ...
+```
+
+Docker's default `/dev/shm` is **64 MB**, which is insufficient for PyTorch's
+shared-memory CUDA tensors used by `DataLoader` workers and SLAM/pose-estimation
+backends. **Without `--shm-size`, the container starts, prints its config, and
+silently deadlocks at 0% GPU.** No error message, no crash — just no progress.
+This wasted multiple debugging cycles before being identified.
+
+Recommended flag set for any PyTorch + CUDA container:
+
+```bash
+docker run --rm --gpus all \
+    --shm-size=8g \
+    --ipc=host \
+    --ulimit memlock=-1 \
+    --ulimit stack=67108864 \
+    ...
+```
+
+The latter three are NVIDIA's official recommendations and are echoed by the NGC
+PyTorch container itself at startup.
+
 ## Overview
 
 The project requires four container images:
