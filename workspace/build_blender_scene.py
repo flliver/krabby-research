@@ -1,21 +1,29 @@
-"""Build a Blender .blend file containing the oriented mesh + 12 camera objects.
+"""Build a Blender .blend file containing the oriented mesh + camera objects.
 
 Run via Blender headless:
   /Applications/Blender.app/Contents/MacOS/Blender --background --python build_blender_scene.py -- \
       --mesh <path>/oriented_500k.obj \
       --cameras-original <path>/cameras.json \
       --cameras-oriented <path>/oriented_cameras.json \
+      [--frames-dir <path>/mast3r_sfm/images] \
       --output <path>/scene.blend
 
 Inputs:
-  - mesh: 500K-tri oriented OBJ
+  - mesh: 500K-tri oriented OBJ or PLY (PLY preserves vertex colors → auto-wired
+    Principled BSDF material with Attribute-Color base color)
   - cameras-original: MAtCha's cameras.json with cams2world 4x4 matrices and focals
   - cameras-oriented: orient_mesh.py output with rotation R + z_shift
+  - frames-dir (optional): the dir of source images (e.g., mast3r_sfm/images/).
+    When provided, an Image Empty is created at each camera's position
+    showing what that camera actually saw. Visible in any viewport shading
+    mode; oriented to match the camera's pose; parented to the camera so
+    moving the camera moves the image with it.
 
 Output:
-  - scene.blend with the mesh imported and 12 Blender Camera objects positioned
+  - scene.blend with the mesh imported and N Blender Camera objects positioned
     at the transformed camera poses, with focal length from the original
-    cameras.json. Cameras named cam_001 through cam_012.
+    cameras.json. Cameras named cam_001..cam_NNN. If frames-dir is provided,
+    image empties named cam_NNN_view are added.
 """
 import bpy  # type: ignore  # only resolves inside Blender
 import json
@@ -145,6 +153,20 @@ def main():
     n_cams = len(cams_world)
     print(f"Adding {n_cams} cameras...")
 
+    # Optional: load source frames for image-empty placement
+    frames_dir = args.get("frames-dir")
+    frame_paths = []
+    if frames_dir and os.path.isdir(frames_dir):
+        frame_paths = sorted(
+            os.path.join(frames_dir, f)
+            for f in os.listdir(frames_dir)
+            if f.lower().endswith((".jpg", ".jpeg", ".png"))
+        )
+        print(f"  + Image empties from {frames_dir}: {len(frame_paths)} frames available")
+    else:
+        if frames_dir:
+            print(f"  WARNING: --frames-dir {frames_dir} not found, skipping image empties")
+
     # MAtCha's downscaled image size — we extracted at 1024×576 (16:9)
     # but MAtCha internally resized to 512×288-ish. The focal in cameras.json is
     # in MAtCha's internal pixel space; we'll set Blender's sensor dimensions
@@ -171,6 +193,66 @@ def main():
         cam_obj = bpy.data.objects.new(name=f"cam_{i+1:03d}", object_data=cam_data)
         cam_obj.matrix_world = c2w_blender
         bpy.context.collection.objects.link(cam_obj)
+
+        # Optional: textured-plane mesh showing what this camera saw.
+        # We use an actual plane mesh + emission-shader material rather than
+        # an Image Empty because empty_image_add requires a 3D-View context
+        # which doesn't exist in --background mode.
+        if i < len(frame_paths):
+            img = bpy.data.images.load(frame_paths[i])
+            iw, ih = img.size
+            aspect = ih / iw if iw > 0 else 9 / 16
+            plane_w = 0.4
+            plane_h = plane_w * aspect
+
+            # 4-vertex quad in XY plane, normal +Z, centered on origin
+            mesh_data = bpy.data.meshes.new(name=f"cam_{i+1:03d}_view_mesh")
+            mesh_data.from_pydata(
+                [
+                    (-plane_w / 2, -plane_h / 2, 0),
+                    (plane_w / 2, -plane_h / 2, 0),
+                    (plane_w / 2, plane_h / 2, 0),
+                    (-plane_w / 2, plane_h / 2, 0),
+                ],
+                [],
+                [(0, 1, 2, 3)],
+            )
+            mesh_data.update()
+            # Set UVs (image goes top-down by default in Blender; flip V to match)
+            uv = mesh_data.uv_layers.new(name="UVMap")
+            uv.data[0].uv = (0.0, 1.0)
+            uv.data[1].uv = (1.0, 1.0)
+            uv.data[2].uv = (1.0, 0.0)
+            uv.data[3].uv = (0.0, 0.0)
+
+            plane = bpy.data.objects.new(name=f"cam_{i+1:03d}_view", object_data=mesh_data)
+            bpy.context.collection.objects.link(plane)
+
+            # Material: image texture into Emission shader (bright in viewport
+            # without scene lighting).
+            mat = bpy.data.materials.new(name=f"cam_{i+1:03d}_view_mat")
+            mat.use_nodes = True
+            nt = mat.node_tree
+            for n in list(nt.nodes):
+                nt.nodes.remove(n)
+            tex = nt.nodes.new("ShaderNodeTexImage")
+            tex.image = img
+            emission = nt.nodes.new("ShaderNodeEmission")
+            emission.inputs["Strength"].default_value = 1.0
+            outm = nt.nodes.new("ShaderNodeOutputMaterial")
+            nt.links.new(tex.outputs["Color"], emission.inputs["Color"])
+            nt.links.new(emission.outputs["Emission"], outm.inputs["Surface"])
+            tex.location = (-400, 0)
+            emission.location = (-100, 0)
+            outm.location = (200, 0)
+            mesh_data.materials.append(mat)
+
+            # Parent to camera; 0.5 m in front along camera's -Z (forward),
+            # rotation matches camera so plane is perpendicular to view axis.
+            plane.parent = cam_obj
+            plane.matrix_parent_inverse = Matrix.Identity(4)
+            plane.location = (0.0, 0.0, -0.5)
+            plane.rotation_euler = (0.0, 0.0, 0.0)
 
     # Set the first camera as active
     if bpy.data.objects.get("cam_001"):
