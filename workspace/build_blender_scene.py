@@ -83,13 +83,18 @@ def main():
 
     clear_scene()
 
-    # Import the mesh
+    # Import the mesh.
+    # IMPORTANT: our orient_mesh.py output is Z-up (floor at z=0, normal +Z).
+    # Force the importer to treat the file as Z-up — otherwise the OBJ
+    # importer's default `up_axis='Y'` rotates the scene 90° (or worse,
+    # appears upside-down because of the chained X/Y flip implied by the
+    # default forward axis '-Z'). The PLY importer defaults to Z-up but
+    # we set it explicitly anyway for safety.
     print("Importing mesh...")
     if mesh_path.lower().endswith(".obj"):
-        # Blender 4.x: bpy.ops.wm.obj_import (not import_scene.obj)
-        bpy.ops.wm.obj_import(filepath=mesh_path)
+        bpy.ops.wm.obj_import(filepath=mesh_path, forward_axis="Y", up_axis="Z")
     elif mesh_path.lower().endswith(".ply"):
-        bpy.ops.wm.ply_import(filepath=mesh_path)
+        bpy.ops.wm.ply_import(filepath=mesh_path, forward_axis="Y", up_axis="Z")
     else:
         raise SystemExit(f"Unsupported mesh format: {mesh_path}")
 
@@ -218,12 +223,16 @@ def main():
                 [(0, 1, 2, 3)],
             )
             mesh_data.update()
-            # Set UVs (image goes top-down by default in Blender; flip V to match)
+            # Set UVs to match Blender's image convention: UV (0,0) is the
+            # bottom-left of the displayed image, (1,1) is top-right.
+            # Map plane vertices (in CCW order around +Z normal) to image
+            # corners so the image appears right-side up when viewed from
+            # the camera (i.e., looking down -Z onto the plane's +Z face).
             uv = mesh_data.uv_layers.new(name="UVMap")
-            uv.data[0].uv = (0.0, 1.0)
-            uv.data[1].uv = (1.0, 1.0)
-            uv.data[2].uv = (1.0, 0.0)
-            uv.data[3].uv = (0.0, 0.0)
+            uv.data[0].uv = (0.0, 0.0)  # vertex 0 (-w/2, -h/2) → image bottom-left
+            uv.data[1].uv = (1.0, 0.0)  # vertex 1 (+w/2, -h/2) → image bottom-right
+            uv.data[2].uv = (1.0, 1.0)  # vertex 2 (+w/2, +h/2) → image top-right
+            uv.data[3].uv = (0.0, 1.0)  # vertex 3 (-w/2, +h/2) → image top-left
 
             plane = bpy.data.objects.new(name=f"cam_{i+1:03d}_view", object_data=mesh_data)
             bpy.context.collection.objects.link(plane)
