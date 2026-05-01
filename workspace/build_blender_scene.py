@@ -85,12 +85,49 @@ def main():
     else:
         raise SystemExit(f"Unsupported mesh format: {mesh_path}")
 
-    # Rename the imported mesh
+    # Rename the imported mesh + check for vertex colors
+    mesh_obj = None
     for o in bpy.data.objects:
         if o.type == "MESH":
             o.name = "scene_mesh"
+            mesh_obj = o
             print(f"  imported as: {o.name}, {len(o.data.vertices)} verts, {len(o.data.polygons)} polys")
             break
+
+    # Detect vertex colors and wire up a material that displays them
+    if mesh_obj is not None:
+        has_vcolors = bool(mesh_obj.data.color_attributes) or bool(mesh_obj.data.vertex_colors)
+        if has_vcolors:
+            attr_name = (
+                mesh_obj.data.color_attributes.active_color_name
+                if mesh_obj.data.color_attributes
+                else mesh_obj.data.vertex_colors.active.name
+            )
+            print(f"  found vertex colors: '{attr_name}', wiring up material...")
+            mat = bpy.data.materials.new(name="VertexColor")
+            mat.use_nodes = True
+            nt = mat.node_tree
+            for n in list(nt.nodes):
+                nt.nodes.remove(n)
+            attr = nt.nodes.new("ShaderNodeAttribute")
+            attr.attribute_name = attr_name
+            bsdf = nt.nodes.new("ShaderNodeBsdfPrincipled")
+            bsdf.inputs["Roughness"].default_value = 0.9
+            out = nt.nodes.new("ShaderNodeOutputMaterial")
+            nt.links.new(attr.outputs["Color"], bsdf.inputs["Base Color"])
+            nt.links.new(bsdf.outputs["BSDF"], out.inputs["Surface"])
+            attr.location = (-400, 0)
+            bsdf.location = (-100, 0)
+            out.location = (200, 0)
+            mesh_obj.data.materials.append(mat)
+            # Set viewport shading to Material Preview so colors show
+            for area in bpy.context.screen.areas:
+                if area.type == "VIEW_3D":
+                    for space in area.spaces:
+                        if space.type == "VIEW_3D":
+                            space.shading.type = "MATERIAL"
+        else:
+            print("  no vertex colors detected; mesh stays untextured")
 
     # Load camera transforms
     with open(cams_orig_path) as f:
