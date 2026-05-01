@@ -1,6 +1,6 @@
 ---
 kind: note
-captured: 2026-05-01
+captured: 2026-05-01T14:43:03-07:00
 consolidated: true
 tags: [matcha, paper-read, knob, raw]
 ---
@@ -37,4 +37,4 @@ T-002: I haven't checked the code. Don't take this as a recommendation yet — t
 
 ## Status
 
-Consolidated into `entries/2026-05-01-options-on-the-table-after-b6a/entry.md` (Option C). Keeping this note around as the longer-form rationale; the entry has the decision-grade summary.
+Consolidated into `entries/2026-05-01T152120-options-on-the-table-after-b6a/entry.md` (Option C). Keeping this note around as the longer-form rationale; the entry has the decision-grade summary.

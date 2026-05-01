@@ -1,6 +1,6 @@
 ---
 kind: entry
-date: 2026-04-30
+date: 2026-05-01T14:41:35-07:00
 title: Phase A — three MAtCha meshes and the pivot to post-processing
 mood: resolved
 consolidates_notes: []

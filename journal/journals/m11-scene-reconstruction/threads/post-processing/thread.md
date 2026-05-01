@@ -31,7 +31,7 @@ End-to-end output per scene: `scene_culled.blend` with mesh + 12 Blender Camera 
 
 ## Status
 
-Essentially complete as of 2026-05-01. All four sub-phases working on all three Phase A scenes. Open follow-ups are minor (B1 candidate-plane robustness on the lowres-15 mesh, see entry `2026-05-01-b6a-lowres-keyframes-negative-result`) rather than structural.
+Essentially complete as of 2026-05-01. All four sub-phases working on all three Phase A scenes. Open follow-ups are minor (B1 candidate-plane robustness on the lowres-15 mesh, see entry `2026-05-01T144205-b6a-lowres-keyframes-negative-result`) rather than structural.
 
 ## Why this is a separate thread from `matcha-quality`
 

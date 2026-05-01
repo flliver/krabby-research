@@ -1,6 +1,6 @@
 ---
 kind: entry
-date: 2026-05-01
+date: 2026-05-01T14:42:05-07:00
 title: B6a lowres-keyframes — negative result locked in
 mood: clarifying
 consolidates_notes: []
@@ -55,4 +55,4 @@ Worth flagging: the lowres run picked a different RANSAC candidate as the floor 
 
 ## Next steps that follow from this
 
-This entry's closing question is "what direction *would* improve quality?" — covered separately in `2026-05-01-options-on-the-table-after-b6a` (sibling entry).
+This entry's closing question is "what direction *would* improve quality?" — covered separately in `2026-05-01T152120-options-on-the-table-after-b6a` (sibling entry).

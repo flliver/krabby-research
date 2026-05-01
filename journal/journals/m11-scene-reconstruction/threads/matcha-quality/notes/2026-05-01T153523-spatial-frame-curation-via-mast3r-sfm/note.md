@@ -1,6 +1,6 @@
 ---
 kind: note
-captured: 2026-05-01
+captured: 2026-05-01T15:35:23-07:00
 consolidated: true
 tags: [b5, frame-curation, mast3r-sfm, blender, workflow]
 ---
@@ -54,7 +54,7 @@ Total: a few hundred lines of Python at most. Most of B3's tooling already does 
 
 Jeremy raised the point that "60 cameras is a slog" understates the problem in the other direction: when focusing on one area of a room, you may want *more* than 60 cameras visible there, but conditionally hide the rest. That requires real **filtering**, not a fixed pool size.
 
-The full feasibility analysis — Blender Collections (Route A, ~0.5 day) vs a viser-based web viewer with continuous sliders, click-to-pick, time/position/direction/co-visibility filters (Route B, ~1–3 days) — lives in the sibling note `2026-05-01-camera-selection-ui-feasibility`. Recommended sequencing: Route A first, escalate to Route B if Blender's discrete-bucket Collections aren't enough.
+The full feasibility analysis — Blender Collections (Route A, ~0.5 day) vs a viser-based web viewer with continuous sliders, click-to-pick, time/position/direction/co-visibility filters (Route B, ~1–3 days) — lives in the sibling note `2026-05-01T153502-camera-selection-ui-feasibility`. Recommended sequencing: Route A first, escalate to Route B if Blender's discrete-bucket Collections aren't enough.
 
 The "small" estimate above stands for Route A only. Route B is a real but well-scoped extension.
 
@@ -100,4 +100,4 @@ That's the experiment. If the curated-12 mesh is visibly better than the evenly-
 
 ## Status
 
-Folded into `entries/2026-05-01-options-on-the-table-after-b6a/entry.md` (Option B, refined). `consolidated: true`. UI design questions extracted into the sibling note `2026-05-01-camera-selection-ui-feasibility`.
+Folded into `entries/2026-05-01T152120-options-on-the-table-after-b6a/entry.md` (Option B, refined). `consolidated: true`. UI design questions extracted into the sibling note `2026-05-01T153502-camera-selection-ui-feasibility`.

@@ -25,12 +25,12 @@ This thread tracks every move we make to improve the underlying mesh quality, re
 These live in `experiments/DECISION-MATRIX.md` open-questions list as well; surfaced here for quick reference. Order reflects the 2026-05-01 decision in the `options-on-the-table-after-b6a` entry.
 
 - **Q7 / Option C — `r` knob (next up).** Does a lower chart-encoding resolution `r` (the paper's per-chart deformation grid) help on our noisier captures? First step is verifying the current default. Then sweep `r ∈ {0.1, 0.2, 0.4}` on scene 004.
-- **Q6 / Option B — refined manual curation (after C).** Use MASt3R-SfM standalone to compute camera poses for a candidate pool, render cameras-without-mesh in Blender, hand-pick 12. Tooling: standalone SfM wrapper + B3 extension. See note `2026-05-01-spatial-frame-curation-via-mast3r-sfm`.
+- **Q6 / Option B — refined manual curation (after C).** Use MASt3R-SfM standalone to compute camera poses for a candidate pool, render cameras-without-mesh in Blender, hand-pick 12. Tooling: standalone SfM wrapper + B3 extension. See note `2026-05-01T153523-spatial-frame-curation-via-mast3r-sfm`.
 - **Q5 / Option A — higher resolution (on hold).** Pending a code-read of MAtCha's internal pipeline to confirm whether photometric refinement uses the original input resolution or a 512-downscaled version. If the latter, A is testing nothing useful and should be dropped.
 
 ## Closed inquiries
 
-- B6a — lower-res-with-more-frames (768×432 at 15) — **negative result**, see entry `2026-05-01-b6a-lowres-keyframes-negative-result`.
+- B6a — lower-res-with-more-frames (768×432 at 15) — **negative result**, see entry `2026-05-01T144205-b6a-lowres-keyframes-negative-result`.
 
 ## Cross-references
 

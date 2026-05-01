@@ -1,11 +1,11 @@
 ---
 kind: entry
-date: 2026-05-01
+date: 2026-05-01T15:21:20-07:00
 title: Options on the table after B6a — what to try next
 mood: decided
 consolidates_notes:
-  - journals/m11-scene-reconstruction/threads/matcha-quality/notes/2026-05-01-chart-encoding-resolution-r-knob
-  - journals/m11-scene-reconstruction/threads/matcha-quality/notes/2026-05-01-spatial-frame-curation-via-mast3r-sfm
+  - journals/m11-scene-reconstruction/threads/matcha-quality/notes/2026-05-01T144303-chart-encoding-resolution-r-knob
+  - journals/m11-scene-reconstruction/threads/matcha-quality/notes/2026-05-01T153523-spatial-frame-curation-via-mast3r-sfm
 tags: [matcha, planning, options, sparse-view, decided]
 ---
 
@@ -36,7 +36,7 @@ After the lowres negative result (sibling entry, same date), the remaining lever
 
 **Original move:** build a contact-sheet picker (visual grid + click-to-pick UI), extract 60–100 candidate frames, hand-pick 12. Estimated ~2 hours of tool-building.
 
-**Refined move (2026-05-01):** use **MASt3R-SfM standalone** to compute camera poses for the candidate pool, drop the cameras into Blender as Camera objects + textured image planes (extending the existing B3 tooling), hand-pick 12 by *spatial intuition* in 3D. **No mesh required.** No contact-sheet UI required. Full sketch in note `2026-05-01-spatial-frame-curation-via-mast3r-sfm`.
+**Refined move (2026-05-01):** use **MASt3R-SfM standalone** to compute camera poses for the candidate pool, drop the cameras into Blender as Camera objects + textured image planes (extending the existing B3 tooling), hand-pick 12 by *spatial intuition* in 3D. **No mesh required.** No contact-sheet UI required. Full sketch in note `2026-05-01T153523-spatial-frame-curation-via-mast3r-sfm`.
 
 **Pros:**
 - Higher leverage if it works — applies to all current and future scenes, not just one resolution regime.
@@ -53,7 +53,7 @@ After the lowres negative result (sibling entry, same date), the remaining lever
 
 ## Option C — chart-encoding resolution `r`
 
-See sibling note `2026-05-01-chart-encoding-resolution-r-knob` for the full mechanism. In short: MAtCha has a per-chart 2D feature grid whose resolution `r` controls how locally vs globally the chart can deform. Paper uses `r=0.4` for unbounded 5–10 view scenes (our regime) and `r=0.1` for sparser DTU 3-view bounded scenes. Their rule: sparser SfM → lower r.
+See sibling note `2026-05-01T144303-chart-encoding-resolution-r-knob` for the full mechanism. In short: MAtCha has a per-chart 2D feature grid whose resolution `r` controls how locally vs globally the chart can deform. Paper uses `r=0.4` for unbounded 5–10 view scenes (our regime) and `r=0.1` for sparser DTU 3-view bounded scenes. Their rule: sparser SfM → lower r.
 
 **Pros:**
 - Free knob — no recapture, no VRAM impact, no extra runtime.

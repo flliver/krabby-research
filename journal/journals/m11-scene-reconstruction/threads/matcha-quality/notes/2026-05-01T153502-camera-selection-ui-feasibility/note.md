@@ -1,6 +1,6 @@
 ---
 kind: note
-captured: 2026-05-01
+captured: 2026-05-01T15:35:02-07:00
 consolidated: false
 tags: [b5, frame-curation, ui, viser, blender, feasibility]
 ---
@@ -114,7 +114,7 @@ Both are worth adding to Route B if it gets built.
 
 ## Where this fits in the larger plan
 
-This note expands the "B3 extension" line item from `2026-05-01-spatial-frame-curation-via-mast3r-sfm`. That note assumed Blender alone would suffice; this note doesn't disagree, but lays out the upgrade path so we have it queued if/when needed.
+This note expands the "B3 extension" line item from `2026-05-01T153523-spatial-frame-curation-via-mast3r-sfm`. That note assumed Blender alone would suffice; this note doesn't disagree, but lays out the upgrade path so we have it queued if/when needed.
 
 The order remains: C (`r` knob) first, then B (this UI work) second.
 

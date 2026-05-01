@@ -1,6 +1,6 @@
 ---
 kind: entry
-date: 2026-04-30
+date: 2026-05-01T14:43:27-07:00
 title: Phase B post-processing pipeline stood up — orient / cull / cameras / color
 mood: shipping
 consolidates_notes: []
@@ -22,13 +22,13 @@ End-to-end output per scene: a `scene_culled.blend` Jeremy can open in Blender a
 
 ## Why this was the right pivot from Phase A
 
-Phase A retrospective (sibling thread `matcha-quality`, entry `2026-04-30-phase-a-three-meshes-and-the-post-processing-pivot`) found that the five cross-cutting issues across all three Phase A scenes — no ground plane, tilt, background noise, no cameras visible, no color — were post-processing gaps, not MAtCha failures. Phase B addresses all five.
+Phase A retrospective (sibling thread `matcha-quality`, entry `2026-05-01T144135-phase-a-three-meshes-and-the-post-processing-pivot`) found that the five cross-cutting issues across all three Phase A scenes — no ground plane, tilt, background noise, no cameras visible, no color — were post-processing gaps, not MAtCha failures. Phase B addresses all five.
 
 The bet: if we fix the post-processing, the remaining quality complaints are *real* MAtCha-level issues that justify further pipeline work. Without Phase B, every quality issue is conflated.
 
 ## What's still open
 
-- **B1 candidate-plane robustness.** The lowres-15 experiment (sibling thread, entry `2026-05-01-b6a-lowres-keyframes-negative-result`) picked a different RANSAC candidate as the floor than the baseline run on the same scene. The cull cleaned it up, but it suggests B1's scoring is sensitive to small mesh variations. Worth a regression test if we run the same scene at multiple resolutions/frame counts.
+- **B1 candidate-plane robustness.** The lowres-15 experiment (sibling thread, entry `2026-05-01T144205-b6a-lowres-keyframes-negative-result`) picked a different RANSAC candidate as the floor than the baseline run on the same scene. The cull cleaned it up, but it suggests B1's scoring is sensitive to small mesh variations. Worth a regression test if we run the same scene at multiple resolutions/frame counts.
 - **B2 cull thresholds.** Currently per-scene-tuned. A more principled approach (e.g., density-based or learned) might generalize better. Not blocking.
 - **B4 color quality.** Vertex color is averaged across source frames — some specular surfaces look muddy. View-dependent shading or per-frame proxy textures could help, but not a milestone-blocker.
 
