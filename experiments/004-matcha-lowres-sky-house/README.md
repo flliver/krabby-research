@@ -1,10 +1,39 @@
 # Experiment 004 — MAtCha lowres on sky-house-dining (PHASE B6a)
 
-**Status:** ✅ runs; quality verdict pending Blender inspection
+**Status:** ❌ **negative result — visibly worse than the 12-frame baseline; do not pursue**
 **Date:** 2026-05-01
 **Pipeline:** MAtCha (`krabby-matcha:latest`) at 768×432 input vs the 12-frame baseline at 1024×576
 **Hardware:** bbeeprz (RTX 5080, 16 GB)
 **Reference:** `experiments/004-matcha-sky-house/README.md` (the baseline being compared against)
+
+## Visual verdict (2026-05-01, post-inspection)
+
+> "Complete garbage. More lower-quality photos is certainly worse — at
+> least the way we did it." — Jeremy
+
+The quantitative metrics in the comparison table below (better cull
+retention, more views per vertex, higher color coverage) **did not
+translate to visually better mesh.** The per-pixel detail loss from
+768×432 input dominated the apparent gains from more frames. The
+tradeoff was strongly net-negative on this scene.
+
+**Conclusion**: dropping input resolution to fit more frames is a bad
+lever for MAtCha quality on this scene type. The cure is not "more
+lower-detail views" — the resolution loss matters more than view-count
+gain at this scale.
+
+What this rules out:
+- Lower-res-with-more-frames as a path to better quality.
+- Probably also rules out lower-res-at-same-frames (no reason to
+  expect quality improvement from less detail at same view count).
+
+What this does NOT rule out:
+- Better frame *selection* at the same 12-frame budget (B5 — manual
+  curation of the 12 best viewpoints from a wider candidate pool).
+- Higher-resolution input at the same 12-frame budget (1280×720), if
+  it fits in 16 GB VRAM.
+- Other MAtCha quality knobs (gaussian splat iters, TSDF settings) we
+  haven't touched.
 
 ## Hypothesis
 
@@ -86,22 +115,25 @@ The 15-frame mesh has 1.26m of "below-floor" geometry vs the baseline's
 Cull dropped the obvious below-floor outliers (32K verts with z < -0.5).
 Should be harmless but worth confirming visually.
 
-## Open follow-ups
+## Open follow-ups (revised after the negative result)
 
-1. **Visual quality comparison**: open `scene_culled_lr15.blend` next to
-   the original `scene_culled.blend` and decide which mesh better
-   represents the scene.
-2. **Find the exact 768×432 ceiling**: try 16 and 17. If 17 fits, that's
-   another marginal win.
-3. **Try 12 frames at 768×432**: tests whether color coverage and view
-   diversity improve from "more frames" or "lower res" or both. (Same
-   frame count as the baseline but lower res.)
-4. **Try the same lowres approach on scenes 001 and 003**: if 15-frame
-   lowres looks better, recompute those too.
-5. **Maybe 12 frames at 1280×720**: test whether HIGHER resolution at
-   the known-fitting 12 frames helps. If it does, the bottleneck was
-   per-pixel detail not view count, and the right move is the opposite
-   direction.
+Given the visual verdict, items 2–4 of the original list are dropped
+(no point exploring the lowres regime further). What remains:
+
+1. ~~**Visual quality comparison**~~ — done; lowres lost.
+2. ~~**Find the exact 768×432 ceiling**~~ — moot.
+3. ~~**Try 12 frames at 768×432**~~ — moot (resolution direction was wrong).
+4. ~~**Lowres on other scenes**~~ — moot.
+5. **Try 12 frames at 1280×720** (the OPPOSITE-direction test): if
+   higher resolution improves quality at the known-fitting frame count,
+   the bottleneck was per-pixel detail. Risk: 1280×720 is 56% more
+   pixels than 1024×576 — chart-alignment may OOM at 12 frames at this
+   resolution. If it does, drop to 11 or 10 and continue.
+6. **B5 — manual frame curation** at the same 12-frame budget. Picking
+   12 viewpoint-diverse frames manually from a denser candidate pool
+   (e.g., 60 candidate frames spaced every 4 sec across the 3:47 video)
+   should give MAtCha better triangulation geometry than 12 evenly-time-
+   spaced frames.
 
 ## How to invoke
 

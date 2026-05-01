@@ -143,7 +143,9 @@ Shortest path to M11: **fix the post-processing**, not more pipelines or more ca
 These are the things we don't know yet that could change the recommendation:
 
 1. **Does the MAtCha mesh, after decimation, actually produce good IsaacSim collision behaviour?** Need to convert one scene to USD and walk a hexapod through it.
-2. **Is the 16-frame VRAM ceiling per-scene or per-resolution?** Maybe lower-res keyframes let us use more of them.
+2. ~~**Is the 16-frame VRAM ceiling per-resolution?**~~ — **answered 2026-05-01**: yes, 768×432 lifts the ceiling to ~15-17 frames, but the resulting mesh quality is **visibly worse** than the 12-frame 1024×576 baseline. Resolution-loss dominates view-count-gain at this scale. See `experiments/004-matcha-lowres-sky-house/README.md` (negative result).
 3. **What's the actual quality difference** between MAtCha's mesh and MASt3R-SLAM's ball-pivoting mesh on the same scene? You have both in Blender now.
 4. **Can we get scale recovery without a reference object?** Some VINS or IMU-fused methods support this; would simplify capture protocol.
 5. **Does AnyRecon's generative novel-view synthesis** add anything when we have video (vs unordered photos)? Probably not, but worth a 1-day spike if MAtCha hits a wall.
+6. **Is the bottleneck per-pixel detail or view diversity?** Negative result on (more frames, lower res) suggests detail dominates. The opposite-direction test (same 12 frames at higher resolution, e.g. 1280×720, if it fits in VRAM) would confirm. Untested.
+7. **Does manual frame curation at the same 12-frame budget improve quality?** (B5 — pick the 12 most viewpoint-diverse frames from a wider candidate pool). Untested. Higher likelihood of producing real quality gains than any further VRAM gymnastics.
