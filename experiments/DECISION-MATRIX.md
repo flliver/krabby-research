@@ -3,8 +3,8 @@
 A structured comparison of every reconstruction pipeline we evaluated,
 scored against the M11 milestone's actual deliverable requirements.
 
-**Snapshot date:** 2026-04-30
-**Leading candidate per Jeremy:** **MAtCha** (validated on scene 004)
+**Snapshot date:** 2026-04-30 (post-Phase-A retrospective)
+**Leading candidate:** **MAtCha** (now validated on 3 scenes: 001, 003, 004)
 
 ---
 
@@ -91,17 +91,50 @@ Scoring legend:
 
 ---
 
-## Recommendation (today)
+## Phase A retrospective — what 3 MAtCha runs taught us (2026-04-30)
 
-**For the M11 deliverable, build the next two scenes around MAtCha**, with MASt3R-SLAM as a known-good fallback. Specifically:
+After running MAtCha on scenes 001 / 003 / 004, the qualitative pattern
+is consistent:
 
-1. **Capture 2 more scenes** at 2.7K @ 30fps with locked exposure/WB and **a known-size reference object** (so we can scale-calibrate).
-2. **Sample 12–24 keyframes each** for MAtCha. Stay below 24 until we either find the VRAM-ceiling fix or move to a larger GPU.
-3. **Run MAtCha → decimate to 200K tris → USD-export** as the candidate pipeline.
-4. **Run MASt3R-SLAM in parallel** on each scene as a backup and as a metric-comparison reference.
-5. **Defer COLMAP, SLAM3R, VGGT, AnyRecon** unless MAtCha hits a wall on a specific scene.
+| Scene | Source | Quality verdict |
+|-------|--------|-----------------|
+| 001 patio (outdoor, hyperlapse) | 4K @ 30fps, 31s | "Chaotic, but obviously the filmed scene. Includes too much background noise (far things) that would ideally be culled." |
+| 003 firepit (outdoor, regular) | 4K @ 60fps, 5:31 | "Chaotic, but obviously the filmed scene. Also includes too much background noise." |
+| 004 sky-house (semi-indoor) | 2.7K @ 30fps, 3:47 | "Dense in many areas, but obvious gaps in places — probably not covered." |
 
-This is the shortest path from "two more scenes captured" to "M11 deliverable in IsaacSim."
+**Cross-cutting issues found in all three** (regardless of capture profile or scene):
+
+- 🔴 No clear ground plane
+- 🔴 Output mesh always "on a tilt" (no consistent up direction)
+- 🟠 Background-noise pollution (especially 155° fisheye outdoor)
+- 🟡 No camera locations visible in mesh
+- 🟡 No vertex color from source frames
+
+These are **mesh-conditioning / post-processing problems**, not MAtCha
+problems. MAtCha satisfies its T1 acceptance criterion (watertight
+mesh) on every scene we ran. The issues block T2 (USD export +
+IsaacSim load), which needs gravity alignment and a usable ground plane.
+
+## Recommendation (revised post-Phase-A)
+
+**For the M11 deliverable, the right next investment is post-processing,
+not more captures or pipeline hopping.** Specifically:
+
+1. **Build a post-processing pipeline** (PLAN.md Phase B1-B4) that takes
+   raw MAtCha tetra mesh → gravity-aligned, ground-plane-deduced,
+   background-culled, vertex-colored, IsaacSim-ready USD.
+2. **Defer Phase B5 (frame-selection tooling) and B6 (MAtCha-internal
+   tuning)** until we know whether the post-processed output is good
+   enough. The mesh density issues might be an artifact of the
+   post-processing gap, not the pipeline.
+3. **Recapture future scenes with the validated 2.7K @ 30fps profile +
+   reference object + (if QR-cull ships) corner fiducials.** Don't
+   recapture 001/003/004 yet — fix post-processing first; recapture
+   only if the post-processing reveals genuine capture-side gaps.
+4. **Defer COLMAP, SLAM3R, VGGT, AnyRecon** unless MAtCha output post
+   conditioning fails to meet T2 acceptance criteria.
+
+Shortest path to M11: **fix the post-processing**, not more pipelines or more captures.
 
 ---
 

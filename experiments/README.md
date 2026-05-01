@@ -13,13 +13,16 @@ referenced by path from each experiment's README.
 | 1 | COLMAP | 001 patio fisheye | ✅ sparse only | `data/scenes/001-patio-fisheye/sparse/0/` (21 MB, 942 frames registered) |
 | 2 | MASt3R-SLAM | 001 patio fisheye | ✅ | `mast3r_output/patio/patio_720p.ply` (424 MB) |
 | 3 | VGGT | 001 patio fisheye | ❌ OOM | None — frames extracted (`vggt_images/`) but pipeline never produced output |
-| 4 | COLMAP | 002 patio dewarped | ❌ failed registration | None — sparse/ and dense/ empty |
-| 5 | MASt3R-SLAM | 003 firepit fisheye | ✅ | `mast3r_output/firepit/firepit_720p_10fps.ply` (72 MB) + Poisson mesh (16 MB OBJ) |
-| 6 | SLAM3R | 003 firepit fisheye | ✅ | `slam3r_output/...recon.ply` (15 MB) |
-| 7 | MASt3R-SLAM | 004 sky-house-dining | ✅ | `mast3r_output/sky_house/004-sky-house-dining.ply` (153 MB) + ball-pivoting mesh (19 MB OBJ) |
-| 8 | **MAtCha** | **004 sky-house-dining** | ✅ **best** | `matcha_output/tetra_mesh_binary_search_7.ply` (422 MB, watertight tetra mesh) + 200K-tri decimation (15 MB OBJ) |
+| 4 | **MAtCha** | **001 patio fisheye** | ✅ **Phase A1** | `matcha_output/tetra_mesh_binary_search_7.ply` (185 MB, 9.2M tris) + 200K-tri decimation (16 MB OBJ) |
+| 5 | COLMAP | 002 patio dewarped | ❌ failed registration | None — sparse/ and dense/ empty |
+| 6 | MASt3R-SLAM | 003 firepit fisheye | ✅ | `mast3r_output/firepit/firepit_720p_10fps.ply` (72 MB) + Poisson mesh (16 MB OBJ) |
+| 7 | SLAM3R | 003 firepit fisheye | ✅ | `slam3r_output/...recon.ply` (15 MB) |
+| 8 | **MAtCha** | **003 firepit fisheye** | ✅ **Phase A2** | `matcha_output/tetra_mesh_binary_search_7.ply` (238 MB, 11.8M tris) + 200K-tri decimation (21 MB OBJ) |
+| 9 | MASt3R-SLAM | 004 sky-house-dining | ✅ | `mast3r_output/sky_house/004-sky-house-dining.ply` (153 MB) + ball-pivoting mesh (19 MB OBJ) |
+| 10 | **MAtCha** | **004 sky-house-dining** | ✅ **★ first MAtCha success** | `matcha_output/tetra_mesh_binary_search_7.ply` (422 MB, 21M tris) + 200K-tri decimation (15 MB OBJ) |
+| 11 | AnyRecon | 004 sky-house-dining | ⏸ deferred — released code is video-only, not mesh | See `004-anyrecon-sky-house/README.md` |
 
-Per Jeremy (2026-04-30): **MAtCha-004 is the leading candidate so far.**
+**Phase A complete (2026-04-30):** three watertight MAtCha meshes (scenes 001, 003, 004). All Phase-A scene experiments include `CAPTURE-LESSONS.md` documenting scene-specific findings. Cross-cutting post-processing gaps identified in all three drove the Phase B reframing in `../PLAN.md`.
 
 ## What's the milestone asking for?
 

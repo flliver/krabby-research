@@ -59,18 +59,116 @@ The full M11 is **all of T0–T4**, not just mesh production:
 
 **Phase A exit criterion:** three scenes (001, 003, 004) each have a watertight mesh in `data/scenes/<scene>/matcha_output/mesh/<name>_matcha_200k.obj` (or equivalent for COLMAP/MASt3R-SLAM if we end up needing fallback).
 
-### Phase B — Frame selection & MAtCha tuning
+### Phase B — Post-processing pipeline ★★ NEW PRIORITY
 
-**Goal:** improve mesh quality past the MAtCha-12-frame baseline. **Only work on this if Phase A's outputs aren't good enough**, or in parallel during Phase A waiting.
+**Goal:** transform raw MAtCha tetra-mesh output into M11-deliverable-quality
+geometry. Driven by Phase A retrospective inspection — all three scenes
+share the same set of post-processing gaps.
+
+#### Cross-cutting findings from Phase A inspection (2026-04-30)
+
+After running MAtCha on scenes 001, 003, 004, **every** output exhibits
+the same set of issues regardless of scene:
+
+| Issue | Severity | Example |
+|-------|----------|---------|
+| **No clear ground plane** | 🔴 critical | Hexapod doesn't know where to spawn or stand |
+| **Mesh always "on a tilt"** | 🔴 critical | Scenes are not gravity-aligned; no consistent up-direction |
+| **Background-noise pollution** | 🟠 high | Distant trees, sky regions, far-off ground get reconstructed and pollute the collision mesh |
+| **No camera locations visible in mesh** | 🟡 medium | When inspecting the mesh, you can't tell where the operator walked — reduces interpretability |
+| **No vertex color projection** | 🟡 medium | The decimated OBJs are pure geometry, no color from source frames — makes the mesh much harder to read in Blender |
+
+These are **mesh-conditioning / T2 work**, not capture-side problems —
+they are present even with the validated capture profile.
+
+#### B1 — Auto-deduce ground plane (CRITICAL for IsaacSim)
+
+The deliverable is a *collision mesh for a hexapod*. Without a known
+ground plane and gravity-aligned orientation, IsaacSim has no way to
+spawn the robot correctly. This is the single most important
+post-processing capability.
+
+Approaches to investigate:
+
+- **RANSAC plane fit** in Open3D: `pcd.segment_plane(distance_threshold=…)`.
+  The largest planar region in a furnished interior scene is usually the
+  floor. Adjust the mesh transform so this plane lies on `z=0` with
+  normal `+z`.
+- **Camera-pose-based heuristics**: from `cameras.json` we have 12
+  camera positions. Their average height is roughly the operator's
+  walking height (~1.5 m above the floor). Use that prior to disambiguate
+  the floor plane from a ceiling or a tabletop.
+- **Manual override**: if auto-deduction fails, expose a CLI flag for
+  the operator to specify three points or click in a viewer.
+
+**Output**: every conditioned mesh is rotated + translated so the
+floor lies on `z=0`, normal `+z`. Ground plane optionally added as a
+flat reference plane for sim spawning.
+
+#### B2 — Auto-cull "out-of-bounds" geometry
+
+The 155° fisheye captures meaningful foreground + a polluting ring of
+distant geometry. Three strategies, in order of preference:
+
+1. **QR-code fiducials at scene-boundary corners** (capture-side). Place
+   4 printed QR codes on the perimeter of the scene at capture time;
+   detect them in MAtCha's input frames; cull mesh geometry beyond the
+   convex hull of their reconstructed positions. **Cleanest if we can
+   change capture protocol.**
+2. **Camera-frustum-union cull**. Compute the union of all 12 camera
+   frustums; drop mesh triangles outside that union. Removes far-distant
+   geometry that wasn't actually being looked at by multiple cameras.
+3. **Distance-from-camera-cluster cull**. Drop triangles farther than
+   N meters from the centroid of camera positions. Crude but cheap.
+
+Option 1 is preferred but requires re-capturing scenes. Option 2 is
+implementable on existing data. Option 3 is the "ship-something-today"
+fallback.
+
+#### B3 — Auto-include camera locations in mesh (nice-to-have)
+
+For mesh interpretability: insert a small marker (sphere, axis gizmo)
+at each `cameras.json` camera position. Helps a human reviewing the
+mesh in Blender understand "what was the camera doing?" and surfaces
+coverage gaps directly. Doesn't affect the collision mesh used by
+IsaacSim — produced as a separate "with-debug-markers" OBJ alongside
+the clean version.
+
+#### B4 — Auto-project color (nice-to-have)
+
+Pure-geometry meshes are hard to interpret. Project per-vertex color
+from the source frames using the recovered camera intrinsics + extrinsics.
+For each vertex: find the cameras that see it, sample the corresponding
+pixels, average. Produces a vertex-colored OBJ/PLY that visualizes much
+better in Blender without affecting collision behavior.
+
+#### B5 — Frame-selection tooling (deferred from earlier plan)
+
+Since MAtCha takes 10-24 inputs, **manual selection is feasible**. Build
+a tool: extract candidate frames at higher density (every 2 sec, say),
+present a contact sheet (Streamlit / Gradio / static HTML), let the
+human click the 12-18 to keep, write a curated frame set ready for
+MAtCha.
+
+Phase A evidence: scene 004 had 6,804:12 = 567:1 oversampling. Even a
+30-second human review would beat temporal-uniform sampling on coverage.
+
+#### B6 — MAtCha-internal tuning (lower priority)
+
+Only worth it if the post-processing pipeline (B1-B5) doesn't get
+output to acceptable quality:
 
 | # | Task | Notes |
 |---|------|-------|
-| B1 | **Human-in-the-loop frame selector tool** | Since MAtCha takes 10–24 inputs, manual selection is feasible. Build a tool: extract candidate frames at higher density, present a contact sheet, let the human click 12–18 to keep, write the curated set. Probably a small Python+Streamlit/Gradio thing or a simple browser-based picker |
-| B2 | **Lower-resolution keyframe test** | Cut input to 768×432 instead of 1024×576 — does the 16-GB chart-alignment ceiling lift to >12 frames? |
-| B3 | **Binary-search the frame ceiling** | Run MAtCha at 14, 16, 18, 20 frames at native resolution to find the actual cliff |
-| B4 | **Mesh-conditioning improvements** | Currently using Open3D quadric decimation only. Could try `pymeshlab` floater removal, hole closing, edge cleanup before/after decimation |
+| B6a | Lower-resolution keyframe test | 768×432 instead of 1024×576 — does VRAM ceiling lift to >12 frames? |
+| B6b | Binary-search the frame ceiling | 14, 16, 18, 20 frames at native resolution |
 
-**Phase B exit criterion:** we know the actual VRAM ceiling, can curate frames manually, and have a documented mesh-quality improvement path.
+**Phase B exit criterion:** all three Phase A scenes have:
+- Gravity-aligned orientation (z-up, floor at z=0)
+- Background geometry culled
+- Camera-position markers (debug variant)
+- Vertex-projected color (visualization variant)
+- Watertight collision mesh (already met by MAtCha output)
 
 ### Phase C — T2 (USD export + IsaacSim load)
 
@@ -147,6 +245,15 @@ These are local-scope (one scene), distinct from the cross-cutting `OLAI corpus 
 
 ## Today's next concrete step
 
-**Start Phase A1: run MAtCha on scene 001.** The capture exists (942 frames of patio hyperlapse). The pipeline is reproducible (`runner.sh` from `experiments/004-matcha-sky-house/`). The unknowns are: how does MAtCha behave on a hyperlapse (vs the smooth 30fps motion of scene 004), and how do we sample frames from a hyperlapse to maximize viewpoint diversity.
+**Phase A is complete (2026-04-30):** three watertight meshes, scenes 001 / 003 / 004, all via MAtCha at the same 12-frame / 1024px / vitl recipe.
 
-This single experiment teaches us most of what we need to know about phase A.
+**Phase A retrospective findings drove the Phase B reframing above** — every scene has the same set of post-processing gaps (no ground plane, tilted, background pollution, no camera markers, no color). The next step is **Phase B1 (auto-deduce ground plane)** since it's the gating capability for IsaacSim integration in Phase C.
+
+Order of attack within Phase B:
+
+1. **B1 ground plane** (RANSAC + camera-height prior) — gating for C
+2. **B2 background cull** (camera-frustum-union; QR-code fiducials in next capture)
+3. **B4 vertex color projection** — biggest visualization win for cheap
+4. **B3 camera markers in debug variant**
+5. **B5 frame-selection tool** — only after B1-B4 establish that better frames would actually help (might be fine with current frames + good post-processing)
+6. **B6 MAtCha-internal tuning** — last resort
