@@ -131,22 +131,56 @@ Peak VRAM measurements are *total* GPU memory (not delta). Baseline is ~5 GB hel
 - `scripts/sfm_sweep_chain.sh` — runs the sweep for the remaining N values sequentially, stopping on first failure.
 - `results/` — sweep outputs (TSV table, per-N logs) once complete.
 
-## Output layout on bbeeprz
+## Output layout
+
+### On the source hosts (full SfM output, ~26 GB total)
 
 ```
 ~/outposts/krabby/data/011-scene-reconstruction/
 ├── frames/
 │   └── 004-sfm-scaling-500/         500 candidate frames at 1024×576 (~30 MB)
 └── sfm-scaling-out/
-    ├── n024/mast3r_sfm/             SfM output for N=24
-    │   ├── cameras.json             {filepaths: [24], focals: [24], ...}
-    │   ├── images/                  resized inputs
-    │   ├── pointmaps/               per-image pointmaps from MASt3R
-    │   ├── points.ply               sparse point cloud
-    │   └── sparse/0/                COLMAP-format outputs (cameras.txt, images.txt, points3D.txt)
-    ├── n060/mast3r_sfm/             ... (in progress)
-    └── n120/.../                    ... (pending)
+    └── n<NNN>/mast3r_sfm/
+        ├── cameras.json             {filepaths: [N], focals: [N], cams2world: [N×4×4]}  ← what we want
+        ├── images/                  resized 512-px inputs                                ← what we want
+        ├── points.ply               sparse SfM point cloud (~30%-of-N MB)                ← optional, kept
+        ├── pointmaps/               per-image dense pointmaps (~7-20 MB × N)             ← internal, pruned
+        └── sparse/0/                COLMAP-format outputs                                ← redundant, pruned
 ```
+
+The dense `pointmaps/` (5–8 GB per N value) and `sparse/` (1.4 GB per N value) are intermediate artifacts that MASt3R-SfM produces during the optimization. They're not needed for downstream curation or visualization. **Excluded from the local mirror.**
+
+### Local mirror on JDP-Mac (gitignored, ~1 GB total)
+
+```
+milestones/011-scene-reconstruction/data/sfm-scaling-out/
+├── n024/mast3r_sfm/                 54 MB
+├── n060/mast3r_sfm/                102 MB
+├── n120/mast3r_sfm/                140 MB
+├── n200/mast3r_sfm/                195 MB
+├── n300/mast3r_sfm/                220 MB
+├── n350/mast3r_sfm/                240 MB
+└── n500/mast3r_sfm/                 47 MB  (partial — OOMed before writing cameras.json)
+                                  ────────
+                                    ~1 GB
+```
+
+Pulled via `rsync -a --exclude='pointmaps/' --exclude='sparse/'`. Cameras + resized images + sparse point cloud only. The `data/` dir is `.gitignore`d at the milestone level.
+
+### How to view any of these in the camera viewer
+
+```bash
+# From the workspace root, with the viewer's venv activated
+cd milestones/011-scene-reconstruction/workspace/camera_viewer
+source .venv/bin/activate
+python viewer.py \
+  --cameras ../../data/sfm-scaling-out/n300/mast3r_sfm/cameras.json \
+  --frames  ../../data/sfm-scaling-out/n300/mast3r_sfm/images \
+  --output  /tmp/n300-selection.json \
+  --port 8080
+```
+
+The viewer's `data.py` re-roots the JSON's `/data/...` filepaths under `--frames` automatically.
 
 ## Lessons captured along the way
 
