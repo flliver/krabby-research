@@ -1,0 +1,8 @@
+host	N	wall_sec	wall_human	peak_vram_mib	peak_vram_clean_mib	cameras	status	notes
+bbeeprz	24	193	0:03:13	8885	~4622	24	✓	S&box contamination ~4263 MiB
+bbeeprz	60	415	0:06:55	10021	~5758	60	✓	S&box contamination ~4263 MiB
+bbeeprz	120	749	0:12:29	11774	~7511	120	✓	S&box contamination ~4263 MiB
+bbeeprz	200	1164	0:19:24	9984	9984	200	✓	S&box killed mid-run; ~clean
+bbeeprz	300	1702	0:28:22	13711	13711	300	✓	clean baseline
+tbeeprz	350	1971	0:32:51	15511	15511	350	✓	near-OOM (300 MiB free)
+tbeeprz	500	1173	0:19:33	15674	15674	—	❌ OOM	failed to alloc 2 MiB at 15.45 GiB

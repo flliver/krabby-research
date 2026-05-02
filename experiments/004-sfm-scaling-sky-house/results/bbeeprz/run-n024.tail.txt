@@ -1,0 +1,39 @@
+/opt/MAtCha/mast3r/dust3r/dust3r/cloud_opt/base_opt.py:275: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  @torch.cuda.amp.autocast(enabled=False)
+FAILED TO LOAD FAISS GPU, FALLING BACK TO ASMK
+500 images found in /data/frames/004-sfm-scaling-500.
+Loading MASt3R model...
+... loading model from ./mast3r/checkpoints/MASt3R_ViTLarge_BaseDecoder_512_catmlpdpt_metric.pth
+instantiating : AsymmetricMASt3R(enc_depth=24, dec_depth=12, enc_embed_dim=1024, dec_embed_dim=768, enc_num_heads=16, dec_num_heads=12, pos_embed='RoPE100',img_size=(512, 512), head_type='catmlp+dpt', output_mode='pts3d+desc24', depth_mode=('exp', -inf, inf), conf_mode=('exp', 1, inf), patch_embed_cls='PatchEmbedDust3R', two_confs=True, desc_conf_mode=('exp', 0, inf), landscape_only=False)
+<All keys matched successfully>
+MASt3R model loaded.
+Loading images...
+Loaded 24 images.
+Images have shape: torch.Size([1, 3, 288, 512])
+Images have shape: torch.Size([1, 3, 288, 512])
+Loading retrieval model from ./mast3r/checkpoints/MASt3R_ViTLarge_BaseDecoder_512_catmlpdpt_metric_retrieval_trainingfree.pth
+Found 24 images
+100%|██████████| 24/24 [00:00<00:00, 37.32it/s]
+Start building scene graph...
+Done building scene graph.
+Start global alignment...
+  with torch.cuda.amp.autocast(enabled=False):
+100%|██████████| 590/590 [00:45<00:00, 12.85it/s]
+100%|██████████| 24/24 [00:00<00:00, 25.71it/s]
+/opt/matcha/lib/python3.11/site-packages/torch/_compile.py:51: UserWarning: optimizer contains a parameter group with duplicate parameters; in future, this will cause an error; see github.com/pytorch/pytorch/issues/40967 for more information
+  return disable_fn(*args, **kwargs)
+init focal (shared) =  284.0
+>> final loss = 0.29748842120170593
+>> final loss = 1.1026791334152222
+Final focal (shared) =  246.25
+Done global alignment.
+Optimization complete in 96.56s.
+Saving optimized scene...
+Scene saved.
+Cleaning up temporary files...
+Temporary files cleaned up.
+Initial SfM complete.
+[INFO] Using 24 images for optimization.
+[INFO] Scene will be saved to: /data/sfm-scaling-out/n024/mast3r_sfm
+[INFO] Running command:
+ python mast3r/run_mast3r.py --scene_path /data/frames/004-sfm-scaling-500 --output_dir /data/sfm-scaling-out/n024/mast3r_sfm --weights_path ./mast3r/checkpoints/MASt3R_ViTLarge_BaseDecoder_512_catmlpdpt_metric.pth --retrieval_model ./mast3r/checkpoints/MASt3R_ViTLarge_BaseDecoder_512_catmlpdpt_metric_retrieval_trainingfree.pth --min_conf_thr 0.0 --matching_conf_thr 0.0 --n_coarse_iterations 1000 --n_refinement_iterations 1000 --TSDF_thresh 0.0  --fix_principal_point   --n_images 24    --image_size 512 --max_window_size 20 --max_refid 10   --output_conf_thr 0.1 
