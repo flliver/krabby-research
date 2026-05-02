@@ -114,7 +114,8 @@ def main():
     normals = np.asarray(mesh.vertex_normals)
     triangles = np.asarray(mesh.triangles)
     has_colors = mesh.has_vertex_colors()
-    colors = np.asarray(mesh.vertex_colors) if has_colors else None
+    if has_colors:
+        colors = np.asarray(mesh.vertex_colors)
     V0 = len(verts)
     T0 = len(triangles)
     print(f"    {V0:,} verts / {T0:,} tris (colors: {has_colors})")
@@ -167,13 +168,14 @@ def main():
     new_idx_map[used] = np.arange(int(used.sum()))
     new_triangles = new_idx_map[new_triangles_old_idx]
     new_verts = verts[used]
-    new_colors = colors[used] if colors is not None else None
+    if has_colors:
+        new_colors = colors[used]
 
     print(f"[6] Build output mesh: {len(new_verts):,} verts / {len(new_triangles):,} tris")
     out = o3d.geometry.TriangleMesh()
     out.vertices = o3d.utility.Vector3dVector(new_verts)
     out.triangles = o3d.utility.Vector3iVector(new_triangles)
-    if new_colors is not None:
+    if has_colors:
         out.vertex_colors = o3d.utility.Vector3dVector(new_colors)
     out.compute_vertex_normals()
     out.remove_degenerate_triangles()

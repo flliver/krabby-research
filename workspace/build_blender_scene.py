@@ -30,7 +30,8 @@ import json
 import sys
 import os
 import math
-from mathutils import Matrix, Vector
+import numpy as _np  # for Kabsch in view-camera-pose schema_v2 alignment
+from mathutils import Matrix, Vector  # type: ignore  # only resolves inside Blender
 
 
 def parse_args():
@@ -155,6 +156,7 @@ def main():
 
     cams_world = cams_orig["cams2world"]
     focals = cams_orig["focals"]
+    filepaths = cams_orig.get("filepaths", [])  # for view-camera-pose schema_v2 anchors
     n_cams = len(cams_world)
     print(f"Adding {n_cams} cameras...")
 
@@ -198,6 +200,9 @@ def main():
         cam_obj = bpy.data.objects.new(name=f"cam_{i+1:03d}", object_data=cam_data)
         cam_obj.matrix_world = c2w_blender
         bpy.context.collection.objects.link(cam_obj)
+        # Hide preset cameras from final renders — they're authoring aids only.
+        # Toggle off in Blender's Outliner if you want to see frustums in a render.
+        cam_obj.hide_render = True
 
         # Optional: textured-plane mesh showing what this camera saw.
         # We use an actual plane mesh + emission-shader material rather than
@@ -236,6 +241,8 @@ def main():
 
             plane = bpy.data.objects.new(name=f"cam_{i+1:03d}_view", object_data=mesh_data)
             bpy.context.collection.objects.link(plane)
+            # Source-frame thumbnails are authoring aids — hide from renders.
+            plane.hide_render = True
 
             # Material: image texture into Emission shader (bright in viewport
             # without scene lighting).
@@ -263,8 +270,170 @@ def main():
             plane.location = (0.0, 0.0, -0.5)
             plane.rotation_euler = (0.0, 0.0, 0.0)
 
-    # Set the first camera as active
-    if bpy.data.objects.get("cam_001"):
+    # Optional: persistent comparison view camera (--view-camera-pose <json>).
+    # Reads a comparison_view.json (schema v2 = anchor-based; v1 = absolute coords).
+    # For schema v2: 3 anchor frames identified by basename are looked up in this
+    # variant's cam_NNN poses, Kabsch solves the rigid transform between the
+    # source variant's oriented frame and this variant's oriented frame, and the
+    # view_cam pose is transformed accordingly. Result: identical viewpoint
+    # across variants regardless of per-variant SfM frame jitter.
+    view_cam_pose_path = args.get("view-camera-pose")
+    view_cam_obj = None
+    # Default Blender object name; v3 overrides this with the view's logical
+    # name so round-trips (Blender edits → sync_comparison_views.py) preserve
+    # naming without manual rename.
+    view_cam_blender_name = "view_cam"
+    if view_cam_pose_path and os.path.exists(view_cam_pose_path):
+        print(f"Adding view_cam from {view_cam_pose_path}...")
+        with open(view_cam_pose_path) as f:
+            vc = json.load(f)
+
+        schema = vc.get("schema_version", 1)
+
+        # Schema v3: list of views with shared anchors. Pick by --view-name
+        # (default to the first view).
+        if schema == 3:
+            view_name = args.get("view-name")
+            views = vc.get("views", [])
+            if not views:
+                raise SystemExit("schema_v3 file has no 'views' list")
+            if view_name:
+                matching = [v for v in views if v["name"] == view_name]
+                if not matching:
+                    raise SystemExit(
+                        f"  ERROR: view '{view_name}' not in {view_cam_pose_path}. "
+                        f"Available: {[v['name'] for v in views]}"
+                    )
+                chosen = matching[0]
+            else:
+                chosen = views[0]
+            print(f"  using view '{chosen['name']}'")
+            view_cam_blender_name = chosen["name"]
+            # Adapt to the existing v2 code path by stuffing v2-shaped fields
+            # into vc, then fall through to the schema=2 block below.
+            vc = {
+                "schema_version": 2,
+                "anchor_frames": vc["anchor_frames"],
+                "view_camera_in_source_frame": {
+                    "world_position": chosen["world_position"],
+                    "world_rotation_quat_wxyz": chosen["world_rotation_quat_wxyz"],
+                    "convention": chosen.get("convention", "opencv"),
+                    "lens_mm": chosen.get("lens_mm", 50.0),
+                    "sensor_width_mm": chosen.get("sensor_width_mm", 36.0),
+                    "sensor_height_mm": chosen.get("sensor_height_mm", 24.0),
+                },
+            }
+            schema = 2
+
+        if schema == 2:
+            # Anchor-based registration. Match anchors by source-image basename
+            # (same source frames across variants → byte-identical files →
+            # reliable hash). Use whichever anchors are present in THIS
+            # variant; skip missing ones.
+            anchors = vc["anchor_frames"]
+            source_anchor_pos = []
+            target_anchor_pos = []
+            target_basenames = [fp.rsplit("/", 1)[-1] for fp in filepaths]
+            missing = []
+            for a in anchors:
+                bn = a["basename"]
+                if bn not in target_basenames:
+                    missing.append(bn)
+                    continue
+                target_idx = target_basenames.index(bn)
+                tgt_obj = bpy.data.objects.get(f"cam_{target_idx+1:03d}")
+                if tgt_obj is None:
+                    continue
+                source_anchor_pos.append(a["oriented_position"])
+                target_anchor_pos.append(list(tgt_obj.location))
+            if len(source_anchor_pos) < 3:
+                raise SystemExit(
+                    f"  ERROR: need ≥3 matching anchors; got {len(source_anchor_pos)}. "
+                    f"Missing: {missing[:5]}{'...' if len(missing)>5 else ''}"
+                )
+            print(f"  matched {len(source_anchor_pos)}/{len(anchors)} anchors "
+                  f"({len(missing)} missing in this variant)")
+
+            # Umeyama (Procrustes with scale): find scale s, rotation R, translation t
+            # such that s · R @ source_pts + t ≈ target_pts. Scale-aware because
+            # different SfM runs can converge to different scale conventions.
+            P = _np.asarray(source_anchor_pos)
+            Q = _np.asarray(target_anchor_pos)
+            cP = P.mean(axis=0)
+            cQ = Q.mean(axis=0)
+            Pc = P - cP
+            Qc = Q - cQ
+            H = Pc.T @ Qc
+            U, S_sv, Vt = _np.linalg.svd(H)
+            d_sign = _np.sign(_np.linalg.det(Vt.T @ U.T))
+            D = _np.diag([1, 1, d_sign])
+            R_mat = Vt.T @ D @ U.T
+            var_P = float((Pc * Pc).sum())
+            scale = float((_np.diag(D) * S_sv).sum() / var_P) if var_P > 0 else 1.0
+            t_vec = cQ - scale * R_mat @ cP
+            residuals = _np.linalg.norm((scale * (P @ R_mat.T) + t_vec) - Q, axis=1)
+            print(f"  Procrustes: scale={scale:.4f} det(R)={_np.linalg.det(R_mat):.4f}")
+            print(f"  anchor residuals: max={residuals.max():.4f}  "
+                  f"mean={residuals.mean():.4f}  median={_np.median(residuals):.4f} m")
+
+            # Apply transform to view_cam pose
+            vcam_src = vc["view_camera_in_source_frame"]
+            src_pos = _np.asarray(vcam_src["world_position"])
+            src_quat = vcam_src["world_rotation_quat_wxyz"]  # w, x, y, z
+            convention = vcam_src.get("convention", "opencv")
+            tgt_pos = scale * (R_mat @ src_pos) + t_vec
+
+            # Compose source rotation (from quat) with R for the new orientation.
+            # JSON stores OpenCV convention (+X right, +Y down, +Z forward), so
+            # after composing with R we flip back to Blender convention before
+            # assigning to the Blender Camera object.
+            from mathutils import Quaternion, Matrix as MM  # type: ignore
+            src_quat_blender_or_opencv = Quaternion(src_quat)  # raw (w,x,y,z)
+            src_rot_mat = src_quat_blender_or_opencv.to_matrix().to_4x4()
+            R4 = MM(((R_mat[0,0], R_mat[0,1], R_mat[0,2], 0),
+                     (R_mat[1,0], R_mat[1,1], R_mat[1,2], 0),
+                     (R_mat[2,0], R_mat[2,1], R_mat[2,2], 0),
+                     (0, 0, 0, 1)))
+            tgt_rot_mat = R4 @ src_rot_mat
+            if convention == "opencv":
+                # OpenCV → Blender: rotate 180° around camera's local X axis
+                _FLIP = MM(((1, 0, 0, 0), (0, -1, 0, 0), (0, 0, -1, 0), (0, 0, 0, 1)))
+                tgt_rot_mat = tgt_rot_mat @ _FLIP
+            tgt_quat = tgt_rot_mat.to_quaternion()
+
+            vc_data = bpy.data.cameras.new(name=view_cam_blender_name)
+            vc_data.lens = float(vcam_src.get("lens_mm", 50.0))
+            vc_data.sensor_width = float(vcam_src.get("sensor_width_mm", 36.0))
+            vc_data.sensor_height = float(vcam_src.get("sensor_height_mm", 24.0))
+            view_cam_obj = bpy.data.objects.new(view_cam_blender_name, vc_data)
+            view_cam_obj.location = (float(tgt_pos[0]), float(tgt_pos[1]), float(tgt_pos[2]))
+            view_cam_obj.rotation_mode = "QUATERNION"
+            view_cam_obj.rotation_quaternion = (tgt_quat.w, tgt_quat.x, tgt_quat.y, tgt_quat.z)
+            bpy.context.collection.objects.link(view_cam_obj)
+            print(f"  view_cam (anchor-aligned) pos=({tgt_pos[0]:.3f}, {tgt_pos[1]:.3f}, {tgt_pos[2]:.3f})  lens={vc_data.lens:.0f}mm")
+
+        else:
+            # Schema v1: legacy absolute coords. Same frame across variants
+            # is NOT guaranteed; use only when you know all variants share the
+            # same SfM frame (e.g., re-runs of the same data).
+            vc_data = bpy.data.cameras.new(name=view_cam_blender_name)
+            vc_data.lens = float(vc.get("lens_mm", 50.0))
+            vc_data.sensor_width = float(vc.get("sensor_width_mm", 36.0))
+            vc_data.sensor_height = float(vc.get("sensor_height_mm", 24.0))
+            view_cam_obj = bpy.data.objects.new(view_cam_blender_name, vc_data)
+            pos = vc["world_position"]
+            quat = vc["world_rotation_quat_wxyz"]
+            view_cam_obj.location = (pos[0], pos[1], pos[2])
+            view_cam_obj.rotation_mode = "QUATERNION"
+            view_cam_obj.rotation_quaternion = (quat[0], quat[1], quat[2], quat[3])
+            bpy.context.collection.objects.link(view_cam_obj)
+            print(f"  view_cam (schema v1, absolute) pos=({pos[0]:.3f}, {pos[1]:.3f}, {pos[2]:.3f})  lens={vc_data.lens:.0f}mm")
+
+    # Set the active scene camera: prefer view_cam, fall back to cam_001
+    if view_cam_obj:
+        bpy.context.scene.camera = view_cam_obj
+        print(f"  active scene camera: {view_cam_blender_name} (default view on .blend open)")
+    elif bpy.data.objects.get("cam_001"):
         bpy.context.scene.camera = bpy.data.objects["cam_001"]
 
     # Add a default world light so the mesh is visible
@@ -283,6 +452,30 @@ def main():
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     bpy.ops.wm.save_as_mainfile(filepath=output_path)
     print(f"Wrote {output_path} ({os.path.getsize(output_path)/1024/1024:.1f} MB)")
+
+    # Optional: render the active camera's view to PNG for A/B comparison.
+    # Uses Workbench engine for speed — geometry + vertex colors are visible
+    # without scene-world setup. Override with --render-engine for a different
+    # look (e.g., BLENDER_EEVEE_NEXT for proper PBR).
+    render_output = args.get("render-output")
+    if render_output:
+        print(f"Rendering to {render_output}...")
+        scn = bpy.context.scene
+        scn.render.filepath = os.path.abspath(render_output)
+        scn.render.image_settings.file_format = "PNG"
+        scn.render.resolution_x = int(args.get("render-width", 1920))
+        scn.render.resolution_y = int(args.get("render-height", 1080))
+        scn.render.resolution_percentage = 100
+        scn.render.engine = args.get("render-engine", "BLENDER_WORKBENCH")
+        # Workbench needs explicit shading config to show vertex colors
+        if scn.render.engine == "BLENDER_WORKBENCH":
+            scn.display.shading.color_type = "VERTEX"
+            scn.display.shading.light = "STUDIO"
+        os.makedirs(os.path.dirname(scn.render.filepath), exist_ok=True)
+        bpy.ops.render.render(write_still=True)
+        print(f"  rendered ({scn.render.resolution_x}×{scn.render.resolution_y}, "
+              f"engine={scn.render.engine}) → {scn.render.filepath}")
+
     print("DONE.")
 
 

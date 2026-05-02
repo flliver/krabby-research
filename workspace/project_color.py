@@ -68,12 +68,14 @@ def load_images(images_dir):
         f for f in os.listdir(images_dir) if f.lower().endswith((".jpg", ".jpeg", ".png"))
     )
     imgs = []
+    sizes = []
     for fn in files:
         im = np.asarray(Image.open(os.path.join(images_dir, fn)).convert("RGB"))  # (H, W, 3) uint8
         imgs.append(im)
+        sizes.append(im.shape[:2][::-1])  # (W, H)
     if not imgs:
         raise SystemExit(f"No images found in {images_dir}")
-    return imgs
+    return imgs, sizes
 
 
 def bilinear_sample(image, u, v):
@@ -124,7 +126,7 @@ def main():
     print(f"    {N} cameras; focal range: {focals.min():.1f}..{focals.max():.1f}")
 
     print(f"[3] Load source images: {args.images}")
-    images = load_images(args.images)
+    images, sizes = load_images(args.images)
     if len(images) != N:
         print(f"WARNING: {len(images)} images but {N} cameras — taking first {min(len(images),N)}")
     H, W = images[0].shape[:2]

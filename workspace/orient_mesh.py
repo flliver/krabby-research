@@ -100,12 +100,23 @@ def signed_distances(points, plane_eq):
     return (points @ n + d) / np.linalg.norm(n)
 
 
-def score_floor_candidate(plane_eq, inlier_count, camera_centers):
+def score_floor_candidate(plane_eq, inlier_count, camera_centers,
+                          gravity_prior=None, gravity_confidence=0.0):
     """Score a plane as a 'floor' candidate.
 
     Returns (score, oriented_normal, mean_camera_height) where higher score
     is better and oriented_normal points from the plane toward the cameras.
     A score of 0 means we explicitly reject this candidate.
+
+    If `gravity_prior` is provided (a unit vector pointing toward what the
+    cameras think is "up" in world space), candidates whose oriented_normal
+    aligns with it are boosted; misaligned candidates are penalized. This
+    discriminates between floor (parallel to gravity) and wall (perpendicular
+    to gravity) when both have similar inlier counts.
+
+    `gravity_confidence` ∈ [0, 1] scales the prior's strength. When 0 (no
+    prior), scoring is identical to the legacy formula. When 1 (full
+    confidence), severely misaligned candidates score near zero.
     """
     n = np.asarray(plane_eq[:3])
     n_unit = n / np.linalg.norm(n)
@@ -138,8 +149,47 @@ def score_floor_candidate(plane_eq, inlier_count, camera_centers):
     #   - consistency (cameras on the same side)
     #   - height_consistency (low std relative to mean — cameras at similar height)
     height_consistency = 1.0 / (1.0 + height_std / max(mean_height, 1e-3))
-    score = inlier_count * consistency * height_consistency
+
+    # Gravity prior (if provided): align oriented_normal with cameras' "up" axis.
+    # alignment ∈ [-1, 1]; we want it close to +1 (normal points toward gravity-up).
+    if gravity_prior is not None and gravity_confidence > 0:
+        alignment = float(np.dot(oriented_normal, gravity_prior))
+        # Map [-1, 1] to [0, 1]; square to penalize misaligned harder.
+        gravity_factor = ((alignment + 1.0) / 2.0) ** 2
+        # Blend by confidence: at conf=0, no effect; at conf=1, full penalty.
+        gravity_multiplier = (1.0 - gravity_confidence) + gravity_confidence * gravity_factor
+    else:
+        gravity_multiplier = 1.0
+
+    score = inlier_count * consistency * height_consistency * gravity_multiplier
     return float(score), oriented_normal, mean_height
+
+
+def estimate_gravity_from_cameras(cams2world):
+    """Infer the world-space 'up' direction from the cameras' rotations.
+
+    MAtCha-SfM uses the OpenCV camera convention: +X right, +Y DOWN, +Z forward
+    (looking direction). Therefore the camera's "up" in image-space is -Y_cam,
+    and in world space it's -cams2world[:, :3, 1] for each camera.
+
+    Returns a tuple (up, confidence). When all cameras agree on "up" (e.g.,
+    handheld upright captures), confidence ≈ 1. When cameras roll across a
+    wide range (e.g., a 360° around-an-object capture with bank), confidence
+    drops toward 0 — the prior is unreliable and shouldn't dominate scoring.
+
+    Confidence is the magnitude of the mean unit-up vector across cameras
+    (a circular-statistics measure of agreement on direction).
+    """
+    cams2world = np.asarray(cams2world)
+    # Each camera's world-space up = -Y column of its cams2world rotation.
+    per_camera_up = -cams2world[:, :3, 1]
+    # Normalize each (should already be unit-length but be safe)
+    per_camera_up = per_camera_up / np.linalg.norm(per_camera_up, axis=1, keepdims=True)
+    mean_up = per_camera_up.mean(axis=0)
+    confidence = float(np.linalg.norm(mean_up))  # 1 = perfect agreement, 0 = canceling
+    if confidence < 1e-6:
+        return np.array([0.0, 0.0, 1.0]), 0.0
+    return (mean_up / confidence), confidence
 
 
 def rotation_to_z_up(target_up):
@@ -207,19 +257,40 @@ def main():
               f"d={eq[3]:+.3f}, inliers={n_in:,}")
 
     print(f"[4] Loading {args.cameras}")
-    cam_centers = load_camera_centers(args.cameras)
+    with open(args.cameras) as f:
+        cams_data = json.load(f)
+    cams2world = np.asarray(cams_data["cams2world"], dtype=np.float64)
+    cam_centers = cams2world[:, :3, 3]
     print(f"    {len(cam_centers)} cameras, "
           f"centroid={cam_centers.mean(axis=0)}, "
           f"spread={cam_centers.std(axis=0)}")
 
-    print("[5] Scoring candidates as floor planes")
+    # Estimate gravity from camera "up" axes — when the photographer holds the
+    # camera roughly upright, every camera's image-up is the world-up. Average
+    # over all cameras gets a robust prior for which axis is gravity.
+    gravity_up, gravity_conf = estimate_gravity_from_cameras(cams2world)
+    print(f"    gravity prior (avg camera-up): "
+          f"({gravity_up[0]:+.3f}, {gravity_up[1]:+.3f}, {gravity_up[2]:+.3f})  "
+          f"confidence={gravity_conf:.3f}")
+    if gravity_conf < 0.5:
+        print(f"    [warning] cameras disagree on 'up' (conf < 0.5); "
+              f"prior will have weak influence")
+
+    print("[5] Scoring candidates as floor planes (with gravity prior)")
     scored = []
     for i, (eq, n_in, _) in enumerate(candidates):
-        score, oriented_n, mean_h = score_floor_candidate(eq, n_in, cam_centers)
+        score, oriented_n, mean_h = score_floor_candidate(
+            eq, n_in, cam_centers,
+            gravity_prior=gravity_up,
+            gravity_confidence=gravity_conf,
+        )
+        # Also compute alignment for the log so we can see the prior's effect
+        alignment = float(np.dot(oriented_n, gravity_up))
         scored.append((score, eq, oriented_n, mean_h, i))
         print(f"    cand {i}: score={score:.0f}  "
               f"oriented_normal=({oriented_n[0]:+.3f}, {oriented_n[1]:+.3f}, {oriented_n[2]:+.3f})  "
-              f"mean_camera_height={mean_h:+.3f}")
+              f"mean_h={mean_h:+.3f}  "
+              f"gravity-align={alignment:+.3f}")
 
     scored.sort(key=lambda x: -x[0])
     if scored[0][0] == 0:

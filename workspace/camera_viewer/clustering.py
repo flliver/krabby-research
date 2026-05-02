@@ -1,6 +1,7 @@
-"""Spatial clustering of cameras for the SpatialClusterFilter.
+"""Spatial clustering + content-similarity hashing for filter inputs.
 
-v0: k-means on 3D camera centers. Picks `k` automatically based on N.
+v0: k-means on 3D camera centers, six-bucket view-direction grouping.
+v1: pHash perceptual hashes for the cheap image-similarity filter.
 
 Future (v2): co-visibility clustering using the SfM scene graph. The graph
 edges from MASt3R-SfM tell us which camera pairs share enough correspondences
@@ -9,6 +10,8 @@ that they're seeing the same physical region. That's a more principled
 """
 
 from __future__ import annotations
+
+from typing import Sequence
 
 import numpy as np
 from sklearn.cluster import KMeans
@@ -51,3 +54,32 @@ def view_direction_buckets(forward_axes: np.ndarray) -> np.ndarray:
     primary = abs_axes.argmax(axis=1)               # 0/1/2 = x/y/z
     sign_pos = forward_axes[np.arange(len(forward_axes)), primary] > 0
     return primary * 2 + (~sign_pos).astype(int)
+
+
+def compute_phashes(thumbnails: Sequence[np.ndarray]) -> np.ndarray:
+    """Compute 64-bit perceptual hashes (pHash) for each thumbnail.
+
+    Used by the ImageSimilarityFilter as a cheap stand-in for ASMK.
+    pHash represents an image as a 64-bit fingerprint; two images are
+    "similar" if their hashes have low Hamming distance.
+
+    Args:
+        thumbnails: list of (H, W, 3) uint8 arrays.
+
+    Returns:
+        (N,) uint64 array of hash values.
+    """
+    import imagehash
+    from PIL import Image
+
+    hashes = np.empty(len(thumbnails), dtype=np.uint64)
+    for i, thumb in enumerate(thumbnails):
+        h = imagehash.phash(Image.fromarray(thumb))
+        # imagehash returns an ImageHash object; .hash is an 8x8 bool array
+        bits = h.hash.flatten()
+        # Pack the 64 bools into a single uint64 (big-endian)
+        val = 0
+        for b in bits:
+            val = (val << 1) | int(bool(b))
+        hashes[i] = np.uint64(val)
+    return hashes

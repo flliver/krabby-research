@@ -54,9 +54,20 @@ class CameraSet:
 
     @property
     def forward_axes(self) -> np.ndarray:
-        """(N, 3) world-space forward axis of each camera (= -z in cam frame)."""
-        # cam-to-world * (0, 0, -1, 0) → world-space forward
-        return -self.rotations[:, :, 2]
+        """(N, 3) world-space forward axis of each camera.
+
+        **MASt3R-SfM uses the OpenCV camera convention: cameras look along
+        +Z in their own frame.** So world-space forward is the +Z column
+        of the camera-to-world rotation (= rotations[:, :, 2]).
+
+        This matters for the LookAtTargetFilter and any view-direction
+        clustering. Don't flip the sign — viser's frustum renderer also
+        uses OpenCV, which is why frustums look right but earlier
+        forward-axis logic (when sign-flipped) had the look-at filter
+        inverted (cameras facing AWAY from the target were considered
+        as looking AT it).
+        """
+        return self.rotations[:, :, 2]
 
 
 def load(cameras_json: Path, frames_dir: Path | None = None,
