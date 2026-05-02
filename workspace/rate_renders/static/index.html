@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Rate Renders — M11</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header id="topbar">
+    <div class="group">
+      <label>Scene
+        <select id="scene-picker"></select>
+      </label>
+      <label>View
+        <select id="view-picker"></select>
+      </label>
+      <label>Rater
+        <select id="rater-select"></select>
+      </label>
+    </div>
+    <div class="group">
+      <span class="lbl">Layout</span>
+      <div id="layout-buttons" role="tablist">
+        <button data-layout="1" class="active">1</button>
+        <button data-layout="2">1×2</button>
+        <button data-layout="4">2×2</button>
+        <button data-layout="9">3×3</button>
+        <button data-layout="16">4×4</button>
+      </div>
+    </div>
+    <div class="group">
+      <span class="lbl">Cycle (←/→)</span>
+      <button id="prev-page">←</button>
+      <span id="page-indicator">1 / 1</span>
+      <button id="next-page">→</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="grid-pane">
+      <div id="grid"></div>
+    </section>
+
+    <section id="rank-pane">
+      <div id="rank-header">
+        <h3>Rank these (drag cards into tiers)</h3>
+        <div class="rank-actions">
+          <button id="reset-tiers" title="Move everything back to pool">Reset</button>
+          <button id="add-tier" title="Add another tier">+ Tier</button>
+          <button id="submit-btn" disabled>Submit ranking</button>
+        </div>
+      </div>
+
+      <div class="tier-row pool-row">
+        <div class="tier-label">Pool<br><span class="tier-sub">unranked</span></div>
+        <div class="tier-drop" id="pool-drop" data-tier="pool"></div>
+      </div>
+
+      <div id="tiers"></div>
+
+      <div id="submit-status"></div>
+    </section>
+
+    <aside id="info-pane">
+      <h3>Manifest</h3>
+      <div id="manifest-content">
+        <em>Hover a card to see settings.</em>
+      </div>
+      <hr>
+      <h3>Live Results</h3>
+      <div id="results-content">
+        <em>No rankings yet.</em>
+      </div>
+    </aside>
+  </main>
+
+  <footer>
+    <small>
+      <span id="status-msg">Ready.</span>
+      &nbsp;|&nbsp;
+      Keys: <kbd>1</kbd>–<kbd>9</kbd> grid layout · <kbd>←</kbd>/<kbd>→</kbd> page · <kbd>r</kbd> reset · <kbd>Enter</kbd> submit
+    </small>
+  </footer>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
