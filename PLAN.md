@@ -57,44 +57,56 @@ The full M11 is **all of T0–T4**, not just mesh production:
 - **B4 — Auto-project color:** Projecting vertex colors from source frames onto the mesh.
 - **B5 — Frame-selection tooling:** An interactive 3D viewer for manually curating the best frames for reconstruction.
 
-### Phase C — Final Mesh Conditioning for Simulation ★ Current Focus
+### Phase C — MAtCha Output Validation ★ Current Focus
 
-**Goal:** Transform the visually impressive but potentially non-watertight TSDF meshes into simulation-ready assets with clean, manifold, and watertight collision geometry. This is a critical prerequisite for IsaacSim.
+**Goal:** Before proceeding, we must validate that our pipeline can reproduce the reference quality for both TSDF and Adaptive Tetrahedralization meshes as shown in the official MAtCha paper. This ensures we are using the best possible output from the core algorithm.
 
 | # | Task | Notes |
 |---|---|---|
-| C1 | **Merge & Gap-Fill Surfaces** | Use surface reconstruction techniques (e.g., continuing with TSDF fusion, or Poisson reconstruction on the TSDF output) to resolve conflicts, merge nearby surfaces, and fill any remaining holes or gaps to ensure the mesh is manifold. |
-| C2 | **Ensure Watertightness** | Verify that the output from C1 is fully watertight, as required by physics simulators. This may involve multiple passes or specialized hole-filling algorithms. |
-| C3 | **Final Surface Smoothing** | Apply a final smoothing pass to the geometry. We will evaluate both Laplacian and Taubin smoothing, but with a preference for **Taubin smoothing** to minimize surface shrinkage and preserve the original reconstructed volume. |
+| C1 | **Reproduce Reference Perspectives** | In our "bicycle" scene Blender file, create camera views that precisely match the two reference images from the MAtCha project page (saved in `reference_images/`). This will provide a direct, apples-to-apples comparison. |
+| C2 | **Validate TSDF Mesh Quality** | Render our best TSDF mesh from the reference perspective. The goal is to confirm we have already matched the quality of reference (a). We believe this is complete, but this step will formally verify it. |
+| C3 | **Match Adaptive Tetrahedralization Quality** | This is a critical gap. We must experiment with MAtCha's parameters (e.g., alignment configs, regularization) to produce a tetrahedral mesh that matches the quality of reference (b). This may involve revisiting the "tetra-era" experiments. |
 
-**Phase C exit criterion:** All processed meshes are confirmed to be watertight and are visually clean, ready for USD conversion.
+**Phase C exit criterion:** We have generated tetrahedral and TSDF meshes for the bicycle scene that visually match the quality and detail of the official MAtCha reference images when viewed from the same perspective.
 
-### Phase D — USD Export & IsaacSim Integration
+### Phase D — Final Mesh Conditioning for Simulation
+
+**Goal:** Transform the validated, high-quality meshes into simulation-ready assets with clean, manifold, and watertight collision geometry. This is a critical prerequisite for IsaacSim.
+
+| # | Task | Notes |
+|---|---|---|
+| D1 | **Merge & Gap-Fill Surfaces** | Use surface reconstruction techniques (e.g., continuing with TSDF fusion, or Poisson reconstruction on the output) to resolve conflicts, merge nearby surfaces, and fill any remaining holes or gaps to ensure the mesh is manifold. |
+| D2 | **Ensure Watertightness** | Verify that the output from D1 is fully watertight, as required by physics simulators. |
+| D3 | **Final Surface Smoothing** | Apply a final smoothing pass to the geometry, with a preference for **Taubin smoothing** to minimize surface shrinkage. |
+
+**Phase D exit criterion:** All processed meshes are confirmed to be watertight and are visually clean, ready for USD conversion.
+
+### Phase E — USD Export & IsaacSim Integration
 
 **Goal:** At least one scene loads in IsaacSim with correct scale, Z-up orientation, and physics properties. Robot spawns on the floor; depth sensor returns plausible readings.
 
 | # | Task | Notes |
 |---|------|-------|
-| D1 | **Scale calibration strategy** | Must measure a known real-world distance in existing scenes and apply uniform scale post-hoc. Future captures must include a reference object. |
-| D2 | **Mesh-to-USD pipeline** | Use Isaac Lab's `MeshConverter`. This may involve creating two separate meshes: the high-quality visual mesh (from TSDF) and a simplified, watertight collision proxy (e.g., from V-HACD convex decomposition) if the final mesh is too complex for real-time physics. |
-| D3 | **IsaacSim load + spawn test** | Spawn a robot on each scene's mesh floor; verify depth sensor returns readings consistent with the scene geometry. |
+| E1 | **Scale calibration strategy** | Must measure a known real-world distance in existing scenes and apply uniform scale post-hoc. Future captures must include a reference object. |
+| E2 | **Mesh-to-USD pipeline** | Use Isaac Lab's `MeshConverter`. This may involve creating two separate meshes: the high-quality visual mesh and a simplified, watertight collision proxy (e.g., from V-HACD convex decomposition). |
+| E3 | **IsaacSim load + spawn test** | Spawn a robot on each scene's mesh floor; verify depth sensor returns readings consistent with the scene geometry. |
 
-**Phase D exit criterion:** All three scenes loadable in IsaacSim, robot spawns, depth sensor works.
+**Phase E exit criterion:** All three scenes loadable in IsaacSim, robot spawns, depth sensor works.
 
-### Phase E — Locomotion Model Integration & Demo
+### Phase F — Locomotion Model Integration & Demo
 
 **Goal:** The actual M11 deliverable — Extreme Parkour and Holosoma running on the reconstructed environments with hexapod embodiment.
 
 | # | Task | Notes |
 |---|------|-------|
-| E1 | **Extreme Parkour Dockerfile** | Per grant — runs in its own container, launches IsaacSim, consumes USD envs, outputs trajectory + metrics. |
-| E2 | **Holosoma Dockerfile** | Per grant — same shape, proprioception-only (no vision). |
-| E3 | **Hexapod adaptation** | URDF/embodiment configs, action/observation space updates, reward shaping for tripod-bias gait. |
-| E4 | **Stable locomotion demo** | The deliverable — both models demonstrate stable locomotion on at least one reconstructed scene. |
+| F1 | **Extreme Parkour Dockerfile** | Per grant — runs in its own container, launches IsaacSim, consumes USD envs, outputs trajectory + metrics. |
+| F2 | **Holosoma Dockerfile** | Per grant — same shape, proprioception-only (no vision). |
+| F3 | **Hexapod adaptation** | URDF/embodiment configs, action/observation space updates, reward shaping for tripod-bias gait. |
+| F4 | **Stable locomotion demo** | The deliverable — both models demonstrate stable locomotion on at least one reconstructed scene. |
 
-**Phase E exit criterion:** Acceptance criteria for T3 and T4 from the grant are satisfied.
+**Phase F exit criterion:** Acceptance criteria for T3 and T4 from the grant are satisfied.
 
-### Phase F — Future (post-M11): Large-Scale Reconstruction via Submap Fusion
+### Phase G — Future (post-M11): Large-Scale Reconstruction via Submap Fusion
 
 **Concept**: To scale our pipeline from single rooms to entire properties, we will adopt a submap-based fusion strategy. This approach avoids the limitations of a single large reconstruction by creating multiple, smaller, overlapping 3D scenes and then stitching them together. This is a stretch goal and is not required for M11, but the techniques developed in Phase C are foundational for this work.
 
