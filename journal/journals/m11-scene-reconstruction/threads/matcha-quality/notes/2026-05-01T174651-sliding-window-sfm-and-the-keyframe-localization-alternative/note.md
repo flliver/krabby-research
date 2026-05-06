@@ -1,7 +1,7 @@
 ---
 kind: note
 captured: 2026-05-01T17:46:51-07:00
-consolidated: false
+consolidated: true
 tags: []
 ---
 # Sliding-window SfM and the keyframe-localization alternatives

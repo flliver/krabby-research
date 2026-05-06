@@ -1,7 +1,7 @@
 ---
 kind: note
 captured: 2026-05-01T16:12:29-07:00
-consolidated: false
+consolidated: true
 tags: []
 ---
 # MASt3R-SfM scaling for large candidate pools

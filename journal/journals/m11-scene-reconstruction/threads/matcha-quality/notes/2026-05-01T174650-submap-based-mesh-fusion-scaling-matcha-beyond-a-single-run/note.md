@@ -1,7 +1,7 @@
 ---
 kind: note
 captured: 2026-05-01T17:46:50-07:00
-consolidated: false
+consolidated: true
 tags: []
 ---
 # Submap-based mesh fusion — scaling MAtCha beyond a single run

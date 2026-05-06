@@ -1,7 +1,7 @@
 ---
 kind: note
 captured: 2026-05-01T22:26:04-07:00
-consolidated: false
+consolidated: true
 tags: []
 ---
 # Strong-alignment config eliminates garbage geometry

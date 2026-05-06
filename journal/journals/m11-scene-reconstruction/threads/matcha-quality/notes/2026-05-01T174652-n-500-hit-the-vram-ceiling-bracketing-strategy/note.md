@@ -1,7 +1,7 @@
 ---
 kind: note
 captured: 2026-05-01T17:46:52-07:00
-consolidated: false
+consolidated: true
 tags: []
 ---
 # N=500 hit the VRAM ceiling — bracketing strategy

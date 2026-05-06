@@ -1,10 +1,16 @@
 ---
 kind: note
 captured: 2026-05-01T16:44:53-07:00
-consolidated: false
-tags: [matcha, code-read, source, r-knob, photometric-resolution, b5, c-knob]
+consolidated: true
+tags:
+  - matcha
+  - code-read
+  - source
+  - r-knob
+  - photometric-resolution
+  - b5
+  - c-knob
 ---
-
 # MAtCha source code-read findings (Anttwo/MAtCha @ HEAD on JDP-Mac)
 
 Cloned `https://github.com/Anttwo/MAtCha.git` to `~/dev/MAtCha`. Public source, no patches applied (our 8 patches are build-time fixes, not algorithmic — checked `MATCHA-NOTES.md` for confirmation).

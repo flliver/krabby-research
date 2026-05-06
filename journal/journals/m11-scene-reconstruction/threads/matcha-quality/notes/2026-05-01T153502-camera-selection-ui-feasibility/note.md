@@ -1,10 +1,15 @@
 ---
 kind: note
 captured: 2026-05-01T15:35:02-07:00
-consolidated: false
-tags: [b5, frame-curation, ui, viser, blender, feasibility]
+consolidated: true
+tags:
+  - b5
+  - frame-curation
+  - ui
+  - viser
+  - blender
+  - feasibility
 ---
-
 # Camera selection UI — feasibility and routes
 
 ## The problem
