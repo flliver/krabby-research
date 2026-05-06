@@ -1,8 +1,44 @@
 # M11 Plan
 
 **Status:** active working plan
-**Last updated:** 2026-04-30
+**Last updated:** 2026-05-06
 **Goal:** ship M11 (Patina Foundation grant — Krabby-Uno Milestone 11) ASAP, with reliable watertight reconstruction, then locomotion-model integration
+
+---
+
+## Tracking
+
+| Layer | Where | Notes |
+|---|---|---|
+| **Authoritative scope** | [Patina M11 OVERVIEW.md](https://github.com/flliver/patina-foundation-grants/blob/main/grants/Krabby-Uno/Milestone11-Scene-Reconstruction/OVERVIEW.md) | Tasks T0–T4 + acceptance criteria. The ICA defers technical scope here. |
+| **Commercial terms (ICA)** | `krabby-contracts/milestones/M11/M11.md` | Acceptance is judged against the grant overview, not this plan. |
+| **Issue/task tracking** | `milestones/011-scene-reconstruction/beads/` (this dir's sibling) | Beads DB; prefix `m11-*`. Run `bd ready` to see unblocked work. Run `bd list --status open` to see all open beads. JSONL export auto-syncs at `beads/.beads/issues.jsonl`. |
+| **Working memory** | `milestones/011-scene-reconstruction/journal/` | Working notes; not authoritative. |
+| **This plan** | this file | High-level phase structure; bridge between grant and beads. Acceptance is *not* judged against PLAN.md. |
+
+### Grant-task ↔ PLAN-phase ↔ Beads mapping
+
+| Grant Task | PLAN Phases | Open beads | Closed beads |
+|---|---|---|---|
+| T0 — Sparse reconstruction | A (eval), B5 (frame curation) | — (rollup `m11-di0` ✓) | `m11-nk8`, `m11-2bg`, `m11-di0` |
+| T1 — Dense + watertight mesh | A (initial tetra), B1–B4 (post-processing), C (validation, optional) | C2 `m11-2cd`, C3 `m11-8u6` | A `m11-23n`, B1–B4 (`5wp`, `1oc`, `8wy`, `pbo`), C `ep4`+`s0h`+`5ef`, T1 rollup `dua` |
+| T2 — Conditioning + USD + IsaacSim | D (conditioning), E (USD + IsaacSim) | D1 `m11-21m`, D2 `m11-400`, D3 `m11-87v`, **E1 `m11-u3l` (P0)**, **E2 `m11-uy5` (P0)**, **E3 `m11-dt8` (P0)** | — |
+| T3 — EP + Holosoma in Docker | F1, F2 | F1 `m11-bz6`, F2 `m11-x6i` | — |
+| T4 — Hexapod + stable demo | F3, F4 | F3 `m11-1ij`, F4 `m11-4tl` (the deliverable) | — |
+| (cross-cutting risks) | — | **R1 `m11-d06` (P0 schedule)**, R2 `m11-kr9` (T0/T1 disclosure) | — |
+
+**Phase G (post-M11 stretch — submap fusion)** is intentionally not in beads; revisit on M12+ scoping.
+
+### Quick commands
+
+```bash
+cd milestones/011-scene-reconstruction/beads
+bd ready             # unblocked work (sorted by priority)
+bd list              # all open beads
+bd list --status closed
+bd show m11-u3l      # show a specific bead
+bd close m11-XXX --reason "..."   # close with provenance
+```
 
 ---
 
