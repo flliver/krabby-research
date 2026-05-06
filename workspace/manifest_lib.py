@@ -82,20 +82,39 @@ def empty_manifest() -> dict[str, Any]:
 
 
 def variant_dir(scene_root: str, variant_name: str) -> str:
-    """Resolve the variant directory under `scene_root` (== data/scenes/)."""
-    # Convention: 004-sky-house-dining → curated variants stored as
-    #             004-sky-house-curated-<variant>.
+    """Resolve the variant directory under `scene_root` (== data/scenes/).
+
+    Two accepted forms for `variant_name`:
+      1. Full directory name (e.g. `dtu-bicycle-curated-12-dense-strong`).
+         Most reliable across multiple scenes.
+      2. Bare suffix (e.g. `12-dense-strong`). Matched against
+         `*-curated-<suffix>`. Fails loudly if multiple scenes share the
+         same suffix — pass the full name to disambiguate.
+    """
     if "-dining" in scene_root.rsplit("/", 1)[-1]:
-        # Caller passed the dining root by mistake; redirect.
         raise ValueError(
             f"variant_dir() expects scene_root = data/scenes/, "
             f"not the dining dir itself. Got {scene_root!r}"
         )
-    # Find the dir that ends with -<variant>
-    for entry in os.listdir(scene_root):
-        if entry.endswith(f"-curated-{variant_name}"):
-            return os.path.join(scene_root, entry)
-    raise FileNotFoundError(f"No variant dir found for {variant_name!r} under {scene_root}")
+    # Form 1: full directory name
+    direct = os.path.join(scene_root, variant_name)
+    if os.path.isdir(direct):
+        return direct
+    # Form 2: bare suffix → match against any scene's `-curated-<suffix>`
+    matches = [
+        entry for entry in os.listdir(scene_root)
+        if entry.endswith(f"-curated-{variant_name}")
+    ]
+    if len(matches) == 1:
+        return os.path.join(scene_root, matches[0])
+    if len(matches) > 1:
+        raise ValueError(
+            f"variant suffix {variant_name!r} matches multiple variants "
+            f"({matches}); pass the full directory name to disambiguate"
+        )
+    raise FileNotFoundError(
+        f"No variant dir for {variant_name!r} under {scene_root}"
+    )
 
 
 def manifest_path(scene_root: str, variant_name: str) -> str:

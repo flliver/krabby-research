@@ -270,62 +270,183 @@ def main():
             plane.location = (0.0, 0.0, -0.5)
             plane.rotation_euler = (0.0, 0.0, 0.0)
 
-    # Optional: persistent comparison view camera (--view-camera-pose <json>).
-    # Reads a comparison_view.json (schema v2 = anchor-based; v1 = absolute coords).
-    # For schema v2: 3 anchor frames identified by basename are looked up in this
-    # variant's cam_NNN poses, Kabsch solves the rigid transform between the
-    # source variant's oriented frame and this variant's oriented frame, and the
-    # view_cam pose is transformed accordingly. Result: identical viewpoint
-    # across variants regardless of per-variant SfM frame jitter.
+    # Optional: persistent comparison view camera(s) (--view-camera-pose <json>).
+    # Reads a comparison_view.json. Schema versions:
+    #   v1 = single view, absolute coords (legacy; same SfM frame required)
+    #   v2 = single view, anchor-based Procrustes alignment
+    #   v3 = list of views sharing anchors, anchor-based alignment, no purpose
+    #   v4 = v3 + per-view `purpose` and optional metadata (matches_reference_images,
+    #        render_resolution, render_engine, auto_localized, localization_method)
+    #
+    # For v3+v4: ALL views are injected by default. --view-name selects which
+    # one is the active scene camera at .blend open (defaults to the first view).
+    # Each view becomes its own Blender Camera object named after view['name'].
+    # Optional per-view metadata is round-tripped via Blender custom properties
+    # (e.g., bpy.data.objects[view_name]["view_purpose"]) so sync_comparison_views.py
+    # can re-emit it on the next harvest.
+    #
+    # For schema v2: a single view (legacy single-view JSON), 3 anchor frames
+    # identified by basename are looked up in this variant's cam_NNN poses, Kabsch
+    # solves the rigid+scale transform between the source variant's oriented frame
+    # and this variant's oriented frame, and the view_cam pose is transformed
+    # accordingly.
     view_cam_pose_path = args.get("view-camera-pose")
-    view_cam_obj = None
-    # Default Blender object name; v3 overrides this with the view's logical
-    # name so round-trips (Blender edits → sync_comparison_views.py) preserve
-    # naming without manual rename.
+    view_cam_obj = None  # the active scene camera (one of the injected views)
+    # Default Blender object name (used only for legacy schema v1/v2 single-view).
     view_cam_blender_name = "view_cam"
     if view_cam_pose_path and os.path.exists(view_cam_pose_path):
-        print(f"Adding view_cam from {view_cam_pose_path}...")
+        print(f"Adding view cameras from {view_cam_pose_path}...")
         with open(view_cam_pose_path) as f:
             vc = json.load(f)
 
         schema = vc.get("schema_version", 1)
+        _multi_view_meta = None  # populated when schema >= 3 (set below)
 
-        # Schema v3: list of views with shared anchors. Pick by --view-name
-        # (default to the first view).
-        if schema == 3:
-            view_name = args.get("view-name")
+        # Schema v3 / v4: list of views with shared anchors. Inject ALL views.
+        # --view-name optionally selects which one becomes the active scene
+        # camera (default: first view). Optional per-view metadata is stored
+        # as Blender custom properties for round-trip via sync_comparison_views.py.
+        if schema in (3, 4):
             views = vc.get("views", [])
             if not views:
-                raise SystemExit("schema_v3 file has no 'views' list")
-            if view_name:
-                matching = [v for v in views if v["name"] == view_name]
+                raise SystemExit(f"schema_v{schema} file has no 'views' list")
+            requested_view_name = args.get("view-name")
+            if requested_view_name:
+                matching = [v for v in views if v["name"] == requested_view_name]
                 if not matching:
                     raise SystemExit(
-                        f"  ERROR: view '{view_name}' not in {view_cam_pose_path}. "
+                        f"  ERROR: view '{requested_view_name}' not in {view_cam_pose_path}. "
                         f"Available: {[v['name'] for v in views]}"
                     )
-                chosen = matching[0]
+                active_view_name = requested_view_name
             else:
-                chosen = views[0]
-            print(f"  using view '{chosen['name']}'")
-            view_cam_blender_name = chosen["name"]
-            # Adapt to the existing v2 code path by stuffing v2-shaped fields
-            # into vc, then fall through to the schema=2 block below.
-            vc = {
-                "schema_version": 2,
-                "anchor_frames": vc["anchor_frames"],
-                "view_camera_in_source_frame": {
-                    "world_position": chosen["world_position"],
-                    "world_rotation_quat_wxyz": chosen["world_rotation_quat_wxyz"],
-                    "convention": chosen.get("convention", "opencv"),
-                    "lens_mm": chosen.get("lens_mm", 50.0),
-                    "sensor_width_mm": chosen.get("sensor_width_mm", 36.0),
-                    "sensor_height_mm": chosen.get("sensor_height_mm", 24.0),
-                },
-            }
-            schema = 2
+                active_view_name = views[0]["name"]
+            print(f"  injecting {len(views)} view(s); active = '{active_view_name}'")
 
-        if schema == 2:
+            # Anchor-based Procrustes is computed once per build (anchors are
+            # shared across views). We compute it once here, then apply to
+            # each view inline below.
+            _multi_view_meta = {
+                "anchor_frames": vc["anchor_frames"],
+                "views": views,
+                "active_view_name": active_view_name,
+            }
+            # Use a sentinel schema value (-2) below to indicate "iterate views";
+            # the existing schema=2 block does the per-view math.
+            schema = -2
+
+        if schema == -2 and _multi_view_meta is not None:
+            # Multi-view path (schema v3 / v4): Procrustes anchor alignment is
+            # computed once (anchors are shared across views), then applied per
+            # view. Each view becomes its own Blender Camera object named after
+            # view['name']. Optional per-view metadata (purpose, matches_reference_images,
+            # render_resolution, render_engine, auto_localized, localization_method)
+            # is attached as Blender custom properties for round-trip via
+            # sync_comparison_views.py.
+            anchors = _multi_view_meta["anchor_frames"]
+            views = _multi_view_meta["views"]
+            active_view_name = _multi_view_meta["active_view_name"]
+
+            # Collect anchor correspondences: source-frame oriented_position
+            # ↔ this-variant cam_NNN location.
+            source_anchor_pos = []
+            target_anchor_pos = []
+            target_basenames = [fp.rsplit("/", 1)[-1] for fp in filepaths]
+            missing = []
+            for a in anchors:
+                bn = a["basename"]
+                if bn not in target_basenames:
+                    missing.append(bn)
+                    continue
+                target_idx = target_basenames.index(bn)
+                tgt_obj = bpy.data.objects.get(f"cam_{target_idx+1:03d}")
+                if tgt_obj is None:
+                    continue
+                source_anchor_pos.append(a["oriented_position"])
+                target_anchor_pos.append(list(tgt_obj.location))
+            if len(source_anchor_pos) < 3:
+                raise SystemExit(
+                    f"  ERROR: need ≥3 matching anchors; got {len(source_anchor_pos)}. "
+                    f"Missing: {missing[:5]}{'...' if len(missing)>5 else ''}"
+                )
+            print(f"  matched {len(source_anchor_pos)}/{len(anchors)} anchors "
+                  f"({len(missing)} missing in this variant)")
+
+            # Umeyama Procrustes: solve scale s, rotation R_mat, translation t_vec.
+            P = _np.asarray(source_anchor_pos)
+            Q = _np.asarray(target_anchor_pos)
+            cP = P.mean(axis=0)
+            cQ = Q.mean(axis=0)
+            Pc = P - cP
+            Qc = Q - cQ
+            H = Pc.T @ Qc
+            U, S_sv, Vt = _np.linalg.svd(H)
+            d_sign = _np.sign(_np.linalg.det(Vt.T @ U.T))
+            D = _np.diag([1, 1, d_sign])
+            R_mat = Vt.T @ D @ U.T
+            var_P = float((Pc * Pc).sum())
+            scale = float((_np.diag(D) * S_sv).sum() / var_P) if var_P > 0 else 1.0
+            t_vec = cQ - scale * R_mat @ cP
+            residuals = _np.linalg.norm((scale * (P @ R_mat.T) + t_vec) - Q, axis=1)
+            print(f"  Procrustes: scale={scale:.4f} det(R)={_np.linalg.det(R_mat):.4f}")
+            print(f"  anchor residuals: max={residuals.max():.4f}  "
+                  f"mean={residuals.mean():.4f}  median={_np.median(residuals):.4f} m")
+
+            # Per-view: apply Procrustes, build camera, attach metadata.
+            from mathutils import Quaternion, Matrix as MM  # type: ignore
+            R4 = MM(((R_mat[0,0], R_mat[0,1], R_mat[0,2], 0),
+                     (R_mat[1,0], R_mat[1,1], R_mat[1,2], 0),
+                     (R_mat[2,0], R_mat[2,1], R_mat[2,2], 0),
+                     (0, 0, 0, 1)))
+            _FLIP_OPENCV_TO_BLENDER = MM(((1, 0, 0, 0), (0, -1, 0, 0), (0, 0, -1, 0), (0, 0, 0, 1)))
+
+            for view in views:
+                vname = view["name"]
+                src_pos = _np.asarray(view["world_position"])
+                src_quat = view["world_rotation_quat_wxyz"]  # w, x, y, z
+                convention = view.get("convention", "opencv")
+                tgt_pos = scale * (R_mat @ src_pos) + t_vec
+
+                src_quat_obj = Quaternion(src_quat)
+                src_rot_mat = src_quat_obj.to_matrix().to_4x4()
+                tgt_rot_mat = R4 @ src_rot_mat
+                if convention == "opencv":
+                    tgt_rot_mat = tgt_rot_mat @ _FLIP_OPENCV_TO_BLENDER
+                tgt_quat = tgt_rot_mat.to_quaternion()
+
+                v_cam_data = bpy.data.cameras.new(name=vname)
+                v_cam_data.lens = float(view.get("lens_mm", 50.0))
+                v_cam_data.sensor_width = float(view.get("sensor_width_mm", 36.0))
+                v_cam_data.sensor_height = float(view.get("sensor_height_mm", 24.0))
+                v_cam_obj = bpy.data.objects.new(vname, v_cam_data)
+                v_cam_obj.location = (float(tgt_pos[0]), float(tgt_pos[1]), float(tgt_pos[2]))
+                v_cam_obj.rotation_mode = "QUATERNION"
+                v_cam_obj.rotation_quaternion = (tgt_quat.w, tgt_quat.x, tgt_quat.y, tgt_quat.z)
+                bpy.context.collection.objects.link(v_cam_obj)
+
+                # Round-trip metadata as custom properties. sync_comparison_views.py
+                # reads these via _read_custom_prop().
+                purpose = view.get("purpose", "ab-comparison")
+                v_cam_obj["view_purpose"] = purpose
+                if "matches_reference_images" in view:
+                    v_cam_obj["matches_reference_images"] = list(view["matches_reference_images"])
+                if "render_resolution" in view:
+                    v_cam_obj["render_resolution"] = list(view["render_resolution"])
+                if "render_engine" in view:
+                    v_cam_obj["render_engine"] = view["render_engine"]
+                if "auto_localized" in view:
+                    v_cam_obj["auto_localized"] = bool(view["auto_localized"])
+                if "localization_method" in view:
+                    v_cam_obj["localization_method"] = view["localization_method"]
+
+                tag = "★" if vname == active_view_name else " "
+                print(f"  {tag} '{vname}' [{purpose}] pos=({tgt_pos[0]:.3f}, {tgt_pos[1]:.3f}, {tgt_pos[2]:.3f}) lens={v_cam_data.lens:.0f}mm")
+
+                if vname == active_view_name:
+                    view_cam_obj = v_cam_obj
+                    view_cam_blender_name = vname
+
+        elif schema == 2:
             # Anchor-based registration. Match anchors by source-image basename
             # (same source frames across variants → byte-identical files →
             # reliable hash). Use whichever anchors are present in THIS

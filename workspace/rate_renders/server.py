@@ -192,22 +192,24 @@ class Handler(BaseHTTPRequestHandler):
     # ---- scene + variants ----------------------------------------------
 
     def _list_scenes(self) -> list[str]:
-        """List all scenes that have at least one curated variant + comparison_views."""
+        """List scene roots — every dir under data/scenes/ that contains a
+        comparison_views.json (and isn't itself a -curated-* variant).
+
+        A scene is identifiable purely by having that file. The variant
+        prefix (used to discover sibling variant directories) is stored
+        inside comparison_views.json under the `variant_prefix` field;
+        we don't infer it from the directory name.
+        """
         out = []
         if not SCENES_ROOT.is_dir():
             return out
-        seen = set()
         for d in sorted(SCENES_ROOT.iterdir()):
-            if not d.is_dir() or "-curated-" not in d.name:
+            if not d.is_dir():
                 continue
-            stem = d.name.split("-curated-")[0]  # e.g. '004-sky-house'
-            if stem in seen:
-                continue
-            # Treat the corresponding -dining dir as the scene root
-            dining = SCENES_ROOT / f"{stem}-dining"
-            if (dining / "comparison_views.json").exists():
-                seen.add(stem)
-                out.append(f"{stem}-dining")
+            if "-curated-" in d.name:
+                continue   # variants aren't scene roots
+            if (d / "comparison_views.json").exists():
+                out.append(d.name)
         return out
 
     def _scene_payload(self, scene: str) -> dict:
@@ -215,22 +217,32 @@ class Handler(BaseHTTPRequestHandler):
         scene_dir = SCENES_ROOT / scene
         if not scene_dir.is_dir():
             return {"error": f"scene not found: {scene}"}
-        # 1) views
+        # 1) views + variant prefix (from comparison_views.json)
         views_path = scene_dir / "comparison_views.json"
-        views = []
+        views: list = []
+        # Default variant prefix to the scene-root name (works for bicycle,
+        # which uses dtu-bicycle/ → dtu-bicycle-curated-*). Existing scenes
+        # like 004-sky-house-dining override via the explicit field because
+        # their variants share a different stem (004-sky-house-curated-*).
+        variant_prefix = scene
         if views_path.exists():
             with open(views_path) as f:
                 cv = json.load(f)
             views = [v["name"] for v in cv.get("views", [])]
-        # 2) variants — derived from -curated-* dirs sharing this scene's stem
-        stem = scene.split("-dining")[0]  # '004-sky-house'
-        variants = list_variants(str(SCENES_ROOT), stem)
-        # 3) manifests for each variant
+            variant_prefix = cv.get("variant_prefix", variant_prefix)
+        # 2) variants — siblings whose names start with `<variant_prefix>-curated-`
+        variants = list_variants(str(SCENES_ROOT), variant_prefix)
+        # 3) manifests for each variant. Always pass the FULL directory name to
+        #    read_manifest (variant_prefix + "-curated-" + suffix) — passing the
+        #    bare suffix collides with siblings sharing the same suffix in
+        #    other scenes (e.g., 004-sky-house-curated-12-dense-strong vs
+        #    dtu-bicycle-curated-12-dense-strong).
         manifests = {}
         for v in variants:
+            full_name = f"{variant_prefix}-curated-{v}"
             try:
-                manifests[v] = read_manifest(str(SCENES_ROOT), v)
-            except (FileNotFoundError, OSError):
+                manifests[v] = read_manifest(str(SCENES_ROOT), full_name)
+            except (FileNotFoundError, OSError, ValueError):
                 manifests[v] = {
                     "variant_name": v,
                     "notes": "(no manifest captured yet)",

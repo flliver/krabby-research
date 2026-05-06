@@ -10,9 +10,17 @@
 # (i.e. the milestone's `workspace/` dir).
 set -euo pipefail
 
-VARIANT="${1:?need variant suffix, e.g. 12-dense-strong-r3}"
+VARIANT="${1:?need variant dir name, e.g. dtu-bicycle-curated-12-dense-strong}"
 CONTAINER=matcha-build
-SCENE_DIR=/data/scenes/004-sky-house-curated-$VARIANT
+# Accept either a full variant directory name (preferred) or, for back-compat
+# with the original 004-only invocations, a bare suffix that gets prepended
+# with `004-sky-house-curated-`. The trigger: full names always contain
+# `-curated-`; bare suffixes don't.
+if [[ "$VARIANT" == *"-curated-"* ]]; then
+    SCENE_DIR=/data/scenes/$VARIANT
+else
+    SCENE_DIR=/data/scenes/004-sky-house-curated-$VARIANT
+fi
 ORIENTED_DIR=$SCENE_DIR/oriented
 TETRA_PLY=$SCENE_DIR/tetra_meshes/tetra_mesh_binary_search_7.ply
 CAMERAS=$SCENE_DIR/mast3r_sfm/cameras.json

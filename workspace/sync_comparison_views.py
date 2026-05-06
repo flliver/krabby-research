@@ -18,6 +18,33 @@ Run via Blender headless:
 Multiple "Camera*"-style names land as separate views. Rename them in
 Blender's Outliner (e.g., "front_door_view", "kitchen_corner") for
 meaningful view names.
+
+## Purpose round-trip (schema v4)
+
+Each comparison camera can carry optional Blender custom properties that
+get persisted into the JSON and re-applied when build_blender_scene.py
+regenerates the .blend:
+
+  view_purpose            "ab-comparison" (default) | "reference-match" | ...
+  matches_reference_images JSON array of paths (relative to milestone root)
+  render_resolution        JSON [w, h] — applied to scene.render when this
+                           view is the active camera
+  render_engine            "CYCLES" | "BLENDER_WORKBENCH" | ...
+  auto_localized           true | false (was the pose computed by an algorithm
+                           or hand-placed?)
+  localization_method      "manual" | "mast3r_sfm_extend" | "pnp_..." | ...
+
+To set a custom property in Blender on a Camera object:
+
+  bpy.data.objects["cam_ref"]["view_purpose"] = "reference-match"
+  bpy.data.objects["cam_ref"]["matches_reference_images"] = [
+      "data/scenes/dtu-bicycle/reference/tsdf_multires.png",
+      "data/scenes/dtu-bicycle/reference/adaptive_tetra.png",
+  ]
+
+These properties are read on sync and written back on build, so once a
+camera's metadata is set (manually or by a localization tool), it persists
+across .blend regeneration.
 """
 import bpy  # type: ignore
 import json
@@ -84,14 +111,42 @@ print(f"Found {len(comparison_cams)} comparison camera(s):")
 for c in comparison_cams:
     print(f"  - {c.name}")
 
-# Load existing JSON (if any) so we update-in-place rather than overwrite
+# Load existing JSON (if any) so we update-in-place rather than overwrite.
+# We preserve top-level scene-wide fields (like variant_prefix) that
+# aren't owned by this script — they get added by other tooling and must
+# survive a sync.
 existing_views = []
+prev = {}
 if os.path.exists(out_json_path):
     with open(out_json_path) as f:
         prev = json.load(f)
     existing_views = prev.get("views", [])
 
 views_by_name = {v["name"]: v for v in existing_views}
+
+# Optional custom-property keys on Camera objects that round-trip through
+# the JSON (set on the camera in Blender, persisted on sync, re-applied on
+# build). All are OPTIONAL — sensible defaults if absent.
+#   view_purpose             str, default "ab-comparison"
+#   matches_reference_images list[str]
+#   render_resolution        [w, h]
+#   render_engine            str (e.g., "CYCLES", "BLENDER_WORKBENCH")
+#   auto_localized           bool
+#   localization_method      str
+
+def _read_custom_prop(obj, key, default=None):
+    """Read a Blender custom property, normalizing list-like values."""
+    if key not in obj:
+        return default
+    val = obj[key]
+    # IDPropertyArray (Blender's wrapper for list custom props) doesn't
+    # JSON-serialize directly; convert to plain list.
+    if hasattr(val, "to_list"):
+        return val.to_list()
+    if isinstance(val, (list, tuple)):
+        return list(val)
+    return val
+
 
 # Update / add each comparison camera as a view
 captured_at = datetime.now().astimezone().isoformat(timespec="seconds")
@@ -104,27 +159,42 @@ for cam in comparison_cams:
     loc = mat_opencv.to_translation()
     quat = mat_opencv.to_quaternion()
     cd_ = cam.data
-    views_by_name[cam.name] = {
+    view = {
         "name": cam.name,
         "captured_camera_name": cam.name,
         "captured_at": captured_at,
         "convention": "opencv",  # +X right, +Y down, +Z forward (looking direction)
+        "purpose": _read_custom_prop(cam, "view_purpose", default="ab-comparison"),
         "world_position": [loc.x, loc.y, loc.z],
         "world_rotation_quat_wxyz": [quat.w, quat.x, quat.y, quat.z],
         "lens_mm": cd_.lens,
         "sensor_width_mm": cd_.sensor_width,
         "sensor_height_mm": cd_.sensor_height,
     }
+    # Optional metadata fields: only emit if present so JSON stays minimal
+    # for plain ab-comparison views.
+    for k in ("matches_reference_images", "render_resolution",
+              "render_engine", "auto_localized", "localization_method"):
+        v = _read_custom_prop(cam, k)
+        if v is not None:
+            view[k] = v
+    views_by_name[cam.name] = view
 
 # Sort views by name for stable output
 out_views = [views_by_name[k] for k in sorted(views_by_name.keys())]
 
 payload = {
-    "schema_version": 3,
+    "schema_version": 4,
     "captured_from_blend": blend_path,
     "anchor_frames": anchors,
     "views": out_views,
 }
+# Preserve scene-wide fields that other tooling owns (e.g., variant_prefix
+# is read by render_comparison_matrix.sh). Anything in the previous JSON
+# that we don't explicitly write here is carried forward.
+for k, v in prev.items():
+    if k not in payload:
+        payload[k] = v
 
 os.makedirs(os.path.dirname(out_json_path), exist_ok=True)
 with open(out_json_path, "w") as f:
