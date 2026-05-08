@@ -37,7 +37,7 @@ PYTHON := $(VENV_PYTHON)
 PIP    := $(VENV_PIP)
 
 # Docker availability check for Docker-dependent targets
-ifneq ($(filter build-test-image build-test-image-arm build-isaacsim-image build-locomotion-image test test-coverage,$(MAKECMDGOALS)),)
+ifneq ($(filter build-test-image build-test-image-arm build-isaacsim-image build-locomotion-image build-scene-reconstruction-base-image build-matcha-image build-mast3r-image build-slam3r-image build-vggt-image build-m11-images test test-coverage,$(MAKECMDGOALS)),)
 ifeq ($(OS),Windows_NT)
 DOCKER_BIN := $(shell where docker 2>NUL)
 else
@@ -209,6 +209,52 @@ build-test-image-arm: build-wheels
 	@echo "      For cross-platform builds from x86_64, use buildx manually"
 	$(DOCKER_BUILD) -f images/testing/arm/Dockerfile -t krabby-testing-arm:latest .
 	@echo "ARM test image built: krabby-testing-arm:latest"
+
+# -------------------------------------------------------------------
+# M11 scene-reconstruction images
+# -------------------------------------------------------------------
+# Each is self-contained: Dockerfile + requirements.txt + patches/ live
+# under images/<name>/, and the build context is the image's own dir
+# (not the repo root) — they don't need access to HAL wheels or the
+# isaaclab cache.
+
+.PHONY: build-scene-reconstruction-base-image
+build-scene-reconstruction-base-image:
+	@echo "Building scene-reconstruction-base Docker image (COLMAP + Open3D)..."
+	$(DOCKER_BUILD) -f images/scene-reconstruction-base/Dockerfile \
+		-t krabby-scene-reconstruction-base:latest \
+		images/scene-reconstruction-base/
+	@echo "Base image built: krabby-scene-reconstruction-base:latest"
+
+.PHONY: build-matcha-image
+build-matcha-image:
+	@echo "Building matcha Docker image (primary T1 watertight-mesh pipeline)..."
+	@echo "Note: ~30-min build on RTX 5080; pre-downloads ~4.3 GB of model checkpoints"
+	$(DOCKER_BUILD) -f images/matcha/Dockerfile -t krabby-matcha:latest images/matcha/
+	@echo "Matcha image built: krabby-matcha:latest"
+
+.PHONY: build-mast3r-image
+build-mast3r-image:
+	@echo "Building mast3r Docker image (T0 alternative SLAM pipeline)..."
+	@echo "Note: ~36 GB image; uses NGC PyTorch 25.10 base"
+	$(DOCKER_BUILD) -f images/mast3r/Dockerfile -t krabby-mast3r:latest images/mast3r/
+	@echo "Mast3r image built: krabby-mast3r:latest"
+
+.PHONY: build-slam3r-image
+build-slam3r-image:
+	@echo "Building slam3r Docker image (Appendix A alternative)..."
+	$(DOCKER_BUILD) -f images/slam3r/Dockerfile -t krabby-slam3r:latest images/slam3r/
+	@echo "Slam3r image built: krabby-slam3r:latest"
+
+.PHONY: build-vggt-image
+build-vggt-image:
+	@echo "Building vggt Docker image (Appendix A alternative)..."
+	$(DOCKER_BUILD) -f images/vggt/Dockerfile -t krabby-vggt:latest images/vggt/
+	@echo "Vggt image built: krabby-vggt:latest"
+
+.PHONY: build-m11-images
+build-m11-images: build-scene-reconstruction-base-image build-matcha-image build-mast3r-image build-slam3r-image build-vggt-image
+	@echo "All M11 scene-reconstruction images built."
 
 .PHONY: test
 test: build-test-image
