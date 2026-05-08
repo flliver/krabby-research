@@ -55,11 +55,21 @@ PyTorch container itself at startup.
 
 ## Overview
 
-The project requires four container images:
+The project requires the following container images:
+
+**Locomotion stack:**
 1. **Locomotion container** (Jetson/ARM) - **Production** - Combined inference logic + HAL server for robot deployment (inproc ZMQ)
 2. **IsaacSim container** (x86) - Combined inference logic + IsaacSim HAL server for simulation testing (inproc ZMQ)
 3. **Testing container (x86)** - **Testing/Development only** - Combined inference logic + game loop test script (inproc ZMQ)
 4. **Testing container (ARM)** - **Testing/Development only** - Combined inference logic + game loop test script for ARM-specific testing (inproc ZMQ)
+
+**M11 scene-reconstruction stack** (real-to-sim pipeline; see grant
+[Milestone 11](https://github.com/flliver/patina-foundation-grants/blob/main/grants/Krabby-Uno/Milestone11-Scene-Reconstruction/OVERVIEW.md)):
+5. **Scene-reconstruction-base** (x86) — COLMAP (source-built CUDA) + Open3D base for the canonical T0/T1 pipeline.
+6. **Matcha** (x86) — MAtCha sparse-view 3D reconstruction; **primary** T1 pipeline (watertight TSDF + tetra meshes).
+7. **MASt3R-SLAM** (x86) — neural SLAM as T0 alternative per grant Appendix A.
+8. **SLAM3R** (x86) — Real-time dense reconstruction; T0/T1 alternative per grant Appendix A.
+9. **VGGT** (x86) — Feed-forward 3D reconstruction; T0 alternative per grant Appendix A.
 
 ## Container Images
 
@@ -423,6 +433,220 @@ typing-extensions>=4.8.0
 
 ---
 
+### 5. Scene-Reconstruction-Base Container (`images/scene-reconstruction-base/`)
+
+**Purpose**: Base container for the M11 grant-canonical T0/T1 pipeline.
+COLMAP source-built with CUDA support for sm_89 (Ada) and sm_120
+(Blackwell), plus Open3D / pymeshlab / trimesh for downstream mesh
+processing. Used directly for the COLMAP MVS + Poisson workflow that
+the grant overview specifies.
+
+#### Base Image
+- **Image**: `nvidia/cuda:12.8.0-devel-ubuntu24.04`
+- **OS**: Ubuntu 24.04
+- **CUDA**: 12.8 (devel; required for sm_120 source compilation)
+- **Architecture**: x86_64
+
+#### System Dependencies
+- COLMAP build chain: `python3 python3-pip python3-venv git wget curl ffmpeg cmake ninja-build libboost-all-dev libeigen3-dev libflann-dev libfreeimage-dev libmetis-dev libgoogle-glog-dev libgtest-dev libsqlite3-dev libglew-dev qtbase5-dev libqt5opengl5-dev libcgal-dev libceres-dev`
+- COLMAP itself is source-built in the Dockerfile (3.11.1, with `CMAKE_CUDA_ARCHITECTURES="89;100"`).
+
+#### Python Dependencies (`requirements.txt`)
+```
+open3d
+pymeshlab
+trimesh
+numpy
+pillow
+```
+
+System-Python install via `pip3 install --break-system-packages` (PEP 668).
+
+#### Special Considerations
+- Build is heavy (~10–20 min) due to COLMAP source compilation.
+- HF_TOKEN is supplied at run time via `--env-file`, never baked in.
+
+#### Runtime Requirements
+- NVIDIA GPU with CUDA 12.8+ (Ada sm_89 or Blackwell sm_120 verified)
+- NVIDIA Container Toolkit (run `scripts/setup-docker-gpu.sh` once)
+- See **Required `docker run` flags for PyTorch containers** above for
+  the mandatory flag set.
+
+---
+
+### 6. Matcha Container (`images/matcha/`)
+
+**Purpose**: **Primary M11 T1 pipeline.** MAtCha (Atlas of Charts)
+sparse-view 3D reconstruction producing watertight TSDF and adaptive-
+tetrahedralization meshes natively. Selected over the grant-canonical
+COLMAP MVS + Poisson because it was the only candidate that reliably
+produced watertight meshes end-to-end during M11 evaluation. Tool
+substitution is defensible per grant Appendix A; disclosure tracked.
+
+See `images/matcha/NOTES.md` for the full backstory of each build choice
+(8 patches discovered while porting from PyTorch 2.0.1+cu118 to
+2.7.0+cu128 for sm_120 Blackwell support).
+
+#### Base Image
+- **Image**: `nvidia/cuda:12.8.0-devel-ubuntu24.04`
+- **OS**: Ubuntu 24.04
+- **CUDA**: 12.8 (devel)
+- **Architecture**: x86_64
+- **TORCH_CUDA_ARCH_LIST**: `"8.9;12.0"` (Ada + Blackwell)
+
+#### System Dependencies
+- `python3.11` via deadsnakes PPA (venv at `/opt/matcha`)
+- Build chain: `git wget curl ffmpeg cmake ninja-build libgl1 libglib2.0-0 libeigen3-dev libcgal-dev libboost-all-dev`
+
+#### Python Dependencies (`requirements.txt`)
+See `images/matcha/requirements.txt`. Highlights:
+- PyTorch 2.7.0 + torchvision 0.22.0 + cu128
+- pytorch3d 0.7.8 (built from source)
+- 6 native CUDA extensions built from source: `curope`, `ASMK`,
+  `diff-surfel-rasterization`, `simple-knn`, `tetra-triangulation`
+- `faiss-cpu` (faiss-gpu-cu12 1.14.1 lacks sm_120 kernels)
+- Full conda-replacement runtime: plyfile, open3d, trimesh, tqdm,
+  matplotlib, roma, einops, huggingface-hub, safetensors, transformers,
+  timm, opencv-python==4.11.0.86, imageio + ffmpeg, natsort,
+  scikit-learn, scikit-image, pyyaml, gradio
+- **Excluded**: `xformers` (pulls torch 2.11 nightly → breaks pytorch3d)
+
+#### Special Considerations
+- ~30-min build on RTX 5080
+- Pre-downloads ~4.3 GB of model checkpoints at build time (Depth-Anything-V2 + MAtCha)
+- 8 build-time patches under `images/matcha/patches/`
+- See `images/matcha/NOTES.md` for the lesson catalog
+
+#### Runtime Requirements
+- NVIDIA GPU with CUDA 12.8+, ≥ 16 GB VRAM (validated on RTX 5080)
+- ≥ 32 GB RAM recommended
+- HF_TOKEN in `--env-file`
+
+---
+
+### 7. MASt3R-SLAM Container (`images/mast3r/`)
+
+**Purpose**: T0 alternative pipeline per grant Appendix A. Real-time
+dense SLAM via two-hierarchy neural network (I2P local + L2W global).
+Generates COLMAP-compatible camera poses + dense pointmap from
+monocular RGB video at 20+ FPS. Used for M11's primary T0 path
+(scaling MASt3R-SfM to 350+ frames).
+
+See `images/mast3r/NOTES.md` for the 11 distinct lessons during port to
+NGC PyTorch 25.10 + CUDA 13.
+
+#### Base Image
+- **Image**: `nvcr.io/nvidia/pytorch:25.10-py3` *(shared with `images/testing/x86/`)*
+- **OS**: Ubuntu 24.04.3 LTS
+- **CUDA**: 13.0
+- **PyTorch**: 2.9.0a0+145a3a7 (prebuilt sm_89 + sm_120 kernels)
+- **Architecture**: x86_64
+- **TORCH_CUDA_ARCH_LIST**: `"8.9;12.0"`
+
+#### System Dependencies
+- Build chain: `git wget curl ffmpeg cmake ninja-build libgl1 libglib2.0-0 libeigen3-dev`
+
+#### Python Dependencies (`requirements.txt`)
+See `images/mast3r/requirements.txt`. Base image already provides
+PyTorch + numpy + pillow; minimal additions:
+- `wheel`, `setuptools` (build-time)
+- `natsort`, `plyfile` (runtime)
+- Source-installed: thirdparty/mast3r, thirdparty/in3d, lietorch,
+  mast3r_slam_backends — all built from cloned source
+
+#### Special Considerations
+- Image is large (~36 GB)
+- Multi-host distribution: `docker save | docker load` over LAN
+  (~2.5 min on gigabit per `images/mast3r/NOTES.md`)
+- 4 build-time patches under `images/mast3r/patches/`:
+  - `patch_curope.py` — PyTorch 2.6+ `.type → .scalar_type`
+  - `patch_mast3r_setup.py` — modern arch list (sm_75+sm_80+sm_86+sm_89+sm_120) + build-time CUDA check
+  - `patch_dataloader.py` — `.jpg` accept + soft pyrealsense2 import
+  - `patch_torch_load.py` — PyTorch 2.6+ `weights_only=True` rejects MASt3R checkpoints
+- `verify_imports.py` smoke test runs at build time
+
+#### Runtime Requirements
+- NVIDIA GPU with CUDA 12.8+ (sm_89 or sm_120 verified)
+- ≥ 16 GB VRAM
+- HF_TOKEN in `--env-file` (MASt3R checkpoints downloaded at build time
+  from Naver Labs Europe)
+
+---
+
+### 8. SLAM3R Container (`images/slam3r/`)
+
+**Purpose**: Alternative T0/T1 pipeline per grant Appendix A. SLAM3R
+(CVPR 2025 Highlight) — real-time dense scene reconstruction via
+two-hierarchy neural network at 20+ FPS. Built as a fallback; not the
+primary M11 path.
+
+#### Base Image
+- **Image**: `nvidia/cuda:12.8.0-devel-ubuntu24.04`
+- **OS**: Ubuntu 24.04
+- **CUDA**: 12.8 (devel)
+- **Architecture**: x86_64
+
+#### System Dependencies
+- `python3.11` via deadsnakes PPA (venv at `/opt/slam3r`)
+- Build chain: `git wget curl ffmpeg cmake`
+
+#### Python Dependencies (`requirements.txt`)
+See `images/slam3r/requirements.txt`. Highlights:
+- PyTorch 2.5.0 + torchvision 0.20.0 + torchaudio 2.5.0 + cu124
+- Upstream SLAM3R `requirements.txt` and `requirements_optional.txt`
+  pulled from cloned repo at build time (**reproducibility gap** —
+  not pinned to a SHA)
+
+#### Special Considerations
+- CuRoPE extension fails-soft (`|| true`) since some platforms hit
+  build issues
+- HF_TOKEN in `--env-file` (model weights HuggingFace-hosted)
+
+#### Runtime Requirements
+- NVIDIA GPU with CUDA 12.4+ (cu124 wheel)
+- ≥ 16 GB VRAM
+
+---
+
+### 9. VGGT Container (`images/vggt/`)
+
+**Purpose**: Alternative T0 pipeline per grant Appendix A. VGGT
+(CVPR 2025 Best Paper) — feed-forward 3D reconstruction. Outputs land
+in COLMAP-format `sparse/` directories. Built as a fallback; not the
+primary M11 path.
+
+#### Base Image
+- **Image**: `nvidia/cuda:12.4.0-devel-ubuntu22.04`
+- **OS**: Ubuntu 22.04
+- **CUDA**: 12.4 (devel)
+- **Architecture**: x86_64
+- **TORCH_CUDA_ARCH_LIST**: `"8.9;12.0"`
+
+#### System Dependencies
+- `python3.11` (venv at `/opt/vggt`)
+- Build chain: `python3-pip git wget curl ffmpeg`
+
+#### Python Dependencies (`requirements.txt`)
+See `images/vggt/requirements.txt`. Highlights:
+- PyTorch 2.5.1 + torchvision 0.20.1 + cu124
+- Upstream VGGT `requirements.txt` and `requirements_demo.txt`
+  pulled from cloned repo at build time (same reproducibility caveat
+  as slam3r)
+- `open3d`, `trimesh` for point-cloud → mesh
+
+#### Special Considerations
+- Pre-downloads `facebook/VGGT-1B` HuggingFace model at build time
+  (~2 GB)
+- For 16 GB GPUs, runtime uses reduced query params:
+  `--max_query_pts 2048 --query_frame_num 5`
+- HF_TOKEN in `--env-file` if the gated model requires authentication
+
+#### Runtime Requirements
+- NVIDIA GPU with CUDA 12.4+
+- ≥ 16 GB VRAM
+
+---
+
 ## Shared Dependencies
 
 ### Common Python Packages
@@ -444,12 +668,34 @@ All containers share these dependencies:
 |ZMQ|25.0.0+|25.0.0+|25.0.0+|25.0.0+|
 |OS|Ubuntu 24.04 (L4T)|Ubuntu 22.04|Ubuntu 24.04|Ubuntu 24.04 (L4T)|
 
+### Version Compatibility Matrix — M11 Scene-Reconstruction Stack
+
+|Component|Scene-Recon Base|Matcha|MASt3R-SLAM|SLAM3R|VGGT|
+|---------|----------------|------|-----------|------|----|
+|Python|3.12 (system)|3.11 (venv)|3.12 (base)|3.11 (venv)|3.11 (venv)|
+|PyTorch|N/A (no PyTorch)|2.7.0+cu128|2.9.0a0+cu130 (NGC)|2.5.0+cu124|2.5.1+cu124|
+|CUDA (devel)|12.8|12.8|13.0|12.8|12.4|
+|sm_89 (Ada)|✅|✅|✅|✅|✅|
+|sm_120 (Blackwell)|✅|✅|✅|✅|✅|
+|OS|Ubuntu 24.04|Ubuntu 24.04|Ubuntu 24.04|Ubuntu 24.04|Ubuntu 22.04|
+
 ## Build Order
 
+**Locomotion stack:**
 1. **Locomotion container** - Production container, highest priority. Can be built independently, requires Jetson hardware for testing
 2. **IsaacSim container** - Can be built independently, requires Isaac Sim access
 3. **Testing container (x86)** - Testing/development only. Can be built independently, no dependencies
 4. **Testing container (ARM)** - Testing/development only. Can be built independently, requires Jetson hardware or ARM emulation
+
+**M11 scene-reconstruction stack** (independent of locomotion stack):
+5. **Scene-Reconstruction-Base** - COLMAP source-built; ~10–20 min build
+6. **Matcha** - Primary T1 pipeline; ~30 min build (heaviest)
+7. **MASt3R-SLAM** - T0 alternative; ~36 GB image
+8. **SLAM3R** - Alternative; depends on upstream `requirements.txt` (pin recommended)
+9. **VGGT** - Alternative; pre-downloads ~2 GB model at build time
+
+Run `make build-m11-images` to build all five M11 images in order. Or
+build individually with `make build-<name>-image`.
 
 ## Version Pinning Strategy
 
