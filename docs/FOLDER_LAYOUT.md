@@ -91,26 +91,68 @@ krabby-research/
 │   ├── unit/                          # Unit tests
 │   └── integration/                   # Integration tests
 │
-├── images/                           # OS images, Dockerfiles, and container configs (current)
-│   ├── locomotion/                   # Production container (Jetson: inference + HAL server, inproc ZMQ)
-│   │   ├── Dockerfile                # Jetson-compatible Dockerfile
-│   │   └── requirements.txt
-│   ├── isaacsim/                     # IsaacSim container (inference + HAL server, inproc ZMQ)
+├── images/                           # OS images, Dockerfiles, and container configs
+│   ├── locomotion/                   # Locomotion stack: production (Jetson)
 │   │   ├── Dockerfile
 │   │   └── requirements.txt
-│   └── testing/                      # Testing containers
-│       ├── x86/                      # x86 testing container
-│       │   ├── Dockerfile
-│       │   └── requirements.txt
-│       └── arm/                      # ARM testing container
-│           ├── Dockerfile
-│           └── requirements.txt
+│   ├── isaacsim/                     # Locomotion stack: IsaacSim (x86)
+│   │   ├── Dockerfile
+│   │   └── requirements.txt
+│   ├── testing/                      # Locomotion stack: testing
+│   │   ├── x86/
+│   │   │   ├── Dockerfile
+│   │   │   └── requirements.txt
+│   │   └── arm/
+│   │       ├── Dockerfile
+│   │       └── requirements.txt
+│   ├── scene-reconstruction-base/    # M11 base (COLMAP source-built + Open3D)
+│   │   ├── Dockerfile
+│   │   ├── requirements.txt
+│   │   └── README.md
+│   ├── matcha/                       # M11 PRIMARY T1 pipeline (watertight TSDF/tetra)
+│   │   ├── Dockerfile
+│   │   ├── requirements.txt
+│   │   ├── README.md
+│   │   ├── NOTES.md                  # Detailed port lessons
+│   │   └── patches/                  # 4 build-time patches
+│   ├── mast3r/                       # M11 T0 alternative (MASt3R-SLAM)
+│   │   ├── Dockerfile
+│   │   ├── requirements.txt
+│   │   ├── README.md
+│   │   ├── NOTES.md
+│   │   ├── patches/                  # 4 build-time patches
+│   │   └── verify_imports.py
+│   ├── slam3r/                       # M11 alternative per grant Appendix A
+│   │   ├── Dockerfile
+│   │   ├── requirements.txt
+│   │   └── README.md
+│   └── vggt/                         # M11 alternative per grant Appendix A
+│       ├── Dockerfile
+│       ├── requirements.txt
+│       └── README.md
 │
-└── scripts/                          # Deployment and utility scripts (current)
-    └── deploy/                       # Deployment scripts
-        ├── run_isaac_simulation.sh  # Launch IsaacSim HAL server
-        └── run_locomotion.sh        # Launch locomotion container (Jetson, inproc ZMQ)
+├── real2sim/                         # M11: real-to-sim pipeline (SfM, mesh, USD prep)
+│   ├── README.md                     # Layout + quick-start
+│   ├── *.py                           # Mesh-conditioning + scene-build tooling
+│   ├── *.sh                           # Pipeline runners (run_colmap_*, run_mast3r, etc.)
+│   ├── camera_viewer/                 # T0.B5: interactive 3D camera-selection UI
+│   └── rate_renders/                  # Web app for rating rendered comparisons
+│
+├── .beads/                           # Beads issue-tracking DB (M11+ uses prefix m11-*)
+│   ├── issues.jsonl                  # Portable canonical export
+│   └── (config.yaml, hooks/, README.md)
+│
+└── scripts/                          # Deployment and utility scripts
+    ├── setup-docker-gpu.sh           # NVIDIA Container Toolkit installer
+    └── deploy/                        # Per-container launch scripts
+        ├── run_isaac_simulation.sh
+        └── run_locomotion.sh
 ```
+
+> **M11 environments** (reconstructed scene assets, USD outputs) will land at
+> `environments/reconstructed/<scene>/` once Phase E2 produces them. See
+> `MIGRATION.md` Q2 for the still-pending decision on raw-video storage
+> (S3 vs git-LFS).
 
 ## Key Points
 
