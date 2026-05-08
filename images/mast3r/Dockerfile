@@ -39,7 +39,7 @@ WORKDIR /opt/MASt3R-SLAM
 RUN pip install --no-cache-dir wheel setuptools
 
 # Patch curope CUDA kernel for PyTorch 2.6+ API (.type() → .scalar_type()).
-COPY patch_curope.py /tmp/patch_curope.py
+COPY patches/patch_curope.py /tmp/patch_curope.py
 RUN python /tmp/patch_curope.py
 
 # Install MASt3R thirdparty
@@ -51,7 +51,7 @@ RUN ln -sf /usr/include/eigen3/Eigen /opt/lietorch/eigen/Eigen && \
     cd /opt/lietorch && python setup.py install
 
 # Patch mast3r_slam setup.py for build-time CUDA check + modern arch list
-COPY patch_mast3r_setup.py /tmp/patch_mast3r_setup.py
+COPY patches/patch_mast3r_setup.py /tmp/patch_mast3r_setup.py
 RUN python /tmp/patch_mast3r_setup.py
 
 # Build mast3r_slam_backends C extension
@@ -61,12 +61,12 @@ RUN pip install --no-cache-dir --no-build-isolation -e .
 RUN pip install --no-cache-dir natsort plyfile
 
 # Patch dataloader: accept jpg + soft pyrealsense2 import
-COPY patch_dataloader.py /tmp/patch_dataloader.py
+COPY patches/patch_dataloader.py /tmp/patch_dataloader.py
 RUN python /tmp/patch_dataloader.py
 
 # Patch torch.load calls: PyTorch 2.6+ defaults to weights_only=True, which rejects
 # MASt3R checkpoints (they contain argparse.Namespace).
-COPY patch_torch_load.py /tmp/patch_torch_load.py
+COPY patches/patch_torch_load.py /tmp/patch_torch_load.py
 RUN python /tmp/patch_torch_load.py
 
 # Download checkpoints (~1.5 GB)

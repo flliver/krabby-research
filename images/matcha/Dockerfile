@@ -58,7 +58,7 @@ RUN pip install --no-cache-dir --no-build-isolation \
 RUN git clone --recursive https://github.com/Anttwo/MAtCha.git /opt/MAtCha
 
 # --- Patch & build curope (PyTorch 2.6+ .type → .scalar_type) ---
-COPY patch_matcha_curope.py /tmp/patch_matcha_curope.py
+COPY patches/patch_matcha_curope.py /tmp/patch_matcha_curope.py
 RUN python /tmp/patch_matcha_curope.py
 RUN cd /opt/MAtCha/mast3r/dust3r/croco/models/curope && \
     python setup.py build_ext --inplace
@@ -71,7 +71,7 @@ RUN cd /opt/MAtCha/mast3r/asmk && \
 
 # --- 2D Gaussian Splatting submodules ---
 # Patch missing <cstdint> / <cfloat> includes before building.
-COPY patch_matcha_includes.py /tmp/patch_matcha_includes.py
+COPY patches/patch_matcha_includes.py /tmp/patch_matcha_includes.py
 RUN python /tmp/patch_matcha_includes.py
 
 RUN cd /opt/MAtCha/2d-gaussian-splatting/submodules/diff-surfel-rasterization && \
@@ -81,7 +81,7 @@ RUN cd /opt/MAtCha/2d-gaussian-splatting/submodules/simple-knn && \
 
 # --- Tetra-triangulation: cmake + make (separate from pip) ---
 # patch_matcha_tetra_cmake.py adds explicit CUDA include and flips CXX11_ABI to 1.
-COPY patch_matcha_tetra_cmake.py /tmp/patch_matcha_tetra_cmake.py
+COPY patches/patch_matcha_tetra_cmake.py /tmp/patch_matcha_tetra_cmake.py
 RUN python /tmp/patch_matcha_tetra_cmake.py
 RUN cd /opt/MAtCha/2d-gaussian-splatting/submodules/tetra-triangulation && \
     cmake -DPYTHON_EXECUTABLE=/opt/matcha/bin/python . && \
@@ -101,7 +101,7 @@ RUN pip install --no-cache-dir \
 # --- Patch torch.load calls (PyTorch 2.6+ default weights_only=True) ---
 # Run AFTER all source has been cloned/installed, since this rewrites .py
 # files in the source tree.
-COPY patch_matcha_torch_load.py /tmp/patch_matcha_torch_load.py
+COPY patches/patch_matcha_torch_load.py /tmp/patch_matcha_torch_load.py
 RUN python /tmp/patch_matcha_torch_load.py
 
 # --- Download model checkpoints (~4.3 GB total) ---
