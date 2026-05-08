@@ -216,3 +216,8 @@ __marimo__/
 # Parkour RL training artifacts (RSL-RL logs, Hydra outputs)
 parkour/logs/
 parkour/outputs/
+
+# Beads / Dolt files (bd init defaults)
+.dolt/
+*.db
+.beads-credential-key

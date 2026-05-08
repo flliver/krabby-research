@@ -77,3 +77,24 @@ Tests run inside the x86 testing Docker container. Run all tests (excluding Jets
 ```bash
 make test
 ```
+
+### Issue tracking — Beads
+
+This repo uses Beads (`bd`) as the repo-resident issue tracker. The DB
+lives at `.beads/`, prefix `m11-` for the active M11 milestone. Install:
+
+```bash
+brew install steveyegge/beads/bd
+```
+
+Daily commands:
+
+```bash
+bd ready              # show unblocked work
+bd list               # all open beads
+bd show m11-u3l       # specific bead detail
+bd graph m11-4tl      # text DAG
+```
+
+See `docs/BEADS.md` for the full convention, naming scheme, and
+render-tooling pointers.
