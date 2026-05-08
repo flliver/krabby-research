@@ -1,0 +1,198 @@
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 12.4.0
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+WARNING: The NVIDIA Driver was not detected.  GPU functionality will not be available.
+   Use the NVIDIA Container Toolkit to start this container with GPU support; see
+   https://docs.nvidia.com/datacenter/cloud-native/ .
+
+=== Python packages ===
+-e git+https://github.com/rmurai0610/MASt3R-SLAM.git@e6f4e3d474fad0e11f561482012be864ba8c3f17#egg=MAST3R&subdirectory=thirdparty/mast3r
+-e git+https://github.com/rmurai0610/MASt3R-SLAM.git@e6f4e3d474fad0e11f561482012be864ba8c3f17#egg=UNKNOWN
+-e git+https://github.com/rmurai0610/MASt3R-SLAM.git@e6f4e3d474fad0e11f561482012be864ba8c3f17#egg=in3d&subdirectory=thirdparty/in3d
+Jinja2==3.1.6
+Markdown==3.10.2
+MarkupSafe==3.0.3
+PyYAML==6.0.3
+Pygments==2.20.0
+TorchCodec==0.1.0
+Werkzeug==3.1.8
+absl-py==2.4.0
+annotated-doc==0.0.4
+annotated-types==0.7.0
+anyio==4.13.0
+asmk @ file:///opt/MASt3R-SLAM/thirdparty/mast3r/asmk
+attrs==26.1.0
+brotli==1.2.0
+certifi==2026.2.25
+charset-normalizer==3.4.7
+click==8.3.2
+colorlog==6.10.1
+contourpy==1.3.3
+curope==0.0.0
+cycler==0.12.1
+einops==0.8.2
+embreex==2.17.7.post7
+faiss-cpu==1.13.2
+fastapi==0.135.3
+filelock==3.25.2
+fonttools==4.62.1
+fsspec==2026.2.0
+glcontext==3.0.0
+glfw==2.10.0
+gradio==6.12.0
+gradio_client==2.4.1
+groovy==0.1.2
+grpcio==1.80.0
+h11==0.16.0
+hf-gradio==0.3.0
+hf-xet==1.4.3
+httpcore==1.0.9
+httpx==0.28.1
+huggingface_hub==1.10.1
+idna==3.11
+imgui @ file:///opt/MASt3R-SLAM/thirdparty/in3d/thirdparty/pyimgui
+joblib==1.5.3
+jsonschema-specifications==2025.9.1
+jsonschema==4.26.0
+kiwisolver==1.5.0
+lietorch==0.3
+lxml==6.0.3
+manifold3d==3.4.1
+mapbox_earcut==2.0.0
+markdown-it-py==4.0.0
+matplotlib==3.10.8
+mdurl==0.1.2
+moderngl-window==2.4.6
+moderngl==5.12.0
+mpmath==1.3.0
+msgpack==1.1.2
+multipledispatch==1.0.0
+natsort==8.4.0
+networkx==3.6.1
+numpy==1.26.4
+nvidia-cublas-cu12==12.4.5.8
+nvidia-cuda-cupti-cu12==12.4.127
+nvidia-cuda-nvrtc-cu12==12.4.127
+nvidia-cuda-runtime-cu12==12.4.127
+nvidia-cudnn-cu12==9.1.0.70
+nvidia-cufft-cu12==11.2.1.3
+nvidia-curand-cu12==10.3.5.147
+nvidia-cusolver-cu12==11.6.1.9
+nvidia-cusparse-cu12==12.3.1.170
+nvidia-nccl-cu12==2.21.5
+nvidia-nvjitlink-cu12==12.4.127
+nvidia-nvtx-cu12==12.4.127
+opencv-python==4.13.0.92
+orjson==3.11.8
+packaging==26.0
+pandas==3.0.2
+pillow==12.1.1
+plyfile==1.1.3
+protobuf==7.34.1
+pyaml==26.2.1
+pycollada==0.9.3
+pydantic==2.12.5
+pydantic_core==2.41.5
+pydub==0.25.1
+pyglet==2.1.14
+pyglm==2.8.3
+pyparsing==3.3.2
+pyrr==0.10.3
+python-dateutil==2.9.0.post0
+python-multipart==0.0.26
+pytz==2026.1.post1
+referencing==0.37.0
+rich==15.0.0
+roma==1.5.6
+rpds-py==0.30.0
+rtree==1.4.1
+safehttpx==0.1.7
+safetensors==0.7.0
+scikit-learn==1.8.0
+scipy==1.17.1
+semantic-version==2.10.0
+shapely==2.1.2
+shellingham==1.5.4
+six==1.17.0
+starlette==1.0.0
+svg.path==7.0
+sympy==1.13.1
+tensorboard-data-server==0.7.2
+tensorboard==2.20.0
+threadpoolctl==3.6.0
+tomlkit==0.14.0
+torch==2.5.1+cu124
+torchaudio==2.5.1+cu124
+torchvision==0.20.1+cu124
+tqdm==4.67.3
+trimesh==4.11.5
+triton==3.1.0
+typer==0.24.1
+typing-inspection==0.4.2
+typing_extensions==4.15.0
+uvicorn==0.44.0
+vhacdx==0.0.10
+xxhash==3.6.0
+
+=== MASt3R-SLAM commit ===
+e6f4e3d Update bibtex
+ bddaa99e151244402c6e804e01b970288650da6b thirdparty/eigen (before-3.4-1284-gbddaa99e1)
+ c79137d6c47040e6ce226f8109868a3018d5354b thirdparty/in3d/thirdparty/pyimgui (2.0.0-4-gc79137d)
+
+=== Filesystem locations ===
+lietorch not at /opt/
+total 252
+drwxr-xr-x 1 root root   4096 Apr 12 15:59 .
+drwxrwxrwt 1 root root   4096 Apr 29 17:26 ..
+drwxr-xr-x 8 root root   4096 Apr 12 14:17 .git
+-rw-r--r-- 1 root root    101 Apr 12 14:17 .gitignore
+-rw-r--r-- 1 root root     79 Apr 12 14:17 .gitmodules
+-rw-r--r-- 1 root root   1512 Apr 12 14:17 LICENSE
+-rw-r--r-- 1 root root   4218 Apr 12 14:17 README.md
+drwxr-xr-x 1 root root   4096 Apr 12 15:59 build
+drwxr-xr-x 2 root root   4096 Apr 12 15:59 dist
+drwxr-xr-x 1 root root   4096 Apr 12 15:57 eigen
+drwxr-xr-x 6 root root   4096 Apr 12 14:17 examples
+drwxr-xr-x 1 root root   4096 Apr 12 14:17 lietorch
+drwxr-xr-x 1 root root   4096 Apr 12 15:57 lietorch.egg-info
+-rw-r--r-- 1 root root 186264 Apr 12 14:17 lietorch.png
+-rw-r--r-- 1 root root    393 Apr 12 14:17 pyproject.toml
+-rwxr-xr-x 1 root root     42 Apr 12 14:17 run_tests.sh
+-rw-r--r-- 1 root root   1336 Apr 12 14:17 setup.py
+(lietorch: /tmp/)
+/tmp/lietorch/build/lib.linux-x86_64-3.11/lietorch_backends.cpython-311-x86_64-linux-gnu.so
+/opt/mast3r/lib/python3.11/site-packages/lietorch-0.3-py3.11-linux-x86_64.egg/lietorch_backends.cpython-311-x86_64-linux-gnu.so
+/opt/MASt3R-SLAM/build/lib.linux-x86_64-3.11/mast3r_slam_backends.cpython-311-x86_64-linux-gnu.so
+/opt/MASt3R-SLAM/mast3r_slam_backends.cpython-311-x86_64-linux-gnu.so
+
+=== Dataloader patches ===
+    import pyrealsense2 as rs
+except ImportError:
+    rs = None
+---
+        self.rgb_files = natsorted(
+        self.rgb_files = natsorted(list((self.dataset_path).glob("*.png")) + list((self.dataset_path).glob("*.jpg")))
+
+=== Env vars ===
+CUDA_HOME=
+TORCH_CUDA_ARCH_LIST=8.9
+LD_LIBRARY_PATH=/opt/mast3r/lib/python3.11/site-packages/torch/lib
+PATH=/opt/mast3r/bin:/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+=== Checkpoints ===
+total 2.9G
+-rw-r--r-- 1 root root 2.6G Jul 10  2024 MASt3R_ViTLarge_BaseDecoder_512_catmlpdpt_metric.pth
+-rw-r--r-- 1 root root 257M Sep 30  2024 MASt3R_ViTLarge_BaseDecoder_512_catmlpdpt_metric_retrieval_codebook.pkl
+-rw-r--r-- 1 root root 8.1M Sep 30  2024 MASt3R_ViTLarge_BaseDecoder_512_catmlpdpt_metric_retrieval_trainingfree.pth

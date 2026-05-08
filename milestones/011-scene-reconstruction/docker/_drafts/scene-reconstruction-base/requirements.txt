@@ -1,0 +1,22 @@
+# Scene-reconstruction base container — Python deps
+# Migration target: research/images/scene-reconstruction-base/requirements.txt
+#
+# Base image: nvidia/cuda:12.8.0-devel-ubuntu24.04
+# Container purpose: COLMAP (source-built with CUDA) + Open3D mesh tooling.
+# Used for T1 mesh post-processing pipeline (Phase B / Phase D).
+#
+# System Python via pip3 install --break-system-packages (Ubuntu 24.04 PEP 668).
+
+# Mesh processing
+open3d
+pymeshlab
+trimesh
+
+# Core arrays / image I/O
+numpy
+pillow
+
+# COLMAP itself is source-built in the Dockerfile (apt deps: libboost-all-dev,
+# libeigen3-dev, libflann-dev, libfreeimage-dev, libmetis-dev, libgoogle-glog-dev,
+# libgtest-dev, libsqlite3-dev, libglew-dev, qtbase5-dev, libqt5opengl5-dev,
+# libcgal-dev, libceres-dev — see Dockerfile).

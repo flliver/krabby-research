@@ -1,0 +1,452 @@
+/* ==========================================================================
+   Rate-renders: tier-list ranker for variant comparison.
+   Pure CSS, no framework. Dark theme. Three-pane layout.
+   ========================================================================== */
+:root {
+  --bg: #1a1a1d;
+  --bg-elev: #25252a;
+  --bg-elev-2: #2f2f36;
+  --border: #3a3a42;
+  --text: #e8e8ee;
+  --text-dim: #9c9cab;
+  --accent: #5fd49a;        /* mint — matches viser virtual cam color */
+  --accent-dim: #338860;
+  --warn: #ffb454;
+  --tier-1: #f04848;        /* S — best */
+  --tier-2: #f08c48;
+  --tier-3: #f0d048;
+  --tier-4: #b4f048;
+  --tier-5: #48f0a0;
+  --tier-6: #48b8f0;
+  --pool-color: #6c6c7a;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
+  font-size: 14px;
+  background: var(--bg);
+  color: var(--text);
+  overflow: hidden;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+}
+
+/* -- Top bar -------------------------------------------------------------- */
+#topbar {
+  display: flex;
+  gap: 24px;
+  padding: 10px 16px;
+  background: var(--bg-elev);
+  border-bottom: 1px solid var(--border);
+  align-items: center;
+  flex-wrap: wrap;
+}
+#topbar .group {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+#topbar label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 11px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+#topbar select, #topbar input {
+  background: var(--bg-elev-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 5px 8px;
+  border-radius: 4px;
+  font-size: 13px;
+  min-width: 140px;
+}
+#topbar input {
+  min-width: 130px;
+}
+#topbar .lbl {
+  font-size: 11px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-right: 4px;
+}
+
+/* -- Layout buttons ------------------------------------------------------- */
+#layout-buttons {
+  display: flex;
+  gap: 4px;
+}
+#layout-buttons button {
+  background: var(--bg-elev-2);
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  font-family: inherit;
+  min-width: 38px;
+}
+#layout-buttons button:hover { color: var(--text); }
+#layout-buttons button.active {
+  background: var(--accent-dim);
+  color: var(--bg);
+  border-color: var(--accent);
+}
+
+/* -- Page nav ------------------------------------------------------------- */
+#prev-page, #next-page {
+  background: var(--bg-elev-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+#page-indicator {
+  color: var(--text-dim);
+  min-width: 50px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* -- Main panes ----------------------------------------------------------- */
+main {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 460px 320px;
+  gap: 0;
+  overflow: hidden;
+}
+
+/* -- Grid pane (renders) -------------------------------------------------- */
+#grid-pane {
+  background: var(--bg);
+  padding: 12px;
+  overflow: auto;
+}
+#grid {
+  display: grid;
+  gap: 8px;
+  height: 100%;
+  /* CSS variable controls layout — JS sets it */
+  grid-template-columns: repeat(var(--grid-cols, 2), 1fr);
+  grid-template-rows: repeat(var(--grid-rows, 2), 1fr);
+  min-height: 400px;
+}
+.tile {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+}
+.tile:active { cursor: grabbing; }
+.tile.dragging { opacity: 0.4; }
+.tile.empty {
+  background: var(--bg);
+  border-style: dashed;
+  cursor: default;
+}
+.tile img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+.tile .label {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  background: rgba(0, 0, 0, 0.7);
+  color: var(--text);
+  padding: 3px 8px;
+  border-radius: 3px;
+  font-size: 12px;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  pointer-events: none;
+}
+.tile.focus { outline: 2px solid var(--accent); }
+
+/* -- Rank pane (tier list) ------------------------------------------------ */
+#rank-pane {
+  background: var(--bg-elev);
+  border-left: 1px solid var(--border);
+  padding: 12px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+}
+#rank-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+#rank-header h3 {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text);
+}
+.rank-actions { display: flex; gap: 6px; }
+.rank-actions button {
+  background: var(--bg-elev-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+.rank-actions button:hover { background: var(--border); }
+.rank-actions button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+#submit-btn {
+  background: var(--accent-dim);
+  color: var(--bg);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+#submit-btn:disabled { background: var(--bg-elev-2); border-color: var(--border); color: var(--text-dim); }
+
+.tier-row {
+  display: flex;
+  align-items: stretch;
+  margin-bottom: 6px;
+  background: var(--bg);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.tier-row.pool-row {
+  background: var(--bg-elev-2);
+  margin-bottom: 12px;
+  border: 1px dashed var(--border);
+}
+.tier-label {
+  width: 70px;
+  flex-shrink: 0;
+  padding: 8px 6px;
+  background: var(--bg-elev-2);
+  text-align: center;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--bg);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  font-family: ui-monospace, monospace;
+}
+.tier-sub { font-weight: 400; font-size: 10px; opacity: 0.8; }
+.tier-row.pool-row .tier-label { background: var(--pool-color); color: var(--text); }
+.tier-row[data-tier="1"] .tier-label { background: var(--tier-1); }
+.tier-row[data-tier="2"] .tier-label { background: var(--tier-2); }
+.tier-row[data-tier="3"] .tier-label { background: var(--tier-3); }
+.tier-row[data-tier="4"] .tier-label { background: var(--tier-4); }
+.tier-row[data-tier="5"] .tier-label { background: var(--tier-5); }
+.tier-row[data-tier="6"] .tier-label { background: var(--tier-6); }
+
+.tier-drop {
+  flex: 1;
+  min-height: 64px;
+  padding: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.tier-drop.dragover {
+  background: rgba(95, 212, 154, 0.12);
+  outline: 2px dashed var(--accent);
+  outline-offset: -4px;
+}
+
+/* -- Cards ---------------------------------------------------------------- */
+.card {
+  width: 110px;
+  height: 64px;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: grab;
+  position: relative;
+  overflow: hidden;
+  user-select: none;
+  flex-shrink: 0;
+}
+.card:active { cursor: grabbing; }
+.card.dragging { opacity: 0.4; }
+.card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.card .name {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(0, 0, 0, 0.78);
+  color: var(--text);
+  font-size: 10px;
+  font-family: ui-monospace, monospace;
+  padding: 2px 4px;
+  text-align: center;
+  pointer-events: none;
+  letter-spacing: 0.02em;
+}
+.card.focus { outline: 2px solid var(--accent); }
+
+/* -- Info pane (manifest + results) -------------------------------------- */
+#info-pane {
+  background: var(--bg);
+  border-left: 1px solid var(--border);
+  padding: 12px;
+  overflow: auto;
+}
+#info-pane h3 {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+  margin: 0 0 8px 0;
+}
+#info-pane hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 16px 0;
+}
+#manifest-content, #results-content {
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+#manifest-content code {
+  background: var(--bg-elev-2);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-family: ui-monospace, monospace;
+  font-size: 11.5px;
+}
+#manifest-content em { color: var(--text-dim); }
+#results-content ol { padding-left: 22px; margin: 6px 0; }
+#results-content li { margin-bottom: 3px; font-family: ui-monospace, monospace; font-size: 12px; }
+#results-content .winner { color: var(--accent); font-weight: 600; }
+#results-content h4 {
+  margin: 12px 0 4px 0;
+  font-size: 12px;
+  color: var(--text);
+  letter-spacing: 0.02em;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+#results-content h4:first-of-type { border-top: none; padding-top: 0; }
+
+/* -- Footer --------------------------------------------------------------- */
+footer {
+  background: var(--bg-elev);
+  border-top: 1px solid var(--border);
+  padding: 6px 16px;
+  color: var(--text-dim);
+  font-size: 11.5px;
+  display: flex;
+  justify-content: space-between;
+}
+footer kbd {
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-family: ui-monospace, monospace;
+  font-size: 10.5px;
+}
+
+#submit-status { margin-top: 8px; font-size: 12px; min-height: 18px; }
+#submit-status.ok { color: var(--accent); }
+#submit-status.err { color: var(--warn); }
+
+/* -- Mobile / narrow viewport -------------------------------------------
+ * Below 900px the three-pane grid no longer fits. Stack vertically:
+ * grid (image) on top, ranking middle, info-pane bottom (collapsible).
+ * Body becomes vertically scrollable instead of three independent scroll
+ * regions — feels native on phones.
+ * --------------------------------------------------------------------- */
+@media (max-width: 900px) {
+  html, body { overflow: auto; height: auto; }
+  body { min-height: 100vh; }
+
+  #topbar {
+    gap: 12px;
+    padding: 8px 10px;
+  }
+  #topbar select, #topbar input { min-width: 110px; font-size: 14px; }
+  #topbar .group { gap: 6px; }
+  #layout-buttons button { padding: 8px 10px; font-size: 13px; min-width: 42px; }
+
+  main {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto;
+    overflow: visible;
+  }
+
+  #grid-pane {
+    /* Use viewport-height so the image area remains substantial on phones */
+    min-height: 50vh;
+    overflow: visible;
+    padding: 8px;
+  }
+  #grid { min-height: 50vh; gap: 6px; }
+
+  #rank-pane {
+    border-left: none;
+    border-top: 1px solid var(--border);
+    overflow: visible;
+    padding: 10px;
+  }
+
+  #info-pane {
+    border-left: none;
+    border-top: 1px solid var(--border);
+    overflow: visible;
+    padding: 10px 12px;
+  }
+
+  /* Touch-friendly cards: bigger drag targets, finger-comfortable spacing */
+  .card { width: 88px; height: 50px; }
+  .card .name { font-size: 9.5px; padding: 1px 3px; }
+  .tier-label { width: 56px; font-size: 12px; }
+  .tier-drop { min-height: 56px; gap: 4px; padding: 4px; }
+  .rank-actions button { padding: 8px 12px; font-size: 13px; }
+
+  /* Hide keyboard-shortcut footer on phones — those keys aren't there. */
+  footer { display: none; }
+}
+
+/* Very narrow (portrait phones, ≤ 480px): tile labels + tier labels even
+   tighter, and keep header from stealing too much vertical space. */
+@media (max-width: 480px) {
+  #topbar { padding: 6px 8px; gap: 8px; }
+  #topbar label { font-size: 10px; }
+  #topbar select, #topbar input { padding: 6px 6px; font-size: 13px; min-width: 90px; }
+  .card { width: 72px; height: 42px; }
+  .tier-label { width: 44px; font-size: 11px; padding: 6px 2px; }
+  #grid-pane { min-height: 40vh; }
+  #grid { min-height: 40vh; }
+}

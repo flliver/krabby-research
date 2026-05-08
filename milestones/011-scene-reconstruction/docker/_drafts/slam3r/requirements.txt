@@ -1,0 +1,30 @@
+# SLAM3R container — Python deps
+# Migration target: research/images/slam3r/requirements.txt
+#
+# Base image: nvidia/cuda:12.8.0-devel-ubuntu24.04
+# Container purpose: SLAM3R (Real-Time Dense Scene Reconstruction from
+# Monocular RGB Videos, CVPR 2025 Highlight). Listed in M11 grant
+# Appendix A as a T0/T1 alternative pipeline.
+# Reference paper: arXiv 2412.09401.
+#
+# Python 3.11 venv at /opt/slam3r.
+
+# --- PyTorch 2.5.0 + cu124 ---
+# Install from: https://download.pytorch.org/whl/cu124
+torch==2.5.0
+torchvision==0.20.0
+torchaudio==2.5.0
+
+# --- Upstream SLAM3R requirements pulled from cloned repo at build time ---
+# Dockerfile runs:
+#   pip install --no-cache-dir -r requirements.txt
+#   pip install --no-cache-dir -r requirements_optional.txt || true
+# Where requirements.txt comes from /opt/SLAM3R after git clone.
+#
+# TODO M-3.1: when migrating to research/images/slam3r/, either:
+#   (a) Pin the upstream SLAM3R requirements to a known-good SHA and
+#       commit a snapshot here (recommended — protects from upstream drift).
+#   (b) Continue to pull at build time and accept the reproducibility risk.
+
+# --- CuRoPE extension built from source in Dockerfile ---
+# (No requirements.txt entry; cd slam3r/pos_embed/curope && python setup.py build_ext --inplace)

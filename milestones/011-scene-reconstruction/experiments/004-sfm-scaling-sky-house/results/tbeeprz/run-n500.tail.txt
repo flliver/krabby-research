@@ -1,0 +1,49 @@
+/opt/MAtCha/mast3r/dust3r/dust3r/cloud_opt/base_opt.py:275: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  @torch.cuda.amp.autocast(enabled=False)
+FAILED TO LOAD FAISS GPU, FALLING BACK TO ASMK
+500 images found in /data/frames/004-sfm-scaling-500.
+Loading MASt3R model...
+... loading model from ./mast3r/checkpoints/MASt3R_ViTLarge_BaseDecoder_512_catmlpdpt_metric.pth
+instantiating : AsymmetricMASt3R(enc_depth=24, dec_depth=12, enc_embed_dim=1024, dec_embed_dim=768, enc_num_heads=16, dec_num_heads=12, pos_embed='RoPE100',img_size=(512, 512), head_type='catmlp+dpt', output_mode='pts3d+desc24', depth_mode=('exp', -inf, inf), conf_mode=('exp', 1, inf), patch_embed_cls='PatchEmbedDust3R', two_confs=True, desc_conf_mode=('exp', 0, inf), landscape_only=False)
+<All keys matched successfully>
+MASt3R model loaded.
+Loading images...
+Loaded 500 images.
+Images have shape: torch.Size([1, 3, 288, 512])
+Images have shape: torch.Size([1, 3, 288, 512])
+Loading retrieval model from ./mast3r/checkpoints/MASt3R_ViTLarge_BaseDecoder_512_catmlpdpt_metric_retrieval_trainingfree.pth
+Found 500 images
+100%|██████████| 500/500 [00:07<00:00, 71.07it/s]
+Start building scene graph...
+Done building scene graph.
+Start global alignment...
+  with torch.cuda.amp.autocast(enabled=False):
+100%|██████████| 6274/6274 [08:52<00:00, 11.78it/s]  
+100%|█████████▉| 499/500 [00:15<00:00, 24.28it/s]
+100%|██████████| 500/500 [00:15<00:00, 31.59it/s]
+/opt/matcha/lib/python3.11/site-packages/torch/_compile.py:51: UserWarning: optimizer contains a parameter group with duplicate parameters; in future, this will cause an error; see github.com/pytorch/pytorch/issues/40967 for more information
+  return disable_fn(*args, **kwargs)
+init focal (shared) =  290.68
+Traceback (most recent call last):
+  File "/opt/MAtCha/mast3r/run_mast3r.py", line 577, in <module>
+    scene = sparse_global_alignment(filelist, pairs, cache_dir,
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/MAtCha/mast3r/mast3r/cloud_opt/sparse_ga.py", line 189, in sparse_global_alignment
+    imgs, res_coarse, res_fine = sparse_scene_optimizer(
+                                 ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/MAtCha/mast3r/mast3r/cloud_opt/sparse_ga.py", line 498, in sparse_scene_optimizer
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/MAtCha/mast3r/mast3r/cloud_opt/sparse_ga.py", line 459, in optimize_loop
+    pts3d = make_pts3d(anchors, K, cam2w, depthmaps, base_focals=base_focals)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/MAtCha/mast3r/mast3r/cloud_opt/sparse_ga.py", line 554, in make_pts3d
+    pts3d = geotrf(cam2w[img], pts3d)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/MAtCha/mast3r/dust3r/dust3r/utils/geometry.py", line 86, in geotrf
+    pts = pts @ Trf[..., :-1, :] + Trf[..., -1:, :]
+          ~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~
+torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 2.00 MiB. GPU 0 has a total capacity of 15.45 GiB of which 79.50 MiB is free. Including non-PyTorch memory, this process has 14.71 GiB memory in use. Of the allocated memory 14.13 GiB is allocated by PyTorch, and 252.41 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)
+[INFO] Using 500 images for optimization.
+[INFO] Scene will be saved to: /data/sfm-scaling-out/n500/mast3r_sfm
+[INFO] Running command:
+ python mast3r/run_mast3r.py --scene_path /data/frames/004-sfm-scaling-500 --output_dir /data/sfm-scaling-out/n500/mast3r_sfm --weights_path ./mast3r/checkpoints/MASt3R_ViTLarge_BaseDecoder_512_catmlpdpt_metric.pth --retrieval_model ./mast3r/checkpoints/MASt3R_ViTLarge_BaseDecoder_512_catmlpdpt_metric_retrieval_trainingfree.pth --min_conf_thr 0.0 --matching_conf_thr 0.0 --n_coarse_iterations 1000 --n_refinement_iterations 1000 --TSDF_thresh 0.0  --fix_principal_point   --n_images 500    --image_size 512 --max_window_size 20 --max_refid 10   --output_conf_thr 0.1 
