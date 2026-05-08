@@ -1,0 +1,67 @@
+# MAtCha container — Python deps
+# Migration target: research/images/matcha/requirements.txt
+#
+# Base image: nvidia/cuda:12.8.0-devel-ubuntu24.04
+# Container purpose: MAtCha (Atlas of Charts) sparse-view 3D reconstruction
+# producing watertight TSDF and adaptive-tetrahedralization meshes (T1).
+#
+# Hardware: multi-arch sm_89 (Ada) + sm_120 (Blackwell).
+# Validated on RTX 5080 (16 GB VRAM).
+#
+# Stack details — see docker/MATCHA-NOTES.md for the full backstory of
+# every choice (8 patches required to port from PyTorch 2.0.1+cu118 to
+# 2.7.0+cu128).
+
+# --- Build tooling (must install first) ---
+pip
+wheel
+setuptools
+ninja
+cython
+
+# --- PyTorch 2.7.0 + cu128 (validated for sm_120) ---
+# Install from: https://download.pytorch.org/whl/cu128
+torch==2.7.0
+torchvision==0.22.0
+
+# --- pytorch3d 0.7.8 (built from source — no wheels for torch 2.7) ---
+# Prereqs that must precede pytorch3d build:
+fvcore
+iopath
+# Then: pip install --no-build-isolation \
+#   "git+https://github.com/facebookresearch/pytorch3d.git@stable"
+
+# --- Native CUDA extensions built from source in Dockerfile ---
+# (No requirements.txt entry; built via cmake/make + setup.py inside container.)
+#   - curope                                (in /opt/MAtCha/mast3r/dust3r/croco/models/curope)
+#   - ASMK                                  (in /opt/MAtCha/mast3r/asmk; needs faiss-cpu)
+#   - diff-surfel-rasterization             (2D Gaussian Splatting submodule)
+#   - simple-knn                            (2D Gaussian Splatting submodule)
+#   - tetra-triangulation                   (cmake + make; CXX11_ABI=1)
+
+# --- ASMK dependency (faiss-gpu-cu12 1.14.1 lacks sm_120 kernels) ---
+faiss-cpu
+
+# --- MAtCha runtime deps (originally in upstream environment.yml conda) ---
+plyfile
+open3d
+trimesh
+tqdm
+matplotlib
+roma
+einops
+huggingface-hub
+safetensors
+transformers
+timm
+opencv-python==4.11.0.86
+imageio
+imageio-ffmpeg
+natsort
+scikit-learn
+scikit-image
+pyyaml
+gradio
+
+# DO NOT install xformers — it pulls torch 2.11 nightly which breaks
+# pytorch3d's compiled _C.so (ABI mismatch). MAtCha runs fine without it.

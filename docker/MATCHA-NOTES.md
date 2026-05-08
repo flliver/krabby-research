@@ -177,8 +177,18 @@ min on gigabit LAN). See `docker/pytorch-containers` corpus topic.
 
 ## Run command
 
+Use the full PyTorch-container flag set per
+`research/docs/DOCKER_DEPENDENCIES.md`. Without `--shm-size=8g` the
+container silently deadlocks at 0% GPU. The other three (`--ipc=host`,
+`--ulimit memlock=-1`, `--ulimit stack=67108864`) are NVIDIA's official
+recommendations.
+
 ```bash
-docker run --rm --gpus all --shm-size=8g \
+docker run --rm --gpus all \
+    --shm-size=8g \
+    --ipc=host \
+    --ulimit memlock=-1 \
+    --ulimit stack=67108864 \
     -v <data-dir>:/data \
     --env-file ../.env \
     krabby-matcha \

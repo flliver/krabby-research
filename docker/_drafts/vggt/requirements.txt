@@ -1,0 +1,33 @@
+# VGGT container — Python deps
+# Migration target: research/images/vggt/requirements.txt
+#
+# Base image: nvidia/cuda:12.4.0-devel-ubuntu22.04
+# Container purpose: VGGT (Visual Geometry Grounded Transformer) —
+# CVPR 2025 Best Paper, feed-forward 3D reconstruction. Alternative T0
+# pipeline (also produces COLMAP-format sparse).
+#
+# Python 3.11 venv at /opt/vggt.
+
+# --- PyTorch 2.5.1 + cu124 ---
+# Install from: https://download.pytorch.org/whl/cu124
+torch==2.5.1
+torchvision==0.20.1
+
+# --- Upstream VGGT requirements pulled from cloned repo at build time ---
+# Dockerfile runs:
+#   pip install --no-cache-dir -r requirements.txt
+#   pip install --no-cache-dir -r requirements_demo.txt || true
+# Where requirements.txt comes from /opt/VGGT after git clone.
+#
+# TODO M-3.1: when migrating to research/images/vggt/, either:
+#   (a) Pin the upstream VGGT requirements to a known-good SHA and
+#       commit a snapshot here (recommended — protects from upstream drift).
+#   (b) Continue to pull at build time and accept the reproducibility risk.
+
+# --- Mesh tooling for point-cloud → mesh ---
+open3d
+trimesh
+
+# Note: VGGT pre-downloads the facebook/VGGT-1B HuggingFace model at
+# build time (see Dockerfile.vggt line 36). HF_TOKEN may be required if
+# the model is gated; passed via --env-file at run time.

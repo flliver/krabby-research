@@ -1,0 +1,32 @@
+# MASt3R-SLAM container — Python deps
+# Migration target: research/images/mast3r/requirements.txt
+#
+# Base image: nvcr.io/nvidia/pytorch:25.10-py3
+# Container purpose: MASt3R-SLAM real-time dense SLAM for T0 sparse
+# reconstruction (alternative to COLMAP per grant Appendix A).
+#
+# Base image already provides PyTorch 2.9 + CUDA 13.0 + Ada (sm_89) +
+# Blackwell (sm_120) kernels; no separate venv needed.
+# See docker/MAST3R-NOTES.md for the build constraints (11 distinct
+# lessons during port to NGC PyTorch 25.10 + CUDA 13).
+
+# --- Build tooling ---
+wheel
+setuptools
+
+# --- Source-installed extensions (cloned + built in Dockerfile) ---
+# (No requirements.txt entries; pip install -e from cloned source.)
+#   - mast3r                  (thirdparty/mast3r in MASt3R-SLAM repo)
+#   - in3d                    (thirdparty/in3d, optional)
+#   - lietorch                (cloned to /opt/lietorch, built with setup.py install)
+#   - mast3r_slam_backends    (built via pip install --no-build-isolation -e .)
+
+# --- Runtime deps not in the upstream MASt3R-SLAM repo's requirements.txt ---
+natsort
+plyfile
+
+# Patches applied at build time (see docker/patch_*.py):
+#   - patch_curope.py            (PyTorch 2.6+ .type → .scalar_type)
+#   - patch_mast3r_setup.py      (build-time CUDA check + sm_75/80/86/89/120 arch list)
+#   - patch_dataloader.py        (accept jpg + soft pyrealsense2 import)
+#   - patch_torch_load.py        (PyTorch 2.6+ default weights_only=True rejects MASt3R checkpoints)

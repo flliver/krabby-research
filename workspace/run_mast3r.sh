@@ -42,9 +42,18 @@ echo
 # Key flags for live monitoring:
 #   -e PYTHONUNBUFFERED=1      -- flush every print() immediately
 #   --shm-size=8g              -- avoid Python multiprocessing deadlock
+#   --ipc=host                 -- NVIDIA recommendation: PyTorch IPC
+#   --ulimit memlock=-1        -- NVIDIA recommendation: CUDA memory locking
+#   --ulimit stack=67108864    -- NVIDIA recommendation: deeper Python stacks
 #   no | tail in the bash -c   -- write everything to log
+# Full flag set per research/docs/DOCKER_DEPENDENCIES.md
+# "Required docker run flags for PyTorch containers".
 
-sg docker -c "docker run --rm --gpus all --shm-size=8g \
+sg docker -c "docker run --rm --gpus all \
+  --shm-size=8g \
+  --ipc=host \
+  --ulimit memlock=-1 \
+  --ulimit stack=67108864 \
   -e PYTHONUNBUFFERED=1 \
   -v $DATA_ROOT:/data \
   krabby-mast3r \
