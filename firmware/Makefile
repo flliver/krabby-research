@@ -30,7 +30,11 @@ endif
 # Auto-detect serial port for upload-firmware (only when PORT not provided).
 ifneq ($(filter upload-firmware,$(MAKECMDGOALS)),)
 ifeq ($(strip $(PORT)),)
+ifeq ($(OS),Windows_NT)
 PORT := $(shell $(PYTHON) "$(CURDIR)/scripts/detect_mcu_port.py" 2>NUL)
+else
+PORT := $(shell $(PYTHON) "$(CURDIR)/scripts/detect_mcu_port.py" 2>/dev/null)
+endif
 endif
 ifeq ($(strip $(PORT)),)
 $(error No serial port found. Pass PORT=COMx or install pyserial for auto-detect)

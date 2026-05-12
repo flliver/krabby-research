@@ -9,6 +9,7 @@
 #include "board_pins.h"
 #include "command.h"
 #include "actuator_manager.h"
+#include "version.h"
 
 // --- Serial: left follower = 14/15 (Serial3), right follower = 16/17 (Serial2) ---
 #define SERIAL_LEFT  Serial3  // pins 14 (TX3), 15 (RX3)
@@ -216,6 +217,44 @@ void setup()
     Serial.println(list[0]->name);
 }
 
+// Read lines from a follower serial until one starts with "VER "; discard telemetry lines.
+static String readVerLine(HardwareSerial* port, unsigned long timeout_ms)
+{
+    unsigned long deadline = millis() + timeout_ms;
+    String line = "";
+    while (millis() < deadline)
+    {
+        if (!port->available()) continue;
+        char c = (char)port->read();
+        if (c == '\n')
+        {
+            if (line.startsWith("VER ")) return line;
+            line = "";
+            continue;
+        }
+        if (c != '\r') line += c;
+        if (line.length() > 128) line = ""; // guard against runaway
+    }
+    return "";
+}
+
+// Parse a per-board VER reply: "VER <version> <branch> <commit>"
+static void parseVerToken(const String& reply, String& ver, String& branch, String& commit)
+{
+    ver = "-"; branch = "-"; commit = "-";
+    if (!reply.startsWith("VER ")) return;
+    String rest = reply.substring(4);
+    int sp1 = rest.indexOf(' ');
+    if (sp1 < 0) { ver = rest; return; }
+    ver = rest.substring(0, sp1);
+    rest = rest.substring(sp1 + 1);
+    int sp2 = rest.indexOf(' ');
+    if (sp2 < 0) { branch = rest; return; }
+    branch = rest.substring(0, sp2);
+    commit = rest.substring(sp2 + 1);
+    commit.trim();
+}
+
 void loop()
 {
     while (mainSerial->available())
@@ -234,6 +273,8 @@ void loop()
         else if (cmdType == 'B')
         {
             mainSerial->read();
+            while (mainSerial->available() && mainSerial->peek() == ' ')
+                mainSerial->read();
             if(leftSerial) leftSerial->print("B ");
             if(rightSerial) rightSerial->print("B ");
             while (true)
@@ -283,6 +324,48 @@ void loop()
             actuatorManager->holdAll();
             if (leftSerial)  leftSerial->println("H");
             if (rightSerial) rightSerial->println("H");
+        }
+        else if (cmdType == 'V')
+        {
+            mainSerial->read();
+            mainSerial->readStringUntil('\n');
+
+            if (currentRole == ROLE_LEFT || currentRole == ROLE_RIGHT)
+            {
+                // Follower: reply with own version on mainSerial (uplink to leader)
+                mainSerial->print("VER ");
+                mainSerial->print(KRABBY_FW_VERSION);
+                mainSerial->print(" ");
+                mainSerial->print(KRABBY_FW_BRANCH);
+                mainSerial->print(" ");
+                mainSerial->println(KRABBY_FW_COMMIT);
+            }
+            else
+            {
+                // Leader (FRONT or UNKNOWN): collect follower versions, combine, reply to host
+                String lVer = "-", lBranch = "-", lCommit = "-";
+                String rVer = "-", rBranch = "-", rCommit = "-";
+
+                if (leftSerial)
+                {
+                    leftSerial->println("V");
+                    String reply = readVerLine(leftSerial, 300);
+                    parseVerToken(reply, lVer, lBranch, lCommit);
+                }
+                if (rightSerial)
+                {
+                    rightSerial->println("V");
+                    String reply = readVerLine(rightSerial, 300);
+                    parseVerToken(reply, rVer, rBranch, rCommit);
+                }
+
+                mainSerial->print("VER ");
+                mainSerial->print(KRABBY_FW_VERSION); mainSerial->print("|"); mainSerial->print(lVer); mainSerial->print("|"); mainSerial->print(rVer);
+                mainSerial->print(" ");
+                mainSerial->print(KRABBY_FW_BRANCH); mainSerial->print("|"); mainSerial->print(lBranch); mainSerial->print("|"); mainSerial->print(rBranch);
+                mainSerial->print(" ");
+                mainSerial->print(KRABBY_FW_COMMIT); mainSerial->print("|"); mainSerial->print(lCommit); mainSerial->print("|"); mainSerial->println(rCommit);
+            }
         }
         else
         {

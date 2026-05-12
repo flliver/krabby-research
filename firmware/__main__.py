@@ -2,6 +2,8 @@
 Interactive MCU menu. Run with: python -m firmware [--debug]
 """
 import sys
+import tty
+import termios
 import logging
 import time
 
@@ -29,14 +31,14 @@ def _on_press(key):
         _quit = True
         return
     try:
-        _pressed.add(key.char)
+        _pressed.add(key.char.lower())
     except AttributeError:
         _pressed.add(key)
 
 
 def _on_release(key):
     try:
-        _pressed.discard(key.char)
+        _pressed.discard(key.char.lower())
     except AttributeError:
         _pressed.discard(key)
 
@@ -65,11 +67,16 @@ def main():
     listener = pynput_keyboard.Listener(on_press=_on_press, on_release=_on_release)
     listener.start()
 
+    fd = sys.stdin.fileno()
+    old_settings = termios.tcgetattr(fd)
+
     try:
+        tty.setcbreak(fd)
+
         print("\n=== Krabby MCU — Direct key control (18 joints) ===")
         print("Extend: Q W E R T Y  |  Retract: A S D F G H")
         print("Hold 1: LEFT set  |  Hold 2: RIGHT set  |  Hold 1+2: all 18  |  No 1/2: FRONT")
-        print("0: Neutral (0.5)  |  9: Auto-calibrate  |  ESC: Quit")
+        print("0: Neutral (0.5)  |  9: Auto-calibrate  |  V: firmware version  |  ESC: Quit")
         print()
 
         prev_jog = {}
@@ -90,6 +97,25 @@ def main():
                 print("WARNING: This will move ALL limbs to find limits.")
                 mcu.send_command_calibrate()
                 time.sleep(0.5)
+                continue
+            if is_pressed("v"):
+                reply = mcu.read_version()
+                if reply:
+                    # "VER primary|left|right branch1|branch2|branch3 commit1|commit2|commit3"
+                    parts = reply[4:].split()  # strip "VER "
+                    versions = parts[0].split("|") if len(parts) > 0 else ["-", "-", "-"]
+                    branches = parts[1].split("|") if len(parts) > 1 else ["-", "-", "-"]
+                    commits  = parts[2].split("|") if len(parts) > 2 else ["-", "-", "-"]
+                    roles = ["primary", "left   ", "right  "]
+                    for i in range(3):
+                        v = versions[i] if i < len(versions) else "-"
+                        b = branches[i] if i < len(branches) else "-"
+                        c = commits[i]  if i < len(commits)  else "-"
+                        if v != "-":
+                            logger.info("VER  %s  %s  %s  %s", roles[i], v, b, c)
+                else:
+                    logger.warning("VER  no response from MCU")
+                time.sleep(0.3)
                 continue
 
             key1 = is_pressed("1")
@@ -119,6 +145,8 @@ def main():
     except KeyboardInterrupt:
         mcu.send_command_joints_hold()
     finally:
+        termios.tcflush(fd, termios.TCIFLUSH)
+        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
         listener.stop()
         mcu.close()
 
