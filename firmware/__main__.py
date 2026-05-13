@@ -9,7 +9,7 @@ import time
 
 from pynput import keyboard as pynput_keyboard
 
-from firmware.krabby_mcu import KrabbyMCUSDK, logger
+from firmware.krabby_mcu import KrabbyMCUSDK, parse_ver_reply, logger
 
 # Joint order per leg pair: LKL, LHL, LHY, RHY, RHL, RKL
 JOINTS_FRONT = ["FLKL", "FLHL", "FLHY", "FRHY", "FRHL", "FRKL"]
@@ -101,18 +101,13 @@ def main():
             if is_pressed("v"):
                 reply = mcu.read_version()
                 if reply:
-                    # "VER primary|left|right branch1|branch2|branch3 commit1|commit2|commit3"
-                    parts = reply[4:].split()  # strip "VER "
-                    versions = parts[0].split("|") if len(parts) > 0 else ["-", "-", "-"]
-                    branches = parts[1].split("|") if len(parts) > 1 else ["-", "-", "-"]
-                    commits  = parts[2].split("|") if len(parts) > 2 else ["-", "-", "-"]
+                    boards = parse_ver_reply(reply)
                     roles = ["primary", "left   ", "right  "]
-                    for i in range(3):
-                        v = versions[i] if i < len(versions) else "-"
-                        b = branches[i] if i < len(branches) else "-"
-                        c = commits[i]  if i < len(commits)  else "-"
-                        if v != "-":
-                            logger.info("VER  %s  %s  %s  %s", roles[i], v, b, c)
+                    if boards:
+                        for i, (v, b, c) in enumerate(boards):
+                            role = roles[i] if i < len(roles) else f"board{i}"
+                            if v != "-":
+                                logger.info("VER  %s  %s  %s  %s", role, v, b, c)
                 else:
                     logger.warning("VER  no response from MCU")
                 time.sleep(0.3)

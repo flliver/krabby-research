@@ -20,6 +20,29 @@ if not logging.getLogger().handlers:
 logger = logging.getLogger("KrabbySDK")
 
 
+def parse_ver_reply(line: str) -> Optional[list]:
+    """Parse a VER reply into a list of (version, branch, commit) tuples.
+
+    Single-board reply  → 1 tuple.
+    Leader combined reply → 3 tuples (primary, left, right).
+    Returns None if the line is not a VER line.
+    """
+    if not line.startswith("VER "):
+        return None
+    parts = line[4:].split()
+    if not parts:
+        return None
+    versions = parts[0].split("|")
+    branches = parts[1].split("|") if len(parts) > 1 else []
+    commits  = parts[2].split("|") if len(parts) > 2 else []
+    result = []
+    for i, v in enumerate(versions):
+        b = branches[i] if i < len(branches) else "-"
+        c = commits[i]  if i < len(commits)  else "-"
+        result.append((v, b, c))
+    return result
+
+
 def _raw_rx_to_stderr() -> bool:
     """When True, every non-empty decoded line is printed to stderr (see __main__.py --debug)."""
     v = os.environ.get("KRABBY_MCU_RAW_RX", "").strip().lower()
