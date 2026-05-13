@@ -23,6 +23,7 @@ JOG_PWM = 255
 
 _pressed = set()
 _quit = False
+_BOARD_ROLES = ("primary", "left   ", "right  ")  # padded for log column alignment
 
 
 def _on_press(key):
@@ -100,14 +101,11 @@ def main():
                 continue
             if is_pressed("v"):
                 reply = mcu.read_version()
-                if reply:
-                    boards = parse_ver_reply(reply)
-                    roles = ["primary", "left   ", "right  "]
-                    if boards:
-                        for i, (v, b, c) in enumerate(boards):
-                            role = roles[i] if i < len(roles) else f"board{i}"
-                            if v != "-":
-                                logger.info("VER  %s  %s  %s  %s", role, v, b, c)
+                if boards := (parse_ver_reply(reply) if reply else None):
+                    for i, (v, b, c) in enumerate(boards):
+                        role = _BOARD_ROLES[i] if i < len(_BOARD_ROLES) else f"board{i}"
+                        if v != "-":
+                            logger.info("VER  %s  %s  %s  %s", role, v, b, c)
                 else:
                     logger.warning("VER  no response from MCU")
                 time.sleep(0.3)

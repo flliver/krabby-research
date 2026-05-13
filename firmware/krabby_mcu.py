@@ -20,13 +20,8 @@ if not logging.getLogger().handlers:
 logger = logging.getLogger("KrabbySDK")
 
 
-def parse_ver_reply(line: str) -> Optional[list]:
-    """Parse a VER reply into a list of (version, branch, commit) tuples.
-
-    Single-board reply  → 1 tuple.
-    Leader combined reply → 3 tuples (primary, left, right).
-    Returns None if the line is not a VER line.
-    """
+def parse_ver_reply(line: str) -> Optional[list[tuple[str, str, str]]]:
+    """Parse a VER reply line. Returns None if not a VER line."""
     if not line.startswith("VER "):
         return None
     parts = line[4:].split()
