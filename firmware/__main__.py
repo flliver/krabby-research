@@ -58,6 +58,11 @@ def _log_jog(jog_cmds):
 
 
 def main():
+    if "--install" in sys.argv:
+        from firmware.install import run_install
+        run_install()
+        return
+
     if "--debug" in sys.argv:
         logger.setLevel(logging.DEBUG)
 
