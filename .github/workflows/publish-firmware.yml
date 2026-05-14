@@ -1,0 +1,64 @@
+# Build Arduino firmware and publish to S3 on every push to mainline or release/*.
+# CI assumes the krabby-firmware-ci IAM role via GitHub OIDC (no stored AWS credentials).
+
+name: Publish firmware to S3
+
+on:
+  push:
+    branches:
+      - mainline
+      - 'release/**'
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      id-token: write   # required for OIDC role assumption
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python deps
+        run: pip install boto3
+
+      - name: Install arduino-cli 1.1.1
+        run: |
+          curl -fsSL https://github.com/arduino/arduino-cli/releases/download/v1.1.1/arduino-cli_1.1.1_Linux_64bit.tar.gz \
+            | tar -xz -C /usr/local/bin arduino-cli
+
+      - name: Cache arduino AVR core
+        uses: actions/cache@v4
+        with:
+          path: ~/.arduino15
+          key: arduino-avr-${{ runner.os }}-cli1.1.1-core1.8.7
+
+      - name: Install arduino AVR core
+        run: arduino-cli core install arduino:avr
+
+      - name: Generate version.h
+        run: python firmware/scripts/gen_version_h.py
+
+      - name: Compile firmware
+        run: |
+          arduino-cli compile \
+            --fqbn arduino:avr:mega \
+            --build-property "compiler.cpp.extra_flags=-DSERIAL_RX_BUFFER_SIZE=256" \
+            --build-property "compiler.c.extra_flags=-DSERIAL_RX_BUFFER_SIZE=256" \
+            --output-dir firmware/build \
+            firmware/arduino
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::632914961627:role/krabby-firmware-ci
+          aws-region: us-east-1
+
+      - name: Publish to S3
+        run: python firmware/scripts/publish_firmware.py
