@@ -61,4 +61,4 @@ jobs:
           aws-region: us-east-1
 
       - name: Publish to S3
-        run: python firmware/scripts/publish_firmware.py
+        run: PYTHONPATH=. python firmware/scripts/publish_firmware.py
