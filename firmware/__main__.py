@@ -63,6 +63,18 @@ def main():
         run_install()
         return
 
+    if "--show" in sys.argv:
+        from firmware.cli import cmd_show
+        cmd_show()
+        return
+
+    if "--update" in sys.argv:
+        from firmware.cli import cmd_update
+        idx = sys.argv.index("--update")
+        args = [a for a in sys.argv[idx + 1:] if not a.startswith("--")]
+        cmd_update(*args[:2])
+        return
+
     if "--debug" in sys.argv:
         logger.setLevel(logging.DEBUG)
 
