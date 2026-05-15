@@ -7,8 +7,6 @@ import termios
 import logging
 import time
 
-from pynput import keyboard as pynput_keyboard
-
 from firmware.krabby_mcu import KrabbyMCUSDK, parse_ver_reply, logger
 
 # Joint order per leg pair: LKL, LHL, LHY, RHY, RHL, RKL
@@ -28,7 +26,8 @@ _BOARD_ROLES = ("primary", "left   ", "right  ")  # padded for log column alignm
 
 def _on_press(key):
     global _quit
-    if key == pynput_keyboard.Key.esc:
+    from pynput.keyboard import Key
+    if key == Key.esc:
         _quit = True
         return
     try:
@@ -74,6 +73,8 @@ def main():
         args = [a for a in sys.argv[idx + 1:] if not a.startswith("--")]
         cmd_update(*args[:2])
         return
+
+    from pynput import keyboard as pynput_keyboard
 
     if "--debug" in sys.argv:
         logger.setLevel(logging.DEBUG)
