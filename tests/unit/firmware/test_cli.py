@@ -194,3 +194,75 @@ class TestCachedHex:
         monkeypatch.setattr(cli_mod, "CACHE_DIR", tmp_path)
         result = cli_mod._cached_hex("release/0.2.0", "abc1234", "firmware.hex")
         assert result == tmp_path / "release/0.2.0" / "abc1234" / "firmware.hex"
+
+
+# --- _probe_version ---
+
+class TestProbeVersion:
+    def _make_ser(self, lines: list[bytes]) -> MagicMock:
+        """Return a mock Serial instance that yields lines on readline()."""
+        ser = MagicMock()
+        ser.readline.side_effect = lines + [b""] * 100
+        return ser
+
+    def _patch_serial(self, ser: MagicMock):
+        mock_serial_cls = MagicMock(return_value=ser)
+        serial_mod = MagicMock()
+        serial_mod.Serial = mock_serial_cls
+        return patch.dict("sys.modules", {"serial": serial_mod})
+
+    def test_returns_ver_line_when_present(self):
+        ser = self._make_ser([b"VER 0.2.0 release/0.2.0 abc1234\n"])
+        with self._patch_serial(ser):
+            with patch("time.sleep"), patch("time.time", side_effect=[0, 0, 0, 0, 1]):
+                result = cli_mod._probe_version("/dev/ttyACM0", timeout=1.0)
+        assert result == "VER 0.2.0 release/0.2.0 abc1234"
+
+    def test_returns_none_when_no_ver_line(self):
+        ser = self._make_ser([b"Krabby booted\n", b"FRONT; data\n"])
+        with self._patch_serial(ser):
+            with patch("time.sleep"):
+                with patch("time.time", return_value=999):
+                    result = cli_mod._probe_version("/dev/ttyACM0", timeout=0.0)
+        assert result is None
+
+    def test_skips_non_ver_lines(self):
+        ser = self._make_ser([
+            b"Krabby booted\n",
+            b"FRONT; FLHY 0.5 512\n",
+            b"VER 0.2.0 release/0.2.0 abc1234\n",
+        ])
+        with self._patch_serial(ser):
+            with patch("time.sleep"), patch("time.time", side_effect=[0, 0, 0, 0, 0, 0, 1]):
+                result = cli_mod._probe_version("/dev/ttyACM0", timeout=1.0)
+        assert result == "VER 0.2.0 release/0.2.0 abc1234"
+
+    def test_sets_dtr_and_rts_false(self):
+        ser = self._make_ser([b"VER dev-local dev-local dev-local\n"])
+        with self._patch_serial(ser) as patched:
+            with patch("time.sleep"), patch("time.time", side_effect=[0, 0, 0, 0, 1]):
+                cli_mod._probe_version("/dev/ttyACM0", timeout=1.0)
+        assert ser.dtr is False
+        assert ser.rts is False
+
+    def test_opens_and_closes_port(self):
+        ser = self._make_ser([b"VER 0.2.0 release/0.2.0 abc1234\n"])
+        with self._patch_serial(ser):
+            with patch("time.sleep"), patch("time.time", side_effect=[0, 0, 0, 0, 1]):
+                cli_mod._probe_version("/dev/ttyACM0", timeout=1.0)
+        ser.open.assert_called_once()
+        ser.close.assert_called_once()
+
+    def test_closes_port_on_exception(self):
+        ser = self._make_ser([])
+        ser.readline.side_effect = OSError("device disconnected")
+        with self._patch_serial(ser):
+            with patch("time.sleep"), patch("time.time", side_effect=[0, 0, 1]):
+                result = cli_mod._probe_version("/dev/ttyACM0", timeout=1.0)
+        assert result is None
+        ser.close.assert_called_once()
+
+    def test_returns_none_when_serial_import_missing(self):
+        with patch.dict("sys.modules", {"serial": None}):
+            result = cli_mod._probe_version("/dev/ttyACM0")
+        assert result is None
