@@ -41,37 +41,34 @@ def _all_mega_ports() -> list[str]:
     return results
 
 
-def _probe_version(port: str, timeout: float = 1.5) -> Optional[str]:
-    """Open port briefly, send V, return the first VER line or None.
+def _probe_version(port: str, timeout: float = 6.0) -> Optional[str]:
+    """Open port, wait for board to finish booting, send V, return VER line or None.
 
-    Opens with DTR/RTS low to avoid triggering the Arduino reset-on-open.
-    Sends V repeatedly in a loop so we catch the board whether it reset or not.
+    Reads startup lines until "Krabby Ready" appears (board done booting), then
+    sends V and returns the VER response. Avoids fixed sleeps that may be too short.
     """
     try:
         import serial
     except ImportError:
         return None
     try:
-        ser = serial.Serial()
-        ser.port = port
-        ser.baudrate = 115200
-        ser.timeout = 0.1
-        ser.dtr = False
-        ser.rts = False
-        ser.open()
-        try:
-            time.sleep(2.5)  # wait for board to finish booting after OS-triggered reset
+        with serial.Serial(port, 115200, timeout=0.2) as ser:
+            ready = False
             deadline = time.time() + timeout
             while time.time() < deadline:
-                ser.write(b"V\n")
-                ser.flush()
-                t = time.time() + 0.3
-                while time.time() < t:
-                    line = ser.readline().decode("utf-8", errors="ignore").strip()
-                    if line.startswith("VER "):
-                        return line
-        finally:
-            ser.close()
+                raw = ser.readline()
+                if not raw:
+                    if ready:
+                        ser.write(b"V\n")
+                        ser.flush()
+                    continue
+                line = raw.decode("utf-8", errors="ignore").strip()
+                if "Krabby Ready" in line:
+                    ready = True
+                    ser.write(b"V\n")
+                    ser.flush()
+                elif line.startswith("VER "):
+                    return line
     except Exception:
         pass
     return None

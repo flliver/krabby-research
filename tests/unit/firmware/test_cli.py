@@ -200,67 +200,87 @@ class TestCachedHex:
 
 class TestProbeVersion:
     def _make_ser(self, lines: list[bytes]) -> MagicMock:
-        """Return a mock Serial instance that yields lines on readline()."""
+        """Return a mock Serial context manager that yields lines on readline()."""
         ser = MagicMock()
+        ser.__enter__ = MagicMock(return_value=ser)
+        ser.__exit__ = MagicMock(return_value=False)
         ser.readline.side_effect = lines + [b""] * 100
         return ser
 
     def _patch_serial(self, ser: MagicMock):
-        mock_serial_cls = MagicMock(return_value=ser)
         serial_mod = MagicMock()
-        serial_mod.Serial = mock_serial_cls
+        serial_mod.Serial = MagicMock(return_value=ser)
         return patch.dict("sys.modules", {"serial": serial_mod})
 
-    def test_returns_ver_line_when_present(self):
-        ser = self._make_ser([b"VER 0.2.0 release/0.2.0 abc1234\n"])
-        with self._patch_serial(ser):
-            with patch("time.sleep"), patch("time.time", side_effect=[0, 0, 0, 0, 1]):
-                result = cli_mod._probe_version("/dev/ttyACM0", timeout=1.0)
-        assert result == "VER 0.2.0 release/0.2.0 abc1234"
-
-    def test_returns_none_when_no_ver_line(self):
-        ser = self._make_ser([b"Krabby booted\n", b"FRONT; data\n"])
-        with self._patch_serial(ser):
-            with patch("time.sleep"):
-                with patch("time.time", return_value=999):
-                    result = cli_mod._probe_version("/dev/ttyACM0", timeout=0.0)
-        assert result is None
-
-    def test_skips_non_ver_lines(self):
+    def test_returns_ver_line_after_krabby_ready(self):
         ser = self._make_ser([
-            b"Krabby booted\n",
-            b"FRONT; FLHY 0.5 512\n",
-            b"VER 0.2.0 release/0.2.0 abc1234\n",
+            b"Krabby Ready PINS_REV3.\r\n",
+            b"VER 0.2.0 release/0.2.0 abc1234\r\n",
         ])
         with self._patch_serial(ser):
-            with patch("time.sleep"), patch("time.time", side_effect=[0, 0, 0, 0, 0, 0, 1]):
+            with patch("time.time", side_effect=[0, 0, 0, 0, 1]):
                 result = cli_mod._probe_version("/dev/ttyACM0", timeout=1.0)
         assert result == "VER 0.2.0 release/0.2.0 abc1234"
 
-    def test_sets_dtr_and_rts_false(self):
-        ser = self._make_ser([b"VER dev-local dev-local dev-local\n"])
-        with self._patch_serial(ser) as patched:
-            with patch("time.sleep"), patch("time.time", side_effect=[0, 0, 0, 0, 1]):
-                cli_mod._probe_version("/dev/ttyACM0", timeout=1.0)
-        assert ser.dtr is False
-        assert ser.rts is False
-
-    def test_opens_and_closes_port(self):
-        ser = self._make_ser([b"VER 0.2.0 release/0.2.0 abc1234\n"])
+    def test_sends_v_only_after_krabby_ready(self):
+        ser = self._make_ser([
+            b"--- SYNC ---\r\n",
+            b"Krabby Ready PINS_REV3.\r\n",
+            b"VER 0.2.0 release/0.2.0 abc1234\r\n",
+        ])
         with self._patch_serial(ser):
-            with patch("time.sleep"), patch("time.time", side_effect=[0, 0, 0, 0, 1]):
+            with patch("time.time", side_effect=[0, 0, 0, 0, 0, 1]):
                 cli_mod._probe_version("/dev/ttyACM0", timeout=1.0)
-        ser.open.assert_called_once()
-        ser.close.assert_called_once()
+        # V should have been sent exactly once (after Krabby Ready)
+        assert ser.write.call_count == 1
+        ser.write.assert_called_with(b"V\n")
 
-    def test_closes_port_on_exception(self):
+    def test_retries_v_on_empty_readline_when_ready(self):
+        ser = self._make_ser([
+            b"Krabby Ready PINS_REV3.\r\n",
+            b"",  # empty — triggers retry V send
+            b"VER 0.2.0 release/0.2.0 abc1234\r\n",
+        ])
+        with self._patch_serial(ser):
+            with patch("time.time", side_effect=[0, 0, 0, 0, 0, 1]):
+                result = cli_mod._probe_version("/dev/ttyACM0", timeout=1.0)
+        assert result == "VER 0.2.0 release/0.2.0 abc1234"
+        assert ser.write.call_count == 2  # once on Ready, once on empty
+
+    def test_returns_none_when_no_krabby_ready(self):
+        ser = self._make_ser([b"--- SYNC ---\r\n"])
+        with self._patch_serial(ser):
+            with patch("time.time", return_value=999):
+                result = cli_mod._probe_version("/dev/ttyACM0", timeout=0.0)
+        assert result is None
+
+    def test_returns_none_when_no_ver_after_ready(self):
+        ser = self._make_ser([
+            b"Krabby Ready PINS_REV3.\r\n",
+            b"FRONT; data\r\n",
+        ])
+        with self._patch_serial(ser):
+            with patch("time.time", side_effect=[0, 0, 0, 999]):
+                result = cli_mod._probe_version("/dev/ttyACM0", timeout=0.0)
+        assert result is None
+
+    def test_handles_real_ver_format(self):
+        ser = self._make_ser([
+            b"Krabby Ready PINS_REV2_UNO_V01. FLHY\r\n",
+            b"VER 0.2.0|-|- release/0.2.0|-|- ac66d5e|-|-\r\n",
+        ])
+        with self._patch_serial(ser):
+            with patch("time.time", side_effect=[0, 0, 0, 0, 1]):
+                result = cli_mod._probe_version("/dev/ttyACM0", timeout=1.0)
+        assert result == "VER 0.2.0|-|- release/0.2.0|-|- ac66d5e|-|-"
+
+    def test_returns_none_on_serial_exception(self):
         ser = self._make_ser([])
         ser.readline.side_effect = OSError("device disconnected")
         with self._patch_serial(ser):
-            with patch("time.sleep"), patch("time.time", side_effect=[0, 0, 1]):
+            with patch("time.time", side_effect=[0, 0, 1]):
                 result = cli_mod._probe_version("/dev/ttyACM0", timeout=1.0)
         assert result is None
-        ser.close.assert_called_once()
 
     def test_returns_none_when_serial_import_missing(self):
         with patch.dict("sys.modules", {"serial": None}):
