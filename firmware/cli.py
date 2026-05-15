@@ -41,7 +41,7 @@ def _all_mega_ports() -> list[str]:
     return results
 
 
-def _probe_version(port: str, timeout: float = 3.0) -> Optional[str]:
+def _probe_version(port: str, timeout: float = 1.5) -> Optional[str]:
     """Open port briefly, send V, return the first VER line or None.
 
     Opens with DTR/RTS low to avoid triggering the Arduino reset-on-open.
@@ -60,7 +60,7 @@ def _probe_version(port: str, timeout: float = 3.0) -> Optional[str]:
         ser.rts = False
         ser.open()
         try:
-            time.sleep(0.2)
+            time.sleep(2.5)  # wait for board to finish booting after OS-triggered reset
             deadline = time.time() + timeout
             while time.time() < deadline:
                 ser.write(b"V\n")
