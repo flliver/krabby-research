@@ -57,21 +57,22 @@ def _log_jog(jog_cmds):
 
 
 def main():
-    if "--install" in sys.argv:
+    positional = [a for a in sys.argv[1:] if not a.startswith("-")]
+    subcommand = positional[0] if positional else None
+
+    if subcommand == "install":
         from firmware.install import run_install
         run_install()
         return
 
-    if "--show" in sys.argv:
+    if subcommand == "show":
         from firmware.cli import cmd_show
         cmd_show()
         return
 
-    if "--update" in sys.argv:
+    if subcommand == "update":
         from firmware.cli import cmd_update
-        idx = sys.argv.index("--update")
-        args = [a for a in sys.argv[idx + 1:] if not a.startswith("--")]
-        cmd_update(*args[:2])
+        cmd_update(*positional[1:3])
         return
 
     from pynput import keyboard as pynput_keyboard

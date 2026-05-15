@@ -184,16 +184,16 @@ If a follower board is missing, its slot contains `-`.
 
 ```bash
 # 1. One-time host setup (udev rules, dialout group, flash tools)
-sudo krabby-firmware --install
+sudo krabby-firmware install
 
 # 2. Check attached boards and available S3 builds
-krabby-firmware --show
+krabby-firmware show
 
 # 3. Flash all three boards in turn (replug USB between boards)
-krabby-firmware --update                        # latest release/* build, auto-detects port
-krabby-firmware --update release/0.2.0          # specific branch
-krabby-firmware --update /dev/ttyACM1           # specific port, latest release
-krabby-firmware --update release/0.2.0 /dev/ttyACM2  # specific branch + port
+krabby-firmware update                        # latest release/* build, auto-detects port
+krabby-firmware update release/0.2.0          # specific branch
+krabby-firmware update /dev/ttyACM1           # specific port, latest release
+krabby-firmware update release/0.2.0 /dev/ttyACM2  # specific branch + port
 ```
 
 Downloaded HEX files are cached under `~/.cache/krabby-firmware/<branch>/<sha7>/firmware.hex` and reused on subsequent calls.
