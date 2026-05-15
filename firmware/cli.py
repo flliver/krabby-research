@@ -41,22 +41,37 @@ def _all_mega_ports() -> list[str]:
     return results
 
 
-def _probe_version(port: str, timeout: float = 2.0) -> Optional[str]:
-    """Open port briefly, send V, return the first VER line or None."""
+def _probe_version(port: str, timeout: float = 3.0) -> Optional[str]:
+    """Open port briefly, send V, return the first VER line or None.
+
+    Opens with DTR/RTS low to avoid triggering the Arduino reset-on-open.
+    Sends V repeatedly in a loop so we catch the board whether it reset or not.
+    """
     try:
         import serial
     except ImportError:
         return None
     try:
-        with serial.Serial(port, 115200, timeout=0.1) as ser:
-            time.sleep(0.1)
-            ser.write(b"V\n")
-            ser.flush()
+        ser = serial.Serial()
+        ser.port = port
+        ser.baudrate = 115200
+        ser.timeout = 0.1
+        ser.dtr = False
+        ser.rts = False
+        ser.open()
+        try:
+            time.sleep(0.2)
             deadline = time.time() + timeout
             while time.time() < deadline:
-                line = ser.readline().decode("utf-8", errors="ignore").strip()
-                if line.startswith("VER "):
-                    return line
+                ser.write(b"V\n")
+                ser.flush()
+                t = time.time() + 0.3
+                while time.time() < t:
+                    line = ser.readline().decode("utf-8", errors="ignore").strip()
+                    if line.startswith("VER "):
+                        return line
+        finally:
+            ser.close()
     except Exception:
         pass
     return None
