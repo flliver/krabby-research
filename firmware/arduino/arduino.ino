@@ -11,9 +11,9 @@
 #include "actuator_manager.h"
 #include "version.h"
 
-// --- Serial: left follower = 14/15 (Serial3), right follower = 16/17 (Serial2) ---
-#define SERIAL_LEFT  Serial3  // pins 14 (TX3), 15 (RX3)
-#define SERIAL_RIGHT Serial2   // pins 16 (TX2), 17 (RX2)
+// --- Serial: left follower = Serial1 (TX1/RX1 on Krabby-Uno v0.1 shield), right follower = Serial2 ---
+#define SERIAL_LEFT  Serial1  // pins 18 (TX1), 19 (RX1) — Krabby-Uno v0.1 shield Serial1 connector
+#define SERIAL_RIGHT Serial2   // pins 16 (TX2), 17 (RX2) — Krabby-Uno v0.1 shield Serial2 connector
 #define BAUD_RATE 115200
 #define SYNC_TOKEN "SYNC"
 #define ASSIGN_LEFT  "ROLE:LEFT"
