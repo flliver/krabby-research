@@ -16,7 +16,10 @@ from firmware.manifest import FirmwareIndex, parse_index, latest_release_branch
 BUCKET_BASE = "https://krabby-firmware-public.s3.amazonaws.com"
 CACHE_DIR = Path.home() / ".cache" / "krabby-firmware"
 
-_MEGA_USB_IDS = {("2341", "0042"), ("2341", "0010"), ("2341", "0110")}
+_MEGA_USB_IDS = {
+    ("2341", "0042"), ("2341", "0010"), ("2341", "0110"),  # Arduino Mega native USB
+    ("1a86", "7523"), ("1a86", "5523"),                    # CH340 / CH341 (Krabby-Uno shield)
+}
 
 
 # --- port detection ---
