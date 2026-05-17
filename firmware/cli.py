@@ -44,6 +44,24 @@ def _all_mega_ports() -> list[str]:
     return results
 
 
+def _leader_port(ports: list[str]) -> Optional[str]:
+    """Return the leader board's port (native Arduino USB) from a list of detected ports.
+
+    The leader uses the ATmega16U2 USB bridge (VID 2341), which shows up as ttyACM*
+    on Linux and cu.usbmodem* on macOS. Falls back to the first port if none match.
+    """
+    try:
+        from serial.tools import list_ports
+    except ImportError:
+        return ports[0] if ports else None
+    port_set = set(ports)
+    for p in list_ports.comports():
+        vid = f"{p.vid:04x}" if p.vid else ""
+        if vid == "2341" and p.device in port_set:
+            return p.device
+    return ports[0] if ports else None
+
+
 def _probe_version(port: str, timeout: float = 6.0) -> Optional[str]:
     """Open port, wait for board to finish booting, send V, return VER line or None.
 
@@ -94,17 +112,20 @@ def cmd_show() -> None:
     ports = _all_mega_ports()
     if ports:
         print("Attached boards:")
-        for port in ports:
-            ver_line = _probe_version(port)
-            if boards := (parse_ver_reply(ver_line) if ver_line else None):
-                roles = ("primary", "left", "right")
-                parts = " | ".join(
-                    f"{roles[i] if i < len(roles) else f'board{i}'}: {v} ({b} {c})"
-                    for i, (v, b, c) in enumerate(boards) if v != "-"
-                )
-                print(f"  {port}  {parts}")
-            else:
-                print(f"  {port}  (no version response)")
+        leader = _leader_port(ports)
+        ver_line = _probe_version(leader) if leader else None
+        if boards := (parse_ver_reply(ver_line) if ver_line else None):
+            roles = ("primary", "left", "right")
+            parts = " | ".join(
+                f"{roles[i] if i < len(roles) else f'board{i}'}: {v} ({b} {c})"
+                for i, (v, b, c) in enumerate(boards) if v != "-"
+            )
+            print(f"  {leader}  {parts}")
+        else:
+            print(f"  {leader}  (no version response)")
+        if len(ports) > 1:
+            others = [p for p in ports if p != leader]
+            print(f"  also detected: {', '.join(others)}")
     else:
         print("No attached Mega boards detected.")
 
