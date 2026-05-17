@@ -109,23 +109,33 @@ def _fetch_index() -> FirmwareIndex:
 # --- --show ---
 
 def cmd_show() -> None:
+    import threading
+
     ports = _all_mega_ports()
     if ports:
         print("Attached boards:")
-        leader = _leader_port(ports)
-        ver_line = _probe_version(leader) if leader else None
-        if boards := (parse_ver_reply(ver_line) if ver_line else None):
-            roles = ("primary", "left", "right")
-            parts = " | ".join(
-                f"{roles[i] if i < len(roles) else f'board{i}'}: {v} ({b} {c})"
-                for i, (v, b, c) in enumerate(boards) if v != "-"
-            )
-            print(f"  {leader}  {parts}")
-        else:
-            print(f"  {leader}  (no version response)")
-        if len(ports) > 1:
-            others = [p for p in ports if p != leader]
-            print(f"  also detected: {', '.join(others)}")
+        results: dict[str, Optional[str]] = {}
+
+        def probe(port: str) -> None:
+            results[port] = _probe_version(port)
+
+        threads = [threading.Thread(target=probe, args=(p,), daemon=True) for p in ports]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        for port in ports:
+            ver_line = results[port]
+            if boards := (parse_ver_reply(ver_line) if ver_line else None):
+                roles = ("primary", "left", "right")
+                parts = " | ".join(
+                    f"{roles[i] if i < len(roles) else f'board{i}'}: {v} ({b} {c})"
+                    for i, (v, b, c) in enumerate(boards) if v != "-"
+                )
+                print(f"  {port}  {parts}")
+            else:
+                print(f"  {port}  (no version response)")
     else:
         print("No attached Mega boards detected.")
 
