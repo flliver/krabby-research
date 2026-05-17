@@ -7,6 +7,7 @@ import subprocess
 import sys
 import time
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Optional
 
@@ -45,6 +46,12 @@ def _all_mega_ports() -> list[str]:
 
 
 
+# Follower boards (ROLE_LEFT/RIGHT) respond to V on their UART uplink, not USB.
+# After this many empty readline() timeouts post-V, give up rather than waiting
+# the full timeout. Each readline timeout is 0.2 s → 8 × 0.2 s = 1.6 s cutoff.
+_PROBE_V_RETRY_LIMIT = 8
+
+
 def _probe_version(port: str, timeout: float = 6.0) -> tuple[Optional[str], Optional[str]]:
     """Open port, wait for boot, send V. Return (ver_line, role_hint). Either may be None.
 
@@ -59,13 +66,17 @@ def _probe_version(port: str, timeout: float = 6.0) -> tuple[Optional[str], Opti
         with serial.Serial(port, 115200, timeout=0.2) as ser:
             ready = False
             role_hint: Optional[str] = None
+            v_retries = 0
             deadline = time.time() + timeout
             while time.time() < deadline:
                 raw = ser.readline()
                 if not raw:
                     if ready:
+                        if v_retries >= _PROBE_V_RETRY_LIMIT:
+                            return None, role_hint
                         ser.write(b"V\n")
                         ser.flush()
+                        v_retries += 1
                     continue
                 line = raw.decode("utf-8", errors="ignore").strip()
                 if line.startswith("ROLE_HINT: "):
@@ -96,10 +107,16 @@ def _fetch_index() -> FirmwareIndex:
 
 def cmd_show() -> None:
     ports = _all_mega_ports()
+
+    # Probe all boards and fetch S3 index in parallel.
+    with ThreadPoolExecutor(max_workers=len(ports) + 1) as executor:
+        index_future = executor.submit(_fetch_index)
+        probe_futures = [(port, executor.submit(_probe_version, port)) for port in ports]
+
     if ports:
         print("Attached boards:")
-        for port in ports:
-            ver_line, role_hint = _probe_version(port)
+        for port, future in probe_futures:
+            ver_line, role_hint = future.result()
             if boards := (parse_ver_reply(ver_line) if ver_line else None):
                 # role_hint from EEPROM overrides the default "primary" label for the
                 # first slot when a follower board is probed alone (ROLE_UNKNOWN state).
@@ -118,7 +135,7 @@ def cmd_show() -> None:
 
     print()
     try:
-        index = _fetch_index()
+        index = index_future.result()
     except Exception as exc:
         print(f"Could not fetch S3 index: {exc}", file=sys.stderr)
         return

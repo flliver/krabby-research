@@ -333,3 +333,17 @@ class TestProbeVersion:
             with patch("time.time", side_effect=[0, 0, 0, 0, 0, 1]):
                 result = cli_mod._probe_version("/dev/ttyACM0", timeout=1.0)
         assert result[1] == "right"
+
+    def test_early_exit_after_v_retry_limit_with_no_ver(self):
+        # Follower board: "Krabby Ready" arrives but VER never comes because the
+        # follower responds to V on its UART uplink, not USB.
+        ser = self._make_ser([
+            b"ROLE_HINT: LEFT\r\n",
+            b"Krabby Ready PINS_REV3.\r\n",
+        ] + [b""] * (cli_mod._PROBE_V_RETRY_LIMIT + 1))
+        with self._patch_serial(ser):
+            with patch("time.time", side_effect=[0] + [0.1] * 30):
+                result = cli_mod._probe_version("/dev/ttyACM0", timeout=10.0)
+        assert result == (None, "left")
+        # Initial V sent on Krabby Ready + one V per retry before cutoff
+        assert ser.write.call_count == cli_mod._PROBE_V_RETRY_LIMIT + 1
