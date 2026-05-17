@@ -45,19 +45,20 @@ def _all_mega_ports() -> list[str]:
 
 
 
-def _probe_version(port: str, timeout: float = 6.0) -> Optional[str]:
-    """Open port, wait for board to finish booting, send V, return VER line or None.
+def _probe_version(port: str, timeout: float = 6.0) -> tuple[Optional[str], Optional[str]]:
+    """Open port, wait for boot, send V. Return (ver_line, role_hint). Either may be None.
 
-    Reads startup lines until "Krabby Ready" appears (board done booting), then
-    sends V and returns the VER response. Avoids fixed sleeps that may be too short.
+    Captures the ROLE_HINT line printed from EEPROM before role election so the
+    caller can label follower boards correctly even when probed alone (ROLE_UNKNOWN).
     """
     try:
         import serial
     except ImportError:
-        return None
+        return None, None
     try:
         with serial.Serial(port, 115200, timeout=0.2) as ser:
             ready = False
+            role_hint: Optional[str] = None
             deadline = time.time() + timeout
             while time.time() < deadline:
                 raw = ser.readline()
@@ -67,15 +68,17 @@ def _probe_version(port: str, timeout: float = 6.0) -> Optional[str]:
                         ser.flush()
                     continue
                 line = raw.decode("utf-8", errors="ignore").strip()
-                if "Krabby Ready" in line:
+                if line.startswith("ROLE_HINT: "):
+                    role_hint = line[len("ROLE_HINT: "):].strip().lower()
+                elif "Krabby Ready" in line:
                     ready = True
                     ser.write(b"V\n")
                     ser.flush()
                 elif line.startswith("VER "):
-                    return line
+                    return line, role_hint
     except Exception:
         pass
-    return None
+    return None, None
 
 
 # --- S3 fetch helpers ---
@@ -96,9 +99,13 @@ def cmd_show() -> None:
     if ports:
         print("Attached boards:")
         for port in ports:
-            ver_line = _probe_version(port)
+            ver_line, role_hint = _probe_version(port)
             if boards := (parse_ver_reply(ver_line) if ver_line else None):
-                roles = ("primary", "left", "right")
+                # role_hint from EEPROM overrides the default "primary" label for the
+                # first slot when a follower board is probed alone (ROLE_UNKNOWN state).
+                roles = list(("primary", "left", "right"))
+                if role_hint in ("left", "right"):
+                    roles[0] = role_hint
                 parts = " | ".join(
                     f"{roles[i] if i < len(roles) else f'board{i}'}: {v} ({b} {c})"
                     for i, (v, b, c) in enumerate(boards) if v != "-"

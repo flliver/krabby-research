@@ -59,7 +59,7 @@ class TestCmdShow:
     def test_shows_version_for_board(self, capsys):
         index = _make_index({"release/0.2.0": "20250101-120000-abc1234"})
         with patch.object(cli_mod, "_all_mega_ports", return_value=["/dev/ttyACM0"]):
-            with patch.object(cli_mod, "_probe_version", return_value="VER 0.2.0 release/0.2.0 abc1234"):
+            with patch.object(cli_mod, "_probe_version", return_value=("VER 0.2.0 release/0.2.0 abc1234", None)):
                 with patch.object(cli_mod, "_fetch_index", return_value=index):
                     cli_mod.cmd_show()
         out = capsys.readouterr().out
@@ -69,11 +69,33 @@ class TestCmdShow:
     def test_shows_no_version_response_when_probe_fails(self, capsys):
         index = _make_index({"mainline": "20250101-120000-abc1234"})
         with patch.object(cli_mod, "_all_mega_ports", return_value=["/dev/ttyACM0"]):
-            with patch.object(cli_mod, "_probe_version", return_value=None):
+            with patch.object(cli_mod, "_probe_version", return_value=(None, None)):
                 with patch.object(cli_mod, "_fetch_index", return_value=index):
                     cli_mod.cmd_show()
         out = capsys.readouterr().out
         assert "no version response" in out
+
+    def test_role_hint_labels_follower_as_left(self, capsys):
+        index = _make_index({"release/0.2.8": "20250101-120000-abc1234"})
+        with patch.object(cli_mod, "_all_mega_ports", return_value=["/dev/ttyUSB0"]):
+            with patch.object(cli_mod, "_probe_version",
+                              return_value=("VER 0.2.8|-|- release/0.2.8|-|- abc1234|-|-", "left")):
+                with patch.object(cli_mod, "_fetch_index", return_value=index):
+                    cli_mod.cmd_show()
+        out = capsys.readouterr().out
+        assert "left: 0.2.8" in out
+        assert "primary" not in out
+
+    def test_role_hint_labels_follower_as_right(self, capsys):
+        index = _make_index({"release/0.2.8": "20250101-120000-abc1234"})
+        with patch.object(cli_mod, "_all_mega_ports", return_value=["/dev/ttyUSB1"]):
+            with patch.object(cli_mod, "_probe_version",
+                              return_value=("VER 0.2.8|-|- release/0.2.8|-|- abc1234|-|-", "right")):
+                with patch.object(cli_mod, "_fetch_index", return_value=index):
+                    cli_mod.cmd_show()
+        out = capsys.readouterr().out
+        assert "right: 0.2.8" in out
+        assert "primary" not in out
 
     def test_shows_multiple_branches(self, capsys):
         index = _make_index({
@@ -220,7 +242,8 @@ class TestProbeVersion:
         with self._patch_serial(ser):
             with patch("time.time", side_effect=[0, 0, 0, 0, 1]):
                 result = cli_mod._probe_version("/dev/ttyACM0", timeout=1.0)
-        assert result == "VER 0.2.0 release/0.2.0 abc1234"
+        assert result[0] == "VER 0.2.0 release/0.2.0 abc1234"
+        assert result[1] is None
 
     def test_sends_v_only_after_krabby_ready(self):
         ser = self._make_ser([
@@ -244,7 +267,7 @@ class TestProbeVersion:
         with self._patch_serial(ser):
             with patch("time.time", side_effect=[0, 0, 0, 0, 0, 1]):
                 result = cli_mod._probe_version("/dev/ttyACM0", timeout=1.0)
-        assert result == "VER 0.2.0 release/0.2.0 abc1234"
+        assert result[0] == "VER 0.2.0 release/0.2.0 abc1234"
         assert ser.write.call_count == 2  # once on Ready, once on empty
 
     def test_returns_none_when_no_krabby_ready(self):
@@ -252,7 +275,7 @@ class TestProbeVersion:
         with self._patch_serial(ser):
             with patch("time.time", return_value=999):
                 result = cli_mod._probe_version("/dev/ttyACM0", timeout=0.0)
-        assert result is None
+        assert result == (None, None)
 
     def test_returns_none_when_no_ver_after_ready(self):
         ser = self._make_ser([
@@ -262,7 +285,7 @@ class TestProbeVersion:
         with self._patch_serial(ser):
             with patch("time.time", side_effect=[0, 0, 0, 999]):
                 result = cli_mod._probe_version("/dev/ttyACM0", timeout=0.0)
-        assert result is None
+        assert result == (None, None)
 
     def test_handles_real_ver_format(self):
         ser = self._make_ser([
@@ -272,7 +295,7 @@ class TestProbeVersion:
         with self._patch_serial(ser):
             with patch("time.time", side_effect=[0, 0, 0, 0, 1]):
                 result = cli_mod._probe_version("/dev/ttyACM0", timeout=1.0)
-        assert result == "VER 0.2.0|-|- release/0.2.0|-|- ac66d5e|-|-"
+        assert result[0] == "VER 0.2.0|-|- release/0.2.0|-|- ac66d5e|-|-"
 
     def test_returns_none_on_serial_exception(self):
         ser = self._make_ser([])
@@ -280,9 +303,33 @@ class TestProbeVersion:
         with self._patch_serial(ser):
             with patch("time.time", side_effect=[0, 0, 1]):
                 result = cli_mod._probe_version("/dev/ttyACM0", timeout=1.0)
-        assert result is None
+        assert result == (None, None)
 
     def test_returns_none_when_serial_import_missing(self):
         with patch.dict("sys.modules", {"serial": None}):
             result = cli_mod._probe_version("/dev/ttyACM0")
-        assert result is None
+        assert result == (None, None)
+
+    def test_captures_role_hint_before_krabby_ready(self):
+        ser = self._make_ser([
+            b"--- SYNC ---\r\n",
+            b"ROLE_HINT: LEFT\r\n",
+            b"Krabby Ready PINS_REV3.\r\n",
+            b"VER 0.2.8|-|- release/0.2.8|-|- abc1234|-|-\r\n",
+        ])
+        with self._patch_serial(ser):
+            with patch("time.time", side_effect=[0, 0, 0, 0, 0, 0, 1]):
+                result = cli_mod._probe_version("/dev/ttyACM0", timeout=1.0)
+        assert result[0].startswith("VER ")
+        assert result[1] == "left"
+
+    def test_role_hint_right_captured(self):
+        ser = self._make_ser([
+            b"ROLE_HINT: RIGHT\r\n",
+            b"Krabby Ready PINS_REV3.\r\n",
+            b"VER 0.2.8|-|- release/0.2.8|-|- abc1234|-|-\r\n",
+        ])
+        with self._patch_serial(ser):
+            with patch("time.time", side_effect=[0, 0, 0, 0, 0, 1]):
+                result = cli_mod._probe_version("/dev/ttyACM0", timeout=1.0)
+        assert result[1] == "right"

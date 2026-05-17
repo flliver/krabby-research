@@ -126,6 +126,19 @@ python -m firmware --debug
 ```
 
 
+### EEPROM address layout
+
+| Address | Size | Purpose |
+|---------|------|---------|
+| 0–25 | 26 bytes | `CalData` struct — calibration min/max for 6 actuators + magic word (`0xDEADBEEF`) |
+| 26–31 | 6 bytes | Reserved (alignment gap) |
+| 32 | 1 byte | Role magic sentinel (`0xAB`) — written once after first successful role election |
+| 33 | 1 byte | `BoardRole` value: `1`=FRONT, `2`=LEFT, `3`=RIGHT |
+
+The role bytes survive power cycles. On each boot, the board prints `ROLE_HINT: LEFT/RIGHT/FRONT` immediately before the 3-second role-election window. `krabby-firmware show` reads this hint so follower boards can be labeled correctly even when probed individually (when they would otherwise appear as `ROLE_UNKNOWN` and show as "primary").
+
+Role bytes are only written when a valid role is elected (FRONT, LEFT, or RIGHT). A board that times out as ROLE_UNKNOWN does not update EEPROM, preserving the last valid role.
+
 ### Feature 1: Auto-Calibration (Run Once)
 The robot now calibrates itself automatically and saves limits to EEPROM.
  - Select Option 2 (Auto-Calibrate) in the menu.

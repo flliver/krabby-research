@@ -22,6 +22,27 @@
 enum BoardRole { ROLE_UNKNOWN, ROLE_FRONT, ROLE_LEFT, ROLE_RIGHT };
 BoardRole currentRole = ROLE_UNKNOWN;
 
+// EEPROM address 32: magic sentinel byte (0xAB); address 33: BoardRole value.
+// Calibration data (CalData) occupies addresses 0–25; gap at 26–31 kept for alignment.
+#define EEPROM_ROLE_ADDR  32
+#define EEPROM_ROLE_MAGIC 0xAB
+
+static void saveRole(BoardRole r)
+{
+    EEPROM.update(EEPROM_ROLE_ADDR,     EEPROM_ROLE_MAGIC);
+    EEPROM.update(EEPROM_ROLE_ADDR + 1, (uint8_t)r);
+}
+
+static BoardRole loadRole()
+{
+    if (EEPROM.read(EEPROM_ROLE_ADDR) != EEPROM_ROLE_MAGIC)
+        return ROLE_UNKNOWN;
+    uint8_t r = EEPROM.read(EEPROM_ROLE_ADDR + 1);
+    if (r == ROLE_FRONT || r == ROLE_LEFT || r == ROLE_RIGHT)
+        return (BoardRole)r;
+    return ROLE_UNKNOWN;
+}
+
 static const char* roleName(BoardRole r)
 {
     switch (r)
@@ -128,6 +149,17 @@ void forwardFullLines(HardwareSerial* from, HardwareSerial* to, char* partial, s
 void determineRole()
 {
     Serial.println("--- SYNC ---");
+
+    // Emit cached role before election so USB probe can label this port correctly
+    // even when the board is probed alone (and would otherwise appear as ROLE_UNKNOWN).
+    switch (loadRole())
+    {
+        case ROLE_FRONT: Serial.println("ROLE_HINT: FRONT"); break;
+        case ROLE_LEFT:  Serial.println("ROLE_HINT: LEFT");  break;
+        case ROLE_RIGHT: Serial.println("ROLE_HINT: RIGHT"); break;
+        default: break;
+    }
+
     pinMode(LED_BUILTIN, OUTPUT);
     SERIAL_LEFT.begin(BAUD_RATE);
     SERIAL_RIGHT.begin(BAUD_RATE);
@@ -155,6 +187,7 @@ void determineRole()
                 currentRole = ROLE_LEFT;
                 actuatorManager = new ActuatorManager(ACT_LIST_LEFT, ACT_COUNT);
                 mainSerial = &SERIAL_LEFT;
+                saveRole(ROLE_LEFT);
                 Serial.println("ROLE: LEFT");
                 return;
             }
@@ -169,6 +202,7 @@ void determineRole()
                 currentRole = ROLE_RIGHT;
                 actuatorManager = new ActuatorManager(ACT_LIST_RIGHT, ACT_COUNT);
                 mainSerial = &SERIAL_RIGHT;
+                saveRole(ROLE_RIGHT);
                 Serial.println("ROLE: RIGHT");
                 return;
             }
@@ -184,6 +218,7 @@ void determineRole()
             mainSerial = &Serial;
             leftSerial = &SERIAL_LEFT;
             rightSerial = &SERIAL_RIGHT;
+            saveRole(ROLE_FRONT);
             Serial.println("ROLE: FRONT");
             return;
         }
