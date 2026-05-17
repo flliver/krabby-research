@@ -92,24 +92,11 @@ def _fetch_index() -> FirmwareIndex:
 # --- --show ---
 
 def cmd_show() -> None:
-    import threading
-
     ports = _all_mega_ports()
     if ports:
         print("Attached boards:")
-        results: dict[str, Optional[str]] = {}
-
-        def probe(port: str) -> None:
-            results[port] = _probe_version(port)
-
-        threads = [threading.Thread(target=probe, args=(p,), daemon=True) for p in ports]
-        for t in threads:
-            t.start()
-        for t in threads:
-            t.join()
-
         for port in ports:
-            ver_line = results[port]
+            ver_line = _probe_version(port)
             if boards := (parse_ver_reply(ver_line) if ver_line else None):
                 roles = ("primary", "left", "right")
                 parts = " | ".join(
