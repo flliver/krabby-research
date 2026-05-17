@@ -45,7 +45,7 @@ jobs:
             echo "pkg_key=firmware" >> $GITHUB_OUTPUT
             echo "path=firmware" >> $GITHUB_OUTPUT
             echo "deps=" >> $GITHUB_OUTPUT
-            echo "test_path=" >> $GITHUB_OUTPUT
+            echo "test_path=tests/unit/firmware/" >> $GITHUB_OUTPUT
             echo "build_self_first=" >> $GITHUB_OUTPUT
           elif [[ "$TAG" == hal-server-isaac-v* ]]; then
             echo "pkg_key=hal-server-isaac" >> $GITHUB_OUTPUT
