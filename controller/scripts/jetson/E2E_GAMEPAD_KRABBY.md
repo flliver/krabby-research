@@ -2,6 +2,36 @@
 
 Two-process E2E on Jetson Orin: **Pro Controller** → **ControlLoop (INPUT_CONTROLLER_KRABBY)** → **HalClient (ZMQ TCP)** → **Jetson HAL server** → **KrabbyMCUSDK** → **firmware/krabby_mcu.py**. No camera or inference; command path only.
 
+---
+
+## Canonical path: `krabby` CLI
+
+```bash
+pip install krabby
+krabby install            # pull mainline-latest, set up udev + dialout
+krabby firmware show      # verify all three boards are visible
+krabby run                # start the locomotion stack
+```
+
+`krabby run` starts the container with `--privileged -v /dev:/dev`, which passes through the MCU serial ports (`/dev/ttyACM*`, `/dev/ttyUSB*`) **and** all input devices (`/dev/input/*`) in a single flag — no separate `--device` arguments needed.
+
+With the container running, start the control-loop client on the host (or inside the container):
+
+```bash
+# host (pip-installed client)
+pip install krabby-controller
+krabby-uno
+
+# or, if running from the repo
+python controller/scripts/jetson/run_gamepad_to_krabby_client.py
+```
+
+Pair the Pro Controller over Bluetooth before starting the container (see [CONNECT_PRO_CONTROLLER.md](CONNECT_PRO_CONTROLLER.md)). The paired `/dev/input/js0` is available inside the container automatically because of `-v /dev:/dev`.
+
+---
+
+## Manual / debug path (raw docker run)
+
 ## Prerequisites
 
 - **Pro Controller** connected (USB or Bluetooth). Verify: `python -m controller.input --list`

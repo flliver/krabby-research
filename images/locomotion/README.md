@@ -1,5 +1,18 @@
 # Locomotion Container
 
+## Canonical install path
+
+```bash
+pip install krabby
+krabby install            # pull mainline-latest, set up udev + dialout
+krabby firmware show      # verify boards
+krabby run                # start the locomotion stack
+```
+
+`krabby run` wires GPU flags, serial + input device passthrough, and ZMQ ports automatically. See [krabby/README.md](../../krabby/README.md) for the full CLI reference.
+
+---
+
 This directory contains two Dockerfiles for the Jetson Orin robot deployment.
 
 | Image | Dockerfile | Source | Pushed to ECR |

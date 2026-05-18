@@ -128,6 +128,12 @@ class TestRunCmd:
         cmd = run_cmd("myrepo:mytag", [])
         assert "myrepo:mytag" in cmd
 
+    def test_dev_mount_covers_input_and_serial_devices(self, monkeypatch):
+        monkeypatch.setattr("krabby._docker.platform.machine", lambda: "x86_64")
+        cmd = run_cmd("myimage:tag", [])
+        # /dev:/dev exposes /dev/ttyACM*, /dev/ttyUSB*, /dev/input/js*, /dev/input/event*
+        assert "/dev:/dev" in cmd
+
 
 class TestFirmwareCmd:
     def test_entrypoint_is_krabby_firmware(self, monkeypatch):
