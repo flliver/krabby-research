@@ -113,23 +113,41 @@ def cmd_show() -> None:
         index_future = executor.submit(_fetch_index)
         probe_futures = [(port, executor.submit(_probe_version, port)) for port in ports]
 
+    probe_results = {port: fut.result() for port, fut in probe_futures}
+
     if ports:
+        # When boards are UART-connected the leader returns a combined VER with all
+        # three versions; followers respond on their serial uplink and return nothing
+        # on USB. Detect the combined VER (any non-"-" entry past index 0) and use it
+        # as the authoritative version source for all ports, using EEPROM role_hints
+        # to map each port to the right slot.
+        combined: list[tuple[str, str, str]] | None = None
+        for port in ports:
+            ver_line, _ = probe_results[port]
+            if ver_line:
+                parsed = parse_ver_reply(ver_line)
+                if parsed and any(v != "-" for v, _, _ in parsed[1:]):
+                    combined = parsed
+                    break
+
+        role_slot = {"primary": 0, "front": 0, "left": 1, "right": 2}
+
         print("Attached boards:")
-        for port, future in probe_futures:
-            ver_line, role_hint = future.result()
-            if boards := (parse_ver_reply(ver_line) if ver_line else None):
-                # role_hint from EEPROM overrides the default "primary" label for the
-                # first slot when a follower board is probed alone (ROLE_UNKNOWN state).
-                roles = list(("primary", "left", "right"))
-                if role_hint in ("left", "right"):
-                    roles[0] = role_hint
-                parts = " | ".join(
-                    f"{roles[i] if i < len(roles) else f'board{i}'}: {v} ({b} {c})"
-                    for i, (v, b, c) in enumerate(boards) if v != "-"
-                )
-                print(f"  {port}  {parts}")
+        for port in ports:
+            ver_line, role_hint = probe_results[port]
+            role = role_hint if role_hint and role_hint != "front" else "primary"
+
+            if combined:
+                slot = role_slot.get(role, 0)
+                v, b, c = combined[slot] if slot < len(combined) else ("-", "-", "-")
+                print(f"  {port}  {role}: {v} ({b} {c})")
             else:
-                print(f"  {port}  (no version response)")
+                parsed = parse_ver_reply(ver_line) if ver_line else None
+                if parsed:
+                    v, b, c = parsed[0]
+                    print(f"  {port}  {role}: {v} ({b} {c})")
+                else:
+                    print(f"  {port}  {role}: (no version response)")
     else:
         print("No attached Mega boards detected.")
 

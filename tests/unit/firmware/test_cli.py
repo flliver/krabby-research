@@ -97,6 +97,30 @@ class TestCmdShow:
         assert "right: 0.2.8" in out
         assert "primary" not in out
 
+    def test_combined_ver_fills_all_three_ports(self, capsys):
+        """Leader's combined VER is used for all three ports; no 'no version response'."""
+        index = _make_index({"release/0.2.9": "20250101-120000-abc1234"})
+        combined = "VER 0.2.9|0.2.9|0.2.9 release/0.2.9|release/0.2.9|release/0.2.9 abc1234|abc1234|abc1234"
+
+        def fake_probe(port):
+            if port == "/dev/ttyACM0":
+                return (combined, "front")
+            elif port == "/dev/ttyUSB0":
+                return (None, "left")
+            else:
+                return (None, "right")
+
+        with patch.object(cli_mod, "_all_mega_ports",
+                          return_value=["/dev/ttyACM0", "/dev/ttyUSB0", "/dev/ttyUSB1"]):
+            with patch.object(cli_mod, "_probe_version", side_effect=fake_probe):
+                with patch.object(cli_mod, "_fetch_index", return_value=index):
+                    cli_mod.cmd_show()
+        out = capsys.readouterr().out
+        assert "primary: 0.2.9" in out
+        assert "left: 0.2.9" in out
+        assert "right: 0.2.9" in out
+        assert "no version response" not in out
+
     def test_shows_multiple_branches(self, capsys):
         index = _make_index({
             "mainline": "20250101-120000-abc1234",
