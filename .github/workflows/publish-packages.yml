@@ -17,6 +17,7 @@ on:
       - 'hal-tools-v*'
       - 'hal-server-isaac-v*'
       - 'hal-server-jetson-v*'
+      - 'krabby-v*'
 
 jobs:
   publish:
@@ -88,6 +89,12 @@ jobs:
             echo "path=hal/tools" >> $GITHUB_OUTPUT
             echo "deps=hal/client hal/server" >> $GITHUB_OUTPUT
             echo "test_path=" >> $GITHUB_OUTPUT
+            echo "build_self_first=" >> $GITHUB_OUTPUT
+          elif [[ "$TAG" == krabby-v* ]]; then
+            echo "pkg_key=krabby" >> $GITHUB_OUTPUT
+            echo "path=krabby" >> $GITHUB_OUTPUT
+            echo "deps=" >> $GITHUB_OUTPUT
+            echo "test_path=tests/unit/krabby/" >> $GITHUB_OUTPUT
             echo "build_self_first=" >> $GITHUB_OUTPUT
           else
             echo "Unrecognized tag: $TAG"
