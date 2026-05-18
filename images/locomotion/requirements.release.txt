@@ -1,0 +1,26 @@
+# Production image requirements — installed from PyPI (no monorepo source).
+# Krabby packages are pinned exactly; bump by editing the == version and pushing.
+# krabby-data-collection and krabby-teleop-edge are not yet published to PyPI
+# and are excluded from the production image.
+
+# --- Krabby packages (exact pins) ---
+krabby-hal-client==0.1.0
+krabby-hal-server==0.1.1
+krabby-hal-server-jetson==0.1.1
+krabby-hal-tools==0.1.0
+krabby-compute-parkour==0.1.0
+krabby-controller==0.1.2
+krabby-firmware==0.2.9
+
+# --- Runtime dependencies ---
+pyzmq>=25.0.0
+dataclasses-json>=0.6.0
+typing-extensions>=4.8.0
+scipy>=1.10.0
+rsl-rl-lib>=2.3.1
+pyzed>=3.8.0
+pygame>=2.6.0
+PyYAML>=6.0.0
+pyserial>=3.5
+requests>=2.31.0
+opencv-python-headless>=4.8.0

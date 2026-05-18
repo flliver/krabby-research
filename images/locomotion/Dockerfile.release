@@ -1,0 +1,62 @@
+# Production Dockerfile — installs Krabby packages from PyPI (no monorepo source).
+# Dev image: images/locomotion/Dockerfile  (local wheel COPYs, not pushed to ECR).
+#
+# Build (on Jetson or via buildx):
+#   docker buildx build --platform linux/arm64 \
+#     -f images/locomotion/Dockerfile.release \
+#     -t krabby-locomotion:latest .
+#
+# Run:
+#   docker run --rm --gpus all \
+#     --device /dev/ttyACM0 \
+#     -v /path/to/checkpoints:/workspace/checkpoints \
+#     <ecr-uri>:<tag> \
+#     --checkpoint /workspace/checkpoints/checkpoint.pt
+
+FROM nvcr.io/nvidia/pytorch:25.10-py3-igpu
+
+WORKDIR /workspace
+
+# System deps — same as dev image plus avrdude for MCU flashing
+RUN apt-get update && apt-get install -y \
+    python3-pip \
+    python3-dev \
+    build-essential \
+    git \
+    libzmq3-dev \
+    wget \
+    zstd \
+    avrdude \
+    gstreamer1.0-tools \
+    gstreamer1.0-plugins-base \
+    gstreamer1.0-plugins-good \
+    gstreamer1.0-plugins-ugly \
+    && rm -rf /var/lib/apt/lists/*
+
+# ZED SDK 5.1.1 for L4T 36.4 (JetPack 6.1/6.2) — same version as dev image
+RUN echo "Installing ZED SDK 5.1.1 for L4T 36.4..." && \
+    wget -O /tmp/zed_sdk.run \
+    "https://download.stereolabs.com/zedsdk/5.1.1/l4t36.4/jetsons" && \
+    chmod +x /tmp/zed_sdk.run && \
+    /tmp/zed_sdk.run --noexec --target /tmp/zed_installer && \
+    cd /tmp/zed_installer && \
+    ./linux_install_release.sh -- silent && \
+    rm -rf /tmp/zed_sdk.run /tmp/zed_installer
+
+# arduino-cli 1.1.1 (ARM64) + Mega 2560 core 1.8.7 — same pin as firmware CI
+RUN wget -qO- \
+    https://github.com/arduino/arduino-cli/releases/download/v1.1.1/arduino-cli_1.1.1_Linux_ARM64.tar.gz \
+    | tar -xz -C /usr/local/bin arduino-cli && \
+    arduino-cli core install arduino:avr@1.8.7
+
+# Install Krabby packages and runtime deps from PyPI
+COPY images/locomotion/requirements.release.txt /tmp/requirements.release.txt
+RUN pip3 install -r /tmp/requirements.release.txt
+
+# Jetson camera stack requires its libnvjpeg for pyzed/Argus interop.
+# If removed, pyzed may fail to import with:
+# "undefined symbol: jpeg_set_hardware_acceleration_parameters_enc"
+ENV LD_PRELOAD=/usr/lib/aarch64-linux-gnu/nvidia/libnvjpeg.so
+
+ENTRYPOINT ["python3", "-m", "hal.server.jetson.main"]
+CMD ["--help"]

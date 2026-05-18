@@ -1,37 +1,119 @@
-# Production Locomotion Container
+# Locomotion Container
 
-This directory contains the production Dockerfile for the Jetson Orin robot deployment.
+This directory contains two Dockerfiles for the Jetson Orin robot deployment.
 
-## Overview
+| Image | Dockerfile | Source | Pushed to ECR |
+|-------|-----------|--------|---------------|
+| **Dev** | `Dockerfile` | Monorepo `COPY` (local wheels) | No |
+| **Production** | `Dockerfile.release` | PyPI packages (pinned versions) | Yes |
 
-The production container combines:
-- **Policy inference** (`compute/parkour/`) — policy wrapper and model inference (e.g. **`ParkourInferenceClient`**)
-- **HAL server** (`hal/server/jetson/`) — Jetson HAL server (catalog-driven RGB-D: ZED, MaixSense, etc.)
-- **Process entrypoint** — `python -m hal.server.jetson.main` (see **JETSON_DEPLOYMENT.md**); control loop and HAL share inproc ZMQ in the same container
+---
 
-All components communicate via **inproc ZMQ** (same process, zero-copy) for optimal performance.
+## Dev Image
 
-## Building the Container
+For developers iterating on HAL or compute code locally. Builds directly from the monorepo — no PyPI version bump required to test changes.
 
 ```bash
-cd images/locomotion
-docker build -t krabby-locomotion:latest .
+# Build (from repo root)
+docker build -f images/locomotion/Dockerfile -t krabby-locomotion:dev .
+
+# Run
+docker run --rm --gpus all \
+    -v /path/to/checkpoints:/workspace/checkpoints \
+    krabby-locomotion:dev \
+    --checkpoint /workspace/checkpoints/checkpoint.pt
 ```
 
-## Running the Container
+---
+
+## Production Image
+
+Installs Krabby packages from PyPI with pinned versions. Bundled with `avrdude`, `arduino-cli` (Mega 2560 core, same pin as firmware CI), and `krabby-firmware` so MCU flashing works from inside the container without host-side flash tools.
+
+### Pulling from ECR
+
+```bash
+ECR=632914961627.dkr.ecr.us-east-1.amazonaws.com/krabby-locomotion
+
+# Latest mainline build
+docker pull ${ECR}:mainline-latest
+
+# Specific commit
+docker pull ${ECR}:<sha7>
+
+# Semver release (after a locomotion-v* tag)
+docker pull ${ECR}:0.2.9
+```
+
+The ECR repository has a public-read policy — no AWS credentials required to pull.
+
+### Running
 
 ```bash
 docker run --rm --gpus all \
     -v /path/to/checkpoints:/workspace/checkpoints \
-    # Optional data collection persistence:
-    # -v /path/to/krabby_bags:/workspace/bags \
-    krabby-locomotion:latest \
-    --checkpoint /workspace/checkpoints/checkpoint.pt \
-    # Optional log level:
-    # --log-level DEBUG \
-    # Optional data collection flag (enables collector):
-    # --data-collector-output-dir /workspace/bags
+    ${ECR}:mainline-latest \
+    --checkpoint /workspace/checkpoints/checkpoint.pt
 ```
+
+With MCU flashing:
+```bash
+docker run --rm --gpus all \
+    --device /dev/ttyACM0 \
+    ${ECR}:mainline-latest \
+    krabby-firmware show
+```
+
+### Tag Scheme
+
+| Tag | Updated on |
+|-----|-----------|
+| `<sha7>` | Every push to a tracked branch |
+| `mainline-latest` | Every push to `mainline` |
+| `release-<x-y-z>-latest` | Every push to `release/x.y.z` |
+| `<semver>` (e.g. `0.2.9`) | Push of a `locomotion-v*` tag |
+
+### PyPI Packages
+
+Pinned in `requirements.release.txt`:
+
+```
+krabby-hal-client==0.1.0
+krabby-hal-server==0.1.1
+krabby-hal-server-jetson==0.1.1
+krabby-hal-tools==0.1.0
+krabby-compute-parkour==0.1.0
+krabby-controller==0.1.2
+krabby-firmware==0.2.9
+```
+
+`krabby-data-collection` and `krabby-teleop-edge` are not yet published to PyPI and are excluded from the production image.
+
+### Bumping Pins
+
+1. Edit the `==` versions in `requirements.release.txt`
+2. Push to `mainline` or a `release/*` branch
+3. CI builds and pushes the new image automatically
+
+### Bundled Flash Tooling
+
+The production image includes:
+- `avrdude` (via apt) — for direct AVR flashing
+- `arduino-cli` 1.1.1 (ARM64) + `arduino:avr` Mega 2560 core — same pin as firmware CI
+- `krabby-firmware` — `show`, `update`, and `install` subcommands
+
+Host-side `udev` rules and `dialout` group membership are not handled by the container; run `krabby --install` on the host (Task 3).
+
+---
+
+## Overview
+
+Both images combine:
+- **Policy inference** (`krabby-compute-parkour`) — policy wrapper and model inference
+- **HAL server** (`krabby-hal-server-jetson`) — Jetson HAL server (catalog-driven RGB-D: ZED, MaixSense, etc.)
+- **Process entrypoint** — `python -m hal.server.jetson.main`; control loop and HAL share inproc ZMQ in the same process
+
+All components communicate via **inproc ZMQ** (same process, zero-copy).
 
 ## Configuration
 
@@ -40,14 +122,8 @@ docker run --rm --gpus all \
 - **Communication**: inproc ZMQ (same process)
 - **Control rate**: 100+ Hz
 
-## Dependencies
-
-See `DOCKER_DEPENDENCIES.md` for complete dependency list.
-
 ## Notes
 
-- ZED SDK Python bindings (`pyzed`) are installed via pip, but require ZED SDK to be installed on the system (via NVIDIA installer)
-- If ZED SDK is not available, the code will gracefully fall back to mock camera mode
-- Container entrypoint runs **`hal.server.jetson.main`** (`hal/server/jetson/main.py`)
-- All ZMQ communication uses inproc endpoints for same-process communication
-
+- ZED SDK Python bindings (`pyzed`) require ZED SDK installed on the system (via NVIDIA installer). The Dockerfile installs it automatically.
+- If ZED SDK is not available, the code gracefully falls back to mock camera mode.
+- Container entrypoint: `hal.server.jetson.main` (`hal/server/jetson/main.py`)

@@ -1,0 +1,117 @@
+# Build the production locomotion image and push to ECR on every push to mainline or release/*.
+# Dev image (images/locomotion/Dockerfile) is not built or pushed here.
+# Tags: <sha7>, <branch>-latest (e.g. mainline-latest, release-0-2-9-latest),
+#       and on locomotion-v* tags also the semver version.
+#
+# Requires:
+#   - krabby-locomotion ECR repo in account 632914961627 (us-east-1)
+#   - krabby-locomotion-ci IAM role with OIDC trust for this repo and ECR push permissions
+#   - Public-read ECR repository policy (see images/locomotion/README.md)
+
+name: Build and push locomotion image to ECR
+
+on:
+  push:
+    branches:
+      - mainline
+      - 'release/**'
+    tags:
+      - 'locomotion-v*'
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::632914961627:role/krabby-locomotion-ci
+          aws-region: us-east-1
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Compute image tags
+        id: tags
+        run: |
+          ECR="632914961627.dkr.ecr.us-east-1.amazonaws.com/krabby-locomotion"
+          SHA="${GITHUB_SHA::7}"
+          SHA_TAG="${ECR}:${SHA}"
+          TAGS="${SHA_TAG}"
+
+          if [[ "${GITHUB_REF}" == refs/heads/* ]]; then
+            BRANCH="${GITHUB_REF#refs/heads/}"
+            SAFE="${BRANCH//\//-}"
+            TAGS="${TAGS},${ECR}:${SAFE}-latest"
+          fi
+
+          if [[ "${GITHUB_REF}" == refs/tags/locomotion-v* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/locomotion-v}"
+            TAGS="${TAGS},${ECR}:${VERSION}"
+          fi
+
+          echo "tags=${TAGS}" >> $GITHUB_OUTPUT
+          echo "sha_tag=${SHA_TAG}" >> $GITHUB_OUTPUT
+
+      - name: Build and push production image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: images/locomotion/Dockerfile.release
+          platforms: linux/arm64
+          push: true
+          tags: ${{ steps.tags.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Verify production image
+        run: |
+          set -o pipefail
+          SHA_TAG="${{ steps.tags.outputs.sha_tag }}"
+
+          # Pull freeze for all krabby-* packages installed in the image
+          docker run --rm --platform linux/arm64 "${SHA_TAG}" \
+            pip freeze | grep -E '^krabby-' | sort > /tmp/actual.txt
+
+          # Extract expected krabby pins from requirements.release.txt
+          grep -E '^krabby-[a-z]' images/locomotion/requirements.release.txt \
+            | sort > /tmp/expected.txt
+
+          echo "Expected Krabby packages:"
+          cat /tmp/expected.txt
+          echo "Actual Krabby packages in image:"
+          cat /tmp/actual.txt
+
+          # Every line in expected must appear exactly in actual
+          while IFS= read -r line; do
+            if ! grep -Fxq "${line}" /tmp/actual.txt; then
+              echo "ERROR: '${line}' not found in pip freeze output"
+              exit 1
+            fi
+          done < /tmp/expected.txt
+
+          # Verify flash tooling is present
+          docker run --rm --platform linux/arm64 "${SHA_TAG}" which avrdude
+          docker run --rm --platform linux/arm64 "${SHA_TAG}" which arduino-cli
+          docker run --rm --platform linux/arm64 "${SHA_TAG}" which krabby-firmware
+
+          # Verify Mega 2560 AVR core is installed
+          docker run --rm --platform linux/arm64 "${SHA_TAG}" \
+            arduino-cli core list | grep -E "^arduino:avr"
+
+          echo "All verification checks passed."
