@@ -116,11 +116,9 @@ def cmd_show() -> None:
     probe_results = {port: fut.result() for port, fut in probe_futures}
 
     if ports:
-        # When boards are UART-connected the leader returns a combined VER with all
-        # three versions; followers respond on their serial uplink and return nothing
-        # on USB. Detect the combined VER (any non-"-" entry past index 0) and use it
-        # as the authoritative version source for all ports, using EEPROM role_hints
-        # to map each port to the right slot.
+        # Leader returns combined VER (slot 0=primary, 1=left, 2=right via UART).
+        # Display role slots directly so old firmware without ROLE_HINT still shows
+        # correct per-board versions instead of all mapping to slot 0.
         combined: list[tuple[str, str, str]] | None = None
         for port in ports:
             ver_line, _ = probe_results[port]
@@ -130,18 +128,23 @@ def cmd_show() -> None:
                     combined = parsed
                     break
 
-        role_slot = {"primary": 0, "front": 0, "left": 1, "right": 2}
-
         print("Attached boards:")
-        for port in ports:
-            ver_line, role_hint = probe_results[port]
-            role = role_hint if role_hint and role_hint != "front" else "primary"
+        if combined:
+            # Annotate with port only when ROLE_HINT is available (firmware >= M14 step 9).
+            role_to_port: dict[str, str] = {}
+            for port in ports:
+                _, role_hint = probe_results[port]
+                if role_hint:
+                    role_to_port.setdefault("primary" if role_hint == "front" else role_hint, port)
 
-            if combined:
-                slot = role_slot.get(role, 0)
+            for role, slot in [("primary", 0), ("left", 1), ("right", 2)]:
                 v, b, c = combined[slot] if slot < len(combined) else ("-", "-", "-")
-                print(f"  {port}  {role}: {v} ({b} {c})")
-            else:
+                port_label = f" ({role_to_port[role]})" if role in role_to_port else ""
+                print(f"  {role}{port_label}: {v} ({b} {c})")
+        else:
+            for port in ports:
+                ver_line, role_hint = probe_results[port]
+                role = role_hint if role_hint and role_hint != "front" else "primary"
                 parsed = parse_ver_reply(ver_line) if ver_line else None
                 if parsed:
                     v, b, c = parsed[0]
@@ -195,7 +198,7 @@ def _flash(hex_path: Path, port: str) -> None:
         sys.exit("avrdude or arduino-cli required to flash. Run: krabby-firmware install")
     ret = subprocess.run(cmd).returncode
     if ret != 0:
-        sys.exit(f"Flash failed (exit {ret})")
+        raise RuntimeError(f"flash failed on {port} (exit {ret})")
 
 
 def cmd_update(branch_or_port: Optional[str] = None, port_arg: Optional[str] = None) -> None:
@@ -236,17 +239,23 @@ def cmd_update(branch_or_port: Optional[str] = None, port_arg: Optional[str] = N
         _download_hex(entry.hex_url, cached)
         print(f"Saved to {cached}")
 
-    if port is None:
+    if port is not None:
+        ports = [port]
+    else:
         ports = _all_mega_ports()
         if not ports:
             sys.exit("No Mega boards detected. Connect a board or specify a port.")
-        if len(ports) > 1:
-            sys.exit(
-                f"Multiple boards detected: {', '.join(ports)}. "
-                "Specify a port with: update [branch] /dev/ttyACMx"
-            )
-        port = ports[0]
 
-    print(f"Flashing {port} ...")
-    _flash(cached, port)
-    print("Flash complete.")
+    failed = []
+    for p in ports:
+        print(f"Flashing {p} ...")
+        try:
+            _flash(cached, p)
+            print(f"  done")
+        except RuntimeError as exc:
+            print(f"  ERROR: {exc}", file=sys.stderr)
+            failed.append(p)
+
+    if failed:
+        sys.exit(f"Flash failed on: {', '.join(failed)}")
+    print(f"Flashed {len(ports)} board(s).")

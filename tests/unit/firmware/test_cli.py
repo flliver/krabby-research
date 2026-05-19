@@ -98,7 +98,7 @@ class TestCmdShow:
         assert "primary" not in out
 
     def test_combined_ver_fills_all_three_ports(self, capsys):
-        """Leader's combined VER is used for all three ports; no 'no version response'."""
+        """Leader's combined VER shows all three role slots; port annotation when ROLE_HINT present."""
         index = _make_index({"release/0.2.9": "20250101-120000-abc1234"})
         combined = "VER 0.2.9|0.2.9|0.2.9 release/0.2.9|release/0.2.9|release/0.2.9 abc1234|abc1234|abc1234"
 
@@ -116,10 +116,34 @@ class TestCmdShow:
                 with patch.object(cli_mod, "_fetch_index", return_value=index):
                     cli_mod.cmd_show()
         out = capsys.readouterr().out
-        assert "primary: 0.2.9" in out
-        assert "left: 0.2.9" in out
-        assert "right: 0.2.9" in out
+        assert "primary (/dev/ttyACM0): 0.2.9" in out
+        assert "left (/dev/ttyUSB0): 0.2.9" in out
+        assert "right (/dev/ttyUSB1): 0.2.9" in out
         assert "no version response" not in out
+
+    def test_combined_ver_no_role_hints_shows_correct_slots(self, capsys):
+        """Old firmware without ROLE_HINT: combined VER slots shown by role, not port mapping."""
+        index = _make_index({"release/0.2.9": "20250101-120000-abc1234"})
+        combined = "VER 0.2.9|0.2.8|0.2.8 release/0.2.9|release/0.2.8|release/0.2.8 abc1234|def5678|def5678"
+
+        def fake_probe(port):
+            # Leader returns combined VER; followers time out. No ROLE_HINT on any board.
+            if port == "/dev/ttyACM0":
+                return (combined, None)
+            return (None, None)
+
+        with patch.object(cli_mod, "_all_mega_ports",
+                          return_value=["/dev/ttyACM0", "/dev/ttyUSB0", "/dev/ttyUSB1"]):
+            with patch.object(cli_mod, "_probe_version", side_effect=fake_probe):
+                with patch.object(cli_mod, "_fetch_index", return_value=index):
+                    cli_mod.cmd_show()
+        out = capsys.readouterr().out
+        assert "primary: 0.2.9" in out
+        assert "left: 0.2.8" in out
+        assert "right: 0.2.8" in out
+        # Old bug: all three ports mapped to slot 0, showing 0.2.9 for left/right too
+        assert "left: 0.2.9" not in out
+        assert "right: 0.2.9" not in out
 
     def test_shows_multiple_branches(self, capsys):
         index = _make_index({
