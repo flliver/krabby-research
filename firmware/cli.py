@@ -1,4 +1,4 @@
-"""krabby-firmware --show / --update CLI commands."""
+"""krabby-firmware show / update CLI commands."""
 from __future__ import annotations
 
 import json
@@ -192,7 +192,7 @@ def _flash(hex_path: Path, port: str) -> None:
         cmd = ["arduino-cli", "upload", "--fqbn", "arduino:avr:mega",
                "--port", port, "--input-file", str(hex_path)]
     else:
-        sys.exit("avrdude or arduino-cli required to flash. Run krabby-firmware --install first.")
+        sys.exit("avrdude or arduino-cli required to flash. Run: krabby-firmware install")
     ret = subprocess.run(cmd).returncode
     if ret != 0:
         sys.exit(f"Flash failed (exit {ret})")
@@ -216,7 +216,7 @@ def cmd_update(branch_or_port: Optional[str] = None, port_arg: Optional[str] = N
     if branch is None:
         entry = latest_release_branch(index)
         if entry is None:
-            sys.exit("No release/* branches found in S3 index. Use --update <branch> to specify one.")
+            sys.exit("No release/* branches found in S3 index. Use: update <branch>")
         branch = entry.branch
     elif branch not in index.branches:
         sys.exit(f"Branch '{branch}' not found in S3 index. Available: {', '.join(sorted(index.branches))}")
@@ -243,7 +243,7 @@ def cmd_update(branch_or_port: Optional[str] = None, port_arg: Optional[str] = N
         if len(ports) > 1:
             sys.exit(
                 f"Multiple boards detected: {', '.join(ports)}. "
-                "Specify a port with --update [branch] /dev/ttyACMx"
+                "Specify a port with: update [branch] /dev/ttyACMx"
             )
         port = ports[0]
 

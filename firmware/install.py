@@ -1,4 +1,4 @@
-"""krabby-firmware --install: one-time host setup for flashing Mega 2560 without sudo."""
+"""krabby-firmware install: one-time host setup for flashing Mega 2560 without sudo."""
 from __future__ import annotations
 
 import os
