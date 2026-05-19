@@ -28,6 +28,35 @@ python controller/scripts/jetson/run_gamepad_to_krabby_client.py
 
 Pair the Pro Controller over Bluetooth before starting the container (see [CONNECT_PRO_CONTROLLER.md](CONNECT_PRO_CONTROLLER.md)). The paired `/dev/input/js0` is available inside the container automatically because of `-v /dev:/dev`.
 
+### Testing without a checkpoint (gamepad-only mode)
+
+The release image's default entrypoint (`hal.server.jetson.main`) requires `--checkpoint`. To run the gamepad-only HAL server without inference — for controller testing or AC verification — use `--entrypoint` with a workspace mount:
+
+**Terminal 1 — HAL server in container (gamepad-only):**
+
+```bash
+# Clone the repo on the Jetson first if not present:
+git clone --depth=1 --branch m14 https://github.com/flliver/krabby-research.git /tmp/krabby-research
+
+krabby run \
+  --entrypoint python3 \
+  -- -v /tmp/krabby-research:/workspace \
+  /workspace/controller/scripts/jetson/main_gamepad_only.py
+```
+
+> Note: `main_gamepad_only.py` is not included in the PyPI-installed packages; the workspace mount makes it available inside the container. All dependencies (`krabby-hal-server-jetson`, `krabby-controller`, etc.) are already installed in the image.
+
+Wait for: `Gamepad-only HAL server initialized (ZMQ TCP). ... Waiting for joint commands...`
+
+**Terminal 2 — control-loop client on host:**
+
+```bash
+PYTHONPATH=/tmp/krabby-research python3 \
+  -m controller.scripts.jetson.run_gamepad_to_krabby_client
+```
+
+Or with the pip-installed client: `krabby-uno` (defaults to `tcp://localhost:6001/6002`).
+
 ---
 
 ## Manual / debug path (raw docker run)
