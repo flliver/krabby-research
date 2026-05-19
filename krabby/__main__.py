@@ -27,6 +27,7 @@ def main() -> None:
     # run
     p_run = sub.add_parser("run", help="Start the locomotion container")
     p_run.add_argument("--image", metavar="REF", help="Image ref to run")
+    p_run.add_argument("--entrypoint", metavar="CMD", help="Override container entrypoint")
     p_run.add_argument("args", nargs=argparse.REMAINDER, help="Extra args passed to the container")
 
     # firmware
@@ -46,7 +47,7 @@ def main() -> None:
 
     elif args.command == "run":
         from krabby.run import cmd_run
-        cmd_run(image_ref=args.image, extra_args=args.args)
+        cmd_run(image_ref=args.image, extra_args=args.args, entrypoint=args.entrypoint)
 
     elif args.command == "firmware":
         from krabby.firmware import cmd_firmware

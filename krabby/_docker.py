@@ -39,12 +39,14 @@ def pull(image_ref: str) -> str:
     return digest_result.stdout.strip()
 
 
-def run_cmd(image_ref: str, extra_args: list[str]) -> list[str]:
+def run_cmd(image_ref: str, extra_args: list[str], entrypoint: str | None = None) -> list[str]:
+    ep = ["--entrypoint", entrypoint] if entrypoint else []
     return [
         "docker", "run", "--rm",
         "--name", "krabby",
         "--privileged",
         *gpu_flags(),
+        *ep,
         "-v", "/dev:/dev",
         "-p", "6001:6001",
         "-p", "6002:6002",
