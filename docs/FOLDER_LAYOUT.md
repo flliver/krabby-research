@@ -138,9 +138,23 @@ krabby-research/
 │   ├── camera_viewer/                 # T0.B5: interactive 3D camera-selection UI
 │   └── rate_renders/                  # Web app for rating rendered comparisons
 │
+├── environments/                     # Real-to-sim output: per-scene IsaacSim assets
+│   └── reconstructed/                # M11 scenes (mesh + USD + manifest)
+│       ├── README.md                 # Storage convention: >100 MB → S3
+│       └── <scene-name>/             # Per-scene subdir (populated as scenes ship)
+│
+├── experiments/                      # Reproducibility provenance per milestone
+│   └── m11-scene-reconstruction/     # M11 pipeline-evaluation experiments (16 dirs)
+│       ├── 001-{colmap,mast3r-slam,matcha,vggt}-patio-fisheye/
+│       ├── 003-{matcha,slam3r,mast3r-slam}-firepit/
+│       ├── 004-{matcha,sfm-scaling,r-knob-sweep,...}-sky-house/
+│       └── DECISION-MATRIX.md
+│
 ├── .beads/                           # Beads issue-tracking DB (M11+ uses prefix m11-*)
 │   ├── issues.jsonl                  # Portable canonical export
 │   └── (config.yaml, hooks/, README.md)
+│
+├── .env.example                      # Template for HF_TOKEN etc. (copy to .env at runtime)
 │
 └── scripts/                          # Deployment and utility scripts
     ├── setup-docker-gpu.sh           # NVIDIA Container Toolkit installer
@@ -149,10 +163,12 @@ krabby-research/
         └── run_locomotion.sh
 ```
 
-> **M11 environments** (reconstructed scene assets, USD outputs) will land at
-> `environments/reconstructed/<scene>/` once Phase E2 produces them. See
-> `MIGRATION.md` Q2 for the still-pending decision on raw-video storage
-> (S3 vs git-LFS).
+> **M11 environments**: `environments/reconstructed/<scene>/` is the
+> landing surface for reconstructed scene assets. Per-scene USD + mesh
+> outputs commit directly to git up to 100 MB; anything larger (raw
+> video, dense point clouds, vertex-colored meshes) goes to S3 (bucket
+> TBD). See `environments/reconstructed/README.md` for the full
+> storage convention.
 
 ## Key Points
 
