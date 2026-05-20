@@ -61,6 +61,7 @@ def firmware_cmd(image_ref: str, firmware_args: list[str]) -> list[str]:
         "docker", "run", "--rm",
         *serial_device_flags(),
         "-v", cache_mount,
+        "-e", "LD_PRELOAD=",
         "--entrypoint", "krabby-firmware",
         image_ref,
         *firmware_args,
