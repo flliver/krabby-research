@@ -30,7 +30,7 @@ class ParkourStudentSceneCfg(ParkourTeacherSceneCfg):
 
             else:
                 sub_terrain.proportion = 0.2
-                if key is not 'parkour':
+                if key != 'parkour':
                     sub_terrain.y_range = (-0.1, 0.1)
 
 

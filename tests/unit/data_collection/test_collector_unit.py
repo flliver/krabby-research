@@ -11,12 +11,7 @@ import pytest
 import zmq
 
 from data_collection.collector import HalDataCollector, _topic_msgtype_catalog
-from data_collection.config import (
-    CatalogTopicMap,
-    DataCollectorConfig,
-    HalEndpoints,
-    TopicEnable,
-)
+from data_collection.config import DataCollectorConfig, HalEndpoints, TopicEnable
 from tests.helpers import create_dummy_hw_obs
 
 pytest.importorskip("rosbags.rosbag2")
@@ -29,7 +24,6 @@ def _cfg(tmp: Path) -> DataCollectorConfig:
         hal=HalEndpoints("inproc://a", "inproc://b"),
         output_dir=tmp / "out",
         topics=TopicEnable(),
-        catalog_map=CatalogTopicMap(),
     )
 
 
@@ -37,29 +31,19 @@ def test_topic_msgtype_catalog_respects_flags() -> None:
     cfg = DataCollectorConfig(
         hal=HalEndpoints("x", "y"),
         output_dir=Path("/tmp/z"),
-        topics=TopicEnable(
-            camera_front_rgb=False,
-            camera_front_depth=False,
-            camera_side_left_rgb=False,
-            camera_side_right_rgb=False,
-            camera_side_rgbd_depth=False,
-            radar_edge=False,
-            joints_state=False,
-            joints_command=False,
-            imu=False,
-        ),
+        topics=TopicEnable(joints_state=False, joints_command=False, imu=False),
     )
     assert _topic_msgtype_catalog(cfg) == []
 
 
-def test_topic_msgtype_catalog_includes_expected_pairs() -> None:
+def test_topic_msgtype_catalog_includes_proprioception() -> None:
     cfg = DataCollectorConfig(
         hal=HalEndpoints("x", "y"),
         output_dir=Path("/tmp/z"),
     )
     pairs = _topic_msgtype_catalog(cfg)
     topics = {p[0] for p in pairs}
-    assert "/camera/front/rgb" in topics
+    assert "/joints/state" in topics
     assert "/imu" in topics
 
 

@@ -10,7 +10,7 @@ from isaaclab.managers import SceneEntityCfg
 from isaaclab.utils import configclass
 
 from parkour_isaaclab.actuators.parkour_actuator_cfg import ParkourDCMotorCfg
-from parkour_isaaclab.envs.mdp import observations as mdp_observations
+from parkour_tasks.crab_hexapod_task.mdp.observations import CrabHexParkourObservations
 from parkour_tasks.extreme_parkour_task.config.go2.parkour_teacher_cfg import (
     ParkourTeacherSceneCfg,
     UnitreeGo2TeacherParkourEnvCfg_PLAY,
@@ -70,7 +70,7 @@ class CrabHexObservationsCfg(TeacherObservationsCfg):
     @configclass
     class PolicyCfg(ObsGroup):
         extreme_parkour_observations = ObsTerm(
-            func=mdp_observations.ExtremeParkourObservations,
+            func=CrabHexParkourObservations,
             params={
                 "asset_cfg": SceneEntityCfg("robot"),
                 "sensor_cfg": SceneEntityCfg("robot", body_names=".*_tibia_tip"),

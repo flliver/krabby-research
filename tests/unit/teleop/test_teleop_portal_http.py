@@ -26,6 +26,7 @@ def test_portal_index_returns_200(default_portal_kwargs) -> None:
                     assert resp.status == 200
                     text = await resp.text()
                     assert "Krabby teleop" in text
+                    assert "virtualGamepad" in text
         finally:
             await runner.cleanup()
 

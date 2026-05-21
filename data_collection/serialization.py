@@ -2,15 +2,17 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 import numpy as np
 
 if TYPE_CHECKING:
     from rosbags.typesys.store import Typestore
 
-    from data_collection.config import CatalogTopicMap, TopicEnable
+    from data_collection.config import TopicEnable
     from hal.client.data_structures.hardware import HardwareObservations
+
+IMAGE_MSGTYPE = "sensor_msgs/msg/Image"
 
 
 def _split_stamp(ns: int) -> tuple[int, int]:
@@ -142,11 +144,19 @@ def serialize_imu(ts: "Typestore", stamp_ns: int, frame_id: str, obs: "HardwareO
     return ts.serialize_cdr(msg, "sensor_msgs/msg/Imu")
 
 
+def catalog_camera_topic(catalog_id: str, stream: str) -> str:
+    """ROS topic for one catalog RGB-D stream (``stream`` is ``rgb`` or ``depth``)."""
+    return f"/camera/{catalog_id}/{stream}"
+
+
+def is_catalog_camera_topic(topic: str) -> bool:
+    return topic.startswith("/camera/") and topic.count("/") == 3
+
+
 def observation_to_writes(
     ts: "Typestore",
     obs: "HardwareObservations",
     topics: "TopicEnable",
-    catalog: "CatalogTopicMap",
     joint_names: tuple[str, ...],
 ) -> list[tuple[str, str, bytes]]:
     """Return list of (topic_name, msg_type, cdr_bytes) for this observation."""
@@ -157,81 +167,34 @@ def observation_to_writes(
     out: list[tuple[str, str, bytes]] = []
     t = obs.timestamp_ns
 
-    if topics.camera_front_rgb and obs.camera_rgb is not None:
-        out.append(
-            (
-                "/camera/front/rgb",
-                "sensor_msgs/msg/Image",
-                serialize_image_rgb8(ts, t, "camera_front", obs.camera_rgb),
-            )
-        )
-    if topics.camera_front_depth and obs.camera_depth is not None:
-        out.append(
-            (
-                "/camera/front/depth",
-                "sensor_msgs/msg/Image",
-                serialize_image_depth_32fc1(ts, t, "camera_front", obs.camera_depth),
-            )
-        )
-
     rgbd = obs.rgbd_by_catalog_id or {}
-
-    def _catalog_rgb(cid: Optional[str], topic: str, frame: str) -> None:
-        if not cid or cid not in rgbd:
-            return
+    for cid in sorted(rgbd.keys()):
         entry = rgbd[cid]
-        out.append(
-            (topic, "sensor_msgs/msg/Image", serialize_image_rgb8(ts, t, frame, entry.rgb))
-        )
-
-    def _catalog_depth(cid: Optional[str], topic: str, frame: str) -> None:
-        if not cid or cid not in rgbd:
-            return
-        entry = rgbd[cid]
+        frame = f"camera_{cid}"
+        rgb_topic = catalog_camera_topic(cid, "rgb")
+        if entry.rgb.ndim == 2:
+            out.append(
+                (
+                    rgb_topic,
+                    IMAGE_MSGTYPE,
+                    serialize_image_mono8(ts, t, frame, entry.rgb),
+                )
+            )
+        else:
+            out.append(
+                (
+                    rgb_topic,
+                    IMAGE_MSGTYPE,
+                    serialize_image_rgb8(ts, t, frame, entry.rgb),
+                )
+            )
         out.append(
             (
-                topic,
-                "sensor_msgs/msg/Image",
+                catalog_camera_topic(cid, "depth"),
+                IMAGE_MSGTYPE,
                 serialize_image_depth_32fc1(ts, t, frame, entry.depth),
             )
         )
-
-    if topics.camera_side_left_rgb:
-        _catalog_rgb(catalog.side_left_rgb_catalog_id, "/camera/side_left/rgb", "camera_side_left")
-    if obs.side_camera_rgb is not None and topics.camera_side_left_rgb and not any(
-        x[0] == "/camera/side_left/rgb" for x in out
-    ):
-        out.append(
-            (
-                "/camera/side_left/rgb",
-                "sensor_msgs/msg/Image",
-                serialize_image_rgb8(ts, t, "camera_side_left", obs.side_camera_rgb),
-            )
-        )
-
-    if topics.camera_side_right_rgb:
-        _catalog_rgb(catalog.side_right_rgb_catalog_id, "/camera/side_right/rgb", "camera_side_right")
-
-    if topics.camera_side_rgbd_depth:
-        _catalog_depth(
-            catalog.side_rgbd_depth_catalog_id, "/camera/side_rgbd/depth", "camera_side_rgbd"
-        )
-
-    if topics.radar_edge and catalog.radar_edge_catalog_id:
-        rid = catalog.radar_edge_catalog_id
-        if rid in rgbd:
-            rad = rgbd[rid]
-            if rad.rgb.ndim == 2:
-                gray = rad.rgb
-            else:
-                gray = rad.rgb[:, :, 0]
-            out.append(
-                (
-                    "/radar/edge",
-                    "sensor_msgs/msg/Image",
-                    serialize_image_mono8(ts, t, "radar_edge", gray),
-                )
-            )
 
     if topics.joints_state:
         out.append(

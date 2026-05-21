@@ -37,11 +37,14 @@ class ExtremeParkourObservations(ManagerTermBase):
         self.sensor_cfg = cfg.params["sensor_cfg"]
         self.asset_cfg = cfg.params["asset_cfg"]
         self.history_length = cfg.params["history_length"]
-        # obs_buf dim: 13 (base/imu/cmd) + 2*num_joints (pos, vel) + action_dim (last_act from joint_pos term) + 4 (contact)
+        # Contact channels: match configured foot/body indices (e.g. 4 Go2 feet, 6 crab tibias).
+        _ids = getattr(self.sensor_cfg, "body_ids", None)
+        self._num_contact = len(_ids) if _ids is not None and len(_ids) > 0 else 4
+        # obs_buf dim: 13 (base/imu/cmd) + 2*num_joints (pos, vel) + action_dim (last_act) + contact
         num_joints = self.asset.num_joints
         joint_pos_term = env.action_manager.get_term("joint_pos")
         action_dim = getattr(joint_pos_term, "_num_joints", num_joints)
-        self._obs_buf_dim = 13 + 2 * num_joints + action_dim + 4
+        self._obs_buf_dim = 13 + 2 * num_joints + action_dim + self._num_contact
         self._obs_history_buffer = torch.zeros(
             self.num_envs, self.history_length, self._obs_buf_dim, device=self.device
         )
@@ -51,7 +54,7 @@ class ExtremeParkourObservations(ManagerTermBase):
         self.env = env
         # Support both "base" (Go2) and "base_link" (e.g. crab_hex). find_bodies raises if no match.
         base_bodies = None
-        for name in ("base", "base_link"):
+        for name in ("base", "base_link", "body"):
             try:
                 base_bodies = self.asset.find_bodies(name)
                 if base_bodies:
@@ -126,9 +129,8 @@ class ExtremeParkourObservations(ManagerTermBase):
         self,
         ):
         if self.contact_sensor is None:
-            # No contact sensor (e.g. crab_hex); use zeros for contact part (4 feet for obs shape).
-            return torch.zeros(self.num_envs, 4, device=self.device) - 0.5
-        contact_forces = self.contact_sensor.data.net_forces_w_history[:, 0, self.sensor_cfg.body_ids]  # (N, 4, 3)
+            return torch.zeros(self.num_envs, self._num_contact, device=self.device) - 0.5
+        contact_forces = self.contact_sensor.data.net_forces_w_history[:, 0, self.sensor_cfg.body_ids]
         contact = torch.norm(contact_forces, dim=-1) > 2.0
         previous_contact_forces = self.contact_sensor.data.net_forces_w_history[:, -1, self.sensor_cfg.body_ids]
         last_contacts = torch.norm(previous_contact_forces, dim=-1) > 2.0

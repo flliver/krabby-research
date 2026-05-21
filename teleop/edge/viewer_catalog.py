@@ -11,7 +11,7 @@ def parse_viewer_catalog_ids_from_payload(payload: dict[str, Any], *, max_lines:
     Returns:
         ``None`` — field absent or invalid; keep the robot's current list (bootstrap until first set).
         ``[]`` — explicit empty array in JSON: revert to bootstrap ids (typically primary camera only).
-        Non-empty list — replace active ids (capped to ``max_lines``, non-strings skipped).
+        Non-empty list — replace active ids (trimmed strings, **deduped in order**, capped to ``max_lines``).
     """
     if "catalog_ids" not in payload:
         return None
@@ -24,12 +24,15 @@ def parse_viewer_catalog_ids_from_payload(payload: dict[str, Any], *, max_lines:
         return None
     cap = max(1, min(32, int(max_lines)))
     out: list[str] = []
+    seen: set[str] = set()
     for x in raw:
         if not isinstance(x, str):
             continue
         s = x.strip()
-        if s:
-            out.append(s)
+        if not s or s in seen:
+            continue
+        seen.add(s)
+        out.append(s)
         if len(out) >= cap:
             break
     return out if out else []

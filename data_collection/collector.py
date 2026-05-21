@@ -10,7 +10,7 @@ from typing import Optional
 import zmq
 
 from data_collection.config import DataCollectorConfig
-from data_collection.serialization import observation_to_writes
+from data_collection.serialization import IMAGE_MSGTYPE, is_catalog_camera_topic, observation_to_writes
 from hal.client.client import HalClient
 from hal.client.config import HalClientConfig
 
@@ -18,22 +18,12 @@ logger = logging.getLogger(__name__)
 
 
 def _topic_msgtype_catalog(cfg: DataCollectorConfig) -> list[tuple[str, str]]:
-    """All (topic, msgtype) pairs that may be written when topics are enabled."""
+    """Static (topic, msgtype) pairs registered at bag open.
+
+    Catalog camera topics are added on first write (see ``RotatingMcapWriter``).
+    """
     t = cfg.topics
     pairs: list[tuple[str, str]] = []
-    img = "sensor_msgs/msg/Image"
-    if t.camera_front_rgb:
-        pairs.append(("/camera/front/rgb", img))
-    if t.camera_front_depth:
-        pairs.append(("/camera/front/depth", img))
-    if t.camera_side_left_rgb:
-        pairs.append(("/camera/side_left/rgb", img))
-    if t.camera_side_right_rgb:
-        pairs.append(("/camera/side_right/rgb", img))
-    if t.camera_side_rgbd_depth:
-        pairs.append(("/camera/side_rgbd/depth", img))
-    if t.radar_edge:
-        pairs.append(("/radar/edge", img))
     js = "sensor_msgs/msg/JointState"
     if t.joints_state:
         pairs.append(("/joints/state", js))
@@ -113,7 +103,6 @@ class HalDataCollector:
                 self._bag.typestore,
                 obs,
                 self._cfg.topics,
-                self._cfg.catalog_map,
                 self._cfg.joint_names,
             )
             try:
@@ -121,15 +110,7 @@ class HalDataCollector:
                     img_rows = [
                         r
                         for r in rows
-                        if r[0]
-                        in (
-                            "/camera/front/rgb",
-                            "/camera/front/depth",
-                            "/camera/side_left/rgb",
-                            "/camera/side_right/rgb",
-                            "/camera/side_rgbd/depth",
-                            "/radar/edge",
-                        )
+                        if r[1] == IMAGE_MSGTYPE and is_catalog_camera_topic(r[0])
                     ]
                     if img_rows:
                         self._bag.write_messages(img_rows, obs.timestamp_ns)

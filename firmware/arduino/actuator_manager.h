@@ -2,6 +2,7 @@
 #include <Arduino.h>
 #include <EEPROM.h>
 #include "command.h"
+#include "hall_hw.h"
 
 // Linear actuator controller (w/ potentiometer feedback)
 class LinearActuator
@@ -29,6 +30,7 @@ public:
     const int pinEn;   // Single enable (HIGH while driving)
     const int pinIS;   // Analog current sense pin, reads motor current from H-Bridge as a value between 0 (0 Amp) and 1023 (Max motor Amps, e.g. ~8A @ 12V for common linear actuators)
     const int pinPot;  // Analog potentiometer pin, reads actuator position as a value between 0 (fully retracted) and 1023 (fully extended)
+    const int8_t hallSlot; // 0–5 = HallA index for this joint (-1 = no Hall telemetry)
 
     // Motion limits (raw ADC 0-1023), setting minStop higher than 0 will limit retraction, setting maxStop lower than 1023 will limit extension
     // Typically set to slightly less than max allowed by mechanical endstops to avoid motor damage
@@ -45,8 +47,8 @@ public:
 
 
     // TODO: This should accept a name and a 'SlotConfig' struct for pin assignment, so we can reuse the pin config w/ different actuator names (on different leader/follower boards)
-    LinearActuator(const char *n, int pR, int pL, int en, int isPin, int pot)
-        : name(n), pinPwmR(pR), pinPwmL(pL), pinEn(en), pinIS(isPin), pinPot(pot) {}
+    LinearActuator(const char *n, int pR, int pL, int en, int isPin, int pot, int8_t hallIdx = -1)
+        : name(n), pinPwmR(pR), pinPwmL(pL), pinEn(en), pinIS(isPin), pinPot(pot), hallSlot(hallIdx) {}
     void setControlConfig(const ControlConfig &cfg) { controlConfig = cfg; }
 
     void init()
@@ -187,7 +189,7 @@ public:
         return false;
     }
 
-    // JT wire format: "<role>; <name> <pos> <pot> <current> <enL> <enR> <pwmL> <pwmR> <saf>;"
+    // JT wire format: "<role>; <name> <pos> <pot> <current> <enL> <enR> <pwmL> <pwmR> <hallEdges>;"
     // e.g. 'FRONT; FLHY 0.123 0 12 1 1 0 120 0; FRHY 0.234 0 13 1 1 0 130 0; ...'
     // Keep in sync with firmware/interfaces/joint_telemetry.py
     // Keeping it super simple to avoid any string parsing and external library overhead
@@ -210,7 +212,10 @@ public:
         out.print(' ');
         out.print(currentPwm > 0 ? currentPwm : 0);
         out.print(' ');
-        out.print(0); // saf
+        if (hallSlot >= 0 && hallSlot < 6)
+            out.print(hallHwGetEdgeCount((uint8_t)hallSlot));
+        else
+            out.print(0);
     }
 
 private:

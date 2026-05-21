@@ -28,7 +28,8 @@ class HalClientConfig:
                 - "inproc://hal_observation" (same process, in-memory)
                 - "tcp://localhost:6001" (network, localhost only)
                 - "tcp://192.168.1.100:6001" (network, remote host)
-        command_endpoint: Command endpoint (PUSH socket connect address)
+        command_endpoint: PUSH target for joint commands (portal teleop → operator bind, inference →
+            policy bind on Jetson), or ``None`` for observation-only clients.
             Examples:
                 - "inproc://hal_commands" (same process, in-memory)
                 - "tcp://localhost:6002" (network, localhost only)
@@ -47,7 +48,7 @@ class HalClientConfig:
     """
     
     observation_endpoint: str = ""
-    command_endpoint: str = ""
+    command_endpoint: Optional[str] = None
     timeout_s: float = 0.05
     action_dim: Optional[int] = None
     polling_frequency_hz: float = 100.0
@@ -56,8 +57,8 @@ class HalClientConfig:
         """Validate client config."""
         if self.timeout_s <= 0:
             raise ValueError("timeout_s must be > 0")
-        if not self.command_endpoint:
-            raise ValueError("command_endpoint must be provided")
+        if self.command_endpoint is not None and not str(self.command_endpoint).strip():
+            raise ValueError("command_endpoint cannot be empty; use None for observation-only mode")
         if not self.observation_endpoint:
             raise ValueError("observation_endpoint must be provided")
         if self.polling_frequency_hz <= 0:

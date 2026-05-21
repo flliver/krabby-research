@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
-from teleop.edge.sdp_util import count_video_m_lines, video_m_line_budget_error_json
+from teleop.edge.sdp_util import (
+    count_video_m_lines,
+    offer_has_h264_video,
+    video_m_line_budget_error_json,
+)
 
 
 def test_count_video_m_lines_zero_falls_back_to_one() -> None:
@@ -31,3 +35,21 @@ def test_video_m_line_budget_rejects() -> None:
     assert "too many" in err
     assert "3" in err
     assert "robot_settings" in err
+
+
+def test_offer_has_h264_video_true() -> None:
+    sdp = (
+        "v=0\n"
+        "m=video 9 UDP/TLS/RTP/SAVPF 96\n"
+        "a=rtpmap:96 H264/90000\n"
+    )
+    assert offer_has_h264_video(sdp) is True
+
+
+def test_offer_has_h264_video_false() -> None:
+    sdp = (
+        "v=0\n"
+        "m=video 9 UDP/TLS/RTP/SAVPF 96\n"
+        "a=rtpmap:96 VP8/90000\n"
+    )
+    assert offer_has_h264_video(sdp) is False

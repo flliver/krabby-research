@@ -24,6 +24,7 @@ from controller.control_loop import ControlLoop, ControlLoopConfig, ControlMode
 from controller.input import InputController
 from controller.robot_definition_quad import KRABBY_QUAD_DEFINITION
 from hal.client.config import HalClientConfig
+from hal.server.robot_definition_krabby_hex import KRABBY_HEX_DEFINITION
 
 logging.basicConfig(
     level=logging.INFO,
@@ -219,7 +220,7 @@ def main() -> int:
          mapper_hip_up_down_scale=hip_scale,
          mapper_knee_out_in_scale=knee_scale,
          mapper_hip_yaw_scale=hip_yaw_scale,
-        isaacsim_robot_definition=KRABBY_QUAD_DEFINITION if args.quad else None,
+        isaacsim_robot_definition=KRABBY_QUAD_DEFINITION if args.quad else KRABBY_HEX_DEFINITION,
     )
 
     control_loop = ControlLoop(control_loop_config)

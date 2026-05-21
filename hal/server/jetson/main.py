@@ -12,6 +12,7 @@ and applies commands to control the robot actuators.
 
 import argparse
 import logging
+from pathlib import Path
 import signal
 import sys
 import threading
@@ -19,10 +20,11 @@ import time
 
 from data_collection.collector import start_collector_thread
 from data_collection.collector_settings import build_data_collector_config
+from data_collection.config import load_config
 from hal.client.config import HalClientConfig
 from hal.server import HalServerConfig
 from hal.server.jetson import JetsonHalServer
-from hal.server.jetson.teleop_integration import start_jetson_teleop_signaling_thread
+from hal.server.teleop_portal_signaling import start_hal_teleop_signaling_thread
 from compute.parkour.inference_client import ParkourInferenceClient
 from compute.parkour.policy_interface import ModelWeights
 from compute.parkour.model_definition import PARKOUR_MODEL_OBSERVATION_DEFINITION
@@ -45,7 +47,12 @@ def main():
     parser = argparse.ArgumentParser(description="Jetson production deployment with HAL server and inference")
 
     # Model arguments
-    parser.add_argument("--checkpoint", type=str, required=True, help="Path to model checkpoint")
+    parser.add_argument(
+        "--checkpoint",
+        type=str,
+        default=None,
+        help="Path to model checkpoint (required when --control-source inference)",
+    )
     parser.add_argument(
         "--log-level",
         type=str,
@@ -64,11 +71,30 @@ def main():
         ),
     )
     parser.add_argument(
+        "--data-collector-config",
+        type=str,
+        default=None,
+        help=(
+            "Optional YAML config for collector settings (rates/topics/rotation/quota/output_dir). "
+            "HAL inproc endpoints are always enforced by this entrypoint."
+        ),
+    )
+    parser.add_argument(
         "--teleop",
         action="store_true",
         help=(
             "Run teleop WebRTC in-process: RGB from HAL RGB-D cameras. "
             "Configure signaling URL, mode, and optional sensor ids in teleop/edge/robot_settings.py."
+        ),
+    )
+    parser.add_argument(
+        "--control-source",
+        type=str,
+        default="portal",
+        choices=["portal", "inference"],
+        help=(
+            "Primary command source for actuator control. "
+            "'portal' uses WebRTC data-channel commands; 'inference' uses policy inference client."
         ),
     )
     parser.add_argument(
@@ -82,6 +108,15 @@ def main():
     args = parser.parse_args()
     logging.getLogger().setLevel(getattr(logging, args.log_level))
     logger.setLevel(getattr(logging, args.log_level))
+    # aioice (aiortc ICE) logs every candidate-pair transition at INFO; keep operator logs readable.
+    logging.getLogger("aioice").setLevel(logging.WARNING)
+    logging.getLogger("aiortc").setLevel(logging.WARNING)
+
+    if args.control_source == "inference" and not args.checkpoint:
+        parser.error("--checkpoint is required when --control-source inference")
+    if args.control_source == "portal" and not args.teleop:
+        logger.info("control-source=portal selected: enabling --teleop automatically")
+        args.teleop = True
 
     model_definition = PARKOUR_MODEL_OBSERVATION_DEFINITION
     if args.robot == "hex":
@@ -155,57 +190,88 @@ def main():
         # Get transport context for inproc connections
         transport_context = hal_server.get_transport_context()
 
-        # Create HAL client config
-        hal_client_config = HalClientConfig(
+        # Shared ZMQ context for inproc clients below. Inference and portal teleop both PUSH to COMMAND_ENDPOINT.
+        teleop_send_commands = args.control_source == "portal"
+
+        # Inference/ParkourInferenceClient: SUB observations; PUSH joint commands (source=inference).
+        inference_hal_client_config = HalClientConfig(
             observation_endpoint=OBSERVATION_ENDPOINT,
             command_endpoint=COMMAND_ENDPOINT,
+        )
+        # Teleop thread: SUB observations for WebRTC frames; PUSH to operator bind only when portal drives joints.
+        teleop_hal_client_config = HalClientConfig(
+            observation_endpoint=OBSERVATION_ENDPOINT,
+            command_endpoint=COMMAND_ENDPOINT if teleop_send_commands else None,
         )
 
         if teleop_sensor_ids is not None:
             teleop_stop = threading.Event()
-            teleop_thread = start_jetson_teleop_signaling_thread(
-                hal_client_config,
+            teleop_thread = start_hal_teleop_signaling_thread(
+                teleop_hal_client_config,
                 transport_context,
+                hal_server.get_sensor_interface(),
                 stop_event=teleop_stop,
                 bootstrap_sensor_catalog_ids=teleop_sensor_ids,
                 teleop_edge_settings=_teleop_st,
+                robot_definition=robot_definition,
+                send_hal_commands=teleop_send_commands,
             )
             logger.info(
                 "Teleop outbound signaling started: mode=%s url=%s reconnect_s=%.1f "
-                "(bootstrap catalog ids=%s; viewer may override via signaling ``catalog_ids``)",
+                "(bootstrap catalog ids=%s; viewer may override via signaling ``catalog_ids``); "
+                "webrtc_hal_commands=%s",
                 _teleop_st.mode,
                 _teleop_st.server_signaling_ws_url,
                 _teleop_st.server_reconnect_s,
                 teleop_sensor_ids,
+                teleop_send_commands,
             )
 
-        model_weights = ModelWeights(
-            checkpoint_path=args.checkpoint,
-            observation_dimensions=observation_dimensions,
-            action_dim=model_definition.action_dim,
-        )
-
-        parkour_client = ParkourInferenceClient(
-            hal_client_config=hal_client_config,
-            model_weights=model_weights,
-            observation_dimensions=observation_dimensions,
-            robot_definition=robot_definition,
-            control_rate=CONTROL_RATE_HZ,
-            device="cuda",
-            transport_context=transport_context,
-        )
-        parkour_client.initialize()
-        logger.info("Parkour inference client initialized")
-
-        # Start inference client in separate thread
-        parkour_client.start_thread(running_flag=lambda: running)
-
-        if args.data_collector_output_dir is not None:
-            dc_cfg = build_data_collector_config(
-                observation_endpoint=OBSERVATION_ENDPOINT,
-                command_endpoint=COMMAND_ENDPOINT,
-                output_dir=args.data_collector_output_dir,
+        if args.control_source == "inference":
+            model_weights = ModelWeights(
+                checkpoint_path=args.checkpoint,
+                observation_dimensions=observation_dimensions,
+                action_dim=model_definition.action_dim,
             )
+
+            parkour_client = ParkourInferenceClient(
+                hal_client_config=inference_hal_client_config,
+                model_weights=model_weights,
+                observation_dimensions=observation_dimensions,
+                robot_definition=robot_definition,
+                control_rate=CONTROL_RATE_HZ,
+                device="cuda",
+                transport_context=transport_context,
+            )
+            parkour_client.initialize()
+            logger.info("Parkour inference client initialized")
+
+            # Start inference client in separate thread
+            parkour_client.start_thread(running_flag=lambda: running)
+            if args.teleop:
+                logger.info(
+                    "Teleop video active; inference commands use source=inference; operator overrides when portal sends",
+                )
+        else:
+            logger.info(
+                f"Portal controller mode active: waiting for teleop control data-channel commands "
+                f"on HAL command socket ({COMMAND_ENDPOINT})",
+            )
+
+        if args.data_collector_output_dir is not None or args.data_collector_config is not None:
+            if args.data_collector_config is not None:
+                dc_cfg = load_config(args.data_collector_config)
+                # Entry-point transport wiring is authoritative for inproc deployment.
+                dc_cfg.hal.observation_endpoint = OBSERVATION_ENDPOINT
+                dc_cfg.hal.command_endpoint = COMMAND_ENDPOINT
+                if args.data_collector_output_dir is not None:
+                    dc_cfg.output_dir = Path(args.data_collector_output_dir).expanduser()
+            else:
+                dc_cfg = build_data_collector_config(
+                    observation_endpoint=OBSERVATION_ENDPOINT,
+                    command_endpoint=COMMAND_ENDPOINT,
+                    output_dir=args.data_collector_output_dir,
+                )
             collector_stop = threading.Event()
             _collector, collector_thread = start_collector_thread(
                 dc_cfg,
@@ -228,7 +294,7 @@ def main():
                 # Publish observations from real sensors
                 hal_server.set_observation()
 
-                # Try to get joint command from inference client (non-blocking)
+                # Try to get joint command from the selected command source (non-blocking)
                 # This command was generated from observations we published in a PREVIOUS iteration
                 # We'll apply it in THIS iteration
                 command = hal_server.get_joint_command(timeout_ms=1)  # 1ms timeout for non-blocking check

@@ -60,17 +60,20 @@ class HalClient:
             raise ValueError("observation_endpoint must be set in config")
         self.observation_socket.connect(self.config.observation_endpoint)
 
-        # Create PUSH socket for commands (PUSH/PULL pattern with backpressure)
-        self.command_socket = self.context.socket(zmq.PUSH)
-        self.command_socket.setsockopt(zmq.SNDHWM, 5)  # Default HWM of 5 for backpressure
-        self.command_socket.connect(self.config.command_endpoint)
+        if self.config.command_endpoint is not None:
+            # Create PUSH socket for commands (PUSH/PULL pattern with backpressure)
+            self.command_socket = self.context.socket(zmq.PUSH)
+            self.command_socket.setsockopt(zmq.SNDHWM, 5)  # Default HWM of 5 for backpressure
+            self.command_socket.connect(self.config.command_endpoint)
+        else:
+            self.command_socket = None
 
         self._initialized = True
         logger.info(
             "HAL client initialized: %s observation=%s, command=%s",
             self.__class__.__name__,
             self.config.observation_endpoint,
-            self.config.command_endpoint,
+            self.config.command_endpoint if self.config.command_endpoint else "(observation-only)",
         )
 
     def close(self) -> None:
@@ -196,6 +199,9 @@ class HalClient:
         """
         if not self._initialized:
             raise RuntimeError("Client not initialized. Call initialize() first.")
+
+        if self.command_socket is None:
+            raise RuntimeError("Observation-only HAL client cannot send joint commands")
 
         if not isinstance(cmd, JointCommand):
             raise ValueError(f"cmd must be JointCommand, got {type(cmd)}")

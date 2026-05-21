@@ -18,23 +18,22 @@ This firmware drives a full leg pair (Left & Right) consisting of **6 Motors**.
 
 ---
 
-## 1. Hardware Wiring (New Sequential Layout)
+## 1. Hardware Wiring (Rev 3 — Krabby Uno v0.2)
 
-**CRITICAL:** The pin mapping has changed to a clean sequential order (Pins 2-13).
 **Polarity Note:**
-* **RPWM / R_EN** = Right (Extend/Forward) -> **First Pin** listed.
-* **LPWM / L_EN** = Left (Retract/Reverse) -> **Second Pin** listed.
+* **RPWM / R_EN** = Right (Extend/Forward).
+* **LPWM / L_EN** = Left (Retract/Reverse).
 
-| Leg       | Joint         | Driver PWM (RPWM, LPWM) | Driver EN (R_EN, L_EN) | Potentiometer | Current Sense |
-| :-------- | :------------ | :---------------------- | :--------------------- | :------------ | :------------ |
-| **Left**  | Yaw (LHY)     | D2 (R),  D3 (L)         | D22 (R), D23 (L)       | A0            | A6            |
-|           | Hip (LHL)     | D4 (R),  D5 (L)         | D24 (R), D25 (L)       | A1            | A7            |
-|           | Knee (LKL)    | D6 (R),  D7 (L)         | D26 (R), D27 (L)       | A2            | A8            |
-| **Right** | Yaw (RHY)     | D8 (R),  D9 (L)         | D28 (R), D29 (L)       | A3            | A9            |
-|           | Hip (RHL)     | D10 (R), D11 (L)        | D30 (R), D31 (L)       | A4            | A10           |
-|           | Knee (RKL)    | D12 (R), D13 (L)        | D32 (R), D33 (L)       | A5            | A11           |
+| Board     | Joint         | PWM (R, L)       | EN    | Potentiometer | Current Sense | HallA  |
+| :-------- | :------------ | :--------------- | :---- | :------------ | :------------ | :----- |
+| **FL**    | Yaw (LHY)     | D2, D3           | D22   | A0            | A6            | D50    |
+|           | Hip (LHL)     | D4, D5           | D24   | A1            | A7            | D51    |
+|           | Knee (LKL)    | D6, D7           | D26   | A2            | A8            | D52    |
+| **FR**    | Yaw (RHY)     | D8, D9           | D23   | A3            | A9            | A12    |
+|           | Hip (RHL)     | D10, D11         | D25   | A4            | A10           | A13    |
+|           | Knee (RKL)    | D12, D13         | D27   | A5            | A11           | A14    |
 
-**Note:** Ensure all Enable (EN) pins are connected and providing 5V, otherwise calibration will get 'lost' as it will not know where joint positions are.
+**Note:** Ensure all Enable (EN) pins are connected and driven HIGH when driving, otherwise calibration will get 'lost' as it will not know where joint positions are.
 
 ---
 
@@ -85,14 +84,30 @@ Telemetry is sent as **newline-terminated lines** over serial. The Python side p
 
 On the Arduino side, telemetry is built in **telemetry_manager.h** (struct `JointTelemetry`, `appendTo()`). The old standalone `joint_telemetry.h` was removed; all telemetry formatting and collection lives in `telemetry_manager.h` and `actuator_manager.h`.
 
-### 2.3 Upload firmware and Python
+### 2.3 Pin revisions (`KRABBY_PIN_REV`)
 
-1.  **Upload Firmware:**
-    - Open `arduino/arduino.ino` (or `arduino/controller.ino`) in Arduino IDE
-    - Upload to each Arduino Mega (all three use the same sketch; role is elected at runtime).
-2.  **Setup Python SDK:**
-    - Ensure you have the `interfaces/` folder next to your script.
-    - Install dependencies: `pip -r requirements.txt`
+Wiring is selected at **compile time** in **`arduino/board_pins.h`** (`#define KRABBY_PIN_REV`, default **2**). Rev **3** matches **`MOTOR_HEADER_PINOUT.md`**.
+
+| | **Rev 3** (default, Uno v0.2) | **Rev 2** (Uno v0.1) | **Rev 1** (original) |
+|---|---|---|---|
+| PWM | D2-D13 | D2-D13 | D2-D13 |
+| FL EN (LHY / LHL / LKL) | D22 / D24 / D26 | D22 / D23 / D24 | D22 / D23 / D24 |
+| FR EN (RHY / RHL / RKL) | D23 / D25 / D27 | D28 / D26 / D27 | D28 / D26 / D27 |
+| HallA1-6 | D50, D51, D52, A12, A13, A14 (PCINT0+2) | none | D37, D36, D35, D32, D33, D34 (PCINT1) |
+
+- **Arduino IDE:** open **`firmware/arduino/arduino.ino`**, set **Board → Arduino Mega 2560**, choose the correct **Port**, set **`KRABBY_PIN_REV`** in **`board_pins.h`** if needed, then **Upload**. The serial monitor at **115200** baud should show **`PINS_REV3_UNO_V02`** (or the matching label) after reset.
+- **Make + arduino-cli:** install [arduino-cli](https://arduino.github.io/arduino-cli/latest/installation/) and **GNU Make**. On Windows: `winget install GnuWin32.Make` then add **`C:\Program Files (x86)\GnuWin32\bin`** to your **`PATH`**. Put **arduino-cli** on your **`PATH`** (or set **`ARDUINO_CLI`**). Install **pyserial** for port auto-detect: `pip install -r firmware/requirements.txt`. From **`krabby-research`**:
+  - `make -C firmware upload-firmware` — auto-detects serial port via **`firmware/mcu_port.default_port()`**. Pass **`PORT=COM5`** (or `/dev/ttyACM0`) to override.
+  - Other revisions: `make -C firmware upload-firmware PIN_REV=1` (or `PIN_REV=2`).
+  - Compile only: `make -C firmware compile-firmware`.
+  - See **`firmware/Makefile`** for **`ARDUINO_CLI`**, **`FQBN`**, **`PIN_REV`**.
+
+Flash each Mega with the image that matches **that** board’s wiring. All three boards use the same sketch; role is elected at runtime.
+
+### 2.4 Python SDK
+
+1. From **`krabby-research`**, install dependencies: `pip install -r firmware/requirements.txt`.
+2. Ensure **`firmware/interfaces/`** is importable (e.g. run **`python -m firmware`** from **`krabby-research`** as in §3).
 
 ---
 

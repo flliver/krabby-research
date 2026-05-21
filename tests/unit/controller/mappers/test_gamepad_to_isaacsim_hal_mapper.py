@@ -38,6 +38,7 @@ from controller.mappers.gamepad_to_isaacsim_hal_mapper import (
     LEG_TO_JOINT_INDICES,
 )
 from hal.client.data_structures.hardware import JointCommand
+from hal.server.robot_definition_krabby_hex import KRABBY_HEX_DEFINITION
 
 # Scale values used when constructing the mapper in tests (match CLI default / Jetson).
 HIP_SCALE = 0.3
@@ -51,6 +52,7 @@ def _make_mapper(hip=HIP_SCALE, knee=KNEE_SCALE, yaw=HIP_YAW_SCALE):
         hip_up_down_scale=hip,
         knee_out_in_scale=knee,
         hip_yaw_scale=yaw,
+        robot_definition=KRABBY_HEX_DEFINITION,
     )
 
 
@@ -70,6 +72,7 @@ class TestMapperInitialization:
             hip_up_down_scale=0.5,
             knee_out_in_scale=0.4,
             hip_yaw_scale=0.3,
+            robot_definition=KRABBY_HEX_DEFINITION,
         )
         
         assert mapper.hip_up_down_scale == 0.5

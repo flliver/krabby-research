@@ -11,6 +11,7 @@ from aiohttp import WSMsgType
 
 from teleop.edge.config import TeleopEdgeSettings
 from teleop.edge.rtc_session import handle_first_offer_message
+from teleop.edge.sdp_util import count_video_m_lines
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +22,10 @@ async def run_robot_signaling_loop(
     teleop_settings: TeleopEdgeSettings,
     video_track_factory: Callable[[int], Any] | None = None,
     on_signaling_json: Callable[[dict[str, Any]], None] | None = None,
+    pre_offer_validator: Callable[[dict[str, Any], int], None] | None = None,
+    hello_ack_payload_builder: Callable[[], dict[str, Any]] | None = None,
+    pong_payload_builder: Callable[[], dict[str, Any]] | None = None,
+    control_message_handler: Callable[[dict[str, Any]], None] | None = None,
 ) -> None:
     """Handle ping/hello/offer on a signaling WebSocket until close or error.
 
@@ -44,13 +49,26 @@ async def run_robot_signaling_loop(
                 await ws.send_str(json.dumps({"type": "error", "message": "invalid json"}))
                 continue
             if payload.get("type") == "ping":
+                extra_pong: dict[str, Any] = {}
+                if pong_payload_builder is not None:
+                    try:
+                        pp = pong_payload_builder()
+                    except Exception:
+                        logger.warning("teleop: pong payload builder failed", exc_info=True)
+                        pp = {}
+                    if isinstance(pp, dict):
+                        extra_pong.update(pp)
                 if "t" in payload:
                     t = payload.get("t")
-                    await ws.send_str(
-                        json.dumps({"type": "pong", "t": t, "server_ms": time.time() * 1000.0})
-                    )
+                    out = {"type": "pong", "t": t, "server_ms": time.time() * 1000.0}
+                    if "t_wall_ms" in payload:
+                        out["t_wall_ms"] = payload.get("t_wall_ms")
+                    out.update(extra_pong)
+                    await ws.send_str(json.dumps(out))
                 else:
-                    await ws.send_str(json.dumps({"type": "pong"}))
+                    out = {"type": "pong"}
+                    out.update(extra_pong)
+                    await ws.send_str(json.dumps(out))
                 continue
             if payload.get("type") == "hello":
                 if on_signaling_json is not None:
@@ -58,7 +76,16 @@ async def run_robot_signaling_loop(
                 ver = payload.get("version", 1)
                 if not isinstance(ver, int):
                     ver = 1
-                await ws.send_str(json.dumps({"type": "hello_ack", "version": ver}))
+                ack_payload: dict[str, Any] = {"type": "hello_ack", "version": ver}
+                if hello_ack_payload_builder is not None:
+                    try:
+                        extra = hello_ack_payload_builder()
+                    except Exception:
+                        logger.warning("teleop: hello_ack payload builder failed", exc_info=True)
+                        extra = {}
+                    if isinstance(extra, dict):
+                        ack_payload.update(extra)
+                await ws.send_str(json.dumps(ack_payload))
                 continue
             if payload.get("type") != "offer":
                 continue
@@ -67,11 +94,22 @@ async def run_robot_signaling_loop(
                 pc_live = None
             if on_signaling_json is not None:
                 on_signaling_json(payload)
+            n_video = 1
+            sdp_raw = payload.get("sdp")
+            if isinstance(sdp_raw, str):
+                n_video = count_video_m_lines(sdp_raw)
+            if pre_offer_validator is not None:
+                try:
+                    pre_offer_validator(payload, n_video)
+                except Exception as e:
+                    await ws.send_str(json.dumps({"type": "error", "message": str(e)}))
+                    continue
             try:
                 err_json, ans_sdp, pc = await handle_first_offer_message(
                     payload,
                     video_track_factory=video_track_factory,
                     max_video_m_lines=teleop_settings.max_video_m_lines,
+                    control_message_handler=control_message_handler,
                 )
             except Exception as e:
                 logger.warning(

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import inspect
 import logging
+from dataclasses import MISSING
 import os
 import statistics
 import time
@@ -43,6 +44,9 @@ except ImportError:
         return []
 
 class OnPolicyRunnerWithExtractor(OnPolicyRunner):
+    def _resolve_policy_class(self, class_name: str):
+        return eval(class_name)
+
     def __init__(self, env: VecEnv, train_cfg: dict, log_dir: str | None = None, device="cpu"):
         self.cfg = train_cfg
         self.alg_cfg = train_cfg["algorithm"]
@@ -83,7 +87,7 @@ class OnPolicyRunnerWithExtractor(OnPolicyRunner):
             num_privileged_obs = num_obs
         estimator_class = eval(self.estimator_cfg.pop("class_name"))
         estimator: DefaultEstimator = estimator_class(**self.estimator_cfg).to(self.device)
-        policy_class = eval(self.policy_cfg.pop("class_name"))
+        policy_class = self._resolve_policy_class(self.policy_cfg.pop("class_name"))
         policy: ActorCriticRMA = policy_class(
                                              num_privileged_obs, self.env.num_actions, **self.policy_cfg
                                             ).to(self.device)
@@ -144,9 +148,24 @@ class OnPolicyRunnerWithExtractor(OnPolicyRunner):
                                                     multi_gpu_cfg=self.multi_gpu_cfg
                                                     )
 
-        self.num_steps_per_env = self.cfg["num_steps_per_env"]
-        self.save_interval = self.cfg["save_interval"]
-        self.empirical_normalization = self.cfg["empirical_normalization"]
+        n_steps = self.cfg["num_steps_per_env"]
+        if not isinstance(n_steps, int):
+            raise TypeError(
+                f"Expected num_steps_per_env to be int, got {type(n_steps).__name__}: {n_steps!r}. "
+                "Use agent_cfg_to_train_dict(agent_cfg) when constructing the runner."
+            )
+        self.num_steps_per_env = n_steps
+        save_interval = self.cfg["save_interval"]
+        if save_interval is MISSING or not isinstance(save_interval, int):
+            raise TypeError(
+                f"Expected save_interval to be int, got {type(save_interval).__name__}: {save_interval!r}. "
+                "Set save_interval on the agent config or use agent_cfg_to_train_dict(agent_cfg)."
+            )
+        self.save_interval = save_interval
+        empirical_normalization = self.cfg["empirical_normalization"]
+        if empirical_normalization is MISSING:
+            empirical_normalization = False
+        self.empirical_normalization = bool(empirical_normalization)
 
         if self.empirical_normalization:
             self.obs_normalizer = EmpiricalNormalization(shape=[num_obs], until=1.0e8).to(self.device)

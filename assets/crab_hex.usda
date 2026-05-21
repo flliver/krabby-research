@@ -31,7 +31,7 @@
         }
     }
     defaultPrim = "World"
-    doc = "Krabby-Uno hexapod — Isaac Sim articulation; root /World/KrabbyUno. Actuated DOFs per leg: hip-mount revolute (angular drive), hip–femur prismatic, femur–tibia prismatic (linear drives). Passive revolutes (hip–femur, femur-prismatic–femur, tibia-prismatic–tibia, femur–tibia) use tight angular limits ±0.1° (no angular drives) for stability. PD drive gains are tuned for damped settling (not maximally stiff)."
+    doc = "Krabby-Uno hexapod — Isaac Sim articulation; root /World/KrabbyUno. Actuated DOFs: hip-mount revolute, hip–femur prismatic, femur–tibia prismatic (IsaacLab explicit actuators; USD linear drive stiffness=0, light damping only). Hip–femur and femur–tibia revolutes keep ±1 rad (parallel linkage needs knee motion). Closed-loop pin joints (FemurPrismatic–Femur, TibiaPrismatic–Tibia, excludeFromArticulation) use ±0.12 rad to limit drift without over-constraining the chain."
     metersPerUnit = 1
     upAxis = "Z"
 )
@@ -131,9 +131,9 @@ def Xform "World"
                     prepend apiSchemas = ["PhysicsLimitAPI:linear", "PhysicsDriveAPI:linear", "PhysxJointAxisAPI:linear"]
                 )
                 {
-                    float drive:linear:physics:damping = 7000
+                    float drive:linear:physics:damping = 400
                     float drive:linear:physics:maxForce = 20000
-                    float drive:linear:physics:stiffness = 8000
+                    float drive:linear:physics:stiffness = 0
                     float drive:linear:physics:targetPosition = 0
                     float drive:linear:physics:targetVelocity = 0
                     float limit:linear:physics:high = 0.25
@@ -212,8 +212,8 @@ def Xform "World"
                     prepend apiSchemas = ["PhysicsLimitAPI:angular", "PhysxJointAxisAPI:angular"]
                 )
                 {
-                    float limit:angular:physics:high = 1
-                    float limit:angular:physics:low = -1
+                    float limit:angular:physics:high = 0.12
+                    float limit:angular:physics:low = -0.12
                     uniform token physics:axis = "X"
                     rel physics:body0 = </World/KrabbyUno/Root_MR/MR_TibiaPrismatic>
                     rel physics:body1 = </World/KrabbyUno/Root_MR/MR_Tibia>
@@ -317,9 +317,9 @@ def Xform "World"
                     prepend apiSchemas = ["PhysicsLimitAPI:angular", "PhysicsDriveAPI:angular", "PhysxJointAxisAPI:angular"]
                 )
                 {
-                    float drive:angular:physics:damping = 14000
+                    float drive:angular:physics:damping = 0
                     float drive:angular:physics:maxForce = 30000
-                    float drive:angular:physics:stiffness = 18000
+                    float drive:angular:physics:stiffness = 0
                     float drive:angular:physics:targetPosition = 0
                     float drive:angular:physics:targetVelocity = 0
                     float limit:angular:physics:high = 1.2
@@ -383,9 +383,9 @@ def Xform "World"
                     prepend apiSchemas = ["PhysicsLimitAPI:linear", "PhysicsDriveAPI:linear", "PhysxJointAxisAPI:linear"]
                 )
                 {
-                    float drive:linear:physics:damping = 7000
+                    float drive:linear:physics:damping = 400
                     float drive:linear:physics:maxForce = 20000
-                    float drive:linear:physics:stiffness = 8000
+                    float drive:linear:physics:stiffness = 0
                     float drive:linear:physics:targetPosition = 0
                     float drive:linear:physics:targetVelocity = 0
                     float limit:linear:physics:high = 0.2
@@ -464,8 +464,8 @@ def Xform "World"
                     prepend apiSchemas = ["PhysicsLimitAPI:angular", "PhysxJointAxisAPI:angular"]
                 )
                 {
-                    float limit:angular:physics:high = 1
-                    float limit:angular:physics:low = -1
+                    float limit:angular:physics:high = 0.12
+                    float limit:angular:physics:low = -0.12
                     uniform token physics:axis = "X"
                     rel physics:body0 = </World/KrabbyUno/Root_MR/MR_FemurPrismatic>
                     rel physics:body1 = </World/KrabbyUno/Root_MR/MR_Femur>
@@ -531,9 +531,9 @@ def Xform "World"
                     prepend apiSchemas = ["PhysicsLimitAPI:linear", "PhysicsDriveAPI:linear", "PhysxJointAxisAPI:linear"]
                 )
                 {
-                    float drive:linear:physics:damping = 7000
+                    float drive:linear:physics:damping = 400
                     float drive:linear:physics:maxForce = 20000
-                    float drive:linear:physics:stiffness = 8000
+                    float drive:linear:physics:stiffness = 0
                     float drive:linear:physics:targetPosition = 0
                     float drive:linear:physics:targetVelocity = 0
                     float limit:linear:physics:high = 0.25
@@ -612,8 +612,8 @@ def Xform "World"
                     prepend apiSchemas = ["PhysicsLimitAPI:angular", "PhysxJointAxisAPI:angular"]
                 )
                 {
-                    float limit:angular:physics:high = 1
-                    float limit:angular:physics:low = -1
+                    float limit:angular:physics:high = 0.12
+                    float limit:angular:physics:low = -0.12
                     uniform token physics:axis = "X"
                     rel physics:body0 = </World/KrabbyUno/Root_ML/ML_TibiaPrismatic>
                     rel physics:body1 = </World/KrabbyUno/Root_ML/ML_Tibia>
@@ -717,9 +717,9 @@ def Xform "World"
                     prepend apiSchemas = ["PhysicsLimitAPI:angular", "PhysicsDriveAPI:angular", "PhysxJointAxisAPI:angular"]
                 )
                 {
-                    float drive:angular:physics:damping = 14000
+                    float drive:angular:physics:damping = 0
                     float drive:angular:physics:maxForce = 30000
-                    float drive:angular:physics:stiffness = 18000
+                    float drive:angular:physics:stiffness = 0
                     float drive:angular:physics:targetPosition = 0
                     float drive:angular:physics:targetVelocity = 0
                     float limit:angular:physics:high = 1.2
@@ -778,9 +778,9 @@ def Xform "World"
                     prepend apiSchemas = ["PhysicsLimitAPI:linear", "PhysicsDriveAPI:linear", "PhysxJointAxisAPI:linear"]
                 )
                 {
-                    float drive:linear:physics:damping = 7000
+                    float drive:linear:physics:damping = 400
                     float drive:linear:physics:maxForce = 20000
-                    float drive:linear:physics:stiffness = 8000
+                    float drive:linear:physics:stiffness = 0
                     float drive:linear:physics:targetPosition = 0
                     float drive:linear:physics:targetVelocity = 0
                     float limit:linear:physics:high = 0.2
@@ -859,8 +859,8 @@ def Xform "World"
                     prepend apiSchemas = ["PhysicsLimitAPI:angular", "PhysxJointAxisAPI:angular"]
                 )
                 {
-                    float limit:angular:physics:high = 1
-                    float limit:angular:physics:low = -1
+                    float limit:angular:physics:high = 0.12
+                    float limit:angular:physics:low = -0.12
                     uniform token physics:axis = "X"
                     rel physics:body0 = </World/KrabbyUno/Root_ML/ML_FemurPrismatic>
                     rel physics:body1 = </World/KrabbyUno/Root_ML/ML_Femur>
@@ -926,9 +926,9 @@ def Xform "World"
                     prepend apiSchemas = ["PhysicsLimitAPI:linear", "PhysicsDriveAPI:linear", "PhysxJointAxisAPI:linear"]
                 )
                 {
-                    float drive:linear:physics:damping = 7000
+                    float drive:linear:physics:damping = 400
                     float drive:linear:physics:maxForce = 20000
-                    float drive:linear:physics:stiffness = 8000
+                    float drive:linear:physics:stiffness = 0
                     float drive:linear:physics:targetPosition = 0
                     float drive:linear:physics:targetVelocity = 0
                     float limit:linear:physics:high = 0.25
@@ -1007,8 +1007,8 @@ def Xform "World"
                     prepend apiSchemas = ["PhysicsLimitAPI:angular", "PhysxJointAxisAPI:angular"]
                 )
                 {
-                    float limit:angular:physics:high = 1
-                    float limit:angular:physics:low = -1
+                    float limit:angular:physics:high = 0.12
+                    float limit:angular:physics:low = -0.12
                     uniform token physics:axis = "X"
                     rel physics:body0 = </World/KrabbyUno/Root_RR/RR_TibiaPrismatic>
                     rel physics:body1 = </World/KrabbyUno/Root_RR/RR_Tibia>
@@ -1112,9 +1112,9 @@ def Xform "World"
                     prepend apiSchemas = ["PhysicsLimitAPI:angular", "PhysicsDriveAPI:angular", "PhysxJointAxisAPI:angular"]
                 )
                 {
-                    float drive:angular:physics:damping = 14000
+                    float drive:angular:physics:damping = 0
                     float drive:angular:physics:maxForce = 30000
-                    float drive:angular:physics:stiffness = 18000
+                    float drive:angular:physics:stiffness = 0
                     float drive:angular:physics:targetPosition = 0
                     float drive:angular:physics:targetVelocity = 0
                     float limit:angular:physics:high = 1.2
@@ -1173,9 +1173,9 @@ def Xform "World"
                     prepend apiSchemas = ["PhysicsLimitAPI:linear", "PhysicsDriveAPI:linear", "PhysxJointAxisAPI:linear"]
                 )
                 {
-                    float drive:linear:physics:damping = 7000
+                    float drive:linear:physics:damping = 400
                     float drive:linear:physics:maxForce = 20000
-                    float drive:linear:physics:stiffness = 8000
+                    float drive:linear:physics:stiffness = 0
                     float drive:linear:physics:targetPosition = 0
                     float drive:linear:physics:targetVelocity = 0
                     float limit:linear:physics:high = 0.2
@@ -1254,8 +1254,8 @@ def Xform "World"
                     prepend apiSchemas = ["PhysicsLimitAPI:angular", "PhysxJointAxisAPI:angular"]
                 )
                 {
-                    float limit:angular:physics:high = 1
-                    float limit:angular:physics:low = -1
+                    float limit:angular:physics:high = 0.12
+                    float limit:angular:physics:low = -0.12
                     uniform token physics:axis = "X"
                     rel physics:body0 = </World/KrabbyUno/Root_RR/RR_FemurPrismatic>
                     rel physics:body1 = </World/KrabbyUno/Root_RR/RR_Femur>
@@ -1321,9 +1321,9 @@ def Xform "World"
                     prepend apiSchemas = ["PhysicsLimitAPI:linear", "PhysicsDriveAPI:linear", "PhysxJointAxisAPI:linear"]
                 )
                 {
-                    float drive:linear:physics:damping = 7000
+                    float drive:linear:physics:damping = 400
                     float drive:linear:physics:maxForce = 20000
-                    float drive:linear:physics:stiffness = 8000
+                    float drive:linear:physics:stiffness = 0
                     float drive:linear:physics:targetPosition = 0
                     float drive:linear:physics:targetVelocity = 0
                     float limit:linear:physics:high = 0.25
@@ -1402,8 +1402,8 @@ def Xform "World"
                     prepend apiSchemas = ["PhysicsLimitAPI:angular", "PhysxJointAxisAPI:angular"]
                 )
                 {
-                    float limit:angular:physics:high = 1
-                    float limit:angular:physics:low = -1
+                    float limit:angular:physics:high = 0.12
+                    float limit:angular:physics:low = -0.12
                     uniform token physics:axis = "X"
                     rel physics:body0 = </World/KrabbyUno/Root_RL/RL_TibiaPrismatic>
                     rel physics:body1 = </World/KrabbyUno/Root_RL/RL_Tibia>
@@ -1507,9 +1507,9 @@ def Xform "World"
                     prepend apiSchemas = ["PhysicsLimitAPI:angular", "PhysicsDriveAPI:angular", "PhysxJointAxisAPI:angular"]
                 )
                 {
-                    float drive:angular:physics:damping = 14000
+                    float drive:angular:physics:damping = 0
                     float drive:angular:physics:maxForce = 30000
-                    float drive:angular:physics:stiffness = 18000
+                    float drive:angular:physics:stiffness = 0
                     float drive:angular:physics:targetPosition = 0
                     float drive:angular:physics:targetVelocity = 0
                     float limit:angular:physics:high = 1.2
@@ -1568,9 +1568,9 @@ def Xform "World"
                     prepend apiSchemas = ["PhysicsLimitAPI:linear", "PhysicsDriveAPI:linear", "PhysxJointAxisAPI:linear"]
                 )
                 {
-                    float drive:linear:physics:damping = 7000
+                    float drive:linear:physics:damping = 400
                     float drive:linear:physics:maxForce = 20000
-                    float drive:linear:physics:stiffness = 8000
+                    float drive:linear:physics:stiffness = 0
                     float drive:linear:physics:targetPosition = 0
                     float drive:linear:physics:targetVelocity = 0
                     float limit:linear:physics:high = 0.2
@@ -1649,8 +1649,8 @@ def Xform "World"
                     prepend apiSchemas = ["PhysicsLimitAPI:angular", "PhysxJointAxisAPI:angular"]
                 )
                 {
-                    float limit:angular:physics:high = 1
-                    float limit:angular:physics:low = -1
+                    float limit:angular:physics:high = 0.12
+                    float limit:angular:physics:low = -0.12
                     uniform token physics:axis = "X"
                     rel physics:body0 = </World/KrabbyUno/Root_RL/RL_FemurPrismatic>
                     rel physics:body1 = </World/KrabbyUno/Root_RL/RL_Femur>
@@ -1716,9 +1716,9 @@ def Xform "World"
                     prepend apiSchemas = ["PhysicsLimitAPI:linear", "PhysicsDriveAPI:linear", "PhysxJointAxisAPI:linear"]
                 )
                 {
-                    float drive:linear:physics:damping = 7000
+                    float drive:linear:physics:damping = 400
                     float drive:linear:physics:maxForce = 20000
-                    float drive:linear:physics:stiffness = 8000
+                    float drive:linear:physics:stiffness = 0
                     float drive:linear:physics:targetPosition = 0
                     float drive:linear:physics:targetVelocity = 0
                     float limit:linear:physics:high = 0.25
@@ -1797,8 +1797,8 @@ def Xform "World"
                     prepend apiSchemas = ["PhysicsLimitAPI:angular", "PhysxJointAxisAPI:angular"]
                 )
                 {
-                    float limit:angular:physics:high = 1
-                    float limit:angular:physics:low = -1
+                    float limit:angular:physics:high = 0.12
+                    float limit:angular:physics:low = -0.12
                     uniform token physics:axis = "X"
                     rel physics:body0 = </World/KrabbyUno/Root_FR/FR_TibiaPrismatic>
                     rel physics:body1 = </World/KrabbyUno/Root_FR/FR_Tibia>
@@ -1902,9 +1902,9 @@ def Xform "World"
                     prepend apiSchemas = ["PhysicsLimitAPI:angular", "PhysicsDriveAPI:angular", "PhysxJointAxisAPI:angular"]
                 )
                 {
-                    float drive:angular:physics:damping = 14000
+                    float drive:angular:physics:damping = 0
                     float drive:angular:physics:maxForce = 30000
-                    float drive:angular:physics:stiffness = 18000
+                    float drive:angular:physics:stiffness = 0
                     float drive:angular:physics:targetPosition = 0
                     float drive:angular:physics:targetVelocity = 0
                     float limit:angular:physics:high = 1.2
@@ -1963,9 +1963,9 @@ def Xform "World"
                     prepend apiSchemas = ["PhysicsLimitAPI:linear", "PhysicsDriveAPI:linear", "PhysxJointAxisAPI:linear"]
                 )
                 {
-                    float drive:linear:physics:damping = 7000
+                    float drive:linear:physics:damping = 400
                     float drive:linear:physics:maxForce = 20000
-                    float drive:linear:physics:stiffness = 8000
+                    float drive:linear:physics:stiffness = 0
                     float drive:linear:physics:targetPosition = 0
                     float drive:linear:physics:targetVelocity = 0
                     float limit:linear:physics:high = 0.2
@@ -2044,8 +2044,8 @@ def Xform "World"
                     prepend apiSchemas = ["PhysicsLimitAPI:angular", "PhysxJointAxisAPI:angular"]
                 )
                 {
-                    float limit:angular:physics:high = 1
-                    float limit:angular:physics:low = -1
+                    float limit:angular:physics:high = 0.12
+                    float limit:angular:physics:low = -0.12
                     uniform token physics:axis = "X"
                     rel physics:body0 = </World/KrabbyUno/Root_FR/FR_FemurPrismatic>
                     rel physics:body1 = </World/KrabbyUno/Root_FR/FR_Femur>
@@ -2231,9 +2231,9 @@ def Xform "World"
                     prepend apiSchemas = ["PhysicsLimitAPI:linear", "PhysicsDriveAPI:linear", "PhysxJointAxisAPI:linear"]
                 )
                 {
-                    float drive:linear:physics:damping = 7000
+                    float drive:linear:physics:damping = 400
                     float drive:linear:physics:maxForce = 20000
-                    float drive:linear:physics:stiffness = 8000
+                    float drive:linear:physics:stiffness = 0
                     float drive:linear:physics:targetPosition = 0
                     float drive:linear:physics:targetVelocity = 0
                     float limit:linear:physics:high = 0.25
@@ -2312,8 +2312,8 @@ def Xform "World"
                     prepend apiSchemas = ["PhysicsLimitAPI:angular", "PhysxJointAxisAPI:angular"]
                 )
                 {
-                    float limit:angular:physics:high = 1
-                    float limit:angular:physics:low = -1
+                    float limit:angular:physics:high = 0.12
+                    float limit:angular:physics:low = -0.12
                     uniform token physics:axis = "X"
                     rel physics:body0 = </World/KrabbyUno/Root_FL/FL_TibiaPrismatic>
                     rel physics:body1 = </World/KrabbyUno/Root_FL/FL_Tibia>
@@ -2417,9 +2417,9 @@ def Xform "World"
                     prepend apiSchemas = ["PhysicsLimitAPI:angular", "PhysicsDriveAPI:angular", "PhysxJointAxisAPI:angular"]
                 )
                 {
-                    float drive:angular:physics:damping = 14000
+                    float drive:angular:physics:damping = 0
                     float drive:angular:physics:maxForce = 30000
-                    float drive:angular:physics:stiffness = 18000
+                    float drive:angular:physics:stiffness = 0
                     float drive:angular:physics:targetPosition = 0
                     float drive:angular:physics:targetVelocity = 0
                     float limit:angular:physics:high = 1.2
@@ -2478,9 +2478,9 @@ def Xform "World"
                     prepend apiSchemas = ["PhysicsLimitAPI:linear", "PhysicsDriveAPI:linear", "PhysxJointAxisAPI:linear"]
                 )
                 {
-                    float drive:linear:physics:damping = 7000
+                    float drive:linear:physics:damping = 400
                     float drive:linear:physics:maxForce = 20000
-                    float drive:linear:physics:stiffness = 8000
+                    float drive:linear:physics:stiffness = 0
                     float drive:linear:physics:targetPosition = 0
                     float drive:linear:physics:targetVelocity = 0
                     float limit:linear:physics:high = 0.2
@@ -2559,8 +2559,8 @@ def Xform "World"
                     prepend apiSchemas = ["PhysicsLimitAPI:angular", "PhysxJointAxisAPI:angular"]
                 )
                 {
-                    float limit:angular:physics:high = 1
-                    float limit:angular:physics:low = -1
+                    float limit:angular:physics:high = 0.12
+                    float limit:angular:physics:low = -0.12
                     uniform token physics:axis = "X"
                     rel physics:body0 = </World/KrabbyUno/Root_FL/FL_FemurPrismatic>
                     rel physics:body1 = </World/KrabbyUno/Root_FL/FL_Femur>

@@ -74,7 +74,7 @@ import os
 import torch
 from datetime import datetime
 
-from scripts.rsl_rl.modules.on_policy_runner_with_extractor import OnPolicyRunnerWithExtractor
+from scripts.rsl_rl.runner_factory import agent_cfg_to_train_dict, make_on_policy_runner
 
 from isaaclab.envs import (
     DirectMARLEnv,
@@ -83,6 +83,7 @@ from isaaclab.envs import (
     ManagerBasedRLEnvCfg,
     multi_agent_to_single_agent,
 )
+from isaaclab.utils.assets import retrieve_file_path
 from isaaclab.utils.dict import print_dict
 from isaaclab.utils.io import dump_yaml
 from parkour_tasks.extreme_parkour_task.config.go2.agents.parkour_rl_cfg import ParkourRslRlOnPolicyRunnerCfg
@@ -151,7 +152,10 @@ def main(env_cfg: ParkourManagerBasedRLEnv |ManagerBasedRLEnvCfg | DirectRLEnvCf
     
     # save resume path before creating a new log_dir
     if agent_cfg.resume or agent_cfg.algorithm.class_name == "DistillationWithExtractor":
-        resume_path = get_checkpoint_path(log_root_path, agent_cfg.load_run, agent_cfg.load_checkpoint)
+        if args_cli.checkpoint:
+            resume_path = retrieve_file_path(args_cli.checkpoint)
+        else:
+            resume_path = get_checkpoint_path(log_root_path, agent_cfg.load_run, agent_cfg.load_checkpoint)
 
     # # wrap for video recording
     if args_cli.video:
@@ -168,7 +172,7 @@ def main(env_cfg: ParkourManagerBasedRLEnv |ManagerBasedRLEnvCfg | DirectRLEnvCf
     # wrap around environment for rsl-rl
     env = ParkourRslRlVecEnvWrapper(env, clip_actions=agent_cfg.clip_actions)
     # # create runner from rsl-rl
-    runner = OnPolicyRunnerWithExtractor(env, agent_cfg.to_dict(), log_dir=log_dir, device=agent_cfg.device)
+    runner = make_on_policy_runner(env, agent_cfg_to_train_dict(agent_cfg), log_dir=log_dir, device=agent_cfg.device)
     # # write git state to logs
     runner.add_git_repo_to_log(__file__)
     # load the checkpoint

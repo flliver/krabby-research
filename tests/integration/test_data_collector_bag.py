@@ -9,10 +9,10 @@ import pytest
 
 pytest.importorskip("rosbags.rosbag2")
 
-from data_collection.config import CatalogTopicMap, DataCollectorConfig, HalEndpoints, TopicEnable
+from data_collection.config import DataCollectorConfig, HalEndpoints, TopicEnable
 from data_collection.rotating_bag import RotatingMcapWriter
-from data_collection.serialization import observation_to_writes
-from hal.client.data_structures.hardware import HardwareObservations
+from data_collection.serialization import catalog_camera_topic, observation_to_writes
+from hal.client.data_structures.hardware import HardwareObservations, RgbdCatalogObservation
 from rosbags.highlevel import AnyReader
 from rosbags.typesys import get_typestore
 from rosbags.typesys.stores import Stores
@@ -34,8 +34,9 @@ def _minimal_obs_with_camera() -> HardwareObservations:
         joint_velocities=np.zeros(12, dtype=np.float32),
         contact_forces=np.zeros(5, dtype=np.float32),
         previous_action=np.linspace(0.0, 0.2, 12, dtype=np.float32),
-        camera_rgb=rgb,
-        camera_depth=dep,
+        rgbd_by_catalog_id={
+            "front_rgbd": RgbdCatalogObservation(rgb=rgb, depth=dep),
+        },
     )
 
 
@@ -43,17 +44,9 @@ def test_rotating_writer_single_message_roundtrip(tmp_path):
     cfg = DataCollectorConfig(
         hal=HalEndpoints("inproc://a", "inproc://b"),
         output_dir=tmp_path / "out",
-        topics=TopicEnable(
-            camera_side_left_rgb=False,
-            camera_side_right_rgb=False,
-            camera_side_rgbd_depth=False,
-            radar_edge=False,
-        ),
-        catalog_map=CatalogTopicMap(),
+        topics=TopicEnable(),
     )
     specs = [
-        ("/camera/front/rgb", "sensor_msgs/msg/Image"),
-        ("/camera/front/depth", "sensor_msgs/msg/Image"),
         ("/joints/state", "sensor_msgs/msg/JointState"),
         ("/joints/command", "sensor_msgs/msg/JointState"),
         ("/imu", "sensor_msgs/msg/Imu"),
@@ -67,7 +60,7 @@ def test_rotating_writer_single_message_roundtrip(tmp_path):
     )
     obs = _minimal_obs_with_camera()
     ts = writer.typestore
-    rows = observation_to_writes(ts, obs, cfg.topics, cfg.catalog_map, ())
+    rows = observation_to_writes(ts, obs, cfg.topics, ())
     writer.write_messages(rows, obs.timestamp_ns)
     writer.close()
 
@@ -77,15 +70,17 @@ def test_rotating_writer_single_message_roundtrip(tmp_path):
 
     ts2 = get_typestore(Stores.LATEST)
     counts: dict[str, int] = {}
+    rgb_topic = catalog_camera_topic("front_rgbd", "rgb")
+    depth_topic = catalog_camera_topic("front_rgbd", "depth")
     with AnyReader([bag]) as reader:
         for conn, _ts, raw in reader.messages():
             counts[conn.topic] = counts.get(conn.topic, 0) + 1
-            if conn.topic == "/camera/front/rgb":
+            if conn.topic == rgb_topic:
                 msg = ts2.deserialize_cdr(raw, "sensor_msgs/msg/Image")
                 assert msg.width == 6 and msg.height == 4
 
-    assert counts.get("/camera/front/rgb") == 1
-    assert counts.get("/camera/front/depth") == 1
+    assert counts.get(rgb_topic) == 1
+    assert counts.get(depth_topic) == 1
     assert counts.get("/joints/state") == 1
     assert counts.get("/joints/command") == 1
     assert counts.get("/imu") == 1

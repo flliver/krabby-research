@@ -6,6 +6,8 @@
 #
 # The portal serves /, /api/teleop-config, /ws/browser, and /ws/robot on one listener (default 9000).
 #
+# Stops/removes any existing container named KRABBY_TELEOP_CONTAINER_NAME (default: krabby-teleop-portal) before starting.
+#
 # Prerequisites:
 #   make build-test-image    # produces krabby-testing-x86:latest
 #
@@ -27,6 +29,8 @@ HOST_PORT="${TELEOP_HOST_PORT:-9000}"
 CONTAINER_PORT="${TELEOP_CONTAINER_PORT:-9000}"
 CONTAINER_NAME="${KRABBY_TELEOP_CONTAINER_NAME:-krabby-teleop-portal}"
 DOCKER_RUN_EXTRA="${KRABBY_TELEOP_DOCKER_RUN_EXTRA:-}"
+
+docker rm -f "${CONTAINER_NAME}" >/dev/null 2>&1 || true
 
 # shellcheck disable=SC2086
 exec docker run --rm -it \

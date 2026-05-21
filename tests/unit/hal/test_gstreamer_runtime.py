@@ -143,13 +143,12 @@ def test_run_pipeline_with_appsrc_sync_gray16_depth_smoke() -> None:
     import numpy as np
 
     from hal.server.gstreamer_runtime import ensure_gst_initialized
-    from hal.server.isaac.sensor_backend_isaac import (
-        ISAAC_PIPELINE_EXAMPLE_SENSORS,
-        IsaacSensorInterface,
-    )
+    from hal.server.isaac.sensor_backend_isaac import IsaacSensorInterface
+
+    from tests.unit.hal.isaac_sensor_fixtures import ISAAC_CONFIGURED_SENSORS_FIXTURE
 
     ensure_gst_initialized()
-    iface = IsaacSensorInterface(configured_sensors=ISAAC_PIPELINE_EXAMPLE_SENSORS)
+    iface = IsaacSensorInterface(configured_sensors=ISAAC_CONFIGURED_SENSORS_FIXTURE)
     depth = next(s for s in iface.list_sensors() if s.id == "front_rgbd_gray16_depth")
     handle = iface.get_gstreamer_handle(depth)
     pipe = iface.build_pipeline(handle, encoding="h264", output_element="fakesink sync=true")
@@ -164,12 +163,11 @@ def test_run_pipeline_with_appsrc_sync_gray16_depth_smoke() -> None:
 
 @pytest.mark.usefixtures("_gst_initialized")
 def test_smoke_from_isaac_sensor_interface() -> None:
-    from hal.server.isaac.sensor_backend_isaac import (
-        ISAAC_PIPELINE_EXAMPLE_SENSORS,
-        IsaacSensorInterface,
-    )
+    from hal.server.isaac.sensor_backend_isaac import IsaacSensorInterface
 
-    iface = IsaacSensorInterface(configured_sensors=ISAAC_PIPELINE_EXAMPLE_SENSORS)
+    from tests.unit.hal.isaac_sensor_fixtures import ISAAC_CONFIGURED_SENSORS_FIXTURE
+
+    iface = IsaacSensorInterface(configured_sensors=ISAAC_CONFIGURED_SENSORS_FIXTURE)
     r = _smoke_from_sensor_interface(iface, n_frames=2)
     assert r.success, r.error_message
 

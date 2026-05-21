@@ -17,12 +17,13 @@ class HalServerConfig:
                 - "tcp://localhost:6001" (network, localhost only)
             For PUB sockets, this is the bind address where the server listens
             for subscribers to connect.
-        command_bind: Command endpoint where server receives commands.
+        command_bind: Command endpoint where PUSH clients send joint commands (inference and operator).
             Examples:
                 - "inproc://hal_commands" (same process, in-memory)
                 - "tcp://*:6002" (network, all interfaces, port 6002)
             For PULL sockets, this is the bind address where the server listens
-            for command requests.
+            for command requests. ``JointCommand.source`` selects precedence when multiple
+            commands are queued (operator overrides inference).
         observation_buffer_size: Buffer size for observation PUB socket
             (default 1 for latest-only semantics). Only the latest message
             is kept, older messages are automatically dropped.
@@ -38,15 +39,15 @@ class HalServerConfig:
     observation_bind: str
     command_bind: str
     observation_buffer_size: int = 1
-    
+
     def __post_init__(self) -> None:
         """Validate configuration."""
         if self.observation_buffer_size < 1:
             raise ValueError("observation_buffer_size must be >= 1")
-        
+
         if not self.observation_bind:
             raise ValueError("observation_bind is required and cannot be empty")
-        
+
         if not self.command_bind:
             raise ValueError("command_bind is required and cannot be empty")
 

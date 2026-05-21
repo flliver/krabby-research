@@ -203,6 +203,9 @@ cython_debug/
 .cursorignore
 .cursorindexingignore
 
+# Where Claude Code stores project-local settings
+.claude
+
 # Marimo
 marimo/_static/
 marimo/_lsp/
@@ -216,6 +219,12 @@ __marimo__/
 # Parkour RL training artifacts (RSL-RL logs, Hydra outputs)
 parkour/logs/
 parkour/outputs/
+
+# Crab hex local-only scripts (RSL runner, diagnostics; not committed)
+parkour/parkour_tasks/parkour_tasks/crab_hexapod_task/tempscripts/
+
+# macOS Finder artifact
+.DS_Store
 
 # Beads / Dolt files (bd init defaults)
 .dolt/

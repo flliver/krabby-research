@@ -139,15 +139,23 @@ class RotatingMcapWriter:
         if self._writer is None:
             self._open_segment()
 
+    def _connection_for(self, topic: str, msgtype: str) -> Connection:
+        assert self._writer is not None
+        key = (topic, msgtype)
+        conn = self._connections.get(key)
+        if conn is not None:
+            return conn
+        conn = self._writer.add_connection(topic, msgtype, typestore=self._typestore)
+        self._connections[key] = conn
+        return conn
+
     def write_messages(self, rows: list[tuple[str, str, bytes]], stamp_ns: int) -> None:
         """Write rows (topic, msg_type, data). Opens first segment lazily."""
         self.ensure_started()
         assert self._writer is not None
         for topic, msgtype, data in rows:
-            conn = self._connections.get((topic, msgtype))
-            if conn is None:
-                continue
             try:
+                conn = self._connection_for(topic, msgtype)
                 self._writer.write(conn, int(stamp_ns), data)
             except OSError as e:
                 logger.error("Bag write failed (%s): %s", topic, e, exc_info=True)

@@ -12,14 +12,23 @@ Wire format (single-blob, no multipart):
   - Simpler HWM behavior and fewer syscalls.
   Blob layout: 4-byte metadata length (uint32 LE) + metadata JSON + array bytes
   in a fixed order (sizes derived from metadata). Optional fields use JSON ``null`` and omit
-  the corresponding payload segment.
+  the corresponding payload segment. Joint commands may include ``source`` (``inference`` /
+  ``operator``); omitted ``source`` is treated as ``inference`` for backward compatibility.
 """
 import json
 import struct
 from dataclasses import dataclass
+from enum import Enum
 from typing import Optional
 
 import numpy as np
+
+
+class JointCommandSource(str, Enum):
+    """Origin of a joint command; HAL prefers ``OPERATOR`` over ``INFERENCE`` when both are queued."""
+
+    INFERENCE = "inference"
+    OPERATOR = "operator"
 
 
 @dataclass
@@ -607,9 +616,12 @@ class JointCommand:
     observation_timestamp_ns: int  # Timestamp of the observation this command responds to.
         # Used for tracking command-observation relationships and measuring round-trip latency.
     joint_names: tuple[str, ...]  # Names in same order as positions; keeps dict view in sync.
+    source: JointCommandSource = JointCommandSource.INFERENCE
 
     def __post_init__(self) -> None:
         """Validate desired joint positions."""
+        if not isinstance(self.source, JointCommandSource):
+            raise ValueError(f"source must be JointCommandSource, got {type(self.source)}")
         if self.timestamp_ns < 0:
             raise ValueError("timestamp_ns must be non-negative")
         if len(self.joint_names) != self._joint_positions.size:
@@ -650,6 +662,7 @@ class JointCommand:
             "timestamp_ns": self.timestamp_ns,
             "observation_timestamp_ns": self.observation_timestamp_ns,
             "joint_names": list(self.joint_names),
+            "source": self.source.value,
         }
         metadata_json = json.dumps(metadata).encode("utf-8")
         return struct.pack("<I", len(metadata_json)) + metadata_json + joint_pos.tobytes()
@@ -686,11 +699,17 @@ class JointCommand:
             raise ValueError(
                 f"metadata joint_names length {len(joint_names)} must match array size {joint_pos.size}"
             )
+        raw_src = metadata.get("source", JointCommandSource.INFERENCE.value)
+        try:
+            source = JointCommandSource(str(raw_src))
+        except ValueError:
+            source = JointCommandSource.INFERENCE
         return cls(
             _joint_positions=joint_pos,
             timestamp_ns=int(metadata.get("timestamp_ns", 0)),
             observation_timestamp_ns=int(metadata.get("observation_timestamp_ns", 0)),
             joint_names=joint_names,
+            source=source,
         )
     
 

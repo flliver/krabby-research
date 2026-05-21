@@ -1,11 +1,12 @@
 """Isaac Sim GStreamer sensor backend.
 
-**Live HAL**: pass ``scene_sensors`` (e.g. ``IsaacSimHalServer.camera_sensors``). Sensors
-are **introspected** from the scene (today: ``front_rgb`` + ``front_camera`` → one
-``front_rgbd`` row with ``camera_driver="isaac_scene"``).
+**Live HAL**: pass ``scene_sensors`` (e.g. ``IsaacSimHalServer.camera_sensors``). When
+``front_rgb`` + ``front_camera`` (and/or ``side_rgb`` + ``side_camera``) exist, each pair
+adds **two** ``SensorInfo`` rows: ``front_rgbd`` / ``side_rgbd`` plus matching
+``*_gray16_depth`` (``camera_driver="isaac_scene"``).
 
 **Explicit configuration**: pass ``configured_sensors=(...)`` to supply a fixed
-``SensorInfo`` list (tools, tests). If set, **scene introspection is skipped**.
+``SensorInfo`` list (call-site specific). If set, **scene introspection is skipped**.
 
 **No scene and no config** → empty ``list_sensors()`` (nothing is invented).
 
@@ -25,50 +26,88 @@ from hal.server.sensor_interface import (
 )
 
 
-# Pass as ``configured_sensors=ISAAC_PIPELINE_EXAMPLE_SENSORS`` when printing example
-# pipeline strings without a running scene (not used by ``IsaacSimHalServer``).
-ISAAC_PIPELINE_EXAMPLE_SENSORS: tuple[SensorInfo, ...] = (
-    SensorInfo(
-        id="front_rgbd",
-        type="rgbd",
-        modality="rgbd",
-        resolution=(640, 480),
-        fps=30,
-        pose=SensorPose(0.33, 0.0, 0.08, 0.0, 0.0, 0.0, 1.0),
-        camera_driver="isaac_scene",
-        extra={"isaac_sensor_rgb": "front_rgb", "isaac_sensor_depth": "front_camera"},
-    ),
-    SensorInfo(
-        id="front_rgbd_gray16_depth",
-        type="depth",
-        modality="depth",
-        resolution=(640, 480),
-        fps=30,
-        pose=SensorPose(0.33, 0.0, 0.08, 0.0, 0.0, 0.0, 1.0),
-        camera_driver="isaac_scene",
-        extra={
-            "isaac_sensor_depth": "front_camera",
-            "depth_range_m": (0.2, 25.0),
-            "gst_depth_source_catalog_id": "front_rgbd",
-        },
-    ),
-    SensorInfo(
-        id="side_left_rgb",
-        type="rgb",
-        modality="rgb",
-        resolution=(640, 480),
-        fps=15,
-        pose=SensorPose(0.0, 0.15, 0.06, 0.0, 0.0, 0.707, 0.707),
-    ),
-    SensorInfo(
-        id="radar_front",
-        type="radar",
-        modality="radar",
-        resolution=(320, 240),
-        fps=10,
-        pose=SensorPose(0.2, 0.0, 0.05, 0.0, 0.0, 0.0, 1.0),
-    ),
-)
+def _sensor_infos_from_scene_cameras(scene_sensors: dict) -> list[SensorInfo]:
+    """Map scene sensors to Jetson-matching catalog ids (``front_rgbd``, ``side_rgbd``, …).
+
+    Full scene: **four** rows — ``front_rgbd``, ``front_rgbd_gray16_depth``, ``side_rgbd``,
+    ``side_rgbd_gray16_depth``. Missing RGB or depth prim for a pair skips that pair's rows.
+    """
+    out: list[SensorInfo] = []
+
+    if "front_rgb" in scene_sensors and "front_camera" in scene_sensors:
+        rgb_cfg = getattr(scene_sensors["front_rgb"], "cfg", None)
+        res, fps = _resolution_and_fps_from_cfg(rgb_cfg, (640, 480), 30)
+        pose = _pose_from_sensor_cfg(rgb_cfg)
+        out.append(
+            SensorInfo(
+                id="front_rgbd",
+                type="rgbd",
+                modality="rgbd",
+                resolution=res,
+                fps=fps,
+                pose=pose,
+                camera_driver="isaac_scene",
+                extra={
+                    "isaac_sensor_rgb": "front_rgb",
+                    "isaac_sensor_depth": "front_camera",
+                },
+            )
+        )
+        out.append(
+            SensorInfo(
+                id="front_rgbd_gray16_depth",
+                type="depth",
+                modality="depth",
+                resolution=res,
+                fps=fps,
+                pose=pose,
+                camera_driver="isaac_scene",
+                extra={
+                    "isaac_sensor_depth": "front_camera",
+                    # Match RayCaster ``max_distance`` (see ``hal.server.isaac.sim_rgbd_camera_cfgs``): teleop grayscale uses this band.
+                    "depth_range_m": (0.2, 2.0),
+                    "gst_depth_source_catalog_id": "front_rgbd",
+                },
+            )
+        )
+
+    if "side_rgb" in scene_sensors and "side_camera" in scene_sensors:
+        rgb_cfg = getattr(scene_sensors["side_rgb"], "cfg", None)
+        res, fps = _resolution_and_fps_from_cfg(rgb_cfg, (640, 480), 30)
+        pose = _pose_from_sensor_cfg(rgb_cfg)
+        out.append(
+            SensorInfo(
+                id="side_rgbd",
+                type="rgbd",
+                modality="rgbd",
+                resolution=res,
+                fps=fps,
+                pose=pose,
+                camera_driver="isaac_scene",
+                extra={
+                    "isaac_sensor_rgb": "side_rgb",
+                    "isaac_sensor_depth": "side_camera",
+                },
+            )
+        )
+        out.append(
+            SensorInfo(
+                id="side_rgbd_gray16_depth",
+                type="depth",
+                modality="depth",
+                resolution=res,
+                fps=fps,
+                pose=pose,
+                camera_driver="isaac_scene",
+                extra={
+                    "isaac_sensor_depth": "side_camera",
+                    "depth_range_m": (0.15, 1.5),
+                    "gst_depth_source_catalog_id": "side_rgbd",
+                },
+            )
+        )
+
+    return out
 
 
 def _tensor_list1d(t) -> list[float]:
@@ -124,42 +163,6 @@ def _resolution_and_fps_from_cfg(cfg, default_res: tuple[int, int], default_fps:
         return res, default_fps
     fps = max(1, int(round(1.0 / float(upd))))
     return res, fps
-
-
-def _sensor_infos_from_scene_cameras(scene_sensors: dict) -> list[SensorInfo]:
-    """``front_rgb`` + ``front_camera`` → one introspected ``front_rgbd``; else []."""
-    if "front_rgb" not in scene_sensors or "front_camera" not in scene_sensors:
-        return []
-    rgb_sensor = scene_sensors["front_rgb"]
-    rgb_cfg = getattr(rgb_sensor, "cfg", None)
-    res, fps = _resolution_and_fps_from_cfg(rgb_cfg, (640, 480), 30)
-    pose = _pose_from_sensor_cfg(rgb_cfg)
-    return [
-        SensorInfo(
-            id="front_rgbd",
-            type="rgbd",
-            modality="rgbd",
-            resolution=res,
-            fps=fps,
-            pose=pose,
-            camera_driver="isaac_scene",
-            extra={"isaac_sensor_rgb": "front_rgb", "isaac_sensor_depth": "front_camera"},
-        ),
-        SensorInfo(
-            id="front_rgbd_gray16_depth",
-            type="depth",
-            modality="depth",
-            resolution=res,
-            fps=fps,
-            pose=pose,
-            camera_driver="isaac_scene",
-            extra={
-                "isaac_sensor_depth": "front_camera",
-                "depth_range_m": (0.2, 25.0),
-                "gst_depth_source_catalog_id": "front_rgbd",
-            },
-        ),
-    ]
 
 
 def _appsrc_sw_encode_pipeline(

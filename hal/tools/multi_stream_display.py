@@ -9,7 +9,8 @@ captured here—only the ZED front pair.
 the same ``AppLauncher`` flags as other Isaac scripts.
 
 **``--no-display``**: prints sensor metadata and example GStreamer pipeline strings only
-(no windows, no hardware/sim).
+(no windows, no hardware/sim). Isaac uses ``sim_rgbd_camera_cfgs`` + ``IsaacSensorInterface``
+introspection (no duplicate catalog).
 
 Usage:
   python -m hal.tools.multi_stream_display --backend jetson
@@ -27,10 +28,9 @@ from typing import Optional
 
 import numpy as np
 
-from hal.server.isaac.sensor_backend_isaac import (
-    ISAAC_PIPELINE_EXAMPLE_SENSORS,
-    IsaacSensorInterface,
-)
+from types import SimpleNamespace
+
+from hal.server.isaac.sensor_backend_isaac import IsaacSensorInterface
 from hal.server.jetson.sensor_backend_jetson import JetsonSensorInterface
 
 try:
@@ -335,12 +335,26 @@ def _depth_to_bgr(depth: np.ndarray) -> np.ndarray:
     return cv2.applyColorMap(u8, cv2.COLORMAP_VIRIDIS)
 
 
+def _isaac_interface_from_sim_cfgs(robot_link: str = "base") -> IsaacSensorInterface:
+    """Same sensor catalog as HAL Isaac teleop (``sim_rgbd_camera_cfgs``), without a running env."""
+
+    from hal.server.isaac.sim_rgbd_camera_cfgs import sim_rgbd_camera_cfgs_for_robot_link
+
+    fc, fr, sc, sr = sim_rgbd_camera_cfgs_for_robot_link(robot_link)
+    scene_sensors = {
+        "front_camera": SimpleNamespace(cfg=fc),
+        "front_rgb": SimpleNamespace(cfg=fr),
+        "side_camera": SimpleNamespace(cfg=sc),
+        "side_rgb": SimpleNamespace(cfg=sr),
+    }
+    return IsaacSensorInterface(scene_sensors=scene_sensors)
+
+
 def _get_interface(backend: str):
     if backend == "jetson":
         return JetsonSensorInterface()
     if backend == "isaac":
-        # No scene here: use explicit example rows for listing / pipeline strings only.
-        return IsaacSensorInterface(configured_sensors=ISAAC_PIPELINE_EXAMPLE_SENSORS)
+        return _isaac_interface_from_sim_cfgs()
     raise ValueError(f"Unknown backend: {backend}. Use jetson or isaac.")
 
 

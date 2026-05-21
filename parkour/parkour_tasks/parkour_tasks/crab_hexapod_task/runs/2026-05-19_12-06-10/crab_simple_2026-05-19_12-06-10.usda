@@ -1,0 +1,1302 @@
+#usda 1.0
+(
+    customLayerData = {
+        dictionary cameraSettings = {
+            dictionary Front = {
+                double3 position = (5, 0, 0)
+                double radius = 5
+            }
+            dictionary Perspective = {
+                double3 position = (7.59322740928944, -5.5307511890275105, 7.849931929740069)
+                double3 target = (-0.000004844810097992536, 0.000008416391422905178, 0.000008098486583563158)
+            }
+            dictionary Right = {
+                double3 position = (0, -5, 0)
+                double radius = 5
+            }
+            dictionary Top = {
+                double3 position = (0, 0, 5)
+                double radius = 5
+            }
+            string boundCamera = "/OmniverseKit_Persp"
+        }
+        dictionary omni_layer = {
+            string authoring_layer = "./crab_simple.usda"
+            dictionary locked = {
+            }
+            dictionary muteness = {
+            }
+        }
+        dictionary renderSettings = {
+        }
+    }
+    defaultPrim = "krabby"
+    endTimeCode = 1000000
+    metersPerUnit = 1
+    startTimeCode = 0
+    timeCodesPerSecond = 60
+    upAxis = "Z"
+)
+
+def Xform "World"
+{
+    def PhysicsScene "PhysicsScene" (
+        prepend apiSchemas = ["PhysxSceneAPI"]
+    )
+    {
+        vector3f physics:gravityDirection = (0, 0, -1)
+        uniform token physxScene:broadphaseType = "GPU"
+        bool physxScene:enableGPUDynamics = 1
+    }
+
+    def Xform "GroundPlane"
+    {
+        quatf xformOp:orient = (1, 0, 0, 0)
+        float3 xformOp:scale = (1, 1, 1)
+        double3 xformOp:translate = (0, 0, 0)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+
+        def Mesh "CollisionMesh"
+        {
+            uniform bool doubleSided = 0
+            int[] faceVertexCounts = [4]
+            int[] faceVertexIndices = [0, 1, 2, 3]
+            normal3f[] normals = [(0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1)]
+            point3f[] points = [(-25, -25, 0), (25, -25, 0), (25, 25, 0), (-25, 25, 0)]
+            color3f[] primvars:displayColor = [(0.5, 0.5, 0.5)]
+            texCoord2f[] primvars:st = [(0, 0), (1, 0), (1, 1), (0, 1)] (
+                interpolation = "varying"
+            )
+            quatf xformOp:orient = (1, 0, 0, 0)
+            float3 xformOp:scale = (1, 1, 1)
+            double3 xformOp:translate = (0, 1.7833524788354762, 0)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+
+        def Plane "CollisionPlane" (
+            prepend apiSchemas = ["PhysicsCollisionAPI"]
+        )
+        {
+            uniform token axis = "Z"
+            uniform token purpose = "guide"
+        }
+    }
+
+    def SphereLight "SphereLight" (
+        prepend apiSchemas = ["ShapingAPI"]
+    )
+    {
+        float3[] extent = [(-50, -50, -50), (50, 50, 50)]
+        color3f inputs:color = (0.5, 1, 0.5)
+        float inputs:intensity = 1000000
+        float inputs:radius = 0.5
+        float inputs:shaping:cone:angle = 45
+        float inputs:shaping:cone:softness = 0.1
+        float inputs:shaping:focus
+        color3f inputs:shaping:focusTint
+        asset inputs:shaping:ies:file
+        quatd xformOp:orient = (1, 0, 0, 0)
+        double3 xformOp:scale = (1, 1, 1)
+        double3 xformOp:translate = (0, 0, 7)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+    }
+
+    def DistantLight "defaultLight" (
+        prepend apiSchemas = ["ShapingAPI"]
+    )
+    {
+        float inputs:angle = 1
+        float inputs:colorTemperature = 6500
+        float inputs:intensity = 300
+        float inputs:shaping:cone:angle = 180
+        float inputs:shaping:cone:softness
+        float inputs:shaping:focus
+        color3f inputs:shaping:focusTint
+        asset inputs:shaping:ies:file
+        quatd xformOp:orient = (0.6532814824381883, 0.2705980500730985, 0.27059805007309845, 0.6532814824381882)
+        double3 xformOp:scale = (1, 1, 1)
+        double3 xformOp:translate = (0, 0, 0)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+    }
+}
+
+def "Render" (
+    hide_in_stage_window = true
+    no_delete = true
+)
+{
+    def "OmniverseKit"
+    {
+        def "HydraTextures" (
+            hide_in_stage_window = true
+            no_delete = true
+        )
+        {
+            def RenderProduct "omni_kit_widget_viewport_ViewportTexture_0" (
+                prepend apiSchemas = ["OmniRtxSettingsCommonAdvancedAPI_1", "OmniRtxSettingsRtAdvancedAPI_1", "OmniRtxSettingsPtAdvancedAPI_1", "OmniRtxPostColorGradingAPI_1", "OmniRtxPostChromaticAberrationAPI_1", "OmniRtxPostBloomPhysicalAPI_1", "OmniRtxPostMatteObjectAPI_1", "OmniRtxPostCompositingAPI_1", "OmniRtxPostDofAPI_1", "OmniRtxPostMotionBlurAPI_1", "OmniRtxPostTvNoiseAPI_1", "OmniRtxPostTonemapIrayReinhardAPI_1", "OmniRtxPostDebugSettingsAPI_1", "OmniRtxDebugSettingsAPI_1"]
+                hide_in_stage_window = true
+                no_delete = true
+            )
+            {
+                rel camera = </OmniverseKit_Persp>
+                token omni:rtx:background:source:texture:textureMode = "repeatMirrored"
+                token omni:rtx:background:source:type = "domeLight"
+                bool omni:rtx:dlss:frameGeneration = 0
+                bool omni:rtx:material:db:nonVisualMaterialCSV:enabled = 0
+                bool omni:rtx:material:db:syncLoads = 1
+                token omni:rtx:post:dlss:execMode = "performance"
+                bool omni:rtx:post:registeredCompositing:invertColorCorrection = 1
+                bool omni:rtx:post:registeredCompositing:invertToneMap = 1
+                bool omni:rtx:pt:lightcache:cached:dontResolveConflicts = 1
+                int omni:rtx:pt:maxSamplesPerLaunch = 2073600
+                int omni:rtx:pt:mgpu:maxPixelsPerRegionExponent = 12
+                token omni:rtx:rendermode
+                color3f omni:rtx:rt:ambientLight:color = (0.1, 0.1, 0.1)
+                bool omni:rtx:rt:demoire = 0
+                bool omni:rtx:rt:ecoMode:enabled
+                bool omni:rtx:rt:lightcache:spatialCache:dontResolveConflicts = 1
+                bool omni:rtx:scene:hydra:materialSyncLoads = 1
+                bool omni:rtx:scene:hydra:mdlMaterialWarmup = 1
+                uint omni:rtx:viewTile:limit = 4294967295
+                rel orderedVars = </Render/Vars/LdrColor>
+                custom bool overrideClipRange = 0
+                uniform int2 resolution = (1280, 720)
+            }
+        }
+    }
+
+    def RenderSettings "OmniverseGlobalRenderSettings" (
+        prepend apiSchemas = ["OmniRtxSettingsGlobalRtAdvancedAPI_1", "OmniRtxSettingsGlobalPtAdvancedAPI_1"]
+        no_delete = true
+    )
+    {
+        rel products = </Render/OmniverseKit/HydraTextures/omni_kit_widget_viewport_ViewportTexture_0>
+    }
+
+    def "Vars"
+    {
+        def RenderVar "LdrColor" (
+            hide_in_stage_window = true
+            no_delete = true
+        )
+        {
+            uniform string sourceName = "LdrColor"
+        }
+    }
+}
+
+def Xform "krabby" (
+    delete apiSchemas = ["PhysicsArticulationRootAPI", "PhysxArticulationAPI"]
+    prepend apiSchemas = ["PhysicsArticulationRootAPI", "PhysxArticulationAPI"]
+)
+{
+    rel proxyPrim = None
+    quatd xformOp:orient = (1, 0, 0, 0)
+    double3 xformOp:scale = (1, 1, 1)
+    double3 xformOp:translate = (0, 0, 1)
+    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+
+    def Xform "Leg_FL"
+    {
+        quatd xformOp:orient = (1, 0, 0, 0)
+        double3 xformOp:scale = (1, 1, 1)
+        double3 xformOp:translate = (0, 0, 0)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+
+        def Cube "FL_Femur" (
+            prepend apiSchemas = ["PhysicsMassAPI", "MaterialBindingAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI", "PhysicsCollisionAPI", "PhysxCollisionAPI"]
+        )
+        {
+            float physics:mass = 2.8
+            float3[] extent = [(-0.5, -0.5, -0.5), (0.5, 0.5, 0.5)]
+            rel material:binding = </krabby/PlyWood> (
+                bindMaterialAs = "weakerThanDescendants"
+            )
+            bool physics:collisionEnabled = 0
+            bool physics:kinematicEnabled = 0
+            bool physics:rigidBodyEnabled = 1
+            double size = 1
+            quatd xformOp:orient = (1, 0, 0, 0)
+            double3 xformOp:scale = (0.02, 0.45, 0.05)
+            double3 xformOp:translate = (-0.365, -0.959503718539794, 0.02)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+
+        def Cube "FL_Tibia" (
+            prepend apiSchemas = ["PhysicsMassAPI", "MaterialBindingAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI"]
+        )
+        {
+            float physics:mass = 0.72
+            float3[] extent = [(-0.5, -0.5, -0.5), (0.5, 0.5, 0.5)]
+            rel material:binding = </krabby/PlyWood> (
+                bindMaterialAs = "weakerThanDescendants"
+            )
+            bool physics:collisionEnabled = 0
+            bool physics:kinematicEnabled = 0
+            bool physics:rigidBodyEnabled = 1
+            double size = 1
+            quatd xformOp:orient = (1, 0, 0, 0)
+            double3 xformOp:scale = (0.02, 0.051, 0.8128)
+            double3 xformOp:translate = (-0.3550000000000001, -1.2822536992936961, -0.5286872651520514)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+
+        def Cube "FL_Footpad" (
+            prepend apiSchemas = ["PhysicsMassAPI", "MaterialBindingAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI", "PhysicsCollisionAPI", "PhysxCollisionAPI"]
+        )
+        {
+            float physics:mass = 0.05
+            float3[] extent = [(-0.5, -0.5, -0.5), (0.5, 0.5, 0.5)]
+            rel material:binding = </krabby/FootRubber> (
+                bindMaterialAs = "weakerThanDescendants"
+            )
+            bool physics:collisionEnabled = 1
+            bool physics:kinematicEnabled = 0
+            bool physics:rigidBodyEnabled = 1
+            double size = 1
+            quatd xformOp:orient = (1, 0, 0, 0)
+            double3 xformOp:scale = (0.06, 0.06, 0.04)
+            double3 xformOp:translate = (-0.3550000000000001, -1.2822536992936961, -0.5286872651520514)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+
+        def Cube "FL_Hip" (
+            prepend apiSchemas = ["PhysicsMassAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI", "PhysicsCollisionAPI", "PhysxCollisionAPI", "MaterialBindingAPI"]
+        )
+        {
+            float physics:mass = 2.8
+            float3[] extent = [(-0.5, -0.5, -0.5), (0.5, 0.5, 0.5)]
+            rel material:binding = </krabby/PlyWood> (
+                bindMaterialAs = "weakerThanDescendants"
+            )
+            bool physics:collisionEnabled = 1
+            bool physics:kinematicEnabled = 0
+            bool physics:rigidBodyEnabled = 1
+            double size = 1
+            quatd xformOp:orient = (1, 0, 0, 0)
+            double3 xformOp:scale = (0.02, 0.127, 0.48)
+            double3 xformOp:translate = (-0.355, -0.678, 0.05)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+    }
+
+    def Xform "Leg_FR"
+    {
+        quatd xformOp:orient = (1, 0, 0, 0)
+        double3 xformOp:scale = (1, 1, 1)
+        double3 xformOp:translate = (0, 0, 0)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+
+        def Cube "FR_Femur" (
+            prepend apiSchemas = ["PhysicsMassAPI", "MaterialBindingAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI", "PhysicsCollisionAPI", "PhysxCollisionAPI"]
+        )
+        {
+            float physics:mass = 2.8
+            float3[] extent = [(-0.5, -0.5, -0.5), (0.5, 0.5, 0.5)]
+            rel material:binding = </krabby/PlyWood> (
+                bindMaterialAs = "weakerThanDescendants"
+            )
+            bool physics:collisionEnabled = 0
+            bool physics:kinematicEnabled = 0
+            bool physics:rigidBodyEnabled = 1
+            double size = 1
+            quatd xformOp:orient = (1, 0, 0, 0)
+            double3 xformOp:scale = (0.02, 0.45, 0.05)
+            double3 xformOp:translate = (-0.365, 0.959503718539794, 0.02)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+
+        def Cube "FR_Tibia" (
+            prepend apiSchemas = ["PhysicsMassAPI", "MaterialBindingAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI"]
+        )
+        {
+            float physics:mass = 0.72
+            float3[] extent = [(-0.5, -0.5, -0.5), (0.5, 0.5, 0.5)]
+            rel material:binding = </krabby/PlyWood> (
+                bindMaterialAs = "weakerThanDescendants"
+            )
+            bool physics:collisionEnabled = 0
+            bool physics:kinematicEnabled = 0
+            bool physics:rigidBodyEnabled = 1
+            double size = 1
+            quatd xformOp:orient = (1, 0, 0, 0)
+            double3 xformOp:scale = (0.02, 0.051, 0.8128)
+            double3 xformOp:translate = (-0.3550000000000001, 1.2822536992936961, -0.5286872651520514)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+
+        def Cube "FR_Footpad" (
+            prepend apiSchemas = ["PhysicsMassAPI", "MaterialBindingAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI", "PhysicsCollisionAPI", "PhysxCollisionAPI"]
+        )
+        {
+            float physics:mass = 0.05
+            float3[] extent = [(-0.5, -0.5, -0.5), (0.5, 0.5, 0.5)]
+            rel material:binding = </krabby/FootRubber> (
+                bindMaterialAs = "weakerThanDescendants"
+            )
+            bool physics:collisionEnabled = 1
+            bool physics:kinematicEnabled = 0
+            bool physics:rigidBodyEnabled = 1
+            double size = 1
+            quatd xformOp:orient = (1, 0, 0, 0)
+            double3 xformOp:scale = (0.06, 0.06, 0.04)
+            double3 xformOp:translate = (-0.3550000000000001, 1.2822536992936961, -0.5286872651520514)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+
+        def Cube "FR_Hip" (
+            prepend apiSchemas = ["PhysicsMassAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI", "PhysicsCollisionAPI", "PhysxCollisionAPI", "MaterialBindingAPI"]
+        )
+        {
+            float physics:mass = 2.8
+            float3[] extent = [(-0.5, -0.5, -0.5), (0.5, 0.5, 0.5)]
+            rel material:binding = </krabby/PlyWood> (
+                bindMaterialAs = "weakerThanDescendants"
+            )
+            bool physics:collisionEnabled = 1
+            bool physics:kinematicEnabled = 0
+            bool physics:rigidBodyEnabled = 1
+            double size = 1
+            quatd xformOp:orient = (1, 0, 0, 0)
+            double3 xformOp:scale = (0.02, 0.127, 0.48)
+            double3 xformOp:translate = (-0.355, 0.678, 0.05)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+    }
+
+    def Xform "Leg_RL"
+    {
+        quatd xformOp:orient = (1, 0, 0, 0)
+        double3 xformOp:scale = (1, 1, 1)
+        double3 xformOp:translate = (0, 0, 0)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+
+        def Cube "RL_Femur" (
+            prepend apiSchemas = ["PhysicsMassAPI", "MaterialBindingAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI", "PhysicsCollisionAPI", "PhysxCollisionAPI"]
+        )
+        {
+            float physics:mass = 2.8
+            float3[] extent = [(-0.5, -0.5, -0.5), (0.5, 0.5, 0.5)]
+            rel material:binding = </krabby/PlyWood> (
+                bindMaterialAs = "weakerThanDescendants"
+            )
+            bool physics:collisionEnabled = 0
+            bool physics:kinematicEnabled = 0
+            bool physics:rigidBodyEnabled = 1
+            double size = 1
+            quatd xformOp:orient = (1, 0, 0, 0)
+            double3 xformOp:scale = (0.02, 0.45, 0.05)
+            double3 xformOp:translate = (0.365, -0.959503718539794, 0.02)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+
+        def Cube "RL_Tibia" (
+            prepend apiSchemas = ["PhysicsMassAPI", "MaterialBindingAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI"]
+        )
+        {
+            float physics:mass = 0.72
+            float3[] extent = [(-0.5, -0.5, -0.5), (0.5, 0.5, 0.5)]
+            rel material:binding = </krabby/PlyWood> (
+                bindMaterialAs = "weakerThanDescendants"
+            )
+            bool physics:collisionEnabled = 0
+            bool physics:kinematicEnabled = 0
+            bool physics:rigidBodyEnabled = 1
+            double size = 1
+            quatd xformOp:orient = (1, 0, 0, 0)
+            double3 xformOp:scale = (0.02, 0.051, 0.8128)
+            double3 xformOp:translate = (0.3550000000000001, -1.2822536992936961, -0.5286872651520514)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+
+        def Cube "RL_Footpad" (
+            prepend apiSchemas = ["PhysicsMassAPI", "MaterialBindingAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI", "PhysicsCollisionAPI", "PhysxCollisionAPI"]
+        )
+        {
+            float physics:mass = 0.05
+            float3[] extent = [(-0.5, -0.5, -0.5), (0.5, 0.5, 0.5)]
+            rel material:binding = </krabby/FootRubber> (
+                bindMaterialAs = "weakerThanDescendants"
+            )
+            bool physics:collisionEnabled = 1
+            bool physics:kinematicEnabled = 0
+            bool physics:rigidBodyEnabled = 1
+            double size = 1
+            quatd xformOp:orient = (1, 0, 0, 0)
+            double3 xformOp:scale = (0.06, 0.06, 0.04)
+            double3 xformOp:translate = (0.3550000000000001, -1.2822536992936961, -0.5286872651520514)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+
+        def Cube "RL_Hip" (
+            prepend apiSchemas = ["PhysicsMassAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI", "PhysicsCollisionAPI", "PhysxCollisionAPI", "MaterialBindingAPI"]
+        )
+        {
+            float physics:mass = 2.8
+            float3[] extent = [(-0.5, -0.5, -0.5), (0.5, 0.5, 0.5)]
+            rel material:binding = </krabby/PlyWood> (
+                bindMaterialAs = "weakerThanDescendants"
+            )
+            bool physics:collisionEnabled = 1
+            bool physics:kinematicEnabled = 0
+            bool physics:rigidBodyEnabled = 1
+            double size = 1
+            quatd xformOp:orient = (1, 0, 0, 0)
+            double3 xformOp:scale = (0.02, 0.127, 0.48)
+            double3 xformOp:translate = (0.355, -0.678, 0.05)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+    }
+
+    def Xform "Leg_RR"
+    {
+        quatd xformOp:orient = (1, 0, 0, 0)
+        double3 xformOp:scale = (1, 1, 1)
+        double3 xformOp:translate = (0, 0, 0)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+
+        def Cube "RR_Femur" (
+            prepend apiSchemas = ["PhysicsMassAPI", "MaterialBindingAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI", "PhysicsCollisionAPI", "PhysxCollisionAPI"]
+        )
+        {
+            float physics:mass = 2.8
+            float3[] extent = [(-0.5, -0.5, -0.5), (0.5, 0.5, 0.5)]
+            rel material:binding = </krabby/PlyWood> (
+                bindMaterialAs = "weakerThanDescendants"
+            )
+            bool physics:collisionEnabled = 0
+            bool physics:kinematicEnabled = 0
+            bool physics:rigidBodyEnabled = 1
+            double size = 1
+            quatd xformOp:orient = (1, 0, 0, 0)
+            double3 xformOp:scale = (0.02, 0.45, 0.05)
+            double3 xformOp:translate = (0.365, 0.959503718539794, 0.02)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+
+        def Cube "RR_Tibia" (
+            prepend apiSchemas = ["PhysicsMassAPI", "MaterialBindingAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI"]
+        )
+        {
+            float physics:mass = 0.72
+            float3[] extent = [(-0.5, -0.5, -0.5), (0.5, 0.5, 0.5)]
+            rel material:binding = </krabby/PlyWood> (
+                bindMaterialAs = "weakerThanDescendants"
+            )
+            bool physics:collisionEnabled = 0
+            bool physics:kinematicEnabled = 0
+            bool physics:rigidBodyEnabled = 1
+            double size = 1
+            quatd xformOp:orient = (1, 0, 0, 0)
+            double3 xformOp:scale = (0.02, 0.051, 0.8128)
+            double3 xformOp:translate = (0.3550000000000001, 1.2822536992936961, -0.5286872651520514)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+
+        def Cube "RR_Footpad" (
+            prepend apiSchemas = ["PhysicsMassAPI", "MaterialBindingAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI", "PhysicsCollisionAPI", "PhysxCollisionAPI"]
+        )
+        {
+            float physics:mass = 0.05
+            float3[] extent = [(-0.5, -0.5, -0.5), (0.5, 0.5, 0.5)]
+            rel material:binding = </krabby/FootRubber> (
+                bindMaterialAs = "weakerThanDescendants"
+            )
+            bool physics:collisionEnabled = 1
+            bool physics:kinematicEnabled = 0
+            bool physics:rigidBodyEnabled = 1
+            double size = 1
+            quatd xformOp:orient = (1, 0, 0, 0)
+            double3 xformOp:scale = (0.06, 0.06, 0.04)
+            double3 xformOp:translate = (0.3550000000000001, 1.2822536992936961, -0.5286872651520514)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+
+        def Cube "RR_Hip" (
+            prepend apiSchemas = ["PhysicsMassAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI", "PhysicsCollisionAPI", "PhysxCollisionAPI", "MaterialBindingAPI"]
+        )
+        {
+            float physics:mass = 2.8
+            float3[] extent = [(-0.5, -0.5, -0.5), (0.5, 0.5, 0.5)]
+            rel material:binding = </krabby/PlyWood> (
+                bindMaterialAs = "weakerThanDescendants"
+            )
+            bool physics:collisionEnabled = 1
+            bool physics:kinematicEnabled = 0
+            bool physics:rigidBodyEnabled = 1
+            double size = 1
+            quatd xformOp:orient = (1, 0, 0, 0)
+            double3 xformOp:scale = (0.02, 0.127, 0.48)
+            double3 xformOp:translate = (0.355, 0.678, 0.05)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+    }
+
+    def Xform "Leg_ML"
+    {
+        quatd xformOp:orient = (1, 0, 0, 0)
+        double3 xformOp:scale = (1, 1, 1)
+        double3 xformOp:translate = (0, 0, 0)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+
+        def Cube "ML_Femur" (
+            prepend apiSchemas = ["PhysicsMassAPI", "MaterialBindingAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI", "PhysicsCollisionAPI", "PhysxCollisionAPI"]
+        )
+        {
+            float physics:mass = 2.8
+            float3[] extent = [(-0.5, -0.5, -0.5), (0.5, 0.5, 0.5)]
+            rel material:binding = </krabby/PlyWood> (
+                bindMaterialAs = "weakerThanDescendants"
+            )
+            bool physics:collisionEnabled = 0
+            bool physics:kinematicEnabled = 0
+            bool physics:rigidBodyEnabled = 1
+            double size = 1
+            quatd xformOp:orient = (1, 0, 0, 0)
+            double3 xformOp:scale = (0.02, 0.45, 0.05)
+            double3 xformOp:translate = (0, -0.959503718539794, 0.02)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+
+        def Cube "ML_Tibia" (
+            prepend apiSchemas = ["PhysicsMassAPI", "MaterialBindingAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI"]
+        )
+        {
+            float physics:mass = 0.72
+            float3[] extent = [(-0.5, -0.5, -0.5), (0.5, 0.5, 0.5)]
+            rel material:binding = </krabby/PlyWood> (
+                bindMaterialAs = "weakerThanDescendants"
+            )
+            bool physics:collisionEnabled = 0
+            bool physics:kinematicEnabled = 0
+            bool physics:rigidBodyEnabled = 1
+            double size = 1
+            quatd xformOp:orient = (1, 0, 0, 0)
+            double3 xformOp:scale = (0.02, 0.051, 0.8128)
+            double3 xformOp:translate = (0.0, -1.2822536992936961, -0.5286872651520514)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+
+        def Cube "ML_Footpad" (
+            prepend apiSchemas = ["PhysicsMassAPI", "MaterialBindingAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI", "PhysicsCollisionAPI", "PhysxCollisionAPI"]
+        )
+        {
+            float physics:mass = 0.05
+            float3[] extent = [(-0.5, -0.5, -0.5), (0.5, 0.5, 0.5)]
+            rel material:binding = </krabby/FootRubber> (
+                bindMaterialAs = "weakerThanDescendants"
+            )
+            bool physics:collisionEnabled = 1
+            bool physics:kinematicEnabled = 0
+            bool physics:rigidBodyEnabled = 1
+            double size = 1
+            quatd xformOp:orient = (1, 0, 0, 0)
+            double3 xformOp:scale = (0.06, 0.06, 0.04)
+            double3 xformOp:translate = (0.0, -1.2822536992936961, -0.5286872651520514)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+
+        def Cube "ML_Hip" (
+            prepend apiSchemas = ["PhysicsMassAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI", "PhysicsCollisionAPI", "PhysxCollisionAPI", "MaterialBindingAPI"]
+        )
+        {
+            float physics:mass = 2.8
+            float3[] extent = [(-0.5, -0.5, -0.5), (0.5, 0.5, 0.5)]
+            rel material:binding = </krabby/PlyWood> (
+                bindMaterialAs = "weakerThanDescendants"
+            )
+            bool physics:collisionEnabled = 1
+            bool physics:kinematicEnabled = 0
+            bool physics:rigidBodyEnabled = 1
+            double size = 1
+            quatd xformOp:orient = (1, 0, 0, 0)
+            double3 xformOp:scale = (0.02, 0.127, 0.48)
+            double3 xformOp:translate = (0, -0.678, 0.05)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+    }
+
+    def Xform "Leg_MR"
+    {
+        quatd xformOp:orient = (1, 0, 0, 0)
+        double3 xformOp:scale = (1, 1, 1)
+        double3 xformOp:translate = (0, 0, 0)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+
+        def Cube "MR_Femur" (
+            prepend apiSchemas = ["PhysicsMassAPI", "MaterialBindingAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI", "PhysicsCollisionAPI", "PhysxCollisionAPI"]
+        )
+        {
+            float physics:mass = 2.8
+            float3[] extent = [(-0.5, -0.5, -0.5), (0.5, 0.5, 0.5)]
+            rel material:binding = </krabby/PlyWood> (
+                bindMaterialAs = "weakerThanDescendants"
+            )
+            bool physics:collisionEnabled = 0
+            bool physics:kinematicEnabled = 0
+            bool physics:rigidBodyEnabled = 1
+            double size = 1
+            quatd xformOp:orient = (1, 0, 0, 0)
+            double3 xformOp:scale = (0.02, 0.45, 0.05)
+            double3 xformOp:translate = (0, 0.959503718539794, 0.02)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+
+        def Cube "MR_Tibia" (
+            prepend apiSchemas = ["PhysicsMassAPI", "MaterialBindingAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI"]
+        )
+        {
+            float physics:mass = 0.72
+            float3[] extent = [(-0.5, -0.5, -0.5), (0.5, 0.5, 0.5)]
+            rel material:binding = </krabby/PlyWood> (
+                bindMaterialAs = "weakerThanDescendants"
+            )
+            bool physics:collisionEnabled = 0
+            bool physics:kinematicEnabled = 0
+            bool physics:rigidBodyEnabled = 1
+            double size = 1
+            quatd xformOp:orient = (1, 0, 0, 0)
+            double3 xformOp:scale = (0.02, 0.051, 0.8128)
+            double3 xformOp:translate = (0.0, 1.2822536992936961, -0.5286872651520514)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+
+        def Cube "MR_Footpad" (
+            prepend apiSchemas = ["PhysicsMassAPI", "MaterialBindingAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI", "PhysicsCollisionAPI", "PhysxCollisionAPI"]
+        )
+        {
+            float physics:mass = 0.05
+            float3[] extent = [(-0.5, -0.5, -0.5), (0.5, 0.5, 0.5)]
+            rel material:binding = </krabby/FootRubber> (
+                bindMaterialAs = "weakerThanDescendants"
+            )
+            bool physics:collisionEnabled = 1
+            bool physics:kinematicEnabled = 0
+            bool physics:rigidBodyEnabled = 1
+            double size = 1
+            quatd xformOp:orient = (1, 0, 0, 0)
+            double3 xformOp:scale = (0.06, 0.06, 0.04)
+            double3 xformOp:translate = (0.0, 1.2822536992936961, -0.5286872651520514)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+
+        def Cube "MR_Hip" (
+            prepend apiSchemas = ["PhysicsMassAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI", "PhysicsCollisionAPI", "PhysxCollisionAPI", "MaterialBindingAPI"]
+        )
+        {
+            float physics:mass = 2.8
+            float3[] extent = [(-0.5, -0.5, -0.5), (0.5, 0.5, 0.5)]
+            rel material:binding = </krabby/PlyWood> (
+                bindMaterialAs = "weakerThanDescendants"
+            )
+            bool physics:collisionEnabled = 1
+            bool physics:kinematicEnabled = 0
+            bool physics:rigidBodyEnabled = 1
+            double size = 1
+            quatd xformOp:orient = (1, 0, 0, 0)
+            double3 xformOp:scale = (0.02, 0.127, 0.48)
+            double3 xformOp:translate = (0, 0.678, 0.05)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+    }
+
+    def Material "PlyWood" (
+        prepend apiSchemas = ["PhysicsMaterialAPI"]
+    )
+    {
+        float physics:dynamicFriction = 0.35
+        float physics:restitution = 0.1
+        float physics:staticFriction = 0.45
+    }
+
+    def Material "FootRubber" (
+        prepend apiSchemas = ["PhysicsMaterialAPI"]
+    )
+    {
+        float physics:dynamicFriction = 0.75
+        float physics:restitution = 0.15
+        float physics:staticFriction = 0.9
+    }
+
+    def Scope "Joints"
+    {
+        def PhysicsRevoluteJoint "FL_Body_Hip_RevoluteJoint" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 50000
+            float drive:angular:physics:stiffness = 800000
+            uniform token physics:axis = "Z"
+            rel physics:body0 = </krabby/chassis/body>
+            rel physics:body1 = </krabby/Leg_FL/FL_Hip>
+            float physics:breakForce = 3.4028235e38
+            float physics:breakTorque = 3.4028235e38
+            bool physics:collisionEnabled = 1
+            point3f physics:localPos0 = (-0.49929675, -0.52, 0.2)
+            point3f physics:localPos1 = (0, 0.4, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -50
+            float physics:upperLimit = 50
+        }
+
+        def PhysicsRevoluteJoint "FL_Hip_Femur_RevoluteJoint" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 50000
+            float drive:angular:physics:stiffness = 800000
+            uniform token physics:axis = "X"
+            rel physics:body0 = </krabby/Leg_FL/FL_Hip>
+            rel physics:body1 = </krabby/Leg_FL/FL_Femur>
+            float physics:breakForce = 3.4028235e38
+            float physics:breakTorque = 3.4028235e38
+            point3f physics:localPos0 = (-0.5, 0, -0.38151386)
+            point3f physics:localPos1 = (0, 0.4, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -75
+            float physics:upperLimit = 75
+        }
+
+        def PhysicsRevoluteJoint "FL_Femur_Tibia_RevoluteJoint" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 50000
+            float drive:angular:physics:stiffness = 800000
+            uniform token physics:axis = "X"
+            rel physics:body0 = </krabby/Leg_FL/FL_Femur>
+            rel physics:body1 = </krabby/Leg_FL/FL_Tibia>
+            float physics:breakForce = 3.4028235e38
+            float physics:breakTorque = 3.4028235e38
+            point3f physics:localPos0 = (0.5, -0.470481, -0.1)
+            point3f physics:localPos1 = (0, 0, 0.4)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -100
+            float physics:upperLimit = 100
+        }
+
+        def PhysicsRevoluteJoint "FR_Body_Hip_RevoluteJoint" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 50000
+            float drive:angular:physics:stiffness = 800000
+            uniform token physics:axis = "Z"
+            rel physics:body0 = </krabby/chassis/body>
+            rel physics:body1 = </krabby/Leg_FR/FR_Hip>
+            float physics:breakForce = 3.4028235e38
+            float physics:breakTorque = 3.4028235e38
+            bool physics:collisionEnabled = 1
+            point3f physics:localPos0 = (-0.49929675, 0.52, 0.2)
+            point3f physics:localPos1 = (0, -0.4, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -50
+            float physics:upperLimit = 50
+        }
+
+        def PhysicsRevoluteJoint "FR_Hip_Femur_RevoluteJoint" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 50000
+            float drive:angular:physics:stiffness = 800000
+            uniform token physics:axis = "X"
+            rel physics:body0 = </krabby/Leg_FR/FR_Hip>
+            rel physics:body1 = </krabby/Leg_FR/FR_Femur>
+            float physics:breakForce = 3.4028235e38
+            float physics:breakTorque = 3.4028235e38
+            point3f physics:localPos0 = (-0.5, 0, -0.38151386)
+            point3f physics:localPos1 = (0, -0.4, 0)
+            quatf physics:localRot0 = (0, 0, 1, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -75
+            float physics:upperLimit = 75
+        }
+
+        def PhysicsRevoluteJoint "FR_Femur_Tibia_RevoluteJoint" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 50000
+            float drive:angular:physics:stiffness = 800000
+            uniform token physics:axis = "X"
+            rel physics:body0 = </krabby/Leg_FR/FR_Femur>
+            rel physics:body1 = </krabby/Leg_FR/FR_Tibia>
+            float physics:breakForce = 3.4028235e38
+            float physics:breakTorque = 3.4028235e38
+            point3f physics:localPos0 = (0.5, 0.470481, -0.1)
+            point3f physics:localPos1 = (0, 0, 0.4)
+            quatf physics:localRot0 = (0, 0, 1, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -100
+            float physics:upperLimit = 100
+        }
+
+        def PhysicsRevoluteJoint "ML_Body_Hip_RevoluteJoint" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 50000
+            float drive:angular:physics:stiffness = 800000
+            uniform token physics:axis = "Z"
+            rel physics:body0 = </krabby/chassis/body>
+            rel physics:body1 = </krabby/Leg_ML/ML_Hip>
+            float physics:breakForce = 3.4028235e38
+            float physics:breakTorque = 3.4028235e38
+            bool physics:collisionEnabled = 1
+            point3f physics:localPos0 = (0, -0.52, 0.2)
+            point3f physics:localPos1 = (0, 0.4, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -50
+            float physics:upperLimit = 50
+        }
+
+        def PhysicsRevoluteJoint "ML_Hip_Femur_RevoluteJoint" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 50000
+            float drive:angular:physics:stiffness = 800000
+            uniform token physics:axis = "X"
+            rel physics:body0 = </krabby/Leg_ML/ML_Hip>
+            rel physics:body1 = </krabby/Leg_ML/ML_Femur>
+            float physics:breakForce = 3.4028235e38
+            float physics:breakTorque = 3.4028235e38
+            point3f physics:localPos0 = (0, 0, -0.38151386)
+            point3f physics:localPos1 = (0, 0.4, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -75
+            float physics:upperLimit = 75
+        }
+
+        def PhysicsRevoluteJoint "ML_Femur_Tibia_RevoluteJoint" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 50000
+            float drive:angular:physics:stiffness = 800000
+            uniform token physics:axis = "X"
+            rel physics:body0 = </krabby/Leg_ML/ML_Femur>
+            rel physics:body1 = </krabby/Leg_ML/ML_Tibia>
+            float physics:breakForce = 3.4028235e38
+            float physics:breakTorque = 3.4028235e38
+            point3f physics:localPos0 = (0, -0.470481, -0.1)
+            point3f physics:localPos1 = (0, 0, 0.4)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -100
+            float physics:upperLimit = 100
+        }
+
+        def PhysicsRevoluteJoint "MR_Body_Hip_RevoluteJoint" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 50000
+            float drive:angular:physics:stiffness = 800000
+            uniform token physics:axis = "Z"
+            rel physics:body0 = </krabby/chassis/body>
+            rel physics:body1 = </krabby/Leg_MR/MR_Hip>
+            float physics:breakForce = 3.4028235e38
+            float physics:breakTorque = 3.4028235e38
+            bool physics:collisionEnabled = 1
+            point3f physics:localPos0 = (0, 0.52, 0.2)
+            point3f physics:localPos1 = (0, -0.4, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -50
+            float physics:upperLimit = 50
+        }
+
+        def PhysicsRevoluteJoint "MR_Hip_Femur_RevoluteJoint" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 50000
+            float drive:angular:physics:stiffness = 800000
+            uniform token physics:axis = "X"
+            rel physics:body0 = </krabby/Leg_MR/MR_Hip>
+            rel physics:body1 = </krabby/Leg_MR/MR_Femur>
+            float physics:breakForce = 3.4028235e38
+            float physics:breakTorque = 3.4028235e38
+            point3f physics:localPos0 = (0, 0, -0.38151386)
+            point3f physics:localPos1 = (0, -0.4, 0)
+            quatf physics:localRot0 = (0, 0, 1, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -75
+            float physics:upperLimit = 75
+        }
+
+        def PhysicsRevoluteJoint "MR_Femur_Tibia_RevoluteJoint" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 50000
+            float drive:angular:physics:stiffness = 800000
+            uniform token physics:axis = "X"
+            rel physics:body0 = </krabby/Leg_MR/MR_Femur>
+            rel physics:body1 = </krabby/Leg_MR/MR_Tibia>
+            float physics:breakForce = 3.4028235e38
+            float physics:breakTorque = 3.4028235e38
+            point3f physics:localPos0 = (0, 0.470481, -0.1)
+            point3f physics:localPos1 = (0, 0, 0.4)
+            quatf physics:localRot0 = (0, 0, 1, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -100
+            float physics:upperLimit = 100
+        }
+
+        def PhysicsRevoluteJoint "RL_Body_Hip_RevoluteJoint" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 50000
+            float drive:angular:physics:stiffness = 800000
+            uniform token physics:axis = "Z"
+            rel physics:body0 = </krabby/chassis/body>
+            rel physics:body1 = </krabby/Leg_RL/RL_Hip>
+            float physics:breakForce = 3.4028235e38
+            float physics:breakTorque = 3.4028235e38
+            bool physics:collisionEnabled = 1
+            point3f physics:localPos0 = (0.49929675, -0.52, 0.2)
+            point3f physics:localPos1 = (0, 0.4, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -50
+            float physics:upperLimit = 50
+        }
+
+        def PhysicsRevoluteJoint "RL_Hip_Femur_RevoluteJoint" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 50000
+            float drive:angular:physics:stiffness = 800000
+            uniform token physics:axis = "X"
+            rel physics:body0 = </krabby/Leg_RL/RL_Hip>
+            rel physics:body1 = </krabby/Leg_RL/RL_Femur>
+            float physics:breakForce = 3.4028235e38
+            float physics:breakTorque = 3.4028235e38
+            point3f physics:localPos0 = (0.5, 0, -0.38151386)
+            point3f physics:localPos1 = (0, 0.4, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -75
+            float physics:upperLimit = 75
+        }
+
+        def PhysicsRevoluteJoint "RL_Femur_Tibia_RevoluteJoint" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 50000
+            float drive:angular:physics:stiffness = 800000
+            uniform token physics:axis = "X"
+            rel physics:body0 = </krabby/Leg_RL/RL_Femur>
+            rel physics:body1 = </krabby/Leg_RL/RL_Tibia>
+            float physics:breakForce = 3.4028235e38
+            float physics:breakTorque = 3.4028235e38
+            point3f physics:localPos0 = (-0.5, -0.470481, -0.1)
+            point3f physics:localPos1 = (0, 0, 0.4)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -100
+            float physics:upperLimit = 100
+        }
+
+        def PhysicsRevoluteJoint "RR_Body_Hip_RevoluteJoint" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 50000
+            float drive:angular:physics:stiffness = 800000
+            uniform token physics:axis = "Z"
+            rel physics:body0 = </krabby/chassis/body>
+            rel physics:body1 = </krabby/Leg_RR/RR_Hip>
+            float physics:breakForce = 3.4028235e38
+            float physics:breakTorque = 3.4028235e38
+            bool physics:collisionEnabled = 1
+            point3f physics:localPos0 = (0.49929675, 0.52, 0.2)
+            point3f physics:localPos1 = (0, -0.4, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -50
+            float physics:upperLimit = 50
+        }
+
+        def PhysicsRevoluteJoint "RR_Hip_Femur_RevoluteJoint" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 50000
+            float drive:angular:physics:stiffness = 800000
+            uniform token physics:axis = "X"
+            rel physics:body0 = </krabby/Leg_RR/RR_Hip>
+            rel physics:body1 = </krabby/Leg_RR/RR_Femur>
+            float physics:breakForce = 3.4028235e38
+            float physics:breakTorque = 3.4028235e38
+            point3f physics:localPos0 = (0.5, 0, -0.38151386)
+            point3f physics:localPos1 = (0, -0.4, 0)
+            quatf physics:localRot0 = (0, 0, 1, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -75
+            float physics:upperLimit = 75
+        }
+
+        def PhysicsRevoluteJoint "RR_Femur_Tibia_RevoluteJoint" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 50000
+            float drive:angular:physics:stiffness = 800000
+            uniform token physics:axis = "X"
+            rel physics:body0 = </krabby/Leg_RR/RR_Femur>
+            rel physics:body1 = </krabby/Leg_RR/RR_Tibia>
+            float physics:breakForce = 3.4028235e38
+            float physics:breakTorque = 3.4028235e38
+            point3f physics:localPos0 = (-0.5, 0.470481, -0.1)
+            point3f physics:localPos1 = (0, 0, 0.4)
+            quatf physics:localRot0 = (0, 0, 1, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -100
+            float physics:upperLimit = 100
+        }
+
+        def PhysicsFixedJoint "FL_Tibia_Footpad_FixedJoint"
+        {
+            rel physics:body0 = </krabby/Leg_FL/FL_Tibia>
+            rel physics:body1 = </krabby/Leg_FL/FL_Footpad>
+            float physics:breakForce = 3.4028235e38
+            float physics:breakTorque = 3.4028235e38
+            point3f physics:localPos0 = (0, 0, -0.3864)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+        }
+
+        def PhysicsFixedJoint "FR_Tibia_Footpad_FixedJoint"
+        {
+            rel physics:body0 = </krabby/Leg_FR/FR_Tibia>
+            rel physics:body1 = </krabby/Leg_FR/FR_Footpad>
+            float physics:breakForce = 3.4028235e38
+            float physics:breakTorque = 3.4028235e38
+            point3f physics:localPos0 = (0, 0, -0.3864)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+        }
+
+        def PhysicsFixedJoint "ML_Tibia_Footpad_FixedJoint"
+        {
+            rel physics:body0 = </krabby/Leg_ML/ML_Tibia>
+            rel physics:body1 = </krabby/Leg_ML/ML_Footpad>
+            float physics:breakForce = 3.4028235e38
+            float physics:breakTorque = 3.4028235e38
+            point3f physics:localPos0 = (0, 0, -0.3864)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+        }
+
+        def PhysicsFixedJoint "MR_Tibia_Footpad_FixedJoint"
+        {
+            rel physics:body0 = </krabby/Leg_MR/MR_Tibia>
+            rel physics:body1 = </krabby/Leg_MR/MR_Footpad>
+            float physics:breakForce = 3.4028235e38
+            float physics:breakTorque = 3.4028235e38
+            point3f physics:localPos0 = (0, 0, -0.3864)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+        }
+
+        def PhysicsFixedJoint "RL_Tibia_Footpad_FixedJoint"
+        {
+            rel physics:body0 = </krabby/Leg_RL/RL_Tibia>
+            rel physics:body1 = </krabby/Leg_RL/RL_Footpad>
+            float physics:breakForce = 3.4028235e38
+            float physics:breakTorque = 3.4028235e38
+            point3f physics:localPos0 = (0, 0, -0.3864)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+        }
+
+        def PhysicsFixedJoint "RR_Tibia_Footpad_FixedJoint"
+        {
+            rel physics:body0 = </krabby/Leg_RR/RR_Tibia>
+            rel physics:body1 = </krabby/Leg_RR/RR_Footpad>
+            float physics:breakForce = 3.4028235e38
+            float physics:breakTorque = 3.4028235e38
+            point3f physics:localPos0 = (0, 0, -0.3864)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+        }
+    }
+
+    def Xform "chassis"
+    {
+        quatd xformOp:orient = (1, 0, 0, 0)
+        double3 xformOp:scale = (1, 1, 1)
+        double3 xformOp:translate = (0, 0, 0)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+
+        def Cube "body" (
+            prepend apiSchemas = ["PhysicsMassAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI", "PhysicsCollisionAPI", "PhysxCollisionAPI", "MaterialBindingAPI"]
+        )
+        {
+            float physics:mass = 66.0
+            float3[] extent = [(-0.5, -0.5, -0.5), (0.5, 0.5, 0.5)]
+            rel material:binding = </krabby/PlyWood> (
+                bindMaterialAs = "weakerThanDescendants"
+            )
+            bool physics:collisionEnabled = 1
+            bool physics:kinematicEnabled = 0
+            bool physics:rigidBodyEnabled = 1
+            double size = 1
+            quatd xformOp:orient = (1, 0, 0, 0)
+            double3 xformOp:scale = (0.7110000252723694, 1.218999981880188, 0.12)
+            double3 xformOp:translate = (0, 0, 0)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+    }
+
+    def Scope "Graphs"
+    {
+        def OmniGraph "Position_Controller"
+        {
+            token evaluationMode = "Automatic"
+            token evaluator:type = "execution"
+            token fabricCacheBacking = "StageWithoutHistory"
+            int2 fileFormatVersion = (1, 9)
+            token pipelineStage = "pipelineStageSimulation"
+
+            def OmniGraphNode "OnPlaybackTick"
+            {
+                token node:type = "omni.graph.action.OnPlaybackTick"
+                int node:typeVersion = 2
+                custom double outputs:deltaSeconds
+                custom double outputs:frame
+                custom uint outputs:tick (
+                    customData = {
+                        bool isExecution = 1
+                    }
+                )
+                custom double outputs:time
+            }
+
+            def OmniGraphNode "JointCommandArray"
+            {
+                custom int inputs:arraySize = 18
+                custom token inputs:arrayType = "double[]" (
+                    allowedTokens = ["auto", "bool[]", "double[]", "float[]", "half[]", "int[]", "int64[]", "token[]", "uchar[]", "uint[]", "uint64[]", "double[2][]", "double[3][]", "double[4][]", "matrixd[2][]", "matrixd[3][]", "matrixd[4][]", "float[2][]", "float[3][]", "float[4][]", "half[2][]", "half[3][]", "half[4][]", "int[2][]", "int[3][]", "int[4][]", "timecode[]", "frame[4][]", "colord[3][]", "colorf[3][]", "colorh[3][]", "colord[4][]", "colorf[4][]", "colorh[4][]", "normald[3][]", "normalf[3][]", "normalh[3][]", "pointd[3][]", "pointf[3][]", "pointh[3][]", "quatd[4][]", "quatf[4][]", "quath[4][]", "texcoordd[2][]", "texcoordf[2][]", "texcoordh[2][]", "texcoordd[3][]", "texcoordf[3][]", "texcoordh[3][]", "vectord[3][]", "vectorf[3][]", "vectorh[3][]"]
+                )
+                custom token inputs:input0 (
+                    customData = {
+                        dictionary omni = {
+                            dictionary graph = {
+                                double attrValue = 0
+                                string resolvedType = "double"
+                            }
+                        }
+                    }
+                )
+                custom double inputs:input1 = 0
+                custom double inputs:input2 = 0
+                custom double inputs:input3 = 0
+                custom double inputs:input4 = 0
+                custom double inputs:input5 = 0
+                custom double inputs:input6 = 0
+                custom double inputs:input7 = 0
+                custom double inputs:input8 = 0
+                custom double inputs:input9 = 0
+                custom double inputs:input10 = 0
+                custom double inputs:input11 = 0
+                custom double inputs:input12 = 0
+                custom double inputs:input13 = 0
+                custom double inputs:input14 = 0
+                custom double inputs:input15 = 0
+                custom double inputs:input16 = 0
+                custom double inputs:input17 = 0
+                token node:type = "omni.graph.nodes.ConstructArray"
+                int node:typeVersion = 1
+                custom token outputs:array
+            }
+
+            def OmniGraphNode "ArticulationController"
+            {
+                custom double[] inputs:effortCommand
+                custom uint inputs:execIn (
+                    customData = {
+                        bool isExecution = 1
+                    }
+                )
+                prepend uint inputs:execIn.connect = <../OnPlaybackTick.outputs:tick>
+                custom int[] inputs:jointIndices
+                custom token[] inputs:jointNames
+                prepend token[] inputs:jointNames.connect = <../JointNameArray.outputs:array>
+                custom double[] inputs:positionCommand
+                prepend double[] inputs:positionCommand.connect = <../JointCommandArray.outputs:array>
+                custom string inputs:robotPath = ""
+                custom rel inputs:targetPrim = <../../..> (
+                    customData = {
+                        dictionary omni = {
+                            dictionary graph = {
+                                string relType = "target"
+                            }
+                        }
+                    }
+                )
+                custom double[] inputs:velocityCommand
+                token node:type = "isaacsim.core.nodes.IsaacArticulationController"
+                int node:typeVersion = 1
+            }
+
+            def OmniGraphNode "JointNameArray"
+            {
+                custom int inputs:arraySize = 18
+                custom token inputs:arrayType = "token[]" (
+                    allowedTokens = ["auto", "bool[]", "double[]", "float[]", "half[]", "int[]", "int64[]", "token[]", "uchar[]", "uint[]", "uint64[]", "double[2][]", "double[3][]", "double[4][]", "matrixd[2][]", "matrixd[3][]", "matrixd[4][]", "float[2][]", "float[3][]", "float[4][]", "half[2][]", "half[3][]", "half[4][]", "int[2][]", "int[3][]", "int[4][]", "timecode[]", "frame[4][]", "colord[3][]", "colorf[3][]", "colorh[3][]", "colord[4][]", "colorf[4][]", "colorh[4][]", "normald[3][]", "normalf[3][]", "normalh[3][]", "pointd[3][]", "pointf[3][]", "pointh[3][]", "quatd[4][]", "quatf[4][]", "quath[4][]", "texcoordd[2][]", "texcoordf[2][]", "texcoordh[2][]", "texcoordd[3][]", "texcoordf[3][]", "texcoordh[3][]", "vectord[3][]", "vectorf[3][]", "vectorh[3][]"]
+                )
+                custom token inputs:input0 (
+                    customData = {
+                        dictionary omni = {
+                            dictionary graph = {
+                                token attrValue = "FL_Body_Hip_RevoluteJoint"
+                                string resolvedType = "token"
+                            }
+                        }
+                    }
+                )
+                custom token inputs:input1 = "FL_Hip_Femur_RevoluteJoint"
+                custom token inputs:input2 = "FL_Femur_Tibia_RevoluteJoint"
+                custom token inputs:input3 = "FR_Body_Hip_RevoluteJoint"
+                custom token inputs:input4 = "FR_Hip_Femur_RevoluteJoint"
+                custom token inputs:input5 = "FR_Femur_Tibia_RevoluteJoint"
+                custom token inputs:input6 = "ML_Body_Hip_RevoluteJoint"
+                custom token inputs:input7 = "ML_Hip_Femur_RevoluteJoint"
+                custom token inputs:input8 = "ML_Femur_Tibia_RevoluteJoint"
+                custom token inputs:input9 = "MR_Body_Hip_RevoluteJoint"
+                custom token inputs:input10 = "MR_Hip_Femur_RevoluteJoint"
+                custom token inputs:input11 = "MR_Femur_Tibia_RevoluteJoint"
+                custom token inputs:input12 = "RL_Body_Hip_RevoluteJoint"
+                custom token inputs:input13 = "RL_Hip_Femur_RevoluteJoint"
+                custom token inputs:input14 = "RL_Femur_Tibia_RevoluteJoint"
+                custom token inputs:input15 = "RR_Body_Hip_RevoluteJoint"
+                custom token inputs:input16 = "RR_Hip_Femur_RevoluteJoint"
+                custom token inputs:input17 = "RR_Femur_Tibia_RevoluteJoint"
+                token node:type = "omni.graph.nodes.ConstructArray"
+                int node:typeVersion = 1
+                custom token outputs:array
+            }
+        }
+    }
+}
+

@@ -4,13 +4,15 @@ from __future__ import annotations
 
 import pytest
 
-from hal.server.isaac.sensor_backend_isaac import ISAAC_PIPELINE_EXAMPLE_SENSORS, IsaacSensorInterface
+from hal.server.isaac.sensor_backend_isaac import IsaacSensorInterface
 from hal.server.streaming_map import build_encoded_pipeline_for_sensor_id, sensor_by_id
+
+from tests.unit.hal.isaac_sensor_fixtures import ISAAC_CONFIGURED_SENSORS_FIXTURE
 
 
 @pytest.fixture()
 def isaac_iface() -> IsaacSensorInterface:
-    return IsaacSensorInterface(configured_sensors=ISAAC_PIPELINE_EXAMPLE_SENSORS)
+    return IsaacSensorInterface(configured_sensors=ISAAC_CONFIGURED_SENSORS_FIXTURE)
 
 
 def test_sensor_by_id(isaac_iface: IsaacSensorInterface) -> None:

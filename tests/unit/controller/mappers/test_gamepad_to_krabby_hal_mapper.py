@@ -30,6 +30,7 @@ from controller.mappers.gamepad_to_krabby_hal_mapper import (
     LEG_TO_JOINT_INDICES,
 )
 from hal.client.data_structures.hardware import JointCommand
+from hal.server.robot_definition_unitree_go2 import UNITREE_GO2_DEFINITION
 
 
 
@@ -108,6 +109,23 @@ class TestMapperMultipleLegsMapping:
         assert d[joint_cmd.joint_names[fr_hip_yaw]] == pytest.approx(0.2 * DEFAULT_HIP_YAW_SCALE)
         assert d[joint_cmd.joint_names[fr_hip_pitch]] == pytest.approx(0.5 * DEFAULT_HIP_UP_DOWN_SCALE)
         assert d[joint_cmd.joint_names[fr_knee]] == pytest.approx(-0.3 * DEFAULT_KNEE_OUT_IN_SCALE)
+
+
+class TestMapperUnitreeGo2Topology:
+    """12-DOF quad: joint commands match HalServer when --robot go2."""
+
+    def test_front_left_twelve_dof(self):
+        mapper = GamepadToKrabbyHALMapper(robot_definition=UNITREE_GO2_DEFINITION)
+        state = ControllerState(LT=True, LB=False, LY=-0.5, LX=-0.3, RY=0.2)
+        joint_cmd = mapper.map(state)
+        d = joint_cmd.to_positions_dict()
+        assert len(d) == 12
+        # FL first leg × 3: indices 0,1,2
+        names = joint_cmd.joint_names
+        hip_yaw_idx, hip_pitch_idx, knee_idx = (0, 1, 2)
+        assert d[names[hip_yaw_idx]] == pytest.approx(0.2 * DEFAULT_HIP_YAW_SCALE)
+        assert d[names[hip_pitch_idx]] == pytest.approx(0.5 * DEFAULT_HIP_UP_DOWN_SCALE)
+        assert d[names[knee_idx]] == pytest.approx(-0.3 * DEFAULT_KNEE_OUT_IN_SCALE)
 
 
 class TestMapperNoLegsSelected:

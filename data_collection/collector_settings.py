@@ -13,7 +13,6 @@ from __future__ import annotations
 from pathlib import Path
 
 from data_collection.config import (
-    CatalogTopicMap,
     DataCollectorConfig,
     HalEndpoints,
     RecordingRates,
@@ -30,8 +29,6 @@ ROTATION_MAX_MINUTES: float = 30.0
 RECORDING_RATES = RecordingRates(images_hz=10.0, joints_imu_hz=50.0)
 
 TOPIC_ENABLE = TopicEnable()
-
-CATALOG_TOPIC_MAP = CatalogTopicMap()
 
 JOINT_NAMES: tuple[str, ...] = ()
 POLLING_TIMEOUT_MS: int = 10
@@ -56,7 +53,6 @@ def build_data_collector_config(
         rotation_max_minutes=ROTATION_MAX_MINUTES,
         rates=RECORDING_RATES,
         topics=TOPIC_ENABLE,
-        catalog_map=CATALOG_TOPIC_MAP,
         joint_names=JOINT_NAMES,
         joints_command_source="previous_action",
         polling_timeout_ms=POLLING_TIMEOUT_MS,

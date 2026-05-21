@@ -24,6 +24,8 @@ if _project_root not in sys.path:
 
 from controller.control_loop import ControlLoop, ControlLoopConfig, ControlMode
 from hal.client.config import HalClientConfig
+from hal.server.robot_definition_krabby_hex import KRABBY_HEX_DEFINITION
+from hal.server.robot_definition_unitree_go2 import UNITREE_GO2_DEFINITION
 
 logging.basicConfig(
     level=logging.INFO,
@@ -87,6 +89,13 @@ def main() -> int:
         default=50.0,
         help="Input controller update rate (Hz)",
     )
+    parser.add_argument(
+        "--robot",
+        type=str,
+        choices=("hex", "go2"),
+        default="hex",
+        help="HAL joint topology for gamepad commands (must match Jetson HAL --robot)",
+    )
     args = parser.parse_args()
 
     _initialize_pygame()
@@ -95,11 +104,13 @@ def main() -> int:
         observation_endpoint=args.observation_endpoint,
         command_endpoint=args.command_endpoint,
     )
+    robot_definition = UNITREE_GO2_DEFINITION if args.robot == "go2" else KRABBY_HEX_DEFINITION
     control_loop_config = ControlLoopConfig(
         mode=ControlMode.INPUT_CONTROLLER_KRABBY,
         hal_client_config=hal_client_config,
         input_controller_device_id=args.device_id,
         input_controller_update_rate_hz=args.rate,
+        krabby_gamepad_robot_definition=robot_definition,
     )
 
     control_loop = ControlLoop(control_loop_config)

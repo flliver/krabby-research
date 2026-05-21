@@ -18,14 +18,42 @@ Jetson HAL with **`--teleop`** runs an **outbound** WebSocket client to the URL 
 
 ---
 
+## WebRTC stack decision (aiortc vs webrtcbin)
+
+### Decision
+
+Use **`aiortc`** for the live robot-side WebRTC path (`teleop.edge` session/signaling flow).
+
+### Alternatives considered
+
+- **`aiortc`** (selected)
+- **GStreamer `webrtcbin`** (not selected for current implementation)
+
+### Rationale
+
+- **Python-first integration:** existing signaling/session logic is already implemented in Python (`teleop/edge/portal_client.py`, `teleop/edge/signaling_session.py`, `teleop/edge/rtc_session.py`).
+- **Lower implementation complexity:** avoids coupling session state management to a separate GStreamer WebRTC graph lifecycle.
+- **Testing fit:** current unit tests in `tests/unit/teleop/` validate signaling/session behavior directly around Python boundaries.
+- **Requirement fit:** current scope is reliable remote viewing from HAL-backed RGB streams, which is satisfied by the `aiortc` path.
+
+### Tradeoffs and revisit triggers
+
+- **Tradeoff:** `webrtcbin` can be preferable for deeper end-to-end GStreamer-native media control.
+- Revisit this choice if we need:
+  - tighter hardware-encoding control directly in live teleop media,
+  - materially higher stream-count scaling than current targets,
+  - or measured latency/performance goals that `aiortc` cannot meet within acceptable complexity.
+
+---
+
 ## How components connect
 
 ### Responsibility split
 
 | Piece | Role |
 |--------|------|
-| **`JetsonHalServer`** (Isaac equivalent) | Cameras, **`get_observations()`**, publishes observations on the HAL **PUB** socket |
-| **`hal.server.jetson.teleop_integration`** | Dedicated **`HalClient`** poll thread (latest RGB for catalog ids chosen by the **portal viewer** over signaling, bootstrapped from the primary HAL catalog id until **`catalog_ids`** is sent) plus **`teleop.edge`** outbound signaling and **`HalRgbSnapshotVideoTrack`** |
+| **`JetsonHalServer`** / **`IsaacSimHalServer`** | Cameras / sim sensors, **`get_observations()`**, publishes observations on the HAL **PUB** socket |
+| **`hal.server.teleop_portal_signaling`** | Dedicated **`HalClient`** poll thread (latest RGB for catalog ids chosen by the **portal viewer** over signaling, bootstrapped from the primary HAL catalog id until **`catalog_ids`** is sent) plus **`teleop.edge`** outbound signaling and **`HalRgbSnapshotVideoTrack`** (shared by Jetson and Isaac; not Jetson-specific) |
 | **`krabby-teleop-portal`** | Remote server: UI + config + relay **`/ws/browser`** ↔ **`/ws/robot`** |
 | **Browser** (`teleop_session.js` / portal viewer) | Loads UI from the **portal** origin, **`/ws/browser`**, WebRTC **offer** / **answer**, re-offer for stream count |
 
@@ -89,6 +117,20 @@ Terminate **TLS** in front of the portal in production; preserve **WebSocket Upg
 - **Multiple video lines:** **N** recvonly video transceivers → **N** sender tracks if within **`robot_settings.MAX_VIDEO_M_LINES`**.
 - **Congestion:** standard WebRTC; no custom algorithm in-repo.
 
+### Control data channel (v1)
+
+- Browser creates a WebRTC data channel named **`krabby-control-v1`**.
+- Robot accepts that channel and consumes JSON control messages:
+  - `{"type":"control","sent_browser_ms":<number>,"state":{...}}`
+  - `state` mirrors `ControllerState` keys:
+    - buttons: `LT`, `LB`, `LS`, `RS`, `RT`, `RB` (booleans)
+    - axes: `LX`, `LY`, `RX`, `RY` (normalized floats in `[-1, 1]`)
+- Browser sends control at **50 Hz** (`20ms` interval) from either a Gamepad API joystick or the on-page virtual joystick/buttons.
+- Robot path:
+  - data channel JSON -> `WebRTCInputController` -> `GamepadToKrabbyHALMapper` -> `HalClient.put_joint_command`.
+- Robot logs receiver-side control latency from `sent_browser_ms` every ~5s with **p50**, **p95**, **max**, and latest samples. This is a browser wall-clock to robot wall-clock delta, so keep clocks synced for meaningful one-way latency.
+- Invalid/non-JSON control payloads are rejected with warning logs; malformed fields are rejected by parser without tearing down media.
+
 ### HAL vs WebRTC
 
 Inference uses **`get_observations()`**. Viewer depth previews (if shown) are for humans only; raw depth for models stays on HAL. Encoding helpers live in **`hal/server/gstreamer_runtime.py`**.
@@ -101,7 +143,10 @@ Inference uses **`get_observations()`**. Viewer depth previews (if shown) are fo
 
 ### Latency
 
-UI **ping** / **pong** measures **signaling RTT**, not glass-to-glass.
+The UI reports two different latency signals:
+
+- **RTT** comes from WebSocket **ping** / **pong** and measures signaling round-trip time, not media glass-to-glass latency.
+- **g2g** is an estimated capture-to-render value for the first selected stream when robot capture timestamps are available. It uses ping/pong wall-clock offset estimation, so treat it as an approximation and keep browser/robot clocks synced.
 
 ### Troubleshooting
 

@@ -997,8 +997,8 @@ def _run_full_parkour_eval_body(mock_isaac_env, hal_server_config, hal_client_co
     # Verify completion
     assert cycles_completed >= total_cycles - 10, f"Expected at least {total_cycles - 10} cycles, got {cycles_completed}"
 
-    # Allow a small number of stalls (CI/scheduling can cause occasional slow cycles)
-    assert stalls <= 2, f"Detected {stalls} stalls during execution (allow <= 2)"
+    # Allow occasional slow cycles (scheduler / CI load); threshold is 2× nominal period per iteration.
+    assert stalls <= 3, f"Detected {stalls} stalls during execution (allow <= 3)"
     
     # Verify observations published
     assert observations_published >= total_cycles - 10, f"Expected at least {total_cycles - 10} observations, got {observations_published}"

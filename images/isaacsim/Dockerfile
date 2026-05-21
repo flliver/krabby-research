@@ -96,6 +96,8 @@ RUN echo "export PYTHONPATH=\"\$PYTHONPATH:/isaac-sim/python_packages\"" >> /wor
 # Copy and install wheels (built via 'make build-wheels')
 # Note: Wheels must be built before building this Docker image
 COPY hal/client/dist/*.whl /tmp/wheels/
+# Local wheel — without this line pip pulls krabby-controller from PyPI (often stale vs this repo).
+COPY controller/dist/*.whl /tmp/wheels/
 COPY hal/server/dist/*.whl /tmp/wheels/
 COPY hal/server/isaac/dist/*.whl /tmp/wheels/
 COPY hal/tools/dist/*.whl /tmp/wheels/
@@ -107,6 +109,11 @@ COPY teleop/edge/dist/*.whl /tmp/wheels/
 # Install wheels into venv since that's where production code runs
 RUN . /workspace/testenv/bin/activate && \
     bash -c "pip install --no-cache-dir /tmp/wheels/*.whl"
+
+# krabby-controller (and other wheels) pull scipy; venv scipy must not shadow Isaac Sim's bundled
+# scipy in omni.pip.compute/pip_prebundle or imports mix (e.g. ComplexWarning from _lib._util).
+RUN . /workspace/testenv/bin/activate && \
+    pip uninstall -y scipy || true
 
 # Isaac Lab's install script and/or wheels can drop or override venv packages; reinstall PyGObject
 # so hal.server.gstreamer_runtime keeps working: venv Python + system Gst typelibs from apt above.

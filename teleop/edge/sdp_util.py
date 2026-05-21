@@ -6,6 +6,7 @@ import json
 import re
 
 _M_VIDEO = re.compile(r"^m=video ", re.MULTILINE)
+_RTPMAP_H264 = re.compile(r"^a=rtpmap:\d+\s+H264(?:/|\s|$)", re.MULTILINE | re.IGNORECASE)
 
 
 def count_video_m_lines(sdp: str) -> int:
@@ -30,3 +31,8 @@ def video_m_line_budget_error_json(sdp: str, max_m: int | None) -> str | None:
             }
         )
     return None
+
+
+def offer_has_h264_video(sdp: str) -> bool:
+    """Return True when the offer SDP declares at least one H264 payload mapping."""
+    return bool(_RTPMAP_H264.search(sdp))

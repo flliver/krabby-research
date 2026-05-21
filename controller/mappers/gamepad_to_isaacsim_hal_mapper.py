@@ -25,9 +25,8 @@ from typing import Optional, Set
 import numpy as np
 
 from controller.input.state import ControllerState, LegIdentifier
-from hal.client.data_structures.hardware import JointCommand
+from hal.client.data_structures.hardware import JointCommand, JointCommandSource
 from hal.server.robot_definition import RobotDefinition
-from hal.server.robot_definition_krabby_hex import KRABBY_HEX_DEFINITION
 
 logger = logging.getLogger(__name__)
 
@@ -68,17 +67,24 @@ class GamepadToIsaacSimHALMapper:
         hip_up_down_scale: float,
         knee_out_in_scale: float,
         hip_yaw_scale: float,
-        robot_definition: Optional[RobotDefinition] = None,
+        *,
+        robot_definition: RobotDefinition,
     ):
         self.hip_up_down_scale = hip_up_down_scale
         self.knee_out_in_scale = knee_out_in_scale
         self.hip_yaw_scale = hip_yaw_scale
-        self._robot = robot_definition or KRABBY_HEX_DEFINITION
+        self._robot = robot_definition
+        jt = len(self._robot.joint_types)
+        if jt != 3:
+            raise ValueError(
+                f"GamepadToIsaacSimHALMapper expects 3 joint_types per leg, got {jt}"
+            )
         self._n_joints = self._robot.get_total_joint_count()
         self._leg_to_indices: dict[LegIdentifier, tuple[int, int, int]] = {}
         for i, leg_name in enumerate(self._robot.legs):
             if leg_name in LEG_NAME_TO_ID:
-                self._leg_to_indices[LEG_NAME_TO_ID[leg_name]] = (i * 3, i * 3 + 1, i * 3 + 2)
+                o = i * jt
+                self._leg_to_indices[LEG_NAME_TO_ID[leg_name]] = (o, o + 1, o + 2)
         self._allowed_legs = set(self._leg_to_indices.keys())
     
     def _select_legs(self, state: ControllerState) -> Set[LegIdentifier]:
@@ -206,6 +212,7 @@ class GamepadToIsaacSimHALMapper:
             timestamp_ns=current_timestamp_ns,
             observation_timestamp_ns=observation_timestamp_ns,
             joint_names=self._robot.get_joint_names(),
+            source=JointCommandSource.OPERATOR,
         )
         
         logger.debug(

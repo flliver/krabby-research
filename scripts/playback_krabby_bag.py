@@ -4,7 +4,7 @@
 Uses **rosbags** (same stack as the writer). Standard ROS 2 ``ros2 bag play`` also works on these bags.
 
 Example:
-  python scripts/playback_krabby_bag.py /data/bags/krabby_000000_20250408_120000 --topic /camera/front/rgb --max 5
+  python scripts/playback_krabby_bag.py /data/bags/krabby_000000_20250408_120000 --topic /camera/front_rgbd/rgb --max 5
 """
 
 from __future__ import annotations
@@ -32,8 +32,8 @@ def main() -> int:
     p.add_argument(
         "--topic",
         type=str,
-        default="/camera/front/rgb",
-        help="Image topic to decode (default: /camera/front/rgb)",
+        default="/camera/front_rgbd/rgb",
+        help="Image topic to decode (default: /camera/front_rgbd/rgb)",
     )
     p.add_argument("--max", type=int, default=10, help="Max messages to show from that topic")
     p.add_argument(

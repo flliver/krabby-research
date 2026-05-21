@@ -625,8 +625,21 @@ class JetsonHalServer(HalServerBase):
 
         joint_names = self.robot_definition.get_joint_names()
         if len(cmd_dict) != len(joint_names):
+            hint = ""
+            if len(cmd_dict) == 18 and len(joint_names) == 12:
+                hint = (
+                    " Portal/teleop sends Krabby hex (18 joints); this server was built with a 12-joint "
+                    'definition (--robot go2). Use --robot hex for crab hex teleop, or switch teleop mapper.'
+                )
+            elif len(cmd_dict) == 12 and len(joint_names) == 18:
+                hint = (
+                    " Received 12-DOF commands but HAL expects Krabby hex (18). "
+                    "Use --robot go2 if your command source targets Unitree topology, "
+                    "or fix the upstream command dimensions."
+                )
             raise RuntimeError(
-                f"Joint command length {len(cmd_dict)} does not match robot definition joint count {len(joint_names)}"
+                f"Joint command length {len(cmd_dict)} does not match robot definition joint count "
+                f"{len(joint_names)}.{hint}"
             )
 
         # Store command for state echo (echo joint state from last commanded targets).

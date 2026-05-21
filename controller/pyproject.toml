@@ -30,9 +30,13 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+portal = [
+    "krabby-teleop-edge>=0.1.0",
+]
 dev = [
     "pytest>=7.4.0",
     "pytest-cov>=4.1.0",
+    "krabby-teleop-edge>=0.1.0",
 ]
 
 [project.urls]

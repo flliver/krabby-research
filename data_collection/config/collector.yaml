@@ -1,0 +1,31 @@
+# Canonical HAL data collector config (see docs/DATA_COLLECTOR.md).
+#
+# Pass to Jetson or Isaac entrypoints:
+#   --data-collector-config /path/to/collector.yaml
+#   --data-collector-output-dir /path/on/mounted/volume   # optional override
+#
+# HAL observation/command endpoints are required for YAML parsing but are always
+# replaced at runtime by the entrypoint so they match the primary HalClient.
+
+hal:
+  observation_endpoint: "inproc://hal_observation"
+  command_endpoint: "inproc://hal_commands"
+
+output_dir: "/data/krabby_bags"
+
+max_disk_usage_fraction: 0.5
+rotation_max_bytes: 1073741824
+rotation_max_minutes: 30.0
+
+rates:
+  images_hz: 10.0
+  joints_imu_hz: 50.0
+
+topics:
+  joints_state: true
+  joints_command: true
+  imu: true
+
+joint_names: []
+joints_command_source: "previous_action"
+polling_timeout_ms: 10

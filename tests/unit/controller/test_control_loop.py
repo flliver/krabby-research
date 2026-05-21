@@ -35,6 +35,7 @@ from controller.input.state import ControllerState
 from hal.client.config import HalClientConfig
 from hal.client.data_structures.hardware import JointCommand
 from hal.server import HalServerBase, HalServerConfig
+from hal.server.robot_definition_krabby_hex import KRABBY_HEX_DEFINITION
 
 
 class TestControlLoopInitialization:
@@ -48,6 +49,7 @@ class TestControlLoopInitialization:
                 observation_endpoint="tcp://localhost:6001",
                 command_endpoint="tcp://localhost:6002",
             ),
+            isaacsim_robot_definition=KRABBY_HEX_DEFINITION,
         )
         
         loop = ControlLoop(config)
@@ -72,10 +74,11 @@ class TestControlLoopInitialization:
             mapper_hip_up_down_scale=0.5,
             mapper_knee_out_in_scale=0.4,
             mapper_hip_yaw_scale=0.3,
+            isaacsim_robot_definition=KRABBY_HEX_DEFINITION,
         )
-        
+
         loop = ControlLoop(config)
-        
+
         assert loop.config.input_controller_device_id == 0
         assert loop.config.input_controller_update_rate_hz == 100.0
         assert loop.config.mapper_hip_up_down_scale == 0.5
@@ -94,6 +97,7 @@ class TestControlLoopStartStop:
                 observation_endpoint="tcp://localhost:6001",
                 command_endpoint="tcp://localhost:6002",
             ),
+            isaacsim_robot_definition=KRABBY_HEX_DEFINITION,
         )
         
         loop = ControlLoop(config)
@@ -146,6 +150,7 @@ class TestControlLoopErrorHandling:
                 observation_endpoint="tcp://localhost:6001",
                 command_endpoint="tcp://localhost:6002",
             ),
+            isaacsim_robot_definition=KRABBY_HEX_DEFINITION,
         )
         # Manually set an invalid mode
         config.mode = "invalid_mode"  # type: ignore
@@ -164,12 +169,41 @@ class TestControlLoopErrorHandling:
                 command_endpoint="tcp://localhost:6002",
             ),
         )
-        
+
         loop = ControlLoop(config)
-        
+
         with pytest.raises(NotImplementedError, match="MODEL_CONTROLLER_KRABBY mode not yet implemented"):
             loop.start()
 
+    def test_start_krabby_without_gamepad_robot_definition_raises(self):
+        """KRABBY mode must receive an explicit RobotDefinition."""
+        config = ControlLoopConfig(
+            mode=ControlMode.INPUT_CONTROLLER_KRABBY,
+            hal_client_config=HalClientConfig(
+                observation_endpoint="tcp://localhost:6001",
+                command_endpoint="tcp://localhost:6002",
+            ),
+        )
+
+        loop = ControlLoop(config)
+
+        with pytest.raises(ValueError, match="krabby_gamepad_robot_definition is required"):
+            loop.start()
+
+    def test_start_isaacsim_without_robot_definition_raises(self):
+        """IsaacSim mode must receive an explicit RobotDefinition."""
+        config = ControlLoopConfig(
+            mode=ControlMode.INPUT_CONTROLLER_ISAACSIM,
+            hal_client_config=HalClientConfig(
+                observation_endpoint="tcp://localhost:6001",
+                command_endpoint="tcp://localhost:6002",
+            ),
+        )
+
+        loop = ControlLoop(config)
+
+        with pytest.raises(ValueError, match="isaacsim_robot_definition is required"):
+            loop.start()
 
 
 
@@ -204,6 +238,7 @@ class TestControlLoopIsRunning:
                 observation_endpoint="tcp://localhost:6001",
                 command_endpoint="tcp://localhost:6002",
             ),
+            isaacsim_robot_definition=KRABBY_HEX_DEFINITION,
         )
         
         loop = ControlLoop(config)

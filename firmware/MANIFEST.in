@@ -1,6 +1,8 @@
 # Only include Python package; exclude Arduino C++ and venv
 include *.py
+include Makefile
 recursive-include interfaces *.py
+recursive-include scripts *.py
 prune arduino
 prune venv
 prune Task2_SixAxis

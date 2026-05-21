@@ -253,6 +253,7 @@ def main():
         mapper_hip_up_down_scale=0.3,
         mapper_knee_out_in_scale=0.3,
         mapper_hip_yaw_scale=0.2,
+        isaacsim_robot_definition=KRABBY_QUAD_DEFINITION,
     )
     
     # Create and start ControlLoop

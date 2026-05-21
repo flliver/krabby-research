@@ -6,6 +6,7 @@
 
 #include <Arduino.h>
 #include <EEPROM.h>
+#include "board_pins.h"
 #include "command.h"
 #include "actuator_manager.h"
 
@@ -33,27 +34,28 @@ static const char* roleName(BoardRole r)
 }
 
 // --- All 18 actuators (names fixed; each board uses the same physical pins for its 6) ---
-// Leader/Default Board — one EN per actuator (L leg22/23/24, R leg 25/26/27); PWM + analog unchanged
-LinearActuator flhy("FLHY", 2, 3, 22, A6, A0);
-LinearActuator flhl("FLHL", 4, 5, 23, A7, A1);
-LinearActuator flkl("FLKL", 6, 7, 24, A8, A2);
-LinearActuator frhy("FRHY", 8, 9, 28, A9, A3);
-LinearActuator frhl("FRHL", 10, 11, 26, A10, A4);
-LinearActuator frkl("FRKL", 12, 13, 27, A11, A5);
+// Pin numbers from board_pins.h (KRABBY_PIN_REV 1 = legacy, 2 = MOTOR_HEADER_PINOUT).
+// Leader/Default Board
+LinearActuator flhy("FLHY", PIN_S0_PWMR, PIN_S0_PWML, PIN_S0_EN, A6, A0, 0);
+LinearActuator flhl("FLHL", PIN_S1_PWMR, PIN_S1_PWML, PIN_S1_EN, A7, A1, 1);
+LinearActuator flkl("FLKL", PIN_S2_PWMR, PIN_S2_PWML, PIN_S2_EN, A8, A2, 2);
+LinearActuator frhy("FRHY", PIN_S3_PWMR, PIN_S3_PWML, PIN_S3_EN, A9, A3, 3);
+LinearActuator frhl("FRHL", PIN_S4_PWMR, PIN_S4_PWML, PIN_S4_EN, A10, A4, 4);
+LinearActuator frkl("FRKL", PIN_S5_PWMR, PIN_S5_PWML, PIN_S5_EN, A11, A5, 5);
 // Left Follower Board
-LinearActuator rlhy("RLHY", 2, 3, 22, A6, A0);
-LinearActuator rlhl("RLHL", 4, 5, 23, A7, A1);
-LinearActuator rlkl("RLKL", 6, 7, 24, A8, A2);
-LinearActuator mlhy("MLHY", 8, 9, 28, A9, A3);
-LinearActuator mlhl("MLHL", 10, 11, 26, A10, A4);
-LinearActuator mlkl("MLKL", 12, 13, 27, A11, A5);
+LinearActuator rlhy("RLHY", PIN_S0_PWMR, PIN_S0_PWML, PIN_S0_EN, A6, A0, 0);
+LinearActuator rlhl("RLHL", PIN_S1_PWMR, PIN_S1_PWML, PIN_S1_EN, A7, A1, 1);
+LinearActuator rlkl("RLKL", PIN_S2_PWMR, PIN_S2_PWML, PIN_S2_EN, A8, A2, 2);
+LinearActuator mlhy("MLHY", PIN_S3_PWMR, PIN_S3_PWML, PIN_S3_EN, A9, A3, 3);
+LinearActuator mlhl("MLHL", PIN_S4_PWMR, PIN_S4_PWML, PIN_S4_EN, A10, A4, 4);
+LinearActuator mlkl("MLKL", PIN_S5_PWMR, PIN_S5_PWML, PIN_S5_EN, A11, A5, 5);
 // Right Follower Board
-LinearActuator rrhy("RRHY", 2, 3, 22, A6, A0);
-LinearActuator rrhl("RRHL", 4, 5, 23, A7, A1);
-LinearActuator rrkl("RRKL", 6, 7, 24, A8, A2);
-LinearActuator mrhy("MRHY", 8, 9, 28, A9, A3);
-LinearActuator mrhl("MRHL", 10, 11, 26, A10, A4);
-LinearActuator mrkl("MRKL", 12, 13, 27, A11, A5);
+LinearActuator rrhy("RRHY", PIN_S0_PWMR, PIN_S0_PWML, PIN_S0_EN, A6, A0, 0);
+LinearActuator rrhl("RRHL", PIN_S1_PWMR, PIN_S1_PWML, PIN_S1_EN, A7, A1, 1);
+LinearActuator rrkl("RRKL", PIN_S2_PWMR, PIN_S2_PWML, PIN_S2_EN, A8, A2, 2);
+LinearActuator mrhy("MRHY", PIN_S3_PWMR, PIN_S3_PWML, PIN_S3_EN, A9, A3, 3);
+LinearActuator mrhl("MRHL", PIN_S4_PWMR, PIN_S4_PWML, PIN_S4_EN, A10, A4, 4);
+LinearActuator mrkl("MRKL", PIN_S5_PWMR, PIN_S5_PWML, PIN_S5_EN, A11, A5, 5);
 
 // Role → which 6 actuators this board drives (no mutation)
 static const size_t ACT_COUNT = 6;
@@ -205,9 +207,12 @@ void setup()
     for (size_t i = 0; i < ACT_COUNT; i++)
         list[i]->setControlConfig(ACTUATOR_CONFIG);
     actuatorManager->initAll();
+    hallHwInit();
     actuatorManager->loadCalibration();
 
-    Serial.print("Krabby Ready. ");
+    Serial.print("Krabby Ready ");
+    Serial.print(boardPinRevisionLabel());
+    Serial.print(". ");
     Serial.println(list[0]->name);
 }
 

@@ -6,6 +6,7 @@ from typing import Tuple, Optional
 # Forwarded lines from left/right already include their role (LEFT; / RIGHT; ).
 # Example: "FRONT; FLHY 0.123 0 512 1 0 0 128 0;FLHL ...;..."
 # Segment format: <name> <pos> <pot> <current> <enL> <enR> <pwmL> <pwmR> <saf>
+# saf: cumulative HallA edge count since boot (pins depend on KRABBY_PIN_REV in board_pins.h).
 
 
 @dataclass

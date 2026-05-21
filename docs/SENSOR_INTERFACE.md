@@ -47,7 +47,7 @@ Pipeline strings can be used with `Gst.parse_launch()` or `gst-launch-1.0` (repl
 ## Obtaining the interface
 
 - **Jetson**: `JetsonHalServer.get_sensor_interface()` returns a `JetsonSensorInterface` built from `JETSON_SENSOR_CATALOG`. The **front observation** camera is the unique catalog row with **`is_primary=True`**: that row sets resolution, FPS, **`camera_driver`**, and **`depth_mode`** for `initialize_cameras()` (registered in `hal.server.jetson.front_camera_factory.FRONT_RGB_DEPTH_CAMERA_FACTORIES`). The matching **`SensorInfo`** in **`list_sensors()`** carries the same **`camera_driver`**.
-- **Isaac**: `IsaacSimHalServer.get_sensor_interface()` passes `scene_sensors`; `IsaacSensorInterface` **introspects** `front_rgb` + `front_camera` into **`front_rgbd`** with **`camera_driver="isaac_scene"`** when present, otherwise **`list_sensors()` is empty**. For docs/tests, pass **`configured_sensors=`** (see `ISAAC_PIPELINE_EXAMPLE_SENSORS` in `sensor_backend_isaac.py`).
+- **Isaac**: `IsaacSimHalServer.get_sensor_interface()` passes `scene_sensors`; `IsaacSensorInterface` **introspects** `front_rgb` + `front_camera` and `side_rgb` + `side_camera` into **`front_rgbd`** / **`side_rgbd`** (plus matching **`*_gray16_depth`** preview rows) when those prims exist; otherwise **`list_sensors()` is empty**. Live HAL observations fill **`rgbd_by_catalog_id`** from those pairs only. Callers may pass a fixed **`configured_sensors=`** tuple when no scene exists (e.g. unit tests under `tests/unit/hal/`); that path may still include extra rows such as **`radar_front`** for GStreamer pipeline tests even though sim HAL does not attach radar frames today.
 
 Both implement the same abstract `SensorInterface`: `list_sensors()`, `get_gstreamer_handle(sensor)`, `build_pipeline(handle, ...)`.
 
@@ -108,14 +108,14 @@ To use a **non-ZED** camera that still matches the **`RgbDepthCamera`** protocol
 | Sensor ID         | Type  | Modality | `camera_driver` (typical) | Typical use |
 |-------------------|-------|----------|---------------------------|-------------|
 | `front_rgbd`      | rgbd  | rgbd     | Jetson: `zed` or `maixsense_a075v`; Isaac: `isaac_scene` | Front RGB-D (policy + streaming) |
-| `side_rgbd`       | rgbd  | rgbd     | Jetson: per-row `camera_driver` (repo default `zed` + `KRABBY_SIDE_ZED_USB_SERIAL`) | Second HAL RGB-D row; optional `policy_scan_slot="side"` + `rgbd_by_catalog_id` |
-| `side_left_rgb`   | rgb   | rgb      | —                         | Left side RGB |
-| `side_right_rgb`  | rgb   | rgb      | —                         | Right side RGB |
-| `side_left_rgbd`  | rgbd  | rgbd     | —                         | Left side RGB-D |
-| `side_right_rgbd` | rgbd  | rgbd     | —                         | Right side RGB-D |
-| `radar_front`     | radar | radar    | —                         | Low-power radar viz |
+| `side_rgbd`       | rgbd  | rgbd     | Jetson: `maixsense_a075v` (repo default); Isaac: `isaac_scene` | Second HAL RGB-D row (`hal_open_rgbd=True`); optional `policy_scan_slot="side"` + `rgbd_by_catalog_id` |
+| `front_rgbd_gray16_depth` | depth | depth | — (GStreamer preview of catalog rgbd depth) | Quantized depth stream for teleop/recording |
+| `side_rgbd_gray16_depth`  | depth | depth | — | Same for side rgbd |
+| `side_left_rgb`   | rgb   | rgb      | —                         | Optional legacy label (not in repo `JETSON_SENSOR_CATALOG`) |
+| `side_right_rgb`  | rgb   | rgb      | —                         | Optional legacy label |
+| `radar_front`     | radar | radar    | —                         | Isaac unit-test / pipeline only; no Jetson catalog row |
 
-`camera_driver` is `None` where marked as — (no HAL in-process driver for that logical role). On Jetson, each **`SensorInfo`** from **`list_sensors()`** matches a catalog entry; on Isaac, driver ids follow scene wiring or explicit config (see backend sources above). Add more **`rgbd`** rows with **`hal_open_rgbd=True`** for extra depth (collision, logging); for a second MaixSense HTTP target use catalog **`maixsense_host_env`** / **`maixsense_port_env`** ([**JETSON_DEPLOYMENT.md** — MaixSense-A075V](JETSON_DEPLOYMENT.md#maixsense-a075v-optional-host-bring-up)).
+`camera_driver` is `None` where marked as — (no HAL in-process driver for that logical role). **Repo Jetson catalog** (`hal/server/jetson/sensor_backend_jetson.py`): **`front_rgbd`** (primary, `zed`) and **`side_rgbd`** (`maixsense_a075v`, `hal_open_rgbd=True`, `policy_scan_slot="side"`), each with an optional **`{id}_gray16_depth`** row when `gst_depth_quant_range_m` is set — **no** separate side RGB-only row and **no** radar rows. On Isaac, driver ids follow scene wiring or explicit config (see backend sources above). Add more **`rgbd`** rows with **`hal_open_rgbd=True`** for extra depth (collision, logging); for a second MaixSense HTTP target use catalog **`maixsense_host_env`** / **`maixsense_port_env`** ([**JETSON_DEPLOYMENT.md** — MaixSense-A075V](JETSON_DEPLOYMENT.md#maixsense-a075v-optional-host-bring-up)).
 
 Poses are in the robot base frame (meters, quaternion x,y,z,w). Isaac sensor poses match the real hardware layout (see `zed_like_scene_cfg.py`).
 

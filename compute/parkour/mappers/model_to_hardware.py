@@ -11,7 +11,7 @@ import numpy as np
 import torch
 
 from compute.parkour.parkour_types import InferenceResponse
-from hal.client.data_structures.hardware import JointCommand
+from hal.client.data_structures.hardware import JointCommand, JointCommandSource
 from hal.server.robot_definition import RobotDefinition
 
 logger = logging.getLogger(__name__)
@@ -86,6 +86,7 @@ class ParkourLocomotionToHWMapper:
             timestamp_ns=model_output.timestamp_ns,
             observation_timestamp_ns=observation_timestamp_ns,
             joint_names=joint_names,
+            source=JointCommandSource.INFERENCE,
         )
     
     def _map_to_krabby_joints(self, model_action: np.ndarray) -> np.ndarray:

@@ -276,7 +276,7 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 
 Unplug and replug the ZED, then retry.
 
-**Two ZED units:** the default catalog’s second RGB-D row is **`side_rgbd`** (policy side slot when `policy_scan_slot="side"`). For deterministic selection, set **`KRABBY_SIDE_ZED_USB_SERIAL`** to the integer USB serial of the side ZED (and optionally set a front serial env on `front_rgbd` too). If no serial is configured, HAL opens the first detected ZED.
+**Front + side RGB-D:** the repo catalog uses **`front_rgbd`** (primary, **`camera_driver="zed"`**) and **`side_rgbd`** (**`maixsense_a075v`**, `hal_open_rgbd=True`, `policy_scan_slot="side"`). Set **`zed_usb_serial_env`** on the front row (or rely on first detected ZED). For side MaixSense, set **`maixsense_host_env`** / **`maixsense_port_env`** (defaults in catalog: `KRABBY_JETSON_MAIXSENSE_SIDE_HOST` / `KRABBY_JETSON_MAIXSENSE_SIDE_PORT`). To use a second ZED instead of MaixSense on **`side_rgbd`**, change that row’s **`camera_driver`** to **`zed`** and set **`KRABBY_SIDE_ZED_USB_SERIAL`**.
 
 **Container requirements for ZED on Jetson:** ZED uses USB/libusb access, so run the locomotion container with `-v /dev:/dev` and `--privileged` (using only `--device /dev/video0` is insufficient).
 

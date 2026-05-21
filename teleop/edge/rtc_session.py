@@ -9,7 +9,11 @@ from typing import Any, Callable
 
 from aiortc import RTCPeerConnection, RTCSessionDescription
 
-from teleop.edge.sdp_util import count_video_m_lines, video_m_line_budget_error_json
+from teleop.edge.sdp_util import (
+    count_video_m_lines,
+    offer_has_h264_video,
+    video_m_line_budget_error_json,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +42,7 @@ async def create_answer_for_offer(
     offer_sdp: str,
     *,
     video_track_factory: Callable[[int], Any] | None = None,
+    control_message_handler: Callable[[dict[str, Any]], None] | None = None,
 ) -> tuple[str, RTCPeerConnection]:
     """Apply remote offer, attach one video track per ``m=video`` line, return (answer_sdp, pc).
 
@@ -53,6 +58,29 @@ async def create_answer_for_offer(
     for i in range(n_video):
         track: Any = video_track_factory(i)
         pc.addTrack(track)
+
+    @pc.on("datachannel")
+    def _on_datachannel(channel: Any) -> None:
+        if channel.label != "krabby-control-v1":
+            logger.info("Ignoring unexpected data channel label=%s", getattr(channel, "label", "<unknown>"))
+            return
+
+        @channel.on("message")
+        def _on_message(message: Any) -> None:
+            if control_message_handler is None:
+                return
+            if not isinstance(message, str):
+                logger.warning("Rejected control message on %s: payload is not text JSON", channel.label)
+                return
+            try:
+                payload = json.loads(message)
+            except json.JSONDecodeError:
+                logger.warning("Rejected control message on %s: invalid JSON", channel.label)
+                return
+            if not isinstance(payload, dict):
+                logger.warning("Rejected control message on %s: JSON root is not an object", channel.label)
+                return
+            control_message_handler(payload)
     answer = await pc.createAnswer()
     await pc.setLocalDescription(answer)
     await wait_for_gathering_complete(pc)
@@ -66,6 +94,7 @@ async def handle_first_offer_message(
     *,
     video_track_factory: Callable[[int], Any] | None = None,
     max_video_m_lines: int | None = None,
+    control_message_handler: Callable[[dict[str, Any]], None] | None = None,
 ) -> tuple[str | None, str | None, RTCPeerConnection | None]:
     """Parse offer JSON. Returns (error_json, answer_sdp, pc) — only one of error or answer set."""
     if payload.get("type") != "offer":
@@ -87,6 +116,17 @@ async def handle_first_offer_message(
         )
         return budget_err, None, None
     n_vid = count_video_m_lines(sdp)
+    if n_vid > 0 and not offer_has_h264_video(sdp):
+        return (
+            json.dumps(
+                {
+                    "type": "error",
+                    "message": "offer rejected: H.264 is required for teleop video",
+                }
+            ),
+            None,
+            None,
+        )
     if n_vid > 0 and video_track_factory is None:
         return (
             json.dumps(
@@ -101,5 +141,9 @@ async def handle_first_offer_message(
             None,
             None,
         )
-    ans_sdp, pc = await create_answer_for_offer(sdp, video_track_factory=video_track_factory)
+    ans_sdp, pc = await create_answer_for_offer(
+        sdp,
+        video_track_factory=video_track_factory,
+        control_message_handler=control_message_handler,
+    )
     return None, ans_sdp, pc

@@ -36,6 +36,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 
 # Copy and install wheels (built via 'make build-wheels')
 COPY hal/client/dist/*.whl /tmp/wheels/
+COPY controller/dist/*.whl /tmp/wheels/
 COPY hal/server/dist/*.whl /tmp/wheels/
 COPY hal/server/isaac/dist/*.whl /tmp/wheels/
 COPY hal/server/jetson/dist/*.whl /tmp/wheels/

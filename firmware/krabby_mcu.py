@@ -1,19 +1,38 @@
 import os
+import sys
 import serial
 import time
 import threading
 import logging
 from typing import Dict, Optional
-from serial.tools import list_ports
 from firmware.interfaces.joint_telemetry import JointTelemetry
+from firmware.mcu_port import default_port
 
 # --- LOGGING SETUP ---
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s [%(levelname)s] %(message)s',
-    datefmt='%H:%M:%S'
-)
+# When run as `python -m firmware --debug`, __main__.py calls basicConfig(DEBUG) before this import.
+# If krabby_mcu is imported alone, ensure a default handler exists.
+if not logging.getLogger().handlers:
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        datefmt="%H:%M:%S",
+    )
 logger = logging.getLogger("KrabbySDK")
+
+
+def _raw_rx_to_stderr() -> bool:
+    """When True, every non-empty decoded line is printed to stderr (see __main__.py --debug)."""
+    v = os.environ.get("KRABBY_MCU_RAW_RX", "").strip().lower()
+    return v in ("1", "true", "yes", "on")
+
+
+# Must match firmware roleName() + "; " in arduino.ino (note "LEFT " has trailing space).
+_TELEMETRY_LINE_PREFIXES = (
+    "FRONT;",
+    "UNKWN;",
+    "LEFT ;",
+    "RIGHT;",
+)
 
 # Joint names by board for readable debug output (FRONT / LEFT / RIGHT)
 JOINT_GROUP_NAMES = (
@@ -23,40 +42,9 @@ JOINT_GROUP_NAMES = (
 )
 
 
-def _default_port():
-    """
-    Best-effort auto-detection of the MCU serial port.
-    Priority:
-      1) KRABBY_MCU_PORT env var (explicit override)
-      2) USB description/manufacturer containing common board identifiers
-      3) OS-specific fallback
-    """
-    env_port = os.getenv("KRABBY_MCU_PORT")
-    if env_port:
-        return env_port
-
-    preferred_keywords = (
-        "arduino",
-        "dfrobot",
-        "dfduino",
-        "ch340",   # common USB-serial chip on many DFRobot-style boards
-        "cp210",   # Silicon Labs USB-serial
-        "usb-serial",
-    )
-
-    for p in list_ports.comports():
-        desc = (p.description or "").lower()
-        manuf = (p.manufacturer or "").lower()
-        if any(k in desc or k in manuf for k in preferred_keywords):
-            return p.device
-
-    # Last-resort fallback if nothing matched
-    return "COM5" if os.name == "nt" else "/dev/ttyACM0"
-
-
 class KrabbyMCUSDK:
     def __init__(self, port=None, baud=115200):
-        self.port = port or _default_port()
+        self.port = port or default_port()
         self.baud = baud
         self.ser = None
         self.running = False
@@ -98,17 +86,24 @@ class KrabbyMCUSDK:
                 try:
                     line = raw.decode('utf-8').strip()
                 except UnicodeDecodeError as e:
-                    logger.warning("Decode error on JT line (len=%d): %s raw=%s", len(raw), e, raw.hex())
+                    logger.warning(
+                        "Decode error on serial line (port=%s, len=%d): %s raw=%s",
+                        self.port,
+                        len(raw),
+                        e,
+                        raw.hex(),
+                    )
                     line = raw.decode('utf-8', errors='ignore').strip()
                 except Exception:
                     logger.exception("Decode error")
                     continue
                 if not line:
                     continue
-                # Super Debug: show decoded line; use repr(raw) to see exact bytes (e.g. \\r\\n) and confirm one line per readline()
-                #logger.debug("serial: %s", line)
-                #logger.debug("serial raw repr: %s", repr(raw))
-                if line.startswith(("FRONT;", "UNKNOWN;", "LEFT;", "RIGHT;")):
+                if _raw_rx_to_stderr():
+                    print(f"[serial rx] {line}", file=sys.stderr, flush=True)
+                elif logger.isEnabledFor(logging.DEBUG):
+                    logger.debug("serial rx: %s", line)
+                if line.startswith(_TELEMETRY_LINE_PREFIXES):
                     self._parse_joint_line(line)
                     self.last_feedback_ts = time.time()
                 elif "Krabby" in line or "CAL" in line or "Saved" in line:
@@ -118,7 +113,7 @@ class KrabbyMCUSDK:
                 if self.running:
                     logger.exception("Reader loop error")
                 else:
-                    logger.info("Reader loop stopped: %s", e)
+                    logger.debug("Reader loop stopped: %s", e)
                 self.last_error = e
                 self.running = False
                 break
@@ -184,7 +179,7 @@ class KrabbyMCUSDK:
             pwm = max(-255, min(255, int(raw_pwm)))
             parts.append(name)
             parts.append(str(pwm))
-        cmd = " ".join(parts) + " \n"
+        cmd = " ".join(parts) + "\n"
         self.ser.write(cmd.encode('utf-8'))
         self.ser.flush()
 

@@ -53,7 +53,7 @@ import os
 import time
 import torch
 
-from scripts.rsl_rl.modules.on_policy_runner_with_extractor import OnPolicyRunnerWithExtractor
+from scripts.rsl_rl.runner_factory import agent_cfg_to_train_dict, make_on_policy_runner
 
 from isaaclab.envs import DirectMARLEnv, multi_agent_to_single_agent
 from isaaclab.utils.assets import retrieve_file_path
@@ -122,7 +122,7 @@ def main():
 
     print(f"[INFO]: Loading model checkpoint from: {resume_path}")
     # load previously trained model
-    ppo_runner = OnPolicyRunnerWithExtractor(env, agent_cfg.to_dict(), log_dir=None, device=agent_cfg.device)
+    ppo_runner = make_on_policy_runner(env, agent_cfg_to_train_dict(agent_cfg), log_dir=None, device=agent_cfg.device)
     ppo_runner.load(resume_path)
     print(ppo_runner)
     # obtain the trained policy for inference

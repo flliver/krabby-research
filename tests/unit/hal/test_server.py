@@ -7,7 +7,7 @@ import pytest
 import zmq
 
 from hal.server import HalServerBase, HalServerConfig
-from hal.client.data_structures.hardware import HardwareObservations
+from hal.client.data_structures.hardware import HardwareObservations, JointCommand, JointCommandSource
 from tests.helpers import create_dummy_hw_obs
 
 
@@ -113,7 +113,6 @@ def test_get_joint_command():
         # Small delay to ensure server thread is waiting
         time.sleep(0.01)
 
-        from hal.client.data_structures.hardware import JointCommand
         from tests.helpers import TEST_HEX_DEFINITION
         command = np.array([0.1, 0.2, 0.3] + [0.0] * 15, dtype=np.float32)  # 18 DOF (hexapod)
         joint_cmd = JointCommand(
@@ -133,6 +132,55 @@ def test_get_joint_command():
             assert d[name] == pytest.approx(float(command[i]))
 
         pusher.close()
+
+
+def test_get_joint_command_operator_overrides_inference():
+    """When multiple commands queue on one PULL, operator source wins over inference."""
+    config = HalServerConfig(
+        observation_bind="inproc://test_state_cmdprio_obs",
+        command_bind="inproc://test_state_cmdprio_cmd",
+    )
+    names = tuple(f"j{i}" for i in range(3))
+
+    with HalServerBase(config) as server:
+        transport_context = server.get_transport_context()
+        inf_p = transport_context.socket(zmq.PUSH)
+        inf_p.setsockopt(zmq.SNDHWM, 5)
+        inf_p.connect(config.command_bind)
+        op_p = transport_context.socket(zmq.PUSH)
+        op_p.setsockopt(zmq.SNDHWM, 5)
+        op_p.connect(config.command_bind)
+        time.sleep(0.02)
+
+        ts = time.time_ns()
+        inf_cmd = JointCommand(
+            _joint_positions=np.array([1.0, 1.0, 1.0], dtype=np.float32),
+            timestamp_ns=ts,
+            observation_timestamp_ns=ts,
+            joint_names=names,
+            source=JointCommandSource.INFERENCE,
+        )
+        op_cmd = JointCommand(
+            _joint_positions=np.array([2.0, 2.0, 2.0], dtype=np.float32),
+            timestamp_ns=ts + 1,
+            observation_timestamp_ns=ts,
+            joint_names=names,
+            source=JointCommandSource.OPERATOR,
+        )
+        # Fair-queue order unknown; send inference then operator — server should pick operator.
+        inf_p.send(inf_cmd.to_bytes())
+        op_p.send(op_cmd.to_bytes())
+
+        chosen = server.get_joint_command(timeout_ms=500)
+        assert chosen is not None
+        assert chosen.source == JointCommandSource.OPERATOR
+        np.testing.assert_array_almost_equal(
+            np.array([chosen.to_positions_dict()[n] for n in names], dtype=np.float32),
+            np.array([op_cmd.to_positions_dict()[n] for n in names], dtype=np.float32),
+        )
+
+        inf_p.close()
+        op_p.close()
 
 
 def test_hwm_behavior():

@@ -7,7 +7,11 @@ from typing import Optional
 import numpy as np
 import zmq
 
-from hal.client.data_structures.hardware import HardwareObservations, JointCommand
+from hal.client.data_structures.hardware import (
+    HardwareObservations,
+    JointCommand,
+    JointCommandSource,
+)
 from hal.server.config import HalServerConfig  # Internal import - config is in same package
 # OBS_DIM is not used in HAL server
 
@@ -75,8 +79,11 @@ class HalServerBase:
         self.command_socket.bind(self.config.command_bind)
 
         self._initialized = True
-        logger.info(f"HAL server initialized: observation={self.config.observation_bind}, "
-                   f"command={self.config.command_bind}")
+        logger.info(
+            "HAL server initialized: observation=%s, command=%s",
+            self.config.observation_bind,
+            self.config.command_bind,
+        )
 
     def close(self) -> None:
         """Close all sockets and context."""
@@ -175,23 +182,18 @@ class HalServerBase:
             )
 
     def get_joint_command(self, timeout_ms: int = 100) -> Optional["JointCommand"]:
-        """Get latest joint command from clients.
+        """Get joint command(s) from clients.
 
-        Uses non-blocking poll to check for commands. If command received,
-        validates payload and returns full command instance with timestamp and metadata.
-
-        Runtime validation includes:
-        - Payload size validation (must be multiple of 4 bytes for float32)
-        - Dtype validation (must be float32)
-        - Shape validation (must be 1D array)
-        - Value validation (no NaN or Inf)
+        Drains all pending frames on the command PULL socket (non-blocking after the initial poll).
+        If multiple commands arrived, returns one chosen by ``JointCommand.source``: the latest
+        ``OPERATOR`` command wins over any ``INFERENCE`` commands; otherwise the latest inference
+        command is returned.
 
         Args:
             timeout_ms: Poll timeout in milliseconds (default 100ms)
 
         Returns:
-            JointCommand instance with joint positions, timestamp, and observation timestamp,
-            or None if no command received or validation failed
+            Selected ``JointCommand``, or ``None`` if no valid command was received.
 
         Raises:
             RuntimeError: If server not initialized
@@ -199,19 +201,31 @@ class HalServerBase:
         if not self._initialized:
             raise RuntimeError("Server not initialized. Call initialize() first.")
 
-        # Poll for incoming command
-        if self.command_socket.poll(timeout_ms, zmq.POLLIN):
-            # Receive command as single-part message (blob)
-            command_frame = self.command_socket.recv(zmq.NOBLOCK)
+        if timeout_ms > 0 and not self.command_socket.poll(timeout_ms, zmq.POLLIN):
+            return None
 
+        frames: list[bytes] = []
+        while True:
+            try:
+                frames.append(self.command_socket.recv(zmq.NOBLOCK))
+            except zmq.Again:
+                break
+
+        if not frames:
+            return None
+
+        commands: list[JointCommand] = []
+        for command_frame in frames:
             if self._debug_enabled:
                 logger.debug(
                     f"[ZMQ RECV] command: received {len(command_frame)} bytes (single blob)",
                 )
+            try:
+                command = JointCommand.from_bytes(command_frame)
+            except Exception as e:
+                logger.warning(f"Invalid joint command dropped: {e}")
+                continue
 
-            command = JointCommand.from_bytes(command_frame)
-
-            # Debug logging after deserialization
             if self._debug_enabled:
                 round_trip_latency_ns = command.timestamp_ns - command.observation_timestamp_ns
                 round_trip_latency_ms = round_trip_latency_ns / 1e6
@@ -219,13 +233,28 @@ class HalServerBase:
                 vals = list(d.values())
                 min_max = f"min={min(vals):.3f}, max={max(vals):.3f}, " if vals else ""
                 logger.debug(
-                    f"[ZMQ RECV] command: shape=({len(vals)},), dtype=float32, {min_max} "
-                    f"timestamp_ns={command.timestamp_ns}, "
-                    f"observation_timestamp_ns={command.observation_timestamp_ns}, "
-                    f"round_trip_latency_ms={round_trip_latency_ms}"
+                    "[ZMQ RECV] command: source=%s shape=(%d,), dtype=float32, %s "
+                    "timestamp_ns=%s, observation_timestamp_ns=%s, round_trip_latency_ms=%s",
+                    command.source.value,
+                    len(vals),
+                    min_max,
+                    command.timestamp_ns,
+                    command.observation_timestamp_ns,
+                    round_trip_latency_ms,
                 )
 
-            return command
+            commands.append(command)
 
-        return None
+        if not commands:
+            return None
+
+        last_inference: Optional[JointCommand] = None
+        last_operator: Optional[JointCommand] = None
+        for cmd in commands:
+            if cmd.source == JointCommandSource.OPERATOR:
+                last_operator = cmd
+            else:
+                last_inference = cmd
+
+        return last_operator if last_operator is not None else last_inference
 

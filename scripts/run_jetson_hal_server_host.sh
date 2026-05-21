@@ -7,6 +7,34 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
+print_usage() {
+  cat <<'EOF'
+Usage: scripts/run_jetson_hal_server_host.sh
+
+Launches Jetson HAL server in Docker using hardcoded settings in this script.
+
+Data collector notes:
+  - This launcher currently enables recording via:
+      --data-collector-output-dir /workspace/bags
+  - HAL entrypoint also supports:
+      --data-collector-config <path-to-collector.yaml>
+    (edit this script if you want to pass that flag through).
+
+Control source notes:
+  - This launcher passes:
+      --control-source portal
+  - Set CONTROL_SOURCE below to "inference" to use policy commands instead.
+
+To customize runtime values (image, checkpoint, collector path, teleop URL),
+edit the "Hardcoded launch settings" section in this file.
+EOF
+}
+
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+  print_usage
+  exit 0
+fi
+
 if [ ! -f "$PROJECT_ROOT/Makefile" ]; then
   echo "Error: Could not find repo Makefile at $PROJECT_ROOT/Makefile" >&2
   exit 1
@@ -42,6 +70,7 @@ for _dir in "$PROJECT_ROOT/checkpoints" "$PROJECT_ROOT/parkour/assets/weights"; 
 done
 TASK_NAME="Isaac-Extreme-Parkour-Teacher-Unitree-Go2-Play-v0"
 ROBOT_TYPE="go2"
+CONTROL_SOURCE="portal"   # "portal" (default) or "inference"
 TELEOP_WS_URL="ws://10.0.0.130:9000/ws/robot"
 COLLECTOR_HOST_DIR="/tmp/krabby_bags"
 CONTAINER_COLLECTOR_DIR="/workspace/bags"
@@ -83,6 +112,7 @@ echo "Using checkpoint (host): $CHECKPOINT_HOST_DIR/$CHECKPOINT_FILENAME"
 echo "Using checkpoint (container): $CHECKPOINT_PATH"
 echo "Using task reference: $TASK_NAME"
 echo "Using robot definition: $ROBOT_TYPE"
+echo "Using control source: $CONTROL_SOURCE"
 echo "Using teleop signaling URL: $TELEOP_WS_URL"
 echo "Using side MaixSense endpoint: from sensor catalog"
 echo "Using ZED resources mount: $ZED_RESOURCES_SUBDIR:$ZED_RESOURCES_CONTAINER_DIR"
@@ -163,5 +193,6 @@ exec sudo docker run --rm --runtime=nvidia --network host \
   "$IMAGE" \
   -c "$PY_BOOTSTRAP" \
   --checkpoint "$CHECKPOINT_PATH" \
+  --control-source "$CONTROL_SOURCE" \
   --robot "$ROBOT_TYPE" \
   --data-collector-output-dir "$CONTAINER_COLLECTOR_DIR"
