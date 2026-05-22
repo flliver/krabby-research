@@ -10,6 +10,10 @@ from typing import Optional
 import requests
 
 S3_BASE = "https://krabby-firmware-public.s3.amazonaws.com"
+BOARD_COUNT = 3
+
+if "" not in sys.path:
+    sys.path.insert(0, "")
 
 
 @dataclass
@@ -25,18 +29,32 @@ class SmokeResult:
 
 def run_smoke(firmware_channel: str, image_ref: str) -> SmokeResult:
     """Run the full smoke sequence against the currently installed image."""
-    # Step 1: firmware update
-    rc, out, err = _run_firmware(image_ref, ["update", firmware_channel])
+    # Step 1: discover board ports
+    rc, out, err = _run_firmware(image_ref, ["show"])
     if rc != 0:
-        return SmokeResult(ok=False, step="firmware_update", detail=f"exit {rc}", stdout=out, stderr=err)
+        return SmokeResult(ok=False, step="firmware_show_ports", detail=f"exit {rc}", stdout=out, stderr=err)
 
-    # Step 2: firmware show — capture version strings
+    ports = _parse_ports(out)
+    if len(ports) < BOARD_COUNT:
+        return SmokeResult(
+            ok=False, step="firmware_show_ports",
+            detail=f"expected {BOARD_COUNT} ports, got {len(ports)}",
+            stdout=out, stderr=err,
+        )
+
+    # Step 2: update each port
+    for port in ports:
+        rc, out_u, err_u = _run_firmware(image_ref, ["update", firmware_channel, port])
+        if rc != 0:
+            return SmokeResult(ok=False, step="firmware_update", detail=f"exit {rc} ({port})", stdout=out_u, stderr=err_u)
+
+    # Step 3: re-show to get post-update versions
     rc, out, err = _run_firmware(image_ref, ["show"])
     if rc != 0:
         return SmokeResult(ok=False, step="firmware_show", detail=f"exit {rc}", stdout=out, stderr=err)
 
     ver_observed = _parse_versions(out)
-    if len(ver_observed) < 3:
+    if len(ver_observed) < BOARD_COUNT:
         return SmokeResult(
             ok=False, step="firmware_show",
             detail=f"expected 3 boards, got {len(ver_observed)}",
@@ -50,7 +68,7 @@ def run_smoke(firmware_channel: str, image_ref: str) -> SmokeResult:
             stdout=out, stderr=err, ver_observed=ver_observed,
         )
 
-    # Step 3: compare against S3 manifest
+    # Step 4: compare against S3 manifest
     try:
         ver_expected = _fetch_expected_ver(firmware_channel)
     except Exception as exc:
@@ -78,12 +96,17 @@ def _run_firmware(image_ref: str, args: list[str]) -> tuple[int, str, str]:
     return result.returncode, result.stdout, result.stderr
 
 
+def _parse_ports(show_output: str) -> list[str]:
+    """Extract unique serial port paths from `krabby-firmware show` output."""
+    return re.findall(r"^\s+(/dev/tty\S+)", show_output, re.MULTILINE)
+
+
 def _parse_versions(show_output: str) -> list[str]:
     """Extract version strings from `krabby-firmware show` output.
 
     Lines look like: '  /dev/ttyACM0  primary: 0.2.0 (mainline abc1234)'
     """
-    return re.findall(r":\s+(\S+)\s+\(", show_output)
+    return re.findall(r":\s+(\d+\.\d+\.\d+)\s+\(", show_output)
 
 
 def _fetch_expected_ver(channel: str) -> str:

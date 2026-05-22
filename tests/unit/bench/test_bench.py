@@ -10,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).parents[3] / "bench"))
 
 from krabby_bench._config import Config, AlertConfig, SmtpConfig, GithubConfig, load_config
 from krabby_bench._state import load_state, save_state
-from krabby_bench._smoke import SmokeResult, _parse_versions, run_smoke
+from krabby_bench._smoke import SmokeResult, _parse_ports, _parse_versions, run_smoke
 from krabby_bench._alert import should_alert, send_alert
 from krabby_bench.watchdog import poll_once
 
@@ -114,8 +114,44 @@ class TestParseVersions:
     def test_returns_empty_for_no_match(self):
         assert _parse_versions("no boards here") == []
 
+    def test_ignores_no_version_response(self):
+        output = (
+            "  /dev/ttyUSB0  (no version response)\n"
+            "  /dev/ttyACM0  primary: 0.2.9 (release abc) | left: 0.2.9 (release abc) | right: 0.2.9 (release abc)\n"
+        )
+        assert _parse_versions(output) == ["0.2.9", "0.2.9", "0.2.9"]
+
+
+class TestParsePorts:
+    def test_extracts_three_ports(self):
+        output = (
+            "  /dev/ttyACM0  primary: 0.2.0 (mainline abc)\n"
+            "  /dev/ttyUSB0  left: 0.2.0 (mainline abc)\n"
+            "  /dev/ttyUSB1  right: 0.2.0 (mainline abc)\n"
+        )
+        assert _parse_ports(output) == ["/dev/ttyACM0", "/dev/ttyUSB0", "/dev/ttyUSB1"]
+
+    def test_returns_empty_for_no_match(self):
+        assert _parse_ports("no boards here") == []
+
+    def test_shared_port_counted_once(self):
+        # primary+left share ttyACM0 on one line, right on ttyUSB0
+        output = (
+            "  /dev/ttyUSB0  right: 0.2.9 (release/0.2.9 abc)\n"
+            "  /dev/ttyACM0  primary: 0.2.9 (release/0.2.9 abc) | left: 0.2.9 (release/0.2.9 abc)\n"
+        )
+        assert _parse_ports(output) == ["/dev/ttyUSB0", "/dev/ttyACM0"]
+
 
 class TestRunSmoke:
+    # New flow: show(ports) → update×N → show(versions)
+    _SHOW_3 = (
+        "  /dev/ttyACM0  primary: 0.2.0 (mainline abc)\n"
+        "  /dev/ttyUSB0  left: 0.2.0 (mainline abc)\n"
+        "  /dev/ttyUSB1  right: 0.2.0 (mainline abc)\n"
+    )
+    _SHOW_1 = "  /dev/ttyACM0  primary: 0.2.0 (mainline abc)\n"
+
     def _mock_firmware(self, side_effects):
         """side_effects: list of (rc, stdout, stderr) per _run_firmware call."""
         return patch(
@@ -127,12 +163,9 @@ class TestRunSmoke:
         return patch("krabby_bench._smoke._fetch_expected_ver", return_value=ver_string)
 
     def test_passes_when_all_boards_match_s3(self):
-        show_output = (
-            "  /dev/ttyACM0  primary: 0.2.0 (mainline abc)\n"
-            "  /dev/ttyUSB0  left: 0.2.0 (mainline abc)\n"
-            "  /dev/ttyUSB1  right: 0.2.0 (mainline abc)\n"
-        )
-        with self._mock_firmware([(0, "", ""), (0, show_output, "")]):
+        # show(ports=3) + update×3 + show(versions=3)
+        calls = [(0, self._SHOW_3, ""), (0, "", ""), (0, "", ""), (0, "", ""), (0, self._SHOW_3, "")]
+        with self._mock_firmware(calls):
             with self._mock_s3("0.2.0"):
                 result = run_smoke("mainline", "myimage:tag")
         assert result.ok
@@ -140,38 +173,48 @@ class TestRunSmoke:
         assert result.ver_expected == "0.2.0"
 
     def test_fails_on_firmware_update_nonzero(self):
-        with self._mock_firmware([(1, "", "flash error")]):
+        # show(ports=3) + update fails on first port
+        calls = [(0, self._SHOW_3, ""), (1, "", "flash error")]
+        with self._mock_firmware(calls):
             result = run_smoke("mainline", "myimage:tag")
         assert not result.ok
         assert result.step == "firmware_update"
 
-    def test_fails_when_fewer_than_three_boards(self):
-        show_output = "  /dev/ttyACM0  primary: 0.2.0 (mainline abc)\n"
-        with self._mock_firmware([(0, "", ""), (0, show_output, "")]):
-            with self._mock_s3():
-                result = run_smoke("mainline", "myimage:tag")
+    def test_fails_when_fewer_than_three_ports(self):
+        # show finds only 1 port — fail before any updates
+        calls = [(0, self._SHOW_1, "")]
+        with self._mock_firmware(calls):
+            result = run_smoke("mainline", "myimage:tag")
         assert not result.ok
-        assert result.step == "firmware_show"
+        assert result.step == "firmware_show_ports"
+
+    def test_fails_daisy_chain_masks_missing_usb(self):
+        # show finds 1 port but daisy chain reports 3 versions — should still fail
+        show_3_versions_1_port = (
+            "  /dev/ttyACM0  primary: 0.2.0 (mainline abc) | "
+            "left: 0.2.0 (mainline abc) | right: 0.2.0 (mainline abc)\n"
+        )
+        calls = [(0, show_3_versions_1_port, "")]
+        with self._mock_firmware(calls):
+            result = run_smoke("mainline", "myimage:tag")
+        assert not result.ok
+        assert result.step == "firmware_show_ports"
 
     def test_fails_when_boards_disagree(self):
-        show_output = (
+        show_disagree = (
             "  /dev/ttyACM0  primary: 0.2.0 (mainline abc)\n"
             "  /dev/ttyUSB0  left: 0.1.9 (mainline abc)\n"
             "  /dev/ttyUSB1  right: 0.2.0 (mainline abc)\n"
         )
-        with self._mock_firmware([(0, "", ""), (0, show_output, "")]):
-            with self._mock_s3():
-                result = run_smoke("mainline", "myimage:tag")
+        calls = [(0, self._SHOW_3, ""), (0, "", ""), (0, "", ""), (0, "", ""), (0, show_disagree, "")]
+        with self._mock_firmware(calls):
+            result = run_smoke("mainline", "myimage:tag")
         assert not result.ok
         assert result.step == "ver_mismatch"
 
     def test_fails_when_ver_differs_from_s3(self):
-        show_output = (
-            "  /dev/ttyACM0  primary: 0.2.0 (mainline abc)\n"
-            "  /dev/ttyUSB0  left: 0.2.0 (mainline abc)\n"
-            "  /dev/ttyUSB1  right: 0.2.0 (mainline abc)\n"
-        )
-        with self._mock_firmware([(0, "", ""), (0, show_output, "")]):
+        calls = [(0, self._SHOW_3, ""), (0, "", ""), (0, "", ""), (0, "", ""), (0, self._SHOW_3, "")]
+        with self._mock_firmware(calls):
             with self._mock_s3("0.3.0"):
                 result = run_smoke("mainline", "myimage:tag")
         assert not result.ok

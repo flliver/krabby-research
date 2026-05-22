@@ -55,6 +55,7 @@ def poll_once(config: Config, state: dict) -> dict:
     new_state = {**state, "last_tested_digest": digest}
 
     if not result.ok:
+        log.warning("Smoke failed: %s / %s — %s", digest[:16], result.step, result.detail)
         alert_key = f"{digest}:{result.step}"
         if should_alert(state, alert_key, config.alert.dedup_window):
             try:

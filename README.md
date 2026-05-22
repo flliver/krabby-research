@@ -81,8 +81,8 @@ A systemd service polls ECR every 60 s for a new `mainline-latest` digest. When 
 
 ```bash
 pip install krabby-bench
-# edit /etc/krabby-bench/config.toml
-sudo systemctl enable --now krabby-bench
+sudo BENCH_SMTP_TO=alerts@example.com BENCH_GITHUB_REPO=owner/repo BENCH_GITHUB_TOKEN=ghp_... \
+  krabby-bench install
 ```
 
 See [bench/README.md](bench/README.md) for config reference and forced-failure testing.

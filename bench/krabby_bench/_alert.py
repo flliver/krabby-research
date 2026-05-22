@@ -1,6 +1,7 @@
 """Alert dispatch: SMTP email and/or GitHub Issue."""
 from __future__ import annotations
 
+import logging
 import smtplib
 from datetime import datetime, timezone
 from email.message import EmailMessage
@@ -9,6 +10,8 @@ import requests
 
 from krabby_bench._config import AlertConfig, GithubConfig, SmtpConfig
 from krabby_bench._smoke import SmokeResult
+
+log = logging.getLogger(__name__)
 
 
 def should_alert(state: dict, alert_key: str, dedup_window: int) -> bool:
@@ -32,9 +35,18 @@ def send_alert(
     title = f"[krabby-bench] Smoke failure: {result.step} ({digest[:16]})"
 
     if config_alert.mode in ("email", "both"):
-        _send_smtp(config_smtp, title, body)
+        if config_smtp.host:
+            try:
+                _send_smtp(config_smtp, title, body)
+                log.info("Alert email sent to %s", config_smtp.to_addr)
+            except Exception:
+                log.error("SMTP alert failed", exc_info=True)
     if config_alert.mode in ("github", "both"):
-        _open_github_issue(config_github, title, body)
+        try:
+            _open_github_issue(config_github, title, body)
+            log.info("GitHub issue opened in %s", config_github.repo)
+        except Exception:
+            log.error("GitHub alert failed", exc_info=True)
 
 
 def _format_body(digest: str, result: SmokeResult) -> str:
@@ -62,10 +74,15 @@ def _send_smtp(cfg: SmtpConfig, subject: str, body: str) -> None:
     msg["From"] = cfg.from_addr
     msg["To"] = cfg.to_addr
     msg.set_content(body)
-    with smtplib.SMTP(cfg.host, cfg.port) as smtp:
-        smtp.starttls()
-        smtp.login(cfg.user, cfg.password)
-        smtp.send_message(msg)
+    if cfg.port == 465:
+        with smtplib.SMTP_SSL(cfg.host, cfg.port) as smtp:
+            smtp.login(cfg.user, cfg.password)
+            smtp.send_message(msg)
+    else:
+        with smtplib.SMTP(cfg.host, cfg.port) as smtp:
+            smtp.starttls()
+            smtp.login(cfg.user, cfg.password)
+            smtp.send_message(msg)
 
 
 def _open_github_issue(cfg: GithubConfig, title: str, body: str) -> None:

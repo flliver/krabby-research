@@ -1,6 +1,7 @@
 """Config dataclass + TOML loading from /etc/krabby-bench/config.toml."""
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -25,7 +26,7 @@ class EcrConfig:
 
 @dataclass
 class SmokeConfig:
-    firmware_channel: str = "mainline"
+    firmware_channel: str = "release/0.2.9"
     run_hal_check: bool = False
 
 
@@ -37,18 +38,18 @@ class AlertConfig:
 
 @dataclass
 class SmtpConfig:
-    host: str = ""
-    port: int = 587
-    user: str = ""
-    password: str = ""
-    from_addr: str = ""
-    to_addr: str = ""
+    host: str = field(default_factory=lambda: os.environ.get("BENCH_SMTP_HOST", ""))
+    port: int = field(default_factory=lambda: int(os.environ.get("BENCH_SMTP_PORT", "587")))
+    user: str = field(default_factory=lambda: os.environ.get("BENCH_SMTP_USER", ""))
+    password: str = field(default_factory=lambda: os.environ.get("BENCH_SMTP_PASSWORD", ""))
+    from_addr: str = field(default_factory=lambda: os.environ.get("BENCH_SMTP_FROM", ""))
+    to_addr: str = field(default_factory=lambda: os.environ.get("BENCH_SMTP_TO", ""))
 
 
 @dataclass
 class GithubConfig:
-    repo: str = ""
-    token: str = ""
+    repo: str = field(default_factory=lambda: os.environ.get("BENCH_GITHUB_REPO", ""))
+    token: str = field(default_factory=lambda: os.environ.get("BENCH_GITHUB_TOKEN", ""))
 
 
 @dataclass
