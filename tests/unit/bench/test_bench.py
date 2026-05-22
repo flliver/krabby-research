@@ -75,23 +75,27 @@ class TestConfig:
 
 class TestEcrDigestPoll:
     def test_get_digest_fetches_via_registry_api(self):
+        import hashlib
+
         class _Resp:
-            def __init__(self, body, headers=None):
+            def __init__(self, body):
                 self._body = body if isinstance(body, bytes) else body.encode()
-                self.headers = headers or {}
             def read(self):
                 return self._body
             def __enter__(self): return self
             def __exit__(self, *_): pass
 
+        manifest_body = b'{"fake": "manifest"}'
+        expected_digest = "sha256:" + hashlib.sha256(manifest_body).hexdigest()
+
         token_resp = _Resp('{"token": "test-token"}')
-        manifest_resp = _Resp(b"", headers={"Docker-Content-Digest": "sha256:deadbeef"})
+        manifest_resp = _Resp(manifest_body)
 
         with patch("krabby_bench._ecr.urllib.request.urlopen", side_effect=[token_resp, manifest_resp]):
             from krabby_bench._ecr import get_digest
             digest = get_digest("public.ecr.aws/t7t7b3i3/krabby-locomotion", "mainline-latest")
 
-        assert digest == "sha256:deadbeef"
+        assert digest == expected_digest
 
 
 # ---------------------------------------------------------------------------
