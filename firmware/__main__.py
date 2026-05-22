@@ -56,9 +56,31 @@ def _log_jog(jog_cmds):
         logger.info("JOG  (hold)")
 
 
+_HELP = """\
+Usage: krabby-firmware <subcommand> [args]
+
+Subcommands:
+  install           Set up host udev rules and serial permissions
+  show              List attached boards and their firmware versions
+  update [channel] [port]
+                    Flash firmware from S3 channel to board(s)
+  help              Show this message
+
+With no subcommand, launches the interactive MCU key-control menu.
+"""
+
+
+def _print_help():
+    print(_HELP, end="")
+
+
 def main():
     positional = [a for a in sys.argv[1:] if not a.startswith("-")]
     subcommand = positional[0] if positional else None
+
+    if subcommand in ("help", "--help", "-h"):
+        _print_help()
+        return
 
     if subcommand == "install":
         from firmware.install import run_install
@@ -74,6 +96,11 @@ def main():
         from firmware.cli import cmd_update
         cmd_update(*positional[1:3])
         return
+
+    if subcommand is not None:
+        print(f"krabby-firmware: unknown subcommand '{subcommand}'\n", file=sys.stderr)
+        _print_help()
+        sys.exit(1)
 
     from pynput import keyboard as pynput_keyboard
 
