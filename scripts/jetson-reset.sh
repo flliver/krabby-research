@@ -30,7 +30,7 @@ pip3 uninstall -y \
     krabby krabby-bench krabby-controller krabby-firmware \
     krabby-hal-client krabby-hal-server krabby-launcher 2>/dev/null || true
 
-echo "==> Uninstalling krabby user pip packages"
+echo "==> Uninstalling krabby user pip packages (removes user-install shadows)"
 sudo -u krabby pip3 uninstall -y \
     krabby krabby-bench krabby-controller krabby-firmware \
     krabby-hal-client krabby-hal-server krabby-launcher 2>/dev/null || true

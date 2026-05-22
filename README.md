@@ -80,7 +80,7 @@ See [controller/scripts/jetson/E2E_GAMEPAD_KRABBY.md](controller/scripts/jetson/
 A systemd service polls ECR every 60 s for a new `mainline-latest` digest. When one appears it runs a firmware smoke test and emails (or opens a GitHub Issue) on failure.
 
 ```bash
-pip install krabby-bench
+sudo pip3 install krabby-bench
 sudo BENCH_SMTP_TO=alerts@example.com BENCH_GITHUB_REPO=owner/repo BENCH_GITHUB_TOKEN=ghp_... \
   krabby-bench install
 ```

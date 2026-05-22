@@ -5,7 +5,7 @@ Bench watchdog for the Krabby locomotion stack. Polls ECR for new `mainline-late
 ## Install
 
 ```bash
-pip install krabby-bench
+sudo pip3 install krabby-bench
 ```
 
 Then bootstrap the systemd service as root, passing credentials via environment variables:
