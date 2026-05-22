@@ -87,7 +87,7 @@ jobs:
           SHA_TAG="${{ steps.tags.outputs.sha_tag }}"
 
           # Pull freeze for all krabby-* packages installed in the image
-          docker run --rm --platform linux/arm64 "${SHA_TAG}" \
+          docker run --rm --platform linux/arm64 --entrypoint "" "${SHA_TAG}" \
             pip freeze | grep -E '^krabby-' | sort > /tmp/actual.txt
 
           # Extract expected krabby pins from requirements.release.txt
@@ -108,12 +108,12 @@ jobs:
           done < /tmp/expected.txt
 
           # Verify flash tooling is present
-          docker run --rm --platform linux/arm64 "${SHA_TAG}" which avrdude
-          docker run --rm --platform linux/arm64 "${SHA_TAG}" which arduino-cli
-          docker run --rm --platform linux/arm64 "${SHA_TAG}" which krabby-firmware
+          docker run --rm --platform linux/arm64 --entrypoint "" "${SHA_TAG}" which avrdude
+          docker run --rm --platform linux/arm64 --entrypoint "" "${SHA_TAG}" which arduino-cli
+          docker run --rm --platform linux/arm64 --entrypoint "" "${SHA_TAG}" which krabby-firmware
 
           # Verify Mega 2560 AVR core is installed
-          docker run --rm --platform linux/arm64 "${SHA_TAG}" \
+          docker run --rm --platform linux/arm64 --entrypoint "" "${SHA_TAG}" \
             arduino-cli core list | grep -E "^arduino:avr"
 
           echo "All verification checks passed."
