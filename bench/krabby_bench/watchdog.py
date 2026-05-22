@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import logging
+import os
+import shutil
 import subprocess
 import time
 from datetime import datetime, timezone
@@ -13,6 +15,10 @@ from krabby_bench._smoke import run_smoke
 from krabby_bench._state import load_state, save_state
 
 log = logging.getLogger(__name__)
+
+
+def _krabby_bin() -> str:
+    return shutil.which("krabby") or os.path.expanduser("~/.local/bin/krabby")
 
 
 def _get_image_ref() -> str:
@@ -36,7 +42,7 @@ def poll_once(config: Config, state: dict) -> dict:
 
     try:
         subprocess.run(
-            ["krabby", "update", "--image", f"{config.ecr.repo}:{config.ecr.tag}"],
+            [_krabby_bin(), "update", "--image", f"{config.ecr.repo}:{config.ecr.tag}"],
             check=True,
         )
     except Exception:
