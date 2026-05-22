@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 from typing import Optional
 
-ECR_REPO = "632914961627.dkr.ecr.us-east-1.amazonaws.com/krabby-locomotion"
+ECR_REPO = "public.ecr.aws/t7t7b3i3/krabby-locomotion"
 DEFAULT_TAG = "mainline-latest"
 STATE_PATH = Path.home() / ".config" / "krabby" / "state.json"
 

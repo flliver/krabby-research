@@ -14,9 +14,8 @@ Default config path: `/etc/krabby-bench/config.toml`
 
 ```toml
 [ecr]
-repo = "632914961627.dkr.ecr.us-east-1.amazonaws.com/krabby-locomotion"
+repo = "public.ecr.aws/t7t7b3i3/krabby-locomotion"
 tag = "mainline-latest"
-region = "us-east-1"
 poll_interval = 60          # seconds
 
 [smoke]

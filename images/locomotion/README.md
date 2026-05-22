@@ -43,10 +43,12 @@ docker run --rm --gpus all \
 
 Installs Krabby packages from PyPI with pinned versions. Bundled with `avrdude`, `arduino-cli` (Mega 2560 core, same pin as firmware CI), and `krabby-firmware` so MCU flashing works from inside the container without host-side flash tools.
 
-### Pulling from ECR
+### Pulling from ECR Public
+
+No AWS credentials required — ECR Public allows anonymous pulls.
 
 ```bash
-ECR=632914961627.dkr.ecr.us-east-1.amazonaws.com/krabby-locomotion
+ECR=public.ecr.aws/t7t7b3i3/krabby-locomotion
 
 # Latest mainline build
 docker pull ${ECR}:mainline-latest
@@ -57,8 +59,6 @@ docker pull ${ECR}:<sha7>
 # Semver release (after a locomotion-v* tag)
 docker pull ${ECR}:0.2.9
 ```
-
-The ECR repository has a public-read policy — no AWS credentials required to pull.
 
 ### Running
 

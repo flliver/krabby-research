@@ -18,9 +18,8 @@ STATE_PATH = Path("/var/lib/krabby-bench/state.json")
 
 @dataclass
 class EcrConfig:
-    repo: str = "632914961627.dkr.ecr.us-east-1.amazonaws.com/krabby-locomotion"
+    repo: str = "public.ecr.aws/t7t7b3i3/krabby-locomotion"
     tag: str = "mainline-latest"
-    region: str = "us-east-1"
     poll_interval: int = 60
 
 

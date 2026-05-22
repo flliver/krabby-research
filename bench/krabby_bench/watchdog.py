@@ -23,7 +23,7 @@ def _get_image_ref() -> str:
 def poll_once(config: Config, state: dict) -> dict:
     """Run one poll cycle. Returns updated state."""
     try:
-        digest = get_digest(config.ecr.repo, config.ecr.tag, config.ecr.region)
+        digest = get_digest(config.ecr.repo, config.ecr.tag)
     except Exception:
         log.exception("ECR digest fetch failed")
         return state

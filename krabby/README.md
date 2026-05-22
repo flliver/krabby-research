@@ -35,7 +35,7 @@ krabby --help
 The default image is pulled from ECR:
 
 ```
-632914961627.dkr.ecr.us-east-1.amazonaws.com/krabby-locomotion:mainline-latest
+public.ecr.aws/t7t7b3i3/krabby-locomotion:mainline-latest
 ```
 
 A bare tag (e.g. `--image v1.2.3`) is expanded to the full ECR URI automatically.

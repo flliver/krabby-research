@@ -1,12 +1,11 @@
-# Build the production locomotion image and push to ECR on every push to mainline or release/*.
+# Build the production locomotion image and push to ECR Public on every push to mainline or release/*.
 # Dev image (images/locomotion/Dockerfile) is not built or pushed here.
 # Tags: <sha7>, <branch>-latest (e.g. mainline-latest, release-0-2-9-latest),
 #       and on locomotion-v* tags also the semver version.
 #
 # Requires:
-#   - krabby-locomotion ECR repo in account 632914961627 (us-east-1)
-#   - krabby-locomotion-ci IAM role with OIDC trust for this repo and ECR push permissions
-#   - Public-read ECR repository policy (see images/locomotion/README.md)
+#   - krabby-locomotion repo in ECR Public (public.ecr.aws/t7t7b3i3/krabby-locomotion)
+#   - krabby-locomotion-ci IAM role with OIDC trust for this repo and ecr-public push permissions
 
 name: Build and push locomotion image to ECR
 
@@ -15,6 +14,7 @@ on:
     branches:
       - mainline
       - 'release/**'
+      - m14
     tags:
       - 'locomotion-v*'
 
@@ -43,13 +43,15 @@ jobs:
           role-to-assume: arn:aws:iam::632914961627:role/krabby-locomotion-ci
           aws-region: us-east-1
 
-      - name: Login to Amazon ECR
+      - name: Login to Amazon ECR Public
         uses: aws-actions/amazon-ecr-login@v2
+        with:
+          registry-type: public
 
       - name: Compute image tags
         id: tags
         run: |
-          ECR="632914961627.dkr.ecr.us-east-1.amazonaws.com/krabby-locomotion"
+          ECR="public.ecr.aws/t7t7b3i3/krabby-locomotion"
           SHA="${GITHUB_SHA::7}"
           SHA_TAG="${ECR}:${SHA}"
           TAGS="${SHA_TAG}"

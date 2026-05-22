@@ -54,7 +54,7 @@ class TestConfig:
         p.write_text('[ecr]\ntag = "release-latest"\n')
         cfg = load_config(p)
         assert cfg.ecr.tag == "release-latest"
-        assert cfg.ecr.repo.startswith("632914961627")  # other fields keep default
+        assert cfg.ecr.repo.startswith("public.ecr.aws")  # other fields keep default
 
     def test_toml_overrides_alert_mode(self, tmp_path):
         p = tmp_path / "config.toml"
@@ -83,13 +83,12 @@ class TestEcrDigestPoll:
             }
             from krabby_bench._ecr import get_digest
             digest = get_digest(
-                "632914961627.dkr.ecr.us-east-1.amazonaws.com/krabby-locomotion",
+                "public.ecr.aws/t7t7b3i3/krabby-locomotion",
                 "mainline-latest",
-                "us-east-1",
             )
         assert digest == "sha256:deadbeef"
+        mock_boto3.client.assert_called_once_with("ecr-public", region_name="us-east-1")
         mock_ecr.describe_images.assert_called_once_with(
-            registryId="632914961627",
             repositoryName="krabby-locomotion",
             imageIds=[{"imageTag": "mainline-latest"}],
         )
