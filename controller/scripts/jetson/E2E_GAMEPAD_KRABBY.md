@@ -7,7 +7,7 @@ Two-process E2E on Jetson Orin: **Pro Controller** → **ControlLoop (INPUT_CONT
 ## Canonical path: `krabby` CLI
 
 ```bash
-pip install krabby
+pip install krabby-launcher
 krabby install            # pull mainline-latest, set up udev + dialout
 krabby firmware show      # verify all three boards are visible
 krabby run                # start the locomotion stack

@@ -23,7 +23,7 @@ Full robot assembly notes are in the Milestone 12 deliverables. This repo covers
 ### 1. Install the CLI
 
 ```bash
-pip install krabby
+pip install krabby-launcher
 ```
 
 ### 2. Pull the locomotion image and set up the host

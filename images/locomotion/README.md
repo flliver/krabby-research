@@ -3,7 +3,7 @@
 ## Canonical install path
 
 ```bash
-pip install krabby
+pip install krabby-launcher
 krabby install            # pull mainline-latest, set up udev + dialout
 krabby firmware show      # verify boards
 krabby run                # start the locomotion stack

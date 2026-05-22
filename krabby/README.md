@@ -1,11 +1,13 @@
-# krabby
+# krabby-launcher
 
 CLI for installing, updating, and running the Krabby locomotion stack on a Jetson Orin host.
+
+PyPI package name is `krabby-launcher` (the `krabby` name was already taken); the installed command is still `krabby`.
 
 ## Install
 
 ```bash
-pip install krabby
+pip install krabby-launcher
 ```
 
 ## Usage
