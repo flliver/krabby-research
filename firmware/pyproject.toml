@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "krabby-firmware"
-version = "0.1.0"
+version = "0.2.11"
 description = "Python SDK for Krabby MCU (e.g. Arduino) communication"
 readme = "SETUP.md"
 requires-python = ">=3.10"

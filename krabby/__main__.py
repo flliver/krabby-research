@@ -4,7 +4,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-_VERSION = "0.1.0"
+_VERSION = "0.1.2"
 
 
 def main() -> None:
