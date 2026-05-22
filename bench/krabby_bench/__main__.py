@@ -3,14 +3,23 @@ from __future__ import annotations
 
 import argparse
 import os
+import sys
+from typing import NoReturn
 from pathlib import Path
 
 from krabby_bench._config import CONFIG_PATH, EcrConfig, SmokeConfig, load_config
 from krabby_bench.watchdog import run
 
 
+class _Parser(argparse.ArgumentParser):
+    def error(self, message: str) -> NoReturn:
+        print(f"krabby-bench: {message}\n", file=sys.stderr)
+        self.print_help(sys.stderr)
+        sys.exit(2)
+
+
 def main() -> None:
-    parser = argparse.ArgumentParser(
+    parser = _Parser(
         prog="krabby-bench",
         description="Bench watchdog: polls ECR for new digests and runs smoke tests.",
     )
@@ -20,6 +29,8 @@ def main() -> None:
         help=f"Path to config.toml (default: {CONFIG_PATH})",
     )
     subparsers = parser.add_subparsers(dest="command")
+
+    subparsers.add_parser("help", help="Show this help message and exit.")
 
     install_p = subparsers.add_parser(
         "install",
@@ -34,6 +45,10 @@ def main() -> None:
                            metavar="OWNER/REPO")
 
     args = parser.parse_args()
+
+    if args.command == "help":
+        parser.print_help()
+        return
 
     if args.command == "install":
         from krabby_bench._install import install
