@@ -10,10 +10,9 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = "Apache-2.0"
 authors = [
-    {name = "Your Name", email = "your.email@example.com"}
+    {name = "James Childers", email = "james.childers@gmail.com"}
 ]
 dependencies = [
-    "boto3>=1.26.0",
     "requests>=2.31.0",
     "tomli>=2.0.0; python_version < '3.11'",
 ]

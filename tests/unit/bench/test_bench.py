@@ -74,24 +74,24 @@ class TestConfig:
 # ---------------------------------------------------------------------------
 
 class TestEcrDigestPoll:
-    def test_get_digest_calls_describe_images(self):
-        with patch("krabby_bench._ecr.boto3") as mock_boto3:
-            mock_ecr = MagicMock()
-            mock_boto3.client.return_value = mock_ecr
-            mock_ecr.describe_images.return_value = {
-                "imageDetails": [{"imageDigest": "sha256:deadbeef"}]
-            }
+    def test_get_digest_fetches_via_registry_api(self):
+        class _Resp:
+            def __init__(self, body, headers=None):
+                self._body = body if isinstance(body, bytes) else body.encode()
+                self.headers = headers or {}
+            def read(self):
+                return self._body
+            def __enter__(self): return self
+            def __exit__(self, *_): pass
+
+        token_resp = _Resp('{"token": "test-token"}')
+        manifest_resp = _Resp(b"", headers={"Docker-Content-Digest": "sha256:deadbeef"})
+
+        with patch("krabby_bench._ecr.urllib.request.urlopen", side_effect=[token_resp, manifest_resp]):
             from krabby_bench._ecr import get_digest
-            digest = get_digest(
-                "public.ecr.aws/t7t7b3i3/krabby-locomotion",
-                "mainline-latest",
-            )
+            digest = get_digest("public.ecr.aws/t7t7b3i3/krabby-locomotion", "mainline-latest")
+
         assert digest == "sha256:deadbeef"
-        mock_boto3.client.assert_called_once_with("ecr-public", region_name="us-east-1")
-        mock_ecr.describe_images.assert_called_once_with(
-            repositoryName="krabby-locomotion",
-            imageIds=[{"imageTag": "mainline-latest"}],
-        )
 
 
 # ---------------------------------------------------------------------------
