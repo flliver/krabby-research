@@ -67,8 +67,7 @@ The container starts with GPU, serial, and input device passthrough. Logs stream
 Pair a Pro Controller over Bluetooth ([CONNECT_PRO_CONTROLLER.md](controller/scripts/jetson/CONNECT_PRO_CONTROLLER.md)), then from a second terminal:
 
 ```bash
-pip install krabby-controller
-krabby-uno
+krabby uno
 ```
 
 See [controller/scripts/jetson/E2E_GAMEPAD_KRABBY.md](controller/scripts/jetson/E2E_GAMEPAD_KRABBY.md) for the full E2E guide.
