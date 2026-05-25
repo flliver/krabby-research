@@ -28,6 +28,7 @@ def main() -> None:
     p_run = sub.add_parser("run", help="Start the locomotion container")
     p_run.add_argument("--image", metavar="REF", help="Image ref to run")
     p_run.add_argument("--entrypoint", metavar="CMD", help="Override container entrypoint")
+    p_run.add_argument("--gamepad-only", action="store_true", help="Run in gamepad-only mode (no inference checkpoint required)")
     p_run.add_argument("--mount", "-v", metavar="SRC:DST", action="append", dest="mounts", help="Extra volume mount (may be repeated)")
     p_run.add_argument("args", nargs=argparse.REMAINDER, help="Extra args passed to the container")
 
@@ -53,7 +54,7 @@ def main() -> None:
 
     elif args.command == "run":
         from krabby.run import cmd_run
-        cmd_run(image_ref=args.image, extra_args=args.args, entrypoint=args.entrypoint, extra_mounts=args.mounts)
+        cmd_run(image_ref=args.image, extra_args=args.args, entrypoint=args.entrypoint, extra_mounts=args.mounts, gamepad_only=args.gamepad_only)
 
     elif args.command == "firmware":
         from krabby.firmware import cmd_firmware
