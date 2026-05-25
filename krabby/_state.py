@@ -19,7 +19,7 @@ def resolve_image_ref(ref: Optional[str] = None) -> str:
     """
     if ref is None:
         return f"{ECR_REPO}:{DEFAULT_TAG}"
-    if "/" not in ref and not ref.startswith(ECR_REPO):
+    if "/" not in ref and ":" not in ref:
         return f"{ECR_REPO}:{ref}"
     return ref
 
