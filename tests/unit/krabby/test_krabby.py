@@ -1,6 +1,8 @@
 """Unit tests for the krabby CLI package (AC8)."""
 from __future__ import annotations
 
+import pytest
+
 
 # ---------------------------------------------------------------------------
 # _state: image-ref resolution and state roundtrip
@@ -179,6 +181,53 @@ class TestUnoCmd:
     def test_image_in_cmd(self):
         cmd = uno_cmd("myimage:tag", [])
         assert "myimage:tag" in cmd
+
+
+from krabby.run import cmd_run, _GAMEPAD_ONLY_ENTRYPOINT, _GAMEPAD_ONLY_ARGS
+
+
+class TestCmdRunGamepadOnly:
+    def _run(self, monkeypatch, **kwargs):
+        """Call cmd_run with subprocess and sys.exit mocked; return captured run_cmd kwargs."""
+        captured = {}
+
+        def fake_run_cmd(ref, extra_args, entrypoint=None, extra_mounts=None):
+            captured.update(ref=ref, extra_args=extra_args, entrypoint=entrypoint)
+            return ["docker", "run", ref]
+
+        monkeypatch.setattr("krabby.run.run_cmd", fake_run_cmd)
+        monkeypatch.setattr("krabby.run.subprocess.run", lambda cmd: type("R", (), {"returncode": 0})())
+        monkeypatch.setattr("krabby.run.sys.exit", lambda _code: None)
+        cmd_run(**kwargs)
+        return captured
+
+    def test_entrypoint_is_hal_server_jetson(self, monkeypatch):
+        captured = self._run(monkeypatch, image_ref="img:tag", gamepad_only=True)
+        assert captured["entrypoint"] == "krabby-hal-server-jetson"
+
+    def test_args_contain_control_source_gamepad(self, monkeypatch):
+        captured = self._run(monkeypatch, image_ref="img:tag", gamepad_only=True)
+        assert captured["extra_args"] == ["--control-source", "gamepad"]
+
+    def test_extra_args_appended_after_gamepad_args(self, monkeypatch):
+        captured = self._run(monkeypatch, image_ref="img:tag", gamepad_only=True, extra_args=["--robot", "go2"])
+        assert captured["extra_args"] == ["--control-source", "gamepad", "--robot", "go2"]
+
+    def test_no_args_no_entrypoint_exits_1(self):
+        with pytest.raises(SystemExit) as exc_info:
+            cmd_run(image_ref="img:tag")
+        assert exc_info.value.code == 1
+
+    def test_no_args_error_message_mentions_gamepad_only(self, capsys):
+        with pytest.raises(SystemExit):
+            cmd_run(image_ref="img:tag")
+        assert "gamepad-only" in capsys.readouterr().err
+
+    def test_gamepad_only_entrypoint_constant(self):
+        assert _GAMEPAD_ONLY_ENTRYPOINT == "krabby-hal-server-jetson"
+
+    def test_gamepad_only_args_constant(self):
+        assert _GAMEPAD_ONLY_ARGS == ["--control-source", "gamepad"]
 
 
 class TestFirmwareCmd:

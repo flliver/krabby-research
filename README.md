@@ -56,8 +56,16 @@ Connect all three Megas to the Jetson via the powered USB hub.
 
 ### 6. Start the locomotion stack
 
+For gamepad-only control (no checkpoint required):
+
 ```bash
-krabby run
+krabby run --gamepad-only
+```
+
+For inference mode (requires a trained checkpoint):
+
+```bash
+krabby run -- --checkpoint /path/to/checkpoint.pt
 ```
 
 The container starts with GPU, serial, and input device passthrough. Logs stream to stdout; Ctrl+C stops it.

@@ -9,8 +9,8 @@ from krabby._docker import run_cmd
 from krabby._state import installed_image, resolve_image_ref
 
 
-_GAMEPAD_ONLY_ENTRYPOINT = "krabby-hal-server-gamepad-only"
-_GAMEPAD_ONLY_ARGS: list[str] = []
+_GAMEPAD_ONLY_ENTRYPOINT = "krabby-hal-server-jetson"
+_GAMEPAD_ONLY_ARGS: list[str] = ["--control-source", "gamepad"]
 
 
 def cmd_run(image_ref: Optional[str] = None, extra_args: Optional[list[str]] = None, entrypoint: Optional[str] = None, extra_mounts: Optional[list[str]] = None, gamepad_only: bool = False) -> None:

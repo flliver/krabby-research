@@ -42,6 +42,76 @@ OBSERVATION_ENDPOINT = "inproc://hal_observation"
 COMMAND_ENDPOINT = "inproc://hal_commands"
 
 
+def _run_gamepad_mode(args) -> None:
+    """Gamepad-only mode: TCP ZMQ endpoints, no inference, no cameras. Exits if MCU not detected."""
+    import time
+
+    if args.robot == "hex":
+        robot_definition = KRABBY_HEX_DEFINITION
+    else:
+        robot_definition = UNITREE_GO2_DEFINITION
+
+    if not robot_definition.get_mcu_joints():
+        logger.error(
+            "Gamepad mode requires a robot with MCU joints; '%s' has none. "
+            "Use --robot hex for the Krabby hexapod.",
+            args.robot,
+        )
+        sys.exit(1)
+
+    hal_server = None
+    running = True
+
+    def _sig(sig, frame):
+        nonlocal running
+        logger.info("Received interrupt signal, stopping...")
+        running = False
+
+    signal.signal(signal.SIGINT, _sig)
+    signal.signal(signal.SIGTERM, _sig)
+
+    try:
+        model_definition = PARKOUR_MODEL_OBSERVATION_DEFINITION
+        observation_dimensions = model_definition.get_observation_dimensions(robot_definition)
+
+        hal_server = JetsonHalServer(
+            HalServerConfig(
+                observation_bind=args.observation_bind,
+                command_bind=args.command_bind,
+            ),
+            observation_dimensions=observation_dimensions,
+            action_dim=model_definition.action_dim,
+            robot_definition=robot_definition,
+        )
+        hal_server.initialize()
+
+        if hal_server._mcusdk is None or not hal_server._mcusdk.is_connected():
+            logger.error("MCU not available — check firmware and wiring. Exiting.")
+            sys.exit(1)
+
+        logger.info(
+            "HAL server started in gamepad-only mode "
+            "(observation=%s, command=%s). Run `krabby uno` to connect.",
+            args.observation_bind,
+            args.command_bind,
+        )
+
+        while running:
+            command = hal_server.get_joint_command(timeout_ms=50)
+            if command is not None:
+                hal_server.apply_command(command)
+            time.sleep(0.001)
+
+    except KeyboardInterrupt:
+        logger.info("Interrupted by user")
+    except Exception as e:
+        logger.error("Failed to run gamepad-only HAL server: %s", e, exc_info=True)
+        sys.exit(1)
+    finally:
+        if hal_server:
+            hal_server.close()
+
+
 def main():
     """Main entry point for Jetson production deployment."""
     parser = argparse.ArgumentParser(description="Jetson production deployment with HAL server and inference")
@@ -91,11 +161,24 @@ def main():
         "--control-source",
         type=str,
         default="portal",
-        choices=["portal", "inference"],
+        choices=["portal", "inference", "gamepad"],
         help=(
             "Primary command source for actuator control. "
-            "'portal' uses WebRTC data-channel commands; 'inference' uses policy inference client."
+            "'portal' uses WebRTC data-channel commands; 'inference' uses policy inference client; "
+            "'gamepad' runs a TCP HAL server for a separate krabby-uno process (no checkpoint required)."
         ),
+    )
+    parser.add_argument(
+        "--observation-bind",
+        type=str,
+        default="tcp://*:6001",
+        help="ZMQ observation bind endpoint for gamepad mode (default: tcp://*:6001).",
+    )
+    parser.add_argument(
+        "--command-bind",
+        type=str,
+        default="tcp://*:6002",
+        help="ZMQ command bind endpoint for gamepad mode (default: tcp://*:6002).",
     )
     parser.add_argument(
         "--robot",
@@ -117,6 +200,9 @@ def main():
     if args.control_source == "portal" and not args.teleop:
         logger.info("control-source=portal selected: enabling --teleop automatically")
         args.teleop = True
+    if args.control_source == "gamepad":
+        _run_gamepad_mode(args)
+        return
 
     model_definition = PARKOUR_MODEL_OBSERVATION_DEFINITION
     if args.robot == "hex":
