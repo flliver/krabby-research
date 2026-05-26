@@ -21,19 +21,20 @@ import sys
 import threading
 import time
 
-from data_collection.collector import start_collector_thread
-from data_collection.collector_settings import build_data_collector_config
-from data_collection.config import load_config
 from hal.client.config import HalClientConfig
 from hal.server import HalServerConfig
 from hal.server.jetson import JetsonHalServer
-from hal.server.teleop_portal_signaling import start_hal_teleop_signaling_thread
 from compute.parkour.inference_client import ParkourInferenceClient
 from compute.parkour.policy_interface import ModelWeights
 from compute.parkour.model_definition import PARKOUR_MODEL_OBSERVATION_DEFINITION
 from hal.server.robot_definition_krabby_hex import KRABBY_HEX_DEFINITION
 from hal.server.robot_definition_unitree_go2 import UNITREE_GO2_DEFINITION
-from teleop.edge.robot_settings import build_teleop_edge_settings
+
+# Lazy imports below: data_collection and teleop.edge are not installed in the
+# production locomotion image (excluded from requirements.release.txt because the
+# packages aren't yet published to PyPI). Importing them only when the relevant
+# CLI flag is set keeps krabby-hal-server-jetson runnable for inference/portal/
+# gamepad on the stock image, while still letting dev builds opt in.
 
 logging.basicConfig(
     level=logging.INFO,
@@ -226,6 +227,8 @@ def main():
         # ----- Teleop signaling (portal mode, or inference with --teleop) -----
 
         if args.teleop:
+            from teleop.edge.robot_settings import build_teleop_edge_settings
+
             # Bootstrap HAL poll until the browser sends ``catalog_ids`` on hello/offer (portal viewer).
             teleop_sensor_ids = [hal_server._primary_catalog_id]
             _teleop_st = build_teleop_edge_settings()
@@ -263,6 +266,8 @@ def main():
             )
 
             if teleop_sensor_ids is not None and _teleop_st is not None:
+                from hal.server.teleop_portal_signaling import start_hal_teleop_signaling_thread
+
                 teleop_stop = threading.Event()
                 teleop_thread = start_hal_teleop_signaling_thread(
                     teleop_hal_client_config,
@@ -325,6 +330,10 @@ def main():
         # ----- Data collector (optional, all modes) -----
 
         if args.data_collector_output_dir is not None or args.data_collector_config is not None:
+            from data_collection.collector import start_collector_thread
+            from data_collection.collector_settings import build_data_collector_config
+            from data_collection.config import load_config
+
             if args.data_collector_config is not None:
                 dc_cfg = load_config(args.data_collector_config)
                 # Entry-point transport wiring is authoritative.
