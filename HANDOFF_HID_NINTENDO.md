@@ -68,10 +68,10 @@ HAL instead of model" — describes an existing code path. No HAL work is needed
 - `INPUT_CONTROLLER_KRABBY` mode in `controller/control_loop.py:195` wires the gamepad
   directly through `GamepadToKrabbyHALMapper` → `HalClient` → HAL server, bypassing the
   policy model entirely.
-- `controller/scripts/jetson/main_gamepad_only.py` — HAL server entrypoint that requires
-  no `--checkpoint`; designed for controller testing and AC verification.
+- `krabby run --gamepad-only` — starts `krabby-hal-server-jetson --control-source gamepad`
+  in the locomotion container; no `--checkpoint` required.
 - `controller/scripts/jetson/E2E_GAMEPAD_KRABBY.md` — full runbook for the two-process
-  gamepad-only flow, including a `krabby run --entrypoint` example.
+  gamepad-only flow.
 
 **The complete AC verification path (once `hid_nintendo` is installed):**
 
@@ -82,16 +82,15 @@ Pro Controller (Bluetooth)
   → InputController (pygame SDL2)
   → GamepadToKrabbyHALMapper
   → HalClient (ZMQ TCP)
-  → Jetson HAL server (main_gamepad_only.py, no checkpoint needed)
+  → Jetson HAL server (krabby run --gamepad-only, no checkpoint needed)
   → KrabbyMCUSDK → firmware
 ```
 
 Run with:
 ```bash
-krabby run --entrypoint python3 --mount /tmp/krabby-research:/workspace \
-  -- /workspace/controller/scripts/jetson/main_gamepad_only.py
+krabby run --gamepad-only
 # second terminal:
-krabby-uno
+krabby uno
 ```
 
 The HAL layer is complete. `hid_nintendo` is the only remaining blocker.

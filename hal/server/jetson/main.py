@@ -62,10 +62,9 @@ def _run_gamepad_mode(args) -> None:
     hal_server = None
     running = True
 
-    def _sig(sig, frame):
+    def _sig(_sig, _frame):
         nonlocal running
-        logger.info("Received interrupt signal, stopping...")
-        running = False
+        running = False  # no logging — logger is not async-signal-safe
 
     signal.signal(signal.SIGINT, _sig)
     signal.signal(signal.SIGTERM, _sig)
@@ -101,6 +100,8 @@ def _run_gamepad_mode(args) -> None:
             if command is not None:
                 hal_server.apply_command(command)
             time.sleep(0.001)
+
+        logger.info("Received interrupt signal, stopping...")
 
     except KeyboardInterrupt:
         logger.info("Interrupted by user")
