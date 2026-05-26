@@ -1,13 +1,16 @@
-"""Entry point for Jetson HAL server with integrated inference client.
+"""Entry point for the Jetson HAL server.
 
-This entry point runs both the HAL server and inference client in the same process
-using inproc ZMQ for zero-copy communication. This is the recommended deployment
-for production use where server and client run together on the robot.
+Runs the HAL server with one main control loop shared across all control sources
+(inference, portal, gamepad, and — in M14 task 4 — bench). The loop publishes
+observations and applies whatever joint commands arrive on the HAL command socket;
+the differences between modes are config-level only:
 
-For standalone server mode (client runs separately), use TCP endpoints instead.
-
-Gathers observations from real hardware (camera, sensors), runs inference,
-and applies commands to control the robot actuators.
+- HAL bind URI: TCP for gamepad (external krabby-uno connects), inproc otherwise
+- Cameras: initialized for inference/portal (RGB-D observations + teleop video),
+  skipped for gamepad (no observation inputs needed; test rigs often have no ZED)
+- In-process command source: ParkourInferenceClient for inference; none for
+  portal/gamepad (commands arrive from WebRTC data channel or external TCP client)
+- MCU strictness: gamepad refuses to start without MCU; inference/portal warn
 """
 
 import argparse
@@ -38,86 +41,14 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 CONTROL_RATE_HZ = 100.0
-OBSERVATION_ENDPOINT = "inproc://hal_observation"
-COMMAND_ENDPOINT = "inproc://hal_commands"
-
-
-def _run_gamepad_mode(args) -> None:
-    """Gamepad-only mode: TCP ZMQ endpoints, no inference, no cameras. Exits if MCU not detected."""
-    import time
-
-    if args.robot == "hex":
-        robot_definition = KRABBY_HEX_DEFINITION
-    else:
-        robot_definition = UNITREE_GO2_DEFINITION
-
-    if not robot_definition.get_mcu_joints():
-        logger.error(
-            "Gamepad mode requires a robot with MCU joints; '%s' has none. "
-            "Use --robot hex for the Krabby hexapod.",
-            args.robot,
-        )
-        sys.exit(1)
-
-    hal_server = None
-    running = True
-
-    def _sig(_sig, _frame):
-        nonlocal running
-        running = False  # no logging — logger is not async-signal-safe
-
-    signal.signal(signal.SIGINT, _sig)
-    signal.signal(signal.SIGTERM, _sig)
-
-    try:
-        model_definition = PARKOUR_MODEL_OBSERVATION_DEFINITION
-        observation_dimensions = model_definition.get_observation_dimensions(robot_definition)
-
-        hal_server = JetsonHalServer(
-            HalServerConfig(
-                observation_bind=args.observation_bind,
-                command_bind=args.command_bind,
-            ),
-            observation_dimensions=observation_dimensions,
-            action_dim=model_definition.action_dim,
-            robot_definition=robot_definition,
-        )
-        hal_server.initialize()
-
-        if hal_server._mcusdk is None or not hal_server._mcusdk.is_connected():
-            logger.error("MCU not available — check firmware and wiring. Exiting.")
-            sys.exit(1)
-
-        logger.info(
-            "HAL server started in gamepad-only mode "
-            "(observation=%s, command=%s). Run `krabby uno` to connect.",
-            args.observation_bind,
-            args.command_bind,
-        )
-
-        while running:
-            command = hal_server.get_joint_command(timeout_ms=50)
-            if command is not None:
-                hal_server.apply_command(command)
-            time.sleep(0.001)
-
-        logger.info("Received interrupt signal, stopping...")
-
-    except KeyboardInterrupt:
-        logger.info("Interrupted by user")
-    except Exception as e:
-        logger.error("Failed to run gamepad-only HAL server: %s", e, exc_info=True)
-        sys.exit(1)
-    finally:
-        if hal_server:
-            hal_server.close()
+INPROC_OBSERVATION_ENDPOINT = "inproc://hal_observation"
+INPROC_COMMAND_ENDPOINT = "inproc://hal_commands"
 
 
 def main():
     """Main entry point for Jetson production deployment."""
     parser = argparse.ArgumentParser(description="Jetson production deployment with HAL server and inference")
 
-    # Model arguments
     parser.add_argument(
         "--checkpoint",
         type=str,
@@ -147,7 +78,7 @@ def main():
         default=None,
         help=(
             "Optional YAML config for collector settings (rates/topics/rotation/quota/output_dir). "
-            "HAL inproc endpoints are always enforced by this entrypoint."
+            "HAL endpoints from --observation-bind/--command-bind are enforced by this entrypoint."
         ),
     )
     parser.add_argument(
@@ -155,7 +86,8 @@ def main():
         action="store_true",
         help=(
             "Run teleop WebRTC in-process: RGB from HAL RGB-D cameras. "
-            "Configure signaling URL, mode, and optional sensor ids in teleop/edge/robot_settings.py."
+            "Configure signaling URL, mode, and optional sensor ids in teleop/edge/robot_settings.py. "
+            "Ignored in --control-source gamepad."
         ),
     )
     parser.add_argument(
@@ -166,20 +98,26 @@ def main():
         help=(
             "Primary command source for actuator control. "
             "'portal' uses WebRTC data-channel commands; 'inference' uses policy inference client; "
-            "'gamepad' runs a TCP HAL server for a separate krabby-uno process (no checkpoint required)."
+            "'gamepad' binds HAL to TCP so a separate krabby-uno process can connect (no checkpoint required)."
         ),
     )
     parser.add_argument(
         "--observation-bind",
         type=str,
-        default="tcp://*:6001",
-        help="ZMQ observation bind endpoint for gamepad mode (default: tcp://*:6001).",
+        default=None,
+        help=(
+            "ZMQ observation bind endpoint. "
+            "Default: inproc://hal_observation for inference/portal, tcp://*:6001 for gamepad."
+        ),
     )
     parser.add_argument(
         "--command-bind",
         type=str,
-        default="tcp://*:6002",
-        help="ZMQ command bind endpoint for gamepad mode (default: tcp://*:6002).",
+        default=None,
+        help=(
+            "ZMQ command bind endpoint. "
+            "Default: inproc://hal_commands for inference/portal, tcp://*:6002 for gamepad."
+        ),
     )
     parser.add_argument(
         "--robot",
@@ -196,16 +134,17 @@ def main():
     logging.getLogger("aioice").setLevel(logging.WARNING)
     logging.getLogger("aiortc").setLevel(logging.WARNING)
 
+    # ----- Argument validation and mode-derived configuration -----
+
     if args.control_source == "inference" and not args.checkpoint:
         parser.error("--checkpoint is required when --control-source inference")
     if args.control_source == "portal" and not args.teleop:
         logger.info("control-source=portal selected: enabling --teleop automatically")
         args.teleop = True
-    if args.control_source == "gamepad":
-        _run_gamepad_mode(args)
-        return
+    if args.control_source == "gamepad" and args.teleop:
+        logger.info("control-source=gamepad: ignoring --teleop (no in-process teleop client)")
+        args.teleop = False
 
-    model_definition = PARKOUR_MODEL_OBSERVATION_DEFINITION
     if args.robot == "hex":
         robot_definition = KRABBY_HEX_DEFINITION
         logger.info("Using Krabby Hex robot definition (default)")
@@ -213,16 +152,32 @@ def main():
         # Keep explicit option for Unitree-Go2 checkpoints.
         robot_definition = UNITREE_GO2_DEFINITION
         logger.info("Using Unitree Go2 robot definition")
+
+    if args.control_source == "gamepad" and not robot_definition.get_mcu_joints():
+        parser.error(
+            f"--control-source gamepad requires a robot with MCU joints; "
+            f"'{args.robot}' has none. Use --robot hex for the Krabby hexapod."
+        )
+
+    model_definition = PARKOUR_MODEL_OBSERVATION_DEFINITION
     observation_dimensions = model_definition.get_observation_dimensions(robot_definition)
 
-    # Running flag for graceful shutdown
+    # HAL endpoint selection: gamepad uses TCP so an external krabby-uno client connects
+    # over the network; inference/portal use inproc so in-process clients share a zmq context.
+    if args.control_source == "gamepad":
+        hal_observation_bind = args.observation_bind or "tcp://*:6001"
+        hal_command_bind = args.command_bind or "tcp://*:6002"
+    else:
+        hal_observation_bind = args.observation_bind or INPROC_OBSERVATION_ENDPOINT
+        hal_command_bind = args.command_bind or INPROC_COMMAND_ENDPOINT
+
+    # ----- Signal handling -----
+
     running = True
 
-    def signal_handler(sig, frame):
-        """Handle interrupt signals."""
+    def signal_handler(_signum, _frame):
         nonlocal running
-        logger.info("Received interrupt signal, stopping...")
-        running = False
+        running = False  # no logging — logger is not async-signal-safe
 
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
@@ -234,15 +189,15 @@ def main():
     teleop_stop: threading.Event | None = None
     teleop_thread: threading.Thread | None = None
     teleop_sensor_ids: list[str] | None = None
+    _teleop_st = None
 
     try:
-        # Create HAL server config (inproc for production)
-        hal_server_config = HalServerConfig(
-            observation_bind=OBSERVATION_ENDPOINT,
-            command_bind=COMMAND_ENDPOINT,
-        )
+        # ----- HAL server -----
 
-        # Create and initialize HAL server
+        hal_server_config = HalServerConfig(
+            observation_bind=hal_observation_bind,
+            command_bind=hal_command_bind,
+        )
         hal_server = JetsonHalServer(
             hal_server_config,
             observation_dimensions=observation_dimensions,
@@ -250,11 +205,26 @@ def main():
             robot_definition=robot_definition,
         )
         hal_server.initialize()
-
-        # Initialize hardware (camera, sensors, actuators)
         hal_server.initialize_sensors()
         hal_server.initialize_actuators()
-        hal_server.initialize_cameras()
+
+        # Cameras feed RGB-D observations (inference) and teleop video. Gamepad mode
+        # has no observation consumer and many bench rigs have no ZED — skip the init
+        # so missing hardware doesn't fail startup.
+        if args.control_source != "gamepad":
+            hal_server.initialize_cameras()
+
+        # Gamepad mode strictly requires MCU connectivity — joint commands have no
+        # other destination. Other modes log a warning when the policy/portal first
+        # attempts apply_command, so we don't fail-fast here.
+        if args.control_source == "gamepad" and (
+            hal_server._mcusdk is None or not hal_server._mcusdk.is_connected()
+        ):
+            logger.error("MCU not available — check firmware and wiring. Exiting.")
+            sys.exit(1)
+
+        # ----- Teleop signaling (portal mode, or inference with --teleop) -----
+
         if args.teleop:
             # Bootstrap HAL poll until the browser sends ``catalog_ids`` on hello/offer (portal viewer).
             teleop_sensor_ids = [hal_server._primary_catalog_id]
@@ -274,89 +244,98 @@ def main():
 
         logger.info("HAL server initialized")
 
-        # Get transport context for inproc connections
         transport_context = hal_server.get_transport_context()
 
-        # Shared ZMQ context for inproc clients below. Inference and portal teleop both PUSH to COMMAND_ENDPOINT.
-        teleop_send_commands = args.control_source == "portal"
+        # ----- In-process clients (inference/portal) — gamepad has no in-process client -----
+        # Inference and portal both communicate with HAL over inproc within this process.
+        # Gamepad's command source is an external krabby-uno that connects to the TCP bind.
 
-        # Inference/ParkourInferenceClient: SUB observations; PUSH joint commands (source=inference).
-        inference_hal_client_config = HalClientConfig(
-            observation_endpoint=OBSERVATION_ENDPOINT,
-            command_endpoint=COMMAND_ENDPOINT,
-        )
-        # Teleop thread: SUB observations for WebRTC frames; PUSH to operator bind only when portal drives joints.
-        teleop_hal_client_config = HalClientConfig(
-            observation_endpoint=OBSERVATION_ENDPOINT,
-            command_endpoint=COMMAND_ENDPOINT if teleop_send_commands else None,
-        )
+        if args.control_source != "gamepad":
+            teleop_send_commands = args.control_source == "portal"
 
-        if teleop_sensor_ids is not None:
-            teleop_stop = threading.Event()
-            teleop_thread = start_hal_teleop_signaling_thread(
-                teleop_hal_client_config,
-                transport_context,
-                hal_server.get_sensor_interface(),
-                stop_event=teleop_stop,
-                bootstrap_sensor_catalog_ids=teleop_sensor_ids,
-                teleop_edge_settings=_teleop_st,
-                robot_definition=robot_definition,
-                send_hal_commands=teleop_send_commands,
+            inference_hal_client_config = HalClientConfig(
+                observation_endpoint=hal_observation_bind,
+                command_endpoint=hal_command_bind,
             )
-            logger.info(
-                "Teleop outbound signaling started: mode=%s url=%s reconnect_s=%.1f "
-                "(bootstrap catalog ids=%s; viewer may override via signaling ``catalog_ids``); "
-                "webrtc_hal_commands=%s",
-                _teleop_st.mode,
-                _teleop_st.server_signaling_ws_url,
-                _teleop_st.server_reconnect_s,
-                teleop_sensor_ids,
-                teleop_send_commands,
+            teleop_hal_client_config = HalClientConfig(
+                observation_endpoint=hal_observation_bind,
+                command_endpoint=hal_command_bind if teleop_send_commands else None,
             )
 
-        if args.control_source == "inference":
-            model_weights = ModelWeights(
-                checkpoint_path=args.checkpoint,
-                observation_dimensions=observation_dimensions,
-                action_dim=model_definition.action_dim,
-            )
-
-            parkour_client = ParkourInferenceClient(
-                hal_client_config=inference_hal_client_config,
-                model_weights=model_weights,
-                observation_dimensions=observation_dimensions,
-                robot_definition=robot_definition,
-                control_rate=CONTROL_RATE_HZ,
-                device="cuda",
-                transport_context=transport_context,
-            )
-            parkour_client.initialize()
-            logger.info("Parkour inference client initialized")
-
-            # Start inference client in separate thread
-            parkour_client.start_thread(running_flag=lambda: running)
-            if args.teleop:
+            if teleop_sensor_ids is not None and _teleop_st is not None:
+                teleop_stop = threading.Event()
+                teleop_thread = start_hal_teleop_signaling_thread(
+                    teleop_hal_client_config,
+                    transport_context,
+                    hal_server.get_sensor_interface(),
+                    stop_event=teleop_stop,
+                    bootstrap_sensor_catalog_ids=teleop_sensor_ids,
+                    teleop_edge_settings=_teleop_st,
+                    robot_definition=robot_definition,
+                    send_hal_commands=teleop_send_commands,
+                )
                 logger.info(
-                    "Teleop video active; inference commands use source=inference; operator overrides when portal sends",
+                    "Teleop outbound signaling started: mode=%s url=%s reconnect_s=%.1f "
+                    "(bootstrap catalog ids=%s; viewer may override via signaling ``catalog_ids``); "
+                    "webrtc_hal_commands=%s",
+                    _teleop_st.mode,
+                    _teleop_st.server_signaling_ws_url,
+                    _teleop_st.server_reconnect_s,
+                    teleop_sensor_ids,
+                    teleop_send_commands,
+                )
+
+            if args.control_source == "inference":
+                model_weights = ModelWeights(
+                    checkpoint_path=args.checkpoint,
+                    observation_dimensions=observation_dimensions,
+                    action_dim=model_definition.action_dim,
+                )
+
+                parkour_client = ParkourInferenceClient(
+                    hal_client_config=inference_hal_client_config,
+                    model_weights=model_weights,
+                    observation_dimensions=observation_dimensions,
+                    robot_definition=robot_definition,
+                    control_rate=CONTROL_RATE_HZ,
+                    device="cuda",
+                    transport_context=transport_context,
+                )
+                parkour_client.initialize()
+                logger.info("Parkour inference client initialized")
+                parkour_client.start_thread(running_flag=lambda: running)
+                if args.teleop:
+                    logger.info(
+                        "Teleop video active; inference commands use source=inference; operator overrides when portal sends",
+                    )
+            else:
+                logger.info(
+                    "Portal controller mode active: waiting for teleop control data-channel "
+                    "commands on HAL command socket (%s)",
+                    hal_command_bind,
                 )
         else:
             logger.info(
-                f"Portal controller mode active: waiting for teleop control data-channel commands "
-                f"on HAL command socket ({COMMAND_ENDPOINT})",
+                "Gamepad mode active: HAL bound at observation=%s, command=%s. "
+                "Run `krabby uno` to connect.",
+                hal_observation_bind,
+                hal_command_bind,
             )
+
+        # ----- Data collector (optional, all modes) -----
 
         if args.data_collector_output_dir is not None or args.data_collector_config is not None:
             if args.data_collector_config is not None:
                 dc_cfg = load_config(args.data_collector_config)
-                # Entry-point transport wiring is authoritative for inproc deployment.
-                dc_cfg.hal.observation_endpoint = OBSERVATION_ENDPOINT
-                dc_cfg.hal.command_endpoint = COMMAND_ENDPOINT
+                # Entry-point transport wiring is authoritative.
+                dc_cfg.hal.observation_endpoint = hal_observation_bind
+                dc_cfg.hal.command_endpoint = hal_command_bind
                 if args.data_collector_output_dir is not None:
                     dc_cfg.output_dir = Path(args.data_collector_output_dir).expanduser()
             else:
                 dc_cfg = build_data_collector_config(
-                    observation_endpoint=OBSERVATION_ENDPOINT,
-                    command_endpoint=COMMAND_ENDPOINT,
+                    observation_endpoint=hal_observation_bind,
+                    command_endpoint=hal_command_bind,
                     output_dir=args.data_collector_output_dir,
                 )
             collector_stop = threading.Event()
@@ -369,30 +348,23 @@ def main():
             collector_thread.start()
             logger.info("HalDataCollector thread started (output_dir=%s)", dc_cfg.output_dir)
 
+        # ----- Main loop (unified across all control sources) -----
+
         logger.info(f"Starting production loop at {CONTROL_RATE_HZ} Hz")
         period_s = 1.0 / CONTROL_RATE_HZ
         lag_warning_count = 0
 
-        # Main loop: HAL server operations
         try:
             while running:
                 loop_start_ns = time.time_ns()
 
-                # Publish observations from real sensors
                 hal_server.set_observation()
 
-                # Try to get joint command from the selected command source (non-blocking)
-                # This command was generated from observations we published in a PREVIOUS iteration
-                # We'll apply it in THIS iteration
-                command = hal_server.get_joint_command(timeout_ms=1)  # 1ms timeout for non-blocking check
+                command = hal_server.get_joint_command(timeout_ms=1)
                 if command is not None:
-                    # Apply the command to actuators
                     hal_server.apply_command(command)
-                # If no new command available, reuse the last command to maintain current pose
-                # This allows the robot to continue while inference processes observations
-                # The robot will continue moving based on the last applied command
+                # If no new command available, the last command remains in effect.
 
-                # Timing control
                 loop_end_ns = time.time_ns()
                 loop_duration_s = (loop_end_ns - loop_start_ns) / 1e9
                 sleep_time = max(0.0, period_s - loop_duration_s)
@@ -412,6 +384,8 @@ def main():
                             )
                     else:
                         lag_warning_count = 0
+
+            logger.info("Received interrupt signal, stopping...")
 
         except KeyboardInterrupt:
             logger.info("Interrupted by user")
@@ -433,7 +407,6 @@ def main():
             collector_thread.join(timeout=8.0)
             if collector_thread.is_alive():
                 logger.warning("HalDataCollector thread did not exit within timeout")
-        # Clean up in reverse order of creation
         if parkour_client:
             parkour_client.close()
         if hal_server:
