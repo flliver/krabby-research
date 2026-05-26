@@ -8,12 +8,12 @@ Two-process E2E on Jetson Orin: **Pro Controller** → **ControlLoop (INPUT_CONT
 
 ```bash
 pip install krabby-launcher
-krabby install            # pull mainline-latest, set up udev + dialout
-krabby firmware show      # verify all three boards are visible
-krabby run                # start the locomotion stack
+krabby install              # pull mainline-latest, set up udev + dialout
+krabby firmware show        # verify all three boards are visible
+krabby run --gamepad-only   # start the locomotion stack in gamepad mode
 ```
 
-`krabby run` starts the container with `--privileged -v /dev:/dev`, which passes through the MCU serial ports (`/dev/ttyACM*`, `/dev/ttyUSB*`) **and** all input devices (`/dev/input/*`) in a single flag — no separate `--device` arguments needed.
+`krabby run --gamepad-only` starts the container with `--privileged -v /dev:/dev`, which passes through the MCU serial ports (`/dev/ttyACM*`, `/dev/ttyUSB*`) **and** all input devices (`/dev/input/*`) in a single flag — no separate `--device` arguments needed.
 
 With the container running, start the control-loop client on the host (or inside the container):
 
@@ -30,23 +30,13 @@ Pair the Pro Controller over Bluetooth before starting the container (see [CONNE
 
 ### Testing without a checkpoint (gamepad-only mode)
 
-The release image's default entrypoint (`hal.server.jetson.main`) requires `--checkpoint`. To run the gamepad-only HAL server without inference — for controller testing or AC verification — use `--entrypoint` with a workspace mount:
-
 **Terminal 1 — HAL server in container (gamepad-only):**
 
 ```bash
-# Clone the repo on the Jetson first if not present:
-git clone --depth=1 --branch main https://github.com/flliver/krabby-research.git /tmp/krabby-research
-
-krabby run \
-  --entrypoint python3 \
-  --mount /tmp/krabby-research:/workspace \
-  -- /workspace/controller/scripts/jetson/main_gamepad_only.py
+krabby run --gamepad-only
 ```
 
-> Note: `main_gamepad_only.py` is not included in the PyPI-installed packages; the workspace mount makes it available inside the container. All dependencies (`krabby-hal-server-jetson`, `krabby-controller`, etc.) are already installed in the image.
-
-Wait for: `Gamepad-only HAL server initialized (ZMQ TCP). ... Waiting for joint commands...`
+Wait for: `HAL server started in gamepad-only mode ... Run \`krabby uno\` to connect.`
 
 **Terminal 2 — control-loop client on host:**
 
@@ -79,15 +69,13 @@ It is recommended to use a Python virtual environment to isolate dependencies: c
 
 ### Terminal 1: HAL server
 
-From **krabby-research**:
-
 ```bash
-python controller/scripts/jetson/main_gamepad_only.py
+krabby run --gamepad-only
 ```
 
-Custom bind: `--observation_bind tcp://*:6001 --command_bind tcp://*:6002`. Optional: `--mcu-port`, `--mcu-baud` (115200).
+Custom bind ports: `krabby-hal-server-jetson --control-source gamepad --observation-bind tcp://*:6001 --command-bind tcp://*:6002`
 
-Wait for: `Gamepad-only HAL server initialized (ZMQ TCP). ... Waiting for joint commands...`
+Wait for: `HAL server started in gamepad-only mode ... Run \`krabby uno\` to connect.`
 
 ### Terminal 2: Control-loop client
 
@@ -151,15 +139,14 @@ Override the default entrypoint to run the gamepad-only server:
 docker run --rm --privileged --runtime=nvidia \
   -v /dev:/dev \
   -p 6001:6001 -p 6002:6002 \
-  --entrypoint python3 \
+  --entrypoint krabby-hal-server-jetson \
   krabby-locomotion:latest \
-  -m controller.scripts.jetson.main_gamepad_only \
-  --observation_bind tcp://*:6001 --command_bind tcp://*:6002
+  --control-source gamepad \
+  --observation-bind tcp://*:6001 --command-bind tcp://*:6002
 ```
 
 - `--privileged`: required so the container can open the serial device (e.g. `/dev/ttyACM0`) for the MCU; otherwise you may see "Operation not permitted".
 - `-v /dev:/dev`: serial access for MCU (e.g. `/dev/ttyACM0`).
-- Optional: `--mcu-port`, `--mcu-baud` if needed.
 - Alternatively: `./controller/scripts/jetson/helper/run_gamepad_hal_server_only_in_container.sh`
 
 #### Terminal 2: Control-loop client (on host)

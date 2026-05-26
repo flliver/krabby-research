@@ -12,8 +12,9 @@ if [ ! -e "$MCU_PORT" ]; then
   exit 1
 fi
 
-python3 -m controller.scripts.jetson.main_gamepad_only \
-  --observation_bind tcp://*:6001 --command_bind tcp://*:6002 &
+krabby-hal-server-jetson \
+  --control-source gamepad \
+  --observation-bind tcp://*:6001 --command-bind tcp://*:6002 &
 SERVER_PID=$!
 
 sleep 2

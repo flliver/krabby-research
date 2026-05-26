@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "krabby-hal-server-jetson"
-version = "0.1.4"
+version = "0.1.5"
 description = "HAL server implementation for Jetson with integrated inference"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -46,7 +46,6 @@ maixsense = [
 
 [project.scripts]
 krabby-hal-server-jetson = "hal.server.jetson.main:main"
-krabby-hal-server-gamepad-only = "hal.server.jetson.main_gamepad_only:main"
 
 [tool.setuptools]
 package-dir = {"hal" = "../.."}
