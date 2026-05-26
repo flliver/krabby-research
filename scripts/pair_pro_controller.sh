@@ -15,7 +15,7 @@ cleanup() {
     bt scan off
     bt discoverable off
     bt pairable off
-    [ -n "$BTMON_PID" ] && kill "$BTMON_PID" 2>/dev/null || true
+    [ -n "$BTMON_PID" ] && sudo kill "$BTMON_PID" 2>/dev/null || true
     rm -f "$BTMON_LOG"
 }
 
@@ -33,7 +33,7 @@ ADAPTER_MAC=$(bluetoothctl show | awk '/Controller/{print $2; exit}')
 echo "    Adapter: $ADAPTER_MAC"
 
 echo "[2] Starting btmon to capture link key..."
-sudo setsid btmon --no-pager > "$BTMON_LOG" 2>&1 &
+sudo btmon --no-pager > "$BTMON_LOG" 2>&1 &
 BTMON_PID=$!
 sleep 0.5
 
