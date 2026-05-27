@@ -8,7 +8,66 @@ Bench watchdog for the Krabby locomotion stack. Polls ECR for new `mainline-late
 sudo pip3 install krabby-bench
 ```
 
-Then bootstrap the systemd service as root, passing credentials via environment variables:
+Then bootstrap the systemd service as root.
+
+### SSM mode (recommended for fleet use)
+
+Credentials live in AWS SSM Parameter Store and are fetched at runtime. Nothing sensitive is stored in plaintext on the device.
+
+```bash
+sudo \
+  BENCH_AWS_KEY_ID=AKIA... \
+  BENCH_AWS_SECRET_KEY=... \
+  krabby-bench install \
+    --ssm-prefix /krabby/bench \
+    [--ecr-tag mainline-latest] \
+    [--firmware-channel release/0.2.9] \
+    [--mode both]
+```
+
+`install` writes `/etc/krabby-bench/config.toml`, then enables and starts the service.
+
+#### SSM parameter layout
+
+Create these in AWS SSM Parameter Store before or after installing. The service starts without them and logs a single warning; it picks them up automatically within one `credentials_refresh_interval` (default: 3600 s) once they exist.
+
+| Path | Type | Description |
+|---|---|---|
+| `/krabby/bench/smtp-host` | String | SMTP server hostname |
+| `/krabby/bench/smtp-port` | String | SMTP port (default `587`) |
+| `/krabby/bench/smtp-user` | String | SMTP login username |
+| `/krabby/bench/smtp-password` | SecureString | SMTP login password |
+| `/krabby/bench/smtp-from` | String | From address |
+| `/krabby/bench/smtp-to` | String | Alert recipient address |
+| `/krabby/bench/github-repo` | String | `owner/repo` to open issues against |
+| `/krabby/bench/github-token` | SecureString | Fine-grained PAT with Issues write scope |
+
+#### IAM policy
+
+The IAM user whose access key is passed to `install` needs only:
+
+```json
+{
+  "Effect": "Allow",
+  "Action": "ssm:GetParametersByPath",
+  "Resource": "arn:aws:ssm:*:*:parameter/krabby/bench/*"
+}
+```
+
+#### Credential rotation
+
+Update values in SSM. Devices pick up the new credentials within one poll interval — no SSH required.
+
+To rotate the AWS access key, re-run `install` with the new key:
+
+```bash
+sudo BENCH_AWS_KEY_ID=AKIANEW... BENCH_AWS_SECRET_KEY=... \
+  krabby-bench install --ssm-prefix /krabby/bench
+```
+
+### Legacy mode
+
+Pass credentials via environment variables. Written to `/etc/krabby-bench/smtp.env` (mode 600) and loaded by the systemd unit.
 
 ```bash
 sudo \
@@ -23,9 +82,7 @@ sudo \
   krabby-bench install [--ecr-tag mainline-latest] [--firmware-channel release/0.2.9] [--mode both]
 ```
 
-`install` writes `/etc/krabby-bench/config.toml`, `/etc/krabby-bench/smtp.env` (mode 600), and `/etc/systemd/system/krabby-bench.service`, then enables and starts the service. Credentials live only on the device — never in source control.
-
-### Environment variables
+#### Legacy environment variables
 
 | Variable | Required for | Description |
 |---|---|---|
@@ -38,11 +95,9 @@ sudo \
 | `BENCH_GITHUB_REPO` | GitHub alerts | `owner/repo` to open issues against |
 | `BENCH_GITHUB_TOKEN` | GitHub alerts | Fine-grained PAT with Issues write scope |
 
-SMTP vars are written to `/etc/krabby-bench/smtp.env` and loaded by the systemd unit at runtime. They can also be set directly in the environment when testing without the service.
-
 ## Config
 
-Non-secret fields only — credentials come from the env vars above.
+Non-secret fields only — credentials come from SSM or the env vars above.
 
 Default path: `/etc/krabby-bench/config.toml`
 
@@ -62,7 +117,10 @@ dedup_window = 3600         # suppress repeat alerts for the same failure (secon
 
 [github]
 repo = "owner/krabby-research"
-token = ""                  # leave blank — set BENCH_GITHUB_TOKEN instead
+
+[ssm]
+prefix = "/krabby/bench"
+credentials_refresh_interval = 3600   # how often to re-fetch from SSM (seconds)
 ```
 
 ## Smoke test
@@ -95,3 +153,11 @@ Within one poll cycle the watchdog detects the failure and fires an alert.
 ## State file
 
 `/var/lib/krabby-bench/state.json` — persists the last-tested digest and last-alert metadata. Clear it to force a re-test on the next poll.
+
+## Local development
+
+Set `BENCH_SMTP_*` and `BENCH_GITHUB_TOKEN` env vars directly; the watchdog reads them as fallback when no SSM prefix is configured:
+
+```bash
+BENCH_SMTP_HOST=smtp.example.com ... python -m krabby_bench.watchdog
+```

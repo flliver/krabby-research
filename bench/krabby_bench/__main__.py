@@ -35,7 +35,8 @@ def main() -> None:
     install_p = subparsers.add_parser(
         "install",
         help="Bootstrap the systemd service (must run as root). "
-             "Reads credentials from BENCH_SMTP_* and BENCH_GITHUB_TOKEN env vars.",
+             "SSM mode: set BENCH_AWS_KEY_ID + BENCH_AWS_SECRET_KEY and pass --ssm-prefix. "
+             "Legacy mode: set BENCH_SMTP_* and BENCH_GITHUB_TOKEN env vars.",
     )
     install_p.add_argument("--ecr-tag", default=EcrConfig.tag, metavar="TAG")
     install_p.add_argument("--firmware-channel", default=SmokeConfig.firmware_channel, metavar="CHANNEL")
@@ -43,6 +44,8 @@ def main() -> None:
                            help="Alert mode (default: both)")
     install_p.add_argument("--github-repo", default=os.environ.get("BENCH_GITHUB_REPO", ""),
                            metavar="OWNER/REPO")
+    install_p.add_argument("--ssm-prefix", default="", metavar="PREFIX",
+                           help="SSM parameter path prefix, e.g. /krabby/bench")
 
     args = parser.parse_args()
 
@@ -57,6 +60,7 @@ def main() -> None:
             firmware_channel=args.firmware_channel,
             mode=args.mode,
             github_repo=args.github_repo,
+            ssm_prefix=args.ssm_prefix,
         )
         return
 

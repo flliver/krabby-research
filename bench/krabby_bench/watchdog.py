@@ -74,10 +74,34 @@ def poll_once(config: Config, state: dict) -> dict:
     return new_state
 
 
+def _load_credentials(config: Config) -> tuple | None:
+    """Try SSM for SmtpConfig + GithubConfig. Returns None if SSM is not configured or fails."""
+    if not config.ssm.prefix:
+        return None
+    from krabby_bench._secrets import read_device_key
+    from krabby_bench._ssm import fetch_secrets
+    if not (key := read_device_key()):
+        return None
+    return fetch_secrets(config.ssm.prefix, *key)
+
+
 def run(config: Config) -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     log.info("krabby-bench watchdog starting (interval=%ds)", config.ecr.poll_interval)
     state = load_state(config.state_path)
+    cred_warning_logged = False
+    last_cred_refresh = 0.0  # forces a credential fetch on the first iteration
+
     while True:
+        now = time.monotonic()
+        if now - last_cred_refresh >= config.ssm.credentials_refresh_interval:
+            if (creds := _load_credentials(config)):
+                config.smtp, config.github = creds
+                cred_warning_logged = False
+            elif config.ssm.prefix and not cred_warning_logged:
+                log.warning("SSM credentials unavailable — alert delivery disabled")
+                cred_warning_logged = True
+            last_cred_refresh = now
+
         state = poll_once(config, state)
         time.sleep(config.ecr.poll_interval)

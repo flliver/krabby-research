@@ -53,12 +53,19 @@ class GithubConfig:
 
 
 @dataclass
+class SsmConfig:
+    prefix: str = ""
+    credentials_refresh_interval: int = 3600
+
+
+@dataclass
 class Config:
     ecr: EcrConfig = field(default_factory=EcrConfig)
     smoke: SmokeConfig = field(default_factory=SmokeConfig)
     alert: AlertConfig = field(default_factory=AlertConfig)
     smtp: SmtpConfig = field(default_factory=SmtpConfig)
     github: GithubConfig = field(default_factory=GithubConfig)
+    ssm: SsmConfig = field(default_factory=SsmConfig)
     state_path: Path = field(default_factory=lambda: STATE_PATH)
 
 
@@ -85,6 +92,8 @@ def load_config(path: Path = CONFIG_PATH) -> Config:
         cfg.smtp = _overlay(cfg.smtp, smtp_raw)
     if "github" in raw:
         cfg.github = _overlay(cfg.github, raw["github"])
+    if "ssm" in raw:
+        cfg.ssm = _overlay(cfg.ssm, raw["ssm"])
     if "state_path" in raw:
         cfg.state_path = Path(raw["state_path"])
     return cfg

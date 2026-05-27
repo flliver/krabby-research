@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 import sys
 sys.path.insert(0, str(Path(__file__).parents[3] / "bench"))
 
-from krabby_bench._config import Config, AlertConfig, SmtpConfig, GithubConfig, load_config
+from krabby_bench._config import Config, AlertConfig, SmtpConfig, GithubConfig, SsmConfig, load_config
 from krabby_bench._state import load_state, save_state
 from krabby_bench._smoke import SmokeResult, _parse_ports, _parse_versions, run_smoke
 from krabby_bench._alert import should_alert, send_alert
@@ -370,3 +370,146 @@ class TestPollOnce:
             new_state = poll_once(cfg, state)
 
         mock_alert.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# _config: SsmConfig
+# ---------------------------------------------------------------------------
+
+class TestSsmConfig:
+    def test_ssm_defaults(self):
+        cfg = Config()
+        assert cfg.ssm.prefix == ""
+        assert cfg.ssm.credentials_refresh_interval == 3600
+
+    def test_toml_overrides_ssm_prefix(self, tmp_path):
+        p = tmp_path / "config.toml"
+        p.write_text('[ssm]\nprefix = "/krabby/bench"\n')
+        cfg = load_config(p)
+        assert cfg.ssm.prefix == "/krabby/bench"
+
+    def test_toml_overrides_ssm_refresh_interval(self, tmp_path):
+        p = tmp_path / "config.toml"
+        p.write_text('[ssm]\nprefix = "/k"\ncredentials_refresh_interval = 1800\n')
+        cfg = load_config(p)
+        assert cfg.ssm.credentials_refresh_interval == 1800
+
+
+# ---------------------------------------------------------------------------
+# _secrets: Fernet device key roundtrip
+# ---------------------------------------------------------------------------
+
+class TestSecrets:
+    def test_write_and_read_roundtrip(self, tmp_path):
+        from krabby_bench._secrets import write_device_key, read_device_key
+        salt_path = tmp_path / "salt"
+        enc_path = tmp_path / "secrets.enc"
+        with patch("krabby_bench._secrets._machine_id", return_value="test-machine-id-12345"):
+            write_device_key("AKIATEST", "secretkey", salt_path=salt_path, enc_path=enc_path)
+            result = read_device_key(salt_path=salt_path, enc_path=enc_path)
+        assert result == ("AKIATEST", "secretkey")
+
+    def test_read_returns_none_when_files_missing(self, tmp_path):
+        from krabby_bench._secrets import read_device_key
+        result = read_device_key(
+            salt_path=tmp_path / "salt",
+            enc_path=tmp_path / "secrets.enc",
+        )
+        assert result is None
+
+    def test_read_returns_none_on_corrupt_data(self, tmp_path):
+        from krabby_bench._secrets import read_device_key
+        salt_path = tmp_path / "salt"
+        enc_path = tmp_path / "secrets.enc"
+        salt_path.write_text("somesalt")
+        enc_path.write_bytes(b"not-valid-fernet-data")
+        with patch("krabby_bench._secrets._machine_id", return_value="test-machine-id-12345"):
+            result = read_device_key(salt_path=salt_path, enc_path=enc_path)
+        assert result is None
+
+    def test_read_returns_none_on_permission_error(self, tmp_path):
+        from krabby_bench._secrets import read_device_key
+        salt_path = tmp_path / "salt"
+        enc_path = tmp_path / "secrets.enc"
+        salt_path.write_text("somesalt")
+        enc_path.write_bytes(b"somedata")
+        salt_path.chmod(0o000)
+        try:
+            result = read_device_key(salt_path=salt_path, enc_path=enc_path)
+        finally:
+            salt_path.chmod(0o600)  # restore so tmp_path cleanup succeeds
+        assert result is None
+
+
+# ---------------------------------------------------------------------------
+# _ssm: fetch_secrets
+# ---------------------------------------------------------------------------
+
+class TestSsmFetch:
+    def _make_paginator(self, params: dict[str, str]):
+        """Build a mock boto3 paginator that returns the given name→value dict."""
+        page = {
+            "Parameters": [{"Name": k, "Value": v} for k, v in params.items()]
+        }
+        mock_pager = MagicMock()
+        mock_pager.paginate.return_value = [page]
+        return mock_pager
+
+    def test_returns_smtp_and_github_config(self):
+        from krabby_bench._ssm import fetch_secrets
+        ssm_params = {
+            "/krabby/bench/smtp-host": "smtp.example.com",
+            "/krabby/bench/smtp-port": "587",
+            "/krabby/bench/smtp-user": "user@example.com",
+            "/krabby/bench/smtp-password": "secret",
+            "/krabby/bench/smtp-from": "from@example.com",
+            "/krabby/bench/smtp-to": "to@example.com",
+            "/krabby/bench/github-repo": "owner/repo",
+            "/krabby/bench/github-token": "ghp_token",
+        }
+        mock_client = MagicMock()
+        mock_client.get_paginator.return_value = self._make_paginator(ssm_params)
+
+        with patch("boto3.client", return_value=mock_client):
+            result = fetch_secrets("/krabby/bench", "AKIATEST", "secretkey")
+
+        assert result is not None
+        smtp, github = result
+        assert smtp.host == "smtp.example.com"
+        assert smtp.password == "secret"
+        assert github.repo == "owner/repo"
+        assert github.token == "ghp_token"
+
+    def test_returns_none_on_boto3_exception(self):
+        from krabby_bench._ssm import fetch_secrets
+        with patch("boto3.client", side_effect=Exception("network error")):
+            result = fetch_secrets("/krabby/bench", "AKIATEST", "secretkey")
+        assert result is None
+
+    def test_returns_none_when_boto3_missing(self):
+        from krabby_bench._ssm import fetch_secrets
+        with patch.dict("sys.modules", {"boto3": None}):
+            result = fetch_secrets("/krabby/bench", "AKIATEST", "secretkey")
+        assert result is None
+
+    def test_returns_none_when_params_empty(self):
+        from krabby_bench._ssm import fetch_secrets
+        mock_client = MagicMock()
+        mock_pager = MagicMock()
+        mock_pager.paginate.return_value = [{"Parameters": []}]
+        mock_client.get_paginator.return_value = mock_pager
+        with patch("boto3.client", return_value=mock_client):
+            result = fetch_secrets("/krabby/bench", "AKIATEST", "secretkey")
+        assert result is None
+
+    def test_returns_none_on_invalid_smtp_port(self):
+        from krabby_bench._ssm import fetch_secrets
+        ssm_params = {
+            "/krabby/bench/smtp-host": "smtp.example.com",
+            "/krabby/bench/smtp-port": "not-a-number",
+        }
+        mock_client = MagicMock()
+        mock_client.get_paginator.return_value = self._make_paginator(ssm_params)
+        with patch("boto3.client", return_value=mock_client):
+            result = fetch_secrets("/krabby/bench", "AKIATEST", "secretkey")
+        assert result is None

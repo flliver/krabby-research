@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "krabby-bench"
-version = "0.1.1"
+version = "0.2.0"
 description = "Bench watchdog: polls ECR, runs smoke tests, and alerts on failure"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -15,6 +15,8 @@ authors = [
 dependencies = [
     "requests>=2.31.0",
     "tomli>=2.0.0; python_version < '3.11'",
+    "boto3>=1.34.0",
+    "cryptography>=42.0.0",
 ]
 
 [project.scripts]
