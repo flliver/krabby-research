@@ -14,7 +14,7 @@ top) for **3–5 seconds** until the four LEDs start **flashing rapidly**.
 ## 2. Run the pairing script
 
 ```bash
-sudo bash scripts/pair_pro_controller.sh
+sudo bash scripts/jetson/pair_pro_controller.sh
 ```
 
 The script scans for a nearby Pro Controller, pairs it, captures the link key
@@ -58,7 +58,7 @@ jstest /dev/input/js0
 Press the **Home** button. The controller will reconnect automatically; no
 re-pairing is needed. LED 1 will light up when connected.
 
-If it fails to reconnect, re-run `scripts/pair_pro_controller.sh`.
+If it fails to reconnect, re-run `scripts/jetson/pair_pro_controller.sh`.
 
 ## Troubleshooting
 

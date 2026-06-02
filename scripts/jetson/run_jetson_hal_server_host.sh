@@ -5,11 +5,11 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 print_usage() {
   cat <<'EOF'
-Usage: scripts/run_jetson_hal_server_host.sh
+Usage: scripts/jetson/run_jetson_hal_server_host.sh
 
 Launches Jetson HAL server in Docker using hardcoded settings in this script.
 

@@ -54,7 +54,7 @@ make install-editable
 Tests require GPU access in Docker. If you see "could not select device driver" errors, configure Docker for GPU support:
 
 ```bash
-./scripts/setup-docker-gpu.sh
+./scripts/jetson/setup-docker-gpu.sh
 ```
 
 This installs `nvidia-container-toolkit` and configures Docker to use it. Requires sudo access.
