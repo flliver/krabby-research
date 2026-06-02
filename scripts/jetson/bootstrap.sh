@@ -2,12 +2,17 @@
 # bootstrap.sh — one-command bring-up for a fresh NVIDIA Jetson Orin.
 #
 # Chains the individual bring-up steps, in order, idempotently:
-#   1. install-docker.sh    — Docker Engine               (section 2 of the guide)
-#   2. setup-docker-gpu.sh  — NVIDIA container runtime     (section 3 of the guide)
-#   3. krabby-launcher      — python3-pip + pip install krabby-launcher
-#   4. krabby install       — udev rules, dialout group, boot autostart unit
-#   5. krabby-bench         — error-reporting watchdog (only when SSM IAM keys
+#   1. remove brltty        — frees USB serial boards (see note below)
+#   2. install-docker.sh    — Docker Engine               (section 2 of the guide)
+#   3. setup-docker-gpu.sh  — NVIDIA container runtime     (section 3 of the guide)
+#   4. krabby-launcher      — python3-pip + pip install krabby-launcher
+#   5. krabby install       — udev rules, dialout group, boot autostart unit
+#   6. krabby-bench         — error-reporting watchdog (only when SSM IAM keys
 #                             are provided; see "SSM error reporting" below)
+#
+# brltty: its udev rules claim CH340/Arduino-class USB serial adapters as
+# Braille displays, so the Mega/MCU boards vanish from /dev/ttyACM*. Step 1
+# purges it. Harmless to re-run when it's already gone.
 #
 # Each step self-skips when its work is already done, so re-running is safe.
 #
@@ -15,22 +20,22 @@
 #     ./scripts/jetson/bootstrap.sh [options]
 #
 # Options:
-#     --skip-docker         Skip steps 1 and 2 (Docker already configured).
+#     --skip-docker         Skip steps 2 and 3 (Docker already configured).
 #     --no-krabby-install   Install the krabby-launcher package but do not run
 #                           'krabby install' (skips udev/dialout/boot-autostart).
 #     --ssm-prefix PREFIX   SSM parameter path prefix for the watchdog
 #                           (default: /krabby/bench).
 #     -h, --help            Show this help and exit.
 #
-# SSM error reporting (step 5, optional):
-#     Step 5 installs the krabby-bench watchdog so the device can report smoke-
+# SSM error reporting (step 6, optional):
+#     Step 6 installs the krabby-bench watchdog so the device can report smoke-
 #     test failures via SMTP/GitHub. It runs only when this device's read-only
 #     IAM key is provided in the environment:
 #         BENCH_AWS_KEY_ID, BENCH_AWS_SECRET_KEY
 #     The watchdog fetches the shared SMTP/GitHub secrets from AWS SSM at
 #     runtime. Those secrets are seeded fleet-wide, off-device, by an operator
 #     (see bench/README.md and set-ssm-params.zsh) — bootstrap does not seed
-#     them. Without the IAM keys, step 5 is skipped with a note.
+#     them. Without the IAM keys, step 6 is skipped with a note.
 #         BENCH_AWS_KEY_ID=AKIA... BENCH_AWS_SECRET_KEY=... \
 #             ./scripts/jetson/bootstrap.sh
 #
@@ -87,19 +92,33 @@ fi
 
 step() { echo; echo "================================================================"; echo "  $1"; echo "================================================================"; }
 
-# --- 1 & 2: Docker Engine + NVIDIA container runtime ---------------------------
+# --- 1: Remove brltty (grabs USB serial / MCU boards) --------------------------
+# brltty's udev rules (85-brltty.rules) claim CH340/Arduino-class USB serial
+# adapters as Braille displays, so the Mega/MCU boards disappear from
+# /dev/ttyACM*. Purge it so the HAL boards stay attached.
+step "Step 1: Remove brltty (conflicts with USB serial boards)"
+if dpkg -l brltty 2>/dev/null | grep -q '^ii'; then
+    $SUDO systemctl stop brltty-udev.service 2>/dev/null || true
+    $SUDO apt-get purge -y brltty
+    $SUDO udevadm control --reload-rules && $SUDO udevadm trigger || true
+    echo "✓ brltty removed"
+else
+    echo "✓ brltty not installed; nothing to remove"
+fi
+
+# --- 2 & 3: Docker Engine + NVIDIA container runtime ---------------------------
 if [[ "$SKIP_DOCKER" == true ]]; then
     echo "==> Skipping Docker steps (--skip-docker)"
 else
-    step "Step 1/4: Docker Engine"
+    step "Step 2: Docker Engine"
     "$SCRIPT_DIR/install-docker.sh"
 
-    step "Step 2/4: NVIDIA container runtime (GPU access)"
+    step "Step 3: NVIDIA container runtime (GPU access)"
     "$SCRIPT_DIR/setup-docker-gpu.sh"
 fi
 
-# --- 3: krabby-launcher --------------------------------------------------------
-step "Step 3/4: krabby-launcher"
+# --- 4: krabby-launcher --------------------------------------------------------
+step "Step 4: krabby-launcher"
 if ! command -v pip3 &> /dev/null; then
     echo "==> Installing python3-pip"
     $SUDO apt-get update
@@ -113,9 +132,9 @@ fi
 echo "==> Installing/upgrading krabby-launcher"
 $SUDO pip3 install --upgrade krabby-launcher
 
-# --- 4: krabby install ---------------------------------------------------------
+# --- 5: krabby install ---------------------------------------------------------
 if [[ "$RUN_KRABBY_INSTALL" == true ]]; then
-    step "Step 4/4: krabby install"
+    step "Step 5: krabby install"
     $SUDO krabby install
 else
     echo
@@ -123,12 +142,12 @@ else
     echo "    Run it later with: sudo krabby install"
 fi
 
-# --- 5: krabby-bench (SSM error-reporting watchdog) ----------------------------
+# --- 6: krabby-bench (SSM error-reporting watchdog) ----------------------------
 # Opt-in: runs only when this device's read-only IAM key is in the environment.
 # The watchdog reads the shared SMTP/GitHub secrets from SSM at runtime; those
 # are seeded fleet-wide by an operator (set-ssm-params.zsh), not by bootstrap.
 if [[ -n "${BENCH_AWS_KEY_ID:-}" && -n "${BENCH_AWS_SECRET_KEY:-}" ]]; then
-    step "Step 5/5: krabby-bench (error reporting via SSM)"
+    step "Step 6: krabby-bench (error reporting via SSM)"
     echo "==> Installing/upgrading krabby-bench"
     $SUDO pip3 install --upgrade krabby-bench
     echo "==> Running krabby-bench install (--ssm-prefix ${SSM_PREFIX})"
@@ -139,7 +158,7 @@ if [[ -n "${BENCH_AWS_KEY_ID:-}" && -n "${BENCH_AWS_SECRET_KEY:-}" ]]; then
           BENCH_AWS_SECRET_KEY="$BENCH_AWS_SECRET_KEY" \
           krabby-bench install --ssm-prefix "$SSM_PREFIX"
 else
-    step "Step 5/5: krabby-bench (skipped)"
+    step "Step 6: krabby-bench (skipped)"
     echo "==> BENCH_AWS_KEY_ID / BENCH_AWS_SECRET_KEY not set — skipping the"
     echo "    error-reporting watchdog. To enable it later:"
     echo "      sudo pip3 install krabby-bench"

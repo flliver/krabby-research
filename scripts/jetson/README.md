@@ -45,13 +45,16 @@ operator (off-device) — see [bench/README.md](../../bench/README.md) and
 `bootstrap.sh` runs these for you; use them on their own to re-run or debug a
 single step.
 
-1. **`install-docker.sh`** — install Docker Engine (section 2 of the guide).
-2. **`setup-docker-gpu.sh`** — install the NVIDIA Container Toolkit and wire up
+1. **Remove `brltty`**: `sudo apt-get purge -y brltty`. Its udev rules grab
+   CH340/Arduino-class USB serial adapters as Braille displays, so the Mega/MCU
+   boards vanish from `/dev/ttyACM*` (see Notes).
+2. **`install-docker.sh`** — install Docker Engine (section 2 of the guide).
+3. **`setup-docker-gpu.sh`** — install the NVIDIA Container Toolkit and wire up
    the `nvidia` Docker runtime for GPU access (section 3). Requires the NVIDIA
    drivers (`nvidia-smi`) to already be present.
-3. Install the launcher: `sudo pip3 install krabby-launcher && sudo krabby
+4. Install the launcher: `sudo pip3 install krabby-launcher && sudo krabby
    install`, then pull/run the locomotion image.
-4. _(Optional)_ Install the error-reporting watchdog: `sudo pip3 install
+5. _(Optional)_ Install the error-reporting watchdog: `sudo pip3 install
    krabby-bench && sudo BENCH_AWS_KEY_ID=… BENCH_AWS_SECRET_KEY=… krabby-bench
    install --ssm-prefix /krabby/bench`. See
    [bench/README.md](../../bench/README.md).
@@ -73,3 +76,8 @@ single step.
   needs; run containers with `--network host` (the locomotion stack does this).
 - `docker` group membership only takes effect on next login — run `newgrp
   docker` or log out/in to use Docker without `sudo`.
+- **`brltty`** ships by default on Ubuntu and its udev rules claim
+  CH340/Arduino-class USB serial adapters as Braille displays, which makes the
+  Mega/MCU boards disappear from `/dev/ttyACM*` shortly after they enumerate.
+  `bootstrap.sh` purges it (step 1); to do it by hand: `sudo apt-get purge -y
+  brltty`.
