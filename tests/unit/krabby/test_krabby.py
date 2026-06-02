@@ -209,7 +209,7 @@ class TestInstallLaunchFlag:
 # _docker: command construction
 # ---------------------------------------------------------------------------
 
-from krabby._docker import gpu_flags, serial_device_flags, run_cmd, firmware_cmd, gamepad_cmd
+from krabby._docker import gpu_flags, network_flags, serial_device_flags, run_cmd, firmware_cmd, gamepad_cmd
 
 
 class TestGpuFlags:
@@ -220,6 +220,18 @@ class TestGpuFlags:
     def test_x86_64_returns_gpus_all(self, monkeypatch):
         monkeypatch.setattr("krabby._docker.platform.machine", lambda: "x86_64")
         assert gpu_flags() == ["--gpus", "all"]
+
+
+class TestNetworkFlags:
+    def test_aarch64_uses_host_networking(self, monkeypatch):
+        # Tegra kernels lack the iptables `raw` table Docker's bridge needs to
+        # publish ports, so the Jetson path must use host networking, not `-p`.
+        monkeypatch.setattr("krabby._docker.platform.machine", lambda: "aarch64")
+        assert network_flags() == ["--network", "host"]
+
+    def test_x86_64_publishes_ports(self, monkeypatch):
+        monkeypatch.setattr("krabby._docker.platform.machine", lambda: "x86_64")
+        assert network_flags() == ["-p", "6001:6001", "-p", "6002:6002"]
 
 
 class TestSerialDeviceFlags:
@@ -262,6 +274,14 @@ class TestRunCmd:
         assert "-p" in cmd
         assert "6001:6001" in cmd
         assert "6002:6002" in cmd
+
+    def test_aarch64_uses_host_network_not_published_ports(self, monkeypatch):
+        # Regression: on Jetson the bridge driver fails to publish ports
+        # (kernel lacks iptables `raw`), so the run command must use host net.
+        monkeypatch.setattr("krabby._docker.platform.machine", lambda: "aarch64")
+        cmd = run_cmd("myimage:tag", [])
+        assert "--network" in cmd and "host" in cmd
+        assert "-p" not in cmd
 
     def test_extra_args_appended(self, monkeypatch):
         monkeypatch.setattr("krabby._docker.platform.machine", lambda: "x86_64")

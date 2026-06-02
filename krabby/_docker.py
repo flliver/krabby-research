@@ -13,6 +13,21 @@ def gpu_flags() -> list[str]:
     return ["--gpus", "all"]
 
 
+def network_flags() -> list[str]:
+    """Networking flags for the HAL server's ZMQ endpoints (6001/6002).
+
+    Jetson (Tegra) kernels don't ship the iptables `raw` table that Docker's
+    default bridge driver needs to publish ports, so `-p` fails at container
+    start with "can't initialize iptables table `raw'" (exit 125). Use host
+    networking there — the server binds 6001/6002 directly on the host. On
+    x86 (testing) the bridge works, so keep explicit port publishing.
+    See docs/JETSON_DEPLOYMENT.md "Docker iptables / networking errors".
+    """
+    if platform.machine() == "aarch64":
+        return ["--network", "host"]
+    return ["-p", "6001:6001", "-p", "6002:6002"]
+
+
 def serial_device_flags() -> list[str]:
     flags: list[str] = []
     for pattern in ("/dev/ttyACM*", "/dev/ttyUSB*"):
@@ -52,8 +67,7 @@ def run_cmd(image_ref: str, extra_args: list[str], entrypoint: str | None = None
         *ep,
         "-v", "/dev:/dev",
         *mounts,
-        "-p", "6001:6001",
-        "-p", "6002:6002",
+        *network_flags(),
         image_ref,
         *extra_args,
     ]
@@ -138,8 +152,7 @@ def gamepad_cmd(image_ref: str, extra_args: list[str], extra_mounts: list[str] |
         *gpu_flags(),
         "-v", "/dev:/dev",
         *mounts,
-        "-p", "6001:6001",
-        "-p", "6002:6002",
+        *network_flags(),
         "--entrypoint", "bash",
         image_ref,
         "-c", _gamepad_launch_script(server_robot),
