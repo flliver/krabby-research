@@ -13,18 +13,31 @@ def gpu_flags() -> list[str]:
     return ["--gpus", "all"]
 
 
-def network_flags() -> list[str]:
-    """Networking flags for the HAL server's ZMQ endpoints (6001/6002).
+def host_network_flags() -> list[str]:
+    """`--network host` on Jetson, nothing on x86.
 
-    Jetson (Tegra) kernels don't ship the iptables `raw` table that Docker's
-    default bridge driver needs to publish ports, so `-p` fails at container
-    start with "can't initialize iptables table `raw'" (exit 125). Use host
-    networking there — the server binds 6001/6002 directly on the host. On
-    x86 (testing) the bridge works, so keep explicit port publishing.
-    See docs/JETSON_DEPLOYMENT.md "Docker iptables / networking errors".
+    Tegra kernels don't ship the iptables `raw` table that Docker's default
+    bridge driver needs, so *any* bridge container fails at start with "can't
+    initialize iptables table `raw'" (exit 125) — even one that publishes no
+    ports (Docker programs the raw table for every bridge endpoint). Host
+    networking sidesteps the bridge entirely. On x86 (testing) the bridge
+    works, so add nothing. See docs/JETSON_DEPLOYMENT.md "Docker iptables /
+    networking errors".
     """
     if platform.machine() == "aarch64":
         return ["--network", "host"]
+    return []
+
+
+def network_flags() -> list[str]:
+    """Networking for the HAL server's ZMQ endpoints (6001/6002).
+
+    On Jetson, host networking exposes the endpoints on the host directly and
+    `-p` would be redundant. On x86 (testing) the bridge works, so publish the
+    ports explicitly.
+    """
+    if host := host_network_flags():
+        return host
     return ["-p", "6001:6001", "-p", "6002:6002"]
 
 
@@ -82,6 +95,7 @@ def firmware_cmd(image_ref: str, firmware_args: list[str], interactive: bool = F
     return [
         "docker", "run", "--rm",
         *tty_flags,
+        *host_network_flags(),
         *serial_device_flags(),
         "-v", cache_mount,
         "-e", "LD_PRELOAD=",

@@ -209,7 +209,7 @@ class TestInstallLaunchFlag:
 # _docker: command construction
 # ---------------------------------------------------------------------------
 
-from krabby._docker import gpu_flags, network_flags, serial_device_flags, run_cmd, firmware_cmd, gamepad_cmd
+from krabby._docker import gpu_flags, host_network_flags, network_flags, serial_device_flags, run_cmd, firmware_cmd, gamepad_cmd
 
 
 class TestGpuFlags:
@@ -222,10 +222,21 @@ class TestGpuFlags:
         assert gpu_flags() == ["--gpus", "all"]
 
 
+class TestHostNetworkFlags:
+    def test_aarch64_uses_host_networking(self, monkeypatch):
+        # Tegra kernels lack the iptables `raw` table Docker's bridge needs, so
+        # *any* bridge container fails — the Jetson path must use host net.
+        monkeypatch.setattr("krabby._docker.platform.machine", lambda: "aarch64")
+        assert host_network_flags() == ["--network", "host"]
+
+    def test_x86_64_adds_nothing(self, monkeypatch):
+        monkeypatch.setattr("krabby._docker.platform.machine", lambda: "x86_64")
+        assert host_network_flags() == []
+
+
 class TestNetworkFlags:
     def test_aarch64_uses_host_networking(self, monkeypatch):
-        # Tegra kernels lack the iptables `raw` table Docker's bridge needs to
-        # publish ports, so the Jetson path must use host networking, not `-p`.
+        # Host networking exposes the ZMQ endpoints; `-p` would be redundant.
         monkeypatch.setattr("krabby._docker.platform.machine", lambda: "aarch64")
         assert network_flags() == ["--network", "host"]
 
@@ -588,3 +599,16 @@ class TestFirmwareCmd:
     def test_interactive_allocates_tty(self, monkeypatch):
         monkeypatch.setattr("krabby._docker.glob.glob", lambda _: [])
         assert "-it" in firmware_cmd("myimage:tag", [], interactive=True)
+
+    def test_aarch64_uses_host_network(self, monkeypatch):
+        # Regression: `krabby firmware ...` also runs a container, so it hits
+        # the same Tegra bridge failure and must use host networking.
+        monkeypatch.setattr("krabby._docker.glob.glob", lambda _: [])
+        monkeypatch.setattr("krabby._docker.platform.machine", lambda: "aarch64")
+        cmd = firmware_cmd("myimage:tag", ["show"])
+        assert "--network" in cmd and "host" in cmd
+
+    def test_x86_64_no_host_network(self, monkeypatch):
+        monkeypatch.setattr("krabby._docker.glob.glob", lambda _: [])
+        monkeypatch.setattr("krabby._docker.platform.machine", lambda: "x86_64")
+        assert "--network" not in firmware_cmd("myimage:tag", ["show"])
