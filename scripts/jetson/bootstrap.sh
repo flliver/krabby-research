@@ -34,7 +34,7 @@
 #         BENCH_AWS_KEY_ID, BENCH_AWS_SECRET_KEY
 #     The watchdog fetches the shared SMTP/GitHub secrets from AWS SSM at
 #     runtime. Those secrets are seeded fleet-wide, off-device, by an operator
-#     (see bench/README.md and set-ssm-params.zsh) — bootstrap does not seed
+#     (see bench/README.md and set-ssm-params.sh) — bootstrap does not seed
 #     them. Without the IAM keys, step 6 is skipped with a note.
 #         BENCH_AWS_KEY_ID=AKIA... BENCH_AWS_SECRET_KEY=... \
 #             ./scripts/jetson/bootstrap.sh
@@ -145,7 +145,7 @@ fi
 # --- 6: krabby-bench (SSM error-reporting watchdog) ----------------------------
 # Opt-in: runs only when this device's read-only IAM key is in the environment.
 # The watchdog reads the shared SMTP/GitHub secrets from SSM at runtime; those
-# are seeded fleet-wide by an operator (set-ssm-params.zsh), not by bootstrap.
+# are seeded fleet-wide by an operator (set-ssm-params.sh), not by bootstrap.
 if [[ -n "${BENCH_AWS_KEY_ID:-}" && -n "${BENCH_AWS_SECRET_KEY:-}" ]]; then
     step "Step 6: krabby-bench (error reporting via SSM)"
     echo "==> Installing/upgrading krabby-bench"
@@ -165,7 +165,7 @@ else
     echo "      sudo BENCH_AWS_KEY_ID=AKIA... BENCH_AWS_SECRET_KEY=... \\"
     echo "        krabby-bench install --ssm-prefix ${SSM_PREFIX}"
     echo "    (Shared SMTP/GitHub secrets are seeded in SSM separately; see"
-    echo "    bench/README.md and set-ssm-params.zsh.)"
+    echo "    bench/README.md and set-ssm-params.sh.)"
 fi
 
 # --- Done ----------------------------------------------------------------------

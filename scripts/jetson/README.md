@@ -34,11 +34,11 @@ failures via SMTP/GitHub, pass its **read-only IAM key** in the environment:
 BENCH_AWS_KEY_ID=AKIA... BENCH_AWS_SECRET_KEY=... ./scripts/jetson/bootstrap.sh
 ```
 
-Step 5 then runs `pip install krabby-bench` and `krabby-bench install
+Step 6 then runs `pip install krabby-bench` and `krabby-bench install
 --ssm-prefix /krabby/bench`. Without those keys the step is skipped. The shared
 SMTP/GitHub secrets the watchdog reads are seeded fleet-wide in AWS SSM by an
 operator (off-device) — see [bench/README.md](../../bench/README.md) and
-`set-ssm-params.zsh`; bootstrap does not seed them.
+`set-ssm-params.sh`; bootstrap does not seed them.
 
 ## Bring-up order (individual steps)
 
