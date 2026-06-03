@@ -48,6 +48,7 @@ class TopicEnable:
     joints_state: bool = True
     joints_command: bool = True
     imu: bool = True
+    base_twist: bool = True
 
 
 @dataclass
@@ -80,6 +81,7 @@ class DataCollectorConfig:
             joints_state=bool(topics_raw.get("joints_state", True)),
             joints_command=bool(topics_raw.get("joints_command", True)),
             imu=bool(topics_raw.get("imu", True)),
+            base_twist=bool(topics_raw.get("base_twist", True)),
         )
         jsrc = raw.get("joints_command_source", "previous_action")
         if jsrc != "previous_action":

@@ -25,6 +25,7 @@ topics:
   joints_state: true
   joints_command: true
   imu: true
+  base_twist: true
 
 joint_names: []
 joints_command_source: "previous_action"

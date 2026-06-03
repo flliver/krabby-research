@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "krabby-hal-server-jetson"
-version = "0.1.0"
+version = "0.1.5"
 description = "HAL server implementation for Jetson with integrated inference"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -26,13 +26,15 @@ dependencies = [
     "krabby-hal-server>=0.1.0",
     "krabby-hal-client>=0.1.0",
     "krabby-compute-parkour>=0.1.0",
-    "krabby-data-collection>=0.1.0",
-    "krabby-teleop-edge>=0.1.0",
     "numpy>=1.24.0",
     "scipy>=1.10.0",
 ]
 
 [project.optional-dependencies]
+inference = [
+    "krabby-data-collection>=0.1.0",
+    "krabby-teleop-edge>=0.1.0",
+]
 dev = [
     "pytest>=7.4.0",
     "pytest-cov>=4.1.0",

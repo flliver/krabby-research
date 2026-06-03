@@ -39,12 +39,11 @@ Outputs:
 
 ## Run basics
 
-- **Robot side**: set `TELEOP_EDGE_MODE="agent"` and `SERVER_SIGNALING_WS_URL` in `teleop.edge.robot_settings`, then run Jetson HAL with `--teleop`.
-- **Portal side**: run `krabby-teleop-portal --host 0.0.0.0 --port 9000`.
-- **Smoke edge signaling**: `python scripts/teleop_smoke.py signaling --url ws://127.0.0.1:9000/ws/robot`.
+- **Portal side**: `krabby-teleop-portal --host 0.0.0.0 --port 9000`, or `scripts/run_teleop_portal_x86_docker.sh`.
+- **Robot side**: set `TELEOP_EDGE_MODE="agent"` and `SERVER_SIGNALING_WS_URL` in `teleop.edge.robot_settings`, then run Jetson or Isaac HAL with `--teleop` (e.g. `scripts/run_isaac_hal_server.sh --teleop`).
+- **Browser**: open the portal origin (`/`), select cameras, connect WebRTC; cockpit HUD updates from `krabby-telemetry-v1` when HAL publishes IMU/tracking (or Isaac-equivalent base state).
 
 ## Testing
 
-- Teleop tests live under `tests/unit/teleop/`.
-- Normal `make test` includes them in the x86 test image run.
-- Dev helper script: `scripts/teleop_smoke.py` (`http` or `signaling`).
+- Unit tests: `tests/unit/teleop/` (included in `make test`).
+- Manual stack: portal script + HAL `--teleop` on the same host or LAN (use `ws://<host>:9000/ws/robot` on the robot).

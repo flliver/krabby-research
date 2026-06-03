@@ -17,6 +17,8 @@ on:
       - 'hal-tools-v*'
       - 'hal-server-isaac-v*'
       - 'hal-server-jetson-v*'
+      - 'krabby-v*'
+      - 'bench-v*'
 
 jobs:
   publish:
@@ -45,7 +47,7 @@ jobs:
             echo "pkg_key=firmware" >> $GITHUB_OUTPUT
             echo "path=firmware" >> $GITHUB_OUTPUT
             echo "deps=" >> $GITHUB_OUTPUT
-            echo "test_path=" >> $GITHUB_OUTPUT
+            echo "test_path=tests/unit/firmware/" >> $GITHUB_OUTPUT
             echo "build_self_first=" >> $GITHUB_OUTPUT
           elif [[ "$TAG" == hal-server-isaac-v* ]]; then
             echo "pkg_key=hal-server-isaac" >> $GITHUB_OUTPUT
@@ -57,13 +59,13 @@ jobs:
             echo "pkg_key=hal-server-jetson" >> $GITHUB_OUTPUT
             echo "path=hal/server/jetson" >> $GITHUB_OUTPUT
             echo "deps=hal/client hal/server compute/parkour firmware" >> $GITHUB_OUTPUT
-            echo "test_path=tests/unit/hal/" >> $GITHUB_OUTPUT
+            echo "test_path=tests/unit/hal/server/jetson/" >> $GITHUB_OUTPUT
             echo "build_self_first=" >> $GITHUB_OUTPUT
           elif [[ "$TAG" == hal-client-v* ]]; then
             echo "pkg_key=hal-client" >> $GITHUB_OUTPUT
             echo "path=hal/client" >> $GITHUB_OUTPUT
             echo "deps=hal/server compute/parkour" >> $GITHUB_OUTPUT
-            echo "test_path=tests/unit/hal/" >> $GITHUB_OUTPUT
+            echo "test_path=tests/unit/hal/test_client.py tests/unit/hal/test_sensor_interface.py tests/unit/hal/test_zmq_push_pull.py tests/unit/hal/test_zmq_pub_sub_fanout.py tests/unit/hal/test_hal_client_sub_socket_options.py tests/unit/hal/test_streaming_map.py" >> $GITHUB_OUTPUT
             echo "build_self_first=hal/client" >> $GITHUB_OUTPUT
           elif [[ "$TAG" == hal-server-v* ]]; then
             echo "pkg_key=hal-server" >> $GITHUB_OUTPUT
@@ -75,7 +77,7 @@ jobs:
             echo "pkg_key=compute-parkour" >> $GITHUB_OUTPUT
             echo "path=compute/parkour" >> $GITHUB_OUTPUT
             echo "deps=hal/client" >> $GITHUB_OUTPUT
-            echo "test_path=tests/unit/test_compute_parkour_policy.py" >> $GITHUB_OUTPUT
+            echo "test_path=tests/unit/test_compute_parkour_policy.py tests/unit/test_compute_parkour_model_definition.py" >> $GITHUB_OUTPUT
             echo "build_self_first=" >> $GITHUB_OUTPUT
           elif [[ "$TAG" == controller-v* ]]; then
             echo "pkg_key=controller" >> $GITHUB_OUTPUT
@@ -88,6 +90,18 @@ jobs:
             echo "path=hal/tools" >> $GITHUB_OUTPUT
             echo "deps=hal/client hal/server" >> $GITHUB_OUTPUT
             echo "test_path=" >> $GITHUB_OUTPUT
+            echo "build_self_first=" >> $GITHUB_OUTPUT
+          elif [[ "$TAG" == krabby-v* ]]; then
+            echo "pkg_key=krabby" >> $GITHUB_OUTPUT
+            echo "path=krabby" >> $GITHUB_OUTPUT
+            echo "deps=" >> $GITHUB_OUTPUT
+            echo "test_path=tests/unit/krabby/" >> $GITHUB_OUTPUT
+            echo "build_self_first=" >> $GITHUB_OUTPUT
+          elif [[ "$TAG" == bench-v* ]]; then
+            echo "pkg_key=bench" >> $GITHUB_OUTPUT
+            echo "path=bench" >> $GITHUB_OUTPUT
+            echo "deps=" >> $GITHUB_OUTPUT
+            echo "test_path=tests/unit/bench/" >> $GITHUB_OUTPUT
             echo "build_self_first=" >> $GITHUB_OUTPUT
           else
             echo "Unrecognized tag: $TAG"

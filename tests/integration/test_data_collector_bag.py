@@ -11,7 +11,17 @@ pytest.importorskip("rosbags.rosbag2")
 
 from data_collection.config import DataCollectorConfig, HalEndpoints, TopicEnable
 from data_collection.rotating_bag import RotatingMcapWriter
-from data_collection.serialization import catalog_camera_topic, observation_to_writes
+from data_collection.serialization import (
+    BASE_TWIST_MSGTYPE,
+    BASE_TWIST_TOPIC,
+    IMU_MSGTYPE,
+    IMU_TOPIC,
+    JOINTS_COMMAND_TOPIC,
+    JOINTS_STATE_TOPIC,
+    JOINT_STATE_MSGTYPE,
+    catalog_camera_topic,
+    observation_to_writes,
+)
 from hal.client.data_structures.hardware import HardwareObservations, RgbdCatalogObservation
 from rosbags.highlevel import AnyReader
 from rosbags.typesys import get_typestore
@@ -29,7 +39,7 @@ def _minimal_obs_with_camera() -> HardwareObservations:
         camera_width=w,
         timestamp_ns=1_500_000_000,
         base_ang_vel_b=np.array([0.01, 0.02, 0.03], dtype=np.float32),
-        base_lin_vel_b=np.zeros(3, dtype=np.float32),
+        base_lin_vel_b=np.array([0.2, 0.0, 0.0], dtype=np.float32),
         base_quat_w=np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float32),
         joint_velocities=np.zeros(12, dtype=np.float32),
         contact_forces=np.zeros(5, dtype=np.float32),
@@ -47,9 +57,10 @@ def test_rotating_writer_single_message_roundtrip(tmp_path):
         topics=TopicEnable(),
     )
     specs = [
-        ("/joints/state", "sensor_msgs/msg/JointState"),
-        ("/joints/command", "sensor_msgs/msg/JointState"),
-        ("/imu", "sensor_msgs/msg/Imu"),
+        (JOINTS_STATE_TOPIC, JOINT_STATE_MSGTYPE),
+        (JOINTS_COMMAND_TOPIC, JOINT_STATE_MSGTYPE),
+        (IMU_TOPIC, IMU_MSGTYPE),
+        (BASE_TWIST_TOPIC, BASE_TWIST_MSGTYPE),
     ]
     writer = RotatingMcapWriter(
         cfg.output_dir,
@@ -81,8 +92,15 @@ def test_rotating_writer_single_message_roundtrip(tmp_path):
 
     assert counts.get(rgb_topic) == 1
     assert counts.get(depth_topic) == 1
-    assert counts.get("/joints/state") == 1
-    assert counts.get("/joints/command") == 1
-    assert counts.get("/imu") == 1
+    assert counts.get(JOINTS_STATE_TOPIC) == 1
+    assert counts.get(JOINTS_COMMAND_TOPIC) == 1
+    assert counts.get(IMU_TOPIC) == 1
+    assert counts.get(BASE_TWIST_TOPIC) == 1
+    with AnyReader([bag]) as reader:
+        for conn, _ts, raw in reader.messages():
+            if conn.topic == BASE_TWIST_TOPIC:
+                twist = ts2.deserialize_cdr(raw, BASE_TWIST_MSGTYPE)
+                assert twist.twist.linear.x == pytest.approx(0.2)
+                break
 
     shutil.rmtree(cfg.output_dir, ignore_errors=True)

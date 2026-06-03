@@ -2,7 +2,14 @@ import logging
 import math
 import time
 
-from hal.server.teleop_portal_signaling import _ControlLatencyReporter
+import numpy as np
+import pytest
+
+pytest.importorskip("av")
+
+from hal.client.data_structures.hardware import HardwareObservations
+from hal.server.teleop_portal_signaling import _ControlLatencyReporter, bind_telemetry_slot
+from teleop.edge.telemetry import TELEMETRY_MESSAGE_TYPE
 
 
 def test_control_latency_reporter_logs_window_percentiles(caplog) -> None:
@@ -43,3 +50,29 @@ def test_control_latency_reporter_records_valid_timestamp() -> None:
     assert reporter._total_samples == 1
     assert len(reporter._samples_ms) == 1
     assert 0.0 <= reporter._samples_ms[0] < 1000.0
+
+
+def _sample_observation() -> HardwareObservations:
+    return HardwareObservations(
+        joint_positions=np.zeros(12, dtype=np.float32),
+        camera_height=480,
+        camera_width=640,
+        timestamp_ns=1_500_000_000,
+        base_ang_vel_b=np.array([0.1, 0.2, 0.3], dtype=np.float32),
+        base_lin_vel_b=np.array([1.0, 0.0, 0.0], dtype=np.float32),
+        base_quat_w=np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float32),
+        joint_velocities=np.zeros(12, dtype=np.float32),
+        contact_forces=np.zeros(5, dtype=np.float32),
+        previous_action=np.zeros(12, dtype=np.float32),
+    )
+
+
+def test_bind_telemetry_slot_getter_sees_hal_poll_update() -> None:
+    """WebRTC getter must read telemetry written by the HAL poll path."""
+    record, getter = bind_telemetry_slot()
+    record(_sample_observation())
+    payload = getter()
+    assert payload is not None
+    assert payload["type"] == TELEMETRY_MESSAGE_TYPE
+    assert payload["timestamp_ns"] == 1_500_000_000
+    assert payload["velocity"]["linear_m_s"] == [1.0, 0.0, 0.0]

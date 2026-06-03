@@ -404,6 +404,7 @@ class OnPolicyRunnerWithExtractor(OnPolicyRunner):
         obs, extras = self.env.get_observations()
         additional_obs = {}
         additional_obs["delta_yaw_ok"] = extras['observations']['delta_yaw_ok'].to(self.device)
+        delta_yaw_ok_mask = additional_obs["delta_yaw_ok"].reshape(self.env.num_envs).bool()
         additional_obs["depth_camera"] = extras["observations"]['depth_camera'].to(self.device)
         obs = obs.to(self.device)
 
@@ -438,8 +439,8 @@ class OnPolicyRunnerWithExtractor(OnPolicyRunner):
                     yaws_buffer.append(obs[:,6:8].detach() - yaw)
                 with torch.no_grad():
                     actions_teacher = self.alg.policy.act_inference(obs, hist_encoding=True, scandots_latent=None)
-                    delta_yaw_ok_buffer.append(torch.nonzero(additional_obs["delta_yaw_ok"]).size(0) / additional_obs["delta_yaw_ok"].numel())
-                obs[additional_obs["delta_yaw_ok"], 6:8] = yaw.detach()[additional_obs["delta_yaw_ok"]]
+                    delta_yaw_ok_buffer.append(delta_yaw_ok_mask.sum().item() / delta_yaw_ok_mask.numel())
+                obs[delta_yaw_ok_mask, 6:8] = yaw.detach()[delta_yaw_ok_mask]
                 actions_student = self.alg.depth_actor(obs, hist_encoding=True, scandots_latent=depth_latent)
                 actions_buffer.append(actions_teacher.detach() - actions_student)
                 
@@ -454,6 +455,7 @@ class OnPolicyRunnerWithExtractor(OnPolicyRunner):
                     # Move to device
                     obs, dones = (obs.to(self.device), dones.to(self.device))
                 additional_obs['delta_yaw_ok'] = infos["observations"]['delta_yaw_ok']
+                delta_yaw_ok_mask = additional_obs["delta_yaw_ok"].reshape(self.env.num_envs).bool()
                 additional_obs['depth_camera'] = infos["observations"]['depth_camera']
                 # perform normalization
                 obs = self.obs_normalizer(obs)

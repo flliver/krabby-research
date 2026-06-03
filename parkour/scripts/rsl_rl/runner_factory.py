@@ -25,6 +25,21 @@ _RUNNER_SCALAR_KEYS = (
 )
 
 
+def _restore_nested_class_name(train_cfg: dict, agent_cfg: Any, key: str) -> None:
+    """Keep ``class_name`` on nested cfg blocks after multi-inherit ``to_dict()`` / Hydra round-trips."""
+    live = getattr(agent_cfg, key, None)
+    if live is None or isinstance(live, (str, int, float, bool)):
+        return
+    class_name = getattr(live, "class_name", None)
+    if not isinstance(class_name, str):
+        return
+    nested = train_cfg.get(key)
+    if not isinstance(nested, dict):
+        nested = live.to_dict() if hasattr(live, "to_dict") else {}
+        train_cfg[key] = nested
+    nested["class_name"] = class_name
+
+
 def agent_cfg_to_train_dict(agent_cfg: Any) -> dict:
     """Build train dict for ``OnPolicyRunnerWithExtractor``; keep scalars from the live cfg object."""
     train_cfg = agent_cfg.to_dict()
@@ -34,9 +49,8 @@ def agent_cfg_to_train_dict(agent_cfg: Any) -> dict:
             if val is MISSING:
                 continue
             train_cfg[key] = val
-    policy = train_cfg.get("policy")
-    if isinstance(policy, dict) and hasattr(agent_cfg, "policy") and hasattr(agent_cfg.policy, "class_name"):
-        policy["class_name"] = agent_cfg.policy.class_name
+    for key in ("policy", "algorithm", "estimator"):
+        _restore_nested_class_name(train_cfg, agent_cfg, key)
     return train_cfg
 
 

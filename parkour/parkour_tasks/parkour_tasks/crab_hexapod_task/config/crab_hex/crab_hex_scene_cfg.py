@@ -97,8 +97,8 @@ def _crab_simple_robot_cfg() -> ArticulationCfg:
                 # Body–hip yaw (Z): front/rear splay; L/R mirrored (right-side signs verified in top view).
                 "FR_Body_Hip_RevoluteJoint": 0.6,
                 "FL_Body_Hip_RevoluteJoint": -0.6,
-                "ML_Body_Hip_RevoluteJoint": 0.0,
-                "MR_Body_Hip_RevoluteJoint": 0.0,
+                "ML_Body_Hip_RevoluteJoint": 0.25,
+                "MR_Body_Hip_RevoluteJoint": -0.25,
                 "RR_Body_Hip_RevoluteJoint": -0.6,
                 "RL_Body_Hip_RevoluteJoint": 0.6,
                 # Hip–femur: same on all legs. Knee: sign flip on FR/MR/RR (180° Z in USD); left −0.07

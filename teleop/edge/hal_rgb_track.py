@@ -22,17 +22,27 @@ class HalRgbSnapshotVideoTrack(VideoStreamTrack):
 
     kind = "video"
 
-    def __init__(self, *, frame_getter: Callable[[], np.ndarray | None]) -> None:
+    def __init__(
+        self,
+        *,
+        frame_getter: Callable[[], np.ndarray | None],
+        catalog_id: str | None = None,
+    ) -> None:
         super().__init__()
         self._frame_getter = frame_getter
+        self._catalog_id = (catalog_id or "").strip() or None
         self._last: np.ndarray | None = None
         self._last_no_frame_warn_mono: float = 0.0
+
+    def _requested_sensor_label(self) -> str:
+        return self._catalog_id if self._catalog_id else "(unset catalog_id)"
 
     def _maybe_warn_no_frames(self) -> None:
         now = time.monotonic()
         if now - self._last_no_frame_warn_mono >= 30.0:
             logger.warning(
-                "teleop: no RGB from HAL for this video track yet; sending black frames until data is available",
+                "teleop: no RGB from HAL for video track catalog_id=%s yet; sending black frames until data is available",
+                self._requested_sensor_label(),
             )
             self._last_no_frame_warn_mono = now
 

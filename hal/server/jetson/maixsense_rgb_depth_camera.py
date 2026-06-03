@@ -1,8 +1,7 @@
 """MaixSense-A075V as :class:`~hal.server.jetson.rgb_depth_camera.RgbDepthCamera`.
 
 Use ``JETSON_SENSOR_CATALOG`` with ``camera_driver="maixsense_a075v"`` on any rgbd row (primary
-or ``hal_open_rgbd`` side/extra). Configure either literal ``maixsense_host`` / ``maixsense_port``
-or env-var names ``maixsense_host_env`` / ``maixsense_port_env``.
+or ``hal_open_rgbd`` side/extra). Configure literal ``maixsense_host`` / ``maixsense_port``.
 
 Raw depth is converted to meters with Sipeed's A075V rules (16-bit: 0.25 mm/LSB; 8-bit: nonlinear
 ``(u8/5.1)²`` mm then ÷1000, see their ``stream.py``/tutorial comments). Frames are emitted at
@@ -12,7 +11,6 @@ native decoded sizes (no HAL resize step in this adapter). Requires MaixSense ex
 from __future__ import annotations
 
 import logging
-import os
 from typing import Any, Optional
 
 import numpy as np
@@ -31,7 +29,7 @@ from hal.server.jetson.rgb_depth_camera import RgbDepthCamera
 logger = logging.getLogger(__name__)
 
 class MaixSenseA075VRgbDepthCamera:
-    """HTTP MaixSense RGB-D from literal host/port or env-var names."""
+    """HTTP MaixSense RGB-D from literal host/port."""
 
     def __init__(
         self,
@@ -41,8 +39,6 @@ class MaixSenseA075VRgbDepthCamera:
         *,
         maixsense_host: Optional[str] = None,
         maixsense_port: Optional[int] = None,
-        maixsense_host_env: Optional[str] = None,
-        maixsense_port_env: Optional[str] = None,
     ) -> None:
         self._target_w, self._target_h = int(resolution[0]), int(resolution[1])
         self.fps = fps
@@ -55,42 +51,15 @@ class MaixSenseA075VRgbDepthCamera:
         self._frame_config_logged: bool = False
 
         host = (maixsense_host or "").strip()
-        host_key = (maixsense_host_env or "").strip()
         if not host:
-            if not host_key:
-                raise RuntimeError(
-                    "maixsense_a075v requires either literal maixsense_host or "
-                    "maixsense_host_env (env var name)"
-                )
-            host = os.environ.get(host_key, "").strip()
-            if not host:
-                raise RuntimeError(
-                    f"Environment variable {host_key!r} must be set when using "
-                    "camera_driver=maixsense_a075v with maixsense_host_env"
-                )
-
-        port_key_stripped = (maixsense_port_env or "").strip()
-        if maixsense_port is not None:
-            port = int(maixsense_port)
-            port_key = "(literal)"
-        elif port_key_stripped:
-            port_key = port_key_stripped
-            port_raw = os.environ.get(port_key, "").strip()
-            if not port_raw:
-                raise RuntimeError(
-                    f"Environment variable {port_key!r} must be set when maixsense_port_env is configured"
-                )
-            try:
-                port = int(port_raw)
-            except ValueError as e:
-                raise RuntimeError(
-                    f"Environment variable {port_key!r} must be an integer, got {port_raw!r}"
-                ) from e
-        else:
             raise RuntimeError(
-                "maixsense_a075v requires explicit port via maixsense_port (literal) "
-                "or maixsense_port_env (env var name)"
+                "maixsense_a075v requires non-empty maixsense_host (literal host)"
             )
+        if maixsense_port is None:
+            raise RuntimeError(
+                "maixsense_a075v requires explicit maixsense_port (literal port)"
+            )
+        port = int(maixsense_port)
 
         self._client = MaixSenseA075VClient(host=host, port=port)
         if not self._client.post_encode_config(a075v_set_cfg_bytes_hal()):
@@ -99,9 +68,7 @@ class MaixSenseA075VRgbDepthCamera:
             )
         self._initialized = True
         logger.info(
-            "MaixSense A075V RGB-D ready (env_host=%s env_port=%s → %s:%s → %dx%d)",
-            host_key,
-            port_key,
+            "MaixSense A075V RGB-D ready (%s:%s → %dx%d)",
             host,
             port,
             self._target_w,
@@ -179,8 +146,6 @@ def create_maixsense_a075v_rgb_depth_camera(
     *,
     maixsense_host: Optional[str] = None,
     maixsense_port: Optional[int] = None,
-    maixsense_host_env: Optional[str] = None,
-    maixsense_port_env: Optional[str] = None,
 ) -> Optional[RgbDepthCamera]:
     """Build MaixSense RGB-D camera; returns ``None`` on configuration or import errors."""
     try:
@@ -190,8 +155,6 @@ def create_maixsense_a075v_rgb_depth_camera(
             depth_mode=depth_mode,
             maixsense_host=maixsense_host,
             maixsense_port=maixsense_port,
-            maixsense_host_env=maixsense_host_env,
-            maixsense_port_env=maixsense_port_env,
         )
         return cam
     except RuntimeError as e:

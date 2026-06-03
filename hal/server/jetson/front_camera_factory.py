@@ -4,8 +4,7 @@ Register drivers in ``FRONT_RGB_DEPTH_CAMERA_FACTORIES``. ``JetsonHalServer`` op
 instance per ``JETSON_SENSOR_CATALOG`` rgbd row (primary always; others when ``hal_open_rgbd``).
 
 ``camera_driver`` values: ``"zed"`` (USB + pyzed; optional ``zed_serial_number``), ``"maixsense_a075v"``
-(HTTP; accepts literal ``maixsense_host`` / ``maixsense_port`` or env-var names
-``maixsense_host_env`` / ``maixsense_port_env`` on the catalog row).
+(HTTP; accepts literal ``maixsense_host`` / ``maixsense_port`` on the catalog row).
 """
 
 from __future__ import annotations
@@ -46,8 +45,6 @@ def _factory_maixsense_a075v(
     depth_mode: str,
     maixsense_host: Optional[str] = None,
     maixsense_port: Optional[int] = None,
-    maixsense_host_env: Optional[str] = None,
-    maixsense_port_env: Optional[str] = None,
 ) -> Optional[RgbDepthCamera]:
     return create_maixsense_a075v_rgb_depth_camera(
         resolution=resolution,
@@ -55,8 +52,6 @@ def _factory_maixsense_a075v(
         depth_mode=depth_mode,
         maixsense_host=maixsense_host,
         maixsense_port=maixsense_port,
-        maixsense_host_env=maixsense_host_env,
-        maixsense_port_env=maixsense_port_env,
     )
 
 
@@ -75,8 +70,6 @@ def create_front_rgb_depth_camera(
     zed_serial_number: Optional[int] = None,
     maixsense_host: Optional[str] = None,
     maixsense_port: Optional[int] = None,
-    maixsense_host_env: Optional[str] = None,
-    maixsense_port_env: Optional[str] = None,
 ) -> Optional[RgbDepthCamera]:
     """Build an RGB-D camera using a registered ``driver`` name (any catalog rgbd row)."""
     try:
@@ -95,11 +88,9 @@ def create_front_rgb_depth_camera(
         )
     if driver == "maixsense_a075v":
         has_literal_host = bool(maixsense_host and str(maixsense_host).strip())
-        has_host_env = bool(maixsense_host_env and str(maixsense_host_env).strip())
-        if not (has_literal_host or has_host_env):
+        if not has_literal_host:
             raise ValueError(
-                "maixsense_a075v requires either maixsense_host (literal) or "
-                "maixsense_host_env (env var name) on JetsonSensorCatalogEntry"
+                "maixsense_a075v requires maixsense_host (literal) on JetsonSensorCatalogEntry"
             )
         return factory(
             resolution=resolution,
@@ -107,8 +98,6 @@ def create_front_rgb_depth_camera(
             depth_mode=depth_mode,
             maixsense_host=(maixsense_host.strip() if maixsense_host else None),
             maixsense_port=maixsense_port,
-            maixsense_host_env=(maixsense_host_env.strip() if maixsense_host_env else None),
-            maixsense_port_env=maixsense_port_env,
         )
     return factory(
         resolution=resolution,

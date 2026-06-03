@@ -7,6 +7,8 @@ from typing import Any, Optional
 import numpy as np
 import pytest
 
+pytest.importorskip("gi")
+
 from hal.server.gstreamer_runtime import (
     AppSrcPipelineResult,
     build_software_appsrc_encode_pipeline_string,

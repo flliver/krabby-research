@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 import torch
-from isaaclab.managers import SceneEntityCfg
+from isaaclab.managers import ManagerTermBase, SceneEntityCfg
 from isaaclab.utils.math import euler_xyz_from_quat, wrap_to_pi
 
 from parkour_isaaclab.envs import ParkourManagerBasedRLEnv
+from isaaclab.assets import Articulation
+from isaaclab.managers import ObservationTermCfg
+
 from parkour_isaaclab.envs.mdp.observations import ExtremeParkourObservations
+from parkour_isaaclab.envs.mdp.parkours import ParkourEvent
 from parkour_isaaclab.utils.nonfinite_logging import warn_if_nonfinite
 
 # Extra proprio dims vs ``ExtremeParkourObservations``: body-frame planar linear velocity.
@@ -93,3 +97,28 @@ class CrabHexParkourObservations(ExtremeParkourObservations):
         )
         warn_if_nonfinite("observations.concat", observations)
         return torch.nan_to_num(observations, nan=0.0, posinf=0.0, neginf=0.0)
+
+
+class CrabHexObservationDeltaYawOk(ManagerTermBase):
+    """Student distillation gate: ``(num_envs, 1)`` bool for Isaac Lab obs dim probing."""
+
+    def __init__(self, cfg: ObservationTermCfg, env: ParkourManagerBasedRLEnv):
+        super().__init__(cfg, env)
+        self.delta_yaw = torch.zeros(self.num_envs, device=self.device)
+
+    def reset(self, env_ids=None) -> None:
+        pass
+
+    def __call__(
+        self,
+        env: ParkourManagerBasedRLEnv,
+        parkour_name: str,
+        threshold: float,
+        asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
+    ) -> torch.Tensor:
+        if env.common_step_counter % 5 == 0:
+            parkour_event: ParkourEvent = env.parkour_manager.get_term(parkour_name)
+            asset: Articulation = env.scene[asset_cfg.name]
+            _, _, yaw = euler_xyz_from_quat(asset.data.root_quat_w)
+            self.delta_yaw = parkour_event.target_yaw - wrap_to_pi(yaw)
+        return (self.delta_yaw < threshold).unsqueeze(-1)

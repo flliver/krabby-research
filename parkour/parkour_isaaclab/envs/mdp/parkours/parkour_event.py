@@ -143,15 +143,16 @@ class ParkourEvent(ParkourTerm):
         move_up = self.dis_to_start_pos > 0.8*threshold
         move_down = self.dis_to_start_pos < 0.4*threshold
 
-        robot_root_pos_w = self.robot.data.root_pos_w[:, :2] - self.env_origins[:, :2]
-        self.terrain.terrain_levels[env_ids] += 1 * move_up - 1 * move_down
-        # # Robots that solve the last level are sent to a random one
-        self.terrain.terrain_levels[env_ids] = torch.where(self.terrain.terrain_levels[env_ids]>=self.terrain.max_terrain_level,
-                                                   torch.randint_like(self.terrain.terrain_levels[env_ids], self.terrain.max_terrain_level),
-                                                   torch.clip(self.terrain.terrain_levels[env_ids], 0)) # (the minumum level is zero)
+        if not self.cfg.freeze_terrain_levels:
+            self.terrain.terrain_levels[env_ids] += 1 * move_up - 1 * move_down
+            # # Robots that solve the last level are sent to a random one
+            self.terrain.terrain_levels[env_ids] = torch.where(self.terrain.terrain_levels[env_ids]>=self.terrain.max_terrain_level,
+                                                       torch.randint_like(self.terrain.terrain_levels[env_ids], self.terrain.max_terrain_level),
+                                                       torch.clip(self.terrain.terrain_levels[env_ids], 0)) # (the minumum level is zero)
         self.env_origins[env_ids] = self.terrain.terrain_origins[self.terrain.terrain_levels[env_ids], self.terrain.terrain_types[env_ids]]
         self.env_class[env_ids] = self.terrain_class[self.terrain.terrain_levels[env_ids], self.terrain.terrain_types[env_ids]]
         
+        robot_root_pos_w = self.robot.data.root_pos_w[:, :2] - self.env_origins[:, :2]
         temp = self.terrain_goals[self.terrain.terrain_levels, self.terrain.terrain_types]
         last_col = temp[:, -1].unsqueeze(1)
         self.env_goals[:] = torch.cat((temp, last_col.repeat(1, self.cfg.num_future_goal_obs, 1)), dim=1)[:]

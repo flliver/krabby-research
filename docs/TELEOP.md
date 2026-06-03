@@ -2,7 +2,7 @@
 
 Jetson HAL with **`--teleop`** runs an **outbound** WebSocket client to the URL in **`teleop.edge.robot_settings`** (source: **`teleop/edge/robot_settings.py`**) and answers **SDP** with **HAL-backed** video. A **second `HalClient`** (same ZMQ endpoints as inference) subscribes to **`HardwareObservations`** and samples **`rgbd_by_catalog_id`** for each viewer line. The reference **operator server** is **`krabby-teleop-portal`** (wheel root: **`teleop/portal/`**): **HTTP** UI, **`GET /api/teleop-config`**, FIFO relay **`/ws/browser`** ↔ **`/ws/robot`**. After **offer/answer**, media is **browser ↔ robot** (ICE/STUN/TURN as negotiated).
 
-**Two packages:** **`krabby-teleop-edge`** (wheel root: **`teleop/edge/`**) on robots only; **`krabby-teleop-portal`** (wheel root: **`teleop/portal/`**) on the operator host. Robot code calls **`teleop.edge.robot_settings.build_teleop_edge_settings()`** and **`portal_client_loop`** / **`run_robot_signaling_loop`**. The portal calls **`teleop.portal.settings.build_portal_auth_settings()`**, **`teleop.portal.ice_config.build_browser_ice_config()`**, and **`teleop.portal.relay.create_portal_app`**. Optional dev-only script: **`scripts/teleop_smoke.py`** — **`signaling`** (dial-out WebSocket to portal ``/ws/robot``, no HAL) or **`http`** (minimal **`/`** / **`/api/teleop-config`** HTTP listener).
+**Two packages:** **`krabby-teleop-edge`** (wheel root: **`teleop/edge/`**) on robots only; **`krabby-teleop-portal`** (wheel root: **`teleop/portal/`**) on the operator host. Robot code calls **`teleop.edge.robot_settings.build_teleop_edge_settings()`** and **`portal_client_loop`** / **`run_robot_signaling_loop`**. The portal calls **`teleop.portal.settings.build_portal_auth_settings()`**, **`teleop.portal.ice_config.build_browser_ice_config()`**, and **`teleop.portal.relay.create_portal_app`**. Dev helpers: **`scripts/run_teleop_portal_x86_docker.sh`** (portal in Docker) and HAL **`--teleop`** on Jetson or Isaac; unit tests under **`tests/unit/teleop/`**.
 
 ---
 
@@ -79,6 +79,10 @@ Configure the robot by editing **`teleop.edge.robot_settings`**: set **`TELEOP_E
 
 The portal page (**`teleop_session.js`**) can send optional **`catalog_ids`** on **`hello`** and on each **`offer`**: a JSON array of strings (HAL **`rgbd_by_catalog_id`** keys), in the same order as the browser’s recvonly video lines. If omitted, the robot keeps polling its **bootstrap** list (Jetson **`main.py`** seeds that to the **primary** catalog id only). Send **`"catalog_ids": []`** to revert to that bootstrap after a prior selection. The list is capped by **`MAX_VIDEO_M_LINES`** in **`robot_settings.py`**.
 
+### Cockpit motion HUD (robot → browser)
+
+When HAL fills **`base_quat_w`**, **`base_ang_vel_b`**, and **`base_lin_vel_b`** (Jetson: primary ZED IMU + tracking; Isaac Sim: **`isaac_primary_rgbd_base_state`** using the same **`front_rgbd`** mount transforms), **`hal.server.teleop_portal_signaling`** publishes JSON on a robot-originated WebRTC data channel **`krabby-telemetry-v1`** (~20 Hz). The portal viewer overlays a **cockpit HUD** on the video stage: ground speed, a **compass rose** (heading from yaw), a **3D attitude** cube (quaternion), a 2D artificial horizon, roll/pitch/yaw readout, and body-frame linear/angular velocity. Payload shape is built in **`teleop.edge.telemetry.build_telemetry_payload`**. Browser → robot gamepad input remains on **`krabby-control-v1`**.
+
 ---
 
 ## Configuration
@@ -117,7 +121,9 @@ Terminate **TLS** in front of the portal in production; preserve **WebSocket Upg
 - **Multiple video lines:** **N** recvonly video transceivers → **N** sender tracks if within **`robot_settings.MAX_VIDEO_M_LINES`**.
 - **Congestion:** standard WebRTC; no custom algorithm in-repo.
 
-### Control data channel (v1)
+### Data channels
+
+**Browser → robot (`krabby-control-v1`)**
 
 - Browser creates a WebRTC data channel named **`krabby-control-v1`**.
 - Robot accepts that channel and consumes JSON control messages:
@@ -130,6 +136,12 @@ Terminate **TLS** in front of the portal in production; preserve **WebSocket Upg
   - data channel JSON -> `WebRTCInputController` -> `GamepadToKrabbyHALMapper` -> `HalClient.put_joint_command`.
 - Robot logs receiver-side control latency from `sent_browser_ms` every ~5s with **p50**, **p95**, **max**, and latest samples. This is a browser wall-clock to robot wall-clock delta, so keep clocks synced for meaningful one-way latency.
 - Invalid/non-JSON control payloads are rejected with warning logs; malformed fields are rejected by parser without tearing down media.
+
+**Robot → browser (`krabby-telemetry-v1`)**
+
+- Robot creates an outbound data channel **`krabby-telemetry-v1`** (~20 Hz JSON).
+- Payload from **`teleop.edge.telemetry.build_telemetry_payload`** (`base_quat_w`, `base_ang_vel_b`, `base_lin_vel_b` on **`HardwareObservations`**).
+- Portal viewer cockpit HUD: speed, compass, 3D attitude, horizon, body-frame velocity (see **Cockpit motion HUD** above).
 
 ### HAL vs WebRTC
 

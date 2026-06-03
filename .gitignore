@@ -226,7 +226,4 @@ parkour/parkour_tasks/parkour_tasks/crab_hexapod_task/tempscripts/
 # macOS Finder artifact
 .DS_Store
 
-# Beads / Dolt files (bd init defaults)
-.dolt/
-*.db
-.beads-credential-key
+docs/m14-task1-plan.html

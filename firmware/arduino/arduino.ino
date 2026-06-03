@@ -9,10 +9,11 @@
 #include "board_pins.h"
 #include "command.h"
 #include "actuator_manager.h"
+#include "version.h"
 
-// --- Serial: left follower = 14/15 (Serial3), right follower = 16/17 (Serial2) ---
-#define SERIAL_LEFT  Serial3  // pins 14 (TX3), 15 (RX3)
-#define SERIAL_RIGHT Serial2   // pins 16 (TX2), 17 (RX2)
+// --- Serial: left follower = Serial1 (TX1/RX1 on Krabby-Uno v0.1 shield), right follower = Serial2 ---
+#define SERIAL_LEFT  Serial1  // pins 18 (TX1), 19 (RX1) — Krabby-Uno v0.1 shield Serial1 connector
+#define SERIAL_RIGHT Serial2   // pins 16 (TX2), 17 (RX2) — Krabby-Uno v0.1 shield Serial2 connector
 #define BAUD_RATE 115200
 #define SYNC_TOKEN "SYNC"
 #define ASSIGN_LEFT  "ROLE:LEFT"
@@ -20,6 +21,27 @@
 
 enum BoardRole { ROLE_UNKNOWN, ROLE_FRONT, ROLE_LEFT, ROLE_RIGHT };
 BoardRole currentRole = ROLE_UNKNOWN;
+
+// EEPROM address 32: magic sentinel byte (0xAB); address 33: BoardRole value.
+// Calibration data (CalData) occupies addresses 0–25; gap at 26–31 kept for alignment.
+#define EEPROM_ROLE_ADDR  32
+#define EEPROM_ROLE_MAGIC 0xAB
+
+static void saveRole(BoardRole r)
+{
+    EEPROM.update(EEPROM_ROLE_ADDR,     EEPROM_ROLE_MAGIC);
+    EEPROM.update(EEPROM_ROLE_ADDR + 1, (uint8_t)r);
+}
+
+static BoardRole loadRole()
+{
+    if (EEPROM.read(EEPROM_ROLE_ADDR) != EEPROM_ROLE_MAGIC)
+        return ROLE_UNKNOWN;
+    uint8_t r = EEPROM.read(EEPROM_ROLE_ADDR + 1);
+    if (r == ROLE_FRONT || r == ROLE_LEFT || r == ROLE_RIGHT)
+        return (BoardRole)r;
+    return ROLE_UNKNOWN;
+}
 
 static const char* roleName(BoardRole r)
 {
@@ -127,6 +149,17 @@ void forwardFullLines(HardwareSerial* from, HardwareSerial* to, char* partial, s
 void determineRole()
 {
     Serial.println("--- SYNC ---");
+
+    // Emit cached role before election so USB probe can label this port correctly
+    // even when the board is probed alone (and would otherwise appear as ROLE_UNKNOWN).
+    switch (loadRole())
+    {
+        case ROLE_FRONT: Serial.println("ROLE_HINT: FRONT"); break;
+        case ROLE_LEFT:  Serial.println("ROLE_HINT: LEFT");  break;
+        case ROLE_RIGHT: Serial.println("ROLE_HINT: RIGHT"); break;
+        default: break;
+    }
+
     pinMode(LED_BUILTIN, OUTPUT);
     SERIAL_LEFT.begin(BAUD_RATE);
     SERIAL_RIGHT.begin(BAUD_RATE);
@@ -154,6 +187,7 @@ void determineRole()
                 currentRole = ROLE_LEFT;
                 actuatorManager = new ActuatorManager(ACT_LIST_LEFT, ACT_COUNT);
                 mainSerial = &SERIAL_LEFT;
+                saveRole(ROLE_LEFT);
                 Serial.println("ROLE: LEFT");
                 return;
             }
@@ -168,6 +202,7 @@ void determineRole()
                 currentRole = ROLE_RIGHT;
                 actuatorManager = new ActuatorManager(ACT_LIST_RIGHT, ACT_COUNT);
                 mainSerial = &SERIAL_RIGHT;
+                saveRole(ROLE_RIGHT);
                 Serial.println("ROLE: RIGHT");
                 return;
             }
@@ -183,6 +218,7 @@ void determineRole()
             mainSerial = &Serial;
             leftSerial = &SERIAL_LEFT;
             rightSerial = &SERIAL_RIGHT;
+            saveRole(ROLE_FRONT);
             Serial.println("ROLE: FRONT");
             return;
         }
@@ -216,6 +252,44 @@ void setup()
     Serial.println(list[0]->name);
 }
 
+// Read lines from a follower serial until one starts with "VER "; discard telemetry lines.
+static String readVerLine(HardwareSerial* port, unsigned long timeout_ms)
+{
+    unsigned long deadline = millis() + timeout_ms;
+    String line = "";
+    while (millis() < deadline)
+    {
+        if (!port->available()) continue;
+        char c = (char)port->read();
+        if (c == '\n')
+        {
+            if (line.startsWith("VER ")) return line;
+            line = "";
+            continue;
+        }
+        if (c != '\r') line += c;
+        if (line.length() > 128) line = ""; // guard against runaway
+    }
+    return "";
+}
+
+// Parse a per-board VER reply: "VER <version> <branch> <commit>"
+static void parseVerToken(const String& reply, String& ver, String& branch, String& commit)
+{
+    ver = "-"; branch = "-"; commit = "-";
+    if (!reply.startsWith("VER ")) return;
+    String rest = reply.substring(4);
+    int sp1 = rest.indexOf(' ');
+    if (sp1 < 0) { ver = rest; return; }
+    ver = rest.substring(0, sp1);
+    rest = rest.substring(sp1 + 1);
+    int sp2 = rest.indexOf(' ');
+    if (sp2 < 0) { branch = rest; return; }
+    branch = rest.substring(0, sp2);
+    commit = rest.substring(sp2 + 1);
+    commit.trim();
+}
+
 void loop()
 {
     while (mainSerial->available())
@@ -234,6 +308,8 @@ void loop()
         else if (cmdType == 'B')
         {
             mainSerial->read();
+            while (mainSerial->available() && mainSerial->peek() == ' ')
+                mainSerial->read();
             if(leftSerial) leftSerial->print("B ");
             if(rightSerial) rightSerial->print("B ");
             while (true)
@@ -283,6 +359,48 @@ void loop()
             actuatorManager->holdAll();
             if (leftSerial)  leftSerial->println("H");
             if (rightSerial) rightSerial->println("H");
+        }
+        else if (cmdType == 'V')
+        {
+            mainSerial->read();
+            mainSerial->readStringUntil('\n');
+
+            if (currentRole == ROLE_LEFT || currentRole == ROLE_RIGHT)
+            {
+                // Follower: reply with own version on mainSerial (uplink to leader)
+                mainSerial->print("VER ");
+                mainSerial->print(KRABBY_FW_VERSION);
+                mainSerial->print(" ");
+                mainSerial->print(KRABBY_FW_BRANCH);
+                mainSerial->print(" ");
+                mainSerial->println(KRABBY_FW_COMMIT);
+            }
+            else
+            {
+                // Leader (FRONT or UNKNOWN): collect follower versions, combine, reply to host
+                String lVer = "-", lBranch = "-", lCommit = "-";
+                String rVer = "-", rBranch = "-", rCommit = "-";
+
+                if (leftSerial)
+                {
+                    leftSerial->println("V");
+                    String reply = readVerLine(leftSerial, 300);
+                    parseVerToken(reply, lVer, lBranch, lCommit);
+                }
+                if (rightSerial)
+                {
+                    rightSerial->println("V");
+                    String reply = readVerLine(rightSerial, 300);
+                    parseVerToken(reply, rVer, rBranch, rCommit);
+                }
+
+                mainSerial->print("VER ");
+                mainSerial->print(KRABBY_FW_VERSION); mainSerial->print("|"); mainSerial->print(lVer); mainSerial->print("|"); mainSerial->print(rVer);
+                mainSerial->print(" ");
+                mainSerial->print(KRABBY_FW_BRANCH); mainSerial->print("|"); mainSerial->print(lBranch); mainSerial->print("|"); mainSerial->print(rBranch);
+                mainSerial->print(" ");
+                mainSerial->print(KRABBY_FW_COMMIT); mainSerial->print("|"); mainSerial->print(lCommit); mainSerial->print("|"); mainSerial->println(rCommit);
+            }
         }
         else
         {

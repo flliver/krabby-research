@@ -59,6 +59,9 @@ class ParkourEventsCfg(ParkourTermCfg):
     reach_goal_delay: float = 0.1
     next_goal_threshold: float = 0.2
 
+    freeze_terrain_levels: bool = False
+    """If True, skip parkour terrain level up/down on episode reset (teacher bridge mode)."""
+
     future_goal_poses_visualizer_cfg: VisualizationMarkersCfg \
         = FUTURE_GOAL_MARKER_CFG.replace(prim_path="/Visuals/Command/future_goal_poses")
 

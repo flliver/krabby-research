@@ -22,10 +22,9 @@ scipy>=1.10.0
 # Reinforcement learning library
 rsl-rl-lib>=2.3.1
 
-# ZED SDK Python bindings (requires ZED SDK to be installed on system)
-# Note: ZED SDK must be installed separately via NVIDIA's installer
-# If ZED SDK is not available, the code will gracefully fall back to mock mode
-pyzed>=3.8.0
+# ZED SDK Python bindings
+# Locked to the SDK 5.1 line used by this image.
+pyzed==5.1.*
 
 # Gamepad E2E (controller/scripts/jetson client)
 pygame>=2.6.0

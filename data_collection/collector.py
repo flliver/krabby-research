@@ -10,9 +10,26 @@ from typing import Optional
 import zmq
 
 from data_collection.config import DataCollectorConfig
-from data_collection.serialization import IMAGE_MSGTYPE, is_catalog_camera_topic, observation_to_writes
+from data_collection.serialization import (
+    BASE_TWIST_MSGTYPE,
+    BASE_TWIST_TOPIC,
+    IMAGE_MSGTYPE,
+    IMU_MSGTYPE,
+    IMU_TOPIC,
+    JOINTS_COMMAND_TOPIC,
+    JOINTS_STATE_TOPIC,
+    JOINT_STATE_MSGTYPE,
+    catalog_camera_topic_msgtypes,
+    is_catalog_camera_topic,
+    observation_to_writes,
+)
 from hal.client.client import HalClient
 from hal.client.config import HalClientConfig
+from hal.server.rgbd_recording_catalog import hal_rgbd_catalog_ids_for_recording
+
+_STATE_TOPICS = frozenset(
+    {JOINTS_STATE_TOPIC, JOINTS_COMMAND_TOPIC, IMU_TOPIC, BASE_TWIST_TOPIC}
+)
 
 logger = logging.getLogger(__name__)
 
@@ -20,17 +37,21 @@ logger = logging.getLogger(__name__)
 def _topic_msgtype_catalog(cfg: DataCollectorConfig) -> list[tuple[str, str]]:
     """Static (topic, msgtype) pairs registered at bag open.
 
-    Catalog camera topics are added on first write (see ``RotatingMcapWriter``).
+    Catalog camera names come from ``hal_rgbd_catalog_ids_for_recording()``; per-observation
+    writes still only emit keys present in ``rgbd_by_catalog_id``.
     """
     t = cfg.topics
-    pairs: list[tuple[str, str]] = []
-    js = "sensor_msgs/msg/JointState"
+    pairs: list[tuple[str, str]] = list(
+        catalog_camera_topic_msgtypes(hal_rgbd_catalog_ids_for_recording())
+    )
     if t.joints_state:
-        pairs.append(("/joints/state", js))
+        pairs.append((JOINTS_STATE_TOPIC, JOINT_STATE_MSGTYPE))
     if t.joints_command:
-        pairs.append(("/joints/command", js))
+        pairs.append((JOINTS_COMMAND_TOPIC, JOINT_STATE_MSGTYPE))
     if t.imu:
-        pairs.append(("/imu", "sensor_msgs/msg/Imu"))
+        pairs.append((IMU_TOPIC, IMU_MSGTYPE))
+    if t.base_twist:
+        pairs.append((BASE_TWIST_TOPIC, BASE_TWIST_MSGTYPE))
     return pairs
 
 
@@ -116,7 +137,7 @@ class HalDataCollector:
                         self._bag.write_messages(img_rows, obs.timestamp_ns)
                     next_img = now + period_img
                 if now >= next_state:
-                    st_rows = [r for r in rows if r[0] in ("/joints/state", "/joints/command", "/imu")]
+                    st_rows = [r for r in rows if r[0] in _STATE_TOPICS]
                     if st_rows:
                         self._bag.write_messages(st_rows, obs.timestamp_ns)
                     next_state = now + period_state

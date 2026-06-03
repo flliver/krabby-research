@@ -278,6 +278,21 @@ class ParkourHexContactSensor(ContactSensor):
 
 @configclass
 class ParkourHexContactSensorCfg(ContactSensorCfg):
-    """Same fields as :class:`ContactSensorCfg`; uses :class:`ParkourHexContactSensor`."""
+    """Same fields as :class:`ContactSensorCfg`; uses :class:`ParkourHexContactSensor`.
+
+    Adds fields that :class:`ParkourHexContactSensor` reads but upstream
+    :class:`ContactSensorCfg` does not declare. Defaults keep the optional
+    code paths disabled — behavior is unchanged when fields are left unset.
+    """
 
     class_type: type = ParkourHexContactSensor
+
+    track_friction_forces: bool = False
+    """If True, populate per-filter friction forces in `friction_forces_w`.
+    Requires a non-empty :attr:`filter_prim_paths_expr` and a positive
+    :attr:`max_contact_data_count_per_prim`."""
+
+    max_contact_data_count_per_prim: int = 1
+    """Maximum number of contact-data slots reserved per filter prim when
+    `track_contact_points` or `track_friction_forces` is enabled. Ignored
+    otherwise."""

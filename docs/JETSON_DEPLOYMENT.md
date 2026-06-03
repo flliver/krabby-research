@@ -131,6 +131,11 @@ Scope of this fix:
 
 Docker is required for running the locomotion container.
 
+> **Use the script.** `scripts/jetson/install-docker.sh` performs exactly the
+> steps below (idempotently), and `scripts/jetson/bootstrap.sh` runs it as part
+> of the full bring-up. The manual steps here document what the script does and
+> serve as a fallback — prefer the script so the two don't drift.
+
 ```bash
 # Update package index
 sudo apt-get update
@@ -169,6 +174,10 @@ This is required for the group membership to take effect.
 ### 3. NVIDIA Container Toolkit Installation
 
 Required for GPU access in Docker containers.
+
+> **Use the script.** `scripts/jetson/setup-docker-gpu.sh` performs the steps
+> below (idempotently) and is run by `scripts/jetson/bootstrap.sh`. The manual
+> steps document what it does; prefer the script.
 
 ```bash
 # Install nvidia-container-toolkit

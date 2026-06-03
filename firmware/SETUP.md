@@ -13,7 +13,7 @@ This firmware drives a full leg pair (Left & Right) consisting of **6 Motors**.
   - 12V Power Supply
 - **Software:**
   - Python 3
-  - Libraries: `pip install pyserial keyboard`
+  - Libraries: `pip install pyserial` (the interactive menu uses the stdlib `termios`/`select`, so it works headless over SSH — no `keyboard`/`pynput`/X11 needed)
   - Arduino IDE
 
 ---
@@ -126,6 +126,19 @@ python -m firmware --debug
 ```
 
 
+### EEPROM address layout
+
+| Address | Size | Purpose |
+|---------|------|---------|
+| 0–25 | 26 bytes | `CalData` struct — calibration min/max for 6 actuators + magic word (`0xDEADBEEF`) |
+| 26–31 | 6 bytes | Reserved (alignment gap) |
+| 32 | 1 byte | Role magic sentinel (`0xAB`) — written once after first successful role election |
+| 33 | 1 byte | `BoardRole` value: `1`=FRONT, `2`=LEFT, `3`=RIGHT |
+
+The role bytes survive power cycles. On each boot, the board prints `ROLE_HINT: LEFT/RIGHT/FRONT` immediately before the 3-second role-election window. `krabby-firmware show` reads this hint so follower boards can be labeled correctly even when probed individually (when they would otherwise appear as `ROLE_UNKNOWN` and show as "primary").
+
+Role bytes are only written when a valid role is elected (FRONT, LEFT, or RIGHT). A board that times out as ROLE_UNKNOWN does not update EEPROM, preserving the last valid role.
+
 ### Feature 1: Auto-Calibration (Run Once)
 The robot now calibrates itself automatically and saves limits to EEPROM.
  - Select Option 2 (Auto-Calibrate) in the menu.
@@ -142,3 +155,77 @@ The robot now calibrates itself automatically and saves limits to EEPROM.
 ### Feature 3: Neutral Pose
  - Select Option 1.
  - Robot moves all joints to center (0.5). Useful to verify calibration accuracy.
+
+---
+
+## 4. Firmware Store (`krabby-firmware-public`)
+
+Built firmware lives in a public S3 bucket. CI publishes a new build on every push to `mainline` or `release/*`, plus a daily scheduled build of the newest `release/*` branch.
+
+### 4.1 Bucket layout
+
+```
+s3://krabby-firmware-public/
+  index.json                               ← all branches, latest build per branch
+  <branch>/latest.json                     ← pointer to the most recent build on <branch>
+  <branch>/builds.json                     ← full build history for <branch> (powers `show <branch>`)
+  <branch>/<YYYYMMDD-HHMMSS-<sha7>>/
+    firmware.hex                           ← compiled Arduino HEX
+    manifest.json                          ← branch, commit, timestamp, board FQBN, VER string
+```
+
+`<branch>` mirrors the Git branch name (`mainline`, `release/0.2.0`, etc.).
+
+**`manifest.json` fields:** `schema_version`, `branch`, `commit`, `commit_date`, `build_timestamp`, `board_fqbn`, `ver_string`, `hex_filename`.
+
+### 4.2 V protocol
+
+Send `V\n` on the main serial (115200 baud). The leader board collects replies from all three boards and responds with a single line:
+
+```
+VER <versions> <branches> <commits>
+```
+
+Each field is `primary|left|right` pipe-delimited. Example:
+
+```
+VER 0.2.0|0.2.0|0.2.0 release/0.2.0|release/0.2.0|release/0.2.0 abc1234|def5678|ghi9012
+```
+
+If a follower board is missing, its slot contains `-`.
+
+### 4.3 Three-board update procedure
+
+```bash
+# 1. One-time host setup (udev rules, dialout group, flash tools)
+sudo krabby-firmware install
+
+# 2. Check attached boards and the latest build per branch
+krabby-firmware show
+
+# 2b. List one branch's full build history, newest-first (paged via $PAGER)
+krabby-firmware show release/0.2.0
+
+# 3. Flash all three boards in turn (replug USB between boards)
+krabby-firmware update                        # latest release/* build, auto-detects port
+krabby-firmware update release/0.2.0          # specific branch
+krabby-firmware update /dev/ttyACM1           # specific port, latest release
+krabby-firmware update release/0.2.0 /dev/ttyACM2  # specific branch + port
+```
+
+Downloaded HEX files are cached under `~/.cache/krabby-firmware/<branch>/<sha7>/firmware.hex` and reused on subsequent calls.
+
+### `krabby-firmware` vs `krabby firmware`
+
+Two ways to reach the same flash CLI:
+
+- **`krabby-firmware <args>`** — runs the flash tool **directly on the host**. Requires the
+  `krabby-firmware` package and host flash tools (`krabby-firmware install` sets up
+  `avrdude`/`arduino-cli`, udev, and `dialout`). Use this on a laptop or bench machine.
+- **`krabby firmware <args>`** — runs that same CLI **inside the locomotion image** (the
+  flash tools are bundled there), so a kit owner who only `pip install krabby-launcher`
+  can flash with no host setup. It forwards every argument verbatim, mounts the
+  `~/.cache/krabby-firmware` download cache, and passes the serial devices through.
+
+So `krabby firmware show release/0.2.0` and `krabby-firmware show release/0.2.0` behave
+identically — they differ only in *where* the tool runs.

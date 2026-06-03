@@ -150,17 +150,26 @@ krabby-research/
 │       ├── 004-{matcha,sfm-scaling,r-knob-sweep,...}-sky-house/
 │       └── DECISION-MATRIX.md
 │
-├── .beads/                           # Beads issue-tracking DB (M11+ uses prefix m11-*)
+├── .beads/                           # Beads issue-tracking DB (M11; pending port to CCC)
 │   ├── issues.jsonl                  # Portable canonical export
 │   └── (config.yaml, hooks/, README.md)
 │
 ├── .env.example                      # Template for HF_TOKEN etc. (copy to .env at runtime)
 │
 └── scripts/                          # Deployment and utility scripts
-    ├── setup-docker-gpu.sh           # NVIDIA Container Toolkit installer
-    └── deploy/                        # Per-container launch scripts
-        ├── run_isaac_simulation.sh
-        └── run_locomotion.sh
+    ├── jetson/                       # Jetson host-side bring-up & ops
+    │   ├── bootstrap.sh
+    │   ├── install-docker.sh
+    │   ├── jetson-reset.sh
+    │   ├── pair_pro_controller.sh
+    │   ├── run_jetson_hal_server_host.sh
+    │   ├── setup-docker-gpu.sh
+    │   └── README.md
+    ├── run_isaac_hal_server.sh       # Isaac Sim HAL (+ --teleop, --joystick)
+    ├── run_teleop_portal_x86_docker.sh
+    ├── demo_isaacsim_teacher.sh
+    ├── test-publish-job.sh
+    └── wheel-build/                  # Wheel-build helpers
 ```
 
 > **M11 environments**: `environments/reconstructed/<scene>/` is the

@@ -2,6 +2,48 @@
 
 Two-process E2E on Jetson Orin: **Pro Controller** → **ControlLoop (INPUT_CONTROLLER_KRABBY)** → **HalClient (ZMQ TCP)** → **Jetson HAL server** → **KrabbyMCUSDK** → **firmware/krabby_mcu.py**. No camera or inference; command path only.
 
+---
+
+## Canonical path: `krabby` CLI
+
+```bash
+pip install krabby-launcher
+krabby install              # pull release-latest, set up udev + dialout
+krabby firmware show        # verify all three boards are visible
+krabby run                  # start the FULL gamepad stack (server + client + controller)
+```
+
+`krabby run` starts the container with `--privileged -v /dev:/dev`, which passes through the MCU serial ports (`/dev/ttyACM*`, `/dev/ttyUSB*`) **and** all input devices (`/dev/input/*`) in a single flag — no separate `--device` arguments needed. It launches the HAL server **and** the `krabby-uno` client/controller together in one container, so a paired gamepad drives the robot immediately — no second command. (`krabby run --gamepad-only` is an explicit alias for the same behavior.)
+
+Pair the Pro Controller over Bluetooth before starting the container (see [CONNECT_PRO_CONTROLLER.md](CONNECT_PRO_CONTROLLER.md)). The paired `/dev/input/js0` is available inside the container automatically because of `-v /dev:/dev`.
+
+---
+
+## Two-process / debug path (server and client separately)
+
+For debugging you can split the stack into the server and a separately-launched client. Start the server alone with the helper script, then connect a client.
+
+**Terminal 1 — HAL server only, in the container:**
+
+```bash
+./controller/scripts/jetson/helper/run_gamepad_hal_server_only_in_container.sh
+```
+
+Wait for: ``Gamepad mode active: HAL bound at ... to connect a separate client, run `krabby-uno`.``
+
+**Terminal 2 — control-loop client on host:**
+
+```bash
+PYTHONPATH=/tmp/krabby-research python3 \
+  -m controller.scripts.jetson.run_gamepad_to_krabby_client
+```
+
+Or with the pip-installed client: `krabby-uno` (defaults to `tcp://localhost:6001/6002`).
+
+---
+
+## Manual / debug path (raw docker run)
+
 ## Prerequisites
 
 - **Pro Controller** connected (USB or Bluetooth). Verify: `python -m controller.input --list`
@@ -18,17 +60,17 @@ It is recommended to use a Python virtual environment to isolate dependencies: c
 
 ## Steps
 
-### Terminal 1: HAL server
+### Terminal 1: HAL server (server only)
 
-From **krabby-research**:
+This debug flow runs the server on its own. `krabby run` would start the client too, so use the server-only helper (or the raw command) here:
 
 ```bash
-python controller/scripts/jetson/main_gamepad_only.py
+./controller/scripts/jetson/helper/run_gamepad_hal_server_only_in_container.sh
 ```
 
-Custom bind: `--observation_bind tcp://*:6001 --command_bind tcp://*:6002`. Optional: `--mcu-port`, `--mcu-baud` (115200).
+Custom bind ports: `krabby-hal-server-jetson --control-source gamepad --observation-bind tcp://*:6001 --command-bind tcp://*:6002`
 
-Wait for: `Gamepad-only HAL server initialized (ZMQ TCP). ... Waiting for joint commands...`
+Wait for: ``Gamepad mode active: HAL bound at ... to connect a separate client, run `krabby-uno`.``
 
 ### Terminal 2: Control-loop client
 
@@ -92,15 +134,14 @@ Override the default entrypoint to run the gamepad-only server:
 docker run --rm --privileged --runtime=nvidia \
   -v /dev:/dev \
   -p 6001:6001 -p 6002:6002 \
-  --entrypoint python3 \
+  --entrypoint krabby-hal-server-jetson \
   krabby-locomotion:latest \
-  -m controller.scripts.jetson.main_gamepad_only \
-  --observation_bind tcp://*:6001 --command_bind tcp://*:6002
+  --control-source gamepad \
+  --observation-bind tcp://*:6001 --command-bind tcp://*:6002
 ```
 
 - `--privileged`: required so the container can open the serial device (e.g. `/dev/ttyACM0`) for the MCU; otherwise you may see "Operation not permitted".
 - `-v /dev:/dev`: serial access for MCU (e.g. `/dev/ttyACM0`).
-- Optional: `--mcu-port`, `--mcu-baud` if needed.
 - Alternatively: `./controller/scripts/jetson/helper/run_gamepad_hal_server_only_in_container.sh`
 
 #### Terminal 2: Control-loop client (on host)

@@ -94,7 +94,7 @@ polling_timeout_ms: 10
 | HAL transport | Always enforced from entrypoint runtime endpoints (must match primary `HalClientConfig`; Jetson uses fixed inproc endpoints). |
 | Output | From YAML/default config (`output_dir`) with optional CLI override via **`--data-collector-output-dir`**. |
 | Rates | **`RECORDING_RATES`** — wall-clock caps; actual rate is still bounded by HAL publish rate and **latest-only** `poll()` semantics. |
-| Topics | **`TOPIC_ENABLE`** — booleans for `/joints/*` and `/imu` only; catalog cameras are always recorded when present in **`rgbd_by_catalog_id`**. |
+| Topics | **`TOPIC_ENABLE`** — booleans for `/joints/*`, `/imu`, and `/base/twist`; catalog cameras are always recorded when present in **`rgbd_by_catalog_id`**. Camera ROS names are **`/camera/{catalog_id}/rgb`** and **`/camera/{catalog_id}/depth`** where **`catalog_id`** is the sensor registry id (e.g. **`front_rgbd`**, not **`front`**). Bags pre-register those topics from **`JETSON_SENSOR_CATALOG`** via **`hal_rgbd_catalog_ids_for_recording()`**. Image **`frame_id`** matches the topic so MCAP/Foxglove stream names align with playback. |
 | Commands | **`joints_command_source`** is only **`previous_action`** in code — `/joints/command` is filled from **`HardwareObservations.previous_action`**, not from a separate tap on `put_joint_command`. |
 | Joints | **`JOINT_NAMES`** — if empty or length mismatch, serialization uses `joint_0`, `joint_1`, … |
 | Polling | **`POLLING_TIMEOUT_MS`** — ZMQ receive timeout per collector poll. |
@@ -107,12 +107,12 @@ polling_timeout_ms: 10
 | `rgbd_by_catalog_id[id].depth` | `/camera/{id}/depth` | `sensor_msgs/Image` (`32FC1`, meters) |
 | `joint_positions`, `joint_velocities` | `/joints/state` | `sensor_msgs/JointState` |
 | `previous_action` | `/joints/command` | `sensor_msgs/JointState` (positions only; see above) |
-| `base_quat_w`, `base_ang_vel_b` | `/imu` | `sensor_msgs/Imu` — orientation + angular velocity; linear acceleration is zero (not estimated here). |
+| `base_quat_w`, `base_ang_vel_b` | `/imu` | `sensor_msgs/Imu` — orientation + angular velocity; linear acceleration is zero (not on `HardwareObservations`). |
+| `base_lin_vel_b`, `base_ang_vel_b` | `/base/twist` | `geometry_msgs/TwistStamped` — body-frame linear + angular velocity (e.g. ZED tracking + IMU via Jetson HAL). |
 
 ## Playback
 
-- **ROS 2:** `ros2 bag info` / `ros2 bag play` on the bag directory.
-- **This repo:** `python scripts/playback_krabby_bag.py <bag_dir> --topic /camera/front_rgbd/rgb --max 5` (optional `--display` if OpenCV is installed).
+- **ROS 2:** `ros2 bag info` / `ros2 bag play` on the bag directory (standard rosbag2 layout under `output_dir`).
 
 ## Architecture
 
@@ -122,7 +122,7 @@ Serialization and bags use **[rosbags](https://pypi.org/project/rosbags/)** (ros
 
 ## Recording lifecycle
 
-Under `output_dir`, each **segment** is a standard **rosbag2 v9** directory with **mcap** storage, named `krabby_<seq>_<YYYYMMDD_HHMMSS>`, containing `metadata.yaml` and mcap data—compatible with `ros2 bag info` / `ros2 bag play` and the repo playback helper in the section above.
+Under `output_dir`, each **segment** is a standard **rosbag2 v9** directory with **mcap** storage, named `krabby_<seq>_<YYYYMMDD_HHMMSS>`, containing `metadata.yaml` and mcap data—compatible with `ros2 bag info` / `ros2 bag play`.
 
 **Rotation:** when the current segment’s on-disk size reaches `rotation_max_bytes` **or** its age reaches `rotation_max_minutes`, the writer closes that directory and opens a new one (sequence increments).
 
@@ -132,6 +132,6 @@ Under `output_dir`, each **segment** is a standard **rosbag2 v9** directory with
 
 ## Configuration semantics
 
-- **`topics.*`:** Disabling `joints_state`, `joints_command`, or `imu` removes those topics from the bag. Catalog camera topics are written for every key in `HardwareObservations.rgbd_by_catalog_id` on each sampled observation (authoritative catalog list: `JETSON_SENSOR_CATALOG` in `hal/server/jetson/sensor_backend_jetson.py`; overview in [SENSOR_INTERFACE.md](SENSOR_INTERFACE.md)).
+- **`topics.*`:** Disabling `joints_state`, `joints_command`, `imu`, or `base_twist` removes those topics from the bag. Catalog camera topics are written for every key in `HardwareObservations.rgbd_by_catalog_id` on each sampled observation (authoritative catalog list: `JETSON_SENSOR_CATALOG` in `hal/server/jetson/sensor_backend_jetson.py`; overview in [SENSOR_INTERFACE.md](SENSOR_INTERFACE.md)).
 - **HAL endpoints:** YAML values are overridden by entrypoint runtime endpoint wiring so transport always matches the primary client.
 - **Source of truth:** Keep defaults in **`collector_settings.py`**; use **`--data-collector-config`** only when you want per-run YAML overrides.

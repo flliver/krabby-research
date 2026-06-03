@@ -20,6 +20,24 @@ if not logging.getLogger().handlers:
 logger = logging.getLogger("KrabbySDK")
 
 
+def parse_ver_reply(line: str) -> Optional[list[tuple[str, str, str]]]:
+    """Parse a VER reply line. Returns None if not a VER line."""
+    if not line.startswith("VER "):
+        return None
+    parts = line[4:].split()
+    if not parts:
+        return None
+    versions = parts[0].split("|")
+    branches = parts[1].split("|") if len(parts) > 1 else []
+    commits  = parts[2].split("|") if len(parts) > 2 else []
+    result = []
+    for i, v in enumerate(versions):
+        b = branches[i] if i < len(branches) else "-"
+        c = commits[i]  if i < len(commits)  else "-"
+        result.append((v, b, c))
+    return result
+
+
 def _raw_rx_to_stderr() -> bool:
     """When True, every non-empty decoded line is printed to stderr (see __main__.py --debug)."""
     v = os.environ.get("KRABBY_MCU_RAW_RX", "").strip().lower()
@@ -57,11 +75,22 @@ class KrabbyMCUSDK:
         self._last_debug_log_ts = 0.0
         self.last_error = None
         self.last_cmd: Dict[str, Optional[float]] = {}
+        self._last_ver_line: Optional[str] = None
 
     def connect(self):
         try:
-            self.ser = serial.Serial(self.port, self.baud, timeout=1)
-            time.sleep(2)
+            # Open without toggling DTR so the leader board is not reset on connect.
+            # A DTR reset would break three-board role election (followers stay in
+            # their assigned roles and stop broadcasting SYNC, so a newly-reset
+            # leader can never hear from them).
+            ser = serial.Serial()
+            ser.port = self.port
+            ser.baudrate = self.baud
+            ser.timeout = 0.5
+            ser.dtr = False
+            ser.open()
+            self.ser = ser
+            time.sleep(5.0)  # wait for boot + 3-board role election before starting reader
             self.running = True
             self.last_error = None
             self.thread = threading.Thread(
@@ -106,6 +135,8 @@ class KrabbyMCUSDK:
                 if line.startswith(_TELEMETRY_LINE_PREFIXES):
                     self._parse_joint_line(line)
                     self.last_feedback_ts = time.time()
+                elif line.startswith("VER "):
+                    self._last_ver_line = line
                 elif "Krabby" in line or "CAL" in line or "Saved" in line:
                     logger.info(f"[MCU] {line}")
 
@@ -179,7 +210,7 @@ class KrabbyMCUSDK:
             pwm = max(-255, min(255, int(raw_pwm)))
             parts.append(name)
             parts.append(str(pwm))
-        cmd = " ".join(parts) + "\n"
+        cmd = " ".join(parts) + " \n"
         self.ser.write(cmd.encode('utf-8'))
         self.ser.flush()
 
@@ -191,6 +222,19 @@ class KrabbyMCUSDK:
         cmd = f"J{joint_name} {pwm}\n"
         self.ser.write(cmd.encode('utf-8'))
         self.ser.flush()
+
+    def read_version(self, timeout: float = 1.0) -> Optional[str]:
+        if not self.ser or not self.ser.is_open:
+            return None
+        self._last_ver_line = None
+        self.ser.write(b"V\n")
+        self.ser.flush()
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            if self._last_ver_line is not None:
+                return self._last_ver_line
+            time.sleep(0.02)
+        return None
 
     def send_command_calibrate(self):
         if not self.ser or not self.ser.is_open:

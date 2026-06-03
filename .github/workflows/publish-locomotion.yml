@@ -1,0 +1,163 @@
+# Build the production locomotion image and push to ECR Public on every push to mainline or release/*.
+# Dev image (images/locomotion/Dockerfile) is not built or pushed here.
+# Tags: <sha7>, <branch>-latest (e.g. mainline-latest, release-0-2-9-latest),
+#       and on locomotion-v* tags also the semver version.
+#
+# Requires:
+#   - krabby-locomotion repo in ECR Public (public.ecr.aws/t7t7b3i3/krabby-locomotion)
+#   - krabby-locomotion-ci IAM role with OIDC trust for this repo and ecr-public push permissions
+
+name: Build and push locomotion image to ECR
+
+on:
+  push:
+    branches:
+      - mainline
+      - 'release/**'
+    tags:
+      - 'locomotion-v*'
+  schedule:
+    # Daily release build at 07:30 UTC (offset from firmware to spread load).
+    # Scheduled runs start on the default branch, so the "Select newest release
+    # branch" step checks out the most recent release/* before building. GitHub
+    # may delay or skip scheduled runs under load; pushes still publish per-commit.
+    - cron: '30 7 * * *'
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Scheduled builds need every branch to find the newest release/*.
+          fetch-depth: 0
+
+      - name: Select newest release branch (scheduled builds)
+        if: github.event_name == 'schedule'
+        run: |
+          # Highest version, not most-recently-committed: a hotfix to an old
+          # maintenance branch must not hijack the daily build from a newer release.
+          BRANCH=$(git for-each-ref --sort=-version:refname \
+            --format='%(refname:short)' 'refs/remotes/origin/release/*' | head -1)
+          if [ -z "$BRANCH" ]; then
+            echo "No release/* branch found — nothing to build." >&2
+            exit 1
+          fi
+          LOCAL="${BRANCH#origin/}"
+          echo "Scheduled daily build: checking out ${LOCAL}"
+          git checkout -B "${LOCAL}" "${BRANCH}"
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::632914961627:role/krabby-locomotion-ci
+          aws-region: us-east-1
+
+      - name: Login to Amazon ECR Public
+        uses: aws-actions/amazon-ecr-login@v2
+        with:
+          registry-type: public
+
+      - name: Compute image tags
+        id: tags
+        run: |
+          ECR="public.ecr.aws/t7t7b3i3/krabby-locomotion"
+          # Read SHA from the checked-out HEAD so scheduled release builds tag the
+          # release commit, not the default-branch commit in GITHUB_SHA.
+          SHA="$(git rev-parse --short=7 HEAD)"
+          SHA_TAG="${ECR}:${SHA}"
+          TAGS="${SHA_TAG}"
+
+          if [[ "${GITHUB_REF}" == refs/tags/locomotion-v* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/locomotion-v}"
+            TAGS="${TAGS},${ECR}:${VERSION}"
+          else
+            # Branch push or scheduled build: derive the branch from HEAD, which the
+            # schedule step may have switched to the newest release/*.
+            BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+            SAFE="${BRANCH//\//-}"
+            TAGS="${TAGS},${ECR}:${SAFE}-latest"
+            # Release builds also move the stable `release-latest` tag — the default
+            # channel `krabby install`/`run` pulls (see krabby/_state.py) — but ONLY
+            # for the highest-versioned release/* branch, so a hotfix pushed to an
+            # older maintenance branch never silently downgrades the default channel.
+            if [[ "${BRANCH}" == release/* ]]; then
+              HIGHEST="$(git for-each-ref --sort=-version:refname \
+                --format='%(refname:short)' 'refs/remotes/origin/release/*' | head -1)"
+              HIGHEST="${HIGHEST#origin/}"
+              if [[ "${BRANCH}" == "${HIGHEST}" ]]; then
+                TAGS="${TAGS},${ECR}:release-latest"
+              else
+                echo "Not moving release-latest: ${BRANCH} is below the highest release branch ${HIGHEST}."
+              fi
+            fi
+          fi
+
+          echo "tags=${TAGS}" >> $GITHUB_OUTPUT
+          echo "sha_tag=${SHA_TAG}" >> $GITHUB_OUTPUT
+
+      - name: Build and push production image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: images/locomotion/Dockerfile.release
+          platforms: linux/arm64
+          push: true
+          tags: ${{ steps.tags.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Free disk space before verify
+        run: |
+          docker image prune -af
+          df -h
+
+      - name: Verify production image
+        run: |
+          set -o pipefail
+          SHA_TAG="${{ steps.tags.outputs.sha_tag }}"
+
+          # Pull freeze for all krabby-* packages installed in the image
+          docker run --rm --platform linux/arm64 --entrypoint "" "${SHA_TAG}" \
+            pip freeze | grep -E '^krabby-' | sort > /tmp/actual.txt
+
+          # Extract expected krabby pins from requirements.release.txt
+          grep -E '^krabby-[a-z]' images/locomotion/requirements.release.txt \
+            | sort > /tmp/expected.txt
+
+          echo "Expected Krabby packages:"
+          cat /tmp/expected.txt
+          echo "Actual Krabby packages in image:"
+          cat /tmp/actual.txt
+
+          # Every line in expected must appear exactly in actual
+          while IFS= read -r line; do
+            if ! grep -Fxq "${line}" /tmp/actual.txt; then
+              echo "ERROR: '${line}' not found in pip freeze output"
+              exit 1
+            fi
+          done < /tmp/expected.txt
+
+          # Verify flash tooling is present
+          docker run --rm --platform linux/arm64 --entrypoint "" "${SHA_TAG}" which avrdude
+          docker run --rm --platform linux/arm64 --entrypoint "" "${SHA_TAG}" which arduino-cli
+          docker run --rm --platform linux/arm64 --entrypoint "" "${SHA_TAG}" which krabby-firmware
+
+          # Verify Mega 2560 AVR core is installed
+          docker run --rm --platform linux/arm64 --entrypoint "" "${SHA_TAG}" \
+            arduino-cli core list | grep -E "^arduino:avr"
+
+          echo "All verification checks passed."

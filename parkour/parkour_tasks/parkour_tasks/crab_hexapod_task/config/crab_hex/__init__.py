@@ -7,6 +7,7 @@ from .crab_hex_env_cfg import (
     CrabHexFlatWalkEnvCfg,
     CrabHexFlatWalkEnvCfgPLAY,
     CrabHexStudentEnvCfg,
+    CrabHexStudentEnvCfgPLAY,
     CrabHexTeacherEnvCfg,
     CrabHexTeacherEnvCfgPLAY,
 )
@@ -57,6 +58,16 @@ gym.register(
     disable_env_checker=True,
     kwargs={
         "env_cfg_entry_point": CrabHexStudentEnvCfg,
+        "rsl_rl_cfg_entry_point": agents.rsl_rl_ppo_cfg.CrabHexStudentPPORunnerCfg,
+    },
+)
+
+gym.register(
+    id="Isaac-Crab-Hex-Student-Play-v0",
+    entry_point="parkour_isaaclab.envs:ParkourManagerBasedRLEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": CrabHexStudentEnvCfgPLAY,
         "rsl_rl_cfg_entry_point": agents.rsl_rl_ppo_cfg.CrabHexStudentPPORunnerCfg,
     },
 )

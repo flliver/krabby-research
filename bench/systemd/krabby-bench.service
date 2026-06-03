@@ -1,0 +1,19 @@
+[Unit]
+Description=Krabby bench watchdog
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/krabby-bench --config /etc/krabby-bench/config.toml
+Restart=on-failure
+RestartSec=30
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=krabby-bench
+
+# State dir — created by systemd-tmpfiles or krabby-bench on first run
+StateDirectory=krabby-bench
+
+[Install]
+WantedBy=multi-user.target

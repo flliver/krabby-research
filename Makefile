@@ -110,26 +110,33 @@ else
 endif
 
 .PHONY: build-wheels
+# `python -m build` leaves prior wheels in dist/ when a version is bumped. Docker images
+# COPY dist/*.whl into one directory and pip install fails if two versions of the same
+# package are present (e.g. krabby-compute-parkour 0.1.0 and 0.1.1). Clear dist first.
 build-wheels:
 	@echo "Building wheels for all packages..."
-	@cd hal/client && $(PYTHON) -m build --wheel
-	@cd controller && $(PYTHON) -m build --wheel
-	@cd hal/server && $(PYTHON) -m build --wheel
-	@cd hal/server/isaac && $(PYTHON) -m build --wheel
-	@cd hal/server/jetson && $(PYTHON) -m build --wheel
-	@cd hal/tools && $(PYTHON) -m build --wheel
-	@cd data_collection && $(PYTHON) -m build --wheel
-	@cd compute/parkour && $(PYTHON) -m build --wheel
-	@$(PYTHON) scripts/wheel-build/build_parkour_wheel.py
-	@cd teleop/edge && $(PYTHON) -m build --wheel
-	@cd teleop/portal && $(PYTHON) -m build --wheel
+	@cd hal/client && rm -rf dist && $(PYTHON) -m build --wheel
+	@cd controller && rm -rf dist && $(PYTHON) -m build --wheel
+	@cd hal/server && rm -rf dist && $(PYTHON) -m build --wheel
+	@cd hal/server/isaac && rm -rf dist && $(PYTHON) -m build --wheel
+	@cd hal/server/jetson && rm -rf dist && $(PYTHON) -m build --wheel
+	@cd hal/tools && rm -rf dist && $(PYTHON) -m build --wheel
+	@cd data_collection && rm -rf dist && $(PYTHON) -m build --wheel
+	@cd compute/parkour && rm -rf dist && $(PYTHON) -m build --wheel
+	@rm -rf parkour/dist && $(PYTHON) scripts/wheel-build/build_parkour_wheel.py
+	@cd teleop/edge && rm -rf dist && $(PYTHON) -m build --wheel
+	@cd teleop/portal && rm -rf dist && $(PYTHON) -m build --wheel
 	@echo "Wheels built in dist/ directories"
 
 .PHONY: clean
+# `python -m build` does not remove old wheels from dist/ after a version bump. Docker images
+# COPY dist/*.whl into one directory and pip install fails if two versions of the same package
+# are present (e.g. krabby-compute-parkour 0.1.0 and 0.1.1).
 clean:
 	rm -rf hal/*/dist hal/*/build hal/*/*.egg-info
 	rm -rf hal/server/*/dist hal/server/*/build hal/server/*/*.egg-info
 	rm -rf compute/*/dist compute/*/build compute/*/*.egg-info
+	rm -rf parkour/dist parkour/build
 	rm -rf data_collection/dist data_collection/build data_collection/*.egg-info
 	rm -rf teleop/edge/dist teleop/edge/build teleop/edge/*.egg-info
 	rm -rf teleop/portal/dist teleop/portal/build teleop/portal/*.egg-info

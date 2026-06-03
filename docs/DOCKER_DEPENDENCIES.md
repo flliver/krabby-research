@@ -9,7 +9,7 @@ This document specifies the base images and dependencies required for each Docke
 All containers that use GPU acceleration require NVIDIA Container Toolkit to be installed and configured. Use the provided setup script:
 
 ```bash
-./scripts/setup-docker-gpu.sh
+./scripts/jetson/setup-docker-gpu.sh
 ```
 
 This script will:

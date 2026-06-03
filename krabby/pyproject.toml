@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "krabby-launcher"
+version = "0.1.11"
+description = "CLI for installing, updating, and running the Krabby locomotion stack"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+authors = [
+    {name = "James Childers", email = "james.childers@gmail.com"}
+]
+dependencies = []
+
+[project.scripts]
+krabby = "krabby.__main__:main"
+
+[tool.setuptools]
+package-dir = {"krabby" = "."}
+packages = ["krabby"]

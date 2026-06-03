@@ -2,8 +2,8 @@
 
 Pipeline generation uses appsrc + nvenc (or software encode). ``JETSON_SENSOR_CATALOG``
 rows describe every logical sensor; rgbd rows can opt into HAL capture via ``hal_open_rgbd``,
-``policy_scan_slot``, ``zed_usb_serial_env``, and (for MaixSense) ``maixsense_host_env`` /
-``maixsense_port_env`` (see ``JetsonHalServer``).
+``policy_scan_slot``, ``zed_usb_serial``, and (for MaixSense) ``maixsense_host`` /
+``maixsense_port`` (see ``JetsonHalServer``).
 """
 
 from __future__ import annotations
@@ -45,15 +45,11 @@ class JetsonSensorCatalogEntry:
     # Maps this row into legacy ``HardwareObservations`` policy scan slots (``scan_features`` /
     # ``side_scan_features``). Primary uses ``is_primary``; at most one other row may use ``"side"``.
     policy_scan_slot: Literal["side"] | None = None
-    # For ``camera_driver=="zed"``: optional USB serial env var (int).
+    # For ``camera_driver=="zed"``: optional USB serial (int).
     # If unset, runtime opens the first detected ZED.
-    zed_usb_serial_env: str | None = None
-    # For ``camera_driver=="maixsense_a075v"``: use either literal host/port or env-var names.
-    # Port must be explicit (literal or env var).
-    maixsense_host_env: str | None = None
-    maixsense_port_env: str | None = None
-    # Optional literal host/port values that launchers may use to populate runtime settings.
-    # Keeping these in the catalog avoids duplicating camera endpoints across scripts.
+    zed_usb_serial: int | None = None
+    # For ``camera_driver=="maixsense_a075v"``: literal host/port values.
+    # Port must be explicit.
     maixsense_host: str | None = None
     maixsense_port: int | None = None
     # When set, ``JetsonSensorInterface.list_sensors()`` also lists ``{id}_gray16_depth`` (Gst GRAY16_LE).
@@ -81,7 +77,7 @@ JETSON_SENSOR_CATALOG: tuple[JetsonSensorCatalogEntry, ...] = (
         gst_depth_quant_range_m=(0.2, 25.0),
     ),
     # Second RGB-D (policy side slot when ``policy_scan_slot="side"``): driver is per-row.
-    # This row is configured for MaixSense A075V and reads host/optional port from env vars.
+    # This row is configured for MaixSense A075V with literal host/port.
     JetsonSensorCatalogEntry(
         id="side_rgbd",
         type="rgbd",
@@ -106,8 +102,6 @@ JETSON_SENSOR_CATALOG: tuple[JetsonSensorCatalogEntry, ...] = (
         depth_mode="NEURAL",
         hal_open_rgbd=True,
         policy_scan_slot="side",
-        maixsense_host_env="KRABBY_JETSON_MAIXSENSE_SIDE_HOST",
-        maixsense_port_env="KRABBY_JETSON_MAIXSENSE_SIDE_PORT",
         maixsense_host="192.168.233.1",
         maixsense_port=80,
         gst_depth_quant_range_m=(0.15, 1.5),
@@ -168,20 +162,16 @@ def assert_hal_rgbd_catalog_config() -> None:
         if e.type != "rgbd" or e.camera_driver != "maixsense_a075v":
             continue
         has_host_literal = bool(e.maixsense_host and str(e.maixsense_host).strip())
-        has_host_env = bool(e.maixsense_host_env and str(e.maixsense_host_env).strip())
-        if not (has_host_literal or has_host_env):
+        if not has_host_literal:
             raise RuntimeError(
                 f"Catalog {e.id!r}: camera_driver='maixsense_a075v' requires "
-                f"either maixsense_host (literal host) or non-empty maixsense_host_env "
-                f"(env var name for HTTP host)"
+                f"non-empty maixsense_host (literal HTTP host)"
             )
         has_port_literal = e.maixsense_port is not None
-        has_port_env = bool(e.maixsense_port_env and str(e.maixsense_port_env).strip())
-        if not (has_port_literal or has_port_env):
+        if not has_port_literal:
             raise RuntimeError(
                 f"Catalog {e.id!r}: camera_driver='maixsense_a075v' requires "
-                f"either maixsense_port (literal port) or non-empty maixsense_port_env "
-                f"(env var name for HTTP port)"
+                f"maixsense_port (literal HTTP port)"
             )
 
 

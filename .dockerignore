@@ -1,0 +1,38 @@
+# Exclude large data/checkpoint files from Docker build context
+runs/
+data/
+checkpoints/
+*.pt
+*.pth
+*.ckpt
+*.pkl
+*.h5
+*.npz
+*.npy
+
+# Python build artifacts
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.egg-info/
+**/node_modules/
+
+# Dev/test artifacts
+testenv/
+.pytest_cache/
+.mypy_cache/
+htmlcov/
+.coverage
+*.log
+
+# Git
+.git/
+
+# IDE
+.vscode/
+.idea/
+
+# Misc
+*.tar.gz
+*.zip
+HANDOFF_*.md

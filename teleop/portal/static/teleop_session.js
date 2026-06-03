@@ -14,6 +14,18 @@
   var virtualGamepadStatusEl = document.getElementById('virtualGamepadStatus');
   var virtualGamepadResetEl = document.getElementById('virtualGamepadReset');
   var operatorOverrideStatusEl = document.getElementById('operatorOverrideStatus');
+  var cockpitHudEl = document.getElementById('cockpitHud');
+  var hudSpeedValueEl = document.getElementById('hudSpeedValue');
+  var hudHorizonEl = document.getElementById('hudHorizon');
+  var hudCompassRoseEl = document.getElementById('hudCompassRose');
+  var hudHeadingValueEl = document.getElementById('hudHeadingValue');
+  var hudAttitude3dPivotEl = document.getElementById('hudAttitude3dPivot');
+  var hudEulerEl = document.getElementById('hudEuler');
+  var hudVxEl = document.getElementById('hudVx');
+  var hudVyEl = document.getElementById('hudVy');
+  var hudVzEl = document.getElementById('hudVz');
+  var hudOmegaEl = document.getElementById('hudOmega');
+  var hudTelemetryStatusEl = document.getElementById('hudTelemetryStatus');
   var controllerDiagnosticDetails = document.getElementById('controllerDiagnosticPanel');
   if (controllerDiagnosticDetails) {
     controllerDiagnosticDetails.open = false;
@@ -65,6 +77,9 @@
   var ws = null;
   var pc = null;
   var controlDc = null;
+  var telemetryDc = null;
+  var telemetryStaleTimer = null;
+  var lastTelemetryMs = 0;
   var answerWaiter = null;
   var availableCatalogIds = [];
   var lastOffsetMs = null;
@@ -81,6 +96,193 @@
     if (v < -1) return -1;
     if (v > 1) return 1;
     return v;
+  }
+
+  function formatHudNumber(v, decimals) {
+    if (typeof v !== 'number' || !isFinite(v)) {
+      return '—';
+    }
+    return v.toFixed(decimals);
+  }
+
+  /** Yaw in degrees → compass heading [0, 360). */
+  function normalizeHeadingDeg(yawDeg) {
+    if (typeof yawDeg !== 'number' || !isFinite(yawDeg)) {
+      return NaN;
+    }
+    var h = yawDeg % 360;
+    if (h < 0) {
+      h += 360;
+    }
+    return h;
+  }
+
+  /** Unit quaternion (x,y,z,w) → CSS matrix3d for body attitude. */
+  function quatToMatrix3d(q) {
+    if (!q) {
+      return '';
+    }
+    var x = Number(q.x);
+    var y = Number(q.y);
+    var z = Number(q.z);
+    var w = Number(q.w);
+    if (![x, y, z, w].every(isFinite)) {
+      return '';
+    }
+    var xx = x * x;
+    var yy = y * y;
+    var zz = z * z;
+    var xy = x * y;
+    var xz = x * z;
+    var yz = y * z;
+    var wx = w * x;
+    var wy = w * y;
+    var wz = w * z;
+    return 'matrix3d(' + [
+      1 - 2 * (yy + zz), 2 * (xy - wz), 2 * (xz + wy), 0,
+      2 * (xy + wz), 1 - 2 * (xx + zz), 2 * (yz - wx), 0,
+      2 * (xz - wy), 2 * (yz + wx), 1 - 2 * (xx + yy), 0,
+      0, 0, 0, 1
+    ].join(',') + ')';
+  }
+
+  function resetCockpitHud() {
+    if (telemetryStaleTimer !== null) {
+      clearTimeout(telemetryStaleTimer);
+      telemetryStaleTimer = null;
+    }
+    lastTelemetryMs = 0;
+    if (hudSpeedValueEl) hudSpeedValueEl.textContent = '—';
+    if (hudHorizonEl) {
+      hudHorizonEl.style.transform = 'translate(-50%, -50%) rotate(0deg)';
+    }
+    if (hudCompassRoseEl) {
+      hudCompassRoseEl.style.transform = 'rotate(0deg)';
+    }
+    if (hudHeadingValueEl) {
+      hudHeadingValueEl.textContent = '—';
+    }
+    if (hudAttitude3dPivotEl) {
+      hudAttitude3dPivotEl.style.transform = '';
+    }
+    if (hudEulerEl) {
+      hudEulerEl.textContent = 'Roll — · Pitch — · Yaw —';
+    }
+    if (hudVxEl) hudVxEl.textContent = '—';
+    if (hudVyEl) hudVyEl.textContent = '—';
+    if (hudVzEl) hudVzEl.textContent = '—';
+    if (hudOmegaEl) hudOmegaEl.textContent = '—';
+    if (hudTelemetryStatusEl) {
+      hudTelemetryStatusEl.textContent = 'Motion telemetry: waiting for robot…';
+      hudTelemetryStatusEl.setAttribute('data-live', 'false');
+    }
+  }
+
+  function markTelemetryStale() {
+    if (hudTelemetryStatusEl) {
+      hudTelemetryStatusEl.textContent = 'Motion telemetry: signal lost';
+      hudTelemetryStatusEl.setAttribute('data-live', 'false');
+    }
+  }
+
+  function scheduleTelemetryStaleCheck() {
+    if (telemetryStaleTimer !== null) {
+      clearTimeout(telemetryStaleTimer);
+    }
+    telemetryStaleTimer = setTimeout(function () {
+      telemetryStaleTimer = null;
+      if (lastTelemetryMs > 0 && Date.now() - lastTelemetryMs > 2500) {
+        markTelemetryStale();
+      }
+    }, 2600);
+  }
+
+  function updateCockpitHud(msg) {
+    if (!msg || msg.type !== 'telemetry') {
+      return;
+    }
+    lastTelemetryMs = Date.now();
+    var vel = msg.velocity || {};
+    var orient = msg.orientation_deg || {};
+    var lin = vel.linear_m_s || [];
+    var ang = vel.angular_rad_s || [];
+    var groundSpeed =
+      typeof vel.horizontal_speed_m_s === 'number' ?
+        vel.horizontal_speed_m_s :
+        (typeof vel.speed_m_s === 'number' ? vel.speed_m_s : NaN);
+
+    if (hudSpeedValueEl) {
+      hudSpeedValueEl.textContent = formatHudNumber(groundSpeed, 2);
+    }
+    var roll = typeof orient.roll === 'number' ? orient.roll : 0;
+    var pitch = typeof orient.pitch === 'number' ? orient.pitch : 0;
+    var yaw = typeof orient.yaw === 'number' ? orient.yaw : 0;
+    var heading = normalizeHeadingDeg(yaw);
+
+    if (hudHorizonEl) {
+      var pitchPx = Math.max(-42, Math.min(42, pitch * 0.9));
+      hudHorizonEl.style.transform =
+        'translate(-50%, calc(-50% + ' + pitchPx + 'px)) rotate(' + roll + 'deg)';
+    }
+    if (hudCompassRoseEl) {
+      hudCompassRoseEl.style.transform = 'rotate(' + (-yaw) + 'deg)';
+    }
+    if (hudHeadingValueEl) {
+      hudHeadingValueEl.textContent = formatHudNumber(heading, 0);
+    }
+    if (hudAttitude3dPivotEl) {
+      var m3d = quatToMatrix3d(msg.quaternion);
+      if (m3d) {
+        hudAttitude3dPivotEl.style.transform = m3d;
+      }
+    }
+    if (hudEulerEl) {
+      hudEulerEl.textContent =
+        'Roll ' + formatHudNumber(orient.roll, 1) + '° · ' +
+        'Pitch ' + formatHudNumber(orient.pitch, 1) + '° · ' +
+        'Yaw ' + formatHudNumber(orient.yaw, 1) + '°';
+    }
+    if (hudVxEl) hudVxEl.textContent = formatHudNumber(lin[0], 2);
+    if (hudVyEl) hudVyEl.textContent = formatHudNumber(lin[1], 2);
+    if (hudVzEl) hudVzEl.textContent = formatHudNumber(lin[2], 2);
+    var omegaMag = 0;
+    if (ang.length >= 3) {
+      omegaMag = Math.sqrt(
+        (ang[0] || 0) * (ang[0] || 0) +
+        (ang[1] || 0) * (ang[1] || 0) +
+        (ang[2] || 0) * (ang[2] || 0)
+      );
+    }
+    if (hudOmegaEl) {
+      hudOmegaEl.textContent = formatHudNumber(omegaMag, 2);
+    }
+    if (hudTelemetryStatusEl) {
+      hudTelemetryStatusEl.textContent = 'Motion telemetry: live (~20 Hz)';
+      hudTelemetryStatusEl.setAttribute('data-live', 'true');
+    }
+    scheduleTelemetryStaleCheck();
+  }
+
+  function attachTelemetryChannel(dc) {
+    if (!dc || dc.label !== 'krabby-telemetry-v1') {
+      return;
+    }
+    telemetryDc = dc;
+    dc.onmessage = function (ev) {
+      try {
+        updateCockpitHud(JSON.parse(ev.data));
+      } catch (e) {}
+    };
+    dc.onclose = function () {
+      if (telemetryDc === dc) {
+        telemetryDc = null;
+      }
+      markTelemetryStale();
+    };
+    if (hudTelemetryStatusEl) {
+      hudTelemetryStatusEl.textContent = 'Motion telemetry: channel open';
+      hudTelemetryStatusEl.setAttribute('data-live', 'false');
+    }
   }
 
   /** Per-stick radial deadzone: zero inside radius ``zone``, smooth rescale toward full ±1 beyond. */
@@ -611,6 +813,8 @@
     }
     stopGamepadLoop();
     controlDc = null;
+    telemetryDc = null;
+    resetCockpitHud();
     videosEl.innerHTML = '';
     var videoLabelsForSession = readCatalogIdsArray().slice();
     if (streamStatus) {
@@ -619,6 +823,9 @@
     setConnectionStatus('Negotiating WebRTC...');
 
     pc = new RTCPeerConnection({ iceServers: stunTurnServers });
+    pc.ondatachannel = function (ev) {
+      attachTelemetryChannel(ev.channel);
+    };
     controlDc = pc.createDataChannel('krabby-control-v1', { ordered: true });
     controlDc.onopen = function () {
       startGamepadLoop();

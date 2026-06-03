@@ -219,8 +219,8 @@ def run_jetson_zed_display() -> int:
         resolution=obs.resolution,
         fps=obs.fps,
         depth_mode=obs.depth_mode,
-        maixsense_host_env=obs.maixsense_host_env,
-        maixsense_port_env=obs.maixsense_port_env,
+        maixsense_host=obs.maixsense_host,
+        maixsense_port=obs.maixsense_port,
     )
     if cam is None:
         logger.error("Front RGB-D camera not available (init failed or no device).")

@@ -8,6 +8,7 @@ This document is a short checklist for publishing **krabby‑*** packages to PyP
 
 | Tag pattern | PyPI package |
 | :-- | :-- |
+| `krabby-v*` | krabby-launcher |
 | `firmware-v*` | krabby-firmware |
 | `hal-client-v*` | krabby-hal-client |
 | `hal-server-v*` | krabby-hal-server |
@@ -16,6 +17,7 @@ This document is a short checklist for publishing **krabby‑*** packages to PyP
 | `hal-tools-v*` | krabby-hal-tools |
 | `hal-server-isaac-v*` | krabby-hal-server-isaac |
 | `hal-server-jetson-v*` | krabby-hal-server-jetson |
+| `bench-v*` | krabby-bench |
 
 > **Note:** More specific patterns override generic ones. For example, `hal-server-isaac-v0.1.0` → `krabby-hal-server-isaac`, not `krabby-hal-server`.
 
@@ -43,10 +45,14 @@ This document is a short checklist for publishing **krabby‑*** packages to PyP
 ## Publishing
 
 - Push a version tag to trigger the workflow, e.g.:
-  - `git tag hal-client-v0.1.0 && git push origin hal-client-v0.1.0`
+  - `git tag krabby-v0.1.12 && git push origin krabby-v0.1.12`
+- **The version comes entirely from the tag.** CI writes it into the package's
+  `pyproject.toml` before building, and `krabby --version` reads it from the installed
+  package metadata — you do **not** hand-edit any version in source to cut a release.
+  (Bumping `pyproject` in source is optional hygiene so the repo matches the latest tag.)
 - CI builds the package, runs its tests, then uploads to PyPI.
 - **Publish in dependency order** so dependents can install from PyPI:
-  1. `hal-client-v*`, `hal-server-v*`, `firmware-v*` (no internal deps)
+  1. `hal-client-v*`, `hal-server-v*`, `firmware-v*`, `krabby-v*`, `bench-v*` (no internal deps)
   2. `compute-parkour-v*`, `controller-v*`, `hal-tools-v*`
   3. `hal-server-isaac-v*`, `hal-server-jetson-v*`
 
@@ -66,7 +72,7 @@ To run the same build-and-test steps as the publish workflow locally (no tag or 
    ```
    Or via Make (with venv active or `testenv` present): `make test-publish-job PKG=<package-key>`.
 
-   `<package-key>` is one of: `hal-client`, `hal-server`, `compute-parkour`, `controller`, `hal-tools`, `hal-server-isaac`, `hal-server-jetson`, `firmware`.
+   `<package-key>` is one of: `hal-client`, `hal-server`, `compute-parkour`, `controller`, `hal-tools`, `hal-server-isaac`, `hal-server-jetson`, `firmware`. (`krabby-launcher` and `krabby-bench` aren't wired into this helper yet — run their tests directly, e.g. `pytest tests/unit/krabby/` or `pytest tests/unit/bench/`.)
 
 3. **Test all eight packages:**
    ```bash
@@ -80,7 +86,7 @@ This mirrors the workflow’s build and test steps only; it does not upload to P
 
 - Reserve each name on PyPI so no one else can use it.
 - Either create a minimal release (e.g. push a tag and let CI publish) or use the PyPI web UI to create the project.
-- Package names to reserve: `krabby-hal-client`, `krabby-hal-server`, `krabby-compute-parkour`, `krabby-controller`, `krabby-hal-tools`, `krabby-hal-server-isaac`, `krabby-hal-server-jetson`, `krabby-firmware`.
+- Package names to reserve: `krabby-launcher`, `krabby-firmware`, `krabby-hal-client`, `krabby-hal-server`, `krabby-compute-parkour`, `krabby-controller`, `krabby-hal-tools`, `krabby-hal-server-isaac`, `krabby-hal-server-jetson`, `krabby-bench`.
 
 ---
 

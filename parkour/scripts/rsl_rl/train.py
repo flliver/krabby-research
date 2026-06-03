@@ -152,7 +152,7 @@ def main(env_cfg: ParkourManagerBasedRLEnv |ManagerBasedRLEnvCfg | DirectRLEnvCf
     
     # save resume path before creating a new log_dir
     if agent_cfg.resume or agent_cfg.algorithm.class_name == "DistillationWithExtractor":
-        if args_cli.checkpoint:
+        if args_cli.checkpoint and os.path.isabs(args_cli.checkpoint):
             resume_path = retrieve_file_path(args_cli.checkpoint)
         else:
             resume_path = get_checkpoint_path(log_root_path, agent_cfg.load_run, agent_cfg.load_checkpoint)

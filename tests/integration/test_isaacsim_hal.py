@@ -91,7 +91,7 @@ def mock_isaac_env():
     # Add required robot state data
     mock_robot.data.root_ang_vel_b = torch.zeros((1, 3), dtype=torch.float32)
     mock_robot.data.root_lin_vel_b = torch.zeros((1, 3), dtype=torch.float32)
-    mock_robot.data.root_quat_w = torch.tensor([[0.0, 0.0, 0.0, 1.0]], dtype=torch.float32)  # Identity quaternion
+    mock_robot.data.root_quat_w = torch.tensor([[1.0, 0.0, 0.0, 0.0]], dtype=torch.float32)  # Identity (w,x,y,z)
     mock_robot.data.joint_vel = torch.zeros((1, 12), dtype=torch.float32)
     
     # Create scene with sensors dict

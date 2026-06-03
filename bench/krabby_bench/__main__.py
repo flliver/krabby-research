@@ -1,0 +1,102 @@
+"""krabby-bench CLI entry point."""
+from __future__ import annotations
+
+import argparse
+import os
+import sys
+from typing import NoReturn
+from pathlib import Path
+
+from krabby_bench._config import CONFIG_PATH, EcrConfig, PID_PATH, SmokeConfig, load_config
+from krabby_bench.watchdog import run
+
+
+class _Parser(argparse.ArgumentParser):
+    def error(self, message: str) -> NoReturn:
+        print(f"krabby-bench: {message}\n", file=sys.stderr)
+        self.print_help(sys.stderr)
+        sys.exit(2)
+
+
+def main() -> None:
+    parser = _Parser(
+        prog="krabby-bench",
+        description="Bench watchdog: polls ECR for new digests and runs smoke tests.",
+    )
+    parser.add_argument(
+        "--config", metavar="PATH",
+        default=str(CONFIG_PATH),
+        help=f"Path to config.toml (default: {CONFIG_PATH})",
+    )
+    parser.add_argument(
+        "--log-level", default="INFO",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+        help="Logging level (default: INFO)",
+    )
+    subparsers = parser.add_subparsers(dest="command")
+
+    subparsers.add_parser("help", help="Show this help message and exit.")
+
+    subparsers.add_parser(
+        "force-recheck",
+        help="Signal the running watchdog to re-run the update + smoke test immediately, "
+             "regardless of whether the ECR digest has changed.",
+    )
+
+    install_p = subparsers.add_parser(
+        "install",
+        help="Bootstrap the systemd service (must run as root). "
+             "SSM mode: set BENCH_AWS_KEY_ID + BENCH_AWS_SECRET_KEY and pass --ssm-prefix. "
+             "Legacy mode: set BENCH_SMTP_* and BENCH_GITHUB_TOKEN env vars.",
+    )
+    install_p.add_argument("--ecr-tag", default=EcrConfig.tag, metavar="TAG")
+    install_p.add_argument("--firmware-channel", default=SmokeConfig.firmware_channel, metavar="CHANNEL")
+    install_p.add_argument("--error-alert-type", default="both", choices=["email", "github", "both"],
+                           dest="error_alert_type",
+                           help="Alert delivery type (default: both)")
+    install_p.add_argument("--github-repo", default=os.environ.get("BENCH_GITHUB_REPO", ""),
+                           metavar="OWNER/REPO")
+    install_p.add_argument("--ssm-prefix", default="/krabby/bench", metavar="PREFIX",
+                           help="SSM parameter path prefix (default: /krabby/bench)")
+
+    args = parser.parse_args()
+
+    if args.command == "help":
+        parser.print_help()
+        return
+
+    if args.command == "force-recheck":
+        import signal as _signal
+        if not PID_PATH.exists():
+            print("error: krabby-bench is not running (no PID file at %s)" % PID_PATH, file=sys.stderr)
+            sys.exit(1)
+        try:
+            pid = int(PID_PATH.read_text().strip())
+        except ValueError:
+            print("error: PID file is corrupt", file=sys.stderr)
+            sys.exit(1)
+        try:
+            os.kill(pid, _signal.SIGUSR1)
+            print(f"Force recheck signal sent to krabby-bench (pid {pid})")
+        except ProcessLookupError:
+            print(f"error: no process with pid {pid} — service may have stopped", file=sys.stderr)
+            sys.exit(1)
+        return
+
+    if args.command == "install":
+        from krabby_bench._install import install
+        install(
+            ecr_tag=args.ecr_tag,
+            firmware_channel=args.firmware_channel,
+            mode=args.error_alert_type,
+            github_repo=args.github_repo,
+            ssm_prefix=args.ssm_prefix,
+        )
+        return
+
+    config = load_config(Path(args.config))
+    run(config, log_level=args.log_level)
+
+
+if __name__ == "__main__":
+    main()

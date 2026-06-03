@@ -1,5 +1,7 @@
 # krabby-uno and krabby-uno-sim CLIs
 
+> **Running on a Jetson?** Use `krabby run` to start the locomotion stack — it handles GPU flags, device passthrough, and ZMQ ports automatically, and already starts a `krabby-uno` client/controller inside the same container. See [images/locomotion/README.md](../../images/locomotion/README.md). The standalone `krabby-uno` below is for the two-process debug flow (connect a separate client to a server-only run) or running the client on another host.
+
 ## Install
 
 When installing from source, install the HAL client first. From the **krabby-research** directory:
@@ -13,13 +15,13 @@ Use `pip install -e ./hal/client` and `pip install -e ./controller` for editable
 
 ## krabby-uno (real HAL)
 
-1. **Start the HAL server** (one terminal, from `krabby-research`):
-   E.g. 
+1. **Start the HAL server** (one terminal, on Jetson):
+
    ```bash
-   python controller/scripts/jetson/main_gamepad_only.py
+   krabby run --gamepad-only
    ```
 
-   Server binds observation `tcp://*:6001` and command `tcp://*:6002` by default.
+   This runs `krabby-hal-server-jetson --control-source gamepad` inside the locomotion container with all required device passthrough. Server binds observation `tcp://*:6001` and command `tcp://*:6002` by default.
 
 2. **Run the client** (second terminal):
 

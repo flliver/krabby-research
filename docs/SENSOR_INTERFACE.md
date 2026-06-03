@@ -92,6 +92,9 @@ On **first use**, the SDK may **download and optimize** NEURAL depth models (sev
 - **`JetsonHalServer`**: **resolution**, **FPS**, and **camera_driver** come from the explicit **`JETSON_SENSOR_CATALOG`** `is_primary` row.
 - **`depth_mode`** is taken from each `JETSON_SENSOR_CATALOG` rgbd row (for ZED use values such as `NEURAL_LIGHT`, `NEURAL`, `NEURAL_PLUS`, `QUALITY`, `ULTRA`).
 - After **`initialize_cameras()`**, observations fill **`HardwareObservations.camera_rgb`**, **`camera_depth`**, and policy **scan features** derived in **`JetsonHalServer`** from the same depth map (see `hal/server/jetson/depth_scan_features.py`). Verify shapes against **`camera_height` / `camera_width`** and your HAL client (see **HAL_GUIDE.md** and `hal/client/data_structures/hardware.py`).
+- **ZED onboard IMU (ZED-M / ZED2 / ZED2i / ZED X):** each primary-camera grab also calls the ZED SDK **`get_sensors_data(..., TIME_REFERENCE.IMAGE)`** and maps fused orientation + gyro into **`base_quat_w`** and **`base_ang_vel_b`**, transformed by the catalog **`SensorPose`** on the primary row. Original **ZED** (no IMU) is unchanged. Gyro rates are converted from deg/s to rad/s.
+- **ZED positional tracking:** after **`enable_positional_tracking`**, each grab calls **`get_position(..., REFERENCE_FRAME.CAMERA)`** and maps **`Pose.twist`** linear velocity into **`base_lin_vel_b`** (same mount transform). Tracking must be **`POSITIONAL_TRACKING_STATE.OK`**; otherwise the last good sample is held. Joint velocities still need encoders.
+- **Isaac Sim:** **`hal.server.isaac.primary_zed_base_state`** synthesizes ZED-raw samples from articulation **`root_*`** state and the primary **`front_rgbd`** catalog mount, then applies the same mount helpers as Jetson (**`hal.server.primary_rgbd_base_state`**). Quaternion layout on the HAL bus is **x,y,z,w** world frame.
 
 ### GStreamer example (primary RGB-D)
 
@@ -157,7 +160,7 @@ There is **no** wrapper script under `scripts/` for this tool: use **`python -m 
 
 - **`--no-display`**: prints declared sensors and example `build_pipeline(...)` strings only.
 - **Jetson + display**: uses the **configured front observation driver** from the catalog (default **`zed`**, i.e. ZED SDK / `pyzed`); shows live **RGB + depth** from that device. See [ZED 2i on Jetson: default front camera example](#zed-2i-on-jetson-default-front-camera-example) for install, Docker/USB, and NEURAL model notes. Which streams the tool actually opens is defined in **`hal/tools/multi_stream_display.py`** (the live path targets the front RGB-depth pair; it does not automatically fan out to every sensor **`list_sensors()`** might report).
-- **Isaac + display**: starts **Isaac Lab** with **`ZedLikeSceneCfg`** (`front_rgb` + `front_camera` depth). Pass the same **`AppLauncher`** flags as other Isaac scripts (see `scripts/run_isaac_front_camera_capture.py`). Optional: **`--num_envs`** (default 1).
+- **Isaac + display**: starts **Isaac Lab** with **`ZedLikeSceneCfg`** (`front_rgb` + `front_camera` depth). Pass the same **`AppLauncher`** flags as other Isaac HAL scripts (e.g. `hal.server.isaac.main --teleop`). Optional: **`--num_envs`** (default 1).
 
 Assumes **Linux with X11** for display mode: allow Docker to use the host display and mount the X11 socket. If `DISPLAY` is unset, use `:0`.
 

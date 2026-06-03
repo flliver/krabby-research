@@ -16,6 +16,7 @@ from hal.client.data_structures.hardware import (
     RgbdCatalogObservation,
 )
 from hal.server.isaac.isaacsim_mcusdk import IsaacSimMCUSDK
+from hal.server.isaac.primary_zed_base_state import isaac_primary_rgbd_base_state
 from hal.server.isaac.sensor_backend_isaac import IsaacSensorInterface
 from hal.server.sensor_interface import SensorInterface
 
@@ -561,27 +562,12 @@ class IsaacSimHalServer(HalServerBase):
             side_camera_rgb = rgb_s
             side_camera_depth = d_s
 
-        # Extract robot state data (always available in Isaac Sim as torch.Tensor)
-        # Use inference_mode to disable autograd and improve performance for all GPU->CPU transfers
+        # Base motion: same HAL contract as Jetson primary ZED (xyzw quat, base-frame twist).
         with torch.inference_mode():
-            # Base angular velocity (body frame)
-            ang_vel = self.robot.data.root_ang_vel_b
-            if ang_vel.ndim == 2:
-                ang_vel = ang_vel[0]
-            base_ang_vel_b = ang_vel.detach().cpu().numpy().astype(np.float32)
-            
-            # Base linear velocity (body frame)
-            lin_vel = self.robot.data.root_lin_vel_b
-            if lin_vel.ndim == 2:
-                lin_vel = lin_vel[0]
-            base_lin_vel_b = lin_vel.detach().cpu().numpy().astype(np.float32)
-            
-            # Base quaternion (world frame)
-            quat = self.robot.data.root_quat_w
-            if quat.ndim == 2:
-                quat = quat[0]
-            base_quat_w = quat.detach().cpu().numpy().astype(np.float32)
-            
+            base_quat_w, base_ang_vel_b, base_lin_vel_b = isaac_primary_rgbd_base_state(
+                self.robot
+            )
+
             # Use joint velocities extracted from observation manager (ensures exact match).
             # Observation manager already applies * 0.05 scaling. Pad to 12 or 18 joints (hardware format) with zeros if needed.
             joint_velocities = np.zeros(n_joints, dtype=np.float32)

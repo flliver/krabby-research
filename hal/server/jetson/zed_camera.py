@@ -17,6 +17,12 @@ from typing import Optional
 import numpy as np
 
 from hal.server.jetson.rgb_depth_camera import RgbDepthCamera
+from hal.server.jetson.zed_imu import ZedImuSample, parse_zed_imu_data
+from hal.server.jetson.zed_tracking import (
+    parse_zed_tracking_lin_vel_sensor,
+    positional_tracking_state_ok,
+    tracking_reference_frame_camera,
+)
 
 logger = logging.getLogger(__name__)
 _JETSON_NVJPEG_LIB = Path("/usr/lib/aarch64-linux-gnu/nvidia/libnvjpeg.so")
@@ -78,6 +84,12 @@ class ZedCamera(RgbDepthCamera):
         # Last captured frame (one grab fills both; used by get_rgb_image/get_depth_map)
         self._last_rgb: Optional[np.ndarray] = None
         self._last_depth_np: Optional[np.ndarray] = None
+        self._has_imu: bool = False
+        self._sensors_data = None
+        self._last_imu: Optional[ZedImuSample] = None
+        self._has_tracking: bool = False
+        self._tracking_pose = None
+        self._last_tracking_lin_vel_sensor: Optional[np.ndarray] = None
 
         # Initialize camera
         self._initialize_camera()
@@ -133,22 +145,15 @@ class ZedCamera(RgbDepthCamera):
             init_params.depth_mode = depth_mode_map[requested_depth_mode]
             init_params.coordinate_units = self._zed_module.UNIT.METER
             init_params.coordinate_system = self._zed_module.COORDINATE_SYSTEM.RIGHT_HANDED_Y_UP
+            if hasattr(init_params, "sensors_required"):
+                init_params.sensors_required = True
 
             if self.serial_number is not None:
                 sn = int(self.serial_number)
-                set_serial = getattr(init_params, "set_from_serial_number", None)
-                if callable(set_serial):
-                    rc = set_serial(sn)
-                    if rc is not None and rc != self._zed_module.ERROR_CODE.SUCCESS:
-                        raise RuntimeError(f"ZED set_from_serial_number({sn}) failed: {rc}")
-                elif hasattr(init_params, "serial_number"):
-                    init_params.serial_number = sn
-                elif hasattr(init_params, "camera_serial_number"):
-                    init_params.camera_serial_number = sn
-                else:
+                rc = init_params.set_from_serial_number(sn)
+                if rc is not None and rc != self._zed_module.ERROR_CODE.SUCCESS:
                     raise RuntimeError(
-                        "pyzed InitParameters has no set_from_serial_number / serial_number; "
-                        "cannot select ZED by serial."
+                        f"ZED set_from_serial_number({sn}) failed: {rc}"
                     )
 
             # Open camera
@@ -160,6 +165,14 @@ class ZedCamera(RgbDepthCamera):
             camera_info = self.camera.get_camera_information()
             logger.info(f"ZED camera initialized: {camera_info.camera_model}")
             logger.info(f"Resolution: {self.resolution}, FPS: {self.fps}")
+
+            zed_model = getattr(self._zed_module, "MODEL", None)
+            if zed_model is not None and camera_info.camera_model == zed_model.ZED:
+                self._has_imu = False
+            else:
+                self._has_imu = True
+                self._sensors_data = self._zed_module.SensorsData()
+                logger.info("ZED onboard IMU enabled")
 
             # Create depth and RGB image mats
             self.depth_image = self._zed_module.Mat()
@@ -175,6 +188,18 @@ class ZedCamera(RgbDepthCamera):
                 "ZED runtime confidence thresholds set to 100 (most permissive)"
             )
 
+            tracking_params = self._zed_module.PositionalTrackingParameters()
+            track_status = self.camera.enable_positional_tracking(tracking_params)
+            if track_status == self._zed_module.ERROR_CODE.SUCCESS:
+                self._has_tracking = True
+                self._tracking_pose = self._zed_module.Pose()
+                logger.info("ZED positional tracking enabled")
+            else:
+                logger.warning(
+                    "ZED positional tracking failed to enable: %s (base_lin_vel_b unavailable)",
+                    track_status,
+                )
+
             self.initialized = True
             logger.info("ZED camera initialized successfully")
 
@@ -187,6 +212,11 @@ class ZedCamera(RgbDepthCamera):
         """Close camera and release resources."""
         if self.camera is not None:
             try:
+                if self._has_tracking and hasattr(self.camera, "disable_positional_tracking"):
+                    try:
+                        self.camera.disable_positional_tracking()
+                    except Exception as e:
+                        logger.debug("ZED disable_positional_tracking: %s", e)
                 self.camera.close()
                 logger.info("ZED camera closed")
             except Exception as e:
@@ -194,6 +224,7 @@ class ZedCamera(RgbDepthCamera):
             finally:
                 self.camera = None
                 self.initialized = False
+                self._has_tracking = False
 
     def __enter__(self):
         """Context manager entry."""
@@ -234,7 +265,39 @@ class ZedCamera(RgbDepthCamera):
             rgb_np = rgb_np[:, :, :3]
         self._last_rgb = np.ascontiguousarray(rgb_np.astype(np.uint8))
         self.last_frame_time_ns = time.time_ns()
+        self._update_imu()
+        self._update_tracking()
         return True
+
+    def _update_imu(self) -> None:
+        """Refresh IMU sample synchronized to the last ``grab()`` (IMAGE time reference)."""
+        if not self._has_imu or self._sensors_data is None:
+            self._last_imu = None
+            return
+        time_ref = getattr(self._zed_module, "TIME_REFERENCE", None)
+        image_ref = getattr(time_ref, "IMAGE", None) if time_ref is not None else None
+        if image_ref is None:
+            return
+        if (
+            self.camera.get_sensors_data(self._sensors_data, image_ref)
+            != self._zed_module.ERROR_CODE.SUCCESS
+        ):
+            return
+        sample = parse_zed_imu_data(self._sensors_data.get_imu_data())
+        if sample is not None:
+            self._last_imu = sample
+
+    def _update_tracking(self) -> None:
+        """Refresh linear velocity from positional tracking after the last ``grab()``."""
+        if not self._has_tracking or self._tracking_pose is None:
+            return
+        ref = tracking_reference_frame_camera(self._zed_module)
+        state = self.camera.get_position(self._tracking_pose, ref)
+        if not positional_tracking_state_ok(state, self._zed_module):
+            return
+        lin_vel = parse_zed_tracking_lin_vel_sensor(self._tracking_pose)
+        if lin_vel is not None:
+            self._last_tracking_lin_vel_sensor = lin_vel
 
     def get_camera_frames(self) -> tuple[Optional[np.ndarray], Optional[np.ndarray]]:
         """Capture one frame and return (RGB, depth) for HAL observations.
@@ -269,6 +332,22 @@ class ZedCamera(RgbDepthCamera):
             True if camera is initialized and ready
         """
         return self.initialized
+
+    def has_imu(self) -> bool:
+        """Return True when this device exposes a ZED onboard IMU."""
+        return self._has_imu
+
+    def get_imu_sample(self) -> Optional[ZedImuSample]:
+        """Return the IMU sample from the last successful ``get_camera_frames()`` / grab."""
+        return self._last_imu
+
+    def has_tracking(self) -> bool:
+        """Return True when ZED positional tracking is enabled."""
+        return self._has_tracking
+
+    def get_tracking_lin_vel_sensor(self) -> Optional[np.ndarray]:
+        """Linear velocity (3,) m/s in the camera frame from the last successful grab."""
+        return self._last_tracking_lin_vel_sensor
 
     def get_frame_rate(self) -> float:
         """Get actual frame rate.

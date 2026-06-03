@@ -9,6 +9,7 @@ import pytest
 from hal.client.config import HalServerConfig
 from hal.server.jetson import JetsonHalServer
 from hal.server.jetson.zed_camera import ZedCamera
+from hal.server.jetson.zed_imu import ZedImuSample
 from hal.server.server import HalServerBase
 from compute.parkour.model_definition import PARKOUR_MODEL_OBSERVATION_DEFINITION
 
@@ -96,6 +97,56 @@ def test_grab_exception_propagates(jetson_server):
 
     with pytest.raises(RuntimeError, match="usb glitch"):
         jetson_server.set_observation()
+
+
+def test_zed_imu_overrides_base_state(jetson_server):
+    h, w = 376, 672
+    rgb = np.zeros((h, w, 3), dtype=np.uint8)
+    depth = np.zeros((h, w), dtype=np.float32)
+    mock_cam = MagicMock(spec=ZedCamera)
+    mock_cam.get_camera_frames.return_value = (rgb, depth)
+    mock_cam.has_imu.return_value = True
+    mock_cam.has_tracking.return_value = False
+    mock_cam.get_imu_sample.return_value = ZedImuSample(
+        base_quat_w=np.array([0.1, 0.2, 0.3, 0.9], dtype=np.float32),
+        base_ang_vel_b=np.array([0.01, 0.02, 0.03], dtype=np.float32),
+    )
+    jetson_server._hal_rgbd_cameras["front_rgbd"] = mock_cam
+    jetson_server.front_camera = mock_cam
+    jetson_server._zed_imu_active = True
+    jetson_server.initialize()
+    jetson_server._build_state_vector = lambda: _state_12dof()
+
+    with patch.object(HalServerBase, "set_observation") as pub:
+        jetson_server.set_observation()
+
+    hw_obs = pub.call_args.args[0]
+    np.testing.assert_allclose(hw_obs.base_quat_w, [0.1, 0.2, 0.3, 0.9])
+    np.testing.assert_allclose(hw_obs.base_ang_vel_b, [0.01, 0.02, 0.03])
+
+
+def test_zed_tracking_overrides_base_lin_vel(jetson_server):
+    h, w = 376, 672
+    rgb = np.zeros((h, w, 3), dtype=np.uint8)
+    depth = np.zeros((h, w), dtype=np.float32)
+    mock_cam = MagicMock(spec=ZedCamera)
+    mock_cam.get_camera_frames.return_value = (rgb, depth)
+    mock_cam.has_imu.return_value = False
+    mock_cam.has_tracking.return_value = True
+    mock_cam.get_tracking_lin_vel_sensor.return_value = np.array(
+        [0.5, 0.0, 0.0], dtype=np.float32
+    )
+    jetson_server._hal_rgbd_cameras["front_rgbd"] = mock_cam
+    jetson_server.front_camera = mock_cam
+    jetson_server._zed_tracking_active = True
+    jetson_server.initialize()
+    jetson_server._build_state_vector = lambda: _state_12dof()
+
+    with patch.object(HalServerBase, "set_observation") as pub:
+        jetson_server.set_observation()
+
+    hw_obs = pub.call_args.args[0]
+    np.testing.assert_allclose(hw_obs.base_lin_vel_b, [0.5, 0.0, 0.0])
 
 
 def test_shape_mismatch_raises(jetson_server):
