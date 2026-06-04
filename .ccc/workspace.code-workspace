@@ -54,8 +54,12 @@
   // same order as `.ccc/settings.json#peer_roots[]`.
   "folders": [
     {
-      "name": "🤖 krabby (workspace)",
-      "path": "/private/var/krabby/research"
+      "name": "🤖 krabby (container)",
+      "path": "../.."
+    },
+    {
+      "name": "🤖 research",
+      "path": "../../research"
     },
     {
       "name": "🤖 real2sim",

@@ -19,10 +19,10 @@ to the central `expert`. See § Escalation routing below.
 
 ## Required reading
 
-- [`../../knowledge/orientation.md`](../../knowledge/orientation.md) — the 10-minute tour for krabby
-- [`../../../docs/ccc-platform-for-agents.md`](../../../docs/ccc-platform-for-agents.md) — what krabby as a CCC adopter expects of itself
-- [`../../../docs/work-platform.md`](../../../docs/work-platform.md) — work-tracking vocabulary (DESIGN / EPIC / STORY / TASK / HUG / MILESTONE / AIQ + XID format)
-- [`../../knowledge/agent-boundaries.md`](../../knowledge/agent-boundaries.md) — when to escalate vs handle yourself
+- [`../../source/ai/knowledge/orientation.md`](../../source/ai/knowledge/orientation.md) — the 10-minute tour for krabby
+- [`../../source/docs/ccc-platform-for-agents.md`](../../source/docs/ccc-platform-for-agents.md) — what krabby as a CCC adopter expects of itself
+- [`../../source/docs/work-platform.md`](../../source/docs/work-platform.md) — work-tracking vocabulary (DESIGN / EPIC / STORY / TASK / HUG / MILESTONE / AIQ + XID format)
+- [`../../source/ai/knowledge/agent-boundaries.md`](../../source/ai/knowledge/agent-boundaries.md) — when to escalate vs handle yourself
 - Your own [`knowledge/`](knowledge/) — `quick-refs.md` (XID format, frontmatter, HUG filing), `escalation.md` (the routing rubric)
 
 ## Responsibilities
@@ -104,7 +104,7 @@ you answer.
 ## Verbosity
 
 Standard CCC verbosity convention — see
-[`../../knowledge/verbosity.md`](../../knowledge/verbosity.md). A
+[`../../source/ai/knowledge/verbosity.md`](../../source/ai/knowledge/verbosity.md). A
 `<verbosity>N/5 — …</verbosity>` tag is injected at the top of
 every prompt; honor that level over any default communication
 style. Operator changes via `/verbosity <N>`.
@@ -112,7 +112,7 @@ style. Operator changes via `/verbosity <N>`.
 ## Pickup convention
 
 Standard CCC pickup convention — see
-[`../../knowledge/pickup-convention.md`](../../knowledge/pickup-convention.md).
+[`../../source/ai/knowledge/pickup-convention.md`](../../source/ai/knowledge/pickup-convention.md).
 Your assignee label is `ccc`:
 
 ```bash
@@ -122,14 +122,14 @@ bin/ccc-bd ready --assignee=ccc
 ## Inbox
 
 Standard CCC inbox pattern — see
-[`../../knowledge/inbox-protocol.md`](../../knowledge/inbox-protocol.md).
+[`../../source/ai/knowledge/inbox-protocol.md`](../../source/ai/knowledge/inbox-protocol.md).
 Cross-project requests from CCC platform-side (reply-backs to your
 `/ccc bug` filings, advisories from central `expert`) arrive here.
 
 ## Completing work
 
 See
-[`../../knowledge/closing-work.md`](../../knowledge/closing-work.md)
+[`../../source/ai/knowledge/closing-work.md`](../../source/ai/knowledge/closing-work.md)
 — canonical reference for how to close artifacts (the `/done`
 guided path, direct `bin/ccc-bd close`, the `--force --reason`
 override, and the `tasks:N` / `complete:M` metadata). Locked by

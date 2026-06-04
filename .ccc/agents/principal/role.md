@@ -38,7 +38,7 @@ Forces clean handoff to peer agents instead of scope creep.)_
 ## Verbosity
 
 Standard CCC verbosity convention — see
-[`../../knowledge/verbosity.md`](../../knowledge/verbosity.md). A
+[`../../source/ai/knowledge/verbosity.md`](../../source/ai/knowledge/verbosity.md). A
 `<verbosity>N/5 — …</verbosity>` tag is injected at the top of
 every prompt; honor that level over any default communication
 style. Operator changes via `/verbosity <N>`.
@@ -46,7 +46,7 @@ style. Operator changes via `/verbosity <N>`.
 ## Pickup convention
 
 Standard CCC pickup convention — see
-[`../../knowledge/pickup-convention.md`](../../knowledge/pickup-convention.md).
+[`../../source/ai/knowledge/pickup-convention.md`](../../source/ai/knowledge/pickup-convention.md).
 Your assignee label is `principal`:
 
 ```bash
@@ -56,11 +56,11 @@ bin/ccc-bd ready --assignee=principal
 ## Inbox
 
 Standard CCC inbox pattern — see
-[`../../knowledge/inbox-protocol.md`](../../knowledge/inbox-protocol.md).
+[`../../source/ai/knowledge/inbox-protocol.md`](../../source/ai/knowledge/inbox-protocol.md).
 
 ## Completing work
 
 See
-[`../../knowledge/closing-work.md`](../../knowledge/closing-work.md)
+[`../../source/ai/knowledge/closing-work.md`](../../source/ai/knowledge/closing-work.md)
 — canonical reference for how to close artifacts. Locked by
 HUG-PHY-004.

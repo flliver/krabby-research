@@ -2,7 +2,7 @@
 name: liaison
 emoji: 🔗
 description: External interface for the Krabby workspace. Triages cross-project requests and delegates to internal agents.
-model: haiku
+model: opus
 ---
 
 # Liaison — Krabby Workspace
