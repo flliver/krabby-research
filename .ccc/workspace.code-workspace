@@ -84,7 +84,19 @@
     {
       "name": "🤖 projects",
       "path": "../projects"
-    }
+    },
+    {
+      "name": "🤖 grants",
+      "path": "../../grants"
+    },
+    {
+      "name": "🤖 contracts",
+      "path": "../../contracts"
+    },
+    {
+      "name": "🤖 legacy",
+      "path": "../../workspace"
+    },
   ],
 
   // ── Workspace-scoped settings ────────────────────────────────
@@ -144,7 +156,8 @@
       "titleBar.inactiveForeground": "#e7e7e799"
     },
     "ccc.delegates.pinned": [
-      "krabby-krabby"
+      "krabby-krabby",
+      "krabby-ccc"
     ]
   },
 
