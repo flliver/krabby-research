@@ -4,11 +4,12 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: L
-status: open
+status: in-progress
 date: 2026-06-04
 depends-on: []
 bd-id: krabby-mqy
 assignee: principal
+priority: 4
 ---
 
 # Migrate historical scenes (INPUT + prototype transforms) into the schema; reconstruct provenance from M11 journals

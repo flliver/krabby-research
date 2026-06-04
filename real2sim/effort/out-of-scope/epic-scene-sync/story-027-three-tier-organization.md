@@ -9,6 +9,7 @@ date: 2026-06-04
 depends-on: []
 bd-id: krabby-v1j
 assignee: principal
+priority: 4
 ---
 
 # Three-tier organization (research/collab/public) + tier gate

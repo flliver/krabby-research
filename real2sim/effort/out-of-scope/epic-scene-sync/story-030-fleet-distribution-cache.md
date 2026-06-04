@@ -8,7 +8,8 @@ status: open
 date: 2026-06-04
 depends-on: []
 bd-id: krabby-2hq
-assignee: principal
+assignee: devex
+priority: 4
 ---
 
 # Fleet distribution + designated cache host (needs baeprz facts)

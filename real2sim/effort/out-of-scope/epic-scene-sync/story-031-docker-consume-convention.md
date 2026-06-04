@@ -8,8 +8,9 @@ status: open
 date: 2026-06-04
 depends-on: []
 bd-id: krabby-nit
-assignee: principal
+assignee: devex
 title: Docker consume convention: canon -v <host-data>:/data (code at /workspace) + emit results.json provenance per run
+priority: 4
 ---
 
 # Docker consume convention (standard read-only mount)

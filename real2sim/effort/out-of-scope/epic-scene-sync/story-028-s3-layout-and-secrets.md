@@ -8,7 +8,8 @@ status: open
 date: 2026-06-04
 depends-on: []
 bd-id: krabby-xj2
-assignee: principal
+assignee: devex
+priority: 4
 ---
 
 # S3 layout, credentialed access, secrets boundary + topology entry

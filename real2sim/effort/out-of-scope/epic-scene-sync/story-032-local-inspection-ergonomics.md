@@ -8,7 +8,8 @@ status: open
 date: 2026-06-04
 depends-on: []
 bd-id: krabby-e0g
-assignee: principal
+assignee: krabby
+priority: 4
 ---
 
 # Local inspection ergonomics + camera_viewer integration
