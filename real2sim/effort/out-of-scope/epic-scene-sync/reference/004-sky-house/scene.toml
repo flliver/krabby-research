@@ -1,0 +1,17 @@
+schema_version = "1"
+id           = "004-sky-house"
+title        = "Sky House — dining room"
+source       = "capture"
+captured     = "2026-05-02"
+tier         = "research"
+notes        = "Worked reference scene for SCHEMA.md. Built from the real manifest.json of the curated-12-dense-strong-r3 MAtCha run. Structure-only — data/ trees are not copied here."
+
+[scale]
+status          = "uncalibrated"
+method          = ""
+meters_per_unit = 0.0
+
+[[pipelines]]
+slug         = "matcha"
+maturity     = "prototype"
+promoted_run = ""

@@ -1,0 +1,17 @@
+{
+  "schema_version": "1",
+  "pipeline": "matcha",
+  "run": "12-dense-strong-r3",
+  "params": {
+    "frames": 12,
+    "alignment_config": "strong-r3",
+    "dense_regul": "strong",
+    "dense_pruning": "default",
+    "encoder": "vitl",
+    "sfm_config": "unposed",
+    "image_resolution_long_edge": 1024,
+    "chart_resolutions": [0.05, 0.1, 0.2]
+  },
+  "promoted": false,
+  "notes": "r-knob sweep — drop the finest 0.4 chart level (Option C). Same 12 frames as run-12-dense-strong (controlled comparison). Migrated from manifest.json variant_name=12-dense-strong-r3."
+}

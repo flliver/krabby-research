@@ -3,7 +3,7 @@ xid: EPI-SCN-SCENE-SYNC
 parent: ../design.md
 kind: epic
 effort: scn
-status: in-progress
+status: open
 date: 2026-06-04
 hugs: []
 tenets: [T-013, T-016, T-014]
@@ -27,6 +27,12 @@ assignee: principal
 >   {specification.json, results.json, data/} → `pipeline-<slug>/output/` →
 >   `output/`). Worked into Design, Goals, Decisions, Success Criteria; STO-SCN-026
 >   retitled to own the schema; STO-SCN-031 now also emits `results.json` provenance.
+> - 2026-06-04: STO-SCN-026 execution — authored canonical [`SCHEMA.md`](./SCHEMA.md)
+>   + JSON schemas (`schemas/`) + worked reference scene (`reference/004-sky-house/`)
+>   + [`inventory.md`](./inventory.md) (21 dirs → ~10 scenes). Audit added a **`run-<slug>`
+>   level** (param sweeps = parallel runs, AID-confirmed) and found the legacy
+>   `manifest.json` already maps near-1:1 onto scene.toml/spec/results → provenance
+>   is **mixed, not absent** (Current State corrected).
 > - 2026-06-04: Grant cross-check (read `/var/krabby/grants/*`). Findings: (a) M11
 >   to date — incl. `environments/reconstructed/`, flat `scenes/<id>/`,
 >   `FOLDER_LAYOUT.md` M11 section, the `>100 MB→S3 / ≤100 MB→git` split — is all
@@ -126,9 +132,12 @@ the T0–T4 efforts are de-facto *consumers* of it.
 - **Maturity:** all historical work to date is **INPUT collection + *prototype*
   transformations + their output**. There are **no promoted/finalized outputs**
   yet — the public-tier scene `output/` is empty until we deliberately promote.
-- **Provenance for past runs is mostly unrecorded** in-band — it must be
-  **reconstructed from the M11 journals** (`…/011-scene-reconstruction/journal/…`)
-  during migration, and marked *deduced* vs *measured*.
+- **Provenance for past runs is MIXED** (corrected by the STO-SCN-026 audit, see
+  [`inventory.md`](./inventory.md)): the 7 curated MAtCha runs carry a
+  `manifest.json` recording host/GPU/params/duration → **measured** (gaps:
+  driver, CUDA, container digest, output hashes). Older runs (001/002/003/
+  004-dining) have none → **deduced** from journals. Raw captures (kubota
+  006–012, 005-meadow) → input-only, n/a. Never fabricate the gaps (T-002).
 
 **Fleet facts (gathered live from baeprz/ops 2026-06-04 — STO-SCN-030 inputs):**
 
@@ -220,28 +229,27 @@ documented convention.
 > the bucket is slow, throttled, or a host has no S3 creds. Speed parity is
 > incidental; cost + resilience drive the architecture.
 
-**Per-scene canonical layout = a pipeline of transformations** (the core data
-model; finalized in STO-SCN-026). A scene is not a flat bag of outputs — it is an
-*auditable lineage* from source to finalized output, where every transform records
-both **what it did** and **the exact environment it ran in**. This is what makes a
-scene reproducible by a collaborator in another location and trustworthy enough to
-publish.
+**Per-scene canonical layout = a pipeline of transformations.** The **canonical
+spec is [`SCHEMA.md`](./SCHEMA.md)** (authored by STO-SCN-026); the sketch below
+is orientation only — SCHEMA.md governs. A scene is an *auditable lineage* from
+source to promoted output, where every transform records both **what it did** and
+**the exact environment it ran in**.
 
 ```
 <scene-id>/
-  scene.toml                              # scene-level manifest: id, source, scale, tier (hashes live in per-transform results.json)
+  scene.toml                              # scene-level manifest (hashes live in per-transform results.json)
   input/                                  # original source files (raw capture)        [research tier]
-    *                                     #   e.g. video / image set
-    preproc-<id>-<slug>/                  # shared preprocessing reused by most/all pipelines
-      *                                   #   e.g. extracted frames, dewarp, camera selection
-  pipeline-<slug>/                        # one named pipeline (e.g. pipeline-mast3r-matcha, pipeline-vggt)
-    transform-<id>-<slug>/                 # one ordered transform step in this pipeline
-      specification.json                  #   WHAT was done — params, inputs, knobs (the recipe)
-      results.json                        #   HOW/WHERE it ran — OS, NVIDIA driver, container image+version,
-                                          #   software versions, timing, host (the provenance/env record)
-      data/                               #   the step's output artifacts
-    output/                               # final output of THIS pipeline               [collab tier candidate]
-  output/                                 # finalized, promoted outputs for the scene   [public tier candidate]
+    preproc-<NN>-<slug>/{spec,results,data}   # shared preprocessing (transform-shaped)
+  pipeline-<slug>/                        # one approach == an image name (matcha, colmap, mast3r, vggt, slam3r)
+    run-<slug>/                           # ONE parameterised run (param sweeps = parallel runs)
+      run.json                            #   variant identity + promoted flag (← legacy manifest.json)
+      transform-<NN>-<slug>/              #   one ordered step
+        specification.json                #     WHAT was done (recipe)
+        results.json                      #     HOW/WHERE it ran (env + provenance)
+        data/                             #     tool-native output, unchanged
+      output/                             #   this run's selected output
+    output/                               # the pipeline's PROMOTED run                  [collab candidate]
+  output/                                 # scene-level PROMOTED outputs (empty today)   [public candidate]
 ```
 
 **How the data model serves the goals:**
@@ -292,7 +300,8 @@ publish.
 |-----|----------|--------|-----------|
 | — | Keep as existing `EPI-SCN-SCENE-SYNC` under `DES-SCN-TX`; no new design | **Resolved** (AID, 2026-06-04) | Operator chose to use the existing artifact, not re-home |
 | `HUG-SCN-NNN` | S3 = authoritative cold store; LAN = hot path; **win is egress-dedup + resilience, not speed** | Proposed | LAN≈WAN here (live-measured); architecture justified by cost/availability |
-| `HUG-SCN-NNN` | **Scene = pipeline of transformations** (`input/`→`pipeline-<slug>/transform-*/`→`output/`); each transform has `specification.json` + `results.json` | **Proposed (AID-directed)** | Makes provenance/reproducibility structural; transform dir = natural sync unit |
+| `HUG-SCN-NNN` | **Scene = pipeline of transformations** (`input/`→`pipeline-<slug>/run-<slug>/transform-*/`→`output/`); each transform has `specification.json` + `results.json` | **Proposed (AID-directed)** | Makes provenance/reproducibility structural; transform dir = natural sync unit |
+| `HUG-SCN-NNN` | **`run-<slug>` level** under each pipeline — param sweeps are *parallel runs*, not sequential steps; `run.json` carries the variant identity (← legacy `manifest.json`) | **Decided (AID)** | The `004-sky-house-curated-*` ×5 sweep proved the gap; canonical in SCHEMA.md |
 | `HUG-SCN-NNN` | `results.json` captures full runtime env (OS, NVIDIA driver, software versions) + container `{image, tag, digest}` **reusing M14's tag+digest scheme** (commit-SHA/`<branch>-latest`/semver); **digest is the reproducibility anchor**, captured like `krabby --version` | **Decided** | T-013 — consume M14's contract, don't invent; tags move per-commit, digests don't |
 | `HUG-SCN-NNN` | **No runtime scene dependency**: nothing `krabby-launcher` stands up requires scenes (scenes are sim/training assets). A post-launched krabby consumes **public-tier** scenes via a credential-free read client (the `firmware/cli.py` pattern: anonymous S3 + `index.json` + `~/.cache`), distinct from the credentialed dev sync (`krabby-scenes`) | **Decided (AID)** | Keeps launcher lean + no-AWS-creds (M14 posture) while leaving the door open for on-device scene use |
 | `HUG-SCN-NNN` | **Pipeline dependency DAG lives in code, not declared in the data** | **Decided (AID)** | Keep `specification.json` to params/inputs; don't bake a graph format into the schema in v1 |

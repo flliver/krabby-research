@@ -8,7 +8,7 @@ status: open
 date: 2026-06-03
 depends-on: []
 bd-id: krabby-0rw
-priority: 0
+priority: 3
 title: T2.E1 — Scale Calibration Strategy ★ BLOCKER
 assignee: principal
 ---

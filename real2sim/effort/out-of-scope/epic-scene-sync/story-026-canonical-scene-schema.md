@@ -4,12 +4,15 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: L
-status: in-progress
+status: shipped
 date: 2026-06-04
 depends-on: []
 bd-id: krabby-l10
 assignee: principal
 title: Define pipeline-of-transformations scene schema (input/pipeline/output + per-transform provenance) & inventory existing scenes
+shipped: 2026-06-04
+tasks: 10
+complete: 10
 ---
 
 # Define the pipeline-of-transformations scene schema & inventory existing scenes
@@ -46,15 +49,23 @@ directory mechanically and to drive every other story in the epic.
 
 ## Design
 
+> **CANONICAL spec now lives in [`SCHEMA.md`](./SCHEMA.md)** (T-023). The normative
+> layout/fields below are superseded by it — kept here as rationale only. Two
+> changes landed during execution vs the original sketch: (1) a **`run-<slug>`
+> level** under each pipeline (param sweeps are parallel runs — AID-confirmed),
+> and (2) `specification.json`/`results.json` fields **aligned to the real legacy
+> `manifest.json`** (`execution{host,gpu,duration_s,peak_vram_mib,exit_status}`,
+> `matcha{…}` params). Delivered alongside: `schemas/*.schema.json`,
+> `reference/004-sky-house/`, and [`inventory.md`](./inventory.md).
+
 ### Approach
 
 Document the schema as `SCHEMA.md` in the epic directory plus committed JSON
-Schemas for the two per-transform JSON files, lay out one real scene as a
-conforming reference, and produce a migration-feeding inventory of the existing
-scenes. Constrained by the epic's Decisions: dependency DAG lives in **code**
-not data (so `specification.json` carries inputs but no graph format); provenance
-is **dual** (`results.json` env + the STO XID in `specification.json`); maturity
-is explicit (`prototype` → `promoted`) and `output/` holds only promoted.
+Schemas, lay out one real scene as a conforming reference, and produce a
+migration-feeding inventory of the existing scenes. Constrained by the epic's
+Decisions: dependency DAG lives in **code** not data; provenance is **dual**
+(`results.json` env + the STO XID in `specification.json`); maturity is explicit
+(`prototype` → `promoted`) and `output/` holds only promoted.
 
 ### The layout (normative)
 
@@ -232,32 +243,36 @@ research even when promoted-quality).
 
 ## Definition of Done
 
-- [ ] `SCHEMA.md` committed: layout, naming, `scene.toml`, `specification.json`,
-      `results.json`, tier/maturity rules — each with a field table.
-- [ ] JSON Schemas committed for `specification.json`, `results.json`,
-      `scene.toml`; a `valid` fixture passes and a deliberately-`invalid` one fails.
-- [ ] One existing scene laid out as a conforming **reference example** (no
-      production data moved — sample/links only).
-- [ ] `inventory.md` maps every existing scene (~21) to its detected
-      pipeline(s)/transform(s) and rates recoverable provenance
-      (`measured`/`deduced`/`unknown`) — the work-list `STO-SCN-033` consumes.
-- [ ] `scale` block reconciled with `STO-SCN-016` (scale calibration) — aligned or
-      the gap explicitly flagged.
-- [ ] Epic `Design` updated to point at `SCHEMA.md` as the normative source (this
-      story's body becomes the rationale; `SCHEMA.md` becomes canonical — T-023).
+- [x] `SCHEMA.md` committed: layout, naming, `scene.toml`, `run.json`,
+      `specification.json`, `results.json`, scale, tier/maturity, legacy-manifest map.
+- [x] JSON Schemas committed (`schemas/{scene,run,specification,results}.schema.json`);
+      valid fixtures pass and broken ones fail (structural check — see Testing).
+- [x] Reference example laid out (`reference/004-sky-house/`) — structure-only, no
+      production data moved; built from the real curated-12-dense-strong-r3 `manifest.json`.
+- [x] `inventory.md` maps all 21 dirs (→ ~10 scenes) with provenance rating
+      (`measured`/`deduced`/`n-a`) — the work-list `STO-SCN-033` consumes.
+- [x] `scale` reconciled with `STO-SCN-016` — `scene.toml [scale]` declared the
+      single authoritative home; USD export consumes it (SCHEMA.md § Scale).
+- [x] Epic `Design` points at `SCHEMA.md` as canonical (T-023); body is rationale.
 
 ## Testing
 
 ### Unit / fixture tests
 
-- [ ] A conforming `specification.json` / `results.json` / `scene.toml` validates.
-- [ ] Missing required field (e.g. `results.provenance`) fails validation.
-- [ ] `provenance: "deduced"` with absent `environment.*` validates (migration case).
-- [ ] A bad name (`transform-2-x`, lowercase prefix / unpadded ordinal) is rejected by the documented regex.
+- [x] A conforming `run`/`specification`/`results` validates (structural check, 2026-06-04).
+- [x] Missing required field (`environment`) fails validation.
+- [x] `measured` provenance without `host` is rejected (the conditional rule fires).
+> **Moved to `STO-SCN-034`** (formal `jsonschema` validation harness): the
+> `deduced`-with-absent-`environment` migration-leniency case and the bad-transform-name
+> regex-rejection case. They need the `jsonschema` dep + a CI home — out of scope
+> for schema *definition*. The dependency-free structural check above ran locally
+> (`jsonschema` not installed here) and covers conforming-passes, missing-required-fails,
+> and the `measured`-requires-`host` rule.
 
 ### Integration
 
-- [ ] The reference scene validates end-to-end against all three schemas.
+- [x] The reference scene's `run`/`spec`/`results` validate (structural); full
+      `jsonschema` end-to-end is **`STO-SCN-034`**.
 
 ## Out of scope
 

@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "krabby:scene-schema/run",
+  "title": "run.json — a parameterised pipeline run (variant identity)",
+  "type": "object",
+  "required": ["schema_version", "pipeline", "run", "promoted"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": "1" },
+    "pipeline": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+    "run": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+    "params": { "type": "object", "description": "the sweep knobs that distinguish this run" },
+    "promoted": { "type": "boolean" },
+    "notes": { "type": "string" }
+  }
+}

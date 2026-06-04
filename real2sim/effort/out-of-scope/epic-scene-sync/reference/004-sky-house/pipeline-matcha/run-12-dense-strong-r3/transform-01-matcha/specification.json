@@ -1,0 +1,21 @@
+{
+  "schema_version": "1",
+  "transform": "transform-01-matcha",
+  "pipeline": "matcha",
+  "run": "12-dense-strong-r3",
+  "kind": "reconstruction",
+  "description": "MAtCha full pipeline (SfM -> align -> refine -> tetra) on 12 curated frames",
+  "inputs": ["input/preproc-01-frame-select/data"],
+  "parameters": {
+    "alignment_config": "strong-r3",
+    "dense_regul": "strong",
+    "dense_pruning": "default",
+    "encoder": "vitl",
+    "sfm_config": "unposed",
+    "image_resolution_long_edge": 1024,
+    "chart_resolutions": [0.05, 0.1, 0.2]
+  },
+  "command": "python train.py -s <frames> -o <out> --alignment_config strong-r3 --depthanything_encoder vitl",
+  "maturity": "prototype",
+  "story": "STO-SCN-026"
+}

@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "krabby:scene-schema/specification",
+  "title": "specification.json — WHAT a transform did",
+  "type": "object",
+  "required": ["schema_version", "transform", "pipeline", "kind", "inputs"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": "1" },
+    "transform": { "type": "string", "pattern": "^transform-[0-9]{2}-[a-z0-9]+(-[a-z0-9]+)*$" },
+    "pipeline": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+    "run": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+    "kind": { "type": "string" },
+    "description": { "type": "string" },
+    "inputs": { "type": "array", "items": { "type": "string" },
+                "description": "scene-relative paths this step read (facts, not a DAG)" },
+    "parameters": { "type": "object" },
+    "command": { "type": "string" },
+    "maturity": { "enum": ["prototype", "promoted"], "default": "prototype" },
+    "story": { "type": "string", "pattern": "^STO-[A-Z0-9-]+$" }
+  }
+}

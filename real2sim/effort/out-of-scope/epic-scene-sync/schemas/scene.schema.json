@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "krabby:scene-schema/scene",
+  "title": "scene.toml (parsed)",
+  "type": "object",
+  "required": ["schema_version", "id", "source", "scale"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": "1" },
+    "id": { "type": "string", "pattern": "^([0-9]{3}-)?[a-z0-9]+(-[a-z0-9]+)*$" },
+    "title": { "type": "string" },
+    "source": { "enum": ["capture", "external", "synthetic"] },
+    "captured": { "type": "string" },
+    "tier": { "enum": ["research", "collab", "public"], "default": "research" },
+    "notes": { "type": "string" },
+    "scale": {
+      "type": "object",
+      "required": ["status"],
+      "additionalProperties": false,
+      "properties": {
+        "status": { "enum": ["uncalibrated", "calibrated"] },
+        "method": { "type": "string" },
+        "meters_per_unit": { "type": "number", "minimum": 0 }
+      }
+    },
+    "pipelines": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["slug", "maturity"],
+        "additionalProperties": false,
+        "properties": {
+          "slug": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+          "maturity": { "enum": ["prototype", "promoted"] },
+          "promoted_run": { "type": "string" }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "comment": "external/synthetic scenes may omit the NNN- ordinal; capture scenes must carry it",
+      "if": { "properties": { "source": { "const": "capture" } } },
+      "then": { "properties": { "id": { "pattern": "^[0-9]{3}-[a-z0-9]+(-[a-z0-9]+)*$" } } }
+    }
+  ]
+}

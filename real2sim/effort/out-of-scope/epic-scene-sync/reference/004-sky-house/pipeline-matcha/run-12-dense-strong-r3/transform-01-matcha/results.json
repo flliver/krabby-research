@@ -1,0 +1,30 @@
+{
+  "schema_version": "1",
+  "transform": "transform-01-matcha",
+  "status": "success",
+  "provenance": "measured",
+  "started": "2026-05-02T15:00:00-07:00",
+  "finished": null,
+  "duration_s": 605,
+  "host": "tbeeprz",
+  "peak_vram_mib": 7212,
+  "environment": {
+    "os": "unknown",
+    "gpu": "NVIDIA RTX 5080 / 16 GB",
+    "nvidia_driver": "unknown",
+    "cuda": "unknown",
+    "container": {
+      "image": "krabby-matcha",
+      "tag": "latest+r-knob-sweep-patch",
+      "digest": "unknown"
+    },
+    "software": {
+      "matcha": "unknown (git_sha: null in manifest)"
+    }
+  },
+  "outputs": [
+    { "path": "data/tetra_meshes/tetra_mesh_binary_search_7.ply" },
+    { "path": "data/mast3r_sfm/cameras.json" },
+    { "path": "data/oriented/oriented_500k_colored_culled.ply" }
+  ]
+}
