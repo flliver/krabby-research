@@ -8,6 +8,7 @@
 | 📋 | manager | opus | Engineering manager — milestone & contract-compliance tracking |
 | 📐 | principal | opus | Architecture & design — system coherence, cross-cutting trade-offs |
 | 🔧 | engineer | opus | Implementation & build — robot runtime, firmware, deploy |
+| 🔨 | devex | opus | Developer experience — build/CI/CLI, firmware-flash DX, GPU/env setup |
 
 > Generated from `.ccc/settings.json` `delegates[]`. Re-run an audit
 > (`ccc-bd doctor` + link check) after adding/removing a delegate so

@@ -231,3 +231,7 @@ docs/m14-task1-plan.html
 # Beads work-graph DB (per-machine, lives at /var/<project>/beads/)
 .beads/
 beads
+
+# CCC shared-knowledge provisioning symlink (STO-BUGS-083 mechanism);
+# per-host absolute target — provisioned locally, never committed.
+.ccc/source

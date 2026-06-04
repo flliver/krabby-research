@@ -52,6 +52,13 @@
       "instance-pattern": "{PROJECT}-{AGENT}",
       "emoji": "🔧",
       "model": "opus"
+    },
+    {
+      "name": "devex",
+      "agent": "devex",
+      "instance-pattern": "{PROJECT}-{AGENT}",
+      "emoji": "🔨",
+      "model": "opus"
     }
   ],
   "durable": [
@@ -60,7 +67,8 @@
     "krabby",
     "manager",
     "principal",
-    "engineer"
+    "engineer",
+    "devex"
   ],
   "file_watchers": {
     "globs": [
