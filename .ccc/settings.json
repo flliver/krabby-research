@@ -1,8 +1,8 @@
 {
   "$schemaVersion": "1",
   "version": "1.0.0",
-  "name": "research",
-  "emoji": "\ud83e\udd16",
+  "name": "krabby",
+  "emoji": "🤖",
   "paths": [
     "/private/var/krabby/research",
     "real2sim",
@@ -15,20 +15,36 @@
       "name": "liaison",
       "agent": "liaison",
       "instance-pattern": "{PROJECT}-{AGENT}",
-      "emoji": "\ud83d\udd17",
+      "emoji": "🔗",
       "model": "haiku"
     },
     {
       "name": "ccc",
       "agent": "ccc",
       "instance-pattern": "{PROJECT}-{AGENT}",
-      "emoji": "\u03a3",
+      "emoji": "Σ",
       "model": "haiku"
+    },
+    {
+      "name": "krabby",
+      "agent": "krabby",
+      "instance-pattern": "{PROJECT}-{AGENT}",
+      "emoji": "🦀",
+      "model": "opus[1m]"
+    },
+    {
+      "name": "manager",
+      "agent": "manager",
+      "instance-pattern": "{PROJECT}-{AGENT}",
+      "emoji": "📋",
+      "model": "opus"
     }
   ],
   "durable": [
     "liaison",
-    "ccc"
+    "ccc",
+    "krabby",
+    "manager"
   ],
   "file_watchers": {
     "globs": [
@@ -131,7 +147,7 @@
   "peer_roots": [
     {
       "path": "../messages",
-      "purpose": "Cross-agent message bodies \u2014 content-path target for MSG/REQ/REP artifacts."
+      "purpose": "Cross-agent message bodies — content-path target for MSG/REQ/REP artifacts."
     },
     {
       "path": "../inbox",
@@ -139,7 +155,7 @@
     },
     {
       "path": "../cache",
-      "purpose": "Per-project derived caches \u2014 index rebuilds, ccc-combine state, etc."
+      "purpose": "Per-project derived caches — index rebuilds, ccc-combine state, etc."
     },
     {
       "path": "../projects",
@@ -166,5 +182,6 @@
     "teleop",
     "tests"
   ],
-  "ccc_combine_port": 7158
+  "ccc_combine_port": 7158,
+  "conductor": true
 }

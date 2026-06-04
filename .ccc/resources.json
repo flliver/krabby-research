@@ -42,55 +42,55 @@
       "type": "beads-dir",
       "location": "beads",
       "discovered-via": "convention",
-      "registered-at": "2026-06-04T00:28:12Z"
+      "registered-at": "2026-06-04T01:06:15Z"
     },
     {
       "type": "agent.liaison",
       "location": ".ccc/agents/liaison",
       "discovered-via": "convention",
-      "registered-at": "2026-06-04T00:28:12Z"
+      "registered-at": "2026-06-04T01:06:15Z"
     },
     {
       "type": "agent.ccc",
       "location": ".ccc/agents/ccc",
       "discovered-via": "convention",
-      "registered-at": "2026-06-04T00:28:12Z"
+      "registered-at": "2026-06-04T01:06:15Z"
     },
     {
       "type": "agent.krabby",
       "location": ".ccc/agents/krabby",
       "discovered-via": "convention",
-      "registered-at": "2026-06-04T00:28:12Z"
+      "registered-at": "2026-06-04T01:06:15Z"
     },
     {
       "type": "agent.manager",
       "location": ".ccc/agents/manager",
       "discovered-via": "convention",
-      "registered-at": "2026-06-04T00:28:12Z"
+      "registered-at": "2026-06-04T01:06:15Z"
     },
     {
       "type": "vscode-workspace",
       "location": ".ccc/workspace.code-workspace",
       "discovered-via": "schema-always",
-      "registered-at": "2026-06-04T00:28:12Z"
+      "registered-at": "2026-06-04T01:06:15Z"
     },
     {
       "type": "messages-dir",
       "location": "messages",
       "discovered-via": "schema-always",
-      "registered-at": "2026-06-04T00:28:12Z"
+      "registered-at": "2026-06-04T01:06:15Z"
     },
     {
       "type": "primary-source-repo",
       "location": ".",
       "discovered-via": "schema-always",
-      "registered-at": "2026-06-04T00:28:12Z"
+      "registered-at": "2026-06-04T01:06:15Z"
     },
     {
       "type": "liaison-agent-dir",
       "location": ".ccc/agents/liaison",
       "discovered-via": "schema-always",
-      "registered-at": "2026-06-04T00:28:12Z"
+      "registered-at": "2026-06-04T01:06:15Z"
     }
   ]
 }
