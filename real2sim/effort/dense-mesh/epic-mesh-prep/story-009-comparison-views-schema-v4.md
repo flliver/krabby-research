@@ -43,5 +43,10 @@ Evidence: commit `4bf02c5` (M11: comparison_views.json schema v4 + auto-localize
 `comparison_views.json` schema v3→v4 landed 2026-05-06: backward-compatible — one `views` array with an optional `purpose` discriminator (`ab-comparison`|`reference-match`, default `ab-comparison`), plus optional reference-match fields (`matches_reference_images`, `render_resolution`, `render_engine`, `auto_localized`, `localization_method`). Key call (on user pushback): one file with a purpose discriminator, not a separate `reference_cameras.json` — both are manually-positioned auxiliary cameras differing only in purpose. Round-trip persistence via Blender Camera custom properties: `sync_comparison_views.py` reads them out, `build_blender_scene.py` re-attaches on injection; bicycle round-trip byte-identical modulo ~1e-8 quaternion noise. Touched 3 scripts; included a side-fix where sync had dropped unowned top-level fields like `variant_prefix`.
 _Sources: entry 2026-05-06T101958-reference-camera-auto-positioning; notes 2026-05-06T100000-…, 2026-05-06T101958-auto-positioning-…._
 
+
+## Handoff Notes
+
+Shipped in release `4bf02c5` (2026-05-06) alongside: `colmap_to_cameras_json.py` (COLMAP→our-format w/ auto-orient), `apply_existing_orientation.py` (applies orient_mesh R+z_shift to alternate meshes for TSDF), `render_comparison_matrix.sh --mesh-source {oriented|tsdf}`, `rate_renders/server.py` multi-scene discovery via `variant_prefix` + manifest-collision fix, `manifest_lib.py::variant_dir()` refusing ambiguous suffix matches. Bicycle (Mip-NeRF 360 / DTU) stood up as a second scene (`variant_prefix: "dtu-bicycle"`), its `comparison_views.json` now schema-v4 with the two reference-match views populated. (handoff-2026-05-02-2210.md)
+
 ---
 _Imported from legacy beads `m11-ep4` (M11 DAG re-import, 2026-06-03)._

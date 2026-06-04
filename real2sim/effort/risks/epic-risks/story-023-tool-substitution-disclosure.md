@@ -39,5 +39,10 @@ Owner: Manager (drafts); krabby agent (reviews for technical accuracy).
 Substitution rationale is well-grounded. Pipeline = MASt3R-SfM (unposed SfM) → MAtCha (Guédon et al., CVPR 2025), substituting for the grant's COLMAP because MAtCha was the only one of six evaluated pipelines producing a watertight mesh end-to-end with no separate conditioning, ~11 min on RTX 5080. MASt3R-SfM provides camera poses + cross-chart scale alignment; per-pixel surface detail comes from MAtCha's monocular-depth-initialized charts (DepthAnythingV2), not cross-view triangulation. MASt3R-SfM characterized to N=350 cams on our hardware and validated as scaling with more frames (paper T&T ATE 0.034→0.011 from 25→full views). Source: `Anttwo/MAtCha`, 8 build-time patches in `docker/patch_matcha_*.py` + `MATCHA-NOTES.md`, none touching chart-deformation or photometric-resolution algorithms. Defensible per grant Appendix A; must be disclosed in the final M11 README.
 _Sources: entries 2026-05-01T144135-phase-a-…, 2026-05-01T144205-b6a-…; notes 2026-05-01T164453-matcha-source-code-read, 2026-05-01T161229-mast3r-sfm-scaling, 2026-05-01T163958-bbeeprz-access-path._
 
+
+## Handoff Notes
+
+**What to disclose** (manager memo 2026-05-06, Top-Risk #3): the grant canonicalizes COLMAP MVS + Poisson; we shipped MASt3R-SfM + MAtCha (TSDF). Defensible per grant Appendix A (lists MASt3R-SLAM / SLAM3R / Spann3R as alternatives); the pipeline can emit COLMAP-format intermediates on demand. Mitigation = one paragraph in the final M11 README + a reference to the COLMAP-export script.
+
 ---
 _Imported from legacy beads `m11-kr9` (M11 DAG re-import, 2026-06-03)._

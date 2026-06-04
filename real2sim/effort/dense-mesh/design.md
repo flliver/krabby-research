@@ -2,13 +2,12 @@
 xid: DES-SCN-DENSE-MESH
 kind: design
 effort: scn
-status: shipped
+status: open
 date: 2026-06-03
 guidance: ./guidance.md
 hugs: []
 tenets: []
 bd-id: krabby-hot
-shipped: 2026-06-03
 ---
 
 # T1 — Dense Reconstruction & Watertight Mesh

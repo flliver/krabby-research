@@ -51,5 +51,10 @@ Evidence: commit `4bf02c5`; journal note `journal/.../matcha-quality/notes/2026-
 Implemented 2026-05-06 as `workspace/localize_reference_image.py` (404 lines, "SfM-extend" = variant 1 of three). Pipeline: reference PNG → faux-RGB JPG (greyscale channel-replicated), stage a tbeeprz sandbox of 12 relative-symlinked source frames + 1 ref JPG (`_DSC9999_ref.JPG`, sorts last → idx 12), run `train.py --sfm_only --image_idx 0..12` (~104 s, RC=0), pull `cameras.json`, Umeyama/Procrustes-align the 12 new centers to the original 12, apply that similarity to the 13th pose, then `world_orient`, upsert into `comparison_views.json` (`auto_localized=true, localization_method=mast3r_sfm_extend`). Bicycle TSDF result: Procrustes scale 1.0156, residuals max 1.3 cm / mean 0.4 cm — but a 0.745 m / 4.55° delta vs the manual `cam_ref`; SfM math worked, but shared-focal SfM (all 13 cams → focal 484.56 px) couldn't match the paper's wider-FOV/higher vantage. Greyscale didn't trip MASt3R. Three choices: relative (not absolute) symlinks (host mount differs in-container — caught after a FileNotFoundError run), sibling sandbox to keep the scene's `cameras.json` immutable, and `--image_idx` not `--n_images` (avoids silently dropping the ref). PnP localization (variant 2, decoupled focal) is the documented next step.
 _Sources: notes 2026-05-06T100000-auto-localized-reference-cameras, 2026-05-06T101958-auto-positioning-…; entry 2026-05-06T101958-reference-camera-auto-positioning._
 
+
+## Handoff Notes
+
+Manager memo (establish-manager-role-2026-05-06.md) flags this as "nearly done": the 2026-05-04 planning pivot inserted "validate against MAtCha paper's reference quality" *before* USD export, and that reference-validation work shipped in the 2026-05-06 release. **Still open:** the A/B comparison cameras (`compare_01/02/03`) for the bicycle scene need hand-placement in Blender.
+
 ---
 _Imported from legacy beads `m11-5ef` (M11 DAG re-import, 2026-06-03)._

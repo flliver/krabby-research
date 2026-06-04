@@ -44,5 +44,10 @@ Options to evaluate (none yet validated):
 No scale-calibration deliverable in the journal, but relevant scale-ambiguity notes: MAtCha's per-chart deformation MLP can re-scale geometry differently across runs (per-region depth ambiguity), so submap meshes can drift in scale even with agreed camera positions — proposed mitigations: anchor on the unified SfM sparse 3D points, a final shared-frame scale-alignment step, or skip per-chart deformation for scale-up. The reference-localization test saw a 1.6% scale difference (Procrustes 1.0156) between SfM frames. No reference-object-based metric calibration is described — confirming this story's "no fallback yet" blocker status.
 _Sources: notes 2026-05-01T174650-submap-based-mesh-fusion, 2026-05-06T100000-auto-localized-reference-cameras._
 
+
+## Handoff Notes
+
+**Root cause** (manager audit 2026-05-06 + handoff-2026-04-29-1347.md): unsolved across ALL captures because no reference objects were in scene — a capture-side miss recorded in every `experiments/<scene>/CAPTURE-LESSONS.md` (and now codified in **HUG-SCN-004**). PLAN E1 calls it "unsolved across all our captures (no reference objects)." The manager audit ranks T2 the single biggest technical unknown (HIGH), with three stacked unknowns: scale calibration (no fallback), V-HACD collision proxy, and IsaacSim USD load + spawn + depth.
+
 ---
 _Imported from legacy beads `m11-u3l` (M11 DAG re-import, 2026-06-03)._
