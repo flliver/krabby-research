@@ -38,13 +38,29 @@
       "instance-pattern": "{PROJECT}-{AGENT}",
       "emoji": "📋",
       "model": "opus"
+    },
+    {
+      "name": "principal",
+      "agent": "principal",
+      "instance-pattern": "{PROJECT}-{AGENT}",
+      "emoji": "📐",
+      "model": "opus"
+    },
+    {
+      "name": "engineer",
+      "agent": "engineer",
+      "instance-pattern": "{PROJECT}-{AGENT}",
+      "emoji": "🔧",
+      "model": "opus"
     }
   ],
   "durable": [
     "liaison",
     "ccc",
     "krabby",
-    "manager"
+    "manager",
+    "principal",
+    "engineer"
   ],
   "file_watchers": {
     "globs": [
