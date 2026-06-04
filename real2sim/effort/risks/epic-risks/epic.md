@@ -8,6 +8,7 @@ date: 2026-06-03
 hugs: []
 tenets: []
 bd-id: krabby-m5o
+assignee: manager
 ---
 
 # Risk & Disclosure Tracking

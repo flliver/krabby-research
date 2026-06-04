@@ -9,6 +9,7 @@ hugs: []
 tenets: []
 bd-id: krabby-zgq
 shipped: 2026-06-03
+assignee: krabby
 ---
 
 # Scene Capture & SfM

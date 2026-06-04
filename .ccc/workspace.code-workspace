@@ -78,18 +78,6 @@
       "path": "../messages"
     },
     {
-      "name": "🤖 inbox",
-      "path": "../inbox"
-    },
-    {
-      "name": "🤖 cache",
-      "path": "../cache"
-    },
-    {
-      "name": "🤖 projects",
-      "path": "../projects"
-    },
-    {
       "name": "🤖 grants",
       "path": "../../grants"
     },
@@ -160,8 +148,10 @@
       "titleBar.inactiveForeground": "#e7e7e799"
     },
     "ccc.delegates.pinned": [
+      "krabby-ccc",
+      "krabby-sherpa",
       "krabby-krabby",
-      "krabby-ccc"
+      "krabby-principal"
     ]
   },
 

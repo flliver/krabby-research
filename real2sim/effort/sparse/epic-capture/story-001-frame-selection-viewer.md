@@ -13,6 +13,7 @@ shipped: 2026-06-03
 tasks: 3
 complete: 3
 title: T0.B5 — Frame-Selection Tooling (Camera Selection Viewer)
+assignee: krabby
 ---
 
 # T0.B5 — Frame-Selection Tooling (Camera Selection Viewer)

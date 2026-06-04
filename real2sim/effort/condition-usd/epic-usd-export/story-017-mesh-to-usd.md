@@ -10,6 +10,7 @@ depends-on: []
 bd-id: krabby-1qp
 priority: 0
 title: T2.E2 — Mesh-to-USD via Isaac Lab MeshConverter
+assignee: krabby
 ---
 
 # T2.E2 — Mesh-to-USD via Isaac Lab MeshConverter

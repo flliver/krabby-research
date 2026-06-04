@@ -8,6 +8,7 @@ guidance: ./guidance.md
 hugs: []
 tenets: []
 bd-id: krabby-566
+assignee: principal
 ---
 
 # T2 — Mesh Conditioning & USD Export

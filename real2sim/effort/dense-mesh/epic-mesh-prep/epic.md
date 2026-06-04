@@ -9,6 +9,7 @@ hugs: []
 tenets: []
 bd-id: krabby-wjd
 shipped: 2026-06-03
+assignee: krabby
 ---
 
 # Mesh Orientation, Culling & Reference Localization

@@ -10,6 +10,7 @@ depends-on: []
 bd-id: krabby-7mh
 priority: 0
 title: T2.E3 — IsaacSim Load + Robot Spawn + Depth Sensor Returns
+assignee: krabby
 ---
 
 # T2.E3 — IsaacSim Load + Robot Spawn + Depth Sensor Returns

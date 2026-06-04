@@ -8,6 +8,7 @@ date: 2026-06-03
 hugs: []
 tenets: []
 bd-id: krabby-kb7
+assignee: engineer
 ---
 
 # Hexapod Adaptation & Stable Demo

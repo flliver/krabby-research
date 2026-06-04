@@ -10,6 +10,7 @@ depends-on: []
 bd-id: krabby-38w
 priority: 3
 title: T2.D3 — Final Taubin Smoothing Pass
+assignee: krabby
 ---
 
 # T2.D3 — Final Taubin Smoothing Pass

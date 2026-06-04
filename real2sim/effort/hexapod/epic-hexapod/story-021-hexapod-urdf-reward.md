@@ -10,6 +10,7 @@ depends-on: []
 bd-id: krabby-6pi
 priority: 1
 title: T4.F3 — Hexapod URDF + Reward Shaping
+assignee: engineer
 ---
 
 # T4.F3 — Hexapod URDF + Reward Shaping

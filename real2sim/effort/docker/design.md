@@ -8,6 +8,7 @@ guidance: ./guidance.md
 hugs: []
 tenets: []
 bd-id: krabby-bye
+assignee: principal
 ---
 
 # T3 — Locomotion Model Integration (Dockerized)

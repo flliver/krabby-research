@@ -10,6 +10,7 @@ depends-on: []
 bd-id: krabby-cr5
 priority: 0
 title: R1 — Schedule Trajectory Re-baseline with Fletcher
+assignee: manager
 ---
 
 # R1 — Schedule Trajectory Re-baseline with Fletcher

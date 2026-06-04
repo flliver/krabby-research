@@ -13,6 +13,7 @@ shipped: 2026-06-03
 tasks: 3
 complete: 3
 title: T1.C-Schema — comparison_views.json Schema v4 + Bidirectional Injection
+assignee: principal
 ---
 
 # T1.C-Schema — comparison_views.json Schema v4 + Bidirectional Injection

@@ -13,6 +13,7 @@ shipped: 2026-06-03
 tasks: 3
 complete: 3
 title: T1.A — Pipeline Evaluation & MAtCha Selection
+assignee: principal
 ---
 
 # T1.A — Pipeline Evaluation & MAtCha Selection

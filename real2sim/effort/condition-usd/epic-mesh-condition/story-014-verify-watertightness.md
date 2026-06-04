@@ -10,6 +10,7 @@ depends-on: []
 bd-id: krabby-25p
 priority: 2
 title: T2.D2 — Verify Watertightness (genus/manifold report)
+assignee: krabby
 ---
 
 # T2.D2 — Verify Watertightness (genus/manifold report)

@@ -8,6 +8,7 @@ date: 2026-06-03
 hugs: []
 tenets: []
 bd-id: krabby-n0k
+assignee: manager
 ---
 
 # Contract Schedule & Re-baseline

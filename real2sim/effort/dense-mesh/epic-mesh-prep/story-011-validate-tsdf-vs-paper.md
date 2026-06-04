@@ -10,6 +10,7 @@ depends-on: []
 bd-id: krabby-ayp
 priority: 3
 title: T1.C2 — Validate TSDF Mesh Quality vs Paper Reference (nice-to-have)
+assignee: krabby
 ---
 
 # T1.C2 — Validate TSDF Mesh Quality vs Paper Reference (nice-to-have)

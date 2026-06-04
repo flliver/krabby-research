@@ -13,6 +13,7 @@ shipped: 2026-06-03
 tasks: 3
 complete: 3
 title: T1.A2 — Initial Tetrahedral Meshes for 3 Scenes
+assignee: krabby
 ---
 
 # T1.A2 — Initial Tetrahedral Meshes for 3 Scenes

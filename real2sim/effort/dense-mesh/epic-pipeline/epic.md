@@ -9,6 +9,7 @@ hugs: []
 tenets: []
 bd-id: krabby-r8z
 shipped: 2026-06-03
+assignee: krabby
 ---
 
 # Pipeline Selection & Dense Reconstruction

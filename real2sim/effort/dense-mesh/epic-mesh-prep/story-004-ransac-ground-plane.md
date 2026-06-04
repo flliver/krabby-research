@@ -13,6 +13,7 @@ shipped: 2026-06-03
 tasks: 3
 complete: 3
 title: T1.B1 — RANSAC Ground-Plane Orientation
+assignee: krabby
 ---
 
 # T1.B1 — RANSAC Ground-Plane Orientation

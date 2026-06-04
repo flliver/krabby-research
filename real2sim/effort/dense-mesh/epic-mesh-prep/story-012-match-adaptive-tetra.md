@@ -10,6 +10,7 @@ depends-on: []
 bd-id: krabby-36r
 priority: 3
 title: T1.C3 — Match Adaptive Tetrahedralization Quality (nice-to-have)
+assignee: krabby
 ---
 
 # T1.C3 — Match Adaptive Tetrahedralization Quality (nice-to-have)

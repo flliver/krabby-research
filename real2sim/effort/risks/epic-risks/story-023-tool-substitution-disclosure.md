@@ -10,6 +10,7 @@ depends-on: []
 bd-id: krabby-r4f
 priority: 2
 title: R2 — T0/T1 Tool-Substitution Disclosure
+assignee: manager
 ---
 
 # R2 — T0/T1 Tool-Substitution Disclosure

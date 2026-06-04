@@ -8,6 +8,7 @@ guidance: ./guidance.md
 hugs: []
 tenets: []
 bd-id: krabby-8qs
+assignee: principal
 ---
 
 # T4 — Hexapod Adaptation & Stable Demo

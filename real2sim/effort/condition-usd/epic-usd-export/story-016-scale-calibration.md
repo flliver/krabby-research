@@ -10,6 +10,7 @@ depends-on: []
 bd-id: krabby-0rw
 priority: 0
 title: T2.E1 — Scale Calibration Strategy ★ BLOCKER
+assignee: principal
 ---
 
 # T2.E1 — Scale Calibration Strategy ★ BLOCKER

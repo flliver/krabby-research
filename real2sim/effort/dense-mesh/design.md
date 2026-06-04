@@ -8,6 +8,7 @@ guidance: ./guidance.md
 hugs: []
 tenets: []
 bd-id: krabby-hot
+assignee: principal
 ---
 
 # T1 — Dense Reconstruction & Watertight Mesh

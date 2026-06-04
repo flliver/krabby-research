@@ -1,17 +1,17 @@
 ---
-xid: DES-SCN-SPARSE
+xid: DES-SCN-TX
 kind: design
 effort: scn
-status: open
-date: 2026-06-03
+status: in-progress
+date: 2026-06-04
 guidance: ./guidance.md
 hugs: []
 tenets: []
-bd-id: krabby-sit
+bd-id: krabby-yqz
 assignee: principal
 ---
 
-# T0 — Scene Capture & Sparse Reconstruction
+# TX — Out of Scope Work
 
 ## Overview
 

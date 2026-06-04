@@ -13,6 +13,7 @@ shipped: 2026-06-03
 tasks: 4
 complete: 4
 title: T1.C-AutoLocalize — Auto-localize Reference Cameras via SfM-extend
+assignee: krabby
 ---
 
 # T1.C-AutoLocalize — Auto-localize Reference Cameras via SfM-extend

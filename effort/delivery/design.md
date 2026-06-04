@@ -8,6 +8,7 @@ guidance: ./guidance.md
 hugs: []
 tenets: []
 bd-id: krabby-0ir
+assignee: manager
 ---
 
 # Krabby Delivery & Contract (project-wide)

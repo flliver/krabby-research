@@ -10,6 +10,7 @@ depends-on: []
 bd-id: krabby-19o
 priority: 2
 title: T2.D1 — Merge & Gap-Fill Mesh Surfaces
+assignee: krabby
 ---
 
 # T2.D1 — Merge & Gap-Fill Mesh Surfaces

@@ -10,6 +10,7 @@ depends-on: []
 bd-id: krabby-c5x
 priority: 1
 title: T3.F2 — Holosoma Dockerfile
+assignee: devex
 ---
 
 # T3.F2 — Holosoma Dockerfile

@@ -9,6 +9,7 @@ date: 2026-06-03
 depends-on: []
 bd-id: krabby-cuz
 title: Open upstream PRs for the three research/ doc fixes (cd6a014)
+assignee: devex
 ---
 
 # Open upstream PRs for the three research/ documentation fixes

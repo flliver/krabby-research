@@ -1,0 +1,28 @@
+{
+  "$schema": "https://ccc.local/schema/topology.schema.json",
+  "exposes": [
+    {
+      "id": "krabby-robot",
+      "type": "host",
+      "nature": "Jetson Orin (Seeed reComputer J401) hexapod robot — 18-DoF, 3× Arduino Mega 2560 + BTS7960 H-bridges, ZED 2i RGB-D. Runs the on-robot locomotion stack (HAL server + gamepad/policy inference) via `krabby run`. Physical lab hardware, not a shared compute resource.",
+      "availability": "private",
+      "contact": "engineer@krabby"
+    },
+    {
+      "id": "firmware-store",
+      "type": "service",
+      "nature": "Public S3 firmware store — versioned Arduino Mega builds per branch (index.json + per-branch latest.json/builds.json + firmware.hex), flashed via `krabby firmware update`. Read-only public artifacts; no credentials.",
+      "availability": "shared",
+      "contact": "devex@krabby",
+      "endpoint": "s3://krabby-firmware-public"
+    },
+    {
+      "id": "locomotion-image",
+      "type": "service",
+      "nature": "Public ECR locomotion image — the on-robot Docker stack (HAL server + policy inference + firmware tooling). Channels: release-latest (stable, pulled by `krabby install`) and mainline-latest (dev). Public registry; no credentials.",
+      "availability": "shared",
+      "contact": "devex@krabby",
+      "endpoint": "public.ecr.aws/t7t7b3i3/krabby-locomotion"
+    }
+  ]
+}

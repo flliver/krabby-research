@@ -8,6 +8,7 @@ guidance: ./guidance.md
 hugs: []
 tenets: []
 bd-id: krabby-mrr
+assignee: manager
 ---
 
 # Cross-cutting Risks & Disclosures

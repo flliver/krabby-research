@@ -10,6 +10,7 @@ depends-on: []
 bd-id: krabby-72g
 priority: 1
 title: T4.F4 — Stable Locomotion Demo on ≥1 Scene (the deliverable)
+assignee: engineer
 ---
 
 # T4.F4 — Stable Locomotion Demo on ≥1 Scene (the deliverable)
