@@ -1,0 +1,4 @@
+{
+  "$schemaVersion": "1",
+  "locations": [{"path": "real2sim/effort", "relative": true}, {"path": "effort", "relative": true}]
+}
