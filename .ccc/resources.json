@@ -1,0 +1,96 @@
+{
+  "$schemaVersion": "1",
+  "root": "/private/var/krabby/research",
+  "resources": [
+    {
+      "type": "data-dir",
+      "location": "hardware",
+      "discovered-via": "from-config",
+      "registered-at": "2026-06-04T00:28:12Z"
+    },
+    {
+      "type": "data-dir",
+      "location": "docs",
+      "discovered-via": "from-config",
+      "registered-at": "2026-06-04T00:28:12Z"
+    },
+    {
+      "type": "data-dir",
+      "location": "assets",
+      "discovered-via": "from-config",
+      "registered-at": "2026-06-04T00:28:12Z"
+    },
+    {
+      "type": "sub-project",
+      "location": "real2sim",
+      "discovered-via": "from-config",
+      "registered-at": "2026-06-04T00:28:12Z"
+    },
+    {
+      "type": "sub-project",
+      "location": "parkour",
+      "discovered-via": "from-config",
+      "registered-at": "2026-06-04T00:28:12Z"
+    },
+    {
+      "type": "sub-project",
+      "location": "firmware",
+      "discovered-via": "from-config",
+      "registered-at": "2026-06-04T00:28:12Z"
+    },
+    {
+      "type": "beads-dir",
+      "location": "beads",
+      "discovered-via": "convention",
+      "registered-at": "2026-06-04T00:28:12Z"
+    },
+    {
+      "type": "agent.liaison",
+      "location": ".ccc/agents/liaison",
+      "discovered-via": "convention",
+      "registered-at": "2026-06-04T00:28:12Z"
+    },
+    {
+      "type": "agent.ccc",
+      "location": ".ccc/agents/ccc",
+      "discovered-via": "convention",
+      "registered-at": "2026-06-04T00:28:12Z"
+    },
+    {
+      "type": "agent.krabby",
+      "location": ".ccc/agents/krabby",
+      "discovered-via": "convention",
+      "registered-at": "2026-06-04T00:28:12Z"
+    },
+    {
+      "type": "agent.manager",
+      "location": ".ccc/agents/manager",
+      "discovered-via": "convention",
+      "registered-at": "2026-06-04T00:28:12Z"
+    },
+    {
+      "type": "vscode-workspace",
+      "location": ".ccc/workspace.code-workspace",
+      "discovered-via": "schema-always",
+      "registered-at": "2026-06-04T00:28:12Z"
+    },
+    {
+      "type": "messages-dir",
+      "location": "messages",
+      "discovered-via": "schema-always",
+      "registered-at": "2026-06-04T00:28:12Z"
+    },
+    {
+      "type": "primary-source-repo",
+      "location": ".",
+      "discovered-via": "schema-always",
+      "registered-at": "2026-06-04T00:28:12Z"
+    },
+    {
+      "type": "liaison-agent-dir",
+      "location": ".ccc/agents/liaison",
+      "discovered-via": "schema-always",
+      "registered-at": "2026-06-04T00:28:12Z"
+    }
+  ]
+}

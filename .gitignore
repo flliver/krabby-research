@@ -227,3 +227,6 @@ parkour/parkour_tasks/parkour_tasks/crab_hexapod_task/tempscripts/
 .DS_Store
 
 docs/m14-task1-plan.html
+
+# Beads work-graph DB (per-machine, lives at /var/<project>/beads/)
+.beads/

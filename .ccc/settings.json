@@ -1,0 +1,170 @@
+{
+  "$schemaVersion": "1",
+  "version": "1.0.0",
+  "name": "research",
+  "emoji": "\ud83e\udd16",
+  "paths": [
+    "/private/var/krabby/research",
+    "real2sim",
+    "parkour",
+    "firmware"
+  ],
+  "agents-dir": ".ccc/agents",
+  "delegates": [
+    {
+      "name": "liaison",
+      "agent": "liaison",
+      "instance-pattern": "{PROJECT}-{AGENT}",
+      "emoji": "\ud83d\udd17",
+      "model": "haiku"
+    },
+    {
+      "name": "ccc",
+      "agent": "ccc",
+      "instance-pattern": "{PROJECT}-{AGENT}",
+      "emoji": "\u03a3",
+      "model": "haiku"
+    }
+  ],
+  "durable": [
+    "liaison",
+    "ccc"
+  ],
+  "file_watchers": {
+    "globs": [
+      {
+        "pattern": "effort/**/*.md",
+        "scopes": [
+          "list"
+        ]
+      },
+      {
+        "pattern": "goals/**/*.md",
+        "scopes": [
+          "list"
+        ]
+      },
+      {
+        "pattern": "messages/**/*.md",
+        "scopes": [
+          "list"
+        ]
+      },
+      {
+        "pattern": "milestones/**/*.md",
+        "scopes": [
+          "list"
+        ]
+      },
+      {
+        "pattern": "**/effort/**/*.md",
+        "scopes": [
+          "list",
+          "ready"
+        ]
+      },
+      {
+        "pattern": "**/design/**/*.md",
+        "scopes": [
+          "list",
+          "ready"
+        ]
+      },
+      {
+        "pattern": "**/milestones/**/*.md",
+        "scopes": [
+          "list",
+          "ready"
+        ]
+      },
+      {
+        "pattern": "**/goals/**/*.md",
+        "scopes": [
+          "list"
+        ]
+      },
+      {
+        "pattern": "**/aiqs.md",
+        "scopes": [
+          "list",
+          "ready"
+        ]
+      },
+      {
+        "pattern": "**/.ccc/*.json",
+        "scopes": [
+          "list"
+        ]
+      },
+      {
+        "pattern": "**/inbox/**/*.md",
+        "scopes": [
+          "list"
+        ]
+      },
+      {
+        "pattern": "**/active/**/*.md",
+        "scopes": [
+          "list"
+        ]
+      },
+      {
+        "pattern": "**/pending/**/*.md",
+        "scopes": [
+          "list"
+        ]
+      },
+      {
+        "pattern": "**/archive/**/*.md",
+        "scopes": [
+          "list"
+        ]
+      },
+      {
+        "pattern": "**/messages/**/*.md",
+        "scopes": [
+          "list"
+        ]
+      }
+    ]
+  },
+  "peer_roots": [
+    {
+      "path": "../messages",
+      "purpose": "Cross-agent message bodies \u2014 content-path target for MSG/REQ/REP artifacts."
+    },
+    {
+      "path": "../inbox",
+      "purpose": "Cross-project handoff intake (post-EPI-FLOW REQ ingest path; some hosts unprovisioned)."
+    },
+    {
+      "path": "../cache",
+      "purpose": "Per-project derived caches \u2014 index rebuilds, ccc-combine state, etc."
+    },
+    {
+      "path": "../projects",
+      "purpose": "Sibling projects under the same CCC container (overseer + cross-project agents)."
+    }
+  ],
+  "messages-root": "./messages",
+  "data-dirs": [
+    "hardware",
+    "docs",
+    "assets"
+  ],
+  "onboard-ignore": [
+    "bench",
+    "compute",
+    "controller",
+    "data_collection",
+    "environments",
+    "experiments",
+    "hal",
+    "images",
+    "krabby",
+    "scripts",
+    "teleop",
+    "tests"
+  ],
+  "ccc_combine_port": 7158
+}
