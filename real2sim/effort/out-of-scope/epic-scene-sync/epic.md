@@ -54,6 +54,18 @@ priority: 4
 >   j's WAN-to-S3 (~94 MB/s), so LAN-first wins by **deduplicating S3 egress +
 >   offline availability**, NOT raw speed. Gateway = j (confirmed). Only rsync
 >   installed fleet-wide; no S3 client or `krabby` profile present anywhere yet.
+> - 2026-06-04: **Fleet-sync layer BUILT** (superseded the rclone *fleet-transport*
+>   plan; **S3 stays as Layer-2 backing**). Store is a
+>   git-LFS repo (`/var/krabby/scenes` Mac → external APFS); **hub on j**
+>   (`/games/krabby/scenes`, always-on, source of truth). Transport = git-over-SSH
+>   (metadata, 1 `trunk`) + rsync of `.git/lfs/objects` (additive); `GIT_LFS_SKIP_SMUDGE`
+>   + `push --no-verify`; no rclone/git-lfs-transfer on the *fleet* leg. **S3 stays
+>   as Layer 2** (durable cold store + collab/public, via the j gateway — STO-028).
+>   Fleet sync's purpose = **experiment load-distribution** (run anywhere, centralize on j). `krabby-scenes-sync`
+>   helper ansible-provisioned fleet-wide (git-lfs 3.6.1 in base role). Migrated 42 GB
+>   seeded to j; **Mac + t/s/d verified-identical mirrors** (4702 objs @ `trunk`); b
+>   synced (whole) but flaps on a stay-awake hardware fault. Architecture/Approach/
+>   Decisions/Risks/Success-Criteria updated to AS-BUILT.
 
 ## Problem Statement
 
@@ -87,13 +99,15 @@ foundational: the rest of the real2sim pipeline (T0–T4) consumes these scenes.
   research use now, (b) expanded use by collaborators in other locations during
   later M-efforts, (c) public release in a later project phase — with an
   explicit gate between tiers.
-- **LAN-first synchronization** — a host obtains a scene from a LAN peer/cache
-  when possible and falls back to S3 only when it must; redundant transfer is
-  eliminated via manifest/checksum diff. *Maximize LAN, minimize S3 push/pull.*
+- **LAN mirror synchronization** *(AS BUILT — was "LAN-first vs S3")* — every node
+  holds a **full local mirror**; transfers are additive over the LAN (git refs +
+  rsync of `.git/lfs/objects`); **no cloud round-trip on the fleet leg**. *Maximize
+  LAN — the fleet sync never round-trips to S3 (S3 is the separate Layer-2 backing).*
 - **Docker consumption convention** — containers we stand up on the fleet mount
   scene data through one standard, read-only path/volume convention.
-- **Simple, secret-safe S3 sync** — engineers run one obvious command; the S3
-  credential lives only in the `krabby` AWS profile (never in persisted code).
+- **Simple, secret-safe sync** — one command (`krabby-scenes-sync`); Layer-1 auth
+  is **SSH-key** over the fleet mesh; **no cloud credentials on producer hosts**
+  (only j, the S3 gateway, holds the `krabby` profile).
 - **Local inspection ergonomics** — pulling a scene (or subset) to a laptop for
   post-experiment inspection is a one-liner that integrates with `camera_viewer`.
 
@@ -101,8 +115,8 @@ foundational: the rest of the real2sim pipeline (T0–T4) consumes these scenes.
 
 - **Reconstruction algorithms** — how scenes are *produced* is T0–T4's job; this
   epic only organizes, moves, and serves the outputs.
-- **A bespoke storage service / object store** — we use S3 + LAN sync, not a new
-  daemon. (T-013: reuse the `krabby-firmware-public` manifest pattern.)
+- **A bespoke storage service** — we use a **git-LFS repo + rsync** (fleet hub on
+  j) **+ S3** (durable cold store / public tier, via j), not a new daemon. *(AS BUILT.)*
 - **Public release itself** — we define the public *tier and gate* but the act of
   publishing M11 data is deferred to the later project phase that owns it.
 - **Provisioning new fleet hardware / a dedicated NAS** — flagged as a risk; this
@@ -160,9 +174,9 @@ the T0–T4 efforts are de-facto *consumers* of it.
 - **`camera_viewer`** (`real2sim/camera_viewer`) — local-inspection integration.
 - **T3 Docker design** (`DES-SCN-DOCKER`) — the Docker-consume story must align
   with how locomotion containers are built/run.
-- **S3-client + `krabby`-profile provisioning on j** — prerequisite for any
-  fleet-side S3 access (STO-SCN-028/030). Place credential via the secrets
-  boundary, never in code (T-014).
+- **git-lfs + SSH mesh on the fleet** *(AS BUILT — done)* — sync needs git-lfs on
+  each host (ansible base role) + passwordless SSH to the hub; both provisioned.
+  Producer hosts need **no S3 client**; j (the gateway) gets the `krabby` profile in STO-028 (Layer 2).
 
 ## Stories
 
@@ -172,9 +186,9 @@ the T0–T4 efforts are de-facto *consumers* of it.
 | 1 | `STO-SCN-026` | Define pipeline-of-transformations scene schema (`input/`→`pipeline-<slug>/transform-*/`→`output/` + per-transform `specification.json`/`results.json`) & inventory existing scenes | open | L |
 | 1b | `STO-SCN-033` | Migrate historical scenes (INPUT + *prototype* transforms) into the schema; **reconstruct provenance from M11 journals** (mark deduced vs measured) | open | L |
 | 2 | `STO-SCN-027` | Three-tier organization (research/collab/public) + tier gate | open | M |
-| 3 | `STO-SCN-028` | S3 layout, credentialed access, secrets boundary + topology entry | open | M |
-| 4 | `STO-SCN-029` | LAN-first sync CLI (`krabby scenes pull/push`, manifest diff) | open | L |
-| 5 | `STO-SCN-030` | Fleet distribution + designated cache host (needs baeprz facts) | open | M |
+| 3 | `STO-SCN-028` | **Layer 2: S3 cold store + collab/public distribution** — j↔S3 via the `krabby` profile (gateway): durable backup + public-tier publish + reconcile the existing bucket | open | M |
+| 4 | `STO-SCN-029` | Sync CLI — **realized as `krabby-scenes-sync` (git+rsync, ansible-provisioned)**; needs re-scope/close to match as-built | open | L |
+| 5 | `STO-SCN-030` | Fleet distribution — **realized: hub-on-j + `krabby-scenes-sync`; all producers mirrored**; close/reconcile to as-built | open | M |
 | 6 | `STO-SCN-031` | Docker consume convention — canon `-v <host-data>:/data` (code at `/workspace`) **+ emit `results.json` provenance** per run (contract with STO-SCN-026) | open | M |
 | 7 | `STO-SCN-032` | Local inspection ergonomics + `camera_viewer` integration | open | S |
 
@@ -184,51 +198,78 @@ _Stories minted 2026-06-04, all `assignee: principal`, bodies are template stubs
 
 ### Approach
 
-Treat **S3 as the authoritative cold store** and the **LAN as the hot path**. A
-scene is modelled as a **pipeline of transformations** — `input/` →
-`pipeline-<slug>/transform-*/` → `output/` — where every transform carries a
-`specification.json` (what was done) and a `results.json` (the exact runtime
-environment: OS, driver, container version, software versions). A scene-level
-`scene.toml` manifest indexes the lineage (id, scale, tier); content hashes live
-per-output in each transform's `results.json` (incl. `preproc-*`). This
-makes provenance structural and the transform directory the natural sync unit. A
-thin CLI (`krabby scenes …`, wrapping `rclone` or `aws s3` + checksum logic)
-resolves a requested scene against a configurable list of **sources tried in
-order**: local cache → designated LAN cache host → S3. Manifest/checksum diff
-means a host only transfers what it lacks, satisfying *minimize S3 / maximize
-LAN*. Tiering is a manifest field + S3 prefix, so promoting a scene from
-research → collaborator → public is a metadata change plus a copy into the
-public-tier prefix (mirroring the `krabby-firmware-public` index pattern), never
-a re-export. Docker jobs mount the resolved local scene path read-only via one
-documented convention.
+> **AS BUILT (2026-06-04) — TWO LAYERS.** **(1) Fleet LAN** (hosts ⇄ j): a
+> git-LFS hub-on-j + git+rsync mirror, for **experiment load-distribution** — run
+> reconstructions on *any* host, results centralize on j. **(2) Cloud** (j ⇄ S3):
+> **S3 remains** the durable/authoritative cold store + collab/public distribution,
+> with **j as the gateway**. What changed from the original plan is only the *fleet*
+> transport (git+rsync, not rclone/git-lfs-transfer, no creds on producers); **S3
+> sits behind j, not in front of it**.
+
+Scene data lives in a **dedicated git-LFS repo** — `/var/krabby/scenes` on the Mac
+(→ external APFS drive), separate from the code repo (`krabby-research`). Large
+binaries are LFS-tracked (a content-addressed `.git/lfs/objects` store); metadata
+(`scene.toml`/`run.json`/`*.json`) is plain git. A scene is still modelled as a
+**pipeline of transformations** (canonical spec: [`SCHEMA.md`](./SCHEMA.md)).
+
+Distribution is a **hub-and-spoke mirror on j**. **j (jbeeprz)** — always-on,
+`/games/krabby/scenes` — holds the authoritative repo and is the source-of-truth +
+merge point. Every other node is a **bidirectional producer**: the **Mac** writes
+original *inputs*; the **CUDA hosts t/b/d/s** produce reconstruction *outputs*;
+all push to / pull from j.
+
+**Layer 1 — fleet LAN transport = git over SSH (metadata) + rsync (blobs).**
+git-lfs's own SSH transport (`git-lfs-transfer`) is **deliberately unused** — it isn't packaged on
+Debian 13 and the fleet declined a 3rd-party binary in the base role. So:
+- **metadata** moves by `git push/pull` over plain SSH on one shared `trunk`
+  (additive merges — different hosts add different scenes/runs, so conflicts are rare);
+- **blobs** move by `rsync` of `.git/lfs/objects` — content-addressed, **additive
+  only** (`--ignore-existing`, never `--delete`; objects can't conflict);
+- every git op runs `GIT_LFS_SKIP_SMUDGE=1` + `push --no-verify` so git never
+  touches the absent transport; `git lfs checkout` materializes the working tree
+  from the local (rsync'd) objects.
+
+The `krabby-scenes-sync {push|pull|status}` helper wraps this, **ansible-provisioned
+fleet-wide** (`krabby-scenes-sync` role; `/etc/krabby-scenes.conf`); the Mac runs
+the same portable script. Cadence is **on-demand**. Docker jobs mount the local
+repo working tree at `/data`.
+
+**Layer 2 — cloud (j ⇄ S3).** `s3://krabby-real2sim-scenes` (AWS profile `krabby`)
+is the **durable/offsite cold store** and the home of the **collab/public tiers**.
+**Only j** holds the credential (the gateway) and syncs the store to S3 (backup +
+promote-to-public, e.g. mirroring the `krabby-firmware-public` index pattern for
+the public tier). **Producer hosts never touch S3** — they only ever talk to j over
+the LAN. This layer is **`STO-SCN-028`** (not yet built).
 
 ### Architecture
 
 ```
-                      authoritative cold store
-                   ┌─────────────────────────────────┐
-                   │  s3://krabby-real2sim-scenes      │  (profile: krabby)
-                   │   /research/<scene>/…             │
-                   │   /collab/<scene>/…               │
-                   │   /public/<scene>/…  + index.json │
-                   └───────────────┬─────────────────-─┘
-                ONE pull per scene │  (egress dedup is the win, not speed)
-                  (S3 client on j) ▼
-   laptop ◀── krabby scenes ──▶  j (jbeeprz) GATEWAY/CACHE  host data dir (/games/real2sim/data)
-   (inspect)      CLI            always-on · 1.8T · 125 GiB RAM
-                                   │  rsync over flat 1GbE LAN (~110 MB/s)
-                                   ▼
-              fleet hosts t/b/d/s (CUDA, sleep-when-idle) → host data dir on /home or /games
-                                   │  canon mount: -v <host-data>:/data  (RW for transforms, :ro for consumers)
-                                   ▼
-                  Docker recon/locomotion jobs — code at /workspace, data at /data
+   LAYER 2 (cloud)      ┌─────────────────────────────────────────┐
+                        │  s3://krabby-real2sim-scenes (profile krabby) │
+                        │  durable cold store + collab/public tiers │
+                        └────────────────────▲────────────────────┘
+                          aws-cli/rclone (krabby profile) — j ONLY   ← STO-SCN-028
+   LAYER 1 (fleet LAN)  ┌────────────────────┴─────────────────────┐
+                        │  j (jbeeprz) — HUB · source of truth + S3 GATEWAY │
+                        │  /games/krabby/scenes  (always-on)        │
+                        │  git repo (trunk) + .git/lfs/objects      │
+                        │  receive.denyCurrentBranch=updateInstead  │
+                        └───────▲────────▲────────▲────────▲────────┘
+              push/pull         │        │        │        │   push/pull
+        ┌───────────────────────┘        │        │        └───────────────────────┐
+   JDP-Mac (inputs)            t         s         d        b   (CUDA: recon outputs)
+   /var/krabby/scenes          ~/krabby/scenes  (producers — run experiments anywhere)
+        │                                                        each node:
+        └─ per op:  git push --no-verify + rsync objects UP      krabby-scenes-sync
+                    git pull  + rsync objects DOWN + lfs checkout {push|pull|status}
+
+  Layer 1 (fleet, BUILT): metadata=git/SSH (1 branch, additive) · blobs=rsync .git/lfs/objects · no creds
+  Layer 2 (cloud, STO-028): j is the sole S3 gateway (krabby profile); producers never touch S3
 ```
 
-> **Why LAN-first when LAN (110 MB/s) ≈ j→S3 (94 MB/s)?** The win is **not**
-> speed — it's (1) **egress dedup**: j pulls each scene from S3 *once* and feeds
-> all four CUDA hosts over the LAN, and (2) **offline/peer availability** when
-> the bucket is slow, throttled, or a host has no S3 creds. Speed parity is
-> incidental; cost + resilience drive the architecture.
+> **Status (2026-06-04):** live. j seeded (4702 objects @ `trunk`); Mac + t/s/d
+> verified-identical mirrors; b synced (its repo is whole) but flaps on a
+> stay-awake hardware issue under investigation.
 
 **Per-scene canonical layout = a pipeline of transformations.** The **canonical
 spec is [`SCHEMA.md`](./SCHEMA.md)** (authored by STO-SCN-026); the sketch below
@@ -300,7 +341,7 @@ source to promoted output, where every transform records both **what it did** an
 | XID | Decision | Status | Rationale |
 |-----|----------|--------|-----------|
 | — | Keep as existing `EPI-SCN-SCENE-SYNC` under `DES-SCN-TX`; no new design | **Resolved** (AID, 2026-06-04) | Operator chose to use the existing artifact, not re-home |
-| `HUG-SCN-NNN` | S3 = authoritative cold store; LAN = hot path; **win is egress-dedup + resilience, not speed** | Proposed | LAN≈WAN here (live-measured); architecture justified by cost/availability |
+| `HUG-SCN-NNN` | **Two layers.** *Layer 1 (fleet LAN):* git-LFS hub-on-j + git+rsync mirror for experiment load-distribution (built). *Layer 2 (cloud):* **S3 = durable/authoritative cold store + collab/public tiers**, j as gateway (STO-028). S3 sits **behind** j, not in front | **Decided — AS BUILT + AID** | Fleet sync distributes experiments; S3 gives durability + public distribution. Corrects the earlier "no S3" over-rotation |
 | `HUG-SCN-NNN` | **Scene = pipeline of transformations** (`input/`→`pipeline-<slug>/run-<slug>/transform-*/`→`output/`); each transform has `specification.json` + `results.json` | **Proposed (AID-directed)** | Makes provenance/reproducibility structural; transform dir = natural sync unit |
 | `HUG-SCN-NNN` | **`run-<slug>` level** under each pipeline — param sweeps are *parallel runs*, not sequential steps; `run.json` carries the variant identity (← legacy `manifest.json`) | **Decided (AID)** | The `004-sky-house-curated-*` ×5 sweep proved the gap; canonical in SCHEMA.md |
 | `HUG-SCN-NNN` | `results.json` captures full runtime env (OS, NVIDIA driver, software versions) + container `{image, tag, digest}` **reusing M14's tag+digest scheme** (commit-SHA/`<branch>-latest`/semver); **digest is the reproducibility anchor**, captured like `krabby --version` | **Decided** | T-013 — consume M14's contract, don't invent; tags move per-commit, digests don't |
@@ -309,38 +350,38 @@ source to promoted output, where every transform records both **what it did** an
 | `HUG-SCN-NNN` | **Dual provenance going forward**: `results.json` (env/data) + the STO XID the transform ran under | **Decided (AID)** | "Provenance captured via Stories and data" — links the *why* to the *how* |
 | `HUG-SCN-NNN` | Maturity flag (`prototype` → `promoted`) on each pipeline/transform; `output/` holds only promoted | Proposed | All current work is prototype; public tier stays empty until promotion |
 | `HUG-SCN-NNN` | One scene-level `scene.toml` manifest indexing the lineage | Proposed | Inconsistent flat layout is the root problem |
-| `HUG-SCN-NNN` | Tier = manifest field + S3 prefix (research/collab/public) | Proposed | Promotion is metadata+copy, not re-export |
-| `HUG-SCN-NNN` | **j is the S3 gateway/cache anchor**; CUDA hosts rsync from j | **Confirmed by probe** | Only always-on host; 1.8 T `/games`; 125 GiB RAM |
-| `HUG-SCN-NNN` | Transport = S3 client on j (rclone or aws-cli) + `rsync` for j↔peer LAN leg | Proposed | rsync already everywhere; only j needs an S3 client |
+| `HUG-SCN-NNN` | Tier = `scene.toml` field (research/collab/public) | Proposed | Promotion = metadata change; collab/public tiers are also published to their **S3 prefix** (Layer 2, via j) |
+| `HUG-SCN-NNN` | **j is the git HUB / source-of-truth + merge point** — `/games/krabby/scenes`, always-on, `receive.denyCurrentBranch=updateInstead`; every node push/pulls j | **Decided — AS BUILT** | Only 24/7 host + biggest disk (probe-chosen); the git hub for the fleet (Layer 1) **and the sole S3 gateway** (Layer 2) |
+| `HUG-SCN-NNN` | **Layer 2 transport (j ⇄ S3) = `aws-cli`/`rclone` on j** (the gateway, sole `krabby` profile): backup + collab/public promote | Proposed — STO-028 | Only j needs an S3 client; producers stay creds-free on the LAN leg |
 | `HUG-SCN-NNN` | **Scene data lives in a dedicated git-LFS data repo** at `/var/krabby/scenes` (→ external APFS): large binaries via **Git LFS**, metadata (`scene.toml`/`*.json`) in plain git. Separate from the **code** repo (`krabby-research`), which never holds data | **Decided (AID — refines "data is not code")** | Code repo stays binary-free; data gets versioning + LFS-backed large-object storage. Retires the prototype `environments/reconstructed/`-in-git + the `>100 MB→S3 / ≤100 MB→git` split |
-| `HUG-SCN-NNN` | **Transport is now Git LFS, not rclone/rsync** — S3 likely becomes the **LFS remote** (cold store); LAN sync = git clone/pull. **Supersedes** the "S3 client on j + rsync" rows above; STO-SCN-028/029/030 to be revised around LFS | **Decided** | git-LFS unifies versioning + transport + dedup (CoW-verified on APFS, same-volume) |
+| `HUG-SCN-NNN` | **Layer 1 (fleet LAN) transport = git over SSH (metadata; 1 `trunk`, additive merges) + rsync of `.git/lfs/objects` (additive, `--ignore-existing`, never `--delete`)**. git-lfs's SSH transport (`git-lfs-transfer`) deliberately unused (unpackaged on Debian 13; fleet declined a 3rd-party binary in base). Every git op runs `GIT_LFS_SKIP_SMUDGE=1` + `push --no-verify`; `git lfs checkout` materializes the worktree from local objects. Bidirectional — producers push outputs back to j. On the *fleet* leg: **no S3, no rclone, no git-lfs-transfer** (S3 is Layer 2, j-only). | **Decided — AS BUILT** | rsync is fleet-wide + git-over-ssh works; content-addressed objects can't conflict; realizes STO-SCN-029/030 |
+| `HUG-SCN-NNN` | `krabby-scenes-sync {push\|pull\|status}` helper wraps the flow; **ansible-provisioned fleet-wide** (`krabby-scenes-sync` role + `/etc/krabby-scenes.conf`; base role ships git-lfs 3.6.1); the Mac runs the same portable script. Cadence **on-demand** | **Decided — AS BUILT** | One uniform tool across producers + hub; the concrete form of STO-SCN-029 |
 | `HUG-SCN-NNN` | **Canon container contract**: code baked at `/workspace`; data bind-mounted `-v <host-data>:/data` (RW for transforms, `:ro` for pure consumers) | **Decided** | Matches our *delivered* locomotion/isaacsim images; supersedes the earlier `/games/real2sim/scenes:ro` proposal (that's the host side; `/data` is the in-container mount) |
 | `HUG-SCN-NNN` | **`pipeline-<slug>` aligns with our image names** (`colmap`/scene-recon-base, `mast3r`, `matcha`, `vggt`, `slam3r`); transform steps align with `real2sim/run_*.sh` | Proposed | Reuse what exists (T-013); the pipelines already are the images |
 | `HUG-SCN-NNN` | **Each transform's `data/` holds the third-party tool's NATIVE output, unchanged** (COLMAP db/sparse/dense, MAtCha tetra/oriented, MASt3R `--save-as`, VGGT COLMAP-format) | **Decided** | "Did not build" — those layouts are fixed by tools we don't own; the schema wraps the *outer* structure, never reorganizes tool internals |
 | `HUG-SCN-NNN` | **M11-to-date is prototype**; this schema supersedes the current `environments/reconstructed/`, flat `scenes/<id>/`, and `FOLDER_LAYOUT.md` M11 section. Other delivered milestones are **canon** and are respected/emulated | **Decided (AID)** | Frees the redesign while preserving canon conventions (wheel packages, `/workspace`+`/data`, `krabby-launcher`, ECR) |
-| `HUG-SCN-NNN` | S3 credential stays in `krabby` AWS profile; topology entry carries only endpoint + access_script path | Proposed | T-014; mirrors sherpa's secrets-boundary guidance |
+| `HUG-SCN-NNN` | **S3 credential (`krabby` profile) lives on j ONLY** (the gateway); producers + Mac have **no AWS creds** — Layer-1 sync is SSH-key over the fleet mesh. T-014 | **Decided — AS BUILT** | Minimizes the credential surface to one host; producers never touch S3 |
 
 ### Risks
 
 | Risk | Likelihood | Impact | Mitigation |
 |------|------------|--------|------------|
-| **Nothing on the fleet can talk to S3 today** (no client, no `krabby` profile) | Certain | High | STO-028/030 provision an S3 client + the profile on j via the secrets boundary before any fleet pull |
-| j is a single point of failure for the cache/gateway | Medium | Medium | S3 remains authoritative; any host can re-pull direct from S3 if j is down; CUDA boxes can also self-pull when given creds |
-| CUDA hosts sleep when idle → rsync-from-j misses | Medium | Low | j is always-on so the *source* is always up; a sleeping consumer just wakes (`beeprz wake`) before its job |
+| **Layer 2 (j↔S3) not built yet** — no S3 client/profile on j | Medium | Medium | STO-028 puts the `krabby` profile + aws-cli on j (gateway) for backup/public; producers stay creds-free |
+| **j (hub) is a single point of failure for pushes/merges** | Medium | Medium | Every node holds a **full mirror** (verified identical), so j is restorable from any peer + all work continues locally while j is down — no central-only data |
+| Producers sleep/flap mid-sync (e.g. b's stay-awake fault) | Medium | Low | Additive `--ignore-existing` rsync **converges across windows** — partial pulls accumulate to full parity (proven on b); on-demand wake/kickstart |
 | Re-organizing 50 GB risks data loss / broken refs in T0–T4 | Medium | High | Migrate copy-then-verify-then-swap; manifest hashes; never `mv` originals until verified (T-018) |
 | Historical provenance unrecoverable from journals (STO-SCN-033) | High | Medium | Reconstruct what the journals support; mark the rest `provenance: deduced`/`unknown` rather than fabricating (T-002); prototypes don't need perfect provenance |
-| Yesterday's ad-hoc S3 objects orphaned from new schema | High | Low | STO-028 reconciles existing prefixes into the schema |
-| j's push-to-S3 throughput + real bucket-credential reachability unverified | Medium | Low | Validate once the `krabby` profile is placed on j (ops flagged this as untested) |
+| Legacy ad-hoc objects in `s3://krabby-real2sim-scenes` predate the schema | Low | Low | STO-028 reconciles them into the Layer-2 layout when wiring the j↔S3 backup/publish |
 
 ## Success Criteria
 
 - [ ] One documented pipeline-of-transformations schema (`input/`→`pipeline-<slug>/transform-*/`→`output/`) + `scene.toml`; all ~21 existing scenes migrated to conform.
 - [ ] Every transform directory carries `specification.json` + `results.json`; a transform can be **re-run on a different host from its records and reproduce its `data/`** (verified, not assumed — T-020).
 - [ ] Three tiers defined with an explicit, documented promotion gate (default mapped from pipeline stage).
-- [ ] `krabby scenes pull <scene>` resolves LAN-first, S3-fallback, transfers only the delta.
-- [ ] A fleet host + a Docker job consume a scene through the standard mount with **zero** redundant S3 pull when a LAN copy exists (verified, not assumed — T-020).
-- [ ] An engineer who has never touched the data can pull + inspect a scene from one README command, no credential handling.
-- [ ] S3 credential appears in **no** persisted file; scenes bucket registered in `topology.json` with endpoint + access_script only.
+- [x] `krabby-scenes-sync pull` mirrors a node from j (git refs + additive rsync of `.git/lfs/objects` + `git lfs checkout`); **all nodes verified byte-identical** (4702 objects @ `trunk`, 2026-06-04, T-020).
+- [ ] A fleet host + a Docker job consume a scene from its **local mirror** (no network) through the standard `/data` mount (verified, not assumed — T-020).
+- [ ] An engineer who has never touched the data gets a full mirror with one command (`krabby-scenes-sync pull`), **no credential handling**.
+- [x] **No AWS credential on producer hosts** — Layer-1 sync is SSH-key (fleet mesh); only j (the gateway) holds the `krabby` profile for the Layer-2 S3 link.
 - [ ] All stories shipped; M11 data README updated.
 
 ## Milestones
