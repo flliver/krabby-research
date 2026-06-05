@@ -3,7 +3,7 @@ xid: EPI-SCN-SCENE-SYNC
 parent: ../design.md
 kind: epic
 effort: scn
-status: in-progress
+status: open
 date: 2026-06-04
 hugs: []
 tenets: [T-013, T-016, T-014]
@@ -312,7 +312,8 @@ source to promoted output, where every transform records both **what it did** an
 | `HUG-SCN-NNN` | Tier = manifest field + S3 prefix (research/collab/public) | Proposed | Promotion is metadata+copy, not re-export |
 | `HUG-SCN-NNN` | **j is the S3 gateway/cache anchor**; CUDA hosts rsync from j | **Confirmed by probe** | Only always-on host; 1.8 T `/games`; 125 GiB RAM |
 | `HUG-SCN-NNN` | Transport = S3 client on j (rclone or aws-cli) + `rsync` for j↔peer LAN leg | Proposed | rsync already everywhere; only j needs an S3 client |
-| `HUG-SCN-NNN` | **Data is not code.** Scene/environment data (incl. meshes, USD, point clouds) lives ONLY in the data store (S3 cold + LAN hot), never committed to git | **Decided (AID)** | "Data does not belong in code." Retires the prototype `environments/reconstructed/`-in-git + the `>100 MB→S3 / ≤100 MB→git` split |
+| `HUG-SCN-NNN` | **Scene data lives in a dedicated git-LFS data repo** at `/var/krabby/scenes` (→ external APFS): large binaries via **Git LFS**, metadata (`scene.toml`/`*.json`) in plain git. Separate from the **code** repo (`krabby-research`), which never holds data | **Decided (AID — refines "data is not code")** | Code repo stays binary-free; data gets versioning + LFS-backed large-object storage. Retires the prototype `environments/reconstructed/`-in-git + the `>100 MB→S3 / ≤100 MB→git` split |
+| `HUG-SCN-NNN` | **Transport is now Git LFS, not rclone/rsync** — S3 likely becomes the **LFS remote** (cold store); LAN sync = git clone/pull. **Supersedes** the "S3 client on j + rsync" rows above; STO-SCN-028/029/030 to be revised around LFS | **Decided** | git-LFS unifies versioning + transport + dedup (CoW-verified on APFS, same-volume) |
 | `HUG-SCN-NNN` | **Canon container contract**: code baked at `/workspace`; data bind-mounted `-v <host-data>:/data` (RW for transforms, `:ro` for pure consumers) | **Decided** | Matches our *delivered* locomotion/isaacsim images; supersedes the earlier `/games/real2sim/scenes:ro` proposal (that's the host side; `/data` is the in-container mount) |
 | `HUG-SCN-NNN` | **`pipeline-<slug>` aligns with our image names** (`colmap`/scene-recon-base, `mast3r`, `matcha`, `vggt`, `slam3r`); transform steps align with `real2sim/run_*.sh` | Proposed | Reuse what exists (T-013); the pipelines already are the images |
 | `HUG-SCN-NNN` | **Each transform's `data/` holds the third-party tool's NATIVE output, unchanged** (COLMAP db/sparse/dense, MAtCha tetra/oriented, MASt3R `--save-as`, VGGT COLMAP-format) | **Decided** | "Did not build" — those layouts are fixed by tools we don't own; the schema wraps the *outer* structure, never reorganizes tool internals |

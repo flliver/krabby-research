@@ -4,86 +4,101 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: L
-status: in-progress
+status: shipped
 date: 2026-06-04
 depends-on: []
 bd-id: krabby-mqy
 assignee: principal
 priority: 4
+title: Migrate historical scenes into the schema (git-LFS data repo)
+shipped: 2026-06-04
+tasks: 7
+complete: 7
 ---
 
-# Migrate historical scenes (INPUT + prototype transforms) into the schema; reconstruct provenance from M11 journals
+# Migrate historical scenes into the schema (git-LFS data repo)
 
 ## Summary
 
-_(One sentence: what does this story deliver? Avoid "we will add X" —
-write the outcome, not the verb.)_
+The ~50 GB of flat, inconsistent M11 scene data, reorganized into the canonical
+schema and committed to the dedicated git-LFS data repo at `/var/krabby/scenes`
+— losslessly, via APFS CoW clones, with parity verified per unit.
 
 ## Context
 
-_(Why is this story needed? What does it depend on? Link to the parent
-epic. If this is a discovered-from another story, surface the link.)_
+Unblocked by `STO-SCN-026` (schema shipped). Consumes `inventory.md` (the
+21-dir→~10-scene work-list) and `SCHEMA.md` (the target shape). Reconstructing
+*legacy provenance from journals* — originally in this story's title — is split
+out to **`STO-SCN-036`**; the `eval/`-artifact schema home is **`STO-SCN-037`**.
 
 ## Problem
 
-_(What specific problem does this story solve? Concrete; the reader
-should be able to verify completion without re-reading the epic.)_
+The M11 scenes had no shared shape and couldn't be consumed/shared/published.
+This story moves them into the schema so the rest of the epic (sync, Docker
+consume, tiering) has conformant data to operate on.
 
-## Design
+## Design / what was done
 
-### Approach
+Built a reusable converter (`real2sim/scenes/migrate.py`) with the logical-scene
+mapping as a reviewable table, then migrated via **APFS CoW clones** (same external
+volume → instant, 0 extra space) into `/var/krabby/scenes`:
 
-_(How will this be implemented? Reference HUGs that constrain the
-implementation choice; cite alternatives only when they shaped the
-final pick.)_
+- **10 logical scenes** from 21 dirs: `001-patio`, `002-patio`, `003-firepit`,
+  `004-sky-house` (5 curated MAtCha runs + dining), `005-meadow`, `006`–`012-kubota`,
+  `dtu-bicycle` (external). 2 empty `vggt` staging dirs dropped.
+- **8 capture videos** → each scene's `input/`.
+- `manifest.json` → `scene.toml` + `run.json` + `transform-*/​{specification,results}.json`
+  (manifest-bearing runs = `measured`; legacy = `deduced`; raw = input-only).
+- **Git LFS** for all large binaries; metadata in plain git. The audit caught a
+  124 MB `points3D.txt`, 11 MB pointmap JSONs, and 1.9 GB `.blend1` backups before
+  they reached plain-git history (LFS patterns + `.gitignore` fixed).
+- Originals retained (CoW-shared) for verify-before-swap.
 
 ### Changes
 
 | File | Change |
 |------|--------|
-| `path/to/file` | _(add / modify / extract)_ |
-| `path/to/test` | _(add tests for the new behavior)_ |
+| `real2sim/scenes/migrate.py` | add — reusable CoW migrator + mapping table |
+| `/var/krabby/scenes/.gitattributes` | add — LFS patterns (incl. `**/sparse/**`, `**/pointmaps/**`) |
+| `/var/krabby/scenes/.gitignore` | add — cruft (`.DS_Store`, `*.blend1`) |
+| `/var/krabby/scenes/**` | add — 10 migrated scenes (3 commits, 42 GB, LFS) |
 
 ## Definition of Done
 
-- [ ] _(Specific, verifiable condition — not "code works")_
-- [ ] _(Specific, verifiable condition.)_
-- [ ] Tests written and passing.
-- [ ] Code reviewed (or self-reviewed against the engineer-knowledge
-      constraints).
-- [ ] `docs/work-platform.md` or other operator-facing doc updated if
-      surface changed.
-
-## Testing
-
-### Unit / fixture tests
-
-- [ ] _(Specific case.)_
-- [ ] _(Edge case.)_
-
-### Integration
-
-- [ ] _(Scenario.)_
+- [x] All 21 source dirs accounted for (10 scenes migrated, 2 empties dropped).
+- [x] Migration is **lossless** — global parity verified (only `manifest.json` →
+      `manifest.legacy.json` renamed; sample sha256 matches).
+- [x] Large binaries in LFS; **no plain-git file > 1 MB** (bloat guard passes).
+- [x] Capture `videos/` migrated into each scene's `input/`.
+- [x] Committed to the `/var/krabby/scenes` git-LFS repo.
+- [x] New store verified to hold real data independent of source (pre-swap check).
+- [x] `sfm-scaling-out/` identified (SfM-scaling *experiment*, not a scene) → out of scope.
 
 ## Out of scope
 
-- _(Things deliberately deferred to a later story. Be explicit — the
-  reader should know what's *not* changing.)_
+- **Legacy provenance reconstruction from journals** → `STO-SCN-036`.
+- **`eval/` schema home + re-sorting `_unsorted/`** → `STO-SCN-037`.
+- **`sfm-scaling-out/`** — a benchmark experiment (N=24→500 MASt3R-SfM VRAM/scaling
+  study; 300 comfortable, 500 OOM), already on S3 as `m11-sfm-scaling`. Not a scene.
+- **Removing source originals (the swap)** — operator-gated (T-018).
 
 ## Implementation Notes
 
-_(Fill in during / after implementation. Capture what diverged from
-the original design and why — useful for the retrospective + for
-operators reading this story in a year.)_
-
 ### What Changed
-
-_(Actual implementation. May differ from § Design above.)_
-
-### Files Modified
-
-- `path/to/file` — _(what changed)_
+- Added a **`run-<slug>`** level (from STO-SCN-026) — the curated sweep needed it.
+- Legacy multi-tool dirs map each tool subdir → `pipeline-<tool>/run-legacy/transform-01-legacy/data/`;
+  cross-run eval artifacts parked in scene-level `_unsorted/` (→ `STO-SCN-037`).
 
 ### Gotchas
+- **Same-volume APFS is everything**: CoW makes migration instant + free and keeps
+  source as a 0-cost safety copy. git-lfs also CoW-dedups the object store.
+- **Extension-based LFS is fragile**: large `.txt`/`.json` tool outputs slipped to
+  plain git until directory-level LFS rules were added. A size-based pre-commit
+  guard would be more robust (candidate for `STO-SCN-034`/devex).
 
-_(Anything surprising or worth noting for future readers.)_
+## Status notes
+
+- 2026-06-04: Picked up by principal (unblocked by STO-SCN-026).
+- 2026-06-04: Migrated 10 scenes + 8 videos (42 GB) via CoW; parity-verified;
+  committed (scenes repo `dbf1976`, `f691e4d`). Journal-provenance → STO-SCN-036,
+  eval home → STO-SCN-037. Source removal operator-gated.
