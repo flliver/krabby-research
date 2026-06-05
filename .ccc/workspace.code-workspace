@@ -153,9 +153,9 @@
     },
     "ccc.delegates.pinned": [
       "krabby-sherpa",
-      "krabby-principal",
       "krabby-krabby",
-      "krabby-ccc"
+      "krabby-ccc",
+      "krabby-principal"
     ]
   },
 
