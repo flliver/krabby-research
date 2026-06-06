@@ -111,11 +111,13 @@ invented to fill a slot.
 
 - [x] Session histories re-scanned (2026-06-05): fleet-host sessions never recorded
       the runs; Mac sessions post-date them → not a primary source (recorded above).
-- [x] All 12 `results.json` updated (+ `specification.json` params): **5 measured**
-      (`004-sky-house/matcha`→tbeeprz; `001-patio`+`003-firepit/mast3r`→sbeeprz;
-      `001-patio/vggt`+`003-firepit/slam3r`→dbeeprz — hosts from on-host outposts
-      artifact location), **7 deduced** but enriched with real on-disk dates +
-      script-derived params; unknown fields `unknown`/null.
+- [x] All 12 `results.json` updated (+ `specification.json` params): **8 measured**
+      (`mast3r`→sbeeprz, `vggt`/`slam3r`→dbeeprz by outposts artifact location;
+      `matcha`×4→tbeeprz by journal), **4 deduced** (3×colmap + sky-house mast3r —
+      genuinely unrecoverable host); all enriched with real dates + script params +
+      `nvidia_driver` (dpkg) + host OS where pinned.
+- [x] Curated runs swept too: the 6 manifest-backed matcha variants got `nvidia_driver`
+      (dpkg), normalized GPU strings, and host OS — all 18 store records now consistent.
 - [x] **No fabricated values** — every value traces to a named source in the ledger;
       `slam3r` left params-empty, `002-patio`/`dtu-colmap` dates left null (T-002).
 - [x] `provenance-ledger.md` committed: one row per (scene, pipeline) → provenance, date, sources, note.
@@ -218,3 +220,11 @@ runs; `/tmp` on the hosts is clean. The runs were script/hand-driven, not Claude
   (`nvcr.io/nvidia/pytorch:25.10-py3`). **Now 5 measured / 7 deduced.** Also confirmed
   (by real message-timestamp scan) zero production-era Claude sessions survive. Re-pushed
   to j (`a722dee`). Re-closing.
+- 2026-06-05: Deduced **nvidia_driver from host dpkg.log** — all 5 measured runs were on
+  `595.58.03-1` (current smi 610.43.02 differs → would've been wrong). Encoded the
+  per-host `DRIVER_TIMELINE`. Re-pushed (`32ec773`).
+- 2026-06-05: Operator requested a full experiment matrix → closed gaps #1–4: pinned the
+  3 legacy `matcha` hosts to tbeeprz (journal), drove `nvidia_driver` onto the 6 curated
+  runs, normalized GPU strings, filled host OS (Debian 13 trixie, verified). CUDA left
+  `unknown` (mast3r-build.log doesn't expose it — no fabrication). **Store now 14 measured
+  / 4 deduced across all 18 records** (legacy 8/4). Re-pushed (`f816629`). Re-closing.

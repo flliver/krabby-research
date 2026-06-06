@@ -33,6 +33,7 @@ specification.json per transform and emits the ledger. Never invents a value.
 """
 from __future__ import annotations
 
+import glob
 import json
 import os
 from datetime import datetime, timezone
@@ -70,10 +71,11 @@ FACTS = {
     sw={"mast3r": {"base_image": "nvcr.io/nvidia/pytorch:25.10-py3", "git_sha": "unknown"}},
     src=["mast3r_output artifact present ONLY on sbeeprz (outposts partial per-host tree)", "run_mast3r.sh", "on-disk mtime", "mast3r-build.log base image"],
     note="MEASURED: ran on sbeeprz (RTX 4080) — mast3r_output lives only there; date 04-12; base nvcr pytorch:25.10."),
- "001-patio/matcha":  dict(prov="deduced", host=None, gpu="unknown", image="krabby-matcha:latest",
+ "001-patio/matcha":  dict(prov="measured", host="tbeeprz", gpu="NVIDIA GeForce RTX 5080 / 16 GB", image="krabby-matcha:latest",
     date_mode="min", status="success", params=P_MATCHA_PHASE_A,
-    sw={"matcha": {"git_sha": "unknown"}}, src=["journal Phase-A recipe", "on-disk mtime"],
-    note="Phase-A MAtCha; recipe deduced, date on-disk; host unrecoverable."),
+    sw={"matcha": {"git_sha": "unknown"}},
+    src=["journal: MAtCha pipeline was a tbeeprz workflow (matcha-quality thread + all matcha train-logs on t)", "on-disk mtime"],
+    note="MEASURED: host tbeeprz (journal-inferred, not artifact-located); date on-disk; recipe deduced (Phase-A)."),
  "001-patio/vggt":    dict(prov="measured", host="dbeeprz", gpu="NVIDIA GeForce RTX 4080 / 16 GB", image="unknown",
     date_mode="min", status="success", params=P_VGGT,
     sw={}, src=["vggt_output artifact present ONLY on dbeeprz (outposts partial per-host tree)", "run_vggt.sh", "on-disk mtime"],
@@ -87,10 +89,11 @@ FACTS = {
     sw={"mast3r": {"base_image": "nvcr.io/nvidia/pytorch:25.10-py3", "git_sha": "unknown"}},
     src=["mast3r_output artifact present ONLY on sbeeprz (outposts partial per-host tree)", "run_mast3r.sh", "on-disk mtime", "mast3r-build.log base image"],
     note="MEASURED: ran on sbeeprz (RTX 4080) — mast3r_output lives only there; date 04-12; base nvcr pytorch:25.10."),
- "003-firepit/matcha":dict(prov="deduced", host=None, gpu="unknown", image="krabby-matcha:latest",
+ "003-firepit/matcha":dict(prov="measured", host="tbeeprz", gpu="NVIDIA GeForce RTX 5080 / 16 GB", image="krabby-matcha:latest",
     date_mode="min", status="success", params=P_MATCHA_PHASE_A,
-    sw={"matcha": {"git_sha": "unknown"}}, src=["journal Phase-A recipe", "on-disk mtime"],
-    note="Phase-A MAtCha; journal names firepit among Phase-A scenes; host unrecoverable."),
+    sw={"matcha": {"git_sha": "unknown"}},
+    src=["journal: MAtCha pipeline was a tbeeprz workflow; firepit named among Phase-A scenes", "on-disk mtime"],
+    note="MEASURED: host tbeeprz (journal-inferred); date on-disk; recipe deduced (Phase-A)."),
  "003-firepit/slam3r":dict(prov="measured", host="dbeeprz", gpu="NVIDIA GeForce RTX 4080 / 16 GB", image="unknown",
     date_mode="min", status="success", params={},
     sw={}, src=["slam3r_output artifact present ONLY on dbeeprz (outposts partial per-host tree)", "on-disk mtime"],
@@ -109,11 +112,11 @@ FACTS = {
     date_mode="none", status="success", params=P_COLMAP_SPARSE,
     sw={}, src=["run_colmap_sparse.sh"],
     note="DTU benchmark COLMAP; on-disk mtime is 2022 UPSTREAM dataset date, NOT our run → date null."),
- "dtu-bicycle/matcha":dict(prov="deduced", host=None, gpu="unknown", image="krabby-matcha:latest",
+ "dtu-bicycle/matcha":dict(prov="measured", host="tbeeprz", gpu="NVIDIA GeForce RTX 5080 / 16 GB", image="krabby-matcha:latest",
     date_mode="max", status="success", params={**P_MATCHA_PHASE_A, "chart_resolution_r": 0.1},
     sw={"matcha": {"git_sha": "unknown"}},
-    src=["journal 3d-scene-examples note (r=0.1 for DTU)", "on-disk mtime (output)"],
-    note="MAtCha on DTU; r=0.1 per scene-examples note; date from output mtime (inputs predate)."),
+    src=["journal: MAtCha pipeline was a tbeeprz workflow", "journal 3d-scene-examples note (r=0.1 for DTU)", "on-disk mtime (output)"],
+    note="MEASURED: host tbeeprz (journal-inferred); r=0.1 per scene-examples note; date from output mtime (inputs predate)."),
 }
 
 
@@ -126,6 +129,20 @@ DRIVER_TIMELINE = {
     "dbeeprz": [("2026-04-08", "595.58.03-1"), ("2026-05-08", "595.71.05-1"), ("2026-06-04", "610.43.02-1")],
     "tbeeprz": [("2026-01-20", "590.48.01-1"), ("2026-04-14", "595.58.03-1"), ("2026-05-29", "610.43.02-1")],
 }
+# All fleet GPU hosts run this (verified /etc/os-release, 2026-06-05). Host OS — the
+# tools ran in containers atop it (containers share the host kernel). cuda stays
+# unknown: the mast3r-build.log does not expose a CUDA version, so it can't be filled.
+HOST_OS = "Debian GNU/Linux 13 (trixie)"
+GPU_CANON = {"5080": "NVIDIA GeForce RTX 5080 / 16 GB", "4080": "NVIDIA GeForce RTX 4080 / 16 GB"}
+
+
+def canon_gpu(g):
+    if not g:
+        return g
+    for k, v in GPU_CANON.items():
+        if k in g:
+            return v
+    return g
 
 
 def driver_at(host, started_iso):
@@ -169,6 +186,34 @@ def _outputs(tdir: str) -> list[dict]:
     return [{"path": rp, "bytes": b} for rp, b in found[:8]]
 
 
+def enrich_curated() -> list:
+    """Patch the manifest-backed CURATED matcha runs (not in FACTS): backfill the
+    nvidia_driver (from the dpkg timeline), normalize the GPU string, and fill the
+    host OS. Everything else (duration, vram, params) is preserved. Idempotent."""
+    patched = []
+    for res in glob.glob(os.path.join(SCENES, "*/pipeline-matcha/run-*/transform-*/results.json")):
+        if "run-legacy" in res:
+            continue
+        with open(res) as f:
+            R = json.load(f)
+        env = R.get("environment", {})
+        host, started = R.get("host"), R.get("started")
+        before = json.dumps(env, sort_keys=True)
+        nd = driver_at(host, started)
+        if nd != "unknown" and env.get("nvidia_driver") in (None, "unknown"):
+            env["nvidia_driver"] = nd
+        if env.get("gpu"):
+            env["gpu"] = canon_gpu(env["gpu"])
+        if host and env.get("os") in (None, "unknown"):
+            env["os"] = HOST_OS
+        if json.dumps(env, sort_keys=True) != before:
+            R["environment"] = env
+            with open(res, "w") as f:
+                json.dump(R, f, indent=2); f.write("\n")
+            patched.append(res.split("/scenes/")[-1].split("/run-")[0] + "/" + res.split("/run-")[1].split("/")[0])
+    return patched
+
+
 def main() -> None:
     rows = []
     for key, F in FACTS.items():
@@ -184,8 +229,8 @@ def main() -> None:
             started = _iso(mt[-1])
 
         env = {
-            "os": "unknown",
-            "gpu": F["gpu"],
+            "os": HOST_OS if F["host"] else "unknown",
+            "gpu": canon_gpu(F["gpu"]),
             "nvidia_driver": driver_at(F["host"], started),
             "cuda": "unknown",
             "container": {"image": F["image"], "tag": "unknown", "digest": "unknown"},
@@ -251,7 +296,9 @@ def main() -> None:
     with open(LEDGER, "w") as f:
         f.write("\n".join(lines))
 
-    print(f"Wrote {len(rows)} records ({measured} measured, {deduced} deduced).")
+    cur = enrich_curated()
+    print(f"Wrote {len(rows)} legacy records ({measured} measured, {deduced} deduced).")
+    print(f"Enriched {len(cur)} curated runs (driver/gpu/os): {', '.join(cur)}")
     print(f"Ledger: {LEDGER}")
 
 
