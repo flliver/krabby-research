@@ -4,13 +4,14 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: M
-status: in-progress
+status: shipped
 date: 2026-06-04
 depends-on: []
 bd-id: krabby-nie
 assignee: principal
-tasks: 9
-complete: 9
+tasks: 10
+complete: 10
+shipped: 2026-06-05
 ---
 
 # Reconstruct legacy-scene provenance from M11 journals (deduced->measured where recoverable)
@@ -129,8 +130,8 @@ invented to fill a slot.
 
 ### Unit / fixture tests
 
-- [x] A record without a host source stays `deduced` (verified — `002-patio/colmap`,
-      `dtu-bicycle/colmap`, legacy matcha all stay `deduced`; host null).
+- [x] A record without a host source stays `deduced` (verified — the 4 remaining:
+      `001-patio`/`002-patio`/`dtu-bicycle` colmap + `004-sky-house/mast3r`; host null).
 - [~] A `measured` record fails the ledger check if any field lacks a source _(out of spec — a formal automated guard belongs to the validation harness STO-SCN-034; here the gate is enforced by the reviewed facts table, verified by inspection)_.
 - [x] slam3r upgraded to `measured` host/date (dbeeprz, from outposts artifact location)
       but its **params stay empty** — no run-script, so the "what" is honestly unrecoverable (T-002).
