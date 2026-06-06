@@ -2,7 +2,9 @@
 
 Per-transform reconstruction of the 12 `run-legacy` records. Every value
 traces to a named source below; `deduced`/null where evidence is absent
-(T-002 — nothing fabricated). Dates are CoW-preserved on-disk mtimes.
+(T-002 — nothing fabricated). Dates are CoW-preserved on-disk mtimes;
+`nvidia_driver` is deduced from each host's dpkg.log nvidia-driver timeline
+(the package version installed as of the run date) — host-pinned records only.
 
 | Scene / pipeline | provenance | started (on-disk) | sources | note |
 |---|---|---|---|---|

@@ -117,6 +117,28 @@ FACTS = {
 }
 
 
+# nvidia-driver:amd64 package timeline per host — from /var/log/dpkg.log* (scanned
+# 2026-06-05). The driver active at a run = the package version installed as of the
+# run date. Current nvidia-smi is 610.43.02 on all three — i.e. the driver CHANGED
+# since production, so the historical (bracketed) version is the correct one.
+DRIVER_TIMELINE = {
+    "sbeeprz": [("2026-04-04", "595.58.03-1"), ("2026-06-04", "610.43.02-1")],
+    "dbeeprz": [("2026-04-08", "595.58.03-1"), ("2026-05-08", "595.71.05-1"), ("2026-06-04", "610.43.02-1")],
+    "tbeeprz": [("2026-01-20", "590.48.01-1"), ("2026-04-14", "595.58.03-1"), ("2026-05-29", "610.43.02-1")],
+}
+
+
+def driver_at(host, started_iso):
+    """nvidia-driver pkg version on `host` at `started_iso`, from the dpkg timeline."""
+    if not host or host not in DRIVER_TIMELINE or not started_iso:
+        return "unknown"
+    day, ver = started_iso[:10], "unknown"
+    for since, v in DRIVER_TIMELINE[host]:
+        if since <= day:
+            ver = v
+    return ver
+
+
 def _iso(ts: float) -> str:
     return datetime.fromtimestamp(ts, tz=timezone.utc).astimezone().isoformat(timespec="seconds")
 
@@ -164,7 +186,7 @@ def main() -> None:
         env = {
             "os": "unknown",
             "gpu": F["gpu"],
-            "nvidia_driver": "unknown",
+            "nvidia_driver": driver_at(F["host"], started),
             "cuda": "unknown",
             "container": {"image": F["image"], "tag": "unknown", "digest": "unknown"},
             "software": F["sw"],
@@ -207,7 +229,9 @@ def main() -> None:
         "",
         "Per-transform reconstruction of the 12 `run-legacy` records. Every value",
         "traces to a named source below; `deduced`/null where evidence is absent",
-        "(T-002 — nothing fabricated). Dates are CoW-preserved on-disk mtimes.",
+        "(T-002 — nothing fabricated). Dates are CoW-preserved on-disk mtimes;",
+        "`nvidia_driver` is deduced from each host's dpkg.log nvidia-driver timeline",
+        "(the package version installed as of the run date) — host-pinned records only.",
         "",
         "| Scene / pipeline | provenance | started (on-disk) | sources | note |",
         "|---|---|---|---|---|",
