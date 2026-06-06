@@ -15,6 +15,10 @@ evidence"):
      tool it ran. A tool's output present ONLY on host X ⇒ that tool ran on X (host
      attribution by artifact location): mast3r→sbeeprz, vggt/slam3r→dbeeprz, matcha→tbeeprz.
      mast3r-build.log gives the image base (nvcr.io/nvidia/pytorch:25.10-py3).
+  6. OLAI research corpus (personal.research/3d-reconstruction/*) — tool notes sourced
+     from the M11 reports: sky-house-dining MASt3R = ~40 min on RTX 5080 (→ pins
+     004-sky-house/mast3r to tbeeprz); SLAM3R env = CUDA 12.8/Py3.11/PyTorch2.5;
+     mast3r multi-arch build = CUDA 13.
   (.claude session histories were scanned 2026-06-05 — both by token AND by real
    message-timestamp across the production windows — and hold NO production-era runs;
    /tmp on the hosts is clean. Not a source.)
@@ -67,7 +71,7 @@ FACTS = {
     sw={}, src=["run_colmap_sparse.sh+dense", "on-disk mtime"],
     note="COLMAP sparse+dense; host unrecoverable (mid-April, pre-journal)."),
  "001-patio/mast3r":  dict(prov="measured", host="sbeeprz", gpu="NVIDIA GeForce RTX 4080 / 16 GB", image="krabby-mast3r",
-    date_mode="min", status="success", params=P_MAST3R,
+    date_mode="min", status="success", params=P_MAST3R, cuda="13",
     sw={"mast3r": {"base_image": "nvcr.io/nvidia/pytorch:25.10-py3", "git_sha": "unknown"}},
     src=["mast3r_output artifact present ONLY on sbeeprz (outposts partial per-host tree)", "run_mast3r.sh", "on-disk mtime", "mast3r-build.log base image"],
     note="MEASURED: ran on sbeeprz (RTX 4080) — mast3r_output lives only there; date 04-12; base nvcr pytorch:25.10."),
@@ -85,7 +89,7 @@ FACTS = {
     sw={}, src=["run_colmap_sparse.sh"],
     note="Empty sparse/dense — incomplete run; no output files, date unrecoverable."),
  "003-firepit/mast3r":dict(prov="measured", host="sbeeprz", gpu="NVIDIA GeForce RTX 4080 / 16 GB", image="krabby-mast3r",
-    date_mode="min", status="success", params=P_MAST3R,
+    date_mode="min", status="success", params=P_MAST3R, cuda="13",
     sw={"mast3r": {"base_image": "nvcr.io/nvidia/pytorch:25.10-py3", "git_sha": "unknown"}},
     src=["mast3r_output artifact present ONLY on sbeeprz (outposts partial per-host tree)", "run_mast3r.sh", "on-disk mtime", "mast3r-build.log base image"],
     note="MEASURED: ran on sbeeprz (RTX 4080) — mast3r_output lives only there; date 04-12; base nvcr pytorch:25.10."),
@@ -95,13 +99,15 @@ FACTS = {
     src=["journal: MAtCha pipeline was a tbeeprz workflow; firepit named among Phase-A scenes", "on-disk mtime"],
     note="MEASURED: host tbeeprz (journal-inferred); date on-disk; recipe deduced (Phase-A)."),
  "003-firepit/slam3r":dict(prov="measured", host="dbeeprz", gpu="NVIDIA GeForce RTX 4080 / 16 GB", image="unknown",
-    date_mode="min", status="success", params={},
-    sw={}, src=["slam3r_output artifact present ONLY on dbeeprz (outposts partial per-host tree)", "on-disk mtime"],
-    note="MEASURED host/date: ran on dbeeprz (RTX 4080) — slam3r_output lives only there; date 04-12. Params still unrecoverable (no run-script)."),
- "004-sky-house/mast3r":dict(prov="deduced", host=None, gpu="unknown", image="krabby-mast3r",
-    date_mode="min", status="success", params=P_MAST3R,
-    sw={}, src=["run_mast3r.sh", "on-disk mtime"],
-    note="MASt3R-SLAM on the sky-house pool; host probably tbeeprz but not separately attested → deduced."),
+    date_mode="min", status="success", params={}, cuda="12.8",
+    sw={"slam3r": {"python": "3.11", "pytorch": "2.5"}},
+    src=["slam3r_output artifact present ONLY on dbeeprz (outposts partial per-host tree)", "on-disk mtime", "OLAI corpus 3d-reconstruction/slam3r: CUDA 12.8 / Py3.11 / PyTorch 2.5, tested on 003-firepit"],
+    note="MEASURED host/date: ran on dbeeprz (RTX 4080); date 04-12; CUDA 12.8/Py3.11/PyTorch2.5 from corpus. Invocation params still unrecoverable (no run-script)."),
+ "004-sky-house/mast3r":dict(prov="measured", host="tbeeprz", gpu="NVIDIA GeForce RTX 5080 / 16 GB", image="krabby-mast3r",
+    date_mode="min", status="success", params=P_MAST3R, cuda="13", dur=2400,
+    sw={"mast3r": {"base_image": "nvcr.io/nvidia/pytorch:25.10-py3", "git_sha": "unknown"}},
+    src=["OLAI corpus 3d-reconstruction/mast3r-slam: sky-house-dining = ~40 min on RTX 5080 (tbeeprz)", "run_mast3r.sh", "on-disk mtime", "mast3r-build.log base image"],
+    note="MEASURED: corpus note pins sky-house-dining MASt3R to RTX 5080 (tbeeprz), ~40 min (2400 s); CUDA 13 (multi-arch build)."),
  "004-sky-house/matcha":dict(prov="measured", host="tbeeprz",
     gpu="NVIDIA GeForce RTX 5080 / 16 GB", image="krabby-matcha:latest",
     date_mode="min", status="success", params=P_MATCHA_PHASE_A,
@@ -232,7 +238,7 @@ def main() -> None:
             "os": HOST_OS if F["host"] else "unknown",
             "gpu": canon_gpu(F["gpu"]),
             "nvidia_driver": driver_at(F["host"], started),
-            "cuda": "unknown",
+            "cuda": F.get("cuda", "unknown"),
             "container": {"image": F["image"], "tag": "unknown", "digest": "unknown"},
             "software": F["sw"],
         }
@@ -243,6 +249,7 @@ def main() -> None:
             "provenance": F["prov"],
             "started": started,
             "finished": finished,
+            "duration_s": F.get("dur"),
             "host": F["host"],
             "environment": env,
             "outputs": _outputs(tdir),

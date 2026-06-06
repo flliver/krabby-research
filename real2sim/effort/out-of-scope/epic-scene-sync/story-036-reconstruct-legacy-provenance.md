@@ -4,14 +4,13 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: M
-status: shipped
+status: in-progress
 date: 2026-06-04
 depends-on: []
 bd-id: krabby-nie
 assignee: principal
 tasks: 10
 complete: 10
-shipped: 2026-06-05
 ---
 
 # Reconstruct legacy-scene provenance from M11 journals (deduced->measured where recoverable)
@@ -92,6 +91,15 @@ Source-of-truth precedence, mirroring how `backfill_manifests.py` was built
    `cameras.json`, frame counts (survive the CoW migration) for independent dating.
    The unmounted source volume `/Volumes/Archives-01/krabby/data/scenes` is a
    fallback for original file mtimes if remounted.
+6. **On-host outposts trees** (`~/outposts/krabby/.../011-scene-reconstruction`) —
+   partial per host (the recon was parallelized); a tool's output present on only one
+   host pins the run host (`mast3r`→sbeeprz, `vggt`/`slam3r`→dbeeprz, `matcha`→tbeeprz).
+   `mast3r-build.log` gives the image base; host `dpkg.log` gives the `nvidia_driver`
+   timeline; `/etc/os-release` gives the OS. `/tmp` was clean.
+7. **OLAI research corpus** (`personal.research/3d-reconstruction/*`) — tool notes
+   sourced from the M11 reports: `sky-house-dining` MASt3R = ~40 min on RTX 5080
+   (pins `004-sky-house/mast3r` → tbeeprz); SLAM3R env = CUDA 12.8/Py3.11/PyTorch 2.5;
+   mast3r multi-arch build = CUDA 13.
 
 **The measured/deduced gate (T-002):** a field is written as fact only when at
 least two independent sources agree (e.g. journal date + db timestamp; script
@@ -112,11 +120,11 @@ invented to fill a slot.
 
 - [x] Session histories re-scanned (2026-06-05): fleet-host sessions never recorded
       the runs; Mac sessions post-date them → not a primary source (recorded above).
-- [x] All 12 `results.json` updated (+ `specification.json` params): **8 measured**
-      (`mast3r`→sbeeprz, `vggt`/`slam3r`→dbeeprz by outposts artifact location;
-      `matcha`×4→tbeeprz by journal), **4 deduced** (3×colmap + sky-house mast3r —
-      genuinely unrecoverable host); all enriched with real dates + script params +
-      `nvidia_driver` (dpkg) + host OS where pinned.
+- [x] All 12 `results.json` updated (+ `specification.json` params): **9 measured**
+      (`mast3r`→sbeeprz, `vggt`/`slam3r`→dbeeprz by outposts; `matcha`×4→tbeeprz by
+      journal; `sky-house/mast3r`→tbeeprz/RTX5080/~40 min by **OLAI corpus**), **3 deduced**
+      (the 3 colmap runs — multi-host / empty / upstream, host genuinely unrecoverable);
+      all enriched with real dates + script params + `nvidia_driver` (dpkg) + host OS + CUDA where known.
 - [x] Curated runs swept too: the 6 manifest-backed matcha variants got `nvidia_driver`
       (dpkg), normalized GPU strings, and host OS — all 18 store records now consistent.
 - [x] **No fabricated values** — every value traces to a named source in the ledger;
@@ -130,8 +138,8 @@ invented to fill a slot.
 
 ### Unit / fixture tests
 
-- [x] A record without a host source stays `deduced` (verified — the 4 remaining:
-      `001-patio`/`002-patio`/`dtu-bicycle` colmap + `004-sky-house/mast3r`; host null).
+- [x] A record without a host source stays `deduced` (verified — the 3 remaining are
+      all colmap: `001-patio` / `002-patio` / `dtu-bicycle`; host null).
 - [~] A `measured` record fails the ledger check if any field lacks a source _(out of spec — a formal automated guard belongs to the validation harness STO-SCN-034; here the gate is enforced by the reviewed facts table, verified by inspection)_.
 - [x] slam3r upgraded to `measured` host/date (dbeeprz, from outposts artifact location)
       but its **params stay empty** — no run-script, so the "what" is honestly unrecoverable (T-002).
@@ -229,3 +237,11 @@ runs; `/tmp` on the hosts is clean. The runs were script/hand-driven, not Claude
   runs, normalized GPU strings, filled host OS (Debian 13 trixie, verified). CUDA left
   `unknown` (mast3r-build.log doesn't expose it — no fabrication). **Store now 14 measured
   / 4 deduced across all 18 records** (legacy 8/4). Re-pushed (`f816629`). Re-closing.
+- 2026-06-05: Read the OLAI `3d-reconstruction` corpus (14 md, tool notes sourced from
+  M11 reports) and applied its facts (source #7): **`004-sky-house/mast3r`→measured**
+  (RTX 5080 / tbeeprz / ~40 min / CUDA 13, from the `mast3r-slam` note); **`slam3r`** got
+  CUDA 12.8 / Py3.11 / PyTorch 2.5; both 4080-host `mast3r` runs got CUDA 13. Added a
+  `cuda`/`duration_s` field to the extractor. **Store now 15 measured / 3 deduced** (the
+  3 left are all colmap — host genuinely unrecoverable). The corpus also *explains* the
+  fleet split: capture-profiles documents RTX-5080 SIFT non-determinism → mast3r/vggt/slam3r
+  were deliberately put on the 4080 boxes. Re-pushed (`e2e6e77`). Re-closing.
