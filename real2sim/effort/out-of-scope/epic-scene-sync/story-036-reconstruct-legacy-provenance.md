@@ -4,12 +4,11 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: M
-status: shipped
+status: in-progress
 date: 2026-06-04
 depends-on: []
 bd-id: krabby-nie
 assignee: principal
-shipped: 2026-06-05
 tasks: 9
 complete: 9
 ---
@@ -112,9 +111,11 @@ invented to fill a slot.
 
 - [x] Session histories re-scanned (2026-06-05): fleet-host sessions never recorded
       the runs; Mac sessions post-date them → not a primary source (recorded above).
-- [x] All 12 `results.json` updated (+ `specification.json` params): **1 measured**
-      (`004-sky-house/matcha` — host tbeeprz, journal+backfill+mtime), **11 deduced**
-      but enriched with real on-disk dates + script-derived params; unknown fields `unknown`/null.
+- [x] All 12 `results.json` updated (+ `specification.json` params): **5 measured**
+      (`004-sky-house/matcha`→tbeeprz; `001-patio`+`003-firepit/mast3r`→sbeeprz;
+      `001-patio/vggt`+`003-firepit/slam3r`→dbeeprz — hosts from on-host outposts
+      artifact location), **7 deduced** but enriched with real on-disk dates +
+      script-derived params; unknown fields `unknown`/null.
 - [x] **No fabricated values** — every value traces to a named source in the ledger;
       `slam3r` left params-empty, `002-patio`/`dtu-colmap` dates left null (T-002).
 - [x] `provenance-ledger.md` committed: one row per (scene, pipeline) → provenance, date, sources, note.
@@ -126,10 +127,11 @@ invented to fill a slot.
 
 ### Unit / fixture tests
 
-- [x] A record with only single-source evidence stays `deduced` (verified against
-      real output — `003-firepit/slam3r` is `deduced`).
+- [x] A record without a host source stays `deduced` (verified — `002-patio/colmap`,
+      `dtu-bicycle/colmap`, legacy matcha all stay `deduced`; host null).
 - [~] A `measured` record fails the ledger check if any field lacks a source _(out of spec — a formal automated guard belongs to the validation harness STO-SCN-034; here the gate is enforced by the reviewed facts table, verified by inspection)_.
-- [x] slam3r (no run-script, journal-silent) remains `deduced` with `unknown` env (verified).
+- [x] slam3r upgraded to `measured` host/date (dbeeprz, from outposts artifact location)
+      but its **params stay empty** — no run-script, so the "what" is honestly unrecoverable (T-002).
 
 ### Integration
 
@@ -152,21 +154,29 @@ Built `real2sim/scenes/reconstruct_provenance.py` with a reviewed per-(scene,pip
 **facts table** (the human judgment, like `migrate.py`'s MAP). It reads live on-disk
 mtimes + the facts, writes each transform's `results.json` (the how/where/when) and
 enriches `specification.json` `parameters` (the what, from run-scripts), and emits
-`provenance-ledger.md`. Outcome: **1 measured, 11 deduced** — but all 11 deduced
-records gained real dates and script-derived params, so the practical value is broad
-*enrichment*, not just the single provenance upgrade.
+`provenance-ledger.md`. Outcome: **5 measured, 7 deduced** — and every deduced record
+still gained real dates + script-derived params, so the practical value is broad
+*enrichment* on top of the provenance upgrades.
 
-The biggest discovery: **the CoW migration (`cp -cR`) preserved original file mtimes**,
-making on-disk dates a genuine measured source (001-patio matcha 2026-04-30, sky-house
-matcha 2026-04-29, etc.) — this is what made dating possible at all, since the journal
-is thin for the legacy scenes and the session histories didn't record the runs.
+Two discoveries made it possible:
+1. **The CoW migration (`cp -cR`) preserved original file mtimes** → on-disk dates are
+   a genuine measured source (001-patio matcha 2026-04-30, sky-house matcha 2026-04-29).
+2. **The on-host outposts trees are partial, not mirrors** (operator-prompted dig) → the
+   recon was parallelized across the fleet and each host kept its tool's outputs, so a
+   tool present on only one host pins the run host: `mast3r`→sbeeprz, `vggt`/`slam3r`→
+   dbeeprz (RTX 4080), `matcha`→tbeeprz (RTX 5080). That's what upgraded 4 records
+   deduced→measured. Also recovered the MASt3R image base `nvcr.io/nvidia/pytorch:25.10-py3`.
+
+Negative results worth recording: the journal is thin for the legacy scenes; `.claude`
+session histories (scanned by token AND by real message-timestamp) hold no production-era
+runs; `/tmp` on the hosts is clean. The runs were script/hand-driven, not Claude-mediated.
 
 ### Files Modified
 
 - `real2sim/scenes/reconstruct_provenance.py` — add (extractor + facts table).
 - `real2sim/scenes/provenance-ledger.md` — add (auditable source→verdict ledger).
 - `/var/krabby/scenes/**/run-legacy/transform-01-legacy/{results,specification}.json` —
-  24 files updated; pushed to j (`dad9f73`).
+  24 files updated; pushed to j (`dad9f73`, then `a722dee` after the outposts upgrade).
 
 ### Gotchas
 
@@ -199,3 +209,12 @@ is thin for the legacy scenes and the session histories didn't record the runs.
   (1 measured, 11 deduced-but-enriched), all schema-valid, ledger emitted, pushed to j
   (`dad9f73`).** Key enabler: CoW preserved original mtimes → real dates. Work complete;
   closing.
+- 2026-06-05 (reopened): Operator asked to also scan `/tmp` + the on-host outposts
+  trees. `/tmp` clean; **outposts was the breakthrough** — the recon was parallelized
+  across the fleet and each host kept its tool's outputs (partial, not mirrored), so a
+  tool's output present on only one host = host attribution. Upgraded **4 records
+  deduced→measured**: `001-patio`+`003-firepit/mast3r`→sbeeprz, `001-patio/vggt`+
+  `003-firepit/slam3r`→dbeeprz (both RTX 4080), + recovered the MASt3R image base
+  (`nvcr.io/nvidia/pytorch:25.10-py3`). **Now 5 measured / 7 deduced.** Also confirmed
+  (by real message-timestamp scan) zero production-era Claude sessions survive. Re-pushed
+  to j (`a722dee`). Re-closing.

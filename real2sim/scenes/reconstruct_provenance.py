@@ -10,8 +10,14 @@ evidence"):
   2. backfill_manifests.py / manifest_lib.py  (the measured-record shape)
   3. in-repo run-scripts  (run_colmap_*.sh, run_mast3r.sh, run_vggt.sh)
   4. on-disk tool evidence  (CoW-PRESERVED file mtimes, output files present)
-  (.claude session histories were scanned 2026-06-05 and found to NOT hold the
-   original run-commands — see the story; not used as a source here.)
+  5. on-HOST outposts trees  (~/outposts/krabby/.../011-scene-reconstruction) — the
+     recon was PARALLELIZED across the fleet, each host keeping the outputs of the
+     tool it ran. A tool's output present ONLY on host X ⇒ that tool ran on X (host
+     attribution by artifact location): mast3r→sbeeprz, vggt/slam3r→dbeeprz, matcha→tbeeprz.
+     mast3r-build.log gives the image base (nvcr.io/nvidia/pytorch:25.10-py3).
+  (.claude session histories were scanned 2026-06-05 — both by token AND by real
+   message-timestamp across the production windows — and hold NO production-era runs;
+   /tmp on the hosts is clean. Not a source.)
 
 THE GATE (T-002 — never fabricate):
   - `started` is taken from the CoW-preserved on-disk mtime (real evidence) where
@@ -59,34 +65,36 @@ FACTS = {
     date_mode="min", status="success", params=P_COLMAP_FULL,
     sw={}, src=["run_colmap_sparse.sh+dense", "on-disk mtime"],
     note="COLMAP sparse+dense; host unrecoverable (mid-April, pre-journal)."),
- "001-patio/mast3r":  dict(prov="deduced", host=None, gpu="unknown", image="krabby-mast3r",
+ "001-patio/mast3r":  dict(prov="measured", host="sbeeprz", gpu="NVIDIA GeForce RTX 4080 / 16 GB", image="krabby-mast3r",
     date_mode="min", status="success", params=P_MAST3R,
-    sw={}, src=["run_mast3r.sh", "on-disk mtime"],
-    note="MASt3R-SLAM (krabby-mast3r); host unrecoverable."),
+    sw={"mast3r": {"base_image": "nvcr.io/nvidia/pytorch:25.10-py3", "git_sha": "unknown"}},
+    src=["mast3r_output artifact present ONLY on sbeeprz (outposts partial per-host tree)", "run_mast3r.sh", "on-disk mtime", "mast3r-build.log base image"],
+    note="MEASURED: ran on sbeeprz (RTX 4080) — mast3r_output lives only there; date 04-12; base nvcr pytorch:25.10."),
  "001-patio/matcha":  dict(prov="deduced", host=None, gpu="unknown", image="krabby-matcha:latest",
     date_mode="min", status="success", params=P_MATCHA_PHASE_A,
     sw={"matcha": {"git_sha": "unknown"}}, src=["journal Phase-A recipe", "on-disk mtime"],
     note="Phase-A MAtCha; recipe deduced, date on-disk; host unrecoverable."),
- "001-patio/vggt":    dict(prov="deduced", host=None, gpu="unknown", image="unknown",
+ "001-patio/vggt":    dict(prov="measured", host="dbeeprz", gpu="NVIDIA GeForce RTX 4080 / 16 GB", image="unknown",
     date_mode="min", status="success", params=P_VGGT,
-    sw={}, src=["run_vggt.sh", "on-disk mtime"],
-    note="VGGT (demo_colmap.py --use_ba); host/image unrecoverable."),
+    sw={}, src=["vggt_output artifact present ONLY on dbeeprz (outposts partial per-host tree)", "run_vggt.sh", "on-disk mtime"],
+    note="MEASURED: ran on dbeeprz (RTX 4080) — vggt_output lives only there; date 04-12. Image name not in script."),
  "002-patio/colmap":  dict(prov="deduced", host=None, gpu="unknown", image="unknown",
     date_mode="none", status="partial", params=P_COLMAP_SPARSE,
     sw={}, src=["run_colmap_sparse.sh"],
     note="Empty sparse/dense — incomplete run; no output files, date unrecoverable."),
- "003-firepit/mast3r":dict(prov="deduced", host=None, gpu="unknown", image="krabby-mast3r",
+ "003-firepit/mast3r":dict(prov="measured", host="sbeeprz", gpu="NVIDIA GeForce RTX 4080 / 16 GB", image="krabby-mast3r",
     date_mode="min", status="success", params=P_MAST3R,
-    sw={}, src=["run_mast3r.sh", "on-disk mtime"],
-    note="MASt3R-SLAM; host unrecoverable."),
+    sw={"mast3r": {"base_image": "nvcr.io/nvidia/pytorch:25.10-py3", "git_sha": "unknown"}},
+    src=["mast3r_output artifact present ONLY on sbeeprz (outposts partial per-host tree)", "run_mast3r.sh", "on-disk mtime", "mast3r-build.log base image"],
+    note="MEASURED: ran on sbeeprz (RTX 4080) — mast3r_output lives only there; date 04-12; base nvcr pytorch:25.10."),
  "003-firepit/matcha":dict(prov="deduced", host=None, gpu="unknown", image="krabby-matcha:latest",
     date_mode="min", status="success", params=P_MATCHA_PHASE_A,
     sw={"matcha": {"git_sha": "unknown"}}, src=["journal Phase-A recipe", "on-disk mtime"],
     note="Phase-A MAtCha; journal names firepit among Phase-A scenes; host unrecoverable."),
- "003-firepit/slam3r":dict(prov="deduced", host=None, gpu="unknown", image="unknown",
+ "003-firepit/slam3r":dict(prov="measured", host="dbeeprz", gpu="NVIDIA GeForce RTX 4080 / 16 GB", image="unknown",
     date_mode="min", status="success", params={},
-    sw={}, src=["on-disk mtime"],
-    note="SLAM3R — NO run-script, journal-silent: params unrecoverable (only date on-disk)."),
+    sw={}, src=["slam3r_output artifact present ONLY on dbeeprz (outposts partial per-host tree)", "on-disk mtime"],
+    note="MEASURED host/date: ran on dbeeprz (RTX 4080) — slam3r_output lives only there; date 04-12. Params still unrecoverable (no run-script)."),
  "004-sky-house/mast3r":dict(prov="deduced", host=None, gpu="unknown", image="krabby-mast3r",
     date_mode="min", status="success", params=P_MAST3R,
     sw={}, src=["run_mast3r.sh", "on-disk mtime"],
