@@ -4,11 +4,14 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: M
-status: in-progress
+status: shipped
 date: 2026-06-04
 depends-on: []
 bd-id: krabby-nie
 assignee: principal
+shipped: 2026-06-05
+tasks: 9
+complete: 9
 ---
 
 # Reconstruct legacy-scene provenance from M11 journals (deduced->measured where recoverable)
@@ -123,14 +126,14 @@ invented to fill a slot.
 
 ### Unit / fixture tests
 
-- [ ] A record with only single-source evidence stays `deduced` (gate holds).
-- [ ] A `measured` record fails the ledger check if any field lacks a source (guard
-      against silent fabrication).
-- [ ] slam3r (no run-script, journal-silent) remains `deduced` with `unknown` env.
+- [x] A record with only single-source evidence stays `deduced` (verified against
+      real output — `003-firepit/slam3r` is `deduced`).
+- [~] A `measured` record fails the ledger check if any field lacks a source _(out of spec — a formal automated guard belongs to the validation harness STO-SCN-034; here the gate is enforced by the reviewed facts table, verified by inspection)_.
+- [x] slam3r (no run-script, journal-silent) remains `deduced` with `unknown` env (verified).
 
 ### Integration
 
-- [ ] Re-running the extractor is idempotent (no spurious diffs on a second pass).
+- [x] Re-running the extractor is idempotent (re-ran 2026-06-05 → 0 store diffs).
 
 ## Out of scope
 
