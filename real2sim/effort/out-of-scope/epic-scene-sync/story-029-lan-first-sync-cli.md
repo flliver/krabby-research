@@ -88,3 +88,15 @@ _(Actual implementation. May differ from § Design above.)_
 ### Gotchas
 
 _(Anything surprising or worth noting for future readers.)_
+
+## Status notes
+
+- 2026-06-09: **LFS transport to the j hub now works** (was never functional — only
+  JSON-only pushes ever succeeded; the 39 GB store was seeded out-of-band). Installed
+  `git-lfs-transfer` (charmbracelet v0.1.0, cross-compiled linux/amd64, sha256
+  ac51174239c3…, provenance at j:/usr/local/share/git-lfs-transfer.provenance) to
+  j:/usr/local/bin under operator fleet approval. T-020 verified both directions with
+  real payloads: Mac→j push (30 MB points.ply), t→j push (2.4 GB, 5 tetra meshes,
+  112 MB/s), j→t fetch (first ever). **Follow-up for devex/ops:** backfill the pinned
+  install into the beeprz Ansible repo (baeprz-ops requested change-control); the ops
+  delegate's sandbox blocked it from acting — its permission profile needs fixing too.
