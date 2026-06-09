@@ -80,4 +80,4 @@ if [[ "$(loginctl show-user "$USER" -p Linger --value 2>/dev/null)" != "yes" ]];
 else
     echo "linger already enabled"
 fi
-echo "done. gate: $([[ -f "$CONFIG" ]] && grep -m1 enabled "$CONFIG" || echo 'no config => sync OFF')"
+echo "done. gate: $([[ -f "$CONFIG" ]] && grep -m1 '^enabled' "$CONFIG" || echo 'no config => sync OFF')"

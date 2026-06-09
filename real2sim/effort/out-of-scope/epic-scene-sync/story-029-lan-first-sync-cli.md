@@ -100,3 +100,10 @@ _(Anything surprising or worth noting for future readers.)_
   112 MB/s), j→t fetch (first ever). **Follow-up for devex/ops:** backfill the pinned
   install into the beeprz Ansible repo (baeprz-ops requested change-control); the ops
   delegate's sandbox blocked it from acting — its permission profile needs fixing too.
+- 2026-06-09 (engineer, STO-SCN-030): The fixed LFS transport now has its first
+  standing consumer — `krabby-scene-sync` (scripts/scene-sync/) runs plain
+  `git fetch` + `git merge --ff-only` + `git lfs pull` against the j hub on a
+  30 min systemd user timer on t/b/s/d (config-gated, default OFF). Convergence
+  verified with canary 37bca02 (b/s/d). No rsync-objects fallback in the
+  auto-sync path; the epic's AS-BUILT git+rsync description predates this and
+  needs reconciling when this story is re-scoped to as-built.
