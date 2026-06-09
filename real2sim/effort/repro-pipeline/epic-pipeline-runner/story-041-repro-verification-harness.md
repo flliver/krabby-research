@@ -27,3 +27,15 @@ Bit-exactness is not achievable (driver drift 595.58.03→610.43.02; RTX 5080 no
 - [ ] Mesh comparison: count/bbox/volume-class stats vs recorded artifacts
 - [ ] Report format committed into the run dir; exit code reflects verdict
 - [ ] The 2026-06-09 `004-12-strong` reproduction re-expressed as a harness run (first regression baseline)
+
+## Status notes
+
+- 2026-06-09: **First baseline landed.** Manual reproduction of `004-sky-house
+  run-12-strong` on tbeeprz: REPRODUCED at metric equivalence (focal 0.001%,
+  Umeyama pose residuals max 0.06% of scene scale, mesh counts +3.4%, duration
+  −3.5%) under driver drift 595.58.03→610.43.02. Canonical record:
+  `scenes/004-sky-house/pipeline-matcha/run-12-strong-repro-20260609/`
+  (+ comparison.md). The comparison.md metric table is the seed spec for this
+  harness. Also surfaced: j-hub LFS transport never worked for new objects
+  (ops@baeprz installing git-lfs-transfer; emergency path = rsync into
+  .git/lfs/objects + push --no-verify, used once, banned henceforth).
