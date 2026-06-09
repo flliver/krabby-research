@@ -102,3 +102,16 @@ volume → instant, 0 extra space) into `/var/krabby/scenes`:
 - 2026-06-04: Migrated 10 scenes + 8 videos (42 GB) via CoW; parity-verified;
   committed (scenes repo `dbf1976`, `f691e4d`). Journal-provenance → STO-SCN-036,
   eval home → STO-SCN-037. Source removal operator-gated.
+
+## Status notes (backfill addendum)
+
+- 2026-06-09: **Legacy-outposts backfill executed** (scenes store `ac0766c` + `14432a5`):
+  (1) `004-sky-house/input/preproc-{01,02}-frame-select-{12,16}/` created from the
+  surviving curated frame sets (spec/results + per-frame sha256; selection method
+  manual-viewer per manifest.legacy.json; story=STO-SCN-001) and wired as `inputs`
+  on all six 004 matcha runs. (2) `cfg_args` (exact tool Namespace) + `run_logs/`
+  (train.log + nvidia-smi.csv, 5 s cadence) copied into 7 runs' `data/`;
+  specifications enriched with `tool_args_raw` + parsed `gs_*` measured params.
+  Remaining in outposts, deliberately left for STO-SCN-037 (`eval/` home):
+  `sfm-scaling-out/{n350,n500}`, `sfm-ref-localize/dtu-bicycle`. Outposts scripts are
+  md5-identical to repo real2sim/ — no drift, no further unique data identified.
