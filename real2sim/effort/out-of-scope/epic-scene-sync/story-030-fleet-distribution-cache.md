@@ -9,7 +9,7 @@ date: 2026-06-04
 depends-on: []
 bd-id: krabby-2hq
 assignee: devex
-priority: 4
+priority: 2
 ---
 
 # Fleet distribution + designated cache host (needs baeprz facts)

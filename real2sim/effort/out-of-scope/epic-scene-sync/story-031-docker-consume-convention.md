@@ -10,7 +10,7 @@ depends-on: []
 bd-id: krabby-nit
 assignee: devex
 title: Docker consume convention: canon -v <host-data>:/data (code at /workspace) + emit results.json provenance per run
-priority: 4
+priority: 2
 ---
 
 # Docker consume convention (standard read-only mount)

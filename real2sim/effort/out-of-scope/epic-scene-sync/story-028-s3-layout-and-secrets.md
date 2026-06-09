@@ -9,7 +9,7 @@ date: 2026-06-04
 depends-on: []
 bd-id: krabby-xj2
 assignee: devex
-priority: 4
+priority: 2
 ---
 
 # S3 layout, credentialed access, secrets boundary + topology entry

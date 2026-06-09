@@ -10,7 +10,7 @@ depends-on: []
 bd-id: krabby-1pa
 assignee: devex
 title: Scene sync — TWO layers: (a) credentialed dev sync 'krabby scenes' (LAN-first, rsync/rclone, NOT in krabby-launcher); (b) credential-free public-read client for public-tier scenes (firmware/cli.py pattern)
-priority: 4
+priority: 2
 ---
 
 # LAN-first sync CLI (krabby scenes pull/push, manifest diff)

@@ -9,7 +9,7 @@ date: 2026-06-04
 depends-on: []
 bd-id: krabby-dbq
 assignee: devex
-priority: 4
+priority: 2
 ---
 
 # Formal jsonschema validation harness + fixture suite (CI gate) for the scene schemas
