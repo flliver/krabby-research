@@ -1,0 +1,15 @@
+# krabby-scene-sync.timer — systemd user timer (STO-SCN-030)
+# Template: @INTERVAL@ is substituted by install.sh from interval_minutes in
+# ~/.config/krabby/scene-sync.toml (default 30). Re-run install.sh after
+# changing the interval. Source: krabby-research/scripts/scene-sync/ (HUG-KRB-002).
+[Unit]
+Description=Periodic krabby scene-store sync
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=@INTERVAL@min
+RandomizedDelaySec=2min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

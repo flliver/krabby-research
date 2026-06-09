@@ -1,0 +1,9 @@
+# krabby-scene-sync.service — systemd user unit (STO-SCN-030)
+# Installed by install.sh from krabby-research/scripts/scene-sync/ (HUG-KRB-002).
+# The real gate is ~/.config/krabby/scene-sync.toml — absent/disabled => no-op.
+[Unit]
+Description=Krabby scene-store sync (ff-only pull from hub; gated by ~/.config/krabby/scene-sync.toml)
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/krabby-scene-sync

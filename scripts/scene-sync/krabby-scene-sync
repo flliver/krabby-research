@@ -1,0 +1,142 @@
+#!/usr/bin/env bash
+# krabby-scene-sync — fleet scene-store auto-sync, gated by local config.
+#
+# Story:  STO-SCN-030 (real2sim/effort/out-of-scope/epic-scene-sync/
+#         story-030-fleet-distribution-cache.md)
+# Repo:   krabby-research / scripts/scene-sync/   (HUG-KRB-002: source-controlled)
+#
+# Keeps a host's scene-store clone (git + git-LFS) current with the j hub by
+# fast-forward pull only. NEVER pushes. NEVER resolves divergence.
+#
+# ── THE GATE ────────────────────────────────────────────────────────────────
+# Config file: ~/.config/krabby/scene-sync.toml   (override: --config <path>
+# or $KRABBY_SCENE_SYNC_CONFIG). File absent, or [sync].enabled != true
+# => exit 0, silently. Default is OFF; enabling is a deliberate per-host act.
+#
+# ── CONFIG SCHEMA (normative, from STO-SCN-030) ─────────────────────────────
+#   [sync]
+#   enabled  = true        # THE gate. Absent file or false => no-op, exit 0.
+#   remote   = "j"         # git remote to pull from
+#   interval_minutes = 30  # timer cadence (consumed by install.sh, not here)
+#   lfs      = "full"      # full = git lfs pull | skip = refs/pointers only
+#   store    = "~/krabby/scenes"   # clone location (Mac: /var/krabby/scenes)
+#   branch   = "trunk"     # optional; hub branch (default trunk)
+#
+# Only `key = value` lines inside the [sync] section are parsed (simple TOML
+# subset — no nesting, no arrays; deliberate, zero-dependency).
+#
+# ── BEHAVIOR ────────────────────────────────────────────────────────────────
+#   1. Gate (above).
+#   2. Lock at ~/.local/state/krabby/scene-sync.lock (mkdir lock + pid;
+#      stale locks from dead pids are reclaimed). Held => exit 0, log "skip".
+#   3. Preconditions: store exists + is a git repo, worktree CLEAN, on the
+#      configured branch. Else: log + surface, NO action, exit 1.
+#   4. git fetch <remote>; git merge --ff-only. Divergence is never
+#      auto-resolved — loud log + DIVERGED status, exit 1 (host has local work).
+#   5. git lfs pull (lfs = "full" only).
+#   6. Log: ~/.local/state/krabby/scene-sync.log (timestamped, rotated at 1 MiB).
+#   7. Status surface (T-026, dashboard-readable single line):
+#      ~/.local/state/krabby/scene-sync.status =
+#        <utc-iso> <OK|DIRTY|DIVERGED|WRONG-BRANCH|MISSING-STORE|ERROR> <detail>
+#
+# Exit codes: 0 = synced or deliberately-no-op (gate/lock); 1 = surfaced problem.
+set -uo pipefail
+
+CONFIG="${KRABBY_SCENE_SYNC_CONFIG:-$HOME/.config/krabby/scene-sync.toml}"
+if [[ "${1:-}" == "--config" ]]; then CONFIG="${2:?--config needs a path}"; shift 2; fi
+
+# ── 1. THE GATE — absent or disabled => silent no-op ────────────────────────
+[[ -f "$CONFIG" ]] || exit 0
+
+cfg() { # cfg <key> <default> — read key from [sync] section
+    awk -v key="$2" -v def="$3" '
+        /^\[/ { insec = ($0 ~ /^\[sync\]/) }
+        insec && $0 ~ "^[ \t]*"key"[ \t]*=" {
+            sub(/^[^=]*=[ \t]*/, ""); sub(/[ \t]*(#.*)?$/, "")
+            gsub(/^"|"$/, ""); print; found=1; exit
+        }
+        END { if (!found) print def }
+    ' "$1"
+}
+
+ENABLED="$(cfg "$CONFIG" enabled false)"
+[[ "$ENABLED" == "true" ]] || exit 0
+
+REMOTE="$(cfg "$CONFIG" remote j)"
+LFS_MODE="$(cfg "$CONFIG" lfs full)"
+STORE="$(cfg "$CONFIG" store "$HOME/krabby/scenes")"
+BRANCH="$(cfg "$CONFIG" branch trunk)"
+STORE="${STORE/#\~/$HOME}"
+
+STATE_DIR="$HOME/.local/state/krabby"
+LOG="$STATE_DIR/scene-sync.log"
+STATUS="$STATE_DIR/scene-sync.status"
+LOCK="$STATE_DIR/scene-sync.lock"
+mkdir -p "$STATE_DIR"
+
+now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
+log() { echo "$(now) $*" >> "$LOG"; }
+surface() { # surface <STATE> <detail...> — status line + log; T-026
+    echo "$(now) $1 ${*:2}" > "$STATUS"
+    log "$1 ${*:2}"
+}
+
+# rotate log at 1 MiB
+if [[ -f "$LOG" ]] && [[ "$(wc -c < "$LOG")" -gt 1048576 ]]; then
+    mv "$LOG" "$LOG.1"
+fi
+
+# ── 2. Lock (mkdir + pid; reclaim stale) ────────────────────────────────────
+if ! mkdir "$LOCK" 2>/dev/null; then
+    oldpid="$(cat "$LOCK/pid" 2>/dev/null || true)"
+    if [[ -n "$oldpid" ]] && kill -0 "$oldpid" 2>/dev/null; then
+        log "skip: lock held by pid $oldpid"
+        exit 0
+    fi
+    log "reclaiming stale lock (pid ${oldpid:-unknown} dead)"
+    rm -rf "$LOCK" && mkdir "$LOCK" || { log "lock race, skipping"; exit 0; }
+fi
+echo $$ > "$LOCK/pid"
+trap 'rm -rf "$LOCK"' EXIT INT TERM
+
+# ── 3. Preconditions: store exists, clean, on branch ────────────────────────
+if ! git -C "$STORE" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    surface MISSING-STORE "$STORE is not a git worktree"
+    exit 1
+fi
+cur_branch="$(git -C "$STORE" rev-parse --abbrev-ref HEAD)"
+if [[ "$cur_branch" != "$BRANCH" ]]; then
+    surface WRONG-BRANCH "on '$cur_branch', expected '$BRANCH' — no action"
+    exit 1
+fi
+if [[ -n "$(git -C "$STORE" status --porcelain)" ]]; then
+    surface DIRTY "worktree has local changes — no action"
+    exit 1
+fi
+
+# ── 4. Fetch + fast-forward ONLY ────────────────────────────────────────────
+before="$(git -C "$STORE" rev-parse HEAD)"
+if ! git -C "$STORE" fetch "$REMOTE" >> "$LOG" 2>&1; then
+    surface ERROR "git fetch $REMOTE failed (hub unreachable?)"
+    exit 1
+fi
+if ! git -C "$STORE" merge --ff-only "$REMOTE/$BRANCH" >> "$LOG" 2>&1; then
+    surface DIVERGED "local $BRANCH diverged from $REMOTE/$BRANCH — this host has unpushed work; NOT auto-resolved"
+    exit 1
+fi
+after="$(git -C "$STORE" rev-parse HEAD)"
+
+# ── 5. LFS content ──────────────────────────────────────────────────────────
+if [[ "$LFS_MODE" == "full" ]]; then
+    if ! git -C "$STORE" lfs pull >> "$LOG" 2>&1; then
+        surface ERROR "git lfs pull failed (refs at ${after:0:7}, content incomplete)"
+        exit 1
+    fi
+fi
+
+if [[ "$before" == "$after" ]]; then
+    surface OK "up to date at ${after:0:7} (lfs=$LFS_MODE)"
+else
+    surface OK "ff ${before:0:7}..${after:0:7} (lfs=$LFS_MODE)"
+fi
+exit 0
