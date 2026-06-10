@@ -25,6 +25,7 @@ real-world capture (video) ──┐
 ```
 
 See:
+- **`RECIPES.md`** — data recipes: capture type → precise processing steps
 - **`milestones/011-scene-reconstruction/PLAN.md`** in personal workspace —
   current working plan with Task ↔ Phase ↔ Beads mapping
 - **`docs/BEADS.md`** — issue-tracking convention (`bd ready` for current work)

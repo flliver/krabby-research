@@ -3,12 +3,11 @@ xid: EPI-SCN-CAPTURE
 parent: ../design.md
 kind: epic
 effort: scn
-status: shipped
+status: in-progress
 date: 2026-06-03
 hugs: []
 tenets: []
 bd-id: krabby-zgq
-shipped: 2026-06-03
 assignee: krabby
 ---
 
@@ -16,13 +15,18 @@ assignee: krabby
 
 ## Problem Statement
 
-_(What problem are we solving? Why now? What's the impact of not
-solving it? One paragraph — this drives the rest of the epic.)_
+T0 of the real-to-sim pipeline: turn raw captures (video, photos) into
+posed camera sets the reconstruction stages can consume. Capture
+quality decisions (frame budget, sharpness, normalization) made here
+bound everything downstream — 001-patio's final verdict traced its
+garbage reconstruction to a 12-frame coverage decision at this stage.
 
 ## Goals
 
-- _(Specific, measurable outcome.)_
-- _(Specific, measurable outcome.)_
+- Every capture data type has a precise, hardened preprocessing path
+  (`real2sim/RECIPES.md` — recipe per type, tool per step).
+- Frame selection is tooled, spec-driven, and results-emitting — never
+  re-freelanced per scene.
 
 ## Non-Goals (Out of Scope)
 
@@ -43,7 +47,8 @@ report, AID directive — name it explicitly.)_
 
 | # | XID | Story | Status | Size |
 |---|-----|-------|--------|------|
-| 1 | `STO-scn-001` | _(name)_ | open | S/M/L |
+| 1 | `STO-SCN-001` | T0.B5 Frame-Selection Tooling (Camera Selection Viewer) | shipped 2026-06-03 | M |
+| 2 | `STO-SCN-052` | Video preproc: recipe book + hardened sharp-select | in-progress | S |
 
 ## Design
 
