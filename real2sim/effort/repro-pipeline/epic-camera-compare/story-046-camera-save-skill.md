@@ -4,84 +4,110 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: M
-status: draft
+status: in-progress
 date: 2026-06-09
 depends-on: []
-bd-id: krabby-jg7
+bd-id: krabby-2lz
+assignee: krabby
 ---
 
 # /camera-save — interactive viewport→virtual-camera capture via Blender MCP
 
 ## Summary
 
-_(One sentence: what does this story deliver? Avoid "we will add X" —
-write the outcome, not the verb.)_
+Operator frames a shot in a live Blender viewport (run-level
+scene.blend open) and runs `/camera-save <name>`; the skill captures
+the viewport as a named virtual camera (pose + true lens), rewrites
+scene.blend, and regenerates the scene-level `cameras.json` (schema 5)
+— making the view immediately renderable by the comparison matrix.
 
 ## Context
 
-_(Why is this story needed? What does it depend on? Link to the parent
-epic. If this is a discovered-from another story, surface the link.)_
+Parent: [EPI-SCN-CAMERA-COMPARE](./epic.md). Operator tool-4 spec
+(2026-06-09). This is the unlock for ranking the kubota A/B runs:
+scenes without captured comparison views can't enter the runoff
+(rate_renders Q&A, 2026-06-09). Schema 5 (STO-SCN-045) is the
+storage; `cameras_virtual` collection (STO-SCN-044) is the in-blend
+home; `sync_comparison_views.py` is the regeneration path (T-025 —
+one emitter, no parallel writer).
 
 ## Problem
 
-_(What specific problem does this story solve? Concrete; the reader
-should be able to verify completion without re-reading the epic.)_
+Adding a comparison view today means hand-adding a Camera in Blender,
+positioning it numerically, setting custom properties, saving, and
+running a headless sync with the right arguments — error-prone and
+undocumented. The operator wants: frame it, name it, one command.
 
 ## Design
 
-### Approach
+### Flow
 
-_(How will this be implemented? Reference HUGs that constrain the
-implementation choice; cite alternatives only when they shaped the
-final pick.)_
+1. Operator opens `<run-dir>/scene.blend` in Blender (MCP addon
+   connected) and frames the viewport; optionally sets the viewport
+   lens (N-panel).
+2. `/camera-save <name> [--purpose ab-comparison]` —
+   the agent, via Blender MCP `execute_blender_code`, loads
+   `real2sim/viewport_capture.py` and calls `capture(name, purpose)`:
+   - derives scene/pipeline/run context from `bpy.data.filepath`
+     (no pipeline argument needed — the open file IS the context;
+     T-006);
+   - reads the active 3D viewport's `region_3d.view_matrix.inverted()`
+     for pose;
+   - derives the TRUE lens from `window_matrix` (the viewport at
+     `space.lens=50` is wider than a 50 mm camera — copying
+     `space.lens` verbatim would render tighter than what the operator
+     framed; the projection matrix is the honest source);
+   - creates the Camera in the `cameras_virtual` collection with v4
+     custom props (`view_purpose`, render defaults), records
+     `viewport_lens` for provenance;
+   - saves the .blend in place.
+3. The agent then runs the headless `sync_comparison_views.py` against
+   the saved blend → `scenes/<scene>/cameras.json` regenerated with
+   the +1 view.
+4. Report: camera name, pose, lens, updated JSON path; offer a
+   matrix render of the new view.
 
 ### Changes
 
 | File | Change |
 |------|--------|
-| `path/to/file` | _(add / modify / extract)_ |
-| `path/to/test` | _(add tests for the new behavior)_ |
+| `real2sim/viewport_capture.py` | new — capture logic (exec'd in live Blender via MCP) |
+| `.claude/commands/camera-save.md` | new — the skill |
+| `real2sim/README.md` | document the flow |
 
 ## Definition of Done
 
-- [ ] _(Specific, verifiable condition — not "code works")_
-- [ ] _(Specific, verifiable condition.)_
-- [ ] Tests written and passing.
-- [ ] Code reviewed (or self-reviewed against the engineer-knowledge
-      constraints).
-- [ ] `docs/work-platform.md` or other operator-facing doc updated if
-      surface changed.
-
-## Testing
-
-### Unit / fixture tests
-
-- [ ] _(Specific case.)_
-- [ ] _(Edge case.)_
-
-### Integration
-
-- [ ] _(Scenario.)_
+- [x] Capture on a live scene.blend produces a camera matching the
+      framed viewport — verified NUMERICALLY (pose = analytic
+      expectation; captured-vs-Procrustes-injected camera: 0.000000 m /
+      0.00000° / identical lens). Lens question settled empirically:
+      viewport space.lens=50 → true 25 mm (projection-matrix derivation
+      is mandatory; copying space.lens would halve the framed width).
+      2026-06-09.
+- [x] `cameras.json` regenerated with the new view (3 views incl.
+      sc046_test); matrix render succeeded for matcha--12-dense-strong.
+      2026-06-09 (test artifact cleaned up after verification).
+- [x] Re-running with the same name updates the existing view
+      (action: 'updated' observed live). 2026-06-09.
+- [ ] **OPERATOR (T-020):** full loop on a kubota scene — frame,
+      /camera-save, see the render in rate_renders.
+- [ ] `real2sim/README.md` updated.
 
 ## Out of scope
 
-- _(Things deliberately deferred to a later story. Be explicit — the
-  reader should know what's *not* changing.)_
+- Kubota scene.blend prerequisites (orient/condition chain for the new
+  dense runs) — tracked separately; needed before the kubota T-020
+  pass.
+- Auto-localization of captures (localize_reference_image.py exists).
 
-## Implementation Notes
+## Status Notes
 
-_(Fill in during / after implementation. Capture what diverged from
-the original design and why — useful for the retrospective + for
-operators reading this story in a year.)_
-
-### What Changed
-
-_(Actual implementation. May differ from § Design above.)_
-
-### Files Modified
-
-- `path/to/file` — _(what changed)_
-
-### Gotchas
-
-_(Anything surprising or worth noting for future readers.)_
+- 2026-06-09: Picked up by krabby per operator "proceed with
+  /camera-save".
+- 2026-06-09: Built + live-verified end-to-end on dtu (Blender GUI +
+  MCP, server started via --python-expr timer). Two false-alarm
+  "mismatches" were instrument errors (letterboxed camera view eyeball;
+  pixel-diff across different meshes) — numeric comparison is the
+  instrument. rv3d.update() added for programmatic-framing robustness.
+  Remaining: README + operator T-020 on a kubota scene (needs the
+  kubota orient/condition chain first).

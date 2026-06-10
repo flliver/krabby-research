@@ -43,6 +43,9 @@ real2sim/
 │   │                               #   cameras_virtual / meshes (toggle in Outliner);
 │   │                               #   --selected-frames partitions pool vs selected;
 │   │                               #   --output optional → <run-dir>/scene.blend (STO-SCN-044)
+│   ├── viewport_capture.py         # /camera-save capture helper (exec'd in live
+│   │                               #   Blender via MCP; true lens from projection
+│   │                               #   matrix — NOT space.lens; STO-SCN-046)
 │   ├── localize_reference_image.py # SfM-extend a reference image into existing recon
 │   ├── sync_comparison_views.py    # emits unified scene-level cameras.json (schema 5):
 │   │                               #   pool + selected_idx + virtual views; --legacy seeds
