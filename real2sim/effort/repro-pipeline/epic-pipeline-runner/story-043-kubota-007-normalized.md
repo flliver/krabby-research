@@ -39,6 +39,26 @@ peak VRAM; this run consumes 2048 px normalized inputs.
 
 - [x] Normalize tool source-controlled + spec/results contract honored
 - [x] Preproc executed with measured provenance (HUG-KRB-002 — no hand steps)
-- [ ] Matcha run `status: success`; VRAM/duration delta vs 006 recorded
-- [ ] Outputs pushed; renders to operator Dropbox (established pattern)
+- [x] Matcha run `status: success`; VRAM/duration delta vs 006 recorded (below)
+- [x] Outputs pushed (`d37207f`, 1.6 GB); render in operator Dropbox
 - [ ] Verdict: adopt normalize preproc as standard for photo captures? (feeds 040 registry)
+
+## Results (2026-06-09)
+
+| | 006 (native 5712px) | **007 (normalized 2048px)** | delta |
+|---|---|---|---|
+| status | success | success | — |
+| duration | 882 s (8 photos) | 830 s (9 photos) | ~−15%/photo |
+| peak VRAM | 11,994 MiB | **8,640 MiB** | **−28%** |
+| mesh | 16.1 M verts | 11.2 M verts | −30% |
+
+Mesh quality (render inspection): the 007 band is **more contiguous** than 006's
+(fewer mid-band fractures), with the usual far-field floaters. Vegetation-heavy
+scene again; same caveats.
+
+**Recommendation: adopt `preproc-01-normalize` (2048 px) as the standard first
+transform for photo-set captures.** −28% VRAM restores headroom for larger frame
+counts (the bigger quality lever per HUG-SCN-004), with no observed quality cost
+at this scene class. Feeds the STO-SCN-040 registry as the default photo-ingest
+chain: normalize → matcha. Remaining open: operator verdict on adopting this
+default (last DoD item).
