@@ -69,6 +69,29 @@ class CameraSet:
         """
         return self.rotations[:, :, 2]
 
+    def estimate_up(self) -> tuple[np.ndarray, float]:
+        """World-space 'up' from the cameras' average up-vector.
+
+        Same gravity prior as orient_mesh.py::estimate_gravity_from_cameras
+        (canonical math + rationale live there — STO-SCN-044 follow-up):
+        OpenCV convention has +Y pointing DOWN in the image, so each
+        camera's world up is -Y column of its cam-to-world rotation.
+
+        Returns (unit_up, confidence). Confidence is the magnitude of the
+        mean per-camera unit-up (circular statistics): 1.0 = all cameras
+        agree, →0 = rolls cancel out (e.g. banked orbit captures) and the
+        prior shouldn't be trusted.
+        """
+        per_camera_up = -self.rotations[:, :, 1]
+        per_camera_up = per_camera_up / np.linalg.norm(
+            per_camera_up, axis=1, keepdims=True
+        )
+        mean_up = per_camera_up.mean(axis=0)
+        confidence = float(np.linalg.norm(mean_up))
+        if confidence < 1e-6:
+            return np.array([0.0, 0.0, 1.0]), 0.0
+        return mean_up / confidence, confidence
+
 
 def load(cameras_json: Path, frames_dir: Path | None = None,
          thumbnail_long_edge: int = 512) -> CameraSet:

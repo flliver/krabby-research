@@ -324,6 +324,21 @@ def main() -> int:
     server = viser.ViserServer(port=args.port)
     print(f"[viewer] viser listening on http://localhost:{args.port}")
 
+    # Gravity-align the navigation: SfM's world frame is arbitrary, so set
+    # viser's up direction from the cameras' average up-vector (same prior
+    # as orient_mesh.py::estimate_gravity_from_cameras uses to disambiguate
+    # floor candidates). Low confidence (e.g. banked orbit captures) →
+    # leave viser's default +Z alone.
+    up, up_conf = cams.estimate_up()
+    if up_conf >= 0.5:
+        server.scene.set_up_direction(tuple(float(v) for v in up))
+        print(f"[viewer] up direction from camera average: "
+              f"({up[0]:+.3f}, {up[1]:+.3f}, {up[2]:+.3f}), "
+              f"confidence {up_conf:.2f}")
+    else:
+        print(f"[viewer] camera-up confidence too low ({up_conf:.2f}); "
+              f"keeping default +Z up")
+
     add_camera_path(server, cams)
 
     # --- Frustums + per-pick marker spheres ---
