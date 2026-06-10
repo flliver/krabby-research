@@ -57,8 +57,10 @@ TRANSFORMS = {
             "image_resolution_long_edge", "chart_resolutions_active",
             "extra_flags", "dense_regul", "dense_pruning",
         },
-        # values that demand flags v1 has NOT verified → hard error (T-002)
-        "unverified_nondefaults": {"dense_regul": "default", "dense_pruning": "default"},
+        # values that demand flags v1 has NOT verified → hard error (T-002).
+        # dense_regul verified 2026-06-09 against ~/scratch/MAtCha/train.py:24
+        # ('default'|'strong'|'weak'|'none') and moved to build_command.
+        "unverified_nondefaults": {"dense_pruning": "default"},
     },
 }
 
@@ -128,6 +130,11 @@ def build_command(pipeline: str, params: dict, frames_ct: str, out_ct: str) -> s
         cmd += f" --n_images {params['n_images']}"
     if params.get("alignment_config", "default") != "default":
         cmd += f" --alignment_config {params['alignment_config']}"
+    if params.get("dense_regul", "default") != "default":
+        if params["dense_regul"] not in ("strong", "weak", "none"):
+            raise SystemExit(f"ERROR: dense_regul={params['dense_regul']!r} not a "
+                             f"verified train.py choice (default|strong|weak|none)")
+        cmd += f" --dense_regul {params['dense_regul']}"
     cmd += (" --depthanythingv2_checkpoint_dir /opt/MAtCha/Depth-Anything-V2/checkpoints"
             f" --depthanything_encoder {params.get('encoder', 'vitl')}")
     return cmd
