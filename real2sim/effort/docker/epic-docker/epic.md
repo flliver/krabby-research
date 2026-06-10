@@ -3,7 +3,7 @@ xid: EPI-SCN-DOCKER
 parent: ../design.md
 kind: epic
 effort: scn
-status: open
+status: in-progress
 date: 2026-06-03
 hugs: []
 tenets: []

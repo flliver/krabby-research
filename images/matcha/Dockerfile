@@ -106,7 +106,12 @@ RUN pip install --no-cache-dir \
         plyfile open3d trimesh tqdm matplotlib roma einops \
         huggingface-hub safetensors transformers timm \
         opencv-python==4.11.0.86 imageio imageio-ffmpeg natsort \
-        scikit-learn scikit-image pyyaml gradio
+        scikit-learn scikit-image pyyaml gradio \
+        mediapy
+# mediapy: needed by 2d-gaussian-splatting/render_multires.py (the
+# scripts/extract_tsdf_mesh.py path). Was pip-installed transiently during
+# the 2026-06-09 dtu repro and recorded as an image gap — closed here
+# (STO-SCN-038).
 
 # --- Patch torch.load calls (PyTorch 2.6+ default weights_only=True) ---
 # Run AFTER all source has been cloned/installed, since this rewrites .py
@@ -118,6 +123,13 @@ RUN python /tmp/patch_matcha_torch_load.py
 WORKDIR /opt/MAtCha
 RUN python download_checkpoints.py --depth_encoder large
 
+# --- Patch multires-merge OOM (chunked vertex visibility) ---
+# render_multires.py's monolithic (n_cameras, n_verts) projection OOMs
+# 16 GB GPUs on mesh_res-1024 meshes (~43M verts). Chunked, semantically
+# identical. First hit: 013-basement on sbeeprz, 2026-06-10 (STO-SCN-053).
+COPY patches/patch_matcha_multires_oom.py /tmp/patch_matcha_multires_oom.py
+RUN python /tmp/patch_matcha_multires_oom.py
+
 # --- Runtime config ---
 ENV PYTHONPATH="/opt/MAtCha:/opt/MAtCha/mast3r:/opt/MAtCha/mast3r/dust3r:/opt/MAtCha/2d-gaussian-splatting:/opt/MAtCha/2d-gaussian-splatting/submodules/simple-knn:${PYTHONPATH}"
 
@@ -128,7 +140,7 @@ ENV PYTHONPATH="/opt/MAtCha:/opt/MAtCha/mast3r:/opt/MAtCha/mast3r/dust3r:/opt/MA
 LABEL org.opencontainers.image.title="krabby-matcha" \
       org.opencontainers.image.source="https://github.com/Anttwo/MAtCha" \
       io.krabby.matcha.upstream_sha="${MATCHA_SHA}" \
-      io.krabby.matcha.patchset="curope,includes,tetra_cmake,torch_load" \
+      io.krabby.matcha.patchset="curope,includes,tetra_cmake,torch_load,multires_oom" \
       io.krabby.matcha.selfcontained="true" \
       io.krabby.matcha.story="STO-SCN-038"
 
