@@ -200,6 +200,14 @@ def main() -> int:
     frames_host = scene_dir / inputs[0]
     if not frames_host.is_dir():
         sys.exit(f"ERROR: input dir missing: {frames_host}")
+    # LFS-pointer guard: a 131-byte "version https://git-lfs..." file is not an
+    # image (observed 2026-06-09 — un-smudged clone). Refuse before burning GPU.
+    for f in sorted(frames_host.iterdir()):
+        if f.is_file() and f.stat().st_size < 1024:
+            head = f.read_bytes()[:40]
+            if head.startswith(b"version https://git-lfs"):
+                sys.exit(f"ERROR: input {f.name} is an un-smudged LFS pointer — "
+                         f"run `git lfs pull` in the store first.")
     frames_ct = f"/scene/{inputs[0]}"
     out_ct = f"/scene/{tdir.relative_to(scene_dir)}/data"
 
@@ -250,9 +258,17 @@ def main() -> int:
         except (IndexError, ValueError):
             pass
 
-    # canonical outputs: what the registry expects the tool to produce
+    # canonical outputs: what the registry expects the tool to produce.
+    # HARD GATE: the tool (MAtCha train.py) chains stages via os.system and
+    # exits 0 even when a stage crashes (observed 2026-06-09: dtu repro "ran"
+    # 11s on LFS-pointer inputs, rc=0, no outputs). Missing expected outputs
+    # => failed, regardless of rc.
     expected = ["data/tetra_meshes/tetra_mesh_binary_search_7.ply",
                 "data/mast3r_sfm/cameras.json", "data/mast3r_sfm/points.ply"]
+    missing = [e for e in expected if not (tdir / e).is_file()]
+    if missing and rc == 0:
+        print(f"WARNING: tool rc=0 but expected outputs missing: {missing} — marking failed")
+        rc = 97  # synthetic: expected-outputs gate
     outputs = []
     for rel in expected + ["data/run_logs/train.log", "data/run_logs/nvidia-smi.csv",
                            "data/free_gaussians/cfg_args"]:
