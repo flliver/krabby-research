@@ -107,3 +107,12 @@ _(Anything surprising or worth noting for future readers.)_
   verified with canary 37bca02 (b/s/d). No rsync-objects fallback in the
   auto-sync path; the epic's AS-BUILT git+rsync description predates this and
   needs reconciling when this story is re-scoped to as-built.
+
+- 2026-06-09 (later): **baeprz-ops closed both follow-ups.** (1) git-lfs-transfer
+  codified as a beeprz Ansible role (binary vendored as the repo's first LFS blob,
+  hard sha256 gate ac51174…, smoke test; beeprz origin/main dc7caab) and deployed
+  fleet-wide: j idempotent, t/b/d/s fresh — identical bytes verified on all 5
+  nodes. The hand-install is now reproducible infrastructure. (2) ops delegate's
+  deny-all permission profile escalated to ccc-liaison (root cause of the manual
+  fallback). Cosmetic leftover for the operator: redundant `origin/git-lfs-transfer`
+  branch on github.com/jeremyprz/beeprz (remote-delete guard-blocked; one-click).
