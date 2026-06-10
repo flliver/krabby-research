@@ -12,7 +12,6 @@ checkpoint loaders (~41 sites vs ~12) because it pulls in DUST3R +
 MASt3R-SfM + DepthAnythingV2 + 2D-Gaussian-Splatting all in one project.
 """
 import pathlib
-import re
 
 roots = [pathlib.Path("/opt/MAtCha")]
 files = []
@@ -26,19 +25,57 @@ for root in roots:
 
 print(f"Found {len(files)} Python files containing torch.load")
 
+
+def patch_text(txt: str) -> tuple[str, int]:
+    """Insert weights_only=False before the MATCHING close paren of each
+    torch.load(...) call.
+
+    STO-SCN-038 root-cause note: the original regex (`[^)]*?`) stopped at
+    the FIRST `)`, so nested calls — torch.load(os.path.join(a, b), ...) —
+    got the kwarg inserted inside the inner call, producing a runtime
+    TypeError. That broke matcha/pointmap/depthanythingv2.py and was
+    hand-fixed on the production host, creating the snapshot drift this
+    story exists to eliminate. This version walks parens to the real
+    closing one.
+    """
+    out = []
+    i = 0
+    n = 0
+    needle = "torch.load("
+    while True:
+        j = txt.find(needle, i)
+        if j == -1:
+            out.append(txt[i:])
+            break
+        start = j + len(needle)
+        depth = 1
+        k = start
+        while k < len(txt) and depth > 0:
+            c = txt[k]
+            if c == "(":
+                depth += 1
+            elif c == ")":
+                depth -= 1
+            k += 1
+        # k is now just past the matching close paren
+        span = txt[start:k - 1]
+        if "weights_only" in span:
+            out.append(txt[i:k])
+        else:
+            out.append(txt[i:k - 1])
+            out.append(", weights_only=False)")
+            n += 1
+        i = k
+    return "".join(out), n
+
+
 total = 0
 for p in files:
     txt = p.read_text()
-    # Conservative regex: match torch.load(...) calls without weights_only=
-    new_txt = re.sub(
-        r"torch\.load\(([^)]*?)\)",
-        lambda m: m.group(0) if "weights_only" in m.group(1) else f"torch.load({m.group(1)}, weights_only=False)",
-        txt,
-    )
-    diff = new_txt.count("weights_only=False") - txt.count("weights_only=False")
-    if diff > 0:
+    new_txt, n = patch_text(txt)
+    if n > 0:
         p.write_text(new_txt)
-        total += diff
-        print(f"  patched +{diff}: {p}")
+        total += n
+        print(f"  patched +{n}: {p}")
 
 print(f"Total replacements: {total}")

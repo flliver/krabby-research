@@ -81,6 +81,19 @@ def run(cmd, **kw):
     return subprocess.run(cmd, text=True, capture_output=True, **kw)
 
 
+def image_labels(image: str) -> dict:
+    """Return the OCI labels of a local docker image ({} if unavailable).
+    STO-SCN-038: io.krabby.matcha.selfcontained / .upstream_sha / .patchset
+    drive the bind-mount decision and spec git_sha population."""
+    r = run(["docker", "inspect", "--format", "{{json .Config.Labels}}", image])
+    if r.returncode != 0 or not r.stdout.strip():
+        return {}
+    try:
+        return json.loads(r.stdout.strip()) or {}
+    except ValueError:
+        return {}
+
+
 def measure_environment(image: str) -> dict:
     env = {"os": "unknown", "gpu": "unknown", "nvidia_driver": "unknown",
            "cuda": "unknown", "container": {"image": image, "tag": "unknown", "digest": "unknown"},
@@ -215,18 +228,45 @@ def main() -> int:
     full = (f"{reg['container_setup']} && "
             f"python -c \"import torch; assert torch.cuda.is_available(), 'CUDA unavailable'\" && "
             f"{tool_cmd}")
-    src_host, src_ct = reg["source_mount"]
-    src_host = os.path.expanduser(src_host)
+
+    # STO-SCN-038: self-contained images carry their own /opt/MAtCha (code +
+    # built extensions + checkpoints) and declare it via an OCI label. Skip
+    # the legacy host-snapshot bind mount for those; mount only for legacy
+    # images (and verify the snapshot actually exists).
+    labels = image_labels(image)
+    selfcontained = labels.get("io.krabby.matcha.selfcontained") == "true"
+    upstream_sha = labels.get("io.krabby.matcha.upstream_sha")
+
+    mount_args = ["-v", f"{scene_dir}:/scene"]
+    if selfcontained:
+        src_desc = (f"image-baked /opt/MAtCha (upstream {upstream_sha or 'unknown'}, "
+                    f"patchset {labels.get('io.krabby.matcha.patchset', '?')})")
+    else:
+        src_host, src_ct = reg["source_mount"]
+        src_host = os.path.expanduser(src_host)
+        if not os.path.isdir(src_host):
+            sys.exit(f"ERROR: image {image} is not self-contained and the host "
+                     f"snapshot {src_host} is missing — provision the snapshot "
+                     f"or use a self-contained image (STO-SCN-038).")
+        mount_args += ["-v", f"{src_host}:{src_ct}"]
+        src_desc = (f"host snapshot {src_host} (pre-STO-SCN-038; "
+                    f"see archives + fingerprint in STO-SCN-038)")
 
     docker_cmd = (["docker", "run", "--rm", "--name", f"runner-{tdir.parent.name}"]
                   + CANONICAL_DOCKER_FLAGS
-                  + ["-v", f"{scene_dir}:/scene", "-v", f"{src_host}:{src_ct}",
-                     "--entrypoint", "bash", image, "-lc", full])
+                  + mount_args
+                  + ["--entrypoint", "bash", image, "-lc", full])
 
-    print(f"runner: {pipeline} | image {image}\n  cmd: {tool_cmd}")
+    print(f"runner: {pipeline} | image {image} | "
+          f"{'self-contained' if selfcontained else 'snapshot-mounted'}\n  cmd: {tool_cmd}")
     env = measure_environment(image)
-    env["software"][pipeline] = (f"host snapshot {src_host} (pre-STO-SCN-038; "
-                                 f"see archives + fingerprint in STO-SCN-038)")
+    env["software"][pipeline] = src_desc
+    # DoD STO-SCN-038: git_sha never null for runs off self-contained images.
+    if upstream_sha and not params.get("git_sha"):
+        params["git_sha"] = upstream_sha
+        spec.setdefault("parameters", {})["git_sha"] = upstream_sha
+        spec_path.write_text(json.dumps(spec, indent=2) + "\n")
+        print(f"  git_sha populated from image label: {upstream_sha}")
 
     # VRAM sampler (5s, schema matches the historical nvidia-smi.csv)
     csv = logs / "nvidia-smi.csv"

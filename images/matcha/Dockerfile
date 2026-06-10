@@ -24,6 +24,13 @@
 
 FROM nvidia/cuda:12.8.0-devel-ubuntu24.04
 
+# STO-SCN-038: pinned upstream. Verified 2026-06-09: this SHA + the four
+# patch scripts reproduce the production source tree (tbeeprz snapshot,
+# code-md5 106c21e7…) EXACTLY, except 2d-gaussian-splatting/extract_mesh.py
+# where production carries a latent paren bug (weights_only inserted inside
+# os.path.join) that the fixed patch_matcha_torch_load.py corrects.
+ARG MATCHA_SHA=b119fd96e484fc81eb40623c1ea92ad3dbd3c21e
+
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TORCH_CUDA_ARCH_LIST="8.9;12.0"
 ENV FORCE_CUDA=1
@@ -54,8 +61,11 @@ RUN pip install --no-cache-dir fvcore iopath
 RUN pip install --no-cache-dir --no-build-isolation \
         "git+https://github.com/facebookresearch/pytorch3d.git@stable"
 
-# --- Clone MAtCha ---
-RUN git clone --recursive https://github.com/Anttwo/MAtCha.git /opt/MAtCha
+# --- Clone MAtCha (pinned; STO-SCN-038) ---
+RUN git clone --recursive https://github.com/Anttwo/MAtCha.git /opt/MAtCha && \
+    cd /opt/MAtCha && \
+    git checkout ${MATCHA_SHA} && \
+    git submodule update --init --recursive
 
 # --- Patch & build curope (PyTorch 2.6+ .type → .scalar_type) ---
 COPY patches/patch_matcha_curope.py /tmp/patch_matcha_curope.py
@@ -110,6 +120,17 @@ RUN python download_checkpoints.py --depth_encoder large
 
 # --- Runtime config ---
 ENV PYTHONPATH="/opt/MAtCha:/opt/MAtCha/mast3r:/opt/MAtCha/mast3r/dust3r:/opt/MAtCha/2d-gaussian-splatting:/opt/MAtCha/2d-gaussian-splatting/submodules/simple-knn:${PYTHONPATH}"
+
+# --- Provenance labels (STO-SCN-038) ---
+# io.krabby.matcha.selfcontained=true tells run_transform.py to SKIP the
+# legacy ~/scratch/MAtCha bind mount — /opt/MAtCha in this image is the
+# complete, runnable source of truth (code + built extensions + checkpoints).
+LABEL org.opencontainers.image.title="krabby-matcha" \
+      org.opencontainers.image.source="https://github.com/Anttwo/MAtCha" \
+      io.krabby.matcha.upstream_sha="${MATCHA_SHA}" \
+      io.krabby.matcha.patchset="curope,includes,tetra_cmake,torch_load" \
+      io.krabby.matcha.selfcontained="true" \
+      io.krabby.matcha.story="STO-SCN-038"
 
 WORKDIR /workspace
 CMD ["/bin/bash"]
