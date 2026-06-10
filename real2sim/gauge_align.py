@@ -109,3 +109,66 @@ def align_camera_sets(src_positions: np.ndarray, dst_positions: np.ndarray,
             f"allowed {max_residual:.4f} m (mean {out['mean_residual']:.4f}). "
             f"Overlap poses disagree — refuse to chain a bad gauge.")
     return out
+
+
+def consensus_align(src_positions: np.ndarray, dst_positions: np.ndarray,
+                    rel_tol: float = 0.02,
+                    min_consensus: int = 6,
+                    min_consensus_frac: float = 0.25,
+                    src_rotations: np.ndarray | None = None,
+                    dst_rotations: np.ndarray | None = None,
+                    ) -> dict:
+    """Robust gauge alignment: iteratively trim disagreeing correspondences.
+
+    Real chunk solves contain badly-registered frames (blurry /
+    featureless inputs) whose poses are outright wrong; a plain
+    least-squares solve over the full overlap is poisoned by them
+    (005-meadow 2026-06-10: 01↔02 full-overlap mean residual 3.7 in a
+    span-39 gauge). This trims the worst correspondence one at a time
+    until every survivor's residual is below the RELATIVE gate
+
+        gate = rel_tol × mean spread of the surviving dst points
+
+    (absolute gates are meaningless across arbitrary per-chunk gauge
+    scales — the 0.10 "m" default of the first stitch attempt was a
+    unit error).
+
+    Hard failures (RuntimeError):
+      - consensus shrinks below min_consensus frames, or below
+        min_consensus_frac of the overlap, without converging —
+        the link is BROKEN, not noisy; refuse to chain it.
+
+    Returns the align_camera_sets dict plus:
+      consensus_idx (indices into the input arrays), n_overlap,
+      consensus_frac, gate, outlier_idx.
+    """
+    P = np.asarray(src_positions, dtype=np.float64)
+    Q = np.asarray(dst_positions, dtype=np.float64)
+    n = len(P)
+    Rs = None if src_rotations is None else np.asarray(src_rotations, np.float64)
+    Rd = None if dst_rotations is None else np.asarray(dst_rotations, np.float64)
+    keep = np.arange(n)
+    floor = max(min_consensus, int(np.ceil(min_consensus_frac * n)))
+    while True:
+        a = align_camera_sets(
+            P[keep], Q[keep],
+            src_rotations=None if Rs is None else Rs[keep],
+            dst_rotations=None if Rd is None else Rd[keep])
+        r = a["residuals"]
+        spread = float(np.linalg.norm(Q[keep] - Q[keep].mean(0), axis=1).mean())
+        gate = rel_tol * spread
+        if r.max() <= gate:
+            break
+        if len(keep) - 1 < floor:
+            raise RuntimeError(
+                f"consensus collapse: {len(keep)}/{n} overlap frames still "
+                f"disagree (max {r.max():.4f} > gate {gate:.4f} = "
+                f"{rel_tol:.3f}×spread {spread:.4f}); floor {floor}. "
+                f"Link is broken — refuse to chain.")
+        keep = keep[np.argsort(r)[:-1]]
+    a["consensus_idx"] = keep
+    a["n_overlap"] = n
+    a["consensus_frac"] = len(keep) / n
+    a["gate"] = gate
+    a["outlier_idx"] = np.setdiff1d(np.arange(n), keep)
+    return a

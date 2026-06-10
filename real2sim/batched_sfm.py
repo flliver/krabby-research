@@ -156,17 +156,23 @@ def _load_chunk(spine: Path, c: int):
 
 def cmd_stitch(args) -> int:
     np = _np()
-    from gauge_align import align_camera_sets, apply_to_cams2world
+    from gauge_align import consensus_align, apply_to_cams2world
     spine = Path(args.spine).resolve()
     manifest = json.loads((spine / "chunks.json").read_text())
     n_chunks = len(manifest["chunks"])
 
-    # Reference gauge = chunk 1.
-    names, focals, c2w = _load_chunk(spine, 1)
+    if args.order:
+        chain = [int(x) for x in args.order.split(",")]
+    else:
+        chain = list(range(1, n_chunks + 1))
+    ref, rest = chain[0], chain[1:]
+
+    names, focals, c2w = _load_chunk(spine, ref)
     pose = {n: (c2w[i], focals[i]) for i, n in enumerate(names)}
     order = list(names)
+    outliers: set[str] = set()
     report = []
-    for c in range(2, n_chunks + 1):
+    for c in rest:
         cn, cf, cc2w = _load_chunk(spine, c)
         shared = [n for n in cn if n in pose]
         if len(shared) < 3:
@@ -177,10 +183,15 @@ def cmd_stitch(args) -> int:
         src_R = np.stack([cc2w[cn.index(n)][:3, :3] for n in shared])
         dst_R = np.stack([pose[n][0][:3, :3] for n in shared])
         try:
-            a = align_camera_sets(src, dst, max_residual=args.max_residual,
-                                  src_rotations=src_R, dst_rotations=dst_R)
+            # Consensus (trimmed) alignment + RELATIVE gate: real chunks
+            # contain badly-registered frames; absolute gates are
+            # meaningless across arbitrary gauge scales (005 lesson).
+            a = consensus_align(src, dst, rel_tol=args.rel_tol,
+                                src_rotations=src_R, dst_rotations=dst_R)
         except RuntimeError as e:
             sys.exit(f"ERROR: stitching chunk-{c:02d}: {e}")
+        bad = [shared[i] for i in a["outlier_idx"]]
+        outliers.update(bad)
         mapped = apply_to_cams2world(cc2w, a["scale"], a["R"], a["t"])
         added = 0
         for i, n in enumerate(cn):
@@ -188,27 +199,35 @@ def cmd_stitch(args) -> int:
                 pose[n] = (mapped[i], cf[i])
                 order.append(n)
                 added += 1
-        report.append({"chunk": c, "shared": len(shared), "added": added,
+        report.append({"chunk": c, "shared": len(shared),
+                       "consensus": int(len(a["consensus_idx"])),
+                       "consensus_frac": round(a["consensus_frac"], 3),
+                       "gate": a["gate"], "added": added,
                        "scale": a["scale"],
-                       "max_residual_m": a["max_residual"],
-                       "mean_residual_m": a["mean_residual"]})
-        print(f"chunk-{c:02d}: {len(shared)} shared | scale {a['scale']:.4f} "
-              f"| residual max {a['max_residual']:.4f} m mean "
-              f"{a['mean_residual']:.4f} m | +{added} poses")
+                       "max_residual": a["max_residual"],
+                       "mean_residual": a["mean_residual"],
+                       "outlier_frames": bad})
+        print(f"chunk-{c:02d}: {len(shared)} shared, consensus "
+              f"{len(a['consensus_idx'])}/{len(shared)} | scale {a['scale']:.4f} "
+              f"| residual max {a['max_residual']:.4f} mean "
+              f"{a['mean_residual']:.4f} (gate {a['gate']:.4f}) | +{added} poses")
 
     out = {
         "filepaths": order,
         "focals": [float(pose[n][1]) for n in order],
         "cams2world": [pose[n][0].tolist() for n in order],
+        "low_confidence": sorted(outliers & set(order)),
     }
     (spine / "spine_cameras.json").write_text(json.dumps(out) + "\n")
     (spine / "stitch_report.json").write_text(json.dumps({
-        "schema_version": "1", "kind": "photo-spine-stitch",
-        "n_chunks": n_chunks, "n_poses": len(order),
-        "max_residual_gate_m": args.max_residual,
+        "schema_version": "2", "kind": "photo-spine-stitch",
+        "n_chunks": n_chunks, "chain": chain, "n_poses": len(order),
+        "rel_tol": args.rel_tol,
+        "n_low_confidence": len(outliers & set(order)),
         "stitches": report, "created": now(), "story": "STO-SCN-050",
     }, indent=2) + "\n")
-    print(f"\nspine complete: {len(order)} poses across {n_chunks} chunks → "
+    print(f"\nspine complete: {len(order)} poses across {len(chain)} chunks "
+          f"({len(outliers & set(order))} flagged low-confidence) → "
           f"{spine / 'spine_cameras.json'}")
     return 0
 
@@ -231,7 +250,11 @@ def main() -> int:
     s.add_argument("--force", action="store_true")
     t = sub.add_parser("stitch")
     t.add_argument("--spine", required=True)
-    t.add_argument("--max-residual", type=float, default=0.10)
+    t.add_argument("--rel-tol", type=float, default=0.02,
+                   help="residual gate as a fraction of overlap spread")
+    t.add_argument("--order", default=None,
+                   help="explicit chain order, e.g. '2,3,4,5,6,7,8,9,1' "
+                        "(first = reference gauge); default 1..N")
     args = ap.parse_args()
     return {"chunk": cmd_chunk, "solve": cmd_solve, "stitch": cmd_stitch}[args.cmd](args)
 
