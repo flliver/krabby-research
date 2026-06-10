@@ -54,11 +54,12 @@ patch scripts.
 
 - [x] Patch script verified against the pristine 0.2.1 image:
       applies, compiles, idempotent.
-- [ ] `krabby-matcha:0.2.2-selfcontained` built on dbeeprz.
-- [ ] Deployed image label-checked (`patchset` includes multires_oom)
+- [x] `krabby-matcha:0.2.2-selfcontained` built on dbeeprz (layer
+      cache held — built in ~1 min).
+- [x] Deployed image label-checked (`patchset` includes multires_oom)
       and a container-run smoke test confirms the patched code is
-      present.
-- [ ] Distribution tail noted: s still runs 0.2.1 + /tmp overlay;
+      present (`grep` marker + py_compile in the image: SMOKE_OK).
+- [x] Distribution tail noted: s still runs 0.2.1 + /tmp overlay;
       t/b out of rotation (operator: kids home) — ship there later
       (extends the STO-SCN-038 tail).
 
@@ -66,3 +67,9 @@ patch scripts.
 
 - 2026-06-10: Minted after the runtime overlay fixed 013's TSDF OOM.
   Patch script + Dockerfile staged; build starting on dbeeprz.
+- 2026-06-10: Built + smoke-tested on dbeeprz. rc=0, labels correct.
+  Known nit: the `io.krabby.matcha.story` label still reads STO-SCN-038
+  (it tracks the self-containment story, not per-patch stories — the
+  patchset label is the per-patch record).
+  Remaining: distribution to s (currently safe via /tmp overlay) and
+  t/b when back in rotation.
