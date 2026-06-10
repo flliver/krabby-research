@@ -52,26 +52,39 @@ videos** (EPI-SCN-CAPTURE).
    ```
    Never fps-subsample at extraction time — selection is the next
    step's job, and it needs the full pool to score.
-3. **Sharp-select** (blur-aware subsampling — the step that decides
-   reconstruction coverage). Mint a preproc transform and run the
-   hardened script:
+3. **Sharp-select a CANDIDATE pool** (blur-aware subsampling), sized
+   ≤300 (the SfM solve ceiling — 200 is the proven size):
    ```bash
-   mkdir -p input/preproc-01-frame-select-sharp-<N>
+   mkdir -p input/preproc-01-pool-sharp-200
    # write specification.json — contract in select_sharp_frames.py docstring
    python3 real2sim/select_sharp_frames.py \
-     scenes/<scene>/input/preproc-01-frame-select-sharp-<N>
+     scenes/<scene>/input/preproc-01-pool-sharp-200
    ```
    Method: variance-of-Laplacian at 480 px, sharpest frame per N
    uniform temporal windows (supersedes uniform stride after 001's
    NaN-confidence failure on degenerate frames).
-   **Frame budget:** 12 proved too few for a yard-scale scene
-   (001-patio verdict — coverage, not extraction, was the root cause).
-   Start at **24 for room-scale and larger**; sweep upward
-   (`preproc-02-…-36`, …) if reconstruction coverage is poor.
-4. **Normalize** — only when source long edge > 2048 (4K video: yes;
+4. **Camera positioning (pool SfM)** — pose the candidate pool with a
+   MASt3R-SfM `--sfm_only` container solve (`preproc-02-pool-sfm`,
+   GPU host). This is *preprocessing*: the poses exist so frames can
+   be selected by WHERE THEY ARE, not when they were shot.
+5. **Coverage curation (operator-in-the-loop, T-020)** — load the
+   posed pool into the Camera Selection Viewer
+   (`real2sim/camera_viewer/viewer.py`, viser :8082; STO-SCN-001):
+   frustums + image planes + temporal path, filters (time, stride,
+   k-means spatial clusters, distance, look-at, pHash dedupe).
+   Operator selects the reconstruction subset → `selected_frames.json`
+   → feeds MAtCha `--image_idx`. This is "the dtu flow" (dtu-bicycle:
+   194-frame pool → 12 curated; 005: pool-sharp-200 → pool-sfm →
+   viewer).
+   **Why not just pick N sharp frames blind?** That was 001-patio
+   (12 sharpness-only frames) — verdict: garbage from coverage gaps.
+   Sharpness scoring is coverage-blind; curation over posed cameras
+   is the fix. Blind sharp-N is acceptable only as a quick baseline
+   run, never as the scene's final selection.
+6. **Normalize** — only when source long edge > 2048 (4K video: yes;
    small sources like 013's 672 px: skip — no-op):
    see Recipe B step 2.
-5. → **Common trunk** below.
+7. → **Common trunk** below.
 
 ## Recipe B — High-resolution photo stills
 
@@ -85,8 +98,9 @@ videos** (EPI-SCN-CAPTURE).
    # spec: {"long_edge": 2048, "quality": 95}, inputs: ["input/src"]
    python3 real2sim/normalize_photos.py scenes/<scene>/input/preproc-01-normalize
    ```
-3. **Select** if pool > what the scene needs; pools ≤300 can go to
-   SfM whole. Sharp-select (Recipe A step 3) works on photo pools too.
+3. **Select**: pools ≤300 can be pool-SfM'd whole; then coverage
+   curation exactly as Recipe A steps 4–5 (sharp candidate pool first
+   when the photo set is larger).
 4. → **Common trunk** below.
 
 ## Recipe C — Large / multi-session photo pools (e.g. Polycam exports)
@@ -145,3 +159,12 @@ Fleet execution: all four GPU hosts (t/b/d/s) run the matcha image;
 s + d have `krabby-matcha:0.2.1-selfcontained`. Wrap long jobs with
 `nanny-progress`. Docker writes land root-owned on fleet clones and
 silently wedge `git pull` — chown via throwaway container.
+
+**Gather hygiene (3 wedges on 2026-06-10 alone):** after rsyncing a
+host-side output into the store and pushing, **delete that output from
+the host clone immediately** — the next `git pull` on that host will
+otherwise abort ("untracked working tree files would be overwritten")
+because the committed copy collides with the local untracked one. The
+abort prints "Updating …" first and looks like success. Sequence:
+chown (container) → rsync to store → commit+push → `rm -rf` on host →
+host pulls clean.
