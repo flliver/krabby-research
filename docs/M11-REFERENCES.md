@@ -17,6 +17,14 @@ Sources identified from Firefox browsing session with Fletcher Liverance on 2026
 - **Relevance:** M11 T3/T4 — one of the two evaluation locomotion models. Proprioception-only (no vision), provides baseline comparison against Extreme Parkour's depth-based approach. Clean extension pattern for adding new robot embodiments (proven in Milestone 5). Replaces SoloParkour (deferred — repo unpublished).
 - **M11 Tasks:** T3 (Dockerized integration), T4 (quad→hex adaptation, reward shaping)
 
+### MAtCha Gaussians: Atlas of Charts for High-Quality Geometry and Photorealism From Sparse Views
+- **arXiv:** https://arxiv.org/abs/2412.06767
+- **Project page:** https://anttwo.github.io/matcha/
+- **GitHub:** https://github.com/Anttwo/MAtCha (we run this, pinned at b119fd96 — see images/matcha/)
+- **Status:** CVPR 2025 Spotlight
+- **Relevance:** Our PRIMARY T1 reconstruction pipeline. 2D Gaussian surfels on an atlas of charts; watertight meshes via tetra extraction + multires TSDF. The Mip-NeRF 360 bicycle is its showcase scene — our dtu-bicycle reference renders and the STO-SCN-041 repro harness validate against the paper's published quality.
+- **M11 Tasks:** T1 (primary mesh recovery), repro baseline (STO-SCN-041)
+
 ## NVIDIA Research
 
 ### NVIDIA NuRec / 3DGUT
