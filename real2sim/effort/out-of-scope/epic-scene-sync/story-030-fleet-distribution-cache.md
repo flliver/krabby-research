@@ -116,3 +116,9 @@ store    = "~/krabby/scenes"   # clone location (Mac: /var/krabby/scenes)
   unpushed work, auto-pull would only generate DIRTY noise; T-019). Manual
   sync one-liner documented in the config. Outposts legacy tree untouched.
   Awaiting T-020 operator verification before close.
+
+- 2026-06-09 (workspace agent): **Convergence confirmed on real data.** The 17:17 PDT
+  automatic tick carried 3 commits / ~4.5 GB LFS (runner-v1 run + kubota spec + kubota
+  outputs) to b/s/d in one fast-forward each (`OK ff 37bca02..e40df74`); t self-resolved
+  DIRTY→OK after its producer commit landed. Operator verified the DIRTY surface earlier
+  the same day. T-020 evidence complete — close decision remains with the operator.

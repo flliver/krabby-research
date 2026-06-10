@@ -53,7 +53,7 @@ the STO-SCN-033 migration.
 
 - [x] Spec authored + committed BEFORE execution (config-driven, HUG-KRB-002)
 - [x] Runner executes to `status: success` with measured results.json
-- [x] Outputs pushed to hub (`e40df74`, 2.2 GB LFS); fleet auto-sync propagation in progress (STO-SCN-030 timers)
+- [x] Outputs pushed to hub (`e40df74`, 2.2 GB LFS); fleet auto-sync propagated to b/s/d at the 17:17 PDT timer tick (`OK ff 37bca02..e40df74`, lfs=full) — zero manual steps
 - [ ] Operator inspects mesh (visual) — T-020; verdict recorded here
 - [ ] Decision recorded: MPO normalize preproc needed? more photos needed? → follow-on stories if so
 
