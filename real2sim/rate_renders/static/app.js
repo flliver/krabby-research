@@ -540,30 +540,58 @@ function cssEscape(s) {
 }
 
 function renderManifest() {
+  // SETTINGS-FIRST (STO-SCN-045): each variant is one run = one
+  // parameterization of its transforms. The runoff compares those
+  // settings, so the panel renders every transform's specification
+  // parameters generically (no hardcoded per-pipeline fields), plus
+  // the measured stats from results.json.
   if (!state.focusVariant) {
     els.manifest.innerHTML = "<em>Hover a card to see settings.</em>";
     return;
   }
   const m = state.manifests[state.focusVariant] || {};
-  const matcha = m.matcha || {};
-  const frames = m.frames || {};
-  const exec = m.execution || {};
+  const fmt = (x) => (x === null || x === undefined || x === "") ? "—"
+    : (Array.isArray(x) ? x.join(", ") : (typeof x === "object" ? JSON.stringify(x) : x));
+  const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
 
-  const fmt = (x) => (x === null || x === undefined || x === "") ? "—" : x;
-  const html = `
-    <div><strong>${state.focusVariant}</strong></div>
-    <div style="margin-top:6px;">
-      <div>Frames: <code>${fmt(frames.count)}</code> (${fmt(frames.selection_method)})</div>
-      <div>alignment: <code>${fmt(matcha.alignment_config)}</code></div>
-      <div>dense_regul: <code>${fmt(matcha.dense_regul)}</code></div>
-      <div>encoder: <code>${fmt(matcha.encoder)}</code></div>
-      <div>resolution: <code>${fmt(matcha.image_resolution_long_edge)}</code> px</div>
-    </div>
-    <div style="margin-top:8px; color: var(--text-dim);">
-      ${fmt(exec.host)} · ${fmt(exec.duration_seconds)}s · peak ${fmt(exec.peak_vram_mib)} MiB
-    </div>
-    ${m.notes ? `<div style="margin-top:8px;"><em>${m.notes}</em></div>` : ""}
-  `;
+  let html = `<div><strong>${esc(state.focusVariant)}</strong></div>`;
+  const transforms = m.transforms || {};
+  const tNames = Object.keys(transforms);
+  if (!tNames.length) {
+    html += `<div style="margin-top:6px;"><em>No transform specifications captured.</em></div>`;
+  }
+  for (const tName of tNames) {
+    const t = transforms[tName] || {};
+    html += `<div style="margin-top:8px;"><strong>${esc(tName)}</strong>` +
+            (t.kind ? ` <span style="color: var(--text-dim);">(${esc(t.kind)})</span>` : "") +
+            `</div>`;
+    const params = t.parameters || {};
+    // Settings only: drop nulls/empties and long provenance blobs
+    // (tool_args_raw etc.) — those are reproducibility records, not
+    // the comparison axes a rater weighs.
+    const keys = Object.keys(params).filter(k => {
+      const v = params[k];
+      if (v === null || v === "") return false;
+      if (typeof v === "string" && v.length > 100) return false;
+      return true;
+    });
+    if (keys.length) {
+      html += `<div style="margin-top:4px;">` + keys.map(k =>
+        `<div>${esc(k)}: <code>${esc(fmt(params[k]))}</code></div>`
+      ).join("") + `</div>`;
+    } else {
+      html += `<div style="margin-top:4px;"><em>no parameters recorded</em></div>`;
+    }
+    const meas = t.measured || {};
+    if (Object.keys(meas).length) {
+      html += `<div style="margin-top:4px; color: var(--text-dim);">` +
+        `${fmt(meas.status)} · ${fmt(meas.host)} · ${fmt(meas.duration_s)}s` +
+        (meas.peak_vram_mib ? ` · peak ${fmt(meas.peak_vram_mib)} MiB` : "") +
+        (meas.provenance ? ` · ${esc(meas.provenance)}` : "") +
+        `</div>`;
+    }
+  }
+  if (m.notes) html += `<div style="margin-top:8px;"><em>${esc(m.notes)}</em></div>`;
   els.manifest.innerHTML = html;
 }
 

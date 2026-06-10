@@ -198,8 +198,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def _list_scenes(self) -> list[str]:
         """List scene roots — every dir under the scene store that has the
-        unified cameras.json (schema 5, STO-SCN-045) or, as a legacy
-        fallback for unmigrated scenes, _unsorted/comparison_views.json.
+        unified cameras.json (schema 5, STO-SCN-045). Legacy layouts are
+        not supported: migrate via sync_comparison_views.py first.
         """
         out = []
         if not SCENES_ROOT.is_dir():
@@ -207,8 +207,7 @@ class Handler(BaseHTTPRequestHandler):
         for d in sorted(SCENES_ROOT.iterdir()):
             if not d.is_dir():
                 continue
-            if (d / "cameras.json").exists() or \
-                    (d / "_unsorted" / "comparison_views.json").exists():
+            if (d / "cameras.json").exists():
                 out.append(d.name)
         return out
 
@@ -224,39 +223,19 @@ class Handler(BaseHTTPRequestHandler):
         scene_dir = SCENES_ROOT / scene
         if not scene_dir.is_dir():
             return {"error": f"scene not found: {scene}"}
-        # 1) views — unified cameras.json (schema 5), legacy fallback
+        # 1) views — unified cameras.json (schema 5) only
         views: list = []
-        for views_path in (scene_dir / "cameras.json",
-                           scene_dir / "_unsorted" / "comparison_views.json"):
-            if views_path.exists():
-                with open(views_path) as f:
-                    cv = json.load(f)
-                views = [v["name"] for v in cv.get("views", [])]
-                break
-        # 2) variants — every pipeline-*/run-* in this scene; metadata from
-        #    the run's run.json when present.
-        variants = []
-        manifests = {}
-        for pdir in sorted(scene_dir.glob("pipeline-*")):
-            if not pdir.is_dir():
-                continue
-            for rdir in sorted(pdir.glob("run-*")):
-                if not rdir.is_dir():
-                    continue
-                v = self._variant_label(pdir, rdir)
-                variants.append(v)
-                run_json = rdir / "run.json"
-                if run_json.exists():
-                    try:
-                        with open(run_json) as f:
-                            manifests[v] = json.load(f)
-                    except (OSError, ValueError):
-                        manifests[v] = {"variant_name": v,
-                                        "notes": "(run.json unreadable)"}
-                else:
-                    manifests[v] = {"variant_name": v,
-                                    "notes": "(no run.json captured yet)"}
-        # 4) which (view, variant) PNGs exist
+        views_path = scene_dir / "cameras.json"
+        if views_path.exists():
+            with open(views_path) as f:
+                cv = json.load(f)
+            views = [v["name"] for v in cv.get("views", [])]
+        # 2) which (view, variant) PNGs exist. In the pipelines/runs store
+        #    a scene has many runs that are NOT comparison candidates
+        #    (legacy imports, repro verification runs, runner pilots) — a
+        #    run is rankable iff render_comparison_matrix.sh produced a
+        #    PNG for it. Renders therefore DEFINE the variant set; the
+        #    full run inventory is not the ranking pool.
         renders_dir = scene_dir / "comparison_renders"
         rendered = {}
         if renders_dir.is_dir():
@@ -265,6 +244,58 @@ class Handler(BaseHTTPRequestHandler):
                     rendered[view_dir.name] = sorted(
                         f.stem for f in view_dir.glob("*.png")
                     )
+        variants = sorted({v for vs in rendered.values() for v in vs})
+        # 3) manifests — SETTINGS-FIRST. What the runoff compares is the
+        #    settings of each transformation (operator, 2026-06-09): each
+        #    run is one parameterization. Per rendered run, assemble every
+        #    transform's specification.json `parameters` (the settings
+        #    being ranked) + the measured stats from its results.json.
+        manifests = {}
+        for v in variants:
+            p, sep, r = v.partition("--")
+            if not sep:
+                manifests[v] = {"variant_name": v,
+                                "notes": "(unrecognized variant label)"}
+                continue
+            run_dir = scene_dir / f"pipeline-{p}" / f"run-{r}"
+            entry: dict = {"variant_name": v, "pipeline": p, "run": r,
+                           "transforms": {}}
+            run_json = run_dir / "run.json"
+            if run_json.exists():
+                try:
+                    with open(run_json) as f:
+                        entry["notes"] = json.load(f).get("notes", "")
+                except (OSError, ValueError):
+                    pass
+            for tdir in sorted(run_dir.glob("transform-*")):
+                if not tdir.is_dir():
+                    continue
+                tinfo: dict = {}
+                spec_p = tdir / "specification.json"
+                if spec_p.exists():
+                    try:
+                        with open(spec_p) as f:
+                            spec = json.load(f)
+                        tinfo["kind"] = spec.get("kind")
+                        tinfo["description"] = spec.get("description")
+                        tinfo["parameters"] = spec.get("parameters", {})
+                    except (OSError, ValueError):
+                        tinfo["parameters"] = {"error": "spec unreadable"}
+                res_p = tdir / "results.json"
+                if res_p.exists():
+                    try:
+                        with open(res_p) as f:
+                            res = json.load(f)
+                        tinfo["measured"] = {
+                            k: res.get(k) for k in
+                            ("status", "provenance", "duration_s",
+                             "host", "peak_vram_mib")
+                            if res.get(k) is not None
+                        }
+                    except (OSError, ValueError):
+                        pass
+                entry["transforms"][tdir.name] = tinfo
+            manifests[v] = entry
         # 5) raters who've submitted on this scene (alphabetical, unique)
         raters = sorted({
             r.get("rater", "").strip()
@@ -302,25 +333,22 @@ class Handler(BaseHTTPRequestHandler):
         return SCENES_ROOT / scene / "rankings.jsonl"
 
     def _read_rankings(self, scene: str) -> list[dict]:
-        # New rows land at the scene root; legacy rows (pre-STO-SCN-045
-        # migration) may sit in _unsorted/. Read both, in legacy→new order.
-        paths = [
-            SCENES_ROOT / scene / "_unsorted" / "rankings.jsonl",
-            self._rankings_path(scene),
-        ]
+        # Scene-root rankings.jsonl only. Legacy rows under _unsorted/ used
+        # the old variant labels (e.g. "12-strong") which don't exist in the
+        # pipelines/runs world — they are provenance, not live data.
+        p = self._rankings_path(scene)
+        if not p.exists():
+            return []
         out = []
-        for p in paths:
-            if not p.exists():
-                continue
-            with open(p) as f:
-                for line in f:
-                    line = line.strip()
-                    if not line:
-                        continue
-                    try:
-                        out.append(json.loads(line))
-                    except json.JSONDecodeError:
-                        continue  # skip corrupt lines
+        with open(p) as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    out.append(json.loads(line))
+                except json.JSONDecodeError:
+                    continue  # skip corrupt lines
         return out
 
     def _handle_post_ranking(self, scene: str):

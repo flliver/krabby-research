@@ -9,8 +9,8 @@
 # STO-SCN-045: operates on the scene store (scenes/<scene>/), where a
 # "variant" is a pipeline run: pipeline-<p>/run-<r> → variant label
 # "<p>--<r>" (e.g. matcha--12-dense-strong). Views come from the unified
-# scene-level cameras.json (schema 5); legacy comparison_views.json at
-# _unsorted/ is used as a fallback for unmigrated scenes.
+# scene-level cameras.json (schema 5) — required; legacy layouts are not
+# supported (migrate via sync_comparison_views.py).
 #
 # Usage:
 #   render_comparison_matrix.sh [--scene dtu-bicycle] \
@@ -77,14 +77,12 @@ SCENE_DIR=$SCENES_ROOT/$SCENE
 RENDER_ROOT=$SCENE_DIR/comparison_renders
 BLENDER=/Applications/Blender.app/Contents/MacOS/Blender
 
-# --- resolve views file: unified cameras.json (schema 5), legacy fallback ---
-if [ -f "$SCENE_DIR/cameras.json" ]; then
-    VIEWS_JSON=$SCENE_DIR/cameras.json
-elif [ -f "$SCENE_DIR/_unsorted/comparison_views.json" ]; then
-    VIEWS_JSON=$SCENE_DIR/_unsorted/comparison_views.json
-    echo "NOTE: using legacy $VIEWS_JSON (scene not yet migrated to schema 5)"
-else
-    echo "ERROR: no $SCENE_DIR/cameras.json (and no legacy comparison_views.json)"
+# --- resolve views file: unified cameras.json (schema 5) only ---
+VIEWS_JSON=$SCENE_DIR/cameras.json
+if [ ! -f "$VIEWS_JSON" ]; then
+    echo "ERROR: no $VIEWS_JSON — migrate the scene first:"
+    echo "  Blender --background --python sync_comparison_views.py -- \\"
+    echo "      <run>/scene.blend <run>/.../mast3r_sfm/cameras.json $VIEWS_JSON"
     exit 1
 fi
 echo "Views from: $VIEWS_JSON"
