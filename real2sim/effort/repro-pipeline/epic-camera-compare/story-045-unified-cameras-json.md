@@ -4,11 +4,14 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: M
-status: in-progress
+status: shipped
 date: 2026-06-09
 depends-on: []
 bd-id: krabby-auy
 assignee: krabby
+shipped: 2026-06-10
+tasks: 12
+complete: 12
 ---
 
 # Unified scene-level cameras.json (schema A) — supersede comparison_views v4 + migrate runoff readers
@@ -110,11 +113,9 @@ migration per epic Risks). New keys are additive.
 - [x] Round-trip: build → sync verified idempotent on views (dtu:
       Δpos ≤2.6e-8, rotation 0.00000°, Δlens ≤4.8e-7). 2026-06-09.
 - [x] `real2sim/README.md` updated. 2026-06-09.
-- [ ] **OPERATOR (T-020):** (a) viewer at :8080 now shows 2 mint-green
-      virtual cams (cam_ref / cam_ref_auto) from the v5 file; (b) rate
-      renders UI: `python3 real2sim/rate_renders/server.py --port 8090`
-      → http://localhost:8090 → 004-sky-house shows compare_01 with 5
-      variant renders. Confirm both.
+- [x] **OPERATOR (T-020):** verified 2026-06-09/10 — viewer approved
+      ("LOOKS GOOD"); rate_renders exercised through the settings-first
+      rework + the 006 A/B (operator ranked the renders).
 
 ## Testing
 
@@ -191,3 +192,4 @@ path (scale 0.9972) — no new alignment code.
 - 2026-06-09: Implemented, migrated both scenes, all technical DoD
   verified. Holding open for operator T-020 pass (viewer virtual cams +
   rate_renders UI).
+- 2026-06-10: Operator exercised rate_renders end-to-end (006 A/B ranked). Shipped.

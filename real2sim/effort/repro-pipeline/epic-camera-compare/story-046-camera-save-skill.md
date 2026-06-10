@@ -4,11 +4,14 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: M
-status: in-progress
+status: shipped
 date: 2026-06-09
 depends-on: []
 bd-id: krabby-2lz
 assignee: krabby
+shipped: 2026-06-10
+tasks: 5
+complete: 5
 ---
 
 # /camera-save — interactive viewport→virtual-camera capture via Blender MCP
@@ -89,9 +92,10 @@ undocumented. The operator wants: frame it, name it, one command.
       2026-06-09 (test artifact cleaned up after verification).
 - [x] Re-running with the same name updates the existing view
       (action: 'updated' observed live). 2026-06-09.
-- [ ] **OPERATOR (T-020):** full loop on a kubota scene — frame,
-      /camera-save, see the render in rate_renders.
-- [ ] `real2sim/README.md` updated.
+- [x] **OPERATOR (T-020):** 2026-06-10 — operator framed
+      overhead-grass-quality on 006, ran /camera-save, A/B rendered,
+      verified in rate_renders and ranked ("looks good").
+- [x] `real2sim/README.md` updated (viewport_capture entry). 2026-06-09.
 
 ## Out of scope
 
@@ -111,3 +115,4 @@ undocumented. The operator wants: frame it, name it, one command.
   instrument. rv3d.update() added for programmatic-framing robustness.
   Remaining: README + operator T-020 on a kubota scene (needs the
   kubota orient/condition chain first).
+- 2026-06-10: Operator ran the full loop on 006 and ranked the A/B. Shipped.

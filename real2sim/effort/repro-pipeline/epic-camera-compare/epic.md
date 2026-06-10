@@ -3,7 +3,7 @@ xid: EPI-SCN-CAMERA-COMPARE
 parent: ../design.md
 kind: epic
 effort: scn
-status: in-progress
+status: open
 date: 2026-06-09
 hugs: []
 tenets: []
