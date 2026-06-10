@@ -4,11 +4,14 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: S
-status: in-progress
+status: shipped
 date: 2026-06-09
 depends-on: []
 bd-id: krabby-7kg
 assignee: krabby
+shipped: 2026-06-09
+tasks: 8
+complete: 8
 ---
 
 # Grouped scene build — pool/selected camera collections, selected_frames input, run-dir scene.blend
@@ -83,10 +86,11 @@ Extend `build_blender_scene.py` (T-013 — no rewrite):
 - [x] No regression: omitting the new flag reproduces today's object
       set (12 cams + 12 planes + mesh + sun) apart from collection
       structure. 2026-06-09.
-- [ ] **OPERATOR (T-020):** open
-      `scenes/dtu-bicycle/pipeline-matcha/run-12-dense-strong/scene.blend`
-      and confirm Outliner group toggling (cameras_selected /
-      cameras_virtual / meshes) works as expected.
+- [x] **OPERATOR (T-020):** verified 2026-06-09 — grouped scene.blend
+      produced correctly (mesh-source issue resolved: run-dir scene now
+      builds from the multires-TSDF mesh, 4.8M verts, matching reference
+      fidelity; decimated-mesh blockiness was a source-selection error,
+      not a builder defect).
 - [x] `real2sim/README.md` updated. 2026-06-09.
 
 ## Testing
@@ -158,3 +162,5 @@ Test matrix (Blender 4.5.2 headless, dtu-bicycle run-12-dense-strong):
 - 2026-06-09: Implemented + 4/4 headless tests PASS. Deliverable
   scene.blend written to dtu run dir. Blocked only on operator T-020
   toggle check; proceeding to STO-SCN-045 meanwhile.
+- 2026-06-09: Operator verified (T-020): scene groups correct; viewer
+  gravity-up fix also verified (companion commit 2c21536). Shipped.

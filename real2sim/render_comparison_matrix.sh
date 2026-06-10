@@ -6,19 +6,26 @@
 # from that angle) AND per-view comparison easy (look at one variant across
 # all angles).
 #
+# STO-SCN-045: operates on the scene store (scenes/<scene>/), where a
+# "variant" is a pipeline run: pipeline-<p>/run-<r> → variant label
+# "<p>--<r>" (e.g. matcha--12-dense-strong). Views come from the unified
+# scene-level cameras.json (schema 5); legacy comparison_views.json at
+# _unsorted/ is used as a fallback for unmigrated scenes.
+#
 # Usage:
-#   render_comparison_matrix.sh [--render-engine BLENDER_WORKBENCH] \
+#   render_comparison_matrix.sh [--scene dtu-bicycle] \
+#                                [--scenes-root /var/krabby/scenes] \
+#                                [--render-engine BLENDER_WORKBENCH] \
 #                                [--width 1920 --height 1080] \
-#                                [--scene 004-sky-house-dining] \
-#                                [--variants "12 12-strong 16-strong"] \
+#                                [--variants "matcha--12-strong matcha--16-strong"] \
 #                                [--views "view1 view2"] \
+#                                [--mesh-source oriented|tsdf] \
 #                                [--purpose ab-comparison]
 #
-# Defaults: scene=004-sky-house-dining, variants=auto-discover all
-# 004-sky-house-curated-* dirs, views=all ab-comparison views from
-# comparison_views.json (reference-match views are excluded by default —
-# pass --purpose any to include all, or --purpose reference-match to render
-# only those).
+# Defaults: variants=auto-discover all pipeline-*/run-* with the requested
+# mesh present; views=all ab-comparison views from cameras.json
+# (reference-match views are excluded by default — pass --purpose any to
+# include all, or --purpose reference-match to render only those).
 
 set -euo pipefail
 
@@ -26,10 +33,10 @@ set -euo pipefail
 RENDER_ENGINE=BLENDER_WORKBENCH
 WIDTH=1920
 HEIGHT=1080
-SCENE="004-sky-house-dining"
+SCENE="dtu-bicycle"
+SCENES_ROOT="${KRABBY_SCENES_ROOT:-/var/krabby/scenes}"
 VARIANTS=""
 VIEWS=""
-VARIANT_PREFIX=""    # auto-resolved from comparison_views.json if absent
 MESH_SOURCE=oriented # 'oriented' (tetra→cull→color) or 'tsdf' (multi-res TSDF)
 PURPOSE_FILTER="ab-comparison"  # filter views by `purpose` field; "any" disables
 
@@ -39,27 +46,25 @@ while [[ $# -gt 0 ]]; do
         --width)           WIDTH="$2"; shift 2 ;;
         --height)          HEIGHT="$2"; shift 2 ;;
         --scene)           SCENE="$2"; shift 2 ;;
+        --scenes-root)     SCENES_ROOT="$2"; shift 2 ;;
         --variants)        VARIANTS="$2"; shift 2 ;;
         --views)           VIEWS="$2"; shift 2 ;;
-        --variant-prefix)  VARIANT_PREFIX="$2"; shift 2 ;;
         --mesh-source)     MESH_SOURCE="$2"; shift 2 ;;
         --purpose)         PURPOSE_FILTER="$2"; shift 2 ;;
         -h|--help)
-            head -25 "$0" | tail -24 | sed 's/^# //; s/^#$//'
+            head -29 "$0" | tail -28 | sed 's/^# //; s/^#$//'
             exit 0 ;;
         *) echo "unknown arg: $1"; exit 1 ;;
     esac
 done
 
-# Resolve mesh-source-specific paths
+# Resolve mesh-source-specific relpaths (inside transform-NN-*/data/)
 case "$MESH_SOURCE" in
     oriented)
         MESH_RELPATH="oriented/oriented_500k_colored_culled.ply"
-        BLEND_RELPATH="oriented/scene_culled.blend"
         ;;
     tsdf)
         MESH_RELPATH="tsdf_meshes/multires_tsdf_post_oriented.ply"
-        BLEND_RELPATH="tsdf_meshes/scene_tsdf.blend"
         ;;
     *)
         echo "ERROR: --mesh-source must be 'oriented' or 'tsdf' (got '$MESH_SOURCE')"
@@ -68,32 +73,47 @@ case "$MESH_SOURCE" in
 esac
 
 WORKSPACE=$(dirname "$(realpath "$0")")
-LB=/private/var/krabby/workspace/milestones/011-scene-reconstruction/data/scenes
-VIEWS_JSON=$LB/$SCENE/comparison_views.json
-RENDER_ROOT=$LB/$SCENE/comparison_renders
+SCENE_DIR=$SCENES_ROOT/$SCENE
+RENDER_ROOT=$SCENE_DIR/comparison_renders
 BLENDER=/Applications/Blender.app/Contents/MacOS/Blender
 
-if [ ! -f "$VIEWS_JSON" ]; then
-    echo "ERROR: $VIEWS_JSON not found"; exit 1
-fi
-
-# --- resolve variant prefix from JSON (allows --variant-prefix override) ---
-if [ -z "$VARIANT_PREFIX" ]; then
-    VARIANT_PREFIX=$(python3 -c "
-import json, sys
-d = json.load(open('$VIEWS_JSON'))
-print(d.get('variant_prefix', ''))" 2>/dev/null)
-fi
-if [ -z "$VARIANT_PREFIX" ]; then
-    echo "ERROR: no variant_prefix in $VIEWS_JSON and --variant-prefix not given"
-    echo "       (add a 'variant_prefix' field to the JSON, e.g. 'dtu-bicycle')"
+# --- resolve views file: unified cameras.json (schema 5), legacy fallback ---
+if [ -f "$SCENE_DIR/cameras.json" ]; then
+    VIEWS_JSON=$SCENE_DIR/cameras.json
+elif [ -f "$SCENE_DIR/_unsorted/comparison_views.json" ]; then
+    VIEWS_JSON=$SCENE_DIR/_unsorted/comparison_views.json
+    echo "NOTE: using legacy $VIEWS_JSON (scene not yet migrated to schema 5)"
+else
+    echo "ERROR: no $SCENE_DIR/cameras.json (and no legacy comparison_views.json)"
     exit 1
 fi
-echo "Variant prefix: $VARIANT_PREFIX"
+echo "Views from: $VIEWS_JSON"
 
-# --- resolve variants ---
+# --- resolve variants: every pipeline-*/run-* with the requested data ---
+# Variant label: "<pipeline>--<run>" minus prefixes, e.g.
+# pipeline-matcha/run-12-strong → matcha--12-strong.
+variant_to_rundir() {  # matcha--12-strong → pipeline-matcha/run-12-strong
+    local v="$1"
+    echo "pipeline-${v%%--*}/run-${v#*--}"
+}
+
 if [ -z "$VARIANTS" ]; then
-    VARIANTS=$(ls -d $LB/$VARIANT_PREFIX-curated-* 2>/dev/null | xargs -n1 basename | sed "s/^${VARIANT_PREFIX}-curated-//" | tr '\n' ' ')
+    VARIANTS=""
+    for RD in "$SCENE_DIR"/pipeline-*/run-*/; do
+        [ -d "$RD" ] || continue
+        # transform dir glob: data lives at transform-NN-*/data/
+        TD=$(ls -d "$RD"transform-*/data 2>/dev/null | head -1) || true
+        [ -n "${TD:-}" ] || continue
+        [ -f "$TD/$MESH_RELPATH" ] || continue
+        P=$(basename "$(dirname "${RD%/}")"); P=${P#pipeline-}
+        R=$(basename "${RD%/}"); R=${R#run-}
+        VARIANTS="$VARIANTS $P--$R"
+    done
+    VARIANTS=$(echo $VARIANTS)  # trim
+fi
+if [ -z "$VARIANTS" ]; then
+    echo "ERROR: no variants found with $MESH_RELPATH under $SCENE_DIR/pipeline-*/run-*/"
+    exit 1
 fi
 echo "Variants: $VARIANTS"
 
@@ -115,6 +135,10 @@ def kept(v):
 print(' '.join(v['name'] for v in d['views'] if kept(v)))
 ")
 fi
+if [ -z "$VIEWS" ]; then
+    echo "ERROR: no views match purpose filter '$PURPOSE_FILTER' in $VIEWS_JSON"
+    exit 1
+fi
 echo "Views:    $VIEWS  (purpose filter: $PURPOSE_FILTER)"
 echo "Render:   ${WIDTH}×${HEIGHT}, engine=$RENDER_ENGINE"
 echo "Output:   $RENDER_ROOT/<view>/<variant>.png"
@@ -130,15 +154,21 @@ for V in $VARIANTS; do
 done
 
 for V in $VARIANTS; do
-    SD=$LB/$VARIANT_PREFIX-curated-$V
-    MESH_PATH=$SD/$MESH_RELPATH
-    BLEND_PATH=$SD/$BLEND_RELPATH
-    if [ ! -f "$MESH_PATH" ]; then
-        echo "  SKIP variant $V (no $MESH_RELPATH)"
-        # Still increment DONE for the skipped views
+    RUNDIR=$SCENE_DIR/$(variant_to_rundir "$V")
+    TD=$(ls -d "$RUNDIR"/transform-*/data 2>/dev/null | head -1) || true
+    if [ -z "${TD:-}" ] || [ ! -f "$TD/$MESH_RELPATH" ]; then
+        echo "  SKIP variant $V (no transform data / $MESH_RELPATH)"
         for VIEW in $VIEWS; do DONE=$((DONE + 1)); done
         continue
     fi
+    # Frames dir: prefer the run's own SfM images; fall back to scene input
+    FRAMES_DIR="$TD/mast3r_sfm/images"
+    if [ ! -d "$FRAMES_DIR" ]; then
+        FRAMES_DIR=$(ls -d "$SCENE_DIR"/input/preproc-*/data 2>/dev/null | head -1) || true
+    fi
+    # Scratch .blend per variant — render artifact, not the canonical
+    # run-dir scene.blend (which STO-SCN-047 owns).
+    BLEND_PATH=$RUNDIR/matrix_render.blend
     for VIEW in $VIEWS; do
         DONE=$((DONE + 1))
         OUT_DIR=$RENDER_ROOT/$VIEW
@@ -146,18 +176,19 @@ for V in $VARIANTS; do
         OUT_PNG=$OUT_DIR/$V.png
         echo "[$DONE/$TOTAL] $V × $VIEW → $OUT_PNG"
         $BLENDER --background --python $WORKSPACE/build_blender_scene.py -- \
-            --mesh "$MESH_PATH" \
-            --cameras-original "$SD/mast3r_sfm/cameras.json" \
-            --cameras-oriented "$SD/oriented/oriented_cameras.json" \
-            --frames-dir "$SD/mast3r_sfm/images" \
+            --mesh "$TD/$MESH_RELPATH" \
+            --cameras-original "$TD/mast3r_sfm/cameras.json" \
+            --cameras-oriented "$TD/oriented/oriented_cameras.json" \
+            ${FRAMES_DIR:+--frames-dir "$FRAMES_DIR"} \
             --output "$BLEND_PATH" \
             --view-camera-pose "$VIEWS_JSON" \
             --view-name "$VIEW" \
             --render-output "$OUT_PNG" \
             --render-width "$WIDTH" \
             --render-height "$HEIGHT" \
-            --render-engine "$RENDER_ENGINE" 2>&1 | grep -E '^Saved|residuals|using view' | head -3
+            --render-engine "$RENDER_ENGINE" 2>&1 | grep -E '^Saved|residuals|rendered|ERROR' | head -3
     done
+    rm -f "$BLEND_PATH"
 done
 
 echo

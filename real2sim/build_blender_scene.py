@@ -387,11 +387,14 @@ def main():
         schema = vc.get("schema_version", 1)
         _multi_view_meta = None  # populated when schema >= 3 (set below)
 
-        # Schema v3 / v4: list of views with shared anchors. Inject ALL views.
-        # --view-name optionally selects which one becomes the active scene
-        # camera (default: first view). Optional per-view metadata is stored
-        # as Blender custom properties for round-trip via sync_comparison_views.py.
-        if schema in (3, 4):
+        # Schema v3 / v4 / v5: list of views with shared anchors. Inject ALL
+        # views. (v5 = unified scene-level cameras.json, STO-SCN-045 — same
+        # anchor_frames/views shape plus pool/selected_idx which this path
+        # ignores.) --view-name optionally selects which one becomes the
+        # active scene camera (default: first view). Optional per-view
+        # metadata is stored as Blender custom properties for round-trip via
+        # sync_comparison_views.py.
+        if schema in (3, 4, 5):
             views = vc.get("views", [])
             if not views:
                 raise SystemExit(f"schema_v{schema} file has no 'views' list")

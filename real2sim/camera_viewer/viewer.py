@@ -190,9 +190,9 @@ def add_virtual_cameras(
     """
     with open(comparison_views_json) as f:
         cv = json.load(f)
-    if cv.get("schema_version") != 3:
-        print(f"[viewer] WARNING: comparison_views.json has schema "
-              f"{cv.get('schema_version')}, expected 3 — ignoring")
+    if cv.get("schema_version") not in (3, 4, 5):
+        print(f"[viewer] WARNING: comparison views file has schema "
+              f"{cv.get('schema_version')}, expected 3/4/5 — ignoring")
         return 0
 
     anchors = cv.get("anchor_frames", [])

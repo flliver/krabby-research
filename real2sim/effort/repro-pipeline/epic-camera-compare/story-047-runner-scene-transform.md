@@ -85,3 +85,10 @@ _(Actual implementation. May differ from § Design above.)_
 ### Gotchas
 
 _(Anything surprising or worth noting for future readers.)_
+
+## Decisions (pre-design)
+
+- 2026-06-09 (operator): the canonical run-dir `scene.blend` uses the
+  **multires-TSDF mesh** (judgment-grade fidelity), not the decimated
+  working mesh. Mesh-size optimization is deferred to the T1
+  "Watertight Mesh" phase — do not add a scene_light.blend variant here.

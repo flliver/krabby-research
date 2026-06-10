@@ -4,13 +4,14 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: M
-status: in-progress
+status: shipped
 date: 2026-06-04
 depends-on: []
 bd-id: krabby-nie
 assignee: principal
 tasks: 10
 complete: 10
+shipped: 2026-06-05
 ---
 
 # Reconstruct legacy-scene provenance from M11 journals (deduced->measured where recoverable)

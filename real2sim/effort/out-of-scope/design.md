@@ -2,7 +2,7 @@
 xid: DES-SCN-TX
 kind: design
 effort: scn
-status: open
+status: in-progress
 date: 2026-06-04
 guidance: ./guidance.md
 hugs: []
@@ -10,9 +10,10 @@ tenets: []
 bd-id: krabby-yqz
 assignee: principal
 priority: 4
+title: TX — Discovered Work
 ---
 
-# TX — Out of Scope Work
+# TX — Discovered Work
 
 ## Overview
 

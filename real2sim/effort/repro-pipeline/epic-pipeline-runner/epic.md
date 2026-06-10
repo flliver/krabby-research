@@ -3,7 +3,7 @@ xid: EPI-SCN-PIPELINE-RUNNER
 parent: ../design.md
 kind: epic
 effort: scn
-status: open
+status: in-progress
 date: 2026-06-09
 hugs: []
 tenets: []

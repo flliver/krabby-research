@@ -44,7 +44,9 @@ real2sim/
 │   │                               #   --selected-frames partitions pool vs selected;
 │   │                               #   --output optional → <run-dir>/scene.blend (STO-SCN-044)
 │   ├── localize_reference_image.py # SfM-extend a reference image into existing recon
-│   ├── sync_comparison_views.py    # comparison_views.json schema-v4 round-trip
+│   ├── sync_comparison_views.py    # emits unified scene-level cameras.json (schema 5):
+│   │                               #   pool + selected_idx + virtual views; --legacy seeds
+│   │                               #   from old comparison_views.json (STO-SCN-045)
 │   ├── colmap_to_cameras_json.py   # COLMAP → cameras.json (Blender consumable)
 │   ├── orient_mesh.py              # T1.B1: RANSAC ground plane + Z-up
 │   ├── cull_mesh.py                # T1.B2: out-of-bounds geometry cull

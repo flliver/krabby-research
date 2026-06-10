@@ -1,4 +1,5 @@
-"""Read all "comparison" cameras from a .blend and merge into comparison_views.json.
+"""Read all "comparison" cameras from a .blend and emit the unified
+scene-level cameras.json (schema_version 5, STO-SCN-045).
 
 A "comparison" camera is any Camera object whose name is NOT in the cam_NNN
 pattern (those are the MAtCha preset cameras we placed). Typically the user
@@ -10,10 +11,21 @@ with the same name already exists, it's overwritten (so re-running this
 after editing the Camera updates its pose). Anchors are recomputed from
 the source variant's cameras.json on each run.
 
+Schema 5 = the v4 shape (anchor_frames + views, byte-compatible) PLUS:
+  scene          scene name (derived from the output path)
+  source_run     "pipeline-<p>/run-<r>" whose SfM frame pool/anchors/views
+                 live in (derived from the cameras.json path)
+  pool           {filepaths (basenames), focals, cams2world} — verbatim
+                 from the run's mast3r cameras.json (raw SfM frame)
+  selected_idx   indices into pool that fed the pipeline run
+                 (--selected-frames, default: all of pool)
+
 Run via Blender headless:
 
   Blender --background --python sync_comparison_views.py -- \\
-      <source-variant-blend> <source-variant-cameras.json> <output-views.json>
+      <source-run-blend> <source-run-cameras.json> <output-cameras.json> \\
+      [--selected-frames <selected_frames.json>] \\
+      [--legacy <old comparison_views.json>]   # seeds views when output absent
 
 Multiple "Camera*"-style names land as separate views. Rename them in
 Blender's Outliner (e.g., "front_door_view", "kitchen_corner") for
@@ -68,6 +80,18 @@ _FLIP_BLENDER_TO_OPENCV = Matrix((
 argv = sys.argv[sys.argv.index("--") + 1:]
 blend_path, cams_json_path, out_json_path = argv[:3]
 
+# Optional flags after the 3 positionals (STO-SCN-045).
+_flags = {}
+_i = 3
+while _i < len(argv):
+    if argv[_i].startswith("--") and _i + 1 < len(argv):
+        _flags[argv[_i][2:]] = argv[_i + 1]
+        _i += 2
+    else:
+        _i += 1
+selected_frames_path = _flags.get("selected-frames")
+legacy_views_path = _flags.get("legacy")
+
 bpy.ops.wm.open_mainfile(filepath=blend_path)
 
 # Read source-variant's cameras.json — filepaths in cam_NNN order
@@ -114,13 +138,20 @@ for c in comparison_cams:
 # Load existing JSON (if any) so we update-in-place rather than overwrite.
 # We preserve top-level scene-wide fields (like variant_prefix) that
 # aren't owned by this script — they get added by other tooling and must
-# survive a sync.
+# survive a sync. When the output doesn't exist yet, --legacy seeds the
+# views from the old comparison_views.json (v3/v4 migration, STO-SCN-045).
 existing_views = []
 prev = {}
 if os.path.exists(out_json_path):
     with open(out_json_path) as f:
         prev = json.load(f)
     existing_views = prev.get("views", [])
+elif legacy_views_path and os.path.exists(legacy_views_path):
+    with open(legacy_views_path) as f:
+        prev = json.load(f)
+    existing_views = prev.get("views", [])
+    print(f"Seeding {len(existing_views)} view(s) from legacy "
+          f"{legacy_views_path} (schema {prev.get('schema_version')})")
 
 views_by_name = {v["name"]: v for v in existing_views}
 
@@ -183,9 +214,47 @@ for cam in comparison_cams:
 # Sort views by name for stable output
 out_views = [views_by_name[k] for k in sorted(views_by_name.keys())]
 
+# ---- Schema 5 additions (STO-SCN-045): pool + selected_idx + provenance.
+# Pool is the run's cameras.json verbatim, except filepaths are reduced to
+# basenames — absolute container paths (/data/scenes/...) are meaningless
+# outside the run's container and basenames are what every consumer
+# (anchor matching, viewer --frames override) actually keys on.
+pool = {
+    "filepaths": basenames,
+    "focals": cd["focals"],
+    "cams2world": cd["cams2world"],
+}
+
+if selected_frames_path:
+    with open(selected_frames_path) as f:
+        _sel = json.load(f)
+    selected_idx = sorted(_sel["selected_idx"])
+    _bad = [i for i in selected_idx if not (0 <= i < n)]
+    if _bad:
+        raise SystemExit(
+            f"ERROR: --selected-frames indices out of range for pool of "
+            f"{n}: {_bad[:10]} (n_pool={_sel.get('n_pool')})")
+else:
+    selected_idx = list(range(n))
+
+# Derive scene + source_run from the cameras.json path within the scene
+# store: scenes/<scene>/pipeline-<p>/run-<r>/transform-NN-*/data/...
+def _derive_scene_and_run(path):
+    parts = os.path.abspath(path).split(os.sep)
+    for i, p in enumerate(parts):
+        if p.startswith("run-") and i >= 2 and parts[i - 1].startswith("pipeline-"):
+            return parts[i - 2], f"{parts[i-1]}/{p}"
+    return None, None
+
+scene_name, source_run = _derive_scene_and_run(cams_json_path)
+
 payload = {
-    "schema_version": 4,
+    "schema_version": 5,
+    "scene": scene_name,
+    "source_run": source_run,
     "captured_from_blend": blend_path,
+    "pool": pool,
+    "selected_idx": selected_idx,
     "anchor_frames": anchors,
     "views": out_views,
 }
@@ -195,11 +264,19 @@ payload = {
 for k, v in prev.items():
     if k not in payload:
         payload[k] = v
+# variant_prefix default: the scene name (new-store scenes don't need the
+# legacy "<prefix>-curated-" stem distinction).
+if not payload.get("variant_prefix") and scene_name:
+    payload["variant_prefix"] = scene_name
 
-os.makedirs(os.path.dirname(out_json_path), exist_ok=True)
+_out_dir = os.path.dirname(out_json_path)
+if _out_dir:
+    os.makedirs(_out_dir, exist_ok=True)
 with open(out_json_path, "w") as f:
     json.dump(payload, f, indent=2)
 
-print(f"\nWrote {out_json_path}")
+print(f"\nWrote {out_json_path} (schema 5)")
+print(f"  scene: {scene_name}  source_run: {source_run}")
+print(f"  pool: {len(basenames)} cameras, selected: {len(selected_idx)}")
 print(f"  anchors: {len(anchors)} candidates")
 print(f"  views: {[v['name'] for v in out_views]}")

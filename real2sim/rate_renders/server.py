@@ -32,9 +32,14 @@ from urllib.parse import urlparse
 HERE = Path(__file__).resolve().parent
 WORKSPACE = HERE.parent
 sys.path.insert(0, str(WORKSPACE))
-from manifest_lib import read_manifest, list_variants  # type: ignore[import-not-found]  # noqa: E402
+# STO-SCN-045: the server now reads the scene store
+# (scenes/<scene>/pipeline-<p>/run-<r>/) instead of the deleted legacy
+# milestone layout. Variant labels are "<pipeline>--<run>" (prefixes
+# stripped), matching render_comparison_matrix.sh. Legacy manifest_lib
+# is no longer used — per-run metadata comes from the run's run.json.
+import os  # noqa: E402
 
-SCENES_ROOT = WORKSPACE.parent / "data" / "scenes"
+SCENES_ROOT = Path(os.environ.get("KRABBY_SCENES_ROOT", "/var/krabby/scenes"))
 STATIC_DIR = HERE / "static"
 SCENE_PREFIX_DEFAULT = "004-sky-house"  # scene 'family' for variant discovery
 
@@ -192,13 +197,9 @@ class Handler(BaseHTTPRequestHandler):
     # ---- scene + variants ----------------------------------------------
 
     def _list_scenes(self) -> list[str]:
-        """List scene roots — every dir under data/scenes/ that contains a
-        comparison_views.json (and isn't itself a -curated-* variant).
-
-        A scene is identifiable purely by having that file. The variant
-        prefix (used to discover sibling variant directories) is stored
-        inside comparison_views.json under the `variant_prefix` field;
-        we don't infer it from the directory name.
+        """List scene roots — every dir under the scene store that has the
+        unified cameras.json (schema 5, STO-SCN-045) or, as a legacy
+        fallback for unmigrated scenes, _unsorted/comparison_views.json.
         """
         out = []
         if not SCENES_ROOT.is_dir():
@@ -206,47 +207,55 @@ class Handler(BaseHTTPRequestHandler):
         for d in sorted(SCENES_ROOT.iterdir()):
             if not d.is_dir():
                 continue
-            if "-curated-" in d.name:
-                continue   # variants aren't scene roots
-            if (d / "comparison_views.json").exists():
+            if (d / "cameras.json").exists() or \
+                    (d / "_unsorted" / "comparison_views.json").exists():
                 out.append(d.name)
         return out
+
+    @staticmethod
+    def _variant_label(pipeline_dir: Path, run_dir: Path) -> str:
+        """pipeline-matcha / run-12-strong → 'matcha--12-strong'."""
+        p = pipeline_dir.name.removeprefix("pipeline-")
+        r = run_dir.name.removeprefix("run-")
+        return f"{p}--{r}"
 
     def _scene_payload(self, scene: str) -> dict:
         """Return everything the frontend needs to render a scene's UI."""
         scene_dir = SCENES_ROOT / scene
         if not scene_dir.is_dir():
             return {"error": f"scene not found: {scene}"}
-        # 1) views + variant prefix (from comparison_views.json)
-        views_path = scene_dir / "comparison_views.json"
+        # 1) views — unified cameras.json (schema 5), legacy fallback
         views: list = []
-        # Default variant prefix to the scene-root name (works for bicycle,
-        # which uses dtu-bicycle/ → dtu-bicycle-curated-*). Existing scenes
-        # like 004-sky-house-dining override via the explicit field because
-        # their variants share a different stem (004-sky-house-curated-*).
-        variant_prefix = scene
-        if views_path.exists():
-            with open(views_path) as f:
-                cv = json.load(f)
-            views = [v["name"] for v in cv.get("views", [])]
-            variant_prefix = cv.get("variant_prefix", variant_prefix)
-        # 2) variants — siblings whose names start with `<variant_prefix>-curated-`
-        variants = list_variants(str(SCENES_ROOT), variant_prefix)
-        # 3) manifests for each variant. Always pass the FULL directory name to
-        #    read_manifest (variant_prefix + "-curated-" + suffix) — passing the
-        #    bare suffix collides with siblings sharing the same suffix in
-        #    other scenes (e.g., 004-sky-house-curated-12-dense-strong vs
-        #    dtu-bicycle-curated-12-dense-strong).
+        for views_path in (scene_dir / "cameras.json",
+                           scene_dir / "_unsorted" / "comparison_views.json"):
+            if views_path.exists():
+                with open(views_path) as f:
+                    cv = json.load(f)
+                views = [v["name"] for v in cv.get("views", [])]
+                break
+        # 2) variants — every pipeline-*/run-* in this scene; metadata from
+        #    the run's run.json when present.
+        variants = []
         manifests = {}
-        for v in variants:
-            full_name = f"{variant_prefix}-curated-{v}"
-            try:
-                manifests[v] = read_manifest(str(SCENES_ROOT), full_name)
-            except (FileNotFoundError, OSError, ValueError):
-                manifests[v] = {
-                    "variant_name": v,
-                    "notes": "(no manifest captured yet)",
-                }
+        for pdir in sorted(scene_dir.glob("pipeline-*")):
+            if not pdir.is_dir():
+                continue
+            for rdir in sorted(pdir.glob("run-*")):
+                if not rdir.is_dir():
+                    continue
+                v = self._variant_label(pdir, rdir)
+                variants.append(v)
+                run_json = rdir / "run.json"
+                if run_json.exists():
+                    try:
+                        with open(run_json) as f:
+                            manifests[v] = json.load(f)
+                    except (OSError, ValueError):
+                        manifests[v] = {"variant_name": v,
+                                        "notes": "(run.json unreadable)"}
+                else:
+                    manifests[v] = {"variant_name": v,
+                                    "notes": "(no run.json captured yet)"}
         # 4) which (view, variant) PNGs exist
         renders_dir = scene_dir / "comparison_renders"
         rendered = {}
@@ -293,19 +302,25 @@ class Handler(BaseHTTPRequestHandler):
         return SCENES_ROOT / scene / "rankings.jsonl"
 
     def _read_rankings(self, scene: str) -> list[dict]:
-        p = self._rankings_path(scene)
-        if not p.exists():
-            return []
+        # New rows land at the scene root; legacy rows (pre-STO-SCN-045
+        # migration) may sit in _unsorted/. Read both, in legacy→new order.
+        paths = [
+            SCENES_ROOT / scene / "_unsorted" / "rankings.jsonl",
+            self._rankings_path(scene),
+        ]
         out = []
-        with open(p) as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    out.append(json.loads(line))
-                except json.JSONDecodeError:
-                    continue  # skip corrupt lines
+        for p in paths:
+            if not p.exists():
+                continue
+            with open(p) as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        out.append(json.loads(line))
+                    except json.JSONDecodeError:
+                        continue  # skip corrupt lines
         return out
 
     def _handle_post_ranking(self, scene: str):
