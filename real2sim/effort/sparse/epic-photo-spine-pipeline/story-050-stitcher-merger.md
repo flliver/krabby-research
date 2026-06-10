@@ -109,3 +109,27 @@ first-solve-wins handled overlap frames.
   rotation ambiguity on coplanar centers (fixed in gauge_align) and
   trace-angle metrics lying about MASt3R's ~1.16e-3 non-orthonormal
   rotations (fixed by element-wise diffs). The stitch math is exact.
+
+### Production redesign (2026-06-10, first real stitch)
+
+The 005 8-chunk stitch broke the v1 design two ways and forced a
+rewrite (commit 1bee8c8):
+
+1. **Absolute residual gates are a unit error.** Each chunk's gauge
+   has arbitrary scale (observed inter-chunk scale ratios 0.017–2.4);
+   "0.10 m" means nothing. Gate is now `rel_tol × overlap spread`
+   (default 2%).
+2. **Real chunks contain badly-registered frames** (blurry/featureless
+   1024×768 meadow shots) whose poses are simply wrong; full-overlap
+   least squares is poisoned by them (01↔02 full mean residual ≈ 10%
+   of scene span). `gauge_align.consensus_align` iteratively trims the
+   worst frame until survivors pass the gate, with a hard consensus
+   floor (≥6 frames AND ≥25% of overlap) below which the link is
+   declared BROKEN. Trimmed frames are carried in the spine as
+   `low_confidence`, not dropped.
+3. **`--order`** sets explicit chain order + reference gauge — needed
+   because 005's chunk-01 tail is internally bad and the spine must
+   chain from chunk-02, attaching chunk-01 last via a bridge chunk.
+
+Validated: chunks 02–08 stitched at consensus 40–90%, every gate
+passed, 1,778 poses, 146 flagged low-confidence.

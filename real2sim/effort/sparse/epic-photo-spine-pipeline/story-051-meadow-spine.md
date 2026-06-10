@@ -90,8 +90,29 @@ evidence that the merged gauge is trustworthy.
   fleet's fastest rate AND is now a permanent matcha-capable host
   (closes part of the STO-SCN-038 distribution tail).
 - 11:52: 7/8 solved (01,02,03,05,06,07,08). 04 in flight on b.
+- 12:15: 8/8 solved; gathered to store (8×300 poses, all valid).
+- **First stitch attempt failed loudly** (by design): 01↔02 overlap
+  disagreed at mean 4.3 in a span-39 gauge. Diagnosis: chunk-01's
+  TAIL (frames 200–300 — exactly the 01↔02 overlap) carries 17.9-unit
+  trajectory teleports; chunk-02's head is stable. Chunk-01's only
+  shared frames with the spine were its bad ones.
+- Stitcher redesigned (see STO-SCN-050 § Production redesign):
+  consensus alignment + relative gate + chain order. Chunks 02–08
+  stitched clean: 1,778 poses, 6/6 gates passed, 146 low-confidence.
+- **Bridge chunk-09** (pool frames 150–450) minted + solving on s:
+  overlaps chunk-01's healthy mid (100 frames) and chunk-02 (200
+  frames), giving chunk-01's good frames a path into the spine.
+  Final chain order: `2,3,4,5,6,7,8,9,1`.
 
 ### Gotchas
 
 - Chunk solves land root-owned on fleet clones (docker) — gather step
-  must account for ownership when syncing into the store.
+  must account for ownership when syncing into the store; root-owned
+  untracked outputs also make fleet `git pull` abort SILENTLY-ish
+  (s sat on a stale commit; pull printed "Updating" then aborted).
+  Chown via a throwaway container, clear, re-pull.
+- Bridge symlinks must be minted in the SAME portable relative form
+  as the chunker's (`../../../<pool>/<frame>`); deriving relpath from
+  the manifest's resolved pool path on a host with a different mount
+  prefix (/Volumes vs /var) produces Mac-only links that dangle on
+  the fleet.
