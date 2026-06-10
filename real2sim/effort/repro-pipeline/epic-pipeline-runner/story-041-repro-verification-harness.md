@@ -52,3 +52,16 @@ Bit-exactness is not achievable (driver drift 595.58.03→610.43.02; RTX 5080 no
   Also noted: container writes run as root → host user can't clean run dirs
   (sudo needed once); runner should set --user or chown (follow-up, STO-SCN-040).
   Re-run is in flight with all gates green ("12 images found", GPU active).
+- 2026-06-09 (later): **dtu-bicycle baseline #2 COMPLETE — REPRODUCED.** Runner
+  re-execution: success, 800 s, 10,574 MiB (original: 605 s era, driver 595).
+  Metrics: similarity scale 0.9976; pose residuals max 0.174% / mean 0.062% of
+  scene scale; focal Δ0.03%. TSDF extracted (4.86 M verts post; `mediapy`
+  missing from image — pip'd transiently, image fix → STO-SCN-038). Whitepaper-
+  mechanism visual: repro TSDF carried into the cam_ref frame via
+  **inverse-sim(orig→repro) ∘ orientation(R+z_shift from oriented_cameras.json)**
+  and rendered from the untouched `scene_tsdf_ref.blend` camera — visually
+  equivalent to the May render + paper reference (operator Dropbox:
+  `dtu-bicycle-REPRO-cam_ref-render.png` beside `-original-render` + `-PAPER-reference`).
+  Harness lesson encoded: comparison cameras live in the ORIENTED frame; raw-mesh
+  comparisons must compose gauge-sim + orientation (exact recipe above). Also:
+  `comparison_views.json` quats are convention:opencv — naive Blender use double-fails.
