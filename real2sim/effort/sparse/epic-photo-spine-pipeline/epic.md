@@ -35,12 +35,12 @@ large captures.
 
 ## Stories
 
-| # | XID | Story | Size |
-|---|-----|-------|------|
-| 1 | `STO-SCN-048` | gauge_align shared module | S |
-| 2 | `STO-SCN-049` | chunker + per-chunk solve driver | M |
-| 3 | `STO-SCN-050` | stitcher + merger w/ residual gates | M |
-| 4 | `STO-SCN-051` | 005-meadow full spine + curation handoff | M |
+| # | XID | Story | Size | Status |
+|---|-----|-------|------|--------|
+| 1 | `STO-SCN-048` | gauge_align shared module | S | shipped 2026-06-10 |
+| 2 | `STO-SCN-049` | chunker + per-chunk solve driver | M | shipped 2026-06-10 |
+| 3 | `STO-SCN-050` | stitcher + merger w/ residual gates | M | shipped 2026-06-10 |
+| 4 | `STO-SCN-051` | 005-meadow full spine + curation handoff | M | in-progress (7/8 chunks solved) |
 
 ## Design
 
@@ -61,13 +61,16 @@ propagation.
 - chunk size ≤300 (measured solve ceiling), overlap default 50 (~17%
   — thin 20-frame overlap rejected: too few shared poses to survive
   outliers on self-similar terrain)
-- 2,028 photos → 9 chunks → ~4.5 GPU-h serial, ~1.5 h on t/b/d
+- 2,028 photos → **8 chunks** (right-aligned chunk math; early
+  estimate said 9) → ~4.5 GPU-h serial, ~1.5 h farmed across t/b/d/s
 
 ## Success Criteria
 
-- [ ] Synthetic test: split a KNOWN-good solved pool (004's 12 or a
-      kubota set) into overlapping halves, solve separately, stitch —
-      merged poses match the single-solve poses within tolerance.
-- [ ] 005 spine: 9/9 chunks solved, 8/8 stitches under residual gate,
-      2,028 poses in one cameras.json.
+- [x] Synthetic test: split a KNOWN-good solved pool into overlapping
+      halves, solve separately, stitch — merged poses match the
+      single-solve poses to 4.6e-15 m / 6.1e-16 rotation element-diff
+      (exact; 2026-06-10).
+- [ ] 005 spine: 8/8 chunks solved, 7/7 stitches under residual gate,
+      2,028 poses in one cameras.json. _(7/8 solved as of 2026-06-10
+      12:00; chunk-04 in flight on b.)_
 - [ ] Operator curates from the unified spine in camera_viewer (T-020).
