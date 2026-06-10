@@ -39,3 +39,16 @@ Bit-exactness is not achievable (driver drift 595.58.03→610.43.02; RTX 5080 no
   harness. Also surfaced: j-hub LFS transport never worked for new objects
   (ops@baeprz installing git-lfs-transfer; emergency path = rsync into
   .git/lfs/objects + push --no-verify, used once, banned henceforth).
+- 2026-06-09 (dtu reproduction attempt — failure chain root-caused, T-003):
+  first run "succeeded" in 11 s having done nothing. Three real defects found+fixed:
+  (1) **runner trusted tool rc** — MAtCha train.py os.system-chains stages and
+  exits 0 on stage crashes → runner now hard-gates on expected outputs (rc 97);
+  (2) **un-smudged LFS pointers fed the tool** → runner now refuses pointer
+  inputs; j's LFS store was also incomplete for pre-transport history → full
+  50 GB / 4,813-object backfill pushed from the Mac (sole complete holder);
+  (3) **.gitattributes case-sensitivity drift** — macOS git matches `*.jpg`
+  case-insensitively, Linux doesn't → Mac-committed `.JPG` pointers could never
+  smudge on the fleet; uppercase patterns added to the store's .gitattributes.
+  Also noted: container writes run as root → host user can't clean run dirs
+  (sudo needed once); runner should set --user or chown (follow-up, STO-SCN-040).
+  Re-run is in flight with all gates green ("12 images found", GPU active).
