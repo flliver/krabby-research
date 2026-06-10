@@ -39,6 +39,10 @@ real2sim/
 │
 ├── *.py                            # mesh-conditioning + scene-build tooling
 │   ├── build_blender_scene.py      # produces .blend scenes from cameras + meshes
+│   │                               #   grouped collections: cameras_pool / cameras_selected /
+│   │                               #   cameras_virtual / meshes (toggle in Outliner);
+│   │                               #   --selected-frames partitions pool vs selected;
+│   │                               #   --output optional → <run-dir>/scene.blend (STO-SCN-044)
 │   ├── localize_reference_image.py # SfM-extend a reference image into existing recon
 │   ├── sync_comparison_views.py    # comparison_views.json schema-v4 round-trip
 │   ├── colmap_to_cameras_json.py   # COLMAP → cameras.json (Blender consumable)

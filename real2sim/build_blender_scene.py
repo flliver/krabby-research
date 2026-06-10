@@ -6,7 +6,8 @@ Run via Blender headless:
       --cameras-original <path>/cameras.json \
       --cameras-oriented <path>/oriented_cameras.json \
       [--frames-dir <path>/mast3r_sfm/images] \
-      --output <path>/scene.blend
+      [--selected-frames <path>/selected_frames.json] \
+      [--output <path>/scene.blend]
 
 Inputs:
   - mesh: 500K-tri oriented OBJ or PLY (PLY preserves vertex colors → auto-wired
@@ -18,12 +19,27 @@ Inputs:
     showing what that camera actually saw. Visible in any viewport shading
     mode; oriented to match the camera's pose; parented to the camera so
     moving the camera moves the image with it.
+  - selected-frames (optional): camera_viewer's selected_frames.json
+    ({"selected_idx": [...]}, zero-based indices into cameras-original).
+    Cameras in selected_idx land in the `cameras_selected` collection,
+    the rest in `cameras_pool`. Without this flag ALL cameras go to
+    `cameras_selected` (run-level cameras.json is already the curated
+    subset) and `cameras_pool` stays empty.
+  - output (optional): where to write the .blend. When omitted, derived
+    from the input paths: the nearest enclosing `run-*` directory of
+    --cameras-original gets `<run-dir>/scene.blend` (STO-SCN-044). Fails
+    loudly if neither --output nor a run-* ancestor exists.
 
-Output:
-  - scene.blend with the mesh imported and N Blender Camera objects positioned
-    at the transformed camera poses, with focal length from the original
-    cameras.json. Cameras named cam_001..cam_NNN. If frames-dir is provided,
-    image empties named cam_NNN_view are added.
+Output (STO-SCN-044 grouping):
+  - scene.blend organized into named collections, each toggleable in the
+    Outliner:
+      meshes            — imported geometry
+      cameras_pool      — SfM pool cameras NOT fed to the pipeline run
+      cameras_selected  — the curated subset (cam_NNN + cam_NNN_view planes)
+      cameras_virtual   — comparison/reference views (--view-camera-pose)
+    Cameras named cam_001..cam_NNN by pool index; focal length from
+    cameras.json. If frames-dir is provided, textured planes named
+    cam_NNN_view are parented to each camera.
 """
 import bpy  # type: ignore  # only resolves inside Blender
 import json
@@ -69,12 +85,52 @@ def opencv_cam_to_blender(cam2world_4x4):
     return M @ flip
 
 
+def get_or_create_collection(name):
+    """Return the named collection, creating + linking it under the scene
+    collection if absent (STO-SCN-044 camera grouping)."""
+    coll = bpy.data.collections.get(name)
+    if coll is None:
+        coll = bpy.data.collections.new(name)
+        bpy.context.scene.collection.children.link(coll)
+    return coll
+
+
+def link_into(obj, coll):
+    """Link obj into coll exclusively (unlink from any other collection —
+    importers/operators auto-link into the active collection)."""
+    for c in list(obj.users_collection):
+        c.objects.unlink(obj)
+    coll.objects.link(obj)
+
+
+def derive_output_path(cams_orig_path):
+    """Default output: <run-dir>/scene.blend, where run-dir is the nearest
+    `run-*` ancestor of --cameras-original (scene-store layout
+    scenes/<scene>/pipeline-<p>/run-<r>/transform-NN-<t>/data/...).
+    Returns None when no run-* ancestor exists (caller fails loudly)."""
+    d = os.path.dirname(os.path.abspath(cams_orig_path))
+    while d and d != os.path.dirname(d):
+        if os.path.basename(d).startswith("run-"):
+            return os.path.join(d, "scene.blend")
+        d = os.path.dirname(d)
+    return None
+
+
 def main():
     args = parse_args()
     mesh_path = args["mesh"]
     cams_orig_path = args["cameras-original"]
     cams_oriented_path = args["cameras-oriented"]
-    output_path = args["output"]
+    output_path = args.get("output")
+    if not output_path:
+        output_path = derive_output_path(cams_orig_path)
+        if not output_path:
+            raise SystemExit(
+                "ERROR: --output omitted and --cameras-original has no run-* "
+                "ancestor directory to derive <run-dir>/scene.blend from. "
+                "Pass --output explicitly."
+            )
+        print(f"  (output derived from run dir: {output_path})")
 
     print(f"Building Blender scene")
     print(f"  mesh:       {mesh_path}")
@@ -83,6 +139,12 @@ def main():
     print(f"  output:     {output_path}")
 
     clear_scene()
+
+    # STO-SCN-044: named, toggleable collections for camera grouping.
+    coll_meshes = get_or_create_collection("meshes")
+    coll_pool = get_or_create_collection("cameras_pool")
+    coll_selected = get_or_create_collection("cameras_selected")
+    coll_virtual = get_or_create_collection("cameras_virtual")
 
     # Import the mesh.
     # IMPORTANT: our orient_mesh.py output is Z-up (floor at z=0, normal +Z).
@@ -105,6 +167,7 @@ def main():
         if o.type == "MESH":
             o.name = "scene_mesh"
             mesh_obj = o
+            link_into(o, coll_meshes)
             print(f"  imported as: {o.name}, {len(o.data.vertices)} verts, {len(o.data.polygons)} polys")
             break
 
@@ -158,7 +221,28 @@ def main():
     focals = cams_orig["focals"]
     filepaths = cams_orig.get("filepaths", [])  # for view-camera-pose schema_v2 anchors
     n_cams = len(cams_world)
-    print(f"Adding {n_cams} cameras...")
+
+    # STO-SCN-044: optional pool/selected partition from camera_viewer's
+    # selected_frames.json. Without it, every camera is "selected" (the
+    # run-level cameras.json is already the curated subset).
+    selected_frames_path = args.get("selected-frames")
+    if selected_frames_path:
+        with open(selected_frames_path) as f:
+            sel = json.load(f)
+        selected_idx = set(sel["selected_idx"])
+        bad = [i for i in selected_idx if not (0 <= i < n_cams)]
+        if bad:
+            raise SystemExit(
+                f"ERROR: selected_frames.json indices out of range for "
+                f"{n_cams} cameras: {sorted(bad)[:10]} "
+                f"(pool mismatch? n_pool={sel.get('n_pool')})"
+            )
+        print(f"Adding {n_cams} cameras "
+              f"({len(selected_idx)} selected / {n_cams - len(selected_idx)} pool, "
+              f"from {selected_frames_path})...")
+    else:
+        selected_idx = set(range(n_cams))
+        print(f"Adding {n_cams} cameras (all → cameras_selected; no --selected-frames)...")
 
     # Optional: load source frames for image-empty placement
     frames_dir = args.get("frames-dir")
@@ -199,7 +283,8 @@ def main():
 
         cam_obj = bpy.data.objects.new(name=f"cam_{i+1:03d}", object_data=cam_data)
         cam_obj.matrix_world = c2w_blender
-        bpy.context.collection.objects.link(cam_obj)
+        cam_coll = coll_selected if i in selected_idx else coll_pool
+        cam_coll.objects.link(cam_obj)
         # Hide preset cameras from final renders — they're authoring aids only.
         # Toggle off in Blender's Outliner if you want to see frustums in a render.
         cam_obj.hide_render = True
@@ -240,7 +325,7 @@ def main():
             uv.data[3].uv = (0.0, 1.0)  # vertex 3 (-w/2, +h/2) → image top-left
 
             plane = bpy.data.objects.new(name=f"cam_{i+1:03d}_view", object_data=mesh_data)
-            bpy.context.collection.objects.link(plane)
+            cam_coll.objects.link(plane)  # same group as its parent camera
             # Source-frame thumbnails are authoring aids — hide from renders.
             plane.hide_render = True
 
@@ -422,7 +507,7 @@ def main():
                 v_cam_obj.location = (float(tgt_pos[0]), float(tgt_pos[1]), float(tgt_pos[2]))
                 v_cam_obj.rotation_mode = "QUATERNION"
                 v_cam_obj.rotation_quaternion = (tgt_quat.w, tgt_quat.x, tgt_quat.y, tgt_quat.z)
-                bpy.context.collection.objects.link(v_cam_obj)
+                coll_virtual.objects.link(v_cam_obj)
 
                 # Round-trip metadata as custom properties. sync_comparison_views.py
                 # reads these via _read_custom_prop().
@@ -530,7 +615,7 @@ def main():
             view_cam_obj.location = (float(tgt_pos[0]), float(tgt_pos[1]), float(tgt_pos[2]))
             view_cam_obj.rotation_mode = "QUATERNION"
             view_cam_obj.rotation_quaternion = (tgt_quat.w, tgt_quat.x, tgt_quat.y, tgt_quat.z)
-            bpy.context.collection.objects.link(view_cam_obj)
+            coll_virtual.objects.link(view_cam_obj)
             print(f"  view_cam (anchor-aligned) pos=({tgt_pos[0]:.3f}, {tgt_pos[1]:.3f}, {tgt_pos[2]:.3f})  lens={vc_data.lens:.0f}mm")
 
         else:
@@ -547,7 +632,7 @@ def main():
             view_cam_obj.location = (pos[0], pos[1], pos[2])
             view_cam_obj.rotation_mode = "QUATERNION"
             view_cam_obj.rotation_quaternion = (quat[0], quat[1], quat[2], quat[3])
-            bpy.context.collection.objects.link(view_cam_obj)
+            coll_virtual.objects.link(view_cam_obj)
             print(f"  view_cam (schema v1, absolute) pos=({pos[0]:.3f}, {pos[1]:.3f}, {pos[2]:.3f})  lens={vc_data.lens:.0f}mm")
 
     # Set the active scene camera: prefer view_cam, fall back to cam_001
@@ -563,7 +648,7 @@ def main():
     sun_obj = bpy.data.objects.new("Sun", sun_data)
     sun_obj.location = (5, -5, 10)
     sun_obj.rotation_euler = (math.radians(45), 0, math.radians(45))
-    bpy.context.collection.objects.link(sun_obj)
+    coll_meshes.objects.link(sun_obj)
 
     # Set viewport so the user sees something useful when opening the .blend
     bpy.context.scene.frame_start = 1
