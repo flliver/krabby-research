@@ -4,7 +4,7 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: M
-status: in-progress
+status: deferred
 date: 2026-06-10
 depends-on: [STO-SCN-049, STO-SCN-050]
 bd-id: krabby-3ad
@@ -116,3 +116,17 @@ evidence that the merged gauge is trustworthy.
   the manifest's resolved pool path on a host with a different mount
   prefix (/Volumes vs /var) produces Mac-only links that dangle on
   the fleet.
+
+### DEFERRED 2026-06-10 (operator direction)
+
+Final state: 1,878/2,028 poses stitched (chain `2..9` incl. bridge),
+290 low-confidence, frames 1–150 unposed (chunk-01 broken). Pushed to
+the store. Content discovery: the pool is a HOUSE INTERIOR walkthrough
+("Meadow House" — house in a meadow), originally a **Polycam** capture;
+goal is recreating Polycam's reconstruction with our pipeline. The
+pool is THREE capture sessions (A: 1–508, B: 509–961, C: 962–2,028,
+distinct timestamp epochs); pickup plan = per-session spines + a
+content-based (retrieval-matched) cross-session merge.
+
+**Canonical pickup document (full detail):
+`scenes/005-meadow/FINDINGS-photo-spine-2026-06-10.md`**

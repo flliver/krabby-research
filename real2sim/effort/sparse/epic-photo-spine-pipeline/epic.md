@@ -3,7 +3,7 @@ xid: EPI-SCN-PHOTO-SPINE-PIPELINE
 parent: ../design.md
 kind: epic
 effort: scn
-status: in-progress
+status: deferred
 date: 2026-06-10
 hugs: []
 tenets: []
@@ -40,7 +40,13 @@ large captures.
 | 1 | `STO-SCN-048` | gauge_align shared module | S | shipped 2026-06-10 |
 | 2 | `STO-SCN-049` | chunker + per-chunk solve driver | M | shipped 2026-06-10 |
 | 3 | `STO-SCN-050` | stitcher + merger w/ residual gates | M | shipped 2026-06-10 |
-| 4 | `STO-SCN-051` | 005-meadow full spine + curation handoff | M | in-progress (7/8 chunks solved) |
+| 4 | `STO-SCN-051` | 005-meadow full spine + curation handoff | M | **deferred** 2026-06-10 (operator sidelined; pickup doc in scene) |
+
+**EPIC DEFERRED 2026-06-10**: pipeline (048–050) fully shipped and
+production-validated; the 005 application (051) is parked at 1,878/2,028
+poses by operator direction. Pickup point:
+`scenes/005-meadow/FINDINGS-photo-spine-2026-06-10.md` (session split
+A/B/C + per-session-spine + retrieval-matched merge plan).
 
 ## Design
 
