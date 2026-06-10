@@ -115,3 +115,11 @@ volume → instant, 0 extra space) into `/var/krabby/scenes`:
   Remaining in outposts, deliberately left for STO-SCN-037 (`eval/` home):
   `sfm-scaling-out/{n350,n500}`, `sfm-ref-localize/dtu-bicycle`. Outposts scripts are
   md5-identical to repo real2sim/ — no drift, no further unique data identified.
+
+- 2026-06-09 (addendum 2): **Raw tetra meshes migrated** (store `0bb7958`): the five
+  recorded-but-absent `tetra_mesh_binary_search_7.ply` artifacts (run-12, run-12-strong,
+  run-12-dense-strong, run-16-strong, dtu run-12-dense-strong; 2.4 GB) copied from the
+  legacy tbeeprz outposts tree into their canonical `data/tetra_meshes/`, `results.json`
+  paths normalized (`matcha_output/` level dropped) + bytes/sha256 added. Pushed from t —
+  first at-volume use of the fixed LFS transport. The legacy outposts tree now holds
+  nothing unique except `sfm-scaling-out` + `sfm-ref-localize` (parked for STO-SCN-037).
