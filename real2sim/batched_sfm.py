@@ -38,9 +38,8 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import numpy as np  # noqa: E402
-
-from gauge_align import align_camera_sets, apply_to_cams2world  # noqa: E402
+# numpy + gauge_align imported lazily inside cmd_stitch — chunk/solve must
+# run on hosts whose system python has no numpy (the fleet GPU hosts).
 
 IMG_EXT = (".jpg", ".jpeg", ".png")
 
@@ -103,12 +102,16 @@ def cmd_solve(args) -> int:
         print(f"chunk-{args.chunk:02d} already solved — skip (--force to redo)")
         return 0
     (cdir / "out").mkdir(exist_ok=True)
-    # Mount the spine dir; container sees /spine.
-    mounts = ["-v", f"{spine}:/spine"]
+    # Mount the spine's PARENT (the scene input/ dir): chunk frames are
+    # relative symlinks into the sibling pool dir, so the mount must
+    # contain both or the links dangle inside the container (learned the
+    # hard way on the first 005 batch, 2026-06-10).
+    work = spine.parent
+    mounts = ["-v", f"{work}:/work"]
     snapshot = os.path.expanduser(args.snapshot) if args.snapshot else None
     if snapshot and os.path.isdir(snapshot):
         mounts += ["-v", f"{snapshot}:/opt/MAtCha"]
-    rel = f"/spine/chunk-{args.chunk:02d}"
+    rel = f"/work/{spine.name}/chunk-{args.chunk:02d}"
     inner = (
         "source /opt/matcha/bin/activate && "
         "export PYTHONPATH=/opt/MAtCha:/opt/MAtCha/mast3r:/opt/MAtCha/mast3r/dust3r:"
@@ -134,7 +137,13 @@ def cmd_solve(args) -> int:
 
 # ── stitch ───────────────────────────────────────────────────────────────────
 
+def _np():
+    import numpy as np
+    return np
+
+
 def _load_chunk(spine: Path, c: int):
+    np = _np()
     p = spine / f"chunk-{c:02d}" / "out" / "mast3r_sfm" / "cameras.json"
     if not p.is_file():
         sys.exit(f"ERROR: chunk-{c:02d} unsolved ({p} missing) — refuse to "
@@ -146,6 +155,8 @@ def _load_chunk(spine: Path, c: int):
 
 
 def cmd_stitch(args) -> int:
+    np = _np()
+    from gauge_align import align_camera_sets, apply_to_cams2world
     spine = Path(args.spine).resolve()
     manifest = json.loads((spine / "chunks.json").read_text())
     n_chunks = len(manifest["chunks"])
