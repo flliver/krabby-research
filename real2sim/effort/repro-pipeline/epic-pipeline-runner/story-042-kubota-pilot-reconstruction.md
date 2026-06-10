@@ -52,7 +52,23 @@ the STO-SCN-033 migration.
 ## Definition of Done
 
 - [x] Spec authored + committed BEFORE execution (config-driven, HUG-KRB-002)
-- [ ] Runner executes to `status: success` with measured results.json
-- [ ] Outputs pushed to hub; fleet auto-sync propagates (STO-SCN-030 timers)
+- [x] Runner executes to `status: success` with measured results.json
+- [x] Outputs pushed to hub (`e40df74`, 2.2 GB LFS); fleet auto-sync propagation in progress (STO-SCN-030 timers)
 - [ ] Operator inspects mesh (visual) — T-020; verdict recorded here
 - [ ] Decision recorded: MPO normalize preproc needed? more photos needed? → follow-on stories if so
+
+## Results (2026-06-09)
+
+- **status: success** — 882 s, peak 11,994 MiB (vs ~7.6 GB for 004's 1024-px curated
+  frames; the 5712-px MPO photos push VRAM near the 16 GB ceiling — a resolution-
+  normalize preproc would buy headroom).
+- **MPO inputs loaded cleanly**: "8 images found", zero errors/NaN in train.log —
+  the MPO risk did not materialize at the SfM/ingest level.
+- Mesh: `tetra_mesh_binary_search_7.ply` — **16.1 M verts / 32.2 M faces** (677 MB);
+  SfM cloud 1.03 M points, cameras recovered in a coherent arc; cloud structure
+  matches the capture (lawn plane + raised vegetation masses).
+- Scene content: landscaped garden (lawn/shrubs/trees) — vegetation-heavy, the
+  hardest class; 8 photos is sparse (HUG-SCN-004). Pipeline-pilot verdict: the
+  config-driven path works end-to-end on a brand-new scene with zero manual steps.
+- Inspection aids: `/tmp/kubota-sfm-views.png` (3-view colored cloud + cameras);
+  mesh at `data/tetra_meshes/` for MeshLab/Blender A/B vs source photos in `input/src/`.
