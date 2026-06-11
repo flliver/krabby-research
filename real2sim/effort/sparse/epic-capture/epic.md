@@ -3,12 +3,13 @@ xid: EPI-SCN-CAPTURE
 parent: ../design.md
 kind: epic
 effort: scn
-status: in-progress
+status: shipped
 date: 2026-06-03
 hugs: []
 tenets: []
 bd-id: krabby-zgq
 assignee: krabby
+shipped: 2026-06-10
 ---
 
 # Scene Capture & SfM

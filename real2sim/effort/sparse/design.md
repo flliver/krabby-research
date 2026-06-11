@@ -2,7 +2,7 @@
 xid: DES-SCN-SPARSE
 kind: design
 effort: scn
-status: in-progress
+status: open
 date: 2026-06-03
 guidance: ./guidance.md
 hugs: []

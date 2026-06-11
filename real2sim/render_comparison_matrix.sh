@@ -1,10 +1,11 @@
 #!/bin/bash
 # Render the Cartesian product of (variant × view) → one PNG per cell.
-# Output structure:
-#   <render_root>/<view_name>/<variant>.png
-# This makes per-variant comparison easy (open one view dir → all variants
-# from that angle) AND per-view comparison easy (look at one variant across
-# all angles).
+# Output structure (STO-SCN-058 — the render belongs to the RUN that
+# produced it; what the runoff compares is the pipeline configuration):
+#   <scene>/pipeline-<p>/run-<r>/renders/<view>.png   the render
+#   <scene>/pipeline-<p>/run-<r>/renders/<view>.json  settings sidecar
+# Cross-variant comparison (one view, all variants) is an AGGREGATION
+# (rate_renders does it at read time) — not a storage layout.
 #
 # STO-SCN-045: operates on the scene store (scenes/<scene>/), where a
 # "variant" is a pipeline run: pipeline-<p>/run-<r> → variant label
@@ -74,7 +75,6 @@ esac
 
 WORKSPACE=$(dirname "$(realpath "$0")")
 SCENE_DIR=$SCENES_ROOT/$SCENE
-RENDER_ROOT=$SCENE_DIR/comparison_renders
 BLENDER=/Applications/Blender.app/Contents/MacOS/Blender
 
 # --- resolve views file: unified cameras.json (schema 5) only ---
@@ -139,7 +139,7 @@ if [ -z "$VIEWS" ]; then
 fi
 echo "Views:    $VIEWS  (purpose filter: $PURPOSE_FILTER)"
 echo "Render:   ${WIDTH}×${HEIGHT}, engine=$RENDER_ENGINE"
-echo "Output:   $RENDER_ROOT/<view>/<variant>.png"
+echo "Output:   $SCENE_DIR/pipeline-<p>/run-<r>/renders/<view>.png (+ .json sidecar)"
 echo
 
 # --- the matrix ---
@@ -169,9 +169,9 @@ for V in $VARIANTS; do
     BLEND_PATH=$RUNDIR/matrix_render.blend
     for VIEW in $VIEWS; do
         DONE=$((DONE + 1))
-        OUT_DIR=$RENDER_ROOT/$VIEW
+        OUT_DIR=$RUNDIR/renders
         mkdir -p "$OUT_DIR"
-        OUT_PNG=$OUT_DIR/$V.png
+        OUT_PNG=$OUT_DIR/$VIEW.png
         echo "[$DONE/$TOTAL] $V × $VIEW → $OUT_PNG"
         $BLENDER --background --python $WORKSPACE/build_blender_scene.py -- \
             --mesh "$TD/$MESH_RELPATH" \
@@ -185,14 +185,37 @@ for V in $VARIANTS; do
             --render-width "$WIDTH" \
             --render-height "$HEIGHT" \
             --render-engine "$RENDER_ENGINE" 2>&1 | grep -E '^Saved|residuals|rendered|ERROR' | head -3
+        # settings sidecar — the render is an artifact OF this run's
+        # configuration; record exactly what produced it (STO-SCN-058)
+        python3 - "$RUNDIR" "$VIEW" "$VIEWS_JSON" <<SIDECAR
+import json, sys, datetime
+from pathlib import Path
+rundir, view, views_json = Path(sys.argv[1]), sys.argv[2], sys.argv[3]
+views = json.load(open(views_json))
+vcam = next((v for v in views.get("views", []) if v["name"] == view), None)
+params = {}
+for tdir in sorted(rundir.glob("transform-*")):
+    sp = tdir / "specification.json"
+    if sp.is_file():
+        try: params[tdir.name] = json.load(open(sp)).get("parameters", {})
+        except ValueError: params[tdir.name] = {"error": "spec unreadable"}
+side = {
+  "schema_version": "1",
+  "view": view,
+  "view_camera": vcam,
+  "render": {"engine": "$RENDER_ENGINE", "width": $WIDTH, "height": $HEIGHT,
+             "mesh_source": "$MESH_SOURCE", "mesh_relpath": "$MESH_RELPATH",
+             "provenance": "measured",
+             "rendered_at": datetime.datetime.now().astimezone().isoformat(timespec="seconds")},
+  "produced_by": {"pipeline": "${V%%--*}", "run": "${V#*--}",
+                  "transform_parameters": params},
+}
+(rundir / "renders" / f"{view}.json").write_text(json.dumps(side, indent=2) + "\n")
+SIDECAR
     done
     rm -f "$BLEND_PATH"
 done
 
 echo
-echo "Done. Matrix at $RENDER_ROOT/"
-echo
-echo "Per-view directories (variants side-by-side from same angle):"
-for VIEW in $VIEWS; do
-    echo "  $RENDER_ROOT/$VIEW/  ($(ls $RENDER_ROOT/$VIEW 2>/dev/null | wc -l | tr -d ' ') variants)"
-done
+echo "Done. Renders live in each run: pipeline-<p>/run-<r>/renders/<view>.png"
+echo "Cross-variant comparison: rate_renders aggregates at read time (:8090)."

@@ -236,14 +236,19 @@ class Handler(BaseHTTPRequestHandler):
         #    run is rankable iff render_comparison_matrix.sh produced a
         #    PNG for it. Renders therefore DEFINE the variant set; the
         #    full run inventory is not the ranking pool.
-        renders_dir = scene_dir / "comparison_renders"
-        rendered = {}
-        if renders_dir.is_dir():
-            for view_dir in renders_dir.iterdir():
-                if view_dir.is_dir():
-                    rendered[view_dir.name] = sorted(
-                        f.stem for f in view_dir.glob("*.png")
-                    )
+        # STO-SCN-058: renders live IN the run that produced them
+        # (pipeline-<p>/run-<r>/renders/<view>.png + settings sidecar).
+        # The per-view aggregation happens here, at read time.
+        rendered: dict[str, list[str]] = {}
+        for pipeline_dir in sorted(scene_dir.glob("pipeline-*")):
+            for run_dir in sorted(pipeline_dir.glob("run-*")):
+                rdir = run_dir / "renders"
+                if not rdir.is_dir():
+                    continue
+                label = self._variant_label(pipeline_dir, run_dir)
+                for png in rdir.glob("*.png"):
+                    rendered.setdefault(png.stem, []).append(label)
+        rendered = {view: sorted(vs) for view, vs in sorted(rendered.items())}
         variants = sorted({v for vs in rendered.values() for v in vs})
         # 3) manifests — SETTINGS-FIRST. What the runoff compares is the
         #    settings of each transformation (operator, 2026-06-09): each
@@ -312,14 +317,20 @@ class Handler(BaseHTTPRequestHandler):
         }
 
     def _serve_render(self, rel: str):
-        """rel is like '004-sky-house-dining/compare_01/12-strong.png'."""
+        """rel is 'scene/view/variant.png' (URL contract unchanged);
+        resolves into the producing run's renders/ dir (STO-SCN-058)."""
         # Path-shape sanity check + security clamp
         try:
             scene, view, fname = rel.split("/")
         except ValueError:
             return self._bad_request("expected scene/view/variant.png")
+        variant = fname.removesuffix(".png")
+        pipeline, sep, run = variant.partition("--")
+        if not sep:
+            return self._bad_request(f"unrecognized variant label: {variant}")
         target = (
-            SCENES_ROOT / scene / "comparison_renders" / view / fname
+            SCENES_ROOT / scene / f"pipeline-{pipeline}" / f"run-{run}"
+            / "renders" / f"{view}.png"
         ).resolve()
         if not str(target).startswith(str(SCENES_ROOT.resolve())):
             return self._bad_request("Invalid path")

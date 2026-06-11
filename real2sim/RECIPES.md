@@ -15,8 +15,11 @@ scenes/<scene>/
 │   ├── src/                    #   the canonical frame/photo pool
 │   └── preproc-NN-<slug>/      #   spec-driven transforms (spec + results + data/)
 ├── pipeline-<p>/run-<r>/       # reconstruction runs (transforms 01..N)
+│   └── renders/                #   <view>.png + <view>.json settings sidecar
+│                               #   (the render belongs to the RUN that
+│                               #   produced it — STO-SCN-058)
 ├── cameras.json                # scene-level unified views (schema 5)
-└── comparison_renders/         # <view>/<variant>.png for rate_renders
+└── rankings.jsonl              # operator runoff rankings (eval data)
 ```
 
 ## Hard limits (apply to every recipe)
@@ -152,7 +155,8 @@ Per run `scenes/<scene>/pipeline-<p>/run-<r>/`:
 4. **Orient** — `orient_mesh.py` / `apply_existing_orientation.py`
 5. **Scene build** — `build_blender_scene.py` → `scene.blend`
 6. **Views & renders** — `/camera-save` (viewport → `cameras.json`),
-   `render_comparison_matrix.sh` → `comparison_renders/`
+   `render_comparison_matrix.sh` → `run-<r>/renders/<view>.png` (+
+   settings sidecar)
 7. **Rank** — `rate_renders` app (:8090)
 
 Fleet execution: all four GPU hosts (t/b/d/s) pull the matcha image
@@ -247,10 +251,17 @@ capture landed in 001's blend; restored from git).
 ### 11. Comparison renders
 `real2sim/render_comparison_matrix.sh --scene <s> [--views …]
 [--mesh-source tsdf]` — Cartesian (variant × view) →
-`comparison_renders/<view>/<variant>.png`, 1920×1080 WORKBENCH.
-**Story:** STO-SCN-045.
+`pipeline-<p>/run-<r>/renders/<view>.png` + `<view>.json` settings
+sidecar (engine/resolution/mesh source + the run's transform
+parameters). The render is an artifact OF the run's configuration —
+that's the thing being compared; per-view aggregation is read-time
+(rate_renders). 1920×1080 WORKBENCH.
+**Stories:** STO-SCN-045 (matrix), STO-SCN-058 (renders-in-runs +
+backfill of all 43 legacy renders via `migrate_renders_into_runs.py`).
 
 ### 12. Ranking runoff (operator, T-020)
-`real2sim/rate_renders/server.py` (:8090) — operator ranks variants
-per view; output `rankings.jsonl` per scene. **Commit the rankings —
+`real2sim/rate_renders/server.py` (:8090) — aggregates
+`pipeline-*/run-*/renders/*.png` by view at read time (URL contract
+`/api/render/<scene>/<view>/<variant>.png` unchanged); operator ranks
+variants per view; output `rankings.jsonl` per scene. **Commit the rankings —
 they are the data.** **Story:** STO-SCN-057.
