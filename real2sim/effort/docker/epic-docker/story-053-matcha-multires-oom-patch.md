@@ -4,11 +4,14 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: S
-status: in-progress
+status: shipped
 date: 2026-06-10
 depends-on: []
 bd-id: krabby-vic
 assignee: krabby
+shipped: 2026-06-10
+tasks: 4
+complete: 4
 ---
 
 # krabby-matcha 0.2.2: multires-merge OOM patch baked into image
@@ -59,9 +62,10 @@ patch scripts.
 - [x] Deployed image label-checked (`patchset` includes multires_oom)
       and a container-run smoke test confirms the patched code is
       present (`grep` marker + py_compile in the image: SMOKE_OK).
-- [x] Distribution tail noted: s still runs 0.2.1 + /tmp overlay;
-      t/b out of rotation (operator: kids home) — ship there later
-      (extends the STO-SCN-038 tail).
+- [x] Distribution tail: RESOLVED for s via the new fleet registry
+      (`j.pski.org:5000`, baeprz EFF-REGISTRY-001) — s pulled 0.2.2 as
+      delta blobs, /tmp overlay no longer load-bearing. t/b pull when
+      back in rotation (one `docker pull`, config already applied).
 
 ## Status notes
 
@@ -73,3 +77,7 @@ patch scripts.
   patchset label is the per-patch record).
   Remaining: distribution to s (currently safe via /tmp overlay) and
   t/b when back in rotation.
+- 2026-06-10: Registry live (baeprz EFF-REGISTRY-001). All three tags
+  pushed from dbeeprz; s pulled 0.2.2 (delta). Build recipe updated to
+  push-on-build (images/matcha/README.md). 0.2.2 digest:
+  aa5c9ab8a77a0fcb10acb423e4883233a0aae01540dab6f31823eb8fb6cdf418.

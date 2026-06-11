@@ -95,3 +95,18 @@ for the running history of parameter discoveries.
 - 8 patches required to make the port to torch 2.7+cu128 actually
   compile and run. They're applied at build time via the
   `patches/patch_matcha_*.py` scripts (migrated from `docker/`).
+
+## Registry (EFF-REGISTRY-001, baeprz)
+
+Fleet image distribution is via the LAN registry at `j.pski.org:5000`
+(plain HTTP; all GPU hosts + dbeeprz have the insecure-registries
+daemon entry). **Every build ends with a push:**
+
+```bash
+docker build -t krabby-matcha:<tag> .
+docker tag  krabby-matcha:<tag> j.pski.org:5000/krabby-matcha:<tag>
+docker push j.pski.org:5000/krabby-matcha:<tag>     # delta blobs after the first push
+```
+
+Hosts update with `docker pull j.pski.org:5000/krabby-matcha:<tag>`
+(+ local retag). No more 40.5 GB image tars over SSH.
