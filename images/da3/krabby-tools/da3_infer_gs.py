@@ -6,6 +6,7 @@ from depth_anything_3.api import DepthAnything3
 
 src, out = sys.argv[1], sys.argv[2]
 process_res = int(sys.argv[3]) if len(sys.argv) > 3 else 504
+no_gs = len(sys.argv) > 4 and sys.argv[4] == "nogs"  # depths-only (mesh path); gs head OOMs 16GB above 504
 images = sorted(glob.glob(f"{src}/*.jpeg") + glob.glob(f"{src}/*.jpg") + glob.glob(f"{src}/*.png"))
 print(f"{len(images)} images")
 model = DepthAnything3.from_pretrained("/opt/checkpoints/DA3NESTED-GIANT-LARGE-1.1")
@@ -13,9 +14,9 @@ model = model.to("cuda")
 t0 = time.time()
 pred = model.inference(
     images,
-    infer_gs=True,
+    infer_gs=not no_gs,
     export_dir=out,
-    export_format="glb-npz-gs_ply-colmap",
+    export_format="npz-colmap-glb" if no_gs else "glb-npz-gs_ply-colmap",
     process_res=process_res,
 )
 print(f"process_res: {process_res}")
