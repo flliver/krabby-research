@@ -4,7 +4,7 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: L
-status: draft
+status: in-progress
 date: 2026-06-11
 depends-on: [STO-SCN-071]
 bd-id: krabby-yhs
@@ -50,11 +50,33 @@ means manually diffing JSONs across run dirs.
 
 ## Definition of Done
 
-- [ ] A/B/C/D/E/F each visibly distinct in the UI (operator can point
-      at the screen and name which letter they're looking at).
-- [ ] Edit flow: clone matcha 8-strong instance, change one setting,
-      save → new pipeline_instance, store untouched otherwise.
-- [ ] Out-of-range input rejected at the form with the min/max shown.
-- [ ] Settings diff of two real historical instances renders.
-- [ ] T-020: operator exercises the edit + diff flows; story closes
-      only on their verification.
+- [x] A/B/C/D/E/F each visibly distinct in the UI: lettered tags on
+      every card; pipelines tab renders read-only DAGs (operator
+      tasks marked 👤, optional nodes ?); runs tab shows F rows with
+      C task_runs inside; legend in the header.
+- [x] Edit flow: clone-pipeline-as-instance button prefills catalog
+      defaults; non-default values highlighted; save POSTs through
+      validation; store untouched (writes only repo-side
+      `real2sim/instances/`).
+- [x] Out-of-range input rejected: server-side 422 naming the bound
+      ("n_images: 999 is greater than the maximum of 300"; da3
+      conditional "process_res: 756 exceeds 504 when {'mode':'gs'}")
+      + client-side HTML min/max on number fields. Found+fixed: with
+      no jsonschema package the server silently skipped validation —
+      added a stdlib fallback validator (type/range/enum/allOf
+      ceilings) so validation can never silently degrade (T-003).
+- [x] Settings diff renders (Diff tab, differing cells highlighted).
+- [ ] **OPERATOR (T-020/T-026):** exercise the edit + diff flows at
+      **http://localhost:8091/** (server running); story closes only
+      on your verification.
+
+## Implementation Notes
+
+- `real2sim/studio/server.py` — stdlib http.server (rate_renders
+  mold, no build step): GET tasks/pipelines/instances/runs/
+  leaderboard, POST instances (validated). Read-only vs the store.
+- `real2sim/studio/index.html` — vanilla JS single file: Pipelines
+  (D, SVG topo-layout DAG), Tasks (A, settings tables with
+  range/default), Instances (E, form editor w/ defaults + $var
+  support), Runs (C/F + per-scene leaderboard joined from
+  rankings), Diff (E vs E).

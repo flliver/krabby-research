@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Pipeline Studio</title>
+<style>
+  :root { --bg:#14161a; --fg:#d8dce2; --dim:#8a93a0; --card:#1d2127; --acc:#5aa2e8;
+          --ok:#62c073; --warn:#e0b34c; --bad:#e06c5a; --edge:#3a414c; }
+  body { background:var(--bg); color:var(--fg); font:14px/1.45 -apple-system,Menlo,monospace; margin:0; }
+  header { display:flex; gap:0; border-bottom:1px solid var(--edge); position:sticky; top:0; background:var(--bg); z-index:5;}
+  header h1 { font-size:15px; padding:10px 16px; margin:0; color:var(--acc); }
+  nav button { background:none; border:none; color:var(--dim); padding:12px 14px; cursor:pointer; font:inherit; border-bottom:2px solid transparent; }
+  nav button.on { color:var(--fg); border-bottom-color:var(--acc); }
+  main { padding:16px; max-width:1280px; }
+  .card { background:var(--card); border:1px solid var(--edge); border-radius:8px; padding:12px 14px; margin-bottom:12px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(360px,1fr)); gap:12px; }
+  h3 { margin:2px 0 6px; font-size:14px; } .dim { color:var(--dim); } .sm { font-size:12px; }
+  table { border-collapse:collapse; width:100%; } td,th { border-bottom:1px solid var(--edge); padding:4px 8px; text-align:left; font-size:13px;}
+  .tag { display:inline-block; border:1px solid var(--edge); border-radius:10px; padding:0 8px; font-size:11px; color:var(--dim); margin-left:6px;}
+  .tag.op { color:var(--warn); border-color:var(--warn); } .tag.lic { color:var(--bad); border-color:var(--bad);}
+  .tag.A{color:#e8a25a}.tag.B{color:#cfe85a}.tag.C{color:#5ae8b4}.tag.D{color:#5aa2e8}.tag.E{color:#b45ae8}.tag.F{color:#e85a8f}
+  input,select { background:var(--bg); color:var(--fg); border:1px solid var(--edge); border-radius:4px; padding:3px 6px; font:inherit; width:130px;}
+  input:invalid { border-color:var(--bad); }
+  button.act { background:var(--acc); color:#08111c; border:none; border-radius:5px; padding:6px 14px; cursor:pointer; font:inherit; }
+  .diffrow td.ne { background:#3d2f1e; }
+  svg text { fill:var(--fg); font-size:12px; } svg .opn rect { stroke:var(--warn); }
+  .err { color:var(--bad); white-space:pre-wrap; } .okmsg { color:var(--ok); }
+  .statline { font-size:12px; color:var(--dim); margin-top:4px;}
+</style>
+</head>
+<body>
+<header>
+  <h1>Pipeline Studio</h1>
+  <nav id="nav"></nav>
+  <span class="dim sm" style="margin-left:auto;padding:12px">A task · B task_instance · C task_run · D pipeline · E pipeline_instance · F pipeline_run</span>
+</header>
+<main id="main"></main>
+<script>
+const S = { tasks:{}, pipelines:{}, instances:{}, runs:[], tab:'pipelines' };
+const $ = (h)=>{const d=document.createElement('div'); d.innerHTML=h; return d;};
+const esc = (s)=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const TABS = [['pipelines','Pipelines (D)'],['tasks','Tasks (A)'],['instances','Instances (E)'],['runs','Runs (C/F)'],['diff','Diff (E vs E)']];
+
+async function boot(){
+  [S.tasks,S.pipelines,S.instances,S.runs] = await Promise.all(
+    ['tasks','pipelines','instances','runs'].map(e=>fetch('/api/'+e).then(r=>r.json())));
+  const nav = document.getElementById('nav');
+  TABS.forEach(([id,label])=>{
+    const b=document.createElement('button'); b.textContent=label;
+    b.onclick=()=>{S.tab=id; render();}; b.dataset.tab=id; nav.appendChild(b);
+  });
+  render();
+}
+
+function render(){
+  document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on', b.dataset.tab===S.tab));
+  const m=document.getElementById('main'); m.innerHTML='';
+  ({pipelines:rPipelines, tasks:rTasks, instances:rInstances, runs:rRuns, diff:rDiff})[S.tab](m);
+}
+
+/* ---------- D: pipelines as read-only DAGs ---------- */
+function layers(p){ // topo columns
+  const indeg={}, adj={};
+  p.nodes.forEach(n=>{indeg[n.id]=0; adj[n.id]=[];});
+  p.edges.forEach(([a,b])=>{adj[a].push(b); indeg[b]++;});
+  const col={}, q=p.nodes.filter(n=>!indeg[n.id]).map(n=>n.id); q.forEach(id=>col[id]=0);
+  const deg={...indeg};
+  while(q.length){const id=q.shift(); adj[id].forEach(t=>{col[t]=Math.max(col[t]||0,col[id]+1); if(--deg[t]===0)q.push(t);});}
+  return col;
+}
+function dagSVG(p){
+  const col=layers(p), rows={}, pos={};
+  p.nodes.forEach(n=>{const c=col[n.id]; rows[c]=(rows[c]||0); pos[n.id]=[c, rows[c]++];});
+  const W=150,H=56, w=120,h=34;
+  const maxc=Math.max(...Object.values(col)), maxr=Math.max(...p.nodes.map(n=>pos[n.id][1]));
+  let s=`<svg width="${(maxc+1)*W+20}" height="${(maxr+1)*H+20}">`;
+  p.edges.forEach(([a,b])=>{const [c1,r1]=pos[a],[c2,r2]=pos[b];
+    s+=`<line x1="${c1*W+w+10}" y1="${r1*H+h/2+10}" x2="${c2*W+10}" y2="${r2*H+h/2+10}" stroke="var(--edge)" stroke-width="1.5"/>`;});
+  p.nodes.forEach(n=>{const [c,r]=pos[n.id]; const t=S.tasks[n.task]||{}; const op=(t['x-task']||{}).operator;
+    s+=`<g class="${op?'opn':''}"><rect x="${c*W+10}" y="${r*H+10}" width="${w}" height="${h}" rx="6" fill="var(--card)" stroke="var(--edge)"/>`+
+       `<text x="${c*W+w/2+10}" y="${r*H+h/2+14}" text-anchor="middle">${esc(n.id)}${n.optional?' ?':''}${op?' 👤':''}</text></g>`;});
+  return s+'</svg>';
+}
+function rPipelines(m){
+  Object.values(S.pipelines).forEach(p=>{
+    m.appendChild($(`<div class="card"><h3>${esc(p.name)} <span class="tag D">D</span></h3>
+      <div class="dim sm">${esc(p.description)}</div>${dagSVG(p)}
+      <div class="statline">👤 = operator task (T-020) · ? = optional node</div></div>`));
+  });
+}
+
+/* ---------- A: task catalog ---------- */
+function rTasks(m){
+  const g=$('<div class="grid"></div>'); m.appendChild(g);
+  Object.values(S.tasks).forEach(t=>{
+    const x=t['x-task']||{};
+    const rows=Object.entries(t.properties||{}).map(([k,p])=>
+      `<tr><td>${esc(k)}</td><td class="dim">${esc(p.type)}</td>
+       <td>${p.enum?esc(p.enum.join('|')):`${p.minimum??'–'}..${p.maximum??'–'}`}</td>
+       <td>${p.default!==undefined?esc(JSON.stringify(p.default)):'<span class=dim>—</span>'}</td></tr>`).join('');
+    g.appendChild($(`<div class="card"><h3>${esc(t.title)} <span class="tag A">A</span>
+      ${x.operator?'<span class="tag op">operator</span>':''}
+      ${x.license_flag?`<span class="tag lic">${esc(x.license_flag)}</span>`:''}</h3>
+      <div class="dim sm">${esc(t.description)}</div>
+      <div class="sm">image: <span class="dim">${esc(x.image||'host')}</span><br>code: <span class="dim">${esc(x.code_ref||'')}</span></div>
+      ${rows?`<table><tr><th>setting</th><th>type</th><th>range</th><th>default</th></tr>${rows}</table>`:'<div class="dim sm">no tunables</div>'}
+    </div>`));
+  });
+}
+
+/* ---------- E: instance browser + form editor ---------- */
+function rInstances(m){
+  const list=$('<div class="card"><h3>pipeline_instances <span class="tag E">E</span></h3></div>');
+  Object.values(S.instances).forEach(i=>{
+    const b=document.createElement('button'); b.className='act'; b.style.margin='4px';
+    b.textContent=i.name; b.onclick=()=>editInstance(m,i); list.appendChild(b);});
+  const nb=document.createElement('button'); nb.className='act'; nb.style.margin='4px'; nb.style.background='var(--ok)';
+  nb.textContent='+ clone selected pipeline as new instance';
+  const sel=document.createElement('select');
+  Object.keys(S.pipelines).forEach(p=>sel.appendChild(new Option(p,p)));
+  nb.onclick=()=>{const p=S.pipelines[sel.value]; const inst={schema:3,name:'new-instance',pipeline:p.name,
+    description:'', variables:{}, settings:Object.fromEntries(p.nodes.map(n=>[n.id, defaultsOf(n.task)]))};
+    editInstance(m,inst);};
+  list.appendChild(sel); list.appendChild(nb);
+  m.appendChild(list);
+}
+function defaultsOf(task){const t=S.tasks[task]||{}; const o={};
+  Object.entries(t.properties||{}).forEach(([k,p])=>{if(p.default!==undefined)o[k]=p.default;}); return o;}
+function fieldFor(task,k,v,node){
+  const p=((S.tasks[task]||{}).properties||{})[k]||{};
+  const id=`f-${node}-${k}`;
+  if(p.enum) return `<select id="${id}">${p.enum.map(e=>`<option ${e===v?'selected':''}>${esc(e)}</option>`).join('')}</select>`;
+  if(p.type==='integer'||p.type==='number')
+    return `<input id="${id}" type="number" value="${esc(v)}" ${p.minimum!==undefined?`min="${p.minimum}"`:''} ${p.maximum!==undefined?`max="${p.maximum}"`:''} step="${p.type==='integer'?1:'any'}">`;
+  return `<input id="${id}" value="${esc(typeof v==='object'?JSON.stringify(v):v)}">`;
+}
+function editInstance(m,inst){
+  m.innerHTML='';
+  const card=$(`<div class="card"><h3>edit instance <span class="tag E">E</span></h3>
+    <p>name <input id="i-name" value="${esc(inst.name)}"> pipeline <b>${esc(inst.pipeline)}</b><br>
+    description <input id="i-desc" style="width:60%" value="${esc(inst.description||'')}"><br>
+    variables (JSON) <input id="i-vars" style="width:60%" value="${esc(JSON.stringify(inst.variables||{}))}"></p>
+    <div id="i-nodes"></div>
+    <button class="act" id="i-save">save instance</button> <span id="i-msg"></span></div>`);
+  m.appendChild(card);
+  const pipe=S.pipelines[inst.pipeline];
+  const nodesDiv=card.querySelector('#i-nodes');
+  pipe.nodes.forEach(n=>{
+    const settings=inst.settings[n.id]||{};
+    const tdef=S.tasks[n.task]||{};
+    const rows=Object.entries({...defaultsOf(n.task),...settings}).map(([k,v])=>{
+      const p=(tdef.properties||{})[k]||{};
+      const dflt=p.default!==undefined&&JSON.stringify(p.default)===JSON.stringify(v);
+      return `<tr ${dflt?'':'style="color:var(--warn)"'}><td>${esc(k)}</td><td>${fieldFor(n.task,k,v,n.id)}</td>
+        <td class="dim sm">${p.minimum??''}${p.minimum!==undefined||p.maximum!==undefined?'..':''}${p.maximum??''} ${dflt?'':'≠default'}</td></tr>`;}).join('');
+    nodesDiv.appendChild($(`<div class="card"><b>${esc(n.id)}</b> <span class="dim sm">${esc(n.task)}</span>
+      ${rows?`<table>${rows}</table>`:'<span class="dim sm">no tunables</span>'}</div>`));
+  });
+  card.querySelector('#i-save').onclick=async()=>{
+    const out={schema:3,name:card.querySelector('#i-name').value,pipeline:inst.pipeline,
+      description:card.querySelector('#i-desc').value,
+      variables:JSON.parse(card.querySelector('#i-vars').value||'{}'), settings:{}};
+    pipe.nodes.forEach(n=>{
+      const tdef=S.tasks[n.task]||{}; out.settings[n.id]={};
+      Object.keys({...defaultsOf(n.task),...(inst.settings[n.id]||{})}).forEach(k=>{
+        const el=card.querySelector(`[id="f-${n.id}-${k}"]`); if(!el)return;
+        const p=(tdef.properties||{})[k]||{};
+        let v=el.value;
+        if(!String(v).startsWith('$')){
+          if(p.type==='integer')v=parseInt(v); else if(p.type==='number')v=parseFloat(v);
+          else if(p.type==='array'||typeof p.default==='object'){try{v=JSON.parse(v);}catch(e){}}
+        }
+        out.settings[n.id][k]=v;});
+    });
+    const r=await fetch('/api/instances',{method:'POST',body:JSON.stringify(out)});
+    const j=await r.json();
+    const msg=card.querySelector('#i-msg');
+    if(j.ok){msg.className='okmsg';msg.textContent='saved '+j.path; S.instances[out.name]=out;}
+    else {msg.className='err';msg.textContent=j.errors.join('\n');}
+  };
+}
+
+/* ---------- C/F: runs ---------- */
+function rRuns(m){
+  const scenes=[...new Set(S.runs.map(r=>r.scene))];
+  const sel=$(`<div class="card">scene <select id="r-scene"><option>all</option>${scenes.map(s=>`<option>${s}</option>`).join('')}</select>
+    <span class="dim sm"> F = run dir · C = task_runs within · v3 = has run_record</span><div id="r-lb"></div></div>`);
+  m.appendChild(sel);
+  const tbl=$('<div class="card"></div>'); m.appendChild(tbl);
+  const draw=async()=>{
+    const sc=sel.querySelector('#r-scene').value;
+    const rows=S.runs.filter(r=>sc==='all'||r.scene===sc).map(r=>{
+      const c=r.task_runs.map(t=>`${esc(t.task)} <span class="dim">[${esc(t.status)} ${t.duration_s!=='unknown'?t.duration_s+'s':''} ${esc(t.host)}]</span>`).join('<br>');
+      return `<tr><td>${esc(r.scene)}</td><td><b>${esc(r.variant)}</b> <span class="tag F">F</span>${r.record?'<span class="tag">v3</span>':''}</td>
+        <td>${esc(r.kind)}${r.source_run?`<div class="dim sm">← ${esc(r.source_run)}</div>`:''}</td>
+        <td>${c||'<span class=dim>—</span>'}</td><td>${r.renders.map(esc).join('<br>')||'<span class=dim>—</span>'}</td></tr>`;}).join('');
+    tbl.innerHTML=`<table><tr><th>scene</th><th>pipeline_run</th><th>kind</th><th>task_runs (C)</th><th>renders</th></tr>${rows}</table>`;
+    const lb=sel.querySelector('#r-lb');
+    if(sc!=='all'){const j=await fetch('/api/leaderboard/'+sc).then(r=>r.json());
+      lb.innerHTML='<h3>leaderboard (operator rankings, lower = better)</h3>'+
+        Object.entries(j.aggregate_mean_rank).map(([v,r],i)=>`<div>${i===0?'🏆':''} ${r.toFixed(2)} — ${esc(v)}</div>`).join('');
+    } else lb.innerHTML='';
+  };
+  sel.querySelector('#r-scene').onchange=draw; draw();
+}
+
+/* ---------- diff E vs E ---------- */
+function rDiff(m){
+  const names=Object.keys(S.instances);
+  const c=$(`<div class="card"><h3>settings diff <span class="tag E">E</span> vs <span class="tag E">E</span></h3>
+    <select id="d-a">${names.map(n=>`<option>${n}</option>`).join('')}</select> vs
+    <select id="d-b">${names.map(n=>`<option>${n}</option>`).join('')}</select><div id="d-out"></div></div>`);
+  m.appendChild(c);
+  const draw=()=>{
+    const a=S.instances[c.querySelector('#d-a').value], b=S.instances[c.querySelector('#d-b').value];
+    if(!a||!b)return;
+    const nodes=[...new Set([...Object.keys(a.settings||{}),...Object.keys(b.settings||{})])];
+    let html='<table><tr><th>node.setting</th><th>'+esc(a.name)+'</th><th>'+esc(b.name)+'</th></tr>';
+    nodes.forEach(n=>{
+      const ks=[...new Set([...Object.keys(a.settings[n]||{}),...Object.keys(b.settings[n]||{})])];
+      ks.forEach(k=>{
+        const va=JSON.stringify((a.settings[n]||{})[k]), vb=JSON.stringify((b.settings[n]||{})[k]);
+        html+=`<tr class="diffrow"><td>${esc(n)}.${esc(k)}</td><td class="${va!==vb?'ne':''}">${esc(va??'—')}</td><td class="${va!==vb?'ne':''}">${esc(vb??'—')}</td></tr>`;});
+    });
+    c.querySelector('#d-out').innerHTML=html+'</table>';
+  };
+  c.querySelector('#d-a').onchange=draw; c.querySelector('#d-b').onchange=draw; draw();
+}
+
+boot();
+</script>
+</body>
+</html>

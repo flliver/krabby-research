@@ -61,6 +61,8 @@ class TaskRun:                      # C
     image: str
     image_digest: str
     duration_s: object
+    started: object
+    finished: object
     outputs: int
 
 
@@ -110,6 +112,8 @@ def _task_run(tdir: Path) -> TaskRun:
                        if isinstance(spec.get("parameters"), dict) else UNKNOWN),
         image_digest=cont.get("digest", UNKNOWN),
         duration_s=res.get("duration_s", UNKNOWN),
+        started=res.get("started", UNKNOWN),
+        finished=res.get("finished", UNKNOWN),
         outputs=len(res.get("outputs", [])),
     )
 
