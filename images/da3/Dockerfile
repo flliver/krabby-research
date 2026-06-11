@@ -40,8 +40,11 @@ RUN pip install --no-cache-dir --upgrade pip wheel setuptools ninja
 RUN pip install --no-cache-dir \
         torch==2.7.0 torchvision==0.22.0 \
         --index-url https://download.pytorch.org/whl/cu128
-# xformers AFTER torch; keep the resolved torch (fail loudly on conflict)
-RUN pip install --no-cache-dir xformers && \
+# xformers AFTER torch — pinned to the torch-2.7.0 build from the SAME
+# cu128 index (unpinned xformers pulls a newer torch; the assert below
+# caught exactly that on the first build attempt, 2026-06-10)
+RUN pip install --no-cache-dir xformers==0.0.30 \
+        --index-url https://download.pytorch.org/whl/cu128 && \
     python -c "import torch; assert torch.__version__.startswith('2.7'), torch.__version__"
 
 # DA3, pinned
