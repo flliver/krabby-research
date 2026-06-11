@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Optional
 
 from firmware.krabby_mcu import parse_ver_reply
+from firmware.mcu_port import MEGA_USB_IDS
 from firmware.manifest import (
     BranchBuild,
     FirmwareIndex,
@@ -24,11 +25,6 @@ from firmware.manifest import (
 
 BUCKET_BASE = "https://krabby-firmware-public.s3.amazonaws.com"
 CACHE_DIR = Path.home() / ".cache" / "krabby-firmware"
-
-_MEGA_USB_IDS = {
-    ("2341", "0042"), ("2341", "0010"), ("2341", "0110"),  # Arduino Mega native USB
-    ("1a86", "7523"), ("1a86", "5523"),                    # CH340 / CH341 (Krabby-Uno shield)
-}
 
 
 # --- port detection ---
@@ -43,7 +39,7 @@ def _all_mega_ports() -> list[str]:
     for p in list_ports.comports():
         vid = f"{p.vid:04x}" if p.vid else ""
         pid = f"{p.pid:04x}" if p.pid else ""
-        if (vid, pid) in _MEGA_USB_IDS:
+        if (vid, pid) in MEGA_USB_IDS:
             results.append(p.device)
             continue
         desc = (p.description or "").lower()

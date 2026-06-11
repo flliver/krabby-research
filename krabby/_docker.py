@@ -65,12 +65,15 @@ def firmware_cmd(image_ref: str, firmware_args: list[str], interactive: bool = F
     # the wrapper as they do for host-side `krabby-firmware`.
     tty_flags = ["-it"] if interactive else []
     cache_mount = f"{_home()}/.cache/krabby-firmware:/root/.cache/krabby-firmware"
+    # Bare `-e KRABBY_MCU_PORT` forwards the host value only when it is set,
+    # so an explicit port override reaches port auto-detection in the container.
     return [
         "docker", "run", "--rm",
         *tty_flags,
         *serial_device_flags(),
         "-v", cache_mount,
         "-e", "LD_PRELOAD=",
+        "-e", "KRABBY_MCU_PORT",
         "--entrypoint", "krabby-firmware",
         image_ref,
         *firmware_args,

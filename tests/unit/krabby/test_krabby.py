@@ -426,6 +426,12 @@ class TestFirmwareCmd:
         monkeypatch.setattr("krabby._docker.glob.glob", lambda _: [])
         assert "-it" not in firmware_cmd("myimage:tag", ["show"])
 
+    def test_mcu_port_env_forwarded(self, monkeypatch):
+        monkeypatch.setattr("krabby._docker.glob.glob", lambda _: [])
+        cmd = firmware_cmd("myimage:tag", ["show"])
+        idx = cmd.index("KRABBY_MCU_PORT")
+        assert cmd[idx - 1] == "-e"
+
     def test_interactive_allocates_tty(self, monkeypatch):
         monkeypatch.setattr("krabby._docker.glob.glob", lambda _: [])
         assert "-it" in firmware_cmd("myimage:tag", [], interactive=True)
