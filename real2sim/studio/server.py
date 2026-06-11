@@ -23,14 +23,26 @@ import json
 import re
 import sys
 from dataclasses import asdict
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parent
 sys.path.insert(0, str(REPO))
+sys.path.insert(0, str(REPO / "rate_renders"))
 import studio_model as sm  # noqa: E402
+# Ranking absorbed (STO-SCN-074, T-023): ONE ranking implementation —
+# Studio's handler subclasses the rate_renders handler, inheriting the
+# render-resolve, rankings append, and Borda aggregate routes verbatim.
+# rate_renders remains runnable standalone until the operator confirms
+# Studio covers the flow (T-020).
+import importlib.util as _ilu  # noqa: E402
+
+_spec = _ilu.spec_from_file_location("rate_renders_server",
+                                     REPO / "rate_renders" / "server.py")
+rr = _ilu.module_from_spec(_spec)
+_spec.loader.exec_module(rr)
 
 try:
     import jsonschema
@@ -112,7 +124,7 @@ def validate_instance(inst: dict) -> list[str]:
     return errs
 
 
-class Handler(BaseHTTPRequestHandler):
+class Handler(rr.Handler):
     def _send(self, code: int, body: bytes, ctype="application/json"):
         self.send_response(code)
         self.send_header("Content-Type", ctype)
@@ -140,10 +152,17 @@ class Handler(BaseHTTPRequestHandler):
             self._json([asdict(r) for d in dirs for r in sm.pipeline_runs(d)])
         elif len(parts) == 3 and parts[:2] == ["api", "leaderboard"]:
             self._json(sm.leaderboard(sm.STORE / parts[2]))
+        elif url.path == "/rank":
+            # the absorbed rate_renders app, embedded under Studio
+            self._send(200, (REPO / "rate_renders" / "static" / "index.html").read_bytes(),
+                       "text/html")
         else:
-            self._json({"error": "not found"}, 404)
+            # rankings / renders / scenes / aggregate / static — inherited
+            return super().do_GET()
 
     def do_POST(self):  # noqa: N802
+        if self.path.startswith("/api/rankings/"):
+            return super().do_POST()        # append-only rankings.jsonl, inherited
         if self.path != "/api/instances":
             return self._json({"error": "not found"}, 404)
         body = self.rfile.read(int(self.headers.get("Content-Length", 0)))

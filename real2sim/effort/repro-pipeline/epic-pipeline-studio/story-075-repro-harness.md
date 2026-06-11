@@ -4,7 +4,7 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: M
-status: draft
+status: in-progress
 date: 2026-06-11
 depends-on: [STO-SCN-073]
 bd-id: krabby-bd0
@@ -55,12 +55,30 @@ needs defined, per-output tolerances.
 
 ## Definition of Done
 
-- [ ] Same-host re-run variance measured first; tolerances derived
-      from data, recorded in the catalog.
-- [ ] One historical winner (e.g. matcha 8-strong-tetra branch on
-      006) reproduced from its record on a different host, within
-      tolerance.
-- [ ] A deliberately broken record (missing input hash / wrong image
-      digest) fails loudly with the reason named.
+- [ ] **OPERATOR-GATED (host choice):** same-host re-run variance
+      measured first; tolerances derived from data, recorded in
+      TOLERANCES (currently all None → compare ABSTAINS rather than
+      inventing pass/fail, T-017/T-002).
+- [ ] **OPERATOR-GATED (host choice):** one record reproduced on a
+      different host within tolerance. NOTE: historical runs are
+      backfilled (provenance unknown) → by definition fail the
+      record gate; the FIRST reproducible-by-record run will be a
+      studio-triggered one (STO-SCN-073's validation run is the
+      candidate).
+- [x] A deliberately broken record fails loudly with reasons named:
+      backfilled record → "FAIL: backfilled record…", "FAIL: image
+      digest not pinned", "FAIL: input hashes missing" (rc=1);
+      synthetic complete record passes (rc=0).
 - [ ] M11 deliverable recipe references the harness verdict as its
-      evidence of reproducibility.
+      evidence of reproducibility (after first PASS).
+
+## Implementation Notes
+
+- `real2sim/repro_check.py` — `check` (static record gate: digests
+  pinned, settings snapshotted, inputs hashed, license flags =
+  deliverable eligibility), `compare` (per-output deltas; mesh stats
+  from PLY headers — no heavy deps; ABSTAIN on unmeasured
+  tolerances), settings-differ detection ("not a reproduction pair,
+  it's an A/B comparison").
+- Backfilled records rank but can never gate M11 — enforced at the
+  `check` level, matching STORE-SCHEMA-V3.md.

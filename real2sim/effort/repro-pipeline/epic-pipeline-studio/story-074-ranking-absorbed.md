@@ -4,7 +4,7 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: M
-status: draft
+status: in-progress
 date: 2026-06-11
 depends-on: [STO-SCN-072, STO-SCN-073]
 bd-id: krabby-3v9
@@ -53,9 +53,25 @@ effort exists to make.
 
 ## Definition of Done
 
-- [ ] Historical rankings (006/007/008 runoffs) appear as scores on
-      their runs/instances.
-- [ ] New flow end-to-end once: triggered run → renders → operator
-      ranks in Studio → leaderboard updates.
-- [ ] rate_renders retired ONLY after the operator confirms Studio
-      covers the flow (until then both run; T-020).
+- [x] Historical rankings (006/007/008 runoffs) appear as scores on
+      their runs/instances — read-time join on `variant` surfaces the
+      leaderboard in the Runs tab (006 reproduces the operator
+      verdict: tetra #1).
+- [ ] **OPERATOR-GATED:** new flow end-to-end once: triggered run
+      (STO-SCN-073, waiting on operator host choice) → renders →
+      operator ranks in Studio → leaderboard updates.
+- [ ] **OPERATOR-GATED:** rate_renders retired ONLY after the
+      operator confirms Studio covers the flow (until then both run;
+      T-020).
+
+## Implementation Notes
+
+- Absorption is by **subclassing, not copying** (T-023): Studio's
+  handler extends rate_renders' Handler, inheriting render-resolve,
+  rankings append-only POST (validation intact), Borda aggregate,
+  and the rank app's statics. ONE ranking implementation serves both
+  :8090 (standalone) and :8091/rank (embedded Rank tab, iframe).
+- URL contract `/api/render/<scene>/<view>/<variant>.png` unchanged;
+  rankings.jsonl append contract unchanged — new rankings submitted
+  in Studio land in the same per-scene file and flow to the
+  leaderboard join automatically.

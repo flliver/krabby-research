@@ -4,7 +4,7 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: M
-status: draft
+status: in-progress
 date: 2026-06-11
 depends-on: [STO-SCN-070, STO-SCN-071, STO-SCN-076]
 bd-id: krabby-24v
