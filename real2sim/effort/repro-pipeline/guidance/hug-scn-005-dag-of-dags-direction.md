@@ -97,6 +97,11 @@ pipeline-3: orient-cameras
   * scene: str
 - IDENTITY: `scenes/<scene>/images/subsets/primary/cameras`
 - SETTINGS: (?? ... how have we been orienting cameras)
+  > ANSWERED (locked #2, see Direction): today we orient the MESH
+  > (RANSAC floor-fit, STO-SCN-004) per-run and back-apply to
+  > cameras. This spec inverts that: orient primary's cameras ONCE;
+  > everything downstream is born oriented. Split into two stages:
+  > `solve-cameras` then `orient-cameras` (defined in Direction).
 - OUTPUTs:
   * `scenes/<scene>/images/subsets/primary/cameras/oriented.json` - contains the oriented cameras
 
@@ -134,15 +139,78 @@ pipeline-3: orient-cameras
 
 ## Context
 
-_(Why does this guidance exist? What story/epic/discussion surfaced
-it? Provide just enough so a reader in a year understands the
-"why".)_
+Authored 2026-06-11 during the EPI-SCN-PIPELINE-STUDIO review.
+After the Studio MVP shipped its first reproducible-by-record run,
+the operator re-thought the pipeline model: a **DAG of DAGs** with
+**content-addressed identities** (`IDENTITY_HASH = hash(resolved
+inputs + settings)`), replacing run-name paths. The Quote above is
+the operator's working breakdown; Direction below records the
+decisions as they lock, one issue at a time.
 
 ## Direction
 
-_(The actual guidance — what AI agents should do (or stop doing).
-Concrete, actionable. Use MUST / SHOULD / COULD modifiers if the
-priority matters.)_
+### Locked #1 — `primary` semantics + the ref-resolution rule (2026-06-11)
+
+`primary` is the scene's **canonical posed pool**, not a casual
+pointer:
+
+```
+raw capture (e.g. 5000 frames)
+   ↓ sample (representative)
+PRIMARY subset (could be hundreds)   ← solved ONCE: 100% of cameras
+   ↓ curate (per experiment)            placed in 3D, gauge fixed
+reconstruction subsets ⊆ primary     (small scenes: all == primary == subset)
+```
+
+- All non-primary raw images are effectively **discarded**.
+- **Solve once, inherit everywhere:** a reconstruction subset never
+  solves its own cameras — its cameras are a row-selection of
+  primary's solved set. Every experiment on a scene therefore lives
+  in ONE shared gauge; meshes/views/renders are directly comparable
+  without re-alignment.
+- A subset's cameras-input identity is fully deduced:
+  `hash(primary_solve_identity + subset_hash)`.
+- **Ref-resolution rule (the git model):** refs (`primary`, labels)
+  are for humans at invocation time. A stage MUST resolve every ref
+  to a concrete hash before running, record the resolved hash in
+  DEDUCED_INPUTS, and only resolved hashes enter IDENTITY_HASH.
+  Re-establishing primary (rare: better sampling, new footage) then
+  never changes what past runs meant — only what future runs
+  resolve to.
+
+### Locked #2 — cameras take two stages: `solve-cameras` → `orient-cameras` (2026-06-11)
+
+Nothing in the original draft *produced* cameras; and orientation is
+**inverted** vs today: current practice orients the mesh (RANSAC
+floor-fit on dense geometry, STO-SCN-004) per-run and back-applies;
+this spec orients **primary's cameras once** — all downstream
+artifacts are born oriented.
+
+**STAGE `solve-cameras`** — place 100% of a subset's cameras in 3D
+- INPUTS: scene, subset hash (normally primary's)
+- DEDUCED: images via subset.json
+- SETTINGS: tunable: none yet · frozen: solver `mast3r-sfm`,
+  `sfm_config: unposed` · (>300 frames: chunk_size/overlap — the
+  photo-spine folds in as this stage's big-pool strategy)
+- IDENTITY: `subsets/<hash>/cameras/<identity_hash>`
+- OUTPUTS: `cameras.json` (poses+intrinsics, arbitrary gauge) +
+  `points.ply` (sparse cloud)
+
+**STAGE `orient-cameras`** — fix the gauge (gravity/floor, z-up)
+- INPUTS: solve identity
+- SETTINGS: tunable: `method` · frozen: RANSAC params
+- OUTPUTS: the transform (rotation, z_shift) + `oriented.json`
+
+Two stages, not one: orientation is re-runnable without re-solving
+(10-min solve vs 2-s gauge fix), and `method` is its own experiment
+axis — separate identities keep a re-orient from re-keying the solve.
+
+**Open (T-002):** the validated floor-fit runs on a dense mesh,
+which doesn't exist at this point in the new order. Candidate
+methods — (a) RANSAC on sparse `points.ply` (plausible,
+unvalidated), (b) one-time bootstrap from the first reconstruction's
+mesh-fit, (c) operator-assisted floor pick. The contract is locked;
+the method is the first implementation story's verification job.
 
 ## Applied in
 
