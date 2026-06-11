@@ -10,7 +10,7 @@ krabby-hal-server-jetson==0.1.5
 krabby-hal-tools==0.1.0
 krabby-compute-parkour==0.1.1
 krabby-controller==0.1.2
-krabby-firmware==0.2.14
+krabby-firmware==0.2.15
 
 # --- Runtime dependencies ---
 pyzmq>=25.0.0
