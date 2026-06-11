@@ -4,7 +4,7 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: M
-status: open
+status: deferred
 date: 2026-06-04
 depends-on: []
 bd-id: krabby-xj2
@@ -87,3 +87,7 @@ _(Actual implementation. May differ from § Design above.)_
 ### Gotchas
 
 _(Anything surprising or worth noting for future readers.)_
+
+## Status notes
+
+- 2026-06-10: DEFERRED. S3 offload may return as the long-term home for v2 'transient_data.location' targets; revisit after STO-SCN-062/063 stabilize.

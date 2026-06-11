@@ -4,7 +4,7 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: M
-status: open
+status: deferred
 date: 2026-06-04
 depends-on: []
 bd-id: krabby-v1j
@@ -87,3 +87,7 @@ _(Actual implementation. May differ from § Design above.)_
 ### Gotchas
 
 _(Anything surprising or worth noting for future readers.)_
+
+## Status notes
+
+- 2026-06-10: DEFERRED. Sharing tiers (research/collab/public) are orthogonal to store-shape v2 and nothing currently needs them.

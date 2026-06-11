@@ -4,7 +4,7 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: M
-status: in-progress
+status: shipped
 date: 2026-06-04
 depends-on: []
 bd-id: krabby-2hq
@@ -122,3 +122,13 @@ store    = "~/krabby/scenes"   # clone location (Mac: /var/krabby/scenes)
   outputs) to b/s/d in one fast-forward each (`OK ff 37bca02..e40df74`); t self-resolved
   DIRTY→OK after its producer commit landed. Operator verified the DIRTY surface earlier
   the same day. T-020 evidence complete — close decision remains with the operator.
+
+## Status notes
+
+- 2026-06-10: SHIPPED AND RETIRED the same day. The auto-sync ran in
+  production (t/d/s, lfs=full, 30-min cadence) and is exactly what
+  filled the fleet with full 500G mirrors. Store-shape v2 (operator
+  directive: "not store everything everywhere") reverses the
+  full-mirror premise. Disabled via its own config gate on t/d/s
+  (b pending, host down). The gate design proved its worth — clean
+  fleet-wide shutdown in one minute. Successor model: STO-SCN-062/063.

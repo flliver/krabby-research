@@ -86,3 +86,9 @@ _(Actual implementation. May differ from § Design above.)_
 ### Gotchas
 
 _(Anything surprising or worth noting for future readers.)_
+
+## Status notes
+
+- 2026-06-10: Partially superseded: comparison renders now live IN
+  their producing runs (STO-SCN-058) and rankings.jsonl is committed
+  at scene root. Remaining scope: _unsorted/_migrated re-sort only.

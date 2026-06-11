@@ -276,3 +276,28 @@ it); multi-format export is dash-joined (`glb-npz-gs_ply-colmap`).
 Not yet runoff-comparable: DA3-frame → oriented-frame alignment is
 the open piece. **Stories:** STO-SCN-059 (research), STO-SCN-060
 (pilot); epic EPI-SCN-FEEDFORWARD-RECON.
+
+---
+
+## Storage policy (store-shape v2 — STO-SCN-062/063, 2026-06-10)
+
+**The store tracks lineage and deliverables, not intermediates.**
+
+| Class | Tracked in git/LFS? | Lives where |
+|-------|--------------------|-------------|
+| INPUTS (video, `input/src/` frames/photos) | YES | hub (j, bare) |
+| Metadata (every `*.json`: specs, results, cameras, sidecars, rankings) | YES | hub |
+| FINAL outputs (`multires_tsdf_post_oriented.ply`, `gs_ply/`, `renders/`) | YES | hub |
+| Transformation/preprocessor `data/` payloads | NO | Mac archive `/var/krabby/scenes` (location stanza in each `results.json`) |
+| Derived blends (`scene.blend`, …) | NO | Mac archive; regenerate via these recipes |
+| Fleet job scratch | NO | producing host, deleted after gather |
+
+Rules of thumb:
+- The `.gitignore` at the store root IS the policy — if your new
+  artifact class is heavy and regenerable, add it there with the
+  pattern + a negation for its metadata.
+- Every untracked payload must be reachable: `results.json` →
+  `transient_data.location`, or regenerable from a recipe above.
+- Fleet hosts never retain transients (auto-sync retired,
+  STO-SCN-030); jobs `git lfs pull --include=<paths>` what they need
+  and clean up after gather.

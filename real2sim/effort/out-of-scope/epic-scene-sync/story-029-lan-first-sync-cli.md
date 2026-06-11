@@ -4,7 +4,7 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: L
-status: open
+status: abandoned
 date: 2026-06-04
 depends-on: []
 bd-id: krabby-1pa
@@ -116,3 +116,11 @@ _(Anything surprising or worth noting for future readers.)_
   deny-all permission profile escalated to ccc-liaison (root cause of the manual
   fallback). Cosmetic leftover for the operator: redundant `origin/git-lfs-transfer`
   branch on github.com/jeremyprz/beeprz (remote-delete guard-blocked; one-click).
+
+## Status notes
+
+- 2026-06-10: ABANDONED (obviated by store-shape v2, STO-SCN-062/063).
+  The need it addressed — selective materialization — is served by
+  plain `git lfs pull --include=<paths>` against the v2 tracked set,
+  which job scripts already do. A bespoke manifest-diff CLI is no
+  longer worth its maintenance.

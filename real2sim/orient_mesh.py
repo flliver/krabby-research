@@ -28,7 +28,7 @@ Algorithm:
   6. Construct rotation matrix R that maps the floor-plane normal n̂ to
      +z, applied so that cameras end up at +z (flip n̂ if needed).
   7. Apply R + a translation that places the plane at z=0.
-  8. Write oriented_mesh.ply / .obj plus oriented_cameras.json.
+  8. Write oriented_mesh.ply plus oriented_cameras.json.
 
 Designed to be run inside the matcha-build container:
   source /opt/matcha/bin/activate
@@ -335,13 +335,12 @@ def main():
     print(f"    mesh z range after transform: "
           f"[{pts_new[:, 2].min():+.3f}, {pts_new[:, 2].max():+.3f}]")
 
-    # Write outputs
+    # Write outputs. PLY only — the .obj twin was a pure format
+    # duplicate at 2.5x the bytes (49 GB across the store, nothing
+    # consumed it; store-shape v2 audit, STO-SCN-062).
     out_ply = os.path.join(args.output, "oriented_tetra.ply")
-    out_obj = os.path.join(args.output, "oriented_tetra.obj")
     o3d.io.write_triangle_mesh(out_ply, mesh_oriented)
     print(f"[9] Wrote {out_ply} ({os.path.getsize(out_ply) / 1024 / 1024:.1f} MB)")
-    o3d.io.write_triangle_mesh(out_obj, mesh_oriented)
-    print(f"    Wrote {out_obj} ({os.path.getsize(out_obj) / 1024 / 1024:.1f} MB)")
 
     # Save oriented cameras + transform metadata
     out_cams = os.path.join(args.output, "oriented_cameras.json")
