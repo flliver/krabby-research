@@ -4,13 +4,16 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: S
-status: in-progress
+status: shipped
 date: 2026-06-09
 depends-on: []
 bd-id: krabby-srz
 title: 007-kubota — normalize preproc + first preproc-consuming run
 priority: 1
 assignee: krabby
+shipped: 2026-06-11
+tasks: 5
+complete: 5
 ---
 
 # 007-kubota — normalize preproc + first preproc-consuming runner execution
@@ -41,7 +44,7 @@ peak VRAM; this run consumes 2048 px normalized inputs.
 - [x] Preproc executed with measured provenance (HUG-KRB-002 — no hand steps)
 - [x] Matcha run `status: success`; VRAM/duration delta vs 006 recorded (below)
 - [x] Outputs pushed (`d37207f`, 1.6 GB); render in operator Dropbox
-- [ ] Verdict: adopt normalize preproc as standard for photo captures? (feeds 040 registry)
+- [x] Verdict: ADOPTED as standard (RECIPES Recipe B; -28% VRAM)
 
 ## Results (2026-06-09)
 
@@ -62,3 +65,9 @@ counts (the bigger quality lever per HUG-SCN-004), with no observed quality cost
 at this scene class. Feeds the STO-SCN-040 registry as the default photo-ingest
 chain: normalize → matcha. Remaining open: operator verdict on adopting this
 default (last DoD item).
+
+## Status notes
+
+- 2026-06-11: SHIPPED. Verdict box answered in production: normalize
+  IS the standard for photo captures (RECIPES Recipe B step 2,
+  −28% VRAM) and 007 ran through it.

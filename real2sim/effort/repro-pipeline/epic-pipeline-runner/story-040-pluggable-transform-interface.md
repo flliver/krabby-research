@@ -4,7 +4,7 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: M
-status: open
+status: abandoned
 date: 2026-06-09
 depends-on: []
 bd-id: krabby-31r
@@ -27,3 +27,11 @@ The store already names transforms (`transform-01-matcha`, `transform-01-legacy`
 - [ ] One conditioning step registered (proves CPU/post-processing-class transforms)
 - [ ] Runner (039) executes both through the same interface
 - [ ] Multi-transform run: spec chain executes in order with per-transform results.json
+
+## Status notes
+
+- 2026-06-11: SUPERSEDED by EPI-SCN-PIPELINE-STUDIO — the pluggable
+  transform interface IS that epic's core (task definitions with
+  declared inputs/outputs/settings/image, registry, DAG composition).
+  The v1 in-file registry inside run_transform.py stays as-is until
+  Studio replaces it.

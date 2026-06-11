@@ -4,7 +4,7 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: M
-status: open
+status: abandoned
 date: 2026-06-09
 depends-on: []
 bd-id: krabby-ju5
@@ -65,3 +65,8 @@ Bit-exactness is not achievable (driver drift 595.58.03→610.43.02; RTX 5080 no
   Harness lesson encoded: comparison cameras live in the ORIENTED frame; raw-mesh
   comparisons must compose gauge-sim + orientation (exact recipe above). Also:
   `comparison_views.json` quats are convention:opencv — naive Blender use double-fails.
+
+- 2026-06-11: SUPERSEDED — scope carried into EPI-SCN-PIPELINE-STUDIO
+  planned story 8 (run verification/regression on task_runs). The
+  2026-06-09 dtu reproduction was achieved manually and is recorded;
+  no harness was built here.

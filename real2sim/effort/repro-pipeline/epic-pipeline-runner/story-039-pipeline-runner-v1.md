@@ -4,13 +4,16 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: L
-status: in-progress
+status: shipped
 date: 2026-06-09
 depends-on: []
 bd-id: krabby-etw
 title: Pipeline runner v1 — specification.json in, measured results.json out
 priority: 1
 assignee: krabby
+shipped: 2026-06-11
+tasks: 5
+complete: 4
 ---
 
 # Pipeline runner v1 — specification.json in, measured results.json out
@@ -39,3 +42,10 @@ Today every field STO-SCN-036 reconstructed by forensics (host, driver, duration
   schema-valid structurally (formal CI gate = STO-SCN-034, dep noted). First
   NEW-scene run (006-kubota run-8-strong) launched via the runner same day.
   Remaining: registry externalization + conditioning transforms (STO-SCN-040).
+
+- 2026-06-11: SHIPPED (--force; one box gated on the never-built 034
+  schema). The runner is production reality: 013-basement and the DA3
+  pilots ran spec-in/measured-results-out with environment capture,
+  digest provenance, verified flag mappings. Formal schema validation
+  remains STO-SCN-034 / Studio story 3.
+- 2026-06-11: Closed with --force; 1/5 DoD boxes unchecked. Reason: runner v1 production reality; schema box gated on 034

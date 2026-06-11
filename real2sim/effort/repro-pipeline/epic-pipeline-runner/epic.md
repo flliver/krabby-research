@@ -3,13 +3,14 @@ xid: EPI-SCN-PIPELINE-RUNNER
 parent: ../design.md
 kind: epic
 effort: scn
-status: in-progress
+status: shipped
 date: 2026-06-09
 hugs: []
 tenets: []
 bd-id: krabby-zdc
 priority: 1
 assignee: devex
+shipped: 2026-06-11
 ---
 
 # Config-Driven Pipeline Runner with Pluggable Transforms
