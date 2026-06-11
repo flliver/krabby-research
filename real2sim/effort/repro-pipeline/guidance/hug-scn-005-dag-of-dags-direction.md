@@ -205,6 +205,38 @@ byte-stable, safe to delete and regenerate.
   never changes what past runs meant — only what future runs
   resolve to.
 
+### Locked #3 — the IDENTITY_HASH recipe (2026-06-11)
+
+```
+IDENTITY_HASH = hash( resolved input identities     ← per locked #1 (refs resolved first)
+                    + tunable settings
+                    + frozen settings               ← constant today => same hash;
+                                                      future domain-widening re-keys correctly
+                    + algo@version )                ← DECLARED behavior version (option B)
+```
+
+**Code enters the hash as a declared `algo@version`, NOT the image
+digest.** The exact image digest is recorded in the stage's
+`metadata.json` for audit, but does not key the identity.
+
+- Rationale: images are rebuilt constantly for non-behavioral reasons
+  (tool additions, lib bumps); digest-in-hash would re-key the entire
+  store per release and destroy the memoization this design exists to
+  provide.
+- Identity therefore means **"behaviorally equivalent recipe" — a
+  claim, not a bytes guarantee.** Implementers MUST bump a stage's
+  version on any behavior-affecting change.
+- **Safety net for forgotten bumps:** the reproducibility harness
+  (repro_check, STO-SCN-075). Same identity + different digest is an
+  auditable pair — re-run, compare within measured tolerances; drift
+  means the version was effectively lied about → flag, bump, re-key.
+- Pins/execution facts ride along inside `algo@version` + the
+  recorded digest; they never appear as hashable settings.
+
+(Precedent: the t-vs-d 0.44% murkiness on 2026-06-11 was image 0.2
+vs 0.4 compared under one run label — exactly the ambiguity this
+rule + harness resolves.)
+
 ### Flow diagram — worked example of everything locked so far
 
 Scene `006-kubota`, fake short hashes. One video, primary pool of 200,
@@ -279,7 +311,7 @@ artifacts are born oriented.
 - SETTINGS: tunable: none yet · frozen: solver `mast3r-sfm`,
   `sfm_config: unposed` · (>300 frames: chunk_size/overlap — the
   photo-spine folds in as this stage's big-pool strategy)
-- IDENTITY: `<solve_identity> = hash(subset_hash + settings + image_digest)`
+- IDENTITY: `<solve_identity> = hash(subset_hash + settings + algo@version)` (per locked #3; digest in metadata.json)
 - OUTPUTS (file placement):
 
 ```
@@ -295,7 +327,7 @@ inherit (#1), or future solvers; `metadata.json#mechanism` names which.)
 **STAGE `orient-cameras`** — fix the gauge (gravity/floor, z-up)
 - INPUTS: solve identity
 - SETTINGS: tunable: `method` · frozen: RANSAC params
-- IDENTITY: `<orient_identity> = hash(solve_identity + settings)`
+- IDENTITY: `<orient_identity> = hash(solve_identity + settings + algo@version)`
 - OUTPUTS (file placement — nested under the solve it orients):
 
 ```
