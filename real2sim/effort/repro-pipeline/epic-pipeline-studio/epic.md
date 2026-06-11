@@ -123,7 +123,9 @@ our spec/results JSONs as the persistence the adapters read/write.
 |---|---|---|---|
 | STO-SCN-069 | Library spike — verify candidates, pick stack (hard time-box; demo = ONE real task through define→run→record) | M | don't reinvent; but the spike is judged ONLY on the experiment loop, not generic-workflow features |
 | STO-SCN-070 | Task catalog: the 13 recipe phases as task defs (A) — inputs, outputs, settings **min/max/default**, **image digest + code ref** per task | M | this IS the reproducibility contract: a pipeline_run record must name exactly what executed |
+| STO-SCN-076 | Store schema update: additive v3 structures — instance homes, run_record, scores-on-runs — non-breaking | M | gives E/run-records/scores defined tracked locations so 072–075 don't each invent their own |
 | STO-SCN-071 | Data-model adapters: A–F ↔ existing store (spec/results/run dirs), non-breaking; every historical run becomes a browsable pipeline_run | M | past runoffs are the existing experimental corpus — don't orphan them |
+| STO-SCN-077 | Backfill: materialize v3 records + scores for ALL existing runs (recovered provenance or explicit unknown) | M | the leaderboard starts populated — months of ranking judgment carried forward, not stranded |
 | STO-SCN-072 | Experiment UI: browse A–F, **edit composed pipeline_instances** (forms, not drag), diff two instances' settings | L | the "define" step; settings-diff is how you learn WHY one config won |
 | STO-SCN-073 | Central run trigger: launch a pipeline_instance on one operator-chosen host; capture run record (settings expansion, image digests, logs, outputs) | M | the "run" step — reproducible by construction, per decision 3 |
 | STO-SCN-074 | Ranking absorbed: pipeline_run → N comparison renders → rank → scores stored ON the run; leaderboard per scene/view across instances | M | the "rank→decide" step; absorbs rate_renders (decision 2) |

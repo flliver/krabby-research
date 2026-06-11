@@ -6,7 +6,7 @@ effort: scn
 size: M
 status: draft
 date: 2026-06-11
-depends-on: [STO-SCN-069, STO-SCN-070]
+depends-on: [STO-SCN-069, STO-SCN-070, STO-SCN-076]
 bd-id: krabby-3cs
 ---
 
@@ -45,8 +45,8 @@ break what we have).
   source run.
 - Gaps (e.g. pre-v2 runs missing fields) surface as explicit
   `unknown`, never guessed (T-002).
-- Write-side for NEW Studio-defined instances may use new files, but
-  only additive ones the existing tools ignore.
+- Write-side targets the v3 structures defined by STO-SCN-076 (this
+  story does not invent file shapes — 076 owns the schema).
 
 ## Definition of Done
 
