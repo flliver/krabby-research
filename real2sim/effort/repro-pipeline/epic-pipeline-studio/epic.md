@@ -3,17 +3,42 @@ xid: EPI-SCN-PIPELINE-STUDIO
 parent: ../design.md
 kind: epic
 effort: scn
-status: open
+status: in-progress
 date: 2026-06-11
 hugs: []
 tenets: []
 bd-id: krabby-ggb
 ---
 
-# Pipeline Studio — task/instance/run taxonomy, pluggable transforms, DAG UI
+# Pipeline Studio — task/instance/run taxonomy, pluggable tasks, DAG UI
 
-> **PLANNED, NOT STARTED** (operator directive 2026-06-11: plan only,
-> questions first). Parent: DES-SCN-REPRO.
+> Parent: DES-SCN-REPRO. Planned 2026-06-09; operator answered all six
+> open questions 2026-06-11 (decisions recorded below) — epic active.
+
+## Purpose (operator, 2026-06-11 — the filter for every feature)
+
+> The **ENTIRE purpose** of this effort is to figure out the best
+> ***reproducible*** processing pipeline for converting images/videos
+> to 3D scenes to meet our **M11 deliverables**.
+
+Every MVP feature must serve that loop directly:
+
+```
+define pipeline_instance (tasks + settings)
+  → run it (reproducibly: pinned image + code + captured settings)
+  → render N comparison images
+  → rank against competing instances
+  → identify the winning configuration → M11 deliverable recipe
+```
+
+**MVP test for any feature:** does it shorten the
+define→run→rank→decide cycle, or harden reproducibility (could a
+third party re-run this pipeline_run from its record and get the
+same mesh)? If neither — it's out of the MVP.
+
+Non-goals for MVP (explicitly): drag-to-compose, multi-host
+scheduling, jbeeprz hosting, generic-workflow features beyond what
+the experiment loop needs.
 
 ## Problem Statement
 
@@ -68,33 +93,52 @@ Working hypothesis to test: **orchestrator (Dagster-class) + React
 Flow for drag authoring + langfuse-or-builtin for run scoring**, with
 our spec/results JSONs as the persistence the adapters read/write.
 
-## Planned stories (minted only after operator answers)
+## Operator decisions (2026-06-11)
 
-| # | Story | Size | Notes |
+1. **MVP cut line**: agreed — read-only DAG + A–F distinction + run
+   browsing, **plus interactive *editing* of composed definitions**
+   (form/field editing of instances — NOT drag-to-compose, which stays
+   post-MVP).
+2. **Ranking**: **absorbed into Studio.** The purpose of the system is
+   to find the best pipeline definition for the best 3D scenes via
+   experimental runs; each pipeline_run outputs N images that get
+   compared. Ranking is core, not a bolt-on.
+3. **Dispatch**: MVP runs are **triggered centrally**, executed on a
+   **single, externally chosen host** (host is an operator-supplied
+   parameter, not a scheduler decision).
+4. **Hosting**: jbeeprz hosting is a **nice-to-have** — Mac-first is
+   acceptable for MVP.
+5. **langfuse**: confirmed scoped as scoring/run-capture candidate,
+   not the orchestrator.
+6. **Vocabulary**: **"task"** is canonical (more generic than
+   "transform," which implies data manipulation). Store artifacts keep
+   `transform-NN-*` paths for now (non-breaking); UI + new schemas say
+   task.
+
+## Stories — cut against the Purpose
+
+**MVP (the experiment loop, in dependency order):**
+
+| XID | Story | Size | Serves the purpose how |
 |---|---|---|---|
-| 1 | Library spike — verify candidates, pick stack (time-boxed) | M | decision doc + throwaway demo of A–F on ONE real transform |
-| 2 | Transform catalog: formalize the 13 recipe phases as task defs (A) with settings min/max/default + image/code refs | M | seed = RECIPES + baked images |
-| 3 | Data-model adapters: A–F ↔ store layout (spec/results/run dirs), non-breaking | M | Studio reads/writes what exists |
-| 4 | MVP UI: A–F views, read-only DAG, instance vs run distinction | L | reuse/embed rate_renders for run evaluation |
-| 5 | Variable propagation (pipeline_instance vars → task_instance refs → run-time expansion capture) | M | |
-| 6 | Draggable pipeline composer | L | post-MVP unless library gives it ~free |
-| 7 | Ranking integration: rankings as scores attached to pipeline_runs | M | absorbs rate_renders evolution |
-| 8 | Run verification/regression harness (absorbs STO-SCN-041 scope) | M | compare task_runs within tolerances |
+| STO-SCN-069 | Library spike — verify candidates, pick stack (hard time-box; demo = ONE real task through define→run→record) | M | don't reinvent; but the spike is judged ONLY on the experiment loop, not generic-workflow features |
+| STO-SCN-070 | Task catalog: the 13 recipe phases as task defs (A) — inputs, outputs, settings **min/max/default**, **image digest + code ref** per task | M | this IS the reproducibility contract: a pipeline_run record must name exactly what executed |
+| STO-SCN-071 | Data-model adapters: A–F ↔ existing store (spec/results/run dirs), non-breaking; every historical run becomes a browsable pipeline_run | M | past runoffs are the existing experimental corpus — don't orphan them |
+| STO-SCN-072 | Experiment UI: browse A–F, **edit composed pipeline_instances** (forms, not drag), diff two instances' settings | L | the "define" step; settings-diff is how you learn WHY one config won |
+| STO-SCN-073 | Central run trigger: launch a pipeline_instance on one operator-chosen host; capture run record (settings expansion, image digests, logs, outputs) | M | the "run" step — reproducible by construction, per decision 3 |
+| STO-SCN-074 | Ranking absorbed: pipeline_run → N comparison renders → rank → scores stored ON the run; leaderboard per scene/view across instances | M | the "rank→decide" step; absorbs rate_renders (decision 2) |
+| STO-SCN-075 | Reproducibility harness: re-run a pipeline_run from its record on a clean host, compare outputs within tolerances (absorbs STO-SCN-041 scope) | M | proves the *reproducible* in "best reproducible pipeline" — M11 gate |
 
-## Open questions (operator)
+**Post-MVP (explicitly out until the loop ships):**
 
-1. **MVP cut line**: is read-only DAG + correct A–F distinction + run
-   browsing the MVP, with draggable authoring post-MVP? (Drag-to-
-   compose is the most expensive single item.)
-2. **Ranking placement**: should rate_renders be absorbed INTO the
-   Studio UI for MVP, or stay standalone with rankings ingested as
-   scores?
-3. **Execution dispatch**: MVP = Studio *records and renders* runs
-   executed the current way (scripts → fleet docker), or must it also
-   *launch* them (SSH/agent dispatch) to count?
-4. **Hosting**: Studio web UI on the Mac (like :8090) or on jbeeprz?
-5. **langfuse**: given its LLM-observability shape, OK to scope it as
-   the scoring/run-capture candidate rather than the orchestrator?
-6. **Vocabulary**: keep "transform/transformation" (store schema term)
-   as the display name for "task," or rename store artifacts to match
-   A–F?
+| Story | Why deferred |
+|---|---|
+| Draggable pipeline composer | composing NEW DAGs is rarer than tuning settings on the known DAG; forms cover the experiment loop |
+| Variable propagation as a first-class feature | MVP captures expanded settings at run time (the reproducibility need); declared-variable sweeps come after the loop works |
+| jbeeprz hosting | nice-to-have (decision 4); Mac-first |
+
+## Open questions
+
+All six original questions answered 2026-06-11 — see "Operator
+decisions" above. Additional framing 2026-06-11: the Purpose section
+(reproducible pipeline → M11) is the feature filter for the MVP.
