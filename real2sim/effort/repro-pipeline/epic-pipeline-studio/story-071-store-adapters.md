@@ -4,10 +4,13 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: M
-status: draft
+status: shipped
 date: 2026-06-11
 depends-on: [STO-SCN-069, STO-SCN-070, STO-SCN-076]
 bd-id: krabby-3cs
+shipped: 2026-06-11
+tasks: 4
+complete: 4
 ---
 
 # Data-model adapters: A–F over existing store, non-breaking; historical runs browsable
@@ -50,11 +53,27 @@ break what we have).
 
 ## Definition of Done
 
-- [ ] All existing runs across 001–013 enumerate as pipeline_runs
-      with task_runs, settings, and attached rankings.
-- [ ] Zero modifications to existing store files (verified by
-      `git -C /var/krabby/scenes status` clean after a full scan).
-- [ ] runoff/rate_renders/render_comparison_matrix still work
-      untouched.
-- [ ] Round-trip test: adapter output for one known run matches its
-      JSONs field-for-field.
+- [x] All existing runs across 001–013 (+dtu-bicycle) enumerate as
+      pipeline_runs: **57 total**, incl. 8 render-variants linked to
+      source runs and legacy runs surfacing task `unknown` (T-002).
+      Leaderboard join reproduces the operator's 006 verdict (tetra
+      #1, tetra1m tied #2, TSDF last).
+- [x] Zero modifications to existing store files (`git -C
+      /var/krabby/scenes status --porcelain` empty after full scan —
+      module is read-only by construction).
+- [x] runoff/rate_renders/render_comparison_matrix untouched (no
+      shared code changed).
+- [x] Round-trip test: matcha--8-strong adapter output matches
+      spec/results field-for-field (settings, status, host,
+      duration, image, renders).
+
+## Implementation Notes
+
+- `real2sim/studio_model.py` — A/D/E loaders (repo-side), C/F
+  scanners (store-side, read-only), rankings read-time join +
+  `leaderboard` (latest submission per view supersedes), CLI
+  (`scan|run|leaderboard`, `--json` for the 072 UI).
+- Render-variant runs (no transform dirs) classified by structure,
+  linked via run.json `source_run`.
+- v3 `run_record.json` is picked up when present (`record` field) —
+  ready for 077 backfill output with zero changes.

@@ -297,6 +297,12 @@ EPI-SCN-FEEDFORWARD-RECON.
 
 ## Storage policy (store-shape v2 — STO-SCN-062/063, 2026-06-10)
 
+> **v3 (Studio, STO-SCN-076) is additive on top of v2:** one new
+> store file per run (`run-<r>/run_record.json`, tracked by the
+> existing `!**/*.json` rule — zero `.gitignore` change) +
+> pipelines/instances living in the research repo. Full spec:
+> `real2sim/STORE-SCHEMA-V3.md`. Everything below remains true.
+
 **The store tracks lineage and deliverables, not intermediates.**
 
 | Class | Tracked in git/LFS? | Lives where |

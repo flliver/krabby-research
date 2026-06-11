@@ -4,7 +4,7 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: M
-status: draft
+status: in-progress
 date: 2026-06-11
 depends-on: [STO-SCN-069, STO-SCN-070]
 bd-id: krabby-wal
@@ -57,14 +57,33 @@ tracked locations for these, 072–075 each invent their own.
 
 ## Definition of Done
 
-- [ ] Schema doc (shapes + locations + tracking rules) reviewed by
-      operator before adoption.
-- [ ] All existing tools run unchanged against a store containing the
-      new files (runoff, rate_renders, render_comparison_matrix,
-      sync/gather).
-- [ ] Tracked-size delta measured and reported (T-016/T-017) — new
-      metadata must not reintroduce a bulk-data leak.
-- [ ] RECIPES.md § Storage policy updated to v3 (pointer, not copy).
+- [ ] **OPERATOR (T-007/T-026):** review `real2sim/STORE-SCHEMA-V3.md`
+      before the first run_record lands in the store (the STO-SCN-077
+      backfill dry-run is the review surface — one combined ask).
+- [x] All existing tools run unchanged against a store containing the
+      new files — by construction pre-write (D/E live in the research
+      repo; the only store-side file is run_record.json which no v2
+      consumer reads); re-verified empirically at 077 backfill time.
+- [x] Tracked-size delta measured: run_record.json ≈ KBs/run × ~30
+      runs store-wide (metadata only); gitignore check confirms
+      tracked via existing `!**/*.json` — zero rule change.
+- [x] RECIPES.md § Storage policy updated to v3 (pointer, not copy).
+
+## Implementation Notes
+
+- `real2sim/STORE-SCHEMA-V3.md` — the schema doc (where A–F live,
+  run_record shape, scores-as-join deviation rationale).
+- `real2sim/schemas/{pipeline,instance,run_record}.json` — JSON
+  Schemas for D/E/F.
+- `real2sim/pipelines/{matcha-trunk,da3-eval}.json` — the two real
+  pipelines as D objects (validated: all node tasks exist in the
+  catalog, all edges reference declared nodes).
+- `real2sim/instances/matcha-8-strong-tetra1m.json` — first E: the
+  006/007/008 runoff winner, with `$n_images` demonstrating the
+  variable-reference shape (expansion captured at run time per spec).
+- Deliberate deviation recorded: scores realized as a READ-TIME JOIN
+  on `run_record.variant` ↔ rankings.jsonl (T-023), not a per-run
+  scores.json copy.
 
 ## Out of scope
 

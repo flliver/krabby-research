@@ -1,0 +1,41 @@
+{
+  "schema": 3,
+  "name": "da3-eval",
+  "description": "DA3 feed-forward EVALUATION branch (CC-BY-NC weights -> never a deliverable): infer -> TSDF fuse into oriented frame -> render saved views -> runoff.",
+  "nodes": [
+    {
+      "id": "infer",
+      "task": "da3-infer"
+    },
+    {
+      "id": "fuse",
+      "task": "da3-tsdf-mesh"
+    },
+    {
+      "id": "render",
+      "task": "da3-render-view"
+    },
+    {
+      "id": "rank",
+      "task": "rank-runoff"
+    }
+  ],
+  "edges": [
+    [
+      "infer",
+      "fuse"
+    ],
+    [
+      "infer",
+      "render"
+    ],
+    [
+      "fuse",
+      "render"
+    ],
+    [
+      "render",
+      "rank"
+    ]
+  ]
+}

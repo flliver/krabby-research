@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "krabby:schema/instance/v3",
+  "title": "pipeline_instance",
+  "description": "E: pipeline + 100% of settings, no input/output data. Variables declared here as VALUES; task settings may reference them as '$var'. Expansion is captured at run time in run_record.",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": 3
+    },
+    "name": {
+      "type": "string"
+    },
+    "pipeline": {
+      "type": "string",
+      "description": "pipeline name in real2sim/pipelines/"
+    },
+    "description": {
+      "type": "string"
+    },
+    "variables": {
+      "type": "object",
+      "description": "DAG-consistent settings: name -> value",
+      "additionalProperties": true
+    },
+    "settings": {
+      "type": "object",
+      "description": "node id -> settings object; values may be literals or '$<variable>' references",
+      "additionalProperties": {
+        "type": "object"
+      }
+    }
+  },
+  "required": [
+    "schema",
+    "name",
+    "pipeline",
+    "settings"
+  ],
+  "additionalProperties": false
+}

@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "krabby:schema/pipeline/v3",
+  "title": "pipeline",
+  "description": "D: DAG of tasks, settings unspecified (EPI-SCN-PIPELINE-STUDIO).",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": 3
+    },
+    "name": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "nodes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "task": {
+            "type": "string",
+            "description": "task def name in real2sim/tasks/"
+          },
+          "optional": {
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "id",
+          "task"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "edges": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "prefixItems": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "string"
+          }
+        ],
+        "minItems": 2,
+        "maxItems": 2,
+        "description": "[from_id, to_id]"
+      }
+    }
+  },
+  "required": [
+    "schema",
+    "name",
+    "nodes",
+    "edges"
+  ],
+  "additionalProperties": false
+}

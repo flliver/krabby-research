@@ -1,0 +1,184 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "krabby:schema/run_record/v3",
+  "title": "run_record",
+  "description": "F: pipeline_run record \u2014 instance snapshot + execution + provenance. One per run-<r>/ dir in the scene store. Tracked by the v2 !**/*.json rule.",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": 3
+    },
+    "scene": {
+      "type": "string"
+    },
+    "pipeline": {
+      "type": "string"
+    },
+    "run": {
+      "type": "string"
+    },
+    "variant": {
+      "type": "string",
+      "description": "<pipeline>--<run> \u2014 rankings.jsonl join key"
+    },
+    "source_run": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "for render-variant runs (e.g. -tetra)"
+    },
+    "instance": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "expanded_settings": {
+          "type": "object",
+          "description": "node id -> fully expanded settings (variables resolved at run time)",
+          "additionalProperties": {
+            "type": "object"
+          }
+        }
+      },
+      "required": [
+        "expanded_settings"
+      ]
+    },
+    "execution": {
+      "type": "object",
+      "properties": {
+        "host": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "trigger": {
+          "type": "string",
+          "enum": [
+            "studio",
+            "manual",
+            "backfill"
+          ]
+        },
+        "started": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "finished": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "success",
+            "failure",
+            "partial",
+            "unknown"
+          ]
+        }
+      },
+      "required": [
+        "trigger",
+        "status"
+      ]
+    },
+    "provenance": {
+      "type": "object",
+      "description": "node id -> execution provenance",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "image": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "image_digest": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tools_git_sha": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "code_ref": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "input_hashes": {
+            "type": [
+              "object",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "reproducibility": {
+      "type": "object",
+      "properties": {
+        "by_record": {
+          "type": [
+            "boolean",
+            "string"
+          ],
+          "description": "true|false|'unknown'"
+        },
+        "license_flags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "notes": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "by_record"
+      ]
+    },
+    "backfilled": {
+      "type": "boolean",
+      "default": false
+    },
+    "backfill_notes": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "schema",
+    "scene",
+    "pipeline",
+    "run",
+    "variant",
+    "instance",
+    "execution",
+    "reproducibility"
+  ],
+  "additionalProperties": false
+}

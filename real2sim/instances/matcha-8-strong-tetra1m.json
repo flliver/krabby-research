@@ -1,0 +1,42 @@
+{
+  "schema": 3,
+  "name": "matcha-8-strong-tetra1m",
+  "pipeline": "matcha-trunk",
+  "description": "The 006/007/008 runoff winner: 8-photo strong alignment, tetra branch conditioned to 1M tris (deliverable scale).",
+  "variables": {
+    "n_images": 8
+  },
+  "settings": {
+    "recon": {
+      "alignment_config": "strong",
+      "dense_regul": "default",
+      "dense_pruning": "default",
+      "encoder": "vitl",
+      "sfm_config": "unposed",
+      "n_images": "$n_images",
+      "extra_flags": []
+    },
+    "mesh": {
+      "config": "default",
+      "mesh_res": 1024
+    },
+    "condition": {
+      "target_tris": 1000000,
+      "taubin_iters": 10
+    },
+    "scene": {},
+    "views": {
+      "purpose": "ab-comparison",
+      "view_name": "(operator)"
+    },
+    "renders": {
+      "resolution": [
+        1920,
+        1080
+      ],
+      "engine": "BLENDER_WORKBENCH",
+      "mesh_source": "oriented"
+    },
+    "rank": {}
+  }
+}
