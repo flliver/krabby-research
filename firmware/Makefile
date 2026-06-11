@@ -11,7 +11,7 @@
 
 ARDUINO_CLI ?= arduino-cli
 FQBN        ?= arduino:avr:mega
-PIN_REV     ?= 2
+PIN_REV     ?= 3
 SKETCH      := $(CURDIR)/arduino
 
 ifeq ($(OS),Windows_NT)
@@ -20,7 +20,7 @@ else
 PYTHON ?= python3
 endif
 
-ifeq ($(PIN_REV),2)
+ifeq ($(PIN_REV),3)
 BUILD_PROPS :=
 else
 BUILD_PROPS := --build-property compiler.cpp.extra_flags=-DKRABBY_PIN_REV=$(PIN_REV) \

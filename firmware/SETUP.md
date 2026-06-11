@@ -86,7 +86,7 @@ On the Arduino side, telemetry is built in **telemetry_manager.h** (struct `Join
 
 ### 2.3 Pin revisions (`KRABBY_PIN_REV`)
 
-Wiring is selected at **compile time** in **`arduino/board_pins.h`** (`#define KRABBY_PIN_REV`, default **2**). Rev **3** matches **`MOTOR_HEADER_PINOUT.md`**.
+Wiring is selected at **compile time** in **`arduino/board_pins.h`** (`#define KRABBY_PIN_REV`, default **3**). Rev **3** matches **`MOTOR_HEADER_PINOUT.md`**.
 
 | | **Rev 3** (default, Uno v0.2) | **Rev 2** (Uno v0.1) | **Rev 1** (original) |
 |---|---|---|---|
