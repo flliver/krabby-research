@@ -4,7 +4,7 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: M
-status: draft
+status: in-progress
 date: 2026-06-10
 depends-on: []
 bd-id: krabby-66p
@@ -12,76 +12,31 @@ bd-id: krabby-66p
 
 # DA3 hi-res mesh — process_res sweep to close the fidelity gap
 
-## Summary
+## What we did (2026-06-10)
 
-_(One sentence: what does this story deliver? Avoid "we will add X" —
-write the outcome, not the verb.)_
+The 504-default fused mesh (213k verts) is visibly coarser than the
+splat render and far coarser than matcha's 30M-vert meshes. Swept
+process_res upward, depths-only (`nogs` mode — the gaussian head OOMs
+16 GB above 504):
 
-## Context
+| process_res | gs head | result |
+|---|---|---|
+| 1008 | off | OOM (14.3 GiB alloc, conv2d) — over the fleet ceiling |
+| 756 | off | **fits**: 17.5 s, 14.5 GiB peak; depths 567×756 |
 
-_(Why is this story needed? What does it depend on? Link to the parent
-epic. If this is a discovered-from another story, surface the link.)_
+Fusion at voxel-frac 0.0027: **625,717 verts / 1,081,393 tris (2.9×
+the 504 baseline)** → `run-8-giant-hires756`, rendered via the
+standard path, in the runoff beside the 504 mesh + matcha variants.
 
-## Problem
+## Where the code is
 
-_(What specific problem does this story solve? Concrete; the reader
-should be able to verify completion without re-reading the epic.)_
+`/opt/krabby-tools/da3_infer_gs.py` (krabby-da3:0.3, baked per the
+tooling-provenance policy; `nogs` arg = depths-only mode) +
+`da3_tsdf_mesh.py`.
 
-## Design
+## Open
 
-### Approach
-
-_(How will this be implemented? Reference HUGs that constrain the
-implementation choice; cite alternatives only when they shaped the
-final pick.)_
-
-### Changes
-
-| File | Change |
-|------|--------|
-| `path/to/file` | _(add / modify / extract)_ |
-| `path/to/test` | _(add tests for the new behavior)_ |
-
-## Definition of Done
-
-- [ ] _(Specific, verifiable condition — not "code works")_
-- [ ] _(Specific, verifiable condition.)_
-- [ ] Tests written and passing.
-- [ ] Code reviewed (or self-reviewed against the engineer-knowledge
-      constraints).
-- [ ] `docs/work-platform.md` or other operator-facing doc updated if
-      surface changed.
-
-## Testing
-
-### Unit / fixture tests
-
-- [ ] _(Specific case.)_
-- [ ] _(Edge case.)_
-
-### Integration
-
-- [ ] _(Scenario.)_
-
-## Out of scope
-
-- _(Things deliberately deferred to a later story. Be explicit — the
-  reader should know what's *not* changing.)_
-
-## Implementation Notes
-
-_(Fill in during / after implementation. Capture what diverged from
-the original design and why — useful for the retrospective + for
-operators reading this story in a year.)_
-
-### What Changed
-
-_(Actual implementation. May differ from § Design above.)_
-
-### Files Modified
-
-- `path/to/file` — _(what changed)_
-
-### Gotchas
-
-_(Anything surprising or worth noting for future readers.)_
+- [ ] Operator verdict: is 756-mesh fidelity acceptable, or do we need
+      >1008 (requires >16 GB GPU, view-chunked inference, or
+      DA3-Streaming)?
+- [x] 756 run spec'd, measured, rendered, in runoff.
