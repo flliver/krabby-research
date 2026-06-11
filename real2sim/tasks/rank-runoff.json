@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "krabby:task/rank-runoff/v1",
+  "title": "rank-runoff",
+  "description": "OPERATOR task (T-020): rank variants per view in rate_renders (:8090); output rankings.jsonl per scene. COMMIT the rankings \u2014 they are the data. The operator's eye is the metric.",
+  "x-task": {
+    "kind": "evaluation",
+    "phase": 12,
+    "operator": true,
+    "image": null,
+    "entrypoint": "python3 real2sim/rate_renders/server.py",
+    "code_ref": "real2sim/rate_renders/server.py",
+    "story": "STO-SCN-057",
+    "inputs": [
+      {
+        "name": "renders",
+        "pattern": "pipeline-*/run-*/renders/*.png"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "rankings",
+        "pattern": "rankings.jsonl"
+      }
+    ],
+    "produces_variables": [
+      "ranks"
+    ]
+  },
+  "type": "object",
+  "properties": {},
+  "required": [],
+  "additionalProperties": false
+}

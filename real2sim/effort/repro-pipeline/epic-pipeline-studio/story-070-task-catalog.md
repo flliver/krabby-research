@@ -4,10 +4,13 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: M
-status: draft
+status: shipped
 date: 2026-06-11
 depends-on: [STO-SCN-069]
 bd-id: krabby-ffb
+shipped: 2026-06-11
+tasks: 4
+complete: 4
 ---
 
 # Task catalog: 13 recipe phases as task defs — settings min/max/default + image digest + code ref
@@ -48,15 +51,37 @@ Vocabulary per operator decision 6: these are **tasks**; store
 
 ## Definition of Done
 
-- [ ] All 13 phases + the DA3-branch tasks (infer, tsdf_mesh,
-      render_view, tetra_condition, gauge_align) have defs.
-- [ ] Min/max values are **measured or sourced** (hard-limits table,
+- [x] All 13 phases + the DA3-branch tasks (infer, tsdf_mesh,
+      render_view, tetra_condition, gauge_align) have defs — 17 files
+      in `real2sim/tasks/`.
+- [x] Min/max values are **measured or sourced** (hard-limits table,
       OOM findings), not invented (T-017, T-010); unknown ranges say
-      unknown (T-002).
-- [ ] A def round-trips: catalog def + a real run's spec JSON →
-      validates (settings within ranges, image matches).
-- [ ] RECIPES.md points at the catalog as the canonical phase list
+      unknown (T-002) — unmeasured bounds omitted with an explicit
+      "bounds unmeasured" description.
+- [x] A def round-trips: catalog def + a real run's spec JSON →
+      validates. Verified: matcha run-8-strong, 007 normalize, 006
+      da3 hires756 (via infer_gs→mode mapping), all 013 preproc
+      specs. Conditional bound works: gs@756 rejected, nogs@756
+      accepted, nogs@1008 rejected — all measured ceilings.
+- [x] RECIPES.md points at the catalog as the canonical phase list
       (T-023 — no second prose copy).
+
+## Implementation Notes
+
+- `real2sim/tasks/*.json` — 17 JSON Schema 2020-12 task defs (13
+  phases; phase 8 also carries `tetra-condition`, phase 13 carries
+  the DA3 branch: infer/tsdf-mesh/render-view; `gauge-align` under
+  phase 6). Operator tasks (coverage-curation, camera-save,
+  rank-runoff) flagged `x-task.operator: true` (T-020 surfaces).
+  DA3 defs carry `license_flag: CC-BY-NC-4.0 — not deliverable`.
+- `real2sim/task_catalog.py` — loader + CLI (list/show/validate/
+  check-spec). `check-spec` validates only catalog-declared keys of a
+  historical spec's `parameters`; execution pins reported as
+  uncovered, never failed.
+- Gotcha: JSON Schema `if` without `required` matches when the
+  property is ABSENT — the da3-infer mode-conditional ceiling
+  needed `"required": ["mode"]` inside each `if` (caught by the 756
+  nogs round-trip failing wrongly).
 
 ## Out of scope
 

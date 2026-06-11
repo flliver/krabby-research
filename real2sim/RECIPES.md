@@ -183,6 +183,13 @@ what we did / where the code is / how (operator directive
 2026-06-10). The recipes above are the *flows*; this catalog is the
 per-phase *reference*.
 
+> **Machine-readable canonical form: `real2sim/tasks/*.json`**
+> (STO-SCN-070) — one JSON Schema per task with settings
+> min/max/default + executing image/code in `x-task`. Validate with
+> `python3 real2sim/task_catalog.py {list,show,validate,check-spec}`.
+> The prose below is the narrative; ranges and execution pins live in
+> the task defs (T-023 — don't duplicate numbers here).
+
 ### 1. Video → frame pool
 Lossless full-frame extraction to `input/src/` (ffmpeg passthrough,
 PNG). No script — the two one-liners in Recipe A steps 1–2 are

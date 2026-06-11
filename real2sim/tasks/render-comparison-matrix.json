@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "krabby:task/render-comparison-matrix/v1",
+  "title": "render-comparison-matrix",
+  "description": "Cartesian (variant x view) comparison renders -> run-<r>/renders/<view>.png + settings sidecar (the render is an artifact OF the run's configuration \u2014 STO-SCN-058).",
+  "x-task": {
+    "kind": "evaluation",
+    "phase": 11,
+    "operator": false,
+    "image": null,
+    "entrypoint": "real2sim/render_comparison_matrix.sh --scene <s> [--views ...] [--mesh-source tsdf]",
+    "code_ref": "real2sim/render_comparison_matrix.sh",
+    "story": "STO-SCN-045 (matrix), STO-SCN-058 (renders-in-runs)",
+    "inputs": [
+      {
+        "name": "views",
+        "pattern": "cameras.json"
+      },
+      {
+        "name": "mesh",
+        "pattern": "**/data/{oriented,tsdf_meshes}/*.ply"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "render",
+        "pattern": "pipeline-*/run-*/renders/<view>.png"
+      },
+      {
+        "name": "sidecar",
+        "pattern": "pipeline-*/run-*/renders/<view>.json"
+      }
+    ],
+    "produces_variables": []
+  },
+  "type": "object",
+  "properties": {
+    "resolution": {
+      "type": "array",
+      "items": {
+        "type": "integer"
+      },
+      "default": [
+        1920,
+        1080
+      ],
+      "description": "only 1920x1080 validated for runoffs"
+    },
+    "engine": {
+      "type": "string",
+      "enum": [
+        "BLENDER_WORKBENCH"
+      ],
+      "default": "BLENDER_WORKBENCH"
+    },
+    "mesh_source": {
+      "type": "string",
+      "enum": [
+        "oriented",
+        "tsdf"
+      ],
+      "default": "oriented"
+    }
+  },
+  "required": [],
+  "additionalProperties": false
+}

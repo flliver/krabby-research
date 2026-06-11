@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "krabby:task/normalize-photos/v1",
+  "title": "normalize-photos",
+  "description": "Downscale + re-encode photo pool: primary-image decode (drops MPO aux payloads), EXIF-orientation bake, long-edge resize, baseline JPEG. -28% training VRAM at 2048 (STO-SCN-043, measured).",
+  "x-task": {
+    "kind": "preprocessing",
+    "phase": 2,
+    "operator": false,
+    "image": null,
+    "entrypoint": "python3 real2sim/normalize_photos.py <preproc-dir>",
+    "code_ref": "real2sim/normalize_photos.py",
+    "story": "STO-SCN-043",
+    "inputs": [
+      {
+        "name": "photos",
+        "pattern": "input/src"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "normalized",
+        "pattern": "input/preproc-NN-normalize/data/*.jpg"
+      }
+    ],
+    "produces_variables": []
+  },
+  "type": "object",
+  "properties": {
+    "long_edge": {
+      "type": "integer",
+      "default": 2048,
+      "description": "validated: 1024, 2048 (measured); skip task entirely when source <= long_edge; bounds unmeasured (T-002) \u2014 extend with evidence, don't invent"
+    },
+    "quality": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100,
+      "default": 95,
+      "description": "JPEG quality; bounds sourced from the JPEG format"
+    }
+  },
+  "required": [
+    "long_edge",
+    "quality"
+  ],
+  "additionalProperties": false
+}

@@ -4,10 +4,13 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: M
-status: draft
+status: shipped
 date: 2026-06-11
 depends-on: []
 bd-id: krabby-joz
+shipped: 2026-06-11
+tasks: 4
+complete: 4
 ---
 
 # Library spike: verify stack candidates on the experiment loop (define→run→record), pick + decision doc
@@ -60,14 +63,16 @@ Throwaway code lives in a scratch dir, never in real2sim/ proper.
 
 ## Definition of Done
 
-- [ ] Each epic-table claim marked verified/refuted with evidence.
-- [ ] One real task demoed end-to-end on the chosen candidate.
-- [ ] Stack decision recorded (orchestrator, UI, scoring layer) with
+- [x] Each epic-table claim marked verified/refuted with evidence.
+- [x] One real task demoed end-to-end on the chosen candidate
+      (tetra_condition def + real 006 run data — see Implementation
+      Notes).
+- [x] Stack decision recorded (orchestrator, UI, scoring layer) with
       license check (must be usable for contract work — note the DA3
-      CC-BY-NC precedent).
-- [ ] Time-box respected: if no clear winner inside the box, the
-      decision defaults to "thin custom layer over our existing JSONs
-      + React-Flow-class UI" and says so explicitly.
+      CC-BY-NC precedent). All MIT.
+- [x] Time-box respected: decision landed inside the box; the named
+      default (thin custom layer + React-Flow-class UI) was chosen on
+      positive evidence, not timeout.
 
 ## Out of scope
 
@@ -77,4 +82,61 @@ Throwaway code lives in a scratch dir, never in real2sim/ proper.
 
 ## Implementation Notes
 
-_(Decision doc goes here.)_
+### Decision doc (2026-06-11)
+
+**Stack picked:**
+
+| Layer | Decision |
+|---|---|
+| Task-def formalism (A) | **JSON Schema draft 2020-12** — `minimum`/`maximum`/`default` are native keywords; `x-task` extension block carries image/entrypoint/code-ref/inputs/outputs |
+| Validation | **python `jsonschema`** (Draft202012Validator) — also satisfies the dormant STO-SCN-034 harness desire |
+| Persistence | **the scene store itself** (existing spec/results/run JSONs + 076's additive v3 files). No external run DB |
+| Backend | thin Python server in the rate_renders mold (T-013 — extends what exists) |
+| DAG view (072) | server-rendered read-only first; **React Flow (@xyflow/react v12, MIT — verified)** if/when client-side interactivity is worth a build step |
+| Scoring | built-in (rankings.jsonl + 076 scores-on-runs). langfuse REJECTED for MVP |
+
+This exercises the story's named default ("thin custom layer over our
+existing JSONs + React-Flow-class UI") — but as a positive verdict,
+not a timeout: the store already IS the system of record (spec=B,
+results=C, run.json≈F, rankings keyed by variant), and orchestrators
+add a foreign run-DB without covering the two things we actually
+lack (min/max form editing, absorbed ranking).
+
+**Per-candidate verdicts (epic table claims → verified/refuted):**
+
+- **Dagster** — partially verified: pydantic config classes give
+  defaults + validation, and the Launchpad has schema-validated
+  editing. REFUTED for our MVP on three counts: (1) Launchpad is a
+  **YAML text editor**, not min/max form fields; (2) ranking cannot
+  be absorbed into Dagit → two UIs, violating operator decision 2;
+  (3) pipeline_instance (E) is not a first-class persisted object —
+  run config is per-run. Plus our execution path (SSH→docker on an
+  operator-chosen host) gets no leverage from its executor model.
+- **Prefect / Kedro** — rejected by class without individual demo
+  (T-002, stated honestly): same orchestrator shape as Dagster with
+  weaker config-schema/UI stories per the epic table; they cannot
+  beat Dagster on the exact criteria Dagster already fails.
+- **langfuse** — claim "Scores API ≈ ranking" verified, but
+  self-hosting requires web + worker containers + **Postgres +
+  ClickHouse + Redis + S3** (v3 architecture). Wildly oversized for
+  operator-rankings-on-JSON-runs; fails MVP-ASAP + Mac-first filter.
+  Revisit post-MVP only if score analytics outgrow jsonl.
+- **React Flow** — verified MIT (xyflow), v12 current. Adopted as
+  the designated drag/DAG library for 072+/post-MVP composer.
+
+**Demo (throwaway, /tmp/spike-069, discarded):** `tetra_condition`
+expressed as a JSON-Schema task def; against the REAL 006 run
+(`run-8-strong` tetra1m record): (1) real recorded settings validate;
+(2) out-of-range rejected naming the bound ("50 is less than the
+minimum of 100000"); (3) defaults machine-extracted for form prefill;
+(4) def-declared outputs found in the real run dir; (5) C-level
+measured facts read back (32.2M→1.0M tris, 33 MB).
+
+**License check:** jsonschema (MIT), @xyflow/react (MIT) — both
+contract-safe. No copyleft/NC anywhere in the picked stack.
+
+### Gotchas
+
+- JSON Schema's `default` is annotation-only (not applied by the
+  validator) — the form layer must apply defaults itself, which is
+  what we want anyway (explicit expanded settings at run time).

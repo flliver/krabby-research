@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "krabby:task/da3-infer/v1",
+  "title": "da3-infer",
+  "description": "Depth Anything 3 feed-forward reconstruction: one pass -> poses + dense depth (+ gaussians in gs mode) (+ GLB/npz/colmap exports). ~12-21s for 8-14 views. LICENSE: DA3NESTED-GIANT-LARGE-1.1 is CC-BY-NC-4.0 \u2014 research evaluation ONLY, never an M11 deliverable.",
+  "x-task": {
+    "kind": "reconstruction",
+    "phase": 13,
+    "operator": false,
+    "image": "j.pski.org:5000/krabby-da3:0.4",
+    "entrypoint": "/opt/krabby-tools/da3_infer_gs.py <src> <out> [process_res] [nogs]",
+    "code_ref": "real2sim/da3_infer_gs.py",
+    "story": "STO-SCN-059/060 (epic EPI-SCN-FEEDFORWARD-RECON)",
+    "license_flag": "CC-BY-NC-4.0 \u2014 not deliverable",
+    "inputs": [
+      {
+        "name": "images",
+        "pattern": "input/src | input/preproc-NN-*/data"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "npz",
+        "pattern": "**/data/exports/npz/results.npz"
+      },
+      {
+        "name": "gs_ply",
+        "pattern": "**/data/exports/gs_ply/**"
+      },
+      {
+        "name": "glb",
+        "pattern": "**/data/exports/glb/**"
+      }
+    ],
+    "produces_variables": [
+      "extrinsics_w2c",
+      "intrinsics"
+    ]
+  },
+  "type": "object",
+  "properties": {
+    "process_res": {
+      "type": "integer",
+      "default": 504,
+      "description": "measured 16GB ceilings: gs mode OOMs >504; nogs OK at 756, OOMs at 1008"
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "gs",
+        "nogs"
+      ],
+      "default": "gs",
+      "description": "gs = gaussian head on (renderable splats); nogs = depths only (higher res possible)"
+    },
+    "n_images": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "validated 8-14 @16GB; upper bound bounds unmeasured (T-002) \u2014 extend with evidence, don't invent"
+    }
+  },
+  "required": [
+    "process_res",
+    "mode"
+  ],
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "mode": {
+            "const": "gs"
+          }
+        },
+        "required": [
+          "mode"
+        ]
+      },
+      "then": {
+        "properties": {
+          "process_res": {
+            "maximum": 504
+          }
+        }
+      },
+      "$comment": "gs head OOMs above 504 on 16GB (measured)"
+    },
+    {
+      "if": {
+        "properties": {
+          "mode": {
+            "const": "nogs"
+          }
+        },
+        "required": [
+          "mode"
+        ]
+      },
+      "then": {
+        "properties": {
+          "process_res": {
+            "maximum": 756
+          }
+        }
+      },
+      "$comment": "nogs: 756 OK, 1008 OOM on 16GB (measured)"
+    }
+  ]
+}
