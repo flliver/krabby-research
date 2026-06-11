@@ -265,3 +265,14 @@ backfill of all 43 legacy renders via `migrate_renders_into_runs.py`).
 `/api/render/<scene>/<view>/<variant>.png` unchanged); operator ranks
 variants per view; output `rankings.jsonl` per scene. **Commit the rankings —
 they are the data.** **Story:** STO-SCN-057.
+
+### 13. Feed-forward reconstruction (DA3) — EVALUATION
+`krabby-da3` image (`j.pski.org:5000/krabby-da3:0.1`; DA3
+GIANT-LARGE baked, **CC BY-NC — research evaluation only**). One
+forward pass: images → poses (COLMAP bins) + dense depth + gaussian
+splats + GLB cloud, ~21 s for 8 views @ 11 GB VRAM. Gaussian branch
+needs the API driver (`infer_gs=True` — the auto CLI doesn't expose
+it); multi-format export is dash-joined (`glb-npz-gs_ply-colmap`).
+Not yet runoff-comparable: DA3-frame → oriented-frame alignment is
+the open piece. **Stories:** STO-SCN-059 (research), STO-SCN-060
+(pilot); epic EPI-SCN-FEEDFORWARD-RECON.

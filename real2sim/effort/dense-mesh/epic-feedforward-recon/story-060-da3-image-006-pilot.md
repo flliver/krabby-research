@@ -40,9 +40,39 @@ and the 40.5 GB matcha image should not grow a second personality
 
 ## Definition of Done
 
-- [ ] Image builds, pushed to registry.
-- [ ] 006 reconstruction completes; outputs in
-      `006-kubota/pipeline-da3/run-…/transform-01-da3/data/`.
-- [ ] Honest quality note vs the matcha runs (holes? splat quality?)
-      + license tier recorded in the run spec.
-- [ ] RECIPES.md phase catalog updated if a new phase shape emerged.
+- [x] Image builds, pushed to registry (`krabby-da3:0.1`, 43.5 GB,
+      checkpoint baked; digest 6a77622…).
+- [x] 006 reconstruction completes; outputs in
+      `006-kubota/pipeline-da3/run-8-giant/transform-01-da3/data/`.
+- [x] Honest quality note (below) + license tier in the run spec.
+- [x] RECIPES.md phase catalog: new pipeline section added.
+
+## Run record (2026-06-10, dbeeprz RTX 4080)
+
+- **21 s wall / 11.4 s inference+export / 11.0 GiB peak VRAM** for
+  8 views. (MAtCha on the same scene: 673 s train alone.)
+- Outputs: `gs_ply/0000.ply` (3D gaussians), `scene.glb` (1M-point
+  conf-thresholded cloud), COLMAP bins (poses — directly consumable
+  by our tooling), full `exports/npz`, per-view depth_vis, novel-view
+  `gs_video`.
+- Gotchas:
+  - The `auto` CLI does NOT expose `infer_gs` — gaussian export needs
+    an API driver (`model.inference(..., infer_gs=True)`); ours is
+    recorded in this story and in the run spec.
+  - Multi-format export = dash-joined string (`glb-npz-gs_ply-colmap`).
+  - First build attempt failed CORRECTLY on the torch-version assert:
+    unpinned xformers pulls torch past 2.7 (same trap as the matcha
+    notes). Fix: `xformers==0.0.30` from the cu128 index.
+
+## Honest quality read (so far)
+
+- **Depth maps: excellent.** Smooth coherent gradients, clean
+  vegetation layering, no speckle (see `data/scene.jpg`).
+- **Splat quality: not yet judged.** The auto gs_video trajectory
+  hugs the lawn (close-up frames, uninformative). A real verdict
+  needs the splats/cloud rendered from OUR saved comparison views —
+  which requires aligning DA3's frame to the scene's oriented frame
+  (the COLMAP poses make this tractable). That is the natural next
+  story, NOT claimed here (T-002).
+- **Resolution caveat: process_res 504** (default) vs MAtCha's 1.6K
+  training — geometry density comparison must account for this knob.
