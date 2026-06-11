@@ -5,6 +5,7 @@ import torch
 from depth_anything_3.api import DepthAnything3
 
 src, out = sys.argv[1], sys.argv[2]
+process_res = int(sys.argv[3]) if len(sys.argv) > 3 else 504
 images = sorted(glob.glob(f"{src}/*.jpeg") + glob.glob(f"{src}/*.jpg") + glob.glob(f"{src}/*.png"))
 print(f"{len(images)} images")
 model = DepthAnything3.from_pretrained("/opt/checkpoints/DA3NESTED-GIANT-LARGE-1.1")
@@ -15,6 +16,8 @@ pred = model.inference(
     infer_gs=True,
     export_dir=out,
     export_format="glb-npz-gs_ply-colmap",
+    process_res=process_res,
 )
+print(f"process_res: {process_res}")
 print(f"inference+export: {time.time()-t0:.1f}s")
 print("vram peak:", torch.cuda.max_memory_allocated() // (1<<20), "MiB")
