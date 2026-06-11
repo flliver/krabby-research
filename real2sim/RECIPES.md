@@ -155,9 +155,10 @@ Per run `scenes/<scene>/pipeline-<p>/run-<r>/`:
    `render_comparison_matrix.sh` → `comparison_renders/`
 7. **Rank** — `rate_renders` app (:8090)
 
-Fleet execution: all four GPU hosts (t/b/d/s) run the matcha image;
-s + d have `krabby-matcha:0.2.1-selfcontained`. Wrap long jobs with
-`nanny-progress`. Docker writes land root-owned on fleet clones and
+Fleet execution: all four GPU hosts (t/b/d/s) pull the matcha image
+from the LAN registry `j.pski.org:5000/krabby-matcha:<tag>` (latest:
+0.2.2-selfcontained; build+push recipe: `images/matcha/README.md`).
+Wrap long jobs with `nanny-progress`. Docker writes land root-owned on fleet clones and
 silently wedge `git pull` — chown via throwaway container.
 
 **Gather hygiene (3 wedges on 2026-06-10 alone):** after rsyncing a
@@ -168,3 +169,88 @@ because the committed copy collides with the local untracked one. The
 abort prints "Updating …" first and looks like success. Sequence:
 chown (container) → rsync to store → commit+push → `rm -rf` on host →
 host pulls clean.
+
+---
+
+## Phase catalog
+
+One section per processing phase. Each phase has a STOry recording
+what we did / where the code is / how (operator directive
+2026-06-10). The recipes above are the *flows*; this catalog is the
+per-phase *reference*.
+
+### 1. Video → frame pool
+Lossless full-frame extraction to `input/src/` (ffmpeg passthrough,
+PNG). No script — the two one-liners in Recipe A steps 1–2 are
+canonical (`extract_frames.sh` is the legacy COLMAP-era form).
+**Story:** STO-SCN-054.
+
+### 2. Photo normalization
+`real2sim/normalize_photos.py` — long_edge 2048 JPEG q95, strips MPO
+payloads, applies+strips EXIF rotation; −28 % training VRAM. Standard
+for sources >2048 px. **Story:** STO-SCN-043.
+
+### 3. Frame sampling (sharp-select)
+`real2sim/select_sharp_frames.py` — variance-of-Laplacian @480 px,
+sharpest per uniform temporal window; spec-driven, results-emitting.
+Builds candidate pools (≤300) and quick baselines.
+**Story:** STO-SCN-052 (prototype history: STO-SCN-045 era, 001).
+
+### 4. Camera positioning (pool SfM)
+`real2sim/batched_sfm.py chunk`+`solve` (single-chunk) — MASt3R-SfM
+`--sfm_only` over the candidate pool so frames can be selected by
+WHERE they are. "The dtu flow." **Story:** STO-SCN-055.
+
+### 5. Coverage curation (operator, T-020)
+`real2sim/camera_viewer/viewer.py` (viser :8082) — frustums + image
+planes + filters (time/stride/k-means/distance/look-at/pHash);
+operator picks → `selected_frames.json`. Slot naming: `curated-<N>`.
+**Story:** STO-SCN-001.
+
+### 6. Photo spine (pools >300 frames)
+`real2sim/batched_sfm.py` chunk/solve/stitch + `real2sim/gauge_align.py`
+(consensus align, relative gates, `--order`). Fleet-farmable.
+**Stories:** STO-SCN-048/049/050/051 (epic
+`sparse/epic-photo-spine-pipeline`); parked 005 state in the scene's
+FINDINGS doc.
+
+### 7. MAtCha reconstruction (runner)
+`real2sim/run_transform.py` — spec-driven (`specification.json` in,
+measured `results.json` out), verified flag mappings, image-label
+driven mounts, digest provenance. Image:
+`j.pski.org:5000/krabby-matcha:<tag>` (build recipe:
+`images/matcha/README.md`). **Stories:** STO-SCN-039/040 (runner),
+STO-SCN-038 (self-contained image), STO-SCN-053 (registry + 0.2.2).
+
+### 8. TSDF extraction + gravity orientation
+`scripts/extract_tsdf_mesh.py` (in-image, config `default`) →
+`orient_mesh.py` (RANSAC floor, STO-SCN-004) →
+`apply_existing_orientation.py`. Freshness-gate the outputs; never
+lowmem for deliverables; ≥17-camera OOM fixed in image ≥0.2.2.
+**Story:** STO-SCN-056.
+
+### 9. Scene build (Blender)
+`real2sim/build_blender_scene.py` (headless) — oriented tetra mesh +
+vertex-color material + camera objects + image empties →
+`run-<r>/scene.blend`. **Story:** STO-SCN-044.
+
+### 10. Choosing the render camera (operator, T-020)
+Open the run `scene.blend` (MCP bridge), walk (Shift+`), then
+`/camera-save <view-name>` → `viewport_capture.py` captures the
+viewport (TRUE lens from projection matrix),
+`sync_comparison_views.py` regenerates the scene-level `cameras.json`
+(schema 5). **Verify the capture result names the scene you meant —
+a stale Blender instance can hold the MCP port** (2026-06-10: a 013
+capture landed in 001's blend; restored from git).
+**Stories:** STO-SCN-046 (capture skill), STO-SCN-045 (schema).
+
+### 11. Comparison renders
+`real2sim/render_comparison_matrix.sh --scene <s> [--views …]
+[--mesh-source tsdf]` — Cartesian (variant × view) →
+`comparison_renders/<view>/<variant>.png`, 1920×1080 WORKBENCH.
+**Story:** STO-SCN-045.
+
+### 12. Ranking runoff (operator, T-020)
+`real2sim/rate_renders/server.py` (:8090) — operator ranks variants
+per view; output `rankings.jsonl` per scene. **Commit the rankings —
+they are the data.** **Story:** STO-SCN-057.
