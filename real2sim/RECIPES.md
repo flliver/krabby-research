@@ -273,9 +273,18 @@ forward pass: images → poses (COLMAP bins) + dense depth + gaussian
 splats + GLB cloud, ~21 s for 8 views @ 11 GB VRAM. Gaussian branch
 needs the API driver (`infer_gs=True` — the auto CLI doesn't expose
 it); multi-format export is dash-joined (`glb-npz-gs_ply-colmap`).
-Not yet runoff-comparable: DA3-frame → oriented-frame alignment is
-the open piece. **Stories:** STO-SCN-059 (research), STO-SCN-060
-(pilot); epic EPI-SCN-FEEDFORWARD-RECON.
+**Mesh path (the deliverable):** `real2sim/da3_tsdf_mesh.py` —
+Open3D TSDF fusion over DA3's conf-thresholded depths + poses,
+similarity-aligned into the scene's oriented frame
+(`real2sim/da3_render_view.py` shares the alignment; both gate on
+residual ≤10% of camera spread). Writes the standard
+`tsdf_meshes/multires_tsdf_post_oriented.ply` so
+`render_comparison_matrix.sh --mesh-source tsdf` treats the run as a
+normal variant (copy the matcha run's two anchor JSONs into the
+transform dir — the mesh lives in that frame by construction).
+CPU-only, seconds. **Stories:** STO-SCN-059 (research), STO-SCN-060
+(pilot), STO-SCN-061 (alignment + renders); epic
+EPI-SCN-FEEDFORWARD-RECON.
 
 ---
 
