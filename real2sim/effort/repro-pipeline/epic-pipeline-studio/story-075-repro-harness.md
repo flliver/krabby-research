@@ -55,16 +55,18 @@ needs defined, per-output tolerances.
 
 ## Definition of Done
 
-- [ ] **OPERATOR-GATED (host choice):** same-host re-run variance
-      measured first; tolerances derived from data, recorded in
-      TOLERANCES (currently all None → compare ABSTAINS rather than
-      inventing pass/fail, T-017/T-002).
-- [ ] **OPERATOR-GATED (host choice):** one record reproduced on a
-      different host within tolerance. NOTE: historical runs are
-      backfilled (provenance unknown) → by definition fail the
-      record gate; the FIRST reproducible-by-record run will be a
-      studio-triggered one (STO-SCN-073's validation run is the
-      candidate).
+- [x] Same-host re-run variance MEASURED (tbeeprz, 8-giant-studio vs
+      -var1): TSDF verts 0.0037% / tris 0.0053%, gaussian PLY verts
+      bit-identical, align scale 0.005%. Tolerances = ~10× measured
+      max (0.05%), recorded in the catalog (`x-task.tolerances`,
+      single source — repro_check matches output patterns,
+      most-specific wins). Verdict on the pair: **overall PASS**.
+- [ ] **OPERATOR-GATED (second host):** reproduce the record on a
+      DIFFERENT host within (cross-host) tolerance. Informative data
+      already in hand: studio(t) vs historical 8-giant(d) differs
+      0.44% — but that pair is uncontrolled (image 0.2 vs 0.4,
+      different GPU), so the cross-host gate must be measured with a
+      controlled re-run. One word names the host and I run it.
 - [x] A deliberately broken record fails loudly with reasons named:
       backfilled record → "FAIL: backfilled record…", "FAIL: image
       digest not pinned", "FAIL: input hashes missing" (rc=1);

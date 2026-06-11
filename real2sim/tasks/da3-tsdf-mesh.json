@@ -34,7 +34,12 @@
     "produces_variables": [
       "alignment_scale",
       "alignment_residual"
-    ]
+    ],
+    "tolerances": {
+      "verts_rel": 0.0005,
+      "tris_rel": 0.0005,
+      "$comment": "derived (T-017): same-host variance measured 2026-06-11 on tbeeprz, runs 8-giant-studio vs -var1 (006): verts 0.0037%, tris 0.0053%, align scale 0.005% -> gate = ~10x measured max"
+    }
   },
   "type": "object",
   "properties": {

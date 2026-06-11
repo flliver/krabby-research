@@ -33,13 +33,39 @@ import json
 import sys
 from pathlib import Path
 
-# mesh comparison tolerances: populated from measured same-host variance
-# (measure-variance step). Explicitly None = unmeasured -> abstain (T-002).
-TOLERANCES = {
-    "verts_rel": None,       # relative vertex-count delta
-    "tris_rel": None,        # relative triangle-count delta
-    "bbox_rel": None,        # relative bbox-extent delta
-}
+# Tolerances live in the task catalog (`x-task.tolerances`, single source
+# T-023), derived from MEASURED same-host variance (T-017). An output file
+# is matched to the task def whose declared output pattern names it;
+# no match / no tolerance = ABSTAIN (T-002).
+import fnmatch
+
+CATALOG_DIR = Path(__file__).parent / "tasks"
+
+
+def _catalog_tolerances() -> list[tuple[str, dict]]:
+    """[(full output pattern, tolerances dict)] from the catalog."""
+    out = []
+    for p in sorted(CATALOG_DIR.glob("*.json")):
+        d = json.loads(p.read_text())
+        tol = d.get("x-task", {}).get("tolerances")
+        if not tol:
+            continue
+        for o in d.get("x-task", {}).get("outputs", []):
+            out.append((o["pattern"], tol))
+    return out
+
+
+def tolerance_for(rel_path: Path, key: str):
+    """Most-specific full-path pattern match wins (a bare `**` pattern must
+    never shadow an exact filename — caught when the TSDF mesh matched the
+    gaussian-PLY gate)."""
+    best, best_score = None, -1
+    for pat, tol in _catalog_tolerances():
+        if fnmatch.fnmatch(str(rel_path), pat) or fnmatch.fnmatch(str(rel_path), pat.replace("**/", "*")):
+            score = len(pat.replace("*", ""))
+            if score > best_score:
+                best, best_score = tol.get(key), score
+    return best if isinstance(best, (int, float)) else None
 
 
 def load_record(run_dir: Path) -> dict:
@@ -59,7 +85,7 @@ def check(run_dir: Path) -> int:
     if not prov:
         failures.append("no provenance block")
     for node, p in prov.items():
-        if not (p.get("image_digest") or "").startswith("sha256"):
+        if "sha256:" not in (p.get("image_digest") or ""):
             failures.append(f"{node}: image digest not pinned")
         if not p.get("tools_git_sha"):
             warnings.append(f"{node}: tools_git_sha missing")
@@ -119,7 +145,7 @@ def compare(a: Path, b: Path) -> int:
         for key, tol_key in (("verts", "verts_rel"), ("faces", "tris_rel")):
             va, vb = st_a[key], st_b[key]
             d = abs(va - vb) / max(va, 1)
-            tol = TOLERANCES[tol_key]
+            tol = tolerance_for(rel, tol_key)
             if tol is None:
                 verdict, overall_abstain = "ABSTAIN (tolerance unmeasured)", True
             elif d <= tol:

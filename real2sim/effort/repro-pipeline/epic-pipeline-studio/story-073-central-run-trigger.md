@@ -4,10 +4,13 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: M
-status: in-progress
+status: shipped
 date: 2026-06-11
 depends-on: [STO-SCN-070, STO-SCN-071, STO-SCN-076]
 bd-id: krabby-24v
+shipped: 2026-06-11
+tasks: 4
+complete: 4
 ---
 
 # Central run trigger: launch instance on one chosen host, capture full run record
@@ -52,10 +55,33 @@ complete enough to reproduce from.
 
 ## Definition of Done
 
-- [ ] One real pipeline_instance triggered centrally and executed on
-      an operator-chosen host end-to-end.
-- [ ] The run record alone names image digests, code SHAs, expanded
-      settings, and input hashes for every task_run.
-- [ ] Gates inherited: expected-outputs hard gate + LFS-pointer guard
-      fire from the triggered path.
-- [ ] Existing manual script path still works unchanged.
+- [x] One real pipeline_instance triggered centrally and executed on
+      an operator-chosen host end-to-end: `da3-8-giant-studio` →
+      006-kubota on **tbeeprz (operator: "run it on t")** — infer
+      17s + fuse 1s, alignment 2.9% (matches historical), render
+      produced, store committed (803808c).
+- [x] The run record alone names image digests (repo@sha256), tool
+      SHAs (image label, measured from host docker), expanded
+      settings, and 8 input content hashes. `repro_check check`:
+      reproducible-by-record YES, deliverable NO (CC-BY-NC flag).
+- [x] Gates: LFS-pointer input guard (host-side grep before
+      dispatch) + expected-outputs hard gate (catalog-declared
+      outputs verified post-gather; rc=0 lies) — patterns verified
+      against the real gathered run. Plus chown-in-dispatch (gather
+      hygiene; first attempt left root-owned residue on t, now
+      cleaned + prevented).
+- [x] Existing manual script path still works unchanged
+      (run_transform.py untouched; matcha keeps its hardened runner,
+      composing it under the trigger is follow-on).
+
+## Implementation Notes
+
+- `real2sim/run_pipeline.py`. Host is an explicit `--host` parameter
+  (decision 3) — the permission layer independently enforced this
+  when the agent tried to pick a host itself.
+- Found+fixed during validation: da3_infer_gs.py's out arg is the
+  data ROOT (exports/ created underneath) — first dispatch nested
+  exports/exports; da3-infer catalog output patterns corrected to
+  the measured layout.
+- by_record digest check fixed: registry digests arrive as
+  `repo@sha256:…`, not bare `sha256:…`.

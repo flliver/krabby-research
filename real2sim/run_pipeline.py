@@ -49,9 +49,11 @@ def sh(cmd: list[str], **kw) -> str:
 # ---------- per-task arg builders: (scene, run_rel, tdir_rel, settings) -> container cmd ----------
 
 def _args_da3_infer(scene, run_rel, tdir_rel, s):
+    # NB: out arg is the DATA ROOT — the tool creates exports/, gs_ply/,
+    # depth_vis/, gs_video/ underneath it (verified against run-8-giant layout)
     cmd = ["python", "/opt/krabby-tools/da3_infer_gs.py",
            f"/scenes/{scene}/input/src",
-           f"/scenes/{scene}/{run_rel}/{tdir_rel}/data/exports",
+           f"/scenes/{scene}/{run_rel}/{tdir_rel}/data",
            str(s["process_res"])]
     if s.get("mode") == "nogs":
         cmd.append("nogs")
@@ -155,6 +157,14 @@ def main() -> int:
     tdir_rel = f"transform-01-{p_label}"
     host_run = f"{HOST_STORE}/{a.scene}/{run_rel}"
 
+    # LFS-pointer input guard (inherited lesson, STO-SCN-041 failure chain):
+    # an aborted pull leaves pointers masquerading as inputs on the host
+    host_src = f"{HOST_STORE}/{a.scene}/input/src"
+    pointers = sh(["ssh", a.host,
+                   f"grep -l 'git-lfs.github.com' {host_src}/* 2>/dev/null | head -3; true"])
+    if pointers:
+        sys.exit(f"REFUSING: LFS pointers masquerading as inputs on {a.host}:\n{pointers}")
+
     # input content hashes from the (git-tracked) store — the reproducibility anchor
     src = STORE / a.scene / "input" / "src"
     input_hashes = {p.name: hashlib.sha256(p.read_bytes()).hexdigest()[:16]
@@ -169,8 +179,12 @@ def main() -> int:
         tools_sha = sh(["ssh", a.host,
                         f"docker inspect --format '{{{{index .Config.Labels \"io.krabby.da3.tools_git_sha\"}}}}' {image}"]) or None
         cmd = BUILDERS[task](a.scene, run_rel, tdir_rel, expanded[nid])
+        # gather hygiene (RECIPES.md): docker writes land root-owned and wedge
+        # later rm/pull — chown back to the invoking user in the same dispatch
         docker = (f"mkdir -p {host_run}/{tdir_rel}/data && "
-                  f"docker run --rm --gpus all -v {HOST_STORE}:/scenes {image} " + " ".join(cmd))
+                  f"docker run --rm --gpus all -v {HOST_STORE}:/scenes {image} " + " ".join(cmd) +
+                  f" ; rc=$? ; docker run --rm -v {HOST_STORE}:/scenes alpine "
+                  f"chown -R $(id -u):$(id -g) /scenes/{a.scene}/{run_rel} ; exit $rc")
         print(f"[{nid}] {a.host}: {' '.join(cmd)}")
         t0 = datetime.datetime.now()
         r = subprocess.run(["ssh", a.host, docker], capture_output=True, text=True)
@@ -193,6 +207,20 @@ def main() -> int:
     subprocess.run(["rsync", "-a", f"{a.host}:{host_run}/", str(run_dir) + "/"], check=True)
     subprocess.run(["ssh", a.host, f"rm -rf {host_run} && rmdir {HOST_STORE}/{a.scene}/pipeline-{p_label} 2>/dev/null; true"], check=True)
 
+    # expected-outputs hard gate (tool rc=0 lies — STO-SCN-041 lesson):
+    # every executed node's catalog-declared outputs must exist post-gather
+    import fnmatch
+    gathered = [str(p.relative_to(run_dir)) for p in run_dir.rglob("*") if p.is_file()]
+    for nid, task, x in todo:
+        if statuses.get(nid) != "success":
+            continue
+        for out_decl in cat[task]["x-task"].get("outputs", []):
+            pat = out_decl["pattern"].split("#")[0]
+            if not any(fnmatch.fnmatch(g, pat) or fnmatch.fnmatch(g, pat.replace("**/", "*"))
+                       for g in gathered):
+                statuses[nid] = "failure"
+                print(f"[{nid}] EXPECTED-OUTPUT MISSING (rc=0 lied): {pat}")
+
     finished = datetime.datetime.now().astimezone().isoformat(timespec="seconds")
     overall = ("success" if all(v == "success" for v in statuses.values())
                else "failure" if any(v == "failure" for v in statuses.values()) else "partial")
@@ -207,7 +235,7 @@ def main() -> int:
                       "started": started, "finished": finished, "status": overall},
         "provenance": provenance,
         "reproducibility": {
-            "by_record": all(p["image_digest"] and p["image_digest"].startswith("sha256")
+            "by_record": all(p["image_digest"] and "sha256:" in p["image_digest"]
                              for p in provenance.values()),
             "license_flags": flags,
             "notes": f"transients at mac:{run_dir}/{tdir_rel}/data (store-shape v2); "

@@ -57,9 +57,11 @@ effort exists to make.
       their runs/instances — read-time join on `variant` surfaces the
       leaderboard in the Runs tab (006 reproduces the operator
       verdict: tetra #1).
-- [ ] **OPERATOR-GATED:** new flow end-to-end once: triggered run
-      (STO-SCN-073, waiting on operator host choice) → renders →
-      operator ranks in Studio → leaderboard updates.
+- [ ] **OPERATOR-GATED (last step is yours):** new flow end-to-end:
+      triggered run ✓ (8-giant-studio on t) → render ✓
+      (`da3--8-giant-studio` / overhead-grass-quality, anchor
+      residual 2mm) → **operator ranks it in Studio Rank tab
+      (:8091)** → leaderboard updates automatically via the join.
 - [ ] **OPERATOR-GATED:** rate_renders retired ONLY after the
       operator confirms Studio covers the flow (until then both run;
       T-020).

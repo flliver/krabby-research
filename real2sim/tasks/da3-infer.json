@@ -25,17 +25,26 @@
       },
       {
         "name": "gs_ply",
-        "pattern": "**/data/exports/gs_ply/**"
+        "pattern": "**/data/gs_ply/*.ply"
       },
       {
-        "name": "glb",
-        "pattern": "**/data/exports/glb/**"
+        "name": "depth_vis",
+        "pattern": "**/data/depth_vis/*"
+      },
+      {
+        "name": "gs_video",
+        "pattern": "**/data/gs_video/*"
       }
     ],
     "produces_variables": [
       "extrinsics_w2c",
       "intrinsics"
-    ]
+    ],
+    "tolerances": {
+      "verts_rel": 0.0,
+      "$comment": "measured 2026-06-11: gaussian PLY vertex count bit-identical across same-host re-runs",
+      "tris_rel": 0.0
+    }
   },
   "type": "object",
   "properties": {
