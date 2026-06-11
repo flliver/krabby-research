@@ -4,11 +4,14 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: S
-status: in-progress
+status: shipped
 date: 2026-06-10
 depends-on: []
 bd-id: krabby-zv4
 assignee: krabby
+shipped: 2026-06-10
+tasks: 4
+complete: 4
 ---
 
 # T0 video preprocessing: recipe book + hardened sharp-select
@@ -79,3 +82,9 @@ conversation.
 - Normalize skipped per Recipe A step 4 (672 px ≪ 2048).
 - Gotcha: Mac system python3 has no numpy/PIL — ran via
   `uv run --with numpy --with pillow`.
+- 2026-06-10: SHIPPED. Recipe A executed end-to-end on 013-basement
+  (extract 898 → pool-sharp-200 → pool-sfm 200/200 on s → operator
+  curated 17 → train 673s → TSDF (0.2.2 patch) → orient → scene.blend
+  → non-ideal-dark render). Scene behaved as the pre-registered
+  negative control. Recipe book later extended with the per-phase
+  catalog (STO-SCN-054..057).
