@@ -2,7 +2,7 @@
 xid: DES-SCN-DOCKER
 kind: design
 effort: scn
-status: draft
+status: open
 date: 2026-06-03
 guidance: ./guidance.md
 hugs: []

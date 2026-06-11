@@ -30,7 +30,8 @@
       "agent": "krabby",
       "instance-pattern": "{PROJECT}-{AGENT}",
       "emoji": "🦀",
-      "model": "opus[1m]"
+      "model": "opus[1m]",
+      "conductor": false
     },
     {
       "name": "manager",
@@ -44,14 +45,16 @@
       "agent": "principal",
       "instance-pattern": "{PROJECT}-{AGENT}",
       "emoji": "📐",
-      "model": "opus"
+      "model": "opus",
+      "conductor": false
     },
     {
       "name": "engineer",
       "agent": "engineer",
       "instance-pattern": "{PROJECT}-{AGENT}",
       "emoji": "🔧",
-      "model": "opus"
+      "model": "opus",
+      "conductor": false
     },
     {
       "name": "devex",
