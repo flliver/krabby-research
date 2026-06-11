@@ -4,10 +4,13 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: M
-status: in-progress
+status: shipped
 date: 2026-06-10
 depends-on: []
 bd-id: krabby-q8c
+shipped: 2026-06-10
+tasks: 4
+complete: 4
 ---
 
 # krabby-da3 image + 006-kubota pilot reconstruction

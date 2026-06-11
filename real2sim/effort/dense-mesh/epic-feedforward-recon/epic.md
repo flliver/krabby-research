@@ -3,11 +3,12 @@ xid: EPI-SCN-FEEDFORWARD-RECON
 parent: ../design.md
 kind: epic
 effort: scn
-status: open
+status: shipped
 date: 2026-06-10
 hugs: []
 tenets: []
 bd-id: krabby-amu
+shipped: 2026-06-10
 ---
 
 # T1: Feed-forward reconstruction (VGGT-Omega / DA3) — dense hole-free geometry

@@ -4,10 +4,13 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: S
-status: in-progress
+status: shipped
 date: 2026-06-10
 depends-on: []
 bd-id: krabby-nsi
+shipped: 2026-06-10
+tasks: 1
+complete: 1
 ---
 
 # Research: VGGT-Omega 1B + Depth Anything 3 (discovery record)
