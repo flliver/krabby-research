@@ -33,7 +33,14 @@ One copy, one home, by data class:
 
 ## Remaining
 
-- [ ] Slim fleet clones: checkout v2 trunk, delete now-untracked
-      payloads, `git lfs prune` (expect ~500G→tens of G per host).
-- [ ] b when back up: disable sync gate + slim.
-- [ ] RECIPES fleet section documents the placement table.
+- [x] Slim fleet clones: t/d/s 454/318/319G → **72G each** (~700G
+      freed fleet-wide). Pre-flight caught the edge case the protocol
+      existed for: t held 11.2G of 005 chunk-01/08 solve byproducts
+      existing NOWHERE else (host locked up before cleanup this
+      morning) — gathered to the Mac archive BEFORE deletion.
+      `git lfs prune` retained everything despite zeroed retention
+      config (opaque); used direct cache removal instead — provably
+      safe (fetch-only clones, j verified complete) and refetch-on-
+      demand verified per host.
+- [ ] b when back up: disable sync gate + slim (same sequence).
+- [x] RECIPES § Storage policy documents the placement table.
