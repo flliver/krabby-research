@@ -63,13 +63,23 @@ RUN pip install --no-cache-dir "huggingface_hub[cli]" && \
 
 ENV DA3_MODEL_DIR=/opt/checkpoints/DA3NESTED-GIANT-LARGE-1.1
 
+# ── krabby pipeline tools — BAKED, not mounted ──────────────────────────
+# Operator policy (2026-06-10): results delivered via /tmp-copied tools
+# are INVALID — the image digest in results.json must cover the tools
+# that produced the result. Sync krabby-tools/ from real2sim/ before
+# building (see README); TOOLS_GIT_SHA records the source commit.
+ARG TOOLS_GIT_SHA=unknown
+COPY krabby-tools/ /opt/krabby-tools/
+ENV PYTHONPATH=/opt/krabby-tools:${PYTHONPATH}
+
 LABEL org.opencontainers.image.title="krabby-da3" \
       org.opencontainers.image.source="https://github.com/ByteDance-Seed/Depth-Anything-3" \
       io.krabby.da3.upstream_sha="${DA3_SHA}" \
       io.krabby.da3.checkpoint="DA3NESTED-GIANT-LARGE-1.1" \
       io.krabby.da3.checkpoint_license="CC-BY-NC-4.0 (research evaluation only)" \
       io.krabby.da3.selfcontained="true" \
-      io.krabby.da3.story="STO-SCN-060"
+      io.krabby.da3.story="STO-SCN-060" \
+      io.krabby.da3.tools_git_sha="${TOOLS_GIT_SHA}"
 
 WORKDIR /workspace
 CMD ["/bin/bash"]

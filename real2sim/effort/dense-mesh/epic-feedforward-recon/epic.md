@@ -39,7 +39,14 @@ dense per-pixel geometry for every view in a single transformer pass
 | # | XID | Story | Status | Size |
 |---|-----|-------|--------|------|
 | 1 | `STO-SCN-059` | Research: VGGT-Omega + DA3 discovery record | shipped | S |
-| 2 | `STO-SCN-060` | krabby-da3 image + 006-kubota pilot | in-progress | M |
+| 2 | `STO-SCN-060` | krabby-da3 image + 006-kubota pilot | shipped | M |
+| 3 | `STO-SCN-061` | Frame alignment + render from saved views | in-progress (operator ranking open, T-020) | M |
+| 4 | `STO-SCN-065` | TSDF mesh fusion — depths → deliverable mesh | in-progress | M |
+
+**Transformation inventory (each is a story):** inference+export
+(060), view-aligned gaussian render (061), mesh fusion (065). Future
+transformations (process_res sweep, VGGT-Omega variant, DA3-as-runner
+-transform) get their own stories before execution.
 
 ## Risks
 
