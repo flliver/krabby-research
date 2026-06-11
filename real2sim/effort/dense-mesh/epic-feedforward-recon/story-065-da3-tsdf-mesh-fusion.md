@@ -4,10 +4,13 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: M
-status: in-progress
+status: shipped
 date: 2026-06-10
 depends-on: []
 bd-id: krabby-m1u
+shipped: 2026-06-10
+tasks: 4
+complete: 4
 ---
 
 # DA3 TSDF mesh fusion — depths → deliverable mesh (the transformation)
@@ -59,5 +62,17 @@ experiment).
 - [x] Fusion tool versioned; alignment gated; standard-path output.
 - [x] 006 mesh in the runoff via the unmodified render matrix.
 - [x] Recipe phase 13 documents the mesh path with exact commands.
-- [ ] Tools baked into krabby-da3 image (no /tmp scp delivery) —
-      see status notes.
+- [x] Tools baked into krabby-da3:0.2 (`/opt/krabby-tools`, +open3d;
+      image label `io.krabby.da3.tools_git_sha` records the source
+      commit). ALL 006 results re-produced from the baked image —
+      fusion identical within float noise. Accepted gap (recorded in
+      results.json): the Blender mesh render runs on the operator Mac
+      with repo-versioned scripts, not in a container.
+
+## Status notes
+
+- 2026-06-10: Operator policy ratified mid-story: "Results are invalid
+  if they are copied around to /tmp. Results must be baked into docker
+  images." krabby-da3:0.2 bakes the toolchain; the registry makes the
+  rebuild+distribute loop ~1 minute, so there is no longer any speed
+  excuse for /tmp delivery.

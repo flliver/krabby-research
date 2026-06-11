@@ -301,6 +301,16 @@ EPI-SCN-FEEDFORWARD-RECON.
 | Derived blends (`scene.blend`, …) | NO | Mac archive; regenerate via these recipes |
 | Fleet job scratch | NO | producing host, deleted after gather |
 
+**Tooling provenance (operator policy, 2026-06-10):** results are
+INVALID if produced by tools copied to a host ad hoc (/tmp scp). Every
+in-container transform must run tools BAKED into the image
+(`/opt/krabby-tools` in krabby-da3; the image digest in results.json
+then covers the tool versions; `io.krabby.*.tools_git_sha` labels the
+source commit). Build+push is ~1 min via the registry — bake, push,
+pull, run. A `/tools` bind-mount is permissible ONLY for development
+iteration, and any result it produces must be re-produced from a baked
+image before it counts.
+
 Rules of thumb:
 - The `.gitignore` at the store root IS the policy — if your new
   artifact class is heavy and regenerable, add it there with the
