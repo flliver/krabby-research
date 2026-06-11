@@ -4,7 +4,7 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: M
-status: open
+status: abandoned
 date: 2026-06-04
 depends-on: []
 bd-id: krabby-nit
@@ -88,3 +88,14 @@ _(Actual implementation. May differ from § Design above.)_
 ### Gotchas
 
 _(Anything surprising or worth noting for future readers.)_
+
+## Status notes
+
+- 2026-06-11: CLOSED — superseded in substance. The consume
+  convention now exists, but not as the read-only mount this story
+  imagined: jobs mount `-v <scene>:/scene` read-write and write ONLY
+  into store-shape-v2-ignored transient paths (STO-SCN-062); tools are
+  image-baked (tooling-provenance policy, RECIPES § Storage policy);
+  finals are gathered + committed, scratch deleted (gather hygiene).
+  Documented in RECIPES.md. A read-only inputs mount adds nothing the
+  ignore rules don't already enforce; no remaining scope.

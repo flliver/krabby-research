@@ -4,10 +4,13 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: M
-status: in-progress
+status: shipped
 date: 2026-06-10
 depends-on: []
 bd-id: krabby-mb8
+shipped: 2026-06-11
+tasks: 4
+complete: 4
 ---
 
 # Store shape v2 — track inputs+metadata+finals; transformation data untracked
@@ -51,8 +54,17 @@ everywhere."
 
 ## Definition of Done
 
-- [ ] .gitignore + untrack commit pushed; new clones materialize
-      tracked-set only.
-- [ ] Location stanzas in all affected results.json.
-- [ ] RECIPES.md storage policy section.
-- [ ] orient_mesh.py stops writing oriented_tetra.obj.
+- [x] .gitignore + untrack commit pushed (106651b; verified over all
+      11,506 tracked files, zero misclassifications). Pointmaps leak
+      (bulk data serialized as JSON, 11.2 GiB) caught + fixed (08eb8a5).
+- [x] Location stanzas in all 58 affected results.json.
+- [x] RECIPES.md § Storage policy (incl. tooling-provenance rule).
+- [x] orient_mesh.py stops writing oriented_tetra.obj (49 GB class).
+
+## Status notes
+
+- 2026-06-11: SHIPPED. Tracked set 6.1k files / ~55 GiB (was 11.5k /
+  240 GiB). Validated end-to-end the same day: d regenerated 006's DA3
+  transients from tracked inputs+metadata in 12 s and reproduced the
+  render bit-comparably — the v2 premise (inputs+metadata+recipes =
+  artifacts) demonstrated in production.

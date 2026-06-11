@@ -4,12 +4,15 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: S
-status: in-progress
+status: shipped
 date: 2026-06-04
 depends-on: []
 bd-id: krabby-e0g
 assignee: krabby
 priority: 4
+shipped: 2026-06-11
+tasks: 8
+complete: 0
 ---
 
 # Local inspection ergonomics + camera_viewer integration
@@ -87,3 +90,15 @@ _(Actual implementation. May differ from § Design above.)_
 ### Gotchas
 
 _(Anything surprising or worth noting for future readers.)_
+
+## Status notes
+
+- 2026-06-11: CLOSED — delivered through the camera-compare work
+  rather than as a standalone effort. What exists today, all reading
+  store paths directly: camera_viewer curation flow (013-basement,
+  selected_frames.json → MAtCha), /camera-save viewport capture
+  (STO-SCN-046), run-level scene.blend builds (STO-SCN-044),
+  scene_compare.blend convention (cross-pipeline 3D inspection,
+  STO-SCN-061), rate_renders runoff (:8090, STO-SCN-057), rank-board
+  montages. Story was a bare template; its title's intent is met.
+- 2026-06-11: Closed with --force; 8/8 DoD boxes unchecked. Reason: delivered via camera-compare stories (044/046/057/061): viewer curation, camera-save, scene_compare blends, rate_renders — all reading store paths directly; bare-template DoD boxes inapplicable

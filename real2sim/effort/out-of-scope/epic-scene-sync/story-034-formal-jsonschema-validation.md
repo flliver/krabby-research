@@ -62,3 +62,11 @@ The schemas are committed but nothing enforces them. Without a runnable validato
 - The structural check 026 ran already covers: conforming fixtures pass, missing
   required field fails, and the `measured`-requires-`host` conditional. This story
   formalizes those under `jsonschema` and adds the two cases above.
+
+## Status notes
+
+- 2026-06-11: Still OPEN, untouched — and MORE valuable after store
+  -shape v2: the schema surface grew (render sidecars, run.json
+  render-variants with source_run, transient_data stanzas,
+  fusion/conditioning records). A validation harness should cover
+  those. No work done yet.

@@ -43,3 +43,10 @@ transformation-data paths, then GC unreferenced LFS objects on j.
 - [ ] Dry-run inventory with measured expected recovery.
 - [ ] Executed with pre/post fsck + LFS pointer checks (the bare-ify
       proof protocol).
+
+## Status notes
+
+- 2026-06-11: Still OPEN and deliberately gated. Urgency further
+  reduced: /games at 1.2T free, and store-shape v2 cut growth to
+  ~MB/day — j's 256G of historical LFS objects are now a static cost,
+  not a growing one. Execute only with operator retention sign-off.

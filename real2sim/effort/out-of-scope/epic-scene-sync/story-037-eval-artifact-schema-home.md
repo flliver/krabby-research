@@ -92,3 +92,10 @@ _(Anything surprising or worth noting for future readers.)_
 - 2026-06-10: Partially superseded: comparison renders now live IN
   their producing runs (STO-SCN-058) and rankings.jsonl is committed
   at scene root. Remaining scope: _unsorted/_migrated re-sort only.
+
+- 2026-06-11: PARTIAL. Done by other stories: comparison renders live
+  in their producing runs with settings sidecars (STO-SCN-058);
+  rankings.jsonl + rank_board_<view>.png committed at scene root —
+  eval artifacts have de-facto homes. Remaining scope: formalize
+  eval/ in the schema doc (or bless the de-facto layout) + re-sort
+  legacy _unsorted/_migrated. Keep open for that tail.
