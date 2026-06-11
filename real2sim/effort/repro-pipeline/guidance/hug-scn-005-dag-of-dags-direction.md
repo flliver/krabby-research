@@ -170,6 +170,33 @@ reconstruction subsets ⊆ primary     (small scenes: all == primary == subset)
   without re-alignment.
 - A subset's cameras-input identity is fully deduced:
   `hash(primary_solve_identity + subset_hash)`.
+
+**File placement (#1):**
+
+```
+scenes/<scene>/images/<image_hash>/image.<ext>        # canonical image pool
+scenes/<scene>/images/<image_hash>/metadata.json
+scenes/<scene>/images/subsets/<subset_hash>/subset.json   # pointers (image hashes)
+scenes/<scene>/images/subsets/<subset_hash>/metadata.json # mechanism, label, settings, resolved refs
+scenes/<scene>/images/subsets/primary -> <subset_hash>    # symlink (the ONLY mutable entry)
+```
+
+Inherited cameras for a reconstruction subset ARE materialized (downstream
+tools need a file), under the same shape as any cameras product, and
+**named by the source solve's identity** (locked: identity-propagation
+rule — a stage with zero settings and one input does NOT mint a new
+identity; pure selections/projections are transparent to identity):
+
+```
+scenes/<scene>/images/subsets/<subset_hash>/cameras/<solve_identity>/cameras.json
+scenes/<scene>/images/subsets/<subset_hash>/cameras/<solve_identity>/metadata.json
+   # metadata.json: mechanism: inherit, source solve: <solve_identity>,
+   # members filtered by subset.json
+```
+
+Same identity string under primary and under the subset = same solve,
+same gauge — lineage is readable in the path. Re-derivable,
+byte-stable, safe to delete and regenerate.
 - **Ref-resolution rule (the git model):** refs (`primary`, labels)
   are for humans at invocation time. A stage MUST resolve every ref
   to a concrete hash before running, record the resolved hash in
@@ -177,6 +204,66 @@ reconstruction subsets ⊆ primary     (small scenes: all == primary == subset)
   Re-establishing primary (rare: better sampling, new footage) then
   never changes what past runs meant — only what future runs
   resolve to.
+
+### Flow diagram — worked example of everything locked so far
+
+Scene `006-kubota`, fake short hashes. One video, primary pool of 200,
+one curated subset of 17, primary solved once (then once more with
+different settings — the reason identity levels exist).
+
+```
+video.mp4
+   │  video-to-images
+   ▼
+images/                                  ◄── canonical pool: one dir per image
+├── 1A2B/image.jpg  ─┐
+├── 7C9D/image.jpg   │  5000 images
+├── ...              ┘
+│
+│  images-subset (mechanism: sample, label: "pool-200")
+▼
+subsets/P9F3/                            ◄── P9F3 = hash of its 200 image hashes (HOH)
+├── subset.json                              (pointers to the 200)
+├── metadata.json
+│
+│  solve-cameras (mast3r-sfm, settings X, image digest D1)
+▼
+subsets/P9F3/cameras/S7D2/               ◄── S7D2 = hash(P9F3 + X + D1)
+├── cameras.json        (arbitrary gauge)    WHY THIS LEVEL EXISTS:
+├── points.ply                               re-solve with settings Y
+├── metadata.json                            → cameras/Q4K8/ coexists,
+├── solve.log                                nothing overwritten
+│
+│  orient-cameras (method: floor-ransac, settings Z)
+▼
+subsets/P9F3/cameras/S7D2/orient/O3M1/   ◄── O3M1 = hash(S7D2 + Z)
+├── transform.json      (THE gauge: rotation, z_shift)
+├── oriented.json
+│
+subsets/primary ──symlink──► P9F3
+
+   │  images-subset (mechanism: HUMAN viser, label: "curated-17")
+   ▼
+subsets/C4E8/                            ◄── C4E8 = HOH of the 17 (⊆ primary's 200)
+├── subset.json
+├── cameras/S7D2/                        ◄── INHERITED: row-selection of primary's
+│   ├── cameras.json    (17 rows)            solve. Same string S7D2 = same solve,
+│   ├── metadata.json   (mechanism:          same gauge — lineage readable in the
+│                        inherit)            path. No new identity minted: inherit
+│                                            has zero settings, one input.
+└── (represent-via-matcha consumes C4E8 + its cameras/S7D2 from here…)
+```
+
+Reading the why-questions off the diagram:
+- **Why `S7D2` under primary?** Because `Q4K8` (a re-solve) can exist
+  beside it. Identity levels exist exactly where settings/code can
+  vary; nowhere else.
+- **Why `S7D2` again under C4E8?** It names *which solve* those 17
+  cameras were cut from. If primary is re-solved, C4E8 can hold
+  `cameras/Q4K8/` too — and every artifact downstream knows which
+  gauge it lives in by the identity in its path.
+- **Where's the single mutable thing?** `subsets/primary` — the
+  symlink. Everything else is immutable, content-addressed.
 
 ### Locked #2 — cameras take two stages: `solve-cameras` → `orient-cameras` (2026-06-11)
 
@@ -192,14 +279,31 @@ artifacts are born oriented.
 - SETTINGS: tunable: none yet · frozen: solver `mast3r-sfm`,
   `sfm_config: unposed` · (>300 frames: chunk_size/overlap — the
   photo-spine folds in as this stage's big-pool strategy)
-- IDENTITY: `subsets/<hash>/cameras/<identity_hash>`
-- OUTPUTS: `cameras.json` (poses+intrinsics, arbitrary gauge) +
-  `points.ply` (sparse cloud)
+- IDENTITY: `<solve_identity> = hash(subset_hash + settings + image_digest)`
+- OUTPUTS (file placement):
+
+```
+scenes/<scene>/images/subsets/<subset_hash>/cameras/<solve_identity>/cameras.json   # poses+intrinsics, ARBITRARY gauge
+scenes/<scene>/images/subsets/<subset_hash>/cameras/<solve_identity>/points.ply    # sparse cloud
+scenes/<scene>/images/subsets/<subset_hash>/cameras/<solve_identity>/metadata.json # resolved inputs, settings, measured (host, duration, VRAM)
+scenes/<scene>/images/subsets/<subset_hash>/cameras/<solve_identity>/solve.log
+```
+
+(`cameras/<identity>/` is ONE shape regardless of producer — solve,
+inherit (#1), or future solvers; `metadata.json#mechanism` names which.)
 
 **STAGE `orient-cameras`** — fix the gauge (gravity/floor, z-up)
 - INPUTS: solve identity
 - SETTINGS: tunable: `method` · frozen: RANSAC params
-- OUTPUTS: the transform (rotation, z_shift) + `oriented.json`
+- IDENTITY: `<orient_identity> = hash(solve_identity + settings)`
+- OUTPUTS (file placement — nested under the solve it orients):
+
+```
+.../cameras/<solve_identity>/orient/<orient_identity>/transform.json   # rotation, z_shift (the gauge itself)
+.../cameras/<solve_identity>/orient/<orient_identity>/oriented.json    # cameras with gauge applied
+.../cameras/<solve_identity>/orient/<orient_identity>/metadata.json    # method, params, measured residuals
+.../cameras/<solve_identity>/orient/<orient_identity>/orient.log
+```
 
 Two stages, not one: orientation is re-runnable without re-solving
 (10-min solve vs 2-s gauge fix), and `method` is its own experiment
