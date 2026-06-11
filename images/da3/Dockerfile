@@ -69,6 +69,8 @@ ENV DA3_MODEL_DIR=/opt/checkpoints/DA3NESTED-GIANT-LARGE-1.1
 # that produced the result. Sync krabby-tools/ from real2sim/ before
 # building (see README); TOOLS_GIT_SHA records the source commit.
 ARG TOOLS_GIT_SHA=unknown
+# open3d: TSDF fusion (da3_tsdf_mesh.py) runs in-image, CPU
+RUN pip install --no-cache-dir open3d
 COPY krabby-tools/ /opt/krabby-tools/
 ENV PYTHONPATH=/opt/krabby-tools:${PYTHONPATH}
 
