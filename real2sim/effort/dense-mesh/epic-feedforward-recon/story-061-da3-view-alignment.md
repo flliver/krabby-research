@@ -66,3 +66,25 @@ variant `da3--8-giant` next to `matcha--8-dense-strong/strong`.
       (alignment record embedded).
 - [x] Appears in rate_renders beside the matcha variants.
 - [ ] Operator views/ranks the DA3 variant (T-020 — operator step).
+
+## scene_compare.blend gotchas (operator-caught bugs, 2026-06-10)
+
+Operator inspection caught two bugs in the first comparison blend
+(guessed-not-measured transforms — T-012 violation, both fixed
+empirically):
+
+1. **DA3's GLB is NOT in DA3 world frame.** The exporter applies
+   `A = T_center(median of cloud) @ diag(1,-1,-1) @ w2c0` (first-camera
+   alignment + CV->glTF flip + median centering) — and Blender's glTF
+   importer BAKES its Y-up->Z-up into the vertex data with identity
+   node matrices. Correct root matrix: `[sR|t] @ A^-1 @ G^-1`
+   (G = gltf->blender axis map). A was reconstructed from the exporter
+   source + npz and verified against the raw GLB accessor bytes
+   (bbox agreement ~1 cm).
+2. **Loose-point meshes display black/uncolored.** Blender won't shade
+   loose vertices: Geometry Nodes Mesh->Points (radius ~0.012) +
+   Set Material with an *Attribute* node (`Color`) —
+   ShaderNodeVertexColor does not work for point clouds.
+
+`scene_compare.blend` (in the DA3 run dir) carries the fixed result:
+matcha mesh + DA3 cloud + DA3 camera frustums, one oriented frame.
