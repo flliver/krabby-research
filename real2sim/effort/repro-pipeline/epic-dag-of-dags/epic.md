@@ -3,11 +3,12 @@ xid: EPI-SCN-DAG-OF-DAGS
 parent: ../design.md
 kind: epic
 effort: scn
-status: in-progress
+status: shipped
 date: 2026-06-11
 hugs: [HUG-SCN-005]
 tenets: []
 bd-id: krabby-d9c
+shipped: 2026-06-11
 ---
 
 # DAG of DAGs — content-addressed store v4, task/graph/job runtime, full migration

@@ -51,3 +51,11 @@ rejected-method experiment record.
 - [x] Verdict recorded in the task def (`orient-cameras` default =
       bootstrap-mesh) and HUG-SCN-005 locked #2.
 - [x] Experiment code preserved (orient_sparse.py verify/run modes).
+
+- 2026-06-12 (STO-SCN-089 fallout): the bootstrap-mesh verdict stands,
+  but @0's largest-plane floor fit rolled 009's corridor gauge 90 deg.
+  Superseded by orient-floor@2 (horizon up prior — the camera-up idea
+  this story rejected, reformulated pitch-immune as
+  eigvec_min(sum X_i X_i^T) — + solve-framed bootstrap mesh as a
+  resolved input). The 082 rejection of the *sparse* floor source
+  remains valid; the rejection of the *up prior* was over-broad.

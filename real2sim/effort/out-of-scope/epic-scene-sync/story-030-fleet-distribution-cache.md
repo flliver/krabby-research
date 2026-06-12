@@ -11,6 +11,9 @@ bd-id: krabby-2hq
 assignee: engineer
 priority: 1
 title: Fleet scene-store auto-sync, gated by ~/.config/krabby/ config
+shipped: 2026-06-11
+tasks: 8
+complete: 7
 ---
 
 # Fleet scene-store auto-synchronization, gated by local config
@@ -132,3 +135,4 @@ store    = "~/krabby/scenes"   # clone location (Mac: /var/krabby/scenes)
   full-mirror premise. Disabled via its own config gate on t/d/s
   (b pending, host down). The gate design proved its worth — clean
   fleet-wide shutdown in one minute. Successor model: STO-SCN-062/063.
+- 2026-06-11: Closed with --force; 1/8 DoD boxes unchecked. Reason: Superseded: fleet auto-sync was retired (config-gated off, store-shape v2 STO-SCN-062/063) and the store is now content-addressed v4 (HUG-SCN-005) — fleet access model is checkout+refetch-on-demand, not sync

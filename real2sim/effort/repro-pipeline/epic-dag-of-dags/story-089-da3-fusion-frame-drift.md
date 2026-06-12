@@ -4,7 +4,7 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: M
-status: draft
+status: shipped
 date: 2026-06-11
 depends-on: []
 bd-id: krabby-tmb
@@ -117,9 +117,10 @@ genuinely unalignable). KBTX (@1 anchored) retired.
       (supersedes the flawed verify-frame median-distance gate, which
       had failed the operator-verified-perfect 006 at 0.155 m).
 - [x] 2XEI retired (rankable:false); 009 fusions superseded by @2.
-- [ ] OPERATOR: confirm 007 CZP2-class registered fusions read as
-      aligned in the runoff; capture guidance (avoid forward-walk-only
-      captures for the da3 branch) noted for future scenes.
+- [x] OPERATOR VERIFIED (2026-06-12, T-020): 009 re-ranked — "009 now
+      looks great." 006 native rebuild end-to-end (gauge-sim 90.7 deg
+      composed, fuse 1.7deg/0.13m fitness 0.91) — "This worked well -
+      let's close this as SOLVED." Two-in-a-row standard met.
 
 ## TRUE ROOT CAUSE (2026-06-12, operator-guided): the GAUGE was rolled
 
@@ -169,7 +170,7 @@ floor estimates + render quality); z-floor from sparse instead of the
 dense mesh; sweep other scenes for rolled @0 gauges (the @0 orient is
 suspect on every corridor-style capture).
 
-## ROOT CAUSE, PENDING OPERATOR VERIFICATION (2026-06-12, T-020): THE WELD MINTS ITS OWN GAUGE
+## ROOT CAUSE (OPERATOR-VERIFIED 2026-06-12): THE WELD MINTS ITS OWN GAUGE
 
 The gauge-roll fix above was real but not the whole story — the operator
 re-ranked and called it ("you did not [repair the world]"), then
@@ -208,3 +209,15 @@ did not survive operator contact). False trails burned en route, for the record:
 non-rigid DA3 warp (retracted), gauge roll as sole cause (half-true),
 npz convention drift (disproven), scale_factor (red herring — internal
 to charts), coverage-confounded point-to-mesh medians (twice).
+
+## CLOSED: SOLVED (2026-06-12)
+
+Operator verification standard: two consecutive scenes end-to-end.
+- 009-kubota: full native chain + operator re-rank ("009 now looks great")
+- 006-kubota: wipe -> ingest -> weld (gauge-sim 90.7 deg) -> operator
+  views -> da3 fuse (1.7 deg / 0.13 m, fitness 0.91) -> renders ->
+  operator: "This worked well - let's close this as SOLVED."
+
+The class fix (weld_to_solve_sim + meshify@1 + orient-floor@2 +
+regauge-views --sim + fuse@2 gate policy) is the production path for
+the remaining-scene sweep.

@@ -3,7 +3,7 @@ xid: EPI-SCN-SCENE-SYNC
 parent: ../design.md
 kind: epic
 effort: scn
-status: in-progress
+status: open
 date: 2026-06-04
 hugs: []
 tenets: [T-013, T-016, T-014]
