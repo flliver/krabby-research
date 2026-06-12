@@ -22,7 +22,6 @@ import argparse
 import json
 import re
 import sys
-from dataclasses import asdict
 from http.server import ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
@@ -148,10 +147,9 @@ class Handler(rr.Handler):
             self._json(sm.instances())
         elif url.path == "/api/runs":
             q = parse_qs(url.query)
-            dirs = [sm.STORE / q["scene"][0]] if "scene" in q else sm.scenes()
-            self._json([asdict(r) for d in dirs for r in sm.pipeline_runs(d)])
+            self._json(sm.runs(q["scene"][0] if "scene" in q else None))
         elif len(parts) == 3 and parts[:2] == ["api", "leaderboard"]:
-            self._json(sm.leaderboard(sm.STORE / parts[2]))
+            self._json(sm.leaderboard(parts[2]))
         elif url.path == "/rank":
             # the absorbed rate_renders app, embedded under Studio
             self._send(200, (REPO / "rate_renders" / "static" / "index.html").read_bytes(),

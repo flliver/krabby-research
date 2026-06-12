@@ -1,47 +1,77 @@
 #!/usr/bin/env python3
-"""studio_model.py — A–F read-side adapters over the scene store (STO-SCN-071).
+"""studio_model.py — Studio read-model over the v4 store (HUG-SCN-005).
 
-Presents the existing store (spec/results/run dirs, render-variant
-runs, rankings.jsonl) through the Pipeline Studio taxonomy WITHOUT
-moving or rewriting a single store file:
-
-    A task              real2sim/tasks/<task>.json      (catalog, 070)
-    D pipeline          real2sim/pipelines/<name>.json  (076)
-    E pipeline_instance real2sim/instances/<name>.json  (076) or derived
-    B task_instance     transform-NN-*/specification.json parameters
-    C task_run          transform-NN-*/{specification,results}.json
-    F pipeline_run      pipeline-<p>/run-<r>/ dir (+ run_record.json when present)
-
-Unknowable fields surface as the string "unknown" — never guessed
-(T-002). Strictly read-only: this module never writes into the store.
+Post-migration (STO-SCN-080) this module is a thin compatibility layer
+for the Studio UI over v4core: tasks (A) come from real2sim/tasks/
+(v4 defs, transformed to the UI's form shape), graphs (D) from
+real2sim/graphs/, runs (C/F-equivalent) from the v4 store scan, and
+the leaderboard from scores.jsonl. The v2 reader was retired with the
+store layout it read (see git history for the 57-run enumeration era).
 
 CLI:
-    python3 real2sim/studio_model.py scan [<scene>|all] [--json]
-    python3 real2sim/studio_model.py run <scene> <pipeline> <run> [--json]
-    python3 real2sim/studio_model.py leaderboard <scene> [--json]
+    python3 real2sim/studio_model.py scan [<scene>|all]
+    python3 real2sim/studio_model.py leaderboard <scene>
 """
 from __future__ import annotations
 
 import json
 import sys
-from dataclasses import dataclass, field, asdict
 from pathlib import Path
 
-STORE = Path("/var/krabby/scenes")
 REPO = Path(__file__).parent
-UNKNOWN = "unknown"
+sys.path.insert(0, str(REPO))
+import v4core as v4  # noqa: E402
+
+STORE = v4.STORE
 
 
-# ---------- A / D / E (repo-side) ----------
+def _ui_properties(taskdef: dict) -> dict:
+    """v4 settings {class,…} -> the UI form-field shape."""
+    props = {}
+    for k, s in taskdef.get("settings", {}).items():
+        if s.get("class") == "pin":
+            continue
+        d = s.get("default")
+        ptype = ("integer" if isinstance(d, bool) is False and isinstance(d, int)
+                 else "number" if isinstance(d, float)
+                 else "array" if isinstance(d, list)
+                 else "string")
+        p = {"type": ptype, "description": f"[{s.get('class')}] {s.get('note', '')}".strip()}
+        for src, dst in (("enum", "enum"), ("min", "minimum"), ("max", "maximum"),
+                         ("default", "default")):
+            if src in s:
+                p[dst] = s[src]
+        if s.get("class") == "frozen":
+            p["frozen"] = True
+        props[k] = p
+    return props
+
 
 def tasks() -> dict[str, dict]:
-    return {d["title"]: d for d in
-            (json.loads(p.read_text()) for p in sorted((REPO / "tasks").glob("*.json")))}
+    out = {}
+    for name, d in v4.tasks().items():
+        out[name] = {
+            "title": name,
+            "description": d.get("description", ""),
+            "properties": _ui_properties(d),
+            "x-task": {
+                "operator": any(i.get("ref") == "operator" for i in d.get("inputs", []))
+                            or d.get("operator", False),
+                "phase": d.get("algo"),
+                "image": d.get("image"),
+                "code_ref": d.get("algo"),
+                "license_flag": d.get("license_flag"),
+                "outputs": d.get("outputs", []),
+            },
+        }
+    return out
 
 
 def pipelines() -> dict[str, dict]:
-    return {d["name"]: d for d in
-            (json.loads(p.read_text()) for p in sorted((REPO / "pipelines").glob("*.json")))}
+    """Graphs (locked #4/#8) presented under the UI's pipeline shape."""
+    return {g["name"]: {"name": g["name"], "description": g.get("description", ""),
+                        "nodes": g["nodes"], "edges": g["edges"]}
+            for g in v4.graphs().values()}
 
 
 def instances() -> dict[str, dict]:
@@ -49,171 +79,61 @@ def instances() -> dict[str, dict]:
             (json.loads(p.read_text()) for p in sorted((REPO / "instances").glob("*.json")))}
 
 
-# ---------- C / F (store-side, read-only) ----------
-
-@dataclass
-class TaskRun:                      # C
-    transform: str
-    task: str                       # catalog task name or "unknown"
-    settings: dict                  # B (the instance-level settings as recorded)
-    status: str
-    host: str
-    image: str
-    image_digest: str
-    duration_s: object
-    started: object
-    finished: object
-    outputs: int
-
-
-@dataclass
-class PipelineRun:                  # F
-    scene: str
-    pipeline: str
-    run: str
-    variant: str
-    kind: str                       # "full" | "render-variant"
-    source_run: object              # for render-variants
-    task_runs: list = field(default_factory=list)
-    renders: list = field(default_factory=list)
-    notes: str = ""
-    record: object = None           # run_record.json content when present (v3)
-
-
-_TASK_HINTS = [  # spec `transform`/pipeline fragments -> catalog task
-    ("matcha", "matcha-reconstruction"), ("da3", "da3-infer"),
-    ("normalize", "normalize-photos"), ("sharp", "select-sharp-frames"),
-    ("curated", "coverage-curation"), ("pool-sfm", "pool-sfm"),
-]
-
-
-def _infer_task(name: str) -> str:
-    for frag, task in _TASK_HINTS:
-        if frag in name:
-            return task
-    return UNKNOWN
-
-
-def _task_run(tdir: Path) -> TaskRun:
-    spec = res = {}
-    if (tdir / "specification.json").exists():
-        spec = json.loads((tdir / "specification.json").read_text())
-    if (tdir / "results.json").exists():
-        res = json.loads((tdir / "results.json").read_text())
-    env = res.get("environment", {})
-    cont = env.get("container", {})
-    return TaskRun(
-        transform=tdir.name,
-        task=_infer_task(spec.get("transform", tdir.name)),
-        settings=spec.get("parameters", UNKNOWN if not spec else {}),
-        status=res.get("status", UNKNOWN),
-        host=res.get("host", UNKNOWN),
-        image=cont.get("image", spec.get("parameters", {}).get("image", UNKNOWN)
-                       if isinstance(spec.get("parameters"), dict) else UNKNOWN),
-        image_digest=cont.get("digest", UNKNOWN),
-        duration_s=res.get("duration_s", UNKNOWN),
-        started=res.get("started", UNKNOWN),
-        finished=res.get("finished", UNKNOWN),
-        outputs=len(res.get("outputs", [])),
-    )
-
-
-def pipeline_runs(scene_dir: Path) -> list[PipelineRun]:
-    out = []
-    for pdir in sorted(scene_dir.glob("pipeline-*")):
-        pname = pdir.name.removeprefix("pipeline-")
-        for rdir in sorted(pdir.glob("run-*")):
-            rname = rdir.name.removeprefix("run-")
-            run_meta = {}
-            if (rdir / "run.json").exists():
-                run_meta = json.loads((rdir / "run.json").read_text())
-            tdirs = sorted(rdir.glob("transform-*"))
-            kind = "full" if tdirs else "render-variant"
-            record = None
-            if (rdir / "run_record.json").exists():
-                record = json.loads((rdir / "run_record.json").read_text())
-            out.append(PipelineRun(
-                scene=scene_dir.name, pipeline=pname, run=rname,
-                variant=f"{pname}--{rname}", kind=kind,
-                source_run=run_meta.get("source_run"),
-                task_runs=[_task_run(t) for t in tdirs],
-                renders=sorted(p.stem for p in (rdir / "renders").glob("*.png"))
-                        if (rdir / "renders").is_dir() else [],
-                notes=run_meta.get("notes", ""),
-                record=record,
-            ))
-    return out
-
-
-# ---------- scores (read-time join on rankings.jsonl — T-023) ----------
-
-def rankings(scene_dir: Path) -> list[dict]:
-    f = scene_dir / "rankings.jsonl"
-    if not f.exists():
-        return []
-    return [json.loads(line) for line in f.read_text().splitlines() if line.strip()]
-
-
-def leaderboard(scene_dir: Path) -> dict:
-    """Per view: latest ranking submission wins (re-rank supersedes).
-    Returns {view: {variant: rank}} + aggregate mean rank per variant."""
-    per_view: dict[str, dict] = {}
-    for entry in rankings(scene_dir):        # file order == submission order
-        per_view[entry["view"]] = entry["ranks"]
-    agg: dict[str, list] = {}
-    for ranks in per_view.values():
-        for variant, rank in ranks.items():
-            agg.setdefault(variant, []).append(rank)
-    mean = {v: round(sum(r) / len(r), 2) for v, r in agg.items()}
-    return {"views": per_view,
-            "aggregate_mean_rank": dict(sorted(mean.items(), key=lambda kv: kv[1]))}
-
-
-# ---------- CLI ----------
-
 def scenes() -> list[Path]:
     return sorted(d for d in STORE.iterdir()
                   if d.is_dir() and not d.name.startswith((".", "_")))
 
 
+def runs(scene: str | None = None) -> list[dict]:
+    """UI rows: one per representation, meshes/renders summarized."""
+    rows = []
+    for sd in ([STORE / scene] if scene else scenes()):
+        if not (sd / "images").is_dir():
+            continue
+        sc = v4.scan_scene(sd.name)
+        for rep in sc["representations"]:
+            n_renders = sum(len(m["renders"]) for m in rep["meshes"]) + \
+                sum(len(c["renders"]) for m in rep["meshes"] for c in m["conditioned"])
+            rows.append({
+                "scene": sd.name,
+                "variant": rep.get("legacy_variant") or rep["identity"],
+                "kind": rep["kind"],
+                "identity": rep["identity"],
+                "algo": rep["algo"],
+                "settings": rep["settings"],
+                "migrated": rep["migrated"],
+                "deliverable_eligible": rep["deliverable_eligible"],
+                "license_flags": rep["license_flags"],
+                "meshes": [{"method": m["method"], "identity": m["identity"],
+                            "conditioned": [c["identity"] for c in m["conditioned"]]}
+                           for m in rep["meshes"]],
+                "renders": n_renders,
+                "record": True,
+            })
+    return rows
+
+
+def leaderboard(scene: str) -> dict:
+    return v4.leaderboard(scene)
+
+
 def main() -> int:
     args = sys.argv[1:]
-    as_json = "--json" in args
-    args = [a for a in args if a != "--json"]
     if not args:
         print(__doc__)
         return 2
-    cmd = args[0]
-    if cmd == "scan":
-        target = args[1] if len(args) > 1 else "all"
-        dirs = scenes() if target == "all" else [STORE / target]
-        all_runs = [r for d in dirs for r in pipeline_runs(d)]
-        if as_json:
-            print(json.dumps([asdict(r) for r in all_runs], indent=2))
-        else:
-            for r in all_runs:
-                tr = ",".join(f"{t.task}:{t.status}" for t in r.task_runs) or f"(<- {r.source_run})"
-                rec = " v3" if r.record else ""
-                print(f"{r.scene:14s} {r.variant:32s} {r.kind:14s} renders={len(r.renders)}{rec}  {tr}")
-            print(f"-- {len(all_runs)} pipeline_runs")
+    if args[0] == "scan":
+        target = None if len(args) < 2 or args[1] == "all" else args[1]
+        for r in runs(target):
+            el = "✓" if r["deliverable_eligible"] else "✗NC"
+            print(f"{r['scene']:14s} {r['variant']:34s} {r['kind']:7s} {el:3s} "
+                  f"meshes={len(r['meshes'])} renders={r['renders']}")
         return 0
-    if cmd == "run":
-        scene, pipeline, run = args[1:4]
-        for r in pipeline_runs(STORE / scene):
-            if r.pipeline == pipeline and r.run == run:
-                print(json.dumps(asdict(r), indent=2))
-                return 0
-        print("not found")
-        return 1
-    if cmd == "leaderboard":
-        lb = leaderboard(STORE / args[1])
-        if as_json:
-            print(json.dumps(lb, indent=2))
-        else:
-            for variant, mean in lb["aggregate_mean_rank"].items():
-                print(f"{mean:6.2f}  {variant}")
+    if args[0] == "leaderboard":
+        for row in leaderboard(args[1])["rows"]:
+            print(f"{row['mean_rank']:6.2f}  {row['label']}")
         return 0
-    print(f"unknown command: {cmd}")
+    print(f"unknown command: {args[0]}")
     return 2
 
 

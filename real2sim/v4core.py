@@ -29,7 +29,7 @@ from pathlib import Path
 
 REPO = Path(__file__).parent
 STORE = Path(os.environ.get("KRABBY_SCENES_ROOT", "/var/krabby/scenes"))
-TASKS_DIR = REPO / "tasks-v4"
+TASKS_DIR = REPO / "tasks"
 GRAPHS_DIR = REPO / "graphs"
 
 ID_LEN = 12
@@ -216,6 +216,83 @@ def plan(graph_name: str, scene: Scene, bindings: dict) -> list[dict]:
                           "action": "NOOP" if exists else "EXECUTE"})
         produced[nid] = {"identity": identity, "out_dir": str(out_dir)}
     return plan_rows
+
+
+# ---------------------------------------------------------------- store scan (read-side)
+
+def scan_scene(scene: str) -> dict:
+    """Read-side view of a v4 scene: subsets, cameras, representations,
+    meshes, renders, views, scores. Powers Studio + rate_renders."""
+    sdir = STORE / scene
+    out = {"scene": scene, "subsets": [], "representations": [], "views": {},
+           "scores": [], "primary": None}
+    pr = sdir / "images" / "subsets" / "primary"
+    if pr.is_symlink():
+        out["primary"] = os.readlink(pr)
+    for sub in sorted(sdir.glob("images/subsets/*/")):
+        if sub.name == "primary" or not (sub / "subset.json").exists():
+            continue
+        md = json.loads((sub / "metadata.json").read_text()) if (sub / "metadata.json").exists() else {}
+        out["subsets"].append({
+            "hash": sub.name,
+            "n": len(json.loads((sub / "subset.json").read_text())["members"]),
+            "label": md.get("label"), "mechanism": md.get("mechanism"),
+            "solves": [c.name for c in sorted((sub / "cameras").glob("*/"))
+                       if (c / "metadata.json").exists()] if (sub / "cameras").is_dir() else []})
+    for rep in sorted(sdir.glob("represent/*/*/")):
+        if not (rep / "metadata.json").exists():
+            continue
+        rmd = json.loads((rep / "metadata.json").read_text())
+        meshes = []
+        for mdir in sorted(rep.glob("meshify/*/*/")) :
+            if not (mdir / "metadata.json").exists():
+                continue
+            mmd = json.loads((mdir / "metadata.json").read_text())
+            entry = {"method": mdir.parent.name, "identity": mdir.name,
+                     "settings": mmd.get("settings", {}),
+                     "renders": sorted(r.parent.name for r in mdir.glob("renders/*/render.png")),
+                     "conditioned": []}
+            for cdir in sorted(mdir.glob("condition/*/")):
+                if (cdir / "metadata.json").exists():
+                    cmd_ = json.loads((cdir / "metadata.json").read_text())
+                    entry["conditioned"].append({
+                        "identity": cdir.name, "settings": cmd_.get("settings", {}),
+                        "renders": sorted(r.parent.name for r in cdir.glob("renders/*/render.png"))})
+            meshes.append(entry)
+        ok, flags = deliverable_eligible(rep)
+        out["representations"].append({
+            "kind": rep.parent.name, "identity": rep.name,
+            "algo": rmd.get("algo"), "settings": rmd.get("settings", {}),
+            "legacy_variant": rmd.get("legacy_variant"),
+            "migrated": rmd.get("migrated", False),
+            "deliverable_eligible": ok, "license_flags": flags,
+            "meshes": meshes})
+    for vdir in sorted(sdir.glob("views/*/")):
+        if (vdir / "view.json").exists():
+            out["views"][vdir.name] = content_hash((vdir / "view.json").read_bytes())
+    sj = sdir / "scores.jsonl"
+    if sj.exists():
+        out["scores"] = [json.loads(l) for l in sj.read_text().splitlines() if l.strip()]
+    return out
+
+
+def leaderboard(scene: str) -> dict:
+    """Mean rank per scored identity (lower = better), labels resolved."""
+    sc = scan_scene(scene)
+    label = {}
+    for rep in sc["representations"]:
+        for m in rep["meshes"]:
+            label[m["identity"]] = (rep.get("legacy_variant") or rep["identity"]) + f" [{m['method']}]"
+            for c in m["conditioned"]:
+                label[c["identity"]] = (rep.get("legacy_variant") or rep["identity"]) + " [conditioned]"
+        label[rep["identity"]] = rep.get("legacy_variant") or rep["identity"]
+    agg: dict[str, list] = {}
+    for s in sc["scores"]:
+        agg.setdefault(s["at"], []).append(s["rank"])
+    rows = sorted(({"identity": k, "label": label.get(k, k),
+                    "mean_rank": round(sum(v) / len(v), 2), "n": len(v)}
+                   for k, v in agg.items()), key=lambda r: r["mean_rank"])
+    return {"scene": scene, "rows": rows}
 
 
 # ---------------------------------------------------------------- license ancestry (locked #10)

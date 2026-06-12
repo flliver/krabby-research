@@ -197,19 +197,57 @@ class Handler(BaseHTTPRequestHandler):
     # ---- scene + variants ----------------------------------------------
 
     def _list_scenes(self) -> list[str]:
-        """List scene roots — every dir under the scene store that has the
-        unified cameras.json (schema 5, STO-SCN-045). Legacy layouts are
-        not supported: migrate via sync_comparison_views.py first.
-        """
+        """List scene roots: v4 = has viewset/canonical (HUG-SCN-005);
+        v2 legacy = unified cameras.json."""
         out = []
         if not SCENES_ROOT.is_dir():
             return out
         for d in sorted(SCENES_ROOT.iterdir()):
             if not d.is_dir():
                 continue
-            if (d / "cameras.json").exists():
+            if (d / "viewset" / "canonical" / "views.json").exists() \
+                    or (d / "cameras.json").exists():
                 out.append(d.name)
         return out
+
+    # ---- store-shape v4 (HUG-SCN-005, STO-SCN-080) -----------------------
+    # URL contract preserved: /api/render/<scene>/<view>/<variant>.png —
+    # in v4, <view> = slot ("01") and <variant> = mesh identity.
+
+    @staticmethod
+    def _is_v4(scene_dir: Path) -> bool:
+        return (scene_dir / "viewset" / "canonical" / "views.json").exists()
+
+    @staticmethod
+    def _v4_render_index(scene_dir: Path) -> dict:
+        """(slot, mesh_identity) -> render.png path; plus labels + slots."""
+        import sys as _sys
+        _sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+        import v4core as v4
+        sc = v4.scan_scene(scene_dir.name)
+        hash_to_slot = {h: slot for slot, h in sc["views"].items()}
+        idx, labels = {}, {}
+        def add_renders(mdir: Path, identity: str, label: str):
+            labels[identity] = label
+            for rmd in mdir.glob("renders/*/metadata.json"):
+                md = json.loads(rmd.read_text())
+                slot = md.get("view_slot") or hash_to_slot.get(
+                    md.get("resolved_inputs", {}).get("view_content"), None)
+                if slot and (rmd.parent / "render.png").exists():
+                    idx[(slot, identity)] = rmd.parent / "render.png"
+        for rep in sc["representations"]:
+            base = rep.get("legacy_variant") or rep["identity"]
+            rdir = scene_dir / "represent" / rep["kind"] / rep["identity"]
+            for m in rep["meshes"]:
+                mdir = rdir / "meshify" / m["method"] / m["identity"]
+                add_renders(mdir, m["identity"], f"{base} [{m['method']}]")
+                for c in m["conditioned"]:
+                    add_renders(mdir / "condition" / c["identity"], c["identity"],
+                                f"{base} [{m['method']}+conditioned]")
+        slots = sorted(json.loads((scene_dir / "viewset" / "canonical" / "views.json")
+                                  .read_text())["slots"])
+        return {"index": idx, "labels": labels, "slots": slots,
+                "views": sc["views"], "scan": sc}
 
     @staticmethod
     def _variant_label(pipeline_dir: Path, run_dir: Path) -> str:
@@ -223,6 +261,27 @@ class Handler(BaseHTTPRequestHandler):
         scene_dir = SCENES_ROOT / scene
         if not scene_dir.is_dir():
             return {"error": f"scene not found: {scene}"}
+        if self._is_v4(scene_dir):
+            ix = self._v4_render_index(scene_dir)
+            rendered: dict[str, list[str]] = {}
+            for (slot, identity) in sorted(ix["index"]):
+                rendered.setdefault(slot, []).append(identity)
+            variants = sorted({i for vs in rendered.values() for i in vs})
+            manifests = {}
+            for rep in ix["scan"]["representations"]:
+                for m in rep["meshes"] + [c for mm in rep["meshes"] for c in mm["conditioned"]]:
+                    if m["identity"] in variants:
+                        manifests[m["identity"]] = {
+                            "variant_name": ix["labels"].get(m["identity"], m["identity"]),
+                            "pipeline": rep["kind"],
+                            "run": m["identity"],
+                            "notes": ("NOT DELIVERABLE: " + "; ".join(rep["license_flags"]))
+                                     if not rep["deliverable_eligible"] else "",
+                            "transforms": {rep["algo"] or rep["kind"]: {
+                                "parameters": {**rep["settings"], **m.get("settings", {})}}}}
+            return {"scene": scene, "views": ix["slots"], "rendered": rendered,
+                    "variants": variants, "manifests": manifests,
+                    "labels": ix["labels"], "store": "v4"}
         # 1) views — unified cameras.json (schema 5) only
         views: list = []
         views_path = scene_dir / "cameras.json"
@@ -325,6 +384,13 @@ class Handler(BaseHTTPRequestHandler):
         except ValueError:
             return self._bad_request("expected scene/view/variant.png")
         variant = fname.removesuffix(".png")
+        scene_dir = SCENES_ROOT / scene
+        if self._is_v4(scene_dir):
+            ix = self._v4_render_index(scene_dir)
+            target = ix["index"].get((view, variant))
+            if target is None:
+                return self._not_found(f"render: {rel}")
+            return self._send_bytes(target.read_bytes(), "image/png")
         pipeline, sep, run = variant.partition("--")
         if not sep:
             return self._bad_request(f"unrecognized variant label: {variant}")
@@ -347,6 +413,24 @@ class Handler(BaseHTTPRequestHandler):
         # Scene-root rankings.jsonl only. Legacy rows under _unsorted/ used
         # the old variant labels (e.g. "12-strong") which don't exist in the
         # pipelines/runs world — they are provenance, not live data.
+        scene_dir = SCENES_ROOT / scene
+        if self._is_v4(scene_dir):
+            # synthesize ranking rows from scores.jsonl: one row per
+            # (ts, rater, slot) submission group
+            sj = scene_dir / "scores.jsonl"
+            if not sj.exists():
+                return []
+            groups: dict = {}
+            for line in sj.read_text().splitlines():
+                if not line.strip():
+                    continue
+                s = json.loads(line)
+                key = (s.get("ts"), s.get("rater"), s.get("slot"))
+                g = groups.setdefault(key, {"schema_version": 1, "scene": scene,
+                                            "view": s.get("slot"), "rater": s.get("rater"),
+                                            "submitted_at": s.get("ts"), "ranks": {}})
+                g["ranks"][s["at"]] = s["rank"]
+            return [groups[k] for k in sorted(groups)]
         p = self._rankings_path(scene)
         if not p.exists():
             return []
@@ -388,7 +472,28 @@ class Handler(BaseHTTPRequestHandler):
         }
         if not row["rater"]:
             return self._bad_request("rater name required")
-        # Append-only
+        scene_dir = SCENES_ROOT / scene
+        if self._is_v4(scene_dir):
+            # v4: scores attached to identities (HUG-SCN-005 locked #7c).
+            # view = slot; ranks keyed by mesh identity. Append per-identity
+            # rows to scenes/<scene>/scores.jsonl.
+            slot = row["view"]
+            vh = None
+            vj = scene_dir / "views" / slot / "view.json"
+            if vj.exists():
+                import sys as _sys
+                _sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+                import v4core as v4
+                vh = v4.content_hash(vj.read_bytes())
+            rows = [{"schema": 4, "at": ident, "view": vh, "slot": slot,
+                     "rank": rank, "rater": row["rater"],
+                     "ts": row["submitted_at"]}
+                    for ident, rank in row["ranks"].items()]
+            with open(scene_dir / "scores.jsonl", "a") as f:
+                for r in rows:
+                    f.write(json.dumps(r, sort_keys=True) + "\n")
+            return self._send_json({"ok": True, "rows": rows, "store": "v4"})
+        # v2 legacy: append-only rankings.jsonl
         path = self._rankings_path(scene)
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, "a") as f:

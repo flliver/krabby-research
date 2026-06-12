@@ -190,15 +190,16 @@ function rRuns(m){
   const draw=async()=>{
     const sc=sel.querySelector('#r-scene').value;
     const rows=S.runs.filter(r=>sc==='all'||r.scene===sc).map(r=>{
-      const c=r.task_runs.map(t=>`${esc(t.task)} <span class="dim">[${esc(t.status)} ${t.duration_s!=='unknown'?t.duration_s+'s':''} ${esc(t.host)}]</span>`).join('<br>');
-      return `<tr><td>${esc(r.scene)}</td><td><b>${esc(r.variant)}</b> <span class="tag F">F</span>${r.record?'<span class="tag">v3</span>':''}</td>
-        <td>${esc(r.kind)}${r.source_run?`<div class="dim sm">← ${esc(r.source_run)}</div>`:''}</td>
-        <td>${c||'<span class=dim>—</span>'}</td><td>${r.renders.map(esc).join('<br>')||'<span class=dim>—</span>'}</td></tr>`;}).join('');
-    tbl.innerHTML=`<table><tr><th>scene</th><th>pipeline_run</th><th>kind</th><th>task_runs (C)</th><th>renders</th></tr>${rows}</table>`;
+      const meshes=(r.meshes||[]).map(m=>`${esc(m.method)} <span class="dim sm">${esc(m.identity)}</span>${m.conditioned.length?` → conditioned ×${m.conditioned.length}`:''}`).join('<br>');
+      const lic=r.deliverable_eligible?'':`<span class="tag lic">NC</span>`;
+      return `<tr><td>${esc(r.scene)}</td><td><b>${esc(r.variant)}</b> <span class="tag F">F</span>${r.migrated?'<span class="tag">migrated</span>':''}${lic}</td>
+        <td>${esc(r.kind)} <span class="dim sm">${esc(r.algo||'')}</span><div class="dim sm">${esc(JSON.stringify(r.settings||{}))}</div></td>
+        <td>${meshes||'<span class=dim>—</span>'}</td><td>${r.renders||'<span class=dim>—</span>'}</td></tr>`;}).join('');
+    tbl.innerHTML=`<table><tr><th>scene</th><th>representation (identity-rooted)</th><th>kind · settings</th><th>meshes</th><th># renders</th></tr>${rows}</table>`;
     const lb=sel.querySelector('#r-lb');
     if(sc!=='all'){const j=await fetch('/api/leaderboard/'+sc).then(r=>r.json());
-      lb.innerHTML='<h3>leaderboard (operator rankings, lower = better)</h3>'+
-        Object.entries(j.aggregate_mean_rank).map(([v,r],i)=>`<div>${i===0?'🏆':''} ${r.toFixed(2)} — ${esc(v)}</div>`).join('');
+      lb.innerHTML='<h3>leaderboard (operator scores, lower = better)</h3>'+
+        (j.rows||[]).map((r,i)=>`<div>${i===0?'🏆':''} ${r.mean_rank.toFixed(2)} — ${esc(r.label)} <span class="dim sm">${esc(r.identity)} (n=${r.n})</span></div>`).join('');
     } else lb.innerHTML='';
   };
   sel.querySelector('#r-scene').onchange=draw; draw();

@@ -1,13 +1,13 @@
 {
-  "schema": 3,
+  "schema": 4,
   "name": "da3-8-giant-studio",
-  "pipeline": "da3-eval",
-  "description": "STO-SCN-073 end-to-end trigger validation: replica of the 006 da3 8-giant settings (process_res 504, gs head), fused into the oriented frame. EVALUATION ONLY (DA3 CC-BY-NC).",
-  "variables": {"n_images": 8},
+  "graph": "reconstruct-da3",
+  "pipeline": "reconstruct-da3",
+  "description": "DA3 evaluation bindings (CC-BY-NC -> never deliverable; eligibility derived per locked #10). v4 vocabulary.",
+  "variables": {},
   "settings": {
-    "infer": {"process_res": 504, "mode": "gs", "n_images": "$n_images"},
-    "fuse": {"voxel_frac": 0.004, "conf_percentile": 40},
-    "render": {"residual_gate_frac": 0.10},
-    "rank": {}
+    "represent": {"process_res": 504, "mode": "gs"},
+    "fuse": {"mesh_res": 1024},
+    "render": {}
   }
 }
