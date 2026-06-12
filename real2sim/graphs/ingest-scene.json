@@ -1,0 +1,46 @@
+{
+  "schema": 4,
+  "name": "ingest-scene",
+  "description": "Idempotent scene bootstrap (locked #7): safe to run any time; refs set-if-unset.",
+  "nodes": [
+    {
+      "id": "extract",
+      "task": "video-to-images",
+      "optional": true
+    },
+    {
+      "id": "pool",
+      "task": "images-subset"
+    },
+    {
+      "id": "solve",
+      "task": "solve-cameras"
+    },
+    {
+      "id": "orient",
+      "task": "orient-cameras"
+    },
+    {
+      "id": "views",
+      "task": "generate-views"
+    }
+  ],
+  "edges": [
+    [
+      "extract",
+      "pool"
+    ],
+    [
+      "pool",
+      "solve"
+    ],
+    [
+      "solve",
+      "orient"
+    ],
+    [
+      "orient",
+      "views"
+    ]
+  ]
+}

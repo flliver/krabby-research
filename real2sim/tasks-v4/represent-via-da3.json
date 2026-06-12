@@ -1,0 +1,40 @@
+{
+  "schema": 4,
+  "name": "represent-via-da3",
+  "algo": "da3@0",
+  "description": "DA3 feed-forward (self-posed); gauge_align INTO primary's frame inside the task (gate <=10% of spread). LICENSE: weights CC-BY-NC-4.0.",
+  "inputs": [
+    {
+      "name": "subset",
+      "binding": "reconstruction subset hash"
+    },
+    {
+      "name": "orient",
+      "binding": "orient identity (alignment target)"
+    }
+  ],
+  "settings": {
+    "process_res": {
+      "class": "tunable",
+      "default": 504,
+      "note": "measured: gs<=504, nogs<=756 @16GB"
+    },
+    "mode": {
+      "class": "tunable",
+      "enum": [
+        "gs",
+        "nogs"
+      ],
+      "default": "gs"
+    }
+  },
+  "placement": "represent/da3/{identity}",
+  "outputs": [
+    {
+      "name": "representation",
+      "path": "exports/",
+      "kind": "depths+splats+poses"
+    }
+  ],
+  "license_flag": "CC-BY-NC-4.0 (DA3NESTED-GIANT-LARGE-1.1 weights) \u2014 research evaluation only"
+}

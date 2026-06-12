@@ -1,0 +1,39 @@
+{
+  "schema": 4,
+  "name": "generate-views",
+  "algo": "generate-views@0",
+  "description": "Scene-global overview views from GAUGE data (cameras+sparse points), never from a mesh (locked #7).",
+  "inputs": [
+    {
+      "name": "orient",
+      "from": "orient"
+    }
+  ],
+  "settings": {
+    "n_views": {
+      "class": "tunable",
+      "min": 1,
+      "default": 3
+    },
+    "strategy": {
+      "class": "tunable",
+      "enum": [
+        "overview",
+        "orbit",
+        "human"
+      ],
+      "default": "overview"
+    }
+  },
+  "placement": "viewset/{identity}",
+  "outputs": [
+    {
+      "name": "views",
+      "path": "views/<slot>/view.json (scene-level)"
+    },
+    {
+      "name": "members",
+      "path": "views.json"
+    }
+  ]
+}

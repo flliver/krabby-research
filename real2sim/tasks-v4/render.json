@@ -1,0 +1,39 @@
+{
+  "schema": 4,
+  "name": "render",
+  "algo": "render-workbench@0",
+  "description": "Render one view of one mesh. Keyed on VIEW CONTENT, never the viewset (locked #7).",
+  "inputs": [
+    {
+      "name": "mesh",
+      "from": "mesh-provider"
+    },
+    {
+      "name": "view_content",
+      "binding": "view content hash (slot resolved at job time)"
+    }
+  ],
+  "settings": {
+    "engine": {
+      "class": "frozen",
+      "enum": [
+        "BLENDER_WORKBENCH"
+      ],
+      "default": "BLENDER_WORKBENCH"
+    },
+    "resolution": {
+      "class": "frozen",
+      "default": [
+        1920,
+        1080
+      ]
+    }
+  },
+  "placement": "{up_mesh_dir}/renders/{identity}",
+  "outputs": [
+    {
+      "name": "render",
+      "path": "render.png"
+    }
+  ]
+}

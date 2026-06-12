@@ -1,0 +1,29 @@
+{
+  "schema": 4,
+  "name": "reconstruct-da3",
+  "description": "DA3 evaluation branch (NC \u2014 never deliverable; eligibility derived per locked #10).",
+  "nodes": [
+    {
+      "id": "represent",
+      "task": "represent-via-da3"
+    },
+    {
+      "id": "fuse",
+      "task": "meshify-via-tsdf"
+    },
+    {
+      "id": "render",
+      "task": "render"
+    }
+  ],
+  "edges": [
+    [
+      "represent",
+      "fuse"
+    ],
+    [
+      "fuse",
+      "render"
+    ]
+  ]
+}

@@ -1,0 +1,62 @@
+{
+  "schema": 4,
+  "name": "represent-via-matcha",
+  "algo": "matcha@0",
+  "description": "MAtCha charts+train (WELDED @0: one dispatch also materializes meshify-via-tetra output \u2014 locked #6). matcha@1 = post-split (STO-SCN-081).",
+  "inputs": [
+    {
+      "name": "subset",
+      "binding": "reconstruction subset hash"
+    },
+    {
+      "name": "cameras",
+      "binding": "solve identity (inherited row-selection)"
+    }
+  ],
+  "settings": {
+    "dense_regul": {
+      "class": "tunable",
+      "enum": [
+        "default",
+        "dense"
+      ],
+      "default": "default"
+    },
+    "n_iters": {
+      "class": "frozen",
+      "default": 7000
+    },
+    "encoder": {
+      "class": "frozen",
+      "enum": [
+        "vitl"
+      ],
+      "default": "vitl"
+    },
+    "alignment_config": {
+      "class": "frozen",
+      "enum": [
+        "strong"
+      ],
+      "default": "strong"
+    },
+    "dense_pruning": {
+      "class": "frozen",
+      "enum": [
+        "default"
+      ],
+      "default": "default"
+    }
+  },
+  "placement": "represent/matcha/{identity}",
+  "outputs": [
+    {
+      "name": "representation",
+      "path": "free_gaussians/",
+      "kind": "gaussians+charts"
+    }
+  ],
+  "welded_with": [
+    "meshify-via-tetra"
+  ]
+}

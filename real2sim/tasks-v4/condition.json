@@ -1,0 +1,31 @@
+{
+  "schema": 4,
+  "name": "condition",
+  "algo": "tetra-condition@0",
+  "description": "De-densify + smooth + color-transfer to deliverable scale.",
+  "inputs": [
+    {
+      "name": "mesh",
+      "from": "meshify"
+    }
+  ],
+  "settings": {
+    "target_tris": {
+      "class": "tunable",
+      "min": 1,
+      "default": 1000000
+    },
+    "taubin_iters": {
+      "class": "tunable",
+      "min": 0,
+      "default": 10
+    }
+  },
+  "placement": "{up_meshify_dir}/condition/{identity}",
+  "outputs": [
+    {
+      "name": "mesh",
+      "path": "mesh.ply"
+    }
+  ]
+}

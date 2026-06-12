@@ -1,0 +1,25 @@
+{
+  "schema": 4,
+  "name": "meshify-via-tetra",
+  "algo": "tetra-extract@0",
+  "description": "Tetra mesh from gaussians+charts. @0 = welded into the matcha dispatch (NOOP when represent ran).",
+  "inputs": [
+    {
+      "name": "representation",
+      "from": "represent",
+      "kind": "gaussians+charts"
+    },
+    {
+      "name": "cameras",
+      "binding": "solve identity"
+    }
+  ],
+  "settings": {},
+  "placement": "represent/matcha/{representation}/meshify/tetra/{identity}",
+  "outputs": [
+    {
+      "name": "mesh",
+      "path": "mesh.ply"
+    }
+  ]
+}

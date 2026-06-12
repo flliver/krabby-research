@@ -1,0 +1,39 @@
+{
+  "schema": 4,
+  "name": "meshify-via-tsdf",
+  "algo": "tsdf-extract@0",
+  "description": "TSDF mesh. Accepts gaussians (matcha path) or depths (da3 fusion).",
+  "inputs": [
+    {
+      "name": "representation",
+      "from": "represent",
+      "kind": "gaussians|depths"
+    },
+    {
+      "name": "cameras",
+      "binding": "solve identity"
+    }
+  ],
+  "settings": {
+    "mesh_res": {
+      "class": "tunable",
+      "default": 1024,
+      "note": "1024 validated; other values unmeasured"
+    },
+    "config": {
+      "class": "frozen",
+      "enum": [
+        "default"
+      ],
+      "default": "default",
+      "note": "lowmem measured-worse -> pin-by-verdict"
+    }
+  },
+  "placement": "represent/{up_represent_kindpath}/meshify/tsdf/{identity}",
+  "outputs": [
+    {
+      "name": "mesh",
+      "path": "mesh.ply"
+    }
+  ]
+}

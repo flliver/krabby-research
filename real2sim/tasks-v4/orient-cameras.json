@@ -1,0 +1,39 @@
+{
+  "schema": 4,
+  "name": "orient-cameras",
+  "algo": "orient-floor@0",
+  "description": "Fix the gauge (gravity/floor, z-up). Method verification = STO-SCN-082.",
+  "inputs": [
+    {
+      "name": "solve",
+      "from": "solve"
+    }
+  ],
+  "settings": {
+    "method": {
+      "class": "tunable",
+      "enum": [
+        "floor-ransac-sparse",
+        "bootstrap-mesh",
+        "operator"
+      ],
+      "default": "floor-ransac-sparse",
+      "note": "UNVALIDATED default (T-002) \u2014 082 verifies"
+    },
+    "ransac_dist": {
+      "class": "frozen",
+      "default": 0.05
+    }
+  },
+  "placement": "images/subsets/{up_solve_subset}/cameras/{solve}/orient/{identity}",
+  "outputs": [
+    {
+      "name": "transform",
+      "path": "transform.json"
+    },
+    {
+      "name": "oriented",
+      "path": "oriented.json"
+    }
+  ]
+}

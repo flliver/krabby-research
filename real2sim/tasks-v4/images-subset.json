@@ -1,0 +1,21 @@
+{
+  "schema": 4,
+  "name": "images-subset",
+  "algo": "images-subset@0",
+  "description": "Subset of the scene pool. Identity = HOH of members ONLY (locked #5); mechanism/label/settings are provenance.",
+  "inputs": [
+    {
+      "name": "members",
+      "binding": "set of image hashes"
+    }
+  ],
+  "settings": {},
+  "placement": "images/subsets/{identity}",
+  "outputs": [
+    {
+      "name": "subset",
+      "path": "subset.json"
+    }
+  ],
+  "identity_rule": "hoh(members) \u2014 NOT the standard recipe"
+}

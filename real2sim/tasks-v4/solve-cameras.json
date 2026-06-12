@@ -1,0 +1,42 @@
+{
+  "schema": 4,
+  "name": "solve-cameras",
+  "algo": "mast3r-sfm@0",
+  "description": "Place 100% of a subset's cameras in 3D (arbitrary gauge). algo@0 = the current MASt3R-SfM container behavior.",
+  "inputs": [
+    {
+      "name": "subset",
+      "ref": "primary"
+    }
+  ],
+  "settings": {
+    "sfm_config": {
+      "class": "frozen",
+      "enum": [
+        "unposed"
+      ],
+      "default": "unposed"
+    },
+    "chunk_size": {
+      "class": "frozen",
+      "default": 300,
+      "max": 300,
+      "note": "measured 16GB solve ceiling; >300 pools use the spine strategy"
+    },
+    "overlap": {
+      "class": "frozen",
+      "default": 50
+    }
+  },
+  "placement": "images/subsets/{subset}/cameras/{identity}",
+  "outputs": [
+    {
+      "name": "cameras",
+      "path": "cameras.json"
+    },
+    {
+      "name": "points",
+      "path": "points.ply"
+    }
+  ]
+}

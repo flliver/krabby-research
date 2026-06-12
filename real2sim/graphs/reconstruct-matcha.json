@@ -1,0 +1,46 @@
+{
+  "schema": 4,
+  "name": "reconstruct-matcha",
+  "description": "Matcha trunk: represent (welded tetra) -> condition -> render.",
+  "nodes": [
+    {
+      "id": "represent",
+      "task": "represent-via-matcha"
+    },
+    {
+      "id": "tetra",
+      "task": "meshify-via-tetra"
+    },
+    {
+      "id": "tsdf",
+      "task": "meshify-via-tsdf",
+      "optional": true
+    },
+    {
+      "id": "condition",
+      "task": "condition"
+    },
+    {
+      "id": "render",
+      "task": "render"
+    }
+  ],
+  "edges": [
+    [
+      "represent",
+      "tetra"
+    ],
+    [
+      "represent",
+      "tsdf"
+    ],
+    [
+      "tetra",
+      "condition"
+    ],
+    [
+      "condition",
+      "render"
+    ]
+  ]
+}

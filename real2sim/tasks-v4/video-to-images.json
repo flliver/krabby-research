@@ -1,0 +1,33 @@
+{
+  "schema": 4,
+  "name": "video-to-images",
+  "algo": "video-to-images@0",
+  "description": "Video -> canonical image pool (lossless extraction; every frame).",
+  "inputs": [
+    {
+      "name": "video",
+      "binding": "video file under scenes/<scene>/videos/"
+    }
+  ],
+  "settings": {
+    "image_type": {
+      "class": "frozen",
+      "enum": [
+        "png",
+        "jpg"
+      ],
+      "default": "png"
+    }
+  },
+  "placement": "images",
+  "outputs": [
+    {
+      "name": "images",
+      "path": "images/<image_hash>/image.<ext> + metadata.json"
+    },
+    {
+      "name": "extraction",
+      "path": "videos/<video>/video-to-images/{metadata.json,conversion.log}"
+    }
+  ]
+}
