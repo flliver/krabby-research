@@ -236,7 +236,10 @@ def cmd_matcha(args):
     tetra_dir = rdir / "meshify" / "tetra" / mid
     tsdf_dir = rdir / "meshify" / "tsdf" / tid
 
-    if (tetra_dir / "mesh.ply").exists() and (tsdf_dir / "mesh.ply").exists():
+    if (tsdf_dir / "mesh.ply").exists() and (
+            (tetra_dir / "mesh.ply").exists()
+            or not (rdir / "out" / "tetra_meshes").is_dir()
+            or not list((rdir / "out" / "tetra_meshes").glob("*.ply"))):
         print(f"NOOP: {rid} fully materialized")
         return
 
@@ -271,9 +274,12 @@ def cmd_matcha(args):
         sh(["ssh", args.host, f"rm -rf {SCRATCH}/{tag}"])
         tetra_raw = sorted((out / "tetra_meshes").glob("*.ply")) if (out / "tetra_meshes").is_dir() else []
         tsdf_raw = next(iter(sorted((out / "tsdf_meshes").glob("multires_tsdf_post*.ply"))), None)
-        if rc != 0 or not tetra_raw or tsdf_raw is None:
+        if rc != 0 or tsdf_raw is None:
             sys.exit(f"matcha weld FAILED (rc={rc}; tetra={bool(tetra_raw)} tsdf={bool(tsdf_raw)}; "
                      f"log {rdir}/matcha.log)")
+        if not tetra_raw:
+            print("[matcha@0 weld] WARNING: tetra stage produced no mesh "
+                  "(marching_tetrahedra flake, 010 class) — continuing tsdf-only")
         dig, _ = host_digest(args.host, MATCHA_IMAGE)
         v4.write_metadata(rdir, task="represent-via-matcha", algo="matcha@0", identity=rid,
                           resolved_inputs={"subset": sub, "cameras": sid},
@@ -335,9 +341,10 @@ def cmd_matcha(args):
         nodes.append({"node": "orient", "identity": oid, "action": "EXECUTE"})
 
     # -- meshify: weld frame -> solve frame (gauge-sim) -> canonical gauge
-    for src_mesh, mdir, task, algo, msettings in (
-            (tetra_raw[-1], tetra_dir, "meshify-via-tetra", "tetra-extract@1", {}),
-            (tsdf_raw, tsdf_dir, "meshify-via-tsdf", "tsdf-extract@1", ts_settings)):
+    targets = [(tsdf_raw, tsdf_dir, "meshify-via-tsdf", "tsdf-extract@1", ts_settings)]
+    if tetra_raw:
+        targets.insert(0, (tetra_raw[-1], tetra_dir, "meshify-via-tetra", "tetra-extract@1", {}))
+    for src_mesh, mdir, task, algo, msettings in targets:
         mdir.mkdir(parents=True, exist_ok=True)
         ground_mesh(src_mesh, mdir / "mesh.ply", R, z, sim=sim)
         v4.write_metadata(mdir, task=task, algo=algo, identity=mdir.name,
