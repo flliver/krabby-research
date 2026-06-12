@@ -248,10 +248,15 @@ def scan_scene(scene: str) -> dict:
             if not (mdir / "metadata.json").exists():
                 continue
             mmd = json.loads((mdir / "metadata.json").read_text())
-            if mmd.get("rankable") is False:
-                continue   # evidence artifact, excluded from ranking surfaces
+            # rankable:false artifacts stay VISIBLE, annotated (operator
+            # call, 2026-06-12): mis-alignment is a quality detractor the
+            # ranker should see and score down — not a reason to hide.
             entry = {"method": mdir.parent.name, "identity": mdir.name,
                      "settings": mmd.get("settings", {}),
+                     "rankable": mmd.get("rankable", True) is not False,
+                     "quality_flag": (mmd.get("rankable_reason") or "flagged")
+                                     if mmd.get("rankable") is False else None,
+                     "self_alignment": mmd.get("measured", {}).get("self_alignment"),
                      "renders": sorted(r.parent.name for r in mdir.glob("renders/*/render.png")),
                      "conditioned": []}
             for cdir in sorted(mdir.glob("condition/*/")):
@@ -324,8 +329,12 @@ def leaderboard(scene: str) -> dict:
     agg: dict[str, list] = {}
     for s in sc["scores"]:
         agg.setdefault(s["at"], []).append(s["rank"])
+    flagged = {m["identity"]: m["quality_flag"]
+               for rep in sc["representations"] for m in rep["meshes"]
+               if not m.get("rankable", True)}
     rows = sorted(({"identity": k, "label": label.get(k, k),
-                    "mean_rank": round(sum(v) / len(v), 2), "n": len(v)}
+                    "mean_rank": round(sum(v) / len(v), 2), "n": len(v),
+                    "quality_flag": flagged.get(k)}
                    for k, v in agg.items()), key=lambda r: r["mean_rank"])
     return {"scene": scene, "rows": rows}
 

@@ -306,7 +306,8 @@ class Handler(BaseHTTPRequestHandler):
             rdir = scene_dir / "represent" / rep["kind"] / rep["identity"]
             for m in rep["meshes"]:
                 mdir = rdir / "meshify" / m["method"] / m["identity"]
-                add_renders(mdir, m["identity"], f"{base} [{m['method']}]")
+                warn = "" if m.get("rankable", True) else " ⚠ mis-aligned"
+                add_renders(mdir, m["identity"], f"{base} [{m['method']}]{warn}")
                 for c in m["conditioned"]:
                     add_renders(mdir / "condition" / c["identity"], c["identity"],
                                 f"{base} [{m['method']}+conditioned]")
@@ -345,12 +346,19 @@ class Handler(BaseHTTPRequestHandler):
                 for m in rep["meshes"] + [c for mm in rep["meshes"] for c in mm["conditioned"]]:
                     if m["identity"] in variants:
                         mp = mesh_paths.get(m["identity"])
+                        notes = []
+                        if not m.get("rankable", True):
+                            sa = m.get("self_alignment") or {}
+                            notes.append("MIS-ALIGNED: " + (m.get("quality_flag") or "flagged")
+                                         + (f" (ICP fitness {sa['icp_fitness']})"
+                                            if sa.get("icp_fitness") is not None else ""))
+                        if not rep["deliverable_eligible"]:
+                            notes.append("NOT DELIVERABLE: " + "; ".join(rep["license_flags"]))
                         manifests[m["identity"]] = {
                             "variant_name": ix["labels"].get(m["identity"], m["identity"]),
                             "pipeline": rep["kind"],
                             "run": m["identity"],
-                            "notes": ("NOT DELIVERABLE: " + "; ".join(rep["license_flags"]))
-                                     if not rep["deliverable_eligible"] else "",
+                            "notes": "; ".join(notes),
                             "mesh": self._ply_stats(mp) if mp and mp.exists() else {},
                             "transforms": {rep["algo"] or rep["kind"]: {
                                 "parameters": {**rep["settings"], **m.get("settings", {})}}}}

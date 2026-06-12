@@ -199,7 +199,7 @@ function rRuns(m){
     const lb=sel.querySelector('#r-lb');
     if(sc!=='all'){const j=await fetch('/api/leaderboard/'+sc).then(r=>r.json());
       lb.innerHTML='<h3>leaderboard (operator scores, lower = better)</h3>'+
-        (j.rows||[]).map((r,i)=>`<div>${i===0?'🏆':''} ${r.mean_rank.toFixed(2)} — ${esc(r.label)} <span class="dim sm">${esc(r.identity)} (n=${r.n})</span></div>`).join('');
+        (j.rows||[]).map((r,i)=>`<div>${i===0?'🏆':''} ${r.mean_rank.toFixed(2)} — ${esc(r.label)}${r.quality_flag?' <span style="color:#e0a030">⚠ mis-aligned</span>':''} <span class="dim sm">${esc(r.identity)} (n=${r.n})</span></div>`).join('');
     } else lb.innerHTML='';
   };
   sel.querySelector('#r-scene').onchange=draw; draw();
