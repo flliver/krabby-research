@@ -4,85 +4,50 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: M
-status: draft
+status: shipped
 date: 2026-06-11
 depends-on: []
 hugs: [HUG-SCN-005]
 bd-id: krabby-w1t
+shipped: 2026-06-11
+tasks: 3
+complete: 3
 ---
 
 # orient-cameras method verification: sparse-RANSAC vs bootstrap vs operator-assisted floor fit (locked #2 open item)
 
 ## Summary
 
-_(One sentence: what does this story deliver? Avoid "we will add X" —
-write the outcome, not the verb.)_
+Measured verification of the orient-cameras method (HUG-SCN-005
+locked #2 open item): can the gauge be fixed from SPARSE data at
+ingest time, before any mesh exists?
 
-## Context
+## Verdict (measured, 2026-06-11)
 
-_(Why is this story needed? What does it depend on? Link to the parent
-epic. If this is a discovered-from another story, surface the link.)_
+**floor-ransac-sparse REJECTED.** Against mesh-era ground truth
+(the migrated bootstrap transforms):
 
-## Problem
+| Scene | z-axis error | notes |
+|---|---|---|
+| 006-kubota | 58.1° (108° unconstrained) | locked onto the tractor side (normal = +X) |
+| 003-firepit | 56.4° | |
+| 004-sky-house | 166.5° | near-inverted |
+| 008-kubota | 88.3° | |
 
-_(What specific problem does this story solve? Concrete; the reader
-should be able to verify completion without re-reading the epic.)_
+Camera-up prior doesn't rescue it: the prior itself is unreliable —
+portrait vs landscape captures flip which camera axis is world-up
+(006 favors c2w col-z at 24.9°, 004 favors row-z at 4.8° — no single
+convention fits).
 
-## Design
-
-### Approach
-
-_(How will this be implemented? Reference HUGs that constrain the
-implementation choice; cite alternatives only when they shaped the
-final pick.)_
-
-### Changes
-
-| File | Change |
-|------|--------|
-| `path/to/file` | _(add / modify / extract)_ |
-| `path/to/test` | _(add tests for the new behavior)_ |
+**Adopted: bootstrap-mesh** (the validated STO-SCN-004 dense floor
+fit from the first reconstruction, baked back onto primary's
+cameras, once per solve) with **operator pick** as manual fallback.
+Task def + HUG updated; `real2sim/orient_sparse.py` kept as the
+rejected-method experiment record.
 
 ## Definition of Done
 
-- [ ] _(Specific, verifiable condition — not "code works")_
-- [ ] _(Specific, verifiable condition.)_
-- [ ] Tests written and passing.
-- [ ] Code reviewed (or self-reviewed against the engineer-knowledge
-      constraints).
-- [ ] `docs/work-platform.md` or other operator-facing doc updated if
-      surface changed.
-
-## Testing
-
-### Unit / fixture tests
-
-- [ ] _(Specific case.)_
-- [ ] _(Edge case.)_
-
-### Integration
-
-- [ ] _(Scenario.)_
-
-## Out of scope
-
-- _(Things deliberately deferred to a later story. Be explicit — the
-  reader should know what's *not* changing.)_
-
-## Implementation Notes
-
-_(Fill in during / after implementation. Capture what diverged from
-the original design and why — useful for the retrospective + for
-operators reading this story in a year.)_
-
-### What Changed
-
-_(Actual implementation. May differ from § Design above.)_
-
-### Files Modified
-
-- `path/to/file` — _(what changed)_
-
-### Gotchas
-
-_(Anything surprising or worth noting for future readers.)_
+- [x] Method candidates tested against ground truth on real scenes.
+- [x] Verdict recorded in the task def (`orient-cameras` default =
+      bootstrap-mesh) and HUG-SCN-005 locked #2.
+- [x] Experiment code preserved (orient_sparse.py verify/run modes).

@@ -2,7 +2,7 @@
   "schema": 4,
   "name": "orient-cameras",
   "algo": "orient-floor@0",
-  "description": "Fix the gauge (gravity/floor, z-up). Method verification = STO-SCN-082.",
+  "description": "Fix the gauge (gravity/floor, z-up). Method verified STO-SCN-082: sparse RANSAC rejected on measurement; bootstrap-mesh adopted.",
   "inputs": [
     {
       "name": "solve",
@@ -13,12 +13,12 @@
     "method": {
       "class": "tunable",
       "enum": [
-        "floor-ransac-sparse",
         "bootstrap-mesh",
-        "operator"
+        "operator",
+        "floor-ransac-sparse"
       ],
-      "default": "floor-ransac-sparse",
-      "note": "UNVALIDATED default (T-002) \u2014 082 verifies"
+      "default": "bootstrap-mesh",
+      "note": "MEASURED 2026-06-11 (STO-SCN-082): floor-ransac-sparse REJECTED \u2014 58-166\u00b0 z-axis error vs mesh-era ground truth on 006/003/004/008; camera-up prior unreliable across portrait/landscape captures. bootstrap-mesh = the validated path (first reconstruction's dense floor fit, baked back to primary). operator = manual floor pick."
     },
     "ransac_dist": {
       "class": "frozen",

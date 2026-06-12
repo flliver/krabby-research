@@ -4,7 +4,7 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: L
-status: draft
+status: in-progress
 date: 2026-06-11
 depends-on: []
 hugs: [HUG-SCN-005]

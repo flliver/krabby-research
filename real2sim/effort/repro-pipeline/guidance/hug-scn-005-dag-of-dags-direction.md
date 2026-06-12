@@ -267,12 +267,16 @@ Two tasks, not one: orientation is re-runnable without re-solving
 (10-min solve vs 2-s gauge fix), and `method` is its own experiment
 axis — separate identities keep a re-orient from re-keying the solve.
 
-**Open (T-002):** the validated floor-fit runs on a dense mesh,
-which doesn't exist at this point in the new order. Candidate
-methods — (a) RANSAC on sparse `points.ply` (plausible,
-unvalidated), (b) one-time bootstrap from the first reconstruction's
-mesh-fit, (c) operator-assisted floor pick. The contract is locked;
-the method is the first implementation story's verification job.
+**RESOLVED by measurement (STO-SCN-082, 2026-06-11):** candidate
+(a) RANSAC on sparse `points.ply` is **REJECTED** — 58–166° z-axis
+error vs mesh-era ground truth across 006/003/004/008, both
+unconstrained (locks onto walls/objects) and with a camera-up prior
+(the prior itself is unreliable: portrait vs landscape captures flip
+the camera Y axis). Adopted: **(b) bootstrap-mesh** — the first
+reconstruction's dense floor fit (validated, STO-SCN-004) baked back
+onto primary's cameras, once per solve; (c) operator pick remains the
+manual fallback. Experiment record: `real2sim/orient_sparse.py`
+(kept as rejected-method evidence).
 
 
 ### Locked #3 — the IDENTITY_HASH recipe (2026-06-11)

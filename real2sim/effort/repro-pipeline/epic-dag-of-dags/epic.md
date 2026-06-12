@@ -3,7 +3,7 @@ xid: EPI-SCN-DAG-OF-DAGS
 parent: ../design.md
 kind: epic
 effort: scn
-status: open
+status: in-progress
 date: 2026-06-11
 hugs: [HUG-SCN-005]
 tenets: []
