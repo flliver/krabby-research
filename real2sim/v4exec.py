@@ -530,6 +530,50 @@ def fuse_da3(scene_dir: Path, rdir: Path, sub: str, sid: str, oid: str, fdir: Pa
     print(f"[fuse] {len(mesh.vertices):,} verts -> {fdir}/mesh.ply")
 
 
+def cmd_verify_frame(args):
+    """Verification task (STO-SCN-089 DoD): does a fused mesh COINCIDE with
+    the matcha reference in the shared gauge? Camera-residual gates can't
+    see this failure class — geometry can disagree while cameras fit.
+    Writes the measured verdict into the artifact's metadata (measurement
+    annotation, locked #11-legitimate) + rankable:false on failure."""
+    import numpy as np
+    import open3d as o3d
+    scene_dir = v4.STORE / args.scene
+    ref = None
+    for m in sorted(scene_dir.glob("represent/matcha/*/meshify/tsdf/*/mesh.ply")):
+        ref = m
+        break
+    if ref is None:
+        sys.exit("no matcha tsdf reference in scene")
+    pt = o3d.geometry.PointCloud()
+    pt.points = o3d.io.read_triangle_mesh(str(ref)).vertices
+    kd = o3d.geometry.KDTreeFlann(pt)
+    nodes = []
+    for mdir in sorted(scene_dir.glob("represent/da3/*/meshify/*/*/")):
+        mp = mdir / "mesh.ply"
+        if not mp.exists():
+            continue
+        v = np.asarray(o3d.io.read_triangle_mesh(str(mp)).vertices)[::40]
+        d = np.asarray([kd.search_knn_vector_3d(p_, 1)[2][0] ** 0.5 for p_ in v])
+        med = float(np.median(d))
+        ok = med <= 0.15
+        md = json.loads((mdir / "metadata.json").read_text())
+        md.setdefault("measured", {})["frame_check"] = {
+            "vs": str(ref.relative_to(scene_dir)), "median_m": round(med, 3),
+            "gate_m": 0.15, "pass": ok, "checked": NOW()}
+        if not ok:
+            md["rankable"] = False
+            md["rankable_reason"] = (f"frame check FAILED: median {med:.2f}m from the matcha "
+                                     f"reference in the shared gauge (STO-SCN-089 class — "
+                                     f"cameras align, geometry does not)")
+        (mdir / "metadata.json").write_text(json.dumps(md, indent=2) + "\n")
+        nodes.append({"node": "verify-frame", "mesh": mdir.name,
+                      "median_m": round(med, 3), "pass": ok})
+        print(f"{mdir.parent.parent.parent.name}/{mdir.name}: median {med:.3f}m -> "
+              f"{'PASS' if ok else 'FAIL (rankable:false)'}")
+    job_record(args.scene, "verify-frame", nodes, {"scene": args.scene})
+
+
 def main():
     ap = argparse.ArgumentParser()
     sp = ap.add_subparsers(dest="cmd", required=True)
@@ -551,6 +595,9 @@ def main():
     p.add_argument("scene")
     p.add_argument("--host", required=True)
     p.set_defaults(fn=cmd_da3)
+    p = sp.add_parser("verify-frame")
+    p.add_argument("scene")
+    p.set_defaults(fn=cmd_verify_frame)
     args = ap.parse_args()
     args.fn(args)
 
