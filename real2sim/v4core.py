@@ -332,10 +332,16 @@ def leaderboard(scene: str) -> dict:
     flagged = {m["identity"]: m["quality_flag"]
                for rep in sc["representations"] for m in rep["meshes"]
                if not m.get("rankable", True)}
+    live = {m["identity"] for rep in sc["representations"] for m in rep["meshes"]}
+    live |= {c["identity"] for rep in sc["representations"] for m in rep["meshes"]
+             for c in m["conditioned"]}
+    # retired identities (scores history outlives artifacts) stay OUT of
+    # the live leaderboard (operator-reported: outdated items in list)
     rows = sorted(({"identity": k, "label": label.get(k, k),
                     "mean_rank": round(sum(v) / len(v), 2), "n": len(v),
                     "quality_flag": flagged.get(k)}
-                   for k, v in agg.items()), key=lambda r: r["mean_rank"])
+                   for k, v in agg.items() if k in live),
+                  key=lambda r: r["mean_rank"])
     return {"scene": scene, "rows": rows}
 
 

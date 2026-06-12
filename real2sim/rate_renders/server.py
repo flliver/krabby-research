@@ -524,7 +524,22 @@ class Handler(BaseHTTPRequestHandler):
                                             "view": s.get("slot"), "rater": s.get("rater"),
                                             "submitted_at": s.get("ts"), "ranks": {}})
                 g["ranks"][s["at"]] = s["rank"]
-            return [groups[k] for k in sorted(groups)]
+            # retired identities (scores history outlives artifacts) are
+            # dropped from LIVE results (operator-reported: outdated items)
+            import sys as _sys
+            _sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+            import v4core as _v4
+            sc = _v4.scan_scene(scene)
+            live = {m["identity"] for rep in sc["representations"] for m in rep["meshes"]}
+            live |= {c["identity"] for rep in sc["representations"]
+                     for m in rep["meshes"] for c in m["conditioned"]}
+            out = []
+            for k in sorted(groups):
+                g = groups[k]
+                g["ranks"] = {i: r for i, r in g["ranks"].items() if i in live}
+                if g["ranks"]:
+                    out.append(g)
+            return out
         p = self._rankings_path(scene)
         if not p.exists():
             return []
