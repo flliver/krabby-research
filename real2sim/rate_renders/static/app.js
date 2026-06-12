@@ -456,10 +456,11 @@ function renderMissingPool() {
   const busy = state.materializing;
   const chip = (color, icon, title) => {
     const c = document.createElement("div");
-    c.style.cssText = `width:84px; height:48px; flex:0 0 auto; border:1.5px dashed ${color};` +
-      `border-radius:6px; display:flex; flex-direction:column; align-items:center;` +
-      `justify-content:center; cursor:pointer; font-size:0.7em; color:var(--text-dim);` +
-      `overflow:hidden; text-align:center;`;
+    c.style.cssText = `width:96px; min-width:96px; height:56px; min-height:56px; flex:0 0 auto;` +
+      ` border:1.5px dashed ${color}; background:rgba(127,127,127,0.08);` +
+      ` border-radius:6px; display:flex; flex-direction:column; align-items:center;` +
+      ` justify-content:center; cursor:pointer; font-size:11px; line-height:1.3;` +
+      ` color:var(--text-dim); overflow:hidden; text-align:center;`;
     c.innerHTML = `<div>${busy && color !== "#7a5af8" ? "⏳" : icon}</div>` +
                   `<div style="white-space:nowrap; max-width:80px; overflow:hidden; text-overflow:ellipsis;">${title}</div>`;
     return c;

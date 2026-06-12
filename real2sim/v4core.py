@@ -248,6 +248,8 @@ def scan_scene(scene: str) -> dict:
             if not (mdir / "metadata.json").exists():
                 continue
             mmd = json.loads((mdir / "metadata.json").read_text())
+            if mmd.get("rankable") is False:
+                continue   # evidence artifact, excluded from ranking surfaces
             entry = {"method": mdir.parent.name, "identity": mdir.name,
                      "settings": mmd.get("settings", {}),
                      "renders": sorted(r.parent.name for r in mdir.glob("renders/*/render.png")),
