@@ -43,8 +43,35 @@ def rep_camera_paths(scene_dir: Path, rep_dir: Path):
     survives in its origin-data sweep."""
     import hashlib
 
+    md0 = json.loads((rep_dir / "metadata.json").read_text())
     own_cams = rep_dir / "origin-data" / "mast3r_sfm" / "cameras.json"
     own_ori = rep_dir / "origin-data" / "oriented" / "oriented_cameras.json"
+    # re-grounded reps (Option A, STO-SCN-089): meshes live in the rep's
+    # recorded canonical gauge — the camera mapping MUST target that file
+    cg = md0.get("canonical_gauge")
+    if cg:
+        ori = scene_dir / cg
+        if ori.exists():
+            if own_cams.exists():
+                return own_cams, ori
+            subset = md0.get("resolved_inputs", {}).get("subset")
+            base = scene_dir / "images" / "subsets" / str(subset) / "cameras"
+            pool = sorted(base.glob("*/cameras.json")) if base.is_dir() else []
+            want_sha = None
+            orr = rep_dir / "origin-results.json"
+            if orr.exists():
+                for o in json.loads(orr.read_text()).get("outputs", []):
+                    if isinstance(o, dict) and o.get("path", "").endswith("mast3r_sfm/cameras.json"):
+                        want_sha = o.get("sha256")
+            pool += sorted(base.glob("*/origin-dup-cameras.json")) if base.is_dir() else []
+            cams = pool[0] if pool else None
+            if want_sha:
+                for p in pool:
+                    if hashlib.sha256(p.read_bytes()).hexdigest() == want_sha:
+                        cams = p
+                        break
+            if cams:
+                return cams, ori
     if own_cams.exists() and own_ori.exists():
         return own_cams, own_ori
     # da3 fused meshes live in the MATCHA frame they were gauge-aligned to
