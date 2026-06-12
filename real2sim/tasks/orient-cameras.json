@@ -1,8 +1,8 @@
 {
   "schema": 4,
   "name": "orient-cameras",
-  "algo": "orient-floor@1",
-  "description": "Fix the gauge (gravity/floor, z-up). @1 = bootstrap-mesh multi-plane RANSAC + camera-consensus up prior + cameras-above-floor check (STO-SCN-089-2: @0's largest-plane fit picked a wall on corridor captures and rolled the gauge 90deg; the operator-guided 'average camera up' prior, lost in the 082 sparse-method rejection, is restored in roll-robust form \u2014 each camera votes its 4 lateral axes).",
+  "algo": "orient-floor@2",
+  "description": "Fix the gauge (gravity/floor, z-up). @1 = bootstrap-mesh multi-plane RANSAC + camera-consensus up prior + cameras-above-floor check (STO-SCN-089-2: @0's largest-plane fit picked a wall on corridor captures and rolled the gauge 90deg; the operator-guided 'average camera up' prior, lost in the 082 sparse-method rejection, is restored in roll-robust form \u2014 each camera votes its 4 lateral axes). @2: bootstrap mesh is a resolved input; z-floor computed on the solve-framed mesh (gauge-sim composed).",
   "inputs": [
     {
       "name": "solve",

@@ -51,7 +51,7 @@ MATCHA_IMAGE = "j.pski.org:5000/krabby-matcha:0.2.2-selfcontained"
 DA3_IMAGE = "j.pski.org:5000/krabby-da3:0.4"
 # orient-floor@1: bootstrap-mesh + camera-consensus up prior (STO-SCN-089-2;
 # restores the operator-guided 'average camera up' lost in the 082 rejection)
-ORIENT_ALGO = "orient-floor@1"
+ORIENT_ALGO = "orient-floor@2"
 ORIENT_SETTINGS = {"method": "bootstrap-mesh", "ransac_dist": 0.05,
                    "up_prior": "horizon"}
 DOCKER_GPU = ["--gpus", "all", "--shm-size", "8g"]
@@ -225,13 +225,14 @@ def cmd_matcha(args):
     rid = v4.identity_hash({"subset": sub, "cameras": sid}, r_settings, "matcha@0")
     rdir = scene_dir / "represent" / "matcha" / rid
     o_settings, o_algo = ORIENT_SETTINGS, ORIENT_ALGO
-    oid = v4.identity_hash({"solve": sid}, o_settings, o_algo)
+    # the orient reads the bootstrap mesh (z-floor) -> it IS a resolved input
+    oid = v4.identity_hash({"solve": sid, "bootstrap_rep": rid}, o_settings, o_algo)
     # gauge is part of the mesh content -> orient is a resolved input of meshify
     mid = v4.identity_hash({"representation": rid, "cameras": sid, "orient": oid},
-                           {}, "tetra-extract@0")
+                           {}, "tetra-extract@1")
     ts_settings = v4.hashable_settings(tdefs["meshify-via-tsdf"], {})
     tid = v4.identity_hash({"representation": rid, "cameras": sid, "orient": oid},
-                           ts_settings, "tsdf-extract@0")
+                           ts_settings, "tsdf-extract@1")
     tetra_dir = rdir / "meshify" / "tetra" / mid
     tsdf_dir = rdir / "meshify" / "tsdf" / tid
 
@@ -284,10 +285,24 @@ def cmd_matcha(args):
     else:
         nodes.append({"node": "represent", "identity": rid, "action": "NOOP"})
 
-    # -- node: orient-cameras (bootstrap-mesh + camera-consensus up prior)
+    # -- gauge-sim: the weld's FULL train.py re-solves cameras internally,
+    # minting its OWN arbitrary gauge (measured 136.5 deg / scale 0.9988 vs
+    # the ingest solve on 009, camera residual 0.0009 — STO-SCN-089-3).
+    # The raw meshes live in the WELD frame; everything else in the store
+    # lives in the INGEST-solve frame. Compose the exact similarity
+    # (the dtu STO-SCN-041 recipe, now in-graph).
     sys.path.insert(0, str(Path(__file__).parent))
     import open3d as o3d  # noqa: F401  (ensures availability before work)
     import numpy as np
+    from gauge_align import align_camera_sets
+    sim = weld_to_solve_sim(scene_dir, sub, sid, out)
+    print(f"[gauge-sim] weld->solve: scale {sim['s']:.4f} rot {sim['rot_deg']:.1f} deg "
+          f"max residual {sim['max_residual']:.4f}")
+    if sim["residual_frac"] > 0.02:
+        sys.exit(f"matcha REFUSED: weld->solve camera similarity residual "
+                 f"{sim['residual_frac']:.1%} > 2% — solves disagree beyond gauge")
+
+    # -- node: orient-cameras (horizon up prior; z-floor from the SOLVE-framed mesh)
     odir = scene_dir / "images" / "subsets" / sub / "cameras" / sid / "orient" / oid
     if (odir / "oriented.json").exists():
         g = json.loads((odir / "oriented.json").read_text())
@@ -297,7 +312,9 @@ def cmd_matcha(args):
         cams = json.loads((scene_dir / "images" / "subsets" / sub / "cameras" / sid /
                            "cameras.json").read_text())
         c2w = np.asarray(cams["cams2world"])
-        R, z = bootstrap_orient(tsdf_raw, cam_R_c2w=c2w[:, :3, :3], cam_C=c2w[:, :3, 3])
+        raw = o3d.io.read_triangle_mesh(str(tsdf_raw))
+        v_solve = sim["s"] * (np.asarray(raw.vertices) @ np.asarray(sim["R"]).T) + np.asarray(sim["t"])
+        R, z = bootstrap_orient(v_solve, cam_R_c2w=c2w[:, :3, :3], cam_C=c2w[:, :3, 3])
         odir.mkdir(parents=True, exist_ok=True)
         (odir / "transform.json").write_text(json.dumps({"rotation": R.tolist(),
                                                          "z_shift": float(z)}, indent=2) + "\n")
@@ -305,20 +322,23 @@ def cmd_matcha(args):
         (odir / "oriented.json").write_text(json.dumps({"rotation": R.tolist(),
                                                         "z_shift": float(z)}, indent=2) + "\n")
         v4.write_metadata(odir, task="orient-cameras", algo=o_algo, identity=oid,
-                          resolved_inputs={"solve": sid}, settings=o_settings, mechanism="job")
+                          resolved_inputs={"solve": sid, "bootstrap_rep": rid},
+                          settings=o_settings, mechanism="job")
         nodes.append({"node": "orient", "identity": oid, "action": "EXECUTE"})
 
-    # -- meshify: apply gauge -> canonical mesh.ply (tetra + tsdf)
+    # -- meshify: weld frame -> solve frame (gauge-sim) -> canonical gauge
     for src_mesh, mdir, task, algo, msettings in (
-            (tetra_raw[-1], tetra_dir, "meshify-via-tetra", "tetra-extract@0", {}),
-            (tsdf_raw, tsdf_dir, "meshify-via-tsdf", "tsdf-extract@0", ts_settings)):
+            (tetra_raw[-1], tetra_dir, "meshify-via-tetra", "tetra-extract@1", {}),
+            (tsdf_raw, tsdf_dir, "meshify-via-tsdf", "tsdf-extract@1", ts_settings)):
         mdir.mkdir(parents=True, exist_ok=True)
-        ground_mesh(src_mesh, mdir / "mesh.ply", R, z)
+        ground_mesh(src_mesh, mdir / "mesh.ply", R, z, sim=sim)
         v4.write_metadata(mdir, task=task, algo=algo, identity=mdir.name,
                           resolved_inputs={"representation": rid, "cameras": sid,
                                            "orient": oid},
                           settings=msettings, mechanism="job",
-                          extra={"gauge": str(odir.relative_to(scene_dir))})
+                          extra={"gauge": str(odir.relative_to(scene_dir)),
+                                 "gauge_sim": {k: sim[k] for k in
+                                               ("s", "R", "t", "rot_deg", "max_residual")}})
         nodes.append({"node": task, "identity": mdir.name, "action": "EXECUTE"})
     # canonical gauge marker for the renderer
     md = json.loads((rdir / "metadata.json").read_text())
@@ -369,7 +389,7 @@ def camera_up_horizon(R_c2w):
     return best
 
 
-def bootstrap_orient(mesh_path: Path, cam_R_c2w=None, cam_C=None):
+def bootstrap_orient(mesh_or_verts, cam_R_c2w=None, cam_C=None):
     """Floor fit on the dense TSDF mesh -> (R 3x3, z_shift), z-up gauge.
 
     orient-floor@1: multi-plane RANSAC + camera-consensus up prior +
@@ -378,8 +398,10 @@ def bootstrap_orient(mesh_path: Path, cam_R_c2w=None, cam_C=None):
     whole gauge 90 deg (STO-SCN-089 follow-on, operator-caught)."""
     import numpy as np
     import open3d as o3d
-    mesh = o3d.io.read_triangle_mesh(str(mesh_path))
-    v = np.asarray(mesh.vertices)
+    if isinstance(mesh_or_verts, (str, Path)):
+        v = np.asarray(o3d.io.read_triangle_mesh(str(mesh_or_verts)).vertices)
+    else:
+        v = np.asarray(mesh_or_verts)
     if cam_R_c2w is None:
         sys.exit("orient REFUSED: orient-floor@1 requires camera rotations "
                  "(horizon constraint) — none provided")
@@ -421,11 +443,43 @@ def bootstrap_orient(mesh_path: Path, cam_R_c2w=None, cam_C=None):
     return R, -z_floor
 
 
-def ground_mesh(src: Path, dst: Path, R, z):
+def weld_to_solve_sim(scene_dir: Path, sub: str, sid: str, out: Path) -> dict:
+    """Exact similarity from the weld's internal sfm gauge to the store's
+    ingest-solve gauge, via shared camera identities (STO-SCN-089-3).
+    Every mast3r run mints its own arbitrary gauge; the weld's meshes are
+    only meaningful in the store after composing this."""
+    import numpy as np
+    from gauge_align import align_camera_sets
+    weld = json.loads((out / "mast3r_sfm" / "cameras.json").read_text())
+    store = json.loads((scene_dir / "images" / "subsets" / sub / "cameras" / sid /
+                        "cameras.json").read_text())
+    def by_name(c):
+        return {fp.rsplit("/", 1)[-1]: np.asarray(m)
+                for fp, m in zip(c["filepaths"], c["cams2world"])}
+    wm, sm = by_name(weld), by_name(store)
+    names = sorted(set(wm) & set(sm))
+    if len(names) < 3:
+        sys.exit(f"gauge-sim REFUSED: only {len(names)} shared cameras")
+    Cw = np.array([wm[n][:3, 3] for n in names])
+    Cs = np.array([sm[n][:3, 3] for n in names])
+    Rw = np.array([wm[n][:3, :3] for n in names])
+    Rs = np.array([sm[n][:3, :3] for n in names])
+    res = align_camera_sets(Cw, Cs, src_rotations=Rw, dst_rotations=Rs)
+    spread = float(np.linalg.norm(Cs - Cs.mean(0), axis=1).mean())
+    R = np.asarray(res["R"])
+    return {"s": float(res["scale"]), "R": R.tolist(), "t": np.asarray(res["t"]).tolist(),
+            "rot_deg": float(np.degrees(np.arccos(np.clip((np.trace(R) - 1) / 2, -1, 1)))),
+            "max_residual": float(res["max_residual"]),
+            "residual_frac": float(res["max_residual"] / spread)}
+
+
+def ground_mesh(src: Path, dst: Path, R, z, sim: dict | None = None):
     import numpy as np
     import open3d as o3d
     mesh = o3d.io.read_triangle_mesh(str(src))
     vv = np.asarray(mesh.vertices)
+    if sim is not None:   # weld frame -> solve frame first (STO-SCN-089-3)
+        vv = sim["s"] * (vv @ np.asarray(sim["R"]).T) + np.asarray(sim["t"])
     mesh.vertices = o3d.utility.Vector3dVector(vv @ np.asarray(R).T + np.array([0.0, 0.0, z]))
     mesh.compute_vertex_normals()
     o3d.io.write_triangle_mesh(str(dst), mesh)
@@ -503,8 +557,17 @@ def cmd_regauge_views(args):
     g2 = json.loads((base / args.to_orient / "oriented.json").read_text())
     R1, z1 = np.asarray(g1["rotation"]), float(g1["z_shift"])
     R2, z2 = np.asarray(g2["rotation"]), float(g2["z_shift"])
-    Rd = R2 @ R1.T
-    td = np.array([0.0, 0.0, z2]) - Rd @ np.array([0.0, 0.0, z1])
+    # optional weld->solve similarity between the two eras (STO-SCN-089-3):
+    # views were framed against the MESH; carry them with the mesh:
+    # composite = G_new o Sim o G_old^-1
+    if args.sim:
+        sim = json.loads(Path(args.sim).read_text()) if Path(args.sim).exists()             else json.loads(args.sim)
+        ss, Rs_, ts = float(sim["s"]), np.asarray(sim["R"]), np.asarray(sim["t"])
+    else:
+        ss, Rs_, ts = 1.0, np.eye(3), np.zeros(3)
+    Rd = R2 @ Rs_ @ R1.T
+    td = (-ss * (Rd @ np.array([0.0, 0.0, z1])) + R2 @ ts + np.array([0.0, 0.0, z2]))
+    sd_scale = ss
 
     def quat_to_R(w, x, y, z):
         return np.array([
@@ -540,7 +603,7 @@ def cmd_regauge_views(args):
         p = np.asarray(view["world_position"])
         q = view["world_rotation_quat_wxyz"]
         Rv = quat_to_R(*q)
-        view["world_position"] = [float(x) for x in (Rd @ p + td)]
+        view["world_position"] = [float(x) for x in (sd_scale * (Rd @ p) + td)]
         view["world_rotation_quat_wxyz"] = [float(x) for x in R_to_quat(Rd @ Rv)]
         vj.write_text(json.dumps(view, indent=2, sort_keys=True) + "\n")
         md_f = vdir / "metadata.json"
@@ -567,10 +630,12 @@ def cmd_da3(args):
     solve_dirs = [d for d in sorted((scene_dir / "images" / "subsets" / sub / "cameras").glob("*/"))
                   if (d / "metadata.json").exists()]
     sid = solve_dirs[0].name
-    oid = v4.identity_hash({"solve": sid}, ORIENT_SETTINGS, ORIENT_ALGO)
-    if not (scene_dir / "images" / "subsets" / sub / "cameras" / sid / "orient" / oid /
+    ref_id, ref_mesh, oid = matcha_reference(scene_dir, sub, sid, tdefs)
+    if ref_mesh is None or oid is None or not (
+            scene_dir / "images" / "subsets" / sub / "cameras" / sid / "orient" / oid /
             "oriented.json").exists():
-        sys.exit(f"no {ORIENT_ALGO} gauge ({oid}) — run reconstruct-matcha first (bootstrap)")
+        sys.exit(f"no {ORIENT_ALGO} gauge / matcha reference — "
+                 f"run reconstruct-matcha first (bootstrap)")
     r_settings = v4.hashable_settings(tdefs["represent-via-da3"], {})
     # inference is gauge-independent (the npz never sees the orient); the
     # gauge enters at the FUSE step (STO-SCN-089-2)
@@ -617,10 +682,6 @@ def cmd_da3(args):
     # refined mesh is no longer independent evidence of DA3's global
     # accuracy (recorded in metadata); as ranked geometry quality it is
     # exactly what the runoff compares.
-    ref_id, ref_mesh = matcha_reference(scene_dir, sub, sid, tdefs)
-    if ref_mesh is None:
-        sys.exit("fuse REFUSED: no matcha reference tsdf mesh in this gauge — "
-                 "run reconstruct-matcha first (da3-fuse@2 requires the reference)")
     fuse_settings = {"voxel_frac": 0.004, "conf_percentile": 40,
                      "icp_schedule": [0.5, 0.25, 0.1]}
     fid = v4.identity_hash({"representation": rid, "cameras": sid, "orient": oid,
@@ -672,12 +733,13 @@ def matcha_reference(scene_dir: Path, sub: str, sid: str, tdefs):
                                       {"dense_regul": "default"})
     rid_m = v4.identity_hash({"subset": sub, "cameras": sid}, r_settings, "matcha@0")
     ts_settings = v4.hashable_settings(tdefs["meshify-via-tsdf"], {})
-    oid = v4.identity_hash({"solve": sid}, ORIENT_SETTINGS, ORIENT_ALGO)
+    oid = v4.identity_hash({"solve": sid, "bootstrap_rep": rid_m},
+                           ORIENT_SETTINGS, ORIENT_ALGO)
     tid = v4.identity_hash({"representation": rid_m, "cameras": sid, "orient": oid},
-                           ts_settings, "tsdf-extract@0")
+                           ts_settings, "tsdf-extract@1")
     p = scene_dir / "represent" / "matcha" / rid_m / "meshify" / "tsdf" / tid / "mesh.ply"
     if p.exists():
-        return tid, p
+        return tid, p, oid
     # scan fallback: any matcha tsdf mesh produced against this solve
     for mp in sorted(scene_dir.glob("represent/matcha/*/meshify/tsdf/*/mesh.ply")):
         try:
@@ -685,8 +747,9 @@ def matcha_reference(scene_dir: Path, sub: str, sid: str, tdefs):
         except (OSError, json.JSONDecodeError):
             continue
         if md.get("resolved_inputs", {}).get("cameras") in (sid, None):
-            return md.get("identity", mp.parent.name), mp
-    return None, None
+            return (md.get("identity", mp.parent.name), mp,
+                    md.get("resolved_inputs", {}).get("orient"))
+    return None, None, None
 
 
 def fuse_da3(scene_dir: Path, rdir: Path, sub: str, sid: str, oid: str, fdir: Path,
@@ -902,6 +965,8 @@ def main():
     p.add_argument("--solve", required=True)
     p.add_argument("--from-orient", dest="from_orient", required=True)
     p.add_argument("--to-orient", dest="to_orient", required=True)
+    p.add_argument("--sim", default=None,
+                   help="optional weld->solve similarity json (file or inline)")
     p.set_defaults(fn=cmd_regauge_views)
     p = sp.add_parser("verify-frame")
     p.add_argument("scene")

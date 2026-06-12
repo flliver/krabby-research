@@ -1,8 +1,8 @@
 {
   "schema": 4,
   "name": "meshify-via-tsdf",
-  "algo": "tsdf-extract@0",
-  "description": "TSDF mesh. Accepts gaussians (matcha path) or depths (da3 fusion).",
+  "algo": "tsdf-extract@1",
+  "description": "TSDF mesh. Accepts gaussians (matcha path) or depths (da3 fusion). @1: composes the weld->solve gauge similarity (STO-SCN-089-3 \u2014 the full-train weld re-solves cameras, minting its own gauge; measured 136.5deg on 009).",
   "inputs": [
     {
       "name": "representation",

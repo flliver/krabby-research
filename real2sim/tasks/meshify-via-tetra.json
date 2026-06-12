@@ -1,8 +1,8 @@
 {
   "schema": 4,
   "name": "meshify-via-tetra",
-  "algo": "tetra-extract@0",
-  "description": "Tetra mesh from gaussians+charts. @0 = welded into the matcha dispatch (NOOP when represent ran).",
+  "algo": "tetra-extract@1",
+  "description": "Tetra mesh from gaussians+charts. @0 = welded into the matcha dispatch (NOOP when represent ran). @1: composes the weld->solve gauge similarity (STO-SCN-089-3 \u2014 the full-train weld re-solves cameras, minting its own gauge; measured 136.5deg on 009).",
   "inputs": [
     {
       "name": "representation",

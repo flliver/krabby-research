@@ -168,3 +168,41 @@ Open follow-ons: floater cleanup for matcha tsdf meshes (affects ICP +
 floor estimates + render quality); z-floor from sparse instead of the
 dense mesh; sweep other scenes for rolled @0 gauges (the @0 orient is
 suspect on every corridor-style capture).
+
+## FINAL ROOT CAUSE (2026-06-12, operator-driven): THE WELD MINTS ITS OWN GAUGE
+
+The gauge-roll fix above was real but not the whole story — the operator
+re-ranked and called it ("you did not [repair the world]"), then
+visually identified the camera/mesh inconsistency in Blender. The
+instrumented extractor (dump the exact cameras render_multires
+integrates with) produced the closed-form answer:
+
+**The matcha@0 weld runs the FULL train.py, which re-solves cameras
+internally. Its meshes live in that internal gauge — measured 136.5 deg
+/ scale 0.9988 / camera residual 0.0009 from the store's ingest solve.**
+Every mast3r run mints an arbitrary gauge (the STO-SCN-041 dtu recipe
+documented this exact lesson — "compose inverse-sim + orientation" —
+and the weld failed to apply it). Everything downstream (DA3 fusion,
+sparse, photos) was ingest-solve-true; the matcha meshes were the
+displaced artifacts the whole time, masked because @0 gauges were
+fitted ON the mesh and views were framed against it.
+
+Shipped (in-graph):
+- `weld_to_solve_sim()` — exact similarity from shared camera
+  identities (weld's mast3r_sfm/cameras.json vs store solve), gated at
+  2% residual; recorded in mesh metadata as `gauge_sim`.
+- `meshify @1` (tetra/tsdf): composes gauge-sim before the canonical
+  gauge. `orient-floor@2`: bootstrap mesh is a resolved input; z-floor
+  computed on the solve-framed mesh — camera heights immediately became
+  person-plausible (1.0-1.7 solve units ~= meters), confirming the
+  whole chain.
+- `regauge-views --sim`: operator framings carried across with the mesh
+  (composite G_new o Sim o G_old^-1).
+
+Verification: da3-fuse@2 onto the corrected reference converged at
+**1.9 deg / 0.092 m, fitness 0.88** (the 006/007-class signature);
+renders show the da3 gate coincident with the matcha gate from the
+operator's views. False trails burned en route, for the record:
+non-rigid DA3 warp (retracted), gauge roll as sole cause (half-true),
+npz convention drift (disproven), scale_factor (red herring — internal
+to charts), coverage-confounded point-to-mesh medians (twice).
