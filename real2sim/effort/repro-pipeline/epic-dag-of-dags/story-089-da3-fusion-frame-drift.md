@@ -169,7 +169,7 @@ floor estimates + render quality); z-floor from sparse instead of the
 dense mesh; sweep other scenes for rolled @0 gauges (the @0 orient is
 suspect on every corridor-style capture).
 
-## FINAL ROOT CAUSE (2026-06-12, operator-driven): THE WELD MINTS ITS OWN GAUGE
+## ROOT CAUSE, PENDING OPERATOR VERIFICATION (2026-06-12, T-020): THE WELD MINTS ITS OWN GAUGE
 
 The gauge-roll fix above was real but not the whole story — the operator
 re-ranked and called it ("you did not [repair the world]"), then
@@ -202,7 +202,9 @@ Shipped (in-graph):
 Verification: da3-fuse@2 onto the corrected reference converged at
 **1.9 deg / 0.092 m, fitness 0.88** (the 006/007-class signature);
 renders show the da3 gate coincident with the matcha gate from the
-operator's views. False trails burned en route, for the record:
+operator's views. NOT closed until the operator verifies the renders
+in the runoff (T-020 — two prior 'fixed' declarations on this story
+did not survive operator contact). False trails burned en route, for the record:
 non-rigid DA3 warp (retracted), gauge roll as sole cause (half-true),
 npz convention drift (disproven), scale_factor (red herring — internal
 to charts), coverage-confounded point-to-mesh medians (twice).
