@@ -278,6 +278,56 @@ hashed**.
 - Accepted cost: you cannot have two subsets with identical members
   but different "meanings" — no real case found.
 
+### Locked #6 — meshify: two tasks, nested placement, fused execution (2026-06-11)
+
+**Two tasks, not one task with a `method` flag** (different code,
+settings, and accepted input kinds — same reason represent-via-matcha
+and represent-via-da3 are separate tasks):
+
+```
+TASK: meshify-via-tetra                    TASK: meshify-via-tsdf
+- INPUTS:                                  - INPUTS:
+  * representation identity                  * representation identity
+    (kind: gaussians+charts ONLY)              (kind: gaussians or depths)
+  * cameras (oriented, via solve id)         * cameras (oriented, via solve id)
+- SETTINGS:                                - SETTINGS:
+  * tunable: (none exposed yet)              * tunable: mesh_res (1024 validated)
+  * frozen: binary-search params             * frozen: config=default
+- IDENTITY: hash(rep_id + cameras_id       - IDENTITY: same recipe
+    + settings + algo@version)
+```
+
+**File placement — nest a derivative under what it derives from**
+(the orient-under-solve precedent):
+
+```
+scenes/<scene>/represent/matcha/<RID>/meshify/tetra/<MID>/{mesh.ply, metadata.json, meshify.log}
+scenes/<scene>/represent/matcha/<RID>/meshify/tsdf/<MID>/...
+```
+
+**Consequences locked with it:**
+
+- **`ground` disappears as a task.** Cameras arrive oriented
+  (locked #2), so meshes are BORN in the scene gauge — today's
+  per-run mesh orientation step evaporates. (DA3's gauge_align
+  survives only inside represent-via-da3, aligning into primary's
+  frame.)
+- **The tetra weld is an executor fact, not a model fact.** Until
+  the matcha monolith is split, ONE container dispatch materializes
+  BOTH identities (RID and tetra MID). Evaluating the graph in DAG
+  order: represent executes (writing both), then meshify-via-tetra
+  is inspected → its identity already exists → **NOOP**. No special
+  case in the model; the planner's materialize-check handles it.
+- **Unrequested outputs are never thrown away** — an output that
+  falls out of a fused dispatch is a pre-warmed cache entry with a
+  real identity, not garbage.
+- **Known compute-waste corner:** representation cached, tetra
+  requested LATER → the welded container recomputes the
+  representation on its way to the mesh (idempotent, data-safe,
+  GPU-wasteful). Mitigations: (1) matcha jobs request tetra eagerly
+  by default (it's the ranked-#1 branch), (2) the monolith split
+  removes the corner, (3) until then the planner warns.
+
 ### Flow diagram — worked example of everything locked so far
 
 Scene `006-kubota`, fake short hashes. One video, primary pool of 200,
