@@ -516,7 +516,7 @@ def cmd_views(args):
 import bpy, json
 out = []
 for o in bpy.data.objects:
-    if o.type == "CAMERA" and (o.users_collection and any("virtual" in c.name for c in o.users_collection) or o.get("view_purpose")):
+    if o.type == "CAMERA" and o.get("localization_method") == "viewport-capture":
         q = o.rotation_quaternion if o.rotation_mode == "QUATERNION" else o.rotation_euler.to_quaternion()
         out.append(dict(name=o.name, world_position=list(o.location),
                         world_rotation_quat_wxyz=[q.w, q.x, q.y, q.z],
