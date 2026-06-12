@@ -522,6 +522,41 @@ Migration mechanics:
   `run_record.json`) is OBSOLETE — close as superseded by this HUG;
   the migration replaces it.
 
+### Locked #10 — represent-via-da3 + license taint as derived ancestry property (2026-06-11)
+
+```
+TASK: represent-via-da3
+- INPUTS:
+  * subset hash (images)
+  * orient identity (primary's gauge — the frame to align INTO)
+- SETTINGS:
+  * tunable: process_res (504 default; measured ceilings: gs<=504, nogs<=756)
+  *          mode: gs | nogs
+  * frozen: conf thresholds, export set
+- IDENTITY: hash(subset + orient_id + settings + da3@version)
+- OUTPUT kind: depths + splats + poses   ← typed differently from gaussians+charts
+- PLACEMENT: scenes/<scene>/represent/da3/<RID>/
+```
+
+- **DA3 solves its own poses** — it consumes primary's cameras only
+  as the alignment TARGET: gauge_align runs inside the task, mapping
+  its self-solved frame into primary's gauge (residual gate <=10%;
+  006 measured 2.9%). Orient identity is a genuine input → in the
+  hash. Outputs are born in the scene gauge like everything else.
+- **Type-checking routes compatibility** (per #6): meshify-via-tetra
+  accepts gaussians+charts only; depths+splats route to TSDF fusion.
+
+**License taint propagates through lineage:**
+
+- License is a fact on `algo@version` (the task def — e.g. DA3
+  weights CC-BY-NC-4.0; STO-SCN-078 audit verdicts land there).
+- `deliverable-eligible(identity)` = **no NC anywhere in the
+  identity's ancestry** — DERIVED at read time by walking inputs;
+  never stored, never hand-maintained.
+- NC tasks stay in the same graphs (that is their value: same
+  runoff, honest comparison); the eligibility query is what keeps
+  M11 deliverables clean.
+
 ### Flow diagram — worked example of everything locked (refreshed for #5–#7)
 
 Scene `006-kubota`, fake short hashes. One video; primary pool of
