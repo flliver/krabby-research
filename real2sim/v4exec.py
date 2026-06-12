@@ -49,6 +49,11 @@ import v4core as v4
 SCRATCH = "/home/jeremy/scratch/v4exec"
 MATCHA_IMAGE = "j.pski.org:5000/krabby-matcha:0.2.2-selfcontained"
 DA3_IMAGE = "j.pski.org:5000/krabby-da3:0.4"
+# orient-floor@1: bootstrap-mesh + camera-consensus up prior (STO-SCN-089-2;
+# restores the operator-guided 'average camera up' lost in the 082 rejection)
+ORIENT_ALGO = "orient-floor@1"
+ORIENT_SETTINGS = {"method": "bootstrap-mesh", "ransac_dist": 0.05,
+                   "up_prior": "horizon"}
 DOCKER_GPU = ["--gpus", "all", "--shm-size", "8g"]
 
 NOW = lambda: datetime.datetime.now().astimezone().isoformat(timespec="seconds")  # noqa: E731
@@ -219,9 +224,14 @@ def cmd_matcha(args):
     sid = solve_dirs[0].name
     rid = v4.identity_hash({"subset": sub, "cameras": sid}, r_settings, "matcha@0")
     rdir = scene_dir / "represent" / "matcha" / rid
-    mid = v4.identity_hash({"representation": rid, "cameras": sid}, {}, "tetra-extract@0")
+    o_settings, o_algo = ORIENT_SETTINGS, ORIENT_ALGO
+    oid = v4.identity_hash({"solve": sid}, o_settings, o_algo)
+    # gauge is part of the mesh content -> orient is a resolved input of meshify
+    mid = v4.identity_hash({"representation": rid, "cameras": sid, "orient": oid},
+                           {}, "tetra-extract@0")
     ts_settings = v4.hashable_settings(tdefs["meshify-via-tsdf"], {})
-    tid = v4.identity_hash({"representation": rid, "cameras": sid}, ts_settings, "tsdf-extract@0")
+    tid = v4.identity_hash({"representation": rid, "cameras": sid, "orient": oid},
+                           ts_settings, "tsdf-extract@0")
     tetra_dir = rdir / "meshify" / "tetra" / mid
     tsdf_dir = rdir / "meshify" / "tsdf" / tid
 
@@ -229,60 +239,74 @@ def cmd_matcha(args):
         print(f"NOOP: {rid} fully materialized")
         return
 
-    # -- the @0 weld: ONE dispatch materializes represent + raw tetra + raw tsdf
-    tag = f"{args.scene}-matcha-{rid}"
-    workdir = stage_images_on_host(args.host, scene_dir, sub, tag)
-    n_images = len(json.loads((scene_dir / "images" / "subsets" / sub / "subset.json")
-                              .read_text())["members"])
-    tool = (f"python train.py -s /work/images -o /work/out --sfm_config unposed "
-            f"--n_images {n_images} --alignment_config strong")
-    if args.dense_regul != "default":
-        tool += f" --dense_regul {args.dense_regul}"
-    tool += (" --depthanythingv2_checkpoint_dir /opt/MAtCha/Depth-Anything-V2/checkpoints"
-             " --depthanything_encoder vitl")
-    tool += (" && PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True "
-             "python scripts/extract_tsdf_mesh.py -s /work/out/mast3r_sfm "
-             "-m /work/out/free_gaussians -o /work/out/tsdf_meshes -c default")
-    print(f"[matcha@0 weld] {args.host}: full pipeline ({n_images} images, "
-          f"dense_regul={args.dense_regul}) — ~15-25 min")
-    t0 = datetime.datetime.now()
-    rc = run_in_matcha(args.host, workdir, tool, rdir / "matcha.log")
-    dt = int((datetime.datetime.now() - t0).total_seconds())
-    print(f"[matcha@0 weld] rc={rc} in {dt}s; gathering…")
-    rdir.mkdir(parents=True, exist_ok=True)
-    sh(["rsync", "-a", f"{args.host}:{workdir}/out/", str(rdir / "out") + "/"])
-    sh(["ssh", args.host, f"rm -rf {SCRATCH}/{tag}"])
+    # -- the @0 weld: ONE dispatch materializes represent + raw tetra + raw tsdf.
+    # Raw outputs are gauge-independent: when they already exist (e.g. an
+    # orient revision), the GPU run is skipped and only orient+ground rerun.
     out = rdir / "out"
     tetra_raw = sorted((out / "tetra_meshes").glob("*.ply")) if (out / "tetra_meshes").is_dir() else []
     tsdf_raw = next(iter(sorted((out / "tsdf_meshes").glob("multires_tsdf_post*.ply"))), None)
-    if rc != 0 or not tetra_raw or tsdf_raw is None:
-        sys.exit(f"matcha weld FAILED (rc={rc}; tetra={bool(tetra_raw)} tsdf={bool(tsdf_raw)}; "
-                 f"log {rdir}/matcha.log)")
-    dig, _ = host_digest(args.host, MATCHA_IMAGE)
-    v4.write_metadata(rdir, task="represent-via-matcha", algo="matcha@0", identity=rid,
-                      resolved_inputs={"subset": sub, "cameras": sid},
-                      settings=r_settings, mechanism="job",
-                      measured={"host": args.host.split("@")[-1], "duration_s": dt,
-                                "image_digest": dig})
-    nodes.append({"node": "represent", "identity": rid, "action": "EXECUTE",
-                  "host": args.host, "duration_s": dt})
+    if not tetra_raw or tsdf_raw is None:
+        tag = f"{args.scene}-matcha-{rid}"
+        workdir = stage_images_on_host(args.host, scene_dir, sub, tag)
+        n_images = len(json.loads((scene_dir / "images" / "subsets" / sub / "subset.json")
+                                  .read_text())["members"])
+        tool = (f"python train.py -s /work/images -o /work/out --sfm_config unposed "
+                f"--n_images {n_images} --alignment_config strong")
+        if args.dense_regul != "default":
+            tool += f" --dense_regul {args.dense_regul}"
+        tool += (" --depthanythingv2_checkpoint_dir /opt/MAtCha/Depth-Anything-V2/checkpoints"
+                 " --depthanything_encoder vitl")
+        tool += (" && PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True "
+                 "python scripts/extract_tsdf_mesh.py -s /work/out/mast3r_sfm "
+                 "-m /work/out/free_gaussians -o /work/out/tsdf_meshes -c default")
+        print(f"[matcha@0 weld] {args.host}: full pipeline ({n_images} images, "
+              f"dense_regul={args.dense_regul}) — ~15-25 min")
+        t0 = datetime.datetime.now()
+        rc = run_in_matcha(args.host, workdir, tool, rdir / "matcha.log")
+        dt = int((datetime.datetime.now() - t0).total_seconds())
+        print(f"[matcha@0 weld] rc={rc} in {dt}s; gathering…")
+        rdir.mkdir(parents=True, exist_ok=True)
+        sh(["rsync", "-a", f"{args.host}:{workdir}/out/", str(rdir / "out") + "/"])
+        sh(["ssh", args.host, f"rm -rf {SCRATCH}/{tag}"])
+        tetra_raw = sorted((out / "tetra_meshes").glob("*.ply")) if (out / "tetra_meshes").is_dir() else []
+        tsdf_raw = next(iter(sorted((out / "tsdf_meshes").glob("multires_tsdf_post*.ply"))), None)
+        if rc != 0 or not tetra_raw or tsdf_raw is None:
+            sys.exit(f"matcha weld FAILED (rc={rc}; tetra={bool(tetra_raw)} tsdf={bool(tsdf_raw)}; "
+                     f"log {rdir}/matcha.log)")
+        dig, _ = host_digest(args.host, MATCHA_IMAGE)
+        v4.write_metadata(rdir, task="represent-via-matcha", algo="matcha@0", identity=rid,
+                          resolved_inputs={"subset": sub, "cameras": sid},
+                          settings=r_settings, mechanism="job",
+                          measured={"host": args.host.split("@")[-1], "duration_s": dt,
+                                    "image_digest": dig})
+        nodes.append({"node": "represent", "identity": rid, "action": "EXECUTE",
+                      "host": args.host, "duration_s": dt})
+    else:
+        nodes.append({"node": "represent", "identity": rid, "action": "NOOP"})
 
-    # -- node: orient-cameras (bootstrap-mesh — IN-GRAPH; method per STO-SCN-082)
+    # -- node: orient-cameras (bootstrap-mesh + camera-consensus up prior)
     sys.path.insert(0, str(Path(__file__).parent))
     import open3d as o3d  # noqa: F401  (ensures availability before work)
-    o_settings = {"method": "bootstrap-mesh", "ransac_dist": 0.05}
-    oid = v4.identity_hash({"solve": sid}, o_settings, "orient-floor@0")
+    import numpy as np
     odir = scene_dir / "images" / "subsets" / sub / "cameras" / sid / "orient" / oid
-    R, z = bootstrap_orient(tsdf_raw)
-    odir.mkdir(parents=True, exist_ok=True)
-    (odir / "transform.json").write_text(json.dumps({"rotation": R.tolist(),
-                                                     "z_shift": float(z)}, indent=2) + "\n")
-    # oriented cameras file (renderer contract: rotation + z_shift + cams)
-    (odir / "oriented.json").write_text(json.dumps({"rotation": R.tolist(),
-                                                    "z_shift": float(z)}, indent=2) + "\n")
-    v4.write_metadata(odir, task="orient-cameras", algo="orient-floor@0", identity=oid,
-                      resolved_inputs={"solve": sid}, settings=o_settings, mechanism="job")
-    nodes.append({"node": "orient", "identity": oid, "action": "EXECUTE"})
+    if (odir / "oriented.json").exists():
+        g = json.loads((odir / "oriented.json").read_text())
+        R, z = np.asarray(g["rotation"]), float(g["z_shift"])
+        nodes.append({"node": "orient", "identity": oid, "action": "NOOP"})
+    else:
+        cams = json.loads((scene_dir / "images" / "subsets" / sub / "cameras" / sid /
+                           "cameras.json").read_text())
+        c2w = np.asarray(cams["cams2world"])
+        R, z = bootstrap_orient(tsdf_raw, cam_R_c2w=c2w[:, :3, :3], cam_C=c2w[:, :3, 3])
+        odir.mkdir(parents=True, exist_ok=True)
+        (odir / "transform.json").write_text(json.dumps({"rotation": R.tolist(),
+                                                         "z_shift": float(z)}, indent=2) + "\n")
+        # oriented cameras file (renderer contract: rotation + z_shift + cams)
+        (odir / "oriented.json").write_text(json.dumps({"rotation": R.tolist(),
+                                                        "z_shift": float(z)}, indent=2) + "\n")
+        v4.write_metadata(odir, task="orient-cameras", algo=o_algo, identity=oid,
+                          resolved_inputs={"solve": sid}, settings=o_settings, mechanism="job")
+        nodes.append({"node": "orient", "identity": oid, "action": "EXECUTE"})
 
     # -- meshify: apply gauge -> canonical mesh.ply (tetra + tsdf)
     for src_mesh, mdir, task, algo, msettings in (
@@ -291,7 +315,8 @@ def cmd_matcha(args):
         mdir.mkdir(parents=True, exist_ok=True)
         ground_mesh(src_mesh, mdir / "mesh.ply", R, z)
         v4.write_metadata(mdir, task=task, algo=algo, identity=mdir.name,
-                          resolved_inputs={"representation": rid, "cameras": sid},
+                          resolved_inputs={"representation": rid, "cameras": sid,
+                                           "orient": oid},
                           settings=msettings, mechanism="job",
                           extra={"gauge": str(odir.relative_to(scene_dir))})
         nodes.append({"node": task, "identity": mdir.name, "action": "EXECUTE"})
@@ -304,33 +329,95 @@ def cmd_matcha(args):
     print(f"reconstruct-matcha materialized: represent {rid}, tetra {mid}, tsdf {tid}, orient {oid}")
 
 
-def bootstrap_orient(mesh_path: Path):
-    """RANSAC floor fit on the dense TSDF mesh (the validated STO-SCN-004
-    method, adopted by STO-SCN-082). Returns (R 3x3, z_shift)."""
+def camera_up_horizon(R_c2w):
+    """World-up from the HORIZON constraint (orient-floor@1).
+
+    The operator-guided camera-up prior in its correct form. Photographers
+    pitch freely (path shots pitch down 30-40 deg — measured on 009, which
+    biases naive mean(-Y) by exactly that much, the @0-era failure) but
+    keep the horizon LEVEL: the image-right axis X_i is horizontal in every
+    shot (009: all seven X_i within 3.4 deg of horizontal). So true up
+    satisfies u . X_i ~ 0 for all i.
+
+      u = eigvec_min( sum X_i X_i^T )   — pitch never enters.
+
+    A walk with any turn makes the solution unique; for a perfectly
+    straight walk the null space is 2D and mean(-Y) projected onto it
+    supplies the in-plane choice (pitch-corrected). Portrait captures:
+    the same constraint lives on Y_i — both axis sets are tried, the one
+    with the more consistent horizon (smaller min eigenvalue) wins.
+    Returns (u, quality) with quality = max residual |axis . u| in deg."""
+    import numpy as np
+    R_c2w = np.asarray(R_c2w)
+    n = len(R_c2w)
+    best = None
+    for ax in (0, 1):                       # landscape: X horizon; portrait: Y
+        A = R_c2w[:, :, ax]                 # (N,3) the candidate horizon axes
+        M = (A[:, :, None] * A[:, None, :]).sum(0) / n
+        w, V = np.linalg.eigh(M)
+        null = V[:, w < max(0.1, 1.5 * w[0])]   # small-eigval subspace (>=1 dim)
+        mean_up = -R_c2w[:, :, 1 - ax].mean(0)  # the other axis ~ up-ish
+        u = null @ (null.T @ mean_up)
+        if np.linalg.norm(u) < 1e-6:            # mean-up orthogonal: take eigvec
+            u = V[:, 0]
+        u = u / np.linalg.norm(u)
+        if u @ mean_up < 0:
+            u = -u
+        resid = float(np.degrees(np.arcsin(np.clip(np.abs(A @ u).max(), 0, 1))))
+        if best is None or resid < best[1]:
+            best = (u, resid)
+    return best
+
+
+def bootstrap_orient(mesh_path: Path, cam_R_c2w=None, cam_C=None):
+    """Floor fit on the dense TSDF mesh -> (R 3x3, z_shift), z-up gauge.
+
+    orient-floor@1: multi-plane RANSAC + camera-consensus up prior +
+    cameras-above-floor check. @0 (largest plane, no prior) picked the
+    gate/hedge wall as 'floor' on 009's corridor capture and rolled the
+    whole gauge 90 deg (STO-SCN-089 follow-on, operator-caught)."""
     import numpy as np
     import open3d as o3d
     mesh = o3d.io.read_triangle_mesh(str(mesh_path))
-    pcd = o3d.geometry.PointCloud()
     v = np.asarray(mesh.vertices)
-    step = max(1, len(v) // 200_000)
-    pcd.points = o3d.utility.Vector3dVector(v[::step])
-    plane, _ = pcd.segment_plane(distance_threshold=0.05, ransac_n=3, num_iterations=1000)
-    n = np.asarray(plane[:3], dtype=float)
-    n /= np.linalg.norm(n)
-    # mesh bulk should be ABOVE the floor: flip normal toward the centroid side
-    c = v.mean(0)
-    if np.dot(n, c) + plane[3] < 0:
-        n, plane = -n, [-x for x in plane]
+    if cam_R_c2w is None:
+        sys.exit("orient REFUSED: orient-floor@1 requires camera rotations "
+                 "(horizon constraint) — none provided")
+    n, resid = camera_up_horizon(cam_R_c2w)
+    print(f"[orient@1] horizon up: {np.round(n, 3).tolist()} "
+          f"(max horizon residual {resid:.1f} deg)")
+    if resid > 15.0:
+        sys.exit(f"orient REFUSED: horizon inconsistent across cameras "
+                 f"({resid:.1f} deg > 15) — mixed-roll capture? inspect")
     z_axis = np.array([0.0, 0.0, 1.0])
     vv = np.cross(n, z_axis)
     s = np.linalg.norm(vv)
     if s < 1e-9:
         R = np.eye(3)
     else:
-        c_ = float(np.dot(n, z_axis))
+        c_ = float(n @ z_axis)
         vx = np.array([[0, -vv[2], vv[1]], [vv[2], 0, -vv[0]], [-vv[1], vv[0], 0]])
         R = np.eye(3) + vx + vx @ vx * ((1 - c_) / (s ** 2))
-    z_floor = float(np.percentile((v @ R.T)[:, 2], 2))
+    vz = (v[::max(1, len(v) // 200_000)] @ R.T)
+    if cam_C is not None:
+        # floor level = the ground UNDER the camera path (sloped scenes have
+        # geometry far below the global percentile, down the hill)
+        cz = np.asarray(cam_C) @ R.T
+        d2 = ((vz[:, None, :2] - cz[None, :, :2]) ** 2).sum(-1).min(1)
+        near = vz[d2 < 2.5 ** 2]
+        if len(near) < 200:
+            near = vz
+        z_floor = float(np.percentile(near[:, 2], 5))
+        h = cz[:, 2] - z_floor
+        print(f"[orient@1] camera heights above local floor: {np.round(h, 2).tolist()} "
+              f"(solve units — SfM scale is arbitrary, no metric gate)")
+        rel = float(np.std(h) / max(np.median(h), 1e-9))
+        if np.median(h) <= 0 or rel > 0.35:
+            sys.exit(f"orient REFUSED: camera heights above floor inconsistent "
+                     f"(median {np.median(h):.2f}, rel spread {rel:.2f}) — "
+                     f"photographer-walks-on-floor violated; up estimate suspect")
+    else:
+        z_floor = float(np.percentile(vz[:, 2], 2))
     return R, -z_floor
 
 
@@ -399,6 +486,75 @@ print("VIEWS_JSON" + json.dumps(out))
     print(f"canonical viewset: {members}")
 
 
+# ============================================================ regauge views
+
+def cmd_regauge_views(args):
+    """Carry operator-framed views from one orient gauge to another
+    (in-graph, job-recorded). The framing is operator data (locked #7);
+    when the gauge it was framed IN gets revised, the equivalent framing
+    in the new gauge is a deterministic transform — re-capturing by hand
+    would only reproduce it with extra operator cost."""
+    import numpy as np
+    scene_dir = v4.STORE / args.scene
+    sc = v4.Scene(args.scene)
+    sub = sc.resolve("primary")
+    base = scene_dir / "images" / "subsets" / sub / "cameras" / args.solve / "orient"
+    g1 = json.loads((base / args.from_orient / "oriented.json").read_text())
+    g2 = json.loads((base / args.to_orient / "oriented.json").read_text())
+    R1, z1 = np.asarray(g1["rotation"]), float(g1["z_shift"])
+    R2, z2 = np.asarray(g2["rotation"]), float(g2["z_shift"])
+    Rd = R2 @ R1.T
+    td = np.array([0.0, 0.0, z2]) - Rd @ np.array([0.0, 0.0, z1])
+
+    def quat_to_R(w, x, y, z):
+        return np.array([
+            [1 - 2 * (y * y + z * z), 2 * (x * y - w * z), 2 * (x * z + w * y)],
+            [2 * (x * y + w * z), 1 - 2 * (x * x + z * z), 2 * (y * z - w * x)],
+            [2 * (x * z - w * y), 2 * (y * z + w * x), 1 - 2 * (x * x + y * y)]])
+
+    def R_to_quat(R):
+        w = np.sqrt(max(0.0, 1 + R[0, 0] + R[1, 1] + R[2, 2])) / 2
+        if w > 1e-8:
+            return [w, (R[2, 1] - R[1, 2]) / (4 * w), (R[0, 2] - R[2, 0]) / (4 * w),
+                    (R[1, 0] - R[0, 1]) / (4 * w)]
+        # w ~ 0: use largest diagonal branch
+        i = int(np.argmax([R[0, 0], R[1, 1], R[2, 2]]))
+        if i == 0:
+            x = np.sqrt(max(0.0, 1 + R[0, 0] - R[1, 1] - R[2, 2])) / 2
+            return [(R[2, 1] - R[1, 2]) / (4 * x), x, (R[0, 1] + R[1, 0]) / (4 * x),
+                    (R[0, 2] + R[2, 0]) / (4 * x)]
+        if i == 1:
+            y = np.sqrt(max(0.0, 1 - R[0, 0] + R[1, 1] - R[2, 2])) / 2
+            return [(R[0, 2] - R[2, 0]) / (4 * y), (R[0, 1] + R[1, 0]) / (4 * y), y,
+                    (R[1, 2] + R[2, 1]) / (4 * y)]
+        z = np.sqrt(max(0.0, 1 - R[0, 0] - R[1, 1] + R[2, 2])) / 2
+        return [(R[1, 0] - R[0, 1]) / (4 * z), (R[0, 2] + R[2, 0]) / (4 * z),
+                (R[1, 2] + R[2, 1]) / (4 * z), z]
+
+    nodes = []
+    for vdir in sorted(scene_dir.glob("views/[0-9]*/")):
+        vj = vdir / "view.json"
+        if not vj.exists():
+            continue
+        view = json.loads(vj.read_text())
+        p = np.asarray(view["world_position"])
+        q = view["world_rotation_quat_wxyz"]
+        Rv = quat_to_R(*q)
+        view["world_position"] = [float(x) for x in (Rd @ p + td)]
+        view["world_rotation_quat_wxyz"] = [float(x) for x in R_to_quat(Rd @ Rv)]
+        vj.write_text(json.dumps(view, indent=2, sort_keys=True) + "\n")
+        md_f = vdir / "metadata.json"
+        md = json.loads(md_f.read_text()) if md_f.exists() else {"schema": 4}
+        md.setdefault("regauged", []).append({
+            "from": args.from_orient, "to": args.to_orient, "at": NOW()})
+        md_f.write_text(json.dumps(md, indent=2) + "\n")
+        nodes.append({"node": "regauge-view", "slot": vdir.name, "action": "EXECUTE"})
+        print(f"view {vdir.name}: regauged {args.from_orient} -> {args.to_orient}")
+    job_record(args.scene, "regauge-views", nodes,
+               {"scene": args.scene, "solve": args.solve,
+                "from": args.from_orient, "to": args.to_orient})
+
+
 # ============================================================ reconstruct-da3
 
 def cmd_da3(args):
@@ -411,12 +567,14 @@ def cmd_da3(args):
     solve_dirs = [d for d in sorted((scene_dir / "images" / "subsets" / sub / "cameras").glob("*/"))
                   if (d / "metadata.json").exists()]
     sid = solve_dirs[0].name
-    odirs = sorted((scene_dir / "images" / "subsets" / sub / "cameras" / sid / "orient").glob("*/"))
-    if not odirs:
-        sys.exit("no orient gauge — run reconstruct-matcha first (bootstrap)")
-    oid = odirs[0].name
+    oid = v4.identity_hash({"solve": sid}, ORIENT_SETTINGS, ORIENT_ALGO)
+    if not (scene_dir / "images" / "subsets" / sub / "cameras" / sid / "orient" / oid /
+            "oriented.json").exists():
+        sys.exit(f"no {ORIENT_ALGO} gauge ({oid}) — run reconstruct-matcha first (bootstrap)")
     r_settings = v4.hashable_settings(tdefs["represent-via-da3"], {})
-    rid = v4.identity_hash({"subset": sub, "orient": oid}, r_settings, "da3@0")
+    # inference is gauge-independent (the npz never sees the orient); the
+    # gauge enters at the FUSE step (STO-SCN-089-2)
+    rid = v4.identity_hash({"subset": sub}, r_settings, "da3@0")
     rdir = scene_dir / "represent" / "da3" / rid
     if not (rdir / "metadata.json").exists():
         tag = f"{args.scene}-da3-{rid}"
@@ -439,7 +597,7 @@ def cmd_da3(args):
             sys.exit(f"da3 infer FAILED rc={r.returncode} (npz present: {npz.exists()})")
         dig, tools_sha = host_digest(args.host, DA3_IMAGE)
         v4.write_metadata(rdir, task="represent-via-da3", algo="da3@0", identity=rid,
-                          resolved_inputs={"subset": sub, "orient": oid},
+                          resolved_inputs={"subset": sub},
                           settings=r_settings, mechanism="job",
                           measured={"host": args.host.split("@")[-1], "duration_s": dt,
                                     "image_digest": dig, "tools_git_sha": tools_sha})
@@ -465,24 +623,36 @@ def cmd_da3(args):
                  "run reconstruct-matcha first (da3-fuse@2 requires the reference)")
     fuse_settings = {"voxel_frac": 0.004, "conf_percentile": 40,
                      "icp_schedule": [0.5, 0.25, 0.1]}
-    fid = v4.identity_hash({"representation": rid, "cameras": sid, "reference": ref_id},
+    fid = v4.identity_hash({"representation": rid, "cameras": sid, "orient": oid,
+                            "reference": ref_id},
                            fuse_settings, "da3-fuse@2")
     fdir = rdir / "meshify" / "tsdf" / fid
     if (fdir / "mesh.ply").exists():
         nodes.append({"node": "fuse", "identity": fid, "action": "NOOP"})
     else:
         measured = fuse_da3(scene_dir, rdir, sub, sid, oid, fdir, ref_mesh)
-        applied = measured["self_alignment"]["icp_applied"]
+        sa = measured["self_alignment"]
+        applied = sa["icp_applied"]
         extra = {"reference_registered": applied,
                  "note": "placement refined onto matcha reference; "
                          "not independent evidence of DA3 global accuracy"}
+        # Gate policy (STO-SCN-089-2): the camera alignment is the PRIMARY
+        # placement evidence (verified photo-consistent on 009 where ICP
+        # wandered into the reference's near-camera floaters). Flag only
+        # when BOTH signals fail: ICP degenerate AND camera residual loose.
         if not applied:
-            extra["rankable"] = False
-            extra["rankable_reason"] = ("ICP registration degenerate "
-                                        "(correction > 30deg/1m); camera-aligned only")
+            if sa["camera_residual_frac"] <= 0.03:
+                extra["note"] += ("; ICP degenerate (reference floaters) — "
+                                  "camera-aligned placement kept, residual "
+                                  f"{sa['camera_residual_frac']:.1%} (tight)")
+            else:
+                extra["rankable"] = False
+                extra["rankable_reason"] = (
+                    "placement unverifiable: ICP degenerate AND camera residual "
+                    f"{sa['camera_residual_frac']:.1%} > 3%")
         v4.write_metadata(fdir, task="meshify-via-tsdf", algo="da3-fuse@2", identity=fid,
                           resolved_inputs={"representation": rid, "cameras": sid,
-                                           "reference": ref_id},
+                                           "orient": oid, "reference": ref_id},
                           settings=fuse_settings, mechanism="job", measured=measured,
                           extra=extra)
         nodes.append({"node": "fuse", "identity": fid, "action": "EXECUTE"})
@@ -502,7 +672,8 @@ def matcha_reference(scene_dir: Path, sub: str, sid: str, tdefs):
                                       {"dense_regul": "default"})
     rid_m = v4.identity_hash({"subset": sub, "cameras": sid}, r_settings, "matcha@0")
     ts_settings = v4.hashable_settings(tdefs["meshify-via-tsdf"], {})
-    tid = v4.identity_hash({"representation": rid_m, "cameras": sid},
+    oid = v4.identity_hash({"solve": sid}, ORIENT_SETTINGS, ORIENT_ALGO)
+    tid = v4.identity_hash({"representation": rid_m, "cameras": sid, "orient": oid},
                            ts_settings, "tsdf-extract@0")
     p = scene_dir / "represent" / "matcha" / rid_m / "meshify" / "tsdf" / tid / "mesh.ply"
     if p.exists():
@@ -726,6 +897,12 @@ def main():
     p.add_argument("scene")
     p.add_argument("--host", required=True)
     p.set_defaults(fn=cmd_da3)
+    p = sp.add_parser("regauge-views")
+    p.add_argument("scene")
+    p.add_argument("--solve", required=True)
+    p.add_argument("--from-orient", dest="from_orient", required=True)
+    p.add_argument("--to-orient", dest="to_orient", required=True)
+    p.set_defaults(fn=cmd_regauge_views)
     p = sp.add_parser("verify-frame")
     p.add_argument("scene")
     p.set_defaults(fn=cmd_verify_frame)

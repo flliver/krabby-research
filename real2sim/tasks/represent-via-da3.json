@@ -2,15 +2,11 @@
   "schema": 4,
   "name": "represent-via-da3",
   "algo": "da3@0",
-  "description": "DA3 feed-forward (self-posed); gauge_align INTO primary's frame inside the task (gate <=10% of spread). LICENSE: weights CC-BY-NC-4.0.",
+  "description": "DA3 feed-forward (self-posed); gauge_align INTO primary's frame inside the task (gate <=10% of spread). LICENSE: weights CC-BY-NC-4.0. Inference is gauge-independent: orient moved to the fuse step (STO-SCN-089-2).",
   "inputs": [
     {
       "name": "subset",
       "binding": "reconstruction subset hash"
-    },
-    {
-      "name": "orient",
-      "binding": "orient identity (alignment target)"
     }
   ],
   "settings": {

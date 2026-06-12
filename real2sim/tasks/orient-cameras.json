@@ -1,8 +1,8 @@
 {
   "schema": 4,
   "name": "orient-cameras",
-  "algo": "orient-floor@0",
-  "description": "Fix the gauge (gravity/floor, z-up). Method verified STO-SCN-082: sparse RANSAC rejected on measurement; bootstrap-mesh adopted.",
+  "algo": "orient-floor@1",
+  "description": "Fix the gauge (gravity/floor, z-up). @1 = bootstrap-mesh multi-plane RANSAC + camera-consensus up prior + cameras-above-floor check (STO-SCN-089-2: @0's largest-plane fit picked a wall on corridor captures and rolled the gauge 90deg; the operator-guided 'average camera up' prior, lost in the 082 sparse-method rejection, is restored in roll-robust form \u2014 each camera votes its 4 lateral axes).",
   "inputs": [
     {
       "name": "solve",
@@ -18,11 +18,16 @@
         "floor-ransac-sparse"
       ],
       "default": "bootstrap-mesh",
-      "note": "MEASURED 2026-06-11 (STO-SCN-082): floor-ransac-sparse REJECTED \u2014 58-166\u00b0 z-axis error vs mesh-era ground truth on 006/003/004/008; camera-up prior unreliable across portrait/landscape captures. bootstrap-mesh = the validated path (first reconstruction's dense floor fit, baked back to primary). operator = manual floor pick."
+      "note": "MEASURED 2026-06-11 (STO-SCN-082): floor-ransac-sparse REJECTED. bootstrap-mesh adopted; @1 adds the up prior (STO-SCN-089-2)."
     },
     "ransac_dist": {
       "class": "frozen",
       "default": 0.05
+    },
+    "up_prior": {
+      "class": "frozen",
+      "default": "horizon",
+      "note": "up = eigvec_min(sum X_i X_i^T): photographers pitch freely but keep the horizon level, so image-right is horizontal in every shot \u2014 pitch never biases the estimate (mean(-Y) was 35-40deg off on 009's path shots). Straight-walk null space disambiguated by projected mean(-Y); portrait via Y-axis horizon; refuses on >15deg horizon inconsistency (mixed rolls) or non-person camera height."
     }
   },
   "placement": "images/subsets/{up_solve_subset}/cameras/{solve}/orient/{identity}",
