@@ -283,6 +283,14 @@ def cmd_matcha(args):
         nodes.append({"node": "represent", "identity": rid, "action": "EXECUTE",
                       "host": args.host, "duration_s": dt})
     else:
+        if not (rdir / "metadata.json").exists():
+            # recovered weld output (gather completed out-of-band, e.g. host
+            # dropped mid-rsync) — mint the rep record now
+            v4.write_metadata(rdir, task="represent-via-matcha", algo="matcha@0",
+                              identity=rid,
+                              resolved_inputs={"subset": sub, "cameras": sid},
+                              settings=r_settings, mechanism="job",
+                              measured={"recovered": True})
         nodes.append({"node": "represent", "identity": rid, "action": "NOOP"})
 
     # -- gauge-sim: the weld's FULL train.py re-solves cameras internally,
