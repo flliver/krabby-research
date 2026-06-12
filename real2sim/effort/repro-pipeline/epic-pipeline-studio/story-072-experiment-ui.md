@@ -66,9 +66,15 @@ means manually diffing JSONs across run dirs.
       added a stdlib fallback validator (type/range/enum/allOf
       ceilings) so validation can never silently degrade (T-003).
 - [x] Settings diff renders (Diff tab, differing cells highlighted).
+- [x] ADJUSTED FOR v4 (EPI-SCN-DAG-OF-DAGS, 2026-06-11): tasks tab
+      serves the v4 catalog (frozen axes marked), pipelines tab
+      serves graphs (task/graph/job vocabulary), runs tab shows
+      identity-rooted representations with NC tags + migrated
+      badges, leaderboard reads scores.jsonl. All endpoints verified
+      against the migrated store.
 - [ ] **OPERATOR (T-020/T-026):** exercise the edit + diff flows at
-      **http://localhost:8091/** (server running); story closes only
-      on your verification.
+      **http://localhost:8091/** (server running, v4-backed); story
+      closes only on your verification.
 
 ## Implementation Notes
 

@@ -61,7 +61,11 @@ needs defined, per-output tolerances.
       max (0.05%), recorded in the catalog (`x-task.tolerances`,
       single source — repro_check matches output patterns,
       most-specific wins). Verdict on the pair: **overall PASS**.
-- [ ] **OPERATOR-GATED (second host):** reproduce the record on a
+- [x] PORTED TO v4: record gate reads per-identity metadata
+      (migrated artifacts fail the M11 gate by mechanism, license
+      eligibility via ancestry walk); measured tolerances live in
+      the v4 task defs; rightmost-producer lookup.
+- [ ] **OPERATOR-GATED (second host):** reproduce a record on a
       DIFFERENT host within (cross-host) tolerance. Informative data
       already in hand: studio(t) vs historical 8-giant(d) differs
       0.44% — but that pair is uncontrolled (image 0.2 vs 0.4,

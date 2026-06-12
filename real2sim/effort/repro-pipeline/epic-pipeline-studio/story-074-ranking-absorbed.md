@@ -57,11 +57,13 @@ effort exists to make.
       their runs/instances — read-time join on `variant` surfaces the
       leaderboard in the Runs tab (006 reproduces the operator
       verdict: tetra #1).
-- [ ] **OPERATOR-GATED (last step is yours):** new flow end-to-end:
-      triggered run ✓ (8-giant-studio on t) → render ✓
-      (`da3--8-giant-studio` / overhead-grass-quality, anchor
-      residual 2mm) → **operator ranks it in Studio Rank tab
-      (:8091)** → leaderboard updates automatically via the join.
+- [x] ADJUSTED FOR v4: ranking loop re-verified on the migrated
+      store — render fetch by (slot, mesh identity), POST →
+      scores.jsonl rows on identities (locked #7c), leaderboard
+      aggregates with labels; URL contract preserved.
+- [ ] **OPERATOR-GATED (last step is yours):** rank in the Studio
+      Rank tab (:8091) — e.g. re-rank 006 slot 01 (the studio-
+      triggered da3 mesh is in the lineup) → leaderboard updates.
 - [ ] **OPERATOR-GATED:** rate_renders retired ONLY after the
       operator confirms Studio covers the flow (until then both run;
       T-020).
