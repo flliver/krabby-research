@@ -33,7 +33,9 @@ const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
 const els = {
-  scenePicker: $("#scene-picker"),
+  sceneStrip: $("#scene-strip"),
+  sceneLeft: $("#scene-left"),
+  sceneRight: $("#scene-right"),
   viewPicker: $("#view-picker"),
   raterSelect: $("#rater-select"),
   layoutBtns: $$("#layout-buttons button"),
@@ -61,12 +63,39 @@ async function api(path, opts = {}) {
 }
 
 async function loadScenes() {
+  // [{name, thumb}] — representative image = #1-ranked variant's render
   state.scenes = await api("/api/scenes");
-  els.scenePicker.innerHTML = state.scenes.map(s => `<option>${s}</option>`).join("");
-  if (state.scenes.length) {
-    state.scene = state.scenes[0];
-    els.scenePicker.value = state.scene;
+  renderSceneStrip();
+  if (state.scenes.length && !state.scene) {
+    state.scene = state.scenes[0].name;
   }
+  highlightSceneCard();
+}
+
+function renderSceneStrip() {
+  els.sceneStrip.innerHTML = state.scenes.map(sc => `
+    <div class="scene-card" data-scene="${sc.name}" title="${sc.name}">
+      ${sc.thumb ? `<img src="${sc.thumb}" loading="lazy" alt="${sc.name}">`
+                 : `<div class="noimg">&#9633;</div>`}
+      <div class="nm">${sc.name}</div>
+    </div>`).join("");
+  els.sceneStrip.querySelectorAll(".scene-card").forEach(card => {
+    card.addEventListener("click", () => {
+      state.scene = card.dataset.scene;
+      highlightSceneCard();
+      state.view = null;
+      state.pageIdx = 0;
+      // Drafts are per-scene in localStorage; loadScene restores them.
+      loadScene();
+    });
+  });
+}
+
+function highlightSceneCard() {
+  els.sceneStrip.querySelectorAll(".scene-card").forEach(c =>
+    c.classList.toggle("selected", c.dataset.scene === state.scene));
+  const sel = els.sceneStrip.querySelector(".scene-card.selected");
+  if (sel) sel.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
 }
 
 async function loadScene() {
@@ -883,13 +912,10 @@ function addTier() {
 
 document.addEventListener("DOMContentLoaded", async () => {
   els.raterSelect.addEventListener("change", handleRaterSelect);
-  els.scenePicker.addEventListener("change", () => {
-    state.scene = els.scenePicker.value;
-    state.pageIdx = 0;
-    // Drafts are scoped per-scene in localStorage; loadScene → loadPersistedDrafts
-    // will pull THIS scene's drafts. Don't touch other scenes' drafts.
-    loadScene();
-  });
+  els.sceneLeft.addEventListener("click", () =>
+    els.sceneStrip.scrollBy({ left: -els.sceneStrip.clientWidth * 0.8, behavior: "smooth" }));
+  els.sceneRight.addEventListener("click", () =>
+    els.sceneStrip.scrollBy({ left: els.sceneStrip.clientWidth * 0.8, behavior: "smooth" }));
   els.viewPicker.addEventListener("change", () => {
     // Save current view's draft, switch, then restore new view's draft
     // (or start fresh). Persist on every view change so a reload mid-rank

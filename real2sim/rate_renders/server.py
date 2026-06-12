@@ -244,18 +244,44 @@ class Handler(BaseHTTPRequestHandler):
 
     # ---- scene + variants ----------------------------------------------
 
-    def _list_scenes(self) -> list[str]:
-        """List scene roots: v4 = has viewset/canonical (HUG-SCN-005);
-        v2 legacy = unified cameras.json."""
+    def _list_scenes(self) -> list[dict]:
+        """List scene roots with a representative thumbnail.
+        Representative image = a render of the #1-ranked variant (current
+        aggregate); fallback = first render in the index; null when the
+        scene has no renders. v4 = has viewset/canonical; legacy = cameras.json."""
         out = []
         if not SCENES_ROOT.is_dir():
             return out
         for d in sorted(SCENES_ROOT.iterdir()):
             if not d.is_dir():
                 continue
-            if (d / "viewset" / "canonical" / "views.json").exists() \
-                    or (d / "cameras.json").exists():
-                out.append(d.name)
+            if not ((d / "viewset" / "canonical" / "views.json").exists()
+                    or (d / "cameras.json").exists()):
+                continue
+            thumb = None
+            if self._is_v4(d):
+                try:
+                    ix = self._v4_render_index(d)
+                    index = ix["index"]   # (slot, identity) -> path
+                    if index:
+                        top = None
+                        try:
+                            agg = aggregate(self._read_rankings(d.name))
+                            for row in agg.get("overall", []):
+                                if any(i == row["variant"] for (_s, i) in index):
+                                    top = row["variant"]
+                                    break
+                        except Exception:
+                            pass
+                        key = None
+                        if top is not None:
+                            key = next((k for k in sorted(index) if k[1] == top), None)
+                        if key is None:
+                            key = sorted(index)[0]
+                        thumb = f"/api/render/{d.name}/{key[0]}/{key[1]}.png"
+                except Exception:
+                    thumb = None
+            out.append({"name": d.name, "thumb": thumb})
         return out
 
     # ---- store-shape v4 (HUG-SCN-005, STO-SCN-080) -----------------------

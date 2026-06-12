@@ -450,3 +450,24 @@ footer kbd {
   #grid-pane { min-height: 40vh; }
   #grid { min-height: 40vh; }
 }
+
+/* ---- scene strip (operator request: image cards instead of dropdown) */
+#scene-bar { display: flex; align-items: center; gap: 4px;
+  background: var(--bg-panel, #20242c); padding: 6px 8px; }
+#scene-strip { display: flex; gap: 8px; overflow-x: auto; scroll-behavior: smooth;
+  flex: 1; scrollbar-width: thin; }
+.scene-card { flex: 0 0 auto; cursor: pointer; text-align: center;
+  border: 2px solid transparent; border-radius: 6px; padding: 3px;
+  background: rgba(255,255,255,0.04); }
+.scene-card img { width: 112px; height: 63px; object-fit: cover;
+  border-radius: 4px; display: block; }
+.scene-card .noimg { width: 112px; height: 63px; display: flex;
+  align-items: center; justify-content: center; color: #777;
+  font-size: 22px; border-radius: 4px; background: #2a2e36; }
+.scene-card .nm { font-size: 11px; color: #bbb; margin-top: 2px;
+  max-width: 112px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.scene-card.selected { border-color: #e0a030; }
+.scene-card.selected .nm { color: #fff; }
+.scene-arrow { flex: 0 0 auto; width: 28px; height: 63px; font-size: 20px;
+  background: #2a2e36; color: #ccc; border: none; border-radius: 6px; cursor: pointer; }
+.scene-arrow:hover { background: #3a3e46; }
