@@ -100,7 +100,7 @@ pipeline-3: orient-cameras
   > ANSWERED (locked #2, see Direction): today we orient the MESH
   > (RANSAC floor-fit, STO-SCN-004) per-run and back-apply to
   > cameras. This spec inverts that: orient primary's cameras ONCE;
-  > everything downstream is born oriented. Split into two stages:
+  > everything downstream is born oriented. Split into two tasks:
   > `solve-cameras` then `orient-cameras` (defined in Direction).
 - OUTPUTs:
   * `scenes/<scene>/images/subsets/primary/cameras/oriented.json` - contains the oriented cameras
@@ -237,6 +237,33 @@ digest.** The exact image digest is recorded in the stage's
 vs 0.4 compared under one run label — exactly the ambiguity this
 rule + harness resolves.)
 
+### Locked #4 — vocabulary: `task` / `graph` / `job` (2026-06-11)
+
+Structurally it is DAGs all the way down — leaf and composition share
+INPUTS/SETTINGS/OUTPUTS/IDENTITY. The only real distinction is
+**atomicity**, so the vocabulary is two structural words + one
+operational word (Dagster's op/graph/job shape — vocabulary borrowed,
+software rejected by the 069 spike):
+
+| Word | Is | Properties |
+|---|---|---|
+| **task** | executable leaf | one dispatch (image+entrypoint), succeeds/fails atomically, its output dir IS the cache entry, mints identity |
+| **graph** | composition | DAG of tasks and/or graphs, nests freely; identity derived recursively; owns no outputs — its outputs are its members' |
+| **job** | invocation, not a type | "here are variable bindings (scene, subset, setting overrides, host) — **materialize** this graph's outputs" |
+
+- A unit can change tier without changing interface:
+  `represent-via-matcha` is a task today (one container run) and
+  becomes a graph if the matcha monolith is split — consumers don't
+  care.
+- **Jobs materialize, not execute:** the job resolves every node's
+  IDENTITY_HASH first and only executes nodes whose identities don't
+  exist yet. A job over a fully-cached graph is a no-op returning
+  addresses. (This is the memoization payoff of locked #1/#3.)
+- Mapping to the Studio A–F taxonomy: graph+bindings ≈ E
+  (pipeline_instance); a job's record ≈ F (pipeline_run). The word
+  "pipeline" is retired as a type name.
+- "Stage" (used transiently in earlier discussion) is retired.
+
 ### Flow diagram — worked example of everything locked so far
 
 Scene `006-kubota`, fake short hashes. One video, primary pool of 200,
@@ -297,7 +324,7 @@ Reading the why-questions off the diagram:
 - **Where's the single mutable thing?** `subsets/primary` — the
   symlink. Everything else is immutable, content-addressed.
 
-### Locked #2 — cameras take two stages: `solve-cameras` → `orient-cameras` (2026-06-11)
+### Locked #2 — cameras take two tasks: `solve-cameras` → `orient-cameras` (2026-06-11)
 
 Nothing in the original draft *produced* cameras; and orientation is
 **inverted** vs today: current practice orients the mesh (RANSAC
@@ -305,7 +332,7 @@ floor-fit on dense geometry, STO-SCN-004) per-run and back-applies;
 this spec orients **primary's cameras once** — all downstream
 artifacts are born oriented.
 
-**STAGE `solve-cameras`** — place 100% of a subset's cameras in 3D
+**TASK `solve-cameras`** — place 100% of a subset's cameras in 3D
 - INPUTS: scene, subset hash (normally primary's)
 - DEDUCED: images via subset.json
 - SETTINGS: tunable: none yet · frozen: solver `mast3r-sfm`,
@@ -324,7 +351,7 @@ scenes/<scene>/images/subsets/<subset_hash>/cameras/<solve_identity>/solve.log
 (`cameras/<identity>/` is ONE shape regardless of producer — solve,
 inherit (#1), or future solvers; `metadata.json#mechanism` names which.)
 
-**STAGE `orient-cameras`** — fix the gauge (gravity/floor, z-up)
+**TASK `orient-cameras`** — fix the gauge (gravity/floor, z-up)
 - INPUTS: solve identity
 - SETTINGS: tunable: `method` · frozen: RANSAC params
 - IDENTITY: `<orient_identity> = hash(solve_identity + settings + algo@version)`
@@ -337,7 +364,7 @@ inherit (#1), or future solvers; `metadata.json#mechanism` names which.)
 .../cameras/<solve_identity>/orient/<orient_identity>/orient.log
 ```
 
-Two stages, not one: orientation is re-runnable without re-solving
+Two tasks, not one: orientation is re-runnable without re-solving
 (10-min solve vs 2-s gauge fix), and `method` is its own experiment
 axis — separate identities keep a re-orient from re-keying the solve.
 
