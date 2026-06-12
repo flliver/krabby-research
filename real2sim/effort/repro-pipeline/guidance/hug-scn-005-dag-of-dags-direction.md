@@ -490,6 +490,38 @@ per-node outcome: `NOOP @ <identity>` or `EXECUTED @ <identity>
 artifact IS; `job.json` = what this invocation DID. An artifact can
 appear in many jobs (NOOPed); its metadata never changes.
 
+### Locked #9 — migration: full restructure, no legacy residue (2026-06-11)
+
+**Operator decision (overruling the proposed strangler pattern):**
+do NOT live beside legacy-structured data. Restructure the existing
+store into the new layout and move forward. The computer-time
+already spent (solves, representations, meshes, renders) is
+preserved — files MOVE to their content-addressed homes; nothing is
+recomputed that already exists.
+
+Migration mechanics:
+
+- **Identities are computed, not invented.** The inputs exist
+  (`input/src` → image pool + subset hashes) and the settings exist
+  (every run's `specification.json`) — so legacy IDENTITY_HASHes are
+  computable with the locked #3 recipe. Legacy executions get a
+  retroactive `algo@version` (e.g. `matcha@0` = the welded pre-split
+  container; `da3@0`), distinguishing them from future post-split
+  versions honestly.
+- **Per-identity `metadata.json` written during migration** records
+  `migrated: true` + the v2 origin path; genuinely unknowable fields
+  stay explicit-unknown (T-002). Migration itself is logged as jobs
+  (`mechanism: migrate`) per locked #8.
+- **Write new model code as needed during migration** — the
+  migration is allowed to drive the new store/model implementation
+  into existence.
+- Operator rankings (`rankings.jsonl`) translate to `scores.jsonl`
+  entries referencing the migrated identities — months of judgment
+  carried forward.
+- Supersedure: the staged v3 backfill (STO-SCN-077 shape,
+  `run_record.json`) is OBSOLETE — close as superseded by this HUG;
+  the migration replaces it.
+
 ### Flow diagram — worked example of everything locked (refreshed for #5–#7)
 
 Scene `006-kubota`, fake short hashes. One video; primary pool of
