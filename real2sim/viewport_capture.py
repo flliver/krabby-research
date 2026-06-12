@@ -52,12 +52,17 @@ def _find_view3d():
 
 
 def _derive_run_context(filepath):
-    """scenes/<scene>/pipeline-<p>/run-<r>/scene.blend → (scene, pipeline/run).
-    Returns (None, None) when the file isn't a run-level store blend."""
+    """v2: scenes/<scene>/pipeline-<p>/run-<r>/scene.blend → (scene, pipeline/run).
+    v4 (HUG-SCN-005): any .blend under scenes/<scene>/ → (scene, relative path).
+    Returns (None, None) when the file isn't in the scene store at all."""
     parts = filepath.split("/")
     for i, p in enumerate(parts):
         if p.startswith("run-") and i >= 2 and parts[i - 1].startswith("pipeline-"):
             return parts[i - 2], f"{parts[i-1]}/{p}"
+    # v4 layout: scene dir directly under the store root
+    for i, p in enumerate(parts):
+        if p == "scenes" and i + 1 < len(parts) - 1:
+            return parts[i + 1], "/".join(parts[i + 2:-1]) or "."
     return None, None
 
 

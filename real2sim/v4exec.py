@@ -25,10 +25,23 @@ from __future__ import annotations
 import argparse
 import datetime
 import json
+import os
 import shutil
 import subprocess
 import sys
 from pathlib import Path
+
+# local mesh/gauge steps need numpy + open3d; self-bootstrap via uv
+try:
+    import numpy  # noqa: F401
+    import open3d  # noqa: F401
+except ImportError:
+    if os.environ.get("V4EXEC_BOOTSTRAPPED") != "1":
+        os.environ["V4EXEC_BOOTSTRAPPED"] = "1"
+        os.execvp("uv", ["uv", "run", "--quiet", "--python", "3.11",
+                         "--with", "open3d", "--with", "numpy",
+                         "python3", str(Path(__file__).resolve())] + sys.argv[1:])
+    raise
 
 sys.path.insert(0, str(Path(__file__).parent))
 import v4core as v4
@@ -97,7 +110,7 @@ def stage_images_on_host(host: str, scene_dir: Path, subset_hash: str, tag: str)
 
 
 def run_in_matcha(host: str, workdir: str, tool_cmd: str, log_to: Path) -> int:
-    full = (f"cd /work && {tool_cmd}")
+    full = (f"cd /opt/MAtCha && {tool_cmd}")   # train.py lives in the baked source tree
     docker = (f"docker run --rm --gpus all --shm-size 8g -v {workdir}:/work "
               f"--entrypoint bash {MATCHA_IMAGE} -lc {json.dumps(full)} ; rc=$? ; "
               f"docker run --rm -v {workdir}:/work alpine chown -R $(id -u):$(id -g) /work ; exit $rc")
@@ -170,7 +183,7 @@ def cmd_ingest(args):
         rc = run_in_matcha(args.host, workdir, tool, sdir_solve / "solve.log")
         dt = int((datetime.datetime.now() - t0).total_seconds())
         # gather: cameras + sparse points (expected-outputs gate)
-        sh(["rsync", "-a", "--include=*/", "--include=cameras.json", "--include=points.ply",
+        sh(["rsync", "-a", "--include=cameras.json", "--include=points.ply",
             "--exclude=*", f"{args.host}:{workdir}/out/mast3r_sfm/", str(sdir_solve) + "/"])
         sh(["ssh", args.host, f"rm -rf {SCRATCH}/{tag}"])
         if rc != 0 or not (sdir_solve / "cameras.json").exists():
