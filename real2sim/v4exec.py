@@ -452,26 +452,74 @@ def cmd_da3(args):
     else:
         nodes.append({"node": "represent", "identity": rid, "action": "NOOP"})
 
-    # -- fuse (local CPU): depths -> mesh, aligned into the orient gauge
-    ts = v4.hashable_settings(tdefs["meshify-via-tsdf"], {})
-    fid = v4.identity_hash({"representation": rid, "cameras": sid},
-                           {"voxel_frac": 0.004, "conf_percentile": 40}, "tsdf-extract@0")
+    # -- fuse (local CPU): depths -> mesh, aligned into the orient gauge.
+    # da3-fuse@2: ICP-refined onto the matcha reference mesh (STO-SCN-089).
+    # DA3 is the evaluation branch — the reference always exists, and the
+    # pre-correction magnitude IS the recorded self-alignment score. A
+    # refined mesh is no longer independent evidence of DA3's global
+    # accuracy (recorded in metadata); as ranked geometry quality it is
+    # exactly what the runoff compares.
+    ref_id, ref_mesh = matcha_reference(scene_dir, sub, sid, tdefs)
+    if ref_mesh is None:
+        sys.exit("fuse REFUSED: no matcha reference tsdf mesh in this gauge — "
+                 "run reconstruct-matcha first (da3-fuse@2 requires the reference)")
+    fuse_settings = {"voxel_frac": 0.004, "conf_percentile": 40,
+                     "icp_schedule": [0.5, 0.25, 0.1]}
+    fid = v4.identity_hash({"representation": rid, "cameras": sid, "reference": ref_id},
+                           fuse_settings, "da3-fuse@2")
     fdir = rdir / "meshify" / "tsdf" / fid
     if (fdir / "mesh.ply").exists():
         nodes.append({"node": "fuse", "identity": fid, "action": "NOOP"})
     else:
-        fuse_da3(scene_dir, rdir, sub, sid, oid, fdir)
-        v4.write_metadata(fdir, task="meshify-via-tsdf", algo="tsdf-extract@0", identity=fid,
-                          resolved_inputs={"representation": rid, "cameras": sid},
-                          settings={"voxel_frac": 0.004, "conf_percentile": 40},
-                          mechanism="job")
+        measured = fuse_da3(scene_dir, rdir, sub, sid, oid, fdir, ref_mesh)
+        applied = measured["self_alignment"]["icp_applied"]
+        extra = {"reference_registered": applied,
+                 "note": "placement refined onto matcha reference; "
+                         "not independent evidence of DA3 global accuracy"}
+        if not applied:
+            extra["rankable"] = False
+            extra["rankable_reason"] = ("ICP registration degenerate "
+                                        "(correction > 30deg/1m); camera-aligned only")
+        v4.write_metadata(fdir, task="meshify-via-tsdf", algo="da3-fuse@2", identity=fid,
+                          resolved_inputs={"representation": rid, "cameras": sid,
+                                           "reference": ref_id},
+                          settings=fuse_settings, mechanism="job", measured=measured,
+                          extra=extra)
         nodes.append({"node": "fuse", "identity": fid, "action": "EXECUTE"})
     job_record(args.scene, "reconstruct-da3", nodes,
                {"scene": args.scene, "host": args.host})
     print(f"reconstruct-da3 materialized: represent {rid}, fused {fid}")
 
 
-def fuse_da3(scene_dir: Path, rdir: Path, sub: str, sid: str, oid: str, fdir: Path):
+def matcha_reference(scene_dir: Path, sub: str, sid: str, tdefs):
+    """Resolve the matcha reference tsdf mesh for this solve.
+
+    Deterministic recompute first (native-run scenes, default settings);
+    falls back to a store scan for migrated scenes whose identities were
+    minted under other settings. Returns (mesh_identity, mesh_path) or
+    (None, None)."""
+    r_settings = v4.hashable_settings(tdefs["represent-via-matcha"],
+                                      {"dense_regul": "default"})
+    rid_m = v4.identity_hash({"subset": sub, "cameras": sid}, r_settings, "matcha@0")
+    ts_settings = v4.hashable_settings(tdefs["meshify-via-tsdf"], {})
+    tid = v4.identity_hash({"representation": rid_m, "cameras": sid},
+                           ts_settings, "tsdf-extract@0")
+    p = scene_dir / "represent" / "matcha" / rid_m / "meshify" / "tsdf" / tid / "mesh.ply"
+    if p.exists():
+        return tid, p
+    # scan fallback: any matcha tsdf mesh produced against this solve
+    for mp in sorted(scene_dir.glob("represent/matcha/*/meshify/tsdf/*/mesh.ply")):
+        try:
+            md = json.loads((mp.parent / "metadata.json").read_text())
+        except (OSError, json.JSONDecodeError):
+            continue
+        if md.get("resolved_inputs", {}).get("cameras") in (sid, None):
+            return md.get("identity", mp.parent.name), mp
+    return None, None
+
+
+def fuse_da3(scene_dir: Path, rdir: Path, sub: str, sid: str, oid: str, fdir: Path,
+             ref_mesh: Path):
     import numpy as np
     import open3d as o3d
     from gauge_align import align_camera_sets
@@ -498,6 +546,45 @@ def fuse_da3(scene_dir: Path, rdir: Path, sub: str, sid: str, oid: str, fdir: Pa
     print(f"[fuse] alignment residual {frac*100:.1f}% scale {res['scale']:.4f}")
     if frac > 0.10:
         sys.exit("fuse REFUSED: alignment residual > 10% of camera spread")
+
+    # ---- da3-fuse@1: DEPTH ANCHORING (STO-SCN-089 fix) ----------------
+    # DA3 depths carry per-view scale bias vs its own baselines (measured:
+    # 0.158m median error on 006, 0.44m on 009 — cameras align at mm).
+    # Anchor each view's depth to the SOLVE's sparse points: transform the
+    # matcha-frame sparse cloud into DA3's frame (inverse alignment),
+    # project into each view, robust per-view scale = median(z_sparse /
+    # z_da3) over confident pixels.
+    s_al, R_al, t_al = res["scale"], np.asarray(res["R"]), np.asarray(res["t"])
+    pts_path = scene_dir / "images" / "subsets" / sub / "cameras" / sid / "points.ply"
+    view_scales = [1.0] * n
+    if pts_path.exists():
+        sp = o3d.io.read_point_cloud(str(pts_path))
+        P_solve = np.asarray(sp.points)
+        if len(P_solve) > 100:
+            P_or = P_solve @ R_o.T + np.array([0.0, 0.0, z])      # solve -> gauge
+            P_da3 = ((P_or - t_al) / s_al) @ R_al                 # gauge -> DA3 frame
+            for i in range(n):
+                pc = P_da3 @ Rw[i].T + tw[i]                      # w2c
+                infront = pc[:, 2] > 0.1
+                pc = pc[infront]
+                u = pc[:, 0] / pc[:, 2] * K[i][0, 0] + K[i][0, 2]
+                v = pc[:, 1] / pc[:, 2] * K[i][1, 1] + K[i][1, 2]
+                ok = (u >= 0) & (u < W - 1) & (v >= 0) & (v < H - 1)
+                ui, vi = u[ok].astype(int), v[ok].astype(int)
+                dz = depth[i][vi, ui]
+                cz = conf[i][vi, ui]
+                good = (dz > 0.05) & (cz > np.percentile(conf[i], 40))
+                if good.sum() >= 30:
+                    ratios = pc[ok][good][:, 2] / dz[good]
+                    view_scales[i] = float(np.median(ratios))
+            print(f"[fuse@1] per-view depth anchors: "
+                  f"{[round(s_, 3) for s_ in view_scales]}")
+            for i in range(n):
+                depth[i] *= view_scales[i]
+        else:
+            print("[fuse@1] sparse cloud too small — depths unanchored")
+    else:
+        print("[fuse@1] no points.ply — depths unanchored")
     thr = np.percentile(conf, 40)
     span = float(np.percentile(depth[conf > thr], 95))
     voxel = span * 0.004
@@ -524,10 +611,54 @@ def fuse_da3(scene_dir: Path, rdir: Path, sub: str, sid: str, oid: str, fdir: Pa
     T[:3, 3] = t_al / s
     mesh.transform(T)
     mesh.scale(s, center=(0.0, 0.0, 0.0))
+
+    # ---- da3-fuse@2: register onto the matcha reference (STO-SCN-089) ----
+    # Camera alignment alone leaves a rigid placement error that varies by
+    # capture geometry (measured ICP corrections: 007 2.5°/0.05m "success",
+    # 006 10°/0.17m "perfect", 009 16.5°/0.52m "wrong" — same code). The
+    # correction magnitude is DA3's self-alignment score; applying it makes
+    # the mesh comparable in the shared gauge by construction.
+    ref = o3d.io.read_triangle_mesh(str(ref_mesh))
+    src = mesh.sample_points_uniformly(60000)
+    tgt = ref.sample_points_uniformly(120000)
+    tgt.estimate_normals(o3d.geometry.KDTreeSearchParamHybrid(radius=0.3, max_nn=30))
+    # Coarse-to-fine with SHRINKING correspondence distance. A single pass
+    # at 1.0 m found a degenerate 99-deg basin on 009 (corridor scene: ICP
+    # locked the ground plane and spun). Camera alignment already bounds
+    # the true correction to well under 30 deg / 1 m, so descent must stay
+    # local; anything bigger is a degenerate fit, not a registration.
+    Ticp = np.eye(4)
+    reg = None
+    for max_corr in (0.5, 0.25, 0.1):
+        reg = o3d.pipelines.registration.registration_icp(
+            src, tgt, max_corr, Ticp,
+            o3d.pipelines.registration.TransformationEstimationPointToPlane(),
+            o3d.pipelines.registration.ICPConvergenceCriteria(max_iteration=50))
+        Ticp = np.asarray(reg.transformation)
+    Ricp = Ticp[:3, :3]
+    rot_deg = float(np.degrees(np.arccos(np.clip((np.trace(Ricp) - 1) / 2, -1, 1))))
+    trans_m = float(np.linalg.norm(Ticp[:3, 3]))
+    print(f"[fuse@2] ICP correction onto reference: {rot_deg:.1f} deg "
+          f"{trans_m:.3f} m  fitness {reg.fitness:.2f}  rmse {reg.inlier_rmse:.3f}")
+    registered = rot_deg <= 30.0 and trans_m <= 1.0
+    if registered:
+        mesh.transform(Ticp)
+    else:
+        print(f"[fuse@2] correction exceeds physical bound (30 deg / 1.0 m) — "
+              f"degenerate basin; keeping camera-aligned placement, mesh flagged")
+
     mesh.compute_vertex_normals()
     fdir.mkdir(parents=True, exist_ok=True)
     o3d.io.write_triangle_mesh(str(fdir / "mesh.ply"), mesh)
     print(f"[fuse] {len(mesh.vertices):,} verts -> {fdir}/mesh.ply")
+    return {"self_alignment": {"icp_rot_deg": round(rot_deg, 2),
+                               "icp_trans_m": round(trans_m, 4),
+                               "icp_fitness": round(float(reg.fitness), 3),
+                               "icp_inlier_rmse_m": round(float(reg.inlier_rmse), 4),
+                               "icp_applied": bool(registered),
+                               "camera_residual_frac": round(float(frac), 4),
+                               "depth_anchors": [round(s_, 4) for s_ in view_scales]},
+            "reference_mesh": str(ref_mesh.relative_to(scene_dir))}
 
 
 def cmd_verify_frame(args):
