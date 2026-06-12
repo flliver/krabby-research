@@ -30,6 +30,24 @@ records claim "matcha-oriented frame" with healthy alignment
 - The two fusions differ by producer: 2NUK from the d-run npz
   (krabby-da3 0.2 era), 2XEI from the t studio-run npz (0.4).
 
+## CLEAN-SPECIMEN FINDINGS (2026-06-12, native 009)
+
+The locked-#11 native rebuild reproduced the failure with zero
+archaeology: cameras pair + align at 8-33 MILLIMETERS per index, yet
+the fused mesh lands median 0.44 m (ICP suggests ~50deg/1m rigid-ish)
+from the matcha reference in the same gauge. Ruled out by
+measurement: extrinsics convention (w2c verified, c2w 76% residual),
+npz depth scaling (0.2/0.4 eras byte-similar), open3d local-version
+convention (fusing with inverted extrinsics lands equally off),
+camera correspondence (per-index mm). Remaining suspect class:
+DA3's depths are internally inconsistent with its own camera
+baselines at this scale/views count — an error the camera-residual
+gate STRUCTURALLY cannot see.
+
+Mitigation shipped: `v4exec verify-frame` — fused-mesh-vs-reference
+geometry gate (0.15 m median), writes measured verdict + rankable
+flag in-graph. 009's fusion: FAIL -> excluded from runoff.
+
 ## Suspect
 
 npz extrinsics convention drift between krabby-da3 0.2 and 0.4
