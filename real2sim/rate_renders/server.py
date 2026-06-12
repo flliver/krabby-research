@@ -360,9 +360,14 @@ class Handler(BaseHTTPRequestHandler):
             expected_ids = sorted(ix["labels"])
             missing = {slot: [i for i in expected_ids if (slot, i) not in ix["index"]]
                        for slot in ix["slots"]}
+            # STO-SCN-087: task-tier gaps from the GRAPHS (planner view),
+            # not just absent renders on existing artifacts
+            import v4core as _v4
+            task_gaps = _v4.expected_task_gaps(scene)
             return {"scene": scene, "views": ix["slots"], "rendered": rendered,
                     "variants": variants, "manifests": manifests,
-                    "labels": ix["labels"], "missing": missing, "store": "v4"}
+                    "labels": ix["labels"], "missing": missing,
+                    "task_gaps": task_gaps, "store": "v4"}
         # 1) views — unified cameras.json (schema 5) only
         views: list = []
         views_path = scene_dir / "cameras.json"

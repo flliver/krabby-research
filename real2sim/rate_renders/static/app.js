@@ -78,6 +78,7 @@ async function loadScene() {
   state.manifests = d.manifests || {};
   state.labels = d.labels || {};   // v4: identity -> human label
   state.missing = d.missing || {};  // v4 (STO-SCN-085): view -> [identities without a render]
+  state.taskGaps = d.task_gaps || []; // v4 (STO-SCN-087): graph-level gaps (GPU tier)
   state.rendered = d.rendered || {};
   state.knownRaters = d.raters || [];
   // Pull all submissions so we can fall back to "show your last submission
@@ -455,6 +456,24 @@ function renderGrid() {
       `<div style="font-size:0.85em; margin-top:4px;">${labelOf(mv)}</div>` +
       `<div style="font-size:0.75em; opacity:0.7;">${busy ? "renders appear as they finish" : "click to materialize (STO-SCN-086)"}</div></div>`;
     if (!busy) tile.addEventListener("click", () => materializeScene());
+    els.grid.appendChild(tile);
+  }
+
+  // STO-SCN-087: graph-level gaps — branches the GRAPHS say should exist
+  // (e.g. no da3 representation at all, a missing mesh branch). GPU work:
+  // honest-but-disabled until the executor (STO-SCN-088) + your host pick.
+  for (const g of (state.taskGaps || [])) {
+    const tile = document.createElement("div");
+    tile.className = "tile missing gpu-gap";
+    tile.style.cssText = "border:2px dashed #7a5af8; opacity:0.7; display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:90px; cursor:not-allowed;";
+    const nc = (g.license_flags || []).length
+      ? `<div style="color:#e06c5a; font-size:0.75em; margin-top:2px;">⚠ NC — evaluation only</div>` : "";
+    tile.innerHTML = `<div style="color: var(--text-dim); text-align:center; padding:8px;">` +
+      `<div style="font-size:1.4em;">🧬</div>` +
+      `<div><em>${g.task}</em> — never run</div>` +
+      `<div style="font-size:0.85em; margin-top:4px;">${g.label}</div>` + nc +
+      `<div style="font-size:0.75em; opacity:0.7; margin-top:2px;">GPU job — needs executor (STO-SCN-088) + operator host choice</div></div>`;
+    tile.title = "Materializing this requires the v4 GPU executor and an operator-chosen host (HUG-SCN-005 decision 3)";
     els.grid.appendChild(tile);
   }
 }

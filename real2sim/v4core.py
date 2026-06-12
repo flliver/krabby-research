@@ -276,6 +276,39 @@ def scan_scene(scene: str) -> dict:
     return out
 
 
+def expected_task_gaps(scene: str) -> list[dict]:
+    """STO-SCN-087: the expected set comes from the GRAPHS, not from
+    what happens to exist. Returns non-render gaps (task tier):
+      - graph branches never run on this scene (e.g. no da3 rep at all)
+      - mesh-branch gaps on existing representations
+    Render gaps stay where they are (render index vs meshes). These
+    gaps need the GPU executor (STO-SCN-088) + an operator host choice
+    (HUG-SCN-005 decision 3) to materialize."""
+    sc = scan_scene(scene)
+    tdefs = tasks()
+    gaps = []
+    kinds = {r["kind"] for r in sc["representations"]}
+    # whole-branch gap: reconstruct-da3 never ran here
+    if "da3" not in kinds and sc.get("primary"):
+        d = tdefs.get("represent-via-da3", {})
+        defaults = {k: s.get("default") for k, s in d.get("settings", {}).items()
+                    if s.get("class") in ("tunable", "frozen") and "default" in s}
+        gaps.append({"task": "represent-via-da3", "graph": "reconstruct-da3",
+                     "label": f"da3 (defaults: {defaults.get('process_res')}/{defaults.get('mode')})",
+                     "settings": defaults, "gpu": True,
+                     "license_flags": [d.get("license_flag")] if d.get("license_flag") else []})
+    # mesh-branch gaps on existing representations
+    methods_by_kind = {"matcha": ["tetra", "tsdf"], "da3": ["tsdf"]}
+    for r in sc["representations"]:
+        have = {m["method"] for m in r["meshes"]}
+        for miss in [m for m in methods_by_kind.get(r["kind"], []) if m not in have]:
+            gaps.append({"task": f"meshify-via-{miss}", "rep": r["identity"],
+                         "label": f"{r.get('legacy_variant') or r['identity']} [{miss}]",
+                         "gpu": True,
+                         "license_flags": r.get("license_flags", [])})
+    return gaps
+
+
 def leaderboard(scene: str) -> dict:
     """Mean rank per scored identity (lower = better), labels resolved."""
     sc = scan_scene(scene)
