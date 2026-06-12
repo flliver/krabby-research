@@ -43,6 +43,10 @@ TASK: hash-n-images
   * HOH: Hash of Hashes (N images)
 - IDENTITY: n-images/<hash>
 
+> NOTE (locked #4): everything below called "Pipeline" is a **task**
+> in the locked vocabulary (task / graph / job; "pipeline" and
+> "stage" retired as type names).
+
 ## Non Comprehensive List of Pipelines
 
 ### Pipeline: Video-To-Images
@@ -96,6 +100,9 @@ pipeline-3: orient-cameras
 - INPUT:
   * scene: str
 - IDENTITY: `scenes/<scene>/images/subsets/primary/cameras`
+  > SUPERSEDED (locked #1/#2): a mutable ref (`primary`) can never
+  > appear in an identity — identities use resolved hashes; the
+  > placement is `.../cameras/<solve_identity>/orient/<orient_identity>/`.
 - SETTINGS: (?? ... how have we been orienting cameras)
   > ANSWERED (locked #2, see Direction): today we orient the MESH
   > (RANSAC floor-fit, STO-SCN-004) per-run and back-apply to
@@ -114,13 +121,21 @@ pipeline-3: orient-cameras
   * images_hash: hash - of the subset
 - SETTINGS: 
   * (tunables) - (mesh_res, ...?)
+    > CORRECTED (locked #6): mesh_res belongs to meshify-via-tsdf, not
+    > represent. Represent-via-matcha tunables today: dense_regul,
+    > n_iters; frozen: encoder, alignment_config, dense_pruning.
   * (frozen)  - (...?)
   * (pins) - (pinned facts)
 - DEDUCED_INPUTs:
   * subset metadata: `scenes/<scene>/images/subsets/<images_hash>/subset.json`
   * images - (via subset metadata)
   * cameras metadata: `scenes/<scene>/images/subsets/primary/cameras/oriented.json`
+    > SUPERSEDED (locked #1): resolve `primary` -> concrete solve/orient
+    > identities at run time; only resolved hashes are consumed/hashed.
   * IDENTITY_HASH: Hash of SETTINGS+scene+images_hash
+    > SUPERSEDED (locked #3): hash(resolved input identities + tunable
+    > + frozen settings + algo@version). `scene` is a namespace, not
+    > hashed; refs resolved first.
 - IDENTITY
   * `scenes/<scene>/represent/matcha/<IDENTITY_HASH>`
 - OUTPUTs:
@@ -134,6 +149,9 @@ pipeline-3: orient-cameras
     * dense_representation (via IDENTITY HASH of dense representation provider)
     * cameras (via oriented-cameras IDENTITY)
     * images (via )
+  > SUPERSEDED (locked #6): completed as TWO tasks — meshify-via-tetra
+  > and meshify-via-tsdf — nested under the representation they
+  > derive from. See Direction.
 
 
 
@@ -142,8 +160,8 @@ pipeline-3: orient-cameras
 Authored 2026-06-11 during the EPI-SCN-PIPELINE-STUDIO review.
 After the Studio MVP shipped its first reproducible-by-record run,
 the operator re-thought the pipeline model: a **DAG of DAGs** with
-**content-addressed identities** (`IDENTITY_HASH = hash(resolved
-inputs + settings)`), replacing run-name paths. The Quote above is
+**content-addressed identities** (recipe locked in #3), replacing
+run-name paths. The Quote above is
 the operator's working breakdown; Direction below records the
 decisions as they lock, one issue at a time.
 
@@ -178,13 +196,13 @@ scenes/<scene>/images/<image_hash>/image.<ext>        # canonical image pool
 scenes/<scene>/images/<image_hash>/metadata.json
 scenes/<scene>/images/subsets/<subset_hash>/subset.json   # pointers (image hashes)
 scenes/<scene>/images/subsets/<subset_hash>/metadata.json # mechanism, label, settings, resolved refs
-scenes/<scene>/images/subsets/primary -> <subset_hash>    # symlink (the ONLY mutable entry)
+scenes/<scene>/images/subsets/primary -> <subset_hash>    # symlink (a REF; full mutable surface listed in the flow diagram)
 ```
 
 Inherited cameras for a reconstruction subset ARE materialized (downstream
 tools need a file), under the same shape as any cameras product, and
 **named by the source solve's identity** (locked: identity-propagation
-rule — a stage with zero settings and one input does NOT mint a new
+rule — a task with zero settings and one input does NOT mint a new
 identity; pure selections/projections are transparent to identity):
 
 ```
@@ -198,12 +216,64 @@ Same identity string under primary and under the subset = same solve,
 same gauge — lineage is readable in the path. Re-derivable,
 byte-stable, safe to delete and regenerate.
 - **Ref-resolution rule (the git model):** refs (`primary`, labels)
-  are for humans at invocation time. A stage MUST resolve every ref
+  are for humans at invocation time. A task MUST resolve every ref
   to a concrete hash before running, record the resolved hash in
   DEDUCED_INPUTS, and only resolved hashes enter IDENTITY_HASH.
   Re-establishing primary (rare: better sampling, new footage) then
   never changes what past runs meant — only what future runs
   resolve to.
+
+### Locked #2 — cameras take two tasks: `solve-cameras` → `orient-cameras` (2026-06-11)
+
+Nothing in the original draft *produced* cameras; and orientation is
+**inverted** vs today: current practice orients the mesh (RANSAC
+floor-fit on dense geometry, STO-SCN-004) per-run and back-applies;
+this spec orients **primary's cameras once** — all downstream
+artifacts are born oriented.
+
+**TASK `solve-cameras`** — place 100% of a subset's cameras in 3D
+- INPUTS: scene, subset hash (normally primary's)
+- DEDUCED: images via subset.json
+- SETTINGS: tunable: none yet · frozen: solver `mast3r-sfm`,
+  `sfm_config: unposed` · (>300 frames: chunk_size/overlap — the
+  photo-spine folds in as this stage's big-pool strategy)
+- IDENTITY: `<solve_identity> = hash(subset_hash + settings + algo@version)` (per locked #3; digest in metadata.json)
+- OUTPUTS (file placement):
+
+```
+scenes/<scene>/images/subsets/<subset_hash>/cameras/<solve_identity>/cameras.json   # poses+intrinsics, ARBITRARY gauge
+scenes/<scene>/images/subsets/<subset_hash>/cameras/<solve_identity>/points.ply    # sparse cloud
+scenes/<scene>/images/subsets/<subset_hash>/cameras/<solve_identity>/metadata.json # resolved inputs, settings, measured (host, duration, VRAM)
+scenes/<scene>/images/subsets/<subset_hash>/cameras/<solve_identity>/solve.log
+```
+
+(`cameras/<identity>/` is ONE shape regardless of producer — solve,
+inherit (#1), or future solvers; `metadata.json#mechanism` names which.)
+
+**TASK `orient-cameras`** — fix the gauge (gravity/floor, z-up)
+- INPUTS: solve identity
+- SETTINGS: tunable: `method` · frozen: RANSAC params
+- IDENTITY: `<orient_identity> = hash(solve_identity + settings + algo@version)`
+- OUTPUTS (file placement — nested under the solve it orients):
+
+```
+.../cameras/<solve_identity>/orient/<orient_identity>/transform.json   # rotation, z_shift (the gauge itself)
+.../cameras/<solve_identity>/orient/<orient_identity>/oriented.json    # cameras with gauge applied
+.../cameras/<solve_identity>/orient/<orient_identity>/metadata.json    # method, params, measured residuals
+.../cameras/<solve_identity>/orient/<orient_identity>/orient.log
+```
+
+Two tasks, not one: orientation is re-runnable without re-solving
+(10-min solve vs 2-s gauge fix), and `method` is its own experiment
+axis — separate identities keep a re-orient from re-keying the solve.
+
+**Open (T-002):** the validated floor-fit runs on a dense mesh,
+which doesn't exist at this point in the new order. Candidate
+methods — (a) RANSAC on sparse `points.ply` (plausible,
+unvalidated), (b) one-time bootstrap from the first reconstruction's
+mesh-fit, (c) operator-assisted floor pick. The contract is locked;
+the method is the first implementation story's verification job.
+
 
 ### Locked #3 — the IDENTITY_HASH recipe (2026-06-11)
 
@@ -216,7 +286,7 @@ IDENTITY_HASH = hash( resolved input identities     ← per locked #1 (refs reso
 ```
 
 **Code enters the hash as a declared `algo@version`, NOT the image
-digest.** The exact image digest is recorded in the stage's
+digest.** The exact image digest is recorded in the task's
 `metadata.json` for audit, but does not key the identity.
 
 - Rationale: images are rebuilt constantly for non-behavioral reasons
@@ -224,7 +294,7 @@ digest.** The exact image digest is recorded in the stage's
   store per release and destroy the memoization this design exists to
   provide.
 - Identity therefore means **"behaviorally equivalent recipe" — a
-  claim, not a bytes guarantee.** Implementers MUST bump a stage's
+  claim, not a bytes guarantee.** Implementers MUST bump a task's
   version on any behavior-affecting change.
 - **Safety net for forgotten bumps:** the reproducibility harness
   (repro_check, STO-SCN-075). Same identity + different digest is an
@@ -391,116 +461,83 @@ scenes/<scene>/scores.jsonl   # {at: <identity>, view: <content_hash>, slot: "02
 (`condition` needs no new decisions: ordinary task, nests under its
 mesh: `.../meshify/tetra/<MID>/condition/<CID>/`.)
 
-### Flow diagram — worked example of everything locked so far
+### Flow diagram — worked example of everything locked (refreshed for #5–#7)
 
-Scene `006-kubota`, fake short hashes. One video, primary pool of 200,
-one curated subset of 17, primary solved once (then once more with
-different settings — the reason identity levels exist).
+Scene `006-kubota`, fake short hashes. One video; primary pool of
+200; primary solved once (re-solve Q4K8 shown to motivate identity
+levels); curated subset of 17; matcha represent + tetra meshify +
+condition + renders; canonical viewset of 3 views.
 
 ```
 video.mp4
-   │  video-to-images
+   │  task: video-to-images
    ▼
-images/                                  ◄── canonical pool: one dir per image
-├── 1A2B/image.jpg  ─┐
-├── 7C9D/image.jpg   │  5000 images
-├── ...              ┘
+images/                                   ◄── canonical pool, one dir per image
+├── 1A2B/image.jpg ... (5000)
 │
-│  images-subset (mechanism: sample, label: "pool-200")
+│  task: images-subset (mechanism: sample)         [locked #5: identity =
+▼                                                   HOH of members ONLY]
+subsets/P9F3/  (primary pool, 200)
+├── subset.json, metadata.json
+│
+│  task: solve-cameras (mast3r-sfm@1, settings X)
 ▼
-subsets/P9F3/                            ◄── P9F3 = hash of its 200 image hashes (HOH)
-├── subset.json                              (pointers to the 200)
-├── metadata.json
-│
-│  solve-cameras (mast3r-sfm, settings X, image digest D1)
+subsets/P9F3/cameras/S7D2/                ◄── S7D2 = hash(P9F3 + X + mast3r-sfm@1)
+├── cameras.json, points.ply                  (re-solve w/ settings Y → cameras/Q4K8/
+│                                              coexists — why this level exists)
+│  task: orient-cameras (floor method, settings Z)
 ▼
-subsets/P9F3/cameras/S7D2/               ◄── S7D2 = hash(P9F3 + X + D1)
-├── cameras.json        (arbitrary gauge)    WHY THIS LEVEL EXISTS:
-├── points.ply                               re-solve with settings Y
-├── metadata.json                            → cameras/Q4K8/ coexists,
-├── solve.log                                nothing overwritten
+subsets/P9F3/cameras/S7D2/orient/O3M1/    ◄── THE gauge
+├── transform.json, oriented.json
 │
-│  orient-cameras (method: floor-ransac, settings Z)
+├──────────────────────────────────────────────────────────────┐
+│  task: generate-views (from gauge data, NEVER from a mesh)   │
+▼                                                              │
+views/01/view.json  views/02/view.json  views/03/view.json     │ [locked #7]
+viewset/canonical/views.json   ◄── MUTABLE members list        │
+│                                                              │
+subsets/primary ──► P9F3        ◄── refs: set-if-unset by jobs,│
+viewset/canonical               moved only by the operator     │
+│                                                              │
+│  task: images-subset (mechanism: HUMAN viser)                │
+▼                                                              │
+subsets/C4E8/  (curated 17 ⊆ primary)                          │
+├── cameras/S7D2/              ◄── INHERITED row-selection;    │
+│                                  same id = same gauge        │
+│  task: represent-via-matcha (R = hash(C4E8 + S7D2 + settings + matcha@1))
 ▼
-subsets/P9F3/cameras/S7D2/orient/O3M1/   ◄── O3M1 = hash(S7D2 + Z)
-├── transform.json      (THE gauge: rotation, z_shift)
-├── oriented.json
+represent/matcha/R5T9/
+├── free_gaussians/..., metadata.json
 │
-subsets/primary ──symlink──► P9F3
+│  task: meshify-via-tetra     ◄── WELDED today: the represent dispatch
+▼                                  also writes this → DAG walk finds it → NOOP
+represent/matcha/R5T9/meshify/tetra/M2W7/
+├── mesh.ply, metadata.json
+│
+│  task: condition (target_tris 1M)
+▼
+.../tetra/M2W7/condition/K9J4/
+├── mesh.ply
+│
+│  task: render (per view: hash(mesh + view_content + settings + render@1))
+▼
+.../condition/K9J4/renders/E1F8/render.png    ◄── one per (mesh × view);
+.../condition/K9J4/renders/E2A3/render.png        add view 04 later → only
+.../condition/K9J4/renders/E3C5/render.png        (mesh × 04) executes
 
-   │  images-subset (mechanism: HUMAN viser, label: "curated-17")
-   ▼
-subsets/C4E8/                            ◄── C4E8 = HOH of the 17 (⊆ primary's 200)
-├── subset.json
-├── cameras/S7D2/                        ◄── INHERITED: row-selection of primary's
-│   ├── cameras.json    (17 rows)            solve. Same string S7D2 = same solve,
-│   ├── metadata.json   (mechanism:          same gauge — lineage readable in the
-│                        inherit)            path. No new identity minted: inherit
-│                                            has zero settings, one input.
-└── (represent-via-matcha consumes C4E8 + its cameras/S7D2 from here…)
+scores.jsonl   ◄── operator judgments referencing identities; never hashed
 ```
 
 Reading the why-questions off the diagram:
-- **Why `S7D2` under primary?** Because `Q4K8` (a re-solve) can exist
-  beside it. Identity levels exist exactly where settings/code can
-  vary; nowhere else.
-- **Why `S7D2` again under C4E8?** It names *which solve* those 17
-  cameras were cut from. If primary is re-solved, C4E8 can hold
-  `cameras/Q4K8/` too — and every artifact downstream knows which
-  gauge it lives in by the identity in its path.
-- **Where's the single mutable thing?** `subsets/primary` — the
-  symlink. Everything else is immutable, content-addressed.
-
-### Locked #2 — cameras take two tasks: `solve-cameras` → `orient-cameras` (2026-06-11)
-
-Nothing in the original draft *produced* cameras; and orientation is
-**inverted** vs today: current practice orients the mesh (RANSAC
-floor-fit on dense geometry, STO-SCN-004) per-run and back-applies;
-this spec orients **primary's cameras once** — all downstream
-artifacts are born oriented.
-
-**TASK `solve-cameras`** — place 100% of a subset's cameras in 3D
-- INPUTS: scene, subset hash (normally primary's)
-- DEDUCED: images via subset.json
-- SETTINGS: tunable: none yet · frozen: solver `mast3r-sfm`,
-  `sfm_config: unposed` · (>300 frames: chunk_size/overlap — the
-  photo-spine folds in as this stage's big-pool strategy)
-- IDENTITY: `<solve_identity> = hash(subset_hash + settings + algo@version)` (per locked #3; digest in metadata.json)
-- OUTPUTS (file placement):
-
-```
-scenes/<scene>/images/subsets/<subset_hash>/cameras/<solve_identity>/cameras.json   # poses+intrinsics, ARBITRARY gauge
-scenes/<scene>/images/subsets/<subset_hash>/cameras/<solve_identity>/points.ply    # sparse cloud
-scenes/<scene>/images/subsets/<subset_hash>/cameras/<solve_identity>/metadata.json # resolved inputs, settings, measured (host, duration, VRAM)
-scenes/<scene>/images/subsets/<subset_hash>/cameras/<solve_identity>/solve.log
-```
-
-(`cameras/<identity>/` is ONE shape regardless of producer — solve,
-inherit (#1), or future solvers; `metadata.json#mechanism` names which.)
-
-**TASK `orient-cameras`** — fix the gauge (gravity/floor, z-up)
-- INPUTS: solve identity
-- SETTINGS: tunable: `method` · frozen: RANSAC params
-- IDENTITY: `<orient_identity> = hash(solve_identity + settings + algo@version)`
-- OUTPUTS (file placement — nested under the solve it orients):
-
-```
-.../cameras/<solve_identity>/orient/<orient_identity>/transform.json   # rotation, z_shift (the gauge itself)
-.../cameras/<solve_identity>/orient/<orient_identity>/oriented.json    # cameras with gauge applied
-.../cameras/<solve_identity>/orient/<orient_identity>/metadata.json    # method, params, measured residuals
-.../cameras/<solve_identity>/orient/<orient_identity>/orient.log
-```
-
-Two tasks, not one: orientation is re-runnable without re-solving
-(10-min solve vs 2-s gauge fix), and `method` is its own experiment
-axis — separate identities keep a re-orient from re-keying the solve.
-
-**Open (T-002):** the validated floor-fit runs on a dense mesh,
-which doesn't exist at this point in the new order. Candidate
-methods — (a) RANSAC on sparse `points.ply` (plausible,
-unvalidated), (b) one-time bootstrap from the first reconstruction's
-mesh-fit, (c) operator-assisted floor pick. The contract is locked;
-the method is the first implementation story's verification job.
+- **Why `S7D2` under primary?** A re-solve (`Q4K8`) coexists beside
+  it. Identity levels exist exactly where settings/code can vary.
+- **Why `S7D2` again under C4E8?** Names WHICH solve those 17
+  cameras were cut from — gauge lineage readable in every
+  downstream path.
+- **Mutable entries, total:** `subsets/primary`, `viewset/canonical`
+  (the two refs), `viewset/canonical/views.json` (member list), and
+  `scores.jsonl` (append-only). Everything else is immutable and
+  content-addressed.
 
 ## Applied in
 
