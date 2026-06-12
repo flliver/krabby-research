@@ -264,6 +264,20 @@ software rejected by the 069 spike):
   "pipeline" is retired as a type name.
 - "Stage" (used transiently in earlier discussion) is retired.
 
+### Locked #5 — subset identity is content-only (2026-06-11)
+
+A subset's identity is the HOH of its member image hashes — nothing
+else. `mechanism` (HUMAN/viser, sharp-select, sample), `label`, and
+the selection settings are **recorded in metadata.json but never
+hashed**.
+
+- Two mechanisms that pick the same members produce THE SAME subset:
+  same identity, same downstream cache hits.
+- The subset IS its members; how you arrived is provenance, not
+  identity. (Consistent with the identity-propagation rule in #1.)
+- Accepted cost: you cannot have two subsets with identical members
+  but different "meanings" — no real case found.
+
 ### Flow diagram — worked example of everything locked so far
 
 Scene `006-kubota`, fake short hashes. One video, primary pool of 200,
