@@ -441,11 +441,15 @@ def bootstrap_orient(mesh_or_verts, cam_R_c2w=None, cam_C=None):
         h = cz[:, 2] - z_floor
         print(f"[orient@1] camera heights above local floor: {np.round(h, 2).tolist()} "
               f"(solve units — SfM scale is arbitrary, no metric gate)")
-        rel = float(np.std(h) / max(np.median(h), 1e-9))
-        if np.median(h) <= 0 or rel > 0.35:
-            sys.exit(f"orient REFUSED: camera heights above floor inconsistent "
-                     f"(median {np.median(h):.2f}, rel spread {rel:.2f}) — "
-                     f"photographer-walks-on-floor violated; up estimate suspect")
+        rel = float(np.std(h) / max(abs(np.median(h)), 1e-9))
+        if np.median(h) <= 0:
+            sys.exit(f"orient REFUSED: cameras BELOW the floor (median height "
+                     f"{np.median(h):.2f}) — up sign wrong")
+        if rel > 0.35:
+            # multi-ring orbits (dtu) legitimately vary in height — the
+            # horizon residual is the up validator; this is informational
+            print(f"[orient@1] note: height band loose (rel spread {rel:.2f}) — "
+                  f"multi-elevation capture; horizon residual is the gate")
     else:
         z_floor = float(np.percentile(vz[:, 2], 2))
     return R, -z_floor
