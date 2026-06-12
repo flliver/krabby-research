@@ -47,6 +47,25 @@ def rep_camera_paths(scene_dir: Path, rep_dir: Path):
     own_ori = rep_dir / "origin-data" / "oriented" / "oriented_cameras.json"
     if own_cams.exists() and own_ori.exists():
         return own_cams, own_ori
+    # da3 fused meshes live in the MATCHA frame they were gauge-aligned to
+    # (recorded as --matcha-run in their own run records; operator-caught
+    # rotation on 006 da3--8-giant when the wrong sibling gauge was used)
+    if rep_dir.parent.name == "da3":
+        anchor_variant = None
+        rr = rep_dir / "origin-run" / "run_record.json"
+        if rr.exists():
+            es = json.loads(rr.read_text()).get("instance", {}).get("expanded_settings", {})
+            mr = (es.get("fuse", {}) or {}).get("matcha_run", "")
+            if mr:
+                anchor_variant = "matcha--" + mr.rsplit("run-", 1)[-1]
+        if anchor_variant:
+            for sib in sorted(rep_dir.parent.parent.glob("matcha/*/")):
+                smd = sib / "metadata.json"
+                if smd.exists():
+                    sm = json.loads(smd.read_text())
+                    variants = sm.get("legacy_variants", [sm.get("legacy_variant")])
+                    if anchor_variant in variants:
+                        return rep_camera_paths(scene_dir, sib)
     md = json.loads((rep_dir / "metadata.json").read_text())
     subset = md.get("resolved_inputs", {}).get("subset")
     solve = md.get("resolved_inputs", {}).get("cameras")
@@ -57,7 +76,7 @@ def rep_camera_paths(scene_dir: Path, rep_dir: Path):
     orr = rep_dir / "origin-results.json"
     if orr.exists():
         for o in json.loads(orr.read_text()).get("outputs", []):
-            if o.get("path", "").endswith("mast3r_sfm/cameras.json"):
+            if isinstance(o, dict) and o.get("path", "").endswith("mast3r_sfm/cameras.json"):
                 want_sha = o.get("sha256")
     for c in cands:
         ods = sorted(c.glob("orient/*/oriented.json"))
