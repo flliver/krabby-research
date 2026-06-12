@@ -221,3 +221,29 @@ Operator verification standard: two consecutive scenes end-to-end.
 The class fix (weld_to_solve_sim + meshify@1 + orient-floor@2 +
 regauge-views --sim + fuse@2 gate policy) is the production path for
 the remaining-scene sweep.
+
+## FLEET SWEEP NOTES (2026-06-12, post-close)
+
+The post-089 sweep ran 8 scenes across 4 hosts (t/b/d/s). Per-scene
+gauge-sim rotations: 009 136.5, 006 90.7, 004 167.3, 012 158.4,
+dtu 173.1, 007 175.1, 008 177.1, 011 111.7 deg — every weld minted a
+distinct arbitrary gauge; the composition fix absorbed all of them.
+
+Follow-ups surfaced (to mint as stories):
+1. 003-firepit: weld solve disagrees with ingest solve beyond similarity
+   (3.9%, 3.1% on two independent welds) — the architectural fix is a
+   POSED weld (feed the ingest solve into train.py) instead of letting
+   the weld re-solve. Benefits every scene: kills the gauge-sim class
+   entirely.
+2. krabby-da3 tool: png input support (dtu has no da3 branch).
+3. matcha tetra stage: marching_tetrahedra flake (010) — weld now
+   tolerates tsdf-only; retry policy TBD.
+4. 001/002/013: video-frame pools (898-944 images) need a native
+   frame-subset selection task before the protocol applies.
+5. da3 infer VRAM: OOMs when the host GPU has other tenants (b had a
+   game using 2.2 GB); executor should check free VRAM before dispatch.
+6. Ghost view slots: one slot with no captured_name appeared on 010
+   pre-sweep (origin unconfirmed); cmd_views now filters to
+   viewport-captures only — watch for recurrence.
+7. matcha tsdf floater cleanup + sparse-based z-floor (carried from the
+   089 resolution; affects render quality + ICP gates).
