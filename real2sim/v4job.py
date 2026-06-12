@@ -33,17 +33,45 @@ ALGO = "render-workbench@0"
 
 
 def rep_camera_paths(scene_dir: Path, rep_dir: Path):
-    """represent dir -> (cameras.json, oriented.json) via its metadata."""
+    """represent dir -> (cameras.json, oriented.json).
+
+    MIGRATED reps first check their own origin-data/ — each legacy run
+    solved its OWN cameras (own gauge!), and the same-identity solve
+    collapse (correct for the model) kept only one run's copy at the
+    subset solve dir. Rendering a legacy mesh in a sibling run's gauge
+    skews it (operator-caught on 009/010/003). The run's true gauge
+    survives in its origin-data sweep."""
+    import hashlib
+
+    own_cams = rep_dir / "origin-data" / "mast3r_sfm" / "cameras.json"
+    own_ori = rep_dir / "origin-data" / "oriented" / "oriented_cameras.json"
+    if own_cams.exists() and own_ori.exists():
+        return own_cams, own_ori
     md = json.loads((rep_dir / "metadata.json").read_text())
     subset = md.get("resolved_inputs", {}).get("subset")
     solve = md.get("resolved_inputs", {}).get("cameras")
     base = scene_dir / "images" / "subsets" / str(subset) / "cameras"
     cands = [base / str(solve)] if solve else sorted(base.glob("*/")) if base.is_dir() else []
+    # this rep's TRUE raw cameras sha (recorded at run time in results.json)
+    want_sha = None
+    orr = rep_dir / "origin-results.json"
+    if orr.exists():
+        for o in json.loads(orr.read_text()).get("outputs", []):
+            if o.get("path", "").endswith("mast3r_sfm/cameras.json"):
+                want_sha = o.get("sha256")
     for c in cands:
-        cams = c / "cameras.json"
         ods = sorted(c.glob("orient/*/oriented.json"))
-        if cams.exists() and ods:
-            return cams, ods[0]
+        pool = [c / "cameras.json"] + sorted(c.glob("origin-dup-cameras.json"))
+        pool = [p for p in pool if p.exists()]
+        if not pool or not (ods or own_ori.exists()):
+            continue
+        cams = pool[0]
+        if want_sha:
+            for p in pool:
+                if hashlib.sha256(p.read_bytes()).hexdigest() == want_sha:
+                    cams = p          # the run's own solve, dedup-disambiguated
+                    break
+        return cams, (own_ori if own_ori.exists() else ods[0])
     return None, None
 
 
@@ -57,12 +85,29 @@ def mesh_targets(rep_dir: Path):
                 yield cdir
 
 
+def scene_anchors(scene_dir: Path) -> list:
+    """Migrated scenes: views were captured in ONE run's frame; sibling
+    runs have their own gauges. The original cameras.json's anchor_frames
+    (preserved at views/origin-cameras.json) let build_blender_scene
+    Procrustes the view into EACH variant's frame — exactly v2 behavior.
+    v4-native scenes (single primary solve) have no anchors -> identity."""
+    oc = scene_dir / "views" / "origin-cameras.json"
+    if oc.exists():
+        try:
+            return json.loads(oc.read_text()).get("anchor_frames", [])
+        except ValueError:
+            pass
+    return []
+
+
 def render_one(scene_dir: Path, mesh_dir: Path, slot: str, view_content: dict,
                cams: Path, oriented: Path, out_dir: Path) -> bool:
     with tempfile.TemporaryDirectory() as td:
         views_json = Path(td) / "views.json"
         views_json.write_text(json.dumps(
-            {"schema_version": 5, "views": [dict(view_content, name=slot)]}, indent=2))
+            {"schema_version": 5,
+             "anchor_frames": scene_anchors(scene_dir),
+             "views": [dict(view_content, name=slot)]}, indent=2))
         blend = Path(td) / "tmp.blend"
         out_dir.mkdir(parents=True, exist_ok=True)
         cmd = [BLENDER, "--background", "--python", str(BUILD), "--",
