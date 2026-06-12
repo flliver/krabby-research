@@ -230,9 +230,8 @@ function rDiff(m){
 
 /* ---------- rank: the absorbed rate_renders app (one implementation, T-023) ---------- */
 function rRank(m){
-  m.appendChild($(`<div class="card sm dim">The ranking runoff app (rankings.jsonl append — same contract as rate_renders :8090). Rankings join back onto pipeline_runs in the Runs tab leaderboard.</div>`));
   const f=document.createElement('iframe');
-  f.src='/rank'; f.style.cssText='width:100%;height:calc(100vh - 150px);border:1px solid var(--edge);border-radius:8px;background:#fff';
+  f.src='/rank'; f.style.cssText='width:100%;height:calc(100vh - 110px);border:1px solid var(--edge);border-radius:8px;background:#fff';
   m.appendChild(f);
 }
 
