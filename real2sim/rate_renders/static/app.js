@@ -76,6 +76,7 @@ async function loadScene() {
   state.views = d.views || [];
   state.variants = d.variants || [];
   state.manifests = d.manifests || {};
+  state.labels = d.labels || {};   // v4: identity -> human label
   state.rendered = d.rendered || {};
   state.knownRaters = d.raters || [];
   // Pull all submissions so we can fall back to "show your last submission
@@ -95,8 +96,18 @@ async function loadScene() {
   // Restore any persisted per-view drafts for this scene from localStorage,
   // then apply the current view's draft (or start fresh if none).
   loadPersistedDrafts();
+  // post-migration hygiene: drop drafts referencing retired variant labels
+  for (const [view, draft] of Object.entries(state.drafts || {})) {
+    const known = (vs) => vs.every(v => state.variants.includes(v));
+    if (draft && draft.tiers && !known(Object.values(draft.tiers).flat())) {
+      delete state.drafts[view];
+    }
+  }
   loadDraftForView(state.view);
   setStatus(`${state.scene} — ${state.variants.length} variants, ${state.views.length} views`);
+  if (!state.focusVariant || !state.variants.includes(state.focusVariant)) {
+    state.focusVariant = state.variants[0] || null;   // manifest visible immediately
+  }
   await refreshAll();
 }
 
@@ -409,7 +420,7 @@ function renderGrid() {
       }
       const label = document.createElement("div");
       label.className = "label";
-      label.textContent = v;
+      label.textContent = labelOf(v);
       tile.appendChild(label);
 
       // The big tile is draggable too — same payload shape as the small
@@ -482,7 +493,7 @@ function makeCard(v) {
   }
   const name = document.createElement("div");
   name.className = "name";
-  name.textContent = v;
+  name.textContent = labelOf(v);
   card.appendChild(name);
 
   card.addEventListener("dragstart", (e) => {
@@ -518,6 +529,10 @@ function wireDropZone(el, target) {
   });
 }
 
+function labelOf(v) {
+  return (state.labels && state.labels[v]) || v;
+}
+
 function setFocusVariant(v) {
   state.focusVariant = v;
   renderManifest();
@@ -531,7 +546,7 @@ function setFocusVariant(v) {
   $$(".tile.focus, .card.focus").forEach(el => el.classList.remove("focus"));
   $$(`.card[data-variant="${cssEscape(v)}"]`).forEach(el => el.classList.add("focus"));
   $$(".tile .label").forEach(label => {
-    if (label.textContent === v) label.parentElement.classList.add("focus");
+    if (label.textContent === labelOf(v)) label.parentElement.classList.add("focus");
   });
 }
 
@@ -554,7 +569,10 @@ function renderManifest() {
     : (Array.isArray(x) ? x.join(", ") : (typeof x === "object" ? JSON.stringify(x) : x));
   const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
 
-  let html = `<div><strong>${esc(state.focusVariant)}</strong></div>`;
+  let html = `<div><strong>${esc(labelOf(state.focusVariant))}</strong>` +
+    (labelOf(state.focusVariant) !== state.focusVariant
+      ? ` <span style="color: var(--text-dim); font-size: 0.85em;">${esc(state.focusVariant)}</span>` : "") +
+    `</div>`;
   const transforms = m.transforms || {};
   const tNames = Object.keys(transforms);
   if (!tNames.length) {
