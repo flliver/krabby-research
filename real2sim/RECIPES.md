@@ -183,12 +183,13 @@ what we did / where the code is / how (operator directive
 2026-06-10). The recipes above are the *flows*; this catalog is the
 per-phase *reference*.
 
-> **Machine-readable canonical form: `real2sim/tasks/*.json`**
-> (STO-SCN-070) — one JSON Schema per task with settings
-> min/max/default + executing image/code in `x-task`. Validate with
-> `python3 real2sim/task_catalog.py {list,show,validate,check-spec}`.
-> The prose below is the narrative; ranges and execution pins live in
-> the task defs (T-023 — don't duplicate numbers here).
+> **Machine-readable canonical form (v4, HUG-SCN-005):**
+> `real2sim/tasks/*.json` (task defs — settings classified
+> tunable/frozen/pin, algo@version, license flags) +
+> `real2sim/graphs/*.json` (graph defs). Read-side:
+> `python3 real2sim/studio_model.py scan` / `v4core.py`.
+> The prose below is the narrative; ranges and execution facts live
+> in the task defs (T-023 — don't duplicate numbers here).
 
 ### 1. Video → frame pool
 Lossless full-frame extraction to `input/src/` (ffmpeg passthrough,
@@ -295,13 +296,39 @@ EPI-SCN-FEEDFORWARD-RECON.
 
 ---
 
-## Storage policy (store-shape v2 — STO-SCN-062/063, 2026-06-10)
+## Storage policy — store-shape v4 (HUG-SCN-005, STO-SCN-080, 2026-06-11)
 
-> **v3 (Studio, STO-SCN-076) is additive on top of v2:** one new
-> store file per run (`run-<r>/run_record.json`, tracked by the
-> existing `!**/*.json` rule — zero `.gitignore` change) +
-> pipelines/instances living in the research repo. Full spec:
-> `real2sim/STORE-SCHEMA-V3.md`. Everything below remains true.
+**The store is content-addressed.** Canonical spec: HUG-SCN-005
+(`real2sim/effort/repro-pipeline/guidance/`). In brief:
+
+```
+scenes/<scene>/
+├── videos/<name>/video.<ext>
+├── images/<image_hash>/image.<ext> + metadata.json     # canonical pool
+├── images/subsets/<HOH>/subset.json                    # subsets (content-only identity)
+│   └── cameras/<solve_id>/{cameras.json, points.ply}   # solves
+│       └── orient/<orient_id>/{transform,oriented}.json# THE gauge
+├── images/subsets/primary -> <HOH>                     # ref (mutable)
+├── views/<slot>/view.json                              # scene-global views
+├── viewset/canonical/views.json                        # mutable member list
+├── represent/<kind>/<RID>/…                            # representations
+│   └── meshify/<method>/<MID>/mesh.ply                 # meshes (nested derivation)
+│       └── condition/<CID>/mesh.ply
+│           └── renders/<REND>/render.png               # keyed on VIEW, never the set
+├── scores.jsonl                                        # operator judgments on identities
+└── jobs/<ts>-<id>/job.json                             # what each invocation DID
+```
+
+- IDENTITY = hash(resolved inputs + tunable+frozen settings +
+  algo@version); jobs MATERIALIZE (existing identity → NOOP).
+- Tracked: inputs, all metadata, finals (mesh.ply, render.png,
+  gs_ply). Untracked transients (free_gaussians, exports, …) live on
+  the Mac archive; the store .gitignore IS the policy.
+- License eligibility is DERIVED by ancestry walk (CC-BY-NC anywhere
+  upstream → not deliverable).
+- v2 history: see git log before 2026-06-11 (STO-SCN-062/063 era);
+  legacy provenance preserved per-identity as origin-* files +
+  `migrated: true` metadata.
 
 **The store tracks lineage and deliverables, not intermediates.**
 
