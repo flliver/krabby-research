@@ -4,85 +4,57 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: L
-status: in-progress
+status: shipped
 date: 2026-06-11
 depends-on: []
 hugs: [HUG-SCN-005]
 bd-id: krabby-biy
+shipped: 2026-06-11
+tasks: 5
+complete: 5
 ---
 
 # v4 model core: identity recipe, ref resolution, task/graph defs, materialize-check planner
 
 ## Summary
 
-_(One sentence: what does this story deliver? Avoid "we will add X" —
-write the outcome, not the verb.)_
+The v4 model core implementing HUG-SCN-005's locked decisions as
+code: identity recipe, ref resolution, task/graph definitions, the
+materialize-check planner, and the read-side scan.
 
-## Context
+## Shipped (2026-06-11)
 
-_(Why is this story needed? What does it depend on? Link to the parent
-epic. If this is a discovered-from another story, surface the link.)_
-
-## Problem
-
-_(What specific problem does this story solve? Concrete; the reader
-should be able to verify completion without re-reading the epic.)_
-
-## Design
-
-### Approach
-
-_(How will this be implemented? Reference HUGs that constrain the
-implementation choice; cite alternatives only when they shaped the
-final pick.)_
-
-### Changes
-
-| File | Change |
-|------|--------|
-| `path/to/file` | _(add / modify / extract)_ |
-| `path/to/test` | _(add tests for the new behavior)_ |
+- `real2sim/v4core.py` — identity recipe (#3: resolved inputs +
+  tunable + frozen + algo@version; pins REFUSED from the hash), HOH
+  (#5, order-insensitive), content/file hashing ([0-9A-Z]{12},
+  base32-sha256), Scene refs (set-if-unset, never-move — #1/#7),
+  canonical view resolution, job dirs (#8), per-identity metadata
+  writer, topo planner with NOOP/EXECUTE marking (#4), scan_scene +
+  leaderboard (scores join), license ancestry walk (#10).
+- `real2sim/tasks/*.json` — 11 v4 task defs with settings classified
+  tunable/frozen/pin; DA3 carries license_flag; orient-cameras
+  carries the 082 measured verdict.
+- `real2sim/graphs/*.json` — ingest-scene, reconstruct-matcha,
+  reconstruct-da3.
+- Exercised for real by: the full-store migration (080), the Studio
+  + rate_renders v4 consumers, the 082 experiment, and the license
+  walk (da3 mesh blocked, matcha tetra cleared — on migrated data).
 
 ## Definition of Done
 
-- [ ] _(Specific, verifiable condition — not "code works")_
-- [ ] _(Specific, verifiable condition.)_
-- [ ] Tests written and passing.
-- [ ] Code reviewed (or self-reviewed against the engineer-knowledge
-      constraints).
-- [ ] `docs/work-platform.md` or other operator-facing doc updated if
-      surface changed.
+- [x] Identity recipe deterministic; settings + algo@version re-key;
+      HOH order-insensitive (smoke tests).
+- [x] Refs: set-if-unset true once, false after; resolution returns
+      target.
+- [x] Pins refused from hashable settings; frozen defaults
+      participate.
+- [x] License ancestry: NC parent taints nested child; clean chain
+      passes.
+- [x] Planner walks graphs in topo order producing identity +
+      NOOP/EXECUTE rows.
 
-## Testing
+## Out of scope (follow-on)
 
-### Unit / fixture tests
-
-- [ ] _(Specific case.)_
-- [ ] _(Edge case.)_
-
-### Integration
-
-- [ ] _(Scenario.)_
-
-## Out of scope
-
-- _(Things deliberately deferred to a later story. Be explicit — the
-  reader should know what's *not* changing.)_
-
-## Implementation Notes
-
-_(Fill in during / after implementation. Capture what diverged from
-the original design and why — useful for the retrospective + for
-operators reading this story in a year.)_
-
-### What Changed
-
-_(Actual implementation. May differ from § Design above.)_
-
-### Files Modified
-
-- `path/to/file` — _(what changed)_
-
-### Gotchas
-
-_(Anything surprising or worth noting for future readers.)_
+- The v4 EXECUTOR (dispatch from plan rows; run_pipeline.py is the
+  v3-era precedent) — first v4-native job will drive it (see 081
+  notes: matcha@1 per-stage invocation).
