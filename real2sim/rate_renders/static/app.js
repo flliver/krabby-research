@@ -441,41 +441,63 @@ function renderGrid() {
     els.grid.appendChild(tile);
   }
 
-  // STO-SCN-085: we KNOW the expected render set (meshes × canonical
-  // views) — show what's missing as inert placeholder tiles so a gap is
-  // visible instead of silently absent. Unrankable, undraggable.
-  const missingHere = (state.missing && state.missing[state.view]) || [];
-  for (const mv of missingHere) {
-    const tile = document.createElement("div");
-    tile.className = "tile missing";
-    tile.style.cssText = "border:2px dashed var(--text-dim); opacity:0.75; display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:90px; cursor:pointer;";
-    const busy = state.materializing;
-    tile.innerHTML = `<div style="color: var(--text-dim); text-align:center; padding:8px;">` +
-      `<div style="font-size:1.4em;">${busy ? "⏳" : "⬚"}</div>` +
-      `<div><em>${busy ? "materializing…" : "not rendered yet"}</em></div>` +
-      `<div style="font-size:0.85em; margin-top:4px;">${labelOf(mv)}</div>` +
-      `<div style="font-size:0.75em; opacity:0.7;">${busy ? "renders appear as they finish" : "click to materialize (STO-SCN-086)"}</div></div>`;
-    if (!busy) tile.addEventListener("click", () => materializeScene());
-    els.grid.appendChild(tile);
-  }
+  renderMissingPool();
+}
 
-  // STO-SCN-087: graph-level gaps — branches the GRAPHS say should exist
-  // (e.g. no da3 representation at all, a missing mesh branch). GPU work:
-  // honest-but-disabled until the executor (STO-SCN-088) + your host pick.
-  for (const g of (state.taskGaps || [])) {
-    const tile = document.createElement("div");
-    tile.className = "tile missing gpu-gap";
-    tile.style.cssText = "border:2px dashed #7a5af8; opacity:0.7; display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:90px; cursor:not-allowed;";
-    const nc = (g.license_flags || []).length
-      ? `<div style="color:#e06c5a; font-size:0.75em; margin-top:2px;">⚠ NC — evaluation only</div>` : "";
-    tile.innerHTML = `<div style="color: var(--text-dim); text-align:center; padding:8px;">` +
-      `<div style="font-size:1.4em;">🧬</div>` +
-      `<div><em>${g.task}</em> — never run</div>` +
-      `<div style="font-size:0.85em; margin-top:4px;">${g.label}</div>` + nc +
-      `<div style="font-size:0.75em; opacity:0.7; margin-top:2px;">GPU job — needs executor (STO-SCN-088) + operator host choice</div></div>`;
-    tile.title = "Materializing this requires the v4 GPU executor and an operator-chosen host (HUG-SCN-005 decision 3)";
-    els.grid.appendChild(tile);
+// ---- STO-SCN-085/086/087: missing pool (small fixed chips) ---------------
+// Operator (2026-06-11): gap buttons must consume a FIXED small space —
+// a "pool" of missing photos; hover/click shows details in the manifest
+// area on the left.
+
+function renderMissingPool() {
+  const pool = document.getElementById("missing-pool");
+  if (!pool) return;
+  pool.innerHTML = "";
+  const busy = state.materializing;
+  const chip = (color, icon, title) => {
+    const c = document.createElement("div");
+    c.style.cssText = `width:84px; height:48px; flex:0 0 auto; border:1.5px dashed ${color};` +
+      `border-radius:6px; display:flex; flex-direction:column; align-items:center;` +
+      `justify-content:center; cursor:pointer; font-size:0.7em; color:var(--text-dim);` +
+      `overflow:hidden; text-align:center;`;
+    c.innerHTML = `<div>${busy && color !== "#7a5af8" ? "⏳" : icon}</div>` +
+                  `<div style="white-space:nowrap; max-width:80px; overflow:hidden; text-overflow:ellipsis;">${title}</div>`;
+    return c;
+  };
+  for (const mv of (state.missing && state.missing[state.view]) || []) {
+    const c = chip("var(--text-dim)", "⬚", labelOf(mv));
+    c.addEventListener("mouseenter", () => showGapDetail({type: "render", id: mv}));
+    c.addEventListener("click", () => { showGapDetail({type: "render", id: mv}); if (!busy) materializeScene(); });
+    pool.appendChild(c);
   }
+  for (const g of (state.taskGaps || [])) {
+    const c = chip("#7a5af8", "🧬", g.label);
+    c.addEventListener("mouseenter", () => showGapDetail({type: "task", gap: g}));
+    c.addEventListener("click", () => showGapDetail({type: "task", gap: g}));
+    pool.appendChild(c);
+  }
+}
+
+function showGapDetail(d) {
+  const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+  let html;
+  if (d.type === "render") {
+    const m = state.manifests[d.id] || {};
+    html = `<div><strong>MISSING RENDER</strong></div>` +
+      `<div style="margin-top:4px;">${esc(labelOf(d.id))} <span style="color:var(--text-dim); font-size:0.85em;">${esc(d.id)}</span></div>` +
+      `<div style="margin-top:4px;">view ${esc(state.view)} has no render for this mesh yet.</div>` +
+      (m.mesh && m.mesh.verts ? `<div style="margin-top:4px; color:var(--text-dim);">mesh: ${(m.mesh.verts/1e6).toFixed(1)}M verts · ${m.mesh.size_mb} MB</div>` : "") +
+      `<div style="margin-top:6px;"><em>${state.materializing ? "materializing — it will appear when done" : "click the chip to materialize (local Blender render)"}</em></div>`;
+  } else {
+    const g = d.gap;
+    html = `<div><strong>GRAPH GAP — never run</strong></div>` +
+      `<div style="margin-top:4px;">${esc(g.task)}</div>` +
+      `<div>${esc(g.label)}</div>` +
+      (g.settings ? `<div style="margin-top:4px; color:var(--text-dim);">defaults: ${esc(JSON.stringify(g.settings))}</div>` : "") +
+      ((g.license_flags || []).length ? `<div style="margin-top:4px; color:#e06c5a;">⚠ NC — evaluation only: ${esc(g.license_flags.join("; "))}</div>` : "") +
+      `<div style="margin-top:6px;"><em>GPU job — needs the v4 executor (STO-SCN-088) + your host choice. Not clickable yet, honestly.</em></div>`;
+  }
+  els.manifest.innerHTML = html;
 }
 
 // ---- STO-SCN-086: click-to-materialize ----------------------------------

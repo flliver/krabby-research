@@ -37,15 +37,31 @@ scheduler choice) — plus the live job-feedback channel the UI needs.
    {task_gap, host}; refuses without host.
 3. Task coverage: represent-via-da3 + meshify-via-tsdf fuse first
    (validated da3 path); matcha@1 stages next.
-4. **Job feedback channel** (operator question, 2026-06-11): current
-   feedback is (a) file-level truth — polling payload refresh flips
-   tiles as outputs land; (b) job.json written only at END; (c)
-   stdout to a /tmp log; (d) host-side nanny-progress on the beeprz
-   dash. Gaps: no incremental per-node status, no error surfacing to
-   tiles. This story makes job records INCREMENTAL (append per-node
-   outcome as it completes), adds GET /api/jobs/<scene> for the UI,
-   and surfaces per-tile running/failed states from it. Fleet-side
-   long tasks keep nanny-progress (fleet-ops rule).
+4. **Job feedback channel — MQTT-first** (operator direction,
+   2026-06-11): the fleet ALREADY publishes progress over MQTT —
+   nanny-progress wraps mosquitto_pub (host-scoped keys, beeprz
+   dash), and `real2sim/lib_progress.sh` is the pluggable progress
+   API (backends nanny|null, documented extension recipe). Design:
+   - jobs publish progress + heartbeat to
+     `krabby/jobs/<scene>/<job_id>` as **retained** messages
+     ({node, status, pct, host, ts}) — retained = level-triggered
+     (T-021): a late-joining UI reads current state instantly, and a
+     crashed publisher leaves a stale-detectable heartbeat instead
+     of a silent gap.
+   - new `mqtt` backend in lib_progress.sh (per its own recipe) so
+     fleet jobs feed BOTH the beeprz dash and the Studio UI from one
+     emit; v4job (python) publishes via the same topic shape.
+   - UI bridge: rate_renders server subscribes (or reads retained
+     state on request) → `GET /api/jobs/<scene>` → per-tile
+     running/failed states. Browser-direct websockets only if the
+     broker already listens on ws (check, don't assume — T-002).
+   - **File-level truth stays the fallback**: payload-refresh tile
+     flips can't lie; MQTT is the fast path, not the source of
+     truth. Incremental job.json append per node completion remains
+     (locked #8 record).
+   - Open verification: Mac publish credentials (~/.mqtt is
+     host-scoped on fleet hosts; does the Mac hold a key?) + broker
+     ws listener.
 
 ## Definition of Done
 
