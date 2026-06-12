@@ -79,6 +79,8 @@ def render_one(scene_dir: Path, mesh_dir: Path, slot: str, view_content: dict,
         ok = (out_dir / "render.png").exists()
         if not ok:
             (out_dir / "render-error.log").write_text(r.stdout[-4000:] + "\n" + r.stderr[-4000:])
+        elif (out_dir / "render-error.log").exists():
+            (out_dir / "render-error.log").unlink()   # earlier attempt's log
         return ok
 
 

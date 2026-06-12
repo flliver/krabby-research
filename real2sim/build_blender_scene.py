@@ -415,7 +415,9 @@ def main():
             # shared across views). We compute it once here, then apply to
             # each view inline below.
             _multi_view_meta = {
-                "anchor_frames": vc["anchor_frames"],
+                # v4 view-sets (HUG-SCN-005) carry direct viewport poses and
+                # no anchors — empty list skips the Procrustes branch.
+                "anchor_frames": vc.get("anchor_frames", []),
                 "views": views,
                 "active_view_name": active_view_name,
             }
@@ -452,33 +454,41 @@ def main():
                     continue
                 source_anchor_pos.append(a["oriented_position"])
                 target_anchor_pos.append(list(tgt_obj.location))
-            if len(source_anchor_pos) < 3:
+            if not anchors:
+                # v4 store (HUG-SCN-005): all artifacts share primary's gauge —
+                # view poses ARE scene-frame poses; identity similarity.
+                print("  no anchors (v4 shared gauge): identity transform")
+                scale = 1.0
+                R_mat = _np.eye(3)
+                t_vec = _np.zeros(3)
+            elif len(source_anchor_pos) < 3:
                 raise SystemExit(
                     f"  ERROR: need ≥3 matching anchors; got {len(source_anchor_pos)}. "
                     f"Missing: {missing[:5]}{'...' if len(missing)>5 else ''}"
                 )
-            print(f"  matched {len(source_anchor_pos)}/{len(anchors)} anchors "
-                  f"({len(missing)} missing in this variant)")
+            else:
+                print(f"  matched {len(source_anchor_pos)}/{len(anchors)} anchors "
+                      f"({len(missing)} missing in this variant)")
 
-            # Umeyama Procrustes: solve scale s, rotation R_mat, translation t_vec.
-            P = _np.asarray(source_anchor_pos)
-            Q = _np.asarray(target_anchor_pos)
-            cP = P.mean(axis=0)
-            cQ = Q.mean(axis=0)
-            Pc = P - cP
-            Qc = Q - cQ
-            H = Pc.T @ Qc
-            U, S_sv, Vt = _np.linalg.svd(H)
-            d_sign = _np.sign(_np.linalg.det(Vt.T @ U.T))
-            D = _np.diag([1, 1, d_sign])
-            R_mat = Vt.T @ D @ U.T
-            var_P = float((Pc * Pc).sum())
-            scale = float((_np.diag(D) * S_sv).sum() / var_P) if var_P > 0 else 1.0
-            t_vec = cQ - scale * R_mat @ cP
-            residuals = _np.linalg.norm((scale * (P @ R_mat.T) + t_vec) - Q, axis=1)
-            print(f"  Procrustes: scale={scale:.4f} det(R)={_np.linalg.det(R_mat):.4f}")
-            print(f"  anchor residuals: max={residuals.max():.4f}  "
-                  f"mean={residuals.mean():.4f}  median={_np.median(residuals):.4f} m")
+                # Umeyama Procrustes: solve scale s, rotation R_mat, translation t_vec.
+                P = _np.asarray(source_anchor_pos)
+                Q = _np.asarray(target_anchor_pos)
+                cP = P.mean(axis=0)
+                cQ = Q.mean(axis=0)
+                Pc = P - cP
+                Qc = Q - cQ
+                H = Pc.T @ Qc
+                U, S_sv, Vt = _np.linalg.svd(H)
+                d_sign = _np.sign(_np.linalg.det(Vt.T @ U.T))
+                D = _np.diag([1, 1, d_sign])
+                R_mat = Vt.T @ D @ U.T
+                var_P = float((Pc * Pc).sum())
+                scale = float((_np.diag(D) * S_sv).sum() / var_P) if var_P > 0 else 1.0
+                t_vec = cQ - scale * R_mat @ cP
+                residuals = _np.linalg.norm((scale * (P @ R_mat.T) + t_vec) - Q, axis=1)
+                print(f"  Procrustes: scale={scale:.4f} det(R)={_np.linalg.det(R_mat):.4f}")
+                print(f"  anchor residuals: max={residuals.max():.4f}  "
+                      f"mean={residuals.mean():.4f}  median={_np.median(residuals):.4f} m")
 
             # Per-view: apply Procrustes, build camera, attach metadata.
             from mathutils import Quaternion, Matrix as MM  # type: ignore
