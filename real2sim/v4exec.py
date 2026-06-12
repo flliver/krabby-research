@@ -240,6 +240,18 @@ def cmd_matcha(args):
             (tetra_dir / "mesh.ply").exists()
             or not (rdir / "out" / "tetra_meshes").is_dir()
             or not list((rdir / "out" / "tetra_meshes").glob("*.ply"))):
+        if not (rdir / "metadata.json").exists():
+            # crash-recovery: meshes landed but the rep record didn't (008)
+            v4.write_metadata(rdir, task="represent-via-matcha", algo="matcha@0",
+                              identity=rid,
+                              resolved_inputs={"subset": sub, "cameras": sid},
+                              settings=r_settings, mechanism="job",
+                              measured={"recovered": True})
+            md = json.loads((rdir / "metadata.json").read_text())
+            md["canonical_gauge"] = str(
+                (scene_dir / "images" / "subsets" / sub / "cameras" / sid /
+                 "orient" / oid / "oriented.json").relative_to(scene_dir))
+            (rdir / "metadata.json").write_text(json.dumps(md, indent=2) + "\n")
         print(f"NOOP: {rid} fully materialized")
         return
 
