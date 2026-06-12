@@ -454,7 +454,9 @@ def weld_to_solve_sim(scene_dir: Path, sub: str, sid: str, out: Path) -> dict:
     store = json.loads((scene_dir / "images" / "subsets" / sub / "cameras" / sid /
                         "cameras.json").read_text())
     def by_name(c):
-        return {fp.rsplit("/", 1)[-1]: np.asarray(m)
+        # match by STEM: extension drift between runs (jpg/jpeg re-encodes
+        # in migrated pools) must not break camera identity (007 lesson)
+        return {fp.rsplit("/", 1)[-1].rsplit(".", 1)[0]: np.asarray(m)
                 for fp, m in zip(c["filepaths"], c["cams2world"])}
     wm, sm = by_name(weld), by_name(store)
     names = sorted(set(wm) & set(sm))
