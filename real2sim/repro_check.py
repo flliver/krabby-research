@@ -43,36 +43,47 @@ CATALOG_DIR = Path(__file__).parent / "tasks"
 
 
 def _catalog_tolerances() -> list[tuple[str, dict]]:
-    """[(full output pattern, tolerances dict)] from the catalog."""
+    """[(task name, tolerances dict)] from the v4 catalog (HUG-SCN-005)."""
     out = []
     for p in sorted(CATALOG_DIR.glob("*.json")):
         d = json.loads(p.read_text())
-        tol = d.get("x-task", {}).get("tolerances")
-        if not tol:
-            continue
-        for o in d.get("x-task", {}).get("outputs", []):
-            out.append((o["pattern"], tol))
+        tol = d.get("tolerances") or d.get("x-task", {}).get("tolerances")
+        if tol:
+            out.append((d.get("name", p.stem), tol))
     return out
 
 
+_PATH_TASK_HINTS = [  # v4 nested placement -> producing task
+    ("meshify/tsdf", "meshify-via-tsdf"),
+    ("meshify/tetra", "meshify-via-tetra"),
+    ("condition/", "condition"),
+    ("gs_ply", "represent-via-da3"),
+    ("represent/da3", "represent-via-da3"),
+    ("represent/matcha", "represent-via-matcha"),
+]
+
+
 def tolerance_for(rel_path: Path, key: str):
-    """Most-specific full-path pattern match wins (a bare `**` pattern must
-    never shadow an exact filename — caught when the TSDF mesh matched the
-    gaussian-PLY gate)."""
-    best, best_score = None, -1
-    for pat, tol in _catalog_tolerances():
-        if fnmatch.fnmatch(str(rel_path), pat) or fnmatch.fnmatch(str(rel_path), pat.replace("**/", "*")):
-            score = len(pat.replace("*", ""))
-            if score > best_score:
-                best, best_score = tol.get(key), score
+    """v4: the producing task is readable from the nested placement.
+    RIGHTMOST match wins — nested derivation means the most-derived
+    producer appears deepest (a fused mesh under represent/da3/… is
+    meshify-via-tsdf's output, not da3's)."""
+    tols = dict(_catalog_tolerances())
+    s = str(rel_path)
+    best, best_pos = None, -1
+    for frag, task in _PATH_TASK_HINTS:
+        pos = s.rfind(frag)
+        if pos > best_pos and task in tols:
+            best, best_pos = tols[task].get(key), pos
     return best if isinstance(best, (int, float)) else None
 
 
 def load_record(run_dir: Path) -> dict:
-    f = run_dir / "run_record.json"
-    if not f.exists():
-        sys.exit(f"no run_record.json in {run_dir} — not a v3 run")
-    return json.loads(f.read_text())
+    for name in ("metadata.json", "run_record.json"):   # v4 | v3 legacy
+        f = run_dir / name
+        if f.exists():
+            return json.loads(f.read_text())
+    sys.exit(f"no metadata.json/run_record.json in {run_dir}")
 
 
 def check(run_dir: Path) -> int:
@@ -81,19 +92,35 @@ def check(run_dir: Path) -> int:
     if rec.get("backfilled"):
         failures.append("backfilled record — provenance reconstructed post-hoc, "
                         "not reproducible by record (ranks, but cannot gate M11)")
-    prov = rec.get("provenance", {})
-    if not prov:
-        failures.append("no provenance block")
-    for node, p in prov.items():
-        if "sha256:" not in (p.get("image_digest") or ""):
-            failures.append(f"{node}: image digest not pinned")
-        if not p.get("tools_git_sha"):
-            warnings.append(f"{node}: tools_git_sha missing")
-        if node == next(iter(prov)) and not p.get("input_hashes"):
-            failures.append(f"{node}: input hashes missing")
-    if not rec.get("instance", {}).get("expanded_settings"):
-        failures.append("no expanded settings snapshot")
-    flags = rec.get("reproducibility", {}).get("license_flags", [])
+    if rec.get("schema") == 4:
+        # v4: identity IS the record — completeness = resolved inputs +
+        # settings + algo present; digest pinned in measured/extra when run live
+        if not rec.get("resolved_inputs"):
+            failures.append("no resolved inputs")
+        if rec.get("settings") is None:
+            failures.append("no settings snapshot")
+        if not rec.get("algo"):
+            failures.append("no algo@version")
+        if rec.get("mechanism") == "migrate":
+            failures.append("migrated artifact — provenance reconstructed post-hoc, "
+                            "not reproducible by record (ranks, but cannot gate M11)")
+        flags = []
+        import v4core as _v4
+        ok, flags = _v4.deliverable_eligible(run_dir)
+    else:
+        prov = rec.get("provenance", {})
+        if not prov:
+            failures.append("no provenance block")
+        for node, p in prov.items():
+            if "sha256:" not in (p.get("image_digest") or ""):
+                failures.append(f"{node}: image digest not pinned")
+            if not p.get("tools_git_sha"):
+                warnings.append(f"{node}: tools_git_sha missing")
+            if node == next(iter(prov)) and not p.get("input_hashes"):
+                failures.append(f"{node}: input hashes missing")
+        if not rec.get("instance", {}).get("expanded_settings"):
+            failures.append("no expanded settings snapshot")
+        flags = rec.get("reproducibility", {}).get("license_flags", [])
     deliverable = not flags
     print(f"record: {run_dir / 'run_record.json'}")
     print(f"reproducible by record: {'YES' if not failures else 'NO'}")
@@ -124,7 +151,10 @@ def _mesh_stats(ply: Path) -> dict:
 
 def compare(a: Path, b: Path) -> int:
     rec_a, rec_b = load_record(a), load_record(b)
-    sa, sb = rec_a["instance"]["expanded_settings"], rec_b["instance"]["expanded_settings"]
+    def _settings(rec):
+        return rec.get("settings") if rec.get("schema") == 4 \
+            else rec["instance"]["expanded_settings"]
+    sa, sb = _settings(rec_a), _settings(rec_b)
     if sa != sb:
         print("WARNING: settings differ between the two runs — this is not a "
               "reproduction pair, it's an A/B comparison:")

@@ -36,5 +36,10 @@
       "kind": "depths+splats+poses"
     }
   ],
-  "license_flag": "CC-BY-NC-4.0 (DA3NESTED-GIANT-LARGE-1.1 weights) \u2014 research evaluation only"
+  "license_flag": "CC-BY-NC-4.0 (DA3NESTED-GIANT-LARGE-1.1 weights) \u2014 research evaluation only",
+  "tolerances": {
+    "verts_rel": 0.0,
+    "tris_rel": 0.0,
+    "$comment": "measured: gaussian PLY bit-identical across same-host re-runs"
+  }
 }

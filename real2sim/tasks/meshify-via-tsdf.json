@@ -35,5 +35,10 @@
       "name": "mesh",
       "path": "mesh.ply"
     }
-  ]
+  ],
+  "tolerances": {
+    "verts_rel": 0.0005,
+    "tris_rel": 0.0005,
+    "$comment": "derived (T-017): same-host variance 8-giant-studio vs -var1: verts 0.0037%, tris 0.0053% -> ~10x gate"
+  }
 }
