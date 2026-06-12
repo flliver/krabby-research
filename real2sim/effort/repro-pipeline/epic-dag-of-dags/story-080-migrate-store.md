@@ -4,85 +4,65 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: L
-status: in-progress
+status: shipped
 date: 2026-06-11
 depends-on: []
 hugs: [HUG-SCN-005]
 bd-id: krabby-9gd
+shipped: 2026-06-11
+tasks: 5
+complete: 5
 ---
 
 # Full-restructure migration: compute legacy identities (algo@0), move files, scores.jsonl, jobs-logged (locked #9)
 
 ## Summary
 
-_(One sentence: what does this story deliver? Avoid "we will add X" —
-write the outcome, not the verb.)_
+Full-restructure migration of the scene store to content-addressed
+v4 (HUG-SCN-005 locked #9): no legacy residue, compute preserved,
+identities computed — not invented.
 
-## Context
+## Shipped (2026-06-11, store commit 9d6297b)
 
-_(Why is this story needed? What does it depend on? Link to the parent
-epic. If this is a discovered-from another story, surface the link.)_
+- All 14 scenes restructured: videos/ + images/<hash> pool + subsets
+  (HOH) + cameras/<solve>/orient/<orient> + views + viewset/canonical
+  + represent/<kind>/<RID>/meshify/<MID>/condition/<CID>/renders/
+  <REND> + scores.jsonl + jobs/.
+- 5,331 renames (LFS objects reused — compute preserved), 6,181 adds
+  (metadata + newly-tracked pool images), 66 deletes.
+- 45 GB new LFS to the hub: the canonical image pools (v2 ignored
+  preproc-data frames; v4 tracks the pool as inputs BY DESIGN —
+  subsets reference image hashes, so the pool is the provenance
+  anchor). Tracked set grows ~55 GiB → ~100 GiB; j has 1.2 T free.
+- Identities from real specs, retroactive algo@0; refs: primary set
+  per scene (013 = pool-200 with its real pool-solve migrated);
+  rankings → scores.jsonl on identities (006 leaderboard reproduces
+  the operator runoff verdict); migration logged as jobs.
+- T-002: legacy-era runs (colmap/mast3r/vggt/slam3r) carry explicit
+  UNKNOWN subsets; migrated metadata is marked, and repro_check
+  fails migrated artifacts for M11 gating while letting them rank.
+- Idempotent: re-run on a migrated scene = 0 actions (verified 006).
 
-## Problem
+## Gotchas (paid for)
 
-_(What specific problem does this story solve? Concrete; the reader
-should be able to verify completion without re-reading the epic.)_
-
-## Design
-
-### Approach
-
-_(How will this be implemented? Reference HUGs that constrain the
-implementation choice; cite alternatives only when they shaped the
-final pick.)_
-
-### Changes
-
-| File | Change |
-|------|--------|
-| `path/to/file` | _(add / modify / extract)_ |
-| `path/to/test` | _(add tests for the new behavior)_ |
+- gitignore patterns with `/` anchor at the .gitignore dir — scene
+  prefix `*/` required (caught before any commit).
+- NEVER mutate the store while `git add` runs (two staging races).
+- Same-identity reruns collapse into one dir (sc038=8-strong repro,
+  studio=8-giant) — CORRECT per the model; variant labels merged to
+  `legacy_variants` lists; duplicate payloads kept as origin evidence.
+- 006 needed a repair pass (mid-development re-applies minted
+  placeholder-subset dirs) — merged, artifacts promoted, scan clean.
 
 ## Definition of Done
 
-- [ ] _(Specific, verifiable condition — not "code works")_
-- [ ] _(Specific, verifiable condition.)_
-- [ ] Tests written and passing.
-- [ ] Code reviewed (or self-reviewed against the engineer-knowledge
-      constraints).
-- [ ] `docs/work-platform.md` or other operator-facing doc updated if
-      surface changed.
+- [x] All scenes in v4 shape; zero non-spine legacy files.
+- [x] Compute preserved (renames, not re-uploads).
+- [x] Scores carried; leaderboard verdicts reproduce.
+- [x] Store committed + pushed to hub (9d6297b).
+- [x] Consumers ported and verified against the migrated store.
 
-## Testing
+## Follow-on (ops)
 
-### Unit / fixture tests
-
-- [ ] _(Specific case.)_
-- [ ] _(Edge case.)_
-
-### Integration
-
-- [ ] _(Scenario.)_
-
-## Out of scope
-
-- _(Things deliberately deferred to a later story. Be explicit — the
-  reader should know what's *not* changing.)_
-
-## Implementation Notes
-
-_(Fill in during / after implementation. Capture what diverged from
-the original design and why — useful for the retrospective + for
-operators reading this story in a year.)_
-
-### What Changed
-
-_(Actual implementation. May differ from § Design above.)_
-
-### Files Modified
-
-- `path/to/file` — _(what changed)_
-
-### Gotchas
-
-_(Anything surprising or worth noting for future readers.)_
+- Fleet re-clone: t/b/d/s hold stale v2 checkouts; re-clone after
+  this push (mostly renames; tracked set ~100 GiB).
