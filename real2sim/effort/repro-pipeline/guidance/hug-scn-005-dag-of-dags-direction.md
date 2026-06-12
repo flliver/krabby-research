@@ -561,6 +561,26 @@ TASK: represent-via-da3
   runoff, honest comparison); the eligibility query is what keeps
   M11 deliverables clean.
 
+### Locked #11 — DO NOT MANIPULATE DATA OUTSIDE A GRAPH (2026-06-12)
+
+Operator (verbatim): "I want to take a hard stance of: DO NOT
+MANIPULATE DATA OUTSIDE A GRAPH."
+
+Context: post-migration repair work (re-orientation, era re-grounding,
+render fixes) was performed by one-off scripts manipulating store
+artifacts directly. Each fix was honest, but the class is the
+disease: artifacts whose history is a chain of out-of-band edits
+cannot be trusted or reproduced. Proof-by-construction replaces
+repair-by-archaeology:
+
+- Store artifacts are created ONLY by jobs materializing graphs.
+- Backfill/migration/repair scripts are DELETED once the native path
+  is proven (git history keeps them for forensics).
+- Operator data entry (view capture, rankings/scores, refs) is input,
+  not manipulation — allowed per locked #7.
+- Native proof protocol: wipe a scene to original inputs -> ingest
+  -> orient -> reconstruct graphs end-to-end -> compare.
+
 ### Flow diagram — worked example of everything locked (refreshed for #5–#7)
 
 Scene `006-kubota`, fake short hashes. One video; primary pool of
