@@ -306,9 +306,15 @@ class Handler(BaseHTTPRequestHandler):
                             "mesh": self._ply_stats(mp) if mp and mp.exists() else {},
                             "transforms": {rep["algo"] or rep["kind"]: {
                                 "parameters": {**rep["settings"], **m.get("settings", {})}}}}
+            # STO-SCN-085: expected = every mesh artifact × every canonical
+            # slot (we KNOW what renders should exist); missing = expected
+            # minus the render index. Surfaced so the UI can show gaps.
+            expected_ids = sorted(ix["labels"])
+            missing = {slot: [i for i in expected_ids if (slot, i) not in ix["index"]]
+                       for slot in ix["slots"]}
             return {"scene": scene, "views": ix["slots"], "rendered": rendered,
                     "variants": variants, "manifests": manifests,
-                    "labels": ix["labels"], "store": "v4"}
+                    "labels": ix["labels"], "missing": missing, "store": "v4"}
         # 1) views — unified cameras.json (schema 5) only
         views: list = []
         views_path = scene_dir / "cameras.json"

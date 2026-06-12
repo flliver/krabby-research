@@ -77,6 +77,7 @@ async function loadScene() {
   state.variants = d.variants || [];
   state.manifests = d.manifests || {};
   state.labels = d.labels || {};   // v4: identity -> human label
+  state.missing = d.missing || {};  // v4 (STO-SCN-085): view -> [identities without a render]
   state.rendered = d.rendered || {};
   state.knownRaters = d.raters || [];
   // Pull all submissions so we can fall back to "show your last submission
@@ -436,6 +437,22 @@ function renderGrid() {
       tile.addEventListener("mouseenter", () => setFocusVariant(v));
       tile.addEventListener("click", () => setFocusVariant(v));
     }
+    els.grid.appendChild(tile);
+  }
+
+  // STO-SCN-085: we KNOW the expected render set (meshes × canonical
+  // views) — show what's missing as inert placeholder tiles so a gap is
+  // visible instead of silently absent. Unrankable, undraggable.
+  const missingHere = (state.missing && state.missing[state.view]) || [];
+  for (const mv of missingHere) {
+    const tile = document.createElement("div");
+    tile.className = "tile missing";
+    tile.style.cssText = "border:2px dashed var(--text-dim); opacity:0.65; display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:90px;";
+    tile.innerHTML = `<div style="color: var(--text-dim); text-align:center; padding:8px;">` +
+      `<div style="font-size:1.4em;">⬚</div>` +
+      `<div><em>not rendered yet</em></div>` +
+      `<div style="font-size:0.85em; margin-top:4px;">${labelOf(mv)}</div>` +
+      `<div style="font-size:0.75em; opacity:0.7;">v4job render-missing ${state.scene}</div></div>`;
     els.grid.appendChild(tile);
   }
 }
