@@ -461,6 +461,35 @@ scenes/<scene>/scores.jsonl   # {at: <identity>, view: <content_hash>, slot: "02
 (`condition` needs no new decisions: ordinary task, nests under its
 mesh: `.../meshify/tetra/<MID>/condition/<CID>/`.)
 
+### Locked #8 — graph definitions in the repo; job records in the scene (2026-06-11)
+
+**(a) Graph definitions live in the research repo, beside task defs**
+— graphs are recipes: versioned, reviewed, branched like code, zero
+per-scene state. The store holds only what jobs materialize.
+
+```
+real2sim/tasks/<task>.json      # leaf defs
+real2sim/graphs/<graph>.json    # nodes (task OR graph names — nesting), edges
+```
+
+**(b) A job is an EVENT, not an artifact** — two identical jobs a
+week apart are two events that NOOP into the same identities. Job
+records are therefore NOT content-addressed; they are append-only
+and scene-scoped:
+
+```
+scenes/<scene>/jobs/<timestamp>-<short_id>/job.json
+```
+
+containing: graph name+version, bindings (subset, setting overrides,
+host), resolved refs (primary→…, canonical→…, per locked #1), and a
+per-node outcome: `NOOP @ <identity>` or `EXECUTED @ <identity>
+(host, duration, image digest, rc)`.
+
+**Division of labor:** `metadata.json` (per identity) = what this
+artifact IS; `job.json` = what this invocation DID. An artifact can
+appear in many jobs (NOOPed); its metadata never changes.
+
 ### Flow diagram — worked example of everything locked (refreshed for #5–#7)
 
 Scene `006-kubota`, fake short hashes. One video; primary pool of
