@@ -2,7 +2,7 @@
 xid: DES-SCN-REPRO
 kind: design
 effort: scn
-status: open
+status: in-progress
 date: 2026-06-09
 guidance: ./guidance.md
 hugs: []

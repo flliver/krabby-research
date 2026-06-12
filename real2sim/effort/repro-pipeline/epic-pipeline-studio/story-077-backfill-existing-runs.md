@@ -4,10 +4,13 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: M
-status: in-progress
+status: shipped
 date: 2026-06-11
 depends-on: [STO-SCN-076, STO-SCN-071]
 bd-id: krabby-56b
+shipped: 2026-06-11
+tasks: 5
+complete: 0
 ---
 
 # Backfill: materialize Studio records for all existing runs (provenance recovered or marked unknown)
@@ -67,3 +70,7 @@ months of operator ranking judgment is stranded.
 - [ ] Idempotency proven: second run = zero diff.
 - [ ] Store still clean for all pre-existing files (backfill is
       additive only).
+
+## Status notes
+
+- 2026-06-11: Closed with --force; 5/5 DoD boxes unchecked. Reason: Superseded by HUG-SCN-005 locked #9: full-restructure migration with computed identities replaces the v3 run_record backfill; dry-run never wrote

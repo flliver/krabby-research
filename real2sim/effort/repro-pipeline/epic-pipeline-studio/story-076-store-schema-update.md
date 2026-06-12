@@ -4,10 +4,13 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: M
-status: in-progress
+status: shipped
 date: 2026-06-11
 depends-on: [STO-SCN-069, STO-SCN-070]
 bd-id: krabby-wal
+shipped: 2026-06-11
+tasks: 4
+complete: 3
 ---
 
 # Store schema update: additive structures for instances, run records, scores (non-breaking v3)
@@ -89,3 +92,7 @@ tracked locations for these, 072–075 each invent their own.
 
 - Backfilling historical runs into the new shapes — STO-SCN-077.
 - Renaming `transform-NN-*` or any existing path.
+
+## Status notes
+
+- 2026-06-11: Closed with --force; 1/4 DoD boxes unchecked. Reason: Superseded by HUG-SCN-005: store-shape v4 (content-addressed) replaces additive v3; schema doc tombstoned

@@ -1,4 +1,11 @@
-# Store schema v3 — Studio structures (STO-SCN-076)
+# Store schema v3 — Studio structures (STO-SCN-076) — SUPERSEDED
+
+> **TOMBSTONE (2026-06-11):** superseded by **HUG-SCN-005**
+> (`real2sim/effort/repro-pipeline/guidance/hug-scn-005-dag-of-dags-direction.md`)
+> — store-shape v4: content-addressed identities, task/graph/job,
+> full-restructure migration (locked #9). `run_record.json` is
+> replaced by per-identity `metadata.json` + scene-scoped job
+> records. Nothing below should be implemented; kept for history.
 
 > Additive over store-shape v2 (STO-SCN-062/063). Nothing moves,
 > nothing renames, every v2 consumer runs unchanged. **T-007 gate:

@@ -15,6 +15,13 @@ bd-id: krabby-ggb
 > Parent: DES-SCN-REPRO. Planned 2026-06-09; operator answered all six
 > open questions 2026-06-11 (decisions recorded below) — epic active.
 
+> **DIRECTION SHIFT (2026-06-11, post-MVP):** HUG-SCN-005 (DAG of
+> DAGs, content-addressed store, task/graph/job) supersedes parts of
+> this epic's data model: STO-SCN-076/077 closed superseded; the A–F
+> taxonomy maps to the new vocabulary per locked #4. The MVP shipped
+> here (catalog, adapters, trigger, harness, Studio UI) remains the
+> working system until the HUG's migration lands.
+
 ## Purpose (operator, 2026-06-11 — the filter for every feature)
 
 > The **ENTIRE purpose** of this effort is to figure out the best
