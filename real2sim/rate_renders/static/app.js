@@ -163,7 +163,7 @@ async function submitRanking() {
       throw new Error(`${res.status}: ${t}`);
     }
     const d = await res.json();
-    setSubmitStatus(`✓ Submitted at ${d.row.submitted_at}`, "ok");
+    setSubmitStatus(`✓ Submitted at ${(d.row && d.row.submitted_at) || (d.rows && d.rows[0] && d.rows[0].ts) || "now"}`, "ok");
     // Re-pull scene to refresh known-raters list (so new raters appear
     // for everyone the next time they hit the page or change scene).
     if (!state.knownRaters.includes(state.rater)) {
@@ -573,6 +573,12 @@ function renderManifest() {
     (labelOf(state.focusVariant) !== state.focusVariant
       ? ` <span style="color: var(--text-dim); font-size: 0.85em;">${esc(state.focusVariant)}</span>` : "") +
     `</div>`;
+  const ms = m.mesh || {};
+  if (ms.verts) {
+    const fmtN = (n) => n >= 1e6 ? (n/1e6).toFixed(1) + "M" : n >= 1e3 ? (n/1e3).toFixed(0) + "k" : n;
+    html += `<div style="margin-top:6px; color: var(--text-dim);">mesh: ` +
+            `${fmtN(ms.verts)} verts · ${fmtN(ms.faces)} tris · ${ms.size_mb} MB</div>`;
+  }
   const transforms = m.transforms || {};
   const tNames = Object.keys(transforms);
   if (!tNames.length) {

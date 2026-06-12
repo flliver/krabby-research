@@ -219,6 +219,24 @@ class Handler(BaseHTTPRequestHandler):
         return (scene_dir / "viewset" / "canonical" / "views.json").exists()
 
     @staticmethod
+    def _ply_stats(ply: Path) -> dict:
+        """Header-only PLY stats (STO-SCN-084): verts/faces + size."""
+        counts = {}
+        try:
+            with ply.open("rb") as f:
+                for raw in f:
+                    line = raw.decode("ascii", "ignore").strip()
+                    if line.startswith("element"):
+                        _, name, n = line.split()
+                        counts[name] = int(n)
+                    if line == "end_header" or f.tell() > 65536:
+                        break
+            return {"verts": counts.get("vertex", 0), "faces": counts.get("face", 0),
+                    "size_mb": round(ply.stat().st_size / 2**20, 1)}
+        except OSError:
+            return {}
+
+    @staticmethod
     def _v4_render_index(scene_dir: Path) -> dict:
         """(slot, mesh_identity) -> render.png path; plus labels + slots."""
         import sys as _sys
@@ -269,14 +287,23 @@ class Handler(BaseHTTPRequestHandler):
             variants = sorted({i for vs in rendered.values() for i in vs})
             manifests = {}
             for rep in ix["scan"]["representations"]:
+                rdir = scene_dir / "represent" / rep["kind"] / rep["identity"]
+                mesh_paths = {}
+                for mm in rep["meshes"]:
+                    mdir = rdir / "meshify" / mm["method"] / mm["identity"]
+                    mesh_paths[mm["identity"]] = mdir / "mesh.ply"
+                    for c in mm["conditioned"]:
+                        mesh_paths[c["identity"]] = mdir / "condition" / c["identity"] / "mesh.ply"
                 for m in rep["meshes"] + [c for mm in rep["meshes"] for c in mm["conditioned"]]:
                     if m["identity"] in variants:
+                        mp = mesh_paths.get(m["identity"])
                         manifests[m["identity"]] = {
                             "variant_name": ix["labels"].get(m["identity"], m["identity"]),
                             "pipeline": rep["kind"],
                             "run": m["identity"],
                             "notes": ("NOT DELIVERABLE: " + "; ".join(rep["license_flags"]))
                                      if not rep["deliverable_eligible"] else "",
+                            "mesh": self._ply_stats(mp) if mp and mp.exists() else {},
                             "transforms": {rep["algo"] or rep["kind"]: {
                                 "parameters": {**rep["settings"], **m.get("settings", {})}}}}
             return {"scene": scene, "views": ix["slots"], "rendered": rendered,
@@ -492,7 +519,11 @@ class Handler(BaseHTTPRequestHandler):
             with open(scene_dir / "scores.jsonl", "a") as f:
                 for r in rows:
                     f.write(json.dumps(r, sort_keys=True) + "\n")
-            return self._send_json({"ok": True, "rows": rows, "store": "v4"})
+            # `row` kept for the frontend contract (STO-SCN-083: the v4
+            # branch returned only rows[] and the submit handler crashed
+            # reading d.row.submitted_at)
+            return self._send_json({"ok": True, "row": row, "rows": rows,
+                                    "store": "v4"})
         # v2 legacy: append-only rankings.jsonl
         path = self._rankings_path(scene)
         path.parent.mkdir(parents=True, exist_ok=True)
