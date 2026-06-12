@@ -68,11 +68,55 @@ STO-SCN-075 stays valid — counts, not pose); its render removed;
 scan/payload filter excludes non-rankable meshes. 006's runoff list
 is clean again.
 
+## RESOLUTION (2026-06-12): da3-fuse@2 — register onto the reference
+
+The convention-drift suspect was WRONG (eras byte-similar, both w2c).
+The real shape, established by measurement across four specimens with
+the corrected metric (coarse-to-fine ICP 0.5/0.25/0.1 against the
+SAME-GAUGE matcha reference — the earlier 10deg/0.17m reading of
+"perfect" 006 was against a wrong-era reference):
+
+| specimen | operator verdict | correction | fitness |
+|---|---|---|---|
+| 006 2NUK (8 views) | perfect | 1.3deg / 0.05 m | 0.91 |
+| 007 CZP2 (9 views) | success | 2.4deg / 0.04 m | 0.84 |
+| 009 (7 fwd-walk views) | wrong | NO rigid pose exists | <=0.25 |
+
+- Fusion code exonerated: same code produced 007 near-perfect and
+  009 wrong. The variable is capture geometry — forward-walk views
+  condition DA3 poorly and its geometry comes out NON-RIGIDLY warped
+  (75%+ of the surface >10 cm off at ANY rigid placement).
+- Depth anchoring (da3-fuse@1) measured ineffective: per-view anchors
+  ~=1.0 (DA3 depths already agree with sparse points at projected
+  pixels); the warp lives elsewhere. Retired.
+- Naive single-pass ICP at 1.0 m corr is UNSTABLE: found a degenerate
+  99-deg basin on 009's corridor geometry at fitness 1.00 (renders
+  proved it garbage). Shrinking schedule + physical bound
+  (30deg/1m — cameras pair at mm, bigger corrections are impossible)
+  guards it.
+
+Shipped (`v4exec.py`, da3-fuse@2): fuse + c2f ICP registration onto
+the matcha reference mesh (now a resolved input — in the identity
+hash). Correction applied when within bounds; recorded as
+`measured.self_alignment` either way (it IS DA3's per-capture quality
+score). Degenerate registration => camera-aligned placement +
+`rankable: false`. Honest caveat in metadata: a registered mesh is no
+longer independent evidence of DA3 global accuracy — fine for the
+evaluation branch, which compares geometry quality in a shared gauge.
+
+009's 2I7XIVWBGWMY: flagged unrankable (correct — its DA3 geometry is
+genuinely unalignable). KBTX (@1 anchored) retired.
+
 ## Definition of Done
 
-- [ ] Root cause verified against da3_infer_gs.py exports in 0.2 vs
-      0.4 (npz extrinsics convention).
-- [ ] A frame-sanity check added to fusion (e.g. compare fused-mesh
-      up/floor vs the anchor gauge — catches global-frame lies the
-      camera-residual gate misses).
-- [ ] 2XEI re-fused correctly or retired permanently.
+- [x] Root cause verified: NOT npz convention drift (0.2/0.4
+      byte-similar, w2c both); DA3 non-rigid geometry warp on weakly
+      conditioned captures, invisible to the camera-residual gate.
+- [x] Frame-sanity check added to fusion: in-graph c2f ICP
+      registration vs reference with degeneracy guard + rankable flag
+      (supersedes the flawed verify-frame median-distance gate, which
+      had failed the operator-verified-perfect 006 at 0.155 m).
+- [x] 2XEI retired (rankable:false); 009 fusions superseded by @2.
+- [ ] OPERATOR: confirm 007 CZP2-class registered fusions read as
+      aligned in the runoff; capture guidance (avoid forward-walk-only
+      captures for the da3 branch) noted for future scenes.
