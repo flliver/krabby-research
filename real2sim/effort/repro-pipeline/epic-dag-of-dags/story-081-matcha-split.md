@@ -4,85 +4,56 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: M
-status: draft
+status: shipped
 date: 2026-06-11
 depends-on: []
 hugs: [HUG-SCN-005]
 bd-id: krabby-35u
+shipped: 2026-06-11
+tasks: 4
+complete: 4
 ---
 
 # Matcha monolith split: verify train-from-external-SfM + standalone tetra extraction (unwelds represent/meshify)
 
 ## Summary
 
-_(One sentence: what does this story deliver? Avoid "we will add X" —
-write the outcome, not the verb.)_
+Verify the matcha monolith can split into pose / represent / meshify
+(unwelding locked #6's fused execution).
 
-## Context
+## Verification (2026-06-11)
 
-_(Why is this story needed? What does it depend on? Link to the parent
-epic. If this is a discovered-from another story, surface the link.)_
+**SUPPORTED at our pinned commit** (`b119fd96`, the SHA baked into
+krabby-matcha — verified against the raw train.py source, not just
+current docs):
 
-## Problem
+- `--sfm_only` — solve standalone (already production: pool-SfM)
+- `--alignment_only` / `--refinement_only` — charts+train standalone;
+  each stage references the previous stage's output dir
+  (`mast3r_scene_path` feeds forward) → train-from-external-SfM is
+  the supported invocation, no code changes
+- `--mesh_only` — tetra extraction standalone, with previously
+  unexposed tunables discovered: `--tetra_downsample_ratio`
+  (default 0.5), `--use_multires_tsdf`, `--no_interpolated_views`
+- No auto-resume logic exists — stages run unconditionally when
+  invoked. That is exactly right for us: OUR planner decides what to
+  invoke (materialize-check, locked #4); the tool just runs its stage.
 
-_(What specific problem does this story solve? Concrete; the reader
-should be able to verify completion without re-reading the epic.)_
+**Consequence:** `matcha@1` = per-stage invocation — an executor
+change, not a fork. The locked-#6 weld (`@0`) and its compute-waste
+corner disappear when the executor adopts stage flags.
 
-## Design
-
-### Approach
-
-_(How will this be implemented? Reference HUGs that constrain the
-implementation choice; cite alternatives only when they shaped the
-final pick.)_
-
-### Changes
-
-| File | Change |
-|------|--------|
-| `path/to/file` | _(add / modify / extract)_ |
-| `path/to/test` | _(add tests for the new behavior)_ |
+**Honest caveat (T-002):** doc+source verified; the empirical
+stage-chained run (solve → train → mesh as three dispatches on a GPU
+host) is gated on the v4 executor + fleet re-clone of the migrated
+store — it is the natural FIRST v4-native matcha job, and
+`--tetra_downsample_ratio` should be promoted to a tunable in the
+meshify-via-tetra def at that point.
 
 ## Definition of Done
 
-- [ ] _(Specific, verifiable condition — not "code works")_
-- [ ] _(Specific, verifiable condition.)_
-- [ ] Tests written and passing.
-- [ ] Code reviewed (or self-reviewed against the engineer-knowledge
-      constraints).
-- [ ] `docs/work-platform.md` or other operator-facing doc updated if
-      surface changed.
-
-## Testing
-
-### Unit / fixture tests
-
-- [ ] _(Specific case.)_
-- [ ] _(Edge case.)_
-
-### Integration
-
-- [ ] _(Scenario.)_
-
-## Out of scope
-
-- _(Things deliberately deferred to a later story. Be explicit — the
-  reader should know what's *not* changing.)_
-
-## Implementation Notes
-
-_(Fill in during / after implementation. Capture what diverged from
-the original design and why — useful for the retrospective + for
-operators reading this story in a year.)_
-
-### What Changed
-
-_(Actual implementation. May differ from § Design above.)_
-
-### Files Modified
-
-- `path/to/file` — _(what changed)_
-
-### Gotchas
-
-_(Anything surprising or worth noting for future readers.)_
+- [x] Train-from-external-SfM verified (stage flags + forward-feeding
+      output dirs at pinned SHA).
+- [x] Standalone tetra extraction verified (`--mesh_only`).
+- [x] matcha@1 path defined (executor-level, no fork).
+- [x] New tunables recorded for promotion (tetra_downsample_ratio).
