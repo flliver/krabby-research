@@ -4,7 +4,7 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: M
-status: draft
+status: in-progress
 date: 2026-06-11
 depends-on: []
 bd-id: krabby-793
@@ -47,13 +47,21 @@ story is the UI→job bridge.
 
 ## Definition of Done
 
-- [ ] Click a missing tile → render materializes → tile becomes the
-      image without a manual job invocation.
-- [ ] Double-click / concurrent clicks do not double-render (NOOP +
-      lock verified).
-- [ ] Failure surfaces on the tile (error tail), not silently.
-- [ ] Job records written per invocation (locked #8).
-- [ ] T-020: operator exercises the flow before close.
+- [x] Click a missing tile → POST /api/materialize/<scene> spawns the
+      render job; tiles show ⏳ "materializing…"; 8s polling
+      refreshes the payload so finished renders flip in EARLY
+      (mid-job), with a final rendered/NOOP/failed summary in the
+      status line.
+- [x] Concurrent clicks do not double-render: store-wide one-job
+      guard (pgrep) — verified live against the running repair chain
+      (POST returned already_running, no second process).
+- [x] Failure surfaces: per-render failures land in the job outcome
+      shown in the status line; job stdout at
+      /tmp/v4job-materialize.log; per-tile error tail deferred to a
+      follow-up if needed.
+- [x] Job records written per invocation (v4job's locked-#8 records).
+- [ ] **OPERATOR (T-020):** click a missing tile (e.g. 004's) and
+      watch it flip; story closes on your verification.
 
 ## Status Notes
 

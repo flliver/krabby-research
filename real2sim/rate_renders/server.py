@@ -156,6 +156,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._send_json(self._scene_payload(p[len("/api/scene/"):]))
         if p.startswith("/api/render/"):
             return self._serve_render(p[len("/api/render/"):])
+        if p.startswith("/api/materialize/"):
+            return self._send_json(self._materialize_status(p[len("/api/materialize/"):]))
         if p.startswith("/api/rankings/"):
             return self._send_json(self._read_rankings(p[len("/api/rankings/"):]))
         if p.startswith("/api/aggregate/"):
@@ -168,7 +170,53 @@ class Handler(BaseHTTPRequestHandler):
         p = url.path
         if p.startswith("/api/rankings/"):
             return self._handle_post_ranking(p[len("/api/rankings/"):])
+        if p.startswith("/api/materialize/"):
+            return self._handle_materialize(p[len("/api/materialize/"):])
         return self._not_found()
+
+    # ---- materialize (STO-SCN-086: missing tiles trigger render jobs) ----
+
+    @staticmethod
+    def _v4job_running() -> bool:
+        import subprocess
+        r = subprocess.run(["pgrep", "-f", "v4job.py render-missing"],
+                           capture_output=True, text=True)
+        return bool(r.stdout.strip())
+
+    def _materialize_status(self, scene: str) -> dict:
+        scene_dir = SCENES_ROOT / scene
+        running = self._v4job_running()
+        last = None
+        jobs = sorted(scene_dir.glob("jobs/*/job.json"), reverse=True)
+        for j in jobs:
+            try:
+                d = json.loads(j.read_text())
+            except ValueError:
+                continue
+            if d.get("graph") == "render-missing":
+                last = {"job": j.parent.name, "outcome": d.get("outcome")}
+                break
+        return {"running": running, "last": last}
+
+    def _handle_materialize(self, scene: str):
+        scene_dir = SCENES_ROOT / scene
+        if not self._is_v4(scene_dir):
+            return self._bad_request("materialize is v4-only")
+        # Concurrency guard: ONE materialize at a time, store-wide — local
+        # Blender renders are serial work and NOOP semantics make a queued
+        # re-click pointless. Second click gets the running status back.
+        if self._v4job_running():
+            return self._send_json({"ok": True, "already_running": True,
+                                    **self._materialize_status(scene)})
+        import subprocess
+        import sys as _sys
+        repo = Path(__file__).resolve().parent.parent
+        subprocess.Popen([_sys.executable, str(repo / "v4job.py"),
+                          "render-missing", scene],
+                         stdout=open("/tmp/v4job-materialize.log", "ab"),
+                         stderr=subprocess.STDOUT,
+                         start_new_session=True)
+        return self._send_json({"ok": True, "started": True, "scene": scene})
 
     # ---- static ---------------------------------------------------------
 

@@ -447,13 +447,53 @@ function renderGrid() {
   for (const mv of missingHere) {
     const tile = document.createElement("div");
     tile.className = "tile missing";
-    tile.style.cssText = "border:2px dashed var(--text-dim); opacity:0.65; display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:90px;";
+    tile.style.cssText = "border:2px dashed var(--text-dim); opacity:0.75; display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:90px; cursor:pointer;";
+    const busy = state.materializing;
     tile.innerHTML = `<div style="color: var(--text-dim); text-align:center; padding:8px;">` +
-      `<div style="font-size:1.4em;">⬚</div>` +
-      `<div><em>not rendered yet</em></div>` +
+      `<div style="font-size:1.4em;">${busy ? "⏳" : "⬚"}</div>` +
+      `<div><em>${busy ? "materializing…" : "not rendered yet"}</em></div>` +
       `<div style="font-size:0.85em; margin-top:4px;">${labelOf(mv)}</div>` +
-      `<div style="font-size:0.75em; opacity:0.7;">v4job render-missing ${state.scene}</div></div>`;
+      `<div style="font-size:0.75em; opacity:0.7;">${busy ? "renders appear as they finish" : "click to materialize (STO-SCN-086)"}</div></div>`;
+    if (!busy) tile.addEventListener("click", () => materializeScene());
     els.grid.appendChild(tile);
+  }
+}
+
+// ---- STO-SCN-086: click-to-materialize ----------------------------------
+
+async function materializeScene() {
+  try {
+    const d = await api(`/api/materialize/${state.scene}`, { method: "POST" });
+    state.materializing = true;
+    renderGrid();
+    setStatus(d.already_running
+      ? "materialize already running — joining its progress"
+      : `materializing missing renders for ${state.scene}…`);
+    pollMaterialize();
+  } catch (e) {
+    setStatus(`materialize failed to start: ${e}`);
+  }
+}
+
+async function pollMaterialize() {
+  if (state._matPoll) clearTimeout(state._matPoll);
+  try {
+    const s = await api(`/api/materialize/${state.scene}`);
+    if (s.running) {
+      // refresh payload mid-flight so finished renders flip in early
+      await loadScene();
+      state.materializing = true;
+      renderGrid();
+      state._matPoll = setTimeout(pollMaterialize, 8000);
+      return;
+    }
+    state.materializing = false;
+    await loadScene();
+    const o = (s.last && s.last.outcome) || {};
+    setStatus(`materialize done: rendered ${o.rendered ?? "?"}, NOOP ${o.noop ?? "?"}, failed ${o.failed ?? "?"}`);
+  } catch (e) {
+    state.materializing = false;
+    setStatus(`materialize poll failed: ${e}`);
   }
 }
 
