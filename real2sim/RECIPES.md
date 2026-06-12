@@ -6,21 +6,14 @@
 > scenes actually processed (T-010); when a new data type shows up,
 > add a recipe here as part of processing it.
 
-Scene store layout (all recipes):
-
-```
-scenes/<scene>/
-├── input/                      # raw capture + preprocessing
-│   ├── <original capture>     #   video file / photo dir, original names
-│   ├── src/                    #   the canonical frame/photo pool
-│   └── preproc-NN-<slug>/      #   spec-driven transforms (spec + results + data/)
-├── pipeline-<p>/run-<r>/       # reconstruction runs (transforms 01..N)
-│   └── renders/                #   <view>.png + <view>.json settings sidecar
-│                               #   (the render belongs to the RUN that
-│                               #   produced it — STO-SCN-058)
-├── cameras.json                # scene-level unified views (schema 5)
-└── rankings.jsonl              # operator runoff rankings (eval data)
-```
+> **⚠ LAYOUT MIGRATED TO v4 (2026-06-11, HUG-SCN-005 / STO-SCN-080).**
+> The store is now content-addressed — see § "Storage policy —
+> store-shape v4" below for the layout. The recipe *flows* below
+> (probe → extract → select → solve → curate → reconstruct → rank)
+> remain the validated know-how, but their literal `input/src` /
+> `pipeline-*/run-*` paths are the PRE-v4 layout: translate via the
+> v4 task defs (`real2sim/tasks/`) + graphs (`real2sim/graphs/`).
+> Recipe prose gets rewritten as each flow is re-exercised v4-native.
 
 ## Hard limits (apply to every recipe)
 
