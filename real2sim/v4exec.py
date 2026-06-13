@@ -592,9 +592,10 @@ print("VIEWS_JSON" + json.dumps(out))
     slots = []
     existing = sorted(int(p.name) for p in (scene_dir / "views").glob("[0-9]*")
                       if p.is_dir()) if (scene_dir / "views").is_dir() else []
-    # idempotent by captured_name: a camera already written to a slot must
-    # not mint a second slot on re-run (the ghost-slot class — protocol
-    # processes views one at a time, re-reading the whole blend each time)
+    # idempotent by captured_name: a camera already in a slot maps back to
+    # THAT slot — re-framing updates the existing view.json in place (the
+    # expected /camera-save iteration loop), never mints a duplicate slot
+    # (the ghost-slot class). New captured_names append a fresh slot.
     by_name = {}
     for p in (scene_dir / "views").glob("[0-9]*") if (scene_dir / "views").is_dir() else []:
         try:
@@ -605,10 +606,10 @@ print("VIEWS_JSON" + json.dumps(out))
     next_slot = (existing[-1] + 1) if existing else 1
     for vw in views:
         if vw["name"] in by_name:
-            print(f"view {by_name[vw['name']]}: '{vw['name']}' already captured — NOOP")
-            continue
-        slot = f"{next_slot:02d}"
-        next_slot += 1
+            slot, action = by_name[vw["name"]], "updated"
+        else:
+            slot, action = f"{next_slot:02d}", "created"
+            next_slot += 1
         vdir = scene_dir / "views" / slot
         vdir.mkdir(parents=True, exist_ok=True)
         content = {k: v for k, v in vw.items() if k != "name"}
@@ -616,8 +617,9 @@ print("VIEWS_JSON" + json.dumps(out))
         (vdir / "metadata.json").write_text(json.dumps({
             "schema": 4, "captured_name": vw["name"], "mechanism": "operator-capture",
             "written": NOW()}, indent=2) + "\n")
-        slots.append(slot)
-        print(f"view {slot}: '{vw['name']}' lens {vw['lens_mm']}mm")
+        if action == "created":
+            slots.append(slot)
+        print(f"view {slot}: '{vw['name']}' lens {vw['lens_mm']}mm ({action})")
     cdir = scene_dir / "viewset" / "canonical"
     cdir.mkdir(parents=True, exist_ok=True)
     members = json.loads((cdir / "views.json").read_text())["slots"] \

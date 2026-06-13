@@ -8,9 +8,11 @@ session via the Blender MCP (`execute_blender_code`):
     print(result)
 
 What it does:
-  1. Validates the open .blend is a run-level scene.blend in the scene
-     store (scenes/<scene>/pipeline-<p>/run-<r>/scene.blend) and derives
-     the scene/pipeline/run context from bpy.data.filepath.
+  1. Validates the open .blend lives in the scene store and derives the
+     scene context from bpy.data.filepath. Accepts both the v2 run-level
+     layout (scenes/<scene>/pipeline-<p>/run-<r>/scene.blend) and the v4
+     layout (any .blend under scenes/<scene>/, e.g.
+     scenes/<scene>/scene.blend).
   2. Reads the active 3D viewport's pose (region_3d.view_matrix.inverted())
      and TRUE field of view from the projection (window_matrix).
 
@@ -22,12 +24,17 @@ What it does:
      the projection's diagonal terms — reproduces the framed view exactly,
      regardless of how Blender maps viewport lens internally.
   3. Creates/updates a Camera object named <name> in the cameras_virtual
-     collection, with the schema-v4/v5 custom properties round-tripped by
-     sync_comparison_views.py. Re-capture with the same name = update.
+     collection, tagged localization_method="viewport-capture", with the
+     schema-v4/v5 custom properties read back by the store writer.
+     Re-capture with the same name = update.
   4. Saves the .blend in place.
 
-The caller (the /camera-save skill) then runs the headless
-sync_comparison_views.py to regenerate scenes/<scene>/cameras.json.
+The caller (the /camera-save skill) then runs the store writer headless
+to materialize the view. For v4 scenes this is the graph-native
+`v4exec.py views-from-blend <scene> <blend>` (writes
+scenes/<scene>/views/<slot>/view.json — the ONLY store writer, locked
+#11). The legacy v3 path was sync_comparison_views.py →
+scenes/<scene>/cameras.json; do not use it for v4 scenes.
 """
 import math
 
@@ -78,8 +85,9 @@ def capture(name, purpose="ab-comparison", sensor_width=36.0,
         return {"error": "no .blend open"}
     scene_name, source_run = _derive_run_context(filepath)
     if scene_name is None:
-        return {"error": f"open file {filepath} is not a run-level scene store "
-                         f"blend (scenes/<scene>/pipeline-<p>/run-<r>/...)"}
+        return {"error": f"open file {filepath} is not in the scene store "
+                         f"(expected scenes/<scene>/... — v4 scene.blend or "
+                         f"v2 pipeline-<p>/run-<r>/scene.blend)"}
 
     v3d = _find_view3d()
     if v3d is None:
@@ -132,7 +140,8 @@ def capture(name, purpose="ab-comparison", sensor_width=36.0,
     cam_obj.data.sensor_fit = "HORIZONTAL"
     cam_obj.hide_render = False
 
-    # v4/v5 round-trip metadata (read back by sync_comparison_views.py).
+    # v4/v5 round-trip metadata (read back by the store writer:
+    # v4exec.py views-from-blend for v4, sync_comparison_views.py for v2).
     cam_obj["view_purpose"] = purpose
     cam_obj["render_resolution"] = list(render_resolution)
     cam_obj["render_engine"] = render_engine
@@ -159,6 +168,10 @@ def capture(name, purpose="ab-comparison", sensor_width=36.0,
         "fov_x_deg": round(math.degrees(fov_x), 2),
         "fov_y_check_deg": round(math.degrees(2.0 * math.atan(1.0 / p11)), 2),
         "purpose": purpose,
-        "next": ("run sync_comparison_views.py headless against this blend "
-                 "to regenerate scenes/<scene>/cameras.json"),
+        "next": (
+            f"v4exec.py views-from-blend {scene_name} {filepath}  "
+            f"(graph-native writer → views/<slot>/view.json)"
+            if "run-" not in (source_run or "") else
+            "run sync_comparison_views.py headless against this blend "
+            "to regenerate scenes/<scene>/cameras.json (legacy v2)"),
     }
