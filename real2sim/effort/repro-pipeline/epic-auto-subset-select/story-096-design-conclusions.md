@@ -64,9 +64,12 @@ clean handoff the existing reconstruct graphs consume unchanged.
 3. **Camera model comes from metadata / capture profile, NOT from pixel inference.**
    A DJI in fisheye mode is fisheye regardless of scene. Inferring distortion from
    scene edges was tried and is unreliable on natural/foliage scenes (the verdict flipped
-   between runs). EXIF + known capture mode → camera model (fisheye → `SIMPLE_RADIAL_FISHEYE`;
-   dewarped → OPENCV). Corpus caveat: in-camera-dewarped footage often fails reconstruction
-   outright, and even OPENCV can fail on strong fisheye — so getting the model right matters.
+   between runs). EXIF + known capture mode → camera model: **fisheye → `SIMPLE_RADIAL_FISHEYE`**;
+   **dewarped → COLMAP-incompatible under *any* model** (reconciled 2026-06-13 to HUG-SCN-004's
+   verdict; in-camera-dewarped footage does not reconstruct in COLMAP — route it to SLAM /
+   feed-forward, not OPENCV). The distinguishing input (fisheye vs dewarped) is **not in EXIF**
+   and must be declared per scene; EXIF (make/model) is corroboration only. Implemented in
+   STO-SCN-091 (`capture_profiles.json` + `capture_profile.py`).
 
 4. **Solver must match the modality.** Sparse-view retrieval methods (MASt3R-SfM/DUSt3R)
    drift on dense video — they have no temporal prior (the 001 nebula: a near-spherical

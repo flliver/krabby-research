@@ -4,7 +4,7 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: S
-status: open
+status: in-progress
 date: 2026-06-13
 depends-on: []
 bd-id: krabby-y9m
@@ -16,8 +16,9 @@ assignee: krabby
 ## Summary
 
 At ingest, read the source's camera + capture mode (EXIF / known profile) and record the
-camera model the solver should use — `SIMPLE_RADIAL_FISHEYE` for fisheye, `OPENCV` for
-rectilinear/dewarped — instead of inferring distortion from pixels.
+camera model the solver should use — `SIMPLE_RADIAL_FISHEYE` for fisheye; **dewarped is
+COLMAP-incompatible under any model** (route to SLAM/feed-forward) — instead of inferring
+distortion from pixels.
 
 ## Context
 
@@ -36,10 +37,10 @@ often fails entirely). We must decide it from reliable metadata, not noisy infer
 
 ### Approach
 
-A capture-profile lookup keyed on camera + mode (extend the corpus `capture-profiles`
-shape): fisheye→`SIMPLE_RADIAL_FISHEYE`, dewarped→`OPENCV`. Read EXIF for the camera/mode
-hints; fall back to an explicit operator-set profile when the mode isn't recorded (DJI
-doesn't tag dewarp). Emit the chosen model + a reconstruction-risk flag for dewarped input.
+A capture-profile lookup keyed on camera + mode: fisheye→`SIMPLE_RADIAL_FISHEYE`,
+dewarped→COLMAP-incompatible (`colmap_compatible: false`, `dewarp_dead_end: true`). Read
+EXIF for camera-identity corroboration; the mode itself is declared per scene (DJI doesn't
+tag dewarp). Emit the chosen model + compatibility flags. Unknown camera+mode → fail loud.
 
 ### Changes
 
@@ -50,37 +51,48 @@ doesn't tag dewarp). Emit the chosen model + a reconstruction-risk flag for dewa
 
 ## Definition of Done
 
-- [ ] Ingest emits `camera_model` (+ dewarp risk flag) from profile/EXIF, no pixel inference.
-- [ ] Unknown/unrecorded mode → explicit profile required (fails loud, not a guess).
-- [ ] Tests on the 001 (fisheye) and 002 (dewarped) captures.
+- [x] Ingest emits `camera_model` (+ compatibility flags) from profile/EXIF, no pixel
+      inference. (`v4exec.py cmd_ingest` `resolve-capture-profile` node → scene-store
+      `images/capture-profile/<id>/capture-profile.json` + metadata.)
+- [x] Unknown camera+mode / missing mode → fails loud (`ProfileError`); no guessed model.
+- [x] Resolver tests on the 001 (fisheye) and 002 (dewarped) semantics + ingest wiring
+      (11 tests). ⏳ Real end-to-end ingest of a scene with a `capture.json` is the
+      operator-verification gate (T-020) — host-bound, not run here.
 
-## Implementation Notes
+## Implementation Notes (as built, 2026-06-13)
 
-**Registry shape.** A small versioned table keyed `{make, model, capture_mode} →
-{colmap_camera_model, params_hint, dewarp_risk}`. Seed from the two known DJI profiles in
-the corpus: DJI Action-class **fisheye** → `SIMPLE_RADIAL_FISHEYE`; **in-camera-dewarped**
-→ `OPENCV` with `dewarp_risk: high` (corpus: dewarped footage often fails reconstruction
-outright, even under OPENCV). Live alongside the existing `capture-profiles` shape; this is
-a per-camera property, not per-scene.
+**Registry** (`real2sim/capture_profiles.json`, schema 1). Profiles keyed `{make, model,
+mode}` → `{colmap_camera_model, single_camera, colmap_compatible, dewarp_dead_end, fov_deg,
+notes, source}`. Seeded from HUG-SCN-004 + the 001/003/004 `CAPTURE-LESSONS.md` + the
+002-dewarped dead-end:
+- DJI Action 3 **fisheye** → `SIMPLE_RADIAL_FISHEYE`, `colmap_compatible: true`.
+- DJI Action 3 **dewarped** → `colmap_camera_model: null`, `colmap_compatible: false`,
+  `dewarp_dead_end: true` (HUG-SCN-004: dewarped does not reconstruct in COLMAP under any
+  model — route to SLAM/feed-forward; this replaced the design's earlier "OPENCV").
 
-**EXIF read.** Prefer the dependency-free route already in the tree —
-`colmap_posed.image_dims` parses JPEG SOF / PNG IHDR for dimensions with no deps; extend
-the same spirit for make/model/encoder. Use `exiftool` (if on PATH) or Pillow `_getexif`
-for richer tags. EXIF gives make/model/encoder/resolution as **corroboration** — it does
-**not** carry a dewarp/FOV tag on DJI, which is exactly why the capture-mode profile (not
-EXIF alone) decides the model.
+**Resolver** (`real2sim/capture_profile.py`). Pure/importable. `resolve(make, model, mode)`
+matches case-insensitively and raises `ProfileError` (fail loud) on unknown camera+mode or
+missing `mode`. EXIF (`read_exif`) is best-effort make/model **corroboration only** (Pillow
+→ `exiftool` → `{}`); the **mode is not in EXIF** and is declared per scene. CLI for manual
+checks.
 
-**Output + failure.** Write `camera_model` + `dewarp_risk` into the ingest manifest the
-pose stage (STO-SCN-093) reads. On an unknown `{make,model,mode}` combination, **fail loud
-and require an explicit operator-set profile** — never silently default to PINHOLE/OPENCV
-(that's the wrong-model-fails-the-solve trap from conclusion #3).
+**Ingest wiring** (`v4exec.py cmd_ingest`, graph option B). New graph node
+`resolve-capture-profile` (`tasks/resolve-capture-profile.json`,
+`graphs/ingest-scene.json`: `pool → capture-profile → solve`). Declaration precedence:
+`--capture-mode/--camera-make/--camera-model` > `<scene>/capture.json`. Identity = hash of
+the declaration; written set-if-unset to `images/capture-profile/<id>/capture-profile.json`
++ metadata via the store writer (HUG-SCN-005 #11). **No declaration → SKIP** (today's
+mast3r-sfm solve doesn't consume the model; only STO-SCN-093 dispatch will) so existing
+scenes still re-ingest; a **present-but-unresolvable** declaration fails loud.
 
-**Test data.** Scenes 001 (fisheye) and 002 (dewarped) sample frames are already in the
-store. Assert 001 → `SIMPLE_RADIAL_FISHEYE`, 002 → `OPENCV` + `dewarp_risk: high`, and an
-unprofiled camera → loud failure.
+**Tests** (`tests/test_capture_profile.py`, `tests/test_capture_profile_ingest.py`, 11
+passing): resolver semantics (001 fisheye → `SIMPLE_RADIAL_FISHEYE`; 002 dewarped →
+COLMAP-dead-end; unknown/missing-mode → loud), graph topology, and the store-write
+primitives.
 
-**Size:** S — a lookup + EXIF read + manifest field. The judgment (which model) is already
-made in conclusion #3; this story just operationalizes it.
+**Boundary with STO-SCN-093.** Hyperlapse-vs-video cadence (COLMAP-sequential fails on
+hyperlapse even with the right model — HUG-SCN-004) is a *solver-routing* concern, not a
+camera-model one; it lives in 093's dispatch, which consumes this profile.
 
 ## Out of scope
 

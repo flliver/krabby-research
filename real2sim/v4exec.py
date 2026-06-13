@@ -45,6 +45,7 @@ except ImportError:
 
 sys.path.insert(0, str(Path(__file__).parent))
 import v4core as v4
+import capture_profile as cap  # STO-SCN-091
 
 SCRATCH = "/home/jeremy/scratch/v4exec"
 MATCHA_IMAGE = "j.pski.org:5000/krabby-matcha:0.2.2-selfcontained"
@@ -169,6 +170,51 @@ def cmd_ingest(args):
         nodes.append({"node": "pool", "task": "images-subset", "identity": sub, "action": "NOOP"})
     created = sc.set_ref_if_unset("primary", sub)
     nodes.append({"node": "primary-ref", "action": "set" if created else "NOOP", "target": sub})
+
+    # -- node: resolve-capture-profile (STO-SCN-091; camera model from declared
+    #    capture mode, NOT pixel inference). Declaration precedence: CLI flags >
+    #    <scene>/capture.json. Identity = hash of the declaration, so a camera+mode
+    #    resolves once and is reused. ABSENCE of a declaration is a SKIP (today's
+    #    mast3r-sfm solve doesn't consume the model; STO-SCN-093 dispatch will) —
+    #    only a PRESENT-but-unresolvable declaration fails loud (no guessed model).
+    cp_make = getattr(args, "camera_make", None)
+    cp_model = getattr(args, "camera_model", None)
+    cp_mode = getattr(args, "capture_mode", None)
+    decl_path = scene_dir / "capture.json"
+    if not (cp_make and cp_model and cp_mode) and decl_path.exists():
+        decl = json.loads(decl_path.read_text())
+        cp_make = cp_make or decl.get("make")
+        cp_model = cp_model or decl.get("model")
+        cp_mode = cp_mode or decl.get("mode")
+    if not any([cp_make, cp_model, cp_mode]):
+        print("[capture-profile] SKIP — no <scene>/capture.json and no --capture-mode; "
+              "camera model unresolved (STO-SCN-093 dispatch will require it).")
+        nodes.append({"node": "capture-profile", "action": "SKIP", "reason": "no-declaration"})
+    else:
+        cp_settings = v4.hashable_settings(v4.tasks()["resolve-capture-profile"],
+                                           {"make": cp_make, "model": cp_model, "mode": cp_mode})
+        cpid = v4.identity_hash({}, cp_settings, "capture-profile@0")
+        cpdir = scene_dir / "images" / "capture-profile" / cpid
+        if (cpdir / "metadata.json").exists():
+            nodes.append({"node": "capture-profile", "identity": cpid, "action": "NOOP"})
+        else:
+            try:
+                prof = cap.resolve(cp_make, cp_model, cp_mode)
+            except cap.ProfileError as e:
+                sys.exit(f"capture-profile: {e}")
+            cpdir.mkdir(parents=True, exist_ok=True)
+            (cpdir / "capture-profile.json").write_text(json.dumps(prof, indent=2) + "\n")
+            v4.write_metadata(cpdir, task="resolve-capture-profile", algo="capture-profile@0",
+                              identity=cpid, resolved_inputs={}, settings=cp_settings,
+                              mechanism="job",
+                              extra={"camera_model": prof["colmap_camera_model"],
+                                     "colmap_compatible": prof["colmap_compatible"],
+                                     "dewarp_dead_end": prof["dewarp_dead_end"]})
+            print(f"[capture-profile] {cp_make} {cp_model} / {cp_mode} -> "
+                  f"{prof['colmap_camera_model']} (colmap_compatible={prof['colmap_compatible']})")
+            nodes.append({"node": "capture-profile", "identity": cpid, "action": "EXECUTE",
+                          "camera_model": prof["colmap_camera_model"],
+                          "colmap_compatible": prof["colmap_compatible"]})
 
     # -- node: solve-cameras (host GPU; mast3r-sfm@0 via matcha --sfm_only)
     s_settings = v4.hashable_settings(v4.tasks()["solve-cameras"], {})
@@ -1063,6 +1109,11 @@ def main():
     p.add_argument("scene")
     p.add_argument("--host", required=True)
     p.add_argument("--raw", default=None)
+    p.add_argument("--capture-mode", default=None,
+                   help="camera capture mode (fisheye|dewarped) — not in EXIF; "
+                        "overrides <scene>/capture.json (STO-SCN-091)")
+    p.add_argument("--camera-make", default=None, help="camera make (capture declaration)")
+    p.add_argument("--camera-model", default=None, help="camera model (capture declaration)")
     p.set_defaults(fn=cmd_ingest)
     p = sp.add_parser("reconstruct-matcha")
     p.add_argument("scene")

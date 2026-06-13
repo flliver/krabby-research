@@ -13,6 +13,10 @@
       "task": "images-subset"
     },
     {
+      "id": "capture-profile",
+      "task": "resolve-capture-profile"
+    },
+    {
       "id": "solve",
       "task": "solve-cameras"
     },
@@ -32,6 +36,10 @@
     ],
     [
       "pool",
+      "capture-profile"
+    ],
+    [
+      "capture-profile",
       "solve"
     ],
     [

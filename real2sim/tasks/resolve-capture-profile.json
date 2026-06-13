@@ -1,0 +1,19 @@
+{
+  "schema": 4,
+  "name": "resolve-capture-profile",
+  "algo": "capture-profile@0",
+  "description": "Resolve the camera model + solver compatibility from the per-scene capture declaration {make, model, mode} via capture_profiles.json (STO-SCN-091). The model is a property of the camera/capture mode, decided from known metadata — NOT inferred from pixels (STO-SCN-096 #3, HUG-SCN-004). `mode` (fisheye|dewarped) is not in EXIF and must be declared per scene. The artifact identity is the hash of the declaration, so a given camera+mode resolves once and is reused.",
+  "inputs": [],
+  "settings": {
+    "make":  {"class": "tunable", "note": "camera make (capture declaration; EXIF corroboration only)"},
+    "model": {"class": "tunable", "note": "camera model (capture declaration)"},
+    "mode":  {"class": "tunable", "note": "fisheye | dewarped — NOT carried in EXIF; declared per scene"}
+  },
+  "placement": "images/capture-profile/{identity}",
+  "outputs": [
+    {
+      "name": "profile",
+      "path": "capture-profile.json"
+    }
+  ]
+}
