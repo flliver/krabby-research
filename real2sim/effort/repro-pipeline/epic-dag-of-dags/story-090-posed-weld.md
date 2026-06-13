@@ -6,6 +6,7 @@ epic: EPI-SCN-DAG-OF-DAGS
 status: shipped
 created: 2026-06-12
 closed: 2026-06-13
+bd-id: krabby-84f
 ---
 
 # STO-SCN-090 — Posed reconstruction (matcha@1 + da3@1): feed the ingest solve in, stop re-solving
@@ -106,15 +107,22 @@ verification. Available for the remaining-scene sweep; matcha@0/da3@0
 stay the default (nothing already-built rebuilds — identity hashing
 keeps both eras addressable).
 
-## Follow-up (parked 2026-06-12, do after 003 verified)
+## Follow-up — DONE 2026-06-13
 
-Stale v3 guidance pointing at the retired writer (`sync_comparison_views.py`
-→ `cameras.json`) instead of the v4-native graph writer
-(`v4exec views-from-blend` → `views/<slot>/view.json`). Behavior is fine
-(viewport_capture.py already has a v4 `_derive_run_context` branch and
-the capture succeeded) — this is guidance-only, a T-025/locked-#11 trap
-for the next caller. Three strings to fix:
-1. `viewport_capture.py` `capture()` return `next:` hint.
-2. `.claude/` `/camera-save` skill step 3 (the sync_comparison_views.py block).
-3. `viewport_capture.py` line ~81 error string (v3-only wording; cosmetic,
-   only fires when file isn't in the store at all).
+Stale v3 guidance pointed at the retired writer
+(`sync_comparison_views.py` → `cameras.json`) instead of the v4-native
+graph writer (`v4exec views-from-blend` → `views/<slot>/view.json`).
+Behavior was always fine (viewport_capture.py already had a v4
+`_derive_run_context` branch and the capture succeeded) — this was a
+guidance-only T-025/locked-#11 trap for the next caller. Fixed:
+- `viewport_capture.py`: module docstring, the `next:` return hint (now
+  layout-aware — emits the exact `views-from-blend` command for v4, the
+  legacy command for v2 `pipeline-/run-` blends), the store-membership
+  error string, and the read-back comment.
+- `.claude/commands/camera-save.md`: header, intro (v4-is-the-path
+  callout), preconditions (accept v4 layout + stale-blend warning),
+  step 3 (the `views-from-blend` block + ghost-slot idempotency note),
+  step 4, and the notes. All residual `sync_comparison_views.py`
+  mentions are now explicitly tagged "legacy v2 — never v4".
+- Verified: helper parses, `next` ternary branches correctly for both
+  layouts.
