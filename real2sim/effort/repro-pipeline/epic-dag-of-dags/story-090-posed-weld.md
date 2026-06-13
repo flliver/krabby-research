@@ -3,8 +3,9 @@ xid: STO-SCN-090
 kind: story
 effort: repro-pipeline
 epic: EPI-SCN-DAG-OF-DAGS
-status: in-progress
+status: shipped
 created: 2026-06-12
+closed: 2026-06-13
 ---
 
 # STO-SCN-090 — Posed reconstruction (matcha@1 + da3@1): feed the ingest solve in, stop re-solving
@@ -88,6 +89,22 @@ the ingest gauge (the 089 gauge-sim is now pure verification here).
   Scene built + loaded; view-01 captured (slot 01, lens 25mm), renders
   dispatched. cmd_views made idempotent by captured_name (ghost-slot
   guard). Awaiting operator view-02 + runoff verification (T-020).
+
+## CLOSED: SOLVED (2026-06-13)
+
+Operator ranked 003-firepit's runoff: "003 has been ranked and looks
+correct." That is the T-020 gate — 003, the forcing scene that was
+architecturally unbuildable under the re-solve path (matcha 3.1-3.9%,
+DA3 60.7% disagreement with the ingest solve), now reconstructs cleanly
+and ranks correctly on both branches via the posed path.
+
+Resolves STO-SCN-089 sweep follow-up #1. The posed path
+(`--sfm posed` → matcha@1 / da3@1) is now the root-cause fix for the
+gauge-sim class: when the ingest solve is fed in, no tool re-solves, so
+no arbitrary gauge is minted and the 089 gauge-sim becomes pure
+verification. Available for the remaining-scene sweep; matcha@0/da3@0
+stay the default (nothing already-built rebuilds — identity hashing
+keeps both eras addressable).
 
 ## Follow-up (parked 2026-06-12, do after 003 verified)
 
