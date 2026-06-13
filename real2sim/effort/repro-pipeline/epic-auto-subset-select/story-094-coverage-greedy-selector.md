@@ -4,7 +4,7 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: L
-status: draft
+status: open
 date: 2026-06-13
 depends-on: [STO-SCN-093]
 bd-id: krabby-mft
@@ -63,6 +63,32 @@ segment boundary contract** (STO-SCN-096): the spine passes `boundary_spec` (pin
 frames + overlap to cover); the selector honors it. For a single space (M=1) the spec is
 empty and the constraint is inert. The spine segmentation + global registration that consume this live in
 the sibling epic (EPI-SCN-SPINE-ASSEMBLY).
+
+## Implementation Notes
+
+**Algorithm (greedy submodular maximization).** Maintain a covered-point set `C`. Each
+step, add the unselected view `v` with the largest **marginal gain**:
+`gain(v) = Σ over points v sees but C doesn't, weighted by triangulation-angle quality`
+(angle quality peaks in ~10–30°, falls off outside), **subject to a connectivity
+constraint**: `v` must share ≥ K points / sufficient pairwise overlap with the current
+selection (so the kept view-graph never fragments — the failure the 300-frame drift
+exhibited). Stop at N, or when marginal gain < ε (coverage saturated). Deterministic via a
+fixed index tie-break.
+
+**N target.** The downstream model's sweet spot — parameterized: ~12–17 for the existing
+reconstruct graphs, ~32 for a DA3 feed-forward pass. Caller supplies N.
+
+**boundary-overlap budget (spine IN, M=1 inert).** When `boundary_spec` is non-empty:
+pre-seed the selection with the pinned anchor frames and bias `gain` toward seam-overlap
+coverage so adjacent segments stay co-visible. The constraint is the IN side of the
+segment boundary contract (STO-SCN-096); for a single space it's empty and ignored.
+
+**Coverage report (the selector's "eyes", T-012).** Emit covered-surface %, a
+triangulation-angle histogram, an explicit **gap list** (surface regions under-covered),
+and per-view marginal contribution. This report is what STO-SCN-095 renders for the human.
+
+**Test.** On a known scene, the proposed-N must reconstruct **at least as well** as a
+hand-picked set of the same size (the falsifiable bar — T-001).
 
 ## Out of scope
 

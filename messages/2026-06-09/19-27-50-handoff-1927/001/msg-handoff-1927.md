@@ -3,7 +3,7 @@ xid: MSG-PROJ-001
 content-path: /private/var/krabby/research/messages/2026-06-09/19-27-50-handoff-1927/001/msg-handoff-1927.md
 kind: msg
 effort: proj
-status: open
+status: abandoned
 date: 2026-06-09
 to: krabby
 from: krabby

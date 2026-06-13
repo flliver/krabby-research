@@ -4,7 +4,7 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: M
-status: draft
+status: open
 date: 2026-06-13
 depends-on: [STO-SCN-091, STO-SCN-092]
 bd-id: krabby-duy
@@ -43,6 +43,29 @@ flagged for loop-closure constraints downstream (STO-SCN-098).
 - [ ] Long pool → M overlapping segments, each within solver capacity.
 - [ ] Boundary overlap between adjacent segments meets a registrability threshold.
 - [ ] Loop/revisit candidates flagged for global registration.
+
+## Implementation Notes
+
+**Segmentation.** Overlapping temporal windows along the trajectory. Window size capped by
+**solver capacity** (≤ a few-hundred frames for SfM / the DA3 view ceiling per segment).
+Overlap is a tunable stride so adjacent windows share ≥ the **boundary-overlap budget**
+(the registrability threshold consumed by STO-SCN-098).
+
+**Boundary placement.** Prefer cut points where inter-frame overlap is *high* (don't cut
+across a low-overlap gap, or the seam won't register). Use the pre-cull / co-visibility
+signal where a coarse pass is available; otherwise fall back to trajectory speed / frame
+similarity.
+
+**Loop / revisit detection.** Cheap global-descriptor or pHash similarity across
+**non-adjacent** windows (reuse the STO-SCN-092 pHash) flags candidate loop closures —
+handed to STO-SCN-098 as extra pose-graph edges.
+
+**Output = the spine's per-segment `boundary_spec`** (the IN contract that STO-SCN-094
+honors): pinned anchor frames + overlap region per neighbor, plus the global `camera_model`
+(STO-SCN-091, identical for every segment). This is precisely the `097 → 091,092` edge.
+
+**Test.** A multi-segment walk splits into M windows each within capacity; every adjacent
+pair clears the overlap threshold; at least one path-revisit is flagged.
 
 ## Out of scope
 

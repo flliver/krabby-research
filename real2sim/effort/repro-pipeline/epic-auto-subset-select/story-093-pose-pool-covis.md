@@ -4,7 +4,7 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: L
-status: draft
+status: open
 date: 2026-06-13
 depends-on: [STO-SCN-091, STO-SCN-092]
 bd-id: krabby-0dk
@@ -63,6 +63,36 @@ gauge — per-segment local solves + pose-graph optimization / loop closure / gl
 lives in the sibling spine-assembly epic (EPI-SCN-SPINE-ASSEMBLY). Keep the per-segment
 solver's output (poses + track graph) in a form that the global registration can consume
 across segment boundaries.
+
+## Implementation Notes
+
+**Solver dispatch** keyed on `(modality, camera_model)` — modality from ingest/pre-cull
+(ordered video vs sparse unordered), camera_model from STO-SCN-091:
+- **ordered video** → sequential SfM (COLMAP-sequential: GPU SIFT + CPU mapper, honours the
+  DJI fisheye `SIMPLE_RADIAL_FISHEYE` model) or **GPU SfM** (GLOMAP / FastMap) when CPU
+  mapping is the bottleneck.
+- **sparse unordered** → feed-forward (VGGT / DA3).
+- The **exact pick is the open decision of this story** (T-002 — not pre-committing).
+  Reference: the research-corpus `3d-reconstruction/pose-solver-landscape` entry
+  (proposal `kp-20260613-88fb`).
+
+**Posed-path reuse (free win).** Where an ingest solve already exists, `colmap_posed.py`
+already mints a COLMAP `sparse/0` + `posed.json` from it with **no re-solve** (the
+matcha@1 / da3@1 mechanism shipped under STO-SCN-090). The co-visibility graph then derives
+directly from that COLMAP model — no new solve needed for already-posed scenes.
+
+**Co-visibility graph output.** Persist a sidecar the selector (094) reads:
+`image_id → covered 3D-point ids`, `pair(i,j) → shared-point count + mean triangulation
+angle`. This is exactly what COLMAP's `points3D` + `images` tracks give for free; for
+feed-forward solvers, derive overlap from projected-depth agreement.
+
+**Validity gate (conclusion #5).** PCA on camera centers → out-of-plane / in-plane spread
+ratio. Reuse the planarity check prototyped this session (sibling to
+`gauge_align`): a handheld ground walk lands at a few %; the 300-frame MASt3R **nebula** hit
+~60% — fail loud at a threshold (~15–20%) before any downstream work.
+
+**Test.** A known-good scene reconstructs and passes the gate; the 300-frame MASt3R nebula
+input is caught by the gate (the regression that motivated the whole epic).
 
 ## Out of scope
 
