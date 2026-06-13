@@ -8,6 +8,7 @@ date: 2026-06-13
 hugs: []
 tenets: []
 bd-id: krabby-0qk
+assignee: krabby
 ---
 
 # Automated frame-subset selection: large pool → posed → best-N (human-verified in gaussian space) → reconstruct

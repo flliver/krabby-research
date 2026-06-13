@@ -6,7 +6,7 @@ effort: scn
 size: M
 status: open
 date: 2026-06-03
-depends-on: []
+depends-on: [STO-SCN-099]
 bd-id: krabby-19o
 priority: 2
 title: T2.D1 — Merge & Gap-Fill Mesh Surfaces
@@ -32,7 +32,22 @@ Use surface reconstruction (continuing TSDF fusion or Poisson on output) to reso
 
 ## Journal Notes
 
-No M11 implementation (each M11 room fits a single MAtCha run), but the approach is specified in the M12+ submap-fusion design: after positioning N overlapping sub-scenes via the camera "spine," merge/gap-fill conflicting surfaces, then TSDF-fuse to make ground/obvious surfaces watertight. MAtCha's `extract_tsdf_mesh.py` already does multi-resolution TSDF fusion (reusable); Open3D `ScalableTSDFVolume` is the off-the-shelf driver; boundary artifacts handled by confidence-weighted depth integration (a confidence problem, not averaging).
+No M11 implementation (each M11 room fits a single MAtCha run). This story is the
+**post-fusion conditioning** step: it consumes the single cohesive mesh and makes it
+manifold + watertight + gap-filled, ready for physics/USD export.
+
+**Boundary with the spine epic (reconciled 2026-06-13):** the *inter-segment seam
+fusion* — dedup of doubled walls / blending at segment overlaps after global
+registration — is **owned upstream by STO-SCN-099** (EPI-SCN-SPINE-ASSEMBLY), whose DoD
+explicitly emits geometry "consumable by downstream condition/export." Hence
+`depends-on: STO-SCN-099`. This story does **not** re-do seam fusion; it conditions the
+already-fused result. For a single space (M=1) STO-SCN-099 is a pass-through and this
+story conditions the lone reconstruction directly.
+
+Reusable tooling for the conditioning itself: MAtCha's `extract_tsdf_mesh.py`
+(multi-resolution TSDF fusion); Open3D `ScalableTSDFVolume` as the off-the-shelf driver;
+boundary artifacts handled by confidence-weighted depth integration (a confidence
+problem, not averaging).
 _Sources: notes 2026-05-01T174650-submap-based-mesh-fusion, 2026-05-04T120000-submap-fusion-strategy-detailed._
 
 ---

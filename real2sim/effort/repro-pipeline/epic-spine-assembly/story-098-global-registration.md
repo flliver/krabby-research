@@ -8,6 +8,7 @@ status: draft
 date: 2026-06-13
 depends-on: [STO-SCN-097, STO-SCN-093]
 bd-id: krabby-1lm
+assignee: krabby
 ---
 
 # Global registration of segment submaps (pose-graph + loop closure + global BA)

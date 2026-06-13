@@ -8,6 +8,7 @@ status: draft
 date: 2026-06-13
 depends-on: [STO-SCN-094]
 bd-id: krabby-9qo
+assignee: krabby
 ---
 
 # Scout-gaussian verification surface + handoff to reconstruct graphs

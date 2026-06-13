@@ -8,6 +8,7 @@ status: draft
 date: 2026-06-13
 depends-on: [STO-SCN-098, STO-SCN-095]
 bd-id: krabby-88l
+assignee: krabby
 ---
 
 # Cohesive fusion of per-segment reconstructions into one gauge

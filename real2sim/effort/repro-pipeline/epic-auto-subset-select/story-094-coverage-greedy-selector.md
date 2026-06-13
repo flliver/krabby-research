@@ -8,6 +8,7 @@ status: draft
 date: 2026-06-13
 depends-on: [STO-SCN-093]
 bd-id: krabby-mft
+assignee: krabby
 ---
 
 # Coverage-greedy best-N selector over the co-visibility graph

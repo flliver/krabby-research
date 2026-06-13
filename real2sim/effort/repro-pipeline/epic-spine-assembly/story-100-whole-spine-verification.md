@@ -8,6 +8,7 @@ status: draft
 date: 2026-06-13
 depends-on: [STO-SCN-099, STO-SCN-095]
 bd-id: krabby-wua
+assignee: krabby
 ---
 
 # Whole-spine verification (assembled space + seams in the scout gaussian)

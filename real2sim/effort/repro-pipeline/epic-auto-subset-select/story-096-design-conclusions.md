@@ -8,6 +8,7 @@ status: open
 date: 2026-06-13
 depends-on: []
 bd-id: krabby-1tr
+assignee: krabby
 ---
 
 # Design: automated frame-subset selection — approach & conclusions
@@ -128,10 +129,38 @@ boundary spec and emits a seam handle.
 (×M poses in) · `099→095` (×M reconstructions in) · `100→095` (scout surface). At **M=1**
 the boundary_spec is empty and there is no registration — the segment *is* the whole scene.
 
+## Downstream boundary: where the spine hands off to mesh-conditioning (reconciled 2026-06-13)
+
+These two repro-pipeline epics produce **one cohesive geometry**; they do **not** own the
+terminal preparation for physics/USD. That arc already exists as the legacy
+`effort/condition-usd/` epics (re-imported 2026-06-03):
+
+```
+… 098 → 099 (fuse) → 013 (condition) → 014 (verify watertight) → 015 (smooth)
+                          └────────────► EPI-SCN-MESH-CONDITION ─► EPI-SCN-USD-EXPORT
+```
+
+The boundary is a single producer→consumer edge, **STO-SCN-099 → STO-SCN-013**:
+
+- **STO-SCN-099 (spine, fuse) owns inter-segment seam fusion** — dedup of doubled walls /
+  overlap blending *after* global registration. Its DoD already promises geometry
+  "consumable by downstream condition/export."
+- **STO-SCN-013 (mesh-condition) owns post-fusion conditioning** — make the single fused
+  mesh manifold + watertight + gap-filled prior to physics. It does **not** re-do seam
+  fusion.
+- **M=1 degenerate:** STO-SCN-099 is a pass-through (nothing to register/fuse), and 013
+  conditions the lone reconstruction directly — so the same edge holds whether the scene
+  is one space or a spine.
+
+This corrects a pre-existing overlap: STO-SCN-013's original journal (Jun-3) *anticipated*
+the spine seam-fusion before the spine epic existed; that responsibility now lives in
+STO-SCN-099, and 013 was retargeted + given `depends-on: STO-SCN-099`.
+
 ## Definition of Done
 
 - [x] Approach, the pipeline graph, and the six conclusions recorded here.
 - [x] Segment boundary contract (IN/OUT) recorded — the meaning of the ×M edges.
+- [x] Downstream boundary to mesh-conditioning/USD-export recorded (099 → 013 edge).
 - [ ] Operator concurrence on the approach (this story is the record of it).
 
 ## Out of scope

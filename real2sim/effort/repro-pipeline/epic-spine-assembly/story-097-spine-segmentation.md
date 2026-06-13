@@ -8,6 +8,7 @@ status: draft
 date: 2026-06-13
 depends-on: [STO-SCN-091, STO-SCN-092]
 bd-id: krabby-duy
+assignee: krabby
 ---
 
 # Spine segmentation (chunk trajectory into M overlapping segments)

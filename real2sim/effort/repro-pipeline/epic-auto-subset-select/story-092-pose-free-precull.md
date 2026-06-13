@@ -8,6 +8,7 @@ status: draft
 date: 2026-06-13
 depends-on: []
 bd-id: krabby-e28
+assignee: krabby
 ---
 
 # Pose-free pre-cull (sharpness + perceptual-dedup) for large pools

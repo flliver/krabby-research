@@ -8,6 +8,7 @@ date: 2026-06-13
 hugs: []
 tenets: []
 bd-id: krabby-3l9
+assignee: krabby
 ---
 
 # Spine assembly: segment a video into M overlapping sub-reconstructions, globally register, fuse into one cohesive space

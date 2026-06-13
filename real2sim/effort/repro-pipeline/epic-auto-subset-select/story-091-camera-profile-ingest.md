@@ -8,6 +8,7 @@ status: draft
 date: 2026-06-13
 depends-on: []
 bd-id: krabby-y9m
+assignee: krabby
 ---
 
 # Camera profile at ingest (EXIF/capture-mode → camera model)
