@@ -235,3 +235,15 @@ beads
 # CCC shared-knowledge provisioning symlink (STO-BUGS-083 mechanism);
 # per-host absolute target — provisioned locally, never committed.
 .ccc/source
+
+# Stray remote-copy / debug-dump guard (2026-06-13): a malformed scp/rsync
+# during STO-SCN-089 created a literal "jeremy@192.168.0.160/" dir (818 MB
+# of solve data) in the repo root. Code lives here; scene/solve DATA lives
+# in /var/krabby/scenes (remote `j`). Block host-named dirs + debug dumps.
+/*@*/
+caminstr/
+aid/**
+
+# AID session checkpoints (PreCompact hook output) — local session state,
+# not code. Operator directive 2026-06-13: keep these out of the repo.
+aid/sessions/

@@ -154,8 +154,9 @@
     "ccc.delegates.pinned": [
       "krabby-sherpa",
       "krabby-manager",
-      "krabby-ccc",
       "krabby-principal",
+      "krabby-ccc",
+      "krabby-engineer",
       "krabby-krabby"
     ]
   },

@@ -12,7 +12,7 @@ Subcommands (the native proof protocol, locked #11):
     ingest <scene> --host U@H [--raw <dir>]   hash-n-images -> images-subset
                                               -> solve-cameras (host GPU)
     reconstruct-matcha <scene> --host U@H [--dense-regul default|strong]
-                                              matcha@0 weld (host GPU) ->
+                       [--sfm unposed|posed]  matcha@0/@1 weld (host GPU) ->
                                               orient bootstrap (local) ->
                                               tetra+tsdf meshes (canonical gauge)
     views-from-blend <scene> <blend>          operator-captured virtual cams ->
@@ -222,7 +222,16 @@ def cmd_matcha(args):
     if not solve_dirs:
         sys.exit("no solve for primary — run ingest first")
     sid = solve_dirs[0].name
-    rid = v4.identity_hash({"subset": sub, "cameras": sid}, r_settings, "matcha@0")
+    # matcha@0: unposed weld — train.py re-solves cameras, minting its own
+    #           gauge (composed out via gauge-sim, STO-SCN-089-3).
+    # matcha@1: POSED weld — the ingest solve is fed to train.py as COLMAP
+    #           sparse/0 (fix_rotation/translation + align_camera_locations),
+    #           so the weld gauge IS the ingest gauge. Kills the gauge-sim
+    #           class at the root; the sim becomes a verification gate.
+    #           Forced by 003-firepit, whose re-solve disagrees with the
+    #           ingest solve beyond any similarity (3.1-3.9%).
+    m_algo = "matcha@1" if args.sfm == "posed" else "matcha@0"
+    rid = v4.identity_hash({"subset": sub, "cameras": sid}, r_settings, m_algo)
     rdir = scene_dir / "represent" / "matcha" / rid
     o_settings, o_algo = ORIENT_SETTINGS, ORIENT_ALGO
     # the orient reads the bootstrap mesh (z-floor) -> it IS a resolved input
@@ -242,7 +251,7 @@ def cmd_matcha(args):
             or not list((rdir / "out" / "tetra_meshes").glob("*.ply"))):
         if not (rdir / "metadata.json").exists():
             # crash-recovery: meshes landed but the rep record didn't (008)
-            v4.write_metadata(rdir, task="represent-via-matcha", algo="matcha@0",
+            v4.write_metadata(rdir, task="represent-via-matcha", algo=m_algo,
                               identity=rid,
                               resolved_inputs={"subset": sub, "cameras": sid},
                               settings=r_settings, mechanism="job",
@@ -266,7 +275,30 @@ def cmd_matcha(args):
         workdir = stage_images_on_host(args.host, scene_dir, sub, tag)
         n_images = len(json.loads((scene_dir / "images" / "subsets" / sub / "subset.json")
                                   .read_text())["members"])
-        tool = (f"python train.py -s /work/images -o /work/out --sfm_config unposed "
+        if args.sfm == "posed":
+            # mint sparse/0 from the ingest solve and stage it next to images/
+            from colmap_posed import solve_to_sparse
+            tmp_sparse = Path("/tmp") / f"v4exec-{tag}-sparse"
+            shutil.rmtree(tmp_sparse, ignore_errors=True)
+            members = json.loads((scene_dir / "images" / "subsets" / sub /
+                                  "subset.json").read_text())["members"]
+            by_hash = {p.parent.name: p for p in scene_dir.glob("images/*/image.*")}
+            staged = {}                       # staged NAME -> local store path
+            for h in members:
+                d = json.loads((scene_dir / "images" / h / "metadata.json").read_text())
+                staged[d.get("original_name", h + ".jpg")] = by_hash[h]
+            covered = solve_to_sparse(
+                scene_dir / "images" / "subsets" / sub / "cameras" / sid / "cameras.json",
+                staged, tmp_sparse / "0")
+            sh(["ssh", args.host, f"mkdir -p {workdir}/sparse"])
+            sh(["rsync", "-a", str(tmp_sparse) + "/", f"{args.host}:{workdir}/sparse/"])
+            shutil.rmtree(tmp_sparse)
+            print(f"[{m_algo} weld] sparse/0 minted from solve {sid} "
+                  f"({len(covered)} posed cameras)")
+            src_arg, sfm_cfg = "/work", "posed"
+        else:
+            src_arg, sfm_cfg = "/work/images", "unposed"
+        tool = (f"python train.py -s {src_arg} -o /work/out --sfm_config {sfm_cfg} "
                 f"--n_images {n_images} --alignment_config strong")
         if args.dense_regul != "default":
             tool += f" --dense_regul {args.dense_regul}"
@@ -275,12 +307,12 @@ def cmd_matcha(args):
         tool += (" && PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True "
                  "python scripts/extract_tsdf_mesh.py -s /work/out/mast3r_sfm "
                  "-m /work/out/free_gaussians -o /work/out/tsdf_meshes -c default")
-        print(f"[matcha@0 weld] {args.host}: full pipeline ({n_images} images, "
+        print(f"[{m_algo} weld] {args.host}: full pipeline ({n_images} images, sfm={args.sfm}, "
               f"dense_regul={args.dense_regul}) — ~15-25 min")
         t0 = datetime.datetime.now()
         rc = run_in_matcha(args.host, workdir, tool, rdir / "matcha.log")
         dt = int((datetime.datetime.now() - t0).total_seconds())
-        print(f"[matcha@0 weld] rc={rc} in {dt}s; gathering…")
+        print(f"[{m_algo} weld] rc={rc} in {dt}s; gathering…")
         rdir.mkdir(parents=True, exist_ok=True)
         sh(["rsync", "-a", f"{args.host}:{workdir}/out/", str(rdir / "out") + "/"])
         sh(["ssh", args.host, f"rm -rf {SCRATCH}/{tag}"])
@@ -290,10 +322,10 @@ def cmd_matcha(args):
             sys.exit(f"matcha weld FAILED (rc={rc}; tetra={bool(tetra_raw)} tsdf={bool(tsdf_raw)}; "
                      f"log {rdir}/matcha.log)")
         if not tetra_raw:
-            print("[matcha@0 weld] WARNING: tetra stage produced no mesh "
+            print(f"[{m_algo} weld] WARNING: tetra stage produced no mesh "
                   "(marching_tetrahedra flake, 010 class) — continuing tsdf-only")
         dig, _ = host_digest(args.host, MATCHA_IMAGE)
-        v4.write_metadata(rdir, task="represent-via-matcha", algo="matcha@0", identity=rid,
+        v4.write_metadata(rdir, task="represent-via-matcha", algo=m_algo, identity=rid,
                           resolved_inputs={"subset": sub, "cameras": sid},
                           settings=r_settings, mechanism="job",
                           measured={"host": args.host.split("@")[-1], "duration_s": dt,
@@ -304,7 +336,7 @@ def cmd_matcha(args):
         if not (rdir / "metadata.json").exists():
             # recovered weld output (gather completed out-of-band, e.g. host
             # dropped mid-rsync) — mint the rep record now
-            v4.write_metadata(rdir, task="represent-via-matcha", algo="matcha@0",
+            v4.write_metadata(rdir, task="represent-via-matcha", algo=m_algo,
                               identity=rid,
                               resolved_inputs={"subset": sub, "cameras": sid},
                               settings=r_settings, mechanism="job",
@@ -324,7 +356,15 @@ def cmd_matcha(args):
     sim = weld_to_solve_sim(scene_dir, sub, sid, out)
     print(f"[gauge-sim] weld->solve: scale {sim['s']:.4f} rot {sim['rot_deg']:.1f} deg "
           f"max residual {sim['max_residual']:.4f}")
-    if sim["residual_frac"] > 0.02:
+    if args.sfm == "posed":
+        # posed weld: the sim is a VERIFICATION, not a correction — the weld
+        # ran in the ingest gauge by construction, so anything beyond numeric
+        # noise means the posed path didn't do its job (fail loudly, T-003).
+        if sim["residual_frac"] > 0.005 or sim["rot_deg"] > 2.0:
+            sys.exit(f"matcha@1 REFUSED: posed weld drifted from ingest gauge "
+                     f"(residual {sim['residual_frac']:.2%}, rot "
+                     f"{sim['rot_deg']:.2f} deg) — posed sfm not honored")
+    elif sim["residual_frac"] > 0.02:
         sys.exit(f"matcha REFUSED: weld->solve camera similarity residual "
                  f"{sim['residual_frac']:.1%} > 2% — solves disagree beyond gauge")
 
@@ -372,7 +412,8 @@ def cmd_matcha(args):
     md["canonical_gauge"] = str((odir / "oriented.json").relative_to(scene_dir))
     (rdir / "metadata.json").write_text(json.dumps(md, indent=2) + "\n")
     job_record(args.scene, "reconstruct-matcha", nodes,
-               {"scene": args.scene, "host": args.host, "dense_regul": args.dense_regul})
+               {"scene": args.scene, "host": args.host, "dense_regul": args.dense_regul,
+                "sfm": args.sfm})
     print(f"reconstruct-matcha materialized: represent {rid}, tetra {mid}, tsdf {tid}, orient {oid}")
 
 
@@ -551,8 +592,21 @@ print("VIEWS_JSON" + json.dumps(out))
     slots = []
     existing = sorted(int(p.name) for p in (scene_dir / "views").glob("[0-9]*")
                       if p.is_dir()) if (scene_dir / "views").is_dir() else []
+    # idempotent by captured_name: a camera already written to a slot must
+    # not mint a second slot on re-run (the ghost-slot class — protocol
+    # processes views one at a time, re-reading the whole blend each time)
+    by_name = {}
+    for p in (scene_dir / "views").glob("[0-9]*") if (scene_dir / "views").is_dir() else []:
+        try:
+            md = json.loads((p / "metadata.json").read_text())
+            by_name[md.get("captured_name")] = p.name
+        except (OSError, json.JSONDecodeError):
+            continue
     next_slot = (existing[-1] + 1) if existing else 1
     for vw in views:
+        if vw["name"] in by_name:
+            print(f"view {by_name[vw['name']]}: '{vw['name']}' already captured — NOOP")
+            continue
         slot = f"{next_slot:02d}"
         next_slot += 1
         vdir = scene_dir / "views" / slot
@@ -670,14 +724,41 @@ def cmd_da3(args):
         sys.exit(f"no {ORIENT_ALGO} gauge / matcha reference — "
                  f"run reconstruct-matcha first (bootstrap)")
     r_settings = v4.hashable_settings(tdefs["represent-via-da3"], {})
-    # inference is gauge-independent (the npz never sees the orient); the
-    # gauge enters at the FUSE step (STO-SCN-089-2)
-    rid = v4.identity_hash({"subset": sub}, r_settings, "da3@0")
+    # da3@0: unposed — DA3 estimates its own cameras; gauge-independent
+    #        (the npz never sees the orient); gauge enters at FUSE
+    #        (STO-SCN-089-2).
+    # da3@1: POSED — the ingest solve is fed to inference(extrinsics=,
+    #        intrinsics=), so the solve IS a resolved input (STO-SCN-090;
+    #        forced by 003-firepit: unposed DA3 poses off by 60.7%).
+    d_algo = "da3@1" if args.sfm == "posed" else "da3@0"
+    d_inputs = {"subset": sub} if d_algo == "da3@0" else {"subset": sub, "cameras": sid}
+    rid = v4.identity_hash(d_inputs, r_settings, d_algo)
     rdir = scene_dir / "represent" / "da3" / rid
     if not (rdir / "metadata.json").exists():
         tag = f"{args.scene}-da3-{rid}"
         workdir = stage_images_on_host(args.host, scene_dir, sub, tag)
-        tool = f"python /opt/krabby-tools/da3_infer_gs.py /work/images /work/out {r_settings['process_res']}"
+        if args.sfm == "posed":
+            from colmap_posed import solve_to_posed_json
+            members = json.loads((scene_dir / "images" / "subsets" / sub /
+                                  "subset.json").read_text())["members"]
+            by_hash = {p.parent.name: p for p in scene_dir.glob("images/*/image.*")}
+            staged = {}
+            for h in members:
+                d = json.loads((scene_dir / "images" / h / "metadata.json").read_text())
+                staged[d.get("original_name", h + ".jpg")] = by_hash[h]
+            tmp_posed = Path("/tmp") / f"v4exec-{tag}-posed.json"
+            covered = solve_to_posed_json(
+                scene_dir / "images" / "subsets" / sub / "cameras" / sid / "cameras.json",
+                staged, tmp_posed)
+            driver = Path(__file__).parent / "da3_infer_posed.py"
+            sh(["ssh", args.host, f"mkdir -p {workdir}/cameras"])
+            sh(["rsync", "-a", str(tmp_posed), f"{args.host}:{workdir}/cameras/posed.json"])
+            sh(["rsync", "-a", str(driver), f"{args.host}:{workdir}/da3_infer_posed.py"])
+            tmp_posed.unlink()
+            print(f"[da3@1] posed.json minted from solve {sid} ({len(covered)} cameras)")
+            tool = f"python /work/da3_infer_posed.py /work/images /work/out {r_settings['process_res']}"
+        else:
+            tool = f"python /opt/krabby-tools/da3_infer_gs.py /work/images /work/out {r_settings['process_res']}"
         if r_settings.get("mode") == "nogs":
             tool += " nogs"
         docker = (f"docker run --rm --gpus all -v {workdir}:/work {DA3_IMAGE} {tool} ; rc=$? ; "
@@ -694,8 +775,8 @@ def cmd_da3(args):
         if r.returncode != 0 or not npz.exists():
             sys.exit(f"da3 infer FAILED rc={r.returncode} (npz present: {npz.exists()})")
         dig, tools_sha = host_digest(args.host, DA3_IMAGE)
-        v4.write_metadata(rdir, task="represent-via-da3", algo="da3@0", identity=rid,
-                          resolved_inputs={"subset": sub},
+        v4.write_metadata(rdir, task="represent-via-da3", algo=d_algo, identity=rid,
+                          resolved_inputs=d_inputs,
                           settings=r_settings, mechanism="job",
                           measured={"host": args.host.split("@")[-1], "duration_s": dt,
                                     "image_digest": dig, "tools_git_sha": tools_sha})
@@ -764,15 +845,16 @@ def matcha_reference(scene_dir: Path, sub: str, sid: str, tdefs):
     (None, None)."""
     r_settings = v4.hashable_settings(tdefs["represent-via-matcha"],
                                       {"dense_regul": "default"})
-    rid_m = v4.identity_hash({"subset": sub, "cameras": sid}, r_settings, "matcha@0")
     ts_settings = v4.hashable_settings(tdefs["meshify-via-tsdf"], {})
-    oid = v4.identity_hash({"solve": sid, "bootstrap_rep": rid_m},
-                           ORIENT_SETTINGS, ORIENT_ALGO)
-    tid = v4.identity_hash({"representation": rid_m, "cameras": sid, "orient": oid},
-                           ts_settings, "tsdf-extract@1")
-    p = scene_dir / "represent" / "matcha" / rid_m / "meshify" / "tsdf" / tid / "mesh.ply"
-    if p.exists():
-        return tid, p, oid
+    for m_algo in ("matcha@1", "matcha@0"):     # posed weld preferred
+        rid_m = v4.identity_hash({"subset": sub, "cameras": sid}, r_settings, m_algo)
+        oid = v4.identity_hash({"solve": sid, "bootstrap_rep": rid_m},
+                               ORIENT_SETTINGS, ORIENT_ALGO)
+        tid = v4.identity_hash({"representation": rid_m, "cameras": sid, "orient": oid},
+                               ts_settings, "tsdf-extract@1")
+        p = scene_dir / "represent" / "matcha" / rid_m / "meshify" / "tsdf" / tid / "mesh.ply"
+        if p.exists():
+            return tid, p, oid
     # scan fallback: any matcha tsdf mesh produced against this solve
     for mp in sorted(scene_dir.glob("represent/matcha/*/meshify/tsdf/*/mesh.ply")):
         try:
@@ -984,6 +1066,9 @@ def main():
     p.add_argument("scene")
     p.add_argument("--host", required=True)
     p.add_argument("--dense-regul", default="default", choices=["default", "strong"])
+    p.add_argument("--sfm", default="unposed", choices=["unposed", "posed"],
+                   help="posed = matcha@1: feed the ingest solve into train.py "
+                        "as COLMAP sparse/0 (no re-solve, no arbitrary gauge)")
     p.set_defaults(fn=cmd_matcha)
     p = sp.add_parser("views-from-blend")
     p.add_argument("scene")
@@ -992,6 +1077,10 @@ def main():
     p = sp.add_parser("reconstruct-da3")
     p.add_argument("scene")
     p.add_argument("--host", required=True)
+    p.add_argument("--sfm", default="unposed", choices=["unposed", "posed"],
+                   help="posed = da3@1: feed the ingest solve into DA3 "
+                        "inference(extrinsics=, intrinsics=) instead of "
+                        "letting DA3 estimate its own cameras")
     p.set_defaults(fn=cmd_da3)
     p = sp.add_parser("regauge-views")
     p.add_argument("scene")
