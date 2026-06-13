@@ -3,4 +3,5 @@ numpy>=1.24
 pillow>=10.0
 scikit-learn>=1.3
 scipy>=1.11
-imagehash>=4.3
+# imagehash removed (STO-SCN-092): perceptual hashing now uses the shared
+# dependency-free real2sim/phash.py.

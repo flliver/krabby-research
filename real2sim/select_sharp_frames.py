@@ -45,17 +45,24 @@ from PIL import Image
 IMAGE_EXTS = {".png", ".jpg", ".jpeg"}
 
 
-def sharpness(path: Path, score_edge: int) -> float:
-    """Variance of the 3x3 Laplacian on a grayscale thumbnail."""
-    with Image.open(path) as im:
-        g = im.convert("L")
-        g.thumbnail((score_edge, score_edge), Image.BILINEAR)
-        a = np.asarray(g, dtype=np.float64)
+def sharpness_of_gray(gray: "Image.Image", score_edge: int) -> float:
+    """Variance of the 3x3 Laplacian on a grayscale PIL image (downscaled to
+    score_edge). Split out so callers that already hold an open image can score
+    without a second decode (STO-SCN-092 precull)."""
+    g = gray.copy()
+    g.thumbnail((score_edge, score_edge), Image.BILINEAR)
+    a = np.asarray(g, dtype=np.float64)
     lap = (
         a[:-2, 1:-1] + a[2:, 1:-1] + a[1:-1, :-2] + a[1:-1, 2:]
         - 4.0 * a[1:-1, 1:-1]
     )
     return float(lap.var())
+
+
+def sharpness(path: Path, score_edge: int) -> float:
+    """Variance of the 3x3 Laplacian on a grayscale thumbnail."""
+    with Image.open(path) as im:
+        return sharpness_of_gray(im.convert("L"), score_edge)
 
 
 def main() -> int:

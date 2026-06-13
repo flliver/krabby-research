@@ -17,6 +17,12 @@
       "task": "resolve-capture-profile"
     },
     {
+      "id": "precull",
+      "task": "precull-subset",
+      "optional": true,
+      "note": "STO-SCN-092 opt-in side-branch: derives a curated subset from the pool; not in the default solve path (primary unchanged unless --set-primary)."
+    },
+    {
       "id": "solve",
       "task": "solve-cameras"
     },
@@ -37,6 +43,10 @@
     [
       "pool",
       "capture-profile"
+    ],
+    [
+      "pool",
+      "precull"
     ],
     [
       "capture-profile",

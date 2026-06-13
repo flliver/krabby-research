@@ -4,7 +4,7 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: M
-status: open
+status: in-progress
 date: 2026-06-13
 depends-on: []
 bd-id: krabby-e28
@@ -48,33 +48,47 @@ Reuse `select_sharp_frames.py` + the `camera_viewer` pHash.
 
 ## Definition of Done
 
-- [ ] Large pool → tractable candidate set, pose-free, in seconds.
-- [ ] Blurred + near-duplicate frames demonstrably removed; tunable target N.
-- [ ] Sharp, well-distributed candidates retained (no big temporal gaps).
+- [x] Large pool → tractable candidate set, pose-free, in seconds. (`precull_frames.py`
+      engine + CLI; CPU-only, numpy+PIL.)
+- [x] Blurred + near-duplicate frames demonstrably removed; tunable target N. (median-
+      relative blur gate + local pHash dedup; `--target`, default 300 = solve ceiling.)
+- [x] Sharp, well-distributed candidates retained (no big temporal gaps). (`--max-gap`
+      guard re-inserts the sharpest frame in oversized gaps.)
+- [x] Verified: 22 tests (venv) / 11+3-skip (system); CLI smoke 68→6. ⏳ Real large-pool
+      ingest is the operator-verification gate (T-020).
 
-## Implementation Notes
+## Implementation Notes (as built, 2026-06-13)
 
-**Compose two existing filters.** (1) **Sharpness gate** — reuse `select_sharp_frames.py`
-(variance-of-Laplacian); keep frames above a percentile threshold rather than an absolute
-cutoff so it adapts to a scene's overall focus. (2) **Near-duplicate removal** — reuse the
-`camera_viewer` perceptual hash; cluster by Hamming distance on the 64-bit pHash and keep
-the **sharpest** frame per cluster (the two filters cooperate — dedup picks the survivor by
-the sharpness score).
+**Shared dependency-free pHash** (`real2sim/phash.py`). DCT pHash (32x32 → DCT → 8x8 →
+median threshold → 64 bits) using only numpy+PIL — replaces the `imagehash` dependency.
+`camera_viewer/clustering.py` was refactored to use it too (single source; `imagehash`
+removed from its `requirements.txt`). The "shared-phash.py" extraction was done as part of
+this story (operator direction).
 
-**Order.** pHash-cluster first to collapse redundancy, then apply the sharpness percentile
-within/across clusters — cheaper than scoring every frame's sharpness when many are
-near-identical.
+**Sharpness** reuses `select_sharp_frames.sharpness_of_gray()` (Laplacian variance), split
+out so the precull scores sharpness + pHash in a **single image decode**.
 
-**Coverage guard.** Enforce a **max temporal-index spacing** between retained frames so
-aggressive dedup can't open a coverage hole — this preserves the sequential overlap that
-the pose solve (093) and its connectivity needs. Tunable target N (~300–500 from a
-multi-thousand pool, matching the historical 5000→300 step).
+**Engine** (`precull_frames.py`): score → **local** pHash dedup (consecutive runs within a
+`dup_window`, keep sharpest) → **median-relative blur gate** (`blur_rel`×median; not a
+percentile) → optional windowed-sharpest **target** thin → **gap guard** (bound max
+temporal spacing). Pure `precull(items=(id,path))` core serves both the CLI (ids =
+filenames) and the v4 wiring (ids = image hashes).
 
-**Cost.** Pure CPU, seconds, deterministic given thresholds — runs *before* any GPU solve,
-which is the whole point (don't pay solve cost on blurred/duplicate frames).
+**Two corrections earned (T-001):**
+- **Local (windowed) dedup, not global** — global pHash dedup would delete path *revisits*,
+  which are loop-closure / co-visibility signal for STO-SCN-098, not redundancy.
+- **Median-relative blur gate, not percentile** — a percentile lands *inside* a minority
+  blur cluster and lets blur through (a test caught it).
 
-**Test.** A real hyperlapse pool: assert blurred frames dropped, near-duplicate runs
-collapsed to one, no retained gap larger than the spacing bound, and target-N honored.
+**v4 wiring (option i — opt-in, non-breaking).** `tasks/precull-subset.json` + `cmd_precull`
++ an **optional** `precull` node in `ingest-scene.json` as a side-branch off `pool` (not in
+the default solve path). `v4exec.py precull <scene> [params]` writes a curated subset
+(`mechanism: precull`) set-if-unset; **leaves `primary` untouched** unless `--set-primary`
+(a deliberate operator act — locked #1 forbids silent ref moves). STO-SCN-093 poses this
+subset.
+
+**Test.** Synthetic pools cover near-dup collapse, blur rejection, **revisit preservation**,
+gap guard, small-pool passthrough, and the store wiring (subset written, primary respected).
 
 ## Out of scope
 

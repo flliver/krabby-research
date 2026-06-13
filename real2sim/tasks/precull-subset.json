@@ -1,0 +1,27 @@
+{
+  "schema": 4,
+  "name": "precull-subset",
+  "algo": "precull@0",
+  "description": "Pose-free pre-cull (STO-SCN-092): from the whole image pool, derive a curated candidate SUBSET by sharpness + perceptual-hash dedup (no poses), preserving path revisits and bounding temporal gaps. Opt-in side-branch (not in the default ingest chain); does not change `primary` unless explicitly requested. The subset it produces is what STO-SCN-093 poses.",
+  "inputs": [
+    {
+      "name": "pool",
+      "ref": "primary"
+    }
+  ],
+  "settings": {
+    "target":       {"class": "tunable", "default": 300, "note": "candidate count ceiling (0 = no thin); 300 = measured 16GB solve ceiling"},
+    "phash_thresh": {"class": "tunable", "default": 8,   "note": "Hamming distance under which consecutive frames are near-duplicates"},
+    "blur_rel":     {"class": "tunable", "default": 0.2, "note": "drop frames below this fraction of median sharpness"},
+    "max_gap":      {"class": "tunable", "default": 20,  "note": "max retained temporal index gap (coverage/connectivity guard)"},
+    "dup_window":   {"class": "tunable", "default": 12,  "note": "dedup is local to this window so revisits survive"},
+    "score_edge":   {"class": "tunable", "default": 480, "note": "sharpness scoring thumbnail long edge"}
+  },
+  "placement": "images/subsets/{identity}",
+  "outputs": [
+    {
+      "name": "subset",
+      "path": "subset.json"
+    }
+  ]
+}

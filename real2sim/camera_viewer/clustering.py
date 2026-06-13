@@ -11,10 +11,19 @@ that they're seeing the same physical region. That's a more principled
 
 from __future__ import annotations
 
+import os
+import sys
 from typing import Sequence
 
 import numpy as np
 from sklearn.cluster import KMeans
+
+# Shared, dependency-free pHash lives one level up (real2sim/phash.py),
+# replacing the former `imagehash` dependency (STO-SCN-092).
+_PARENT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _PARENT not in sys.path:
+    sys.path.insert(0, _PARENT)
+from phash import phash as _phash  # noqa: E402
 
 
 def kmeans_position_clusters(positions: np.ndarray, k: int | None = None) -> np.ndarray:
@@ -68,18 +77,12 @@ def compute_phashes(thumbnails: Sequence[np.ndarray]) -> np.ndarray:
 
     Returns:
         (N,) uint64 array of hash values.
-    """
-    import imagehash
-    from PIL import Image
 
+    Uses the shared dependency-free DCT pHash (real2sim/phash.py) — same
+    32x32 -> DCT -> 8x8 -> median-threshold fingerprint the former imagehash
+    path produced, with no external dependency (STO-SCN-092).
+    """
     hashes = np.empty(len(thumbnails), dtype=np.uint64)
     for i, thumb in enumerate(thumbnails):
-        h = imagehash.phash(Image.fromarray(thumb))
-        # imagehash returns an ImageHash object; .hash is an 8x8 bool array
-        bits = h.hash.flatten()
-        # Pack the 64 bools into a single uint64 (big-endian)
-        val = 0
-        for b in bits:
-            val = (val << 1) | int(bool(b))
-        hashes[i] = np.uint64(val)
+        hashes[i] = _phash(thumb)
     return hashes

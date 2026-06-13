@@ -46,6 +46,7 @@ except ImportError:
 sys.path.insert(0, str(Path(__file__).parent))
 import v4core as v4
 import capture_profile as cap  # STO-SCN-091
+import precull_frames as pre  # STO-SCN-092
 
 SCRATCH = "/home/jeremy/scratch/v4exec"
 MATCHA_IMAGE = "j.pski.org:5000/krabby-matcha:0.2.2-selfcontained"
@@ -250,6 +251,73 @@ def cmd_ingest(args):
         print(f"[solve] done in {dt}s -> {sdir_solve}")
     job_record(args.scene, "ingest-scene", nodes,
                {"scene": args.scene, "host": args.host, "raw": str(raw)})
+
+
+# ============================================================ precull (STO-SCN-092)
+
+def cmd_precull(args):
+    """Pose-free pre-cull: derive a curated candidate SUBSET from the whole pool
+    (sharpness + pHash dedup, no poses). Opt-in side-branch — writes the subset
+    set-if-unset; leaves `primary` untouched unless --set-primary (a deliberate
+    operator act, locked #1)."""
+    scene_dir = v4.STORE / args.scene
+    sc = v4.Scene(args.scene)
+    hashes = sorted(p.parent.name for p in scene_dir.glob("images/*/metadata.json"))
+    if not hashes:
+        sys.exit(f"no pooled images for {args.scene} — run ingest first")
+    items = []
+    for h in hashes:
+        imgs = sorted((scene_dir / "images" / h).glob("image.*"))
+        if imgs:
+            items.append((h, imgs[0]))
+
+    ps_settings = v4.hashable_settings(v4.tasks()["precull-subset"], {
+        "target": args.target, "phash_thresh": args.phash_thresh, "blur_rel": args.blur_rel,
+        "max_gap": args.max_gap, "dup_window": args.dup_window, "score_edge": args.score_edge})
+    pool_id = v4.hoh(hashes)
+    pid = v4.identity_hash({"pool": pool_id}, ps_settings, "precull@0")
+    pdir = scene_dir / "images" / "subsets" / pid
+
+    if (pdir / "subset.json").exists():
+        print(f"[precull] NOOP — subset {pid} exists")
+    else:
+        res = pre.precull(items, target=(args.target or None),
+                          phash_thresh=args.phash_thresh, blur_rel=args.blur_rel,
+                          max_gap=args.max_gap, dup_window=args.dup_window,
+                          score_edge=args.score_edge)
+        members = sorted(res.kept)
+        pdir.mkdir(parents=True, exist_ok=True)
+        (pdir / "subset.json").write_text(json.dumps({"schema": 4, "members": members},
+                                                     indent=2) + "\n")
+        # subset metadata mirrors the whole-pool subset shape (scan_scene reads
+        # label/mechanism) + the measured precull report.
+        (pdir / "metadata.json").write_text(json.dumps({
+            "schema": 4, "mechanism": "precull", "label": f"precull-{len(members)}",
+            "settings": ps_settings, "written": NOW(),
+            "resolved_inputs": {"pool": pool_id},
+            "source_pool_n": res.report["source_pool_n"], "kept_n": res.report["kept_n"],
+            "precull_report": res.report}, indent=2) + "\n")
+        r = res.report
+        print(f"[precull] {r['source_pool_n']} -> {r['kept_n']} "
+              f"(near-dup -{r['dropped_near_dup']}, blur -{r['dropped_blur']}, "
+              f"thinned -{r['thinned_to_target']}, gap-fill +{r['gap_filled_inserted']}) "
+              f"-> subset {pid}")
+
+    if getattr(args, "set_primary", False):
+        created = sc.set_ref_if_unset("primary", pid)
+        if created:
+            print(f"[precull] primary -> {pid}")
+        else:
+            cur = sc.resolve("primary")
+            print(f"[precull] primary already set ({cur}); ref moves are operator acts "
+                  f"(locked #1). Re-point primary deliberately, or pass subset {pid} to "
+                  f"the solve, to use the curated set.")
+    else:
+        print(f"[precull] primary unchanged (opt-in). Curated subset id: {pid}")
+
+    job_record(args.scene, "precull-subset",
+               [{"node": "precull", "identity": pid}],
+               {"scene": args.scene, "set_primary": bool(getattr(args, "set_primary", False))})
 
 
 # ============================================================ reconstruct-matcha
@@ -1115,6 +1183,19 @@ def main():
     p.add_argument("--camera-make", default=None, help="camera make (capture declaration)")
     p.add_argument("--camera-model", default=None, help="camera model (capture declaration)")
     p.set_defaults(fn=cmd_ingest)
+    p = sp.add_parser("precull", help="pose-free pre-cull -> curated subset (STO-SCN-092)")
+    p.add_argument("scene")
+    p.add_argument("--target", type=int, default=pre.DEFAULTS["target"],
+                   help="candidate ceiling (0 = no thin); default 300 = solve ceiling")
+    p.add_argument("--phash-thresh", type=int, default=pre.DEFAULTS["phash_thresh"])
+    p.add_argument("--blur-rel", type=float, default=pre.DEFAULTS["blur_rel"])
+    p.add_argument("--max-gap", type=int, default=pre.DEFAULTS["max_gap"])
+    p.add_argument("--dup-window", type=int, default=pre.DEFAULTS["dup_window"])
+    p.add_argument("--score-edge", type=int, default=pre.DEFAULTS["score_edge"])
+    p.add_argument("--set-primary", action="store_true",
+                   help="set the curated subset as primary (deliberate operator act; "
+                        "no-op if primary already set)")
+    p.set_defaults(fn=cmd_precull)
     p = sp.add_parser("reconstruct-matcha")
     p.add_argument("scene")
     p.add_argument("--host", required=True)
