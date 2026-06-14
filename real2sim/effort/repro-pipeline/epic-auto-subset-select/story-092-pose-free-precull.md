@@ -93,6 +93,12 @@ subset.
 **Test.** Synthetic pools cover near-dup collapse, blur rejection, **revisit preservation**,
 gap guard, small-pool passthrough, and the store wiring (subset written, primary respected).
 
+**Capture-order fix (2026-06-13, post-ship).** `cmd_precull` now orders frames by
+`metadata.original_name` (true capture order), not the content-hash dir order — the temporal
+dedup + gap guard are meaningless on hash order. Found during 093 validation: hash order
+collapsed only 4 near-dups on a 942-frame hyperlapse; **capture order collapsed 403**. The
+member id passed downstream stays the content hash; only the processing order changed.
+
 ## Out of scope
 
 - Coverage-aware selection — that needs poses (STO-SCN-094).

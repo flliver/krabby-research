@@ -262,14 +262,22 @@ def cmd_precull(args):
     operator act, locked #1)."""
     scene_dir = v4.STORE / args.scene
     sc = v4.Scene(args.scene)
-    hashes = sorted(p.parent.name for p in scene_dir.glob("images/*/metadata.json"))
-    if not hashes:
+    # Order by CAPTURE TIME (metadata original_name), NOT store hash — the
+    # pre-cull's temporal dedup + gap guard need true frame order. (STO-SCN-093
+    # finding: hash order found 4 near-dups on a hyperlapse; capture order found
+    # 403.) The id passed downstream stays the content hash.
+    entries = []
+    for md in scene_dir.glob("images/*/metadata.json"):
+        imgs = sorted(md.parent.glob("image.*"))
+        if not imgs:
+            continue
+        name = json.loads(md.read_text()).get("original_name", md.parent.name)
+        entries.append((name, md.parent.name, imgs[0]))
+    if not entries:
         sys.exit(f"no pooled images for {args.scene} — run ingest first")
-    items = []
-    for h in hashes:
-        imgs = sorted((scene_dir / "images" / h).glob("image.*"))
-        if imgs:
-            items.append((h, imgs[0]))
+    entries.sort(key=lambda e: e[0])              # capture order
+    items = [(h, p) for _, h, p in entries]
+    hashes = sorted(h for _, h, _ in entries)     # set-stable id for the pool hoh
 
     ps_settings = v4.hashable_settings(v4.tasks()["precull-subset"], {
         "target": args.target, "phash_thresh": args.phash_thresh, "blur_rel": args.blur_rel,
