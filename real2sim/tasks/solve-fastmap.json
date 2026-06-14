@@ -1,0 +1,24 @@
+{
+  "schema": 4,
+  "name": "solve-fastmap",
+  "algo": "fastmap@0",
+  "description": "GPU SfM (FastMap, STO-SCN-101) on a subset -> camera poses + a COLMAP sparse/0 (the co-visibility source). Fisheye is undistorted to pinhole first using the per-camera calibration (STO-SCN-102); pinhole/rectilinear goes straight in. Settings are produced by solve_plan from the capture profile (STO-SCN-091) + per-scene modality. Replaces COLMAP's CPU incremental mapper (operator directive: GPU-only). Sibling algo to mast3r-sfm@0 on the cameras shelf.",
+  "inputs": [
+    {
+      "name": "subset",
+      "ref": "primary"
+    }
+  ],
+  "settings": {
+    "camera_model": {"class": "tunable", "default": "SIMPLE_PINHOLE", "note": "post-undistort pinhole, or SIMPLE_RADIAL if no undistort"},
+    "undistort":    {"class": "tunable", "default": true,             "note": "fisheye -> pinhole via the 102 calibration (transient host workdir, not persisted)"},
+    "balance":      {"class": "tunable", "default": 0.0,              "note": "cv2.fisheye undistort FOV/crop balance"},
+    "matcher":      {"class": "tunable", "default": "exhaustive_matcher", "note": "exhaustive for hyperlapse/wide-baseline; sequential for dense video (HUG-SCN-004)"}
+  },
+  "placement": "images/subsets/{subset}/cameras/{identity}",
+  "outputs": [
+    {"name": "cameras",    "path": "cameras.json"},
+    {"name": "sparse",     "path": "sparse/0"},
+    {"name": "intrinsics", "path": "intrinsics.json"}
+  ]
+}

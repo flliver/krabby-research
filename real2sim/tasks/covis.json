@@ -1,0 +1,20 @@
+{
+  "schema": 4,
+  "name": "covis",
+  "algo": "covis@0",
+  "description": "Co-visibility graph + solve-validity gate from a COLMAP sparse/0 (STO-SCN-093). Emits per-image coverage, per-pair shared-point count + mean triangulation angle, and connectivity (covis_graph.py), plus the planarity nebula verdict (validity_gate.py). HARD-FAILS on a nebula so a failed solve never reaches selection (STO-SCN-094). Reads the COLMAP .bin files directly (FastMap output isn't pycolmap/model_analyzer-friendly). Lives under the solve it derives from.",
+  "inputs": [
+    {
+      "name": "solve",
+      "from": "solve-fastmap"
+    }
+  ],
+  "settings": {
+    "min_overlap": {"class": "tunable", "default": 15, "note": "shared-point threshold for the connectivity graph"}
+  },
+  "placement": "images/subsets/{subset}/cameras/{up_solve}/covis/{identity}",
+  "outputs": [
+    {"name": "covis",    "path": "covis.json"},
+    {"name": "validity", "path": "validity.json"}
+  ]
+}
