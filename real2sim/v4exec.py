@@ -51,6 +51,7 @@ import precull_frames as pre  # STO-SCN-092
 SCRATCH = "/home/jeremy/scratch/v4exec"
 MATCHA_IMAGE = "j.pski.org:5000/krabby-matcha:0.2.2-selfcontained"
 DA3_IMAGE = "j.pski.org:5000/krabby-da3:0.4"
+FASTMAP_IMAGE = "j.pski.org:5000/krabby-fastmap:0.2"  # tools baked (STO-SCN-093 D)
 # orient-floor@1: bootstrap-mesh + camera-consensus up prior (STO-SCN-089-2;
 # restores the operator-guided 'average camera up' lost in the 082 rejection)
 ORIENT_ALGO = "orient-floor@2"
@@ -120,6 +121,19 @@ def run_in_matcha(host: str, workdir: str, tool_cmd: str, log_to: Path) -> int:
     full = (f"cd /opt/MAtCha && {tool_cmd}")   # train.py lives in the baked source tree
     docker = (f"docker run --rm --gpus all --shm-size 8g -v {workdir}:/work "
               f"--entrypoint bash {MATCHA_IMAGE} -lc {json.dumps(full)} ; rc=$? ; "
+              f"docker run --rm -v {workdir}:/work alpine chown -R $(id -u):$(id -g) /work ; exit $rc")
+    r = subprocess.run(["ssh", host, docker], capture_output=True, text=True)
+    log_to.parent.mkdir(parents=True, exist_ok=True)
+    log_to.write_text(r.stdout[-200000:] + "\n--- stderr ---\n" + r.stderr[-50000:])
+    return r.returncode
+
+
+def run_in_fastmap(host: str, workdir: str, tool_cmd: str, log_to: Path) -> int:
+    """Run a command in the krabby-fastmap container (baked tools at
+    /opt/krabby-tools, colmap, /opt/fastmap) with {workdir}:/work, then chown the
+    outputs back to the caller (container writes as root)."""
+    docker = (f"docker run --rm --gpus all --shm-size 8g -v {workdir}:/work "
+              f"--entrypoint bash {FASTMAP_IMAGE} -lc {json.dumps(tool_cmd)} ; rc=$? ; "
               f"docker run --rm -v {workdir}:/work alpine chown -R $(id -u):$(id -g) /work ; exit $rc")
     r = subprocess.run(["ssh", host, docker], capture_output=True, text=True)
     log_to.parent.mkdir(parents=True, exist_ok=True)
@@ -326,6 +340,147 @@ def cmd_precull(args):
     job_record(args.scene, "precull-subset",
                [{"node": "precull", "identity": pid}],
                {"scene": args.scene, "set_primary": bool(getattr(args, "set_primary", False))})
+
+
+# ============================================================ solve (FastMap) + covis (STO-SCN-093)
+
+def _read_capture_decl(scene_dir):
+    """<scene>/capture.json -> (make, model, mode, modality). modality is the
+    per-scene cadence declaration (hyperlapse|video|photos) — STO-SCN-093 (E)."""
+    p = scene_dir / "capture.json"
+    if not p.exists():
+        sys.exit(f"no {p} — declare {{make, model, mode, modality}} (STO-SCN-091/093).")
+    d = json.loads(p.read_text())
+    for k in ("make", "model", "mode", "modality"):
+        if not d.get(k):
+            sys.exit(f"{p}: missing '{k}' (need make, model, mode, modality).")
+    return d["make"], d["model"], d["mode"], d["modality"]
+
+
+def cmd_solve(args):
+    """GPU FastMap solve (fastmap@0) on a subset -> poses + sparse/0. Fisheye is
+    undistorted to pinhole first (102 calibration). Settings come from solve_plan
+    (091 profile + per-scene modality). Tools are the baked container copies."""
+    import capture_profile as cap
+    import solve_plan as splan
+    scene_dir = v4.STORE / args.scene
+    sc = v4.Scene(args.scene)
+    subset = args.subset or sc.resolve("primary")
+    if not (scene_dir / "images" / "subsets" / subset / "subset.json").exists():
+        sys.exit(f"subset {subset} not found — run precull/ingest first")
+
+    make, model, mode, modality = _read_capture_decl(scene_dir)
+    profile = cap.resolve(make, model, mode)
+    plan = splan.plan_solve(profile, modality)
+    for w in plan.get("warnings", []):
+        print(f"[solve] WARN: {w}")
+    if plan["solver"] != "fastmap":
+        sys.exit(f"[solve] solve_plan picked '{plan['solver']}' (not fastmap) for "
+                 f"{mode}/{modality} — use the reconstruct-da3 path for that.")
+
+    settings = {"camera_model": plan["solve_camera_model"], "undistort": plan["undistort"],
+                "balance": plan["undistort_balance"] or 0.0, "matcher": plan["matcher"]}
+    s_settings = v4.hashable_settings(v4.tasks()["solve-fastmap"], settings)
+    sid = v4.identity_hash({"subset": subset}, s_settings, "fastmap@0")
+    sdir = scene_dir / "images" / "subsets" / subset / "cameras" / sid
+    if (sdir / "metadata.json").exists():
+        print(f"[solve] NOOP — fastmap@0 solve {sid} exists")
+        print(f"  -> {sdir}")
+        return
+
+    tag = f"{args.scene}-fmsolve-{sid}"
+    workdir = stage_images_on_host(args.host, scene_dir, subset, tag)
+    cm, matcher, balance = settings["camera_model"], settings["matcher"], settings["balance"]
+    src = "/work/images"
+    pre = ""
+    if settings["undistort"]:
+        pre = (f"python /opt/krabby-tools/undistort_fisheye.py --images /work/images "
+               f"--out /work/undist --make {json.dumps(make)} --model {json.dumps(model)} "
+               f"--mode {json.dumps(mode)} --balance {balance} "
+               f"--profiles /opt/krabby-tools/capture_profiles.json && ")
+        src = "/work/undist"
+    cmd = (pre +
+           "rm -f /work/database.db && rm -rf /work/out && "
+           f"colmap feature_extractor --database_path /work/database.db --image_path {src} "
+           f"--FeatureExtraction.use_gpu 1 --ImageReader.single_camera 1 "
+           f"--ImageReader.camera_model {cm} && "
+           f"colmap {matcher} --database_path /work/database.db --FeatureMatching.use_gpu 1 && "
+           f"python /opt/fastmap/run.py --database /work/database.db --image_dir {src} "
+           f"--output_dir /work/out --headless && "
+           f"cp {src}/intrinsics.json /work/out/ 2>/dev/null || true")
+    print(f"[solve] {args.host}: fastmap@0 (undistort={settings['undistort']}, {matcher}, {cm})")
+    t0 = datetime.datetime.now()
+    rc = run_in_fastmap(args.host, workdir, cmd, sdir / "solve.log")
+    dt = int((datetime.datetime.now() - t0).total_seconds())
+    # gather sparse/0 + intrinsics
+    sh(["rsync", "-a", "--include=sparse/***", "--include=intrinsics.json", "--exclude=*",
+        f"{args.host}:{workdir}/out/", str(sdir) + "/"])
+    sh(["ssh", args.host, f"rm -rf {SCRATCH}/{tag} {workdir}"])
+    if rc != 0 or not (sdir / "sparse" / "0" / "images.bin").exists():
+        sys.exit(f"[solve] FAILED (rc={rc}; see {sdir}/solve.log)")
+    import struct
+    with open(sdir / "sparse" / "0" / "images.bin", "rb") as f:
+        n_reg = struct.unpack("<Q", f.read(8))[0]
+    dig, tools_sha = host_digest(args.host, FASTMAP_IMAGE)
+    v4.write_metadata(sdir, task="solve-fastmap", algo="fastmap@0", identity=sid,
+                      resolved_inputs={"subset": subset}, settings=s_settings, mechanism="job",
+                      measured={"host": args.host.split("@")[-1], "duration_s": dt,
+                                "registered_images": n_reg, "image_digest": dig,
+                                "tools_git_sha": tools_sha},
+                      extra={"camera_model": cm, "undistort": settings["undistort"]})
+    print(f"[solve] done in {dt}s: {n_reg} images registered -> {sdir}")
+    job_record(args.scene, "solve-fastmap", [{"node": "solve", "identity": sid,
+               "registered": n_reg}], {"scene": args.scene, "subset": subset, "host": args.host})
+
+
+def cmd_covis(args):
+    """Co-visibility graph + validity gate (covis@0) from a fastmap@0 solve.
+    Hard-fails on a nebula so a bad solve never reaches selection (094). CPU; runs
+    in the baked container (covis_graph/validity_gate at /opt/krabby-tools)."""
+    scene_dir = v4.STORE / args.scene
+    sc = v4.Scene(args.scene)
+    subset = args.subset or sc.resolve("primary")
+    sdir = scene_dir / "images" / "subsets" / subset / "cameras" / args.solve
+    if not (sdir / "sparse" / "0" / "images.bin").exists():
+        sys.exit(f"no fastmap solve sparse/0 at {sdir} (run `solve` first)")
+
+    settings = v4.hashable_settings(v4.tasks()["covis"], {"min_overlap": args.min_overlap})
+    cid = v4.identity_hash({"solve": args.solve}, settings, "covis@0")
+    cdir = sdir / "covis" / cid
+    if (cdir / "metadata.json").exists():
+        print(f"[covis] NOOP — covis {cid} exists -> {cdir}")
+        return
+
+    tag = f"{args.scene}-covis-{cid}"
+    work = f"{SCRATCH}/{tag}"
+    sh(["ssh", args.host, f"rm -rf {work} && mkdir -p {work}/sparse"])
+    sh(["rsync", "-a", f"{sdir}/sparse/0", f"{args.host}:{work}/sparse/"])
+    cmd = (f"python /opt/krabby-tools/covis_graph.py /work/sparse/0 "
+           f"--min-overlap {args.min_overlap} --out /work/covis.json && "
+           f"python /opt/krabby-tools/validity_gate.py /work/sparse/0 > /work/validity.txt 2>&1; "
+           f"echo VG_RC=$? >> /work/validity.txt")
+    rc = run_in_fastmap(args.host, work, cmd, cdir / "covis.log")
+    cdir.mkdir(parents=True, exist_ok=True)
+    sh(["rsync", "-a", f"{args.host}:{work}/covis.json", f"{args.host}:{work}/validity.txt",
+        str(cdir) + "/"])
+    sh(["ssh", args.host, f"rm -rf {work}"])
+    if rc != 0 or not (cdir / "covis.json").exists():
+        sys.exit(f"[covis] FAILED (rc={rc}; see {cdir}/covis.log)")
+    g = json.loads((cdir / "covis.json").read_text())
+    vtxt = (cdir / "validity.txt").read_text()
+    verdict = "FAIL-nebula" if "FAIL" in vtxt else "PASS"
+    (cdir / "validity.json").write_text(json.dumps(
+        {"verdict": verdict, "raw": vtxt.strip()}, indent=2) + "\n")
+    v4.write_metadata(cdir, task="covis", algo="covis@0", identity=cid,
+                      resolved_inputs={"solve": args.solve}, settings=settings, mechanism="job",
+                      measured={"n_images": g["n_images"], "connected": g["connected"],
+                                "n_isolated": g["n_isolated"], "validity": verdict})
+    print(f"[covis] {g['n_images']} imgs, connected={g['connected']}, isolated={g['n_isolated']}, "
+          f"validity={verdict} -> {cdir}")
+    if verdict != "PASS":
+        sys.exit(f"[covis] HARD-FAIL: validity {verdict} — solve rejected, not handed to 094.")
+    job_record(args.scene, "covis", [{"node": "covis", "identity": cid, "validity": verdict}],
+               {"scene": args.scene, "subset": subset, "solve": args.solve})
 
 
 # ============================================================ reconstruct-matcha
@@ -1204,6 +1359,18 @@ def main():
                    help="set the curated subset as primary (deliberate operator act; "
                         "no-op if primary already set)")
     p.set_defaults(fn=cmd_precull)
+    p = sp.add_parser("solve", help="GPU FastMap solve -> poses + sparse/0 (STO-SCN-093)")
+    p.add_argument("scene")
+    p.add_argument("--host", required=True)
+    p.add_argument("--subset", default=None, help="subset id (default: primary)")
+    p.set_defaults(fn=cmd_solve)
+    p = sp.add_parser("covis", help="covis graph + validity gate from a fastmap solve (STO-SCN-093)")
+    p.add_argument("scene")
+    p.add_argument("--host", required=True)
+    p.add_argument("--solve", required=True, help="the fastmap@0 solve identity")
+    p.add_argument("--subset", default=None)
+    p.add_argument("--min-overlap", type=int, default=15)
+    p.set_defaults(fn=cmd_covis)
     p = sp.add_parser("reconstruct-matcha")
     p.add_argument("scene")
     p.add_argument("--host", required=True)

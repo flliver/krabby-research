@@ -1,0 +1,14 @@
+{
+  "schema": 4,
+  "name": "solve-covis",
+  "description": "STO-SCN-093: pose the pre-culled pool on the GPU and emit the co-visibility graph for selection. precull subset -> FastMap solve (fisheye undistorted to pinhole first; settings from solve_plan) -> covis graph + validity gate (hard-fails on a nebula). Operator-invoked (v4exec solve / covis); feeds STO-SCN-094.",
+  "nodes": [
+    {"id": "subset", "task": "precull-subset"},
+    {"id": "solve",  "task": "solve-fastmap"},
+    {"id": "covis",  "task": "covis"}
+  ],
+  "edges": [
+    ["subset", "solve"],
+    ["solve", "covis"]
+  ]
+}
