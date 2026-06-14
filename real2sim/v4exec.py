@@ -484,6 +484,85 @@ def cmd_covis(args):
                {"scene": args.scene, "subset": subset, "solve": args.solve})
 
 
+# ============================================================ scout gaussian (STO-SCN-095)
+
+def cmd_scout(args):
+    """DA3 da3@1 scout gaussian for the verify surface — in the FastMap solve gauge
+    (posed.json from the solve's sparse/0) so 094's proposed-N frustums overlay.
+    Progress -> MQTT via run_scout.sh. Fisheye undistorted to pinhole first."""
+    import select_views as selv
+    import posed_from_sparse as pfs
+    scene_dir = v4.STORE / args.scene
+    sc = v4.Scene(args.scene)
+    subset = args.subset or sc.resolve("primary")
+    sdir = scene_dir / "images" / "subsets" / subset / "cameras" / args.solve
+    sparse = sdir / "sparse" / "0"
+    if not (sparse / "images.bin").exists():
+        sys.exit(f"no solve sparse/0 at {sdir} (run `solve` first)")
+    make, model, mode, _modality = _read_capture_decl(scene_dir)
+
+    _, rep = selv.select_from_sparse(str(sparse), args.n_scout)   # representative scene views
+    names = rep["selected"]
+    posed = pfs.posed_from_sparse(str(sparse), names)
+    settings = v4.hashable_settings(v4.tasks()["scout"], {"n_scout": args.n_scout, "res": args.res})
+    cid = v4.identity_hash({"solve": args.solve}, settings, "scout@0")
+    cdir = sdir / "scout" / cid
+    if (cdir / "metadata.json").exists():
+        print(f"[scout] NOOP — scout {cid} exists -> {cdir}")
+        return
+
+    tag = f"{args.scene}-scout-{cid}"
+    work = f"{SCRATCH}/{tag}"
+    here = Path(__file__).parent
+    name2img = {}
+    for md in scene_dir.glob("images/*/metadata.json"):
+        d = json.loads(md.read_text())
+        img = next((p for p in md.parent.glob("image.*")), None)
+        if img and d.get("original_name") in names:
+            name2img[d["original_name"]] = img
+    tmp = Path("/tmp") / f"v4scout-{tag}"
+    shutil.rmtree(tmp, ignore_errors=True)
+    (tmp / "images").mkdir(parents=True); (tmp / "cameras").mkdir()
+    for nm in names:
+        if nm in name2img:
+            shutil.copy2(name2img[nm], tmp / "images" / nm)
+    (tmp / "cameras" / "posed.json").write_text(json.dumps(posed, indent=2))
+    shutil.copy2(here / "da3_infer_posed.py", tmp / "da3_infer_posed.py")
+    sh(["ssh", args.host, f"rm -rf {work} && mkdir -p {work}"])
+    sh(["rsync", "-a", f"{tmp}/", f"{args.host}:{work}/"])
+    sh(["rsync", "-a", str(here.parent / "images" / "fastmap" / "run_scout.sh"),
+        str(here / "lib_progress.sh"), f"{args.host}:{work}/"])
+    shutil.rmtree(tmp)
+
+    remote = (f"cd {work} && KRABBY_FASTMAP_IMAGE={json.dumps(FASTMAP_IMAGE)} "
+              f"KRABBY_DA3_IMAGE={json.dumps(DA3_IMAGE)} bash run_scout.sh "
+              f"{work}/images {work}/scout_out {json.dumps(make)} {json.dumps(model)} "
+              f"{json.dumps(mode)} {args.res}")
+    print(f"[scout] {args.host}: da3@1 scout on {len(names)} views — progress -> MQTT")
+    t0 = datetime.datetime.now()
+    r = subprocess.run(["ssh", args.host, remote], capture_output=True, text=True)
+    cdir.mkdir(parents=True, exist_ok=True)
+    (cdir / "scout.log").write_text(r.stdout[-200000:] + "\n--- stderr ---\n" + r.stderr[-50000:])
+    dt = int((datetime.datetime.now() - t0).total_seconds())
+    sh(["rsync", "-a", "--include=*.ply", "--exclude=*",
+        f"{args.host}:{work}/scout_out/", str(cdir) + "/"])
+    sh(["ssh", args.host, f"rm -rf {work}"])
+    ply = next((p for p in cdir.glob("*.ply")), None)
+    if r.returncode != 0 or ply is None:
+        sys.exit(f"[scout] FAILED (rc={r.returncode}; see {cdir}/scout.log)")
+    if ply.name != "scout.gs.ply":
+        ply.rename(cdir / "scout.gs.ply")
+    (cdir / "posed.json").write_text(json.dumps(posed, indent=2) + "\n")
+    (cdir / "scout_views.json").write_text(json.dumps({"n": len(names), "views": names}, indent=2) + "\n")
+    v4.write_metadata(cdir, task="scout", algo="scout@0", identity=cid,
+                      resolved_inputs={"solve": args.solve}, settings=settings, mechanism="job",
+                      measured={"host": args.host.split("@")[-1], "duration_s": dt,
+                                "n_views": len(names)})
+    print(f"[scout] done in {dt}s: scout.gs.ply ({len(names)} views) -> {cdir}")
+    job_record(args.scene, "scout", [{"node": "scout", "identity": cid}],
+               {"scene": args.scene, "subset": subset, "solve": args.solve})
+
+
 # ============================================================ reconstruct-matcha
 
 def cmd_matcha(args):
@@ -1372,6 +1451,14 @@ def main():
     p.add_argument("--subset", default=None)
     p.add_argument("--min-overlap", type=int, default=15)
     p.set_defaults(fn=cmd_covis)
+    p = sp.add_parser("scout", help="DA3 scout gaussian for the verify surface (STO-SCN-095)")
+    p.add_argument("scene")
+    p.add_argument("--host", required=True)
+    p.add_argument("--solve", required=True, help="the fastmap@0 solve identity")
+    p.add_argument("--subset", default=None)
+    p.add_argument("--n-scout", type=int, default=32, help="scout views (~DA3 ceiling)")
+    p.add_argument("--res", type=int, default=504)
+    p.set_defaults(fn=cmd_scout)
     p = sp.add_parser("reconstruct-matcha")
     p.add_argument("scene")
     p.add_argument("--host", required=True)

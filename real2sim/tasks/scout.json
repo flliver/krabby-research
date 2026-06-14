@@ -1,0 +1,21 @@
+{
+  "schema": 4,
+  "name": "scout",
+  "algo": "scout@0",
+  "description": "Scout gaussian for the human-verify surface (STO-SCN-095). DA3 da3@1 (pose-conditioned) on ~N coverage-representative views, in the FastMap solve gauge (posed.json from posed_from_sparse) so STO-SCN-094's proposed-N frustums overlay correctly. Fisheye undistorted to pinhole first (matches the posed K). A QA lens, not the final reconstruction. Lives under the solve.",
+  "inputs": [
+    {
+      "name": "solve",
+      "from": "solve-fastmap"
+    }
+  ],
+  "settings": {
+    "n_scout": {"class": "tunable", "default": 32, "note": "scout views (~DA3 ceiling); the scene we look at"},
+    "res":     {"class": "tunable", "default": 504, "note": "DA3 process_res (gs head OOMs 16GB above 504)"}
+  },
+  "placement": "images/subsets/{subset}/cameras/{up_solve}/scout/{identity}",
+  "outputs": [
+    {"name": "gaussian", "path": "scout.gs.ply"},
+    {"name": "views",    "path": "scout_views.json"}
+  ]
+}
