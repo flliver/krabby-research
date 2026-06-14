@@ -54,13 +54,23 @@ _progress_null_clear()   { :; }
 
 
 # ---------------------------------------------------------------------------
-# Backend: nanny  (baeprz beeprz dashboard via nanny-progress)
+# Backend: nanny  (baeprz beeprz dashboard + MQTT via nanny-progress)
 # ---------------------------------------------------------------------------
+# nanny-progress IS the fleet's MQTT emitter (it publishes to the baeprz
+# broker; beeprz dash / fleet-dash read it back). Per baeprz-sherpa: it runs
+# `set -euo pipefail` internally and the underlying mosquitto_pub exits
+# non-zero (or HANGS on a TLS handshake) when the broker is unreachable — so a
+# naive call would fail/stall the host job. Every emit is therefore guarded:
+#   - `timeout 2` caps a hung handshake,
+#   - failure becomes a no-op + debug log (the best-effort contract: if MQTT
+#     is unavailable, don't fail, just log).
 
-_progress_nanny_set()     { nanny-progress set     "$1" "$2" 2>/dev/null || true; }
-_progress_nanny_phase()   { nanny-progress phase   "$1"      2>/dev/null || true; }
-_progress_nanny_percent() { nanny-progress percent "$1"      2>/dev/null || true; }
-_progress_nanny_clear()   { nanny-progress clear              2>/dev/null || true; }
+_progress_log() { echo "[progress] $*" >&2; }
+
+_progress_nanny_set()     { timeout 2 nanny-progress set     "$1" "$2" 2>/dev/null || _progress_log "mqtt emit skipped (set $1 $2%)"; }
+_progress_nanny_phase()   { timeout 2 nanny-progress phase   "$1"      2>/dev/null || _progress_log "mqtt emit skipped (phase $1)"; }
+_progress_nanny_percent() { timeout 2 nanny-progress percent "$1"      2>/dev/null || _progress_log "mqtt emit skipped (percent $1%)"; }
+_progress_nanny_clear()   { timeout 2 nanny-progress clear              2>/dev/null || _progress_log "mqtt emit skipped (clear)"; }
 
 
 # ---------------------------------------------------------------------------
