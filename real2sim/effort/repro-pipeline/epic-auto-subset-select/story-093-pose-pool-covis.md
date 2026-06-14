@@ -94,6 +94,39 @@ ratio. Reuse the planarity check prototyped this session (sibling to
 **Test.** A known-good scene reconstructs and passes the gate; the 300-frame MASt3R nebula
 input is caught by the gate (the regression that motivated the whole epic).
 
+## Validation findings (2026-06-13) — solver decision RESOLVED + undistort proven
+
+The open solver decision is settled: **FastMap** (GPU SfM), deployed in STO-SCN-101,
+with **fisheye undistorted to pinhole first** (FastMap takes only PINHOLE/SIMPLE_RADIAL).
+Empirically validated fleet-side on 001-patio:
+
+| Input set | Registered | Points3D |
+|-----------|-----------|----------|
+| Fisheye-300 (native 155° FOV) | 300/300 | 133,548 |
+| Undistorted-300 (cropped pinhole, sparse) | 227/300 | 115,857 |
+| **Undistorted-539 (cropped, full blur/dup-culled pool)** | **539/539** | 256,421 |
+
+1. **Undistort step (`undistort_fisheye.py`) works** — reads the 102 calibration
+   (`cv2.fisheye`, RMS 0.86 px), remaps to clean pinhole, no black borders. CPU, ~10 s,
+   one-shot/cached (not on the hot path — orthogonal to the GPU-solver rule).
+2. **For hyperlapse, KEEP THE FULL blur/dup-culled POOL — don't thin to 300.** The
+   undistort FOV-crop drops overlap at sparse baselines (300→227), but tighter baselines
+   (539) **fully recover** it (539/539). The old 300 cap was a mast3r-sfm 16 GB artifact;
+   FastMap is GPU-scalable. ⇒ 092's `--target` should be high (or 0) for hyperlapse.
+3. **Pre-cull MUST order by capture time** (`original_name`), not store hash order:
+   hash-order dedup found 4 near-dups; capture-order found **403**. (Fix to fold into 092's
+   store-path resolution.)
+4. **FastMap's `sparse/0` is not cleanly pycolmap/model_analyzer-readable** (errors /
+   hangs). The covis extractor must read the COLMAP `.bin` files directly (the struct
+   header read worked reliably) or post-fix FastMap's output.
+5. **Containers write as root** → host-side permission friction; run the krabby tools with
+   `--user $(id -u):$(id -g)` (the container-as-root follow-up) rather than chown'ing.
+
+Deliverable so far: `real2sim/undistort_fisheye.py` (+ `run_fastmap.sh` from 101 drives the
+GPU solve). Remaining 093 work: the **covis-graph extractor** (read FastMap `sparse/0` bins →
+`image→points`, `pair→shared-count + mean triangulation angle`) and the **planarity validity
+gate**. A real 539-frame posed model now exists on tbeeprz to build the extractor against.
+
 ## Out of scope
 
 - The selection itself (STO-SCN-094).

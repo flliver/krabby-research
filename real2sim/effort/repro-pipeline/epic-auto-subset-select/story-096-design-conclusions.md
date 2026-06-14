@@ -107,6 +107,19 @@ clean handoff the existing reconstruct graphs consume unchanged.
      registration edges + loop closures. The per-segment unit (this epic) stays valid; the
      spine is the composing layer — scaffolded as a sibling epic.
 
+## Validation update (2026-06-13) — solver path proven end-to-end
+
+Conclusions #3/#4 are now empirically settled (data + detail in STO-SCN-093):
+- **Solver = FastMap** (GPU SfM, deployed STO-SCN-101), **fisheye undistorted to pinhole
+  first** (FastMap takes only PINHOLE/SIMPLE_RADIAL) using the per-camera calibration
+  (STO-SCN-102, RMS 0.86 px).
+- **Refinement to conclusion #1 for hyperlapse:** "small pool → use all" generalizes — the
+  undistort FOV-crop costs overlap at *sparse* baselines (300→227 registered), but the
+  **full blur/dup-culled pool registers completely** (539/539). So for hyperlapse, **keep
+  the full culled pool, don't thin** — FastMap is GPU-scalable; the 300 ceiling was a
+  mast3r-sfm artifact. The pre-cull (092) must also **order by capture time**, not store
+  hash (403 vs 4 near-dups found).
+
 ## Segment boundary contract (the ×M interface)
 
 The per-segment epic stays **spine-agnostic**; its only coupling to the spine is a thin
