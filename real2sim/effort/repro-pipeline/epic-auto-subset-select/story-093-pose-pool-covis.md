@@ -136,6 +136,62 @@ into a v4 graph node that runs the chain and writes the covis + poses as a store
 094 consumes (a HUG-SCN-005 store-writer change — design-gated). The CPU cores above are
 all done + unit-tested + validated on real data.
 
+## v4 store-node wiring — build spec (design approved 2026-06-13)
+
+Turns the validated `precull → undistort → FastMap → covis → gate` chain into a
+content-addressed, idempotent graph; **v4exec is the sole store writer** (HUG-SCN-005 #11).
+
+### Graph shape (extends the repro pipeline)
+```
+images-subset (precull, 092, capture-order)
+   → solve-cameras [algo by solve_plan: fisheye/pinhole → fastmap@0, dewarped → da3@0 (future)]
+   → covis@0  → covis.json + validity.json   ──►  STO-SCN-094 selection
+```
+
+### New tasks (`real2sim/tasks/`)
+**`solve-cameras` algo `fastmap@0`** (sibling to `mast3r-sfm@0`)
+- inputs: the precull subset.
+- settings (from `solve_plan`, enter the identity hash): `camera_model`, `undistort`,
+  `balance`, `matcher`.
+- placement: `images/subsets/{subset}/cameras/{identity}/`.
+- outputs: `sparse/0/` (COLMAP model — covis source), `cameras.json` (poses), `intrinsics.json`.
+- exec (`cmd_solve`, GPU host, krabby-fastmap container): resolve profile (091) → `solve_plan`
+  → if `undistort`: undistort raw frames in the **host workdir, transient** (decision A) →
+  COLMAP extract+match (per `matcher`) → FastMap → gather `sparse/0` → `write_metadata`
+  (algo `fastmap@0`; measured host/duration/**registered-count**).
+
+**`covis@0`** (new)
+- inputs: the `fastmap@0` solve (`sparse/0`).  settings: `min_overlap`.
+- placement: `…/cameras/{up_solve}/covis/{identity}/` (**under the solve** — decision B).
+- outputs: `covis.json` (coverage, pair shared-count+angle, connectivity) + `validity.json`.
+- exec (`cmd_covis`, CPU): `covis_graph.py` + `validity_gate.py`; **hard-fail on nebula**
+  (decision C) — a failed solve never reaches 094.
+
+### Identity / idempotency
+- solve = `hash({subset}, solve_settings, "fastmap@0")` → NOOP on re-run; dispatch change ⇒ new artifact.
+- covis = `hash({solve}, {min_overlap}, "covis@0")`.
+- Undistorted images are **not persisted** (transient, decision A; multi-GB/scene avoided —
+  re-undistort is ~10 s). Only `intrinsics.json` (small) is kept for provenance.
+
+### Approved decisions
+- **A** undistort transient (host workdir, not a store set).
+- **B** covis is a sub-node under the solve.
+- **C** validity gate hard-fails the covis node on nebula (+ records verdict).
+- **D** **bake** `solve_plan/undistort_fisheye/covis_graph/validity_gate` into the
+  krabby-fastmap container (operator policy: results from baked tools, not mounted `/tmp`)
+  → requires a 101 container rebuild (tools currently mounted from `~/build/fastmap`).
+- **E** `modality` (hyperlapse|video|photos) declared per-scene in `<scene>/capture.json`
+  (alongside `mode`) — not inferable; consumed by `solve_plan`.
+
+### Build checklist (when picked up)
+1. `tasks/solve-cameras.json` algo `fastmap@0` (or `tasks/solve-fastmap.json`) + `tasks/covis.json`.
+2. `cmd_solve` + `cmd_covis` in `v4exec.py` (store-writer-mediated).
+3. Graph edges in the repro pipeline graph.
+4. krabby-fastmap **container rebuild** baking the krabby tools (decision D).
+5. `capture.json` gains `modality` (decision E); `cmd_ingest`/`cmd_solve` read it.
+Already built + validated: `solve_plan`, `undistort_fisheye`, `run_fastmap`, `covis_graph`,
+`validity_gate`, precull capture-order.
+
 ## Out of scope
 
 - The selection itself (STO-SCN-094).
