@@ -3,11 +3,13 @@ xid: STO-SCN-101
 parent: ./epic.md
 kind: story
 effort: scn
-status: in-progress
+status: shipped
 date: 2026-06-13
 depends-on: []
 bd-id: krabby-5v9
 assignee: krabby
+tasks: 4
+complete: 4
 ---
 
 # Deploy FastMap GPU SfM to the fleet
