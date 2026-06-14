@@ -152,11 +152,6 @@
       "titleBar.inactiveForeground": "#e7e7e799"
     },
     "ccc.delegates.pinned": [
-      "krabby-sherpa",
-      "krabby-manager",
-      "krabby-principal",
-      "krabby-ccc",
-      "krabby-engineer",
       "krabby-krabby"
     ]
   },

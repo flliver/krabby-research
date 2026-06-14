@@ -3,11 +3,13 @@ xid: STO-SCN-102
 parent: ./epic.md
 kind: story
 effort: scn
-status: in-progress
+status: shipped
 date: 2026-06-13
 depends-on: [STO-SCN-091]
 bd-id: krabby-4c5
 assignee: krabby
+tasks: 3
+complete: 3
 ---
 
 # Per-camera fisheye calibration
