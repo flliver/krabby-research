@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "description": "Capture-profile registry (STO-SCN-091). Keyed on {make, model, mode}; maps a camera + capture mode to the COLMAP camera model and solver compatibility. The camera model is a property of the camera/capture mode, NOT the scene (STO-SCN-096 conclusion #3) — so it is decided here from known capture metadata, never inferred from pixels. `mode` (fisheye vs dewarped) is NOT carried in EXIF on DJI footage and must be declared per scene.",
+  "description": "Capture-profile registry (STO-SCN-091). Keyed on {make, model, mode}; maps a camera + capture mode to the COLMAP camera model and solver compatibility. The camera model is a property of the camera/capture mode, NOT the scene (STO-SCN-096 conclusion #3) \u2014 so it is decided here from known capture metadata, never inferred from pixels. `mode` (fisheye vs dewarped) is NOT carried in EXIF on DJI footage and must be declared per scene.",
   "sources": [
     "HUG-SCN-004 (Validated capture profile + COLMAP/SLAM capture pitfalls)",
     "experiments/m11-scene-reconstruction/{001,003,004}-*/CAPTURE-LESSONS.md",
@@ -16,8 +16,45 @@
       "single_camera": true,
       "colmap_compatible": true,
       "dewarp_dead_end": false,
-      "notes": "Native 155° fisheye. Reconstructs the distortion directly; COLMAP needs SIMPLE_RADIAL_FISHEYE (PINHOLE/OPENCV fail). Validated capture profile: 2.7K@30fps, locked exposure/WB, stable motion. Hyperlapse cadence is a separate solver-routing concern (STO-SCN-093): COLMAP sequential matcher fails on hyperlapse — use SLAM/feed-forward there even though the camera MODEL is unchanged.",
-      "source": "HUG-SCN-004; CAPTURE-LESSONS 001/003/004"
+      "notes": "Native 155\u00b0 fisheye. Reconstructs the distortion directly; COLMAP needs SIMPLE_RADIAL_FISHEYE (PINHOLE/OPENCV fail). Validated capture profile: 2.7K@30fps, locked exposure/WB, stable motion. Hyperlapse cadence is a separate solver-routing concern (STO-SCN-093): COLMAP sequential matcher fails on hyperlapse \u2014 use SLAM/feed-forward there even though the camera MODEL is unchanged.",
+      "source": "HUG-SCN-004; CAPTURE-LESSONS 001/003/004",
+      "calibration": {
+        "model": "OPENCV_FISHEYE",
+        "image_size": [
+          3840,
+          2160
+        ],
+        "K": [
+          [
+            2065.601909733891,
+            0.0,
+            1946.2212948937497
+          ],
+          [
+            0.0,
+            2061.6850288565474,
+            1097.5698798532135
+          ],
+          [
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "D": [
+          0.27677090743043026,
+          -0.09060615549361842,
+          0.14611728920896136,
+          -0.13971469283988397
+        ],
+        "rms_reproj_px": 0.8603,
+        "n_images_used": 145,
+        "n_images_total": 145,
+        "board": "9x6",
+        "square_m": 0.025,
+        "calibrated": "2026-06-13T19:56:27-07:00",
+        "tool": "calibrate_camera.py"
+      }
     },
     {
       "make": "DJI",

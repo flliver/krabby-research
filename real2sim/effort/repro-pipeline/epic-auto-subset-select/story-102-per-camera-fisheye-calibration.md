@@ -62,11 +62,22 @@ fully visible + sharp each frame.
 
 ## Definition of Done
 
-- [ ] `calibrate_camera.py` calibrates from a checkerboard set and writes
+- [x] `calibrate_camera.py` calibrates from a checkerboard set and writes
       `K/D/image_size/rms` into the matching capture profile (fail-loud on no profile).
-- [ ] Operator shoots the DJI Action 3 fisheye set; calibration stored with a
-      sane RMS (<~1 px) — **operator-verification gate (T-020)**.
-- [ ] Pure paths (board parse, profile write) unit-tested.
+- [x] Operator shot the DJI Action 3 fisheye set (video → 145 frames @ 4K).
+      **Calibration stored: RMS 0.86 px, 145/145 detected** — clears the <1 px bar
+      (operator-verification gate T-020 met). Two independent shoots agree on
+      principal point + focal → validated, not overfit.
+- [x] Pure paths (board parse, profile write) unit-tested (4 tests).
+
+## Result (2026-06-13)
+
+DJI Action 3 fisheye `calibration` in `capture_profiles.json`: `OPENCV_FISHEYE`,
+`K` fx≈2065.6 fy≈2061.7 cx≈1946.2 cy≈1097.6 @ 3840×2160, `D` =
+[0.277, −0.091, 0.146, −0.140], RMS 0.86 px. `square_m` is a placeholder
+(0.025) — scale-invariant for `K`/`D`, so immaterial to undistortion; metric
+scene scale still comes from the in-scene reference object (STO-SCN-016).
+Resolver (`capture_profile.resolve`) surfaces it for the 093 undistort step.
 
 ## Out of scope
 
