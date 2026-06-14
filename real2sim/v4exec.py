@@ -391,26 +391,27 @@ def cmd_solve(args):
     tag = f"{args.scene}-fmsolve-{sid}"
     workdir = stage_images_on_host(args.host, scene_dir, subset, tag)
     cm, matcher, balance = settings["camera_model"], settings["matcher"], settings["balance"]
-    src = "/work/images"
-    pre = ""
+    # Run the instrumented HOST orchestrator: run_fastmap.sh emits per-phase
+    # nanny-progress -> MQTT on the host (tbeeprz) and docker-runs the BAKED
+    # container for the compute (undistort/colmap/fastmap). Deploy the script +
+    # lib_progress.sh next to the staged images so its `source $HERE/...` resolves.
+    here = Path(__file__).parent
+    sh(["rsync", "-a", str(here.parent / "images" / "fastmap" / "run_fastmap.sh"),
+        str(here / "lib_progress.sh"), f"{args.host}:{workdir}/"])
+    env = f"KRABBY_FASTMAP_IMAGE={json.dumps(FASTMAP_IMAGE)}"
     if settings["undistort"]:
-        pre = (f"python /opt/krabby-tools/undistort_fisheye.py --images /work/images "
-               f"--out /work/undist --make {json.dumps(make)} --model {json.dumps(model)} "
-               f"--mode {json.dumps(mode)} --balance {balance} "
-               f"--profiles /opt/krabby-tools/capture_profiles.json && ")
-        src = "/work/undist"
-    cmd = (pre +
-           "rm -f /work/database.db && rm -rf /work/out && "
-           f"colmap feature_extractor --database_path /work/database.db --image_path {src} "
-           f"--FeatureExtraction.use_gpu 1 --ImageReader.single_camera 1 "
-           f"--ImageReader.camera_model {cm} && "
-           f"colmap {matcher} --database_path /work/database.db --FeatureMatching.use_gpu 1 && "
-           f"python /opt/fastmap/run.py --database /work/database.db --image_dir {src} "
-           f"--output_dir /work/out --headless && "
-           f"cp {src}/intrinsics.json /work/out/ 2>/dev/null || true")
-    print(f"[solve] {args.host}: fastmap@0 (undistort={settings['undistort']}, {matcher}, {cm})")
+        env += (f" UNDISTORT_MODE={json.dumps(mode)} UNDISTORT_MAKE={json.dumps(make)}"
+                f" UNDISTORT_MODEL={json.dumps(model)} UNDISTORT_BALANCE={balance}")
+    remote = (f"cd {workdir} && {env} bash run_fastmap.sh {workdir}/images {workdir}/out "
+              f"{cm} {matcher} 1800 ; rc=$? ; "
+              f"docker run --rm -v {workdir}:/work alpine chown -R $(id -u):$(id -g) /work ; exit $rc")
+    print(f"[solve] {args.host}: fastmap@0 via run_fastmap.sh "
+          f"(undistort={settings['undistort']}, {matcher}, {cm}) — progress -> MQTT")
     t0 = datetime.datetime.now()
-    rc = run_in_fastmap(args.host, workdir, cmd, sdir / "solve.log")
+    r = subprocess.run(["ssh", args.host, remote], capture_output=True, text=True)
+    sdir.mkdir(parents=True, exist_ok=True)
+    (sdir / "solve.log").write_text(r.stdout[-200000:] + "\n--- stderr ---\n" + r.stderr[-50000:])
+    rc = r.returncode
     dt = int((datetime.datetime.now() - t0).total_seconds())
     # gather sparse/0 + intrinsics
     sh(["rsync", "-a", "--include=sparse/***", "--include=intrinsics.json", "--exclude=*",
