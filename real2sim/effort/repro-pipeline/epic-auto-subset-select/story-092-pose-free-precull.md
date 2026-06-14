@@ -4,11 +4,13 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: M
-status: in-progress
+status: shipped
 date: 2026-06-13
 depends-on: []
 bd-id: krabby-e28
 assignee: krabby
+tasks: 4
+complete: 4
 ---
 
 # Pose-free pre-cull (sharpness + perceptual-dedup) for large pools
@@ -54,8 +56,9 @@ Reuse `select_sharp_frames.py` + the `camera_viewer` pHash.
       relative blur gate + local pHash dedup; `--target`, default 300 = solve ceiling.)
 - [x] Sharp, well-distributed candidates retained (no big temporal gaps). (`--max-gap`
       guard re-inserts the sharpest frame in oversized gaps.)
-- [x] Verified: 22 tests (venv) / 11+3-skip (system); CLI smoke 68→6. ⏳ Real large-pool
-      ingest is the operator-verification gate (T-020).
+- [x] Verified: 22 tests (venv) / 11+3-skip (system); CLI smoke 68→6. **Verified on real
+      data 2026-06-13:** `v4exec.py precull 001-patio` on the 942-frame pool → 300
+      (`mechanism: precull`, `label: precull-300`), `primary` untouched (~30 s, CPU).
 
 ## Implementation Notes (as built, 2026-06-13)
 

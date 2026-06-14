@@ -4,11 +4,13 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: S
-status: in-progress
+status: shipped
 date: 2026-06-13
 depends-on: []
 bd-id: krabby-y9m
 assignee: krabby
+tasks: 3
+complete: 3
 ---
 
 # Camera profile at ingest (EXIF/capture-mode → camera model)
@@ -56,8 +58,10 @@ tag dewarp). Emit the chosen model + compatibility flags. Unknown camera+mode �
       `images/capture-profile/<id>/capture-profile.json` + metadata.)
 - [x] Unknown camera+mode / missing mode → fails loud (`ProfileError`); no guessed model.
 - [x] Resolver tests on the 001 (fisheye) and 002 (dewarped) semantics + ingest wiring
-      (11 tests). ⏳ Real end-to-end ingest of a scene with a `capture.json` is the
-      operator-verification gate (T-020) — host-bound, not run here.
+      (11 tests). **Verified on real data 2026-06-13:** `cmd_ingest 003-firepit` (clean-NOOP,
+      `capture.json` declared) wrote `images/capture-profile/<id>/capture-profile.json` =
+      `SIMPLE_RADIAL_FISHEYE`, `colmap_compatible: true`; idempotent NOOP on re-run; dewarped
+      branch resolves to `colmap_camera_model: null` / `dewarp_dead_end: true`.
 
 ## Implementation Notes (as built, 2026-06-13)
 
