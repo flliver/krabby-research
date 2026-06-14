@@ -75,7 +75,20 @@ ENV PYTHONPATH=/opt/fastmap:${PYTHONPATH}
 RUN python -c "import torch; print('torch', torch.__version__, 'cuda', torch.version.cuda)" \
     && python -c "import sys; sys.path.insert(0,'/opt/fastmap'); import fastmap; print('fastmap import OK')"
 
+# ── krabby pipeline tools — BAKED (STO-SCN-093 decision D; operator policy:
+#    results.json provenance must cover the tools that produced them, not a
+#    mounted /tmp copy). Sync krabby-tools/ from real2sim/ before building. ──
+ARG TOOLS_GIT_SHA=unknown
+COPY krabby-tools/ /opt/krabby-tools/
+ENV PYTHONPATH=/opt/krabby-tools:${PYTHONPATH}
+ENV PATH=/opt/krabby-tools:${PATH}
+RUN chmod +x /opt/krabby-tools/*.sh 2>/dev/null || true \
+    && python -c "import sys; sys.path.insert(0,'/opt/krabby-tools'); \
+import solve_plan, undistort_fisheye, covis_graph, validity_gate, capture_profile, precull_frames; \
+print('krabby-tools import OK')"
+
 LABEL org.opencontainers.image.title="krabby-fastmap" \
+      io.krabby.fastmap.tools_git_sha="${TOOLS_GIT_SHA}" \
       org.opencontainers.image.source="https://github.com/pals-ttic/fastmap" \
       io.krabby.fastmap.upstream_sha="${FASTMAP_SHA}" \
       io.krabby.fastmap.colmap_tag="${COLMAP_TAG}" \
