@@ -43,17 +43,49 @@ def frustum_from_w2c(w2c):
     return rflat, center
 
 
-def build_frustums(sparse_dir, n, title="095 verify"):
+def build_frustums(sparse_dir, n, title="095 verify", div_angle=10.0):
     posed = pfs.posed_from_sparse(str(sparse_dir))
-    proposed = set(selv.select_from_sparse(str(sparse_dir), n)[1]["selected"])
+    proposed = set(selv.select_from_sparse(str(sparse_dir), n, div_angle=div_angle)[1]["selected"])
     frustums, cs = [], []
     for e in posed:
         rflat, c = frustum_from_w2c(e["w2c"])
         frustums.append({"R": rflat, "pos": c, "proposed": e["name"] in proposed})
         cs.append(c)
     ctr = [sum(c[i] for c in cs) / max(1, len(cs)) for i in range(3)]
+    mn = [min(c[i] for c in cs) for i in range(3)]
+    mx = [max(c[i] for c in cs) for i in range(3)]
+    diag = sum((mx[i] - mn[i]) ** 2 for i in range(3)) ** 0.5
     return {"title": title, "frustums": frustums, "gauss_ctr": ctr, "up": [0, -1, 0],
-            "n_proposed": len(proposed), "n_pool": len(posed)}
+            "cam_diag": diag, "n_proposed": len(proposed), "n_pool": len(posed)}
+
+
+def cull_ply(src, dst, center, radius):
+    """Drop non-finite + far gaussians (DA3's sky/low-confidence halo at ~1e36
+    that hijacks the viewer's auto-framing). Keep splats within `radius` of the
+    camera centroid. Rewrites the binary PLY with the updated vertex count."""
+    import numpy as np
+    with open(src, "rb") as f:
+        hdr = b""
+        while b"end_header" not in hdr:
+            hdr += f.read(1)
+        off = f.tell()
+    lines = hdr.decode("ascii", "replace").splitlines()
+    n = next(int(L.split()[-1]) for L in lines if L.startswith("element vertex"))
+    props = [L.split()[-1] for L in lines if L.startswith("property")]
+    buf = np.fromfile(src, dtype=np.float32, offset=off, count=n * len(props)).reshape(n, len(props))
+    xi, yi, zi = props.index("x"), props.index("y"), props.index("z")
+    xyz = buf[:, [xi, yi, zi]].astype(np.float64)
+    c = np.asarray(center)
+    keep = np.isfinite(xyz).all(1) & (np.linalg.norm(np.nan_to_num(xyz) - c, axis=1) <= radius)
+    kept = buf[keep]
+    new_hdr = []
+    for L in lines:
+        new_hdr.append(f"element vertex {len(kept)}" if L.startswith("element vertex") else L)
+    out = ("\n".join(new_hdr) + "\n").encode("ascii")
+    with open(dst, "wb") as f:
+        f.write(out)
+        f.write(kept.astype(np.float32).tobytes())
+    print(f"  culled splat: {len(kept)}/{n} kept (radius {radius:.1f} of camera centroid)")
 
 
 def _main(argv=None) -> int:
@@ -63,7 +95,11 @@ def _main(argv=None) -> int:
     ap.add_argument("--scout", required=True, help="scout@0 identity")
     ap.add_argument("--subset", default=None)
     ap.add_argument("--n", type=int, default=24, help="proposed-N to highlight")
+    ap.add_argument("--div-angle", type=float, default=10.0,
+                    help="viewpoint-diversity penalty angle (0 = off; higher = more spread)")
     ap.add_argument("--serve-dir", default=None)
+    ap.add_argument("--cull-factor", type=float, default=3.0,
+                    help="keep splats within this x camera-bbox-diagonal of the centroid")
     ap.add_argument("--port", type=int, default=8099)
     ap.add_argument("--no-serve", action="store_true")
     a = ap.parse_args(argv)
@@ -82,12 +118,12 @@ def _main(argv=None) -> int:
 
     serve = Path(a.serve_dir) if a.serve_dir else Path(f"/tmp/verify-{a.scene}-{a.solve}")
     serve.mkdir(parents=True, exist_ok=True)
-    fr = build_frustums(sparse, a.n, title=f"{a.scene} · solve {a.solve} · N={a.n}")
+    fr = build_frustums(sparse, a.n, title=f"{a.scene} · solve {a.solve} · N={a.n} · div={a.div_angle}",
+                        div_angle=a.div_angle)
     (serve / "frustums.json").write_text(json.dumps(fr) + "\n")
     shutil.copy2(HERE / "viewer.html", serve / "viewer.html")
-    # copy the splat in (http.server won't reliably follow an out-of-tree symlink)
-    if not (serve / "scout.gs.ply").exists():
-        shutil.copy2(scout_ply, serve / "scout.gs.ply")
+    # cull DA3's far-splat halo so the viewer frames the scene (not the 1e36 halo)
+    cull_ply(scout_ply, serve / "scout.gs.ply", fr["gauss_ctr"], a.cull_factor * fr["cam_diag"])
     print(f"verify surface: {fr['n_proposed']} proposed / {fr['n_pool']} pool frustums + scout")
     print(f"  serve dir: {serve}")
     if a.no_serve:

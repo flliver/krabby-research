@@ -47,6 +47,24 @@ def test_connectivity_excludes_disjoint_view():
     assert set(order) <= {0, 1, 2}
 
 
+def test_diversity_penalty_prefers_new_angle():
+    # 3 views all seeing the same 8 points: img1 shares img0's view angle
+    # (redundant), img2 looks from a different angle. With the diversity penalty,
+    # the 2nd pick should be img2 (new angle), not img1 (same space/same angle).
+    names = {i: f"img{i}" for i in range(3)}
+    centers = {0: [-1, 0, 0], 1: [-1.05, 0, 0], 2: [1, 0, 0]}
+    fwd = {0: [0, 0, 1], 1: [0, 0, 1], 2: [-0.5, 0, 0.87]}   # 0,1 same axis; 2 differs
+    pt_imgs, pt_xyz, img_pts = {}, {}, {i: set() for i in range(3)}
+    for k in range(8):
+        pt_imgs[k] = [0, 1, 2]; pt_xyz[k] = [0.0, 0.0, 5.0]
+        for i in (0, 1, 2):
+            img_pts[i].add(k)
+    order = sv.select(centers, names, img_pts, pt_imgs, pt_xyz, n=2, min_overlap=3,
+                      fwd=fwd, div_angle=25.0, div_overlap=3)
+    assert order[0] == 0                 # seed = first by coverage/index
+    assert order[1] == 2                 # new-angle view preferred over redundant img1
+
+
 def test_n_cap_and_determinism():
     centers, names, img_pts, pt_imgs, pt_xyz = _synthetic()
     o1 = sv.select(centers, names, img_pts, pt_imgs, pt_xyz, n=2, min_overlap=3)

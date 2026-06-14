@@ -62,7 +62,8 @@ def _cam_center(qvec, tvec):
 
 
 def read_images_bin(path) -> dict:
-    """image_id -> {name, center}. Skips the 2D point list (not needed for covis)."""
+    """image_id -> {name, center, fwd}. fwd = camera optical axis in world
+    (R_w2c row 2). Skips the 2D point list (not needed for covis)."""
     out = {}
     with open(path, "rb") as f:
         (n,) = _read(f, "Q")
@@ -79,8 +80,11 @@ def read_images_bin(path) -> dict:
                 name += c
             (n2d,) = _read(f, "Q")
             f.read(24 * n2d)  # x(d) y(d) point3D_id(q) per 2D point — skip
+            R = qvec2rotmat(*qvec)
+            center = [-(R[0][i] * tvec[0] + R[1][i] * tvec[1] + R[2][i] * tvec[2])
+                      for i in range(3)]
             out[img_id] = {"name": name.decode("utf-8", "replace"),
-                           "center": _cam_center(qvec, tvec)}
+                           "center": center, "fwd": [R[2][0], R[2][1], R[2][2]]}
     return out
 
 
