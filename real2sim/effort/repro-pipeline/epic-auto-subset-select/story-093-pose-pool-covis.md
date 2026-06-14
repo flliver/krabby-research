@@ -4,7 +4,7 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: L
-status: blocked
+status: in-progress
 date: 2026-06-13
 depends-on: [STO-SCN-091, STO-SCN-092]
 bd-id: krabby-0dk
