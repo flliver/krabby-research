@@ -122,10 +122,19 @@ Empirically validated fleet-side on 001-patio:
 5. **Containers write as root** → host-side permission friction; run the krabby tools with
    `--user $(id -u):$(id -g)` (the container-as-root follow-up) rather than chown'ing.
 
-Deliverable so far: `real2sim/undistort_fisheye.py` (+ `run_fastmap.sh` from 101 drives the
-GPU solve). Remaining 093 work: the **covis-graph extractor** (read FastMap `sparse/0` bins →
-`image→points`, `pair→shared-count + mean triangulation angle`) and the **planarity validity
-gate**. A real 539-frame posed model now exists on tbeeprz to build the extractor against.
+Deliverables (built + validated on the real 539 model):
+- `undistort_fisheye.py` — fisheye → pinhole via the 102 calibration.
+- `run_fastmap.sh` (from 101) — GPU solve (COLMAP match + FastMap).
+- `covis_graph.py` — `sparse/0` bins → coverage + pair shared-count/angle + connectivity
+  (539 fully connected, 0 isolated).
+- `validity_gate.py` — planarity nebula detector (good walk 5.3% PASS).
+- `solve_plan.py` — solver dispatch (profile + modality → solve plan): fisheye→undistort→
+  FastMap, dewarped→DA3, pinhole→FastMap; hyperlapse→keep-full-pool + exhaustive matcher.
+
+**Remaining 093 work (store-integration; needs the v4 store mounted):** wire the dispatch
+into a v4 graph node that runs the chain and writes the covis + poses as a store artifact
+094 consumes (a HUG-SCN-005 store-writer change — design-gated). The CPU cores above are
+all done + unit-tested + validated on real data.
 
 ## Out of scope
 
