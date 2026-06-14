@@ -544,14 +544,16 @@ def cmd_scout(args):
     cdir.mkdir(parents=True, exist_ok=True)
     (cdir / "scout.log").write_text(r.stdout[-200000:] + "\n--- stderr ---\n" + r.stderr[-50000:])
     dt = int((datetime.datetime.now() - t0).total_seconds())
-    sh(["rsync", "-a", "--include=*.ply", "--exclude=*",
+    # gather the gs_ply (it lands in a gs_ply/ subdir — recurse with */ include);
+    # do NOT remove the workdir until the gather is confirmed.
+    sh(["rsync", "-a", "--include=*/", "--include=*.ply", "--exclude=*",
         f"{args.host}:{work}/scout_out/", str(cdir) + "/"])
-    sh(["ssh", args.host, f"rm -rf {work}"])
-    ply = next((p for p in cdir.glob("*.ply")), None)
+    ply = next((p for p in cdir.rglob("*.ply")), None)
     if r.returncode != 0 or ply is None:
-        sys.exit(f"[scout] FAILED (rc={r.returncode}; see {cdir}/scout.log)")
-    if ply.name != "scout.gs.ply":
-        ply.rename(cdir / "scout.gs.ply")
+        sys.exit(f"[scout] FAILED (rc={r.returncode}; see {cdir}/scout.log; "
+                 f"workdir kept for diagnosis: {args.host}:{work})")
+    ply.replace(cdir / "scout.gs.ply")        # move up out of the gs_ply/ subdir
+    sh(["ssh", args.host, f"rm -rf {work}"])
     (cdir / "posed.json").write_text(json.dumps(posed, indent=2) + "\n")
     (cdir / "scout_views.json").write_text(json.dumps({"n": len(names), "views": names}, indent=2) + "\n")
     v4.write_metadata(cdir, task="scout", algo="scout@0", identity=cid,
