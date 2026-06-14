@@ -51,9 +51,22 @@ selection is the main open decision of this story.
 
 ## Definition of Done
 
-- [ ] Pre-culled pool → poses + co-visibility graph, using the profile's camera model.
-- [ ] Passes the solve-validity gate (no nebula); fails loud otherwise.
-- [ ] Track-graph output in a form the selector (STO-SCN-094) consumes.
+- [x] Pre-culled pool → poses + co-visibility graph, using the profile's camera model.
+- [x] Passes the solve-validity gate (no nebula); fails loud otherwise.
+- [x] Track-graph output in a form the selector (STO-SCN-094) consumes.
+
+**Validated end-to-end in the store (2026-06-14, production path):**
+`cmd_precull` (capture-order) → subset `6EHLYO3MF3QU` (942→539, 403 near-dups) →
+`cmd_solve` (fastmap@0, undistort, MQTT progress) → **539/539 registered** →
+`cmd_covis` → **connected=True, isolated=0, validity=PASS**. Artifacts +
+provenance (baked-tools git-sha) in the scene store; idempotent (re-runs NOOP).
+The covis graph 094 consumes is produced.
+
+**Deferred follow-ups (own stories; not blockers for 094):**
+- `dewarped → da3` dispatch branch (solve_plan routes it; only `fastmap@0` is
+  wired — our scenes are fisheye).
+- `cameras.json` derivation from `sparse/0` for the downstream *reconstruct*
+  path (the covis/094 path needs only `sparse/0`, which is delivered).
 
 ## Spine note (longer-term — see STO-SCN-096 conclusion #7)
 
