@@ -59,35 +59,6 @@ def build_frustums(sparse_dir, n, title="095 verify", div_angle=10.0):
             "cam_diag": diag, "n_proposed": len(proposed), "n_pool": len(posed)}
 
 
-def cull_ply(src, dst, center, radius):
-    """Drop non-finite + far gaussians (DA3's sky/low-confidence halo at ~1e36
-    that hijacks the viewer's auto-framing). Keep splats within `radius` of the
-    camera centroid. Rewrites the binary PLY with the updated vertex count."""
-    import numpy as np
-    with open(src, "rb") as f:
-        hdr = b""
-        while b"end_header" not in hdr:
-            hdr += f.read(1)
-        off = f.tell()
-    lines = hdr.decode("ascii", "replace").splitlines()
-    n = next(int(L.split()[-1]) for L in lines if L.startswith("element vertex"))
-    props = [L.split()[-1] for L in lines if L.startswith("property")]
-    buf = np.fromfile(src, dtype=np.float32, offset=off, count=n * len(props)).reshape(n, len(props))
-    xi, yi, zi = props.index("x"), props.index("y"), props.index("z")
-    xyz = buf[:, [xi, yi, zi]].astype(np.float64)
-    c = np.asarray(center)
-    keep = np.isfinite(xyz).all(1) & (np.linalg.norm(np.nan_to_num(xyz) - c, axis=1) <= radius)
-    kept = buf[keep]
-    new_hdr = []
-    for L in lines:
-        new_hdr.append(f"element vertex {len(kept)}" if L.startswith("element vertex") else L)
-    out = ("\n".join(new_hdr) + "\n").encode("ascii")
-    with open(dst, "wb") as f:
-        f.write(out)
-        f.write(kept.astype(np.float32).tobytes())
-    print(f"  culled splat: {len(kept)}/{n} kept (radius {radius:.1f} of camera centroid)")
-
-
 def _main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="Build + serve the STO-SCN-095 verify surface.")
     ap.add_argument("scene")
@@ -98,8 +69,6 @@ def _main(argv=None) -> int:
     ap.add_argument("--div-angle", type=float, default=10.0,
                     help="viewpoint-diversity penalty angle (0 = off; higher = more spread)")
     ap.add_argument("--serve-dir", default=None)
-    ap.add_argument("--cull-factor", type=float, default=3.0,
-                    help="keep splats within this x camera-bbox-diagonal of the centroid")
     ap.add_argument("--port", type=int, default=8099)
     ap.add_argument("--no-serve", action="store_true")
     a = ap.parse_args(argv)
@@ -122,8 +91,7 @@ def _main(argv=None) -> int:
                         div_angle=a.div_angle)
     (serve / "frustums.json").write_text(json.dumps(fr) + "\n")
     shutil.copy2(HERE / "viewer.html", serve / "viewer.html")
-    # cull DA3's far-splat halo so the viewer frames the scene (not the 1e36 halo)
-    cull_ply(scout_ply, serve / "scout.gs.ply", fr["gauss_ctr"], a.cull_factor * fr["cam_diag"])
+    shutil.copy2(scout_ply, serve / "scout.gs.ply")
     print(f"verify surface: {fr['n_proposed']} proposed / {fr['n_pool']} pool frustums + scout")
     print(f"  serve dir: {serve}")
     if a.no_serve:
