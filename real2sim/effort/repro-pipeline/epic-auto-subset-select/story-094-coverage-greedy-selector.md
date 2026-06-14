@@ -4,7 +4,7 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: L
-status: open
+status: in-progress
 date: 2026-06-13
 depends-on: [STO-SCN-093]
 bd-id: krabby-mft
@@ -48,9 +48,34 @@ coverage saturation. Deterministic and testable.
 
 ## Definition of Done
 
-- [ ] Posed pool → ranked proposed-N maximizing coverage with connectivity preserved.
-- [ ] Deterministic; emits a coverage report (covered surface, angle distribution, gaps).
-- [ ] Validated on a known scene (proposed-N reconstructs at least as well as a hand pick).
+- [x] Posed pool → ranked proposed-N maximizing coverage with connectivity preserved.
+      (`select_views.py`: greedy new+triangulated(angle-weighted), min-overlap connectivity.)
+- [x] Deterministic; emits a coverage report (coverage %, triangulation-angle stats,
+      pct-in-10-30°). Validated on the real 539 pool (deterministic; 7 s).
+- [ ] Proposed-N reconstructs ≥ a hand pick — **deferred** (needs a reconstruct run +
+      hand-pick baseline; the selector + report are delivered).
+
+## Result (2026-06-14) — selector works; coverage is capture-limited
+
+Coverage-vs-N on the real 539 pool (`6EHLYO3MF3QU`):
+
+| N | triangulated-coverage | median tri-angle |
+|---|---|---|
+| 12 | 5.4% | 5.3° |
+| 24 | 9.0% | 6.2° |
+| 48 | 17.4% | 6.3° |
+| 120 | 34.7% | 5.7° |
+
+Coverage scales **~linearly with N — no small-N knee** because the hyperlapse tracks are
+*thin* (~3.4 views/point), so a point only counts when *both* its observers are selected.
+The selector is correct; the limit is the capture. ⇒ (a) the scout-gaussian (095) is where a
+human judges "enough coverage?" / bumps N, and (b) reinforces the capture-lessons call for
+**deliberate orbits / denser overlap** (thick tracks → small-N captures most coverage).
+Possible refinement (noted): for thin-track pools, add a *spatial/viewpoint-diversity* term
+to the objective (feed-forward reconstructors value view coverage, not just triangulated pts).
+
+**Remaining (follow-ups):** wire as a v4 store node (`select@0` under the covis, mirroring
+093); the "reconstructs ≥ hand-pick" comparison.
 
 ## Spine note (longer-term — see STO-SCN-096 conclusion #7)
 
