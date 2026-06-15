@@ -4,11 +4,11 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: L
-status: draft
+status: in-progress
 date: 2026-06-15
 depends-on: []
 bd-id: krabby-i7qz
-assignee: scout
+assignee: krabby
 ---
 
 # Memory-aware TSDF: mesh_res tunable + RAM pre-flight + local-fuse (B) strategy
@@ -85,6 +85,14 @@ no depth artifact). So B-for-matcha needs a **depth-export step**: split `render
 - The select→matcha posed wiring (STO-SCN-130, done).
 
 ## Implementation Notes
+
+**Part 1 (mesh_res tunable) BUILT 2026-06-15.** `reconstruct-matcha --mesh-res <N>` added: the
+override flows into the tsdf node identity (512/1024 are distinct nodes) and switches the TSDF
+step to call `render_multires.py --mesh_res <N>` directly (default path unchanged —
+`extract_tsdf_mesh.py -c default`). Compiles; `--help` shows it. **Not yet run** to materialize
+matcha-15@512 as a store node (that re-runs the weld: ~15 min train + ~91 s tsdf512 → render).
+
+Parts 2 (RAM pre-flight) + 3 (local-fuse B, incl. the matcha depth-export prerequisite) remain.
 
 _(Earned 2026-06-15. `mesh_res 512` validated on tbeeprz (91 s, fits); 1024 OOMs (~77 GB).
 B reframes the wall: put the RAM-bound fusion where the RAM is — 128 GB local. Matcha depths

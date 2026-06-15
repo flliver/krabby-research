@@ -2,7 +2,7 @@
 xid: DES-SCN-001
 kind: design
 effort: scn
-status: draft
+status: in-progress
 date: 2026-06-15
 guidance: ./guidance.md
 hugs: []

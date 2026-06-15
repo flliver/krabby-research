@@ -985,7 +985,10 @@ def cmd_matcha(args):
     # gauge is part of the mesh content -> orient is a resolved input of meshify
     mid = v4.identity_hash({"representation": rid, "cameras": sid, "orient": oid},
                            {}, "tetra-extract@1")
-    ts_settings = v4.hashable_settings(tdefs["meshify-via-tsdf"], {})
+    # STO-SCN-133: mesh_res is tunable (default 1024 OOMs on small-radius spine gauges; 512
+    # fits a 31 GB host). Override flows into identity so 512/1024 are distinct store nodes.
+    ts_overrides = {"mesh_res": args.mesh_res} if getattr(args, "mesh_res", None) else {}
+    ts_settings = v4.hashable_settings(tdefs["meshify-via-tsdf"], ts_overrides)
     tid = v4.identity_hash({"representation": rid, "cameras": sid, "orient": oid},
                            ts_settings, "tsdf-extract@1")
     tetra_dir = rdir / "meshify" / "tetra" / mid
@@ -1050,11 +1053,22 @@ def cmd_matcha(args):
             tool += f" --dense_regul {args.dense_regul}"
         tool += (" --depthanythingv2_checkpoint_dir /opt/MAtCha/Depth-Anything-V2/checkpoints"
                  " --depthanything_encoder vitl")
-        tool += (" && PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True "
-                 "python scripts/extract_tsdf_mesh.py -s /work/out/mast3r_sfm "
-                 "-m /work/out/free_gaussians -o /work/out/tsdf_meshes -c default")
+        # TSDF extract. Default config (mesh_res 1024) via extract_tsdf_mesh.py; a `--mesh-res`
+        # override calls render_multires.py directly with the same args (the configs are baked,
+        # can't drop a new yaml) — it produces the same multires_tsdf_post.ply (STO-SCN-133).
+        if getattr(args, "mesh_res", None):
+            tsdf = (f"python 2d-gaussian-splatting/render_multires.py "
+                    f"--source_path /work/out/mast3r_sfm --model_path /work/out/free_gaussians "
+                    f"--output_dir /work/out/tsdf_meshes --depth_ratio 1.0 --num_cluster 50 "
+                    f"--mesh_res {int(args.mesh_res)} --multires_factors 2 8 16 "
+                    f"--skip_train --skip_test")
+        else:
+            tsdf = ("python scripts/extract_tsdf_mesh.py -s /work/out/mast3r_sfm "
+                    "-m /work/out/free_gaussians -o /work/out/tsdf_meshes -c default")
+        tool += " && PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True " + tsdf
         print(f"[{m_algo} weld] {args.host}: full pipeline ({n_images} images, sfm={args.sfm}, "
-              f"dense_regul={args.dense_regul}) — ~15-25 min")
+              f"dense_regul={args.dense_regul}, mesh_res={getattr(args,'mesh_res',None) or 1024}) "
+              f"— ~15-25 min")
         t0 = datetime.datetime.now()
         rc = run_in_matcha(args.host, workdir, tool, rdir / "matcha.log")
         dt = int((datetime.datetime.now() - t0).total_seconds())
@@ -1123,7 +1137,23 @@ def cmd_matcha(args):
     else:
         cams = json.loads((scene_dir / "images" / "subsets" / pose_sub / "cameras" / sid /
                            "cameras.json").read_text())
+        # STO-SCN-130: orient from the RECONSTRUCTED subset's cameras, not the parent pool.
+        # When pose_sub != sub (a FINAL-N selection), `cameras.json` holds the whole pool — the
+        # full handheld walk has mixed roll (matcha-15: 27.7° > 15° → orient REFUSED). Restrict
+        # to `sub`'s members so the horizon/floor match the mesh's own cameras (== historical
+        # behavior, where the subset cameras.json already held only the members).
+        member_stems = set()
+        for h in json.loads((scene_dir / "images" / "subsets" / sub / "subset.json")
+                            .read_text())["members"]:
+            d = json.loads((scene_dir / "images" / h / "metadata.json").read_text())
+            member_stems.add(d.get("original_name", h).rsplit(".", 1)[0])
+        keep = [i for i, fp in enumerate(cams["filepaths"])
+                if fp.rsplit("/", 1)[-1].rsplit(".", 1)[0] in member_stems]
         c2w = np.asarray(cams["cams2world"])
+        if keep and len(keep) < len(c2w):
+            print(f"[orient] restricting to {len(keep)} reconstructed members "
+                  f"(of {len(c2w)} pool cameras)")
+            c2w = c2w[keep]
         raw = o3d.io.read_triangle_mesh(str(tsdf_raw))
         v_solve = sim["s"] * (np.asarray(raw.vertices) @ np.asarray(sim["R"]).T) + np.asarray(sim["t"])
         R, z = bootstrap_orient(v_solve, cam_R_c2w=c2w[:, :3, :3], cam_C=c2w[:, :3, 3])
@@ -1998,6 +2028,9 @@ def main():
                    help="subset to reconstruct (default: primary). A FINAL-N selection is posed "
                         "from its parent solve — no re-solve (STO-SCN-130).")
     p.add_argument("--dense-regul", default="default", choices=["default", "strong"])
+    p.add_argument("--mesh-res", dest="mesh_res", type=int, default=None,
+                   help="TSDF mesh resolution (default config = 1024). Lower (e.g. 512) for "
+                        "small-radius spine gauges where 1024 OOMs the host (STO-SCN-133).")
     p.add_argument("--sfm", default="unposed", choices=["unposed", "posed"],
                    help="posed = matcha@1: feed the ingest solve into train.py "
                         "as COLMAP sparse/0 (no re-solve, no arbitrary gauge)")

@@ -3,7 +3,7 @@ xid: EPI-SCN-SCENE-001-PATIO
 parent: ../design.md
 kind: epic
 effort: scn
-status: open
+status: in-progress
 date: 2026-06-15
 hugs: []
 tenets: []

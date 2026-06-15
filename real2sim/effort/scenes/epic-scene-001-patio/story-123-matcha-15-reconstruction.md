@@ -3,7 +3,7 @@ xid: STO-SCN-123
 parent: ./epic.md
 kind: story
 effort: scn
-status: draft
+status: in-progress
 date: 2026-06-15
 depends-on: []
 bd-id: krabby-cfwb

@@ -3,85 +3,33 @@ xid: STO-SCN-124
 parent: ./epic.md
 kind: story
 effort: scn
-status: draft
+status: shipped
+shipped: 2026-06-15
 date: 2026-06-15
 depends-on: []
 bd-id: krabby-sjzc
 assignee: krabby
+tasks: 1
+complete: 1
 ---
 
 # Discard render PWZ4S24AZ72T (invalid) from ranking
 
 ## Summary
 
-_(One sentence: what does this story deliver? Avoid "we will add X" —
-write the outcome, not the verb.)_
+The invalid TSDF mesh `PWZ4S24AZ72T` (the `12sharp-strong` matcha, `LQLIS7O67GHX`) is excluded
+from the 001-patio runoff so it doesn't pollute the comparison.
 
-## Context
+## Resolution
 
-_(Why is this story needed? What does it depend on? Link to the parent
-epic. If this is a discovered-from another story, surface the link.)_
-
-## Problem
-
-_(What specific problem does this story solve? Concrete; the reader
-should be able to verify completion without re-reading the epic.)_
-
-## Design
-
-### Approach
-
-_(How will this be implemented? Reference HUGs that constrain the
-implementation choice; cite alternatives only when they shaped the
-final pick.)_
-
-### Changes
-
-| File | Change |
-|------|--------|
-| `path/to/file` | _(add / modify / extract)_ |
-| `path/to/test` | _(add tests for the new behavior)_ |
+**Operator-completed 2026-06-15.** The operator discarded `PWZ4S24AZ72T` from the ranking
+directly. No code mechanism was built here — a general "retract/hide a variant" feature is
+tracked under STO-SCN-132 (failed/invalid results as first-class, visible-in-data records).
 
 ## Definition of Done
 
-- [ ] _(Specific, verifiable condition — not "code works")_
-- [ ] _(Specific, verifiable condition.)_
-- [ ] Tests written and passing.
-- [ ] Code reviewed (or self-reviewed against the engineer-knowledge
-      constraints).
-- [ ] `docs/work-platform.md` or other operator-facing doc updated if
-      surface changed.
-
-## Testing
-
-### Unit / fixture tests
-
-- [ ] _(Specific case.)_
-- [ ] _(Edge case.)_
-
-### Integration
-
-- [ ] _(Scenario.)_
+- [x] `PWZ4S24AZ72T` no longer participates in the 001-patio runoff (operator-handled).
 
 ## Out of scope
 
-- _(Things deliberately deferred to a later story. Be explicit — the
-  reader should know what's *not* changing.)_
-
-## Implementation Notes
-
-_(Fill in during / after implementation. Capture what diverged from
-the original design and why — useful for the retrospective + for
-operators reading this story in a year.)_
-
-### What Changed
-
-_(Actual implementation. May differ from § Design above.)_
-
-### Files Modified
-
-- `path/to/file` — _(what changed)_
-
-### Gotchas
-
-_(Anything surprising or worth noting for future readers.)_
+- A general discard/retract mechanism in the rank UI / store (→ STO-SCN-132).
