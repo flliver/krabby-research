@@ -120,6 +120,14 @@ exercises the engine + IO on real gaussian data); a TSDF/mesh fusion driver (gau
 is the v1; mesh merge is an alternative if a downstream wants meshes before 013); gap-filling
 across genuinely uncovered regions (out of fusion's scope — a capture concern).
 
+**Fix (2026-06-14, found in STO-SCN-100 verification):** the node originally applied only the
+098 global gauge to each segment's gaussian — but a DA3 gaussian is in DA3's NORMALIZED frame
+(STO-SCN-105: off by scale + ~125° rotation + translation from its segment solve). `cmd_spine_fuse`
+now composes the **two-stage gauge** per segment — `compose_gauge(098, 105)` (gs→segment-solve
+via the scout_gauge, then segment-solve→global) — so the fused output is genuinely in the global
+gauge. Added `spine_fuse.quat_xyzw_to_R` + `compose_gauge` (+ regression test); warns if a
+segment lacks a `scout_gauge.json`.
+
 **Next (STO-SCN-100):** whole-spine verification — render the fused space + seams in the
 scout verify surface for the operator to confirm cohesion.
 

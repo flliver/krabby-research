@@ -3,12 +3,13 @@ xid: EPI-SCN-SPINE-ASSEMBLY
 parent: ../design.md
 kind: epic
 effort: scn
-status: open
+status: shipped
 date: 2026-06-13
 hugs: []
 tenets: []
 bd-id: krabby-3l9
 assignee: krabby
+shipped: 2026-06-14
 ---
 
 # Spine assembly: segment a video into M overlapping sub-reconstructions, globally register, fuse into one cohesive space
@@ -53,7 +54,7 @@ graph with registration/loop-closure edges.
 | 1 | `STO-SCN-097` | Spine segmentation (chunk trajectory into M overlapping segments) | shipped | M |
 | 2 | `STO-SCN-098` | Global registration of segment submaps (pose-graph + loop closure + global BA) | shipped | L |
 | 3 | `STO-SCN-099` | Cohesive fusion of per-segment reconstructions into one gauge | shipped | L |
-| 4 | `STO-SCN-100` | Whole-spine verification (assembled space + seams in the scout gaussian) | open | M |
+| 4 | `STO-SCN-100` | Whole-spine verification (assembled space + seams in the scout gaussian) | shipped | M |
 | 5 | `STO-SCN-105` | Scout-gauge registration: DA3 normalized-frame root cause + auto camera-pose Umeyama fix (prerequisite for 098/099/100) | shipped | L |
 
 ## Design

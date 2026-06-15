@@ -97,6 +97,25 @@ def _quat_mul_wxyz(q, P) -> np.ndarray:
 
 # ----------------------------------------------------------------- transform / feather
 
+def quat_xyzw_to_R(q) -> np.ndarray:
+    """three.js/scout_gauge quaternion [x,y,z,w] -> rotation matrix."""
+    x, y, z, w = (float(v) for v in q)
+    n = (x * x + y * y + z * z + w * w) ** 0.5 or 1.0
+    x, y, z, w = x / n, y / n, z / n, w / n
+    return np.array([[1 - 2 * (y * y + z * z), 2 * (x * y - w * z), 2 * (x * z + w * y)],
+                     [2 * (x * y + w * z), 1 - 2 * (x * x + z * z), 2 * (y * z - w * x)],
+                     [2 * (x * z - w * y), 2 * (y * z + w * x), 1 - 2 * (x * x + y * y)]])
+
+
+def compose_gauge(outer: dict, inner: dict) -> dict:
+    """outer ∘ inner as {scale,R,t}: apply `inner` then `outer`. Used to chain the
+    STO-SCN-105 scout-gauge (gaussian→segment-solve) with the STO-SCN-098 gauge
+    (segment-solve→global) so a DA3-normalized-frame gaussian lands in the global gauge."""
+    so, Ro, to = float(outer["scale"]), np.asarray(outer["R"], float), np.asarray(outer["t"], float)
+    si, Ri, ti = float(inner["scale"]), np.asarray(inner["R"], float), np.asarray(inner["t"], float)
+    return {"scale": so * si, "R": Ro @ Ri, "t": so * (Ro @ ti) + to}
+
+
 def transform_gaussians(arr: np.ndarray, gauge: dict) -> np.ndarray:
     """Apply a SIM(3) gauge {scale, R(3,3), t(3,)} to a (N,17) 3DGS array -> new array."""
     s = float(gauge["scale"])

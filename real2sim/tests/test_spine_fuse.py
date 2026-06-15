@@ -6,6 +6,7 @@ Synthetic 17-float 3DGS arrays (no real PLY needed for the math). The falsifiabl
 overlap — the cross-fade halves each segment's opacity in the shared region so the two
 contributions sum to single coverage, not double.
 """
+import math
 import sys
 import tempfile
 from pathlib import Path
@@ -89,6 +90,37 @@ def test_transform_positions_and_scale():
     # log-scale shifted by log(scale)
     assert np.allclose(out[:, sf.SCL].astype(float),
                        g[:, sf.SCL].astype(float) + np.log(G["scale"]), atol=1e-5)
+
+
+def test_quat_xyzw_to_R():
+    assert np.allclose(sf.quat_xyzw_to_R([0, 0, 0, 1]), np.eye(3), atol=1e-9)   # identity
+    # 90° about +Z: x->y, y->-x
+    R = sf.quat_xyzw_to_R([0, 0, math.sin(math.pi / 4), math.cos(math.pi / 4)])
+    assert np.allclose(R @ np.array([1, 0, 0]), [0, 1, 0], atol=1e-6)
+    assert np.allclose(np.linalg.det(R), 1.0, atol=1e-9)
+
+
+def test_compose_gauge_chains_105_then_098():
+    """The orientation fix (operator-caught 2026-06-14): a DA3-normalized-frame gaussian
+    must be carried gs->solve (105) THEN solve->global (098). compose_gauge must equal
+    applying inner then outer."""
+    rng = np.random.default_rng(11)
+    inner = _rand_gauge(rng)        # gs -> segment solve (the 105 scout_gauge)
+    outer = _rand_gauge(rng)        # segment solve -> global (the 098 gauge)
+    comp = sf.compose_gauge(outer, inner)
+    p = rng.standard_normal((20, 3))
+    # composed applied once == inner applied, then outer
+    via_comp = comp["scale"] * (p @ np.asarray(comp["R"]).T) + comp["t"]
+    step1 = inner["scale"] * (p @ np.asarray(inner["R"]).T) + inner["t"]
+    step2 = outer["scale"] * (step1 @ np.asarray(outer["R"]).T) + outer["t"]
+    assert np.allclose(via_comp, step2, atol=1e-9)
+    # and on gaussians: transform(g, comp) == transform(transform(g, inner), outer)
+    g = make_gaussians(np.arange(0, 10, dtype=float))
+    g[:, sf.ROT] = np.array([0.3, 0.4, 0.5, 0.7])
+    one = sf.transform_gaussians(g, comp)
+    two = sf.transform_gaussians(sf.transform_gaussians(g, inner), outer)
+    assert np.allclose(one[:, sf.XYZ], two[:, sf.XYZ], atol=1e-3)
+    assert np.allclose(one[:, sf.SCL], two[:, sf.SCL], atol=1e-4)
 
 
 def test_transform_inverse_round_trips():

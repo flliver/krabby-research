@@ -721,6 +721,7 @@ def cmd_spine_fuse(args):
         print(f"[spine-fuse] NOOP — {fid} exists -> {fdir}")
         return
 
+    import scout_register
     segments = {}
     for k in gauges:
         sub, _, sol = solves[k].partition("/")
@@ -728,8 +729,20 @@ def cmd_spine_fuse(args):
         seg_cam_names = sreg.read_solve_poses(bin_p).keys()
         cams = [cam_global[n] for n in seg_cam_names if n in cam_global]
         ply_p = scene_dir / plys[k] if not plys[k].startswith("/") else Path(plys[k])
-        g = sfuse.transform_gaussians(sfuse.read_ply(ply_p),
-                                      {"scale": gauges[k]["scale"], "R": gauges[k]["R"], "t": gauges[k]["t"]})
+        # TWO-STAGE gauge (STO-SCN-105 + STO-SCN-098): the DA3 gaussian lives in DA3's
+        # NORMALIZED frame, off from its segment solve by a full similarity (scale + ~125°
+        # rotation + translation). Register gs->segment-solve via the scout_gauge (105),
+        # THEN segment-solve->global via the 098 gauge. Skipping the 105 step leaves the
+        # splat mis-oriented vs the frustums — the bug operator-caught 2026-06-14.
+        g105 = scout_register.gauge_for(ply_p.parent)
+        inner = {"scale": g105["scale"], "R": sfuse.quat_xyzw_to_R(g105.get("quat", [0, 0, 0, 1])),
+                 "t": g105.get("translate", [0, 0, 0])}
+        outer = {"scale": gauges[k]["scale"], "R": gauges[k]["R"], "t": gauges[k]["t"]}
+        composed = sfuse.compose_gauge(outer, inner)
+        if not g105.get("registered"):
+            print(f"[spine-fuse] WARNING: segment {k} gaussian has no scout_gauge (105) — "
+                  f"applying 098 only; splat may be mis-oriented. Re-run scout for {ply_p.parent}.")
+        g = sfuse.transform_gaussians(sfuse.read_ply(ply_p), composed)
         segments[k] = {"gaussians": g, "cameras": cams}
 
     radius = args.radius if args.radius and args.radius > 0 else None
