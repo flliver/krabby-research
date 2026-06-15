@@ -92,6 +92,28 @@ Each step's exact command, settings, gotchas, and automation status live in the 
 
 ---
 
+## Automation status — automated *per step*, operator-*orchestrated*
+
+**The honest end-to-end picture (2026-06-15): this process is NOT push-button.** Every step is a
+hardened single command, but a human chains them — there is no driver that takes a scene from
+`capture.json` → ranked variants. Three categories:
+
+| | What | Why |
+|---|---|---|
+| ✅ **Automated step** | `ingest`, `precull`, `solve`, `covis`, `spine-*`, `select`, `scout`, `reconstruct-*`, `reconstruct-da3-scout`, `render-missing` | each is one content-addressed `v4exec`/`v4job` command; re-runs are NOOPs |
+| ⚠️ **Manual glue (automation debt)** | (1) **no orchestrator** — you run ~10 commands in order, hand-carrying `solve`/`covis`/`scout`/`subset`/rep ids between them; (2) the **`primary` re-point** before every reconstruct (a deliberately *locked* act, but still manual); (3) per-step gotchas that aren't yet self-healing (e.g. a FastMap-solve variant silently fails to render until its `cameras.json` is emitted — see [T3c](T3c-reconstruction-postprocessing.md) "Render camera contract") | the steps were hardened before the chaining was |
+| 🟢 **Intentional human gate** | `capture.json` declaration (T0), **view authoring** (T2), **verify** (T1), **ranking** (T4) | T-019/T-020 — the operator *should* drive these; the goal is not 100% automation, it's removing the *incidental* toil |
+
+**So "fully automated" is not yet true.** It would mean a **scene driver** that auto-resolves
+ids and chains T0→T3c, pausing at the four intentional gates. That driver does not exist; today
+the operator is the orchestrator. (Concretely: the DA3-24 variant for 001-patio was *not*
+push-button — it took manual id lookup + two code fixes, STO-SCN-127.)
+
+The per-phase "Automation status" lines mean **"this step is a single command,"** not "the
+process is hands-off." Don't read them as end-to-end automation.
+
+---
+
 ## Status of this doc set
 
 Tracked under **`EPI-SCN-M11-PROCESS-DOCS`** (within `DES-SCN-REPRO`). Per-phase docs are

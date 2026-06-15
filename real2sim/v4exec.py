@@ -1532,6 +1532,120 @@ def cmd_da3(args):
     print(f"reconstruct-da3 materialized: represent {rid}, fused {fid}")
 
 
+def cmd_da3_scout(args):
+    """STO-SCN-127 — matcha-FREE DA3 scene mesh in the SOLVE/spine gauge, from an existing
+    scout npz. NO GPU, NO matcha reference: the spine already posed the cameras, so the scout's
+    `da3_poses.npz` (depth+conf+echoed-solve extrinsics, already in the solve gauge) TSDF-fuses
+    straight into the solve gauge (da3_mesh_from_npz.fuse_npz). Gravity comes from the SOLVE
+    cameras (bootstrap_orient — the same orient matcha uses), not from a matcha mesh. Emits a
+    content-addressed represent/da3 + meshify node that `v4job render-missing` discovers like
+    any other rankable mesh. This is the α path (the spine makes matcha unnecessary for DA3)."""
+    import numpy as np
+    import open3d as o3d
+    from da3_mesh_from_npz import fuse_npz
+    import posed_from_sparse as pfs
+    scene_dir = v4.STORE / args.scene
+    sc = v4.Scene(args.scene)
+    sub = args.subset or sc.resolve("primary")
+    sid, cid = args.solve, args.scout
+    sdir = scene_dir / "images" / "subsets" / sub / "cameras" / sid
+    npz = sdir / "scout" / cid / "da3_poses.npz"
+    if not npz.exists():
+        sys.exit(f"no scout npz at {npz} — run `scout` first (or check --solve/--scout)")
+    if not (sdir / "sparse" / "0").exists():
+        sys.exit(f"no solve sparse/0 at {sdir} — run `solve` first")
+    tdefs = v4.tasks()
+    nodes = []
+
+    # FastMap solves emit only sparse/0 (COLMAP bins); the renderer (rep_camera_paths /
+    # build_blender_scene) needs a cameras.json {filepaths, cams2world} at the solve dir to
+    # place the T2 views. Emit it once from sparse/0 (benefits every rep on this solve).
+    cams_json = sdir / "cameras.json"
+    if not cams_json.exists():
+        fps, c2ws, focals = [], [], []
+        for e in pfs.posed_from_sparse(str(sdir / "sparse" / "0")):
+            w2c = np.asarray(e["w2c"], dtype=np.float64)
+            if w2c.shape == (3, 4):
+                w2c = np.vstack([w2c, [0, 0, 0, 1]])
+            fps.append(e["name"])
+            c2ws.append(np.linalg.inv(w2c).tolist())
+            focals.append(float(np.asarray(e["K"], dtype=np.float64)[0, 0]))
+        cams_json.write_text(json.dumps(
+            {"filepaths": fps, "cams2world": c2ws, "focals": focals}, indent=2) + "\n")
+        print(f"[da3-scout] emitted solve cameras.json ({len(fps)} cams) -> {cams_json}")
+
+    # identities (content-addressed): the represent node is sourced FROM the scout npz.
+    r_settings = v4.hashable_settings(tdefs["represent-via-da3"], {})
+    d_inputs = {"subset": sub, "cameras": sid, "scout": cid}
+    rid = v4.identity_hash(d_inputs, r_settings, "da3@1")
+    fuse_settings = {"conf_percentile": args.conf_percentile, "voxel_frac": args.voxel_frac}
+    oid = v4.identity_hash({"solve": sid, "bootstrap_rep": rid}, ORIENT_SETTINGS, ORIENT_ALGO)
+    tid = v4.identity_hash({"representation": rid, "cameras": sid, "orient": oid},
+                           fuse_settings, "da3-mesh@0")
+    rdir = scene_dir / "represent" / "da3" / rid
+    odir = sdir / "orient" / oid
+    tdir = rdir / "meshify" / "tsdf" / tid
+
+    if (tdir / "mesh.ply").exists() and (rdir / "metadata.json").exists():
+        print(f"[da3-scout] NOOP — mesh {tid} exists -> {tdir}")
+        return
+
+    # 1. TSDF-fuse the scout npz -> raw DA3 mesh in the SOLVE gauge.
+    rdir.mkdir(parents=True, exist_ok=True)
+    raw_ply = rdir / "da3_scene_raw.ply"
+    rec = fuse_npz(str(npz), str(raw_ply), args.conf_percentile, args.voxel_frac)
+    if not (rdir / "metadata.json").exists():
+        v4.write_metadata(rdir, task="represent-via-da3", algo="da3@1", identity=rid,
+                          resolved_inputs=d_inputs, settings=r_settings, mechanism="job",
+                          measured={"source": f"scout/{cid}/da3_poses.npz",
+                                    "n_views": rec["n_views"], "gpu": False})
+
+    # 2. Gravity orient from the SOLVE cameras (matcha-FREE) + floor fit on the DA3 mesh.
+    if (odir / "oriented.json").exists():
+        g = json.loads((odir / "oriented.json").read_text())
+        R, z = np.asarray(g["rotation"]), float(g["z_shift"])
+        nodes.append({"node": "orient", "identity": oid, "action": "NOOP"})
+    else:
+        # Orient cameras = the exact 24 posed views that built the mesh (npz extrinsics, w2c),
+        # inverted to c2w — guarantees the gravity/floor fit matches the mesh's own cameras.
+        ext = np.load(str(npz))["extrinsics"].astype(np.float64)   # (N,3,4) w2c
+        Rw, tw = ext[:, :3, :3], ext[:, :3, 3]
+        Rc2w = np.transpose(Rw, (0, 2, 1))
+        C = -np.einsum("nij,nj->ni", Rc2w, tw)
+        raw_v = np.asarray(o3d.io.read_triangle_mesh(str(raw_ply)).vertices)
+        R, z = bootstrap_orient(raw_v, cam_R_c2w=Rc2w, cam_C=C)
+        odir.mkdir(parents=True, exist_ok=True)
+        payload = json.dumps({"rotation": R.tolist(), "z_shift": float(z)}, indent=2) + "\n"
+        (odir / "oriented.json").write_text(payload)
+        (odir / "transform.json").write_text(payload)
+        v4.write_metadata(odir, task="orient-cameras", algo=ORIENT_ALGO, identity=oid,
+                          resolved_inputs={"solve": sid, "bootstrap_rep": rid},
+                          settings=ORIENT_SETTINGS, mechanism="job")
+        nodes.append({"node": "orient", "identity": oid, "action": "EXECUTE"})
+
+    # 3. Ground the mesh into the canonical gauge (no weld-sim — already the solve gauge).
+    tdir.mkdir(parents=True, exist_ok=True)
+    ground_mesh(raw_ply, tdir / "mesh.ply", R, z, sim=None)
+    v4.write_metadata(tdir, task="meshify-via-tsdf", algo="da3-mesh@0", identity=tid,
+                      resolved_inputs={"representation": rid, "cameras": sid, "orient": oid},
+                      settings=fuse_settings, mechanism="job", measured=rec,
+                      extra={"gauge": str(odir.relative_to(scene_dir)),
+                             "matcha_free": True, "source_gauge": "solve"})
+    nodes.append({"node": "da3-mesh", "identity": tid, "action": "EXECUTE"})
+
+    # canonical gauge marker for the renderer (same contract matcha sets).
+    md = json.loads((rdir / "metadata.json").read_text())
+    md["canonical_gauge"] = str((odir / "oriented.json").relative_to(scene_dir))
+    (rdir / "metadata.json").write_text(json.dumps(md, indent=2) + "\n")
+    raw_ply.unlink(missing_ok=True)   # the un-grounded intermediate; mesh.ply is canonical
+
+    job_record(args.scene, "reconstruct-da3-scout", nodes,
+               {"scene": args.scene, "solve": sid, "scout": cid, "gpu": False})
+    print(f"reconstruct-da3-scout materialized: represent {rid}, mesh {tid}, orient {oid}")
+    print(f"  mesh: {tdir / 'mesh.ply'}  ({rec['verts']:,} verts / {rec['tris']:,} tris)")
+    print(f"  next: python3 real2sim/v4job.py render-missing {args.scene}")
+
+
 def matcha_reference(scene_dir: Path, sub: str, sid: str, tdefs):
     """Resolve the matcha reference tsdf mesh for this solve.
 
@@ -1855,6 +1969,16 @@ def main():
                         "inference(extrinsics=, intrinsics=) instead of "
                         "letting DA3 estimate its own cameras")
     p.set_defaults(fn=cmd_da3)
+    p = sp.add_parser("reconstruct-da3-scout",
+                      help="STO-SCN-127: matcha-FREE DA3 scene mesh in the solve/spine gauge "
+                           "from an existing scout npz (no GPU, no matcha reference)")
+    p.add_argument("scene")
+    p.add_argument("--solve", required=True, help="the spine solve id")
+    p.add_argument("--scout", required=True, help="the scout id whose da3_poses.npz to fuse")
+    p.add_argument("--subset", default=None, help="subset id (default: primary)")
+    p.add_argument("--conf-percentile", dest="conf_percentile", type=float, default=40.0)
+    p.add_argument("--voxel-frac", dest="voxel_frac", type=float, default=0.004)
+    p.set_defaults(fn=cmd_da3_scout)
     p = sp.add_parser("regauge-views")
     p.add_argument("scene")
     p.add_argument("--solve", required=True)
