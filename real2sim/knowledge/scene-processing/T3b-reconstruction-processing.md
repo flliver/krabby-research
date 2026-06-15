@@ -45,7 +45,7 @@ What `v4exec` does under the hood (so you can debug each stage):
 |---|---|
 | **Sync → host** | `stage_images_on_host()` rsyncs the primary subset's images + posed cameras to `…/<tag>/` on the host |
 | **Delegate** | `ssh <host> 'docker run --rm --gpus all -v <workdir>:/work <IMAGE> <tool>'` (then a chown pass so synced files are operator-owned) |
-| **Monitor** | progress published to **MQTT** (`publish_progress`); the full container log is captured to `<node>/{infer,solve}.log`. For long runs on a beeprz host, wrap with `nanny-progress` so phase/percent show on `beeprz dash`. |
+| **Monitor** | ⚠️ **uneven today (STO-SCN-131).** `solve` + `scout` report live (`lib_progress.sh` + `nanny-progress` → MQTT → `beeprz dash`). **`reconstruct-matcha` (`run_in_matcha`) and `reconstruct-da3` infer do NOT** — they run `subprocess.run(capture_output=True)`, so output is captured and the log (`<node>/matcha.log` / `infer.log`) is written **only after the container exits**. During a 15–25 min weld there is no live signal beyond "the process is alive." |
 | **Sync ← outputs** | `rsync -a <host>:<workdir>/out/ <node>/` pulls results into the store; host scratch is removed |
 | **Record** | `v4.write_metadata()` (identity, settings, `measured`: host, duration, image digest, tools sha) + a `jobs/` run record (`job_record`) |
 
@@ -55,10 +55,14 @@ posed from the spine) → **fuse** (local CPU) into the orient gauge.
 
 ## 3. Monitor progress
 
-- **MQTT** channel — live phase/percent.
-- **`<node>/*.log`** — the container stdout/stderr (last 100k) for failures.
-- **`nanny-progress set <phase> <pct>`** on the beeprz host → the work shows on `beeprz dash`
-  instead of going dark (clear on exit, always — fleet-ops rule).
+- **`solve` / `scout`** — live phase/percent via `lib_progress.sh` + `nanny-progress` → MQTT
+  (`beeprz dash`). **`render-missing`** — incremental `publish_progress` + job record.
+- **`reconstruct-matcha` / `reconstruct-da3` infer** — ⚠️ **no live progress yet** (STO-SCN-131).
+  The container log (`<node>/matcha.log` / `infer.log`, last ~100–200k) is written **only on
+  exit**, so it's for *post-mortem*, not live monitoring. While a weld runs, the only signal is
+  process liveness; the on-disk log is stale (it's the *previous* run's until this one finishes).
+- Adding the `solve`/`scout` progress pattern to these is tracked as **STO-SCN-131** (also a
+  fleet-ops gap: >30 s beeprz work should wrap `nanny-progress`).
 
 ## 4. Verify outputs landed (T-018)
 

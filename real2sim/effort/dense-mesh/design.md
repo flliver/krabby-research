@@ -2,7 +2,7 @@
 xid: DES-SCN-DENSE-MESH
 kind: design
 effort: scn
-status: open
+status: in-progress
 date: 2026-06-03
 guidance: ./guidance.md
 hugs: []

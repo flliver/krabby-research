@@ -900,22 +900,74 @@ def cmd_scout(args):
                {"scene": args.scene, "subset": subset, "solve": args.solve})
 
 
+def posed_sparse_to_cameras_json(sparse_dir: Path, out_path: Path) -> int:
+    """STO-SCN-129: emit a renderable + posable cameras.json from a FastMap sparse/0.
+
+    `focals` are written in the **SOLVE_IMAGE_SIZE (512) long-side convention** that
+    `colmap_posed.solve_entries` (matcha@1 posed weld) AND `build_blender_scene` expect:
+    `f_512 = f_native * 512 / solve_long_side`. Writing the *native* solve-pixel focal instead
+    (e.g. 1145 in a 3840-px solve) makes `solve_entries` rescale it ~7.5x → wrong intrinsics →
+    matcha charts NaN (root-caused on matcha-15, STO-SCN-127/130). Idempotent; returns count."""
+    import numpy as np
+    import posed_from_sparse as pfs
+    from colmap_posed import SOLVE_IMAGE_SIZE
+    sp = Path(sparse_dir)
+    intr = pfs.read_cameras_intrinsics(sp / "cameras.bin")     # cam_id -> {fx,fy,cx,cy,w,h}
+    fps, c2ws, focals = [], [], []
+    for im in pfs.read_images_w2c(sp / "images.bin"):          # {name, camera_id, w2c}
+        ci = intr.get(im["camera_id"]) or next(iter(intr.values()))
+        long_side = max(ci["w"], ci["h"]) or 1
+        w2c = np.asarray(im["w2c"], dtype=np.float64)
+        if w2c.shape == (3, 4):
+            w2c = np.vstack([w2c, [0, 0, 0, 1]])
+        fps.append(im["name"])
+        c2ws.append(np.linalg.inv(w2c).tolist())
+        focals.append(ci["fx"] * SOLVE_IMAGE_SIZE / long_side)
+    out_path.write_text(json.dumps(
+        {"filepaths": fps, "cams2world": c2ws, "focals": focals}, indent=2) + "\n")
+    return len(fps)
+
+
+def resolve_pose_source(scene_dir: Path, final_subset: str):
+    """STO-SCN-130: a FINAL-N selection (member-only subset, no `cameras/`) has no solve of its
+    own — find the PARENT (subset, solve) it was selected from, via the `select` node whose
+    final.json `final_subset` == this subset. Returns (parent_subset, solve) or (None, None)."""
+    for fj in scene_dir.glob("images/subsets/*/cameras/*/select/*/final.json"):
+        try:
+            if json.loads(fj.read_text()).get("final_subset") == final_subset:
+                # .../subsets/<parent_sub>/cameras/<solve>/select/<id>/final.json
+                return fj.parents[4].name, fj.parents[2].name
+        except (OSError, json.JSONDecodeError):
+            continue
+    return None, None
+
+
 # ============================================================ reconstruct-matcha
 
 def cmd_matcha(args):
     import numpy as np
     scene_dir = v4.STORE / args.scene
     sc = v4.Scene(args.scene)
-    sub = sc.resolve("primary")
+    sub = getattr(args, "subset", None) or sc.resolve("primary")   # STO-SCN-130: explicit subset override
     tdefs = v4.tasks()
     nodes = []
     r_settings = v4.hashable_settings(tdefs["represent-via-matcha"],
                                       {"dense_regul": args.dense_regul})
     solve_dirs = sorted((scene_dir / "images" / "subsets" / sub / "cameras").glob("*/"))
     solve_dirs = [d for d in solve_dirs if (d / "metadata.json").exists()]
-    if not solve_dirs:
-        sys.exit("no solve for primary — run ingest first")
-    sid = solve_dirs[0].name
+    # STO-SCN-130: `sub` is the reconstructed member set (staged + counted + identity);
+    # `pose_sub` is the subset that holds the SOLVE we pose from. They differ when primary is a
+    # FINAL-N selection (member-only, no cameras/) — then pose its members from the PARENT solve
+    # (matcha@1 posed; no re-solve, no new gauge). solve_to_sparse restricts to the members.
+    if solve_dirs:
+        pose_sub, sid = sub, solve_dirs[0].name
+    else:
+        pose_sub, sid = resolve_pose_source(scene_dir, sub)
+        if sid is None:
+            sys.exit(f"no solve for primary {sub} — not a solved subset and no parent select "
+                     f"node found (run solve, or select from a solved pool first)")
+        print(f"[matcha] primary {sub} is a FINAL-N selection — posing its members "
+              f"from parent solve {pose_sub}/{sid}")
     # matcha@0: unposed weld — train.py re-solves cameras, minting its own
     #           gauge (composed out via gauge-sim, STO-SCN-089-3).
     # matcha@1: POSED weld — the ingest solve is fed to train.py as COLMAP
@@ -952,7 +1004,7 @@ def cmd_matcha(args):
                               measured={"recovered": True})
             md = json.loads((rdir / "metadata.json").read_text())
             md["canonical_gauge"] = str(
-                (scene_dir / "images" / "subsets" / sub / "cameras" / sid /
+                (scene_dir / "images" / "subsets" / pose_sub / "cameras" / sid /
                  "orient" / oid / "oriented.json").relative_to(scene_dir))
             (rdir / "metadata.json").write_text(json.dumps(md, indent=2) + "\n")
         print(f"NOOP: {rid} fully materialized")
@@ -982,7 +1034,7 @@ def cmd_matcha(args):
                 d = json.loads((scene_dir / "images" / h / "metadata.json").read_text())
                 staged[d.get("original_name", h + ".jpg")] = by_hash[h]
             covered = solve_to_sparse(
-                scene_dir / "images" / "subsets" / sub / "cameras" / sid / "cameras.json",
+                scene_dir / "images" / "subsets" / pose_sub / "cameras" / sid / "cameras.json",
                 staged, tmp_sparse / "0")
             sh(["ssh", args.host, f"mkdir -p {workdir}/sparse"])
             sh(["rsync", "-a", str(tmp_sparse) + "/", f"{args.host}:{workdir}/sparse/"])
@@ -1047,7 +1099,7 @@ def cmd_matcha(args):
     import open3d as o3d  # noqa: F401  (ensures availability before work)
     import numpy as np
     from gauge_align import align_camera_sets
-    sim = weld_to_solve_sim(scene_dir, sub, sid, out)
+    sim = weld_to_solve_sim(scene_dir, pose_sub, sid, out)
     print(f"[gauge-sim] weld->solve: scale {sim['s']:.4f} rot {sim['rot_deg']:.1f} deg "
           f"max residual {sim['max_residual']:.4f}")
     if args.sfm == "posed":
@@ -1063,13 +1115,13 @@ def cmd_matcha(args):
                  f"{sim['residual_frac']:.1%} > 2% — solves disagree beyond gauge")
 
     # -- node: orient-cameras (horizon up prior; z-floor from the SOLVE-framed mesh)
-    odir = scene_dir / "images" / "subsets" / sub / "cameras" / sid / "orient" / oid
+    odir = scene_dir / "images" / "subsets" / pose_sub / "cameras" / sid / "orient" / oid
     if (odir / "oriented.json").exists():
         g = json.loads((odir / "oriented.json").read_text())
         R, z = np.asarray(g["rotation"]), float(g["z_shift"])
         nodes.append({"node": "orient", "identity": oid, "action": "NOOP"})
     else:
-        cams = json.loads((scene_dir / "images" / "subsets" / sub / "cameras" / sid /
+        cams = json.loads((scene_dir / "images" / "subsets" / pose_sub / "cameras" / sid /
                            "cameras.json").read_text())
         c2w = np.asarray(cams["cams2world"])
         raw = o3d.io.read_triangle_mesh(str(tsdf_raw))
@@ -1543,7 +1595,6 @@ def cmd_da3_scout(args):
     import numpy as np
     import open3d as o3d
     from da3_mesh_from_npz import fuse_npz
-    import posed_from_sparse as pfs
     scene_dir = v4.STORE / args.scene
     sc = v4.Scene(args.scene)
     sub = args.subset or sc.resolve("primary")
@@ -1562,17 +1613,8 @@ def cmd_da3_scout(args):
     # place the T2 views. Emit it once from sparse/0 (benefits every rep on this solve).
     cams_json = sdir / "cameras.json"
     if not cams_json.exists():
-        fps, c2ws, focals = [], [], []
-        for e in pfs.posed_from_sparse(str(sdir / "sparse" / "0")):
-            w2c = np.asarray(e["w2c"], dtype=np.float64)
-            if w2c.shape == (3, 4):
-                w2c = np.vstack([w2c, [0, 0, 0, 1]])
-            fps.append(e["name"])
-            c2ws.append(np.linalg.inv(w2c).tolist())
-            focals.append(float(np.asarray(e["K"], dtype=np.float64)[0, 0]))
-        cams_json.write_text(json.dumps(
-            {"filepaths": fps, "cams2world": c2ws, "focals": focals}, indent=2) + "\n")
-        print(f"[da3-scout] emitted solve cameras.json ({len(fps)} cams) -> {cams_json}")
+        n = posed_sparse_to_cameras_json(sdir / "sparse" / "0", cams_json)
+        print(f"[da3-scout] emitted solve cameras.json ({n} cams, 512-conv) -> {cams_json}")
 
     # identities (content-addressed): the represent node is sourced FROM the scout npz.
     r_settings = v4.hashable_settings(tdefs["represent-via-da3"], {})
@@ -1952,6 +1994,9 @@ def main():
     p = sp.add_parser("reconstruct-matcha")
     p.add_argument("scene")
     p.add_argument("--host", required=True)
+    p.add_argument("--subset", default=None,
+                   help="subset to reconstruct (default: primary). A FINAL-N selection is posed "
+                        "from its parent solve — no re-solve (STO-SCN-130).")
     p.add_argument("--dense-regul", default="default", choices=["default", "strong"])
     p.add_argument("--sfm", default="unposed", choices=["unposed", "posed"],
                    help="posed = matcha@1: feed the ingest solve into train.py "

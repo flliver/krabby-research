@@ -97,6 +97,15 @@ def rep_camera_paths(scene_dir: Path, rep_dir: Path):
                         break
             if cams:
                 return cams, ori
+            # STO-SCN-129/130: spine-gauge / FINAL-N-selection reps — the cameras live at the
+            # SOLVE the canonical_gauge names (…/cameras/<solve>/orient/<oid>/oriented.json),
+            # NOT under the rep's (member-only) subset, so the subset-pool above finds nothing.
+            # Derive them from cg. ADDITIVE: only reached when own_cams is absent AND the
+            # subset-pool was empty — migrated reps return above, so their resolution is
+            # unchanged. (cg = …/cameras/<solve>/orient/<oid>/oriented.json → ../../../cameras.json)
+            cg_solve_cams = ori.parent.parent.parent / "cameras.json"
+            if cg_solve_cams.exists():
+                return cg_solve_cams, ori
     if own_cams.exists() and own_ori.exists():
         return own_cams, own_ori
     # da3 fused meshes live in the MATCHA frame they were gauge-aligned to
