@@ -511,6 +511,40 @@ class Handler(BaseHTTPRequestHandler):
         r = run_dir.name.removeprefix("run-")
         return f"{p}--{r}"
 
+    @staticmethod
+    def _camera_subset(scene_dir: Path, rep_md: dict) -> dict:
+        """STO-SCN-134: the cameras/frames a reconstruction was actually built from.
+        da3-scout reps → the scout's selected views; otherwise the subset's members."""
+        ri = (rep_md or {}).get("resolved_inputs", {})
+        sub, sid, scout = ri.get("subset"), ri.get("cameras"), ri.get("scout")
+        if scout and sub and sid:
+            sv = (scene_dir / "images" / "subsets" / sub / "cameras" / sid /
+                  "scout" / scout / "scout_views.json")
+            if sv.exists():
+                try:
+                    sd = json.loads(sv.read_text())
+                    names = sd.get("views") or sd.get("selected") or sd.get("names") or []
+                    return {"n": len(names), "frames": sorted(names), "source": f"scout {scout[:8]}"}
+                except (OSError, json.JSONDecodeError):
+                    pass
+        if sub:
+            sj = scene_dir / "images" / "subsets" / sub / "subset.json"
+            if sj.exists():
+                try:
+                    members = json.loads(sj.read_text()).get("members", [])
+                except (OSError, json.JSONDecodeError):
+                    members = []
+                frames = []
+                for h in members:
+                    mp = scene_dir / "images" / h / "metadata.json"
+                    try:
+                        frames.append(json.loads(mp.read_text()).get("original_name", h)
+                                      if mp.exists() else h)
+                    except (OSError, json.JSONDecodeError):
+                        frames.append(h)
+                return {"n": len(members), "frames": sorted(frames), "source": f"subset {sub[:8]}"}
+        return {}
+
     def _scene_payload(self, scene: str) -> dict:
         """Return everything the frontend needs to render a scene's UI."""
         scene_dir = SCENES_ROOT / scene
@@ -525,6 +559,9 @@ class Handler(BaseHTTPRequestHandler):
             manifests = {}
             for rep in ix["scan"]["representations"]:
                 rdir = scene_dir / "represent" / rep["kind"] / rep["identity"]
+                rep_md = (json.loads((rdir / "metadata.json").read_text())
+                          if (rdir / "metadata.json").exists() else {})
+                cam_subset = self._camera_subset(scene_dir, rep_md)   # STO-SCN-134
                 mesh_paths = {}
                 for mm in rep["meshes"]:
                     mdir = rdir / "meshify" / mm["method"] / mm["identity"]
@@ -546,6 +583,7 @@ class Handler(BaseHTTPRequestHandler):
                             "variant_name": ix["labels"].get(m["identity"], m["identity"]),
                             "pipeline": rep["kind"],
                             "run": m["identity"],
+                            "camera_subset": cam_subset,   # STO-SCN-134
                             "notes": "; ".join(notes),
                             "mesh": self._ply_stats(mp) if mp and mp.exists() else {},
                             "transforms": {rep["algo"] or rep["kind"]: {

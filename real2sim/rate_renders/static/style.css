@@ -437,6 +437,32 @@ main {
 /* STO-SCN-110: clickable Live-Results items. */
 #results-content li.rank-item { cursor: pointer; border-radius: 3px; }
 #results-content li.rank-item:hover { background: var(--bg-elev-2); color: var(--accent); }
+
+/* STO-SCN-134: camera-subset frame list */
+#camera-subset .subset-frames {
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.5;
+  max-height: 150px;
+  overflow-y: auto;
+  margin-top: 4px;
+  padding-right: 4px;
+}
+/* STO-SCN-134: Live Results collapsible summary styled like the h3 it replaces */
+#results-details > summary {
+  cursor: pointer;
+  list-style: revert;
+  margin: 0;
+}
+#results-details > summary .results-summary {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+#results-details[open] > summary { margin-bottom: 6px; }
 #info-pane hr {
   border: 0;
   border-top: 1px solid var(--border);

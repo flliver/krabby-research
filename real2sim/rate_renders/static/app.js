@@ -54,6 +54,8 @@ const els = {
   copyManifestBtn: $("#copy-manifest"),      // STO-SCN-110: copy manifest as Markdown
   copyLinkBtn: $("#copy-link"),              // STO-SCN-110/111: copy deep-link
   results: $("#results-content"),
+  cameraSubset: $("#camera-subset"),       // STO-SCN-134
+  resultsDetails: $("#results-details"),   // STO-SCN-134 (collapsible Live Results)
   status: $("#status-msg"),
 };
 
@@ -870,6 +872,21 @@ function renderManifest() {
   }
   if (m.notes) html += `<div style="margin-top:8px;"><em>${esc(m.notes)}</em></div>`;
   els.manifest.innerHTML = html;
+  renderCameraSubset();
+}
+
+// STO-SCN-134: the cameras/frames the focused render was built from (below the Manifest).
+function renderCameraSubset() {
+  const el = els.cameraSubset;
+  if (!el) return;
+  const m = state.focusVariant ? (state.manifests[state.focusVariant] || {}) : {};
+  const cs = m.camera_subset;
+  if (!cs || !cs.n) { el.innerHTML = ""; return; }
+  el.innerHTML =
+    `<h3 style="margin-top:10px;">Camera Subset ` +
+    `<span style="font-weight:400; color:var(--text-dim);">(${cs.n})</span></h3>` +
+    (cs.source ? `<div style="font-size:10px; color:var(--text-dim);">${escapeHtml(cs.source)}</div>` : "") +
+    `<div class="subset-frames">${cs.frames.map(f => escapeHtml(f)).join("<br>")}</div>`;
 }
 
 // STO-SCN-111: deep-link URL to the focused rendering (shared by Copy MD + Copy Link).
@@ -1179,6 +1196,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   els.copyManifestBtn.addEventListener("click", copyManifestMarkdown);   // STO-SCN-110
   els.copyLinkBtn.addEventListener("click", copyLink);                   // STO-SCN-110/111
   els.results.addEventListener("click", onResultClick);                  // STO-SCN-110: clickable leaderboard
+  // STO-SCN-134: Live Results collapsible — default collapsed; remember the operator's choice.
+  if (els.resultsDetails) {
+    els.resultsDetails.open = localStorage.getItem("liveResultsOpen") === "1";
+    els.resultsDetails.addEventListener("toggle", () =>
+      localStorage.setItem("liveResultsOpen", els.resultsDetails.open ? "1" : "0"));
+  }
 
   // Keyboard shortcuts
   document.addEventListener("keydown", (e) => {

@@ -4,7 +4,7 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: S
-status: draft
+status: in-progress
 date: 2026-06-15
 depends-on: []
 bd-id: krabby-96bb
@@ -73,6 +73,18 @@ want open. Operator request (2026-06-15).
 - Per-camera thumbnails of the subset (frame names suffice for now).
 
 ## Implementation Notes
+
+**Built + deployed 2026-06-15.**
+- **Server** (`rate_renders/server.py`): `_camera_subset(scene_dir, rep_md)` → `{n, frames, source}`.
+  da3-scout reps read the scout's `scout_views.json` (`views` key — the actual selected N);
+  others read `subsets/<subset>/subset.json` members → `original_name`. Attached as
+  `manifest["camera_subset"]`. Verified on 001-patio: **DA3-24 → 24** (scout), **matcha-15 → 15**,
+  **historical → 12**.
+- **Client**: `#camera-subset` section under `#manifest-content` rendered by `renderCameraSubset()`
+  (count + scrollable frame list + source); Live Results wrapped in `<details id="results-details">`,
+  **default collapsed**, open/closed persisted to `localStorage.liveResultsOpen`.
+- Both servers (studio :8091 + rate_renders :8090) restarted to pick up the payload change;
+  static served fresh. **Operator verify pending (T-020)** — reload `/rank`.
 
 _(Operator request 2026-06-15 — "add a section below Manifest that captures the camera subset"
 + "allow collapse of Live Results, start collapsed".)_
