@@ -554,12 +554,12 @@ def cmd_covis(args):
 # ============================================================ best-N selection (STO-SCN-094)
 
 def cmd_select(args):
-    """Coverage-greedy best-N view selection (select@0) over a fastmap@0 solve's
-    track graph, gated behind a PASSing covis. Pure-stdlib; runs locally on the
-    store's sparse/0 (no container). Emits selection.json (the coverage report +
-    proposed-N names) and posed.json (the proposed-N poses, in the shape the
-    reconstruct graphs already consume). Lives under the solve it selects from."""
-    import select_views as selv
+    """Best-N view selection (select@0) over a fastmap@0 solve, gated behind a PASSing
+    covis. Two objectives: `voxel` (STO-SCN-103, default — voxel-face coverage flux,
+    rewards angular variety) or `track` (STO-SCN-094 — covisibility). Pure-python; runs
+    locally on the store's sparse/0. Emits selection.json + posed.json AND a
+    content-addressed FINAL-N subset (the STO-SCN-095 handoff) consumed unchanged by the
+    reconstruct graphs via `--subset <final>`. Lives under the solve it selects from."""
     import posed_from_sparse as pfs
     scene_dir = v4.STORE / args.scene
     sc = v4.Scene(args.scene)
@@ -580,38 +580,62 @@ def cmd_select(args):
                  f"select over a rejected solve.")
 
     settings = v4.hashable_settings(v4.tasks()["select"],
-                                    {"n": args.n, "min_overlap": args.min_overlap,
-                                     "div_angle": args.div_angle})
+                                    {"selector": args.selector, "n": args.n, "grid": args.grid,
+                                     "min_overlap": args.min_overlap, "div_angle": args.div_angle})
     cid = v4.identity_hash({"covis": args.covis}, settings, "select@0")
     cdir = sdir / "select" / cid
     if (cdir / "metadata.json").exists():
         print(f"[select] NOOP — select {cid} exists -> {cdir}")
         return
 
-    names, rep = selv.select_from_sparse(str(sparse), args.n,
-                                         min_overlap=args.min_overlap,
-                                         div_angle=args.div_angle)
+    if args.selector == "voxel":                                   # STO-SCN-103
+        import voxel_coverage as vc
+        _names, rep = vc.select_from_sparse(str(sparse), args.n, grid=args.grid)
+    else:                                                          # STO-SCN-094 track
+        import select_views as selv
+        _names, rep = selv.select_from_sparse(str(sparse), args.n,
+                                              min_overlap=args.min_overlap, div_angle=args.div_angle)
     posed = pfs.posed_from_sparse(str(sparse), rep["selected"])
+
+    # FINAL-N subset (STO-SCN-095 handoff): map selected NAMES -> store hashes, write a
+    # content-addressed subset the reconstruct graphs consume unchanged (`--subset <final>`).
+    name2hash = {}
+    for md in scene_dir.glob("images/*/metadata.json"):
+        d = json.loads(md.read_text())
+        name2hash[d.get("original_name", md.parent.name)] = md.parent.name
+    members = sorted({name2hash[n] for n in rep["selected"] if n in name2hash})
+    final_id = v4.hoh(members)
+    final_sub = scene_dir / "images" / "subsets" / final_id
+    if not (final_sub / "subset.json").exists():
+        final_sub.mkdir(parents=True, exist_ok=True)
+        (final_sub / "subset.json").write_text(json.dumps({"schema": 4, "members": members},
+                                                          indent=2) + "\n")
+        (final_sub / "metadata.json").write_text(json.dumps({
+            "schema": 4, "mechanism": "select", "label": f"final-{len(members)}",
+            "resolved_inputs": {"covis": args.covis, "select": cid},
+            "selector": args.selector, "kept_n": len(members), "written": NOW()}, indent=2) + "\n")
+
     cdir.mkdir(parents=True, exist_ok=True)
     (cdir / "selection.json").write_text(json.dumps(rep, indent=2) + "\n")
     (cdir / "posed.json").write_text(json.dumps(posed, indent=2) + "\n")
+    (cdir / "final.json").write_text(json.dumps(
+        {"schema": 4, "final_subset": final_id, "n": len(members), "members": members,
+         "selector": args.selector, "names": rep["selected"]}, indent=2) + "\n")
+    cov = rep.get("face_coverage_pct", rep.get("coverage_pct"))
     v4.write_metadata(cdir, task="select", algo="select@0", identity=cid,
                       resolved_inputs={"covis": args.covis}, settings=settings,
                       mechanism="local",
-                      measured={"n_selected": rep["n_selected"],
-                                "coverage_pct": rep["coverage_pct"],
-                                "median_tri_angle_deg": rep["median_tri_angle_deg"],
-                                "pct_angles_in_10_30": rep["pct_angles_in_10_30"],
-                                "median_view_spread_deg": rep["median_view_spread_deg"],
-                                "total_triangulable_points": rep["total_triangulable_points"]})
-    print(f"[select] {rep['n_selected']} views | coverage {rep['coverage_pct']}% of "
-          f"{rep['total_triangulable_points']} pts | median tri-angle "
-          f"{rep['median_tri_angle_deg']}deg | {rep['pct_angles_in_10_30']}% in 10-30 | "
-          f"view-spread {rep['median_view_spread_deg']}deg -> {cdir}")
+                      measured={"selector": args.selector, "n_selected": rep["n_selected"],
+                                "coverage_pct": cov,
+                                "median_view_spread_deg": rep.get("median_view_spread_deg"),
+                                "final_subset": final_id, "final_n": len(members)})
+    print(f"[select] {args.selector}: {rep['n_selected']} views | "
+          f"coverage {cov}% | view-spread {rep.get('median_view_spread_deg')}deg")
+    print(f"[select] FINAL N -> subset {final_id} ({len(members)} members) — reconstruct "
+          f"with: reconstruct-matcha {args.scene} --subset {final_id} --sfm unposed -> {cdir}")
     job_record(args.scene, "select", [{"node": "select", "identity": cid,
-                                       "coverage_pct": rep["coverage_pct"]}],
-               {"scene": args.scene, "subset": subset, "solve": args.solve,
-                "covis": args.covis})
+                                       "selector": args.selector, "final_subset": final_id}],
+               {"scene": args.scene, "subset": subset, "solve": args.solve, "covis": args.covis})
 
 
 # ============================================================ spine global registration (STO-SCN-098)
@@ -1781,14 +1805,17 @@ def main():
     p.add_argument("--subset", default=None)
     p.add_argument("--min-overlap", type=int, default=15)
     p.set_defaults(fn=cmd_covis)
-    p = sp.add_parser("select", help="coverage-greedy best-N selection over a solve, gated by covis (STO-SCN-094)")
+    p = sp.add_parser("select", help="best-N selection over a solve, gated by covis (STO-SCN-094/103)")
     p.add_argument("scene")
     p.add_argument("--solve", required=True, help="the fastmap@0 solve identity")
     p.add_argument("--covis", required=True, help="the covis@0 identity (must have PASSed validity)")
     p.add_argument("--subset", default=None)
+    p.add_argument("--selector", choices=["voxel", "track"], default="voxel",
+                   help="voxel = STO-SCN-103 coverage flux (default); track = STO-SCN-094 covisibility")
     p.add_argument("--n", type=int, default=24, help="target view count (downstream sweet spot)")
-    p.add_argument("--min-overlap", type=int, default=10, help="connectivity: shared pts vs selected set")
-    p.add_argument("--div-angle", type=float, default=25.0, help="viewpoint-diversity angle (0 = off)")
+    p.add_argument("--grid", type=int, default=64, help="voxel grid resolution (voxel selector)")
+    p.add_argument("--min-overlap", type=int, default=10, help="connectivity: shared pts vs selected set (track)")
+    p.add_argument("--div-angle", type=float, default=25.0, help="viewpoint-diversity angle, track (0 = off)")
     p.set_defaults(fn=cmd_select)
     p = sp.add_parser("scout", help="DA3 scout gaussian for the verify surface (STO-SCN-095)")
     p.add_argument("scene")

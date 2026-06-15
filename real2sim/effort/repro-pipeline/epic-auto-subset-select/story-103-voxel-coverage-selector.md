@@ -85,27 +85,35 @@ the STO-SCN-096 boundary contract still applies as pinned anchors).
 
 ## Definition of Done
 
-- [ ] Posed pool + point cloud → ranked proposed-N maximizing voxel-face coverage flux.
-- [ ] Gauge-free voxel sizing (bbox-relative), deterministic, pure-CPU (numpy ok).
-- [ ] Coverage report: covered-face %, flux histogram, per-view marginal contribution,
-      and a **median view-spread** that beats STO-SCN-094 on the real 001 pool.
+- [x] Posed pool + point cloud → ranked proposed-N maximizing voxel-face coverage flux.
+      (`voxel_coverage.py`: voxelize → exposed-faces → frustum-face flux → greedy select.)
+- [x] Gauge-free voxel sizing (bbox-relative), deterministic, pure-CPU (numpy ok).
+      (grid = bbox-diag/`grid`; deterministic greedy; numpy only.)
+- [x] Coverage report: covered-face %, flux, per-view marginal contribution, and a
+      **median view-spread that beats STO-SCN-094** on the real 001 pool.
+      (Real `6EHLYO3MF3QU`/N=24: voxel **view-spread 83.7° vs track 78.4°**, face-cov 44.2%.)
+- [x] Wired into the `select@0` store node as the DEFAULT objective (`--selector voxel`),
+      emitting the FINAL-N subset (STO-SCN-095 handoff).
 - [ ] Verify surface colors voxel faces by coverage so the human SEES coverage (T-012),
-      and the proposed-N show real angular variety (operator re-verifies, T-020).
-- [ ] Tests written and passing.
+      + operator re-verifies angular variety (T-020). **← carried**: the selector ships +
+      beats 094; the face-color overlay (emit exposed faces + per-face flux to the viewer,
+      render red→green) + operator re-verify remain.
+- [x] Tests written and passing. (`test_voxel_coverage.py` 7/7.)
 
 ## Testing
 
 ### Unit / fixture tests
 
-- [ ] Voxelization: a known point set → expected occupied voxels at a given size.
-- [ ] Exposed-face detection: interior faces excluded, boundary faces included.
-- [ ] Flux weight: 90° hit = 1.0, grazing → 0, behind-face = 0.
-- [ ] Greedy: deterministic; a redundant same-angle camera is not chosen second.
+- [x] Voxelization: a known point set → expected occupied voxels at a given size.
+- [x] Exposed-face detection: interior faces excluded, boundary faces included.
+- [x] Flux weight: 90° hit = 1.0, grazing → 0, behind-face = 0.
+- [x] Greedy: deterministic; a redundant same-angle camera is not chosen second.
+      (All covered by `test_voxel_coverage.py`, 7/7.)
 
 ### Integration
 
-- [ ] Real 001 pool (`6EHLYO3MF3QU`): proposed-24 has higher view-spread + face coverage
-      than the 094 track-greedy on the same pool.
+- [x] Real 001 pool (`6EHLYO3MF3QU`): proposed-24 has higher view-spread + face coverage
+      than the 094 track-greedy on the same pool. (83.7° vs 78.4°; face-cov 44.2%.)
 
 ## Out of scope
 
@@ -116,4 +124,22 @@ the STO-SCN-096 boundary contract still applies as pinned anchors).
 
 ## Implementation Notes
 
-_(Fill in during / after implementation.)_
+**Built (2026-06-14).** `voxel_coverage.py` (numpy): `voxelize` (occupied voxels at
+bbox-diag/`grid`), `exposed_faces` (occupied-voxel faces bordering empty space), `camera_weights`
+(per face: `max(0, cosθ)` flux when its centre is in the camera FOV+depth range; 0 behind/
+grazing), `coverage_matrix` + `greedy_select` (each face's coverage = best flux of any selected
+camera; add the largest marginal-gain camera; the operator's "down-weight covered, up-weight
+boundary" falls out of submodular marginal gain), `select_from_sparse` (report: face_coverage_pct,
+mean_flux, median_view_spread_deg). Gauge-free, deterministic, CPU.
+
+**Wired** into `select@0` (`v4exec cmd_select --selector voxel`, the default) — emits the
+coverage report + the FINAL-N subset (STO-SCN-095). The verify surface (`build_verify
+--selector voxel`) already uses it to pick the proposed-N.
+
+**Result.** On the real 001 pool (`6EHLYO3MF3QU`, N=24): face-coverage 44.2%, **view-spread
+83.7° vs the 094 track selector's 78.4°** — the angular-variety fix the operator asked for.
+Tests 7/7.
+
+**Carried:** (a) the verify-surface **face-coverage overlay** (red→green, T-012) + operator
+re-verify (T-020); (b) **occlusion** (voxel-grid ray-march) — first light is frustum+incidence
+only (§ Out of scope).

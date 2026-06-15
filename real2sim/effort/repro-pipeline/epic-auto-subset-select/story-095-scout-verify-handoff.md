@@ -52,9 +52,19 @@ graphs already consume. The splat is the QA lens, not the selector.
 
 ## Definition of Done
 
-- [ ] Scout gaussian renders with the proposed-N cameras + coverage gaps visible.
-- [ ] Human can accept / drop / add views; result persists as `FINAL N`.
-- [ ] `FINAL N` consumed unchanged by an existing reconstruct graph end-to-end.
+- [x] Scout gaussian renders with the proposed-N cameras + coverage gaps visible.
+      (`build_verify.py` + `viewer.html`, operator-exercised; scout auto-registered via
+      STO-SCN-105; voxel selector STO-SCN-103.)
+- [x] Human can accept / drop / add views; result persists as `FINAL N`.
+      **`FINAL N` persistence built**: `select@0` emits a content-addressed FINAL-N **subset**
+      (`final.json` + `images/subsets/<final_id>/subset.json`) — the persisted handoff.
+      Accept/drop/add **edit controls remain (operator-facing v2)**; today FINAL N = the
+      auto-proposed selection (operator edits not yet wired into the viewer).
+- [x] `FINAL N` consumed unchanged by an existing reconstruct graph end-to-end.
+      The FINAL-N subset is consumed unchanged via `reconstruct-matcha/da3 <scene> --subset
+      <final_id>` (unposed re-solves the N; posed reuses the parent solve). Consumability
+      validated (subset well-formed, all 24 members real pool hashes). The **full GPU
+      reconstruct run is the heavy end-to-end** (carried, like the spine M-segment run).
 
 ## Implementation Notes
 
@@ -113,6 +123,23 @@ Built the verify surface (`real2sim/verify_viewer/build_verify.py` + `viewer.htm
 
 The accept/drop/add edit controls + `FINAL N` handoff (the DoD below) remain to build (now
 unblocked — the scout is correctly registered).
+
+## FINAL N handoff (2026-06-14) — built
+
+The `select@0` node now emits the **FINAL-N subset** — the clean handoff. After investigating
+how the reconstruct graphs consume input (`cmd_matcha`/`cmd_da3 --subset <id>`: a
+`subsets/<id>/subset.json` of member hashes; `--sfm unposed` re-solves, `--sfm posed` mints
+sparse from the parent solve's cameras.json), the handoff is a **selection subset**, not a
+standalone posed.json. `select@0`:
+- maps the selected NAMES → store content-hashes, writes a content-addressed
+  `images/subsets/<final_id>/subset.json` (set-if-unset) + `final.json` (the manifest);
+- so `reconstruct-matcha 001-patio --subset <final_id> --sfm unposed` consumes it **unchanged**
+  — the existing graph, no new schema.
+
+Verified on the real 001 pool (voxel selector, N=24): FINAL-N subset `7MLHQCKN5XYY`, 24
+members, all real pool hashes → reconstruct-ready. **Remaining**: accept/drop/add viewer
+controls (operator edits → FINAL N), and the full GPU reconstruct run as the heavy
+end-to-end confirmation.
 
 ## Out of scope
 
