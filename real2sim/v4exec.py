@@ -678,6 +678,76 @@ def cmd_spine_register(args):
                {"scene": args.scene, "spine": args.spine, "solves": manifest})
 
 
+# ============================================================ spine cohesive fusion (STO-SCN-099)
+
+def cmd_spine_fuse(args):
+    """Cohesive fusion of per-segment gaussians into one gauge (spine-fuse@0). Transforms
+    each segment's reconstruction .ply by its 098 global gauge, confidence-weights the
+    overlaps (camera-coverage feather) so no doubled walls, concatenates into one .ply
+    for STO-SCN-013. Pure-numpy + scipy; runs locally. Idempotent NOOP.
+
+    --register: the spine-register@0 identity (its global.json holds gauges + global cams).
+    --solves:   seg=subset/solve list (to map each segment's cameras to global centers).
+    --gaussians: seg=<ply-path-under-store> list (per-segment reconstruction gaussians)."""
+    import spine_fuse as sfuse
+    scene_dir = v4.STORE / args.scene
+    gj = scene_dir / "spine" / args.spine / "register" / args.register / "global.json"
+    if not gj.exists():
+        sys.exit(f"no register {args.register} at {gj} (run `spine-register` first)")
+    glob = json.loads(gj.read_text())
+    gauges = glob["gauges"]
+    cam_global = {n: c["center"] for n, c in glob["cameras"].items()}
+
+    def _parse(spec):
+        out = {}
+        for tok in spec.split(","):
+            k, _, v = tok.partition("=")
+            if not v:
+                sys.exit(f"bad manifest entry '{tok}' (need seg=value)")
+            out[k] = v
+        return out
+
+    solves = _parse(args.solves)
+    plys = _parse(args.gaussians)
+    if set(solves) != set(gauges) or set(plys) != set(gauges):
+        sys.exit(f"segment keys must match the register gauges {sorted(gauges)}; "
+                 f"got solves={sorted(solves)} gaussians={sorted(plys)}")
+
+    import spine_register as sreg
+    settings = v4.hashable_settings(v4.tasks()["spine-fuse"], {"radius": args.radius})
+    fid = v4.identity_hash({"register": args.register, "gaussians": plys}, settings, "spine-fuse@0")
+    fdir = scene_dir / "spine" / args.spine / "fuse" / fid
+    if (fdir / "metadata.json").exists():
+        print(f"[spine-fuse] NOOP — {fid} exists -> {fdir}")
+        return
+
+    segments = {}
+    for k in gauges:
+        sub, _, sol = solves[k].partition("/")
+        bin_p = scene_dir / "images" / "subsets" / sub / "cameras" / sol / "sparse" / "0" / "images.bin"
+        seg_cam_names = sreg.read_solve_poses(bin_p).keys()
+        cams = [cam_global[n] for n in seg_cam_names if n in cam_global]
+        ply_p = scene_dir / plys[k] if not plys[k].startswith("/") else Path(plys[k])
+        g = sfuse.transform_gaussians(sfuse.read_ply(ply_p),
+                                      {"scale": gauges[k]["scale"], "R": gauges[k]["R"], "t": gauges[k]["t"]})
+        segments[k] = {"gaussians": g, "cameras": cams}
+
+    radius = args.radius if args.radius and args.radius > 0 else None
+    fused = sfuse.fuse(segments, radius=radius)
+    fdir.mkdir(parents=True, exist_ok=True)
+    sfuse.write_ply(fdir / "fused.gs.ply", fused)
+    n_in = {k: int(len(segments[k]["gaussians"])) for k in segments}
+    v4.write_metadata(fdir, task="spine-fuse", algo="spine-fuse@0", identity=fid,
+                      resolved_inputs={"register": args.register, "gaussians": plys},
+                      settings=settings, mechanism="local",
+                      measured={"n_segments": len(segments), "n_in": n_in,
+                                "n_total_in": sum(n_in.values()), "n_fused": int(len(fused))})
+    print(f"[spine-fuse] {len(segments)} segments, {sum(n_in.values())} gaussians -> "
+          f"{len(fused)} fused (overlaps cross-faded) -> {fdir}")
+    job_record(args.scene, "spine-fuse", [{"node": "spine-fuse", "identity": fid}],
+               {"scene": args.scene, "spine": args.spine, "register": args.register})
+
+
 # ============================================================ scout gaussian (STO-SCN-095)
 
 def cmd_scout(args):
@@ -1678,6 +1748,14 @@ def main():
     p.add_argument("--solves", required=True, help="comma list seg=subset/solve (one per segment)")
     p.add_argument("--rel-tol", type=float, default=0.02, help="max seam residual frac of spread (gate)")
     p.set_defaults(fn=cmd_spine_register)
+    p = sp.add_parser("spine-fuse", help="fuse per-segment gaussians into one gauge (STO-SCN-099)")
+    p.add_argument("scene")
+    p.add_argument("--spine", required=True, help="the spine@0 identity")
+    p.add_argument("--register", required=True, help="the spine-register@0 identity")
+    p.add_argument("--solves", required=True, help="comma list seg=subset/solve (segment cameras)")
+    p.add_argument("--gaussians", required=True, help="comma list seg=ply-path (per-segment reconstruction)")
+    p.add_argument("--radius", type=float, default=0.0, help="coverage falloff radius (0 = auto)")
+    p.set_defaults(fn=cmd_spine_fuse)
     p = sp.add_parser("solve", help="GPU FastMap solve -> poses + sparse/0 (STO-SCN-093)")
     p.add_argument("scene")
     p.add_argument("--host", required=True)

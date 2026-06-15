@@ -1,0 +1,19 @@
+{
+  "schema": 4,
+  "name": "spine-fuse",
+  "algo": "spine-fuse@0",
+  "description": "Cohesive fusion of per-segment gaussians into one gauge (STO-SCN-099). Consumes the globally-registered gauges (STO-SCN-098 global.json) + the per-segment reconstruction gaussians: transforms each segment's .ply into the one global gauge, then CONFIDENCE-WEIGHTS the overlaps so doubled walls collapse to a single cross-faded surface. Confidence = camera-coverage falloff (per-gaussian distance to each segment's nearest 098-global camera), normalised across covering segments, applied as an opacity feather — a segment's interior is untouched (w~1), an overlap is halved per segment (w~0.5) so the two contributions sum to single coverage, not double. 17-float DC-only 3DGS (colour rotation-invariant). M=1 is a clean pass-through. Output: one .ply in the global gauge for STO-SCN-013 (mesh-condition). Pure-numpy + scipy cKDTree; runs locally. Lives under the spine register.",
+  "inputs": [
+    {
+      "name": "register",
+      "from": "spine-register"
+    }
+  ],
+  "settings": {
+    "radius": {"class": "tunable", "default": 0, "note": "coverage falloff radius in global units (0 = auto: 3x median camera spacing)"}
+  },
+  "placement": "spine/{up_spine}/fuse/{identity}",
+  "outputs": [
+    {"name": "fused", "path": "fused.gs.ply"}
+  ]
+}
