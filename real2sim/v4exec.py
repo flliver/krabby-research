@@ -614,6 +614,70 @@ def cmd_select(args):
                 "covis": args.covis})
 
 
+# ============================================================ spine global registration (STO-SCN-098)
+
+def cmd_spine_register(args):
+    """Global registration of per-segment submaps into one gauge (spine-register@0).
+    Reads each segment's solve (images.bin), builds a SIM(3) pose graph over shared
+    boundary cameras + loop correspondences, relaxes into one drift-corrected gauge,
+    and emits global.json (per-segment gauges + per-seam residuals + globally
+    consistent per-camera poses for fusion). Pure-numpy; runs locally. Idempotent NOOP.
+
+    --solves: comma list `seg=subset/solve` (one per segment); each resolves to
+    images/subsets/<subset>/cameras/<solve>/sparse/0/images.bin under the scene."""
+    import spine_register as sreg
+    scene_dir = v4.STORE / args.scene
+    spine_json = scene_dir / "spine" / args.spine / "spine.json"
+    if not spine_json.exists():
+        sys.exit(f"no spine {args.spine} at {scene_dir}/spine (run `spine` first)")
+
+    seg_solves, manifest = {}, {}
+    for tok in args.solves.split(","):
+        if "=" not in tok:
+            sys.exit(f"--solves entry '{tok}' must be seg=subset/solve")
+        seg, loc = tok.split("=", 1)
+        sub, _, sol = loc.partition("/")
+        if not sol:
+            sys.exit(f"--solves entry '{tok}': need subset/solve")
+        bin_p = scene_dir / "images" / "subsets" / sub / "cameras" / sol / "sparse" / "0" / "images.bin"
+        if not bin_p.exists():
+            sys.exit(f"no solve images.bin for segment {seg} at {bin_p}")
+        seg_solves[seg] = bin_p
+        manifest[seg] = loc
+
+    settings = v4.hashable_settings(v4.tasks()["spine-register"], {"rel_tol": args.rel_tol})
+    rid = v4.identity_hash({"spine": args.spine, "solves": manifest}, settings, "spine-register@0")
+    rdir = scene_dir / "spine" / args.spine / "register" / rid
+    if (rdir / "metadata.json").exists():
+        print(f"[spine-register] NOOP — {rid} exists -> {rdir}")
+        return
+
+    nodes = sreg.nodes_from_solves(seg_solves)
+    out = sreg.register(nodes, rel_tol=args.rel_tol)
+    rdir.mkdir(parents=True, exist_ok=True)
+    (rdir / "global.json").write_text(json.dumps(out, indent=2) + "\n")
+    v4.write_metadata(rdir, task="spine-register", algo="spine-register@0", identity=rid,
+                      resolved_inputs={"spine": args.spine, "solves": manifest},
+                      settings=settings, mechanism="local",
+                      measured={"n_segments": out["n_segments"], "n_edges": out["n_edges"],
+                                "n_cameras": out["n_cameras"], "converged": out["converged"],
+                                "iters_run": out["iters_run"], "within_tol": out["within_tol"],
+                                "max_seam_residual_rel": out["max_seam_residual_rel"]})
+    flag = "" if out["within_tol"] else "  ** EXCEEDS TOL **"
+    print(f"[spine-register] {out['n_segments']} segments, {out['n_cameras']} cameras -> one gauge "
+          f"| max seam residual {out['max_seam_residual_rel']*100:.3f}% of spread "
+          f"(within_tol={out['within_tol']}{flag}) | converged={out['converged']} "
+          f"({out['iters_run']} it) -> {rdir}")
+    if not out["within_tol"]:
+        worst = max(out["seams"], key=lambda e: e["residual_max"])
+        print(f"[spine-register] WARNING: worst seam {worst['i']}<->{worst['j']} "
+              f"({worst['type']}) residual {worst['residual_rel']*100:.2f}% — a segment may be "
+              f"mis-solved or under-overlapped; inspect before fusion (STO-SCN-099).")
+    job_record(args.scene, "spine-register", [{"node": "spine-register", "identity": rid,
+                                              "within_tol": out["within_tol"]}],
+               {"scene": args.scene, "spine": args.spine, "solves": manifest})
+
+
 # ============================================================ scout gaussian (STO-SCN-095)
 
 def cmd_scout(args):
@@ -1608,6 +1672,12 @@ def main():
     p.add_argument("--loop-min-sep", type=int, default=2, help="min segment separation for a loop")
     p.add_argument("--loop-step", type=int, default=5, help="frame subsample stride for the loop scan")
     p.set_defaults(fn=cmd_spine)
+    p = sp.add_parser("spine-register", help="register per-segment submaps into one gauge (STO-SCN-098)")
+    p.add_argument("scene")
+    p.add_argument("--spine", required=True, help="the spine@0 identity")
+    p.add_argument("--solves", required=True, help="comma list seg=subset/solve (one per segment)")
+    p.add_argument("--rel-tol", type=float, default=0.02, help="max seam residual frac of spread (gate)")
+    p.set_defaults(fn=cmd_spine_register)
     p = sp.add_parser("solve", help="GPU FastMap solve -> poses + sparse/0 (STO-SCN-093)")
     p.add_argument("scene")
     p.add_argument("--host", required=True)

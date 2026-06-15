@@ -1,0 +1,19 @@
+{
+  "schema": 4,
+  "name": "spine-register",
+  "algo": "spine-register@0",
+  "description": "Global registration of per-segment submaps into ONE gauge (STO-SCN-098). A SIM(3) pose graph over the spine segments (STO-SCN-097): nodes = per-segment SfM gauges, edges = shared boundary cameras (adjacent seams share camera identities; loop-closure edges from revisit correspondences). Per-edge relative similarity reuses the canonical gauge_align (Umeyama + consensus trimming + rotation augmentation for near-collinear walking-path overlaps, STO-SCN-090). Fixes the reference segment = identity, initialises along a spanning tree, then Gauss-Seidel relaxation distributes drift (and loop-closure residual around cycles) until every camera sits in one drift-corrected gauge. Emits per-segment gauges, per-seam residuals (the scale-free tolerance gate, T-001), and globally consistent per-camera poses for fusion (STO-SCN-099). Pure-numpy; runs locally over the per-segment solves. Consumes a per-segment solve manifest; lives under the spine.",
+  "inputs": [
+    {
+      "name": "spine",
+      "from": "spine-segment"
+    }
+  ],
+  "settings": {
+    "rel_tol": {"class": "tunable", "default": 0.02, "note": "max seam residual as a fraction of scene spread for within_tol (scale-free gate)"}
+  },
+  "placement": "spine/{up_spine}/register/{identity}",
+  "outputs": [
+    {"name": "global", "path": "global.json"}
+  ]
+}
