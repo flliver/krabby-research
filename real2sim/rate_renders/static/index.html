@@ -12,52 +12,47 @@
     <div id="scene-strip"></div>
     <button id="scene-right" class="scene-arrow" title="scroll right">&#8250;</button>
   </div>
-  <header id="topbar">
-    <div class="group">
-      <label>View
-        <select id="view-picker"></select>
-      </label>
-    </div>
-    <div class="group">
-      <span class="lbl">Layout</span>
-      <div id="layout-buttons" role="tablist">
-        <button data-layout="1" class="active">1</button>
-        <button data-layout="2">1×2</button>
-        <button data-layout="4">2×2</button>
-        <button data-layout="9">3×3</button>
-        <button data-layout="16">4×4</button>
-      </div>
-    </div>
-    <div class="group">
-      <span class="lbl">Cycle (←/→)</span>
-      <button id="prev-page">←</button>
-      <span id="page-indicator">1 / 1</span>
-      <button id="next-page">→</button>
-    </div>
-    <!-- STO-SCN-108: the ranker identity is chosen in the STUDIO title-bar profile
-         menu (server-backed) and shared via localStorage; the rank app reads it
-         silently. This hidden select keeps the existing rater logic working. -->
-    <select id="rater-select" style="display:none"></select>
-  </header>
+  <!-- STO-SCN-108: the ranker identity is chosen in the STUDIO title-bar profile menu
+       (server-backed) + shared via localStorage; the rank app reads it silently. This
+       hidden select keeps the existing rater logic working. -->
+  <select id="rater-select" style="display:none"></select>
 
   <main>
     <section id="grid-pane">
+      <!-- STO-SCN-110: header above the main viewport — Layout (left, no label) +
+           page-cycle (right, no label, keep X/Y). -->
+      <div id="viewport-header">
+        <div id="layout-buttons" role="tablist">
+          <button data-layout="1" class="active">1</button>
+          <button data-layout="2">1×2</button>
+          <button data-layout="4">2×2</button>
+          <button data-layout="9">3×3</button>
+        </div>
+        <div class="cycle">
+          <button id="prev-page">←</button>
+          <span id="page-indicator">1 / 1</span>
+          <button id="next-page">→</button>
+        </div>
+      </div>
       <div id="grid"></div>
       <div id="missing-pool" style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; min-height:60px; align-content:flex-start;"></div>
     </section>
 
     <section id="rank-pane">
       <div id="rank-header">
-        <h3>Rank these (drag cards into tiers)</h3>
-        <div class="rank-actions">
-          <button id="reset-tiers" title="Move everything back to pool">Reset</button>
-          <button id="add-tier" title="Add another tier">+ Tier</button>
-          <button id="submit-btn" disabled>Submit ranking</button>
+        <!-- STO-SCN-110: View selector card (replaced the View dropdown + the pane heading) -->
+        <div id="view-card"></div>
+        <div class="rank-right">
+          <div id="view-title">View 0 of 0</div>
+          <div class="rank-actions">
+            <button id="reset-tiers" title="Move everything back to pool">Reset</button>
+            <button id="submit-btn" disabled>Submit ranking</button>
+          </div>
         </div>
       </div>
 
       <div class="tier-row pool-row">
-        <div class="tier-label">Pool<br><span class="tier-sub">unranked</span></div>
+        <div class="tier-label">Pool<br><span class="tier-sub">(drag to rank)</span></div>
         <div class="tier-drop" id="pool-drop" data-tier="pool"></div>
       </div>
 
@@ -67,7 +62,10 @@
     </section>
 
     <aside id="info-pane">
-      <h3>Manifest</h3>
+      <h3>Manifest
+        <button id="copy-link" title="Copy a deep-link to this rendering">⧉ Copy Link</button>
+        <button id="copy-manifest" title="Copy this manifest as Markdown (with a deep-link back)">⧉ Copy MD</button>
+      </h3>
       <div id="manifest-content">
         <em>Hover a card to see settings.</em>
       </div>

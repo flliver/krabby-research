@@ -141,6 +141,9 @@ body {
   text-align: center;
   font-variant-numeric: tabular-nums;
 }
+/* STO-SCN-110: header above the main viewport — Layout left, page-cycle right. */
+#viewport-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.cycle { display: flex; align-items: center; gap: 6px; }
 
 /* -- Main panes ----------------------------------------------------------- */
 main {
@@ -262,6 +265,32 @@ main {
 }
 #submit-btn:disabled { background: var(--bg-elev-2); border-color: var(--border); color: var(--text-dim); }
 
+/* STO-SCN-110: View selector card (scene-card style) with ◀/▶ arrows, in the rank-header.
+   align-items:stretch so the arrows fill the card height vertically. */
+#rank-header { align-items: stretch; }
+#view-card { display: flex; align-items: stretch; gap: 8px; }
+.vc-arrow {
+  background: var(--bg-elev-2); color: var(--text); border: 1px solid var(--border);
+  border-radius: 4px; cursor: pointer; font-size: 22px; line-height: 1; padding: 0 12px;
+  display: flex; align-items: center; justify-content: center;   /* center glyph; fill height */
+}
+.vc-arrow:hover { background: var(--border); }
+.vc-arrow:disabled { opacity: 0.35; cursor: not-allowed; }
+.vc-card { text-align: center; border: 2px solid var(--accent); border-radius: 6px;
+  padding: 3px; background: rgba(255,255,255,0.04); }
+.vc-card img { width: 112px; height: 63px; object-fit: cover; border-radius: 4px; display: block; }
+.vc-noimg { width: 112px; height: 63px; display: flex; align-items: center; justify-content: center;
+  color: #777; font-size: 12px; border-radius: 4px; background: #2a2e36; }
+/* right column of the rank-header: large "View X of Y" title above Reset/Submit */
+.rank-right { display: flex; flex-direction: column; align-items: flex-end; justify-content: space-between; }
+#view-title { font-size: 20px; font-weight: 700; color: var(--text); letter-spacing: 0.01em; }
+
+/* STO-SCN-110: "+ Tier" as its own clickable row at the bottom of the tiers. */
+.tier-add-row { cursor: pointer; border: 1px dashed var(--border); background: transparent; }
+.tier-add { width: 100%; text-align: center; padding: 8px; color: var(--text-dim); font-size: 13px; }
+.tier-add-row:hover { background: var(--bg-elev-2); }
+.tier-add-row:hover .tier-add { color: var(--text); }
+
 .tier-row {
   display: flex;
   align-items: stretch;
@@ -350,6 +379,40 @@ main {
 }
 .card.focus { outline: 2px solid var(--accent); }
 
+/* STO-SCN-112: per-tier letter badge — circle in the tier's color, black letter
+   (A/B/…) for the card's position within the tier. Same tag on tiles, cards, and
+   (inline form) live-results rows. */
+.tier-badge {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #000;
+  line-height: 1;
+  box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.55), 0 1px 2px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+  z-index: 3;
+}
+.tile .tier-badge { width: 26px; height: 26px; font-size: 15px; top: 5px; right: 5px; }
+/* Inline form for the Live-Results list rows. */
+.tier-badge.inline {
+  position: static;
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  font-size: 10px;
+  margin-right: 5px;
+  vertical-align: middle;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5);
+}
+
 /* -- Info pane (manifest + results) -------------------------------------- */
 #info-pane {
   background: var(--bg);
@@ -364,6 +427,16 @@ main {
   color: var(--text-dim);
   margin: 0 0 8px 0;
 }
+/* STO-SCN-110: copy buttons in the Manifest header (Copy MD + Copy Link). */
+#copy-manifest, #copy-link {
+  float: right; margin-left: 6px; text-transform: none; letter-spacing: normal;
+  background: var(--bg-elev-2); color: var(--text); border: 1px solid var(--border);
+  border-radius: 4px; padding: 2px 8px; font-size: 11px; cursor: pointer;
+}
+#copy-manifest:hover, #copy-link:hover { background: var(--border); }
+/* STO-SCN-110: clickable Live-Results items. */
+#results-content li.rank-item { cursor: pointer; border-radius: 3px; }
+#results-content li.rank-item:hover { background: var(--bg-elev-2); color: var(--accent); }
 #info-pane hr {
   border: 0;
   border-top: 1px solid var(--border);
@@ -501,7 +574,7 @@ footer kbd {
   font-size: 22px; border-radius: 4px; background: #2a2e36; }
 .scene-card .nm { font-size: 11px; color: #bbb; margin-top: 2px;
   max-width: 112px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.scene-card.selected { border-color: #e0a030; }
+.scene-card.selected { border-color: #fff; }   /* STO-SCN-110: white scene selector */
 .scene-card.selected .nm { color: #fff; }
 .scene-arrow { flex: 0 0 auto; width: 28px; height: 63px; font-size: 20px;
   background: #2a2e36; color: #ccc; border: none; border-radius: 6px; cursor: pointer; }

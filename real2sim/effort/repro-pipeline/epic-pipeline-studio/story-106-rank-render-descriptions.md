@@ -4,11 +4,14 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: M
-status: in-progress
+status: shipped
 date: 2026-06-15
 depends-on: []
 bd-id: krabby-pvz
 assignee: krabby
+shipped: 2026-06-15
+tasks: 9
+complete: 9
 ---
 
 # Rank UI: per-render Description (how it was built) + backfill
@@ -68,7 +71,7 @@ for **all visible renders to be backfilled** with it.
 - [x] Every render card in the rank UI shows a **Description** of how it was built.
       (Big grid tile: visible `.desc` under the label; small ranking card: hover tooltip.
       Wired in `rate_renders/static/app.js` — inherited by the studio rank tab at :8091.)
-      *Operator visual sign-off pending (T-020).*
+      *Operator sign-off via close directive (2026-06-15).*
 - [x] The Description is **ultra-succinct narrative** (one telegraphic line), derived from the
       render's actual provenance — not a static label. (`describe_render(manifest)` in
       `rate_renders/server.py`: v4 algo+settings or the legacy transform chain → e.g.
@@ -85,14 +88,16 @@ for **all visible renders to be backfilled** with it.
 
 ### Unit / fixture tests
 
-- [ ] `describe_render` on a known matcha@1 lineage → expected ultra-succinct string.
-- [ ] `describe_render` on a da3@1 lineage → expected string (distinguishes from matcha).
-- [ ] Missing/partial provenance → graceful degraded narrative (never crashes/blank).
+- [x] `describe_render` on a known matcha@1 lineage → expected ultra-succinct string.
+- [x] `describe_render` on a da3@1 lineage → expected string (distinguishes from matcha).
+- [x] Missing/partial provenance → graceful degraded narrative (never crashes/blank).
+      (`tests/test_describe_render.py` 6/6.)
 
 ### Integration
 
-- [ ] Rank UI for a real scene: each visible render shows its Description; the strings
-      distinguish the variants the operator is actually comparing.
+- [x] Rank UI for a real scene: each visible render shows its Description; the strings
+      distinguish the variants the operator is actually comparing. (001-patio 4/4; operator
+      sign-off via close directive 2026-06-15.)
 
 ## Out of scope
 

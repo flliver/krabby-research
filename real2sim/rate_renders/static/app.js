@@ -37,7 +37,8 @@ const els = {
   sceneStrip: $("#scene-strip"),
   sceneLeft: $("#scene-left"),
   sceneRight: $("#scene-right"),
-  viewPicker: $("#view-picker"),
+  viewCard: $("#view-card"),                 // STO-SCN-110: View selector card (replaced #view-picker)
+  viewTitle: $("#view-title"),               // STO-SCN-110: "View X of Y" large title
   raterSelect: $("#rater-select"),
   layoutBtns: $$("#layout-buttons button"),
   prevPage: $("#prev-page"),
@@ -47,10 +48,11 @@ const els = {
   poolDrop: $("#pool-drop"),
   tiers: $("#tiers"),
   resetBtn: $("#reset-tiers"),
-  addTierBtn: $("#add-tier"),
   submitBtn: $("#submit-btn"),
   submitStatus: $("#submit-status"),
   manifest: $("#manifest-content"),
+  copyManifestBtn: $("#copy-manifest"),      // STO-SCN-110: copy manifest as Markdown
+  copyLinkBtn: $("#copy-link"),              // STO-SCN-110/111: copy deep-link
   results: $("#results-content"),
   status: $("#status-msg"),
 };
@@ -63,12 +65,17 @@ async function api(path, opts = {}) {
   return r.json();
 }
 
+// STO-SCN-111: deep-link — ?scene=&view=&variant= navigates to a selected rendering on load.
+const _dl = new URLSearchParams(location.search);
+const deepLink = { scene: _dl.get("scene"), view: _dl.get("view"), variant: _dl.get("variant") };
+
 async function loadScenes() {
   // [{name, thumb}] — representative image = #1-ranked variant's render
   state.scenes = await api("/api/scenes");
   renderSceneStrip();
   if (state.scenes.length && !state.scene) {
-    state.scene = state.scenes[0].name;
+    state.scene = (deepLink.scene && state.scenes.some(s => s.name === deepLink.scene))
+      ? deepLink.scene : state.scenes[0].name;        // STO-SCN-111
   }
   highlightSceneCard();
 }
@@ -121,10 +128,10 @@ async function loadScene() {
   }
   rebuildRaterSelect();
   if (state.views.length) {
-    if (!state.views.includes(state.view)) state.view = state.views[0];
+    if (deepLink.view && state.views.includes(deepLink.view)) state.view = deepLink.view;  // STO-SCN-111
+    else if (!state.views.includes(state.view)) state.view = state.views[0];
   }
-  els.viewPicker.innerHTML = state.views.map(v => `<option>${v}</option>`).join("");
-  els.viewPicker.value = state.view;
+  renderViewCard();                          // STO-SCN-110: card selector instead of a dropdown
   // Restore any persisted per-view drafts for this scene from localStorage,
   // then apply the current view's draft (or start fresh if none).
   loadPersistedDrafts();
@@ -137,13 +144,18 @@ async function loadScene() {
   }
   loadDraftForView(state.view);
   setStatus(`${state.scene} — ${state.variants.length} variants, ${state.views.length} views`);
-  if (!state.focusVariant || !state.variants.includes(state.focusVariant)) {
-    state.focusVariant = state.variants[0] || null;   // manifest visible immediately
+  await loadAggregate();   // STO-SCN-110: leaderboard ready before we pick the focus
+  if (deepLink.variant && state.variants.includes(deepLink.variant)) {   // STO-SCN-111
+    state.focusVariant = deepLink.variant;
+  } else {
+    state.focusVariant = topRankedVariant(state.view);   // STO-SCN-110: auto-show highest-ranked
   }
+  deepLink.scene = deepLink.view = deepLink.variant = null;   // one-shot: applied on first load
   await refreshAll();
 }
 
 async function refreshAll() {
+  renderViewCard();      // STO-SCN-110: keep the View card in sync (renders may have loaded)
   renderGrid();
   renderTiers();
   renderManifest();
@@ -155,11 +167,35 @@ async function refreshAll() {
 async function refreshResults() {
   if (!state.scene) return;
   try {
-    const agg = await api(`/api/aggregate/${state.scene}`);
-    renderResults(agg);
+    state.agg = await api(`/api/aggregate/${state.scene}`);
+    renderResults(state.agg);
   } catch (e) {
     els.results.innerHTML = `<em>Error: ${e.message}</em>`;
   }
+}
+
+// STO-SCN-110: cache the leaderboard so we can auto-focus the top-ranked render.
+async function loadAggregate() {
+  if (!state.scene) { state.agg = null; return; }
+  try { state.agg = await api(`/api/aggregate/${state.scene}`); }
+  catch (e) { state.agg = null; }
+}
+
+// STO-SCN-110: the highest-ranking variant for a view — per-view leaderboard first, then
+// overall, restricted to variants that actually have a render in that view (so the focus
+// tile shows an image); falls back to the first rendered / first variant.
+function topRankedVariant(view) {
+  const rendered = state.rendered[view] || [];
+  const ok = (v) => state.variants.includes(v) && rendered.includes(v);
+  const agg = state.agg;
+  if (agg) {
+    const pv = agg.per_view && agg.per_view[view];
+    const fromPv = pv && pv.leaderboard && pv.leaderboard.find(r => ok(r.variant));
+    if (fromPv) return fromPv.variant;
+    const fromOverall = agg.overall && agg.overall.find(r => ok(r.variant));
+    if (fromOverall) return fromOverall.variant;
+  }
+  return rendered[0] || state.variants[0] || null;
 }
 
 async function submitRanking() {
@@ -408,7 +444,7 @@ function renderGrid() {
   // Layout: choose cols/rows from the cell count
   // Layouts: [cols, rows]. 1×2 is vertical (one column, two rows) so 16:9
   // renders get full horizontal width — better for side-by-side detail.
-  const layoutDims = { 1: [1, 1], 2: [1, 2], 4: [2, 2], 9: [3, 3], 16: [4, 4] };
+  const layoutDims = { 1: [1, 1], 2: [1, 2], 4: [2, 2], 9: [3, 3] };   // STO-SCN-110: 4×4 removed
   const [cols, rows] = layoutDims[state.layout] || [2, 2];
   els.grid.style.setProperty("--grid-cols", cols);
   els.grid.style.setProperty("--grid-rows", rows);
@@ -465,6 +501,11 @@ function renderGrid() {
         tile.appendChild(dv);
       }
 
+      // STO-SCN-112: per-tier letter badge (circle = tier color, black letter
+      // = position within the tier). Follows the render everywhere it appears.
+      const tbadge = badgeEl(v);
+      if (tbadge) tile.appendChild(tbadge);
+
       // The big tile is draggable too — same payload shape as the small
       // cards, so the existing tier-drop handler routes it correctly.
       tile.draggable = true;
@@ -482,6 +523,61 @@ function renderGrid() {
   }
 
   renderMissingPool();
+}
+
+// STO-SCN-112: per-tier letter badge. A render placed in a ranking tier carries a circular
+// tag — the circle in that tier's color, a black letter (A, B, C…) for its position within
+// the tier — and the SAME tag is drawn wherever the render appears (grid tile, ranking card,
+// live-results row). Pool (un-ranked) renders get no badge. Single source of truth so all
+// surfaces agree; recomputed on every render as tier membership changes.
+
+// Extended fallback palette for tiers beyond the 6 CSS-defined colors (--tier-1..6), so every
+// tier has a stable color. Index 0 == tier 7.
+const TIER_FALLBACK = ["#9b59b6", "#1abc9c", "#e67e22", "#3498db", "#2ecc71", "#e74c3c"];
+function tierColor(tierNum) {
+  // tierNum is 1-based. Prefer the CSS custom property the tier labels use.
+  const v = getComputedStyle(document.documentElement).getPropertyValue(`--tier-${tierNum}`).trim();
+  if (v) return v;
+  return TIER_FALLBACK[(tierNum - 7) % TIER_FALLBACK.length] || "#888";
+}
+// The LETTER is a stable, unique per-variant identity across the WHOLE view (A, B, C, D…,
+// then AA, AB… past 26) — never repeated, independent of which tier the card sits in. The
+// COLOR is the tier the card currently belongs to (pool / un-ranked → neutral pool color).
+function letterForIndex(i) {
+  let s = "", n = i + 1;
+  while (n > 0) { const r = (n - 1) % 26; s = String.fromCharCode(65 + r) + s; n = Math.floor((n - 1) / 26); }
+  return s;
+}
+function variantLetter(v) {
+  const i = state.variants.indexOf(v);
+  return i >= 0 ? letterForIndex(i) : "?";
+}
+// → { tier, letter, color }. Always returns a badge (every card carries its unique letter).
+function badgeFor(v) {
+  const letter = variantLetter(v);
+  for (let t = 0; t < state.tiers.length; t++) {
+    if (state.tiers[t].indexOf(v) >= 0) {
+      return { tier: t + 1, letter, color: tierColor(t + 1) };
+    }
+  }
+  const pool = getComputedStyle(document.documentElement).getPropertyValue("--pool-color").trim();
+  return { tier: null, letter, color: pool || "#666" };
+}
+function badgeEl(v) {
+  const b = badgeFor(v);
+  if (!b) return null;
+  const el = document.createElement("div");
+  el.className = "tier-badge";
+  el.style.background = b.color;
+  el.textContent = b.letter;
+  el.title = `${b.tier ? "tier " + b.tier : "pool"} · ${b.letter}`;
+  return el;
+}
+// Inline (list-row) form of the same badge — for the Live-Results rows.
+function badgeHtml(v) {
+  const b = badgeFor(v);
+  if (!b) return "";
+  return `<span class="tier-badge inline" style="background:${b.color}" title="${b.tier ? "tier " + b.tier : "pool"} · ${b.letter}">${b.letter}</span>`;
 }
 
 // ---- STO-SCN-085/086/087: missing pool (small fixed chips) ---------------
@@ -606,6 +702,13 @@ function renderTiers() {
     row.appendChild(drop);
     els.tiers.appendChild(row);
   });
+  // STO-SCN-110: "+ Tier" is its own row at the bottom — click anywhere on it to add a tier.
+  const addRow = document.createElement("div");
+  addRow.className = "tier-row tier-add-row";
+  addRow.title = "Add another tier";
+  addRow.innerHTML = `<div class="tier-add">+ Tier</div>`;
+  addRow.addEventListener("click", () => { addTier(); persistDrafts(); });
+  els.tiers.appendChild(addRow);
   wireDropZone(els.poolDrop, "pool");
 }
 
@@ -640,6 +743,10 @@ function makeCard(v) {
   const cdesc = (state.manifests[v] || {}).description;
   if (cdesc) card.title = `${labelOf(v)}\n${cdesc}`;
 
+  // STO-SCN-112: same per-tier letter badge as the grid tile.
+  const cbadge = badgeEl(v);
+  if (cbadge) card.appendChild(cbadge);
+
   card.addEventListener("dragstart", (e) => {
     card.classList.add("dragging");
     e.dataTransfer.setData("text/plain", v);
@@ -668,6 +775,8 @@ function wireDropZone(el, target) {
     const tgt = target === "pool" ? "pool" : Number(target);
     moveVariant(v, tgt);
     renderTiers();
+    if (state.layout === 1) renderGrid();        // STO-SCN-112: badge on the focused tile follows tier moves
+    if (state.agg) renderResults(state.agg);     // STO-SCN-112: results-row badges track tier membership
     updateSubmitButton();
     persistDrafts();   // survive reload
   });
@@ -763,30 +872,102 @@ function renderManifest() {
   els.manifest.innerHTML = html;
 }
 
+// STO-SCN-111: deep-link URL to the focused rendering (shared by Copy MD + Copy Link).
+function deepLinkUrl() {
+  if (!state.focusVariant) return "";
+  return `${location.origin}/rank?scene=${encodeURIComponent(state.scene)}` +
+         `&view=${encodeURIComponent(state.view)}&variant=${encodeURIComponent(state.focusVariant)}`;
+}
+
+// Clipboard write with an execCommand fallback for non-secure (http) contexts.
+async function copyText(text, okMsg) {
+  try { await navigator.clipboard.writeText(text); setStatus(okMsg); return; }
+  catch (e) { /* fall through */ }
+  const ta = document.createElement("textarea");
+  ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+  document.body.appendChild(ta); ta.select();
+  try { document.execCommand("copy"); setStatus(okMsg + " (fallback)"); }
+  catch (_) { setStatus("Copy failed — select the text manually."); }
+  ta.remove();
+}
+
+// STO-SCN-110: the focused variant's manifest as Markdown, with a STO-SCN-111 deep-link.
+function manifestMarkdown() {
+  const v = state.focusVariant;
+  if (!v) return "";
+  const m = state.manifests[v] || {};
+  const label = labelOf(v);
+  const link = deepLinkUrl();
+  let md = `### ${label}\n`;
+  if (label !== v) md += `\`${v}\`\n`;
+  if (m.description) md += `\n_${m.description}_\n`;
+  const ms = m.mesh || {};
+  if (ms.verts) md += `\n- **mesh:** ${ms.verts} verts · ${ms.faces} tris · ${ms.size_mb} MB\n`;
+  for (const [tn, t] of Object.entries(m.transforms || {})) {
+    const params = (t && t.parameters) || {};
+    const ps = Object.entries(params)
+      .filter(([, val]) => val !== null && val !== "" && !(typeof val === "string" && val.length > 100))
+      .map(([k, val]) => `${k}=${typeof val === "object" ? JSON.stringify(val) : val}`).join(" · ");
+    md += `- **${tn}**${t && t.kind ? ` (${t.kind})` : ""}${ps ? `: ${ps}` : ""}\n`;
+  }
+  if (m.notes) md += `\n> ${m.notes}\n`;
+  md += `\n**Scene** \`${state.scene}\` · **View** \`${state.view}\`\n`;
+  md += `\n[↩ Open this rendering](${link})\n`;
+  return md;
+}
+
+async function copyManifestMarkdown() {
+  const md = manifestMarkdown();
+  if (!md) { setStatus("Hover/select a render first — nothing to copy."); return; }
+  await copyText(md, "Manifest copied as Markdown (with deep-link).");
+}
+
+async function copyLink() {                              // STO-SCN-110/111
+  const url = deepLinkUrl();
+  if (!url) { setStatus("Hover/select a render first — nothing to link."); return; }
+  await copyText(url, "Deep-link copied.");
+}
+
 function renderResults(agg) {
   if (!agg || !agg.n_submissions) {
     els.results.innerHTML = "<em>No rankings submitted yet.</em>";
     return;
   }
+  // STO-SCN-110: ranked items are clickable → show that render (per-view items also switch view).
+  const li = (row, i, dp, view) => {
+    const known = state.variants.includes(row.variant);
+    const cls = (i === 0 ? "winner " : "") + (known ? "rank-item" : "");
+    const attr = known
+      ? ` data-variant="${escapeHtml(row.variant)}"${view ? ` data-view="${escapeHtml(view)}"` : ""} title="Show this render"`
+      : "";
+    return `<li class="${cls}"${attr}>${badgeHtml(row.variant)}${escapeHtml(labelOf(row.variant))} ` +
+           `<span style="color:var(--text-dim);">— ${row.score.toFixed(dp)}</span></li>`;
+  };
   let html = `<div style="color: var(--text-dim);">${agg.n_submissions} submission${agg.n_submissions === 1 ? "" : "s"} total</div>`;
   if (agg.overall && agg.overall.length) {
-    html += "<h4>Overall</h4><ol>";
-    agg.overall.forEach((row, i) => {
-      const cls = i === 0 ? "winner" : "";
-      html += `<li class="${cls}">${row.variant} <span style="color:var(--text-dim);">— ${row.score.toFixed(3)}</span></li>`;
-    });
-    html += "</ol>";
+    html += "<h4>Overall</h4><ol>" + agg.overall.map((r, i) => li(r, i, 3)).join("") + "</ol>";
   }
   for (const view of Object.keys(agg.per_view).sort()) {
     const v = agg.per_view[view];
-    html += `<h4>${view} <span style="color:var(--text-dim); font-weight:400;">(${v.n_submissions})</span></h4><ol>`;
-    v.leaderboard.forEach((row, i) => {
-      const cls = i === 0 ? "winner" : "";
-      html += `<li class="${cls}">${row.variant} <span style="color:var(--text-dim);">— ${row.score.toFixed(2)}</span></li>`;
-    });
-    html += "</ol>";
+    html += `<h4>${escapeHtml(view)} <span style="color:var(--text-dim); font-weight:400;">(${v.n_submissions})</span></h4>` +
+            "<ol>" + v.leaderboard.map((r, i) => li(r, i, 2, view)).join("") + "</ol>";
   }
   els.results.innerHTML = html;
+}
+
+// STO-SCN-110: click a Live-Results item → show its render (switch view first if needed).
+function onResultClick(e) {
+  const el = e.target.closest("[data-variant]");
+  if (!el) return;
+  const v = el.dataset.variant;
+  const view = el.dataset.view;
+  if (view && view !== state.view && state.views.includes(view)) {
+    saveDraftForView(state.view); persistDrafts();
+    state.view = view; loadDraftForView(state.view);
+    state.focusVariant = v; renderViewCard(); refreshAll();
+  } else {
+    setFocusVariant(v);
+  }
 }
 
 // ---- Rater select ------------------------------------------------------
@@ -938,22 +1119,50 @@ function addTier() {
   renderTiers();
 }
 
+// STO-SCN-110: View selector as a scene-card-style card with ◀/▶ arrows (replaces the
+// "View" dropdown), placed where the "Rank these" heading used to be. Thumbnail = a render
+// of the current view (first available variant). Arrows step state.view.
+function renderViewCard() {
+  if (!els.viewCard) return;
+  const views = state.views || [];
+  const i = Math.max(0, views.indexOf(state.view));
+  const n = views.length;
+  const variant = (state.rendered[state.view] || [])[0];
+  const thumb = variant ? `/api/render/${state.scene}/${state.view}/${variant}.png` : null;
+  const nm = escapeHtml(state.view || "—");
+  els.viewCard.innerHTML =
+    `<button class="vc-arrow" id="vc-prev" ${n < 2 ? "disabled" : ""} title="Previous view">‹</button>` +
+    `<div class="vc-card" title="${nm}">` +
+      (thumb ? `<img src="${thumb}" alt="${nm}">` : `<div class="vc-noimg">no render</div>`) +
+    `</div>` +
+    `<button class="vc-arrow" id="vc-next" ${n < 2 ? "disabled" : ""} title="Next view">›</button>`;
+  const prev = els.viewCard.querySelector("#vc-prev");
+  const next = els.viewCard.querySelector("#vc-next");
+  if (prev) prev.onclick = () => stepView(-1);
+  if (next) next.onclick = () => stepView(1);
+  if (els.viewTitle) els.viewTitle.textContent = `View ${n ? i + 1 : 0} of ${n}`;
+}
+
+function stepView(delta) {
+  const views = state.views || [];
+  if (views.length < 2) return;
+  const i = Math.max(0, views.indexOf(state.view));
+  saveDraftForView(state.view);
+  persistDrafts();
+  state.view = views[(i + delta + views.length) % views.length];
+  loadDraftForView(state.view);
+  state.focusVariant = topRankedVariant(state.view);   // STO-SCN-110: view always shows highest-ranked
+  renderViewCard();
+  refreshAll();
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
   els.raterSelect.addEventListener("change", handleRaterSelect);
   els.sceneLeft.addEventListener("click", () =>
     els.sceneStrip.scrollBy({ left: -els.sceneStrip.clientWidth * 0.8, behavior: "smooth" }));
   els.sceneRight.addEventListener("click", () =>
     els.sceneStrip.scrollBy({ left: els.sceneStrip.clientWidth * 0.8, behavior: "smooth" }));
-  els.viewPicker.addEventListener("change", () => {
-    // Save current view's draft, switch, then restore new view's draft
-    // (or start fresh). Persist on every view change so a reload mid-rank
-    // doesn't lose the in-progress state for either view.
-    saveDraftForView(state.view);
-    persistDrafts();
-    state.view = els.viewPicker.value;
-    loadDraftForView(state.view);
-    refreshAll();
-  });
+  // STO-SCN-110: view switching is via the View card's ◀/▶ (wired in renderViewCard).
   els.layoutBtns.forEach(b => {
     b.addEventListener("click", () => setLayout(b.dataset.layout));
   });
@@ -965,11 +1174,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     updateSubmitButton();
     persistDrafts();
   });
-  els.addTierBtn.addEventListener("click", () => {
-    addTier();
-    persistDrafts();
-  });
+  // STO-SCN-110: "+ Tier" is the bottom tier row (wired per-render in renderTiers).
   els.submitBtn.addEventListener("click", submitRanking);
+  els.copyManifestBtn.addEventListener("click", copyManifestMarkdown);   // STO-SCN-110
+  els.copyLinkBtn.addEventListener("click", copyLink);                   // STO-SCN-110/111
+  els.results.addEventListener("click", onResultClick);                  // STO-SCN-110: clickable leaderboard
 
   // Keyboard shortcuts
   document.addEventListener("keydown", (e) => {
@@ -983,7 +1192,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     else if (e.key === "2") setLayout(2);
     else if (e.key === "4") setLayout(4);
     else if (e.key === "9") setLayout(9);
-    else if (e.key === "6") setLayout(16);  // "6" for 4×4 since '16' is two keys
   });
 
   await loadProfiles();    // STO-SCN-108: server-side rater list (before the dropdown builds)
