@@ -63,6 +63,8 @@ cameras" to "given a massive pool, what are the best N for a high-quality mesh")
 | 4 | `STO-SCN-093` | Pose the pre-culled pool → poses + co-visibility graph | open | L |
 | 5 | `STO-SCN-094` | Coverage-greedy best-N selector over the co-visibility graph | open | L |
 | 6 | `STO-SCN-095` | Scout-gaussian verification surface + handoff to reconstruct | open | M |
+| 7 | `STO-SCN-103` | Voxel-coverage best-N selector (coverage-optimization greedy) — supersedes 094 objective | in-progress | L |
+| 8 | `STO-SCN-104` | FisherRF information-gain selector (GPU, model-aware) — **RESERVE / deferred** | deferred | L |
 
 ## Design
 

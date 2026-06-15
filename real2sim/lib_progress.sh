@@ -41,6 +41,7 @@
 
 PROGRESS_TOTAL=1
 PROGRESS_BACKEND=""
+PROGRESS_PHASE=""   # last phase string (for backends that emit per-node)
 
 
 # ---------------------------------------------------------------------------
@@ -74,6 +75,54 @@ _progress_nanny_clear()   { timeout 2 nanny-progress clear              2>/dev/n
 
 
 # ---------------------------------------------------------------------------
+# Backend: mqtt  (Studio job-feedback channel — STO-SCN-088)
+# ---------------------------------------------------------------------------
+# Publishes job progress as a RETAINED message to
+#   krabby/jobs/<scene>/<job_id>
+# with payload {node,status,pct,host,ts}. Retained = level-triggered (T-021):
+# a late-joining Studio UI reads current state instantly, and a crashed
+# publisher leaves a stale-detectable heartbeat instead of a silent gap.
+#
+# This is the FAST PATH only — the incremental job.json record written by
+# v4job is the source of truth (the UI falls back to it). So every emit is
+# strictly best-effort: a missing broker, missing client, or missing
+# scene/job env degrades to a no-op + debug log, never a job failure.
+#
+# Required env (set by the dispatcher): KRABBY_JOB_SCENE, KRABBY_JOB_ID.
+# Optional: KRABBY_MQTT_HOST (default localhost), KRABBY_MQTT_PORT (1883).
+# Select with KRABBY_PROGRESS_BACKEND=mqtt (not auto-detected, so the fleet's
+# nanny dashboard stays the default; a job that wants both runs the mqtt
+# backend and calls nanny-progress alongside, or sets backend=nanny and the
+# broker config feeds the dash — see the dispatcher).
+
+_progress_mqtt_topic() {
+    [ -n "${KRABBY_JOB_SCENE:-}" ] && [ -n "${KRABBY_JOB_ID:-}" ] || return 1
+    echo "krabby/jobs/${KRABBY_JOB_SCENE}/${KRABBY_JOB_ID}"
+}
+
+_progress_mqtt_pub() {
+    # $1 = node/phase, $2 = pct, $3 = status
+    local topic; topic=$(_progress_mqtt_topic) || {
+        _progress_log "mqtt emit skipped (no KRABBY_JOB_SCENE/KRABBY_JOB_ID)"; return; }
+    command -v mosquitto_pub >/dev/null 2>&1 || {
+        _progress_log "mqtt emit skipped (no mosquitto_pub)"; return; }
+    local payload
+    payload=$(printf '{"node":"%s","status":"%s","pct":%s,"host":"%s","ts":"%s"}' \
+        "${1:-}" "${3:-running}" "${2:-0}" "$(hostname -s 2>/dev/null || echo unknown)" \
+        "$(date -u +%Y-%m-%dT%H:%M:%SZ)")
+    timeout 2 mosquitto_pub -r \
+        -h "${KRABBY_MQTT_HOST:-localhost}" -p "${KRABBY_MQTT_PORT:-1883}" \
+        -t "$topic" -m "$payload" 2>/dev/null \
+        || _progress_log "mqtt emit skipped (pub $1 $2% $3)"
+}
+
+_progress_mqtt_set()     { _progress_mqtt_pub "$1" "$2" running; }
+_progress_mqtt_phase()   { _progress_mqtt_pub "$1" 0   running; }
+_progress_mqtt_percent() { _progress_mqtt_pub "${PROGRESS_PHASE:-}" "$1" running; }
+_progress_mqtt_clear()   { _progress_mqtt_pub "${PROGRESS_PHASE:-}" 100 done; }
+
+
+# ---------------------------------------------------------------------------
 # Detection
 # ---------------------------------------------------------------------------
 
@@ -83,7 +132,8 @@ _progress_detect_backend() {
         echo "$KRABBY_PROGRESS_BACKEND"
         return
     fi
-    # Auto-detect: prefer nanny when present; null otherwise.
+    # Auto-detect: prefer nanny when present; null otherwise. (mqtt is
+    # opt-in via the env override so the fleet dashboard stays the default.)
     if command -v nanny-progress >/dev/null 2>&1; then
         echo "nanny"
     else
@@ -115,6 +165,7 @@ progress_set() {
     local percent="${2:-0}"
     local label="${3:-}"
     local phase_str="$phase/$PROGRESS_TOTAL"
+    PROGRESS_PHASE="$phase_str"   # node id for per-node backends (percent/clear)
     echo "[progress] phase $phase_str ($percent%)${label:+ — $label}"
     "_progress_${PROGRESS_BACKEND}_set" "$phase_str" "$percent"
 }
@@ -122,6 +173,7 @@ progress_set() {
 progress_phase() {
     local phase="${1:?usage: progress_phase <phase>}"
     local phase_str="$phase/$PROGRESS_TOTAL"
+    PROGRESS_PHASE="$phase_str"
     "_progress_${PROGRESS_BACKEND}_phase" "$phase_str"
 }
 

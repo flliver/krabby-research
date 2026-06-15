@@ -4,7 +4,7 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: M
-status: open
+status: in-progress
 date: 2026-06-13
 depends-on: [STO-SCN-094]
 bd-id: krabby-9qo
@@ -83,7 +83,39 @@ their local-gauge poses (the OUT side of the boundary contract) for global regis
 **Known tension.** A fisheye + sparse scout may need undistortion for clean splats — flagged
 below as out of scope, but the risk surfaces here.
 
+## Result / learnings (2026-06-14 verification session)
+
+Built the verify surface (`real2sim/verify_viewer/build_verify.py` + `viewer.html`) and a
+`match.html` photo-match diagnostic tool. Operator-exercised. Hard-won lessons:
+
+- **`dynamicScene: true`** is REQUIRED on the GS Viewer for live splat transforms — without
+  it `getSplatScene().{position,quaternion,scale}` + `getSplatMesh().updateTransforms()` are
+  baked statically and nothing moves.
+- **Fisheye scout frames must be de-warped to pinhole** before use as a verify reference —
+  the solve gauge is pinhole (fisheye undistorted first), so clicks/overlays on raw fisheye
+  pixels don't map to the pinhole rays. `build_verify` de-warps via `undistort_fisheye.py`.
+- **`up` must come from the cameras, not the splat.** Recover gravity with `gauge_up.py`
+  (⟂ to all camera-right axes; robust to pitch; validated 1.36° vs operator's manual). The
+  rain-corrupted splat PCA points at the vertical wall (~80° off) — never derive up from it.
+- **Never rewrite the `.ply`** to cull — a naive rewrite corrupted it (header offset must
+  include the `\n` after `end_header`; 3DGS = 17×float32). Handle the DA3 far-halo by
+  framing/clipping in the viewer.
+- **The splat was mis-registered to the frustums** — RESOLVED in **STO-SCN-105** (shipped
+  2026-06-14): the scout now auto-registers to the solve gauge (DA3 normalized-frame →
+  world via predicted-pose Umeyama, scale + rotation + translation). Operator-confirmed the
+  overlay is correct.
+- **Verify-viewer QoL controls (2026-06-14)** — migrated from the `match.html` diagnostic
+  into `viewer.html`: three opacity sliders (gaussians via GS per-scene `opacity` uniform,
+  frustums via shared line materials, photo overlay) + **camera-view iteration** (`[`/`]`
+  step the de-warped scout frames, snapping the viewer to each camera's exact pose —
+  fov+aspect matched, letterboxed — with its photo overlaid for per-view splat-vs-photo
+  verification; `\` returns to free orbit).
+
+The accept/drop/add edit controls + `FINAL N` handoff (the DoD below) remain to build (now
+unblocked — the scout is correctly registered).
+
 ## Out of scope
 
 - The reconstruct graphs themselves.
-- Strong-fisheye undistortion (note tension if scout is fisheye + sparse).
+- Strong-fisheye undistortion research (the de-warp uses the STO-SCN-102 calibration).
+- Scout→solve gauge registration + the DA3 normalized-frame fix → **STO-SCN-105**.

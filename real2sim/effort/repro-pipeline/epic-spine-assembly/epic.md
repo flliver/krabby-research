@@ -54,6 +54,7 @@ graph with registration/loop-closure edges.
 | 2 | `STO-SCN-098` | Global registration of segment submaps (pose-graph + loop closure + global BA) | open | L |
 | 3 | `STO-SCN-099` | Cohesive fusion of per-segment reconstructions into one gauge | open | L |
 | 4 | `STO-SCN-100` | Whole-spine verification (assembled space + seams in the scout gaussian) | open | M |
+| 5 | `STO-SCN-105` | Scout-gauge registration: DA3 normalized-frame root cause + auto camera-pose Umeyama fix (prerequisite for 098/099/100) | shipped | L |
 
 ## Design
 

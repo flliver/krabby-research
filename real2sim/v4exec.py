@@ -501,7 +501,11 @@ def cmd_scout(args):
         sys.exit(f"no solve sparse/0 at {sdir} (run `solve` first)")
     make, model, mode, _modality = _read_capture_decl(scene_dir)
 
-    _, rep = selv.select_from_sparse(str(sparse), args.n_scout)   # representative scene views
+    # COHERENT scout views (div_angle=0 — NO viewpoint-diversity penalty): DA3 fuses a clean
+    # gaussian only from overlapping/coherent views; the diversity penalty (good for FINAL
+    # selection) spreads views apart and yields a nebula here. Scout and final-select have
+    # OPPOSITE goals: scout = overlap/coherence, final = coverage/variety.
+    _, rep = selv.select_from_sparse(str(sparse), args.n_scout, div_angle=0)
     names = rep["selected"]
     posed = pfs.posed_from_sparse(str(sparse), names)
     settings = v4.hashable_settings(v4.tasks()["scout"], {"n_scout": args.n_scout, "res": args.res})
@@ -544,22 +548,45 @@ def cmd_scout(args):
     cdir.mkdir(parents=True, exist_ok=True)
     (cdir / "scout.log").write_text(r.stdout[-200000:] + "\n--- stderr ---\n" + r.stderr[-50000:])
     dt = int((datetime.datetime.now() - t0).total_seconds())
-    # gather the gs_ply (it lands in a gs_ply/ subdir — recurse with */ include);
-    # do NOT remove the workdir until the gather is confirmed.
-    sh(["rsync", "-a", "--include=*/", "--include=*.ply", "--exclude=*",
-        f"{args.host}:{work}/scout_out/", str(cdir) + "/"])
+    # gather the gs_ply (lands in a gs_ply/ subdir — recurse with */ include),
+    # DA3's `scout_gauge.json` (the scale_factor that maps the gaussian back
+    # into the solve gauge — STO-SCN-105: this is THE registration; the npz
+    # extrinsics are echoed INPUT and align to identity), the colmap export
+    # (DA3 output cameras, a cross-check) and the npz (kept for provenance).
+    # Without scout_gauge.json the splat sits ~scale_factor× off the frustums
+    # (the operator-observed "cameras too high / wrong scale"). do NOT remove
+    # the workdir until the gather is confirmed.
+    sh(["rsync", "-a", "--include=*/", "--include=*.ply", "--include=*.npz",
+        "--include=scout_gauge.json", "--include=*.bin", "--include=*.txt",
+        "--exclude=*", f"{args.host}:{work}/scout_out/", str(cdir) + "/"])
     ply = next((p for p in cdir.rglob("*.ply")), None)
     if r.returncode != 0 or ply is None:
         sys.exit(f"[scout] FAILED (rc={r.returncode}; see {cdir}/scout.log; "
                  f"workdir kept for diagnosis: {args.host}:{work})")
     ply.replace(cdir / "scout.gs.ply")        # move up out of the gs_ply/ subdir
+    npz = next((p for p in cdir.rglob("results.npz")), None)
+    if npz is not None:
+        npz.replace(cdir / "da3_poses.npz")   # DA3 output extrinsics (echoed input; provenance)
+    gj = next((p for p in cdir.rglob("scout_gauge.json")), None)
+    scale_factor = None
+    if gj is not None:
+        try:
+            scale_factor = json.loads(gj.read_text()).get("scale_factor")
+        except (ValueError, OSError):
+            pass
+        if gj != cdir / "scout_gauge.json":
+            gj.replace(cdir / "scout_gauge.json")
+    else:
+        print("[scout] WARNING: no scout_gauge.json gathered — the verify "
+              "surface cannot auto-register the splat to the solve gauge "
+              "(re-run with the updated da3_infer_posed.py; STO-SCN-105).")
     sh(["ssh", args.host, f"rm -rf {work}"])
     (cdir / "posed.json").write_text(json.dumps(posed, indent=2) + "\n")
     (cdir / "scout_views.json").write_text(json.dumps({"n": len(names), "views": names}, indent=2) + "\n")
     v4.write_metadata(cdir, task="scout", algo="scout@0", identity=cid,
                       resolved_inputs={"solve": args.solve}, settings=settings, mechanism="job",
                       measured={"host": args.host.split("@")[-1], "duration_s": dt,
-                                "n_views": len(names)})
+                                "n_views": len(names), "scale_factor": scale_factor})
     print(f"[scout] done in {dt}s: scout.gs.ply ({len(names)} views) -> {cdir}")
     job_record(args.scene, "scout", [{"node": "scout", "identity": cid}],
                {"scene": args.scene, "subset": subset, "solve": args.solve})

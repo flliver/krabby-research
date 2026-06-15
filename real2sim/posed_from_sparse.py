@@ -48,6 +48,24 @@ def read_cameras_K(path) -> dict:
     return out
 
 
+def read_cameras_intrinsics(path) -> dict:
+    """camera_id -> {fx, fy, cx, cy, w, h}. Like read_cameras_K but keeps image
+    dimensions (needed for frustum-membership tests, STO-SCN-103)."""
+    out = {}
+    with open(path, "rb") as f:
+        (n,) = _read(f, "Q")
+        for _ in range(n):
+            cam_id, model_id, w, h = _read(f, "iiQQ")
+            npar = _MODEL_NPARAMS.get(model_id, 4)
+            p = _read(f, "d" * npar)
+            if model_id in (1,):                      # PINHOLE
+                fx, fy, cx, cy = p[0], p[1], p[2], p[3]
+            else:                                     # SIMPLE_PINHOLE / SIMPLE_RADIAL
+                fx = fy = p[0]; cx, cy = p[1], p[2]
+            out[cam_id] = {"fx": fx, "fy": fy, "cx": cx, "cy": cy, "w": int(w), "h": int(h)}
+    return out
+
+
 def read_images_w2c(path) -> list:
     """-> list of {name, camera_id, w2c(4x4)} (qvec/tvec are the w2c pose)."""
     out = []

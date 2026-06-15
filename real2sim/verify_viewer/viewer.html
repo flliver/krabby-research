@@ -2,16 +2,24 @@
 <title>STO-SCN-095 verify surface — scout gaussian + proposed-N</title>
 <style>
  body{margin:0;overflow:hidden;background:#0e0e11;font-family:monospace}
+ #ref{position:absolute;pointer-events:none;opacity:0.6;display:none;z-index:5;object-fit:fill}
  #hud{position:absolute;top:8px;left:8px;color:#ddd;background:#000b;padding:8px 10px;
-      border:1px solid #444;font-size:12px;line-height:1.6;z-index:10}
+      border:1px solid #444;font-size:12px;line-height:1.7;z-index:10}
  #hud b{color:#7cf}
+ #hud input[type=range]{vertical-align:middle;width:96px}
  #s{position:absolute;bottom:8px;left:8px;color:#fc6;background:#000b;padding:6px 10px;font-size:12px;z-index:10}
- .g{color:#3f6} .d{color:#888}
+ .g{color:#3f6} .d{color:#888} .x{color:#f55} .y{color:#5f5} .z{color:#59f}
 </style></head>
 <body>
+<img id="ref">
 <div id="hud"><b id="title">095 verify</b><br>
-  <span class="g">green</span> = proposed-N (094) · <span class="d">gray</span> = rest of the posed pool (coverage)<br>
-  drag=orbit · scroll=zoom · right-drag=pan</div>
+  <span class="g">green</span> = proposed-N · <span class="d">gray</span> = pool ·
+  axes <span class="x">X</span>/<span class="y">Y</span>/<span class="z">Z</span> · grid = assumed ground<br>
+  gaussians <input id="gop" type="range" min="0" max="1" step="0.05" value="1">
+  frustums <input id="fop" type="range" min="0" max="1" step="0.05" value="0.55">
+  photo <input id="iop" type="range" min="0" max="1" step="0.05" value="0.6"><br>
+  <b>mouse</b>=orbit/zoom/pan · <b>arrows</b>=rotate · <b>1-6</b>=snap up · <b>0</b>=cam-up<br>
+  <b>[ ]</b>=step camera views · <b>\</b>=free orbit &nbsp; up=[<span id="up">?</span>] · r=<span id="rad">?</span></div>
 <div id="s">loading…</div>
 <script type="importmap">
 { "imports": {
@@ -24,26 +32,112 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import * as GS from '@mkkellogg/gaussian-splats-3d';
 
-const d = await (await fetch('./frustums.json')).json();
-const ctr = d.gauss_ctr, up = d.up || [0,-1,0];
+const d = await (await fetch('./frustums.json?v=' + Date.now(), {cache:'no-store'})).json();
+const up = d.up || [0,-1,0];
+const ctr = d.scene_ctr || d.gauss_ctr;
+const sr = d.scene_radius || 5;
+const C = new THREE.Vector3(...ctr);
+const FR = d.frustums, SF = d.scout_frames || [];          // SF = the pool members that have de-warped images
+const ref = document.getElementById('ref');
+const gop = document.getElementById('gop'), fop = document.getElementById('fop'), iop = document.getElementById('iop');
 
 const renderer = new THREE.WebGLRenderer({antialias:false});
-renderer.setSize(innerWidth, innerHeight); renderer.setPixelRatio(1);
+renderer.setPixelRatio(1);
 document.body.appendChild(renderer.domElement);
-const camera = new THREE.PerspectiveCamera(50, innerWidth/innerHeight, 0.02, 4000);
-camera.up.set(...up); camera.position.set(ctr[0]+4, ctr[1]+4, ctr[2]+6);
+const camera = new THREE.PerspectiveCamera(50, innerWidth/innerHeight, sr*0.005, sr*15);
 const controls = new OrbitControls(camera, renderer.domElement);
-controls.target.set(...ctr); camera.up.set(...up);
-addEventListener('resize',()=>{renderer.setSize(innerWidth,innerHeight);
-  camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();});
+controls.target.copy(C); controls.enableDamping = true; controls.dampingFactor = 0.12;
 
-// overlay: frustums (OpenCV +Z forward); proposed = bright green, rest = dim gray
+// canvas layout: full-window for free orbit, or letterboxed to a camera-view aspect
+// so an overlaid photo lines up 1:1 with the splat render (match.html recipe).
+let curAspect = null;
+function layout(aspect){
+  let rw = innerWidth, rh = innerHeight;
+  if (aspect){ if (innerWidth/innerHeight > aspect){ rh = innerHeight; rw = rh*aspect; }
+               else { rw = innerWidth; rh = rw/aspect; } }
+  renderer.setSize(rw, rh);
+  const cv = renderer.domElement, lx = ((innerWidth-rw)/2)+'px', ty = ((innerHeight-rh)/2)+'px';
+  cv.style.position='absolute'; cv.style.left=lx; cv.style.top=ty;
+  ref.style.left=lx; ref.style.top=ty; ref.style.width=rw+'px'; ref.style.height=rh+'px';
+  camera.aspect = aspect || (innerWidth/innerHeight); camera.updateProjectionMatrix();
+}
+
+// overlay scene: world axes gizmo, an up-oriented ground grid, and the frustums.
 const ov = new THREE.Scene();
-const matP = new THREE.LineBasicMaterial({color:0x33ff66});
-const matD = new THREE.LineBasicMaterial({color:0x666666, transparent:true, opacity:0.45});
+const axes = new THREE.AxesHelper(sr*1.3); axes.position.copy(C); ov.add(axes);  // R=X G=Y B=Z
+let grid = null;
+
+// frame() re-orients to a given up axis (free-orbit framing). Keys 1-6 snap up to ±X/±Y/±Z; 0 = camera-up.
+function frame(upArr){
+  camView = -1; ref.style.display='none'; curAspect = null; camera.fov = 50;
+  const U = new THREE.Vector3(...upArr).normalize();
+  let H = new THREE.Vector3(Math.abs(U.x) > 0.9 ? 0 : 1, 0, Math.abs(U.x) > 0.9 ? 1 : 0);
+  H.crossVectors(U, H).normalize();
+  camera.up.copy(U);
+  camera.position.copy(C).addScaledVector(U, sr*0.9).addScaledVector(H, sr*1.9);
+  controls.target.copy(C); layout(null); controls.update();
+  if (grid) ov.remove(grid);
+  grid = new THREE.GridHelper(sr*4, 16, 0x44ccaa, 0x225544);
+  grid.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), U);   // grid normal -> up
+  grid.position.copy(C); ov.add(grid);
+  document.getElementById('up').textContent = upArr.map(x=>(+x).toFixed(2)).join(', ');
+}
+const AX={Digit1:[1,0,0],Digit2:[-1,0,0],Digit3:[0,1,0],Digit4:[0,-1,0],
+          Digit5:[0,0,1],Digit6:[0,0,-1],Digit0:up};
+
+// arrow-key precise rotation about the current up (azimuth) + right (elevation)
+function rotateView(dAz, dEl){
+  const off = camera.position.clone().sub(controls.target);
+  const U = camera.up.clone().normalize();
+  off.applyAxisAngle(U, dAz);
+  const right = new THREE.Vector3().crossVectors(off, U).normalize();
+  off.applyAxisAngle(right, dEl);
+  camera.position.copy(controls.target).add(off); controls.update();
+}
+
+// ── camera-view iteration: snap to a camera's pose + overlay its de-warped photo ──
+// SF are the pool cameras with images; [ ] step through them (name order). At each
+// stop the viewer sits exactly at that camera (fov+aspect matched) so the photo
+// overlays the splat for per-view verification; orbit away freely, \ = back to free.
+let camView = -1;
+const fnav = SF.map((_,i)=>i).sort((a,b)=>SF[a].name.localeCompare(SF[b].name));
+SF.forEach(sf=>{ const im = new Image(); im.src = './'+sf.file; });   // preload (cached)
+function viewFromCam(navPos){
+  if (!SF.length) return;
+  navPos = (navPos + fnav.length) % fnav.length;
+  camView = navPos;
+  const sf = SF[fnav[navPos]], f = FR[sf.idx], R = f.R, p = f.pos;
+  const fw = new THREE.Vector3(R[2],R[5],R[8]), u = new THREE.Vector3(-R[1],-R[4],-R[7]);
+  camera.up.copy(u); camera.position.set(...p); camera.fov = f.vfov;
+  controls.target.set(p[0]+fw.x*sr*0.4, p[1]+fw.y*sr*0.4, p[2]+fw.z*sr*0.4);
+  curAspect = f.aspect; layout(curAspect); controls.update();
+  ref.src = './'+sf.file; ref.style.display='block'; ref.style.opacity = iop.value;
+  document.getElementById('s').textContent =
+    `cam view ${navPos+1}/${SF.length}: ${sf.name}  ([ ] step · \\ free orbit)`;
+}
+
+addEventListener('keydown', e=>{
+  if (AX[e.code]) { frame(AX[e.code]); return; }
+  const s=0.1;
+  if (e.code==='ArrowLeft')  rotateView( s,0);
+  else if (e.code==='ArrowRight') rotateView(-s,0);
+  else if (e.code==='ArrowUp')    rotateView(0, s);
+  else if (e.code==='ArrowDown')  rotateView(0,-s);
+  else if (e.code==='BracketRight') viewFromCam((camView<0?0:camView)+1);
+  else if (e.code==='BracketLeft')  viewFromCam((camView<0?0:camView)-1);
+  else if (e.code==='Backslash')    frame(up);
+});
+frame(up);
+document.getElementById('rad').textContent = (+sr).toFixed(2);
+addEventListener('resize',()=>layout(curAspect));
+
+// frustums (OpenCV +Z forward); proposed = bright green, rest = dim gray. Shared
+// materials so the opacity slider drives them all at once.
+const matP = new THREE.LineBasicMaterial({color:0x33ff66, transparent:true, opacity:+fop.value});
+const matD = new THREE.LineBasicMaterial({color:0x888888, transparent:true, opacity:+fop.value*0.7});
 const ha = Math.tan(22*Math.PI/180);
 let nP=0;
-for (const f of d.frustums){
+for (const f of FR){
   const R=f.R, p=new THREE.Vector3(...f.pos);
   const dep = f.proposed ? 0.35 : 0.20;
   const right=new THREE.Vector3(R[0],R[3],R[6]), down=new THREE.Vector3(R[1],R[4],R[7]),
@@ -59,12 +153,35 @@ for (const f of d.frustums){
 }
 document.getElementById('title').textContent = d.title || '095 verify';
 
+// ── opacity sliders ──
+fop.oninput = ()=>{ matP.opacity=+fop.value; matD.opacity=+fop.value*0.7;
+                    matP.visible=matD.visible=+fop.value>0; };
+iop.oninput = ()=>{ ref.style.opacity = iop.value; };
+
+// dynamicScene:true REQUIRED to apply the registration AND per-scene opacity live.
 const viewer = new GS.Viewer({renderer, camera, selfDrivenMode:false,
-  useBuiltInControls:false, cameraUp:up, sharedMemoryForWorkers:false});
+  useBuiltInControls:false, cameraUp:up, dynamicScene:true, sharedMemoryForWorkers:false});
+const splatScale = d.splat_scale || 1.0;
+const splatT = d.splat_translate || [0,0,0];
+const splatQ = d.splat_quat || [0,0,0,1];   // xyzw
 try {
   await viewer.addSplatScene('./scout.gs.ply', {format:GS.SceneFormat.Ply, showLoadingUI:false});
+  // register the scout splat into the solve gauge: p_solve = scale·R(quat)·p_gs + t
+  // (DA3 normalized-frame → solve world, from da3_infer_posed's predicted-pose Umeyama).
+  const sscene = viewer.getSplatScene && viewer.getSplatScene(0);
+  const reg = splatScale !== 1.0 || splatT.some(v=>v!==0) || splatQ.some((v,i)=>v!==[0,0,0,1][i]);
+  if (sscene) {
+    if (reg) { sscene.scale.set(splatScale, splatScale, splatScale);
+               sscene.quaternion.set(splatQ[0], splatQ[1], splatQ[2], splatQ[3]);
+               sscene.position.set(splatT[0], splatT[1], splatT[2]); }
+    viewer.getSplatMesh().updateTransforms();
+    // gaussian opacity slider -> per-scene opacity uniform (GS 0.4.7)
+    gop.oninput = ()=>{ sscene.opacity = +gop.value; viewer.getSplatMesh().updateTransforms(); };
+  }
   document.querySelector('#s').textContent =
-    `scout gaussian + ${nP} proposed / ${d.frustums.length} pool frustums (solve gauge)`;
+    `scout gaussian + ${nP} proposed / ${FR.length} pool frustums (solve gauge` +
+    (reg ? `, registered ×${splatScale.toFixed(3)})` : ', unregistered)') +
+    (SF.length ? ` · [ ] = ${SF.length} cam views` : '');
 } catch(e){ document.querySelector('#s').textContent='ERR: '+e; }
 
 // proven two-pass: splats (autoclear on) then overlay (autoclear off)

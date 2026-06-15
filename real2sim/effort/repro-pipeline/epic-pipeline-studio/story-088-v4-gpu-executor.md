@@ -65,11 +65,36 @@ scheduler choice) — plus the live job-feedback channel the UI needs.
 
 ## Definition of Done
 
+- [x] **Job-feedback channel built + verified** (the host-independent
+      half — 2026-06-14): `mqtt` backend in `lib_progress.sh` publishes
+      RETAINED progress to `krabby/jobs/<scene>/<job_id>`
+      ({node,status,pct,host,ts}; T-021 level-triggered — verified
+      publish + retained re-read against a live broker); `v4job`
+      publishes via the same topic shape AND writes **incremental**
+      job.json per node (source of truth); `GET /api/jobs/<scene>`
+      serves file-truth records with an optional retained-MQTT overlay
+      that degrades to {} with no broker (both halves unit/broker
+      tested, `tests/test_jobs_endpoint.py`).
 - [ ] Click a 🧬 gap → host prompt → dispatch → tile shows live
       per-node progress → flips to artifact (render tier follows
-      automatically via NOOP walk).
-- [ ] Job records incremental; failures surface on the tile with the
-      error tail.
+      automatically via NOOP walk). **(GPU SSH dispatch + UI host
+      prompt — remaining engineering; needs the operator-chosen host,
+      decision 3.)**
 - [ ] NC gaps require an extra confirm ("evaluation only") before
       dispatch.
-- [ ] T-020: operator exercises end-to-end on a host of their choice.
+- [ ] **OPERATOR (T-020):** exercise end-to-end on a host of your
+      choice (the dispatch leg + the live tile).
+
+## Status Notes
+
+- 2026-06-14: Built and verified the **feedback channel** (DoD #1) —
+  the part that needs no live GPU host and no operator host-choice:
+  `lib_progress.sh` `mqtt` backend, `v4job.publish_progress` +
+  incremental job records, and the `/api/jobs/<scene>` endpoint
+  (file-truth + MQTT overlay). All paths exercised (broker happy-path
+  AND graceful no-broker degradation). **Deliberately NOT done
+  autonomously:** the GPU SSH dispatch to a fleet host — HUG-SCN-005
+  decision 3 makes the host an operator parameter, so dispatch waits
+  on the operator naming a host (the v3 `run_pipeline.py` dispatch
+  shape is the port source). The remaining work is the UI host prompt
+  + the v4 dispatch leg + the T-020 end-to-end exercise.

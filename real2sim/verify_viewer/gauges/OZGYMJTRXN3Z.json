@@ -1,0 +1,19 @@
+{
+  "scale": 0.14153831,
+  "quat": [
+    0.75755381,
+    -0.36691817,
+    -0.28763446,
+    0.45689134
+  ],
+  "translate": [
+    0.09004062,
+    -0.08569052,
+    0.14028004
+  ],
+  "source": "photo-match (match.html, operator)",
+  "scene": "001-patio",
+  "solve": "62QEHJDAJZBI",
+  "scout": "OZGYMJTRXN3Z",
+  "note": "gs_ply -> solve gauge. Rotation ~125.6deg: DA3 reorients the gs export; auto geometry registration is ambiguous (ICP 87% fit yet 147deg wrong) so the photo-match solve is canonical. STO-SCN-105."
+}

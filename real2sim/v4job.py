@@ -18,6 +18,8 @@ from __future__ import annotations
 
 import datetime
 import json
+import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -30,6 +32,29 @@ BLENDER = "/Applications/Blender.app/Contents/MacOS/Blender"
 BUILD = Path(__file__).parent / "build_blender_scene.py"
 RSET = {"engine": "BLENDER_WORKBENCH", "resolution": [1920, 1080]}
 ALGO = "render-workbench@0"
+
+
+def publish_progress(scene: str, job_id: str, node: str, status: str, pct: int) -> None:
+    """Best-effort retained MQTT progress to krabby/jobs/<scene>/<job_id>
+    (STO-SCN-088 feedback channel; T-021 level-triggered). The job.json
+    record is the source of truth — a missing broker/client is a silent
+    no-op, never a job failure. Mirrors lib_progress.sh's mqtt backend."""
+    host = os.environ.get("KRABBY_MQTT_HOST")
+    if not host or not shutil.which("mosquitto_pub"):
+        return
+    payload = json.dumps({
+        "node": node, "status": status, "pct": pct,
+        "host": os.uname().nodename.split(".")[0],
+        "ts": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    })
+    try:
+        subprocess.run(
+            ["mosquitto_pub", "-r", "-h", host,
+             "-p", os.environ.get("KRABBY_MQTT_PORT", "1883"),
+             "-t", f"krabby/jobs/{scene}/{job_id}", "-m", payload],
+            capture_output=True, timeout=2)
+    except (subprocess.SubprocessError, OSError):
+        pass
 
 
 def rep_camera_paths(scene_dir: Path, rep_dir: Path):
@@ -183,47 +208,80 @@ def run_scene(scene: str, dry: bool) -> dict:
     except (FileNotFoundError, KeyError):
         return {"scene": scene, "skipped": "no canonical viewset"}
     stats = {"scene": scene, "noop": 0, "rendered": 0, "failed": 0, "nodes": []}
-    for rep_dir in sorted(sdir.glob("represent/*/*/")):
-        if not (rep_dir / "metadata.json").exists():
-            continue
-        cams, oriented = rep_camera_paths(sdir, rep_dir)
-        for mesh_dir in mesh_targets(rep_dir):
-            mid = mesh_dir.name
-            for slot in slots:
-                vc = json.loads((sdir / "views" / slot / "view.json").read_text())
-                vh = sc.view_content_hash(slot)
-                rid = v4.identity_hash({"mesh": mid, "view_content": vh}, RSET, ALGO)
-                out_dir = mesh_dir / "renders" / rid
-                if (out_dir / "render.png").exists():
-                    stats["noop"] += 1
-                    continue
-                if cams is None:
-                    stats["nodes"].append(f"SKIP {mesh_dir.relative_to(sdir)}: no cameras/orient")
-                    continue
-                if dry:
-                    stats["nodes"].append(f"WOULD-RENDER {mesh_dir.relative_to(sdir)} × {slot}")
-                    stats["rendered"] += 1
-                    continue
-                ok = render_one(sdir, mesh_dir, slot, vc, cams, oriented, out_dir)
-                if ok:
-                    v4.write_metadata(out_dir, task="render", algo=ALGO, identity=rid,
-                                      resolved_inputs={"mesh": mid, "view_content": vh},
-                                      settings=RSET, mechanism="job",
-                                      extra={"view_slot": slot})
-                    stats["rendered"] += 1
-                    stats["nodes"].append(f"RENDERED {mesh_dir.relative_to(sdir)} × {slot}")
-                else:
-                    stats["failed"] += 1
-                    stats["nodes"].append(f"FAILED {mesh_dir.relative_to(sdir)} × {slot}")
-    if not dry and (stats["rendered"] or stats["failed"]):
-        jd = sc.job_dir()
+
+    # Job record created LAZILY on the first real render (an all-NOOP run
+    # writes nothing, as before) — but once work starts it's written
+    # INCREMENTALLY so the tile flips mid-job (STO-SCN-088), not only at
+    # the end. Dry runs touch nothing.
+    state = {"jd": None, "job_id": "(pending)"}
+
+    def ensure_job():
+        if state["jd"] is None and not dry:
+            state["jd"] = sc.job_dir()
+            state["job_id"] = state["jd"].name
+        return state["jd"]
+
+    def write_record(status: str) -> None:
+        jd = state["jd"]
+        if not jd:
+            return
         (jd / "job.json").write_text(json.dumps({
             "schema": 4, "graph": "render-missing", "mechanism": "job",
+            "status": status,
             "bindings": {"scene": scene, "viewset": "canonical (resolved per slot)"},
             "outcome": {k: stats[k] for k in ("noop", "rendered", "failed")},
             "nodes": stats["nodes"],
             "written": datetime.datetime.now().astimezone().isoformat(timespec="seconds"),
         }, indent=2) + "\n")
+
+    # Cheap pre-pass: count render targets for a real progress denominator.
+    targets = []
+    for rep_dir in sorted(sdir.glob("represent/*/*/")):
+        if not (rep_dir / "metadata.json").exists():
+            continue
+        cams, oriented = rep_camera_paths(sdir, rep_dir)
+        for mesh_dir in mesh_targets(rep_dir):
+            for slot in slots:
+                targets.append((rep_dir, cams, oriented, mesh_dir, slot))
+    total = len(targets) or 1
+
+    for done, (rep_dir, cams, oriented, mesh_dir, slot) in enumerate(targets, 1):
+        mid = mesh_dir.name
+        vc = json.loads((sdir / "views" / slot / "view.json").read_text())
+        vh = sc.view_content_hash(slot)
+        rid = v4.identity_hash({"mesh": mid, "view_content": vh}, RSET, ALGO)
+        out_dir = mesh_dir / "renders" / rid
+        node = f"{mesh_dir.relative_to(sdir)} × {slot}"
+        pct = int(done * 100 / total)
+        if (out_dir / "render.png").exists():
+            stats["noop"] += 1
+            continue
+        if cams is None:
+            stats["nodes"].append(f"SKIP {mesh_dir.relative_to(sdir)}: no cameras/orient")
+            write_record("running")
+            continue
+        if dry:
+            stats["nodes"].append(f"WOULD-RENDER {node}")
+            stats["rendered"] += 1
+            continue
+        ensure_job()
+        publish_progress(scene, state["job_id"], node, "running", pct)
+        ok = render_one(sdir, mesh_dir, slot, vc, cams, oriented, out_dir)
+        if ok:
+            v4.write_metadata(out_dir, task="render", algo=ALGO, identity=rid,
+                              resolved_inputs={"mesh": mid, "view_content": vh},
+                              settings=RSET, mechanism="job",
+                              extra={"view_slot": slot})
+            stats["rendered"] += 1
+            stats["nodes"].append(f"RENDERED {node}")
+        else:
+            stats["failed"] += 1
+            stats["nodes"].append(f"FAILED {node}")
+        write_record("running")            # incremental: tile flips mid-job
+
+    if state["jd"] and (stats["rendered"] or stats["failed"]):
+        write_record("done")
+        publish_progress(scene, state["job_id"], "render-missing", "done", 100)
     return stats
 
 

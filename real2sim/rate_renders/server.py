@@ -158,6 +158,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._serve_render(p[len("/api/render/"):])
         if p.startswith("/api/materialize/"):
             return self._send_json(self._materialize_status(p[len("/api/materialize/"):]))
+        if p.startswith("/api/jobs/"):
+            return self._send_json(self._jobs_status(p[len("/api/jobs/"):]))
         if p.startswith("/api/rankings/"):
             return self._send_json(self._read_rankings(p[len("/api/rankings/"):]))
         if p.startswith("/api/aggregate/"):
@@ -217,6 +219,65 @@ class Handler(BaseHTTPRequestHandler):
                          stderr=subprocess.STDOUT,
                          start_new_session=True)
         return self._send_json({"ok": True, "started": True, "scene": scene})
+
+    # ---- job feedback channel (STO-SCN-088) -----------------------------
+    # Source of truth = the per-invocation job.json records (locked #8).
+    # The retained-MQTT state (krabby/jobs/<scene>/<job_id>) is an optional
+    # FAST PATH overlay: when a broker is configured (KRABBY_MQTT_HOST) we
+    # read the retained heartbeat for live per-node progress, but a missing
+    # broker/client degrades silently to file truth — the tile never lies.
+
+    @staticmethod
+    def _jobs_files(scene_dir: Path) -> list:
+        out = []
+        for j in sorted(scene_dir.glob("jobs/*/job.json"), reverse=True):
+            try:
+                d = json.loads(j.read_text())
+            except (ValueError, OSError):
+                continue
+            d["job"] = j.parent.name
+            out.append(d)
+        return out
+
+    @staticmethod
+    def _jobs_live(scene: str) -> dict:
+        """Best-effort retained-MQTT overlay keyed by job_id. Returns {} on
+        any failure (no broker, no client, timeout) — file truth stands."""
+        host = os.environ.get("KRABBY_MQTT_HOST")
+        if not host:
+            return {}
+        import shutil
+        import subprocess
+        if not shutil.which("mosquitto_sub"):
+            return {}
+        try:
+            r = subprocess.run(
+                ["mosquitto_sub", "-h", host,
+                 "-p", os.environ.get("KRABBY_MQTT_PORT", "1883"),
+                 "-t", f"krabby/jobs/{scene}/#", "-v",
+                 "-W", "1", "--retained-only"],
+                capture_output=True, text=True, timeout=3)
+        except (subprocess.SubprocessError, OSError):
+            return {}
+        live = {}
+        for line in r.stdout.splitlines():
+            topic, _, payload = line.partition(" ")
+            job_id = topic.rsplit("/", 1)[-1]
+            try:
+                live[job_id] = json.loads(payload)
+            except ValueError:
+                continue
+        return live
+
+    def _jobs_status(self, scene: str) -> dict:
+        scene_dir = SCENES_ROOT / scene
+        records = self._jobs_files(scene_dir)
+        live = self._jobs_live(scene)
+        for rec in records:
+            if rec["job"] in live:
+                rec["live"] = live[rec["job"]]
+        return {"scene": scene, "running": self._v4job_running(),
+                "jobs": records, "live_source": "mqtt" if live else "file"}
 
     # ---- static ---------------------------------------------------------
 

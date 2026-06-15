@@ -1,0 +1,350 @@
+<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>STO-SCN-095 photo-match — move the gaussian onto the fixed photo</title>
+<style>
+ html,body{margin:0;height:100%;overflow:hidden;background:#000;font-family:monospace}
+ #ref{position:absolute;pointer-events:none;opacity:0.5;display:none;z-index:5;object-fit:fill}
+ #hud{position:absolute;top:8px;left:8px;color:#ddd;background:#000d;padding:8px 10px;
+      border:1px solid #444;font-size:12px;line-height:1.5;z-index:10;max-width:62ch}
+ #hud b{color:#7cf} #ph{color:#fd6;font-weight:bold} .x{color:#f55} .y{color:#5f5} .z{color:#59f}
+ #reset{font:12px monospace;background:#722;color:#fff;border:1px solid #f88;border-radius:3px;padding:2px 8px;cursor:pointer}
+ #reset:hover{background:#a33} #op{vertical-align:middle;width:120px}
+ .cd{position:absolute;width:11px;height:11px;margin:-6px 0 0 -6px;border:1.5px solid;border-radius:50%;
+     pointer-events:none;z-index:8;display:none;box-shadow:0 0 2px #000}
+ .cd::after{content:"";position:absolute;left:4px;top:4px;width:1px;height:1px;background:currentColor;box-shadow:0 0 1px #000}
+</style></head>
+<body>
+<img id="ref">
+<div class="cd" id="m0" style="border-color:#fff;color:#fff"></div>
+<div class="cd" id="m1" style="border-color:#3f3;color:#3f3"></div>
+<div class="cd" id="m2" style="border-color:#f33;color:#f33"></div>
+<div id="hud"><button id="reset">⟲ reset all</button>
+ &nbsp;photo <input id="op" type="range" min="0" max="1" step="0.05" value="0.5">
+ frustums <input id="fop" type="range" min="0" max="1" step="0.05" value="0.12"><br>
+ <span id="ph">phase</span><br><span id="inst"></span><br>
+ <b>ENTER</b>=next · <b>shift+ENTER</b>=back · <b>BACKSPACE</b>=undo · <b>[ ]</b>=prev/next photo<br>
+ up=<span class="y">GREEN(+Y)</span> · right=<span class="x">RED(+X)</span> &nbsp; <input id="pjson" placeholder="paste transform JSON" style="width:22ch;font-size:11px"> <button id="pload" style="font-size:11px">resume</button><br>
+ <span id="st">loading…</span></div>
+<script type="importmap">
+{ "imports": {
+  "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+  "@mkkellogg/gaussian-splats-3d": "https://unpkg.com/@mkkellogg/gaussian-splats-3d@0.4.7/build/gaussian-splats-3d.module.js" }}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { TransformControls } from 'three/addons/controls/TransformControls.js';
+import * as GS from '@mkkellogg/gaussian-splats-3d';
+
+const d = await (await fetch('./frustums.json?v='+Date.now(),{cache:'no-store'})).json();
+const ctr = d.scene_ctr || d.gauss_ctr, sr = d.scene_radius || 5;
+const FR = d.frustums, SF = d.scout_frames || [];
+const ref=document.getElementById('ref'), st=document.getElementById('st');
+const phEl=document.getElementById('ph'), instEl=document.getElementById('inst');
+const op=document.getElementById('op'), fop=document.getElementById('fop');
+const C = new THREE.Vector3(...ctr);
+addEventListener('error', ev=>{ st.textContent='JS ERR: '+ev.message; });
+
+// state (declared up top — readWidget/updateHud touch them at init)
+const PHASES=[
+ 'PHASE 0 — SOLVE AXES: click (1) origin, (2) a point straight UP, (3) a point along the base/RIGHT. Optional: press X/Y/Z then click line-PAIRS to add parallel lines (vanishing points) until residual is tight. 4th seed click = redo. ENTER.',
+ 'PHASE 1 — ANCHOR + ORIENT:  T=translate (arrows on solved axes; widget snaps back, gaussian moves) ·  R=rotate (rings on solved axes). Put the corner on the origin AND square it up. ENTER.',
+ 'PHASE 2 — SCALE: scale the gaussian about the corner until the wall right corner matches the photo. ENTER.',
+ 'PHASE 3 — LOCKED. Transform below — paste to me to bake.'];
+let phase=0;
+const P=C.clone();                      // locked origin / pivot (placed in Phase 0)
+// STO-SCN-105: start from the AUTO-REGISTERED state (splat_scale maps the
+// gaussian frame into the solve gauge). With the pipeline fix the splat
+// already overlays the frustums at this scale — the widget below is now only
+// for optional confirmation / fine-tuning, not for building the correction.
+const SPLAT_SCALE = d.splat_scale || 1.0;
+const SPLAT_T = d.splat_translate || [0,0,0];
+const SPLAT_Q = d.splat_quat || [0,0,0,1];   // xyzw
+const Rq=new THREE.Quaternion(SPLAT_Q[0],SPLAT_Q[1],SPLAT_Q[2],SPLAT_Q[3]); let s=SPLAT_SCALE; const t=new THREE.Vector3(...SPLAT_T);  // splat world xform M(p)=Rq*s*p+t
+const RqB=new THREE.Quaternion(); let sB=1.0; const tB=new THREE.Vector3(); // per-drag base
+let wmode='translate';
+const history=[]; let dragStart=null;   // undo stack (one entry per drag, recorded on release)
+const frameQ=new THREE.Quaternion(); let clicks=[], clicks3d=[];   // Phase-0: ray dirs + 3D lock points
+
+const renderer=new THREE.WebGLRenderer({antialias:false}); renderer.setPixelRatio(1);
+document.body.appendChild(renderer.domElement);
+const camera=new THREE.PerspectiveCamera(50, innerWidth/innerHeight, sr*0.005, sr*60);
+
+const START='frame_0425.jpg';
+let camFrame=SF.findIndex(s=>s.name===START); if(camFrame<0) camFrame=0;
+const fnav=SF.map((_,i)=>i).sort((a,b)=>SF[a].name.localeCompare(SF[b].name));   // sequential photo order
+let fpos=Math.max(0,fnav.indexOf(camFrame));
+function gotoFrame(dn){ fpos=(fpos+dn+fnav.length)%fnav.length; camFrame=fnav[fpos]; SF.forEach(sf=>{ const im=new Image(); im.src='./'+sf.file; });   // preload all de-warped frames (cached)
+lockCamera(); updateHud(); }
+function layout(aspect){
+  let rw=innerWidth, rh=innerHeight;
+  if(aspect){ if(innerWidth/innerHeight>aspect){rh=innerHeight;rw=rh*aspect;} else {rw=innerWidth;rh=rw/aspect;} }
+  renderer.setSize(rw,rh); const cv=renderer.domElement, lx=((innerWidth-rw)/2)+'px', ty=((innerHeight-rh)/2)+'px';
+  cv.style.position='absolute'; cv.style.left=lx; cv.style.top=ty;
+  ref.style.left=lx; ref.style.top=ty; ref.style.width=rw+'px'; ref.style.height=rh+'px';
+  camera.aspect=aspect||(innerWidth/innerHeight); camera.updateProjectionMatrix();
+}
+function lockCamera(){
+  const f=FR[SF[camFrame].idx], R=f.R, p=f.pos;
+  const fw=new THREE.Vector3(R[2],R[5],R[8]), up=new THREE.Vector3(-R[1],-R[4],-R[7]);
+  camera.position.set(...p); camera.up.copy(up); camera.lookAt(p[0]+fw.x,p[1]+fw.y,p[2]+fw.z);
+  camera.fov=f.vfov; layout(f.aspect);
+  ref.src='./'+SF[camFrame].file; ref.style.display='block'; ref.style.opacity=op.value;
+}
+
+// fixed frustums (the reference) + the splat-frame axis + the widget
+const ov=new THREE.Scene();
+const frustMats=[];
+for(const f of FR){
+  const R=f.R, p=new THREE.Vector3(...f.pos), prop=SF.some(z=>z.idx===FR.indexOf(f)), dep=prop?0.3:0.18;
+  const ri=new THREE.Vector3(R[0],R[3],R[6]), dn=new THREE.Vector3(R[1],R[4],R[7]), fw=new THREE.Vector3(R[2],R[5],R[8]);
+  const cF=p.clone().add(fw.clone().multiplyScalar(dep)), ha=Math.tan(22*Math.PI/180), hw=dep*ha, hh=dep*ha*0.66;
+  const cor=[[1,1],[1,-1],[-1,-1],[-1,1]].map(([x,y])=>cF.clone().add(ri.clone().multiplyScalar(x*hw)).add(dn.clone().multiplyScalar(y*hh)));
+  const pts=[]; for(let i=0;i<4;i++){pts.push(p,cor[i]);pts.push(cor[i],cor[(i+1)%4]);}
+  const fm=new THREE.LineBasicMaterial({color:prop?0x33ff66:0x666666,transparent:true,opacity:0.12});
+  frustMats.push(fm); ov.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pts), fm));
+}
+fop.oninput=()=>frustMats.forEach(m=>{ m.opacity=+fop.value; m.visible=+fop.value>0; });
+const axis=new THREE.AxesHelper(sr*0.6); ov.add(axis);
+// Phase-0 solved-axis display = raw lines toward each click (so BOTH circles are hit)
+const solveAxis=new THREE.Group(); solveAxis.visible=false; ov.add(solveAxis);
+const _alines=[0xff3333,0x33ff33,0x3399ff].map(c=>{
+  const l=new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3()]),
+    new THREE.LineBasicMaterial({color:c,depthTest:false})); solveAxis.add(l); return l; });
+function drawSolveAxis(o,dirs){ const len=sr*0.7;
+  dirs.forEach((dr,i)=> _alines[i].geometry.setFromPoints([o.clone(), o.clone().addScaledVector(dr,len)]));
+  solveAxis.visible=true; }
+const W=new THREE.Object3D(); W.position.copy(P); ov.add(W);
+const gizmo=new TransformControls(camera, renderer.domElement); gizmo.setSize(1.3); ov.add(gizmo); gizmo.attach(W);
+
+// Phase-0 click markers = tiny screen-constant HTML rings (precise; depth-independent)
+const cdots=['m0','m1','m2'].map(id=>document.getElementById(id));
+const _rc=new THREE.Raycaster();
+function clickRay(cx,cy){
+  const el=renderer.domElement, lx=parseFloat(el.style.left)||0, ty=parseFloat(el.style.top)||0;
+  const nx=((cx-lx)/el.width)*2-1, ny=-(((cy-ty)/el.height)*2-1);
+  _rc.setFromCamera(new THREE.Vector2(nx,ny), camera);
+  return _rc.ray.direction.clone().normalize();
+}
+function depthAlong(dir){ const fwd=new THREE.Vector3(); camera.getWorldDirection(fwd);
+  return Math.max(sr*0.2, C.clone().sub(camera.position).dot(fwd)/Math.max(0.05,dir.dot(fwd))); }
+function clickNdc(cx,cy){ const el=renderer.domElement, lx=parseFloat(el.style.left)||0, ty=parseFloat(el.style.top)||0;
+  return [((cx-lx)/el.width)*2-1, -(((cy-ty)/el.height)*2-1)]; }
+function ndcDir(n){ _rc.setFromCamera(new THREE.Vector2(n[0],n[1]),camera); return _rc.ray.direction.clone().normalize(); }
+// --- multi-line vanishing-point solve: each axis dir = convergence of its parallel image lines ---
+const lineColl={x:[],y:[],z:[]}; let pending=[], pending3d=[], addAxis=null, originNdc=null;
+function eig3sym(M){   // smallest eigenvector of a symmetric 3x3 (Jacobi)
+  const a=[M[0].slice(),M[1].slice(),M[2].slice()], V=[[1,0,0],[0,1,0],[0,0,1]];
+  for(let s=0;s<100;s++){
+    if(Math.abs(a[0][1])+Math.abs(a[0][2])+Math.abs(a[1][2])<1e-13) break;
+    for(const pq of [[0,1],[0,2],[1,2]]){ const p=pq[0],q=pq[1];
+      if(Math.abs(a[p][q])<1e-16) continue;
+      const th=(a[q][q]-a[p][p])/(2*a[p][q]), t=(th>=0?1:-1)/(Math.abs(th)+Math.sqrt(th*th+1));
+      const c=1/Math.sqrt(t*t+1), si=t*c;
+      for(let k=0;k<3;k++){ const kp=a[k][p],kq=a[k][q]; a[k][p]=c*kp-si*kq; a[k][q]=si*kp+c*kq; }
+      for(let k=0;k<3;k++){ const pk=a[p][k],qk=a[q][k]; a[p][k]=c*pk-si*qk; a[q][k]=si*pk+c*qk; }
+      for(let k=0;k<3;k++){ const kp=V[k][p],kq=V[k][q]; V[k][p]=c*kp-si*kq; V[k][q]=si*kp+c*kq; }
+    }
+  }
+  let mi=0; for(let i=1;i<3;i++) if(a[i][i]<a[mi][mi]) mi=i;
+  return [V[0][mi],V[1][mi],V[2][mi]];
+}
+function axisDir(lines){   // world unit dir from parallel image lines (VP), oriented to the seed click sense
+  if(!lines.length) return null;
+  const ref=ndcDir(lines[0].b).sub(ndcDir(lines[0].a)).normalize();   // seed a->b (e.g. origin -> UP)
+  let d;
+  if(lines.length===1){ d=ref.clone(); }
+  else {
+    let M=[[0,0,0],[0,0,0],[0,0,0]];
+    for(const ln of lines){ const A=[ln.a[0],ln.a[1],1], B=[ln.b[0],ln.b[1],1];
+      let L=[A[1]*B[2]-A[2]*B[1],A[2]*B[0]-A[0]*B[2],A[0]*B[1]-A[1]*B[0]];
+      const n=Math.hypot(L[0],L[1],L[2])||1; L=[L[0]/n,L[1]/n,L[2]/n];
+      for(let i=0;i<3;i++)for(let j=0;j<3;j++)M[i][j]+=L[i]*L[j];
+    }
+    const v=eig3sym(M); let nx=v[0]/v[2], ny=v[1]/v[2];
+    if(!isFinite(nx)||Math.abs(v[2])<1e-6){ const m=Math.hypot(v[0],v[1])||1; nx=v[0]/m*1e4; ny=v[1]/m*1e4; }
+    d=ndcDir([nx,ny]);
+  }
+  if(d.dot(ref)<0) d.negate();      // fix VP sign ambiguity -> Y points UP, X points RIGHT
+  return d.normalize();
+}
+const AXCOL={x:0xff3333,y:0x33ff33,z:0x3399ff};
+const lineViz=new THREE.Group(); ov.add(lineViz);              // captured improvement lines @10%
+const rubber=new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3()]),
+  new THREE.LineBasicMaterial({color:0xffffff,transparent:true,opacity:0.6})); rubber.visible=false; ov.add(rubber);
+function redrawLines(){
+  while(lineViz.children.length) lineViz.remove(lineViz.children[0]);
+  for(const ax of ['x','y','z']) for(const ln of lineColl[ax]){
+    if(!ln.a3||!ln.b3) continue;
+    lineViz.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints([ln.a3,ln.b3]),
+      new THREE.LineBasicMaterial({color:AXCOL[ax],transparent:true,opacity:0.1})));
+  }
+}
+function solveFrame(){   // axis dirs from vanishing points (multi-line) -> orthonormal frame + residual
+  const dX=axisDir(lineColl.x), dY=axisDir(lineColl.y), dZr=axisDir(lineColl.z);
+  if(!dX||!dY) return;
+  const X=dX.clone().normalize();
+  const Y=dY.clone().sub(X.clone().multiplyScalar(dY.dot(X))).normalize();   // ⟂ X (rectangular building)
+  const Z=new THREE.Vector3().crossVectors(X,Y).normalize();
+  frameQ.setFromRotationMatrix(new THREE.Matrix4().makeBasis(X,Y,Z));
+  drawCornerAxis(); redrawLines(); axis.visible=false;
+  const ortho=Math.abs(90 - Math.acos(Math.max(-1,Math.min(1,dX.dot(dY))))*180/Math.PI);   // X–Y squareness residual
+  const zfit=dZr? (Math.acos(Math.max(-1,Math.min(1,Math.abs(dZr.dot(Z))))) *180/Math.PI).toFixed(1)+'°' : '—';
+  st.innerHTML=`SOLVED · lines X:${lineColl.x.length} Y:${lineColl.y.length} Z:${lineColl.z.length} · `+
+    `X–Y residual <b>${ortho.toFixed(1)}°</b> · Z fit ${zfit} — `+
+    (ortho<2?'tight ✓':'add parallel lines (x/y/z + 2 clicks)')+' · ENTER';
+}
+renderer.domElement.addEventListener('pointerdown', e=>{
+  if(phase!==0) return;
+  const ndc=clickNdc(e.clientX,e.clientY), dir=ndcDir(ndc);
+  const p3=camera.position.clone().addScaledVector(dir, depthAlong(dir));
+  if(addAxis){                                   // strengthen: collect parallel-line pairs for an axis
+    pending.push(ndc); pending3d.push(p3);
+    if(pending.length===2){ lineColl[addAxis].push({a:pending[0],b:pending[1],a3:pending3d[0],b3:pending3d[1]});
+      pending=[]; pending3d=[]; rubber.visible=false; solveFrame();
+      st.textContent=`+${addAxis.toUpperCase()} line (${lineColl[addAxis].length}) — 2 more, or x/y/z to switch · ENTER`; }
+    else st.textContent=`${addAxis.toUpperCase()} line: click point 2`;
+    return;
+  }
+  if(clicks.length>=3){ clicks=[]; clicks3d=[]; lineColl.x=[]; lineColl.y=[]; lineColl.z=[]; }   // 4th = redo
+  clicks.push(dir); clicks3d.push(p3);
+  if(clicks.length===1){ originNdc=ndc; P.copy(clicks3d[0]); st.textContent='click a point straight UP from origin'; }
+  else if(clicks.length===2){ lineColl.y=[{a:originNdc,b:ndc,a3:clicks3d[0],b3:clicks3d[1]}]; st.textContent='click a point along the base (RIGHT)'; }
+  else if(clicks.length===3){ lineColl.x=[{a:originNdc,b:ndc,a3:clicks3d[0],b3:clicks3d[2]}]; solveFrame(); }
+});
+renderer.domElement.addEventListener('mousemove', e=>{   // rubber-band the in-progress line between the 2 clicks
+  if(phase!==0 || !addAxis || pending3d.length!==1){ if(rubber.visible) rubber.visible=false; return; }
+  const d=ndcDir(clickNdc(e.clientX,e.clientY)), p=camera.position.clone().addScaledVector(d, depthAlong(d));
+  rubber.geometry.setFromPoints([pending3d[0], p]); rubber.material.color.setHex(AXCOL[addAxis]); rubber.visible=true;
+});
+function axisFromFrame(){   // fallback: draw axes from frameQ's columns (when corner points are unknown)
+  const m=new THREE.Matrix4().makeRotationFromQuaternion(frameQ);
+  drawSolveAxis(P,[new THREE.Vector3().setFromMatrixColumn(m,0),
+                   new THREE.Vector3().setFromMatrixColumn(m,1),
+                   new THREE.Vector3().setFromMatrixColumn(m,2)]);
+}
+function drawCornerAxis(){  // draw the ORTHONORMAL frameQ axes (== what the widget uses) so SOLVE matches P1.
+  const m=new THREE.Matrix4().makeRotationFromQuaternion(frameQ);
+  const X=new THREE.Vector3().setFromMatrixColumn(m,0),
+        Y=new THREE.Vector3().setFromMatrixColumn(m,1),
+        Z=new THREE.Vector3().setFromMatrixColumn(m,2);
+  const lenX=clicks3d.length>=3?clicks3d[2].distanceTo(P):sr*0.7;
+  const lenY=clicks3d.length>=3?clicks3d[1].distanceTo(P):sr*0.7;
+  _alines[0].geometry.setFromPoints([P.clone(), P.clone().addScaledVector(X,lenX)]);   // red = right (exact, hits LRP)
+  _alines[1].geometry.setFromPoints([P.clone(), P.clone().addScaledVector(Y,lenY)]);   // green = up snapped ⟂ (shows skew)
+  _alines[2].geometry.setFromPoints([P.clone(), P.clone().addScaledVector(Z,0.5*(lenX+lenY))]);
+  solveAxis.visible=true;
+}
+function updateDots(){     // project the 3D lock points to screen each frame -> dots follow the camera
+  const el=renderer.domElement, lx=parseFloat(el.style.left)||0, ty=parseFloat(el.style.top)||0;
+  for(let i=0;i<3;i++){
+    if(i<clicks3d.length){ const v=clicks3d[i].clone().project(camera);
+      cdots[i].style.left=(lx+(v.x*0.5+0.5)*el.width)+'px';
+      cdots[i].style.top=(ty+(-v.y*0.5+0.5)*el.height)+'px';
+      cdots[i].style.display=(v.z<1)?'block':'none';
+    } else cdots[i].style.display='none';
+  }
+}
+
+function applySplat(){    // M(p)=Rq*s*p+t (world). translate = world(widget) axes; rotate/scale = about P.
+  const ss=viewer&&viewer.getSplatScene&&viewer.getSplatScene(0);
+  if(ss){ ss.quaternion.copy(Rq); ss.scale.set(s,s,s); ss.position.copy(t); viewer.getSplatMesh().updateTransforms(); }
+  axis.position.copy(P); axis.quaternion.copy(frameQ); axis.scale.setScalar(sr*0.6);   // locked frame, fixed at origin
+  updateHud();
+}
+function readWidget(){   // map the widget's delta-from-home into world ops on (Rq,s,t) about P
+  if(phase===1){
+    if(wmode==='translate'){                                  // world nudge ALONG the widget (locked) axes
+      Rq.copy(RqB); s=sB; t.copy(tB).add(W.position).sub(P);
+    } else {                                                  // rotate the gaussian about P, about locked axes
+      const dR=W.quaternion.clone().multiply(frameQ.clone().invert());
+      Rq.copy(dR).multiply(RqB); s=sB; t.copy(tB).sub(P).applyQuaternion(dR).add(P);
+    }
+  } else if(phase===2){                                       // scale the gaussian about P
+    const f=Math.max(0.01,W.scale.x);
+    s=sB*f; Rq.copy(RqB); t.copy(tB).sub(P).multiplyScalar(f).add(P);
+  }
+  applySplat();
+}
+function syncWidget(){   // widget home is ALWAYS the locked frame at the origin; mode follows phase
+  if(phase===0){ axis.visible=false; gizmo.enabled=false; gizmo.visible=false; return; }   // click-to-solve; dots persist
+  axis.visible=false; solveAxis.visible=true; gizmo.setSpace('local');   // keep the RAW solved axes (connect to dots)
+  W.position.copy(P); W.quaternion.copy(frameQ); W.scale.set(1,1,1);   // home = locked frame at origin
+  if(phase===1) gizmo.setMode(wmode==='translate'?'translate':'rotate');
+  else if(phase===2) gizmo.setMode('scale');
+  const live=phase<3; gizmo.enabled=live; gizmo.visible=live;
+}
+function setPhase(n){ phase=Math.max(0,Math.min(3,n)); syncWidget(); applySplat(); }
+gizmo.addEventListener('objectChange', readWidget);
+function snapshot(){ return {Rq:Rq.clone(), s, t:t.clone()}; }
+function restore(st){ Rq.copy(st.Rq); s=st.s; t.copy(st.t); RqB.copy(Rq); sB=s; tB.copy(t); syncWidget(); applySplat(); }
+gizmo.addEventListener('dragging-changed', e=>{
+  if(phase!==1 && phase!==2) return;
+  if(e.value){ RqB.copy(Rq); sB=s; tB.copy(t); dragStart=snapshot(); return; }   // drag begin: base + undo point
+  W.position.copy(P); W.quaternion.copy(frameQ); W.scale.set(1,1,1);             // snap widget home
+  if(dragStart){ history.push(dragStart); dragStart=null; }
+  applySplat();
+});
+
+function updateHud(){
+  phEl.textContent=`[${'●'.repeat(phase)}${'○'.repeat(3-phase)}]  P${phase}`+(phase===1?` · ${wmode.toUpperCase()} (T/R)`:'');
+  instEl.textContent=PHASES[phase];
+  if(phase===3){   // LOCKED: emit the EXACT world transform M(p)=Rq*s*p+t (copy this to bake)
+    const J={note:"gauge_xform M(p)=Rq*s*p+t (world)", Rq:Rq.toArray().map(v=>+v.toFixed(8)),
+             s:+s.toFixed(8), t:t.toArray().map(v=>+v.toFixed(8)),
+             origin:P.toArray().map(v=>+v.toFixed(6)), frameQ:frameQ.toArray().map(v=>+v.toFixed(8)),
+             corners:clicks3d.map(p=>p.toArray().map(v=>+v.toFixed(6)))};
+    st.innerHTML='LOCKED — copy &amp; paste to bake:<br>'+
+      '<textarea style="width:56ch;height:5.5em" onclick="this.select()">'+JSON.stringify(J)+'</textarea>';
+    return;
+  }
+  const Rl=frameQ.clone().invert().multiply(Rq).multiply(frameQ);   // rotation in the LOCKED frame
+  const e=new THREE.Euler().setFromQuaternion(Rl);
+  st.innerHTML=`origin [${P.toArray().map(x=>x.toFixed(2)).join(',')}] · rot°(locked) <b>${[e.x,e.y,e.z].map(a=>(a*180/Math.PI).toFixed(1)).join(',')}</b>`+
+   ` · scale <b>${s.toFixed(3)}</b> · pos <b>${t.toArray().map(x=>x.toFixed(2)).join(',')}</b>`;
+}
+function resetAll(){
+  Rq.set(SPLAT_Q[0],SPLAT_Q[1],SPLAT_Q[2],SPLAT_Q[3]); RqB.identity(); s=SPLAT_SCALE; sB=1.0; t.set(SPLAT_T[0],SPLAT_T[1],SPLAT_T[2]); tB.set(0,0,0); frameQ.identity(); wmode='translate';
+  clicks=[]; clicks3d=[]; lineColl.x=[]; lineColl.y=[]; lineColl.z=[]; pending=[]; pending3d=[]; addAxis=null; originNdc=null;
+  rubber.visible=false; redrawLines(); history.length=0; dragStart=null; lockCamera();
+  const fwd=new THREE.Vector3(); camera.getWorldDirection(fwd);
+  const dist=Math.max(sr*0.4, C.clone().sub(camera.position).dot(fwd));
+  P.copy(camera.position).addScaledVector(fwd, dist);     // widget starts at SCREEN CENTER
+  setPhase(0);
+}
+op.oninput=()=>{ ref.style.opacity=op.value; };
+document.getElementById('reset').onclick=resetAll;
+document.getElementById('pload').onclick=()=>{   // resume from a previously-exported transform JSON
+  try{ const j=JSON.parse(document.getElementById('pjson').value);
+    if(j.Rq) Rq.fromArray(j.Rq); if(j.s!=null) s=j.s; if(j.t) t.fromArray(j.t);
+    if(j.origin) P.fromArray(j.origin); if(j.frameQ) frameQ.fromArray(j.frameQ);
+    if(j.corners) clicks3d=j.corners.map(a=>new THREE.Vector3().fromArray(a));
+    RqB.copy(Rq); sB=s; tB.copy(t); drawCornerAxis(); setPhase(1); applySplat();
+    st.textContent='resumed from pasted transform';
+  }catch(err){ st.textContent='paste err: '+err; }
+};
+addEventListener('keydown', e=>{
+  if(e.target && (e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA')) return;   // don't hijack the paste box
+  if(e.code==='Enter'){ setPhase(phase + (e.shiftKey ? -1 : 1)); e.preventDefault(); }   // shift+ENTER = back
+  else if(e.code==='Backspace'){ if(history.length) restore(history.pop()); e.preventDefault(); }
+  else if(e.code==='BracketRight'){ gotoFrame(1); }    // ] next photo (spatial jump)
+  else if(e.code==='BracketLeft'){ gotoFrame(-1); }    // [ prev photo
+  else if(e.code==='KeyT' && phase===1){ wmode='translate'; syncWidget(); }
+  else if(e.code==='KeyR' && phase===1){ wmode='rotate'; syncWidget(); }
+  else if(phase===0 && (e.code==='KeyX'||e.code==='KeyY'||e.code==='KeyZ')){   // strengthen an axis with VP lines
+    addAxis=e.code.slice(3).toLowerCase(); pending=[];
+    st.textContent=`strengthen ${addAxis.toUpperCase()}: click 2 points on a line parallel to ${addAxis.toUpperCase()}`;
+  }
+});
+addEventListener('resize', ()=>{ lockCamera(); });
+
+const viewer=new GS.Viewer({renderer,camera,selfDrivenMode:false,useBuiltInControls:false,
+  cameraUp:[0,1,0],dynamicScene:true,sharedMemoryForWorkers:false});   // dynamicScene -> live splat transform
+try{ await viewer.addSplatScene('./scout.gs.ply',{format:GS.SceneFormat.Ply,showLoadingUI:false}); }
+catch(err){ st.textContent='ERR '+err; }
+resetAll();                              // lock camera + place widget at screen center + phase 0
+
+function loop(){ requestAnimationFrame(loop); updateDots();
+  renderer.autoClear=true; viewer.update(); viewer.render();
+  renderer.autoClear=false; renderer.render(ov,camera); renderer.autoClear=true; }
+loop();
+</script></body></html>
