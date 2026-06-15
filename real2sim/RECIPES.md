@@ -1,5 +1,20 @@
 # Data Recipes — capture types, and precisely how to process them
 
+> # ➜ SUPERSEDED — the M11 process now lives in [`knowledge/scene-processing/`](knowledge/scene-processing/README.md)
+>
+> **The canonical, operator-facing M11 scene-processing documentation is the
+> T0–T4 doc set under [`real2sim/knowledge/scene-processing/`](knowledge/scene-processing/README.md)**
+> (start at its `README.md`). It documents the whole process — ingress → scouting/spine →
+> view selection → reconstruction (pre/processing/post) → ranking — as the **documented,
+> automated, easy** path. Tracked by `EPI-SCN-M11-PROCESS-DOCS`.
+>
+> Everything below is **legacy reference** retained for the per-capture-type detail (Recipes
+> A–D) and the pre-v4 phase catalog that the new docs summarize but don't yet reproduce
+> verbatim. Prefer the doc set above; reach here only for that residual detail until it's
+> fully migrated.
+
+---
+
 > One recipe per *kind of input data*. Every step names the hardened
 > tool that performs it (T-025 — no freelance re-implementation). All
 > recipes converge on the same trunk after preprocessing. Grounded in
