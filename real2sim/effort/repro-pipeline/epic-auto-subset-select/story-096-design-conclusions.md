@@ -4,11 +4,14 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: M
-status: open
+status: shipped
+shipped: 2026-06-15
 date: 2026-06-13
 depends-on: []
 bd-id: krabby-1tr
 assignee: krabby
+tasks: 4
+complete: 4
 ---
 
 # Design: automated frame-subset selection — approach & conclusions
@@ -177,7 +180,11 @@ STO-SCN-099, and 013 was retargeted + given `depends-on: STO-SCN-099`.
 - [x] Approach, the pipeline graph, and the six conclusions recorded here.
 - [x] Segment boundary contract (IN/OUT) recorded — the meaning of the ×M edges.
 - [x] Downstream boundary to mesh-conditioning/USD-export recorded (099 → 013 edge).
-- [ ] Operator concurrence on the approach (this story is the record of it).
+- [x] Operator concurrence on the approach (this story is the record of it).
+      **Concurred 2026-06-15**: the operator drove the full v4 build of this design
+      (091–095 + 103 selector + 097–100 spine + 105 scout-gauge), exercised the verify
+      surfaces, and directed the v4-pipeline documentation into `RECIPES.md` § "v4 pipeline".
+      The approach is validated and shipped end-to-end.
 
 ## Out of scope
 

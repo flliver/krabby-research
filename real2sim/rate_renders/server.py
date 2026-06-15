@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -108,6 +109,97 @@ def aggregate(rankings: list[dict]) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Render description (STO-SCN-106) — ultra-succinct narrative of how a render
+# was built, DERIVED from its manifest (v4 algo+settings, or the legacy
+# transform chain). Read-only synthesis: every visible render gets one (the
+# manifest is rebuilt each request), so "backfill" is automatic.
+# ---------------------------------------------------------------------------
+
+_SALIENT = ("sfm", "dense_regul", "selector", "n_images", "n_scout", "n", "grid",
+            "res", "process_res", "conf_percentile", "voxel_frac", "alignment_config")
+
+
+def _human_count(n: int) -> str:
+    n = int(n)
+    if n >= 1_000_000:
+        return f"{n / 1e6:.1f}M"
+    if n >= 1_000:
+        return f"{n / 1e3:.0f}k"
+    return str(n)
+
+
+def _setting_tok(k: str, v) -> str | None:
+    """One telegraphic token for a salient setting (skip defaults/empties)."""
+    if v in (None, "", "default"):
+        return None
+    if k == "sfm":
+        return str(v)                       # posed / unposed
+    if k == "dense_regul":
+        return f"dense-{v}"
+    if k == "selector":
+        return f"{v}-select"
+    if k in ("n_images", "n_scout", "n"):
+        return f"{v}v"
+    if k in ("res", "process_res"):
+        return f"{v}px"
+    if k == "conf_percentile":
+        return f"conf{v}"
+    if k == "grid":
+        return f"grid{v}"
+    if k == "alignment_config":
+        return f"align-{v}"
+    return f"{k}={v}"
+
+
+def describe_render(m: dict) -> str:
+    """Ultra-succinct narrative of how a render was built, from its manifest
+    (v4 `{algo: {parameters}}` or the legacy `{transform-NN: {kind, parameters}}`
+    chain). Telegraphic, dot-joined; degrades to the variant name, never raises."""
+    try:
+        tf = m.get("transforms") or {}
+        toks: list[str] = []
+        legacy = any(str(k).startswith("transform-") for k in tf)
+        if legacy:
+            if m.get("pipeline"):
+                toks.append(str(m["pipeline"]))
+            for _name, t in sorted(tf.items()):
+                t = t or {}
+                if t.get("kind"):
+                    toks.append(str(t["kind"]))
+                p = t.get("parameters") or {}
+                for k in _SALIENT:
+                    tok = _setting_tok(k, p.get(k))
+                    if tok:
+                        toks.append(tok)
+        else:
+            algo = next(iter(tf), None) or m.get("pipeline")
+            if algo:
+                toks.append(str(algo))
+            p = (tf.get(algo) or {}).get("parameters", {}) if algo else {}
+            for k in _SALIENT:
+                tok = _setting_tok(k, p.get(k))
+                if tok:
+                    toks.append(tok)
+            mm = re.search(r"\[([^\]]+)\]", m.get("variant_name", ""))   # mesh method
+            if mm:
+                toks.append(mm.group(1))
+        mesh = m.get("mesh") or {}
+        if mesh.get("faces"):
+            toks.append(f"{_human_count(mesh['faces'])} tris")
+        elif mesh.get("verts"):
+            toks.append(f"{_human_count(mesh['verts'])} verts")
+        notes = m.get("notes") or ""
+        if "MIS-ALIGNED" in notes:
+            toks.append("⚠ mis-aligned")
+        if "NOT DELIVERABLE" in notes:
+            toks.append("⚠ non-deliverable")
+        out = " · ".join(dict.fromkeys(t for t in toks if t))   # dedup, keep order
+        return out or m.get("variant_name", "(unknown)")
+    except Exception:
+        return m.get("variant_name", "(unknown)")
+
+
+# ---------------------------------------------------------------------------
 # HTTP handler
 # ---------------------------------------------------------------------------
 
@@ -165,6 +257,8 @@ class Handler(BaseHTTPRequestHandler):
         if p.startswith("/api/aggregate/"):
             scene = p[len("/api/aggregate/"):]
             return self._send_json(aggregate(self._read_rankings(scene)))
+        if p == "/api/profiles":                       # STO-SCN-108
+            return self._send_json({"profiles": self._read_profiles()})
         return self._not_found()
 
     def do_POST(self):
@@ -174,6 +268,13 @@ class Handler(BaseHTTPRequestHandler):
             return self._handle_post_ranking(p[len("/api/rankings/"):])
         if p.startswith("/api/materialize/"):
             return self._handle_materialize(p[len("/api/materialize/"):])
+        if p == "/api/profiles":                       # STO-SCN-108
+            try:
+                length = int(self.headers.get("Content-Length", 0))
+                name = json.loads(self.rfile.read(length) or b"{}").get("name", "")
+            except (ValueError, OSError):
+                return self._bad_request("invalid profile body")
+            return self._send_json({"profiles": self._add_profile(name)})
         return self._not_found()
 
     # ---- materialize (STO-SCN-086: missing tiles trigger render jobs) ----
@@ -449,6 +550,8 @@ class Handler(BaseHTTPRequestHandler):
                             "mesh": self._ply_stats(mp) if mp and mp.exists() else {},
                             "transforms": {rep["algo"] or rep["kind"]: {
                                 "parameters": {**rep["settings"], **m.get("settings", {})}}}}
+                        manifests[m["identity"]]["description"] = describe_render(
+                            manifests[m["identity"]])
             # STO-SCN-085: expected = every mesh artifact × every canonical
             # slot (we KNOW what renders should exist); missing = expected
             # minus the render index. Surfaced so the UI can show gaps.
@@ -499,7 +602,7 @@ class Handler(BaseHTTPRequestHandler):
         for v in variants:
             p, sep, r = v.partition("--")
             if not sep:
-                manifests[v] = {"variant_name": v,
+                manifests[v] = {"variant_name": v, "description": v,
                                 "notes": "(unrecognized variant label)"}
                 continue
             run_dir = scene_dir / f"pipeline-{p}" / f"run-{r}"
@@ -540,6 +643,7 @@ class Handler(BaseHTTPRequestHandler):
                     except (OSError, ValueError):
                         pass
                 entry["transforms"][tdir.name] = tinfo
+            entry["description"] = describe_render(entry)
             manifests[v] = entry
         # 5) raters who've submitted on this scene (alphabetical, unique)
         raters = sorted({
@@ -587,6 +691,76 @@ class Handler(BaseHTTPRequestHandler):
 
     # ---- rankings -------------------------------------------------------
 
+    # ---- profiles (STO-SCN-108) -----------------------------------------
+    # Rudimentary, passwordless, store-level rater identities so the ranker is
+    # a pick-from-a-list (origin-independent) instead of free text the user must
+    # remember + retype per browser origin.
+
+    @staticmethod
+    def _profiles_path() -> Path:
+        return SCENES_ROOT / "profiles.json"
+
+    @staticmethod
+    def _scores_raters() -> set:
+        """Every rater that has submitted on any scene (from scores.jsonl)."""
+        out = set()
+        for sj in SCENES_ROOT.glob("*/scores.jsonl"):
+            try:
+                for line in sj.read_text().splitlines():
+                    if line.strip():
+                        r = (json.loads(line).get("rater") or "").strip()
+                        if r and r != "__diag__":
+                            out.add(r)
+            except (OSError, ValueError):
+                continue
+        return out
+
+    def _read_profiles(self) -> list:
+        """Server-side profile list = explicitly-added profiles ∪ raters seen in
+        submissions, deduped + case-insensitively sorted. Origin-independent (the
+        store, not the browser)."""
+        explicit = []
+        p = self._profiles_path()
+        if p.exists():
+            try:
+                explicit = json.loads(p.read_text()) or []
+            except (OSError, ValueError):
+                explicit = []
+        names = {str(n).strip() for n in explicit if str(n).strip()}
+        names |= self._scores_raters()
+        return sorted(names, key=str.lower)
+
+    def _add_profile(self, name: str) -> list:
+        """Append a profile (passwordless; any user). Dedup; persists to
+        <store>/profiles.json. Returns the refreshed list."""
+        name = (name or "").strip()
+        if name:
+            p = self._profiles_path()
+            try:
+                cur = json.loads(p.read_text()) if p.exists() else []
+            except (OSError, ValueError):
+                cur = []
+            if name not in cur:
+                cur.append(name)
+                p.parent.mkdir(parents=True, exist_ok=True)
+                p.write_text(json.dumps(sorted(set(cur), key=str.lower), indent=2) + "\n")
+        return self._read_profiles()
+
+    # ---- one-submission-per-ranker (STO-SCN-109) ------------------------
+    @staticmethod
+    def _latest_score_rows(rows: list) -> list:
+        """Keep only the rows of the LATEST submission per (rater, slot). A
+        submission = the set of per-variant rows sharing a ts; re-ranking
+        replaces. ISO8601 ts sorts correctly under a single tz offset."""
+        latest: dict = {}
+        for r in rows:
+            k = (r.get("rater"), r.get("slot"))
+            ts = r.get("ts") or ""
+            if ts >= latest.get(k, ""):
+                latest[k] = ts
+        return [r for r in rows
+                if (r.get("ts") or "") == latest.get((r.get("rater"), r.get("slot")))]
+
     def _rankings_path(self, scene: str) -> Path:
         return SCENES_ROOT / scene / "rankings.jsonl"
 
@@ -601,11 +775,12 @@ class Handler(BaseHTTPRequestHandler):
             sj = scene_dir / "scores.jsonl"
             if not sj.exists():
                 return []
+            # one-submission-per-ranker (STO-SCN-109): collapse to the latest
+            # submission per (rater, slot) before grouping, so each person counts
+            # once per view even if stray older rows linger in the file.
+            all_rows = [json.loads(line) for line in sj.read_text().splitlines() if line.strip()]
             groups: dict = {}
-            for line in sj.read_text().splitlines():
-                if not line.strip():
-                    continue
-                s = json.loads(line)
+            for s in self._latest_score_rows(all_rows):
                 key = (s.get("ts"), s.get("rater"), s.get("slot"))
                 g = groups.setdefault(key, {"schema_version": 1, "scene": scene,
                                             "view": s.get("slot"), "rater": s.get("rater"),
@@ -685,8 +860,20 @@ class Handler(BaseHTTPRequestHandler):
                      "rank": rank, "rater": row["rater"],
                      "ts": row["submitted_at"]}
                     for ident, rank in row["ranks"].items()]
-            with open(scene_dir / "scores.jsonl", "a") as f:
-                for r in rows:
+            # one submission per (rater, slot) (STO-SCN-109): a re-submit OVERWRITES.
+            # Drop this rater's prior rows for this slot, then append the new set.
+            sj = scene_dir / "scores.jsonl"
+            kept = []
+            if sj.exists():
+                for line in sj.read_text().splitlines():
+                    if not line.strip():
+                        continue
+                    s = json.loads(line)
+                    if not (s.get("rater") == row["rater"] and s.get("slot") == slot):
+                        kept.append(s)
+            scene_dir.mkdir(parents=True, exist_ok=True)
+            with open(sj, "w") as f:
+                for r in kept + rows:
                     f.write(json.dumps(r, sort_keys=True) + "\n")
             # `row` kept for the frontend contract (STO-SCN-083: the v4
             # branch returned only rows[] and the submit handler crashed

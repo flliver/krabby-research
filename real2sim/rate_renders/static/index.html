@@ -17,9 +17,6 @@
       <label>View
         <select id="view-picker"></select>
       </label>
-      <label>Rater
-        <select id="rater-select"></select>
-      </label>
     </div>
     <div class="group">
       <span class="lbl">Layout</span>
@@ -37,6 +34,10 @@
       <span id="page-indicator">1 / 1</span>
       <button id="next-page">→</button>
     </div>
+    <!-- STO-SCN-108: the ranker identity is chosen in the STUDIO title-bar profile
+         menu (server-backed) and shared via localStorage; the rank app reads it
+         silently. This hidden select keeps the existing rater logic working. -->
+    <select id="rater-select" style="display:none"></select>
   </header>
 
   <main>

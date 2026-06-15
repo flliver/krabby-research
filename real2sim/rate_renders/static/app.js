@@ -21,6 +21,7 @@ const state = {
   pool: [],
   focusVariant: null,    // for manifest panel
   rater: localStorage.getItem("rater") || "",
+  profiles: [],     // STO-SCN-108: server-side rater identities (origin-independent)
   // Per-view draft rankings — each view keeps its own in-progress tier
   // assignment so switching views doesn't clobber work in progress.
   // Cleared when scene changes.
@@ -454,6 +455,16 @@ function renderGrid() {
       label.textContent = labelOf(v);
       tile.appendChild(label);
 
+      // Description (STO-SCN-106): ultra-succinct narrative of how this render
+      // was built (derived from the manifest provenance).
+      const ddesc = (state.manifests[v] || {}).description;
+      if (ddesc) {
+        const dv = document.createElement("div");
+        dv.className = "desc";
+        dv.textContent = ddesc;
+        tile.appendChild(dv);
+      }
+
       // The big tile is draggable too — same payload shape as the small
       // cards, so the existing tier-drop handler routes it correctly.
       tile.draggable = true;
@@ -624,6 +635,11 @@ function makeCard(v) {
   name.textContent = labelOf(v);
   card.appendChild(name);
 
+  // Description (STO-SCN-106): how this render was built. The small ranking card
+  // shows it as a hover tooltip (it's tiny); the big grid tile shows it visibly.
+  const cdesc = (state.manifests[v] || {}).description;
+  if (cdesc) card.title = `${labelOf(v)}\n${cdesc}`;
+
   card.addEventListener("dragstart", (e) => {
     card.classList.add("dragging");
     e.dataTransfer.setData("text/plain", v);
@@ -783,6 +799,7 @@ function rebuildRaterSelect() {
   // submitted yet) and any locally-cached list of names. Sort, dedupe.
   const local = JSON.parse(localStorage.getItem("rater-list") || "[]");
   const all = Array.from(new Set([
+    ...(state.profiles || []),       // STO-SCN-108: server-side profiles (primary, shared)
     ...(state.knownRaters || []),
     ...local,
     state.rater,
@@ -817,23 +834,34 @@ function escapeHtml(s) {
     .replace(/"/g, "&quot;");
 }
 
-function handleRaterSelect() {
+async function handleRaterSelect() {
   const v = els.raterSelect.value;
   if (v === NEW_RATER_SENTINEL) {
-    const name = (prompt("New rater name:") || "").trim();
+    const name = (prompt("New profile name (no password):") || "").trim();
     if (!name) {
       // User cancelled — restore previous selection
       els.raterSelect.value = state.rater || "";
       return;
     }
-    // Cache locally so it's selectable next time even before any submission
+    state.rater = name;
+    localStorage.setItem("rater", name);   // cache the current selection only
+    // STO-SCN-108: persist the profile SERVER-SIDE so it's available at any
+    // origin (not just this browser). localStorage rater-list kept as a cache.
     const local = JSON.parse(localStorage.getItem("rater-list") || "[]");
     if (!local.includes(name)) {
       local.push(name);
       localStorage.setItem("rater-list", JSON.stringify(local));
     }
-    state.rater = name;
-    localStorage.setItem("rater", name);
+    try {
+      const d = await api("/api/profiles", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      state.profiles = d.profiles || state.profiles;
+    } catch (e) {
+      console.warn("profile save failed:", e);
+    }
     rebuildRaterSelect();
   } else {
     state.rater = v;
@@ -958,6 +986,18 @@ document.addEventListener("DOMContentLoaded", async () => {
     else if (e.key === "6") setLayout(16);  // "6" for 4×4 since '16' is two keys
   });
 
+  await loadProfiles();    // STO-SCN-108: server-side rater list (before the dropdown builds)
   await loadScenes();
   if (state.scene) await loadScene();
 });
+
+// STO-SCN-108: pull the store-level profile list (origin-independent rater identities).
+async function loadProfiles() {
+  try {
+    const d = await api("/api/profiles");
+    state.profiles = d.profiles || [];
+  } catch (e) {
+    state.profiles = [];
+    console.warn("profiles fetch failed:", e);
+  }
+}

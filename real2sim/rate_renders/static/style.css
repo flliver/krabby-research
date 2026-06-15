@@ -83,6 +83,26 @@ body {
   margin-right: 4px;
 }
 
+/* -- Profile menu (STO-SCN-108): pinned upper-right of the title bar ------- */
+#topbar .profile-group {
+  margin-left: auto;            /* push to the far right of the title bar */
+  gap: 6px;
+  padding: 3px 6px 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;         /* pill — reads as a profile/account chip */
+  background: var(--bg-elev-2);
+}
+#topbar .profile-icon { font-size: 15px; line-height: 1; }
+#topbar .profile-select {
+  border: none;
+  background: transparent;
+  min-width: 90px;
+  padding: 4px 6px;
+  font-weight: 600;
+  cursor: pointer;
+}
+#topbar .profile-select:focus { outline: none; }
+
 /* -- Layout buttons ------------------------------------------------------- */
 #layout-buttons {
   display: flex;
@@ -183,6 +203,21 @@ main {
   pointer-events: none;
 }
 .tile.focus { outline: 2px solid var(--accent); }
+/* Description (STO-SCN-106): how the render was built, under the label. */
+.tile .desc {
+  position: absolute;
+  top: 30px;
+  left: 6px;
+  max-width: calc(100% - 12px);
+  background: rgba(0, 0, 0, 0.6);
+  color: var(--text-dim);
+  padding: 2px 7px;
+  border-radius: 3px;
+  font-size: 11px;
+  line-height: 1.4;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  pointer-events: none;
+}
 
 /* -- Rank pane (tier list) ------------------------------------------------ */
 #rank-pane {

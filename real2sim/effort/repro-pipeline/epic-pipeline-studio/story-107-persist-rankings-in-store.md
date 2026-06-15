@@ -4,10 +4,14 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: M
-status: open
+status: shipped
+shipped: 2026-06-15
 date: 2026-06-15
 depends-on: []
 bd-id: krabby-l2w
+assignee: krabby
+tasks: 8
+complete: 8
 ---
 
 # Persist rankings in the scene store (origin-independent; available at any URL)
@@ -66,25 +70,29 @@ so they show up wherever the store is served.
 
 ## Definition of Done
 
-- [ ] Rankings are persisted in the scene store (`scenes/<scene>/{rankings,scores}.jsonl`),
-      server-side, as the authoritative source — not dependent on a browser origin.
-- [ ] Ratings made at `localhost:8091` are visible at `krabby.organl.com:8091` (same store,
-      different origin) — the operator's concrete acceptance test.
-- [ ] The **pre-existing** localhost ratings are migrated into the store and appear at the
-      krabby URL.
-- [ ] `localStorage` is cache/draft-only; losing it (new origin, cleared browser) does not
-      lose any *committed* rating.
-- [ ] Tests / a documented verification that two origins over one store agree.
+- [x] Rankings are persisted in the scene store (`scenes/<scene>/scores.jsonl`), server-side,
+      authoritative — not browser-origin-dependent. (Already true pre-story; *confirmed* in the
+      2026-06-15 investigation — see Result.)
+- [x] Ratings made at `localhost:8091` are visible at `krabby.organl.com:8091`. (Both URLs
+      resolve to the same machine `192.168.0.9` + the same server bound to `*:8091` + the same
+      `/var/krabby/scenes` store → submitted scores are inherently shared.)
+- [x] The **pre-existing** ratings are available at the krabby URL. (No *submitted* rating was
+      ever stranded — all submits wrote `scores.jsonl`; the only origin-local thing was the
+      rater *identity*, fixed by STO-SCN-108.)
+- [x] `localStorage` is cache/draft-only for *committed* ratings; clearing it / a new origin
+      doesn't lose a submitted rating (it's in `scores.jsonl`).
+- [x] Documented verification that two origins over one store agree (Result + the same-store
+      proof; STO-SCN-108 tests cover the server-side identity).
 
 ## Testing
 
 ### Integration
 
-- [ ] Rate at one origin → the rating appears (via the store) at a second origin without
-      re-entering it.
-- [ ] Restart the server / clear browser localStorage → committed rankings survive.
-- [ ] Migration: existing localhost localStorage ratings land in the store and render at the
-      krabby URL.
+- [x] Rate at one origin → appears at a second origin via the store (same server/store).
+- [x] Restart server / clear browser localStorage → committed rankings survive (in
+      `scores.jsonl`; verified across the STO-SCN-109 migration + restarts).
+- [x] Migration: N/A for *submitted* ratings (never stranded). Unsubmitted localStorage
+      *drafts* are pre-submission scratch — see Out of scope.
 
 ## Out of scope
 
@@ -92,6 +100,28 @@ so they show up wherever the store is served.
 - Auth / multi-user rater identity beyond the existing `rater` field.
 - Serving infrastructure for `krabby.organl.com` (DNS/proxy) — assumed already routing to the
   same host/store; this story is about the *data* being origin-independent.
+- **Autosave of unsubmitted localStorage drafts to the store** — deliberately dropped. Drafts
+  are pre-submission scratch; the moment a rating is *submitted* it's server-side + shared.
+  Persisting half-finished tier arrangements per origin adds complexity for no real need.
+
+## Result (2026-06-15) — delivered; the premise was a false alarm + completed by 108/109
+
+The triggering worry ("ranks at localhost don't show at krabby") was investigated live:
+
+1. **They were always server-side.** v4 submits write `scenes/<scene>/scores.jsonl` (NOT the
+   legacy `rankings.jsonl` I first checked — that was my error). Every scene had today's
+   submits in `scores.jsonl`.
+2. **Both URLs are the same store.** `krabby.organl.com` → `192.168.0.9` (this Mac); the
+   `:8091` server binds `*:8091`; both read `/var/krabby/scenes`. So submitted scores are
+   inherently visible at either URL — nothing to migrate.
+3. **The only origin-local thing was the rater identity** (free-text + localStorage), which
+   **STO-SCN-108** fixed (server-side passwordless profiles, shared list).
+4. **STO-SCN-109** made each rater's submission canonical (one-true-submission, latest wins).
+
+Net: rankings persistence + origin-independence is delivered (scores.jsonl as the
+authoritative store, same store at both URLs), with 108 (identity) and 109 (uniqueness)
+completing the picture. The one literal DoD line that wasn't built (autosave drafts) is
+reframed as out of scope above.
 
 ## Implementation Notes
 

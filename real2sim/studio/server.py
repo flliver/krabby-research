@@ -159,8 +159,8 @@ class Handler(rr.Handler):
             return super().do_GET()
 
     def do_POST(self):  # noqa: N802
-        if self.path.startswith("/api/rankings/"):
-            return super().do_POST()        # append-only rankings.jsonl, inherited
+        if self.path.startswith("/api/rankings/") or self.path == "/api/profiles":
+            return super().do_POST()        # rankings.jsonl / profiles.json, inherited
         if self.path != "/api/instances":
             return self._json({"error": "not found"}, 404)
         body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
