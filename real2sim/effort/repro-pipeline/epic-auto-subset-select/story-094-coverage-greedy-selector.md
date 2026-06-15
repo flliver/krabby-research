@@ -4,11 +4,14 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: L
-status: in-progress
+status: shipped
+shipped: 2026-06-14
 date: 2026-06-13
 depends-on: [STO-SCN-093]
 bd-id: krabby-mft
 assignee: krabby
+tasks: 4
+complete: 3
 ---
 
 # Coverage-greedy best-N selector over the co-visibility graph
@@ -52,8 +55,18 @@ coverage saturation. Deterministic and testable.
       (`select_views.py`: greedy new+triangulated(angle-weighted), min-overlap connectivity.)
 - [x] Deterministic; emits a coverage report (coverage %, triangulation-angle stats,
       pct-in-10-30°). Validated on the real 539 pool (deterministic; 7 s).
-- [ ] Proposed-N reconstructs ≥ a hand pick — **deferred** (needs a reconstruct run +
-      hand-pick baseline; the selector + report are delivered).
+- [x] Wired as a v4 store node (`select@0`, gated behind a PASSing covis). `tasks/select.json`
+      + `v4exec.py cmd_select` + `select` subcommand. Verified end-to-end on the real 539-pool
+      solve (001-patio / `6EHLYO3MF3QU` / solve `62QEHJDAJZBI` / covis `L57FPDHY2DRG`):
+      content-addressed artifact `select/OBQTTTCF6RH7` (selection.json + posed.json + metadata),
+      idempotent NOOP on re-run, covis-gate rejects a missing/FAIL covis.
+- [ ] Proposed-N reconstructs ≥ a hand pick — **operator-gated** (needs a reconstruct run +
+      an operator hand-pick baseline + a quality judgment, T-020). The selector + report + node
+      are delivered; this is the falsifiable validation bar (T-001), tracked as the close gate.
+      **Operator decision 2026-06-14: close 094 with the selector + node delivered; carry this
+      reconstruct-≥-handpick comparison as a tracked validation follow-up** (capture-limited
+      anyway — coverage is ~linear in N with no knee). Not a blocker for the spine work that
+      consumes the node.
 
 ## Result (2026-06-14) — selector works; coverage is capture-limited
 
@@ -74,8 +87,29 @@ human judges "enough coverage?" / bumps N, and (b) reinforces the capture-lesson
 Possible refinement (noted): for thin-track pools, add a *spatial/viewpoint-diversity* term
 to the objective (feed-forward reconstructors value view coverage, not just triangulated pts).
 
-**Remaining (follow-ups):** wire as a v4 store node (`select@0` under the covis, mirroring
-093); the "reconstructs ≥ hand-pick" comparison.
+**Remaining (follow-ups):** ~~wire as a v4 store node (`select@0` under the covis, mirroring
+093)~~ — **DONE 2026-06-14** (`tasks/select.json` + `cmd_select`; gated behind a PASSing
+covis; emits `selection.json` + `posed.json`; verified on the 539-pool solve, idempotent,
+gate-enforced). Only the "reconstructs ≥ hand-pick" comparison remains — operator-gated
+(needs a hand-pick baseline + a reconstruct run + a quality call).
+
+## Node (2026-06-14) — `select@0` wired into the v4 graph
+
+`select` runs **locally** on the store's `sparse/0` (pure-stdlib; no container/host),
+**gated behind a PASSing covis** so a nebula solve never reaches the selector
+(STO-SCN-093 contract). Placement mirrors covis:
+`images/subsets/{subset}/cameras/{up_solve}/select/{identity}`. Settings (tunable, hashed):
+`n` / `min_overlap` / `div_angle`. Outputs: `selection.json` (the coverage report STO-SCN-095
+renders) + `posed.json` (the proposed-N poses in the `name`/`w2c`/`K` shape the reconstruct
+graphs already consume — the clean handoff). Run:
+
+```
+v4exec.py select <scene> --solve <id> --covis <id> [--subset <s>] [--n 24] \
+                 [--min-overlap 10] [--div-angle 25]
+```
+
+Verified on 001-patio / `6EHLYO3MF3QU` / solve `62QEHJDAJZBI` / covis `L57FPDHY2DRG` →
+`select/OBQTTTCF6RH7` (24 views, deterministic; NOOP on re-run; rejects missing/FAIL covis).
 
 ## Spine note (longer-term — see STO-SCN-096 conclusion #7)
 
@@ -120,3 +154,7 @@ hand-picked set of the same size (the falsifiable bar — T-001).
 - Human override / rendering (STO-SCN-095).
 - The pose solve (STO-SCN-093).
 - Spine segmentation + cross-segment registration (sibling epic).
+
+## Status notes
+
+- 2026-06-14: Closed with --force; 1/4 DoD boxes unchecked. Reason: Selector + select@0 store node delivered and verified end-to-end on the 539-pool solve (idempotent, covis-gated). Operator decision 2026-06-14: close with the reconstruct-≥-handpick comparison carried as a tracked validation follow-up (capture-limited; not a blocker for the spine work that consumes the node).

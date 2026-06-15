@@ -50,7 +50,7 @@ graph with registration/loop-closure edges.
 
 | # | XID | Story | Status | Size |
 |---|-----|-------|--------|------|
-| 1 | `STO-SCN-097` | Spine segmentation (chunk trajectory into M overlapping segments) | open | M |
+| 1 | `STO-SCN-097` | Spine segmentation (chunk trajectory into M overlapping segments) | shipped | M |
 | 2 | `STO-SCN-098` | Global registration of segment submaps (pose-graph + loop closure + global BA) | open | L |
 | 3 | `STO-SCN-099` | Cohesive fusion of per-segment reconstructions into one gauge | open | L |
 | 4 | `STO-SCN-100` | Whole-spine verification (assembled space + seams in the scout gaussian) | open | M |

@@ -342,6 +342,73 @@ def cmd_precull(args):
                {"scene": args.scene, "set_primary": bool(getattr(args, "set_primary", False))})
 
 
+# ============================================================ spine segmentation (STO-SCN-097)
+
+def cmd_spine(args):
+    """Spine segmentation (spine@0): partition the ordered pool into M overlapping
+    segments, each <= cap, adjacent pairs sharing >= overlap frames, with per-seam
+    registrability + cross-segment loop candidates (pHash). Pose-free; runs locally
+    on the pool (single decode pass), like precull. Emits spine.json (the per-segment
+    boundary_spec + global camera_model) at the scene root. Idempotent NOOP."""
+    import spine_segment as sps
+    scene_dir = v4.STORE / args.scene
+    # Capture-order pool (same ordering the pre-cull uses — true frame order, NOT
+    # store-hash order; STO-SCN-093 finding). Downstream id = the store content hash.
+    entries = []
+    for md in scene_dir.glob("images/*/metadata.json"):
+        imgs = sorted(md.parent.glob("image.*"))
+        if not imgs:
+            continue
+        name = json.loads(md.read_text()).get("original_name", md.parent.name)
+        entries.append((name, md.parent.name, imgs[0]))
+    if not entries:
+        sys.exit(f"no pooled images for {args.scene} — run ingest first")
+    entries.sort(key=lambda e: e[0])                       # capture order
+    ids = [h for _, h, _ in entries]
+    paths = [p for _, _, p in entries]
+    pool_id = v4.hoh(sorted(ids))                          # set-stable pool id
+
+    settings = v4.hashable_settings(v4.tasks()["spine-segment"], {
+        "cap": args.cap, "overlap": args.overlap, "snap": args.snap,
+        "reg_thresh": args.reg_thresh, "loop_thresh": args.loop_thresh,
+        "loop_min_sep": args.loop_min_sep, "loop_step": args.loop_step})
+    sid = v4.identity_hash({"pool": pool_id}, settings, "spine@0")
+    sdir = scene_dir / "spine" / sid
+    if (sdir / "metadata.json").exists():
+        print(f"[spine] NOOP — spine {sid} exists -> {sdir}")
+        return
+
+    # global camera model (STO-SCN-091; identical for every segment)
+    make, model, mode, modality = _read_capture_decl(scene_dir)
+    _, hashes = sps.hashes_for(list(zip(ids, paths)))      # one decode pass
+    spec = sps.segment(ids, hashes, cap=args.cap, overlap=args.overlap, snap=args.snap,
+                       reg_thresh=args.reg_thresh, loop_thresh=args.loop_thresh,
+                       loop_min_sep=args.loop_min_sep, loop_step=args.loop_step)
+    spec["camera_model"] = {"make": make, "model": model, "mode": mode, "modality": modality}
+    spec["pool"] = pool_id
+    sdir.mkdir(parents=True, exist_ok=True)
+    (sdir / "spine.json").write_text(json.dumps(spec, indent=2) + "\n")
+    v4.write_metadata(sdir, task="spine-segment", algo="spine@0", identity=sid,
+                      resolved_inputs={"pool": pool_id}, settings=settings, mechanism="local",
+                      measured={"n_frames": spec["n_frames"], "n_segments": spec["n_segments"],
+                                "max_segment_n": spec["max_segment_n"],
+                                "within_capacity": spec["within_capacity"],
+                                "all_seams_registrable": spec["all_seams_registrable"],
+                                "n_loop_candidates": spec["n_loop_candidates"]})
+    bad = [s for s in spec["seams"] if not s["registrable"]]
+    print(f"[spine] {spec['n_frames']} frames -> {spec['n_segments']} segments "
+          f"(max {spec['max_segment_n']}/{args.cap}, within-cap={spec['within_capacity']}, "
+          f"all-registrable={spec['all_seams_registrable']}, "
+          f"{spec['n_loop_candidates']} loop candidate(s)) -> {sdir}")
+    if bad:
+        print(f"[spine] WARNING: {len(bad)} seam(s) below registrability threshold "
+              f"{args.reg_thresh} — widen --overlap or lower --reg-thresh: "
+              f"{[(s['seg_a'], s['seg_b'], s['registrability']) for s in bad]}")
+    job_record(args.scene, "spine-segment", [{"node": "spine", "identity": sid,
+                                              "n_segments": spec["n_segments"]}],
+               {"scene": args.scene, "pool": pool_id})
+
+
 # ============================================================ solve (FastMap) + covis (STO-SCN-093)
 
 def _read_capture_decl(scene_dir):
@@ -482,6 +549,69 @@ def cmd_covis(args):
         sys.exit(f"[covis] HARD-FAIL: validity {verdict} — solve rejected, not handed to 094.")
     job_record(args.scene, "covis", [{"node": "covis", "identity": cid, "validity": verdict}],
                {"scene": args.scene, "subset": subset, "solve": args.solve})
+
+
+# ============================================================ best-N selection (STO-SCN-094)
+
+def cmd_select(args):
+    """Coverage-greedy best-N view selection (select@0) over a fastmap@0 solve's
+    track graph, gated behind a PASSing covis. Pure-stdlib; runs locally on the
+    store's sparse/0 (no container). Emits selection.json (the coverage report +
+    proposed-N names) and posed.json (the proposed-N poses, in the shape the
+    reconstruct graphs already consume). Lives under the solve it selects from."""
+    import select_views as selv
+    import posed_from_sparse as pfs
+    scene_dir = v4.STORE / args.scene
+    sc = v4.Scene(args.scene)
+    subset = args.subset or sc.resolve("primary")
+    sdir = scene_dir / "images" / "subsets" / subset / "cameras" / args.solve
+    sparse = sdir / "sparse" / "0"
+    if not (sparse / "images.bin").exists():
+        sys.exit(f"no solve sparse/0 at {sdir} (run `solve` first)")
+
+    # GATE: selection only proceeds behind a covis that PASSed validity — a nebula
+    # solve must never reach the selector (STO-SCN-093 contract).
+    cv = sdir / "covis" / args.covis / "validity.json"
+    if not cv.exists():
+        sys.exit(f"no covis {args.covis} at {sdir}/covis (run `covis` first)")
+    verdict = (json.loads(cv.read_text()) or {}).get("verdict")
+    if verdict != "PASS":
+        sys.exit(f"[select] covis {args.covis} validity={verdict} — refusing to "
+                 f"select over a rejected solve.")
+
+    settings = v4.hashable_settings(v4.tasks()["select"],
+                                    {"n": args.n, "min_overlap": args.min_overlap,
+                                     "div_angle": args.div_angle})
+    cid = v4.identity_hash({"covis": args.covis}, settings, "select@0")
+    cdir = sdir / "select" / cid
+    if (cdir / "metadata.json").exists():
+        print(f"[select] NOOP — select {cid} exists -> {cdir}")
+        return
+
+    names, rep = selv.select_from_sparse(str(sparse), args.n,
+                                         min_overlap=args.min_overlap,
+                                         div_angle=args.div_angle)
+    posed = pfs.posed_from_sparse(str(sparse), rep["selected"])
+    cdir.mkdir(parents=True, exist_ok=True)
+    (cdir / "selection.json").write_text(json.dumps(rep, indent=2) + "\n")
+    (cdir / "posed.json").write_text(json.dumps(posed, indent=2) + "\n")
+    v4.write_metadata(cdir, task="select", algo="select@0", identity=cid,
+                      resolved_inputs={"covis": args.covis}, settings=settings,
+                      mechanism="local",
+                      measured={"n_selected": rep["n_selected"],
+                                "coverage_pct": rep["coverage_pct"],
+                                "median_tri_angle_deg": rep["median_tri_angle_deg"],
+                                "pct_angles_in_10_30": rep["pct_angles_in_10_30"],
+                                "median_view_spread_deg": rep["median_view_spread_deg"],
+                                "total_triangulable_points": rep["total_triangulable_points"]})
+    print(f"[select] {rep['n_selected']} views | coverage {rep['coverage_pct']}% of "
+          f"{rep['total_triangulable_points']} pts | median tri-angle "
+          f"{rep['median_tri_angle_deg']}deg | {rep['pct_angles_in_10_30']}% in 10-30 | "
+          f"view-spread {rep['median_view_spread_deg']}deg -> {cdir}")
+    job_record(args.scene, "select", [{"node": "select", "identity": cid,
+                                       "coverage_pct": rep["coverage_pct"]}],
+               {"scene": args.scene, "subset": subset, "solve": args.solve,
+                "covis": args.covis})
 
 
 # ============================================================ scout gaussian (STO-SCN-095)
@@ -1468,6 +1598,16 @@ def main():
                    help="set the curated subset as primary (deliberate operator act; "
                         "no-op if primary already set)")
     p.set_defaults(fn=cmd_precull)
+    p = sp.add_parser("spine", help="spine segmentation -> M overlapping segments (STO-SCN-097)")
+    p.add_argument("scene")
+    p.add_argument("--cap", type=int, default=300, help="max frames per segment (solver capacity)")
+    p.add_argument("--overlap", type=int, default=30, help="min shared frames per seam (budget)")
+    p.add_argument("--snap", type=int, default=10, help="boundary snap search window")
+    p.add_argument("--reg-thresh", type=int, default=12, help="max mean-pHash dist for a registrable seam")
+    p.add_argument("--loop-thresh", type=int, default=8, help="max pHash dist for a loop candidate")
+    p.add_argument("--loop-min-sep", type=int, default=2, help="min segment separation for a loop")
+    p.add_argument("--loop-step", type=int, default=5, help="frame subsample stride for the loop scan")
+    p.set_defaults(fn=cmd_spine)
     p = sp.add_parser("solve", help="GPU FastMap solve -> poses + sparse/0 (STO-SCN-093)")
     p.add_argument("scene")
     p.add_argument("--host", required=True)
@@ -1480,6 +1620,15 @@ def main():
     p.add_argument("--subset", default=None)
     p.add_argument("--min-overlap", type=int, default=15)
     p.set_defaults(fn=cmd_covis)
+    p = sp.add_parser("select", help="coverage-greedy best-N selection over a solve, gated by covis (STO-SCN-094)")
+    p.add_argument("scene")
+    p.add_argument("--solve", required=True, help="the fastmap@0 solve identity")
+    p.add_argument("--covis", required=True, help="the covis@0 identity (must have PASSed validity)")
+    p.add_argument("--subset", default=None)
+    p.add_argument("--n", type=int, default=24, help="target view count (downstream sweet spot)")
+    p.add_argument("--min-overlap", type=int, default=10, help="connectivity: shared pts vs selected set")
+    p.add_argument("--div-angle", type=float, default=25.0, help="viewpoint-diversity angle (0 = off)")
+    p.set_defaults(fn=cmd_select)
     p = sp.add_parser("scout", help="DA3 scout gaussian for the verify surface (STO-SCN-095)")
     p.add_argument("scene")
     p.add_argument("--host", required=True)

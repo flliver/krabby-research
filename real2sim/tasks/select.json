@@ -1,0 +1,22 @@
+{
+  "schema": 4,
+  "name": "select",
+  "algo": "select@0",
+  "description": "Coverage-greedy best-N view selection over the SfM track graph (STO-SCN-094). Greedy submodular maximization on the image-point incidence: marginal gain = newly-covered points (W_NEW) + triangulation-angle-weighted shared points (W_TRIANG x angle-quality tent peaking in 10-30 deg), subject to a connectivity constraint (a kept view shares >= min_overlap points with the selected set) and a viewpoint-diversity penalty (same-space views within div_angle are down-weighted). Emits the proposed-N (frame-index names + poses, in the posed.json shape the reconstruct graphs already consume) plus a coverage report (coverage %, triangulation-angle stats, view-spread) that STO-SCN-095 renders for the human. Gated behind covis (covis HARD-FAILs on a nebula, so a bad solve never reaches selection). Pure-stdlib; runs locally on the store's sparse/0. Lives under the solve it selects from.",
+  "inputs": [
+    {
+      "name": "covis",
+      "from": "covis"
+    }
+  ],
+  "settings": {
+    "n":           {"class": "tunable", "default": 24, "note": "target view count (downstream model's sweet spot; ~12-17 reconstruct graphs, ~32 DA3)"},
+    "min_overlap": {"class": "tunable", "default": 10, "note": "connectivity: shared pts a kept view must share with the selected set"},
+    "div_angle":   {"class": "tunable", "default": 25.0, "note": "viewpoint-diversity: penalize same-space views within this optical-axis angle (0 = off)"}
+  },
+  "placement": "images/subsets/{subset}/cameras/{up_solve}/select/{identity}",
+  "outputs": [
+    {"name": "selection", "path": "selection.json"},
+    {"name": "posed",     "path": "posed.json"}
+  ]
+}

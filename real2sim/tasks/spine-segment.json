@@ -1,0 +1,25 @@
+{
+  "schema": 4,
+  "name": "spine-segment",
+  "algo": "spine@0",
+  "description": "Spine segmentation (STO-SCN-097): partition a long ordered frame pool into M OVERLAPPING segments, each within solver capacity (cap), adjacent segments sharing >= the overlap budget BY CONSTRUCTION. Pose-free outer loop of EPI-SCN-SPINE-ASSEMBLY — runs on capture order before any per-segment solve, like the pre-cull (STO-SCN-092). Reuses the 64-bit DCT pHash twice: (1) snap each cut earlier to a coherent transition so the shared region isn't a fast-motion gap, and measure per-seam registrability (mean consecutive pHash distance); (2) a cheap cross-segment scan flags loop/revisit candidates (non-adjacent segments) as extra pose-graph edges for STO-SCN-098. Emits the per-segment boundary_spec (pinned anchor frames + overlap region per neighbor) + the global camera_model (STO-SCN-091, identical per segment) that STO-SCN-094 honors. M=1 for a single tractable space (no seams). Pure-CPU; runs locally on the pool. Lives at the scene root.",
+  "inputs": [
+    {
+      "name": "pool",
+      "from": "ingest"
+    }
+  ],
+  "settings": {
+    "cap":          {"class": "tunable", "default": 300, "note": "max frames per segment (solver capacity; the measured 16GB solve ceiling)"},
+    "overlap":      {"class": "tunable", "default": 30, "note": "min shared frames per seam (registrability budget consumed by STO-SCN-098)"},
+    "snap":         {"class": "tunable", "default": 10, "note": "boundary-snap search window (snaps a cut EARLIER to a coherent transition)"},
+    "reg_thresh":   {"class": "tunable", "default": 12, "note": "max mean consecutive pHash distance for a seam to count as registrable"},
+    "loop_thresh":  {"class": "tunable", "default": 8, "note": "max pHash distance for a cross-segment loop/revisit candidate"},
+    "loop_min_sep": {"class": "tunable", "default": 2, "note": "min segment separation for a loop candidate (skip adjacency)"},
+    "loop_step":    {"class": "tunable", "default": 5, "note": "frame subsample stride for the loop scan (cost control on long pools)"}
+  },
+  "placement": "spine/{identity}",
+  "outputs": [
+    {"name": "spine", "path": "spine.json"}
+  ]
+}
