@@ -173,6 +173,38 @@ def select_from_sparse(sparse_dir, n, grid=64, near_frac=0.1, far_mult=3.0):
     return [cameras[c]["name"] for c in order], r
 
 
+def select_with_faces(sparse_dir, n, grid=64, near_frac=0.1, far_mult=3.0, max_faces=20000):
+    """Like `select_from_sparse`, but ALSO returns the exposed voxel faces + the per-face
+    coverage achieved by the selected set — for the STO-SCN-103 verify-surface overlay
+    (the operator SEES coverage: red = gap, green = well-covered). Faces decimated
+    (strided, deterministic) to <= max_faces so the overlay stays light. Returns
+    (names, report, faces) where faces = {"vsize", "items":[{"c","n","cov"}, ...]}."""
+    sp = Path(sparse_dir)
+    pts3d = cg.read_points3D_bin(sp / "points3D.bin")
+    pts = np.asarray([p["xyz"] for p in pts3d], dtype=np.float64)
+    cameras = load_cameras(sp)
+    origin, vsize, occupied, diag = voxelize(pts, grid)
+    face_c, face_n = exposed_faces(origin, vsize, occupied)
+    near, far = vsize * near_frac, diag * far_mult
+    W = coverage_matrix(face_c, face_n, cameras, near, far)
+    order, cov, gains = greedy_select(W, n)
+    F = len(face_c)
+    covered = int((cov > 1e-6).sum())
+    r = {
+        "n_selected": len(order), "selected": [cameras[c]["name"] for c in order],
+        "n_faces": F, "n_occupied_voxels": len(occupied), "voxel_size": round(vsize, 5),
+        "faces_covered": covered, "face_coverage_pct": round(100 * covered / max(1, F), 1),
+        "mean_flux": round(float(cov.mean()), 4),
+        "median_view_spread_deg": _view_spread(cameras, order),
+        "per_step_gain": [round(g, 1) for g in gains],
+    }
+    step = max(1, F // max_faces)
+    items = [{"c": [round(float(x), 4) for x in face_c[i]],
+              "n": [int(x) for x in face_n[i]], "cov": round(float(cov[i]), 3)}
+             for i in range(0, F, step)]
+    return r["selected"], r, {"vsize": round(vsize, 5), "n_faces_total": F, "items": items}
+
+
 def _main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="Voxel-coverage best-N view selector (STO-SCN-103).")
     ap.add_argument("sparse_dir")

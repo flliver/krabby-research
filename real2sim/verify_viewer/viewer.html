@@ -18,6 +18,11 @@
   gaussians <input id="gop" type="range" min="0" max="1" step="0.05" value="1">
   frustums <input id="fop" type="range" min="0" max="1" step="0.05" value="0.55">
   photo <input id="iop" type="range" min="0" max="1" step="0.05" value="0.6"><br>
+  coverage <input id="cop" type="range" min="0" max="1" step="0.05" value="0">
+  (<span class="x">red</span>=gap <span class="y">green</span>=covered) · STO-SCN-103<br>
+  grid <input id="grdop" type="range" min="0" max="1" step="0.05" value="1">
+  box <input id="boxop" type="range" min="0" max="1" step="0.05" value="0.85">
+  axis <input id="axop" type="range" min="0" max="1" step="0.05" value="1"><br>
   <b>mouse</b>=orbit/zoom/pan · <b>arrows</b>=rotate · <b>1-6</b>=snap up · <b>0</b>=cam-up<br>
   <b>[ ]</b>=step camera views · <b>\</b>=free orbit &nbsp; up=[<span id="up">?</span>] · r=<span id="rad">?</span></div>
 <div id="s">loading…</div>
@@ -32,7 +37,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import * as GS from '@mkkellogg/gaussian-splats-3d';
 
-const d = await (await fetch('./frustums.json?v=' + Date.now(), {cache:'no-store'})).json();
+const CB = '?v=' + Date.now() + '-' + Math.random().toString(36).slice(2);   // unique per load
+const d = await (await fetch('./frustums.json' + CB, {cache:'no-store'})).json();
 const up = d.up || [0,-1,0];
 const ctr = d.scene_ctr || d.gauss_ctr;
 const sr = d.scene_radius || 5;
@@ -64,8 +70,13 @@ function layout(aspect){
 
 // overlay scene: world axes gizmo, an up-oriented ground grid, and the frustums.
 const ov = new THREE.Scene();
+const grdop=document.getElementById('grdop'), boxop=document.getElementById('boxop'), axop=document.getElementById('axop');
 const axes = new THREE.AxesHelper(sr*1.3); axes.position.copy(C); ov.add(axes);  // R=X G=Y B=Z
-let grid = null;
+axes.material.transparent = true; axes.material.opacity = +axop.value;
+axop.oninput = ()=>{ axes.material.opacity=+axop.value; axes.visible=+axop.value>0; };
+let grid = null, gridOpacity = +grdop.value;
+grdop.oninput = ()=>{ gridOpacity=+grdop.value;
+                      if(grid){ grid.material.opacity=gridOpacity; grid.visible=gridOpacity>0; } };
 
 // frame() re-orients to a given up axis (free-orbit framing). Keys 1-6 snap up to ±X/±Y/±Z; 0 = camera-up.
 function frame(upArr){
@@ -79,7 +90,8 @@ function frame(upArr){
   if (grid) ov.remove(grid);
   grid = new THREE.GridHelper(sr*4, 16, 0x44ccaa, 0x225544);
   grid.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), U);   // grid normal -> up
-  grid.position.copy(C); ov.add(grid);
+  grid.position.copy(C); grid.material.transparent=true;
+  grid.material.opacity=gridOpacity; grid.visible=gridOpacity>0; ov.add(grid);
   document.getElementById('up').textContent = upArr.map(x=>(+x).toFixed(2)).join(', ');
 }
 const AX={Digit1:[1,0,0],Digit2:[-1,0,0],Digit3:[0,1,0],Digit4:[0,-1,0],
@@ -101,7 +113,7 @@ function rotateView(dAz, dEl){
 // overlays the splat for per-view verification; orbit away freely, \ = back to free.
 let camView = -1;
 const fnav = SF.map((_,i)=>i).sort((a,b)=>SF[a].name.localeCompare(SF[b].name));
-SF.forEach(sf=>{ const im = new Image(); im.src = './'+sf.file; });   // preload (cached)
+SF.forEach(sf=>{ const im = new Image(); im.src = './'+sf.file+CB; });   // preload
 function viewFromCam(navPos){
   if (!SF.length) return;
   navPos = (navPos + fnav.length) % fnav.length;
@@ -111,7 +123,7 @@ function viewFromCam(navPos){
   camera.up.copy(u); camera.position.set(...p); camera.fov = f.vfov;
   controls.target.set(p[0]+fw.x*sr*0.4, p[1]+fw.y*sr*0.4, p[2]+fw.z*sr*0.4);
   curAspect = f.aspect; layout(curAspect); controls.update();
-  ref.src = './'+sf.file; ref.style.display='block'; ref.style.opacity = iop.value;
+  ref.src = './'+sf.file+CB; ref.style.display='block'; ref.style.opacity = iop.value;
   document.getElementById('s').textContent =
     `cam view ${navPos+1}/${SF.length}: ${sf.name}  ([ ] step · \\ free orbit)`;
 }
@@ -153,6 +165,51 @@ for (const f of FR){
 }
 document.getElementById('title').textContent = d.title || '095 verify';
 
+// ── cull box (operator spec): gravity-aligned camera box, drawn as an oriented wireframe ──
+// 8 corners (solve gauge) indexed by bits i*4+j*2+k (i=e0,j=e1,k=up); 12 edges connect
+// corners differing in exactly one bit. Sits level with the ground grid (both use gravity-up).
+if (d.cull_box && d.cull_box.corners){
+  const C = d.cull_box.corners.map(p=>new THREE.Vector3(...p));
+  const E = [[0,1],[2,3],[4,5],[6,7], [0,2],[1,3],[4,6],[5,7], [0,4],[1,5],[2,6],[3,7]];
+  const pts = []; E.forEach(([a,b])=>pts.push(C[a], C[b]));
+  const bm = new THREE.LineBasicMaterial({color:0xbbbbbb, transparent:true, opacity:+boxop.value, depthTest:false});
+  const boxObj = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pts), bm);
+  boxObj.visible = +boxop.value>0; ov.add(boxObj);
+  boxop.oninput = ()=>{ bm.opacity=+boxop.value; boxObj.visible=+boxop.value>0; };
+  console.log('cull_box corners', d.cull_box.corners);
+} else { boxop.disabled = true; }
+
+// ── voxel-face coverage overlay (STO-SCN-103): exposed faces coloured red(gap)→green(covered) ──
+const cop = document.getElementById('cop');
+let coverageMesh = null;
+if (d.faces && d.faces.items && d.faces.items.length){
+  const items = d.faces.items, h = (d.faces.vsize||0.05)*0.5;
+  const pos = new Float32Array(items.length*18), col = new Float32Array(items.length*18);
+  items.forEach((f,fi)=>{
+    const c=f.c, n=f.n;
+    // axis-aligned voxel-face normal → in-plane basis
+    let r,u;
+    if (Math.abs(n[0])>0){ r=[0,1,0]; u=[0,0,1]; }
+    else if (Math.abs(n[1])>0){ r=[1,0,0]; u=[0,0,1]; }
+    else { r=[1,0,0]; u=[0,1,0]; }
+    const P=(sx,sy)=>[c[0]+sx*r[0]*h+sy*u[0]*h, c[1]+sx*r[1]*h+sy*u[1]*h, c[2]+sx*r[2]*h+sy*u[2]*h];
+    const a=P(-1,-1), b=P(1,-1), cc=P(1,1), dd=P(-1,1);   // quad → 2 tris
+    const tri=[a,b,cc, a,cc,dd];
+    const cv=Math.max(0,Math.min(1,f.cov));               // red(0)→green(1)
+    const rc=1-cv, gc=cv;
+    for (let k=0;k<6;k++){ const o=fi*18+k*3;
+      pos[o]=tri[k][0]; pos[o+1]=tri[k][1]; pos[o+2]=tri[k][2];
+      col[o]=rc; col[o+1]=gc; col[o+2]=0.1; }
+  });
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos,3));
+  geo.setAttribute('color', new THREE.BufferAttribute(col,3));
+  const mat=new THREE.MeshBasicMaterial({vertexColors:true, transparent:true,
+    opacity:+cop.value, side:THREE.DoubleSide, depthWrite:false});
+  coverageMesh=new THREE.Mesh(geo, mat); coverageMesh.visible=+cop.value>0; ov.add(coverageMesh);
+  cop.oninput=()=>{ mat.opacity=+cop.value; coverageMesh.visible=+cop.value>0; };
+} else { cop.disabled = true; }
+
 // ── opacity sliders ──
 fop.oninput = ()=>{ matP.opacity=+fop.value; matD.opacity=+fop.value*0.7;
                     matP.visible=matD.visible=+fop.value>0; };
@@ -165,7 +222,7 @@ const splatScale = d.splat_scale || 1.0;
 const splatT = d.splat_translate || [0,0,0];
 const splatQ = d.splat_quat || [0,0,0,1];   // xyzw
 try {
-  await viewer.addSplatScene('./scout.gs.ply', {format:GS.SceneFormat.Ply, showLoadingUI:false});
+  await viewer.addSplatScene('./scout.gs.ply' + CB, {format:GS.SceneFormat.Ply, showLoadingUI:false});
   // register the scout splat into the solve gauge: p_solve = scale·R(quat)·p_gs + t
   // (DA3 normalized-frame → solve world, from da3_infer_posed's predicted-pose Umeyama).
   const sscene = viewer.getSplatScene && viewer.getSplatScene(0);

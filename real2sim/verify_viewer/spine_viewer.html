@@ -34,7 +34,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import * as GS from '@mkkellogg/gaussian-splats-3d';
 
-const d = await (await fetch('./spine.json?v=' + Date.now(), {cache:'no-store'})).json();
+const CB = '?v=' + Date.now() + '-' + Math.random().toString(36).slice(2);   // unique per load
+const d = await (await fetch('./spine.json' + CB, {cache:'no-store'})).json();
 const up = d.up || [0,-1,0];
 const ctr = d.scene_ctr || [0,0,0];
 const sr = d.scene_radius || 5;
@@ -147,7 +148,7 @@ document.getElementById('seamlist').innerHTML = SEAMS.length ? SEAMS.map(s=>{
 const viewer = new GS.Viewer({renderer, camera, selfDrivenMode:false,
   useBuiltInControls:false, cameraUp:up, dynamicScene:true, sharedMemoryForWorkers:false});
 try {
-  await viewer.addSplatScene('./fused.gs.ply', {format:GS.SceneFormat.Ply, showLoadingUI:false});
+  await viewer.addSplatScene('./fused.gs.ply' + CB, {format:GS.SceneFormat.Ply, showLoadingUI:false});
   const sscene = viewer.getSplatScene && viewer.getSplatScene(0);
   if (sscene){ gop.oninput=()=>{ sscene.opacity=+gop.value; viewer.getSplatMesh().updateTransforms(); }; }
   document.getElementById('s').textContent =

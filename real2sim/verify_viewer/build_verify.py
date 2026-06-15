@@ -85,7 +85,7 @@ def _apply_xform(rflat, c, xform):
 
 
 def build_frustums(sparse_dir, n, title="095 verify", selector="voxel", grid=64,
-                   div_angle=10.0, scout_dir=None):
+                   div_angle=10.0, scout_dir=None, cull_expand=1.0):
     posed = pfs.posed_from_sparse(str(sparse_dir))
     # STO-SCN-105 (corrected, ground-truthed): the frustums STAY in the solve
     # gauge. The scout gs_ply lives in DA3's normalized (cam-0-recentered +
@@ -111,12 +111,14 @@ def build_frustums(sparse_dir, n, title="095 verify", selector="voxel", grid=64,
             print("  scout-gauge: NOT registered (no scout_gauge.json transform "
                   "/ no manual override) — splat at identity; re-run scout or "
                   "register in match.html")
+    faces = None
     if selector == "voxel":                                   # STO-SCN-103
         import voxel_coverage as vc
-        sel_names, rep = vc.select_from_sparse(str(sparse_dir), n, grid=grid)
+        sel_names, rep, faces = vc.select_with_faces(str(sparse_dir), n, grid=grid)
         proposed = set(sel_names)
         print(f"  voxel-coverage: face-coverage {rep['face_coverage_pct']}% · "
-              f"view-spread {rep['median_view_spread_deg']} deg")
+              f"view-spread {rep['median_view_spread_deg']} deg · "
+              f"{len(faces['items'])}/{faces['n_faces_total']} faces in overlay")
     else:                                                     # STO-SCN-094 (legacy track)
         proposed = set(selv.select_from_sparse(str(sparse_dir), n, div_angle=div_angle)[1]["selected"])
     frustums, cs = [], []
@@ -128,6 +130,7 @@ def build_frustums(sparse_dir, n, title="095 verify", selector="voxel", grid=64,
         frustums.append({"R": rflat, "pos": c, "proposed": e["name"] in proposed,
                          "name": e["name"], "vfov": round(vfov, 2), "aspect": round(aspect, 3)})
         cs.append(c)
+    import numpy as np
     ctr = [sum(c[i] for c in cs) / max(1, len(cs)) for i in range(3)]
     mn = [min(c[i] for c in cs) for i in range(3)]
     mx = [max(c[i] for c in cs) for i in range(3)]
@@ -139,10 +142,37 @@ def build_frustums(sparse_dir, n, title="095 verify", selector="voxel", grid=64,
     up = gauge_up.up_from_poses([e["w2c"] for e in posed])   # solve gauge (no xform)
     print(f"  gauge up (from poses): {[round(x,3) for x in up]} "
           f"(roll spread {gauge_up.roll_spread_deg([e['w2c'] for e in posed]):.1f}°)")
+
+    # camera-bounded cull box, computed in the GRAVITY-ALIGNED frame (operator spec): the box
+    # is axis-aligned to gravity (up) + the ground plane, NOT to the arbitrary solve axes — so
+    # its vertical (up) extent is the tight ground-height and the two horizontal (ground) axes
+    # are wider. Circumscribe the cameras in this frame, expand each axis by cull_expand per
+    # side, emit the basis (Rg) + box (gmin/gmax) for the cull, and the 8 corners (solve gauge)
+    # so the viewer draws the oriented box level with the ground grid.
+    U = np.asarray(up, float); U /= (np.linalg.norm(U) or 1.0)
+    ref = np.array([1.0, 0, 0]) if abs(U[0]) < 0.9 else np.array([0, 1.0, 0])
+    e0 = ref - U * float(ref @ U); e0 /= (np.linalg.norm(e0) or 1.0)   # a ground-plane axis
+    e1 = np.cross(U, e0)                                                # the other ground axis
+    Rg = np.vstack([e0, e1, U])                                         # solve -> gravity (rows)
+    Cg = np.asarray(cs, float) @ Rg.T                                   # cameras in gravity frame
+    gmn = Cg.min(0); gmx = Cg.max(0); gspan = gmx - gmn
+    gmin = (gmn - gspan * cull_expand)
+    gmax = (gmx + gspan * cull_expand)
+    corners = []
+    for i in (0, 1):
+        for j in (0, 1):
+            for k in (0, 1):
+                cg = np.array([gmax[0] if i else gmin[0], gmax[1] if j else gmin[1],
+                               gmax[2] if k else gmin[2]])
+                corners.append([round(float(x), 4) for x in (Rg.T @ cg)])   # gravity -> solve
+    print(f"  cull box (gravity-aligned): ground {gspan[0]:.2f}x{gspan[1]:.2f}, "
+          f"vertical {gspan[2]:.2f} (expand {cull_expand:+.0%}/side)")
     return {"title": title, "frustums": frustums, "gauss_ctr": ctr, "up": up,
             "cam_diag": diag, "n_proposed": len(proposed), "n_pool": len(posed),
             "splat_scale": splat_scale, "splat_translate": splat_translate,
-            "splat_quat": splat_quat}
+            "splat_quat": splat_quat, "faces": faces,
+            "cull_box": {"R": Rg.tolist(), "gmin": gmin.tolist(), "gmax": gmax.tolist(),
+                         "corners": corners}}
 
 
 def splat_frame(ply_path, cam_centers):
@@ -214,6 +244,58 @@ def cull_sphere(src, dst, center, radius, max_splats=500000):
     return len(kept), n
 
 
+def cull_box(src, dst, Rg, gmin, gmax, scale, R, t, max_splats=500000):
+    """Cull splats to a camera-bounded box computed in the GRAVITY-ALIGNED frame (operator
+    spec 2026-06-14). `Rg` (3x3, rows = ground-plane e0, e1, gravity-up) maps solve→gravity;
+    `gmin`/`gmax` are the (expanded) camera box in that frame, so its vertical (up) axis is the
+    tight ground-height extent and the horizontal ground axes are wider. The .ply is in the
+    GAUSSIAN frame, so each splat is mapped gaussian→solve (scale·R·p_gs + t) → gravity (Rg·p)
+    and tested. Decimates to <= max_splats. Correct 17xfloat32 rewrite; self-verifies (T-012)."""
+    import re
+    import numpy as np
+    Rg = np.asarray(Rg, np.float64)
+    gmn = np.asarray(gmin, np.float64)
+    gmx = np.asarray(gmax, np.float64)
+    R = np.asarray(R, np.float64)
+    t = np.asarray(t, np.float64)
+    head = b""
+    with open(src, "rb") as f:
+        while b"end_header\n" not in head:
+            head += f.read(4096)
+    off = head.index(b"end_header\n") + len(b"end_header\n")
+    n = int(re.search(rb"element vertex (\d+)", head).group(1))
+    P = head.count(b"property float")                         # 17 for 3DGS
+    buf = np.fromfile(src, dtype=np.float32, offset=off, count=n * P).reshape(n, P)
+    xyz = buf[:, :3].astype(np.float64)
+    grav = (scale * (xyz @ R.T) + t) @ Rg.T                  # gaussian → solve → gravity frame
+    keep = (np.isfinite(grav).all(1)
+            & (grav >= gmn).all(1) & (grav <= gmx).all(1))
+    kept = np.ascontiguousarray(buf[keep])
+    in_box = len(kept)
+    if max_splats and len(kept) > max_splats:                 # deterministic strided decimation
+        kept = np.ascontiguousarray(kept[:: (len(kept) + max_splats - 1) // max_splats])
+    new_head = re.sub(rb"element vertex \d+", f"element vertex {len(kept)}".encode(), head[:off])
+    with open(dst, "wb") as f:
+        f.write(new_head)
+        f.write(kept.tobytes())
+    # self-verify: re-parse + re-test the box in the gravity frame
+    vh = b""
+    with open(dst, "rb") as f:
+        while b"end_header\n" not in vh:
+            vh += f.read(4096)
+    voff = vh.index(b"end_header\n") + len(b"end_header\n")
+    vn = int(re.search(rb"element vertex (\d+)", vh).group(1))
+    vxyz = np.fromfile(dst, dtype=np.float32, offset=voff, count=vn * P).reshape(vn, P)[:, :3]
+    vg = (scale * (vxyz.astype(np.float64) @ R.T) + t) @ Rg.T
+    ok = (vn == len(kept) and np.isfinite(vg).all()
+          and (vg >= gmn - 1e-3).all() and (vg <= gmx + 1e-3).all())
+    print(f"  cull-box (gravity-aligned): {in_box}/{n} in camera box, decimated to {len(kept)} — "
+          f"{'VERIFIED ok' if ok else 'SELF-CHECK FAILED'}")
+    if not ok:
+        raise RuntimeError("cull-box self-check failed — not serving a corrupt splat")
+    return len(kept), n
+
+
 def _main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="Build + serve the STO-SCN-095 verify surface.")
     ap.add_argument("scene")
@@ -232,6 +314,9 @@ def _main(argv=None) -> int:
                          "(drops the rain-reflection far cones; 0 = no cull)")
     ap.add_argument("--max-splats", type=int, default=500000,
                     help="decimate the verify splat to at most this many gaussians (speed)")
+    ap.add_argument("--cull-expand", type=float, default=1.0,
+                    help="camera-AABB cull: expand the camera box by this x per side "
+                         "(1.0 = +100% = 3x camera span; lower crops the DA3 halo harder)")
     ap.add_argument("--port", type=int, default=8099)
     ap.add_argument("--no-serve", action="store_true")
     a = ap.parse_args(argv)
@@ -251,7 +336,7 @@ def _main(argv=None) -> int:
     serve = Path(a.serve_dir) if a.serve_dir else Path(f"/tmp/verify-{a.scene}-{a.solve}")
     serve.mkdir(parents=True, exist_ok=True)
     fr = build_frustums(sparse, a.n, selector=a.selector, grid=a.grid, div_angle=a.div_angle,
-                        scout_dir=scout_ply.parent,
+                        scout_dir=scout_ply.parent, cull_expand=a.cull_expand,
                         title=f"{a.scene} · solve {a.solve} · N={a.n} · {a.selector}")
     # splat_frame reads the .ply in the GAUSSIAN frame; the viewer maps the
     # splat into the solve gauge via p_solve = scale·p_gs + translate, so the
@@ -321,8 +406,11 @@ def _main(argv=None) -> int:
     shutil.copy2(HERE / "viewer.html", serve / "viewer.html")
     if (HERE / "match.html").exists():
         shutil.copy2(HERE / "match.html", serve / "match.html")
-    if a.cull_radius > 0:                                      # cull-sphere for a light verify splat
-        # cull operates on the .ply in the GAUSSIAN frame → gaussian-frame center/radius
+    if fr.get("cull_box"):                                     # gravity-aligned camera box cull
+        bx = fr["cull_box"]
+        cull_box(scout_ply, serve / "scout.gs.ply", bx["R"], bx["gmin"], bx["gmax"],
+                 ss, Rq, st, a.max_splats)
+    elif a.cull_radius > 0:                                    # legacy cull-sphere fallback
         cull_sphere(scout_ply, serve / "scout.gs.ply", sc_g, a.cull_radius * sr_g, a.max_splats)
     else:
         shutil.copy2(scout_ply, serve / "scout.gs.ply")
