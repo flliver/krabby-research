@@ -23,7 +23,9 @@
   grid <input id="grdop" type="range" min="0" max="1" step="0.05" value="1">
   box <input id="boxop" type="range" min="0" max="1" step="0.05" value="0.85">
   axis <input id="axop" type="range" min="0" max="1" step="0.05" value="1"><br>
-  <b>mouse</b>=orbit/zoom/pan · <b>arrows</b>=rotate · <b>1-6</b>=snap up · <b>0</b>=cam-up<br>
+  <b>DA3 mesh</b> <input id="meshop" type="range" min="0" max="1" step="0.05" value="0">
+  (turn gaussians down to see the fused scene)<br>
+  <b>mouse</b>=orbit/zoom/pan · <b>WASD</b>=fly · <b>space/shift</b>=up/down · <b>arrows</b>=rotate · <b>1-6</b>=snap up · <b>0</b>=cam-up<br>
   <b>[ ]</b>=step camera views · <b>\</b>=free orbit &nbsp; up=[<span id="up">?</span>] · r=<span id="rad">?</span></div>
 <div id="s">loading…</div>
 <script type="importmap">
@@ -35,6 +37,7 @@
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { PLYLoader } from 'three/addons/loaders/PLYLoader.js';
 import * as GS from '@mkkellogg/gaussian-splats-3d';
 
 const CB = '?v=' + Date.now() + '-' + Math.random().toString(36).slice(2);   // unique per load
@@ -128,7 +131,34 @@ function viewFromCam(navPos){
     `cam view ${navPos+1}/${SF.length}: ${sf.name}  ([ ] step · \\ free orbit)`;
 }
 
+// ── free-fly: WASD = forward/left/back/right (along look dir), Space = up, Shift = down ──
+// (world up = gravity). Held keys are applied every frame in loop() for smooth motion; the
+// camera AND the orbit target move together so mouse-look keeps working.
+const FLY = {KeyW:1, KeyS:1, KeyA:1, KeyD:1, Space:1, ShiftLeft:1, ShiftRight:1};
+const held = new Set();
+let flySpeed = sr * 0.018;
+function flyStep(){
+  if (!held.size) return;
+  const fwd = controls.target.clone().sub(camera.position).normalize();
+  const wup = new THREE.Vector3(...up).normalize();
+  const right = new THREE.Vector3().crossVectors(fwd, wup).normalize();
+  const m = new THREE.Vector3();
+  if (held.has('KeyW')) m.add(fwd);
+  if (held.has('KeyS')) m.addScaledVector(fwd, -1);
+  if (held.has('KeyD')) m.add(right);
+  if (held.has('KeyA')) m.addScaledVector(right, -1);
+  if (held.has('Space')) m.add(wup);
+  if (held.has('ShiftLeft') || held.has('ShiftRight')) m.addScaledVector(wup, -1);
+  if (m.lengthSq() === 0) return;
+  m.normalize().multiplyScalar(flySpeed);
+  camera.position.add(m); controls.target.add(m);
+}
+
 addEventListener('keydown', e=>{
+  if (FLY[e.code]){                         // start flying; leave any camera-view layout
+    if (camView >= 0){ camView=-1; ref.style.display='none'; curAspect=null; layout(null); }
+    held.add(e.code); e.preventDefault(); return;
+  }
   if (AX[e.code]) { frame(AX[e.code]); return; }
   const s=0.1;
   if (e.code==='ArrowLeft')  rotateView( s,0);
@@ -139,6 +169,8 @@ addEventListener('keydown', e=>{
   else if (e.code==='BracketLeft')  viewFromCam((camView<0?0:camView)-1);
   else if (e.code==='Backslash')    frame(up);
 });
+addEventListener('keyup', e=>{ held.delete(e.code); });
+addEventListener('blur', ()=> held.clear());      // don't get stuck moving on focus loss
 frame(up);
 document.getElementById('rad').textContent = (+sr).toFixed(2);
 addEventListener('resize',()=>layout(curAspect));
@@ -210,6 +242,17 @@ if (d.faces && d.faces.items && d.faces.items.length){
   cop.oninput=()=>{ mat.opacity=+cop.value; coverageMesh.visible=+cop.value>0; };
 } else { cop.disabled = true; }
 
+// ── DA3 mesh layer (the fused scene from this data; solve gauge) — vertex-coloured ──
+const meshop = document.getElementById('meshop');
+new PLYLoader().load('./scene.ply' + CB, geo=>{
+  if (!geo.attributes.normal) geo.computeVertexNormals();
+  const mm = new THREE.MeshBasicMaterial({vertexColors:true, side:THREE.DoubleSide,
+    transparent:true, opacity:+meshop.value});
+  const mesh = new THREE.Mesh(geo, mm); mesh.visible=+meshop.value>0; ov.add(mesh);
+  meshop.oninput = ()=>{ mm.opacity=+meshop.value; mesh.visible=+meshop.value>0; };
+  document.querySelector('#s').textContent += ' · DA3 mesh loaded';
+}, undefined, ()=>{ meshop.disabled = true; });    // no scene.ply → disable the slider
+
 // ── opacity sliders ──
 fop.oninput = ()=>{ matP.opacity=+fop.value; matD.opacity=+fop.value*0.7;
                     matP.visible=matD.visible=+fop.value>0; };
@@ -243,7 +286,7 @@ try {
 
 // proven two-pass: splats (autoclear on) then overlay (autoclear off)
 function loop(){
-  requestAnimationFrame(loop); controls.update();
+  requestAnimationFrame(loop); flyStep(); controls.update();
   renderer.autoClear=true; viewer.update(); viewer.render();
   renderer.autoClear=false; renderer.render(ov, camera); renderer.autoClear=true;
 }

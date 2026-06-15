@@ -10,8 +10,10 @@
     }
   ],
   "settings": {
-    "n_scout": {"class": "tunable", "default": 32, "note": "scout views (~DA3 ceiling); the scene we look at"},
-    "res":     {"class": "tunable", "default": 504, "note": "DA3 process_res (gs head OOMs 16GB above 504)"}
+    "n_scout":  {"class": "tunable", "default": 32, "note": "scout views (~DA3 ceiling); the scene we look at"},
+    "res":      {"class": "tunable", "default": 504, "note": "DA3 process_res (gs head OOMs 16GB above 504)"},
+    "selector": {"class": "tunable", "default": "track", "note": "track (coherent/overlap, clean DA3 fusion) | voxel (the coverage-SELECTED N, for verifying the selection)"},
+    "grid":     {"class": "tunable", "default": 64, "note": "voxel grid resolution (voxel selector)"}
   },
   "placement": "images/subsets/{subset}/cameras/{up_solve}/scout/{identity}",
   "outputs": [

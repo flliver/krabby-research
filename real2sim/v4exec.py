@@ -802,14 +802,21 @@ def cmd_scout(args):
         sys.exit(f"no solve sparse/0 at {sdir} (run `solve` first)")
     make, model, mode, _modality = _read_capture_decl(scene_dir)
 
-    # COHERENT scout views (div_angle=0 — NO viewpoint-diversity penalty): DA3 fuses a clean
-    # gaussian only from overlapping/coherent views; the diversity penalty (good for FINAL
-    # selection) spreads views apart and yields a nebula here. Scout and final-select have
-    # OPPOSITE goals: scout = overlap/coherence, final = coverage/variety.
-    _, rep = selv.select_from_sparse(str(sparse), args.n_scout, div_angle=0)
+    # View selection. DEFAULT `track` div_angle=0 = COHERENT/overlapping views: DA3 fuses a
+    # clean gaussian only from coherent views; viewpoint-diversity spreads views apart and can
+    # nebula. `voxel` (STO-SCN-103) builds the gaussian from the actual coverage-SELECTED N
+    # (what the FINAL-N reconstructs) — for verifying the selection, even if less coherent.
+    sel = getattr(args, "selector", "track")
+    if sel == "voxel":
+        import voxel_coverage as vc
+        _, rep = vc.select_from_sparse(str(sparse), args.n_scout, grid=args.grid)
+    else:
+        _, rep = selv.select_from_sparse(str(sparse), args.n_scout, div_angle=0)
     names = rep["selected"]
     posed = pfs.posed_from_sparse(str(sparse), names)
-    settings = v4.hashable_settings(v4.tasks()["scout"], {"n_scout": args.n_scout, "res": args.res})
+    settings = v4.hashable_settings(v4.tasks()["scout"],
+                                    {"n_scout": args.n_scout, "res": args.res,
+                                     "selector": sel, "grid": args.grid})
     cid = v4.identity_hash({"solve": args.solve}, settings, "scout@0")
     cdir = sdir / "scout" / cid
     if (cdir / "metadata.json").exists():
@@ -1824,6 +1831,9 @@ def main():
     p.add_argument("--subset", default=None)
     p.add_argument("--n-scout", type=int, default=32, help="scout views (~DA3 ceiling)")
     p.add_argument("--res", type=int, default=504)
+    p.add_argument("--selector", choices=["track", "voxel"], default="track",
+                   help="track = coherent/overlap (default, clean DA3); voxel = the STO-SCN-103 coverage-selected N")
+    p.add_argument("--grid", type=int, default=64, help="voxel grid resolution (voxel selector)")
     p.set_defaults(fn=cmd_scout)
     p = sp.add_parser("reconstruct-matcha")
     p.add_argument("scene")

@@ -8,12 +8,12 @@
 
 > **⚠ LAYOUT MIGRATED TO v4 (2026-06-11, HUG-SCN-005 / STO-SCN-080).**
 > The store is now content-addressed — see § "Storage policy —
-> store-shape v4" below for the layout. The recipe *flows* below
-> (probe → extract → select → solve → curate → reconstruct → rank)
-> remain the validated know-how, but their literal `input/src` /
-> `pipeline-*/run-*` paths are the PRE-v4 layout: translate via the
+> store-shape v4" below for the layout. **The current end-to-end
+> pipeline is the v4 node-graph trunk — see § "v4 pipeline" directly
+> below.** The per-data-type Recipes A–D + the MAtCha-era Phase catalog
+> further down remain validated PRE-v4 know-how (their literal
+> `input/src` / `pipeline-*/run-*` paths are pre-v4); translate via the
 > v4 task defs (`real2sim/tasks/`) + graphs (`real2sim/graphs/`).
-> Recipe prose gets rewritten as each flow is re-exercised v4-native.
 
 ## Hard limits (apply to every recipe)
 
@@ -24,6 +24,53 @@
 | MAtCha training resolution cap | 1.6K long edge | config |
 | TSDF extraction (default config) | mesh_res 1024, factors [2,8,16]; needs `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True` | 001 re-extraction |
 | Normalize preproc | long_edge 2048, JPEG q95 → −28 % training VRAM | STO-SCN-043 |
+
+---
+
+## v4 pipeline — the scene-ingestion trunk (current)
+
+The content-addressed v4 store (HUG-SCN-005) runs as a **node graph**: each stage is a
+`python3 real2sim/v4exec.py <cmd> …` that MATERIALIZES a content-addressed artifact —
+identity = `hash(resolved inputs + tunable/frozen settings + algo@version)`, so re-running an
+existing identity is a **NOOP**. Per-stage canonical spec (settings, ranges, algo@version):
+`real2sim/tasks/<name>.json`; DAGs: `real2sim/graphs/*.json`. Numbers live in the task defs,
+not here (T-023). GPU stages take `--host <gpu>` (the fleet — t/b/d/s beeprz); the rest run
+locally.
+
+End-to-end, a capture becomes a verified reconstruction:
+
+| # | Stage | Command (representative flags) | Does | Task def · Story |
+|---|-------|--------------------------------|------|------------------|
+| 0 | **Capture decl** | author `scenes/<scene>/capture.json` | `{make, model, mode (fisheye\|dewarped), modality (hyperlapse\|video\|photos)}` — drives the solver & undistort | STO-SCN-091/093 |
+| 1 | **Ingest** | `v4exec ingest <scene> --host <gpu> [--raw <path>] [--capture-mode …]` | video/photos → content-addressed image pool (`images/<hash>/`) + per-image metadata | (ingest graph) · STO-SCN-091 |
+| 2 | **Pre-cull** | `v4exec precull <scene> [--set-primary]` | pose-free **sharpness + pHash-dedup** → curated subset ≤ solve ceiling; *preserves revisits* (loop-closure gold) | `precull-subset` · STO-SCN-092 |
+| 3 | **Spine segment** ◇ | `v4exec spine <scene> [--cap 300 --overlap 30]` | long pools only: chunk the trajectory into **M overlapping segments** + loop candidates (pHash); emits `spine.json` (boundary_spec + camera_model) | `spine-segment` · STO-SCN-097 |
+| 4 | **Solve** | `v4exec solve <scene> --host <gpu> [--subset <id>]` | GPU **FastMap** (camera-model-correct; fisheye→pinhole first) → `sparse/0` poses | `solve-fastmap` · STO-SCN-093 |
+| 5 | **Covis** | `v4exec covis <scene> --host <gpu> --solve <id>` | co-visibility graph + **validity gate** (HARD-FAIL on a nebula — bad solve never reaches selection) | `covis` · STO-SCN-093 |
+| 6 | **Select** | `v4exec select <scene> --solve <id> --covis <id> [--selector voxel --n 24]` | best-N: `voxel` (coverage-flux, default — angular variety) or `track` (covisibility). Emits the report + the **FINAL-N subset** (the handoff) | `select` · STO-SCN-094/103 |
+| 7 | **Scout** | `v4exec scout <scene> --host <gpu> --solve <id> [--selector voxel\|track --n-scout N]` | DA3 `da3@1` scout gaussian **in the solve gauge** + `scout_gauge.json` (gs→solve registration, the 105 fix) | `scout` · STO-SCN-095/105 |
+| 8 | **Verify** (operator) | `verify_viewer/build_verify.py <scene> --solve <id> --scout <id> [--selector voxel --cull-expand E]` → `viewer.html` (:8099) | splat + proposed-N frustums + **voxel-coverage faces** (red→green) + **gravity-aligned cull box** + WASD-fly + optional **DA3-mesh layer**; operator confirms / overrides (T-020) | STO-SCN-095/103 |
+| | *— multi-segment (spine) only ◇ —* | | | |
+| 9 | **Spine register** ◇ | `v4exec spine-register <scene> --spine <id> --solves seg=<sub>/<solve>,…` | SIM(3) **pose graph** over the segments → one global gauge (drift-corrected) + per-seam residuals (`global.json`) | `spine-register` · STO-SCN-098 |
+| 10 | **Spine fuse** ◇ | `v4exec spine-fuse <scene> --spine <id> --register <id> --solves … --gaussians seg=<ply>,…` | **confidence-weighted** fusion of per-segment gaussians (overlap cross-fade, no doubled walls) → one cohesive `.ply` | `spine-fuse` · STO-SCN-099 |
+| 11 | **Whole-spine verify** ◇ (operator) | `verify_viewer/build_spine_verify.py …` → `spine_viewer.html` (:8100) | assembled gaussian + segment-coloured frustums + seam frames + trajectory; operator confirms cohesion (T-020) | STO-SCN-100 |
+| | *— reconstruct (downstream) —* | | | |
+| 12 | **Reconstruct** | `v4exec reconstruct-matcha\|reconstruct-da3 <scene> --host <gpu> [--sfm posed\|unposed]` | the selection → mesh/gaussian. **Consumes the subset designated `primary`** (no `--subset` flag yet — point `primary` at the FINAL-N subset to reconstruct the selection) | `represent-via-{matcha,da3}` · STO-SCN-013 / EPI-SCN-FEEDFORWARD-RECON |
+| 13 | **DA3 mesh from npz** | `da3_mesh_from_npz.py <results.npz> <out.ply>` | TSDF-fuse DA3's posed depths → mesh (scene geometry) in the npz/solve gauge — the "DA3 scene" from any scout/da3 run | (reuses `da3_tsdf_mesh.py` core) |
+
+**◇ = spine-only.** For a **single tractable space (M=1)** skip stages 3 + 9–11 entirely (the
+spine machinery no-ops) — pre-cull → solve → covis → select → scout → verify → reconstruct.
+
+**Key invariants threaded through the trunk:**
+- **Gauges.** The solve gauge is the reference frame. DA3 gaussians live in DA3's *normalized*
+  frame (off by scale + ~125° rotation + translation) and are registered gs→solve via the
+  `scout_gauge.json` Umeyama-of-predicted-poses (STO-SCN-105;
+  `knowledge/da3-gsply-normalized-frame.md`). Spine submaps register segment-solve→global via
+  the SIM(3) pose graph (STO-SCN-098). Fusion composes **105 ∘ 098** (gs→solve→global).
+- **Gravity.** `gauge_up` recovers up ⟂ the camera-right axes; the verify cull box + ground
+  grid are gravity-aligned (vertical crops tighter than horizontal).
+- **The covis validity gate** is the quality firewall: a nebula solve HARD-FAILs and never
+  reaches selection/scout.
 
 ---
 
@@ -175,6 +222,15 @@ One section per processing phase. Each phase has a STOry recording
 what we did / where the code is / how (operator directive
 2026-06-10). The recipes above are the *flows*; this catalog is the
 per-phase *reference*.
+
+> **This catalog is the MAtCha-era (pre-v4) per-phase reference.** The
+> **current** end-to-end sequence is the **§ "v4 pipeline" table** near
+> the top (the `v4exec` node graph). Several phases below map onto v4
+> stages: sharp-select+curation (3,5) → `precull`+`select` (voxel,
+> STO-SCN-103); pool SfM (4) → `solve`+`covis` (FastMap, STO-SCN-093);
+> photo spine (6) → `spine`/`spine-register`/`spine-fuse`
+> (STO-SCN-097/098/099); DA3 (13) → `scout`/`reconstruct-da3` +
+> `da3_mesh_from_npz`. Kept for the validated detail + history.
 
 > **Machine-readable canonical form (v4, HUG-SCN-005):**
 > `real2sim/tasks/*.json` (task defs — settings classified
