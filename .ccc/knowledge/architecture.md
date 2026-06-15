@@ -155,6 +155,13 @@ TorchScript `.pt` checkpoint → robot runs it via
 
 ## 4. real2sim — scene reconstruction (active, M11)
 
+> **Canonical process doc:** the operator-facing, phase-by-phase M11
+> scene-processing process lives at
+> `real2sim/knowledge/scene-processing/` (T0 ingress → T1 scouting/spine
+> → T2 view-selection → T3a/b/c reconstruction → T4 ranking;
+> `RECIPES.md` points there). This §4 is the *system map*; that doc set
+> is the *how-to-run-it*. Tracked under `EPI-SCN-M11-PROCESS-DOCS`.
+
 **Goal:** handheld phone/action-cam video → simulation-ready scene
 (USD/Blender) with collision-grade mesh + camera poses, no LIDAR / no
 ground-truth scale. Output is intended to seed IsaacSim environments.
@@ -248,7 +255,20 @@ against `docs/m14-bringup-report.md` and code before relying on them.)
 
 ---
 
-## 8. First files to read
+## 8. Networking — service reachability
+
+**Local services are reached via DNS `krabby.organl.com`, not raw IPs
+or `localhost`.** Any service krabby hosts locally (dashboards, viewers,
+debug servers, `ccc-combine`, the real2sim verify viewer, etc.) is
+addressed through that name — prefer it over hardcoded addresses so the
+binding survives host/IP changes. This is the self-hosted counterpart to
+the "bind by discovery, not by hostname" stance krabby takes toward the
+*fleet's* shared services (sherpa's `consumption-map.md` covers the
+fleet side).
+
+---
+
+## 9. First files to read
 
 Runtime: `docs/RUNTIME_ARCHITECTURE.md`, `docs/HAL_GUIDE.md`,
 `hal/server/jetson/main.py`, `firmware/SETUP.md`,

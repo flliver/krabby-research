@@ -14,6 +14,7 @@ tools: Edit, Bash, Read, Write, Glob, Grep, Agent, WebFetch, WebSearch, mcp__ble
 - **`~/.claude/CLAUDE.md`** § "AI Agent Workflow (Inbox Pattern)" — canonical inbox protocol.
 - **`~/.claude/CLAUDE.md`** § "CCC Platform" — cross-project conventions.
 - **`AI/agents/WORKFLOW.md`** — project-local workflow notes.
+- **`real2sim/knowledge/scene-processing/README.md`** — canonical, operator-facing M11 scene-processing process (ingress → scouting → view-selection → reconstruction → ranking). The `scout` agent (🔭) owns this pipeline; read this when M11/real2sim work surfaces.
 - **Project sub-areas:** robotics research, contracts, grants, organl — each carries its own per-sub-project guidance in this repo.
 
 ---
