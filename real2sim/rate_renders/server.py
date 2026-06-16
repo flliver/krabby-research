@@ -583,6 +583,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._serve_static(p[len("/static/"):])
         if p == "/api/scenes":
             return self._send_json(self._list_scenes())
+        if p == "/api/all-scenes":                       # STO-SCN-149 (Scenes tab)
+            return self._send_json(self._list_all_scenes())
         if p.startswith("/api/scene/") and p.endswith("/meta"):   # STO-SCN-153
             scene = p[len("/api/scene/"):-len("/meta")]
             scene_dir = SCENES_ROOT / scene
@@ -603,6 +605,15 @@ class Handler(BaseHTTPRequestHandler):
             from urllib.parse import parse_qs
             solve = (parse_qs(url.query).get("solve") or [None])[0]
             return self._send_json(scene_spine(scene_dir, solve))
+        if p.startswith("/api/scene/") and p.endswith("/ingest-status"):  # STO-SCN-149
+            scene = p[len("/api/scene/"):-len("/ingest-status")]
+            sf = SCENES_ROOT / scene / "ingest_status.json"
+            if not sf.exists():
+                return self._send_json({"status": "none"})
+            try:
+                return self._send_json(json.loads(sf.read_text()))
+            except (OSError, ValueError):
+                return self._send_json({"status": "none"})
         if p.startswith("/api/photo/"):                              # STO-SCN-148
             return self._serve_photo(p[len("/api/photo/"):])
         if p.startswith("/api/scene/"):
@@ -636,6 +647,10 @@ class Handler(BaseHTTPRequestHandler):
             except (ValueError, OSError):
                 return self._bad_request("invalid profile body")
             return self._send_json({"profiles": self._add_profile(name)})
+        if p == "/api/scene-new":                       # STO-SCN-149
+            return self._handle_scene_new()
+        if p.startswith("/api/scene/") and p.endswith("/ingest"):   # STO-SCN-149
+            return self._handle_ingest(p[len("/api/scene/"):-len("/ingest")])
         return self._not_found()
 
     # ---- materialize (STO-SCN-086: missing tiles trigger render jobs) ----
@@ -1124,6 +1139,82 @@ class Handler(BaseHTTPRequestHandler):
         if not target.is_file():
             return self._not_found(f"photo: {rel}")
         self._send_bytes(target.read_bytes(), "image/jpeg")
+
+    def _list_all_scenes(self) -> list:
+        """Every scene dir (not just rankable ones) for the Scenes tab selector.
+        thumb = the Rank top-render if present, else the first canonical photo."""
+        ranked = {s["name"]: s.get("thumb") for s in self._list_scenes()}
+        out = []
+        for d in sorted(SCENES_ROOT.iterdir()):
+            if not d.is_dir():
+                continue
+            if not re.match(r"^\d{3}-", d.name) and not (d / "images").is_dir():
+                continue
+            thumb = ranked.get(d.name)
+            if not thumb:
+                imgs = sorted((d / "images").glob("*/metadata.json"))
+                if imgs:
+                    thumb = f"/api/photo/{d.name}/{imgs[0].parent.name}.jpg"
+            out.append({"name": d.name, "thumb": thumb})
+        return out
+
+    # ---- new scene + ingest (STO-SCN-149) -------------------------------
+
+    def _read_json_body(self) -> dict:
+        length = int(self.headers.get("Content-Length", 0))
+        return json.loads(self.rfile.read(length) or b"{}")
+
+    def _handle_scene_new(self):
+        import scene_ingest as si
+        try:
+            name = self._read_json_body().get("name", "")
+        except (ValueError, OSError):
+            return self._bad_request("invalid body")
+        if not str(name).strip():
+            return self._bad_request("name required")
+        try:
+            r = si.create_scene(SCENES_ROOT, name)
+        except FileExistsError as e:
+            return self._send_json({"error": str(e)}, status=409)
+        return self._send_json(r)
+
+    def _handle_ingest(self, scene: str):
+        """Kick off ingest (server-side source path → canonicalize) in a thread;
+        progress lands in <scene>/ingest_status.json (polled by /ingest-status)."""
+        import threading
+        import scene_ingest as si
+        scene_dir = SCENES_ROOT / scene
+        if not scene_dir.is_dir():
+            return self._send_json({"error": f"scene not found: {scene}"}, status=404)
+        try:
+            body = self._read_json_body()
+        except (ValueError, OSError):
+            return self._bad_request("invalid body")
+        source = Path(str(body.get("source", ""))).expanduser()
+        if not source.exists():
+            return self._send_json({"error": f"source not found: {source}"}, status=400)
+        mode = body.get("mode", "copy")
+        fps = float(body.get("fps", 2.0) or 2.0)
+        status_path = scene_dir / "ingest_status.json"
+
+        def _write(phase, done, total, status="running", **extra):
+            rec = {"status": status, "phase": phase, "done": done, "total": total,
+                   "source": str(source), **extra}
+            status_path.write_text(json.dumps(rec))
+
+        def _run():
+            try:
+                _write("starting", 0, 0)
+                res = si.ingest_path(
+                    scene_dir, source, fps=fps, move=(mode == "move"),
+                    progress=lambda d, t: _write("canonicalizing", d, t))
+                _write("done", res.get("n", 0), res.get("n", 0), status="done",
+                       n=res.get("n", 0), frames=res.get("frames_extracted"))
+            except Exception as e:   # noqa: BLE001 — surface any failure to the UI
+                _write("error", 0, 0, status="error", error=f"{type(e).__name__}: {e}")
+
+        threading.Thread(target=_run, daemon=True).start()
+        return self._send_json({"started": True, "scene": scene})
 
     # ---- rankings -------------------------------------------------------
 

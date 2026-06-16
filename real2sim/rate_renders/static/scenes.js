@@ -56,7 +56,7 @@
   // ---- scene selector header -------------------------------------------
   async function loadScenes() {
     try {
-      S.scenes = await api("/api/scenes");   // [{name, thumb}]
+      S.scenes = await api("/api/all-scenes");   // [{name, thumb}] — ALL scene dirs (incl. pre-render)
     } catch (e) {
       el.strip.innerHTML = `<div class="scenes-empty">Failed to load scenes: ${e.message}</div>`;
       return;
@@ -120,13 +120,93 @@
       `</div>`;
   }
 
-  // ---- New Scene (stub → STO-SCN-149) ----------------------------------
+  // ---- New Scene → ingest + canonicalize (STO-SCN-149) -----------------
   function onNewScene() {
-    el.view.innerHTML =
-      `<div class="view-placeholder">` +
-      `<h3>New Scene</h3>` +
-      `<p>The ingest + canonicalize flow mounts here (<code>STO-SCN-149</code>).</p>` +
-      `</div>`;
+    S.scene = null; highlight();
+    el.view.innerHTML = `
+      <div class="newscene">
+        <h3>New Scene</h3>
+        <label>Name <input id="ns-name" type="text" placeholder="e.g. back patio" autofocus></label>
+        <label>Source path <input id="ns-src" type="text"
+          placeholder="server-side path: a video, an image, or a folder"></label>
+        <div class="ns-row">
+          <label>Mode
+            <select id="ns-mode"><option value="copy">copy (keep source)</option>
+              <option value="move">move (no copy)</option></select></label>
+          <label>Video fps <input id="ns-fps" type="number" value="2" min="0.1" step="0.1" style="width:64px"></label>
+        </div>
+        <div class="ns-actions">
+          <button id="ns-create">Create + Ingest</button>
+          <span id="ns-status" class="ns-status"></span>
+        </div>
+        <div class="ns-prog"><div id="ns-bar"></div></div>
+        <p class="ns-hint">Server-side path (we operate locally → MOVE/COPY on the host). Video →
+          frames @ fps; images/folder → canonicalized to content-hash. Browser upload: later.</p>
+      </div>`;
+    el.view.querySelector("#ns-create").addEventListener("click", createScene);
+    el.view.querySelector("#ns-name").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") el.view.querySelector("#ns-src").focus();
+    });
+  }
+
+  function nsStatus(msg, cls) {
+    const s = el.view.querySelector("#ns-status");
+    if (s) { s.textContent = msg; s.className = "ns-status " + (cls || ""); }
+  }
+  function nsBar(done, total) {
+    const bar = el.view.querySelector("#ns-bar");
+    if (bar) bar.style.width = total ? `${Math.round((done / total) * 100)}%` : "0%";
+  }
+
+  async function createScene() {
+    const name = el.view.querySelector("#ns-name").value.trim();
+    const source = el.view.querySelector("#ns-src").value.trim();
+    const mode = el.view.querySelector("#ns-mode").value;
+    const fps = el.view.querySelector("#ns-fps").value || "2";
+    if (!name) { nsStatus("name required", "err"); return; }
+    el.view.querySelector("#ns-create").disabled = true;
+    let scene;
+    try {
+      nsStatus("creating scene…");
+      const r = await api("/api/scene-new", { method: "POST", body: JSON.stringify({ name }) });
+      if (r.error) throw new Error(r.error);
+      scene = r.scene;
+      nsStatus(`created ${scene}` + (source ? " · ingesting…" : ""), "ok");
+    } catch (e) {
+      nsStatus("create failed: " + e.message, "err");
+      el.view.querySelector("#ns-create").disabled = false;
+      return;
+    }
+    if (!source) { await finishNewScene(scene); return; }   // empty scene, no ingest
+    try {
+      const ig = await api(`/api/scene/${encodeURIComponent(scene)}/ingest`,
+        { method: "POST", body: JSON.stringify({ source, mode, fps: Number(fps) }) });
+      if (ig.error) throw new Error(ig.error);
+      await pollIngest(scene);
+    } catch (e) {
+      nsStatus("ingest failed: " + e.message, "err");
+      el.view.querySelector("#ns-create").disabled = false;
+    }
+  }
+
+  async function pollIngest(scene) {
+    for (let i = 0; i < 100000; i++) {
+      let st;
+      try { st = await api(`/api/scene/${encodeURIComponent(scene)}/ingest-status`); }
+      catch { st = { status: "none" }; }
+      if (st.phase) nsStatus(`${st.phase} ${st.done || 0}/${st.total || 0}`, st.status === "error" ? "err" : "");
+      nsBar(st.done || 0, st.total || 0);
+      if (st.status === "done") { nsStatus(`ingested ${st.n} images`, "ok"); return finishNewScene(scene); }
+      if (st.status === "error") { nsStatus("ingest error: " + (st.error || ""), "err");
+        el.view.querySelector("#ns-create").disabled = false; return; }
+      await new Promise((r) => setTimeout(r, 700));
+    }
+  }
+
+  async function finishNewScene(scene) {
+    await loadScenes();          // refresh selector (uses /api/all-scenes)
+    S.scene = scene; highlight();
+    selectView("meta");          // land on Metadata for the new scene
   }
 
   // ---- wire-up ----------------------------------------------------------
