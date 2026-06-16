@@ -82,3 +82,10 @@ Build sequence: **144 → 016 → 145** (136/137 already shipped feed 145). 016 
   measure one KNOWN real distance in two photos → export → `python3 real2sim/calibrate_datum.py
   --export <json>`. That number + the visual sign-off in Rank ship 016/144/145 and complete this
   GOAL. (Release early without measuring: `/goal clear`.)
+- 2026-06-16: **FIRST SCENE CALIBRATED — 001-patio, `s = 4.45 m/unit`** (operator measurement done).
+  Two independent anchors agree within 2%: kitchen-window width (1.22 m → 4.41) + 3-step trajectory
+  descent (7″ risers → 4.50); clicked-step rejected (weak 1.69° parallax → 7.66). Operator-validated
+  by the step descent (camera dropped 0.58 m ≈ 3 standard steps early in the spine) and scene extent
+  (10.7 × 16.9 m, matches the real space). Written as additive `datum.json` sidecar in the solve gauge
+  (cameras + meshes inherit it; no re-key). Provisional (guessed reference) but refinable by one
+  number. Unblocks metric USD export (017) + true-meters primitive culls (145).
