@@ -427,13 +427,15 @@ main {
   color: var(--text-dim);
   margin: 0 0 8px 0;
 }
-/* STO-SCN-110: copy buttons in the Manifest header (Copy MD + Copy Link). */
-#copy-manifest, #copy-link {
+/* STO-SCN-110/135: action buttons in the Manifest header (Open in Scout + Copy MD/Link). */
+#copy-manifest, #copy-link, #open-scout {
   float: right; margin-left: 6px; text-transform: none; letter-spacing: normal;
   background: var(--bg-elev-2); color: var(--text); border: 1px solid var(--border);
   border-radius: 4px; padding: 2px 8px; font-size: 11px; cursor: pointer;
 }
-#copy-manifest:hover, #copy-link:hover { background: var(--border); }
+#copy-manifest:hover, #copy-link:hover, #open-scout:hover:not(:disabled) { background: var(--border); }
+/* STO-SCN-135: Scout disabled when the mesh exceeds the WebGL per-draw index limit. */
+#open-scout:disabled { opacity: 0.4; cursor: not-allowed; }
 /* STO-SCN-110: clickable Live-Results items. */
 #results-content li.rank-item { cursor: pointer; border-radius: 3px; }
 #results-content li.rank-item:hover { background: var(--bg-elev-2); color: var(--accent); }

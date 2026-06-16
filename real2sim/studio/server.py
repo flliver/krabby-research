@@ -154,9 +154,50 @@ class Handler(rr.Handler):
             # the absorbed rate_renders app, embedded under Studio
             self._send(200, (REPO / "rate_renders" / "static" / "index.html").read_bytes(),
                        "text/html")
+        elif len(parts) == 4 and parts[:2] == ["api", "scout"]:
+            self._json(self._scout_build(parts[2], parts[3]))   # STO-SCN-135
+        elif len(parts) >= 3 and parts[0] == "scout":
+            self._serve_scout_file(parts[1], parts[2], "/".join(parts[3:]) or "viewer.html")
         else:
             # rankings / renders / scenes / aggregate / static — inherited
             return super().do_GET()
+
+    # STO-SCN-135: "Open in Scout" — build a mesh+spine+highlighted-subset viewer for a variant
+    # (via a uv subprocess; the studio's python has no numpy) and serve it.
+    @staticmethod
+    def _scout_dir(scene: str, variant: str):
+        import pathlib
+        return pathlib.Path(f"/tmp/scout-mesh-{scene}-{variant}")
+
+    def _scout_build(self, scene: str, variant: str) -> dict:
+        import subprocess
+        d = self._scout_dir(scene, variant)
+        if not (d / "viewer.html").exists():
+            r = subprocess.run(
+                ["uv", "run", "--quiet", "--python", "3.11", "--with", "numpy",
+                 "python3", str(REPO / "verify_viewer" / "build_scout_mesh.py"), scene,
+                 "--mesh", variant, "--no-serve", "--serve-dir", str(d)],
+                capture_output=True, text=True, cwd=str(REPO))
+            if r.returncode != 0 or not (d / "viewer.html").exists():
+                return {"error": "scout build failed", "detail": (r.stderr or r.stdout)[-1500:]}
+        return {"url": f"/scout/{scene}/{variant}/viewer.html"}
+
+    def _serve_scout_file(self, scene: str, variant: str, rel: str):
+        import shutil as _sh
+        fp = self._scout_dir(scene, variant) / rel
+        if not fp.exists():
+            return self._send(404, b"not found", "text/plain")
+        if fp.suffix == ".ply":                 # stream (meshes are 100s of MB; follows symlink)
+            self.send_response(200)
+            self.send_header("Content-Type", "application/octet-stream")
+            self.send_header("Content-Length", str(fp.stat().st_size))
+            self.end_headers()
+            with fp.open("rb") as f:
+                _sh.copyfileobj(f, self.wfile)
+            return
+        ctype = "text/html" if fp.suffix == ".html" else \
+                "application/json" if fp.suffix == ".json" else "text/plain"
+        self._send(200, fp.read_bytes(), ctype)
 
     def do_POST(self):  # noqa: N802
         if self.path.startswith("/api/rankings/") or self.path == "/api/profiles":

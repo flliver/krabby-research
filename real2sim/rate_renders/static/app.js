@@ -53,6 +53,7 @@ const els = {
   manifest: $("#manifest-content"),
   copyManifestBtn: $("#copy-manifest"),      // STO-SCN-110: copy manifest as Markdown
   copyLinkBtn: $("#copy-link"),              // STO-SCN-110/111: copy deep-link
+  openScoutBtn: $("#open-scout"),            // STO-SCN-135: open variant mesh+spine in Scout
   results: $("#results-content"),
   cameraSubset: $("#camera-subset"),       // STO-SCN-134
   resultsDetails: $("#results-details"),   // STO-SCN-134 (collapsible Live Results)
@@ -834,6 +835,7 @@ function renderManifest() {
     html += `<div style="margin-top:6px; color: var(--text-dim);">mesh: ` +
             `${fmtN(ms.verts)} verts · ${fmtN(ms.faces)} tris · ${ms.size_mb} MB</div>`;
   }
+  updateScoutButton(ms);   // STO-SCN-135: gate Open-in-Scout on mesh renderability
   const transforms = m.transforms || {};
   const tNames = Object.keys(transforms);
   if (!tNames.length) {
@@ -887,6 +889,40 @@ function renderCameraSubset() {
     `<span style="font-weight:400; color:var(--text-dim);">(${cs.n})</span></h3>` +
     (cs.source ? `<div style="font-size:10px; color:var(--text-dim);">${escapeHtml(cs.source)}</div>` : "") +
     `<div class="subset-frames">${cs.frames.map(f => escapeHtml(f)).join("<br>")}</div>`;
+}
+
+// STO-SCN-135: the browser (WebGL) can't draw a mesh whose index count exceeds 30M = 10M tris in
+// one draw — it silently won't render. Until the viewer chunks/decimates, gate Scout on tri-count:
+// disable the button for meshes at/above the limit (matcha TSDF/tetra ≈ 17M tris) and say why.
+const SCOUT_MAX_TRIS = 10_000_000;
+function updateScoutButton(ms) {
+  const btn = els.openScoutBtn;
+  if (!btn) return;
+  const faces = (ms && ms.faces) || 0;
+  if (faces >= SCOUT_MAX_TRIS) {
+    btn.disabled = true;
+    btn.title = `Mesh too large for Scout (${(faces/1e6).toFixed(1)}M tris ≥ ` +
+                `${SCOUT_MAX_TRIS/1e6}M WebGL per-draw limit) — won't render in the browser`;
+  } else {
+    btn.disabled = false;
+    btn.title = "Open this variant's mesh + camera spine (utilized subset highlighted) in Scout";
+  }
+}
+
+// STO-SCN-135: open the focused variant's mesh + camera spine (subset highlighted) in Scout.
+async function openInScout() {
+  if (!state.focusVariant) { setStatus("focus a render first, then Open in Scout"); return; }
+  const ms = (state.manifests[state.focusVariant] || {}).mesh || {};
+  if ((ms.faces || 0) >= SCOUT_MAX_TRIS) {
+    setStatus(`mesh too large for Scout (${(ms.faces/1e6).toFixed(1)}M tris ≥ ${SCOUT_MAX_TRIS/1e6}M WebGL limit)`);
+    return;
+  }
+  setStatus("building Scout view (mesh + spine)…");
+  try {
+    const d = await api(`/api/scout/${encodeURIComponent(state.scene)}/${encodeURIComponent(state.focusVariant)}`);
+    if (d.url) { window.open(d.url, "_blank"); setStatus("Scout opened in a new tab."); }
+    else setStatus("Scout build failed: " + (d.error || d.detail || "unknown"));
+  } catch (e) { setStatus("Scout failed: " + e); }
 }
 
 // STO-SCN-111: deep-link URL to the focused rendering (shared by Copy MD + Copy Link).
@@ -1195,6 +1231,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   els.submitBtn.addEventListener("click", submitRanking);
   els.copyManifestBtn.addEventListener("click", copyManifestMarkdown);   // STO-SCN-110
   els.copyLinkBtn.addEventListener("click", copyLink);                   // STO-SCN-110/111
+  if (els.openScoutBtn) els.openScoutBtn.addEventListener("click", openInScout);  // STO-SCN-135
   els.results.addEventListener("click", onResultClick);                  // STO-SCN-110: clickable leaderboard
   // STO-SCN-134: Live Results collapsible — default collapsed; remember the operator's choice.
   if (els.resultsDetails) {
