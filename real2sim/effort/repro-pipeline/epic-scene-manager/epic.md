@@ -72,7 +72,8 @@ scenes/XXX-<name>/
 
 | # | XID | Story | Area | Size |
 |---|-----|-------|------|------|
-| 1 | `STO-SCN-146` | Scenes tab shell + scene selector header + metadata view | browse | M |
+| 1 | `STO-SCN-146` | Scenes tab shell + scene selector header (+ view switcher) | browse | M |
+| 1a | `STO-SCN-153` | Scene metadata view | browse | S |
 | 2 | `STO-SCN-147` | Spine Viewer view — camera spine + color-coded subsets | browse | M |
 | 3 | `STO-SCN-148` | Camera Subsets view — list + primary + paged photo grid (1/2×1/2×2/3×3/4×4) | browse | M |
 | 4 | `STO-SCN-149` | New Scene — ingest (video/images/folder, MOVE-or-UPLOAD) + canonicalize to content-hash | create | L |
@@ -80,7 +81,8 @@ scenes/XXX-<name>/
 | 6 | `STO-SCN-151` | Scout in the tab — view gaussian (default) + define Render Views | create | M |
 | 7 | `STO-SCN-152` | MEASURE + Normalize Units in the tab (formalize STO-SCN-144 / `datum.json`) | create | M |
 
-**Flow:** browse stories (146–148) are independent read-views over an existing scene; create
+**Flow:** browse — 146 (shell + view switcher) hosts the read-views 153 (metadata) / 147 (spine) /
+148 (subsets) over an existing scene; create
 stories (149→150→151→152) are the New-Scene pipeline in order. 152 reuses the STO-SCN-144 MEASURE
 mode + the `calibrate_datum`/`datum_frame` back-end already shipped (001-patio calibrated at s=4.45).
 
