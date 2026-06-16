@@ -7,6 +7,14 @@
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
+  <!-- STO-SCN-146: top-level tab bar (Rank | Scenes). Scenes is a sibling tab
+       reusing the Studio shell; its logic lives in scenes.js (app.js untouched). -->
+  <nav id="tab-bar">
+    <button data-tab="rank" class="active">Rank</button>
+    <button data-tab="scenes">Scenes</button>
+  </nav>
+
+  <div id="tab-rank">
   <div id="scene-bar">
     <button id="scene-left" class="scene-arrow" title="scroll left">&#8249;</button>
     <div id="scene-strip"></div>
@@ -82,6 +90,27 @@
       </details>
     </aside>
   </main>
+  </div><!-- /#tab-rank -->
+
+  <!-- STO-SCN-146: Scenes tab — scene selector header + config area + view switcher.
+       Read-views (Metadata 153 / Spine 147 / Subsets 148) mount in #scenes-view.
+       New-Scene flow (149–152) hangs off #new-scene-btn. -->
+  <section id="tab-scenes" hidden>
+    <div id="scenes-bar">
+      <button class="scene-arrow" id="sc-left" title="scroll left">&#8249;</button>
+      <div id="scenes-strip"></div>
+      <button class="scene-arrow" id="sc-right" title="scroll right">&#8250;</button>
+      <button id="new-scene-btn" title="Create a new scene (STO-SCN-149)">+ New Scene</button>
+    </div>
+    <div id="scenes-config">
+      <div id="scenes-viewbar" role="tablist">
+        <button data-view="meta" class="active">Metadata</button>
+        <button data-view="spine">Spine</button>
+        <button data-view="subsets">Subsets</button>
+      </div>
+      <div id="scenes-view"><em>Select a scene above.</em></div>
+    </div>
+  </section>
 
   <footer>
     <small>
@@ -92,5 +121,6 @@
   </footer>
 
   <script src="/static/app.js"></script>
+  <script src="/static/scenes.js"></script>
 </body>
 </html>

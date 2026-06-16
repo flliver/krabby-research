@@ -298,6 +298,10 @@ main {
   background: var(--bg);
   border-radius: 4px;
   overflow: hidden;
+  /* Never flex-shrink a row below its content — the rank pane (overflow:auto)
+     scrolls instead. Without this, many tiers crushed the pool to height 0 so its
+     cards couldn't be dragged out. Each row keeps its full (wrapped-cards) height. */
+  flex-shrink: 0;
 }
 .tier-row.pool-row {
   background: var(--bg-elev-2);
@@ -607,3 +611,38 @@ footer kbd {
 .scene-arrow { flex: 0 0 auto; width: 28px; height: 63px; font-size: 20px;
   background: #2a2e36; color: #ccc; border: none; border-radius: 6px; cursor: pointer; }
 .scene-arrow:hover { background: #3a3e46; }
+
+/* == STO-SCN-146: Scenes tab (shell + selector + view switcher) =========== */
+#tab-bar { display: flex; gap: 2px; background: var(--bg-elev);
+  border-bottom: 1px solid var(--border); padding: 4px 8px 0; }
+#tab-bar button { background: transparent; color: var(--text-dim);
+  border: 1px solid transparent; border-bottom: none; padding: 6px 16px;
+  border-radius: 6px 6px 0 0; cursor: pointer; font-size: 13px; }
+#tab-bar button:hover { color: var(--text); }
+#tab-bar button.active { background: var(--bg); color: var(--text);
+  border-color: var(--border); }
+
+#tab-scenes { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+#scenes-bar { display: flex; align-items: center; gap: 4px;
+  background: var(--bg-panel, #20242c); padding: 6px 8px; }
+#scenes-strip { display: flex; gap: 8px; overflow-x: auto; scroll-behavior: smooth;
+  flex: 1; scrollbar-width: thin; }
+.scenes-empty { color: var(--text-dim); font-size: 12px; padding: 18px 8px; }
+#new-scene-btn { flex: 0 0 auto; background: var(--accent-dim); color: var(--bg);
+  border: 1px solid var(--accent); border-radius: 6px; padding: 8px 14px;
+  cursor: pointer; font-weight: 600; }
+#new-scene-btn:hover { background: var(--accent); }
+
+#scenes-config { flex: 1; min-height: 0; display: flex; flex-direction: column;
+  padding: 10px 14px; gap: 10px; overflow: auto; }
+#scenes-viewbar { display: flex; gap: 4px; }
+#scenes-viewbar button { background: var(--bg-elev-2); color: var(--text-dim);
+  border: 1px solid var(--border); border-radius: 6px; padding: 6px 14px; cursor: pointer; }
+#scenes-viewbar button:hover { color: var(--text); }
+#scenes-viewbar button.active { background: var(--accent-dim); color: var(--bg);
+  border-color: var(--accent); }
+#scenes-view { flex: 1; min-height: 0; border: 1px solid var(--border);
+  border-radius: 8px; background: var(--bg-elev); padding: 16px; }
+.view-placeholder h3 { margin: 0 0 8px; color: var(--text); }
+.view-placeholder p { color: var(--text-dim); }
+.view-placeholder code { background: var(--bg-elev-2); padding: 1px 5px; border-radius: 4px; }
