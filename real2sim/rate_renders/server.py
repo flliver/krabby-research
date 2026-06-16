@@ -116,7 +116,9 @@ def aggregate(rankings: list[dict]) -> dict:
 # ---------------------------------------------------------------------------
 
 _SALIENT = ("sfm", "dense_regul", "selector", "n_images", "n_scout", "n", "grid",
-            "res", "process_res", "conf_percentile", "voxel_frac", "alignment_config")
+            "res", "process_res", "conf_percentile", "voxel_frac", "alignment_config",
+            # STO-SCN-138: cull / condition knobs (cull-mesh@0)
+            "max_dist_from_cluster", "min_views", "cambox_expand", "floor_z_min")
 
 
 def _human_count(n: int) -> str:
@@ -148,6 +150,24 @@ def _setting_tok(k: str, v) -> str | None:
         return f"grid{v}"
     if k == "alignment_config":
         return f"align-{v}"
+    # STO-SCN-138: cull knobs — omit the disabled sentinels so the line stays clean
+    if k == "max_dist_from_cluster":
+        try:
+            return f"≤{float(v):g}m" if float(v) > 0 else None
+        except (TypeError, ValueError):
+            return None
+    if k == "min_views":
+        try:
+            return f"≥{int(v)}views" if int(v) > 0 else None
+        except (TypeError, ValueError):
+            return None
+    if k == "cambox_expand":
+        try:
+            return f"cambox+{float(v):g}" if float(v) >= 0 else None
+        except (TypeError, ValueError):
+            return None
+    if k == "floor_z_min":
+        return f"floor≥{v}"
     return f"{k}={v}"
 
 
@@ -199,6 +219,134 @@ def describe_render(m: dict) -> str:
         return m.get("variant_name", "(unknown)")
 
 
+def _find_node_meta(scene_dir, mesh_id):
+    """Locate a mesh node (meshify OR condition) by identity; return its metadata dict."""
+    for pat in (f"represent/*/*/meshify/*/{mesh_id}/metadata.json",
+                f"represent/*/*/meshify/*/*/condition/{mesh_id}/metadata.json"):
+        for p in scene_dir.glob(pat):
+            try:
+                return json.loads(p.read_text())
+            except (OSError, ValueError):
+                pass
+    return None
+
+
+def chain_transforms(scene_dir, node_md, rep_algo, rep_settings):
+    """STO-SCN-138 / operator 2026-06-16: RETAIN HISTORICAL SETTINGS in the manifest. Walk the
+    condition node's `resolved_inputs.mesh` lineage so every upstream conditioning step's settings
+    are shown — e.g. tetra-filter → cambox cull → poisson — newest first (so describe_render names
+    the node's own op), then the base meshify + representation. Each step keyed by its algo,
+    de-duplicated if an algo recurs in the chain."""
+    steps = []            # (algo, settings) newest -> oldest
+    md, seen = node_md, set()
+    while md and md.get("resolved_inputs", {}).get("mesh"):
+        steps.append((md.get("algo") or "condition", md.get("settings", {})))
+        up = md["resolved_inputs"]["mesh"]
+        if up in seen:
+            break
+        seen.add(up)
+        md = _find_node_meta(scene_dir, up)
+    if md and md.get("algo"):                       # the base meshify node
+        steps.append((md["algo"], md.get("settings", {})))
+    steps.append((rep_algo, dict(rep_settings)))    # the representation
+    transforms = {}
+    for algo, st in steps:
+        key, i = algo, 2
+        while key in transforms:
+            key = f"{algo} #{i}"; i += 1
+        transforms[key] = {"parameters": st}
+    return transforms
+
+
+def scene_meta(scene_dir: Path) -> dict:
+    """Read-only metadata for a scene (STO-SCN-153).
+
+    Pure function of a scene directory — no server/network state, so it is
+    unit-testable against a synthetic tree. Returns identity + capture mode +
+    counts + scale/datum status + pipeline state for the Metadata view.
+    """
+    name = scene_dir.name
+    code, _, rest = name.partition("-")
+    images_dir = scene_dir / "images"
+
+    # canonical content-addressed images: images/<HASH>/ (exclude subsets/ingress)
+    canonical = 0
+    if images_dir.is_dir():
+        canonical = sum(
+            1 for d in images_dir.iterdir()
+            if d.is_dir() and d.name not in ("subsets", "ingress"))
+
+    subsets_dir = images_dir / "subsets"
+    subsets = [d for d in subsets_dir.iterdir() if d.is_dir()] if subsets_dir.is_dir() else []
+    # solves = camera solutions across all subsets (images/subsets/*/cameras/*/)
+    solves = []
+    for s in subsets:
+        cdir = s / "cameras"
+        if cdir.is_dir():
+            solves += [c for c in cdir.iterdir() if c.is_dir()]
+
+    # capture mode — a captured video vs. ingested images
+    has_video = (scene_dir / "videos" / "capture").is_dir() and any(
+        (scene_dir / "videos" / "capture").glob("*"))
+    capture_mode = "video" if has_video else ("images" if canonical else "empty")
+
+    # render views — unified cameras.json (schema 5) names, else the views/ dir
+    render_views = 0
+    cj = scene_dir / "cameras.json"
+    if cj.exists():
+        try:
+            render_views = len(json.loads(cj.read_text()).get("views", []))
+        except (OSError, ValueError):
+            render_views = 0
+    if not render_views and (scene_dir / "views").is_dir():
+        render_views = sum(1 for d in (scene_dir / "views").iterdir() if d.is_dir())
+
+    # scale / datum — additive datum.json sidecar next to a solve gauge
+    datum = {"calibrated": False}
+    datum_files = sorted(scene_dir.glob("images/subsets/*/cameras/*/datum.json"))
+    if datum_files:
+        try:
+            dj = json.loads(datum_files[0].read_text())
+            prov = dj.get("provenance", {}) if isinstance(dj.get("provenance"), dict) else {}
+            datum = {
+                "calibrated": True,
+                "scale_m_per_unit": dj.get("scale_m_per_unit"),
+                "method": prov.get("method"),
+                "status": prov.get("status"),
+                "scene_extent_m": prov.get("scene_extent_m"),
+                "path": str(datum_files[0].relative_to(scene_dir)),
+            }
+        except (OSError, ValueError):
+            datum = {"calibrated": False, "error": "datum.json unreadable"}
+
+    # pipeline state — coarse stage flags
+    meshed = any(scene_dir.glob("**/mesh.ply")) or any(scene_dir.glob("**/*.ply"))
+    scouted = any(scene_dir.glob("images/subsets/*/cameras/*/gs_ply/**/*.ply")) \
+        or any(scene_dir.glob("images/subsets/*/cameras/*/scout/**"))
+    state = {
+        "ingested": bool(canonical or has_video),
+        "solved": bool(solves),
+        "scouted": bool(scouted),
+        "meshed": bool(meshed),
+        "calibrated": datum["calibrated"],
+    }
+
+    return {
+        "scene": name,
+        "code": code,
+        "name": rest or name,
+        "capture_mode": capture_mode,
+        "counts": {
+            "images": canonical,
+            "subsets": len(subsets),
+            "solves": len(solves),
+            "render_views": render_views,
+        },
+        "datum": datum,
+        "state": state,
+    }
+
+
 # ---------------------------------------------------------------------------
 # HTTP handler
 # ---------------------------------------------------------------------------
@@ -244,6 +392,12 @@ class Handler(BaseHTTPRequestHandler):
             return self._serve_static(p[len("/static/"):])
         if p == "/api/scenes":
             return self._send_json(self._list_scenes())
+        if p.startswith("/api/scene/") and p.endswith("/meta"):   # STO-SCN-153
+            scene = p[len("/api/scene/"):-len("/meta")]
+            scene_dir = SCENES_ROOT / scene
+            if not scene_dir.is_dir():
+                return self._send_json({"error": f"scene not found: {scene}"})
+            return self._send_json(scene_meta(scene_dir))
         if p.startswith("/api/scene/"):
             return self._send_json(self._scene_payload(p[len("/api/scene/"):]))
         if p.startswith("/api/render/"):
@@ -579,6 +733,29 @@ class Handler(BaseHTTPRequestHandler):
                                             if sa.get("icp_fitness") is not None else ""))
                         if not rep["deliverable_eligible"]:
                             notes.append("NOT DELIVERABLE: " + "; ".join(rep["license_flags"]))
+                        # STO-SCN-138: a condition node (cull) carries its OWN algo+settings —
+                        # chain the cull transform FIRST (drives describe_render) + the upstream
+                        # represent transform, so the cull knobs are labelled + surfaced. Base
+                        # meshes keep the represent algo (unchanged — no regression).
+                        rep_algo = rep["algo"] or rep["kind"]
+                        cull_algo = m.get("algo")          # present only for condition nodes
+                        node_md_path = (mp.parent / "metadata.json") if mp else None
+                        if cull_algo and node_md_path and node_md_path.exists():
+                            # RETAIN HISTORICAL SETTINGS: walk the full conditioning lineage
+                            # (tetra-filter → cull → poisson → …) so the manifest shows every step.
+                            try:
+                                node_md = json.loads(node_md_path.read_text())
+                                transforms = chain_transforms(
+                                    scene_dir, node_md, rep_algo, rep["settings"])
+                            except (OSError, ValueError):
+                                transforms = {cull_algo: {"parameters": m.get("settings", {})},
+                                              rep_algo: {"parameters": dict(rep["settings"])}}
+                        elif cull_algo:
+                            transforms = {cull_algo: {"parameters": m.get("settings", {})},
+                                          rep_algo: {"parameters": dict(rep["settings"])}}
+                        else:
+                            transforms = {rep_algo: {
+                                "parameters": {**rep["settings"], **m.get("settings", {})}}}
                         manifests[m["identity"]] = {
                             "variant_name": ix["labels"].get(m["identity"], m["identity"]),
                             "pipeline": rep["kind"],
@@ -586,8 +763,7 @@ class Handler(BaseHTTPRequestHandler):
                             "camera_subset": cam_subset,   # STO-SCN-134
                             "notes": "; ".join(notes),
                             "mesh": self._ply_stats(mp) if mp and mp.exists() else {},
-                            "transforms": {rep["algo"] or rep["kind"]: {
-                                "parameters": {**rep["settings"], **m.get("settings", {})}}}}
+                            "transforms": transforms}
                         manifests[m["identity"]]["description"] = describe_render(
                             manifests[m["identity"]])
             # STO-SCN-085: expected = every mesh artifact × every canonical
