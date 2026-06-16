@@ -4,7 +4,7 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: M
-status: draft
+status: in-progress
 date: 2026-06-16
 depends-on: [STO-SCN-146]
 bd-id: krabby-8x8p
@@ -33,9 +33,25 @@ The Rank tab already has a render grid with layout/paging to mirror. Full spec +
 - Click a photo → enlarge (reuse Rank's single-image view).
 
 ## Definition of Done
-- [ ] Subset list renders (PRIMARY marked) for the selected scene; selecting one loads its photos.
-- [ ] Paged grid with 1 / 2×1 / 2×2 / 3×3 / 4×4 layouts, mirroring the Rank viewer.
-- [ ] Reuses Rank's grid/paging; subset membership served from the scene API.
+- [x] Subset list renders (PRIMARY marked) for the selected scene; selecting one loads its photos.
+- [x] Paged grid with 1 / 2×1 / 2×2 / 3×3 / 4×4 layouts, mirroring the Rank viewer.
+- [x] Reuses Rank's grid/paging; subset membership served from the scene API.
+- [ ] **Operator-verified (T-020):** Studio → Scenes → Subsets; confirm subset list (PRIMARY flagged), datum badge, layout cycle + paging render real photos.
+
+## Build notes (2026-06-16)
+- **Backend** (`rate_renders/server.py`): pure `scene_subsets(scene_dir)` —
+  lists each REAL subset (resolves the `primary` symlink to a flag, not a
+  duplicate), with label/mechanism, member image hashes, camera solves, and a
+  `has_datum` flag. Routes: `GET /api/scene/<scene>/subsets` and
+  `GET /api/photo/<scene>/<hash>.jpg` (serves `images/<hash>/image.jpg`,
+  path-clamped to the store).
+- **Frontend** `rate_renders/static/scenes-subsets.js`: registers
+  `window.scenesViews.subsets` — subset list (primary/datum badges, counts) +
+  paged photo grid with 1 / 2×1 / 2×2 / 3×3 / 4×4 layouts; CSS in `style.css`.
+- **Verified:** `tests/test_scene_subsets.py` + standalone driver against the
+  real 001-patio store (6 subsets, primary→3A6MH6U5VKYP, datum on 6EHLYO3MF3QU
+  with 539 members). HTTP end-to-end on a throwaway port: `/subsets` lists,
+  `/api/photo/...jpg` → `200 image/jpeg 598 KB`, path traversal → `404`.
 
 ## Out of scope
 - Editing/creating subsets (best-N selection is EPI-SCN-AUTO-SUBSET-SELECT); the spine 3D view (147).

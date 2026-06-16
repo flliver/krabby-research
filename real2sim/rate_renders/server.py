@@ -347,6 +347,60 @@ def scene_meta(scene_dir: Path) -> dict:
     }
 
 
+def scene_subsets(scene_dir: Path) -> dict:
+    """Camera subsets for a scene (STO-SCN-148).
+
+    Pure function of a scene directory — unit-testable. Lists each REAL subset
+    (the `primary` entry is a symlink → its target is flagged, not duplicated):
+    id, primary flag, label/mechanism, member image hashes, camera solves, and
+    whether a datum.json sidecar exists.
+    """
+    subsets_dir = scene_dir / "images" / "subsets"
+    if not subsets_dir.is_dir():
+        return {"scene": scene_dir.name, "subsets": []}
+
+    primary_target = None
+    primary_link = subsets_dir / "primary"
+    if primary_link.is_symlink():
+        primary_target = Path(os.readlink(primary_link)).name
+    elif primary_link.is_dir():
+        primary_target = "primary"
+
+    out = []
+    for d in sorted(subsets_dir.iterdir()):
+        if not d.is_dir() or d.is_symlink():   # skip the 'primary' symlink itself
+            continue
+        members = []
+        sj = d / "subset.json"
+        if sj.exists():
+            try:
+                members = json.loads(sj.read_text()).get("members", [])
+            except (OSError, ValueError):
+                members = []
+        md = {}
+        mj = d / "metadata.json"
+        if mj.exists():
+            try:
+                md = json.loads(mj.read_text())
+            except (OSError, ValueError):
+                md = {}
+        cdir = d / "cameras"
+        solves = sorted(c.name for c in cdir.iterdir() if c.is_dir()) if cdir.is_dir() else []
+        has_datum = bool(cdir.is_dir() and any(cdir.glob("*/datum.json")))
+        out.append({
+            "id": d.name,
+            "is_primary": d.name == primary_target,
+            "label": md.get("label"),
+            "mechanism": md.get("mechanism"),
+            "member_count": len(members),
+            "members": members,
+            "solves": solves,
+            "has_datum": has_datum,
+        })
+    out.sort(key=lambda s: (not s["is_primary"], s["id"]))
+    return {"scene": scene_dir.name, "subsets": out}
+
+
 # ---------------------------------------------------------------------------
 # HTTP handler
 # ---------------------------------------------------------------------------
@@ -398,6 +452,14 @@ class Handler(BaseHTTPRequestHandler):
             if not scene_dir.is_dir():
                 return self._send_json({"error": f"scene not found: {scene}"})
             return self._send_json(scene_meta(scene_dir))
+        if p.startswith("/api/scene/") and p.endswith("/subsets"):   # STO-SCN-148
+            scene = p[len("/api/scene/"):-len("/subsets")]
+            scene_dir = SCENES_ROOT / scene
+            if not scene_dir.is_dir():
+                return self._send_json({"error": f"scene not found: {scene}"})
+            return self._send_json(scene_subsets(scene_dir))
+        if p.startswith("/api/photo/"):                              # STO-SCN-148
+            return self._serve_photo(p[len("/api/photo/"):])
         if p.startswith("/api/scene/"):
             return self._send_json(self._scene_payload(p[len("/api/scene/"):]))
         if p.startswith("/api/render/"):
@@ -902,6 +964,21 @@ class Handler(BaseHTTPRequestHandler):
         if not target.is_file():
             return self._not_found(f"render: {rel}")
         self._send_bytes(target.read_bytes(), "image/png")
+
+    def _serve_photo(self, rel: str):
+        """STO-SCN-148: serve a canonical source image. rel = 'scene/<hash>.jpg'
+        → images/<hash>/image.jpg. Path-clamped to the scene store."""
+        try:
+            scene, fname = rel.split("/")
+        except ValueError:
+            return self._bad_request("expected scene/<hash>.jpg")
+        h = fname.removesuffix(".jpg")
+        target = (SCENES_ROOT / scene / "images" / h / "image.jpg").resolve()
+        if not str(target).startswith(str(SCENES_ROOT.resolve())):
+            return self._bad_request("Invalid path")
+        if not target.is_file():
+            return self._not_found(f"photo: {rel}")
+        self._send_bytes(target.read_bytes(), "image/jpeg")
 
     # ---- rankings -------------------------------------------------------
 
