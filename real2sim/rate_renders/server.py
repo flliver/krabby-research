@@ -401,6 +401,143 @@ def scene_subsets(scene_dir: Path) -> dict:
     return {"scene": scene_dir.name, "subsets": out}
 
 
+# Subset palette for the Spine view (smallest subset first → most-selective colour wins).
+_SPINE_PALETTE = ["#5fd49a", "#f0d048", "#f08c48", "#48b8f0", "#b47cf0",
+                  "#f04848", "#48f0a0", "#f078b4", "#a0d048", "#48d0d0"]
+
+
+def _frustum_from_w2c(w2c):
+    """w2c (4x4) → (R_c2w flattened row-major [9], camera center [3]). Pure python
+    (mirrors verify_viewer/build_verify.frustum_from_w2c — no numpy)."""
+    R = [[w2c[i][j] for j in range(3)] for i in range(3)]
+    t = [w2c[i][3] for i in range(3)]
+    center = [-(R[0][i] * t[0] + R[1][i] * t[1] + R[2][i] * t[2]) for i in range(3)]
+    rflat = [R[c][r] for r in range(3) for c in range(3)]   # c2w = R_w2c^T, row-major
+    return rflat, center
+
+
+def _frame_to_hash(scene_dir: Path) -> dict:
+    """original_name (e.g. frame_0790.jpg) → content hash, from each canonical
+    image's metadata.json. The solve names cameras by frame; subsets index hashes."""
+    out = {}
+    for meta in scene_dir.glob("images/*/metadata.json"):
+        try:
+            on = json.loads(meta.read_text()).get("original_name")
+        except (OSError, ValueError):
+            continue
+        if on:
+            out[on] = meta.parent.name
+    return out
+
+
+def scene_spine(scene_dir: Path, solve: str | None = None) -> dict:
+    """Posed camera spine for the Spine view (STO-SCN-147), numpy-free.
+
+    Reuses `posed_from_sparse` (pure-python COLMAP reader) for the poses + the
+    cached gravity-up from `datum.json` (falls back to a camera-mean up). Tags
+    each camera by subset membership (frame→hash→members) and colours by the
+    SMALLEST containing subset, so PRIMARY-tight cams read distinctly from the
+    broad pool. Output is viewer-ready (frustums + up + ground centre + legend).
+    """
+    import math
+    subs_root = scene_dir / "images" / "subsets"
+    if not subs_root.is_dir():
+        return {"error": "no subsets in this scene"}
+
+    # candidate solves = those with a COLMAP sparse/0 (what posed_from_sparse needs)
+    cand = []
+    for sd in sorted(subs_root.iterdir()):
+        if sd.is_symlink() or not sd.is_dir():
+            continue
+        cams = sd / "cameras"
+        if not cams.is_dir():
+            continue
+        members = []
+        sj = sd / "subset.json"
+        if sj.exists():
+            try:
+                members = json.loads(sj.read_text()).get("members", [])
+            except (OSError, ValueError):
+                members = []
+        for c in sorted(cams.iterdir()):
+            if (c / "sparse" / "0" / "images.bin").exists():
+                cand.append({"subset": sd.name, "solve": c.name, "dir": c, "n_members": len(members)})
+    if not cand:
+        return {"error": "no solve with COLMAP sparse/0 (run a spine solve first)"}
+
+    chosen = None
+    if solve:
+        chosen = next((c for c in cand if c["solve"] == solve), None)
+        if chosen is None:
+            return {"error": f"solve not found (or has no sparse/0): {solve}"}
+    if chosen is None:
+        chosen = max(cand, key=lambda c: c["n_members"])   # largest = most complete spine
+
+    cdir = chosen["dir"]
+    import posed_from_sparse as pfs
+    try:
+        posed = pfs.posed_from_sparse(str(cdir / "sparse" / "0"))
+    except (OSError, ValueError, KeyError) as e:
+        return {"error": f"failed to read solve poses: {e}"}
+
+    f2h = _frame_to_hash(scene_dir)
+    subs = scene_subsets(scene_dir)["subsets"]
+    by_size = sorted(subs, key=lambda s: s["member_count"])   # smallest-first
+    submem = {s["id"]: set(s["members"]) for s in subs}
+    color = {s["id"]: _SPINE_PALETTE[i % len(_SPINE_PALETTE)] for i, s in enumerate(by_size)}
+    on_spine = {s["id"]: 0 for s in subs}
+
+    frustums, centers = [], []
+    for e in posed:
+        rflat, c = _frustum_from_w2c(e["w2c"])
+        K = e["K"]
+        vfov = math.degrees(2 * math.atan(K[1][2] / K[1][1])) if K[1][1] else 50.0
+        aspect = (K[0][2] / K[1][2]) if K[1][2] else 1.5
+        h = f2h.get(e["name"])
+        mems = [s["id"] for s in by_size if h in submem.get(s["id"], set())]
+        for mid in mems:
+            on_spine[mid] += 1
+        frustums.append({
+            "R": [round(x, 6) for x in rflat],
+            "pos": [round(x, 5) for x in c],
+            "name": e["name"], "hash": h,
+            "vfov": round(vfov, 2), "aspect": round(aspect, 3),
+            "subsets": mems,
+            "color": color[mems[0]] if mems else "#888888",
+        })
+        centers.append(c)
+
+    n = len(centers) or 1
+    ctr = [sum(c[i] for c in centers) / n for i in range(3)]
+    mn = [min((c[i] for c in centers), default=0.0) for i in range(3)]
+    mx = [max((c[i] for c in centers), default=0.0) for i in range(3)]
+    diag = sum((mx[i] - mn[i]) ** 2 for i in range(3)) ** 0.5
+
+    up, up_source = None, None
+    dj = cdir / "datum.json"
+    if dj.exists():
+        try:
+            up = json.loads(dj.read_text()).get("datum_frame", {}).get("up")
+            up_source = "datum" if up else None
+        except (OSError, ValueError):
+            up = None
+    if not up:                       # pure-python fallback: mean camera local-up (−Y of c2w)
+        ux = uy = uz = 0.0
+        for f in frustums:
+            R = f["R"]; ux += -R[1]; uy += -R[4]; uz += -R[7]
+        nrm = (ux * ux + uy * uy + uz * uz) ** 0.5 or 1.0
+        up, up_source = [ux / nrm, uy / nrm, uz / nrm], "camera-mean"
+
+    legend = [{"id": s["id"], "color": color[s["id"]], "is_primary": s["is_primary"],
+               "n_on_spine": on_spine[s["id"]], "member_count": s["member_count"]}
+              for s in by_size]
+
+    return {"scene": scene_dir.name, "solve": chosen["solve"], "subset": chosen["subset"],
+            "n": len(frustums), "frustums": frustums, "up": up, "up_source": up_source,
+            "gauss_ctr": [round(x, 5) for x in ctr], "cam_diag": round(diag, 3),
+            "legend": legend, "title": f"{scene_dir.name} · spine ({len(frustums)} cams)"}
+
+
 # ---------------------------------------------------------------------------
 # HTTP handler
 # ---------------------------------------------------------------------------
@@ -458,6 +595,14 @@ class Handler(BaseHTTPRequestHandler):
             if not scene_dir.is_dir():
                 return self._send_json({"error": f"scene not found: {scene}"})
             return self._send_json(scene_subsets(scene_dir))
+        if p.startswith("/api/scene/") and p.endswith("/spine"):     # STO-SCN-147
+            scene = p[len("/api/scene/"):-len("/spine")]
+            scene_dir = SCENES_ROOT / scene
+            if not scene_dir.is_dir():
+                return self._send_json({"error": f"scene not found: {scene}"})
+            from urllib.parse import parse_qs
+            solve = (parse_qs(url.query).get("solve") or [None])[0]
+            return self._send_json(scene_spine(scene_dir, solve))
         if p.startswith("/api/photo/"):                              # STO-SCN-148
             return self._serve_photo(p[len("/api/photo/"):])
         if p.startswith("/api/scene/"):

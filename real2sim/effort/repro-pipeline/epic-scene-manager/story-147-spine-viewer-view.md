@@ -4,7 +4,7 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: M
-status: draft
+status: in-progress
 date: 2026-06-16
 depends-on: [STO-SCN-146]
 bd-id: krabby-cq0y
@@ -32,9 +32,31 @@ per-subset coloring. Full spec + reuse map: **EPI-SCN-SCENE-MANAGER**.
 - Up/orientation from `gauge_up`; ground grid (existing).
 
 ## Definition of Done
-- [ ] Spine view renders the posed frustums for the selected scene, oriented to gravity.
-- [ ] Cameras are color-coded by subset (PRIMARY + others) with a legend.
-- [ ] Reuses `verify_viewer/viewer.html` + `build_verify.py`/`posed_from_sparse`/`gauge_up` (no re-port of the math).
+- [x] Spine view renders the posed frustums for the selected scene, oriented to gravity.
+- [x] Cameras are color-coded by subset (PRIMARY + others) with a legend.
+- [x] Reuses `verify_viewer/viewer.html` + `build_verify.py`/`posed_from_sparse`/`gauge_up` (no re-port of the math).
+- [ ] **Operator-verified (T-020):** Studio → Scenes → Spine; confirm the 001-patio trajectory renders gravity-level, frustums color by subset, the legend isolates a subset on click.
+
+## Build notes (2026-06-16)
+- **Backend** `GET /api/scene/<scene>/spine?solve=<id>` (`rate_renders/server.py`,
+  `scene_spine`): **numpy-free** (the server's py3.14 has no numpy — the heavy
+  `build_verify` runs elsewhere). Reuses `posed_from_sparse` (pure-python COLMAP
+  reader) for poses; gravity-**up read from the cached `datum.json`
+  `datum_frame.up`** (falls back to a camera-mean up, flagged via `up_source`).
+  Picks the largest solve with a `sparse/0`. Tags each camera by subset
+  membership (frame→hash via each image's `metadata.json` `original_name` →
+  `subset.json` members) and **colours by the smallest containing subset** so
+  PRIMARY-tight cams read distinctly; emits a legend (per-subset colour +
+  on-spine/total counts).
+- **Frontend**: `static/spine.html` — a **focused** Three.js viewer (reuses
+  `viewer.html`'s frustum/grid/up math + OrbitControls + WASD-fly, **no splat**,
+  subset colours, click-legend isolate); `static/scenes-spine.js` registers
+  `window.scenesViews.spine` and embeds `spine.html` in an iframe fed by the
+  endpoint. `viewer.html` left untouched (no regression to the 095 verify flow).
+- **Verified:** standalone driver + HTTP on a throwaway port — 001-patio spine
+  = **539 cams**, up from `datum` `[0.521, 0.253, -0.815]`, all cams hash-mapped,
+  6-row legend (PRIMARY 12 … pool 539). `spine.html`/`scenes-spine.js` serve
+  `200`; bad scene → error.
 
 ## Out of scope
 - Editing subsets (read-only view); the per-subset photo grid (STO-SCN-148).

@@ -1,0 +1,156 @@
+<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>Spine viewer — STO-SCN-147</title>
+<style>
+ body{margin:0;overflow:hidden;background:#0e0e11;font-family:monospace}
+ #hud{position:absolute;top:8px;left:8px;color:#ddd;background:#000b;padding:8px 10px;
+      border:1px solid #444;font-size:12px;line-height:1.6;z-index:10}
+ #hud b{color:#7cf}
+ #hud input[type=range]{vertical-align:middle;width:90px}
+ #legend{position:absolute;top:8px;right:8px;background:#000b;border:1px solid #444;
+      padding:8px 10px;font-size:12px;z-index:10;max-height:60vh;overflow:auto}
+ #legend .row{display:flex;align-items:center;gap:7px;cursor:pointer;padding:2px 4px;border-radius:4px}
+ #legend .row:hover{background:#fff2}
+ #legend .row.off{opacity:0.35}
+ #legend .sw{width:12px;height:12px;border-radius:2px;flex:0 0 auto}
+ #legend .ct{color:#888;margin-left:auto;padding-left:8px}
+ #legend .prim{color:#7cf;font-weight:bold}
+ #s{position:absolute;bottom:8px;left:8px;color:#fc6;background:#000b;padding:6px 10px;font-size:12px;z-index:10}
+</style></head>
+<body>
+<div id="hud"><b id="title">spine</b><br>
+  frustums <input id="fop" type="range" min="0" max="1" step="0.05" value="0.7">
+  grid <input id="grdop" type="range" min="0" max="1" step="0.05" value="1">
+  axis <input id="axop" type="range" min="0" max="1" step="0.05" value="0.8"><br>
+  <b>mouse</b>=orbit/zoom/pan · <b>WASD</b>=fly · <b>space/shift</b>=up/down · <b>1-6</b>=snap up · <b>0/\</b>=gravity-up<br>
+  up=[<span id="up">?</span>] · click a legend row to isolate a subset</div>
+<div id="legend"></div>
+<div id="s">loading…</div>
+<script type="importmap">
+{ "imports": {
+  "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/" }}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const Q = new URLSearchParams(location.search);
+const dataUrl = Q.get('data') || './frustums.json';
+const d = await (await fetch(dataUrl, {cache:'no-store'})).json();
+if (d.error) { document.getElementById('s').textContent = 'ERR: ' + d.error; throw new Error(d.error); }
+
+const up = d.up || [0,-1,0];
+const ctr = d.gauss_ctr || [0,0,0];
+const sr = Math.max(0.5, (d.cam_diag || 5) * 0.6);
+const C = new THREE.Vector3(...ctr);
+const FR = d.frustums || [];
+const fop = document.getElementById('fop'), grdop = document.getElementById('grdop'), axop = document.getElementById('axop');
+
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(devicePixelRatio); renderer.setSize(innerWidth, innerHeight);
+document.body.appendChild(renderer.domElement);
+const camera = new THREE.PerspectiveCamera(50, innerWidth/innerHeight, sr*0.005, sr*20);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.copy(C); controls.enableDamping = true; controls.dampingFactor = 0.12;
+
+const ov = new THREE.Scene();
+const axes = new THREE.AxesHelper(sr*1.3); axes.position.copy(C); ov.add(axes);
+axes.material.transparent = true; axes.material.opacity = +axop.value;
+axop.oninput = ()=>{ axes.material.opacity=+axop.value; axes.visible=+axop.value>0; };
+let grid = null, gridOpacity = +grdop.value;
+grdop.oninput = ()=>{ gridOpacity=+grdop.value; if(grid){ grid.material.opacity=gridOpacity; grid.visible=gridOpacity>0; } };
+
+function frame(upArr){
+  const U = new THREE.Vector3(...upArr).normalize();
+  let H = new THREE.Vector3(Math.abs(U.x) > 0.9 ? 0 : 1, 0, Math.abs(U.x) > 0.9 ? 1 : 0);
+  H.crossVectors(U, H).normalize();
+  camera.up.copy(U);
+  camera.position.copy(C).addScaledVector(U, sr*0.9).addScaledVector(H, sr*1.9);
+  controls.target.copy(C); controls.update();
+  if (grid) ov.remove(grid);
+  grid = new THREE.GridHelper(sr*4, 16, 0x44ccaa, 0x225544);
+  grid.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), U);
+  grid.position.copy(C); grid.material.transparent=true;
+  grid.material.opacity=gridOpacity; grid.visible=gridOpacity>0; ov.add(grid);
+  document.getElementById('up').textContent = upArr.map(x=>(+x).toFixed(2)).join(', ');
+}
+const AX={Digit1:[1,0,0],Digit2:[-1,0,0],Digit3:[0,1,0],Digit4:[0,-1,0],
+          Digit5:[0,0,1],Digit6:[0,0,-1],Digit0:up};
+
+// free-fly (world up = gravity)
+const FLY = {KeyW:1, KeyS:1, KeyA:1, KeyD:1, Space:1, ShiftLeft:1, ShiftRight:1};
+const held = new Set();
+let flySpeed = sr * 0.02;
+function flyStep(){
+  if (!held.size) return;
+  const fwd = controls.target.clone().sub(camera.position).normalize();
+  const wup = new THREE.Vector3(...up).normalize();
+  const right = new THREE.Vector3().crossVectors(fwd, wup).normalize();
+  const m = new THREE.Vector3();
+  if (held.has('KeyW')) m.add(fwd);
+  if (held.has('KeyS')) m.addScaledVector(fwd, -1);
+  if (held.has('KeyD')) m.add(right);
+  if (held.has('KeyA')) m.addScaledVector(right, -1);
+  if (held.has('Space')) m.add(wup);
+  if (held.has('ShiftLeft') || held.has('ShiftRight')) m.addScaledVector(wup, -1);
+  if (m.lengthSq() === 0) return;
+  m.normalize().multiplyScalar(flySpeed);
+  camera.position.add(m); controls.target.add(m);
+}
+addEventListener('keydown', e=>{
+  if (FLY[e.code]){ held.add(e.code); e.preventDefault(); return; }
+  if (AX[e.code]) { frame(AX[e.code]); return; }
+  if (e.code==='Backslash') frame(up);
+});
+addEventListener('keyup', e=>{ held.delete(e.code); });
+addEventListener('blur', ()=> held.clear());
+addEventListener('resize', ()=>{ renderer.setSize(innerWidth, innerHeight);
+  camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix(); });
+
+// ── frustums, coloured by subset (one shared material per colour) ──
+const ha = Math.tan(22*Math.PI/180);
+const mats = new Map();   // color hex -> material
+function matFor(hex){
+  if (!mats.has(hex))
+    mats.set(hex, new THREE.LineBasicMaterial({color:new THREE.Color(hex), transparent:true, opacity:+fop.value}));
+  return mats.get(hex);
+}
+const objs = [];   // {seg, subsets:Set}
+for (const f of FR){
+  const R=f.R, p=new THREE.Vector3(...f.pos), dep = sr*0.05;
+  const right=new THREE.Vector3(R[0],R[3],R[6]), down=new THREE.Vector3(R[1],R[4],R[7]),
+        fwd=new THREE.Vector3(R[2],R[5],R[8]);
+  const cF=p.clone().add(fwd.clone().multiplyScalar(dep));
+  const hw=dep*ha, hh=dep*ha*0.66;
+  const cor=[[1,1],[1,-1],[-1,-1],[-1,1]].map(([sx,sy])=>
+    cF.clone().add(right.clone().multiplyScalar(sx*hw)).add(down.clone().multiplyScalar(sy*hh)));
+  const pts=[]; for(let i=0;i<4;i++){pts.push(p,cor[i]); pts.push(cor[i],cor[(i+1)%4]);}
+  const seg = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pts), matFor(f.color));
+  ov.add(seg); objs.push({seg, subsets:new Set(f.subsets||[])});
+}
+fop.oninput = ()=>{ for(const m of mats.values()){ m.opacity=+fop.value; m.visible=+fop.value>0; } };
+document.getElementById('title').textContent = d.title || 'spine';
+
+// ── legend: click a row to isolate that subset (show only its cameras) ──
+let isolate = null;
+const legEl = document.getElementById('legend');
+(d.legend||[]).forEach(L=>{
+  const row = document.createElement('div'); row.className='row'; row.dataset.id=L.id;
+  row.innerHTML = `<span class="sw" style="background:${L.color}"></span>`+
+    `<span class="${L.is_primary?'prim':''}">${L.is_primary?'★ ':''}${L.id}</span>`+
+    `<span class="ct">${L.n_on_spine}/${L.member_count}</span>`;
+  row.onclick = ()=>{ isolate = (isolate===L.id) ? null : L.id; applyIsolate(); };
+  legEl.appendChild(row);
+});
+function applyIsolate(){
+  for (const o of objs) o.seg.visible = (!isolate) || o.subsets.has(isolate);
+  legEl.querySelectorAll('.row').forEach(r=> r.classList.toggle('off', isolate && r.dataset.id!==isolate));
+}
+
+frame(up);
+document.getElementById('s').textContent =
+  `${FR.length} cameras · solve ${d.solve||'?'} · up from ${d.up_source||'?'}`;
+
+function loop(){ requestAnimationFrame(loop); flyStep(); controls.update(); renderer.render(ov, camera); }
+loop();
+</script></body></html>
