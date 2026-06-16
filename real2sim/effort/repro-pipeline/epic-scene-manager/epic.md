@@ -119,6 +119,24 @@ mode + the `calibrate_datum`/`datum_frame` back-end already shipped (001-patio c
 - [ ] Browse views (metadata / spine / subsets / grid) render for any existing scene.
 - [ ] All stories shipped; back-end reused (no reconstruction logic re-implemented).
 
+## Progress (live — `/loop finish EPI-SCN-SCENE-MANAGER`)
+
+| Story | State | Notes |
+|---|---|---|
+| STO-SCN-146 shell | **built** (b3c40c3), operator-verify pending | tab bar + selector + view switcher; `scenes.js` registry |
+| STO-SCN-153 metadata | **built** (c87cd4a), operator-verify pending | `/api/scene/<scene>/meta` + `scenes-meta.js`; verified vs real 001-patio |
+| 147 spine / 148 subsets | next | mount via `window.scenesViews.{spine,subsets}` |
+| 149–152 create flow | queued | ingest → pipeline → scout → MEASURE |
+
+**▶ Operator T-020 check (foundation):** the shell + metadata view are a
+demonstrable vertical slice. To verify before more views land on top: open the
+Studio app (**`http://krabby.organl.com:8090/`**, the rate_renders server — note
+it must be restarted to pick up the new `server.py` route; static reloads
+live), click the **Scenes** tab, confirm the scene selector lists scenes,
+selecting one shows the **Metadata** view (001-patio → s=4.45, 942 images), and
+the Metadata/Spine/Subsets switcher toggles. Feedback on layout now is cheaper
+than after 149–152 build on it.
+
 ## Retrospective
 
 _(Fill in after epic completion.)_
