@@ -68,6 +68,46 @@ points3D) is **UNRELIABLE**: on 001 it reached 87% inlier fit yet a 147°
 high-overlap-but-wrong rotations. Only camera-pose correspondence (or the
 photo) disambiguates. **Register on CAMERAS, not point clouds.**
 
+## Metric scale: `is_metric` is true, but `scale_factor` is NOT a stable gauge calibration
+
+> Earned 2026-06-16 (STO-SCN-016 scout audit, scene 001-patio). Owner: scout.
+> **Red herring to prevent:** "DA3 says `is_metric: true`, so read `scale_factor` and that's
+> meters-per-solve-unit." It is not.
+
+Audit of three scouts of the **same scene + same solve gauge** (`001-patio`,
+`cameras/62QEHJDAJZBI`), all `is_metric: true`:
+
+| scout | n_views | `scale_factor` | `transform.scale` (gs→solve) |
+|---|---|---|---|
+| `3R7ZB5GAB6PC` | 29 | 3.346 | 0.1929 |
+| `OZGYMJTRXN3Z` | 30 | 3.481 | — (pre-transform format) |
+| `W75HYBNU37WK` | 24 | 11.220 | 1.7495 |
+
+The metric scale of a **fixed** solve gauge must be a **constant**. The recorded `scale_factor`
+spans **3.3×** (3.35 → 11.22) — so it is **not directly usable** as the solve's metric
+calibration. Cause: `scale_factor` tracks DA3's per-run **median-camera-distance normalization**
+(`_normalize_extrinsics`) + prediction variance, which shift with the **view subset** (the 24-view
+run is the 11.2 outlier; the two ~29–30-view runs cluster at ~3.4). `transform.scale` (the gs→solve
+Umeyama scale) is likewise run-dependent (0.19 vs 1.75), so no trivial `scale_factor`/`transform.scale`
+combination is yet a validated meters-per-unit either — that derivation needs ground truth, not algebra alone.
+
+**Implications for STO-SCN-016 (metric scale):**
+- `is_metric` confirms DA3 emits a metric *estimate* — treat it as a **prior**, never as truth.
+- Metric calibration MUST be a **hybrid**: DA3 prior **anchored/validated by one ground-control
+  measurement** per scene (a hand-measured real distance, or a known-distance pick added to
+  `match.html`). The control measurement also selects which DA3 runs to trust (~3.4 here; reject 11.2).
+- Fix the resulting scale at the **datum/gauge level** (cameras), not as a per-mesh transform, so
+  every downstream mesh + camera-relative metric cull primitive (STO-SCN-137) inherits one factor.
+- Run scouts with **consistent full-spine view handling** across scenes to suppress the
+  view-subset-driven `scale_factor` variance.
+
+**Canonical generic treatment** (OLAI corpus, no project specifics):
+`personal.research/3d-reconstruction/metric-scale-calibration/index.md` — the validated recipe:
+control distance is primary (`s = D_measured / d_solve(p1,p2)` on the whole Sim3); monocular metric
+is prior/gate/fallback only; gross-error gate at `s_control/median(s_monocular)` outside ~1.5×;
+robust median in log-scale; ≥2 control distances on different axes for anisotropy. Incumbent
+parallels: COLMAP `model_aligner`, Metashape scale bars, RealityCapture Define-Distance.
+
 ## Sources
 - https://github.com/ByteDance-Seed/Depth-Anything-3/blob/main/src/depth_anything_3/api.py
 - https://github.com/ByteDance-Seed/Depth-Anything-3/blob/main/docs/API.md

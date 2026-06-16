@@ -42,7 +42,13 @@ report, AID directive — name it explicitly.)_
 
 | # | XID | Story | Status | Size |
 |---|-----|-------|--------|------|
-| 1 | `STO-scn-001` | _(name)_ | open | S/M/L |
+| 1 | `STO-SCN-016` | T2.E1 — Metric Scale Datum (control-distance primary, DA3 prior/gate) ★ BLOCKER | open | L |
+| 1a | `STO-SCN-144` | └ Metric control-distance tool — two-view triangulation MEASURE mode (match.html) | open | M |
+| 2 | `STO-SCN-017` | T2.E2 — Mesh-to-USD via Isaac Lab MeshConverter | open | L |
+| 3 | `STO-SCN-018` | T2.E3 — IsaacSim Load + Robot Spawn + Depth Sensor Returns | open | M |
+
+Metric scale (016) is the **datum** the rest inherit; 144 delivers its primary calibration
+(hand-measured control distance). Canonical decision record: **STO-SCN-016 § Decisions (D1–D7)**.
 
 ## Design
 
