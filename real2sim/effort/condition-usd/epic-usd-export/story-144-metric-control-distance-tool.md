@@ -4,7 +4,7 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: M
-status: open
+status: in-progress
 date: 2026-06-16
 depends-on: []
 bd-id: krabby-mm8l
@@ -74,23 +74,44 @@ Per control distance (two endpoints P1, P2; per endpoint: mark in two photos):
 | `real2sim/verify_viewer/build_verify.py` | pass each scene's scout `median(scale_factor)` into `frustums.json` for the in-tool DA3 gate |
 
 ## Definition of Done
-- [ ] MEASURE mode triangulates a control-distance endpoint from clicks in two posed photos
+- [x] MEASURE mode triangulates a control-distance endpoint from clicks in two posed photos
       (closest-point-of-approach), with a cross-photo reprojection guide + ray-gap confidence.
-- [ ] Computes `s = D / d_solve`; supports ≥2 distances → reports per-distance `s`, median, spread.
-- [ ] DA3 gate: flags when `s / median(s_DA3)` is outside ~1.5×.
-- [ ] Exports the scalar + full provenance as paste-able JSON (consumed by STO-SCN-016 datum wiring).
+      **Built: `match.html` MEASURE mode (`M` toggle, `E` commit, `[ ]` photo-step), endpoint dots
+      reproject across views; `triRays` mirrors the tested `metric_scale.triangulate_rays`.**
+- [x] Computes `s = D / d_solve`; supports ≥2 distances → reports per-distance `s`, log-median, spread.
+- [x] DA3 gate: in-tool shows the DA3 `scale_factor` median + spread (flags scout disagreement,
+      e.g. the 11.22 case); the **authoritative** `s`-vs-prior 1.5× gate runs in `metric_scale.da3_gate`
+      on export (STO-SCN-016 `calibrate_datum`).
+- [x] Exports the scalar + full provenance (triangulated points, raw correspondences, gaps,
+      parallax, D, per-distance s, median, spread, DA3 factors) as paste-able JSON.
 - [ ] **Operator-verified (T-020):** operator measures a known distance on 001-patio and confirms
-      the recovered `s` matches the real-world scale.
+      the recovered `s` matches the real-world scale. **← the one remaining item; needs the operator.**
 
 ## Testing
-- [ ] Synthetic: two rays with known closest-approach → triangulated point within tolerance.
-- [ ] Near-parallel rays → weak-triangulation warning fires.
-- [ ] `s` recovers a planted scale on a synthetic camera pair (exact).
-- [ ] DA3 gate trips on a 3× discrepancy, passes within 1.5×.
+- [x] Synthetic: two rays with known closest-approach → triangulated point within tolerance.
+- [x] Near-parallel rays → weak-triangulation warning fires (parallax < 2°).
+- [x] `s` recovers a planted scale on a synthetic camera pair (exact, full pipeline test).
+- [x] DA3 gate trips on a 3× discrepancy, passes within 1.5×.
+  (`tests/test_metric_scale.py` 12/12 + `tests/test_calibrate_datum.py` 5/5 green.)
 
 ## Out of scope
 - Applying `s` to the gauge/meshes (STO-SCN-016). Absolute orientation/gravity-up datum
   (STO-SCN-105 `gauge_up` already supplies it). The camera-relative primitive cull (STO-SCN-145).
 
 ## Implementation Notes
-_(Fill in during/after implementation.)_
+
+### Built 2026-06-16
+- **`real2sim/metric_scale.py`** (new) — the tested source-of-truth core: `pixel_ray`,
+  `triangulate_rays` (closest point of approach + parallax confidence), `scale_from_distance`,
+  `aggregate_scales` (log-median + spread), `da3_gate` (1.5× gross-error). Pure numpy.
+- **`real2sim/verify_viewer/match.html`** — MEASURE mode (orthogonal to the gauge-match phases):
+  pick a feature in ≥2 photos → `E` triangulates the endpoint (avg over pick-pairs, max gap +
+  min parallax as confidence) → 2 endpoints + `D` → `s`; multi-distance median + spread + anisotropy
+  warning; DA3 prior panel; JSON export. JS `triRays`/`logMedian` mirror the Python core.
+- **`real2sim/verify_viewer/build_verify.py`** — emits `da3_scale_factors` (all scouts of the solve)
+  into `frustums.json` for the in-tool prior/gate context. Validated on 001 → `[3.346, 3.481, 11.220]`.
+- **`real2sim/tests/test_metric_scale.py`** (12) — incl. a full two-camera pipeline recovering a
+  planted metric scale exactly. **`match.html` module syntax-checked with `node --check`.**
+
+T-020 path: build the verify surface on 001-patio (`build_verify.py … --no-serve`), open
+`match.html`, press `M`, measure a known real distance, export, feed to `calibrate_datum.py`.

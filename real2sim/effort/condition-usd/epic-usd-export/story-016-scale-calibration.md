@@ -4,7 +4,7 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: L
-status: open
+status: in-progress
 date: 2026-06-03
 depends-on: [STO-SCN-144]
 bd-id: krabby-0rw
@@ -74,6 +74,26 @@ the datum, applied to cameras + every mesh, is correct and is what every incumbe
 - [ ] DA3 prior/gate wired: `median(scale_factor)` per scene; flag when outside ~1.5× of `s_control`.
 - [ ] Backwards-compat: uncalibrated (`s=1`) gauge nodes unchanged (additive new node, no re-key).
 - [ ] Future-capture protocol defined (reference object / known dimension in-scene).
+
+## Implementation Notes
+
+### Built 2026-06-16 — compute + record path (the seam to the datum)
+- **`real2sim/metric_scale.py`** (tested core) + **`real2sim/calibrate_datum.py`** (new): reads a
+  `match.html` MEASURE export (STO-SCN-144), **re-triangulates** each endpoint from the raw
+  correspondences (does not trust the browser), aggregates to one `s` (log-median + spread),
+  runs the DA3 gross-error gate, and writes a **datum-scale record** (`s` + provenance + verdict).
+  CLI demoed end-to-end (synthetic: recovered `s=2.0`, flagged `da3_scouts_disagree`).
+  Tests: `tests/test_calibrate_datum.py` 5/5 + `tests/test_metric_scale.py` 12/12 green.
+- **Decisions D1–D7** above are the canonical record (reframe ratified).
+
+### Remaining (the operator-gated tail — T-020 / T-026)
+- **`calibrate_datum.apply_to_gauge()` is a documented seam, not yet wired** — it must emit an
+  **additive calibrated gauge node** (solve gauge × `s`; new identity, no re-key) so cameras + all
+  meshes inherit meters. Deliberately deferred until a **real operator control measurement** exists
+  to test it end-to-end (shipping an untested store mutation would violate T-020/T-018).
+- **OPERATOR ACTION (unblocks the rest):** on 001-patio, open `match.html` MEASURE mode, measure
+  ≥1 known real distance, export → run `calibrate_datum.py`. That single measurement turns on the
+  authoritative gate, lets `apply_to_gauge` be wired + tested, and calibrates the first scene.
 
 ## Journal Notes
 MAtCha's per-chart deformation MLP can re-scale geometry differently across runs (per-region depth

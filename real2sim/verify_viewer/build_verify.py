@@ -402,6 +402,18 @@ def _main(argv=None) -> int:
     print(f"  match tool: {len(fr['scout_frames'])} scout frames -> frames/"
           f" ({'de-warped' if dewarped else 'raw'})")
 
+    # STO-SCN-144: DA3 scale_factor across ALL scouts of this solve -> the MEASURE-tool DA3 prior/gate context
+    sfs = []
+    for sg in (cam / "scout").glob("*/scout_gauge.json"):
+        try:
+            v = json.loads(sg.read_text()).get("scale_factor")
+            if v:
+                sfs.append(float(v))
+        except Exception:
+            pass
+    fr["da3_scale_factors"] = sfs
+    print(f"  DA3 prior: {len(sfs)} scout scale_factor(s) -> measure-tool gate context")
+
     (serve / "frustums.json").write_text(json.dumps(fr) + "\n")
     shutil.copy2(HERE / "viewer.html", serve / "viewer.html")
     if (HERE / "match.html").exists():

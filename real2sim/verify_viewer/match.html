@@ -24,6 +24,18 @@
  <b>ENTER</b>=next · <b>shift+ENTER</b>=back · <b>BACKSPACE</b>=undo · <b>[ ]</b>=prev/next photo<br>
  up=<span class="y">GREEN(+Y)</span> · right=<span class="x">RED(+X)</span> &nbsp; <input id="pjson" placeholder="paste transform JSON" style="width:22ch;font-size:11px"> <button id="pload" style="font-size:11px">resume</button><br>
  <span id="st">loading…</span></div>
+<div id="mpanel" style="position:absolute;bottom:8px;left:8px;color:#ddd;background:#000d;
+  padding:8px 10px;border:1px solid #4af;font-size:12px;z-index:10;max-width:62ch;display:none;font-family:monospace">
+ <b style="color:#4af">MEASURE</b> — metric control distance (two-view triangulation, STO-SCN-144)<br>
+ <span style="color:#aaa">click a feature · <b>[ ]</b> step photo · click the SAME feature · <b>E</b>=triangulate endpoint ·
+ 2 endpoints → type D → <b>set D</b> · <b>M</b>=exit</span><br>
+ D (m): <input id="dinput" type="number" step="0.001" style="width:8ch;font-size:11px">
+ <button id="dset" style="font-size:11px">set D</button>
+ <button id="mexp" style="font-size:11px">export</button>
+ <button id="mclr" style="font-size:11px">clear</button><br>
+ <div id="mres" style="margin-top:4px;line-height:1.45"></div>
+ <textarea id="mexport" style="width:56ch;height:5.5em;display:none;font-size:10px" onclick="this.select()"></textarea>
+</div>
 <script type="importmap">
 { "imports": {
   "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
@@ -64,6 +76,8 @@ const RqB=new THREE.Quaternion(); let sB=1.0; const tB=new THREE.Vector3(); // p
 let wmode='translate';
 const history=[]; let dragStart=null;   // undo stack (one entry per drag, recorded on release)
 const frameQ=new THREE.Quaternion(); let clicks=[], clicks3d=[];   // Phase-0: ray dirs + 3D lock points
+// STO-SCN-144 MEASURE mode (metric control distance via two-view triangulation) — orthogonal to the phases
+let measuring=false; const mPick=[], mEnd=[], mDist=[], mDots=[];
 
 const renderer=new THREE.WebGLRenderer({antialias:false}); renderer.setPixelRatio(1);
 document.body.appendChild(renderer.domElement);
@@ -194,6 +208,7 @@ function solveFrame(){   // axis dirs from vanishing points (multi-line) -> orth
     (ortho<2?'tight ✓':'add parallel lines (x/y/z + 2 clicks)')+' · ENTER';
 }
 renderer.domElement.addEventListener('pointerdown', e=>{
+  if(measuring){ measureClick(e); return; }
   if(phase!==0) return;
   const ndc=clickNdc(e.clientX,e.clientY), dir=ndcDir(ndc);
   const p3=camera.position.clone().addScaledVector(dir, depthAlong(dir));
@@ -324,6 +339,9 @@ document.getElementById('pload').onclick=()=>{   // resume from a previously-exp
 };
 addEventListener('keydown', e=>{
   if(e.target && (e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA')) return;   // don't hijack the paste box
+  if(e.code==='KeyM'){ toggleMeasure(); return; }                                   // STO-SCN-144 MEASURE toggle
+  if(measuring && e.code==='KeyE'){ commitEndpoint(); return; }                      // E = triangulate endpoint
+  if(measuring && e.code!=='BracketLeft' && e.code!=='BracketRight') return;         // MEASURE swallows phase keys; [ ] fall through
   if(e.code==='Enter'){ setPhase(phase + (e.shiftKey ? -1 : 1)); e.preventDefault(); }   // shift+ENTER = back
   else if(e.code==='Backspace'){ if(history.length) restore(history.pop()); e.preventDefault(); }
   else if(e.code==='BracketRight'){ gotoFrame(1); }    // ] next photo (spatial jump)
@@ -337,13 +355,107 @@ addEventListener('keydown', e=>{
 });
 addEventListener('resize', ()=>{ lockCamera(); });
 
+// ===== STO-SCN-144 MEASURE mode: metric scale from hand-measured control distances =====
+// Mirrors real2sim/metric_scale.py (the tested source of truth). Each endpoint is triangulated
+// from clicks of the SAME feature in >=2 posed photos; s = D_measured / |P2-P1| (m/solve-unit).
+function mStatus(t){ st.innerHTML='<b style="color:#4af">MEASURE</b> · '+t; }
+function logMedian(a){ const s=a.filter(x=>x>0).map(Math.log).sort((x,y)=>x-y), n=s.length;
+  return n? Math.exp(n%2? s[(n-1)/2] : 0.5*(s[n/2-1]+s[n/2])) : 0; }
+function triRays(o1,d1,o2,d2){     // closest point of approach between two rays (== metric_scale.triangulate_rays)
+  o1=new THREE.Vector3(...o1); o2=new THREE.Vector3(...o2);
+  d1=new THREE.Vector3(...d1).normalize(); d2=new THREE.Vector3(...d2).normalize();
+  const r=o1.clone().sub(o2), b=d1.dot(d2), dd=d1.dot(r), ee=d2.dot(r), denom=1-b*b;
+  let t1,t2; if(Math.abs(denom)<1e-9){ t1=0; t2=ee; } else { t1=(b*ee-dd)/denom; t2=(ee-b*dd)/denom; }
+  const p1=o1.clone().addScaledVector(d1,t1), p2=o2.clone().addScaledVector(d2,t2);
+  return {point:p1.clone().add(p2).multiplyScalar(0.5), gap:p1.distanceTo(p2),
+          par:THREE.MathUtils.radToDeg(Math.acos(Math.min(1,Math.abs(b))))}; }
+function measureClick(e){
+  const ndc=clickNdc(e.clientX,e.clientY), dir=ndcDir(ndc);
+  mPick.push({frame:camFrame, name:SF[camFrame]?SF[camFrame].name:String(camFrame),
+              o:camera.position.toArray(), d:dir.toArray(), ndc});
+  mStatus(`pick ${mPick.length} on ${SF[camFrame]?SF[camFrame].name:camFrame}. `+
+          `Step [ ] to another angle, click the SAME feature; <b>E</b> to triangulate (need ≥2).`);
+}
+function commitEndpoint(){
+  if(mPick.length<2){ mStatus('need ≥2 picks (same feature in 2 photos) before E'); return; }
+  let acc=new THREE.Vector3(), n=0, maxgap=0, minpar=180;
+  for(let i=0;i<mPick.length;i++) for(let j=i+1;j<mPick.length;j++){
+    const t=triRays(mPick[i].o,mPick[i].d,mPick[j].o,mPick[j].d);
+    acc.add(t.point); n++; maxgap=Math.max(maxgap,t.gap); minpar=Math.min(minpar,t.par); }
+  mEnd.push({point:acc.multiplyScalar(1/n).toArray(), gap:maxgap, parallax:minpar, picks:mPick.slice()});
+  mPick.length=0;
+  const warn=minpar<2?' ⚠ weak (near-parallel — use wider-baseline photos)':'';
+  mStatus(`endpoint ${mEnd.length} set · gap ${maxgap.toFixed(3)} · parallax ${minpar.toFixed(1)}°${warn}. `+
+          (mEnd.length<2?'mark endpoint 2.':'type D (m) + “set D”.'));
+  if(mEnd.length>=2) document.getElementById('dinput').focus();
+}
+function setD(){
+  if(mEnd.length<2){ mStatus('need 2 endpoints first'); return; }
+  const D=parseFloat(document.getElementById('dinput').value);
+  if(!(D>0)){ mStatus('enter a positive distance in meters'); return; }
+  const P1=new THREE.Vector3(...mEnd[0].point), P2=new THREE.Vector3(...mEnd[1].point);
+  const d_solve=P1.distanceTo(P2), s=D/d_solve;
+  mDist.push({P1:mEnd[0].point, P2:mEnd[1].point, gaps:[mEnd[0].gap,mEnd[1].gap],
+              parallax:Math.min(mEnd[0].parallax,mEnd[1].parallax), d_solve, D, s,
+              picks1:mEnd[0].picks, picks2:mEnd[1].picks});   // raw correspondences for authoritative recompute
+  mEnd.length=0; document.getElementById('dinput').value=''; renderResults();
+  mStatus(`distance ${mDist.length}: ${D} m / ${d_solve.toFixed(3)} u → <b>s=${s.toFixed(4)}</b> m/u. `+
+          'Add another on a DIFFERENT axis (spread check), or export.');
+}
+function renderResults(){
+  const ss=mDist.map(x=>x.s), med=logMedian(ss), spread=ss.length>1?Math.max(...ss)/Math.min(...ss):1;
+  const sf=(d.da3_scale_factors||[]).filter(x=>x>0), da3med=sf.length?logMedian(sf):null,
+        da3spread=sf.length>1?Math.max(...sf)/Math.min(...sf):1;
+  let h=`<b>s median ${med?med.toFixed(4):'—'}</b> m/u · spread ${spread.toFixed(2)}`+
+        (spread>1.5?' <span class="x">⚠ anisotropy — check distortion / use different axes</span>':'')+'<br>';
+  h+=mDist.map((x,i)=>`d${i+1}: ${x.D} / ${x.d_solve.toFixed(3)} = ${x.s.toFixed(4)} (par ${x.parallax.toFixed(0)}°)`).join('<br>');
+  if(da3med!=null) h+=`<br><span style="color:#fd6">DA3 prior</span> scale_factor med ${da3med.toFixed(2)} · spread ${da3spread.toFixed(2)}`+
+     (da3spread>1.5?' <span class="x">⚠ scouts disagree → prior unreliable</span>':'')+` · n=${sf.length}`+
+     `<br><span style="color:#888">(authoritative s-vs-prior 1.5× gate runs in metric_scale.py on export — STO-SCN-016)</span>`;
+  document.getElementById('mres').innerHTML=h;
+}
+function exportMeasure(){
+  const ss=mDist.map(x=>x.s);
+  const out={kind:'metric-control-distances', story:'STO-SCN-144',
+    scene:(d.title||''), n_distances:mDist.length, distances:mDist,
+    s_median:ss.length?logMedian(ss):null, spread:ss.length>1?Math.max(...ss)/Math.min(...ss):1,
+    da3_scale_factors:d.da3_scale_factors||[],
+    note:'apply s_median as ONE scalar on the solve Sim3 (datum-level); run metric_scale.da3_gate. STO-SCN-016.'};
+  const ta=document.getElementById('mexport'); ta.value=JSON.stringify(out,null,1); ta.style.display='block'; ta.select();
+}
+function clearMeasure(){ mPick.length=0; mEnd.length=0; mDist.length=0;
+  document.getElementById('mres').innerHTML=''; const ta=document.getElementById('mexport'); ta.value=''; ta.style.display='none';
+  mStatus('cleared. click a feature to begin.'); }
+function toggleMeasure(){
+  measuring=!measuring;
+  document.getElementById('mpanel').style.display=measuring?'block':'none';
+  if(measuring){ gizmo.enabled=false; gizmo.visible=false; axis.visible=false;
+    mStatus('click a feature · [ ] step photo · click the SAME feature · E=triangulate · M=exit'); }
+  else { mDots.forEach(x=>x.style.display='none'); syncWidget(); st.textContent='exited MEASURE'; }
+}
+function updateMeasureDots(){    // reproject endpoints (cyan) / committed distances (green) / live picks (yellow)
+  const el=renderer.domElement, lx=parseFloat(el.style.left)||0, ty=parseFloat(el.style.top)||0, pts=[];
+  mEnd.forEach(ep=>pts.push({p:ep.point,c:'#0ff'}));
+  mDist.forEach(dd=>{ pts.push({p:dd.P1,c:'#3f3'}); pts.push({p:dd.P2,c:'#3f3'}); });
+  mPick.forEach(pk=>{ const o=new THREE.Vector3(...pk.o), dr=new THREE.Vector3(...pk.d);
+    pts.push({p:o.clone().addScaledVector(dr, depthAlong(dr)).toArray(), c:'#ff0'}); });
+  while(mDots.length<pts.length){ const e2=document.createElement('div'); e2.className='cd';
+    e2.style.display='none'; document.body.appendChild(e2); mDots.push(e2); }
+  mDots.forEach((dot,k)=>{ if(k<pts.length){ const v=new THREE.Vector3(...pts[k].p).project(camera);
+      dot.style.borderColor=pts[k].c; dot.style.color=pts[k].c;
+      dot.style.left=(lx+(v.x*0.5+0.5)*el.width)+'px'; dot.style.top=(ty+(-v.y*0.5+0.5)*el.height)+'px';
+      dot.style.display=(v.z<1)?'block':'none'; } else dot.style.display='none'; }); }
+document.getElementById('dset').onclick=setD;
+document.getElementById('mexp').onclick=exportMeasure;
+document.getElementById('mclr').onclick=clearMeasure;
+
 const viewer=new GS.Viewer({renderer,camera,selfDrivenMode:false,useBuiltInControls:false,
   cameraUp:[0,1,0],dynamicScene:true,sharedMemoryForWorkers:false});   // dynamicScene -> live splat transform
 try{ await viewer.addSplatScene('./scout.gs.ply',{format:GS.SceneFormat.Ply,showLoadingUI:false}); }
 catch(err){ st.textContent='ERR '+err; }
 resetAll();                              // lock camera + place widget at screen center + phase 0
 
-function loop(){ requestAnimationFrame(loop); updateDots();
+function loop(){ requestAnimationFrame(loop); updateDots(); if(measuring) updateMeasureDots();
   renderer.autoClear=true; viewer.update(); viewer.render();
   renderer.autoClear=false; renderer.render(ov,camera); renderer.autoClear=true; }
 loop();
