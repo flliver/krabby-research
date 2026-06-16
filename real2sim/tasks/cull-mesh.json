@@ -1,0 +1,53 @@
+{
+  "schema": 4,
+  "name": "cull-mesh",
+  "algo": "cull-mesh@2",
+  "description": "Post-meshify CPU cull: drop low-confidence (few-view), distant (sky/far), sub-floor, out-of-camera-bbox, and out-of-primitive-solid vertices from an already-materialized mesh. Path-agnostic (matcha tetra/tsdf + da3). Consumes the upstream mesh node's grounded mesh.ply (canonical gauge preserved); NOOP when the identity exists; no GPU. NEW ADDITIVE TASK — does NOT touch meshify-via-tsdf/tetra identities. @1 (STO-SCN-137) adds cambox_expand; @2 (STO-SCN-145) adds the `primitives` boolean-SDF cull — each version bumped because the prior version already had materialized nodes (adding a key would re-key them); prior-version nodes are preserved untouched (see STO-SCN-136 backwards-compat).",
+  "inputs": [
+    {
+      "name": "mesh",
+      "from": "meshify"
+    }
+  ],
+  "settings": {
+    "min_views": {
+      "class": "tunable",
+      "min": 0,
+      "default": 2,
+      "note": "drop verts seen by < N cameras (low-parallax distant junk); matches cull_mesh.py default"
+    },
+    "max_dist_from_cluster": {
+      "class": "tunable",
+      "min": 0.0,
+      "default": 0.0,
+      "note": "drop verts > D m from camera centroid (the sky/far-away killer); 0 = disabled (default)"
+    },
+    "cambox_expand": {
+      "class": "tunable",
+      "default": -1.0,
+      "note": "STO-SCN-137: keep verts inside the posed-camera AABB expanded by this fraction per side, cull outside (gravity-aligned); <0 = disabled (default)"
+    },
+    "floor_z_min": {
+      "class": "tunable",
+      "default": -0.5,
+      "note": "drop verts with z < this in the oriented gauge (sub-floor tetra spikes); floor is z=0"
+    },
+    "primitives": {
+      "class": "tunable",
+      "default": null,
+      "note": "STO-SCN-145: boolean cull primitives (sphere/box/cylinder/halfspace, op keep|subtract) authored in the datum frame (meters); keep verts inside the resulting solid. The inline spec content enters the identity. null = disabled (default)."
+    },
+    "image_size": {
+      "class": "frozen",
+      "default": "1024,576",
+      "note": "WxH for the in-bounds view-count projection; matches the solve frame"
+    }
+  },
+  "placement": "{up_meshify_dir}/condition/{identity}",
+  "outputs": [
+    {
+      "name": "mesh",
+      "path": "mesh.ply"
+    }
+  ]
+}

@@ -129,13 +129,22 @@ integration step (mirrors STO-SCN-137's `cambox_expand`); the masking itself is 
   existing view/floor/dist/cambox masks (composes; drop-accounting prints the primitive count).
   Root-cause bug fixed during build (keep-union accumulator init; T-003).
 
-### Remaining
-- **v4-store integration:** expose `--primitives` as a `cull-mesh@2` tunable (content identity),
-  mirroring STO-SCN-137's `cambox_expand` — so a primitive-culled mesh is a distinct, rankable,
-  NOOP-on-re-run node. (The masking is done; this is the store-node wiring.)
+### Built 2026-06-16 — v4 store integration (`cull-mesh@2`)
+- **`tasks/cull-mesh.json`** bumped `@1 → @2` with a `primitives` tunable (default `null` = disabled);
+  bumped (not appended to @1) because @1 has materialized nodes — prior @1 cambox/min_views nodes
+  are preserved untouched (STO-SCN-136/137 pattern). **`v4exec.py cmd_cull --primitives <json>`**
+  loads the spec inline → flows into the content identity → materializes `primitives.json` next to
+  the node → passes it to `cull_mesh.py`. A primitive-culled mesh is a distinct, rankable,
+  NOOP-on-re-run `condition/<id>` node.
+- **Backwards-compat proven** (`tests/test_cull_primitives_identity.py` 7/7): primitives flow into
+  identity, default-equality ({} == explicit-null) holds, distinct primitives → distinct nodes,
+  and `@2` does NOT collide with / re-key the prior `@1` namespace.
+
+### Remaining (operator-gated)
 - **True-meters authoring** needs STO-SCN-016 calibrated (operator measurement) — until then
   primitives are authored in solve-gauge units (scale=1).
-- **Operator T-020** + an optional primitive-authoring UI.
+- **Operator T-020** (author a primitive on a real scene, cull, confirm in Rank) + an optional
+  primitive-authoring UI.
 
 _(Design captured 2026-06-16; datum frame + SDF primitive masking built + tested; store-node
 tunable + operator verification remain.)_

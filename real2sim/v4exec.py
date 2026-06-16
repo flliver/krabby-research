@@ -1904,6 +1904,264 @@ def fuse_da3(scene_dir: Path, rdir: Path, sub: str, sid: str, oid: str, fdir: Pa
             "reference_mesh": str(ref_mesh.relative_to(scene_dir))}
 
 
+def cmd_refilter(args):
+    """STO-SCN-136 path A: ground a filter-re-extracted matcha tetra into a new v4 node.
+
+    The GPU step (extract_tetra_mesh.py --config filtered, reusing the rep's CACHED gaussians)
+    drops the filtered raw tetra at <rep>/out/tetra_filtered/*.ply. This command grounds it into
+    the canonical gauge by REUSING the base tetra node's recorded gauge_sim + orient (no recompute,
+    so it lands in the exact same frame as the base tetra) and writes a new
+    `meshify-via-tetra-filtered` node. NEW task — base tetra identities untouched."""
+    scene_dir = v4.STORE / args.scene
+    rep_dir = scene_dir / "represent" / "matcha" / args.rep
+    if not (rep_dir / "metadata.json").exists():
+        sys.exit(f"no matcha rep {args.rep} under {scene_dir}")
+    base = [d for d in (rep_dir / "meshify" / "tetra").glob("*/")
+            if (d / "metadata.json").exists()]
+    if not base:
+        sys.exit(f"no base tetra node under {rep_dir} to inherit the gauge from")
+    bmd = json.loads((base[0] / "metadata.json").read_text())
+    sid = bmd["resolved_inputs"]["cameras"]
+    oid = bmd["resolved_inputs"]["orient"]
+    gauge = bmd["gauge"]
+    sim = bmd["gauge_sim"]
+    og = json.loads((scene_dir / gauge / "oriented.json").read_text())
+    import numpy as np
+    R, z = np.asarray(og["rotation"]), float(og["z_shift"])
+
+    raws = sorted((rep_dir / "out" / "tetra_filtered").glob("*.ply"))
+    if not raws:
+        sys.exit(f"no filtered raw tetra at {rep_dir}/out/tetra_filtered — run the GPU "
+                 f"re-extract first (extract_tetra_mesh.py --config filtered)")
+    raw = raws[-1]
+
+    ftask = v4.tasks()["meshify-via-tetra-filtered"]
+    fsettings = v4.hashable_settings(ftask, {})
+    fid = v4.identity_hash({"representation": args.rep, "cameras": sid, "orient": oid},
+                           fsettings, ftask["algo"])
+    fdir = rep_dir / "meshify" / "tetra-filtered" / fid
+    if (fdir / "mesh.ply").exists():
+        print(f"[refilter] NOOP — {fid} exists ({fdir.relative_to(scene_dir)})")
+        return
+    fdir.mkdir(parents=True, exist_ok=True)
+    print(f"[refilter] grounding {raw.name} -> meshify/tetra-filtered/{fid} "
+          f"(reusing base gauge_sim rot {sim.get('rot_deg')}° + orient {oid})")
+    ground_mesh(raw, fdir / "mesh.ply", R, z, sim=sim)
+    v4.write_metadata(fdir, task="meshify-via-tetra-filtered", algo=ftask["algo"], identity=fid,
+                      resolved_inputs={"representation": args.rep, "cameras": sid, "orient": oid},
+                      settings=fsettings, mechanism="job",
+                      extra={"gauge": gauge, "gauge_sim": sim,
+                             "source": "extract_tetra_mesh.py --config filtered (cached gaussians)"})
+    job_record(args.scene, "refilter-tetra",
+               [{"node": "meshify-via-tetra-filtered", "identity": fid, "action": "EXECUTE"}],
+               {"scene": args.scene, "rep": args.rep})
+    print(f"[refilter] wrote {fdir.relative_to(scene_dir)}/mesh.ply")
+
+
+def cmd_mergefill(args):
+    """STO-SCN-142: (A) merge & gap-fill via screened Poisson — additive condition node.
+
+    Consumes a materialized mesh (a meshify node OR a condition node — so it can run on a culled
+    mesh; chaining), runs merge_gapfill.py (Open3D Poisson + density-trim + largest-component +
+    colour transfer) on the GATHER HOST (CPU, no GPU), and writes `<meshify>/condition/<cid>/mesh.ply`.
+    Poisson is gauge-preserving (the mesh stays in its canonical gauge). NOOP when the identity
+    exists. NEW `merge-gapfill@0` task — existing identities untouched."""
+    import re
+    scene_dir = v4.STORE / args.scene
+    variant = args.variant
+    # input may be a meshify node OR a condition node (chain Poisson onto a culled mesh)
+    cand = (list(scene_dir.glob(f"represent/*/*/meshify/*/{variant}"))
+            + list(scene_dir.glob(f"represent/*/*/meshify/*/*/condition/{variant}")))
+    matches = [d for d in cand if (d / "mesh.ply").exists()]
+    if not matches:
+        sys.exit(f"no materialized mesh node '{variant}' under {scene_dir} "
+                 f"(looked for meshify and condition nodes)")
+    if len(matches) > 1:
+        sys.exit(f"ambiguous variant '{variant}': {[str(m) for m in matches]}")
+    src_node = matches[0]
+    # the output condition node lives under the parent MESHIFY dir (so v4job.mesh_targets,
+    # which globs meshify/*/*/condition/*/, discovers it — one condition level)
+    meshify_dir = src_node.parent.parent if src_node.parent.name == "condition" else src_node
+    md = json.loads((src_node / "metadata.json").read_text())
+    gauge = md.get("gauge")
+
+    overrides = {}
+    if getattr(args, "method", None) is not None:
+        overrides["method"] = args.method
+    if getattr(args, "hole_size", None) is not None:
+        overrides["hole_size"] = args.hole_size
+    if args.poisson_depth is not None:
+        overrides["poisson_depth"] = args.poisson_depth
+    if args.density_quantile is not None:
+        overrides["density_quantile"] = args.density_quantile
+    if args.samples is not None:
+        overrides["samples"] = args.samples
+    task = v4.tasks()["merge-gapfill"]
+    algo = task["algo"]
+    settings = v4.hashable_settings(task, overrides)
+    cid = v4.identity_hash({"mesh": variant}, settings, algo)
+    cdir = meshify_dir / "condition" / cid
+
+    if (cdir / "mesh.ply").exists():
+        print(f"[mergefill] NOOP — {cid} exists ({cdir.relative_to(scene_dir)})")
+        return
+    cdir.mkdir(parents=True, exist_ok=True)
+    tool = str(Path(__file__).parent / "merge_gapfill.py")
+    cmd = ["uv", "run", "--quiet", "--python", "3.11", "--with", "numpy", "--with", "open3d",
+           "python3", tool,
+           "--mesh", str(src_node / "mesh.ply"),
+           "--output", str(cdir / "mesh.ply"),
+           "--method", str(settings["method"]),
+           "--hole-size", str(settings["hole_size"]),
+           "--poisson-depth", str(settings["poisson_depth"]),
+           "--density-quantile", str(settings["density_quantile"]),
+           "--samples", str(settings["samples"])]
+    print(f"[mergefill] {variant} -> condition/{cid} "
+          f"(method={settings['method']} hole_size={settings['hole_size']}) — CPU")
+    t0 = datetime.datetime.now()
+    r = subprocess.run(cmd, capture_output=True, text=True, timeout=3600)
+    dt = int((datetime.datetime.now() - t0).total_seconds())
+    sys.stdout.write(r.stdout)
+    if r.returncode != 0 or not (cdir / "mesh.ply").exists():
+        shutil.rmtree(cdir, ignore_errors=True)
+        sys.exit(f"[mergefill] FAILED (rc={r.returncode})\n{r.stderr[-2000:]}")
+    measured = {"duration_s": dt}
+    mv = re.search(r"final:\s*([\d,]+)\s*verts\s*/\s*([\d,]+)\s*tris\s*watertight=(\w+)", r.stdout)
+    if mv:
+        measured["verts"] = int(mv.group(1).replace(",", ""))
+        measured["tris"] = int(mv.group(2).replace(",", ""))
+        measured["watertight"] = mv.group(3) == "True"
+    v4.write_metadata(cdir, task="merge-gapfill", algo=algo, identity=cid,
+                      resolved_inputs={"mesh": variant}, settings=settings, mechanism="job",
+                      measured=measured, extra={"gauge": gauge,
+                                                "source_mesh": str(src_node.relative_to(scene_dir))})
+    job_record(args.scene, "merge-gapfill",
+               [{"node": "merge-gapfill", "identity": cid, "action": "EXECUTE", "duration_s": dt}],
+               {"scene": args.scene, "variant": variant})
+    print(f"[mergefill] wrote {cdir.relative_to(scene_dir)}/mesh.ply "
+          f"(watertight={measured.get('watertight','?')}) in {dt}s")
+
+
+def cmd_cull(args):
+    """STO-SCN-136: post-meshify CPU cull as an additive content-addressed condition node.
+
+    Consumes an already-materialized meshify mesh (the grounded mesh.ply, canonical gauge) +
+    its solve cameras + oriented gauge, runs cull_mesh.py (drop few-view / distant / sub-floor
+    verts) on the GATHER HOST (no GPU), and writes `<meshify>/condition/<cid>/mesh.ply`. The
+    cull settings flow into the identity, so a culled mesh is a DISTINCT store node from the raw
+    one (raw stays for comparison) and a re-run is a NOOP. New `cull-mesh@0` task — touches no
+    existing meshify taskdef, so historical mesh identities are unchanged (STO-SCN-136
+    backwards-compat)."""
+    import re
+    scene_dir = v4.STORE / args.scene
+    variant = args.variant
+    # locate the meshify node: represent/<kind>/<rid>/meshify/<tetra|tsdf>/<variant>
+    matches = [d for d in scene_dir.glob(f"represent/*/*/meshify/*/{variant}")
+               if (d / "mesh.ply").exists()]
+    if not matches:
+        sys.exit(f"no materialized meshify node '{variant}' under {scene_dir} "
+                 f"(looked for represent/*/*/meshify/*/{variant}/mesh.ply)")
+    if len(matches) > 1:
+        sys.exit(f"ambiguous variant '{variant}': {[str(m) for m in matches]}")
+    mdir = matches[0]
+    md = json.loads((mdir / "metadata.json").read_text())
+    gauge = md.get("gauge")                       # …/cameras/<sid>/orient/<oid>  (relpath)
+    if not gauge:
+        # da3-reference nodes (cmd_da3) record cameras+orient in resolved_inputs, not a `gauge`
+        # relpath — derive the gauge dir by globbing for that solve+orient (works for any node).
+        ri = md.get("resolved_inputs", {})
+        cam_id, ori_id = ri.get("cameras"), ri.get("orient")
+        if cam_id and ori_id:
+            hits = list(scene_dir.glob(f"images/subsets/*/cameras/{cam_id}/orient/{ori_id}"))
+            if hits:
+                gauge = str(hits[0].relative_to(scene_dir))
+    if not gauge:
+        sys.exit(f"meshify node {variant} has no resolvable gauge — cannot resolve cameras")
+    oriented_json = scene_dir / gauge / "oriented.json"
+    cameras_json = scene_dir / Path(gauge).parent.parent / "cameras.json"
+    for p in (oriented_json, cameras_json):
+        if not p.exists():
+            sys.exit(f"missing gauge input for cull: {p}")
+    sid = md.get("resolved_inputs", {}).get("cameras")
+    oid = md.get("resolved_inputs", {}).get("orient")
+
+    # settings: explicit overrides only; hashable_settings injects task defaults (identity-stable)
+    overrides = {}
+    if args.min_views is not None:
+        overrides["min_views"] = args.min_views
+    if args.max_dist is not None:
+        overrides["max_dist_from_cluster"] = args.max_dist
+    if getattr(args, "cambox_expand", None) is not None:
+        overrides["cambox_expand"] = args.cambox_expand
+    if args.floor_z_min is not None:
+        overrides["floor_z_min"] = args.floor_z_min
+    if args.image_size is not None:
+        overrides["image_size"] = args.image_size
+    if getattr(args, "primitives", None) is not None:
+        with open(args.primitives) as pf:
+            overrides["primitives"] = json.load(pf)   # STO-SCN-145: inline spec content -> identity
+    cull_task = v4.tasks()["cull-mesh"]
+    cull_algo = cull_task["algo"]            # version-safe (STO-SCN-137 bumped @0 -> @1)
+    settings = v4.hashable_settings(cull_task, overrides)
+    cid = v4.identity_hash({"mesh": variant}, settings, cull_algo)
+    cdir = mdir / "condition" / cid
+
+    if (cdir / "mesh.ply").exists():
+        print(f"[cull] NOOP — {cid} exists ({cdir.relative_to(scene_dir)})")
+        job_record(args.scene, "cull-mesh",
+                   [{"node": "cull-mesh", "identity": cid, "action": "NOOP"}],
+                   {"scene": args.scene, "variant": variant})
+        return
+
+    cdir.mkdir(parents=True, exist_ok=True)
+    # STO-SCN-145: materialize the primitive spec next to the node for cull_mesh.py to consume
+    prim_path = None
+    if settings.get("primitives") is not None:
+        prim_path = cdir / "primitives.json"
+        prim_path.write_text(json.dumps(settings["primitives"]))
+    cull_py = str(Path(__file__).parent / "cull_mesh.py")
+    cmd = ["uv", "run", "--quiet", "--python", "3.11", "--with", "numpy", "--with", "open3d",
+           "python3", cull_py,
+           "--mesh", str(mdir / "mesh.ply"),
+           "--cameras", str(cameras_json),
+           "--oriented-cameras", str(oriented_json),
+           "--output", str(cdir / "mesh.ply"),
+           "--min-views", str(settings["min_views"]),
+           "--floor-z-min", str(settings["floor_z_min"]),
+           "--max-dist-from-cluster", str(settings["max_dist_from_cluster"]),
+           "--cambox-expand", str(settings["cambox_expand"]),
+           "--image-size", str(settings["image_size"])]
+    if prim_path is not None:
+        cmd += ["--primitives", str(prim_path)]
+    print(f"[cull] {variant} -> condition/{cid}  "
+          f"(min_views={settings['min_views']} max_dist={settings['max_dist_from_cluster']} "
+          f"floor_z_min={settings['floor_z_min']}) — CPU, no GPU")
+    t0 = datetime.datetime.now()
+    r = subprocess.run(cmd, capture_output=True, text=True, timeout=3600)
+    dt = int((datetime.datetime.now() - t0).total_seconds())
+    sys.stdout.write(r.stdout)
+    if r.returncode != 0 or not (cdir / "mesh.ply").exists():
+        shutil.rmtree(cdir, ignore_errors=True)        # don't leave a half-node
+        sys.exit(f"[cull] FAILED (rc={r.returncode})\n{r.stderr[-2000:]}")
+    # parse final counts for the metadata measured block
+    measured = {"duration_s": dt}
+    m = re.search(r"final:\s*([\d,]+)\s*verts\s*/\s*([\d,]+)\s*tris", r.stdout)
+    if m:
+        measured["verts"] = int(m.group(1).replace(",", ""))
+        measured["tris"] = int(m.group(2).replace(",", ""))
+    v4.write_metadata(cdir, task="cull-mesh", algo=cull_algo, identity=cid,
+                      resolved_inputs={"mesh": variant, "cameras": sid, "orient": oid},
+                      settings=settings, mechanism="job", measured=measured,
+                      extra={"gauge": gauge,
+                             "source_mesh": str(mdir.relative_to(scene_dir))})
+    print(f"[cull] wrote {cdir.relative_to(scene_dir)}/mesh.ply "
+          f"({measured.get('verts','?')} verts / {measured.get('tris','?')} tris) in {dt}s")
+    job_record(args.scene, "cull-mesh",
+               [{"node": "cull-mesh", "identity": cid, "action": "EXECUTE",
+                 "duration_s": dt}],
+               {"scene": args.scene, "variant": variant})
+
+
 def cmd_verify_frame(args):
     """Verification task (STO-SCN-089 DoD): does a fused mesh COINCIDE with
     the matcha reference in the shared gauge? Camera-residual gates can't
@@ -2077,6 +2335,49 @@ def main():
     p.add_argument("--sim", default=None,
                    help="optional weld->solve similarity json (file or inline)")
     p.set_defaults(fn=cmd_regauge_views)
+    p = sp.add_parser("refilter",
+                      help="STO-SCN-136 path A: ground a filter-re-extracted matcha tetra "
+                           "(out/tetra_filtered/*.ply) into a new meshify-via-tetra-filtered node")
+    p.add_argument("scene")
+    p.add_argument("--rep", required=True, help="the matcha represent id whose tetra to re-ground")
+    p.set_defaults(fn=cmd_refilter)
+    p = sp.add_parser("mergefill",
+                      help="STO-SCN-142: (A) merge & gap-fill via screened Poisson -> watertight "
+                           "manifold condition node (CPU; runs on a meshify OR condition mesh)")
+    p.add_argument("scene")
+    p.add_argument("--variant", required=True, help="mesh id to fill (meshify or condition node)")
+    p.add_argument("--method", choices=["fill-holes", "poisson"], default=None,
+                   help="fill-holes = local gap-fill, preserves open scene (default); poisson = global seal")
+    p.add_argument("--hole-size", dest="hole_size", type=float, default=None,
+                   help="fill-holes: max hole boundary size to fill (default 0.3)")
+    p.add_argument("--poisson-depth", dest="poisson_depth", type=int, default=None,
+                   help="Poisson octree depth (task default 9)")
+    p.add_argument("--density-quantile", dest="density_quantile", type=float, default=None,
+                   help="drop verts below this density quantile (default 0.05; 0=off)")
+    p.add_argument("--samples", type=int, default=None, help="surface sample points (default 1e6)")
+    p.set_defaults(fn=cmd_mergefill)
+    p = sp.add_parser("cull",
+                      help="STO-SCN-136: post-meshify CPU cull (drop few-view / distant / "
+                           "sub-floor verts) -> additive condition node; reuses the materialized "
+                           "mesh, no GPU, NOOP on re-run")
+    p.add_argument("scene")
+    p.add_argument("--variant", required=True,
+                   help="the meshify mesh identity to cull (tetra/tsdf/da3 mesh id)")
+    p.add_argument("--min-views", dest="min_views", type=int, default=None,
+                   help="drop verts seen by < N cameras (task default 2)")
+    p.add_argument("--max-dist-from-cluster", dest="max_dist", type=float, default=None,
+                   help="drop verts > D m from the camera centroid — sky/far killer (default 0=off)")
+    p.add_argument("--cambox-expand", dest="cambox_expand", type=float, default=None,
+                   help="STO-SCN-137: keep verts inside the posed-camera AABB +this/side, cull "
+                        "outside (gravity-aligned); <0 = off (default)")
+    p.add_argument("--floor-z-min", dest="floor_z_min", type=float, default=None,
+                   help="drop verts with z < this in the oriented gauge (default -0.5)")
+    p.add_argument("--image-size", dest="image_size", default=None,
+                   help="WxH for the in-bounds view-count projection (default 1024,576)")
+    p.add_argument("--primitives", dest="primitives", default=None,
+                   help="STO-SCN-145: JSON file of boolean cull primitives (datum frame, meters); "
+                        "keep verts inside the resulting solid (flows into content identity)")
+    p.set_defaults(fn=cmd_cull)
     p = sp.add_parser("verify-frame")
     p.add_argument("scene")
     p.set_defaults(fn=cmd_verify_frame)
