@@ -71,3 +71,14 @@ Build sequence: **144 → 016 → 145** (136/137 already shipped feed 145). 016 
 - 2026-06-16: GOAL opened. urgency=0.70, importance=0.90. Delivers STO-SCN-016 (datum scale,
   scout-owned), STO-SCN-144 (control-distance tool, next build), STO-SCN-145 (primitive cull,
   draft). Decisions recorded in STO-SCN-016 § Decisions; corpus entry captured at OLAI.
+- 2026-06-16: **ENGINEERING COMPLETE — BLOCKED ON OPERATOR VERIFICATION (T-020).** All code for
+  016/144/145 built + tested (44/44) + committed (7 commits, ending `ca87855`): `metric_scale.py`,
+  `calibrate_datum.py` (`apply_to_gauge` datum sidecar), `datum_frame.py`, `sdf_primitives.py`,
+  `match.html` MEASURE mode, `cull-mesh@2` primitives tunable. Verify surface pre-staged +
+  e2e-validated on real 001-patio (`/tmp/measure-001`). The three stories stay `in-progress`
+  (NOT `shipped`) because the agent cannot self-close operator-facing surfaces (T-020).
+  **OPERATOR ACTION (the only thing left, assigned to the human):**
+  `python3 -m http.server 8099 --directory /tmp/measure-001` → open `match.html` → press `M` →
+  measure one KNOWN real distance in two photos → export → `python3 real2sim/calibrate_datum.py
+  --export <json>`. That number + the visual sign-off in Rank ship 016/144/145 and complete this
+  GOAL. (Release early without measuring: `/goal clear`.)
