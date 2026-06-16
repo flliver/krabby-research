@@ -125,17 +125,52 @@ mode + the `calibrate_datum`/`datum_frame` back-end already shipped (001-patio c
 |---|---|---|
 | STO-SCN-146 shell | **built** (b3c40c3), operator-verify pending | tab bar + selector + view switcher; `scenes.js` registry |
 | STO-SCN-153 metadata | **built** (c87cd4a), operator-verify pending | `/api/scene/<scene>/meta` + `scenes-meta.js`; verified vs real 001-patio |
-| 147 spine / 148 subsets | next | mount via `window.scenesViews.{spine,subsets}` |
-| 149–152 create flow | queued | ingest → pipeline → scout → MEASURE |
+| STO-SCN-148 subsets | **built** (58e55a5), operator-verify pending | `/api/scene/<scene>/subsets` + `/api/photo/...` + `scenes-subsets.js`; verified vs real 001-patio |
+| STO-SCN-147 spine | **scoped, deferred** | 3D WebGL surface — needs `build_verify` + viewer embed + visual verify (below) |
+| 149–152 create flow | **scoped, deferred** | GPU + pipeline-orchestration + operator-bound (below) |
 
-**▶ Operator T-020 check (foundation):** the shell + metadata view are a
-demonstrable vertical slice. To verify before more views land on top: open the
-Studio app (**`http://krabby.organl.com:8090/`**, the rate_renders server — note
-it must be restarted to pick up the new `server.py` route; static reloads
-live), click the **Scenes** tab, confirm the scene selector lists scenes,
-selecting one shows the **Metadata** view (001-patio → s=4.45, 942 images), and
-the Metadata/Spine/Subsets switcher toggles. Feedback on layout now is cheaper
-than after 149–152 build on it.
+### What shipped autonomously (the browse-data foundation)
+146 + 153 + 148 are the CPU-only, unit/HTTP-testable half of "browse a scene":
+the tab shell + the Metadata and Subsets views, each with a pure
+`server.py` helper (`scene_meta`, `scene_subsets`) + a `window.scenesViews`
+registry renderer. All three are committed with tests
+(`tests/test_scene_meta.py`, `tests/test_scene_subsets.py`) and verified
+end-to-end against the real 001-patio store. **Operator T-020 exercise is
+staged on each — not self-closed.**
+
+### Why 147 + 149–152 were NOT auto-built (the autonomous boundary)
+These cross out of CPU/testable territory and should be done **with the
+operator**, not generated on an unverified shell (T-005/T-007/T-020):
+- **147 Spine** — the deliverable is a 3D color-by-subset frustum viewer.
+  Reuse is clear: `build_verify.build_frustums(sparse_dir, …)` already emits
+  frustums + `gauge_up` orientation + cull box; a CPU `/api/scene/<scene>/spine`
+  can return that (skip the splat-cull) and tag each camera by subset
+  membership, fed to an embedded `verify_viewer/viewer.html` (add per-subset
+  coloring + legend). But it needs a solve with `cameras/<solve>/sparse/0`
+  (001-patio: `6EHLYO3MF3QU/62QEHJDAJZBI` qualifies) and **visual verification**
+  that can't be self-checked here.
+- **149–152 Create flow** — ingest/canonicalize (149), pipeline orchestration
+  with phase progress (150), scout + render-views (151), MEASURE + Normalize
+  (152). These run real GPU pipeline steps + the MEASURE T-020 surface; they
+  need compute + the operator in the loop, not autonomous generation.
+
+**▶ Operator action (unblocks the rest):**
+1. **Verify the foundation.** Open the Studio app at
+   **`http://krabby.organl.com:8090/`** (rate_renders — **restart it** to load
+   the new `server.py` routes; static reloads live). Click **Scenes** → confirm
+   the selector lists scenes, **Metadata** shows 001-patio (s=4.45, 942 images,
+   6 subsets), **Subsets** lists subsets (PRIMARY flagged, datum badge) with the
+   paged photo grid (1 / 2×1 / 2×2 / 3×3 / 4×4).
+2. **Decide the host.** Confirm Scenes belongs in `rate_renders/` (per the
+   reuse-map) vs. the sibling **Pipeline Studio** (`studio/`, 8091). Files are
+   additive + port cleanly if you want it in `studio/`.
+3. Then resume the loop (or hand 147 + 149–152 to a scout↔operator session) to
+   build the 3D + create-flow stories against the verified foundation.
+
+_Loop `cron 3b007906` stopped here on purpose: the remaining stories are
+operator/GPU/3D-gated, so spinning the 60s timer adds no autonomous progress
+(same call as the GOAL-SCN-001 T-020 wall). Re-arm with `/loop … finish
+EPI-SCN-SCENE-MANAGER` after the foundation check._
 
 ## Retrospective
 
