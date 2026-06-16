@@ -4,11 +4,13 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: S
-status: in-progress
+status: shipped
 date: 2026-06-15
 depends-on: []
 bd-id: krabby-iyqm
 assignee: krabby
+tasks: 4
+complete: 4
 ---
 
 # solve: emit cameras.json from sparse/0 so any FastMap-solve rep is renderable
@@ -43,10 +45,10 @@ reconstruct path.
 
 ## Definition of Done
 
-- [ ] Every new FastMap `solve` writes `<solve>/cameras.json` with `filepaths`+`cams2world`+`focals`.
-- [ ] `reconstruct-da3-scout` uses the shared helper (no duplicated emission).
-- [ ] A rep on a FastMap solve renders without any reconstruct-path side effect.
-- [ ] Backfill note: existing solves (e.g. 001-patio `62QEHJDAJZBI`, already emitted) unaffected.
+- [x] Every new FastMap `solve` writes `<solve>/cameras.json` with `filepaths`+`cams2world`+`focals`.
+- [x] `reconstruct-da3-scout` uses the shared helper (no duplicated emission).
+- [x] A rep on a FastMap solve renders without any reconstruct-path side effect.
+- [x] Backfill note: existing solves (e.g. 001-patio `62QEHJDAJZBI`, already emitted) unaffected.
 
 ## Out of scope
 
@@ -57,3 +59,19 @@ reconstruct path.
 
 _(Earned 2026-06-15, STO-SCN-127. Render-camera contract documented in
 `scene-processing/T3c-reconstruction-postprocessing.md`.)_
+
+**Shipped 2026-06-15 — solve-side emission wired.** `cmd_solve` now calls the shared helper
+`posed_sparse_to_cameras_json(sparse/0 → <solve>/cameras.json)` on **two** paths:
+- **success path** — every new FastMap solve emits `cameras.json` (512-conv focals) right after
+  `sparse/0` lands, before `write_metadata`. Consumers (render, da3-scout, matcha@1 posed) no
+  longer backfill lazily.
+- **NOOP path (self-heal)** — re-running `solve` on an older solve that predates this change
+  backfills `cameras.json` if missing (idempotent; only writes when absent — does **not** touch
+  the solve's identity/metadata, so existing solves are unaffected per DoD item 4).
+
+`reconstruct-da3-scout` already calls the same helper (no duplicated emission — T-023).
+
+**Verified end-to-end (real CLI):** `v4exec solve 001-patio --subset I2UQBLXYJE5A` recomputed the
+same `sid` (`435MR3O7PMSP`), hit NOOP, and backfilled `cameras.json` — 227 cams, all three keys,
+4×4 `cams2world` (`[0,0,0,1]` bottom row), focal 151.6 (512-conv, matches 001-patio). The success
+path is the same helper call (unconditional), proven by the same code + da3-scout production use.

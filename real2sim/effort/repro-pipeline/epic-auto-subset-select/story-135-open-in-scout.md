@@ -4,11 +4,13 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: M
-status: done
+status: shipped
 date: 2026-06-15
 depends-on: []
 bd-id: krabby-taqu
 assignee: krabby
+tasks: 5
+complete: 5
 ---
 
 # Open in Scout: from the Rank UI Manifest, open a variant's mesh + camera spine (utilized subset highlighted) in the scout viewer

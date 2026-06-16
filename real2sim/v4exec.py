@@ -452,6 +452,12 @@ def cmd_solve(args):
     sdir = scene_dir / "images" / "subsets" / subset / "cameras" / sid
     if (sdir / "metadata.json").exists():
         print(f"[solve] NOOP — fastmap@0 solve {sid} exists")
+        # STO-SCN-129: self-heal — backfill cameras.json for an older solve that predates
+        # solve-time emission (idempotent; only writes if missing).
+        cj = sdir / "cameras.json"
+        if not cj.exists() and (sdir / "sparse" / "0" / "images.bin").exists():
+            n = posed_sparse_to_cameras_json(sdir / "sparse" / "0", cj)
+            print(f"  -> backfilled cameras.json ({n} cams, 512-conv)")
         print(f"  -> {sdir}")
         return
 
@@ -486,6 +492,12 @@ def cmd_solve(args):
     sh(["ssh", args.host, f"rm -rf {SCRATCH}/{tag} {workdir}"])
     if rc != 0 or not (sdir / "sparse" / "0" / "images.bin").exists():
         sys.exit(f"[solve] FAILED (rc={rc}; see {sdir}/solve.log)")
+    # STO-SCN-129: emit the renderable+posable cameras.json from sparse/0 at SOLVE time, so every
+    # FastMap solve carries it (512-conv focals) — consumers (render, da3-scout, matcha@1 posed)
+    # no longer backfill it lazily. Shared helper; idempotent.
+    cams_json = sdir / "cameras.json"
+    n_cams = posed_sparse_to_cameras_json(sdir / "sparse" / "0", cams_json)
+    print(f"[solve] emitted cameras.json ({n_cams} cams, 512-conv) -> {cams_json}")
     import struct
     with open(sdir / "sparse" / "0" / "images.bin", "rb") as f:
         n_reg = struct.unpack("<Q", f.read(8))[0]

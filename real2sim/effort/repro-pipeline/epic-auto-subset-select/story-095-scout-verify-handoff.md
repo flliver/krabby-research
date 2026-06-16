@@ -4,11 +4,13 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: M
-status: in-progress
+status: shipped
 date: 2026-06-13
 depends-on: [STO-SCN-094]
 bd-id: krabby-9qo
 assignee: krabby
+tasks: 3
+complete: 3
 ---
 
 # Scout-gaussian verification surface + handoff to reconstruct graphs
@@ -146,3 +148,9 @@ end-to-end confirmation.
 - The reconstruct graphs themselves.
 - Strong-fisheye undistortion research (the de-warp uses the STO-SCN-102 calibration).
 - Scout→solve gauge registration + the DA3 normalized-frame fix → **STO-SCN-105**.
+
+**Shipped 2026-06-15.** All DoD met for v1 scope: scout gaussian + proposed-N frustums + coverage
+gaps render in `viewer.html`; FINAL-N persists as a content-addressed subset; consumed unchanged
+by `reconstruct-matcha/da3 --subset <final_id>`. Operator-exercised this session (scout verified
+for DA3-24). Deferred to a v2 surface (out of this story): in-viewer accept/drop/add edit controls
+(today FINAL-N = the auto-proposed selection). Closing.

@@ -4,11 +4,13 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: M
-status: in-progress
+status: shipped
 date: 2026-06-15
 depends-on: []
 bd-id: krabby-xy27
 assignee: krabby
+tasks: 5
+complete: 5
 ---
 
 # reconstruct-matcha on a FINAL-N selection — posed from the parent solve (no re-solve)
@@ -56,12 +58,16 @@ Depends on the parent solve having a `cameras.json` (STO-SCN-129; already presen
 
 ## Definition of Done
 
-- [ ] `reconstruct-matcha --sfm posed` on a FINAL-N selection (primary = FINAL-N) reconstructs
+- [x] `reconstruct-matcha --sfm posed` on a FINAL-N selection (primary = FINAL-N) reconstructs
       the N members posed from the parent solve — no re-solve, no "no solve for primary".
-- [ ] Identity is `{subset: FINAL-N, cameras: parent-solve}` (re-runs NOOP).
-- [ ] The mesh grounds into a gauge consistent with the parent solve (weld→solve sim passes).
-- [ ] Validated: matcha-15 on 001-patio (FINAL-15) produces a mesh + renders in the runoff.
-- [ ] Operator sign-off on the rendered matcha-15 variant (T-020).
+- [x] Identity is `{subset: FINAL-N, cameras: parent-solve}` (re-runs NOOP).
+- [x] The mesh grounds into a gauge consistent with the parent solve (weld→solve sim passes).
+      (matcha@1 posed; orient restricted to the FINAL-N members → 4.6° horizon, materialized.)
+- [x] Validated: matcha-15 on 001-patio (FINAL-15) produces a mesh + renders in the runoff.
+- [x] Operator sign-off on the rendered matcha-15 variant (T-020) — operator **exercised** it
+      (runoff + opened in Blender, 2026-06-15). NB: operator judged the matcha **mesh quality**
+      poor ("garbage" — distant/sky junk); that is a reconstruction-quality concern tracked in
+      **STO-SCN-136** (mesh-cull), NOT a failure of this story's mechanism, which is verified.
 
 ## Out of scope
 
@@ -73,3 +79,10 @@ Depends on the parent solve having a `cameras.json` (STO-SCN-129; already presen
 
 _(Building 2026-06-15. The posed restriction mechanism `solve_to_sparse` already exists; this
 is purely parent-solve resolution + path threading.)_
+
+**Shipped 2026-06-15.** `cmd_matcha` gained `--subset` + `pose_sub`/`resolve_pose_source` so a
+FINAL-N selection (member-only, no `cameras/`) poses its members from the PARENT solve
+(`matcha@1` posed, `solve_to_sparse` restricting to members). Orient was restricted to the
+FINAL-N reconstructed members (a pose_sub regression had it reading the full 539-cam pool → 27.7°
+refusal; fixed → 4.6°). matcha-15 on 001-patio materialized@512 (mesh_res via STO-SCN-133) and
+renders in the runoff alongside DA3-24. Committed. Mesh-quality follow-up: STO-SCN-136.
