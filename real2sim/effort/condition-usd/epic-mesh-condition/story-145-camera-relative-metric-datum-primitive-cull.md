@@ -102,4 +102,23 @@ cylinder, capsule, half-space…). Booleans: union=`min`, intersection=`max`, di
 - True CSG cut geometry (separate follow-up; this story is masking-first).
 
 ## Implementation Notes
-_(Draft — design captured 2026-06-16; not yet greenlit for build.)_
+
+### Built 2026-06-16 — the datum FRAME foundation (DoD item 1, scale-independent part)
+- **`real2sim/datum_frame.py`** (new, tested): `build_datum(cam_centers, up, scale, ground_z)` pins
+  the gauge — `+Z` = gravity (`gauge_up`), `+X` = spine azimuth (cam[0]→cam[N] ground-projected,
+  PCA fallback for loops), `+Y = Z×X`, origin = ground-projected centroid, metric `scale` from
+  STO-SCN-016 — and emits `solve_to_datum` (4×4): `p_datum = scale·R·(p_solve − origin)`.
+  `gauge_fix_from_poses` recovers up from the poses; `to_datum` maps points.
+  Tests `tests/test_datum_frame.py` 8/8 (up→+Z, spine→+X, orthonormal RH, centroid→origin,
+  ground projection, metric scale, loop PCA fallback, gauge_up recovery).
+
+### Remaining (greenlit-gated + 016-gated)
+- **Boolean-primitive SDF masking** (DoD item 2) in `cull_mesh.py` — author primitives in meters in
+  the datum frame (sphere/box/cylinder/half-space SDFs, min/max booleans), keep/drop verts by the
+  combined SDF sign. Consequential change to the cull tool → **awaits operator greenlight** (only
+  the 144 triangulation approach is approved so far). The metric authoring needs STO-SCN-016
+  calibrated (operator measurement).
+- Datum origin's `ground_z` consumes the orient gauge's floor; wiring the datum into `cull-mesh@1`
+  + the v4 store is the integration step after the above.
+
+_(Design captured 2026-06-16; frame foundation built; primitive-cull body pending greenlight.)_
