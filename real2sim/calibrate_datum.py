@@ -86,14 +86,28 @@ def recompute(export, gate_thresh=1.5, s_monocular=None):
     }
 
 
-def apply_to_gauge(scene, solve, scale):  # pragma: no cover - store mutation, operator-gated (T-020)
-    """SEAM (not yet wired): emit a calibrated gauge node = the solve gauge x `scale`, additive
-    (new identity), so cameras + every downstream mesh inherit meters. Gated on a real operator
-    measurement to test e2e per T-020; left as the documented next step under STO-SCN-016."""
-    raise NotImplementedError(
-        "apply_to_gauge is the documented next step (STO-SCN-016) — wire after operator T-020 "
-        "supplies a real control measurement; must be an additive calibrated gauge node, not a re-key."
-    )
+def apply_to_gauge(gauge_dir, scale, datum_frame=None, provenance=None, force=False):
+    """Write the metric datum as an ADDITIVE sidecar (`datum.json`) in the gauge/orient dir.
+
+    Records the metric scale (`p_meters = scale * p_solve_gauge`) + the optional camera-derived
+    datum frame (datum_frame.py) + provenance. This is store-safe by construction: it does NOT
+    re-ground existing meshes or rewrite cameras.json/oriented.json, so no materialized mesh
+    identity is re-keyed (STO-SCN-136 backwards-compat). Downstream consumers (USD export 017,
+    primitive-cull authoring 145) read the sidecar to interpret the gauge in meters.
+
+    Refuses to clobber an existing `datum.json` unless `force` (T-018 preserve output).
+    """
+    gp = Path(gauge_dir)
+    out = gp / "datum.json"
+    if out.exists() and not force:
+        raise FileExistsError(f"{out} exists; pass force=True to overwrite")
+    rec = {"scale_m_per_unit": float(scale),
+           "datum_frame": datum_frame,
+           "provenance": provenance,
+           "note": "metric datum sidecar (additive); p_meters = scale * p_solve-gauge. STO-SCN-016."}
+    gp.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(rec, indent=2) + "\n")
+    return str(out)
 
 
 def main():

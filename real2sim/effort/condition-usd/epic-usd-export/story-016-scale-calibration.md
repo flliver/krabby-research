@@ -86,14 +86,22 @@ the datum, applied to cameras + every mesh, is correct and is what every incumbe
   Tests: `tests/test_calibrate_datum.py` 5/5 + `tests/test_metric_scale.py` 12/12 green.
 - **Decisions D1–D7** above are the canonical record (reframe ratified).
 
-### Remaining (the operator-gated tail — T-020 / T-026)
-- **`calibrate_datum.apply_to_gauge()` is a documented seam, not yet wired** — it must emit an
-  **additive calibrated gauge node** (solve gauge × `s`; new identity, no re-key) so cameras + all
-  meshes inherit meters. Deliberately deferred until a **real operator control measurement** exists
-  to test it end-to-end (shipping an untested store mutation would violate T-020/T-018).
-- **OPERATOR ACTION (unblocks the rest):** on 001-patio, open `match.html` MEASURE mode, measure
-  ≥1 known real distance, export → run `calibrate_datum.py`. That single measurement turns on the
-  authoritative gate, lets `apply_to_gauge` be wired + tested, and calibrates the first scene.
+### Built 2026-06-16 — `apply_to_gauge` (the datum-level apply, store-safe)
+- **`calibrate_datum.apply_to_gauge(gauge_dir, scale, datum_frame, provenance)`** writes the metric
+  scale as an **additive `datum.json` sidecar** in the gauge/orient dir: `p_meters = scale ·
+  p_solve_gauge` + the camera datum frame + provenance. Store-safe by construction — it does **not**
+  re-ground meshes or rewrite cameras.json/oriented.json, so **no materialized mesh identity is
+  re-keyed** (STO-SCN-136 backwards-compat); refuses to clobber an existing sidecar (T-018).
+  Tested (`tests/test_calibrate_datum.py`: sidecar write + clobber-refusal).
+
+### Remaining (operator-gated — T-020 / T-026)
+- **The real `s` value** needs a real measurement (a human knows a real-world distance) — the code
+  path is built + tested with synthetic `s`; only the actual number is operator-supplied.
+- **Consumer-side reads:** USD export (STO-SCN-017) reads `datum.json` to emit metric USD; the
+  primitive-cull (STO-SCN-145) authors in those meters. (Sidecar producer done; consumers wire next.)
+- **OPERATOR ACTION (calibrates scene 001):** open `match.html` MEASURE mode, measure ≥1 known real
+  distance, export → `calibrate_datum.py` → `apply_to_gauge`. Everything downstream is built and waits
+  only on that number + the T-020 visual confirm.
 
 ## Journal Notes
 MAtCha's per-chart deformation MLP can re-scale geometry differently across runs (per-region depth

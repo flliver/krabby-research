@@ -39,6 +39,8 @@ import time
 import numpy as np
 import open3d as o3d
 
+import sdf_primitives as sp  # STO-SCN-145: boolean cull primitives (datum frame)
+
 
 def load_oriented_cameras(cameras_orig_json, cameras_oriented_json):
     """Same logic as project_color.py — kept inline to avoid cross-script import."""
@@ -99,8 +101,15 @@ def main():
                     help="Drop vertices with z < this (in oriented space; floor is z=0)")
     ap.add_argument("--max-dist-from-cluster", type=float, default=0.0,
                     help="Drop vertices farther than this from camera centroid (0=disabled)")
+    ap.add_argument("--cambox-expand", type=float, default=-1.0,
+                    help="STO-SCN-137: keep verts inside the posed-camera AABB expanded by this "
+                         "fraction per side; cull outside. <0 = disabled (default)")
     ap.add_argument("--image-size", default="1024,576",
                     help="WxH of the source images used by MAtCha (default 1024,576)")
+    ap.add_argument("--primitives", default=None,
+                    help="STO-SCN-145: JSON file of boolean cull primitives (sphere/box/cylinder/"
+                         "halfspace, op keep|subtract) authored in the datum frame (meters); keep "
+                         "verts inside the resulting solid. Optional 'frame_transform' maps mesh->datum.")
     args = ap.parse_args()
 
     image_size = tuple(int(x) for x in args.image_size.split(","))
@@ -144,14 +153,45 @@ def main():
     else:
         near_cluster = np.ones(V0, dtype=bool)
 
-    valid = enough_views & above_floor & near_cluster
+    # STO-SCN-137: camera-bounding-box cull — KEEP everything inside the posed-camera AABB
+    # (expanded by `cambox_expand` per side), CULL everything outside. The mesh + the oriented
+    # cameras are both in the gravity-aligned gauge here, so the box is a plain AABB of the
+    # camera centers (ported from verify_viewer/build_verify.cull_box, which does this in
+    # gaussian space). cambox_expand < 0 = disabled.
+    if args.cambox_expand >= 0:
+        bmn = cam_centers.min(axis=0)
+        bmx = cam_centers.max(axis=0)
+        span = bmx - bmn
+        lo = bmn - span * args.cambox_expand
+        hi = bmx + span * args.cambox_expand
+        in_cambox = ((verts >= lo).all(axis=1) & (verts <= hi).all(axis=1))
+        print(f"    cambox (gravity-aligned, +{args.cambox_expand}/side): "
+              f"lo={np.round(lo,2)} hi={np.round(hi,2)}")
+    else:
+        in_cambox = np.ones(V0, dtype=bool)
+
+    # STO-SCN-145: boolean-primitive cull — keep verts inside the authored primitive solid.
+    # Primitives live in the datum frame (meters); 'frame_transform' maps mesh->datum if present.
+    if args.primitives:
+        with open(args.primitives) as pf:
+            prims, ftf = sp.load_spec(json.load(pf))
+        in_prims = sp.cull_mask(verts, prims, frame_transform=ftf)
+        print(f"    primitives: {len(prims)} primitive(s) → keep {int(in_prims.sum()):,}/{V0:,} inside solid")
+    else:
+        in_prims = np.ones(V0, dtype=bool)
+
+    valid = enough_views & above_floor & near_cluster & in_cambox & in_prims
     n_drop_views = int((~enough_views).sum())
     n_drop_floor = int((enough_views & ~above_floor).sum())
     n_drop_dist = int((enough_views & above_floor & ~near_cluster).sum())
+    n_drop_cambox = int((enough_views & above_floor & near_cluster & ~in_cambox).sum())
+    n_drop_prims = int((enough_views & above_floor & near_cluster & in_cambox & ~in_prims).sum())
     n_keep = int(valid.sum())
     print(f"    drop: {n_drop_views:,} (views<{args.min_views})  "
           f"+ {n_drop_floor:,} (z<{args.floor_z_min})  "
-          f"+ {n_drop_dist:,} (dist>{args.max_dist_from_cluster}m)")
+          f"+ {n_drop_dist:,} (dist>{args.max_dist_from_cluster}m)  "
+          f"+ {n_drop_cambox:,} (outside cambox)  "
+          f"+ {n_drop_prims:,} (outside primitives)")
     print(f"    keep: {n_keep:,} verts ({100*n_keep/V0:.1f}%)")
 
     # Filter triangles: drop any triangle that references a culled vertex

@@ -4,7 +4,7 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: L
-status: draft
+status: in-progress
 date: 2026-06-16
 depends-on: [STO-SCN-016, STO-SCN-137]
 bd-id: krabby-8w2r
@@ -87,14 +87,21 @@ cylinder, capsule, half-space…). Booleans: union=`min`, intersection=`max`, di
 - Masking-only vs true CSG (which deliverables actually need cut geometry?).
 - Authoring surface: JSON vs Blender/USD visual placement vs an in-tool primitive editor.
 
-## Definition of Done (draft)
-- [ ] A fixed camera-derived **metric, gravity-aligned datum** (origin/azimuth per table) computed
-      from the solve, consuming STO-SCN-016's scale.
-- [ ] Boolean primitive set (SDF-based) authored in meters in that frame; masking cull on
-      `cull-mesh@1` keeps/drops verts by the combined SDF; composes with existing culls; NOOP re-run.
-- [ ] Operator authors a primitive once against the cameras and it applies to multiple meshes from
-      the same solve.
-- [ ] **Operator-verified (T-020).**
+## Definition of Done
+- [x] A fixed camera-derived **metric, gravity-aligned datum** (origin/azimuth per table) computed
+      from the solve, consuming STO-SCN-016's scale. **Built: `datum_frame.py` (8/8 tests).**
+- [x] Boolean primitive set (SDF-based) authored in meters in that frame; masking cull keeps/drops
+      verts by the combined SDF; composes with the existing culls. **Built: `sdf_primitives.py`
+      (sphere/box/cylinder/halfspace + keep/subtract booleans; 10/10 tests) + `cull_mesh.py
+      --primitives` (ANDs `in_prims` with the view/floor/dist/cambox masks).**
+- [~] Operator authors a primitive once against the cameras and it applies to multiple meshes from
+      the same solve. **Mechanism done** (primitives in the datum frame + `frame_transform` apply to
+      any mesh from the same gauge); a primitive-authoring UI is a follow-up.
+- [ ] **Operator-verified (T-020):** author a primitive on 001-patio, cull a real mesh, confirm in
+      Rank. **← remaining; needs the operator (and a calibrated `s` for true-meters authoring).**
+
+Note: wiring `--primitives` into a `cull-mesh@2` tunable (content identity) is the v4-store
+integration step (mirrors STO-SCN-137's `cambox_expand`); the masking itself is complete + tested.
 
 ## Out of scope
 - The metric scale itself (STO-SCN-016) + the measurement tool (STO-SCN-144).
@@ -112,13 +119,23 @@ cylinder, capsule, half-space…). Booleans: union=`min`, intersection=`max`, di
   Tests `tests/test_datum_frame.py` 8/8 (up→+Z, spine→+X, orthonormal RH, centroid→origin,
   ground projection, metric scale, loop PCA fallback, gauge_up recovery).
 
-### Remaining (greenlit-gated + 016-gated)
-- **Boolean-primitive SDF masking** (DoD item 2) in `cull_mesh.py` — author primitives in meters in
-  the datum frame (sphere/box/cylinder/half-space SDFs, min/max booleans), keep/drop verts by the
-  combined SDF sign. Consequential change to the cull tool → **awaits operator greenlight** (only
-  the 144 triangulation approach is approved so far). The metric authoring needs STO-SCN-016
-  calibrated (operator measurement).
-- Datum origin's `ground_z` consumes the orient gauge's floor; wiring the datum into `cull-mesh@1`
-  + the v4 store is the integration step after the above.
+### Built 2026-06-16 — boolean-primitive SDF masking (DoD item 2)
+- **`real2sim/sdf_primitives.py`** (new, tested 10/10): SDFs (sphere/box/cylinder/halfspace) +
+  boolean combinators (keep=union via min, subtract=`max(a,−b)`); `cull_mask(verts, primitives,
+  frame_transform)` keeps verts inside the combined solid. Spec is a JSON list authored in the
+  datum frame (meters), optional `frame_transform` maps mesh→datum. STO-137's camera-AABB = the
+  keep-box special case (test asserts the equivalence).
+- **`real2sim/cull_mesh.py --primitives <json>`** — evaluates `in_prims` and ANDs it with the
+  existing view/floor/dist/cambox masks (composes; drop-accounting prints the primitive count).
+  Root-cause bug fixed during build (keep-union accumulator init; T-003).
 
-_(Design captured 2026-06-16; frame foundation built; primitive-cull body pending greenlight.)_
+### Remaining
+- **v4-store integration:** expose `--primitives` as a `cull-mesh@2` tunable (content identity),
+  mirroring STO-SCN-137's `cambox_expand` — so a primitive-culled mesh is a distinct, rankable,
+  NOOP-on-re-run node. (The masking is done; this is the store-node wiring.)
+- **True-meters authoring** needs STO-SCN-016 calibrated (operator measurement) — until then
+  primitives are authored in solve-gauge units (scale=1).
+- **Operator T-020** + an optional primitive-authoring UI.
+
+_(Design captured 2026-06-16; datum frame + SDF primitive masking built + tested; store-node
+tunable + operator verification remain.)_

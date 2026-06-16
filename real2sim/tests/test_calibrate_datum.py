@@ -2,10 +2,12 @@
 
 Run: uv run --quiet --python 3.11 --with numpy --with pytest python3 -m pytest real2sim/tests/test_calibrate_datum.py -q
 """
+import json
 import os
 import sys
 
 import numpy as np
+import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 import calibrate_datum as cd  # noqa: E402
@@ -63,3 +65,21 @@ def test_gate_applies_when_converted_prior_supplied():
     assert rec["da3_gate"]["passed"] is True
     rec2 = cd.recompute(export, s_monocular=[1.6])                   # 3.2x off
     assert rec2["da3_gate"]["passed"] is False
+
+
+def test_apply_to_gauge_writes_additive_sidecar(tmp_path):
+    out = cd.apply_to_gauge(str(tmp_path), 0.4167,
+                            datum_frame={"scale": 0.4167}, provenance={"D": 1.0})
+    rec = json.loads((tmp_path / "datum.json").read_text())
+    assert out.endswith("datum.json")
+    assert rec["scale_m_per_unit"] == 0.4167
+    assert rec["datum_frame"]["scale"] == 0.4167
+    assert rec["provenance"]["D"] == 1.0
+
+
+def test_apply_to_gauge_refuses_clobber(tmp_path):
+    cd.apply_to_gauge(str(tmp_path), 0.4)
+    with pytest.raises(FileExistsError):
+        cd.apply_to_gauge(str(tmp_path), 0.5)              # preserve existing (T-018)
+    cd.apply_to_gauge(str(tmp_path), 0.5, force=True)      # explicit override
+    assert json.loads((tmp_path / "datum.json").read_text())["scale_m_per_unit"] == 0.5
