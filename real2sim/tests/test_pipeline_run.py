@@ -48,7 +48,7 @@ def test_plan_threads_solve():
     assert "--solve" in covis["cmd"] and "SOLVE1" in covis["cmd"]
     assert "--host" in covis["cmd"] and "tbeeprz" in covis["cmd"]
     mesh = next(p for p in pl if p["key"] == "mesh")
-    assert "reconstruct-da3" in mesh["cmd"] and "--sfm" in mesh["cmd"]
+    assert "reconstruct-da3-scout" in mesh["cmd"] and "--scout" in mesh["cmd"] and "--host" not in mesh["cmd"]
     # precull has no host (CPU)
     precull = next(p for p in pl if p["key"] == "precull")
     assert "--host" not in precull["cmd"] and "--set-primary" in precull["cmd"]

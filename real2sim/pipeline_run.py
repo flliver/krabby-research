@@ -92,6 +92,23 @@ def resolve_latest_solve(scene_dir: Path, subset: str | None = None) -> str | No
     return max(solves, key=lambda c: c.stat().st_mtime).name
 
 
+def resolve_latest_scout(scene_dir: Path, solve: str | None = None,
+                         subset: str | None = None) -> str | None:
+    """Newest scout (dir with da3_poses.npz) under the solve — what the matcha-free
+    `reconstruct-da3-scout` fuses into the DA3 mesh."""
+    subset = subset or resolve_primary_subset(scene_dir)
+    solve = solve or resolve_latest_solve(scene_dir, subset)
+    if not (subset and solve):
+        return None
+    sd = scene_dir / "images" / "subsets" / subset / "cameras" / solve / "scout"
+    if not sd.is_dir():
+        return None
+    scouts = [s for s in sd.iterdir() if s.is_dir() and (s / "da3_poses.npz").exists()]
+    if not scouts:
+        return None
+    return max(scouts, key=lambda s: s.stat().st_mtime).name
+
+
 # ---- ingest deduction (phase 0) -------------------------------------------
 
 def video_source(scene_dir: Path) -> Path | None:
@@ -159,12 +176,13 @@ PHASES = [
      "args": ["covis"], "host": True, "needs_solve": True},
     {"key": "scout",   "label": "DA3 scout gaussian",
      "args": ["scout"], "host": True, "needs_solve": True},
-    {"key": "mesh",    "label": "DA3 reconstruct (mesh)",
-     "args": ["reconstruct-da3", "--sfm", "posed"], "host": True, "needs_solve": False},
+    {"key": "mesh",    "label": "DA3 mesh (matcha-free, from scout)",
+     "args": ["reconstruct-da3-scout"], "host": False, "needs_solve": True, "needs_scout": True},
 ]
 
 
-def build_command(phase: dict, scene: str, host: str, solve: str | None) -> list[str]:
+def build_command(phase: dict, scene: str, host: str, solve: str | None,
+                  scout: str | None = None) -> list[str]:
     """v4exec command line for a host/local-cli phase."""
     cmd = [sys.executable, str(V4EXEC), phase["args"][0], scene]
     cmd += phase["args"][1:]
@@ -172,6 +190,8 @@ def build_command(phase: dict, scene: str, host: str, solve: str | None) -> list
         cmd += ["--host", host]
     if phase.get("needs_solve"):
         cmd += ["--solve", solve or "UNRESOLVED"]
+    if phase.get("needs_scout"):
+        cmd += ["--scout", scout or "UNRESOLVED"]
     return cmd
 
 
@@ -187,13 +207,14 @@ def plan(scene: str, host: str, scene_dir: Path | None = None) -> list[dict]:
     """Full plan for the dry-run preview (includes the deduced ingest fps/frames)."""
     sd = scene_dir or (Path(os.environ.get("KRABBY_SCENES_ROOT", "/var/krabby/scenes")) / scene)
     solve = resolve_latest_solve(sd) or "<after-solve>"
+    scout = resolve_latest_scout(sd) or "<after-scout>"
     out = []
     for p in PHASES:
         if p.get("local"):
             out.append({"key": p["key"], "label": p["label"], "cmd": _ingest_cmd_preview(sd)})
         else:
             out.append({"key": p["key"], "label": p["label"],
-                        "cmd": build_command(p, scene, host, solve)})
+                        "cmd": build_command(p, scene, host, solve, scout)})
     return out
 
 
@@ -213,6 +234,7 @@ def run_pipeline(scene_dir: Path, host: str, *, dry_run: bool = False,
 
     emit()
     solve = resolve_latest_solve(scene_dir)
+    scout = resolve_latest_scout(scene_dir, solve)
     for i, p in enumerate(PHASES):
         rec["phase_idx"] = i
         rec["phase"] = p["key"]
@@ -264,7 +286,9 @@ def run_pipeline(scene_dir: Path, host: str, *, dry_run: bool = False,
         # ---- host / cli phases (v4exec) ----
         if p.get("needs_solve"):
             solve = solve or resolve_latest_solve(scene_dir)
-        cmd = build_command(p, scene, host, solve)
+        if p.get("needs_scout"):
+            scout = scout or resolve_latest_scout(scene_dir, solve)
+        cmd = build_command(p, scene, host, solve, scout)
         phases[i]["cmd"] = cmd
         emit()
 
@@ -293,6 +317,9 @@ def run_pipeline(scene_dir: Path, host: str, *, dry_run: bool = False,
         if p["key"] == "solve":
             solve = resolve_latest_solve(scene_dir)
             rec["solve"] = solve
+        if p["key"] == "scout":
+            scout = resolve_latest_scout(scene_dir, solve)
+            rec["scout"] = scout
         emit()
 
     rec["status"] = "done"
