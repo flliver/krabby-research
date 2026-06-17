@@ -137,11 +137,14 @@ function viewFromCam(navPos){
 // R cols = right/down/forward → forward=+Z local, up=-Y local. ──
 function gotoView(v){
   if (!v || !v.world_position) return;
-  const q = v.world_rotation_quat_wxyz;          // [w,x,y,z]
-  const P = new THREE.Vector3(...v.world_position);
+  const P = new THREE.Vector3(...v.world_position);   // solve gauge (server-converted)
   let fwd, u;
-  if (q && q.length === 4){
-    const tq = new THREE.Quaternion(q[1], q[2], q[3], q[0]);   // xyzw
+  if (v.forward && v.up){                              // solve-gauge basis from list_views
+    fwd = new THREE.Vector3(...v.forward).normalize();
+    u   = new THREE.Vector3(...v.up).normalize();
+  } else if (v.world_rotation_quat_wxyz && v.world_rotation_quat_wxyz.length === 4){
+    const q = v.world_rotation_quat_wxyz;
+    const tq = new THREE.Quaternion(q[1], q[2], q[3], q[0]);   // xyzw (oriented-gauge fallback)
     fwd = new THREE.Vector3(0,0,1).applyQuaternion(tq).normalize();
     u   = new THREE.Vector3(0,-1,0).applyQuaternion(tq).normalize();
   } else { fwd = C.clone().sub(P).normalize(); u = new THREE.Vector3(...up); }

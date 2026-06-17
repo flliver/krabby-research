@@ -121,16 +121,59 @@ def build_serve(scene_dir: Path, *, subset=None, solve=None, scout=None,
             "serve_dir": str(out), "log": "\n".join(r.stdout.splitlines()[-8:])}
 
 
+def _quat_wxyz_to_cols(q):
+    """opencv camera rotation quat (w,x,y,z) → (right, down, forward) world columns."""
+    w, x, y, z = q
+    n = (w * w + x * x + y * y + z * z) ** 0.5 or 1.0
+    w, x, y, z = w / n, x / n, y / n, z / n
+    right = [1 - 2 * (y * y + z * z), 2 * (x * y + w * z), 2 * (x * z - w * y)]
+    down = [2 * (x * y - w * z), 1 - 2 * (x * x + z * z), 2 * (y * z + w * x)]
+    fwd = [2 * (x * z + w * y), 2 * (y * z - w * x), 1 - 2 * (x * x + y * y)]
+    return right, down, fwd
+
+
+def _orient_for_solve(scene_dir: Path):
+    """The (R, z_shift) oriented→solve gauge for the viewer's solve, matching what
+    author_overview used (sorted-first oriented.json under the resolved solve).
+    Returns (R_rows, z) or (None, 0.0)."""
+    r = resolve_scout(scene_dir)
+    if not r:
+        return None, 0.0
+    odir = (scene_dir / "images" / "subsets" / r["subset"] / "cameras"
+            / r["solve"] / "orient")
+    ojs = sorted(odir.glob("*/oriented.json")) if odir.is_dir() else []
+    if not ojs:
+        return None, 0.0
+    try:
+        g = json.loads(ojs[0].read_text())
+        return g.get("rotation"), float(g.get("z_shift", 0.0))
+    except (OSError, ValueError, TypeError):
+        return None, 0.0
+
+
+def _oriented_to_solve(vec, R, *, translate):
+    """Inverse of build_verify's un-orient. R is oriented.json rotation (rows);
+    v_solve = R^T @ (v_oriented - [0,0,z]) for points, R^T @ v for directions."""
+    v = list(vec)
+    if translate:
+        v = [v[0], v[1], v[2] - translate]
+    # R^T @ v : out[i] = sum_k R[k][i] * v[k]
+    return [sum(R[k][i] * v[k] for k in range(3)) for i in range(3)]
+
+
 def list_views(scene_dir: Path) -> list:
     """Named render views = views/<slot>/view.json.
 
-    Returns enough of each view's pose for the live scout viewer to *snap its
-    camera* to it (position + opencv rotation quat + lens/sensor/resolution →
-    fov + aspect). Without this the authored views were invisible — the button
-    wrote a sidecar the viewer never read (STO-SCN-151 gap)."""
+    Returns each view's pose **converted into the solve gauge** so the live scout
+    viewer (which renders in the solve gauge) can snap its camera to it. The
+    view.json poses are authored in the ORIENTED gauge (floor z=0, +z up — what
+    the offline renderer uses); dropping them straight into the solve-gauge viewer
+    sent the camera wildly off (operator report 2026-06-17). We invert
+    build_verify's un-orient with the scene's oriented.json so the snap lands."""
     vdir = scene_dir / "views"
     if not vdir.is_dir():
         return []
+    R_o, z_o = _orient_for_solve(scene_dir)
     out = []
     for d in sorted(vdir.iterdir()):
         vj = d / "view.json"
@@ -141,11 +184,24 @@ def list_views(scene_dir: Path) -> list:
         except (OSError, ValueError):
             v = {}
         pos = v.get("world_position") or v.get("P") or v.get("position")
+        q = v.get("world_rotation_quat_wxyz")
+        fwd = up = None
+        if q and len(q) == 4:
+            _, down_o, fwd_o = _quat_wxyz_to_cols(q)
+            up_o = [-c for c in down_o]
+            if R_o:
+                fwd = _oriented_to_solve(fwd_o, R_o, translate=0)
+                up = _oriented_to_solve(up_o, R_o, translate=0)
+            else:
+                fwd, up = fwd_o, up_o
+        pos_solve = (_oriented_to_solve(pos, R_o, translate=z_o)
+                     if (pos and R_o) else pos)
         out.append({
             "name": d.name,
-            "pose": pos,
-            "world_position": pos,
-            "world_rotation_quat_wxyz": v.get("world_rotation_quat_wxyz"),
+            "pose": pos_solve,
+            "world_position": pos_solve,           # solve gauge (the viewer's frame)
+            "forward": fwd, "up": up,              # solve gauge basis (skip quat math client-side)
+            "gauge": "solve" if R_o else "oriented",
             "lens_mm": v.get("lens_mm"),
             "sensor_width_mm": v.get("sensor_width_mm"),
             "sensor_height_mm": v.get("sensor_height_mm"),
