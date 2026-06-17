@@ -411,17 +411,54 @@ def cmd_spine(args):
 
 # ============================================================ solve (FastMap) + covis (STO-SCN-093)
 
+def _infer_modality(scene_dir):
+    """Auto-heal a missing `modality` from STORE FACTS (not a guess):
+      - a captured video (`videos/capture/video.*`)            -> 'video'
+      - canonical images that are extracted frames (`frame_*`)  -> 'video'
+      - canonical images with discrete camera names            -> 'photos'
+    Returns (modality | None, reason). `hyperlapse` is NOT store-detectable
+    (no on-disk signal distinguishes it from video) — it must be declared
+    explicitly in capture.json; declaration always wins over inference.
+    """
+    cap = scene_dir / "videos" / "capture"
+    if cap.is_dir() and any(cap.glob("video.*")):
+        vids = sorted(cap.glob("video.*"))
+        return "video", f"{vids[0].name} present in videos/capture/"
+    names = []
+    for md in scene_dir.glob("images/*/metadata.json"):
+        try:
+            names.append(json.loads(md.read_text()).get("original_name", "") or "")
+        except (OSError, ValueError):
+            continue
+    if names:
+        frames = sum(1 for n in names if n.lower().lstrip().startswith("frame"))
+        if frames >= max(1, (len(names) + 1) // 2):
+            return "video", f"{frames}/{len(names)} canonical images are extracted frames (frame_*)"
+        return "photos", f"{len(names) - frames}/{len(names)} canonical images are discrete photos"
+    return None, "no captured video and no canonical images to infer from"
+
+
 def _read_capture_decl(scene_dir):
     """<scene>/capture.json -> (make, model, mode, modality). modality is the
-    per-scene cadence declaration (hyperlapse|video|photos) — STO-SCN-093 (E)."""
+    per-scene cadence (hyperlapse|video|photos) — STO-SCN-093 (E). A MISSING
+    modality is AUTO-HEALED from store facts (`_infer_modality`); make/model/mode
+    are real declarations and stay required (mode isn't derivable)."""
     p = scene_dir / "capture.json"
     if not p.exists():
-        sys.exit(f"no {p} — declare {{make, model, mode, modality}} (STO-SCN-091/093).")
+        sys.exit(f"no {p} — declare {{make, model, mode}} (modality auto-heals; STO-SCN-091/093).")
     d = json.loads(p.read_text())
-    for k in ("make", "model", "mode", "modality"):
+    for k in ("make", "model", "mode"):
         if not d.get(k):
-            sys.exit(f"{p}: missing '{k}' (need make, model, mode, modality).")
-    return d["make"], d["model"], d["mode"], d["modality"]
+            sys.exit(f"{p}: missing '{k}' (need make, model, mode).")
+    modality = d.get("modality")
+    if not modality:
+        modality, why = _infer_modality(scene_dir)
+        if not modality:
+            sys.exit(f"{p}: missing 'modality' and could not infer it ({why}) — "
+                     f"declare one of hyperlapse|video|photos.")
+        print(f"[capture] modality auto-healed -> '{modality}' ({why}); "
+              f"declare 'modality' in capture.json to override (e.g. hyperlapse).")
+    return d["make"], d["model"], d["mode"], modality
 
 
 def cmd_solve(args):
