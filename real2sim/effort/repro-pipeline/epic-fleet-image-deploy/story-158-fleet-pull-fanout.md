@@ -4,7 +4,7 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: M
-status: open
+status: in-progress
 date: 2026-06-16
 depends-on: []
 bd-id: krabby-1rco
@@ -40,27 +40,53 @@ Without a fan-out, "ensure the latest is on all the fleet" is an N-host
 manual chore that drifts immediately. A single command that pulls +
 reports is the durable fix.
 
+## Ownership split (operator directive, 2026-06-16)
+
+> *"We [krabby] should own what is being deployed and how (excluding
+> ansible); ops@baeprz should own the how (ansible) and which hosts."*
+
+- **krabby owns** the **manifest** of what's deployed →
+  `images/fleet-manifest.yaml` (active path + fallback + deprecated,
+  with registry + tags). This is the source of truth; krabby keeps it
+  current as images are built/bumped.
+- **ops@baeprz owns** the **ansible fan-out** that consumes the
+  manifest and the **host inventory** — the playbook reads
+  `fleet-manifest.yaml`, pulls the declared tags onto the GPU hosts,
+  and reports the matrix.
+
 ## Design
 
-### Approach (baeprz `ops` implements; krabby specifies + accepts)
+### krabby side (this story) — DONE
 
-- `fleet/ansible/docker-pull.yml` (or a `fleet-pull` tag on the
-  existing registry playbook): inputs = image+tag, or a "latest of
-  each krabby family" manifest.
-- WoL any sleeping GPU hosts first (note: **t resists WoL** — s2idle
-  defeats the magic packet; needs a manual wake or a power-config fix,
-  tracked separately).
-- `docker pull j.pski.org:5000/krabby-<img>:<tag>` across t/b/d/s in
-  parallel; emit a **per-host sync matrix** (host × family × tag/ID).
-- Read-only-safe: pull is additive; never prune/retag without an
-  explicit flag.
+- `images/fleet-manifest.yaml` — the deployment contract: `registry`,
+  `active_path[]` (matcha 0.2.2-selfcontained, da3 0.4, fastmap 0.3),
+  `fallback[]`, `deprecated[]`. The playbook's input.
+
+### ops side (baeprz `ops` implements — GREENLIT 2026-06-16)
+
+- `fleet/ansible/docker-pull.yml`: read `images/fleet-manifest.yaml`
+  → pull the declared tags onto the hosts → emit a per-host sync
+  matrix (host × image × tag/ID). Default scope = `active_path`;
+  `--fallback` to include fallbacks.
+- WoL sleeping hosts first (note: **t resists WoL** — s2idle defeats
+  the magic packet; manual wake needed, tracked separately).
+- Additive only — never prune/retag without an explicit flag.
 
 ### Changes
 
-| File | Change |
-|------|--------|
-| (baeprz) `fleet/ansible/docker-pull.yml` | new — WoL + parallel pull + matrix |
-| krabby liaison REQ to baeprz `ops` | the cross-project ask + acceptance criteria |
+| File | Owner | Change |
+|------|-------|--------|
+| `images/fleet-manifest.yaml` | krabby | new — the deployment manifest (DONE) |
+| (baeprz) `fleet/ansible/docker-pull.yml` | ops | new — manifest-driven WoL + parallel pull + matrix |
+| krabby → ops dispatch | krabby | the build ask + acceptance criteria |
+
+## Definition of Done
+
+- [x] krabby manifest `images/fleet-manifest.yaml` authored (what's deployed).
+- [ ] Build ask filed to baeprz `ops` with acceptance criteria below.
+- [ ] One command (ansible) pulls the manifest's tags onto every reachable GPU host.
+- [ ] It prints a per-host sync matrix (host × image × tag/ID).
+- [ ] Pull is additive only (no implicit prune/retag).
 
 ## Definition of Done
 

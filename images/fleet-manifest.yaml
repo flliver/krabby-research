@@ -1,0 +1,47 @@
+# Fleet image manifest — what krabby deploys to the GPU fleet.
+#
+# OWNERSHIP SPLIT (operator directive, 2026-06-16; STO-SCN-158):
+#   • krabby owns WHAT is deployed + HOW it's built (this file, the image
+#     Dockerfiles, the build+push, the sync-tools drift guard) — EXCLUDING ansible.
+#   • ops@baeprz owns the ansible HOW (the docker-pull fan-out playbook) and
+#     WHICH hosts (the inventory).
+#
+# This file is the contract between the two: krabby keeps it current as the
+# source of truth for the canonical fleet image set; ops's playbook consumes it
+# to pull the declared tags onto the GPU hosts and report a per-host sync matrix.
+#
+# Registry: LAN, plain-HTTP, insecure-registries trusted on the GPU hosts.
+registry: j.pski.org:5000
+
+# ACTIVE PATH — the scene-onboarding pipeline. Keep these in sync on EVERY GPU
+# host so onboarding can be vetted identically anywhere on the fleet.
+active_path:
+  - image: krabby-matcha
+    tag: 0.2.2-selfcontained
+    role: reconstruction (primary M11 path)
+  - image: krabby-da3
+    tag: "0.4"
+    role: depth-anything-3 reconstruction
+  - image: krabby-fastmap
+    tag: "0.3"            # STO-SCN-157 de-drift rebuild (covis `fwd`); supersedes 0.2
+    role: GPU SfM / pose + co-visibility
+
+# FALLBACK — alternate reconstruction front-ends. Preserved + registry-resident,
+# but pulled on demand (not kept hot on every host).
+# NOTE: :0.1 tags land via STO-SCN-156 (registry push of the preserved images).
+fallback:
+  - image: krabby-mast3r
+    tag: "0.1"
+    role: MASt3R-SLAM (alternate front-end)
+  - image: krabby-slam3r
+    tag: "0.1"
+    role: SLAM3R (alternate front-end)
+  - image: krabby-vggt
+    tag: "0.1"
+    role: VGGT (alternate front-end)
+
+# DEPRECATED — superseded, scheduled for removal (see STO-SCN-160).
+# Not pushed to the registry; preserved as tars only.
+deprecated:
+  - image: krabby-011-scene-reconstruction
+    reason: legacy pre-v4 recon; replaced by matcha/da3/fastmap active path

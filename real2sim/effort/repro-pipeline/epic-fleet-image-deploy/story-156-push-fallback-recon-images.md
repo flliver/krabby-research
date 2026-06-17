@@ -99,22 +99,23 @@ All registry-absent / diverged local-only images are now `docker save`d
 **The "don't lose it" risk is now closed** — nothing irreplaceable lives only
 in a single mutable `:latest` anymore.
 
-### Remaining — registry push (needs canonical picks)
+### Registry push — DECIDED (operator 2026-06-16)
 
-- **mast3r:** b's `481571` (Apr-29) is newer than s's `25592` (Apr-12) →
-  canonical = **b**.
-- **mast3r-base / slam3r / vggt:** single copy each → canonical trivially.
-- **011-scene-reconstruction(-cuda):** LEGACY (pre matcha/da3/fastmap), and the
-  s vs d copies diverged. **Operator judgment:** does legacy 011 warrant a
-  registry slot at all, or is the durable tar enough? (Recommend: tar-only;
-  don't push legacy.)
-- Push is additive + non-`t` — safe to run via ops once canonical is confirmed.
+Push the fallbacks as `:0.1`, tar-only for legacy 011:
 
-### Open gap — tbeeprz (t)
+- **mast3r:** canonical = **b's `481571`** (Apr-29, newer than s's `25592`) → `krabby-mast3r:0.1`.
+- **mast3r-base / slam3r / vggt:** single copy each → `:0.1`.
+- **011-scene-reconstruction(-cuda):** **tar-only, do NOT push** — legacy +
+  diverged + superseded. Elimination tracked in **STO-SCN-160**.
+- Push is additive — running via ops.
 
-t was unwakeable (s2idle) all session, so its local-only images are NOT yet
-audited/preserved. ops armed a watcher to auto-audit+preserve t the moment it
-powers on (read-only — not a deploy, honors the t-hold).
+### tbeeprz (t) — GAP CLOSED (2026-06-16)
+
+The t-hold was released; t came online and ops preserved its **5**
+diverged/registry-absent images (117 GB) to
+`t:/home/jeremy/preserve/EPI-SCN-FLEET-IMAGE-DEPLOY/images/`: matcha
+`5109b314`, da3 `fb08b6ff`, 011-cuda `7c619836`, fastmap 0.2/0.1. Every host's
+irreplaceable images are now preserved — the audit gap is fully closed.
 
 ## Out of scope
 
