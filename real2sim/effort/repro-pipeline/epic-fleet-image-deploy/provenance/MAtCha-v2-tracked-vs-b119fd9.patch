@@ -1,0 +1,516 @@
+diff --git a/2d-gaussian-splatting/extract_mesh.py b/2d-gaussian-splatting/extract_mesh.py
+index 3877ef6..a78da85 100644
+--- a/2d-gaussian-splatting/extract_mesh.py
++++ b/2d-gaussian-splatting/extract_mesh.py
+@@ -258,7 +258,7 @@ def marching_tetrahedra_with_binary_search(
+     # load cell if exists
+     if os.path.exists(os.path.join(render_path, "cells.pt")):
+         print("load existing cells")
+-        cells = torch.load(os.path.join(render_path, "cells.pt"))
++        cells = torch.load(os.path.join(render_path, "cells.pt"), weights_only=False)
+     else:
+         # create cell and save cells
+         print("create cells and save")
+diff --git a/2d-gaussian-splatting/extract_mesh_adaptive_tsdf.py b/2d-gaussian-splatting/extract_mesh_adaptive_tsdf.py
+index 7ce4522..c9f47c0 100644
+--- a/2d-gaussian-splatting/extract_mesh_adaptive_tsdf.py
++++ b/2d-gaussian-splatting/extract_mesh_adaptive_tsdf.py
+@@ -259,7 +259,7 @@ def marching_tetrahedra_with_binary_search(
+     cells_file_path = os.path.join(render_path, "cells.pt")
+     if os.path.exists(cells_file_path):
+         print("load existing cells")
+-        cells = torch.load(cells_file_path)
++        cells = torch.load(cells_file_path, weights_only=False)
+     else:
+         # create cell and save cells
+         print("create cells and save")
+diff --git a/2d-gaussian-splatting/submodules/diff-surfel-rasterization/cuda_rasterizer/rasterizer_impl.h b/2d-gaussian-splatting/submodules/diff-surfel-rasterization/cuda_rasterizer/rasterizer_impl.h
+index 7245905..34a641c 100644
+--- a/2d-gaussian-splatting/submodules/diff-surfel-rasterization/cuda_rasterizer/rasterizer_impl.h
++++ b/2d-gaussian-splatting/submodules/diff-surfel-rasterization/cuda_rasterizer/rasterizer_impl.h
+@@ -10,6 +10,7 @@
+  */
+ 
+ #pragma once
++#include <cstdint>
+ 
+ #include <iostream>
+ #include <vector>
+diff --git a/2d-gaussian-splatting/submodules/simple-knn/simple_knn.cu b/2d-gaussian-splatting/submodules/simple-knn/simple_knn.cu
+index e72e4c9..df436d0 100644
+--- a/2d-gaussian-splatting/submodules/simple-knn/simple_knn.cu
++++ b/2d-gaussian-splatting/submodules/simple-knn/simple_knn.cu
+@@ -1,3 +1,4 @@
++#include <cfloat>
+ /*
+  * Copyright (C) 2023, Inria
+  * GRAPHDECO research group, https://team.inria.fr/graphdeco
+diff --git a/2d-gaussian-splatting/submodules/tetra-triangulation/CMakeLists.txt b/2d-gaussian-splatting/submodules/tetra-triangulation/CMakeLists.txt
+index 17b239c..2d16590 100644
+--- a/2d-gaussian-splatting/submodules/tetra-triangulation/CMakeLists.txt
++++ b/2d-gaussian-splatting/submodules/tetra-triangulation/CMakeLists.txt
+@@ -12,6 +12,9 @@ find_library(libcnpy cnpy ${CONDA_PREFIX}/lib)
+ include_directories(${CONDA_PREFIX}/include)
+ 
+ # TODO: fix this
++# Krabby patch: explicit CUDA include for non-conda builds
++include_directories(/usr/local/cuda/include)
++
+ find_package(Torch REQUIRED)
+ find_package(CGAL REQUIRED)
+ # find_package(pybind11 REQUIRED)
+diff --git a/2d-gaussian-splatting/submodules/tetra-triangulation/cmake/FindTorch.cmake b/2d-gaussian-splatting/submodules/tetra-triangulation/cmake/FindTorch.cmake
+index db55741..e7f2088 100644
+--- a/2d-gaussian-splatting/submodules/tetra-triangulation/cmake/FindTorch.cmake
++++ b/2d-gaussian-splatting/submodules/tetra-triangulation/cmake/FindTorch.cmake
+@@ -31,4 +31,4 @@ include_directories(${TORCH_INCLUDE_DIRS})
+ link_directories(${TORCH_LIBRARY_DIRS})
+ set(TORCH_LIBRARIES c10 torch torch_cpu torch_python)
+ string(APPEND CMAKE_CUDA_FLAGS " -D__CUDA_NO_HALF_OPERATORS__ -D__CUDA_NO_HALF_CONVERSIONS__ -D__CUDA_NO_HALF2_OPERATORS__ --expt-relaxed-constexpr --compiler-options '-fPIC' -O3 --use_fast_math")
+-string(APPEND CMAKE_CXX_FLAGS " -Wno-deprecated-declarations -D_GLIBCXX_USE_CXX11_ABI=0")
+\ No newline at end of file
++string(APPEND CMAKE_CXX_FLAGS " -Wno-deprecated-declarations -D_GLIBCXX_USE_CXX11_ABI=1")
+\ No newline at end of file
+diff --git a/2d-gaussian-splatting/train.py b/2d-gaussian-splatting/train.py
+index 79b6dab..2dae58d 100644
+--- a/2d-gaussian-splatting/train.py
++++ b/2d-gaussian-splatting/train.py
+@@ -35,7 +35,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
+     scene = Scene(dataset, gaussians)
+     gaussians.training_setup(opt)
+     if checkpoint:
+-        (model_params, first_iter) = torch.load(checkpoint)
++        (model_params, first_iter) = torch.load(checkpoint, weights_only=False)
+         gaussians.restore(model_params, opt)
+ 
+     bg_color = [1, 1, 1] if dataset.white_background else [0, 0, 0]
+diff --git a/2d-gaussian-splatting/train_with_charts.py b/2d-gaussian-splatting/train_with_charts.py
+index e8fb501..b4113ea 100644
+--- a/2d-gaussian-splatting/train_with_charts.py
++++ b/2d-gaussian-splatting/train_with_charts.py
+@@ -163,7 +163,7 @@ def training(
+     
+     gaussians.training_setup(opt)
+     if checkpoint:
+-        (model_params, first_iter) = torch.load(checkpoint)
++        (model_params, first_iter) = torch.load(checkpoint, weights_only=False)
+         gaussians.restore(model_params, opt)
+ 
+     bg_color = [1, 1, 1] if dataset.white_background else [0, 0, 0]
+diff --git a/Depth-Anything-V2/app.py b/Depth-Anything-V2/app.py
+index 41399be..894a131 100644
+--- a/Depth-Anything-V2/app.py
++++ b/Depth-Anything-V2/app.py
+@@ -32,7 +32,7 @@ model_configs = {
+ }
+ encoder = 'vitl'
+ model = DepthAnythingV2(**model_configs[encoder])
+-state_dict = torch.load(f'checkpoints/depth_anything_v2_{encoder}.pth', map_location="cpu")
++state_dict = torch.load(f'checkpoints/depth_anything_v2_{encoder}.pth', map_location="cpu", weights_only=False)
+ model.load_state_dict(state_dict)
+ model = model.to(DEVICE).eval()
+ 
+diff --git a/Depth-Anything-V2/metric_depth/depth_to_pointcloud.py b/Depth-Anything-V2/metric_depth/depth_to_pointcloud.py
+index 770fe60..4b41774 100644
+--- a/Depth-Anything-V2/metric_depth/depth_to_pointcloud.py
++++ b/Depth-Anything-V2/metric_depth/depth_to_pointcloud.py
+@@ -64,7 +64,7 @@ def main():
+ 
+     # Initialize the DepthAnythingV2 model with the specified configuration
+     depth_anything = DepthAnythingV2(**{**model_configs[args.encoder], 'max_depth': args.max_depth})
+-    depth_anything.load_state_dict(torch.load(args.load_from, map_location='cpu'))
++    depth_anything.load_state_dict(torch.load(args.load_from, map_location='cpu', weights_only=False))
+     depth_anything = depth_anything.to(DEVICE).eval()
+ 
+     # Get the list of image files to process
+diff --git a/Depth-Anything-V2/metric_depth/run.py b/Depth-Anything-V2/metric_depth/run.py
+index 63d46f5..b2a2c1c 100644
+--- a/Depth-Anything-V2/metric_depth/run.py
++++ b/Depth-Anything-V2/metric_depth/run.py
+@@ -36,7 +36,7 @@ if __name__ == '__main__':
+     }
+     
+     depth_anything = DepthAnythingV2(**{**model_configs[args.encoder], 'max_depth': args.max_depth})
+-    depth_anything.load_state_dict(torch.load(args.load_from, map_location='cpu'))
++    depth_anything.load_state_dict(torch.load(args.load_from, map_location='cpu', weights_only=False))
+     depth_anything = depth_anything.to(DEVICE).eval()
+     
+     if os.path.isfile(args.img_path):
+diff --git a/Depth-Anything-V2/metric_depth/train.py b/Depth-Anything-V2/metric_depth/train.py
+index 9b30427..9c6ba39 100644
+--- a/Depth-Anything-V2/metric_depth/train.py
++++ b/Depth-Anything-V2/metric_depth/train.py
+@@ -88,7 +88,7 @@ def main():
+     model = DepthAnythingV2(**{**model_configs[args.encoder], 'max_depth': args.max_depth})
+     
+     if args.pretrained_from:
+-        model.load_state_dict({k: v for k, v in torch.load(args.pretrained_from, map_location='cpu').items() if 'pretrained' in k}, strict=False)
++        model.load_state_dict({k: v for k, v in torch.load(args.pretrained_from, map_location='cpu', weights_only=False).items() if 'pretrained' in k}, strict=False)
+     
+     model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
+     model.cuda(local_rank)
+diff --git a/Depth-Anything-V2/run.py b/Depth-Anything-V2/run.py
+index 14810ff..0bc5191 100644
+--- a/Depth-Anything-V2/run.py
++++ b/Depth-Anything-V2/run.py
+@@ -33,7 +33,7 @@ if __name__ == '__main__':
+     }
+     
+     depth_anything = DepthAnythingV2(**model_configs[args.encoder])
+-    depth_anything.load_state_dict(torch.load(f'checkpoints/depth_anything_v2_{args.encoder}.pth', map_location='cpu'))
++    depth_anything.load_state_dict(torch.load(f'checkpoints/depth_anything_v2_{args.encoder}.pth', map_location='cpu', weights_only=False))
+     depth_anything = depth_anything.to(DEVICE).eval()
+     
+     if os.path.isfile(args.img_path):
+diff --git a/Depth-Anything-V2/run_video.py b/Depth-Anything-V2/run_video.py
+index cc3c5b6..00b6fe6 100644
+--- a/Depth-Anything-V2/run_video.py
++++ b/Depth-Anything-V2/run_video.py
+@@ -33,7 +33,7 @@ if __name__ == '__main__':
+     }
+     
+     depth_anything = DepthAnythingV2(**model_configs[args.encoder])
+-    depth_anything.load_state_dict(torch.load(f'checkpoints/depth_anything_v2_{args.encoder}.pth', map_location='cpu'))
++    depth_anything.load_state_dict(torch.load(f'checkpoints/depth_anything_v2_{args.encoder}.pth', map_location='cpu', weights_only=False))
+     depth_anything = depth_anything.to(DEVICE).eval()
+     
+     if os.path.isfile(args.video_path):
+diff --git a/mast3r/dust3r/croco/demo.py b/mast3r/dust3r/croco/demo.py
+index 91b80cc..f104f5d 100644
+--- a/mast3r/dust3r/croco/demo.py
++++ b/mast3r/dust3r/croco/demo.py
+@@ -20,7 +20,7 @@ def main():
+     image2 = trfs(Image.open('assets/Chateau2.png').convert('RGB')).to(device, non_blocking=True).unsqueeze(0)
+     
+     # load model 
+-    ckpt = torch.load('pretrained_models/CroCo_V2_ViTLarge_BaseDecoder.pth', 'cpu')
++    ckpt = torch.load('pretrained_models/CroCo_V2_ViTLarge_BaseDecoder.pth', 'cpu', weights_only=False)
+     model = CroCoNet( **ckpt.get('croco_kwargs',{})).to(device)
+     model.eval()
+     msg = model.load_state_dict(ckpt['model'], strict=True)
+diff --git a/mast3r/dust3r/croco/models/curope/kernels.cu b/mast3r/dust3r/croco/models/curope/kernels.cu
+index 7156cd1..bf777c2 100644
+--- a/mast3r/dust3r/croco/models/curope/kernels.cu
++++ b/mast3r/dust3r/croco/models/curope/kernels.cu
+@@ -98,7 +98,7 @@ void rope_2d_cuda( torch::Tensor tokens, const torch::Tensor pos, const float ba
+     const int N_BLOCKS = B * N; // each block takes care of H*D values
+     const int SHARED_MEM = sizeof(float) * (D + D/4);
+ 
+-    AT_DISPATCH_FLOATING_TYPES_AND_HALF(tokens.type(), "rope_2d_cuda", ([&] {
++    AT_DISPATCH_FLOATING_TYPES_AND_HALF(tokens.scalar_type(), "rope_2d_cuda", ([&] {
+         rope_2d_cuda_kernel<scalar_t> <<<N_BLOCKS, THREADS_PER_BLOCK, SHARED_MEM>>> (
+             //tokens.data_ptr<scalar_t>(), 
+             tokens.packed_accessor32<scalar_t,4,torch::RestrictPtrTraits>(),
+diff --git a/mast3r/dust3r/croco/stereoflow/test.py b/mast3r/dust3r/croco/stereoflow/test.py
+index 0248e56..57f3471 100644
+--- a/mast3r/dust3r/croco/stereoflow/test.py
++++ b/mast3r/dust3r/croco/stereoflow/test.py
+@@ -51,7 +51,7 @@ def get_args_parser():
+ def _load_model_and_criterion(model_path, do_load_metrics, device):
+     print('loading model from', model_path)
+     assert os.path.isfile(model_path)
+-    ckpt = torch.load(model_path, 'cpu')
++    ckpt = torch.load(model_path, 'cpu', weights_only=False)
+     
+     ckpt_args = ckpt['args']
+     task = ckpt_args.task
+diff --git a/mast3r/dust3r/croco/stereoflow/train.py b/mast3r/dust3r/croco/stereoflow/train.py
+index 91f2414..791f63c 100644
+--- a/mast3r/dust3r/croco/stereoflow/train.py
++++ b/mast3r/dust3r/croco/stereoflow/train.py
+@@ -105,7 +105,7 @@ def main(args):
+ 
+     # Prepare model
+     assert os.path.isfile(args.pretrained)
+-    ckpt = torch.load(args.pretrained, 'cpu')
++    ckpt = torch.load(args.pretrained, 'cpu', weights_only=False)
+     croco_args = croco_args_from_ckpt(ckpt)
+     croco_args['img_size'] = (args.crop[0], args.crop[1])
+     print('Croco args: '+str(croco_args))
+@@ -151,7 +151,7 @@ def main(args):
+         print(f"Starting from an other model's weights: {args.start_from}")
+         best_so_far = None
+         args.start_epoch = 0
+-        ckpt = torch.load(args.start_from, 'cpu')
++        ckpt = torch.load(args.start_from, 'cpu', weights_only=False)
+         msg = model_without_ddp.load_state_dict(ckpt['model'], strict=False)
+         print(msg)
+     else:
+diff --git a/mast3r/dust3r/croco/utils/misc.py b/mast3r/dust3r/croco/utils/misc.py
+index 132e102..7385d56 100644
+--- a/mast3r/dust3r/croco/utils/misc.py
++++ b/mast3r/dust3r/croco/utils/misc.py
+@@ -313,7 +313,7 @@ def load_model(args, model_without_ddp, optimizer, loss_scaler):
+             checkpoint = torch.hub.load_state_dict_from_url(
+                 args.resume, map_location='cpu', check_hash=True)
+         else:
+-            checkpoint = torch.load(args.resume, map_location='cpu')
++            checkpoint = torch.load(args.resume, map_location='cpu', weights_only=False)
+         print("Resume checkpoint %s" % args.resume)
+         model_without_ddp.load_state_dict(checkpoint['model'], strict=False)
+         args.start_epoch = checkpoint['epoch'] + 1
+diff --git a/mast3r/dust3r/dust3r/model.py b/mast3r/dust3r/dust3r/model.py
+index 41c3a4f..e92c6d3 100644
+--- a/mast3r/dust3r/dust3r/model.py
++++ b/mast3r/dust3r/dust3r/model.py
+@@ -27,7 +27,7 @@ assert version.parse(hf_version_number) >= version.parse("0.22.0"), ("Outdated h
+ def load_model(model_path, device, verbose=True):
+     if verbose:
+         print('... loading model from', model_path)
+-    ckpt = torch.load(model_path, map_location='cpu')
++    ckpt = torch.load(model_path, map_location='cpu', weights_only=False)
+     args = ckpt['args'].model.replace("ManyAR_PatchEmbed", "PatchEmbedDust3R")
+     if 'landscape_only' not in args:
+         args = args[:-1] + ', landscape_only=False)'
+diff --git a/mast3r/dust3r/dust3r/training.py b/mast3r/dust3r/dust3r/training.py
+index 53af976..33da806 100644
+--- a/mast3r/dust3r/dust3r/training.py
++++ b/mast3r/dust3r/dust3r/training.py
+@@ -137,7 +137,7 @@ def train(args):
+ 
+     if args.pretrained and not args.resume:
+         print('Loading pretrained: ', args.pretrained)
+-        ckpt = torch.load(args.pretrained, map_location=device)
++        ckpt = torch.load(args.pretrained, map_location=device, weights_only=False)
+         print(model.load_state_dict(ckpt['model'], strict=False))
+         del ckpt  # in case it occupies memory
+ 
+diff --git a/mast3r/mast3r/cloud_opt/sparse_ga.py b/mast3r/mast3r/cloud_opt/sparse_ga.py
+index f50c495..faa0570 100644
+--- a/mast3r/mast3r/cloud_opt/sparse_ga.py
++++ b/mast3r/mast3r/cloud_opt/sparse_ga.py
+@@ -75,7 +75,7 @@ class SparseGA():
+         base_focals = []
+         anchors = {}
+         for i, canon_path in enumerate(self.canonical_paths):
+-            (canon, canon2, conf), focal = torch.load(canon_path, map_location=device)
++            (canon, canon2, conf), focal = torch.load(canon_path, map_location=device, weights_only=False)
+             confs.append(conf)
+             base_focals.append(focal)
+ 
+@@ -268,7 +268,7 @@ def sparse_scene_optimizer(imgs, subsample, imsizes, pps, base_focals, core_dept
+     # intrinsics parameters
+     if shared_intrinsics:
+         # Optimize a single set of intrinsics for all cameras. Use averages as init.
+-        confs = torch.stack([torch.load(pth)[0][2].mean() for pth in canonical_paths]).to(pps)
++        confs = torch.stack([torch.load(pth, weights_only=False)[0][2].mean() for pth in canonical_paths]).to(pps)
+         weighting = confs / confs.sum()
+         pp = nn.Parameter((weighting @ pps).to(dtype))
+         pps = [pp for _ in range(len(imgs))]
+@@ -564,7 +564,7 @@ def make_dense_pts3d(intrinsics, cam2w, depthmaps, canonical_paths, subsample, d
+     anchors = {}
+     confs = []
+     for i, canon_path in enumerate(canonical_paths):
+-        (canon, canon2, conf), focal = torch.load(canon_path, map_location=device)
++        (canon, canon2, conf), focal = torch.load(canon_path, map_location=device, weights_only=False)
+         confs.append(conf)
+         base_focals.append(focal)
+         H, W = conf.shape
+@@ -594,7 +594,7 @@ def forward_mast3r(pairs, model, cache_path, desc_conf='desc_conf',
+         path_corres2 = cache_path + f'/corres_conf={desc_conf}_{subsample=}/{idx2}-{idx1}.pth'
+ 
+         if os.path.isfile(path_corres2) and not os.path.isfile(path_corres):
+-            score, (xy1, xy2, confs) = torch.load(path_corres2)
++            score, (xy1, xy2, confs) = torch.load(path_corres2, weights_only=False)
+             torch.save((score, (xy2, xy1, confs)), path_corres)
+ 
+         if not all(os.path.isfile(p) for p in (path1, path2, path_corres)):
+@@ -701,7 +701,7 @@ def prepare_canonical_data(imgs, tmp_pairs, subsample, order_imgs=False, min_con
+             cache = os.path.join(cache_path, 'canon_views', hash_md5(img) + f'_{subsample=}_{kw=}.pth')
+             canonical_paths.append(cache)
+         try:
+-            (canon, canon2, cconf), focal = torch.load(cache, map_location=device)
++            (canon, canon2, cconf), focal = torch.load(cache, map_location=device, weights_only=False)
+         except IOError:
+             # cache does not exist yet, we create it!
+             canon = focal = None
+@@ -715,7 +715,7 @@ def prepare_canonical_data(imgs, tmp_pairs, subsample, order_imgs=False, min_con
+         for (img1, img2), ((path1, path2), path_corres) in tmp_pairs.items():
+             score = None
+             if img == img1:
+-                X, C, X2, C2 = torch.load(path1, map_location=device)
++                X, C, X2, C2 = torch.load(path1, map_location=device, weights_only=False)
+                 score, (xy1, xy2, confs) = load_corres(path_corres, device, min_conf_thr)
+                 pixels[img2] = xy1, confs
+                 if img not in preds_21:
+@@ -724,7 +724,7 @@ def prepare_canonical_data(imgs, tmp_pairs, subsample, order_imgs=False, min_con
+                 preds_21[img][img2] = X2[::subsample, ::subsample].reshape(-1, 3), C2[::subsample, ::subsample].ravel()
+ 
+             if img == img2:
+-                X, C, X2, C2 = torch.load(path2, map_location=device)
++                X, C, X2, C2 = torch.load(path2, map_location=device, weights_only=False)
+                 score, (xy1, xy2, confs) = load_corres(path_corres, device, min_conf_thr)
+                 pixels[img1] = xy2, confs
+                 if img not in preds_21:
+@@ -773,7 +773,7 @@ def prepare_canonical_data(imgs, tmp_pairs, subsample, order_imgs=False, min_con
+ 
+ 
+ def load_corres(path_corres, device, min_conf_thr):
+-    score, (xy1, xy2, confs) = torch.load(path_corres, map_location=device)
++    score, (xy1, xy2, confs) = torch.load(path_corres, map_location=device, weights_only=False)
+     valid = confs > min_conf_thr if min_conf_thr else slice(None)
+     # valid = (xy1 > 0).all(dim=1) & (xy2 > 0).all(dim=1) & (xy1 < 512).all(dim=1) & (xy2 < 512).all(dim=1)
+     # print(f'keeping {valid.sum()} / {len(valid)} correspondences')
+@@ -979,7 +979,7 @@ def spectral_projection_depth(K, depthmap, subsample, k=64, cache_path='',
+     try:
+         if cache_path:
+             cache_path = cache_path + f'_{k=}_norm={normalized_cuts}_{gamma=}.pth'
+-        lora_proj = torch.load(cache_path, map_location=K.device)
++        lora_proj = torch.load(cache_path, map_location=K.device, weights_only=False)
+ 
+     except IOError:
+         # reconstruct 3d points in camera coordinates
+diff --git a/mast3r/mast3r/cloud_opt/sparse_ga_old.py b/mast3r/mast3r/cloud_opt/sparse_ga_old.py
+index 26f1e93..24f4a5b 100644
+--- a/mast3r/mast3r/cloud_opt/sparse_ga_old.py
++++ b/mast3r/mast3r/cloud_opt/sparse_ga_old.py
+@@ -75,7 +75,7 @@ class SparseGA():
+         base_focals = []
+         anchors = {}
+         for i, canon_path in enumerate(self.canonical_paths):
+-            (canon, canon2, conf), focal = torch.load(canon_path, map_location=device)
++            (canon, canon2, conf), focal = torch.load(canon_path, map_location=device, weights_only=False)
+             confs.append(conf)
+             base_focals.append(focal)
+ 
+@@ -249,7 +249,7 @@ def sparse_scene_optimizer(imgs, subsample, imsizes, pps, base_focals, core_dept
+     # intrinsics parameters
+     if shared_intrinsics:
+         # Optimize a single set of intrinsics for all cameras. Use averages as init.
+-        confs = torch.stack([torch.load(pth)[0][2].mean() for pth in canonical_paths]).to(pps)
++        confs = torch.stack([torch.load(pth, weights_only=False)[0][2].mean() for pth in canonical_paths]).to(pps)
+         weighting = confs / confs.sum()
+         pp = nn.Parameter((weighting @ pps).to(dtype))
+         pps = [pp for _ in range(len(imgs))]
+@@ -544,7 +544,7 @@ def make_dense_pts3d(intrinsics, cam2w, depthmaps, canonical_paths, subsample, d
+     anchors = {}
+     confs = []
+     for i, canon_path in enumerate(canonical_paths):
+-        (canon, canon2, conf), focal = torch.load(canon_path, map_location=device)
++        (canon, canon2, conf), focal = torch.load(canon_path, map_location=device, weights_only=False)
+         confs.append(conf)
+         base_focals.append(focal)
+         H, W = conf.shape
+@@ -574,7 +574,7 @@ def forward_mast3r(pairs, model, cache_path, desc_conf='desc_conf',
+         path_corres2 = cache_path + f'/corres_conf={desc_conf}_{subsample=}/{idx2}-{idx1}.pth'
+ 
+         if os.path.isfile(path_corres2) and not os.path.isfile(path_corres):
+-            score, (xy1, xy2, confs) = torch.load(path_corres2)
++            score, (xy1, xy2, confs) = torch.load(path_corres2, weights_only=False)
+             torch.save((score, (xy2, xy1, confs)), path_corres)
+ 
+         if not all(os.path.isfile(p) for p in (path1, path2, path_corres)):
+@@ -681,7 +681,7 @@ def prepare_canonical_data(imgs, tmp_pairs, subsample, order_imgs=False, min_con
+             cache = os.path.join(cache_path, 'canon_views', hash_md5(img) + f'_{subsample=}_{kw=}.pth')
+             canonical_paths.append(cache)
+         try:
+-            (canon, canon2, cconf), focal = torch.load(cache, map_location=device)
++            (canon, canon2, cconf), focal = torch.load(cache, map_location=device, weights_only=False)
+         except IOError:
+             # cache does not exist yet, we create it!
+             canon = focal = None
+@@ -695,7 +695,7 @@ def prepare_canonical_data(imgs, tmp_pairs, subsample, order_imgs=False, min_con
+         for (img1, img2), ((path1, path2), path_corres) in tmp_pairs.items():
+             score = None
+             if img == img1:
+-                X, C, X2, C2 = torch.load(path1, map_location=device)
++                X, C, X2, C2 = torch.load(path1, map_location=device, weights_only=False)
+                 score, (xy1, xy2, confs) = load_corres(path_corres, device, min_conf_thr)
+                 pixels[img2] = xy1, confs
+                 if img not in preds_21:
+@@ -704,7 +704,7 @@ def prepare_canonical_data(imgs, tmp_pairs, subsample, order_imgs=False, min_con
+                 preds_21[img][img2] = X2[::subsample, ::subsample].reshape(-1, 3), C2[::subsample, ::subsample].ravel()
+ 
+             if img == img2:
+-                X, C, X2, C2 = torch.load(path2, map_location=device)
++                X, C, X2, C2 = torch.load(path2, map_location=device, weights_only=False)
+                 score, (xy1, xy2, confs) = load_corres(path_corres, device, min_conf_thr)
+                 pixels[img1] = xy2, confs
+                 if img not in preds_21:
+@@ -753,7 +753,7 @@ def prepare_canonical_data(imgs, tmp_pairs, subsample, order_imgs=False, min_con
+ 
+ 
+ def load_corres(path_corres, device, min_conf_thr):
+-    score, (xy1, xy2, confs) = torch.load(path_corres, map_location=device)
++    score, (xy1, xy2, confs) = torch.load(path_corres, map_location=device, weights_only=False)
+     valid = confs > min_conf_thr if min_conf_thr else slice(None)
+     # valid = (xy1 > 0).all(dim=1) & (xy2 > 0).all(dim=1) & (xy1 < 512).all(dim=1) & (xy2 < 512).all(dim=1)
+     # print(f'keeping {valid.sum()} / {len(valid)} correspondences')
+@@ -959,7 +959,7 @@ def spectral_projection_depth(K, depthmap, subsample, k=64, cache_path='',
+     try:
+         if cache_path:
+             cache_path = cache_path + f'_{k=}_norm={normalized_cuts}_{gamma=}.pth'
+-        lora_proj = torch.load(cache_path, map_location=K.device)
++        lora_proj = torch.load(cache_path, map_location=K.device, weights_only=False)
+ 
+     except IOError:
+         # reconstruct 3d points in camera coordinates
+diff --git a/mast3r/mast3r/colmap/database.py b/mast3r/mast3r/colmap/database.py
+index 5de83a3..9b54d06 100644
+--- a/mast3r/mast3r/colmap/database.py
++++ b/mast3r/mast3r/colmap/database.py
+@@ -186,10 +186,10 @@ def get_im_matches_from_cache(pairs, cache_path, desc_conf, subsample,
+ 
+         path_corres = cache_path + f'/corres_conf={desc_conf}_{subsample=}/{corres_idx1}-{corres_idx2}.pth'
+         if os.path.isfile(path_corres):
+-            score, (xy1, xy2, confs) = torch.load(path_corres, map_location=device)
++            score, (xy1, xy2, confs) = torch.load(path_corres, map_location=device, weights_only=False)
+         else:
+             path_corres = cache_path + f'/corres_conf={desc_conf}_{subsample=}/{corres_idx2}-{corres_idx1}.pth'
+-            score, (xy2, xy1, confs) = torch.load(path_corres, map_location=device)
++            score, (xy2, xy1, confs) = torch.load(path_corres, map_location=device, weights_only=False)
+         mask = confs >= conf_thr
+         matches_im0 = xy1[mask].cpu().numpy()
+         matches_im1 = xy2[mask].cpu().numpy()
+diff --git a/mast3r/mast3r/model.py b/mast3r/mast3r/model.py
+index f328c5e..ab95301 100644
+--- a/mast3r/mast3r/model.py
++++ b/mast3r/mast3r/model.py
+@@ -21,7 +21,7 @@ inf = float('inf')
+ def load_model(model_path, device, verbose=True):
+     if verbose:
+         print('... loading model from', model_path)
+-    ckpt = torch.load(model_path, map_location='cpu')
++    ckpt = torch.load(model_path, map_location='cpu', weights_only=False)
+     args = ckpt['args'].model.replace("ManyAR_PatchEmbed", "PatchEmbedDust3R")
+     if 'landscape_only' not in args:
+         args = args[:-1] + ', landscape_only=False)'
+diff --git a/mast3r/mast3r/retrieval/model.py b/mast3r/mast3r/retrieval/model.py
+index 3a157a5..16f1f1a 100644
+--- a/mast3r/mast3r/retrieval/model.py
++++ b/mast3r/mast3r/retrieval/model.py
+@@ -136,7 +136,7 @@ class RetrievalModel(nn.Module):
+         self.nfeat = nfeat
+         self.pretrained_retrieval = pretrained_retrieval
+         if self.pretrained_retrieval is not None:
+-            ckpt = torch.load(pretrained_retrieval, 'cpu')
++            ckpt = torch.load(pretrained_retrieval, 'cpu', weights_only=False)
+             msg = self.load_state_dict(ckpt['model'], strict=False)
+             assert len(msg.unexpected_keys) == 0 and all(k.startswith('backbone')
+                                                          or k.startswith('postwhiten') for k in msg.missing_keys)
+diff --git a/mast3r/mast3r/retrieval/processor.py b/mast3r/mast3r/retrieval/processor.py
+index 4e14bce..c1118c7 100644
+--- a/mast3r/mast3r/retrieval/processor.py
++++ b/mast3r/mast3r/retrieval/processor.py
+@@ -69,7 +69,7 @@ class Retriever(object):
+         # load the model
+         assert os.path.isfile(modelname), modelname
+         print(f'Loading retrieval model from {modelname}')
+-        ckpt = torch.load(modelname, 'cpu')  # TODO from pretrained to download it automatically
++        ckpt = torch.load(modelname, 'cpu', weights_only=False)  # TODO from pretrained to download it automatically
+         ckpt_args = ckpt['args']
+         if backbone is None:
+             backbone = AsymmetricMASt3R.from_pretrained(ckpt_args.pretrained)
+diff --git a/matcha/pointmap/depthanythingv2.py b/matcha/pointmap/depthanythingv2.py
+index 29a54fc..12980b4 100644
+--- a/matcha/pointmap/depthanythingv2.py
++++ b/matcha/pointmap/depthanythingv2.py
+@@ -50,7 +50,7 @@ def load_model(
+     }
+ 
+     model = DepthAnythingV2(**model_configs[encoder])
+-    model.load_state_dict(torch.load(os.path.join(checkpoint_dir, f'depth_anything_v2_{encoder}.pth'), map_location='cpu'))
++    model.load_state_dict(torch.load(os.path.join(checkpoint_dir, f'depth_anything_v2_{encoder}.pth'), map_location='cpu', weights_only=False))
+     model = model.to(device).eval()
+     
+     return model

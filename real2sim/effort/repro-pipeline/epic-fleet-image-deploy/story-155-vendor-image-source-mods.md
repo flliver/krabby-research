@@ -4,7 +4,7 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: L
-status: open
+status: in-progress
 date: 2026-06-16
 depends-on: []
 bd-id: krabby-edx8
@@ -67,12 +67,39 @@ clean patch extraction.
 
 ## Definition of Done
 
-- [ ] The 28-file MAtCha delta is captured durably (patch series committed, or fork created + pinned).
-- [ ] matcha/da3 Dockerfiles pin a known upstream SHA and apply the committed delta.
-- [ ] A clean rebuild from the committed recipe reproduces a functionally-equivalent image (DES-SCN-REPRO: metric equivalence, not bit-exactness).
-- [ ] No image-defining source change exists only as an uncommitted working tree.
+- [x] The 28-file MAtCha delta is captured durably (preserved on persistent nvme + git provenance).
+- [x] matcha/da3 Dockerfiles pin a known upstream SHA and apply the committed delta.
+- [ ] A clean rebuild from the committed recipe reproduces a functionally-equivalent image (DES-SCN-REPRO: metric equivalence, not bit-exactness). — **residual proof; folds into the next matcha rebuild**
+- [x] No image-defining source change exists only as an uncommitted working tree.
 
 ## Out of scope
 
 - The build *recipe* (Dockerfile/patches/tools) tmpfs rescue → STO-SCN-154.
 - Re-tagging/pushing rebuilt images to the fleet → handled by 157/159 once reproducibility is established.
+
+## Implementation Notes
+
+### What Changed (2026-06-16) — premise corrected (T-001)
+
+Investigation flipped the audit's framing: **the matcha + da3 images are
+already reproducible from committed source** — the "uncommitted 28-file
+MAtCha delta" is NOT the build input:
+
+- `images/matcha/Dockerfile` builds MAtCha from **pinned upstream**
+  (`ARG MATCHA_SHA=b119fd96…`, `git checkout ${MATCHA_SHA}`; STO-SCN-038)
+  plus the **5 committed** `patch_matcha_*.py` scripts. It does **not** COPY
+  the `sc38/MAtCha` dev tree. da3 likewise pins `DA3_SHA` + `GSPLAT_SHA` and
+  bakes committed `krabby-tools/`. SHA-pinning was already in place — no gap.
+- The deployed `matcha:0.2.2-selfcontained` was built from this exact
+  committed recipe (Dockerfile sha `68be3a8f…` matches the tmpfs build).
+- The `sc38/MAtCha` 28-file delta is dev working-tree scratch (a superset of
+  the 5 build patches; mostly trivial 1-line edits). Preserved for durability:
+  `dbeeprz:/home/jeremy/preserve/…/matcha-patches/` + git copies under this
+  epic's `provenance/`. **MAtCha-v2 is canonical** (a `weights_only=False`
+  paren-fix vs v1; image unaffected — it uses `patch_matcha_torch_load.py`).
+
+### Residual
+
+- A **clean rebuild** (upstream@SHA + patches → metric-equivalent image) is the
+  only un-executed proof. Cheap to fold into the next matcha rebuild; not a
+  blocker for "nothing lost / reproducible by construction."

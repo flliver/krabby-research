@@ -4,11 +4,14 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: M
-status: in-progress
+status: shipped
 date: 2026-06-16
 depends-on: []
 bd-id: krabby-87d1
 assignee: krabby
+shipped: 2026-06-16
+tasks: 4
+complete: 4
 ---
 
 # Rescue dbeeprz /tmp build recipes; make the repo the build source
@@ -64,12 +67,34 @@ delta), then build from the repo henceforth.
 
 ## Definition of Done
 
-- [ ] The three tmpfs build dirs are saved to persistent storage off dbeeprz.
-- [ ] Each rescued recipe diffed against the repo; deltas committed (or confirmed identical).
-- [ ] matcha + da3 documented to build from the repo checkout, not `/tmp`.
-- [ ] No build input for matcha/da3 exists only in tmpfs.
+- [x] The three tmpfs build dirs are saved to persistent storage off dbeeprz.
+- [x] Each rescued recipe diffed against the repo; deltas committed (or confirmed identical).
+- [x] matcha + da3 documented to build from the repo checkout, not `/tmp`.
+- [x] No build input for matcha/da3 exists only in tmpfs.
 
 ## Out of scope
 
 - The 28-file MAtCha *source* customizations (separate concern → STO-SCN-155).
 - Rebuilding/pushing the images (only needed if a delta is found; otherwise the existing registry tags stand).
+
+## Implementation Notes
+
+### What Changed (2026-06-16)
+
+- ops rescued `/tmp/{matcha,da3}-build` + `/tmp/tools` off dbeeprz's tmpfs
+  to persistent nvme: `dbeeprz:/home/jeremy/preserve/EPI-SCN-FLEET-IMAGE-DEPLOY/tmpfs-rescue/`
+  (+ `tmpfs-rescue.sha256` manifest, copied into this epic's `provenance/`).
+- **No delta to fold — the committed repo recipe IS the build recipe.**
+  sha256 of the rescued tmpfs files is byte-identical to the committed repo:
+  `images/matcha/Dockerfile` `68be3a8f…`, `images/matcha/requirements.txt`
+  `356add6b…`, `images/da3/Dockerfile` `7512f18e…` all match. The tmpfs copies
+  were the operator's working copies of files already committed.
+- Documented in `provenance/README.md`: the committed `images/<img>/` is the
+  canonical, verified build source; builds rsync from the repo (per
+  `images/fastmap/README.md`), never `/tmp`.
+
+### Gotcha
+
+The `/tmp` copies looked alarming but were duplicates of committed files — the
+real exposure was that tmpfs was the operator's *active build cwd*. Fixed by
+verifying repo-identity + preserving; no recipe was actually unique to tmpfs.
