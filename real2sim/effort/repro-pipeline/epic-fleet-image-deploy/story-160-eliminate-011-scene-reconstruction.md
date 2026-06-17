@@ -62,9 +62,36 @@ masquerading as live infrastructure.
 ## Definition of Done
 
 - [ ] 011-scene-reconstruction documented (what it was + replacement map).
-- [ ] Confirmed zero live references in the repo / active pipeline.
+- [x] Confirmed zero live references in the repo / active pipeline.
 - [ ] 011 images removed from b/d/s/t (tars retained as the record).
 - [ ] `fleet-manifest.yaml` deprecated entry removed.
+
+## Implementation Notes
+
+### No-live-reference check — PASSED (2026-06-16)
+
+`grep -rin krabby-011-scene-reconstruction` across `*.py/*.sh/*.json/*.yaml/Makefile`
+(excluding effort/provenance/manifest) → **zero hits**. Nothing in the repo or run
+paths invokes the `krabby-011-scene-reconstruction(-cuda)` **image**.
+
+⚠️ Disambiguation: there ARE many `011-scene-reconstruction` string hits — but those
+are the **M11 milestone / data-dir namespace** (`outposts/.../data/011-scene-reconstruction`,
+`milestones/011-scene-reconstruction/`), which is unrelated to the docker image and
+**stays**. Only the *image* is being retired.
+
+### Preserved builds (from STO-SCN-156 finalization)
+
+ops's RootFS-DiffID fingerprinting found the 011 images are **5 genuinely distinct
+builds**, all tar-preserved (registry-absent, kept):
+- `011-scene-reconstruction-cuda:latest` ×3 — s `578518`, d `dd3bd7`, t `3e7662`
+- `011-scene-reconstruction:latest` ×2 — s `be5952`, d `5fd9a6`
+
+### Remaining (operator-gated — destructive)
+
+- `docker rmi` the 5 011 images across b/d/s/t (tars are the sole record afterward).
+  Destructive → needs operator confirmation before execution.
+- Then drop the `deprecated:` entry from `fleet-manifest.yaml` + add the "011 retired"
+  note.
 
 ## Out of scope
 
