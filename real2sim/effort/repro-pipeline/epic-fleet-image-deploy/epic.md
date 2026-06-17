@@ -78,12 +78,12 @@ trust, deliberately no orchestration) and krabby **STO-SCN-101**
 
 | # | XID | Story | Status | Size |
 |---|-----|-------|--------|------|
-| 1 | `STO-SCN-154` | Rescue dbeeprz /tmp build recipes; make repo the build source | open | M |
-| 2 | `STO-SCN-155` | Vendor MAtCha/DA3 source customizations as committed patches | open | L |
-| 3 | `STO-SCN-156` | Push mast3r/slam3r/vggt + scene-recon to registry; rescue diverged locals | open | M |
-| 4 | `STO-SCN-157` | De-drift fastmap: re-sync krabby-tools, rebuild+push, sync guard | open | M |
-| 5 | `STO-SCN-158` | Fleet-wide pull fan-out (docker-pull.yml) — EFF-REGISTRY-001 successor | open | M |
-| 6 | `STO-SCN-159` | Sync latest onto all fleet hosts + drift matrix | open | S |
+| 1 | `STO-SCN-154` | Rescue dbeeprz /tmp build recipes; make repo the build source | ✅ shipped | M |
+| 2 | `STO-SCN-155` | Vendor MAtCha/DA3 source customizations as committed patches | 🟡 verified (rebuild-proof residual) | L |
+| 3 | `STO-SCN-156` | Push mast3r/slam3r/vggt + scene-recon to registry; rescue diverged locals | 🟡 preserved (registry-push pending) | M |
+| 4 | `STO-SCN-157` | De-drift fastmap: re-sync krabby-tools, rebuild+push, sync guard | ✅ shipped | M |
+| 5 | `STO-SCN-158` | Fleet-wide pull fan-out (docker-pull.yml) — EFF-REGISTRY-001 successor | ⛔ open (operator greenlight) | M |
+| 6 | `STO-SCN-159` | Sync latest onto all fleet hosts + drift matrix | ⛔ open (157✓; t held) | S |
 
 Sequencing: **154 first** (preservation — the tmpfs recipes are one
 reboot from gone). 155/156 are preservation+reproducibility and can
