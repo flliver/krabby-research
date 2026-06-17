@@ -585,6 +585,9 @@ class Handler(BaseHTTPRequestHandler):
             return self._send_json(self._list_scenes())
         if p == "/api/all-scenes":                       # STO-SCN-149 (Scenes tab)
             return self._send_json(self._list_all_scenes())
+        if p == "/api/hosts":                            # STO-SCN-150
+            import pipeline_run as pr
+            return self._send_json({"hosts": pr.gpu_hosts()})
         if p.startswith("/api/scene/") and p.endswith("/meta"):   # STO-SCN-153
             scene = p[len("/api/scene/"):-len("/meta")]
             scene_dir = SCENES_ROOT / scene
@@ -608,6 +611,23 @@ class Handler(BaseHTTPRequestHandler):
         if p.startswith("/api/scene/") and p.endswith("/ingest-status"):  # STO-SCN-149
             scene = p[len("/api/scene/"):-len("/ingest-status")]
             sf = SCENES_ROOT / scene / "ingest_status.json"
+            if not sf.exists():
+                return self._send_json({"status": "none"})
+            try:
+                return self._send_json(json.loads(sf.read_text()))
+            except (OSError, ValueError):
+                return self._send_json({"status": "none"})
+        if p.startswith("/api/scene/") and p.endswith("/pipeline-plan"):   # STO-SCN-150
+            scene = p[len("/api/scene/"):-len("/pipeline-plan")]
+            if not (SCENES_ROOT / scene).is_dir():
+                return self._send_json({"error": f"scene not found: {scene}"})
+            import pipeline_run as pr
+            from urllib.parse import parse_qs
+            host = (parse_qs(url.query).get("host") or pr.gpu_hosts()[:1] or ["tbeeprz"])[0]
+            return self._send_json({"host": host, "plan": pr.plan(scene, host, SCENES_ROOT / scene)})
+        if p.startswith("/api/scene/") and p.endswith("/pipeline-status"):  # STO-SCN-150
+            scene = p[len("/api/scene/"):-len("/pipeline-status")]
+            sf = SCENES_ROOT / scene / "pipeline_status.json"
             if not sf.exists():
                 return self._send_json({"status": "none"})
             try:
@@ -651,6 +671,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._handle_scene_new()
         if p.startswith("/api/scene/") and p.endswith("/ingest"):   # STO-SCN-149
             return self._handle_ingest(p[len("/api/scene/"):-len("/ingest")])
+        if p.startswith("/api/scene/") and p.endswith("/pipeline"):  # STO-SCN-150
+            return self._handle_pipeline(p[len("/api/scene/"):-len("/pipeline")])
         return self._not_found()
 
     # ---- materialize (STO-SCN-086: missing tiles trigger render jobs) ----
@@ -1215,6 +1237,40 @@ class Handler(BaseHTTPRequestHandler):
 
         threading.Thread(target=_run, daemon=True).start()
         return self._send_json({"started": True, "scene": scene})
+
+    def _handle_pipeline(self, scene: str):
+        """STO-SCN-150: launch the ingest-scene pipeline (precull→solve→covis→
+        scout→reconstruct-da3) on a host, in a background thread. dry_run writes
+        the command plan without executing (operator pre-flight)."""
+        import threading
+        import pipeline_run as pr
+        scene_dir = SCENES_ROOT / scene
+        if not scene_dir.is_dir():
+            return self._send_json({"error": f"scene not found: {scene}"}, status=404)
+        try:
+            body = self._read_json_body()
+        except (ValueError, OSError):
+            return self._bad_request("invalid body")
+        hosts = pr.gpu_hosts()
+        host = body.get("host") or (hosts[0] if hosts else "tbeeprz")
+        dry_run = bool(body.get("dry_run", False))
+        status_path = scene_dir / "pipeline_status.json"
+
+        # Guard: one pipeline at a time per scene (a real run is heavy + serial).
+        if status_path.exists():
+            try:
+                cur = json.loads(status_path.read_text())
+                if cur.get("status") == "running":
+                    return self._send_json({"error": "pipeline already running", **cur}, status=409)
+            except (OSError, ValueError):
+                pass
+
+        def _run():
+            pr.run_pipeline(scene_dir, host, dry_run=dry_run,
+                            status_cb=lambda rec: status_path.write_text(json.dumps(rec)))
+
+        threading.Thread(target=_run, daemon=True).start()
+        return self._send_json({"started": True, "scene": scene, "host": host, "dry_run": dry_run})
 
     # ---- rankings -------------------------------------------------------
 

@@ -4,7 +4,7 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: L
-status: draft
+status: in-progress
 date: 2026-06-16
 depends-on: [STO-SCN-149]
 bd-id: krabby-4omj
@@ -34,10 +34,36 @@ phases and surfaces progress. Full spec: **EPI-SCN-SCENE-MANAGER § Creation flo
 - Failure surfaces the phase + log tail; resumable per phase (re-run is NOOP where content exists).
 
 ## Definition of Done
-- [ ] Operator picks a host and launches the pipeline from the tab; phases run in order.
-- [ ] PRIMARY subset + DA3 gaussian + DA3 mesh materialize for the scene.
-- [ ] Live phase progress (phase + percent) from the server-side monitor; failures show the phase + log.
-- [ ] Reuses `v4exec` + existing job/progress plumbing (no new reconstruction logic).
+- [x] Operator picks a host and launches the pipeline from the tab; phases run in order.
+- [~] PRIMARY subset + DA3 gaussian + DA3 mesh materialize for the scene. — orchestration + dry-run verified; **a REAL run needs a GPU host** (operator T-020 below).
+- [x] Live phase progress (phase + log tail) from the server-side monitor; failures show the phase + rc + log.
+- [x] Reuses `v4exec` (exact RECIPES commands) — no new reconstruction logic.
+- [ ] **Operator-verified (T-020):** Scenes → Pipeline → pick `tbeeprz` → **Preview plan** (eyeball the 5 commands), then **Run** a real scene to a scouted+meshed state; confirm phases complete + the mesh/gaussian materialize.
+
+## Build notes (2026-06-16)
+- **Scope (corrected):** the default ingest-scene pipeline is **precull(--set-primary)
+  → solve → covis → scout(DA3 gaussian) → reconstruct-da3(DA3 mesh)**. `select`
+  (best-N view selection) is **not** here — that's the view-selection step
+  (EPI-SCN-AUTO-SUBSET-SELECT). This means only **one id threads** (the solve),
+  resolved from the store, not parsed from stdout.
+- **Orchestrator** `pipeline_run.py` (stdlib, numpy-free): `gpu_hosts()`
+  (default `tbeeprz`, env `KRABBY_GPU_HOSTS`), `resolve_primary_subset` /
+  `resolve_latest_solve` (newest `cameras/*` under primary — grounded against
+  the real 001-patio layout), `PHASES` + `build_command` (exact RECIPES.md
+  lines), `plan()` (dry-run preview), `run_pipeline()` (sequential subprocess
+  runner, stops on first failure, writes `pipeline_status.json` with phase +
+  log tail; phases idempotent/NOOP where content exists → safe re-run).
+- **Endpoints** (`rate_renders/server.py`): `GET /api/hosts`;
+  `GET /api/scene/<s>/pipeline-plan?host=` (preview); `POST /api/scene/<s>/pipeline`
+  {host, dry_run} (threaded; one-run-per-scene guard); `GET …/pipeline-status`.
+- **Frontend** `static/scenes-pipeline.js` (`window.scenesViews.pipeline`, a
+  4th view-switcher tab): host dropdown, **Preview plan** (dry-run) + **Run**
+  (with confirm), live phase rows (pending/running/done/error + rc) + log tail.
+- **Verified (up to the GPU boundary):** `tests/test_pipeline_run.py` + HTTP
+  e2e on a synthetic store — `/api/hosts`, plan resolves + threads the solve id,
+  POST dry_run sequences all 5 phases to `planned`, status polls. **The real
+  GPU execution (ssh+docker on the host) is intentionally NOT run here** — that
+  is the operator T-020 above; dry-run is the pre-flight.
 
 ## Out of scope
 - Scout viewing / render views (STO-SCN-151) and MEASURE (152) — those follow once the gaussian exists.
