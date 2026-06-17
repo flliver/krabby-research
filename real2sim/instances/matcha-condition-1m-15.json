@@ -1,0 +1,32 @@
+{
+  "schema": 3,
+  "name": "matcha-condition-1m-15",
+  "pipeline": "reconstruct-matcha",
+  "description": "",
+  "variables": {},
+  "settings": {
+    "represent": {
+      "dense_regul": "default",
+      "n_iters": 7000,
+      "encoder": "vitl",
+      "alignment_config": "strong",
+      "dense_pruning": "default"
+    },
+    "tetra": {},
+    "tsdf": {
+      "mesh_res": 1024,
+      "config": "default"
+    },
+    "condition": {
+      "target_tris": 2000000,
+      "taubin_iters": 15
+    },
+    "render": {
+      "engine": "BLENDER_WORKBENCH",
+      "resolution": [
+        1920,
+        1080
+      ]
+    }
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "schema": 4,
+  "name": "meshify-via-tetra-filtered",
+  "algo": "tetra-extract-filtered@0",
+  "description": "Tetra mesh re-extracted with filter_with_depth_gradient + filter_with_normal_consistency ON (path A, STO-SCN-136) — kills the stretched silhouette spikes the post-process cull can't reach. Reuses the rep's CACHED gaussians (extract_tetra_mesh.py --config filtered; no weld, no gaussian re-train); grounded into the SAME gauge as the base tetra (the base node's recorded gauge_sim + orient). NEW additive task — base meshify-via-tetra identities are untouched.",
+  "inputs": [
+    {
+      "name": "representation",
+      "from": "represent",
+      "kind": "gaussians+charts"
+    },
+    {
+      "name": "cameras",
+      "binding": "solve identity"
+    }
+  ],
+  "settings": {
+    "tetra_filters": {
+      "class": "frozen",
+      "enum": [
+        "depth_gradient+normal"
+      ],
+      "default": "depth_gradient+normal",
+      "note": "filter_with_depth_gradient + filter_with_normal_consistency both ON"
+    }
+  },
+  "placement": "represent/matcha/{representation}/meshify/tetra-filtered/{identity}",
+  "outputs": [
+    {
+      "name": "mesh",
+      "path": "mesh.ply"
+    }
+  ]
+}

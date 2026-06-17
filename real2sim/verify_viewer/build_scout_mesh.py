@@ -80,10 +80,22 @@ def build(scene: str, mesh_id: str, serve_dir: str | None = None) -> Path:
     Rg, z = np.asarray(gj["rotation"], float), float(gj["z_shift"])
     solve_dir = cg_path.parents[2]                             # …/cameras/<sid>  (the SOLVE, parent-pool aware)
     sparse = solve_dir / "sparse" / "0"
-    if not (sparse / "images.bin").exists():
-        sys.exit(f"no spine sparse/0 at {sparse} (migrated/mast3r solves: not yet supported)")
-
-    posed = pfs.posed_from_sparse(str(sparse))                 # the FULL spine
+    if (sparse / "images.bin").exists():
+        posed = pfs.posed_from_sparse(str(sparse))             # FastMap spine (COLMAP bins)
+    else:
+        # migrated/mast3r-era solves (pre-spine work) have no sparse/0, but they DO carry a
+        # cameras.json (filepaths + cams2world) — build the spine frustums from it (operator
+        # 2026-06-16; these older builds predate FastMap sparse/0). w2c = inv(cams2world).
+        cj = solve_dir / "cameras.json"
+        if not cj.exists():
+            sys.exit(f"no spine: neither {sparse}/images.bin nor {cj}")
+        cam = json.loads(cj.read_text())
+        c2w = np.asarray(cam["cams2world"], float)
+        fps = cam.get("filepaths") or [str(i) for i in range(len(c2w))]
+        posed = [{"name": Path(fps[i]).name, "w2c": np.linalg.inv(c2w[i])}
+                 for i in range(len(c2w))]
+        print(f"[scout-mesh] spine from cameras.json ({len(posed)} cams; migrated/mast3r solve, "
+              f"no sparse/0)")
     highlight = subset_stems(scene_dir, rep_md)
     xform = (1.0, Rg, np.array([0.0, 0.0, z]))                 # orient: solve gauge -> oriented gauge
     frustums = []

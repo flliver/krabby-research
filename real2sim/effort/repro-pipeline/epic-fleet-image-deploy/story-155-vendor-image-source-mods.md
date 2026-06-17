@@ -4,11 +4,14 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: L
-status: in-progress
+status: shipped
 date: 2026-06-16
 depends-on: []
 bd-id: krabby-edx8
 assignee: krabby
+shipped: 2026-06-16
+tasks: 5
+complete: 5
 ---
 
 # Vendor MAtCha/DA3 source customizations as committed, reproducible patches

@@ -9,6 +9,7 @@ date: 2026-06-16
 depends-on: []
 bd-id: krabby-3vqk
 priority: high
+assignee: scout
 ---
 
 # Preprocess gap: run SELECT (best-N FINAL-N) + repoint primary so reconstruct gets a DA3-sized subset

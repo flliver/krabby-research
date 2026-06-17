@@ -4,11 +4,14 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: S
-status: open
+status: shipped
 date: 2026-06-16
 depends-on: []
 bd-id: krabby-78q0
 assignee: krabby
+shipped: 2026-06-16
+tasks: 4
+complete: 4
 ---
 
 # Eliminate legacy 011-scene-reconstruction image

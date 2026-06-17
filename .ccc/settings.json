@@ -69,6 +69,13 @@
       "instance-pattern": "{PROJECT}-{AGENT}",
       "emoji": "🏔️",
       "model": "sonnet"
+    },
+    {
+      "name": "scout",
+      "agent": "scout",
+      "instance-pattern": "{PROJECT}-{AGENT}",
+      "emoji": "🔭",
+      "model": "opus"
     }
   ],
   "durable": [
@@ -79,7 +86,8 @@
     "principal",
     "engineer",
     "devex",
-    "sherpa"
+    "sherpa",
+    "scout"
   ],
   "file_watchers": {
     "globs": [

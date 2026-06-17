@@ -3,11 +3,13 @@ xid: STO-SCN-127
 parent: ./epic.md
 kind: story
 effort: scn
-status: in-progress
+status: shipped
 date: 2026-06-15
 depends-on: []
 bd-id: krabby-x2s3
 assignee: krabby
+tasks: 8
+complete: 8
 ---
 
 # reconstruct-da3: accept the solve/spine gauge directly — make matcha-reference optional
@@ -67,8 +69,13 @@ New subcommand `reconstruct-da3-scout` (matcha-free; no `--host`/GPU):
       the camera-resolution gap).
 - [x] Operator-verifiable render produced (001-patio DA3-24, viewed 2026-06-15 — correct
       orientation, recognizable patio).
-- [ ] Operator sign-off (T-020) on the rendered variant in context.
+- [x] Operator sign-off (T-020) on the rendered variant in context — operator opened DA3-24
+      in the Rank UI / Scout and confirmed it "looks good" (2026-06-15). Clean T-020.
 - [x] T3c doc updated with the render-camera contract (the earned plumbing).
+
+**Shipped 2026-06-15** (DES-SCN-DENSE-MESH closeout). Operator exercised the exact variant
+(DA3-24, 001-patio) and signed off; the matcha-free `reconstruct-da3-scout` path is the
+documented, repeatable α command.
 
 ## Testing
 

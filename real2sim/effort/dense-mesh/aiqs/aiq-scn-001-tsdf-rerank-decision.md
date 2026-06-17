@@ -2,7 +2,7 @@
 xid: AIQ-SCN-001
 kind: aiq
 effort: scn
-status: open
+status: abandoned
 date: 2026-06-03
 asks-of: operator
 source: operator
@@ -22,6 +22,17 @@ Pick one for the stale tetra-era rankings:
 3. **Tag** with `mesh_source: "tetra"` (needs `rate_renders/server.py` + frontend changes so the leaderboard can group/filter — would spawn a follow-up story).
 
 ## Answer
-_(operator to fill)_
+
+**Moot / superseded — abandoned 2026-06-15 (DES-SCN-DENSE-MESH closeout).** The question's
+entire premise no longer exists: the v1 `rate_renders/rankings.jsonl` + `localhost:8090`
+ranking system and the `data/scenes/004-sky-house-dining/comparison_renders*` layout have been
+**retired**. Rankings now persist in the v4 content-addressed store (STO-SCN-107, shipped) and
+are served by the studio Rank UI on `krabby.organl.com:8091` — keyed on content-addressed
+reconstruction identity, not a flat jsonl of mesh-source-ambiguous cells. Verified 2026-06-15:
+no `rankings.jsonl` anywhere in the repo, and `data/scenes/004-sky-house-dining` is gone.
+
+There are therefore no tetra-era jsonl entries to drop/keep/tag, and no `:8090` re-rank to run.
+Option (3)'s `mesh_source` tagging concern is structurally answered by the store's identity
+model. No operator action required.
 
 _Source: krabby/pending/tsdf-rerank-decision.md, krabby/archive/handoff-2026-05-02-2210.md._

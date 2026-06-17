@@ -47,9 +47,20 @@ def _ui_properties(taskdef: dict) -> dict:
     return props
 
 
+_MESH_SOURCES = {"meshify", "condition"}   # STO-SCN-139: a task that consumes a mesh = a modifier
+
+
 def tasks() -> dict[str, dict]:
     out = {}
     for name, d in v4.tasks().items():
+        inputs = d.get("inputs", [])
+        input_from = [i.get("from") for i in inputs if i.get("from")]
+        # STO-SCN-139: classify mesh/scene MODIFIERS — tasks whose input is a materialized
+        # mesh (meshify/condition output). Derived from inputs.from (no manual tag, T-013),
+        # with an explicit taskdef `kind: modifier` override honored. These are the
+        # mix-and-match building blocks (STO-SCN-140) the studio surfaces as first-class nodes.
+        is_modifier = (d.get("kind") == "modifier"
+                       or any(f in _MESH_SOURCES for f in input_from))
         out[name] = {
             "title": name,
             "description": d.get("description", ""),
@@ -62,6 +73,8 @@ def tasks() -> dict[str, dict]:
                 "code_ref": d.get("algo"),
                 "license_flag": d.get("license_flag"),
                 "outputs": d.get("outputs", []),
+                "modifier": is_modifier,            # STO-SCN-139: first-class mesh modifier
+                "input_from": input_from,
             },
         }
     return out

@@ -152,7 +152,9 @@
       "titleBar.inactiveForeground": "#e7e7e799"
     },
     "ccc.delegates.pinned": [
-      "krabby-krabby"
+      "krabby-ccc",
+      "krabby-krabby",
+      "krabby-scout"
     ]
   },
 

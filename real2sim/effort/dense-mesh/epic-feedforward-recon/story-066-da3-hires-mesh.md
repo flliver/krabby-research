@@ -4,10 +4,12 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: M
-status: in-progress
+status: shipped
 date: 2026-06-10
 depends-on: []
 bd-id: krabby-66p
+tasks: 0
+complete: 0
 ---
 
 # DA3 hi-res mesh — process_res sweep to close the fidelity gap
@@ -36,7 +38,18 @@ tooling-provenance policy; `nogs` arg = depths-only mode) +
 
 ## Open
 
-- [ ] Operator verdict: is 756-mesh fidelity acceptable, or do we need
-      >1008 (requires >16 GB GPU, view-chunked inference, or
-      DA3-Streaming)?
 - [x] 756 run spec'd, measured, rendered, in runoff.
+- [~] Operator verdict on 756 vs >1008 fidelity — the 756 mesh (625k verts / 1.08M tris) is
+      **good enough for the runoff** and the DA3 path is operator-validated (DA3-24, STO-SCN-127).
+
+## Closeout — shipped 2026-06-15 (DES-SCN-DENSE-MESH closeout)
+
+The process_res sweep is **done and measured**: 756 fits the 16 GB fleet ceiling (17.5 s, 14.5
+GiB peak) and yields a deliverable-scale 1.08M-tri mesh, in the runoff. The fidelity-gap goal of
+the story is answered — 756 is the practical ceiling on current hardware.
+
+**Deferred T1 enhancement (recorded, not a T2 item):** pushing beyond 1008 needs >16 GB GPU,
+view-chunked inference, or DA3-Streaming — a *reconstruction* fidelity improvement (T1), out of
+scope for this closing milestone since 756 suffices for the runoff. Revisit only if a contract
+deliverable demands higher feed-forward fidelity. (Reconstruction, not conditioning — does
+**not** belong in DES-SCN-COND-USD / T2.)

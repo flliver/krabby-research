@@ -7,6 +7,11 @@
 
 // ---- State ---------------------------------------------------------------
 
+// Default number of tiers a fresh/restored view starts with. The operator adds
+// more via the "+ Tier" row — tiers are NOT auto-scaled to the variant count
+// (that crushed the pool when many variants exist).
+const DEFAULT_TIERS = 5;
+
 const state = {
   scene: null,
   view: null,
@@ -250,9 +255,10 @@ async function submitRanking() {
 // ---- State helpers ------------------------------------------------------
 
 function resetTiers() {
-  // Default: N tiers (one per variant), all variants in pool.
-  const n = Math.max(state.variants.length, 1);
-  state.tiers = Array.from({ length: n }, () => []);
+  // Start with a fixed number of tiers (DEFAULT_TIERS); everything in the pool.
+  // The operator adds more tiers manually via "+ Tier" — we do NOT spawn one
+  // tier per variant (that pushed the pool to height 0 with many variants).
+  state.tiers = Array.from({ length: DEFAULT_TIERS }, () => []);
   state.pool = [...state.variants];
 }
 
@@ -320,8 +326,9 @@ function deriveTiersFromRanks(ranks) {
   }
   const sortedRanks = Object.keys(byRank).map(Number).sort((a, b) => a - b);
   const tiers = sortedRanks.map(r => byRank[r]);
-  // Pad to N tiers (one per variant) for visual stability
-  while (tiers.length < state.variants.length) tiers.push([]);
+  // Pad up to the default tier count (not one-per-variant — that crushed the pool).
+  // A submission that used more tiers keeps them all (while-loop only fills up to default).
+  while (tiers.length < DEFAULT_TIERS) tiers.push([]);
   // Anything in current scene's variants that wasn't in the submitted ranks
   // (e.g. a new variant added after submission) goes back to pool
   const placed = new Set(Object.keys(ranks));
@@ -415,8 +422,8 @@ function loadPersistedDrafts() {
     for (const v of state.variants) {
       if (!placed.has(v)) pool.push(v);
     }
-    // Make sure tier count matches variant count (pad if scene grew)
-    while (tiers.length < state.variants.length) tiers.push([]);
+    // Keep at least the default number of tiers (do NOT pad to variant count).
+    while (tiers.length < DEFAULT_TIERS) tiers.push([]);
     cleaned[view] = { tiers, pool };
   }
   state.drafts = cleaned;

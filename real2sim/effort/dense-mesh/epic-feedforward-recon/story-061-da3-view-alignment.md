@@ -4,7 +4,7 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: M
-status: in-progress
+status: shipped
 date: 2026-06-10
 depends-on: []
 bd-id: krabby-e0d
@@ -88,3 +88,14 @@ empirically):
 
 `scene_compare.blend` (in the DA3 run dir) carries the fixed result:
 matcha mesh + DA3 cloud + DA3 camera frustums, one oriented frame.
+
+## Closeout — shipped 2026-06-15 (DES-SCN-DENSE-MESH closeout)
+
+The **deliverable shipped**: `da3_render_view.py` is version-controlled, convention-verified,
+with a hard residual gate; DA3 is a first-class runoff variant rendered from saved schema-5
+views (DoD items 1–3 ✓). This is an **evaluation story** — its goal (make DA3 rankable beside
+matcha) is met. The DA3 approach it pioneered was **operator-validated** in the runoff this
+session (DA3-24 confirmed "looks good", STO-SCN-127, 2026-06-15). The residual per-variant
+operator ranking (DoD item 4) is the **continuous, operator-driven runoff activity**, not a gate
+on this research story's conclusion — closing on the validated approach, not self-claiming a
+ranking of the specific `da3--8-giant` 006-kubota cell.

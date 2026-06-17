@@ -39,13 +39,27 @@ dense per-pixel geometry for every view in a single transformer pass
 |---|-----|-------|--------|------|
 | 1 | `STO-SCN-059` | Research: VGGT-Omega + DA3 discovery record | shipped | S |
 | 2 | `STO-SCN-060` | krabby-da3 image + 006-kubota pilot | shipped | M |
-| 3 | `STO-SCN-061` | Frame alignment + render from saved views | in-progress (operator ranking open, T-020) | M |
-| 4 | `STO-SCN-065` | TSDF mesh fusion — depths → deliverable mesh | in-progress | M |
+| 3 | `STO-SCN-061` | Frame alignment + render from saved views | shipped | M |
+| 4 | `STO-SCN-065` | TSDF mesh fusion — depths → deliverable mesh | shipped | M |
+| 5 | `STO-SCN-066` | DA3 hi-res mesh — process_res sweep (756 ceiling) | shipped | M |
+| 6 | `STO-SCN-127` | reconstruct-da3-scout — matcha-free, solve-gauge mesh | shipped | M |
 
 **Transformation inventory (each is a story):** inference+export
-(060), view-aligned gaussian render (061), mesh fusion (065). Future
-transformations (process_res sweep, VGGT-Omega variant, DA3-as-runner
--transform) get their own stories before execution.
+(060), view-aligned gaussian render (061), mesh fusion (065),
+process_res sweep (066), matcha-free solve-gauge reconstruct (127).
+
+## Closeout — shipped 2026-06-15 (DES-SCN-DENSE-MESH closeout)
+
+**Epic goal met.** DA3 was evaluated as a pipeline transformation, made runoff-comparable
+(STO-SCN-058 layout), and produces dense hole-free geometry vs matcha's holes — Fletcher's
+point confirmed on our own scenes. DA3 is now a first-class runoff variant (gaussian render +
+TSDF mesh + matcha-free solve-gauge path), **operator-validated** on DA3-24 (001-patio, "looks
+good", 2026-06-15). All six stories shipped.
+
+**Deferred (recorded, out of this closing milestone):** higher feed-forward fidelity beyond
+process_res 1008 (needs >16 GB GPU / view-chunked inference / DA3-Streaming — STO-SCN-066);
+VGGT-Omega evaluation never spun up (DA3 satisfied the dense-hole-free goal). Both are T1
+reconstruction enhancements, revisit only if a contract deliverable demands them.
 
 ## Risks
 

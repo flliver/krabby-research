@@ -1,0 +1,52 @@
+{
+  "schema": 4,
+  "name": "merge-gapfill",
+  "algo": "merge-gapfill@1",
+  "kind": "modifier",
+  "description": "(A) Merge & gap-fill (STO-SCN-142). method=fill-holes (DEFAULT): LOCAL hole-fill that closes walkable-surface gaps while PRESERVING the open scene (no balloon) — the right operation for our open-scene meshes. method=poisson: global screened Poisson (closed objects only — balloons open scenes; n_threads=1 to avoid the ARM64 PoissonRecon race). Pure CPU; consumes the upstream meshify/condition mesh (canonical gauge preserved); NOOP when the identity exists. @1: added method+hole_size (the @0 Poisson-only experiment nodes are preserved). NEW additive task -> existing meshify identities untouched.",
+  "inputs": [
+    {
+      "name": "mesh",
+      "from": "meshify"
+    }
+  ],
+  "settings": {
+    "method": {
+      "class": "frozen",
+      "enum": ["fill-holes", "poisson"],
+      "default": "fill-holes",
+      "note": "fill-holes = local gap-fill, preserves open scene (default); poisson = global seal (closed objects)"
+    },
+    "hole_size": {
+      "class": "tunable",
+      "min": 0.0,
+      "default": 0.3,
+      "note": "fill-holes: max hole boundary size to fill (mesh units); leaves the big open (sky) boundaries"
+    },
+    "poisson_depth": {
+      "class": "tunable",
+      "min": 1,
+      "default": 9,
+      "note": "Poisson octree depth (higher = more detail, slower)"
+    },
+    "density_quantile": {
+      "class": "tunable",
+      "min": 0.0,
+      "default": 0.05,
+      "note": "drop Poisson verts below this density quantile (the ballooned skirt); 0 = off"
+    },
+    "samples": {
+      "class": "tunable",
+      "min": 1000,
+      "default": 1000000,
+      "note": "oriented points sampled from the surface to feed Poisson"
+    }
+  },
+  "placement": "{up_meshify_dir}/condition/{identity}",
+  "outputs": [
+    {
+      "name": "mesh",
+      "path": "mesh.ply"
+    }
+  ]
+}

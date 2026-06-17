@@ -68,6 +68,12 @@ shared public-artifact services — `firmware-store` (S3) and
 `locomotion-image` (ECR), both contact `devex@krabby`. Other projects
 discover these the same way krabby discovers baeprz's.
 
+> **Local reachability:** krabby's own locally-hosted services are
+> addressed via DNS **`krabby.organl.com`** (not raw IPs / `localhost`).
+> Canonical statement: `.ccc/knowledge/architecture.md` §8 (Networking).
+> This is the self-hosted counterpart to the bind-by-discovery principle
+> above — point here, don't restate (T-023).
+
 ## When the map drifts
 
 If `ccc-bd topology ls` shows a baeprz host/service krabby uses but this
