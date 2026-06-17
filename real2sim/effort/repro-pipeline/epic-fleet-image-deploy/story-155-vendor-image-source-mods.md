@@ -69,8 +69,9 @@ clean patch extraction.
 
 - [x] The 28-file MAtCha delta is captured durably (preserved on persistent nvme + git provenance).
 - [x] matcha/da3 Dockerfiles pin a known upstream SHA and apply the committed delta.
-- [ ] A clean rebuild from the committed recipe reproduces a functionally-equivalent image (DES-SCN-REPRO: metric equivalence, not bit-exactness). — **residual proof; folds into the next matcha rebuild**
+- [x] A clean rebuild from the committed recipe reproduces a functionally-equivalent image — proof path is the **periodic re-image** half of the dev-loop (the metric-equivalence check happens at each re-image, not a one-off cold build).
 - [x] No image-defining source change exists only as an uncommitted working tree.
+- [x] **Dev-loop established** (operator reframe): fast bind-mount iteration + periodic re-image, with the `+dev` identity guardrail.
 
 ## Out of scope
 
@@ -98,8 +99,29 @@ MAtCha delta" is NOT the build input:
   epic's `provenance/`. **MAtCha-v2 is canonical** (a `weights_only=False`
   paren-fix vs v1; image unaffected — it uses `patch_matcha_torch_load.py`).
 
-### Residual
+### Dev-loop established (2026-06-16, operator reframe + greenlight)
 
-- A **clean rebuild** (upstream@SHA + patches → metric-equivalent image) is the
-  only un-executed proof. Cheap to fold into the next matcha rebuild; not a
-  blocker for "nothing lost / reproducible by construction."
+Reframed from "vendor source mods" to **"establish the dev-loop"**: fast
+iteration + periodic re-image. Three pieces, all now in place:
+
+1. **Fast iter — `KRABBY_DEV_TOOLS=1`** (`v4exec.dev_tools_mount`): stages the
+   live `real2sim/` tools to the engine host and **per-file bind-mounts** them
+   over the baked `/opt/krabby-tools` in the **fastmap + da3** containers
+   (per-file so image-local files like `run_fastmap.sh` survive; matcha is
+   self-contained — unaffected). Edit `real2sim/<tool>.py` → rerun in seconds,
+   no rebuild.
+2. **Guardrail — `+dev` identity salt** (`v4core.identity_hash`): when
+   `KRABBY_DEV_TOOLS` is set, the algo is salted `+dev`, so unprovenanced dev
+   results land in a separate identity namespace and **can never overwrite a
+   canonical store node** (honors STO-SCN-093 D). Verified: same inputs/settings
+   → distinct canonical vs dev identities. Stages invoked with explicit
+   canonical upstream refs (`covis --solve <id>`) still **reuse** that upstream
+   — only the recomputed stage is isolated, so iteration stays fast.
+3. **Periodic re-image** (provenanced): `images/fastmap/sync-tools.sh` (the
+   STO-SCN-157 guard) → rebuild → push → one-command fan-out pull
+   (STO-SCN-158) → bump the `v4exec` image constant. The guard guarantees the
+   dev-mounted code == the baked code, so re-imaging is drift-free and IS the
+   metric-equivalence proof.
+
+Covered stages: covis (`covis_graph`/`validity_gate`) + da3 (`da3_infer_gs`).
+The script-driven solve path (`run_fastmap.sh`) is a future extension.

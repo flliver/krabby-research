@@ -49,7 +49,18 @@ def content_hash(data: bytes) -> str:
 def identity_hash(resolved_inputs: dict, settings: dict, algo: str) -> str:
     """Locked #3. resolved_inputs: name -> identity string (refs already
     resolved); settings: tunable+frozen only (pins live in algo@version);
-    algo: 'name@version'."""
+    algo: 'name@version'.
+
+    STO-SCN-155 dev-loop guardrail: when KRABBY_DEV_TOOLS is set, the engine
+    containers run with live `real2sim/` tools bind-mounted over the baked
+    /opt/krabby-tools — code that is NOT captured by the identity (identity keys
+    on inputs+settings+algo, never the tool bytes). Salting the algo with `+dev`
+    routes those runs to a distinct identity namespace so an unprovenanced dev
+    result can never overwrite a canonical store node (honors STO-SCN-093 D).
+    Stages invoked with explicit canonical upstream refs (e.g. `covis --solve
+    <id>`) still reuse that upstream — only the recomputed stage is isolated."""
+    if os.environ.get("KRABBY_DEV_TOOLS"):
+        algo = f"{algo}+dev"
     return content_hash(_canon({"in": resolved_inputs, "set": settings, "algo": algo}))
 
 
@@ -264,6 +275,7 @@ def scan_scene(scene: str) -> dict:
                     cmd_ = json.loads((cdir / "metadata.json").read_text())
                     entry["conditioned"].append({
                         "identity": cdir.name, "settings": cmd_.get("settings", {}),
+                        "algo": cmd_.get("algo"),     # STO-SCN-138: label the cull/condition transform
                         "renders": sorted(r.parent.name for r in cdir.glob("renders/*/render.png"))})
             meshes.append(entry)
         ok, flags = deliverable_eligible(rep)

@@ -59,6 +59,39 @@ ORIENT_SETTINGS = {"method": "bootstrap-mesh", "ransac_dist": 0.05,
                    "up_prior": "horizon"}
 DOCKER_GPU = ["--gpus", "all", "--shm-size", "8g"]
 
+# STO-SCN-155 dev-loop: overlay live real2sim/ tools onto the baked
+# /opt/krabby-tools in the fastmap/da3 engine containers for fast iteration
+# (no rebuild). Paired with the `+dev` identity salt in v4core.identity_hash so
+# these UNPROVENANCED runs land in a separate identity namespace and can never
+# overwrite a canonical store node (honors STO-SCN-093 D). matcha is
+# self-contained (no krabby-tools) — unaffected. Enable with KRABBY_DEV_TOOLS=1.
+# When the code stabilizes, re-image (images/fastmap/sync-tools.sh -> rebuild ->
+# push -> fan-out pull) for provenanced results.
+DEV_TOOLS = bool(os.environ.get("KRABBY_DEV_TOOLS"))
+_DEV_TOOLS_SRC = Path(__file__).resolve().parent   # real2sim/ (canonical tools)
+
+
+def dev_tools_mount(host: str) -> str:
+    """Stage canonical real2sim tool files to `host` and return per-file `-v`
+    overlays for /opt/krabby-tools — or '' when KRABBY_DEV_TOOLS is unset.
+    Per-FILE mounts (not a dir mount) so image-local files like run_fastmap.sh
+    survive the overlay; only files that have a canonical real2sim/ counterpart
+    are overridden."""
+    if not DEV_TOOLS:
+        return ""
+    files = sorted({p.name for ext in ("*.py", "*.sh", "*.json")
+                    for p in _DEV_TOOLS_SRC.glob(ext)})
+    if not files:
+        return ""
+    staged = f"{SCRATCH}/dev-tools"
+    sh(["ssh", host, f"mkdir -p {staged}"])
+    sh(["rsync", "-a", "--delete"]
+       + [str(_DEV_TOOLS_SRC / f) for f in files] + [f"{host}:{staged}/"])
+    print(f"[v4exec] ⚠️  DEV-TOOLS: overlaying {len(files)} live real2sim tools onto "
+          f"/opt/krabby-tools on {host} — UNPROVENANCED (identity salted +dev; "
+          f"will not overwrite canonical store nodes).")
+    return "".join(f"-v {staged}/{f}:/opt/krabby-tools/{f}:ro " for f in files)
+
 NOW = lambda: datetime.datetime.now().astimezone().isoformat(timespec="seconds")  # noqa: E731
 
 
@@ -133,6 +166,7 @@ def run_in_fastmap(host: str, workdir: str, tool_cmd: str, log_to: Path) -> int:
     /opt/krabby-tools, colmap, /opt/fastmap) with {workdir}:/work, then chown the
     outputs back to the caller (container writes as root)."""
     docker = (f"docker run --rm --gpus all --shm-size 8g -v {workdir}:/work "
+              f"{dev_tools_mount(host)}"
               f"--entrypoint bash {FASTMAP_IMAGE} -lc {json.dumps(tool_cmd)} ; rc=$? ; "
               f"docker run --rm -v {workdir}:/work alpine chown -R $(id -u):$(id -g) /work ; exit $rc")
     r = subprocess.run(["ssh", host, docker], capture_output=True, text=True)
@@ -1631,7 +1665,7 @@ def cmd_da3(args):
             tool = f"python /opt/krabby-tools/da3_infer_gs.py /work/images /work/out {r_settings['process_res']}"
         if r_settings.get("mode") == "nogs":
             tool += " nogs"
-        docker = (f"docker run --rm --gpus all -v {workdir}:/work {DA3_IMAGE} {tool} ; rc=$? ; "
+        docker = (f"docker run --rm --gpus all -v {workdir}:/work {dev_tools_mount(args.host)}{DA3_IMAGE} {tool} ; rc=$? ; "
                   f"docker run --rm -v {workdir}:/work alpine chown -R $(id -u):$(id -g) /work ; exit $rc")
         print(f"[da3 infer] {args.host}: {tool}")
         t0 = datetime.datetime.now()
