@@ -42,7 +42,25 @@ V4EXEC = HERE / "v4exec.py"
 INGEST_TARGET_FRAMES = 500
 INGEST_FPS_MIN = 1.0
 INGEST_FPS_MAX = 4.0
+INGEST_MAX_LONG_EDGE = 1920   # downscale frames to this long edge (plenty for SfM; DA3 scout=504)
 VIDEO_EXT = (".mp4", ".mov", ".m4v", ".avi", ".mkv", ".webm")
+
+
+def resize_target(scene_dir: Path, default_long_edge: int = INGEST_MAX_LONG_EDGE) -> int | None:
+    """Long-edge to downscale extracted frames to — UNLESS the scene is declared
+    fisheye. The fisheye undistort is pinned to its native-res calibration, so it
+    needs full-res input; everything else (rectilinear / unknown) downsizes safely
+    (FastMap self-calibrates; SfM ~1600px; DA3 scout 504). A fisheye that ISN'T
+    declared can't pass the solve's capture-decl gate anyway, so it never reaches
+    undistort — so 'resize unless declared fisheye' is the safe rule."""
+    cj = scene_dir / "capture.json"
+    if cj.exists():
+        try:
+            if (json.loads(cj.read_text()).get("mode") or "").lower() == "fisheye":
+                return None
+        except (OSError, ValueError):
+            pass
+    return default_long_edge
 
 
 def gpu_hosts() -> list[str]:
@@ -122,9 +140,11 @@ def ingest_plan(scene_dir: Path) -> dict:
         return {"action": "skip", "reason": f"{n} canonical images already present (nuke to re-ingest)"}
     dur = video_duration(video)
     fps, expected = deduce_fps(dur)
+    le = resize_target(scene_dir)
     return {"action": "extract", "video": video.name,
             "duration_s": round(dur, 1) if dur else None,
-            "fps": fps, "expected_frames": expected}
+            "fps": fps, "expected_frames": expected,
+            "max_long_edge": le, "resize": (f"≤{le}px" if le else "native (fisheye)")}
 
 
 # ---- host phases (v4exec subprocesses) ------------------------------------
@@ -160,7 +180,7 @@ def _ingest_cmd_preview(scene_dir: Path) -> list[str]:
     if ip["action"] == "skip":
         return ["(skip ingest)", ip["reason"]]
     return ["ffmpeg", "-i", ip["video"], "-vf", f"fps={ip['fps']}",
-            "→", f"~{ip['expected_frames']} frames", "+ canonicalize"]
+            f"({ip['resize']})", "→", f"~{ip['expected_frames']} frames", "+ canonicalize"]
 
 
 def plan(scene: str, host: str, scene_dir: Path | None = None) -> list[dict]:
@@ -207,8 +227,8 @@ def run_pipeline(scene_dir: Path, host: str, *, dry_run: bool = False,
                 phases[i]["note"] = ip["reason"]
                 emit()
                 continue
-            phases[i]["note"] = (f"{ip['video']} · {ip['duration_s']}s → "
-                                 f"{ip['fps']}fps ≈ {ip['expected_frames']} frames")
+            phases[i]["note"] = (f"{ip['video']} · {ip['duration_s']}s → {ip['fps']}fps "
+                                 f"≈ {ip['expected_frames']} frames · {ip['resize']}")
             emit()
             if dry_run:
                 phases[i]["status"] = "planned"
@@ -217,7 +237,8 @@ def run_pipeline(scene_dir: Path, host: str, *, dry_run: bool = False,
             try:
                 import scene_ingest as si
                 video = video_source(scene_dir)
-                frames = si.extract_frames(video, scene_dir / "images" / "ingress", fps=ip["fps"])
+                frames = si.extract_frames(video, scene_dir / "images" / "ingress",
+                                           fps=ip["fps"], max_long_edge=ip["max_long_edge"])
                 rec["log_tail"] = f"extracted {len(frames)} frames @ {ip['fps']}fps; canonicalizing…"
                 emit()
 

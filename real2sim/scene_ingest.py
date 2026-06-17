@@ -100,11 +100,22 @@ def canonicalize_files(scene_dir: Path, files: list[Path], origin: str, *,
     return {"n": len(hashes), "hashes": hashes}
 
 
-def extract_frames(video: Path, out_dir: Path, fps: float = 2.0) -> list[Path]:
-    """ffmpeg frame extraction (kernel of extract_frames.sh): out_dir/frame_%04d.jpg."""
+def extract_frames(video: Path, out_dir: Path, fps: float = 2.0,
+                   max_long_edge: int | None = None) -> list[Path]:
+    """ffmpeg frame extraction (kernel of extract_frames.sh): out_dir/frame_%04d.jpg.
+
+    `max_long_edge` downscales frames so the longer side ≤ that many pixels
+    (aspect preserved, NEVER upscales) — SfM is fine at ~1600px and the DA3
+    scout ingests at 504, so full 4K is wasted disk + slower staging/solve.
+    None = native resolution (required for the fisheye undistort, which is
+    pinned to its calibration resolution)."""
     out_dir.mkdir(parents=True, exist_ok=True)
+    vf = f"fps={fps}"
+    if max_long_edge:
+        vf += (f",scale=w='min({max_long_edge},iw)':h='min({max_long_edge},ih)'"
+               f":force_original_aspect_ratio=decrease:force_divisible_by=2")
     subprocess.run(
-        ["ffmpeg", "-i", str(video), "-vf", f"fps={fps}", "-q:v", "1",
+        ["ffmpeg", "-i", str(video), "-vf", vf, "-q:v", "2",
          str(out_dir / "frame_%04d.jpg"), "-y"],
         check=True, capture_output=True)
     return sorted(out_dir.glob("frame_*.jpg"))

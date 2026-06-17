@@ -102,3 +102,18 @@ def test_ingest_plan_skip_no_video(tmp_path):
 
 def test_phase0_is_ingest():
     assert pr.PHASES[0]["key"] == "ingest" and pr.PHASES[0].get("local")
+
+
+def test_resize_target_mode_aware(tmp_path):
+    import json
+    # declared fisheye -> native (None) — undistort needs full res
+    fe = tmp_path / "003"; fe.mkdir()
+    (fe / "capture.json").write_text(json.dumps({"make": "DJI", "model": "DJI Action 3", "mode": "fisheye"}))
+    assert pr.resize_target(fe) is None
+    # rectilinear -> downscale
+    rc = tmp_path / "007"; rc.mkdir()
+    (rc / "capture.json").write_text(json.dumps({"mode": "rectilinear"}))
+    assert pr.resize_target(rc) == pr.INGEST_MAX_LONG_EDGE
+    # no capture.json -> downscale (safe; an undeclared fisheye can't pass the solve gate anyway)
+    bare = tmp_path / "x"; bare.mkdir()
+    assert pr.resize_target(bare) == pr.INGEST_MAX_LONG_EDGE

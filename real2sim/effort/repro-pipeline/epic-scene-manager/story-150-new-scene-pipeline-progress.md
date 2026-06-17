@@ -82,3 +82,14 @@ imported one) had no UI path to extract frames. Filled by adding a LOCAL
   failure). Preview Plan shows it: `ffmpeg -i video.mp4 -vf fps=1.51 → ~500 frames`.
 - UI: the Pipeline tab renders the ingest phase + its note + a `skipped` badge.
 - Tests: `deduce_fps` band, `ingest_plan` extract-vs-skip, phase-0 ordering.
+
+## Follow-up (2026-06-16): mode-aware frame downscale in ingest
+Operator UI testing: 4K frames (1.6 MB each, ~800 MB for 500) made extraction +
+host-staging slow for no benefit — DA3 scout ingests at 504px, SfM is fine at
+~1600px. `extract_frames` now takes `max_long_edge` (ffmpeg `scale` downscale,
+aspect-preserved, never upscales). `pipeline_run.resize_target` deduces it:
+**≤1920px UNLESS the scene is declared fisheye** (the fisheye undistort is
+pinned to its native-res calibration, so it needs full res; an undeclared
+fisheye can't pass the solve's capture-decl gate anyway). Preview Plan shows the
+target (`(≤1920px)` / `(native (fisheye))`). ~4× less data for rectilinear
+(iPhone) scenes.
