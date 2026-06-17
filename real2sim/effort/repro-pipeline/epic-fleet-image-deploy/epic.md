@@ -3,7 +3,7 @@ xid: EPI-SCN-FLEET-IMAGE-DEPLOY
 parent: ../design.md
 kind: epic
 effort: scn
-status: in-progress
+status: open
 date: 2026-06-16
 hugs: []
 tenets: [T-018, T-014]
@@ -79,7 +79,7 @@ trust, deliberately no orchestration) and krabby **STO-SCN-101**
 | # | XID | Story | Status | Size |
 |---|-----|-------|--------|------|
 | 1 | `STO-SCN-154` | Rescue dbeeprz /tmp build recipes; make repo the build source | ✅ shipped | M |
-| 2 | `STO-SCN-155` | Establish dev-loop (fast bind-mount iter + periodic re-image) | 🟡 awaiting `--dev-tools` go | L |
+| 2 | `STO-SCN-155` | Establish dev-loop (fast bind-mount iter + periodic re-image) | ✅ shipped | L |
 | 3 | `STO-SCN-156` | Push mast3r/slam3r/vggt to registry; preserve diverged locals | ✅ shipped | M |
 | 4 | `STO-SCN-157` | De-drift fastmap: re-sync krabby-tools, rebuild+push, sync guard | ✅ shipped | M |
 | 5 | `STO-SCN-158` | Fleet-wide pull fan-out (docker-pull.yml) — EFF-REGISTRY-001 successor | ✅ shipped | M |
@@ -120,9 +120,9 @@ fan-out (158) is the missing edge between registry and hosts.
 
 ## Success Criteria
 
-- [ ] No build input for any deployed image exists only in tmpfs or a dirty working tree.
-- [ ] `mast3r`, `slam3r`, `vggt`, `011-scene-reconstruction` present in the registry with versioned tags.
-- [ ] `fastmap` registry image rebuilt from synced tools (covis `fwd` present); a build-time guard fails if `krabby-tools/` drifts from `real2sim/`.
-- [ ] One command pulls a tag onto every GPU host and prints a sync matrix.
-- [ ] Active scene-onboarding path (matcha/da3/fastmap latest) in sync across t/b/d/s.
-- [ ] All stories shipped.
+- [x] No build input for any deployed image exists only in tmpfs or a dirty working tree.
+- [x] `mast3r`, `slam3r`, `vggt` present in the registry with versioned tags (`:0.1`); legacy `011-scene-reconstruction` deliberately tar-only (retired → STO-SCN-160).
+- [x] `fastmap` registry image rebuilt from synced tools (covis `fwd` present); a build-time guard fails if `krabby-tools/` drifts from `real2sim/`.
+- [x] One command pulls a tag onto every GPU host and prints a sync matrix (`fleet/ansible/docker-pull.yml`, manifest-driven).
+- [x] Active scene-onboarding path (matcha/da3/fastmap latest) in sync across t/b/d/s (RepoDigest-verified).
+- [ ] All stories shipped (155/156/157/158/159✅ 154✅; 160 011-retirement in progress).
