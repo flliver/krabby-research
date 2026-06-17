@@ -4,11 +4,12 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: M
-status: draft
+status: in-progress
 date: 2026-06-16
 depends-on: []
 bd-id: krabby-qya0
 priority: high
+assignee: scout
 ---
 
 # Symmetric orient-floor reuse: first reconstructor (DA3 or matcha) computes the gauge, the rest reuse it
@@ -97,4 +98,37 @@ additive pattern as the metric `datum.json` / `apply_to_gauge`).
 
 ## Implementation Notes
 
-_(Fill in during/after implementation.)_
+### Key discovery (2026-06-16) — the matcha-free DA3 path already existed
+On reading the code (T-013), the standalone DA3 mesh **already exists**:
+`reconstruct-da3-scout` (`cmd_da3_scout`, STO-SCN-127) is **matcha-FREE, no
+GPU** — it TSDF-fuses the scout's `da3_poses.npz` (already in the solve gauge)
+and **self-orients** via `bootstrap_orient` on DA3's OWN mesh + the solve
+cameras. My pipeline (150) called the *wrong* command — `reconstruct-da3`
+(`cmd_da3`), which requires `--host` + a matcha reference. That's why 003 hit
+"run reconstruct-matcha first."
+
+So 161 narrowed to the **reuse/alignment** layer (the self-orient was done):
+
+### What changed
+- **`find_any_orient(solve_dir)`** — returns ANY existing orient id under the
+  solve (matcha or DA3, newest), else None.
+- **`cmd_matcha`** + **`cmd_da3_scout`**: `oid = find_any_orient(solve_dir) or
+  <compute from this model's mesh>`. First model establishes the gauge; the
+  rest reuse it (the existing `if oriented.json exists` branch loads it). Both
+  store under the same `…/cameras/<solve>/orient/<oid>/` location, so they find
+  each other. Backward-compatible: matcha-first → DA3 reuses exactly as before.
+
+### Files Modified
+- `v4exec.py` — `find_any_orient` + the two `oid` reuse points (cmd_matcha, cmd_da3_scout).
+- `tests/test_orient_reuse.py` — find_any_orient (absent / matcha-present / newest-wins / partial-ignored).
+
+### Follow-on (NOT this story)
+- **Pipeline (150/162):** swap the mesh phase from `reconstruct-da3` →
+  `reconstruct-da3-scout` (matcha-free, local, `--solve --scout`) so the pipeline
+  produces the standalone DA3 mesh. Tracked with the 2-checkbox work.
+- **T-020:** DA3-first floor-quality check on a real run.
+
+### Gotchas
+- When a model reuses another's orient, the mesh `tid` content-addresses on the
+  reused `oid` (correct — the gauge IS a resolved input). Old per-model orient
+  nodes on pre-change scenes remain; a re-run converges both onto the newest.

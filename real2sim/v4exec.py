@@ -59,6 +59,25 @@ ORIENT_SETTINGS = {"method": "bootstrap-mesh", "ransac_dist": 0.05,
                    "up_prior": "horizon"}
 DOCKER_GPU = ["--gpus", "all", "--shm-size", "8g"]
 
+
+def find_any_orient(solve_dir: "Path"):
+    """STO-SCN-161: the orient-floor gauge is solve-scoped + model-agnostic.
+
+    Return the id of ANY existing orient under this solve (whichever
+    reconstructor — DA3 or matcha — computed it first; newest if several), or
+    None. This lets the FIRST reconstructor establish the gauge and every
+    subsequent one REUSE it, so each model stands alone AND all models land in
+    the identical frame (renders align by construction). Backward-compatible:
+    when matcha ran first, DA3 finds its orient exactly as before.
+    """
+    od = solve_dir / "orient"
+    if not od.is_dir():
+        return None
+    cands = [d for d in od.iterdir() if d.is_dir() and (d / "oriented.json").exists()]
+    if not cands:
+        return None
+    return max(cands, key=lambda d: d.stat().st_mtime).name
+
 # STO-SCN-155 dev-loop: overlay live real2sim/ tools onto the baked
 # /opt/krabby-tools in the fastmap/da3 engine containers for fast iteration
 # (no rebuild). Paired with the `+dev` identity salt in v4core.identity_hash so
@@ -1106,8 +1125,12 @@ def cmd_matcha(args):
     rid = v4.identity_hash({"subset": sub, "cameras": sid}, r_settings, m_algo)
     rdir = scene_dir / "represent" / "matcha" / rid
     o_settings, o_algo = ORIENT_SETTINGS, ORIENT_ALGO
-    # the orient reads the bootstrap mesh (z-floor) -> it IS a resolved input
-    oid = v4.identity_hash({"solve": sid, "bootstrap_rep": rid}, o_settings, o_algo)
+    # the orient reads the bootstrap mesh (z-floor) -> it IS a resolved input.
+    # STO-SCN-161: reuse a solve-scoped orient from ANY prior reconstructor (DA3
+    # or matcha) for cross-model alignment; else key one on THIS model's mesh.
+    _orient_solve = scene_dir / "images" / "subsets" / pose_sub / "cameras" / sid
+    oid = (find_any_orient(_orient_solve)
+           or v4.identity_hash({"solve": sid, "bootstrap_rep": rid}, o_settings, o_algo))
     # gauge is part of the mesh content -> orient is a resolved input of meshify
     mid = v4.identity_hash({"representation": rid, "cameras": sid, "orient": oid},
                            {}, "tetra-extract@1")
@@ -1777,7 +1800,10 @@ def cmd_da3_scout(args):
     d_inputs = {"subset": sub, "cameras": sid, "scout": cid}
     rid = v4.identity_hash(d_inputs, r_settings, "da3@1")
     fuse_settings = {"conf_percentile": args.conf_percentile, "voxel_frac": args.voxel_frac}
-    oid = v4.identity_hash({"solve": sid, "bootstrap_rep": rid}, ORIENT_SETTINGS, ORIENT_ALGO)
+    # STO-SCN-161: reuse a solve-scoped orient from ANY prior reconstructor (matcha
+    # or DA3) for cross-model alignment; else key one on THIS model's own mesh.
+    oid = (find_any_orient(sdir)
+           or v4.identity_hash({"solve": sid, "bootstrap_rep": rid}, ORIENT_SETTINGS, ORIENT_ALGO))
     tid = v4.identity_hash({"representation": rid, "cameras": sid, "orient": oid},
                            fuse_settings, "da3-mesh@0")
     rdir = scene_dir / "represent" / "da3" / rid
