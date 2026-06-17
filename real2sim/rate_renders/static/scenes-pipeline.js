@@ -37,7 +37,7 @@
         <div class="pl-bar">
           <label>Host <select id="pl-host">${hosts.map((h) => `<option>${esc(h)}</option>`).join("")}</select></label>
           <button id="pl-dry">Preview plan</button>
-          <button id="pl-run">Run pipeline</button>
+          <button id="pl-run">Run Preprocessors</button>
           <span id="pl-msg" class="pl-msg"></span>
         </div>
         <div id="pl-phases" class="pl-phases"></div>
@@ -55,7 +55,7 @@
       startPoll(container, scene, "plan previewed (dry-run)");
     };
     container.querySelector("#pl-run").onclick = async () => {
-      if (!confirm(`Run the full pipeline on ${host()}? This executes GPU work (ssh+docker) and can take a while.`)) return;
+      if (!confirm(`Run the preprocessors on ${host()}? This executes GPU work (ssh+docker) and can take a while.`)) return;
       msg("launching…");
       const r = await jpost(`/api/scene/${encodeURIComponent(scene)}/pipeline`, { host: host(), dry_run: false });
       if (r.error) return msg(r.error, "err");
