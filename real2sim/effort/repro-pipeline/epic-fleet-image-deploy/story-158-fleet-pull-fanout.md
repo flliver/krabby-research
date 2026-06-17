@@ -4,11 +4,13 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: M
-status: in-progress
+status: shipped
 date: 2026-06-16
 depends-on: []
 bd-id: krabby-1rco
 assignee: krabby
+tasks: 10
+complete: 10
 ---
 
 # Fleet-wide pull fan-out (docker-pull.yml) — EFF-REGISTRY-001 successor
@@ -83,21 +85,25 @@ reports is the durable fix.
 ## Definition of Done
 
 - [x] krabby manifest `images/fleet-manifest.yaml` authored (what's deployed).
-- [ ] Build ask filed to baeprz `ops` with acceptance criteria below.
-- [ ] One command (ansible) pulls the manifest's tags onto every reachable GPU host.
-- [ ] It prints a per-host sync matrix (host × image × tag/ID).
-- [ ] Pull is additive only (no implicit prune/retag).
+- [x] Build ask filed to baeprz `ops` with acceptance criteria below.
+- [x] One command (ansible) pulls the manifest's tags onto every reachable GPU host. → `fleet/ansible/docker-pull.yml` (baeprz `40d5d82`).
+- [x] It prints a per-host sync matrix (host × image × tag/ID). → driver-independent RepoDigest matrix.
+- [x] Pull is additive only (no implicit prune/retag).
 
 ## Definition of Done
 
-- [ ] Cross-project ask filed to baeprz `ops` (via liaison) with the acceptance criteria below.
-- [ ] One command pulls a given tag onto every reachable GPU host.
-- [ ] It prints a per-host sync matrix (host × family × tag/ID).
-- [ ] Pull is additive only (no implicit prune/retag).
-- [ ] krabby has verified the command against a real tag (accepts the deliverable).
+- [x] Cross-project ask filed to baeprz `ops` (via liaison) with the acceptance criteria below.
+- [x] One command pulls a given tag onto every reachable GPU host.
+- [x] It prints a per-host sync matrix (host × family × tag/ID).
+- [x] Pull is additive only (no implicit prune/retag).
+- [x] krabby has verified the command against a real tag (accepts the deliverable). → verified GREEN: dry run over active path = clean no-op (changed=0), all 4 hosts IN-SYNC (matcha 0.2.2-selfcontained / da3 0.4 / fastmap 0.3). Operator-greenlit 2026-06-16.
 
 ## Out of scope
 
 - The actual sync run of the active path → STO-SCN-159 (consumes this).
 - Fixing t's WoL/s2idle resistance (separate fleet-host concern).
 - Building krabby's images (154–157).
+
+## Status Notes
+
+- 2026-06-16: **CLOSED** by liaison on baeprz-ops completion report. `fleet/ansible/docker-pull.yml` committed baeprz trunk `40d5d82` — reads krabby's `fleet-manifest.yaml` at runtime (single source), `gaming_nodes:!j`, WoL via inventory `wol_mac` (t/s2idle = manual-wake, flagged), parallel pull on active path, additive-only, driver-independent RepoDigest sync matrix (overlay2 t vs containerd b/d/s). Verified GREEN (no-op, all 4 hosts IN-SYNC). Low-pri open (separate): `:latest` finalization — digest-check t's 011-cuda + fastmap 0.1/0.2 vs s/d. Report: `.ccc/agents/liaison/inbox/from-baeprz/2026-06-16-ops-complete-scn-156-158.md`.

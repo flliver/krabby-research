@@ -4,11 +4,13 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: M
-status: in-progress
+status: shipped
 date: 2026-06-16
 depends-on: []
 bd-id: krabby-zc3x
 assignee: krabby
+tasks: 4
+complete: 4
 ---
 
 # Push mast3r/slam3r/vggt + scene-recon images to registry; rescue diverged local-only images first
@@ -71,8 +73,8 @@ where copies diverged.
 ## Definition of Done
 
 - [x] Every local-only / diverged image is `docker save`d to persistent storage.
-- [ ] mast3r, slam3r, vggt, 011-scene-reconstruction present in the registry with versioned tags.
-- [ ] Diverged copies reconciled to a chosen canonical (operator-confirmed where it matters).
+- [x] mast3r, slam3r, vggt present in the registry with versioned tags (`:0.1`). 011-scene-reconstruction(-cuda) deliberately **tar-only, not pushed** (legacy + diverged + superseded) — elimination tracked in STO-SCN-160. Operator decision 2026-06-16.
+- [x] Diverged copies reconciled to a chosen canonical (operator-confirmed): mast3r → b's `481571` (Apr-29).
 - [x] Provenance (source host + image ID + date) recorded per family.
 
 ## Implementation Notes
@@ -121,3 +123,7 @@ irreplaceable images are now preserved — the audit gap is fully closed.
 
 - Making each family rebuildable from source — reproducibility is STO-SCN-155's pattern; this story preserves what exists now.
 - Deciding whether mast3r/slam3r/vggt stay in the active pipeline (they're fallbacks; matcha is primary) — preservation is unconditional regardless.
+
+## Status Notes
+
+- 2026-06-16: **CLOSED** by liaison on baeprz-ops completion report. Fallbacks pushed to registry as `:0.1` — mast3r `sha256:481571cbbb6e8e` (b's Apr-29 canonical, diverged copy reconciled), mast3r-base `d57049231d13` (s), slam3r `d95c509577ba` (d), vggt `6adb513a80f3` (d). Registry catalog: `krabby-{da3,fastmap,mast3r,mast3r-base,matcha,slam3r,vggt}`. 011-scene-reconstruction(-cuda) tar-only per operator decision → STO-SCN-160. All irreplaceable images preserved across b/s/d/t. Report: `.ccc/agents/liaison/inbox/from-baeprz/2026-06-16-ops-complete-scn-156-158.md`.
