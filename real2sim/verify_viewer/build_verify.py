@@ -21,10 +21,27 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import shutil
 import subprocess
 import sys
 from pathlib import Path
+
+# The DA3-mesh layer (scene.ply) is transformed with open3d — the system mesh
+# lib. Self-bootstrap into the recon env via uv, exactly as v4exec does, so the
+# transform runs through system tooling (never a hand-rolled PLY parser).
+# STO-SCN-151. numpy alone covers the frustum/splat work; bootstrap only when
+# open3d is genuinely missing.
+try:
+    import numpy  # noqa: F401
+    import open3d  # noqa: F401
+except ImportError:
+    if os.environ.get("BUILD_VERIFY_BOOTSTRAPPED") != "1":
+        os.environ["BUILD_VERIFY_BOOTSTRAPPED"] = "1"
+        os.execvp("uv", ["uv", "run", "--quiet", "--python", "3.11",
+                         "--with", "open3d", "--with", "numpy",
+                         "python3", str(Path(__file__).resolve())] + sys.argv[1:])
+    raise
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))           # real2sim/
@@ -314,6 +331,9 @@ def _main(argv=None) -> int:
                          "(drops the rain-reflection far cones; 0 = no cull)")
     ap.add_argument("--max-splats", type=int, default=500000,
                     help="decimate the verify splat to at most this many gaussians (speed)")
+    ap.add_argument("--mesh-max-tris", type=int, default=400000,
+                    help="decimate the DA3-mesh layer (scene.ply) to at most this many triangles "
+                         "for fluid web viewing (0 = keep full)")
     ap.add_argument("--cull-expand", type=float, default=1.0,
                     help="camera-AABB cull: expand the camera box by this x per side "
                          "(1.0 = +100% = 3x camera span; lower crops the DA3 halo harder)")
@@ -426,6 +446,40 @@ def _main(argv=None) -> int:
         cull_sphere(scout_ply, serve / "scout.gs.ply", sc_g, a.cull_radius * sr_g, a.max_splats)
     else:
         shutil.copy2(scout_ply, serve / "scout.gs.ply")
+
+    # DA3-mesh layer ("scene.ply"): the newest DA3 mesh for this scene, UN-ORIENTED
+    # back to the SOLVE gauge so it overlays the (solve-gauge) frustums + scout
+    # gaussian. ground_mesh applied v_oriented = v_solve @ R.T + [0,0,z]; invert
+    # with v_solve = (v_oriented - [0,0,z]) @ R (R orthonormal). open3d does the
+    # mesh I/O — no hand-rolled PLY. STO-SCN-151.
+    import numpy as np
+    import open3d as o3d
+    da3 = sorted((STORE / a.scene).glob("represent/da3/*/meshify/tsdf/*/mesh.ply"),
+                 key=lambda p: p.stat().st_mtime, reverse=True)
+    if da3:
+        mp = da3[0]
+        try:
+            gauge = json.loads((mp.parent / "metadata.json").read_text()).get("gauge")
+            mesh = o3d.io.read_triangle_mesh(str(mp))
+            oj = (STORE / a.scene / gauge / "oriented.json") if gauge else None
+            if oj and oj.exists():
+                g = json.loads(oj.read_text())
+                R = np.asarray(g["rotation"], dtype=float)
+                z = float(g["z_shift"])
+                v = np.asarray(mesh.vertices)
+                mesh.vertices = o3d.utility.Vector3dVector((v - np.array([0.0, 0.0, z])) @ R)
+            # Decimate for the web viewer (the gaussian is culled/decimated too) —
+            # the full mesh (~1.8M tris / >100 MB) auto-downloads on every Scout
+            # open. Quadric decimation keeps the shape (+ vertex colors) light.
+            n_tris = len(mesh.triangles)
+            if a.mesh_max_tris and n_tris > a.mesh_max_tris:
+                mesh = mesh.simplify_quadric_decimation(int(a.mesh_max_tris))
+            o3d.io.write_triangle_mesh(str(serve / "scene.ply"), mesh)
+            print(f"  DA3 mesh -> scene.ply ({n_tris:,}→{len(mesh.triangles):,} tris, "
+                  f"un-oriented to solve gauge)")
+        except Exception as e:   # noqa: BLE001 — mesh layer is optional
+            print(f"  (DA3 mesh layer skipped: {e})")
+
     print(f"verify surface: {fr['n_proposed']} proposed / {fr['n_pool']} pool frustums + scout")
     print(f"  serve dir: {serve}")
     if a.no_serve:

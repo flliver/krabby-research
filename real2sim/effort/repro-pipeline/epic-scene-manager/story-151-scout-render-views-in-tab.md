@@ -68,3 +68,14 @@ Full spec: **EPI-SCN-SCENE-MANAGER § Creation flow**.
 - [x] Operator defines + names ≥1 Render View from the tab (overview author); it persists (`views/<name>/view.json`) and is usable by the renderer.
 - [x] Reuses `build_verify.py`/`verify_viewer` + the `views/*/view.json` writer.
 - [ ] **Operator-verified (T-020):** Scenes → Scout → Build → confirm the gaussian renders; author an overview view + confirm it persists. (Interactive camera-pose-capture-from-viewer deferred — overview author shipped.)
+
+## Follow-up (2026-06-17): DA3-mesh layer in the Scout viewer
+The viewer's "DA3 mesh" slider was dead (disabled, stuck at 0) — `build_verify`
+never produced the `scene.ply` the viewer loads. Fixed: `build_verify` now emits
+`scene.ply` from the newest DA3 mesh, **un-oriented back to the solve gauge** (the
+inverse of `ground_mesh`: `v_solve = (v_oriented − [0,0,z]) @ R`) so it overlays
+the solve-gauge frustums + scout gaussian, and **decimated** (`--mesh-max-tris`,
+default 400k) for fluid web loading (137 MB → ~19 MB). All mesh I/O is via
+**open3d** (system tooling) — `build_verify` self-bootstraps the recon env with
+uv exactly like v4exec (no hand-rolled PLY). Verified on 003 (the DA3-standalone
+mesh): scene.ply builds + serves 200.
