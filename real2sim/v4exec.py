@@ -439,26 +439,59 @@ def _infer_modality(scene_dir):
 
 
 def _read_capture_decl(scene_dir):
-    """<scene>/capture.json -> (make, model, mode, modality). modality is the
-    per-scene cadence (hyperlapse|video|photos) — STO-SCN-093 (E). A MISSING
-    modality is AUTO-HEALED from store facts (`_infer_modality`); make/model/mode
-    are real declarations and stay required (mode isn't derivable)."""
+    """Resolve (make, model, mode, modality) for a scene, AUTO-HEALING from facts
+    so capture.json is optional for EXIF-identifiable, single-mode registered
+    cameras (STO-SCN-091/093):
+      - make/model : declared in capture.json, else read from a canonical image's EXIF
+      - mode       : declared, else the registry's SOLE capture mode for that camera
+                     (multi-mode cameras like DJI fisheye/dewarped still need it declared)
+      - modality   : declared, else inferred from store facts (`_infer_modality`)
+    The camera MODEL is never guessed (the registry owns it, STO-SCN-091) — an
+    unknown camera fails loud with an add-a-profile message, not a bad default.
+    """
+    import capture_profile as cap
     p = scene_dir / "capture.json"
-    if not p.exists():
-        sys.exit(f"no {p} — declare {{make, model, mode}} (modality auto-heals; STO-SCN-091/093).")
-    d = json.loads(p.read_text())
-    for k in ("make", "model", "mode"):
-        if not d.get(k):
-            sys.exit(f"{p}: missing '{k}' (need make, model, mode).")
+    d = json.loads(p.read_text()) if p.exists() else {}
+
+    make, model = d.get("make"), d.get("model")
+    if not (make and model):
+        img = next(iter(sorted(scene_dir.glob("images/*/image.*"))), None)
+        if img is not None:
+            ex = cap.read_exif(img)
+            make = make or ex.get("make")
+            model = model or ex.get("model")
+            if make and model:
+                print(f"[capture] make/model auto-healed from EXIF -> {make} / {model}")
+    if not (make and model):
+        sys.exit(f"{scene_dir}: make/model not declared and not in image EXIF — "
+                 f"add capture.json {{make, model, mode}} (STO-SCN-091).")
+
+    mode = d.get("mode")
+    if not mode:
+        reg = cap.load_registry()
+        modes = sorted({pr.get("mode") for pr in reg
+                        if cap._norm(pr.get("make")) == cap._norm(make)
+                        and cap._norm(pr.get("model")) == cap._norm(model)
+                        and pr.get("mode")})
+        if len(modes) == 1:
+            mode = modes[0]
+            print(f"[capture] mode auto-healed -> '{mode}' (the only registry mode for {make} {model})")
+        elif len(modes) > 1:
+            sys.exit(f"{make} {model} has multiple capture modes {modes} — declare 'mode' in "
+                     f"{p} (not derivable from EXIF).")
+        else:
+            sys.exit(f"no capture profile for {make!r} {model!r} — add one to "
+                     f"capture_profiles.json (STO-SCN-091; never guess the camera model).")
+
     modality = d.get("modality")
     if not modality:
         modality, why = _infer_modality(scene_dir)
         if not modality:
-            sys.exit(f"{p}: missing 'modality' and could not infer it ({why}) — "
-                     f"declare one of hyperlapse|video|photos.")
+            sys.exit(f"{scene_dir}: 'modality' not declared and not inferable ({why}) — "
+                     f"declare hyperlapse|video|photos.")
         print(f"[capture] modality auto-healed -> '{modality}' ({why}); "
               f"declare 'modality' in capture.json to override (e.g. hyperlapse).")
-    return d["make"], d["model"], d["mode"], modality
+    return make, model, mode, modality
 
 
 def cmd_solve(args):
