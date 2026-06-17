@@ -8,6 +8,7 @@ status: open
 date: 2026-06-16
 depends-on: []
 bd-id: krabby-edx8
+assignee: krabby
 ---
 
 # Vendor MAtCha/DA3 source customizations as committed, reproducible patches

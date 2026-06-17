@@ -8,6 +8,7 @@ status: open
 date: 2026-06-16
 depends-on: []
 bd-id: krabby-1rco
+assignee: krabby
 ---
 
 # Fleet-wide pull fan-out (docker-pull.yml) — EFF-REGISTRY-001 successor

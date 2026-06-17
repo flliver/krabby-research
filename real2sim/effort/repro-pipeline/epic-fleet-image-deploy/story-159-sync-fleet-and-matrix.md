@@ -8,6 +8,7 @@ status: open
 date: 2026-06-16
 depends-on: [STO-SCN-157, STO-SCN-158]
 bd-id: krabby-z49c
+assignee: krabby
 ---
 
 # Sync latest images onto all fleet hosts + produce drift/sync matrix

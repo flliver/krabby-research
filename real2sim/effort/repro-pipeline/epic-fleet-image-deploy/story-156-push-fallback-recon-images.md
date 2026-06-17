@@ -4,10 +4,11 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: M
-status: open
+status: in-progress
 date: 2026-06-16
 depends-on: []
 bd-id: krabby-zc3x
+assignee: krabby
 ---
 
 # Push mast3r/slam3r/vggt + scene-recon images to registry; rescue diverged local-only images first

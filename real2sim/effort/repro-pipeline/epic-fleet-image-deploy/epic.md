@@ -3,11 +3,12 @@ xid: EPI-SCN-FLEET-IMAGE-DEPLOY
 parent: ../design.md
 kind: epic
 effort: scn
-status: open
+status: in-progress
 date: 2026-06-16
 hugs: []
 tenets: [T-018, T-014]
 bd-id: krabby-808u
+assignee: krabby
 ---
 
 # Reproducible image builds + fleet deployment

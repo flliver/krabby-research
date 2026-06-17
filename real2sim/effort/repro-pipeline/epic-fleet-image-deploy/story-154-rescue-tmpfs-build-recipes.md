@@ -4,10 +4,11 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: M
-status: open
+status: in-progress
 date: 2026-06-16
 depends-on: []
 bd-id: krabby-87d1
+assignee: krabby
 ---
 
 # Rescue dbeeprz /tmp build recipes; make the repo the build source
