@@ -794,3 +794,7 @@ footer kbd {
 .ms-flags { margin-top: 6px; color: var(--warn); font-size: 11px; }
 .ms-result .ok { color: var(--accent); } .ms-result .err { color: var(--warn); }
 .ms-build { margin: auto; color: var(--text-dim); padding: 20px; }
+
+/* STO-SCN-150: ingest phase 0 — skipped state */
+.pl-phase.skipped { opacity: 0.6; }
+.pl-phase.skipped .pl-badge { color: var(--text-dim); }

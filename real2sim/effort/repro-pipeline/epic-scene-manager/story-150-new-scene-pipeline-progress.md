@@ -68,3 +68,17 @@ phases and surfaces progress. Full spec: **EPI-SCN-SCENE-MANAGER § Creation flo
 ## Out of scope
 - Scout viewing / render views (STO-SCN-151) and MEASURE (152) — those follow once the gaussian exists.
 - Non-default gaussian/mesh configs (defaults only here; tuning is the cull/condition epics).
+
+## Follow-up (2026-06-16): ingest phase 0 — video import in the Pipeline
+Gap found in operator UI testing: "Run Pipeline" started at `precull` and assumed
+a canonical image pool existed — so a video-only scene (e.g. a nuked/freshly-
+imported one) had no UI path to extract frames. Filled by adding a LOCAL
+**ingest** phase 0 to `pipeline_run.py`:
+- If the scene has `videos/capture/video.*` and an EMPTY canonical pool, it
+  extracts frames + canonicalizes (reusing `scene_ingest`), else **skips**
+  (idempotent; photo scenes + already-ingested scenes skip).
+- **fps is DEDUCED**: `deduce_fps(duration)` targets ~500 frames clamped to a
+  1–4 fps handheld-overlap band (prevents the 003-firepit 12-frame degenerate
+  failure). Preview Plan shows it: `ffmpeg -i video.mp4 -vf fps=1.51 → ~500 frames`.
+- UI: the Pipeline tab renders the ingest phase + its note + a `skipped` badge.
+- Tests: `deduce_fps` band, `ingest_plan` extract-vs-skip, phase-0 ordering.

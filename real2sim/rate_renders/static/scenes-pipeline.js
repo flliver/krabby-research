@@ -26,7 +26,7 @@
     return r.json();
   }
 
-  const BADGE = { pending: "·", running: "▶", done: "✓", planned: "◌", error: "✕" };
+  const BADGE = { pending: "·", running: "▶", done: "✓", planned: "◌", error: "✕", skipped: "⊘" };
 
   async function render(container, scene) {
     if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
@@ -87,13 +87,19 @@
     if (msg) msg.className = "pl-msg " + (st.status === "error" ? "err" : st.status === "done" ? "ok" : "");
     if (msg && (st.status === "done" || st.status === "error"))
       msg.textContent = st.dry_run ? "plan ready" : (st.status === "done" ? "pipeline complete" : "failed — see log");
-    ph.innerHTML = st.phases.map((p) => `
+    ph.innerHTML = st.phases.map((p) => {
+      // ingest (local) carries a human note + a non-v4exec cmd; host phases are
+      // [python, v4exec.py, <verb>, …] so slice(2) trims the interpreter noise.
+      const detail = p.note ? esc(p.note)
+        : (p.cmd ? esc((p.key === "ingest" ? p.cmd : p.cmd.slice(2)).join(" ")) : "");
+      return `
       <div class="pl-phase ${p.status}">
         <span class="pl-badge">${BADGE[p.status] || "·"}</span>
         <span class="pl-label">${esc(p.label || p.key)}</span>
-        ${p.cmd ? `<code class="pl-cmd">${esc(p.cmd.slice(2).join(" "))}</code>` : ""}
+        ${detail ? `<code class="pl-cmd">${detail}</code>` : ""}
         ${p.rc != null ? `<span class="pl-rc">rc ${p.rc}</span>` : ""}
-      </div>`).join("");
+      </div>`;
+    }).join("");
     log.textContent = st.log_tail || "";
   }
 
