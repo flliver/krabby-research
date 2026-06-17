@@ -754,3 +754,20 @@ footer kbd {
   padding: 8px 10px; font-size: 11px; color: var(--text-dim); max-height: 220px;
   overflow: auto; white-space: pre-wrap; margin: 0; }
 .pl-empty, .pl-hint { color: var(--text-dim); font-size: 12px; }
+
+/* == STO-SCN-151: Scenes-tab Scout view =================================== */
+.sc-wrap { display: flex; gap: 12px; height: 100%; min-height: 0; }
+#sc-main { flex: 1; min-width: 0; min-height: 420px; display: flex; }
+.sc-frame { width: 100%; height: 100%; min-height: 420px; border: 0; border-radius: 6px; background: #0e0e11; }
+.sc-build { margin: auto; text-align: center; color: var(--text-dim); }
+.sc-build button, #sc-add { background: var(--accent-dim); color: var(--bg); border: 1px solid var(--accent);
+  border-radius: 6px; padding: 8px 16px; cursor: pointer; font-weight: 600; }
+.sc-build button:hover, #sc-add:hover { background: var(--accent); }
+.sc-bmsg { margin-top: 8px; font-size: 12px; color: var(--text-dim); }
+.sc-side { flex: 0 0 220px; border-left: 1px solid var(--border); padding-left: 12px; }
+.sc-side h4 { margin: 0 0 8px; font-size: 12px; text-transform: uppercase; color: var(--text-dim); }
+.sc-views { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+.sc-view { font-size: 13px; color: var(--text); }
+.sc-empty, .sc-hint { color: var(--text-dim); font-size: 11px; }
+#sc-add { width: 100%; margin-bottom: 8px; }
+.sc-err { color: var(--warn); padding: 12px; }

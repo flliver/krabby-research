@@ -634,6 +634,16 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send_json(json.loads(sf.read_text()))
             except (OSError, ValueError):
                 return self._send_json({"status": "none"})
+        if p.startswith("/api/scene/") and p.endswith("/scout-status"):  # STO-SCN-151
+            scene = p[len("/api/scene/"):-len("/scout-status")]
+            return self._send_json(self._scout_status(scene))
+        if p.startswith("/api/scene/") and p.endswith("/views"):      # STO-SCN-151
+            scene = p[len("/api/scene/"):-len("/views")]
+            import scout_serve as ss
+            return self._send_json({"views": ss.list_views(SCENES_ROOT / scene)})
+        if p.startswith("/api/scene/") and "/verify/" in p:           # STO-SCN-151/152
+            head, _, rel = p[len("/api/scene/"):].partition("/verify/")
+            return self._serve_verify(head, rel)
         if p.startswith("/api/photo/"):                              # STO-SCN-148
             return self._serve_photo(p[len("/api/photo/"):])
         if p.startswith("/api/scene/"):
@@ -673,6 +683,10 @@ class Handler(BaseHTTPRequestHandler):
             return self._handle_ingest(p[len("/api/scene/"):-len("/ingest")])
         if p.startswith("/api/scene/") and p.endswith("/pipeline"):  # STO-SCN-150
             return self._handle_pipeline(p[len("/api/scene/"):-len("/pipeline")])
+        if p.startswith("/api/scene/") and p.endswith("/scout-build"):   # STO-SCN-151
+            return self._handle_scout_build(p[len("/api/scene/"):-len("/scout-build")])
+        if p.startswith("/api/scene/") and p.endswith("/view-author"):   # STO-SCN-151
+            return self._handle_view_author(p[len("/api/scene/"):-len("/view-author")])
         return self._not_found()
 
     # ---- materialize (STO-SCN-086: missing tiles trigger render jobs) ----
@@ -1271,6 +1285,69 @@ class Handler(BaseHTTPRequestHandler):
 
         threading.Thread(target=_run, daemon=True).start()
         return self._send_json({"started": True, "scene": scene, "host": host, "dry_run": dry_run})
+
+    # ---- scout verify surface + render views (STO-SCN-151) --------------
+
+    _VERIFY_MIME = {".html": "text/html", ".json": "application/json",
+                    ".js": "text/javascript", ".ply": "application/octet-stream",
+                    ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png"}
+
+    def _scout_status(self, scene: str) -> dict:
+        import scout_serve as ss
+        scene_dir = SCENES_ROOT / scene
+        built = (ss.serve_dir(scene_dir) / "viewer.html").exists()
+        sf = scene_dir / "scout_build_status.json"
+        st = {}
+        if sf.exists():
+            try:
+                st = json.loads(sf.read_text())
+            except (OSError, ValueError):
+                st = {}
+        return {"built": built, "scout": ss.resolve_scout(scene_dir), **st}
+
+    def _serve_verify(self, scene: str, rel: str):
+        """Serve a file from the scene's verify-serve dir (path-clamped)."""
+        import scout_serve as ss
+        base = ss.serve_dir(SCENES_ROOT / scene).resolve()
+        target = (base / rel).resolve()
+        if not str(target).startswith(str(base)):
+            return self._bad_request("Invalid path")
+        if not target.is_file():
+            return self._not_found(f"verify: {rel}")
+        ctype = self._VERIFY_MIME.get(target.suffix.lower(), "application/octet-stream")
+        self._send_bytes(target.read_bytes(), ctype)
+
+    def _handle_scout_build(self, scene: str):
+        import threading
+        import scout_serve as ss
+        scene_dir = SCENES_ROOT / scene
+        if not scene_dir.is_dir():
+            return self._send_json({"error": f"scene not found: {scene}"}, status=404)
+        status_path = scene_dir / "scout_build_status.json"
+        try:
+            cur = json.loads(status_path.read_text()) if status_path.exists() else {}
+        except (OSError, ValueError):
+            cur = {}
+        if cur.get("status") == "running":
+            return self._send_json({"error": "scout build already running"}, status=409)
+
+        def _w(status, **extra):
+            status_path.write_text(json.dumps({"status": status, **extra}))
+
+        def _run():
+            _w("running", phase="build")
+            r = ss.build_serve(scene_dir, progress=lambda m: _w("running", phase=m))
+            _w("error" if r.get("error") else "done", **r)
+
+        threading.Thread(target=_run, daemon=True).start()
+        return self._send_json({"started": True, "scene": scene})
+
+    def _handle_view_author(self, scene: str):
+        import scout_serve as ss
+        scene_dir = SCENES_ROOT / scene
+        if not scene_dir.is_dir():
+            return self._send_json({"error": f"scene not found: {scene}"}, status=404)
+        return self._send_json(ss.author_overview(scene_dir))
 
     # ---- rankings -------------------------------------------------------
 
