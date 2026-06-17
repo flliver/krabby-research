@@ -64,11 +64,37 @@ everything and prove it.
 
 ## Definition of Done
 
-- [ ] Pre-sync `docker ps -a` checked per host (no active job interrupted).
-- [ ] matcha/da3/fastmap latest pulled onto t/b/d/s.
-- [ ] t woken and included (or its absence explicitly noted with a reason).
-- [ ] Per-host sync matrix captured showing the active path in sync fleet-wide.
-- [ ] Operator can launch a scene-onboarding vet run on any GPU host with identical images.
+- [x] Pre-sync `docker ps -a` checked per host (no active job interrupted).
+- [x] matcha/da3/fastmap latest pulled onto t/b/d/s.
+- [x] t woken and included (physical tap; WoL defeated by s2idle).
+- [x] Per-host sync matrix captured showing the active path in sync fleet-wide.
+- [x] Operator can launch a scene-onboarding vet run on any GPU host with identical images.
+
+## Implementation Notes
+
+### DONE (2026-06-16) — fleet synchronized, preserve-first
+
+All four GPU hosts carry **byte-identical** active-path images, verified by
+authoritative **RepoDigest** (cross-driver — b/d/s use the containerd image
+store, t uses legacy overlay2; comparing by driver-local image ID is invalid):
+
+| image:tag | RepoDigest | b | d | s | t |
+|---|---|---|---|---|---|
+| krabby-matcha:0.2.2-selfcontained | `sha256:aa5c9ab8a77a…` | ✅ | ✅ | ✅ | ✅ |
+| krabby-da3:0.4 | `sha256:5a79314657c7…` | ✅ | ✅ | ✅ | ✅ |
+| krabby-fastmap:0.3 | `sha256:a388fdffae10…` | ✅ | ✅ | ✅ | ✅ |
+
+- **t** came online via a physical tap (WoL defeated by s2idle). Preserve-first
+  honored: ops saved t's 5 registry-absent/unique `:latest` images before the
+  additive pull (STO-SCN-156). t was already on canonical matcha+da3 (an earlier
+  "divergence" was a driver ID-scheme artifact, since corrected); it only lacked
+  `fastmap:0.3`, now pulled.
+- Done **without** the fan-out playbook (STO-SCN-158 not built yet) — per-host
+  `docker pull`. The playbook will make this a one-command op going forward.
+- Nothing pruned or retagged.
+
+**The scene-onboarding active path is now uniform fleet-wide — ready for
+end-to-end vetting on any GPU host.**
 
 ## Out of scope
 
