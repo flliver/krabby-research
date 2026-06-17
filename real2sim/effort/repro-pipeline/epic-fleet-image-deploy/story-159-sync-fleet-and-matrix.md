@@ -45,8 +45,14 @@ everything and prove it.
    pipeline uses ad-hoc `docker run --rm`; "no container now" ≠ idle).
 2. Run the STO-SCN-158 fan-out for the active path: matcha latest, da3
    latest, fastmap (the STO-SCN-157 rebuild).
-3. Wake **t** (manual, since WoL is defeated) and include it.
-4. Capture the per-host sync matrix; attach it to this story as the
+3. Sync **b / d / s** first. **HOLD tbeeprz (t)** — operator constraint
+   (2026-06-16): *"don't deploy to tbeeprz until I give the go-ahead."*
+   t's read-only inventory may still auto-complete via ops's watcher
+   (that's allowed — it's not a deploy), but **no image pull to t** until
+   the operator says go.
+4. When the operator releases the hold, wake t (manual — WoL is defeated
+   by s2idle) and pull onto it.
+5. Capture the per-host sync matrix; attach it to this story as the
    acceptance artifact.
 
 ### Changes
