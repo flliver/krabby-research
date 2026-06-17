@@ -4,7 +4,7 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: S
-status: open
+status: in-progress
 date: 2026-06-16
 depends-on: [STO-SCN-157, STO-SCN-158]
 bd-id: krabby-z49c
@@ -45,13 +45,14 @@ everything and prove it.
    pipeline uses ad-hoc `docker run --rm`; "no container now" ≠ idle).
 2. Run the STO-SCN-158 fan-out for the active path: matcha latest, da3
    latest, fastmap (the STO-SCN-157 rebuild).
-3. Sync **b / d / s** first. **HOLD tbeeprz (t)** — operator constraint
-   (2026-06-16): *"don't deploy to tbeeprz until I give the go-ahead."*
-   t's read-only inventory may still auto-complete via ops's watcher
-   (that's allowed — it's not a deploy), but **no image pull to t** until
-   the operator says go.
-4. When the operator releases the hold, wake t (manual — WoL is defeated
-   by s2idle) and pull onto it.
+3. Sync **all four hosts (b / d / s / t)** to the active path:
+   `matcha:0.2.2-selfcontained`, `da3:0.4`, `fastmap:0.3`. Pull is
+   additive (the fan-out playbook STO-SCN-158 isn't built yet, so this
+   runs as per-host `docker pull`).
+4. **tbeeprz hold RELEASED** by operator 2026-06-16 ("synchronize
+   tbeeprz as well"). t was s2idle/WoL-resistant all session, so the
+   sync gates on t being online; before pulling, run t's read-only
+   inventory + preserve any t-only images (closes the audit gap).
 5. Capture the per-host sync matrix; attach it to this story as the
    acceptance artifact.
 
