@@ -33,6 +33,10 @@ DB_BASE="database.db"
 # Undistorted frames (if any) land in <data>/undist; the solve runs on them.
 IMG_SRC="$IMG_BASE"
 [ -n "${UNDISTORT_MODE:-}" ] && IMG_SRC="undist"
+# Self-healing registry: prefer the copy STAGED with the job (current) over the
+# baked container copy (goes stale when a camera is added — STO-SCN-091).
+PROFILES="/opt/krabby-tools/capture_profiles.json"
+[ -f "$DATA/capture_profiles.json" ] && PROFILES="/data/capture_profiles.json"
 # FastMap's run.py REFUSES a pre-existing output dir -> remove, let it create.
 rm -rf "$OUT_DIR"
 
@@ -54,7 +58,7 @@ else
             --images "/data/$IMG_BASE" --out "/data/undist" \
             --make "${UNDISTORT_MAKE}" --model "${UNDISTORT_MODEL}" --mode "${UNDISTORT_MODE}" \
             --balance "${UNDISTORT_BALANCE:-0.0}" \
-            --profiles /opt/krabby-tools/capture_profiles.json \
+            --profiles "$PROFILES" \
           || { _progress_log "undistort FAILED"; exit 1; }
         progress_percent 100
     else

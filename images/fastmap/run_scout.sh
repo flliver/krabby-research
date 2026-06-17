@@ -29,23 +29,50 @@ rm -rf "$DATA/scout_out" "$DATA/undist"
 
 progress_init 2
 
-# ── phase 1: undistort fisheye -> pinhole (so images match the posed.json K) ──
-progress_set 1 0 "undistort scout views"
-docker run --rm --gpus all --shm-size=8g -v "$DATA":/data "$FASTMAP_IMAGE" \
-    python /opt/krabby-tools/undistort_fisheye.py \
-        --images "/data/$IMGB" --out /data/undist \
-        --make "$MAKE" --model "$MODEL" --mode "$MODE" \
-        --profiles /opt/krabby-tools/capture_profiles.json \
-  || { _progress_log "undistort FAILED"; exit 1; }
-progress_percent 100
+# Self-healing registry: prefer the copy STAGED with the job (always current)
+# over the baked container copy, which goes stale the moment a camera is added
+# (STO-SCN-091). Falls back to the baked one if the job didn't stage it.
+PROFILES="/opt/krabby-tools/capture_profiles.json"
+[ -f "$DATA/capture_profiles.json" ] && PROFILES="/data/capture_profiles.json"
+
+# ── phase 1: undistort fisheye -> pinhole — ONLY for fisheye captures. ────────
+# Rectilinear footage (e.g. iPhone) is ALREADY pinhole; fisheye-undistorting it
+# is wrong and needs a fisheye calibration it doesn't have. Route from the
+# capture FACT (mode), mirroring the solve's undistort=False for non-fisheye
+# (solve_plan). DA3 then reads the original images, which match posed.json K
+# (the solve ran on those same images). Anything other than 'fisheye' skips
+# undistort — the safe default (feeding originals is recoverable; wrongly
+# undistorting is not).
+if [ "$MODE" = "fisheye" ]; then
+  progress_set 1 0 "undistort scout views"
+  docker run --rm --gpus all --shm-size=8g -v "$DATA":/data "$FASTMAP_IMAGE" \
+      python /opt/krabby-tools/undistort_fisheye.py \
+          --images "/data/$IMGB" --out /data/undist \
+          --make "$MAKE" --model "$MODEL" --mode "$MODE" \
+          --profiles "$PROFILES" \
+    || { _progress_log "undistort FAILED"; exit 1; }
+  progress_percent 100
+  DA3_IN="/data/undist"
+else
+  _progress_log "mode=$MODE (non-fisheye) -> skip undistort; DA3 reads images directly"
+  progress_set 1 100 "skip undistort (rectilinear)"
+  DA3_IN="/data/$IMGB"
+fi
 
 # ── phase 2: da3@1 posed scout gaussian (in the supplied gauge) ──────────────
 progress_set 2 0 "DA3 scout gaussian (posed)"
 docker run --rm --gpus all --shm-size=8g -v "$DATA":/data "$DA3_IMAGE" \
-    python /data/da3_infer_posed.py /data/undist /data/scout_out "$RES" \
+    python /data/da3_infer_posed.py "$DA3_IN" /data/scout_out "$RES" \
   || { _progress_log "da3 scout FAILED"; exit 1; }
 # chown the root-written outputs back to the caller
 docker run --rm -v "$DATA":/data alpine chown -R "$(id -u):$(id -g)" /data || true
+
+# Fault-tolerant gate: a silent no-output run must FAIL here (with the log on
+# the host), not downstream in the gather rsync with an opaque "no such dir".
+if [ -z "$(find "$DATA/scout_out" -name '*.ply' 2>/dev/null | head -1)" ]; then
+  _progress_log "scout produced NO .ply in scout_out — failing (see above)"
+  exit 1
+fi
 progress_set 2 100 "done"
 
 echo "[run_scout] scout outputs:"

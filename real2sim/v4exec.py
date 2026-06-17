@@ -540,7 +540,8 @@ def cmd_solve(args):
     # lib_progress.sh next to the staged images so its `source $HERE/...` resolves.
     here = Path(__file__).parent
     sh(["rsync", "-a", str(here.parent / "images" / "fastmap" / "run_fastmap.sh"),
-        str(here / "lib_progress.sh"), f"{args.host}:{workdir}/"])
+        str(here / "lib_progress.sh"), str(here / "capture_profiles.json"),
+        f"{args.host}:{workdir}/"])            # stage the CURRENT registry (self-deploy; no rebuild)
     env = f"KRABBY_FASTMAP_IMAGE={json.dumps(FASTMAP_IMAGE)}"
     if settings["undistort"]:
         env += (f" UNDISTORT_MODE={json.dumps(mode)} UNDISTORT_MAKE={json.dumps(make)}"
@@ -925,7 +926,8 @@ def cmd_scout(args):
     sh(["ssh", args.host, f"rm -rf {work} && mkdir -p {work}"])
     sh(["rsync", "-a", f"{tmp}/", f"{args.host}:{work}/"])
     sh(["rsync", "-a", str(here.parent / "images" / "fastmap" / "run_scout.sh"),
-        str(here / "lib_progress.sh"), f"{args.host}:{work}/"])
+        str(here / "lib_progress.sh"), str(here / "capture_profiles.json"),
+        f"{args.host}:{work}/"])           # stage the CURRENT registry (self-deploy; no rebuild)
     shutil.rmtree(tmp)
 
     remote = (f"cd {work} && KRABBY_FASTMAP_IMAGE={json.dumps(FASTMAP_IMAGE)} "
@@ -938,6 +940,14 @@ def cmd_scout(args):
     cdir.mkdir(parents=True, exist_ok=True)
     (cdir / "scout.log").write_text(r.stdout[-200000:] + "\n--- stderr ---\n" + r.stderr[-50000:])
     dt = int((datetime.datetime.now() - t0).total_seconds())
+    # Fault-tolerant: detect a failed run BEFORE the gather, so the operator sees
+    # the REAL error (scout.log + stderr tail) instead of an opaque "rsync:
+    # change_dir scout_out failed: No such file" when scout_out was never made.
+    # Keep the host workdir for diagnosis (do NOT clean up on failure).
+    if r.returncode != 0:
+        sys.exit(f"[scout] FAILED on {args.host} (rc={r.returncode}) — see {cdir}/scout.log "
+                 f"(workdir kept for diagnosis: {args.host}:{work}).\n"
+                 f"--- last error ---\n{(r.stderr or r.stdout)[-1500:]}")
     # gather the gs_ply (lands in a gs_ply/ subdir — recurse with */ include),
     # DA3's `scout_gauge.json` (the scale_factor that maps the gaussian back
     # into the solve gauge — STO-SCN-105: this is THE registration; the npz
