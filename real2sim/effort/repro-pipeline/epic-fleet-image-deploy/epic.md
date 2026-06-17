@@ -3,12 +3,13 @@ xid: EPI-SCN-FLEET-IMAGE-DEPLOY
 parent: ../design.md
 kind: epic
 effort: scn
-status: open
+status: shipped
 date: 2026-06-16
 hugs: []
 tenets: [T-018, T-014]
 bd-id: krabby-808u
 assignee: krabby
+shipped: 2026-06-16
 ---
 
 # Reproducible image builds + fleet deployment
@@ -84,7 +85,7 @@ trust, deliberately no orchestration) and krabby **STO-SCN-101**
 | 4 | `STO-SCN-157` | De-drift fastmap: re-sync krabby-tools, rebuild+push, sync guard | ✅ shipped | M |
 | 5 | `STO-SCN-158` | Fleet-wide pull fan-out (docker-pull.yml) — EFF-REGISTRY-001 successor | ✅ shipped | M |
 | 6 | `STO-SCN-159` | Sync latest onto all fleet hosts + drift matrix | ✅ shipped | S |
-| 7 | `STO-SCN-160` | Eliminate legacy 011-scene-reconstruction image | 📋 open (3 distinct builds preserved) | S |
+| 7 | `STO-SCN-160` | Eliminate legacy 011-scene-reconstruction image | ✅ shipped | S |
 
 Sequencing: **154 first** (preservation — the tmpfs recipes are one
 reboot from gone). 155/156 are preservation+reproducibility and can
@@ -125,4 +126,4 @@ fan-out (158) is the missing edge between registry and hosts.
 - [x] `fastmap` registry image rebuilt from synced tools (covis `fwd` present); a build-time guard fails if `krabby-tools/` drifts from `real2sim/`.
 - [x] One command pulls a tag onto every GPU host and prints a sync matrix (`fleet/ansible/docker-pull.yml`, manifest-driven).
 - [x] Active scene-onboarding path (matcha/da3/fastmap latest) in sync across t/b/d/s (RepoDigest-verified).
-- [ ] All stories shipped (155/156/157/158/159✅ 154✅; 160 011-retirement in progress).
+- [x] All stories shipped (154–160 ✅). **Epic complete 2026-06-16.**
