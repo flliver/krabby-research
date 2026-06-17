@@ -123,11 +123,26 @@ mode + the `calibrate_datum`/`datum_frame` back-end already shipped (001-patio c
 
 | Story | State | Notes |
 |---|---|---|
-| STO-SCN-146 shell | **built** (b3c40c3), operator-verify pending | tab bar + selector + view switcher; `scenes.js` registry |
-| STO-SCN-153 metadata | **built** (c87cd4a), operator-verify pending | `/api/scene/<scene>/meta` + `scenes-meta.js`; verified vs real 001-patio |
-| STO-SCN-148 subsets | **built** (58e55a5), operator-verify pending | `/api/scene/<scene>/subsets` + `/api/photo/...` + `scenes-subsets.js`; verified vs real 001-patio |
-| STO-SCN-147 spine | **scoped, deferred** | 3D WebGL surface — needs `build_verify` + viewer embed + visual verify (below) |
-| 149–152 create flow | **scoped, deferred** | GPU + pipeline-orchestration + operator-bound (below) |
+| STO-SCN-146 shell | **built** (b3c40c3) · operator-verified | tab bar + selector + view switcher; `scenes.js` registry |
+| STO-SCN-153 metadata | **built** (c87cd4a) · operator-verified | `/api/scene/<s>/meta` + `scenes-meta.js` |
+| STO-SCN-148 subsets | **built** (58e55a5) · operator-verified | `/api/scene/<s>/subsets` + `/api/photo/...` + `scenes-subsets.js` |
+| STO-SCN-147 spine | **built** (110e828) | numpy-free `/spine` + focused `spine.html`, subset-colored |
+| STO-SCN-149 ingest | **built** (49a0292) | `scene_ingest.py` + New-Scene form; image/video → content-hash |
+| STO-SCN-150 pipeline | **built** (cadea1e) | `pipeline_run.py` orchestration + Pipeline tab; dry-run verified, real run = GPU/operator |
+| STO-SCN-151 scout | **built** (aa0b02e) | `scout_serve.py` (build_verify embed) + Scout tab + render views |
+| STO-SCN-152 measure | **built** (f47f339) | `normalize_datum.py` + Measure tab; datum.json from MEASURE export |
+
+**All 8 stories built.** Six new endpoints families + the verify-surface embed,
+all reusing the existing pipeline (no recon logic re-implemented). The Scenes
+tab now has **6 views**: Metadata · Spine · Subsets · Pipeline · Scout · Measure,
+plus **+ New Scene** (ingest → canonicalize). Numpy work (build_verify, datum,
+spine-up) runs either numpy-free in-process or shelled to a numpy python
+(`scout_serve.numpy_python()`, found py3.10).
+
+**Remaining = operator T-020 verification** (each story has its checkbox). The
+surfaces that genuinely need the operator + GPU: a real **pipeline run** (150,
+ssh+docker on `tbeeprz`) and a real **MEASURE+normalize** on a new scene (152).
+Everything else is verified up to its operator-facing boundary.
 
 ### What shipped autonomously (the browse-data foundation)
 146 + 153 + 148 are the CPU-only, unit/HTTP-testable half of "browse a scene":
