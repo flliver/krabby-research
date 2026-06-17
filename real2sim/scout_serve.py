@@ -122,7 +122,12 @@ def build_serve(scene_dir: Path, *, subset=None, solve=None, scout=None,
 
 
 def list_views(scene_dir: Path) -> list:
-    """Named render views = views/<slot>/view.json."""
+    """Named render views = views/<slot>/view.json.
+
+    Returns enough of each view's pose for the live scout viewer to *snap its
+    camera* to it (position + opencv rotation quat + lens/sensor/resolution →
+    fov + aspect). Without this the authored views were invisible — the button
+    wrote a sidecar the viewer never read (STO-SCN-151 gap)."""
     vdir = scene_dir / "views"
     if not vdir.is_dir():
         return []
@@ -135,7 +140,18 @@ def list_views(scene_dir: Path) -> list:
             v = json.loads(vj.read_text())
         except (OSError, ValueError):
             v = {}
-        out.append({"name": d.name, "pose": v.get("P") or v.get("position")})
+        pos = v.get("world_position") or v.get("P") or v.get("position")
+        out.append({
+            "name": d.name,
+            "pose": pos,
+            "world_position": pos,
+            "world_rotation_quat_wxyz": v.get("world_rotation_quat_wxyz"),
+            "lens_mm": v.get("lens_mm"),
+            "sensor_width_mm": v.get("sensor_width_mm"),
+            "sensor_height_mm": v.get("sensor_height_mm"),
+            "render_resolution": v.get("render_resolution"),
+            "purpose": v.get("purpose"),
+        })
     return out
 
 

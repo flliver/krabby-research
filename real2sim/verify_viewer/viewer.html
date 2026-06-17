@@ -131,6 +131,32 @@ function viewFromCam(navPos){
     `cam view ${navPos+1}/${SF.length}: ${sf.name}  ([ ] step · \\ free orbit)`;
 }
 
+// ── authored render-view snap (STO-SCN-151): parent posts {gotoView:{...}} and the
+// live camera jumps to that exact render pose so "+ Overview view" (and clicking any
+// view) is visible here — preview what the offline renderer will frame. opencv quat:
+// R cols = right/down/forward → forward=+Z local, up=-Y local. ──
+function gotoView(v){
+  if (!v || !v.world_position) return;
+  const q = v.world_rotation_quat_wxyz;          // [w,x,y,z]
+  const P = new THREE.Vector3(...v.world_position);
+  let fwd, u;
+  if (q && q.length === 4){
+    const tq = new THREE.Quaternion(q[1], q[2], q[3], q[0]);   // xyzw
+    fwd = new THREE.Vector3(0,0,1).applyQuaternion(tq).normalize();
+    u   = new THREE.Vector3(0,-1,0).applyQuaternion(tq).normalize();
+  } else { fwd = C.clone().sub(P).normalize(); u = new THREE.Vector3(...up); }
+  camView = -1; held.clear(); ref.style.display='none';
+  camera.up.copy(u); camera.position.copy(P);
+  if (v.lens_mm && v.sensor_height_mm)
+    camera.fov = 2*Math.atan(v.sensor_height_mm/(2*v.lens_mm))*180/Math.PI;
+  const aspect = (v.render_resolution && v.render_resolution[1])
+    ? v.render_resolution[0]/v.render_resolution[1] : null;
+  controls.target.copy(P).addScaledVector(fwd, sr*0.6);
+  curAspect = aspect; layout(aspect); controls.update();
+  document.getElementById('s').textContent = `render view: ${v.name||'?'} (\\ = free orbit)`;
+}
+addEventListener('message', e=>{ if (e.data && e.data.gotoView) gotoView(e.data.gotoView); });
+
 // ── free-fly: WASD = forward/left/back/right (along look dir), Space = up, Shift = down ──
 // (world up = gravity). Held keys are applied every frame in loop() for smooth motion; the
 // camera AND the orbit target move together so mouse-look keeps working.

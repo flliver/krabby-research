@@ -38,17 +38,33 @@
       const b = container.querySelector("#sc-add"); b.disabled = true; b.textContent = "authoring…";
       const r = await jpost(`/api/scene/${encodeURIComponent(scene)}/view-author`);
       b.disabled = false; b.textContent = "+ Overview view";
-      if (r.error) alert("author failed: " + r.error); else drawViews(container, scene, r.views);
+      if (r.error) { alert("author failed: " + r.error); return; }
+      drawViews(container, scene, r.views);
+      // make the click visible: snap the live viewer to the view we just authored.
+      const ov = (r.views || []).find((v) => v.name === "overview") || (r.views || [])[0];
+      if (ov) gotoView(container, ov);
     };
     refreshMain(container, scene);
+  }
+
+  // post a view's pose to the embedded viewer so its camera jumps there.
+  function gotoView(container, v) {
+    const fr = container.querySelector("iframe.sc-frame");
+    if (fr && fr.contentWindow) fr.contentWindow.postMessage({ gotoView: v }, "*");
   }
 
   async function drawViews(container, scene, views) {
     const el = container.querySelector("#sc-views");
     if (!views) { try { views = (await jget(`/api/scene/${encodeURIComponent(scene)}/views`)).views; } catch { views = []; } }
-    el.innerHTML = (views && views.length)
-      ? views.map((v) => `<div class="sc-view">▸ ${esc(v.name)}</div>`).join("")
-      : `<div class="sc-empty">none yet</div>`;
+    if (views && views.length) {
+      el.innerHTML = views.map((v, i) =>
+        `<div class="sc-view" data-i="${i}" title="snap viewer to this render camera">▸ ${esc(v.name)}</div>`).join("");
+      el.querySelectorAll(".sc-view").forEach((node) => {
+        node.onclick = () => gotoView(container, views[+node.dataset.i]);
+      });
+    } else {
+      el.innerHTML = `<div class="sc-empty">none yet</div>`;
+    }
   }
 
   async function refreshMain(container, scene) {
