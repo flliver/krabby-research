@@ -51,7 +51,7 @@ import precull_frames as pre  # STO-SCN-092
 SCRATCH = "/home/jeremy/scratch/v4exec"
 MATCHA_IMAGE = "j.pski.org:5000/krabby-matcha:0.2.2-selfcontained"
 DA3_IMAGE = "j.pski.org:5000/krabby-da3:0.4"
-FASTMAP_IMAGE = "j.pski.org:5000/krabby-fastmap:0.2"  # tools baked (STO-SCN-093 D)
+FASTMAP_IMAGE = "j.pski.org:5000/krabby-fastmap:0.3"  # tools baked (STO-SCN-093 D); 0.3 = STO-SCN-157 de-drift (covis `fwd`)
 # orient-floor@1: bootstrap-mesh + camera-consensus up prior (STO-SCN-089-2;
 # restores the operator-guided 'average camera up' lost in the 082 rejection)
 ORIENT_ALGO = "orient-floor@2"
