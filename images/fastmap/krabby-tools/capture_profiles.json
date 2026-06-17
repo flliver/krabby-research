@@ -67,6 +67,18 @@
       "dewarp_dead_end": true,
       "notes": "In-camera-dewarped video does NOT reconstruct in COLMAP under ANY camera model (002 dead-end, corroborated by the 001 capture notes). Route to SLAM / feed-forward only. Reconciled from STO-SCN-096 conclusion #3 (which said OPENCV) to match HUG-SCN-004's stronger 'COLMAP-incompatible' verdict, 2026-06-13.",
       "source": "HUG-SCN-004; experiments/.../002-colmap-patio-dewarped"
+    },
+    {
+      "make": "Apple",
+      "model": "iPhone 15 Pro",
+      "mode": "rectilinear",
+      "fov_deg": null,
+      "colmap_camera_model": "SIMPLE_RADIAL",
+      "single_camera": true,
+      "colmap_compatible": true,
+      "dewarp_dead_end": false,
+      "notes": "iPhone main camera is natively rectilinear (well-corrected, mild residual radial). Routes via the pinhole/rectilinear path (solve_plan): FastMap directly, NO fisheye undistort; SIMPLE_RADIAL lets the solver SELF-ESTIMATE the residual radial term, so no per-lens calibration block is required (unlike the DJI fisheye). single_camera assumes ONE locked lens per capture (don't mix 0.5x/1x/3x in a scene). PROVISIONAL: validated by the solve (T-020); refine the model only if poses degrade.",
+      "source": "STO-SCN-091/093; provisional — added to unblock 007-kubota (iPhone capture)"
     }
   ]
 }

@@ -77,7 +77,10 @@ RUN python -c "import torch; print('torch', torch.__version__, 'cuda', torch.ver
 
 # ── krabby pipeline tools — BAKED (STO-SCN-093 decision D; operator policy:
 #    results.json provenance must cover the tools that produced them, not a
-#    mounted /tmp copy). Sync krabby-tools/ from real2sim/ before building. ──
+#    mounted /tmp copy). krabby-tools/ is a build-time MIRROR of canonical
+#    real2sim/ sources — keep it in lockstep with `images/fastmap/sync-tools.sh`
+#    and gate the build with `sync-tools.sh --check` (STO-SCN-157). Do NOT
+#    hand-edit files under krabby-tools/; edit real2sim/ and re-sync. ──
 ARG TOOLS_GIT_SHA=unknown
 COPY krabby-tools/ /opt/krabby-tools/
 ENV PYTHONPATH=/opt/krabby-tools:${PYTHONPATH}

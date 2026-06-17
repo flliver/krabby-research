@@ -27,12 +27,23 @@ with per-point image tracks → co-visibility derivable directly).
 
 ## Build (on a GPU x86 host — not the Mac)
 
+`krabby-tools/` is a build-time mirror of canonical `real2sim/` sources
+(baked via `COPY`). **Always re-sync + gate before building** so the image
+can't ship stale tools (STO-SCN-157 — the audit found `covis_graph.py` /
+`lib_progress.sh` / `capture_profiles.json` drifted, so the registry image
+ran old covis logic):
+
 ```bash
+images/fastmap/sync-tools.sh            # real2sim/ -> krabby-tools/
+images/fastmap/sync-tools.sh --check    # exit 1 on drift (also a good CI gate)
+
 rsync -a images/fastmap/ <host>:~/build/fastmap/
-ssh <host> 'cd ~/build/fastmap && docker build -t krabby-fastmap:0.1 .'
-docker tag krabby-fastmap:0.1 j.pski.org:5000/krabby-fastmap:0.1
-docker push j.pski.org:5000/krabby-fastmap:0.1
+ssh <host> 'cd ~/build/fastmap && docker build -t krabby-fastmap:0.3 .'
+docker tag krabby-fastmap:0.3 j.pski.org:5000/krabby-fastmap:0.3
+docker push j.pski.org:5000/krabby-fastmap:0.3
 ```
+
+Do NOT hand-edit files under `krabby-tools/` — edit `real2sim/` and re-sync.
 
 Build is heavy (~COLMAP CUDA compile + FastMap kernels). Risk points:
 COLMAP 4.x CUDA build for `sm_120`, and FastMap's `build_ext` kernels.
