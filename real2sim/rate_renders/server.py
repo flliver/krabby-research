@@ -687,6 +687,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._handle_scout_build(p[len("/api/scene/"):-len("/scout-build")])
         if p.startswith("/api/scene/") and p.endswith("/view-author"):   # STO-SCN-151
             return self._handle_view_author(p[len("/api/scene/"):-len("/view-author")])
+        if p.startswith("/api/scene/") and p.endswith("/view-capture"):   # STO-SCN-151
+            return self._handle_view_capture(p[len("/api/scene/"):-len("/view-capture")])
         if p.startswith("/api/scene/") and p.endswith("/normalize"):      # STO-SCN-152
             return self._handle_normalize(p[len("/api/scene/"):-len("/normalize")])
         return self._not_found()
@@ -1357,6 +1359,20 @@ class Handler(BaseHTTPRequestHandler):
         if not scene_dir.is_dir():
             return self._send_json({"error": f"scene not found: {scene}"}, status=404)
         return self._send_json(ss.author_overview(scene_dir))
+
+    def _handle_view_capture(self, scene: str):
+        """STO-SCN-151: author a render view from the live viewer camera pose
+        (operator placed it with WASD); solve gauge → renderer's oriented gauge."""
+        import scout_serve as ss
+        scene_dir = SCENES_ROOT / scene
+        if not scene_dir.is_dir():
+            return self._send_json({"error": f"scene not found: {scene}"}, status=404)
+        try:
+            body = self._read_json_body()
+        except (ValueError, OSError):
+            return self._bad_request("invalid body")
+        res = ss.capture_view(scene_dir, body, name=body.get("name"))
+        return self._send_json(res, status=400 if res.get("error") else 200)
 
     def _handle_normalize(self, scene: str):
         """STO-SCN-152: a MEASURE export → metric datum.json (numpy subprocess)."""

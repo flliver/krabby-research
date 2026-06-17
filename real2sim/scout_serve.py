@@ -13,6 +13,7 @@ Reuses `verify_viewer/build_verify.py` (the STO-SCN-095/105 surface) and the
 from __future__ import annotations
 
 import json
+import math
 import os
 import shutil
 import subprocess
@@ -159,6 +160,107 @@ def _oriented_to_solve(vec, R, *, translate):
         v = [v[0], v[1], v[2] - translate]
     # R^T @ v : out[i] = sum_k R[k][i] * v[k]
     return [sum(R[k][i] * v[k] for k in range(3)) for i in range(3)]
+
+
+def _solve_to_oriented(vec, R, *, translate):
+    """Solve gauge → oriented gauge (the renderer's frame): v_oriented = R @ v_solve
+    + [0,0,z] for points, R @ v for directions. Inverse of _oriented_to_solve."""
+    out = [sum(R[i][k] * vec[k] for k in range(3)) for i in range(3)]
+    if translate:
+        out[2] += translate
+    return out
+
+
+def _cross(a, b):
+    return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]
+
+
+def _norm(a):
+    n = math.sqrt(sum(c * c for c in a)) or 1.0
+    return [c / n for c in a]
+
+
+def _mat_to_quat_wxyz(m):
+    """3x3 rotation (list-of-rows) → unit quaternion [w,x,y,z]."""
+    tr = m[0][0] + m[1][1] + m[2][2]
+    if tr > 0:
+        s = math.sqrt(tr + 1.0) * 2; w = 0.25 * s
+        x = (m[2][1] - m[1][2]) / s; y = (m[0][2] - m[2][0]) / s; z = (m[1][0] - m[0][1]) / s
+    elif m[0][0] > m[1][1] and m[0][0] > m[2][2]:
+        s = math.sqrt(1.0 + m[0][0] - m[1][1] - m[2][2]) * 2; w = (m[2][1] - m[1][2]) / s
+        x = 0.25 * s; y = (m[0][1] + m[1][0]) / s; z = (m[0][2] + m[2][0]) / s
+    elif m[1][1] > m[2][2]:
+        s = math.sqrt(1.0 + m[1][1] - m[0][0] - m[2][2]) * 2; w = (m[0][2] - m[2][0]) / s
+        x = (m[0][1] + m[1][0]) / s; y = 0.25 * s; z = (m[1][2] + m[2][1]) / s
+    else:
+        s = math.sqrt(1.0 + m[2][2] - m[0][0] - m[1][1]) * 2; w = (m[1][0] - m[0][1]) / s
+        x = (m[0][2] + m[2][0]) / s; y = (m[1][2] + m[2][1]) / s; z = 0.25 * s
+    n = math.sqrt(w * w + x * x + y * y + z * z) or 1.0
+    return [w / n, x / n, y / n, z / n]
+
+
+def _safe_view_name(name):
+    if not name:
+        return None
+    s = "".join(c if (c.isalnum() or c in "-_") else "-" for c in str(name).strip().lower())
+    s = s.strip("-")
+    return s or None
+
+
+def _next_view_name(scene_dir: Path):
+    vdir = scene_dir / "views"
+    n = 1
+    while (vdir / f"view-{n:03d}").exists():
+        n += 1
+    return f"view-{n:03d}"
+
+
+def capture_view(scene_dir: Path, pose: dict, *, name=None) -> dict:
+    """Author a render view from the LIVE viewer camera (operator-placed via WASD).
+    `pose` is solve-gauge {position, forward, up, vfov, aspect}; we convert to the
+    oriented gauge the offline renderer uses and write views/<name>/view.json.
+
+    This is the capture counterpart to list_views' read conversion — the operator
+    places a virtual camera in the scout viewer and saves THAT pose, instead of the
+    generic pulled-back overview (operator decision 2026-06-17)."""
+    R_o, z_o = _orient_for_solve(scene_dir)
+    if not R_o:
+        return {"error": "no orient gauge for this solve yet — reconstruct/orient first"}
+    pos_s, fwd_s, up_s = pose.get("position"), pose.get("forward"), pose.get("up")
+    if not (pos_s and fwd_s and up_s and len(pos_s) == 3):
+        return {"error": "incomplete camera pose from viewer"}
+    pos_o = _solve_to_oriented(pos_s, R_o, translate=z_o)
+    fwd = _norm(_solve_to_oriented(fwd_s, R_o, translate=0))
+    up = _norm(_solve_to_oriented(up_s, R_o, translate=0))
+    # opencv camera basis (cols = right, down, forward); right = fwd × up, down = fwd × right
+    right = _norm(_cross(fwd, up))
+    down = _norm(_cross(fwd, right))
+    Rcam = [[right[i], down[i], fwd[i]] for i in range(3)]
+    quat = _mat_to_quat_wxyz(Rcam)
+    vfov = float(pose.get("vfov") or 50.0)
+    aspect = float(pose.get("aspect") or (1920.0 / 1080.0))
+    sensor_h = 24.0
+    lens = sensor_h / (2.0 * math.tan(math.radians(vfov) / 2.0))
+    res_h = max(1, round(1920 / aspect))
+    nm = _safe_view_name(name) or _next_view_name(scene_dir)
+    view = {
+        "auto_localized": False, "captured_camera_name": nm,
+        "convention": "opencv", "lens_mm": round(lens, 4),
+        "localization_method": "operator-placed-viewer", "purpose": "operator-view",
+        "render_engine": "BLENDER_WORKBENCH", "render_resolution": [1920, res_h],
+        "sensor_height_mm": sensor_h, "sensor_width_mm": round(sensor_h * aspect, 4),
+        "world_position": pos_o, "world_rotation_quat_wxyz": quat,
+    }
+    outdir = scene_dir / "views" / nm
+    outdir.mkdir(parents=True, exist_ok=True)
+    (outdir / "view.json").write_text(json.dumps(view, indent=2) + "\n")
+    vs = scene_dir / "viewset" / "canonical" / "views.json"
+    d_vs = json.loads(vs.read_text()) if vs.exists() else {"slots": []}
+    if nm not in d_vs.get("slots", []):
+        d_vs.setdefault("slots", []).append(nm)
+        vs.parent.mkdir(parents=True, exist_ok=True)
+        vs.write_text(json.dumps(d_vs, indent=2) + "\n")
+    return {"ok": True, "name": nm, "views": list_views(scene_dir)}
 
 
 def list_views(scene_dir: Path) -> list:

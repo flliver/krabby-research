@@ -158,7 +158,23 @@ function gotoView(v){
   curAspect = aspect; layout(aspect); controls.update();
   document.getElementById('s').textContent = `render view: ${v.name||'?'} (\\ = free orbit)`;
 }
-addEventListener('message', e=>{ if (e.data && e.data.gotoView) gotoView(e.data.gotoView); });
+// report the live camera pose (solve gauge) so the parent can author a render
+// view from where the operator flew the camera (WASD). forward = look dir,
+// up = camera up; the server re-orthogonalizes + converts to the oriented gauge.
+function reportPose(reqId, source){
+  const f = controls.target.clone().sub(camera.position).normalize();
+  const u = camera.up.clone().normalize();
+  (source || window.parent).postMessage({ reqId, pose: {
+    position: [camera.position.x, camera.position.y, camera.position.z],
+    forward: [f.x, f.y, f.z], up: [u.x, u.y, u.z],
+    vfov: camera.fov, aspect: curAspect || (innerWidth / innerHeight),
+  }}, '*');
+}
+addEventListener('message', e=>{
+  if (!e.data) return;
+  if (e.data.gotoView) gotoView(e.data.gotoView);
+  if (e.data.getPose) reportPose(e.data.getPose, e.source);
+});
 
 // ── free-fly: WASD = forward/left/back/right (along look dir), Space = up, Shift = down ──
 // (world up = gravity). Held keys are applied every frame in loop() for smooth motion; the

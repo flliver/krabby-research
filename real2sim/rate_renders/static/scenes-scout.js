@@ -29,20 +29,31 @@
       <div class="sc-side">
         <h4>Render views</h4>
         <div id="sc-views" class="sc-views">…</div>
+        <button id="sc-cap">+ Capture current view</button>
         <button id="sc-add">+ Overview view</button>
-        <p class="sc-hint">Named cameras the renderer uses (<code>views/&lt;name&gt;/view.json</code>).
-          Overview = a pulled-back look-at over the scene extent.</p>
+        <p class="sc-hint">Fly with <b>WASD</b> / space-shift, then <b>Capture</b> to save that
+          camera as a render view. Overview = an auto pulled-back look-at. Click a view to snap there.
+          (<code>views/&lt;name&gt;/view.json</code>)</p>
       </div></div>`;
     drawViews(container, scene);
+    // Capture the live camera the operator placed (WASD) as a render view.
+    container.querySelector("#sc-cap").onclick = async () => {
+      const b = container.querySelector("#sc-cap"); const lbl = b.textContent;
+      b.disabled = true; b.textContent = "capturing…";
+      const pose = await capturePose(container);
+      if (!pose) { b.disabled = false; b.textContent = lbl; alert("viewer not ready — build the scout view first"); return; }
+      const name = (prompt("Name this view (blank = auto):", "") || "").trim();
+      const r = await jpost(`/api/scene/${encodeURIComponent(scene)}/view-capture`, { ...pose, name });
+      b.disabled = false; b.textContent = lbl;
+      if (r.error) alert("capture failed: " + r.error); else drawViews(container, scene, r.views);
+    };
+    // Auto overview pose — author it, list it, but DON'T move the operator's camera.
     container.querySelector("#sc-add").onclick = async () => {
       const b = container.querySelector("#sc-add"); b.disabled = true; b.textContent = "authoring…";
       const r = await jpost(`/api/scene/${encodeURIComponent(scene)}/view-author`);
       b.disabled = false; b.textContent = "+ Overview view";
       if (r.error) { alert("author failed: " + r.error); return; }
       drawViews(container, scene, r.views);
-      // make the click visible: snap the live viewer to the view we just authored.
-      const ov = (r.views || []).find((v) => v.name === "overview") || (r.views || [])[0];
-      if (ov) gotoView(container, ov);
     };
     refreshMain(container, scene);
   }
@@ -51,6 +62,23 @@
   function gotoView(container, v) {
     const fr = container.querySelector("iframe.sc-frame");
     if (fr && fr.contentWindow) fr.contentWindow.postMessage({ gotoView: v }, "*");
+  }
+
+  // request the live camera pose from the embedded viewer (one-shot reply).
+  function capturePose(container) {
+    return new Promise((resolve) => {
+      const fr = container.querySelector("iframe.sc-frame");
+      if (!fr || !fr.contentWindow) { resolve(null); return; }
+      const reqId = "p" + Math.random().toString(36).slice(2);
+      function onMsg(e) {
+        if (e.data && e.data.reqId === reqId && e.data.pose) {
+          window.removeEventListener("message", onMsg); resolve(e.data.pose);
+        }
+      }
+      window.addEventListener("message", onMsg);
+      fr.contentWindow.postMessage({ getPose: reqId }, "*");
+      setTimeout(() => { window.removeEventListener("message", onMsg); resolve(null); }, 2500);
+    });
   }
 
   async function drawViews(container, scene, views) {
