@@ -33,10 +33,18 @@ can't ship stale tools (STO-SCN-157 — the audit found `covis_graph.py` /
 `lib_progress.sh` / `capture_profiles.json` drifted, so the registry image
 ran old covis logic):
 
+`sync-tools.sh` runs **repo-side** (where `real2sim/` lives — the Mac repo),
+**before** the rsync. It compares `krabby-tools/<f>` against `../../real2sim/<f>`,
+so it only works where `real2sim/` is present; the build host only ever needs
+`images/fastmap/` (the synced `krabby-tools/` travels in the rsync) — do **not**
+expect `--check` to work on the build host.
+
 ```bash
+# --- repo-side (Mac, where real2sim/ lives) ---
 images/fastmap/sync-tools.sh            # real2sim/ -> krabby-tools/
 images/fastmap/sync-tools.sh --check    # exit 1 on drift (also a good CI gate)
 
+# --- build host (GPU x86) ---
 rsync -a images/fastmap/ <host>:~/build/fastmap/
 ssh <host> 'cd ~/build/fastmap && docker build -t krabby-fastmap:0.3 .'
 docker tag krabby-fastmap:0.3 j.pski.org:5000/krabby-fastmap:0.3

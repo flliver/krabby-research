@@ -4,11 +4,14 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: M
-status: in-progress
+status: shipped
 date: 2026-06-16
 depends-on: []
 bd-id: krabby-nvge
 assignee: krabby
+shipped: 2026-06-16
+tasks: 4
+complete: 4
 ---
 
 # De-drift fastmap: re-sync baked krabby-tools, rebuild+push, add build-time sync guard
@@ -67,7 +70,7 @@ baked-vs-canonical drift from recurring on the next build.
 ## Definition of Done
 
 - [x] `images/fastmap/krabby-tools/` matches `real2sim/` (no drift).
-- [ ] `krabby-fastmap` rebuilt + pushed; the new tag's `covis_graph.py` has the `fwd` field.
+- [x] `krabby-fastmap` rebuilt + pushed; the new tag's `covis_graph.py` has the `fwd` field.
 - [x] A build-time guard fails the build if baked tools drift from `real2sim/`.
 - [x] README documents the single-source rule.
 
@@ -93,11 +96,17 @@ baked-vs-canonical drift from recurring on the next build.
   `README.md` (build steps now run `sync-tools.sh` + `--check` before rsync/build;
   bump target tag → `0.3`).
 
-### Remaining (fleet-side — handed to ops@baeprz)
+### Rebuild + push DONE (2026-06-16, ops on dbeeprz)
 
-- Rebuild `krabby-fastmap:0.3` on **dbeeprz** (build host, not a deploy) and
-  push to `j.pski.org:5000`. This is a build+push, unaffected by the
-  hold-on-tbeeprz-deploy constraint.
+- `krabby-fastmap:0.3` built (~5 min) + pushed to `j.pski.org:5000`
+  (`sha256:a388fdffae1048ad4d2f827248492f2d5c2f2e6f7c5fdfe8fababecf399c85fd`).
+  Registry tags now `0.1, 0.2, 0.3`; **0.2 untouched** (no retag/prune).
+- Pre-push verify confirmed the **built image's** `/opt/krabby-tools/covis_graph.py`
+  carries `fwd` (2 occurrences) — the stale-covis logic is out of the active path.
+- Guardrails honored: build+push only; **nothing pulled to any host (t included)**.
+- Gate clarification (from the build): `sync-tools.sh --check` runs **repo-side**
+  (where `real2sim/` lives), **before** the rsync — the build host only carries
+  `images/fastmap/`. README updated to say so.
 
 ### Gotchas
 
