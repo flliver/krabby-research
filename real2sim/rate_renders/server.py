@@ -1163,20 +1163,27 @@ class Handler(BaseHTTPRequestHandler):
             return self._not_found(f"render: {rel}")
         self._send_bytes(target.read_bytes(), "image/png")
 
+    _PHOTO_MIME = {".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+                   ".png": "image/png", ".webp": "image/webp"}
+
     def _serve_photo(self, rel: str):
         """STO-SCN-148: serve a canonical source image. rel = 'scene/<hash>.jpg'
-        → images/<hash>/image.jpg. Path-clamped to the scene store."""
+        → images/<hash>/image.<ext>. Canonicalize preserves the SOURCE extension
+        (image.jpg / image.jpeg / image.png …), so resolve by glob, not a hard-
+        coded .jpg — else .jpeg/.png scenes (e.g. 006-kubota) 404. Path-clamped."""
         try:
             scene, fname = rel.split("/")
         except ValueError:
             return self._bad_request("expected scene/<hash>.jpg")
         h = fname.removesuffix(".jpg")
-        target = (SCENES_ROOT / scene / "images" / h / "image.jpg").resolve()
-        if not str(target).startswith(str(SCENES_ROOT.resolve())):
+        hdir = (SCENES_ROOT / scene / "images" / h).resolve()
+        if not str(hdir).startswith(str(SCENES_ROOT.resolve())):
             return self._bad_request("Invalid path")
-        if not target.is_file():
+        img = next((p for p in sorted(hdir.glob("image.*"))
+                    if p.suffix.lower() in self._PHOTO_MIME), None) if hdir.is_dir() else None
+        if not img or not img.is_file():
             return self._not_found(f"photo: {rel}")
-        self._send_bytes(target.read_bytes(), "image/jpeg")
+        self._send_bytes(img.read_bytes(), self._PHOTO_MIME[img.suffix.lower()])
 
     def _list_all_scenes(self) -> list:
         """Every scene dir (not just rankable ones) for the Scenes tab selector.
