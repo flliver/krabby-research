@@ -4,7 +4,7 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: M
-status: draft
+status: in-progress
 date: 2026-06-16
 depends-on: [STO-SCN-151]
 bd-id: krabby-4p8a
@@ -45,3 +45,28 @@ datum sidecar), `datum_frame.py`. This story wires them as a first-class tab act
 ## Out of scope
 - The scale math/tool itself (STO-SCN-144, shipped) and the datum strategy (STO-SCN-016).
 - Consuming `datum.json` downstream (USD export 017, metric cull 145).
+
+## Build notes (2026-06-16)
+- **Backend**: `normalize_datum.py` (numpy CLI) ties the three SHIPPED seams —
+  `calibrate_datum.recompute(export)` → scale + gate flags →
+  `datum_frame.build_datum(centers, up, scale)` →
+  `calibrate_datum.apply_to_gauge(...)` → additive `datum.json`. `--dry`
+  computes without writing; refuses clobber without `--force`. `scout_serve.normalize()`
+  shells it out to a numpy python; endpoint `POST /api/scene/<s>/normalize`
+  {export, dry, force}.
+- **Frontend** `static/scenes-measure.js` (`window.scenesViews.measure`, 6th
+  view tab): embeds `verify/match.html` (the STO-SCN-144 MEASURE tool) + a
+  paste-the-export box + **Normalize Units** (Dry-run default) → shows
+  `s` + spread + anisotropy/weak-triangulation/DA3-disagree flags; Overwrite on
+  existing datum.
+- **Verified:** `normalize_datum --dry` on the real 001-patio solve → **s=4.45**
+  (its datum.json left untouched); temp-dir write-path writes `datum.json` with
+  the datum frame + refuses clobber; HTTP e2e — `match.html` serves, normalize
+  dry-run returns the scale, bad body → 400. The MEASURE workflow + the real
+  datum WRITE on a new scene are operator-verified (T-020).
+
+## Definition of Done (status)
+- [x] MEASURE mode usable in-tab (embeds the STO-SCN-144 match.html), multi-photo picking + E per endpoint.
+- [x] Normalize Units writes `datum.json` via `calibrate_datum`/`apply_to_gauge`; surfaces s + spread + flags.
+- [x] Reuses the shipped MEASURE/`metric_scale`/`calibrate_datum`/`datum_frame` back-end (no new math).
+- [ ] **Operator-verified (T-020):** measure a known dimension in-tab, Normalize, confirm the written scale matches.

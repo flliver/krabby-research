@@ -158,3 +158,39 @@ def author_overview(scene_dir: Path) -> dict:
     if rr.returncode != 0:
         return {"error": "author_overview failed", "log": (rr.stdout + rr.stderr)[-400:]}
     return {"ok": True, "views": list_views(scene_dir)}
+
+
+def normalize(scene_dir: Path, export: dict, *, subset=None, solve=None,
+              force=False, dry=False, gate_thresh=1.5) -> dict:
+    """STO-SCN-152: run the full metric normalize (normalize_datum.py under a
+    numpy python): recompute → build_datum → apply_to_gauge → datum.json."""
+    import tempfile
+    py = numpy_python()
+    if not py:
+        return {"error": "no numpy-capable python found (set KRABBY_NUMPY_PYTHON)"}
+    if not (subset and solve):
+        r = resolve_scout(scene_dir)
+        if not r:
+            return {"error": "no solve to normalize — run the pipeline first"}
+        subset, solve = r["subset"], r["solve"]
+    fd, path = tempfile.mkstemp(suffix=".json")
+    exp = Path(path)
+    try:
+        os.close(fd)
+        exp.write_text(json.dumps(export))
+        cmd = [py, str(HERE / "normalize_datum.py"), scene_dir.name,
+               "--subset", subset, "--solve", solve, "--export", str(exp),
+               "--store", str(SCENES_ROOT), "--gate-thresh", str(gate_thresh)]
+        if force:
+            cmd.append("--force")
+        if dry:
+            cmd.append("--dry")
+        r = subprocess.run(cmd, capture_output=True, text=True, cwd=str(HERE), timeout=180)
+    except subprocess.SubprocessError as e:
+        return {"error": f"normalize failed to launch: {e}"}
+    finally:
+        exp.unlink(missing_ok=True)
+    try:
+        return json.loads(r.stdout)
+    except (ValueError, json.JSONDecodeError):
+        return {"error": "normalize failed", "log": (r.stdout + r.stderr)[-500:]}

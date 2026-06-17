@@ -687,6 +687,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._handle_scout_build(p[len("/api/scene/"):-len("/scout-build")])
         if p.startswith("/api/scene/") and p.endswith("/view-author"):   # STO-SCN-151
             return self._handle_view_author(p[len("/api/scene/"):-len("/view-author")])
+        if p.startswith("/api/scene/") and p.endswith("/normalize"):      # STO-SCN-152
+            return self._handle_normalize(p[len("/api/scene/"):-len("/normalize")])
         return self._not_found()
 
     # ---- materialize (STO-SCN-086: missing tiles trigger render jobs) ----
@@ -1348,6 +1350,25 @@ class Handler(BaseHTTPRequestHandler):
         if not scene_dir.is_dir():
             return self._send_json({"error": f"scene not found: {scene}"}, status=404)
         return self._send_json(ss.author_overview(scene_dir))
+
+    def _handle_normalize(self, scene: str):
+        """STO-SCN-152: a MEASURE export → metric datum.json (numpy subprocess)."""
+        import scout_serve as ss
+        scene_dir = SCENES_ROOT / scene
+        if not scene_dir.is_dir():
+            return self._send_json({"error": f"scene not found: {scene}"}, status=404)
+        try:
+            body = self._read_json_body()
+        except (ValueError, OSError):
+            return self._bad_request("invalid body")
+        export = body.get("export")
+        if not isinstance(export, dict) or not export.get("distances"):
+            return self._bad_request("export with at least one distance required")
+        res = ss.normalize(scene_dir, export, subset=body.get("subset"),
+                           solve=body.get("solve"), force=bool(body.get("force")),
+                           dry=bool(body.get("dry")))
+        status = 409 if res.get("exists") else (400 if res.get("error") else 200)
+        return self._send_json(res, status=status)
 
     # ---- rankings -------------------------------------------------------
 

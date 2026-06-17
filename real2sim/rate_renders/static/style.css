@@ -771,3 +771,26 @@ footer kbd {
 .sc-empty, .sc-hint { color: var(--text-dim); font-size: 11px; }
 #sc-add { width: 100%; margin-bottom: 8px; }
 .sc-err { color: var(--warn); padding: 12px; }
+
+/* == STO-SCN-152: Scenes-tab Measure + Normalize view ===================== */
+.ms-wrap { display: flex; gap: 12px; height: 100%; min-height: 0; }
+.ms-frame { flex: 1; min-width: 0; min-height: 460px; border: 0; border-radius: 6px; background: #0e0e11; }
+.ms-side { flex: 0 0 280px; display: flex; flex-direction: column; gap: 8px;
+  border-left: 1px solid var(--border); padding-left: 12px; }
+.ms-side h4 { margin: 0; font-size: 12px; text-transform: uppercase; color: var(--text-dim); }
+.ms-steps { margin: 0; padding-left: 18px; font-size: 12px; color: var(--text-dim); line-height: 1.6; }
+.ms-steps b { color: var(--text); }
+#ms-export { width: 100%; height: 90px; background: var(--bg); color: var(--text);
+  border: 1px solid var(--border); border-radius: 6px; font-size: 10px; font-family: ui-monospace, monospace; }
+.ms-dry { font-size: 12px; color: var(--text-dim); display: flex; align-items: center; gap: 6px; }
+#ms-go { background: var(--accent-dim); color: var(--bg); border: 1px solid var(--accent);
+  border-radius: 6px; padding: 8px 16px; cursor: pointer; font-weight: 600; }
+#ms-go:hover { background: var(--accent); } #ms-go:disabled { opacity: 0.5; }
+.ms-result { font-size: 12px; color: var(--text-dim); }
+.ms-scale { font-size: 22px; color: var(--text); margin-top: 4px; }
+.ms-scale.ok b { color: var(--accent); }
+.ms-scale b { color: var(--text); }
+.ms-sub { font-size: 11px; color: var(--text-dim); }
+.ms-flags { margin-top: 6px; color: var(--warn); font-size: 11px; }
+.ms-result .ok { color: var(--accent); } .ms-result .err { color: var(--warn); }
+.ms-build { margin: auto; color: var(--text-dim); padding: 20px; }
