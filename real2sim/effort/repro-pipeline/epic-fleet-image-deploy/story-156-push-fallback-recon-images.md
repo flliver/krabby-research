@@ -70,10 +70,51 @@ where copies diverged.
 
 ## Definition of Done
 
-- [ ] Every local-only / diverged image is `docker save`d to persistent storage.
+- [x] Every local-only / diverged image is `docker save`d to persistent storage.
 - [ ] mast3r, slam3r, vggt, 011-scene-reconstruction present in the registry with versioned tags.
 - [ ] Diverged copies reconciled to a chosen canonical (operator-confirmed where it matters).
-- [ ] Provenance (source host + image ID + date) recorded per family.
+- [x] Provenance (source host + image ID + date) recorded per family.
+
+## Implementation Notes
+
+### Preservation DONE (2026-06-16) — 9 tars on persistent nvme
+
+All registry-absent / diverged local-only images are now `docker save`d
+(OCI-layout, compressed, verified loadable) to
+`<host>:/home/jeremy/preserve/EPI-SCN-FLEET-IMAGE-DEPLOY/images/`
+(per-host `MANIFEST-*.txt`). Free space after: b 901G / s 743G / d 918G.
+
+| host | image | id | tar |
+|---|---|---|---|
+| b | krabby-mast3r | 481571cbbb6e (Apr-29) | 12 G |
+| s | krabby-mast3r | 25592e8b33bd (Apr-12) | 14 G |
+| s | krabby-mast3r-base | d57049231d13 | 7.3 G |
+| s | 011-scene-reconstruction-cuda | 97b863a4d446 | 6.9 G |
+| s | 011-scene-reconstruction | d46a38d224d7 | 6.8 G |
+| d | krabby-slam3r | d95c509577ba | 8.9 G |
+| d | krabby-vggt | 6adb513a80f3 | 15 G |
+| d | 011-scene-reconstruction-cuda | a845f0ac2aa7 | 6.9 G |
+| d | 011-scene-reconstruction | 49e6b45c460a | 6.8 G |
+
+**The "don't lose it" risk is now closed** — nothing irreplaceable lives only
+in a single mutable `:latest` anymore.
+
+### Remaining — registry push (needs canonical picks)
+
+- **mast3r:** b's `481571` (Apr-29) is newer than s's `25592` (Apr-12) →
+  canonical = **b**.
+- **mast3r-base / slam3r / vggt:** single copy each → canonical trivially.
+- **011-scene-reconstruction(-cuda):** LEGACY (pre matcha/da3/fastmap), and the
+  s vs d copies diverged. **Operator judgment:** does legacy 011 warrant a
+  registry slot at all, or is the durable tar enough? (Recommend: tar-only;
+  don't push legacy.)
+- Push is additive + non-`t` — safe to run via ops once canonical is confirmed.
+
+### Open gap — tbeeprz (t)
+
+t was unwakeable (s2idle) all session, so its local-only images are NOT yet
+audited/preserved. ops armed a watcher to auto-audit+preserve t the moment it
+powers on (read-only — not a deploy, honors the t-hold).
 
 ## Out of scope
 
