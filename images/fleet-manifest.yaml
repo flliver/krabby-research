@@ -40,8 +40,7 @@ fallback:
     tag: "0.1"
     role: VGGT (alternate front-end)
 
-# DEPRECATED — superseded, scheduled for removal (see STO-SCN-160).
-# Not pushed to the registry; preserved as tars only.
-deprecated:
-  - image: krabby-011-scene-reconstruction
-    reason: legacy pre-v4 recon; replaced by matcha/da3/fastmap active path
+# RETIRED 2026-06-16 (STO-SCN-160): krabby-011-scene-reconstruction(-cuda) —
+# legacy pre-v4 recon, replaced by the matcha/da3/fastmap active path. Removed
+# from all hosts (s/d/t); never in the registry. The 5 distinct builds survive
+# only as preserved tars under <host>:/home/jeremy/preserve/EPI-SCN-FLEET-IMAGE-DEPLOY/images/.

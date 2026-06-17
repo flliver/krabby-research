@@ -61,12 +61,34 @@ masquerading as live infrastructure.
 
 ## Definition of Done
 
-- [ ] 011-scene-reconstruction documented (what it was + replacement map).
+- [x] 011-scene-reconstruction documented (what it was + replacement map — below + manifest retirement note).
 - [x] Confirmed zero live references in the repo / active pipeline.
-- [ ] 011 images removed from b/d/s/t (tars retained as the record).
-- [ ] `fleet-manifest.yaml` deprecated entry removed.
+- [x] 011 images removed from b/d/s/t (tars retained as the record).
+- [x] `fleet-manifest.yaml` deprecated entry removed (replaced with a retirement note).
 
 ## Implementation Notes
+
+### Removal DONE (2026-06-16, ops — verify-before-destroy)
+
+Every `docker rmi` was gated on the image's content (`diff_ids`) matching its
+preserved tar **and** no running container — nothing deleted that wasn't provably
+preserved:
+
+| host | removed | freed |
+|---|---|---|
+| s | 011-cuda `97b863a4` + 011-recon `d46a38d2` | 9.5 G |
+| d | 011-cuda `a845f0ac` + 011-recon `49e6b45c` | 9.5 G |
+| t | 011-cuda `7c619836` | 0 G (shared layers) |
+
+011 remains **tar-only** (never in the registry, as intended) — the 5 distinct
+tars under `<host>:/home/jeremy/preserve/EPI-SCN-FLEET-IMAGE-DEPLOY/images/` are
+now the *only* copies. `fleet-manifest.yaml` `deprecated:` entry replaced with a
+dated retirement note. Registry catalog unchanged (7 repos).
+
+**What 011 was / replacement:** `krabby-011-scene-reconstruction(-cuda)` was the
+pre-v4 ("011" M11 milestone) reconstruction image, superseded by the v4 active
+path — **matcha** (primary), **da3**, **fastmap**. No code or run-path referenced
+the image (verified), so removal is clean.
 
 ### No-live-reference check — PASSED (2026-06-16)
 
