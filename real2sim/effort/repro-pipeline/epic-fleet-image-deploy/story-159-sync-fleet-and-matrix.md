@@ -4,11 +4,14 @@ parent: ./epic.md
 kind: story
 effort: scn
 size: S
-status: in-progress
+status: shipped
 date: 2026-06-16
-depends-on: [STO-SCN-157, STO-SCN-158]
+depends-on: [STO-SCN-157]
 bd-id: krabby-z49c
 assignee: krabby
+shipped: 2026-06-16
+tasks: 5
+complete: 5
 ---
 
 # Sync latest images onto all fleet hosts + produce drift/sync matrix
