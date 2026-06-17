@@ -28,6 +28,10 @@ def numpy_python() -> str | None:
     else this interpreter if it has numpy; else scan common homebrew pythons."""
     env = os.environ.get("KRABBY_NUMPY_PYTHON")
     cands = [env] if env else []
+    # The canonical recon venv (real2sim/.venv: py3.11 + numpy + open3d). Prefer it
+    # over the bare interpreters so the verify/orient tools have the FULL stack and
+    # don't fall back to a numpy-only python (the open3d gap we kept hitting).
+    cands.append(str(HERE / ".venv" / "bin" / "python"))
     cands.append(sys.executable)
     cands += ["/opt/homebrew/bin/python3.10", "/opt/homebrew/bin/python3.11",
               "/opt/homebrew/bin/python3.12", "python3.10", "python3.11", "python3"]
