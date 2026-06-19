@@ -515,36 +515,18 @@ public:
         }
     }
 
+    // Calibration limits are held in RAM only — they are not persisted to EEPROM.
+    // EEPROM address 0 is reserved for the board config struct (EepromLayout, in
+    // firmware/arduino/eeprom_layout.h), so these must not write there. Per-joint
+    // calibration persistence is intended to be added as a field of that struct.
     void saveCalibration()
     {
-        CalData data;
-        data.magic = 0xDEADBEEF;
-        for (int i = 0; i < count; i++)
-        {
-            data.minVals[i] = actuators[i]->minStop;
-            data.maxVals[i] = actuators[i]->maxStop;
-        }
-        EEPROM.put(0, data);
-        Serial.println("Limits saved to EEPROM.");
+        Serial.println("Calibration complete (held in RAM; not persisted).");
     }
 
     void loadCalibration()
     {
-        CalData data;
-        EEPROM.get(0, data);
-        if (data.magic == 0xDEADBEEF)
-        {
-            for (int i = 0; i < count && i < 6; i++)
-            {
-                actuators[i]->minStop = data.minVals[i];
-                actuators[i]->maxStop = data.maxVals[i];
-            }
-            Serial.println("Calibration loaded from EEPROM.");
-        }
-        else
-        {
-            Serial.println("No EEPROM calibration found. Using defaults.");
-        }
+        // Nothing to load: calibration is not persisted (see saveCalibration).
     }
 
 private:

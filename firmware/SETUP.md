@@ -1,4 +1,4 @@
-# Krabby-Uno Task 2: Six-Axis Leg Controller
+# Krabby-Uno Firmware
 
 ## Overview
 
@@ -43,7 +43,7 @@ This firmware drives a full leg pair (Left & Right) consisting of **6 Motors**.
 
 When using the **leader** board that forwards telemetry from left/right followers, a small serial RX buffer can overflow and drop bytes (corrupt or missing actuators in telemetry, "can't keep up" on the host). The leader needs a **256-byte** RX buffer for Serial1/Serial2 so it can hold a full ~200-byte forwarded line from each follower while it services USB and the actuator update.
 
-The Makefile passes this define on every build, so you usually don't have to do anything. `make compile-firmware` / `make upload-firmware` bake `-DSERIAL_RX_BUFFER_SIZE=256` into the `arduino-cli compile` invocation unconditionally (see `firmware/Makefile` `BUILD_PROPS`), exactly as CI (`.github/workflows/publish-firmware.yml`) does. `firmware/install.py`'s `platform.local.txt` write is now a **belt-and-suspenders backup for IDE builds, not a requirement** — a `make`-built or CI-built binary already has the 256-byte buffer regardless of whether `install.py` ran or which AVR core version is installed. (Some core versions, e.g. 1.8.7, already default the Mega's RX buffer to 256; passing the define guarantees it on every core version and board variant.)
+The Makefile passes this define on every build, so you usually don't have to do anything. `make compile-firmware` / `make upload-firmware` bake `-DSERIAL_RX_BUFFER_SIZE=256` into the `arduino-cli compile` invocation unconditionally (see `firmware/Makefile` `BUILD_PROPS`), exactly as CI (`.github/workflows/publish-firmware.yml`) does. `firmware/install.py`'s `platform.local.txt` write is a **belt-and-suspenders backup for IDE builds, not a requirement** — a `make`-built or CI-built binary already has the 256-byte buffer regardless of whether `install.py` ran or which AVR core version is installed. (Some core versions, e.g. 1.8.7, already default the Mega's RX buffer to 256; passing the define guarantees it on every core version and board variant.)
 
 The manual edits below are only needed if you build the sketch **directly from the Arduino IDE** without the `platform.local.txt` override.
 
@@ -86,7 +86,7 @@ Telemetry is sent as **newline-terminated lines** over serial. The Python side p
 - **Segment format:** Each joint segment is 9 space-separated values: joint name, position (0–1), pot raw, current raw, enable L/R, PWM L/R, safety.
 - **Example:** `FRONT; FLHY 0.723 740 694 0 0 0 0 0;FLHL 0.723 740 691 ...`
 
-On the Arduino side, telemetry is built in **telemetry_manager.h** (struct `JointTelemetry`, `appendTo()`). The old standalone `joint_telemetry.h` was removed; all telemetry formatting and collection lives in `telemetry_manager.h` and `actuator_manager.h`.
+On the Arduino side, each joint's segment is formatted by `LinearActuator::printTelemetry` in **`actuator_manager.h`**, and `ActuatorManager::printTelemetry` joins the segments into one line. The host parses each line with `JointTelemetry` in **`interfaces/joint_telemetry.py`** (the two must stay in sync).
 
 ### 2.3 Pin revisions (`KRABBY_PIN_REV`)
 
@@ -106,7 +106,7 @@ Wiring is selected at **compile time** in **`arduino/board_pins.h`** (`#define K
   - Compile only: `make -C firmware compile-firmware`.
   - See **`firmware/Makefile`** for **`ARDUINO_CLI`**, **`FQBN`**, **`PIN_REV`**.
 
-Flash each Mega with the image that matches **that** board’s wiring. All three boards use the same sketch; role is elected at runtime.
+Flash each Mega with the image that matches **that** board’s wiring. All three boards run the same sketch; each board's role is assigned once with `krabby-firmware set` and persisted in EEPROM (see **Board roles** under §3).
 
 #### Remote flashing over SSH (boards on another host)
 
@@ -144,25 +144,43 @@ python -m firmware --debug
 ```
 
 
-### EEPROM address layout
+### Board roles (`set` / `get`)
 
-| Address | Size | Purpose |
-|---------|------|---------|
-| 0–25 | 26 bytes | `CalData` struct — calibration min/max for 6 actuators + magic word (`0xDEADBEEF`) |
-| 26–31 | 6 bytes | Reserved (alignment gap) |
-| 32 | 1 byte | Role magic sentinel (`0xAB`) — written once after first successful role election |
-| 33 | 1 byte | `BoardRole` value: `1`=FRONT, `2`=LEFT, `3`=RIGHT |
+The three boards run the same firmware; a board's **role** selects which 6 of the 18 joints it drives — `FRONT`, `LEFT`, or `RIGHT`. Each board reads its role from EEPROM at boot and keeps it across power cycles. A board with no role set (e.g. freshly flashed) comes up `UNKNOWN`: it drives no actuators but still answers `set`/`get`, so you can assign it.
 
-The role bytes survive power cycles. On each boot, the board prints `ROLE_HINT: LEFT/RIGHT/FRONT` immediately before the 3-second role-election window. `krabby-firmware show` reads this hint so follower boards can be labeled correctly even when probed individually (when they would otherwise appear as `ROLE_UNKNOWN` and show as "front").
+Assign roles by talking to each board over its serial port. With all three Megas on a USB hub, address each one by `--port`:
 
-Role bytes are only written when a valid role is elected (FRONT, LEFT, or RIGHT). A board that times out as ROLE_UNKNOWN does not update EEPROM, preserving the last valid role.
+```bash
+krabby-firmware set --port /dev/ttyUSB0 role=FRONT
+krabby-firmware set --port /dev/ttyUSB1 role=LEFT  serial=LEF-0007
+krabby-firmware set --port /dev/ttyUSB2 role=RIGHT
+krabby-firmware get --port /dev/ttyUSB1 role serial    # -> role=LEFT  serial=LEF-0007
+```
 
-### Feature 1: Auto-Calibration (Run Once)
-The robot now calibrates itself automatically and saves limits to EEPROM.
+`set` writes one or more `key=value` pairs (and reads them back to confirm); `get` reads one or more keys. Allowed keys: **`role`** (`FRONT` / `LEFT` / `RIGHT` / `UNKNOWN`) and **`serial`** (a short per-board identifier). `--port` defaults to auto-detect (or `$KRABBY_MCU_PORT`). To check that a role stuck, power-cycle the rig and run `get` again.
+
+Each board prints `ROLE_HINT: <role>` at boot, which `krabby-firmware show` uses to label each port — so a board probed on its own port is identified by its role.
+
+### EEPROM layout
+
+Board configuration lives in a single `EepromLayout` struct at EEPROM address 0 (defined in [`firmware/arduino/eeprom_layout.h`](arduino/eeprom_layout.h)). It is validated on load by a magic word, a schema version, and a CRC32, so a blank or corrupt EEPROM reads back as `UNKNOWN` rather than a garbage role.
+
+| Field | Type | Purpose |
+|-------|------|---------|
+| `magic` | `uint16` | `0x4B17` when valid |
+| `schema_version` | `uint8` | identifies the struct layout |
+| `role` | `uint8` | `0`=UNKNOWN, `1`=FRONT, `2`=LEFT, `3`=RIGHT |
+| `serial` | `char[16]` | zero-padded ASCII; empty if unset |
+| `crc32` | `uint32` | checksum over all preceding fields |
+
+Per-joint calibration is planned to live in this same struct as an added field; until then, auto-calibration results are not persisted (see Feature 1).
+
+### Feature 1: Auto-Calibration
+The robot finds its joint limits automatically.
  - Select Option 2 (Auto-Calibrate) in the menu.
  - Stand Back: The robot will perform the safety sequence:
     - Yaw Left -> Yaw Right -> Hip Up -> Knee Out -> Knee In -> Hip Down.
- - Result: Limits are saved. You do not need to repeat this after rebooting.
+ - Result: the joint limits are found and used for the current session. They are **not persisted**, so re-run auto-calibration after each power cycle.
 
 ### Feature 2: Manual Jog Mode
  - Select Option 3 (Jog Mode).
