@@ -126,6 +126,24 @@ void forwardFullLines(HardwareSerial* from, HardwareSerial* to, char* partial, s
     }
 }
 
+// Emit one "ERR <token> <code>" line on this board's host channel (Task 1 §5).
+// ERR is asynchronous fault telemetry, not a command reply: any command may emit it
+// while running, and the firmware never blocks on it. The token scopes the error (a
+// joint name, or "system"); the code is a string literal from the §5 vocabulary,
+// supplied by the caller at the point the fault is detected. On a follower this goes
+// out the UART uplink (mainSerial), and the leader's forwardFullLines() relays it to
+// USB unchanged, so the host sees every board's errors on one port. Callers throttle
+// to one line per active fault event — the fault state that drives that lives with
+// the joint model (Task 2), so the emit sites and their latches land there.
+void emitError(const char* token, const char* code)
+{
+    if (!mainSerial) return;
+    mainSerial->print("ERR ");
+    mainSerial->print(token);
+    mainSerial->print(' ');
+    mainSerial->println(code);
+}
+
 // Apply a role: select this board's 6 actuators and wire up the serial channels, then
 // (re)initialize the actuators. Called on boot with the EEPROM-loaded role and again
 // whenever `SET role …` changes it — no reboot needed.

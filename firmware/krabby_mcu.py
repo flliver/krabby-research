@@ -4,6 +4,7 @@ import serial
 import time
 import threading
 import logging
+from collections import deque, namedtuple
 from typing import Dict, Optional
 from firmware.interfaces.joint_telemetry import JointTelemetry
 from firmware.mcu_port import default_port
@@ -36,6 +37,45 @@ def parse_ver_reply(line: str) -> Optional[list[tuple[str, str, str]]]:
         c = commits[i]  if i < len(commits)  else "-"
         result.append((v, b, c))
     return result
+
+
+# --- ERR telemetry channel (Task 1 §5) ---
+# ERR is a third wire surface alongside command-response (SET/GET) and the joint
+# telemetry stream: asynchronous "ERR <token> <code>" lines a board emits while a
+# command runs. It is NOT a response to any command — the SDK surfaces each line as
+# a tagged event (a bounded ring plus an optional callback). The token scopes the
+# error (a joint name like FRKL, or a subsystem like "system"); the code is a
+# self-describing string. Codes are owned by the emitting task (Task 4 owns the
+# calibration vocabulary), so the SDK stores whatever arrives rather than rejecting
+# it — the wire has no error-reply contract to validate against.
+ErrorEvent = namedtuple("ErrorEvent", ["token", "code", "ts"])
+
+# Canonical vocabulary from Task 1 §5, for reference and operator-facing display.
+# Not enforced on parse (new codes land as their emitting task ships).
+ERROR_CODES = frozenset({
+    "motor_did_not_move",
+    "motor_jammed",
+    "pot_value_invalid",
+    "hall_no_edges",
+    "hall_drift",
+    "not_calibrated",
+    "current_sense_no_signal",
+    "current_sense_no_spike",
+})
+
+_ERROR_RING_MAX = 128  # most recent ERR events retained for get_errors()
+
+
+def parse_err_line(line: str) -> Optional[tuple]:
+    """Parse 'ERR <token> <code>' into (token, code), or None if not a well-formed
+    ERR line. Per §5 there are always exactly two tokens after ERR; any other arity
+    is malformed and ignored (the firmware emits nothing else on this prefix)."""
+    if not line.startswith("ERR "):
+        return None
+    parts = line[4:].split()
+    if len(parts) != 2:
+        return None
+    return parts[0], parts[1]
 
 
 # --- SET / GET config command path ---
@@ -149,6 +189,11 @@ class KrabbyMCUSDK:
         self._last_ver_line: Optional[str] = None
         self._last_get_line: Optional[str] = None
 
+        # ERR telemetry channel: a bounded ring of recent events plus an optional
+        # callback invoked as each line arrives (see on_error / get_errors).
+        self._errors = deque(maxlen=_ERROR_RING_MAX)
+        self._error_callback = None
+
     def connect(self, settle: float = 5.0, hold: bool = True):
         """Open the serial port and start the reader thread.
 
@@ -217,6 +262,8 @@ class KrabbyMCUSDK:
                     self._last_ver_line = line
                 elif line.startswith("GET"):
                     self._last_get_line = line
+                elif line.startswith("ERR "):
+                    self._record_error(line)
                 elif "Krabby" in line or "CAL" in line or "Saved" in line:
                     logger.info(f"[MCU] {line}")
 
@@ -246,6 +293,37 @@ class KrabbyMCUSDK:
             return
         for jt in jts:
             self.joints[jt.name] = jt
+
+    # --- ERR telemetry channel ---------------------------------------------
+
+    def _record_error(self, line: str):
+        """Parse one ERR line and surface it: append to the ring and invoke the
+        registered callback. Malformed lines are dropped. A callback that raises is
+        logged, never propagated — an ERR event must not take down the reader."""
+        parsed = parse_err_line(line)
+        if parsed is None:
+            return
+        event = ErrorEvent(parsed[0], parsed[1], time.time())
+        self._errors.append(event)
+        cb = self._error_callback
+        if cb is not None:
+            try:
+                cb(event)
+            except Exception:
+                logger.exception("on_error callback raised for %s", line)
+
+    def on_error(self, callback):
+        """Register a callback invoked with each ErrorEvent(token, code, ts) as it
+        arrives. Pass None to clear. Exceptions in the callback are logged, not raised."""
+        self._error_callback = callback
+
+    def get_errors(self) -> list:
+        """Snapshot of recent ERR events, oldest first (up to the ring capacity)."""
+        return list(self._errors)
+
+    def clear_errors(self):
+        """Drop all retained ERR events."""
+        self._errors.clear()
 
         # Debug Log: FRONT / LEFT / RIGHT each on its own line
         now = time.time()
