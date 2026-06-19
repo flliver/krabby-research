@@ -49,7 +49,7 @@
 </tbody>
 </table>
 
-**Routing (Mega 2560):** FL HallA1–3 use **D50, D51, D52** (Port B, PCINT0). FR HallA4–6 use **A12, A13, A14** (Port K, PCINT2). All Serial ports remain free. EN pins are interleaved: FL even (D22, D24, D26), FR odd (D23, D25, D27).
+**Routing (Mega 2560):** FL HallA1–3 use **D50, D51, D52** (Port B, PCINT0). FR HallA4–6 use **A12, A13, A14** (Port K, PCINT2). The Hall/EN pins don't touch the UART pins, so Serial1/Serial2 are free for the follower links (Serial3 unused). EN pins are interleaved: FL even (D22, D24, D26), FR odd (D23, D25, D27).
 
 # Arduino Mega — UART (RX / TX)
 
@@ -57,9 +57,9 @@
 <tbody>
 <tr><td>Port</td><td>TX (D#)</td><td>RX (D#)</td><td>Krabby use</td></tr>
 <tr><td>Serial</td><td>USB</td><td>USB</td><td>Host / programming</td></tr>
-<tr><td>Serial1</td><td>18</td><td>19</td><td>Available (no pin conflicts in Rev 3)</td></tr>
-<tr><td>Serial2</td><td>16</td><td>17</td><td>Follower RIGHT (<code>SERIAL_RIGHT</code>)</td></tr>
-<tr><td>Serial3</td><td>14</td><td>15</td><td>Follower LEFT (<code>SERIAL_LEFT</code>)</td></tr>
+<tr><td>Serial1</td><td>18</td><td>19</td><td>Follower LEFT (<code>SERIAL_LEFT</code>) — v0.2 shield <code>Serial 1</code> JST</td></tr>
+<tr><td>Serial2</td><td>16</td><td>17</td><td>Follower RIGHT (<code>SERIAL_RIGHT</code>) — v0.2 shield <code>Serial 2</code> JST</td></tr>
+<tr><td>Serial3</td><td>14</td><td>15</td><td>Available</td></tr>
 </tbody>
 </table>
 

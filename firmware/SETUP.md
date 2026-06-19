@@ -148,7 +148,9 @@ python -m firmware --debug
 
 The three boards run the same firmware; a board's **role** selects which 6 of the 18 joints it drives — `FRONT`, `LEFT`, or `RIGHT`. Each board reads its role from EEPROM at boot and keeps it across power cycles. A board with no role set (e.g. freshly flashed) comes up `UNKNOWN`: it drives no actuators but still answers `set`/`get`, so you can assign it.
 
-Assign roles by talking to each board over its serial port. With all three Megas on a USB hub, address each one by `--port`:
+`set` writes one or more `key=value` pairs (and reads them back to confirm); `get` reads one or more keys. Allowed keys: **`role`** (`FRONT` / `LEFT` / `RIGHT` / `UNKNOWN`) and **`serial`** (a short per-board identifier). There are two ways to say *which* board:
+
+**Bench — `--port` (each board directly).** With all three Megas on a USB hub, address each one by its serial port:
 
 ```bash
 krabby-firmware set --port /dev/ttyUSB0 role=FRONT
@@ -157,7 +159,18 @@ krabby-firmware set --port /dev/ttyUSB2 role=RIGHT
 krabby-firmware get --port /dev/ttyUSB1 role serial    # -> role=LEFT  serial=LEF-0007
 ```
 
-`set` writes one or more `key=value` pairs (and reads them back to confirm); `get` reads one or more keys. Allowed keys: **`role`** (`FRONT` / `LEFT` / `RIGHT` / `UNKNOWN`) and **`serial`** (a short per-board identifier). `--port` defaults to auto-detect (or `$KRABBY_MCU_PORT`). To check that a role stuck, power-cycle the rig and run `get` again.
+(`--port` defaults to auto-detect, or `$KRABBY_MCU_PORT`.)
+
+**Deployed robot — `--board` (through the FRONT board).** On the assembled robot only the FRONT board is on USB; the LEFT and RIGHT followers connect to it over the inter-board serial links (FRONT `Serial 1` → LEFT, `Serial 2` → RIGHT) and are powered from a shared 5 V rail, not USB. Configure and read the followers *through* FRONT with `--board`:
+
+```bash
+krabby-firmware set role=FRONT                 # the board on USB
+krabby-firmware set --board left  role=LEFT
+krabby-firmware set --board right role=RIGHT
+krabby-firmware get --board left  role serial  # -> role=LEFT  serial=…
+```
+
+`set --board left` forwards a bare `SET …` out FRONT's `Serial 1` to the LEFT follower; `get --board left` forwards a `GET …` and relays the follower's reply back, re-tagged so the host knows the source. Because roles persist in EEPROM, you can equally assign all three on the bench by `--port` and they'll come up correctly once deployed — `--board` is for configuring or reading the followers in place. To check a role stuck, power-cycle and `get` again.
 
 Each board prints `ROLE_HINT: <role>` at boot, which `krabby-firmware show` uses to label each port — so a board probed on its own port is identified by its role.
 
