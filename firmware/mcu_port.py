@@ -59,3 +59,29 @@ def default_port() -> str:
             return p.device
 
     return "COM5" if os.name == "nt" else "/dev/ttyACM0"
+
+
+def all_mcu_ports() -> list[str]:
+    """
+    Every serial port whose USB VID:PID matches a known board, sorted by device.
+
+    Used to flash every board on a host (e.g. the bench USB hub) without naming
+    each port.
+
+    Unlike default_port(), this only matches on VID:PID (MEGA_USB_IDS) — no
+    description-keyword fallback and no OS default — so it never returns a port
+    we can't positively identify as one of our boards. """
+    try:
+        from serial.tools import list_ports
+    except ImportError:
+        raise RuntimeError(
+            "pyserial is required for port auto-detection (pip install pyserial)"
+        ) from None
+
+    matched = []
+    for p in list_ports.comports():
+        vid = f"{p.vid:04x}" if p.vid else ""
+        pid = f"{p.pid:04x}" if p.pid else ""
+        if (vid, pid) in MEGA_USB_IDS:
+            matched.append(p.device)
+    return sorted(matched)

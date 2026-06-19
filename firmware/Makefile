@@ -11,8 +11,15 @@
 #   make -C firmware flash-remote REMOTE=user@orin PORT=/dev/ttyACM0
 #   make -C firmware flash-remote REMOTE=orin PORT=/dev/ttyACM0 PIN_REV=1
 # PORT is the serial device *on REMOTE*; the remote needs avrdude installed
-# (apt install avrdude) and permission on the port (dialout group). Flash boards
-# one at a time, passing each board's PORT.
+# (apt install avrdude) and permission on the port (dialout group).
+#
+# To flash every board on REMOTE in one shot (compile + copy once, then loop):
+#   make -C firmware flash-remote-all REMOTE=jetson
+#   make -C firmware flash-remote-all REMOTE=jetson PORTS="/dev/ttyUSB0 /dev/ttyUSB2"
+# With no PORTS, the boards are discovered on REMOTE by USB VID:PID (the same
+# match firmware/mcu_port.py uses), not a bare /dev/ttyUSB* glob, so unrelated
+# USB-serial devices are skipped. The same hex goes on every board — roles live
+# in EEPROM, not the firmware.
 #
 # Prerequisites: arduino-cli on PATH, pyserial for auto-detect (pip install pyserial).
 # Windows: winget install GnuWin32.Make, then add GnuWin32\bin to PATH.
@@ -32,6 +39,12 @@ SCP         ?= scp
 BUILD_DIR   := $(CURDIR)/build
 HEX         := $(BUILD_DIR)/arduino.ino.hex
 REMOTE_HEX  ?= /tmp/krabby-firmware.hex
+
+# flash-remote-all: explicit board list overrides discovery; otherwise the boards
+# are found on REMOTE by USB VID:PID via this self-contained detector.
+PORTS       ?=
+LISTER      := $(CURDIR)/scripts/list_mcu_ports.py
+REMOTE_LISTER ?= /tmp/krabby-list-mcu-ports.py
 
 ifeq ($(OS),Windows_NT)
 PYTHON ?= python
@@ -66,7 +79,7 @@ endif
 $(info Using PORT=$(PORT))
 endif
 
-.PHONY: arduino-core compile-firmware upload-firmware flash-remote
+.PHONY: arduino-core compile-firmware upload-firmware flash-remote flash-remote-all
 
 arduino-core:
 	$(ARDUINO_CLI) core install arduino:avr
@@ -87,3 +100,24 @@ flash-remote: compile-firmware
 	@test -n "$(strip $(PORT))" || { echo "ERROR: set PORT=/dev/ttyACMx (the board's serial device on $(REMOTE))"; exit 1; }
 	$(SCP) "$(HEX)" "$(REMOTE):$(REMOTE_HEX)"
 	$(SSH) "$(REMOTE)" "$(AVRDUDE) -p m2560 -c wiring -P '$(PORT)' -b 115200 -D -U flash:w:$(REMOTE_HEX):i"
+
+# Flash every board on REMOTE: compile + copy the hex once, discover the boards
+# by USB VID:PID on REMOTE (unless PORTS is given), then flash each in turn. The
+# same hex goes on all of them — the board's role lives in EEPROM, not firmware.
+#
+# Assumes you can ssh into the Jetson REMOTE, and that all shields are
+# connected to that Jetson via a USB hub. Primarily used in bench testing.
+flash-remote-all: compile-firmware
+	@test -n "$(REMOTE)" || { echo "ERROR: set REMOTE=user@host (the machine the boards are plugged into)"; exit 1; }
+	$(SCP) "$(HEX)" "$(REMOTE):$(REMOTE_HEX)"
+	@ports="$(PORTS)"; \
+	if [ -z "$$ports" ]; then \
+		$(SCP) "$(LISTER)" "$(REMOTE):$(REMOTE_LISTER)"; \
+		ports=`$(SSH) "$(REMOTE)" "$(PYTHON) '$(REMOTE_LISTER)'"`; \
+	fi; \
+	if [ -z "$$ports" ]; then echo "ERROR: no boards found on $(REMOTE) (pass PORTS=\"/dev/ttyUSB0 ...\" to override)"; exit 1; fi; \
+	echo "Flashing boards on $(REMOTE): $$ports"; \
+	for p in $$ports; do \
+		echo "==> $$p"; \
+		$(SSH) "$(REMOTE)" "$(AVRDUDE) -p m2560 -c wiring -P '$$p' -b 115200 -D -U flash:w:$(REMOTE_HEX):i" || exit 1; \
+	done
