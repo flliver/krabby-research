@@ -15,7 +15,14 @@
 // --- Serial: left follower = Serial1 (TX1/RX1 on Krabby-Uno v0.1 shield), right follower = Serial2 ---
 #define SERIAL_LEFT  Serial1  // pins 18 (TX1), 19 (RX1) — Krabby-Uno v0.1 shield Serial1 connector
 #define SERIAL_RIGHT Serial2   // pins 16 (TX2), 17 (RX2) — Krabby-Uno v0.1 shield Serial2 connector
+#define SERIAL_LEFT_RX  19    // RX1 — pulled up so a disconnected uplink idles high, not noise
+#define SERIAL_RIGHT_RX 17    // RX2 — same
 #define BAUD_RATE 115200
+
+// Max input lines drained from a board's main channel per loop() pass. Bounds the
+// drain so a flooded/noisy uplink (e.g. a disconnected follower RX picking up EMI)
+// can't starve the config + actuator-update work that runs after the drain loop.
+constexpr int RX_DRAIN_BUDGET = 64;
 
 // Persistent board config (role, serial); see eeprom_layout.h for the struct and its
 // EEPROM helpers. Loaded on boot, changed at runtime by the SET command, and applied
@@ -194,6 +201,12 @@ void setup()
     Serial.setTimeout(50);
     SERIAL_LEFT.setTimeout(50);
     SERIAL_RIGHT.setTimeout(50);
+    // Pull up the follower-uplink RX pins so a disconnected/dangling cable idles high
+    // (UART idle) instead of floating and picking up EMI as a stream of phantom bytes.
+    // A driven uplink (the leader's TX) still overrides the weak pull-up. Done after
+    // begin() so it isn't reset by USART init.
+    pinMode(SERIAL_LEFT_RX, INPUT_PULLUP);
+    pinMode(SERIAL_RIGHT_RX, INPUT_PULLUP);
     pinMode(LED_BUILTIN, OUTPUT);
 
     eepromLoad(g_config);          // invalid/blank EEPROM → g_config.role == ROLE_UNKNOWN
@@ -349,7 +362,8 @@ static void parseVerToken(const String& reply, String& ver, String& branch, Stri
 // on these channels are drained and ignored.
 void processConfig(HardwareSerial &port)
 {
-    while (port.available())
+    int rxBudget = RX_DRAIN_BUDGET;
+    while (port.available() && rxBudget-- > 0)
     {
         char c = port.peek();
         if (c == 'S' || c == 'G')
@@ -370,7 +384,8 @@ void processConfig(HardwareSerial &port)
 
 void loop()
 {
-    while (mainSerial->available())
+    int rxBudget = RX_DRAIN_BUDGET;
+    while (mainSerial->available() && rxBudget-- > 0)
     {
         char cmdType = mainSerial->peek();
         if (cmdType == 'S' || cmdType == 'G')
