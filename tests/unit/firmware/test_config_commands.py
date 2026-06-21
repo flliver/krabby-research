@@ -58,6 +58,11 @@ class TestBuildSetLine:
     def test_role_unknown_is_valid(self):
         assert build_set_line(None, [("role", "UNKNOWN")]) == "SET role UNKNOWN"
 
+    def test_version_is_not_settable(self):
+        # version is read-only: gettable but never settable
+        with pytest.raises(ValueError, match="unknown config key"):
+            build_set_line(None, [("version", "1.0")])
+
 
 # --- build_get_line -------------------------------------------------------
 
@@ -75,6 +80,10 @@ class TestBuildGetLine:
     def test_empty_keys_raises(self):
         with pytest.raises(ValueError, match="at least one"):
             build_get_line(None, [])
+
+    def test_version_is_gettable(self):
+        assert build_get_line(None, ["version"]) == "GET version"
+        assert build_get_line("left", ["role", "version"]) == "GET_LEFT role version"
 
 
 # --- parse_get_reply ------------------------------------------------------
@@ -99,6 +108,15 @@ class TestParseGetReply:
     def test_unset_serial_sentinel(self):
         # firmware prints "-" for an unset serial
         assert parse_get_reply("GET serial -") == ("front", {"serial": "-"})
+
+    def test_version_reply_pipe_joined(self):
+        # firmware returns version|branch|commit as one space-free token
+        assert parse_get_reply("GET version dev-local|dev-local|dev-local") == (
+            "front", {"version": "dev-local|dev-local|dev-local"})
+
+    def test_version_forwarded_from_follower(self):
+        assert parse_get_reply("GET_RIGHT version 1.2.3|main|abc1234") == (
+            "right", {"version": "1.2.3|main|abc1234"})
 
 
 # --- send_set / send_get (mock serial, no reader thread) ------------------

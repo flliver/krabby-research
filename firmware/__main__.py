@@ -97,13 +97,13 @@ def main():
     set_p.add_argument("assignments", nargs="+", metavar="KEY=VAL",
                        help="One or more key=value, e.g. role=FRONT serial=FRT-0042.")
 
-    get_p = subparsers.add_parser("get", help="Read board config (role, serial) from EEPROM.")
+    get_p = subparsers.add_parser("get", help="Read board config (role, serial, version) from a board.")
     get_p.add_argument("--port", default=None, metavar="PORT",
                        help="Serial port of the board (default: auto-detect / $KRABBY_MCU_PORT).")
     get_p.add_argument("--board", default=None, choices=BOARDS,
                        help="Target board (default: the board on --port).")
     get_p.add_argument("keys", nargs="+", metavar="KEY",
-                       help="One or more keys to read, e.g. role serial.")
+                       help="One or more keys to read, e.g. role serial version.")
 
     args = parser.parse_args()
 

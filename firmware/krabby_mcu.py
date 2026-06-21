@@ -82,7 +82,8 @@ def parse_err_line(line: str) -> Optional[tuple]:
 # The SDK is the validation layer: bad keys / roles / boards raise ValueError here,
 # client-side, before any bytes hit the wire. The firmware silently ignores anything
 # malformed, so there is no ERR reply for SET/GET.
-CONFIG_KEYS = ("role", "serial")
+CONFIG_KEYS = ("role", "serial")              # writable via SET
+GETTABLE_KEYS = CONFIG_KEYS + ("version",)    # readable via GET; version is read-only
 ROLE_VALUES = ("FRONT", "LEFT", "RIGHT", "UNKNOWN")
 # Single source of truth for the board <-> wire-suffix mapping: the board on USB
 # (front) takes the bare command; a follower gets a side suffix the leader routes on.
@@ -102,13 +103,13 @@ def _board_suffix(board: Optional[str]) -> str:
     return suffix
 
 
-def _check_key(key: str) -> None:
-    if key not in CONFIG_KEYS:
-        raise ValueError(f"unknown config key {key!r}; allowed: {', '.join(CONFIG_KEYS)}")
+def _check_key(key: str, allowed=CONFIG_KEYS) -> None:
+    if key not in allowed:
+        raise ValueError(f"unknown config key {key!r}; allowed: {', '.join(allowed)}")
 
 
 def _validate_value(key: str, val: str) -> None:
-    _check_key(key)
+    _check_key(key)  # SET: only writable keys
     if key == "role" and val not in ROLE_VALUES:
         raise ValueError(f"invalid role {val!r}; allowed: {', '.join(ROLE_VALUES)}")
     if key == "serial":
@@ -138,7 +139,7 @@ def build_get_line(board: Optional[str], keys) -> str:
     if not keys:
         raise ValueError("get requires at least one key")
     for key in keys:
-        _check_key(key)
+        _check_key(key, GETTABLE_KEYS)
     return " ".join(["GET" + _board_suffix(board)] + keys)
 
 

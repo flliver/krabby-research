@@ -287,6 +287,17 @@ void handleConfig(const String &cmd, const String &payload, HardwareSerial &out)
                 out.print(" serial ");
                 out.print(g_config.serial[0] ? g_config.serial : "-");
             }
+            else if (key == "version")
+            {
+                // Read-only: the build's version|branch|commit, pipe-joined so the
+                // whole triple is one space-free token in the key/value reply. This
+                // is the config-path equivalent of the V/VER command, and unlike V
+                // it works on a follower over USB (V is only handled on mainSerial).
+                out.print(" version ");
+                out.print(KRABBY_FW_VERSION); out.print("|");
+                out.print(KRABBY_FW_BRANCH);  out.print("|");
+                out.print(KRABBY_FW_COMMIT);
+            }
             // unknown keys: silently skipped
         }
         out.println();
