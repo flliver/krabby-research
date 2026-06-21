@@ -114,8 +114,9 @@ void forwardFullLines(HardwareSerial* from, HardwareSerial* to, char* partial, s
             partial[(*partialPos)++] = c;
         else
         {
-            // TODO: THIS SHOULD THROW SOME KIND OF BAD ERROR CONDITION
-            // Buffer full before \n: discard rest of line so we don't forward a partial or get stuck
+            // Buffer full before \n: discard rest of line so we don't forward a partial or get stuck.
+            // TODO (comms-buffer work): surface this overrun on the ERR channel, e.g.
+            // emitError("system", "forward_overrun"), once §5's system-token vocabulary is set.
             while (from->available())
             {
                 char d = (char)from->read();
@@ -210,7 +211,7 @@ void setup()
     Serial.println(roleConfigName(currentRole));
 }
 
-static String readGetLine(HardwareSerial* port, unsigned long timeout_ms);  // defined below
+static String readPrefixedLine(HardwareSerial* port, const char* prefix, unsigned long timeout_ms);  // defined below
 
 // Handle a config command parsed from `port`. The payload is a "key val [key val …]"
 // list, walked with the same tokenizer as the T command.
@@ -223,17 +224,18 @@ void handleConfig(const String &cmd, const String &payload, HardwareSerial &out)
 {
     if (cmd == "SET_LEFT" || cmd == "GET_LEFT" || cmd == "SET_RIGHT" || cmd == "GET_RIGHT")
     {
-        HardwareSerial *follower = cmd.endsWith("_LEFT") ? leftSerial : rightSerial;
+        bool isLeft = cmd.endsWith("_LEFT");
+        HardwareSerial *follower = isLeft ? leftSerial : rightSerial;
         if (!follower) return;  // not the primary (no follower serial): silently dropped
         bool isGet = cmd.startsWith("GET");
         follower->print(isGet ? "GET " : "SET ");
         follower->println(payload);
         if (isGet)
         {
-            String reply = readGetLine(follower, 300);   // "GET <key> <val> …"; skips telemetry
+            String reply = readPrefixedLine(follower, "GET ", 300);   // "GET <key> <val> …"; skips telemetry
             if (reply.length())
             {
-                out.print(cmd.endsWith("_LEFT") ? "GET_LEFT" : "GET_RIGHT");
+                out.print(isLeft ? "GET_LEFT" : "GET_RIGHT");
                 out.println(reply.substring(3));          // drop "GET", keep " <key> <val> …"
             }
         }
@@ -291,8 +293,10 @@ void handleConfig(const String &cmd, const String &payload, HardwareSerial &out)
     }
 }
 
-// Read lines from a follower serial until one starts with "VER "; discard telemetry lines.
-static String readVerLine(HardwareSerial* port, unsigned long timeout_ms)
+// Read lines from a follower serial until one starts with `prefix`; discard telemetry
+// and any other lines. The primary uses it to collect a follower's tagged reply
+// (e.g. "VER …" after a forwarded V, or "GET …" after a forwarded GET).
+static String readPrefixedLine(HardwareSerial* port, const char* prefix, unsigned long timeout_ms)
 {
     unsigned long deadline = millis() + timeout_ms;
     String line = "";
@@ -302,34 +306,12 @@ static String readVerLine(HardwareSerial* port, unsigned long timeout_ms)
         char c = (char)port->read();
         if (c == '\n')
         {
-            if (line.startsWith("VER ")) return line;
+            if (line.startsWith(prefix)) return line;
             line = "";
             continue;
         }
         if (c != '\r') line += c;
         if (line.length() > 128) line = ""; // guard against runaway
-    }
-    return "";
-}
-
-// Read lines from a follower serial until one starts with "GET "; discard telemetry and
-// other lines. Mirrors readVerLine — the primary uses it to collect a follower's GET reply.
-static String readGetLine(HardwareSerial* port, unsigned long timeout_ms)
-{
-    unsigned long deadline = millis() + timeout_ms;
-    String line = "";
-    while (millis() < deadline)
-    {
-        if (!port->available()) continue;
-        char c = (char)port->read();
-        if (c == '\n')
-        {
-            if (line.startsWith("GET ")) return line;
-            line = "";
-            continue;
-        }
-        if (c != '\r') line += c;
-        if (line.length() > 128) line = "";
     }
     return "";
 }
@@ -481,13 +463,13 @@ void loop()
                 if (leftSerial)
                 {
                     leftSerial->println("V");
-                    String reply = readVerLine(leftSerial, 300);
+                    String reply = readPrefixedLine(leftSerial, "VER ", 300);
                     parseVerToken(reply, lVer, lBranch, lCommit);
                 }
                 if (rightSerial)
                 {
                     rightSerial->println("V");
-                    String reply = readVerLine(rightSerial, 300);
+                    String reply = readPrefixedLine(rightSerial, "VER ", 300);
                     parseVerToken(reply, rVer, rBranch, rCommit);
                 }
 

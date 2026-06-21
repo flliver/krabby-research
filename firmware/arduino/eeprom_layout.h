@@ -62,19 +62,14 @@ inline void eepromSave(EepromLayout& cfg) {
 // bytes are invalid: bad magic, wrong schema, or CRC mismatch.
 inline bool eepromLoad(EepromLayout& cfg) {
     EEPROM.get(EEPROM_BASE_ADDR, cfg);
-    if (cfg.magic != EEPROM_MAGIC || cfg.schema_version != EEPROM_SCHEMA_VER) {
-        cfg = EepromLayout{};
-        cfg.role = ROLE_UNKNOWN;
-        return false;
-    }
-    uint32_t want = eepromCrc32(reinterpret_cast<const uint8_t*>(&cfg),
-                                offsetof(EepromLayout, crc32));
-    if (cfg.crc32 != want) {
-        cfg = EepromLayout{};
-        cfg.role = ROLE_UNKNOWN;
-        return false;
-    }
-    return true;
+    const uint32_t want = eepromCrc32(reinterpret_cast<const uint8_t*>(&cfg),
+                                      offsetof(EepromLayout, crc32));
+    const bool valid = cfg.magic == EEPROM_MAGIC
+                    && cfg.schema_version == EEPROM_SCHEMA_VER
+                    && cfg.crc32 == want;
+    if (!valid)
+        cfg = EepromLayout{};  // value-init: role defaults to ROLE_UNKNOWN (0)
+    return valid;
 }
 
 // --- role <-> config string (for SET/GET role). Distinct from the fixed-width

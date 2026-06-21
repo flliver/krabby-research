@@ -84,24 +84,31 @@ def parse_err_line(line: str) -> Optional[tuple]:
 # malformed, so there is no ERR reply for SET/GET.
 CONFIG_KEYS = ("role", "serial")
 ROLE_VALUES = ("FRONT", "LEFT", "RIGHT", "UNKNOWN")
-BOARDS = ("front", "left", "right")
+# Single source of truth for the board <-> wire-suffix mapping: the board on USB
+# (front) takes the bare command; a follower gets a side suffix the leader routes on.
+# BOARDS, _board_suffix (encode), and parse_get_reply's tag map (decode) all derive
+# from this, so the encode and decode sides can't drift.
+_BOARD_SUFFIX = {"front": "", "left": "_LEFT", "right": "_RIGHT"}
+BOARDS = tuple(_BOARD_SUFFIX)
+_TAG_TO_BOARD = {"GET" + suffix: board for board, suffix in _BOARD_SUFFIX.items()}
 _SERIAL_MAX_LEN = 15  # firmware EepromLayout.serial is char[16] (15 chars + NUL)
 
 
 def _board_suffix(board: Optional[str]) -> str:
     """Wire-command suffix for a target board. None/"front" -> "" (the board on USB)."""
-    if board is None or board == "front":
-        return ""
-    if board == "left":
-        return "_LEFT"
-    if board == "right":
-        return "_RIGHT"
-    raise ValueError(f"invalid board {board!r}; expected one of {', '.join(BOARDS)}")
+    suffix = _BOARD_SUFFIX.get("front" if board is None else board)
+    if suffix is None:
+        raise ValueError(f"invalid board {board!r}; expected one of {', '.join(BOARDS)}")
+    return suffix
+
+
+def _check_key(key: str) -> None:
+    if key not in CONFIG_KEYS:
+        raise ValueError(f"unknown config key {key!r}; allowed: {', '.join(CONFIG_KEYS)}")
 
 
 def _validate_value(key: str, val: str) -> None:
-    if key not in CONFIG_KEYS:
-        raise ValueError(f"unknown config key {key!r}; allowed: {', '.join(CONFIG_KEYS)}")
+    _check_key(key)
     if key == "role" and val not in ROLE_VALUES:
         raise ValueError(f"invalid role {val!r}; allowed: {', '.join(ROLE_VALUES)}")
     if key == "serial":
@@ -131,8 +138,7 @@ def build_get_line(board: Optional[str], keys) -> str:
     if not keys:
         raise ValueError("get requires at least one key")
     for key in keys:
-        if key not in CONFIG_KEYS:
-            raise ValueError(f"unknown config key {key!r}; allowed: {', '.join(CONFIG_KEYS)}")
+        _check_key(key)
     return " ".join(["GET" + _board_suffix(board)] + keys)
 
 
@@ -141,8 +147,7 @@ def parse_get_reply(line: str):
     parts = line.split()
     if not parts:
         return None
-    tag_to_board = {"GET": "front", "GET_LEFT": "left", "GET_RIGHT": "right"}
-    board = tag_to_board.get(parts[0])
+    board = _TAG_TO_BOARD.get(parts[0])
     if board is None:
         return None
     kv = parts[1:]
@@ -294,6 +299,19 @@ class KrabbyMCUSDK:
         for jt in jts:
             self.joints[jt.name] = jt
 
+        # Debug Log: FRONT / LEFT / RIGHT each on its own line
+        now = time.time()
+        if logger.isEnabledFor(logging.DEBUG) and (now - self._last_debug_log_ts) >= 0.25:
+            for group_name, names in JOINT_GROUP_NAMES:
+                parts = []
+                for name in names:
+                    jt = self.joints.get(name)
+                    if jt:
+                        parts.append(jt.format_compact(self.last_cmd.get(name)))
+                if parts:
+                    logger.debug("JOINTS %s %s", group_name, "; ".join(parts))
+            self._last_debug_log_ts = now
+
     # --- ERR telemetry channel ---------------------------------------------
 
     def _record_error(self, line: str):
@@ -324,19 +342,6 @@ class KrabbyMCUSDK:
     def clear_errors(self):
         """Drop all retained ERR events."""
         self._errors.clear()
-
-        # Debug Log: FRONT / LEFT / RIGHT each on its own line
-        now = time.time()
-        if logger.isEnabledFor(logging.DEBUG) and (now - self._last_debug_log_ts) >= 0.25:
-            for group_name, names in JOINT_GROUP_NAMES:
-                parts = []
-                for name in names:
-                    jt = self.joints.get(name)
-                    if jt:
-                        parts.append(jt.format_compact(self.last_cmd.get(name)))
-                if parts:
-                    logger.debug("JOINTS %s %s", group_name, "; ".join(parts))
-            self._last_debug_log_ts = now
 
     def send_command_joints(self, cmds_by_joint: Dict[str, float]):
         """
