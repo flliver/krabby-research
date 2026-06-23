@@ -17,6 +17,7 @@ public:
         float Kp = 2.0;          // proportional gain applied to position error to derive desired PWM, PWM is set to max((targetPos - currentPos) * Kp, 255)
         float alphaPot = 0.15;    // Smoothing factor used to calculate potentiometer average (0.1 - 1.0)
         float alphaIS = 0.10;     // Smoothing factor used to calculate current sense average (0.1 - 1.0)
+        unsigned long jogWatchdogMs = 300; // Jog auto-stop window: coast a jogged motor if no new jog command arrives within this many ms (host-crash / cable-pull safety). 0 disables.
 
         ControlConfig() = default;
         ControlConfig(int rampStep, int intervalMs, int deadband, int errDeadband, float kp)
@@ -42,6 +43,7 @@ public:
     int currentTarget = 0;           // Target position (raw ADC); only used when hasTarget is true
     bool hasTarget = false;          // True only after a T (target) command; if false, motor stays idle
     unsigned long lastRampTime = 0;  // Last time PWM ramp was updated, in millis, used along with rampIntervalMs to control ramp timing
+    unsigned long lastJogMs = 0;     // millis() of the last manualDrive() (jog) command; drives the jog watchdog in update()
     float avgPot = 0.0;              // Global state variable to track smoothed potentiometer value
     float avgIS = 0.0;               // Global state variable to track smoothed current sense value
 
@@ -114,6 +116,7 @@ public:
     // Jog: direct PWM. Does not set or clear target; when pwm is 0 we just stop.
     void manualDrive(int pwm)
     {
+        lastJogMs = millis();   // pet the jog watchdog on every jog refresh (incl. the pwm==0 stop)
         pwm = constrain(pwm, -255, 255);
         if (pwm == 0)
         {
@@ -132,10 +135,21 @@ public:
     {
         updateSensors(); // Always update sensors to recalculate avgPot/avgIS
 
-        // No target: motor chills electrically. manualDrive() directly sets PWM/EN
-        // when jogging, and in the no-target state we do not override that here.
+        // No target: the motor is either idle or being jogged open-loop by manualDrive().
+        // Jog watchdog: a jog is momentary and must not outlive its commander. If a jog is
+        // active (currentPwm != 0) and no fresh jog command has arrived within jogWatchdogMs,
+        // coast the motor — this is what stops a runaway when the host crashes, the process is
+        // killed, or the cable is pulled mid-jog. Position targets (hasTarget) are exempt: they
+        // latch deliberately and settle near their setpoint rather than running away.
         if (!hasTarget)
+        {
+            if (currentPwm != 0 && controlConfig.jogWatchdogMs > 0 &&
+                millis() - lastJogMs > controlConfig.jogWatchdogMs)
+            {
+                manualDrive(0);  // coast
+            }
             return;
+        }
 
         int error = currentTarget - getRawPos();
         if (abs(error) < controlConfig.pwmErrDeadband)
