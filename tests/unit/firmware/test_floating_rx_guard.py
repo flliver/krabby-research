@@ -1,0 +1,54 @@
+"""Regression guard for the floating-RX flood-starvation fix (M17 Task 1, AC 1d).
+
+Root cause (see firmware/COMMS_DEBUG.md): a follower drains its uplink with an
+unbounded `while (mainSerial->available())` *before* servicing USB config and the
+actuator update. A disconnected/dangling uplink RX floats, EMI induces a continuous
+phantom-byte stream, the drain never exits, and the board starves ("no response").
+
+Fix (commit 042b319, arduino.ino):
+  1. pull the follower RX pins up so a disconnected line idles high, not into noise;
+  2. bound every drain with RX_DRAIN_BUDGET so no channel can starve the rest.
+
+These assertions FAIL on the pre-fix source (no pull-ups, no budget, a bare
+`while (mainSerial->available())`) and PASS post-fix — the same shape as
+test_makefile_build_flags.py. We assert against the firmware source because the fix
+is AVR C++ with no host-side unit harness; the live before/after (0/N -> 8/8) is the
+documented manual repro in COMMS_DEBUG.md.
+"""
+import re
+from pathlib import Path
+
+import pytest
+
+ARDUINO_INO = Path(__file__).resolve().parents[3] / "firmware" / "arduino" / "arduino.ino"
+
+
+@pytest.fixture(scope="module")
+def src() -> str:
+    return ARDUINO_INO.read_text()
+
+
+class TestFloatingRxFix:
+    def test_follower_rx_pins_pulled_up(self, src):
+        # A disconnected uplink must idle HIGH (driven leader TX still overrides),
+        # not float as an EMI antenna.
+        assert re.search(r"pinMode\(\s*SERIAL_LEFT_RX\s*,\s*INPUT_PULLUP\s*\)", src), \
+            "SERIAL_LEFT_RX must be INPUT_PULLUP"
+        assert re.search(r"pinMode\(\s*SERIAL_RIGHT_RX\s*,\s*INPUT_PULLUP\s*\)", src), \
+            "SERIAL_RIGHT_RX must be INPUT_PULLUP"
+
+    def test_rx_drain_budget_defined(self, src):
+        assert re.search(r"RX_DRAIN_BUDGET\s*=\s*\d+", src), \
+            "RX_DRAIN_BUDGET cap must be defined"
+
+    def test_drains_are_bounded(self, src):
+        # Both the loop() main-channel drain and processConfig() must cap lines per
+        # pass, so a flooding channel can't starve config / actuator updates.
+        bounded = re.findall(r"while\s*\([^)]*available\(\)[^)]*rxBudget--\s*>\s*0", src)
+        assert len(bounded) >= 2, f"expected >=2 budget-bounded drains, found {len(bounded)}"
+
+    def test_no_bare_unbounded_mainserial_drain(self, src):
+        # The exact pre-fix bug: `while (mainSerial->available())` with no budget.
+        # The real drain must be the bounded form (caught above).
+        bare = re.findall(r"while\s*\(\s*mainSerial->available\(\)\s*\)", src)
+        assert not bare, f"unbounded mainSerial drain reintroduced ({len(bare)} found)"

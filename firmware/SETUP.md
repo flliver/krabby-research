@@ -45,6 +45,8 @@ When using the **leader** board that forwards telemetry from left/right follower
 
 The Makefile passes this define on every build, so you usually don't have to do anything. `make compile-firmware` / `make upload-firmware` bake `-DSERIAL_RX_BUFFER_SIZE=256` into the `arduino-cli compile` invocation unconditionally (see `firmware/Makefile` `BUILD_PROPS`), exactly as CI (`.github/workflows/publish-firmware.yml`) does. `firmware/install.py`'s `platform.local.txt` write is a **belt-and-suspenders backup for IDE builds, not a requirement** — a `make`-built or CI-built binary already has the 256-byte buffer regardless of whether `install.py` ran or which AVR core version is installed. (Some core versions, e.g. 1.8.7, already default the Mega's RX buffer to 256; passing the define guarantees it on every core version and board variant.)
 
+> **This define was the *hypothesized* prime suspect for the primary↔follower comms failure — not the actual bench bug.** On the deployed core (`arduino:avr` 1.8.7) it is a no-op (the Mega already defaults to a 256-byte RX buffer), so it is kept as defensive hygiene and CI parity across other cores/board variants, not as the fix. The failures actually hit on the bench were a firmware **floating-RX starvation** bug and **wiring** faults. See **[`COMMS_DEBUG.md`](COMMS_DEBUG.md)** for the staged root-cause analysis, captured logs, and the repro.
+
 The manual edits below are only needed if you build the sketch **directly from the Arduino IDE** without the `platform.local.txt` override.
 
 **You do not flash the core separately.** The Arduino “core” is just C++ source that is compiled *with* your sketch into a single firmware image. Change the buffer size, then build and upload as usual.
