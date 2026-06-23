@@ -11,7 +11,7 @@ import logging
 import time
 from typing import NoReturn
 
-from firmware.krabby_mcu import BOARDS, KrabbyMCUSDK, parse_ver_reply, logger
+from firmware.krabby_mcu import BOARDS, JOINT_GROUP_NAMES, KrabbyMCUSDK, parse_ver_reply, logger
 
 # Joint order per leg pair: LKL, LHL, LHY, RHY, RHL, RKL
 JOINTS_FRONT = ["FLKL", "FLHL", "FLHY", "FRHY", "FRHL", "FRKL"]
@@ -50,13 +50,63 @@ def is_pressed(k: str) -> bool:
     return time.monotonic() - _last_seen.get(k, 0.0) < _HOLD_WINDOW
 
 
-def _log_jog(jog_cmds):
-    active = {k: v for k, v in jog_cmds.items() if v != 0}
-    if active:
-        parts = "  ".join(f"{k} {v:+d}" for k, v in active.items())
-        logger.info("JOG  %s", parts)
-    else:
-        logger.info("JOG  (hold)")
+# --- Live telemetry table (headless bench readout) ------------------------
+# The SDK's reader thread keeps mcu.joints up to date; we just render it in
+# place so an operator on the headless Jetson can jog a motor and watch its
+# pot / current / Hall move in the same SSH screen (AC 1b).
+_TELEM_HEADER = "        JOINT   POS   POT   CUR   HALL"
+
+
+def _fmt_row(board_lbl: str, sel: str, name: str, jt) -> str:
+    head = f"{board_lbl:6s}{sel}"
+    if jt is None:
+        return f"{head} {name:5s}  ----    ---   ---   ---"
+    return f"{head} {name:5s} {jt.pos:6.3f}  {jt.pot:4d}  {jt.current:4d}  {jt.saf:5d}"
+
+
+def _render_telemetry(joints, selected: str, status: str = "", err_line: str = "") -> list[str]:
+    """Build the live-telemetry frame as a list of lines (pure → unit-testable)."""
+    lines = [
+        "=== Krabby MCU — jog + live telemetry (18 joints) ===",
+        "Extend: Q W E R T Y   Retract: A S D F G H",
+        f"Board: {selected:5s}   hold 1=LEFT  2=RIGHT  1+2=all  none=FRONT",
+        "0=neutral  9=autocal  V=version  ESC=quit",
+        status or " ",
+        err_line or " ",
+        "",
+        _TELEM_HEADER,
+    ]
+    for board, names in JOINT_GROUP_NAMES:
+        for i, name in enumerate(names):
+            board_lbl = board if i == 0 else ""
+            sel = ">" if selected in (board, "ALL") else " "
+            lines.append(_fmt_row(board_lbl, sel, name, joints.get(name)))
+        lines.append("")
+    return lines
+
+
+def _draw(lines: list[str]) -> None:
+    """Repaint the frame in place: home the cursor, clear each line to EOL, then
+    clear anything below so a shorter frame leaves no stale rows."""
+    sys.stdout.write("\033[H" + "".join(f"{ln}\033[K\n" for ln in lines) + "\033[J")
+    sys.stdout.flush()
+
+
+def _err_line(mcu) -> str:
+    if errs := mcu.get_errors():
+        e = errs[-1]
+        return f"last ERR: {e.token} {e.code}"
+    return "last ERR: (none)"
+
+
+def _selected_board(key1: bool, key2: bool) -> str:
+    if key1 and key2:
+        return "ALL"
+    if key1:
+        return "LEFT"
+    if key2:
+        return "RIGHT"
+    return "FRONT"
 
 
 class _Parser(argparse.ArgumentParser):
@@ -146,50 +196,54 @@ def main():
     fd = sys.stdin.fileno()
     old_settings = termios.tcgetattr(fd)
 
+    status = ""
+    last_render = 0.0
+
     try:
         tty.setcbreak(fd)
-
-        print("\n=== Krabby MCU — Direct key control (18 joints) ===")
-        print("Extend: Q W E R T Y  |  Retract: A S D F G H")
-        print("Hold 1: LEFT set  |  Hold 2: RIGHT set  |  Hold 1+2: all 18  |  No 1/2: FRONT")
-        print("0: Neutral (0.5)  |  9: Auto-calibrate  |  V: firmware version  |  ESC: Quit")
-        print()
-
-        prev_jog = {}
+        sys.stdout.write("\033[2J")  # clear screen once; frames repaint in place after
 
         while True:
             _read_keys(fd)
 
             if _quit:
-                logger.info("ESC — quitting")
                 break
+
+            key1 = is_pressed("1")
+            key2 = is_pressed("2")
+            selected = _selected_board(key1, key2)
+
             if is_pressed("0"):
                 mcu.send_command_joints({
                     "FLHY": 0.5, "FRHY": 0.5, "FLHL": 0.5, "FLKL": 0.5, "FRHL": 0.5, "FRKL": 0.5,
                     "RLHY": 0.5, "MLHY": 0.5, "RLHL": 0.5, "RLKL": 0.5, "MLHL": 0.5, "MLKL": 0.5,
                     "RRHY": 0.5, "MRHY": 0.5, "RRHL": 0.5, "RRKL": 0.5, "MRHL": 0.5, "MRKL": 0.5,
                 })
+                status = "neutral sent — all joints → 0.5"
+                _draw(_render_telemetry(mcu.joints, selected, status, _err_line(mcu)))
                 time.sleep(0.3)  # debounce
                 continue
             if is_pressed("9"):
-                print("WARNING: This will move ALL limbs to find limits.")
                 mcu.send_command_calibrate()
+                status = "AUTO-CALIBRATE — moving ALL limbs to find limits"
+                _draw(_render_telemetry(mcu.joints, selected, status, _err_line(mcu)))
                 time.sleep(0.5)
                 continue
             if is_pressed("v"):
                 reply = mcu.read_version()
                 if boards := (parse_ver_reply(reply) if reply else None):
+                    parts = []
                     for i, (v, b, c) in enumerate(boards):
-                        role = _BOARD_ROLES[i] if i < len(_BOARD_ROLES) else f"board{i}"
+                        role = _BOARD_ROLES[i].strip() if i < len(_BOARD_ROLES) else f"board{i}"
                         if v != "-":
-                            logger.info("VER  %s  %s  %s  %s", role, v, b, c)
+                            parts.append(f"{role}={v}|{b}|{c}")
+                    status = "VER  " + ("  ".join(parts) if parts else "no response")
                 else:
-                    logger.warning("VER  no response from MCU")
+                    status = "VER  no response from MCU"
+                _draw(_render_telemetry(mcu.joints, selected, status, _err_line(mcu)))
                 time.sleep(0.3)
                 continue
 
-            key1 = is_pressed("1")
-            key2 = is_pressed("2")
             # No 1/2 → FRONT; 1 → LEFT; 2 → RIGHT; 1+2 → all 18
             drive_front = (not key1 and not key2) or (key1 and key2)
             jog_cmds = {}
@@ -204,17 +258,20 @@ def main():
                 jog_cmds[JOINTS_LEFT[i]] = pwm if key1 else 0
                 jog_cmds[JOINTS_RIGHT[i]] = pwm if key2 else 0
 
-            if jog_cmds != prev_jog:
-                _log_jog(jog_cmds)
-                prev_jog = jog_cmds.copy()
-
             mcu.send_commands_jog(jog_cmds)
+
+            now = time.monotonic()
+            if now - last_render >= 0.12:  # ~8 Hz repaint; control loop stays ~25 Hz
+                _draw(_render_telemetry(mcu.joints, selected, status, _err_line(mcu)))
+                last_render = now
 
             time.sleep(0.04)  # ~25 Hz
 
     except KeyboardInterrupt:
         mcu.send_command_joints_hold()
     finally:
+        sys.stdout.write("\033[2J\033[H")  # clear the live frame so the shell prompt is clean
+        sys.stdout.flush()
         termios.tcflush(fd, termios.TCIFLUSH)
         termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
         mcu.close()
