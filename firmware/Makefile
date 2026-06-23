@@ -21,6 +21,11 @@
 # USB-serial devices are skipped. The same hex goes on every board — roles live
 # in EEPROM, not the firmware.
 #
+# To push the host-side Python (the menu / SDK / CLI in this dir) to REMOTE for
+# bench use without reflashing any board:
+#   make -C firmware sync-remote REMOTE=krabby-orin
+# __pycache__ is excluded so host .pyc files don't litter the Jetson.
+#
 # Prerequisites: arduino-cli on PATH, pyserial for auto-detect (pip install pyserial).
 # Windows: winget install GnuWin32.Make, then add GnuWin32\bin to PATH.
 
@@ -36,6 +41,8 @@ REMOTE      ?=
 AVRDUDE     ?= avrdude
 SSH         ?= ssh
 SCP         ?= scp
+RSYNC       ?= rsync
+REMOTE_DIR  ?= ~/krabby-fw-bench/firmware/
 BUILD_DIR   := $(CURDIR)/build
 HEX         := $(BUILD_DIR)/arduino.ino.hex
 REMOTE_HEX  ?= /tmp/krabby-firmware.hex
@@ -79,7 +86,7 @@ endif
 $(info Using PORT=$(PORT))
 endif
 
-.PHONY: arduino-core compile-firmware upload-firmware flash-remote flash-remote-all
+.PHONY: arduino-core compile-firmware upload-firmware flash-remote flash-remote-all sync-remote
 
 arduino-core:
 	$(ARDUINO_CLI) core install arduino:avr
@@ -121,3 +128,12 @@ flash-remote-all: compile-firmware
 		echo "==> $$p"; \
 		$(SSH) "$(REMOTE)" "$(AVRDUDE) -p m2560 -c wiring -P '$$p' -b 115200 -D -U flash:w:$(REMOTE_HEX):i" || exit 1; \
 	done
+
+# Push this firmware/ tree (host-side Python: the interactive menu, SDK, CLI) to
+# REMOTE for bench use, without touching any board's flash. Excludes __pycache__
+# so host-compiled .pyc files don't litter the Jetson (its Python recompiles its
+# own). Use when only the Python changed; reach for flash-remote-all when the
+# arduino/ sketch changed.
+sync-remote:
+	@test -n "$(REMOTE)" || { echo "ERROR: set REMOTE=user@host (the bench machine, e.g. krabby-orin)"; exit 1; }
+	$(RSYNC) -az --exclude='__pycache__' "$(CURDIR)/" "$(REMOTE):$(REMOTE_DIR)"
