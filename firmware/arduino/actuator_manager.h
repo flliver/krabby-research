@@ -3,6 +3,7 @@
 #include <EEPROM.h>
 #include "command.h"
 #include "hall_hw.h"
+#include "eeprom_layout.h"  // SensorType, JointCal, JointCalBlock + load (M17 Task 2)
 
 // Linear actuator controller (w/ potentiometer feedback)
 class LinearActuator
@@ -47,6 +48,17 @@ public:
     float avgPot = 0.0;              // Global state variable to track smoothed potentiometer value
     float avgIS = 0.0;               // Global state variable to track smoothed current sense value
 
+    // --- Per-joint calibration (M17 Task 2) ---
+    // Defaults give the legacy minStop/maxStop pot path with no flip; applyJointCal()
+    // overrides these once a recorded JointCal is loaded from EEPROM (calValid=true).
+    uint8_t  sensorType     = SENSOR_POT;  // SensorType auto-detected during cal
+    uint8_t  sensorReversed = 0;           // 1 = sensor reads inverted vs drive direction
+    bool     calValid       = false;       // true once applyJointCal() loads min/max
+    uint16_t calPotMin      = 0;           // raw ADC at retract-stop (pre-flip)
+    uint16_t calPotMax      = 1023;        // raw ADC at extend-stop  (pre-flip)
+    int32_t  calHallMin     = 0;           // signed count at retract-stop
+    int32_t  calHallMax     = 0;           // signed count at extend-stop
+
 
     // TODO: This should accept a name and a 'SlotConfig' struct for pin assignment, so we can reuse the pin config w/ different actuator names (on different leader/follower boards)
     LinearActuator(const char *n, int pR, int pL, int en, int isPin, int pot, int8_t hallIdx = -1)
@@ -86,16 +98,72 @@ public:
         avgIS = (avgIS * (1.0 - controlConfig.alphaIS)) + (rawIS * controlConfig.alphaIS);
     }
 
-    // Returns normalized position [0.0,1.0], where 0.0 = minStop, 1.0 = maxStop
-    float getPos()
+    // --- Sensor abstraction (M17 Task 2 §2e/§3) ---
+    // Full-scale span used by the direction-flip math: 1023 for a pot, the recorded
+    // count range for a Hall.
+    int32_t sensorFullScale() const
     {
-        float range = maxStop - minStop;
-        if (range == 0)
-            return 0.5;
-        return ((int)avgPot - minStop) / range;
+        return (sensorType == SENSOR_HALL) ? (calHallMax - calHallMin) : 1023;
     }
 
-    int getRawPos() { return (int)avgPot; } // Returns smoothed RAW value
+    // Hall signed position. PLACEHOLDER until Task 2 §5 (2c) adds true A/B quadrature
+    // decoding; no Hall joint is wired yet, so pot joints never reach this path.
+    int32_t hallSignedCount() const
+    {
+        if (hallSlot < 0) return 0;
+        return (int32_t)hallHwGetEdgeCount((uint8_t)hallSlot);
+    }
+
+    // Apply the calibrated direction-flip to a raw sensor value (Task 2 §2b).
+    int32_t applyFlip(int32_t raw) const
+    {
+        return sensorReversed ? (sensorFullScale() - raw) : raw;
+    }
+
+    // Flip-corrected raw position from whichever sensor is wired. avgPot / the Hall
+    // count themselves are never rewritten — the flip is applied only here, at the
+    // read site, so the raw smoothed values stay inspectable.
+    int32_t getRawPos()
+    {
+        int32_t raw = (sensorType == SENSOR_HALL) ? hallSignedCount() : (int32_t)avgPot;
+        return applyFlip(raw);
+    }
+
+    // Normalized position [0.0, 1.0]: 0.0 at retract-stop, 1.0 at extend-stop, for
+    // whichever sensor is wired, with the direction-flip applied. Falls back to the
+    // legacy minStop/maxStop pot path until a JointCal is loaded (calValid).
+    float getPos()
+    {
+        if (!calValid)
+        {
+            float range = maxStop - minStop;
+            if (range == 0)
+                return 0.5;
+            return ((int)avgPot - minStop) / range;
+        }
+        int32_t pos = getRawPos();
+        int32_t lo  = applyFlip(sensorType == SENSOR_HALL ? calHallMin : (int32_t)calPotMin);
+        int32_t hi  = applyFlip(sensorType == SENSOR_HALL ? calHallMax : (int32_t)calPotMax);
+        int32_t range = hi - lo;
+        if (range == 0)
+            return 0.5f;
+        float p = (float)(pos - lo) / (float)range;
+        return p < 0.0f ? 0.0f : (p > 1.0f ? 1.0f : p);
+    }
+
+    // Load a recorded per-joint cal (from an EEPROM JointCalBlock) into this actuator.
+    // Until called (or with no valid EEPROM cal) the joint uses the legacy pot path.
+    void applyJointCal(const JointCal& jc)
+    {
+        if (!jc.calibrated) { calValid = false; return; }
+        sensorType     = jc.sensorType;
+        sensorReversed = jc.sensorReversed;
+        calPotMin      = jc.potMin;
+        calPotMax      = jc.potMax;
+        calHallMin     = jc.hallMin;
+        calHallMax     = jc.hallMax;
+        calValid       = true;
+    }
 
     // Set position target (T command only). Only this sets hasTarget = true.
     void setTarget(float val)
@@ -182,7 +250,7 @@ public:
     // Returns true if motor is powered but position hasn't changed for 'timeout' ms
     bool isStalled(unsigned long timeout)
     {
-        static int lastPos = -1;
+        static long lastPos = -1;  // holds getRawPos() (int32_t — Hall counts exceed int)
         static unsigned long lastMoveTime = 0;
 
         if (abs(currentPwm) < 50)
@@ -270,6 +338,19 @@ public:
     {
         for (size_t i = 0; i < count; i++)
             actuators[i]->init();
+        loadJointCals();
+    }
+
+    // Load per-joint calibration from EEPROM (Task 2) and distribute it to actuators
+    // by slot index. A blank/invalid block leaves every actuator on the legacy pot
+    // path (calValid stays false), so an uncalibrated board behaves exactly as before.
+    void loadJointCals()
+    {
+        JointCalBlock blk;
+        if (!jointCalLoad(blk))
+            return;
+        for (size_t i = 0; i < count && i < JOINTCAL_SLOTS; i++)
+            actuators[i]->applyJointCal(blk.joints[i]);
     }
 
     void handleJog(String name, int pwm)
