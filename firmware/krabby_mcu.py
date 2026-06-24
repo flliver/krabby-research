@@ -176,6 +176,9 @@ JOINT_GROUP_NAMES = (
     ("RIGHT", ["RRHY", "RRHL", "RRKL", "MRHY", "MRHL", "MRKL"]),
 )
 
+# Every drivable joint name — for client-side validation of calibrate_joint (Task 2).
+ALL_JOINT_NAMES = frozenset(n for _, names in JOINT_GROUP_NAMES for n in names)
+
 
 class KrabbyMCUSDK:
     def __init__(self, port=None, baud=115200):
@@ -392,6 +395,24 @@ class KrabbyMCUSDK:
         cmd = f"J{joint_name} {pwm}\n"
         self.ser.write(cmd.encode('utf-8'))
         self.ser.flush()
+
+    def calibrate_joint(self, name: str):
+        """Trigger a single-joint calibration (wire command ``K<name>``, M17 Task 2).
+
+        Fire-and-forget: the firmware sweeps the joint to both stops, auto-detects the
+        sensor type + direction, and persists the result — it sends no completion reply.
+        Watch the joint-telemetry stream and any ``ERR <joint> <code>`` lines (Task 1 §5)
+        for failures; read the recorded values back via ``GET calibration`` (Task 4).
+        Validates the joint name client-side, like the rest of the command surface.
+        """
+        if name not in ALL_JOINT_NAMES:
+            raise ValueError(
+                f"unknown joint {name!r}; valid joints: {', '.join(sorted(ALL_JOINT_NAMES))}")
+        if not self.ser or not self.ser.is_open:
+            return
+        self.ser.write(f"K{name}\n".encode('utf-8'))
+        self.ser.flush()
+        logger.info("CMD -> K %s (calibrate joint)", name)
 
     def read_version(self, timeout: float = 1.0) -> Optional[str]:
         if not self.ser or not self.ser.is_open:

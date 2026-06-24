@@ -155,6 +155,14 @@ def main():
     get_p.add_argument("keys", nargs="+", metavar="KEY",
                        help="One or more keys to read, e.g. role serial version.")
 
+    cal_p = subparsers.add_parser(
+        "calibrate-joint",
+        help="Calibrate one joint: sweep both end-stops, auto-detect sensor + direction, persist to EEPROM.")
+    cal_p.add_argument("--port", default=None, metavar="PORT",
+                       help="Serial port of the board (default: auto-detect / $KRABBY_MCU_PORT).")
+    cal_p.add_argument("name", metavar="JOINT",
+                       help="Joint to calibrate, e.g. FLHL. Forwarded to followers via the FRONT board.")
+
     args = parser.parse_args()
 
     if args.command == "help":
@@ -184,6 +192,11 @@ def main():
     if args.command == "get":
         from firmware.cli import cmd_get
         cmd_get(args.port, args.board, args.keys)
+        return
+
+    if args.command == "calibrate-joint":
+        from firmware.cli import cmd_calibrate_joint
+        cmd_calibrate_joint(args.port, args.name)
         return
 
     if args.debug:

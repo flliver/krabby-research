@@ -366,17 +366,160 @@ public:
         }
     }
 
+    // ===== Per-joint calibration (M17 Task 2 §2/§3) =====
+    // Single-joint state machine: nudge to auto-detect sensor type + direction, sweep
+    // to both end-stops, record min/max, persist one JointCal slot. Drives only the
+    // target joint (others idle). Task 3's whole-robot sequence calls this per joint.
+    enum JointCalState : uint8_t {
+        JC_NUDGE_FWD_DRIVE, JC_NUDGE_FWD_EVAL,
+        JC_NUDGE_REV_DRIVE, JC_NUDGE_REV_EVAL,
+        JC_RETRACT, JC_EXTEND, JC_SAVE, JC_DONE,
+    };
+
+    static constexpr int           JC_NUDGE_PWM            = 30;   // gentle detect nudge
+    static constexpr int           JC_SWEEP_PWM            = 150;  // sweep-to-stop drive
+    static constexpr unsigned long JC_NUDGE_MS             = 250;  // nudge drive duration
+    static constexpr unsigned long JC_SETTLE_MS            = 50;   // settle before measuring
+    static constexpr unsigned long JC_STALL_MS             = 250;  // isStalled() end-stop window
+    static constexpr int32_t       JC_NUDGE_THRESHOLD      = 20;   // raw ADC: pot moved
+    static constexpr int32_t       JC_HALL_NUDGE_THRESHOLD = 4;    // counts: Hall moved
+
+    void setErrorOutput(Print* p) { errOut = p; }  // where ERR <joint> <code> lines go
+    bool jointCalActive() const { return jcActive; }
+
+    // K <name>: full-sweep calibration of one joint by name (unknown name = no-op,
+    // matching the silent-drop convention; the SDK validates client-side).
+    void calibrateJointByName(const String& name)
+    {
+        for (size_t i = 0; i < count; i++)
+            if (String(actuators[i]->name) == name) { calibrateJoint((uint8_t)i); return; }
+    }
+
+    // Begin calibrating actuator `idx`. Stops every joint first; only `idx` moves.
+    void calibrateJoint(uint8_t idx)
+    {
+        if (idx >= count) return;
+        for (size_t i = 0; i < count; i++) actuators[i]->manualDrive(0);
+        jcIndex      = idx;
+        jcActive     = true;
+        jcState      = JC_NUDGE_FWD_DRIVE;
+        jcTimer      = millis();
+        jcPotBefore  = (int32_t)actuators[idx]->avgPot;
+        jcHallBefore = actuators[idx]->hallSignedCount();
+        jcSensorType = SENSOR_POT;
+        jcReversed   = 0;
+    }
+
+    // Advance the cal state machine one tick (called from updateAll while jcActive).
+    // Non-blocking: timed nudges + isStalled()-gated sweeps.
+    void updateJointCal()
+    {
+        LinearActuator* a = actuators[jcIndex];
+        switch (jcState)
+        {
+        case JC_NUDGE_FWD_DRIVE:
+            a->manualDrive(JC_NUDGE_PWM);
+            if (millis() - jcTimer >= JC_NUDGE_MS) { a->manualDrive(0); jcState = JC_NUDGE_FWD_EVAL; jcTimer = millis(); }
+            break;
+        case JC_NUDGE_FWD_EVAL:
+            if (millis() - jcTimer < JC_SETTLE_MS) break;
+            if (!jcEvalNudge(a, /*forward=*/true)) { jcState = JC_NUDGE_REV_DRIVE; jcTimer = millis(); }
+            break;
+        case JC_NUDGE_REV_DRIVE:
+            a->manualDrive(-JC_NUDGE_PWM);
+            if (millis() - jcTimer >= JC_NUDGE_MS) { a->manualDrive(0); jcState = JC_NUDGE_REV_EVAL; jcTimer = millis(); }
+            break;
+        case JC_NUDGE_REV_EVAL:
+            if (millis() - jcTimer < JC_SETTLE_MS) break;
+            if (!jcEvalNudge(a, /*forward=*/false)) {  // neither direction moved the sensor
+                emitJointErr(jcIndex, "motor_did_not_move");
+                a->manualDrive(0); jcActive = false; jcState = JC_DONE;
+            }
+            break;
+        case JC_RETRACT:
+            a->manualDrive(-JC_SWEEP_PWM);
+            if (a->isStalled(JC_STALL_MS)) {
+                a->manualDrive(0);
+                jcPotMin  = (uint16_t)a->avgPot;
+                jcHallMin = a->hallSignedCount();
+                jcState = JC_EXTEND; jcTimer = millis();
+            }
+            break;
+        case JC_EXTEND:
+            a->manualDrive(JC_SWEEP_PWM);
+            if (a->isStalled(JC_STALL_MS)) {
+                a->manualDrive(0);
+                jcPotMax  = (uint16_t)a->avgPot;
+                jcHallMax = a->hallSignedCount();
+                jcState = JC_SAVE;
+            }
+            break;
+        case JC_SAVE: {
+            JointCalBlock blk;
+            jointCalLoad(blk);  // invalid → zero-inited; we overwrite this one slot
+            JointCal& jc = blk.joints[jcIndex];
+            jc.potMin = jcPotMin; jc.potMax = jcPotMax;
+            jc.hallMin = jcHallMin; jc.hallMax = jcHallMax;
+            jc.sensorType = jcSensorType; jc.sensorReversed = jcReversed;
+            jc.calibrated = 1;
+            jointCalSave(blk);
+            a->applyJointCal(jc);  // take effect immediately, no reboot
+            jcActive = false; jcState = JC_DONE;
+            break;
+        }
+        default:
+            jcActive = false;
+            break;
+        }
+    }
+
+    void emitJointErr(uint8_t idx, const char* code)
+    {
+        if (!errOut) return;
+        errOut->print("ERR ");
+        errOut->print(actuators[idx]->name);
+        errOut->print(' ');
+        errOut->println(code);
+    }
+
+    void jcBeginSweep()
+    {
+        actuators[jcIndex]->manualDrive(0);
+        jcState = JC_RETRACT;
+        jcTimer = millis();
+    }
+
+    // Did the nudge move the sensor enough to detect type + direction? `forward` =
+    // the nudge was the +extend drive (the sign convention flips for the retract nudge,
+    // Task 2 §3 step 7). Sets sensorType/sensorReversed and begins the sweep on success.
+    bool jcEvalNudge(LinearActuator* a, bool forward)
+    {
+        int32_t potDelta  = (int32_t)a->avgPot - jcPotBefore;
+        int32_t hallDelta = a->hallSignedCount() - jcHallBefore;
+        if (labs(potDelta) > JC_NUDGE_THRESHOLD) {
+            jcSensorType = SENSOR_POT;
+            jcReversed   = (forward ? (potDelta < 0) : (potDelta > 0)) ? 1 : 0;
+            jcBeginSweep();
+            return true;
+        }
+        if (labs(hallDelta) > JC_HALL_NUDGE_THRESHOLD) {
+            jcSensorType = SENSOR_HALL;
+            jcReversed   = (forward ? (hallDelta < 0) : (hallDelta > 0)) ? 1 : 0;
+            jcBeginSweep();
+            return true;
+        }
+        return false;
+    }
+
     void updateAll()
     {
-        if (calState != CAL_IDLE) // Run calibration logic instead of normal PID
-        {
-            updateCalibration(); 
-        }
+        if (jcActive)                  // single-joint calibration (M17 Task 2)
+            updateJointCal();
+        else if (calState != CAL_IDLE) // legacy multi-joint calibration
+            updateCalibration();
         else
-        {
             for (size_t i = 0; i < count; i++)
                 actuators[i]->update();
-        }
     }
 
     void applyCommands(const Command *cmds, size_t cmdCount)
@@ -627,4 +770,19 @@ public:
 private:
     LinearActuator **actuators;
     size_t count;
+
+    // Single-joint calibration state (M17 Task 2)
+    Print*        errOut       = nullptr;  // ERR <joint> <code> sink (set by setErrorOutput)
+    bool          jcActive     = false;
+    uint8_t       jcIndex      = 0;
+    JointCalState jcState      = JC_DONE;
+    unsigned long jcTimer      = 0;
+    int32_t       jcPotBefore  = 0;
+    int32_t       jcHallBefore = 0;
+    uint8_t       jcSensorType = SENSOR_POT;
+    uint8_t       jcReversed   = 0;
+    uint16_t      jcPotMin     = 0;
+    uint16_t      jcPotMax     = 1023;
+    int32_t       jcHallMin    = 0;
+    int32_t       jcHallMax    = 0;
 };

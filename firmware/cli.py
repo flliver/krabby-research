@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Optional
 
 from firmware.krabby_mcu import (
+    ALL_JOINT_NAMES,
     KrabbyMCUSDK,
     build_get_line,
     build_set_line,
@@ -386,3 +387,39 @@ def cmd_get(port: Optional[str], board: Optional[str], keys: list[str]) -> None:
     if result is None:
         sys.exit(f"get{label}: no response from board")
     print("  ".join(f"{k}={result.get(k, '?')}" for k in keys))
+
+
+def cmd_calibrate_joint(port: Optional[str], name: str) -> None:
+    # Validate client-side before opening the port (the SDK is the validation layer).
+    if name not in ALL_JOINT_NAMES:
+        sys.exit(f"error: unknown joint {name!r}; valid joints: {', '.join(sorted(ALL_JOINT_NAMES))}")
+
+    sdk = KrabbyMCUSDK(port=port)
+    if not sdk.connect(settle=5.0, hold=False):
+        sys.exit(f"could not open serial port {sdk.port}")
+
+    # Cal is fire-and-forget on the wire; hold the connection open briefly to surface
+    # any ERR <joint> <code> the firmware emits (e.g. motor_did_not_move). The full
+    # sweep runs in firmware regardless of whether we stay connected.
+    wait = 10.0
+    seen: set = set()
+    try:
+        sdk.clear_errors()
+        sdk.calibrate_joint(name)
+        print(f"calibrate-joint: {name} — sweeping to both stops (~{wait:.0f}s); watching for errors…")
+        deadline = time.time() + wait
+        while time.time() < deadline:
+            for e in sdk.get_errors():
+                key = (e.token, e.code)
+                if key not in seen:
+                    seen.add(key)
+                    print(f"  ERR {e.token} {e.code}")
+            time.sleep(0.2)
+    finally:
+        sdk.close()
+
+    if seen:
+        print(f"calibrate-joint: {name} reported the error(s) above; cal may not have completed.")
+    else:
+        print(f"calibrate-joint: {name} done (no errors). Recorded min/max + sensor type persist "
+              f"in EEPROM and take effect immediately; read them back later via `get calibration`.")

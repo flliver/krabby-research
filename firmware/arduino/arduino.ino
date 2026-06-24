@@ -188,6 +188,7 @@ void applyRole(BoardRole role)
             list[i]->setControlConfig(ACTUATOR_CONFIG);
         actuatorManager = new ActuatorManager(list, ACT_COUNT);
         actuatorManager->initAll();
+        actuatorManager->setErrorOutput(mainSerial);  // ERR <joint> <code> → this board's channel
     }
 }
 
@@ -456,6 +457,16 @@ void loop()
             if (actuatorManager) actuatorManager->startAutoCalibration();
             if (leftSerial)  leftSerial->println("C");
             if (rightSerial) rightSerial->println("C");
+        }
+        else if (cmdType == 'K')   // K <name>: per-joint calibration (M17 Task 2)
+        {
+            mainSerial->read();
+            String name = mainSerial->readStringUntil('\n');
+            name.trim();
+            if (actuatorManager) actuatorManager->calibrateJointByName(name);
+            // forward so a follower's joint can be calibrated through the leader
+            if (leftSerial)  { leftSerial->print("K"); leftSerial->println(name); }
+            if (rightSerial) { rightSerial->print("K"); rightSerial->println(name); }
         }
         else if (cmdType == 'H')
         {
