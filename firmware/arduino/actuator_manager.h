@@ -385,6 +385,12 @@ public:
     static constexpr int32_t       JC_HALL_NUDGE_THRESHOLD = 4;    // counts: Hall moved
     static constexpr int32_t       JC_POT_MIN_SPAN         = 50;   // min retract..extend ADC span
     static constexpr int32_t       JC_HALL_MIN_SPAN        = 10;   // min retract..extend count span
+    // Hall auto-detect stays OFF until §5 (2c) replaces the placeholder hallSignedCount()
+    // with real A/B quadrature. The placeholder returns the raw edge count, which on an
+    // unwired Hall pin is just EMI noise — that would false-detect HALL on a pot joint
+    // whose pot isn't tracking. With this off, a non-tracking pot fails cleanly with
+    // motor_did_not_move instead of a confusing hall_no_edges.
+    static constexpr bool          JC_HALL_DETECT          = false;
 
     void setErrorOutput(Print* p) { errOut = p; }  // where ERR <joint> <code> lines go
     bool jointCalActive() const { return jcActive; }
@@ -544,7 +550,7 @@ public:
             jcBeginSweep();
             return true;
         }
-        if (labs(hallDelta) > JC_HALL_NUDGE_THRESHOLD) {
+        if (JC_HALL_DETECT && labs(hallDelta) > JC_HALL_NUDGE_THRESHOLD) {
             jcSensorType = SENSOR_HALL;
             jcReversed   = (forward ? (hallDelta < 0) : (hallDelta > 0)) ? 1 : 0;
             jcBeginSweep();
