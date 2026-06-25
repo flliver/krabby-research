@@ -155,6 +155,42 @@ class TestFormatCal:
     def test_none_is_no_readback(self):
         assert "no calibration" in cli_mod._format_cal("FLHL", None).lower()
 
+    def test_partial_shows_state_and_anchor_hint(self):
+        s = cli_mod._format_cal("FLHL", {"type": "HALL", "rev": "0", "min": "0",
+                                         "max": "1077", "cal": "1", "state": "PARTIAL"})
+        assert "state=PARTIAL" in s and "end-stop" in s
+
+    def test_full_state_shown(self):
+        s = cli_mod._format_cal("FLHL", {"type": "HALL", "rev": "0", "min": "0",
+                                         "max": "1077", "cal": "1", "state": "FULL"})
+        assert "state=FULL" in s
+
+
+class TestSelfHeal:
+    """M17 Task 2 §6.5 / 2h: Hall boot-state + end-stop self-heal anchor."""
+
+    def test_boot_state_split(self, actuator):
+        body = actuator[actuator.index("void applyJointCal"):]
+        assert "SENSOR_POT || liveFrame" in body, "pot/fresh-cal → FULL; EEPROM-loaded Hall → PARTIAL"
+        assert "CAL_STATE_PARTIAL" in body
+
+    def test_self_heal_snaps_offset_on_partial_stall(self, actuator):
+        body = actuator[actuator.index("void update()"):actuator.index("void update()") + 2000]
+        assert "CAL_STATE_PARTIAL" in body and "hallOffset" in body
+        assert "CAL_STATE_FULL" in body, "anchoring must flip the joint to FULLY_CALIBRATED"
+
+    def test_getrawpos_applies_offset(self, actuator):
+        body = actuator[actuator.index("int32_t getRawPos"):actuator.index("int32_t getRawPos") + 300]
+        assert "hallOffset" in body, "Hall getRawPos must add the anchor offset"
+
+    def test_partial_joint_rejects_position_targets(self, actuator):
+        body = actuator[actuator.index("void applyCommands"):]
+        assert "CAL_STATE_PARTIAL" in body and "not_calibrated" in body
+
+    def test_state_in_cal_readback(self, actuator):
+        body = actuator[actuator.index("void printJointCal"):]
+        assert "calStateName" in body, "the CAL reply must include the runtime state"
+
 
 class TestRangeCheckFirmware:
     def test_span_check_gates_calibrated_flag(self, actuator):

@@ -58,7 +58,7 @@ class TestJointCalSchema:
 class TestSensorAbstraction:
     def test_getrawpos_selects_sensor_and_flips(self, actuator):
         body = actuator[actuator.index("int32_t getRawPos"):]
-        head = body[:300]
+        head = body[:450]
         assert "SENSOR_HALL" in head and "avgPot" in head, "getRawPos must pick pot vs Hall"
         assert "applyFlip" in head, "getRawPos must apply the direction flip"
 

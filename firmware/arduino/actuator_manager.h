@@ -5,7 +5,25 @@
 #include "hall_hw.h"
 #include "eeprom_layout.h"  // SensorType, JointCal, JointCalBlock + load (M17 Task 2)
 
-// Linear actuator controller (w/ potentiometer feedback)
+// Runtime calibration state (NOT persisted — re-derived every boot, M17 Task 2 §6.5).
+// Pot is absolute → FULL on boot. Hall is incremental → PARTIAL on boot (span known,
+// absolute position unknown) until the joint self-heals against an end-stop.
+enum CalibrationState : uint8_t {
+    CAL_STATE_UNCALIBRATED = 0,
+    CAL_STATE_PARTIAL      = 1,
+    CAL_STATE_FULL         = 2,
+};
+
+inline const char* calStateName(uint8_t s)
+{
+    switch (s) {
+        case CAL_STATE_FULL:    return "FULL";
+        case CAL_STATE_PARTIAL: return "PARTIAL";
+        default:                return "UNCAL";
+    }
+}
+
+// Linear actuator controller (pot or Hall feedback)
 class LinearActuator
 {
 public:
@@ -58,6 +76,12 @@ public:
     uint16_t calPotMax      = 1023;        // raw ADC at extend-stop  (pre-flip)
     int32_t  calHallMin     = 0;           // signed count at retract-stop
     int32_t  calHallMax     = 0;           // signed count at extend-stop
+
+    // --- Boot state + Hall self-heal (M17 Task 2 §6.5 / 2h) ---
+    uint8_t  calibrationState = CAL_STATE_UNCALIBRATED;  // runtime; not persisted
+    int32_t  hallOffset       = 0;         // added to the boot-relative Hall count to anchor it
+    bool     notCalErrSent    = false;     // throttle: one not_calibrated ERR per uncal period
+    static constexpr unsigned long SELF_HEAL_STALL_MS = 400;  // end-stop dwell before anchoring
 
 
     // TODO: This should accept a name and a 'SlotConfig' struct for pin assignment, so we can reuse the pin config w/ different actuator names (on different leader/follower boards)
@@ -130,7 +154,10 @@ public:
     // read site, so the raw smoothed values stay inspectable.
     int32_t getRawPos()
     {
-        int32_t raw = (sensorType == SENSOR_HALL) ? hallSignedCount() : (int32_t)avgPot;
+        // Hall is boot-relative; hallOffset anchors it to the cal frame once self-healed
+        // (0 until then, and 0 immediately after a cal since that IS the live frame).
+        int32_t raw = (sensorType == SENSOR_HALL) ? (hallSignedCount() + hallOffset)
+                                                  : (int32_t)avgPot;
         return applyFlip(raw);
     }
 
@@ -158,9 +185,12 @@ public:
 
     // Load a recorded per-joint cal (from an EEPROM JointCalBlock) into this actuator.
     // Until called (or with no valid EEPROM cal) the joint uses the legacy pot path.
-    void applyJointCal(const JointCal& jc)
+    // liveFrame: true when called right after a fresh cal (the live Hall count is still
+    // in the cal's frame → already anchored). false on EEPROM load at boot (the Hall
+    // count frame reset → Hall comes up PARTIAL and must self-heal).
+    void applyJointCal(const JointCal& jc, bool liveFrame = false)
     {
-        if (!jc.calibrated) { calValid = false; return; }
+        if (!jc.calibrated) { calValid = false; calibrationState = CAL_STATE_UNCALIBRATED; return; }
         sensorType     = jc.sensorType;
         sensorReversed = jc.sensorReversed;
         calPotMin      = jc.potMin;
@@ -168,6 +198,12 @@ public:
         calHallMin     = jc.hallMin;
         calHallMax     = jc.hallMax;
         calValid       = true;
+        hallOffset     = 0;
+        notCalErrSent  = false;
+        // Pot is absolute by physics; a just-finished cal is in-frame; an EEPROM-loaded
+        // Hall joint knows only its span until it touches an end-stop (§6.5).
+        calibrationState = (sensorType == SENSOR_POT || liveFrame)
+                               ? CAL_STATE_FULL : CAL_STATE_PARTIAL;
     }
 
     // Set position target (T command only). Only this sets hasTarget = true.
@@ -216,6 +252,19 @@ public:
         // latch deliberately and settle near their setpoint rather than running away.
         if (!hasTarget)
         {
+            // Hall self-heal (Task 2 §6.5 / 2h): a PARTIALLY_CALIBRATED joint anchors its
+            // boot-relative count the first time a jog drives it into an end-stop. We know
+            // the true count there (calHallMax extending, calHallMin retracting), so set
+            // hallOffset to map the live count onto it. (The spec also gates this on
+            // avgIS≈0 to tell an end-stop from a mid-travel jam; the current-sense channel
+            // reads ~0 on this bench, so that split is deferred until IS wiring is fixed.)
+            if (calibrationState == CAL_STATE_PARTIAL && currentPwm != 0 &&
+                isStalled(SELF_HEAL_STALL_MS))
+            {
+                hallOffset = ((currentPwm > 0) ? calHallMax : calHallMin) - hallSignedCount();
+                calibrationState = CAL_STATE_FULL;
+                notCalErrSent = false;
+            }
             if (currentPwm != 0 && controlConfig.jogWatchdogMs > 0 &&
                 millis() - lastJogMs > controlConfig.jogWatchdogMs)
             {
@@ -431,7 +480,9 @@ public:
             out.print(" min "); out.print(jc.potMin);
             out.print(" max "); out.print(jc.potMax);
         }
-        out.print(" cal "); out.println(jc.calibrated);
+        out.print(" cal "); out.print(jc.calibrated);
+        // runtime calibration_state (Task 2 §6.5) — from the live actuator, not EEPROM
+        out.print(" state "); out.println(calStateName(actuators[idx]->calibrationState));
     }
 
     // K <name>: full-sweep calibration of one joint by name (unknown name = no-op,
@@ -521,7 +572,7 @@ public:
             jc.sensorType = jcSensorType; jc.sensorReversed = jcReversed;
             jc.calibrated = ok ? 1 : 0;   // failed range check → not trusted
             jointCalSave(blk);            // still record the values (cal=0) so GET shows them
-            a->applyJointCal(jc);         // cal=0 reverts the joint to the legacy path
+            a->applyJointCal(jc, /*liveFrame=*/true);  // in-frame → FULL; cal=0 reverts to legacy
             if (!ok)
                 emitJointErr(jcIndex, jcSensorType == SENSOR_HALL ? "hall_no_edges" : "pot_value_invalid");
             jcActive = false; jcState = JC_DONE;
@@ -608,7 +659,22 @@ public:
             {
                 if (cmd.name == actuators[j]->name)
                 {
-                    actuators[j]->setTarget(cmd.val);
+                    // A position target needs absolute position. A PARTIALLY_CALIBRATED
+                    // Hall joint doesn't have it yet → drop the target + emit one
+                    // not_calibrated ERR (Task 2 §6.5). Jogs (J/B) bypass this and are
+                    // how the operator drives it to an end-stop to self-heal.
+                    if (actuators[j]->calibrationState == CAL_STATE_PARTIAL)
+                    {
+                        if (!actuators[j]->notCalErrSent)
+                        {
+                            emitJointErr((uint8_t)j, "not_calibrated");
+                            actuators[j]->notCalErrSent = true;
+                        }
+                    }
+                    else
+                    {
+                        actuators[j]->setTarget(cmd.val);
+                    }
                     break;
                 }
             }

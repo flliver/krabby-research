@@ -436,8 +436,13 @@ def _format_cal(name: str, cal: Optional[dict]) -> str:
         pass
     trusted = cal.get("cal") == "1"
     flag = "" if trusted else "   ⚠ NOT TRUSTED (sweep range too small / sensor not tracking)"
+    state = cal.get("state")
+    state_str = f" state={state}" if state else ""
+    if state == "PARTIAL":
+        flag += "   (Hall: jog to an end-stop to anchor it)"
     return (f"{name}: type={cal.get('type','?')} reversed={cal.get('rev','?')} "
-            f"min={cal.get('min','?')} max={cal.get('max','?')}{span}  calibrated={cal.get('cal','?')}{flag}")
+            f"min={cal.get('min','?')} max={cal.get('max','?')}{span}  "
+            f"calibrated={cal.get('cal','?')}{state_str}{flag}")
 
 
 def cmd_get_calibration(port: Optional[str], name: str) -> None:
