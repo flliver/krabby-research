@@ -211,3 +211,31 @@ class TestRangeCheckFirmware:
         body = actuator[start:actuator.index("void jcApplyDetectedSensor", start)]
         assert body.index("SENSOR_HALL") < body.index("SENSOR_POT"), \
             "nudge must check the signed Hall count before the pot (avgPot carries HallB)"
+
+
+class TestHallDriftCheck:
+    """M17 Task 2 §2c: Hall joints sweep retract→extend→retract; the two retract
+    counts must agree within JC_HALL_DRIFT_TOL or cal fails with hall_drift."""
+
+    def test_repeat_retract_state_exists(self, actuator):
+        assert "JC_RETRACT_AGAIN" in actuator, "a second retract state is needed for the drift check"
+        # JC_EXTEND must route Hall joints to the repeat retract, pots straight to save.
+        ext = actuator[actuator.index("case JC_EXTEND"):actuator.index("case JC_RETRACT_AGAIN")]
+        assert "SENSOR_HALL" in ext and "JC_RETRACT_AGAIN" in ext, \
+            "JC_EXTEND must send Hall joints to JC_RETRACT_AGAIN"
+
+    def test_pot_skips_repeat_sweep(self, actuator):
+        # A pot's absolute reading needs no repeat: the non-Hall branch goes straight to save.
+        ext = actuator[actuator.index("case JC_EXTEND"):actuator.index("case JC_RETRACT_AGAIN")]
+        assert re.search(r"else\s*{\s*\n\s*jcState\s*=\s*JC_SAVE", ext), \
+            "pot joints must skip the repeat retract and save directly"
+
+    def test_second_min_recorded_and_compared(self, actuator):
+        again = actuator[actuator.index("case JC_RETRACT_AGAIN"):actuator.index("case JC_SAVE")]
+        assert "jcHallMin2" in again, "the repeat retract must record hallMin_2"
+        save = actuator[actuator.index("case JC_SAVE"):]
+        assert "JC_HALL_DRIFT_TOL" in save, "JC_SAVE must compare against the drift tolerance"
+        assert "hall_drift" in save, "a too-large drift must emit hall_drift"
+
+    def test_tolerance_constant_defined(self, actuator):
+        assert re.search(r"JC_HALL_DRIFT_TOL\s*=\s*\d+", actuator)

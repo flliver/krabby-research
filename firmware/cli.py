@@ -400,9 +400,10 @@ def cmd_calibrate_joint(port: Optional[str], name: str) -> None:
 
     # Cal is fire-and-forget on the wire — there's no completion message. Poll the
     # stored calibration until the joint leaves the in-progress boot PARTIAL state
-    # (→ FULL on success, UNCAL on a range-check fail) or an ERR fires. The sweep can
-    # take a while on a slow actuator (full stroke, both directions), so give it room.
-    timeout = 30.0
+    # (→ FULL on success, UNCAL on a range-check fail) or an ERR fires. A Hall sweep is
+    # retract→extend→retract (triple stroke for the 2c drift check) on a slow actuator
+    # (~8 s/stroke), so give it generous room.
+    timeout = 45.0
     seen: set = set()
     cal = None
     try:

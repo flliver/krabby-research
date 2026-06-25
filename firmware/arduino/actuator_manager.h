@@ -437,7 +437,7 @@ public:
     enum JointCalState : uint8_t {
         JC_NUDGE_FWD_DRIVE, JC_NUDGE_FWD_EVAL,
         JC_NUDGE_REV_DRIVE, JC_NUDGE_REV_EVAL,
-        JC_RETRACT, JC_EXTEND, JC_SAVE, JC_DONE,
+        JC_RETRACT, JC_EXTEND, JC_RETRACT_AGAIN, JC_SAVE, JC_DONE,
     };
 
     static constexpr int           JC_NUDGE_PWM            = 120;  // detect nudge: must exceed these actuators' static friction (~100), not the spec's optimistic 30
@@ -450,6 +450,7 @@ public:
     static constexpr int32_t       JC_HALL_NUDGE_THRESHOLD = 4;    // counts: Hall moved
     static constexpr int32_t       JC_POT_MIN_SPAN         = 50;   // min retract..extend ADC span
     static constexpr int32_t       JC_HALL_MIN_SPAN        = 10;   // min retract..extend count span
+    static constexpr int32_t       JC_HALL_DRIFT_TOL       = 4;    // counts: max |hallMin_2 - hallMin_1| over repeat sweeps (2c)
     // Hall auto-detect is ON now that hallSignedCount() is real A/B quadrature (§5/2c):
     // the SIGNED count accumulates with direction, so genuine Hall motion stands out
     // while EMI on an unwired pin nets to ~0 — robust enough to distinguish a Hall
@@ -557,6 +558,21 @@ public:
                 a->manualDrive(0);
                 jcPotMax  = (uint16_t)a->avgPot;
                 jcHallMax = a->hallSignedCount();
+                // Hall joints get a second retract to confirm the min count is reproducible
+                // (2c drift check). A pot's reading is absolute, so one sweep is enough.
+                if (jcSensorType == SENSOR_HALL) {
+                    a->resetStall();  // fresh stall state for the repeat retract
+                    jcState = JC_RETRACT_AGAIN; jcTimer = millis();
+                } else {
+                    jcState = JC_SAVE;
+                }
+            }
+            break;
+        case JC_RETRACT_AGAIN:
+            a->manualDrive(-JC_SWEEP_PWM);
+            if (millis() - jcTimer > JC_SWEEP_GRACE_MS && a->isStalled(JC_STALL_MS)) {
+                a->manualDrive(0);
+                jcHallMin2 = a->hallSignedCount();  // compared against jcHallMin in JC_SAVE (2c)
                 jcState = JC_SAVE;
             }
             break;
@@ -569,7 +585,15 @@ public:
                                ? labs(jcHallMax - jcHallMin)
                                : labs((int32_t)jcPotMax - (int32_t)jcPotMin);
             int32_t minSpan = (jcSensorType == SENSOR_HALL) ? JC_HALL_MIN_SPAN : JC_POT_MIN_SPAN;
-            bool ok = span >= minSpan;
+            // Two independent failure modes, checked in order: (1) the sweep never tracked
+            // the motion at all (tiny span), (2) Hall-only, the repeat retract landed on a
+            // different count than the first (drift — encoder missed counts / EMI / coupling).
+            const char* failCode = nullptr;
+            if (span < minSpan)
+                failCode = (jcSensorType == SENSOR_HALL) ? "hall_no_edges" : "pot_value_invalid";
+            else if (jcSensorType == SENSOR_HALL && labs(jcHallMin2 - jcHallMin) > JC_HALL_DRIFT_TOL)
+                failCode = "hall_drift";  // repeat retract didn't reproduce hallMin (2c)
+            bool ok = (failCode == nullptr);
 
             JointCalBlock blk;
             jointCalLoad(blk);  // invalid → zero-inited; we overwrite this one slot
@@ -577,11 +601,11 @@ public:
             jc.potMin = jcPotMin; jc.potMax = jcPotMax;
             jc.hallMin = jcHallMin; jc.hallMax = jcHallMax;
             jc.sensorType = jcSensorType; jc.sensorReversed = jcReversed;
-            jc.calibrated = ok ? 1 : 0;   // failed range check → not trusted
+            jc.calibrated = ok ? 1 : 0;   // failed range/drift check → not trusted
             jointCalSave(blk);            // still record the values (cal=0) so GET shows them
             a->applyJointCal(jc, /*liveFrame=*/true);  // in-frame → FULL; cal=0 reverts to legacy
             if (!ok)
-                emitJointErr(jcIndex, jcSensorType == SENSOR_HALL ? "hall_no_edges" : "pot_value_invalid");
+                emitJointErr(jcIndex, failCode);
             jcActive = false; jcState = JC_DONE;
             break;
         }
@@ -934,4 +958,5 @@ private:
     uint16_t      jcPotMax     = 1023;
     int32_t       jcHallMin    = 0;
     int32_t       jcHallMax    = 0;
+    int32_t       jcHallMin2   = 0;  // hallMin from the repeat retract (2c drift check)
 };
