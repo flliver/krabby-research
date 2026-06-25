@@ -333,10 +333,10 @@ public:
         return false;
     }
 
-    // JT wire format: "<role>; <name> <pos> <pot> <current> <enL> <enR> <pwmL> <pwmR> <hallEdges>;"
-    // e.g. 'FRONT; FLHY 0.123 0 12 1 1 0 120 0; FRHY 0.234 0 13 1 1 0 130 0; ...'
-    // Keep in sync with firmware/interfaces/joint_telemetry.py
-    // Keeping it super simple to avoid any string parsing and external library overhead
+    // JT wire format: "<role>; <name> <pos> <pot> <current> <enL> <enR> <pwmL> <pwmR> <hallEdges> <calState>;"
+    // e.g. 'FRONT; FLHY 0.123 0 12 1 1 0 120 0 2; FRHY 0.234 0 13 1 1 0 130 0 0; ...'
+    // calState: 0=UNCAL, 1=PARTIAL (Hall, unanchored), 2=FULL. Keep in sync with
+    // firmware/interfaces/joint_telemetry.py. Kept super simple (no string parsing / libs).
     void printTelemetry(Print& out) const
     {
         out.print(name);
@@ -360,6 +360,8 @@ public:
             out.print(hallHwGetEdgeCount((uint8_t)hallSlot));
         else
             out.print(0);
+        out.print(' ');
+        out.print(calibrationState);   // 0=UNCAL, 1=PARTIAL, 2=FULL
     }
 
 private:

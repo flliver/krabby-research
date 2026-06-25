@@ -12,11 +12,43 @@ from firmware.interfaces.joint_telemetry import JointTelemetry
 from firmware.krabby_mcu import ErrorEvent
 
 
-def _jt(name, pos=0.5, pot=512, current=0, saf=0):
+def _jt(name, pos=0.5, pot=512, current=0, saf=0, cal_state=0):
     return JointTelemetry(
         name=name, pos=pos, pot=pot, current=current,
-        en=(0, 0), pwm=(0, 0), saf=saf,
+        en=(0, 0), pwm=(0, 0), saf=saf, cal_state=cal_state,
     )
+
+
+class TestCalStateColumn:
+    def test_header_has_state(self):
+        from firmware.__main__ import _TELEM_HEADER
+        assert "CAL" in _TELEM_HEADER
+
+    def test_partial_shown(self):
+        row = _fmt_row("FRONT", ">", "FLHL", _jt("FLHL", cal_state=1))
+        assert "PARTIAL" in row
+
+    def test_full_shown(self):
+        row = _fmt_row("FRONT", ">", "FLHL", _jt("FLHL", cal_state=2))
+        assert "FULL" in row
+
+    def test_uncal_default(self):
+        row = _fmt_row("FRONT", ">", "FLHL", _jt("FLHL"))  # cal_state defaults to 0
+        assert "UNCAL" in row
+
+
+class TestParseCalStateToken:
+    def test_ten_tokens_parses_cal_state(self):
+        # name pos pot cur enL enR pwmL pwmR saf cal_state
+        jts = JointTelemetry.parse_line("FRONT; FLHL 0.500 512 0 1 1 0 120 64 1;")
+        assert len(jts) == 1 and jts[0].cal_state == 1 and jts[0].cal_state_name == "PARTIAL"
+
+    def test_nine_tokens_still_parses_legacy(self):
+        jts = JointTelemetry.parse_line("FRONT; FLHL 0.500 512 0 1 1 0 120 64;")
+        assert len(jts) == 1 and jts[0].cal_state == 0  # default for old firmware
+
+    def test_eight_tokens_rejected(self):
+        assert JointTelemetry.parse_line("FRONT; FLHL 0.5 512 0 1 1 0 120;") == []
 
 
 class TestSelectedBoard:

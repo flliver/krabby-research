@@ -54,14 +54,17 @@ def is_pressed(k: str) -> bool:
 # The SDK's reader thread keeps mcu.joints up to date; we just render it in
 # place so an operator on the headless Jetson can jog a motor and watch its
 # pot / current / Hall move in the same SSH screen (AC 1b).
-_TELEM_HEADER = "        JOINT   POS   POT   CUR   HALL"
+_TELEM_HEADER = "        JOINT   POS   POT   CUR   HALL  CAL"
 
 
 def _fmt_row(board_lbl: str, sel: str, name: str, jt) -> str:
     head = f"{board_lbl:6s}{sel}"
     if jt is None:
-        return f"{head} {name:5s}  ----    ---   ---   ---"
-    return f"{head} {name:5s} {jt.pos:6.3f}  {jt.pot:4d}  {jt.current:4d}  {jt.saf:5d}"
+        return f"{head} {name:5s}  ----    ---   ---   ---   ----"
+    # STATE flags whether POS is trustworthy: PARTIAL = Hall not yet anchored (pos is
+    # relative — jog to an end-stop to self-heal), FULL = absolute, UNCAL = no cal.
+    return (f"{head} {name:5s} {jt.pos:6.3f}  {jt.pot:4d}  {jt.current:4d}  {jt.saf:5d}  "
+            f"{jt.cal_state_name}")
 
 
 def _render_telemetry(joints, selected: str, status: str = "", err_line: str = "") -> list[str]:
