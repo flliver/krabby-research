@@ -90,11 +90,16 @@ public:
     // Called during update to calculate new smoothed sensor readings, called internally on a fixed interval to exponentially average pot/IS readings
     void updateSensors()
     {
-        int rawPot = analogRead(pinPot);
+        // On a Hall joint the pot pin (A0-A5) carries HallB, which the quadrature ISR
+        // samples digitally via PINF. analogRead()-ing it here disturbs that pin (ADC
+        // sample-and-hold) and corrupts the direction decode, so skip it — avgPot is
+        // meaningless for a Hall joint anyway (getPos() uses the signed Hall count).
+        if (sensorType != SENSOR_HALL)
+        {
+            int rawPot = analogRead(pinPot);
+            avgPot = (avgPot * (1.0 - controlConfig.alphaPot)) + (rawPot * controlConfig.alphaPot);
+        }
         int rawIS = analogRead(pinIS);
-
-        // Exponential Moving Average
-        avgPot = (avgPot * (1.0 - controlConfig.alphaPot)) + (rawPot * controlConfig.alphaPot);
         avgIS = (avgIS * (1.0 - controlConfig.alphaIS)) + (rawIS * controlConfig.alphaIS);
     }
 
