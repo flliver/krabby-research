@@ -424,9 +424,12 @@ def cmd_calibrate_joint(port: Optional[str], name: str, direction: Optional[str]
                     seen.add(key)
                     print(f"  ERR {e.token} {e.code}")
             cal = sdk.get_calibration(name, timeout=1.0)
-            # Full sweep finishes when it leaves PARTIAL; a directional cal has no such
-            # signal, so it polls (for ERR) until the stroke timeout, then reads back.
-            if direction is None and ((cal and cal.get("state") in ("FULL", "UNCAL")) or seen):
+            # A full sweep is done when it reaches FULL (success) or an ERR fires (every
+            # failure path emits one). UNCAL is NOT terminal — it's also the *start* state
+            # of a never-calibrated joint, so breaking on it returns the stale pre-cal read
+            # while the sweep is still running. A directional cal has no FULL endpoint (one
+            # end only), so it just polls for ERR until the stroke timeout, then reads back.
+            if direction is None and ((cal and cal.get("state") == "FULL") or seen):
                 break
             if direction is not None and seen:
                 break

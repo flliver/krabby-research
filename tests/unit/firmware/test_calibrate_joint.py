@@ -102,6 +102,33 @@ class TestCalibrateJointCLI:
         with pytest.raises(SystemExit):
             cli_mod.cmd_calibrate_joint(None, "FLHY", "extend")  # extend on a yaw joint
 
+    def test_full_sweep_does_not_break_on_initial_uncal(self, monkeypatch):
+        # Regression: a never-calibrated joint reports UNCAL from the start, so the poll
+        # must NOT treat UNCAL as "done" — it has to wait for FULL (or an ERR). Otherwise
+        # the call returns the stale pre-cal read while the sweep is still running.
+        states = ["UNCAL", "UNCAL", "UNCAL", "FULL"]  # what get_calibration yields over time
+        calls = {"get_cal": 0}
+
+        class FakeSDK:
+            port = "/dev/fake"
+            _validate_cal_direction = staticmethod(KrabbyMCUSDK._validate_cal_direction)
+            def __init__(self, *a, **k): pass
+            def connect(self, *a, **k): return True
+            def clear_errors(self): pass
+            def calibrate_joint(self, name, direction=None): pass
+            def get_errors(self): return []
+            def get_calibration(self, name, timeout=1.0):
+                i = min(calls["get_cal"], len(states) - 1)
+                calls["get_cal"] += 1
+                return {"type": "HALL", "rev": "0", "min": "0", "max": "1075",
+                        "cal": "1", "state": states[i]}
+            def close(self): pass
+
+        monkeypatch.setattr(cli_mod, "KrabbyMCUSDK", FakeSDK)
+        monkeypatch.setattr(cli_mod.time, "sleep", lambda *_: None)
+        cli_mod.cmd_calibrate_joint(None, "FLKL")  # fresh joint → boots UNCAL
+        assert calls["get_cal"] >= 4, "poll broke early on the initial UNCAL instead of waiting for FULL"
+
 
 @pytest.fixture(scope="module")
 def actuator() -> str:
