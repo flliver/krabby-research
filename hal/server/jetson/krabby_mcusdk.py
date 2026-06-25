@@ -16,6 +16,9 @@ JOINT_LIMIT_RAD = 0.5
 JOINT_NEUTRAL = 0.5
 NEUTRAL_RAD_THRESHOLD = 0.01
 PWM_SCALE = 255 / JOINT_LIMIT_RAD
+# JointTelemetry.cal_state: 0=UNCAL, 1=PARTIAL, 2=FULL. Only FULL is safe to drive
+# closed-loop — UNCAL/PARTIAL joints don't have a trustworthy absolute position yet.
+FULL_CAL_STATE = 2
 
 _HAL_TO_FW_SUFFIX = {"hip_yaw": "HY", "hip_pitch": "HL", "knee": "KL"}
 
@@ -92,15 +95,32 @@ class KrabbyMCUSDK:
         """Return whether MCU is connected."""
         return self._connected and self._mcu.running
     
-    def _jog_all_joints(self, cmd_dict: dict[str, float]) -> None:
-        """Jog all joints (neutral → 0, non-neutral → PWM)."""
-        jog = {}
-        for name in self._mcu_joints:
-            rad = cmd_dict.get(name, 0.0)
-            fw = _hal_to_firmware_name(name)
+    def _route_by_cal_state(
+        self, cmd_dict: dict[str, float], cmds_by_fw: dict[str, float]
+    ) -> tuple[dict[str, float], dict[str, int]]:
+        """Split joints into closed-loop position targets vs open-loop jogs.
 
-            jog[fw] = 0 if abs(rad) <= NEUTRAL_RAD_THRESHOLD else _rad_to_pwm(rad)
-        self._mcu.send_commands_jog(jog)
+        A joint gets a normalized [0,1] position target (firmware ``T`` command,
+        servoed against its own sensor) only once the firmware reports it FULLY
+        calibrated. Until then its sensor reading isn't trustworthy, so a position
+        servo would chase bad feedback — those joints stay on open-loop jog
+        (neutral → 0, else PWM). Jogging a PARTIAL joint is also what drives it into
+        an end-stop to self-heal to FULL, after which it graduates to position
+        control automatically, no code change. See Task 2 §6.
+
+        A joint with no telemetry yet (None) is treated as not-FULL → jog.
+        """
+        targets: dict[str, float] = {}
+        jogs: dict[str, int] = {}
+        for name in self._mcu_joints:
+            fw = _hal_to_firmware_name(name)
+            jt = self._mcu.joints.get(fw)
+            if jt is not None and jt.cal_state == FULL_CAL_STATE:
+                targets[fw] = cmds_by_fw[fw]
+            else:
+                rad = cmd_dict.get(name, 0.0)
+                jogs[fw] = 0 if abs(rad) <= NEUTRAL_RAD_THRESHOLD else _rad_to_pwm(rad)
+        return targets, jogs
 
     def apply_command(self, command: JointCommand) -> None:
         """Apply joint command to MCU (radians -> normalized, then send).
@@ -119,16 +139,22 @@ class KrabbyMCUSDK:
                 )
 
         cmds_by_fw = _map_mcu_joints_to_normalized(cmd_dict, self._mcu_joints)
-        ### TODO: As a pot is not connected for all joints, we do not call self._mcu.send_command_joints(cmds_by_fw) for now.    
-        ### Instead, we call self._jog_all_joints(cmd_dict) to jog all joints (neutral → 0, non-neutral → PWM).    
-        self._jog_all_joints(cmd_dict)
+        # Hybrid routing: closed-loop position targets for FULLY-calibrated joints,
+        # open-loop jog for the rest (see _route_by_cal_state). As joints get
+        # calibrated they migrate from jog to position control on their own — this
+        # is what lets the HAL run before all 18 joints are calibrated/assembled.
+        targets, jogs = self._route_by_cal_state(cmd_dict, cmds_by_fw)
+        if targets:
+            self._mcu.send_command_joints(targets)
+        if jogs:
+            self._mcu.send_commands_jog(jogs)
 
         joint_values_str = ", ".join(
             f"{name}={val:.4f}" for name, val in cmds_by_fw.items()
         )
         logger.info(
-            f"KrabbyMCUSDK: Applied joint command (timestamp_ns={command.timestamp_ns}, observation_timestamp_ns={command.observation_timestamp_ns}): "
-            f"{joint_values_str}"
+            f"KrabbyMCUSDK: Applied joint command (timestamp_ns={command.timestamp_ns}, observation_timestamp_ns={command.observation_timestamp_ns}) "
+            f"[{len(targets)} pos / {len(jogs)} jog]: {joint_values_str}"
         )
         rad_vals = list(cmd_dict.values())
         if rad_vals:
