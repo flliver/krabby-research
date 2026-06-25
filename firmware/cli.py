@@ -389,27 +389,33 @@ def cmd_get(port: Optional[str], board: Optional[str], keys: list[str]) -> None:
     print("  ".join(f"{k}={result.get(k, '?')}" for k in keys))
 
 
-def cmd_calibrate_joint(port: Optional[str], name: str) -> None:
+def cmd_calibrate_joint(port: Optional[str], name: str, direction: Optional[str] = None) -> None:
     # Validate client-side before opening the port (the SDK is the validation layer).
     if name not in ALL_JOINT_NAMES:
         sys.exit(f"error: unknown joint {name!r}; valid joints: {', '.join(sorted(ALL_JOINT_NAMES))}")
+    try:
+        direction = KrabbyMCUSDK._validate_cal_direction(name, direction)
+    except ValueError as e:
+        sys.exit(f"error: {e}")
 
     sdk = KrabbyMCUSDK(port=port)
     if not sdk.connect(settle=5.0, hold=False):
         sys.exit(f"could not open serial port {sdk.port}")
 
-    # Cal is fire-and-forget on the wire — there's no completion message. Poll the
-    # stored calibration until the joint leaves the in-progress boot PARTIAL state
-    # (→ FULL on success, UNCAL on a range-check fail) or an ERR fires. A Hall sweep is
-    # retract→extend→retract (triple stroke for the 2c drift check) on a slow actuator
-    # (~8 s/stroke), so give it generous room.
-    timeout = 45.0
+    # Cal is fire-and-forget on the wire — there's no completion message, so we poll the
+    # stored calibration. A FULL sweep is retract→extend→retract (triple stroke for the 2c
+    # drift check) and resolves to FULL (ok) / UNCAL (range fail). A directional cal drives
+    # ONE end-stop (~one stroke) and on a fresh joint leaves the other end unrecorded, so it
+    # won't reach FULL — for that case we just wait out the stroke and read back whatever
+    # landed. ~8 s/stroke on this slow actuator, so give it generous room either way.
+    timeout = 45.0 if direction is None else 20.0
+    sweep_desc = "sweeping both stops" if direction is None else f"driving the {direction} stop"
     seen: set = set()
     cal = None
     try:
         sdk.clear_errors()
-        sdk.calibrate_joint(name)
-        print(f"calibrate-joint: {name} — sweeping both stops (slow actuator; up to ~{timeout:.0f}s)…")
+        sdk.calibrate_joint(name, direction)
+        print(f"calibrate-joint: {name} — {sweep_desc} (slow actuator; up to ~{timeout:.0f}s)…")
         deadline = time.time() + timeout
         while time.time() < deadline:
             for e in sdk.get_errors():
@@ -418,8 +424,12 @@ def cmd_calibrate_joint(port: Optional[str], name: str) -> None:
                     seen.add(key)
                     print(f"  ERR {e.token} {e.code}")
             cal = sdk.get_calibration(name, timeout=1.0)
-            if (cal and cal.get("state") in ("FULL", "UNCAL")) or seen:
-                break  # cal finished (success/fail) or errored out
+            # Full sweep finishes when it leaves PARTIAL; a directional cal has no such
+            # signal, so it polls (for ERR) until the stroke timeout, then reads back.
+            if direction is None and ((cal and cal.get("state") in ("FULL", "UNCAL")) or seen):
+                break
+            if direction is not None and seen:
+                break
             time.sleep(0.5)
     finally:
         sdk.close()

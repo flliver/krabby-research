@@ -44,11 +44,63 @@ class TestCalibrateJointSDK:
             sdk.ser.write.assert_called_once_with(f"K{name}\n".encode())
 
 
+class TestDirectionalCalSDK:
+    """M17 Task 2: `K <name> <direction>` — linear joints take extend/retract, yaw
+    joints (name ends in 'Y') take left/right. A mismatch is a client bug → raise."""
+
+    def test_linear_extend_retract_wire(self):
+        for d in ("extend", "retract"):
+            sdk = _bare_sdk()
+            sdk.calibrate_joint("FLHL", d)  # FLHL = linear
+            sdk.ser.write.assert_called_once_with(f"KFLHL {d}\n".encode())
+
+    def test_yaw_left_right_wire(self):
+        for d in ("left", "right"):
+            sdk = _bare_sdk()
+            sdk.calibrate_joint("FLHY", d)  # FLHY = yaw
+            sdk.ser.write.assert_called_once_with(f"KFLHY {d}\n".encode())
+
+    def test_none_is_full_sweep_no_token(self):
+        sdk = _bare_sdk()
+        sdk.calibrate_joint("FLHL", None)
+        sdk.ser.write.assert_called_once_with(b"KFLHL\n")
+
+    def test_extend_rejected_on_yaw(self):
+        sdk = _bare_sdk()
+        with pytest.raises(ValueError, match="yaw joint"):
+            sdk.calibrate_joint("FLHY", "extend")
+        sdk.ser.write.assert_not_called()
+
+    def test_left_rejected_on_linear(self):
+        sdk = _bare_sdk()
+        with pytest.raises(ValueError, match="linear joint"):
+            sdk.calibrate_joint("FLKL", "left")
+        sdk.ser.write.assert_not_called()
+
+    def test_unknown_direction_rejected(self):
+        sdk = _bare_sdk()
+        with pytest.raises(ValueError):
+            sdk.calibrate_joint("FLHL", "sideways")
+
+    def test_every_joint_typed_correctly(self):
+        # knees/hip-lifts are linear (extend/retract), hip-yaws are yaw (left/right)
+        for name in ALL_JOINT_NAMES:
+            is_yaw = name[3] == "Y"
+            ok, bad = (("left", "extend") if is_yaw else ("extend", "left"))
+            assert KrabbyMCUSDK._validate_cal_direction(name, ok) == ok
+            with pytest.raises(ValueError):
+                KrabbyMCUSDK._validate_cal_direction(name, bad)
+
+
 class TestCalibrateJointCLI:
     def test_rejects_unknown_joint_before_connecting(self):
         # exits at client-side validation, before any port is opened
         with pytest.raises(SystemExit):
             cli_mod.cmd_calibrate_joint(None, "BOGUS")
+
+    def test_rejects_bad_direction_before_connecting(self):
+        with pytest.raises(SystemExit):
+            cli_mod.cmd_calibrate_joint(None, "FLHY", "extend")  # extend on a yaw joint
 
 
 @pytest.fixture(scope="module")
@@ -239,3 +291,58 @@ class TestHallDriftCheck:
 
     def test_tolerance_constant_defined(self, actuator):
         assert re.search(r"JC_HALL_DRIFT_TOL\s*=\s*\d+", actuator)
+
+
+class TestDirectionalCalFirmware:
+    """M17 Task 2: `calibrateJoint(idx, dir)` sweeps one end (RETRACT/EXTEND) and parks
+    there; the firmware enforces the linear↔extend/retract, yaw↔left/right pairing."""
+
+    def test_direction_enum_and_param(self, actuator):
+        assert "enum CalDirection" in actuator
+        assert re.search(r"CAL_DIR_NONE|CAL_DIR_RETRACT|CAL_DIR_EXTEND", actuator)
+        assert re.search(r"calibrateJoint\s*\(\s*uint8_t\s+idx,\s*CalDirection\s+dir", actuator)
+
+    def test_parse_enforces_joint_type_pairing(self, actuator):
+        body = actuator[actuator.index("bool parseCalDirection"):
+                        actuator.index("bool parseCalDirection") + 700]
+        # yaw detection (4th char 'Y'), and each token gated on yaw vs linear
+        assert "charAt(3) == 'Y'" in body
+        assert '"retract"' in body and '"extend"' in body
+        assert '"left"' in body and '"right"' in body
+
+    def test_byname_passes_direction(self, actuator):
+        assert re.search(r"calibrateJointByName\s*\(\s*const String&\s+name,\s*const String&\s+dir", actuator)
+        body = actuator[actuator.index("void calibrateJointByName"):
+                        actuator.index("void calibrateJointByName") + 600]
+        assert "parseCalDirection" in body and "return" in body  # bad pairing → silent drop
+
+    def test_retract_only_skips_extend(self, actuator):
+        ret = actuator[actuator.index("case JC_RETRACT:"):actuator.index("case JC_EXTEND:")]
+        assert "CAL_DIR_RETRACT" in ret and "JC_SAVE" in ret, \
+            "a retract-only cal must save after the single stroke, not continue to extend"
+
+    def test_extend_only_short_circuits_to_save(self, actuator):
+        ext = actuator[actuator.index("case JC_EXTEND:"):actuator.index("case JC_RETRACT_AGAIN")]
+        assert "CAL_DIR_NONE" in ext and "JC_SAVE" in ext, \
+            "a directional extend must save immediately, not do the drift repeat"
+
+    def test_extend_only_starts_at_extend(self, actuator):
+        body = actuator[actuator.index("void jcBeginSweep"):
+                        actuator.index("void jcBeginSweep") + 400]
+        assert "CAL_DIR_EXTEND" in body and "JC_EXTEND" in body
+
+    def test_save_merges_one_end_and_gates_on_both(self, actuator):
+        save = actuator[actuator.index("case JC_SAVE"):]
+        assert "endsRecorded" in save, "JC_SAVE must record which ends are present"
+        assert "JOINTCAL_END_MIN" in save and "JOINTCAL_END_MAX" in save
+        assert "bothEnds" in save, "calibrated must require both ends recorded"
+
+    def test_endsrecorded_field_exists(self):
+        layout = (ARDUINO / "eeprom_layout.h").read_text()
+        assert "endsRecorded" in layout
+        assert "JOINTCAL_END_MIN" in layout and "JOINTCAL_END_MAX" in layout
+
+    def test_k_command_parses_direction_token(self, ino):
+        body = ino[ino.index("cmdType == 'K'"):ino.index("cmdType == 'K'") + 700]
+        assert "indexOf(' ')" in body, "K must split name from the optional direction token"
+        assert "calibrateJointByName" in body

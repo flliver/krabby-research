@@ -458,15 +458,20 @@ void loop()
             if (leftSerial)  leftSerial->println("C");
             if (rightSerial) rightSerial->println("C");
         }
-        else if (cmdType == 'K')   // K <name>: per-joint calibration (M17 Task 2)
+        else if (cmdType == 'K')   // K <name> [extend|retract|left|right]: per-joint cal (M17 Task 2)
         {
             mainSerial->read();
-            String name = mainSerial->readStringUntil('\n');
-            name.trim();
-            if (actuatorManager) actuatorManager->calibrateJointByName(name);
-            // forward so a follower's joint can be calibrated through the leader
-            if (leftSerial)  { leftSerial->print("K"); leftSerial->println(name); }
-            if (rightSerial) { rightSerial->print("K"); rightSerial->println(name); }
+            String rest = mainSerial->readStringUntil('\n');
+            rest.trim();
+            // Split "<name> <direction>"; empty direction = full both-ends sweep.
+            int sp = rest.indexOf(' ');
+            String name = (sp < 0) ? rest : rest.substring(0, sp);
+            String dir  = (sp < 0) ? String() : rest.substring(sp + 1);
+            dir.trim();
+            if (actuatorManager) actuatorManager->calibrateJointByName(name, dir);
+            // forward the full line so a follower's joint can be calibrated through the leader
+            if (leftSerial)  { leftSerial->print("K"); leftSerial->println(rest); }
+            if (rightSerial) { rightSerial->print("K"); rightSerial->println(rest); }
         }
         else if (cmdType == 'Q')   // Q <name>: read back stored calibration (M17 Task 2)
         {

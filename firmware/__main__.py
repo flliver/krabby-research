@@ -165,6 +165,10 @@ def main():
                        help="Serial port of the board (default: auto-detect / $KRABBY_MCU_PORT).")
     cal_p.add_argument("name", metavar="JOINT",
                        help="Joint to calibrate, e.g. FLHL. Forwarded to followers via the FRONT board.")
+    cal_p.add_argument("--direction", default=None,
+                       choices=["extend", "retract", "left", "right"],
+                       help="Calibrate one end-stop only (Task 3): extend/retract for linear "
+                            "joints, left/right for yaw. Omit for a full both-ends sweep.")
 
     getcal_p = subparsers.add_parser(
         "get-calibration",
@@ -214,7 +218,7 @@ def main():
 
     if args.command == "calibrate-joint":
         from firmware.cli import cmd_calibrate_joint
-        cmd_calibrate_joint(args.port, args.name)
+        cmd_calibrate_joint(args.port, args.name, args.direction)
         return
 
     if args.command == "get-calibration":

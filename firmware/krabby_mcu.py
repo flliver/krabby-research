@@ -410,23 +410,47 @@ class KrabbyMCUSDK:
         self.ser.write(cmd.encode('utf-8'))
         self.ser.flush()
 
-    def calibrate_joint(self, name: str):
-        """Trigger a single-joint calibration (wire command ``K<name>``, M17 Task 2).
+    def calibrate_joint(self, name: str, direction: Optional[str] = None):
+        """Trigger a single-joint calibration (wire command ``K<name> [direction]``, M17 Task 2).
 
-        Fire-and-forget: the firmware sweeps the joint to both stops, auto-detects the
-        sensor type + direction, and persists the result — it sends no completion reply.
-        Watch the joint-telemetry stream and any ``ERR <joint> <code>`` lines (Task 1 §5)
-        for failures; read the recorded values back via ``GET calibration`` (Task 4).
-        Validates the joint name client-side, like the rest of the command surface.
+        Fire-and-forget: the firmware sweeps the joint, auto-detects the sensor type +
+        direction, and persists the result — it sends no completion reply. Watch the
+        joint-telemetry stream and any ``ERR <joint> <code>`` lines (Task 1 §5) for
+        failures; read the recorded values back via ``get_calibration`` / ``GET calibration``.
+
+        ``direction`` selects how much of the travel this run sweeps (Task 3 cals one DOF
+        at a time): ``None`` = full both-ends sweep; for linear joints ``"extend"`` /
+        ``"retract"`` drive one end-stop and park there; for yaw joints ``"left"`` /
+        ``"right"``. A mismatched pairing (e.g. ``"extend"`` on a yaw joint) is a client
+        bug — raise here rather than letting the firmware silently drop it.
         """
         if name not in ALL_JOINT_NAMES:
             raise ValueError(
                 f"unknown joint {name!r}; valid joints: {', '.join(sorted(ALL_JOINT_NAMES))}")
+        direction = self._validate_cal_direction(name, direction)
         if not self.ser or not self.ser.is_open:
             return
-        self.ser.write(f"K{name}\n".encode('utf-8'))
+        wire = f"K{name}\n" if direction is None else f"K{name} {direction}\n"
+        self.ser.write(wire.encode('utf-8'))
         self.ser.flush()
-        logger.info("CMD -> K %s (calibrate joint)", name)
+        logger.info("CMD -> K %s %s(calibrate joint)", name, f"{direction} " if direction else "")
+
+    @staticmethod
+    def _validate_cal_direction(name: str, direction: Optional[str]) -> Optional[str]:
+        """Check a cal direction against the joint type, returning the normalized token
+        (or None for a full sweep). Linear joints take extend/retract, yaw joints
+        left/right; a yaw joint's name ends in 'Y' (e.g. FLHY)."""
+        if direction is None:
+            return None
+        direction = direction.lower()
+        is_yaw = len(name) >= 4 and name[3] == 'Y'
+        valid = {"left", "right"} if is_yaw else {"extend", "retract"}
+        if direction not in valid:
+            kind = "yaw" if is_yaw else "linear"
+            raise ValueError(
+                f"direction {direction!r} invalid for {kind} joint {name}; "
+                f"valid: {', '.join(sorted(valid))}")
+        return direction
 
     def get_calibration(self, name: str, timeout: float = 2.0) -> Optional[dict]:
         """Read back the stored calibration for one joint (wire command ``Q<name>``).

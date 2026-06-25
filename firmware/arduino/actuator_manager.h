@@ -440,6 +440,12 @@ public:
         JC_RETRACT, JC_EXTEND, JC_RETRACT_AGAIN, JC_SAVE, JC_DONE,
     };
 
+    // Which end(s) a single calibrateJoint run sweeps. NONE = full both-ends sweep (an
+    // operator's `calibrate-joint <name>`); RETRACT/EXTEND = one end-stop, parked there
+    // (Task 3's whole-robot sequence cals one DOF at a time). Yaw left/right map onto
+    // RETRACT/EXTEND at the wire-parse layer (parseCalDirection).
+    enum CalDirection : uint8_t { CAL_DIR_NONE = 0, CAL_DIR_RETRACT, CAL_DIR_EXTEND };
+
     static constexpr int           JC_NUDGE_PWM            = 120;  // detect nudge: must exceed these actuators' static friction (~100), not the spec's optimistic 30
     static constexpr int           JC_SWEEP_PWM            = 150;  // sweep-to-stop drive
     static constexpr unsigned long JC_NUDGE_MS             = 250;  // nudge drive duration
@@ -491,20 +497,44 @@ public:
         out.print(" state "); out.println(calStateName(actuators[idx]->calibrationState));
     }
 
-    // K <name>: full-sweep calibration of one joint by name (unknown name = no-op,
-    // matching the silent-drop convention; the SDK validates client-side).
-    void calibrateJointByName(const String& name)
+    // K <name> [extend|retract|left|right]: calibrate one joint by name. Empty direction =
+    // full both-ends sweep. The directional forms drive a single end-stop (Task 3 cals one
+    // DOF at a time). Linear joints take extend/retract, yaw joints take left/right; a
+    // mismatched pairing (or unknown name) is silently dropped per Task 1's no-reply
+    // convention — the SDK validates client-side.
+    void calibrateJointByName(const String& name, const String& dirStr = String())
     {
-        for (size_t i = 0; i < count; i++)
-            if (String(actuators[i]->name) == name) { calibrateJoint((uint8_t)i); return; }
+        for (size_t i = 0; i < count; i++) {
+            if (String(actuators[i]->name) != name) continue;
+            CalDirection dir;
+            if (!parseCalDirection(name, dirStr, dir)) return;  // bad type/direction pairing → drop
+            calibrateJoint((uint8_t)i, dir);
+            return;
+        }
+    }
+
+    // Map a wire direction token to a physical sweep, enforcing the joint-type pairing.
+    // Yaw joints (name ends in 'Y') take left/right; linear joints take extend/retract.
+    // left==retract==−PWM, right==extend==+PWM (a convention; sensorReversed normalizes
+    // the reported position regardless). Returns false to drop a mismatched/unknown token.
+    static bool parseCalDirection(const String& name, const String& dirStr, CalDirection& out)
+    {
+        bool yaw = (name.length() >= 4 && name.charAt(3) == 'Y');
+        if (dirStr.length() == 0)        { out = CAL_DIR_NONE;    return true; }
+        if (!yaw && dirStr == "retract") { out = CAL_DIR_RETRACT; return true; }
+        if (!yaw && dirStr == "extend")  { out = CAL_DIR_EXTEND;  return true; }
+        if ( yaw && dirStr == "left")    { out = CAL_DIR_RETRACT; return true; }
+        if ( yaw && dirStr == "right")   { out = CAL_DIR_EXTEND;  return true; }
+        return false;
     }
 
     // Begin calibrating actuator `idx`. Stops every joint first; only `idx` moves.
-    void calibrateJoint(uint8_t idx)
+    void calibrateJoint(uint8_t idx, CalDirection dir = CAL_DIR_NONE)
     {
         if (idx >= count) return;
         for (size_t i = 0; i < count; i++) actuators[i]->manualDrive(0);
         jcIndex      = idx;
+        jcDir        = dir;
         jcActive     = true;
         jcState      = JC_NUDGE_FWD_DRIVE;
         jcTimer      = millis();
@@ -548,6 +578,7 @@ public:
                 a->manualDrive(0);
                 jcPotMin  = (uint16_t)a->avgPot;
                 jcHallMin = a->hallSignedCount();
+                if (jcDir == CAL_DIR_RETRACT) { jcState = JC_SAVE; break; }  // single end → done
                 a->resetStall();  // fresh stall state for the extend sweep
                 jcState = JC_EXTEND; jcTimer = millis();
             }
@@ -558,6 +589,7 @@ public:
                 a->manualDrive(0);
                 jcPotMax  = (uint16_t)a->avgPot;
                 jcHallMax = a->hallSignedCount();
+                if (jcDir != CAL_DIR_NONE) { jcState = JC_SAVE; break; }  // single end → done
                 // Hall joints get a second retract to confirm the min count is reproducible
                 // (2c drift check). A pot's reading is absolute, so one sweep is enough.
                 if (jcSensorType == SENSOR_HALL) {
@@ -577,34 +609,43 @@ public:
             }
             break;
         case JC_SAVE: {
-            // Sweep-range sanity check: a real sweep crosses the joint's whole travel,
-            // so the recorded span should be large. A tiny span means the sensor never
-            // tracked the motion (e.g. a floating/intermittent pot) — the nudge can still
-            // pass on noise, so this is the gate that stops us silently saving garbage.
-            int32_t span = (jcSensorType == SENSOR_HALL)
-                               ? labs(jcHallMax - jcHallMin)
-                               : labs((int32_t)jcPotMax - (int32_t)jcPotMin);
-            int32_t minSpan = (jcSensorType == SENSOR_HALL) ? JC_HALL_MIN_SPAN : JC_POT_MIN_SPAN;
-            // Two independent failure modes, checked in order: (1) the sweep never tracked
-            // the motion at all (tiny span), (2) Hall-only, the repeat retract landed on a
-            // different count than the first (drift — encoder missed counts / EMI / coupling).
-            const char* failCode = nullptr;
-            if (span < minSpan)
-                failCode = (jcSensorType == SENSOR_HALL) ? "hall_no_edges" : "pot_value_invalid";
-            else if (jcSensorType == SENSOR_HALL && labs(jcHallMin2 - jcHallMin) > JC_HALL_DRIFT_TOL)
-                failCode = "hall_drift";  // repeat retract didn't reproduce hallMin (2c)
-            bool ok = (failCode == nullptr);
-
             JointCalBlock blk;
-            jointCalLoad(blk);  // invalid → zero-inited; we overwrite this one slot
+            jointCalLoad(blk);  // invalid → zero-inited; preserves the orthogonal end on a directional cal
             JointCal& jc = blk.joints[jcIndex];
-            jc.potMin = jcPotMin; jc.potMax = jcPotMax;
-            jc.hallMin = jcHallMin; jc.hallMax = jcHallMax;
+
+            // Merge in only the end(s) this run swept; a directional cal keeps the other
+            // end from a prior cal. Track which ends have ever been recorded so a single
+            // directional stroke on a fresh joint can't masquerade as fully calibrated.
+            if (jcDir != CAL_DIR_EXTEND)  { jc.potMin = jcPotMin; jc.hallMin = jcHallMin; jc.endsRecorded |= JOINTCAL_END_MIN; }
+            if (jcDir != CAL_DIR_RETRACT) { jc.potMax = jcPotMax; jc.hallMax = jcHallMax; jc.endsRecorded |= JOINTCAL_END_MAX; }
             jc.sensorType = jcSensorType; jc.sensorReversed = jcReversed;
-            jc.calibrated = ok ? 1 : 0;   // failed range/drift check → not trusted
+
+            // Sweep-range sanity check, computed from the now-merged pair: a real sweep
+            // crosses the whole travel, so the span should be large. A tiny span means the
+            // sensor never tracked the motion (floating/intermittent) — the nudge can pass
+            // on noise, so this gate stops us silently saving garbage.
+            bool bothEnds = (jc.endsRecorded & (JOINTCAL_END_MIN | JOINTCAL_END_MAX))
+                                == (JOINTCAL_END_MIN | JOINTCAL_END_MAX);
+            int32_t span = (jcSensorType == SENSOR_HALL)
+                               ? labs((int32_t)jc.hallMax - (int32_t)jc.hallMin)
+                               : labs((int32_t)jc.potMax - (int32_t)jc.potMin);
+            int32_t minSpan = (jcSensorType == SENSOR_HALL) ? JC_HALL_MIN_SPAN : JC_POT_MIN_SPAN;
+            // Failure modes in order: (1) only one end recorded so far (directional cal
+            // mid-sequence — not an error, just not-yet-trusted), (2) the sweep never
+            // tracked the motion (tiny span), (3) Hall-only full sweep, the repeat retract
+            // drifted from the first. Only (2)/(3) emit an ERR; (1) is silent.
+            const char* failCode = nullptr;
+            if (bothEnds && span < minSpan)
+                failCode = (jcSensorType == SENSOR_HALL) ? "hall_no_edges" : "pot_value_invalid";
+            else if (bothEnds && jcDir == CAL_DIR_NONE && jcSensorType == SENSOR_HALL
+                     && labs(jcHallMin2 - jcHallMin) > JC_HALL_DRIFT_TOL)
+                failCode = "hall_drift";  // repeat retract didn't reproduce hallMin (2c)
+            bool ok = bothEnds && (failCode == nullptr);
+
+            jc.calibrated = ok ? 1 : 0;   // one end only, or failed range/drift → not trusted
             jointCalSave(blk);            // still record the values (cal=0) so GET shows them
             a->applyJointCal(jc, /*liveFrame=*/true);  // in-frame → FULL; cal=0 reverts to legacy
-            if (!ok)
+            if (failCode)
                 emitJointErr(jcIndex, failCode);
             jcActive = false; jcState = JC_DONE;
             break;
@@ -627,8 +668,10 @@ public:
     void jcBeginSweep()
     {
         actuators[jcIndex]->manualDrive(0);
-        actuators[jcIndex]->resetStall();  // fresh stall state for the retract sweep
-        jcState = JC_RETRACT;
+        actuators[jcIndex]->resetStall();  // fresh stall state for the first sweep
+        // Extend-only directional cal starts straight at the extend stroke; everything
+        // else (full sweep, retract-only) begins by retracting.
+        jcState = (jcDir == CAL_DIR_EXTEND) ? JC_EXTEND : JC_RETRACT;
         jcTimer = millis();
     }
 
@@ -959,4 +1002,5 @@ private:
     int32_t       jcHallMin    = 0;
     int32_t       jcHallMax    = 0;
     int32_t       jcHallMin2   = 0;  // hallMin from the repeat retract (2c drift check)
+    CalDirection  jcDir        = CAL_DIR_NONE;  // which end(s) this run sweeps
 };

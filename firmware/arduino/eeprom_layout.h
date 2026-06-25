@@ -124,9 +124,14 @@ struct JointCal {
     int32_t  hallMax;         // signed count at extend-stop
     uint8_t  sensorType;      // SensorType auto-detected for this slot
     uint8_t  sensorReversed;  // 1 = sensor reads inverted vs drive direction
-    uint8_t  calibrated;      // 1 = min/max recorded; 0 = slot never calibrated
-    uint8_t  reserved[5];     // pad to 20 bytes; room for future per-joint fields
+    uint8_t  calibrated;      // 1 = both ends recorded + span valid; 0 = not (yet) trusted
+    uint8_t  endsRecorded;    // bitmask: bit0 = retract-stop recorded, bit1 = extend-stop (directional cal sets one at a time)
+    uint8_t  reserved[4];     // pad to 20 bytes; room for future per-joint fields
 };
+
+// endsRecorded bits — a full sweep sets both; directional cal (Task 3) sets one per run.
+static const uint8_t JOINTCAL_END_MIN = 0x01;  // retract-stop recorded
+static const uint8_t JOINTCAL_END_MAX = 0x02;  // extend-stop recorded
 
 // All six slots for this board, persisted as one unit with magic + schema + CRC.
 struct JointCalBlock {
