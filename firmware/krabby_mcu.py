@@ -225,14 +225,22 @@ class KrabbyMCUSDK:
             the legs don't drift; the config-only CLI (set/get) passes hold=False.
         """
         try:
-            # Open without toggling DTR so the board is not reset on connect — we want
-            # to talk to the already-running board and read its persisted EEPROM role.
-            ser = serial.Serial()
-            ser.port = self.port
-            ser.baudrate = self.baud
-            ser.timeout = 0.5
-            ser.dtr = False
-            ser.open()
+            if "://" in self.port:
+                # A URL port (e.g. socket://host:port) — a TCP serial bridge for running
+                # the GUI/SDK on a different host than the MCU. No DTR over a socket, so
+                # the board isn't reset by the client (the bridge owns the real port).
+                ser = serial.serial_for_url(self.port, baudrate=self.baud,
+                                            timeout=0.5, do_not_open=True)
+                ser.open()
+            else:
+                # Local device: open without toggling DTR so the board is not reset on
+                # connect — we want the already-running board's persisted EEPROM role.
+                ser = serial.Serial()
+                ser.port = self.port
+                ser.baudrate = self.baud
+                ser.timeout = 0.5
+                ser.dtr = False
+                ser.open()
             self.ser = ser
             time.sleep(settle)  # wait for board boot before starting reader
             self.running = True
