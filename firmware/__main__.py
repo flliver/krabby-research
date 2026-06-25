@@ -170,6 +170,14 @@ def main():
                           help="Serial port of the board (default: auto-detect / $KRABBY_MCU_PORT).")
     getcal_p.add_argument("name", metavar="JOINT", help="Joint to read, e.g. FLHL.")
 
+    jog_p = subparsers.add_parser(
+        "jog", help="Drive one joint open-loop for a bounded time, then stop (reports pos + cal state).")
+    jog_p.add_argument("--port", default=None, metavar="PORT",
+                       help="Serial port of the board (default: auto-detect / $KRABBY_MCU_PORT).")
+    jog_p.add_argument("--joint", required=True, metavar="JOINT")
+    jog_p.add_argument("--pwm", required=True, type=int, metavar="-255..255")
+    jog_p.add_argument("--ms", type=int, default=1000, help="duration in ms (default 1000)")
+
     args = parser.parse_args()
 
     if args.command == "help":
@@ -209,6 +217,11 @@ def main():
     if args.command == "get-calibration":
         from firmware.cli import cmd_get_calibration
         cmd_get_calibration(args.port, args.name)
+        return
+
+    if args.command == "jog":
+        from firmware.cli import cmd_jog
+        cmd_jog(args.port, args.joint, args.pwm, args.ms)
         return
 
     if args.debug:

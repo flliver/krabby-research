@@ -461,3 +461,39 @@ def cmd_get_calibration(port: Optional[str], name: str) -> None:
     if cal is None:
         sys.exit(f"get-calibration: no response for {name}")
     print(_format_cal(name, cal))
+
+
+def cmd_jog(port: Optional[str], name: str, pwm: int, ms: int) -> None:
+    """Drive one joint open-loop at `pwm` for `ms` milliseconds, re-sending at a 100 ms
+    heartbeat (< the firmware's 300 ms jog watchdog) so it runs the full duration, then
+    stop. Reports the joint's normalized position and calibration state afterward —
+    useful for driving a Hall joint into an end-stop to exercise the self-heal."""
+    if name not in ALL_JOINT_NAMES:
+        sys.exit(f"error: unknown joint {name!r}; valid joints: {', '.join(sorted(ALL_JOINT_NAMES))}")
+    pwm = max(-255, min(255, int(pwm)))
+    sdk = KrabbyMCUSDK(port=port)
+    if not sdk.connect(settle=5.0, hold=False):
+        sys.exit(f"could not open serial port {sdk.port}")
+    cal = None
+    pos = "?"
+    try:
+        deadline = time.time() + ms / 1000.0
+        next_beat = 0.0
+        while time.time() < deadline:
+            now = time.time()
+            if now >= next_beat:
+                sdk.send_command_jog(name, pwm)
+                next_beat = now + 0.1
+            time.sleep(0.01)
+        sdk.send_command_jog(name, 0)
+        time.sleep(0.25)
+        jt = sdk.joints.get(name)
+        if jt:
+            pos = f"{jt.pos:.3f}"
+        cal = sdk.get_calibration(name, timeout=1.0)
+    finally:
+        sdk.send_command_jog(name, 0)
+        sdk.close()
+    print(f"jog {name}: pwm={pwm} ms={ms} -> pos={pos}")
+    if cal:
+        print("  " + _format_cal(name, cal))
