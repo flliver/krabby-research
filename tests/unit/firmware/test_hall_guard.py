@@ -65,6 +65,32 @@ class TestHallRev3Counter:
         bumps = re.findall(r"g_hallEdgeCount\s*\[[^\]]+\]\s*\+\+", hall)
         assert len(bumps) >= 6, f"expected >=6 counter increments across the ISRs, found {len(bumps)}"
 
+
+class TestHallQuadrature:
+    """M17 Task 2 §5 (2c): signed quadrature from HallA edge + HallB phase."""
+
+    def test_signed_count_storage_and_accessor(self, hall):
+        assert re.search(r"volatile\s+int32_t\s+g_hallSignedCount\s*\[\s*6\s*\]", hall)
+        assert re.search(r"int32_t\s+hallHwGetSignedCount\s*\(", hall)
+
+    def test_signed_accessor_declared(self):
+        header = (ARDUINO / "hall_hw.h").read_text()
+        assert "hallHwGetSignedCount" in header
+
+    def test_rev3_isrs_sample_hallB_via_pinf(self, hall):
+        # Quadrature direction needs the B channel; on Rev 3 HallB is A0-A5 on PORTF.
+        rev3 = hall[hall.index("KRABBY_PIN_REV == 3"):hall.index("KRABBY_PIN_REV == 1")]
+        assert "PINF" in rev3, "Rev 3 ISRs must read HallB from PINF for the quadrature phase"
+        assert "quadStep" in rev3, "must use the A-vs-B quadrature step"
+
+    def test_signed_count_updated_in_isrs(self, hall):
+        bumps = re.findall(r"g_hallSignedCount\s*\[[^\]]+\]\s*\+=", hall)
+        assert len(bumps) >= 6, f"expected >=6 signed-count updates, found {len(bumps)}"
+
+    def test_actuator_uses_signed_count_not_edges(self, actuator):
+        body = actuator[actuator.index("int32_t hallSignedCount"):]
+        assert "hallHwGetSignedCount" in body[:200], "hallSignedCount() must return the signed quadrature count"
+
     def test_hall_pins_pulled_up(self, hall):
         # Disconnected hall lines idle high rather than floating into noise.
         assert re.search(r"pinMode\([^,]+,\s*INPUT_PULLUP\s*\)", hall)

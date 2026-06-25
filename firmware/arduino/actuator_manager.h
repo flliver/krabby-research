@@ -106,12 +106,12 @@ public:
         return (sensorType == SENSOR_HALL) ? (calHallMax - calHallMin) : 1023;
     }
 
-    // Hall signed position. PLACEHOLDER until Task 2 §5 (2c) adds true A/B quadrature
-    // decoding; no Hall joint is wired yet, so pot joints never reach this path.
+    // Hall signed position: A/B quadrature count from hall_hw (Task 2 §5). Tracks
+    // direction (climbs extending, falls retracting), unlike the legacy edge count.
     int32_t hallSignedCount() const
     {
         if (hallSlot < 0) return 0;
-        return (int32_t)hallHwGetEdgeCount((uint8_t)hallSlot);
+        return hallHwGetSignedCount((uint8_t)hallSlot);
     }
 
     // Apply the calibrated direction-flip to a raw sensor value (Task 2 §2b).
@@ -385,12 +385,12 @@ public:
     static constexpr int32_t       JC_HALL_NUDGE_THRESHOLD = 4;    // counts: Hall moved
     static constexpr int32_t       JC_POT_MIN_SPAN         = 50;   // min retract..extend ADC span
     static constexpr int32_t       JC_HALL_MIN_SPAN        = 10;   // min retract..extend count span
-    // Hall auto-detect stays OFF until §5 (2c) replaces the placeholder hallSignedCount()
-    // with real A/B quadrature. The placeholder returns the raw edge count, which on an
-    // unwired Hall pin is just EMI noise — that would false-detect HALL on a pot joint
-    // whose pot isn't tracking. With this off, a non-tracking pot fails cleanly with
-    // motor_did_not_move instead of a confusing hall_no_edges.
-    static constexpr bool          JC_HALL_DETECT          = false;
+    // Hall auto-detect is ON now that hallSignedCount() is real A/B quadrature (§5/2c):
+    // the SIGNED count accumulates with direction, so genuine Hall motion stands out
+    // while EMI on an unwired pin nets to ~0 — robust enough to distinguish a Hall
+    // actuator from a pot one. (The earlier edge-count placeholder counted noise, which
+    // is why this was temporarily disabled.)
+    static constexpr bool          JC_HALL_DETECT          = true;
 
     void setErrorOutput(Print* p) { errOut = p; }  // where ERR <joint> <code> lines go
     bool jointCalActive() const { return jcActive; }
@@ -544,19 +544,34 @@ public:
     {
         int32_t potDelta  = (int32_t)a->avgPot - jcPotBefore;
         int32_t hallDelta = a->hallSignedCount() - jcHallBefore;
-        if (labs(potDelta) > JC_NUDGE_THRESHOLD) {
-            jcSensorType = SENSOR_POT;
-            jcReversed   = (forward ? (potDelta < 0) : (potDelta > 0)) ? 1 : 0;
-            jcBeginSweep();
-            return true;
-        }
+        // Check HALL first: on a Hall actuator the shared A1 pin carries HallB (a square
+        // wave that can masquerade as pot movement on avgPot), so the unambiguous signal
+        // is the signed Hall count. On a pot actuator HallA is unwired → the signed count
+        // nets ~0, so this falls through to the pot check.
         if (JC_HALL_DETECT && labs(hallDelta) > JC_HALL_NUDGE_THRESHOLD) {
             jcSensorType = SENSOR_HALL;
             jcReversed   = (forward ? (hallDelta < 0) : (hallDelta > 0)) ? 1 : 0;
+            jcApplyDetectedSensor(a);
+            jcBeginSweep();
+            return true;
+        }
+        if (labs(potDelta) > JC_NUDGE_THRESHOLD) {
+            jcSensorType = SENSOR_POT;
+            jcReversed   = (forward ? (potDelta < 0) : (potDelta > 0)) ? 1 : 0;
+            jcApplyDetectedSensor(a);
             jcBeginSweep();
             return true;
         }
         return false;
+    }
+
+    // Push the detected sensor type/flip onto the actuator *now*, before the sweep, so
+    // getRawPos()/isStalled() read the correct sensor while sweeping (e.g. a Hall joint
+    // must stall-detect on the signed count, not on avgPot — which is HallB noise there).
+    void jcApplyDetectedSensor(LinearActuator* a)
+    {
+        a->sensorType     = jcSensorType;
+        a->sensorReversed = jcReversed;
     }
 
     void updateAll()

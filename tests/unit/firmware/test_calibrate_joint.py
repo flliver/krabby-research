@@ -166,3 +166,12 @@ class TestRangeCheckFirmware:
     def test_query_command_dispatched(self, actuator, ino):
         assert "queryCalByName" in actuator and "printJointCal" in actuator
         assert re.search(r"cmdType\s*==\s*'Q'", ino), "loop() must dispatch the Q (read cal) command"
+
+    def test_hall_detect_enabled_and_checked_first(self, actuator):
+        assert re.search(r"JC_HALL_DETECT\s*=\s*true", actuator), \
+            "Hall auto-detect must be on now that quadrature is real"
+        # In jcEvalNudge, the HALL branch must come before the POT branch (shared A1 pin).
+        start = actuator.index("bool jcEvalNudge")
+        body = actuator[start:actuator.index("void jcApplyDetectedSensor", start)]
+        assert body.index("SENSOR_HALL") < body.index("SENSOR_POT"), \
+            "nudge must check the signed Hall count before the pot (avgPot carries HallB)"
