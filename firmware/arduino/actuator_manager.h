@@ -376,7 +376,7 @@ public:
         JC_RETRACT, JC_EXTEND, JC_SAVE, JC_DONE,
     };
 
-    static constexpr int           JC_NUDGE_PWM            = 30;   // gentle detect nudge
+    static constexpr int           JC_NUDGE_PWM            = 120;  // detect nudge: must exceed these actuators' static friction (~100), not the spec's optimistic 30
     static constexpr int           JC_SWEEP_PWM            = 150;  // sweep-to-stop drive
     static constexpr unsigned long JC_NUDGE_MS             = 250;  // nudge drive duration
     static constexpr unsigned long JC_SETTLE_MS            = 50;   // settle before measuring
