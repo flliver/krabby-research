@@ -318,8 +318,10 @@ public:
             return false;
         }
 
-        if (!stallInited || labs(getRawPos() - stallLastPos) > 2)
-        { // Moved (or first reading after a reset)
+        if (!stallInited || labs(getRawPos() - stallLastPos) > 6)
+        { // Moved (or first reading after a reset). >6 tolerates a few EMI-induced Hall
+          // counts at a hard stall so the timer isn't perpetually reset (real motion is
+          // hundreds of counts/sweep, so this never masks genuine movement).
             stallLastPos = getRawPos();
             stallLastMoveTime = millis();
             stallInited = true;

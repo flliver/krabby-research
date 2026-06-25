@@ -398,25 +398,28 @@ def cmd_calibrate_joint(port: Optional[str], name: str) -> None:
     if not sdk.connect(settle=5.0, hold=False):
         sys.exit(f"could not open serial port {sdk.port}")
 
-    # Cal is fire-and-forget on the wire; hold the connection open briefly to surface
-    # any ERR <joint> <code> the firmware emits (e.g. motor_did_not_move). The full
-    # sweep runs in firmware regardless of whether we stay connected.
-    wait = 10.0
+    # Cal is fire-and-forget on the wire — there's no completion message. Poll the
+    # stored calibration until the joint leaves the in-progress boot PARTIAL state
+    # (→ FULL on success, UNCAL on a range-check fail) or an ERR fires. The sweep can
+    # take a while on a slow actuator (full stroke, both directions), so give it room.
+    timeout = 30.0
     seen: set = set()
     cal = None
     try:
         sdk.clear_errors()
         sdk.calibrate_joint(name)
-        print(f"calibrate-joint: {name} — sweeping to both stops (~{wait:.0f}s); watching for errors…")
-        deadline = time.time() + wait
+        print(f"calibrate-joint: {name} — sweeping both stops (slow actuator; up to ~{timeout:.0f}s)…")
+        deadline = time.time() + timeout
         while time.time() < deadline:
             for e in sdk.get_errors():
                 key = (e.token, e.code)
                 if key not in seen:
                     seen.add(key)
                     print(f"  ERR {e.token} {e.code}")
-            time.sleep(0.2)
-        cal = sdk.get_calibration(name, timeout=2.0)  # read back what landed in EEPROM
+            cal = sdk.get_calibration(name, timeout=1.0)
+            if (cal and cal.get("state") in ("FULL", "UNCAL")) or seen:
+                break  # cal finished (success/fail) or errored out
+            time.sleep(0.5)
     finally:
         sdk.close()
 
