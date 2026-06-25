@@ -246,27 +246,33 @@ public:
         driveActuator(currentPwm, controlConfig.pwmDeadband);
     }
 
-    // Helper to detect stall (used in calibration)
-    // Returns true if motor is powered but position hasn't changed for 'timeout' ms
+    // Stall-detection state — PER ACTUATOR (was function-static, which leaked across
+    // joints and across the retract→extend transition, instant-stalling the 2nd sweep).
+    // Call resetStall() when you start driving a fresh direction.
+    long          stallLastPos      = 0;   // holds getRawPos() (int32_t — Hall counts exceed int)
+    unsigned long stallLastMoveTime = 0;
+    bool          stallInited       = false;  // explicit init flag — getRawPos() can be negative (Hall)
+
+    void resetStall() { stallInited = false; stallLastMoveTime = millis(); }
+
+    // Returns true if motor is powered but position hasn't changed for 'timeout' ms.
     bool isStalled(unsigned long timeout)
     {
-        static long lastPos = -1;  // holds getRawPos() (int32_t — Hall counts exceed int)
-        static unsigned long lastMoveTime = 0;
-
         if (abs(currentPwm) < 50)
         { // Not trying to move
-            lastMoveTime = millis();
+            stallLastMoveTime = millis();
             return false;
         }
 
-        if (abs(getRawPos() - lastPos) > 2)
-        { // Moved
-            lastPos = getRawPos();
-            lastMoveTime = millis();
+        if (!stallInited || labs(getRawPos() - stallLastPos) > 2)
+        { // Moved (or first reading after a reset)
+            stallLastPos = getRawPos();
+            stallLastMoveTime = millis();
+            stallInited = true;
             return false;
         }
 
-        if (millis() - lastMoveTime > timeout)
+        if (millis() - stallLastMoveTime > timeout)
             return true;
         return false;
     }
@@ -478,6 +484,7 @@ public:
                 a->manualDrive(0);
                 jcPotMin  = (uint16_t)a->avgPot;
                 jcHallMin = a->hallSignedCount();
+                a->resetStall();  // fresh stall state for the extend sweep
                 jcState = JC_EXTEND; jcTimer = millis();
             }
             break;
@@ -533,6 +540,7 @@ public:
     void jcBeginSweep()
     {
         actuators[jcIndex]->manualDrive(0);
+        actuators[jcIndex]->resetStall();  // fresh stall state for the retract sweep
         jcState = JC_RETRACT;
         jcTimer = millis();
     }
