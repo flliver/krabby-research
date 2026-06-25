@@ -403,6 +403,7 @@ def cmd_calibrate_joint(port: Optional[str], name: str) -> None:
     # sweep runs in firmware regardless of whether we stay connected.
     wait = 10.0
     seen: set = set()
+    cal = None
     try:
         sdk.clear_errors()
         sdk.calibrate_joint(name)
@@ -415,11 +416,40 @@ def cmd_calibrate_joint(port: Optional[str], name: str) -> None:
                     seen.add(key)
                     print(f"  ERR {e.token} {e.code}")
             time.sleep(0.2)
+        cal = sdk.get_calibration(name, timeout=2.0)  # read back what landed in EEPROM
     finally:
         sdk.close()
 
+    print(_format_cal(name, cal))
     if seen:
-        print(f"calibrate-joint: {name} reported the error(s) above; cal may not have completed.")
-    else:
-        print(f"calibrate-joint: {name} done (no errors). Recorded min/max + sensor type persist "
-              f"in EEPROM and take effect immediately; read them back later via `get calibration`.")
+        print(f"calibrate-joint: {name} reported the error(s) above — not trusted.")
+
+
+def _format_cal(name: str, cal: Optional[dict]) -> str:
+    """One-line summary of a joint's stored calibration (the CAL read-back dict)."""
+    if cal is None:
+        return f"{name}: no calibration read-back (no response)"
+    span = ""
+    try:
+        span = f"  span={int(cal['max']) - int(cal['min'])}"
+    except (KeyError, ValueError):
+        pass
+    trusted = cal.get("cal") == "1"
+    flag = "" if trusted else "   ⚠ NOT TRUSTED (sweep range too small / sensor not tracking)"
+    return (f"{name}: type={cal.get('type','?')} reversed={cal.get('rev','?')} "
+            f"min={cal.get('min','?')} max={cal.get('max','?')}{span}  calibrated={cal.get('cal','?')}{flag}")
+
+
+def cmd_get_calibration(port: Optional[str], name: str) -> None:
+    if name not in ALL_JOINT_NAMES:
+        sys.exit(f"error: unknown joint {name!r}; valid joints: {', '.join(sorted(ALL_JOINT_NAMES))}")
+    sdk = KrabbyMCUSDK(port=port)
+    if not sdk.connect(settle=2.0, hold=False):
+        sys.exit(f"could not open serial port {sdk.port}")
+    try:
+        cal = sdk.get_calibration(name, timeout=2.0)
+    finally:
+        sdk.close()
+    if cal is None:
+        sys.exit(f"get-calibration: no response for {name}")
+    print(_format_cal(name, cal))

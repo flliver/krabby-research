@@ -468,6 +468,17 @@ void loop()
             if (leftSerial)  { leftSerial->print("K"); leftSerial->println(name); }
             if (rightSerial) { rightSerial->print("K"); rightSerial->println(name); }
         }
+        else if (cmdType == 'Q')   // Q <name>: read back stored calibration (M17 Task 2)
+        {
+            mainSerial->read();
+            String name = mainSerial->readStringUntil('\n');
+            name.trim();
+            // The owning board prints its "CAL <name> …" reply; a follower's reply is
+            // relayed up to USB by forwardFullLines, like telemetry/ERR.
+            if (actuatorManager) actuatorManager->queryCalByName(name, *mainSerial);
+            if (leftSerial)  { leftSerial->print("Q"); leftSerial->println(name); }
+            if (rightSerial) { rightSerial->print("Q"); rightSerial->println(name); }
+        }
         else if (cmdType == 'H')
         {
             mainSerial->read();

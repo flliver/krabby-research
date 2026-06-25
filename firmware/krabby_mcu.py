@@ -155,6 +155,17 @@ def parse_get_reply(line: str):
     return board, {kv[i]: kv[i + 1] for i in range(0, len(kv) - 1, 2)}
 
 
+def parse_cal_reply(line: str):
+    """Parse a stored-calibration reply 'CAL <joint> type <POT|HALL> rev <0|1> min <n>
+    max <n> cal <0|1>' into (joint, {type, rev, min, max, cal}). None if not a CAL line."""
+    parts = line.split()
+    if len(parts) < 2 or parts[0] != "CAL":
+        return None
+    name = parts[1]
+    kv = parts[2:]
+    return name, {kv[i]: kv[i + 1] for i in range(0, len(kv) - 1, 2)}
+
+
 def _raw_rx_to_stderr() -> bool:
     """When True, every non-empty decoded line is printed to stderr (see __main__.py --debug)."""
     v = os.environ.get("KRABBY_MCU_RAW_RX", "").strip().lower()
@@ -197,6 +208,7 @@ class KrabbyMCUSDK:
         self.last_cmd: Dict[str, Optional[float]] = {}
         self._last_ver_line: Optional[str] = None
         self._last_get_line: Optional[str] = None
+        self._last_cal_line: Optional[str] = None
 
         # ERR telemetry channel: a bounded ring of recent events plus an optional
         # callback invoked as each line arrives (see on_error / get_errors).
@@ -271,6 +283,8 @@ class KrabbyMCUSDK:
                     self._last_ver_line = line
                 elif line.startswith("GET"):
                     self._last_get_line = line
+                elif line.startswith("CAL "):
+                    self._last_cal_line = line
                 elif line.startswith("ERR "):
                     self._record_error(line)
                 elif "Krabby" in line or "CAL" in line or "Saved" in line:
@@ -413,6 +427,33 @@ class KrabbyMCUSDK:
         self.ser.write(f"K{name}\n".encode('utf-8'))
         self.ser.flush()
         logger.info("CMD -> K %s (calibrate joint)", name)
+
+    def get_calibration(self, name: str, timeout: float = 2.0) -> Optional[dict]:
+        """Read back the stored calibration for one joint (wire command ``Q<name>``).
+
+        Returns {type, rev, min, max, cal} (all strings, as they arrive on the wire),
+        or None on timeout. ``cal == "0"`` means the firmware recorded values but did
+        not trust them (e.g. the sweep range failed the sanity check). Same
+        request/reply + tagged-line pattern as read_version / send_get.
+        """
+        if name not in ALL_JOINT_NAMES:
+            raise ValueError(
+                f"unknown joint {name!r}; valid joints: {', '.join(sorted(ALL_JOINT_NAMES))}")
+        if not self.ser or not self.ser.is_open:
+            return None
+        self._last_cal_line = None
+        self.ser.write(f"Q{name}\n".encode('utf-8'))
+        self.ser.flush()
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            line = self._last_cal_line
+            if line is not None:
+                parsed = parse_cal_reply(line)
+                if parsed and parsed[0] == name:
+                    return parsed[1]
+                self._last_cal_line = None  # a CAL for another joint; keep waiting
+            time.sleep(0.02)
+        return None
 
     def read_version(self, timeout: float = 1.0) -> Optional[str]:
         if not self.ser or not self.ser.is_open:

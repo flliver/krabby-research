@@ -383,9 +383,39 @@ public:
     static constexpr unsigned long JC_STALL_MS             = 250;  // isStalled() end-stop window
     static constexpr int32_t       JC_NUDGE_THRESHOLD      = 20;   // raw ADC: pot moved
     static constexpr int32_t       JC_HALL_NUDGE_THRESHOLD = 4;    // counts: Hall moved
+    static constexpr int32_t       JC_POT_MIN_SPAN         = 50;   // min retract..extend ADC span
+    static constexpr int32_t       JC_HALL_MIN_SPAN        = 10;   // min retract..extend count span
 
     void setErrorOutput(Print* p) { errOut = p; }  // where ERR <joint> <code> lines go
     bool jointCalActive() const { return jcActive; }
+
+    // Q <name>: print this board's stored calibration for one joint (no-op if not ours).
+    // Reads back from EEPROM so it reflects exactly what's persisted, including a failed
+    // cal (cal 0). Reply line: "CAL <name> type <POT|HALL> rev <0|1> min <n> max <n> cal <0|1>".
+    void queryCalByName(const String& name, Print& out)
+    {
+        for (size_t i = 0; i < count; i++)
+            if (String(actuators[i]->name) == name) { printJointCal((uint8_t)i, out); return; }
+    }
+
+    void printJointCal(uint8_t idx, Print& out)
+    {
+        JointCalBlock blk;
+        jointCalLoad(blk);  // invalid → zeroed (every slot cal 0)
+        const JointCal& jc = blk.joints[idx];
+        out.print("CAL ");
+        out.print(actuators[idx]->name);
+        out.print(jc.sensorType == SENSOR_HALL ? " type HALL" : " type POT");
+        out.print(" rev "); out.print(jc.sensorReversed);
+        if (jc.sensorType == SENSOR_HALL) {
+            out.print(" min "); out.print(jc.hallMin);
+            out.print(" max "); out.print(jc.hallMax);
+        } else {
+            out.print(" min "); out.print(jc.potMin);
+            out.print(" max "); out.print(jc.potMax);
+        }
+        out.print(" cal "); out.println(jc.calibrated);
+    }
 
     // K <name>: full-sweep calibration of one joint by name (unknown name = no-op,
     // matching the silent-drop convention; the SDK validates client-side).
@@ -455,15 +485,27 @@ public:
             }
             break;
         case JC_SAVE: {
+            // Sweep-range sanity check: a real sweep crosses the joint's whole travel,
+            // so the recorded span should be large. A tiny span means the sensor never
+            // tracked the motion (e.g. a floating/intermittent pot) — the nudge can still
+            // pass on noise, so this is the gate that stops us silently saving garbage.
+            int32_t span = (jcSensorType == SENSOR_HALL)
+                               ? labs(jcHallMax - jcHallMin)
+                               : labs((int32_t)jcPotMax - (int32_t)jcPotMin);
+            int32_t minSpan = (jcSensorType == SENSOR_HALL) ? JC_HALL_MIN_SPAN : JC_POT_MIN_SPAN;
+            bool ok = span >= minSpan;
+
             JointCalBlock blk;
             jointCalLoad(blk);  // invalid → zero-inited; we overwrite this one slot
             JointCal& jc = blk.joints[jcIndex];
             jc.potMin = jcPotMin; jc.potMax = jcPotMax;
             jc.hallMin = jcHallMin; jc.hallMax = jcHallMax;
             jc.sensorType = jcSensorType; jc.sensorReversed = jcReversed;
-            jc.calibrated = 1;
-            jointCalSave(blk);
-            a->applyJointCal(jc);  // take effect immediately, no reboot
+            jc.calibrated = ok ? 1 : 0;   // failed range check → not trusted
+            jointCalSave(blk);            // still record the values (cal=0) so GET shows them
+            a->applyJointCal(jc);         // cal=0 reverts the joint to the legacy path
+            if (!ok)
+                emitJointErr(jcIndex, jcSensorType == SENSOR_HALL ? "hall_no_edges" : "pot_value_invalid");
             jcActive = false; jcState = JC_DONE;
             break;
         }
