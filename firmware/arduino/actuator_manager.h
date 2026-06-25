@@ -443,6 +443,7 @@ public:
     static constexpr unsigned long JC_NUDGE_MS             = 250;  // nudge drive duration
     static constexpr unsigned long JC_SETTLE_MS            = 50;   // settle before measuring
     static constexpr unsigned long JC_STALL_MS             = 250;  // isStalled() end-stop window
+    static constexpr unsigned long JC_SWEEP_GRACE_MS       = 600;  // drive this long before stall-checking (let it accelerate off a stop)
     static constexpr int32_t       JC_NUDGE_THRESHOLD      = 20;   // raw ADC: pot moved
     static constexpr int32_t       JC_HALL_NUDGE_THRESHOLD = 4;    // counts: Hall moved
     static constexpr int32_t       JC_POT_MIN_SPAN         = 50;   // min retract..extend ADC span
@@ -538,7 +539,9 @@ public:
             break;
         case JC_RETRACT:
             a->manualDrive(-JC_SWEEP_PWM);
-            if (a->isStalled(JC_STALL_MS)) {
+            // Grace period: don't accept a stall until the actuator has had time to
+            // accelerate off the start point, or a slow ramp reads as an early stop.
+            if (millis() - jcTimer > JC_SWEEP_GRACE_MS && a->isStalled(JC_STALL_MS)) {
                 a->manualDrive(0);
                 jcPotMin  = (uint16_t)a->avgPot;
                 jcHallMin = a->hallSignedCount();
@@ -548,7 +551,7 @@ public:
             break;
         case JC_EXTEND:
             a->manualDrive(JC_SWEEP_PWM);
-            if (a->isStalled(JC_STALL_MS)) {
+            if (millis() - jcTimer > JC_SWEEP_GRACE_MS && a->isStalled(JC_STALL_MS)) {
                 a->manualDrive(0);
                 jcPotMax  = (uint16_t)a->avgPot;
                 jcHallMax = a->hallSignedCount();
