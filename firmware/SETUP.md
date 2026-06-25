@@ -188,14 +188,19 @@ Board configuration lives in a single `EepromLayout` struct at EEPROM address 0 
 | `serial` | `char[16]` | zero-padded ASCII; empty if unset |
 | `crc32` | `uint32` | checksum over all preceding fields |
 
-Per-joint calibration is planned to live in this same struct as an added field; until then, auto-calibration results are not persisted (see Feature 1).
+Per-joint calibration is persisted separately in the `JointCalBlock` (magic `0xCA17`); see the M17 Task 2 per-joint calibration commands below.
 
-### Feature 1: Auto-Calibration
-The robot finds its joint limits automatically.
- - Select Option 2 (Auto-Calibrate) in the menu.
- - Stand Back: The robot will perform the safety sequence:
-    - Yaw Left -> Yaw Right -> Hip Up -> Knee Out -> Knee In -> Hip Down.
- - Result: the joint limits are found and used for the current session. They are **not persisted**, so re-run auto-calibration after each power cycle.
+### Feature 1: Per-joint Calibration
+Calibrate one joint at a time — sweep both end-stops, auto-detect the sensor
+(pot or Hall) and direction, and persist the result to EEPROM:
+ - `krabby-firmware calibrate-joint <JOINT>` (e.g. `calibrate-joint FLHL`) runs a full both-ends sweep.
+ - `--direction extend|retract` (linear joints) or `left|right` (yaw joints) calibrates a single end-stop, for the whole-robot sequence to drive one DOF at a time.
+ - `krabby-firmware get-calibration <JOINT>` reads back the stored values.
+
+The earlier whole-robot "auto-calibrate" button drove every joint in a fixed
+hardcoded order into a now-obsolete EEPROM layout; it has been removed in favor
+of the per-joint commands above. The whole-robot sequence that composes them is
+M17 Task 3.
 
 ### Feature 2: Manual Jog Mode
  - Select Option 3 (Jog Mode).

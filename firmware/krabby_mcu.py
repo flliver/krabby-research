@@ -534,13 +534,6 @@ class KrabbyMCUSDK:
             time.sleep(0.02)
         return None
 
-    def send_command_calibrate(self):
-        if not self.ser or not self.ser.is_open:
-            return
-        self.ser.write(b"C\n")
-        self.ser.flush()
-        logger.info("CMD -> AUTO-CALIBRATE (C)")
-
     def send_command_joints_hold(self):
         """
         Send the 'H' command to hold all joints at their current positions.

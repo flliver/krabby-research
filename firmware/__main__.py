@@ -73,7 +73,7 @@ def _render_telemetry(joints, selected: str, status: str = "", err_line: str = "
         "=== Krabby MCU — jog + live telemetry (18 joints) ===",
         "Extend: Q W E R T Y   Retract: A S D F G H",
         f"Board: {selected:5s}   hold 1=LEFT  2=RIGHT  1+2=all  none=FRONT",
-        "0=neutral  9=autocal  V=version  ESC=quit",
+        "0=neutral  V=version  ESC=quit",
         status or " ",
         err_line or " ",
         "",
@@ -267,12 +267,6 @@ def main():
                 status = "neutral sent — all joints → 0.5"
                 _draw(_render_telemetry(mcu.joints, selected, status, _err_line(mcu)))
                 time.sleep(0.3)  # debounce
-                continue
-            if is_pressed("9"):
-                mcu.send_command_calibrate()
-                status = "AUTO-CALIBRATE — moving ALL limbs to find limits"
-                _draw(_render_telemetry(mcu.joints, selected, status, _err_line(mcu)))
-                time.sleep(0.5)
                 continue
             if is_pressed("v"):
                 reply = mcu.read_version()
