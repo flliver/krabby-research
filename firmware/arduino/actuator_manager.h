@@ -333,6 +333,41 @@ public:
         return false;
     }
 
+    // --- Continuous runtime sensor-health monitoring (Task 2 §2f) ---
+    // While a joint is driven during NORMAL operation but its sensor stops following,
+    // return a one-shot reason code (nullptr when healthy or suppressed). The manager
+    // turns this into an `ERR <joint> <code>` line. Throttled to one report per stall
+    // event (re-arms when the joint moves again or drive stops). Legitimate end-stops
+    // are NOT faults: a PARTIAL joint self-heals on stop contact (handled in update()),
+    // and a FULL joint sitting at a known limit is expected travel, not a stall.
+    static constexpr unsigned long HEALTH_STALL_MS       = 600;  // driven-but-pinned window (> SELF_HEAL_STALL_MS so self-heal anchors first)
+    static constexpr int           JAM_CURRENT_THRESHOLD = 100;  // avgIS counts; ≳ this while pinned = pushing hard (jam) vs an unresponsive motor
+    static constexpr float         HEALTH_AT_LIMIT_EPS   = 0.03; // normalized: within this of 0.0/1.0 = at a known end-stop
+    bool healthErrSent = false;  // throttle: one ERR per stall event
+
+    const char* checkRuntimeHealth()
+    {
+        if (currentPwm == 0)            { healthErrSent = false; return nullptr; }  // not driven → re-arm
+        if (!isStalled(HEALTH_STALL_MS)){ healthErrSent = false; return nullptr; }  // sensor following → re-arm
+        if (healthErrSent)               return nullptr;                            // already reported this event
+
+        // Suppress legitimate end-stops. PARTIAL anchors via self-heal; a FULL joint at a
+        // known limit is expected. (An UNCAL joint has no known limits, so a genuine stall
+        // there is always reported.)
+        if (calibrationState == CAL_STATE_PARTIAL) return nullptr;
+        if (calibrationState == CAL_STATE_FULL) {
+            float p = getPos();
+            if (p <= HEALTH_AT_LIMIT_EPS || p >= 1.0f - HEALTH_AT_LIMIT_EPS) return nullptr;
+        }
+
+        healthErrSent = true;
+        // High current while pinned = pushing against an obstacle (jam); low current = the
+        // motor isn't engaging at all (broken wiring / disconnected motor / dead sensor).
+        // NOTE: current sense reads ~0 on this bench (IS-line fault), so the jam branch is
+        // dormant here — every runtime stall classifies as motor_did_not_move until IS is fixed.
+        return (avgIS >= JAM_CURRENT_THRESHOLD) ? "motor_jammed" : "motor_did_not_move";
+    }
+
     // JT wire format: "<role>; <name> <pos> <pot> <current> <enL> <enR> <pwmL> <pwmR> <hallEdges> <calState>;"
     // e.g. 'FRONT; FLHY 0.123 0 12 1 1 0 120 0 2; FRHY 0.234 0 13 1 1 0 130 0 0; ...'
     // calState: 0=UNCAL, 1=PARTIAL (Hall, unanchored), 2=FULL. Keep in sync with
@@ -720,7 +755,12 @@ public:
             updateCalibration();
         else
             for (size_t i = 0; i < count; i++)
+            {
                 actuators[i]->update();
+                // 2f: report a joint that's driven but whose sensor stopped following.
+                if (const char* code = actuators[i]->checkRuntimeHealth())
+                    emitJointErr((uint8_t)i, code);
+            }
     }
 
     void applyCommands(const Command *cmds, size_t cmdCount)

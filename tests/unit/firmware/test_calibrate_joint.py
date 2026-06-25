@@ -373,3 +373,45 @@ class TestDirectionalCalFirmware:
         body = ino[ino.index("cmdType == 'K'"):ino.index("cmdType == 'K'") + 700]
         assert "indexOf(' ')" in body, "K must split name from the optional direction token"
         assert "calibrateJointByName" in body
+
+
+class TestRuntimeHealth2f:
+    """M17 Task 2 §2f: continuous runtime sensor-health monitoring — a joint driven
+    during NORMAL operation whose sensor stops following emits one throttled ERR."""
+
+    def test_monitor_method_exists(self, actuator):
+        assert "checkRuntimeHealth" in actuator
+        body = actuator[actuator.index("const char* checkRuntimeHealth"):]
+        body = body[:body.index("\n    }")]
+        assert "motor_did_not_move" in body and "motor_jammed" in body
+
+    def test_wired_into_normal_update_loop_only(self, actuator):
+        loop = actuator[actuator.index("void updateAll"):actuator.index("void updateAll") + 800]
+        # runs in the else (normal) branch, NOT during jcActive cal
+        assert "checkRuntimeHealth" in loop and "emitJointErr" in loop
+        assert loop.index("jcActive") < loop.index("checkRuntimeHealth")
+
+    def test_throttled_one_per_event(self, actuator):
+        body = actuator[actuator.index("const char* checkRuntimeHealth"):]
+        body = body[:body.index("\n    }")]
+        assert "healthErrSent" in body, "must throttle to one ERR per stall event"
+        # re-arms when not driven or moving again
+        assert "currentPwm == 0" in body and "isStalled" in body
+
+    def test_current_split_jam_vs_no_move(self, actuator):
+        body = actuator[actuator.index("const char* checkRuntimeHealth"):]
+        body = body[:body.index("\n    }")]
+        assert re.search(r"avgIS\s*>=\s*JAM_CURRENT_THRESHOLD", body), \
+            "high current while pinned = motor_jammed, else motor_did_not_move"
+
+    def test_end_stops_suppressed(self, actuator):
+        body = actuator[actuator.index("const char* checkRuntimeHealth"):]
+        body = body[:body.index("\n    }")]
+        # PARTIAL self-heals; FULL-at-a-known-limit is expected travel, not a fault
+        assert "CAL_STATE_PARTIAL" in body and "CAL_STATE_FULL" in body
+        assert "HEALTH_AT_LIMIT_EPS" in body
+
+    def test_health_window_after_self_heal(self, actuator):
+        # the health stall window must be longer than self-heal's so a PARTIAL joint
+        # anchors (→FULL) before the monitor would consider it a fault
+        assert "HEALTH_STALL_MS" in actuator and "SELF_HEAL_STALL_MS" in actuator
