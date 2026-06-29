@@ -109,10 +109,11 @@ constexpr int      JOINTCAL_BASE_ADDR  = 64;      // clears EepromLayout at addr
 constexpr uint8_t  JOINTCAL_SLOTS      = 6;       // actuators per board
 
 // Which position sensor a joint's motor cable carries (each motor has exactly one).
-// Auto-detected during the calibration nudge (Task 2 §3).
+// A FIXED property of the hardware on that slot, declared in the actuator table
+// (HL/HY = Hall, KL = pot) — calibration verifies it, it is not auto-detected.
 enum SensorType : uint8_t {
-    SENSOR_POT  = 0,   // potentiometer — absolute by physics; the default
-    SENSOR_HALL = 1,   // Hall encoder — incremental signed count
+    SENSOR_POT  = 0,   // potentiometer — absolute by physics (knee, *KL)
+    SENSOR_HALL = 1,   // Hall encoder — incremental signed count (hip-lift/yaw, *HL/*HY)
 };
 
 // Recorded calibration for one joint. Min = retract-stop, Max = extend-stop, stored

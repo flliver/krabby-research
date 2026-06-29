@@ -69,7 +69,7 @@ public:
     // --- Per-joint calibration (M17 Task 2) ---
     // Defaults give the legacy minStop/maxStop pot path with no flip; applyJointCal()
     // overrides these once a recorded JointCal is loaded from EEPROM (calValid=true).
-    uint8_t  sensorType     = SENSOR_POT;  // SensorType auto-detected during cal
+    uint8_t  sensorType     = SENSOR_POT;  // fixed per-joint property, set at construction (HL/HY=Hall, KL=pot)
     uint8_t  sensorReversed = 0;           // 1 = sensor reads inverted vs drive direction
     bool     calValid       = false;       // true once applyJointCal() loads min/max
     uint16_t calPotMin      = 0;           // raw ADC at retract-stop (pre-flip)
@@ -85,8 +85,11 @@ public:
 
 
     // TODO: This should accept a name and a 'SlotConfig' struct for pin assignment, so we can reuse the pin config w/ different actuator names (on different leader/follower boards)
-    LinearActuator(const char *n, int pR, int pL, int en, int isPin, int pot, int8_t hallIdx = -1)
-        : name(n), pinPwmR(pR), pinPwmL(pL), pinEn(en), pinIS(isPin), pinPot(pot), hallSlot(hallIdx) {}
+    // sType is the joint's FIXED position-sensor type — a property of the hardware on that
+    // slot, not something discovered at runtime. HL/HY joints carry a Hall encoder, KL joints
+    // a potentiometer. Calibration verifies the expected sensor moved; it never re-guesses type.
+    LinearActuator(const char *n, int pR, int pL, int en, int isPin, int pot, int8_t hallIdx = -1, SensorType sType = SENSOR_POT)
+        : name(n), pinPwmR(pR), pinPwmL(pL), pinEn(en), pinIS(isPin), pinPot(pot), hallSlot(hallIdx), sensorType((uint8_t)sType) {}
     void setControlConfig(const ControlConfig &cfg) { controlConfig = cfg; }
 
     void init()
@@ -191,7 +194,10 @@ public:
     void applyJointCal(const JointCal& jc, bool liveFrame = false)
     {
         if (!jc.calibrated) { calValid = false; calibrationState = CAL_STATE_UNCALIBRATED; return; }
-        sensorType     = jc.sensorType;
+        // sensorType is fixed at construction; a stored cal recorded against a different
+        // sensor type is stale (e.g. left from before HL/KL types were corrected) and its
+        // min/max mean nothing for this sensor — reject it rather than trust garbage.
+        if (jc.sensorType != sensorType) { calValid = false; calibrationState = CAL_STATE_UNCALIBRATED; return; }
         sensorReversed = jc.sensorReversed;
         calPotMin      = jc.potMin;
         calPotMax      = jc.potMax;
@@ -488,16 +494,15 @@ public:
     static constexpr unsigned long JC_STALL_MS             = 250;  // isStalled() end-stop window
     static constexpr unsigned long JC_SWEEP_GRACE_MS       = 600;  // drive this long before stall-checking (let it accelerate off a stop)
     static constexpr int32_t       JC_NUDGE_THRESHOLD      = 20;   // raw ADC: pot moved
-    static constexpr int32_t       JC_HALL_NUDGE_THRESHOLD = 4;    // counts: Hall moved
+    static constexpr int32_t       JC_HALL_NUDGE_THRESHOLD = 4;    // counts: a wired Hall's own motion
+    // Bar for declaring an UNEXPECTED Hall present on a pot-declared joint. Must clear the
+    // EMI a floating (unwired) HallA pin picks up under motor-drive current — measured to
+    // occasionally exceed the 4-count motion threshold — while staying well under a real
+    // Hall's ~20-30 counts/nudge, so a Hall in a pot slot is still caught (sensor_type_mismatch).
+    static constexpr int32_t       JC_HALL_PRESENT_THRESHOLD = 15;
     static constexpr int32_t       JC_POT_MIN_SPAN         = 50;   // min retract..extend ADC span
     static constexpr int32_t       JC_HALL_MIN_SPAN        = 10;   // min retract..extend count span
     static constexpr int32_t       JC_HALL_DRIFT_TOL       = 4;    // counts: max |hallMin_2 - hallMin_1| over repeat sweeps (2c)
-    // Hall auto-detect is ON now that hallSignedCount() is real A/B quadrature (§5/2c):
-    // the SIGNED count accumulates with direction, so genuine Hall motion stands out
-    // while EMI on an unwired pin nets to ~0 — robust enough to distinguish a Hall
-    // actuator from a pot one. (The earlier edge-count placeholder counted noise, which
-    // is why this was temporarily disabled.)
-    static constexpr bool          JC_HALL_DETECT          = true;
 
     void setErrorOutput(Print* p) { errOut = p; }  // where ERR <joint> <code> lines go
     bool jointCalActive() const { return jcActive; }
@@ -573,10 +578,14 @@ public:
         jcActive     = true;
         jcState      = JC_NUDGE_FWD_DRIVE;
         jcTimer      = millis();
-        jcPotBefore  = (int32_t)actuators[idx]->avgPot;
+        // Baselines for BOTH sensors so the nudge can cross-check the wrong-sensor case
+        // (e.g. a Hall actuator in the knee slot). Pot is read directly here because Hall
+        // joints skip the pot read in normal operation, leaving avgPot stale.
         jcHallBefore = actuators[idx]->hallSignedCount();
-        jcSensorType = SENSOR_POT;
+        jcPotBefore  = analogRead(actuators[idx]->pinPot);
+        jcSensorType = (SensorType)actuators[idx]->sensorType;  // fixed per-joint, not guessed
         jcReversed   = 0;
+        jcMismatch   = false;
     }
 
     // Advance the cal state machine one tick (called from updateAll while jcActive).
@@ -584,6 +593,11 @@ public:
     void updateJointCal()
     {
         LinearActuator* a = actuators[jcIndex];
+        // Keep the calibrating joint's smoothed sensors live. The normal update() loop is
+        // bypassed during cal, so without this avgPot stays frozen the whole sweep and a pot
+        // joint records min==max (span 0). Hall joints are unaffected (updateSensors skips
+        // the pot read on a Hall joint, and the Hall count comes from the ISR regardless).
+        a->updateSensors();
         switch (jcState)
         {
         case JC_NUDGE_FWD_DRIVE:
@@ -592,7 +606,9 @@ public:
             break;
         case JC_NUDGE_FWD_EVAL:
             if (millis() - jcTimer < JC_SETTLE_MS) break;
-            if (!jcEvalNudge(a, /*forward=*/true)) { jcState = JC_NUDGE_REV_DRIVE; jcTimer = millis(); }
+            if (jcEvalNudge(a, /*forward=*/true)) break;     // expected sensor moved → sweeping
+            if (jcMismatch) { jcAbortCal(a, "sensor_type_mismatch"); break; }  // wrong sensor on this slot
+            jcState = JC_NUDGE_REV_DRIVE; jcTimer = millis();
             break;
         case JC_NUDGE_REV_DRIVE:
             a->manualDrive(-JC_NUDGE_PWM);
@@ -600,10 +616,9 @@ public:
             break;
         case JC_NUDGE_REV_EVAL:
             if (millis() - jcTimer < JC_SETTLE_MS) break;
-            if (!jcEvalNudge(a, /*forward=*/false)) {  // neither direction moved the sensor
-                emitJointErr(jcIndex, "motor_did_not_move");
-                a->manualDrive(0); jcActive = false; jcState = JC_DONE;
-            }
+            if (jcEvalNudge(a, /*forward=*/false)) break;    // expected sensor moved → sweeping
+            if (jcMismatch) { jcAbortCal(a, "sensor_type_mismatch"); break; }
+            jcAbortCal(a, "motor_did_not_move");             // neither sensor moved → dead joint
             break;
         case JC_RETRACT:
             a->manualDrive(-JC_SWEEP_PWM);
@@ -710,38 +725,63 @@ public:
         jcTimer = millis();
     }
 
-    // Did the nudge move the sensor enough to detect type + direction? `forward` =
-    // the nudge was the +extend drive (the sign convention flips for the retract nudge,
-    // Task 2 §3 step 7). Sets sensorType/sensorReversed and begins the sweep on success.
+    // Did the nudge move this joint's EXPECTED sensor enough to confirm it's live and
+    // learn the direction-flip? `forward` = the nudge was the +extend drive (the sign
+    // convention flips for the retract nudge, Task 2 §3 step 7). The sensor TYPE is a
+    // fixed per-joint property (jcSensorType is seeded from the actuator), so the expected
+    // sensor is the one we sweep on. Returns true (and begins the sweep) only when that
+    // sensor moved.
+    //
+    // It ALSO cross-checks for a wrong-sensor slot (e.g. a Hall actuator plugged into the
+    // pot knee — the bench mistake that created "two Halls on a leg"). The HallA signed
+    // count is the unambiguous discriminator: it only accumulates when a Hall encoder is
+    // physically present (a pot actuator leaves HallA unwired → ~0). The pot pin can't
+    // play that role — it's shared with HallB, so a real Hall makes it swing too. So:
+    //   - Hall count moved on a POT-declared joint  → a Hall is wired where a pot belongs.
+    //   - Hall count stayed put on a HALL-declared joint but the pot pin tracked cleanly
+    //     (no Hall present to confound it) → a pot is wired where a Hall belongs.
+    // Either sets jcMismatch; the caller aborts with sensor_type_mismatch.
     bool jcEvalNudge(LinearActuator* a, bool forward)
     {
-        int32_t potDelta  = (int32_t)a->avgPot - jcPotBefore;
-        int32_t hallDelta = a->hallSignedCount() - jcHallBefore;
-        // Check HALL first: on a Hall actuator the shared A1 pin carries HallB (a square
-        // wave that can masquerade as pot movement on avgPot), so the unambiguous signal
-        // is the signed Hall count. On a pot actuator HallA is unwired → the signed count
-        // nets ~0, so this falls through to the pot check.
-        if (JC_HALL_DETECT && labs(hallDelta) > JC_HALL_NUDGE_THRESHOLD) {
-            jcSensorType = SENSOR_HALL;
-            jcReversed   = (forward ? (hallDelta < 0) : (hallDelta > 0)) ? 1 : 0;
-            jcApplyDetectedSensor(a);
-            jcBeginSweep();
-            return true;
-        }
-        if (labs(potDelta) > JC_NUDGE_THRESHOLD) {
-            jcSensorType = SENSOR_POT;
-            jcReversed   = (forward ? (potDelta < 0) : (potDelta > 0)) ? 1 : 0;
-            jcApplyDetectedSensor(a);
-            jcBeginSweep();
-            return true;
+        int32_t hallDelta = a->hallSignedCount() - jcHallBefore;       // read count first,
+        int32_t potDelta  = (int32_t)analogRead(a->pinPot) - jcPotBefore; // then the ADC
+        bool hallMoved = labs(hallDelta) > JC_HALL_NUDGE_THRESHOLD;
+        bool potMoved  = labs(potDelta)  > JC_NUDGE_THRESHOLD;
+
+        if (jcSensorType == SENSOR_HALL) {
+            if (hallMoved) {                          // expected sensor live → sweep
+                jcReversed = (forward ? (hallDelta < 0) : (hallDelta > 0)) ? 1 : 0;
+                jcApplyNudgeResult(a); jcBeginSweep(); return true;
+            }
+            // No Hall pulses AND zero rotation (hallDelta==0) but the pin tracks → a pot is
+            // wired here. The hallDelta==0 guard matters: a real Hall that barely moved
+            // (1-3 counts, e.g. starting near a stop) still flips HallB on the shared pin,
+            // which must NOT be read as a pot — only true zero rotation clears it.
+            if (potMoved && hallDelta == 0) jcMismatch = true;
+        } else {  // SENSOR_POT
+            // A pot joint's HallA pin floats and picks up motor-drive EMI, so use the higher
+            // present-threshold here (not the 4-count motion bar) to avoid false mismatches.
+            if (labs(hallDelta) > JC_HALL_PRESENT_THRESHOLD) { jcMismatch = true; return false; }  // a real Hall is present
+            if (potMoved) {                           // genuine pot motion (no Hall to confound)
+                jcReversed = (forward ? (potDelta < 0) : (potDelta > 0)) ? 1 : 0;
+                jcApplyNudgeResult(a); jcBeginSweep(); return true;
+            }
         }
         return false;
     }
 
-    // Push the detected sensor type/flip onto the actuator *now*, before the sweep, so
-    // getRawPos()/isStalled() read the correct sensor while sweeping (e.g. a Hall joint
-    // must stall-detect on the signed count, not on avgPot — which is HallB noise there).
-    void jcApplyDetectedSensor(LinearActuator* a)
+    // Stop the joint and end the cal run with one ERR. Used for every nudge-stage failure
+    // (motor_did_not_move, sensor_type_mismatch) so they share the same teardown.
+    void jcAbortCal(LinearActuator* a, const char* code)
+    {
+        emitJointErr(jcIndex, code);
+        a->manualDrive(0); jcActive = false; jcState = JC_DONE;
+    }
+
+    // Push the (fixed) sensor type + learned flip onto the actuator *now*, before the
+    // sweep, so getRawPos()/isStalled() read the correct sensor while sweeping (e.g. a
+    // Hall joint must stall-detect on the signed count, not on avgPot = HallB noise).
+    void jcApplyNudgeResult(LinearActuator* a)
     {
         a->sensorType     = jcSensorType;
         a->sensorReversed = jcReversed;
@@ -1037,6 +1077,7 @@ private:
     int32_t       jcHallBefore = 0;
     uint8_t       jcSensorType = SENSOR_POT;
     uint8_t       jcReversed   = 0;
+    bool          jcMismatch   = false;  // nudge saw the wrong sensor for this slot (→ sensor_type_mismatch)
     uint16_t      jcPotMin     = 0;
     uint16_t      jcPotMax     = 1023;
     int32_t       jcHallMin    = 0;

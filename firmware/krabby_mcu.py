@@ -61,6 +61,7 @@ ERROR_CODES = frozenset({
     "not_calibrated",
     "current_sense_no_signal",
     "current_sense_no_spike",
+    "sensor_type_mismatch",  # calibration found a sensor that disagrees with the joint's fixed type
 })
 
 _ERROR_RING_MAX = 128  # most recent ERR events retained for get_errors()

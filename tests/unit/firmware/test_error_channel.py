@@ -57,6 +57,7 @@ class TestErrorVocabulary:
             "motor_did_not_move", "motor_jammed", "pot_value_invalid",
             "hall_no_edges", "hall_drift", "not_calibrated",
             "current_sense_no_signal", "current_sense_no_spike",
+            "sensor_type_mismatch",
         ):
             assert code in ERROR_CODES
 

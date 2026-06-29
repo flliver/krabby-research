@@ -448,7 +448,9 @@ def _format_cal(name: str, cal: Optional[dict]) -> str:
         return f"{name}: no calibration read-back (no response)"
     span = ""
     try:
-        span = f"  span={int(cal['max']) - int(cal['min'])}"
+        # absolute travel: a reversed sensor (e.g. a pot that reads high→low as it extends)
+        # stores max < min, so the raw difference goes negative — the magnitude is the span.
+        span = f"  span={abs(int(cal['max']) - int(cal['min']))}"
     except (KeyError, ValueError):
         pass
     trusted = cal.get("cal") == "1"

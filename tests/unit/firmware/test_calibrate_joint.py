@@ -140,6 +140,93 @@ def ino() -> str:
     return (ARDUINO / "arduino.ino").read_text()
 
 
+class TestSensorTypeMapping:
+    """The fixed per-joint sensor map in the actuator table: every KL (knee) is a
+    potentiometer, every HL (hip-lift) and HY (hip-yaw) a Hall. One leg therefore has
+    exactly one pot and two Halls; two pots or two Halls on HL+KL is a wiring error,
+    never something calibration should discover."""
+
+    def _typed_decls(self, ino):
+        return re.findall(
+            r'LinearActuator\s+\w+\("(\w+)"[^;]*?,\s*(SENSOR_HALL|SENSOR_POT)\)', ino)
+
+    def test_every_joint_has_an_explicit_type(self, ino):
+        decls = self._typed_decls(ino)
+        assert len(decls) == 18, f"expected 18 explicitly-typed actuators, found {len(decls)}"
+
+    def test_knees_are_pot_hips_are_hall(self, ino):
+        for name, stype in self._typed_decls(ino):
+            expected = "SENSOR_POT" if name.endswith("KL") else "SENSOR_HALL"
+            assert stype == expected, f"{name} should be {expected}, declared {stype}"
+
+    def test_each_leg_has_one_pot_two_halls(self, ino):
+        types = dict(self._typed_decls(ino))
+        # group by leg prefix (first 2 chars, e.g. FL, FR, RL, ...)
+        legs = {}
+        for name, stype in types.items():
+            legs.setdefault(name[:2], []).append(stype)
+        for leg, stypes in legs.items():
+            assert stypes.count("SENSOR_POT") == 1, f"{leg} must have exactly one pot (the knee)"
+            assert stypes.count("SENSOR_HALL") == 2, f"{leg} must have exactly two Halls (hip-yaw, hip-lift)"
+
+
+class TestSensorTypeMismatchDetection:
+    """Calibration must flag a slot whose physical sensor disagrees with its fixed type
+    (e.g. a Hall actuator in the pot knee slot — how "two Halls on a leg" happens). The
+    HallA signed count is the discriminator: it only moves when a Hall is present."""
+
+    def test_mismatch_code_emitted(self, actuator):
+        assert "sensor_type_mismatch" in actuator, \
+            "the cal nudge must emit sensor_type_mismatch on a wrong-sensor slot"
+
+    def test_nudge_cross_checks_both_sensors(self, actuator):
+        body = actuator[actuator.index("bool jcEvalNudge"):actuator.index("void jcAbortCal")]
+        # reads BOTH the Hall count and the pot pin, and uses the Hall count as the tell
+        assert "hallSignedCount()" in body and "analogRead(a->pinPot)" in body
+        assert "jcMismatch = true" in body, "a wrong sensor must raise jcMismatch"
+
+    def test_pot_joint_flags_unexpected_hall(self, actuator):
+        # In the SENSOR_POT branch, Hall movement (a Hall actuator present) → mismatch, but
+        # gated on the higher present-threshold so a floating HallA pin's EMI doesn't false-trip.
+        body = actuator[actuator.index("bool jcEvalNudge"):actuator.index("void jcAbortCal")]
+        pot_branch = body[body.index("else {"):]  # the SENSOR_POT arm
+        assert "JC_HALL_PRESENT_THRESHOLD" in pot_branch and "jcMismatch = true" in pot_branch
+
+    def test_present_threshold_above_motion_threshold(self, actuator):
+        # The "Hall present on a pot joint" bar must be well above the wired-Hall motion bar,
+        # else floating-pin EMI false-trips sensor_type_mismatch on a real pot.
+        present = int(re.search(r"JC_HALL_PRESENT_THRESHOLD\s*=\s*(\d+)", actuator).group(1))
+        motion = int(re.search(r"JC_HALL_NUDGE_THRESHOLD\s*=\s*(\d+)", actuator).group(1))
+        assert present > motion, "present-threshold must clear the EMI floor above the motion bar"
+
+    def test_baseline_reads_pot_directly(self, actuator):
+        # jcPotBefore must be a fresh analogRead (Hall joints skip avgPot in normal op),
+        # else the cross-check has no valid pot baseline.
+        start = actuator.index("void calibrateJoint(uint8_t idx")
+        body = actuator[start:start + 700]
+        assert re.search(r"jcPotBefore\s*=\s*analogRead", body), \
+            "cal must baseline the pot pin with a direct read for the cross-check"
+
+    def test_both_nudge_evals_abort_on_mismatch(self, actuator):
+        # the nudge evals live between updateJointCal and the first sweep case (JC_RETRACT)
+        start = actuator.index("void updateJointCal")
+        body = actuator[start:actuator.index("case JC_RETRACT:", start)]
+        # both the forward and reverse nudge evals route a mismatch to the abort
+        assert body.count('jcAbortCal(a, "sensor_type_mismatch")') >= 2
+
+
+class TestPotSweepLiveSensors:
+    """The pot sweep reads avgPot, which the normal update() loop maintains — but that loop
+    is bypassed during cal. updateJointCal must refresh sensors itself or the pot stays
+    frozen and the sweep records min==max (span 0)."""
+
+    def test_cal_refreshes_sensors(self, actuator):
+        body = actuator[actuator.index("void updateJointCal"):
+                        actuator.index("void updateJointCal") + 600]
+        assert "updateSensors()" in body, \
+            "updateJointCal must refresh the joint's sensors (else avgPot is frozen all sweep)"
+
+
 class TestCalibrateMachineFirmware:
     def test_entry_points_exist(self, actuator):
         assert re.search(r"void\s+calibrateJoint\s*\(", actuator)
@@ -227,6 +314,12 @@ class TestFormatCal:
         s = cli_mod._format_cal("FLHL", {"type": "POT", "rev": "0", "min": "120", "max": "905", "cal": "1"})
         assert "span=785" in s and "NOT TRUSTED" not in s
 
+    def test_reversed_pot_shows_absolute_span(self):
+        # A reversed pot reads high→low as it extends, so max < min and the raw diff is
+        # negative; span must display the magnitude, not "-822".
+        s = cli_mod._format_cal("FLKL", {"type": "POT", "rev": "1", "min": "971", "max": "149", "cal": "1"})
+        assert "span=822" in s and "span=-822" not in s
+
     def test_untrusted_is_flagged(self):
         s = cli_mod._format_cal("FLHL", {"type": "POT", "rev": "0", "min": "500", "max": "505", "cal": "0"})
         assert "NOT TRUSTED" in s
@@ -282,14 +375,27 @@ class TestRangeCheckFirmware:
         assert "queryCalByName" in actuator and "printJointCal" in actuator
         assert re.search(r"cmdType\s*==\s*'Q'", ino), "loop() must dispatch the Q (read cal) command"
 
-    def test_hall_detect_enabled_and_checked_first(self, actuator):
-        assert re.search(r"JC_HALL_DETECT\s*=\s*true", actuator), \
-            "Hall auto-detect must be on now that quadrature is real"
-        # In jcEvalNudge, the HALL branch must come before the POT branch (shared A1 pin).
+    def test_cal_verifies_fixed_sensor_type_not_autodetect(self, actuator):
+        # Sensor type is a FIXED per-joint property. Calibration seeds jcSensorType from the
+        # actuator and the nudge only VERIFIES the expected sensor moved — it never guesses
+        # POT vs HALL. (Guessing on a bench with two Hall actuators is what mis-typed the
+        # knee as Hall and produced the "two Halls on a leg" calibration.)
+        assert "JC_HALL_DETECT" not in actuator, "runtime sensor-type auto-detect must be removed"
+        assert re.search(r"jcSensorType\s*=\s*\(SensorType\)\s*actuators\[idx\]->sensorType", actuator), \
+            "calibrateJoint must seed jcSensorType from the joint's fixed type, not default to POT"
+        # jcEvalNudge reads only the joint's expected sensor (branch on jcSensorType).
         start = actuator.index("bool jcEvalNudge")
-        body = actuator[start:actuator.index("void jcApplyDetectedSensor", start)]
-        assert body.index("SENSOR_HALL") < body.index("SENSOR_POT"), \
-            "nudge must check the signed Hall count before the pot (avgPot carries HallB)"
+        body = actuator[start:actuator.index("void jcApplyNudgeResult", start)]
+        assert "jcSensorType == SENSOR_HALL" in body, \
+            "nudge must read the joint's fixed sensor, not probe Hall-then-pot"
+
+    def test_applyjointcal_rejects_mismatched_sensor_type(self, actuator):
+        # A stored cal whose sensorType disagrees with the compiled-in type is stale
+        # (e.g. an old two-Hall cal on a knee) and must be rejected, not trusted.
+        body = actuator[actuator.index("void applyJointCal"):
+                        actuator.index("void applyJointCal") + 900]
+        assert "jc.sensorType != sensorType" in body, \
+            "applyJointCal must reject a cal recorded against a different sensor type"
 
 
 class TestHallDriftCheck:
