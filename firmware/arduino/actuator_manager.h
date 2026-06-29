@@ -538,6 +538,27 @@ public:
             if (String(actuators[i]->name) == name) { printJointCal((uint8_t)i, out); return; }
     }
 
+    // GET calibration (Task 4 §4): one positional line per joint for the whole board,
+    //   CAL <joint> <POT|HALL> <min> <max> <reversed>
+    // the raw JointCal tuple from EEPROM. Leaner than the labelled per-joint Q reply
+    // (printJointCal) — this is the operator-facing after-the-fact inspection dump.
+    void printAllCal(Print& out)
+    {
+        JointCalBlock blk;
+        jointCalLoad(blk);  // invalid → zeroed
+        for (size_t i = 0; i < count; i++)
+        {
+            const JointCal& jc = blk.joints[i];
+            out.print("CAL ");
+            out.print(actuators[i]->name);
+            out.print(jc.sensorType == SENSOR_HALL ? " HALL " : " POT ");
+            if (jc.sensorType == SENSOR_HALL) { out.print(jc.hallMin); out.print(' '); out.print(jc.hallMax); }
+            else                              { out.print(jc.potMin);  out.print(' '); out.print(jc.potMax); }
+            out.print(' ');
+            out.println(jc.sensorReversed);
+        }
+    }
+
     void printJointCal(uint8_t idx, Print& out)
     {
         JointCalBlock blk;
@@ -827,14 +848,18 @@ public:
     // sequencing one board at a time so multiple boards don't stall the shared 24V rail
     // at once — layers on top of this and is chassis-gated.
     // ========================================================================
-    enum CalStepOp : uint8_t { CA_CAL, CA_MOVE };
+    // CA_MOVE = moveJointTo (one joint → posPct). CA_NEUTRAL = all calibrated joints →
+    // posPct at once (the Task-4 §4b neutral pose). CA_RECORD_UNLOADED / CA_EVAL = the
+    // Task-4 current-sense lift markers (jointIdx carries the leg index): record this leg's
+    // unloaded avgIS, then load + evaluate vs the unloaded baseline.
+    enum CalStepOp : uint8_t { CA_CAL, CA_MOVE, CA_NEUTRAL, CA_RECORD_UNLOADED, CA_EVAL };
     struct CalStep {
         uint8_t op;        // CalStepOp
-        uint8_t jointIdx;  // 0..count-1
+        uint8_t jointIdx;  // 0..count-1 (CA_CAL/CA_MOVE) or leg index (CA_RECORD/CA_EVAL)
         uint8_t dir;       // CalDirection (CA_CAL only)
-        uint8_t posPct;    // normalized target * 100 (CA_MOVE only), 0..100
+        uint8_t posPct;    // normalized target * 100 (CA_MOVE/CA_NEUTRAL), 0..100
     };
-    static constexpr uint8_t       CA_MAX_STEPS      = 48;    // one board's 2 legs fit easily
+    static constexpr uint8_t       CA_MAX_STEPS      = 64;    // 2 legs of cal + neutral + lifts
     static constexpr unsigned long CA_MOVE_SETTLE_MS = 250;   // hold within tol this long = settled
     static constexpr unsigned long CA_MOVE_TIMEOUT_MS= 6000;  // give up a move after this, then advance
     static constexpr float         CA_MOVE_TOL       = 0.03f;
@@ -851,8 +876,9 @@ public:
 
     // Standard per-leg cal sequence (§3) for each of this board's legs (3 joints/leg:
     // slot+0 = hip-yaw, +1 = hip-lift, +2 = knee). includeYaw=false skips the yaw steps
-    // (bench-without-yaw fallback, spec §8).
-    void buildLocalSequence(bool includeYaw)
+    // (bench-without-yaw fallback, spec §8). validate appends the Task-4 neutral pose +
+    // current-sense lifts.
+    void buildLocalSequence(bool includeYaw, bool validate)
     {
         caStepCount = 0;
         uint8_t nLegs = (uint8_t)(count / 3);
@@ -871,14 +897,58 @@ public:
             caAdd(CA_MOVE, hl, CAL_DIR_NONE,   50);   // return leg to neutral mid-travel
             caAdd(CA_MOVE, kl, CAL_DIR_NONE,   50);
         }
+        if (validate) appendNeutralAndValidation();
     }
 
-    // Entry point (wire `CALL`): run the local board's cal sequence. includeYaw per §8.
-    void calibrateAll(bool includeYaw = true)
+    // Task 4 §3: neutral pose (every calibrated joint → 0.5) then the per-leg body-lift
+    // current-sense check. Shared by calibrate-all (validate) and validate-current-sense.
+    void appendNeutralAndValidation()
+    {
+        uint8_t nLegs = (uint8_t)(count / 3);
+        caAdd(CA_NEUTRAL, 0, CAL_DIR_NONE, 50);       // 4b: all FULL joints → 0.5, settle
+        for (uint8_t leg = 0; leg < nLegs; leg++)
+        {
+            uint8_t hl = leg * 3 + 1, kl = leg * 3 + 2;
+            caAdd(CA_MOVE,            hl,  CAL_DIR_NONE, 90);  // lift hip (unload the leg)
+            caAdd(CA_RECORD_UNLOADED, leg, CAL_DIR_NONE, 0);  // record unloaded avgIS
+            caAdd(CA_MOVE,            kl,  CAL_DIR_NONE, 100); // extend knee (load body half)
+            caAdd(CA_EVAL,            leg, CAL_DIR_NONE, 0);   // record loaded + evaluate
+            caAdd(CA_MOVE,            hl,  CAL_DIR_NONE, 50);  // lower back to neutral
+            caAdd(CA_MOVE,            kl,  CAL_DIR_NONE, 50);
+        }
+    }
+
+    // Per-joint current-sense evaluation (Task 4 §3 / 4d). Thresholds are inline literals
+    // to tune on the real robot, not named constants.
+    void evalCurrentSense(uint8_t idx, float unloaded, float loaded)
+    {
+        int32_t delta = (int32_t)loaded - (int32_t)unloaded;
+        if (delta < 20)          emitJointErr(idx, "current_sense_no_signal");
+        else if (loaded < 100)   emitJointErr(idx, "current_sense_no_spike");
+        else if (loaded > 800)   emitJointErr(idx, "current_sense_no_spike");
+    }
+
+    // Entry point (wire `CALL [noyaw] [skipval]`): run the local board's cal sequence,
+    // then (unless skipval) the neutral pose + current-sense validation. includeYaw per §8.
+    void calibrateAll(bool includeYaw = true, bool validate = true)
     {
         if (jcActive) return;            // don't stomp a single-joint cal in progress
         holdAll();
-        buildLocalSequence(includeYaw);
+        buildLocalSequence(includeYaw, validate);
+        caStepIdx = 0;
+        caStepStarted = false;
+        caFailed = false;
+        caActive = (caStepCount > 0);
+    }
+
+    // Entry point (wire `VCS`): run the neutral pose + current-sense validation standalone,
+    // assuming per-joint cal already ran (Task 4 §6 `validate-current-sense`).
+    void validateCurrentSense()
+    {
+        if (jcActive) return;
+        holdAll();
+        caStepCount = 0;
+        appendNeutralAndValidation();
         caStepIdx = 0;
         caStepStarted = false;
         caFailed = false;
@@ -910,23 +980,54 @@ public:
             return;
         }
 
-        // CA_MOVE — the moveJointTo pose primitive: drive the PID to the normalized target,
-        // then advance on settle (held within tol for CA_MOVE_SETTLE_MS) or on timeout.
+        if (s.op == CA_RECORD_UNLOADED) {   // Task 4: snapshot this leg's unloaded current
+            uint8_t leg = s.jointIdx;
+            cvUnloadedHL = actuators[leg * 3 + 1]->avgIS;
+            cvUnloadedKL = actuators[leg * 3 + 2]->avgIS;
+            caAdvance();
+            return;
+        }
+        if (s.op == CA_EVAL) {              // Task 4: loaded current vs the unloaded baseline
+            uint8_t leg = s.jointIdx;
+            evalCurrentSense(leg * 3 + 1, cvUnloadedHL, actuators[leg * 3 + 1]->avgIS);
+            evalCurrentSense(leg * 3 + 2, cvUnloadedKL, actuators[leg * 3 + 2]->avgIS);
+            caAdvance();
+            return;
+        }
+
+        // CA_MOVE (one joint) / CA_NEUTRAL (every FULL joint) — drive the PID to the
+        // normalized target, advance on settle (within tol for CA_MOVE_SETTLE_MS) or timeout.
+        bool neutral = (s.op == CA_NEUTRAL);
         if (!caStepStarted) {
-            actuators[s.jointIdx]->setTarget(s.posPct / 100.0f);
+            if (neutral) {
+                for (size_t i = 0; i < count; i++)
+                    if (actuators[i]->calibrationState == CAL_STATE_FULL)
+                        actuators[i]->setTarget(s.posPct / 100.0f);
+            } else {
+                actuators[s.jointIdx]->setTarget(s.posPct / 100.0f);
+            }
             caStepStarted = true;
             caTimer = millis();
             caSettleStart = 0;
         }
-        for (size_t i = 0; i < count; i++) actuators[i]->update();  // only the target joint drives
-        if (actuators[s.jointIdx]->atTarget(CA_MOVE_TOL)) {
+        for (size_t i = 0; i < count; i++) actuators[i]->update();  // only targeted joints drive
+        bool atTgt;
+        if (neutral) {
+            atTgt = true;
+            for (size_t i = 0; i < count; i++)
+                if (actuators[i]->calibrationState == CAL_STATE_FULL && !actuators[i]->atTarget(CA_MOVE_TOL))
+                    atTgt = false;
+        } else {
+            atTgt = actuators[s.jointIdx]->atTarget(CA_MOVE_TOL);
+        }
+        if (atTgt) {
             if (caSettleStart == 0) caSettleStart = millis();
         } else {
             caSettleStart = 0;
         }
         bool settled = caSettleStart != 0 && (millis() - caSettleStart >= CA_MOVE_SETTLE_MS);
         if (settled || millis() - caTimer >= CA_MOVE_TIMEOUT_MS) {
-            actuators[s.jointIdx]->stopMotor();
+            if (!neutral) actuators[s.jointIdx]->stopMotor();
             caAdvance();
         }
     }
@@ -1241,4 +1342,6 @@ private:
     bool          caFailed     = false;
     unsigned long caTimer      = 0;  // CA_MOVE start time (timeout)
     unsigned long caSettleStart= 0;  // when the move first reached tol (settle dwell)
+    float         cvUnloadedHL = 0;  // Task 4 current-sense: this leg's unloaded avgIS (hip)
+    float         cvUnloadedKL = 0;  // ... and knee, recorded before the body lift
 };

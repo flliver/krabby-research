@@ -455,6 +455,11 @@ def cmd_set(port: Optional[str], board: Optional[str], assignments: list[str]) -
 
 
 def cmd_get(port: Optional[str], board: Optional[str], keys: list[str]) -> None:
+    # `get calibration` is the whole-board cal dump (Task 4 §4), a different reply shape
+    # (one CAL line per joint) than the single-line role/serial/version GETs.
+    if keys == ["calibration"]:
+        _cmd_get_calibration_board(port, board)
+        return
     try:
         build_get_line(board, keys)
     except ValueError as exc:
@@ -472,51 +477,110 @@ def cmd_get(port: Optional[str], board: Optional[str], keys: list[str]) -> None:
     print("  ".join(f"{k}={result.get(k, '?')}" for k in keys))
 
 
-def cmd_calibrate_all(port: Optional[str], no_yaw: bool = False, timeout: float = 240.0) -> None:
-    """Run the whole-board calibration sequence (M17 Task 3). Streams any ERR lines as the
-    firmware emits them (the sequence halts + parks on the first failure), detects
-    completion when the joints go idle after running, then prints the resulting cal grid."""
+def _cmd_get_calibration_board(port: Optional[str], board: Optional[str]) -> None:
+    """Pretty-print one board's stored calibration (every joint), via `GET calibration`."""
+    sdk = _open_config_sdk(port)
+    try:
+        cals = sdk.get_all_calibration(board=board, timeout=2.5)
+    finally:
+        sdk.close()
+    label = board or "front"
+    if not cals:
+        sys.exit(f"get calibration ({label}): no response from board")
+    print(f"Calibration ({label}):")
+    for joint in sorted(cals):
+        c = cals[joint]
+        span = abs(int(c["max"]) - int(c["min"]))
+        print(f"  {joint}  {c['type']:<4} min={c['min']:>6} max={c['max']:>6} "
+              f"span={span:<5} reversed={c['reversed']}")
+
+
+def _watch_until_idle(sdk, label: str, timeout: float) -> list:
+    """Stream ERR lines as the firmware emits them and return once the joints go idle after
+    running (no completion line on the wire, spec §3h). Returns the ErrorEvents collected."""
+    seen: set = set()
+    errs: list = []
+    deadline = time.time() + timeout
+    started, idle_since = False, None
+    while time.time() < deadline:
+        for e in sdk.get_errors():
+            key = (e.token, e.code)
+            if key not in seen:
+                seen.add(key)
+                errs.append(e)
+                print(f"  ERR {e.token} {e.code}")
+        active = any(jt is not None and jt.pwm != (0, 0) for jt in sdk.joints.values())
+        if active:
+            started, idle_since = True, None
+        elif started:
+            idle_since = idle_since or time.time()
+            if time.time() - idle_since > 4.0:
+                break
+        time.sleep(0.3)
+    return errs
+
+
+def _read_cal_grid(sdk) -> dict:
+    cals: dict = {}
+    for j in sorted(ALL_JOINT_NAMES):
+        if j[3] == "Y":
+            continue
+        c = sdk.get_calibration(j, timeout=0.8)
+        if c is not None and "cal" in c:
+            cals[j] = c["cal"] == "1"
+    return cals
+
+
+def _print_failures(sdk, errs: list) -> None:
+    for instruction in sdk.explain_failures(errs):
+        print(f"  → {instruction}")
+
+
+def cmd_calibrate_all(port: Optional[str], no_yaw: bool = False,
+                      skip_validation: bool = False, timeout: float = 300.0) -> None:
+    """Run the whole-board calibration sequence + (unless --skip-validation) the Task-4
+    neutral pose and current-sense lift validation. Streams ERR lines, then prints the cal
+    grid and operator-facing fix instructions for any failures."""
     sdk = KrabbyMCUSDK(port=port)
     if not sdk.connect(settle=5.0, hold=True):
         sys.exit(f"could not open serial port {sdk.port}")
-    seen: set = set()
     try:
         sdk.clear_errors()
-        sdk.calibrate_all(include_yaw=not no_yaw)
-        print(f"calibrate-all: running whole-board sequence{' (no yaw)' if no_yaw else ''} "
+        sdk.calibrate_all(include_yaw=not no_yaw, validate=not skip_validation)
+        extras = (" (no yaw)" if no_yaw else "") + (" (skip validation)" if skip_validation else "")
+        print(f"calibrate-all: running whole-board sequence{extras} "
               f"— watching for errors (up to ~{timeout:.0f}s)…")
-        deadline = time.time() + timeout
-        started, idle_since = False, None
-        while time.time() < deadline:
-            for e in sdk.get_errors():
-                key = (e.token, e.code)
-                if key not in seen:
-                    seen.add(key)
-                    print(f"  ERR {e.token} {e.code}")
-            # No completion line on the wire (spec §3h) — infer "done" from motion: once the
-            # sequence has driven a joint and then everything sits idle, it has finished/halted.
-            active = any(jt is not None and jt.pwm != (0, 0) for jt in sdk.joints.values())
-            if active:
-                started, idle_since = True, None
-            elif started:
-                idle_since = idle_since or time.time()
-                if time.time() - idle_since > 4.0:
-                    break
-            time.sleep(0.3)
-
-        cals: dict = {}
-        for j in sorted(ALL_JOINT_NAMES):
-            if j[3] == "Y":
-                continue
-            c = sdk.get_calibration(j, timeout=0.8)
-            if c is not None and "cal" in c:
-                cals[j] = c["cal"] == "1"
+        errs = _watch_until_idle(sdk, "calibrate-all", timeout)
+        cals = _read_cal_grid(sdk)
     finally:
         sdk.close()
 
     _print_cal_status(cals)
-    if seen:
-        print("calibrate-all: errors above — sequence halted and motors parked.")
+    if errs:
+        print("calibrate-all: failures reported —")
+        _print_failures(sdk, errs)
+
+
+def cmd_validate_current_sense(port: Optional[str], timeout: float = 120.0) -> None:
+    """Run the current-sense validation standalone (Task 4 §6): neutral pose, then per-leg
+    body lift. Assumes per-joint cal already ran. Chassis-required — on a bench the lifts
+    can't bear weight, so expect current_sense_no_signal/no_spike."""
+    sdk = KrabbyMCUSDK(port=port)
+    if not sdk.connect(settle=5.0, hold=True):
+        sys.exit(f"could not open serial port {sdk.port}")
+    try:
+        sdk.clear_errors()
+        sdk.validate_current_sense()
+        print(f"validate-current-sense: lifting each leg — watching for errors (up to ~{timeout:.0f}s)…")
+        errs = _watch_until_idle(sdk, "validate-current-sense", timeout)
+    finally:
+        sdk.close()
+
+    if errs:
+        print("validate-current-sense: failures reported —")
+        _print_failures(sdk, errs)
+    else:
+        print("validate-current-sense: all legs produced a current spike.")
 
 
 def cmd_calibrate_joint(port: Optional[str], name: str, direction: Optional[str] = None) -> None:

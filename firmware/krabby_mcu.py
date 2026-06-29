@@ -50,8 +50,9 @@ def parse_ver_reply(line: str) -> Optional[list[tuple[str, str, str]]]:
 # it — the wire has no error-reply contract to validate against.
 ErrorEvent = namedtuple("ErrorEvent", ["token", "code", "ts"])
 
-# Canonical vocabulary from Task 1 §5, for reference and operator-facing display.
-# Not enforced on parse (new codes land as their emitting task ships).
+# Canonical calibration reason-code vocabulary (Task 1 §5 / Task 4 §4a, single source of
+# truth shared by Tasks 2/3/4). Codes are bare strings on the wire; this set is for
+# reference/operator display and is not enforced on parse (new codes land as tasks ship).
 ERROR_CODES = frozenset({
     "motor_did_not_move",
     "motor_jammed",
@@ -59,10 +60,26 @@ ERROR_CODES = frozenset({
     "hall_no_edges",
     "hall_drift",
     "not_calibrated",
+    "not_in_starting_pose",
     "current_sense_no_signal",
     "current_sense_no_spike",
     "sensor_type_mismatch",  # calibration found a sensor that disagrees with the joint's fixed type
 })
+
+# Reason-code → operator-facing fix instruction (Task 4 §5 / 4f). `{joint}` is filled per
+# event. Kept in lockstep with ERROR_CODES: every code a task emits has an entry here.
+_FIX_INSTRUCTIONS = {
+    "motor_did_not_move":      "Check motor power wiring on {joint} (H-bridge output + power harness).",
+    "motor_jammed":            "Motor on {joint} is drawing current but not moving — mechanical jam, bind, or obstruction. Investigate before re-driving.",
+    "pot_value_invalid":       "Check potentiometer wiring on {joint} (3-wire harness: VCC, signal, GND).",
+    "hall_no_edges":           "Check Hall encoder wiring on {joint} (A/B channels and power).",
+    "hall_drift":              "Hall count drifts between repeat sweeps on {joint}. Check signal integrity (cable shielding, ground loops) and the encoder coupling to the motor shaft.",
+    "not_calibrated":          "{joint} is PARTIALLY_CALIBRATED — a position target was rejected. Jog the joint to either end-stop or run `calibrate-joint {joint}`.",
+    "not_in_starting_pose":    "Robot is not in the auto-squat starting pose. Re-run calibration from any state — the cal routine drives there automatically.",
+    "sensor_type_mismatch":    "Sensor on {joint} disagrees with its expected type (e.g. a Hall actuator in a pot slot, or vice versa). Check that the correct motor is wired to this slot.",
+    "current_sense_no_signal": "Check current-sense wiring on {joint} (shunt + analog IS line back to the shield).",
+    "current_sense_no_spike":  "Current sense on {joint} reads but does not spike under load. Verify the motor is actually bearing weight; if so, check that the shunt resistor isn't damaged.",
+}
 
 _ERROR_RING_MAX = 128  # most recent ERR events retained for get_errors()
 
@@ -167,6 +184,17 @@ def parse_cal_reply(line: str):
     return name, {kv[i]: kv[i + 1] for i in range(0, len(kv) - 1, 2)}
 
 
+def parse_cal_line(line: str):
+    """Parse a whole-board GET-calibration line (Task 4 §4):
+    'CAL <joint> <POT|HALL> <min> <max> <reversed>' -> (joint, {type, min, max, reversed}).
+    Returns None if not that positional shape — notably the richer, field-labelled per-joint
+    Q reply (parse_cal_reply), whose third token is the literal 'type'."""
+    parts = line.split()
+    if len(parts) != 6 or parts[0] != "CAL" or parts[2] not in ("POT", "HALL"):
+        return None
+    return parts[1], {"type": parts[2], "min": parts[3], "max": parts[4], "reversed": parts[5]}
+
+
 def _raw_rx_to_stderr() -> bool:
     """When True, every non-empty decoded line is printed to stderr (see __main__.py --debug)."""
     v = os.environ.get("KRABBY_MCU_RAW_RX", "").strip().lower()
@@ -210,6 +238,7 @@ class KrabbyMCUSDK:
         self._last_ver_line: Optional[str] = None
         self._last_get_line: Optional[str] = None
         self._last_cal_line: Optional[str] = None
+        self._board_cals: Dict[str, dict] = {}   # whole-board GET-calibration accumulator
 
         # ERR telemetry channel: a bounded ring of recent events plus an optional
         # callback invoked as each line arrives (see on_error / get_errors).
@@ -293,7 +322,11 @@ class KrabbyMCUSDK:
                 elif line.startswith("GET"):
                     self._last_get_line = line
                 elif line.startswith("CAL "):
-                    self._last_cal_line = line
+                    board_line = parse_cal_line(line)
+                    if board_line:                       # whole-board GET-calibration line
+                        self._board_cals[board_line[0]] = board_line[1]
+                    else:                                # richer per-joint Q reply
+                        self._last_cal_line = line
                 elif line.startswith("ERR "):
                     self._record_error(line)
                 elif "Krabby" in line or "CAL" in line or "Saved" in line:
@@ -370,6 +403,22 @@ class KrabbyMCUSDK:
         """Drop all retained ERR events."""
         self._errors.clear()
 
+    @staticmethod
+    def explain_failures(errors) -> list:
+        """Turn calibration/validation failures into operator-facing fix instructions
+        (Task 4 §5 / 4f). `errors` is an iterable of either ``ErrorEvent`` (as returned by
+        ``get_errors()``) or bare ``(joint, code)`` tuples. Unknown codes get a generic
+        line so a new firmware code never silently drops out of the operator's view."""
+        out = []
+        for e in errors:
+            joint = getattr(e, "token", None)
+            code = getattr(e, "code", None)
+            if joint is None:            # not an ErrorEvent — treat as (joint, code)
+                joint, code = e
+            tpl = _FIX_INSTRUCTIONS.get(code, f"Unknown failure on {{joint}}: {code}")
+            out.append(tpl.format(joint=joint))
+        return out
+
     def send_command_joints(self, cmds_by_joint: Dict[str, float]):
         """
         Send commands keyed by joint name.
@@ -444,24 +493,40 @@ class KrabbyMCUSDK:
         self.ser.flush()
         logger.info("CMD -> K %s %s(calibrate joint)", name, f"{direction} " if direction else "")
 
-    def calibrate_all(self, include_yaw: bool = True):
-        """Trigger the whole-board calibration sequence (wire command ``CALL [noyaw]``,
-        M17 Task 3). The firmware runs the standard per-leg cal sequence for its own legs,
-        composed of Task-2 directional ``calibrateJoint`` calls plus closed-loop pose moves.
+    def calibrate_all(self, include_yaw: bool = True, validate: bool = True):
+        """Trigger the whole-board calibration sequence (wire ``CALL [noyaw] [skipval]``,
+        M17 Task 3 + Task 4). The firmware runs the standard per-leg cal sequence for its
+        own legs (Task-2 directional ``calibrateJoint`` + closed-loop pose moves), then —
+        unless ``validate=False`` — the neutral pose (every joint → 0.5) and the per-leg
+        current-sense lift validation (Task 4).
 
-        Fire-and-forget like ``calibrate_joint``: no completion reply. Watch the telemetry
-        stream and any ``ERR <joint> <code>`` lines (the sequence halts + holds all motors
-        on the first failure, Task 3 §3f), then read results back via ``get_calibration``.
+        Fire-and-forget like ``calibrate_joint``: no completion reply. Watch telemetry and
+        any ``ERR <joint> <code>`` lines (the cal sequence halts + holds all motors on the
+        first cal failure, Task 3 §3f; validation emits a line per failing joint), then read
+        results back via ``get_calibration``.
 
-        ``include_yaw=False`` sends ``CALL noyaw`` to skip the hip-yaw steps — the bench
-        fallback (spec §8) for a rig whose yaw motors aren't wired.
+        ``include_yaw=False`` (``CALL noyaw``) skips the hip-yaw steps — the bench fallback
+        (spec §8) for a rig without yaw motors. ``validate=False`` (``CALL skipval``) stops
+        after the neutral pose, skipping the chassis-required lifts (Task 4 §7).
         """
         if not self.ser or not self.ser.is_open:
             return
-        wire = "CALL\n" if include_yaw else "CALL noyaw\n"
+        args = ("" if include_yaw else " noyaw") + ("" if validate else " skipval")
+        wire = f"CALL{args}\n"
         self.ser.write(wire.encode('utf-8'))
         self.ser.flush()
         logger.info("CMD -> %s (calibrate all)", wire.strip())
+
+    def validate_current_sense(self):
+        """Run the current-sense validation standalone (wire ``CALL valonly``, Task 4 §6),
+        assuming per-joint cal already ran. Drives every joint to the neutral pose, then
+        lifts each leg in turn and emits ``ERR <joint> current_sense_no_signal/no_spike``
+        for any actuator whose current doesn't read sanely under load. Chassis-required."""
+        if not self.ser or not self.ser.is_open:
+            return
+        self.ser.write(b"CALL valonly\n")
+        self.ser.flush()
+        logger.info("CMD -> CALL valonly (validate current sense)")
 
     @staticmethod
     def _validate_cal_direction(name: str, direction: Optional[str]) -> Optional[str]:
@@ -506,6 +571,27 @@ class KrabbyMCUSDK:
                 self._last_cal_line = None  # a CAL for another joint; keep waiting
             time.sleep(0.02)
         return None
+
+    def get_all_calibration(self, board: Optional[str] = None,
+                            timeout: float = 2.0, expect: int = 6) -> Dict[str, dict]:
+        """Whole-board calibration dump (wire ``GET[_LEFT|_RIGHT] calibration``, Task 4 §4).
+
+        Returns ``{joint: {type, min, max, reversed}}`` for the addressed board's joints
+        (``board`` = None/"front"/"left"/"right"). The firmware streams one positional
+        ``CAL <joint> <type> <min> <max> <reversed>`` line per joint; the reader collects
+        them by joint name (followers' lines relay up and self-attribute by name). Leaner
+        than ``get_calibration`` per joint — the operator-facing after-the-fact dump.
+        """
+        if not self.ser or not self.ser.is_open:
+            return {}
+        self._board_cals = {}
+        prefix = "GET" if board in (None, "front") else f"GET_{board.upper()}"
+        self.ser.write(f"{prefix} calibration\n".encode('utf-8'))
+        self.ser.flush()
+        deadline = time.time() + timeout
+        while time.time() < deadline and len(self._board_cals) < expect:
+            time.sleep(0.05)
+        return dict(self._board_cals)
 
     def read_version(self, timeout: float = 1.0) -> Optional[str]:
         if not self.ser or not self.ser.is_open:

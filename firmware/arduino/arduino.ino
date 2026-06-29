@@ -248,6 +248,14 @@ void handleConfig(const String &cmd, const String &payload, HardwareSerial &out)
         HardwareSerial *follower = isLeft ? leftSerial : rightSerial;
         if (!follower) return;  // not the primary (no follower serial): silently dropped
         bool isGet = cmd.startsWith("GET");
+        // Whole-board cal dump (Task 4 §4): forward and let the follower's 6 CAL lines
+        // relay up via forwardFullLines — the host attributes them by joint name. No
+        // synchronous single-line read (that path expects one "GET …" reply, not 6 CAL).
+        if (isGet && payload == "calibration")
+        {
+            follower->println("GET calibration");
+            return;
+        }
         follower->print(isGet ? "GET " : "SET ");
         follower->println(payload);
         if (isGet)
@@ -291,6 +299,11 @@ void handleConfig(const String &cmd, const String &payload, HardwareSerial &out)
     }
     else if (cmd == "GET")
     {
+        if (payload == "calibration")   // Task 4 §4: whole-board cal dump, one CAL line/joint
+        {
+            if (actuatorManager) actuatorManager->printAllCal(out);
+            return;
+        }
         out.print("GET");
         int i = 0;
         while (true)
@@ -463,8 +476,15 @@ void loop()
             line.trim();
             if (line.startsWith("CALL"))
             {
-                bool includeYaw = (line.indexOf("noyaw") < 0);
-                if (actuatorManager) actuatorManager->calibrateAll(includeYaw);
+                // CALL [noyaw] [skipval] = cal sequence (+ Task-4 validation unless skipval);
+                // CALL valonly = standalone current-sense validation (assumes cal already ran).
+                if (line.indexOf("valonly") >= 0) {
+                    if (actuatorManager) actuatorManager->validateCurrentSense();
+                } else {
+                    bool includeYaw = (line.indexOf("noyaw") < 0);
+                    bool validate   = (line.indexOf("skipval") < 0);
+                    if (actuatorManager) actuatorManager->calibrateAll(includeYaw, validate);
+                }
                 // Not forwarded: whole-robot cross-board sequencing (one board at a time, so
                 // multiple boards don't stall the shared 24V rail at once) is chassis-gated.
             }

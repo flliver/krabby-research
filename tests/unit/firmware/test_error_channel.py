@@ -13,6 +13,7 @@ from firmware.krabby_mcu import (
     ERROR_CODES,
     parse_err_line,
     _ERROR_RING_MAX,
+    _FIX_INSTRUCTIONS,
 )
 
 
@@ -168,3 +169,45 @@ class TestReaderLoopDispatch:
             ("FRKL", "motor_did_not_move"),
             ("system", "current_sense_no_spike"),
         ]
+
+
+class TestExplainFailures:
+    """Task 4 §5 / 4f: reason-code → operator fix-instruction translation."""
+
+    def test_translates_error_events(self):
+        errs = [ErrorEvent("FLHL", "motor_did_not_move", 1.0),
+                ErrorEvent("FRKL", "pot_value_invalid", 2.0)]
+        out = KrabbyMCUSDK.explain_failures(errs)
+        assert len(out) == 2
+        assert "FLHL" in out[0] and "motor power" in out[0]
+        assert "FRKL" in out[1] and "potentiometer" in out[1]
+
+    def test_accepts_bare_tuples(self):
+        out = KrabbyMCUSDK.explain_failures([("MLKL", "hall_drift")])
+        assert out == [_FIX_INSTRUCTIONS["hall_drift"].format(joint="MLKL")]
+
+    def test_unknown_code_is_surfaced_not_dropped(self):
+        out = KrabbyMCUSDK.explain_failures([("RRHY", "brand_new_code")])
+        assert out == ["Unknown failure on RRHY: brand_new_code"]
+
+    def test_current_sense_codes_present(self):
+        for code in ("current_sense_no_signal", "current_sense_no_spike"):
+            out = KrabbyMCUSDK.explain_failures([("FLKL", code)])
+            assert "FLKL" in out[0] and "current" in out[0].lower()
+
+
+class TestVocabParity:
+    """4a/4h: the canonical vocabulary and the fix-instruction table stay in lockstep."""
+
+    def test_every_code_has_a_fix_instruction(self):
+        missing = ERROR_CODES - set(_FIX_INSTRUCTIONS)
+        assert not missing, f"codes with no fix instruction: {missing}"
+
+    def test_every_fix_instruction_is_a_known_code(self):
+        extra = set(_FIX_INSTRUCTIONS) - ERROR_CODES
+        assert not extra, f"fix instructions for unknown codes: {extra}"
+
+    def test_task4_required_codes_present(self):
+        for code in ("current_sense_no_signal", "current_sense_no_spike",
+                     "not_in_starting_pose", "not_calibrated"):
+            assert code in ERROR_CODES

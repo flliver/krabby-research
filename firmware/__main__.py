@@ -143,9 +143,11 @@ _COMMAND_HELP: list[tuple[str, str]] = [
     ("calibrate-joint [--port P] [--direction D] JOINT",
      "Calibrate one joint: sweep end-stop(s), auto-detect sensor + direction, "
      "persist to EEPROM. Requires JOINT (e.g. FLHL)."),
-    ("calibrate-all [--port P] [--no-yaw]",
-     "Run the whole-board calibration sequence (per-leg sweep, M17 Task 3). "
-     "--no-yaw skips hip-yaw for a bench rig without yaw motors."),
+    ("calibrate-all [--port P] [--no-yaw] [--skip-validation]",
+     "Run the whole-board cal sequence + current-sense validation (M17 Task 3/4). "
+     "--no-yaw skips hip-yaw; --skip-validation skips the chassis-required lifts."),
+    ("validate-current-sense [--port P]",
+     "Run the per-leg current-sense lift validation standalone (assumes cal done, M17 Task 4)."),
     ("get-calibration [--port P] JOINT",
      "Read back a joint's stored calibration (sensor type, min/max, flag). "
      "Requires JOINT."),
@@ -234,6 +236,14 @@ def main():
                           help="Serial port of the board (default: auto-detect / $KRABBY_MCU_PORT).")
     calall_p.add_argument("--no-yaw", action="store_true",
                           help="Skip the hip-yaw steps (bench rig without yaw motors, spec §8).")
+    calall_p.add_argument("--skip-validation", action="store_true",
+                          help="Stop after the neutral pose; skip the chassis-required current-sense lifts.")
+
+    vcs_p = subparsers.add_parser(
+        "validate-current-sense",
+        help="Run the current-sense lift validation standalone (assumes cal already done, M17 Task 4).")
+    vcs_p.add_argument("--port", default=None, metavar="PORT",
+                       help="Serial port of the board (default: auto-detect / $KRABBY_MCU_PORT).")
 
     getcal_p = subparsers.add_parser(
         "get-calibration",
@@ -288,7 +298,12 @@ def main():
 
     if args.command == "calibrate-all":
         from firmware.cli import cmd_calibrate_all
-        cmd_calibrate_all(args.port, args.no_yaw)
+        cmd_calibrate_all(args.port, args.no_yaw, args.skip_validation)
+        return
+
+    if args.command == "validate-current-sense":
+        from firmware.cli import cmd_validate_current_sense
+        cmd_validate_current_sense(args.port)
         return
 
     if args.command == "get-calibration":
