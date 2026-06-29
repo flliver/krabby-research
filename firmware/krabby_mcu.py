@@ -444,6 +444,25 @@ class KrabbyMCUSDK:
         self.ser.flush()
         logger.info("CMD -> K %s %s(calibrate joint)", name, f"{direction} " if direction else "")
 
+    def calibrate_all(self, include_yaw: bool = True):
+        """Trigger the whole-board calibration sequence (wire command ``CALL [noyaw]``,
+        M17 Task 3). The firmware runs the standard per-leg cal sequence for its own legs,
+        composed of Task-2 directional ``calibrateJoint`` calls plus closed-loop pose moves.
+
+        Fire-and-forget like ``calibrate_joint``: no completion reply. Watch the telemetry
+        stream and any ``ERR <joint> <code>`` lines (the sequence halts + holds all motors
+        on the first failure, Task 3 §3f), then read results back via ``get_calibration``.
+
+        ``include_yaw=False`` sends ``CALL noyaw`` to skip the hip-yaw steps — the bench
+        fallback (spec §8) for a rig whose yaw motors aren't wired.
+        """
+        if not self.ser or not self.ser.is_open:
+            return
+        wire = "CALL\n" if include_yaw else "CALL noyaw\n"
+        self.ser.write(wire.encode('utf-8'))
+        self.ser.flush()
+        logger.info("CMD -> %s (calibrate all)", wire.strip())
+
     @staticmethod
     def _validate_cal_direction(name: str, direction: Optional[str]) -> Optional[str]:
         """Check a cal direction against the joint type, returning the normalized token

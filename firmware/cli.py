@@ -472,6 +472,53 @@ def cmd_get(port: Optional[str], board: Optional[str], keys: list[str]) -> None:
     print("  ".join(f"{k}={result.get(k, '?')}" for k in keys))
 
 
+def cmd_calibrate_all(port: Optional[str], no_yaw: bool = False, timeout: float = 240.0) -> None:
+    """Run the whole-board calibration sequence (M17 Task 3). Streams any ERR lines as the
+    firmware emits them (the sequence halts + parks on the first failure), detects
+    completion when the joints go idle after running, then prints the resulting cal grid."""
+    sdk = KrabbyMCUSDK(port=port)
+    if not sdk.connect(settle=5.0, hold=True):
+        sys.exit(f"could not open serial port {sdk.port}")
+    seen: set = set()
+    try:
+        sdk.clear_errors()
+        sdk.calibrate_all(include_yaw=not no_yaw)
+        print(f"calibrate-all: running whole-board sequence{' (no yaw)' if no_yaw else ''} "
+              f"— watching for errors (up to ~{timeout:.0f}s)…")
+        deadline = time.time() + timeout
+        started, idle_since = False, None
+        while time.time() < deadline:
+            for e in sdk.get_errors():
+                key = (e.token, e.code)
+                if key not in seen:
+                    seen.add(key)
+                    print(f"  ERR {e.token} {e.code}")
+            # No completion line on the wire (spec §3h) — infer "done" from motion: once the
+            # sequence has driven a joint and then everything sits idle, it has finished/halted.
+            active = any(jt is not None and jt.pwm != (0, 0) for jt in sdk.joints.values())
+            if active:
+                started, idle_since = True, None
+            elif started:
+                idle_since = idle_since or time.time()
+                if time.time() - idle_since > 4.0:
+                    break
+            time.sleep(0.3)
+
+        cals: dict = {}
+        for j in sorted(ALL_JOINT_NAMES):
+            if j[3] == "Y":
+                continue
+            c = sdk.get_calibration(j, timeout=0.8)
+            if c is not None and "cal" in c:
+                cals[j] = c["cal"] == "1"
+    finally:
+        sdk.close()
+
+    _print_cal_status(cals)
+    if seen:
+        print("calibrate-all: errors above — sequence halted and motors parked.")
+
+
 def cmd_calibrate_joint(port: Optional[str], name: str, direction: Optional[str] = None) -> None:
     # Validate client-side before opening the port (the SDK is the validation layer).
     if name not in ALL_JOINT_NAMES:

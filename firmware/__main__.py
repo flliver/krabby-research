@@ -143,6 +143,9 @@ _COMMAND_HELP: list[tuple[str, str]] = [
     ("calibrate-joint [--port P] [--direction D] JOINT",
      "Calibrate one joint: sweep end-stop(s), auto-detect sensor + direction, "
      "persist to EEPROM. Requires JOINT (e.g. FLHL)."),
+    ("calibrate-all [--port P] [--no-yaw]",
+     "Run the whole-board calibration sequence (per-leg sweep, M17 Task 3). "
+     "--no-yaw skips hip-yaw for a bench rig without yaw motors."),
     ("get-calibration [--port P] JOINT",
      "Read back a joint's stored calibration (sensor type, min/max, flag). "
      "Requires JOINT."),
@@ -224,6 +227,14 @@ def main():
                        help="Calibrate one end-stop only (Task 3): extend/retract for linear "
                             "joints, left/right for yaw. Omit for a full both-ends sweep.")
 
+    calall_p = subparsers.add_parser(
+        "calibrate-all",
+        help="Run the whole-board calibration sequence (auto per-leg sweep, M17 Task 3).")
+    calall_p.add_argument("--port", default=None, metavar="PORT",
+                          help="Serial port of the board (default: auto-detect / $KRABBY_MCU_PORT).")
+    calall_p.add_argument("--no-yaw", action="store_true",
+                          help="Skip the hip-yaw steps (bench rig without yaw motors, spec §8).")
+
     getcal_p = subparsers.add_parser(
         "get-calibration",
         help="Read back a joint's stored calibration (sensor type, min/max, calibrated flag).")
@@ -273,6 +284,11 @@ def main():
     if args.command == "calibrate-joint":
         from firmware.cli import cmd_calibrate_joint
         cmd_calibrate_joint(args.port, args.name, args.direction)
+        return
+
+    if args.command == "calibrate-all":
+        from firmware.cli import cmd_calibrate_all
+        cmd_calibrate_all(args.port, args.no_yaw)
         return
 
     if args.command == "get-calibration":

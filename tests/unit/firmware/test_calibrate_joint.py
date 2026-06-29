@@ -364,6 +364,30 @@ class TestSelfHeal:
         assert "calStateName" in body, "the CAL reply must include the runtime state"
 
 
+class TestPositionTargetScale:
+    """M17 Task 3 foundation: a normalized [0,1] position target must map onto the
+    CALIBRATED travel (the same flip-corrected frame getPos()/getRawPos() report), not the
+    raw 0-1023 minStop/maxStop scale — else closed-loop position ignores calibration."""
+
+    def test_settarget_uses_calibrated_endpoints(self, actuator):
+        body = actuator[actuator.index("void setTarget"):actuator.index("void setTarget") + 700]
+        assert "calValid" in body, "setTarget must branch on whether the joint is calibrated"
+        # calibrated branch maps via the same applyFlip(calMin/calMax) lo/hi as getPos()
+        assert "applyFlip" in body and "calHallMin" in body and "calPotMin" in body, \
+            "calibrated target must use the flip-corrected cal endpoints"
+        assert "minStop" in body, "uncalibrated joints keep the legacy raw-ADC fallback"
+
+    def test_target_and_error_are_32bit(self, actuator):
+        # Hall counts are signed and can exceed int16 — target/error must be int32_t.
+        assert re.search(r"int32_t\s+currentTarget", actuator)
+        assert re.search(r"int32_t\s+error\s*=\s*currentTarget", actuator)
+
+    def test_attarget_settle_helper(self, actuator):
+        body = actuator[actuator.index("bool atTarget"):actuator.index("bool atTarget") + 200]
+        assert "getPos()" in body and "lastSetVal" in body, \
+            "atTarget compares normalized getPos() against the last setTarget value"
+
+
 class TestRangeCheckFirmware:
     def test_span_check_gates_calibrated_flag(self, actuator):
         body = actuator[actuator.index("case JC_SAVE"):]

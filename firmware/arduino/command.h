@@ -50,10 +50,13 @@ inline size_t parseCommands(const String &line, Command *cmds, size_t maxCmds)
     while (idx < maxCmds)
     {
         String name = nextTok(line, i, len);
+        if (name.length() == 0)
+            break;  // clean end of input — return the pairs parsed so far (NOT an error;
+                    // a command rarely fills the whole buffer, e.g. a single-joint target)
         String valStr = nextTok(line, i, len);
-        if (name.length() == 0 || valStr.length() == 0)
+        if (valStr.length() == 0)
         {
-            // Problem parsing - clear and return
+            // A name with no value is malformed — drop the whole batch.
             clearCommands(cmds, maxCmds);
             return 0;
         }

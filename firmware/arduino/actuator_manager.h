@@ -59,7 +59,8 @@ public:
 
     // Control states
     int currentPwm = 0;              // Current PWM being applied to motor (-255 to 255)
-    int currentTarget = 0;           // Target position (raw ADC); only used when hasTarget is true
+    int32_t currentTarget = 0;       // Target in getRawPos() units (calibrated frame, or raw ADC if uncal); only used when hasTarget
+    float lastSetVal = 0.0f;         // last normalized [0,1] target passed to setTarget(); for atTarget()
     bool hasTarget = false;          // True only after a T (target) command; if false, motor stays idle
     unsigned long lastRampTime = 0;  // Last time PWM ramp was updated, in millis, used along with rampIntervalMs to control ramp timing
     unsigned long lastJogMs = 0;     // millis() of the last manualDrive() (jog) command; drives the jog watchdog in update()
@@ -213,11 +214,32 @@ public:
     }
 
     // Set position target (T command only). Only this sets hasTarget = true.
+    // Drive to a normalized [0,1] position. On a calibrated joint this maps onto the
+    // recorded travel in the SAME flip-corrected frame getRawPos()/getPos() report, so a
+    // target of 0.5 settles where the telemetry reads 0.5 (and 0.0/1.0 = the cal stops),
+    // for either sensor type. Uncalibrated joints fall back to the legacy raw-ADC scale.
     void setTarget(float val)
     {
         val = constrain(val, 0.0, 1.0);
-        currentTarget = minStop + (int)(val * (maxStop - minStop));
+        if (calValid)
+        {
+            int32_t lo = applyFlip(sensorType == SENSOR_HALL ? calHallMin : (int32_t)calPotMin);
+            int32_t hi = applyFlip(sensorType == SENSOR_HALL ? calHallMax : (int32_t)calPotMax);
+            currentTarget = lo + (int32_t)(val * (hi - lo));
+        }
+        else
+        {
+            currentTarget = minStop + (int32_t)(val * (maxStop - minStop));
+        }
+        lastSetVal = val;
         hasTarget = true;
+    }
+
+    // True once the joint has driven within `tol` (normalized) of its target — the settle
+    // test moveJointTo() / the Task-3 pose transitions poll. Only meaningful with a target.
+    bool atTarget(float tol = 0.02f)
+    {
+        return hasTarget && fabs(getPos() - lastSetVal) <= tol;
     }
 
     // Hold: just stop the motor. No target is set or updated.
@@ -279,8 +301,8 @@ public:
             return;
         }
 
-        int error = currentTarget - getRawPos();
-        if (abs(error) < controlConfig.pwmErrDeadband)
+        int32_t error = currentTarget - getRawPos();
+        if (labs(error) < controlConfig.pwmErrDeadband)
             error = 0;
 
         int desiredPwm = (int)(error * controlConfig.Kp);
@@ -487,7 +509,7 @@ public:
     // RETRACT/EXTEND at the wire-parse layer (parseCalDirection).
     enum CalDirection : uint8_t { CAL_DIR_NONE = 0, CAL_DIR_RETRACT, CAL_DIR_EXTEND };
 
-    static constexpr int           JC_NUDGE_PWM            = 120;  // detect nudge: must exceed these actuators' static friction (~100), not the spec's optimistic 30
+    static constexpr int           JC_NUDGE_PWM            = 180;  // detect nudge: must break a joint OFF a hard stop (a prior cal step parks it there at JC_SWEEP_PWM=150), so > sweep; bench jog at 200 frees it, 120 did not
     static constexpr int           JC_SWEEP_PWM            = 150;  // sweep-to-stop drive
     static constexpr unsigned long JC_NUDGE_MS             = 250;  // nudge drive duration
     static constexpr unsigned long JC_SETTLE_MS            = 50;   // settle before measuring
@@ -586,6 +608,7 @@ public:
         jcSensorType = (SensorType)actuators[idx]->sensorType;  // fixed per-joint, not guessed
         jcReversed   = 0;
         jcMismatch   = false;
+        jcLastFailed = false;   // cleared now; set by jcAbortCal / a failing JC_SAVE
     }
 
     // Advance the cal state machine one tick (called from updateAll while jcActive).
@@ -697,6 +720,10 @@ public:
             a->applyJointCal(jc, /*liveFrame=*/true);  // in-frame → FULL; cal=0 reverts to legacy
             if (failCode)
                 emitJointErr(jcIndex, failCode);
+            // A directional cal that recorded its one end with no error is a SUCCESS for the
+            // sequencer (calibrated may still be 0 until the partner end runs); only a real
+            // failCode marks the step failed.
+            jcLastFailed = (failCode != nullptr);
             jcActive = false; jcState = JC_DONE;
             break;
         }
@@ -775,6 +802,7 @@ public:
     void jcAbortCal(LinearActuator* a, const char* code)
     {
         emitJointErr(jcIndex, code);
+        jcLastFailed = true;
         a->manualDrive(0); jcActive = false; jcState = JC_DONE;
     }
 
@@ -787,10 +815,128 @@ public:
         a->sensorReversed = jcReversed;
     }
 
+    // ========================================================================
+    // Whole-robot calibration sequence (M17 Task 3) — a non-blocking executor over a
+    // small generated step list. Each step is one Task-2 directional calibrateJoint
+    // (CA_CAL) or a closed-loop move-to-normalized-position (CA_MOVE — the moveJointTo
+    // pose primitive). It chains the standard per-leg cal sequence (§3) for THIS board's
+    // legs; on any per-joint cal failure it halts and holds all motors (3f).
+    //
+    // Scope note: this runs the LOCAL board's legs. Whole-robot orchestration across
+    // boards — auto-squat splay (3c), middles-first cross-board ordering (3d), and
+    // sequencing one board at a time so multiple boards don't stall the shared 24V rail
+    // at once — layers on top of this and is chassis-gated.
+    // ========================================================================
+    enum CalStepOp : uint8_t { CA_CAL, CA_MOVE };
+    struct CalStep {
+        uint8_t op;        // CalStepOp
+        uint8_t jointIdx;  // 0..count-1
+        uint8_t dir;       // CalDirection (CA_CAL only)
+        uint8_t posPct;    // normalized target * 100 (CA_MOVE only), 0..100
+    };
+    static constexpr uint8_t       CA_MAX_STEPS      = 48;    // one board's 2 legs fit easily
+    static constexpr unsigned long CA_MOVE_SETTLE_MS = 250;   // hold within tol this long = settled
+    static constexpr unsigned long CA_MOVE_TIMEOUT_MS= 6000;  // give up a move after this, then advance
+    static constexpr float         CA_MOVE_TOL       = 0.03f;
+
+    void caAdd(CalStepOp op, uint8_t jointIdx, CalDirection dir, uint8_t posPct)
+    {
+        if (caStepCount >= CA_MAX_STEPS) return;
+        caSteps[caStepCount].op = (uint8_t)op;
+        caSteps[caStepCount].jointIdx = jointIdx;
+        caSteps[caStepCount].dir = (uint8_t)dir;
+        caSteps[caStepCount].posPct = posPct;
+        caStepCount++;
+    }
+
+    // Standard per-leg cal sequence (§3) for each of this board's legs (3 joints/leg:
+    // slot+0 = hip-yaw, +1 = hip-lift, +2 = knee). includeYaw=false skips the yaw steps
+    // (bench-without-yaw fallback, spec §8).
+    void buildLocalSequence(bool includeYaw)
+    {
+        caStepCount = 0;
+        uint8_t nLegs = (uint8_t)(count / 3);
+        for (uint8_t leg = 0; leg < nLegs; leg++)
+        {
+            uint8_t hy = leg * 3 + 0, hl = leg * 3 + 1, kl = leg * 3 + 2;
+            caAdd(CA_CAL,  hl, CAL_DIR_RETRACT, 0);   // 1. hip min
+            caAdd(CA_CAL,  kl, CAL_DIR_RETRACT, 0);   // 2. knee min
+            caAdd(CA_CAL,  kl, CAL_DIR_EXTEND,  0);   // 3. knee max
+            if (includeYaw) {
+                caAdd(CA_CAL,  hy, CAL_DIR_RETRACT, 0);  // 4. yaw left
+                caAdd(CA_CAL,  hy, CAL_DIR_EXTEND,  0);  // 5. yaw right
+                caAdd(CA_MOVE, hy, CAL_DIR_NONE,   50);  // 6. yaw center
+            }
+            caAdd(CA_CAL,  hl, CAL_DIR_EXTEND,  0);   // 7. hip max
+            caAdd(CA_MOVE, hl, CAL_DIR_NONE,   50);   // return leg to neutral mid-travel
+            caAdd(CA_MOVE, kl, CAL_DIR_NONE,   50);
+        }
+    }
+
+    // Entry point (wire `CALL`): run the local board's cal sequence. includeYaw per §8.
+    void calibrateAll(bool includeYaw = true)
+    {
+        if (jcActive) return;            // don't stomp a single-joint cal in progress
+        holdAll();
+        buildLocalSequence(includeYaw);
+        caStepIdx = 0;
+        caStepStarted = false;
+        caFailed = false;
+        caActive = (caStepCount > 0);
+    }
+
+    bool calibrateAllActive() const { return caActive; }
+
+    void caAdvance() { caStepIdx++; caStepStarted = false; }
+
+    // Advance the sequence executor one tick. Called from updateAll while caActive and no
+    // single-joint cal is mid-run (a CA_CAL step starts a calibrateJoint, which sets
+    // jcActive and takes over the tick until it finishes).
+    void updateCalibrateAll()
+    {
+        if (caStepIdx >= caStepCount) { caActive = false; holdAll(); return; }  // done (3g)
+        CalStep& s = caSteps[caStepIdx];
+
+        if (s.op == CA_CAL)
+        {
+            if (!caStepStarted) {
+                calibrateJoint(s.jointIdx, (CalDirection)s.dir);  // sets jcActive
+                caStepStarted = true;
+                return;  // subsequent ticks run updateJointCal until the cal clears
+            }
+            // Back here only once the cal finished (jcActive cleared).
+            if (jcLastFailed) { caActive = false; caFailed = true; holdAll(); return; }  // 3f
+            caAdvance();
+            return;
+        }
+
+        // CA_MOVE — the moveJointTo pose primitive: drive the PID to the normalized target,
+        // then advance on settle (held within tol for CA_MOVE_SETTLE_MS) or on timeout.
+        if (!caStepStarted) {
+            actuators[s.jointIdx]->setTarget(s.posPct / 100.0f);
+            caStepStarted = true;
+            caTimer = millis();
+            caSettleStart = 0;
+        }
+        for (size_t i = 0; i < count; i++) actuators[i]->update();  // only the target joint drives
+        if (actuators[s.jointIdx]->atTarget(CA_MOVE_TOL)) {
+            if (caSettleStart == 0) caSettleStart = millis();
+        } else {
+            caSettleStart = 0;
+        }
+        bool settled = caSettleStart != 0 && (millis() - caSettleStart >= CA_MOVE_SETTLE_MS);
+        if (settled || millis() - caTimer >= CA_MOVE_TIMEOUT_MS) {
+            actuators[s.jointIdx]->stopMotor();
+            caAdvance();
+        }
+    }
+
     void updateAll()
     {
         if (jcActive)                  // single-joint calibration (M17 Task 2)
             updateJointCal();
+        else if (caActive)             // whole-board calibration sequence (M17 Task 3)
+            updateCalibrateAll();
         else if (calState != CAL_IDLE) // legacy multi-joint calibration
             updateCalibration();
         else
@@ -1078,10 +1224,21 @@ private:
     uint8_t       jcSensorType = SENSOR_POT;
     uint8_t       jcReversed   = 0;
     bool          jcMismatch   = false;  // nudge saw the wrong sensor for this slot (→ sensor_type_mismatch)
+    bool          jcLastFailed = false;  // result of the last calibrateJoint, read by the Task-3 sequencer
     uint16_t      jcPotMin     = 0;
     uint16_t      jcPotMax     = 1023;
     int32_t       jcHallMin    = 0;
     int32_t       jcHallMax    = 0;
     int32_t       jcHallMin2   = 0;  // hallMin from the repeat retract (2c drift check)
     CalDirection  jcDir        = CAL_DIR_NONE;  // which end(s) this run sweeps
+
+    // Whole-board calibration sequence state (M17 Task 3)
+    CalStep       caSteps[CA_MAX_STEPS];
+    uint8_t       caStepCount  = 0;
+    uint8_t       caStepIdx    = 0;
+    bool          caStepStarted= false;
+    bool          caActive     = false;
+    bool          caFailed     = false;
+    unsigned long caTimer      = 0;  // CA_MOVE start time (timeout)
+    unsigned long caSettleStart= 0;  // when the move first reached tol (settle dwell)
 };

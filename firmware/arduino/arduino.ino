@@ -458,11 +458,22 @@ void loop()
         }
         else if (cmdType == 'C')
         {
-            mainSerial->read();
-            mainSerial->readStringUntil('\n');
-            if (actuatorManager) actuatorManager->startAutoCalibration();
-            if (leftSerial)  leftSerial->println("C");
-            if (rightSerial) rightSerial->println("C");
+            // "C" = legacy auto-calibrate; "CALL [noyaw]" = whole-board cal sequence (M17 Task 3).
+            String line = mainSerial->readStringUntil('\n');
+            line.trim();
+            if (line.startsWith("CALL"))
+            {
+                bool includeYaw = (line.indexOf("noyaw") < 0);
+                if (actuatorManager) actuatorManager->calibrateAll(includeYaw);
+                // Not forwarded: whole-robot cross-board sequencing (one board at a time, so
+                // multiple boards don't stall the shared 24V rail at once) is chassis-gated.
+            }
+            else
+            {
+                if (actuatorManager) actuatorManager->startAutoCalibration();
+                if (leftSerial)  leftSerial->println("C");
+                if (rightSerial) rightSerial->println("C");
+            }
         }
         else if (cmdType == 'K')   // K <name> [extend|retract|left|right]: per-joint cal (M17 Task 2)
         {
