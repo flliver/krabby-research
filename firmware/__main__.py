@@ -119,6 +119,60 @@ class _Parser(argparse.ArgumentParser):
         sys.exit(2)
 
 
+# One row per subcommand: (usage, description). Required args are shown bare
+# (e.g. JOINT, KEY=VAL...), optional ones in [brackets]. Kept here — rather than
+# leaning on argparse's terse auto-help — so `help` can show each command's
+# required arguments inline. Run `krabby-firmware <cmd> --help` for full flags.
+_COMMAND_HELP: list[tuple[str, str]] = [
+    ("help",
+     "Show this command summary and exit."),
+    ("install",
+     "Set up host udev rules and serial permissions (one-time host setup)."),
+    ("show [BRANCH]",
+     "List attached boards and firmware versions; with BRANCH, list that "
+     "branch's builds newest-first."),
+    ("update [CHANNEL] [PORT]",
+     "Flash firmware from an S3 channel to attached board(s). Defaults to the "
+     "latest release channel and all detected boards."),
+    ("set [--port P] [--board B] KEY=VAL [KEY=VAL ...]",
+     "Write board config (role, serial) to EEPROM. Requires one or more "
+     "KEY=VAL, e.g. role=FRONT serial=FRT-0042."),
+    ("get [--port P] [--board B] KEY [KEY ...]",
+     "Read board config from a board. Requires one or more KEY, "
+     "e.g. role serial version."),
+    ("calibrate-joint [--port P] [--direction D] JOINT",
+     "Calibrate one joint: sweep end-stop(s), auto-detect sensor + direction, "
+     "persist to EEPROM. Requires JOINT (e.g. FLHL)."),
+    ("get-calibration [--port P] JOINT",
+     "Read back a joint's stored calibration (sensor type, min/max, flag). "
+     "Requires JOINT."),
+    ("jog [--port P] [--ms MS] --joint JOINT --pwm -255..255",
+     "Drive one joint open-loop for a bounded time, then stop. "
+     "Requires --joint and --pwm."),
+]
+
+
+def _command_help() -> str:
+    """Curated `krabby-firmware help` summary: each subcommand, its required
+    arguments, and a one-line description (pure → unit-testable)."""
+    lines = [
+        "krabby-firmware — Krabby firmware tools",
+        "",
+        "Usage: krabby-firmware [--debug] [<command> ...]",
+        "",
+        "With no command, launches the interactive MCU jog + live-telemetry menu.",
+        "--debug enables debug logging (interactive menu only).",
+        "",
+        "Commands:",
+    ]
+    for usage, desc in _COMMAND_HELP:
+        lines.append(f"  {usage}")
+        lines.append(f"      {desc}")
+    lines.append("")
+    lines.append("Run `krabby-firmware <command> --help` for a command's full options.")
+    return "\n".join(lines)
+
+
 def main():
     parser = _Parser(
         prog="krabby-firmware",
@@ -188,7 +242,7 @@ def main():
     args = parser.parse_args()
 
     if args.command == "help":
-        parser.print_help()
+        print(_command_help())
         return
 
     if args.command == "install":
