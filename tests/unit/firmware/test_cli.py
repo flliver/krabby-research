@@ -61,7 +61,7 @@ class TestCmdShow:
     def test_shows_version_for_board(self, capsys):
         index = _make_index({"release/0.2.0": "20250101-120000-abc1234"})
         with patch.object(cli_mod, "_all_mega_ports", return_value=["/dev/ttyACM0"]):
-            with patch.object(cli_mod, "_probe_version", return_value=("VER 0.2.0 release/0.2.0 abc1234", None)):
+            with patch.object(cli_mod, "_probe_version", return_value=("VER 0.2.0 release/0.2.0 abc1234", None, {})):
                 with patch.object(cli_mod, "_fetch_index", return_value=index):
                     cli_mod.cmd_show()
         out = capsys.readouterr().out
@@ -71,7 +71,7 @@ class TestCmdShow:
     def test_shows_no_version_response_when_probe_fails(self, capsys):
         index = _make_index({"mainline": "20250101-120000-abc1234"})
         with patch.object(cli_mod, "_all_mega_ports", return_value=["/dev/ttyACM0"]):
-            with patch.object(cli_mod, "_probe_version", return_value=(None, None)):
+            with patch.object(cli_mod, "_probe_version", return_value=(None, None, {})):
                 with patch.object(cli_mod, "_fetch_index", return_value=index):
                     cli_mod.cmd_show()
         out = capsys.readouterr().out
@@ -81,7 +81,7 @@ class TestCmdShow:
         index = _make_index({"release/0.2.8": "20250101-120000-abc1234"})
         with patch.object(cli_mod, "_all_mega_ports", return_value=["/dev/ttyUSB0"]):
             with patch.object(cli_mod, "_probe_version",
-                              return_value=("VER 0.2.8|-|- release/0.2.8|-|- abc1234|-|-", "left")):
+                              return_value=("VER 0.2.8|-|- release/0.2.8|-|- abc1234|-|-", "left", {})):
                 with patch.object(cli_mod, "_fetch_index", return_value=index):
                     cli_mod.cmd_show()
         out = capsys.readouterr().out
@@ -92,7 +92,7 @@ class TestCmdShow:
         index = _make_index({"release/0.2.8": "20250101-120000-abc1234"})
         with patch.object(cli_mod, "_all_mega_ports", return_value=["/dev/ttyUSB1"]):
             with patch.object(cli_mod, "_probe_version",
-                              return_value=("VER 0.2.8|-|- release/0.2.8|-|- abc1234|-|-", "right")):
+                              return_value=("VER 0.2.8|-|- release/0.2.8|-|- abc1234|-|-", "right", {})):
                 with patch.object(cli_mod, "_fetch_index", return_value=index):
                     cli_mod.cmd_show()
         out = capsys.readouterr().out
@@ -104,13 +104,13 @@ class TestCmdShow:
         index = _make_index({"release/0.2.9": "20250101-120000-abc1234"})
         combined = "VER 0.2.9|0.2.9|0.2.9 release/0.2.9|release/0.2.9|release/0.2.9 abc1234|abc1234|abc1234"
 
-        def fake_probe(port):
+        def fake_probe(port, cal_joints=None):
             if port == "/dev/ttyACM0":
-                return (combined, "front")
+                return (combined, "front", {})
             elif port == "/dev/ttyUSB0":
-                return (None, "left")
+                return (None, "left", {})
             else:
-                return (None, "right")
+                return (None, "right", {})
 
         with patch.object(cli_mod, "_all_mega_ports",
                           return_value=["/dev/ttyACM0", "/dev/ttyUSB0", "/dev/ttyUSB1"]):
@@ -128,11 +128,11 @@ class TestCmdShow:
         index = _make_index({"release/0.2.9": "20250101-120000-abc1234"})
         combined = "VER 0.2.9|0.2.8|0.2.8 release/0.2.9|release/0.2.8|release/0.2.8 abc1234|def5678|def5678"
 
-        def fake_probe(port):
+        def fake_probe(port, cal_joints=None):
             # Leader returns combined VER; followers time out. No ROLE_HINT on any board.
             if port == "/dev/ttyACM0":
-                return (combined, None)
-            return (None, None)
+                return (combined, None, {})
+            return (None, None, {})
 
         with patch.object(cli_mod, "_all_mega_ports",
                           return_value=["/dev/ttyACM0", "/dev/ttyUSB0", "/dev/ttyUSB1"]):
@@ -439,7 +439,7 @@ class TestProbeVersion:
         with self._patch_serial(ser):
             with patch("time.time", return_value=999):
                 result = cli_mod._probe_version("/dev/ttyACM0", timeout=0.0)
-        assert result == (None, None)
+        assert result == (None, None, {})
 
     def test_returns_none_when_no_ver_after_ready(self):
         ser = self._make_ser([
@@ -449,7 +449,7 @@ class TestProbeVersion:
         with self._patch_serial(ser):
             with patch("time.time", side_effect=[0, 0, 0, 999]):
                 result = cli_mod._probe_version("/dev/ttyACM0", timeout=0.0)
-        assert result == (None, None)
+        assert result == (None, None, {})
 
     def test_handles_real_ver_format(self):
         ser = self._make_ser([
@@ -467,12 +467,12 @@ class TestProbeVersion:
         with self._patch_serial(ser):
             with patch("time.time", side_effect=[0, 0, 1]):
                 result = cli_mod._probe_version("/dev/ttyACM0", timeout=1.0)
-        assert result == (None, None)
+        assert result == (None, None, {})
 
     def test_returns_none_when_serial_import_missing(self):
         with patch.dict("sys.modules", {"serial": None}):
             result = cli_mod._probe_version("/dev/ttyACM0")
-        assert result == (None, None)
+        assert result == (None, None, {})
 
     def test_captures_role_hint_before_krabby_ready(self):
         ser = self._make_ser([
@@ -508,6 +508,89 @@ class TestProbeVersion:
         with self._patch_serial(ser):
             with patch("time.time", side_effect=[0] + [0.1] * 30):
                 result = cli_mod._probe_version("/dev/ttyACM0", timeout=10.0)
-        assert result == (None, "left")
+        assert result == (None, "left", {})
         # Initial V sent on Krabby Ready + one V per retry before cutoff
         assert ser.write.call_count == cli_mod._PROBE_V_RETRY_LIMIT + 1
+
+
+class TestCalCell:
+    def test_yaw_is_na_even_with_flag(self):
+        assert cli_mod._cal_cell("FLHY", {"FLHY": True}) == "N/A"
+
+    def test_calibrated(self):
+        assert cli_mod._cal_cell("FRHL", {"FRHL": True}) == "✓"
+
+    def test_not_calibrated(self):
+        assert cli_mod._cal_cell("FRKL", {"FRKL": False}) == "✗"
+
+    def test_no_reply(self):
+        assert cli_mod._cal_cell("RLHL", {}) == "?"
+
+
+class TestPrintCalStatus:
+    def test_matrix_layout_and_marks(self, capsys):
+        cli_mod._print_cal_status({"FLHL": True, "FLKL": False, "FRHL": True, "FRKL": True})
+        lines = capsys.readouterr().out.splitlines()
+        # header carries the three joint columns
+        assert any("Hip" in l and "Knee" in l and "Yaw" in l for l in lines)
+        # all six legs are rows
+        for leg in ["Front Left", "Front Right", "Middle Left", "Middle Right",
+                    "Rear Left", "Rear Right"]:
+            assert any(leg in l for l in lines), leg
+        fl = next(l for l in lines if "Front Left" in l)
+        assert "✓" in fl and "✗" in fl and "N/A" in fl     # hip cal, knee uncal, yaw n/a
+        rl = next(l for l in lines if "Rear Left" in l)
+        assert "?" in rl and "N/A" in rl                   # unwired leg: hip/knee unknown, yaw n/a
+
+    def test_no_eeprom_parenthetical(self, capsys):
+        cli_mod._print_cal_status({"FLHL": True})
+        assert "(EEPROM)" not in capsys.readouterr().out
+
+    def test_empty_still_renders_full_grid(self, capsys):
+        cli_mod._print_cal_status({})
+        lines = capsys.readouterr().out.splitlines()
+        fl = next(l for l in lines if "Front Left" in l)
+        assert "?" in fl and "N/A" in fl                   # nothing calibrated, yaw still n/a
+
+
+class TestProbeVersionCals:
+    def _make_ser(self, lines):
+        ser = MagicMock()
+        ser.__enter__ = MagicMock(return_value=ser)
+        ser.__exit__ = MagicMock(return_value=False)
+        ser.readline.side_effect = lines + [b""] * 100
+        return ser
+
+    def _patch_serial(self, ser):
+        serial_mod = MagicMock()
+        serial_mod.Serial = MagicMock(return_value=ser)
+        return patch.dict("sys.modules", {"serial": serial_mod})
+
+    def test_collects_calibrated_flags(self):
+        ser = self._make_ser([
+            b"Krabby Ready PINS_REV3.\r\n",
+            b"VER 0.2.0 release/0.2.0 abc1234\r\n",
+            b"CAL FRHL type HALL rev 0 min -10 max 1062 cal 1 state PARTIAL\r\n",
+            b"CAL FRKL type POT rev 1 min 968 max 141 cal 0 state UNCAL\r\n",
+        ])
+        with self._patch_serial(ser):
+            with patch("time.time", return_value=0.0):
+                ver, role, cals = cli_mod._probe_version(
+                    "/dev/ttyACM0", timeout=5.0, cal_joints=["FRHL", "FRKL"])
+        assert ver == "VER 0.2.0 release/0.2.0 abc1234"
+        assert cals == {"FRHL": True, "FRKL": False}
+        writes = b"".join(c.args[0] for c in ser.write.call_args_list)
+        assert b"QFRHL\n" in writes and b"QFRKL\n" in writes
+
+    def test_no_cal_joints_keeps_legacy_behavior(self):
+        ser = self._make_ser([
+            b"Krabby Ready PINS_REV3.\r\n",
+            b"VER 0.2.0 release/0.2.0 abc1234\r\n",
+        ])
+        with self._patch_serial(ser):
+            with patch("time.time", side_effect=[0, 0, 0, 0, 1]):
+                ver, role, cals = cli_mod._probe_version("/dev/ttyACM0", timeout=1.0)
+        assert ver == "VER 0.2.0 release/0.2.0 abc1234"
+        assert cals == {}
+        writes = b"".join(c.args[0] for c in ser.write.call_args_list)
+        assert b"Q" not in writes  # no cal query when cal_joints not requested

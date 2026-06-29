@@ -15,9 +15,11 @@ from typing import Optional
 
 from firmware.krabby_mcu import (
     ALL_JOINT_NAMES,
+    JOINT_GROUP_NAMES,
     KrabbyMCUSDK,
     build_get_line,
     build_set_line,
+    parse_cal_reply,
     parse_ver_reply,
 )
 from firmware.mcu_port import MEGA_USB_IDS
@@ -62,31 +64,43 @@ def _all_mega_ports() -> list[str]:
 _PROBE_V_RETRY_LIMIT = 8
 
 
-def _probe_version(port: str, timeout: float = 6.0) -> tuple[Optional[str], Optional[str]]:
-    """Open port, wait for boot, send V. Return (ver_line, role_hint). Either may be None.
+def _probe_version(
+    port: str, timeout: float = 6.0, cal_joints: Optional[list[str]] = None
+) -> tuple[Optional[str], Optional[str], dict[str, bool]]:
+    """Open port, wait for boot, send V. Return (ver_line, role_hint, cals). ver_line/
+    role_hint may be None; cals maps joint -> stored EEPROM `calibrated` flag (bool).
 
     Captures the ROLE_HINT line the board prints at boot so the caller can label
-    follower boards correctly even when probed alone.
+    follower boards correctly even when probed alone. When cal_joints is given, after the
+    VER reply it issues `Q<joint>` for each (the firmware forwards these to followers and
+    relays their replies up) and collects the persisted `calibrated` flag for each that
+    answers. cals only contains joints that replied — callers treat absent ones as unknown.
     """
+    cals: dict[str, bool] = {}
     try:
         import serial
     except ImportError:
-        return None, None
+        return None, None, cals
+    want = list(cal_joints or [])
     try:
         with serial.Serial(port, 115200, timeout=0.2) as ser:
             ready = False
             role_hint: Optional[str] = None
+            ver_line: Optional[str] = None
             v_retries = 0
+            cal_deadline: Optional[float] = None  # set once Qs are sent; bounds the cal wait
             deadline = time.time() + timeout
             while time.time() < deadline:
                 raw = ser.readline()
                 if not raw:
-                    if ready:
+                    if ready and ver_line is None:
                         if v_retries >= _PROBE_V_RETRY_LIMIT:
-                            return None, role_hint
+                            return None, role_hint, cals
                         ser.write(b"V\n")
                         ser.flush()
                         v_retries += 1
+                    if cal_deadline is not None and time.time() > cal_deadline:
+                        break
                     continue
                 line = raw.decode("utf-8", errors="ignore").strip()
                 if line.startswith("ROLE_HINT: "):
@@ -96,10 +110,27 @@ def _probe_version(port: str, timeout: float = 6.0) -> tuple[Optional[str], Opti
                     ser.write(b"V\n")
                     ser.flush()
                 elif line.startswith("VER "):
-                    return line, role_hint
+                    ver_line = line
+                    if not want:
+                        return ver_line, role_hint, cals
+                    for j in want:
+                        ser.write(f"Q{j}\n".encode())
+                    ser.flush()
+                    cal_deadline = time.time() + 3.0
+                else:
+                    parsed = parse_cal_reply(line)
+                    if parsed:
+                        name, kv = parsed
+                        if name in want and "cal" in kv:
+                            cals[name] = kv["cal"] == "1"
+                            if len(cals) >= len(want):
+                                break
+                if cal_deadline is not None and time.time() > cal_deadline:
+                    break
+            return ver_line, role_hint, cals
     except Exception:
         pass
-    return None, None
+    return None, None, cals
 
 
 # --- S3 fetch helpers ---
@@ -140,6 +171,42 @@ def _page(text: str) -> None:
 
 # --- show ---
 
+# Display layout for the calibration matrix: one row per leg, one column per joint.
+# A joint name is <leg-prefix><joint-suffix>, e.g. FL + HL = FLHL.
+_CAL_LEGS = (
+    ("Front Left", "FL"), ("Front Right", "FR"),
+    ("Middle Left", "ML"), ("Middle Right", "MR"),
+    ("Rear Left", "RL"), ("Rear Right", "RR"),
+)
+_CAL_COLS = (("Hip", "HL"), ("Knee", "KL"), ("Yaw", "HY"))
+
+
+def _cal_cell(joint: str, board_cals: dict[str, bool]) -> str:
+    """One cell of the calibration matrix, by the persisted EEPROM `calibrated` flag:
+    ✓ = calibrated, ✗ = not calibrated, N/A = yaw (no calibratable end-stops here),
+    ? = no reply (board unreachable / joint not wired / firmware without cal read-back)."""
+    if joint[3] == "Y":
+        return "N/A"
+    if joint not in board_cals:
+        return "?"
+    return "✓" if board_cals[joint] else "✗"
+
+
+def _print_cal_status(board_cals: dict[str, bool]) -> None:
+    """Print joint calibration as a leg × joint grid — the persisted EEPROM `calibrated`
+    flag, not the runtime state (which resets to PARTIAL on a Hall every boot)."""
+    label_w = max(len(name) for name, _ in _CAL_LEGS)
+    col_w = 7
+    print()
+    print("Joint calibration:")
+    header = " " * (label_w + 4) + "".join(f"{title:<{col_w}}" for title, _ in _CAL_COLS)
+    print(header.rstrip())
+    for name, leg in _CAL_LEGS:
+        cells = "".join(f"{_cal_cell(leg + suf, board_cals):<{col_w}}" for _, suf in _CAL_COLS)
+        print(f"  {name:<{label_w}}  {cells}".rstrip())
+    print("  ✓ calibrated   ✗ not calibrated   N/A no end-stops   ? no reply")
+
+
 def cmd_show(branch: Optional[str] = None) -> None:
     # `show <branch>` lists that branch's full build history, newest-first and paged.
     if branch is not None:
@@ -148,12 +215,25 @@ def cmd_show(branch: Optional[str] = None) -> None:
 
     ports = _all_mega_ports()
 
-    # Probe all boards and fetch S3 index in parallel.
+    # Yaw joints (4th char 'Y') have no calibratable end-stops here, so we don't query them.
+    cal_joints = [n for _, names in JOINT_GROUP_NAMES for n in names if n[3] != "Y"]
+
+    # Probe all boards and fetch S3 index in parallel. Each probe also collects the stored
+    # `calibrated` flag for the non-yaw joints (Q forwards to followers; replies relay up).
     with ThreadPoolExecutor(max_workers=len(ports) + 1) as executor:
         index_future = executor.submit(_fetch_index)
-        probe_futures = [(port, executor.submit(_probe_version, port)) for port in ports]
+        probe_futures = [
+            (port, executor.submit(_probe_version, port, cal_joints=cal_joints))
+            for port in ports
+        ]
 
     probe_results = {port: fut.result() for port, fut in probe_futures}
+
+    # Union the per-port cal replies — a board answers its own joints, and a leader relays
+    # its followers', so across all ports we collect every joint that responded.
+    board_cals: dict[str, bool] = {}
+    for _, _, cals in probe_results.values():
+        board_cals.update(cals)
 
     if ports:
         # Leader returns combined VER (slot 0=front, 1=left, 2=right via UART).
@@ -161,7 +241,7 @@ def cmd_show(branch: Optional[str] = None) -> None:
         # correct per-board versions instead of all mapping to slot 0.
         combined: list[tuple[str, str, str]] | None = None
         for port in ports:
-            ver_line, _ = probe_results[port]
+            ver_line, _, _ = probe_results[port]
             if ver_line:
                 parsed = parse_ver_reply(ver_line)
                 if parsed and any(v != "-" for v, _, _ in parsed[1:]):
@@ -173,7 +253,7 @@ def cmd_show(branch: Optional[str] = None) -> None:
             # Annotate with port only when ROLE_HINT is available (firmware >= M14 step 9).
             role_to_port: dict[str, str] = {}
             for port in ports:
-                _, role_hint = probe_results[port]
+                _, role_hint, _ = probe_results[port]
                 if role_hint:
                     role_to_port.setdefault(role_hint, port)
 
@@ -183,7 +263,7 @@ def cmd_show(branch: Optional[str] = None) -> None:
                 print(f"  {role}{port_label}: {v} ({b} {c})")
         else:
             for port in ports:
-                ver_line, role_hint = probe_results[port]
+                ver_line, role_hint, _ = probe_results[port]
                 role = role_hint or "front"
                 parsed = parse_ver_reply(ver_line) if ver_line else None
                 if parsed:
@@ -193,6 +273,9 @@ def cmd_show(branch: Optional[str] = None) -> None:
                     print(f"  {port}  {role}: (no version response)")
     else:
         print("No attached Mega boards detected.")
+
+    if ports:
+        _print_cal_status(board_cals)
 
     print()
     try:
