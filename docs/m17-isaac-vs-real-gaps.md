@@ -23,7 +23,10 @@ where sim saw a live (often privileged) signal.
   It is listed here for completeness, not as a gap to close.
 - `contact_forces` is the only field M17 actively approximates rather than
   zeroing; see [`m17-hal-model-audit.md`](m17-hal-model-audit.md) for the
-  mapping and the placeholder-scale caveat.
+  mapping and the placeholder-scale caveat. **As of the 2026-06-30 bench run the
+  current-sense channel is non-functional board-wide (FRONT grounded, followers
+  floating), so this field carries noise, not contact** — see that doc's "Bench
+  finding" section. It is hard-blocked on an IS-wiring repair.
 - `scan_features` stays zero on real until the depth-derived height scan lands
   (M11 + M15 Task 3). A zero scan reads to the model as "flat ground ahead".
 - Everything in this table that defaults to a constant is a randomization target

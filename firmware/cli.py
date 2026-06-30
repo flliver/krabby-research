@@ -715,9 +715,11 @@ def cmd_observe(port: Optional[str], hz: float = 0.0, count: int = 1) -> None:
     the current→contact_forces mapping), not just raw board telemetry. Bench tool
     for verifying M17 Task 6 (6b/6c/6e) without running the inference stack.
 
-    ``count <= 0`` streams until Ctrl-C. Velocity needs ≥2 snapshots to read
-    non-zero (the first tick for a joint has no prior sample), so a single-shot
-    call shows vel 0 — pass --hz to stream."""
+    ``count <= 0`` streams until Ctrl-C. Velocity and Δpos (change since the
+    previous snapshot) need ≥2 snapshots to read non-zero, so a single-shot call
+    shows them as 0 — pass --hz to stream. Streaming while jogging a joint is a
+    quick sense-channel check: Δpos moving while ``cur`` stays flat means the
+    motor/position sensor work but the current-sense (IS) line is dead."""
     from firmware.observation_mapping import (
         CONTACT_DROPPED_LEG,
         CONTACT_LEGS,
@@ -740,6 +742,7 @@ def cmd_observe(port: Optional[str], hz: float = 0.0, count: int = 1) -> None:
     while not sdk.joints and time.time() < deadline:
         time.sleep(0.05)
 
+    prev_pos: dict[str, float] = {}  # last snapshot's pos per joint, for Δpos
     try:
         n_done = 0
         while count <= 0 or n_done < count:
@@ -747,16 +750,18 @@ def cmd_observe(port: Optional[str], hz: float = 0.0, count: int = 1) -> None:
             snap = dict(sdk.joints)
             leg_currents: dict[str, float] = {}
             print(f"=== observation @ {now:.2f}s ===")
-            print(f"{'joint':<6} {'pos[0,1]':>8} {'vel':>7} {'cur':>5}  cal")
+            print(f"{'joint':<6} {'pos[0,1]':>8} {'Δpos':>7} {'vel':>7} {'cur':>5}  cal")
             for name in names:
                 jt = snap.get(name)
                 if jt is None:
-                    print(f"{name:<6} {'-':>8} {'-':>7} {'-':>5}  -")
+                    print(f"{name:<6} {'-':>8} {'-':>7} {'-':>7} {'-':>5}  -")
                     continue
                 vel = est.update(name, jt.pos, now)
+                dpos = jt.pos - prev_pos[name] if name in prev_pos else 0.0
+                prev_pos[name] = jt.pos
                 leg = leg_prefix(name)
                 leg_currents[leg] = leg_currents.get(leg, 0.0) + float(jt.current)
-                print(f"{name:<6} {jt.pos:>8.3f} {vel:>+7.3f} {jt.current:>5}  {jt.cal_state_name}")
+                print(f"{name:<6} {jt.pos:>8.3f} {dpos:>+7.3f} {vel:>+7.3f} {jt.current:>5}  {jt.cal_state_name}")
             contacts = contact_forces_from_leg_currents(leg_currents)
             contact_str = ", ".join(f"{leg} {v:+.2f}" for leg, v in zip(CONTACT_LEGS, contacts))
             print(f"contact_forces: [{contact_str}]   ({CONTACT_DROPPED_LEG} dropped)")

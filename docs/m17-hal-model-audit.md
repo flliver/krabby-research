@@ -82,9 +82,42 @@ the `krabby-firmware observe` bench command); the HAL wraps it to `np.float32`.
 
 > **Placeholder scale.** `CONTACT_FULLSCALE` is a structural placeholder, **not**
 > calibrated. It must be retuned against Task 4's loaded-vs-unloaded `avgIS`
-> ranges once the current-sense IS-line fault (Task 4 finding: bench reads ~6
-> under load vs. an expected ≳100) is resolved on the chassis. Expected to be
-> refined in M15.
+> ranges — but that is blocked on the hardware finding below, not just on tuning.
+> Expected to be refined in M15.
+
+### Bench finding (2026-06-30): current-sense channel non-functional, board-wide
+
+Running `krabby-firmware observe` on the Orin (FRONT board on USB, LEFT/RIGHT as
+serial followers, robot idle) showed the per-joint `current` (firmware `avgIS`,
+the EMA of `analogRead(pinIS)` refreshed every loop in `updateAll()`):
+
+| Board | Joints | `current` at idle | Signature |
+|-------|--------|-------------------|-----------|
+| FRONT | `FL*`, `FR*` | **0** | IS pin reads ground/zero |
+| LEFT  | `RL*`, `ML*` | ~690–810 | floating ADC at mid-rail (~700/1023) |
+| RIGHT | `RR*`, `MR*` | ~650–800 | floating ADC at mid-rail |
+
+Jogging `FLKL` at ±200 moved `pos` (motor + position sensor work) while `current`
+stayed pinned at 0 — so the IS analog channel carries no real current signal.
+The read path is confirmed live (firmware `actuator_manager.h` `update()` →
+`updateSensors()` every loop), so this is **hardware/wiring**, not firmware or the
+mapper. The firmware already noted the FRONT case (`actuator_manager.h:287`); the
+bench run confirms it is **board-wide**, with FRONT grounded and both followers
+floating.
+
+Consequences:
+- **`contact_forces` (6e) is hard-blocked** until the IS wiring is fixed; tuning
+  `CONTACT_FULLSCALE` is moot while the input is ground/float noise.
+- **Follower jam-detection is currently wrong**: the firmware treats `avgIS ≥ 100`
+  (`JAM_CURRENT_THRESHOLD`) as "pushing hard", and the followers sit at ~700, so
+  every follower joint reads as permanently jammed. Any IS-gated logic on those
+  boards (jam detection, the Hall self-heal end-stop-vs-jam split, Task 4
+  loaded/unloaded eval) is unreliable until the wiring is repaired.
+
+Next hardware step: trace each board's H-bridge current-sense outputs to the
+analog inputs (`A6–A11` per `board_pins.h`) — FRONT looks grounded, the followers
+unconnected — and verify the `PINS_REV3_UNO_V02` IS-pin mapping matches the
+actual harness.
 
 ## Notes
 
