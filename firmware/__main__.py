@@ -154,6 +154,9 @@ _COMMAND_HELP: list[tuple[str, str]] = [
     ("jog [--port P] [--ms MS] --joint JOINT --pwm -255..255",
      "Drive one joint open-loop for a bounded time, then stop. "
      "Requires --joint and --pwm."),
+    ("observe [--port P] [--hz HZ] [--count N]",
+     "Dump the assembled model observation (normalized pos, velocity, "
+     "contact_forces) from live telemetry. --hz streams (M17 Task 6 bench check)."),
 ]
 
 
@@ -260,6 +263,16 @@ def main():
     jog_p.add_argument("--pwm", required=True, type=int, metavar="-255..255")
     jog_p.add_argument("--ms", type=int, default=1000, help="duration in ms (default 1000)")
 
+    observe_p = subparsers.add_parser(
+        "observe",
+        help="Dump the assembled model observation (pos[0,1]/vel/contact_forces) from live telemetry (M17 Task 6).")
+    observe_p.add_argument("--port", default=None, metavar="PORT",
+                           help="Serial port of the board (default: auto-detect / $KRABBY_MCU_PORT).")
+    observe_p.add_argument("--hz", type=float, default=0.0, metavar="HZ",
+                           help="Stream at this rate (default: one snapshot). Velocity needs ≥2 snapshots.")
+    observe_p.add_argument("--count", type=int, default=None, metavar="N",
+                           help="Number of snapshots (default 1, or stream until Ctrl-C when --hz is set).")
+
     args = parser.parse_args()
 
     if args.command == "help":
@@ -314,6 +327,13 @@ def main():
     if args.command == "jog":
         from firmware.cli import cmd_jog
         cmd_jog(args.port, args.joint, args.pwm, args.ms)
+        return
+
+    if args.command == "observe":
+        from firmware.cli import cmd_observe
+        # No --count: one shot normally, or stream forever (count<=0) when --hz set.
+        count = args.count if args.count is not None else (0 if args.hz else 1)
+        cmd_observe(args.port, args.hz, count)
         return
 
     if args.debug:

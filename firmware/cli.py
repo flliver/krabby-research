@@ -707,3 +707,63 @@ def cmd_jog(port: Optional[str], name: str, pwm: int, ms: int) -> None:
     print(f"jog {name}: pwm={pwm} ms={ms} -> pos={pos}")
     if cal:
         print("  " + _format_cal(name, cal))
+
+
+def cmd_observe(port: Optional[str], hz: float = 0.0, count: int = 1) -> None:
+    """Dump the assembled model observation built from live MCU telemetry — the
+    HAL-layer view (normalized joint position [0,1], Python-side velocity EMA, and
+    the current→contact_forces mapping), not just raw board telemetry. Bench tool
+    for verifying M17 Task 6 (6b/6c/6e) without running the inference stack.
+
+    ``count <= 0`` streams until Ctrl-C. Velocity needs ≥2 snapshots to read
+    non-zero (the first tick for a joint has no prior sample), so a single-shot
+    call shows vel 0 — pass --hz to stream."""
+    from firmware.observation_mapping import (
+        CONTACT_DROPPED_LEG,
+        CONTACT_LEGS,
+        JointVelocityEstimator,
+        contact_forces_from_leg_currents,
+        leg_prefix,
+    )
+
+    sdk = KrabbyMCUSDK(port=port)
+    if not sdk.connect(settle=2.0, hold=False):
+        sys.exit(f"could not open serial port {sdk.port}")
+
+    names = [n for _, group in JOINT_GROUP_NAMES for n in group]
+    est = JointVelocityEstimator()
+    period = 1.0 / hz if hz and hz > 0 else 0.0
+
+    # The reader thread starts after connect(); give the board a moment to stream
+    # its first telemetry frame so the first snapshot isn't all dashes.
+    deadline = time.time() + 3.0
+    while not sdk.joints and time.time() < deadline:
+        time.sleep(0.05)
+
+    try:
+        n_done = 0
+        while count <= 0 or n_done < count:
+            now = time.time()
+            snap = dict(sdk.joints)
+            leg_currents: dict[str, float] = {}
+            print(f"=== observation @ {now:.2f}s ===")
+            print(f"{'joint':<6} {'pos[0,1]':>8} {'vel':>7} {'cur':>5}  cal")
+            for name in names:
+                jt = snap.get(name)
+                if jt is None:
+                    print(f"{name:<6} {'-':>8} {'-':>7} {'-':>5}  -")
+                    continue
+                vel = est.update(name, jt.pos, now)
+                leg = leg_prefix(name)
+                leg_currents[leg] = leg_currents.get(leg, 0.0) + float(jt.current)
+                print(f"{name:<6} {jt.pos:>8.3f} {vel:>+7.3f} {jt.current:>5}  {jt.cal_state_name}")
+            contacts = contact_forces_from_leg_currents(leg_currents)
+            contact_str = ", ".join(f"{leg} {v:+.2f}" for leg, v in zip(CONTACT_LEGS, contacts))
+            print(f"contact_forces: [{contact_str}]   ({CONTACT_DROPPED_LEG} dropped)")
+            n_done += 1
+            if (count <= 0 or n_done < count) and period:
+                time.sleep(period)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        sdk.close()

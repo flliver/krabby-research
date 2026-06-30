@@ -75,10 +75,12 @@ Per-leg load proxy = sum of that leg's three joint currents (raw ADC counts from
 slot = clip(leg_current_sum / _CONTACT_FULLSCALE − 0.5, −0.5, 0.5)
 ```
 
-with `_CONTACT_FULLSCALE = 300.0` (0 current → −0.5 "no contact";
+with `CONTACT_FULLSCALE = 300.0` (0 current → −0.5 "no contact";
 fullscale → +0.5 "firm contact"). Legs with no telemetry map to 0.0 (unknown).
+The mapping lives in `firmware/observation_mapping.py` (pure Python, shared with
+the `krabby-firmware observe` bench command); the HAL wraps it to `np.float32`.
 
-> **Placeholder scale.** `_CONTACT_FULLSCALE` is a structural placeholder, **not**
+> **Placeholder scale.** `CONTACT_FULLSCALE` is a structural placeholder, **not**
 > calibrated. It must be retuned against Task 4's loaded-vs-unloaded `avgIS`
 > ranges once the current-sense IS-line fault (Task 4 finding: bench reads ~6
 > under load vs. an expected ≳100) is resolved on the chassis. Expected to be

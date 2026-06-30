@@ -21,6 +21,7 @@ from hal.server.jetson.front_camera_factory import (
     create_front_rgb_depth_camera,
 )
 from hal.server.jetson.krabby_mcusdk import KrabbyMCUSDK, current_to_contact_forces
+from firmware.observation_mapping import JointVelocityEstimator
 from hal.server.jetson.sensor_backend_jetson import (
     JETSON_SENSOR_CATALOG,
     JETSON_SENSOR_CATALOG_BY_ID,
@@ -41,10 +42,6 @@ from hal.server.jetson.zed_imu import ZedImuSample, apply_mount_to_imu_sample
 from hal.server.jetson.zed_tracking import tracking_lin_vel_sensor_to_base
 
 logger = logging.getLogger(__name__)
-
-# Single-pole EMA factor for Python-side joint velocity (6c). ~0.2 suppresses
-# serial-jitter spikes on the differentiated position while staying responsive.
-_JOINT_VEL_EMA_ALPHA = 0.2
 
 
 def _policy_scan_from_depth(
@@ -173,11 +170,9 @@ class JetsonHalServer(HalServerBase):
         self.state_source = None  # IMU/encoders (placeholder, real implementation in future)
         self.actuator_sink = None  # Motors (placeholder, real implementation in future)
         self._last_joint_positions: Optional[dict[str, float]] = None  # from command.to_positions_dict()
-        # Python-side joint velocity (6c): per-joint (last_pos, last_monotonic_s)
-        # and the smoothed velocity. MCU firmware emits position but no velocity,
-        # so we differentiate successive telemetry samples and EMA-smooth them.
-        self._joint_vel_last: dict[str, tuple[float, float]] = {}
-        self._joint_vel_ema: dict[str, float] = {}
+        # Python-side joint velocity (6c): MCU firmware emits position but no
+        # velocity, so we differentiate successive telemetry samples + EMA-smooth.
+        self._joint_vel_estimator = JointVelocityEstimator()
         self._hal_rgbd_cameras: dict[str, RgbDepthCamera] = {}
         self._primary_catalog_id: str = front_observation_camera_catalog_entry().id
         self._side_catalog_id: Optional[str] = None
@@ -498,18 +493,9 @@ class JetsonHalServer(HalServerBase):
             if jt is None:
                 continue
             joint_positions[i] = np.float32(jt.pos)  # 6b
-            prev = self._joint_vel_last.get(name)  # 6c
-            self._joint_vel_last[name] = (jt.pos, now)
-            if prev is not None:
-                dt = now - prev[1]
-                if dt > 1e-6:
-                    raw_vel = (jt.pos - prev[0]) / dt
-                    ema = (
-                        _JOINT_VEL_EMA_ALPHA * raw_vel
-                        + (1.0 - _JOINT_VEL_EMA_ALPHA) * self._joint_vel_ema.get(name, 0.0)
-                    )
-                    self._joint_vel_ema[name] = ema
-                    joint_velocities[i] = np.float32(ema)
+            joint_velocities[i] = np.float32(  # 6c
+                self._joint_vel_estimator.update(name, jt.pos, now)
+            )
             leg = name.split("_", 1)[0]  # 6e: per-leg summed current
             leg_currents[leg] = leg_currents.get(leg, 0.0) + float(jt.current)
 

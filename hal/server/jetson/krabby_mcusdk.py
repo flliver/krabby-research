@@ -12,6 +12,16 @@ import numpy as np
 from hal.client.data_structures.hardware import JointCommand
 from firmware.interfaces.joint_telemetry import JointTelemetry
 from firmware.krabby_mcu import KrabbyMCUSDK as FirmwareKrabbyMCUSDK
+from firmware.observation_mapping import (  # noqa: F401 (re-exported for callers/tests)
+    CONTACT_DROPPED_LEG,
+    CONTACT_FULLSCALE,
+    CONTACT_LEGS,
+    JointVelocityEstimator,
+    contact_forces_from_leg_currents,
+)
+
+# Back-compat alias for existing imports/tests.
+_CONTACT_FULLSCALE = CONTACT_FULLSCALE
 
 logger = logging.getLogger(__name__)
 
@@ -25,41 +35,15 @@ FULL_CAL_STATE = 2
 
 _HAL_TO_FW_SUFFIX = {"hip_yaw": "HY", "hip_pitch": "HL", "knee": "KL"}
 
-# --- Current-sense → contact_forces (M17 Task 6 §3, Option A) ---------------
-# The parkour model's contact_forces vector is 5-wide (trained against a
-# quadruped's foot set) but the hex has 6 legs. Option A: map five legs into the
-# five slots and DROP one middle leg — the two middle legs (ML/MR) are
-# geometrically redundant for a forward gait, so we keep ML and drop MR.
-# Per-leg load proxy is the sum of that leg's three joint currents (raw ADC
-# counts from JointTelemetry.current); a leg in stance draws more current.
-#
-# FIRST-PASS SCALING — placeholder, expected to be refined in M15. The model
-# expects contact_forces in [-0.5, 0.5] (see HardwareObservations docstring).
-# We map summed raw current through (sum / _CONTACT_FULLSCALE - 0.5), clipped:
-# 0 current → -0.5 (no contact), _CONTACT_FULLSCALE → +0.5 (firm contact).
-# _CONTACT_FULLSCALE MUST be retuned against Task 4's loaded-vs-unloaded avgIS
-# ranges once the current-sense IS-line fault is resolved on the bench; the
-# value below is a structural placeholder, not a calibrated constant.
-CONTACT_LEGS: tuple[str, ...] = ("FL", "FR", "ML", "RL", "RR")
-CONTACT_DROPPED_LEG = "MR"
-_CONTACT_FULLSCALE = 300.0  # summed raw current mapping to slot = +0.5
-
 
 def current_to_contact_forces(leg_currents: dict[str, float]) -> np.ndarray:
-    """Map per-leg summed current to the 5-slot contact_forces vector.
+    """``np.float32`` form of ``contact_forces_from_leg_currents`` (Option A).
 
-    ``leg_currents`` is keyed by leg prefix (``FL``…``RR``). Legs absent from the
-    dict (no telemetry yet) get 0.0 (unknown) rather than -0.5 so a missing
-    reading isn't asserted as "definitely no contact". See module header for the
-    first-pass scaling rationale.
+    The mapping itself (5 legs, MR dropped, placeholder scale) lives in
+    ``firmware.observation_mapping`` so the torch-free firmware CLI can share it;
+    this wrapper just returns the model-facing array.
     """
-    forces = np.zeros(5, dtype=np.float32)
-    for i, leg in enumerate(CONTACT_LEGS):
-        c = leg_currents.get(leg)
-        if c is None:
-            continue
-        forces[i] = float(np.clip(c / _CONTACT_FULLSCALE - 0.5, -0.5, 0.5))
-    return forces
+    return np.asarray(contact_forces_from_leg_currents(leg_currents), dtype=np.float32)
 
 
 def _hal_to_firmware_name(hal_name: str) -> str:
