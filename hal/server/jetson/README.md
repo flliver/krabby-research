@@ -88,6 +88,69 @@ python -m hal.server.jetson.main --checkpoint /path/to/model.pt
 - Runs parkour policy inference
 - Sends joint commands back to HAL server
 
+## ZED onboard IMU → body-frame state
+
+The primary ZED 2i's onboard IMU (Bosch BMI088) supplies the model's body-frame
+angular velocity and orientation until M16 adds the canonical BMI270 on the MCU.
+After M16 the ZED IMU stays as a sanity check / failover.
+
+### Data path
+
+```
+ZedCamera.grab()                                 # hal/server/jetson/zed_camera.py
+  └─ _update_imu()
+       get_sensors_data(_, TIME_REFERENCE.IMAGE)  # sample aligned to the frame
+       parse_zed_imu_data(...)                     # hal/server/jetson/zed_imu.py
+         · gyro deg/s → rad/s
+         · orientation quaternion (x, y, z, w)
+         → ZedImuSample{ base_quat_w, base_ang_vel_b }
+
+JetsonHalServer.set_observation()                 # hal/server/jetson/hal_server.py
+  └─ _primary_zed_imu_sample()
+       get_imu_sample()                            # last sample from the grab above
+       apply_mount_to_imu_sample(sample, mount)    # camera frame → robot body frame
+  → HardwareObservations.base_quat_w   (4,) xyzw
+    HardwareObservations.base_ang_vel_b (3,) rad/s
+
+compute/parkour/mappers/hardware_to_model.py
+  └─ _extract_proprioceptive(): base_quat_w → roll/pitch at proprioceptive[3:5]
+```
+
+`get_imu_sample()` returns the sample captured by the most recent `grab()`; the
+ZED IMU runs at 400 Hz and `TIME_REFERENCE.IMAGE` returns the sample aligned with
+the latest frame, so no separate IMU poll is needed.
+
+### Camera → body rotation (mount pose)
+
+The IMU reports in the **camera frame**, not the robot body frame. The fixed
+camera→body transform is carried as the primary catalog row's `SensorPose`
+quaternion (`JETSON_SENSOR_CATALOG` `is_primary` row, `pose` = base→sensor), and
+`apply_mount_to_imu_sample()` applies it:
+
+- orientation: `q_world_base = q_world_sensor * conj(q_base_sensor)`
+- angular velocity: `omega_base = R_base_sensor @ omega_sensor`
+
+A pose of `(qx, qy, qz, qw) = (0, 0, 0, 1)` is identity (camera frame == body
+frame) and is short-circuited as a no-op. **Assumed mount pose:** ZED 2i at the
+front-center of the krab body, camera forward aligned with robot +X, camera up
+with robot +Z. The default is identity; M15 Task 2 refines this against the
+actual camera location on the V0.2 chassis (and moves the sim camera to match).
+
+**To update the rotation when the mount changes:** set the `pose` quaternion on
+the primary `JETSON_SENSOR_CATALOG` row to the new base→sensor rotation. No code
+change is needed — the transform reads from the catalog at every tick.
+
+### Failure handling
+
+When the primary ZED has an IMU but a given tick has no sample
+(`get_sensors_data` non-SUCCESS, or the parse rejects it),
+`set_observation()` emits the "stationary" fallback — `base_ang_vel_b = [0,0,0]`,
+`base_quat_w = [0,0,0,1]` — increments `_imu_miss_count`, and logs a WARNING
+throttled to every 100th miss. The control loop never crashes; the model reads
+zero angular velocity + identity quaternion as "stationary", the safe default.
+When no ZED IMU is present at all (`_zed_imu_active` is False) the fields stay at
+their placeholder defaults and no warning fires.
+
 ## Hardware Requirements
 
 - **NVIDIA Jetson** (Orin, AGX Xavier, or compatible)

@@ -180,6 +180,7 @@ class JetsonHalServer(HalServerBase):
                 break
         self.side_camera: Optional[RgbDepthCamera] = None
         self._zed_imu_active: bool = False
+        self._imu_miss_count: int = 0
         self._zed_tracking_active: bool = False
 
         # GStreamer multi-sensor interface (optional)
@@ -504,6 +505,20 @@ class JetsonHalServer(HalServerBase):
         if zed_imu is not None:
             base_quat_w = zed_imu.base_quat_w
             base_ang_vel_b = zed_imu.base_ang_vel_b
+        elif self._zed_imu_active:
+            # IMU is present on the primary ZED but this tick's sample was
+            # missing (get_sensors_data non-SUCCESS, or parse rejected it).
+            # Emit the "stationary" fallback (zeros + identity quat) so the
+            # control loop never crashes, and warn at a throttled rate.
+            self._imu_miss_count += 1
+            if self._imu_miss_count % 100 == 1:
+                logger.warning(
+                    "ZED IMU sample missing this tick; emitting zeros "
+                    "(base_ang_vel_b=0, base_quat_w=identity). miss_count=%d",
+                    self._imu_miss_count,
+                )
+            base_ang_vel_b = np.zeros(3, dtype=np.float32)
+            base_quat_w = np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float32)
 
         zed_lin_vel = _primary_zed_tracking_lin_vel_b(self.front_camera, primary_entry)
         if zed_lin_vel is not None:

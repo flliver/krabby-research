@@ -125,6 +125,32 @@ def test_zed_imu_overrides_base_state(jetson_server):
     np.testing.assert_allclose(hw_obs.base_ang_vel_b, [0.01, 0.02, 0.03])
 
 
+def test_zed_imu_missing_sample_falls_back_to_zeros(jetson_server, caplog):
+    """IMU present but no sample this tick → zeros/identity + throttled warning, no crash."""
+    h, w = 376, 672
+    rgb = np.zeros((h, w, 3), dtype=np.uint8)
+    depth = np.zeros((h, w), dtype=np.float32)
+    mock_cam = MagicMock(spec=ZedCamera)
+    mock_cam.get_camera_frames.return_value = (rgb, depth)
+    mock_cam.has_imu.return_value = True
+    mock_cam.has_tracking.return_value = False
+    mock_cam.get_imu_sample.return_value = None  # sensors-data fetch failed this tick
+    jetson_server._hal_rgbd_cameras["front_rgbd"] = mock_cam
+    jetson_server.front_camera = mock_cam
+    jetson_server._zed_imu_active = True
+    jetson_server.initialize()
+    jetson_server._build_state_vector = lambda: _state_12dof()
+
+    with caplog.at_level("WARNING"), patch.object(HalServerBase, "set_observation") as pub:
+        jetson_server.set_observation()
+
+    hw_obs = pub.call_args.args[0]
+    np.testing.assert_allclose(hw_obs.base_ang_vel_b, [0.0, 0.0, 0.0])
+    np.testing.assert_allclose(hw_obs.base_quat_w, [0.0, 0.0, 0.0, 1.0])
+    assert jetson_server._imu_miss_count == 1
+    assert any("ZED IMU sample missing" in r.message for r in caplog.records)
+
+
 def test_zed_tracking_overrides_base_lin_vel(jetson_server):
     h, w = 376, 672
     rgb = np.zeros((h, w, 3), dtype=np.uint8)
