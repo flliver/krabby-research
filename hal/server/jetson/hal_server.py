@@ -20,7 +20,7 @@ from hal.server.jetson.front_camera_factory import (
     FRONT_RGB_DEPTH_CAMERA_FACTORIES,
     create_front_rgb_depth_camera,
 )
-from hal.server.jetson.krabby_mcusdk import KrabbyMCUSDK
+from hal.server.jetson.krabby_mcusdk import KrabbyMCUSDK, current_to_contact_forces
 from hal.server.jetson.sensor_backend_jetson import (
     JETSON_SENSOR_CATALOG,
     JETSON_SENSOR_CATALOG_BY_ID,
@@ -41,6 +41,10 @@ from hal.server.jetson.zed_imu import ZedImuSample, apply_mount_to_imu_sample
 from hal.server.jetson.zed_tracking import tracking_lin_vel_sensor_to_base
 
 logger = logging.getLogger(__name__)
+
+# Single-pole EMA factor for Python-side joint velocity (6c). ~0.2 suppresses
+# serial-jitter spikes on the differentiated position while staying responsive.
+_JOINT_VEL_EMA_ALPHA = 0.2
 
 
 def _policy_scan_from_depth(
@@ -169,6 +173,11 @@ class JetsonHalServer(HalServerBase):
         self.state_source = None  # IMU/encoders (placeholder, real implementation in future)
         self.actuator_sink = None  # Motors (placeholder, real implementation in future)
         self._last_joint_positions: Optional[dict[str, float]] = None  # from command.to_positions_dict()
+        # Python-side joint velocity (6c): per-joint (last_pos, last_monotonic_s)
+        # and the smoothed velocity. MCU firmware emits position but no velocity,
+        # so we differentiate successive telemetry samples and EMA-smooth them.
+        self._joint_vel_last: dict[str, tuple[float, float]] = {}
+        self._joint_vel_ema: dict[str, float] = {}
         self._hal_rgbd_cameras: dict[str, RgbDepthCamera] = {}
         self._primary_catalog_id: str = front_observation_camera_catalog_entry().id
         self._side_catalog_id: Optional[str] = None
@@ -448,6 +457,64 @@ class JetsonHalServer(HalServerBase):
 
         return state_vector
 
+    def _apply_mcu_telemetry(
+        self,
+        joint_positions: np.ndarray,
+        joint_velocities: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray, Optional[np.ndarray]]:
+        """Overlay live MCU telemetry onto the observation joint fields.
+
+        For each joint the MCU reports, this:
+          - **6b** writes the real normalized position (firmware ``pos`` is
+            already in [0,1]) into ``joint_positions``, leaving the echoed-command
+            fallback in place for joints with no telemetry yet;
+          - **6c** derives joint velocity as a single-pole EMA of ``d(pos)/dt``
+            from successive telemetry samples (the firmware emits no velocity);
+          - **6e** accumulates each leg's summed current for the
+            current→``contact_forces`` mapping.
+
+        Returns ``(joint_positions, joint_velocities, contact_forces)``;
+        ``contact_forces`` is ``None`` when no MCU/telemetry is available so the
+        caller keeps its zero placeholder. Never raises — a telemetry read error
+        is logged and degrades to the echoed-command fallback.
+        """
+        if self._mcusdk is None:
+            return joint_positions, joint_velocities, None
+        try:
+            telemetry = self._mcusdk.read_telemetry()
+        except Exception as e:  # telemetry must never crash the control loop
+            logger.warning("MCU telemetry read failed; using echoed fallback: %s", e)
+            return joint_positions, joint_velocities, None
+        if not telemetry:
+            return joint_positions, joint_velocities, None
+
+        names = self.robot_definition.get_joint_names()
+        now = time.monotonic()
+        leg_currents: dict[str, float] = {}
+        for i, name in enumerate(names):
+            if i >= joint_positions.shape[0]:
+                break
+            jt = telemetry.get(name)
+            if jt is None:
+                continue
+            joint_positions[i] = np.float32(jt.pos)  # 6b
+            prev = self._joint_vel_last.get(name)  # 6c
+            self._joint_vel_last[name] = (jt.pos, now)
+            if prev is not None:
+                dt = now - prev[1]
+                if dt > 1e-6:
+                    raw_vel = (jt.pos - prev[0]) / dt
+                    ema = (
+                        _JOINT_VEL_EMA_ALPHA * raw_vel
+                        + (1.0 - _JOINT_VEL_EMA_ALPHA) * self._joint_vel_ema.get(name, 0.0)
+                    )
+                    self._joint_vel_ema[name] = ema
+                    joint_velocities[i] = np.float32(ema)
+            leg = name.split("_", 1)[0]  # 6e: per-leg summed current
+            leg_currents[leg] = leg_currents.get(leg, 0.0) + float(jt.current)
+
+        return joint_positions, joint_velocities, current_to_contact_forces(leg_currents)
+
     def set_observation(self) -> None:
         """Set observation from real sensors as hardware observations.
         
@@ -524,9 +591,18 @@ class JetsonHalServer(HalServerBase):
         if zed_lin_vel is not None:
             base_lin_vel_b = zed_lin_vel
 
-        # Contact forces (placeholder - 5 values, normalized to [-0.5, 0.5])
+        # Contact forces (5 values, normalized to [-0.5, 0.5]); filled from MCU
+        # current sense below, zeros when no MCU telemetry is available.
         contact_forces = np.zeros(5, dtype=np.float32)
-        
+
+        # Overlay live MCU telemetry: real joint positions (6b), Python-side
+        # joint-velocity EMA (6c), and current→contact_forces (6e).
+        joint_positions, joint_velocities, mcu_contacts = self._apply_mcu_telemetry(
+            joint_positions, joint_velocities
+        )
+        if mcu_contacts is not None:
+            contact_forces = mcu_contacts
+
         # Previous action (from last command or zeros if none)
         previous_action = np.zeros(obs_joint_count, dtype=np.float32)
         if self._last_joint_positions is not None:

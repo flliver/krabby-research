@@ -8,17 +8,22 @@ _root = Path(__file__).resolve().parents[5]
 if str(_root) not in sys.path:
     sys.path.insert(0, str(_root))
 
+import numpy as np
 import pytest
 from unittest.mock import Mock, patch
 
 from hal.server.jetson.krabby_mcusdk import (
+    CONTACT_DROPPED_LEG,
+    CONTACT_LEGS,
     FULL_CAL_STATE,
     JOINT_LIMIT_RAD,
     JOINT_NEUTRAL,
     KrabbyMCUSDK,
+    _CONTACT_FULLSCALE,
     _hal_to_firmware_name,
     _map_mcu_joints_to_normalized,
     _rad_to_pwm,
+    current_to_contact_forces,
 )
 from hal.server.robot_definition_krabby_hex import KRABBY_HEX_DEFINITION
 
@@ -68,6 +73,64 @@ class TestMapMcuJointsToNormalized:
         command = {}
         out = _map_mcu_joints_to_normalized(command, mcu_joints)
         assert out["FLKL"] == pytest.approx(JOINT_NEUTRAL)
+
+
+class TestCurrentToContactForces:
+    """Option A: 5 of 6 legs into the 5-slot contact vector, MR dropped."""
+
+    def test_five_slots_drop_one_middle_leg(self):
+        assert len(CONTACT_LEGS) == 5
+        assert CONTACT_DROPPED_LEG == "MR"
+        assert CONTACT_DROPPED_LEG not in CONTACT_LEGS
+        assert CONTACT_LEGS == ("FL", "FR", "ML", "RL", "RR")
+
+    def test_zero_current_maps_to_no_contact(self):
+        forces = current_to_contact_forces({leg: 0.0 for leg in CONTACT_LEGS})
+        assert forces.shape == (5,)
+        assert forces.dtype == np.float32
+        assert np.allclose(forces, -0.5)
+
+    def test_fullscale_current_maps_to_firm_contact(self):
+        forces = current_to_contact_forces({leg: _CONTACT_FULLSCALE for leg in CONTACT_LEGS})
+        assert np.allclose(forces, 0.5)
+
+    def test_midscale_current_maps_to_zero(self):
+        forces = current_to_contact_forces({"FL": _CONTACT_FULLSCALE / 2.0})
+        assert forces[0] == pytest.approx(0.0, abs=1e-6)
+
+    def test_clips_above_fullscale(self):
+        forces = current_to_contact_forces({"FL": _CONTACT_FULLSCALE * 10})
+        assert forces[0] == pytest.approx(0.5)
+
+    def test_missing_legs_default_to_zero_unknown(self):
+        # MR is never a slot; an absent leg reads as 0.0 (unknown), not -0.5.
+        forces = current_to_contact_forces({"FL": _CONTACT_FULLSCALE})
+        assert forces[0] == pytest.approx(0.5)
+        assert np.allclose(forces[1:], 0.0)
+
+    def test_slot_order_matches_contact_legs(self):
+        forces = current_to_contact_forces({"RL": _CONTACT_FULLSCALE})
+        assert forces[CONTACT_LEGS.index("RL")] == pytest.approx(0.5)
+
+
+class TestReadTelemetry:
+    def _make_sdk(self, joints_telemetry):
+        mcu_joints = KRABBY_HEX_DEFINITION.get_mcu_joints()
+        sdk = KrabbyMCUSDK(mcu_joints=mcu_joints, auto_connect=False)
+        sdk._mcu = Mock()
+        sdk._mcu.joints = joints_telemetry
+        return sdk
+
+    def test_keyed_by_hal_name_and_omits_missing(self):
+        jt = Mock(pos=0.42, current=120, cal_state=FULL_CAL_STATE)
+        sdk = self._make_sdk({"FLKL": jt})  # only one joint reporting
+        out = sdk.read_telemetry()
+        assert set(out) == {"FL_knee"}
+        assert out["FL_knee"].pos == 0.42
+
+    def test_empty_when_no_joints_reporting(self):
+        sdk = self._make_sdk({})
+        assert sdk.read_telemetry() == {}
 
 
 class TestKrabbyMCUSDKInit:

@@ -175,6 +175,65 @@ def test_zed_tracking_overrides_base_lin_vel(jetson_server):
     np.testing.assert_allclose(hw_obs.base_lin_vel_b, [0.5, 0.0, 0.0])
 
 
+def _mcu_telemetry(pos, current, cal_state=2):
+    return MagicMock(pos=pos, current=current, cal_state=cal_state)
+
+
+_HEX_NAMES = [
+    f"{leg}_{j}"
+    for leg in ("FL", "FR", "ML", "MR", "RL", "RR")
+    for j in ("hip_yaw", "hip_pitch", "knee")
+]
+
+
+def _hex_server(jetson_server, telemetry):
+    """Point the fixture server at the 18-joint hex names + a mocked MCU."""
+    jetson_server.robot_definition = MagicMock()
+    jetson_server.robot_definition.get_joint_names.return_value = tuple(_HEX_NAMES)
+    mock_mcu = MagicMock()
+    mock_mcu.read_telemetry.return_value = telemetry
+    jetson_server._mcusdk = mock_mcu
+    return jetson_server
+
+
+def test_apply_mcu_telemetry_overrides_positions_and_contacts(jetson_server):
+    """6b/6e: telemetry pos lands in joint_positions; leg current → contact_forces."""
+    telemetry = {n: _mcu_telemetry(0.5, 0) for n in _HEX_NAMES}
+    telemetry["FL_knee"] = _mcu_telemetry(0.7, 300)  # one loaded joint on the FL leg
+    server = _hex_server(jetson_server, telemetry)
+
+    pos = np.zeros(18, dtype=np.float32)
+    vel = np.zeros(18, dtype=np.float32)
+    pos, vel, contacts = server._apply_mcu_telemetry(pos, vel)
+
+    assert pos[_HEX_NAMES.index("FL_knee")] == pytest.approx(0.7)
+    assert np.allclose(pos[[i for i, n in enumerate(_HEX_NAMES) if n != "FL_knee"]], 0.5)
+    # FL leg summed current = 300 → slot 0 (FL) at the firm-contact ceiling.
+    assert contacts[0] == pytest.approx(0.5)
+    # MR is dropped (not a slot); ML/RL/RR legs carry 0 current → -0.5 (no contact).
+    assert contacts[2] == pytest.approx(-0.5)
+
+
+def test_apply_mcu_telemetry_velocity_zero_first_tick(jetson_server):
+    """6c: first telemetry tick has no prior sample → velocity stays 0 (no crash)."""
+    telemetry = {n: _mcu_telemetry(0.5, 0) for n in _HEX_NAMES}
+    server = _hex_server(jetson_server, telemetry)
+
+    _, vel, _ = server._apply_mcu_telemetry(np.zeros(18, dtype=np.float32), np.zeros(18, dtype=np.float32))
+    assert np.all(vel == 0.0)
+
+
+def test_apply_mcu_telemetry_no_mcu_returns_inputs(jetson_server):
+    """No MCU → inputs unchanged and contact_forces None (caller keeps zeros)."""
+    jetson_server._mcusdk = None
+    pos = np.full(18, 0.3, dtype=np.float32)
+    vel = np.full(18, 0.1, dtype=np.float32)
+    out_pos, out_vel, contacts = jetson_server._apply_mcu_telemetry(pos, vel)
+    assert contacts is None
+    assert np.array_equal(out_pos, pos)
+    assert np.array_equal(out_vel, vel)
+
+
 def test_shape_mismatch_raises(jetson_server):
     mock_cam = MagicMock(spec=ZedCamera)
     h, w = jetson_server.camera_resolution[1], jetson_server.camera_resolution[0]
