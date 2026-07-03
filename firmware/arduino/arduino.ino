@@ -404,6 +404,8 @@ void processConfig(HardwareSerial &port)
 
 void loop()
 {
+    hallHwLoopPet();  // storm breaker heartbeat: proves loop() is alive (see hall_hw.cpp)
+
     int rxBudget = RX_DRAIN_BUDGET;
     while (mainSerial->available() && rxBudget-- > 0)
     {

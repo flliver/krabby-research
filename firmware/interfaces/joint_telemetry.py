@@ -6,7 +6,8 @@ from typing import Tuple, Optional
 # Forwarded lines from left/right already include their role (LEFT; / RIGHT; ).
 # Example: "FRONT; FLHY 0.123 0 512 1 0 0 128 0;FLHL ...;..."
 # Segment format: <name> <pos> <pot> <current> <enL> <enR> <pwmL> <pwmR> <saf> [<cal_state>]
-# saf: cumulative HallA edge count since boot (pins depend on KRABBY_PIN_REV in board_pins.h).
+# saf: SIGNED Hall quadrature count since boot (HallB gives direction: rises driving one
+# way, falls the other; which way is + depends on wiring). Pot joints normally read 0.
 # cal_state (optional 10th token, older firmware omits it): 0=UNCALIBRATED, 1=PARTIALLY_
 # CALIBRATED (Hall, unanchored — pos is relative until it self-heals against an end-stop),
 # 2=FULLY_CALIBRATED. M17 Task 2 §6.5.

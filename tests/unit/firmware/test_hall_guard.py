@@ -39,9 +39,14 @@ class TestHallWiredUp:
         # Without this call the PCINT counters are never armed and Hall reads 0.
         assert re.search(r"\bhallHwInit\s*\(\s*\)", ino), "hallHwInit() must be called in setup()"
 
-    def test_edge_count_in_telemetry(self, actuator):
-        assert re.search(r"hallHwGetEdgeCount\s*\(", actuator), \
-            "telemetry must print hallHwGetEdgeCount(slot)"
+    def test_signed_count_in_telemetry(self, actuator):
+        # The signed quadrature count (not the up-only edge count) must be on the wire so
+        # the GUI/menu can show direction — the pre-wiring HallB validation check.
+        assert re.search(r"hallHwGetSignedCount\s*\(\s*\(uint8_t\)\s*hallSlot\s*\)", actuator), \
+            "telemetry must print hallHwGetSignedCount(slot)"
+        tele = actuator[actuator.index("void printTelemetry"):]
+        assert "hallHwGetEdgeCount" not in tele, \
+            "telemetry must not print the unsigned edge count (direction would be invisible)"
 
 
 class TestHallRev3Counter:
@@ -90,6 +95,23 @@ class TestHallQuadrature:
     def test_actuator_uses_signed_count_not_edges(self, actuator):
         body = actuator[actuator.index("int32_t hallSignedCount"):]
         assert "hallHwGetSignedCount" in body[:200], "hallSignedCount() must return the signed quadrature count"
+
+    def test_isrs_self_limit_against_storms(self, hall):
+        # A fast-shaft encoder (hip-yaw) at full jog PWM can saturate PCINT — which has
+        # higher vector priority than the timers — freezing millis(), serial, and loop()
+        # (jog watchdog included) until the shaft stops; only a power cut recovers.
+        # The ISRs must therefore count edges between loop() passes and mask off a
+        # storming pin themselves. Root-caused on the bench 2026-07-03 (runaway FLHY).
+        assert re.search(r"volatile\s+uint16_t\s+g_edgesSinceLoopPet", hall)
+        assert len(re.findall(r"\+\+g_edgesSinceLoopPet", hall)) >= 2, \
+            "both Rev-3 ISRs must count edges since the last loop() pet"
+        assert re.search(r"PCMSK0\s*&=\s*~chg", hall) and re.search(r"PCMSK2\s*&=\s*~chg", hall), \
+            "a tripped ISR must mask off the storming pin's own PCINT bit"
+
+    def test_loop_pets_storm_counter_and_manager_handles_trips(self, ino, actuator):
+        assert re.search(r"\bhallHwLoopPet\s*\(\s*\)", ino), "loop() must pet the storm counter"
+        assert "hallHwStormMask" in actuator and "hallHwStormRearm" in actuator
+        assert '"hall_storm"' in actuator, "a tripped joint must be reported via ERR hall_storm"
 
     def test_hall_pins_pulled_up(self, hall):
         # Disconnected hall lines idle high rather than floating into noise.

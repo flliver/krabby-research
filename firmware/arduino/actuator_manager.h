@@ -396,8 +396,10 @@ public:
         return (avgIS >= JAM_CURRENT_THRESHOLD) ? "motor_jammed" : "motor_did_not_move";
     }
 
-    // JT wire format: "<role>; <name> <pos> <pot> <current> <enL> <enR> <pwmL> <pwmR> <hallEdges> <calState>;"
-    // e.g. 'FRONT; FLHY 0.123 0 12 1 1 0 120 0 2; FRHY 0.234 0 13 1 1 0 130 0 0; ...'
+    // JT wire format: "<role>; <name> <pos> <pot> <current> <enL> <enR> <pwmL> <pwmR> <hallCount> <calState>;"
+    // e.g. 'FRONT; FLHY 0.123 0 12 1 1 0 120 -1520 2; FRHY 0.234 0 13 1 1 0 130 0 0; ...'
+    // hallCount is the SIGNED quadrature count (HallB gives direction), so the operator can
+    // see it rise one way and fall the other — the pre-wiring encoder direction check.
     // calState: 0=UNCAL, 1=PARTIAL (Hall, unanchored), 2=FULL. Keep in sync with
     // firmware/interfaces/joint_telemetry.py. Kept super simple (no string parsing / libs).
     void printTelemetry(Print& out) const
@@ -420,7 +422,7 @@ public:
         out.print(currentPwm > 0 ? currentPwm : 0);
         out.print(' ');
         if (hallSlot >= 0 && hallSlot < 6)
-            out.print(hallHwGetEdgeCount((uint8_t)hallSlot));
+            out.print(hallHwGetSignedCount((uint8_t)hallSlot));
         else
             out.print(0);
         out.print(' ');
@@ -1032,8 +1034,45 @@ public:
         }
     }
 
+    // Hall storm breaker follow-up (see hall_hw.cpp): the ISR has already silenced the
+    // storming slot's PCINT; here we coast its motor, tell the operator, and re-arm the
+    // slot once the motor has been stopped long enough for the shaft to spin down.
+    // Runs before the cal dispatch in updateAll() so a storm mid-cal-sweep still stops.
+    static constexpr unsigned long HALL_STORM_REARM_MS = 300;
+
+    void handleHallStorms()
+    {
+        uint8_t storm = hallHwStormMask();
+        if (!storm) return;
+        for (uint8_t slot = 0; slot < 6; slot++)
+        {
+            if (!(storm & _BV(slot))) continue;
+            LinearActuator* a = nullptr;
+            uint8_t idx = 0;
+            for (size_t j = 0; j < count; j++)
+                if (actuators[j]->hallSlot == (int8_t)slot) { a = actuators[j]; idx = (uint8_t)j; break; }
+            if (stormRearmAtMs[slot] == 0)
+            {
+                // Fresh trip: stop the joint (stopMotor also drops any latched target —
+                // counts made during the storm are gone, so its position frame is too).
+                if (a) { a->stopMotor(); emitJointErr(idx, "hall_storm"); }
+                stormRearmAtMs[slot] = millis();
+            }
+            else if (a && a->currentPwm != 0)
+            {
+                stormRearmAtMs[slot] = millis();  // operator is driving it again: hold off re-arm
+            }
+            else if (millis() - stormRearmAtMs[slot] >= HALL_STORM_REARM_MS)
+            {
+                hallHwStormRearm(slot);
+                stormRearmAtMs[slot] = 0;
+            }
+        }
+    }
+
     void updateAll()
     {
+        handleHallStorms();
         if (jcActive)                  // single-joint calibration (M17 Task 2)
             updateJointCal();
         else if (caActive)             // whole-board calibration sequence (M17 Task 3)
@@ -1313,6 +1352,9 @@ public:
 private:
     LinearActuator **actuators;
     size_t count;
+
+    // Hall storm breaker: per-slot re-arm deadline (0 = slot not tripped). See handleHallStorms().
+    unsigned long stormRearmAtMs[6] = { 0, 0, 0, 0, 0, 0 };
 
     // Single-joint calibration state (M17 Task 2)
     Print*        errOut       = nullptr;  // ERR <joint> <code> sink (set by setErrorOutput)

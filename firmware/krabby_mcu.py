@@ -64,6 +64,7 @@ ERROR_CODES = frozenset({
     "current_sense_no_signal",
     "current_sense_no_spike",
     "sensor_type_mismatch",  # calibration found a sensor that disagrees with the joint's fixed type
+    "hall_storm",            # encoder edge rate saturated the MCU; joint coasted, counting paused
 })
 
 # Reason-code → operator-facing fix instruction (Task 4 §5 / 4f). `{joint}` is filled per
@@ -79,6 +80,7 @@ _FIX_INSTRUCTIONS = {
     "sensor_type_mismatch":    "Sensor on {joint} disagrees with its expected type (e.g. a Hall actuator in a pot slot, or vice versa). Check that the correct motor is wired to this slot.",
     "current_sense_no_signal": "Check current-sense wiring on {joint} (shunt + analog IS line back to the shield).",
     "current_sense_no_spike":  "Current sense on {joint} reads but does not spike under load. Verify the motor is actually bearing weight; if so, check that the shunt resistor isn't damaged.",
+    "hall_storm":              "Encoder on {joint} produced edges faster than the MCU can service; the motor was coasted and counting paused. Drive it at a lower PWM (fast-shaft encoders saturate at full jog speed).",
 }
 
 _ERROR_RING_MAX = 128  # most recent ERR events retained for get_errors()

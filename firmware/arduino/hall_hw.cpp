@@ -4,8 +4,27 @@
 #include <avr/interrupt.h>
 #include <avr/io.h>
 
-static volatile uint32_t g_hallEdgeCount[6];    // legacy cumulative edge count (telemetry)
+static volatile uint32_t g_hallEdgeCount[6];    // legacy cumulative edge count (debug)
 static volatile int32_t  g_hallSignedCount[6];  // signed quadrature count = position (M17 Task 2 §5)
+
+// --- Storm breaker ---
+// A fast-shaft encoder (the hip-yaw counts the motor shaft BEFORE its 1:100 gearbox —
+// ~170k+ edges/s at full jog PWM) can saturate the PCINT vector: once the edge interval
+// drops below the ISR's own run time, PCINT (higher vector priority than the timers)
+// re-fires back-to-back and NOTHING else executes — millis() freezes, serial dies, and
+// loop() (telemetry, command parsing, the jog watchdog) never runs until the shaft stops.
+// Observed on the bench 2026-07-03: FLHY jogged at PWM 200 → telemetry dead in <100 ms,
+// stop command and jog watchdog both starved, only a motor-power cut recovered it.
+// The only code guaranteed to keep running is the ISR itself, so it self-limits: count
+// edges since the last loop() pass, and past the limit mask off the storming pin's own
+// PCINT bit. The storm stops, loop() recovers within one pass, and ActuatorManager coasts
+// the joint and emits `ERR <joint> hall_storm` (counts made during a storm are unreliable;
+// the slot is re-armed once its motor has stopped).
+// Limit: worst legit edges in one loop pass ≈ 80 ms of blocking flush() × ~170 kHz ≈ 14k;
+// 40000 gives ~3x margin and still trips within ~0.2 s of true saturation.
+static const uint16_t    HALL_STORM_EDGE_LIMIT = 40000;
+static volatile uint16_t g_edgesSinceLoopPet;
+static volatile uint8_t  g_hallStormMask;       // bit N = slot N tripped off, awaiting re-arm
 
 // Quadrature step from one HallA edge, given the current A and B levels: +1 when A != B,
 // -1 when A == B. That yields a count that climbs in one travel direction and falls in
@@ -54,6 +73,14 @@ ISR(PCINT0_vect)
     if (chg & _BV(3)) { g_hallEdgeCount[0]++; g_hallSignedCount[0] += quadStep((b >> 3) & 1, (f >> 0) & 1); } // D50/A0
     if (chg & _BV(2)) { g_hallEdgeCount[1]++; g_hallSignedCount[1] += quadStep((b >> 2) & 1, (f >> 1) & 1); } // D51/A1
     if (chg & _BV(1)) { g_hallEdgeCount[2]++; g_hallSignedCount[2] += quadStep((b >> 1) & 1, (f >> 2) & 1); } // D52/A2
+    if (++g_edgesSinceLoopPet >= HALL_STORM_EDGE_LIMIT)
+    {
+        PCMSK0 &= ~chg;  // silence only the pin(s) that just fired; loop() recovers and re-arms later
+        if (chg & _BV(3)) g_hallStormMask |= _BV(0);
+        if (chg & _BV(2)) g_hallStormMask |= _BV(1);
+        if (chg & _BV(1)) g_hallStormMask |= _BV(2);
+        g_edgesSinceLoopPet = 0;  // innocent slots start a fresh window
+    }
 }
 
 ISR(PCINT2_vect)
@@ -65,6 +92,14 @@ ISR(PCINT2_vect)
     if (chg & _BV(4)) { g_hallEdgeCount[3]++; g_hallSignedCount[3] += quadStep((k >> 4) & 1, (f >> 3) & 1); } // A12/A3
     if (chg & _BV(5)) { g_hallEdgeCount[4]++; g_hallSignedCount[4] += quadStep((k >> 5) & 1, (f >> 4) & 1); } // A13/A4
     if (chg & _BV(6)) { g_hallEdgeCount[5]++; g_hallSignedCount[5] += quadStep((k >> 6) & 1, (f >> 5) & 1); } // A14/A5
+    if (++g_edgesSinceLoopPet >= HALL_STORM_EDGE_LIMIT)
+    {
+        PCMSK2 &= ~chg;
+        if (chg & _BV(4)) g_hallStormMask |= _BV(3);
+        if (chg & _BV(5)) g_hallStormMask |= _BV(4);
+        if (chg & _BV(6)) g_hallStormMask |= _BV(5);
+        g_edgesSinceLoopPet = 0;
+    }
 }
 
 #elif KRABBY_PIN_REV == 1
@@ -148,5 +183,37 @@ void hallHwResetCount(uint8_t hallSlot)
     cli();
     g_hallEdgeCount[hallSlot] = 0;
     g_hallSignedCount[hallSlot] = 0;
+    SREG = oldSreg;
+}
+
+void hallHwLoopPet()
+{
+    uint8_t oldSreg = SREG;
+    cli();  // uint16 store isn't atomic on AVR
+    g_edgesSinceLoopPet = 0;
+    SREG = oldSreg;
+}
+
+uint8_t hallHwStormMask()
+{
+    return g_hallStormMask;  // single-byte read is atomic
+}
+
+void hallHwStormRearm(uint8_t hallSlot)
+{
+    if (hallSlot >= 6)
+        return;
+    // Pin bit per slot: slots 0-2 = PB3/PB2/PB1 (PCMSK0), slots 3-5 = PK4/PK5/PK6 (PCMSK2).
+    static const uint8_t kPinBit[6] = { _BV(3), _BV(2), _BV(1), _BV(4), _BV(5), _BV(6) };
+    uint8_t oldSreg = SREG;
+    cli();
+    g_hallStormMask &= ~_BV(hallSlot);
+#if KRABBY_PIN_REV == 3
+    // Refresh the last-port snapshot so re-arming doesn't fabricate a phantom edge.
+    if (hallSlot < 3) { s_lastPortB = PINB & 0x0E; PCMSK0 |= kPinBit[hallSlot]; }
+    else              { s_lastPortK = PINK & 0x70; PCMSK2 |= kPinBit[hallSlot]; }
+#else
+    (void)kPinBit;  // Rev 1/2 never trip a storm (slow or absent Halls)
+#endif
     SREG = oldSreg;
 }

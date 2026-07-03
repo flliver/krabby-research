@@ -14,6 +14,11 @@ from firmware.krabby_mcu import KrabbyMCUSDK, JOINT_GROUP_NAMES
 from firmware.interfaces.joint_telemetry import JointTelemetry
 
 JOG_PWM = 200
+# Hip-yaw (HY) joints jog slower: their encoder counts the fast motor shaft (before the
+# 1:100 gearbox), and at full jog PWM the edge rate can saturate the MCU's pin-change
+# interrupts (firmware coasts the joint with ERR hall_storm and pauses counting). 150
+# keeps the edge rate low enough that the Enc column streams live.
+JOG_PWM_HY = 150
 TELEMETRY_REFRESH_MS = 100
 JOG_HEARTBEAT_MS = 100  # re-send a held jog faster than the firmware's ~300ms jog watchdog
 
@@ -45,22 +50,25 @@ class JointRow:
         self.var_pos = tk.StringVar(value="---")
         self.var_cal = tk.StringVar(value="---")
         self.var_pot = tk.StringVar(value="---")
+        self.var_enc = tk.StringVar(value="---")
         self.var_cur = tk.StringVar(value="---")
         self.var_pwm = tk.StringVar(value="---")
 
         # Normalized [0,1] position is the canonical operator value (2e §6); it's colored by
         # calibration state so an unanchored (PARTIAL) or uncalibrated (UNCAL) reading — where
-        # pos isn't trustworthy — is visibly distinct from a FULL, absolute one. The raw Hall
-        # edge count is an internal firmware quantity and is no longer shown; raw pot ADC stays
-        # as a debug field for spotting wiring issues.
+        # pos isn't trustworthy — is visibly distinct from a FULL, absolute one. Raw pot ADC
+        # and the signed Hall quadrature count (Enc) are debug fields for validating wiring
+        # before assembly: Enc must rise driving one way and fall the other — if it climbs
+        # both ways or jitters around 0, HallB (direction) is miswired or dead.
         self.lbl_pos = tk.Label(parent, textvariable=self.var_pos, width=7, anchor="e",
                                 font=("Consolas", 11, "bold"))
         self.lbl_pos.grid(row=row, column=3, padx=4)
         self.lbl_cal = tk.Label(parent, textvariable=self.var_cal, width=8, anchor="center")
         self.lbl_cal.grid(row=row, column=4, padx=4)
         ttk.Label(parent, textvariable=self.var_pot, width=6, anchor="e").grid(row=row, column=5, padx=4)
-        ttk.Label(parent, textvariable=self.var_cur, width=6, anchor="e").grid(row=row, column=6, padx=4)
-        ttk.Label(parent, textvariable=self.var_pwm, width=10, anchor="e").grid(row=row, column=7, padx=4)
+        ttk.Label(parent, textvariable=self.var_enc, width=10, anchor="e").grid(row=row, column=6, padx=4)
+        ttk.Label(parent, textvariable=self.var_cur, width=6, anchor="e").grid(row=row, column=7, padx=4)
+        ttk.Label(parent, textvariable=self.var_pwm, width=10, anchor="e").grid(row=row, column=8, padx=4)
 
     def _start_jog(self, direction: int):
         self._active_dir = direction
@@ -71,7 +79,8 @@ class JointRow:
         # jog watchdog; reschedule until the button is released (_active_dir back to 0).
         if self._active_dir == 0:
             return
-        self._jog_cb(self.name, self._active_dir * JOG_PWM)
+        pwm = JOG_PWM_HY if self.name.endswith("HY") else JOG_PWM
+        self._jog_cb(self.name, self._active_dir * pwm)
         self._jog_after_id = self.lbl_name.after(JOG_HEARTBEAT_MS, self._send_jog_heartbeat)
 
     def _stop_jog(self):
@@ -94,6 +103,7 @@ class JointRow:
         self.lbl_pos.config(fg=color)
         self.lbl_cal.config(fg=color)
         self.var_pot.set(str(jt.pot))
+        self.var_enc.set(str(jt.saf))
         self.var_cur.set(str(jt.current))
         self.var_pwm.set(f"L{jt.pwm[0]} R{jt.pwm[1]}")
 
@@ -138,7 +148,7 @@ class KrabbyTestGUI(tk.Tk):
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
 
-        headers = ["Joint", "Retract", "Extend", "Pos", "CAL", "Pot", "Cur", "PWM"]
+        headers = ["Joint", "Retract", "Extend", "Pos", "CAL", "Pot", "Enc", "Cur", "PWM"]
         for c, h in enumerate(headers):
             ttk.Label(self._grid_frame, text=h, font=("Segoe UI", 9, "bold"), anchor="center").grid(
                 row=0, column=c, padx=4, pady=(0, 4), sticky="ew"
@@ -149,7 +159,7 @@ class KrabbyTestGUI(tk.Tk):
             ttk.Label(
                 self._grid_frame, text=f"── {group_name} ──",
                 font=("Segoe UI", 9, "italic"), foreground="#666"
-            ).grid(row=row, column=0, columnspan=8, sticky="w", pady=(6, 2))
+            ).grid(row=row, column=0, columnspan=9, sticky="w", pady=(6, 2))
             row += 1
             for jname in joint_names:
                 jr = JointRow(self._grid_frame, jname, row, self._jog_joint)
