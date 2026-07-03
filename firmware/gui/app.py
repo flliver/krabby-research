@@ -88,7 +88,17 @@ class JointRow:
         if self._jog_after_id is not None:
             self.lbl_name.after_cancel(self._jog_after_id)
             self._jog_after_id = None
+        # Send the stop redundantly: a single J 0 line can be lost or delayed when the
+        # board is busy digesting a jog backlog (motor EMI slows its loop), and a lost
+        # stop means the motor runs until the ~300ms jog watchdog notices. Re-sends are
+        # cheap and skipped if a new jog started in the meantime.
         self._jog_cb(self.name, 0)
+        for delay_ms in (120, 260):
+            self.lbl_name.after(delay_ms, self._resend_stop)
+
+    def _resend_stop(self):
+        if self._active_dir == 0:
+            self._jog_cb(self.name, 0)
 
     # Pos/CAL text color by calibration state: green = FULL (absolute, trustworthy),
     # orange = PARTIAL (Hall, relative until it self-heals at an end-stop), gray = UNCAL.
@@ -112,6 +122,7 @@ class KrabbyTestGUI(tk.Tk):
     def __init__(self, port: Optional[str] = None, baud: int = 115200):
         super().__init__()
         self.title("Krabby MCU Test")
+        self.geometry("960x770")
         self.resizable(True, True)
         self.protocol("WM_DELETE_WINDOW", self._on_close)
 
