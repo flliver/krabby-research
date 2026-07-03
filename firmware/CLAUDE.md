@@ -65,6 +65,6 @@ Read `SETUP.md` (wiring, protocol detail) and `COMMS_DEBUG.md` (root-caused fail
 - `mcu_port.py` / `scripts/detect_mcu_port.py` / `scripts/list_mcu_ports.py` — board discovery by USB VID:PID (never bare `/dev/tty*` globs).
 - `observation_mapping.py` — raw telemetry → HAL observation transforms (per-leg current → contact_forces, joint-velocity EMA). **Deliberately dependency-free** (no numpy/torch): both the Jetson HAL server and the lightweight `observe` command import it. Keep it that way.
 - `interfaces/joint_telemetry.py` — the telemetry line parser (wire-contract peer of `actuator_manager.h`).
-- `tools/serial_tcp_bridge.py` — serial-over-TCP for remote debugging.
+- `tools/serial_tcp_bridge.py` — serial-over-TCP for remote debugging. Auto-launched over ssh by `python -m firmware.gui --remote <host>` (`gui/remote.py`), which tunnels a local port, ties the bridge's lifetime to the GUI via stdin-EOF, and takes over stale bridge instances by pidfile. Runs by path on the bench host, so bridge changes need `make sync-remote` before they take effect.
 
 Packaging quirk: `pyproject.toml` maps this directory to the `firmware` package (`package-dir = {"firmware" = "."}`), so imports are `from firmware import …` even though the directory holds the code directly.
