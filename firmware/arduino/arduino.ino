@@ -22,7 +22,11 @@
 // Max input lines drained from a board's main channel per loop() pass. Bounds the
 // drain so a flooded/noisy uplink (e.g. a disconnected follower RX picking up EMI)
 // can't starve the config + actuator-update work that runs after the drain loop.
-constexpr int RX_DRAIN_BUDGET = 64;
+// 16, not 64: garbage that starts with a command letter still costs a blocking
+// readStringUntil() (≤50 ms) per iteration, so the budget also caps the worst-case
+// pass at ~0.8 s under continuous line noise. Legit traffic is ≤~100 lines/s and
+// loop() runs far faster than that, so 16/pass is still ample headroom.
+constexpr int RX_DRAIN_BUDGET = 16;
 
 // Persistent board config (role, serial); see eeprom_layout.h for the struct and its
 // EEPROM helpers. Loaded on boot, changed at runtime by the SET command, and applied
@@ -107,16 +111,37 @@ static size_t leftPartialPos = 0;
 static size_t rightPartialPos = 0;
 
 // Forward only complete lines (up to and including \n) from follower serial to mainSerial.
+// Drain is BOUNDED per call: on a bench with no followers these RX lines idle on a weak
+// pullup, and a brushed motor's EMI bursts punch through it as a continuous garbage-byte
+// stream — an unbounded drain here captured loop() (telemetry, jog watchdog, and command
+// parsing all dead until motor power was cut; bench 2026-07-03, runaway FLHY). Same
+// failure mode as COMMS_DEBUG.md root cause #1, leader side.
+static const int FWD_DRAIN_BUDGET = 256;  // bytes per call ≈ one full telemetry line + margin
+
+static bool lineIsPrintable(const char* s, size_t len)
+{
+    for (size_t i = 0; i < len; i++)
+        if (s[i] < 0x20 || s[i] > 0x7E) return false;
+    return true;
+}
+
 void forwardFullLines(HardwareSerial* from, HardwareSerial* to, char* partial, size_t cap, size_t* partialPos)
 {
     if (!from || !to || !partial || !partialPos) return;
-    while (from->available())
+    int budget = FWD_DRAIN_BUDGET;
+    while (budget-- > 0 && from->available())
     {
         char c = (char)from->read();
         if (c == '\n')
         {
             partial[*partialPos] = '\0';
-            if (*partialPos > 0)
+            // Forward only clean printable-ASCII lines. Motor EMI on these ports
+            // arrives as framing garbage (control/high-bit bytes); forwarding it
+            // upstream turns noise into blocking TX writes that stall the loop and
+            // delay jog-stop processing (bench 2026-07-03: successive FLHY jogs
+            // stopped later and later as the junk backlog grew). Real follower
+            // lines (telemetry/ERR/VER/config replies) are pure printable ASCII.
+            if (*partialPos > 0 && lineIsPrintable(partial, *partialPos))
                 to->println(partial);
             *partialPos = 0;
             continue;
@@ -127,10 +152,11 @@ void forwardFullLines(HardwareSerial* from, HardwareSerial* to, char* partial, s
             partial[(*partialPos)++] = c;
         else
         {
-            // Buffer full before \n: discard rest of line so we don't forward a partial or get stuck.
+            // Buffer full before \n: discard rest of line (still within budget) so we
+            // don't forward a partial or get stuck.
             // TODO (comms-buffer work): surface this overrun on the ERR channel, e.g.
             // emitError("system", "forward_overrun"), once §5's system-token vocabulary is set.
-            while (from->available())
+            while (budget-- > 0 && from->available())
             {
                 char d = (char)from->read();
                 if (d == '\n' || d == '\r') break;
@@ -213,6 +239,12 @@ void setup()
     // A driven uplink (the leader's TX) still overrides the weak pull-up. Done after
     // begin() so it isn't reset by USART init.
     pinMode(SERIAL_LEFT_RX, INPUT_PULLUP);
+    // Same treatment for RX0 (pin 0): the USB serial chip drives this line when
+    // healthy, but it drops off the bus under motor EMI (observed re-enumerating on
+    // the bench) and tri-states — leaving RX0 floating next to a 120 W brushed motor.
+    // The pull-up makes a dead/absent USB chip read as UART idle (silence) instead of
+    // a garbage-byte stream into the command dispatcher.
+    pinMode(0, INPUT_PULLUP);
     pinMode(SERIAL_RIGHT_RX, INPUT_PULLUP);
     pinMode(LED_BUILTIN, OUTPUT);
 
@@ -575,9 +607,15 @@ void loop()
         }
         else
         {
-            // Unknown command: drain the line and ignore (the SDK validates before
-            // sending, so the firmware never needs to reply with an error).
-            mainSerial->readStringUntil('\n');
+            // Unknown byte: discard it and move on — do NOT line-drain. The SDK
+            // validates before sending, so an unknown byte is line noise, not a
+            // command: when the USB bridge chip glitches under motor EMI the RX0
+            // line floats and delivers continuous garbage, and a readStringUntil()
+            // here costs a 50 ms timeout PLUS a heap String allocation per call —
+            // 64 of those per pass stalled the loop for seconds and fragmented the
+            // 3.5 kB heap toward a hard hang (bench 2026-07-03, runaway FLHY).
+            // Single-byte discard is non-blocking and self-resynchronizing.
+            mainSerial->read();
         }
     }
 
