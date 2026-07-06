@@ -536,18 +536,19 @@ def _print_failures(sdk, errs: list) -> None:
         print(f"  → {instruction}")
 
 
-def cmd_calibrate_all(port: Optional[str], no_yaw: bool = False,
+def cmd_calibrate_all(port: Optional[str], include_yaw: bool = False,
                       skip_validation: bool = False, timeout: float = 300.0) -> None:
     """Run the whole-board calibration sequence + (unless --skip-validation) the Task-4
     neutral pose and current-sense lift validation. Streams ERR lines, then prints the cal
-    grid and operator-facing fix instructions for any failures."""
+    grid and operator-facing fix instructions for any failures. Hip-yaw joints are skipped
+    unless --yaw: no end-stops, so the sweep would jam the leg."""
     sdk = KrabbyMCUSDK(port=port)
     if not sdk.connect(settle=5.0, hold=True):
         sys.exit(f"could not open serial port {sdk.port}")
     try:
         sdk.clear_errors()
-        sdk.calibrate_all(include_yaw=not no_yaw, validate=not skip_validation)
-        extras = (" (no yaw)" if no_yaw else "") + (" (skip validation)" if skip_validation else "")
+        sdk.calibrate_all(include_yaw=include_yaw, validate=not skip_validation)
+        extras = (" (+yaw)" if include_yaw else "") + (" (skip validation)" if skip_validation else "")
         print(f"calibrate-all: running whole-board sequence{extras} "
               f"— watching for errors (up to ~{timeout:.0f}s)…")
         errs = _watch_until_idle(sdk, "calibrate-all", timeout)

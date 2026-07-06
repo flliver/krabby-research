@@ -505,17 +505,21 @@ void loop()
         }
         else if (cmdType == 'C')
         {
-            // "C" = legacy auto-calibrate; "CALL [noyaw]" = whole-board cal sequence (M17 Task 3).
+            // "C" = legacy auto-calibrate; "CALL [yaw]" = whole-board cal sequence (M17 Task 3).
             String line = mainSerial->readStringUntil('\n');
             line.trim();
             if (line.startsWith("CALL"))
             {
-                // CALL [noyaw] [skipval] = cal sequence (+ Task-4 validation unless skipval);
+                // CALL [yaw] [skipval] = cal sequence (+ Task-4 validation unless skipval);
                 // CALL valonly = standalone current-sense validation (assumes cal already ran).
                 if (line.indexOf("valonly") >= 0) {
                     if (actuatorManager) actuatorManager->validateCurrentSense();
                 } else {
-                    bool includeYaw = (line.indexOf("noyaw") < 0);
+                    // Yaw is opt-in: the hip-yaw joints have no end-stops, so the end-stop
+                    // cal sweep would drive them until the leg jams against the chassis.
+                    // Bare CALL skips them; "yaw" includes them; legacy "noyaw" still
+                    // accepted (same as bare). Note "noyaw" contains "yaw" — check it first.
+                    bool includeYaw = (line.indexOf("noyaw") < 0 && line.indexOf("yaw") >= 0);
                     bool validate   = (line.indexOf("skipval") < 0);
                     if (actuatorManager) actuatorManager->calibrateAll(includeYaw, validate);
                 }

@@ -495,8 +495,8 @@ class KrabbyMCUSDK:
         self.ser.flush()
         logger.info("CMD -> K %s %s(calibrate joint)", name, f"{direction} " if direction else "")
 
-    def calibrate_all(self, include_yaw: bool = True, validate: bool = True):
-        """Trigger the whole-board calibration sequence (wire ``CALL [noyaw] [skipval]``,
+    def calibrate_all(self, include_yaw: bool = False, validate: bool = True):
+        """Trigger the whole-board calibration sequence (wire ``CALL [yaw] [skipval]``,
         M17 Task 3 + Task 4). The firmware runs the standard per-leg cal sequence for its
         own legs (Task-2 directional ``calibrateJoint`` + closed-loop pose moves), then —
         unless ``validate=False`` — the neutral pose (every joint → 0.5) and the per-leg
@@ -507,13 +507,15 @@ class KrabbyMCUSDK:
         first cal failure, Task 3 §3f; validation emits a line per failing joint), then read
         results back via ``get_calibration``.
 
-        ``include_yaw=False`` (``CALL noyaw``) skips the hip-yaw steps — the bench fallback
-        (spec §8) for a rig without yaw motors. ``validate=False`` (``CALL skipval``) stops
-        after the neutral pose, skipping the chassis-required lifts (Task 4 §7).
+        Hip-yaw joints are SKIPPED by default: they have no end-stops, so the end-stop
+        cal sweep would drive them until the leg jams (yaw cal is out of M17 pending a
+        homing scheme). ``include_yaw=True`` (``CALL yaw``) opts in on hardware that can
+        take it. ``validate=False`` (``CALL skipval``) stops after the neutral pose,
+        skipping the chassis-required lifts (Task 4 §7).
         """
         if not self.ser or not self.ser.is_open:
             return
-        args = ("" if include_yaw else " noyaw") + ("" if validate else " skipval")
+        args = (" yaw" if include_yaw else "") + ("" if validate else " skipval")
         wire = f"CALL{args}\n"
         self.ser.write(wire.encode('utf-8'))
         self.ser.flush()

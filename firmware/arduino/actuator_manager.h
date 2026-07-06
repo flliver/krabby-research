@@ -877,8 +877,9 @@ public:
     }
 
     // Standard per-leg cal sequence (§3) for each of this board's legs (3 joints/leg:
-    // slot+0 = hip-yaw, +1 = hip-lift, +2 = knee). includeYaw=false skips the yaw steps
-    // (bench-without-yaw fallback, spec §8). validate appends the Task-4 neutral pose +
+    // slot+0 = hip-yaw, +1 = hip-lift, +2 = knee). Yaw steps only when includeYaw —
+    // the hip-yaw joints have no end-stops, so the sweep would jam the leg (yaw cal is
+    // out of M17 pending a homing scheme). validate appends the Task-4 neutral pose +
     // current-sense lifts.
     void buildLocalSequence(bool includeYaw, bool validate)
     {
@@ -930,9 +931,10 @@ public:
         else if (loaded > 800)   emitJointErr(idx, "current_sense_no_spike");
     }
 
-    // Entry point (wire `CALL [noyaw] [skipval]`): run the local board's cal sequence,
-    // then (unless skipval) the neutral pose + current-sense validation. includeYaw per §8.
-    void calibrateAll(bool includeYaw = true, bool validate = true)
+    // Entry point (wire `CALL [yaw] [skipval]`): run the local board's cal sequence,
+    // then (unless skipval) the neutral pose + current-sense validation. Yaw is opt-in
+    // (no end-stops to sweep — see buildLocalSequence).
+    void calibrateAll(bool includeYaw = false, bool validate = true)
     {
         if (jcActive) return;            // don't stomp a single-joint cal in progress
         holdAll();

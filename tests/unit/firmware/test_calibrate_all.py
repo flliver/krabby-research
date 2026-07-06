@@ -29,25 +29,27 @@ def _bare_sdk():
 
 
 class TestCalibrateAllSDK:
-    def test_default_sends_call(self):
+    def test_default_sends_call_without_yaw(self):
+        # Yaw must be opt-in: the hip-yaw joints have no end-stops, so the end-stop
+        # sweep drives them until the leg jams. Bare CALL = yaw skipped.
         sdk = _bare_sdk()
         sdk.calibrate_all()
         sdk.ser.write.assert_called_once_with(b"CALL\n")
 
-    def test_no_yaw_sends_call_noyaw(self):
+    def test_include_yaw_sends_call_yaw(self):
         sdk = _bare_sdk()
-        sdk.calibrate_all(include_yaw=False)
-        sdk.ser.write.assert_called_once_with(b"CALL noyaw\n")
+        sdk.calibrate_all(include_yaw=True)
+        sdk.ser.write.assert_called_once_with(b"CALL yaw\n")
 
     def test_skip_validation_sends_skipval(self):
         sdk = _bare_sdk()
         sdk.calibrate_all(validate=False)
         sdk.ser.write.assert_called_once_with(b"CALL skipval\n")
 
-    def test_no_yaw_and_skip_validation(self):
+    def test_include_yaw_and_skip_validation(self):
         sdk = _bare_sdk()
-        sdk.calibrate_all(include_yaw=False, validate=False)
-        sdk.ser.write.assert_called_once_with(b"CALL noyaw skipval\n")
+        sdk.calibrate_all(include_yaw=True, validate=False)
+        sdk.ser.write.assert_called_once_with(b"CALL yaw skipval\n")
 
     def test_validate_current_sense_sends_valonly(self):
         sdk = _bare_sdk()
@@ -114,7 +116,14 @@ class TestLocalSequence:
     def test_yaw_steps_gated_on_includeyaw(self):
         a = _actuator()
         body = a[a.index("void buildLocalSequence"):a.index("void buildLocalSequence") + 1200]
-        assert "if (includeYaw)" in body, "yaw steps must be skippable for the bench fallback"
+        assert "if (includeYaw)" in body, "yaw steps must be gated on the opt-in flag"
+
+    def test_yaw_defaults_off_in_firmware(self):
+        # The hip-yaw joints have no end-stops; a default-on sweep jams the leg. Both
+        # the calibrateAll default arg and the CALL wire parse must default to no-yaw.
+        a = _actuator()
+        assert re.search(r"calibrateAll\s*\(\s*bool\s+includeYaw\s*=\s*false", a), \
+            "calibrateAll must default includeYaw=false"
 
     def test_returns_leg_to_neutral(self):
         a = _actuator()
@@ -164,10 +173,14 @@ class TestCurrentSenseValidation:
 class TestCallWireDispatch:
     def test_call_distinguished_from_legacy_c(self):
         ino = _ino()
-        body = ino[ino.index("cmdType == 'C'"):ino.index("cmdType == 'C'") + 900]
+        body = ino[ino.index("cmdType == 'C'"):ino.index("cmdType == 'C'") + 1600]
         assert 'startsWith("CALL")' in body, "CALL must be split out from the legacy C autocal"
         assert "calibrateAll" in body
-        assert 'indexOf("noyaw")' in body, "noyaw arg selects the yaw-skipping run"
+        # Yaw is opt-in on the wire: bare CALL skips it, "yaw" includes it, legacy
+        # "noyaw" still parses (and must win — "noyaw" contains "yaw" as a substring).
+        assert re.search(
+            r'indexOf\("noyaw"\)\s*<\s*0\s*&&\s*line\.indexOf\("yaw"\)\s*>=\s*0', body), \
+            "CALL must include yaw only on an explicit yaw token (noyaw checked first)"
         assert 'indexOf("skipval")' in body, "skipval arg skips Task-4 validation"
         assert 'indexOf("valonly")' in body and "validateCurrentSense" in body
 
