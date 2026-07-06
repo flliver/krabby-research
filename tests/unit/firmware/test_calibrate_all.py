@@ -31,10 +31,11 @@ def _bare_sdk():
 class TestCalibrateAllSDK:
     def test_default_sends_call_without_yaw(self):
         # Yaw must be opt-in: the hip-yaw joints have no end-stops, so the end-stop
-        # sweep drives them until the leg jams. Bare CALL = yaw skipped.
+        # sweep drives them until the leg jams. The skip is sent as an explicit
+        # "noyaw" so pre-opt-in firmware (bare CALL = include yaw) also skips.
         sdk = _bare_sdk()
         sdk.calibrate_all()
-        sdk.ser.write.assert_called_once_with(b"CALL\n")
+        sdk.ser.write.assert_called_once_with(b"CALL noyaw\n")
 
     def test_include_yaw_sends_call_yaw(self):
         sdk = _bare_sdk()
@@ -44,7 +45,7 @@ class TestCalibrateAllSDK:
     def test_skip_validation_sends_skipval(self):
         sdk = _bare_sdk()
         sdk.calibrate_all(validate=False)
-        sdk.ser.write.assert_called_once_with(b"CALL skipval\n")
+        sdk.ser.write.assert_called_once_with(b"CALL noyaw skipval\n")
 
     def test_include_yaw_and_skip_validation(self):
         sdk = _bare_sdk()

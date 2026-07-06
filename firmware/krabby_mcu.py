@@ -515,7 +515,10 @@ class KrabbyMCUSDK:
         """
         if not self.ser or not self.ser.is_open:
             return
-        args = (" yaw" if include_yaw else "") + ("" if validate else " skipval")
+        # Send "noyaw" explicitly rather than relying on the firmware default: a board
+        # still running pre-opt-in firmware treats a bare CALL as include-yaw, so the
+        # explicit token keeps the skip safe across firmware version skew.
+        args = (" yaw" if include_yaw else " noyaw") + ("" if validate else " skipval")
         wire = f"CALL{args}\n"
         self.ser.write(wire.encode('utf-8'))
         self.ser.flush()
