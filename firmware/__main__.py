@@ -140,9 +140,10 @@ _COMMAND_HELP: list[tuple[str, str]] = [
     ("get [--port P] [--board B] KEY [KEY ...]",
      "Read board config from a board. Requires one or more KEY, "
      "e.g. role serial version."),
-    ("calibrate-joint [--port P] [--direction D] JOINT",
+    ("calibrate-joint [--port P | --remote HOST [--serial DEV]] [--direction D] JOINT",
      "Calibrate one joint: sweep end-stop(s), auto-detect sensor + direction, "
-     "persist to EEPROM. Requires JOINT (e.g. FLHL)."),
+     "persist to EEPROM. Requires JOINT (e.g. FLHL). --remote ssh-bridges to a "
+     "board on a bench host, like the GUI's --remote."),
     ("calibrate-all [--port P] [--yaw] [--skip-validation]",
      "Run the whole-board cal sequence + current-sense validation (M17 Task 3/4). "
      "Hip-yaw is skipped unless --yaw (no end-stops — the sweep jams the leg); "
@@ -182,7 +183,7 @@ def _command_help() -> str:
     return "\n".join(lines)
 
 
-def main():
+def build_parser() -> argparse.ArgumentParser:
     parser = _Parser(
         prog="krabby-firmware",
         description="Krabby firmware tools. With no subcommand, launches the interactive MCU key-control menu.",
@@ -224,8 +225,15 @@ def main():
     cal_p = subparsers.add_parser(
         "calibrate-joint",
         help="Calibrate one joint: sweep both end-stops, auto-detect sensor + direction, persist to EEPROM.")
-    cal_p.add_argument("--port", default=None, metavar="PORT",
-                       help="Serial port of the board (default: auto-detect / $KRABBY_MCU_PORT).")
+    cal_target = cal_p.add_mutually_exclusive_group()
+    cal_target.add_argument("--port", default=None, metavar="PORT",
+                            help="Serial port of the board (default: auto-detect / $KRABBY_MCU_PORT).")
+    cal_target.add_argument("--remote", default=None, metavar="HOST",
+                            help="ssh host the board is attached to; auto-starts the serial/TCP "
+                                 "bridge there and connects through a tunnel (like the GUI's "
+                                 "--remote; takes over a stale bridge on the host).")
+    cal_p.add_argument("--serial", default="/dev/ttyACM0", metavar="DEV",
+                       help="Serial device on the remote host (only with --remote).")
     cal_p.add_argument("name", metavar="JOINT",
                        help="Joint to calibrate, e.g. FLHL. Forwarded to followers via the FRONT board.")
     cal_p.add_argument("--direction", default=None,
@@ -275,7 +283,11 @@ def main():
     observe_p.add_argument("--count", type=int, default=None, metavar="N",
                            help="Number of snapshots (default 1, or stream until Ctrl-C when --hz is set).")
 
-    args = parser.parse_args()
+    return parser
+
+
+def main():
+    args = build_parser().parse_args()
 
     if args.command == "help":
         print(_command_help())
@@ -308,7 +320,8 @@ def main():
 
     if args.command == "calibrate-joint":
         from firmware.cli import cmd_calibrate_joint
-        cmd_calibrate_joint(args.port, args.name, args.direction)
+        cmd_calibrate_joint(args.port, args.name, args.direction,
+                            remote=args.remote, remote_serial=args.serial)
         return
 
     if args.command == "calibrate-all":

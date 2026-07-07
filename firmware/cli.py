@@ -586,7 +586,9 @@ def cmd_validate_current_sense(port: Optional[str], timeout: float = 120.0) -> N
         print("validate-current-sense: all legs produced a current spike.")
 
 
-def cmd_calibrate_joint(port: Optional[str], name: str, direction: Optional[str] = None) -> None:
+def cmd_calibrate_joint(port: Optional[str], name: str, direction: Optional[str] = None,
+                        remote: Optional[str] = None,
+                        remote_serial: str = "/dev/ttyACM0") -> None:
     # Validate client-side before opening the port (the SDK is the validation layer).
     if name not in ALL_JOINT_NAMES:
         sys.exit(f"error: unknown joint {name!r}; valid joints: {', '.join(sorted(ALL_JOINT_NAMES))}")
@@ -595,6 +597,25 @@ def cmd_calibrate_joint(port: Optional[str], name: str, direction: Optional[str]
     except ValueError as e:
         sys.exit(f"error: {e}")
 
+    # --remote: ssh-launch the serial/TCP bridge on the bench host and connect
+    # through a tunnel, exactly like `python -m firmware.gui --remote` (same
+    # takeover/deadman semantics; the bridge dies with this process).
+    bridge = None
+    if remote:
+        from firmware.gui.remote import RemoteBridge, RemoteBridgeError
+        bridge = RemoteBridge(remote, serial_dev=remote_serial)
+        try:
+            port = bridge.start()
+        except RemoteBridgeError as e:
+            sys.exit(f"error: {e}")
+    try:
+        _run_calibrate_joint(port, name, direction)
+    finally:
+        if bridge:
+            bridge.stop()
+
+
+def _run_calibrate_joint(port: Optional[str], name: str, direction: Optional[str]) -> None:
     sdk = KrabbyMCUSDK(port=port)
     if not sdk.connect(settle=5.0, hold=False):
         sys.exit(f"could not open serial port {sdk.port}")

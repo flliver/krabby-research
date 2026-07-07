@@ -130,6 +130,89 @@ class TestCalibrateJointCLI:
         assert calls["get_cal"] >= 4, "poll broke early on the initial UNCAL instead of waiting for FULL"
 
 
+class TestCalibrateJointRemote:
+    """--remote HOST: ssh-launch the serial/TCP bridge (firmware.gui.remote.RemoteBridge)
+    and run the cal through the tunnel, tearing the bridge down afterwards — same
+    machinery as `python -m firmware.gui --remote`."""
+
+    class FakeBridge:
+        instances: list = []
+
+        def __init__(self, host, serial_dev="/dev/ttyACM0", **kw):
+            self.host, self.serial_dev = host, serial_dev
+            self.started = self.stopped = False
+            type(self).instances.append(self)
+
+        def start(self, timeout=15.0):
+            self.started = True
+            return "socket://localhost:5331"
+
+        def stop(self):
+            self.stopped = True
+
+    @pytest.fixture(autouse=True)
+    def _fake_bridge(self, monkeypatch):
+        self.FakeBridge.instances = []
+        import firmware.gui.remote as remote_mod
+        monkeypatch.setattr(remote_mod, "RemoteBridge", self.FakeBridge)
+
+    def test_remote_bridges_then_tears_down(self, monkeypatch):
+        seen_ports = []
+
+        class FakeSDK:
+            port = "socket://localhost:5331"
+            _validate_cal_direction = staticmethod(KrabbyMCUSDK._validate_cal_direction)
+            def __init__(self, port=None, **k): seen_ports.append(port)
+            def connect(self, *a, **k): return True
+            def clear_errors(self): pass
+            def calibrate_joint(self, name, direction=None): pass
+            def get_errors(self): return []
+            def get_calibration(self, name, timeout=1.0):
+                return {"type": "POT", "rev": "0", "min": "10", "max": "900",
+                        "cal": "1", "state": "FULL"}
+            def close(self): pass
+
+        monkeypatch.setattr(cli_mod, "KrabbyMCUSDK", FakeSDK)
+        monkeypatch.setattr(cli_mod.time, "sleep", lambda *_: None)
+        cli_mod.cmd_calibrate_joint(None, "FLKL", remote="krabby-orin",
+                                    remote_serial="/dev/ttyACM1")
+        (bridge,) = self.FakeBridge.instances
+        assert bridge.host == "krabby-orin" and bridge.serial_dev == "/dev/ttyACM1"
+        assert bridge.started and bridge.stopped
+        assert seen_ports == ["socket://localhost:5331"], "SDK must connect via the tunnel"
+
+    def test_bridge_stopped_when_connect_fails(self, monkeypatch):
+        class FailSDK:
+            port = "socket://localhost:5331"
+            _validate_cal_direction = staticmethod(KrabbyMCUSDK._validate_cal_direction)
+            def __init__(self, *a, **k): pass
+            def connect(self, *a, **k): return False
+
+        monkeypatch.setattr(cli_mod, "KrabbyMCUSDK", FailSDK)
+        with pytest.raises(SystemExit):
+            cli_mod.cmd_calibrate_joint(None, "FLKL", remote="krabby-orin")
+        (bridge,) = self.FakeBridge.instances
+        assert bridge.stopped, "bridge must be torn down even when the SDK can't connect"
+
+    def test_validation_precedes_bridge_launch(self):
+        # A bad joint/direction must fail before any ssh happens.
+        with pytest.raises(SystemExit):
+            cli_mod.cmd_calibrate_joint(None, "BOGUS", remote="krabby-orin")
+        assert not self.FakeBridge.instances, "no bridge may be launched for invalid input"
+
+    def test_cli_rejects_port_and_remote_together(self, capsys):
+        from firmware.__main__ import build_parser
+        with pytest.raises(SystemExit):
+            build_parser().parse_args(
+                ["calibrate-joint", "--port", "COM5", "--remote", "orin", "FLKL"])
+
+    def test_cli_wires_remote_flags(self):
+        from firmware.__main__ import build_parser
+        args = build_parser().parse_args(
+            ["calibrate-joint", "--remote", "orin", "--serial", "/dev/ttyACM2", "FLHL"])
+        assert args.remote == "orin" and args.serial == "/dev/ttyACM2" and args.port is None
+
+
 @pytest.fixture(scope="module")
 def actuator() -> str:
     return (ARDUINO / "actuator_manager.h").read_text()
