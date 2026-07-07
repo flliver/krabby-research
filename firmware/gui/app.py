@@ -13,16 +13,17 @@ from typing import Dict, Optional
 from firmware.krabby_mcu import KrabbyMCUSDK, JOINT_GROUP_NAMES
 from firmware.interfaces.joint_telemetry import JointTelemetry
 
-JOG_PWM = 200
+JOG_PWM_DEFAULT = 100
 TELEMETRY_REFRESH_MS = 100
 
 
 class JointRow:
     """One row in the telemetry grid: name, jog buttons, live values."""
 
-    def __init__(self, parent: tk.Widget, name: str, row: int, jog_cb):
+    def __init__(self, parent: tk.Widget, name: str, row: int, jog_cb, get_jog_pwm):
         self.name = name
         self._jog_cb = jog_cb
+        self._get_jog_pwm = get_jog_pwm
         self._active_dir = 0
 
         self.lbl_name = ttk.Label(parent, text=name, font=("Consolas", 11, "bold"), width=6)
@@ -50,7 +51,7 @@ class JointRow:
 
     def _start_jog(self, direction: int):
         self._active_dir = direction
-        self._jog_cb(self.name, direction * JOG_PWM)
+        self._jog_cb(self.name, direction * self._get_jog_pwm())
 
     def _stop_jog(self):
         self._active_dir = 0
@@ -75,6 +76,7 @@ class KrabbyTestGUI(tk.Tk):
         self._mcu = KrabbyMCUSDK(port=port, baud=baud)
         self._joint_rows: Dict[str, JointRow] = {}
         self._connected = False
+        self._jog_pwm_var = tk.IntVar(value=JOG_PWM_DEFAULT)
 
         self._build_ui()
         self._connect()
@@ -86,8 +88,22 @@ class KrabbyTestGUI(tk.Tk):
         self._status_var = tk.StringVar(value="Connecting...")
         ttk.Label(top, textvariable=self._status_var, font=("Segoe UI", 10)).pack(side="left")
 
+        pwm_frame = ttk.LabelFrame(top, text="Jog PWM", padding=(6, 2))
+        pwm_frame.pack(side="right", padx=(8, 0))
+        self._jog_pwm_label = ttk.Label(pwm_frame, text=str(JOG_PWM_DEFAULT), width=4, anchor="e")
+        self._jog_pwm_label.pack(side="right", padx=(4, 0))
+        ttk.Scale(
+            pwm_frame,
+            from_=0,
+            to=255,
+            orient="horizontal",
+            length=120,
+            variable=self._jog_pwm_var,
+            command=self._on_jog_pwm_changed,
+        ).pack(side="left")
+
         btn_frame = ttk.Frame(top)
-        btn_frame.pack(side="right")
+        btn_frame.pack(side="right", padx=(8, 0))
         ttk.Button(btn_frame, text="Hold All", command=self._hold_all).pack(side="left", padx=4)
         ttk.Button(btn_frame, text="Neutral (0.5)", command=self._neutral).pack(side="left", padx=4)
         ttk.Button(btn_frame, text="Calibrate", command=self._calibrate).pack(side="left", padx=4)
@@ -120,9 +136,15 @@ class KrabbyTestGUI(tk.Tk):
             ).grid(row=row, column=0, columnspan=7, sticky="w", pady=(6, 2))
             row += 1
             for jname in joint_names:
-                jr = JointRow(self._grid_frame, jname, row, self._jog_joint)
+                jr = JointRow(self._grid_frame, jname, row, self._jog_joint, self._get_jog_pwm)
                 self._joint_rows[jname] = jr
                 row += 1
+
+    def _get_jog_pwm(self) -> int:
+        return max(0, min(255, self._jog_pwm_var.get()))
+
+    def _on_jog_pwm_changed(self, _value: str) -> None:
+        self._jog_pwm_label.config(text=str(self._get_jog_pwm()))
 
     def _connect(self):
         def _do():

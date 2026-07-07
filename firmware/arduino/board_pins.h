@@ -8,7 +8,7 @@
 //
 // PWM (D2-D13) and analog (IS A6-A11, POT A0-A5) are the same across all revisions.
 #ifndef KRABBY_PIN_REV
-#define KRABBY_PIN_REV 2
+#define KRABBY_PIN_REV 3
 #endif
 
 // --- PWM pins — identical for all revisions ---
