@@ -65,6 +65,18 @@ def _all_mega_ports() -> list[str]:
 _PROBE_V_RETRY_LIMIT = 8
 
 
+def _start_remote_bridge(remote: str, remote_serial: str):
+    """ssh-launch the serial/TCP bridge on a bench host (firmware.gui.remote) and
+    return (bridge, socket_url). Exits with the bridge's error message on failure;
+    the caller owns bridge.stop()."""
+    from firmware.gui.remote import RemoteBridge, RemoteBridgeError
+    bridge = RemoteBridge(remote, serial_dev=remote_serial)
+    try:
+        return bridge, bridge.start()
+    except RemoteBridgeError as e:
+        sys.exit(f"error: {e}")
+
+
 def _probe_version(
     port: str, timeout: float = 6.0, cal_joints: Optional[list[str]] = None
 ) -> tuple[Optional[str], Optional[str], dict[str, bool]]:
@@ -84,7 +96,18 @@ def _probe_version(
         return None, None, cals
     want = list(cal_joints or [])
     try:
-        with serial.Serial(port, 115200, timeout=0.2) as ser:
+        # serial_for_url handles both local devices and the remote bridge's
+        # socket://host:port URLs (plain paths fall through to normal Serial).
+        with serial.serial_for_url(port, baudrate=115200, timeout=0.2) as ser:
+            # Opening a local port toggles DTR and resets the board, so we wait for
+            # its "Krabby Ready" banner before sending V. Over the TCP bridge the
+            # banner is unreliable: the board reset when the *bridge* opened the
+            # real port, so by the time we connect it may be mid-boot (banner still
+            # coming) or long past it (banner gone, telemetry streaming). Writing V
+            # blind is worse — during the boot window it pokes the bootloader, not
+            # the sketch. So for socket:// ports, any received line means the sketch
+            # is up: treat the first one as the ready signal.
+            socket_port = port.startswith("socket://")
             ready = False
             role_hint: Optional[str] = None
             ver_line: Optional[str] = None
@@ -104,6 +127,12 @@ def _probe_version(
                         break
                     continue
                 line = raw.decode("utf-8", errors="ignore").strip()
+                if socket_port and not ready and "Krabby Ready" not in line:
+                    # Bridged board already past its banner — first line (telemetry,
+                    # ROLE_HINT, …) proves the sketch is up; ask for the version.
+                    ready = True
+                    ser.write(b"V\n")
+                    ser.flush()
                 if line.startswith("ROLE_HINT: "):
                     role_hint = line[len("ROLE_HINT: "):].strip().lower()
                 elif "Krabby Ready" in line:
@@ -208,14 +237,37 @@ def _print_cal_status(board_cals: dict[str, bool]) -> None:
     print("  ✓ calibrated   ✗ not calibrated   N/A no end-stops   ? no reply")
 
 
-def cmd_show(branch: Optional[str] = None) -> None:
+def cmd_show(branch: Optional[str] = None, remote: Optional[str] = None,
+             remote_serial: str = "/dev/ttyACM0") -> None:
     # `show <branch>` lists that branch's full build history, newest-first and paged.
     if branch is not None:
         _show_branch_builds(branch)
         return
 
-    ports = _all_mega_ports()
+    # --remote: probe the single board behind the ssh/TCP bridge instead of
+    # scanning local USB ports.
+    bridge = None
+    if remote:
+        bridge, bridged_port = _start_remote_bridge(remote, remote_serial)
+    try:
+        if bridge:
+            # Label the board by where it physically lives, not the tunnel URL.
+            # Prefer the device the bridge actually opened — it globs a fallback
+            # when the requested path is absent, so the request can be wrong.
+            dev = bridge.resolved_serial or remote_serial
+            _show_status([bridged_port], labels={bridged_port: f"{remote}:{dev}"})
+        else:
+            _show_status(_all_mega_ports())
+    finally:
+        if bridge:
+            bridge.stop()
 
+
+def _show_status(ports: list[str], labels: Optional[dict[str, str]] = None) -> None:
+    labels = labels or {}
+
+    def label(port: str) -> str:
+        return labels.get(port, port)
     # Yaw joints have no calibratable end-stops, so we don't query them.
     cal_joints = [n for _, names in JOINT_GROUP_NAMES for n in names
                   if joints.spec(n).end_stop_calibratable]
@@ -261,7 +313,7 @@ def cmd_show(branch: Optional[str] = None) -> None:
 
             for role, slot in [("front", 0), ("left", 1), ("right", 2)]:
                 v, b, c = combined[slot] if slot < len(combined) else ("-", "-", "-")
-                port_label = f" ({role_to_port[role]})" if role in role_to_port else ""
+                port_label = f" ({label(role_to_port[role])})" if role in role_to_port else ""
                 print(f"  {role}{port_label}: {v} ({b} {c})")
         else:
             for port in ports:
@@ -270,9 +322,9 @@ def cmd_show(branch: Optional[str] = None) -> None:
                 parsed = parse_ver_reply(ver_line) if ver_line else None
                 if parsed:
                     v, b, c = parsed[0]
-                    print(f"  {port}  {role}: {v} ({b} {c})")
+                    print(f"  {label(port)}  {role}: {v} ({b} {c})")
                 else:
-                    print(f"  {port}  {role}: (no version response)")
+                    print(f"  {label(port)}  {role}: (no version response)")
     else:
         print("No attached Mega boards detected.")
 
@@ -602,12 +654,7 @@ def cmd_calibrate_joint(port: Optional[str], name: str, direction: Optional[str]
     # takeover/deadman semantics; the bridge dies with this process).
     bridge = None
     if remote:
-        from firmware.gui.remote import RemoteBridge, RemoteBridgeError
-        bridge = RemoteBridge(remote, serial_dev=remote_serial)
-        try:
-            port = bridge.start()
-        except RemoteBridgeError as e:
-            sys.exit(f"error: {e}")
+        bridge, port = _start_remote_bridge(remote, remote_serial)
     try:
         _run_calibrate_joint(port, name, direction)
     finally:

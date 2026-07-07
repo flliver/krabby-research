@@ -60,8 +60,9 @@ def test_free_local_port_is_bindable():
 
 
 class StubProc:
-    def __init__(self, returncode=None):
+    def __init__(self, returncode=None, stdout=b""):
         self.stdin = io.BytesIO()
+        self.stdout = io.BytesIO(stdout)
         self.returncode = returncode
         self.wait_calls = []
 
@@ -103,6 +104,51 @@ def test_start_times_out_when_bridge_never_answers(monkeypatch):
     with pytest.raises(RemoteBridgeError, match="did not answer"):
         rb.start(timeout=0.5)
     assert proc.stdin.closed
+
+
+def test_probe_deferred_until_listening_banner(monkeypatch):
+    # A probe before the remote bridge listens is refused at the remote end and
+    # makes ssh print "channel N: open failed: connect failed" — so no probe may
+    # fire until the bridge's "listening on" banner arrives (or the grace expires).
+    import firmware.gui.remote as remote
+    proc = StubProc(returncode=None)  # no banner ever
+    monkeypatch.setattr(remote.subprocess, "Popen", lambda *a, **k: proc)
+    probes = []
+    monkeypatch.setattr(RemoteBridge, "_probe", lambda self: probes.append(1) or True)
+    monkeypatch.setattr(RemoteBridge, "PROBE_GRACE", 60.0)
+    rb = RemoteBridge("krabby-orin")
+    with pytest.raises(RemoteBridgeError, match="did not answer"):
+        rb.start(timeout=0.8)
+    assert not probes, "probed the tunnel before the bridge announced readiness"
+
+
+def test_probe_fires_once_banner_seen(monkeypatch, capsys):
+    import firmware.gui.remote as remote
+    proc = StubProc(returncode=None,
+                    stdout=b"[bridge] serial /dev/ttyUSB0@115200 open\n"
+                           b"[bridge] listening on 0.0.0.0:5331 (one client at a time)\n")
+    monkeypatch.setattr(remote.subprocess, "Popen", lambda *a, **k: proc)
+    monkeypatch.setattr(RemoteBridge, "_probe", lambda self: True)
+    monkeypatch.setattr(RemoteBridge, "PROBE_GRACE", 60.0)
+    rb = RemoteBridge("krabby-orin")
+    assert rb.start(timeout=5.0).startswith("socket://localhost:")
+    # bridge log lines are still echoed to the terminal
+    assert "listening on 0.0.0.0:5331" in capsys.readouterr().out
+    # the device the bridge actually opened is captured (it may glob a fallback
+    # differing from the requested serial_dev)
+    assert rb.resolved_serial == "/dev/ttyUSB0"
+
+
+def test_probe_grace_fallback_for_stale_bridge_banner(monkeypatch):
+    # A stale remote bridge whose log text differs must still come up: after
+    # PROBE_GRACE with no banner, blind probing resumes (old behavior).
+    import firmware.gui.remote as remote
+    proc = StubProc(returncode=None, stdout=b"[bridge] some unrecognized banner\n")
+    monkeypatch.setattr(remote.subprocess, "Popen", lambda *a, **k: proc)
+    monkeypatch.setattr(RemoteBridge, "_probe", lambda self: True)
+    monkeypatch.setattr(RemoteBridge, "PROBE_GRACE", 0.0)
+    rb = RemoteBridge("krabby-orin")
+    assert rb.start(timeout=5.0).startswith("socket://localhost:")
 
 
 def test_probe_true_when_connection_is_held_open():

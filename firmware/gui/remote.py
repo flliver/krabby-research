@@ -12,9 +12,12 @@ always gets fresh bridge code with no manual `kill`.
 """
 from __future__ import annotations
 
+import re
 import select
 import socket
 import subprocess
+import sys
+import threading
 import time
 
 DEFAULT_BRIDGE_PORT = 5331
@@ -35,6 +38,12 @@ def free_local_port() -> int:
 class RemoteBridge:
     """One ssh child = tunnel + remote bridge, lifetime tied to this process."""
 
+    # Probing the tunnel before the remote bridge listens makes ssh print a scary
+    # (but harmless) "channel N: open failed: connect failed" — so the first probe
+    # waits for the bridge's "listening on" banner. If the banner never comes (a
+    # stale bridge whose log text differs), fall back to blind probing after this.
+    PROBE_GRACE = 4.0
+
     def __init__(self, host: str, serial_dev: str = "/dev/ttyACM0",
                  bridge_port: int = DEFAULT_BRIDGE_PORT,
                  remote_dir: str = DEFAULT_REMOTE_DIR):
@@ -43,7 +52,13 @@ class RemoteBridge:
         self.bridge_port = bridge_port
         self.remote_dir = remote_dir
         self.local_port: int | None = None
+        # The device the bridge actually opened — may differ from serial_dev: the
+        # bridge's resolve_device() globs for any ttyUSB*/ttyACM* when the requested
+        # path is absent (CH340 re-enumeration self-heal). Parsed from its
+        # "[bridge] serial <dev>@<baud> open" log line; None until seen.
+        self.resolved_serial: str | None = None
         self._proc: subprocess.Popen | None = None
+        self._listening = threading.Event()
 
     def ssh_command(self, local_port: int) -> list[str]:
         # remote_dir may contain ~, which the remote shell expands — don't quote it.
@@ -64,9 +79,13 @@ class RemoteBridge:
         """Spawn ssh+bridge; return the pyserial URL once the bridge answers."""
         self.local_port = free_local_port()
         # stdin must be a pipe we hold open: the bridge exits on stdin EOF, so the
-        # remote side cannot outlive us. stdout/stderr inherit the terminal so
-        # [bridge] logs and ssh errors stay visible next to the GUI's output.
-        self._proc = subprocess.Popen(self.ssh_command(self.local_port), stdin=subprocess.PIPE)
+        # remote side cannot outlive us. stdout is piped through _pump_stdout so we
+        # can spot the bridge's "listening on" banner (readiness signal) while still
+        # echoing [bridge] logs to the terminal; stderr inherits so ssh errors stay
+        # visible next to the GUI's output.
+        self._proc = subprocess.Popen(self.ssh_command(self.local_port),
+                                      stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+        threading.Thread(target=self._pump_stdout, args=(self._proc,), daemon=True).start()
         try:
             self._wait_ready(timeout)
         except Exception:
@@ -74,8 +93,24 @@ class RemoteBridge:
             raise
         return f"socket://localhost:{self.local_port}"
 
+    def _pump_stdout(self, proc: subprocess.Popen):
+        """Echo the ssh child's stdout (the remote bridge's log lines) and flag
+        readiness when the bridge announces it is accepting connections."""
+        try:
+            for raw in proc.stdout:
+                line = raw.decode("utf-8", errors="replace")
+                sys.stdout.write(line)
+                sys.stdout.flush()
+                if (m := re.search(r"\[bridge\] serial (\S+)@\d+ open", line)):
+                    self.resolved_serial = m.group(1)
+                if "listening on" in line:
+                    self._listening.set()
+        except ValueError:
+            pass  # pipe closed during teardown
+
     def _wait_ready(self, timeout: float):
-        deadline = time.monotonic() + timeout
+        started = time.monotonic()
+        deadline = started + timeout
         while time.monotonic() < deadline:
             if self._proc.poll() is not None:
                 raise RemoteBridgeError(
@@ -83,7 +118,11 @@ class RemoteBridge:
                     " output above. If the bridge rejected an unknown argument, its code on"
                     f" the remote is stale: run `make -C firmware sync-remote REMOTE={self.host}`."
                 )
-            if self._probe():
+            # Don't poke the tunnel until the bridge is listening: a premature probe
+            # is refused at the remote end and ssh logs "channel N: open failed".
+            ready_to_probe = (self._listening.is_set()
+                              or time.monotonic() - started > self.PROBE_GRACE)
+            if ready_to_probe and self._probe():
                 return
             time.sleep(0.3)
         raise RemoteBridgeError(

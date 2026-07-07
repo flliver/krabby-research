@@ -128,9 +128,10 @@ _COMMAND_HELP: list[tuple[str, str]] = [
      "Show this command summary and exit."),
     ("install",
      "Set up host udev rules and serial permissions (one-time host setup)."),
-    ("show [BRANCH]",
+    ("show [BRANCH] [--remote HOST [--serial DEV]]",
      "List attached boards and firmware versions; with BRANCH, list that "
-     "branch's builds newest-first."),
+     "branch's builds newest-first. --remote probes a board on a bench host "
+     "over an ssh bridge instead of local USB."),
     ("update [CHANNEL] [PORT]",
      "Flash firmware from an S3 channel to attached board(s). Defaults to the "
      "latest release channel and all detected boards."),
@@ -201,6 +202,12 @@ def build_parser() -> argparse.ArgumentParser:
         "branch", nargs="?", default=None, metavar="BRANCH",
         help="Optional branch (e.g. release/0.2.9) — list all its builds newest-first, paged.",
     )
+    show_p.add_argument("--remote", default=None, metavar="HOST",
+                        help="ssh host the board is attached to; auto-starts the serial/TCP "
+                             "bridge there and probes through a tunnel instead of scanning "
+                             "local USB ports.")
+    show_p.add_argument("--serial", default="/dev/ttyACM0", metavar="DEV",
+                        help="Serial device on the remote host (only with --remote).")
     update_p = subparsers.add_parser("update", help="Flash firmware from S3 channel to board(s).")
     update_p.add_argument("channel", nargs="?", default=None, metavar="CHANNEL")
     update_p.add_argument("port", nargs="?", default=None, metavar="PORT")
@@ -300,7 +307,7 @@ def main():
 
     if args.command == "show":
         from firmware.cli import cmd_show
-        cmd_show(args.branch)
+        cmd_show(args.branch, remote=args.remote, remote_serial=args.serial)
         return
 
     if args.command == "update":
