@@ -6,6 +6,7 @@ import threading
 import logging
 from collections import deque, namedtuple
 from typing import Dict, Optional
+from firmware import joints
 from firmware.interfaces.joint_telemetry import JointTelemetry
 from firmware.mcu_port import default_port
 
@@ -211,15 +212,15 @@ _TELEMETRY_LINE_PREFIXES = (
     "RIGHT;",
 )
 
-# Joint names by board for readable debug output (FRONT / LEFT / RIGHT)
-JOINT_GROUP_NAMES = (
-    ("FRONT", ["FLHY", "FLHL", "FLKL", "FRHY", "FRHL", "FRKL"]),
-    ("LEFT", ["RLHY", "RLHL", "RLKL", "MLHY", "MLHL", "MLKL"]),
-    ("RIGHT", ["RRHY", "RRHL", "RRKL", "MRHY", "MRHL", "MRKL"]),
+# Joint names by board for readable debug output, in slot order (FRONT / LEFT / RIGHT).
+# Derived from the static joint registry (firmware/joints.py).
+JOINT_GROUP_NAMES = tuple(
+    (board, [js.name for js in joints.board_joints(board)])
+    for board in joints.BOARD_LEGS
 )
 
 # Every drivable joint name — for client-side validation of calibrate_joint (Task 2).
-ALL_JOINT_NAMES = frozenset(n for _, names in JOINT_GROUP_NAMES for n in names)
+ALL_JOINT_NAMES = frozenset(joints.JOINTS)
 
 
 class KrabbyMCUSDK:
@@ -538,18 +539,18 @@ class KrabbyMCUSDK:
     @staticmethod
     def _validate_cal_direction(name: str, direction: Optional[str]) -> Optional[str]:
         """Check a cal direction against the joint type, returning the normalized token
-        (or None for a full sweep). Linear joints take extend/retract, yaw joints
-        left/right; a yaw joint's name ends in 'Y' (e.g. FLHY)."""
+        (or None for a full sweep). Valid tokens come from the joint registry: linear
+        joints take extend/retract, yaw joints left/right. Raises ValueError for an
+        unknown joint name (previously it fell through as linear)."""
         if direction is None:
             return None
         direction = direction.lower()
-        is_yaw = len(name) >= 4 and name[3] == 'Y'
-        valid = {"left", "right"} if is_yaw else {"extend", "retract"}
-        if direction not in valid:
-            kind = "yaw" if is_yaw else "linear"
+        js = joints.spec(name)
+        if direction not in js.cal_directions:
+            kind = "yaw" if js.is_yaw else "linear"
             raise ValueError(
                 f"direction {direction!r} invalid for {kind} joint {name}; "
-                f"valid: {', '.join(sorted(valid))}")
+                f"valid: {', '.join(sorted(js.cal_directions))}")
         return direction
 
     def get_calibration(self, name: str, timeout: float = 2.0) -> Optional[dict]:

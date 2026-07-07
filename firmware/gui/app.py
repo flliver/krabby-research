@@ -10,15 +10,12 @@ import threading
 import time
 from typing import Dict, Optional
 
+from firmware.joints import spec
 from firmware.krabby_mcu import KrabbyMCUSDK, JOINT_GROUP_NAMES
 from firmware.interfaces.joint_telemetry import JointTelemetry
 
-JOG_PWM = 200
-# Hip-yaw (HY) joints jog slower: their encoder counts the fast motor shaft (before the
-# 1:100 gearbox), and at full jog PWM the edge rate can saturate the MCU's pin-change
-# interrupts (firmware coasts the joint with ERR hall_storm and pauses counting). 150
-# keeps the edge rate low enough that the Enc column streams live.
-JOG_PWM_HY = 150
+# Per-joint jog PWM ceilings live in the joint registry (firmware/joints.py) —
+# hip-yaw jogs slower so its fast-shaft encoder can't saturate the MCU (hall_storm).
 TELEMETRY_REFRESH_MS = 100
 JOG_HEARTBEAT_MS = 100  # re-send a held jog faster than the firmware's ~300ms jog watchdog
 
@@ -79,8 +76,7 @@ class JointRow:
         # jog watchdog; reschedule until the button is released (_active_dir back to 0).
         if self._active_dir == 0:
             return
-        pwm = JOG_PWM_HY if self.name.endswith("HY") else JOG_PWM
-        self._jog_cb(self.name, self._active_dir * pwm)
+        self._jog_cb(self.name, self._active_dir * spec(self.name).jog_pwm_max)
         self._jog_after_id = self.lbl_name.after(JOG_HEARTBEAT_MS, self._send_jog_heartbeat)
 
     def _stop_jog(self):

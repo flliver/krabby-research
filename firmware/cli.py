@@ -13,6 +13,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Optional
 
+from firmware import joints
 from firmware.krabby_mcu import (
     ALL_JOINT_NAMES,
     JOINT_GROUP_NAMES,
@@ -215,8 +216,9 @@ def cmd_show(branch: Optional[str] = None) -> None:
 
     ports = _all_mega_ports()
 
-    # Yaw joints (4th char 'Y') have no calibratable end-stops here, so we don't query them.
-    cal_joints = [n for _, names in JOINT_GROUP_NAMES for n in names if n[3] != "Y"]
+    # Yaw joints have no calibratable end-stops, so we don't query them.
+    cal_joints = [n for _, names in JOINT_GROUP_NAMES for n in names
+                  if joints.spec(n).end_stop_calibratable]
 
     # Probe all boards and fetch S3 index in parallel. Each probe also collects the stored
     # `calibrated` flag for the non-yaw joints (Q forwards to followers; replies relay up).
