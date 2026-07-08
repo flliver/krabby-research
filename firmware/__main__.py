@@ -11,6 +11,7 @@ import logging
 import time
 from typing import NoReturn
 
+from firmware.gui.remote import DEFAULT_SERIAL_DEV
 from firmware.krabby_mcu import KrabbyMCUSDK, parse_ver_reply, logger
 
 # Joint order per leg pair: LKL, LHL, LHY, RHY, RHL, RKL
@@ -76,7 +77,13 @@ def main():
 
     subparsers.add_parser("help", help="Show this help message and exit.")
     subparsers.add_parser("install", help="Set up host udev rules and serial permissions.")
-    subparsers.add_parser("show", help="List attached boards and their firmware versions.")
+    show_p = subparsers.add_parser("show", help="List attached boards and their firmware versions.")
+    show_p.add_argument("--remote", default=None, metavar="HOST",
+                        help="ssh host the board is attached to; auto-starts the serial/TCP "
+                             "bridge there and probes through a tunnel instead of scanning "
+                             "local USB ports (like the GUI's --remote).")
+    show_p.add_argument("--serial", default=DEFAULT_SERIAL_DEV,
+                        help="Serial device on the remote host (only with --remote).")
     update_p = subparsers.add_parser("update", help="Flash firmware from S3 channel to board(s).")
     update_p.add_argument("channel", nargs="?", default=None, metavar="CHANNEL")
     update_p.add_argument("port", nargs="?", default=None, metavar="PORT")
@@ -94,7 +101,7 @@ def main():
 
     if args.command == "show":
         from firmware.cli import cmd_show
-        cmd_show()
+        cmd_show(remote=args.remote, remote_serial=args.serial)
         return
 
     if args.command == "update":

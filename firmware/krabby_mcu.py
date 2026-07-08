@@ -79,18 +79,23 @@ class KrabbyMCUSDK:
 
     def connect(self):
         try:
-            # Open without toggling DTR so the leader board is not reset on connect.
-            # A DTR reset would break three-board role election (followers stay in
-            # their assigned roles and stop broadcasting SYNC, so a newly-reset
-            # leader can never hear from them).
-            ser = serial.Serial()
-            ser.port = self.port
-            ser.baudrate = self.baud
-            ser.timeout = 0.5
+            # serial_for_url opens plain device paths via Serial and socket://host:port
+            # URLs via a TCP client (the remote serial/TCP bridge, for running the
+            # GUI/SDK on a different host than the MCU). Clear DTR before opening so
+            # a local open does not reset the leader board — a DTR reset would break
+            # three-board role election (followers stay in their assigned roles and
+            # stop broadcasting SYNC, so a newly-reset leader can never hear from
+            # them). Over a socket DTR is a no-op; the bridge owns the real port.
+            ser = serial.serial_for_url(self.port, baudrate=self.baud,
+                                        timeout=0.5, do_not_open=True)
             ser.dtr = False
             ser.open()
             self.ser = ser
-            time.sleep(5.0)  # wait for boot + 3-board role election before starting reader
+            # Local port: wait out boot + role election in case the board reset
+            # anyway (CH340 adapters pulse DTR regardless). Over the bridge our
+            # connect never touches the board — just let the link settle.
+            settle = 0.5 if "://" in self.port else 5.0
+            time.sleep(settle)
             self.running = True
             self.last_error = None
             self.thread = threading.Thread(

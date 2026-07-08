@@ -6,6 +6,11 @@
 #   make -C firmware upload-firmware PIN_REV=1
 #   make -C firmware compile-firmware          # compile only, no upload
 #
+# To push the host-side Python (the menu / SDK / CLI / TCP bridge in this dir) to
+# a bench host over ssh, e.g. for `python -m firmware.gui --remote krabby-orin`:
+#   make -C firmware sync-remote REMOTE=krabby-orin
+# __pycache__ is excluded so host .pyc files don't litter the Jetson.
+#
 # Prerequisites: arduino-cli on PATH, pyserial for auto-detect (pip install pyserial).
 # Windows: winget install GnuWin32.Make, then add GnuWin32\bin to PATH.
 
@@ -13,6 +18,14 @@ ARDUINO_CLI ?= arduino-cli
 FQBN        ?= arduino:avr:mega
 PIN_REV     ?= 2
 SKETCH      := $(CURDIR)/arduino
+
+# sync-remote: where the host-side Python lands on REMOTE. Must match
+# DEFAULT_REMOTE_DIR in firmware/gui/remote.py (the --remote bridge launcher).
+# NOTE: no trailing inline comments on these — make would fold the padding
+# spaces into the value and corrupt the ssh target / path.
+REMOTE      ?=
+RSYNC       ?= rsync
+REMOTE_DIR  ?= ~/krabby-fw-bench/firmware/
 
 ifeq ($(OS),Windows_NT)
 PYTHON ?= python
@@ -42,7 +55,7 @@ endif
 $(info Using PORT=$(PORT))
 endif
 
-.PHONY: arduino-core compile-firmware upload-firmware
+.PHONY: arduino-core compile-firmware upload-firmware sync-remote
 
 arduino-core:
 	$(ARDUINO_CLI) core install arduino:avr
@@ -52,3 +65,11 @@ compile-firmware: arduino-core
 
 upload-firmware: compile-firmware
 	$(ARDUINO_CLI) upload -p "$(PORT)" --fqbn $(FQBN) $(SKETCH)
+
+# Push this firmware/ tree (host-side Python: the interactive menu, SDK, CLI,
+# serial/TCP bridge) to REMOTE for bench use, without touching any board's
+# flash. Excludes __pycache__ so host-compiled .pyc files don't litter the
+# Jetson (its Python recompiles its own).
+sync-remote:
+	@test -n "$(REMOTE)" || { echo "ERROR: set REMOTE=user@host (the bench machine, e.g. krabby-orin)"; exit 1; }
+	$(RSYNC) -az --exclude='__pycache__' "$(CURDIR)/" "$(REMOTE):$(REMOTE_DIR)"

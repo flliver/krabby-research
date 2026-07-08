@@ -11,7 +11,8 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Optional
 
-from firmware.krabby_mcu import parse_ver_reply
+from firmware.gui.remote import DEFAULT_SERIAL_DEV, start_bridge
+from firmware.krabby_mcu import _TELEMETRY_LINE_PREFIXES, parse_ver_reply
 from firmware.manifest import FirmwareIndex, parse_index, latest_release_branch
 
 BUCKET_BASE = "https://krabby-firmware-public.s3.amazonaws.com"
@@ -63,7 +64,21 @@ def _probe_version(port: str, timeout: float = 6.0) -> tuple[Optional[str], Opti
     except ImportError:
         return None, None
     try:
-        with serial.Serial(port, 115200, timeout=0.2) as ser:
+        # serial_for_url handles both local devices and the remote bridge's
+        # socket://host:port URLs (plain paths fall through to normal Serial).
+        with serial.serial_for_url(port, baudrate=115200, timeout=0.2) as ser:
+            # Opening a local port toggles DTR and resets the board, so we wait for
+            # its "Krabby Ready" banner before sending V. Over the TCP bridge the
+            # banner is unreliable: the board reset when the *bridge* opened the
+            # real port, so by the time we connect it may be mid-boot (banner still
+            # coming) or long past it (banner gone, telemetry streaming). Writing V
+            # blind is worse — during the boot window it pokes the bootloader, not
+            # the sketch, and V sent during role election ("--- SYNC ---" lines) is
+            # dropped, burning the retry budget before the board can answer. So for
+            # socket:// ports a telemetry line also counts as ready (it proves the
+            # sketch's main loop is running); boot-sequence chatter still waits for
+            # the banner.
+            socket_port = port.startswith("socket://")
             ready = False
             role_hint: Optional[str] = None
             v_retries = 0
@@ -81,7 +96,9 @@ def _probe_version(port: str, timeout: float = 6.0) -> tuple[Optional[str], Opti
                 line = raw.decode("utf-8", errors="ignore").strip()
                 if line.startswith("ROLE_HINT: "):
                     role_hint = line[len("ROLE_HINT: "):].strip().lower()
-                elif "Krabby Ready" in line:
+                elif ("Krabby Ready" in line
+                      or (socket_port and not ready
+                          and line.startswith(_TELEMETRY_LINE_PREFIXES))):
                     ready = True
                     ser.write(b"V\n")
                     ser.flush()
@@ -105,12 +122,37 @@ def _fetch_index() -> FirmwareIndex:
 
 # --- --show ---
 
-def cmd_show() -> None:
-    ports = _all_mega_ports()
+def cmd_show(remote: Optional[str] = None, remote_serial: str = DEFAULT_SERIAL_DEV) -> None:
+    # The S3 index fetch is independent of the board probes and of the
+    # multi-second ssh bridge startup — kick it off first so it overlaps both.
+    index_executor = ThreadPoolExecutor(max_workers=1)
+    index_future = index_executor.submit(_fetch_index)
+    index_executor.shutdown(wait=False)
 
-    # Probe all boards and fetch S3 index in parallel.
-    with ThreadPoolExecutor(max_workers=len(ports) + 1) as executor:
-        index_future = executor.submit(_fetch_index)
+    # --remote: probe the single board behind the ssh/TCP bridge instead of
+    # scanning local USB ports.
+    bridge = None
+    labels: dict[str, str] = {}
+    if remote:
+        bridge, bridged_port = start_bridge(remote, serial_dev=remote_serial)
+        ports = [bridged_port]
+        # Label the board by where it physically lives, not the tunnel URL.
+        # Prefer the device the bridge actually opened — it globs a fallback
+        # when the requested path is absent, so the request can be wrong.
+        labels[bridged_port] = f"{remote}:{bridge.resolved_serial or remote_serial}"
+    else:
+        ports = _all_mega_ports()
+
+    try:
+        _show_status(ports, labels, index_future)
+    finally:
+        if bridge:
+            bridge.stop()
+
+
+def _show_status(ports: list[str], labels: dict[str, str], index_future) -> None:
+    # Probe all boards in parallel (the S3 index fetch is already in flight).
+    with ThreadPoolExecutor(max_workers=max(len(ports), 1)) as executor:
         probe_futures = [(port, executor.submit(_probe_version, port)) for port in ports]
 
     probe_results = {port: fut.result() for port, fut in probe_futures}
@@ -139,7 +181,8 @@ def cmd_show() -> None:
 
             for role, slot in [("primary", 0), ("left", 1), ("right", 2)]:
                 v, b, c = combined[slot] if slot < len(combined) else ("-", "-", "-")
-                port_label = f" ({role_to_port[role]})" if role in role_to_port else ""
+                p = role_to_port.get(role)
+                port_label = f" ({labels.get(p, p)})" if p else ""
                 print(f"  {role}{port_label}: {v} ({b} {c})")
         else:
             for port in ports:
@@ -148,9 +191,9 @@ def cmd_show() -> None:
                 parsed = parse_ver_reply(ver_line) if ver_line else None
                 if parsed:
                     v, b, c = parsed[0]
-                    print(f"  {port}  {role}: {v} ({b} {c})")
+                    print(f"  {labels.get(port, port)}  {role}: {v} ({b} {c})")
                 else:
-                    print(f"  {port}  {role}: (no version response)")
+                    print(f"  {labels.get(port, port)}  {role}: (no version response)")
     else:
         print("No attached Mega boards detected.")
 

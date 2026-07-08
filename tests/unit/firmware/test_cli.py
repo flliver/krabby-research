@@ -56,6 +56,45 @@ class TestCmdShow:
         assert "No attached Mega boards" in out
         assert "mainline" in out
 
+    def test_remote_probes_bridged_port_and_tears_down(self, capsys):
+        # --remote: probe exactly the bridge's socket URL (no local port scan),
+        # and stop the bridge afterwards.
+        index = _make_index({"mainline": "20250101-120000-abc1234"})
+        bridge = MagicMock()
+        # bridge fell back to ttyUSB0 even though ttyACM0 was requested
+        bridge.resolved_serial = "/dev/ttyUSB0"
+        probed = []
+
+        def probe(port):
+            probed.append(port)
+            return ("VER 0.2.0 mainline abc1234", "front")
+
+        with patch.object(cli_mod, "start_bridge",
+                          return_value=(bridge, "socket://localhost:5331")) as start, \
+             patch.object(cli_mod, "_all_mega_ports") as scan, \
+             patch.object(cli_mod, "_probe_version", side_effect=probe), \
+             patch.object(cli_mod, "_fetch_index", return_value=index):
+            cli_mod.cmd_show(remote="krabby-orin", remote_serial="/dev/ttyACM0")
+        start.assert_called_once_with("krabby-orin", serial_dev="/dev/ttyACM0")
+        scan.assert_not_called()
+        assert probed == ["socket://localhost:5331"]
+        bridge.stop.assert_called_once()
+        # labeled by where the board actually lives: the device the bridge opened
+        # (not the requested one, and not the tunnel URL)
+        out = capsys.readouterr().out
+        assert "krabby-orin:/dev/ttyUSB0" in out
+        assert "socket://" not in out
+
+    def test_remote_bridge_stopped_when_probe_blows_up(self):
+        bridge = MagicMock()
+        with patch.object(cli_mod, "start_bridge",
+                          return_value=(bridge, "socket://localhost:5331")), \
+             patch.object(cli_mod, "_fetch_index", return_value=None), \
+             patch.object(cli_mod, "_show_status", side_effect=RuntimeError("boom")), \
+             pytest.raises(RuntimeError):
+            cli_mod.cmd_show(remote="krabby-orin")
+        bridge.stop.assert_called_once()
+
     def test_shows_version_for_board(self, capsys):
         index = _make_index({"release/0.2.0": "20250101-120000-abc1234"})
         with patch.object(cli_mod, "_all_mega_ports", return_value=["/dev/ttyACM0"]):
@@ -278,8 +317,13 @@ class TestProbeVersion:
         return ser
 
     def _patch_serial(self, ser: MagicMock):
-        serial_mod = MagicMock()
+        # spec'd module mock: _probe_version opens via serial_for_url, and an
+        # unspec'd MagicMock would silently hand back auto-mocks (readline -> truthy
+        # MagicMock -> the probe loop spins for its full deadline recording mock
+        # calls). Only the attributes wired here exist.
+        serial_mod = MagicMock(spec=["Serial", "serial_for_url"])
         serial_mod.Serial = MagicMock(return_value=ser)
+        serial_mod.serial_for_url = MagicMock(return_value=ser)
         return patch.dict("sys.modules", {"serial": serial_mod})
 
     def test_returns_ver_line_after_krabby_ready(self):
@@ -344,6 +388,59 @@ class TestProbeVersion:
             with patch("time.time", side_effect=[0, 0, 0, 0, 1]):
                 result = cli_mod._probe_version("/dev/ttyACM0", timeout=1.0)
         assert result[0] == "VER 0.2.0|-|- release/0.2.0|-|- ac66d5e|-|-"
+
+    def test_socket_port_sends_v_on_telemetry_without_banner(self):
+        # Over the TCP bridge the board reset when the *bridge* opened the real
+        # port, so the banner may be long gone — streaming telemetry must count
+        # as the ready signal and trigger V.
+        ser = self._make_ser([
+            b"FRONT; FLHY 0.5 512 0 0 0 0 0 0 0\r\n",
+            b"VER 0.2.0 release/0.2.0 abc1234\r\n",
+        ])
+        with self._patch_serial(ser):
+            result = cli_mod._probe_version("socket://localhost:5331", timeout=2.0)
+        assert result[0] == "VER 0.2.0 release/0.2.0 abc1234"
+        ser.write.assert_any_call(b"V\n")
+
+    def test_socket_port_does_not_write_before_first_line(self):
+        # Writing V blind can poke the bootloader mid-boot; nothing may be sent
+        # until the sketch proves itself with a line.
+        ser = self._make_ser([])  # only empty reads
+        with self._patch_serial(ser):
+            with patch("time.time", side_effect=[0, 0, 0.3, 0.6, 1.1]):
+                result = cli_mod._probe_version("socket://localhost:5331", timeout=1.0)
+        assert result == (None, None)
+        ser.write.assert_not_called()
+
+    def test_socket_port_waits_out_role_election(self):
+        # Catching the board mid-boot: role-election "--- SYNC ---" chatter must
+        # NOT count as ready (V sent during election is dropped, and the empty-read
+        # retries would burn out before the board can answer). V goes out only on
+        # the Krabby Ready banner, like a local port.
+        ser = self._make_ser([
+            b"--- SYNC ---\r\n",
+            b"",  # election silence: must not trigger a V retry (not ready yet)
+            b"--- SYNC ---\r\n",
+            b"ROLE: UNKNOWN (front actuators)\r\n",
+            b"Krabby Ready PINS_REV3_UNO_V02. FLHY\r\n",
+            b"VER 0.2.0 release/0.2.0 abc1234\r\n",
+        ])
+        with self._patch_serial(ser):
+            result = cli_mod._probe_version("socket://localhost:5331", timeout=5.0)
+        assert result[0] == "VER 0.2.0 release/0.2.0 abc1234"
+        assert ser.write.call_count == 1  # single V, after the banner
+
+    def test_socket_port_banner_still_handled_normally(self):
+        # A fast connect can still catch the reset banner — the normal path applies.
+        ser = self._make_ser([
+            b"ROLE_HINT: FRONT\r\n",
+            b"Krabby Ready PINS_REV3.\r\n",
+            b"VER 0.2.0 release/0.2.0 abc1234\r\n",
+        ])
+        with self._patch_serial(ser):
+            result = cli_mod._probe_version("socket://localhost:5331", timeout=2.0)
+        assert result[0] == "VER 0.2.0 release/0.2.0 abc1234"
+        assert result[1] == "front"
 
     def test_returns_none_on_serial_exception(self):
         ser = self._make_ser([])
