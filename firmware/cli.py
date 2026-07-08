@@ -10,6 +10,7 @@ import time
 import urllib.error
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Optional
 
@@ -75,6 +76,21 @@ def _start_remote_bridge(remote: str, remote_serial: str):
         return bridge, bridge.start()
     except RemoteBridgeError as e:
         sys.exit(f"error: {e}")
+
+
+@contextmanager
+def _target_port(port: Optional[str], remote: Optional[str], remote_serial: str):
+    """Yield the serial port a command should open: `port` as-is locally, or the
+    tunnel URL of a freshly-launched ssh/TCP bridge when `remote` is given (torn
+    down on exit, also on error)."""
+    if not remote:
+        yield port
+        return
+    bridge, bridged_port = _start_remote_bridge(remote, remote_serial)
+    try:
+        yield bridged_port
+    finally:
+        bridge.stop()
 
 
 def _probe_version(
@@ -652,14 +668,8 @@ def cmd_calibrate_joint(port: Optional[str], name: str, direction: Optional[str]
     # --remote: ssh-launch the serial/TCP bridge on the bench host and connect
     # through a tunnel, exactly like `python -m firmware.gui --remote` (same
     # takeover/deadman semantics; the bridge dies with this process).
-    bridge = None
-    if remote:
-        bridge, port = _start_remote_bridge(remote, remote_serial)
-    try:
-        _run_calibrate_joint(port, name, direction)
-    finally:
-        if bridge:
-            bridge.stop()
+    with _target_port(port, remote, remote_serial) as target:
+        _run_calibrate_joint(target, name, direction)
 
 
 def _run_calibrate_joint(port: Optional[str], name: str, direction: Optional[str]) -> None:
@@ -744,7 +754,8 @@ def cmd_get_calibration(port: Optional[str], name: str) -> None:
     print(_format_cal(name, cal))
 
 
-def cmd_jog(port: Optional[str], name: str, pwm: int, ms: int) -> None:
+def cmd_jog(port: Optional[str], name: str, pwm: int, ms: int,
+            remote: Optional[str] = None, remote_serial: str = "/dev/ttyACM0") -> None:
     """Drive one joint open-loop at `pwm` for `ms` milliseconds, re-sending at a 100 ms
     heartbeat (< the firmware's 300 ms jog watchdog) so it runs the full duration, then
     stop. Reports the joint's normalized position and calibration state afterward —
@@ -752,6 +763,11 @@ def cmd_jog(port: Optional[str], name: str, pwm: int, ms: int) -> None:
     if name not in ALL_JOINT_NAMES:
         sys.exit(f"error: unknown joint {name!r}; valid joints: {', '.join(sorted(ALL_JOINT_NAMES))}")
     pwm = max(-255, min(255, int(pwm)))
+    with _target_port(port, remote, remote_serial) as target:
+        _run_jog(target, name, pwm, ms)
+
+
+def _run_jog(port: Optional[str], name: str, pwm: int, ms: int) -> None:
     sdk = KrabbyMCUSDK(port=port)
     if not sdk.connect(settle=5.0, hold=False):
         sys.exit(f"could not open serial port {sdk.port}")
@@ -780,7 +796,8 @@ def cmd_jog(port: Optional[str], name: str, pwm: int, ms: int) -> None:
         print("  " + _format_cal(name, cal))
 
 
-def cmd_observe(port: Optional[str], hz: float = 0.0, count: int = 1) -> None:
+def cmd_observe(port: Optional[str], hz: float = 0.0, count: int = 1,
+                remote: Optional[str] = None, remote_serial: str = "/dev/ttyACM0") -> None:
     """Dump the assembled model observation built from live MCU telemetry — the
     HAL-layer view (normalized joint position [0,1], Python-side velocity EMA, and
     the current→contact_forces mapping), not just raw board telemetry. Bench tool
@@ -791,6 +808,11 @@ def cmd_observe(port: Optional[str], hz: float = 0.0, count: int = 1) -> None:
     shows them as 0 — pass --hz to stream. Streaming while jogging a joint is a
     quick sense-channel check: Δpos moving while ``cur`` stays flat means the
     motor/position sensor work but the current-sense (IS) line is dead."""
+    with _target_port(port, remote, remote_serial) as target:
+        _run_observe(target, hz, count)
+
+
+def _run_observe(port: Optional[str], hz: float, count: int) -> None:
     from firmware.observation_mapping import (
         CONTACT_DROPPED_LEG,
         CONTACT_LEGS,

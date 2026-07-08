@@ -154,12 +154,13 @@ _COMMAND_HELP: list[tuple[str, str]] = [
     ("get-calibration [--port P] JOINT",
      "Read back a joint's stored calibration (sensor type, min/max, flag). "
      "Requires JOINT."),
-    ("jog [--port P] [--ms MS] --joint JOINT --pwm -255..255",
+    ("jog [--port P | --remote HOST [--serial DEV]] [--ms MS] --joint JOINT --pwm -255..255",
      "Drive one joint open-loop for a bounded time, then stop. "
-     "Requires --joint and --pwm."),
-    ("observe [--port P] [--hz HZ] [--count N]",
+     "Requires --joint and --pwm. --remote ssh-bridges to a bench host."),
+    ("observe [--port P | --remote HOST [--serial DEV]] [--hz HZ] [--count N]",
      "Dump the assembled model observation (normalized pos, velocity, "
-     "contact_forces) from live telemetry. --hz streams (M17 Task 6 bench check)."),
+     "contact_forces) from live telemetry. --hz streams (M17 Task 6 bench check); "
+     "--remote ssh-bridges to a bench host."),
 ]
 
 
@@ -182,6 +183,20 @@ def _command_help() -> str:
     lines.append("")
     lines.append("Run `krabby-firmware <command> --help` for a command's full options.")
     return "\n".join(lines)
+
+
+def _add_target_args(sub: argparse.ArgumentParser) -> None:
+    """The board-targeting trio shared by bench subcommands: --port for a local
+    device, or --remote (+ optional --serial) to ssh-bridge to a bench host."""
+    target = sub.add_mutually_exclusive_group()
+    target.add_argument("--port", default=None, metavar="PORT",
+                        help="Serial port of the board (default: auto-detect / $KRABBY_MCU_PORT).")
+    target.add_argument("--remote", default=None, metavar="HOST",
+                        help="ssh host the board is attached to; auto-starts the serial/TCP "
+                             "bridge there and connects through a tunnel (like the GUI's "
+                             "--remote; takes over a stale bridge on the host).")
+    sub.add_argument("--serial", default="/dev/ttyACM0", metavar="DEV",
+                     help="Serial device on the remote host (only with --remote).")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -232,15 +247,7 @@ def build_parser() -> argparse.ArgumentParser:
     cal_p = subparsers.add_parser(
         "calibrate-joint",
         help="Calibrate one joint: sweep both end-stops, auto-detect sensor + direction, persist to EEPROM.")
-    cal_target = cal_p.add_mutually_exclusive_group()
-    cal_target.add_argument("--port", default=None, metavar="PORT",
-                            help="Serial port of the board (default: auto-detect / $KRABBY_MCU_PORT).")
-    cal_target.add_argument("--remote", default=None, metavar="HOST",
-                            help="ssh host the board is attached to; auto-starts the serial/TCP "
-                                 "bridge there and connects through a tunnel (like the GUI's "
-                                 "--remote; takes over a stale bridge on the host).")
-    cal_p.add_argument("--serial", default="/dev/ttyACM0", metavar="DEV",
-                       help="Serial device on the remote host (only with --remote).")
+    _add_target_args(cal_p)
     cal_p.add_argument("name", metavar="JOINT",
                        help="Joint to calibrate, e.g. FLHL. Forwarded to followers via the FRONT board.")
     cal_p.add_argument("--direction", default=None,
@@ -274,8 +281,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     jog_p = subparsers.add_parser(
         "jog", help="Drive one joint open-loop for a bounded time, then stop (reports pos + cal state).")
-    jog_p.add_argument("--port", default=None, metavar="PORT",
-                       help="Serial port of the board (default: auto-detect / $KRABBY_MCU_PORT).")
+    _add_target_args(jog_p)
     jog_p.add_argument("--joint", required=True, metavar="JOINT")
     jog_p.add_argument("--pwm", required=True, type=int, metavar="-255..255")
     jog_p.add_argument("--ms", type=int, default=1000, help="duration in ms (default 1000)")
@@ -283,8 +289,7 @@ def build_parser() -> argparse.ArgumentParser:
     observe_p = subparsers.add_parser(
         "observe",
         help="Dump the assembled model observation (pos[0,1]/vel/contact_forces) from live telemetry (M17 Task 6).")
-    observe_p.add_argument("--port", default=None, metavar="PORT",
-                           help="Serial port of the board (default: auto-detect / $KRABBY_MCU_PORT).")
+    _add_target_args(observe_p)
     observe_p.add_argument("--hz", type=float, default=0.0, metavar="HZ",
                            help="Stream at this rate (default: one snapshot). Velocity needs ≥2 snapshots.")
     observe_p.add_argument("--count", type=int, default=None, metavar="N",
@@ -348,14 +353,16 @@ def main():
 
     if args.command == "jog":
         from firmware.cli import cmd_jog
-        cmd_jog(args.port, args.joint, args.pwm, args.ms)
+        cmd_jog(args.port, args.joint, args.pwm, args.ms,
+                remote=args.remote, remote_serial=args.serial)
         return
 
     if args.command == "observe":
         from firmware.cli import cmd_observe
         # No --count: one shot normally, or stream forever (count<=0) when --hz set.
         count = args.count if args.count is not None else (0 if args.hz else 1)
-        cmd_observe(args.port, args.hz, count)
+        cmd_observe(args.port, args.hz, count,
+                    remote=args.remote, remote_serial=args.serial)
         return
 
     if args.debug:

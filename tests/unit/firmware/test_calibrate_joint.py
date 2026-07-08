@@ -212,6 +212,49 @@ class TestCalibrateJointRemote:
             ["calibrate-joint", "--remote", "orin", "--serial", "/dev/ttyACM2", "FLHL"])
         assert args.remote == "orin" and args.serial == "/dev/ttyACM2" and args.port is None
 
+    @pytest.mark.parametrize("argv", [
+        ["jog", "--remote", "orin", "--serial", "/dev/ttyUSB0", "--joint", "FLHL", "--pwm", "100"],
+        ["observe", "--remote", "orin", "--serial", "/dev/ttyUSB0", "--hz", "2"],
+    ])
+    def test_cli_jog_observe_accept_remote(self, argv):
+        from firmware.__main__ import build_parser
+        args = build_parser().parse_args(argv)
+        assert args.remote == "orin" and args.serial == "/dev/ttyUSB0" and args.port is None
+
+    @pytest.mark.parametrize("argv", [
+        ["jog", "--port", "COM5", "--remote", "orin", "--joint", "FLHL", "--pwm", "100"],
+        ["observe", "--port", "COM5", "--remote", "orin"],
+    ])
+    def test_cli_jog_observe_reject_port_with_remote(self, argv, capsys):
+        from firmware.__main__ import build_parser
+        with pytest.raises(SystemExit):
+            build_parser().parse_args(argv)
+
+    def test_jog_remote_bridges_then_tears_down(self, monkeypatch):
+        seen_ports = []
+
+        class FakeSDK:
+            port = "socket://localhost:5331"
+            def __init__(self, port=None, **k): seen_ports.append(port)
+            def connect(self, *a, **k): return True
+            def send_command_jog(self, name, pwm): pass
+            def get_calibration(self, name, timeout=1.0): return None
+            joints: dict = {}
+            def close(self): pass
+
+        monkeypatch.setattr(cli_mod, "KrabbyMCUSDK", FakeSDK)
+        monkeypatch.setattr(cli_mod.time, "sleep", lambda *_: None)
+        cli_mod.cmd_jog(None, "FLHL", 100, 0, remote="krabby-orin",
+                        remote_serial="/dev/ttyUSB0")
+        (bridge,) = self.FakeBridge.instances
+        assert bridge.started and bridge.stopped
+        assert seen_ports == ["socket://localhost:5331"]
+
+    def test_jog_validation_precedes_bridge_launch(self):
+        with pytest.raises(SystemExit):
+            cli_mod.cmd_jog(None, "BOGUS", 100, 0, remote="krabby-orin")
+        assert not self.FakeBridge.instances
+
 
 @pytest.fixture(scope="module")
 def actuator() -> str:
