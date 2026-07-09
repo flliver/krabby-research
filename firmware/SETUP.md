@@ -43,6 +43,12 @@ This firmware drives a full leg pair (Left & Right) consisting of **6 Motors**.
 
 When using the **leader** board that forwards telemetry from left/right followers, the default 64-byte serial RX buffer can overflow and drop bytes (corrupt or missing actuators in telemetry). Use a **256-byte** RX buffer for Serial2/Serial3 on the leader.
 
+The Makefile passes this define on every build, so you usually don't have to do anything. `make compile-firmware` / `make upload-firmware` bake `-DSERIAL_RX_BUFFER_SIZE=256` into the `arduino-cli compile` invocation unconditionally (see `firmware/Makefile` `BUILD_PROPS`), exactly as CI (`.github/workflows/publish-firmware.yml`) does. `firmware/install.py`'s `platform.local.txt` write is a **belt-and-suspenders backup for IDE builds, not a requirement** — a `make`-built or CI-built binary already has the 256-byte buffer regardless of whether `install.py` ran or which AVR core version is installed. (Some core versions, e.g. 1.8.7, already default the Mega's RX buffer to 256; passing the define guarantees it on every core version and board variant.)
+
+> **This define was the *hypothesized* prime suspect for the primary↔follower comms failure — not the actual bench bug.** On the deployed core (`arduino:avr` 1.8.7) it is a no-op (the Mega already defaults to a 256-byte RX buffer), so it is kept as defensive hygiene and CI parity across other cores/board variants, not as the fix. The failures actually hit on the bench were a firmware **floating-RX starvation** bug and **wiring** faults. See **[`COMMS_DEBUG.md`](COMMS_DEBUG.md)** for the staged root-cause analysis, captured logs, and the repro.
+
+The manual edits below are only needed if you build the sketch **directly from the Arduino IDE** without the `platform.local.txt` override.
+
 **You do not flash the core separately.** The Arduino “core” is just C++ source that is compiled *with* your sketch into a single firmware image. Change the buffer size, then build and upload as usual.
 
 **Arduino IDE**
@@ -84,9 +90,22 @@ Telemetry is sent as **newline-terminated lines** over serial. The Python side p
 
 On the Arduino side, telemetry is built in **telemetry_manager.h** (struct `JointTelemetry`, `appendTo()`). The old standalone `joint_telemetry.h` was removed; all telemetry formatting and collection lives in `telemetry_manager.h` and `actuator_manager.h`.
 
-### 2.3 Pin revisions (`KRABBY_PIN_REV`)
+### 2.3 Command protocol (host → firmware)
 
-Wiring is selected at **compile time** in **`arduino/board_pins.h`** (`#define KRABBY_PIN_REV`, default **2**). Rev **3** matches **`MOTOR_HEADER_PINOUT.md`**.
+Commands are **newline-terminated lines** sent to the main serial (115200 baud). The first byte selects the command; the dispatch lives in `arduino/arduino.ino` `loop()`. The leader forwards every command down `leftSerial`/`rightSerial` to the follower boards. Any other leading byte is discarded as line noise (see the floating-RX guard comment in `loop()`).
+
+| Cmd | Format | What it does | Python SDK sender (`krabby_mcu.py`) |
+|-----|--------|--------------|-------------------------------------|
+| `T` | `T <name> <pos> [<name> <pos> ...]` | Closed-loop position targets (0–1 per joint); parsed by `parseCommands` (`command.h`), applied by each board's actuator manager | `send_command_joints` |
+| `B` | `B <name> <pwm> [<name> <pwm> ...]` | Batch jog — multiple joints at raw PWM (−255 to 255) in one line | `send_commands_jog` |
+| `J` | `J<name> <pwm>` (no space after `J`) | Single-joint jog at raw PWM (−255 to 255) | `send_command_jog` |
+| `C` | `C` | Start the auto-calibration sequence | `send_command_calibrate` |
+| `H` | `H` | Hold all joints at their current position | `send_command_joints_hold` |
+| `V` | `V` | Version query — leader collects follower versions and replies with a single `VER` line (see §4.2) | `read_version` |
+
+### 2.4 Pin revisions (`KRABBY_PIN_REV`)
+
+Wiring is selected at **compile time** in **`arduino/board_pins.h`** (`#define KRABBY_PIN_REV`, default **3**). Rev **3** matches **`MOTOR_HEADER_PINOUT.md`**.
 
 | | **Rev 3** (default, Uno v0.2) | **Rev 2** (Uno v0.1) | **Rev 1** (original) |
 |---|---|---|---|
@@ -104,7 +123,7 @@ Wiring is selected at **compile time** in **`arduino/board_pins.h`** (`#define K
 
 Flash each Mega with the image that matches **that** board’s wiring. All three boards use the same sketch; role is elected at runtime.
 
-### 2.4 Python SDK
+### 2.5 Python SDK
 
 1. From **`krabby-research`**, install dependencies: `pip install -r firmware/requirements.txt`.
 2. Ensure **`firmware/interfaces/`** is importable (e.g. run **`python -m firmware`** from **`krabby-research`** as in §3).
