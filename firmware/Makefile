@@ -16,7 +16,7 @@
 
 ARDUINO_CLI ?= arduino-cli
 FQBN        ?= arduino:avr:mega
-PIN_REV     ?= 2
+PIN_REV     ?= 3
 SKETCH      := $(CURDIR)/arduino
 
 # sync-remote: where the host-side Python lands on REMOTE. Must match
@@ -33,12 +33,17 @@ else
 PYTHON ?= python3
 endif
 
-ifeq ($(PIN_REV),2)
-BUILD_PROPS :=
-else
-BUILD_PROPS := --build-property compiler.cpp.extra_flags=-DKRABBY_PIN_REV=$(PIN_REV) \
-               --build-property compiler.c.extra_flags=-DKRABBY_PIN_REV=$(PIN_REV)
-endif
+# Always bake in the 256-byte serial RX buffer. The leader forwards ~200-byte
+# follower telemetry lines from Serial1/Serial2; the AVR core's 64-byte default
+# RX buffer drops the middle of those lines and the host logs "can't keep up".
+# CI (.github/workflows/publish-firmware.yml) and firmware/install.py's
+# platform.local.txt already pass this define; passing it here too makes
+# `make compile/upload-firmware` produce an identical binary regardless of
+# whether install.py ran, the host OS, or which AVR core version is installed.
+# KRABBY_PIN_REV is passed explicitly as well (board_pins.h defaults to 3 when
+# undefined, so -DKRABBY_PIN_REV=3 is a harmless no-op for the default build).
+BUILD_PROPS := --build-property "compiler.cpp.extra_flags=-DSERIAL_RX_BUFFER_SIZE=256 -DKRABBY_PIN_REV=$(PIN_REV)" \
+               --build-property "compiler.c.extra_flags=-DSERIAL_RX_BUFFER_SIZE=256 -DKRABBY_PIN_REV=$(PIN_REV)"
 
 # Auto-detect serial port for upload-firmware (only when PORT not provided).
 ifneq ($(filter upload-firmware,$(MAKECMDGOALS)),)
