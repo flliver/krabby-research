@@ -13,7 +13,7 @@ from typing import Dict, Optional
 from firmware.krabby_mcu import KrabbyMCUSDK, JOINT_GROUP_NAMES
 from firmware.interfaces.joint_telemetry import JointTelemetry
 
-JOG_PWM_DEFAULT = 100
+JOG_PWM_DEFAULT = 30
 TELEMETRY_REFRESH_MS = 100
 
 
@@ -70,6 +70,7 @@ class KrabbyTestGUI(tk.Tk):
     def __init__(self, port: Optional[str] = None, baud: int = 115200):
         super().__init__()
         self.title("Krabby MCU Test")
+        self.geometry("780x820")
         self.resizable(True, True)
         self.protocol("WM_DELETE_WINDOW", self._on_close)
 
@@ -95,7 +96,7 @@ class KrabbyTestGUI(tk.Tk):
         ttk.Scale(
             pwm_frame,
             from_=0,
-            to=255,
+            to=60,
             orient="horizontal",
             length=120,
             variable=self._jog_pwm_var,
