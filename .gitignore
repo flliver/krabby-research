@@ -226,3 +226,6 @@ parkour/parkour_tasks/parkour_tasks/crab_hexapod_task/tempscripts/
 # macOS Finder artifact
 .DS_Store
 docs/m14-task1-plan.html
+
+# Bench-run history (local measurement data, per machine)
+firmware/tools/bench_runs.sqlite3

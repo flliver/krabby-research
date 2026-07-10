@@ -179,6 +179,8 @@ krabby-firmware get --board left  role serial  # -> role=LEFT  serial=…
 
 Each board prints `ROLE_HINT: <role>` at boot, which `krabby-firmware show` uses to label each port — so a board probed on its own port is identified by its role.
 
+To validate the whole role/config/motion stack on the rig in one pass, run the bench suite: `python3 -m firmware.tools.bench_suite` (see its docstring for phases and flags; `--skip-motion` for config-only).
+
 ### EEPROM layout
 
 Board configuration lives in a single `EepromLayout` struct at EEPROM address 0 (defined in [`firmware/arduino/eeprom_layout.h`](arduino/eeprom_layout.h)). It is validated on load by a magic word, a schema version, and a CRC32, so a blank or corrupt EEPROM reads back as `UNKNOWN` rather than a garbage role.
