@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import sys
 
-# USB VID/PID pairs for boards we drive. Keep in sync with firmware/cli.py
-# (_MEGA_USB_IDS). Duplicated here so this script stands alone on a remote host.
+# USB VID/PID pairs for boards we drive. Keep in sync with firmware/mcu_port.py
+# (MEGA_USB_IDS). Duplicated here so this script stands alone on a remote host.
 MEGA_USB_IDS = {
     ("2341", "0042"), ("2341", "0010"), ("2341", "0110"),  # Arduino Mega native USB
     ("1a86", "7523"), ("1a86", "5523"),                    # CH340 / CH341 (Krabby-Uno shield)

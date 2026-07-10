@@ -16,7 +16,7 @@
 #   make -C firmware flash-remote-all REMOTE=orin1
 #   make -C firmware flash-remote-all REMOTE=orin1 PORTS="/dev/ttyUSB0 /dev/ttyUSB2"
 # With no PORTS, the boards are discovered on REMOTE by USB VID:PID (the same
-# ID set firmware/cli.py's _MEGA_USB_IDS uses), not a bare /dev/ttyUSB* glob, so
+# ID set firmware/mcu_port.py's MEGA_USB_IDS defines), not a bare /dev/ttyUSB* glob, so
 # unrelated USB-serial devices are skipped. The same hex goes on every board —
 # roles live in EEPROM, not the firmware.
 #
