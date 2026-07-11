@@ -12,7 +12,7 @@ import time
 from typing import NoReturn
 
 from firmware.gui.remote import DEFAULT_SERIAL_DEV
-from firmware.krabby_mcu import KrabbyMCUSDK, parse_ver_reply, logger
+from firmware.krabby_mcu import BOARDS, KrabbyMCUSDK, parse_ver_reply, logger
 
 # Joint order per leg pair: LKL, LHL, LHY, RHY, RHL, RKL
 JOINTS_FRONT = ["FLKL", "FLHL", "FLHY", "FRHY", "FRHL", "FRKL"]
@@ -29,7 +29,7 @@ JOG_PWM = 255
 _last_seen: dict[str, float] = {}
 _quit = False
 _HOLD_WINDOW = 0.15  # seconds
-_BOARD_ROLES = ("primary", "left   ", "right  ")  # padded for log column alignment
+_BOARD_ROLES = ("front  ", "left   ", "right  ")  # padded for log column alignment
 
 
 def _read_keys(fd: int) -> None:
@@ -88,6 +88,23 @@ def main():
     update_p.add_argument("channel", nargs="?", default=None, metavar="CHANNEL")
     update_p.add_argument("port", nargs="?", default=None, metavar="PORT")
 
+    set_p = subparsers.add_parser(
+        "set", help="Write board config (role, serial) to EEPROM. Fire-and-forget.")
+    set_p.add_argument("--port", default=None, metavar="PORT",
+                       help="Serial port of the board (default: auto-detect / $KRABBY_MCU_PORT).")
+    set_p.add_argument("--board", default=None, choices=BOARDS,
+                       help="Target board (default: the board on --port). left/right forward via the front board.")
+    set_p.add_argument("assignments", nargs="+", metavar="KEY=VAL",
+                       help="One or more key=value, e.g. role=FRONT serial=FRT-0042.")
+
+    get_p = subparsers.add_parser("get", help="Read board config (role, serial, version) from a board.")
+    get_p.add_argument("--port", default=None, metavar="PORT",
+                       help="Serial port of the board (default: auto-detect / $KRABBY_MCU_PORT).")
+    get_p.add_argument("--board", default=None, choices=BOARDS,
+                       help="Target board (default: the board on --port).")
+    get_p.add_argument("keys", nargs="+", metavar="KEY",
+                       help="One or more keys to read, e.g. role serial version.")
+
     args = parser.parse_args()
 
     if args.command == "help":
@@ -107,6 +124,16 @@ def main():
     if args.command == "update":
         from firmware.cli import cmd_update
         cmd_update(args.channel, args.port)
+        return
+
+    if args.command == "set":
+        from firmware.cli import cmd_set
+        cmd_set(args.port, args.board, args.assignments)
+        return
+
+    if args.command == "get":
+        from firmware.cli import cmd_get
+        cmd_get(args.port, args.board, args.keys)
         return
 
     if args.debug:

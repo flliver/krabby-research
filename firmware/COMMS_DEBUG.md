@@ -3,9 +3,9 @@
 M17 Task 1, acceptance criteria **1c** (root-cause + captured logs) and **1d** (repro that
 fails pre-fix, passes post-fix). Companion to [`SETUP.md`](SETUP.md) §2.1.
 
-> The root-causing was done on the (now abandoned) `m17` branch; the firmware fixes and
-> guard tests documented here are ported onto this branch. Where the analysis used m17's
-> `SET`/`GET` config commands (not yet ported here), the text says so.
+> The root-causing was done on the (now abandoned) `m17` branch; the firmware fixes,
+> guard tests, and the `SET`/`GET` config commands the analysis relies on are all
+> ported onto this branch.
 
 ## Symptom
 
@@ -16,7 +16,7 @@ boards. Observed as one or more of:
 - no follower telemetry (`LEFT ;` / `RIGHT;` lines) relayed by the leader, and the
   combined `V` reply carries `-` in the follower slots (`show` prints no follower
   versions);
-- on m17: a forwarded `get --board left|right` returns `no response from board`;
+- a forwarded `get --board left|right` returns `no response from board`;
 - followers visibly stop updating actuators.
 
 ## Which stage fails (staged analysis)
@@ -25,7 +25,7 @@ The forward path has four stages. Mapping each to what we found:
 
 | Stage | Status | Notes |
 |---|---|---|
-| **SYNC role election** | Ruled out | Still present on this branch (`determineRole()`), and it does require all three boards to boot within the same ~3 s window to elect — but it was **not** the receive failure. (m17 replaced it with EEPROM roles + `SET role …`; that port is pending.) |
+| **SYNC role election** | N/A | Removed: roles now load from EEPROM on boot and are set explicitly via `SET role …` (see `eepromLoad()`/`applyRole()` in `arduino.ino` and SETUP.md §3 "Board roles"). The old election also required all three boards to boot within the same ~3 s window, but it was **not** the receive failure. |
 | **Leader → follower forward** | OK | The leader does write the bare `T`/`B`/`J`/`H` line out `leftSerial`/`rightSerial`. Verified: bytes leave the leader. |
 | **Follower receive / apply** | **FAILS** | Two independent causes — a firmware starvation bug and wiring (below). This is where it actually broke. |
 | **Hardware / wiring** | **FAILS** | Wrong JST port and a half-open cable (below). |
@@ -148,8 +148,7 @@ RIGHT; RRHY 0.50 503 0 …;
 
 ### Manual repro — demonstrates the bug pre-fix, passes post-fix
 
-The floating-RX starvation has a clean hardware repro. As run on m17 (needs the
-`SET`/`GET` config commands, pending port):
+The floating-RX starvation has a clean hardware repro:
 
 1. Flash a board, assign it `role=RIGHT` (`set --port <p> role=RIGHT`).
 2. Connect it to the host by **USB only**, and plug a ~30 cm jumper into its
@@ -160,10 +159,9 @@ The floating-RX starvation has a clean hardware repro. As run on m17 (needs the
    `role=RIGHT` reliably (8/8). The dangling line idles high and the drain is bounded,
    so the rest of the pass runs every time.
 
-Equivalent observable on this branch (no SET/GET yet): with the dangling jumper and a
-brushed motor running nearby, pre-fix firmware's telemetry stream stalls and jog stops
-arrive late or never; post-fix telemetry keeps streaming at 20 Hz and jogs stop
-promptly.
+A tooling-free variant of the same repro: with the dangling jumper and a brushed
+motor running nearby, pre-fix firmware's telemetry stream stalls and jog stops arrive
+late or never; post-fix telemetry keeps streaming at 20 Hz and jogs stop promptly.
 
 ### Automated guards
 

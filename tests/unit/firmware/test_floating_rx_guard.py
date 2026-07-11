@@ -46,11 +46,10 @@ class TestFloatingRxFix:
             "RX_DRAIN_BUDGET cap must be defined"
 
     def test_drains_are_bounded(self, src):
-        # The loop() main-channel drain must cap lines per pass, so a flooding
-        # channel can't starve the actuator update. (On the m17 branch this also
-        # covers processConfig(); that arrives with the SET/GET port.)
+        # Both the loop() main-channel drain and processConfig() must cap lines per
+        # pass, so a flooding channel can't starve config / actuator updates.
         bounded = re.findall(r"while\s*\([^)]*available\(\)[^)]*rxBudget--\s*>\s*0", src)
-        assert len(bounded) >= 1, f"expected >=1 budget-bounded drain, found {len(bounded)}"
+        assert len(bounded) >= 2, f"expected >=2 budget-bounded drains, found {len(bounded)}"
 
     def test_no_bare_unbounded_mainserial_drain(self, src):
         # The exact pre-fix bug: `while (mainSerial->available())` with no budget.

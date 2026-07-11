@@ -92,7 +92,7 @@ On the Arduino side, telemetry is built in **telemetry_manager.h** (struct `Join
 
 ### 2.3 Command protocol (host → firmware)
 
-Commands are **newline-terminated lines** sent to the main serial (115200 baud). The first byte selects the command; the dispatch lives in `arduino/arduino.ino` `loop()`. The leader forwards every command down `leftSerial`/`rightSerial` to the follower boards. Any other leading byte is discarded as line noise (see the floating-RX guard comment in `loop()`).
+Commands are **newline-terminated lines** sent to the main serial (115200 baud). The first byte selects the command; the dispatch lives in `arduino/arduino.ino` `loop()`. The leader forwards every command down `leftSerial`/`rightSerial` to the follower boards. A leading `S` or `G` is read as a whole line and dispatched as a multi-letter config command (`SET…`/`GET…`, see §3 "Board roles"); any other unknown leading byte is discarded as line noise, one byte at a time (see the floating-RX guard comment in `loop()`).
 
 | Cmd | Format | What it does | Python SDK sender (`krabby_mcu.py`) |
 |-----|--------|--------------|-------------------------------------|
@@ -102,6 +102,10 @@ Commands are **newline-terminated lines** sent to the main serial (115200 baud).
 | `C` | `C` | Start the auto-calibration sequence | `send_command_calibrate` |
 | `H` | `H` | Hold all joints at their current position | `send_command_joints_hold` |
 | `V` | `V` | Version query — leader collects follower versions and replies with a single `VER` line (see §4.2) | `read_version` |
+| `SET` | `SET <key> <val> [<key> <val> ...]` | Write config (role, serial) to EEPROM on the receiving board; fire-and-forget, no reply | `send_set` |
+| `GET` | `GET <key> [<key> ...]` | Read config; replies `GET <key> <val> …` (keys: role, serial, version) | `send_get` |
+| `SET_LEFT` / `SET_RIGHT` | same payload as `SET` | Front-only: strips the suffix and relays the bare `SET …` to the LEFT/RIGHT follower over Serial1/Serial2 | `send_set(board="left"/"right")` |
+| `GET_LEFT` / `GET_RIGHT` | same payload as `GET` | Front-only: relays `GET …` to the follower, reads its reply, re-tags it `GET_LEFT …`/`GET_RIGHT …` on USB | `send_get(board="left"/"right")` |
 
 ### 2.4 Pin revisions (`KRABBY_PIN_REV`)
 
@@ -121,7 +125,7 @@ Wiring is selected at **compile time** in **`arduino/board_pins.h`** (`#define K
   - Compile only: `make -C firmware compile-firmware`.
   - See **`firmware/Makefile`** for **`ARDUINO_CLI`**, **`FQBN`**, **`PIN_REV`**.
 
-Flash each Mega with the image that matches **that** board’s wiring. All three boards use the same sketch; role is elected at runtime.
+Flash each Mega with the image that matches **that** board’s wiring. All three boards use the same sketch; the board's role comes from EEPROM (`krabby-firmware set role=…`, see §3 "Board roles").
 
 ### 2.5 Python SDK
 
@@ -145,25 +149,56 @@ python -m firmware --debug
 ```
 
 
-### EEPROM address layout
+### Board roles (`set` / `get`)
 
-| Address | Size | Purpose |
-|---------|------|---------|
-| 0–25 | 26 bytes | `CalData` struct — calibration min/max for 6 actuators + magic word (`0xDEADBEEF`) |
-| 26–31 | 6 bytes | Reserved (alignment gap) |
-| 32 | 1 byte | Role magic sentinel (`0xAB`) — written once after first successful role election |
-| 33 | 1 byte | `BoardRole` value: `1`=FRONT, `2`=LEFT, `3`=RIGHT |
+The three boards run the same firmware; a board's **role** selects which 6 of the 18 joints it drives — `FRONT`, `LEFT`, or `RIGHT`. Each board reads its role from EEPROM at boot and keeps it across power cycles. A board with no role set (e.g. freshly flashed) comes up `UNKNOWN`: it drives no actuators but still answers `set`/`get`, so you can assign it.
 
-The role bytes survive power cycles. On each boot, the board prints `ROLE_HINT: LEFT/RIGHT/FRONT` immediately before the 3-second role-election window. `krabby-firmware show` reads this hint so follower boards can be labeled correctly even when probed individually (when they would otherwise appear as `ROLE_UNKNOWN` and show as "primary").
+`set` writes one or more `key=value` pairs (and reads them back to confirm); `get` reads one or more keys. Allowed keys: **`role`** (`FRONT` / `LEFT` / `RIGHT` / `UNKNOWN`) and **`serial`** (a short per-board identifier); `get` additionally accepts read-only **`version`**. There are two ways to say *which* board:
 
-Role bytes are only written when a valid role is elected (FRONT, LEFT, or RIGHT). A board that times out as ROLE_UNKNOWN does not update EEPROM, preserving the last valid role.
+**Bench — `--port` (each board directly).** With all three Megas on a USB hub, address each one by its serial port:
 
-### Feature 1: Auto-Calibration (Run Once)
-The robot now calibrates itself automatically and saves limits to EEPROM.
+```bash
+krabby-firmware set --port /dev/ttyUSB0 role=FRONT
+krabby-firmware set --port /dev/ttyUSB1 role=LEFT  serial=LEF-0007
+krabby-firmware set --port /dev/ttyUSB2 role=RIGHT
+krabby-firmware get --port /dev/ttyUSB1 role serial    # -> role=LEFT  serial=LEF-0007
+```
+
+(`--port` defaults to auto-detect, or `$KRABBY_MCU_PORT`.)
+
+**Deployed robot — `--board` (through the FRONT board).** On the assembled robot only the FRONT board is on USB; the LEFT and RIGHT followers connect to it over the inter-board serial links (FRONT `Serial 1` → LEFT, `Serial 2` → RIGHT). Configure and read the followers *through* FRONT with `--board`:
+
+```bash
+krabby-firmware set role=FRONT                 # the board on USB
+krabby-firmware set --board left  role=LEFT
+krabby-firmware set --board right role=RIGHT
+krabby-firmware get --board left  role serial  # -> role=LEFT  serial=…
+```
+
+`set --board left` forwards a bare `SET …` out FRONT's `Serial 1` to the LEFT follower; `get --board left` forwards a `GET …` and relays the follower's reply back, re-tagged so the host knows the source. Because roles persist in EEPROM, you can equally assign all three on the bench by `--port` and they'll come up correctly once deployed — `--board` is for configuring or reading the followers in place. To check a role stuck, power-cycle and `get` again.
+
+Each board prints `ROLE_HINT: <role>` at boot, which `krabby-firmware show` uses to label each port — so a board probed on its own port is identified by its role.
+
+### EEPROM layout
+
+Board configuration lives in a single `EepromLayout` struct at EEPROM address 0 (defined in [`firmware/arduino/eeprom_layout.h`](arduino/eeprom_layout.h)). It is validated on load by a magic word, a schema version, and a CRC32, so a blank or corrupt EEPROM reads back as `UNKNOWN` rather than a garbage role.
+
+| Field | Type | Purpose |
+|-------|------|---------|
+| `magic` | `uint16` | `0x4B17` when valid |
+| `schema_version` | `uint8` | identifies the struct layout |
+| `role` | `uint8` | `0`=UNKNOWN, `1`=FRONT, `2`=LEFT, `3`=RIGHT |
+| `serial` | `char[16]` | zero-padded ASCII; empty if unset |
+| `crc32` | `uint32` | checksum over all preceding fields |
+
+Per-joint calibration is planned to live in this same struct as an added field; until then, auto-calibration results are not persisted (see Feature 1).
+
+### Feature 1: Auto-Calibration
+The robot finds its joint limits automatically.
  - Select Option 2 (Auto-Calibrate) in the menu.
  - Stand Back: The robot will perform the safety sequence:
     - Yaw Left -> Yaw Right -> Hip Up -> Knee Out -> Knee In -> Hip Down.
- - Result: Limits are saved. You do not need to repeat this after rebooting.
+ - Result: the joint limits are found and used for the current session. They are **not persisted**, so re-run auto-calibration after each power cycle.
 
 ### Feature 2: Manual Jog Mode
  - Select Option 3 (Jog Mode).

@@ -1,13 +1,15 @@
 /*
  * Krabby-Uno: 18-Joint Distributed Controller (3 boards × 6 actuators)
- * Front: FL + FR, on USB. Left: RL + ML, on pins 14/15 (Serial3). Right: MR + RR, on pins 16/17 (Serial2).
- * All three boards use the same pinout; role election selects which 6 actuators this board drives.
+ * Front: FL + FR, on USB. Left: RL + ML, on Serial1. Right: MR + RR, on Serial2.
+ * All three boards use the same pinout; the board's configured role (EEPROM,
+ * set via `SET role …`) selects which 6 actuators this board drives.
  */
 
 #include <Arduino.h>
 #include <EEPROM.h>
 #include "board_pins.h"
 #include "command.h"
+#include "eeprom_layout.h"
 #include "actuator_manager.h"
 #include "version.h"
 
@@ -27,33 +29,11 @@
 // loop() runs far faster than that, so 16/pass is still ample headroom.
 constexpr int RX_DRAIN_BUDGET = 16;
 
-#define SYNC_TOKEN "SYNC"
-#define ASSIGN_LEFT  "ROLE:LEFT"
-#define ASSIGN_RIGHT "ROLE:RIGHT"
-
-enum BoardRole { ROLE_UNKNOWN, ROLE_FRONT, ROLE_LEFT, ROLE_RIGHT };
+// Persistent board config (role, serial); see eeprom_layout.h for the struct and its
+// EEPROM helpers. Loaded on boot, changed at runtime by the SET command, and applied
+// to the board with applyRole().
+EepromLayout g_config;
 BoardRole currentRole = ROLE_UNKNOWN;
-
-// EEPROM address 32: magic sentinel byte (0xAB); address 33: BoardRole value.
-// Calibration data (CalData) occupies addresses 0–25; gap at 26–31 kept for alignment.
-#define EEPROM_ROLE_ADDR  32
-#define EEPROM_ROLE_MAGIC 0xAB
-
-static void saveRole(BoardRole r)
-{
-    EEPROM.update(EEPROM_ROLE_ADDR,     EEPROM_ROLE_MAGIC);
-    EEPROM.update(EEPROM_ROLE_ADDR + 1, (uint8_t)r);
-}
-
-static BoardRole loadRole()
-{
-    if (EEPROM.read(EEPROM_ROLE_ADDR) != EEPROM_ROLE_MAGIC)
-        return ROLE_UNKNOWN;
-    uint8_t r = EEPROM.read(EEPROM_ROLE_ADDR + 1);
-    if (r == ROLE_FRONT || r == ROLE_LEFT || r == ROLE_RIGHT)
-        return (BoardRole)r;
-    return ROLE_UNKNOWN;
-}
 
 static const char* roleName(BoardRole r)
 {
@@ -97,7 +77,7 @@ LinearActuator* ACT_LIST_FRONT[]  = { &flhy, &flhl, &flkl, &frhy, &frhl, &frkl }
 LinearActuator* ACT_LIST_LEFT[]   = { &rlhy, &rlhl, &rlkl, &mlhy, &mlhl, &mlkl };  // RL + ML
 LinearActuator* ACT_LIST_RIGHT[]  = { &rrhy, &rrhl, &rrkl, &mrhy, &mrhl, &mrkl }; // MR + RR
 
-// Set once after role election.
+// Set in applyRole() once the role is known.
 ActuatorManager* actuatorManager = nullptr;
 HardwareSerial* mainSerial = nullptr;  // USB (front) or uplink (left/right)
 HardwareSerial* leftSerial = nullptr;  // serial to left board (from front only)
@@ -155,7 +135,7 @@ void forwardFullLines(HardwareSerial* from, HardwareSerial* to, char* partial, s
             // upstream turns noise into blocking TX writes that stall the loop and
             // delay jog-stop processing (bench 2026-07-03: successive FLHY jogs
             // stopped later and later as the junk backlog grew). Real follower
-            // lines (telemetry/VER) are pure printable ASCII.
+            // lines (telemetry/VER/GET replies) are pure printable ASCII.
             if (*partialPos > 0 && lineIsPrintable(partial, *partialPos))
                 to->println(partial);
             *partialPos = 0;
@@ -181,26 +161,53 @@ void forwardFullLines(HardwareSerial* from, HardwareSerial* to, char* partial, s
     }
 }
 
-void determineRole()
+// Apply a role: select this board's 6 actuators and wire up the serial channels, then
+// (re)initialize the actuators. Called on boot with the EEPROM-loaded role and again
+// whenever `SET role …` changes it — no reboot needed.
+//
+// `mainSerial` is each role's main channel — where it takes T/B/J/C/H/V commands and
+// emits telemetry:
+//   FRONT  : USB; also forwards commands to the two followers and relays their telemetry
+//            back to USB (leftSerial = Serial1, rightSerial = Serial2).
+//   LEFT   : its uplink Serial1 (the FRONT leader drives it and reads its telemetry there).
+//   RIGHT  : its uplink Serial2.
+//   UNKNOWN: USB, until it is assigned a role.
+// Independently of the main channel, every board also answers SET/GET on USB, and an
+// UNKNOWN board on Serial1/Serial2, so it can always be configured — see loop().
+void applyRole(BoardRole role)
 {
-    Serial.println("--- SYNC ---");
+    currentRole = role;
 
-    // Emit cached role before election so USB probe can label this port correctly
-    // even when the board is probed alone (and would otherwise appear as ROLE_UNKNOWN).
-    switch (loadRole())
+    LinearActuator** list = nullptr;
+    if (role == ROLE_FRONT)      list = ACT_LIST_FRONT;
+    else if (role == ROLE_LEFT)  list = ACT_LIST_LEFT;
+    else if (role == ROLE_RIGHT) list = ACT_LIST_RIGHT;
+    // ROLE_UNKNOWN: no actuators driven.
+
+    if (role == ROLE_LEFT)       mainSerial = &SERIAL_LEFT;
+    else if (role == ROLE_RIGHT) mainSerial = &SERIAL_RIGHT;
+    else                         mainSerial = &Serial;   // FRONT / UNKNOWN
+    leftSerial  = (role == ROLE_FRONT) ? &SERIAL_LEFT  : nullptr;
+    rightSerial = (role == ROLE_FRONT) ? &SERIAL_RIGHT : nullptr;
+
+    if (actuatorManager) { delete actuatorManager; actuatorManager = nullptr; }
+    if (list)
     {
-        case ROLE_FRONT: Serial.println("ROLE_HINT: FRONT"); break;
-        case ROLE_LEFT:  Serial.println("ROLE_HINT: LEFT");  break;
-        case ROLE_RIGHT: Serial.println("ROLE_HINT: RIGHT"); break;
-        default: break;
+        for (size_t i = 0; i < ACT_COUNT; i++)
+            list[i]->setControlConfig(ACTUATOR_CONFIG);
+        actuatorManager = new ActuatorManager(list, ACT_COUNT);
+        actuatorManager->initAll();
     }
+}
 
-    pinMode(LED_BUILTIN, OUTPUT);
+void setup()
+{
+    Serial.begin(BAUD_RATE);
     SERIAL_LEFT.begin(BAUD_RATE);
     SERIAL_RIGHT.begin(BAUD_RATE);
-    // Cap blocking reads (readStringUntil et al.) at 50 ms instead of the 1 s
-    // default, so a garbage byte that looks like the start of a line can't stall
-    // the loop for a second per occurrence. Legit lines arrive in ~17 ms at 115200.
+    // Bound readStringUntil() so a partial/garbled line — e.g. an unconnected follower
+    // uplink floating on the bench — can't stall the loop for the 1 s stream default.
+    Serial.setTimeout(50);
     SERIAL_LEFT.setTimeout(50);
     SERIAL_RIGHT.setTimeout(50);
     // Pull up the follower-uplink RX pins so a disconnected/dangling cable idles high
@@ -208,105 +215,127 @@ void determineRole()
     // A driven uplink (the leader's TX) still overrides the weak pull-up. Done after
     // begin() so it isn't reset by USART init.
     pinMode(SERIAL_LEFT_RX, INPUT_PULLUP);
-    pinMode(SERIAL_RIGHT_RX, INPUT_PULLUP);
-
-    bool syncFromLeft = false, syncFromRight = false;
-    unsigned long start = millis();
-    unsigned long lastSync = 0;
-
-    while (millis() - start < 3000)
-    {
-        // Everyone sends a SYNC_TOKEN every 10ms to see what serial lines are connected
-        if (millis() - lastSync >= 10)
-        {
-            lastSync = millis();
-            SERIAL_LEFT.println(SYNC_TOKEN);
-            SERIAL_RIGHT.println(SYNC_TOKEN);
-        }
-        // If the left serial line is available, we're either the left follower or the leader
-        if (SERIAL_LEFT.available())
-        {
-            String s = SERIAL_LEFT.readStringUntil('\n');
-            // If the leader has sent us an ASSIGN_LEFT command, we're the left follower
-            if (s.indexOf(ASSIGN_LEFT) >= 0)
-            {
-                currentRole = ROLE_LEFT;
-                actuatorManager = new ActuatorManager(ACT_LIST_LEFT, ACT_COUNT);
-                mainSerial = &SERIAL_LEFT;
-                saveRole(ROLE_LEFT);
-                Serial.println("ROLE: LEFT");
-                return;
-            }
-            if (s.indexOf(SYNC_TOKEN) >= 0) syncFromLeft = true;
-        }
-        if (SERIAL_RIGHT.available())
-        {
-            String s = SERIAL_RIGHT.readStringUntil('\n');
-            // If the leader has sent us an ASSIGN_RIGHT command, we're the right follower
-            if (s.indexOf(ASSIGN_RIGHT) >= 0)
-            {
-                currentRole = ROLE_RIGHT;
-                actuatorManager = new ActuatorManager(ACT_LIST_RIGHT, ACT_COUNT);
-                mainSerial = &SERIAL_RIGHT;
-                saveRole(ROLE_RIGHT);
-                Serial.println("ROLE: RIGHT");
-                return;
-            }
-            if (s.indexOf(SYNC_TOKEN) >= 0) syncFromRight = true;
-        }
-        // Received SYNC from both sides: we are the leader. Assign followers then set ourselves as FRONT.
-        if (syncFromLeft && syncFromRight)
-        {
-            SERIAL_LEFT.println(ASSIGN_LEFT);
-            SERIAL_RIGHT.println(ASSIGN_RIGHT);
-            currentRole = ROLE_FRONT;
-            actuatorManager = new ActuatorManager(ACT_LIST_FRONT, ACT_COUNT);
-            mainSerial = &Serial;
-            leftSerial = &SERIAL_LEFT;
-            rightSerial = &SERIAL_RIGHT;
-            saveRole(ROLE_FRONT);
-            Serial.println("ROLE: FRONT");
-            return;
-        }
-    }
-
-    // Timeout: no both-sync, default to front actuators but report UNKNOWN.
-    currentRole = ROLE_UNKNOWN;
-    actuatorManager = new ActuatorManager(ACT_LIST_FRONT, ACT_COUNT);
-    mainSerial = &Serial;
-    leftSerial = &SERIAL_LEFT;
-    rightSerial = &SERIAL_RIGHT;
-    Serial.println("ROLE: UNKNOWN (front actuators)");
-}
-
-void setup()
-{
-    Serial.begin(BAUD_RATE);
-    Serial.setTimeout(50);  // see determineRole(): bound blocking line reads
-    // Pull up RX0 (pin 0): the USB serial chip drives this line when healthy, but
-    // it drops off the bus under motor EMI (observed re-enumerating on the bench)
-    // and tri-states — leaving RX0 floating next to a 120 W brushed motor. The
-    // pull-up makes a dead/absent USB chip read as UART idle (silence) instead of
+    // Same treatment for RX0 (pin 0): the USB serial chip drives this line when
+    // healthy, but it drops off the bus under motor EMI (observed re-enumerating on
+    // the bench) and tri-states — leaving RX0 floating next to a 120 W brushed motor.
+    // The pull-up makes a dead/absent USB chip read as UART idle (silence) instead of
     // a garbage-byte stream into the command dispatcher.
     pinMode(0, INPUT_PULLUP);
-    determineRole();
+    pinMode(SERIAL_RIGHT_RX, INPUT_PULLUP);
+    pinMode(LED_BUILTIN, OUTPUT);
 
-    // TODO: This should not need to be done here, it should be done when actuators are instantiated, and we should delay instantiation until after role election is complete.
-    LinearActuator** list = (currentRole == ROLE_LEFT) ? ACT_LIST_LEFT : (currentRole == ROLE_RIGHT) ? ACT_LIST_RIGHT : ACT_LIST_FRONT;
-    for (size_t i = 0; i < ACT_COUNT; i++)
-        list[i]->setControlConfig(ACTUATOR_CONFIG);
-    actuatorManager->initAll();
+    eepromLoad(g_config);          // invalid/blank EEPROM → g_config.role == ROLE_UNKNOWN
+    applyRole(g_config.role);
     hallHwInit();
-    actuatorManager->loadCalibration();
+
+    // ROLE_HINT lets `krabby-firmware show` label this port even when the board is
+    // probed on its own.
+    Serial.print("ROLE_HINT: ");
+    Serial.println(roleConfigName(currentRole));
 
     Serial.print("Krabby Ready ");
     Serial.print(boardPinRevisionLabel());
-    Serial.print(". ");
-    Serial.println(list[0]->name);
+    Serial.print(". role=");
+    Serial.println(roleConfigName(currentRole));
 }
 
-// Read lines from a follower serial until one starts with "VER "; discard telemetry lines.
-static String readVerLine(HardwareSerial* port, unsigned long timeout_ms)
+static String readPrefixedLine(HardwareSerial* port, const char* prefix, unsigned long timeout_ms);  // defined below
+
+// Handle a config command parsed from `port`. The payload is a "key val [key val …]"
+// list, walked with the same tokenizer as the T command.
+//   SET / GET           — act on this board. SET is fire-and-forget; GET replies "GET …".
+//   SET_LEFT / GET_LEFT — leader only: strip the suffix, relay the bare command to the
+//   SET_RIGHT/ GET_RIGHT  LEFT/RIGHT follower over Serial1/Serial2; for GET, read the
+//                         follower's reply and re-tag it "GET_LEFT …"/"GET_RIGHT …".
+// Unknown keys and unknown commands are silently ignored — the SDK validates first.
+void handleConfig(const String &cmd, const String &payload, HardwareSerial &out)
+{
+    if (cmd == "SET_LEFT" || cmd == "GET_LEFT" || cmd == "SET_RIGHT" || cmd == "GET_RIGHT")
+    {
+        bool isLeft = cmd.endsWith("_LEFT");
+        HardwareSerial *follower = isLeft ? leftSerial : rightSerial;
+        if (!follower) return;  // not the leader (no follower serial): silently dropped
+        bool isGet = cmd.startsWith("GET");
+        follower->print(isGet ? "GET " : "SET ");
+        follower->println(payload);
+        if (isGet)
+        {
+            String reply = readPrefixedLine(follower, "GET ", 300);   // "GET <key> <val> …"; skips telemetry
+            if (reply.length())
+            {
+                out.print(isLeft ? "GET_LEFT" : "GET_RIGHT");
+                out.println(reply.substring(3));          // drop "GET", keep " <key> <val> …"
+            }
+        }
+        return;
+    }
+
+    const int len = payload.length();
+
+    if (cmd == "SET")
+    {
+        int i = 0;
+        bool roleChanged = false;
+        while (true)
+        {
+            String key = nextTok(payload, i, len);
+            String val = nextTok(payload, i, len);
+            if (key.length() == 0 || val.length() == 0) break;
+            if (key == "role")
+            {
+                BoardRole r;
+                if (parseRole(val, r)) { g_config.role = r; roleChanged = true; }
+            }
+            else if (key == "serial")
+            {
+                memset(g_config.serial, 0, EEPROM_SERIAL_LEN);
+                val.toCharArray(g_config.serial, EEPROM_SERIAL_LEN);
+            }
+            // unknown keys: silently ignored
+        }
+        eepromSave(g_config);
+        if (roleChanged) applyRole(g_config.role);
+        // no reply (fire-and-forget)
+    }
+    else if (cmd == "GET")
+    {
+        out.print("GET");
+        int i = 0;
+        while (true)
+        {
+            String key = nextTok(payload, i, len);
+            if (key.length() == 0) break;
+            if (key == "role")
+            {
+                out.print(" role ");
+                out.print(roleConfigName(g_config.role));
+            }
+            else if (key == "serial")
+            {
+                out.print(" serial ");
+                out.print(g_config.serial[0] ? g_config.serial : "-");
+            }
+            else if (key == "version")
+            {
+                // Read-only: the build's version|branch|commit, pipe-joined so the
+                // whole triple is one space-free token in the key/value reply. This
+                // is the config-path equivalent of the V/VER command, and unlike V
+                // it works on a follower over USB (V is only handled on mainSerial).
+                out.print(" version ");
+                out.print(KRABBY_FW_VERSION); out.print("|");
+                out.print(KRABBY_FW_BRANCH);  out.print("|");
+                out.print(KRABBY_FW_COMMIT);
+            }
+            // unknown keys: silently skipped
+        }
+        out.println();
+    }
+}
+
+// Read lines from a follower serial until one starts with `prefix`; discard telemetry
+// and any other lines. The leader uses it to collect a follower's tagged reply
+// (e.g. "VER …" after a forwarded V, or "GET …" after a forwarded GET).
+static String readPrefixedLine(HardwareSerial* port, const char* prefix, unsigned long timeout_ms)
 {
     unsigned long deadline = millis() + timeout_ms;
     String line = "";
@@ -316,7 +345,7 @@ static String readVerLine(HardwareSerial* port, unsigned long timeout_ms)
         char c = (char)port->read();
         if (c == '\n')
         {
-            if (line.startsWith("VER ")) return line;
+            if (line.startsWith(prefix)) return line;
             line = "";
             continue;
         }
@@ -343,19 +372,60 @@ static void parseVerToken(const String& reply, String& ver, String& branch, Stri
     commit.trim();
 }
 
+// Read one "<CMD> <payload>" config line from `port` and dispatch it. The single
+// framing rule for SET/GET lives here — both loop()'s S/G branch and processConfig()
+// call this, so the main and secondary channels can't drift apart.
+static void dispatchConfigLine(HardwareSerial &port)
+{
+    String line = port.readStringUntil('\n');
+    int sp = line.indexOf(' ');
+    String cmd = (sp < 0) ? line : line.substring(0, sp);
+    cmd.trim();
+    String payload = (sp < 0) ? String("") : line.substring(sp + 1);
+    handleConfig(cmd, payload, port);
+}
+
+// Process only SET/GET (config) commands arriving on a secondary serial — used so a board
+// stays configurable on channels other than its main one (see loop()). Non-config bytes
+// on these channels are drained (bounded, single-byte) and ignored.
+void processConfig(HardwareSerial &port)
+{
+    int rxBudget = RX_DRAIN_BUDGET;
+    while (port.available() && rxBudget-- > 0)
+    {
+        char c = port.peek();
+        if (c == 'S' || c == 'G')
+        {
+            dispatchConfigLine(port);
+        }
+        else
+        {
+            // Non-config byte on a secondary channel is noise: single-byte discard,
+            // same rationale as the unknown-byte path in loop().
+            port.read();
+        }
+    }
+}
+
 void loop()
 {
     int rxBudget = RX_DRAIN_BUDGET;
     while (mainSerial->available() && rxBudget-- > 0)
     {
         char cmdType = mainSerial->peek();
-        if (cmdType == 'T')
+        if (cmdType == 'S' || cmdType == 'G')
+        {
+            // Multi-letter config command (SET / GET). The single-letter T/B/J/C/H/V
+            // commands never start with S or G, so they stay on the paths below.
+            dispatchConfigLine(*mainSerial);
+        }
+        else if (cmdType == 'T')
         {
             mainSerial->read();
             String payload = mainSerial->readStringUntil('\n');
             size_t cmdCount = parseCommands(payload, cmdBuf, CMD_BUF_SIZE);
             // Keeping it simple, we send all commands to all actuator managers, and let each actuator manager ignore any commands that aren't for them
-            actuatorManager->applyCommands(cmdBuf, cmdCount);
+            if (actuatorManager) actuatorManager->applyCommands(cmdBuf, cmdCount);
             if (leftSerial)  { leftSerial->print("T ");  leftSerial->println(payload); }
             if (rightSerial) { rightSerial->print("T "); rightSerial->println(payload); }
         }
@@ -371,14 +441,14 @@ void loop()
                 String name = mainSerial->readStringUntil(' ');
                 int pwm = mainSerial->readStringUntil(' ').toInt();
 
-                actuatorManager->handleJog(name, pwm);
-                if (leftSerial)  { 
+                if (actuatorManager) actuatorManager->handleJog(name, pwm);
+                if (leftSerial)  {
                     leftSerial->print(name);
                     leftSerial->print(" ");
                     leftSerial->print(pwm);
                     leftSerial->print(" ");
                 }
-                if (rightSerial) { 
+                if (rightSerial) {
                     rightSerial->print(name);
                     rightSerial->print(" ");
                     rightSerial->print(pwm);
@@ -392,17 +462,25 @@ void loop()
         else if (cmdType == 'J')
         {
             mainSerial->read();
+            // Tolerate spaces after the J (like the B branch): "J FLHY 100" from a
+            // serial monitor or older leader must not parse as an empty joint name.
+            while (mainSerial->available() && mainSerial->peek() == ' ')
+                mainSerial->read();
             String name = mainSerial->readStringUntil(' ');
             int pwm = mainSerial->readStringUntil('\n').toInt();
-            actuatorManager->handleJog(name, pwm);
-            if (leftSerial)  { leftSerial->print("J ");  leftSerial->print(name);  leftSerial->print(" ");  leftSerial->println(pwm); }
-            if (rightSerial) { rightSerial->print("J "); rightSerial->print(name); rightSerial->print(" "); rightSerial->println(pwm); }
+            if (actuatorManager) actuatorManager->handleJog(name, pwm);
+            // Forward in the same wire format we accept: "J<name> <pwm>", NO space
+            // after the J. A "J " forward reads back as an empty joint name on the
+            // follower, which silently drops the jog — every follower joint dead
+            // from the GUI (single-J) while batch jog (B) worked.
+            if (leftSerial)  { leftSerial->print("J");  leftSerial->print(name);  leftSerial->print(" ");  leftSerial->println(pwm); }
+            if (rightSerial) { rightSerial->print("J"); rightSerial->print(name); rightSerial->print(" "); rightSerial->println(pwm); }
         }
         else if (cmdType == 'C')
         {
             mainSerial->read();
             mainSerial->readStringUntil('\n');
-            actuatorManager->startAutoCalibration();
+            if (actuatorManager) actuatorManager->startAutoCalibration();
             if (leftSerial)  leftSerial->println("C");
             if (rightSerial) rightSerial->println("C");
         }
@@ -410,7 +488,7 @@ void loop()
         {
             mainSerial->read();
             mainSerial->readStringUntil('\n');
-            actuatorManager->holdAll();
+            if (actuatorManager) actuatorManager->holdAll();
             if (leftSerial)  leftSerial->println("H");
             if (rightSerial) rightSerial->println("H");
         }
@@ -438,13 +516,13 @@ void loop()
                 if (leftSerial)
                 {
                     leftSerial->println("V");
-                    String reply = readVerLine(leftSerial, 300);
+                    String reply = readPrefixedLine(leftSerial, "VER ", 300);
                     parseVerToken(reply, lVer, lBranch, lCommit);
                 }
                 if (rightSerial)
                 {
                     rightSerial->println("V");
-                    String reply = readVerLine(rightSerial, 300);
+                    String reply = readPrefixedLine(rightSerial, "VER ", 300);
                     parseVerToken(reply, rVer, rBranch, rCommit);
                 }
 
@@ -455,16 +533,6 @@ void loop()
                 mainSerial->print(" ");
                 mainSerial->print(KRABBY_FW_COMMIT); mainSerial->print("|"); mainSerial->print(lCommit); mainSerial->print("|"); mainSerial->println(rCommit);
             }
-        }
-        else if (cmdType == 'S')
-        {
-            // Likely a SYNC from a restarted leader re-electing: read the line and
-            // answer so it can rediscover this (already-assigned) follower. Only
-            // 'S' bytes pay the blocking readStringUntil here; anything else is
-            // treated as noise below.
-            String s = mainSerial->readStringUntil('\n');
-            if (s.indexOf(SYNC_TOKEN) >= 0)
-                mainSerial->println(SYNC_TOKEN);
         }
         else
         {
@@ -480,19 +548,32 @@ void loop()
         }
     }
 
+    // Config (SET/GET) is also accepted on secondary channels so a board can always be
+    // configured: every non-FRONT board answers config over USB (bench reachability), and
+    // an UNKNOWN board also listens on Serial1/Serial2 to receive its first forwarded role.
+    if (mainSerial != &Serial)
+        processConfig(Serial);
+    if (currentRole == ROLE_UNKNOWN)
+    {
+        processConfig(SERIAL_LEFT);
+        processConfig(SERIAL_RIGHT);
+    }
+
     // Drain follower serial so RX buffers don't overflow (64-byte default drops middle of ~200-byte lines).
     // Only flush once after both drains so we don't block in flush() twice per loop (~35 ms each at 115200).
     forwardFullLines(leftSerial, mainSerial, leftPartial, TELEMETRY_LINE_MAX, &leftPartialPos);
     forwardFullLines(rightSerial, mainSerial, rightPartial, TELEMETRY_LINE_MAX, &rightPartialPos);
 
-    actuatorManager->updateAll();
+    if (actuatorManager) actuatorManager->updateAll();
 
     // Drain again in case bytes arrived during updateAll()
     forwardFullLines(leftSerial, mainSerial, leftPartial, TELEMETRY_LINE_MAX, &leftPartialPos);
     forwardFullLines(rightSerial, mainSerial, rightPartial, TELEMETRY_LINE_MAX, &rightPartialPos);
     mainSerial->flush();
 
-    if (millis() - lastTelemetry >= TELEMETRY_INTERVAL_MS)
+    // ROLE_UNKNOWN drives nothing and has no actuators, so it emits no telemetry
+    // stream — it still answers V and GET so the operator can identify and assign it.
+    if (actuatorManager && millis() - lastTelemetry >= TELEMETRY_INTERVAL_MS)
     {
         lastTelemetry = millis();
         mainSerial->print(roleName(currentRole));

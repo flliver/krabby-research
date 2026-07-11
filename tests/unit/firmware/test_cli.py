@@ -155,7 +155,7 @@ class TestCmdShow:
                 with patch.object(cli_mod, "_fetch_index", return_value=index):
                     cli_mod.cmd_show()
         out = capsys.readouterr().out
-        assert "primary (/dev/ttyACM0): 0.2.9" in out
+        assert "front (/dev/ttyACM0): 0.2.9" in out
         assert "left (/dev/ttyUSB0): 0.2.9" in out
         assert "right (/dev/ttyUSB1): 0.2.9" in out
         assert "no version response" not in out
@@ -177,7 +177,7 @@ class TestCmdShow:
                 with patch.object(cli_mod, "_fetch_index", return_value=index):
                     cli_mod.cmd_show()
         out = capsys.readouterr().out
-        assert "primary: 0.2.9" in out
+        assert "front: 0.2.9" in out
         assert "left: 0.2.8" in out
         assert "right: 0.2.8" in out
         # Old bug: all three ports mapped to slot 0, showing 0.2.9 for left/right too

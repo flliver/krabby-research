@@ -1,4 +1,4 @@
-"""krabby-firmware show / update CLI commands."""
+"""krabby-firmware show / update / set / get CLI commands."""
 from __future__ import annotations
 
 import json
@@ -12,7 +12,13 @@ from pathlib import Path
 from typing import Optional
 
 from firmware.gui.remote import DEFAULT_SERIAL_DEV, start_bridge
-from firmware.krabby_mcu import _TELEMETRY_LINE_PREFIXES, parse_ver_reply
+from firmware.krabby_mcu import (
+    _TELEMETRY_LINE_PREFIXES,
+    KrabbyMCUSDK,
+    build_get_line,
+    build_set_line,
+    parse_ver_reply,
+)
 from firmware.manifest import FirmwareIndex, parse_index, latest_release_branch
 
 BUCKET_BASE = "https://krabby-firmware-public.s3.amazonaws.com"
@@ -56,8 +62,8 @@ _PROBE_V_RETRY_LIMIT = 8
 def _probe_version(port: str, timeout: float = 6.0) -> tuple[Optional[str], Optional[str]]:
     """Open port, wait for boot, send V. Return (ver_line, role_hint). Either may be None.
 
-    Captures the ROLE_HINT line printed from EEPROM before role election so the
-    caller can label follower boards correctly even when probed alone (ROLE_UNKNOWN).
+    Captures the ROLE_HINT line the firmware prints at boot (from its EEPROM role)
+    so the caller can label each board's port, including followers probed directly.
     """
     try:
         import serial
@@ -73,11 +79,10 @@ def _probe_version(port: str, timeout: float = 6.0) -> tuple[Optional[str], Opti
             # real port, so by the time we connect it may be mid-boot (banner still
             # coming) or long past it (banner gone, telemetry streaming). Writing V
             # blind is worse — during the boot window it pokes the bootloader, not
-            # the sketch, and V sent during role election ("--- SYNC ---" lines) is
-            # dropped, burning the retry budget before the board can answer. So for
-            # socket:// ports a telemetry line also counts as ready (it proves the
-            # sketch's main loop is running); boot-sequence chatter still waits for
-            # the banner.
+            # the sketch (and on pre-EEPROM-role firmware, V sent during SYNC
+            # election was dropped outright). So for socket:// ports a telemetry
+            # line also counts as ready (it proves the sketch's main loop is
+            # running); boot-sequence chatter still waits for the banner.
             socket_port = port.startswith("socket://")
             ready = False
             role_hint: Optional[str] = None
@@ -158,7 +163,7 @@ def _show_status(ports: list[str], labels: dict[str, str], index_future) -> None
     probe_results = {port: fut.result() for port, fut in probe_futures}
 
     if ports:
-        # Leader returns combined VER (slot 0=primary, 1=left, 2=right via UART).
+        # Leader returns combined VER (slot 0=front, 1=left, 2=right via UART).
         # Display role slots directly so old firmware without ROLE_HINT still shows
         # correct per-board versions instead of all mapping to slot 0.
         combined: list[tuple[str, str, str]] | None = None
@@ -177,9 +182,9 @@ def _show_status(ports: list[str], labels: dict[str, str], index_future) -> None
             for port in ports:
                 _, role_hint = probe_results[port]
                 if role_hint:
-                    role_to_port.setdefault("primary" if role_hint == "front" else role_hint, port)
+                    role_to_port.setdefault(role_hint, port)
 
-            for role, slot in [("primary", 0), ("left", 1), ("right", 2)]:
+            for role, slot in [("front", 0), ("left", 1), ("right", 2)]:
                 v, b, c = combined[slot] if slot < len(combined) else ("-", "-", "-")
                 p = role_to_port.get(role)
                 port_label = f" ({labels.get(p, p)})" if p else ""
@@ -187,7 +192,7 @@ def _show_status(ports: list[str], labels: dict[str, str], index_future) -> None
         else:
             for port in ports:
                 ver_line, role_hint = probe_results[port]
-                role = role_hint if role_hint and role_hint != "front" else "primary"
+                role = role_hint or "front"
                 parsed = parse_ver_reply(ver_line) if ver_line else None
                 if parsed:
                     v, b, c = parsed[0]
@@ -212,6 +217,71 @@ def _show_status(ports: list[str], labels: dict[str, str], index_future) -> None
     for name in sorted(index.branches):
         entry = index.branches[name]
         print(f"  {name:<30}  build {entry.build_key}")
+
+
+# --- set / get (board config) ---
+
+def _parse_assignments(assignments: list[str]) -> list[tuple[str, str]]:
+    pairs: list[tuple[str, str]] = []
+    for a in assignments:
+        key, sep, val = a.partition("=")
+        if not sep or not key or not val:
+            raise ValueError(f"expected key=value, got {a!r}")
+        pairs.append((key, val))
+    return pairs
+
+
+def _open_config_sdk(port: Optional[str]) -> KrabbyMCUSDK:
+    """Open a board for a quick config exchange: short settle, no hold-on-connect."""
+    sdk = KrabbyMCUSDK(port=port)
+    # Opening a local CH340 port resets the board — wait out its (election-free)
+    # boot. Opening the socket:// bridge never touches the board: no wait needed.
+    settle = 0.5 if "://" in sdk.port else 2.0
+    if not sdk.connect(settle=settle, hold=False):
+        sys.exit(f"could not open serial port {sdk.port}")
+    return sdk
+
+
+def cmd_set(port: Optional[str], board: Optional[str], assignments: list[str]) -> None:
+    # Validate client-side before touching the port (the SDK is the validation layer).
+    try:
+        pairs = _parse_assignments(assignments)
+        build_set_line(board, pairs)
+    except ValueError as exc:
+        sys.exit(f"error: {exc}")
+
+    keys = [k for k, _ in pairs]
+    sdk = _open_config_sdk(port)
+    try:
+        sdk.send_set(board=board, **dict(pairs))
+        result = sdk.send_get(*keys, board=board, timeout=2.0)  # best-effort read-back
+    finally:
+        sdk.close()
+
+    label = f" ({board})" if board else ""
+    if result:
+        print(f"set{label}: " + "  ".join(f"{k}={result.get(k, '?')}" for k in keys))
+    else:
+        sent = " ".join(f"{k}={v}" for k, v in pairs)
+        print(f"set{label}: sent {sent} (no read-back — run `get` to confirm)")
+
+
+def cmd_get(port: Optional[str], board: Optional[str], keys: list[str]) -> None:
+    try:
+        build_get_line(board, keys)
+    except ValueError as exc:
+        sys.exit(f"error: {exc}")
+
+    sdk = _open_config_sdk(port)
+    try:
+        result = sdk.send_get(*keys, board=board, timeout=2.0)
+    finally:
+        sdk.close()
+
+    label = f" ({board})" if board else ""
+    if result is None:
+        sys.exit(f"get{label}: no response from board")
+    print("  ".join(f"{k}={result.get(k, '?')}" for k in keys))
 
 
 # --- --update ---

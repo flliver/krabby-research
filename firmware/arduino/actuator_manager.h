@@ -1,6 +1,5 @@
 #pragma once
 #include <Arduino.h>
-#include <EEPROM.h>
 #include "command.h"
 #include "hall_hw.h"
 
@@ -352,15 +351,6 @@ public:
     CalState calState = CAL_IDLE;
     unsigned long stateTimer = 0;
 
-    // Struct to save to EEPROM
-    struct CalData
-    {
-        // TODO: Should be stored with Joint information, so that when joints change this changes, not hardcoded here
-        int minVals[6];
-        int maxVals[6];
-        int magic; // 0xDEADBEEF to check validity
-    };
-
     void startAutoCalibration()
     {
         calState = CAL_START;
@@ -504,7 +494,7 @@ public:
             // Stop all
             for (int i = 0; i < 6; i++)
                 actuators[i]->manualDrive(0);
-            saveCalibration(); // Write to EEPROM
+            saveCalibration(); // RAM-only: prints completion, persists nothing (see below)
             calState = CAL_IDLE;
             Serial.println("CALIBRATION COMPLETE & SAVED.");
             break;
@@ -515,36 +505,13 @@ public:
         }
     }
 
+    // Calibration limits are held in RAM only — they are not persisted to EEPROM.
+    // EEPROM address 0 is reserved for the board config struct (EepromLayout, in
+    // firmware/arduino/eeprom_layout.h), so this must not write there. Per-joint
+    // calibration persistence is intended to be added as a field of that struct.
     void saveCalibration()
     {
-        CalData data;
-        data.magic = 0xDEADBEEF;
-        for (int i = 0; i < count; i++)
-        {
-            data.minVals[i] = actuators[i]->minStop;
-            data.maxVals[i] = actuators[i]->maxStop;
-        }
-        EEPROM.put(0, data);
-        Serial.println("Limits saved to EEPROM.");
-    }
-
-    void loadCalibration()
-    {
-        CalData data;
-        EEPROM.get(0, data);
-        if (data.magic == 0xDEADBEEF)
-        {
-            for (int i = 0; i < count && i < 6; i++)
-            {
-                actuators[i]->minStop = data.minVals[i];
-                actuators[i]->maxStop = data.maxVals[i];
-            }
-            Serial.println("Calibration loaded from EEPROM.");
-        }
-        else
-        {
-            Serial.println("No EEPROM calibration found. Using defaults.");
-        }
+        Serial.println("Calibration complete (held in RAM; not persisted).");
     }
 
 private:

@@ -1,9 +1,7 @@
 import threading
 import time
 import pytest
-from unittest.mock import Mock
-
-from firmware.krabby_mcu import KrabbyMCUSDK, parse_ver_reply
+from firmware.krabby_mcu import parse_ver_reply
 
 
 class TestParseVerReply:
@@ -54,16 +52,8 @@ class TestParseVerReply:
 
 
 class TestReadVersion:
-    def _bare_sdk(self):
-        """KrabbyMCUSDK instance with a mock serial, no reader thread."""
-        sdk = object.__new__(KrabbyMCUSDK)
-        sdk._last_ver_line = None
-        sdk.ser = Mock()
-        sdk.ser.is_open = True
-        return sdk
-
-    def test_sends_v_command_and_returns_ver_line(self):
-        sdk = self._bare_sdk()
+    def test_sends_v_command_and_returns_ver_line(self, bare_sdk):
+        sdk = bare_sdk
 
         def deliver():
             time.sleep(0.05)
@@ -78,23 +68,23 @@ class TestReadVersion:
         sdk.ser.write.assert_called_once_with(b"V\n")
         sdk.ser.flush.assert_called()
 
-    def test_returns_none_on_timeout(self):
-        sdk = self._bare_sdk()
+    def test_returns_none_on_timeout(self, bare_sdk):
+        sdk = bare_sdk
         result = sdk.read_version(timeout=0.1)
         assert result is None
 
-    def test_returns_none_when_ser_is_none(self):
-        sdk = self._bare_sdk()
+    def test_returns_none_when_ser_is_none(self, bare_sdk):
+        sdk = bare_sdk
         sdk.ser = None
         assert sdk.read_version() is None
 
-    def test_returns_none_when_port_closed(self):
-        sdk = self._bare_sdk()
+    def test_returns_none_when_port_closed(self, bare_sdk):
+        sdk = bare_sdk
         sdk.ser.is_open = False
         assert sdk.read_version() is None
 
-    def test_clears_stale_ver_line_before_sending(self):
-        sdk = self._bare_sdk()
+    def test_clears_stale_ver_line_before_sending(self, bare_sdk):
+        sdk = bare_sdk
         sdk._last_ver_line = "VER stale stale stale"
 
         def deliver():
