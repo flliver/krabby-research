@@ -17,6 +17,14 @@ JOG_PWM_DEFAULT = 30
 TELEMETRY_REFRESH_MS = 100
 
 
+def _jog_sign(name: str) -> int:
+    """Wire-PWM sign for this joint's "extend" leg motion. The knee (KL)
+    linkages run opposite to the hips: positive PWM extends an HL but tucks a
+    KL, so KLs flip. Bench-observed 2026-07-13; the wire protocol itself (jog,
+    C retract/extend) stays actuator-relative — this mapping is GUI-only."""
+    return -1 if name.endswith("KL") else 1
+
+
 class JointRow:
     """One row in the telemetry grid: name, jog buttons, live values."""
 
@@ -51,7 +59,7 @@ class JointRow:
 
     def _start_jog(self, direction: int):
         self._active_dir = direction
-        self._jog_cb(self.name, direction * self._get_jog_pwm())
+        self._jog_cb(self.name, direction * _jog_sign(self.name) * self._get_jog_pwm())
 
     def _stop_jog(self):
         self._active_dir = 0
