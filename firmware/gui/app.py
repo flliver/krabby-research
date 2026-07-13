@@ -31,12 +31,12 @@ class JointRow:
 
         self.btn_retract = ttk.Button(parent, text="\u25C0 Retract", width=10)
         self.btn_retract.grid(row=row, column=1, padx=2, pady=2)
-        self.btn_retract.bind("<ButtonPress-1>", lambda e: self._start_jog(1))
+        self.btn_retract.bind("<ButtonPress-1>", lambda e: self._start_jog(-1))
         self.btn_retract.bind("<ButtonRelease-1>", lambda e: self._stop_jog())
 
         self.btn_extend = ttk.Button(parent, text="Extend \u25B6", width=10)
         self.btn_extend.grid(row=row, column=2, padx=2, pady=2)
-        self.btn_extend.bind("<ButtonPress-1>", lambda e: self._start_jog(-1))
+        self.btn_extend.bind("<ButtonPress-1>", lambda e: self._start_jog(1))
         self.btn_extend.bind("<ButtonRelease-1>", lambda e: self._stop_jog())
 
         self.var_pot = tk.StringVar(value="---")
