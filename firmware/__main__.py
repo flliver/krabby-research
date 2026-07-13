@@ -12,7 +12,7 @@ import time
 from typing import NoReturn
 
 from firmware.gui.remote import DEFAULT_SERIAL_DEV
-from firmware.krabby_mcu import BOARDS, KrabbyMCUSDK, parse_ver_reply, logger
+from firmware.krabby_mcu import BOARDS, CAL_DIRECTIONS, KrabbyMCUSDK, parse_ver_reply, logger
 
 # Joint order per leg pair: LKL, LHL, LHY, RHY, RHL, RKL
 JOINTS_FRONT = ["FLKL", "FLHL", "FLHY", "FRHY", "FRHL", "FRKL"]
@@ -107,9 +107,12 @@ def main():
 
     cal_p = subparsers.add_parser(
         "calibrate-joint",
-        help="Sweep ONE joint to both stops and persist its travel limits to EEPROM. MOVES THE JOINT.")
+        help="Sweep ONE joint to its stops and persist its travel limits to EEPROM. MOVES THE JOINT.")
     cal_p.add_argument("joint", metavar="JOINT",
                        help="Joint name, e.g. FLHL (works for follower joints too — the front board forwards).")
+    cal_p.add_argument("direction", nargs="?", default=None, choices=CAL_DIRECTIONS,
+                       help="Record only this end-stop (default: sweep both). Use when the full "
+                            "sweep can't run in the robot's current stance.")
     cal_p.add_argument("--port", default=None, metavar="PORT",
                        help="Serial port of the front board (default: auto-detect / $KRABBY_MCU_PORT).")
 
@@ -146,7 +149,7 @@ def main():
 
     if args.command == "calibrate-joint":
         from firmware.cli import cmd_calibrate_joint
-        cmd_calibrate_joint(args.port, args.joint)
+        cmd_calibrate_joint(args.port, args.joint, args.direction)
         return
 
     if args.debug:

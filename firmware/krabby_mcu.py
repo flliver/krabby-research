@@ -138,11 +138,15 @@ JOINT_GROUP_NAMES = (
 ALL_JOINT_NAMES = frozenset(n for _, names in JOINT_GROUP_NAMES for n in names)
 
 
+CAL_DIRECTIONS = ("retract", "extend")  # single-stop calibration ("C <joint> <dir>")
+
+
 def parse_cal_reply(line: str):
     """Parse a firmware calibration reply into a dict, or None if not a CAL line.
 
-    "CAL <joint> <min> <max> saved" -> {"joint", "min", "max", "ok": True}
-    "CAL <joint> FAIL <why>"        -> {"joint", "why", "ok": False}
+    "CAL <joint> <min> <max> saved"          -> {"joint", "min", "max", "ok": True}
+    "CAL <joint> <retract|extend> <v> saved" -> {"joint", "dir", "value", "ok": True}
+    "CAL <joint> FAIL <why>"                 -> {"joint", "why", "ok": False}
     """
     parts = line.split()
     if len(parts) < 3 or parts[0] != "CAL":
@@ -150,6 +154,8 @@ def parse_cal_reply(line: str):
     if parts[2] == "FAIL":
         return {"joint": parts[1], "why": parts[3] if len(parts) > 3 else "?", "ok": False}
     try:
+        if parts[2] in CAL_DIRECTIONS:
+            return {"joint": parts[1], "dir": parts[2], "value": int(parts[3]), "ok": True}
         return {"joint": parts[1], "min": int(parts[2]), "max": int(parts[3]), "ok": True}
     except (ValueError, IndexError):
         return None
@@ -420,25 +426,33 @@ class KrabbyMCUSDK:
             return None
         return self._request(line, "_last_get_line", accept, timeout=timeout)
 
-    def calibrate_joint(self, joint: str, timeout: float = 40.0) -> Optional[Dict]:
-        """Calibrate ONE joint: the board sweeps it to both stops and persists the
-        limits to EEPROM. Blocks until the board's "CAL ..." reply (the sweep takes
+    def calibrate_joint(self, joint: str, direction: Optional[str] = None,
+                        timeout: float = 40.0) -> Optional[Dict]:
+        """Calibrate ONE joint: the board sweeps it and persists the limits to
+        EEPROM. direction=None sweeps to both stops; "retract"/"extend" records
+        only that stop — for stances where the full sweep can't run (e.g. feet
+        on the ground). Blocks until the board's "CAL ..." reply (the sweep takes
         seconds; the owning board pauses telemetry while it runs). Returns
         parse_cal_reply's dict, or None if no reply arrived in `timeout`.
 
-        Validates the joint name client-side (ValueError) before touching the wire.
-        Works for follower joints too — the front board broadcasts the command.
+        Validates the joint name and direction client-side (ValueError) before
+        touching the wire. Works for follower joints too — the front board
+        broadcasts the command.
         """
         joint = joint.upper()
         if joint not in ALL_JOINT_NAMES:
             raise ValueError(f"unknown joint {joint!r}; expected one of "
                              f"{', '.join(sorted(ALL_JOINT_NAMES))}")
+        if direction is not None and direction not in CAL_DIRECTIONS:
+            raise ValueError(f"invalid direction {direction!r}; allowed: "
+                             f"{', '.join(CAL_DIRECTIONS)}")
+        cmd = f"C {joint}" if direction is None else f"C {joint} {direction}"
 
         def accept(reply):
             if (parsed := parse_cal_reply(reply)) and parsed["joint"] == joint:
                 return parsed
             return None
-        return self._request(f"C {joint}", "_last_cal_line", accept,
+        return self._request(cmd, "_last_cal_line", accept,
                              timeout=timeout, poll=0.05)
 
     def send_command_joints_hold(self):

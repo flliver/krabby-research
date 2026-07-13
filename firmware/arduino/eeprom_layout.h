@@ -76,20 +76,27 @@ inline bool eepromLoad(EepromLayout& cfg) {
 // Per-joint calibration block — SEPARATE from EepromLayout (own address, magic,
 // and CRC) so writing calibration can never clobber the board's role/serial and
 // vice versa. Slots are this board's actuator indices 0-5 (which joints those
-// are follows from the board's role). min==max==0 in a slot means "never
-// calibrated"; jointCalLoad() zero-fills on any validation failure.
+// are follows from the board's role). Each slot's flags byte marks which stops
+// have been recorded — directional calibration ("C <joint> retract|extend")
+// writes one stop at a time, so a slot can be half-done. jointCalLoad()
+// zero-fills on any validation failure (all flags clear = nothing calibrated).
 // ============================================================================
 
 constexpr uint16_t JOINTCAL_MAGIC      = 0xCA17;  // sentinel marking an initialized block
-constexpr uint8_t  JOINTCAL_SCHEMA_VER = 1;       // bump when JointCalBlock changes
+constexpr uint8_t  JOINTCAL_SCHEMA_VER = 2;       // bump when JointCalBlock changes
 constexpr int      JOINTCAL_BASE_ADDR  = 64;      // EepromLayout @0 is ~27 B; ample gap
 constexpr size_t   JOINTCAL_COUNT     = 6;        // one slot per actuator on this board
+
+constexpr uint8_t JOINTCAL_FLAG_MIN  = 0x01;      // minStop (retract stop) recorded
+constexpr uint8_t JOINTCAL_FLAG_MAX  = 0x02;      // maxStop (extend stop) recorded
+constexpr uint8_t JOINTCAL_FLAG_BOTH = JOINTCAL_FLAG_MIN | JOINTCAL_FLAG_MAX;
 
 struct JointCalBlock {
     uint16_t magic;                        // JOINTCAL_MAGIC when valid
     uint8_t  schema_version;               // JOINTCAL_SCHEMA_VER
     uint16_t minStop[JOINTCAL_COUNT];      // raw ADC at full retract, per slot
     uint16_t maxStop[JOINTCAL_COUNT];      // raw ADC at full extend, per slot
+    uint8_t  flags[JOINTCAL_COUNT];        // JOINTCAL_FLAG_* per slot
     uint32_t crc32;                        // over all bytes before this field
 };
 

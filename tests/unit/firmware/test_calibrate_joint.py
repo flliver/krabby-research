@@ -20,6 +20,16 @@ class TestParseCalReply:
         assert parse_cal_reply("CAL RRKL FAIL range_too_small") == {
             "joint": "RRKL", "why": "range_too_small", "ok": False}
 
+    def test_directional_saved_reply(self):
+        assert parse_cal_reply("CAL FLHL retract 212 saved") == {
+            "joint": "FLHL", "dir": "retract", "value": 212, "ok": True}
+        assert parse_cal_reply("CAL FLHL extend 987 saved") == {
+            "joint": "FLHL", "dir": "extend", "value": 987, "ok": True}
+
+    def test_malformed_directional_reply_returns_none(self):
+        assert parse_cal_reply("CAL FLHL retract notanumber saved") is None
+        assert parse_cal_reply("CAL FLHL retract") is None
+
     def test_non_cal_lines_return_none(self):
         assert parse_cal_reply("VER 1.0 main abc") is None
         assert parse_cal_reply("FRONT; FLHY 0.5 ...") is None
@@ -43,6 +53,26 @@ class TestCalibrateJoint:
     def test_writes_wire_line(self, bare_sdk):
         bare_sdk.calibrate_joint("flhl", timeout=0.05)  # lowercase accepted
         bare_sdk.ser.write.assert_called_once_with(b"C FLHL\n")
+
+    def test_writes_directional_wire_line(self, bare_sdk):
+        bare_sdk.calibrate_joint("FLHL", "retract", timeout=0.05)
+        bare_sdk.ser.write.assert_called_once_with(b"C FLHL retract\n")
+
+    def test_invalid_direction_raises_before_write(self, bare_sdk):
+        with pytest.raises(ValueError, match="invalid direction"):
+            bare_sdk.calibrate_joint("FLHL", "sideways")
+        bare_sdk.ser.write.assert_not_called()
+
+    def test_returns_directional_reply(self, bare_sdk):
+        def deliver():
+            time.sleep(0.05)
+            bare_sdk._last_cal_line = "CAL FLHL retract 212 saved"
+
+        t = threading.Thread(target=deliver)
+        t.start()
+        result = bare_sdk.calibrate_joint("FLHL", "retract", timeout=1.0)
+        t.join()
+        assert result == {"joint": "FLHL", "dir": "retract", "value": 212, "ok": True}
 
     def test_returns_parsed_reply(self, bare_sdk):
         def deliver():

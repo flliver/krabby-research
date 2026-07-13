@@ -283,7 +283,8 @@ def cmd_get(port: Optional[str], board: Optional[str], keys: list[str]) -> None:
 
 # --- calibrate-joint ---
 
-def cmd_calibrate_joint(port: Optional[str], joint: str) -> None:
+def cmd_calibrate_joint(port: Optional[str], joint: str,
+                        direction: Optional[str] = None) -> None:
     joint = joint.upper()
     # Validate client-side before touching the port (opening it resets the board).
     if joint not in ALL_JOINT_NAMES:
@@ -291,9 +292,10 @@ def cmd_calibrate_joint(port: Optional[str], joint: str) -> None:
 
     sdk = _open_config_sdk(port)
     try:
-        print(f"calibrating {joint} — it will sweep to both stops "
+        what = f"only the {direction} stop" if direction else "both stops"
+        print(f"calibrating {joint} — it will sweep to {what} "
               "(takes seconds; telemetry pauses)...")
-        result = sdk.calibrate_joint(joint)
+        result = sdk.calibrate_joint(joint, direction)
     finally:
         sdk.close()
 
@@ -301,7 +303,11 @@ def cmd_calibrate_joint(port: Optional[str], joint: str) -> None:
         sys.exit(f"calibrate {joint.upper()}: no reply from board")
     if not result["ok"]:
         sys.exit(f"calibrate {result['joint']}: FAILED ({result['why']})")
-    print(f"calibrated {result['joint']}: min={result['min']} max={result['max']} (saved to EEPROM)")
+    if "dir" in result:
+        print(f"calibrated {result['joint']} {result['dir']} stop: "
+              f"{result['value']} (saved to EEPROM)")
+    else:
+        print(f"calibrated {result['joint']}: min={result['min']} max={result['max']} (saved to EEPROM)")
 
 
 # --- --update ---

@@ -320,14 +320,14 @@ public:
     // PER-JOINT CALIBRATION (M17 Task 2)
     // ==================================================
     // Load persisted limits into the actuators. Called once after initAll();
-    // slots with min==max (never calibrated / invalid block) keep the actuator's
-    // full-range defaults.
+    // slots without both stops recorded (or with a degenerate range) keep the
+    // actuator's full-range defaults.
     void loadCalibration()
     {
         jointCalLoad(cal);
         for (size_t i = 0; i < count && i < JOINTCAL_COUNT; i++)
         {
-            if (cal.minStop[i] != cal.maxStop[i])
+            if (calComplete(i))
             {
                 actuators[i]->minStop = cal.minStop[i];
                 actuators[i]->maxStop = cal.maxStop[i];
@@ -335,18 +335,27 @@ public:
         }
     }
 
-    // Calibrate ONE joint: retract until the pot stops changing, record minStop;
-    // extend the same way, record maxStop; persist to EEPROM. BLOCKING (up to
-    // ~2x CAL_TIMEOUT_MS) — bench-time only; telemetry and commands pause while
-    // it runs. Replies "CAL <name> <min> <max> saved" or "CAL <name> FAIL <why>"
-    // on `out`. Returns false if this board doesn't own the joint (not an error:
-    // the leader broadcasts C to all boards and only the owner acts).
-    bool calibrateJoint(const String &name, Print &out)
+    // Calibrate ONE joint. dir "" sweeps both stops: retract until the pot
+    // stops changing, record minStop; extend the same way, record maxStop.
+    // dir "retract"/"extend" records ONLY that stop — for joints whose full
+    // sweep isn't possible in the robot's current stance (e.g. extending a hip
+    // presses the foot into the ground and lifts the chassis instead of
+    // reaching the stop). Limits are persisted to EEPROM immediately, but only
+    // applied to the live actuator once BOTH stops have been recorded.
+    // BLOCKING (up to ~2x CAL_TIMEOUT_MS) — bench-time only; telemetry and
+    // commands pause while it runs. Replies "CAL <name> <min> <max> saved",
+    // "CAL <name> <dir> <val> saved", or "CAL <name> FAIL <why>" on `out`.
+    // Returns false if this board doesn't own the joint (not an error: the
+    // leader broadcasts C to all boards and only the owner acts). An unknown
+    // dir is dropped silently — the SDK validates client-side.
+    bool calibrateJoint(const String &name, const String &dir, Print &out)
     {
         for (size_t i = 0; i < count; i++)
         {
             if (String(actuators[i]->name) != name)
                 continue;
+            if (dir.length())
+                return calibrateOneStop(i, dir, out);
             int mn = sweepToStop(actuators[i], -CAL_PWM);
             int mx = (mn >= 0) ? sweepToStop(actuators[i], CAL_PWM) : -1;
             out.print("CAL ");
@@ -361,6 +370,7 @@ public:
                 actuators[i]->maxStop = mx;
                 cal.minStop[i] = mn;
                 cal.maxStop[i] = mx;
+                cal.flags[i] = JOINTCAL_FLAG_BOTH;
                 jointCalSave(cal);
                 out.print(' '); out.print(mn);
                 out.print(' '); out.print(mx);
@@ -379,6 +389,42 @@ private:
     static const unsigned long CAL_TIMEOUT_MS = 15000;  // slow actuators need >10 s full-travel
     static const unsigned long CAL_STALL_MS = 400;      // pot quiet this long = at the stop
     static const int CAL_MIN_RANGE = 100;               // sane travel spans far more raw ADC than this
+
+    // Both stops recorded and distinguishable — safe to apply to the live actuator.
+    bool calComplete(size_t i) const
+    {
+        return (cal.flags[i] & JOINTCAL_FLAG_BOTH) == JOINTCAL_FLAG_BOTH
+            && abs((int)cal.maxStop[i] - (int)cal.minStop[i]) >= CAL_MIN_RANGE;
+    }
+
+    // Directional calibration: sweep toward one stop and record just that one.
+    // Replies "CAL <name> <dir> <val> saved" / "CAL <name> FAIL no_stop".
+    bool calibrateOneStop(size_t i, const String &dir, Print &out)
+    {
+        bool retract = dir == "retract";
+        if (!retract && dir != "extend")
+            return true;  // owned, but unknown dir token: SDK validates, drop silently
+        int v = sweepToStop(actuators[i], retract ? -CAL_PWM : CAL_PWM);
+        out.print("CAL ");
+        out.print(actuators[i]->name);
+        if (v < 0)
+            out.println(" FAIL no_stop");
+        else
+        {
+            if (retract) { cal.minStop[i] = v; cal.flags[i] |= JOINTCAL_FLAG_MIN; }
+            else         { cal.maxStop[i] = v; cal.flags[i] |= JOINTCAL_FLAG_MAX; }
+            if (calComplete(i))
+            {
+                actuators[i]->minStop = cal.minStop[i];
+                actuators[i]->maxStop = cal.maxStop[i];
+            }
+            jointCalSave(cal);
+            out.print(' '); out.print(dir);
+            out.print(' '); out.print(v);
+            out.println(" saved");
+        }
+        return true;
+    }
 
     // Drive one actuator until its pot stops changing; return the resting raw
     // pot value, or -1 on timeout. Blocking. Pumps updateSensors() itself —

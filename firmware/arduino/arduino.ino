@@ -479,18 +479,23 @@ void loop()
         }
         else if (cmdType == 'C')
         {
-            // "C <joint>" — calibrate ONE named joint (find its travel limits,
-            // persist to EEPROM). Forward first: the joint may live on a
-            // follower; each board acts only on a joint it owns and ignores the
-            // rest, so broadcasting is safe. Calibration BLOCKS the owning
+            // "C <joint> [retract|extend]" — calibrate ONE named joint (find
+            // its travel limits, persist to EEPROM); the optional direction
+            // records just that one stop. Forward first: the joint may live on
+            // a follower; each board acts only on a joint it owns and ignores
+            // the rest, so broadcasting is safe. Calibration BLOCKS the owning
             // board's loop for its duration (bench-time command).
             mainSerial->read();
-            String calName = mainSerial->readStringUntil('\n');
-            calName.trim();
-            if (leftSerial)  { leftSerial->print("C ");  leftSerial->println(calName); }
-            if (rightSerial) { rightSerial->print("C "); rightSerial->println(calName); }
+            String calArgs = mainSerial->readStringUntil('\n');
+            calArgs.trim();
+            if (leftSerial)  { leftSerial->print("C ");  leftSerial->println(calArgs); }
+            if (rightSerial) { rightSerial->print("C "); rightSerial->println(calArgs); }
+            int calSp = calArgs.indexOf(' ');
+            String calName = calSp < 0 ? calArgs : calArgs.substring(0, calSp);
+            String calDir  = calSp < 0 ? String() : calArgs.substring(calSp + 1);
+            calDir.trim();
             if (actuatorManager && calName.length())
-                actuatorManager->calibrateJoint(calName, *mainSerial);
+                actuatorManager->calibrateJoint(calName, calDir, *mainSerial);
         }
         else if (cmdType == 'H')
         {
