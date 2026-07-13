@@ -348,18 +348,43 @@ class KrabbyMCUSDK:
         self.ser.write(cmd.encode('utf-8'))
         self.ser.flush()
 
-    def read_version(self, timeout: float = 1.0) -> Optional[str]:
+    def _request(self, cmd: str, slot: str, accept, *,
+                 timeout: float, poll: float = 0.02):
+        """Sends a command and waits for its reply.
+
+        Replies arrive on the reader thread (_reader_loop), which stashes each
+        recognized reply line in a per-kind attribute (_last_ver_line, etc.).
+        This method clears that attribute, writes `cmd` to the serial port,
+        then polls the attribute every `poll` seconds until `timeout` expires.
+
+        slot: name of the attribute the reader thread will fill, e.g.
+            "_last_get_line".
+        accept: called with each line that shows up in the slot. It should
+            parse the line and return the caller's result, or return None to
+            reject it (e.g. a GET reply from a different board) and keep
+            waiting for the next line.
+
+        Returns whatever `accept` returned, or None if the port is closed or
+        no acceptable reply arrived in time.
+        """
         if not self.ser or not self.ser.is_open:
             return None
-        self._last_ver_line = None
-        self.ser.write(b"V\n")
+        setattr(self, slot, None)
+        self.ser.write((cmd + "\n").encode("utf-8"))
         self.ser.flush()
+        logger.info("CMD -> %s", cmd)
         deadline = time.time() + timeout
         while time.time() < deadline:
-            if self._last_ver_line is not None:
-                return self._last_ver_line
-            time.sleep(0.02)
+            if (line := getattr(self, slot)) is not None:
+                setattr(self, slot, None)
+                if (result := accept(line)) is not None:
+                    return result
+            time.sleep(poll)
         return None
+
+    def read_version(self, timeout: float = 1.0) -> Optional[str]:
+        return self._request("V", "_last_ver_line", lambda line: line,
+                             timeout=timeout)
 
     def send_set(self, board: Optional[str] = None, **kwargs: str) -> None:
         """Write config keys to a board (fire-and-forget; no reply).
@@ -387,21 +412,13 @@ class KrabbyMCUSDK:
             mcu.send_get("role", board="left")           # the left follower
         """
         line = build_get_line(board, list(keys))  # raises ValueError if invalid
-        if not self.ser or not self.ser.is_open:
-            return None
         want_board = board or "front"
-        self._last_get_line = None
-        self.ser.write((line + "\n").encode("utf-8"))
-        self.ser.flush()
-        deadline = time.time() + timeout
-        while time.time() < deadline:
-            if self._last_get_line is not None:
-                parsed = parse_get_reply(self._last_get_line)
-                self._last_get_line = None
-                if parsed and parsed[0] == want_board:
-                    return parsed[1]
-            time.sleep(0.02)
-        return None
+
+        def accept(reply):
+            if (parsed := parse_get_reply(reply)) and parsed[0] == want_board:
+                return parsed[1]
+            return None
+        return self._request(line, "_last_get_line", accept, timeout=timeout)
 
     def calibrate_joint(self, joint: str, timeout: float = 40.0) -> Optional[Dict]:
         """Calibrate ONE joint: the board sweeps it to both stops and persists the
@@ -416,21 +433,13 @@ class KrabbyMCUSDK:
         if joint not in ALL_JOINT_NAMES:
             raise ValueError(f"unknown joint {joint!r}; expected one of "
                              f"{', '.join(sorted(ALL_JOINT_NAMES))}")
-        if not self.ser or not self.ser.is_open:
+
+        def accept(reply):
+            if (parsed := parse_cal_reply(reply)) and parsed["joint"] == joint:
+                return parsed
             return None
-        self._last_cal_line = None
-        self.ser.write(f"C {joint}\n".encode("utf-8"))
-        self.ser.flush()
-        logger.info("CMD -> C %s", joint)
-        deadline = time.time() + timeout
-        while time.time() < deadline:
-            if self._last_cal_line is not None:
-                parsed = parse_cal_reply(self._last_cal_line)
-                self._last_cal_line = None
-                if parsed and parsed["joint"] == joint:
-                    return parsed
-            time.sleep(0.05)
-        return None
+        return self._request(f"C {joint}", "_last_cal_line", accept,
+                             timeout=timeout, poll=0.05)
 
     def send_command_joints_hold(self):
         """
