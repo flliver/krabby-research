@@ -165,26 +165,28 @@ public:
     }
 
     // Helper to detect stall (used in calibration)
-    // Returns true if motor is powered but position hasn't changed for 'timeout' ms
+    // Returns true if motor is powered but position hasn't changed for 'timeout' ms.
+    // State is per-actuator (member, not static): shared state leaks stale
+    // positions between actuators or across sweep reversals.
+    int stallLastPos = -1;
+    unsigned long stallLastMoveTime = 0;
+
     bool isStalled(unsigned long timeout)
     {
-        static int lastPos = -1;
-        static unsigned long lastMoveTime = 0;
-
         if (abs(currentPwm) < 50)
         { // Not trying to move
-            lastMoveTime = millis();
+            stallLastMoveTime = millis();
             return false;
         }
 
-        if (abs(getRawPos() - lastPos) > 2)
+        if (abs(getRawPos() - stallLastPos) > 2)
         { // Moved
-            lastPos = getRawPos();
-            lastMoveTime = millis();
+            stallLastPos = getRawPos();
+            stallLastMoveTime = millis();
             return false;
         }
 
-        if (millis() - lastMoveTime > timeout)
+        if (millis() - stallLastMoveTime > timeout)
             return true;
         return false;
     }
@@ -357,7 +359,9 @@ public:
             if (dir.length())
                 return calibrateOneStop(i, dir, out);
             int mn = sweepToStop(actuators[i], -CAL_PWM);
-            int mx = (mn >= 0) ? sweepToStop(actuators[i], CAL_PWM) : -1;
+            // Second sweep starts at the stop the first just found — require
+            // real motion before its stall can be believed (see sweepToStop).
+            int mx = (mn >= 0) ? sweepToStop(actuators[i], CAL_PWM, true) : -1;
             out.print("CAL ");
             out.print(name);
             if (mn < 0 || mx < 0)
@@ -386,9 +390,10 @@ private:
     // instead of pushing harder (the knee can be damaged by a hard shove).
     // CAL_PWM must be >= 50 or isStalled() treats the joint as idle.
     static const int CAL_PWM = 120;
-    static const unsigned long CAL_TIMEOUT_MS = 15000;  // slow actuators need >10 s full-travel
+    static const unsigned long CAL_TIMEOUT_MS = 30000;  // bench-measured ~15 s full-travel at CAL_PWM; 2x headroom
     static const unsigned long CAL_STALL_MS = 400;      // pot quiet this long = at the stop
     static const int CAL_MIN_RANGE = 100;               // sane travel spans far more raw ADC than this
+    static const int CAL_MIN_MOVE = 30;                 // pot counts a sweep must cover before a stall is believed
 
     // Both stops recorded and distinguishable — safe to apply to the live actuator.
     bool calComplete(size_t i) const
@@ -430,17 +435,28 @@ private:
     // pot value, or -1 on timeout. Blocking. Pumps updateSensors() itself —
     // loop()'s updateAll() isn't running while we block, and without fresh
     // sensor reads avgPot freezes and isStalled() fires instantly on stale data.
-    int sweepToStop(LinearActuator *act, int pwm)
+    //
+    // requireMotion: don't believe a stall until the pot has moved CAL_MIN_MOVE
+    // from where the sweep began. Set on the SECOND sweep of a full calibration,
+    // which by construction starts at the opposite stop — reversing off a hard
+    // stop (gear lash, chassis load) can hold the pot quiet past the grace
+    // period and fake a stall at the same value the first sweep recorded.
+    // First/directional sweeps leave it false: legitimately starting at the
+    // target stop should record immediately.
+    int sweepToStop(LinearActuator *act, int pwm, bool requireMotion = false)
     {
         act->stopMotor();   // clears any position target so update paths can't fight the sweep
-        act->isStalled(1);  // |pwm|<50 path resets the (shared) stall clock before we start
+        act->isStalled(1);  // |pwm|<50 path resets this actuator's stall clock before we start
+        int startPos = act->getRawPos();
         unsigned long start = millis();
         while (millis() - start < CAL_TIMEOUT_MS)
         {
             act->updateSensors();
             act->manualDrive(pwm);
+            bool armed = !requireMotion
+                         || abs(act->getRawPos() - startPos) > CAL_MIN_MOVE;
             // Grace period so the motor can start moving before stall counts.
-            if (millis() - start > 600 && act->isStalled(CAL_STALL_MS))
+            if (armed && millis() - start > 600 && act->isStalled(CAL_STALL_MS))
             {
                 act->manualDrive(0);
                 return act->getRawPos();
