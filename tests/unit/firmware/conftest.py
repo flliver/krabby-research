@@ -16,6 +16,7 @@ def bare_sdk():
     sdk = object.__new__(KrabbyMCUSDK)
     sdk._last_ver_line = None
     sdk._last_get_line = None
+    sdk._last_cal_line = None
     sdk.ser = Mock()
     sdk.ser.is_open = True
     return sdk

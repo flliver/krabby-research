@@ -99,7 +99,7 @@ Commands are **newline-terminated lines** sent to the main serial (115200 baud).
 | `T` | `T <name> <pos> [<name> <pos> ...]` | Closed-loop position targets (0–1 per joint); parsed by `parseCommands` (`command.h`), applied by each board's actuator manager | `send_command_joints` |
 | `B` | `B <name> <pwm> [<name> <pwm> ...]` | Batch jog — multiple joints at raw PWM (−255 to 255) in one line | `send_commands_jog` |
 | `J` | `J<name> <pwm>` (no space after `J`) | Single-joint jog at raw PWM (−255 to 255) | `send_command_jog` |
-| `C` | `C` | Start the auto-calibration sequence | `send_command_calibrate` |
+| `C` | `C <name>` | Calibrate one named joint: sweep to both stops, persist limits to EEPROM; replies `CAL <name> <min> <max> saved` or `CAL <name> FAIL <why>`. Blocks the owning board while it runs | `calibrate_joint` |
 | `H` | `H` | Hold all joints at their current position | `send_command_joints_hold` |
 | `V` | `V` | Version query — leader collects follower versions and replies with a single `VER` line (see §4.2) | `read_version` |
 | `SET` | `SET <key> <val> [<key> <val> ...]` | Write config (role, serial) to EEPROM on the receiving board; fire-and-forget, no reply | `send_set` |
@@ -193,14 +193,18 @@ Board configuration lives in a single `EepromLayout` struct at EEPROM address 0 
 | `serial` | `char[16]` | zero-padded ASCII; empty if unset |
 | `crc32` | `uint32` | checksum over all preceding fields |
 
-Per-joint calibration is planned to live in this same struct as an added field; until then, auto-calibration results are not persisted (see Feature 1).
+Per-joint calibration lives in a **separate** `JointCalBlock` at EEPROM address 64 (magic `0xCA17`, own schema version and CRC32) holding `minStop`/`maxStop` per actuator slot — separate so writing calibration can never clobber the role, and vice versa. Slots with `min == max` (never calibrated) leave the actuator at full-range defaults. Loaded on boot in `applyRole()`.
 
-### Feature 1: Auto-Calibration
-The robot finds its joint limits automatically.
- - Select Option 2 (Auto-Calibrate) in the menu.
- - Stand Back: The robot will perform the safety sequence:
-    - Yaw Left -> Yaw Right -> Hip Up -> Knee Out -> Knee In -> Hip Down.
- - Result: the joint limits are found and used for the current session. They are **not persisted**, so re-run auto-calibration after each power cycle.
+### Per-joint calibration (`calibrate-joint`)
+
+Calibrate one joint at a time from the host:
+
+```bash
+krabby-firmware calibrate-joint FLHL          # front-board joint
+krabby-firmware calibrate-joint RLKL          # follower joint — front forwards the command
+```
+
+The joint retracts until its pot stops changing, records the stop, extends the same way, records the other stop, and persists both to EEPROM (they survive power cycles and are reloaded on boot). The sweep is deliberately gentle — low PWM with a timeout instead of a hard push — and BLOCKS the owning board (telemetry pauses) for its few-second duration. Joints without a working pot (the yaws) fail with `no_stop`; positioning those is Task 3's manual sequence.
 
 ### Feature 2: Manual Jog Mode
  - Select Option 3 (Jog Mode).

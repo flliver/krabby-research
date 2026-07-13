@@ -72,6 +72,47 @@ inline bool eepromLoad(EepromLayout& cfg) {
     return valid;
 }
 
+// ============================================================================
+// Per-joint calibration block — SEPARATE from EepromLayout (own address, magic,
+// and CRC) so writing calibration can never clobber the board's role/serial and
+// vice versa. Slots are this board's actuator indices 0-5 (which joints those
+// are follows from the board's role). min==max==0 in a slot means "never
+// calibrated"; jointCalLoad() zero-fills on any validation failure.
+// ============================================================================
+
+constexpr uint16_t JOINTCAL_MAGIC      = 0xCA17;  // sentinel marking an initialized block
+constexpr uint8_t  JOINTCAL_SCHEMA_VER = 1;       // bump when JointCalBlock changes
+constexpr int      JOINTCAL_BASE_ADDR  = 64;      // EepromLayout @0 is ~27 B; ample gap
+constexpr size_t   JOINTCAL_COUNT     = 6;        // one slot per actuator on this board
+
+struct JointCalBlock {
+    uint16_t magic;                        // JOINTCAL_MAGIC when valid
+    uint8_t  schema_version;               // JOINTCAL_SCHEMA_VER
+    uint16_t minStop[JOINTCAL_COUNT];      // raw ADC at full retract, per slot
+    uint16_t maxStop[JOINTCAL_COUNT];      // raw ADC at full extend, per slot
+    uint32_t crc32;                        // over all bytes before this field
+};
+
+inline void jointCalSave(JointCalBlock& cal) {
+    cal.magic = JOINTCAL_MAGIC;
+    cal.schema_version = JOINTCAL_SCHEMA_VER;
+    cal.crc32 = eepromCrc32(reinterpret_cast<const uint8_t*>(&cal),
+                            offsetof(JointCalBlock, crc32));
+    EEPROM.put(JOINTCAL_BASE_ADDR, cal);
+}
+
+inline bool jointCalLoad(JointCalBlock& cal) {
+    EEPROM.get(JOINTCAL_BASE_ADDR, cal);
+    const uint32_t want = eepromCrc32(reinterpret_cast<const uint8_t*>(&cal),
+                                      offsetof(JointCalBlock, crc32));
+    const bool valid = cal.magic == JOINTCAL_MAGIC
+                    && cal.schema_version == JOINTCAL_SCHEMA_VER
+                    && cal.crc32 == want;
+    if (!valid)
+        cal = JointCalBlock{};  // value-init: all slots 0 = uncalibrated
+    return valid;
+}
+
 // --- role <-> config string (for SET/GET role). Distinct from the fixed-width
 // telemetry roleName() in arduino.ino, which stays as-is for the wire telemetry. ---
 inline const char* roleConfigName(BoardRole r) {

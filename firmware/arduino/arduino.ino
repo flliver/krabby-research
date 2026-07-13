@@ -197,6 +197,7 @@ void applyRole(BoardRole role)
             list[i]->setControlConfig(ACTUATOR_CONFIG);
         actuatorManager = new ActuatorManager(list, ACT_COUNT);
         actuatorManager->initAll();
+        actuatorManager->loadCalibration();  // persisted per-joint limits (EEPROM @64)
     }
 }
 
@@ -478,11 +479,18 @@ void loop()
         }
         else if (cmdType == 'C')
         {
+            // "C <joint>" — calibrate ONE named joint (find its travel limits,
+            // persist to EEPROM). Forward first: the joint may live on a
+            // follower; each board acts only on a joint it owns and ignores the
+            // rest, so broadcasting is safe. Calibration BLOCKS the owning
+            // board's loop for its duration (bench-time command).
             mainSerial->read();
-            mainSerial->readStringUntil('\n');
-            if (actuatorManager) actuatorManager->startAutoCalibration();
-            if (leftSerial)  leftSerial->println("C");
-            if (rightSerial) rightSerial->println("C");
+            String calName = mainSerial->readStringUntil('\n');
+            calName.trim();
+            if (leftSerial)  { leftSerial->print("C ");  leftSerial->println(calName); }
+            if (rightSerial) { rightSerial->print("C "); rightSerial->println(calName); }
+            if (actuatorManager && calName.length())
+                actuatorManager->calibrateJoint(calName, *mainSerial);
         }
         else if (cmdType == 'H')
         {

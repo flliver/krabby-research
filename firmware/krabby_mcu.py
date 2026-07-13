@@ -135,6 +135,24 @@ JOINT_GROUP_NAMES = (
     ("LEFT", ["RLHY", "RLHL", "RLKL", "MLHY", "MLHL", "MLKL"]),
     ("RIGHT", ["RRHY", "RRHL", "RRKL", "MRHY", "MRHL", "MRKL"]),
 )
+ALL_JOINT_NAMES = frozenset(n for _, names in JOINT_GROUP_NAMES for n in names)
+
+
+def parse_cal_reply(line: str):
+    """Parse a firmware calibration reply into a dict, or None if not a CAL line.
+
+    "CAL <joint> <min> <max> saved" -> {"joint", "min", "max", "ok": True}
+    "CAL <joint> FAIL <why>"        -> {"joint", "why", "ok": False}
+    """
+    parts = line.split()
+    if len(parts) < 3 or parts[0] != "CAL":
+        return None
+    if parts[2] == "FAIL":
+        return {"joint": parts[1], "why": parts[3] if len(parts) > 3 else "?", "ok": False}
+    try:
+        return {"joint": parts[1], "min": int(parts[2]), "max": int(parts[3]), "ok": True}
+    except (ValueError, IndexError):
+        return None
 
 
 class KrabbyMCUSDK:
@@ -154,6 +172,7 @@ class KrabbyMCUSDK:
         self.last_cmd: Dict[str, Optional[float]] = {}
         self._last_ver_line: Optional[str] = None
         self._last_get_line: Optional[str] = None
+        self._last_cal_line: Optional[str] = None
 
     def connect(self, settle: Optional[float] = None, hold: bool = True):
         """Open the serial port and start the reader thread.
@@ -247,7 +266,11 @@ class KrabbyMCUSDK:
                 elif line.startswith("GET"):
                     # "GET …" / "GET_LEFT …" / "GET_RIGHT …" — tagged config reply
                     self._last_get_line = line
-                elif "Krabby" in line or "CAL" in line or "Saved" in line:
+                elif line.startswith("CAL "):
+                    # calibration result ("CAL <joint> ... saved" / "... FAIL <why>")
+                    self._last_cal_line = line
+                    logger.info(f"[MCU] {line}")
+                elif "Krabby" in line or "Saved" in line:
                     logger.info(f"[MCU] {line}")
 
             except Exception as exc:
@@ -380,12 +403,34 @@ class KrabbyMCUSDK:
             time.sleep(0.02)
         return None
 
-    def send_command_calibrate(self):
+    def calibrate_joint(self, joint: str, timeout: float = 40.0) -> Optional[Dict]:
+        """Calibrate ONE joint: the board sweeps it to both stops and persists the
+        limits to EEPROM. Blocks until the board's "CAL ..." reply (the sweep takes
+        seconds; the owning board pauses telemetry while it runs). Returns
+        parse_cal_reply's dict, or None if no reply arrived in `timeout`.
+
+        Validates the joint name client-side (ValueError) before touching the wire.
+        Works for follower joints too — the front board broadcasts the command.
+        """
+        joint = joint.upper()
+        if joint not in ALL_JOINT_NAMES:
+            raise ValueError(f"unknown joint {joint!r}; expected one of "
+                             f"{', '.join(sorted(ALL_JOINT_NAMES))}")
         if not self.ser or not self.ser.is_open:
-            return
-        self.ser.write(b"C\n")
+            return None
+        self._last_cal_line = None
+        self.ser.write(f"C {joint}\n".encode("utf-8"))
         self.ser.flush()
-        logger.info("CMD -> AUTO-CALIBRATE (C)")
+        logger.info("CMD -> C %s", joint)
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            if self._last_cal_line is not None:
+                parsed = parse_cal_reply(self._last_cal_line)
+                self._last_cal_line = None
+                if parsed and parsed["joint"] == joint:
+                    return parsed
+            time.sleep(0.05)
+        return None
 
     def send_command_joints_hold(self):
         """

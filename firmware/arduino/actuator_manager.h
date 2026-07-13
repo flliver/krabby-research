@@ -1,6 +1,7 @@
 #pragma once
 #include <Arduino.h>
 #include "command.h"
+#include "eeprom_layout.h"
 #include "hall_hw.h"
 
 // Linear actuator controller (w/ potentiometer feedback)
@@ -272,15 +273,8 @@ public:
 
     void updateAll()
     {
-        if (calState != CAL_IDLE) // Run calibration logic instead of normal PID
-        {
-            updateCalibration(); 
-        }
-        else
-        {
-            for (size_t i = 0; i < count; i++)
-                actuators[i]->update();
-        }
+        for (size_t i = 0; i < count; i++)
+            actuators[i]->update();
     }
 
     void applyCommands(const Command *cmds, size_t cmdCount)
@@ -323,198 +317,95 @@ public:
     }
 
     // ==================================================
-    // AUTO-CALIBRATION & PERSISTENCE
+    // PER-JOINT CALIBRATION (M17 Task 2)
     // ==================================================
-    enum CalState
+    // Load persisted limits into the actuators. Called once after initAll();
+    // slots with min==max (never calibrated / invalid block) keep the actuator's
+    // full-range defaults.
+    void loadCalibration()
     {
-        CAL_IDLE,
-        CAL_START,
-        CAL_YAW_L_MIN,
-        CAL_YAW_L_MAX,
-        CAL_YAW_L_CENTER,
-        CAL_YAW_R_MIN,
-        CAL_YAW_R_MAX,
-        CAL_YAW_R_CENTER,
-        // Left Leg Sequence
-        CAL_LHL_MIN,
-        CAL_LKL_MAX,
-        CAL_LKL_MIN,
-        CAL_LHL_MAX,
-        // Right Leg Sequence
-        CAL_RHL_MIN,
-        CAL_RKL_MAX,
-        CAL_RKL_MIN,
-        CAL_RHL_MAX,
-        CAL_FINISH
-    };
-
-    CalState calState = CAL_IDLE;
-    unsigned long stateTimer = 0;
-
-    void startAutoCalibration()
-    {
-        calState = CAL_START;
-        stateTimer = millis();
-        Serial.println("Starting Auto-Calibration Sequence...");
-    }
-
-    void updateCalibration()
-    {
-        // TODO: Fix hardcoded actuator order, store actuator naming information in EEPROM struct
-        // Helper lambda to get actuator by index (Hardcoded order: LHY, LHL, LKL, RHY, RHL, RKL)
-        // 0=LHY, 1=LHL, 2=LKL, 3=RHY, 4=RHL, 5=RKL
-        auto drive = [&](int idx, int pwm)
-        { actuators[idx]->manualDrive(pwm); };
-        auto isStalled = [&](int idx)
-        { return actuators[idx]->isStalled(250); }; // 250ms stall check
-        auto saveMin = [&](int idx)
-        { actuators[idx]->minStop = actuators[idx]->getRawPos(); };
-        auto saveMax = [&](int idx)
-        { actuators[idx]->maxStop = actuators[idx]->getRawPos(); };
-
-        // Simple State Machine
-        switch (calState)
+        jointCalLoad(cal);
+        for (size_t i = 0; i < count && i < JOINTCAL_COUNT; i++)
         {
-        case CAL_START:
-            calState = CAL_YAW_L_MIN;
-            break;
-
-        // --- YAWS FIRST ---
-        case CAL_YAW_L_MIN:
-            drive(0, -150); // Retract LHY
-            if (isStalled(0))
+            if (cal.minStop[i] != cal.maxStop[i])
             {
-                saveMin(0);
-                calState = CAL_YAW_L_MAX;
+                actuators[i]->minStop = cal.minStop[i];
+                actuators[i]->maxStop = cal.maxStop[i];
             }
-            break;
-        case CAL_YAW_L_MAX:
-            drive(0, 150); // Extend LHY
-            if (isStalled(0))
-            {
-                saveMax(0);
-                calState = CAL_YAW_L_CENTER;
-            }
-            break;
-        case CAL_YAW_L_CENTER:
-            drive(0, 0); // Stop
-            calState = CAL_YAW_R_MIN;
-            break;
-
-        case CAL_YAW_R_MIN:
-            drive(3, -150); // Retract RHY
-            if (isStalled(3))
-            {
-                saveMin(3);
-                calState = CAL_YAW_R_MAX;
-            }
-            break;
-        case CAL_YAW_R_MAX:
-            drive(3, 150); // Extend RHY
-            if (isStalled(3))
-            {
-                saveMax(3);
-                calState = CAL_YAW_R_CENTER;
-            }
-            break;
-        case CAL_YAW_R_CENTER:
-            drive(3, 0);
-            calState = CAL_LHL_MIN;
-            break;
-
-        // --- LEFT LEG SEQUENCE (Hip Up -> Knee Out -> Knee In -> Hip Down) ---
-        case CAL_LHL_MIN: // Hip Retract (Up)
-            drive(1, -200);
-            if (isStalled(1))
-            {
-                saveMin(1);
-                calState = CAL_LKL_MAX;
-            }
-            break;
-        case CAL_LKL_MAX: // Knee Extend (Out)
-            drive(2, 200);
-            if (isStalled(2))
-            {
-                saveMax(2);
-                calState = CAL_LKL_MIN;
-            }
-            break;
-        case CAL_LKL_MIN: // Knee Retract (In)
-            drive(2, -200);
-            if (isStalled(2))
-            {
-                saveMin(2);
-                calState = CAL_LHL_MAX;
-            }
-            break;
-        case CAL_LHL_MAX: // Hip Extend (Tuck)
-            drive(1, 200);
-            if (isStalled(1))
-            {
-                saveMax(1);
-                calState = CAL_RHL_MIN;
-            }
-            break;
-
-        // --- RIGHT LEG SEQUENCE ---
-        case CAL_RHL_MIN:
-            drive(4, -200);
-            if (isStalled(4))
-            {
-                saveMin(4);
-                calState = CAL_RKL_MAX;
-            }
-            break;
-        case CAL_RKL_MAX:
-            drive(5, 200);
-            if (isStalled(5))
-            {
-                saveMax(5);
-                calState = CAL_RKL_MIN;
-            }
-            break;
-        case CAL_RKL_MIN:
-            drive(5, -200);
-            if (isStalled(5))
-            {
-                saveMin(5);
-                calState = CAL_RHL_MAX;
-            }
-            break;
-        case CAL_RHL_MAX:
-            drive(4, 200);
-            if (isStalled(4))
-            {
-                saveMax(4);
-                calState = CAL_FINISH;
-            }
-            break;
-
-        case CAL_FINISH:
-            // Stop all
-            for (int i = 0; i < 6; i++)
-                actuators[i]->manualDrive(0);
-            saveCalibration(); // RAM-only: prints completion, persists nothing (see below)
-            calState = CAL_IDLE;
-            Serial.println("CALIBRATION COMPLETE & SAVED.");
-            break;
-
-        default:
-            calState = CAL_IDLE;
-            break;
         }
     }
 
-    // Calibration limits are held in RAM only — they are not persisted to EEPROM.
-    // EEPROM address 0 is reserved for the board config struct (EepromLayout, in
-    // firmware/arduino/eeprom_layout.h), so this must not write there. Per-joint
-    // calibration persistence is intended to be added as a field of that struct.
-    void saveCalibration()
+    // Calibrate ONE joint: retract until the pot stops changing, record minStop;
+    // extend the same way, record maxStop; persist to EEPROM. BLOCKING (up to
+    // ~2x CAL_TIMEOUT_MS) — bench-time only; telemetry and commands pause while
+    // it runs. Replies "CAL <name> <min> <max> saved" or "CAL <name> FAIL <why>"
+    // on `out`. Returns false if this board doesn't own the joint (not an error:
+    // the leader broadcasts C to all boards and only the owner acts).
+    bool calibrateJoint(const String &name, Print &out)
     {
-        Serial.println("Calibration complete (held in RAM; not persisted).");
+        for (size_t i = 0; i < count; i++)
+        {
+            if (String(actuators[i]->name) != name)
+                continue;
+            int mn = sweepToStop(actuators[i], -CAL_PWM);
+            int mx = (mn >= 0) ? sweepToStop(actuators[i], CAL_PWM) : -1;
+            out.print("CAL ");
+            out.print(name);
+            if (mn < 0 || mx < 0)
+                out.println(" FAIL no_stop");        // never stalled: no pot signal, or free-spinning (yaw)
+            else if (abs(mx - mn) < CAL_MIN_RANGE)
+                out.println(" FAIL range_too_small"); // stops indistinguishable: jammed or pot not tracking
+            else
+            {
+                actuators[i]->minStop = mn;
+                actuators[i]->maxStop = mx;
+                cal.minStop[i] = mn;
+                cal.maxStop[i] = mx;
+                jointCalSave(cal);
+                out.print(' '); out.print(mn);
+                out.print(' '); out.print(mx);
+                out.println(" saved");
+            }
+            return true;
+        }
+        return false;
     }
 
 private:
+    // Gentle by design: low PWM, and the sweep gives up after CAL_TIMEOUT_MS
+    // instead of pushing harder (the knee can be damaged by a hard shove).
+    // CAL_PWM must be >= 50 or isStalled() treats the joint as idle.
+    static const int CAL_PWM = 120;
+    static const unsigned long CAL_TIMEOUT_MS = 15000;  // slow actuators need >10 s full-travel
+    static const unsigned long CAL_STALL_MS = 400;      // pot quiet this long = at the stop
+    static const int CAL_MIN_RANGE = 100;               // sane travel spans far more raw ADC than this
+
+    // Drive one actuator until its pot stops changing; return the resting raw
+    // pot value, or -1 on timeout. Blocking. Pumps updateSensors() itself —
+    // loop()'s updateAll() isn't running while we block, and without fresh
+    // sensor reads avgPot freezes and isStalled() fires instantly on stale data.
+    int sweepToStop(LinearActuator *act, int pwm)
+    {
+        act->stopMotor();   // clears any position target so update paths can't fight the sweep
+        act->isStalled(1);  // |pwm|<50 path resets the (shared) stall clock before we start
+        unsigned long start = millis();
+        while (millis() - start < CAL_TIMEOUT_MS)
+        {
+            act->updateSensors();
+            act->manualDrive(pwm);
+            // Grace period so the motor can start moving before stall counts.
+            if (millis() - start > 600 && act->isStalled(CAL_STALL_MS))
+            {
+                act->manualDrive(0);
+                return act->getRawPos();
+            }
+            delay(10);
+        }
+        act->manualDrive(0);
+        return -1;
+    }
+
+    JointCalBlock cal;
     LinearActuator **actuators;
     size_t count;
 };

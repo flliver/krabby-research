@@ -14,6 +14,7 @@ from typing import Optional
 from firmware.gui.remote import DEFAULT_SERIAL_DEV, start_bridge
 from firmware.krabby_mcu import (
     _TELEMETRY_LINE_PREFIXES,
+    ALL_JOINT_NAMES,
     KrabbyMCUSDK,
     build_get_line,
     build_set_line,
@@ -278,6 +279,29 @@ def cmd_get(port: Optional[str], board: Optional[str], keys: list[str]) -> None:
     if result is None:
         sys.exit(f"get{label}: no response from board")
     print("  ".join(f"{k}={result.get(k, '?')}" for k in keys))
+
+
+# --- calibrate-joint ---
+
+def cmd_calibrate_joint(port: Optional[str], joint: str) -> None:
+    joint = joint.upper()
+    # Validate client-side before touching the port (opening it resets the board).
+    if joint not in ALL_JOINT_NAMES:
+        sys.exit(f"error: unknown joint {joint!r}; expected one of {', '.join(sorted(ALL_JOINT_NAMES))}")
+
+    sdk = _open_config_sdk(port)
+    try:
+        print(f"calibrating {joint} — it will sweep to both stops "
+              "(takes seconds; telemetry pauses)...")
+        result = sdk.calibrate_joint(joint)
+    finally:
+        sdk.close()
+
+    if result is None:
+        sys.exit(f"calibrate {joint.upper()}: no reply from board")
+    if not result["ok"]:
+        sys.exit(f"calibrate {result['joint']}: FAILED ({result['why']})")
+    print(f"calibrated {result['joint']}: min={result['min']} max={result['max']} (saved to EEPROM)")
 
 
 # --- --update ---

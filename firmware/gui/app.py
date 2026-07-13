@@ -107,7 +107,6 @@ class KrabbyTestGUI(tk.Tk):
         btn_frame.pack(side="right", padx=(8, 0))
         ttk.Button(btn_frame, text="Hold All", command=self._hold_all).pack(side="left", padx=4)
         ttk.Button(btn_frame, text="Neutral (0.5)", command=self._neutral).pack(side="left", padx=4)
-        ttk.Button(btn_frame, text="Calibrate", command=self._calibrate).pack(side="left", padx=4)
 
         sep = ttk.Separator(self, orient="horizontal")
         sep.pack(fill="x", pady=4)
@@ -198,12 +197,6 @@ class KrabbyTestGUI(tk.Tk):
             for n in names:
                 cmds[n] = 0.5
         self._mcu.send_command_joints(cmds)
-
-    def _calibrate(self):
-        if not self._connected:
-            return
-        if messagebox.askyesno("Calibrate", "This will move ALL limbs to find limits. Continue?"):
-            self._mcu.send_command_calibrate()
 
     def _on_close(self):
         self._connected = False
