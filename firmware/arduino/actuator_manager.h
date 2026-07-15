@@ -191,11 +191,13 @@ public:
         return false;
     }
 
-    // JT wire format: "<role>; <name> <pos> <pot> <current> <enL> <enR> <pwmL> <pwmR> <hallEdges>;"
-    // e.g. 'FRONT; FLHY 0.123 0 12 1 1 0 120 0; FRHY 0.234 0 13 1 1 0 130 0; ...'
+    // JT wire format: "<role>; <name> <pos> <pot> <current> <enL> <enR> <pwmL> <pwmR> <hallEdges> <calState>;"
+    // e.g. 'FRONT; FLHY 0.123 0 12 1 1 0 120 0 2; FRHY 0.234 0 13 1 1 0 130 0 0; ...'
+    // calState: 0 = no stops recorded, 1 = one stop (pos still full-range default,
+    // not trustworthy), 2 = both stops recorded and applied.
     // Keep in sync with firmware/interfaces/joint_telemetry.py
     // Keeping it super simple to avoid any string parsing and external library overhead
-    void printTelemetry(Print& out) const
+    void printTelemetry(Print& out, uint8_t calState) const
     {
         out.print(name);
         out.print(' ');
@@ -218,6 +220,8 @@ public:
             out.print(hallHwGetEdgeCount((uint8_t)hallSlot));
         else
             out.print(0);
+        out.print(' ');
+        out.print(calState);
     }
 
 private:
@@ -313,7 +317,7 @@ public:
         for (size_t i = 0; i < count; i++)
         {
             if (i) out.print(';'); // Only print semicolons between joints, not at the end
-            actuators[i]->printTelemetry(out);
+            actuators[i]->printTelemetry(out, calState(i));
         }
         out.println();
     }
@@ -400,6 +404,15 @@ private:
     {
         return (cal.flags[i] & JOINTCAL_FLAG_BOTH) == JOINTCAL_FLAG_BOTH
             && abs((int)cal.maxStop[i] - (int)cal.minStop[i]) >= CAL_MIN_RANGE;
+    }
+
+    // Telemetry calibration state: 2 = complete (limits applied), 1 = at least one
+    // stop recorded but not usable yet (single stop, or degenerate range), 0 = none.
+    uint8_t calState(size_t i) const
+    {
+        if (i >= JOINTCAL_COUNT || cal.flags[i] == 0)
+            return 0;
+        return calComplete(i) ? 2 : 1;
     }
 
     // Directional calibration: sweep toward one stop and record just that one.

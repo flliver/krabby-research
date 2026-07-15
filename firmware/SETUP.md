@@ -83,10 +83,10 @@ Then build and upload. No core file edit needed.
 
 Telemetry is sent as **newline-terminated lines** over serial. The Python side parses each line into a **dict of joint id → values** using `JointTelemetry` in `interfaces/joint_telemetry.py`.
 
-- **Line format:** `<ROLE>; <name> <pos> <pot> <current> <enL> <enR> <pwmL> <pwmR> <saf>; <name> ...; ...`
+- **Line format:** `<ROLE>; <name> <pos> <pot> <current> <enL> <enR> <pwmL> <pwmR> <saf> <cal>; <name> ...; ...`
 - **Role prefix:** One of `FRONT`, `UNKNOWN`, `LEFT`, `RIGHT` (no semicolon inside the role).
-- **Segment format:** Each joint segment is 9 space-separated values: joint name, position (0–1), pot raw, current raw, enable L/R, PWM L/R, safety.
-- **Example:** `FRONT; FLHY 0.723 740 694 0 0 0 0 0;FLHL 0.723 740 691 ...`
+- **Segment format:** Each joint segment is 10 space-separated values: joint name, position (0–1), pot raw, current raw, enable L/R, PWM L/R, safety, calibration state (0 = no end-stops recorded, 1 = one stop, 2 = both stops recorded and applied). The host parser also accepts the older 9-value form without the calibration state.
+- **Example:** `FRONT; FLHY 0.723 740 694 0 0 0 0 0 2;FLHL 0.723 740 691 ...`
 
 On the Arduino side, telemetry is built in **telemetry_manager.h** (struct `JointTelemetry`, `appendTo()`). The old standalone `joint_telemetry.h` was removed; all telemetry formatting and collection lives in `telemetry_manager.h` and `actuator_manager.h`.
 

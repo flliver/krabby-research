@@ -15,6 +15,7 @@ from firmware.interfaces.joint_telemetry import JointTelemetry
 
 JOG_PWM_DEFAULT = 30
 TELEMETRY_REFRESH_MS = 100
+JOG_HEARTBEAT_MS = 100  # re-send a held jog faster than the firmware's ~300ms jog watchdog
 
 
 def _jog_sign(name: str) -> int:
@@ -33,6 +34,7 @@ class JointRow:
         self._jog_cb = jog_cb
         self._get_jog_pwm = get_jog_pwm
         self._active_dir = 0
+        self._jog_after_id = None
 
         self.lbl_name = ttk.Label(parent, text=name, font=("Consolas", 11, "bold"), width=6)
         self.lbl_name.grid(row=row, column=0, padx=4, pady=2, sticky="w")
@@ -47,27 +49,69 @@ class JointRow:
         self.btn_extend.bind("<ButtonPress-1>", lambda e: self._start_jog(1))
         self.btn_extend.bind("<ButtonRelease-1>", lambda e: self._stop_jog())
 
+        self.var_pos = tk.StringVar(value="---")
+        self.var_cal = tk.StringVar(value="---")
         self.var_pot = tk.StringVar(value="---")
         self.var_cur = tk.StringVar(value="---")
         self.var_pwm = tk.StringVar(value="---")
         self.var_hall = tk.StringVar(value="---")
 
-        ttk.Label(parent, textvariable=self.var_pot, width=6, anchor="e").grid(row=row, column=3, padx=4)
-        ttk.Label(parent, textvariable=self.var_cur, width=6, anchor="e").grid(row=row, column=4, padx=4)
-        ttk.Label(parent, textvariable=self.var_pwm, width=10, anchor="e").grid(row=row, column=5, padx=4)
-        ttk.Label(parent, textvariable=self.var_hall, width=6, anchor="e").grid(row=row, column=6, padx=4)
+        # Normalized [0,1] position is the canonical operator value; it's colored by
+        # calibration state so an unusable (PARTIAL) or uncalibrated (UNCAL) reading —
+        # where pos still maps through full-range defaults — is visibly distinct from a
+        # FULL, end-stop-anchored one. Raw pot ADC and the Hall edge count stay as debug
+        # fields for spotting wiring issues.
+        self.lbl_pos = tk.Label(parent, textvariable=self.var_pos, width=7, anchor="e",
+                                font=("Consolas", 11, "bold"))
+        self.lbl_pos.grid(row=row, column=3, padx=4)
+        self.lbl_cal = tk.Label(parent, textvariable=self.var_cal, width=8, anchor="center")
+        self.lbl_cal.grid(row=row, column=4, padx=4)
+        ttk.Label(parent, textvariable=self.var_pot, width=6, anchor="e").grid(row=row, column=5, padx=4)
+        ttk.Label(parent, textvariable=self.var_cur, width=6, anchor="e").grid(row=row, column=6, padx=4)
+        ttk.Label(parent, textvariable=self.var_pwm, width=10, anchor="e").grid(row=row, column=7, padx=4)
+        ttk.Label(parent, textvariable=self.var_hall, width=6, anchor="e").grid(row=row, column=8, padx=4)
 
     def _start_jog(self, direction: int):
         self._active_dir = direction
-        self._jog_cb(self.name, direction * _jog_sign(self.name) * self._get_jog_pwm())
+        self._send_jog_heartbeat()
+
+    def _send_jog_heartbeat(self):
+        # While the button is held, keep re-sending the jog so it outlives the firmware's
+        # jog watchdog; reschedule until the button is released (_active_dir back to 0).
+        if self._active_dir == 0:
+            return
+        self._jog_cb(self.name, self._active_dir * _jog_sign(self.name) * self._get_jog_pwm())
+        self._jog_after_id = self.lbl_name.after(JOG_HEARTBEAT_MS, self._send_jog_heartbeat)
 
     def _stop_jog(self):
         self._active_dir = 0
+        if self._jog_after_id is not None:
+            self.lbl_name.after_cancel(self._jog_after_id)
+            self._jog_after_id = None
+        # Send the stop redundantly: a single J 0 line can be lost or delayed when the
+        # board is busy digesting a jog backlog (motor EMI slows its loop), and a lost
+        # stop means the motor runs until the ~300ms jog watchdog notices. Re-sends are
+        # cheap and skipped if a new jog started in the meantime.
         self._jog_cb(self.name, 0)
+        for delay_ms in (120, 260):
+            self.lbl_name.after(delay_ms, self._resend_stop)
+
+    def _resend_stop(self):
+        if self._active_dir == 0:
+            self._jog_cb(self.name, 0)
+
+    # Pos/CAL text color by calibration state: green = FULL (both end-stops recorded,
+    # trustworthy), orange = PARTIAL (one stop recorded, pos not yet anchored), gray = UNCAL.
+    _CAL_COLORS = {"FULL": "#1a7f1a", "PARTIAL": "#c8780a", "UNCAL": "#999999"}
 
     def update_from_telemetry(self, jt: Optional[JointTelemetry]):
         if jt is None:
             return
+        self.var_pos.set(f"{jt.pos:.3f}")
+        self.var_cal.set(jt.cal_state_name)
+        color = self._CAL_COLORS.get(jt.cal_state_name, "#000000")
+        self.lbl_pos.config(fg=color)
+        self.lbl_cal.config(fg=color)
         self.var_pot.set(str(jt.pot))
         self.var_cur.set(str(jt.current))
         self.var_pwm.set(f"L{jt.pwm[0]} R{jt.pwm[1]}")
@@ -78,7 +122,7 @@ class KrabbyTestGUI(tk.Tk):
     def __init__(self, port: Optional[str] = None, baud: int = 115200):
         super().__init__()
         self.title("Krabby MCU Test")
-        self.geometry("780x820")
+        self.geometry("960x820")
         self.resizable(True, True)
         self.protocol("WM_DELETE_WINDOW", self._on_close)
 
@@ -104,7 +148,7 @@ class KrabbyTestGUI(tk.Tk):
         ttk.Scale(
             pwm_frame,
             from_=0,
-            to=60,
+            to=120,
             orient="horizontal",
             length=120,
             variable=self._jog_pwm_var,
@@ -130,7 +174,7 @@ class KrabbyTestGUI(tk.Tk):
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
 
-        headers = ["Joint", "Retract", "Extend", "Pot", "Cur", "PWM", "Hall"]
+        headers = ["Joint", "Retract", "Extend", "Pos", "CAL", "Pot", "Cur", "PWM", "Hall"]
         for c, h in enumerate(headers):
             ttk.Label(self._grid_frame, text=h, font=("Segoe UI", 9, "bold"), anchor="center").grid(
                 row=0, column=c, padx=4, pady=(0, 4), sticky="ew"
@@ -141,7 +185,7 @@ class KrabbyTestGUI(tk.Tk):
             ttk.Label(
                 self._grid_frame, text=f"── {group_name} ──",
                 font=("Segoe UI", 9, "italic"), foreground="#666"
-            ).grid(row=row, column=0, columnspan=7, sticky="w", pady=(6, 2))
+            ).grid(row=row, column=0, columnspan=9, sticky="w", pady=(6, 2))
             row += 1
             for jname in joint_names:
                 jr = JointRow(self._grid_frame, jname, row, self._jog_joint, self._get_jog_pwm)
