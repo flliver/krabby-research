@@ -576,11 +576,12 @@ class IsaacSimHalServer(HalServerBase):
                 lin_vel = lin_vel[0]
             base_lin_vel_b = lin_vel.detach().cpu().numpy().astype(np.float32)
             
-            # Base quaternion (world frame)
+            # Base quaternion (world frame). IsaacLab's root_quat_w is
+            # (w, x, y, z); HardwareObservations.base_quat_w is (x, y, z, w).
             quat = self.robot.data.root_quat_w
             if quat.ndim == 2:
                 quat = quat[0]
-            base_quat_w = quat.detach().cpu().numpy().astype(np.float32)
+            base_quat_w = quat.detach().cpu().numpy().astype(np.float32)[[1, 2, 3, 0]]
             
             # Use joint velocities extracted from observation manager (ensures exact match).
             # Observation manager already applies * 0.05 scaling. Pad to 12 or 18 joints (hardware format) with zeros if needed.

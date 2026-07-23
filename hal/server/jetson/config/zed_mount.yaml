@@ -1,0 +1,25 @@
+# ZED 2i camera→body mount rotation (see zed_mount.py).
+#
+# r_camera_to_body maps camera-frame vectors into the robot body frame:
+#   x_body = r_camera_to_body @ x_camera
+#
+# Assumed mount pose (M17 default): ZED 2i at the front-center of the krab
+# body, rigidly axis-aligned with the body — camera axes = body axes — so the
+# rotation is identity. The ZED is opened with COORDINATE_SYSTEM.RIGHT_HANDED_Y_UP
+# (see zed_camera.py); the robot body frame is X forward, Y left, Z up.
+#
+# M15 Task 2 refines this matrix against the actual camera location on the
+# V0.2 chassis. When the physical mount changes, update the matrix here (or
+# point KRABBY_ZED_MOUNT_YAML at a robot-specific file) and record the new
+# pose in this comment.
+#
+# Example — camera pitched 90° so camera Z (optical axis) points along body +X
+# and camera Y (up) along body +Z:
+#   r_camera_to_body:
+#     - [0, 0, 1]
+#     - [-1, 0, 0]
+#     - [0, -1, 0]
+r_camera_to_body:
+  - [1, 0, 0]
+  - [0, 1, 0]
+  - [0, 0, 1]

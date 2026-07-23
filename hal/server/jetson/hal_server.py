@@ -22,6 +22,12 @@ from hal.server.jetson.front_camera_factory import (
     create_front_rgb_depth_camera,
 )
 from hal.server.jetson.krabby_mcusdk import KrabbyMCUSDK
+from hal.server.jetson.zed_camera import ZedImuSample
+from hal.server.jetson.zed_mount import (
+    IDENTITY_QUAT_XYZW,
+    apply_camera_to_body,
+    load_camera_to_body_rotation,
+)
 from hal.server.jetson.sensor_backend_jetson import (
     JETSON_SENSOR_CATALOG,
     JETSON_SENSOR_CATALOG_BY_ID,
@@ -145,6 +151,15 @@ class JetsonHalServer(HalServerBase):
                 break
         self.side_camera: Optional[RgbDepthCamera] = None
 
+        # ZED IMU → body-frame state (Task 5): fixed camera→body rotation from
+        # config; the IMU source camera is picked in initialize_cameras().
+        self._camera_to_body_rot = load_camera_to_body_rotation()
+        self._imu_camera: Optional[RgbDepthCamera] = None
+        self._imu_miss_count = 0
+        self._imu_last_timestamp_ns: Optional[int] = None
+        self._imu_stale_logged = False
+        self._no_imu_source_logged = False
+
         # GStreamer multi-sensor interface (optional)
         self._sensor_interface: Optional[SensorInterface] = None
 
@@ -252,6 +267,17 @@ class JetsonHalServer(HalServerBase):
                 res[0],
                 res[1],
                 fps,
+            )
+
+        self._imu_camera = None
+        for cam in self._hal_rgbd_cameras.values():
+            if callable(getattr(cam, "get_imu", None)):
+                self._imu_camera = cam
+                break
+        if self._imu_camera is None:
+            logger.warning(
+                "No IMU-capable RGB-D camera opened; base_ang_vel_b/base_quat_w "
+                "will be zeros/identity until a ZED is available"
             )
 
         self.front_camera = self._hal_rgbd_cameras.get(self._primary_catalog_id)
@@ -391,6 +417,55 @@ class JetsonHalServer(HalServerBase):
 
         return state_vector
 
+    def _imu_body_frame(self) -> tuple[np.ndarray, np.ndarray]:
+        """Latest ZED IMU sample rotated into the body frame.
+
+        Falls back to zero angular velocity + identity quaternion (the model's
+        "robot is stationary and level" default) whenever no IMU-capable camera
+        is open or the sample fetch fails — never crashes the control loop.
+        A missing sample logs a rate-limited WARNING; a non-advancing sensor
+        timestamp logs INFO once until it recovers.
+
+        Returns:
+            (base_ang_vel_b (3,) float32 rad/s, base_quat_w (4,) float32 xyzw)
+        """
+        zeros = np.zeros(3, dtype=np.float32)
+        if self._imu_camera is None:
+            if not self._no_imu_source_logged:
+                logger.warning(
+                    "No IMU source; base_ang_vel_b/base_quat_w fall back to zeros/identity. "
+                    "Policy cannot sense body tilt or rotation in this state."
+                )
+                self._no_imu_source_logged = True
+            return zeros, IDENTITY_QUAT_XYZW.copy()
+
+        sample = self._imu_camera.get_imu()
+        if not isinstance(sample, ZedImuSample):
+            self._imu_miss_count += 1
+            if self._imu_miss_count % 100 == 1:
+                logger.warning(
+                    "ZED IMU sample missing (count=%d); emitting zero ang vel + identity quat",
+                    self._imu_miss_count,
+                )
+            return zeros, IDENTITY_QUAT_XYZW.copy()
+
+        if sample.timestamp_ns == self._imu_last_timestamp_ns:
+            if not self._imu_stale_logged:
+                logger.info(
+                    "ZED IMU timestamp not advancing (%d ns); sample may be stale",
+                    sample.timestamp_ns,
+                )
+                self._imu_stale_logged = True
+        else:
+            self._imu_stale_logged = False
+        self._imu_last_timestamp_ns = sample.timestamp_ns
+
+        return apply_camera_to_body(
+            self._camera_to_body_rot,
+            sample.ang_vel_rad_s,
+            sample.orientation_quat_xyzw,
+        )
+
     def set_observation(self) -> None:
         """Set observation from real sensors as hardware observations.
         
@@ -439,13 +514,12 @@ class JetsonHalServer(HalServerBase):
         num_joints_vel = min(len(joint_vel), obs_joint_count)
         joint_velocities[:num_joints_vel] = joint_vel[:num_joints_vel].astype(np.float32)
         
-        # Extract base velocities (body frame) - for now use world frame values as placeholder
-        # TODO: Transform to body frame when real IMU data is available
-        base_ang_vel_b = base_ang_vel.astype(np.float32)
+        # Base angular velocity + orientation come from the ZED IMU (body frame
+        # after the camera→body mount rotation); zeros/identity when unavailable.
+        base_ang_vel_b, base_quat_w = self._imu_body_frame()
+
+        # Linear velocity still placeholder (no odometry source yet)
         base_lin_vel_b = base_lin_vel.astype(np.float32)
-        
-        # Base quaternion (world frame, x,y,z,w format)
-        base_quat_w = base_quat.astype(np.float32)
         
         # Contact forces (placeholder - 5 values, normalized to [-0.5, 0.5])
         contact_forces = np.zeros(5, dtype=np.float32)

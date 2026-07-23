@@ -28,6 +28,7 @@ dependencies = [
     "krabby-compute-parkour>=0.1.0",
     "numpy>=1.24.0",
     "scipy>=1.10.0",
+    "pyyaml>=6.0",
 ]
 
 [project.optional-dependencies]
@@ -50,4 +51,7 @@ krabby-hal-server-jetson = "hal.server.jetson.main:main"
 [tool.setuptools]
 package-dir = {"hal" = "../.."}
 packages = ["hal.server.jetson"]
+
+[tool.setuptools.package-data]
+"hal.server.jetson" = ["config/*.yaml"]
 

@@ -11,6 +11,7 @@ Fails fast if dependencies are missing.
 import logging
 import time
 import ctypes
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
@@ -20,6 +21,21 @@ from hal.server.jetson.rgb_depth_camera import RgbDepthCamera
 
 logger = logging.getLogger(__name__)
 _JETSON_NVJPEG_LIB = Path("/usr/lib/aarch64-linux-gnu/nvidia/libnvjpeg.so")
+_DEG_TO_RAD = np.pi / 180.0
+
+
+@dataclass
+class ZedImuSample:
+    """One IMU reading from the ZED, in the camera's coordinate frame.
+
+    The camera→robot-body rotation is applied downstream (see zed_mount.py);
+    values here are exactly what the sensor reports, unit-converted only.
+    """
+
+    ang_vel_rad_s: np.ndarray  # Shape: (3,), dtype: float32 - angular velocity, rad/s
+    lin_acc_m_s2: np.ndarray  # Shape: (3,), dtype: float32 - linear acceleration, m/s²
+    orientation_quat_xyzw: np.ndarray  # Shape: (4,), dtype: float32 - IMU-integrated attitude
+    timestamp_ns: int  # Sensor timestamp when exposed by the SDK, else host time
 
 
 def _preload_jetson_nvjpeg() -> None:
@@ -261,6 +277,41 @@ class ZedCamera(RgbDepthCamera):
         No grab is performed; use get_camera_frames() or get_rgb_image() first to capture a frame.
         """
         return self._last_depth_np
+
+    def get_imu(self) -> Optional[ZedImuSample]:
+        """Read one IMU sample from the ZED's onboard IMU (camera frame).
+
+        Uses ``get_sensors_data(..., TIME_REFERENCE.CURRENT)`` — the most recent
+        IMU sample, independent of the grab path. ``TIME_REFERENCE.IMAGE`` would
+        return the sample aligned with the last grabbed frame, which freezes (and
+        yields an uninitialized non-unit quaternion) unless grab() runs, and even
+        then caps IMU freshness at the camera frame rate (verified on SDK 5.4.0,
+        ZED 2i).
+
+        Returns:
+            ZedImuSample with angular velocity converted deg/s → rad/s, or None
+            if the camera is not initialized or the sensors-data fetch fails
+            (expected failure, reported by SDK status — not an exception).
+        """
+        if not self.initialized:
+            return None
+        sl = self._zed_module
+        sensors_data = sl.SensorsData()
+        if self.camera.get_sensors_data(sensors_data, sl.TIME_REFERENCE.CURRENT) != sl.ERROR_CODE.SUCCESS:
+            return None
+        imu = sensors_data.get_imu_data()
+        try:
+            timestamp_ns = int(imu.timestamp.get_nanoseconds())
+        except AttributeError:
+            # Sensor timestamp API varies across pyzed majors; host time disables
+            # staleness detection but keeps the sample usable.
+            timestamp_ns = time.time_ns()
+        return ZedImuSample(
+            ang_vel_rad_s=np.asarray(imu.get_angular_velocity(), dtype=np.float32) * _DEG_TO_RAD,
+            lin_acc_m_s2=np.asarray(imu.get_linear_acceleration(), dtype=np.float32),
+            orientation_quat_xyzw=np.asarray(imu.get_pose().get_orientation().get(), dtype=np.float32),
+            timestamp_ns=timestamp_ns,
+        )
 
     def is_ready(self) -> bool:
         """Check if camera is ready to capture frames.
