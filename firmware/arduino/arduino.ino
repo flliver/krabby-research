@@ -6,8 +6,11 @@
 
 #include <Arduino.h>
 #include <EEPROM.h>
+#include <math.h>
 #include "src/imu/imu_calibrator.h"
 #include "src/imu/lsm6dso_adapter.h"
+#include "src/display/ssd1306_adapter.h"
+#include "src/display/display_frame_model.h"
 #include "board_pins.h"
 #include "command.h"
 #include "actuator_manager.h"
@@ -18,21 +21,21 @@
 // --- Serial: left follower = Serial1 (TX1/RX1 on Krabby-Uno v0.1 shield), right follower = Serial2 ---
 #define SERIAL_LEFT  Serial1  // pins 18 (TX1), 19 (RX1) — Krabby-Uno v0.1 shield Serial1 connector
 #define SERIAL_RIGHT Serial2   // pins 16 (TX2), 17 (RX2) — Krabby-Uno v0.1 shield Serial2 connector
+// Exact on the Mega's 16 MHz clock, with headroom for the leader to transmit
+// joint data from all three controller boards plus I2C sensor data.
 #define BAUD_RATE 250000
 #define SYNC_TOKEN "SYNC"
 #define ASSIGN_LEFT  "ROLE:LEFT"
 #define ASSIGN_RIGHT "ROLE:RIGHT"
 
-enum BoardRole { ROLE_UNKNOWN, ROLE_FRONT, ROLE_LEFT, ROLE_RIGHT };
 BoardRole currentRole = ROLE_UNKNOWN;
 
-// M16 I2C sensor cluster is leader-only.
-// ROLE_UNKNOWN also qualifies: it is the solo-board-on-USB bench case (defaults
-// to front actuators + USB serial), not a follower.
-static inline bool isI2CClusterBoard()
-{
-    return currentRole == ROLE_FRONT || currentRole == ROLE_UNKNOWN;
-}
+ControllerFreshnessTracker controllerFreshnessTrackers[BOARD_ROLE_COUNT];
+ActuatorStatus latestActuatorStatus[ActuatorId::ActuatorCount];
+ImuMeasurement latestImuMeasurement;
+Ssd1306Adapter oledDisplay;
+unsigned long lastOledDrawMilliseconds = 0;
+constexpr unsigned long OLED_REDRAW_INTERVAL_MILLISECONDS = 250;
 
 // EEPROM address 32: magic sentinel byte (0xAB); address 33: BoardRole value.
 // Calibration data (CalData) occupies addresses 0–25; gap at 26–31 kept for alignment.
@@ -55,16 +58,20 @@ static BoardRole loadRole()
     return ROLE_UNKNOWN;
 }
 
-static const char* roleName(BoardRole r)
+static bool i2cAddressResponds(uint8_t address)
 {
-    switch (r)
-    {
-        case ROLE_UNKNOWN: return "UNKWN";
-        case ROLE_FRONT:   return "FRONT";
-        case ROLE_LEFT:   return "LEFT ";
-        case ROLE_RIGHT:  return "RIGHT";
-        default:          return "UNKWN";
-    }
+    Wire.clearWireTimeoutFlag();
+    Wire.beginTransmission(address);
+    return Wire.endTransmission() == 0;
+}
+
+static bool hasFrontImu()
+{
+    Wire.begin();
+    Wire.setClock(I2C_DEFAULT_BUS_CLOCK_HZ);
+    Wire.setWireTimeout(I2C_BUS_TIMEOUT_MICROSECONDS, true);
+    return i2cAddressResponds(LSM6DSO_PRIMARY_ADDRESS) ||
+           i2cAddressResponds(LSM6DSO_ALTERNATE_ADDRESS);
 }
 
 // --- All 18 actuators (names fixed; each board uses the same physical pins for its 6) ---
@@ -114,10 +121,11 @@ const LinearActuator::ControlConfig ACTUATOR_CONFIG = {
 const size_t CMD_BUF_SIZE = 18;
 Command cmdBuf[CMD_BUF_SIZE];
 
-// TELEMETRY_INTERVAL_MS is the existing actuator telemetry cadence.
 unsigned long lastTelemetry = 0;
+// Schedules blocking OLED writes after telemetry.
+bool wasTelemetryEmittedOnPreviousLoop = false;
 
-// --- I2C sensor cluster (Milestone 16) — leader board only ---
+// --- I2C sensor cluster — leader board only ---
 // The LSM6DSO IMU rides the leader's telemetry tick; followers never touch the bus.
 Lsm6dsoAdapter imuSensor;
 static_assert(
@@ -208,8 +216,28 @@ static char rightPartial[TELEMETRY_LINE_MAX];
 static size_t leftPartialPos = 0;
 static size_t rightPartialPos = 0;
 
+void updateActuatorStatusFromTelemetry(
+    const char *line,
+    BoardRole boardRole)
+{
+    ActuatorStatus status[CONTROLLER_ACTUATOR_COUNT];
+    if (!parseActuatorStatus(line, boardRole, status))
+        return;
+
+    controllerFreshnessTrackers[boardRole] =
+        ControllerFreshnessTracker::seenAt(millis());
+    for (const ActuatorStatus &actuatorStatus : status)
+        latestActuatorStatus[actuatorStatus.actuatorId] = actuatorStatus;
+}
+
 // Forward only complete lines (up to and including \n) from follower serial to mainSerial.
-void forwardFullLines(HardwareSerial* from, HardwareSerial* to, char* partial, size_t cap, size_t* partialPos)
+void forwardFullLines(
+    HardwareSerial* from,
+    HardwareSerial* to,
+    char* partial,
+    size_t cap,
+    size_t* partialPos,
+    BoardRole boardRole)
 {
     if (!from || !to || !partial || !partialPos) return;
     while (from->available())
@@ -219,7 +247,10 @@ void forwardFullLines(HardwareSerial* from, HardwareSerial* to, char* partial, s
         {
             partial[*partialPos] = '\0';
             if (*partialPos > 0)
+            {
                 to->println(partial);
+                updateActuatorStatusFromTelemetry(partial, boardRole);
+            }
             *partialPos = 0;
             continue;
         }
@@ -259,11 +290,13 @@ void determineRole()
     SERIAL_LEFT.begin(BAUD_RATE);
     SERIAL_RIGHT.begin(BAUD_RATE);
 
-    bool syncFromLeft = false, syncFromRight = false;
+    const bool isI2cHost = hasFrontImu();
+    bool hasSyncFromLeft = false, hasSyncFromRight = false;
+    bool isLeftAssigned = false, isRightAssigned = false;
     unsigned long start = millis();
     unsigned long lastSync = 0;
 
-    while (millis() - start < 3000)
+    do
     {
         // Everyone sends a SYNC_TOKEN every 10ms to see what serial lines are connected
         if (millis() - lastSync >= 10)
@@ -277,7 +310,8 @@ void determineRole()
         {
             String s = SERIAL_LEFT.readStringUntil('\n');
             // If the leader has sent us an ASSIGN_LEFT command, we're the left follower
-            if (s.indexOf(ASSIGN_LEFT) >= 0)
+            if (!isI2cHost &&
+                s.indexOf(ASSIGN_LEFT) >= 0)
             {
                 currentRole = ROLE_LEFT;
                 actuatorManager = new ActuatorManager(ACT_LIST_LEFT, ACT_COUNT);
@@ -286,13 +320,14 @@ void determineRole()
                 Serial.println("ROLE: LEFT");
                 return;
             }
-            if (s.indexOf(SYNC_TOKEN) >= 0) syncFromLeft = true;
+            if (s.indexOf(SYNC_TOKEN) >= 0) hasSyncFromLeft = true;
         }
         if (SERIAL_RIGHT.available())
         {
             String s = SERIAL_RIGHT.readStringUntil('\n');
             // If the leader has sent us an ASSIGN_RIGHT command, we're the right follower
-            if (s.indexOf(ASSIGN_RIGHT) >= 0)
+            if (!isI2cHost &&
+                s.indexOf(ASSIGN_RIGHT) >= 0)
             {
                 currentRole = ROLE_RIGHT;
                 actuatorManager = new ActuatorManager(ACT_LIST_RIGHT, ACT_COUNT);
@@ -301,22 +336,37 @@ void determineRole()
                 Serial.println("ROLE: RIGHT");
                 return;
             }
-            if (s.indexOf(SYNC_TOKEN) >= 0) syncFromRight = true;
+            if (s.indexOf(SYNC_TOKEN) >= 0) hasSyncFromRight = true;
         }
-        // Received SYNC from both sides: we are the leader. Assign followers then set ourselves as FRONT.
-        if (syncFromLeft && syncFromRight)
+
+        // The front controller assigns discovered followers.
+        if (isI2cHost || (hasSyncFromLeft && hasSyncFromRight))
         {
-            SERIAL_LEFT.println(ASSIGN_LEFT);
-            SERIAL_RIGHT.println(ASSIGN_RIGHT);
-            currentRole = ROLE_FRONT;
-            actuatorManager = new ActuatorManager(ACT_LIST_FRONT, ACT_COUNT);
-            mainSerial = &Serial;
-            leftSerial = &SERIAL_LEFT;
-            rightSerial = &SERIAL_RIGHT;
-            saveRole(ROLE_FRONT);
-            Serial.println("ROLE: FRONT");
-            return;
+            if (hasSyncFromLeft && !isLeftAssigned)
+            {
+                SERIAL_LEFT.println(ASSIGN_LEFT);
+                isLeftAssigned = true;
+            }
+            if (hasSyncFromRight && !isRightAssigned)
+            {
+                SERIAL_RIGHT.println(ASSIGN_RIGHT);
+                isRightAssigned = true;
+            }
         }
+    }
+    while (millis() - start < 3000 && !(hasSyncFromLeft && hasSyncFromRight));
+
+    // The I2C host is the front controller.
+    if (isI2cHost || (hasSyncFromLeft && hasSyncFromRight))
+    {
+        currentRole = ROLE_FRONT;
+        actuatorManager = new ActuatorManager(ACT_LIST_FRONT, ACT_COUNT);
+        mainSerial = &Serial;
+        leftSerial = &SERIAL_LEFT;
+        rightSerial = &SERIAL_RIGHT;
+        saveRole(ROLE_FRONT);
+        Serial.println("ROLE: FRONT");
+        return;
     }
 
     // Timeout: no both-sync, default to front actuators but report UNKNOWN.
@@ -341,13 +391,19 @@ void setup()
     hallHwInit();
     actuatorManager->loadCalibration();
 
-    if (isI2CClusterBoard())
+    if (currentRole == ROLE_FRONT || currentRole == ROLE_UNKNOWN)
+    {
+        pinMode(STATUS_LED_PIN, OUTPUT);
+        digitalWrite(STATUS_LED_PIN, LOW);
         imuSetup();
+        if (!oledDisplay.initialize())
+            Serial.println(F("OLED: initialization failed at 0x3D."));
+    }
 
     Serial.print("Krabby Ready ");
     Serial.print(boardPinRevisionLabel());
     Serial.print(". ");
-    Serial.println(list[0]->name);
+    Serial.println(list[0]->getName());
 }
 
 // Read lines from a follower serial until one starts with "VER "; discard telemetry lines.
@@ -511,28 +567,65 @@ void loop()
 
     // Drain follower serial so RX buffers don't overflow (64-byte default drops middle of ~200-byte lines).
     // Only flush once after both drains so we don't block in flush() twice per loop (~35 ms each at 115200).
-    forwardFullLines(leftSerial, mainSerial, leftPartial, TELEMETRY_LINE_MAX, &leftPartialPos);
-    forwardFullLines(rightSerial, mainSerial, rightPartial, TELEMETRY_LINE_MAX, &rightPartialPos);
+    forwardFullLines(leftSerial, mainSerial, leftPartial, TELEMETRY_LINE_MAX, &leftPartialPos, ROLE_LEFT);
+    forwardFullLines(rightSerial, mainSerial, rightPartial, TELEMETRY_LINE_MAX, &rightPartialPos, ROLE_RIGHT);
 
     actuatorManager->updateAll();
 
+    if (currentRole == ROLE_FRONT || currentRole == ROLE_UNKNOWN)
+    {
+        for (LinearActuator *actuator : ACT_LIST_FRONT)
+        {
+            const ActuatorStatus status = actuator->getStatus();
+            latestActuatorStatus[status.actuatorId] = status;
+        }
+
+        const uint32_t nowMilliseconds = millis();
+        controllerFreshnessTrackers[ROLE_FRONT] =
+            ControllerFreshnessTracker::seenAt(nowMilliseconds);
+
+        DisplayFrame displayFrame = buildDisplayFrame(
+            currentRole,
+            controllerFreshnessTrackers,
+            latestActuatorStatus,
+            latestImuMeasurement,
+            nowMilliseconds,
+            ACTUATOR_CONFIG.pwmDeadband
+        );
+
+        const bool isActuatorDisconnected = hasDisconnectedActuator(displayFrame);
+        digitalWrite(STATUS_LED_PIN, isActuatorDisconnected ? HIGH : LOW);
+
+        // A full OLED transfer takes ~29 ms; start it after telemetry.
+        if (wasTelemetryEmittedOnPreviousLoop &&
+            nowMilliseconds - lastOledDrawMilliseconds >= OLED_REDRAW_INTERVAL_MILLISECONDS)
+        {
+            lastOledDrawMilliseconds = nowMilliseconds;
+            oledDisplay.render(displayFrame);
+        }
+    }
+
     // Drain again in case bytes arrived during updateAll()
-    forwardFullLines(leftSerial, mainSerial, leftPartial, TELEMETRY_LINE_MAX, &leftPartialPos);
-    forwardFullLines(rightSerial, mainSerial, rightPartial, TELEMETRY_LINE_MAX, &rightPartialPos);
+    forwardFullLines(leftSerial, mainSerial, leftPartial, TELEMETRY_LINE_MAX, &leftPartialPos, ROLE_LEFT);
+    forwardFullLines(rightSerial, mainSerial, rightPartial, TELEMETRY_LINE_MAX, &rightPartialPos, ROLE_RIGHT);
     mainSerial->flush();
 
-    if (millis() - lastTelemetry >= TELEMETRY_INTERVAL_MS)
+    wasTelemetryEmittedOnPreviousLoop = false;
+    const unsigned long telemetryNowMilliseconds = millis();
+    if (telemetryNowMilliseconds - lastTelemetry >= TELEMETRY_INTERVAL_MS)
     {
-        lastTelemetry = millis();
-        mainSerial->print(roleName(currentRole));
+        wasTelemetryEmittedOnPreviousLoop = true;
+        lastTelemetry = telemetryNowMilliseconds;
+        mainSerial->print(boardTelemetryRoleLabel(currentRole));
         mainSerial->print(TELEMETRY_SEGMENT_DELIMITER);
         mainSerial->print(TELEMETRY_FIELD_SEPARATOR);
         actuatorManager->printTelemetry(*mainSerial);
         // Leader appends its sensor segments to its own line only; forwarded
         // LEFT/RIGHT lines pass through forwardFullLines() untouched.
-        if (isI2CClusterBoard())
+        if (currentRole == ROLE_FRONT || currentRole == ROLE_UNKNOWN)
         {
             const ImuMeasurement measurement = imuSensor.measure();
+            latestImuMeasurement = measurement;
             appendImuMeasurement(*mainSerial, measurement);
         }
         mainSerial->println();

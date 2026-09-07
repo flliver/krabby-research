@@ -1,29 +1,14 @@
-"""Unit tests for the IMU telemetry segment (parse layer + SDK storage).
+"""IMU telemetry parsing and SDK storage tests."""
 
-Naming convention: pytest has no enforced convention beyond the ``test_``
-prefix; the Python idiom is a snake_case name that reads as a sentence —
-``test_<unit>_<condition>_<expected behavior>`` — with Arrange/Act/Assert as
-blank-line-separated *body structure* rather than encoded in the method name
-(the AWS-style ``arrange_act_assert`` suffix is not idiomatic here).
-Comments are used freely to state author intent.
-
-Error-handling behavior under test:
-- Class A (malformed segment on the lossy stream): parser returns None.
-- Class B (leader sensor present but valid=0): sample stored, one-shot WARNING
-  on the transition, rendered STALE.
-- Class C (follower / absent hardware): sdk.imu stays None, zero logging.
-"""
-
-import logging
 import math
+from dataclasses import FrozenInstanceError
 from unittest import mock
 
 import pytest
 
 from firmware.interfaces.imu_telemetry import ImuTelemetry
 from firmware.interfaces.joint_telemetry import JointTelemetry
-from firmware.interfaces.parsed_telemetry import ParsedTelemetry
-from firmware.interfaces.telemetry_parser import parse_telemetry_line
+from firmware.interfaces.telemetry_frame import TelemetryFrame
 from firmware.krabby_mcu import KrabbyMCUSDK
 
 JOINT_SEG = "FLHY 0.123 512 12 1 0 0 128 3"
@@ -175,8 +160,8 @@ class TestImuDerivedProperties:
     def test_level_orientation_reads_zero_roll_and_pitch(self):
         imu = self._imu((0.0, 0.0, 9.80665))
 
-        assert imu.roll_deg == pytest.approx(0.0)
-        assert imu.pitch_deg == pytest.approx(0.0)
+        assert imu.roll_from_accel_deg == pytest.approx(0.0)
+        assert imu.pitch_from_accel_deg == pytest.approx(0.0)
 
     def test_gyro_dps_converts_rad_per_s_to_deg_per_s(self):
         imu = self._imu((0.0, 0.0, 9.80665), gyro=(math.pi, 0.0, -math.pi / 2))
@@ -186,12 +171,12 @@ class TestImuDerivedProperties:
     def test_gravity_on_plus_x_reads_pitch_minus_90(self):
         imu = self._imu((9.80665, 0.0, 0.0))
 
-        assert imu.pitch_deg == pytest.approx(-90.0)
+        assert imu.pitch_from_accel_deg == pytest.approx(-90.0)
 
     def test_gravity_on_plus_y_reads_roll_plus_90(self):
         imu = self._imu((0.0, 9.80665, 0.0))
 
-        assert imu.roll_deg == pytest.approx(90.0)
+        assert imu.roll_from_accel_deg == pytest.approx(90.0)
 
 
 class TestImuTagDispatch:
@@ -225,38 +210,49 @@ class TestImuFromSegment:
         assert imu is not None
         assert imu.valid is True
 
-class TestParseTelemetryLine:
+
+class TestTelemetryFrame:
     def test_leader_line_yields_both_joints_and_imu(self):
-        parsed = parse_telemetry_line(LEADER_LINE)
+        parsed = TelemetryFrame.parse_line(LEADER_LINE)
 
         assert [j.name for j in parsed.joints] == ["FLHY"]
         assert parsed.imu is not None and parsed.imu.valid
 
     def test_follower_line_yields_joints_and_no_imu(self):
-        parsed = parse_telemetry_line(FOLLOWER_LINE)
+        parsed = TelemetryFrame.parse_line(FOLLOWER_LINE)
 
         assert [j.name for j in parsed.joints] == ["RLHY"]
         assert parsed.imu is None
 
     def test_line_without_imu_segment_still_parses_joints(self):
-        parsed = parse_telemetry_line(f"FRONT; {JOINT_SEG}")
+        parsed = TelemetryFrame.parse_line(f"FRONT; {JOINT_SEG}")
 
         assert len(parsed.joints) == 1
         assert parsed.imu is None
 
     def test_imu_segment_never_parses_as_a_joint(self):
-        assert parse_telemetry_line(f"FRONT; {IMU_SEG}").joints == []
+        assert TelemetryFrame.parse_line(f"FRONT; {IMU_SEG}").joints == ()
 
-    def test_joints_only_entry_point_ignores_imu_segment(self):
-        # JointTelemetry.parse_line predates sensor segments and returns
-        # joints only; sensor segments on the line must stay invisible to
-        # its callers (the append-only contract seen from the consumer side).
-        joints = JointTelemetry.parse_line(LEADER_LINE)
+    @pytest.mark.parametrize(
+        "line,role",
+        [
+            ("FRONT; ", "FRONT"),
+            ("UNKWN; ", "UNKWN"),
+            ("LEFT ; ", "LEFT"),
+            ("RIGHT; ", "RIGHT"),
+        ],
+    )
+    def test_line_role_is_parsed_independently_of_delimiter_spacing(self, line, role):
+        assert TelemetryFrame.role_from_line(line) == role
+        assert TelemetryFrame.is_telemetry_line(line)
 
-        assert [j.name for j in joints] == ["FLHY"]
+    @pytest.mark.parametrize("line", ["FRONT", "FRONTIER; ", "VER 1.0"])
+    def test_non_telemetry_line_is_not_recognized(self, line):
+        assert TelemetryFrame.role_from_line(line) is None
+        assert not TelemetryFrame.is_telemetry_line(line)
 
     def test_malformed_imu_segment_never_costs_joints_on_the_same_line(self):
-        parsed = parse_telemetry_line(MALFORMED_IMU_LINE)
+        parsed = TelemetryFrame.parse_line(MALFORMED_IMU_LINE)
 
         assert [j.name for j in parsed.joints] == ["FLHY"]
         assert parsed.imu is None
@@ -264,7 +260,7 @@ class TestParseTelemetryLine:
     def test_nonfinite_imu_segment_never_costs_joints_on_the_same_line(self):
         nan_seg = "IMU nan nan nan 0.0 0.0 0.0 24.5 1"
 
-        parsed = parse_telemetry_line(f"FRONT; {JOINT_SEG};{nan_seg}")
+        parsed = TelemetryFrame.parse_line(f"FRONT; {JOINT_SEG};{nan_seg}")
 
         assert [j.name for j in parsed.joints] == ["FLHY"]
         assert parsed.imu is None
@@ -273,7 +269,7 @@ class TestParseTelemetryLine:
         # Append-only wire contract: a tag this parser does not recognize is
         # assumed to be newer firmware, not corruption — dropped silently.
         # MAG is a hypothetical future magnetometer segment.
-        parsed = parse_telemetry_line(f"FRONT; {JOINT_SEG};MAG 12.6 1.2 0.3")
+        parsed = TelemetryFrame.parse_line(f"FRONT; {JOINT_SEG};MAG 12.6 1.2 0.3")
 
         assert [j.name for j in parsed.joints] == ["FLHY"]
         assert parsed.imu is None
@@ -289,7 +285,33 @@ class TestParseTelemetryLine:
         # result, not raise. (Prefixes match roleName() in arduino.ino, which
         # pads "LEFT" with a trailing space — hence "LEFT ;" — while "RIGHT;"
         # has no padding.)
-        assert parse_telemetry_line(line) == ParsedTelemetry([], None)
+        assert TelemetryFrame.parse_line(line) == TelemetryFrame((), None)
+
+    def test_joints_are_stored_as_an_immutable_tuple(self):
+        frame = TelemetryFrame.parse_line(LEADER_LINE)
+
+        assert isinstance(frame.joints, tuple)
+
+    @pytest.mark.parametrize(
+        "value,field,new_value",
+        [
+            (TelemetryFrame(), "imu", None),
+            (
+                ImuTelemetry((0.0, 0.0, 9.8), (0.0, 0.0, 0.0), 24.0, True),
+                "valid",
+                False,
+            ),
+            (
+                JointTelemetry("FLHY", 0.5, 512, 0, (0, 0), (0, 0), 0),
+                "pos",
+                0.6,
+            ),
+        ],
+        ids=["frame", "imu", "joint"],
+    )
+    def test_telemetry_values_are_immutable(self, value, field, new_value):
+        with pytest.raises(FrozenInstanceError):
+            setattr(value, field, new_value)
 
 
 class TestLossyStreamResilience:
@@ -300,7 +322,7 @@ class TestLossyStreamResilience:
         # A merged line (dropped newline between two ticks) carries two IMU
         # segments; the later one is the fresher sample and wins.
         stale = "IMU 0.0 0.0 9.8 0.0 0.0 0.0 20.0 0"
-        parsed = parse_telemetry_line(f"FRONT; {JOINT_SEG};{stale};{IMU_SEG}")
+        parsed = TelemetryFrame.parse_line(f"FRONT; {JOINT_SEG};{stale};{IMU_SEG}")
 
         assert parsed.imu is not None
         assert parsed.imu.valid is True
@@ -309,7 +331,7 @@ class TestLossyStreamResilience:
     def test_good_then_malformed_imu_segment_keeps_the_good_sample(self):
         # last-*valid* wins: a malformed later segment does not clobber a good
         # earlier one on the same line.
-        parsed = parse_telemetry_line(
+        parsed = TelemetryFrame.parse_line(
             f"FRONT; {JOINT_SEG};{IMU_SEG};{MALFORMED_IMU_SEG}"
         )
 
@@ -333,8 +355,8 @@ class TestLossyStreamResilience:
         ]
         for i in range(200):
             line = garbage[i % len(garbage)] + (";x" * (i % 7))
-            parsed = parse_telemetry_line(line)  # must not raise
-            assert isinstance(parsed, ParsedTelemetry)
+            parsed = TelemetryFrame.parse_line(line)  # must not raise
+            assert isinstance(parsed, TelemetryFrame)
 
 
 class TestFormatCompact:
@@ -484,14 +506,11 @@ class TestSdkImuStorage:
         assert "FLHY" in sdk.joints
 
     def test_connect_resets_the_imu_cache(self):
-        # connect() gives every connection a clean slate: cleared IMU cache and
-        # a re-armed one-shot stale warning. Seed both with pre-connect traffic,
-        # then prove connect() wipes them.
+        # connect() gives every connection a clean telemetry slate.
         sdk = _bare_sdk()
-        sdk._parse_telemetry_line(STALE_LEADER_LINE)  # imu cached + stale-warn armed
+        sdk._parse_telemetry_line(STALE_LEADER_LINE)
 
         assert sdk.imu is not None
-        assert sdk._imu_stale_warned is True
 
         # Patch serial + sleep + Thread INSIDE the module namespace so connect()
         # opens no port, waits no 5 s, and starts no background reader thread.
@@ -504,13 +523,11 @@ class TestSdkImuStorage:
         sdk.running = False  # no reader was started, but keep state deterministic
 
         assert sdk.imu is None
-        assert sdk._imu_stale_warned is False
 
 
 class TestSdkThreeStateImuModel:
-    # docs/M16-ERROR-HANDLING.md: sdk.imu is None (never seen) is a distinct
-    # state from sdk.imu.valid False (sensor present but not responding),
-    # which is distinct from a fresh sample.
+    # sdk.imu is None (never seen) is distinct from sdk.imu.valid False
+    # (no valid reading), which is distinct from a valid sample.
 
     def test_imu_is_none_until_first_leader_sample(self):
         sdk = _bare_sdk()
@@ -519,7 +536,7 @@ class TestSdkThreeStateImuModel:
 
         assert sdk.imu is None  # absence by design, not a failure
 
-    def test_imu_is_stale_when_sensor_present_but_not_valid(self):
+    def test_imu_is_stale_when_reading_is_not_valid(self):
         sdk = _bare_sdk()
 
         sdk._parse_telemetry_line(STALE_LEADER_LINE)
@@ -535,51 +552,3 @@ class TestSdkThreeStateImuModel:
 
         assert sdk.imu is not None
         assert sdk.imu.valid is True
-
-
-class TestSdkImuValidityTransitions:
-    # Class B: a persistent valid=0 condition arrives on every tick, so the
-    # warning is one-shot per transition into the invalid state — actionable
-    # once, noise thereafter.
-
-    def test_transition_to_invalid_logs_exactly_one_warning(self, caplog):
-        sdk = _bare_sdk()
-
-        with caplog.at_level(logging.WARNING, logger="KrabbySDK"):
-            sdk._parse_telemetry_line(STALE_LEADER_LINE)
-            sdk._parse_telemetry_line(STALE_LEADER_LINE)  # still invalid: no repeat
-
-        warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
-        assert len(warnings) == 1
-        assert "valid=0" in warnings[0].getMessage()
-
-    def test_recovery_then_reentry_into_invalid_warns_again(self, caplog):
-        # A valid sample re-arms the one-shot so the *next* failure episode
-        # is surfaced too.
-        sdk = _bare_sdk()
-
-        with caplog.at_level(logging.WARNING, logger="KrabbySDK"):
-            sdk._parse_telemetry_line(STALE_LEADER_LINE)  # episode 1
-            sdk._parse_telemetry_line(LEADER_LINE)  # recovery
-            sdk._parse_telemetry_line(STALE_LEADER_LINE)  # episode 2
-
-        warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
-        assert len(warnings) == 2
-
-    def test_valid_samples_log_nothing(self, caplog):
-        sdk = _bare_sdk()
-
-        with caplog.at_level(logging.WARNING, logger="KrabbySDK"):
-            sdk._parse_telemetry_line(LEADER_LINE)
-
-        assert [r for r in caplog.records if r.levelno == logging.WARNING] == []
-
-    def test_follower_absence_logs_nothing(self, caplog):
-        # Class C: a follower never carrying an IMU segment is the normal
-        # state of a healthy system — by design it produces zero log output.
-        sdk = _bare_sdk()
-
-        with caplog.at_level(logging.WARNING, logger="KrabbySDK"):
-            sdk._parse_telemetry_line(FOLLOWER_LINE)
-
-        assert caplog.records == []

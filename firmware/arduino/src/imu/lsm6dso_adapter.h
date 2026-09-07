@@ -8,6 +8,7 @@
 #include "../i2c/arduino_i2c_bus.h"
 #include "../i2c/i2c_recovery.h"
 #include "imu_calibrator.h"
+#include "lsm6dso_configuration.h"
 #include "imu_constants.h"
 
 enum class Lsm6dsoInitializationResult : uint8_t
@@ -79,6 +80,15 @@ public:
     }
 
 private:
+    static bool motionIsAllZero(const ImuMeasurement &measurement)
+    {
+        for (uint8_t axis = 0; axis < 3; ++axis)
+            if (measurement.acceleration[axis].value() != 0.0f ||
+                measurement.angularRate[axis].value() != 0.0f)
+                return false;
+        return true;
+    }
+
     Lsm6dsoInitializationResult configureSensor()
     {
         isInitialized_ = false;
@@ -186,7 +196,25 @@ private:
                 LSM6DSO_ACCELERATION_METERS_PER_SECOND_SQUARED_PER_LSB);
         }
 
+        // A reset sensor may still acknowledge I2C while its powered-down outputs return zero.
+        if (motionIsAllZero(measurement) && !sensorConfigurationMatches())
+            return ImuMeasurement{false};
+
         return transformImuMeasurementToBodyFrame(measurement);
+    }
+
+    bool sensorConfigurationMatches()
+    {
+        uint8_t accelerometerConfiguration = 0;
+        uint8_t gyroscopeConfiguration = 0;
+        uint8_t commonConfiguration = 0;
+        return driver_.readRegister(&accelerometerConfiguration, LSM6DSO_CTRL1_XL_REGISTER) == IMU_SUCCESS &&
+               driver_.readRegister(&gyroscopeConfiguration, LSM6DSO_CTRL2_G_REGISTER) == IMU_SUCCESS &&
+               driver_.readRegister(&commonConfiguration, LSM6DSO_CTRL3_C_REGISTER) == IMU_SUCCESS &&
+               lsm6dsoConfigurationMatches(
+                   accelerometerConfiguration,
+                   gyroscopeConfiguration,
+                   commonConfiguration);
     }
 
     LSM6DSO driver_;

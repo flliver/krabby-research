@@ -1,15 +1,20 @@
 from dataclasses import dataclass
+from enum import IntEnum
+import math
 from typing import Tuple, Optional
 
-# Wire format: must match firmware (actuator_manager.h + arduino.ino).
-# Line starts with a role prefix "FRONT; ", "UNKNOWN; ", "LEFT; ", or "RIGHT; " then semicolon-separated segments.
-# Forwarded lines from left/right already include their role (LEFT; / RIGHT; ).
-# Example: "FRONT; FLHY 0.123 0 512 1 0 0 128 0;FLHL ...;..."
-# Segment format: <name> <pos> <pot> <current> <enL> <enR> <pwmL> <pwmR> <saf>
-# saf: cumulative HallA edge count since boot (pins depend on KRABBY_PIN_REV in board_pins.h).
+# Must match actuator_manager.h telemetry output.
+# Segment format: <name> <pos> <pot> <current> <enL> <enR> <pwmL> <pwmR> <saf> [<connection>]
+# connection: locally composed state, 0 unknown / 1 connected / 2 disconnected.
 
 
-@dataclass
+class ActuatorConnection(IntEnum):
+    UNKNOWN = 0
+    CONNECTED = 1
+    DISCONNECTED = 2
+
+
+@dataclass(frozen=True, slots=True)
 class JointTelemetry:
     name: str
     pos: float
@@ -18,39 +23,48 @@ class JointTelemetry:
     en: Tuple[int, int]
     pwm: Tuple[int, int]
     saf: int
-
-    # Role prefix (first segment of a line); not a joint.
-    ROLE_PREFIXES = ("JT", "FRONT", "UNKNOWN", "LEFT", "RIGHT")
+    connection_state: ActuatorConnection = ActuatorConnection.UNKNOWN
 
     @classmethod
     def from_tokens(cls, tokens) -> Optional["JointTelemetry"]:
         if not tokens:
             return None
-        if tokens[0] in cls.ROLE_PREFIXES:
-            tokens = tokens[1:] if tokens[0] == "JT" else None
-        if not tokens or len(tokens) != 9:
+        if not tokens or len(tokens) not in (9, 10):
             return None
-        name, pos, pot, cur, enL, enR, pwmL, pwmR, saf = tokens
+        name, pos, pot, cur, enL, enR, pwmL, pwmR, saf = tokens[:9]
         try:
+            position = float(pos)
+            connection_state = (
+                ActuatorConnection(int(tokens[9]))
+                if len(tokens) == 10
+                else ActuatorConnection.UNKNOWN
+            )
+            # A non-finite position was the legacy disconnection encoding.
+            if not math.isfinite(position):
+                connection_state = ActuatorConnection.DISCONNECTED
             return cls(
                 name=name,
-                pos=float(pos),
+                pos=position,
                 pot=int(pot),
                 current=int(cur),
                 en=(int(enL), int(enR)),
                 pwm=(int(pwmL), int(pwmR)),
                 saf=int(saf),
+                connection_state=connection_state,
             )
         except ValueError:
             return None
 
-    @classmethod
-    def parse_line(cls, line: str):
-        from firmware.interfaces.telemetry_parser import parse_telemetry_line
-
-        return parse_telemetry_line(line).joints
+    @property
+    def connected(self) -> bool:
+        return (
+            math.isfinite(self.pos)
+            and self.connection_state is not ActuatorConnection.DISCONNECTED
+        )
 
     def format_compact(self, target: Optional[float] = None) -> str:
+        if not self.connected:
+            return f"{self.name}:DISC,{self.pot},{self.current}"
         pos_part = f"{self.pos:.3f}"
         if target is not None:
             pos_part = f"{pos_part}/{target:.3f}"

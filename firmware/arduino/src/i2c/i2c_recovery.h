@@ -5,10 +5,6 @@
 // Retry scheduling and bus clearing for failed I2C devices. A Wire timeout
 // resets the AVR peripheral but cannot release SDA held by a slave or fault.
 
-// ---------------------------------------------------------------------------
-// When to retry
-// ---------------------------------------------------------------------------
-
 struct I2cRecoveryLimits
 {
     uint8_t badTicksBeforeRetry;   // consecutive failures before trying again
@@ -54,10 +50,6 @@ private:
     bool hasAttempted_;
 };
 
-// ---------------------------------------------------------------------------
-// How to free the bus
-// ---------------------------------------------------------------------------
-
 // Eight data bits plus ACK.
 static constexpr uint8_t I2C_BUS_CLEAR_PULSES = 9;
 
@@ -95,14 +87,6 @@ private:
     bool isWaitingForRelease_;
 };
 
-// Minimal bus interface; implementations may use GPIO or test doubles:
-//
-//   bool isSdaHigh();     // sample SDA with both lines released
-//   void sclLow();        // drive SCL low
-//   void sclRelease();    // let SCL float high
-//   void halfBit();       // half a bit period at the bus clock
-//   void sendStop();      // manual STOP: SDA low, SCL high, SDA high
-//   void restart();       // Wire.begin() and re-apply the bus timeout
 template <class Bus>
 I2cBusRecovery recoverI2cBus(Bus &bus)
 {

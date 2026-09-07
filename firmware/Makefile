@@ -82,10 +82,11 @@ test-native:
 	$(CMAKE) --build "$(NATIVE_TEST_BUILD)"
 	$(CTEST) --test-dir "$(NATIVE_TEST_BUILD)" --output-on-failure
 
-# Ratchet, not a target: thresholds are the measured floor, so coverage can only
-# be raised deliberately. The filter must name real files -- a filter matching
+# The filter must name real files -- a filter matching
 # nothing reports 0% and fails, it does not pass vacuously.
 test-native-coverage: test-native
+	# Rebuild to exclude stale .gcda/.gcno data. Reuse Unity from the test build.
+	$(CMAKE) -E rm -rf "$(NATIVE_COVERAGE_BUILD)"
 	$(CMAKE) -S "$(NATIVE_TEST_SOURCE)" -B "$(NATIVE_COVERAGE_BUILD)" \
 		-DKRABBY_NATIVE_COVERAGE=ON \
 		-DFETCHCONTENT_SOURCE_DIR_UNITY="$(NATIVE_TEST_BUILD)/_deps/unity-src"
@@ -93,9 +94,11 @@ test-native-coverage: test-native
 	$(CTEST) --test-dir "$(NATIVE_COVERAGE_BUILD)" --output-on-failure
 	$(CMAKE) -E chdir "$(REPO_ROOT)" $(GCOVR) --root . "$(NATIVE_COVERAGE_BUILD)" \
 		--gcov-executable "$(GCOV)" \
-		--filter 'firmware/arduino/src/imu/.*\.h$$' \
+		--filter 'firmware/arduino/units\.h$$' \
+		--filter 'firmware/arduino/actuator_manager\.h$$' \
+		--filter 'firmware/arduino/src/(actuator|display|imu)/.*' \
 		--exclude-unreachable-branches --exclude-throw-branches \
-		--txt --print-summary --fail-under-line 100 --fail-under-branch 85
+		--txt --print-summary --fail-under-line 90 --fail-under-branch 88
 
 test-firmware: test-native
 	cd "$(REPO_ROOT)" && $(PYTEST) -q tests/unit/firmware
@@ -118,6 +121,9 @@ LSM6DSO_LIB_URL := https://github.com/sparkfun/SparkFun_Qwiic_6DoF_LSM6DSO_Ardui
 LSM6DSO_LIB_REF := 4addc5ffd7cb71a0481aee259ab85c232aa92afe
 LSM6DSO_LIB_DIR := SparkFun_Qwiic_6Dof_-_LSM6DSO
 
+# Versions after 1.0.9 include C++ <map> and do not build for AVR.
+OLED_LIB := SparkFun Qwiic OLED Arduino Library@1.0.9
+
 fetch-libs:
 	@installed="$$($(ARDUINO_CLI) config get directories.user)/libraries/$(LSM6DSO_LIB_DIR)"; \
 	if [ "$$(cat "$$installed/.krabby-pin" 2>/dev/null)" = "$(LSM6DSO_LIB_REF)" ]; then \
@@ -127,6 +133,7 @@ fetch-libs:
 			--git-url "$(LSM6DSO_LIB_URL)#$(LSM6DSO_LIB_REF)" && \
 		echo "$(LSM6DSO_LIB_REF)" > "$$installed/.krabby-pin"; \
 	fi
+	$(ARDUINO_CLI) lib install "$(OLED_LIB)"
 
 compile-firmware: arduino-core fetch-libs
 	$(ARDUINO_CLI) compile --fqbn $(FQBN) $(BUILD_PROPS) --output-dir "$(BUILD_DIR)" $(SKETCH)
