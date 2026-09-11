@@ -6,6 +6,12 @@ Run from ``parkour/`` with the Isaac venv python, headless::
         python tests/integration/crab_hex_phase_cfg_dump.py --headless \\
         --task Isaac-Crab-Hex-Teacher-v0 --task Isaac-Crab-Hex-Flat-Walk-v0 --out /tmp/cfgs.json
 
+and for the sideways sibling (its own preset variable; never set both in one process)::
+
+    OMNI_KIT_ACCEPT_EULA=yes KRABBY_SIDE_PHASE=2c \\
+        python tests/integration/crab_hex_phase_cfg_dump.py --headless \\
+        --task Isaac-Crab-Hex-Side-Teacher-v0 --out /tmp/cfgs_side.json
+
 The process environment is the fixture: ``KRABBY_PHASE`` / ``KRABBY_PLANT`` (or a raw ``KRABBY_*``
 stack) must be set before launch because the scene cfg reads the USD path at import time and
 ``activate_phase()`` runs on the first import of the crab-hex config package. Output::
@@ -43,7 +49,7 @@ if str(PARKOUR_TASKS_SRC) not in sys.path:
 import gymnasium as gym  # noqa: E402
 from isaaclab.utils.dict import class_to_dict  # noqa: E402
 
-import parkour_tasks.crab_hex_forward_task  # noqa: E402,F401  (registers the tasks; runs activate_phase)
+import parkour_tasks  # noqa: E402,F401  (import_packages registers every task package; forward activates on KRABBY_PHASE, sideways on KRABBY_SIDE_PHASE)
 
 
 def main() -> int:
