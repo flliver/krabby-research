@@ -83,18 +83,43 @@ of the gate, add `--pause-after 1a`.
 
 ## The written 1a gate (also enforced by the driver after the 1a evals)
 
-On `slow__side`: **tripod median >= 0.40 AND completion >= 0.70** (the enforced pair — a failed
-formation must not burn the 2a-2c hours unattended). Watched but not enforced: tracking ratio
+On `slow__side`: **walking-hold tripod >= 0.40 AND completion >= 0.70** (the enforced pair — a
+failed formation must not burn the 2a-2c hours unattended). The walking-hold tripod is the
+minimum, over the holds the harness scores for tracking (|cmd| > 0.2 m/s: creep 0.25 and low
+0.35; the cmd-0 stand hold is excluded), of the per-hold tripod median
+(`tripod_score_by_hold`; driver `walking_tripod()` / `gate_1a_verdict()`). Watched but not enforced: tracking ratio
 median >= 0.50 at the 0.25 hold (no forward 1a tracking number is on record for comparison; the
 0.35 hold is expected to saturate), |duty A - duty B| <= 0.10 with both in [0.30, 0.55], cam
 `shaft_mean_abs_vel` median <= 0.3 rad/s (parked, per Caveat 2). Reference: forward era-B 1a
-0.86 / 14 falls / tripod 0.539 (`policy/manifest.yaml`). 0.40 is the era-A pre-mirror-loss tripod
-level (0.401 -> 0.517 after the mirror fix in the gait-formation-v2 record) — a floor, not a
+0.86 / 14 falls / episode tripod 0.539 (`policy/manifest.yaml`), i.e. **walking-hold tripod
+0.595** (creep 0.633 / low 0.595; `gait_eval/a15b_lineage/windows_w0_001_A15pB/slow__A15pB`) in
+the gate's own units. 0.40 is the era-A pre-mirror-loss tripod level (0.401 -> 0.517 on the
+walking-only `flat_walk_forward` schedule, 10 episodes:
+`crab_hex_forward_task/experiments/2026-08-13_0035_mirror_symmetry/RESULTS.md`) — a floor, not a
 like-for-like bar. The driver halts with status `gate_1a` both when the pair fails AND when the
-`slow__side` canary eval produced no metrics at all (three failed attempts): an ungated head never
-starts 2a unattended; carrying on is an explicit `--continue`.
+`slow__side` canary eval produced no usable number (three failed attempts, a schedule without a
+walking hold, or a walking hold on which no episode produced a scorable gait window): an ungated
+head never starts 2a unattended; carrying on is an explicit `--continue`, which rewrites the 1a
+record to `status ok` + `gate_1a_override` so a later relaunch never retrains 1a by accident.
+
+**Why the walking holds (revised 2026-09-11, after the first 1a run).** The gate was first written
+as the harness's episode `tripod_score` median, which is a steady-step-weighted mean over all
+three holds of the schedule with no command gate (`gait_eval/report.py`), stand hold included.
+The first sideways 1a head truly stands at cmd 0 (achieved 0.006 m/s, stand-hold tripod 0.001)
+and scored **0.355** on the episode number while its walking holds scored **0.537 / 0.533**; the
+forward 1a reference's 0.539 contains **0.453 earned on its stand hold by stepping through the
+stop** (0.066 m/s), its walking holds being 0.633 / 0.595. Under the episode definition a head
+that stands still needs walking tripod >= 0.60 to pass — above the forward reference itself —
+and the 0.40 floor was calibrated on a walking-only schedule (era-A 0.401 -> 0.517 on
+`flat_walk_forward`, `2026-08-13_0035_mirror_symmetry/RESULTS.md`). The driver does not re-score
+the first run's record; the user overrode it with `--continue` (see the Log).
 
 ## Decision table (filled by `decision_table.py`; forward cells from `crab_hex_forward_task/policy/manifest.yaml`)
+
+Cell format: `completion / falls / episode tripod (walk <min over walking holds — the gated number>)`
+for the sideways rows; the forward cells are episode tripods from the manifest, except the 1a flat
+cell which also carries the forward walking-hold value (0.595) so the gated statistic has a
+like-for-like reference.
 
 Tracking has no forward 1a-2c reference on record (the 0.65 figure on record is the 3a student).
 
@@ -168,3 +193,26 @@ is the recipe, held in reserve.
     the event must compose the offset with the body's world orientation (a forward-neutral fix,
     since the forward body is at identity when the event fires) and the 4b check re-run; it is
     NOT worked around in the sideways package.
+
+## Log
+
+- **2026-09-11 10:57** launched `--plant A15+B --phases 1a,2a,2b,2c --seed 3` (unit
+  `phases-2026-09-11_0414_sideways_formation-1789138664`).
+- **2026-09-11 13:37 halt `gate_1a`** on `seed3_1a_001_A15pB` (`model_4999.pt`, 2.57 h): episode
+  tripod 0.355 < 0.40 with completion 0.93, 7 falls, tracking 0.634. Per hold: stand 0.001 /
+  creep 0.537 / low 0.533. Step 0.77 / 23 falls; obstacles 0.78 / 22 (forward 1a: 0.69 / 31,
+  0.68 / 32). Analysis (workflow `wf_d7b3a538-afb`: 5 readers, 6 key claims x 2 adversarial
+  lenses; session brief `side_1a_brief.md`):
+  the gate compared a true stand against the forward head's stepping-through-the-stop; on the
+  walking holds the gait is an alternating tripod (cross-set contact correlation -0.83), duty A/B
+  inside the watched band, front/rear duty within 0.04, speed ceiling ~0.19 m/s at both walking
+  commands. Real deficits vs forward, carried as **watched items through 2a-2c**: walking-hold
+  tripod -0.06 to -0.10; tippy-tap 0.37 vs 0.23 on walking steps; outer-foot slip path 2-4x
+  forward (propulsion on ML/MR); cams not parked in EITHER task (1.79 vs 1.54 rad/s, FR/RR
+  shaft drift); the 7 falls are cross-course body-pitch collapses (4 nose-down / 3 tail-down,
+  3 of them during the stand hold while drifting); 12/100 stand holds drift > 0.5 m.
+  Clock income still rising ~+0.04/1k at 5k, above forward's, with no known conversion to
+  harness tripod.
+- **2026-09-11 (user decision, after a GUI look at the gait): fix the gate to the walking-hold
+  tripod, then `--continue`** — 2a-2c resume from `model_4999.pt` unretrained; the override
+  rewrites the 1a record to `status ok` + `gate_1a_override` (CHANGELOG row + REPORT block).

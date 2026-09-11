@@ -9,8 +9,12 @@ plant: A15+B
 aliases: []
 records:
 - CHARTER.md
-# Added after the driver writes them (first phase): REPORT.md, CHANGELOG.md, state.json, heads.json.
-# ``bundle_experiment.py --check`` requires every listed record to exist.
+- REPORT.md
+- CHANGELOG.md
+- state.json
+- heads.json
+# ``bundle_experiment.py --check`` requires every listed record to exist (the driver writes the
+# last four; first committed at the 1a gate halt of 2026-09-11, re-committed as the campaign runs).
 head:
   none: "the 2c decision names the head"
 evals:

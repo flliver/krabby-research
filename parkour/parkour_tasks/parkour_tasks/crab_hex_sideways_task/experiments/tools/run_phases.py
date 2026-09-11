@@ -56,8 +56,10 @@ CANARY_KEYS = ("KRABBY_LIN_VEL_X", "KRABBY_TRACK_SIGMA2", "KRABBY_TRACK_L1_W", "
 SMOKE_ITERS = 2000       # from-scratch soundness window (rung-v)
 STALL_S = 900
 DEFAULT_PAUSE = "2c,3a,3b"
-GATE_1A_TRIPOD = 0.40     # era-A pre-mirror-loss tripod level -- a floor, not a like-for-like bar
+GATE_1A_TRIPOD = 0.40     # era-A pre-mirror-loss tripod level (measured on walking holds) -- a floor, not a bar
 GATE_1A_COMPLETION = 0.70
+WALKING_CMD_MIN = 0.2     # documentation: the harness's lin_vel_clip -- a hold commanded at |vx| <= this is a stand
+                          # hold and gets tracking ratio n == 0, which is what walking_tripod() reads
 
 
 def _load(path: Path, name: str):
@@ -156,12 +158,43 @@ def expo_lines(ex: dict) -> list[str]:
     ]
 
 
+def walking_tripod(a: dict) -> tuple[float | None, dict[str, float | None]]:
+    """Per-hold tripod medians and their minimum over the WALKING holds of the schedule.
+
+    The harness's episode ``tripod_score`` is a steady-step-weighted mean over EVERY hold, the
+    cmd-0 stand hold included and with no command gate (gait_eval/report.py), so a head that truly
+    stands at zero command scores ~0 on a third of the episode while a head that keeps stepping
+    through its stop does not (the forward 1a reference: stand-hold tripod 0.453 at 0.066 m/s;
+    the first sideways 1a head: 0.001 at 0.006 m/s, walking holds 0.537 / 0.533, episode 0.355).
+    The gate therefore reads the holds the harness itself scores for tracking
+    (``tracking_by_hold[h].ratio.n > 0``, i.e. |cmd| > lin_vel_clip) and takes the minimum, so
+    every walking speed must clear the floor. 2026-09-11 finding; see the CHARTER's gate section.
+    """
+    by_hold = {h: (v or {}).get("median") for h, v in (a.get("tripod_score_by_hold") or {}).items()}
+    track = a.get("tracking_by_hold") or {}
+    # Walking holds are enumerated from the TRACKING block (the harness writes one entry per hold of
+    # the schedule; ratio.n > 0 <=> |cmd| > lin_vel_clip = WALKING_CMD_MIN), NOT from the tripod
+    # block, which only carries the holds where at least one episode produced a scorable gait
+    # window: a walking hold with no tripod median is UNMEASURED (the head never cycled its feet
+    # at that command), so the number is None and the gate halts instead of passing on the rest.
+    walking_holds = [h for h, t in track.items() if ((((t or {}).get("ratio") or {}).get("n")) or 0) > 0]
+    for h in walking_holds:
+        by_hold.setdefault(h, None)          # named in the by-hold string as n/a
+    meds = [by_hold[h] for h in walking_holds]
+    if not meds or any(m is None for m in meds):
+        return None, by_hold
+    return min(meds), by_hold
+
+
 def summarize(a: dict | None) -> dict:
     if not a:
         return {}
     fc = a.get("fall_classes", {})
     poly = a.get("support_polygon", {})
+    tri_walk, tri_by_hold = walking_tripod(a)
     return {"tripod": (a.get("tripod_score") or {}).get("median"),
+            "tripod_walking": tri_walk,       # the gated number (min over walking holds)
+            "tripod_by_hold": tri_by_hold,
             "completion": a.get("schedule_completion_rate"),
             "tracking": (a.get("tracking_ratio") or {}).get("median"),
             "falls": a.get("termination_reasons", {}).get("fall", 0),
@@ -542,7 +575,9 @@ def phase_lines(rec: dict, spec) -> list[str]:
         lines.append(f"- student rollouts: mean episode length first50 {fmt(st.get('ep_len_first'))} -> last50 {fmt(st.get('ep_len_last'))} steps | "
                      f"crab_failure last50 {fmt(st.get('crab_failure_last'))}")
     if rec.get("ckpt") and rec.get("evals"):
-        lines.append(f"- slow canary (side manifest): tripod {fmt(s.get('tripod'))} | completion {fmt(s.get('completion'))} | "
+        by_hold = " / ".join(f"{h} {fmt(v)}" for h, v in (s.get("tripod_by_hold") or {}).items()) or "n/a"
+        lines.append(f"- slow canary (side manifest): walking-hold tripod {fmt(s.get('tripod_walking'))} (gated; by hold: {by_hold}; "
+                     f"episode {fmt(s.get('tripod'))}) | completion {fmt(s.get('completion'))} | "
                      f"tracking {fmt(s.get('tracking'))} | falls {s.get('falls')}/{s.get('n')} | pitch-fwd share {fmt(s.get('pitch_fwd_share'))}")
         lines.append(f"- step onset (side manifest, shallow 0.05-0.2): completion {fmt(p.get('completion'))} | falls {p.get('falls')}/{p.get('n')} | "
                      f"pitch-fwd share {fmt(p.get('pitch_fwd_share'))}")
@@ -571,22 +606,38 @@ def run_phase(c: Campaign, spec, resume_ckpt: str | None, iters: int, do_eval: b
         rec["evals"]["obst"] = eval_obst(c, spec, ckpt, tag)
         # written 1a gate (Part F): a failed formation must not burn the 2a-2c hours unattended.
         if spec.name == "1a" and rec["status"] == "ok":
-            s = rec["evals"].get("slow") or {}
-            tri, comp = s.get("tripod"), s.get("completion")
-            if tri is None or comp is None:
-                # the canary produced no metrics (three eval attempts failed): an ungated head must
-                # not start 2a unattended either -- proceeding is an explicit --continue decision
-                rec["status"] = "gate_1a"
-                c.notify(f"{tag}: 1a formation gate could not be evaluated — slow__side produced no metrics "
-                         f"(tripod={tri!r}, completion={comp!r}); campaign HALTED (inspect the eval log, then "
-                         "relaunch with --continue to carry on ungated, or fix and --redo)")
-            elif tri < GATE_1A_TRIPOD or comp < GATE_1A_COMPLETION:
-                rec["status"] = "gate_1a"
-                c.notify(f"{tag}: 1a formation gate FAILED — tripod {tri:.3f} (need >= {GATE_1A_TRIPOD}) / "
-                         f"completion {comp:.3f} (need >= {GATE_1A_COMPLETION}) on slow__side — campaign HALTED "
-                         "(relaunch with --continue to override and carry on, or fix and --redo)")
+            status, msg = gate_1a_verdict(rec["evals"].get("slow") or {})
+            if status == "ok":
+                c.log(f"{tag}: {msg}")
+            else:
+                rec["status"] = status
+                c.notify(f"{tag}: {msg}")
     rec["checks"] = phase_checks(rec, spec, c)
     return rec
+
+
+def gate_1a_verdict(s: dict) -> tuple[str, str]:
+    """The written 1a gate on the slow-canary summary: ``("ok" | "gate_1a", message)``.
+
+    Enforced pair: walking-hold tripod (``summarize()["tripod_walking"]``: the minimum over the holds
+    with a walking command; the cmd-0 stand hold is excluded, see ``walking_tripod``) >= GATE_1A_TRIPOD
+    AND completion >= GATE_1A_COMPLETION. No metrics (three eval attempts failed, or no walking hold
+    in the schedule) is a halt too: an ungated head must not start 2a unattended -- proceeding is an
+    explicit --continue decision.
+    """
+    tri, comp = s.get("tripod_walking"), s.get("completion")
+    by_hold = ", ".join(f"{h} {v:.3f}" if v is not None else f"{h} n/a"
+                        for h, v in (s.get("tripod_by_hold") or {}).items()) or "none"
+    if tri is None or comp is None:
+        return "gate_1a", (f"1a formation gate could not be evaluated — slow__side produced no walking-hold tripod "
+                           f"/ completion (walking tripod={tri!r}, completion={comp!r}; by hold: {by_hold}); campaign "
+                           "HALTED (inspect the eval log, then relaunch with --continue to carry on ungated, or fix and --redo)")
+    if tri < GATE_1A_TRIPOD or comp < GATE_1A_COMPLETION:
+        return "gate_1a", (f"1a formation gate FAILED — walking-hold tripod {tri:.3f} (min over walking holds, need >= "
+                           f"{GATE_1A_TRIPOD}; by hold: {by_hold}) / completion {comp:.3f} (need >= {GATE_1A_COMPLETION}) "
+                           "on slow__side — campaign HALTED (relaunch with --continue to override and carry on, or fix and --redo)")
+    return "ok", (f"1a formation gate passed — walking-hold tripod {tri:.3f} (by hold: {by_hold}) / "
+                  f"completion {comp:.3f} on slow__side")
 
 
 # ------------------------------------------------------------------ pause / continue
@@ -698,7 +749,20 @@ def main() -> int:
         if rec and rec.get("ckpt") and not args.redo and not (i == 0 and args.from_checkpoint) and (
                 rec.get("status") == "ok" or (rec.get("status") == "gate_1a" and args.cont)):
             if rec.get("status") == "gate_1a":
+                nxt = phases[i + 1] if i + 1 < len(phases) else "nothing"
+                stamp = f"{datetime.now():%Y-%m-%d %H:%M}"
                 c.log(f"{name}: gate_1a recorded but --continue overrides — using {Path(rec['ckpt']).name} unretrained")
+                # make the record self-describing: a later relaunch WITHOUT --continue must not retrain
+                # this phase from scratch on top of a lineage that already resumed from its head
+                rec["status"] = "ok"
+                rec["gate_1a_override"] = f"{stamp} --continue (see the CHARTER Log)"
+                c.recs[name] = rec
+                c.save()
+                c.changelog_row(f"phase {name}: gate_1a overridden by --continue — {Path(rec['ckpt']).name} carried into {nxt} "
+                                "unretrained (gate revised to the walking-hold tripod, see CHARTER); record status -> ok")
+                c.report_block(f"## Phase {name} — gate_1a overridden — {stamp}\n\n- `--continue`: {Path(rec['ckpt']).name} "
+                               f"carried into {nxt} unretrained; the gate was revised to the walking-hold tripod (CHARTER: "
+                               "gate section + Log); the 1a record now reads `status ok` with `gate_1a_override`")
             else:
                 c.log(f"{name}: already recorded ok ({Path(rec['ckpt']).name}) — skipping")
             prev_ckpt = rec["ckpt"]

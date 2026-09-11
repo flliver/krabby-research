@@ -7,7 +7,9 @@ recomputes tripod-set duty A/B from ``raw/episode_*.npz`` (contact = ``foot_forc
 contact_force_threshold``, masked by ``steady_mask``; tripod A = FL/MR/RL, B = FR/ML/RR in the
 harness's ``FOOT_ORDER``), prints the CHARTER's decision table with the forward reference cells
 hard-coded from ``crab_hex_forward_task/policy/manifest.yaml``, and evaluates the written 1a gate
-(tripod median >= 0.40 AND completion >= 0.70 on the flat canary).
+(walking-hold tripod >= 0.40 AND completion >= 0.70 on the flat canary; the walking-hold tripod is
+the minimum over the holds with a walking command of the per-hold median -- the cmd-0 stand hold
+is excluded, see ``walking_tripod`` and the CHARTER's gate section, revised 2026-09-11).
 
     decision_table.py --campaign-dir <dir> [--phases 1a,2a,2b,2c]
     decision_table.py --eval-dir 1a=<scenario_metrics dir> [--eval-dir 1a:step=<dir> ...]
@@ -30,9 +32,12 @@ TRIPOD_B = ("FR_Footpad", "ML_Footpad", "RR_Footpad")
 A_IDX = [FOOT_ORDER.index(n) for n in TRIPOD_A]
 B_IDX = [FOOT_ORDER.index(n) for n in TRIPOD_B]
 
-# policy/manifest.yaml (forward reference of record, A15+B, verified 2026-09-11): completion / falls / tripod
+# policy/manifest.yaml (forward reference of record, A15+B, verified 2026-09-11): completion / falls / episode
+# tripod; the 1a flat cell also carries the walking-hold tripod (min over creep 0.633 / low 0.595) read from
+# logs/rsl_rl/gait_eval/a15b_lineage/windows_w0_001_A15pB/slow__A15pB/seed001/2026-09-07_03-54-50 -- the
+# gate's own units. Later forward windows' per-hold values are not on record here.
 FWD = {
-    "1a": ("0.86 / 14 / 0.539", "0.69 / 31", "0.68 / 32"),
+    "1a": ("0.86 / 14 / 0.539 (walk 0.595)", "0.69 / 31", "0.68 / 32"),
     "2a": ("0.92 / 8 / 0.513", "0.74 / 26", "0.56 / 44"),
     "2b": ("0.85 / 15 / 0.507", "0.63 / 37", "0.58 / 42"),
     "2c": ("0.81 / 19 / 0.500", "0.68 / 32", "0.66 / 34"),
@@ -67,26 +72,56 @@ def duty_ab(run_dir: Path, threshold: float = 1.0) -> tuple[float | None, float 
     return float(np.mean(a_vals)), float(np.mean(b_vals))
 
 
+def walking_tripod(agg: dict) -> tuple[float | None, dict[str, float | None]]:
+    """Min over the walking holds of the per-hold tripod median, plus the per-hold medians.
+
+    Same rule as ``tools/run_phases.py::walking_tripod`` (kept standalone here): a hold is a walking
+    hold when the harness scored it for tracking (``tracking_by_hold[h].ratio.n > 0``, i.e. |cmd| >
+    lin_vel_clip 0.2). The episode ``tripod_score`` averages the cmd-0 stand hold in, which scores ~0
+    for a head that truly stands -- the forward references' episode numbers include a stand hold
+    on which that head kept stepping (0.453), so only the walking holds compare like for like.
+    """
+    by_hold = {h: _med(v) for h, v in (agg.get("tripod_score_by_hold") or {}).items()}
+    track = agg.get("tracking_by_hold") or {}
+    # walking holds come from the TRACKING block (one entry per hold of the schedule); the tripod
+    # block only carries holds with a scorable gait window, so a walking hold missing there is
+    # UNMEASURED -> None (the gate halts), never silently dropped from the minimum
+    walking_holds = [h for h, t in track.items() if ((((t or {}).get("ratio") or {}).get("n")) or 0) > 0]
+    for h in walking_holds:
+        by_hold.setdefault(h, None)
+    meds = [by_hold[h] for h in walking_holds]
+    if not meds or any(m is None for m in meds):
+        return None, by_hold
+    return min(meds), by_hold
+
+
 def cell(agg: dict | None) -> str:
+    """``completion / falls/n / episode tripod (walk <min over walking holds>)``. The forward reference
+    cells (manifest) carry the episode tripod only (1a also its walking-hold value), so both numbers
+    are shown for the sideways rows."""
     if not agg:
         return ""
     tri = _med(agg.get("tripod_score"))
+    walk, _ = walking_tripod(agg)
     comp = agg.get("schedule_completion_rate")
     n = agg.get("n_episodes")
     falls = (agg.get("termination_reasons") or {}).get("fall", 0)
     parts = [f"{comp:.2f}" if comp is not None else "n/a", f"{falls}/{n}" if n else str(falls)]
-    if tri is not None:
-        parts.append(f"{tri:.2f}")
+    if tri is not None or walk is not None:
+        parts.append((f"{tri:.2f}" if tri is not None else "n/a") + (f" (walk {walk:.2f})" if walk is not None else ""))
     return " / ".join(parts)
 
 
 def gate_1a(flat_agg: dict) -> tuple[bool, str]:
-    tri = _med(flat_agg.get("tripod_score"))
+    """The written 1a gate: walking-hold tripod >= GATE_TRIPOD AND completion >= GATE_COMPLETION."""
+    tri, by_hold = walking_tripod(flat_agg)
     comp = flat_agg.get("schedule_completion_rate")
     ok = tri is not None and comp is not None and tri >= GATE_TRIPOD and comp >= GATE_COMPLETION
     tri_s = f"{tri:.3f}" if tri is not None else "n/a"
     comp_s = f"{comp:.3f}" if comp is not None else "n/a"
-    return ok, f"tripod {tri_s} (need >= {GATE_TRIPOD}), completion {comp_s} (need >= {GATE_COMPLETION})"
+    holds = ", ".join(f"{h} {v:.3f}" if v is not None else f"{h} n/a" for h, v in by_hold.items()) or "none"
+    return ok, (f"walking-hold tripod {tri_s} (min over walking holds; by hold: {holds}; need >= {GATE_TRIPOD}), "
+                f"completion {comp_s} (need >= {GATE_COMPLETION})")
 
 
 def _dirs_from_campaign(campaign_dir: Path) -> dict[str, dict[str, Path]]:
