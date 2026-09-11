@@ -17,6 +17,14 @@
 import h5py  # noqa: F401
 
 import argparse
+import os
+import sys
+
+# See train.py: without the source dir first, ``parkour_tasks`` is a namespace package and
+# ``import_packages`` (every task package's gym registrations) never runs.
+_PARKOUR_TASKS_SRC = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "parkour_tasks"))
+if _PARKOUR_TASKS_SRC not in sys.path:
+    sys.path.insert(0, _PARKOUR_TASKS_SRC)
 
 from isaaclab.app import AppLauncher
 
@@ -80,6 +88,7 @@ export_deploy_policy_as_onnx,
 from scripts.rsl_rl.vecenv_wrapper import ParkourRslRlVecEnvWrapper
 
 import isaaclab_tasks  # noqa: F401
+import parkour_tasks  # noqa: F401
 from isaaclab_tasks.utils import get_checkpoint_path, parse_env_cfg
 
 

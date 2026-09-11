@@ -15,6 +15,15 @@ with `Isaac` in their name.
 
 """Launch Isaac Sim Simulator first."""
 
+import os
+import sys
+
+# See scripts/rsl_rl/train.py: with ``parkour/`` on sys.path the bare name ``parkour_tasks`` is a
+# namespace package and ``import_packages`` (the gym registrations) never runs.
+_PARKOUR_TASKS_SRC = os.path.join(os.path.dirname(os.path.abspath(__file__)), "parkour_tasks")
+if _PARKOUR_TASKS_SRC not in sys.path:
+    sys.path.insert(0, _PARKOUR_TASKS_SRC)
+
 from isaaclab.app import AppLauncher
 
 # launch omniverse app
