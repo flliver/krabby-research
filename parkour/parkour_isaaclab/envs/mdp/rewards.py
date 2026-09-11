@@ -7,6 +7,7 @@ from isaaclab.sensors import ContactSensor
 from isaaclab.assets import Articulation
 from isaaclab.utils.math  import euler_xyz_from_quat, wrap_to_pi, quat_apply
 from parkour_isaaclab.envs.mdp.parkours import ParkourEvent
+from . import travel_frame as _travel_frame  # underscore-prefixed: not re-exported by ``mdp/__init__``'s ``import *``
 from parkour_tasks.crab_hex_forward_task.mdp.crab_hex_stride_reward import stride_length_reward_step
 from parkour_tasks.crab_hex_forward_task.mdp.crab_hex_clock_reward import (
     APEX_SIGMA_M as CLOCK_APEX_SIGMA_M,
@@ -33,6 +34,27 @@ if TYPE_CHECKING:
 
 import cv2
 import numpy as np 
+
+
+def _travel_yaw(env: ParkourManagerBasedRLEnv) -> float:
+    """Constant yaw of the travel frame relative to the body frame, from the env cfg.
+
+    The forward-walk task's cfg classes have no ``travel_yaw`` attribute, so this
+    returns ``0.0`` there and every travel-frame helper below degenerates to the
+    identity (see ``parkour_isaaclab/envs/mdp/travel_frame.py``). ``env.cfg`` is
+    stable after ``__post_init__``, so reading it per call is free of surprises.
+    """
+    return float(getattr(env.cfg, "travel_yaw", 0.0))
+
+
+def _vel_travel_xy(asset: Articulation, env: ParkourManagerBasedRLEnv) -> torch.Tensor:
+    """The asset's planar root velocity expressed in the travel frame.
+
+    At ``travel_yaw == 0.0`` (the forward task) this is ``root_lin_vel_b[:, :2]``
+    itself -- the same tensor, no arithmetic.
+    """
+    return _travel_frame.vel_travel_xy(asset.data.root_lin_vel_b[:, :2], _travel_yaw(env))
+
 
 class reward_feet_edge(ManagerTermBase):
     def __init__(self, cfg: RewardTermCfg, env: ParkourManagerBasedRLEnv):
@@ -127,10 +149,10 @@ def penalty_lin_vel_y_l2(
     cmd_threshold: float = 0.05,
     min_forward_speed_cmd: float = 0.12,
 ) -> torch.Tensor:
-    """Penalize lateral body velocity when only forward motion is commanded."""
+    """Penalize the cross-travel body velocity when only travel-axis motion is commanded."""
     asset: Articulation = env.scene[asset_cfg.name]
     cmd = env.command_manager.get_command(command_name)
-    vy = asset.data.root_lin_vel_b[:, 1]
+    vy = _vel_travel_xy(asset, env)[:, 1]
     no_lateral_cmd = torch.abs(cmd[:, 1]) < cmd_threshold
     forward_cmd = torch.abs(cmd[:, 0]) > min_forward_speed_cmd
     return torch.square(vy) * (no_lateral_cmd & forward_cmd).float()
@@ -423,7 +445,7 @@ def reward_obstacle_clearance(
     )
     cmd = env.command_manager.get_command(command_name)
     forward_cmd = cmd[:, 0] > min_forward_speed_cmd
-    vx = asset.data.root_lin_vel_b[:, 0]
+    vx = _vel_travel_xy(asset, env)[:, 0]
     tilt_sq = torch.sum(torch.square(asset.data.projected_gravity_b[:, :2]), dim=1)
     progressing = (goal_prog >= min_goal_progress).float()
     moving = ((vx >= min_forward_speed) & forward_cmd).float()
@@ -699,6 +721,12 @@ def reward_tracking_yaw(
     q = asset.data.root_quat_w
     yaw = torch.atan2(2*(q[:,0]*q[:,3] + q[:,1]*q[:,2]),
                     1 - 2*(q[:,2]**2 + q[:,3]**2))
+    # Travel-frame tasks hold a constant yaw offset from the waypoint direction, so the
+    # error is taken against ``target_yaw - travel_yaw`` and wrapped (the offset can push
+    # the raw difference past +-pi). At travel_yaw 0 the original expression runs unchanged.
+    travel_yaw = _travel_yaw(env)
+    if travel_yaw != 0.0:
+        return torch.exp(-torch.abs(wrap_to_pi(parkour_event.target_yaw - yaw - travel_yaw)))
     return torch.exp(-torch.abs((parkour_event.target_yaw - yaw)))
 
 
@@ -801,9 +829,10 @@ def reward_forward_progress_along_command(
     min_cmd_norm: float = 0.12,
     max_speed_scale: float = 2.0,
 ) -> torch.Tensor:
-    """Dense nonnegative progress: base linear velocity (body frame) along commanded planar direction.
+    """Dense nonnegative progress: base linear velocity (travel frame) along commanded planar direction.
 
-    Matches body-frame velocity commands. Only applies when planar command norm exceeds ``min_cmd_norm``.
+    Matches travel-frame velocity commands (the body frame itself when ``travel_yaw`` is 0).
+    Only applies when planar command norm exceeds ``min_cmd_norm``.
     Clips at ``max_speed_scale`` [m/s] along the projection.
     """
     asset = env.scene[asset_cfg.name]
@@ -812,7 +841,7 @@ def reward_forward_progress_along_command(
     norm = torch.norm(cmd_xy, dim=1)
     active = norm > min_cmd_norm
     dir_xy = cmd_xy / (norm.unsqueeze(-1) + 1e-8)
-    vel_b_xy = asset.data.root_lin_vel_b[:, :2]
+    vel_b_xy = _vel_travel_xy(asset, env)
     progress = torch.sum(vel_b_xy * dir_xy, dim=1)
     progress = torch.clamp(progress, min=0.0, max=max_speed_scale)
     return progress * active.float()
@@ -998,7 +1027,29 @@ def penalty_tracking_error_l1(
     deficit; as a pure penalty its optimum is exact tracking."""
     asset: Articulation = env.scene[asset_cfg.name]
     cmd = env.command_manager.get_command(command_name)
-    return torch.norm(cmd[:, :2] - asset.data.root_lin_vel_b[:, :2], dim=1)
+    return torch.norm(cmd[:, :2] - _vel_travel_xy(asset, env), dim=1)
+
+
+def track_lin_vel_travel_exp(
+    env: ParkourManagerBasedRLEnv,
+    std: float,
+    command_name: str,
+    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
+) -> torch.Tensor:
+    """Travel-frame twin of IsaacLab's ``track_lin_vel_xy_exp``.
+
+    Same term name, weight and params as the stock term; the only difference is that
+    the commanded planar velocity is compared against the *travel-frame* body velocity.
+    At ``travel_yaw == 0.0`` the rotation is the identity and this reproduces the stock
+    formula bitwise. ``asset_cfg`` must have a default: the reward term's params carry
+    only ``command_name`` and ``std``.
+    """
+    asset: Articulation = env.scene[asset_cfg.name]
+    cmd = env.command_manager.get_command(command_name)
+    # ``_vel_travel_xy`` already applies the travel-frame rotation, hence ``travel_yaw=0.0``
+    # at this call site -- ``track_lin_vel_exp`` would otherwise rotate a second time. What
+    # remains from ``track_lin_vel_exp`` is the IsaacLab kernel with its original op order.
+    return _travel_frame.track_lin_vel_exp(cmd[:, :2], _vel_travel_xy(asset, env), std, 0.0)
 
 
 def penalty_mechanical_power(
@@ -1254,7 +1305,7 @@ class RewardStrideLength(ManagerTermBase):
     ) -> torch.Tensor:
         asset: Articulation = env.scene[asset_cfg.name]
         contact_sensor: ContactSensor = env.scene.sensors[sensor_cfg.name]
-        root_lin_vel_b_xy = asset.data.root_lin_vel_b[:, :2]
+        root_lin_vel_b_xy = _vel_travel_xy(asset, env)
         command_xy = env.command_manager.get_command(command_name)[:, :2]
         in_contact = contact_sensor.data.current_contact_time[:, self.body_ids] > 0.0
         first_contact = contact_sensor.compute_first_contact(env.step_dt)[:, self.body_ids]

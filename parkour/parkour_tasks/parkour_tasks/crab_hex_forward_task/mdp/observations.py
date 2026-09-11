@@ -14,6 +14,7 @@ from isaaclab.managers import ObservationTermCfg
 
 from parkour_isaaclab.envs.mdp.observations import ExtremeParkourObservations
 from parkour_isaaclab.envs.mdp.parkours import ParkourEvent
+from parkour_isaaclab.envs.mdp.travel_frame import yaw_error
 from parkour_isaaclab.utils.nonfinite_logging import warn_if_nonfinite
 
 from parkour_tasks.crab_hex_forward_task.mdp import crab_hex_linkage as linkage
@@ -116,10 +117,15 @@ class CrabHexParkourObservations(ExtremeParkourObservations):
         roll, pitch, yaw = euler_xyz_from_quat(self.asset.data.root_quat_w)
         imu_obs = torch.stack((wrap_to_pi(roll), wrap_to_pi(pitch)), dim=1).to(self.device)
         if env.common_step_counter % 5 == 0:
-            self.delta_yaw = (self.parkour_event.target_yaw - wrap_to_pi(yaw)).reshape(self.num_envs)
-            self.delta_next_yaw = (self.parkour_event.next_target_yaw - wrap_to_pi(yaw)).reshape(
-                self.num_envs
-            )
+            # ``travel_yaw`` is absent on the forward cfg classes -> 0.0, and ``yaw_error``
+            # is then exactly ``target_yaw - wrap_to_pi(yaw)``, unwrapped, as before.
+            travel_yaw = float(getattr(env.cfg, "travel_yaw", 0.0))
+            self.delta_yaw = yaw_error(
+                self.parkour_event.target_yaw, wrap_to_pi(yaw), travel_yaw
+            ).reshape(self.num_envs)
+            self.delta_next_yaw = yaw_error(
+                self.parkour_event.next_target_yaw, wrap_to_pi(yaw), travel_yaw
+            ).reshape(self.num_envs)
             self.measured_heights = self._get_heights()
         # Flat-walk: velocity command is straight ahead; parkour goal yaw biases crab/drift.
         # NOTE(PLAN F turning school, 2026-08-27): with KRABBY_HEADING set, flat tiles carry
@@ -213,5 +219,7 @@ class CrabHexObservationDeltaYawOk(ManagerTermBase):
             parkour_event: ParkourEvent = env.parkour_manager.get_term(parkour_name)
             asset: Articulation = env.scene[asset_cfg.name]
             _, _, yaw = euler_xyz_from_quat(asset.data.root_quat_w)
-            self.delta_yaw = parkour_event.target_yaw - wrap_to_pi(yaw)
+            self.delta_yaw = yaw_error(
+                parkour_event.target_yaw, wrap_to_pi(yaw), float(getattr(env.cfg, "travel_yaw", 0.0))
+            )
         return (self.delta_yaw < threshold).unsqueeze(-1)

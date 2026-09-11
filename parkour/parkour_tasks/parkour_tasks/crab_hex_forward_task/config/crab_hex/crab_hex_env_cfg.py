@@ -456,6 +456,14 @@ class CrabHexTeacherEnvCfg(UnitreeGo2TeacherParkourEnvCfg):
 
         self._crab_hex_apply_teacher_mode(_crab_hex_teacher_mode())
 
+    def _phase_rewards_cfg(self) -> CrabHexFlatWalkRewardsCfg:
+        """The rewards cfg the paradigm phase-2 branch installs (see
+        ``_crab_hex_apply_teacher_mode``). A method, not a dataclass field: it does not
+        appear in ``class_to_dict`` dumps, so the forward config is unchanged. Sibling
+        tasks (e.g. the sideways walk) override it to install their own travel-frame
+        variant of the same 35 terms."""
+        return CrabHexFlatWalkRewardsCfg()
+
     def _crab_hex_apply_teacher_mode(self, mode: str) -> None:
         """Mode-specific MDP (rewards / terrain / actions). ``CrabHexFlatWalkEnvCfg`` calls this
         with ``"full"`` regardless of ``KRABBY_HEX_TEACHER_MODE`` (a ``KRABBY_PHASE`` preset exports
@@ -465,7 +473,7 @@ class CrabHexTeacherEnvCfg(UnitreeGo2TeacherParkourEnvCfg):
             # built from the same knobs the flat-walk task uses (see apply_flat_walk_knobs).
             # Mirrors ``CrabHexFlatWalkEnvCfg`` exactly: its class-level rewards/terminations, the
             # ``full`` action restore its parent chain applies (mode unset -> "full"), then the knobs.
-            self.rewards = CrabHexFlatWalkRewardsCfg()
+            self.rewards = self._phase_rewards_cfg()
             self.terminations = CrabHexFlatWalkTerminationsCfg()
             _apply_crab_hex_full_actions(self)
             apply_flat_walk_knobs(self)

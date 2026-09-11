@@ -54,8 +54,14 @@ def score_episode(
     n_steps: int,
     action_groups: dict[str, list[int]] | None = None,
     joint_vel_groups: dict[str, list[int]] | None = None,
+    travel_yaw: float = 0.0,
 ) -> dict:
-    """All derived metrics for one episode, per hold plus an episode roll-up."""
+    """All derived metrics for one episode, per hold plus an episode roll-up.
+
+    ``travel_yaw`` is the constant yaw offset of the travel frame from the body frame (0.0 for the
+    forward task, +pi/2 for the sideways task); it is threaded through to every metric that reads
+    orientation or velocity so the harness serves both tasks unchanged at 0.0.
+    """
     threshold = float(scenario.get_default("contact_force_threshold"))
     min_window_steps = max(1, int(round(float(scenario.get_default("min_window_s")) / dt)))
     fall_trim = int(round(float(scenario.get_default("fall_exclusion_s")) / dt))
@@ -101,7 +107,7 @@ def score_episode(
         if idx.size >= min_window_steps:
             entry["tracking"] = M.tracking_metrics(
                 raw["cmd_applied"][idx, env_idx, :],
-                raw["root_lin_vel_b"][idx, env_idx, :],
+                M.lin_vel_to_travel_frame(raw["root_lin_vel_b"][idx, env_idx, :], travel_yaw),
                 raw["root_ang_vel_b"][idx, env_idx, :],
                 ratio_min_cmd=lin_vel_clip,
             )
@@ -135,7 +141,9 @@ def score_episode(
         raw["foot_pos_w"][ep, env_idx],
         dt=dt,
         cmd_xy=raw["cmd_applied"][ep, env_idx, :2],
-        root_yaw=yaw,
+        # cmd_xy's x component is speed along the TRAVEL axis (Shape B), so the world-frame
+        # stride must be rotated into the travel frame too, not just the body frame.
+        root_yaw=yaw if travel_yaw == 0.0 else yaw + travel_yaw,
     )
     out["swing_clearance"] = M.swing_clearance_metrics(
         ep_contact, raw["foot_pos_w"][ep, env_idx], raw["terrain_z"][ep, env_idx]
@@ -149,7 +157,7 @@ def score_episode(
         foot_ang_vel_w=raw["foot_ang_vel_w"][ep, env_idx],
         slip_speed_threshold=slip_thresh,
     )
-    out["orientation"] = M.orientation_metrics(raw["root_quat_w"][ep, env_idx, :])
+    out["orientation"] = M.orientation_metrics(raw["root_quat_w"][ep, env_idx, :], travel_yaw=travel_yaw)
     # PLAN G (2026-09-02): fall direction + support-polygon margins (heading frame, root as the
     # CoM proxy here; exact CoM needs run_meta body masses + the body_pos_w buffer offline).
     if "crab_failure" in raw:
@@ -158,6 +166,7 @@ def score_episode(
             raw["crab_failure"][ep, env_idx],
             dt=dt,
             root_ang_vel_b=raw["root_ang_vel_b"][ep, env_idx] if "root_ang_vel_b" in raw else None,
+            travel_yaw=travel_yaw,
         )
         walking = compiled.steady_mask[ep, env_idx] & (
             np.abs(raw["cmd_applied"][ep, env_idx, 0]) >= lin_vel_clip
@@ -170,6 +179,7 @@ def score_episode(
             dt=dt,
             crab_failure=raw["crab_failure"][ep, env_idx],
             walking_mask=walking,
+            travel_yaw=travel_yaw,
         )
     out["actions"] = M.action_metrics(
         raw["actions"][ep, env_idx],
@@ -214,6 +224,7 @@ def score_run(
     n_steps_env: list[int],
     action_groups: dict[str, list[int]] | None = None,
     joint_vel_groups: dict[str, list[int]] | None = None,
+    travel_yaw: float = 0.0,
 ) -> list[dict]:
     return [
         score_episode(
@@ -226,6 +237,7 @@ def score_run(
             n_steps=n_steps_env[i],
             action_groups=action_groups,
             joint_vel_groups=joint_vel_groups,
+            travel_yaw=travel_yaw,
         )
         for i in range(len(term_reason))
     ]

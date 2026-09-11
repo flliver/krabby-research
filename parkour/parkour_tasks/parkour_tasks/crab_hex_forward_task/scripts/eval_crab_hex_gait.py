@@ -342,6 +342,9 @@ def main() -> None:
     device = env.device
     dt = float(unwrapped.step_dt)
     num_envs = int(unwrapped.num_envs)
+    # One harness serves both the forward task (travel_yaw absent -> 0.0) and the sideways task
+    # (travel_yaw == +pi/2); see gait_eval.metrics / gait_eval.report for the rotation convention.
+    travel_yaw = float(getattr(unwrapped.cfg, "travel_yaw", 0.0))
 
     robot = unwrapped.scene["robot"]
     usd_spawned = str(getattr(getattr(robot.cfg, "spawn", None), "usd_path", "<unknown>"))
@@ -598,6 +601,7 @@ def main() -> None:
         "dt": dt,
         "num_envs": num_envs,
         "n_steps_planned": T,
+        "travel_yaw": travel_yaw,
         "env_overrides": applied_overrides,
         "env_vars": scenario.env_vars,
         "foot_body_names": list(foot_body_names),
@@ -650,6 +654,7 @@ def main() -> None:
         n_steps_env=[int(v) for v in n_steps_env.cpu().numpy()],
         action_groups=groups,
         joint_vel_groups=jv_groups,
+        travel_yaw=travel_yaw,
     )
     R.write_run(
         run_dir,

@@ -7,6 +7,7 @@ that scores a frozen policy 1.0 is worse than no gate.
 """
 
 import json
+import math
 import sys
 from pathlib import Path
 
@@ -393,3 +394,119 @@ def test_spin_metrics_deadzone_dwell_no_reversal():
     jv[200:, shaft_ids] = -5.0
     out2 = M.shaft_spin_metrics(jv, shaft_ids, dt=DT)
     assert out2["reversals_per_s_median"] == pytest.approx(1.0 / (300 * DT))
+
+
+# ---------------------------------------------------------------------------
+# travel frame (sideways-task harness sharing, 2026-09-11): one harness serves the forward task
+# (travel_yaw absent/0.0, byte-identical) and the sideways task (travel_yaw = +pi/2, travel axis
+# = body +y). See test_crab_hex_stability_metrics.py for the fall_direction/orientation/
+# support_polygon travel-frame tests.
+# ---------------------------------------------------------------------------
+def test_lin_vel_to_travel_frame():
+    v = np.array([0.4, -0.1, 0.05])
+    same = M.lin_vel_to_travel_frame(v, 0.0)
+    assert same is v
+    same_default = M.lin_vel_to_travel_frame(v)
+    assert same_default is v
+
+    rotated = M.lin_vel_to_travel_frame(v, math.pi / 2)
+    np.testing.assert_allclose(rotated, [-0.1, -0.4, 0.05], atol=1e-9)
+
+    # The tracking-ratio creep-audit check itself: a robot moving at body +y (0, 0.3, 0) is
+    # exactly on-command for a travel-frame vx command of 0.3 once rotated into the travel frame.
+    n = 50
+    cmd = np.tile(np.array([0.3, 0.0, 0.0]), (n, 1))
+    lin_b = np.tile(np.array([0.0, 0.3, 0.0]), (n, 1))
+    lin_travel = M.lin_vel_to_travel_frame(lin_b, math.pi / 2)
+    res = M.tracking_metrics(cmd, lin_travel, np.zeros((n, 3)), ratio_min_cmd=0.2)
+    assert res["vx"]["ratio"] == pytest.approx(1.0, abs=1e-6)
+
+
+def test_stride_along_command_uses_travel_yaw():
+    """Feet displacing along world +x, root at body yaw -pi/2, cmd_xy=(0.3, 0) (travel-frame vx).
+
+    ``stride_metrics``' ``root_yaw`` parameter must be the TRAVEL frame's world yaw
+    (``body_yaw + travel_yaw``, the report.py convention) for ``along_command`` to read the
+    stride along the commanded travel direction -- passing the raw body yaw instead measures the
+    stride along the (unrelated) body +x axis and reads ~0.
+    """
+    n = 30
+    contact = np.zeros((n, 6), dtype=bool)
+    cycle = (np.arange(n) % 10) < 5
+    contact[:, 0] = cycle  # touchdowns at t=10 and t=20 (one stride pair)
+    pos = np.zeros((n, 6, 3))
+    pos[:, 0, 0] = np.arange(n) * 0.02  # foot moves steadily along world +x
+    cmd_xy = np.tile(np.array([0.3, 0.0]), (n, 1))
+
+    root_yaw_raw = np.full(n, -math.pi / 2)
+    res_raw = M.stride_metrics(contact, pos, dt=DT, cmd_xy=cmd_xy, root_yaw=root_yaw_raw)
+    fl_raw = res_raw["per_foot"]["FL_Footpad"]
+    assert fl_raw["n_strides"] == 1
+    magnitude = fl_raw["magnitude"]["mean"]
+    assert magnitude > 0.0
+    assert fl_raw["along_command"]["mean"] == pytest.approx(0.0, abs=1e-9)
+
+    root_yaw_travel = root_yaw_raw + math.pi / 2
+    res_travel = M.stride_metrics(contact, pos, dt=DT, cmd_xy=cmd_xy, root_yaw=root_yaw_travel)
+    fl_travel = res_travel["per_foot"]["FL_Footpad"]
+    assert fl_travel["along_command"]["mean"] == pytest.approx(magnitude, rel=1e-6)
+
+
+def test_report_default_path_identical():
+    """``score_episode``/``score_run`` at ``travel_yaw=0.0`` (explicit or default) are identical."""
+    from gait_eval import report as R
+    from gait_eval.schedule import Hold, Scenario, compile_schedule
+
+    scenario = Scenario(
+        id="synthetic",
+        task="Isaac-Crab-Hex-Flat-Walk-v0",
+        checkpoint="",
+        schedule=[Hold(hold_s=3.0, vx=0.3, vy=0.0, wz=0.0, label="hold0")],
+        episodes=1,
+        env_seed=1,
+    )
+    compiled = compile_schedule(scenario, dt=DT, num_envs=1)
+    T = compiled.n_steps
+    contact = _tripod_contact(T, 5)
+    identity_quat = np.tile(np.array([1.0, 0.0, 0.0, 0.0]), (T, 1))
+
+    raw = {
+        "foot_force_norm": np.where(contact, 400.0, 0.0)[:, None, :],
+        "cmd_applied": compiled.cmd.astype(np.float64),
+        "root_lin_vel_b": np.tile(np.array([0.3, 0.0, 0.0]), (T, 1))[:, None, :],
+        "root_ang_vel_b": np.zeros((T, 1, 3)),
+        "root_quat_w": identity_quat[:, None, :],
+        "root_pos_w": np.zeros((T, 1, 3)),
+        "foot_pos_w": np.zeros((T, 1, 6, 3)),
+        "foot_lin_vel_w": np.zeros((T, 1, 6, 3)),
+        "foot_ang_vel_w": np.zeros((T, 1, 6, 3)),
+        "terrain_z": np.zeros((T, 1, 6)),
+        "actions": np.zeros((T, 1, 4)),
+        "joint_vel": np.zeros((T, 1, 4)),
+        "crab_failure": np.zeros((T, 1), dtype=bool),
+    }
+    episode_kwargs = dict(
+        env_idx=0,
+        compiled=compiled,
+        scenario=scenario,
+        dt=DT,
+        term_reason="schedule_complete",
+        n_steps=T,
+    )
+    default_ep = R.score_episode(raw, **episode_kwargs)
+    explicit_ep = R.score_episode(raw, travel_yaw=0.0, **episode_kwargs)
+    assert default_ep == explicit_ep
+    # Sanity: this raw shape actually exercises the code paths under test (not vacuously equal).
+    assert default_ep["tripod_score"] is not None and default_ep["tripod_score"] > 0.9
+    assert default_ep["fall_direction"]["fall_class"] == "none"
+
+    run_kwargs = dict(
+        compiled=compiled,
+        scenario=scenario,
+        dt=DT,
+        term_reason=["schedule_complete"],
+        n_steps_env=[T],
+    )
+    default_run = R.score_run(raw, **run_kwargs)
+    explicit_run = R.score_run(raw, travel_yaw=0.0, **run_kwargs)
+    assert default_run == explicit_run

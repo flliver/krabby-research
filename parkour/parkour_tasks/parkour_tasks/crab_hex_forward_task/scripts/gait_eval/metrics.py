@@ -169,6 +169,56 @@ def roll_pitch_from_quat_wxyz(quat: np.ndarray) -> tuple[np.ndarray, np.ndarray]
 
 
 # --------------------------------------------------------------------------------------
+# travel frame (sideways-task harness sharing, 2026-09-11): every helper below returns the
+# SAME object/array at travel_yaw == 0.0 (or skips the rotation entirely), so the forward task
+# -- which always calls these with travel_yaw 0.0 -- stays byte-identical. This module stays
+# torch-free by design (see the module docstring), so these duplicate --  in numpy -- the
+# rotation convention pinned in ``parkour_isaaclab/envs/mdp/travel_frame.py``.
+# --------------------------------------------------------------------------------------
+def _rotate_xy(xy: np.ndarray, angle: float) -> np.ndarray:
+    """Rotate the planar vectors in ``xy[..., :2]`` by ``angle`` radians (numpy).
+
+    Same convention as ``parkour_isaaclab.envs.mdp.travel_frame.rotate_xy``, duplicated here
+    because this module stays torch-free.
+    """
+    c, s = math.cos(angle), math.sin(angle)
+    x = xy[..., 0]
+    y = xy[..., 1]
+    return np.stack((c * x - s * y, s * x + c * y), axis=-1)
+
+
+def _yaw_rotate_quat_wxyz(quat: np.ndarray, angle: float) -> np.ndarray:
+    r"""Right-multiply ``(w, x, y, z)`` quaternions by the z-rotation ``q_z(angle)``.
+
+    Computes :math:`q \otimes q_z(\text{angle})`, i.e. the quaternion is rotated about its OWN z
+    axis by ``angle`` (intrinsic rotation) -- so the rotated frame's x axis is the travel axis
+    when ``angle == travel_yaw``. Vectorised over any leading shape, e.g. ``(T, 4)``.
+    """
+    quat = np.asarray(quat, dtype=np.float64)
+    w, x, y, z = quat[..., 0], quat[..., 1], quat[..., 2], quat[..., 3]
+    cw = math.cos(angle / 2.0)
+    sw = math.sin(angle / 2.0)
+    return np.stack(
+        (w * cw - z * sw, x * cw + y * sw, y * cw - x * sw, z * cw + w * sw), axis=-1
+    )
+
+
+def lin_vel_to_travel_frame(lin_vel_b: np.ndarray, travel_yaw: float = 0.0) -> np.ndarray:
+    """Express a body-frame ``(..., 3)`` linear velocity in the travel frame.
+
+    The numpy analogue of ``parkour_isaaclab.envs.mdp.travel_frame.vel_travel_xy`` (this module
+    stays torch-free), extended to carry the z component through unchanged. At ``travel_yaw ==
+    0.0`` this is the identity and returns ``lin_vel_b`` itself (same object). At ``travel_yaw ==
+    +pi/2`` it maps ``(vx, vy, vz) -> (vy, -vx, vz)``.
+    """
+    if travel_yaw == 0.0:
+        return lin_vel_b
+    lin_vel_b = np.asarray(lin_vel_b, dtype=np.float64)
+    xy = _rotate_xy(lin_vel_b[..., :2], -travel_yaw)
+    return np.concatenate([xy, lin_vel_b[..., 2:3]], axis=-1)
+
+
+# --------------------------------------------------------------------------------------
 # tripod phasing -- the gateable score
 # --------------------------------------------------------------------------------------
 def tripod_window_metrics(
@@ -598,8 +648,9 @@ def tracking_metrics(
     return out
 
 
-def orientation_metrics(root_quat_w: np.ndarray) -> dict:
-    roll, pitch = roll_pitch_from_quat_wxyz(root_quat_w)
+def orientation_metrics(root_quat_w: np.ndarray, *, travel_yaw: float = 0.0) -> dict:
+    quat = root_quat_w if travel_yaw == 0.0 else _yaw_rotate_quat_wxyz(root_quat_w, travel_yaw)
+    roll, pitch = roll_pitch_from_quat_wxyz(quat)
     if roll.size == 0:
         return {"roll_rms": None, "pitch_rms": None, "roll_max_abs": None, "pitch_max_abs": None}
     return {
@@ -813,11 +864,12 @@ def support_polygon_metrics(
     prefall_s: float = 1.0,
     exclude_last_s: float = 0.1,
     return_series: bool = False,
+    travel_yaw: float = 0.0,
 ) -> dict:
     """Static-stability margins of the loaded-foot support polygon, in the heading frame.
 
     Per frame: the loaded set ``L = {i : force >= support_threshold_n}``; feet and the CoM
-    projected into the heading frame (yaw-only rotation about the root, +x' = forward);
+    projected into the heading frame (yaw-only rotation about the root, +x' = forward, i.e. the travel axis when travel_yaw is nonzero);
     ``fwd_ray_margin_m`` (primary, pure-pitch tipping quantity), ``min_edge_margin_m``
     (classic static stability margin), ``tip_angle_fwd_deg = atan2(fwd_ray_margin, h)``,
     ``lead_contact_tip_deg = atan2(max x' of L - c_x', h)`` (the historical definition),
@@ -837,6 +889,11 @@ def support_polygon_metrics(
     T = foot_pos_w.shape[0]
     com = root if com_pos_w is None else np.asarray(com_pos_w, dtype=np.float64)
     yaw = yaw_from_quat_wxyz(root_quat_w)
+    if travel_yaw != 0.0:
+        # Heading frame built from the travel axis rather than body +x -- see module-level
+        # convention note. fwd_ray_margin_m / tip_angle_fwd_deg / fore_aft_span_m then read along
+        # the travel axis instead of body +x.
+        yaw = yaw + travel_yaw
     c, s = np.cos(-yaw), np.sin(-yaw)
 
     def to_heading(vec_xy):  # (T, K, 2) world-relative -> heading frame
@@ -918,6 +975,7 @@ def fall_direction_metrics(
     root_ang_vel_b: np.ndarray | None = None,
     class_threshold_rad: float = 0.35,
     rate_window_s: float = 0.5,
+    travel_yaw: float = 0.0,
 ) -> dict:
     """Classify a termination by attitude at the failure step.
 
@@ -925,13 +983,21 @@ def fall_direction_metrics(
     ``roll``, or ``none`` (no crab_failure in the trace). Positive pitch = nose-down, matching
     ``penalty_base_pitch_forward_linear``. Also reports time-to-fall and the peak pitch rate
     over the last ``rate_window_s`` when ``root_ang_vel_b`` is given.
+
+    ``travel_yaw`` rotates the quaternion (and the ang-vel xy plane) into the travel frame before
+    the roll/pitch decomposition, so the labels ``pitch_fwd``/``pitch_back`` keep meaning "tips
+    along the travel axis" for a sideways-walking robot. At ``travel_yaw == 0.0`` (the forward
+    task) this is exactly today's body-frame computation.
     """
     fails = np.flatnonzero(np.asarray(crab_failure, dtype=bool))
     if fails.size == 0:
         return {"fall_class": "none", "t_fail_s": None, "pitch_at_fail": None,
                 "roll_at_fail": None, "max_pitch_rate": None}
     t = int(fails[0])
-    roll, pitch = roll_pitch_from_quat_wxyz(np.asarray(root_quat_w)[t])
+    quat_t = np.asarray(root_quat_w)[t]
+    if travel_yaw != 0.0:
+        quat_t = _yaw_rotate_quat_wxyz(quat_t, travel_yaw)
+    roll, pitch = roll_pitch_from_quat_wxyz(quat_t)
     roll, pitch = float(roll), float(pitch)
     if abs(pitch) >= class_threshold_rad and abs(pitch) >= abs(roll):
         cls = "pitch_fwd" if pitch > 0 else "pitch_back"
@@ -943,7 +1009,10 @@ def fall_direction_metrics(
     if root_ang_vel_b is not None:
         w = np.asarray(root_ang_vel_b, dtype=np.float64)
         lo = max(0, t - int(round(rate_window_s / dt)))
-        seg = w[lo:t + 1, 1]
+        if travel_yaw == 0.0:
+            seg = w[lo:t + 1, 1]
+        else:
+            seg = _rotate_xy(w[lo:t + 1, :2], -travel_yaw)[:, 1]
         rate = float(np.abs(seg).max()) if seg.size else None
     return {"fall_class": cls, "t_fail_s": t * dt, "pitch_at_fail": pitch,
             "roll_at_fail": roll, "max_pitch_rate": rate}
