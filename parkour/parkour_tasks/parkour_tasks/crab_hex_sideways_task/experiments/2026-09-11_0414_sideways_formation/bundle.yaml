@@ -1,0 +1,24 @@
+campaign: 2026-09-11_0414_sideways_formation
+era: B
+dates: "2026-09-11.."
+question: Does the sideways-walk task (a thin subclass of the forward cfgs, travel axis rotated
+  to body +y, fore-aft mirror-symmetry loss, RSI off) form a usable tripod gait through the
+  forward schedule of record (1a formation -> 2a/2b/2c elements)?
+verdict: "OPEN — campaign running"
+plant: A15+B
+aliases: []
+records:
+- CHARTER.md
+# Added after the driver writes them (first phase): REPORT.md, CHANGELOG.md, state.json, heads.json.
+# ``bundle_experiment.py --check`` requires every listed record to exist.
+head:
+  none: "the 2c decision names the head"
+evals:
+- source: parkour/logs/rsl_rl/gait_eval/side_phases
+  dest: evals/side_phases
+keep_globs:
+- run_meta.json
+- scenario_metrics.json
+- summary.md
+- gait_diagram_*.png
+paths_note: true

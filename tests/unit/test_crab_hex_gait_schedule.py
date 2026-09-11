@@ -197,6 +197,35 @@ def test_load_manifest_rejects_bad_version(tmp_path):
         S.load_manifest(path)
 
 
+def test_committed_side_manifest_parses():
+    """The shipped scenarios_side.yaml (sideways-formation campaign) must load: slow__side holds
+    the stand-first band along the travel axis (vx), 100 episodes, no env block (frozen shape),
+    and step__side carries exactly the four light-shallow-terrain knobs."""
+    manifest = (
+        SCRIPTS_DIR.parents[1]
+        / "crab_hex_sideways_task"
+        / "experiments"
+        / "eval"
+        / "scenarios_side.yaml"
+    )
+    scenarios, defaults = S.load_manifest(manifest)
+    by_id = {s.id: s for s in scenarios}
+    assert {"slow__side", "step__side", "flat_walk_slow_side"} <= set(by_id)
+    slow = by_id["slow__side"]
+    assert slow.task == "Isaac-Crab-Hex-Side-Walk-v0"
+    assert [h.vx for h in slow.schedule] == [0.0, 0.25, 0.35]
+    assert slow.episodes == 100
+    assert slow.env_vars == {}
+    S.validate_scenario(slow)
+    step = by_id["step__side"]
+    assert set(step.env_vars) == {
+        "KRABBY_FLAT_TERRAIN_MODE",
+        "KRABBY_FLAT_TERRAIN_FLAT_FRAC",
+        "KRABBY_FLAT_TERRAIN_GEOM",
+        "KRABBY_FLAT_TERRAIN_DIFF",
+    }
+
+
 def test_load_manifest_rejects_duplicate_ids(tmp_path):
     entry = {
         "id": "dup",
