@@ -1,8 +1,8 @@
 {
   "campaign": "2026-09-11_0414_sideways_formation",
   "plant": "A15+B",
-  "phase": "halt:1a gate_1a",
-  "run_no": 1,
+  "phase": "done",
+  "run_no": 4,
   "keys": {
     "seed3": {
       "1a": {
@@ -11,7 +11,7 @@
         "task": "Isaac-Crab-Hex-Side-Walk-v0",
         "mode": null,
         "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_side_flat_walk/2026-09-11_10-57-55/model_4999.pt",
-        "status": "gate_1a",
+        "status": "ok",
         "resume": null,
         "iters": 5000,
         "log": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_sideways_task/experiments/2026-09-11_0414_sideways_formation/logs/seed3_1a_001_A15pB_train.log",
@@ -115,6 +115,433 @@
           ],
           [
             "experiment crab_hex_side_flat_walk",
+            true
+          ],
+          [
+            "exposure telemetry logged (Metrics/base_parkour/reach_obst_frac)",
+            true
+          ],
+          [
+            "gait income telemetry logged (Episode_Reward/reward_clock_schedule)",
+            true
+          ],
+          [
+            "mirror-symmetry loss active (Loss/symmetry or mirror)",
+            true
+          ],
+          [
+            "spawn yaw -pi/2 (params/env.yaml robot init_state rot)",
+            true
+          ]
+        ],
+        "gate_1a_override": "2026-09-11 14:49 --continue (see the CHARTER Log)"
+      },
+      "2a": {
+        "phase": "2a",
+        "tag": "seed3_2a_002_A15pB",
+        "task": "Isaac-Crab-Hex-Side-Teacher-v0",
+        "mode": "2a",
+        "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_side_teacher/2026-09-11_14-50-01/model_9998.pt",
+        "status": "ok",
+        "resume": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_side_flat_walk/2026-09-11_10-57-55/model_4999.pt",
+        "iters": 5000,
+        "log": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_sideways_task/experiments/2026-09-11_0414_sideways_formation/logs/seed3_2a_002_A15pB_train.log",
+        "wall_h": 2.400156699683931,
+        "env": {
+          "KRABBY_SIDE_PHASE": "2a",
+          "KRABBY_PLANT": "A15+B"
+        },
+        "evals": {
+          "slow": {
+            "tripod": 0.3843378733529011,
+            "tripod_walking": 0.5478822633218119,
+            "tripod_by_hold": {
+              "creep": 0.5478822633218119,
+              "low": 0.56704344023772,
+              "stand": 0.0
+            },
+            "completion": 0.88,
+            "tracking": 0.6501575896068224,
+            "falls": 12,
+            "n": 100,
+            "pitch_fwd_share": 0.0,
+            "pitch_max_abs_p50": 0.0933756414453839,
+            "prefall_tip_p25": 30.577829316518056,
+            "walk_tip_p50": 38.50584328615245,
+            "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/side_phases/2026-09-11_0414_sideways_formation/seed3_2a_002_A15pB/slow__side/seed001/2026-09-11_21-14-04"
+          },
+          "step": {
+            "tripod": 0.29014417021935845,
+            "tripod_walking": 0.3534937145677488,
+            "tripod_by_hold": {
+              "creep": 0.5329924153232646,
+              "low": 0.3534937145677488,
+              "stand": 0.0
+            },
+            "completion": 0.82,
+            "tracking": 0.535669260627089,
+            "falls": 18,
+            "n": 100,
+            "pitch_fwd_share": 0.0,
+            "pitch_max_abs_p50": 0.12360521341834763,
+            "prefall_tip_p25": 28.959946135069526,
+            "walk_tip_p50": 37.55725561692043,
+            "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/side_phases/2026-09-11_0414_sideways_formation/seed3_2a_002_A15pB/step__side/seed001/2026-09-11_21-15-43"
+          },
+          "obst": {
+            "completion": 0.94,
+            "tripod": 0.3722502413135953,
+            "falls": 6,
+            "n": 100,
+            "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/side_phases/2026-09-11_0414_sideways_formation/seed3_2a_002_A15pB_obst/flat_walk_slow_side/seed001/2026-09-11_21-17-47"
+          }
+        },
+        "smoke": {
+          "fail_2k": 0.22653699999999988,
+          "fail_end": 0.1780310000000001,
+          "coll_2k": -0.005889999999999999,
+          "ep_len_2k": 1815.9439999999993
+        },
+        "exposure": {
+          "reach_edge_frac": 0.9636100000000001,
+          "reach_obst_frac": 0.930585,
+          "field_frac_mean": 0.6580549999999998,
+          "field_steps_mean": 1212.88752,
+          "goals_passed_mean": 1.017405,
+          "obst_coverage_1": 0.930585,
+          "obst_coverage_2": 0.8099399999999998,
+          "obst_coverage_3": 0.5519300000000001,
+          "obst_coverage_4": 0.31967,
+          "obst_coverage_5": 0.15423000000000003,
+          "obst_coverage_6": 0.082045,
+          "reach_edge_frac_rsi": 0.0,
+          "reach_obst_frac_rsi": 0.0,
+          "field_frac_mean_rsi": 0.0,
+          "field_steps_mean_rsi": 0.0,
+          "goals_passed_mean_rsi": 0.0,
+          "obst_coverage_1_rsi": 0.0,
+          "obst_coverage_2_rsi": 0.0,
+          "obst_coverage_3_rsi": 0.0,
+          "obst_coverage_4_rsi": 0.0,
+          "obst_coverage_5_rsi": 0.0,
+          "obst_coverage_6_rsi": 0.0,
+          "crab_failure_flat": 0.07720500000000001,
+          "crab_failure_obst": 0.32635000000000003,
+          "crab_failure_obst_rsi": 0.0,
+          "crab_failure_obst_spread": 0.0,
+          "crab_failure_hazard_flat": 0.040069999999999995,
+          "crab_failure_hazard_obst": 0.18401,
+          "ep_steps_flat": 1926.3966600000003,
+          "ep_steps_obst": 1773.5862949999998,
+          "ep_steps_obst_spread": 0.0,
+          "spread_frac_actual": 0.0,
+          "rsi_frac_actual": 0.0,
+          "terrain_levels": 5.736960000000001,
+          "how_far_from_start_point": 2.921395,
+          "current_goal_idx": 1.1728150000000002,
+          "stand_frac_actual": 0.12471500000000002,
+          "failure_all": 0.18658500000000003,
+          "eplen": 1868.3464999999997,
+          "mean_reward": 68.239245,
+          "vloss": 0.018614,
+          "track": 0.81738,
+          "prints": 5000
+        },
+        "checks": [
+          [
+            "plant is A15+B (params/env.yaml usd path)",
+            true
+          ],
+          [
+            "episode_length_s 40 in params",
+            true
+          ],
+          [
+            "experiment crab_hex_side_teacher",
+            true
+          ],
+          [
+            "exposure telemetry logged (Metrics/base_parkour/reach_obst_frac)",
+            true
+          ],
+          [
+            "gait income telemetry logged (Episode_Reward/reward_clock_schedule)",
+            true
+          ],
+          [
+            "mirror-symmetry loss active (Loss/symmetry or mirror)",
+            true
+          ],
+          [
+            "spawn yaw -pi/2 (params/env.yaml robot init_state rot)",
+            true
+          ]
+        ]
+      },
+      "2b": {
+        "phase": "2b",
+        "tag": "seed3_2b_003_A15pB",
+        "task": "Isaac-Crab-Hex-Side-Teacher-v0",
+        "mode": "2b",
+        "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_side_teacher/2026-09-11_17-19-40/model_14997.pt",
+        "status": "ok",
+        "resume": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_side_teacher/2026-09-11_14-50-01/model_9998.pt",
+        "iters": 5000,
+        "log": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_sideways_task/experiments/2026-09-11_0414_sideways_formation/logs/seed3_2b_003_A15pB_train.log",
+        "wall_h": 2.300075408485201,
+        "env": {
+          "KRABBY_SIDE_PHASE": "2b",
+          "KRABBY_PLANT": "A15+B"
+        },
+        "evals": {
+          "slow": {
+            "tripod": 0.3784674805086814,
+            "tripod_walking": 0.5103813132774022,
+            "tripod_by_hold": {
+              "creep": 0.5821002206894949,
+              "low": 0.5103813132774022,
+              "stand": 0.0013123592317104379
+            },
+            "completion": 0.91,
+            "tracking": 0.6628972641993838,
+            "falls": 9,
+            "n": 100,
+            "pitch_fwd_share": 0.0,
+            "pitch_max_abs_p50": 0.10190550963404021,
+            "prefall_tip_p25": 21.005552852417566,
+            "walk_tip_p50": 38.461003132768724,
+            "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/side_phases/2026-09-11_0414_sideways_formation/seed3_2b_003_A15pB/slow__side/seed001/2026-09-11_23-37-43"
+          },
+          "step": {
+            "tripod": 0.2957851794375196,
+            "tripod_walking": 0.3334540391324972,
+            "tripod_by_hold": {
+              "creep": 0.5193305049606688,
+              "low": 0.3334540391324972,
+              "stand": 0.0
+            },
+            "completion": 0.82,
+            "tracking": 0.5227164226409088,
+            "falls": 18,
+            "n": 100,
+            "pitch_fwd_share": 0.0,
+            "pitch_max_abs_p50": 0.1269537424249978,
+            "prefall_tip_p25": 11.611172346412669,
+            "walk_tip_p50": 37.51995031145668,
+            "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/side_phases/2026-09-11_0414_sideways_formation/seed3_2b_003_A15pB/step__side/seed001/2026-09-11_23-39-21"
+          },
+          "obst": {
+            "completion": 0.87,
+            "tripod": 0.36364997241858776,
+            "falls": 13,
+            "n": 100,
+            "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/side_phases/2026-09-11_0414_sideways_formation/seed3_2b_003_A15pB_obst/flat_walk_slow_side/seed001/2026-09-11_23-41-26"
+          }
+        },
+        "smoke": {
+          "fail_2k": 0.22801300000000013,
+          "fail_end": 0.212069,
+          "coll_2k": -0.010885999999999996,
+          "ep_len_2k": 1822.473
+        },
+        "exposure": {
+          "reach_edge_frac": 0.96086,
+          "reach_obst_frac": 0.9361050000000002,
+          "field_frac_mean": 0.6625249999999999,
+          "field_steps_mean": 1215.232455,
+          "goals_passed_mean": 1.0172699999999997,
+          "obst_coverage_1": 0.9361050000000002,
+          "obst_coverage_2": 0.7885150000000001,
+          "obst_coverage_3": 0.587295,
+          "obst_coverage_4": 0.348985,
+          "obst_coverage_5": 0.18709499999999998,
+          "obst_coverage_6": 0.09529999999999998,
+          "reach_edge_frac_rsi": 0.0,
+          "reach_obst_frac_rsi": 0.0,
+          "field_frac_mean_rsi": 0.0,
+          "field_steps_mean_rsi": 0.0,
+          "goals_passed_mean_rsi": 0.0,
+          "obst_coverage_1_rsi": 0.0,
+          "obst_coverage_2_rsi": 0.0,
+          "obst_coverage_3_rsi": 0.0,
+          "obst_coverage_4_rsi": 0.0,
+          "obst_coverage_5_rsi": 0.0,
+          "obst_coverage_6_rsi": 0.0,
+          "crab_failure_flat": 0.11291500000000002,
+          "crab_failure_obst": 0.33514,
+          "crab_failure_obst_rsi": 0.0,
+          "crab_failure_obst_spread": 0.0,
+          "crab_failure_hazard_flat": 0.05969500000000001,
+          "crab_failure_hazard_obst": 0.191735,
+          "ep_steps_flat": 1891.2391049999999,
+          "ep_steps_obst": 1748.06021,
+          "ep_steps_obst_spread": 0.0,
+          "spread_frac_actual": 0.0,
+          "rsi_frac_actual": 0.0,
+          "terrain_levels": 6.168065,
+          "how_far_from_start_point": 2.91904,
+          "current_goal_idx": 1.0915249999999999,
+          "stand_frac_actual": 0.206265,
+          "failure_all": 0.22372,
+          "eplen": 1785.899,
+          "mean_reward": 52.53134499999999,
+          "vloss": 0.022895,
+          "track": 0.8031749999999999,
+          "prints": 5000
+        },
+        "checks": [
+          [
+            "plant is A15+B (params/env.yaml usd path)",
+            true
+          ],
+          [
+            "episode_length_s 40 in params",
+            true
+          ],
+          [
+            "experiment crab_hex_side_teacher",
+            true
+          ],
+          [
+            "exposure telemetry logged (Metrics/base_parkour/reach_obst_frac)",
+            true
+          ],
+          [
+            "gait income telemetry logged (Episode_Reward/reward_clock_schedule)",
+            true
+          ],
+          [
+            "mirror-symmetry loss active (Loss/symmetry or mirror)",
+            true
+          ],
+          [
+            "spawn yaw -pi/2 (params/env.yaml robot init_state rot)",
+            true
+          ]
+        ]
+      },
+      "2c": {
+        "phase": "2c",
+        "tag": "seed3_2c_004_A15pB",
+        "task": "Isaac-Crab-Hex-Side-Teacher-v0",
+        "mode": "2c",
+        "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_side_teacher/2026-09-11_19-43-19/model_19996.pt",
+        "status": "ok",
+        "resume": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_side_teacher/2026-09-11_17-19-40/model_14997.pt",
+        "iters": 5000,
+        "log": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_sideways_task/experiments/2026-09-11_0414_sideways_formation/logs/seed3_2c_004_A15pB_train.log",
+        "wall_h": 2.333412837717268,
+        "env": {
+          "KRABBY_SIDE_PHASE": "2c",
+          "KRABBY_PLANT": "A15+B"
+        },
+        "evals": {
+          "slow": {
+            "tripod": 0.3635271131866803,
+            "tripod_walking": 0.48403451853262075,
+            "tripod_by_hold": {
+              "creep": 0.5674172430636106,
+              "low": 0.48403451853262075,
+              "stand": 0.0
+            },
+            "completion": 0.84,
+            "tracking": 0.6592240902151469,
+            "falls": 16,
+            "n": 100,
+            "pitch_fwd_share": 0.0,
+            "pitch_max_abs_p50": 0.12181832791398217,
+            "prefall_tip_p25": 12.208866701682243,
+            "walk_tip_p50": 37.24697836292498,
+            "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/side_phases/2026-09-11_0414_sideways_formation/seed3_2c_004_A15pB/slow__side/seed001/2026-09-12_02-03-22"
+          },
+          "step": {
+            "tripod": 0.2833950927863088,
+            "tripod_walking": 0.3340860242004069,
+            "tripod_by_hold": {
+              "creep": 0.5309249708387995,
+              "low": 0.3340860242004069,
+              "stand": 0.0
+            },
+            "completion": 0.63,
+            "tracking": 0.5488989560311999,
+            "falls": 37,
+            "n": 100,
+            "pitch_fwd_share": 0.02702702702702703,
+            "pitch_max_abs_p50": 0.1382052769834663,
+            "prefall_tip_p25": 25.24360676946382,
+            "walk_tip_p50": 36.871800176422944,
+            "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/side_phases/2026-09-11_0414_sideways_formation/seed3_2c_004_A15pB/step__side/seed001/2026-09-12_02-05-01"
+          },
+          "obst": {
+            "completion": 0.82,
+            "tripod": 0.3551538744348295,
+            "falls": 18,
+            "n": 100,
+            "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/side_phases/2026-09-11_0414_sideways_formation/seed3_2c_004_A15pB_obst/flat_walk_slow_side/seed001/2026-09-12_02-07-03"
+          }
+        },
+        "smoke": {
+          "fail_2k": 0.2249469999999999,
+          "fail_end": 0.30206099999999997,
+          "coll_2k": -0.009951000000000002,
+          "ep_len_2k": 1795.3882000000012
+        },
+        "exposure": {
+          "reach_edge_frac": 0.9427899999999996,
+          "reach_obst_frac": 0.9001200000000003,
+          "field_frac_mean": 0.6411299999999999,
+          "field_steps_mean": 1151.792145,
+          "goals_passed_mean": 1.108895,
+          "obst_coverage_1": 0.9001200000000003,
+          "obst_coverage_2": 0.7585949999999999,
+          "obst_coverage_3": 0.53423,
+          "obst_coverage_4": 0.30302,
+          "obst_coverage_5": 0.178255,
+          "obst_coverage_6": 0.07937499999999997,
+          "reach_edge_frac_rsi": 0.0,
+          "reach_obst_frac_rsi": 0.0,
+          "field_frac_mean_rsi": 0.0,
+          "field_steps_mean_rsi": 0.0,
+          "goals_passed_mean_rsi": 0.0,
+          "obst_coverage_1_rsi": 0.0,
+          "obst_coverage_2_rsi": 0.0,
+          "obst_coverage_3_rsi": 0.0,
+          "obst_coverage_4_rsi": 0.0,
+          "obst_coverage_5_rsi": 0.0,
+          "obst_coverage_6_rsi": 0.0,
+          "crab_failure_flat": 0.155515,
+          "crab_failure_obst": 0.40403,
+          "crab_failure_obst_rsi": 0.0,
+          "crab_failure_obst_spread": 0.0,
+          "crab_failure_hazard_flat": 0.08420499999999999,
+          "crab_failure_hazard_obst": 0.24156999999999998,
+          "ep_steps_flat": 1847.3937450000005,
+          "ep_steps_obst": 1672.569745,
+          "ep_steps_obst_spread": 0.0,
+          "spread_frac_actual": 0.0,
+          "rsi_frac_actual": 0.0,
+          "terrain_levels": 5.780175,
+          "how_far_from_start_point": 2.7769950000000003,
+          "current_goal_idx": 1.1009799999999998,
+          "stand_frac_actual": 0.18211000000000002,
+          "failure_all": 0.314145,
+          "eplen": 1737.8179999999993,
+          "mean_reward": 42.85362500000001,
+          "vloss": 0.020277999999999997,
+          "track": 0.7527200000000001,
+          "prints": 5000
+        },
+        "checks": [
+          [
+            "plant is A15+B (params/env.yaml usd path)",
+            true
+          ],
+          [
+            "episode_length_s 40 in params",
+            true
+          ],
+          [
+            "experiment crab_hex_side_teacher",
             true
           ],
           [

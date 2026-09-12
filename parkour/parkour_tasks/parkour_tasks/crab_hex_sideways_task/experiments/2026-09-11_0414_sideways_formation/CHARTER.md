@@ -216,3 +216,36 @@ is the recipe, held in reserve.
 - **2026-09-11 (user decision, after a GUI look at the gait): fix the gate to the walking-hold
   tripod, then `--continue`** — 2a-2c resume from `model_4999.pt` unretrained; the override
   rewrites the 1a record to `status ok` + `gate_1a_override` (CHANGELOG row + REPORT block).
+
+- **2026-09-11 22:08 campaign complete (seed 3)** — all four phases `ok`, 11.6 h wall; heads in `heads.json`
+  (1a `crab_hex_side_flat_walk/2026-09-11_10-57-55/model_4999.pt`, 2a `crab_hex_side_teacher/2026-09-11_14-50-01/model_9998.pt`,
+  2b `.../2026-09-11_17-19-40/model_14997.pt`, 2c `.../2026-09-11_19-43-19/model_19996.pt`). 60-s videos of the 2c head
+  at four terrain tiers in `videos/` (gitignored): fixed command 0.30 m/s down the travel axis, `Side-Walk-Play`,
+  flat / recal2b2w 0.05-0.20 / 0.20-0.45 / 0.45-0.70.
+- **2026-09-12 decision-point analysis** (5 readers, 8 key claims x 2 adversarial lenses; session brief
+  `side_2c_decision_brief.md`). Per-hold walking statistics, paired episode bootstraps (n=100): resolution is
+  +-0.06..0.10 completion, +-6..10 falls, +-0.016..0.056 walking tripod, so every flat-canary difference among
+  2a/2b/2c is inside noise. **2a** is strongest on measured robustness (obst 0.94/6, resolved vs 1a p=0.002 and vs 2c
+  p=0.023; gated flat tripod 0.548; last head inside the H2 duty band; lowest cam 1.618) but leads only two of three
+  evals -- 1a leads step onset (gated 0.416). **2c is the campaign's only resolved regression** (step 0.63/37 vs
+  0.82/18 for 2a and 2b; paired -0.19, McNemar p=0.004; obst -0.12 vs 2a). The drop is NOT a clock-tracking collapse
+  (per-step clock income flat across the anneal), NOT a harder curriculum (every exposure channel flat-to-easier while
+  flat-tile failures rose 32%), NOT a timing loss (tripod / cadence / alternation unchanged): it is a survival loss,
+  158/160 falls cross-course roll, support margin worse. Confounded by window position, and forward keeps RSI 0.2 in
+  every window where sideways has none. Largest single ambiguity: the 2c HEAD may be a low draw (its last-100-iteration
+  `crab_failure` 0.302 vs the window mean 0.246, ~1.7 block-sd) -- a mid-2c checkpoint re-eval would settle it in ~10 min.
+  **H1 CONFIRMED** (formation without RSI; the stand is controlled -- drift p50 ~0.10 m vs forward 0.6-1.2 m).
+  **H2 partial**: |A-B| <= 0.10 at every phase and hold, but duty B leaves [0.30, 0.55] at the 0.35 hold from 2b
+  (0.566, 0.595) -- the fore-aft mirror constrains front<->rear (|FL-RL| <= 0.019 vs forward 0.12-0.24), not A<->B.
+  **H3 CONFIRMED, improving** (creep tracking 0.736 -> 0.787); the speed ceiling is 0.19-0.20 m/s, below caveat 4's
+  0.21-0.31 estimate, and no window moved it. Watched items: cam FAILS in both tasks (dither, one-direction ~0.05;
+  FR/RR free-spin 0.45/0.41 = +-3.3-3.6 rev/episode, mirror-forced by the CamShaft -1 sign); 0.35-hold slip +0.031 with
+  outer-foot skate 2.5-4x the middle legs and 2-3x forward; tippy-tap ~1.5x forward, unchanged; knee torque at the
+  0.35 hold worsening 37 -> 76 N.m median with 31% of samples at the 400 N.m sim ceiling (caveat 5).
+  Phase-3 note: the caveat-10 camera bug is ALSO live in the shipped forward 3a student (`rot_noise_range` on the same
+  startup event), so the fix must cover the noise branch and be proven forward-neutral; and the +y placeholder sits
+  inside the middle hip plate's swept volume, which sim cannot see.
+- **2026-09-12 USER DECISION: a second seed, 1a -> 2c, progressing automatically.** Seed 2 from scratch into its own
+  `state.json` `keys.seed2` bucket; seed-3 records untouched. The revised 1a gate stays armed: a formation failure on a
+  fresh seed is the evidence this run exists to produce (CHARTER caveat 1: forward clock-only formation formed on 1 of
+  4 seeds).
