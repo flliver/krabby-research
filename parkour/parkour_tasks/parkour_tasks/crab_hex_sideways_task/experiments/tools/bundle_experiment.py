@@ -167,11 +167,13 @@ def head_readme(cdir: Path, b: dict, head: dict, size: int, sha: str, extra: lis
 
 
 def paths_note(cdir: Path, b: dict) -> str:
+    # The sideways package was created on 2026-09-11 and its campaigns are born here, so (unlike the
+    # forward copy of this tool) there is no sim_fine_tuning -> experiments/ move to explain.
     return (
-        f"{PATHS_NOTE_MARK}\n> **Paths note (2026-09-09):** this campaign moved from `sim_fine_tuning/{cdir.name}/` to "
-        f"`{EXP.relative_to(REPO)}/{cdir.name}/`. Absolute paths below (`/home/.../sim_fine_tuning/...`, "
-        "`parkour/logs/rsl_rl/...`) name raw artifacts that stay on disk untracked; the tracked checkpoint of "
-        "record is `head/` (see `bundle.yaml`) and the eval summaries are in place / under `evals/`."
+        f"{PATHS_NOTE_MARK}\n> **Paths note:** this campaign lives at "
+        f"`{EXP.relative_to(REPO)}/{cdir.name}/`. Absolute paths below (`/home/.../parkour/logs/rsl_rl/...`) "
+        "name raw artifacts that stay on disk untracked; the tracked checkpoint of record is `head/` "
+        "(see `bundle.yaml`) and the eval keep-set is under `evals/`."
         + (" Older records may call this directory " + ", ".join(f"`{a}`" for a in b["aliases"]) + "." if b.get("aliases") else "")
         + "\n\n"
     )

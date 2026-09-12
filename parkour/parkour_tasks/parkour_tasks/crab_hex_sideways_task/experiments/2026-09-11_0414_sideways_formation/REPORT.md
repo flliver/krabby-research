@@ -1,3 +1,6 @@
+<!-- paths-note -->
+> **Paths note:** this campaign lives at `parkour/parkour_tasks/parkour_tasks/crab_hex_sideways_task/experiments/2026-09-11_0414_sideways_formation/` and was created there on 2026-09-11 (it never lived under `sim_fine_tuning/`). Absolute paths below (`/home/.../parkour/logs/rsl_rl/...`) name raw artifacts that stay on disk untracked; the tracked checkpoint of record is `head/` (see `bundle.yaml`) and the eval keep-set is under `evals/`.
+
 # Sideways-formation campaign `2026-09-11_0414_sideways_formation`
 
 Plant **A15+B** (`assets/crab.usda (main)`), seed 3, phases 1a, 2a, 2b, 2c. Driver: `parkour/parkour_tasks/parkour_tasks/crab_hex_sideways_task/experiments/tools/run_phases.py`; presets: `crab_hex_side_phases.py` (`KRABBY_SIDE_PHASE` / `KRABBY_PLANT`).
