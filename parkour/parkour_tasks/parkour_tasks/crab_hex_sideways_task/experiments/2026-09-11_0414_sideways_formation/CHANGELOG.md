@@ -14,3 +14,12 @@
 
 ### 2026-09-11 22:08 — phase 2c ok: model_19996.pt (seed3_2c_004_A15pB)
 > NOTIFY: phases 1a, 2a, 2b, 2c complete for seed3 — see REPORT.md
+
+### 2026-09-12 03:04 — phase 1a ok: model_4999.pt (seed2_1a_005_A15pB)
+
+### 2026-09-12 05:23 — phase 2a ok: model_9998.pt (seed2_2a_006_A15pB)
+
+### 2026-09-12 07:45 — phase 2b ok: model_14997.pt (seed2_2b_007_A15pB)
+
+### 2026-09-12 10:07 — phase 2c ok: model_19996.pt (seed2_2c_008_A15pB)
+> NOTIFY: phases 1a, 2a, 2b, 2c complete for seed2 — see REPORT.md
