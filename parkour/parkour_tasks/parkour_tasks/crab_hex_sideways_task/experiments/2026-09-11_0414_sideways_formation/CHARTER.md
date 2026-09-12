@@ -249,3 +249,47 @@ is the recipe, held in reserve.
   `state.json` `keys.seed2` bucket; seed-3 records untouched. The revised 1a gate stays armed: a formation failure on a
   fresh seed is the evidence this run exists to produce (CHARTER caveat 1: forward clock-only formation formed on 1 of
   4 seeds).
+- **2026-09-12 seed 2 (1a -> 2c, automatic)**: launched 00:30, done 10:07, 10.4 h; all four phases `ok`;
+  the revised 1a gate passed unaided (walking-hold 0.538, completion 0.79) -> **H1 holds on two of two
+  seeds**. Videos of both 2c heads in `videos/` (`side_2c_*.mp4` = seed 3, `side_2c_seed2_*.mp4` = seed 2).
+- **2026-09-12 two-seed analysis** (4 readers, 8 key claims x 2 adversarial lenses; 7 refuted or narrowed;
+  session brief `side_two_seed_brief.md`). **Replicates:** the 2c window costs step-onset survival --
+  completion vs 2b -0.19 (s3, exact McNemar p=0.0043) and -0.14 (s2, p=0.0125), vs 2a -0.19 / -0.18;
+  pooled ~-0.17 (95% [-0.24,-0.10]); the 2c window's training `crab_failure` exceeds 2b's by +0.041 /
+  +0.058 (4.6 / 6.5 block-SEM). All 402 campaign falls are travel-frame roll at the 0.5 rad limit and the
+  net new falls land entirely in the 0.35 m/s hold; the two seeds' newly-failing courses barely overlap
+  (4 of 30/21), so the loss is a diffuse margin loss at the top command and the proximate mechanism is
+  **unidentified**. The chain peaks at **2a** on both seeds (obst ordering 2a > 2b > 2c > 1a identically).
+  Cams never park in either task (forward fails that watch too), knee saturation runs above forward
+  (24-31% vs 18-21% of knee steps at the sim ceiling), middle-leg duty overload rises, the fore-aft mirror
+  works (|FL-RL| <= 0.037 vs the forward left-right reference's 0.058-0.365), |A-B| <= 0.10 always, and H3
+  holds with creep tracking 0.75-0.88 on seed 2.
+  **Did NOT replicate (seed-3-specific; the earlier single-seed reading of these was wrong):** the
+  flat-canary walking-tripod decline (seed 2 rises 0.644 -> 0.645 -> 0.662); duty B leaving [0.30, 0.55]
+  from 2b; the FR/RR cam free-spin of +-3.3-3.6 rev/episode (seed 2: only at 2b, +-1.2, gone by 2c);
+  "slip worse at the 0.35 hold"; the 37 -> 76 N.m knee series (escalation replicates, in different legs);
+  the "2c head was a low draw" explanation; and the 0.19-0.20 m/s ceiling as a hard limit -- seed 2
+  reaches ~0.22 (p99 0.25), inside Caveat 4's 0.21-0.31 estimate and above the forward reference's
+  0.176-0.192. **New:** 1a quality is anti-predictive (seed 2's 1a is resolvedly worse on flat and step
+  yet its 2a-2c are better) -- keep the 1a gate as the floor it is and never rank seeds on it.
+- **2026-09-12 neighbour-checkpoint evals** (brief 7a; ~15 min, no training; logs
+  `logs/seed2_{2a_006,2b_007}_A15pB_n{9800,9900,14800,14900}_*_eval.log`, outputs under
+  `gait_eval/side_phases/<campaign>/<tag>_n<ckpt>/`). Same canary env as the recorded rows.
+  2a: flat 0.98/2 (`model_9800`), 0.99/1 (`9900`) vs the head's 0.97/3; step 0.86/14, 0.90/10 vs 0.88/12.
+  2b: flat 0.93/7 (`14800`), 0.87/13 (`14900`) vs 0.90/10; step 0.81/19, 0.75/25 vs 0.84/16. The two
+  neighbourhoods do not overlap on either row (2a 0.97-0.99 / 0.86-0.90 vs 2b 0.87-0.93 / 0.75-0.84), so
+  **the ~0.08 gap is the window, not the checkpoint draw** -- and the train-side "luckiest draw" statistic
+  (z = -2.00 for the 2a head) predicted nothing: its neighbours score as well or better.
+- **2026-09-12 USER DECISION: head of record = the seed-2 2a teacher**
+  `crab_hex_side_teacher/2026-09-12_03-04-37/model_9998.pt` (sha256 27a51c2b...), recorded in `bundle.yaml`.
+  Open and deliberately not settled: the clock-anneal-vs-extra-iterations control (a `2c_hold` window,
+  ~2.3 h) was not run, so the 2c regression is attributed to the window and not to the anneal; phase 3 is
+  not attempted while the shared `random_camera_position` frame bug (live in the shipped forward student's
+  noise branch) and the +y mount decision are open; and if 3a is ever run it should distil from the **2b**
+  head, whose command distribution matches the student MDP.
+  Driver/record defects found by the analysis, not yet fixed: the obstacle eval inherits each phase's own
+  preset (so `KRABBY_HEADING` is absent for 1a/2a and `-1.2:1.2` for 2b/2c -- those rows are not
+  head-matched across phases, and the injected recal2b2w terrain is recorded nowhere in `run_meta.json`);
+  `evals.obst` records only the stand-contaminated episode tripod (no `tripod_by_hold`, understating each
+  head by 0.15-0.25); the `tracking` field is the roll-up over both walking holds, not the creep hold; and
+  no eval passes `--freeze-friction`.
