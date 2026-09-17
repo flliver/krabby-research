@@ -39,6 +39,7 @@ krabby-research/
 │   ├── parkour_tasks/parkour_tasks/  # Task packages
 │   │   ├── crab_hex_forward_task/    # Crab hexapod FORWARD-walk task (see below)
 │   │   ├── crab_hex_sideways_task/   # Crab hexapod SIDEWAYS-walk task, thin subclass of the forward task (see below)
+│   │   ├── crab_hex_omni_task/       # Crab hexapod OMNIDIRECTIONAL-walk task, thin subclass of the forward task (see below)
 │   │   └── extreme_parkour_task/     # Upstream parkour tasks: config/go2, config/hex (joystick/HAL play cfg)
 │   ├── assets/                       # Scenes and published weights used by the parkour scripts
 │   ├── parkour_test/                 # Camera / terrain-generator tests
@@ -187,6 +188,36 @@ raises at import). Gym ids: `Isaac-Crab-Hex-Side-Walk-v0`, `-Side-Teacher-v0`, `
 forward task's `experiments/` (above), including: never add an `__init__.py` anywhere under
 `experiments/` (same reason -- `parkour_tasks/__init__.py`'s `import_packages` would import the
 campaign trees at gym registration).
+
+## Crab hexapod omnidirectional-walk task
+
+`parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/` (exists since 2026-09-16) is a thin
+subclass of `crab_hex_forward_task/`: same plant (A15+B), same MDP terms and hyper-parameters, but
+travel and facing are two INDEPENDENT world-frame commands (any direction, any absolute heading)
+instead of one body-frame axis, sampled across four command-regime slots (stand / move / turn /
+move+turn), and the obstacle course is a ring of randomly placed blocks around the spawn instead of
+a corridor. It reuses `crab_hex_forward_task/mdp/*` unchanged and re-declares only the cfg-valued
+attributes the world-frame commands need (scene, commands, observations, rewards, terminations,
+parkour term, RSI, mirror) -- see the task's own README for the full delta table.
+
+```
+crab_hex_omni_task/
+├── README.md                         # Task usage + the delta table vs. the forward task
+├── config/crab_hex/                  # Env, scene cfgs; crab_hex_omni_phases.py (KRABBY_OMNI_PHASE presets); omni_knobs.py
+│   └── agents/                       # RSL-RL PPO runner cfgs (teacher only -- no student)
+├── mdp/                              # crab_hex_omni_command(_math).py; omni observations/rewards/mirror/RSI; omni_parkour_event.py, omni_exposure.py, omni_events.py, omni_terrain_knobs.py
+└── experiments/                      # Campaigns; eval/scenarios_omni.yaml; tools/ (driver copies)
+```
+
+Preset variable: `KRABBY_OMNI_PHASE` (never `KRABBY_PHASE` or `KRABBY_SIDE_PHASE` in the same
+process -- setting any two raises at import). Gym ids: `Isaac-Crab-Hex-Omni-Walk-v0`,
+`-Omni-Teacher-v0` (plus `-Play-v0` variants; teacher-only, no student ids). RSL-RL experiment
+directories: `parkour/logs/rsl_rl/crab_hex_omni_{flat_walk,teacher}`; eval root:
+`parkour/logs/rsl_rl/gait_eval/omni_phases`. Same keep-set / campaign-dir conventions as the
+forward task's `experiments/` (above), including: never add an `__init__.py` anywhere under
+`experiments/` (same reason -- `parkour_tasks/__init__.py`'s `import_packages` would import the
+campaign trees at gym registration). The ring-terrain generator lives outside this task package,
+in the shared import graph: `parkour/parkour_isaaclab/terrains/omni/`.
 
 ## Assets (robot plant)
 
