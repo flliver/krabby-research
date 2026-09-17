@@ -234,6 +234,46 @@ def _speed_ratio_by_hold(a: dict, holds: tuple[str, ...] = DIRECTION_HOLDS) -> d
     return {h: _med((v or {}).get("ratio")) for h, v in (a.get("tracking_by_hold") or {}).items() if h in holds}
 
 
+PROLOGUE_S = 1.5   # gait_eval/schedule.py DEFAULTS["prologue_s"]; the schedule starts after it
+
+
+def _manifest_hold_s(sid: str) -> dict[str, float]:
+    """``{label: hold_s}`` for scenario ``sid`` of the omni manifest (the durations the survival
+    windows are cut at). Parsed here rather than pinned so a manifest edit cannot desynchronise."""
+    import yaml  # the harness's own dependency
+    doc = yaml.safe_load(OMNI_MANIFEST.read_text())
+    for sc in doc.get("scenarios", []):
+        if sc.get("id") == sid:
+            return {str(h["label"]): float(h["hold_s"]) for h in sc["schedule"]}
+    raise KeyError(f"scenario {sid!r} not in {OMNI_MANIFEST}")
+
+
+def survival_by_hold(episodes: list, hold_labels: list, hold_s: dict, *, prologue_s: float = PROLOGUE_S,
+                     dt: float = 0.02) -> dict[str, float | None]:
+    """Fraction of episodes that reached the END of each hold (``n_steps >= end step of the hold``).
+
+    The soft gates for the short stages read this instead of ``schedule_completion_rate``: the
+    ``slow__omni`` schedule issues all eight holds, so a 1a head that walks forward perfectly
+    still "fails" whole-schedule completion by falling on the lateral/backward/turn holds it never
+    trained (2026-09-17: 0.09 completion, 93 % survival through ``fwd``). ``None`` for a hold
+    with no duration or when there are no episodes.
+    """
+    if not episodes or not hold_labels:
+        return {str(h): None for h in hold_labels}
+    out: dict[str, float | None] = {}
+    t_end = float(prologue_s)
+    steps = [int(e.get("n_steps", 0)) for e in episodes]
+    for h in hold_labels:
+        dur = hold_s.get(str(h))
+        if dur is None:
+            out[str(h)] = None
+            continue
+        t_end += float(dur)
+        end_step = int(round(t_end / dt))
+        out[str(h)] = sum(1 for n in steps if n >= end_step) / len(steps)
+    return out
+
+
 def summarize(a: dict | None) -> dict:
     if not a:
         return {}
@@ -245,6 +285,7 @@ def summarize(a: dict | None) -> dict:
             "tripod_walking": tri_walk,       # the gated number (min over walking holds)
             "tripod_by_hold": tri_by_hold,
             "completion": a.get("schedule_completion_rate"),
+            "survival_by_hold": a.get("survival_by_hold"),      # reached the END of each hold (the soft gates' number)
             "tracking": _med(a.get("tracking_ratio")),
             "speed_ratio_by_hold": _speed_ratio_by_hold(a),      # fwd/lat_l/diag/back (D12: per-direction tracking)
             "dir_ratio_by_hold": _speed_ratio_by_hold(a, GATE_1C_DIR_HOLDS),  # lat_l/diag/back/move_turn
@@ -475,7 +516,18 @@ def _run_eval(c: Campaign, tag: str, sid: str, cmd_tail: list[str], env: dict, o
             latest = max(d.iterdir(), key=lambda p: p.stat().st_mtime)
             if latest.stat().st_mtime >= t0 and (latest / "scenario_metrics.json").exists():
                 _plant_guard(latest, plant, tag)
-                return latest, json.loads((latest / "scenario_metrics.json").read_text())["aggregate"]
+                m = json.loads((latest / "scenario_metrics.json").read_text())
+                a = m["aggregate"]
+                # Survival THROUGH each hold (2026-09-17 gate fix): the whole-schedule completion
+                # counts falls on holds a short stage never trained, so the soft gates read this.
+                try:
+                    a["survival_by_hold"] = survival_by_hold(
+                        m.get("episodes") or [], (m.get("run_meta") or {}).get("hold_labels") or [],
+                        _manifest_hold_s(sid), prologue_s=PROLOGUE_S,
+                        dt=float((m.get("run_meta") or {}).get("dt") or 0.02))
+                except Exception as exc:  # noqa: BLE001 - a missing number halts the gate, never the driver
+                    c.log(f"{tag}/{sid}: survival_by_hold unavailable ({exc!r})")
+                return latest, a
         c.log(f"{tag}/{sid}: no fresh metrics — retry {attempt + 1}")
         _wait_isaac_clear(); time.sleep(120)
     return None, None
@@ -664,17 +716,22 @@ def gate_soft_verdict(summary: dict, hold: str, tripod_min: float, completion_mi
     """
     tri_by_hold = summary.get("tripod_by_hold") or {}
     tri = tri_by_hold.get(hold)
-    comp = summary.get("completion")
+    # Survival THROUGH the stage's own hold, not whole-schedule completion (2026-09-17 fix: the
+    # first 1a halt had 0.09 completion from falls on five untrained holds and 0.93 through fwd).
+    surv_by_hold = summary.get("survival_by_hold") or {}
+    comp = surv_by_hold.get(hold)
+    whole = summary.get("completion")
     by_hold = ", ".join(f"{h} {v:.3f}" if v is not None else f"{h} n/a" for h, v in tri_by_hold.items()) or "none"
     if tri is None or comp is None:
-        return "halt", (f"soft gate could not be evaluated on hold {hold!r} — tripod={tri!r}, completion={comp!r} "
-                        f"(by hold: {by_hold}); campaign HALTED (inspect the eval log, then relaunch with --continue "
-                        "to override, or fix and --redo)")
+        return "halt", (f"soft gate could not be evaluated on hold {hold!r} — tripod={tri!r}, survival through the "
+                        f"hold={comp!r} (by hold: {by_hold}); campaign HALTED (inspect the eval log, then relaunch "
+                        "with --continue to override, or fix and --redo)")
     if tri < tripod_min or comp < completion_min:
         return "halt", (f"soft gate FAILED on hold {hold!r} — tripod {tri:.3f} (need >= {tripod_min}; by hold: {by_hold}), "
-                        f"completion {comp:.3f} (need >= {completion_min}) — campaign HALTED (relaunch with --continue "
-                        "to override, or fix and --redo)")
-    return "ok", f"soft gate passed on hold {hold!r} — tripod {tri:.3f} (by hold: {by_hold}), completion {comp:.3f}"
+                        f"survival through the hold {comp:.3f} (need >= {completion_min}; whole-schedule completion "
+                        f"{whole!r}) — campaign HALTED (relaunch with --continue to override, or fix and --redo)")
+    return "ok", (f"soft gate passed on hold {hold!r} — tripod {tri:.3f} (by hold: {by_hold}), survival through the hold "
+                  f"{comp:.3f} (whole-schedule completion {whole!r})")
 
 
 def gate_1c_verdict(summary: dict) -> tuple[str, str]:

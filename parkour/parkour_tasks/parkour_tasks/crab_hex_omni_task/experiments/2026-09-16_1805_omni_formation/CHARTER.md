@@ -303,3 +303,11 @@ min (Verification 9, run once before any window). Two seeds (3 then 2), trained 
   byte-identical to the pre-omni baseline after normalisation (fwd1a/side1a 1740 lines, fwd2b/side2b 1800 lines, zero diffs) and
   all 12 forward/sideways config dumps `cmp`-identical — the shared seams are behaviour-preserving for both lineages of record.
 - 2026-09-17 user decision: adopt KRABBY_OMNI_FACING_OBS_CLIP=0.6 in every omni preset (Revision 3); launch seed 3.
+- 2026-09-17 03:40 seed-3 1a HALTED on the soft gate as first written: own-hold tripod 0.452 (pass) but whole-schedule
+  completion 0.09 — 91 of 100 falls were on the five holds a forward-only stage never trains (back 24, move_turn 20,
+  turn_l90 17, diag 13, turn_r90 13; only 7 inside `fwd`, 0 in `stand`); `fwd` achieved 0.19 of 0.25 m/s. The criterion was
+  mis-specified for the short stages (the review had flagged it): the soft gates now read SURVIVAL THROUGH THE STAGE'S OWN
+  HOLD (`survival_by_hold[h]` = share of episodes reaching the end of hold h, cut from per-episode `n_steps` at the manifest's
+  hold ends; driver `survival_by_hold()`), same 0.70 floor. Recomputed on the same eval: stand 1.00, fwd **0.93**, lat_l 0.87,
+  diag 0.74, back 0.50, turn_l90 0.33, turn_r90 0.20, move_turn 0.09 → 1a PASSES the corrected gate. Relaunched with
+  `--continue` (recorded as `gate_1a_override` by the driver; the override is the criterion fix, not a waiver).

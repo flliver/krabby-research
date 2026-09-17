@@ -71,7 +71,8 @@ def _stats(median, n):
 
 def _agg(tripod: dict[str, float], completion: float, *, facing: dict[str, dict] | None = None,
           falls: int = 5, n: int = 100, walking_holds: tuple[str, ...] = MOVING_HOLDS,
-          scored_holds: tuple[str, ...] | None = None, ratio: dict[str, float] | None = None) -> dict:
+          scored_holds: tuple[str, ...] | None = None, ratio: dict[str, float] | None = None,
+          survival: dict[str, float] | None = None) -> dict:
     """A ``report.py::aggregate``-shaped dict for the omni schedule (8 holds).
 
     ``tripod`` maps hold -> median tripod score (``stand`` defaults to a high stepping-through-the-
@@ -105,8 +106,12 @@ def _agg(tripod: dict[str, float], completion: float, *, facing: dict[str, dict]
     }
     if facing:
         a["facing_by_hold"] = {h: {k: _stats(v, n - falls) for k, v in vals.items()} for h, vals in facing.items()}
-    return a
-
+    _a = a
+    # survival THROUGH each hold (2026-09-17 soft-gate fix); default = the whole-schedule completion
+    # for every hold so the older tests keep their semantics, and None when completion is None.
+    _a["survival_by_hold"] = dict(survival) if survival is not None else {
+        h: (None if completion is None else completion) for h in ALL_HOLDS}
+    return _a
 
 def _facing(final: float, settle: float, progress: float, *, net: float | None = None,
             yaw_rate_ratio: float = 0.9) -> dict:
@@ -459,3 +464,29 @@ def test_gate_1c_on_a_report_shaped_summary_fails_the_wobbling_head(drv, table):
     status, msg = drv.gate_1c_verdict(drv.summarize(agg))
     assert status == "gate_1c" and "FAILED" in msg
     assert table.gate_1c(agg)[0] is False
+
+
+def test_soft_gate_reads_survival_through_its_own_hold_not_whole_schedule(drv):
+    """Regression for the 2026-09-17 1a halt: 0.09 whole-schedule completion (falls on the five
+    untrained holds) but 0.93 survival through 'fwd' must PASS; 0.5 through 'fwd' must FAIL even
+    when the whole schedule somehow completes."""
+    tripod = dict(HEALTHY_TRIPOD); tripod["fwd"] = 0.452
+    surv = {h: 0.09 for h in ALL_HOLDS}; surv.update({"stand": 1.0, "fwd": 0.93})
+    s = drv.summarize(_agg(tripod, 0.09, facing=None, survival=surv))
+    status, msg = drv.gate_soft_verdict(s, "fwd", drv.GATE_SOFT_TRIPOD, drv.GATE_SOFT_COMPLETION)
+    assert status == "ok" and "0.930" in msg, msg
+    surv2 = {h: 0.95 for h in ALL_HOLDS}; surv2["fwd"] = 0.5
+    s2 = drv.summarize(_agg(tripod, 0.95, facing=None, survival=surv2))
+    status2, msg2 = drv.gate_soft_verdict(s2, "fwd", drv.GATE_SOFT_TRIPOD, drv.GATE_SOFT_COMPLETION)
+    assert status2 == "halt" and "survival through the hold 0.500" in msg2, msg2
+
+
+def test_survival_by_hold_cuts_at_the_hold_ends(drv):
+    labels = ["stand", "fwd", "lat_l"]
+    hold_s = {"stand": 8.0, "fwd": 8.0, "lat_l": 8.0}
+    # prologue 1.5 s + 8 s = 475 steps to end stand; 875 to end fwd; 1275 to end lat_l (dt 0.02)
+    eps = [{"n_steps": 3000}, {"n_steps": 875}, {"n_steps": 874}, {"n_steps": 100}]
+    out = drv.survival_by_hold(eps, labels, hold_s, prologue_s=1.5, dt=0.02)
+    assert out == {"stand": 0.75, "fwd": 0.5, "lat_l": 0.25}
+    assert drv.survival_by_hold([], labels, hold_s) == {"stand": None, "fwd": None, "lat_l": None}
+    assert drv.survival_by_hold(eps, labels, {"stand": 8.0})["fwd"] is None

@@ -285,9 +285,14 @@ formation gate), `gate_facing` (facing precision, enforced from 2a), `nan`, `inf
 ### Gates
 
 - **`gate_1a`/`gate_1b` (soft, short stages).** After 1a/1b the driver runs the flat canary
-  (`slow__omni`) ONLY — no ring rows. **1a:** `fwd` hold walking-tripod ≥ 0.30 AND completion ≥
-  0.70. **1b:** `lat_l` hold ≥ 0.30 AND completion ≥ 0.70. Floors, not like-for-like bars — they
-  exist so a from-scratch formation failure doesn't burn 1b/1c/2a-2b hours unattended.
+  (`slow__omni`) ONLY — no ring rows. **1a:** `fwd` hold walking-tripod ≥ 0.30 AND survival
+  THROUGH the `fwd` hold ≥ 0.70. **1b:** `lat_l` hold ≥ 0.30 AND survival through `lat_l` ≥ 0.70.
+  Survival through a hold = the share of episodes that reach the end of that hold
+  (`survival_by_hold`, cut from per-episode `n_steps` at the manifest's hold ends) — NOT
+  whole-schedule completion, which counts falls on the five holds a short stage never trained
+  (2026-09-17: seed-3 1a halted at 0.09 completion with 0.93 survival through `fwd`; the gate was
+  corrected and the run continued). Floors, not like-for-like bars — they exist so a from-scratch
+  formation failure doesn't burn 1b/1c/2a-2b hours unattended.
 - **`gate_1c` (the written formation gate, all three rows).** Walking-hold tripod **≥ 0.40 on
   EACH moving hold** (`fwd, lat_l, diag, back, move_turn`) AND completion **≥ 0.70** AND a
   turning-rate criterion on `turn_l90`/`turn_r90`: median **`yaw_progress_rate`** (the signed
