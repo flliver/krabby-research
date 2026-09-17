@@ -1,0 +1,43 @@
+campaign: 2026-09-16_1805_omni_formation
+era: B
+dates: "2026-09-16.."
+question: Does the omnidirectional task (a thin subclass of the forward cfgs, world travel
+  direction + world facing commands in four regime slots, a ring of obstacles around the spawn,
+  an RSI bank harvested from BOTH the forward and sideways heads of record) form a usable tripod
+  gait through a three-stage formation curriculum (1a body +x -> 1b body +y -> 1c any direction),
+  and does the redesigned facing mechanism (yaw-rate cap, tighter dead band, a facing reward from
+  1c) fix turning, which no head of record has ever done?
+verdict: 'OPEN — campaign not yet launched (plan approved 2026-09-16; steps 1-12 in progress).'
+plant: A15+B
+aliases: []
+records:
+- CHARTER.md
+- REPORT.md
+- CHANGELOG.md
+- state.json
+- heads.json
+# ``bundle_experiment.py --check`` requires every listed record to exist; REPORT.md / CHANGELOG.md /
+# state.json / heads.json are written by run_phases.py on its first launch (not yet run at the time
+# this manifest was authored -- step 13 of the plan, before step 18's launch) and are the honest
+# reason --check fails today (see the step-13 report).
+head:
+  none: campaign not yet launched -- no phase has trained
+banks:
+  # Harvested by harvest_omni_rsi_bank.py (forward 2c teacher head, source=0) + (sideways 2a teacher
+  # head, source=1), merged 50/50 by merge_rsi_banks.py (plan D6 / A7; step 10): 4000 frames, 2000 per
+  # source; sha256 pinned 2026-09-16 from RSI_BANK.md. The two raw per-source harvests
+  # (rsi_bank_{fwd,side}_raw.npz) are intermediates: on disk, git-ignored, not part of the keep-set.
+  - dest: rsi_bank_omni.npz
+    sha256: 98ce8420192efcbf24c37c07fa521c91e00a264d54ecb1d73b41b1d9901c46c6
+    why: merged forward (2c teacher, forward-bank frames, source 0) + sideways (2a teacher,
+      sideways-bank frames, source 1) reference states for phase-1a/1b/1c RSI (D6); see
+      RSI_BANK.md for the harvest provenance.
+evals:
+- source: parkour/logs/rsl_rl/gait_eval/omni_phases
+  dest: evals/omni_phases
+keep_globs:
+- run_meta.json
+- scenario_metrics.json
+- summary.md
+- gait_diagram_*.png
+paths_note: true

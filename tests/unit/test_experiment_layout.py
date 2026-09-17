@@ -33,6 +33,9 @@ PKGS = {
     "crab_hex_sideways_task": [
         "tools/run_phases.py",
     ],
+    "crab_hex_omni_task": [
+        "tools/run_phases.py",
+    ],
 }
 
 
@@ -106,6 +109,24 @@ def test_side_run_phases_is_self_relative():
     assert "1a" in mod.ph.PHASES
     assert mod.STUDENT_TASK == "Isaac-Crab-Hex-Side-Student-v0"
     source = path.read_text()
+    assert "experiments/2026-" not in source
+    assert "rx." not in source
+    assert "rf." not in source
+
+
+def test_omni_run_phases_is_self_relative():
+    """The omni driver: repo root, its own presets module, no student anywhere (this task is
+    teacher-only -- no distillation task id at all), and no leaked forward/sideways-driver leftovers
+    (a hard-coded campaign path, or an un-inlined rx./rf. reference)."""
+    path = _exp("crab_hex_omni_task") / "tools/run_phases.py"
+    spec = importlib.util.spec_from_file_location("omni_run_phases_layout_test", path)
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = mod
+    spec.loader.exec_module(mod)
+    assert Path(mod.REPO).resolve() == REPO
+    assert "1a" in mod.ph.PHASES
+    source = path.read_text()
+    assert "STUDENT_TASK" not in source
     assert "experiments/2026-" not in source
     assert "rx." not in source
     assert "rf." not in source
