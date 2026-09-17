@@ -287,3 +287,89 @@ def test_orientation_travel_yaw_swaps_roll_and_pitch():
 
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-v"]))
+
+
+# ---------------------------------------------------------------------------
+# per-step travel frame (omni task, 2026-09-16): these three take travel_yaw as a (T,) array too.
+# A CONSTANT array must reproduce the float result exactly -- that is what pins the scalar branches
+# (the forward and sideways lineages of record) as untouched.
+# ---------------------------------------------------------------------------
+def test_orientation_constant_array_equals_the_float_result_bitwise():
+    quat = np.stack([_quat_yaw_pitch(yaw=0.3 * t, pitch=0.05, roll=-0.02) for t in range(12)])
+    for angle in (math.pi / 2, -0.4):
+        assert M.orientation_metrics(quat, travel_yaw=angle) == M.orientation_metrics(
+            quat, travel_yaw=np.full(quat.shape[0], angle)
+        )
+    # Scalar 0.0 is the identity fast path; an all-zero array takes the rotation path and must
+    # still land on the same numbers.
+    assert M.orientation_metrics(quat, travel_yaw=np.zeros(quat.shape[0])) == pytest.approx(
+        M.orientation_metrics(quat, travel_yaw=0.0), abs=1e-12
+    )
+
+
+def test_orientation_per_step_travel_yaw_rotates_each_frame():
+    """Half the trace at travel_yaw 0, half at +pi/2: the array result equals the two halves
+    scored separately, i.e. each step really uses its own frame."""
+    quat = np.stack([_quat_yaw_pitch(pitch=0.1, roll=0.03) for _ in range(20)])
+    angles = np.concatenate([np.zeros(10), np.full(10, math.pi / 2)])
+    both = M.orientation_metrics(quat, travel_yaw=angles)
+    first = M.orientation_metrics(quat[:10], travel_yaw=0.0)
+    second = M.orientation_metrics(quat[10:], travel_yaw=math.pi / 2)
+    assert both["roll_max_abs"] == pytest.approx(max(first["roll_max_abs"], second["roll_max_abs"]))
+    assert both["pitch_max_abs"] == pytest.approx(max(first["pitch_max_abs"], second["pitch_max_abs"]))
+    # At +pi/2 the travel-frame roll is the body pitch, so the two halves disagree -- the array
+    # result must sit between them, not equal either.
+    assert first["roll_rms"] < both["roll_rms"] < second["roll_rms"]
+
+
+def test_fall_direction_constant_array_equals_the_float_result_bitwise():
+    T = 30
+    q = np.stack([_quat_yaw_pitch(pitch=0.5)] * T)
+    w = np.tile(np.array([0.1, 0.4, 0.0]), (T, 1))
+    fail = np.zeros(T, dtype=bool)
+    fail[20:] = True
+    for angle in (math.pi / 2, -0.8):
+        assert M.fall_direction_metrics(q, fail, dt=DT, root_ang_vel_b=w, travel_yaw=angle) == (
+            M.fall_direction_metrics(q, fail, dt=DT, root_ang_vel_b=w, travel_yaw=np.full(T, angle))
+        )
+
+
+def test_fall_direction_uses_the_failure_step_frame():
+    """A (T,) travel_yaw classifies the fall in the frame commanded at the failing step."""
+    T = 30
+    q = np.stack([_quat_yaw_pitch(pitch=0.5)] * T)
+    fail = np.zeros(T, dtype=bool)
+    fail[20:] = True
+    angles = np.zeros(T)
+    angles[20:] = math.pi / 2  # the step that fails is travelling sideways
+    out = M.fall_direction_metrics(q, fail, dt=DT, travel_yaw=angles)
+    assert out == M.fall_direction_metrics(q, fail, dt=DT, travel_yaw=math.pi / 2)
+    assert out["fall_class"] == "roll"  # body pitch reads as travel-frame roll at +pi/2
+    assert M.fall_direction_metrics(q, fail, dt=DT, travel_yaw=0.0)["fall_class"] == "pitch_fwd"
+
+
+def test_support_polygon_constant_array_equals_the_float_result_bitwise():
+    fp, ff, root, quat = _trace(20, FEET, [400] * 6)
+    for angle in (math.pi / 2, 0.35):
+        assert M.support_polygon_metrics(fp, ff, root, quat, dt=DT, travel_yaw=angle) == (
+            M.support_polygon_metrics(fp, ff, root, quat, dt=DT, travel_yaw=np.full(20, angle))
+        )
+
+
+def test_support_polygon_per_step_travel_yaw_turns_the_heading_frame():
+    """A trace whose command direction sweeps must equal, frame by frame, the same trace scored
+    with each step's own scalar travel_yaw."""
+    T = 12
+    fp, ff, root, quat = _trace(T, FEET, [400] * 6)
+    angles = np.linspace(0.0, math.pi / 2, T)
+    swept = M.support_polygon_metrics(
+        fp, ff, root, quat, dt=DT, travel_yaw=angles, return_series=True
+    )
+    for t in (0, T // 2, T - 1):
+        one = M.support_polygon_metrics(
+            fp[t : t + 1], ff[t : t + 1], root[t : t + 1], quat[t : t + 1],
+            dt=DT, travel_yaw=float(angles[t]), return_series=True,
+        )
+        assert swept["series"]["fwd_ray_margin_m"][t] == pytest.approx(
+            one["series"]["fwd_ray_margin_m"][0], abs=1e-12
+        )

@@ -1,0 +1,149 @@
+# Crab-hex gait eval scenario set for the omnidirectional task (omni-formation campaign, 2026-09-16).
+#
+# WORLD-FRAME rows (`manifest_version: 2`, plan D10). A hold here is not a body-frame velocity:
+# it is `speed` (m/s), `dir` (the travel direction in the WORLD frame, rad) and `face` (the
+# ABSOLUTE world heading to face, rad). The harness never writes `vel_command_b` on these rows --
+# it hands each step's row to the omni command term's `schedule_hook`, which does the world -> body
+# conversion and runs the facing P-control, so the eval drives exactly the loop training drives.
+# Scoring follows: the travel frame turns per step (`raw/travel_yaw`), `vx` in `tracking_by_hold` is
+# speed along the commanded direction, and `facing_by_hold` scores the heading over the WHOLE hold.
+#
+# `spawn_yaw: first_face` pins the reset event's yaw to the first hold's `face` (0.0 here); without
+# it the omni reset samples a uniform spawn heading and every episode's facing error starts
+# somewhere else.
+#
+# Two validator rules shape the numbers below, both from the plan:
+#   * speed <= the direction-scaled cap `speed_ellipse` at `wrap(dir - face)` -- the band the
+#     sampler itself draws from (fore-aft 0.35, lateral 0.25, backward 0.25);
+#   * a facing change must fit inside its hold: `hold_s >= settle_s + |wrap(dface)| / ang_vel_max`,
+#     i.e. 1.0 + 1.5708/0.3 = 6.24 s for a 90 deg turn -- satisfied at 8 s already, since
+#     `ang_vel_max` is the P-control's commanded cap, not what the plant actually achieves; no hold
+#     asks for a 180 deg swing (that would need 11.5 s).
+#
+# Step-16 review decision (2026-09-17): `turn_l90`/`turn_r90` are 12 s, not 8 s like every other
+# hold. Closing a 90 deg turn to <= 0.30 rad inside 8 s needs >= 0.16 rad/s sustained, above the
+# plant's measured ~0.15-0.2 rad/s kinematic turn rate -- the validator's formula above is
+# satisfied at 8 s (it only checks against `ang_vel_max` 0.3, the command cap), but the plant can't
+# actually turn that fast, so an 8 s hold would fail the 2a/2b facing-precision gate
+# (`heading_error_final_abs` <= 0.30 rad) even at the kinematic limit -- a goal inversion. 12 s
+# makes the gate feasible. `episode_length_s` is 80 (not 70) to cover the resulting schedule
+# (6 holds x 8 s + 2 turn holds x 12 s = 72 s) plus the 1.5 s prologue (73.5 s) with margin. Both
+# numbers are frozen from the first eval (see the manifest-shape note below).
+# `turn_r90` therefore faces 0.0 -- a right 90 deg turn FROM `turn_l90`'s +pi/2, not an absolute
+# -pi/2 (which would be a 180 deg swing off `turn_l90` and is rejected). `move_turn` faces +pi/2
+# while travelling along world +x: a real simultaneous move+turn (slot 3), and travelling sideways
+# in the body frame once the turn lands, so its 0.22 is capped by the lateral 0.25, not the 0.35.
+#
+# The manifest SHAPE is frozen: adding or removing an `env:` block on an EXISTING row flips
+# same-seed evals between two repeatable outcomes (0.79/21 falls <-> 0.75/25 falls -- process-state
+# sensitivity, not noise). Do not add or remove an `env:` block on `slow__omni`, `light__omni` or
+# `ring__omni` after they have been evaluated once; a NEW row may carry whatever `env:` it needs.
+#
+# Run (from krabby-research/parkour):
+#   <python> parkour_tasks/parkour_tasks/crab_hex_forward_task/scripts/eval_crab_hex_gait.py \
+#     --headless --manifest parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/eval/scenarios_omni.yaml \
+#     --scenario slow__omni --checkpoint <model.pt>
+# Every row's `task:` is a Walk-Play task (`role: teacher` is metadata about the checkpoint's
+# training phase, not a task override -- the driver never rewrites a row's `task:` the way the
+# sideways driver swaps in the student task/`KRABBY_STUDENT_MDP` for its phase-3 rows). A phase-2
+# (2a/2b/2c) head evaluates fine on Walk-Play: `Isaac-Crab-Hex-Omni-Teacher-Play-v0` also exists,
+# but its env cfg requires `KRABBY_HEX_TEACHER_MODE` to resolve
+# (`CrabHexOmniTeacherEnvCfg._require_phase_teacher_mode`), which no eval row or driver here ever
+# sets, so a Teacher-Play row could never build in this harness.
+
+manifest_version: 2
+
+speed_ellipse: {fwd: 0.35, lat: 0.25, back: 0.25}
+ang_vel_max: 0.3
+
+defaults:
+  prologue_s: 1.5
+  settle_s: 1.0
+  min_window_s: 1.0
+  fall_exclusion_s: 0.5
+  contact_force_threshold: 1.0
+  slip_speed_threshold: 0.02
+  min_cycles: 2
+  lin_vel_clip: 0.2
+
+scenarios:
+  # Flat canary: the omni twin of slow__A15pB / slow__side. Every direction and both turns in one
+  # 72 s schedule (6 holds x 8 s + 2 turn holds x 12 s). No env block (frozen shape -- see the
+  # header note above).
+  - id: slow__omni
+    role: teacher
+    task: Isaac-Crab-Hex-Omni-Walk-Play-v0
+    terrain_label: flat
+    checkpoint: SUPPLIED-PER-RUN--pass---checkpoint
+    episodes: 100
+    env_seed: 1
+    episode_length_s: 80.0
+    spawn_yaw: first_face
+    schedule:
+      - {speed: 0.00, dir: 0.0000000, face: 0.0000000, hold_s: 8.0, label: stand}
+      - {speed: 0.25, dir: 0.0000000, face: 0.0000000, hold_s: 8.0, label: fwd}
+      - {speed: 0.22, dir: 1.5707963, face: 0.0000000, hold_s: 8.0, label: lat_l}
+      - {speed: 0.25, dir: 0.7853982, face: 0.0000000, hold_s: 8.0, label: diag}
+      - {speed: 0.22, dir: 3.1415927, face: 0.0000000, hold_s: 8.0, label: back}
+      - {speed: 0.00, dir: 0.0000000, face: 1.5707963, hold_s: 12.0, label: turn_l90}
+      - {speed: 0.00, dir: 0.0000000, face: 0.0000000, hold_s: 12.0, label: turn_r90}
+      - {speed: 0.22, dir: 0.0000000, face: 1.5707963, hold_s: 8.0, label: move_turn}
+    notes: >-
+      Omni-formation campaign flat canary: stand, the four travel directions at the
+      direction-scaled band, a left then a right 90 deg turn in place, and a simultaneous
+      move+turn. speed 0.0 is a commanded stop by construction; 0.22/0.25 are above lin_vel_clip
+      0.2 and are scored as walking holds.
+
+  # Step onset: the omni twin of step__A15pB / step__side -- the ring geometry at light difficulty.
+  - id: light__omni
+    role: teacher
+    task: Isaac-Crab-Hex-Omni-Walk-Play-v0
+    terrain_label: light_obstacles
+    checkpoint: SUPPLIED-PER-RUN--pass---checkpoint
+    episodes: 100
+    env_seed: 1
+    episode_length_s: 80.0
+    spawn_yaw: first_face
+    schedule:
+      - {speed: 0.00, dir: 0.0000000, face: 0.0000000, hold_s: 8.0, label: stand}
+      - {speed: 0.25, dir: 0.0000000, face: 0.0000000, hold_s: 8.0, label: fwd}
+      - {speed: 0.22, dir: 1.5707963, face: 0.0000000, hold_s: 8.0, label: lat_l}
+      - {speed: 0.25, dir: 0.7853982, face: 0.0000000, hold_s: 8.0, label: diag}
+      - {speed: 0.22, dir: 3.1415927, face: 0.0000000, hold_s: 8.0, label: back}
+      - {speed: 0.00, dir: 0.0000000, face: 1.5707963, hold_s: 12.0, label: turn_l90}
+      - {speed: 0.00, dir: 0.0000000, face: 0.0000000, hold_s: 12.0, label: turn_r90}
+      - {speed: 0.22, dir: 0.0000000, face: 1.5707963, hold_s: 8.0, label: move_turn}
+    env:
+      KRABBY_FLAT_TERRAIN_MODE: "light"
+      KRABBY_FLAT_TERRAIN_FLAT_FRAC: "0.0"
+      KRABBY_FLAT_TERRAIN_GEOM: "ring"
+      KRABBY_FLAT_TERRAIN_DIFF: "0.05:0.2"
+    notes: Omni-formation campaign step onset on the ring at 0.05-0.2, plant A15+B.
+
+  # Obstacle eval row: the same schedule, no env block -- the driver's eval_obst injects the ring
+  # mode/fraction/geom/difficulty at run time (PLAN H convention, forward flat_walk_slow_v2 / side
+  # flat_walk_slow_side). Walk-Play, not Teacher-Play: a phase-2 head is run in the walk env here,
+  # the same way scenarios_side.yaml's flat_walk_slow_side row runs a phase-2 head on the
+  # Side-Walk task -- see the header note above.
+  - id: ring__omni
+    role: teacher
+    task: Isaac-Crab-Hex-Omni-Walk-Play-v0
+    terrain_label: ring
+    checkpoint: SUPPLIED-PER-RUN--pass---checkpoint
+    episodes: 100
+    env_seed: 1
+    episode_length_s: 80.0
+    spawn_yaw: first_face
+    schedule:
+      - {speed: 0.00, dir: 0.0000000, face: 0.0000000, hold_s: 8.0, label: stand}
+      - {speed: 0.25, dir: 0.0000000, face: 0.0000000, hold_s: 8.0, label: fwd}
+      - {speed: 0.22, dir: 1.5707963, face: 0.0000000, hold_s: 8.0, label: lat_l}
+      - {speed: 0.25, dir: 0.7853982, face: 0.0000000, hold_s: 8.0, label: diag}
+      - {speed: 0.22, dir: 3.1415927, face: 0.0000000, hold_s: 8.0, label: back}
+      - {speed: 0.00, dir: 0.0000000, face: 1.5707963, hold_s: 12.0, label: turn_l90}
+      - {speed: 0.00, dir: 0.0000000, face: 0.0000000, hold_s: 12.0, label: turn_r90}
+      - {speed: 0.22, dir: 0.0000000, face: 1.5707963, hold_s: 8.0, label: move_turn}
+    notes: >-
+      The row the driver's eval_obst injects the ring obstacle env (mode light, flat_frac 0.0,
+      geom ring, diff 0.20-0.70) into; no env block here (frozen shape -- see the header note
+      above).

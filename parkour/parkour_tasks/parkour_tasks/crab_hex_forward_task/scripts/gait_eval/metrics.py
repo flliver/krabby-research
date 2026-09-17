@@ -174,47 +174,78 @@ def roll_pitch_from_quat_wxyz(quat: np.ndarray) -> tuple[np.ndarray, np.ndarray]
 # -- which always calls these with travel_yaw 0.0 -- stays byte-identical. This module stays
 # torch-free by design (see the module docstring), so these duplicate --  in numpy -- the
 # rotation convention pinned in ``parkour_isaaclab/envs/mdp/travel_frame.py``.
+#
+# Omni task (2026-09-16): ``travel_yaw`` may also be a ``(T,)`` array -- one angle per step, the
+# direction of that step's command, since an omni policy's travel frame turns during the episode.
+# The scalar branches below are TODAY'S expressions, character for character, and the identity
+# fast path is still keyed on a scalar 0.0, so the forward and sideways rows are bit-identical.
 # --------------------------------------------------------------------------------------
-def _rotate_xy(xy: np.ndarray, angle: float) -> np.ndarray:
+def _is_identity_yaw(travel_yaw) -> bool:
+    """True only for a scalar 0.0 -- the identity fast path (never for an array, even all-zero)."""
+    return np.ndim(travel_yaw) == 0 and float(travel_yaw) == 0.0
+
+
+def _bcast_angle(angle, ndim: int) -> tuple[np.ndarray, np.ndarray]:
+    """``(cos, sin)`` of a per-step angle array, shaped to broadcast against ``ndim``-D operands."""
+    ang = np.asarray(angle, dtype=np.float64)
+    c, s = np.cos(ang), np.sin(ang)
+    extra = ndim - 1 - ang.ndim
+    if extra > 0:
+        c = c.reshape(c.shape + (1,) * extra)
+        s = s.reshape(s.shape + (1,) * extra)
+    return c, s
+
+
+def _rotate_xy(xy: np.ndarray, angle) -> np.ndarray:
     """Rotate the planar vectors in ``xy[..., :2]`` by ``angle`` radians (numpy).
 
     Same convention as ``parkour_isaaclab.envs.mdp.travel_frame.rotate_xy``, duplicated here
-    because this module stays torch-free.
+    because this module stays torch-free. ``angle`` is a scalar, or an array broadcastable against
+    ``xy``'s leading axes (e.g. ``(T,)`` for ``xy`` of shape ``(T, 2)``).
     """
-    c, s = math.cos(angle), math.sin(angle)
+    if np.ndim(angle) == 0:
+        c, s = math.cos(angle), math.sin(angle)
+    else:
+        c, s = _bcast_angle(angle, np.asarray(xy).ndim)
     x = xy[..., 0]
     y = xy[..., 1]
     return np.stack((c * x - s * y, s * x + c * y), axis=-1)
 
 
-def _yaw_rotate_quat_wxyz(quat: np.ndarray, angle: float) -> np.ndarray:
+def _yaw_rotate_quat_wxyz(quat: np.ndarray, angle) -> np.ndarray:
     r"""Right-multiply ``(w, x, y, z)`` quaternions by the z-rotation ``q_z(angle)``.
 
     Computes :math:`q \otimes q_z(\text{angle})`, i.e. the quaternion is rotated about its OWN z
     axis by ``angle`` (intrinsic rotation) -- so the rotated frame's x axis is the travel axis
-    when ``angle == travel_yaw``. Vectorised over any leading shape, e.g. ``(T, 4)``.
+    when ``angle == travel_yaw``. Vectorised over any leading shape, e.g. ``(T, 4)``; ``angle``
+    may be a scalar or a per-step array broadcastable against those leading axes.
     """
     quat = np.asarray(quat, dtype=np.float64)
     w, x, y, z = quat[..., 0], quat[..., 1], quat[..., 2], quat[..., 3]
-    cw = math.cos(angle / 2.0)
-    sw = math.sin(angle / 2.0)
+    if np.ndim(angle) == 0:
+        cw = math.cos(angle / 2.0)
+        sw = math.sin(angle / 2.0)
+    else:
+        cw, sw = _bcast_angle(np.asarray(angle, dtype=np.float64) / 2.0, quat.ndim)
     return np.stack(
         (w * cw - z * sw, x * cw + y * sw, y * cw - x * sw, z * cw + w * sw), axis=-1
     )
 
 
-def lin_vel_to_travel_frame(lin_vel_b: np.ndarray, travel_yaw: float = 0.0) -> np.ndarray:
+def lin_vel_to_travel_frame(lin_vel_b: np.ndarray, travel_yaw=0.0) -> np.ndarray:
     """Express a body-frame ``(..., 3)`` linear velocity in the travel frame.
 
     The numpy analogue of ``parkour_isaaclab.envs.mdp.travel_frame.vel_travel_xy`` (this module
     stays torch-free), extended to carry the z component through unchanged. At ``travel_yaw ==
     0.0`` this is the identity and returns ``lin_vel_b`` itself (same object). At ``travel_yaw ==
-    +pi/2`` it maps ``(vx, vy, vz) -> (vy, -vx, vz)``.
+    +pi/2`` it maps ``(vx, vy, vz) -> (vy, -vx, vz)``. ``travel_yaw`` may also be a ``(T,)``
+    per-step array (omni rows), in which case each step is rotated by its own angle.
     """
-    if travel_yaw == 0.0:
+    if _is_identity_yaw(travel_yaw):
         return lin_vel_b
     lin_vel_b = np.asarray(lin_vel_b, dtype=np.float64)
-    xy = _rotate_xy(lin_vel_b[..., :2], -travel_yaw)
+    angle = -np.asarray(travel_yaw, dtype=np.float64) if np.ndim(travel_yaw) else -travel_yaw
+    xy = _rotate_xy(lin_vel_b[..., :2], angle)
     return np.concatenate([xy, lin_vel_b[..., 2:3]], axis=-1)
 
 
@@ -648,8 +679,9 @@ def tracking_metrics(
     return out
 
 
-def orientation_metrics(root_quat_w: np.ndarray, *, travel_yaw: float = 0.0) -> dict:
-    quat = root_quat_w if travel_yaw == 0.0 else _yaw_rotate_quat_wxyz(root_quat_w, travel_yaw)
+def orientation_metrics(root_quat_w: np.ndarray, *, travel_yaw=0.0) -> dict:
+    """``travel_yaw`` is a scalar or a ``(T,)`` per-step array (see the travel-frame note above)."""
+    quat = root_quat_w if _is_identity_yaw(travel_yaw) else _yaw_rotate_quat_wxyz(root_quat_w, travel_yaw)
     roll, pitch = roll_pitch_from_quat_wxyz(quat)
     if roll.size == 0:
         return {"roll_rms": None, "pitch_rms": None, "roll_max_abs": None, "pitch_max_abs": None}
@@ -659,6 +691,103 @@ def orientation_metrics(root_quat_w: np.ndarray, *, travel_yaw: float = 0.0) -> 
         "roll_max_abs": float(np.abs(roll).max()),
         "pitch_max_abs": float(np.abs(pitch).max()),
     }
+
+
+# --------------------------------------------------------------------------------------
+# facing (omni task, 2026-09-16): the second command channel. Travel direction is scored by
+# ``tracking_metrics``; this scores "did the body reach and hold the commanded world heading".
+# --------------------------------------------------------------------------------------
+#: |heading error| below this counts as "on target" for ``settle_time_s`` (rad).
+FACING_SETTLE_TOL_RAD = 0.15
+
+
+def facing_metrics(
+    heading_err_t: np.ndarray,
+    wz_t: np.ndarray,
+    dt: float,
+    *,
+    wz_cmd_t: np.ndarray | None = None,
+    settle_tol: float = FACING_SETTLE_TOL_RAD,
+    cmd_eps: float = 1e-6,
+    constant_target: bool = True,
+) -> dict:
+    """Facing-command tracking over one window.
+
+    ``heading_err_t`` is the per-step wrapped error ``wrap(heading_target - heading_w)`` (rad),
+    ``wz_t`` the achieved body yaw rate and ``wz_cmd_t`` (optional) the commanded one.
+
+    * ``heading_error_rms`` / ``heading_error_max_abs`` / ``heading_error_final_abs`` -- the
+      window's error, its worst step and where it ended up. Scored over the WHOLE hold, not the
+      steady window: a turn command *is* the transient, and masking the settle window out would
+      throw away the only steps that measure it.
+    * ``settle_time_s`` -- time from the window start until ``|err|`` drops below ``settle_tol``
+      **and stays there to the end**; ``None`` when it never does (so "slow" and "never" are
+      different answers, and neither is silently 0).
+    * ``yaw_progress_rate`` -- mean of ``wz_t * sign(wz_cmd_t)`` over the steps that carry a yaw
+      command (rad/s **toward** the commanded turn; ``None`` when there are no such steps). SIGNED
+      and direction-aware: gait wobble averages to ~0 here, a body turning the wrong way is
+      negative, and a body turning with the command is positive. **This is the gate quantity**
+      (``gate_1c``'s turning-rate criterion).
+    * ``net_yaw_rate_toward`` -- the window's SIGNED net rotation toward its initial facing target,
+      as a mean rate (rad/s; positive = turned toward the target). Derivation: with the target
+      heading CONSTANT over the window, ``err_t = wrap(target - yaw_t)``, so
+      ``unwrap(err)[-1] - unwrap(err)[0] = -(yaw[-1] - yaw[0])`` -- the unwrapped error carries the
+      body's net rotation with the opposite sign, and the ``+-pi`` wrap that makes the raw error
+      unusable is removed. Hence ``net = -(unwrap(err)[-1] - unwrap(err)[0]) / (n*dt) *
+      sign(err[0])``, the last factor turning "rotation in the +z sense" into "rotation toward the
+      target" for a left (``err[0] > 0``) or a right (``err[0] < 0``) turn alike. ``n*dt`` is the
+      window duration, matching ``settle_time_s``'s ``(i+1)*dt`` convention. ``None`` when ``n < 2``
+      or when ``constant_target=False``; an ``err[0]`` of exactly 0.0 leaves "toward" undefined and
+      yields 0.0. **Only valid per hold** -- pass ``constant_target=False`` for a window that spans
+      several holds (an episode), where the target steps between holds and ``unwrap`` would absorb
+      those steps into the body's rotation.
+    * ``yaw_rate_ratio`` -- mean achieved ``|wz|`` / mean commanded ``|wz|`` over the steps that
+      carry a yaw command (``n_turn_steps``). Kept for continuity only. **WOBBLE-SENSITIVE, NOT a
+      gate quantity**: both sides are magnitudes, so the per-step yaw oscillation of the gait
+      ("|wz| large, net rotation ~0") scores as well as a real turn. Measured 2026-09-17 on the
+      yaw-capability smoke: 0.946 on a ``turn_l90`` hold whose net rotation was -0.025 rad/s against
+      a +0.30 rad/s command. Gate on ``yaw_progress_rate`` instead.
+    """
+    err = np.asarray(heading_err_t, dtype=np.float64).ravel()
+    wz = np.asarray(wz_t, dtype=np.float64).ravel()
+    out: dict[str, Any] = {
+        "n_steps": int(err.size),
+        "heading_error_rms": None,
+        "heading_error_final_abs": None,
+        "heading_error_max_abs": None,
+        "settle_time_s": None,
+        "yaw_rate_ratio": None,
+        "yaw_progress_rate": None,
+        "net_yaw_rate_toward": None,
+        "n_turn_steps": 0,
+    }
+    if err.size:
+        abs_err = np.abs(err)
+        out["heading_error_rms"] = float(np.sqrt(np.mean(err**2)))
+        out["heading_error_final_abs"] = float(abs_err[-1])
+        out["heading_error_max_abs"] = float(abs_err.max())
+        # First index from which every later step is inside the tolerance.
+        outside = np.flatnonzero(abs_err >= settle_tol)
+        if outside.size == 0:
+            out["settle_time_s"] = 0.0
+        elif int(outside[-1]) + 1 < abs_err.size:
+            out["settle_time_s"] = float((int(outside[-1]) + 1) * dt)
+    if err.size >= 2 and constant_target and dt > 0.0:
+        unwrapped = np.unwrap(err)
+        d_yaw = -(unwrapped[-1] - unwrapped[0])          # constant target => dyaw = -d(unwrap(err))
+        out["net_yaw_rate_toward"] = float(d_yaw / (err.size * dt) * np.sign(err[0]))
+
+    if wz_cmd_t is not None:
+        cmd = np.asarray(wz_cmd_t, dtype=np.float64).ravel()
+        n = min(cmd.size, wz.size)
+        turning = np.abs(cmd[:n]) > cmd_eps
+        out["n_turn_steps"] = int(turning.sum())
+        if out["n_turn_steps"]:
+            out["yaw_progress_rate"] = float((wz[:n][turning] * np.sign(cmd[:n][turning])).mean())
+            denom = float(np.abs(cmd[:n][turning]).mean())
+            if denom > 0.0:
+                out["yaw_rate_ratio"] = float(np.abs(wz[:n][turning]).mean() / denom)
+    return out
 
 
 def _sticky_sign_reversals(series: np.ndarray, deadzone: float) -> np.ndarray:
@@ -864,7 +993,7 @@ def support_polygon_metrics(
     prefall_s: float = 1.0,
     exclude_last_s: float = 0.1,
     return_series: bool = False,
-    travel_yaw: float = 0.0,
+    travel_yaw=0.0,
 ) -> dict:
     """Static-stability margins of the loaded-foot support polygon, in the heading frame.
 
@@ -889,10 +1018,10 @@ def support_polygon_metrics(
     T = foot_pos_w.shape[0]
     com = root if com_pos_w is None else np.asarray(com_pos_w, dtype=np.float64)
     yaw = yaw_from_quat_wxyz(root_quat_w)
-    if travel_yaw != 0.0:
+    if not _is_identity_yaw(travel_yaw):
         # Heading frame built from the travel axis rather than body +x -- see module-level
         # convention note. fwd_ray_margin_m / tip_angle_fwd_deg / fore_aft_span_m then read along
-        # the travel axis instead of body +x.
+        # the travel axis instead of body +x. A ``(T,)`` travel_yaw turns the frame per step.
         yaw = yaw + travel_yaw
     c, s = np.cos(-yaw), np.sin(-yaw)
 
@@ -975,7 +1104,7 @@ def fall_direction_metrics(
     root_ang_vel_b: np.ndarray | None = None,
     class_threshold_rad: float = 0.35,
     rate_window_s: float = 0.5,
-    travel_yaw: float = 0.0,
+    travel_yaw=0.0,
 ) -> dict:
     """Classify a termination by attitude at the failure step.
 
@@ -995,8 +1124,10 @@ def fall_direction_metrics(
                 "roll_at_fail": None, "max_pitch_rate": None}
     t = int(fails[0])
     quat_t = np.asarray(root_quat_w)[t]
-    if travel_yaw != 0.0:
-        quat_t = _yaw_rotate_quat_wxyz(quat_t, travel_yaw)
+    if not _is_identity_yaw(travel_yaw):
+        # A (T,) travel_yaw is per step: the failure step's own command direction is the frame the
+        # fall is classified in.
+        quat_t = _yaw_rotate_quat_wxyz(quat_t, travel_yaw[t] if np.ndim(travel_yaw) else travel_yaw)
     roll, pitch = roll_pitch_from_quat_wxyz(quat_t)
     roll, pitch = float(roll), float(pitch)
     if abs(pitch) >= class_threshold_rad and abs(pitch) >= abs(roll):
@@ -1009,10 +1140,11 @@ def fall_direction_metrics(
     if root_ang_vel_b is not None:
         w = np.asarray(root_ang_vel_b, dtype=np.float64)
         lo = max(0, t - int(round(rate_window_s / dt)))
-        if travel_yaw == 0.0:
+        if _is_identity_yaw(travel_yaw):
             seg = w[lo:t + 1, 1]
         else:
-            seg = _rotate_xy(w[lo:t + 1, :2], -travel_yaw)[:, 1]
+            angle = np.asarray(travel_yaw, dtype=np.float64)[lo:t + 1] if np.ndim(travel_yaw) else travel_yaw
+            seg = _rotate_xy(w[lo:t + 1, :2], -angle)[:, 1]
         rate = float(np.abs(seg).max()) if seg.size else None
     return {"fall_class": cls, "t_fail_s": t * dt, "pitch_at_fail": pitch,
             "roll_at_fail": roll, "max_pitch_rate": rate}

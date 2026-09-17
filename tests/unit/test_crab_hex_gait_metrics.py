@@ -510,3 +510,387 @@ def test_report_default_path_identical():
     default_run = R.score_run(raw, **run_kwargs)
     explicit_run = R.score_run(raw, travel_yaw=0.0, **run_kwargs)
     assert default_run == explicit_run
+
+
+# ---------------------------------------------------------------------------
+# per-step travel frame (omni task, 2026-09-16): travel_yaw may be a (T,) array -- the direction of
+# the body command at each step. The scalar paths above must stay bit-identical, which is what the
+# "constant array == float result" tests below actually pin.
+# ---------------------------------------------------------------------------
+def test_lin_vel_to_travel_frame_constant_array_equals_the_float_result_bitwise():
+    rng = np.random.default_rng(7)
+    v = rng.normal(size=(40, 3))
+    for angle in (math.pi / 2, -0.37, 2.1):
+        scalar = M.lin_vel_to_travel_frame(v, angle)
+        array = M.lin_vel_to_travel_frame(v, np.full(v.shape[0], angle))
+        assert np.array_equal(scalar, array)  # bitwise, not approx
+
+
+def test_lin_vel_to_travel_frame_rotates_per_row():
+    v = np.tile(np.array([0.3, 0.0, 0.05]), (3, 1))
+    angles = np.array([0.0, math.pi / 2, math.pi])
+    out = M.lin_vel_to_travel_frame(v, angles)
+    np.testing.assert_allclose(out[0], [0.3, 0.0, 0.05], atol=1e-12)
+    np.testing.assert_allclose(out[1], [0.0, -0.3, 0.05], atol=1e-12)
+    np.testing.assert_allclose(out[2], [-0.3, 0.0, 0.05], atol=1e-12)
+    # A robot travelling along its own command direction reads pure +x in the travel frame at
+    # every step, however the command turns -- the omni tracking ratio's whole premise.
+    dirs = np.linspace(-math.pi, math.pi, 25)
+    moving = np.stack([0.24 * np.cos(dirs), 0.24 * np.sin(dirs), np.zeros_like(dirs)], axis=-1)
+    travel = M.lin_vel_to_travel_frame(moving, dirs)
+    np.testing.assert_allclose(travel[:, 0], 0.24, atol=1e-12)
+    np.testing.assert_allclose(travel[:, 1], 0.0, atol=1e-12)
+
+
+def test_lin_vel_to_travel_frame_identity_is_scalar_zero_only():
+    v = np.array([0.4, -0.1, 0.05])
+    assert M.lin_vel_to_travel_frame(v, 0.0) is v  # same object, as today
+    # An all-zero ARRAY is not the identity fast path (it is a real per-step frame), but it must
+    # still produce the same numbers.
+    out = M.lin_vel_to_travel_frame(np.tile(v, (4, 1)), np.zeros(4))
+    assert out is not v
+    np.testing.assert_allclose(out, np.tile(v, (4, 1)), atol=0.0)
+
+
+def test_rotate_xy_and_quat_helpers_accept_per_step_angles():
+    rng = np.random.default_rng(11)
+    xy = rng.normal(size=(15, 2))
+    quat = np.tile(np.array([1.0, 0.0, 0.0, 0.0]), (15, 1))
+    for angle in (0.0, 0.8, -math.pi / 2):
+        assert np.array_equal(M._rotate_xy(xy, angle), M._rotate_xy(xy, np.full(15, angle)))
+        assert np.array_equal(
+            M._yaw_rotate_quat_wxyz(quat, angle), M._yaw_rotate_quat_wxyz(quat, np.full(15, angle))
+        )
+    per_step = np.linspace(0.0, math.pi, 15)
+    rotated = M._rotate_xy(xy, per_step)
+    for t, a in enumerate(per_step):
+        np.testing.assert_allclose(rotated[t], M._rotate_xy(xy[t], float(a)), atol=1e-15)
+
+
+# ---------------------------------------------------------------------------
+# facing_metrics (omni task): the second command channel.
+# ---------------------------------------------------------------------------
+def test_facing_metrics_on_a_settling_error():
+    n = 200
+    err = np.concatenate([np.linspace(1.5, 0.0, 100), np.zeros(100)])
+    wz = np.full(n, 0.2)
+    wz_cmd = np.concatenate([np.full(100, 0.3), np.zeros(100)])
+    out = M.facing_metrics(err, wz, DT, wz_cmd_t=wz_cmd)
+    assert out["n_steps"] == n
+    assert out["heading_error_max_abs"] == pytest.approx(1.5)
+    assert out["heading_error_final_abs"] == pytest.approx(0.0)
+    assert out["heading_error_rms"] == pytest.approx(float(np.sqrt(np.mean(err**2))))
+    # Last step outside the 0.15 rad band is index 90 (err 1.5 -> 0 over 100 steps).
+    last_outside = int(np.flatnonzero(np.abs(err) >= 0.15)[-1])
+    assert out["settle_time_s"] == pytest.approx((last_outside + 1) * DT)
+    assert out["n_turn_steps"] == 100
+    assert out["yaw_rate_ratio"] == pytest.approx(0.2 / 0.3)
+
+
+def test_facing_metrics_never_settling_is_none_not_zero():
+    n = 50
+    out = M.facing_metrics(np.full(n, 0.9), np.zeros(n), DT, wz_cmd_t=np.full(n, 0.3))
+    assert out["settle_time_s"] is None
+    assert out["heading_error_final_abs"] == pytest.approx(0.9)
+    assert out["yaw_rate_ratio"] == pytest.approx(0.0)  # commanded but not turning: the record
+    assert out["n_turn_steps"] == n
+
+
+def test_facing_metrics_already_on_target_settles_at_zero():
+    out = M.facing_metrics(np.full(30, 0.01), np.zeros(30), DT)
+    assert out["settle_time_s"] == 0.0
+    assert out["yaw_rate_ratio"] is None and out["n_turn_steps"] == 0  # no wz command given
+
+
+def test_facing_metrics_ignores_steps_without_a_yaw_command():
+    wz = np.array([0.0, 0.0, 0.3, 0.3])
+    wz_cmd = np.array([0.0, 0.0, 0.3, 0.3])
+    out = M.facing_metrics(np.zeros(4), wz, DT, wz_cmd_t=wz_cmd)
+    assert out["n_turn_steps"] == 2
+    assert out["yaw_rate_ratio"] == pytest.approx(1.0)
+
+
+def test_facing_metrics_empty_window():
+    out = M.facing_metrics(np.array([]), np.array([]), DT, wz_cmd_t=np.array([]))
+    assert out["n_steps"] == 0 and out["heading_error_rms"] is None
+    assert out["settle_time_s"] is None and out["yaw_rate_ratio"] is None
+    assert out["yaw_progress_rate"] is None and out["net_yaw_rate_toward"] is None
+
+
+# ---------------------------------------------------------------------------
+# yaw_progress_rate / net_yaw_rate_toward (2026-09-17): the GATED turning quantities. The retired
+# proxy (yaw_rate_ratio x ang_vel_max) divided two magnitudes, so it scored the gait's yaw wobble as
+# turning and would have passed a non-turning head on the yaw-capability smoke. These tests pin the
+# sign conventions that failure turned on.
+# ---------------------------------------------------------------------------
+N_HOLD = 400            # 8 s at DT -- the omni schedule's hold length
+HOLD_S = N_HOLD * DT
+
+
+def test_yaw_progress_rate_is_the_rate_toward_the_command():
+    """Constant rotation with the command: progress == the achieved rate, both signs of command."""
+    out = M.facing_metrics(np.zeros(N_HOLD), np.full(N_HOLD, 0.25), DT, wz_cmd_t=np.full(N_HOLD, 0.30))
+    assert out["yaw_progress_rate"] == pytest.approx(0.25)
+    # Commanded right turn, body turns right: still POSITIVE progress (toward the command).
+    out = M.facing_metrics(np.zeros(N_HOLD), np.full(N_HOLD, -0.25), DT, wz_cmd_t=np.full(N_HOLD, -0.30))
+    assert out["yaw_progress_rate"] == pytest.approx(0.25)
+
+
+def test_yaw_progress_rate_cancels_wobble_where_the_ratio_does_not():
+    """The 2026-09-17 ground truth, synthesised: |wz| large every step, net rotation zero.
+
+    ``wz`` alternates +-0.284 rad/s (mean |wz| 0.284) against a command pinned at +0.30, which is
+    ``yaw_rate_ratio`` 0.946 -- the exact number the retired proxy read on ``turn_l90`` (x 0.3 =
+    0.284 rad/s, 5.7x the 0.05 floor). The signed progress is 0.
+    """
+    wz = 0.284 * np.where(np.arange(N_HOLD) % 2 == 0, 1.0, -1.0)
+    out = M.facing_metrics(np.zeros(N_HOLD), wz, DT, wz_cmd_t=np.full(N_HOLD, 0.30))
+    assert out["yaw_progress_rate"] == pytest.approx(0.0, abs=1e-12)
+    assert out["yaw_rate_ratio"] == pytest.approx(0.284 / 0.30)      # the wobble-blind number
+    assert abs(out["yaw_progress_rate"]) < 0.05 < out["yaw_rate_ratio"] * 0.3
+
+
+def test_yaw_progress_rate_is_negative_when_the_body_turns_the_wrong_way():
+    out = M.facing_metrics(np.zeros(N_HOLD), np.full(N_HOLD, -0.12), DT, wz_cmd_t=np.full(N_HOLD, 0.30))
+    assert out["yaw_progress_rate"] == pytest.approx(-0.12)
+    # Mirror: commanded right, body turns left.
+    out = M.facing_metrics(np.zeros(N_HOLD), np.full(N_HOLD, 0.12), DT, wz_cmd_t=np.full(N_HOLD, -0.30))
+    assert out["yaw_progress_rate"] == pytest.approx(-0.12)
+
+
+def test_yaw_progress_rate_ignores_steps_without_a_yaw_command():
+    """Only commanded-turn steps count; a hold that never commands a turn has no progress number."""
+    wz = np.array([0.5, -0.5, 0.2, 0.2])          # the zero-command steps would drag a plain mean to 0.1
+    cmd = np.array([0.0, 0.0, 0.3, 0.3])
+    out = M.facing_metrics(np.zeros(4), wz, DT, wz_cmd_t=cmd)
+    assert out["n_turn_steps"] == 2 and out["yaw_progress_rate"] == pytest.approx(0.2)
+    out = M.facing_metrics(np.zeros(4), wz, DT, wz_cmd_t=np.zeros(4))
+    assert out["n_turn_steps"] == 0 and out["yaw_progress_rate"] is None
+    assert M.facing_metrics(np.zeros(4), wz, DT)["yaw_progress_rate"] is None   # no command logged
+
+
+@pytest.mark.parametrize("err0, err1, expect_sign", [
+    (1.5, 0.0, +1),      # left turn, error closes  -> turned TOWARD the target
+    (0.5, 2.0, -1),      # left turn, error opens    -> turned AWAY
+    (-1.5, 0.0, +1),     # right turn, error closes  -> toward (the sign(err[0]) factor)
+    (-0.5, -2.0, -1),    # right turn, error opens   -> away
+])
+def test_net_yaw_rate_toward_signs_on_a_linear_error(err0, err1, expect_sign):
+    err = np.linspace(err0, err1, N_HOLD)
+    out = M.facing_metrics(err, np.zeros(N_HOLD), DT, wz_cmd_t=np.full(N_HOLD, 0.30))
+    expect = -(err1 - err0) / HOLD_S * np.sign(err0)
+    assert out["net_yaw_rate_toward"] == pytest.approx(expect)
+    assert np.sign(out["net_yaw_rate_toward"]) == expect_sign
+    assert abs(out["net_yaw_rate_toward"]) == pytest.approx(abs(err1 - err0) / HOLD_S)
+
+
+def test_net_yaw_rate_toward_unwraps_across_pi():
+    """A wrapped error series must not read as a huge rotation: the body drifts 0.6 rad AWAY from the
+    target and the error crosses +pi, so the raw end-minus-start would be -6.08 rad (a spurious
+    +0.76 rad/s TOWARD); ``unwrap`` recovers the true -0.075 rad/s."""
+    raw = np.linspace(3.0, 3.6, N_HOLD)
+    err = (raw + np.pi) % (2 * np.pi) - np.pi                 # wrap_to_pi, as the harness logs it
+    assert err.min() < -3.0 < err.max()                       # the series really does wrap
+    out = M.facing_metrics(err, np.zeros(N_HOLD), DT, wz_cmd_t=np.full(N_HOLD, 0.30))
+    assert out["net_yaw_rate_toward"] == pytest.approx(-0.6 / HOLD_S)
+    naive = -(err[-1] - err[0]) / HOLD_S * np.sign(err[0])
+    assert naive > 0.7 > 0.0 > out["net_yaw_rate_toward"]      # what the un-unwrapped form would say
+
+
+def test_net_yaw_rate_toward_guards_short_windows_and_a_moving_target():
+    one = M.facing_metrics(np.array([0.5]), np.array([0.1]), DT, wz_cmd_t=np.array([0.3]))
+    assert one["net_yaw_rate_toward"] is None and one["yaw_progress_rate"] == pytest.approx(0.1)
+    err = np.linspace(1.5, 0.0, N_HOLD)
+    spans_holds = M.facing_metrics(err, np.zeros(N_HOLD), DT, wz_cmd_t=np.full(N_HOLD, 0.3),
+                                   constant_target=False)
+    assert spans_holds["net_yaw_rate_toward"] is None          # episode-level: target is not constant
+    assert spans_holds["yaw_progress_rate"] == pytest.approx(0.0)   # progress needs no constant target
+
+
+def test_net_yaw_rate_toward_matches_a_real_turn_geometry():
+    """A left 90 deg turn at 0.2 rad/s: err goes pi/2 -> 0 in 7.85 s of the 8 s hold, then holds."""
+    n_turn = int(round((np.pi / 2) / 0.2 / DT))
+    err = np.concatenate([np.linspace(np.pi / 2, 0.0, n_turn), np.zeros(N_HOLD - n_turn)])
+    wz = np.concatenate([np.full(n_turn, 0.2), np.zeros(N_HOLD - n_turn)])
+    out = M.facing_metrics(err, wz, DT, wz_cmd_t=np.full(N_HOLD, 0.30))
+    # Net rate = the whole turn spread over the whole hold; progress = the mean achieved rate.
+    assert out["net_yaw_rate_toward"] == pytest.approx((np.pi / 2) / HOLD_S, rel=1e-3)
+    assert out["yaw_progress_rate"] == pytest.approx(0.2 * n_turn / N_HOLD, rel=1e-6)
+    assert out["net_yaw_rate_toward"] > 0.05 and out["yaw_progress_rate"] > 0.05
+
+
+# ---------------------------------------------------------------------------
+# report.py on a WORLD-frame row (omni): the command is rotated into the travel frame so the
+# unchanged tracking_metrics still answers "what fraction of the commanded speed did it make",
+# and each hold gains a whole-hold facing entry.
+# ---------------------------------------------------------------------------
+def _world_raw_and_scenario(travel_dir: float = math.pi / 4):
+    """A synthetic omni episode: one moving hold travelling at ``travel_dir``, one 90 deg turn."""
+    from gait_eval import report as R  # noqa: PLC0415
+    from gait_eval.schedule import Hold, Scenario, compile_schedule  # noqa: PLC0415
+
+    scenario = Scenario(
+        id="synthetic_world",
+        task="Isaac-Crab-Hex-Omni-Walk-Play-v0",
+        checkpoint="",
+        schedule=[
+            Hold(hold_s=6.0, speed=0.24, dir=travel_dir, face=0.0, label="move"),
+            Hold(hold_s=7.0, speed=0.0, dir=0.0, face=math.pi / 2, label="turn_l90"),
+        ],
+        episodes=1,
+        env_seed=1,
+        speed_ellipse={"fwd": 0.35, "lat": 0.25, "back": 0.25},
+    )
+    compiled = compile_schedule(scenario, dt=DT, num_envs=1)
+    T = compiled.n_steps
+    moving = compiled.world_speed[:, 0] > 0.0
+
+    # Body command: the moving hold travels at `travel_dir` (body == world, the robot faces 0);
+    # the turn hold has no translation and a yaw-rate command that decays as the error closes.
+    cmd = np.zeros((T, 1, 3))
+    cmd[moving, 0, 0] = 0.24 * math.cos(travel_dir)
+    cmd[moving, 0, 1] = 0.24 * math.sin(travel_dir)
+    heading_err = np.zeros((T, 1))
+    turn_idx = np.flatnonzero(~moving)
+    # error decays from pi/2 to ~0 over the first 5 s of the turn hold, then holds.
+    ramp = np.clip(np.arange(turn_idx.size) / (5.0 / DT), 0.0, 1.0)
+    heading_err[turn_idx, 0] = (math.pi / 2) * (1.0 - ramp)
+    cmd[turn_idx, 0, 2] = np.clip(heading_err[turn_idx, 0] * 0.8, -0.3, 0.3)
+
+    lin = np.zeros((T, 1, 3))
+    lin[:, 0, :2] = cmd[:, 0, :2]  # perfectly on command
+    ang = np.zeros((T, 1, 3))
+    ang[:, 0, 2] = cmd[:, 0, 2]
+
+    contact = _tripod_contact(T, 5)
+    raw = {
+        "foot_force_norm": np.where(contact, 400.0, 0.0)[:, None, :],
+        "cmd_applied": cmd,
+        "root_lin_vel_b": lin,
+        "root_ang_vel_b": ang,
+        "root_quat_w": np.tile(np.array([1.0, 0.0, 0.0, 0.0]), (T, 1))[:, None, :],
+        "root_pos_w": np.zeros((T, 1, 3)),
+        "foot_pos_w": np.zeros((T, 1, 6, 3)),
+        "foot_lin_vel_w": np.zeros((T, 1, 6, 3)),
+        "foot_ang_vel_w": np.zeros((T, 1, 6, 3)),
+        "terrain_z": np.zeros((T, 1, 6)),
+        "actions": np.zeros((T, 1, 4)),
+        "joint_vel": np.zeros((T, 1, 4)),
+        "crab_failure": np.zeros((T, 1), dtype=bool),
+        "heading_err": heading_err,
+        # what the harness logs: the direction of the body command at each step
+        "travel_yaw": np.arctan2(cmd[:, :, 1], cmd[:, :, 0]),
+    }
+    return R, raw, compiled, scenario, T
+
+
+def test_world_row_tracking_is_measured_along_the_commanded_direction():
+    """A robot travelling exactly on a 45 deg command must read ratio 1.0, not cos(45 deg)."""
+    R, raw, compiled, scenario, T = _world_raw_and_scenario()
+    ep = R.score_run(
+        raw, compiled=compiled, scenario=scenario, dt=DT,
+        term_reason=["schedule_complete"], n_steps_env=[T], travel_yaw=raw["travel_yaw"],
+    )[0]
+    move = ep["holds"]["move"]["tracking"]
+    assert move["vx"]["cmd_mean"] == pytest.approx(0.24, abs=1e-9)
+    assert move["vx"]["actual_mean"] == pytest.approx(0.24, abs=1e-9)
+    assert move["vx"]["ratio"] == pytest.approx(1.0, abs=1e-9)
+    assert move["vy"]["actual_mean"] == pytest.approx(0.0, abs=1e-9)
+    # ratio.n > 0 iff speed > clip: the standing turn hold is a commanded stop.
+    assert ep["holds"]["turn_l90"]["tracking"]["vx"]["ratio"] is None
+    assert ep["tracking_ratio"] == pytest.approx(1.0, abs=1e-9)
+
+
+def test_world_row_facing_is_scored_over_the_whole_hold():
+    R, raw, compiled, scenario, T = _world_raw_and_scenario()
+    episodes = R.score_run(
+        raw, compiled=compiled, scenario=scenario, dt=DT,
+        term_reason=["schedule_complete"], n_steps_env=[T], travel_yaw=raw["travel_yaw"],
+    )
+    ep = episodes[0]
+    turn = ep["holds"]["turn_l90"]["facing"]
+    # Whole hold, not steady-masked: the settle window is 1 s, the hold 7 s.
+    assert turn["n_steps"] == int(round(7.0 / DT))
+    assert turn["heading_error_max_abs"] == pytest.approx(math.pi / 2, abs=1e-6)
+    assert turn["heading_error_final_abs"] == pytest.approx(0.0, abs=1e-6)
+    assert 4.0 < turn["settle_time_s"] < 6.0
+    assert turn["n_turn_steps"] > 0
+    assert turn["yaw_rate_ratio"] == pytest.approx(1.0, abs=1e-9)
+    # The gated turning numbers on a head that DOES turn: the body tracks the yaw command exactly
+    # here, so progress == the mean commanded rate over the turning steps, and the net rotation is
+    # the whole pi/2 turn spread over the 7 s hold.
+    wz_cmd = raw["cmd_applied"][:, 0, 2]
+    turning = np.abs(wz_cmd) > 1e-6
+    assert turn["yaw_progress_rate"] == pytest.approx(float(wz_cmd[turning].mean()), abs=1e-9)
+    assert turn["net_yaw_rate_toward"] == pytest.approx((math.pi / 2) / 7.0, abs=1e-6)
+    assert ep["holds"]["move"]["facing"]["heading_error_rms"] == pytest.approx(0.0)
+    assert ep["holds"]["move"]["facing"]["yaw_progress_rate"] is None       # no yaw command commanded
+    assert ep["facing_error_rms"] == pytest.approx(ep["facing"]["heading_error_rms"])
+    # Episode level spans two holds with different facing targets: net is refused, not guessed.
+    assert ep["facing"]["net_yaw_rate_toward"] is None
+    assert ep["facing"]["yaw_progress_rate"] is not None
+
+    agg = R.aggregate(episodes)
+    assert set(agg["facing_by_hold"]) == {"move", "turn_l90"}
+    assert agg["facing_by_hold"]["turn_l90"]["heading_error_final_abs"]["median"] == pytest.approx(0.0, abs=1e-6)
+    assert agg["facing_by_hold"]["turn_l90"]["yaw_progress_rate"]["median"] == pytest.approx(
+        turn["yaw_progress_rate"], abs=1e-9)
+    assert agg["facing_by_hold"]["turn_l90"]["net_yaw_rate_toward"]["median"] == pytest.approx(
+        turn["net_yaw_rate_toward"], abs=1e-9)
+    assert agg["facing_by_hold"]["move"]["yaw_progress_rate"]["n"] == 0     # unmeasured, not 0.0
+    assert agg["facing_error_rms"]["n"] == 1
+    text = R.summary_text({"scenario_id": "s", "task": "t", "command_override_max_deviation": 0.0}, episodes)
+    assert "facing_error_rms" in text and "turn_l90" in text and "yaw_rate_ratio" in text
+    assert "progress=" in text and "net=" in text
+
+
+def test_world_row_stride_reads_along_the_body_command():
+    """cmd_applied is a true body vector on world rows, so the stride frame is the body yaw."""
+    R, raw, compiled, scenario, T = _world_raw_and_scenario(travel_dir=math.pi / 2)
+    # feet displace along world +y, the commanded direction, while the body faces world +x
+    raw = dict(raw)
+    pos = np.zeros((T, 1, 6, 3))
+    pos[:, 0, 0, 1] = np.arange(T) * 0.004
+    raw["foot_pos_w"] = pos
+    ep = R.score_run(
+        raw, compiled=compiled, scenario=scenario, dt=DT,
+        term_reason=["schedule_complete"], n_steps_env=[T], travel_yaw=raw["travel_yaw"],
+    )[0]
+    fl = ep["stride"]["per_foot"]["FL_Footpad"]
+    assert fl["n_strides"] > 0
+    assert fl["along_command"]["mean"] == pytest.approx(fl["magnitude"]["mean"], rel=1e-6)
+
+
+def test_body_rows_are_unaffected_by_the_world_branch():
+    """A body scenario scores identically whether or not heading_err happens to be in raw."""
+    from gait_eval import report as R
+    from gait_eval.schedule import Hold, Scenario, compile_schedule
+
+    scenario = Scenario(
+        id="body", task="Isaac-Crab-Hex-Flat-Walk-v0", checkpoint="",
+        schedule=[Hold(hold_s=3.0, vx=0.3, label="hold0")], episodes=1, env_seed=1,
+    )
+    compiled = compile_schedule(scenario, dt=DT, num_envs=1)
+    T = compiled.n_steps
+    contact = _tripod_contact(T, 5)
+    raw = {
+        "foot_force_norm": np.where(contact, 400.0, 0.0)[:, None, :],
+        "cmd_applied": compiled.cmd.astype(np.float64),
+        "root_lin_vel_b": np.tile(np.array([0.3, 0.0, 0.0]), (T, 1))[:, None, :],
+        "root_ang_vel_b": np.zeros((T, 1, 3)),
+        "root_quat_w": np.tile(np.array([1.0, 0.0, 0.0, 0.0]), (T, 1))[:, None, :],
+        "root_pos_w": np.zeros((T, 1, 3)),
+        "foot_pos_w": np.zeros((T, 1, 6, 3)),
+        "foot_lin_vel_w": np.zeros((T, 1, 6, 3)),
+        "foot_ang_vel_w": np.zeros((T, 1, 6, 3)),
+        "terrain_z": np.zeros((T, 1, 6)),
+        "actions": np.zeros((T, 1, 4)),
+        "joint_vel": np.zeros((T, 1, 4)),
+        "crab_failure": np.zeros((T, 1), dtype=bool),
+    }
+    kwargs = dict(compiled=compiled, scenario=scenario, dt=DT,
+                  term_reason=["schedule_complete"], n_steps_env=[T])
+    base = R.score_run(raw, **kwargs)
+    with_extra = R.score_run(dict(raw, heading_err=np.zeros((T, 1))), **kwargs)
+    assert base == with_extra
+    assert "facing_by_hold" not in R.aggregate(base)

@@ -142,11 +142,17 @@ from scripts.rsl_rl.vecenv_wrapper import ParkourRslRlVecEnvWrapper  # noqa: E40
 # Command channels the policy can actually observe. observations.py concatenates
 # ``0 * commands[:, 0:2]`` then ``commands[:, 0:1]``: vy is explicitly zeroed and wz never enters
 # the vector at all. Recorded into every report so an off-axis "tracking error" is never mistaken
-# for a capability measurement.
+# for a capability measurement. Derived at run time from the observation term when it declares
+# ``OBSERVED_COMMAND_SLOTS`` (the omni term does: {8: 0, 9: 1, 5: 2}); this literal is the
+# forward/sideways answer and the fallback.
 POLICY_SEES_COMMAND_CHANNEL = {"vx": True, "vy": False, "wz": False}
 OBS_IDX_DELTA_YAW = 6
 OBS_IDX_DELTA_NEXT_YAW = 7
 OBS_IDX_CMD_VX = 10
+#: ``{observation slot -> vel_command_b channel}``. The end-to-end "the schedule reached the
+#: policy" check runs over these pairs; today's single pair is obs dim 10 == commanded vx.
+DEFAULT_OBSERVED_COMMAND_SLOTS = {OBS_IDX_CMD_VX: 0}
+_CMD_CHANNEL_NAMES = ("vx", "vy", "wz")
 
 
 def _sha256(path: Path) -> str:
@@ -210,6 +216,46 @@ def _resolve_scenario() -> S.Scenario:
     return scenario
 
 
+def _wrap_to_pi(angle: "torch.Tensor") -> "torch.Tensor":
+    """Wrap to ``(-pi, pi]`` without importing isaaclab's math utils into the pure-ish helpers."""
+    return torch.atan2(torch.sin(angle), torch.cos(angle))
+
+
+def _observed_command_slots(unwrapped) -> tuple[dict[int, int], str]:
+    """``({obs slot: vel_command_b channel}, source)`` for the override-reached-the-policy check.
+
+    Read from the observation term's ``OBSERVED_COMMAND_SLOTS`` class attribute when it declares
+    one (the omni observations do -- three command channels instead of one); otherwise today's
+    single ``{10: 0}`` pair, so forward and sideways rows run the identical check.
+    """
+    candidates = []
+    manager = getattr(unwrapped, "observation_manager", None)
+    for terms in (getattr(manager, "_group_obs_term_cfgs", None) or {}).values():
+        candidates.extend(getattr(term, "func", None) for term in terms)
+    obs_cfg = getattr(getattr(unwrapped, "cfg", None), "observations", None)
+    if obs_cfg is not None:
+        for group in vars(obs_cfg).values():
+            if hasattr(group, "__dict__"):
+                candidates.extend(getattr(term, "func", None) for term in vars(group).values())
+    for func in candidates:
+        slots = getattr(func, "OBSERVED_COMMAND_SLOTS", None)
+        if slots:
+            name = getattr(func, "__name__", type(func).__name__)
+            return {int(k): int(v) for k, v in dict(slots).items()}, f"{name}.OBSERVED_COMMAND_SLOTS"
+    return dict(DEFAULT_OBSERVED_COMMAND_SLOTS), "default (obs dim 10 == cmd vx)"
+
+
+def _policy_sees_command_channels(slots: dict[int, int]) -> dict[str, bool]:
+    """``{"vx"/"vy"/"wz": bool}`` derived from the observed slots."""
+    seen = set(slots.values())
+    return {name: (k in seen) for k, name in enumerate(_CMD_CHANNEL_NAMES)}
+
+
+# The derivation must reproduce the hand-written forward answer, or every forward report's
+# ``policy_sees_command_channel`` silently changes meaning.
+assert _policy_sees_command_channels(DEFAULT_OBSERVED_COMMAND_SLOTS) == POLICY_SEES_COMMAND_CHANNEL
+
+
 def _apply_env_overrides(env_cfg, scenario: S.Scenario) -> dict:
     """Determinism knobs only -- no reward/MDP semantics are touched."""
     applied: dict[str, object] = {}
@@ -249,6 +295,32 @@ def _apply_env_overrides(env_cfg, scenario: S.Scenario) -> dict:
         if scenario.freeze_friction and getattr(events, "physics_material", None) is not None:
             events.physics_material = None
             applied["physics_material"] = None
+
+    # World rows only: pin the spawn heading. The omni reset event samples a uniform yaw, so
+    # without this the first hold's facing error is a different (random) number in every episode
+    # and the whole facing block measures the spawn, not the policy.
+    if scenario.command_frame == "world":
+        face0 = scenario.spawn_yaw_rad()
+        if face0 is not None:
+            reset = getattr(events, "reset_root_state", None) if events is not None else None
+            params = getattr(reset, "params", None)
+            if params is None or "yaw_range" not in params:
+                raise SystemExit(
+                    f"scenario {scenario.id!r} sets spawn_yaw={scenario.spawn_yaw!r} but the env's "
+                    "events.reset_root_state has no 'yaw_range' param to pin (the omni reset event "
+                    "does; a forward/sideways task cannot run a world-frame scenario)."
+                )
+            params["yaw_range"] = (face0, face0)
+            applied["spawn_yaw_pin"] = face0
+            # The omni RSI reset (present whenever the preset carries KRABBY_RSI_FRAC > 0) draws
+            # its OWN spawn yaw for the reference-state subset; pin it to the same value so no
+            # episode starts at a random facing (2026-09-17 harness-smoke finding: 2/8 episodes
+            # spawned at -1.40 / -0.40 rad through this event).
+            rsi = getattr(events, "rsi_reference_reset", None)
+            rsi_params = getattr(rsi, "params", None)
+            if rsi_params is not None and "yaw_range" in rsi_params:
+                rsi_params["yaw_range"] = (face0, face0)
+                applied["spawn_yaw_pin_rsi"] = face0
     return applied
 
 
@@ -272,6 +344,77 @@ def _install_schedule_override(cmd_term: UniformParkourCommand, cmd_tensor: torc
     # CommandTerm.reset() resamples, and the wrapper's initial reset already ran before this
     # override existed -- so seed the tensor explicitly rather than trusting the first compute().
     cmd_term.vel_command_b[:] = cmd_tensor[0]
+    return state
+
+
+def _install_schedule_override_world(
+    cmd_term: UniformParkourCommand, compiled: S.CompiledSchedule, device, hold_labels: list[str]
+) -> dict:
+    """World-frame rows: drive the command term through its own ``schedule_hook`` each step.
+
+    The world -> body conversion and the facing P-control belong to the command term (plan D1), not
+    to the harness: writing ``vel_command_b`` directly, the way body rows do, would freeze the body
+    command while the robot turns and would bypass the yaw-rate control entirely. So each step
+    hands the term a :class:`gait_eval.schedule.ScheduleRow` -- ``.speed`` / ``.dir`` / ``.face``,
+    world-frame values -- and the term writes ``vel_command_b`` itself.
+
+    Row fields are floats whenever every env is on the same hold (``compiled.world_uniform``,
+    which is every committed omni scenario); a ``rotate_holds_by_env`` scenario needs per-env
+    values instead and gets ``(num_envs,)`` tensors on the env's device.
+
+    WHEN THE WRITE HAPPENS, and why the harness does not also write per step. ``vel_command_b``
+    is here a function of the LIVE YAW (the held world direction is re-projected and the facing
+    P-control re-evaluated on every call), so *when* the hook runs changes the numbers. Training
+    calls it exactly once per control step, from ``command_manager.compute()`` -- after the
+    physics, after any reset, immediately before the observation manager reads the command. The
+    ``compute`` override below sits in that same slot, so the eval writes the command at the
+    training instant and the observation the policy acts on is built from that write. The main
+    loop therefore does NOT re-apply the row before each step (a second write, at the *pre*-physics
+    yaw, whose value the following observation would never carry); it only advances ``step`` so
+    this compute applies the row of the step whose observation it is about to produce.
+
+    Returns a state dict with ``step`` (the row index the next ``compute`` applies), ``row(t)``
+    (the compiled row, for the schedule-state check) and ``apply(t)``, used once before the loop to
+    overwrite the random command the wrapper's own reset left behind.
+    """
+    if not callable(getattr(cmd_term, "schedule_hook", None)):
+        raise SystemExit(
+            f"world-frame scenario needs a command term with schedule_hook(row); {type(cmd_term).__name__} "
+            "has none (only the omni command term does)."
+        )
+    n_steps = int(compiled.n_steps)
+    state = {"step": 0}
+    uniform = compiled.world_uniform
+    if not uniform:
+        speed = torch.from_numpy(compiled.world_speed).to(device)
+        direction = torch.from_numpy(compiled.world_dir).to(device)
+        face = torch.from_numpy(compiled.world_face).to(device)
+
+    def _row(step: int) -> S.ScheduleRow:
+        idx = min(max(int(step), 0), n_steps - 1)
+        seg = int(compiled.segment_id[idx, 0])
+        label = hold_labels[seg] if 0 <= seg < len(hold_labels) else "prologue"
+        if uniform:
+            return compiled.row(idx, label=label)  # floats
+        return S.ScheduleRow(
+            speed=speed[idx],  # (num_envs,) on the env's device
+            dir=direction[idx],
+            face=face[idx],
+            label=label,
+            step=idx,
+        )
+
+    def _schedule_compute(self: UniformParkourCommand, dt: float) -> None:
+        # schedule_hook re-runs the term's own _update_command, so the yaw-rate slot tracks the
+        # body's CURRENT heading -- the closed loop training uses. Never _resample_command.
+        self.schedule_hook(_row(state["step"]))
+        self._update_metrics()
+
+    cmd_term.compute = types.MethodType(_schedule_compute, cmd_term)
+    cmd_term.time_left[:] = 1.0e9
+    cmd_term.schedule_hook(_row(0))
+    state["apply"] = lambda t: cmd_term.schedule_hook(_row(t))
+    state["row"] = _row
     return state
 
 
@@ -427,10 +570,19 @@ def main() -> None:
     cmd_term = unwrapped.command_manager.get_term("base_velocity")
     if not isinstance(cmd_term, UniformParkourCommand):
         raise SystemExit(f"base_velocity must be UniformParkourCommand, got {type(cmd_term)}")
-    override_state = _install_schedule_override(cmd_term, cmd_tensor)
+    world_frame = scenario.command_frame == "world"
+    if world_frame:
+        override_state = _install_schedule_override_world(
+            cmd_term, compiled, device, compiled.hold_labels
+        )
+    else:
+        override_state = _install_schedule_override(cmd_term, cmd_tensor)
 
     heading_stiffness = float(getattr(env_cfg.commands.base_velocity, "heading_control_stiffness", 0.8))
     ang_vel_clip = float(getattr(env_cfg.commands.base_velocity.clips, "ang_vel_clip", 0.4))
+    ang_vel_max = float(getattr(env_cfg.commands.base_velocity, "ang_vel_max", scenario.ang_vel_max))
+    observed_command_slots, observed_slots_source = _observed_command_slots(unwrapped)
+    policy_sees_command_channel = _policy_sees_command_channels(observed_command_slots)
 
     mesh = None
     try:
@@ -465,23 +617,36 @@ def main() -> None:
         "body_pos_w": torch.zeros(T, num_envs, int(robot.num_bodies), 3, device=device),
         "leg_contact_force": torch.zeros(T, num_envs, len(sensor_leg_ids), device=device),
     }
+    if world_frame:
+        # Per-step travel frame (the direction of the body command) and facing error -- the two
+        # series the omni scoring needs and a constant travel_yaw cannot express. They live in the
+        # raw buffers, not run_meta: (T, E) floats are an npz column, not a JSON field.
+        buf["travel_yaw"] = torch.zeros(T, num_envs, device=device)
+        buf["heading_err"] = torch.zeros(T, num_envs, device=device)
 
     alive = torch.ones(num_envs, dtype=torch.bool, device=device)
     n_steps_env = torch.zeros(num_envs, dtype=torch.long, device=device)
     term_reason = ["running"] * num_envs
     max_cmd_dev = 0.0
+    # World rows only: the schedule-state check (see the loop). Body rows write the whole command
+    # tensor on every compute, so "the scheduled row is the one in force" is true by construction
+    # there and this stays 0.0.
+    max_sched_state_dev = 0.0
 
     obs, extras = env.get_observations()
     # The wrapper's own reset ran before the override existed, so the first observation can carry a
     # randomly resampled command. Re-apply and re-read before logging anything.
-    cmd_term.vel_command_b[:] = cmd_tensor[0]
+    if world_frame:
+        override_state["apply"](0)
+    else:
+        cmd_term.vel_command_b[:] = cmd_tensor[0]
     obs, extras = env.get_observations()
     # obs at this point reflects the command just seeded above -- track it so the deviation check
     # below always compares an observation against the command that actually produced it, not
     # whatever was written *after*. Getting this backwards produces a spurious "deviation" of
     # exactly the hold-to-hold jump size at every command change, since obs[:, 10] necessarily
     # lags one step behind vel_command_b (the policy acts on last step's observation).
-    obs_reflects_cmd = cmd_tensor[0].clone()
+    obs_reflects_cmd = cmd_term.vel_command_b.clone() if world_frame else cmd_tensor[0].clone()
 
     depth_latent = None
     yaw_pred = None
@@ -490,13 +655,49 @@ def main() -> None:
     with torch.inference_mode():
         for t in range(T):
             override_state["step"] = t
-            cmd_term.vel_command_b[:] = cmd_tensor[t]
+            if world_frame:
+                # NOTHING is written here. The term already holds this step's command: the
+                # ``env.step()`` before this one ran ``command_manager.compute()`` ->
+                # ``schedule_hook(row_t)`` -> ``_update_command`` at the post-physics yaw (the
+                # instant training writes at) and the observation manager read that write to build
+                # the ``obs`` this iteration acts on. Re-applying the row here would write it a
+                # SECOND time at the pre-physics yaw of the next step, and since the world -> body
+                # projection and the facing P-control both depend on the live yaw, that second
+                # value is not the one any observation carries. It differs by one control step of
+                # yaw: ~2e-3 m/s on the xy channels, but the yaw-rate channel is DISCONTINUOUS in
+                # yaw -- the dead band flips it between 0 and +-ang_vel_clip at
+                # |facing error| = ang_vel_clip / stiffness, and ``wrap_to_pi`` flips a saturated
+                # command between +-ang_vel_max at |facing error| = pi -- so a fallen robot whose
+                # yaw swept a threshold made obs and the recorded command disagree by up to
+                # 2 * ang_vel_max (0.6). Advancing ``step`` instead keeps ONE write per step, and
+                # obs, ``cmd_applied``, ``travel_yaw``, ``heading_err`` and the deviation check
+                # below all read that single value. ``_row`` clamps, so t + 1 == T is the last row.
+                override_state["step"] = t + 1
+                obs_reflects_cmd = cmd_term.vel_command_b.clone()
+                # The scheduled row must still be the one in force: ``CommandTerm.reset()`` calls
+                # ``_resample_command`` on every env that fell, which draws a RANDOM world
+                # direction / speed / facing. ``_reset_idx`` runs before ``command_manager.compute``
+                # (parkour_manager_based_rl_env.py:142 vs :153), so ``schedule_hook`` overwrites
+                # every env right after -- this asserts it, on the three scheduled world
+                # quantities themselves, which is what a leaked resample would change (the body
+                # path gets the same guarantee for free by writing the whole command tensor).
+                _row_t = override_state["row"](t)
+                max_sched_state_dev = max(
+                    max_sched_state_dev,
+                    (cmd_term.travel_dir_w - _row_t.dir).abs().max().item(),
+                    (cmd_term.speed_cmd - _row_t.speed).abs().max().item(),
+                    _wrap_to_pi(cmd_term.heading_target - _row_t.face).abs().max().item(),
+                )
+            else:
+                cmd_term.vel_command_b[:] = cmd_tensor[t]
 
             # Free end-to-end proof the override reaches the policy input: observations.py puts
-            # commands[:, 0:1] at obs dim 10. Check now, before this step's command overwrite makes
-            # `obs_reflects_cmd` stale.
-            dev = (obs[:, OBS_IDX_CMD_VX] - obs_reflects_cmd[:, 0]).abs().max().item()
-            max_cmd_dev = max(max_cmd_dev, dev)
+            # commands[:, 0:1] at obs dim 10 (the omni observations put three channels at
+            # OBSERVED_COMMAND_SLOTS instead). Check now, before this step's command overwrite
+            # makes `obs_reflects_cmd` stale.
+            for _slot, _channel in observed_command_slots.items():
+                dev = (obs[:, _slot] - obs_reflects_cmd[:, _channel]).abs().max().item()
+                max_cmd_dev = max(max_cmd_dev, dev)
 
             if delta_yaw_tensor is not None:
                 # wz cannot reach the policy; delta_yaw is the only steering channel it observes.
@@ -529,6 +730,15 @@ def main() -> None:
 
             buf["obs_cmd_vx"][t] = obs[:, OBS_IDX_CMD_VX]
             buf["cmd_applied"][t] = cmd_term.vel_command_b
+            if world_frame:
+                # Travel frame of THIS step = the direction of the body command the policy is
+                # about to act on; facing error = what the yaw-rate slot is steering to close.
+                # On a commanded stop the body command is (0, 0), atan2 gives 0.0, and the travel
+                # frame is the body frame -- the same convention a forward stop hold has.
+                buf["travel_yaw"][t] = torch.atan2(
+                    cmd_term.vel_command_b[:, 1], cmd_term.vel_command_b[:, 0]
+                )
+                buf["heading_err"][t] = _wrap_to_pi(cmd_term.heading_target - robot.data.heading_w)
             buf["actions"][t] = actions
             buf["foot_force_norm"][t] = contact_sensor.data.net_forces_w_history[:, 0, sensor_foot_ids].norm(dim=-1)
             fp = robot.data.body_pos_w[:, foot_body_ids]
@@ -624,13 +834,70 @@ def main() -> None:
         "num_prop": num_prop,
         "obs_dim_actual": int(obs.shape[1]),
         "command_override_max_deviation": max_cmd_dev,
-        "policy_sees_command_channel": POLICY_SEES_COMMAND_CHANNEL,
+        "policy_sees_command_channel": policy_sees_command_channel,
+        "observed_command_slots": {str(k): v for k, v in observed_command_slots.items()},
+        "observed_command_slots_source": observed_slots_source,
+        "command_frame": scenario.command_frame,
         "terrain_source": "raycast_mesh" if mesh is not None else "root_offset_fallback",
         "termination_reason": term_reason,
         "n_steps_per_env": [int(v) for v in n_steps_env.cpu().numpy()],
         "hold_labels": compiled.hold_labels,
         "notes": scenario.notes,
     }
+    if world_frame:
+        # World-row provenance: what was commanded, how it became a body command, and where the
+        # per-step series live. The (T, E) travel_yaw/heading_err arrays go in the raw npz, not
+        # here -- a JSON field of 3500 x E floats would dwarf every other number in the file.
+        run_meta.update(
+            {
+                "spawn_yaw_pin": applied_overrides.get("spawn_yaw_pin"),
+                "spawn_yaw_pin_rsi": applied_overrides.get("spawn_yaw_pin_rsi"),
+                "hold_speeds": [h.speed for h in scenario.schedule],
+                "hold_dirs": [h.dir for h in scenario.schedule],
+                "hold_faces": [h.face for h in scenario.schedule],
+                "speed_ellipse": dict(zip(("fwd", "lat", "back"), scenario.get_speed_ellipse())),
+                "ang_vel_max": ang_vel_max,
+                "ang_vel_clip": ang_vel_clip,
+                "heading_control_stiffness": heading_stiffness,
+                "travel_yaw_mode": "per_step",
+                "schedule_state_max_deviation": max_sched_state_dev,
+                "command_conversion": {
+                    "hook": "cmd_term.schedule_hook(ScheduleRow(speed, dir, face))",
+                    "row_fields": ["speed (m/s)", "dir (world rad)", "face (world rad)"],
+                    "body_command": "written by the command term's _update_command (world->body + facing P-control)",
+                    "travel_yaw_per_step": "atan2(vel_command_b[:, 1], vel_command_b[:, 0])",
+                    "heading_err_per_step": "wrap_to_pi(heading_target - heading_w)",
+                    "raw_series": ["travel_yaw", "heading_err"],
+                    # The world->body command depends on the live yaw, so the instant matters:
+                    # it is written ONCE per step, by the term's own compute inside env.step()
+                    # (post-physics, pre-observation -- training's instant), and every series
+                    # above plus command_override_max_deviation reads that single value. So
+                    # cmd_applied[t] IS the command obs[t] carries, bit for bit.
+                    "written_at": "command_manager.compute() inside env.step(), once per step",
+                    "cmd_applied_instant": "the command the step's own observation was built from",
+                    "schedule_state_check": (
+                        "max |travel_dir_w - row.dir| / |speed_cmd - row.speed| / "
+                        "|wrap(heading_target - row.face)| over every step -- proves no "
+                        "reset-driven _resample_command leaked a random command into an observation"
+                    ),
+                    "spawn_yaw_pin_note": (
+                        "every reset (including mid-schedule falls) re-spawns at the pinned spawn "
+                        "yaw, not at the current hold's face, so an env that falls during a turn "
+                        "hold restarts facing face0 with the hold's facing error re-opened. The "
+                        "COMMAND is still the scheduled row (schedule_state_max_deviation proves "
+                        "it); only the body's starting yaw is the spawn pin."
+                    ),
+                },
+            }
+        )
+        ty = host["travel_yaw"]
+        run_meta["travel_yaw_by_hold"] = {
+            label: float(np.arctan2(
+                np.sin(ty[compiled.segment_id == i]).mean(), np.cos(ty[compiled.segment_id == i]).mean()
+            ))
+            for i, label in enumerate(compiled.hold_labels)
+            if bool((compiled.segment_id == i).any())
+        }
     if num_prop and run_meta["obs_dim_actual"] != num_prop:
         run_meta["obs_dim_warning"] = (
             f"num_prop={num_prop} but observation width is {run_meta['obs_dim_actual']}; train and play "
@@ -638,8 +905,17 @@ def main() -> None:
         )
     if max_cmd_dev > 1e-4:
         run_meta["command_override_warning"] = (
-            f"obs[:, {OBS_IDX_CMD_VX}] deviated from the commanded vx by {max_cmd_dev:.3e}; the "
-            "schedule may not be reaching the policy."
+            f"observed command slots {dict(observed_command_slots)} deviated from the commanded "
+            f"channel by {max_cmd_dev:.3e}; the schedule may not be reaching the policy."
+        )
+    if world_frame and max_sched_state_dev > 1e-6:
+        # A non-zero value means the term's world state (dir / speed / facing) was NOT the
+        # scheduled row at an observation instant -- i.e. a reset-driven _resample_command's random
+        # command survived into an observation. The deviation check above cannot see that (it
+        # compares the observation against the term's own command), so it is reported separately.
+        run_meta["schedule_state_warning"] = (
+            f"the command term's scheduled world state (dir/speed/face) deviated from the hold row "
+            f"by {max_sched_state_dev:.3e}; a resampled command may have reached the policy."
         )
 
     groups = _joint_groups(run_meta["action_joint_names"])
@@ -654,7 +930,8 @@ def main() -> None:
         n_steps_env=[int(v) for v in n_steps_env.cpu().numpy()],
         action_groups=groups,
         joint_vel_groups=jv_groups,
-        travel_yaw=travel_yaw,
+        # World rows: the (T, E) per-step command direction replaces the constant travel frame.
+        travel_yaw=(host["travel_yaw"] if world_frame else travel_yaw),
     )
     R.write_run(
         run_dir,

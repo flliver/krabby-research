@@ -43,6 +43,14 @@ def _window_mask(
     return valid & (segment_id == hold_idx) & steady
 
 
+def _travel_yaw_at(travel_yaw, index) -> Any:
+    """Select ``travel_yaw`` for a step selection: a scalar passes through, a ``(T,)`` array is
+    indexed (so each step is rotated by its own command direction -- omni rows)."""
+    if np.ndim(travel_yaw) == 0:
+        return travel_yaw
+    return np.asarray(travel_yaw, dtype=np.float64)[index]
+
+
 def score_episode(
     raw: dict[str, np.ndarray],
     *,
@@ -58,10 +66,23 @@ def score_episode(
 ) -> dict:
     """All derived metrics for one episode, per hold plus an episode roll-up.
 
-    ``travel_yaw`` is the constant yaw offset of the travel frame from the body frame (0.0 for the
-    forward task, +pi/2 for the sideways task); it is threaded through to every metric that reads
-    orientation or velocity so the harness serves both tasks unchanged at 0.0.
+    ``travel_yaw`` is the yaw offset of the travel frame from the body frame (0.0 for the forward
+    task, +pi/2 for the sideways task); it is threaded through to every metric that reads
+    orientation or velocity so the harness serves both tasks unchanged at 0.0. On an omni
+    (``command_frame == "world"``) row it is a ``(T,)`` array instead -- the direction of the body
+    command at each step, since the travel frame turns with the command.
+
+    On a world row the command is additionally rotated into the travel frame before
+    ``tracking_metrics`` sees it (``(||cmd_xy||, 0, wz)``), so ``vx`` keeps meaning
+    "along the commanded direction" and ``vx.ratio`` keeps meaning achieved/commanded speed; and,
+    when the harness logged ``heading_err``, each hold gets a :func:`gait_eval.metrics.facing_metrics`
+    entry over the WHOLE hold (a turn command is the transient -- masking the settle window out
+    would discard the steps that measure it). Per hold the facing target is constant, so the hold
+    entries carry ``net_yaw_rate_toward``; the episode-level entry passes ``constant_target=False``
+    because an episode's target steps between holds.
     """
+    world = scenario.command_frame == "world"
+    has_facing = world and "heading_err" in raw
     threshold = float(scenario.get_default("contact_force_threshold"))
     min_window_steps = max(1, int(round(float(scenario.get_default("min_window_s")) / dt)))
     fall_trim = int(round(float(scenario.get_default("fall_exclusion_s")) / dt))
@@ -105,11 +126,37 @@ def score_episode(
         # still be creeping at 20% of command, and that is exactly the case the ratio must catch
         # (2026-08-21 creep-audit). So it is gated on window length only, never on tripod validity.
         if idx.size >= min_window_steps:
+            cmd_window = raw["cmd_applied"][idx, env_idx, :]
+            if world:
+                # The body command turns with the body; its travel-frame shape is
+                # (speed, 0, wz) -- the same Shape B the sideways rows use, so tracking_metrics
+                # and the driver's ratio gate are unchanged.
+                speed = np.linalg.norm(cmd_window[:, :2], axis=-1)
+                cmd_window = np.stack([speed, np.zeros_like(speed), cmd_window[:, 2]], axis=-1)
             entry["tracking"] = M.tracking_metrics(
-                raw["cmd_applied"][idx, env_idx, :],
-                M.lin_vel_to_travel_frame(raw["root_lin_vel_b"][idx, env_idx, :], travel_yaw),
+                cmd_window,
+                M.lin_vel_to_travel_frame(
+                    raw["root_lin_vel_b"][idx, env_idx, :], _travel_yaw_at(travel_yaw, idx)
+                ),
                 raw["root_ang_vel_b"][idx, env_idx, :],
                 ratio_min_cmd=lin_vel_clip,
+            )
+
+        if has_facing:
+            whole = _window_mask(
+                segment_id=segment_id,
+                steady=np.ones_like(steady),
+                hold_idx=hold_idx,
+                n_steps=n_steps,
+                fall_trim_steps=fall_trim,
+                ended_in_fall=ended_in_fall,
+            )
+            widx = np.flatnonzero(whole)
+            entry["facing"] = M.facing_metrics(
+                raw["heading_err"][widx, env_idx],
+                raw["root_ang_vel_b"][widx, env_idx, 2],
+                dt,
+                wz_cmd_t=raw["cmd_applied"][widx, env_idx, 2],
             )
 
         if tri["valid"]:
@@ -142,8 +189,10 @@ def score_episode(
         dt=dt,
         cmd_xy=raw["cmd_applied"][ep, env_idx, :2],
         # cmd_xy's x component is speed along the TRAVEL axis (Shape B), so the world-frame
-        # stride must be rotated into the travel frame too, not just the body frame.
-        root_yaw=yaw if travel_yaw == 0.0 else yaw + travel_yaw,
+        # stride must be rotated into the travel frame too, not just the body frame. On a world
+        # row cmd_xy is already a true body-frame vector, so the body yaw is the right frame and
+        # the projection onto it carries the direction.
+        root_yaw=yaw if (world or (np.ndim(travel_yaw) == 0 and travel_yaw == 0.0)) else yaw + travel_yaw,
     )
     out["swing_clearance"] = M.swing_clearance_metrics(
         ep_contact, raw["foot_pos_w"][ep, env_idx], raw["terrain_z"][ep, env_idx]
@@ -157,7 +206,9 @@ def score_episode(
         foot_ang_vel_w=raw["foot_ang_vel_w"][ep, env_idx],
         slip_speed_threshold=slip_thresh,
     )
-    out["orientation"] = M.orientation_metrics(raw["root_quat_w"][ep, env_idx, :], travel_yaw=travel_yaw)
+    out["orientation"] = M.orientation_metrics(
+        raw["root_quat_w"][ep, env_idx, :], travel_yaw=_travel_yaw_at(travel_yaw, ep)
+    )
     # PLAN G (2026-09-02): fall direction + support-polygon margins (heading frame, root as the
     # CoM proxy here; exact CoM needs run_meta body masses + the body_pos_w buffer offline).
     if "crab_failure" in raw:
@@ -166,11 +217,16 @@ def score_episode(
             raw["crab_failure"][ep, env_idx],
             dt=dt,
             root_ang_vel_b=raw["root_ang_vel_b"][ep, env_idx] if "root_ang_vel_b" in raw else None,
-            travel_yaw=travel_yaw,
+            travel_yaw=_travel_yaw_at(travel_yaw, ep),
         )
-        walking = compiled.steady_mask[ep, env_idx] & (
-            np.abs(raw["cmd_applied"][ep, env_idx, 0]) >= lin_vel_clip
+        # "Walking" is commanded speed above the clip: on a world row that is the norm of the
+        # body command, not its x component (which is only the along-body part of it).
+        cmd_speed = (
+            np.linalg.norm(raw["cmd_applied"][ep, env_idx, :2], axis=-1)
+            if world
+            else np.abs(raw["cmd_applied"][ep, env_idx, 0])
         )
+        walking = compiled.steady_mask[ep, env_idx] & (cmd_speed >= lin_vel_clip)
         out["support_polygon"] = M.support_polygon_metrics(
             raw["foot_pos_w"][ep, env_idx],
             raw["foot_force_norm"][ep, env_idx],
@@ -179,7 +235,7 @@ def score_episode(
             dt=dt,
             crab_failure=raw["crab_failure"][ep, env_idx],
             walking_mask=walking,
-            travel_yaw=travel_yaw,
+            travel_yaw=_travel_yaw_at(travel_yaw, ep),
         )
     out["actions"] = M.action_metrics(
         raw["actions"][ep, env_idx],
@@ -202,6 +258,18 @@ def score_episode(
     else:
         # Explicitly null, never 0.0: "not measurable" and "measured and bad" need different fixes.
         out["tripod_score"] = None
+    if has_facing:
+        out["facing"] = M.facing_metrics(
+            raw["heading_err"][ep, env_idx],
+            raw["root_ang_vel_b"][ep, env_idx, 2],
+            dt,
+            wz_cmd_t=raw["cmd_applied"][ep, env_idx, 2],
+            # An episode spans several holds, each with its own facing TARGET, so
+            # ``net_yaw_rate_toward``'s constant-target derivation does not hold here: ask for it
+            # only per hold (above), never episode-wide, so no one reads a meaningless number.
+            constant_target=False,
+        )
+        out["facing_error_rms"] = out["facing"]["heading_error_rms"]
     out["tippy_tap_fraction"] = out["air_time_episode"].get("tippy_tap_fraction")
     out["slip_ratio_mean"] = out["slip_episode"]["pooled_slip_ratio"]["mean"]
     # Episode tracking ratio: mean over walking holds (ratio is None on sub-clip commands).
@@ -226,6 +294,9 @@ def score_run(
     joint_vel_groups: dict[str, list[int]] | None = None,
     travel_yaw: float = 0.0,
 ) -> list[dict]:
+    """``travel_yaw`` is a scalar (forward/sideways), a ``(T,)`` array shared by every env, or a
+    ``(T, E)`` array -- the per-step, per-env command direction the omni harness logs."""
+    ndim = np.ndim(travel_yaw)
     return [
         score_episode(
             raw,
@@ -237,7 +308,7 @@ def score_run(
             n_steps=n_steps_env[i],
             action_groups=action_groups,
             joint_vel_groups=joint_vel_groups,
-            travel_yaw=travel_yaw,
+            travel_yaw=(np.asarray(travel_yaw)[:, i] if ndim == 2 else travel_yaw),
         )
         for i in range(len(term_reason))
     ]
@@ -326,8 +397,36 @@ def aggregate(episodes: list[dict]) -> dict:
         for key in ("roll_rms", "pitch_rms", "roll_max_abs", "pitch_max_abs")
     }
 
+    # Facing (omni rows only -- absent on body rows, whose output is unchanged). Whole-hold, so a
+    # turn hold's number includes the turn itself.
+    # ``yaw_progress_rate`` (the gated turning-rate quantity) and ``net_yaw_rate_toward`` are signed,
+    # so their aggregates must be too: a hold where half the episodes turn the wrong way has to show
+    # a median near zero, which magnitudes could never report (2026-09-17 yaw-smoke finding).
+    facing_keys = ("heading_error_rms", "heading_error_final_abs", "heading_error_max_abs",
+                   "settle_time_s", "yaw_rate_ratio", "yaw_progress_rate", "net_yaw_rate_toward")
+    facing_by_hold: dict[str, dict] = {}
+    for e in episodes:
+        for label, hold in e["holds"].items():
+            fac = hold.get("facing")
+            if not fac:
+                continue
+            slot = facing_by_hold.setdefault(label, {k: [] for k in facing_keys})
+            for key in facing_keys:
+                if fac.get(key) is not None:
+                    slot[key].append(fac[key])
+    facing_extra: dict[str, Any] = {}
+    if facing_by_hold:
+        facing_extra["facing_by_hold"] = {
+            label: {key: _stats(vals) for key, vals in slots.items()}
+            for label, slots in facing_by_hold.items()
+        }
+        facing_extra["facing_error_rms"] = _stats(
+            [e["facing_error_rms"] for e in episodes if e.get("facing_error_rms") is not None]
+        )
+
     n_eps = len(episodes)
     return {
+        **facing_extra,
         "n_episodes": n_eps,
         "fall_classes": fall_classes,
         "orientation": orientation,
@@ -355,6 +454,12 @@ def aggregate(episodes: list[dict]) -> dict:
     }
 
 
+def _median_txt(stats: dict) -> str:
+    """``stats['median']`` to 3 dp, or ``"n/a"`` -- "not measurable" must not print as 0.000."""
+    value = stats.get("median")
+    return "n/a" if value is None else f"{value:.3f}"
+
+
 def summary_text(run_meta: dict, episodes: list[dict]) -> str:
     agg = aggregate(episodes)
     lines = [
@@ -374,6 +479,11 @@ def summary_text(run_meta: dict, episodes: list[dict]) -> str:
         f"schedule_completion_rate={agg['schedule_completion_rate']}",
         f"terminations={agg['termination_reasons']}",
     ]
+    if agg.get("facing_error_rms"):
+        lines.append(
+            f"facing_error_rms   median={agg['facing_error_rms']['median']}  "
+            f"(rad, whole episode; n={agg['facing_error_rms']['n']})"
+        )
     if agg["tripod_score_by_hold"] or agg["tracking_by_hold"]:
         lines.append("")
         lines.append("by hold:")
@@ -388,7 +498,22 @@ def summary_text(run_meta: dict, episodes: list[dict]) -> str:
                 else "tracking n/a"
             )
             lines.append(f"  {label:>8}: {trk_txt} | {tri_txt}")
-    for key in ("command_override_warning", "obs_dim_warning"):
+    if agg.get("facing_by_hold"):
+        lines.append("")
+        lines.append("facing by hold (whole hold; err rad, settle s, yaw rad/s: progress = "
+                     "wz*sign(wz_cmd), net = net rotation toward the target; ratio is wobble-sensitive):")
+        for label, fac in agg["facing_by_hold"].items():
+            lines.append(
+                f"  {label:>8}: err rms={_median_txt(fac['heading_error_rms'])} "
+                f"final={_median_txt(fac['heading_error_final_abs'])} "
+                f"max={_median_txt(fac['heading_error_max_abs'])} | "
+                f"settle={_median_txt(fac['settle_time_s'])} "
+                f"(n={fac['settle_time_s']['n']}/{fac['heading_error_rms']['n']}) | "
+                f"progress={_median_txt(fac['yaw_progress_rate'])} "
+                f"net={_median_txt(fac['net_yaw_rate_toward'])} "
+                f"yaw_rate_ratio={_median_txt(fac['yaw_rate_ratio'])}"
+            )
+    for key in ("command_override_warning", "schedule_state_warning", "obs_dim_warning"):
         if run_meta.get(key):
             lines.append(f"\n[WARN] {run_meta[key]}")
     return "\n".join(lines)
@@ -428,6 +553,8 @@ def write_run(
                             "slip_ratio_mean": e["slip_ratio_mean"],
                             "termination_reason": e["termination_reason"],
                             "n_steps": e["n_steps"],
+                            # omni rows only; absent (not null) on body rows.
+                            **({"facing_error_rms": e["facing_error_rms"]} if "facing_error_rms" in e else {}),
                         }
                         for e in episode_metrics
                     ],
