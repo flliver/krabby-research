@@ -6,15 +6,19 @@ Run from ``parkour/`` with the Isaac venv python, headless::
         python tests/integration/crab_hex_phase_cfg_dump.py --headless \\
         --task Isaac-Crab-Hex-Teacher-v0 --task Isaac-Crab-Hex-Flat-Walk-v0 --out /tmp/cfgs.json
 
-and for the sideways sibling (its own preset variable; never set both in one process)::
+and for each sibling task (its own preset variable; never set two in one process)::
 
     OMNI_KIT_ACCEPT_EULA=yes KRABBY_SIDE_PHASE=2c \\
         python tests/integration/crab_hex_phase_cfg_dump.py --headless \\
         --task Isaac-Crab-Hex-Side-Teacher-v0 --out /tmp/cfgs_side.json
+    OMNI_KIT_ACCEPT_EULA=yes KRABBY_OMNI_PHASE=2c \\
+        python tests/integration/crab_hex_phase_cfg_dump.py --headless \\
+        --task Isaac-Crab-Hex-Omni-Teacher-v0 --out /tmp/cfgs_omni.json
 
-The process environment is the fixture: ``KRABBY_PHASE`` / ``KRABBY_PLANT`` (or a raw ``KRABBY_*``
-stack) must be set before launch because the scene cfg reads the USD path at import time and
-``activate_phase()`` runs on the first import of the crab-hex config package. Output::
+The process environment is the fixture: ``KRABBY_PHASE`` / ``KRABBY_SIDE_PHASE`` /
+``KRABBY_OMNI_PHASE`` / ``KRABBY_PLANT`` (or a raw ``KRABBY_*`` stack) must be set before launch
+because the scene cfg reads the USD path at import time and ``activate_phase()`` runs on the
+first import of the crab-hex config package. Output::
 
     {"<task>": {"env": <class_to_dict(env_cfg)>, "agent": <class_to_dict(agent_cfg)>}, ...,
      "_environ": {<KRABBY_* seen by the process>}}

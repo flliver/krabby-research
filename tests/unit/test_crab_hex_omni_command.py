@@ -1,0 +1,1013 @@
+"""The omni command term and its pure math (omni plan A4/D1), on CPU, without Isaac.
+
+Wrong signs in this file are silent in training -- a lateral command that quietly points at
+the robot's right, a facing P-control that steers away from its target, a speed cap that is
+re-applied by rotating instead of clamping. So the assertions here are written against the
+*conventions* (world vs body, ``+y`` = left, "hold the world direction, clamp the speed")
+rather than against transcribed numbers, and the endpoint/continuity properties of the
+ellipse are checked against an independently-derived closed form.
+
+How the module is loaded (no Isaac Sim, no ``parkour_tasks`` package import):
+
+* ``sys.modules`` stubs for the isaaclab/omni names ``parkour_command_cfg.py`` and
+  ``uniform_parkour_command.py`` import -- the pattern of
+  ``test_parkour_command_heading_offset.py:41-111``, extended with a small ``configclass``
+  stand-in so the real cfg CLASS BODIES execute (this test therefore pins the shipped
+  defaults, not a copy of them);
+* synthetic packages whose ``__path__`` points at the real source dirs, so the modules'
+  relative imports resolve -- ``parkour_isaaclab.envs.mdp.parkour_commands`` under its real
+  dotted name (the omni module imports it absolutely) and the omni ``mdp`` dir under a
+  private name (``test_crab_hex_side_mirror.py``'s path-loading idea).
+"""
+
+import copy
+import dataclasses
+import importlib
+import importlib.machinery
+import importlib.util
+import math
+import sys
+import types
+from pathlib import Path
+
+import pytest
+import torch
+
+REPO = Path(__file__).resolve().parents[2]
+LIB_MDP = REPO / "parkour" / "parkour_isaaclab" / "envs" / "mdp"
+CMD_DIR = LIB_MDP / "parkour_commands"
+OMNI_MDP = REPO / "parkour" / "parkour_tasks" / "parkour_tasks" / "crab_hex_omni_task" / "mdp"
+
+
+# --------------------------------------------------------------------------- loader plumbing
+def _synthetic_package(name: str, path: Path) -> types.ModuleType:
+    """A package whose submodules are searched for in ``path`` -- no ``__init__.py`` run."""
+    mod = sys.modules.get(name)
+    if mod is None:
+        spec = importlib.machinery.ModuleSpec(name, loader=None, is_package=True)
+        spec.submodule_search_locations = [str(path)]
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules[name] = mod
+    return mod
+
+
+def _stub(name: str, **attrs) -> types.ModuleType:
+    """Get-or-create ``sys.modules[name]``, filling in only the attributes it lacks."""
+    mod = sys.modules.get(name)
+    if mod is None:
+        mod = types.ModuleType(name)
+        sys.modules[name] = mod
+    for key, value in attrs.items():
+        if not hasattr(mod, key):
+            setattr(mod, key, value)
+    return mod
+
+
+# The real travel-frame helpers (torch only): the source of the REAL ``wrap_to_pi`` handed to
+# the stubbed ``isaaclab.utils.math``, and the reference the omni module's private copy is
+# pinned against below.
+_lib_pkg = _synthetic_package("parkour_isaaclab", REPO / "parkour" / "parkour_isaaclab")
+_envs_pkg = _synthetic_package("parkour_isaaclab.envs", REPO / "parkour" / "parkour_isaaclab" / "envs")
+_mdp_pkg = _synthetic_package("parkour_isaaclab.envs.mdp", LIB_MDP)
+_cmd_pkg = _synthetic_package("parkour_isaaclab.envs.mdp.parkour_commands", CMD_DIR)
+_lib_pkg.envs = _envs_pkg
+_envs_pkg.mdp = _mdp_pkg
+_mdp_pkg.parkour_commands = _cmd_pkg
+
+travel_frame = importlib.import_module("parkour_isaaclab.envs.mdp.travel_frame")
+
+
+class _CommandTerm:
+    """Stand-in for ``isaaclab.managers.CommandTerm``: only what the term's ctor consumes."""
+
+    def __init__(self, cfg, env):
+        self.cfg = cfg
+        self._env = env
+        self.num_envs = env.num_envs
+        self.device = env.device
+        self.metrics: dict[str, torch.Tensor] = {}
+
+
+def _configclass(cls):
+    """Minimal stand-in for ``isaaclab.utils.configclass``.
+
+    Enough for the cfg class bodies under test: keyword-only construction, class defaults
+    deep-copied per instance (so a nested ``Clips`` default is not shared), inherited
+    fields included, ``__post_init__`` honoured. Nested cfg CLASSES (``Ranges``, ``Clips``)
+    and methods are not fields.
+    """
+    names: list[str] = []
+    for base in reversed(cls.__mro__):
+        for key in base.__dict__.get("__annotations__", {}):
+            if key not in names:
+                names.append(key)
+        for key, val in vars(base).items():
+            if key.startswith("_") or key in names:
+                continue
+            if isinstance(val, (types.FunctionType, classmethod, staticmethod, property, type)):
+                continue
+            names.append(key)
+
+    def __init__(self, **kwargs):
+        for key in names:
+            if key in kwargs:
+                setattr(self, key, kwargs.pop(key))
+            elif hasattr(type(self), key):
+                setattr(self, key, copy.deepcopy(getattr(type(self), key)))
+        if kwargs:
+            raise TypeError(f"{cls.__name__} got unexpected fields {sorted(kwargs)}")
+        post_init = getattr(self, "__post_init__", None)
+        if post_init is not None:
+            post_init()
+
+    cls.__init__ = __init__
+    cls.__cfg_fields__ = tuple(names)
+    return cls
+
+
+class _MarkerCfg:
+    """Stand-in for the arrow/frame ``VisualizationMarkersCfg`` singletons."""
+
+    def __init__(self, prim_path=None, markers=None):
+        self.prim_path = prim_path
+        self.markers = markers or {"arrow": types.SimpleNamespace(scale=(1.0, 1.0, 1.0))}
+
+    def replace(self, **kwargs):
+        new = _MarkerCfg(
+            prim_path=kwargs.get("prim_path", self.prim_path),
+            markers={k: types.SimpleNamespace(scale=v.scale) for k, v in self.markers.items()},
+        )
+        return new
+
+
+_omni_mod = _stub("omni")
+_omni_mod.log = _stub("omni.log", warn=lambda *a, **k: None, info=lambda *a, **k: None)
+_isaaclab = _stub("isaaclab")
+_isaaclab.utils = _stub("isaaclab.utils", configclass=_configclass)
+_isaaclab.utils.math = _stub(
+    "isaaclab.utils.math",
+    wrap_to_pi=travel_frame.wrap_to_pi,  # the real thing
+    quat_from_euler_xyz=lambda *a, **k: None,  # debug-vis only
+    quat_mul=lambda *a, **k: None,
+)
+_isaaclab.assets = _stub("isaaclab.assets", Articulation=type("Articulation", (), {}))
+_isaaclab.managers = _stub(
+    "isaaclab.managers",
+    CommandTerm=_CommandTerm,
+    CommandTermCfg=_configclass(
+        type(
+            "CommandTermCfg",
+            (),
+            {
+                "__annotations__": {
+                    "class_type": type,
+                    "resampling_time_range": tuple,
+                    "debug_vis": bool,
+                },
+                "class_type": dataclasses.MISSING,
+                "resampling_time_range": dataclasses.MISSING,
+                "debug_vis": False,
+            },
+        )
+    ),
+    RewardManager=object,
+)
+_isaaclab.markers = _stub(
+    "isaaclab.markers",
+    VisualizationMarkers=type("VisualizationMarkers", (), {}),
+    VisualizationMarkersCfg=_MarkerCfg,
+)
+_isaaclab.markers.config = _stub(
+    "isaaclab.markers.config",
+    BLUE_ARROW_X_MARKER_CFG=_MarkerCfg(),
+    GREEN_ARROW_X_MARKER_CFG=_MarkerCfg(),
+    FRAME_MARKER_CFG=_MarkerCfg(),
+)
+
+upc = importlib.import_module("parkour_isaaclab.envs.mdp.parkour_commands.uniform_parkour_command")
+pcfg = importlib.import_module("parkour_isaaclab.envs.mdp.parkour_commands.parkour_command_cfg")
+command_sampling = importlib.import_module("parkour_isaaclab.envs.mdp.parkour_commands.command_sampling")
+# The synthetic package never ran its ``__init__.py``; give it the two names the omni module
+# imports from it.
+_cmd_pkg.UniformParkourCommand = upc.UniformParkourCommand
+_cmd_pkg.ParkourCommandCfg = pcfg.ParkourCommandCfg
+
+_omni_pkg = _synthetic_package("_omni_mdp_under_test", OMNI_MDP)
+omni_math = importlib.import_module("_omni_mdp_under_test.crab_hex_omni_command_math")
+omni = importlib.import_module("_omni_mdp_under_test.crab_hex_omni_command")
+
+ParkourCommandCfg = pcfg.ParkourCommandCfg
+CrabHexOmniCommand = omni.CrabHexOmniCommand
+CrabHexOmniCommandCfg = omni.CrabHexOmniCommandCfg
+S_STAND, S_MOVE, S_TURN, S_MOVE_TURN = (
+    omni_math.SLOT_STAND,
+    omni_math.SLOT_MOVE,
+    omni_math.SLOT_TURN,
+    omni_math.SLOT_MOVE_TURN,
+)
+
+# ------------------------------------------------------------------------------- fixtures
+N = 4096
+SEED = 20260916
+STEP_DT = 0.02
+RESAMPLE_S = 10.0
+EPISODE_STEPS = 2000
+A, B, C = 0.35, 0.25, 0.25
+STIFFNESS = 1.5  # the per-phase value the knob block writes (the Go2 literal is 0.8)
+
+
+class _Robot:
+    def __init__(self, n: int, yaw: torch.Tensor | None = None):
+        self.data = types.SimpleNamespace(
+            root_lin_vel_b=torch.zeros(n, 3),
+            root_ang_vel_b=torch.zeros(n, 3),
+            heading_w=torch.zeros(n) if yaw is None else yaw.clone(),
+        )
+
+
+class _Scene:
+    def __init__(self, robot):
+        self._items = {"robot": robot}
+
+    def __getitem__(self, key):
+        return self._items[key]
+
+
+def _cfg(**overrides) -> CrabHexOmniCommandCfg:
+    """The shipped cfg class with the per-phase literals the env cfg writes."""
+    cfg = CrabHexOmniCommandCfg(
+        asset_name="robot",
+        resampling_time_range=(RESAMPLE_S, RESAMPLE_S),
+        heading_control_stiffness=STIFFNESS,
+        ranges=ParkourCommandCfg.Ranges(lin_vel_x=(0.0, 0.35), heading=(0.0, 0.0)),
+    )
+    for key, value in overrides.items():
+        if "." in key:
+            head, tail = key.split(".", 1)
+            setattr(getattr(cfg, head), tail, value)
+        else:
+            setattr(cfg, key, value)
+    return cfg
+
+
+def _term(cfg, *, n: int = N, yaw: torch.Tensor | None = None):
+    robot = _Robot(n, yaw)
+    env = types.SimpleNamespace(
+        num_envs=n,
+        device="cpu",
+        scene=_Scene(robot),
+        step_dt=STEP_DT,
+        max_episode_length=EPISODE_STEPS,
+    )
+    return CrabHexOmniCommand(cfg, env), robot
+
+
+def _spread_yaw(n: int) -> torch.Tensor:
+    """A deterministic, non-trivial yaw spread over (-pi, pi] -- never all zeros, so a
+    missing ``- yaw`` anywhere in the world->body conversion cannot pass unnoticed."""
+    return omni_math.wrap_to_pi(torch.linspace(-3.0, 3.1, n))
+
+
+def _resample(term, *, seed: int = SEED):
+    ids = torch.arange(term.num_envs)
+    torch.manual_seed(seed)
+    term._resample_command(ids)
+    return ids
+
+
+# ========================================================================= the pure math
+def test_wrap_to_pi_is_the_shared_implementation():
+    """The module's private copy must not drift from ``travel_frame.wrap_to_pi``."""
+    angles = torch.linspace(-4 * math.pi, 4 * math.pi, 100_001, dtype=torch.float64)
+    assert torch.equal(omni_math.wrap_to_pi(angles), travel_frame.wrap_to_pi(angles))
+    # the documented odd-multiple-of-pi convention
+    assert float(omni_math.wrap_to_pi(torch.tensor([math.pi], dtype=torch.float64))) == pytest.approx(math.pi)
+    assert float(omni_math.wrap_to_pi(torch.tensor([-math.pi], dtype=torch.float64))) == pytest.approx(-math.pi)
+
+
+def test_slot_encoding_is_the_two_bit_mask():
+    slots = torch.arange(4)
+    assert torch.equal(omni_math.slot_is_moving(slots), torch.tensor([False, True, False, True]))
+    assert torch.equal(omni_math.slot_is_turning(slots), torch.tensor([False, False, True, True]))
+    assert (S_STAND, S_MOVE, S_TURN, S_MOVE_TURN) == (0, 1, 2, 3)
+    assert omni_math.SLOT_NAMES == ("stand", "move", "turn", "move_turn")
+
+
+def _cap_reference(phi: torch.Tensor, a: float, b: float, c: float) -> torch.Tensor:
+    """Independent closed form: the scale ``t`` at which ``t*(cos, sin)`` hits the ellipse.
+
+    Solve ``(t cos)^2/A^2 + (t sin)^2/b^2 = 1`` -> ``t = 1/sqrt(cos^2/A^2 + sin^2/b^2)``.
+    Derived from the ellipse equation rather than from the shipped expression.
+    """
+    cos_phi, sin_phi = torch.cos(phi), torch.sin(phi)
+    semi_x = torch.where(cos_phi >= 0.0, torch.full_like(phi, a), torch.full_like(phi, c))
+    return 1.0 / torch.sqrt((cos_phi / semi_x) ** 2 + (sin_phi / b) ** 2)
+
+
+def test_ellipse_cap_endpoints():
+    phi = torch.tensor([0.0, math.pi / 2, -math.pi / 2, math.pi, -math.pi], dtype=torch.float64)
+    cap = omni_math.ellipse_cap(phi, A, B, C)
+    expected = torch.tensor([A, B, B, C, C], dtype=torch.float64)
+    assert torch.allclose(cap, expected, rtol=0.0, atol=1e-12)
+
+
+def test_ellipse_cap_endpoints_with_distinct_semi_axes():
+    """a != b != c, so a transposed axis cannot hide behind the default b == c."""
+    a, b, c = 0.40, 0.30, 0.24
+    phi = torch.tensor([0.0, math.pi / 2, -math.pi / 2, math.pi], dtype=torch.float64)
+    cap = omni_math.ellipse_cap(phi, a, b, c)
+    assert torch.allclose(cap, torch.tensor([a, b, b, c], dtype=torch.float64), rtol=0.0, atol=1e-12)
+
+
+def test_ellipse_cap_matches_the_ellipse_equation_everywhere():
+    phi = torch.linspace(-math.pi, math.pi, 20_001, dtype=torch.float64)
+    a, b, c = 0.40, 0.30, 0.24
+    assert torch.allclose(omni_math.ellipse_cap(phi, a, b, c), _cap_reference(phi, a, b, c), rtol=0.0, atol=1e-12)
+
+
+def test_ellipse_cap_is_continuous_and_bounded_by_its_semi_axes():
+    a, b, c = 0.40, 0.30, 0.24
+    phi = torch.linspace(-math.pi, math.pi, 200_001, dtype=torch.float64)
+    cap = omni_math.ellipse_cap(phi, a, b, c)
+    # bounded by the semi-axes (the property the walk-floor assertion relies on)
+    assert float(cap.min()) >= min(a, b, c) - 1e-12
+    assert float(cap.max()) <= max(a, b, c) + 1e-12
+    # continuous, INCLUDING across the +-pi/2 seam where the semi-axis switches a <-> c
+    step = (phi[1] - phi[0]).item()
+    jump = (cap[1:] - cap[:-1]).abs().max().item()
+    assert jump < 10.0 * step * max(a, b, c), f"largest step {jump} at grid spacing {step}"
+    # and the seam value itself is b from BOTH sides
+    for eps in (1e-9, -1e-9):
+        assert float(omni_math.ellipse_cap(torch.tensor([math.pi / 2 + eps], dtype=torch.float64), a, b, c)) == (
+            pytest.approx(b, abs=1e-9)
+        )
+
+
+def test_ellipse_cap_rejects_non_positive_axes():
+    phi = torch.zeros(3)
+    for bad in ((0.0, 0.25, 0.25), (0.35, -0.1, 0.25), (0.35, 0.25, float("nan"))):
+        with pytest.raises(ValueError):
+            omni_math.ellipse_cap(phi, *bad)
+
+
+def test_body_command_from_world_uses_phi_equals_theta_minus_yaw():
+    """+pi/2 in the body frame is the robot's LEFT (body +y), and a world direction is
+    read as ``phi = theta - yaw`` -- not ``yaw - theta``."""
+    yaw = torch.tensor([math.pi / 2], dtype=torch.float64)  # robot faces world +y
+    theta = torch.tensor([0.0], dtype=torch.float64)  # travel towards world +x
+    speed = torch.tensor([0.20], dtype=torch.float64)
+    cmd = omni_math.body_command_from_world(theta, speed, yaw, A, B, C)
+    # world +x is to the RIGHT of a robot facing world +y -> body -y
+    assert cmd[0, 0] == pytest.approx(0.0, abs=1e-12)
+    assert cmd[0, 1] == pytest.approx(-0.20, abs=1e-12)
+
+
+def test_body_command_zero_speed_is_exactly_zero():
+    yaw = _spread_yaw(64).double()
+    theta = torch.linspace(-3.0, 3.0, 64, dtype=torch.float64)
+    cmd = omni_math.body_command_from_world(theta, torch.zeros(64, dtype=torch.float64), yaw, A, B, C)
+    assert torch.equal(cmd, torch.zeros(64, 2, dtype=torch.float64))
+
+
+def test_recap_on_rotation_is_clamp_only_and_holds_the_world_direction():
+    """The core re-cap contract (plan D1): a forward command at the cap ``a``, after the
+    body yaws by +pi/2, is a lateral command of magnitude ``b`` pointing at the SAME world
+    direction -- clamped, not rotated -- and it does not come back up when the body
+    returns."""
+    theta = torch.zeros(1, dtype=torch.float64)  # world +x
+    speed = torch.full((1,), A, dtype=torch.float64)  # exactly the fore-aft cap
+
+    cmd0 = omni_math.body_command_from_world(theta, speed, torch.zeros(1, dtype=torch.float64), A, B, C)
+    assert cmd0[0].tolist() == pytest.approx([A, 0.0], abs=1e-12)
+
+    yaw1 = torch.full((1,), math.pi / 2, dtype=torch.float64)
+    cmd1 = omni_math.body_command_from_world(theta, speed, yaw1, A, B, C)
+    assert float(torch.linalg.norm(cmd1[0])) <= B + 1e-12
+    assert float(torch.linalg.norm(cmd1[0])) == pytest.approx(B, abs=1e-12)
+    # direction held in WORLD: yaw + atan2(vy_b, vx_b) == theta
+    world_dir = omni_math.wrap_to_pi(yaw1 + torch.atan2(cmd1[:, 1], cmd1[:, 0]))
+    assert float(world_dir) == pytest.approx(0.0, abs=1e-9)
+    # a partial turn caps between b and a, always on the world ray
+    yaw_half = torch.full((1,), math.pi / 4, dtype=torch.float64)
+    cmd_half = omni_math.body_command_from_world(theta, speed, yaw_half, A, B, C)
+    n_half = float(torch.linalg.norm(cmd_half[0]))
+    assert B - 1e-12 <= n_half <= A + 1e-12
+    assert float(omni_math.wrap_to_pi(yaw_half + torch.atan2(cmd_half[:, 1], cmd_half[:, 0]))) == pytest.approx(
+        0.0, abs=1e-9
+    )
+
+
+def test_heading_rate_command_sign_cap_and_dead_band():
+    yaw = torch.zeros(5, dtype=torch.float64)
+    # errors: well inside the dead band, just inside, just outside, saturating, negative
+    ang_vel_max, ang_vel_clip = 0.3, 0.2
+    err = torch.tensor([0.0, 0.13, 0.14, 2.0, -2.0], dtype=torch.float64)
+    wz = omni_math.heading_rate_command(err, yaw, STIFFNESS, ang_vel_max, ang_vel_clip)
+    assert float(wz[0]) == 0.0
+    assert float(wz[1]) == 0.0, "0.13 * 1.5 = 0.195 <= 0.2 -> dead band"
+    assert float(wz[2]) == pytest.approx(0.21, abs=1e-12), "0.14 * 1.5 = 0.21 > 0.2 -> passes"
+    assert float(wz[3]) == pytest.approx(ang_vel_max, abs=1e-12)
+    assert float(wz[4]) == pytest.approx(-ang_vel_max, abs=1e-12), "a +wz turns CCW; the sign must follow the error"
+    assert float(wz.abs().max()) <= ang_vel_max
+
+
+def test_heading_rate_command_wraps_the_shortest_way():
+    """Target just past +pi with the robot just under it: turn the SHORT way (positive)."""
+    yaw = torch.tensor([3.0], dtype=torch.float64)
+    target = torch.tensor([-3.0], dtype=torch.float64)  # = 3.283 rad the short (positive) way
+    wz = omni_math.heading_rate_command(target, yaw, STIFFNESS, 0.3, 0.2)
+    assert float(wz) == pytest.approx(0.3, abs=1e-12), "wrap(-3 - 3) = +2.283 -> saturated positive"
+
+
+def test_heading_rate_command_matches_the_stock_expression_at_the_stock_cap():
+    """Same semantics as ``uniform_parkour_command._update_command``, cap aside."""
+    yaw = _spread_yaw(257).double()
+    target = torch.linspace(-4.0, 4.0, 257, dtype=torch.float64)
+    stiffness, clip = 0.8, 0.4
+    got = omni_math.heading_rate_command(target, yaw, stiffness, 1.0, clip)
+    stock = torch.clip(travel_frame.wrap_to_pi(target - yaw) * stiffness, min=-1, max=1)
+    stock = stock * (stock.abs() > clip)
+    assert torch.equal(got, stock)
+
+
+def test_heading_rate_command_rejects_bad_limits():
+    with pytest.raises(ValueError):
+        omni_math.heading_rate_command(torch.zeros(1), torch.zeros(1), 1.0, 0.0, 0.2)
+    with pytest.raises(ValueError):
+        omni_math.heading_rate_command(torch.zeros(1), torch.zeros(1), 1.0, 0.3, -0.1)
+
+
+def test_sample_slots_frequencies_and_draw_count():
+    probs = (0.15, 0.55, 0.10, 0.20)
+    gen = torch.Generator().manual_seed(7)
+    slots = omni_math.sample_slots(gen, probs, 20_000)
+    assert slots.dtype == torch.long
+    freq = torch.bincount(slots, minlength=4).double() / 20_000
+    assert torch.allclose(freq, torch.tensor(probs, dtype=torch.float64), atol=0.02)
+    # exactly one uniform per env, so a different mix consumes the same stream
+    gen_a = torch.Generator().manual_seed(11)
+    gen_b = torch.Generator().manual_seed(11)
+    omni_math.sample_slots(gen_a, (0.25, 0.25, 0.25, 0.25), 32)
+    omni_math.sample_slots(gen_b, (1.0, 0.0, 0.0, 0.0), 32)
+    assert torch.equal(torch.rand(4, generator=gen_a), torch.rand(4, generator=gen_b))
+
+
+def test_sample_slots_honours_zero_probability_slots_and_normalisation():
+    gen = torch.Generator().manual_seed(3)
+    only_turn = omni_math.sample_slots(gen, (0.0, 0.0, 1.0, 0.0), 500)
+    assert torch.equal(only_turn, torch.full((500,), S_TURN))
+    # un-normalised weights are normalised, not rejected
+    gen = torch.Generator().manual_seed(3)
+    scaled = omni_math.sample_slots(gen, (0.0, 0.0, 7.0, 0.0), 500)
+    assert torch.equal(scaled, only_turn)
+    for bad in ((), (-0.1, 0.5, 0.3, 0.3), (0.0, 0.0, 0.0, 0.0), (float("nan"), 1.0, 0.0, 0.0)):
+        with pytest.raises(ValueError):
+            omni_math.sample_slots(None, bad, 4)
+
+
+def test_sample_travel_dir_band_is_body_relative_and_uniform_is_world():
+    yaw = _spread_yaw(4096).double()
+    gen = torch.Generator().manual_seed(5)
+    # dir_band None -> world-uniform, independent of yaw
+    theta = omni_math.sample_travel_dir(yaw, None, (-math.pi, math.pi), gen)
+    assert float(theta.min()) < -3.0 and float(theta.max()) > 3.0
+    corr = torch.corrcoef(torch.stack([theta, yaw]))[0, 1]
+    assert abs(float(corr)) < 0.05, "a world-uniform direction must not track the body yaw"
+    # dir_band (0, 0) -> exactly the body +x axis, bitwise
+    theta0 = omni_math.sample_travel_dir(yaw, (0.0, 0.0), (-math.pi, math.pi), gen)
+    assert torch.equal(theta0, yaw)
+    # dir_band (lo, hi) -> yaw + U(lo, hi)
+    lo, hi = 0.25, 0.75
+    theta_band = omni_math.sample_travel_dir(yaw, (lo, hi), (-math.pi, math.pi), gen)
+    delta = omni_math.wrap_to_pi(theta_band - yaw)
+    assert float(delta.min()) >= lo - 1e-9 and float(delta.max()) <= hi + 1e-9
+    with pytest.raises(ValueError):
+        omni_math.sample_travel_dir(yaw, (1.0, 0.0), (-math.pi, math.pi), gen)
+    with pytest.raises(ValueError):
+        omni_math.sample_travel_dir(yaw, None, (1.0, 0.0), gen)
+
+
+def test_sample_facing_band_is_relative_and_two_sided():
+    yaw = _spread_yaw(8192).double()
+    gen = torch.Generator().manual_seed(9)
+    lo, hi = 0.2, 0.6
+    psi = omni_math.sample_facing(yaw, lo, hi, gen)
+    delta = omni_math.wrap_to_pi(psi - yaw)
+    assert float(delta.abs().min()) >= lo - 1e-9
+    assert float(delta.abs().max()) <= hi + 1e-9
+    frac_left = float((delta > 0).double().mean())
+    assert 0.45 < frac_left < 0.55, "the sign must be random, not biased to one side"
+    with pytest.raises(ValueError):
+        omni_math.sample_facing(yaw, -0.1, 0.6, gen)
+    with pytest.raises(ValueError):
+        omni_math.sample_facing(yaw, 0.6, 0.2, gen)
+
+
+# ===================================================================== the command term
+def test_walk_floor_is_derived_from_the_shared_constants():
+    cfg = _cfg()
+    assert command_sampling.WALK_MARGIN_M_S == 0.01
+    assert omni.omni_walk_floor(cfg) == pytest.approx(cfg.clips.lin_vel_clip + command_sampling.WALK_MARGIN_M_S)
+    assert omni.omni_walk_floor(cfg) == pytest.approx(0.21)  # with the stock clip
+    cfg.clips.lin_vel_clip = 0.15
+    assert omni.omni_walk_floor(cfg) == pytest.approx(0.16)
+
+
+def test_shipped_cfg_defaults_are_the_plan_values():
+    cfg = CrabHexOmniCommandCfg(asset_name="robot", resampling_time_range=(6.0, 6.0))
+    assert cfg.class_type is CrabHexOmniCommand
+    assert cfg.slot_probs == (0.15, 0.55, 0.10, 0.20)
+    assert cfg.speed_ellipse == (0.35, 0.25, 0.25)
+    assert cfg.facing_delta == (0.2, 0.6)
+    assert cfg.travel_dir_range == (-math.pi, math.pi)
+    assert cfg.ang_vel_max == 0.3
+    assert cfg.dir_band is None
+    assert cfg.clips.ang_vel_clip == 0.2
+    assert cfg.clips.lin_vel_clip == 0.2
+    # the commands-cfg literal carries the same, on the omni class
+    bv = omni.CrabHexOmniCommandsCfg.base_velocity
+    assert isinstance(bv, CrabHexOmniCommandCfg)
+    assert bv.asset_name == "robot"
+    assert bv.resampling_time_range == (6.0, 6.0)
+    assert bv.heading_control_stiffness == 0.8
+    assert bv.ranges.lin_vel_x == (0.3, 0.8)
+    assert bv.ranges.heading == (-1.6, 1.6)
+    assert bv.clips.lin_vel_clip == 0.2
+    assert bv.clips.ang_vel_clip == 0.2  # the one deliberate departure from the Go2 literals
+
+
+def test_init_rejects_an_ellipse_that_does_not_clear_the_walk_floor():
+    floor = 0.2 + command_sampling.WALK_MARGIN_M_S  # 0.21
+    # exactly at floor + headroom -> rejected (the assertion is strict)
+    with pytest.raises(ValueError, match="walk floor"):
+        _term(_cfg(speed_ellipse=(0.35, floor + omni.MIN_CAP_HEADROOM_M_S, 0.25)), n=8)
+    with pytest.raises(ValueError, match="walk floor"):
+        _term(_cfg(speed_ellipse=(0.35, 0.25, 0.15)), n=8)
+    # a hair above is accepted
+    term, _ = _term(_cfg(speed_ellipse=(0.35, floor + omni.MIN_CAP_HEADROOM_M_S + 1e-6, 0.25)), n=8)
+    assert term is not None
+
+
+def test_init_rejects_other_unhonourable_cfgs():
+    with pytest.raises(ValueError):
+        _term(_cfg(slot_probs=(0.0, 0.0, 0.0, 0.0)), n=8)
+    with pytest.raises(ValueError):
+        _term(_cfg(slot_probs=(0.5, 0.5, 0.5)), n=8)
+    with pytest.raises(ValueError):
+        _term(_cfg(facing_delta=(0.6, 0.2)), n=8)
+    with pytest.raises(ValueError):
+        _term(_cfg(dir_band=(1.0, 0.0)), n=8)
+    with pytest.raises(ValueError, match="ang_vel_max"):
+        # cap at or below the dead band -> every yaw-rate command would be zeroed
+        _term(_cfg(ang_vel_max=0.2), n=8)
+
+
+def test_state_and_metric_names_are_the_ones_other_steps_read():
+    term, _ = _term(_cfg(), n=8)
+    for name in ("travel_dir_w", "speed_cmd", "heading_target", "slot_id", "rsi_cmd_staged"):
+        assert hasattr(term, name), name
+    assert term.rsi_cmd_staged.shape == (8, 3)
+    assert bool(torch.isnan(term.rsi_cmd_staged).all())
+    assert set(term.metrics) == {
+        "error_vel_xy",
+        "error_vel_yaw",
+        "stand_frac_actual",
+        "move_frac_actual",
+        "turn_frac_actual",
+        "move_turn_frac_actual",
+        "facing_err_abs",
+        "recap_frac",
+        "yaw_progress",
+    }
+    assert callable(term.schedule_hook)
+
+
+def test_slot_frequencies_match_slot_probs():
+    probs = (0.15, 0.55, 0.10, 0.20)
+    term, _ = _term(_cfg(slot_probs=probs), n=20_000, yaw=_spread_yaw(20_000))
+    _resample(term)
+    freq = torch.bincount(term.slot_id, minlength=4).double() / 20_000
+    assert torch.allclose(freq, torch.tensor(probs, dtype=torch.float64), atol=0.02)
+    # and the regime each slot promises
+    moving = omni_math.slot_is_moving(term.slot_id)
+    turning = omni_math.slot_is_turning(term.slot_id)
+    assert bool((term.speed_cmd[~moving] == 0.0).all())
+    assert bool((term.speed_cmd[moving] > 0.0).all())
+    yaw = _spread_yaw(20_000)
+    face_err = omni_math.wrap_to_pi(term.heading_target - yaw).abs()
+    assert torch.equal(face_err[~turning], torch.zeros_like(face_err[~turning]))
+    assert bool((face_err[turning] >= 0.2 - 1e-6).all())
+
+
+def test_moving_slots_draw_inside_the_direction_scaled_band():
+    term, _ = _term(_cfg(slot_probs=(0.0, 1.0, 0.0, 0.0)), n=20_000, yaw=_spread_yaw(20_000))
+    _resample(term)
+    yaw = _spread_yaw(20_000)
+    phi0 = omni_math.wrap_to_pi(term.travel_dir_w - yaw)
+    cap = omni_math.ellipse_cap(phi0, A, B, C)
+    floor = omni.omni_walk_floor(term.cfg)
+    assert bool((term.speed_cmd >= floor - 1e-7).all()), "a moving slot never sub-floors (the clock would stop)"
+    assert bool((term.speed_cmd <= cap + 1e-7).all()), "and never exceeds the ellipse at its own direction"
+    # the band really is direction-scaled: forward-ish slots reach above the lateral cap
+    fwd = phi0.abs() < 0.2
+    assert float(term.speed_cmd[fwd].max()) > B + 0.02
+
+
+def test_dir_band_zero_commands_body_plus_x_exactly():
+    term, _ = _term(
+        _cfg(slot_probs=(0.0, 1.0, 0.0, 0.0), dir_band=(0.0, 0.0)), n=512, yaw=_spread_yaw(512)
+    )
+    _resample(term)
+    term._update_command()
+    cmd = term.vel_command_b
+    assert torch.equal(cmd[:, 1], torch.zeros(512)), "body +x only: vy_b is exactly zero"
+    assert bool((cmd[:, 0] > 0.0).all())
+    assert bool((cmd[:, 0] <= A + 1e-6).all())
+
+
+def test_dir_band_half_pi_commands_body_plus_y():
+    """Stage 1b: body +y, i.e. the sideways task's left-leading convention."""
+    term, _ = _term(
+        _cfg(slot_probs=(0.0, 1.0, 0.0, 0.0), dir_band=(math.pi / 2, math.pi / 2)),
+        n=512,
+        yaw=_spread_yaw(512),
+    )
+    _resample(term)
+    term._update_command()
+    cmd = term.vel_command_b
+    assert torch.allclose(cmd[:, 0], torch.zeros(512), atol=1e-6)
+    assert bool((cmd[:, 1] > 0.0).all()), "+y is the robot's LEFT"
+    assert bool((cmd[:, 1] <= B + 1e-6).all()), "and the lateral cap applies"
+
+
+def test_turning_slots_sample_a_relative_facing_band_both_ways():
+    lo, hi = 0.2, 1.2
+    yaw = _spread_yaw(8192)
+    term, _ = _term(_cfg(slot_probs=(0.0, 0.0, 1.0, 0.0), facing_delta=(lo, hi)), n=8192, yaw=yaw)
+    _resample(term)
+    delta = omni_math.wrap_to_pi(term.heading_target - yaw)
+    assert float(delta.abs().min()) >= lo - 1e-6
+    assert float(delta.abs().max()) <= hi + 1e-6
+    assert 0.45 < float((delta > 0).double().mean()) < 0.55
+    assert bool((term.speed_cmd == 0.0).all()), "a turn-only slot does not travel"
+
+
+def test_non_turning_slots_hold_the_current_facing_exactly():
+    yaw = _spread_yaw(512)
+    term, _ = _term(_cfg(slot_probs=(0.5, 0.5, 0.0, 0.0)), n=512, yaw=yaw)
+    _resample(term)
+    assert torch.equal(term.heading_target, yaw)
+    term._update_command()
+    assert torch.equal(term.vel_command_b[:, 2], torch.zeros(512)), "zero facing error -> zero yaw-rate command"
+
+
+def test_update_command_recaps_on_rotation_and_flags_it():
+    """End-to-end twin of the pure re-cap test, through the term's own buffers."""
+    term, robot = _term(_cfg(slot_probs=(0.0, 1.0, 0.0, 0.0)), n=1, yaw=torch.zeros(1))
+    term.travel_dir_w[:] = 0.0  # world +x
+    term.speed_cmd[:] = A  # the fore-aft cap
+    term.heading_target[:] = 0.0
+    term._update_command()
+    assert term.vel_command_b[0, :2].tolist() == pytest.approx([A, 0.0], abs=1e-6)
+    assert not bool(term.recap_mask[0])
+
+    robot.data.heading_w[:] = math.pi / 2  # the body turns; the world command is held
+    term._update_command()
+    assert float(torch.linalg.norm(term.vel_command_b[0, :2])) == pytest.approx(B, abs=1e-6)
+    assert term.vel_command_b[0, 1] < 0.0, "world +x is on the robot's right once it faces world +y"
+    assert bool(term.recap_mask[0]), "recap_frac must see the clamp"
+    assert float(term.phi_b[0]) == pytest.approx(-math.pi / 2, abs=1e-6)
+
+    robot.data.heading_w[:] = 0.0  # back again: the clamp is not sticky
+    term._update_command()
+    assert term.vel_command_b[0, :2].tolist() == pytest.approx([A, 0.0], abs=1e-6)
+    assert not bool(term.recap_mask[0])
+    assert float(term.speed_cmd[0]) == pytest.approx(A), "speed_cmd itself is never mutated by the re-cap"
+
+
+def test_yaw_rate_command_respects_ang_vel_max_and_the_dead_band():
+    yaw = torch.zeros(4)
+    term, _ = _term(_cfg(ang_vel_max=0.3), n=4, yaw=yaw)
+    term.speed_cmd[:] = 0.0
+    term.travel_dir_w[:] = 0.0
+    term.heading_target[:] = torch.tensor([0.0, 0.12, 2.0, -2.0])
+    term._update_command()
+    wz = term.vel_command_b[:, 2]
+    assert float(wz[0]) == 0.0
+    assert float(wz[1]) == 0.0, "0.12 * 1.5 = 0.18 <= ang_vel_clip 0.2"
+    assert float(wz[2]) == pytest.approx(0.3, abs=1e-6)
+    assert float(wz[3]) == pytest.approx(-0.3, abs=1e-6)
+    # the cap is a cfg field, not a constant
+    term2, _ = _term(_cfg(ang_vel_max=0.5), n=4, yaw=yaw)
+    term2.heading_target[:] = torch.tensor([0.0, 0.12, 2.0, -2.0])
+    term2._update_command()
+    assert float(term2.vel_command_b[2, 2]) == pytest.approx(0.5, abs=1e-6)
+
+
+# ------------------------------------------------------------------------ RSI staging
+def test_staged_rows_are_consumed_exactly_once_and_re_nanned():
+    yaw = _spread_yaw(16)
+    term, _ = _term(_cfg(slot_probs=(1.0, 0.0, 0.0, 0.0)), n=16, yaw=yaw)  # stand-only, so a
+    # staged row is unmistakable: only staging can produce a moving slot here.
+    staged_rows = torch.tensor([1, 4, 9])
+    theta_s = torch.tensor([0.3, -1.1, 2.7])
+    v_s = torch.tensor([0.22, 0.24, 0.23])
+    psi_s = yaw[staged_rows].clone()
+    term.rsi_cmd_staged[staged_rows] = torch.stack([theta_s, v_s, psi_s], dim=1)
+
+    _resample(term)
+    mask = torch.zeros(16, dtype=torch.bool)
+    mask[staged_rows] = True
+    assert torch.equal(term.travel_dir_w[mask], theta_s)
+    assert torch.equal(term.speed_cmd[mask], v_s)
+    assert torch.equal(term.heading_target[mask], psi_s)
+    assert torch.equal(term.slot_id[mask], torch.full((3,), S_MOVE)), "a staged row is a MOVE slot"
+    assert bool((term.slot_id[~mask] == S_STAND).all())
+    assert bool((term.speed_cmd[~mask] == 0.0).all())
+    # consumed: the buffer is NaN again everywhere
+    assert bool(torch.isnan(term.rsi_cmd_staged).all())
+
+    # ... and a second resample does NOT replay it
+    _resample(term, seed=SEED + 1)
+    assert bool((term.speed_cmd == 0.0).all()), "the staged command must not survive its slot"
+    assert bool((term.slot_id == S_STAND).all())
+
+
+def test_partially_written_staged_rows_are_ignored():
+    """Only fully-finite rows count; a half-written row falls back to the sampler."""
+    term, _ = _term(_cfg(slot_probs=(1.0, 0.0, 0.0, 0.0)), n=8, yaw=torch.zeros(8))
+    term.rsi_cmd_staged[3, 0] = 0.5  # theta only; v and psi still NaN
+    _resample(term)
+    assert float(term.speed_cmd[3]) == 0.0
+    assert int(term.slot_id[3]) == S_STAND
+    assert bool(torch.isnan(term.rsi_cmd_staged).all())
+
+
+# ------------------------------------------------------ independence from inherited fields
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"ranges.lin_vel_x": (2.0, 3.0)},
+        {"ranges.heading": (-1.6, 1.6)},
+        {"stand_frac": 0.9},
+        {"small_commands_to_zero": False},
+        {"ranges.lin_vel_x": (0.9, 0.95), "stand_frac": 0.0, "small_commands_to_zero": False},
+    ],
+)
+def test_sampler_ignores_the_inherited_forward_fields(overrides):
+    """``ranges.lin_vel_x`` / ``ranges.heading`` / ``stand_frac`` /
+    ``small_commands_to_zero`` are kept only so the shared knob block keeps writing the
+    same dump paths; nothing in the omni sampler may read them."""
+    yaw = _spread_yaw(2048)
+    base, _ = _term(_cfg(), n=2048, yaw=yaw)
+    other, _ = _term(_cfg(**overrides), n=2048, yaw=yaw)
+    _resample(base)
+    _resample(other)
+    for name in ("travel_dir_w", "speed_cmd", "heading_target", "slot_id"):
+        assert torch.equal(getattr(base, name), getattr(other, name)), name
+    base._update_command()
+    other._update_command()
+    assert torch.equal(base.vel_command_b, other.vel_command_b)
+
+
+# ------------------------------------------------------------------------- metrics
+def test_metrics_split_the_four_slots_and_track_facing():
+    n = 4000
+    yaw = _spread_yaw(n)
+    term, robot = _term(_cfg(slot_probs=(0.25, 0.25, 0.25, 0.25)), n=n, yaw=yaw)
+    _resample(term)
+    term._update_command()
+    term._update_metrics()
+    per_step = 1.0 / EPISODE_STEPS
+    fracs = torch.tensor(
+        [
+            float(term.metrics[k].sum()) / per_step
+            for k in ("stand_frac_actual", "move_frac_actual", "turn_frac_actual", "move_turn_frac_actual")
+        ]
+    )
+    assert float(fracs.sum()) == pytest.approx(n), "every env is in exactly one slot"
+    assert torch.allclose(fracs / n, torch.full((4,), 0.25), atol=0.02)
+    # facing error is the wrapped absolute error against the CURRENT yaw
+    expected = omni_math.wrap_to_pi(term.heading_target - robot.data.heading_w).abs() * per_step
+    assert torch.allclose(term.metrics["facing_err_abs"], expected, rtol=0.0, atol=1e-7)
+
+
+def test_a_pure_lateral_command_is_not_counted_as_standing():
+    """The base class's ``stand_frac_actual`` rule (``vel_command_b[:, 0] == 0``) would call
+    a full-speed sideways command a stop; the omni metric is slot-based."""
+    term, _ = _term(_cfg(), n=4, yaw=torch.zeros(4))
+    term.travel_dir_w[:] = math.pi / 2  # body +y at yaw 0
+    term.speed_cmd[:] = B
+    term.slot_id[:] = S_MOVE
+    term._update_command()
+    term._update_metrics()
+    assert torch.allclose(term.vel_command_b[:, 0], torch.zeros(4), atol=1e-7)
+    assert bool((term.vel_command_b[:, 1] > 0.2).all())
+    assert bool((term.metrics["stand_frac_actual"] == 0.0).all())
+    assert bool((term.metrics["move_frac_actual"] > 0.0).all())
+
+
+def test_error_vel_xy_is_the_two_dimensional_command_error():
+    term, robot = _term(_cfg(), n=4, yaw=torch.zeros(4))
+    term.travel_dir_w[:] = math.pi / 2  # world +y == body +y at yaw 0
+    term.speed_cmd[:] = 0.22
+    term.heading_target[:] = 0.0
+    term._update_command()
+    robot.data.root_lin_vel_b[:, 1] = 0.22  # tracking it perfectly, sideways
+    term._update_metrics()
+    assert torch.allclose(term.metrics["error_vel_xy"], torch.zeros(4), atol=1e-7)
+    # ... and a forward velocity against a lateral command is an error, not a success
+    term2, robot2 = _term(_cfg(), n=4, yaw=torch.zeros(4))
+    term2.travel_dir_w[:] = math.pi / 2
+    term2.speed_cmd[:] = 0.22
+    term2._update_command()
+    robot2.data.root_lin_vel_b[:, 0] = 0.22
+    term2._update_metrics()
+    assert float(term2.metrics["error_vel_xy"].min()) > 0.0
+
+
+def test_yaw_progress_metric_is_the_signed_mean_over_the_turning_rows():
+    """``Metrics/base_velocity/yaw_progress``: mean ``wz_b * sign(cmd_wz)`` where a turn is
+    commanded, 0 when none -- the signed number the failed 2026-09-17 yaw smoke lacked.
+
+    Rows 0/1 are commanded LEFT, rows 2/3 RIGHT, rows 4/5 not at all (facing already inside
+    the dead band). Progress must be positive for a body rate in the commanded direction
+    whichever way that is, and the standing rows must not dilute the average.
+    """
+    n = 6
+    term, robot = _term(_cfg(), n=n, yaw=torch.zeros(n))
+    term.heading_target[:] = torch.tensor([1.0, 1.0, -1.0, -1.0, 0.0, 0.05])
+    term._update_command()
+    cmd_wz = term.vel_command_b[:, 2]
+    assert torch.equal(torch.sign(cmd_wz), torch.tensor([1.0, 1.0, -1.0, -1.0, 0.0, 0.0]))
+
+    # +0.2 rad/s: progress on the left-turn rows, the same magnitude AGAINST the right ones
+    robot.data.root_ang_vel_b[:, 2] = 0.2
+    assert float(term._yaw_progress_step()) == pytest.approx(0.0, abs=1e-7)
+    # every commanded row turning the way it was told
+    robot.data.root_ang_vel_b[:, 2] = torch.tensor([0.2, 0.1, -0.2, -0.1, 5.0, -5.0])
+    assert float(term._yaw_progress_step()) == pytest.approx(0.15, abs=1e-6)
+    # the drift the smoke measured: saturated command, small net rotation the WRONG way
+    robot.data.root_ang_vel_b[:, 2] = torch.tensor([-0.025, -0.025, 0.025, 0.025, 0.0, 0.0])
+    assert float(term._yaw_progress_step()) == pytest.approx(-0.025, abs=1e-7)
+
+    # accumulated like its siblings: an episode mean, broadcast to every row
+    term._update_metrics()
+    expected = -0.025 / EPISODE_STEPS
+    assert torch.allclose(term.metrics["yaw_progress"], torch.full((n,), expected), atol=1e-9)
+
+    # no turn commanded anywhere -> exactly 0, never a division by zero
+    calm, calm_robot = _term(_cfg(), n=4, yaw=torch.zeros(4))
+    calm.heading_target[:] = 0.0
+    calm.speed_cmd[:] = 0.25
+    calm._update_command()
+    calm_robot.data.root_ang_vel_b[:, 2] = torch.tensor([0.3, -0.3, 0.1, -0.1])
+    assert float(calm._yaw_progress_step()) == 0.0
+    calm._update_metrics()
+    assert torch.equal(calm.metrics["yaw_progress"], torch.zeros(4))
+
+
+# -------------------------------------------------------------------- the eval harness
+@pytest.mark.parametrize("as_mapping", [True, False])
+def test_schedule_hook_pins_a_world_hold_row(as_mapping):
+    yaw = torch.full((6,), math.pi / 2)
+    term, _ = _term(_cfg(), n=6, yaw=yaw)
+    row = {"speed": 0.22, "dir": 0.0, "face": math.pi / 2}
+    term.schedule_hook(row if as_mapping else types.SimpleNamespace(**row))
+    assert bool((term.travel_dir_w == 0.0).all())
+    assert bool((term.speed_cmd == 0.22).all())
+    assert bool((term.heading_target == math.pi / 2).all())
+    # world +x, facing world +y -> body -y, and no turning (facing error 0)
+    assert torch.allclose(term.vel_command_b[:, 0], torch.zeros(6), atol=1e-6)
+    assert torch.allclose(term.vel_command_b[:, 1], torch.full((6,), -0.22), atol=1e-6)
+    assert torch.equal(term.vel_command_b[:, 2], torch.zeros(6))
+    assert bool((term.slot_id == S_MOVE).all())
+
+
+def test_schedule_hook_turn_hold_reports_a_turning_slot_and_does_not_eat_staging():
+    term, _ = _term(_cfg(), n=4, yaw=torch.zeros(4))
+    term.rsi_cmd_staged[1] = torch.tensor([0.1, 0.22, 0.0])
+    term.schedule_hook({"speed": 0.0, "dir": 0.0, "face": math.pi / 2})
+    assert float(term.vel_command_b[0, 2]) == pytest.approx(0.3, abs=1e-6)
+    assert bool((term.slot_id == S_TURN).all())
+    assert bool((term.vel_command_b[:, :2] == 0.0).all())
+    assert bool(torch.isfinite(term.rsi_cmd_staged[1]).all()), "eval must not consume RSI staging"
+    # a move+turn hold reports slot 3
+    term.schedule_hook({"speed": 0.22, "dir": 0.0, "face": math.pi / 2})
+    assert bool((term.slot_id == S_MOVE_TURN).all())
+    # once the facing error settles inside the dead band the hold reports move only
+    term.heading_target[:] = 0.0
+    term.schedule_hook({"speed": 0.22, "dir": 0.0, "face": 0.0})
+    assert bool((term.slot_id == S_MOVE).all())
+
+
+def test_schedule_hook_yaw_rate_is_discontinuous_across_one_control_step():
+    """One hold row, one control step of yaw drift -> the yaw-rate command can JUMP.
+
+    This is why the eval harness must read the command at the instant the observation was
+    built instead of comparing an observation against a command it re-derived at a different
+    robot state: the world->body projection is smooth in yaw, but slot 2 is not.
+
+    * ``wrap_to_pi`` flips a SATURATED command between ``+-ang_vel_max`` when the facing
+      error passes ``+-pi`` -- a jump of ``2 * ang_vel_max`` (0.6 with the shipped cap).
+      Measured in the first omni harness smoke: hold ``turn_l90`` (face ``+pi/2``) with a
+      fallen robot whose yaw crossed ``-pi/2``.
+    * the dead band flips it between 0 and ``+-ang_vel_clip / 1`` at
+      ``|facing error| = ang_vel_clip / stiffness`` -- a jump of ~``ang_vel_clip``.
+    """
+    cfg = _cfg()
+    ang_vel_max = float(cfg.ang_vel_max)
+    ang_vel_clip = float(cfg.clips.ang_vel_clip)
+    face = math.pi / 2
+    row = {"speed": 0.0, "dir": 0.0, "face": face}
+
+    # (a) the +-pi wrap: yaw one control step either side of face - pi.
+    eps = 0.0018  # the step measured in the smoke (~0.09 rad/s of body yaw rate)
+    wz = []
+    for yaw in (-math.pi / 2 - eps, -math.pi / 2 + eps):
+        term, _ = _term(cfg, n=2, yaw=torch.full((2,), yaw))
+        term.schedule_hook(row)
+        wz.append(float(term.vel_command_b[0, 2]))
+    assert wz[0] == pytest.approx(-ang_vel_max, abs=1e-6)
+    assert wz[1] == pytest.approx(+ang_vel_max, abs=1e-6)
+    assert abs(wz[1] - wz[0]) == pytest.approx(2.0 * ang_vel_max, abs=1e-6)
+
+    # (b) the dead-band edge: |err| = ang_vel_clip / stiffness, crossed in one step.
+    edge = ang_vel_clip / STIFFNESS
+    wz = []
+    for err in (edge - 1e-4, edge + 1e-4):
+        term, _ = _term(cfg, n=2, yaw=torch.full((2,), face - err))
+        term.schedule_hook(row)
+        wz.append(float(term.vel_command_b[0, 2]))
+    assert wz[0] == 0.0
+    assert wz[1] == pytest.approx(ang_vel_clip, abs=1e-3) and wz[1] > ang_vel_clip
+    # ...and the xy channels stay smooth over the same drift, so only slot 2 needs the care.
+    moving = {"speed": 0.22, "dir": 0.0, "face": face}
+    cmds = []
+    for yaw in (0.0, eps):
+        term, _ = _term(cfg, n=2, yaw=torch.full((2,), yaw))
+        term.schedule_hook(moving)
+        cmds.append(term.vel_command_b[0, :2].clone())
+    assert float((cmds[1] - cmds[0]).abs().max()) < 1e-3
+
+
+def test_schedule_hook_restores_the_scheduled_row_after_a_reset_resample():
+    """The invariant the harness's ``schedule_state_max_deviation`` asserts.
+
+    ``CommandTerm.reset()`` calls ``_resample_command`` on every env that fell, which draws a
+    RANDOM direction / speed / facing. The env then runs ``command_manager.compute()`` (the
+    harness's override -> ``schedule_hook``) before the observation manager, so the scheduled
+    row must be back in force -- for EVERY env, not only the ones that did not reset -- and
+    the RSI staging buffer must be untouched by the eval path.
+    """
+    yaw = _spread_yaw(64)
+    term, _ = _term(_cfg(), n=64, yaw=yaw)
+    row = {"speed": 0.22, "dir": math.pi / 4, "face": -math.pi / 3}
+    term.schedule_hook(row)
+
+    # a subset "falls": reset() -> _resample_command on those rows only.
+    fell = torch.arange(0, 64, 3)
+    torch.manual_seed(SEED)
+    term._resample_command(fell)
+    assert float((term.travel_dir_w[fell] - row["dir"]).abs().max()) > 1e-3, "resample was inert"
+
+    term.schedule_hook(row)
+    assert float((term.travel_dir_w - row["dir"]).abs().max()) == 0.0
+    assert float((term.speed_cmd - row["speed"]).abs().max()) == 0.0
+    assert float((term.heading_target - row["face"]).abs().max()) == 0.0
+    assert bool(torch.isnan(term.rsi_cmd_staged).all()), "eval must not stage RSI rows"
+
+
+def test_schedule_hook_rejects_nonsense_rows():
+    term, _ = _term(_cfg(), n=2, yaw=torch.zeros(2))
+    with pytest.raises(ValueError):
+        term.schedule_hook({"speed": -0.1, "dir": 0.0, "face": 0.0})
+    with pytest.raises(ValueError):
+        term.schedule_hook({"speed": 0.2, "dir": float("nan"), "face": 0.0})
+    with pytest.raises(KeyError):
+        term.schedule_hook({"speed": 0.2, "dir": 0.0})
+
+
+# --------------------------------------------------------------- the forward term is untouched
+def test_forward_command_class_and_cfg_have_none_of_the_omni_surface():
+    omni_only = (
+        "slot_probs",
+        "speed_ellipse",
+        "facing_delta",
+        "travel_dir_range",
+        "ang_vel_max",
+        "dir_band",
+    )
+    for name in omni_only:
+        assert not hasattr(pcfg.ParkourCommandCfg, name), f"ParkourCommandCfg gained {name}"
+        assert hasattr(CrabHexOmniCommandCfg, name), name
+    for name in ("rsi_cmd_staged", "schedule_hook", "travel_dir_w", "speed_cmd", "slot_id", "recap_mask"):
+        assert not hasattr(upc.UniformParkourCommand, name), f"UniformParkourCommand gained {name}"
+    # the omni term subclasses it but overrides the three implementation hooks
+    assert issubclass(CrabHexOmniCommand, upc.UniformParkourCommand)
+    for hook in ("_resample_command", "_update_command", "_update_metrics"):
+        assert getattr(CrabHexOmniCommand, hook) is not getattr(upc.UniformParkourCommand, hook), hook
+    # and the forward cfg still has the inherited fields the omni cfg keeps but ignores
+    for name in ("stand_frac", "small_commands_to_zero"):
+        assert hasattr(pcfg.ParkourCommandCfg, name)
+        assert hasattr(CrabHexOmniCommandCfg, name)

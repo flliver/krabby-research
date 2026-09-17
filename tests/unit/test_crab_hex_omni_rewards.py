@@ -1,0 +1,897 @@
+"""The omni reward twins, the ADDED yaw-progress term, the goal-free termination and their cfg
+(plan D4/A6).
+
+Four of these are a same-NAME, different-FUNCTION swap: nothing downstream (telemetry
+labels, ``KRABBY_*_W`` knobs, the phase-out ramps, the driver's log scraping) can tell that
+the arithmetic changed, so an error here surfaces only as a policy that quietly optimises
+the wrong thing for ten hours. The fifth, ``reward_yaw_progress``, is the one ADDED term (the
+36th name, 2026-09-17) and is worse: a sign error in it does not merely fail to help, it pays
+the policy to spin AWAY from its facing target, and every other number in the training log
+(``facing_err_abs``, ``error_vel_yaw``, the tripod score) looks the same either way -- which
+is exactly how the 500-iteration yaw smoke burned 12 minutes turning the wrong way without
+one metric saying so. Its sign chain is therefore pinned against the REAL
+``heading_rate_command``, not against a restatement of the reward's own expression.
+
+The anchors are therefore:
+
+* the cross-command penalty must be BITWISE the forward ``penalty_lin_vel_y_l2`` whenever
+  the command is the forward task's (a pure +-x command) -- the omni task is a
+  generalisation, not a retuning;
+* the command-velocity term must be the forward ``reward_tracking_goal_vel`` evaluated with
+  the commanded direction and ``||cmd_xy||``;
+* the facing reward must wrap (an error of ``2*pi - 0.1`` is an error of ``-0.1``);
+* the yaw-progress reward must pay a body yaw rate that reduces the facing error the COMMAND
+  MATH produces, clip at the command's own ``ang_vel_max``, and be exactly zero wherever no
+  turn is commanded;
+* the termination must be the forward one minus the goal cutoff;
+* the cfg must carry the forward task's 35 term names plus ``reward_yaw_progress`` (36).
+
+The shipped sources are lifted out of the modules with ``ast`` and exec'd against stubs --
+no Isaac import, no ``sys.modules`` registration that could collide with another unit file.
+"""
+
+import ast
+import importlib.util
+import math
+import sys
+import textwrap
+from pathlib import Path
+
+import pytest
+import torch
+
+REPO = Path(__file__).resolve().parents[2]
+TASKS = REPO / "parkour/parkour_tasks/parkour_tasks"
+LIB_REWARDS_PY = REPO / "parkour/parkour_isaaclab/envs/mdp/rewards.py"
+LIB_TERMINATIONS_PY = REPO / "parkour/parkour_isaaclab/envs/mdp/terminations.py"
+OMNI_REWARDS_PY = TASKS / "crab_hex_omni_task/mdp/crab_hex_omni_rewards.py"
+OMNI_CMD_MATH_PY = TASKS / "crab_hex_omni_task/mdp/crab_hex_omni_command_math.py"
+FWD_MDP_CFG_PY = TASKS / "crab_hex_forward_task/config/crab_hex/agents/parkour_mdp_cfg.py"
+TRAVEL_FRAME_PY = REPO / "parkour/parkour_isaaclab/envs/mdp/travel_frame.py"
+
+N = 8
+
+
+def _load(path: Path, name: str):
+    spec = importlib.util.spec_from_file_location(name, path)
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules[name] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+travel_frame = _load(TRAVEL_FRAME_PY, "travel_frame__omni_rew_test")
+wrap_to_pi = travel_frame.wrap_to_pi
+
+# The SHIPPED command math (pure torch, no Isaac): the yaw-progress sign chain is pinned
+# against the real ``heading_rate_command``, so a change to the P-control's sign, its
+# saturation or its dead band has to break this file too.
+omni_cmd_math = _load(OMNI_CMD_MATH_PY, "omni_command_math__omni_rew_test")
+heading_rate_command = omni_cmd_math.heading_rate_command
+
+
+def _nodes(path: Path):
+    src = path.read_text()
+    return src, ast.parse(src, str(path))
+
+
+def _segment(src, node) -> str:
+    return textwrap.dedent(" " * node.col_offset + ast.get_source_segment(src, node))
+
+
+def _exec_module_level(path: Path, names, ns: dict) -> dict:
+    """Exec the named module-level functions / assignments from ``path`` into ``ns``."""
+    src, tree = _nodes(path)
+    chunks = []
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name in names:
+            chunks.append(_segment(src, node))
+        elif isinstance(node, ast.Assign) and any(
+            isinstance(t, ast.Name) and t.id in names for t in node.targets
+        ):
+            chunks.append(_segment(src, node))
+    missing = [n for n in names if all(n not in c.split("\n")[0] for c in chunks)]
+    assert not missing, f"{path.name}: not found {missing}"
+    source = "from __future__ import annotations\n" + "\n\n".join(chunks)
+    exec(compile(source, str(path), "exec"), ns)
+    return ns
+
+
+def _euler_xyz_from_quat(q):
+    w, x, y, z = q[:, 0], q[:, 1], q[:, 2], q[:, 3]
+    roll = torch.atan2(2 * (w * x + y * z), 1 - 2 * (x * x + y * y))
+    pitch = torch.asin(torch.clamp(2 * (w * y - z * x), -1.0, 1.0))
+    yaw = torch.atan2(2 * (w * z + x * y), 1 - 2 * (y * y + z * z))
+    return roll, pitch, yaw
+
+
+class _SceneEntityCfg:
+    def __init__(self, name="robot", **kw):
+        self.name = name
+        self.kw = kw
+
+    def __eq__(self, other):
+        return (
+            isinstance(other, _SceneEntityCfg) and self.name == other.name and self.kw == other.kw
+        )
+
+    def __repr__(self):
+        return f"SceneEntityCfg({self.name!r}, {self.kw})"
+
+
+class _MdpRewardsStub:
+    """The two shared helpers the omni twins call, answered from the fake env."""
+
+    @staticmethod
+    def _parkour_flat_mask(env, parkour_name):
+        assert parkour_name == "base_parkour"
+        return env.flat_mask
+
+    @staticmethod
+    def reward_feet_stumble(env, sensor_cfg):
+        return env.stumble
+
+
+_OMNI_NS = {
+    "torch": torch,
+    "wrap_to_pi": wrap_to_pi,
+    "euler_xyz_from_quat": _euler_xyz_from_quat,
+    "SceneEntityCfg": _SceneEntityCfg,
+    "Articulation": object,
+    "ParkourManagerBasedRLEnv": object,
+    "mdp_rewards": _MdpRewardsStub,
+}
+_exec_module_level(
+    OMNI_REWARDS_PY,
+    (
+        "_DIR_EPS",
+        "_TRACK_V_MIN",
+        "OMNI_ANG_VEL_STD",
+        "_command_dir_and_speed",
+        "_facing_error",
+        "penalty_cross_command_vel_l2",
+        "reward_tracking_command_vel",
+        "reward_tracking_command_vel_on_obstacle",
+        "reward_facing_exp",
+        "reward_obstacle_clearance_omni",
+        "_yaw_progress_clip",
+        "reward_yaw_progress",
+        "terminate_episode_no_goals",
+    ),
+    _OMNI_NS,
+)
+
+_FWD_NS = {
+    "torch": torch,
+    "wrap_to_pi": wrap_to_pi,
+    "euler_xyz_from_quat": _euler_xyz_from_quat,
+    "SceneEntityCfg": _SceneEntityCfg,
+    "Articulation": object,
+    "ParkourManagerBasedRLEnv": object,
+    "ParkourEvent": object,
+    # travel_yaw is absent on both the forward and the omni cfg, so the travel frame is the
+    # identity: this is the shipped ``_vel_travel_xy`` at ``travel_yaw == 0.0``.
+    "_vel_travel_xy": lambda asset, env: asset.data.root_lin_vel_b[:, :2],
+}
+_exec_module_level(
+    LIB_REWARDS_PY, ("penalty_lin_vel_y_l2", "reward_tracking_goal_vel"), _FWD_NS
+)
+_exec_module_level(LIB_TERMINATIONS_PY, ("terminate_episode",), _FWD_NS)
+
+penalty_cross_command_vel_l2 = _OMNI_NS["penalty_cross_command_vel_l2"]
+reward_tracking_command_vel = _OMNI_NS["reward_tracking_command_vel"]
+reward_tracking_command_vel_on_obstacle = _OMNI_NS["reward_tracking_command_vel_on_obstacle"]
+reward_facing_exp = _OMNI_NS["reward_facing_exp"]
+reward_obstacle_clearance_omni = _OMNI_NS["reward_obstacle_clearance_omni"]
+reward_yaw_progress = _OMNI_NS["reward_yaw_progress"]
+terminate_episode_no_goals = _OMNI_NS["terminate_episode_no_goals"]
+penalty_lin_vel_y_l2 = _FWD_NS["penalty_lin_vel_y_l2"]
+reward_tracking_goal_vel = _FWD_NS["reward_tracking_goal_vel"]
+terminate_episode = _FWD_NS["terminate_episode"]
+
+ROBOT = _SceneEntityCfg("robot")
+FOOTPADS = _SceneEntityCfg("contact_forces", body_names=".*_Footpad")
+
+
+# --------------------------------------------------------------------------- the fake env
+class _Data:
+    pass
+
+
+#: The command cfg's yaw-rate cap / dead band / P gain, as the omni presets write them
+#: (``KRABBY_OMNI_ANG_VEL_MAX`` 0.3, ``clips.ang_vel_clip`` 0.2, stiffness 1.5).
+ANG_VEL_MAX = 0.3
+ANG_VEL_CLIP = 0.2
+STIFFNESS = 1.5
+#: |facing error| below which the P-control's dead band zeroes the yaw-rate command.
+DEAD_BAND_RAD = ANG_VEL_CLIP / STIFFNESS
+
+
+class _Asset:
+    def __init__(self, n):
+        self.data = _Data()
+        self.data.root_ang_vel_b = torch.zeros(n, 3)
+        self.data.root_lin_vel_b = torch.zeros(n, 3)
+        self.data.root_vel_w = torch.zeros(n, 6)
+        self.data.root_state_w = torch.zeros(n, 13)
+        self.data.root_state_w[:, 3] = 1.0
+        self.data.root_quat_w = torch.tensor([[1.0, 0.0, 0.0, 0.0]] * n)
+        self.data.heading_w = torch.zeros(n)
+        self.data.projected_gravity_b = torch.zeros(n, 3)
+        self.data.projected_gravity_b[:, 2] = -1.0
+
+
+class _CmdCfg:
+    """The one cfg field ``reward_yaw_progress`` reads off the command term."""
+
+    def __init__(self, ang_vel_max=ANG_VEL_MAX):
+        self.ang_vel_max = ang_vel_max
+
+
+class _CmdTerm:
+    def __init__(self, n):
+        self.heading_target = torch.zeros(n)
+        self.cfg = _CmdCfg()
+
+
+class _CommandManager:
+    def __init__(self, n):
+        self.cmd = torch.zeros(n, 4)
+        self.term = _CmdTerm(n)
+
+    def get_command(self, name):
+        assert name == "base_velocity"
+        return self.cmd
+
+    def get_term(self, name):
+        assert name == "base_velocity"
+        return self.term
+
+
+class _ParkourEvent:
+    def __init__(self, n):
+        self.target_pos_rel = torch.zeros(n, 2)
+        self.target_pos_rel[:, 0] = 1.0
+        self.cur_goal_idx = torch.zeros(n, dtype=torch.long)
+
+
+class _ParkourManager:
+    def __init__(self, n):
+        self.event = _ParkourEvent(n)
+
+    def get_term(self, name):
+        return self.event
+
+
+class _TerrainGenerator:
+    num_goals = 8
+
+
+class _Terrain:
+    class cfg:
+        terrain_generator = _TerrainGenerator()
+
+
+class _Scene:
+    def __init__(self, asset):
+        self._asset = asset
+        self.terrain = _Terrain()
+
+    def __getitem__(self, key):
+        assert key == "robot"
+        return self._asset
+
+
+class _Env:
+    def __init__(self, n=N):
+        self.num_envs = n
+        self.device = "cpu"
+        self.asset = _Asset(n)
+        self.scene = _Scene(self.asset)
+        self.command_manager = _CommandManager(n)
+        self.parkour_manager = _ParkourManager(n)
+        self.flat_mask = torch.zeros(n)          # 0 = obstacle tile, 1 = parkour_flat
+        self.stumble = torch.zeros(n)
+        self.episode_length_buf = torch.zeros(n, dtype=torch.long)
+        self.max_episode_length = 1000
+
+
+def _rot(v_xy, yaw):
+    c, s = torch.cos(yaw), torch.sin(yaw)
+    return torch.stack((c * v_xy[:, 0] - s * v_xy[:, 1], s * v_xy[:, 0] + c * v_xy[:, 1]), dim=-1)
+
+
+# ------------------------------------------------------- penalty_cross_command_vel_l2
+@pytest.mark.parametrize("sign", [1.0, -1.0])
+def test_cross_command_penalty_is_the_forward_penalty_for_an_x_command(sign):
+    """The generalisation must reduce to the special case, bitwise."""
+    g = torch.Generator().manual_seed(2026)
+    env = _Env()
+    # speeds straddling the 0.12 gate, including a couple below it
+    vx = sign * torch.tensor([0.0, 0.05, 0.12, 0.1200001, 0.2, 0.35, 0.5, 1.0])
+    env.command_manager.cmd[:, 0] = vx
+    env.command_manager.cmd[:, 1] = 0.0
+    env.asset.data.root_lin_vel_b[:, :2] = (torch.rand(N, 2, generator=g) - 0.5) * 2.0
+
+    omni = penalty_cross_command_vel_l2(env, "base_velocity", ROBOT)
+    fwd = penalty_lin_vel_y_l2(env, "base_velocity", ROBOT)
+    assert torch.equal(omni, fwd)
+    # and it is really the y velocity squared where the gate is open
+    gate = vx.abs() > 0.12
+    assert torch.equal(omni[gate], torch.square(env.asset.data.root_lin_vel_b[gate, 1]))
+    assert torch.equal(omni[~gate], torch.zeros(int((~gate).sum())))
+
+
+def test_cross_command_penalty_is_zero_without_a_command():
+    env = _Env()
+    env.asset.data.root_lin_vel_b[:, :2] = torch.tensor([[0.4, 0.3]] * N)
+    env.command_manager.cmd[:, 0:2] = 0.0
+    assert torch.equal(penalty_cross_command_vel_l2(env, "base_velocity", ROBOT), torch.zeros(N))
+    # a pure turn-in-place command (slot 2 only) is still "not moving"
+    env.command_manager.cmd[:, 2] = 0.3
+    assert torch.equal(penalty_cross_command_vel_l2(env, "base_velocity", ROBOT), torch.zeros(N))
+    # ... and a command just under the gate pays nothing either
+    env.command_manager.cmd[:, 0] = 0.11
+    assert torch.equal(penalty_cross_command_vel_l2(env, "base_velocity", ROBOT), torch.zeros(N))
+
+
+def test_cross_command_penalty_prices_the_across_component_in_every_direction():
+    """Rotate command and velocity together: the penalty is invariant."""
+    g = torch.Generator().manual_seed(11)
+    env = _Env()
+    base_cmd = torch.tensor([[0.3, 0.0]] * N)
+    base_vel = (torch.rand(N, 2, generator=g) - 0.5) * 1.2
+    phi = torch.linspace(-math.pi, math.pi, N)
+    env.command_manager.cmd[:, 0:2] = base_cmd
+    env.asset.data.root_lin_vel_b[:, :2] = base_vel
+    ref = penalty_cross_command_vel_l2(env, "base_velocity", ROBOT)
+    env.command_manager.cmd[:, 0:2] = _rot(base_cmd, phi)
+    env.asset.data.root_lin_vel_b[:, :2] = _rot(base_vel, phi)
+    rotated = penalty_cross_command_vel_l2(env, "base_velocity", ROBOT)
+    assert torch.allclose(rotated, ref, atol=1e-6)
+    # explicit: a +y command prices the x velocity
+    env.command_manager.cmd[:, 0:2] = torch.tensor([[0.0, 0.25]] * N)
+    env.asset.data.root_lin_vel_b[:, :2] = torch.tensor([[0.2, 0.25]] * N)
+    got = penalty_cross_command_vel_l2(env, "base_velocity", ROBOT)
+    assert torch.allclose(got, torch.full((N,), 0.04), atol=1e-7)
+
+
+# ------------------------------------------------------------------- reward_facing_exp
+def test_facing_reward_wraps():
+    env = _Env()
+    env.asset.data.heading_w = torch.zeros(N)
+    env.command_manager.term.heading_target = torch.tensor(
+        [0.0, 0.1, -0.1, 2 * math.pi - 0.1, -2 * math.pi + 0.1, math.pi, -math.pi, 4 * math.pi]
+    )
+    got = reward_facing_exp(env, ROBOT, "base_parkour")
+    assert got[0] == pytest.approx(1.0)
+    assert got[1] == pytest.approx(math.exp(-0.1), abs=1e-6)
+    assert got[2] == pytest.approx(got[1].item(), abs=1e-7)
+    assert got[3] == pytest.approx(got[1].item(), abs=1e-6)     # 2pi - 0.1  ==  -0.1
+    assert got[4] == pytest.approx(got[1].item(), abs=1e-6)
+    assert got[5] == pytest.approx(math.exp(-math.pi), abs=1e-6)
+    assert got[6] == pytest.approx(math.exp(-math.pi), abs=1e-6)
+    assert got[7] == pytest.approx(1.0, abs=1e-5)               # 4pi == 0
+
+
+def test_facing_reward_has_no_command_gate_and_no_tile_mask():
+    env = _Env()
+    env.command_manager.cmd[:] = 0.0                            # standing
+    env.flat_mask = torch.ones(N)                               # every env on a flat tile
+    env.asset.data.heading_w = torch.full((N,), 0.5)
+    env.command_manager.term.heading_target = torch.full((N,), 0.5)
+    assert torch.allclose(reward_facing_exp(env, ROBOT, "base_parkour"), torch.ones(N))
+
+
+def test_facing_reward_is_monotone_in_the_error():
+    env = _Env(5)
+    env.asset.data.heading_w = torch.zeros(5)
+    env.command_manager.term.heading_target = torch.tensor([0.0, 0.3, 0.8, 1.5, 3.0])
+    got = reward_facing_exp(env, ROBOT, "base_parkour")
+    assert torch.all(got[1:] < got[:-1])
+    assert float(got.max()) <= 1.0 and float(got.min()) > 0.0
+
+
+# ----------------------------------------------------------------- reward_yaw_progress
+def _yaw_env(errors: torch.Tensor, wz: torch.Tensor, *, yaw=0.0) -> "_Env":
+    """An env whose yaw-rate command is produced by the REAL P-control from ``errors``.
+
+    ``errors`` are signed facing errors ``wrap(heading_target - heading_w)``; the command is
+    ``heading_rate_command`` at the omni presets' stiffness / cap / dead band, so the whole
+    chain under test (error sign -> command sign -> rewarded rotation sign) is the shipped
+    one and not a restatement.
+    """
+    n = errors.numel()
+    env = _Env(n)
+    env.asset.data.heading_w = torch.full((n,), float(yaw))
+    env.command_manager.term.heading_target = errors + float(yaw)
+    env.command_manager.cmd[:, 2] = heading_rate_command(
+        env.command_manager.term.heading_target,
+        env.asset.data.heading_w,
+        STIFFNESS,
+        ANG_VEL_MAX,
+        ANG_VEL_CLIP,
+    )
+    env.asset.data.root_ang_vel_b[:, 2] = wz
+    return env
+
+
+def test_yaw_progress_sign_chain_follows_the_command_math():
+    """positive facing error -> positive command -> positive body wz is PROGRESS (and mirrored).
+
+    The one test that can catch a sign inversion. ``errors`` straddle the dead band on both
+    sides; ``wz`` is the same magnitude everywhere, so only the SIGNS decide the answer.
+    """
+    errors = torch.tensor([1.0, 0.4, 0.2, -0.2, -0.4, -1.0])
+    wz = torch.full((6,), 0.1)
+    env = _yaw_env(errors, wz)
+    cmd_wz = env.command_manager.cmd[:, 2]
+    # the command math's own contract, restated so a change there is visible here
+    assert torch.equal(torch.sign(cmd_wz), torch.sign(errors)), cmd_wz
+    assert bool((cmd_wz.abs() <= ANG_VEL_MAX + 1e-9).all())
+
+    got = reward_yaw_progress(env, "base_velocity", ROBOT)
+    # turning LEFT (err > 0) with a left (positive) body rate is paid; the same rate against
+    # a right turn is charged the same amount
+    assert torch.allclose(got, torch.sign(errors) * 0.1, atol=1e-7), got
+    assert bool((got[:3] > 0).all()) and bool((got[3:] < 0).all())
+
+    # mirror the achieved rotation: every sign flips, nothing else
+    env_neg = _yaw_env(errors, -wz)
+    assert torch.allclose(reward_yaw_progress(env_neg, "base_velocity", ROBOT), -got, atol=1e-7)
+
+    # and the reward is measured in rad/s: it IS the yaw rate when the turn is commanded left
+    env_left = _yaw_env(torch.tensor([1.0, 1.0, 1.0]), torch.tensor([0.05, 0.1, 0.25]))
+    assert torch.allclose(
+        reward_yaw_progress(env_left, "base_velocity", ROBOT),
+        torch.tensor([0.05, 0.1, 0.25]),
+        atol=1e-7,
+    )
+
+
+def test_yaw_progress_is_the_signed_drift_not_the_rectified_wobble():
+    """WHY the term is signed rather than ``clamp(min=0)`` like the linear progress twin.
+
+    The failure it exists to fix is a NET rotation of the wrong sign hidden inside gait
+    wobble an order of magnitude larger (smoke: median -0.025 rad/s against a saturated +0.30
+    command, mean |wz| 0.28). A half-cycle of symmetric wobble must therefore net ~0 -- a
+    non-negative version would pay its positive halves and ignore its negative ones, earning
+    income for wobble alone and leaving no gradient toward net rotation.
+    """
+    wobble = torch.tensor([0.28, -0.28, 0.20, -0.20, 0.05, -0.05])
+    env = _yaw_env(torch.full((6,), 1.0), wobble)
+    got = reward_yaw_progress(env, "base_velocity", ROBOT)
+    assert float(got.sum()) == pytest.approx(0.0, abs=1e-7)
+    assert float(torch.clamp(got, min=0.0).sum()) == pytest.approx(0.53, abs=1e-6)
+    # a small net drift the wrong way is negative income even under large wobble (kept inside
+    # the +-0.3 clip so the mean is the drift itself and not a clipping artefact)
+    drifting = torch.tensor([0.20, -0.20, 0.15, -0.15, 0.05, -0.05]) - 0.025
+    env2 = _yaw_env(torch.full((6,), 1.0), drifting)
+    assert float(reward_yaw_progress(env2, "base_velocity", ROBOT).mean()) == pytest.approx(
+        -0.025, abs=1e-6
+    )
+
+
+def test_yaw_progress_clips_symmetrically_at_the_command_cap():
+    """Spinning faster than commanded earns nothing extra (and a spin-out costs a bounded max)."""
+    wz = torch.tensor([0.29, 0.3, 0.3000001, 1.0, 20.0, -20.0])
+    env = _yaw_env(torch.full((6,), 1.0), wz)
+    got = reward_yaw_progress(env, "base_velocity", ROBOT)
+    assert torch.allclose(
+        got, torch.tensor([0.29, 0.3, 0.3, 0.3, 0.3, -0.3]), atol=1e-7
+    ), got
+    assert float(got.abs().max()) <= ANG_VEL_MAX + 1e-6      # float32 round-trip of 0.3
+    # the cap comes from the COMMAND TERM's cfg, so retuning KRABBY_OMNI_ANG_VEL_MAX moves it
+    env.command_manager.term.cfg.ang_vel_max = 0.2
+    assert float(reward_yaw_progress(env, "base_velocity", ROBOT).max()) == pytest.approx(0.2)
+    # an explicit ``clip`` overrides it (the cfg's params pass ``clip: None`` = "use the cap")
+    assert float(
+        reward_yaw_progress(env, "base_velocity", ROBOT, clip=0.5).max()
+    ) == pytest.approx(0.5)
+
+
+def test_yaw_progress_is_zero_when_no_turn_is_commanded():
+    """The gate IS the P-control's dead band: no second threshold, no push against it."""
+    # errors inside the dead band (|err| < 0.1333 rad) produce cmd_wz == 0 exactly
+    assert DEAD_BAND_RAD == pytest.approx(0.13333, abs=1e-5)
+    errors = torch.tensor([0.0, 0.05, -0.05, 0.13, -0.13, 0.1333])
+    env = _yaw_env(errors, torch.full((6,), 0.28))     # full-amplitude wobble, still zero
+    assert torch.equal(env.command_manager.cmd[:, 2], torch.zeros(6))
+    got = reward_yaw_progress(env, "base_velocity", ROBOT)
+    assert torch.equal(got, torch.zeros(6)), got
+    assert not bool(torch.signbit(got).any())         # exactly +0.0, never -0.0
+    # a pure TRANSLATION command pays nothing: only slot 2 counts (stages 1a/1b draw no
+    # turning slot at all, so this is every commanded row they have)
+    env2 = _Env(4)
+    env2.command_manager.cmd[:, 0] = 0.35
+    env2.command_manager.cmd[:, 1] = -0.25
+    env2.asset.data.root_ang_vel_b[:, 2] = torch.tensor([0.3, -0.3, 0.1, 0.0])
+    assert torch.equal(reward_yaw_progress(env2, "base_velocity", ROBOT), torch.zeros(4))
+
+
+def test_yaw_progress_refuses_a_command_term_without_the_cap():
+    """A leaked forward/sideways command term must raise, not fall back to a silent default."""
+    env = _Env(2)
+    env.command_manager.cmd[:, 2] = 0.3
+    env.asset.data.root_ang_vel_b[:, 2] = 0.1
+    del env.command_manager.term.cfg.ang_vel_max
+    with pytest.raises(RuntimeError, match="ang_vel_max"):
+        reward_yaw_progress(env, "base_velocity", ROBOT)
+    # ... but an explicit clip is self-sufficient (the eval/replay path)
+    assert float(reward_yaw_progress(env, "base_velocity", ROBOT, clip=0.3).max()) > 0.0
+    env.command_manager.term.cfg.ang_vel_max = 0.3
+    with pytest.raises(ValueError, match="clip must be positive"):
+        reward_yaw_progress(env, "base_velocity", ROBOT, clip=0.0)
+
+
+def test_yaw_progress_mirrors_the_linear_progress_terms_shape():
+    """Structural parity with ``reward_forward_progress_along_command``: same four steps.
+
+    Read the shipped source rather than trusting the docstring: the rotational twin must
+    (1) read the command, (2) project the achieved rate on the commanded direction, (3) clip,
+    (4) multiply by a command gate -- and must NOT reintroduce the linear term's ``min=0.0``
+    rectification, which is the one factor it deliberately drops.
+    """
+    src, tree = _nodes(OMNI_REWARDS_PY)
+    fn = [n for n in tree.body
+          if isinstance(n, ast.FunctionDef) and n.name == "reward_yaw_progress"][0]
+    body = "\n".join(
+        ast.unparse(n) for n in fn.body
+        if not (isinstance(n, ast.Expr) and isinstance(n.value, ast.Constant))
+    )
+    assert "root_ang_vel_b[:, 2]" in body, body
+    assert "torch.sign(cmd_wz)" in body
+    assert "torch.clamp(progress, min=-cap, max=cap)" in body
+    assert "cmd_wz != 0.0" in body
+    assert "min=0.0" not in body, "the rotational twin must stay SIGNED"
+    # the linear twin it mirrors is still the shape this one was derived from
+    fwd_src, fwd_tree = _nodes(LIB_REWARDS_PY)
+    fwd = [n for n in fwd_tree.body if isinstance(n, ast.FunctionDef)
+           and n.name == "reward_forward_progress_along_command"][0]
+    fwd_body = "\n".join(ast.unparse(n) for n in fwd.body)
+    assert "torch.clamp(progress, min=0.0, max=max_speed_scale)" in fwd_body
+    assert "active.float()" in fwd_body
+
+
+# ----------------------------------------------------- reward_tracking_command_vel(_on_*)
+def test_command_vel_term_divides_by_the_command_norm():
+    """Achieving exactly the commanded velocity pays 1.0, in every direction."""
+    env = _Env()
+    speeds = torch.tensor([0.21, 0.25, 0.30, 0.35, 0.21, 0.25, 0.30, 0.35])
+    phi = torch.linspace(-math.pi, math.pi, N)
+    yaw = torch.linspace(-2.0, 2.0, N)
+    env.asset.data.heading_w = yaw
+    env.command_manager.cmd[:, 0:2] = torch.stack(
+        (speeds * torch.cos(phi), speeds * torch.sin(phi)), dim=-1
+    )
+    # world velocity = the commanded body velocity rotated by the yaw
+    env.asset.data.root_vel_w[:, :2] = _rot(env.command_manager.cmd[:, 0:2], yaw)
+    got = reward_tracking_command_vel(env, ROBOT, "base_velocity")
+    assert torch.allclose(got, torch.ones(N), atol=1e-6)
+    # half the commanded speed pays half, whatever the commanded speed is
+    env.asset.data.root_vel_w[:, :2] *= 0.5
+    assert torch.allclose(reward_tracking_command_vel(env, ROBOT, "base_velocity"),
+                          torch.full((N,), 0.5), atol=1e-6)
+    # over-achieving is capped at the command (``minimum(proj, speed)``)
+    env.asset.data.root_vel_w[:, :2] *= 6.0
+    assert torch.allclose(reward_tracking_command_vel(env, ROBOT, "base_velocity"),
+                          torch.ones(N), atol=1e-6)
+
+
+def test_command_vel_term_matches_the_forward_term_on_a_forward_command():
+    """Same formula: put the forward term's goal direction on the commanded direction."""
+    g = torch.Generator().manual_seed(5)
+    env = _Env()
+    env.asset.data.heading_w = torch.zeros(N)                    # body frame == world frame
+    env.command_manager.cmd[:, 0] = torch.tensor([0.02, 0.05, 0.1, 0.21, 0.25, 0.3, 0.35, 0.5])
+    env.asset.data.root_vel_w[:, :2] = (torch.rand(N, 2, generator=g) - 0.3)
+    env.parkour_manager.event.target_pos_rel = torch.tensor([[1.0, 0.0]] * N) * 3.7
+    omni = reward_tracking_command_vel(env, ROBOT, "base_velocity")
+    fwd = reward_tracking_goal_vel(env, "base_parkour", ROBOT)
+    assert torch.allclose(omni, fwd, atol=1e-5)
+
+
+def test_command_vel_term_is_zero_at_zero_command_and_guarded_below_v_min():
+    env = _Env()
+    env.asset.data.root_vel_w[:, :2] = torch.tensor([[0.3, 0.2]] * N)
+    env.command_manager.cmd[:, 0:2] = 0.0
+    assert torch.equal(reward_tracking_command_vel(env, ROBOT, "base_velocity"), torch.zeros(N))
+    # a tiny command divides by v_min, not by itself: bounded, never a blow-up
+    env.command_manager.cmd[:, 0] = 0.001
+    got = reward_tracking_command_vel(env, ROBOT, "base_velocity")
+    assert torch.allclose(got, torch.full((N,), 0.001 / _OMNI_NS["_TRACK_V_MIN"]), atol=1e-6)
+    assert torch.isfinite(got).all()
+    assert _OMNI_NS["_TRACK_V_MIN"] == 0.05
+
+
+def test_command_vel_term_is_masked_to_obstacle_tiles():
+    env = _Env()
+    env.asset.data.heading_w = torch.zeros(N)
+    env.command_manager.cmd[:, 0] = 0.25
+    env.asset.data.root_vel_w[:, 0] = 0.25
+    env.flat_mask = torch.tensor([1.0, 0.0] * (N // 2))
+    got = reward_tracking_command_vel_on_obstacle(env, "base_parkour", ROBOT, "base_velocity")
+    assert torch.allclose(got, torch.tensor([0.0, 1.0] * (N // 2)), atol=1e-6)
+
+
+# ------------------------------------------------------ reward_obstacle_clearance_omni
+def _clearance_env(cmd_xy, vel_b):
+    env = _Env(1)
+    env.command_manager.cmd[:, 0:2] = torch.tensor([cmd_xy])
+    env.asset.data.root_lin_vel_b[:, :2] = torch.tensor([vel_b])
+    env.asset.data.root_vel_w[:, :2] = torch.tensor([vel_b])     # heading_w = 0
+    return env
+
+
+@pytest.mark.parametrize(
+    "label,cmd_xy,vel_b,expected",
+    [
+        ("forward", (0.3, 0.0), (0.3, 0.0), 1.0),
+        ("lateral", (0.0, 0.25), (0.0, 0.25), 1.0),     # the forward gate would kill this
+        ("backward", (-0.25, 0.0), (-0.25, 0.0), 1.0),  # ... and this
+        ("diagonal", (0.2, 0.2), (0.2, 0.2), 1.0),
+        ("standing", (0.0, 0.0), (0.0, 0.0), 0.0),
+        ("wrong way", (0.3, 0.0), (-0.3, 0.0), 0.0),
+        ("too slow", (0.3, 0.0), (0.05, 0.0), 0.0),
+    ],
+)
+def test_obstacle_clearance_reads_speed_along_the_command(label, cmd_xy, vel_b, expected):
+    env = _clearance_env(cmd_xy, vel_b)
+    got = reward_obstacle_clearance_omni(
+        env, "base_parkour", FOOTPADS, ROBOT, "base_velocity",
+        min_goal_progress=0.05, min_forward_speed=0.10, min_forward_speed_cmd=0.12,
+    )
+    assert float(got[0]) == pytest.approx(expected), label
+
+
+def test_obstacle_clearance_keeps_the_other_three_gates():
+    env = _clearance_env((0.3, 0.0), (0.3, 0.0))
+    kw = dict(min_goal_progress=0.05, min_forward_speed=0.10, min_forward_speed_cmd=0.12)
+    assert float(reward_obstacle_clearance_omni(env, "base_parkour", FOOTPADS, ROBOT,
+                                                "base_velocity", **kw)[0]) == 1.0
+    env.flat_mask = torch.ones(1)                 # flat tile -> no obstacle bonus
+    assert float(reward_obstacle_clearance_omni(env, "base_parkour", FOOTPADS, ROBOT,
+                                                "base_velocity", **kw)[0]) == 0.0
+    env.flat_mask = torch.zeros(1)
+    env.stumble = torch.ones(1)                   # stumbling -> no bonus
+    assert float(reward_obstacle_clearance_omni(env, "base_parkour", FOOTPADS, ROBOT,
+                                                "base_velocity", **kw)[0]) == 0.0
+    env.stumble = torch.zeros(1)
+    env.asset.data.projected_gravity_b[:, 0] = 0.5    # tilted -> not landed
+    assert float(reward_obstacle_clearance_omni(env, "base_parkour", FOOTPADS, ROBOT,
+                                                "base_velocity", **kw)[0]) == 0.0
+
+
+# --------------------------------------------------------------------------- termination
+def test_termination_is_the_forward_one_without_the_goal_cutoff():
+    env = _Env(4)
+    # roll, pitch, height, timeout: identical to the forward function
+    env.asset.data.root_state_w[1, 3:7] = torch.tensor([math.cos(0.9), math.sin(0.9), 0.0, 0.0])
+    env.asset.data.root_state_w[2, 2] = -0.5
+    env.episode_length_buf = torch.tensor([0, 0, 0, 1000])
+    assert torch.equal(
+        terminate_episode_no_goals(env, ROBOT), terminate_episode(env, ROBOT)
+    )
+    assert terminate_episode_no_goals(env, ROBOT).tolist() == [False, True, True, True]
+    # the goal cutoff fires in the forward function and not in the omni one
+    env.parkour_manager.event.cur_goal_idx = torch.full((4,), 8)
+    assert terminate_episode(env, ROBOT).tolist() == [True, True, True, True]
+    assert terminate_episode_no_goals(env, ROBOT).tolist() == [False, True, True, True]
+
+
+def test_termination_never_touches_the_parkour_manager():
+    """A ring episode must not end because bookkeeping moved ``cur_goal_idx``."""
+    src = OMNI_REWARDS_PY.read_text()
+    tree = ast.parse(src)
+    fn = [n for n in tree.body
+          if isinstance(n, ast.FunctionDef) and n.name == "terminate_episode_no_goals"][0]
+    statements = [
+        n for n in fn.body
+        if not (isinstance(n, ast.Expr) and isinstance(n.value, ast.Constant))  # skip the docstring
+    ]
+    body = "\n".join(ast.unparse(n) for n in statements)
+    for token in ("cur_goal_idx", "parkour_manager", "num_goals"):
+        assert token not in body, token
+
+
+# --------------------------------------------------------------------------- the cfg
+def _class_fields(path: Path, cls_name: str) -> dict:
+    src, tree = _nodes(path)
+    cls = [n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == cls_name][0]
+    out = {}
+    for node in cls.body:
+        if isinstance(node, ast.Assign):
+            for t in node.targets:
+                if isinstance(t, ast.Name):
+                    out[t.id] = node.value
+    return out
+
+
+def _bases(path: Path, cls_name: str) -> list[str]:
+    _, tree = _nodes(path)
+    cls = [n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == cls_name][0]
+    return [b.id for b in cls.bases if isinstance(b, ast.Name)]
+
+
+def _kwargs(call: ast.Call) -> dict:
+    return {kw.arg: kw.value for kw in call.keywords}
+
+
+FWD_FIELDS = _class_fields(FWD_MDP_CFG_PY, "CrabHexFlatWalkRewardsCfg")
+OMNI_FIELDS = _class_fields(OMNI_REWARDS_PY, "CrabHexOmniFlatWalkRewardsCfg")
+
+
+#: The re-declared (same-name, func-swapped or std-retuned) fields.
+SWAPPED_FIELDS = {
+    "track_ang_vel_z_exp",
+    "penalty_lin_vel_y",
+    "reward_tracking_goal_vel",
+    "reward_tracking_yaw",
+    "reward_obstacle_clearance",
+}
+#: The ONE added field: the omni cfg is the forward 35 plus this (36), nothing else.
+ADDED_FIELDS = {"reward_yaw_progress"}
+
+
+def test_the_cfg_is_the_forward_35_plus_reward_yaw_progress():
+    """The forward 35 are a SUBSET of the omni 36, and the extra one is the yaw-progress term.
+
+    Every other name still has to match exactly: the telemetry labels, the ``KRABBY_PHASEOUT``
+    term list and the driver's log scraping all key on the forward names, so an omni-only
+    RENAME would break them silently -- only a pure ADDITION is safe, and only this one.
+    """
+    assert len(FWD_FIELDS) == 35
+    assert _bases(OMNI_REWARDS_PY, "CrabHexOmniFlatWalkRewardsCfg") == ["CrabHexFlatWalkRewardsCfg"]
+    assert set(OMNI_FIELDS) == SWAPPED_FIELDS | ADDED_FIELDS
+    assert SWAPPED_FIELDS <= set(FWD_FIELDS)                # every swap is a parent field
+    assert set(OMNI_FIELDS) - set(FWD_FIELDS) == ADDED_FIELDS
+    # the full term set the built cfg exposes: 35 inherited names + the added one
+    assert len(set(FWD_FIELDS) | set(OMNI_FIELDS)) == 36
+
+
+def test_the_added_yaw_progress_term():
+    """weight 1.0, the omni function, and ``clip: None`` = read the command's own cap."""
+    call = _kwargs(OMNI_FIELDS["reward_yaw_progress"])
+    assert isinstance(call["func"], ast.Name) and call["func"].id == "reward_yaw_progress"
+    assert ast.literal_eval(call["weight"]) == 1.0
+    params = {
+        ast.literal_eval(k): v for k, v in zip(call["params"].keys, call["params"].values)
+    }
+    assert set(params) == {"command_name", "asset_cfg", "clip"}
+    assert ast.literal_eval(params["command_name"]) == "base_velocity"
+    assert ast.literal_eval(params["clip"]) is None, "the cap must come from the command cfg"
+    assert ast.unparse(params["asset_cfg"]) == "SceneEntityCfg('robot')"
+    # per-step income ceiling: weight x cap, below the linear progress term's 0.60 x 1.05
+    fwd_prog = _kwargs(FWD_FIELDS["reward_forward_progress_along_command"])
+    fwd_params = {
+        ast.literal_eval(k): v
+        for k, v in zip(fwd_prog["params"].keys, fwd_prog["params"].values)
+    }
+    fwd_ceiling = ast.literal_eval(fwd_prog["weight"]) * ast.literal_eval(
+        fwd_params["max_speed_scale"]
+    )
+    assert 1.0 * ANG_VEL_MAX < fwd_ceiling
+
+
+@pytest.mark.parametrize(
+    "term,func",
+    [
+        ("penalty_lin_vel_y", "penalty_cross_command_vel_l2"),
+        ("reward_tracking_goal_vel", "reward_tracking_command_vel_on_obstacle"),
+        ("reward_tracking_yaw", "reward_facing_exp"),
+        ("reward_obstacle_clearance", "reward_obstacle_clearance_omni"),
+    ],
+)
+def test_the_four_swapped_functions(term, func):
+    node = _kwargs(OMNI_FIELDS[term])["func"]
+    assert isinstance(node, ast.Name) and node.id == func
+    assert func in _OMNI_NS, f"{func} is not a module-level function of the omni module"
+
+
+def test_every_params_key_is_a_real_argument_of_the_swapped_function():
+    """Isaac's term resolver checks this at env build; catch a typo here instead."""
+    import inspect
+
+    for term, func in (
+        ("penalty_lin_vel_y", "penalty_cross_command_vel_l2"),
+        ("reward_tracking_goal_vel", "reward_tracking_command_vel_on_obstacle"),
+        ("reward_tracking_yaw", "reward_facing_exp"),
+        ("reward_obstacle_clearance", "reward_obstacle_clearance_omni"),
+        ("reward_yaw_progress", "reward_yaw_progress"),
+    ):
+        sig = inspect.signature(_OMNI_NS[func])
+        args = set(sig.parameters) - {"env"}
+        keys = {ast.literal_eval(k) for k in _kwargs(OMNI_FIELDS[term])["params"].keys}
+        assert keys <= args, (term, func, keys - args)
+        # and every argument without a default is supplied
+        required = {
+            name
+            for name, p in sig.parameters.items()
+            if p.default is inspect.Parameter.empty and name != "env"
+        }
+        assert required <= keys, (term, func, required - keys)
+
+
+def test_weights_are_the_forward_literals():
+    """The knob-timing pillar: every RE-DECLARED term keeps the forward class-body weight.
+
+    (The added term has no forward literal to match; its own weight is pinned by
+    ``test_the_added_yaw_progress_term`` and dosed by ``KRABBY_YAW_PROGRESS_W``.)
+    """
+    for term in set(OMNI_FIELDS) - ADDED_FIELDS:
+        omni_w = ast.literal_eval(_kwargs(OMNI_FIELDS[term])["weight"])
+        fwd_w = ast.literal_eval(_kwargs(FWD_FIELDS[term])["weight"])
+        assert omni_w == fwd_w, term
+
+
+def test_track_ang_vel_z_exp_keeps_its_function_and_gets_std_0_15():
+    omni_call = _kwargs(OMNI_FIELDS["track_ang_vel_z_exp"])
+    fwd_call = _kwargs(FWD_FIELDS["track_ang_vel_z_exp"])
+    # same function object: both name the symbol imported from isaaclab's mdp rewards
+    assert isinstance(omni_call["func"], ast.Name) and omni_call["func"].id == "track_ang_vel_z_exp"
+    assert isinstance(fwd_call["func"], ast.Name) and fwd_call["func"].id == "track_ang_vel_z_exp"
+    for path in (OMNI_REWARDS_PY, FWD_MDP_CFG_PY):
+        _, tree = _nodes(path)
+        imports = [
+            n for n in tree.body
+            if isinstance(n, ast.ImportFrom) and n.module == "isaaclab.envs.mdp.rewards"
+        ]
+        assert any(a.name == "track_ang_vel_z_exp" for imp in imports for a in imp.names), path
+
+    omni_params = {
+        ast.literal_eval(k): v for k, v in zip(omni_call["params"].keys, omni_call["params"].values)
+    }
+    fwd_params = {
+        ast.literal_eval(k): v for k, v in zip(fwd_call["params"].keys, fwd_call["params"].values)
+    }
+    assert set(omni_params) == set(fwd_params) == {"command_name", "std"}
+    assert ast.literal_eval(omni_params["command_name"]) == "base_velocity"
+    assert _OMNI_NS["OMNI_ANG_VEL_STD"] == 0.15
+    assert isinstance(omni_params["std"], ast.Name) and omni_params["std"].id == "OMNI_ANG_VEL_STD"
+    # the forward value is sqrt(0.25) = 0.5 -- flat across this plant's whole turning band
+    assert ast.unparse(fwd_params["std"]) == "math.sqrt(0.25)"
+    assert math.sqrt(0.25) == 0.5
+
+
+def test_the_reward_params_keep_the_forward_keys():
+    """Params may GAIN keys (the twins need a command name); none may go missing."""
+    for term in ("penalty_lin_vel_y", "reward_tracking_goal_vel", "reward_tracking_yaw",
+                 "reward_obstacle_clearance"):
+        omni_keys = {ast.literal_eval(k) for k in _kwargs(OMNI_FIELDS[term])["params"].keys}
+        fwd_keys = {ast.literal_eval(k) for k in _kwargs(FWD_FIELDS[term])["params"].keys}
+        assert fwd_keys <= omni_keys, (term, fwd_keys - omni_keys)
+        assert omni_keys - fwd_keys <= {"command_name"}, (term, omni_keys - fwd_keys)
+    # the non-command literals are the forward ones, value for value
+    omni_clear = {
+        ast.literal_eval(k): ast.unparse(v)
+        for k, v in zip(
+            _kwargs(OMNI_FIELDS["reward_obstacle_clearance"])["params"].keys,
+            _kwargs(OMNI_FIELDS["reward_obstacle_clearance"])["params"].values,
+        )
+    }
+    fwd_clear = {
+        ast.literal_eval(k): ast.unparse(v)
+        for k, v in zip(
+            _kwargs(FWD_FIELDS["reward_obstacle_clearance"])["params"].keys,
+            _kwargs(FWD_FIELDS["reward_obstacle_clearance"])["params"].values,
+        )
+    }
+    for key, value in fwd_clear.items():
+        assert omni_clear[key] == value, key
+
+
+def test_the_terminations_cfg_swaps_only_total_terminates():
+    fields = _class_fields(OMNI_REWARDS_PY, "CrabHexOmniFlatWalkTerminationsCfg")
+    assert set(fields) == {"total_terminates"}
+    assert _bases(OMNI_REWARDS_PY, "CrabHexOmniFlatWalkTerminationsCfg") == [
+        "CrabHexFlatWalkTerminationsCfg"
+    ]
+    call = _kwargs(fields["total_terminates"])
+    assert isinstance(call["func"], ast.Name) and call["func"].id == "terminate_episode_no_goals"
+    assert ast.literal_eval(call["time_out"]) is True
+    fwd_fields = _class_fields(FWD_MDP_CFG_PY, "CrabHexFlatWalkTerminationsCfg")
+    fwd = _kwargs(fwd_fields["total_terminates"])
+    assert ast.unparse(call["params"]) == ast.unparse(fwd["params"])
+    assert set(_class_fields(FWD_MDP_CFG_PY, "CrabHexFlatWalkTerminationsCfg")) == {
+        "total_terminates", "crab_failure",
+    }
