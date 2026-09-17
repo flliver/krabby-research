@@ -3,8 +3,7 @@ from dataclasses import dataclass
 from typing import Optional, Tuple
 
 
-
-@dataclass
+@dataclass(frozen=True, slots=True)
 class ImuTelemetry:
     accel: Tuple[float, float, float]
     gyro: Tuple[float, float, float]
@@ -12,40 +11,29 @@ class ImuTelemetry:
     valid: bool
 
     TAG = "IMU"
-    TOKEN_COUNT = 9
-    VALID_BY_TOKEN = {"0": False, "1": True}
-    ACCEL_LABEL = "a"
-    ACCEL_UNIT = "m/s2"
-    ACCEL_DECIMALS = 2
-    GYRO_LABEL = "g"
-    GYRO_UNIT = "rad/s"
-    GYRO_DECIMALS = 3
-    TEMP_UNIT = "C"
-    TEMP_DECIMALS = 1
-    STALE_SUFFIX = " STALE"
+    STANDARD_GRAVITY_MPS2 = 9.80665
+    VALID_TOKENS = ("0", "1")
 
     @classmethod
     def from_tokens(cls, tokens) -> Optional["ImuTelemetry"]:
-        if not tokens or tokens[0] != cls.TAG:
-            return None
-        if len(tokens) != cls.TOKEN_COUNT:
+        if not tokens:
             return None
 
         try:
-            accel = tuple(float(token) for token in tokens[1:4])
-            gyro = tuple(float(token) for token in tokens[4:7])
-            temp_c = float(tokens[7])
+            tag, ax, ay, az, gx, gy, gz, temp, valid_token = tokens
+            accel = tuple(float(token) for token in (ax, ay, az))
+            gyro = tuple(float(token) for token in (gx, gy, gz))
+            temp_c = float(temp)
         except ValueError:
             return None
 
-        valid_token = tokens[8]
-        if valid_token not in cls.VALID_BY_TOKEN:
+        if tag != cls.TAG or valid_token not in cls.VALID_TOKENS:
             return None
         if not all(math.isfinite(value) for value in accel + gyro):
             return None
         if not math.isfinite(temp_c):
             temp_c = float("nan")
-        return cls(accel, gyro, temp_c, cls.VALID_BY_TOKEN[valid_token])
+        return cls(accel, gyro, temp_c, valid_token == "1")
 
     @classmethod
     def from_segment(cls, segment: str) -> Optional["ImuTelemetry"]:
@@ -53,34 +41,28 @@ class ImuTelemetry:
 
     @property
     def accel_g(self) -> Tuple[float, float, float]:
-        return tuple(value / 9.80665 for value in self.accel)
+        return tuple(value / self.STANDARD_GRAVITY_MPS2 for value in self.accel)
 
     @property
     def gyro_dps(self) -> Tuple[float, float, float]:
-        return tuple(value * 180.0 / math.pi for value in self.gyro)
+        return tuple(math.degrees(value) for value in self.gyro)
 
     @property
-    def roll_deg(self) -> float:
+    def roll_from_accel_deg(self) -> float:
         _, accel_y, accel_z = self.accel
         return math.degrees(math.atan2(accel_y, accel_z))
 
     @property
-    def pitch_deg(self) -> float:
+    def pitch_from_accel_deg(self) -> float:
         accel_x, accel_y, accel_z = self.accel
         return math.degrees(math.atan2(-accel_x, math.hypot(accel_y, accel_z)))
 
     def format_compact(self) -> str:
         accel_x, accel_y, accel_z = self.accel
         gyro_x, gyro_y, gyro_z = self.gyro
-        stale = "" if self.valid else self.STALE_SUFFIX
+        stale = "" if self.valid else " STALE"
         return (
-            f"{self.ACCEL_LABEL}:"
-            f"({accel_x:.{self.ACCEL_DECIMALS}f},"
-            f"{accel_y:.{self.ACCEL_DECIMALS}f},"
-            f"{accel_z:.{self.ACCEL_DECIMALS}f}){self.ACCEL_UNIT} "
-            f"{self.GYRO_LABEL}:"
-            f"({gyro_x:.{self.GYRO_DECIMALS}f},"
-            f"{gyro_y:.{self.GYRO_DECIMALS}f},"
-            f"{gyro_z:.{self.GYRO_DECIMALS}f}){self.GYRO_UNIT} "
-            f"{self.temp_c:.{self.TEMP_DECIMALS}f}{self.TEMP_UNIT}{stale}"
+            f"a:({accel_x:.2f},{accel_y:.2f},{accel_z:.2f})m/s2 "
+            f"g:({gyro_x:.3f},{gyro_y:.3f},{gyro_z:.3f})rad/s "
+            f"{self.temp_c:.1f}C{stale}"
         )

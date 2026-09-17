@@ -83,8 +83,8 @@ Telemetry is sent as **newline-terminated lines** over serial. The Python side p
 
 - **Line format:** `<ROLE>; <name> <pos> <pot> <current> <enL> <enR> <pwmL> <pwmR> <saf>; <name> ...; ...`
 - **Role prefix:** One of `FRONT`, `UNKNOWN`, `LEFT`, `RIGHT` (no semicolon inside the role).
-- **Segment format:** Each joint segment is 9 space-separated values: joint name, position (0–1), pot raw, current raw, enable L/R, PWM L/R, safety.
-- **Example:** `FRONT; FLHY 0.723 740 694 0 0 0 0 0;FLHL 0.723 740 691 ...`
+- **Segment format:** Each joint segment is 10 space-separated values: joint name, position (0–1), pot raw, current raw, enable L/R, PWM L/R, safety, and composed connection state (`0` unknown, `1` connected, `2` disconnected). The parser still accepts legacy 9-field segments.
+- **Example:** `FRONT; FLHY 0.723 740 694 0 0 0 0 0 1;FLHL 0.723 740 691 ...`
 
 On the Arduino side, telemetry is built in **telemetry_manager.h** (struct `JointTelemetry`, `appendTo()`). The old standalone `joint_telemetry.h` was removed; all telemetry formatting and collection lives in `telemetry_manager.h` and `actuator_manager.h`.
 

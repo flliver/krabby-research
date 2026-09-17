@@ -29,9 +29,9 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(unity)
 
 set(KRABBY_ARDUINO_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../firmware/arduino")
+set(KRABBY_OLED_SIM_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../firmware/oled_sim/native")
 
-# Tests mirror the layout of firmware/arduino, so each entry is a path and the
-# target takes the basename.
+# Test paths mirror firmware/arduino; target names use the basename.
 function(add_firmware_native_test test_path)
     get_filename_component(test_name "${test_path}" NAME)
     add_executable("${test_name}" "${test_path}.cpp")
@@ -47,14 +47,23 @@ endfunction()
 
 set(KRABBY_FIRMWARE_NATIVE_TESTS
     arduino/test_units
+    arduino/test_actuator_manager
     arduino/src/test_telemetry
     arduino/src/imu/test_imu_calibrator
+    arduino/src/imu/test_imu_measurement
     arduino/src/i2c/test_i2c_recovery
+    arduino/src/display/test_display_frame_model
+    arduino/src/display/test_display_renderer
+    arduino/src/actuator/test_actuator_current_tracker
+    arduino/src/actuator/test_actuator_status
+    arduino/src/actuator/test_actuator_identity
+    arduino/test_board_pins
+    arduino/src/actuator/test_actuator_pot_tracker
+    arduino/src/controller/test_board_role
+    arduino/src/controller/test_controller_freshness_tracker
 )
 
-# The manifest and the directory must agree in both directions: a listed test
-# with no file, or a file nobody listed, silently shrinks the suite while ctest
-# still reports every remaining test passing.
+# Require every discovered test to appear in the manifest.
 foreach(test_path IN LISTS KRABBY_FIRMWARE_NATIVE_TESTS)
     if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${test_path}.cpp")
         message(FATAL_ERROR
@@ -63,6 +72,12 @@ foreach(test_path IN LISTS KRABBY_FIRMWARE_NATIVE_TESTS)
     endif()
     add_firmware_native_test("${test_path}")
 endforeach()
+
+target_include_directories(test_actuator_manager PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/fakes")
+# Legacy calibration compares Arduino int fields with size_t and a magic literal.
+if(NOT MSVC)
+    target_compile_options(test_actuator_manager PRIVATE -Wno-sign-compare)
+endif()
 
 file(GLOB_RECURSE discovered_test_sources CONFIGURE_DEPENDS
      RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" "test_*.cpp")
@@ -74,3 +89,34 @@ foreach(discovered IN LISTS discovered_test_sources)
             "never build or run. Add '${discovered_path}' to the list.")
     endif()
 endforeach()
+
+target_sources(
+    test_display_frame_model
+    PRIVATE
+        "${KRABBY_ARDUINO_DIR}/src/display/display_frame_model.cpp"
+        "${KRABBY_ARDUINO_DIR}/src/telemetry.cpp"
+)
+
+target_sources(
+    test_display_renderer
+    PRIVATE
+        "${KRABBY_ARDUINO_DIR}/src/display/display_frame_model.cpp"
+        "${KRABBY_ARDUINO_DIR}/src/telemetry.cpp"
+)
+target_include_directories(test_display_renderer PRIVATE "${KRABBY_OLED_SIM_DIR}")
+
+# Build the simulator's trace emitter with the test toolchain.
+add_executable(oled_trace
+    "${KRABBY_OLED_SIM_DIR}/oled_trace.cpp"
+    "${KRABBY_ARDUINO_DIR}/src/display/display_frame_model.cpp"
+    "${KRABBY_ARDUINO_DIR}/src/telemetry.cpp"
+)
+target_include_directories(oled_trace PRIVATE "${KRABBY_ARDUINO_DIR}" "${KRABBY_OLED_SIM_DIR}")
+if(KRABBY_NATIVE_COVERAGE)
+    set_target_properties(oled_trace PROPERTIES EXCLUDE_FROM_ALL TRUE)
+endif()
+if(MSVC)
+    target_compile_options(oled_trace PRIVATE /W4 /WX)
+else()
+    target_compile_options(oled_trace PRIVATE -Wall -Wextra -Werror)
+endif()

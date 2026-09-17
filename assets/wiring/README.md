@@ -1,7 +1,7 @@
-# M16 Task 1 wiring
+# M16 wiring
 
-The Schemdraw sheet records the confirmed electrical connection between the
-leader Mega and the LSM6DSO IMU.
+The Schemdraw sheet records the leader Mega's I²C chain: Qwiic adapter →
+LSM6DSO IMU → SSD1306 OLED. The OLED uses address `0x3D`.
 
 Render and validate the documentation with:
 

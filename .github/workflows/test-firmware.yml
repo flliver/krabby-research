@@ -1,0 +1,36 @@
+name: Firmware tests
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: firmware-tests-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake python3-tk
+          python -m pip install pytest pytest-timeout pyserial keyboard gcovr
+
+      - name: Run native firmware tests and coverage gate
+        run: make -C firmware test-native-coverage
+
+      - name: Run Python firmware tests
+        if: ${{ !cancelled() }}
+        run: python -m pytest -q tests/unit/firmware --timeout=60 --timeout-method=thread

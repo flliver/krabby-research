@@ -14,8 +14,6 @@ TELEMETRY_REFRESH_MS = (
     100  # GUI poll period; decoupled from the firmware's telemetry tick
 )
 
-SENSOR_STALE_S = 1.0  # readout is "stale" if no fresh sample within this window
-
 # Placeholder for a joint cell before its first telemetry arrives.
 NO_VALUE_TEXT = "---"
 
@@ -109,24 +107,14 @@ class ImuRow:
     ]
 
     @staticmethod
-    def resolve_state(imu, age_seconds: Optional[float]) -> tuple[str, str]:
+    def resolve_state(imu) -> tuple[str, str]:
         if imu is None:
             return "—", ""
         if not imu.valid:
             return "STALE", STATE_COLOR_STALE
-        if age_seconds is not None and age_seconds > SENSOR_STALE_S:
-            return "stale", STATE_COLOR_STALE
         return "fresh", STATE_COLOR_OK
 
-    @staticmethod
-    def latch_sample(previous_sample, previous_timestamp, sample, now):
-        if sample is not None and sample is not previous_sample:
-            return sample, now
-        return previous_sample, previous_timestamp
-
     def __init__(self, parent: tk.Widget):
-        self._sample = None
-        self._sample_timestamp: Optional[float] = None
         ttk.Label(parent, text="IMU", font=FONT_SENSOR_LABEL, width=6, anchor="w").grid(
             row=1, column=0, padx=4, pady=2, sticky="w"
         )
@@ -147,14 +135,7 @@ class ImuRow:
             ).grid(row=1, column=c, padx=4)
         self._state_lbl = parent.grid_slaves(row=1, column=len(self.COLS) - 1)[0]
 
-    def update(self, imu, now: float):
-        self._sample, self._sample_timestamp = self.latch_sample(
-            self._sample, self._sample_timestamp, imu, now
-        )
-        imu = self._sample
-        age_seconds = (
-            None if self._sample_timestamp is None else now - self._sample_timestamp
-        )
+    def update(self, imu):
         if imu is None:
             for v in self._vars[1:]:
                 v.set("—")
@@ -163,8 +144,8 @@ class ImuRow:
         ag, gd = imu.accel_g, imu.gyro_dps
         fmt = [
             None,
-            f"{imu.roll_deg:+.1f}",
-            f"{imu.pitch_deg:+.1f}",
+            f"{imu.roll_from_accel_deg:+.1f}",
+            f"{imu.pitch_from_accel_deg:+.1f}",
             f"{ag[0]:+.2f}",
             f"{ag[1]:+.2f}",
             f"{ag[2]:+.2f}",
@@ -175,9 +156,7 @@ class ImuRow:
         ]
         for c in range(1, 10):
             self._vars[c].set(fmt[c])
-        # Three-state decision (sensor STALE beats link stale) lives in the
-        # module-level pure function so it is unit-testable without a window.
-        s, col = self.resolve_state(imu, age_seconds)
+        s, col = self.resolve_state(imu)
         self._vars[10].set(s)
         self._state_lbl.configure(foreground=col)
 
@@ -282,7 +261,7 @@ class KrabbyTestGUI(tk.Tk):
             jt = self._mcu.joints.get(name)
             jr.update_from_telemetry(jt)
 
-        self._imu_row.update(self._mcu.imu, time.time())
+        self._imu_row.update(self._mcu.imu)
 
         if self._mcu.last_error:
             self._status_var.set(f"Error: {self._mcu.last_error}")

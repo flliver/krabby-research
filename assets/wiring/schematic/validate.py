@@ -31,7 +31,7 @@ def validate(output_dir: Path) -> None:
         for suffix in ("html", "svg", "png", "pdf"):
             require(sheets_dir / f"{diagram.name}.{suffix}")
         validate_svg_links(sheets_dir / f"{diagram.name}.svg")
-    print("M16 Task 1 wiring outputs and links are valid.")
+    print("M16 wiring outputs and links are valid.")
 
 
 if __name__ == "__main__":

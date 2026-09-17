@@ -72,25 +72,25 @@ void test_a_single_failure_is_not_evidence(void)
 {
     I2cRecoveryPolicy policy;
 
-    TEST_ASSERT_FALSE(policy.noteFailure(1000, LIMITS));
-    TEST_ASSERT_FALSE(policy.noteFailure(1050, LIMITS));
-    TEST_ASSERT_TRUE(policy.noteFailure(1100, LIMITS));
+    TEST_ASSERT_FALSE(policy.shouldAttemptRecovery(1000, LIMITS));
+    TEST_ASSERT_FALSE(policy.shouldAttemptRecovery(1050, LIMITS));
+    TEST_ASSERT_TRUE(policy.shouldAttemptRecovery(1100, LIMITS));
 }
 
 void test_a_success_clears_pending_failures(void)
 {
     I2cRecoveryPolicy policy;
 
-    policy.noteFailure(1000, LIMITS);
-    policy.noteFailure(1050, LIMITS);
+    policy.shouldAttemptRecovery(1000, LIMITS);
+    policy.shouldAttemptRecovery(1050, LIMITS);
     // Without this, "consecutive" would silently mean "cumulative" and a device
     // with occasional transients would eventually re-initialise for no reason.
     policy.noteSuccess();
     TEST_ASSERT_EQUAL_UINT8(0, policy.badTicks());
 
-    TEST_ASSERT_FALSE(policy.noteFailure(1100, LIMITS));
-    TEST_ASSERT_FALSE(policy.noteFailure(1150, LIMITS));
-    TEST_ASSERT_TRUE(policy.noteFailure(1200, LIMITS));
+    TEST_ASSERT_FALSE(policy.shouldAttemptRecovery(1100, LIMITS));
+    TEST_ASSERT_FALSE(policy.shouldAttemptRecovery(1150, LIMITS));
+    TEST_ASSERT_TRUE(policy.shouldAttemptRecovery(1200, LIMITS));
 }
 
 void test_attempts_are_rate_limited(void)
@@ -99,16 +99,16 @@ void test_attempts_are_rate_limited(void)
     uint32_t now = 1000;
 
     for (int i = 0; i < 3; ++i)
-        policy.noteFailure(now, LIMITS);          // fires at the third
+        policy.shouldAttemptRecovery(now, LIMITS);          // fires at the third
 
     // Still failing, but inside the interval: no second attempt.
     for (int i = 0; i < 20; ++i)
-        TEST_ASSERT_FALSE(policy.noteFailure(now + 100 * i, LIMITS));
+        TEST_ASSERT_FALSE(policy.shouldAttemptRecovery(now + 100 * i, LIMITS));
 
     // Once the interval is up the next failure fires at once: the device has
     // been failing continuously, so there is nothing to re-accumulate.
     now += LIMITS.retryIntervalMs;
-    TEST_ASSERT_TRUE(policy.noteFailure(now, LIMITS));
+    TEST_ASSERT_TRUE(policy.shouldAttemptRecovery(now, LIMITS));
 }
 
 void test_the_first_attempt_is_not_blocked_at_boot(void)
@@ -117,9 +117,9 @@ void test_the_first_attempt_is_not_blocked_at_boot(void)
     // first retry off for a whole interval after every power-on.
     I2cRecoveryPolicy policy;
 
-    policy.noteFailure(0, LIMITS);
-    policy.noteFailure(0, LIMITS);
-    TEST_ASSERT_TRUE(policy.noteFailure(0, LIMITS));
+    policy.shouldAttemptRecovery(0, LIMITS);
+    policy.shouldAttemptRecovery(0, LIMITS);
+    TEST_ASSERT_TRUE(policy.shouldAttemptRecovery(0, LIMITS));
 }
 
 void test_the_interval_survives_the_millis_rollover(void)
@@ -128,17 +128,17 @@ void test_the_interval_survives_the_millis_rollover(void)
     const uint32_t beforeRollover = 0xFFFFFF00UL;
 
     for (int i = 0; i < 3; ++i)
-        policy.noteFailure(beforeRollover, LIMITS);
+        policy.shouldAttemptRecovery(beforeRollover, LIMITS);
 
     // 0x100 ms elapsed across the wrap. Comparing timestamps directly would see
     // a huge jump backwards and let the attempt through early.
     const uint32_t afterRollover = 0x00000000UL;
     for (int i = 0; i < 3; ++i)
-        TEST_ASSERT_FALSE(policy.noteFailure(afterRollover, LIMITS));
+        TEST_ASSERT_FALSE(policy.shouldAttemptRecovery(afterRollover, LIMITS));
 
     // 0x100 + 2000 ms elapsed: past the interval, so this one fires.
     TEST_ASSERT_TRUE(
-        policy.noteFailure(afterRollover + LIMITS.retryIntervalMs, LIMITS));
+        policy.shouldAttemptRecovery(afterRollover + LIMITS.retryIntervalMs, LIMITS));
 }
 
 void test_the_bad_tick_counter_saturates(void)
@@ -148,9 +148,9 @@ void test_the_bad_tick_counter_saturates(void)
     // blocked -- which is the only way the counter climbs without being reset.
     const I2cRecoveryLimits slow = {1, 1000000};
 
-    TEST_ASSERT_TRUE(policy.noteFailure(0, slow));
+    TEST_ASSERT_TRUE(policy.shouldAttemptRecovery(0, slow));
     for (int i = 0; i < 600; ++i)
-        TEST_ASSERT_FALSE(policy.noteFailure(1, slow));
+        TEST_ASSERT_FALSE(policy.shouldAttemptRecovery(1, slow));
 
     // Wrapping to 0 would read as a healthy device.
     TEST_ASSERT_EQUAL_UINT8(255, policy.badTicks());
