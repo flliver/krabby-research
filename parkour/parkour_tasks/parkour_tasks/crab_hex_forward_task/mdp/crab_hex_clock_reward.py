@@ -46,6 +46,37 @@ VEL_REF_M_S = 0.10
 TOUCH_REF_N = 50.0
 
 
+def clock_command_speed(
+    cmd: torch.Tensor,
+    planar: bool = False,
+    turn_radius: float = 0.0,
+) -> torch.Tensor:
+    """The commanded speed that drives the gait clock's cadence, ``[N]``.
+
+    One seam, two tasks. The forward-walk task (and the sideways sibling, whose command
+    also lives in ``cmd[:, 0]``) travels along ONE body axis, so the cadence is set by the
+    magnitude of that single channel -- ``planar=False`` returns the literal expression the
+    action term and the two clock rewards have always used, ``cmd[:, 0].abs()``, so the
+    default path is bit-identical (no arithmetic added, same tensor op).
+
+    An omnidirectional task commands a 2-D planar velocity plus a yaw rate, and a robot that
+    is turning in place is walking even though ``cmd[:, 0]`` may be 0. ``planar=True``
+    therefore takes the larger of the planar command norm and the tangential foot speed a
+    turn of radius ``turn_radius`` implies (``r * |wz|``), so the clock never stalls under an
+    active turn. ``turn_radius=0.0`` degenerates to the pure planar norm.
+
+    Args:
+        cmd: ``[N, >=3]`` base-velocity command (vx, vy, wz) in the body frame.
+        planar: read the planar command (omni tasks) instead of ``cmd[:, 0]`` alone.
+        turn_radius: metres; the effective turning radius mapping |wz| to a foot speed.
+    """
+    if not planar:
+        return cmd[:, 0].abs()
+    return torch.maximum(
+        torch.linalg.norm(cmd[:, :2], dim=-1), turn_radius * cmd[:, 2].abs()
+    )
+
+
 def clock_schedule_income(
     phase: torch.Tensor,
     foot_force_n: torch.Tensor,

@@ -11,7 +11,16 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from ..terrains import ParkourSubTerrainBaseCfg
 
-def parkour_field_to_mesh(func: Callable) -> Callable:
+def _parkour_field_to_mesh_impl(func: Callable, edge_axes: str) -> Callable:
+    """Shared body behind `parkour_field_to_mesh` (`edge_axes="x"`, today's behaviour,
+    bit-identical) and `parkour_field_to_mesh_xy` (`edge_axes="xy"`, both-axes riser mask
+    for terrains with non-axis-aligned obstacles, e.g. the omni ring). Only the edge-mask
+    computation branches on `edge_axes`; everything else is the original wrapper body
+    verbatim.
+    """
+    if edge_axes not in ("x", "xy"):
+        raise ValueError(f"edge_axes must be 'x' or 'xy', got {edge_axes!r}")
+
     @functools.wraps(func)
     def wrapper(difficulty: float, cfg: ParkourSubTerrainBaseCfg, num_goals:int):
         if cfg.border_width > 0 and cfg.border_width < cfg.horizontal_scale:
@@ -37,12 +46,19 @@ def parkour_field_to_mesh(func: Callable) -> Callable:
         heights[border_pixels:-border_pixels, border_pixels:-border_pixels] = z_gen
         # set terrain size back to config
         # convert to trimesh
-        vertices, triangles, x_edge_mask = convert_height_field_to_mesh(
-            heights, cfg.horizontal_scale, cfg.vertical_scale, cfg.slope_threshold
-        )
         half_edge_width = int(cfg.edge_width_thresh / cfg.horizontal_scale)
-        structure = np.ones((half_edge_width*2+1, 1))
-        x_edge_mask = binary_dilation(x_edge_mask, structure=structure)
+        if edge_axes == "x":
+            vertices, triangles, x_edge_mask = convert_height_field_to_mesh(
+                heights, cfg.horizontal_scale, cfg.vertical_scale, cfg.slope_threshold
+            )
+            structure = np.ones((half_edge_width*2+1, 1))
+            edge_mask = binary_dilation(x_edge_mask, structure=structure)
+        else:  # "xy"
+            vertices, triangles, x_edge_mask, y_edge_mask = convert_height_field_to_mesh(
+                heights, cfg.horizontal_scale, cfg.vertical_scale, cfg.slope_threshold, return_y_edges=True
+            )
+            structure = np.ones((half_edge_width*2+1, half_edge_width*2+1))
+            edge_mask = binary_dilation(x_edge_mask | y_edge_mask, structure=structure)
         cfg.size = terrain_size
         mesh = trimesh.Trimesh(vertices=vertices, faces=triangles)
         if cfg.use_simplified:
@@ -56,13 +72,29 @@ def parkour_field_to_mesh(func: Callable) -> Callable:
         origin = np.array([0.5 * cfg.size[0], 0.5 * cfg.size[1], origin_z])
         # PLAN H (2026-09-03): the int16 height field (border included) is returned so the
         # generator can keep it for spawn-spread z lookup / clearance checks.
-        return [mesh], origin, goals, goal_heights, x_edge_mask, heights
+        return [mesh], origin, goals, goal_heights, edge_mask, heights
 
     return wrapper
 
+
+parkour_field_to_mesh = functools.partial(_parkour_field_to_mesh_impl, edge_axes="x")
+"""Bit-identical to the pre-refactor decorator: dilates the x-normal riser mask only
+(a `(2h+1) x 1` structure), matching every existing forward call site."""
+
+parkour_field_to_mesh_xy = functools.partial(_parkour_field_to_mesh_impl, edge_axes="xy")
+"""Both-axes twin for terrains with non-axis-aligned obstacles (e.g. the omni ring):
+unions the x- and y-normal riser masks, then dilates over the same `(2h+1) x (2h+1)`
+neighbourhood (`h` = the same `half_edge_width` the x-only decorator uses)."""
+
+
 def convert_height_field_to_mesh(
-    height_field: np.ndarray, horizontal_scale: float, vertical_scale: float, slope_threshold: float | None = None
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    height_field: np.ndarray,
+    horizontal_scale: float,
+    vertical_scale: float,
+    slope_threshold: float | None = None,
+    *,
+    return_y_edges: bool = False,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray] | tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     num_rows, num_cols = height_field.shape
     # create a mesh grid of the height field
     y = np.linspace(0, (num_cols - 1) * horizontal_scale, num_cols)
@@ -114,4 +146,6 @@ def convert_height_field_to_mesh(
         triangles[start + 1 : stop : 2, 0] = ind0
         triangles[start + 1 : stop : 2, 1] = ind2
         triangles[start + 1 : stop : 2, 2] = ind3
+    if return_y_edges:
+        return vertices, triangles, move_x != 0, move_y != 0
     return vertices, triangles, move_x!=0

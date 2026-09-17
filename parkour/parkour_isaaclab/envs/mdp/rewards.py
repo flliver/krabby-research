@@ -15,6 +15,7 @@ from parkour_tasks.crab_hex_forward_task.mdp.crab_hex_clock_reward import (
     FOOT_ORDER as CLOCK_FOOT_ORDER,
     FORCE_REF_N as CLOCK_FORCE_REF_N,
     VEL_REF_M_S as CLOCK_VEL_REF_M_S,
+    clock_command_speed,
     clock_schedule_income,
     clock_swing_apex_income,
 )
@@ -54,6 +55,54 @@ def _vel_travel_xy(asset: Articulation, env: ParkourManagerBasedRLEnv) -> torch.
     itself -- the same tensor, no arithmetic.
     """
     return _travel_frame.vel_travel_xy(asset.data.root_lin_vel_b[:, :2], _travel_yaw(env))
+
+
+def _cmd_gate(
+    env: ParkourManagerBasedRLEnv,
+    cmd: torch.Tensor,
+    thresh: float,
+    *,
+    signed: bool,
+) -> torch.Tensor:
+    """Is a travel command active? -- the gate the ``*_when_forward`` terms switch on.
+
+    The forward-walk task (and the sideways sibling, whose travel speed also lives in
+    ``cmd[:, 0]``) has no ``omni_command`` attribute on its cfg classes, so this returns the
+    call site's ORIGINAL literal, unchanged and bitwise: ``cmd[:, 0] > thresh`` where the
+    site gated on the signed forward command (``signed=True``: a backward command is not
+    "forward", and these two clearance terms have always said so) and
+    ``torch.abs(cmd[:, 0]) > thresh`` where the site gated on the magnitude
+    (``signed=False``).
+
+    For an omnidirectional task the single channel is meaningless -- a pure +y or backward
+    command has ``cmd[:, 0] <= 0`` -- so BOTH variants become the speed the gait clock runs on,
+    ``max(||cmd[:, :2]||, r_turn * |cmd[:, 2]|)`` (``_clock_cmd_speed``). That merges the
+    signed and unsigned sites: under omni, a backward command does gate the two clearance terms
+    on (it is travel, and the feet must clear the ground for it), and so does a pure TURN
+    command (Revision 2, 2026-09-17: with the planar norm alone, a turn-only command left every
+    gait-shaping term off and two yaw-capability smokes learned to step in place without
+    rotating -- turning is locomotion, so it switches the same terms on as translation).
+    """
+    if bool(getattr(env.cfg, "omni_command", False)):
+        return _clock_cmd_speed(env, cmd) > thresh
+    if signed:
+        return cmd[:, 0] > thresh
+    return torch.abs(cmd[:, 0]) > thresh
+
+
+def _clock_cmd_speed(env: ParkourManagerBasedRLEnv, cmd: torch.Tensor) -> torch.Tensor:
+    """The commanded speed the gait clock runs on -- the same seam the action term uses.
+
+    Forward/sideways: ``cmd[:, 0].abs()``, bitwise (``omni_command`` is absent -> ``False``).
+    Omni: ``max(||cmd[:, :2]||, r_turn * |cmd[:, 2]|)`` so turning in place keeps the clock
+    running. Kept in step with ``CrabHexDelayedJointPositionAction.process_actions``: the
+    reward must price the schedule the clock is actually advancing.
+    """
+    return clock_command_speed(
+        cmd,
+        bool(getattr(env.cfg, "omni_command", False)),
+        float(getattr(env.cfg, "omni_clock_turn_radius", 0.0)),
+    )
 
 
 class reward_feet_edge(ManagerTermBase):
@@ -491,7 +540,9 @@ def reward_foot_clearance(
     rew = torch.mean(per_foot, dim=1)
 
     cmd = env.command_manager.get_command(command_name)
-    forward_cmd = cmd[:, 0] > min_forward_speed_cmd
+    # signed: forward-only today (a backward command earns no clearance credit). Under
+    # ``omni_command`` the gate becomes ``||cmd[:, :2]||``, so any travel direction counts.
+    forward_cmd = _cmd_gate(env, cmd, min_forward_speed_cmd, signed=True)
     rew = rew * forward_cmd.float()
 
     if parkour_name is not None:
@@ -542,7 +593,8 @@ def penalty_swing_min_clearance(
     penalty = torch.mean(micro_swing, dim=1)
 
     cmd = env.command_manager.get_command(command_name)
-    forward_cmd = cmd[:, 0] > min_forward_speed_cmd
+    # signed, as above: forward-only today; ``||cmd[:, :2]||`` under ``omni_command``.
+    forward_cmd = _cmd_gate(env, cmd, min_forward_speed_cmd, signed=True)
     penalty = penalty * forward_cmd.float()
     if parkour_name is not None:
         penalty = penalty * (1.0 - _parkour_flat_mask(env, parkour_name))
@@ -818,7 +870,7 @@ def penalty_excess_feet_in_contact_forward(
     num_feet = torch.sum(in_contact.float(), dim=1)
     excess = torch.relu(num_feet - float(max_feet_on_ground))
     cmd = env.command_manager.get_command(command_name)
-    moving = torch.abs(cmd[:, 0]) > min_forward_speed_cmd
+    moving = _cmd_gate(env, cmd, min_forward_speed_cmd, signed=False)
     return excess * moving.float()
 
 
@@ -866,7 +918,7 @@ def reward_stance_support_feet_when_forward(
     in_contact = torch.norm(net_contact_forces, dim=-1) > contact_force_threshold
     num_feet = torch.sum(in_contact.float(), dim=1)
     cmd = env.command_manager.get_command(command_name)
-    moving = torch.abs(cmd[:, 0]) > min_forward_speed_cmd
+    moving = _cmd_gate(env, cmd, min_forward_speed_cmd, signed=False)
     has_support = num_feet.float() >= float(min_feet_loaded)
     return has_support.float() * moving.float()
 
@@ -906,7 +958,7 @@ class PenaltyFootIdleWhenForward(ManagerTermBase):
         self.idle_steps = torch.where(in_contact, torch.zeros_like(self.idle_steps), self.idle_steps + 1.0)
         excess = torch.relu(self.idle_steps - float(max_idle_steps))
         cmd = env.command_manager.get_command(command_name)
-        moving = torch.abs(cmd[:, 0]) > min_forward_speed_cmd
+        moving = _cmd_gate(env, cmd, min_forward_speed_cmd, signed=False)
         return torch.sum(excess, dim=1) * moving.float()
 
 
@@ -1151,7 +1203,7 @@ class RewardClockContactSchedule(ManagerTermBase):
         force = sensor.data.net_forces_w[:, self._foot_sensor_ids].norm(dim=-1)
         speed_xy = asset.data.body_lin_vel_w[:, self._foot_body_ids, :2].norm(dim=-1)
         cmd = env.command_manager.get_command(command_name)
-        clock_running = cmd[:, 0].abs() > self._cmd_stop
+        clock_running = _clock_cmd_speed(env, cmd) > self._cmd_stop
         income = clock_schedule_income(
             phase, force, speed_xy, clock_running, force_ref=force_ref, vel_ref=vel_ref,
             combine=combine,
@@ -1191,7 +1243,7 @@ class RewardClockSwingApex(ManagerTermBase):
         ground_z = asset.data.root_pos_w[:, 2].unsqueeze(1) + ground_offset_from_root_m
         height = foot_z - ground_z
         cmd = env.command_manager.get_command(command_name)
-        clock_running = cmd[:, 0].abs() > self._cmd_stop
+        clock_running = _clock_cmd_speed(env, cmd) > self._cmd_stop
         income = clock_swing_apex_income(
             phase, height, clock_running, apex_m=apex_m, sigma_m=sigma_m
         )

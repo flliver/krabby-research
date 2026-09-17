@@ -16,6 +16,7 @@ from parkour_isaaclab.envs.mdp.parkour_actions.joint_actions import DelayedJoint
 
 from parkour_tasks.crab_hex_forward_task.mdp import crab_hex_linkage as linkage
 from parkour_tasks.crab_hex_forward_task.mdp.crab_hex_cam_mapping import cam_shaft_to_hip
+from parkour_tasks.crab_hex_forward_task.mdp.crab_hex_clock_reward import clock_command_speed
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
@@ -98,6 +99,9 @@ class CrabHexDelayedJointPositionAction(DelayedJointPositionAction):
         # (CLOCK_V_MAX) maps to the cam motor's full speed (CAM_VEL_SCALE = pi rad/s = 0.5
         # rev/s), per the Phase-0 scripted-gait calibration.
         self.clock_phase = torch.zeros(self.num_envs, device=self.device)
+        # The commanded speed the cadence was last computed from (``clock_command_speed``),
+        # kept for telemetry and for sibling tasks that read the gait clock's drive term.
+        self.clock_cmd_speed = torch.zeros(self.num_envs, device=self.device)
         # RSI staging (crab_hex_rsi): events run before action-manager reset, so the RSI
         # event stages the reference clock here and reset() consumes it (NaN = not staged).
         self.rsi_clock_staged = torch.full((self.num_envs,), float("nan"), device=self.device)
@@ -259,7 +263,14 @@ class CrabHexDelayedJointPositionAction(DelayedJointPositionAction):
         # Gait-clock advance (once per env step, before physics): cadence linear in the
         # commanded forward speed, frozen on stop commands. See __init__ NOTE.
         cmd = self._env.command_manager.get_command("base_velocity")
-        v = cmd[:, 0].abs()
+        # ``omni_command`` is absent on the forward (and sideways) cfg classes -> False, and
+        # ``clock_command_speed`` is then exactly ``cmd[:, 0].abs()`` as before.
+        v = clock_command_speed(
+            cmd,
+            bool(getattr(self._env.cfg, "omni_command", False)),
+            float(getattr(self._env.cfg, "omni_clock_turn_radius", 0.0)),
+        )
+        self.clock_cmd_speed = v
         freq_rev_s = torch.where(
             v > linkage.dims.CLOCK_CMD_STOP_M_S,
             (v / linkage.dims.CLOCK_V_MAX_M_S).clamp(max=1.0) * linkage.dims.CLOCK_F_MAX_REV_S,

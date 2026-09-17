@@ -42,6 +42,12 @@ class CrabHexParkourObservations(ExtremeParkourObservations):
     """``ExtremeParkourObservations`` with ``root_lin_vel_b[:, :2] * 2`` (dims 13-14) and the
     gait clock's sin/cos (dims 15-16) in the proprio block."""
 
+    # Steering channels (obs dims 6-7, the two delta-yaw slots) are blanked in the copy that
+    # goes into the observation HISTORY, so the policy cannot read the goal heading out of
+    # its own past. A sibling task whose whole command is "face this way" needs the facing
+    # error to persist in history instead; it flips this to False. Forward = True = today.
+    ZERO_STEERING_HISTORY = True
+
     def __init__(self, cfg, env: ParkourManagerBasedRLEnv):
         super().__init__(cfg, env)
         self._obs_buf_dim += _CRAB_EXTRA_BASE_DIM
@@ -100,6 +106,43 @@ class CrabHexParkourObservations(ExtremeParkourObservations):
         current_k = gate_k * (_CURRENT_SENSE_NO_LOAD + force_k).clamp(0.0, _CURRENT_SENSE_MAX)
         return torch.maximum(current_h, current_k) - 0.5
 
+    def _steering_channels(
+        self, env: ParkourManagerBasedRLEnv, on_flat: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """``(delta_yaw, delta_next_yaw)`` for obs dims 6 and 7 -- the steering channels.
+
+        Behaviour-preserving extraction of the ``KRABBY_HEADING`` branch that used to sit
+        inline in ``__call__``: same ops, same order, same dtype, so the forward path is
+        bit-identical. An omnidirectional sibling overrides this to put the absolute-heading
+        error on every tile instead.
+        """
+        # Flat-walk: velocity command is straight ahead; parkour goal yaw biases crab/drift.
+        # NOTE(PLAN F turning school, 2026-08-27): with KRABBY_HEADING set, flat tiles carry
+        # the HEADING-COMMAND error in the steering channels instead of zero — otherwise the
+        # ang-vel tracking reward pays for turning toward a target the policy cannot observe
+        # (blind turning). Same channel the turn_walk_v1 eval probe injects, so training and
+        # eval steering semantics match. Strictly env-var-gated: all pre-PLAN-F policies keep
+        # their original zeroed-on-flat semantics.
+        if os.environ.get("KRABBY_HEADING") is not None:
+            cmd_term = env.command_manager.get_term("base_velocity")
+            heading_err = wrap_to_pi(cmd_term.heading_target - self.asset.data.heading_w)
+            delta_yaw = torch.where(on_flat, heading_err, self.delta_yaw)
+            delta_next_yaw = torch.where(on_flat, heading_err, self.delta_next_yaw)
+        else:
+            delta_yaw = torch.where(on_flat, torch.zeros_like(self.delta_yaw), self.delta_yaw)
+            delta_next_yaw = torch.where(on_flat, torch.zeros_like(self.delta_next_yaw), self.delta_next_yaw)
+        return delta_yaw, delta_next_yaw
+
+    def _command_channels(self, commands: torch.Tensor) -> torch.Tensor:
+        """Obs dims 8-10: the command block of the proprio vector, ``[N, 3]``.
+
+        Verbatim what ``__call__``'s ``torch.cat`` used to hold inline -- two zeroed slots
+        (the forward task commands one axis only) and the forward speed. ``torch.cat`` is a
+        pure copy, so hoisting the two entries into one is bitwise the same bytes in the same
+        columns. An omnidirectional sibling fills all three.
+        """
+        return torch.cat([0 * commands[:, 0:2], commands[:, 0:1]], dim=-1)
+
     def __call__(
         self,
         env: ParkourManagerBasedRLEnv,
@@ -127,21 +170,7 @@ class CrabHexParkourObservations(ExtremeParkourObservations):
                 self.parkour_event.next_target_yaw, wrap_to_pi(yaw), travel_yaw
             ).reshape(self.num_envs)
             self.measured_heights = self._get_heights()
-        # Flat-walk: velocity command is straight ahead; parkour goal yaw biases crab/drift.
-        # NOTE(PLAN F turning school, 2026-08-27): with KRABBY_HEADING set, flat tiles carry
-        # the HEADING-COMMAND error in the steering channels instead of zero — otherwise the
-        # ang-vel tracking reward pays for turning toward a target the policy cannot observe
-        # (blind turning). Same channel the turn_walk_v1 eval probe injects, so training and
-        # eval steering semantics match. Strictly env-var-gated: all pre-PLAN-F policies keep
-        # their original zeroed-on-flat semantics.
-        if os.environ.get("KRABBY_HEADING") is not None:
-            cmd_term = env.command_manager.get_term("base_velocity")
-            heading_err = wrap_to_pi(cmd_term.heading_target - self.asset.data.heading_w)
-            delta_yaw = torch.where(on_flat, heading_err, self.delta_yaw)
-            delta_next_yaw = torch.where(on_flat, heading_err, self.delta_next_yaw)
-        else:
-            delta_yaw = torch.where(on_flat, torch.zeros_like(self.delta_yaw), self.delta_yaw)
-            delta_next_yaw = torch.where(on_flat, torch.zeros_like(self.delta_next_yaw), self.delta_next_yaw)
+        delta_yaw, delta_next_yaw = self._steering_channels(env, on_flat)
         commands = env.command_manager.get_command("base_velocity")
         clock_phase = env.action_manager.get_term("joint_pos").clock_phase
         joint_pos_delta = self.asset.data.joint_pos - self.asset.data.default_joint_pos
@@ -155,8 +184,7 @@ class CrabHexParkourObservations(ExtremeParkourObservations):
                 0 * delta_yaw[:, None],
                 delta_yaw[:, None],
                 delta_next_yaw[:, None],
-                0 * commands[:, 0:2],
-                commands[:, 0:1],
+                self._command_channels(commands),
                 env_idx_tensor,
                 invert_env_idx_tensor,
                 self.asset.data.root_lin_vel_b[:, :2] * 2.0,
@@ -188,7 +216,8 @@ class CrabHexParkourObservations(ExtremeParkourObservations):
             ],
             dim=-1,
         )
-        obs_buf[:, 6:8] = 0
+        if self.ZERO_STEERING_HISTORY:
+            obs_buf[:, 6:8] = 0
         self._obs_history_buffer = torch.where(
             (env.episode_length_buf <= 1)[:, None, None],
             torch.stack([obs_buf] * self.history_length, dim=1),
