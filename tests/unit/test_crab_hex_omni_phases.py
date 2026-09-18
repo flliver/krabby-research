@@ -440,6 +440,23 @@ def test_parse_ang_vel_std(knobs):
             knobs.parse_ang_vel_std(bad)
 
 
+def test_parse_ang_turn_only(knobs):
+    """``KRABBY_OMNI_ANG_TURN_ONLY`` takes ``"0"`` / ``"1"`` and NOTHING else.
+
+    The permissive spellings are the point of the test: this knob picks which FUNCTION prices
+    the yaw rate, so ``"true"`` silently read as false would train the shipped economy while
+    the launcher believed the lever was armed -- and the only visible difference is that one
+    ``Episode_Reward`` curve is higher than intended.
+    """
+    assert knobs.ANG_TURN_ONLY_VAR == "KRABBY_OMNI_ANG_TURN_ONLY"
+    assert knobs.parse_ang_turn_only("1") is True
+    assert knobs.parse_ang_turn_only(" 1 ") is True
+    assert knobs.parse_ang_turn_only("0") is False
+    for bad in ("true", "True", "yes", "on", "off", "2", "-1", "1.0", "", "  "):
+        with pytest.raises(ValueError, match="KRABBY_OMNI_ANG_TURN_ONLY"):
+            knobs.parse_ang_turn_only(bad)
+
+
 def test_parse_clock_combine(knobs):
     """Revision 4: only the two modes ``clock_schedule_income`` implements are accepted.
 
@@ -592,24 +609,35 @@ def test_yaw_progress_weight_knob_refuses_a_cfg_without_the_term(knobs):
 
 # ------------------------------------------- Revision 4: the reward-economy shape knobs
 class _FakeParamTerm:
-    def __init__(self, **params):
+    def __init__(self, func=None, **params):
         self.weight = 1.0
+        self.func = func
         self.params = dict(params)
+
+
+def _STOCK_ANG(env, std, command_name="base_velocity", asset_cfg=None):
+    """Stand-in for isaaclab's ``track_ang_vel_z_exp`` (the class body's declared func)."""
+
+
+def _GATED_ANG(env, std, command_name="base_velocity", asset_cfg=None):
+    """Stand-in for ``crab_hex_omni_rewards.track_ang_vel_z_exp_turn_gated``."""
 
 
 class _FakeRewardsEnvCfg:
     """The two reward paths Revision 4's knobs write, in their shipped shapes.
 
-    ``track_ang_vel_z_exp`` carries ``std`` (the omni class body's 0.15); the clock SCHEDULE term
-    carries ``combine`` (the forward class body's "sum"); the clock APEX term deliberately does
-    NOT -- ``clock_swing_apex_income`` takes no such argument, and writing the key onto it would
-    raise inside the reward manager on the first step.
+    ``track_ang_vel_z_exp`` carries ``std`` (the omni class body's 0.15) and the STOCK func; the
+    clock SCHEDULE term carries ``combine`` (the forward class body's "sum"); the clock APEX
+    term deliberately does NOT -- ``clock_swing_apex_income`` takes no such argument, and
+    writing the key onto it would raise inside the reward manager on the first step.
     """
 
-    def __init__(self, *, with_std=True, with_combine=True):
+    def __init__(self, *, with_std=True, with_combine=True, ang_func=_STOCK_ANG):
         self.rewards = types.SimpleNamespace()
         if with_std:
-            self.rewards.track_ang_vel_z_exp = _FakeParamTerm(command_name="base_velocity", std=0.15)
+            self.rewards.track_ang_vel_z_exp = _FakeParamTerm(
+                func=ang_func, command_name="base_velocity", std=0.15
+            )
         if with_combine:
             self.rewards.reward_clock_schedule = _FakeParamTerm(command_name="base_velocity",
                                                                 combine="sum")
@@ -643,6 +671,134 @@ def test_ang_vel_std_knob_rejects_a_degenerate_width(knobs):
         with pytest.raises(ValueError, match="KRABBY_OMNI_ANG_VEL_STD"):
             knobs._apply_ang_vel_std_knob(cfg, {"KRABBY_OMNI_ANG_VEL_STD": bad})
     assert cfg.rewards.track_ang_vel_z_exp.params["std"] == 0.15
+
+
+# ------------------------- the STAGED LEVER: KRABBY_OMNI_ANG_TURN_ONLY (default OFF)
+def _apply_turn_only(knobs, cfg, environ):
+    """The applier with both real functions replaced by stand-ins (keeps this file Isaac-free)."""
+    knobs._apply_ang_turn_only_knob(cfg, environ, gated_func=_GATED_ANG, stock_func=_STOCK_ANG)
+
+
+def test_ang_turn_only_knob_defaults_off(knobs):
+    """Unset, empty, or an explicit ``"0"`` -> the class body's STOCK func survives untouched.
+
+    This is the knob's whole shipped state: no preset sets it (pinned below), so every omni run
+    must come out of ``apply_omni_knobs`` with the ungated term.
+    """
+    for environ in ({}, {"KRABBY_OMNI_ANG_TURN_ONLY": ""},
+                    {"KRABBY_OMNI_ANG_TURN_ONLY": "   "},
+                    {"KRABBY_OMNI_ANG_TURN_ONLY": "0"}):
+        cfg = _FakeRewardsEnvCfg()
+        _apply_turn_only(knobs, cfg, environ)
+        assert cfg.rewards.track_ang_vel_z_exp.func is _STOCK_ANG, environ
+
+
+def test_ang_turn_only_knob_swaps_only_the_func(knobs):
+    """``=1`` replaces the FUNC and nothing else -- weight, std and command_name are the dose.
+
+    The lever is a gate, not a retuning: the swapped-in twin passes ``std`` straight through,
+    so a knob that also moved the weight or the kernel would confound the one comparison the
+    armed run exists to make.
+    """
+    cfg = _FakeRewardsEnvCfg()
+    term = cfg.rewards.track_ang_vel_z_exp
+    term.weight = 1.0
+    _apply_turn_only(knobs, cfg, {"KRABBY_OMNI_ANG_TURN_ONLY": "1"})
+    assert term.func is _GATED_ANG
+    assert term.weight == 1.0
+    assert term.params == {"command_name": "base_velocity", "std": 0.15}
+    # the other reward terms are untouched
+    assert cfg.rewards.reward_clock_schedule.params["combine"] == "sum"
+
+
+def test_ang_turn_only_knob_runs_after_the_std_knob(knobs):
+    """Ordering pillar: ``apply_omni_knobs`` writes ``std`` BEFORE swapping the func.
+
+    The twin prices whatever kernel ``KRABBY_OMNI_ANG_VEL_STD`` chose, so the armed run must
+    see the preset's 0.5 and not the class body's 0.15. Asserted on the source order rather
+    than on a value, because both knobs write the same term and the bug is invisible in a dump.
+    """
+    src = OMNI_KNOBS_PY.read_text()
+    body = src[src.index("def apply_omni_knobs"):]
+    assert body.index("_apply_ang_vel_std_knob(cfg, env)") < body.index(
+        "_apply_ang_turn_only_knob(cfg, env)"
+    ), "the func swap must follow the std write"
+    # and end to end through the public entry point: both reach the same term
+    cfg = _FakeRewardsEnvCfg()
+    knobs._apply_ang_vel_std_knob(cfg, {"KRABBY_OMNI_ANG_VEL_STD": "0.5"})
+    _apply_turn_only(knobs, cfg, {"KRABBY_OMNI_ANG_TURN_ONLY": "1"})
+    assert cfg.rewards.track_ang_vel_z_exp.params["std"] == 0.5
+    assert cfg.rewards.track_ang_vel_z_exp.func is _GATED_ANG
+
+
+def test_ang_turn_only_knob_refuses_a_cfg_without_the_term(knobs):
+    cfg = _FakeRewardsEnvCfg(with_std=False)
+    with pytest.raises(RuntimeError, match="track_ang_vel_z_exp"):
+        _apply_turn_only(knobs, cfg, {"KRABBY_OMNI_ANG_TURN_ONLY": "1"})
+    _apply_turn_only(knobs, cfg, {})          # unset is still a no-op
+    _apply_turn_only(knobs, cfg, {"KRABBY_OMNI_ANG_TURN_ONLY": "0"})
+
+
+def test_ang_turn_only_knob_refuses_a_term_that_lost_its_std(knobs):
+    """The twin REQUIRES ``std``; without it the reward manager would raise mid-training."""
+    cfg = _FakeRewardsEnvCfg()
+    del cfg.rewards.track_ang_vel_z_exp.params["std"]
+    with pytest.raises(RuntimeError, match="std"):
+        _apply_turn_only(knobs, cfg, {"KRABBY_OMNI_ANG_TURN_ONLY": "1"})
+    assert cfg.rewards.track_ang_vel_z_exp.func is _STOCK_ANG
+
+
+def test_ang_turn_only_knob_refuses_to_clobber_an_unknown_func(knobs):
+    """If something else already owns the term, the knob must fail rather than overwrite it.
+
+    The term keeps its NAME under every swap, so a future re-declaration silently replaced here
+    would show up nowhere except in the height of one reward curve.
+    """
+    def _someone_elses(env, std, command_name="base_velocity", asset_cfg=None):
+        pass
+
+    cfg = _FakeRewardsEnvCfg(ang_func=_someone_elses)
+    with pytest.raises(RuntimeError, match="stock"):
+        _apply_turn_only(knobs, cfg, {"KRABBY_OMNI_ANG_TURN_ONLY": "1"})
+    assert cfg.rewards.track_ang_vel_z_exp.func is _someone_elses
+
+
+def test_ang_turn_only_knob_rejects_an_unknown_value(knobs):
+    cfg = _FakeRewardsEnvCfg()
+    for bad in ("true", "yes", "2", "on"):
+        with pytest.raises(ValueError, match="KRABBY_OMNI_ANG_TURN_ONLY"):
+            _apply_turn_only(knobs, cfg, {"KRABBY_OMNI_ANG_TURN_ONLY": bad})
+    assert cfg.rewards.track_ang_vel_z_exp.func is _STOCK_ANG
+
+
+def test_ang_turn_only_resolves_the_shipped_twin_when_not_injected(knobs):
+    """The stand-ins above must not drift from what the applier really imports.
+
+    Source-level, because importing the real modules needs Kit: the lazy import has to name
+    ``track_ang_vel_z_exp_turn_gated`` in ``crab_hex_omni_rewards`` and the stock
+    ``track_ang_vel_z_exp`` in ``isaaclab.envs.mdp.rewards`` -- and the omni rewards module
+    has to actually define that function.
+    """
+    src = OMNI_KNOBS_PY.read_text()
+    body = src[src.index("def _apply_ang_turn_only_knob"):src.index("def _clock_combine_terms")]
+    assert "from isaaclab.envs.mdp.rewards import track_ang_vel_z_exp as stock_func" in body
+    assert "crab_hex_omni_rewards import" in body
+    assert "track_ang_vel_z_exp_turn_gated as gated_func" in body
+    rewards_py = OMNI / "mdp/crab_hex_omni_rewards.py"
+    assert "def track_ang_vel_z_exp_turn_gated(" in rewards_py.read_text()
+
+
+def test_no_preset_arms_the_staged_lever(omni):
+    """DEFAULT OFF: ``KRABBY_OMNI_ANG_TURN_ONLY`` appears in no preset window, ever.
+
+    The user decision (2026-09-18) is that this lever ships staged and unarmed. ``EXPECTED_COMMON``
+    is asserted exhaustively elsewhere, but an explicit negative is what a future "just add it to
+    OMNI_COMMON" has to walk past.
+    """
+    for name in PHASE_NAMES:
+        assert "KRABBY_OMNI_ANG_TURN_ONLY" not in omni.PHASES[name].env, name
+    src = OMNI_PHASES_PY.read_text()
+    assert "ANG_TURN_ONLY" not in src
 
 
 def test_clock_combine_knob_writes_only_terms_that_take_the_param(knobs):

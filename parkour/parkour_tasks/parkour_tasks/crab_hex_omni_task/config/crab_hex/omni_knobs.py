@@ -42,7 +42,11 @@ five things the forward block cannot know about:
    ``KRABBY_OMNI_CLOCK_COMBINE`` -> ``params["combine"]`` on every clock reward term that
    HAS that key. Both are applied here rather than by the forward block because the omni
    task needs to move them per-window without touching a forward preset;
-7. ``apply_omni_ring_knobs`` -- the ring-generator guard and the ``KRABBY_RING_*`` knobs
+7. **one STAGED LEVER, DEFAULT OFF** (2026-09-18 user decision -- see :data:`ANG_TURN_ONLY_VAR`):
+   ``KRABBY_OMNI_ANG_TURN_ONLY=1`` swaps ``rewards.track_ang_vel_z_exp``'s FUNC (not a param)
+   for the turn-gated twin. NO PRESET SETS IT and the rewards class body keeps the stock func,
+   so every shipped omni run is bit-identical unless a launcher arms it by hand;
+8. ``apply_omni_ring_knobs`` -- the ring-generator guard and the ``KRABBY_RING_*`` knobs
    (``mdp/omni_terrain_knobs.py``).
 
 Every parser is pure and lives at module scope with no Isaac import (the Isaac-touching bits
@@ -65,6 +69,7 @@ __all__ = [
     "FACING_VAR",
     "ANG_VEL_MAX_VAR",
     "ANG_VEL_STD_VAR",
+    "ANG_TURN_ONLY_VAR",
     "CLOCK_TURN_R_VAR",
     "CLOCK_COMBINE_VAR",
     "YAW_RANGE_VAR",
@@ -78,6 +83,7 @@ __all__ = [
     "parse_facing",
     "parse_ang_vel_max",
     "parse_ang_vel_std",
+    "parse_ang_turn_only",
     "parse_clock_turn_radius",
     "parse_clock_combine",
     "parse_yaw_range",
@@ -98,6 +104,22 @@ ANG_VEL_MAX_VAR = "KRABBY_OMNI_ANG_VEL_MAX"
 #: so the cheapest policy is to hold still. There is no forward-named knob for this param, hence
 #: the omni spelling.
 ANG_VEL_STD_VAR = "KRABBY_OMNI_ANG_VEL_STD"
+#: **A STAGED LEVER, DEFAULT OFF** (2026-09-18 user decision). ``"1"`` swaps
+#: ``rewards.track_ang_vel_z_exp``'s FUNC to
+#: ``crab_hex_omni_rewards.track_ang_vel_z_exp_turn_gated`` -- the stock term multiplied by
+#: ``(cmd[:, 2] != 0)`` -- keeping the weight and every param (``std`` included). ``"0"`` is the
+#: explicit off; unset/empty is off; anything else raises at config build.
+#:
+#: WHY IT IS STAGED. ``track_ang_vel_z_exp`` is an even function of the yaw-rate ERROR, so a
+#: motionless robot with zero yaw error earns ~0.98/s on the ~88 % of 1c rows that command no
+#: turn -- ~45 % of a stander's whole positive income under the Revision-4 economy. Gating it
+#: moves the offline walker-vs-creeper COMMAND margin on the decidable ``fwd`` hold from
+#: +16.6 % to +37.5 % (the campaign's >= 25 % gate: FAIL -> PASS). WHY IT IS OFF: the gate also
+#: removes the term's yaw-rate DAMPING on non-turn rows, which is a behavioural change rather
+#: than a bookkeeping fix, so it is armed by hand for one run, never by a preset. Evidence:
+#: ``experiments/2026-09-16_1805_omni_formation/replay_reward_economy.md`` (the PROBE table;
+#: restate it with ``replay_reward_economy.py --new-ang-turn-only``).
+ANG_TURN_ONLY_VAR = "KRABBY_OMNI_ANG_TURN_ONLY"
 CLOCK_TURN_R_VAR = "KRABBY_OMNI_CLOCK_TURN_R"
 #: The gait-clock schedule term's ``combine`` mode (Revision 4, 2026-09-18), omni-only.
 #:
@@ -212,6 +234,23 @@ def parse_ang_vel_std(text: str) -> float:
     if value <= 0.0:
         raise ValueError(f"{ANG_VEL_STD_VAR} must be positive, got {text!r}")
     return value
+
+
+def parse_ang_turn_only(text: str) -> bool:
+    """``KRABBY_OMNI_ANG_TURN_ONLY`` -> ``True`` (``"1"``) or ``False`` (``"0"``).
+
+    Deliberately NOT a permissive truthiness parser. Every other spelling a launcher might
+    reach for -- ``"true"``, ``"yes"``, ``"on"``, ``"2"``, ``"off"`` -- raises by name, because
+    this knob changes which FUNCTION prices the yaw rate: a value silently read as false would
+    train the shipped economy while the launcher claimed the lever, and the only difference in
+    the log is the height of one ``Episode_Reward`` curve that is supposed to be lower.
+    """
+    token = str(text).strip()
+    if token == "1":
+        return True
+    if token == "0":
+        return False
+    raise ValueError(f"{ANG_TURN_ONLY_VAR} must be '0' or '1', got {text!r}")
 
 
 def parse_clock_combine(text: str) -> str:
@@ -426,6 +465,70 @@ def _apply_ang_vel_std_knob(cfg, env) -> None:
     params["std"] = std
 
 
+def _apply_ang_turn_only_knob(cfg, env, *, gated_func=None, stock_func=None) -> None:
+    """``KRABBY_OMNI_ANG_TURN_ONLY=1`` -> swap ``rewards.track_ang_vel_z_exp.func`` for the
+    turn-gated twin. Unset / empty / ``"0"`` leaves the shipped stock func in place.
+
+    THE DEFAULT IS OFF AND STAYS OFF: no preset sets this variable (:data:`ANG_TURN_ONLY_VAR`
+    explains why), so an omni run is unchanged unless a launcher arms it by hand.
+
+    Runs AFTER :func:`_apply_ang_vel_std_knob`, which is the whole point of the ordering: the
+    twin takes ``std`` straight through to the stock function, so the kernel the gated term
+    prices is whatever ``KRABBY_OMNI_ANG_VEL_STD`` just wrote -- one dose, one place, whether
+    or not the lever is armed.
+
+    Three loud guards, because every failure mode of this knob is silent (the term keeps its
+    NAME, so ``Episode_Reward/track_ang_vel_z_exp`` appears either way and merely reads lower):
+
+    * no ``track_ang_vel_z_exp`` term (a forward/sideways rewards cfg leaked into an omni env)
+      -> the swap would create an orphan attribute nobody reads;
+    * its ``params`` has lost ``std`` -> the twin requires it, and the reward manager would
+      raise on the first step of training instead of at config build;
+    * its ``func`` is NOT the stock ``track_ang_vel_z_exp`` -> something else already owns the
+      term and this knob would silently clobber it.
+
+    Args:
+        gated_func / stock_func: the two functions, injected for the pure unit tests (the
+            :func:`_apply_command_knobs` ``cmd_cls`` precedent). ``None`` -> the real ones,
+            imported lazily so this module stays Isaac-free at module scope.
+    """
+    raw = env.get(ANG_TURN_ONLY_VAR)
+    if raw is None or not str(raw).strip():
+        return
+    if not parse_ang_turn_only(raw):
+        return  # the explicit "0": validated, then the shipped default
+
+    term = getattr(getattr(cfg, "rewards", None), "track_ang_vel_z_exp", None)
+    if term is None or not hasattr(term, "func"):
+        raise RuntimeError(
+            f"{ANG_TURN_ONLY_VAR}=1 is set but this env's rewards cfg has no "
+            "track_ang_vel_z_exp term, so the turn gate would be silently ignored and the run "
+            "would train under the ungated kernel the lever exists to remove."
+        )
+    params = getattr(term, "params", None)
+    if not isinstance(params, dict) or "std" not in params:
+        raise RuntimeError(
+            f"{ANG_TURN_ONLY_VAR}=1 is set but rewards.track_ang_vel_z_exp has no 'std' param; "
+            "the gated twin passes std straight through to the stock function, so the reward "
+            "manager would raise on the first training step rather than here."
+        )
+
+    if stock_func is None:
+        from isaaclab.envs.mdp.rewards import track_ang_vel_z_exp as stock_func  # noqa: PLC0415
+    if gated_func is None:
+        from parkour_tasks.crab_hex_omni_task.mdp.crab_hex_omni_rewards import (  # noqa: PLC0415
+            track_ang_vel_z_exp_turn_gated as gated_func,
+        )
+
+    if term.func is not stock_func:
+        raise RuntimeError(
+            f"{ANG_TURN_ONLY_VAR}=1 expects rewards.track_ang_vel_z_exp to carry the stock "
+            f"isaaclab track_ang_vel_z_exp, but it carries {getattr(term.func, '__name__', term.func)!r}; "
+            "refusing to clobber a func this knob does not know about."
+        )
+    term.func = gated_func
+
+
 def _clock_combine_terms(cfg):
     """Every reward term whose ``params`` ALREADY carries a ``combine`` key.
 
@@ -525,6 +628,9 @@ def apply_omni_knobs(cfg, environ=None) -> None:
     # Revision 4 (2026-09-18): the reward-economy shape knobs. Both run after the forward
     # rewards __post_init__, so the omni spelling wins over any forward-named twin.
     _apply_ang_vel_std_knob(cfg, env)
+    # The staged lever (2026-09-18), default OFF and set by no preset. AFTER the std knob on
+    # purpose: the gated twin passes std through, so it prices the kernel that knob just wrote.
+    _apply_ang_turn_only_knob(cfg, env)
     _apply_clock_combine_knob(cfg, env)
     _apply_facing_obs_clip_knob(cfg, env)
 

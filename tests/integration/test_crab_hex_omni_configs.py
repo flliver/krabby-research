@@ -40,6 +40,7 @@ from __future__ import annotations
 import json
 import math
 import os
+import types
 from pathlib import Path
 
 import pytest
@@ -837,6 +838,92 @@ def test_scan_offset_lies_on_both_mirror_planes(dumps, omni_dumps):
     assert fwd[1] == 0.0, f"forward scan offset is off the y = 0 mirror plane: {fwd}"
     assert (omni[0], omni[1]) == (0.0, 0.0), f"omni scan offset is off a mirror plane: {omni}"
     assert omni[2] == fwd[2], "the scanner ray origin height changed"
+
+
+# ------------------------------------------------ the STAGED LEVER (no dump; pure Python)
+def test_staged_turn_gate_lever_is_off_in_every_dump(dumps, omni_dumps):
+    """The shipped state: ``track_ang_vel_z_exp.func`` is the STOCK isaaclab term on BOTH sides.
+
+    ``KRABBY_OMNI_ANG_TURN_ONLY`` (staged 2026-09-18, user decision) is set by no preset, so the
+    omni dumps must carry the same func as the forward ones -- already asserted for every pair by
+    ``test_ang_vel_std_is_the_forward_kernel``; this states the negative directly, and names the
+    turn-gated twin so a grep for it finds the "must NOT be here" line too.
+    """
+    for pair_id, omni_phase, fwd_phase, fwd_task, omni_task in ALL_PAIRS:
+        f = _env(dumps[fwd_phase], fwd_task)["rewards"]["track_ang_vel_z_exp"]["func"]
+        o = _env(omni_dumps[omni_phase], omni_task)["rewards"]["track_ang_vel_z_exp"]["func"]
+        assert o == f, f"{pair_id}: omni func {o!r} != forward {f!r}"
+        gated = f"{_OMNI_REWARDS}:track_ang_vel_z_exp_turn_gated"
+        assert o != gated, f"{pair_id}: the staged lever is armed and must not be"
+        assert "isaaclab" in o and o.endswith(":track_ang_vel_z_exp"), f"{pair_id}: {o!r}"
+
+
+def test_staged_turn_gate_lever_rewrites_exactly_one_func_path():
+    """With the knob SET, the applier writes ``rewards.track_ang_vel_z_exp.func`` and nothing else.
+
+    A pure unit test in this file on purpose: the delta above proves the OFF state that ships,
+    and this proves what arming it would change -- without a seventh Kit boot, and without the
+    run that arms it being the first thing to discover that the knob rewrites the wrong path.
+    The two real functions are injected as stand-ins (the module's own ``gated_func``/
+    ``stock_func`` hooks); ``tests/unit/test_crab_hex_omni_phases.py`` pins that those hooks
+    resolve to the shipped pair, and ``tests/unit/test_crab_hex_omni_rewards.py`` pins that the
+    twin is bitwise the stock term on turning rows and 0 elsewhere.
+    """
+    import importlib.util
+    import sys
+
+    knobs_py = (Path(__file__).resolve().parents[2] / "parkour/parkour_tasks/parkour_tasks"
+                / "crab_hex_omni_task/config/crab_hex/omni_knobs.py")
+    spec = importlib.util.spec_from_file_location("omni_knobs__delta_test", knobs_py)
+    knobs = importlib.util.module_from_spec(spec)
+    sys.modules["omni_knobs__delta_test"] = knobs
+    spec.loader.exec_module(knobs)
+
+    def _stock(env, std, command_name="base_velocity", asset_cfg=None):
+        pass
+
+    def _gated(env, std, command_name="base_velocity", asset_cfg=None):
+        pass
+
+    class _Term:
+        def __init__(self, func, **params):
+            self.func = func
+            self.weight = 1.0
+            self.params = dict(params)
+
+        def snapshot(self):
+            return (self.func, self.weight, dict(self.params))
+
+    class _Cfg:
+        def __init__(self):
+            self.rewards = types.SimpleNamespace(
+                track_ang_vel_z_exp=_Term(_stock, command_name="base_velocity", std=0.5),
+                track_lin_vel_xy_exp=_Term(_stock, command_name="base_velocity", std=0.2),
+                reward_yaw_progress=_Term(_stock, command_name="base_velocity", clip=None),
+                reward_clock_schedule=_Term(_stock, command_name="base_velocity", combine="product"),
+            )
+
+    cfg = _Cfg()
+    before = {n: t.snapshot() for n, t in vars(cfg.rewards).items()}
+    knobs._apply_ang_turn_only_knob(
+        cfg, {"KRABBY_OMNI_ANG_TURN_ONLY": "1"}, gated_func=_gated, stock_func=_stock
+    )
+    assert cfg.rewards.track_ang_vel_z_exp.func is _gated
+    # the ONE path: same weight, same params, and every other reward term byte-identical
+    assert cfg.rewards.track_ang_vel_z_exp.weight == before["track_ang_vel_z_exp"][1]
+    assert cfg.rewards.track_ang_vel_z_exp.params == before["track_ang_vel_z_exp"][2]
+    for name, term in vars(cfg.rewards).items():
+        if name == "track_ang_vel_z_exp":
+            continue
+        assert term.snapshot() == before[name], f"{name} changed"
+
+    # and the OFF spellings leave even that path alone
+    for environ in ({}, {"KRABBY_OMNI_ANG_TURN_ONLY": "0"}, {"KRABBY_OMNI_ANG_TURN_ONLY": ""}):
+        cfg2 = _Cfg()
+        knobs._apply_ang_turn_only_knob(
+            cfg2, environ, gated_func=_gated, stock_func=_stock
+        )
+        assert cfg2.rewards.track_ang_vel_z_exp.func is _stock, environ
 
 
 def test_omni_spawn_rotation_is_identity(omni_dumps):

@@ -24,7 +24,15 @@ The anchors are therefore:
   MATH produces, clip at the command's own ``ang_vel_max``, and be exactly zero wherever no
   turn is commanded;
 * the termination must be the forward one minus the goal cutoff;
-* the cfg must carry the forward task's 35 term names plus ``reward_yaw_progress`` (36).
+* the cfg must carry the forward task's 35 term names plus ``reward_yaw_progress`` (36);
+* the STAGED LEVER ``track_ang_vel_z_exp_turn_gated`` (2026-09-18, DEFAULT OFF) must be
+  BITWISE the shipped Isaac Lab ``track_ang_vel_z_exp`` on rows that command a turn and
+  exactly 0.0 on rows that do not -- and must reach that by CALLING the stock function, not by
+  restating its kernel. The stock half of that comparison is lifted out of Isaac Lab's own
+  ``rewards.py`` (located by ``find_spec``, never imported), so "bitwise" means against what
+  actually ships. The cfg's default-OFF half is pinned by
+  ``test_track_ang_vel_z_exp_keeps_its_function_and_gets_std_0_15`` (the class body still
+  declares the stock func) and, preset-side, by ``test_crab_hex_omni_phases.py``.
 
 The shipped sources are lifted out of the modules with ``ast`` and exec'd against stubs --
 no Isaac import, no ``sys.modules`` registration that could collide with another unit file.
@@ -43,6 +51,37 @@ import torch
 REPO = Path(__file__).resolve().parents[2]
 TASKS = REPO / "parkour/parkour_tasks/parkour_tasks"
 LIB_REWARDS_PY = REPO / "parkour/parkour_isaaclab/envs/mdp/rewards.py"
+def _isaaclab_rewards_py():
+    """Isaac Lab's OWN ``rewards.py`` on disk, or ``None`` -- located, never imported.
+
+    The staged turn-gated lever is asserted BITWISE against the real shipped
+    ``track_ang_vel_z_exp`` lifted out of this file, so "bitwise" means against what actually
+    ships rather than against a restatement of the kernel. Two things rule out the obvious ways
+    of finding it, and both were observed rather than guessed:
+
+    * importing ``isaaclab`` drags in ``pxr`` (Kit), which this suite must not need;
+    * ``importlib.util.find_spec`` consults ``sys.modules`` FIRST, and
+      ``test_parkour_reward_manager_epsilon.py`` installs a stub ``sys.modules["isaaclab"]``
+      whose ``__spec__`` is ``None`` -- so ``find_spec`` raises ``ValueError`` when that file is
+      collected first, i.e. the anchor's availability would depend on collection order.
+      ``PathFinder`` is no use either: Isaac Lab is an EDITABLE install reached through a
+      ``sys.meta_path`` finder, not a plain ``sys.path`` directory.
+
+    Walking ``sys.meta_path`` is what ``find_spec`` does minus the ``sys.modules`` lookup, so it
+    resolves the same origin whether or not a stub is registered.
+    """
+    for finder in sys.meta_path:
+        try:
+            spec = finder.find_spec("isaaclab", None)
+        except Exception:  # noqa: BLE001 -- a hostile finder must not break collection
+            continue
+        if spec is not None and spec.origin:
+            path = Path(spec.origin).parent / "envs" / "mdp" / "rewards.py"
+            return path if path.exists() else None
+    return None
+
+
+ISAACLAB_REWARDS_PY = _isaaclab_rewards_py()
 LIB_TERMINATIONS_PY = REPO / "parkour/parkour_isaaclab/envs/mdp/terminations.py"
 OMNI_REWARDS_PY = TASKS / "crab_hex_omni_task/mdp/crab_hex_omni_rewards.py"
 OMNI_CMD_MATH_PY = TASKS / "crab_hex_omni_task/mdp/crab_hex_omni_command_math.py"
@@ -132,6 +171,23 @@ class _MdpRewardsStub:
         return env.stumble
 
 
+#: The REAL ``isaaclab.envs.mdp.rewards.track_ang_vel_z_exp``, lifted by source (never
+#: imported). ``None`` when Isaac Lab is not installed -- the two bitwise tests skip, the
+#: structural ones do not.
+_STOCK_NS: dict = {
+    "torch": torch,
+    "SceneEntityCfg": _SceneEntityCfg,
+    "RigidObject": object,
+    "ManagerBasedRLEnv": object,
+}
+if ISAACLAB_REWARDS_PY is not None:
+    _exec_module_level(ISAACLAB_REWARDS_PY, ("track_ang_vel_z_exp",), _STOCK_NS)
+track_ang_vel_z_exp = _STOCK_NS.get("track_ang_vel_z_exp")
+requires_isaaclab_source = pytest.mark.skipif(
+    track_ang_vel_z_exp is None,
+    reason="isaaclab's rewards.py not locatable -- the bitwise anchor needs the shipped source",
+)
+
 _OMNI_NS = {
     "torch": torch,
     "wrap_to_pi": wrap_to_pi,
@@ -140,6 +196,8 @@ _OMNI_NS = {
     "Articulation": object,
     "ParkourManagerBasedRLEnv": object,
     "mdp_rewards": _MdpRewardsStub,
+    # the omni twin CALLS this name (it does not re-derive the kernel)
+    "track_ang_vel_z_exp": track_ang_vel_z_exp,
 }
 _exec_module_level(
     OMNI_REWARDS_PY,
@@ -147,6 +205,7 @@ _exec_module_level(
         "_DIR_EPS",
         "_TRACK_V_MIN",
         "OMNI_ANG_VEL_STD",
+        "track_ang_vel_z_exp_turn_gated",
         "_command_dir_and_speed",
         "_facing_error",
         "penalty_cross_command_vel_l2",
@@ -184,6 +243,7 @@ reward_tracking_command_vel_on_obstacle = _OMNI_NS["reward_tracking_command_vel_
 reward_facing_exp = _OMNI_NS["reward_facing_exp"]
 reward_obstacle_clearance_omni = _OMNI_NS["reward_obstacle_clearance_omni"]
 reward_yaw_progress = _OMNI_NS["reward_yaw_progress"]
+track_ang_vel_z_exp_turn_gated = _OMNI_NS["track_ang_vel_z_exp_turn_gated"]
 terminate_episode_no_goals = _OMNI_NS["terminate_episode_no_goals"]
 penalty_lin_vel_y_l2 = _FWD_NS["penalty_lin_vel_y_l2"]
 reward_tracking_goal_vel = _FWD_NS["reward_tracking_goal_vel"]
@@ -551,6 +611,152 @@ def test_yaw_progress_mirrors_the_linear_progress_terms_shape():
     fwd_body = "\n".join(ast.unparse(n) for n in fwd.body)
     assert "torch.clamp(progress, min=0.0, max=max_speed_scale)" in fwd_body
     assert "active.float()" in fwd_body
+
+
+# ------------------------------- the STAGED LEVER: track_ang_vel_z_exp_turn_gated (OFF)
+def _mixed_turn_env(n=N):
+    """Half the rows command a turn, half command none; every row has a non-zero yaw rate.
+
+    The achieved rates deliberately include the exactly-zero-error row (row 0: cmd == wz) and
+    rows on both sides of their command, so "bitwise on the turning rows" is exercised at the
+    kernel's peak AND on its flanks rather than only where the exponential is flat.
+    """
+    env = _Env(n)
+    env.command_manager.cmd[:, 2] = torch.tensor([0.30, 0.0, -0.30, 0.0, 0.12, 0.0, -0.08, 0.0])
+    env.asset.data.root_ang_vel_b[:, 2] = torch.tensor(
+        [0.30, 0.13, -0.11, -0.25, 0.02, 0.41, 0.09, 0.0]
+    )
+    return env
+
+
+TURNING_ROWS = torch.tensor([True, False, True, False, True, False, True, False])
+
+
+@requires_isaaclab_source
+@pytest.mark.parametrize("std", [0.15, 0.5, math.sqrt(0.25)])
+def test_turn_gated_ang_vel_is_bitwise_the_stock_term_on_turning_rows(std):
+    """On ``cmd_wz != 0`` the twin must be the SHIPPED ``track_ang_vel_z_exp``, bit for bit.
+
+    Not "close to": the lever's entire contract is that it multiplies the stock value by a
+    0/1 mask, so a row where the command asks for a turn must be indistinguishable from the
+    ungated term. Anything else means the kernel was re-derived here and can drift from
+    upstream -- exactly the failure the shipped function's ``track_ang_vel_z_exp(...)`` call
+    exists to make impossible.
+    """
+    env = _mixed_turn_env()
+    stock = track_ang_vel_z_exp(env, std=std, command_name="base_velocity", asset_cfg=ROBOT)
+    gated = track_ang_vel_z_exp_turn_gated(env, std=std, command_name="base_velocity",
+                                           asset_cfg=ROBOT)
+    assert torch.equal(gated[TURNING_ROWS], stock[TURNING_ROWS])
+    # the stock term is genuinely non-trivial on those rows (a kernel that paid 0 everywhere
+    # would satisfy the equality above vacuously)
+    assert float(stock[TURNING_ROWS].max()) > 0.9
+    assert float(stock[TURNING_ROWS].min()) < 0.9
+
+
+@requires_isaaclab_source
+def test_turn_gated_ang_vel_is_exactly_zero_where_no_turn_is_commanded():
+    """``cmd_wz == 0`` -> 0.0 exactly, however small the yaw error -- the whole lever.
+
+    The stock term pays a MOTIONLESS robot ~0.98/s on those rows (zero command, zero rate ->
+    ``exp(0)``), which on the ~88 % of 1c steps that command no turn is ~45 % of a stander's
+    positive income. If this ever stops being exactly zero the lever is inert and the offline
+    margin it buys (+16.6 % -> +37.5 % on the fwd hold) is not what the run gets.
+    """
+    env = _mixed_turn_env()
+    gated = track_ang_vel_z_exp_turn_gated(env, std=0.5, command_name="base_velocity",
+                                           asset_cfg=ROBOT)
+    non_turning = ~TURNING_ROWS
+    assert torch.equal(gated[non_turning], torch.zeros(int(non_turning.sum())))
+    assert not torch.signbit(gated[non_turning]).any(), "0.0, never -0.0"
+
+    # the stander: no command, no motion -> the stock term pays ~1.0 and the gated one 0.0
+    still = _Env()
+    stock = track_ang_vel_z_exp(still, std=0.5, command_name="base_velocity", asset_cfg=ROBOT)
+    assert torch.allclose(stock, torch.ones(N))
+    assert torch.equal(
+        track_ang_vel_z_exp_turn_gated(still, std=0.5, command_name="base_velocity",
+                                       asset_cfg=ROBOT),
+        torch.zeros(N),
+    )
+
+
+@requires_isaaclab_source
+def test_turn_gated_ang_vel_gate_is_the_commands_own_dead_band():
+    """The gate is ``cmd_wz != 0``, i.e. the P-control's dead band -- no second threshold.
+
+    Pinned against the REAL ``heading_rate_command``, the same anchor ``reward_yaw_progress``
+    uses: a facing error inside the dead band produces ``cmd_wz == 0`` and must be unpaid; one
+    just outside it produces a non-zero command and must be paid the stock value. The two
+    gated terms therefore switch on together, which is what makes "a turn is commanded" a
+    single concept in this task.
+    """
+    env = _Env()
+    inside, outside = DEAD_BAND_RAD * 0.5, DEAD_BAND_RAD * 1.5
+    herr = torch.tensor([inside, -inside, outside, -outside, 0.0, inside, outside, -outside])
+    # heading_target = the error, yaw = 0 -> wrap(target - yaw) IS the error
+    env.command_manager.cmd[:, 2] = heading_rate_command(
+        herr, torch.zeros(N), STIFFNESS, ANG_VEL_MAX, ANG_VEL_CLIP
+    )
+    env.asset.data.root_ang_vel_b[:, 2] = 0.05
+    gated = track_ang_vel_z_exp_turn_gated(env, std=0.5, command_name="base_velocity",
+                                           asset_cfg=ROBOT)
+    stock = track_ang_vel_z_exp(env, std=0.5, command_name="base_velocity", asset_cfg=ROBOT)
+    dead = env.command_manager.cmd[:, 2] == 0.0
+    assert dead.tolist() == [True, True, False, False, True, True, False, False]
+    assert torch.equal(gated[dead], torch.zeros(int(dead.sum())))
+    assert torch.equal(gated[~dead], stock[~dead])
+    # the same rows are gated on the ADDED rotational term
+    yaw_prog = reward_yaw_progress(env, "base_velocity", ROBOT)
+    assert torch.equal(yaw_prog[dead], torch.zeros(int(dead.sum())))
+    assert (yaw_prog[~dead] != 0.0).all()
+
+
+@requires_isaaclab_source
+def test_turn_gated_ang_vel_passes_std_through_rather_than_owning_a_kernel():
+    """``std`` reaches the stock function untouched: the lever changes the GATE, not the width.
+
+    ``KRABBY_OMNI_ANG_VEL_STD`` writes ``params["std"]`` and the knob applier runs BEFORE the
+    func swap, so the armed run must price the kernel that knob chose. A twin that captured a
+    default would silently re-acquire plan D4's 0.15 -- the width Revision 4 reverted.
+    """
+    env = _mixed_turn_env()
+    wide = track_ang_vel_z_exp_turn_gated(env, std=0.5, command_name="base_velocity",
+                                          asset_cfg=ROBOT)
+    tight = track_ang_vel_z_exp_turn_gated(env, std=0.15, command_name="base_velocity",
+                                           asset_cfg=ROBOT)
+    off = TURNING_ROWS & (env.command_manager.cmd[:, 2] != env.asset.data.root_ang_vel_b[:, 2])
+    assert off.any()
+    assert (tight[off] < wide[off]).all(), "a tighter kernel must pay less off-target"
+
+
+def test_turn_gated_ang_vel_calls_the_stock_term_and_does_not_re_derive_it():
+    """Source-level: the twin must CALL ``track_ang_vel_z_exp`` and own only the mask.
+
+    The bitwise tests above prove today's equality; this one prevents tomorrow's copy-paste.
+    A re-derived ``torch.exp(-... / std ** 2)`` would pass them the day it is written and
+    diverge the day upstream changes the kernel.
+    """
+    src, tree = _nodes(OMNI_REWARDS_PY)
+    fn = [n for n in tree.body if isinstance(n, ast.FunctionDef)
+          and n.name == "track_ang_vel_z_exp_turn_gated"][0]
+    body = "\n".join(
+        ast.unparse(n) for n in fn.body
+        if not (isinstance(n, ast.Expr) and isinstance(n.value, ast.Constant))
+    )
+    assert "track_ang_vel_z_exp(env, std=std" in body, body
+    assert "torch.exp" not in body, "the kernel must not be re-derived here"
+    assert "[:, 2] != 0.0" in body
+    # the same signature as the stock term, so the func swap needs no params change
+    assert [a.arg for a in fn.args.args] == ["env", "std", "command_name", "asset_cfg"]
+    assert not fn.args.kwonlyargs
+    assert len(fn.args.defaults) == 2, "std must stay REQUIRED (no silent kernel)"
+    # ... which is exactly isaaclab's own argument order
+    if ISAACLAB_REWARDS_PY is not None:
+        _, stock_tree = _nodes(ISAACLAB_REWARDS_PY)
+        stock_fn = [n for n in stock_tree.body if isinstance(n, ast.FunctionDef)
+                    and n.name == "track_ang_vel_z_exp"][0]
+        assert [a.arg for a in fn.args.args] == [a.arg for a in stock_fn.args.args]
 
 
 # ----------------------------------------------------- reward_tracking_command_vel(_on_*)

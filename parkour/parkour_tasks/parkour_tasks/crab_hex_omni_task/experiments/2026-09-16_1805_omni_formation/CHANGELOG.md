@@ -13,3 +13,7 @@
 
 ### 2026-09-17 02:20 — phase 1c gate_1c: model_6997.pt (seed3_1c_003_A15pB)
 > NOTIFY: phase 1c gate_1c — campaign HALTED (see REPORT)
+> NOTIFY: seed3_1c_004_A15pB: formation gate FAILED — walking-hold tripod 0.489 (need >= 0.4; by hold: back 0.579, diag 0.489, fwd 0.531, lat_l 0.543, move_turn 0.508, stand 0.576, turn_l90 0.542, turn_r90 0.579), completion 0.600 (need >= 0.7), yaw-progress rate turn_l90 0.092, turn_r90 0.098 rad/s (net turn_l90 0.092, turn_r90 0.081) (need >= 0.05 rad/s on each), per-direction speed_ratio lat_l 0.412, diag 0.413, back 0.504, move_turn 0.443 (need >= 0.3 on each of lat_l, diag, back, move_turn; failing: none) on slow__omni, training track_ratio_mean 0.568 (need >= 0.6 over the last 500 its) — campaign HALTED (relaunch with --continue to override, or fix and --redo)
+
+### 2026-09-18 04:37 — phase 1c gate_1c: model_4999.pt (seed3_1c_004_A15pB)
+> NOTIFY: phase 1c gate_1c — campaign HALTED (see REPORT)

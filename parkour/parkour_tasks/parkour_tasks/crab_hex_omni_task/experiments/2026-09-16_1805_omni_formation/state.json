@@ -2,7 +2,7 @@
   "campaign": "2026-09-16_1805_omni_formation",
   "plant": "A15+B",
   "phase": "halt:1c gate_1c",
-  "run_no": 3,
+  "run_no": 4,
   "keys": {
     "seed3": {
       "1a": {
@@ -524,344 +524,346 @@
       },
       "1c": {
         "phase": "1c",
-        "tag": "seed3_1c_003_A15pB",
+        "tag": "seed3_1c_004_A15pB",
         "task": "Isaac-Crab-Hex-Omni-Walk-v0",
         "mode": null,
-        "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-09-17_00-13-40/model_6997.pt",
+        "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-09-18_02-35-35/model_4999.pt",
         "status": "gate_1c",
-        "resume": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-09-16_23-44-00/model_1998.pt",
+        "resume": null,
+        "from_scratch": true,
         "iters": 5000,
-        "log": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-09-16_1805_omni_formation/logs/seed3_1c_003_A15pB_train.log",
-        "wall_h": 1.9334358541170755,
+        "log": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-09-16_1805_omni_formation/logs/seed3_1c_004_A15pB_train.log",
+        "wall_h": 1.86765911201636,
         "env": {
           "KRABBY_OMNI_PHASE": "1c",
           "KRABBY_PLANT": "A15+B"
         },
         "evals": {
           "slow": {
-            "tripod": 0.529754628251428,
-            "tripod_walking": 0.21490073181187966,
+            "tripod": 0.5363043336029345,
+            "tripod_walking": 0.48859443940575564,
             "tripod_by_hold": {
-              "back": 0.8530422118644029,
-              "diag": 0.831738390954438,
-              "fwd": 0.31518339071355117,
-              "lat_l": 0.8496687337174917,
-              "move_turn": 0.21490073181187966,
-              "stand": 0.0,
-              "turn_l90": 0.2252485812819378,
-              "turn_r90": 0.05148447267721663
+              "back": 0.5785482890562071,
+              "diag": 0.48859443940575564,
+              "fwd": 0.5311968269965083,
+              "lat_l": 0.542610963717701,
+              "move_turn": 0.5081900559760959,
+              "stand": 0.5762853954114278,
+              "turn_l90": 0.5424268925032358,
+              "turn_r90": 0.578955509559697
             },
-            "completion": 0.0,
-            "survival_by_hold": {
-              "stand": 1.0,
-              "fwd": 1.0,
-              "lat_l": 1.0,
-              "diag": 1.0,
-              "back": 1.0,
-              "turn_l90": 0.11,
-              "turn_r90": 0.03,
-              "move_turn": 0.0
-            },
-            "tracking": 0.1801458817124204,
-            "speed_ratio_by_hold": {
-              "back": 0.32956298209010215,
-              "diag": 0.14672343549037498,
-              "fwd": 0.15940266047155321,
-              "lat_l": 0.027661897124164662
-            },
-            "dir_ratio_by_hold": {
-              "back": 0.32956298209010215,
-              "diag": 0.14672343549037498,
-              "lat_l": 0.027661897124164662,
-              "move_turn": -0.31750618082676213
-            },
-            "facing_by_hold": {
-              "back": {
-                "final": 0.02095171343535185,
-                "settle": 0.0,
-                "progress": null,
-                "net": 0.001967736810911447,
-                "yaw_rate_ratio": null,
-                "rms": 0.029342378611829843,
-                "max": 0.06826885044574738
-              },
-              "diag": {
-                "final": 0.025904521346092224,
-                "settle": 0.0,
-                "progress": -0.005223214346915484,
-                "net": 0.0008252845145761967,
-                "yaw_rate_ratio": 0.20037565043123853,
-                "rms": 0.02888746082996578,
-                "max": 0.05707187578082085
-              },
-              "fwd": {
-                "final": 0.030782265588641167,
-                "settle": 0.0,
-                "progress": 0.00037153241121106676,
-                "net": 0.0019071404822170734,
-                "yaw_rate_ratio": 0.20413492319568002,
-                "rms": 0.03343336877843749,
-                "max": 0.06735747680068016
-              },
-              "lat_l": {
-                "final": 0.019330373965203762,
-                "settle": 0.0,
-                "progress": -0.003932765172324096,
-                "net": 0.0029039785149507225,
-                "yaw_rate_ratio": 0.5641586760852872,
-                "rms": 0.027836739782449993,
-                "max": 0.05940536968410015
-              },
-              "move_turn": {
-                "final": 1.8775241374969482,
-                "settle": null,
-                "progress": -0.051322005428153565,
-                "net": -0.05115057971026446,
-                "yaw_rate_ratio": 0.8098619059776503,
-                "rms": 1.7298858109368398,
-                "max": 1.9517712593078613
-              },
-              "stand": {
-                "final": 0.030090780928730965,
-                "settle": 0.0,
-                "progress": 0.00802077529927393,
-                "net": 0.001530921261291951,
-                "yaw_rate_ratio": 0.2567351782911036,
-                "rms": 0.03312545329201058,
-                "max": 0.05549715645611286
-              },
-              "turn_l90": {
-                "final": 1.5360735654830933,
-                "settle": null,
-                "progress": 0.005181683401748653,
-                "net": 0.004995960578577605,
-                "yaw_rate_ratio": 0.7711287763776957,
-                "rms": 1.5065717643038634,
-                "max": 1.641513168811798
-              },
-              "turn_r90": {
-                "final": 0.8844507932662964,
-                "settle": 0.0,
-                "progress": 0.019506751160536493,
-                "net": 0.0038193737467130027,
-                "yaw_rate_ratio": 0.745344865200452,
-                "rms": 0.9391620899625912,
-                "max": 0.957075834274292
-              }
-            },
-            "yaw_progress_by_hold": {
-              "back": null,
-              "diag": -0.005223214346915484,
-              "fwd": 0.00037153241121106676,
-              "lat_l": -0.003932765172324096,
-              "move_turn": -0.051322005428153565,
-              "stand": 0.00802077529927393,
-              "turn_l90": 0.005181683401748653,
-              "turn_r90": 0.019506751160536493
-            },
-            "net_yaw_by_hold": {
-              "back": 0.001967736810911447,
-              "diag": 0.0008252845145761967,
-              "fwd": 0.0019071404822170734,
-              "lat_l": 0.0029039785149507225,
-              "move_turn": -0.05115057971026446,
-              "stand": 0.001530921261291951,
-              "turn_l90": 0.004995960578577605,
-              "turn_r90": 0.0038193737467130027
-            },
-            "facing_error_rms": 0.45357454230001826,
-            "falls": 100,
-            "n": 100,
-            "pitch_fwd_share": 0.34,
-            "pitch_max_abs_p50": 0.48782584504696014,
-            "prefall_tip_p25": 1.5362839262770156,
-            "walk_tip_p50": 22.53235031306906,
-            "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-16_1805_omni_formation/seed3_1c_003_A15pB/slow__omni/seed001/2026-09-17_06-09-41"
-          },
-          "light": {
-            "tripod": 0.44745754930004145,
-            "tripod_walking": 0.11499391395830291,
-            "tripod_by_hold": {
-              "back": 0.847491710465113,
-              "diag": 0.8208583593504286,
-              "fwd": 0.11499391395830291,
-              "lat_l": 0.8317044363439638,
-              "move_turn": 0.15850066915394606,
-              "stand": 0.0,
-              "turn_l90": 0.3215846803536209,
-              "turn_r90": 0.08686333329789606
-            },
-            "completion": 0.01,
+            "completion": 0.6,
             "survival_by_hold": {
               "stand": 0.98,
-              "fwd": 0.98,
-              "lat_l": 0.98,
-              "diag": 0.98,
-              "back": 0.98,
-              "turn_l90": 0.09,
-              "turn_r90": 0.07,
-              "move_turn": 0.01
+              "fwd": 0.82,
+              "lat_l": 0.82,
+              "diag": 0.81,
+              "back": 0.78,
+              "turn_l90": 0.75,
+              "turn_r90": 0.74,
+              "move_turn": 0.6
             },
-            "tracking": 0.15232972209768478,
+            "tracking": 0.483967917093014,
             "speed_ratio_by_hold": {
-              "back": 0.2970013734783623,
-              "diag": 0.13042104604873428,
-              "fwd": 0.1192087452820174,
-              "lat_l": 0.02281409845743755
+              "back": 0.5043983284712468,
+              "diag": 0.413387863228177,
+              "fwd": 0.6084782136745955,
+              "lat_l": 0.4124725719695793
             },
             "dir_ratio_by_hold": {
-              "back": 0.2970013734783623,
-              "diag": 0.13042104604873428,
-              "lat_l": 0.02281409845743755,
-              "move_turn": -0.043833992979873726
+              "back": 0.5043983284712468,
+              "diag": 0.413387863228177,
+              "lat_l": 0.4124725719695793,
+              "move_turn": 0.4427545255309057
             },
             "facing_by_hold": {
               "back": {
-                "final": 0.022927084006369114,
-                "settle": 0.0,
-                "progress": null,
-                "net": 0.002210575476055965,
-                "yaw_rate_ratio": null,
-                "rms": 0.03058864171526376,
-                "max": 0.06260436028242111
+                "final": 0.08208760619163513,
+                "settle": 4.45,
+                "progress": 0.020971108307471363,
+                "net": 0.02953267889097333,
+                "yaw_rate_ratio": 0.5095108020581293,
+                "rms": 0.14530789611931214,
+                "max": 0.2752654254436493
               },
               "diag": {
-                "final": 0.021929794922471046,
-                "settle": 0.0,
-                "progress": null,
-                "net": 0.0016901327107916586,
-                "yaw_rate_ratio": null,
-                "rms": 0.030343655971648842,
-                "max": 0.061592673882842064
+                "final": 0.21871214359998703,
+                "settle": 6.08,
+                "progress": -0.009345501569531282,
+                "net": -0.00630600843578577,
+                "yaw_rate_ratio": 0.4306975304628734,
+                "rms": 0.18528097356516077,
+                "max": 0.2873324155807495
               },
               "fwd": {
-                "final": 0.02851101942360401,
-                "settle": 0.0,
-                "progress": null,
-                "net": 0.0012143891071900725,
-                "yaw_rate_ratio": null,
-                "rms": 0.032611447607587524,
-                "max": 0.06678237393498421
+                "final": 0.07235713303089142,
+                "settle": 3.2800000000000002,
+                "progress": 0.0003935596614284006,
+                "net": 0.008389430615352467,
+                "yaw_rate_ratio": 0.49618013313319576,
+                "rms": 0.0989142949798395,
+                "max": 0.1817707046866417
               },
               "lat_l": {
-                "final": 0.019687311723828316,
-                "settle": 0.0,
-                "progress": null,
-                "net": 0.0022503456129925326,
-                "yaw_rate_ratio": null,
-                "rms": 0.02965446393985874,
-                "max": 0.06120920740067959
+                "final": 0.13208407908678055,
+                "settle": 5.7,
+                "progress": -0.0042674507265993665,
+                "net": 0.00016845623031258583,
+                "yaw_rate_ratio": 0.4854500360457182,
+                "rms": 0.1136776542681194,
+                "max": 0.21151555329561234
               },
               "move_turn": {
-                "final": 1.7033360004425049,
-                "settle": null,
-                "progress": 0.012923531262687414,
-                "net": 0.01275992532919722,
-                "yaw_rate_ratio": 0.9907899118637663,
-                "rms": 1.679132064024124,
-                "max": 2.0004172325134277
+                "final": 1.1354013085365295,
+                "settle": 5.92,
+                "progress": 0.039468400380719686,
+                "net": 0.0396723598241806,
+                "yaw_rate_ratio": 0.4387637181299584,
+                "rms": 1.296812148420364,
+                "max": 1.514552652835846
               },
               "stand": {
-                "final": 0.02423330955207348,
+                "final": 0.07184440270066261,
                 "settle": 0.0,
-                "progress": 0.008195856680275681,
-                "net": 0.000771213377447566,
-                "yaw_rate_ratio": 0.47809053530550233,
-                "rms": 0.03173473929952962,
-                "max": 0.05812635459005833
+                "progress": -0.0018360652216598925,
+                "net": 0.0013426717778202146,
+                "yaw_rate_ratio": 0.49995554602846626,
+                "rms": 0.07884942265009076,
+                "max": 0.1569618061184883
               },
               "turn_l90": {
-                "final": 1.573732614517212,
-                "settle": null,
-                "progress": -0.005647920846334655,
-                "net": -0.003991807820242818,
-                "yaw_rate_ratio": 0.7332804998224054,
-                "rms": 1.5293607912163734,
-                "max": 1.6528598070144653
+                "final": 0.48787277936935425,
+                "settle": 11.18,
+                "progress": 0.092288412291576,
+                "net": 0.09202090899149576,
+                "yaw_rate_ratio": 0.498985100901934,
+                "rms": 1.1260211402921314,
+                "max": 1.6238223910331726
               },
               "turn_r90": {
-                "final": 0.16116051375865936,
-                "settle": 5.01,
-                "progress": 0.038702272603916614,
-                "net": 0.016774536420901615,
-                "yaw_rate_ratio": 0.49088229265024586,
-                "rms": 0.27349579204094887,
-                "max": 0.622831404209137
+                "final": 0.08929376304149628,
+                "settle": 10.29,
+                "progress": 0.09839037554353693,
+                "net": 0.08129392735039194,
+                "yaw_rate_ratio": 0.5346024690836247,
+                "rms": 0.6427521234198192,
+                "max": 1.1435655355453491
               }
             },
             "yaw_progress_by_hold": {
-              "back": null,
-              "diag": null,
-              "fwd": null,
-              "lat_l": null,
-              "move_turn": 0.012923531262687414,
-              "stand": 0.008195856680275681,
-              "turn_l90": -0.005647920846334655,
-              "turn_r90": 0.038702272603916614
+              "back": 0.020971108307471363,
+              "diag": -0.009345501569531282,
+              "fwd": 0.0003935596614284006,
+              "lat_l": -0.0042674507265993665,
+              "move_turn": 0.039468400380719686,
+              "stand": -0.0018360652216598925,
+              "turn_l90": 0.092288412291576,
+              "turn_r90": 0.09839037554353693
             },
             "net_yaw_by_hold": {
-              "back": 0.002210575476055965,
-              "diag": 0.0016901327107916586,
-              "fwd": 0.0012143891071900725,
-              "lat_l": 0.0022503456129925326,
-              "move_turn": 0.01275992532919722,
-              "stand": 0.000771213377447566,
-              "turn_l90": -0.003991807820242818,
-              "turn_r90": 0.016774536420901615
+              "back": 0.02953267889097333,
+              "diag": -0.00630600843578577,
+              "fwd": 0.008389430615352467,
+              "lat_l": 0.00016845623031258583,
+              "move_turn": 0.0396723598241806,
+              "stand": 0.0013426717778202146,
+              "turn_l90": 0.09202090899149576,
+              "turn_r90": 0.08129392735039194
             },
-            "facing_error_rms": 0.4544522982345295,
-            "falls": 99,
+            "facing_error_rms": 0.6669931707260423,
+            "falls": 40,
             "n": 100,
-            "pitch_fwd_share": 0.3333333333333333,
-            "pitch_max_abs_p50": 0.4865724184016018,
-            "prefall_tip_p25": 4.966638341185964,
-            "walk_tip_p50": 26.384652856460903,
-            "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-16_1805_omni_formation/seed3_1c_003_A15pB/light__omni/seed001/2026-09-17_06-12-53"
+            "pitch_fwd_share": 0.875,
+            "pitch_max_abs_p50": 0.2435510117903661,
+            "prefall_tip_p25": -0.050342510505081706,
+            "walk_tip_p50": 10.851480232299746,
+            "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-16_1805_omni_formation/seed3_1c_004_A15pB/slow__omni/seed001/2026-09-18_08-27-40"
+          },
+          "light": {
+            "tripod": 0.530414278787146,
+            "tripod_walking": 0.4722651385997522,
+            "tripod_by_hold": {
+              "back": 0.5777322710780786,
+              "diag": 0.4953824651872751,
+              "fwd": 0.5197069994859873,
+              "lat_l": 0.5600229729717612,
+              "move_turn": 0.4722651385997522,
+              "stand": 0.5872524800560033,
+              "turn_l90": 0.5275788518861785,
+              "turn_r90": 0.5868337622049621
+            },
+            "completion": 0.56,
+            "survival_by_hold": {
+              "stand": 0.99,
+              "fwd": 0.85,
+              "lat_l": 0.82,
+              "diag": 0.81,
+              "back": 0.79,
+              "turn_l90": 0.74,
+              "turn_r90": 0.72,
+              "move_turn": 0.56
+            },
+            "tracking": 0.4772599816492462,
+            "speed_ratio_by_hold": {
+              "back": 0.5421211800942272,
+              "diag": 0.41799804146374625,
+              "fwd": 0.5948671573362565,
+              "lat_l": 0.3744903883155374
+            },
+            "dir_ratio_by_hold": {
+              "back": 0.5421211800942272,
+              "diag": 0.41799804146374625,
+              "lat_l": 0.3744903883155374,
+              "move_turn": 0.4214892245537517
+            },
+            "facing_by_hold": {
+              "back": {
+                "final": 0.09423232078552246,
+                "settle": 5.36,
+                "progress": 0.013524323211093682,
+                "net": 0.025405769236385822,
+                "yaw_rate_ratio": 0.5008546179183028,
+                "rms": 0.12418222906387037,
+                "max": 0.2384798228740692
+              },
+              "diag": {
+                "final": 0.19096438586711884,
+                "settle": 5.77,
+                "progress": -0.006377124684513546,
+                "net": 0.00330383179243654,
+                "yaw_rate_ratio": 0.4253986324961824,
+                "rms": 0.1617674047637622,
+                "max": 0.25276802480220795
+              },
+              "fwd": {
+                "final": 0.08130232244729996,
+                "settle": 2.04,
+                "progress": -1.883409080980676e-05,
+                "net": 0.010409009642899036,
+                "yaw_rate_ratio": 0.5422829541102708,
+                "rms": 0.09290027292577863,
+                "max": 0.18185409903526306
+              },
+              "lat_l": {
+                "final": 0.11911015585064888,
+                "settle": 1.86,
+                "progress": -0.0017077413756510424,
+                "net": 0.0023612999357283115,
+                "yaw_rate_ratio": 0.4439774342300896,
+                "rms": 0.10722417975811342,
+                "max": 0.1942872852087021
+              },
+              "move_turn": {
+                "final": 1.1344667077064514,
+                "settle": null,
+                "progress": 0.043719102392642525,
+                "net": 0.04544932395219803,
+                "yaw_rate_ratio": 0.44106150176442405,
+                "rms": 1.297271072632522,
+                "max": 1.5031253695487976
+              },
+              "stand": {
+                "final": 0.06646522134542465,
+                "settle": 0.8300000000000001,
+                "progress": -0.0019215707632171271,
+                "net": 0.0023637668637093157,
+                "yaw_rate_ratio": 0.5144349649753805,
+                "rms": 0.08825954083009194,
+                "max": 0.16447383910417557
+              },
+              "turn_l90": {
+                "final": 0.4672725200653076,
+                "settle": 11.68,
+                "progress": 0.09400524888498088,
+                "net": 0.09395609299341838,
+                "yaw_rate_ratio": 0.5002215245052859,
+                "rms": 1.1059271952590712,
+                "max": 1.6365015506744385
+              },
+              "turn_r90": {
+                "final": 0.10981519520282745,
+                "settle": 10.06,
+                "progress": 0.10019982556616229,
+                "net": 0.08416901528835297,
+                "yaw_rate_ratio": 0.5157822203273622,
+                "rms": 0.6369747783526271,
+                "max": 1.1701844930648804
+              }
+            },
+            "yaw_progress_by_hold": {
+              "back": 0.013524323211093682,
+              "diag": -0.006377124684513546,
+              "fwd": -1.883409080980676e-05,
+              "lat_l": -0.0017077413756510424,
+              "move_turn": 0.043719102392642525,
+              "stand": -0.0019215707632171271,
+              "turn_l90": 0.09400524888498088,
+              "turn_r90": 0.10019982556616229
+            },
+            "net_yaw_by_hold": {
+              "back": 0.025405769236385822,
+              "diag": 0.00330383179243654,
+              "fwd": 0.010409009642899036,
+              "lat_l": 0.0023612999357283115,
+              "move_turn": 0.04544932395219803,
+              "stand": 0.0023637668637093157,
+              "turn_l90": 0.09395609299341838,
+              "turn_r90": 0.08416901528835297
+            },
+            "facing_error_rms": 0.6595965465013188,
+            "falls": 44,
+            "n": 100,
+            "pitch_fwd_share": 0.8181818181818182,
+            "pitch_max_abs_p50": 0.26475202168399115,
+            "prefall_tip_p25": -1.6012144487885607,
+            "walk_tip_p50": 11.053190279162278,
+            "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-16_1805_omni_formation/seed3_1c_004_A15pB/light__omni/seed001/2026-09-18_08-31-01"
           },
           "ring": {
-            "completion": 0.03,
-            "tripod": 0.43127041244672776,
-            "tripod_walking": 0.14911410346312298,
-            "falls": 97,
+            "completion": 0.56,
+            "tripod": 0.5305848902213026,
+            "tripod_walking": 0.48550213950204035,
+            "falls": 44,
             "n": 100,
-            "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-16_1805_omni_formation/seed3_1c_003_A15pB_obst/ring__omni/seed001/2026-09-17_06-16-28"
+            "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-16_1805_omni_formation/seed3_1c_004_A15pB_obst/ring__omni/seed001/2026-09-18_08-34-23"
           }
         },
         "smoke": {
-          "fail_2k": 0.029686000000000032,
-          "fail_end": 0.01638500000000002,
+          "fail_2k": 0.285181,
+          "fail_end": 0.33297000000000004,
           "coll_2k": 0.0,
-          "ep_len_2k": 1961.9687000000035
+          "ep_len_2k": 1710.5705000000014
         },
         "exposure": {
-          "reach_edge_frac": 0.0176,
-          "reach_obst_frac": 0.0176,
-          "field_frac_mean": 0.0027999999999999987,
-          "field_steps_mean": 5.569299999999999,
-          "goals_passed_mean": 0.018600000000000002,
-          "track_ratio_mean": 0.24094500000000002,
-          "heading_err_rms_mean": 0.09899,
-          "block_steps_mean": 5.748999999999999,
-          "r_max_mean": 0.9723550000000001,
-          "crab_failure_flat": 0.023065000000000002,
-          "crab_failure_obst": 0.02539999999999999,
-          "ep_steps_flat": 1965.7528799999995,
-          "ep_steps_obst": 1961.8134999999995,
-          "rsi_frac_actual": 0.19348,
+          "reach_edge_frac": 0.41723999999999994,
+          "reach_obst_frac": 0.335135,
+          "field_frac_mean": 0.11448000000000003,
+          "field_steps_mean": 219.37875500000004,
+          "goals_passed_mean": 0.530095,
+          "track_ratio_mean": 0.5631250000000001,
+          "heading_err_rms_mean": 0.16696999999999998,
+          "block_steps_mean": 62.175125,
+          "r_max_mean": 1.9197400000000002,
+          "crab_failure_flat": 0.32222999999999996,
+          "crab_failure_obst": 0.34589499999999995,
+          "ep_steps_flat": 1693.0894500000002,
+          "ep_steps_obst": 1671.255255,
+          "rsi_frac_actual": 0.17701500000000006,
           "terrain_levels": 0.9726999999999999,
-          "how_far_from_start_point": 0.6162399999999999,
+          "how_far_from_start_point": 1.203735,
           "current_goal_idx": 0.0,
-          "stand_frac_actual": 0.14478,
-          "move_frac_actual": 0.5365550000000001,
-          "turn_frac_actual": 0.05780999999999999,
-          "move_turn_frac_actual": 0.14714,
-          "failure_all": 0.008215,
-          "eplen": 1986.3100000000006,
-          "mean_reward": 93.37321499999999,
-          "vloss": 0.011666999999999999,
-          "track": 0.76375,
+          "stand_frac_actual": 0.10728499999999999,
+          "move_frac_actual": 0.48606999999999995,
+          "turn_frac_actual": 0.0763,
+          "move_turn_frac_actual": 0.14506500000000003,
+          "failure_all": 0.36469,
+          "eplen": 1656.8775,
+          "mean_reward": 49.28405499999999,
+          "vloss": 0.005684499999999996,
+          "track": 0.6326700000000001,
           "prints": 5000
         },
+        "track_ratio_tail": 0.5677725999999998,
         "checks": [
           [
             "plant is A15+B (params/env.yaml usd path)",

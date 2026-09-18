@@ -219,6 +219,51 @@ Two safety nets land with it, both reading the TRAINING log rather than an eval:
 on the saved 1a/1c raws (does the walker out-earn the creeper under these terms?) before the window
 is launched. The plumbing is landed either way; the numbers may move.
 
+#### Lever staged 2026-09-18: `KRABBY_OMNI_ANG_TURN_ONLY` (DEFAULT OFF)
+
+The offline replay that was supposed to confirm the four values found that they do not clear the
+campaign's `>= 25 %` walker-vs-creeper margin on their own (`fwd` hold, COMMAND margin **+16.6 %**;
+`experiments/2026-09-16_1805_omni_formation/replay_reward_economy.md`), and it named the largest
+remaining leak: `track_ang_vel_z_exp` is an *even* function of the yaw-rate **error**, so a
+motionless robot with zero yaw error collects ~`0.98`/s of it — and with `std` back at the forward
+`0.5`, on the ~88 % of 1c rows that command no turn, that free income is ~45 % of a stander's entire
+positive income. Gating the term to rows with a **live** yaw command (`cmd[:, 2] != 0` — i.e. the
+P-control outside its 0.133-rad dead band, the same gate `reward_yaw_progress` uses) takes the
+stander's angular income to ~0 and moves the margin to **+37.5 %** (gate FAIL → PASS), with the
+creeper's motion-requiring income share 2.5 % → 4.5 %. Restate it with
+`replay_reward_economy.py --new-ang-turn-only`.
+
+It ships **off**, as a lever rather than as a fifth Revision-4 value, because the gate also removes
+the term's yaw-rate **damping** on non-turn rows: today a row with `cmd_wz == 0` pays the policy to
+hold `wz_b` near zero — to walk straight and not wobble — and that pressure disappears entirely
+under the gate, leaving `reward_facing_exp` (a position term, not a rate term) and the command's own
+P-control to price heading there. That is a behavioural change, not a bookkeeping fix, so arming it
+is a per-run decision:
+
+```bash
+KRABBY_OMNI_PHASE=1c KRABBY_PLANT=A15+B KRABBY_OMNI_ANG_TURN_ONLY=1 \
+  python scripts/rsl_rl/train.py --task Isaac-Crab-Hex-Omni-Walk-v0 --headless ...
+```
+
+> **Arming it under `run_phases.py` takes an edit, not an export.** The driver's `_subenv`
+> deletes **every** `KRABBY_*` key from the parent environment before launching a phase
+> (`run_phases.py:519-521` — the same scrubbing that hid the facing-clip defect), so
+> `export KRABBY_OMNI_ANG_TURN_ONLY=1; ./launch_phases.sh ...` is silently dropped and the run
+> trains the shipped economy while the launcher believes the lever is on. Under the driver the
+> knob has to reach the window's `env` dict. Verify either way from the run's own
+> `params/env.yaml`: `rewards.track_ang_vel_z_exp.func` must read
+> `...crab_hex_omni_rewards:track_ang_vel_z_exp_turn_gated`, not
+> `isaaclab.envs.mdp.rewards:track_ang_vel_z_exp`.
+
+Landed: `mdp/crab_hex_omni_rewards.py::track_ang_vel_z_exp_turn_gated` (a drop-in twin with the
+stock argument order that **calls** the stock function and multiplies by the mask — it never
+re-derives the kernel, and `std` passes straight through, so `KRABBY_OMNI_ANG_VEL_STD` still owns
+the width), the knob in `config/crab_hex/omni_knobs.py::_apply_ang_turn_only_knob` (applied right
+after the `std` knob, refusing loudly if the term is missing, has lost `std`, or already carries a
+func this knob does not know), and unit/delta coverage of both the armed and the shipped state.
+The rewards **class body** keeps the stock func and **no preset sets the variable** — the
+knob-timing pillar: a cfg class body carries its declared value and knobs move it.
+
 ## The three rules
 
 1. **Never export `KRABBY_PHASE` or `KRABBY_SIDE_PHASE` in an omni process.**
@@ -293,9 +338,12 @@ every preset) · `KRABBY_OMNI_ANG_VEL_STD` (rad/s, must be `> 0`; writes
 onto every reward term that already HAS that key — today `reward_clock_schedule` only, since
 `clock_swing_apex_income` takes no such argument — raises if no term does. Applied after the
 forward block, so it wins over the forward-owned `KRABBY_CLOCK_COMBINE`; Revision 4, armed at
-`product` in every preset). `KRABBY_RSI_BANK` / `KRABBY_RSI_FRAC` are shared with the forward
-task, as are `KRABBY_TRACK_SIGMA2` / `KRABBY_TRACK_L1_W` (the omni presets re-point both:
-Revision 4).
+`product` in every preset) · `KRABBY_OMNI_ANG_TURN_ONLY` (`0` | `1`, nothing else parses; `1`
+swaps `rewards.track_ang_vel_z_exp`'s **func** — not a param — for
+`crab_hex_omni_rewards.track_ang_vel_z_exp_turn_gated`, keeping the weight and every param.
+**Staged 2026-09-18, DEFAULT OFF — set by no preset**; see the note below). `KRABBY_RSI_BANK` /
+`KRABBY_RSI_FRAC` are shared with the forward task, as are `KRABBY_TRACK_SIGMA2` /
+`KRABBY_TRACK_L1_W` (the omni presets re-point both: Revision 4).
 
 ## Training
 

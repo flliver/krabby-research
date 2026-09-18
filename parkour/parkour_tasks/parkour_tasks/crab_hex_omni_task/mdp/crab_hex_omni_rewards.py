@@ -50,6 +50,13 @@ the optimum. The turning gradient this docstring was worried about is supplied i
 ``reward_yaw_progress`` below (weight 1.0, signed, dense), which did not exist when 0.15 was
 chosen. See ``README.md`` "Revision 4 -- the reward economy".
 
+A SIXTH FUNCTION IS STAGED BUT NOT SELECTED (2026-09-18, user decision):
+:func:`track_ang_vel_z_exp_turn_gated`, the stock term zeroed on rows that command no turn.
+The cfg class body below keeps the STOCK ``func`` and no preset arms it; the omni-only knob
+``KRABBY_OMNI_ANG_TURN_ONLY=1`` swaps it in, weight and params untouched. It is default-OFF
+because the gate also drops the term's yaw-rate damping on non-turn rows -- see the function's
+own docstring for the measured margin (+16.6 % -> +37.5 %) and the trade.
+
 THE ADDED TERM (:func:`reward_yaw_progress`, the 36th name; 2026-09-17). The plan's
 500-iteration yaw-capability smoke (``KRABBY_OMNI_SLOTS=0:0:1:0``, flat, from scratch; run
 ``crab_hex_omni_flat_walk/2026-09-16_20-35-23``) FAILED its gate: the policy learned to stand
@@ -397,6 +404,69 @@ def reward_yaw_progress(
     progress = asset.data.root_ang_vel_b[:, 2] * torch.sign(cmd_wz)
     progress = torch.clamp(progress, min=-cap, max=cap)
     return progress * turning_cmd.float()
+
+
+# --------------------------------------------- the STAGED LEVER (default OFF, 2026-09-18)
+def track_ang_vel_z_exp_turn_gated(
+    env: ParkourManagerBasedRLEnv,
+    std: float,
+    command_name: str = "base_velocity",
+    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
+) -> torch.Tensor:
+    """The stock ``track_ang_vel_z_exp``, zeroed on every row that commands NO turn.
+
+    A DROP-IN twin: the signature is Isaac Lab's ``track_ang_vel_z_exp(env, std,
+    command_name, asset_cfg)`` argument for argument, so the cfg term's ``func`` can be
+    swapped with its ``weight`` and ``params`` untouched (that is exactly what
+    ``omni_knobs._apply_ang_turn_only_knob`` does). The unwrapped value is not re-derived
+    here -- the stock function is CALLED -- so the two can never drift apart:
+    ``exp(-(wz_cmd - wz_b)^2 / std^2)`` stays whatever upstream says it is, and on a turning
+    row this term is BITWISE the stock one.
+
+    **STAGED 2026-09-18, DEFAULT OFF.** Nothing in this package selects it: the cfg class body
+    below keeps the stock ``func`` and no preset sets ``KRABBY_OMNI_ANG_TURN_ONLY``. It exists
+    so the lever can be armed for one run without an edit.
+
+    WHY THE LEVER EXISTS (``experiments/2026-09-16_1805_omni_formation/
+    replay_reward_economy.md``, the "PROBE -- two levers beyond the decided four" table, and
+    ``ANALYSIS_1c_failure_2026-09-18.md``). ``track_ang_vel_z_exp`` at weight 1.0 is an
+    *even* function of the yaw-rate ERROR, so a motionless robot with zero yaw error collects
+    ~0.98/s of it -- and under the Revision-4 economy (``std`` back at the forward 0.5) the
+    1c sampler commands no turn on ~88 % of rows, where that free income is ~45 % of a
+    stander's entire positive income. Gating the term to rows with a LIVE yaw command moves
+    the offline walker-vs-creeper COMMAND margin on the decidable ``fwd`` hold from
+    **+16.6 % to +37.5 %** (the campaign's >= 25 % gate: FAIL -> PASS) and takes the
+    stander's free angular income to ~0, raising the creeper's motion-requiring income share
+    2.5 % -> 4.5 %. Replay it with ``replay_reward_economy.py --new-ang-turn-only``.
+
+    WHY IT IS A SEPARATE LEVER RATHER THAN PART OF REVISION 4. The gate also removes the
+    term's yaw-rate DAMPING on non-turn rows: today a row with ``cmd_wz == 0`` pays the
+    policy to hold ``wz_b`` near zero, i.e. to walk straight and not wobble, and that
+    pressure disappears entirely under the gate. What is left pricing heading on those rows
+    is ``reward_facing_exp`` (a position term, not a rate term) and the command's own
+    P-control, which re-opens the gate once the facing error passes the dead band. That is a
+    real behavioural change, not a pure bookkeeping fix, so it ships OFF and armed by hand.
+
+    THE GATE IS THE COMMAND'S OWN DEAD BAND, not a second threshold: ``CrabHexOmniCommand``'s
+    P-control already zeroes ``cmd[:, 2]`` inside ``clips.ang_vel_clip`` (0.2 rad/s at
+    stiffness 1.5 -> |facing error| < 0.133 rad), so ``cmd_wz != 0`` IS "the command wants a
+    turn". Identical gate to :func:`reward_yaw_progress`, so the two terms switch on together.
+
+    Args:
+        env: the omni env.
+        std: the exponential kernel width, rad/s -- passed straight through to the stock
+            function. Required (no default) on purpose: the swap keeps ``params``, so a cfg
+            that somehow lost the key must fail rather than silently pick a kernel.
+        command_name: the command term supplying ``cmd[:, 2]``.
+        asset_cfg: the articulation whose ``root_ang_vel_b[:, 2]`` is the achieved yaw rate.
+
+    Returns:
+        ``(N,)`` in ``[0, 1]``: the stock value on rows with ``cmd_wz != 0``, exactly 0.0
+        elsewhere.
+    """
+    value = track_ang_vel_z_exp(env, std=std, command_name=command_name, asset_cfg=asset_cfg)
+    turning_cmd = env.command_manager.get_command(command_name)[:, 2] != 0.0
+    return value * turning_cmd.float()
 
 
 # --------------------------------------------------------------------------- termination
