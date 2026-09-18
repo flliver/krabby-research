@@ -448,3 +448,16 @@ min (Verification 9, run once before any window). Two seeds (3 then 2), trained 
   per-run decision. TRAP recorded: the driver's `_subenv` strips every `KRABBY_*` from the parent env, so exporting this knob
   before `launch_phases.sh` is silently dropped — under the driver it must reach the window's `env` dict, and either way the
   check is `params/env.yaml`'s `rewards.track_ang_vel_z_exp.func`.
+- 2026-09-18 LITERATURE REVIEW `experiments/lit-review-omnidirectional-gait-formation.md` (verified pipeline: 5 angles → 12 claims,
+  12/12 held after opening every reference; 59 refs). Load-bearing findings for this campaign: (1) the field's stacks (legged_gym /
+  Isaac Lab) observe only the saturated yaw-rate command, never the raw heading error — our clipped-error channels are in convention,
+  a (cos, sin) facing encoding or dropping the raw channels removes the band problem instead of masking it; (2) sprawled hexapods turn
+  by a left/right stride differential at 0.19–0.7 rad/s and the kinematic budget puts this plant's ceiling near 0.15–0.18 rad/s, so
+  `ang_vel_max` 0.3 and the 0.35 m/s cap sit ~2× above the plant, and a move+turn hold at 0.22 m/s + 0.3 rad/s is kinematically
+  infeasible at the outer foot; (3) the Rudin tracking kernel pays a standstill 78 % of full income at 0.25 m/s by construction and
+  command-gated gait income is farmable by stepping in place — only clipped-progress forms are zero at standstill; `reward_yaw_progress`
+  is potential-based shaping whose clip/dead band, not weight, caps its income; (4) resumed single-axis heads violate the zero-mean
+  assumption behind mirror augmentation (Su et al.) and the state-subspace forgetting mechanism (Wołczyk) explains the handoff losses —
+  two more arguments for the from-scratch window. Ranked implications §8: size the caps to the plant, make move+turn feasible, promote
+  the zero-at-standstill progress term, gate gait/angular income on ACHIEVED motion, from-scratch windows, seed turn/backward RSI
+  frames, (cos, sin) facing, a polar command-grid eval with per-seed stats.
