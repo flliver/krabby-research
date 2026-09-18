@@ -38,6 +38,7 @@ proves each one still equals the forward instance built under the forward preset
 """
 
 import math
+import os
 
 from isaaclab.managers import EventTermCfg as EventTerm
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
@@ -191,6 +192,26 @@ def _install_omni_total_terminates(cfg) -> None:
     cfg.terminations.total_terminates = CrabHexOmniFlatWalkTerminationsCfg().total_terminates
 
 
+PLAY_EPISODE_S_VAR = "KRABBY_PLAY_EPISODE_S"
+PLAY_EPISODE_S_DEFAULT = 60.0
+
+
+def play_episode_length_s(environ) -> float:
+    """PLAY episode length: ``KRABBY_PLAY_EPISODE_S`` (seconds, > 0) or the forward PLAY literal 60 s.
+
+    The PLAY head overwrites ``episode_length_s`` AFTER the train post-init, so the training
+    knob ``KRABBY_EPISODE_S`` cannot reach a viewer/recording; this PLAY-only knob can
+    (2026-09-18: continuous recordings with "no resets except a fall" need 300 s).
+    """
+    raw = environ.get(PLAY_EPISODE_S_VAR)
+    if raw is None or str(raw).strip() == "":
+        return PLAY_EPISODE_S_DEFAULT
+    val = float(raw)
+    if not val > 0.0:
+        raise RuntimeError(f"{PLAY_EPISODE_S_VAR} must be > 0 s, got {raw!r}")
+    return val
+
+
 def _apply_play(cfg) -> None:
     """The head every forward PLAY ``__post_init__`` shares (``crab_hex_env_cfg.py``).
 
@@ -202,7 +223,7 @@ def _apply_play(cfg) -> None:
     mode (``_require_phase_teacher_mode``). That block is therefore a no-op here and is
     intentionally dropped rather than copied.
     """
-    cfg.episode_length_s = 60.0
+    cfg.episode_length_s = play_episode_length_s(os.environ)
     cfg.parkours.base_parkour.debug_vis = True
     cfg.commands.base_velocity.debug_vis = True
     if cfg.scene.terrain is not None:

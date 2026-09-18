@@ -141,6 +141,9 @@ def main():
         video_writer = imageio.get_writer(video_path, fps=fps, codec="libx264", quality=8,
                                           macro_block_size=None, ffmpeg_log_level="error")
         print(f"[INFO] Streaming video to {video_path} at {fps} fps for {args_cli.video_length} steps.", flush=True)
+        _ucfg = env.unwrapped.cfg
+        print(f"[INFO] episode_length_s={getattr(_ucfg, 'episode_length_s', None)} "
+              f"resampling_time_range={getattr(getattr(_ucfg.commands, 'base_velocity', None), 'resampling_time_range', None)}", flush=True)
 
     # wrap around environment for rsl-rl
     env = ParkourRslRlVecEnvWrapper(env, clip_actions=agent_cfg.clip_actions)
@@ -212,8 +215,15 @@ def main():
                 obs[:, 6:8] = 1.5*yaw
                 # obs[:, num_prop+num_scan:num_prop+num_scan+num_priv_explicit] = estimator.inference(obs[:, :num_prop])
                 actions = policy(obs, hist_encoding=True, scandots_latent=depth_latent)
-        obs, _, _, extras = env.step(actions)
+        obs, _, dones, extras = env.step(actions)
         if args_cli.video:
+            # Provenance for "no resets except a fall": every env reset is logged with its step.
+            try:
+                n_done = int(dones.sum().item()) if hasattr(dones, "sum") else int(sum(dones))
+            except Exception:  # noqa: BLE001
+                n_done = 0
+            if n_done:
+                print(f"[VIDEO] reset at step {timestep + 1} ({n_done} env(s))", flush=True)
             frame = render_env.render()
             if frame is not None:
                 video_writer.append_data(frame)

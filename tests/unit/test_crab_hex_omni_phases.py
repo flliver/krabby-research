@@ -873,3 +873,34 @@ def test_facing_obs_clip_knob_rejects_non_positive(knobs, bad):
     cfg = _FakeObsCfg(_FakeObsFunc)
     with pytest.raises(RuntimeError, match="KRABBY_OMNI_FACING_OBS_CLIP"):
         knobs._apply_facing_obs_clip_knob(cfg, {"KRABBY_OMNI_FACING_OBS_CLIP": bad})
+
+
+# ------------------------------------------------- PLAY episode-length knob (2026-09-18)
+def _load_play_episode_fn():
+    import ast, pathlib
+    src = pathlib.Path(OMNI_DIR if "OMNI_DIR" in globals() else
+                       "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task"
+                       ) / "config/crab_hex/crab_hex_omni_env_cfg.py"
+    tree = ast.parse(src.read_text())
+    ns = {}
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and any(getattr(t, "id", "") in ("PLAY_EPISODE_S_VAR", "PLAY_EPISODE_S_DEFAULT") for t in node.targets):
+            exec(compile(ast.Module([node], []), str(src), "exec"), ns)
+        if isinstance(node, ast.FunctionDef) and node.name == "play_episode_length_s":
+            exec(compile(ast.Module([node], []), str(src), "exec"), ns)
+    return ns["play_episode_length_s"]
+
+
+def test_play_episode_length_defaults_to_the_forward_play_literal():
+    fn = _load_play_episode_fn()
+    assert fn({}) == 60.0 and fn({"KRABBY_PLAY_EPISODE_S": ""}) == 60.0
+    assert fn({"KRABBY_EPISODE_S": "300"}) == 60.0   # the TRAIN knob cannot reach PLAY
+
+
+def test_play_episode_length_knob_and_guard():
+    fn = _load_play_episode_fn()
+    assert fn({"KRABBY_PLAY_EPISODE_S": "300"}) == 300.0
+    import pytest
+    for bad in ("0", "-5"):
+        with pytest.raises(RuntimeError, match="KRABBY_PLAY_EPISODE_S"):
+            fn({"KRABBY_PLAY_EPISODE_S": bad})
