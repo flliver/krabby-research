@@ -99,7 +99,7 @@ the head, then launch the 2c / `2c_clockheld` pair. Halts: `dead_plant` (step-16
 2026-09-17: applies only to from-scratch windows ≥ 2000 it — none in the omni chain, 1a is the only
 from-scratch window and it is 1000 it; collapse is covered by the soft gates and gate_1c),
 `gate_1a`/`gate_1b` (soft, short-stage),
-`gate_1c` (the written formation gate), `gate_facing` (the facing-precision gate, enforced from 2a),
+`gate_1c` (the written formation gate), `gate_facing` (the 2a/2b turn-rate gate; facing precision watched since 2026-09-18),
 `nan`, `infra` — each notifies; relaunch `--continue` (finishes an interrupted run, or overrides ANY
 of the four gate halts using the already-trained checkpoint without retraining, rewriting the
 phase's record to `status ok` + `gate_<name>_override`) or `--redo` after a fix.
@@ -191,7 +191,15 @@ sampling, reward and terrain knobs stay out by design: the canary is a minimal f
 the manifest's schedule override, and a gate verdict must not move when a stage re-weights a
 reward. A gate number produced under any other environment is not a measurement of the policy.
 
-## The facing-precision gate (WATCHED at 1c, ENFORCED from 2a)
+## The facing-precision gate (WATCHED at 1c, ENFORCED from 2a — DEMOTED TO WATCHED 2026-09-18)
+
+**Amendment 2026-09-18 (user decision after the seed-3 2a re-eval):** `gate_facing` now ENFORCES only the turning-rate
+criterion (median `yaw_progress_rate` ≥ 0.05 rad/s on each turn hold, the same signed number gate_1c reads) and REPORTS
+facing precision as a `WATCH` note. Reason: closing the 90° eval turn to ≤ 0.30 rad inside the 12-s hold needs ≥ 0.106 rad/s
+sustained; the 2a head turns at 0.09 rad/s and the plant's kinematic ceiling is 0.15–0.18 rad/s (lit review §3), so the
+floor asked the plant for more than it can deliver and would have halted a head that walks every direction (goal inversion).
+The 2a halt (`turn_l90` final 0.53 rad) is overridden with `--continue`; the driver records `gate_facing_override`.
+The text below is the original criterion, kept for the record.
 
 Median `heading_error_final_abs` ≤ 0.30 rad on EACH turn hold. Watched (not enforced) at 1c because
 the facing band there is only ±0.6 rad — the gate is calibrated for the wider ±1.2 rad band that
@@ -461,3 +469,12 @@ min (Verification 9, run once before any window). Two seeds (3 then 2), trained 
   two more arguments for the from-scratch window. Ranked implications §8: size the caps to the plant, make move+turn feasible, promote
   the zero-at-standstill progress term, gate gait/angular income on ACHIEVED motion, from-scratch windows, seed turn/backward RSI
   frames, (cos, sin) facing, a polar command-grid eval with per-seed stats.
+- 2026-09-18 seed-3 2a (`seed3_2a_005_A15pB`, 5000 it from the 1c-004 head, `crab_hex_omni_teacher/2026-09-18_09-41-10/model_9998.pt`).
+  The driver's own three evals died at startup (Kit DerivedDataCache corruption, see the 12:2x entries) → recorded halt "facing gate
+  could not be evaluated". Re-run 2026-09-18 16:4x through the corrected driver env, capped (`outputs/omni_plan/reeval_2a/`):
+  slow 0.57 completion / 43 falls / tripod min 0.39 / speed ratios fwd 0.58 lat_l 0.47 diag 0.46 back 0.54 move_turn 0.49 /
+  yaw-progress 0.091 / 0.085; light 0.59 / tripod 0.42 / ratios 0.60 0.43 0.48 0.54 0.47; ring(0.2–0.7) 0.56 / 0.39 / 0.61 0.47 0.48
+  0.55 0.45 — the head walks every direction at ~0.5 of command on flat AND ring terrain and turns at 0.09 rad/s. gate_facing
+  (enforced from 2a) FAILS on turn_l90: final error 0.53 rad (turn_r90 0.13; floor 0.30) — closing 90° in the 12-s hold needs
+  ≥ 0.106 rad/s sustained, above this head's 0.09 and near the plant's kinematic ceiling (lit review §3: 0.15–0.18 rad/s).
+  Decision on the halt: the user's.

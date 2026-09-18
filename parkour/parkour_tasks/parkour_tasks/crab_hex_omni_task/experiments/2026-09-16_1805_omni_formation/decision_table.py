@@ -8,7 +8,7 @@ ring-obstacle (``ring__omni``) evals of each phase, recomputes tripod-set duty A
 ``steady_mask``; tripod A = FL/MR/RL, B = FR/ML/RR in the harness's ``FOOT_ORDER``), prints the
 CHARTER's decision table with the forward and sideways reference rows hard-coded (their own tasks'
 creep/low holds, not phase-matched -- omni is a different command regime), and evaluates the
-written gates (``gate_1c`` on 1c; the facing-precision gate from 2a).
+written gates (``gate_1c`` on 1c; the turn-rate gate from 2a, facing precision watched since 2026-09-18).
 
     decision_table.py --campaign-dir <dir> [--phases 1a,1b,1c,2a,2b,2c,2c_clockheld]
     decision_table.py --eval-dir 1a=<scenario_metrics dir> [--eval-dir 1a:light=<dir> ...]
@@ -145,13 +145,18 @@ def gate_1c(agg: dict) -> tuple[bool, str]:
 
 
 def gate_facing(agg: dict) -> tuple[bool, str]:
-    """Facing-precision gate, enforced from 2a (Part H): median final heading error <= 0.30 rad on
-    EACH turn hold."""
+    """The 2a/2b turn gate, mirroring ``run_phases.gate_facing_verdict`` (2026-09-18): the turning
+    RATE (median yaw_progress_rate >= GATE_1C_YAW_RATE on each turn hold) is enforced; facing
+    PRECISION (final heading error vs GATE_FACING_MAX_RAD) is watched and reported, never a halt."""
     fac = facing_by_hold(agg)
+    rates = {h: (fac.get(h) or {}).get("progress") for h in TURN_HOLDS}
     finals = {h: (fac.get(h) or {}).get("final") for h in TURN_HOLDS}
-    final_s = ", ".join(f"{h} {v:.3f}" if v is not None else f"{h} n/a" for h, v in finals.items())
-    ok = all(v is not None for v in finals.values()) and max(finals.values()) <= GATE_FACING_MAX_RAD
-    return ok, f"final heading error {final_s} (need <= {GATE_FACING_MAX_RAD} rad on each)"
+    rate_s = ", ".join(f"{h} {_fmt(v)}" for h, v in rates.items())
+    final_s = ", ".join(f"{h} {_fmt(v)}" for h, v in finals.items())
+    ok = all(v is not None for v in rates.values()) and min(rates.values()) >= GATE_1C_YAW_RATE
+    watch = (" | WATCH precision: final heading error " + final_s + f" (watched floor {GATE_FACING_MAX_RAD} rad)"
+             if any(v is None or v > GATE_FACING_MAX_RAD for v in finals.values()) else "")
+    return ok, f"yaw-progress rate {rate_s} (need >= {GATE_1C_YAW_RATE} rad/s on each turn hold){watch}"
 
 
 def cell(agg: dict | None) -> str:

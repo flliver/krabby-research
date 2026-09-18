@@ -397,7 +397,7 @@ decision point). No student anywhere: the training subprocess env carries only
 `KRABBY_OMNI_PHASE` / `KRABBY_PLANT`. Halts (each notifies; `--continue` overrides, `--redo`
 reruns): `dead_plant` (soundness at 2000 iterations on FROM-SCRATCH windows only, the sideways rule —
 no omni window qualifies (1a is 1000 it), so collapse is covered by the soft gates and `gate_1c`), `gate_1a`/`gate_1b` (soft, short-stage), `gate_1c` (the written
-formation gate), `gate_facing` (facing precision, enforced from 2a), `nan`, `infra`.
+formation gate), `gate_facing` (the turn-rate gate from 2a; facing precision watched), `nan`, `infra`.
 
 ### Gates
 
@@ -418,7 +418,10 @@ formation gate), `gate_facing` (facing precision, enforced from 2a), `nan`, `inf
   whose true net rotation was −0.025 rad/s (gait wobble) — AND a per-direction floor: median tracking
   ratio (`speed_ratio`) **≥ 0.3** on each of `lat_l`, `diag`, `back`, `move_turn`, so a forward-only
   walker cannot pass an omnidirectional formation gate.
-- **`gate_facing` (facing precision).** WATCHED at 1c, ENFORCED from 2a: median
+- **`gate_facing` (2a/2b turn gate).** ENFORCED from 2a: median `yaw_progress_rate` >= 0.05 rad/s on each turn
+  hold (the gate_1c turning criterion, re-checked after every phase-2 window). Facing PRECISION is WATCHED
+  only (demoted 2026-09-18: closing a 90-degree turn to 0.30 rad in a 12-s hold needs >= 0.106 rad/s, above
+  the plant's measured turn rate; the verdict message carries a `WATCH facing precision` note instead): median
   `heading_error_final_abs` **≤ 0.30 rad** on each turn hold (the 1c facing band, ±0.6 rad, is
   too narrow for this to be a fair test; 2a widens it to ±1.2).
 - **The training-log translation floor (2026-09-18, every gate above).** On top of its own

@@ -329,27 +329,39 @@ def test_decision_table_gate_1c_per_direction_floor_matches_the_driver(drv, tabl
 
 
 # ------------------------------------------------------------------ gate_facing_verdict (2a/2b)
-def test_gate_facing_passes_when_both_turn_holds_are_precise(drv):
-    facing = {"turn_l90": _facing(final=0.10, settle=2.0, progress=0.10),
-              "turn_r90": _facing(final=0.30, settle=2.5, progress=0.09)}   # final exactly at the floor
-    s = drv.summarize(_agg(HEALTHY_TRIPOD, 0.9, facing=facing))
+# 2026-09-18 (user decision after the seed-3 2a re-eval): the turning-RATE criterion is enforced,
+# facing PRECISION is watched -- reported in the message, never a halt.
+def test_gate_facing_passes_when_both_turn_holds_turn_fast_enough(drv):
+    s = drv.summarize(_agg(HEALTHY_TRIPOD, 0.85, facing=HEALTHY_FACING))
     status, msg = drv.gate_facing_verdict(s)
-    assert status == "ok", msg
+    assert status == "ok" and "turn gate passed" in msg
 
 
-@pytest.mark.parametrize("final_l, final_r", [(0.31, 0.10), (0.10, 0.45)])
-def test_gate_facing_fails_when_either_turn_hold_overshoots(drv, final_l, final_r):
-    facing = {"turn_l90": _facing(final=final_l, settle=2.0, progress=0.10),
-              "turn_r90": _facing(final=final_r, settle=2.0, progress=0.09)}
-    s = drv.summarize(_agg(HEALTHY_TRIPOD, 0.9, facing=facing))
+@pytest.mark.parametrize("final_l,final_r", [(0.53, 0.13), (0.10, 0.95), (1.2, 1.2)])
+def test_gate_facing_overshoot_is_watched_not_enforced(drv, final_l, final_r):
+    facing = {h: dict(v) for h, v in HEALTHY_FACING.items()}
+    facing["turn_l90"]["heading_error_final_abs"] = final_l
+    facing["turn_r90"]["heading_error_final_abs"] = final_r
+    s = drv.summarize(_agg(HEALTHY_TRIPOD, 0.85, facing=facing))
     status, msg = drv.gate_facing_verdict(s)
-    assert status == "gate_facing" and "FAILED" in msg
+    assert status == "ok" and "WATCH facing precision" in msg and f"{final_l:.3f}" in msg
+
+
+@pytest.mark.parametrize("prog_l,prog_r", [(0.02, 0.09), (0.09, 0.0), (0.049, 0.049)])
+def test_gate_facing_fails_on_the_turn_rate(drv, prog_l, prog_r):
+    facing = {h: dict(v) for h, v in HEALTHY_FACING.items()}
+    facing["turn_l90"]["yaw_rate_ratio"] = facing["turn_l90"].get("yaw_rate_ratio", 0.5)
+    facing["turn_l90"]["yaw_progress_rate"] = prog_l
+    facing["turn_r90"]["yaw_progress_rate"] = prog_r
+    s = drv.summarize(_agg(HEALTHY_TRIPOD, 0.85, facing=facing))
+    status, msg = drv.gate_facing_verdict(s)
+    assert status == "gate_facing" and "turn gate FAILED" in msg
 
 
 def test_gate_facing_no_usable_number_is_a_halt(drv):
-    s = drv.summarize(_agg(HEALTHY_TRIPOD, 0.9, facing={"turn_l90": _facing(0.1, 1.0, 0.08)}))  # turn_r90 missing
-    status, msg = drv.gate_facing_verdict(s)
-    assert status == "gate_facing" and "could not be evaluated" in msg
+    for s in ({}, drv.summarize(None)):
+        status, msg = drv.gate_facing_verdict(s)
+        assert status == "gate_facing" and "could not be evaluated" in msg
 
 
 # ------------------------------------------------------------------ summarize() carries facing + per-direction tracking

@@ -162,7 +162,7 @@ GATE_1C_DIR_RATIO = 0.3      # per-direction tracking floor (step-16 review deci
                              # median tracking_by_hold[h]["ratio"] on each of GATE_1C_DIR_HOLDS --
                              # coverage hole found in review: a forward-only walker must not pass an
                              # omnidirectional formation gate on tripod/completion alone
-GATE_FACING_MAX_RAD = 0.30   # rad, median heading_error_final_abs on the turn holds (enforced from 2a)
+GATE_FACING_MAX_RAD = 0.30   # rad, median heading_error_final_abs on the turn holds — WATCHED from 2a (demoted 2026-09-18)
 # ------------------------------------------------- the training-log translation floor (2026-09-18)
 # Every gate (soft 1a/1b and gate_1c) additionally reads the stage's OWN training log. The verified
 # 1c diagnosis (ANALYSIS_1c_failure_2026-09-18.md, claims 2 and 4) is that the translation collapse
@@ -1062,21 +1062,34 @@ def gate_1c_verdict(summary: dict, *, track_ratio: float | None = None,
 
 
 def gate_facing_verdict(summary: dict) -> tuple[str, str]:
-    """Facing-precision gate, WATCHED at 1c and ENFORCED from 2a onward (Part H): median
-    ``heading_error_final_abs`` <= ``GATE_FACING_MAX_RAD`` on EACH turn hold, once the facing band
-    has widened past 1c's +-0.6 rad. No usable number on either turn hold is a halt."""
+    """The 2a/2b gate on the turn holds (Part H as amended 2026-09-18, user decision).
+
+    ENFORCED: the turning-rate criterion — median ``yaw_progress_rate`` >= ``GATE_1C_YAW_RATE`` on
+    EACH turn hold (the same signed number gate_1c reads). No usable number is a halt.
+    WATCHED (reported, never halts): facing precision, median ``heading_error_final_abs`` vs
+    ``GATE_FACING_MAX_RAD``. Demoted from enforced on 2026-09-18: closing a 90-degree turn to 0.30 rad
+    inside the 12-s hold needs >= 0.106 rad/s sustained, above the seed-3 2a head's 0.09 rad/s and near
+    the plant's kinematic ceiling (lit review §3, 0.15–0.18 rad/s) — the floor was asking the plant
+    for more than it can deliver, so it would have halted a head that walks every direction.
+    """
     facing = summary.get("facing_by_hold") or {}
     finals = {h: (facing.get(h) or {}).get("final") for h in TURN_HOLDS}
+    prog = {h: (facing.get(h) or {}).get("progress") for h in TURN_HOLDS}
     final_str = ", ".join(f"{h} {v:.3f}" if v is not None else f"{h} n/a" for h, v in finals.items())
-    if any(v is None for v in finals.values()):
-        return "gate_facing", (f"facing-precision gate could not be evaluated — final heading error {final_str} on "
-                               "slow__omni; campaign HALTED (inspect the eval log, then relaunch with --continue "
-                               "to override, or fix and --redo)")
-    if max(finals.values()) > GATE_FACING_MAX_RAD:
-        return "gate_facing", (f"facing-precision gate FAILED — final heading error {final_str} (need <= "
-                               f"{GATE_FACING_MAX_RAD} rad on each turn hold) on slow__omni — campaign HALTED "
-                               "(relaunch with --continue to override, or fix and --redo)")
-    return "ok", f"facing-precision gate passed — final heading error {final_str} on slow__omni"
+    prog_str = ", ".join(f"{h} {v:.3f}" if v is not None else f"{h} n/a" for h, v in prog.items())
+    if any(v is None for v in prog.values()):
+        return "gate_facing", (f"turn gate could not be evaluated — yaw-progress rate {prog_str} rad/s on slow__omni "
+                               "(final heading error {final_str}); campaign HALTED (inspect the eval log, then relaunch "
+                               "with --continue to override, or fix and --redo)").replace("{final_str}", final_str)
+    watch = ""
+    if any(v is None for v in finals.values()) or max(v for v in finals.values() if v is not None) > GATE_FACING_MAX_RAD:
+        watch = (f" | WATCH facing precision: final heading error {final_str} (watched floor {GATE_FACING_MAX_RAD} rad, "
+                 "not enforced since 2026-09-18)")
+    if min(prog.values()) < GATE_1C_YAW_RATE:
+        return "gate_facing", (f"turn gate FAILED — yaw-progress rate {prog_str} rad/s (need >= {GATE_1C_YAW_RATE} on each "
+                               f"turn hold) on slow__omni{watch} — campaign HALTED (relaunch with --continue to override, "
+                               "or fix and --redo)")
+    return "ok", f"turn gate passed — yaw-progress rate {prog_str} rad/s on slow__omni{watch}"
 
 
 def _apply_gate(c: Campaign, spec, rec: dict, tag: str) -> None:
