@@ -17,3 +17,14 @@
 
 ### 2026-09-18 04:37 — phase 1c gate_1c: model_4999.pt (seed3_1c_004_A15pB)
 > NOTIFY: phase 1c gate_1c — campaign HALTED (see REPORT)
+
+### 2026-09-18 09:40 — phase 1c: gate_1c overridden by --continue — model_4999.pt carried into 2a unretrained (see CHARTER); record status -> ok
+> NOTIFY: seed3_2a_005_A15pB: facing-precision gate could not be evaluated — final heading error turn_l90 n/a, turn_r90 n/a on slow__omni; campaign HALTED (inspect the eval log, then relaunch with --continue to override, or fix and --redo)
+
+### 2026-09-18 12:28 — phase 2a gate_facing: model_9998.pt (seed3_2a_005_A15pB)
+> NOTIFY: phase 2a gate_facing — campaign HALTED (see REPORT)
+
+### 2026-09-18 12:58 — phase 2a: gate_facing overridden by --continue — model_9998.pt carried into 2b unretrained (see CHARTER); record status -> ok
+
+### 2026-09-18 15:02 — phase 2b ok: model_14997.pt (seed3_2b_006_A15pB)
+> NOTIFY: phases 2a, 2b complete for seed3 — see REPORT.md

@@ -135,3 +135,72 @@ Plant **A15+B** (`assets/crab.usda (main)`), seed 3, phases 1a, 1b, 1c, 2a, 2b. 
 - check PASS: dir_band matches stage 1c (full range)
 - check PASS: RSI source matches stage 1c (all)
 
+## Phase 1c — gate_1c overridden — 2026-09-18 09:40
+
+- `--continue`: model_4999.pt carried into 2a unretrained (CHARTER: gate section + Log); the 1c record now reads `status ok` with `gate_1c_override`
+
+## Phase 2a — Isaac-Crab-Hex-Omni-Teacher-v0 (mode 2a) — seed3 — 2026-09-18 12:28
+
+- status **gate_facing** | checkpoint `2026-09-18_09-41-10/model_9998.pt` | resume `model_4999.pt` | 5000 its | wall 2.40 h
+- smoke fail@2k 0.569 fail@end 0.443 coll@2k -0.022 ep_len@2k 1401.485
+- training translation floor: track_ratio_mean (last 500 its) 0.601 (gate floor 0.6)
+- exposure (ring): reach_edge 0.353 | reach_obst 0.321 | field_frac 0.097 (steps 180.973) | goals_passed 0.457
+- terrain-promotion telemetry: track_ratio_mean 0.601 | heading_err_rms_mean 0.308 | block_steps_mean 101.910 | r_max_mean 1.879
+- failure share flat 0.458 | obst 0.503 | campaign-wide 0.474
+- slot fractions (logged): stand 0.089 | move 0.360 | turn 0.127 | move_turn 0.151 | rsi_frac_actual 0.195 | terrain_levels 6.167 | mean ep len 1503.207 | prints 5000
+- slow canary (omni manifest): walking-hold tripod None (gated; by hold: n/a; episode None) | completion None | tracking None | falls None/None | pitch-fwd share None
+- per-direction speed_ratio: fwd None / lat_l None / diag None / back None
+- check PASS: plant is A15+B (params/env.yaml usd path)
+- check PASS: episode_length_s 40 in params
+- check PASS: experiment crab_hex_omni_teacher
+- check PASS: exposure telemetry logged (Metrics/base_parkour/reach_obst_frac)
+- check PASS: gait income telemetry logged (Episode_Reward/reward_clock_schedule)
+- check PASS: mirror-symmetry loss active (Loss/symmetry or mirror)
+- check PASS: terrain-promotion telemetry logged (Metrics/base_parkour/track_ratio_mean)
+- check PASS: yaw-progress reward logged (Episode_Reward/reward_yaw_progress)
+- check PASS: yaw-progress telemetry logged (Metrics/base_velocity/yaw_progress)
+- check PASS: omni parkour class (OmniParkourEvent) in params/env.yaml
+- check PASS: omni reset func (reset_root_state_ring) in params/env.yaml
+- check PASS: omni command class (CrabHexOmniCommand) in params/env.yaml
+- check PASS: omni obs func (CrabHexOmniParkourObservations) in params/env.yaml
+- check PASS: ring generator installed (omni_ring_sparse/dense sub-terrain) in params/env.yaml
+- check PASS: omni RSI bank path (rsi_bank_omni.npz) in params/env.yaml
+- check PASS: dir_band matches stage 2a (full range)
+- check PASS: RSI source matches stage 2a (all)
+
+## Phase 2a — gate_facing overridden — 2026-09-18 12:58
+
+- `--continue`: model_9998.pt carried into 2b unretrained (CHARTER: gate section + Log); the 2a record now reads `status ok` with `gate_facing_override`
+
+## Phase 2b — Isaac-Crab-Hex-Omni-Teacher-v0 (mode 2b) — seed3 — 2026-09-18 15:02
+
+- status **ok** | checkpoint `2026-09-18_12-58-58/model_14997.pt` | resume `model_9998.pt` | 5000 its | wall 1.90 h
+- smoke fail@2k 0.491 fail@end 0.477 coll@2k -0.023 ep_len@2k 1527.486
+- training translation floor: track_ratio_mean (last 500 its) 0.645 (gate floor 0.6)
+- exposure (ring): reach_edge 0.366 | reach_obst 0.353 | field_frac 0.112 (steps 209.849) | goals_passed 0.478
+- terrain-promotion telemetry: track_ratio_mean 0.640 | heading_err_rms_mean 0.604 | block_steps_mean 116.870 | r_max_mean 1.944
+- failure share flat 0.516 | obst 0.536 | campaign-wide 0.445
+- slot fractions (logged): stand 0.094 | move 0.360 | turn 0.175 | move_turn 0.163 | rsi_frac_actual 0.205 | terrain_levels 6.237 | mean ep len 1556.589 | prints 5000
+- slow canary (omni manifest): walking-hold tripod 0.377 (gated; by hold: back 0.498 / diag 0.377 / fwd 0.505 / lat_l 0.476 / move_turn 0.477 / stand 0.586 / turn_l90 0.660 / turn_r90 0.622; episode 0.516) | completion 0.500 | tracking 0.543 | falls 50/100 | pitch-fwd share 0.840
+- per-direction speed_ratio: fwd 0.603 / lat_l 0.470 / diag 0.510 / back 0.603
+- facing by hold (final rad/settle s/yaw-progress rad/s; progress is the gated turning number, net = signed net rotation toward the target): back 0.102/4.280/0.027 (net 0.043) | diag 0.263/3.420/-0.023 (net 0.019) | fwd 0.067/3.000/-0.000 (net 0.009) | lat_l 0.105/2.040/-0.007 (net 0.005) | move_turn 1.218/None/0.031 (net 0.031) | stand 0.053/0.000/-0.002 (net 0.001) | turn_l90 0.680/None/0.079 (net 0.079) | turn_r90 0.130/10.820/0.071 (net 0.063)
+- light ring onset (omni manifest): walking-hold tripod 0.373 (by hold: back 0.533 / diag 0.373 / fwd 0.524 / lat_l 0.466 / move_turn 0.477 / stand 0.593 / turn_l90 0.657 / turn_r90 0.620) | completion 0.540 | falls 46/100
+- ring obstacle eval (0.20-0.70): completion 0.540 | walking-hold tripod 0.372 (episode 0.508) | falls 46/100
+- check PASS: plant is A15+B (params/env.yaml usd path)
+- check PASS: episode_length_s 40 in params
+- check PASS: experiment crab_hex_omni_teacher
+- check PASS: exposure telemetry logged (Metrics/base_parkour/reach_obst_frac)
+- check PASS: gait income telemetry logged (Episode_Reward/reward_clock_schedule)
+- check PASS: mirror-symmetry loss active (Loss/symmetry or mirror)
+- check PASS: terrain-promotion telemetry logged (Metrics/base_parkour/track_ratio_mean)
+- check PASS: yaw-progress reward logged (Episode_Reward/reward_yaw_progress)
+- check PASS: yaw-progress telemetry logged (Metrics/base_velocity/yaw_progress)
+- check PASS: omni parkour class (OmniParkourEvent) in params/env.yaml
+- check PASS: omni reset func (reset_root_state_ring) in params/env.yaml
+- check PASS: omni command class (CrabHexOmniCommand) in params/env.yaml
+- check PASS: omni obs func (CrabHexOmniParkourObservations) in params/env.yaml
+- check PASS: ring generator installed (omni_ring_sparse/dense sub-terrain) in params/env.yaml
+- check PASS: omni RSI bank path (rsi_bank_omni.npz) in params/env.yaml
+- check PASS: dir_band matches stage 2b (full range)
+- check PASS: RSI source matches stage 2b (all)
+

@@ -478,3 +478,32 @@ min (Verification 9, run once before any window). Two seeds (3 then 2), trained 
   (enforced from 2a) FAILS on turn_l90: final error 0.53 rad (turn_r90 0.13; floor 0.30) — closing 90° in the 12-s hold needs
   ≥ 0.106 rad/s sustained, above this head's 0.09 and near the plant's kinematic ceiling (lit review §3: 0.15–0.18 rad/s).
   Decision on the halt: the user's.
+
+### 2026-09-18 15:02 — seed 3 window 2b complete (`seed3_2b_006_A15pB`, head `crab_hex_omni_teacher/2026-09-18_12-58-58/model_14997.pt`); the 2b DECISION POINT
+
+Relaunched 12:58 with `--continue` after the facing-precision demotion (commit 11e7662; the 2a head `model_9998.pt` carried in
+unretrained, `gate_facing_override` recorded). 5000 iterations, wall 1.90 h (the mesh is lighter than the forward corridor).
+Training: track_ratio_mean (last 500 it) 0.645 (floor 0.6); slot fractions stand 0.09 / move 0.36 / turn 0.18 / move+turn 0.16;
+terrain level 6.2 / 10; exposure reach_edge 0.37, reach_obst 0.35, field_frac 0.11; flat failure share 0.52, obstacle 0.54.
+
+**Turn gate: PASS** — yaw-progress rate turn_l90 0.079, turn_r90 0.071 rad/s (≥ 0.05). **WATCH facing precision:** turn_l90 final
+0.680 rad (never settles inside 12 s), turn_r90 0.130 (settles at 10.8 s); move_turn final 1.218 (no settle).
+
+| row (2b) | completion | falls/100 | walking tripod (moving holds) | speed_ratio fwd/lat/diag/back |
+|---|---|---|---|---|
+| slow__omni (flat) | 0.500 | 50 | 0.377 (fwd 0.51, lat_l 0.48, diag 0.38, back 0.50, move_turn 0.48) | 0.60 / 0.47 / 0.51 / 0.60 |
+| light__omni | 0.540 | 46 | 0.373 | — |
+| ring__omni (0.20–0.70) | 0.540 | 46 | 0.372 | — |
+
+Against the 2a head re-scored after the cache fix (0.57 / 0.59 / 0.56 completion; speed ratios 0.43–0.61; yaw progress 0.09;
+turn_l90 final 0.53): 2b is −0.07 / −0.05 / −0.02 completion (inside the ±0.06–0.10 resolution on flat/light, a wash on ring),
+turns slightly slower (0.079/0.071 vs 0.09) and less precisely (0.68 vs 0.53 on turn_l90), tracks fwd/back better (0.60 vs
+0.43–0.61 band) and lat/diag about the same. The walking tripod on the moving holds fell 0.49 (1c-004) → 0.39 (2a, falls 43/41/44 per row, duty 0.52/0.53) → 0.38 (2b, duty 0.50/0.56);
+the flat failure share is pitch-forward 0.84 of falls. The 2a→2b band widening (facing ±1.2 → ±2.4) bought no turning capability:
+the plant sits at 0.07–0.09 rad/s under every head since 1c-004, half the kinematic ceiling estimate (0.15–0.18, lit review §3).
+Decision table (rows 1a, 1b, 1c-004, 2a re-eval, 2b): `DECISION_TABLE_2b_seed3.md`.
+
+**Decision (user's):** (a) name the 2a head `model_9998.pt` as the seed-3 head of record (peak on completion, the sideways
+precedent — 2a was the peak window there too) or the 2b head (widest band, same turn rate); (b) run seed 2 from scratch
+(1a→1b→1c→2a→2b, Revision 4 economy, ~10 h) as planned; (c) run the 2c / 2c_clockheld pair from the 2b head (two launches); (d) a
+policy iteration on the turn rate (staged `KRABBY_OMNI_ANG_TURN_ONLY`, the lit review's recommendation 1) before any more windows.
