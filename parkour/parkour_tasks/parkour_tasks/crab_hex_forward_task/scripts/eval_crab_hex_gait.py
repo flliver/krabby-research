@@ -466,6 +466,18 @@ def main() -> None:
 
         os.environ[key] = value
 
+    # NOTE(2026-09-18, the omni 1c eval defect): what the CONFIG actually saw is the whole
+    # process KRABBY_* environment, not just the manifest's ``env:`` block -- the driver passes
+    # most of it in the child's environment and the manifest rows that matter carry no block at
+    # all, so ``run_meta["env_vars"]`` read ``{}`` for every campaign canary. The seed-3 1c gate
+    # then recorded completion 0.00 / 100 falls because ``KRABBY_OMNI_FACING_OBS_CLIP`` was
+    # missing from the eval process, and NOTHING in the run's own record said so: the defect was
+    # only found by re-deriving the child env from the driver's source. Recording the real
+    # environment here makes that class of failure legible in the artifact itself.
+    # Scope: KRABBY_* only (the project's own namespace) -- never the whole environment, which
+    # carries tokens, paths and machine identity into a file that gets bundled and shared.
+    krabby_env = {k: v for k, v in sorted(_ENVIRON.items()) if k.startswith("KRABBY_")}
+
     env_cfg = parse_env_cfg(
         scenario.task,
         device=args_cli.device,
@@ -813,7 +825,12 @@ def main() -> None:
         "n_steps_planned": T,
         "travel_yaw": travel_yaw,
         "env_overrides": applied_overrides,
-        "env_vars": scenario.env_vars,
+        # The process's whole KRABBY_* environment as the config read it (manifest block already
+        # merged in above). Every row, body-frame and world-frame alike; scoring is untouched.
+        "env_vars": krabby_env,
+        # ... and what the MANIFEST row itself asked for, kept separately so "the row's env block"
+        # is still recoverable from the record (it used to BE ``env_vars``).
+        "env_vars_manifest": dict(scenario.env_vars),
         "foot_body_names": list(foot_body_names),
         "foot_body_ids": [int(i) for i in foot_body_ids],
         "sensor_foot_ids": [int(i) for i in sensor_foot_ids],

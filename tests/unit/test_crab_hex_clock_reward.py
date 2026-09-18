@@ -20,9 +20,13 @@ if str(MDP_DIR) not in sys.path:
     sys.path.insert(0, str(MDP_DIR))
 
 from crab_hex_clock_reward import (  # noqa: E402
+    FORCE_REF_N,
     FOOT_OFFSETS,
     FOOT_ORDER,
+    TOUCH_REF_N,
     TRIPOD_A,
+    VEL_REF_M_S,
+    WINDOW_SHARPNESS,
     clock_schedule_income,
     clock_swing_apex_income,
 )
@@ -121,6 +125,50 @@ def test_offsets_encode_alternating_tripod():
     for leg, off in zip(FOOT_ORDER, FOOT_OFFSETS):
         expected = 0.0 if leg in TRIPOD_A else math.pi
         assert off == pytest.approx(expected)
+
+
+def test_default_combine_is_the_additive_literal_bitwise():
+    """The DEFAULT path is the 2026-08-22 expression, to the bit (forward/sideways lineages).
+
+    ``combine`` is a seam: the forward-walk and sideways-walk tasks of record ship
+    ``params["combine"] = "sum"`` and the omni task (Revision 4, 2026-09-18) ships
+    ``"product"`` through ``KRABBY_OMNI_CLOCK_COMBINE``. Two lineages of record are scored by
+    this function, so the default may not move by one ulp: this recomputes the literal
+    ``(i_swing * swing_ok + i_stance * stance_ok).mean(dim=1)`` inline and asserts EQUALITY
+    (not ``approx``) against both the default call and the explicit ``combine="sum"`` call.
+    """
+    phase = torch.tensor([0.37, 1.9, 4.2])
+    forces = torch.tensor([[0.0, 700.0, 40.0, 5.0, 300.0, 650.0],
+                           [700.0, 0.0, 690.0, 12.0, 8.0, 705.0],
+                           [120.0, 300.0, 0.0, 700.0, 660.0, 30.0]])
+    speeds = torch.tensor([[0.0, 0.01, 0.30, 0.05, 0.12, 0.002],
+                           [0.004, 0.22, 0.0, 0.31, 0.09, 0.001],
+                           [0.18, 0.02, 0.4, 0.003, 0.0, 0.25]])
+    running = torch.tensor([True, True, False])
+
+    offsets = torch.as_tensor(FOOT_OFFSETS, device=phase.device, dtype=phase.dtype)
+    phi = phase[:, None] + offsets[None, :]
+    i_swing = torch.sigmoid(torch.sin(phi) / WINDOW_SHARPNESS)
+    i_swing = torch.where(running[:, None], i_swing, torch.zeros_like(i_swing))
+    i_stance = 1.0 - i_swing
+    swing_ok = torch.exp(-((forces / FORCE_REF_N) ** 2))
+    loaded = 1.0 - torch.exp(-((forces / TOUCH_REF_N) ** 2))
+    stance_ok = loaded * torch.exp(-((speeds / VEL_REF_M_S) ** 2))
+    literal = (i_swing * swing_ok + i_stance * stance_ok).mean(dim=1)
+
+    default = clock_schedule_income(phase, forces, speeds, running)
+    explicit = clock_schedule_income(phase, forces, speeds, running, combine="sum")
+    assert torch.equal(default, literal)
+    assert torch.equal(default, explicit)
+    # ... and "product" really is a DIFFERENT number here (so the pin above is not vacuous)
+    prod = clock_schedule_income(phase, forces, speeds, running, combine="product")
+    assert not torch.equal(default, prod)
+
+
+def test_unknown_combine_mode_raises():
+    with pytest.raises(ValueError, match="unknown combine mode"):
+        clock_schedule_income(torch.tensor([1.0]), torch.zeros(1, 6), torch.zeros(1, 6), RUN,
+                              combine="mean")
 
 
 def test_product_mode_zeroes_the_creep_ceiling():

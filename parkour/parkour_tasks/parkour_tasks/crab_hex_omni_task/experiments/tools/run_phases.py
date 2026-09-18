@@ -20,7 +20,15 @@ out of the preset by :func:`eval_env_for`, because without them the Play env bui
 defaults and scored the policy through an observation function it had never trained under.
 
     run_phases.py --campaign-dir <dir> --plant A15+B --phases 1a,1b,1c,2a,2b [--seed 3]
-                  [--from-checkpoint <pt>] [--iterations N] [--no-eval] [--pause-after 2b]
+                  [--from-checkpoint <pt> | --from-scratch] [--iterations N] [--no-eval]
+                  [--pause-after 2b]
+
+Every gate additionally reads the stage's own TRAINING log (2026-09-18): ``track_ratio_mean``
+averaged over the last 500 iterations must clear ``GATE_TRACK_RATIO_MIN`` 0.6. Tripod and survival
+are not translation metrics -- the seed-3 chain passed every gate while its speed tracking fell
+0.747 -> 0.433 -> 0.245 and the head ended up stepping in place at ~0.04 m/s. A from-scratch window
+longer than 1000 iterations is additionally aborted at iteration 1000 (``dead_walker``) if its
+800-1000 ``track_ratio_mean`` is below 0.5; ``--continue`` overrides that verdict like a gate.
 
 ``--phases`` default is the campaign of record's main chain, ``1a,1b,1c,2a,2b`` (Decision 6 of the
 plan): ``2c`` and ``2c_clockheld`` are BOTH resumed from the 2b head, not from each other, so they
@@ -30,9 +38,9 @@ in one ``--phases`` string, which would silently chain ``2c_clockheld`` off ``2c
 the driver's normal "resume from the previous listed phase" rule instead of off ``2b``.
 
 Resumable: rerunning skips phases already recorded ``ok`` for the seed (``--redo`` reruns them);
-the first requested phase resumes from ``--from-checkpoint`` when given, else from the recorded
-head of its ``resume_from`` phase. Launch through ``launch_phases.sh`` (systemd scope) and watch
-with ``heartbeat_phases.sh``.
+the first requested phase resumes from ``--from-checkpoint`` when given, from random init when
+``--from-scratch`` is given, else from the recorded head of its ``resume_from`` phase. Launch
+through ``launch_phases.sh`` (systemd scope) and watch with ``heartbeat_phases.sh``.
 """
 
 from __future__ import annotations
@@ -152,6 +160,26 @@ GATE_1C_DIR_RATIO = 0.3      # per-direction tracking floor (step-16 review deci
                              # coverage hole found in review: a forward-only walker must not pass an
                              # omnidirectional formation gate on tripod/completion alone
 GATE_FACING_MAX_RAD = 0.30   # rad, median heading_error_final_abs on the turn holds (enforced from 2a)
+# ------------------------------------------------- the training-log translation floor (2026-09-18)
+# Every gate (soft 1a/1b and gate_1c) additionally reads the stage's OWN training log. The verified
+# 1c diagnosis (ANALYSIS_1c_failure_2026-09-18.md, claims 2 and 4) is that the translation collapse
+# was visible in training long before any eval -- track_ratio_mean 0.747 (1a) -> 0.433 (1b) -> 0.245
+# (1c) -- while every gate passed it, because tripod and survival are not translation metrics: a
+# head that steps in place with a clean rhythm scores 0.85 tripod and 1.00 survival at ~0 m/s.
+# This floor is the cheapest possible cover for that hole: no GPU, no eval, one number the trainer
+# already prints every iteration.
+TRACK_RATIO_LABEL = "Metrics/base_parkour/track_ratio_mean"
+GATE_TRACK_RATIO_MIN = 0.6   # mean over the last GATE_TRACK_RATIO_N iterations of the stage's log
+GATE_TRACK_RATIO_N = 500     # measured on the seed-3 campaign logs: 1a 0.693 PASS (its 800-1000:
+                             # 0.747), 1b 0.406 FAIL, 1c 0.246 FAIL -- i.e. this floor would have
+                             # halted the chain at 1b, before 1c burned 2.5 GPU-h
+# ------------------------------------------------- the from-scratch early abort (2026-09-18, D)
+# A from-scratch window is cheap to abandon early and expensive to finish blind. User decision D
+# asks for a hard stop at 1000 iterations if the walker never formed: 1a reached 0.747 over its
+# 800-1000 window from scratch in exactly that budget, so 0.5 is a floor no forming walker fails.
+ABORT_AT_ITERS = 1000            # iterations after which the check fires (once)
+ABORT_WINDOW = 200               # iterations averaged: its 800-1000
+ABORT_TRACK_RATIO_MIN = 0.5
 SOFT_GATE_HOLD = {"1a": "fwd", "1b": "lat_l"}
 FACING_GATE_PHASES = ("2a", "2b")
 TURN_HOLDS = ("turn_l90", "turn_r90")
@@ -163,6 +191,11 @@ STAGE_RSI_SOURCE = {"1a": "0", "1b": "1"}                                       
 WALKING_CMD_MIN = 0.2     # documentation: the harness's lin_vel_clip -- a hold commanded at |cmd| <= this
                           # is a stand hold and gets tracking ratio n == 0, which is what walking_tripod() reads
 GATE_STATUSES = {"gate_1a", "gate_1b", "gate_1c", "gate_facing"}
+#: Statuses ``--continue`` may override by carrying the recorded checkpoint forward unretrained.
+#: ``dead_walker`` joins the gates because it is the same KIND of verdict -- a numeric floor on a
+#: head that exists -- unlike ``dead_plant`` / ``nan`` / ``infra``, which describe a run that
+#: produced nothing usable.
+OVERRIDABLE_STATUSES = GATE_STATUSES | {"dead_walker"}
 
 
 def _load(path: Path, name: str):
@@ -208,6 +241,47 @@ def fmt(v) -> str:
     if isinstance(v, float):
         return "n/a" if v != v else f"{v:.3f}"
     return str(v)
+
+
+# ------------------------------------------------------------------ translation floor (pure)
+def track_ratio_series(log_path: Path) -> list[float]:
+    """Every ``Metrics/base_parkour/track_ratio_mean`` value in a training log, in order.
+
+    The trainer prints one line per iteration, so index == iteration for a from-scratch run
+    (a RESUMED run's list still starts at this run's first iteration, which is why the early
+    abort below is from-scratch-only)."""
+    return series(log_path, TRACK_RATIO_LABEL)
+
+
+def track_ratio_tail(vals: list[float], n: int = GATE_TRACK_RATIO_N) -> float | None:
+    """Mean of the last ``n`` values, or ``None`` when the log carried none.
+
+    ``None`` rather than ``nan`` on purpose: the gates treat "no usable number" as a halt, and a
+    silent ``nan`` compares False against every floor -- which would read as a PASS.
+    """
+    if not vals:
+        return None
+    m = tail_mean(vals, n)
+    return None if m != m else m
+
+
+def dead_walker(vals: list[float], at_iters: int = ABORT_AT_ITERS, window: int = ABORT_WINDOW,
+                floor: float = ABORT_TRACK_RATIO_MIN) -> bool:
+    """True once a FROM-SCRATCH run has reached ``at_iters`` with no walker forming.
+
+    Reads the mean of the ``window`` iterations ending at ``at_iters`` (its 800-1000 by default),
+    NOT the whole tail: the first few hundred iterations of any from-scratch run are noise, and
+    including them would drag the mean down and abort a run that is forming late.
+
+    Returns False while the run is shorter than ``at_iters`` -- the check fires once, on the way
+    past, and never again (a later dip is the gates' business, not the aborter's).
+    """
+    if len(vals) < at_iters:
+        return False
+    seg = vals[at_iters - window:at_iters]
+    if not seg:
+        return False
+    return (sum(seg) / len(seg)) < floor
 
 
 def _med(x):
@@ -416,10 +490,15 @@ class Campaign:
         if self.report.exists():
             return
         rows = ["| phase | task / mode | iterations | resume from | notes |", "|---|---|---|---|---|"]
-        for name in phases:
+        for i, name in enumerate(phases):
             s = ph.PHASES[name]
             mode = f"`{s.task}`" + (f" + mode `{s.teacher_mode}`" if s.teacher_mode else "")
-            rows.append(f"| {name} | {mode} | {args.iterations or s.iterations} | {s.resume_from or 'scratch'} | {s.notes} |")
+            resume = s.resume_from or "scratch"
+            if i == 0 and getattr(args, "from_scratch", False):
+                resume = "scratch (--from-scratch)"
+            elif i == 0 and args.from_checkpoint:
+                resume = f"`{Path(args.from_checkpoint).name}` (--from-checkpoint)"
+            rows.append(f"| {name} | {mode} | {args.iterations or s.iterations} | {resume} | {s.notes} |")
         head = (f"# Omni-formation campaign `{self.dir.name}`\n\n"
                 f"Plant **{self.plant}** (`{ph.plant_usd_path(self.plant) or 'assets/crab.usda (main)'}`), seed {self.seed}, "
                 f"phases {', '.join(phases)}. Driver: `parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/tools/run_phases.py`; presets: "
@@ -427,7 +506,9 @@ class Campaign:
         self.report.write_text(head + "\n\n")
         self.changelog.write_text(f"# CHANGELOG — {self.dir.name}\n")
         self.changelog_row(f"campaign start: plant {self.plant}, seed {self.seed}, phases {', '.join(phases)}"
-                           + (f", iterations override {args.iterations}" if args.iterations else ""))
+                           + (f", iterations override {args.iterations}" if args.iterations else "")
+                           + (", --from-scratch (first phase ignores its resume_from)"
+                              if getattr(args, "from_scratch", False) else ""))
 
 
 # ------------------------------------------------------------------ subprocess plumbing
@@ -518,8 +599,19 @@ def eval_env_for(spec, plant: str, *, keep: tuple[str, ...] = CANARY_KEYS,
 
 
 # ------------------------------------------------------------------ training
-def train(c: Campaign, spec, tag: str, iters: int, resume_ckpt: str | None, soundness: bool) -> tuple[str | None, str, Path]:
-    """One phase of training. Returns (ckpt | None, status, log); status in {ok, dead_plant, nan, infra}."""
+def train(c: Campaign, spec, tag: str, iters: int, resume_ckpt: str | None, soundness: bool,
+          early_abort: bool = False) -> tuple[str | None, str, Path]:
+    """One phase of training. Returns (ckpt | None, status, log).
+
+    ``status`` in ``{ok, dead_plant, dead_walker, nan, infra}``.
+
+    ``early_abort`` (2026-09-18, decision D) arms the from-scratch translation abort: at
+    ``ABORT_AT_ITERS`` iterations, if the training log's ``track_ratio_mean`` over its 800-1000
+    window is below ``ABORT_TRACK_RATIO_MIN``, no walker is forming and the remaining 4000-7000
+    iterations would buy nothing -- kill and report ``dead_walker``. Unlike ``dead_plant`` the
+    checkpoint IS returned when one exists, so the record has a head and ``--continue`` can carry
+    it forward unretrained (:data:`OVERRIDABLE_STATUSES`) if the user disagrees with the abort.
+    """
     t0 = time.time()
     log_path = c.logs / f"{tag}_train.log"
     cmd = [PY, str(TRAIN), "--task", spec.task, "--headless", "--num_envs", NUM_ENVS[spec.kind],
@@ -555,6 +647,21 @@ def train(c: Campaign, spec, tag: str, iters: int, resume_ckpt: str | None, soun
                               f"{tail_mean(ep, 100):.0f} by {SMOKE_ITERS}")
                         proc.kill(); proc.wait(timeout=60)
                         return None, "dead_plant", log_path
+                if early_abort:
+                    tr = track_ratio_series(log_path)
+                    if dead_walker(tr):
+                        got = sum(tr[ABORT_AT_ITERS - ABORT_WINDOW:ABORT_AT_ITERS]) / ABORT_WINDOW
+                        c.log(f"{tag}: DEAD WALKER — track_ratio_mean {got:.3f} over its "
+                              f"{ABORT_AT_ITERS - ABORT_WINDOW}-{ABORT_AT_ITERS} (need >= "
+                              f"{ABORT_TRACK_RATIO_MIN}); the walker is not forming — aborting early. "
+                              f"NOTE: --continue carries the {ABORT_AT_ITERS}-iteration head into the next "
+                              f"phase UNRETRAINED; to finish this window instead relaunch "
+                              f"--phases {spec.name} --from-checkpoint <this head> --iterations "
+                              f"{iters - ABORT_AT_ITERS} (then the chain with the same --phases list)")
+                        proc.kill(); proc.wait(timeout=60)
+                        # keep whatever head exists: the verdict is a floor on a head that ran,
+                        # not a run that produced nothing (--continue may carry it forward).
+                        return latest_run_ckpt(LOG_ROOT / spec.experiment, t0), "dead_walker", log_path
             except OSError:
                 pass
         proc.wait(timeout=300)
@@ -569,12 +676,13 @@ def train(c: Campaign, spec, tag: str, iters: int, resume_ckpt: str | None, soun
     return ckpt, "ok", log_path
 
 
-def train_retry(c: Campaign, spec, tag: str, iters: int, resume_ckpt: str | None, soundness: bool):
-    ckpt, status, lp = train(c, spec, tag, iters, resume_ckpt, soundness)
+def train_retry(c: Campaign, spec, tag: str, iters: int, resume_ckpt: str | None, soundness: bool,
+                early_abort: bool = False):
+    ckpt, status, lp = train(c, spec, tag, iters, resume_ckpt, soundness, early_abort)
     if ckpt is None and status == "infra":
         c.log(f"{tag}: infra death — one retry")
         _wait_isaac_clear(); time.sleep(120)
-        ckpt, status, lp = train(c, spec, f"{tag}_r2", iters, resume_ckpt, soundness)
+        ckpt, status, lp = train(c, spec, f"{tag}_r2", iters, resume_ckpt, soundness, early_abort)
     return ckpt, status, lp
 
 
@@ -772,16 +880,35 @@ def phase_checks(rec: dict, spec, c: Campaign) -> list[tuple[str, bool]]:
     return checks
 
 
+def resume_label(rec: dict) -> str:
+    """What the REPORT / state record says this phase resumed from.
+
+    ``--from-scratch`` is spelled out rather than shown as a bare ``scratch``: a phase whose spec
+    says ``resume_from: 1b`` but which was deliberately started cold is the single most important
+    thing to be able to read back off a record months later (decision D, 2026-09-18).
+    """
+    if rec.get("resume"):
+        return Path(rec["resume"]).name
+    return "scratch (--from-scratch)" if rec.get("from_scratch") else "scratch"
+
+
 def phase_lines(rec: dict, spec) -> list[str]:
     ex = rec.get("exposure") or {}
     s = (rec.get("evals") or {}).get("slow") or {}
     l = (rec.get("evals") or {}).get("light") or {}
     o = (rec.get("evals") or {}).get("ring") or {}
     ck = Path(rec["ckpt"]).parent.name + "/" + Path(rec["ckpt"]).name if rec.get("ckpt") else "—"
-    lines = [f"- status **{rec.get('status')}** | checkpoint `{ck}` | resume `{Path(rec['resume']).name if rec.get('resume') else 'scratch'}` | "
+    lines = [f"- status **{rec.get('status')}** | checkpoint `{ck}` | resume `{resume_label(rec)}` | "
              f"{rec.get('iters')} its | wall {rec.get('wall_h', float('nan')):.2f} h"]
     sm = rec.get("smoke") or {}
     lines.append(f"- smoke fail@2k {fmt(sm.get('fail_2k'))} fail@end {fmt(sm.get('fail_end'))} coll@2k {fmt(sm.get('coll_2k'))} ep_len@2k {fmt(sm.get('ep_len_2k'))}")
+    # The gated TRAINING-log translation number (2026-09-18): the one translation metric that is
+    # independent of the eval env. Written by _apply_gate; recomputed here for --no-eval runs.
+    tr = rec.get("track_ratio_tail")
+    if tr is None and Path(rec.get("log", "/nonexistent")).exists():
+        tr = track_ratio_tail(track_ratio_series(Path(rec["log"])))
+    lines.append(f"- training translation floor: track_ratio_mean (last {GATE_TRACK_RATIO_N} its) "
+                 f"{fmt(tr) if tr is not None else 'n/a'} (gate floor {GATE_TRACK_RATIO_MIN})")
     if rec.get("ckpt"):
         lines += expo_lines(ex)
     if rec.get("ckpt") and rec.get("evals"):
@@ -810,7 +937,22 @@ def phase_lines(rec: dict, spec) -> list[str]:
 
 
 # ------------------------------------------------------------------ gates (pure; tested standalone)
-def gate_soft_verdict(summary: dict, hold: str, tripod_min: float, completion_min: float) -> tuple[str, str]:
+def _track_ratio_clause(track_ratio: float | None, floor: float = GATE_TRACK_RATIO_MIN) -> tuple[bool, str]:
+    """``(passes, text)`` for the training-log translation floor, shared by every gate.
+
+    ``None`` (the log carried no ``track_ratio_mean`` print at all) is a FAILURE, not a skip: the
+    number is the one translation metric that needs no GPU, and a gate that silently drops it is
+    the 2026-09-18 coverage hole all over again.
+    """
+    if track_ratio is None:
+        return False, f"training track_ratio_mean n/a (need >= {floor} over the last {GATE_TRACK_RATIO_N} its)"
+    return track_ratio >= floor, (f"training track_ratio_mean {track_ratio:.3f} (need >= {floor} over the last "
+                                  f"{GATE_TRACK_RATIO_N} its)")
+
+
+def gate_soft_verdict(summary: dict, hold: str, tripod_min: float, completion_min: float, *,
+                      track_ratio: float | None = None,
+                      track_ratio_min: float = GATE_TRACK_RATIO_MIN) -> tuple[str, str]:
     """Soft per-stage gate for the short formation stages (1a: hold='fwd'; 1b: hold='lat_l').
 
     Reads the SPECIFIC hold's walking-tripod median, not the min over every walking hold: the
@@ -818,6 +960,14 @@ def gate_soft_verdict(summary: dict, hold: str, tripod_min: float, completion_mi
     trained (1a samples body +x only; 1b body +y only), so only the stage's own hold is a fair test.
     A missing number (three eval attempts failed, or the hold was never scored) halts, same as a
     numeric failure: an ungated head must not carry on unattended.
+
+    THIRD CRITERION (2026-09-18): the stage's own TRAINING log must show
+    ``track_ratio_mean >= track_ratio_min`` averaged over its last ``GATE_TRACK_RATIO_N``
+    iterations. Tripod and survival are gait/robustness metrics, not translation metrics -- the
+    seed-3 1b head passed this gate at 0.360 tripod / 0.96 survival while its speed tracking had
+    already fallen to 0.406, and 1c then drifted to 0.245 unwatched. ``track_ratio`` is passed in
+    by :func:`_apply_gate` (via :func:`track_ratio_tail`) rather than read here, so the whole
+    verdict stays pure and testable; ``None`` halts.
     """
     tri_by_hold = summary.get("tripod_by_hold") or {}
     tri = tri_by_hold.get(hold)
@@ -827,19 +977,21 @@ def gate_soft_verdict(summary: dict, hold: str, tripod_min: float, completion_mi
     comp = surv_by_hold.get(hold)
     whole = summary.get("completion")
     by_hold = ", ".join(f"{h} {v:.3f}" if v is not None else f"{h} n/a" for h, v in tri_by_hold.items()) or "none"
-    if tri is None or comp is None:
+    tr_ok, tr_str = _track_ratio_clause(track_ratio, track_ratio_min)
+    if tri is None or comp is None or track_ratio is None:
         return "halt", (f"soft gate could not be evaluated on hold {hold!r} — tripod={tri!r}, survival through the "
-                        f"hold={comp!r} (by hold: {by_hold}); campaign HALTED (inspect the eval log, then relaunch "
-                        "with --continue to override, or fix and --redo)")
-    if tri < tripod_min or comp < completion_min:
+                        f"hold={comp!r} (by hold: {by_hold}), {tr_str}; campaign HALTED (inspect the eval log, then "
+                        "relaunch with --continue to override, or fix and --redo)")
+    if tri < tripod_min or comp < completion_min or not tr_ok:
         return "halt", (f"soft gate FAILED on hold {hold!r} — tripod {tri:.3f} (need >= {tripod_min}; by hold: {by_hold}), "
                         f"survival through the hold {comp:.3f} (need >= {completion_min}; whole-schedule completion "
-                        f"{whole!r}) — campaign HALTED (relaunch with --continue to override, or fix and --redo)")
+                        f"{whole!r}), {tr_str} — campaign HALTED (relaunch with --continue to override, or fix and --redo)")
     return "ok", (f"soft gate passed on hold {hold!r} — tripod {tri:.3f} (by hold: {by_hold}), survival through the hold "
-                  f"{comp:.3f} (whole-schedule completion {whole!r})")
+                  f"{comp:.3f} (whole-schedule completion {whole!r}), {tr_str}")
 
 
-def gate_1c_verdict(summary: dict) -> tuple[str, str]:
+def gate_1c_verdict(summary: dict, *, track_ratio: float | None = None,
+                    track_ratio_min: float = GATE_TRACK_RATIO_MIN) -> tuple[str, str]:
     """The written formation gate (Part H), enforced after 1c on ``slow__omni``.
 
     walking-hold tripod >= ``GATE_1C_TRIPOD`` on EACH moving hold (equivalent to the MIN over
@@ -863,6 +1015,13 @@ def gate_1c_verdict(summary: dict) -> tuple[str, str]:
     a head that walks forward only (tripod stepping through the stop on every other hold without
     actually tracking it) could otherwise pass an omnidirectional formation gate. The message names
     each failing direction hold.
+
+    FIFTH CRITERION (2026-09-18): the training log's own ``track_ratio_mean`` over the last
+    ``GATE_TRACK_RATIO_N`` iterations must clear ``track_ratio_min``. The four eval criteria above
+    are all measured on the canary, and the canary was itself defective for the whole seed-3
+    campaign (the facing-obs clip; ANALYSIS claim 1); the training number is independent of the
+    eval env entirely, costs nothing, and on the seed-3 chain it fell 0.747 -> 0.433 -> 0.245 while
+    the gates were reading tripod. ``None`` halts.
     """
     tri, tri_by_hold = summary.get("tripod_walking"), (summary.get("tripod_by_hold") or {})
     comp = summary.get("completion")
@@ -877,21 +1036,25 @@ def gate_1c_verdict(summary: dict) -> tuple[str, str]:
         f"{h} {net.get(h):.3f}" if net.get(h) is not None else f"{h} n/a" for h in TURN_HOLDS) + ")"
     dir_str = ", ".join(f"{h} {v:.3f}" if v is not None else f"{h} n/a" for h, v in dir_ratio.items())
     failing_dirs = [h for h, v in dir_ratio.items() if v is None or v < GATE_1C_DIR_RATIO]
-    if tri is None or comp is None or any(v is None for v in turn_rates.values()) or any(v is None for v in dir_ratio.values()):
+    tr_ok, tr_str = _track_ratio_clause(track_ratio, track_ratio_min)
+    if (tri is None or comp is None or track_ratio is None
+            or any(v is None for v in turn_rates.values()) or any(v is None for v in dir_ratio.values())):
         return "gate_1c", (f"formation gate could not be evaluated — walking-hold tripod={tri!r} (by hold: {by_hold}), "
                            f"completion={comp!r}, yaw-progress rate {rate_str}, per-direction speed_ratio {dir_str} "
-                           f"(need >= {GATE_1C_DIR_RATIO} on each of {', '.join(GATE_1C_DIR_HOLDS)}) on slow__omni; "
-                           "campaign HALTED (inspect the eval log, then relaunch with --continue to override, or fix and --redo)")
+                           f"(need >= {GATE_1C_DIR_RATIO} on each of {', '.join(GATE_1C_DIR_HOLDS)}) on slow__omni, "
+                           f"{tr_str}; campaign HALTED (inspect the eval log, then relaunch with --continue to "
+                           "override, or fix and --redo)")
     if (tri < GATE_1C_TRIPOD or comp < GATE_1C_COMPLETION or any(v < GATE_1C_YAW_RATE for v in turn_rates.values())
-            or failing_dirs):
+            or failing_dirs or not tr_ok):
         failing_str = ", ".join(failing_dirs) if failing_dirs else "none"
         return "gate_1c", (f"formation gate FAILED — walking-hold tripod {tri:.3f} (need >= {GATE_1C_TRIPOD}; by hold: "
                            f"{by_hold}), completion {comp:.3f} (need >= {GATE_1C_COMPLETION}), yaw-progress rate "
                            f"{rate_str} (need >= {GATE_1C_YAW_RATE} rad/s on each), per-direction speed_ratio {dir_str} "
                            f"(need >= {GATE_1C_DIR_RATIO} on each of {', '.join(GATE_1C_DIR_HOLDS)}; failing: {failing_str}) "
-                           "on slow__omni — campaign HALTED (relaunch with --continue to override, or fix and --redo)")
+                           f"on slow__omni, {tr_str} — campaign HALTED (relaunch with --continue to override, or fix "
+                           "and --redo)")
     return "ok", (f"formation gate passed — walking-hold tripod {tri:.3f} (by hold: {by_hold}), completion {comp:.3f}, "
-                 f"yaw-progress rate {rate_str}, per-direction speed_ratio {dir_str} on slow__omni")
+                 f"yaw-progress rate {rate_str}, per-direction speed_ratio {dir_str} on slow__omni, {tr_str}")
 
 
 def gate_facing_verdict(summary: dict) -> tuple[str, str]:
@@ -914,15 +1077,23 @@ def gate_facing_verdict(summary: dict) -> tuple[str, str]:
 
 def _apply_gate(c: Campaign, spec, rec: dict, tag: str) -> None:
     """Runs the phase-appropriate gate (if any) against ``rec["evals"]["slow"]`` and mutates
-    ``rec["status"]`` on a halt, notifying and logging exactly like the sideways ``gate_1a`` site."""
+    ``rec["status"]`` on a halt, notifying and logging exactly like the sideways ``gate_1a`` site.
+
+    Also computes the stage's TRAINING-log translation number once (2026-09-18) and records it on
+    the phase record, so the REPORT and any later re-scoring read the same value the gate did.
+    """
     if rec["status"] != "ok":
         return
     slow = rec["evals"].get("slow") or {}
+    lp = Path(rec["log"])
+    track_ratio = track_ratio_tail(track_ratio_series(lp)) if lp.exists() else None
+    rec["track_ratio_tail"] = track_ratio
     if spec.name in SOFT_GATE_HOLD:
-        status, msg = gate_soft_verdict(slow, SOFT_GATE_HOLD[spec.name], GATE_SOFT_TRIPOD, GATE_SOFT_COMPLETION)
+        status, msg = gate_soft_verdict(slow, SOFT_GATE_HOLD[spec.name], GATE_SOFT_TRIPOD,
+                                        GATE_SOFT_COMPLETION, track_ratio=track_ratio)
         gate_status = f"gate_{spec.name}" if status != "ok" else "ok"
     elif spec.name == "1c":
-        status, msg = gate_1c_verdict(slow)
+        status, msg = gate_1c_verdict(slow, track_ratio=track_ratio)
         gate_status = status
     elif spec.name in FACING_GATE_PHASES:
         status, msg = gate_facing_verdict(slow)
@@ -979,7 +1150,8 @@ def interrupted_phase(c: Campaign) -> dict | None:
 
 
 # ------------------------------------------------------------------ per-phase run
-def run_phase(c: Campaign, spec, resume_ckpt: str | None, iters: int, do_eval: bool) -> dict:
+def run_phase(c: Campaign, spec, resume_ckpt: str | None, iters: int, do_eval: bool,
+              from_scratch: bool = False) -> dict:
     c.st["run_no"] += 1
     tag = f"{c.key}_{spec.name}_{c.st['run_no']:03d}_{c.plant.replace('+', 'p')}" + (f"_it{iters}" if iters != spec.iterations else "")
     t0 = time.time()
@@ -990,15 +1162,24 @@ def run_phase(c: Campaign, spec, resume_ckpt: str | None, iters: int, do_eval: b
     # no escape hatch. No omni window qualifies: 1a is the only from-scratch window and it is 1000
     # its (< SMOKE_ITERS); every window from 1c on resumes the previous phase's head. Collapse there
     # is covered instead by the soft gates (1a/1b) and gate_1c (1c on).
+    #
+    # The translation early abort (2026-09-18, decision D) is armed on the same condition MINUS
+    # the length rule -- any from-scratch window long enough to reach ABORT_AT_ITERS. Under
+    # decision D the 1c window itself runs from scratch for 5000-8000 its, which is exactly the
+    # run that must not spend 2.5-4 GPU-h on a creeper.
     ckpt, status, lp = train_retry(
-        c, spec, tag, iters, resume_ckpt, soundness=(resume_ckpt is None and iters >= SMOKE_ITERS)
+        c, spec, tag, iters, resume_ckpt, soundness=(resume_ckpt is None and iters >= SMOKE_ITERS),
+        early_abort=(resume_ckpt is None and iters > ABORT_AT_ITERS),
     )
     rec = {"phase": spec.name, "tag": tag, "task": spec.task, "mode": spec.teacher_mode, "ckpt": ckpt, "status": status,
-           "resume": resume_ckpt, "iters": iters, "log": str(lp), "wall_h": (time.time() - t0) / 3600.0,
+           "resume": resume_ckpt, "from_scratch": bool(from_scratch), "iters": iters, "log": str(lp),
+           "wall_h": (time.time() - t0) / 3600.0,
            "env": {"KRABBY_OMNI_PHASE": spec.name, "KRABBY_PLANT": c.plant}, "evals": {}}
     rec["smoke"] = smoke_fields(lp) if lp.exists() else {}
     rec["exposure"] = exposure_from_log(lp) if lp.exists() else {}
-    if ckpt and do_eval:
+    # An aborted head is not evaluated: the abort exists to SAVE the ~40 min of eval rows and the
+    # hours that would follow. The record still carries its checkpoint and its training numbers.
+    if ckpt and do_eval and status == "ok":
         rec["evals"]["slow"] = eval_morph(c, spec, ckpt, "slow", tag)
         # SHORT-STAGE handling (Part H): 1a/1b run the flat canary only (~2 min instead of ~40) --
         # no light-ring or ring row -- and are checked by their own soft gate on that one hold.
@@ -1027,6 +1208,11 @@ def main() -> int:
                          "ALWAYS launched separately with --from-checkpoint (see the module docstring) -- "
                          "never include both in one --phases list")
     ap.add_argument("--from-checkpoint", default=None, help="resume the first listed phase from this checkpoint")
+    ap.add_argument("--from-scratch", action="store_true",
+                    help="start the FIRST listed phase from scratch, ignoring its spec's resume_from "
+                         "(decision D, 2026-09-18: a from-scratch 1c). Recorded as resume "
+                         "'scratch (--from-scratch)'; mutually exclusive with --from-checkpoint. "
+                         f"Arms the {ABORT_AT_ITERS}-iteration dead_walker abort on that phase.")
     ap.add_argument("--iterations", type=int, default=None, help="override every phase's iteration count (smokes)")
     ap.add_argument("--no-eval", action="store_true")
     ap.add_argument("--pause-after", default=DEFAULT_PAUSE, help="phases after which to stop and wait ('' = none)")
@@ -1034,7 +1220,8 @@ def main() -> int:
     ap.add_argument("--continue", dest="cont", action="store_true",
                     help="finish the interrupted phase recorded in state['current'] from its newest checkpoint "
                          "(remaining iterations only), then carry on with the listed phases; also overrides a "
-                         "gate_1a/gate_1b/gate_1c/gate_facing halt (uses the recorded checkpoint without retraining)")
+                         "gate_1a/gate_1b/gate_1c/gate_facing/dead_walker halt (uses the recorded checkpoint "
+                         "without retraining)")
     args = ap.parse_args()
 
     phases = [p.strip() for p in args.phases.split(",") if p.strip()]
@@ -1043,6 +1230,8 @@ def main() -> int:
         ap.error(f"unknown phases {unknown}; known: {list(ph.PHASES)}")
     if "2c" in phases and "2c_clockheld" in phases:
         ap.error("2c and 2c_clockheld both resume the 2b head; launch them separately (see the module docstring)")
+    if args.from_scratch and args.from_checkpoint:
+        ap.error("--from-scratch and --from-checkpoint contradict each other: pick one")
     pause_after = {p.strip() for p in args.pause_after.split(",") if p.strip()}
     c = Campaign(Path(args.campaign_dir).resolve(), args.plant, str(args.seed))
     c.dir.mkdir(parents=True, exist_ok=True)
@@ -1084,9 +1273,9 @@ def main() -> int:
                          f"--phases to continue")
                 return 0
             continue
-        if rec and rec.get("ckpt") and not args.redo and not (i == 0 and args.from_checkpoint) and (
-                rec.get("status") == "ok" or (rec.get("status") in GATE_STATUSES and args.cont)):
-            if rec.get("status") in GATE_STATUSES:
+        if rec and rec.get("ckpt") and not args.redo and not (i == 0 and (args.from_checkpoint or args.from_scratch)) and (
+                rec.get("status") == "ok" or (rec.get("status") in OVERRIDABLE_STATUSES and args.cont)):
+            if rec.get("status") in OVERRIDABLE_STATUSES:
                 gate = rec["status"]
                 nxt = phases[i + 1] if i + 1 < len(phases) else "nothing"
                 stamp = f"{datetime.now():%Y-%m-%d %H:%M}"
@@ -1106,14 +1295,20 @@ def main() -> int:
                 c.log(f"{name}: already recorded ok ({Path(rec['ckpt']).name}) — skipping")
             prev_ckpt = rec["ckpt"]
             continue
-        resume = prev_ckpt if (i > 0 or args.from_checkpoint) else None
-        if resume is None and spec.resume_from:
+        # --from-scratch applies to the FIRST listed phase only: the rest of the chain resumes the
+        # phase before it as usual (a cold restart mid-chain is a different campaign, not a flag).
+        cold = bool(args.from_scratch and i == 0)
+        resume = None if cold else (prev_ckpt if (i > 0 or args.from_checkpoint) else None)
+        if resume is None and spec.resume_from and not cold:
             resume = (c.recs.get(spec.resume_from) or {}).get("ckpt")
             if not resume:
                 c.st["phase"] = f"halt:{name} needs the {spec.resume_from} head (pass --from-checkpoint)"
                 c.save(); c.notify(c.st["phase"]); return 2
+        if cold:
+            c.log(f"{name}: --from-scratch — ignoring the spec's resume_from "
+                  f"({spec.resume_from or 'none'}); training from random init")
         iters = args.iterations or spec.iterations
-        rec = run_phase(c, spec, resume, iters, do_eval=not args.no_eval)
+        rec = run_phase(c, spec, resume, iters, do_eval=not args.no_eval, from_scratch=cold)
         c.recs[name] = rec
         c.st["current"] = {}
         c.save()

@@ -30,7 +30,7 @@ student (the shared camera-event bug and the +y mount decision stay open).
 | Five `cmd[:,0]`-only gate sites + two clock-reward sites | the literal `cmd[:,0]` | dispatch through shared `_cmd_gate`/`_clock_cmd_speed` helpers; forward branch = each site's old literal, unchanged **Revision 2 (2026-09-17):** the omni branch of `_cmd_gate` reads the clock speed max(‖cmd_xy‖, r_turn·\|cmd_wz\|), not ‖cmd_xy‖ alone, so a pure turn switches the gait-shaping terms on like translation does — both earlier yaw smokes had stepped in place with them off. |
 | Reward twins (same NAMES) | `penalty_lin_vel_y`, `reward_tracking_goal_vel`, `reward_tracking_yaw`, `reward_obstacle_clearance` | `penalty_cross_command_vel_l2` (velocity across the commanded direction, gated `‖cmd‖>0.12`, weight −3.0), `reward_tracking_command_vel_on_obstacle` (world progress along the commanded direction, obstacle-masked), `reward_facing_exp` = `exp(−\|wrap(heading_target−heading_w)\|)` on every tile no gate (`KRABBY_YAW_W` 0.2 **from 1c**, 0 in 1a/1b), `reward_obstacle_clearance_omni` (lift-and-cross bonus read along the commanded direction) |
 | Reward ADDED (the 36th name) | — | `reward_yaw_progress` = `clip(wz_b·sign(cmd_wz), ±ang_vel_max)`, gated `cmd_wz ≠ 0`, weight 1.0 (`KRABBY_YAW_PROGRESS_W`, armed in every window) — the rotational twin of `reward_forward_progress_along_command`: dense, SIGNED income for rotating the way the turn was commanded. Added 2026-09-17 after the yaw-capability smoke stood, stepped in place and rotated the **wrong way** (see [The turning fix](#the-turning-fix)) |
-| `track_ang_vel_z_exp` std | 0.5 | 0.15 (gradient at 0.15–0.3 rad/s where the old std had none) |
+| `track_ang_vel_z_exp` std | 0.5 | class body 0.15 (plan D4: gradient at 0.15–0.3 rad/s), but **every preset sets `KRABBY_OMNI_ANG_VEL_STD=0.5` — back to the forward value** (Revision 4, 2026-09-18; the tight kernel taxed gait wobble on the 88 % of steps that command no turn) |
 | Termination | `terminate_episode` (course-goal cutoff) | `terminate_episode_no_goals` (roll/pitch/height/timeout only — the ring's sector anchors never advance) |
 | Mirror-symmetry | 1 image (L/R only) | **4 images**: `identity, M_y (L/R), M_x (fore-aft), M_x M_y = R_z(π)` — both body mirror planes preserve the task now that any direction is commandable |
 | Height-scanner offset | `pos (0.6, 0.0, 20.0)` | `pos (0.0, 0.0, 20.0)` — required to lie on BOTH mirror planes (108 rays, obs 1149 unchanged) |
@@ -72,7 +72,7 @@ the plant can do and left `track_ang_vel_z_exp` (std √0.25) with no usable gra
 The fix, all landing together: a yaw-rate **cap** `ang_vel_max` 0.3 rad/s (`KRABBY_OMNI_ANG_VEL_MAX`,
 replacing the stock ±1) with a tighter dead band `ang_vel_clip` 0.2 (a facing dead band of 0.133 rad
 at stiffness 1.5, vs. the forward task's 0.267 rad); `track_ang_vel_z_exp` std tightened 0.5 → 0.15
-(gradient across 0.15–0.3 rad/s); the gait clock driven by turning (`r_turn` 1.2 m,
+(gradient across 0.15–0.3 rad/s — **reverted to 0.5 by Revision 4**, see below); the gait clock driven by turning (`r_turn` 1.2 m,
 `KRABBY_OMNI_CLOCK_TURN_R`, so the smallest non-zero yaw command 0.2 gives clock speed 0.24, above
 the 0.2 m/s stall floor); and `reward_facing_exp`, a facing reward with no tile mask and no command
 gate, armed from stage **1c** (`KRABBY_YAW_W` 0.2 — inert at 0 in 1a/1b, which hold facing and have
@@ -97,7 +97,7 @@ down (0.27–0.43 throughout).
 
 **Why the existing terms could not fix it.** Both facing terms are even functions of a signed
 quantity read through wobble an order of magnitude larger than the drift they price:
-`track_ang_vel_z_exp` (std 0.15) and `reward_facing_exp` (weight 0.2) both pay about the same for
+`track_ang_vel_z_exp` (std 0.15 at the time; Revision 4 set it back to 0.5) and `reward_facing_exp` (weight 0.2) both pay about the same for
 +0.28 and −0.28 rad/s, so one step of wobble swamps their gradient and neither can tell "rotating
 towards the target" from "rotating away". And **nothing in the 35 rewarded rotating** the way
 `reward_forward_progress_along_command` rewards translating — the task paid for *being* at the
@@ -160,6 +160,65 @@ itself widens to `0.2:1.2` then `0.2:2.4`: the band ramp only changes how LONG a
 what the policy must be able to see to resolve the dead-band edge, so the observation clip does not
 widen with it.
 
+### Revision 4 — the reward economy (2026-09-18)
+
+**The 1c formation gate failed, and the diagnosis was not about turning.** Seed 3 ran
+`1a → 1b → 1c` and `gate_1c` recorded completion 0.00 with 100/100 falls. Two separate things were
+wrong, and only one of them was the policy
+(`experiments/2026-09-16_1805_omni_formation/ANALYSIS_1c_failure_2026-09-18.md`, a 31-agent
+workflow whose claims survived three-lens adversarial refutation):
+
+1. **An eval defect (established, fixed in `d0fdd9c`).** The driver's canary env never carried
+   `KRABBY_OMNI_FACING_OBS_CLIP`, so the policy was scored on a raw 1.57-rad facing error against a
+   ±0.6-rad training support. The same head under the corrected driver completes **0.39**, with
+   survival 1.00 on every translation hold. The recorded canary, and the light/ring rows, are void.
+2. **A real policy failure the eval fix does not touch: the robot stopped travelling.** Speed
+   tracking, measured in TRAINING, fell **0.747 (1a) → 0.433 (1b) → 0.245 (1c)** while mean reward
+   *rose* 61 → 93. The 1c head survives every translation hold by stepping in place with a clean
+   0.85-tripod rhythm at ~0.04 m/s against 0.25 commanded.
+
+**Why stillness was the optimum.** Of the 1c head's 2.73/s positive income, clock + apex was 34 %,
+the linear-velocity exponential 30 %, the angular-velocity exponential 28 %, facing 6.6 % — and the
+terms that *require motion* totalled **1.2 %**. A Monte-Carlo of the 1c command sampler predicts
+that a **zero-velocity** policy earns `track_lin_vel_xy_exp` 0.835 and L1 −0.182; the logged head
+earned 0.826 / −0.177. It had found the standing solution to three digits.
+
+**The fix — four values, uniform in every omni window** (user decision D, 2026-09-18; `OMNI_COMMON`
+in `crab_hex_omni_phases.py`). Uniformity is deliberate: the chain lost forward travel at the
+`1a → 1b` handoff, and a window whose economy differs from its neighbour's is exactly that handoff.
+
+| knob | was | now | why |
+|---|---|---|---|
+| `KRABBY_TRACK_SIGMA2` | `0.1` (forward) | `0.04` | `exp(−‖cmd−v‖²/σ²)` pays a stander 0.835 at 0.1 and ~0.21 at 0.04 — standing stops being 99 % of walking's tracking income |
+| `KRABBY_TRACK_L1_W` | `−1.0` (forward) | `−2.0` | the one term whose gradient does not vanish at `v = 0`; break-even for a stander at σ² 0.1 alone would need ≈ −2.9 |
+| `KRABBY_OMNI_ANG_VEL_STD` | `0.15` (plan D4 class-body literal) | `0.5` (**the forward value**) | at 0.15 ordinary gait yaw wobble on the 88 % of steps that command NO turn costs 0.36/s at 0.10 rad/s and 0.63/s at 0.15 — a tax on walking larger than the whole translation income. The turning signal is carried by `reward_yaw_progress` (Revision 1), which did not exist when 0.15 was chosen |
+| `KRABBY_OMNI_CLOCK_COMBINE` | `sum` (forward literal) | `product` | `reward_clock_schedule` stops paying `(swing half + stance half)` — a creeper collects the whole stance half free, ~0.5 ceiling — and pays `swing_quality × stance_quality`, which a foot that never leaves the ground multiplies toward 0 |
+
+**The clock `combine` mechanism is the forward task's own, not new here.**
+`crab_hex_clock_reward.clock_schedule_income(..., combine=...)` has taken `"sum"` / `"product"`
+since 2026-08-22 (the basin-lottery fix), with its own unit tests; the forward rewards cfg declares
+`params["combine"] = "sum"` and `KRABBY_CLOCK_COMBINE` applies it forward-side. Only the omni
+*spelling* is new, so **no forward preset moves**. `KRABBY_OMNI_CLOCK_COMBINE` is applied by
+`apply_omni_knobs` — after the forward `__post_init__` — so it wins if both are set. Note what
+`"product"` does and does not do: it prices gait QUALITY (a foot that never swings earns nothing),
+not travel. Making standing unprofitable is the tracking pair's job.
+
+**Run shape (decision D).** A **from-scratch** 1c window of 5000–8000 iterations on the 1c preset
+with these terms (`run_phases.py --phases 1c --from-scratch`), then 2a/2b resumed from its head.
+Two safety nets land with it, both reading the TRAINING log rather than an eval:
+
+* every gate (soft 1a/1b and `gate_1c`) additionally requires
+  `Metrics/base_parkour/track_ratio_mean ≥ 0.6` averaged over the last 500 iterations — the seed-3
+  numbers are 1a **0.693 PASS**, 1b **0.406 FAIL**, 1c **0.246 FAIL**, i.e. this floor alone would
+  have halted the chain after 1b;
+* a from-scratch window longer than 1000 iterations is aborted at iteration 1000 (`dead_walker`,
+  `--continue`-overridable) if its its-800-1000 mean is below 0.5 — 1a formed a walker from scratch
+  at 0.747 in exactly that budget.
+
+**Status: the three tuned values are PROVISIONAL.** They are to be confirmed by an offline replay
+on the saved 1a/1c raws (does the walker out-earn the creeper under these terms?) before the window
+is launched. The plumbing is landed either way; the numbers may move.
+
 ## The three rules
 
 1. **Never export `KRABBY_PHASE` or `KRABBY_SIDE_PHASE` in an omni process.**
@@ -202,13 +261,16 @@ forward horizon scaling); `KRABBY_OMNI_SPEED_ELLIPSE=0.35:0.25:0.25`, `KRABBY_OM
 no turn, so the only thing it pays there is correcting yaw drift back to the held facing),
 `KRABBY_OMNI_FACING_OBS_CLIP=0.6` (Revision 3, 2026-09-17 — the facing-error observation clip,
 fixed at the 1c facing band's edge in every window regardless of that window's own facing-band
-ramp) in every window; dropped
+ramp), and the Revision 4 reward economy (2026-09-18): `KRABBY_TRACK_SIGMA2=0.04`,
+`KRABBY_TRACK_L1_W=-2.0`, `KRABBY_OMNI_ANG_VEL_STD=0.5`, `KRABBY_OMNI_CLOCK_COMBINE=product` —
+in every window; dropped
 everywhere: `KRABBY_HEADING`, `KRABBY_RSI_SPAWN_FIX`, the corridor knobs (`KRABBY_CORRIDOR_HALF_WIDTH`
 etc. — defensive, they never appear in a forward window today). Everything else — gait weights,
-`KRABBY_PHASEOUT` ramps, `TRACK_SIGMA2`/`TRACK_L1_W`, `EPISODE_S 40`, `RESAMPLE_S 10:10`, `RSI_FRAC
+`KRABBY_PHASEOUT` ramps, `EPISODE_S 40`, `RESAMPLE_S 10:10`, `RSI_FRAC
 0.2`, DR, `EDGE_W`/`STUMBLE_W`/`COLLISION_W`/`CLEARANCE_W`/`FOOT_CLEAR_*`/`SWING_MIN_CLEAR_W`,
 `GOAL_VEL_W`, `FLAT_TERRAIN_MODE/FLAT_FRAC/DIFF` — is the forward window's own values, carried
-unchanged. No phase 3 (teacher only in this plan).
+unchanged. (`TRACK_SIGMA2`/`TRACK_L1_W` used to be on that carried-unchanged list; Revision 4 moved
+them.) No phase 3 (teacher only in this plan).
 
 ### Omni-only knobs (`config/crab_hex/omni_knobs.py`, `mdp/omni_terrain_knobs.py`)
 
@@ -225,8 +287,15 @@ presence-based like the forward `_W` knobs, so `=0` is a legitimate ablation. Na
 forward `_overrides` table — no forward cfg has that term) · `KRABBY_OMNI_FACING_OBS_CLIP` (rad,
 must be `> 0`; writes `params["facing_obs_clip"]` onto every omni observation term, raises if none
 is installed; symmetrically clips steering channels 6/7 — see Revision 3 above; armed at `0.6` in
-every preset). `KRABBY_RSI_BANK` / `KRABBY_RSI_FRAC`
-are shared with the forward task.
+every preset) · `KRABBY_OMNI_ANG_VEL_STD` (rad/s, must be `> 0`; writes
+`rewards.track_ang_vel_z_exp.params["std"]`, raises if the term is missing — Revision 4, armed at
+`0.5` in every preset) · `KRABBY_OMNI_CLOCK_COMBINE` (`sum` | `product`; writes `params["combine"]`
+onto every reward term that already HAS that key — today `reward_clock_schedule` only, since
+`clock_swing_apex_income` takes no such argument — raises if no term does. Applied after the
+forward block, so it wins over the forward-owned `KRABBY_CLOCK_COMBINE`; Revision 4, armed at
+`product` in every preset). `KRABBY_RSI_BANK` / `KRABBY_RSI_FRAC` are shared with the forward
+task, as are `KRABBY_TRACK_SIGMA2` / `KRABBY_TRACK_L1_W` (the omni presets re-point both:
+Revision 4).
 
 ## Training
 
@@ -304,6 +373,19 @@ formation gate), `gate_facing` (facing precision, enforced from 2a), `nan`, `inf
 - **`gate_facing` (facing precision).** WATCHED at 1c, ENFORCED from 2a: median
   `heading_error_final_abs` **≤ 0.30 rad** on each turn hold (the 1c facing band, ±0.6 rad, is
   too narrow for this to be a fair test; 2a widens it to ±1.2).
+- **The training-log translation floor (2026-09-18, every gate above).** On top of its own
+  criteria, each gate requires the stage's TRAINING log to show
+  `Metrics/base_parkour/track_ratio_mean ≥ 0.6` averaged over the last 500 iterations. Tripod and
+  survival are gait and robustness metrics, not translation metrics: the seed-3 1b head passed its
+  soft gate at 0.360 tripod / 0.96 survival while its speed tracking had already fallen to 0.406,
+  and 1c then drifted to 0.245 unwatched. Seed-3 numbers: 1a **0.693 PASS**, 1b **0.406 FAIL**,
+  1c **0.246 FAIL**. A missing number is a halt, never a skip. The eval-independent half of this
+  matters on its own — the campaign's canaries were themselves defective (Revision 4, cause 1).
+- **`dead_walker` (from-scratch early abort, 2026-09-18).** A from-scratch window longer than 1000
+  iterations is killed at iteration 1000 if its its-800-1000 `track_ratio_mean` is below 0.5 — no
+  walker is forming and the remaining 4000–7000 iterations buy nothing. The checkpoint is kept and
+  the record is `--continue`-overridable, like a gate (1a formed a walker from scratch at 0.747 in
+  exactly this budget, so the floor clears any run that is forming).
 - **Watched, not enforced (any phase):** per-direction `speed_ratio` ≥ 0.5, `|duty A − duty B| ≤
   0.10`, cam `shaft_mean_abs_vel`, slip, knee saturation, `recap_frac`.
 

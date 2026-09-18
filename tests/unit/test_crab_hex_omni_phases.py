@@ -35,16 +35,24 @@ WALK = "Isaac-Crab-Hex-Omni-Walk-v0"
 TEACHER = "Isaac-Crab-Hex-Omni-Teacher-v0"
 
 # ---------------------------------------------------------------- the expected env key delta
+#: Set by EVERY forward window and overridden by ``OMNI_COMMON`` -> they read as differing VALUES
+#: in the delta, not as omni-only additions (Revision 4, 2026-09-18 -- the reward economy).
+ECONOMY_REPOINTED = {"KRABBY_TRACK_SIGMA2", "KRABBY_TRACK_L1_W"}
 #: Re-pointed in every window (same key, different value).
-REPOINTED = {"KRABBY_RSI_BANK", "KRABBY_FLAT_TERRAIN_GEOM", "KRABBY_TERRAIN_PROMOTE"}
+REPOINTED = {"KRABBY_RSI_BANK", "KRABBY_FLAT_TERRAIN_GEOM",
+             "KRABBY_TERRAIN_PROMOTE"} | ECONOMY_REPOINTED
 #: The phase-independent omni block (added to every window). ``KRABBY_YAW_PROGRESS_W`` is a
 #: reward dose rather than a sampler field, but it is armed in EVERY window (1a/1b draw no
 #: turning slot, so nothing there commands a turn for it to pay), so it belongs to the common
 #: block. ``KRABBY_OMNI_FACING_OBS_CLIP`` (Revision 3, 2026-09-17) is likewise armed everywhere
 #: at the same 0.6 rad -- the facing band ramps per phase, but the observation clip does not.
+#: ``KRABBY_OMNI_ANG_VEL_STD`` / ``KRABBY_OMNI_CLOCK_COMBINE`` (Revision 4, 2026-09-18) are also
+#: armed everywhere: the economy must be uniform along the chain (a window whose economy differs
+#: from its neighbour's is the handoff that lost forward travel at 1a->1b).
 OMNI_COMMON_KEYS = {"KRABBY_OMNI_SPEED_ELLIPSE", "KRABBY_OMNI_ANG_VEL_MAX",
                     "KRABBY_OMNI_CLOCK_TURN_R", "KRABBY_OMNI_YAW_RANGE",
-                    "KRABBY_YAW_PROGRESS_W", "KRABBY_OMNI_FACING_OBS_CLIP"}
+                    "KRABBY_YAW_PROGRESS_W", "KRABBY_OMNI_FACING_OBS_CLIP",
+                    "KRABBY_OMNI_ANG_VEL_STD", "KRABBY_OMNI_CLOCK_COMBINE"}
 
 #: phase -> (forward-only keys, omni-only keys, keys present in both with a different value).
 #: Window 0 carries neither ``KRABBY_FLAT_TERRAIN_GEOM`` nor ``KRABBY_TERRAIN_PROMOTE``, so for
@@ -53,10 +61,11 @@ _STAGE1_ADDED = OMNI_COMMON_KEYS | {"KRABBY_FLAT_TERRAIN_GEOM", "KRABBY_TERRAIN_
                                     "KRABBY_OMNI_SLOTS", "KRABBY_OMNI_RSI_SOURCE"}
 _TEACHER_ADDED = OMNI_COMMON_KEYS | {"KRABBY_OMNI_SLOTS", "KRABBY_OMNI_RSI_SOURCE",
                                      "KRABBY_OMNI_FACING"}
+_STAGE1_DIFFER = {"KRABBY_RSI_BANK"} | ECONOMY_REPOINTED
 EXPECTED_DELTA: dict[str, tuple[set, set, set]] = {
-    "1a": (set(), _STAGE1_ADDED | {"KRABBY_OMNI_DIR_BAND"}, {"KRABBY_RSI_BANK"}),
-    "1b": (set(), _STAGE1_ADDED | {"KRABBY_OMNI_DIR_BAND"}, {"KRABBY_RSI_BANK"}),
-    "1c": (set(), _STAGE1_ADDED | {"KRABBY_OMNI_FACING", "KRABBY_YAW_W"}, {"KRABBY_RSI_BANK"}),
+    "1a": (set(), _STAGE1_ADDED | {"KRABBY_OMNI_DIR_BAND"}, _STAGE1_DIFFER),
+    "1b": (set(), _STAGE1_ADDED | {"KRABBY_OMNI_DIR_BAND"}, _STAGE1_DIFFER),
+    "1c": (set(), _STAGE1_ADDED | {"KRABBY_OMNI_FACING", "KRABBY_YAW_W"}, _STAGE1_DIFFER),
     "2a": (set(), _TEACHER_ADDED, REPOINTED),
     "2b": ({"KRABBY_HEADING"}, _TEACHER_ADDED, REPOINTED),
     "2c": ({"KRABBY_HEADING"}, _TEACHER_ADDED, REPOINTED),
@@ -99,6 +108,13 @@ EXPECTED_COMMON = {
     # Revision 3 (2026-09-17): the facing-error observation clip, fixed at the 1c band's edge
     # in every window regardless of the facing band's own per-phase ramp (0.6 -> 1.2 -> 2.4).
     "KRABBY_OMNI_FACING_OBS_CLIP": "0.6",
+    # Revision 4 (2026-09-18, user decision D): the reward economy, uniform along the chain.
+    # The two tracking knobs are also here -- they are FORWARD key names, so they show up as
+    # differing values rather than additions (ECONOMY_REPOINTED above).
+    "KRABBY_TRACK_SIGMA2": "0.04",
+    "KRABBY_TRACK_L1_W": "-2.0",
+    "KRABBY_OMNI_ANG_VEL_STD": "0.5",
+    "KRABBY_OMNI_CLOCK_COMBINE": "product",
 }
 
 
@@ -188,6 +204,10 @@ def test_omni_common_block_in_every_window(omni, name):
     for k, v in EXPECTED_COMMON.items():
         assert env[k] == v, f"{name}: {k}"
     assert env["KRABBY_RSI_BANK"] == str(omni.OMNI_BANK)
+    # Revision 4: the economy is the SAME in every window -- that uniformity is the point
+    # (the 1a->1b handoff that lost forward travel differed in its terms).
+    assert env["KRABBY_TRACK_SIGMA2"] == "0.04" and env["KRABBY_TRACK_L1_W"] == "-2.0"
+    assert env["KRABBY_OMNI_CLOCK_COMBINE"] == "product"
     assert env["KRABBY_RSI_BANK"].endswith("rsi_bank_omni.npz")
     assert "KRABBY_HEADING" not in env, "the facing sampler replaces KRABBY_HEADING"
     for dropped in omni.DROPPED_KEYS:
@@ -202,6 +222,22 @@ def test_per_stage_sampler_values(omni, name):
             assert key not in env, f"{name}: {key} must be absent, got {env.get(key)!r}"
         else:
             assert env[key] == want, f"{name}: {key}"
+
+
+@pytest.mark.parametrize("name", PHASE_NAMES)
+def test_economy_knobs_override_the_forward_window_values(fwd, omni, name):
+    """Revision 4: the two tracking knobs exist on BOTH sides, so they must read as re-points.
+
+    Pins the forward side too. If a future forward window stopped setting them, they would turn
+    into omni-only ADDITIONS and ``EXPECTED_DELTA`` would be quietly wrong rather than failing.
+    """
+    f = fwd.PHASES[FORWARD_OF[name]].env
+    o = omni.PHASES[name].env
+    assert f["KRABBY_TRACK_SIGMA2"] == "0.1" and f["KRABBY_TRACK_L1_W"] == "-1.0", (
+        f"{name}: the forward window no longer sets the tracking knobs to their 2026-09 values"
+    )
+    assert o["KRABBY_TRACK_SIGMA2"] == "0.04" and o["KRABBY_TRACK_L1_W"] == "-2.0"
+    assert ECONOMY_REPOINTED <= (set(f) & set(o))
 
 
 def test_phase1_stages_differ_only_in_the_sampler(omni):
@@ -394,6 +430,30 @@ def test_parse_speed_ellipse_and_scalars(knobs):
         knobs.parse_clock_turn_radius("-1")
 
 
+def test_parse_ang_vel_std(knobs):
+    """Revision 4: the kernel width of ``track_ang_vel_z_exp``, strictly positive."""
+    assert knobs.ANG_VEL_STD_VAR == "KRABBY_OMNI_ANG_VEL_STD"
+    assert knobs.parse_ang_vel_std("0.5") == 0.5
+    assert knobs.parse_ang_vel_std(" 0.15 ") == 0.15
+    for bad in ("0", "-0.5", "nan", "inf", "0.5:0.5", ""):
+        with pytest.raises(ValueError):
+            knobs.parse_ang_vel_std(bad)
+
+
+def test_parse_clock_combine(knobs):
+    """Revision 4: only the two modes ``clock_schedule_income`` implements are accepted.
+
+    A typo must fail at CONFIG BUILD naming the knob, not from inside the reward manager on the
+    first training step (which is where the pure function's own ``ValueError`` would surface).
+    """
+    assert knobs.CLOCK_COMBINE_VAR == "KRABBY_OMNI_CLOCK_COMBINE"
+    assert knobs.parse_clock_combine("product") == "product"
+    assert knobs.parse_clock_combine(" SUM ") == "sum"
+    for bad in ("", "prod", "mean", "multiply", "1"):
+        with pytest.raises(ValueError, match="KRABBY_OMNI_CLOCK_COMBINE"):
+            knobs.parse_clock_combine(bad)
+
+
 def test_parse_facing_and_yaw_range(knobs):
     assert knobs.parse_facing("0.2:0.6") == (0.2, 0.6)
     assert knobs.parse_facing("0.2:2.4") == (0.2, 2.4)
@@ -438,6 +498,12 @@ def test_every_preset_value_parses(omni, knobs, name):
     assert knobs.parse_ang_vel_max(env["KRABBY_OMNI_ANG_VEL_MAX"]) > 0.2
     # the added term's weight is a plain float (applied by _apply_reward_weight_knobs)
     assert float(env["KRABBY_YAW_PROGRESS_W"]) == 1.0
+    # Revision 4 (2026-09-18): the two reward-shape knobs round-trip through their own parsers
+    assert knobs.parse_ang_vel_std(env["KRABBY_OMNI_ANG_VEL_STD"]) == 0.5
+    assert knobs.parse_clock_combine(env["KRABBY_OMNI_CLOCK_COMBINE"]) == "product"
+    # and the tracking pair is numerically what the diagnosis asked for
+    assert float(env["KRABBY_TRACK_SIGMA2"]) == 0.04
+    assert float(env["KRABBY_TRACK_L1_W"]) == -2.0
     # the facing-error observation clip is a plain float > 0 (applied by
     # _apply_facing_obs_clip_knob) and must round-trip to the 1c band's edge, 0.6 rad, in
     # EVERY window regardless of that window's own facing-band ramp (Revision 3, 2026-09-17)
@@ -522,6 +588,86 @@ def test_yaw_progress_weight_knob_refuses_a_cfg_without_the_term(knobs):
     assert not hasattr(cfg.rewards, "reward_yaw_progress")
     # ... and with the knob unset it is a no-op even then (RSI-off style configurations)
     knobs._apply_reward_weight_knobs(cfg, {})
+
+
+# ------------------------------------------- Revision 4: the reward-economy shape knobs
+class _FakeParamTerm:
+    def __init__(self, **params):
+        self.weight = 1.0
+        self.params = dict(params)
+
+
+class _FakeRewardsEnvCfg:
+    """The two reward paths Revision 4's knobs write, in their shipped shapes.
+
+    ``track_ang_vel_z_exp`` carries ``std`` (the omni class body's 0.15); the clock SCHEDULE term
+    carries ``combine`` (the forward class body's "sum"); the clock APEX term deliberately does
+    NOT -- ``clock_swing_apex_income`` takes no such argument, and writing the key onto it would
+    raise inside the reward manager on the first step.
+    """
+
+    def __init__(self, *, with_std=True, with_combine=True):
+        self.rewards = types.SimpleNamespace()
+        if with_std:
+            self.rewards.track_ang_vel_z_exp = _FakeParamTerm(command_name="base_velocity", std=0.15)
+        if with_combine:
+            self.rewards.reward_clock_schedule = _FakeParamTerm(command_name="base_velocity",
+                                                                combine="sum")
+        self.rewards.reward_clock_swing_apex = _FakeParamTerm(command_name="base_velocity",
+                                                              apex_m=0.08)
+
+
+def test_ang_vel_std_knob_is_applied(knobs):
+    cfg = _FakeRewardsEnvCfg()
+    knobs._apply_ang_vel_std_knob(cfg, {"KRABBY_OMNI_ANG_VEL_STD": "0.5"})
+    assert cfg.rewards.track_ang_vel_z_exp.params["std"] == 0.5
+    # the other params on the term are untouched
+    assert cfg.rewards.track_ang_vel_z_exp.params["command_name"] == "base_velocity"
+    # unset / empty -> the class-body literal (plan D4's 0.15) survives
+    cfg2 = _FakeRewardsEnvCfg()
+    knobs._apply_ang_vel_std_knob(cfg2, {})
+    knobs._apply_ang_vel_std_knob(cfg2, {"KRABBY_OMNI_ANG_VEL_STD": "  "})
+    assert cfg2.rewards.track_ang_vel_z_exp.params["std"] == 0.15
+
+
+def test_ang_vel_std_knob_refuses_a_cfg_without_the_term(knobs):
+    cfg = _FakeRewardsEnvCfg(with_std=False)
+    with pytest.raises(RuntimeError, match="track_ang_vel_z_exp"):
+        knobs._apply_ang_vel_std_knob(cfg, {"KRABBY_OMNI_ANG_VEL_STD": "0.5"})
+    knobs._apply_ang_vel_std_knob(cfg, {})      # unset is still a no-op
+
+
+def test_ang_vel_std_knob_rejects_a_degenerate_width(knobs):
+    cfg = _FakeRewardsEnvCfg()
+    for bad in ("0", "-0.5"):
+        with pytest.raises(ValueError, match="KRABBY_OMNI_ANG_VEL_STD"):
+            knobs._apply_ang_vel_std_knob(cfg, {"KRABBY_OMNI_ANG_VEL_STD": bad})
+    assert cfg.rewards.track_ang_vel_z_exp.params["std"] == 0.15
+
+
+def test_clock_combine_knob_writes_only_terms_that_take_the_param(knobs):
+    cfg = _FakeRewardsEnvCfg()
+    knobs._apply_clock_combine_knob(cfg, {"KRABBY_OMNI_CLOCK_COMBINE": "product"})
+    assert cfg.rewards.reward_clock_schedule.params["combine"] == "product"
+    # the apex term has no combine argument: it must NOT grow one
+    assert "combine" not in cfg.rewards.reward_clock_swing_apex.params
+    # unset -> the forward class-body literal survives
+    cfg2 = _FakeRewardsEnvCfg()
+    knobs._apply_clock_combine_knob(cfg2, {})
+    assert cfg2.rewards.reward_clock_schedule.params["combine"] == "sum"
+
+
+def test_clock_combine_knob_refuses_a_cfg_with_no_combine_param(knobs):
+    cfg = _FakeRewardsEnvCfg(with_combine=False)
+    with pytest.raises(RuntimeError, match="KRABBY_OMNI_CLOCK_COMBINE"):
+        knobs._apply_clock_combine_knob(cfg, {"KRABBY_OMNI_CLOCK_COMBINE": "product"})
+
+
+def test_clock_combine_knob_rejects_an_unknown_mode(knobs):
+    cfg = _FakeRewardsEnvCfg()
+    with pytest.raises(ValueError, match="KRABBY_OMNI_CLOCK_COMBINE"):
+        knobs._apply_clock_combine_knob(cfg, {"KRABBY_OMNI_CLOCK_COMBINE": "prod"})
+    assert cfg.rewards.reward_clock_schedule.params["combine"] == "sum"
 
 
 # ------------------------------------------------- the facing-error observation clip knob

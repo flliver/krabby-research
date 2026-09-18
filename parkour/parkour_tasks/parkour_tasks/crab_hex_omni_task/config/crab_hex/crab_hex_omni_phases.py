@@ -37,11 +37,15 @@ control twin for "did the clock phase-out cost anything?", run from the 2b head.
 * re-pointed: ``KRABBY_RSI_BANK`` -> the omni bank, ``KRABBY_FLAT_TERRAIN_GEOM=ring`` (every
   window -- ``apply_omni_ring_knobs`` REQUIRES it and fails loudly on a leaked corridor
   preset), ``KRABBY_TERRAIN_PROMOTE=0.45:0.25`` (the omni parkour term promotes on a
-  dimensionless TRACKING RATIO, so the forward horizon scaling does not apply);
+  dimensionless TRACKING RATIO, so the forward horizon scaling does not apply), and -- Revision 4,
+  2026-09-18 -- ``KRABBY_TRACK_SIGMA2`` 0.1 -> 0.04 and ``KRABBY_TRACK_L1_W`` -1.0 -> -2.0, the
+  two tracking knobs every forward window also sets (so they read as DIFFERING VALUES in the
+  delta, not additions);
 * added: the ``KRABBY_OMNI_*`` block (:data:`OMNI_COMMON` in every window, plus the per-stage
   slots / direction band / RSI source / facing band), ``KRABBY_YAW_PROGRESS_W=1.0`` in every
   window (the added rotational-progress term; 1a/1b command no turn, so the only thing it can
-  pay there is correcting the robot's own yaw drift back to the facing it held) and
+  pay there is correcting the robot's own yaw drift back to the facing it held),
+  ``KRABBY_OMNI_ANG_VEL_STD=0.5`` and ``KRABBY_OMNI_CLOCK_COMBINE=product`` (Revision 4) and
   ``KRABBY_YAW_W`` from 1c.
 
 **One task per process.** This package activates from its own variable ``KRABBY_OMNI_PHASE``
@@ -178,6 +182,44 @@ OMNI_COMMON: dict[str, str] = {
     # +0.071 rad/s on turn_l90 / turn_r90 / move_turn, 3/16 falls -- gate PASS. User decision,
     # Revision 3.)
     "KRABBY_OMNI_FACING_OBS_CLIP": "0.6",
+    # ---------------------------------------------------------------- Revision 4 (2026-09-18)
+    # THE REWARD ECONOMY. User decision D after the verified 1c diagnosis
+    # (ANALYSIS_1c_failure_2026-09-18.md): under 1c's terms the cheapest policy is to stand
+    # still and keep time. Measured on the seed-3 chain: speed tracking fell 0.747 (1a) ->
+    # 0.433 (1b) -> 0.245 (1c) while mean reward ROSE 61 -> 93, and a Monte-Carlo of the 1c
+    # sampler predicts a ZERO-VELOCITY policy earns track_lin_vel_xy_exp 0.835 / L1 -0.182
+    # against the logged 0.826 / -0.177 -- i.e. the logged head was, to three digits, the
+    # standing solution. Motion-REQUIRING terms were 1.2 % of its 2.73/s positive income.
+    #
+    # All four values are UNIFORM along the chain, deliberately: the 1c failure was a drift
+    # under a fixed economy, and a window whose economy differs from its neighbour's is exactly
+    # the handoff that lost forward travel at 1a->1b. They are PROVISIONAL until the offline
+    # replay on the saved 1a/1c raws confirms the walker out-earns the creeper.
+    #
+    # KRABBY_TRACK_SIGMA2 0.1 -> 0.04 (every forward window sets 0.1, so this is a DIFFERING
+    #   VALUE in the delta, not an addition): track_lin_vel_xy_exp = exp(-|cmd-v|^2 / sigma2).
+    #   At v = 0 against the 1c sampler's mean move-row command it pays 0.835 at 0.1 and ~0.21
+    #   at 0.04 -- standing stops being 99 % of walking's tracking income.
+    # KRABBY_TRACK_L1_W -1.0 -> -2.0 (also set by every forward window): doubles the linear
+    #   ||cmd - v|| penalty, the one term whose gradient does not vanish at v = 0 (break-even
+    #   for a stander at sigma2 0.1 alone would need ~-2.9; with sigma2 0.04 the pair clears it).
+    # KRABBY_OMNI_ANG_VEL_STD 0.15 -> 0.5 (the FORWARD value, sqrt(0.25); the omni rewards class
+    #   body declares 0.15 per plan D4, so this knob returns the kernel to the forward width):
+    #   at 0.15, ordinary gait yaw wobble on the 88 % of steps that command NO turn costs
+    #   0.36/s at 0.10 rad/s and 0.63/s at 0.15 rad/s -- a tax on walking larger than the whole
+    #   translation income. At 0.5 the kernel is flat there; the turning signal is carried by
+    #   reward_yaw_progress (weight 1.0), which did not exist when the plan chose 0.15.
+    # KRABBY_OMNI_CLOCK_COMBINE sum -> product: reward_clock_schedule's income stops being
+    #   (swing half + stance half), where a creeper collects the whole stance half for free
+    #   (~0.5 ceiling; clock+apex were 34 % of 1c's positive income), and becomes
+    #   swing_quality x stance_quality, which a foot that never leaves the ground multiplies
+    #   toward 0. The MECHANISM is the forward task's own (clock_schedule_income(..., combine=),
+    #   2026-08-22, with its own unit tests); only the omni SPELLING of the knob is new, so no
+    #   forward preset moves.
+    "KRABBY_TRACK_SIGMA2": "0.04",
+    "KRABBY_TRACK_L1_W": "-2.0",
+    "KRABBY_OMNI_ANG_VEL_STD": "0.5",
+    "KRABBY_OMNI_CLOCK_COMBINE": "product",
 }
 
 #: Slot mixes (stand : move : turn : move+turn).

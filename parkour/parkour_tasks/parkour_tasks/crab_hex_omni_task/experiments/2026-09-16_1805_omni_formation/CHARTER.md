@@ -75,6 +75,8 @@ camera-event bug and the +y mount decision stay open, Caveat 11).
 | D9 | Parkour/events | `OmniParkourEvent`: tile-centre spawn reference, a goal index that never advances, radial/sector exposure ledgers, promotion by TRACKING RATIO (not downrange distance — fixes the forward term's dead threshold for lateral/backward commands); `reset_root_state_ring`: tile-centre spawn with a uniform random world yaw. |
 | D10 | Eval harness | World-frame holds (`speed, dir, face`) compiled and driven through the SAME `schedule_hook`/`_update_command` P-control training uses; per-step travel-frame rotation in `metrics.py`/`report.py`; `facing_metrics` (heading error, settle time, the gated signed yaw-progress rate and the net-rotation cross-check; the magnitude ratio kept for continuity only); `scenarios_omni.yaml` (`slow__omni`, `light__omni`, `ring__omni`). All three rows run the checkpoint on the `Walk-Play` task, never `Teacher-Play` (whose env cfg requires `KRABBY_HEX_TEACHER_MODE`, unset by every eval here); `ring__omni` carries no `env:` block — the driver's `eval_obst` injects `KRABBY_FLAT_TERRAIN_MODE=light`, `_FLAT_FRAC=0.0`, `_GEOM=ring`, `_DIFF=0.20:0.70` at run time (MODE/FLAT_FRAC are load-bearing: without them the shared knob loop's unconditional sub-terrain-proportion reset leaves the ring at proportion 0, i.e. an all-flat build). |
 | D11 | Presets | `KRABBY_OMNI_PHASE` (`1a,1b,1c,2a,2b,2c,2c_clockheld`); phase 1 is three stages sharing one MDP, differing only in the command sampler's direction band, slot mix and RSI frame source (1a body +x / 1b body +y / 1c any direction, merged bank); `KRABBY_HEADING` dropped everywhere (the facing sampler replaces it) and is refused if set (`_check_omni`). `KRABBY_OMNI_FACING_OBS_CLIP=0.6` (Revision 3, 2026-09-17) is armed in `OMNI_COMMON` — every window, unlike the facing band it does not ramp with phase. |
+| D4b | **Revision 4 — the reward economy (2026-09-18, user decision D)** | The verified 1c diagnosis (`ANALYSIS_1c_failure_2026-09-18.md`): under 1c's terms standing still was the optimum — a Monte-Carlo of the 1c sampler predicts a zero-velocity policy earns `track_lin_vel_xy_exp` 0.835 / L1 −0.182 against the logged head's 0.826 / −0.177, motion-requiring terms were 1.2 % of income, and training speed tracking fell 0.747 → 0.433 → 0.245 while mean reward rose 61 → 93. Four values, applied in `OMNI_COMMON` so the economy is UNIFORM in every window: `KRABBY_TRACK_SIGMA2` 0.1 → **0.04**, `KRABBY_TRACK_L1_W` −1.0 → **−2.0** (both are forward key names, so they are differing VALUES in the delta, not additions), `KRABBY_OMNI_ANG_VEL_STD` (new knob) 0.15 → **0.5** — back to the forward kernel, since the tight one taxed gait wobble on the 88 % of steps that command no turn — and `KRABBY_OMNI_CLOCK_COMBINE` (new omni knob) sum → **product**, so `reward_clock_schedule` pays `swing_quality × stance_quality` instead of handing a creeper the whole stance half free. The clock `combine` MECHANISM is the forward task's own (`clock_schedule_income(..., combine=)`, 2026-08-22); only the omni spelling is new and no forward preset moves. Run shape: a FROM-SCRATCH 1c window (5000–8000 its, `--from-scratch`), then 2a/2b from its head. **The three tuned values are PROVISIONAL until the offline replay confirms the walker out-earns the creeper.** |
+| D12b | **Gates read the training log (2026-09-18)** | Every gate (soft 1a/1b and `gate_1c`) additionally requires `Metrics/base_parkour/track_ratio_mean ≥ GATE_TRACK_RATIO_MIN 0.6` over the stage's last 500 iterations — tripod and survival are not translation metrics, and the campaign's own canaries were defective, so the one translation number that needs no GPU and no eval env belongs in every verdict. Seed-3: 1a 0.693 PASS, 1b 0.406 FAIL, 1c 0.246 FAIL — this floor alone would have halted the chain after 1b. Plus a from-scratch early abort: at iteration 1000, its-800-1000 mean < 0.5 → `dead_walker` (checkpoint kept, `--continue`-overridable like a gate). Fixtures: the real seed-3 prints in `tests/unit/fixtures/omni_track_ratio/`. |
 | D12 | Package / driver / campaign | Registration (4 `Isaac-Crab-Hex-Omni-*` ids — Walk / Walk-Play / Teacher / Teacher-Play, teacher-only; 16 `Isaac-Crab-Hex-*` ids in total with the 6 forward + 6 sideways), `apply_omni_knobs`/`_check_omni`; this experiments layer: `run_phases.py`/`launch_phases.sh`/`heartbeat_phases.sh`/`bundle_experiment.py`, this CHARTER + `bundle.yaml` + `decision_table.py`. |
 
 ## Driver invocation
@@ -112,6 +114,14 @@ are floors, not like-for-like bars (0.30 is well under the forward/sideways cree
 — they exist so a from-scratch formation failure on the very first stage does not burn 1b/1c/2a-2b
 hours unattended. `--continue` overrides either halt (`gate_1a`/`gate_1b`).
 
+**Third criterion (2026-09-18): the stage's own training log.** Both soft gates additionally require
+`Metrics/base_parkour/track_ratio_mean >= GATE_TRACK_RATIO_MIN` **0.6**, averaged over the stage's last
+`GATE_TRACK_RATIO_N` **500** iterations; a missing number is a halt, not a skip. Tripod and survival are gait and
+robustness metrics — the seed-3 1b head cleared this gate at 0.360 tripod / 0.96 survival through `lat_l` while its
+speed tracking had already fallen to 0.406, and 1c then drifted to 0.245 with nothing watching. Seed-3 numbers on the
+real logs (extracted to `tests/unit/fixtures/omni_track_ratio/`): **1a 0.693 PASS, 1b 0.406 FAIL, 1c 0.246 FAIL** —
+this floor alone would have halted the chain after 1b.
+
 ## The written formation gate (`gate_1c`, enforced by the driver after 1c)
 
 On `slow__omni`: **walking-hold tripod ≥ 0.40 on EACH moving hold** (`fwd, lat_l, diag, back,
@@ -132,6 +142,18 @@ formation gate. `fwd` is excluded from this floor because the tripod/completion 
 already constrain it. `gate_1c_verdict` (`run_phases.py`) and `gate_1c` (`decision_table.py`) both
 read `dir_ratio_by_hold`, name the failing hold(s) in the message, and are cross-checked by
 `tests/unit/test_crab_hex_omni_gate.py`.
+
+**Fifth criterion (2026-09-18): the training log.** As for the soft gates — `track_ratio_mean >= 0.6` over 1c's last
+500 iterations. This one is independent of the eval env entirely, which matters because the whole seed-3 campaign's
+canaries were themselves defective (the missing facing-obs clip): the training number would have been right even when
+every eval number was wrong.
+
+**`dead_walker` — the from-scratch early abort (2026-09-18, decision D).** A from-scratch window longer than 1000
+iterations is killed at iteration 1000 when the mean of its its-800-1000 `track_ratio_mean` is below
+`ABORT_TRACK_RATIO_MIN` **0.5**: no walker is forming, and the remaining 4000-7000 iterations (2-3.5 GPU-h) buy
+nothing. Unlike `dead_plant`, the checkpoint IS kept and the verdict is `--continue`-overridable, because it is a
+floor on a head that exists rather than a run that produced nothing. Calibration: 1a formed a walker from scratch at
+0.747 over exactly this window, so the floor clears any run that is forming.
 
 `yaw_progress_rate` (`gait_eval/metrics.py::facing_metrics`, per hold, aggregated by
 `report.py::aggregate` into `facing_by_hold[h]`) is the mean of `wz_t · sign(wz_cmd_t)` over the
@@ -387,4 +409,15 @@ min (Verification 9, run once before any window). Two seeds (3 then 2), trained 
   Options costed: A --continue (proves nothing), B --redo 1c from 1b with TRACK_SIGMA2 0.1→0.04 / TRACK_L1_W −1→−2 / ang-vel std → 0.5 /
   clock combine product (~2.5 GPU-h), C rebuild 1b with a band spanning 0 and ±π/2 + retention gates then B (~3.5 GPU-h), D single-stage
   from-scratch 1c with B's terms (2.5–4 GPU-h). Synthesis recommends: land driver/gate fixes, replay B's terms offline on the saved raws,
-  then D (or B); never --continue. Decision: the user's (pending).
+  then D (or B); never --continue. Decision: option D, taken 2026-09-18 (below).
+- **2026-09-18 USER DECISION D — a from-scratch 1c with the reward-economy fix; values PROVISIONAL until the
+  offline replay.** Not `--continue` (option A proves nothing: 2a would inherit a 0.04 m/s walker), not a `--redo`
+  from the 1b head (option B preserves a head whose forward travel is already gone). Option D: a single FROM-SCRATCH
+  1c window of 5000–8000 iterations on the 1c preset carrying the four Revision-4 values
+  (`KRABBY_TRACK_SIGMA2` 0.04, `KRABBY_TRACK_L1_W` −2.0, `KRABBY_OMNI_ANG_VEL_STD` 0.5, `KRABBY_OMNI_CLOCK_COMBINE`
+  product), with an early abort at 1000 iterations if `track_ratio_mean` < 0.5; then 2a and 2b resume from that head.
+  The three tuned numbers stay PROVISIONAL until the offline replay on the saved 1a/1c raws shows the walker
+  out-earning the creeper under them. Landed this day (no GPU): the two new omni knobs, the uniform `OMNI_COMMON`
+  economy, `run_phases.py --from-scratch`, the `track_ratio_mean ≥ 0.6` floor on every gate, the `dead_walker` abort,
+  and `run_meta["env_vars"]` recording the eval process's real `KRABBY_*` environment (it was `{}`, which is why the
+  facing-clip defect was invisible in the run records).

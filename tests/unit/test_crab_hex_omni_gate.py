@@ -18,6 +18,12 @@ Three gates, all pure functions of a ``report.py::aggregate``-shaped dict:
 * ``gate_facing_verdict`` -- the facing-precision gate (enforced from 2a): median
   ``heading_error_final_abs`` <= 0.30 rad on each turn hold.
 
+Plus, from 2026-09-18, the TRAINING-LOG translation floor that every gate also reads
+(``track_ratio_series`` / ``track_ratio_tail`` / ``dead_walker``, all pure) -- the cover for the
+verified 1c failure, where tripod and survival passed a head whose speed tracking had collapsed to
+0.245. Its regression fixtures are the seed-3 campaign's real ``track_ratio_mean`` prints
+(``fixtures/omni_track_ratio/``).
+
 Pure Python: the driver and the decision table are loaded by path; nothing here imports Isaac. NOTE:
 importing the driver executes ``crab_hex_omni_phases.py`` by path (one task per process, same as the
 forward/sideways drivers) -- until that config module exists (plan step 7, in flight alongside this
@@ -134,6 +140,11 @@ HEALTHY_FACING = {
     "turn_l90": _facing(final=0.15, settle=3.0, progress=0.08),   # rad/s toward the command >= 0.05
     "turn_r90": _facing(final=0.20, settle=3.5, progress=0.08),
 }
+#: The training-log translation number a healthy stage shows (2026-09-18 floor). 0.747 is the
+#: seed-3 1a head's own its-800-1000 mean -- the only omni stage on record that walked. Every
+#: eval-shaped test below passes this so it exercises the criterion IT is about; the floor has
+#: its own tests further down.
+HEALTHY_TRACK_RATIO = 0.747
 
 
 # ------------------------------------------------------------------ walking_tripod (shared helper)
@@ -161,7 +172,7 @@ def test_walking_tripod_none_when_a_moving_hold_is_unscored(drv):
 def test_soft_gate_floor_boundaries(drv, hold, tri, comp, expect):
     tripod = dict(HEALTHY_TRIPOD); tripod[hold] = tri
     s = drv.summarize(_agg(tripod, comp, facing=HEALTHY_FACING))
-    status, msg = drv.gate_soft_verdict(s, hold, drv.GATE_SOFT_TRIPOD, drv.GATE_SOFT_COMPLETION)
+    status, msg = drv.gate_soft_verdict(s, hold, drv.GATE_SOFT_TRIPOD, drv.GATE_SOFT_COMPLETION, track_ratio=HEALTHY_TRACK_RATIO)
     assert status == expect, msg
     if expect == "halt":
         assert "FAILED" in msg and "--continue" in msg
@@ -173,20 +184,20 @@ def test_soft_gate_reads_only_its_own_hold(drv):
     tripod = {"stand": 0.01, "fwd": 0.45, "lat_l": 0.02, "diag": 0.01, "back": 0.01, "move_turn": 0.0,
               "turn_l90": 0.0, "turn_r90": 0.0}
     s = drv.summarize(_agg(tripod, 0.85, facing=None, walking_holds=("fwd",), scored_holds=("stand", "fwd")))
-    status, msg = drv.gate_soft_verdict(s, "fwd", drv.GATE_SOFT_TRIPOD, drv.GATE_SOFT_COMPLETION)
+    status, msg = drv.gate_soft_verdict(s, "fwd", drv.GATE_SOFT_TRIPOD, drv.GATE_SOFT_COMPLETION, track_ratio=HEALTHY_TRACK_RATIO)
     assert status == "ok", msg
 
 
 def test_soft_gate_no_usable_number_is_a_halt(drv):
     for s in ({}, drv.summarize(None), drv.summarize(_agg(HEALTHY_TRIPOD, None, facing=HEALTHY_FACING))):
-        status, msg = drv.gate_soft_verdict(s, "fwd", drv.GATE_SOFT_TRIPOD, drv.GATE_SOFT_COMPLETION)
+        status, msg = drv.gate_soft_verdict(s, "fwd", drv.GATE_SOFT_TRIPOD, drv.GATE_SOFT_COMPLETION, track_ratio=HEALTHY_TRACK_RATIO)
         assert status == "halt" and "could not be evaluated" in msg
 
 
 # ------------------------------------------------------------------ gate_1c_verdict
 def test_gate_1c_passes_on_a_healthy_head(drv):
     s = drv.summarize(_agg(HEALTHY_TRIPOD, 0.85, facing=HEALTHY_FACING))
-    status, msg = drv.gate_1c_verdict(s)
+    status, msg = drv.gate_1c_verdict(s, track_ratio=HEALTHY_TRACK_RATIO)
     assert status == "ok", msg
     assert "yaw-progress rate" in msg and "turn_l90 0.080" in msg and "net" in msg
 
@@ -195,13 +206,13 @@ def test_gate_1c_passes_on_a_healthy_head(drv):
 def test_gate_1c_fails_on_tripod_floor(drv, bad_hold, bad_value):
     tripod = dict(HEALTHY_TRIPOD); tripod[bad_hold] = bad_value
     s = drv.summarize(_agg(tripod, 0.85, facing=HEALTHY_FACING))
-    status, msg = drv.gate_1c_verdict(s)
+    status, msg = drv.gate_1c_verdict(s, track_ratio=HEALTHY_TRACK_RATIO)
     assert status == "gate_1c" and "FAILED" in msg
 
 
 def test_gate_1c_fails_on_completion_floor(drv):
     s = drv.summarize(_agg(HEALTHY_TRIPOD, 0.6999, facing=HEALTHY_FACING))
-    status, msg = drv.gate_1c_verdict(s)
+    status, msg = drv.gate_1c_verdict(s, track_ratio=HEALTHY_TRACK_RATIO)
     assert status == "gate_1c" and "FAILED" in msg
 
 
@@ -211,7 +222,7 @@ def test_gate_1c_fails_a_non_turning_head(drv):
     facing = {"turn_l90": _facing(final=1.0, settle=None, progress=0.0),
               "turn_r90": _facing(final=1.0, settle=None, progress=-0.02)}
     s = drv.summarize(_agg(HEALTHY_TRIPOD, 0.85, facing=facing))
-    status, msg = drv.gate_1c_verdict(s)
+    status, msg = drv.gate_1c_verdict(s, track_ratio=HEALTHY_TRACK_RATIO)
     assert status == "gate_1c" and "FAILED" in msg and "yaw-progress" in msg
     assert "0.000" in msg and "-0.020" in msg
 
@@ -221,7 +232,7 @@ def test_gate_1c_fails_one_turn_hold_alone(drv):
     that does not (the 1c command band is symmetric; a one-sided head is a formation failure)."""
     for bad in TURN_HOLDS:
         facing = {h: _facing(final=0.2, settle=2.0, progress=(0.01 if h == bad else 0.12)) for h in TURN_HOLDS}
-        status, msg = drv.gate_1c_verdict(drv.summarize(_agg(HEALTHY_TRIPOD, 0.85, facing=facing)))
+        status, msg = drv.gate_1c_verdict(drv.summarize(_agg(HEALTHY_TRIPOD, 0.85, facing=facing)), track_ratio=HEALTHY_TRACK_RATIO)
         assert status == "gate_1c" and "FAILED" in msg, bad
 
 
@@ -236,7 +247,7 @@ def test_gate_1c_fails_the_retired_proxys_false_pass(drv):
               for h in TURN_HOLDS}
     s = drv.summarize(_agg(HEALTHY_TRIPOD, 0.81, facing=facing))
     assert s["facing_by_hold"]["turn_l90"]["yaw_rate_ratio"] * 0.3 > 5 * drv.GATE_1C_YAW_RATE
-    status, msg = drv.gate_1c_verdict(s)
+    status, msg = drv.gate_1c_verdict(s, track_ratio=HEALTHY_TRACK_RATIO)
     assert status == "gate_1c" and "FAILED" in msg
     assert not hasattr(drv, "_turn_rate_proxy") and not hasattr(drv, "ANG_VEL_MAX_DEFAULT")
 
@@ -245,10 +256,10 @@ def test_gate_1c_boundary_is_inclusive(drv):
     """Progress exactly at the 0.05 rad/s floor passes."""
     facing = {h: _facing(final=0.2, settle=2.0, progress=drv.GATE_1C_YAW_RATE) for h in TURN_HOLDS}
     s = drv.summarize(_agg(HEALTHY_TRIPOD, 0.70, facing=facing))
-    status, _ = drv.gate_1c_verdict(s)
+    status, _ = drv.gate_1c_verdict(s, track_ratio=HEALTHY_TRACK_RATIO)
     assert status == "ok"
     facing = {h: _facing(final=0.2, settle=2.0, progress=drv.GATE_1C_YAW_RATE - 1e-6) for h in TURN_HOLDS}
-    status, _ = drv.gate_1c_verdict(drv.summarize(_agg(HEALTHY_TRIPOD, 0.70, facing=facing)))
+    status, _ = drv.gate_1c_verdict(drv.summarize(_agg(HEALTHY_TRIPOD, 0.70, facing=facing)), track_ratio=HEALTHY_TRACK_RATIO)
     assert status == "gate_1c"
 
 
@@ -262,7 +273,7 @@ def test_gate_1c_boundary_is_inclusive(drv):
 def test_gate_1c_no_usable_number_is_a_halt(drv, mutate):
     a = _agg(HEALTHY_TRIPOD, 0.85, facing=HEALTHY_FACING)
     mutate(a)
-    status, msg = drv.gate_1c_verdict(drv.summarize(a))
+    status, msg = drv.gate_1c_verdict(drv.summarize(a), track_ratio=HEALTHY_TRACK_RATIO)
     assert status == "gate_1c" and "could not be evaluated" in msg
 
 
@@ -274,7 +285,7 @@ def test_gate_1c_fails_a_forward_only_walker_naming_the_failing_hold(drv):
     """Turns fine (facing healthy) and tracks forward well (ratio 0.9), but lat_l ratio 0.05 is
     far under the 0.3 floor -- FAILS, and the message names lat_l."""
     s = drv.summarize(_agg(HEALTHY_TRIPOD, 0.85, facing=HEALTHY_FACING, ratio={"fwd": 0.9, "lat_l": 0.05}))
-    status, msg = drv.gate_1c_verdict(s)
+    status, msg = drv.gate_1c_verdict(s, track_ratio=HEALTHY_TRACK_RATIO)
     assert status == "gate_1c" and "FAILED" in msg
     assert "lat_l" in msg and "failing: lat_l" in msg
 
@@ -282,17 +293,17 @@ def test_gate_1c_fails_a_forward_only_walker_naming_the_failing_hold(drv):
 def test_gate_1c_passes_all_four_directions_above_the_floor(drv):
     ratio = {"lat_l": 0.35, "diag": 0.35, "back": 0.35, "move_turn": 0.35}
     s = drv.summarize(_agg(HEALTHY_TRIPOD, 0.85, facing=HEALTHY_FACING, ratio=ratio))
-    status, msg = drv.gate_1c_verdict(s)
+    status, msg = drv.gate_1c_verdict(s, track_ratio=HEALTHY_TRACK_RATIO)
     assert status == "ok", msg
 
 
 def test_gate_1c_dir_ratio_boundary_is_inclusive(drv):
     """Exactly at the 0.3 floor passes on all four; a hair under fails."""
     ratio = {h: drv.GATE_1C_DIR_RATIO for h in drv.GATE_1C_DIR_HOLDS}
-    status, _ = drv.gate_1c_verdict(drv.summarize(_agg(HEALTHY_TRIPOD, 0.85, facing=HEALTHY_FACING, ratio=ratio)))
+    status, _ = drv.gate_1c_verdict(drv.summarize(_agg(HEALTHY_TRIPOD, 0.85, facing=HEALTHY_FACING, ratio=ratio)), track_ratio=HEALTHY_TRACK_RATIO)
     assert status == "ok"
     ratio = {h: drv.GATE_1C_DIR_RATIO - 1e-6 for h in drv.GATE_1C_DIR_HOLDS}
-    status, msg = drv.gate_1c_verdict(drv.summarize(_agg(HEALTHY_TRIPOD, 0.85, facing=HEALTHY_FACING, ratio=ratio)))
+    status, msg = drv.gate_1c_verdict(drv.summarize(_agg(HEALTHY_TRIPOD, 0.85, facing=HEALTHY_FACING, ratio=ratio)), track_ratio=HEALTHY_TRACK_RATIO)
     assert status == "gate_1c" and "FAILED" in msg
 
 
@@ -301,7 +312,7 @@ def test_gate_1c_missing_direction_hold_halts(drv):
     a missing tripod/completion/turn-rate number."""
     a = _agg(HEALTHY_TRIPOD, 0.85, facing=HEALTHY_FACING)
     a["tracking_by_hold"].pop("move_turn")
-    status, msg = drv.gate_1c_verdict(drv.summarize(a))
+    status, msg = drv.gate_1c_verdict(drv.summarize(a), track_ratio=HEALTHY_TRACK_RATIO)
     assert status == "gate_1c" and "could not be evaluated" in msg
 
 
@@ -313,7 +324,7 @@ def test_decision_table_gate_1c_per_direction_floor_matches_the_driver(drv, tabl
     ):
         a = _agg(HEALTHY_TRIPOD, 0.85, facing=HEALTHY_FACING, ratio=ratio)
         ok, why = table.gate_1c(a)
-        status, _ = drv.gate_1c_verdict(drv.summarize(a))
+        status, _ = drv.gate_1c_verdict(drv.summarize(a), track_ratio=HEALTHY_TRACK_RATIO)
         assert ok == (status == "ok"), (ratio, why)
 
 
@@ -363,7 +374,7 @@ def test_decision_table_gate_1c_matches_the_driver(drv, table):
     ):
         a = _agg(tripod, comp, facing=facing)
         ok, why = table.gate_1c(a)
-        status, _ = drv.gate_1c_verdict(drv.summarize(a))
+        status, _ = drv.gate_1c_verdict(drv.summarize(a), track_ratio=HEALTHY_TRACK_RATIO)
         assert ok == (status == "ok"), (tripod, comp, why)
         assert table.walking_tripod(a)[0] == pytest.approx(drv.walking_tripod(a)[0]) if drv.walking_tripod(a)[0] is not None else table.walking_tripod(a)[0] is None
 
@@ -443,7 +454,7 @@ def test_gate_1c_on_a_report_shaped_summary_passes_a_turning_head(drv, table):
     assert agg["facing_by_hold"]["turn_l90"]["net_yaw_rate_toward"]["median"] == pytest.approx(
         (np.pi / 2) / (N_HOLD * DT), rel=1e-2)
     s = drv.summarize(agg)
-    status, msg = drv.gate_1c_verdict(s)
+    status, msg = drv.gate_1c_verdict(s, track_ratio=HEALTHY_TRACK_RATIO)
     assert status == "ok", msg
     assert table.gate_1c(agg)[0] is True
     # The harness's own summary line carries both numbers (and still the legacy ratio).
@@ -461,7 +472,7 @@ def test_gate_1c_on_a_report_shaped_summary_fails_the_wobbling_head(drv, table):
     assert fac["yaw_rate_ratio"]["median"] == pytest.approx(0.284 / 0.30, rel=1e-6)   # the old proxy's input
     assert fac["yaw_progress_rate"]["median"] == pytest.approx(0.0, abs=1e-9)
     assert fac["net_yaw_rate_toward"]["median"] == pytest.approx(-0.2 / (N_HOLD * DT), rel=1e-6)
-    status, msg = drv.gate_1c_verdict(drv.summarize(agg))
+    status, msg = drv.gate_1c_verdict(drv.summarize(agg), track_ratio=HEALTHY_TRACK_RATIO)
     assert status == "gate_1c" and "FAILED" in msg
     assert table.gate_1c(agg)[0] is False
 
@@ -473,11 +484,11 @@ def test_soft_gate_reads_survival_through_its_own_hold_not_whole_schedule(drv):
     tripod = dict(HEALTHY_TRIPOD); tripod["fwd"] = 0.452
     surv = {h: 0.09 for h in ALL_HOLDS}; surv.update({"stand": 1.0, "fwd": 0.93})
     s = drv.summarize(_agg(tripod, 0.09, facing=None, survival=surv))
-    status, msg = drv.gate_soft_verdict(s, "fwd", drv.GATE_SOFT_TRIPOD, drv.GATE_SOFT_COMPLETION)
+    status, msg = drv.gate_soft_verdict(s, "fwd", drv.GATE_SOFT_TRIPOD, drv.GATE_SOFT_COMPLETION, track_ratio=HEALTHY_TRACK_RATIO)
     assert status == "ok" and "0.930" in msg, msg
     surv2 = {h: 0.95 for h in ALL_HOLDS}; surv2["fwd"] = 0.5
     s2 = drv.summarize(_agg(tripod, 0.95, facing=None, survival=surv2))
-    status2, msg2 = drv.gate_soft_verdict(s2, "fwd", drv.GATE_SOFT_TRIPOD, drv.GATE_SOFT_COMPLETION)
+    status2, msg2 = drv.gate_soft_verdict(s2, "fwd", drv.GATE_SOFT_TRIPOD, drv.GATE_SOFT_COMPLETION, track_ratio=HEALTHY_TRACK_RATIO)
     assert status2 == "halt" and "survival through the hold 0.500" in msg2, msg2
 
 
@@ -607,3 +618,184 @@ def test_eval_env_for_is_pure(drv, monkeypatch):
     monkeypatch.setenv("KRABBY_RSI_FRAC", "0.9")
     ev = _eval_envs(drv)["canary"]
     assert ev["KRABBY_OMNI_FACING_OBS_CLIP"] == "0.6" and ev["KRABBY_RSI_FRAC"] == "0"
+
+
+# ------------------------------------------------- the training-log translation floor (2026-09-18)
+TRACK_RATIO_FIXTURES = Path(__file__).resolve().parent / "fixtures" / "omni_track_ratio"
+#: (stage, its-800-1000 mean, last-500 mean) measured on the seed-3 campaign's own logs.
+REAL_LOGS = {"1a": (0.7474, 0.6925), "1b": (0.4330, 0.4057)}
+
+
+@pytest.fixture(params=sorted(REAL_LOGS), ids=sorted(REAL_LOGS))
+def real_log(request):
+    return request.param, TRACK_RATIO_FIXTURES / f"seed3_{request.param}_track_ratio.log"
+
+
+def test_track_ratio_series_parses_a_real_training_log(drv, real_log):
+    """The parser reads the trainer's own print format, not a hand-written one."""
+    stage, path = real_log
+    vals = drv.track_ratio_series(path)
+    assert len(vals) == 1000, f"{stage}: one print per iteration"
+    assert all(0.0 <= v <= 1.5 for v in vals)
+
+
+def test_track_ratio_tail_reproduces_the_campaign_numbers(drv, real_log):
+    stage, path = real_log
+    _win, last500 = REAL_LOGS[stage]
+    got = drv.track_ratio_tail(drv.track_ratio_series(path))
+    assert got == pytest.approx(last500, abs=5e-4), f"{stage}: last-500 mean {got}"
+
+
+def test_the_floor_would_have_halted_the_chain_at_1b(drv):
+    """The regression the floor exists for: 1a PASSES, 1b FAILS.
+
+    The seed-3 chain ran 1a -> 1b -> 1c with tripod/survival gates only and passed both short
+    stages; speed tracking was 0.747 -> 0.433 -> 0.245 the whole time. With this floor the
+    campaign stops after 1b, before 1c spends 2.5 GPU-h."""
+    tails = {s: drv.track_ratio_tail(drv.track_ratio_series(TRACK_RATIO_FIXTURES / f"seed3_{s}_track_ratio.log"))
+             for s in REAL_LOGS}
+    assert tails["1a"] >= drv.GATE_TRACK_RATIO_MIN
+    assert tails["1b"] < drv.GATE_TRACK_RATIO_MIN
+
+
+def test_track_ratio_tail_is_none_on_a_log_without_the_metric(drv, tmp_path):
+    """``None``, never ``nan``: a nan compares False against every floor, which reads as a PASS."""
+    empty = tmp_path / "no_metric.log"
+    empty.write_text("Mean reward: 12.3\nMean episode length: 1800\n")
+    assert drv.track_ratio_series(empty) == []
+    assert drv.track_ratio_tail([]) is None
+
+
+def test_track_ratio_tail_averages_only_the_tail(drv):
+    vals = [0.0] * 1000 + [0.8] * 500
+    assert drv.track_ratio_tail(vals, n=500) == pytest.approx(0.8)
+    assert drv.track_ratio_tail(vals, n=1500) == pytest.approx(0.8 * 500 / 1500)
+
+
+# ---------------------------------------------------- the floor inside each gate
+def test_soft_gate_fails_a_creeper_that_passes_tripod_and_survival(drv):
+    """The whole point: a head can pass BOTH eval criteria and still not be walking."""
+    s = drv.summarize(_agg(HEALTHY_TRIPOD, 0.95))
+    ok, _ = drv.gate_soft_verdict(s, "fwd", drv.GATE_SOFT_TRIPOD, drv.GATE_SOFT_COMPLETION,
+                                  track_ratio=0.75)
+    assert ok == "ok"
+    status, msg = drv.gate_soft_verdict(s, "fwd", drv.GATE_SOFT_TRIPOD, drv.GATE_SOFT_COMPLETION,
+                                        track_ratio=0.406)      # the seed-3 1b number
+    assert status == "halt" and "track_ratio_mean 0.406" in msg
+
+
+@pytest.mark.parametrize("tr, expect", [(0.6, "ok"), (0.5999, "halt"), (0.61, "ok")])
+def test_soft_gate_track_ratio_boundary_is_inclusive(drv, tr, expect):
+    s = drv.summarize(_agg(HEALTHY_TRIPOD, 0.95))
+    status, _ = drv.gate_soft_verdict(s, "fwd", drv.GATE_SOFT_TRIPOD, drv.GATE_SOFT_COMPLETION,
+                                      track_ratio=tr)
+    assert status == expect
+
+
+def test_soft_gate_missing_track_ratio_is_a_halt(drv):
+    s = drv.summarize(_agg(HEALTHY_TRIPOD, 0.95))
+    status, msg = drv.gate_soft_verdict(s, "fwd", drv.GATE_SOFT_TRIPOD, drv.GATE_SOFT_COMPLETION,
+                                        track_ratio=None)
+    assert status == "halt" and "track_ratio_mean n/a" in msg
+
+
+def test_gate_1c_fails_the_creeper_on_the_training_floor_alone(drv):
+    """Every eval criterion healthy, training translation collapsed -> gate_1c."""
+    s = drv.summarize(_agg(HEALTHY_TRIPOD, 0.85, facing=HEALTHY_FACING))
+    assert drv.gate_1c_verdict(s, track_ratio=0.75)[0] == "ok"
+    status, msg = drv.gate_1c_verdict(s, track_ratio=0.245)     # the seed-3 1c number
+    assert status == "gate_1c" and "track_ratio_mean 0.245" in msg
+
+
+def test_gate_1c_missing_track_ratio_is_a_halt(drv):
+    s = drv.summarize(_agg(HEALTHY_TRIPOD, 0.85, facing=HEALTHY_FACING))
+    status, msg = drv.gate_1c_verdict(s, track_ratio=None)
+    assert status == "gate_1c" and "could not be evaluated" in msg and "track_ratio_mean n/a" in msg
+
+
+def test_every_gate_message_names_the_training_floor(drv):
+    """A halt the user reads at 3 a.m. must say which criterion failed."""
+    s = drv.summarize(_agg(HEALTHY_TRIPOD, 0.85, facing=HEALTHY_FACING))
+    for _st, msg in (drv.gate_soft_verdict(s, "fwd", drv.GATE_SOFT_TRIPOD, drv.GATE_SOFT_COMPLETION,
+                                           track_ratio=HEALTHY_TRACK_RATIO),
+                     drv.gate_1c_verdict(s, track_ratio=HEALTHY_TRACK_RATIO)):
+        assert "track_ratio_mean" in msg and str(drv.GATE_TRACK_RATIO_MIN) in msg
+
+
+# ------------------------------------------------- the from-scratch early abort (dead_walker)
+def test_dead_walker_is_silent_before_the_check_point(drv):
+    """The check fires ONCE, on the way past iteration 1000 -- never on a shorter run."""
+    assert drv.dead_walker([0.0] * 999) is False
+    assert drv.dead_walker([]) is False
+
+
+def test_dead_walker_fires_on_a_creeper(drv):
+    vals = [0.1] * 1000
+    assert drv.dead_walker(vals) is True
+
+
+def test_dead_walker_reads_the_window_not_the_whole_run(drv):
+    """A run that is forming LATE must not be aborted for its noisy first 800 iterations."""
+    late = [0.0] * 800 + [0.7] * 200
+    assert drv.dead_walker(late) is False
+    early = [0.7] * 800 + [0.1] * 200
+    assert drv.dead_walker(early) is True
+
+
+def test_dead_walker_would_not_have_aborted_the_1a_stage(drv):
+    """1a formed a walker from scratch in exactly this budget: the floor must clear it."""
+    vals = drv.track_ratio_series(TRACK_RATIO_FIXTURES / "seed3_1a_track_ratio.log")
+    window = sum(vals[800:1000]) / 200
+    assert window == pytest.approx(REAL_LOGS["1a"][0], abs=5e-4)
+    assert window >= drv.ABORT_TRACK_RATIO_MIN
+    assert drv.dead_walker(vals) is False
+
+
+def test_dead_walker_boundary_is_inclusive(drv):
+    assert drv.dead_walker([drv.ABORT_TRACK_RATIO_MIN] * 1000) is False
+    assert drv.dead_walker([drv.ABORT_TRACK_RATIO_MIN - 1e-6] * 1000) is True
+
+
+def test_dead_walker_is_continue_overridable_but_dead_plant_is_not(drv):
+    """``dead_walker`` is a floor on a head that exists; ``dead_plant`` is a run with nothing."""
+    assert "dead_walker" in drv.OVERRIDABLE_STATUSES
+    assert drv.GATE_STATUSES <= drv.OVERRIDABLE_STATUSES
+    assert "dead_plant" not in drv.OVERRIDABLE_STATUSES
+    assert "nan" not in drv.OVERRIDABLE_STATUSES and "infra" not in drv.OVERRIDABLE_STATUSES
+
+
+def test_abort_constants_are_consistent_with_the_gate_floor(drv):
+    """The abort must be strictly laxer than the gate: aborting a run the gate would pass is a
+    self-inflicted halt."""
+    assert drv.ABORT_TRACK_RATIO_MIN < drv.GATE_TRACK_RATIO_MIN
+    assert drv.ABORT_WINDOW < drv.ABORT_AT_ITERS
+
+
+# ------------------------------------------------------------------ --from-scratch
+def _cli(*args) -> "subprocess.CompletedProcess":
+    import subprocess
+    return subprocess.run([sys.executable, str(DRIVER), *args], capture_output=True, text=True,
+                          timeout=120)
+
+
+def test_from_scratch_is_advertised_in_the_cli(tmp_path):
+    out = _cli("--help")
+    assert out.returncode == 0
+    assert "--from-scratch" in out.stdout
+    assert "dead_walker" in out.stdout      # the abort it arms is documented where the flag is
+
+
+def test_from_scratch_and_from_checkpoint_are_mutually_exclusive(tmp_path):
+    """Both set is an ambiguous instruction about the ONE decision this run turns on."""
+    out = _cli("--campaign-dir", str(tmp_path), "--phases", "1c",
+               "--from-scratch", "--from-checkpoint", "/tmp/model_9.pt")
+    assert out.returncode != 0
+    assert "contradict" in out.stderr
+
+
+def test_resume_label_spells_out_a_deliberate_cold_start(drv):
+    assert drv.resume_label({"resume": "/logs/run/model_1998.pt"}) == "model_1998.pt"
+    assert drv.resume_label({"resume": None}) == "scratch"
+    assert drv.resume_label({"resume": None, "from_scratch": True}) == "scratch (--from-scratch)"
+    # a checkpoint always wins: --from-scratch never coexists with a resume point
+    assert drv.resume_label({"resume": "/a/model_9.pt", "from_scratch": True}) == "model_9.pt"

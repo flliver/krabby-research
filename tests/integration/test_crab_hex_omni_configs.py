@@ -186,9 +186,31 @@ EXPECTED_RL: dict[tuple, tuple] = {
     # ``diff_paths`` reports the whole block as one path. Its contents are asserted by
     # ``test_yaw_progress_term_block`` below.
     ("rewards", "reward_yaw_progress"): (MISSING, PRESENT),
-    # std sqrt(0.25) -> 0.15: the plant turns at 0.15-0.3 rad/s, where the stock std has no
-    # gradient (same term name and weight 1.0)
-    ("rewards", "track_ang_vel_z_exp", "params", "std"): (0.5, 0.15),
+    # NOTE(Revision 4, 2026-09-18): ``track_ang_vel_z_exp.params.std`` is NOT in this list any
+    # more. The omni rewards CLASS BODY still declares 0.15 (plan D4: gradient at the plant's
+    # 0.15-0.3 rad/s turn rate), but every omni preset now sets KRABBY_OMNI_ANG_VEL_STD=0.5 --
+    # the forward value, sqrt(0.25) -- so the two dumps AGREE on this path and it must not
+    # appear in the delta. Why the reversal: at std 0.15 the 88 % of steps that command no turn
+    # tax ordinary gait yaw wobble 0.36/s (at 0.10 rad/s) to 0.63/s (at 0.15), more than the
+    # whole translation income, which is one of the four terms that made standing still the
+    # optimum in 1c. The turning signal is carried by reward_yaw_progress instead (weight 1.0),
+    # which did not exist when the plan chose 0.15. ``test_ang_vel_std_is_the_forward_kernel``
+    # below pins the AGREEMENT, so a knob that stops being applied fails loudly rather than
+    # silently reinstating the 0.15 kernel.
+    #
+    # Revision 4's other reward-shape change: the gait clock's schedule term switches from the
+    # additive halves to swing_quality x stance_quality, so a policy that never lifts a foot
+    # cannot collect the stance half for free. The MECHANISM is the forward task's own
+    # (clock_schedule_income(..., combine=), 2026-08-22); the omni preset reaches it through
+    # KRABBY_OMNI_CLOCK_COMBINE, which is applied after the forward block and therefore wins.
+    ("rewards", "reward_clock_schedule", "params", "combine"): ("sum", "product"),
+    # NOTE(Revision 4, 2026-09-18): the two re-pointed economy knobs (KRABBY_TRACK_SIGMA2,
+    # KRABBY_TRACK_L1_W) now differ in VALUE between the forward window-0/2a/2b/2c fixtures
+    # (0.1 / -1.0) and every omni preset (0.04 / -2.0, via OMNI_COMMON) -- verified against the
+    # real cfg dump 2026-09-18 (RUN_CRAB_HEX_CFG_IDENTITY), which failed this test's env-delta
+    # assertion until these two leaves were added. std values are sqrt(sigma2).
+    ("rewards", "track_lin_vel_xy_exp", "params", "std"): (math.sqrt(0.1), math.sqrt(0.04)),
+    ("rewards", "penalty_tracking_error_l1", "weight"): (-1.0, -2.0),
     # no goal cutoff: the ring's sector anchors are never "reached"
     ("terminations", "total_terminates", "func"): (
         "parkour_isaaclab.envs.mdp.terminations:terminate_episode",
@@ -207,6 +229,12 @@ YAW_WEIGHT_PATH = ("rewards", "reward_tracking_yaw", "weight")
 #: ``KRABBY_YAW_PROGRESS_W`` -- the added term's dose, the same in every omni window (the
 #: preset arms it everywhere; 1a/1b command no turn, so it is behaviourally inert there).
 EXPECTED_YAW_PROGRESS_W = 1.0
+
+#: Revision 4 (2026-09-18): the kernel width both tasks now use -- forward's own sqrt(0.25).
+EXPECTED_ANG_VEL_STD = 0.5
+ANG_VEL_STD_PATH = ("rewards", "track_ang_vel_z_exp", "params", "std")
+#: Revision 4: the gait-clock schedule term's combine mode per side.
+CLOCK_COMBINE_PATH = ("rewards", "reward_clock_schedule", "params", "combine")
 
 # ---------------------------------------------------------------------------------------------
 # The replaced-subtree blocks.
@@ -304,18 +332,25 @@ OMNI_COMMON_KEYS = {"KRABBY_OMNI_SPEED_ELLIPSE", "KRABBY_OMNI_ANG_VEL_MAX",
                     "KRABBY_YAW_PROGRESS_W",
                     # Revision 3 (2026-09-17): the facing-error observation clip, fixed at 0.6
                     # in every window regardless of the facing band's own per-phase ramp.
-                    "KRABBY_OMNI_FACING_OBS_CLIP"}
+                    "KRABBY_OMNI_FACING_OBS_CLIP",
+                    # Revision 4 (2026-09-18): the reward economy, uniform along the chain.
+                    "KRABBY_OMNI_ANG_VEL_STD", "KRABBY_OMNI_CLOCK_COMBINE"}
+#: Revision 4: the two tracking knobs EVERY forward window also sets (FORMATION: 0.1 / -1.0), so
+#: they are differing VALUES in the ``_environ`` delta rather than omni-only additions.
+_ECONOMY_REPOINTED = {"KRABBY_TRACK_SIGMA2", "KRABBY_TRACK_L1_W"}
 _STAGE1_ONLY = OMNI_COMMON_KEYS | {"KRABBY_FLAT_TERRAIN_GEOM", "KRABBY_TERRAIN_PROMOTE",
                                    "KRABBY_OMNI_SLOTS", "KRABBY_OMNI_RSI_SOURCE"}
 _TEACHER_ONLY = OMNI_COMMON_KEYS | {"KRABBY_OMNI_SLOTS", "KRABBY_OMNI_RSI_SOURCE",
                                     "KRABBY_OMNI_FACING"}
-_REPOINTED = {"KRABBY_RSI_BANK", "KRABBY_FLAT_TERRAIN_GEOM", "KRABBY_TERRAIN_PROMOTE"}
+_REPOINTED = {"KRABBY_RSI_BANK", "KRABBY_FLAT_TERRAIN_GEOM",
+              "KRABBY_TERRAIN_PROMOTE"} | _ECONOMY_REPOINTED
+_STAGE1_DIFFER = {"KRABBY_RSI_BANK"} | _ECONOMY_REPOINTED
 #: omni phase -> (forward fixture, forward-only keys, omni-only keys, keys differing in value)
 EXPECTED_ENVIRON: dict[str, tuple[str, set, set, set]] = {
-    "1a": ("1a", set(), _STAGE1_ONLY | {"KRABBY_OMNI_DIR_BAND"}, {"KRABBY_RSI_BANK"}),
-    "1b": ("1a", set(), _STAGE1_ONLY | {"KRABBY_OMNI_DIR_BAND"}, {"KRABBY_RSI_BANK"}),
+    "1a": ("1a", set(), _STAGE1_ONLY | {"KRABBY_OMNI_DIR_BAND"}, _STAGE1_DIFFER),
+    "1b": ("1a", set(), _STAGE1_ONLY | {"KRABBY_OMNI_DIR_BAND"}, _STAGE1_DIFFER),
     "1c": ("1a", set(), _STAGE1_ONLY | {"KRABBY_OMNI_FACING", "KRABBY_YAW_W"},
-           {"KRABBY_RSI_BANK"}),
+           _STAGE1_DIFFER),
     "2a": ("2a", set(), _TEACHER_ONLY, _REPOINTED),
     "2b": ("2b", {"KRABBY_HEADING"}, _TEACHER_ONLY, _REPOINTED),
     "2c": ("2c", {"KRABBY_HEADING"}, _TEACHER_ONLY, _REPOINTED),
@@ -722,6 +757,49 @@ def test_yaw_progress_term_block(omni_dumps, pair):
     if omni_phase in ("1a", "1b"):
         slots = EXPECTED_CMD[omni_phase]["slot_probs"]
         assert slots[2] == slots[3] == 0.0, f"{pair_id}: 1a/1b must have no turning slots"
+
+
+@pytest.mark.parametrize("pair", ALL_PAIRS, ids=[p[0] for p in ALL_PAIRS])
+def test_ang_vel_std_is_the_forward_kernel(dumps, omni_dumps, pair):
+    """Revision 4 (2026-09-18): ``track_ang_vel_z_exp.params.std`` must AGREE with the forward
+    task at sqrt(0.25) = 0.5, in every window.
+
+    The omni rewards class body still declares 0.15 (plan D4), so the agreement exists ONLY
+    because ``KRABBY_OMNI_ANG_VEL_STD=0.5`` in ``OMNI_COMMON`` reaches the term through
+    ``omni_knobs._apply_ang_vel_std_knob``. That makes this the positive twin of the path's
+    ABSENCE from ``EXPECTED_RL``: if the knob ever stops being applied, the delta test reports an
+    unexpected path AND this test reports 0.15, instead of the run quietly re-acquiring the
+    kernel that taxed gait wobble on 88 % of steps.
+    """
+    pair_id, omni_phase, fwd_phase, fwd_task, omni_task = pair
+    f = _env(dumps[fwd_phase], fwd_task)
+    o = _env(omni_dumps[omni_phase], omni_task)
+    f_std = f["rewards"]["track_ang_vel_z_exp"]["params"]["std"]
+    o_std = o["rewards"]["track_ang_vel_z_exp"]["params"]["std"]
+    assert _close(o_std, EXPECTED_ANG_VEL_STD), f"{pair_id}: omni std {o_std!r}"
+    assert _close(f_std, EXPECTED_ANG_VEL_STD), f"{pair_id}: forward std {f_std!r}"
+    # the term itself is otherwise untouched: same func, same weight, same command
+    assert o["rewards"]["track_ang_vel_z_exp"]["func"] == f["rewards"]["track_ang_vel_z_exp"]["func"]
+    assert _close(o["rewards"]["track_ang_vel_z_exp"]["weight"],
+                  f["rewards"]["track_ang_vel_z_exp"]["weight"])
+
+
+@pytest.mark.parametrize("pair", ALL_PAIRS, ids=[p[0] for p in ALL_PAIRS])
+def test_clock_schedule_combine_is_product_on_the_omni_side_only(dumps, omni_dumps, pair):
+    """Revision 4: the omni clock schedule multiplies swing quality by stance quality.
+
+    The forward side must still read ``"sum"`` -- the omni knob is applied by
+    ``apply_omni_knobs`` in an omni process only, and no forward preset moves. The swing APEX
+    term must carry NO ``combine`` key on either side: ``clock_swing_apex_income`` takes no such
+    argument, and a key written there would raise inside the reward manager on the first step.
+    """
+    pair_id, omni_phase, fwd_phase, fwd_task, omni_task = pair
+    f = _env(dumps[fwd_phase], fwd_task)
+    o = _env(omni_dumps[omni_phase], omni_task)
+    assert f["rewards"]["reward_clock_schedule"]["params"]["combine"] == "sum", pair_id
+    assert o["rewards"]["reward_clock_schedule"]["params"]["combine"] == "product", pair_id
+    assert "combine" not in o["rewards"]["reward_clock_swing_apex"]["params"], pair_id
+    assert "combine" not in f["rewards"]["reward_clock_swing_apex"]["params"], pair_id
 
 
 @pytest.mark.parametrize("pair", RL_PAIRS, ids=[p[0] for p in RL_PAIRS])

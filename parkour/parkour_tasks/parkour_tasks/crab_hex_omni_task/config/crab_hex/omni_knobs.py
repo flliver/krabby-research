@@ -35,7 +35,14 @@ five things the forward block cannot know about:
    ``reward_yaw_progress`` is the omni task's one ADDED term (the 36th name), so its knob has
    to be applied here -- after the forward block, in the same one-place-per-dose discipline
    (:func:`_apply_reward_weight_knobs`);
-6. ``apply_omni_ring_knobs`` -- the ring-generator guard and the ``KRABBY_RING_*`` knobs
+6. **two reward-SHAPE knobs the forward task has no omni-safe spelling for** (Revision 4,
+   2026-09-18 -- the reward-economy fix; see :data:`ANG_VEL_STD_VAR` /
+   :data:`CLOCK_COMBINE_VAR` and ``README.md``'s "Revision 4"):
+   ``KRABBY_OMNI_ANG_VEL_STD`` -> ``rewards.track_ang_vel_z_exp.params["std"]`` and
+   ``KRABBY_OMNI_CLOCK_COMBINE`` -> ``params["combine"]`` on every clock reward term that
+   HAS that key. Both are applied here rather than by the forward block because the omni
+   task needs to move them per-window without touching a forward preset;
+7. ``apply_omni_ring_knobs`` -- the ring-generator guard and the ``KRABBY_RING_*`` knobs
    (``mdp/omni_terrain_knobs.py``).
 
 Every parser is pure and lives at module scope with no Isaac import (the Isaac-touching bits
@@ -57,7 +64,9 @@ __all__ = [
     "SPEED_ELLIPSE_VAR",
     "FACING_VAR",
     "ANG_VEL_MAX_VAR",
+    "ANG_VEL_STD_VAR",
     "CLOCK_TURN_R_VAR",
+    "CLOCK_COMBINE_VAR",
     "YAW_RANGE_VAR",
     "RSI_SOURCE_VAR",
     "RSI_BANK_VAR",
@@ -68,7 +77,9 @@ __all__ = [
     "parse_speed_ellipse",
     "parse_facing",
     "parse_ang_vel_max",
+    "parse_ang_vel_std",
     "parse_clock_turn_radius",
+    "parse_clock_combine",
     "parse_yaw_range",
     "parse_rsi_source",
     "apply_omni_knobs",
@@ -79,7 +90,27 @@ DIR_BAND_VAR = "KRABBY_OMNI_DIR_BAND"
 SPEED_ELLIPSE_VAR = "KRABBY_OMNI_SPEED_ELLIPSE"
 FACING_VAR = "KRABBY_OMNI_FACING"
 ANG_VEL_MAX_VAR = "KRABBY_OMNI_ANG_VEL_MAX"
+#: ``track_ang_vel_z_exp``'s kernel width (Revision 4, 2026-09-18). The omni rewards CLASS BODY
+#: declares ``std = OMNI_ANG_VEL_STD`` (0.15, plan D4: gradient at the plant's 0.15-0.3 rad/s turn
+#: rate); this knob moves it per window. The 1c diagnosis measured the cost of the tight kernel on
+#: the 88 % of steps that command NO turn: ordinary gait yaw wobble of 0.10-0.15 rad/s is taxed
+#: 0.36-0.63/s at std 0.15 -- more than the entire translation income a walking policy can earn --
+#: so the cheapest policy is to hold still. There is no forward-named knob for this param, hence
+#: the omni spelling.
+ANG_VEL_STD_VAR = "KRABBY_OMNI_ANG_VEL_STD"
 CLOCK_TURN_R_VAR = "KRABBY_OMNI_CLOCK_TURN_R"
+#: The gait-clock schedule term's ``combine`` mode (Revision 4, 2026-09-18), omni-only.
+#:
+#: The MECHANISM already exists in the forward task and is NOT re-implemented here:
+#: ``crab_hex_clock_reward.clock_schedule_income(..., combine=...)`` has taken ``"sum"``
+#: (the literal default) / ``"product"`` since 2026-08-22, the forward rewards cfg declares
+#: ``params["combine"] = "sum"`` on ``reward_clock_schedule``, and ``KRABBY_CLOCK_COMBINE``
+#: applies it in the forward ``__post_init__``. This knob exists because the omni presets must
+#: set the mode in every omni window WITHOUT writing a forward-owned variable whose meaning is
+#: pinned by the forward lineage's own records -- and because it is applied AFTER the forward
+#: block, so ``KRABBY_OMNI_CLOCK_COMBINE`` wins over ``KRABBY_CLOCK_COMBINE`` if both are set
+#: (documented precedence, one place per dose).
+CLOCK_COMBINE_VAR = "KRABBY_OMNI_CLOCK_COMBINE"
 YAW_RANGE_VAR = "KRABBY_OMNI_YAW_RANGE"
 RSI_SOURCE_VAR = "KRABBY_OMNI_RSI_SOURCE"
 #: Shared with the forward task (the omni presets re-point the bank and keep the fraction).
@@ -168,6 +199,32 @@ def parse_ang_vel_max(text: str) -> float:
     if value <= 0.0:
         raise ValueError(f"{ANG_VEL_MAX_VAR} must be positive, got {text!r}")
     return value
+
+
+def parse_ang_vel_std(text: str) -> float:
+    """``KRABBY_OMNI_ANG_VEL_STD`` -> ``track_ang_vel_z_exp``'s kernel std, rad/s. Positive.
+
+    Strictly positive: Isaac Lab's term is ``exp(-(wz_cmd - wz)^2 / std^2)``, so a zero width is a
+    division by zero and a negative one is the same kernel as its absolute value -- "disable" is
+    what the term's WEIGHT knob is for, not a degenerate std.
+    """
+    (value,) = _floats(ANG_VEL_STD_VAR, text, 1)
+    if value <= 0.0:
+        raise ValueError(f"{ANG_VEL_STD_VAR} must be positive, got {text!r}")
+    return value
+
+
+def parse_clock_combine(text: str) -> str:
+    """``KRABBY_OMNI_CLOCK_COMBINE`` -> ``"sum"`` or ``"product"``.
+
+    Validated here rather than left to the reward function, which raises ``ValueError`` from
+    inside the reward manager on the FIRST STEP of training: a typo must fail at config build,
+    with the knob's name in the message, not thousands of GPU-seconds later.
+    """
+    token = str(text).strip().lower()
+    if token not in ("sum", "product"):
+        raise ValueError(f"{CLOCK_COMBINE_VAR} must be 'sum' or 'product', got {text!r}")
+    return token
 
 
 def parse_clock_turn_radius(text: str) -> float:
@@ -345,6 +402,74 @@ def _apply_reward_weight_knobs(cfg, env) -> None:
     term.weight = float(raw)
 
 
+def _apply_ang_vel_std_knob(cfg, env) -> None:
+    """``KRABBY_OMNI_ANG_VEL_STD`` -> ``rewards.track_ang_vel_z_exp.params["std"]`` (no-op unset).
+
+    PRESENCE-based like every other dose knob. The loud guard is the same insurance as
+    :func:`_apply_reward_weight_knobs`': a ``configclass`` instance accepts an unknown attribute
+    and a ``RewTerm``'s ``params`` is a plain dict, so a rewards cfg without the term -- or with
+    the param renamed upstream -- would otherwise grow an orphan ``std`` nobody reads and the run
+    would train under the class-body kernel while the launcher looked retuned.
+    """
+    raw = env.get(ANG_VEL_STD_VAR)
+    if raw is None or not str(raw).strip():
+        return
+    std = parse_ang_vel_std(raw)
+    term = getattr(getattr(cfg, "rewards", None), "track_ang_vel_z_exp", None)
+    params = getattr(term, "params", None) if term is not None else None
+    if not isinstance(params, dict) or "std" not in params:
+        raise RuntimeError(
+            f"{ANG_VEL_STD_VAR} is set but this env's rewards cfg has no "
+            "track_ang_vel_z_exp term with a 'std' param, so the knob would be silently "
+            "ignored and the run would train under the class-body kernel width."
+        )
+    params["std"] = std
+
+
+def _clock_combine_terms(cfg):
+    """Every reward term whose ``params`` ALREADY carries a ``combine`` key.
+
+    Keyed on the existing param rather than on a term-name list on purpose: the clock SCHEDULE
+    term takes ``combine`` (``clock_schedule_income``), the clock APEX term does not
+    (``clock_swing_apex_income`` has no such argument), and writing the key onto a term whose
+    function does not accept it would raise inside the reward manager on the first step. Presence
+    of the key is exactly "this function understands combine".
+    """
+    found = []
+    rewards = getattr(cfg, "rewards", None)
+    if rewards is None:
+        return found
+    for name, term in vars(rewards).items():
+        params = getattr(term, "params", None)
+        if isinstance(params, dict) and "combine" in params:
+            found.append((name, term))
+    return found
+
+
+def _apply_clock_combine_knob(cfg, env) -> None:
+    """``KRABBY_OMNI_CLOCK_COMBINE=sum|product`` -> ``params["combine"]`` on the clock terms.
+
+    Runs AFTER the forward rewards ``__post_init__`` (which applies ``KRABBY_CLOCK_COMBINE``), so
+    when both are set the omni knob wins -- the documented precedence, and the reason the omni
+    presets need a variable of their own at all.
+
+    Raises when no term carries the key: a forward/sideways rewards cfg leaking into an omni env,
+    or a future refactor that drops the param, must not leave the knob silently inert.
+    """
+    raw = env.get(CLOCK_COMBINE_VAR)
+    if raw is None or not str(raw).strip():
+        return
+    mode = parse_clock_combine(raw)
+    terms = _clock_combine_terms(cfg)
+    if not terms:
+        raise RuntimeError(
+            f"{CLOCK_COMBINE_VAR} is set but no reward term on this cfg takes a 'combine' "
+            "param (expected rewards.reward_clock_schedule); the knob would be silently ignored."
+        )
+    for _name, term in terms:
+        term.params["combine"] = mode
+
+
 def _repoint_rsi(cfg, env, yaw_range) -> None:
     """Swap ``events.rsi_reference_reset`` onto the omni RSI reset, same attribute name.
 
@@ -397,6 +522,10 @@ def apply_omni_knobs(cfg, environ=None) -> None:
     _apply_spawn_yaw(cfg, yaw_range)
     _repoint_rsi(cfg, env, yaw_range)
     _apply_reward_weight_knobs(cfg, env)
+    # Revision 4 (2026-09-18): the reward-economy shape knobs. Both run after the forward
+    # rewards __post_init__, so the omni spelling wins over any forward-named twin.
+    _apply_ang_vel_std_knob(cfg, env)
+    _apply_clock_combine_knob(cfg, env)
     _apply_facing_obs_clip_knob(cfg, env)
 
     from parkour_tasks.crab_hex_omni_task.mdp.omni_terrain_knobs import (  # noqa: PLC0415

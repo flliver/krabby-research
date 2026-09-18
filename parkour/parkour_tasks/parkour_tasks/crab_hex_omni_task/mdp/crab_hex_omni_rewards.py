@@ -39,6 +39,17 @@ against 0.6-1.0 rad/s commanded on every head of record: at std 0.5 the exponent
 (0.99 -> 0.94) across the entire 0-0.3 rad/s band this plant can actually turn in, i.e. no
 gradient where the behaviour lives. 0.15 puts the well's edge at the yaw-rate cap.
 
+**REVISION 4 (2026-09-18) REVERSES THAT DOSE FROM THE PRESET SIDE.** The class-body literal
+stays 0.15 (the knob-timing pillar: a cfg class body carries its declared value and knobs move
+it), but every omni preset now sets ``KRABBY_OMNI_ANG_VEL_STD=0.5`` -- back to the forward
+kernel -- so no shipped omni run trains at 0.15. What 0.15 costs, measured on the seed-3 1c
+head: the tight well also applies on the ~88 % of steps that command NO turn, where ordinary
+gait yaw wobble of 0.10-0.15 rad/s is taxed 0.36-0.63 per second, more than the entire
+translation income a walking policy can earn -- one of the four terms that made standing still
+the optimum. The turning gradient this docstring was worried about is supplied instead by
+``reward_yaw_progress`` below (weight 1.0, signed, dense), which did not exist when 0.15 was
+chosen. See ``README.md`` "Revision 4 -- the reward economy".
+
 THE ADDED TERM (:func:`reward_yaw_progress`, the 36th name; 2026-09-17). The plan's
 500-iteration yaw-capability smoke (``KRABBY_OMNI_SLOTS=0:0:1:0``, flat, from scratch; run
 ``crab_hex_omni_flat_walk/2026-09-16_20-35-23``) FAILED its gate: the policy learned to stand
@@ -109,7 +120,10 @@ _DIR_EPS = 1e-6
 #: The ``v_min`` of the forward ``reward_tracking_goal_vel`` divisor guard, kept verbatim.
 _TRACK_V_MIN = 0.05
 
-#: ``track_ang_vel_z_exp``'s retuned std (plan D4).
+#: ``track_ang_vel_z_exp``'s retuned std (plan D4). NOTE (Revision 4, 2026-09-18): every shipped
+#: omni preset overrides this with ``KRABBY_OMNI_ANG_VEL_STD=0.5``, the forward kernel -- see the
+#: module docstring. This literal is what an omni env built with NO knobs uses; it is kept at the
+#: plan's value because the class body is not where doses are set.
 OMNI_ANG_VEL_STD = 0.15
 
 
