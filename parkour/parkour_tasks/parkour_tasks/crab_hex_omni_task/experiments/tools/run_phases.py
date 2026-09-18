@@ -14,8 +14,10 @@ No student anywhere: this task is teacher-only (no depth distillation; the camer
 ``KRABBY_OMNI_PHASE`` and ``KRABBY_PLANT``: every knob comes from the preset (``activate_phase`` at
 config import). This driver never exports ``KRABBY_PHASE`` or ``KRABBY_SIDE_PHASE`` -- doing so
 would raise at config import (one task per process; see ``crab_hex_omni_phases.py::activate_phase``).
-Evals never export the preset; they pass the same explicit canary/terrain keys the forward and
-sideways campaigns used.
+Evals never export the preset either: they get the explicit canary/terrain keys the forward and
+sideways campaigns used, PLUS (2026-09-17) the :data:`EVAL_CARRY` observation/command knobs lifted
+out of the preset by :func:`eval_env_for`, because without them the Play env built on class
+defaults and scored the policy through an observation function it had never trained under.
 
     run_phases.py --campaign-dir <dir> --plant A15+B --phases 1a,1b,1c,2a,2b [--seed 3]
                   [--from-checkpoint <pt>] [--iterations N] [--no-eval] [--pause-after 2b]
@@ -65,6 +67,63 @@ CANARY_KEYS = ("KRABBY_LIN_VEL_X", "KRABBY_TRACK_SIGMA2", "KRABBY_TRACK_L1_W", "
 # KRABBY_HEADING is ever set (D2/Appendix A), so this driver must never pass it through.
 CANARY_KEEP = ("KRABBY_LIN_VEL_X", "KRABBY_TRACK_SIGMA2", "KRABBY_TRACK_L1_W", "KRABBY_CLOCK_W",
                "KRABBY_APEX_W", "KRABBY_AIRTIME_W", "KRABBY_STRIDE_W", "KRABBY_ACTION_SCALE")
+# ---------------------------------------------------------------- EVAL_CARRY (2026-09-17 defect fix)
+# The knobs that define what the policy OBSERVES or how its COMMAND is computed. They are carried
+# from the phase's preset (``ph.phase_env``) into EVERY eval -- ``eval_morph`` (flat canary /
+# light-ring onset) and ``eval_obst`` (ring) alike.
+#
+# WHY THIS EXISTS. ``_subenv`` strips every ``KRABBY_*`` from the parent and the driver deliberately
+# never exports ``KRABBY_OMNI_PHASE`` to an eval (two presets in one process raise at config
+# import). Until 2026-09-17 that meant ``activate_phase`` never ran in the eval process and
+# ``OMNI_COMMON`` was never expanded there, so the Play env built on CLASS DEFAULTS while the
+# canary's five reward/tracking keys were the only thing carried across. The policy was therefore
+# scored through a different observation/command function than the one it trained under, and every
+# gate in the campaign read that number. Carrying the preset wholesale is NOT the fix (it would
+# reinstate the sampler, the reward weights, the RSI resets and the training terrain the canary is
+# specifically meant to strip); carrying exactly the obs/command semantics is.
+#
+# Per key, what it changes and why an eval must match training:
+#   KRABBY_OMNI_FACING_OBS_CLIP -- ``params["facing_obs_clip"]`` on the omni observation term
+#       (obs channels 6/7, the facing error). Class default is ``None`` = the RAW error, so the
+#       canary's 90-degree turn holds present 1.57 rad on a policy whose training inputs never
+#       left the 0.6-rad clip. The config-dump audit found this to be the ONLY difference under
+#       ``observations`` between the old eval env and training, and it is worth the whole defect:
+#       on the seed-3 1c head, 100 episodes, the driver's old env scored completion 0.00 (100/100
+#       falls) and the same env plus this one key scored 0.39 (the full preset scored 0.49).
+#   KRABBY_OMNI_SPEED_ELLIPSE -- ``speed_ellipse`` (fore-aft, lateral, backward semi-axes). On a
+#       world-frame row the harness does NOT write ``vel_command_b``: it hands the term a
+#       ScheduleRow and the term's own ``_write_command`` re-derives the body command through
+#       ``body_command_details(..., a, b, c)``. The ellipse therefore caps and shapes the very
+#       command the eval measures tracking against.
+#   KRABBY_OMNI_ANG_VEL_MAX -- ``ang_vel_max``, the yaw-rate saturation in ``heading_rate_command``
+#       (same ``_write_command`` path). It sets the yaw-rate command the turn holds score, and the
+#       manifest's hold-length feasibility note is written against it.
+#   KRABBY_OMNI_CLOCK_TURN_R -- ``cfg.omni_clock_turn_radius``, read by ``parkour_actions`` when it
+#       advances the gait clock: it is an input to the CLOCK PHASE the policy observes, not a
+#       reward weight.
+#   KRABBY_OMNI_YAW_RANGE -- the ring reset event's ``yaw_range`` (and the RSI re-yaw). Every row
+#       in ``scenarios_omni.yaml`` is world-frame with ``spawn_yaw: first_face``, so the harness
+#       pins this to ``(face0, face0)`` after the cfg is built and the carried value is inert
+#       TODAY; it is carried so a body-frame or unpinned row added later spawns from the band the
+#       policy trained on rather than the class default, and so ``_apply_spawn_yaw``'s structural
+#       guard (a leaked forward reset event has no ``yaw_range`` param) runs in the eval too.
+#
+# NOT carried, deliberately: KRABBY_OMNI_SLOTS / _DIR_BAND / _FACING / _RSI_SOURCE, KRABBY_RSI_*,
+# KRABBY_YAW_W, KRABBY_YAW_PROGRESS_W, KRABBY_STAND_FRAC, KRABBY_RESAMPLE_S and the
+# KRABBY_FLAT_TERRAIN_* block. Those drive SAMPLING, REWARD and TERRAIN -- the canary is a minimal
+# flat eval whose commands come from the manifest schedule override (the sampler never runs) and
+# whose verdict must not move when a stage re-weights a reward.
+#
+# heading_control_stiffness is NOT here and needs no knob: ``apply_flat_walk_knobs`` sets it to 1.5
+# unconditionally (crab_hex_env_cfg.py:563) in every crab-hex env, training and Play alike; the
+# omni command cfg's Go2 literal 0.8 is overwritten before ``apply_omni_knobs`` runs. Only
+# KRABBY_HEADING_STIFFNESS would change it and no omni preset sets it (see the CANARY_KEEP note).
+EVAL_CARRY = ("KRABBY_OMNI_FACING_OBS_CLIP", "KRABBY_OMNI_SPEED_ELLIPSE", "KRABBY_OMNI_ANG_VEL_MAX",
+              "KRABBY_OMNI_CLOCK_TURN_R", "KRABBY_OMNI_YAW_RANGE")
+# Evals never carry RSI resets: set explicitly (not merely omitted) so a preset that later grows a
+# different default, or a leaked parent value, cannot re-arm reference-state resets inside an eval.
+# apply_omni_knobs / the forward knob block build events.rsi_reference_reset only for RSI_FRAC > 0.
+EVAL_RSI_OFF = {"KRABBY_RSI_FRAC": "0"}
 # Ring knobs (D8's apply_omni_ring_knobs), not the forward/sideways corridor's KRABBY_CORRIDOR_HALF_WIDTH
 # / KRABBY_STONE_WIDTH -- those are dead for the ring geometry.
 TERRAIN_PASS = ("KRABBY_FLAT_TERRAIN_GEOM", "KRABBY_FLAT_TERRAIN_DIFF", "KRABBY_RING_CLEAR_R", "KRABBY_RING_BLOCKS")
@@ -408,10 +467,53 @@ def latest_run_ckpt(exp_dir: Path, t0: float) -> str | None:
 
 
 def with_plant(ev: dict, plant: str) -> dict:
+    """Name the plant AND (for a non-main plant) point at its USD.
+
+    2026-09-17: this used to set ``KRABBY_HEX_USD_PATH`` only. ``plant_usd_path`` returns ``None``
+    for the campaign's own plant (``A15+B`` IS the main asset), so for this campaign it set
+    NOTHING and the eval subprocess -- whose parent ``KRABBY_*`` are all stripped by ``_subenv`` --
+    ran with no plant variable at all. ``_plant_guard`` still passed because the class-default USD
+    happens to be ``assets/crab.usda`` = A15+B, but the harness recorded
+    ``run_meta.plant_requested = "<default>"``: the eval was coincidentally on the right plant
+    rather than asked for it, and a future change of the config default would have gone unnoticed.
+    ``KRABBY_PLANT`` is now always set, which is also what the training subprocess passes.
+    """
     ev = dict(ev)
+    ev["KRABBY_PLANT"] = plant
     usd = ph.plant_usd_path(plant)
     if usd:
         ev["KRABBY_HEX_USD_PATH"] = usd
+    return ev
+
+
+def eval_env_for(spec, plant: str, *, keep: tuple[str, ...] = CANARY_KEYS,
+                 keep_source: dict | None = None, extra: dict | None = None) -> dict:
+    """The subprocess environment for ONE eval of ``spec`` -- pure, no ``os.environ``, no I/O.
+
+    ``keep`` are the reward/tracking keys the row reproduces, read from ``keep_source``. The flat
+    canary reads them from :data:`~crab_hex_omni_phases.FORMATION` on purpose -- a FIXED reward
+    frame, so a 2a verdict is comparable with a 1c one even though 2a halves apex/airtime -- while
+    the obstacle row reproduces the phase's own weights. ``EVAL_CARRY`` is different in kind and is
+    ALWAYS read from the phase's preset: those keys decide what the policy SEES and what command it
+    is scored against, so they must be the ones it trained under, whatever the row's reward frame
+    (see the EVAL_CARRY block). Then :data:`EVAL_RSI_OFF`, the ring geometry every omni process
+    requires, ``extra`` (the caller's row-specific terrain block), and the plant.
+
+    Never contains a preset variable: ``KRABBY_OMNI_PHASE`` in an eval would re-expand the whole
+    training preset (sampler, rewards, RSI, terrain) inside the Play env, and ``KRABBY_PHASE`` /
+    ``KRABBY_SIDE_PHASE`` would raise at config import (one task per process).
+    """
+    pe = ph.phase_env(spec.name)
+    src = pe if keep_source is None else keep_source
+    ev = {k: src[k] for k in keep if k in src}
+    ev.update({k: pe[k] for k in EVAL_CARRY if k in pe})
+    ev.update(EVAL_RSI_OFF)
+    ev.update(TERRAIN_GEOM_REQUIRED)
+    if extra:
+        ev.update(extra)
+    ev = with_plant(ev, plant)
+    for banned in ("KRABBY_OMNI_PHASE", "KRABBY_PHASE", "KRABBY_SIDE_PHASE"):
+        ev.pop(banned, None)
     return ev
 
 
@@ -543,10 +645,13 @@ def eval_morph(c: Campaign, spec, ckpt: str, scenario: str, tag: str) -> dict | 
     ``env:`` block (the manifest's frozen shape), so without this the flat canary -- the row all
     four gates read -- could not build its env at all. Passed in the SUBPROCESS environment, i.e.
     before Kit starts, so the manifest-shape reproducibility note does not apply.
+
+    The reward frame is FORMATION's, fixed across phases so the canary number is comparable; the
+    observation/command semantics are the PHASE's (:data:`EVAL_CARRY`), because a policy can only
+    be measured through the inputs it was trained on. See :func:`eval_env_for`.
     """
     sid = f"{scenario}__omni"
-    ev = with_plant({k: ph.FORMATION[k] for k in CANARY_KEYS if k in ph.FORMATION}, c.plant)
-    ev.update(TERRAIN_GEOM_REQUIRED)
+    ev = eval_env_for(spec, c.plant, keep=CANARY_KEYS, keep_source=ph.FORMATION)
     latest, a = _run_eval(c, tag, sid, ["--manifest", str(OMNI_MANIFEST), "--scenario", sid, "--checkpoint", ckpt,
                                         "--save-raw"], ev, EVAL_ROOT / c.dir.name / tag, c.plant, 3600)
     if a is None:
@@ -566,12 +671,12 @@ def eval_obst(c: Campaign, spec, ckpt: str, tag: str) -> dict | None:
     Teacher env cfg's ``__post_init__`` requires ``KRABBY_HEX_TEACHER_MODE`` to resolve
     (``_require_phase_teacher_mode``), which this driver never sets for a 2a/2b/2c head, so a
     Teacher-Play row could never build here.
+
+    Unlike the canary this row reproduces the PHASE's own reward weights (``CANARY_KEEP`` +
+    ``TERRAIN_PASS`` off the preset), but it carries the same :data:`EVAL_CARRY` observation/command
+    knobs -- it was scored on class defaults too before 2026-09-17. See :func:`eval_env_for`.
     """
-    pe = ph.phase_env(spec.name, c.plant)
-    ev = {k: pe[k] for k in CANARY_KEEP if k in pe}
-    ev.update({k: pe[k] for k in TERRAIN_PASS if k in pe})
-    ev.update(OBST_EVAL)
-    ev = with_plant(ev, c.plant)
+    ev = eval_env_for(spec, c.plant, keep=CANARY_KEEP + TERRAIN_PASS, extra=OBST_EVAL)
     latest, a = _run_eval(c, tag, "ring__omni", ["--manifest", str(OMNI_MANIFEST), "--scenario", "ring__omni",
                                                  "--checkpoint", ckpt], ev, Path(str(EVAL_ROOT / c.dir.name / tag) + "_obst"),
                           c.plant, 5400)

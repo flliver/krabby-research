@@ -158,6 +158,16 @@ documented as wobble-sensitive and is gated nowhere. `gate_1c_verdict` (`run_pha
 No usable number on any of the four criteria (three failed eval attempts, or a hold never scored)
 halts, same as a numeric failure — an unmeasured formation must not start 2a unattended.
 
+**The environment every gate is read in** (corrected 2026-09-17; see the Log). Each gate reads
+`slow__omni` built by `run_phases.py::eval_env_for` — the canary's fixed reward frame
+(`CANARY_KEYS` off `FORMATION`, so a 2a verdict stays comparable with a 1c one) **plus the phase
+preset's observation/command knobs** (`EVAL_CARRY`: `KRABBY_OMNI_FACING_OBS_CLIP`,
+`_SPEED_ELLIPSE`, `_ANG_VEL_MAX`, `_CLOCK_TURN_R`, `_YAW_RANGE`), `KRABBY_RSI_FRAC=0`, the required
+ring geometry, and `KRABBY_PLANT`. The preset variable itself is never exported to an eval. The
+sampling, reward and terrain knobs stay out by design: the canary is a minimal flat eval driven by
+the manifest's schedule override, and a gate verdict must not move when a stage re-weights a
+reward. A gate number produced under any other environment is not a measurement of the policy.
+
 ## The facing-precision gate (WATCHED at 1c, ENFORCED from 2a)
 
 Median `heading_error_final_abs` ≤ 0.30 rad on EACH turn hold. Watched (not enforced) at 1c because
@@ -311,3 +321,48 @@ min (Verification 9, run once before any window). Two seeds (3 then 2), trained 
   hold ends; driver `survival_by_hold()`), same 0.70 floor. Recomputed on the same eval: stand 1.00, fwd **0.93**, lat_l 0.87,
   diag 0.74, back 0.50, turn_l90 0.33, turn_r90 0.20, move_turn 0.09 → 1a PASSES the corrected gate. Relaunched with
   `--continue` (recorded as `gate_1a_override` by the driver; the override is the criterion fix, not a waiver).
+- 2026-09-17 (afternoon) EVAL DEFECT + arm C. The driver's `eval_morph` env carries no `KRABBY_OMNI_PHASE` (run_phases.py:548-549),
+  so every campaign canary built the Play env on class defaults — facing-error obs UNCLIPPED (1.57 rad on the 90° holds vs ≤0.6 in
+  training). Reproduced on the 1c head, 100 episodes each, driver's exact bare env: no clip → completion 0.00, 100/100 falls, turn_l90
+  progress 0.005 (identical to the campaign's gate_1c numbers); + clip only → completion 0.39, 61 falls, turn_l90 progress 0.027,
+  turn_r90 settles 48/57; with the full preset expanded (KRABBY_OMNI_PHASE=1c set) → 0.49 / 51 falls. VERDICT: the 100 % fall rate
+  was the eval defect; the 1a/1b/1c gate verdicts are void until re-evaluated through the corrected env. The policy-level deficit is
+  real and separate: even with the clip the head tracks ~0 speed (fwd 0.040/0.25, lat_l 0.006/0.22, tripod 0.85 on lat/back/diag =
+  stepping in place) and turns at ~0.03 rad/s — a corrected gate_1c still fails on tripod/completion/speed/turn. A 5-min continuous
+  recording under the training distribution (facing targets ±0.6 rad relative, clip live) shows no falls at all (`videos/omni_1c_seed3_5min.mp4`;
+  the once-a-minute resets are the Play cfg's hard-coded 60-s timeout, crab_hex_omni_env_cfg.py:205).
+- 2026-09-17 (afternoon) EVAL DEFECT **FIXED** in the driver (`EVAL_CARRY` / `eval_env_for`), with a config-dump audit.
+  **Defect.** `eval_morph` built the eval subprocess env from five `FORMATION` reward keys + `TERRAIN_GEOM_REQUIRED`, and
+  `_subenv` strips every `KRABBY_*` from the parent. `KRABBY_OMNI_PHASE` was never passed (correctly — two presets in one
+  process raise), so `activate_phase` never expanded `OMNI_COMMON` in the eval process and the Play env built on **class
+  defaults**: `facing_obs_clip` unset (raw 1.57-rad facing error on the 90° holds) against the 0.6 the policy trained under.
+  `eval_obst` had the same hole. Separately, `with_plant()` set only `KRABBY_HEX_USD_PATH`, and `plant_usd_path("A15+B")`
+  is `None` (A15+B **is** the main asset) — so **no plant variable reached any eval at all**. `_plant_guard` passed because
+  the class-default USD coincides with A15+B; `run_meta.plant_requested` recorded `<default>`, i.e. the right plant by luck,
+  not by request. `with_plant` now always sets `KRABBY_PLANT`.
+  **Evidence** (seed-3 1c head `2026-09-17_00-13-40/model_6997.pt`, `slow__omni`, 100 episodes/arm, arm C above):
+  driver's exact bare env → completion **0.00**, 100/100 falls; the same env + only `KRABBY_OMNI_FACING_OBS_CLIP=0.6` →
+  **0.39**, 61 falls; full preset expanded → **0.49**, 51 falls. The clip alone moves 0.00 → 0.39, and the `fwd`/`lat_l`/
+  `diag`/`back` tripod medians are bit-identical across those two arms — the clip changes behaviour only from `turn_l90`
+  on, exactly where the obs channels saturate. Earlier yaw-capability smoke: 16/16 falls raw vs 3/16 clipped.
+  **Fix.** `EVAL_CARRY` = the preset knobs that define what the policy OBSERVES or how its command is computed —
+  `KRABBY_OMNI_FACING_OBS_CLIP` (obs channels 6/7), `_SPEED_ELLIPSE` and `_ANG_VEL_MAX` (a world-frame row is written by
+  the command term's own `_write_command`, not by the harness), `_CLOCK_TURN_R` (the observed clock phase), `_YAW_RANGE`
+  (spawn band) — carried from `ph.phase_env(spec.name)` into **both** `eval_morph` and `eval_obst` by the new pure
+  `eval_env_for(spec, plant, ...)`, together with an explicit `KRABBY_RSI_FRAC=0`. Sampling/reward/terrain knobs stay out
+  by design. Pinned by eight cases in `tests/unit/test_crab_hex_omni_gate.py`.
+  **Audit** (`parkour/outputs/omni_plan/eval_env_audit/`, `crab_hex_phase_cfg_dump.py` on `Isaac-Crab-Hex-Omni-Walk-Play-v0`):
+  OLD-eval vs training differed in `observations.policy.extreme_parkour_observations.params.facing_obs_clip` (absent vs 0.6)
+  — the ONLY observation difference, and the whole train/eval input mismatch. NEW-eval vs training: **zero** differences
+  under `observations`, `actions`, `scene.height_scanner`, `terminations` and `episode_length_s`. The 23 remaining
+  differences are all deliberately eval-specific: `rsi_reference_reset` absent (10, RSI off), flat-vs-light terrain mix and
+  difficulty (7), parkour curriculum unfrozen (3), `reward_tracking_yaw.weight` 0.0 vs 0.2 (reward only — the canary's fixed
+  `FORMATION` frame; rewards do not steer a rollout), and `commands.base_velocity.resampling_time_range` / `stand_frac`
+  (2 — sampling, inert under the schedule override, which pins `time_left` and drives the term through `schedule_hook`; the
+  harness never reads the command term's own metrics). Carrying `_YAW_RANGE` also removed a float mismatch on
+  `events.reset_root_state.params.yaw_range` (π vs 3.14159). `heading_control_stiffness` needs no knob: it is 1.5 in every
+  arm — `apply_flat_walk_knobs` sets it unconditionally (`crab_hex_env_cfg.py:563`), overwriting the omni cfg's Go2 0.8.
+  **Consequence.** Every campaign eval so far — the 1a, 1b and 1c canaries — was measured under class-default observation
+  semantics and its recorded verdict must be re-derived through the corrected path. **The 1c gate verdict is VOID until
+  re-evaluated.** (As arm C also shows, the corrected gate is expected to fail 1c on its own merits: ~0 tracked speed and
+  ~0.03 rad/s turning. The defect explains the 100 % fall rate, not the policy deficit.)

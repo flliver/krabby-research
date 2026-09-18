@@ -490,3 +490,120 @@ def test_survival_by_hold_cuts_at_the_hold_ends(drv):
     assert out == {"stand": 0.75, "fwd": 0.5, "lat_l": 0.25}
     assert drv.survival_by_hold([], labels, hold_s) == {"stand": None, "fwd": None, "lat_l": None}
     assert drv.survival_by_hold(eps, labels, {"stand": 8.0})["fwd"] is None
+
+
+# ---------------------------------------------------------------- eval_env_for (2026-09-17 defect)
+# The eval subprocess environment is what decides whether a gate measures the POLICY or a policy
+# run through an observation/command function it never trained under. Until 2026-09-17 the driver
+# built it from five reward keys + the ring geometry and nothing else: `_subenv` strips every
+# KRABBY_* from the parent and the preset variable is deliberately never exported to an eval, so
+# `activate_phase` never expanded OMNI_COMMON there and the Play env built on CLASS DEFAULTS --
+# `facing_obs_clip=None` (raw 1.57-rad facing error on the canary's 90-degree turns) against the
+# 0.6 the policy trained with. These pin the carry list, the RSI-off default and the preset-free
+# invariant. Pure: `eval_env_for` touches neither os.environ nor the filesystem.
+
+
+def _eval_envs(drv, phase="1c"):
+    """Both eval rows for one phase, built exactly as eval_morph / eval_obst build them."""
+    spec = drv.ph.PHASES[phase]
+    return {
+        "canary": drv.eval_env_for(spec, "A15+B", keep=drv.CANARY_KEYS, keep_source=drv.ph.FORMATION),
+        "obstacle": drv.eval_env_for(spec, "A15+B", keep=drv.CANARY_KEEP + drv.TERRAIN_PASS,
+                                     extra=drv.OBST_EVAL),
+    }
+
+
+def test_eval_carry_names_the_obs_and_command_knobs(drv):
+    """The carry list is the observation / command-semantics knobs, and only those."""
+    assert set(drv.EVAL_CARRY) == {
+        "KRABBY_OMNI_FACING_OBS_CLIP",   # obs channels 6/7 (facing error) clip
+        "KRABBY_OMNI_SPEED_ELLIPSE",     # _write_command's body command on a world-frame row
+        "KRABBY_OMNI_ANG_VEL_MAX",       # heading_rate_command's yaw-rate saturation
+        "KRABBY_OMNI_CLOCK_TURN_R",      # omni_clock_turn_radius -> the observed clock phase
+        "KRABBY_OMNI_YAW_RANGE",         # the reset event's spawn-yaw band
+    }
+    # Sampling / reward / terrain knobs are NOT carried: the canary is a minimal flat eval whose
+    # commands come from the manifest schedule override and whose verdict must not move when a
+    # stage re-weights a reward.
+    for banned in ("KRABBY_OMNI_SLOTS", "KRABBY_OMNI_DIR_BAND", "KRABBY_OMNI_FACING",
+                   "KRABBY_OMNI_RSI_SOURCE", "KRABBY_YAW_W", "KRABBY_YAW_PROGRESS_W",
+                   "KRABBY_STAND_FRAC", "KRABBY_RESAMPLE_S"):
+        assert banned not in drv.EVAL_CARRY
+
+
+@pytest.mark.parametrize("row", ["canary", "obstacle"])
+def test_every_eval_env_carries_every_eval_carry_key_from_the_preset(drv, row):
+    """EVAL_CARRY reaches BOTH eval rows, with the PHASE preset's value (not a class default)."""
+    pe = drv.ph.phase_env("1c")
+    ev = _eval_envs(drv)[row]
+    for key in drv.EVAL_CARRY:
+        assert key in pe, f"{key} is not in the 1c preset -- carry list is stale"
+        assert ev.get(key) == pe[key], f"{row}: {key} missing or not the preset value"
+    # The specific regression: the facing-error observation clip the 2026-09-17 yaw gate turned on.
+    assert ev["KRABBY_OMNI_FACING_OBS_CLIP"] == "0.6"
+
+
+@pytest.mark.parametrize("row", ["canary", "obstacle"])
+def test_eval_env_turns_rsi_off_explicitly(drv, row):
+    """RSI_FRAC=0 is SET, not merely absent, so no eval ever starts an episode from a bank frame."""
+    ev = _eval_envs(drv)[row]
+    assert ev["KRABBY_RSI_FRAC"] == "0"
+    assert drv.ph.phase_env("1c")["KRABBY_RSI_FRAC"] == "0.2"   # the preset would have armed it
+
+
+@pytest.mark.parametrize("row", ["canary", "obstacle"])
+def test_eval_env_never_carries_a_preset_variable(drv, row):
+    """KRABBY_OMNI_PHASE would re-expand the whole training preset inside the Play env; the other
+    two raise at config import (one task per process)."""
+    ev = _eval_envs(drv)[row]
+    for banned in ("KRABBY_OMNI_PHASE", "KRABBY_PHASE", "KRABBY_SIDE_PHASE"):
+        assert banned not in ev
+    # ... and the sampler/reward keys the preset would have brought with it stay out too.
+    for banned in ("KRABBY_OMNI_SLOTS", "KRABBY_OMNI_FACING", "KRABBY_YAW_PROGRESS_W",
+                   "KRABBY_RSI_BANK", "KRABBY_OMNI_RSI_SOURCE"):
+        assert banned not in ev
+
+
+@pytest.mark.parametrize("row", ["canary", "obstacle"])
+def test_eval_env_names_the_plant(drv, row):
+    """with_plant used to set KRABBY_HEX_USD_PATH only -- and plant_usd_path('A15+B') is None
+    (A15+B IS the main asset), so the eval subprocess carried no plant variable at all and the
+    harness recorded plant_requested '<default>'. The USD coincided; the request did not."""
+    assert drv.ph.plant_usd_path("A15+B") is None
+    assert _eval_envs(drv)[row]["KRABBY_PLANT"] == "A15+B"
+    # A non-main plant still gets its USD pointed at.
+    spec = drv.ph.PHASES["1c"]
+    other = drv.eval_env_for(spec, "golden", keep=drv.CANARY_KEYS, keep_source=drv.ph.FORMATION)
+    assert other["KRABBY_PLANT"] == "golden"
+    assert other["KRABBY_HEX_USD_PATH"] == drv.ph.plant_usd_path("golden")
+
+
+def test_canary_reward_frame_is_formation_not_the_phase(drv):
+    """The canary's reward keys stay FORMATION's across phases (a 2a verdict must be comparable
+    with a 1c one) while its EVAL_CARRY follows the phase."""
+    spec_2a = drv.ph.PHASES["2a"]
+    ev = drv.eval_env_for(spec_2a, "A15+B", keep=drv.CANARY_KEYS, keep_source=drv.ph.FORMATION)
+    for key in drv.CANARY_KEYS:
+        if key in drv.ph.FORMATION:
+            assert ev[key] == drv.ph.FORMATION[key]
+    assert ev["KRABBY_OMNI_FACING_OBS_CLIP"] == drv.ph.phase_env("2a")["KRABBY_OMNI_FACING_OBS_CLIP"]
+
+
+def test_eval_env_keeps_the_ring_geometry_every_omni_process_requires(drv):
+    """require_ring_geom raises in any omni process without it; the obstacle row's own block wins."""
+    envs = _eval_envs(drv)
+    assert envs["canary"]["KRABBY_FLAT_TERRAIN_GEOM"] == "ring"
+    assert envs["obstacle"]["KRABBY_FLAT_TERRAIN_GEOM"] == "ring"
+    for key, value in drv.OBST_EVAL.items():
+        assert envs["obstacle"][key] == value
+    # The canary stays a minimal flat row: no MODE/FLAT_FRAC/DIFF from the training preset.
+    for key in ("KRABBY_FLAT_TERRAIN_MODE", "KRABBY_FLAT_TERRAIN_FLAT_FRAC", "KRABBY_FLAT_TERRAIN_DIFF"):
+        assert key not in envs["canary"]
+
+
+def test_eval_env_for_is_pure(drv, monkeypatch):
+    """No os.environ read or write: a leaked parent value must not change the eval env."""
+    monkeypatch.setenv("KRABBY_OMNI_FACING_OBS_CLIP", "99.0")
+    monkeypatch.setenv("KRABBY_RSI_FRAC", "0.9")
+    ev = _eval_envs(drv)["canary"]
+    assert ev["KRABBY_OMNI_FACING_OBS_CLIP"] == "0.6" and ev["KRABBY_RSI_FRAC"] == "0"
