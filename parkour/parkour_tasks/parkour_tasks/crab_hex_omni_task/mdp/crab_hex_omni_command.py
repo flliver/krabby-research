@@ -38,12 +38,16 @@ this module loads under any package name -- the real
 
 from __future__ import annotations
 
+import copy
 import math
 from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING
 
 import torch
 
+import isaaclab.utils.math as math_utils
+from isaaclab.markers import VisualizationMarkers
+from isaaclab.markers.config import GREEN_ARROW_X_MARKER_CFG
 from isaaclab.utils import configclass
 
 from parkour_isaaclab.envs.mdp.parkour_commands import ParkourCommandCfg, UniformParkourCommand
@@ -80,6 +84,122 @@ walk floor: below it a "moving" slot would draw a speed indistinguishable from t
 ``CLOCK_CMD_STOP_M_S``). Separate constant from ``WALK_MARGIN_M_S`` even though both are
 0.01 m/s today: one is the gap the sampler leaves ABOVE the clip, this one is the width the
 band must still have."""
+
+
+# ----------------------------------------------------------------- debug-vis constants
+#
+# MODULE-LEVEL, not cfg fields, DELIBERATELY. ``CrabHexOmniCommandCfg``'s docstring promises
+# that "the config-dump delta is exactly this list" and ``test_crab_hex_omni_phases.py``
+# pins the omni-vs-forward env key delta; three new visualiser cfg fields would widen that
+# delta for something that is never read during training (debug vis is off in the train cfg
+# -- ``crab_hex_omni_env_cfg._apply_play`` is the only place that turns it on). Keeping the
+# markers here leaves every config dump bitwise identical.
+
+ARROW_Z_ACHIEVED_M = 0.45
+ARROW_Z_TRAVEL_M = 0.62
+ARROW_Z_FACING_M = 0.79
+"""Heights above the base origin, metres, of the three arrows -- achieved below travel
+below facing. They share an xy position every frame, so a shared height would z-fight and
+read as one bent arrow; the order makes the stack say, top-down, "face this way / go this
+way / actually going that way". 0.45 clears the chassis top in the PLAY chase camera."""
+
+ARROW_SHAFT_SCALE = 0.17
+"""y/z scale of the speed arrows -- their THICKNESS, ~0.04 m. NOT the stock 0.5 of
+``parkour_command_cfg``: at the crab's 0.2-0.35 m/s the stock length multiplier leaves an
+arrow WIDER than it is long, and the first render of this viewer was three coloured blobs.
+Paired with the gains below this is roughly 11:1 and reads as an arrow at a glance."""
+
+FACING_SHAFT_SCALE = 0.13
+"""Thickness of the facing arrow -- thinner still, so "long and thin = facing" and "shorter
+and fatter = speed" are separable even before the colour registers."""
+
+TRAVEL_ARROW_GAIN = 25.0
+"""Marker x-scale per m/s of commanded speed, for BOTH speed-proportional arrows.
+
+A SCALE, not a length: ``arrow_x.usd`` is about 0.07 m long at unit scale (measured off the
+2026-09-18 headless renders -- the asset is streamed from Nucleus, so there is nothing local
+to read it from), which makes this about 1.7 m of arrow per m/s and puts the phase-default
+band 0.21-0.35 m/s at roughly 0.37-0.6 m -- a chassis length or two, visible in the PLAY
+chase camera without swamping the robot. The stock ``_resolve_xy_velocity_to_arrow`` factor
+of 3.0 was picked against quadrupeds moving at 1 m/s and is invisible here. A stopped
+command is zero-length, i.e. invisible, which is the "hidden when the slot commands no
+travel" requirement."""
+
+FACING_ARROW_LEN_FACTOR = 10.0
+"""FIXED marker x-scale of the facing arrow (~0.7 m). Longer than any travel arrow the
+ellipse can produce, so "the long orange one is the facing" survives a glance."""
+
+TRAVEL_ARROW_COLOR = (0.0, 1.0, 0.0)
+FACING_ARROW_COLOR = (1.0, 0.5, 0.0)
+ACHIEVED_ARROW_COLOR = (0.0, 0.35, 1.0)
+
+
+def _omni_arrow_cfg(prim_path: str, color: tuple[float, float, float], scale: tuple[float, float, float]):
+    """A recoloured private copy of the stock x-arrow marker.
+
+    DEEP copy, not ``.replace()``: ``configclass``'s ``replace`` is ``dataclasses.replace``,
+    which is SHALLOW -- the returned cfg shares the ``markers`` dict (and therefore the one
+    ``arrow`` prototype object) with the module-level ``GREEN_ARROW_X_MARKER_CFG``. That is
+    how ``parkour_command_cfg.py`` ends up mutating the global arrow's scale at import; this
+    module must not add a second such edit, because the colour would then leak into every
+    other task's green arrow.
+    """
+    cfg = copy.deepcopy(GREEN_ARROW_X_MARKER_CFG)
+    cfg.prim_path = prim_path
+    arrow = cfg.markers["arrow"]
+    arrow.scale = scale
+    arrow.visual_material.diffuse_color = color
+    return cfg
+
+
+# x scale 1.0 on every prototype, so the per-frame ``length_factor`` IS the arrow's marker
+# x-scale and the constants above are the only place a length is decided.
+OMNI_TRAVEL_CMD_MARKER_CFG = _omni_arrow_cfg(
+    "/Visuals/Command/omni_travel_cmd", TRAVEL_ARROW_COLOR, (1.0, ARROW_SHAFT_SCALE, ARROW_SHAFT_SCALE)
+)
+OMNI_FACING_CMD_MARKER_CFG = _omni_arrow_cfg(
+    "/Visuals/Command/omni_facing_cmd", FACING_ARROW_COLOR, (1.0, FACING_SHAFT_SCALE, FACING_SHAFT_SCALE)
+)
+OMNI_ACHIEVED_VEL_MARKER_CFG = _omni_arrow_cfg(
+    "/Visuals/Command/omni_achieved_vel", ACHIEVED_ARROW_COLOR, (1.0, ARROW_SHAFT_SCALE, ARROW_SHAFT_SCALE)
+)
+
+
+# --------------------------------------------------------------------- debug-vis helpers
+# Pure (tensor in, tensor out), module-level and unit-tested on CPU: the marker call itself
+# is untestable without Kit, and a silently wrong arrow is exactly the failure this viewer
+# exists to prevent.
+
+
+def arrow_quat_from_world_yaw(yaw: torch.Tensor) -> torch.Tensor:
+    """``(N,)`` WORLD yaw -> ``(N, 4)`` wxyz quaternion aiming the arrow's ``+x`` along it.
+
+    Yaw-only ON PURPOSE. The stock helper post-multiplies by the full ``root_quat_w``, so
+    its arrow tilts with the chassis roll/pitch; all three omni arrows are world-horizontal
+    instead, which is what makes "is the orange arrow left or right of the nose?" a
+    reliable read on rough ring terrain.
+    """
+    zeros = torch.zeros_like(yaw)
+    return math_utils.quat_from_euler_xyz(zeros, zeros, yaw)
+
+
+def arrow_scale_from_length(default_scale, length_factor: torch.Tensor) -> torch.Tensor:
+    """``(N, 3)`` marker scale: the prototype's scale with ``x`` times ``length_factor``.
+
+    Same shape of arithmetic as ``_resolve_xy_velocity_to_arrow`` (only the ``x`` axis --
+    the arrow's long axis -- is stretched, so the shaft stays the same thickness).
+    """
+    scale = torch.as_tensor(default_scale, device=length_factor.device, dtype=length_factor.dtype)
+    scale = scale.unsqueeze(0).repeat(length_factor.shape[0], 1)
+    scale[:, 0] = scale[:, 0] * length_factor
+    return scale
+
+
+def marker_pos_above_base(root_pos_w: torch.Tensor, z_offset: float) -> torch.Tensor:
+    """``(N, 3)`` world marker position: the base origin raised by ``z_offset`` metres."""
+    pos = root_pos_w.clone()
+    pos[:, 2] = pos[:, 2] + z_offset
+    return pos
 
 
 def omni_walk_floor(cfg: ParkourCommandCfg) -> float:
@@ -192,6 +312,46 @@ class CrabHexOmniCommand(UniformParkourCommand):
     :meth:`_yaw_progress_step`; the one metric that distinguishes "turns the wrong way" from
     "does not turn", which is what the 2026-09-17 yaw smoke had to be re-derived offline to
     learn).
+
+    DEBUG VISUALISATION (PLAY only -- ``_apply_play`` in ``crab_hex_omni_env_cfg`` is the
+    only place that sets ``debug_vis``; a training run never builds a marker). Three arrows
+    stacked over the base origin, ALL in the WORLD frame and ALL horizontal (yaw-only
+    quaternions -- see :func:`arrow_quat_from_world_yaw`):
+
+    ========  ======================  =============================  ========================
+    colour    meaning                 direction (world)              length
+    ========  ======================  =============================  ========================
+    GREEN     commanded TRAVEL        ``travel_dir_w`` (theta)       ~1.7 m per m/s of the
+              ("go this way")                                        commanded speed, so
+                                                                     0.35-0.6 m across the
+                                                                     phase speed band; ZERO
+                                                                     (invisible) on a
+                                                                     standing slot
+    ORANGE    commanded FACING        ``heading_target`` (psi), an   fixed ~0.7 m -- longer
+              ("face this way")       ABSOLUTE world yaw; on a       than any travel arrow,
+                                      non-turning slot it is the     on a thinner shaft
+                                      yaw held at resample, so it
+                                      lies on the nose
+    BLUE      ACHIEVED base velocity  ``atan2(root_lin_vel_w)``      ~1.7 m per m/s
+    ========  ======================  =============================  ========================
+
+    Read it as: orange against the robot's nose = the facing error the yaw-rate command is
+    working on; green against blue = the travel-tracking error; no green = standing. The
+    four slots are readable off the pair without a fourth marker -- no green means
+    ``stand`` or ``turn``, orange off the nose means ``turn`` or ``move_turn``.
+
+    The base class's GREEN "goal" arrow is REPLACED, not kept (``_set_debug_vis_impl``
+    deliberately does not call ``super()``). It draws ``vel_command_b[:, :2]`` rotated by
+    the FULL base quaternion -- the same world travel direction this term already holds, so
+    keeping it would put a second green arrow a few degrees off the first (the roll/pitch
+    tilt) carrying no extra information. Nothing is lost: the green arrow above IS that
+    command, resolved yaw-only and drawn at the length of the EFFECTIVE commanded speed
+    (``|vel_command_b[:, :2]|``, i.e. after the per-step ellipse re-cap, so a clamped
+    command visibly shortens -- that is what ``recap_frac`` counts). The base's BLUE
+    "current" arrow keeps its meaning and is likewise redrawn world-horizontal, off
+    ``root_lin_vel_w`` directly. ``cfg.goal_vel_visualizer_cfg`` and
+    ``cfg.current_vel_visualizer_cfg`` are therefore unread by this term; they stay on the
+    cfg (inherited) so no config dump moves.
     """
 
     cfg: CrabHexOmniCommandCfg
@@ -355,6 +515,66 @@ class CrabHexOmniCommand(UniformParkourCommand):
         n_turning = turning.sum()
         total = torch.where(turning, progress, torch.zeros_like(progress)).sum()
         return total / n_turning.clamp_min(1).to(total.dtype)
+
+    # --------------------------------------------------------------- debug visualisation
+
+    _VIS_ATTRS = ("travel_cmd_visualizer", "facing_cmd_visualizer", "achieved_vel_visualizer")
+
+    def _set_debug_vis_impl(self, debug_vis: bool):
+        """Create/show the three omni arrows. Does NOT call ``super()`` -- see the class
+        docstring for why the base's green goal arrow is replaced rather than kept."""
+        if debug_vis:
+            if not hasattr(self, "travel_cmd_visualizer"):
+                self.travel_cmd_visualizer = VisualizationMarkers(OMNI_TRAVEL_CMD_MARKER_CFG)
+                self.facing_cmd_visualizer = VisualizationMarkers(OMNI_FACING_CMD_MARKER_CFG)
+                self.achieved_vel_visualizer = VisualizationMarkers(OMNI_ACHIEVED_VEL_MARKER_CFG)
+            for name in self._VIS_ATTRS:
+                getattr(self, name).set_visibility(True)
+        elif hasattr(self, "travel_cmd_visualizer"):
+            for name in self._VIS_ATTRS:
+                getattr(self, name).set_visibility(False)
+
+    def _debug_vis_callback(self, event):
+        """Redraw the three arrows for every env (vectorised -- ``num_envs`` rows each)."""
+        if not self.robot.is_initialized:
+            return
+        root_pos_w = self.robot.data.root_pos_w
+        # (1) commanded travel: the HELD world direction, at the length of the effective
+        # commanded speed. ``body_command_details`` only ever clamps the MAGNITUDE, so the
+        # world direction of ``vel_command_b`` is ``travel_dir_w`` exactly and taking the
+        # angle from the state rather than from ``atan2`` keeps a zero-speed command
+        # pointing somewhere defined instead of at atan2(0, 0).
+        speed_eff = torch.linalg.norm(self.vel_command_b[:, :2], dim=1)
+        self.travel_cmd_visualizer.visualize(
+            marker_pos_above_base(root_pos_w, ARROW_Z_TRAVEL_M),
+            arrow_quat_from_world_yaw(self.travel_dir_w),
+            arrow_scale_from_length(
+                self.travel_cmd_visualizer.cfg.markers["arrow"].scale, speed_eff * TRAVEL_ARROW_GAIN
+            ),
+        )
+
+        # (2) commanded facing: an absolute world yaw, fixed length (it is an angle, not a
+        # rate -- a length would invite reading it as "how hard to turn").
+        self.facing_cmd_visualizer.visualize(
+            marker_pos_above_base(root_pos_w, ARROW_Z_FACING_M),
+            arrow_quat_from_world_yaw(self.heading_target),
+            arrow_scale_from_length(
+                self.facing_cmd_visualizer.cfg.markers["arrow"].scale,
+                torch.full_like(self.heading_target, FACING_ARROW_LEN_FACTOR),
+            ),
+        )
+
+        # (3) achieved base velocity, straight off the WORLD root velocity (no body->world
+        # round trip, so this arrow cannot disagree with the command arrows about frames).
+        vel_w = self.robot.data.root_lin_vel_w[:, :2]
+        self.achieved_vel_visualizer.visualize(
+            marker_pos_above_base(root_pos_w, ARROW_Z_ACHIEVED_M),
+            arrow_quat_from_world_yaw(torch.atan2(vel_w[:, 1], vel_w[:, 0])),
+            arrow_scale_from_length(
+                self.achieved_vel_visualizer.cfg.markers["arrow"].scale,
+                torch.linalg.norm(vel_w, dim=1) * TRAVEL_ARROW_GAIN,
+            ),
+        )
 
     # ------------------------------------------------------------------- eval harness
 

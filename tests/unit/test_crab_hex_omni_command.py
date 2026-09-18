@@ -125,19 +125,45 @@ def _configclass(cls):
     return cls
 
 
+def _marker_proto(scale=(1.0, 1.0, 1.0), color=(0.0, 1.0, 0.0)):
+    """One marker prototype: the two attributes the debug-vis code reads or recolours."""
+    return types.SimpleNamespace(
+        scale=scale, visual_material=types.SimpleNamespace(diffuse_color=color)
+    )
+
+
 class _MarkerCfg:
     """Stand-in for the arrow/frame ``VisualizationMarkersCfg`` singletons."""
 
     def __init__(self, prim_path=None, markers=None):
         self.prim_path = prim_path
-        self.markers = markers or {"arrow": types.SimpleNamespace(scale=(1.0, 1.0, 1.0))}
+        self.markers = markers or {"arrow": _marker_proto()}
 
     def replace(self, **kwargs):
-        new = _MarkerCfg(
-            prim_path=kwargs.get("prim_path", self.prim_path),
-            markers={k: types.SimpleNamespace(scale=v.scale) for k, v in self.markers.items()},
-        )
+        # SHALLOW on ``markers``, like the real ``dataclasses.replace`` -- the omni module's
+        # deep-copy comment is only true if this stub reproduces the aliasing it avoids.
+        new = _MarkerCfg(prim_path=kwargs.get("prim_path", self.prim_path), markers=self.markers)
         return new
+
+
+def _quat_from_euler_xyz(roll, pitch, yaw):
+    """The real ``isaaclab.utils.math.quat_from_euler_xyz`` (wxyz), transcribed.
+
+    The debug-vis helpers are only meaningful against the real quaternion convention, so
+    the stub is the arithmetic itself rather than a sentinel.
+    """
+    cy, sy = torch.cos(yaw * 0.5), torch.sin(yaw * 0.5)
+    cr, sr = torch.cos(roll * 0.5), torch.sin(roll * 0.5)
+    cp, sp = torch.cos(pitch * 0.5), torch.sin(pitch * 0.5)
+    return torch.stack(
+        [
+            cy * cr * cp + sy * sr * sp,
+            cy * sr * cp - sy * cr * sp,
+            cy * cr * sp + sy * sr * cp,
+            sy * cr * cp - cy * sr * sp,
+        ],
+        dim=-1,
+    )
 
 
 _omni_mod = _stub("omni")
@@ -147,8 +173,8 @@ _isaaclab.utils = _stub("isaaclab.utils", configclass=_configclass)
 _isaaclab.utils.math = _stub(
     "isaaclab.utils.math",
     wrap_to_pi=travel_frame.wrap_to_pi,  # the real thing
-    quat_from_euler_xyz=lambda *a, **k: None,  # debug-vis only
-    quat_mul=lambda *a, **k: None,
+    quat_from_euler_xyz=_quat_from_euler_xyz,  # the real thing (omni debug vis)
+    quat_mul=lambda *a, **k: None,  # base-class debug vis only; omni never calls it
 )
 _isaaclab.assets = _stub("isaaclab.assets", Articulation=type("Articulation", (), {}))
 _isaaclab.managers = _stub(
@@ -179,8 +205,8 @@ _isaaclab.markers = _stub(
 )
 _isaaclab.markers.config = _stub(
     "isaaclab.markers.config",
-    BLUE_ARROW_X_MARKER_CFG=_MarkerCfg(),
-    GREEN_ARROW_X_MARKER_CFG=_MarkerCfg(),
+    BLUE_ARROW_X_MARKER_CFG=_MarkerCfg(markers={"arrow": _marker_proto(color=(0.0, 0.0, 1.0))}),
+    GREEN_ARROW_X_MARKER_CFG=_MarkerCfg(markers={"arrow": _marker_proto(color=(0.0, 1.0, 0.0))}),
     FRAME_MARKER_CFG=_MarkerCfg(),
 )
 
@@ -218,9 +244,12 @@ STIFFNESS = 1.5  # the per-phase value the knob block writes (the Go2 literal is
 
 class _Robot:
     def __init__(self, n: int, yaw: torch.Tensor | None = None):
+        self.is_initialized = True
         self.data = types.SimpleNamespace(
             root_lin_vel_b=torch.zeros(n, 3),
             root_ang_vel_b=torch.zeros(n, 3),
+            root_lin_vel_w=torch.zeros(n, 3),
+            root_pos_w=torch.zeros(n, 3),
             heading_w=torch.zeros(n) if yaw is None else yaw.clone(),
         )
 
@@ -1011,3 +1040,213 @@ def test_forward_command_class_and_cfg_have_none_of_the_omni_surface():
     for name in ("stand_frac", "small_commands_to_zero"):
         assert hasattr(pcfg.ParkourCommandCfg, name)
         assert hasattr(CrabHexOmniCommandCfg, name)
+
+
+# --------------------------------------------------------------------------- debug vis
+# The markers themselves need Kit, so what is pinned here is (a) the pure arrow helpers
+# against exact quaternion/scale values, and (b) that ``_debug_vis_callback`` feeds each
+# visualiser the pose the colour table promises. A silently wrong arrow (a body-frame
+# facing, a travel arrow pointing at the nose) is the exact failure the viewer exists to
+# rule out, and it is invisible in a screenshot unless you already know the answer.
+
+SQRT_HALF = math.sqrt(0.5)
+
+
+class _FakeVisualizer:
+    """Records the last ``visualize`` call; ``cfg`` mimics ``VisualizationMarkers.cfg``."""
+
+    def __init__(self, cfg):
+        self.cfg = cfg
+        self.visible = None
+        self.last = None
+
+    def set_visibility(self, flag):
+        self.visible = flag
+
+    def visualize(self, translations=None, orientations=None, scales=None, marker_indices=None):
+        self.last = (translations, orientations, scales)
+
+
+def _attach_fake_visualizers(made):
+    """Wire the three omni visualisers without Kit, exactly as ``_set_debug_vis_impl`` does."""
+    term = made[0] if isinstance(made, tuple) else made
+    term.travel_cmd_visualizer = _FakeVisualizer(omni.OMNI_TRAVEL_CMD_MARKER_CFG)
+    term.facing_cmd_visualizer = _FakeVisualizer(omni.OMNI_FACING_CMD_MARKER_CFG)
+    term.achieved_vel_visualizer = _FakeVisualizer(omni.OMNI_ACHIEVED_VEL_MARKER_CFG)
+    return term
+
+
+@pytest.mark.parametrize(
+    "yaw, expected",
+    [
+        (0.0, (1.0, 0.0, 0.0, 0.0)),
+        (math.pi / 2, (SQRT_HALF, 0.0, 0.0, SQRT_HALF)),
+        (math.pi, (0.0, 0.0, 0.0, 1.0)),
+        (-math.pi / 2, (SQRT_HALF, 0.0, 0.0, -SQRT_HALF)),
+    ],
+)
+def test_arrow_quat_from_world_yaw_exact_values(yaw, expected):
+    """wxyz, rotation about +z only -- the arrow's +x lands on the world yaw."""
+    quat = omni.arrow_quat_from_world_yaw(torch.tensor([yaw]))
+    assert quat.shape == (1, 4)
+    assert torch.allclose(quat[0], torch.tensor(expected), atol=1e-6)
+
+
+def test_arrow_quat_rotates_the_arrow_axis_onto_the_commanded_direction():
+    """The property the exact values stand for: R(q) @ +x == (cos yaw, sin yaw, 0)."""
+    yaw = torch.tensor([0.0, math.pi / 2, math.pi, -0.7, 2.9])
+    quat = omni.arrow_quat_from_world_yaw(yaw)
+    w, x, y, z = quat[:, 0], quat[:, 1], quat[:, 2], quat[:, 3]
+    # first column of the rotation matrix = image of the body +x axis
+    axis = torch.stack(
+        [1 - 2 * (y * y + z * z), 2 * (x * y + w * z), 2 * (x * z - w * y)], dim=-1
+    )
+    expected = torch.stack([torch.cos(yaw), torch.sin(yaw), torch.zeros_like(yaw)], dim=-1)
+    assert torch.allclose(axis, expected, atol=1e-6)
+
+
+def test_arrow_quat_is_yaw_only_and_batched():
+    """No roll/pitch leaks in (the x/y components stay exactly zero) for every row."""
+    yaw = torch.linspace(-math.pi, math.pi, 17)
+    quat = omni.arrow_quat_from_world_yaw(yaw)
+    assert quat.shape == (17, 4)
+    assert torch.all(quat[:, 1] == 0.0) and torch.all(quat[:, 2] == 0.0)
+    assert torch.allclose(torch.linalg.norm(quat, dim=1), torch.ones(17), atol=1e-6)
+
+
+def test_arrow_scale_from_length_stretches_only_x():
+    proto = (0.5, 0.35, 0.35)
+    factor = torch.tensor([0.0, 1.0, 2.0])
+    scale = omni.arrow_scale_from_length(proto, factor)
+    assert scale.shape == (3, 3)
+    assert torch.allclose(scale[:, 0], torch.tensor([0.0, 0.5, 1.0]))
+    # the shaft keeps its thickness on every row
+    assert torch.allclose(scale[:, 1], torch.full((3,), 0.35))
+    assert torch.allclose(scale[:, 2], torch.full((3,), 0.35))
+
+
+def test_arrow_scale_from_speed_is_proportional_and_zero_at_a_stop():
+    """x scale 1.0 on the prototype, so the factor IS the marker x-scale; 0 m/s -> 0."""
+    speed = torch.tensor([0.0, 0.2, 0.35])
+    proto = omni.OMNI_TRAVEL_CMD_MARKER_CFG.markers["arrow"].scale
+    assert proto[0] == 1.0
+    scale = omni.arrow_scale_from_length(proto, speed * omni.TRAVEL_ARROW_GAIN)
+    assert torch.allclose(scale[:, 0], speed * omni.TRAVEL_ARROW_GAIN, atol=1e-6)
+    assert scale[0, 0] == 0.0
+    assert scale[2, 0] > scale[1, 0] > 0.0
+
+
+def test_speed_arrows_are_longer_than_they_are_thick_at_the_slowest_walk():
+    """The first render of this viewer was three blobs: a 0.5 shaft under a 0.6 length.
+
+    The walk floor (``lin_vel_clip + WALK_MARGIN_M_S`` = 0.21 m/s) is the slowest a moving
+    slot can ever be, so it is where the aspect ratio is worst.
+    """
+    slowest = omni.omni_walk_floor(_cfg())
+    length = slowest * omni.TRAVEL_ARROW_GAIN
+    assert length / omni.ARROW_SHAFT_SCALE > 4.0, "the travel arrow is a blob again"
+    assert omni.FACING_ARROW_LEN_FACTOR / omni.FACING_SHAFT_SCALE > 4.0
+    assert omni.FACING_SHAFT_SCALE < omni.ARROW_SHAFT_SCALE, "facing reads thinner"
+
+
+def test_facing_arrow_is_longer_than_any_travel_arrow_can_be():
+    """"the long orange one is the facing" must survive the fastest command in the ellipse."""
+    cap = max(CrabHexOmniCommandCfg.speed_ellipse)
+    assert omni.FACING_ARROW_LEN_FACTOR > cap * omni.TRAVEL_ARROW_GAIN
+
+
+def test_marker_pos_above_base_raises_z_and_does_not_alias():
+    root = torch.tensor([[1.0, 2.0, 0.3], [-4.0, 0.5, 1.25]])
+    pos = omni.marker_pos_above_base(root, omni.ARROW_Z_FACING_M)
+    assert torch.allclose(pos[:, :2], root[:, :2])
+    assert torch.allclose(pos[:, 2], root[:, 2] + omni.ARROW_Z_FACING_M)
+    pos[:, 2] = -99.0
+    assert torch.allclose(root[:, 2], torch.tensor([0.3, 1.25])), "clone(), not a view"
+
+
+def test_the_three_arrow_heights_are_distinct_and_ordered():
+    """Facing above travel above achieved -- they overlap in xy every single frame."""
+    assert omni.ARROW_Z_ACHIEVED_M < omni.ARROW_Z_TRAVEL_M < omni.ARROW_Z_FACING_M
+
+
+def test_marker_cfgs_are_private_copies_with_the_documented_colours():
+    """The deep copy: recolouring must not leak into the shared stock arrow prototype."""
+    cfgs = (
+        omni.OMNI_TRAVEL_CMD_MARKER_CFG,
+        omni.OMNI_FACING_CMD_MARKER_CFG,
+        omni.OMNI_ACHIEVED_VEL_MARKER_CFG,
+    )
+    colours = [cfg.markers["arrow"].visual_material.diffuse_color for cfg in cfgs]
+    assert colours == [omni.TRAVEL_ARROW_COLOR, omni.FACING_ARROW_COLOR, omni.ACHIEVED_ARROW_COLOR]
+    assert len({id(cfg.markers["arrow"]) for cfg in cfgs}) == 3, "three separate prototypes"
+    stock = sys.modules["isaaclab.markers.config"].GREEN_ARROW_X_MARKER_CFG
+    assert stock.markers["arrow"].visual_material.diffuse_color == (0.0, 1.0, 0.0)
+    assert len({cfg.prim_path for cfg in cfgs}) == 3, "three separate prim paths"
+
+
+def test_debug_vis_callback_draws_world_travel_facing_and_achieved():
+    """Travel along theta, facing along psi, achieved along the WORLD root velocity.
+
+    The robot is yawed 90 deg with a command that is 90 deg to its RIGHT in the world, so a
+    body/world mix-up in any of the three arrows moves it by a right angle rather than by a
+    rounding error.
+    """
+    yaw = torch.tensor([math.pi / 2, math.pi / 2])
+    term = _attach_fake_visualizers(_term(_cfg(), n=2, yaw=yaw))
+    theta = torch.tensor([0.0, 0.0])  # world +x = the robot's right
+    psi = torch.tensor([-math.pi / 2, math.pi])
+    term.travel_dir_w[:] = theta
+    term.speed_cmd[:] = torch.tensor([0.3, 0.0])  # second row stands
+    term.heading_target[:] = psi
+    term._write_command(slice(None))
+    term.robot.data.root_pos_w[:] = torch.tensor([[1.0, 2.0, 0.4], [3.0, -1.0, 0.4]])
+    term.robot.data.root_lin_vel_w[:, :2] = torch.tensor([[0.0, 0.1], [0.0, 0.0]])
+
+    term._debug_vis_callback(None)
+
+    travel_pos, travel_quat, travel_scale = term.travel_cmd_visualizer.last
+    facing_pos, facing_quat, facing_scale = term.facing_cmd_visualizer.last
+    ach_pos, ach_quat, ach_scale = term.achieved_vel_visualizer.last
+
+    # -- every marker is over its own robot at its own height
+    for pos, dz in ((travel_pos, omni.ARROW_Z_TRAVEL_M),
+                    (facing_pos, omni.ARROW_Z_FACING_M),
+                    (ach_pos, omni.ARROW_Z_ACHIEVED_M)):
+        assert pos.shape == (2, 3)
+        assert torch.allclose(pos[:, :2], term.robot.data.root_pos_w[:, :2])
+        assert torch.allclose(pos[:, 2], term.robot.data.root_pos_w[:, 2] + dz)
+
+    # -- travel: WORLD theta (not the body-frame command, which points at the robot's -y)
+    assert torch.allclose(travel_quat, omni.arrow_quat_from_world_yaw(theta), atol=1e-6)
+    # length is the EFFECTIVE commanded speed; the standing row is a zero-length arrow
+    assert torch.allclose(
+        travel_scale[:, 0],
+        torch.linalg.norm(term.vel_command_b[:, :2], dim=1) * omni.TRAVEL_ARROW_GAIN,
+        atol=1e-6,
+    )
+    assert travel_scale[1, 0] == 0.0
+
+    # -- facing: the ABSOLUTE world yaw, fixed length on both rows
+    assert torch.allclose(facing_quat, omni.arrow_quat_from_world_yaw(psi), atol=1e-6)
+    assert torch.allclose(facing_scale[:, 0], torch.full((2,), omni.FACING_ARROW_LEN_FACTOR))
+
+    # -- achieved: world +y at 0.1 m/s on row 0, nothing on row 1
+    assert torch.allclose(ach_quat[0], omni.arrow_quat_from_world_yaw(torch.tensor([math.pi / 2]))[0], atol=1e-6)
+    assert torch.allclose(ach_scale[:, 0], torch.tensor([0.1 * omni.TRAVEL_ARROW_GAIN, 0.0]), atol=1e-6)
+
+
+def test_debug_vis_callback_is_a_noop_before_the_articulation_initialises():
+    term = _attach_fake_visualizers(_term(_cfg(), n=2))
+    term.robot.is_initialized = False
+    term._debug_vis_callback(None)
+    assert term.travel_cmd_visualizer.last is None
+
+
+def test_omni_term_replaces_both_base_debug_vis_hooks_and_leaves_the_cfg_alone():
+    """The green goal arrow is replaced, not kept -- and no cfg field was added for it."""
+    for hook in ("_set_debug_vis_impl", "_debug_vis_callback"):
+        assert getattr(CrabHexOmniCommand, hook) is not getattr(upc.UniformParkourCommand, hook), hook
+    # the marker cfgs live at module scope precisely so the config dump does not move
+    assert set(CrabHexOmniCommandCfg.__cfg_fields__) == set(pcfg.ParkourCommandCfg.__cfg_fields__) | {
+        "slot_probs", "speed_ellipse", "facing_delta", "travel_dir_range", "ang_vel_max", "dir_band",
+    }

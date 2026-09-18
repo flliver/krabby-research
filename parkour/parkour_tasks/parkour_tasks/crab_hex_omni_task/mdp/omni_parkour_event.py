@@ -20,8 +20,11 @@ None of the three survives an omnidirectional task, and each fails QUIETLY:
   curriculum would run open-loop.
 
 :class:`OmniParkourEvent` overrides exactly the methods those three concerns live in and
-inherits everything else (debug vis, the goal tables, the level/origin bookkeeping shape,
-the metrics plumbing). What it keeps identical on purpose: the ledger KEY names the campaign
+inherits everything else (the goal tables, the level/origin bookkeeping shape, the metrics
+plumbing). The debug vis is a fourth, PLAY-only override with the same shape of reason --
+two of the corridor's four visualisers assert a waypoint order the ring does not have -- and
+is documented marker by marker at the bottom of the class. What it keeps identical on
+purpose: the ledger KEY names the campaign
 driver greps, the reset-time ordering (finalize the old episode -> move the tile -> begin the
 new one), and the ``reset_root_state.params['offset']`` read in ``ParkourEvent.__init__``
 (so the omni reset event must keep an ``offset`` param).
@@ -407,6 +410,91 @@ class OmniParkourEvent(ParkourEvent):
             self.env_per_heights = self.total_heights[
                 self.terrain.terrain_levels, self.terrain.terrain_types
             ]
+
+    # ------------------------------------------------------------- debug visualisation
+    #
+    # PLAY only (``_apply_play`` sets ``parkours.base_parkour.debug_vis``). The corridor
+    # term's four visualisers say things the ring does not mean, and two of them now
+    # collide with the command term's own arrows (see ``CrabHexOmniCommand``'s colour
+    # table). What each one becomes here -- nothing is dropped silently:
+    #
+    #   base marker                  corridor meaning          omni treatment
+    #   ---------------------------  ------------------------  ------------------------
+    #   current_goal_pose (1 GREEN   "the waypoint you are     HIDDEN. The ring's goals
+    #   sphere, r 0.165)             walking to"               are geometry anchors, not
+    #                                                          waypoints (``cur_goal_idx``
+    #                                                          never advances), so calling
+    #                                                          anchor 0 "current" invents
+    #                                                          an ordering -- and a green
+    #                                                          sphere now reads as
+    #                                                          "commanded travel".
+    #   future_goal_poses (RED       "the waypoints after it"  KEPT, and widened to draw
+    #   spheres, r 0.165)                                      ALL ``n_sectors`` anchors
+    #                                                          uniformly: they mark where
+    #                                                          the block ring's sectors
+    #                                                          are, which is real and
+    #                                                          useful next to the command.
+    #   current_arrow (8 small       "bead trail towards the   KEPT, meaning changed with
+    #   GREEN spheres, 0.3..1.0 m)   current waypoint"         ``_write_targets``: it is
+    #                                                          the COMMANDED TRAVEL
+    #                                                          DIRECTION, on the ground --
+    #                                                          the ground track under the
+    #                                                          command term's green arrow,
+    #                                                          and gated on the commanded
+    #                                                          speed so the two appear and
+    #                                                          vanish together.
+    #   future_arrow (8 small RED    "bead trail towards the   HIDDEN. ``_write_targets``
+    #   spheres, 0.6..2.0 m)         next waypoint"            sets ``next_target_pos_rel
+    #                                                          == target_pos_rel``, so this
+    #                                                          is the green trail again at
+    #                                                          twice the spacing -- pure
+    #                                                          duplication, and the red
+    #                                                          beads then run through the
+    #                                                          red sector anchors.
+
+    def _set_debug_vis_impl(self, debug_vis: bool):
+        """Create the base's four visualisers, then hide the two the ring makes meaningless."""
+        super()._set_debug_vis_impl(debug_vis)
+        if not debug_vis:
+            return
+        self.current_goal_pose_visualizer.set_visibility(False)
+        self.future_arrow_visualizer.set_visibility(False)
+
+    def _debug_vis_callback(self, event):
+        """Ring sector anchors + the ground bead trail of the commanded travel direction.
+
+        The expressions are the base callback's, with the goal split dropped (all anchors
+        are drawn by the one visualiser) and the duplicated "future" trail dropped.
+        """
+        if not self.robot.is_initialized:
+            return
+        # -- all ``num_goals`` ring sector anchors, in world xy at their own goal height.
+        env_per_goals = self.terrain_goals[self.terrain.terrain_levels, self.terrain.terrain_types]
+        anchors_xy = env_per_goals[:, :, :2].reshape(self.num_envs, -1, 2) + self.env_origins[:, :2].unsqueeze(1)
+        anchors_z = self.env_per_heights.unsqueeze(-1) * self.terrain.cfg.terrain_generator.vertical_scale
+        self.future_goal_poses_visualizer.visualize(
+            translations=torch.concat([anchors_xy, anchors_z], dim=-1).reshape(-1, 3),
+        )
+        # -- bead trail along the commanded world travel direction, at the base's own z.
+        # GATED on the commanded speed. ``travel_dir_w`` is drawn for every row whatever the
+        # slot (``_resample_command`` keeps the RNG stream slot-independent), so on a stand
+        # or turn slot ``target_pos_rel`` is a direction nobody is being asked to walk in --
+        # and a trail pointing east while the robot is commanded to turn on the spot reads
+        # as a contradiction of the command term's (correctly absent) green arrow. Collapsed
+        # onto the base rather than hidden, so the visualiser keeps a constant instance
+        # count; the beads stack invisibly under the chassis.
+        moving = (self._cmd_term.speed_cmd > 0.0).float().unsqueeze(-1)
+        norm = torch.norm(self.target_pos_rel, dim=-1, keepdim=True)
+        target_vec_norm = self.target_pos_rel / (norm + 1e-5) * moving
+        root_pos_w = self.robot.data.root_pos_w
+        beads = [
+            torch.concat(
+                [root_pos_w[:, :2] + 0.1 * (i + 3) * target_vec_norm[:, :2], root_pos_w[:, 2][:, None]],
+                dim=1,
+            )
+            for i in range(self.arrow_num)
+        ]
+        self.current_arrow_visualizer.visualize(translations=torch.concat(beads, dim=0))
 
 
 @configclass
