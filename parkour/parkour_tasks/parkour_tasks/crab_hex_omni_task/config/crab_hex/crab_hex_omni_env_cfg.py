@@ -212,6 +212,23 @@ def play_episode_length_s(environ) -> float:
     return val
 
 
+PLAY_DEBUG_VIS_VAR = "KRABBY_PLAY_DEBUG_VIS"
+
+
+def play_debug_vis(environ) -> bool:
+    """``KRABBY_PLAY_DEBUG_VIS`` -> whether the PLAY cfg turns the command/parkour debug markers on.
+
+    Absent or "1" -> True (viewers, recordings). "0" -> False (the eval harness: headless, 100 envs).
+    Anything else raises so a typo cannot silently pick a default.
+    """
+    raw = environ.get(PLAY_DEBUG_VIS_VAR)
+    if raw is None or str(raw).strip() in ("", "1"):
+        return True
+    if str(raw).strip() == "0":
+        return False
+    raise RuntimeError(f"{PLAY_DEBUG_VIS_VAR} must be '0' or '1', got {raw!r}")
+
+
 def _apply_play(cfg) -> None:
     """The head every forward PLAY ``__post_init__`` shares (``crab_hex_env_cfg.py``).
 
@@ -224,8 +241,12 @@ def _apply_play(cfg) -> None:
     intentionally dropped rather than copied.
     """
     cfg.episode_length_s = play_episode_length_s(os.environ)
-    cfg.parkours.base_parkour.debug_vis = True
-    cfg.commands.base_velocity.debug_vis = True
+    # Debug markers (viewer arrows / ring anchors) are for humans: viewers and recordings keep them
+    # (default "1"); the headless eval harness runs 100 envs and must not pay for them --
+    # 2026-09-18: with the markers on, 100-env evals grew to ~59 GB RSS and were OOM-killed.
+    dv = play_debug_vis(os.environ)
+    cfg.parkours.base_parkour.debug_vis = dv
+    cfg.commands.base_velocity.debug_vis = dv
     if cfg.scene.terrain is not None:
         cfg.scene.terrain.max_init_terrain_level = None
 

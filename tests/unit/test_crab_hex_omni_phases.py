@@ -904,3 +904,36 @@ def test_play_episode_length_knob_and_guard():
     for bad in ("0", "-5"):
         with pytest.raises(RuntimeError, match="KRABBY_PLAY_EPISODE_S"):
             fn({"KRABBY_PLAY_EPISODE_S": bad})
+
+
+# ------------------------------------------------- PLAY debug-vis knob (2026-09-18 OOM fix)
+def _load_play_debug_vis_fn():
+    import ast, pathlib
+    src = pathlib.Path("/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/config/crab_hex/crab_hex_omni_env_cfg.py")
+    tree = ast.parse(src.read_text()); ns = {}
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and any(getattr(t, "id", "") == "PLAY_DEBUG_VIS_VAR" for t in node.targets):
+            exec(compile(ast.Module([node], []), str(src), "exec"), ns)
+        if isinstance(node, ast.FunctionDef) and node.name == "play_debug_vis":
+            exec(compile(ast.Module([node], []), str(src), "exec"), ns)
+    return ns["play_debug_vis"]
+
+
+def test_play_debug_vis_defaults_on_and_turns_off_for_evals():
+    fn = _load_play_debug_vis_fn()
+    assert fn({}) is True and fn({"KRABBY_PLAY_DEBUG_VIS": "1"}) is True and fn({"KRABBY_PLAY_DEBUG_VIS": ""}) is True
+    assert fn({"KRABBY_PLAY_DEBUG_VIS": "0"}) is False
+    import pytest
+    for bad in ("false", "off", "2"):
+        with pytest.raises(RuntimeError, match="KRABBY_PLAY_DEBUG_VIS"):
+            fn({"KRABBY_PLAY_DEBUG_VIS": bad})
+
+
+def test_driver_eval_env_turns_debug_vis_off(drv=None):
+    import importlib.util
+    sp = importlib.util.spec_from_file_location("rp_dv", "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/tools/run_phases.py")
+    m = importlib.util.module_from_spec(sp); sp.loader.exec_module(m)
+    ev = m.eval_env_for(m.ph.PHASES["2a"], "A15+B", keep=m.CANARY_KEYS, keep_source=m.ph.FORMATION)
+    assert ev["KRABBY_PLAY_DEBUG_VIS"] == "0"
+    ev2 = m.eval_env_for(m.ph.PHASES["2a"], "A15+B", keep=m.CANARY_KEEP + m.TERRAIN_PASS, extra=m.OBST_EVAL)
+    assert ev2["KRABBY_PLAY_DEBUG_VIS"] == "0"

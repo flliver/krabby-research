@@ -132,6 +132,9 @@ EVAL_CARRY = ("KRABBY_OMNI_FACING_OBS_CLIP", "KRABBY_OMNI_SPEED_ELLIPSE", "KRABB
 # different default, or a leaked parent value, cannot re-arm reference-state resets inside an eval.
 # apply_omni_knobs / the forward knob block build events.rsi_reference_reset only for RSI_FRAC > 0.
 EVAL_RSI_OFF = {"KRABBY_RSI_FRAC": "0"}
+# Headless evals never render the PLAY cfg's debug markers: 100-env evals with the markers on grew to
+# ~59 GB RSS and were OOM-killed (2026-09-18, seed-3 2a: all three rows died -> gate "could not be evaluated").
+EVAL_DEBUG_VIS_OFF = {"KRABBY_PLAY_DEBUG_VIS": "0"}
 # Ring knobs (D8's apply_omni_ring_knobs), not the forward/sideways corridor's KRABBY_CORRIDOR_HALF_WIDTH
 # / KRABBY_STONE_WIDTH -- those are dead for the ring geometry.
 TERRAIN_PASS = ("KRABBY_FLAT_TERRAIN_GEOM", "KRABBY_FLAT_TERRAIN_DIFF", "KRABBY_RING_CLEAR_R", "KRABBY_RING_BLOCKS")
@@ -589,6 +592,7 @@ def eval_env_for(spec, plant: str, *, keep: tuple[str, ...] = CANARY_KEYS,
     ev = {k: src[k] for k in keep if k in src}
     ev.update({k: pe[k] for k in EVAL_CARRY if k in pe})
     ev.update(EVAL_RSI_OFF)
+    ev.update(EVAL_DEBUG_VIS_OFF)
     ev.update(TERRAIN_GEOM_REQUIRED)
     if extra:
         ev.update(extra)
