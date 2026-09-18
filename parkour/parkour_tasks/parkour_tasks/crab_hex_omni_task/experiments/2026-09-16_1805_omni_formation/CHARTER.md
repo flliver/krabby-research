@@ -366,3 +366,25 @@ min (Verification 9, run once before any window). Two seeds (3 then 2), trained 
   semantics and its recorded verdict must be re-derived through the corrected path. **The 1c gate verdict is VOID until
   re-evaluated.** (As arm C also shows, the corrected gate is expected to fail 1c on its own merits: ~0 tracked speed and
   ~0.03 rad/s turning. The defect explains the 100 % fall rate, not the policy deficit.)
+- 2026-09-18 CORRECTED RE-EVALUATION of the seed-3 heads through the fixed eval env (`eval_env_for`, EVAL_CARRY + RSI off + plant;
+  `outputs/omni_plan/reeval_corrected/RESULT.md`, 100 episodes each on `slow__omni`):
+  | head | completion | walking tripod min | speed ratio fwd/lat_l/diag/back/move_turn | yaw-progress turn_l90/turn_r90 | verdict |
+  |---|---|---|---|---|---|
+  | 1a `model_999` | 0.15 | 0.308 | 0.76 / 0.13 / 0.32 / 0.33 / 0.18 | 0.021 / 0.037 | soft gate PASS (0.93 through fwd) |
+  | 1b `model_1998` | 0.50 | 0.360 | 0.16 / 0.35 / 0.29 / 0.17 / 0.08 | 0.012 / 0.009 | soft gate PASS (0.96 through lat_l) |
+  | 1c `model_6997` | 0.39 | 0.270 | 0.16 / 0.03 / 0.15 / 0.33 / −0.04 | 0.027 / 0.046 | gate_1c FAIL (tripod, completion, turn rate, lat_l/diag/move_turn floors) |
+  Reading: 1a walked forward (0.76 of command); 1b traded forward for lateral; 1c traded lateral away too — it survives every
+  translation hold (survival 1.0) by stepping in place with a 0.85 tripod rhythm and ~0 displacement, and its 61 falls are all on
+  the turn holds (survival 0.60/0.55/0.39). The 1c formation failure is real but it is a speed-tracking collapse (the reward economy
+  pays stepping-in-place ≥ 92 % of walking's income — trainlog/crosshead lenses), not the 100 % fall rate the uncorrected eval recorded.
+  The soft-gate verdicts for 1a/1b stand under the corrected env; the gate_1c halt stands, for the right reasons.
+- 2026-09-18 VERIFIED DIAGNOSIS (`ANALYSIS_1c_failure_2026-09-18.md`, 31-agent workflow, 4/8 merged claims survive 3-lens refutation):
+  (1) ESTABLISHED — the canaries ran without the facing-obs clip (eval defect; fixed d0fdd9c); (2) the translation deficit is a real
+  policy failure visible in training before any eval: track_ratio_mean 0.75 → 0.43 → 0.25 across 1a → 1b → 1c; (3) the reward economy
+  makes stillness the optimum: stepping in place under the clock earns ~99 % of available income, walking pays ~25 % more before
+  penalties and LESS after; (4) the resume chain lost translation at every handoff and the soft gates (tripod/survival) are blind to it.
+  Refuted/not decision-bearing: the turn deficit as a band limit, the tip-over fall signature as a cause, turning under-pricing as primary.
+  Options costed: A --continue (proves nothing), B --redo 1c from 1b with TRACK_SIGMA2 0.1→0.04 / TRACK_L1_W −1→−2 / ang-vel std → 0.5 /
+  clock combine product (~2.5 GPU-h), C rebuild 1b with a band spanning 0 and ±π/2 + retention gates then B (~3.5 GPU-h), D single-stage
+  from-scratch 1c with B's terms (2.5–4 GPU-h). Synthesis recommends: land driver/gate fixes, replay B's terms offline on the saved raws,
+  then D (or B); never --continue. Decision: the user's (pending).

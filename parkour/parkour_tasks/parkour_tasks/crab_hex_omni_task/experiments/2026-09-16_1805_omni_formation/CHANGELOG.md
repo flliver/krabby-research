@@ -1,0 +1,15 @@
+# CHANGELOG — 2026-09-16_1805_omni_formation
+
+### 2026-09-16 23:10 — campaign start: plant A15+B, seed 3, phases 1a, 1b, 1c, 2a, 2b
+> NOTIFY: seed3_1a_001_A15pB: soft gate FAILED on hold 'fwd' — tripod 0.452 (need >= 0.3; by hold: back 0.267, diag 0.341, fwd 0.452, lat_l 0.376, move_turn 0.268, stand 0.170, turn_l90 0.234, turn_r90 0.254), completion 0.090 (need >= 0.7) — campaign HALTED (relaunch with --continue to override, or fix and --redo)
+
+### 2026-09-16 23:40 — phase 1a gate_1a: model_999.pt (seed3_1a_001_A15pB)
+> NOTIFY: phase 1a gate_1a — campaign HALTED (see REPORT)
+
+### 2026-09-16 23:43 — phase 1a: gate_1a overridden by --continue — model_999.pt carried into 1b unretrained (see CHARTER); record status -> ok
+
+### 2026-09-17 00:13 — phase 1b ok: model_1998.pt (seed3_1b_002_A15pB)
+> NOTIFY: seed3_1c_003_A15pB: formation gate FAILED — walking-hold tripod 0.215 (need >= 0.4; by hold: back 0.853, diag 0.832, fwd 0.315, lat_l 0.850, move_turn 0.215, stand 0.000, turn_l90 0.225, turn_r90 0.051), completion 0.000 (need >= 0.7), yaw-progress rate turn_l90 0.005, turn_r90 0.020 rad/s (net turn_l90 0.005, turn_r90 0.004) (need >= 0.05 rad/s on each), per-direction speed_ratio lat_l 0.028, diag 0.147, back 0.330, move_turn -0.318 (need >= 0.3 on each of lat_l, diag, back, move_turn; failing: lat_l, diag, move_turn) on slow__omni — campaign HALTED (relaunch with --continue to override, or fix and --redo)
+
+### 2026-09-17 02:20 — phase 1c gate_1c: model_6997.pt (seed3_1c_003_A15pB)
+> NOTIFY: phase 1c gate_1c — campaign HALTED (see REPORT)
