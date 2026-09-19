@@ -44,6 +44,8 @@ wraps the *difference*, and not wrapping here keeps the body-relative bands exac
 from __future__ import annotations
 
 import math
+from types import MappingProxyType
+from typing import NamedTuple
 
 import torch
 
@@ -256,6 +258,66 @@ def heading_rate_command(
     return wz * (torch.abs(wz) > ang_vel_clip)
 
 
+def check_row_ang_limits(ang_vel_max: torch.Tensor, ang_vel_clip: torch.Tensor) -> None:
+    """Validate the per-row turn limits :func:`heading_rate_command_rows` will be handed.
+
+    Call this ONCE, where the limit tables are built (``CrabHexOmniCommand.__init__``), never
+    per step. Both checks are whole-tensor reductions followed by a ``bool()``, and on CUDA a
+    ``bool(tensor)`` is a host-device SYNCHRONISATION: inside the per-step yaw-rate expression
+    they would cost two syncs per physics step for the whole run, on a condition that is
+    constant by construction (the tables are ``cfg.ang_vel_max * ang_scale`` and
+    ``cfg.clips.ang_vel_clip * ang_scale`` with ``ang_scale > 0`` already enforced by
+    :func:`parse_cmd_pool` and the two cfg values by ``_validate_omni_cfg``). A pooled stage
+    would then run measurably slower than the legacy stage it is being compared against --
+    a wall-clock confound bought with a check that can never fire at runtime.
+
+    Args:
+        ang_vel_max: ``(N,)`` or ``(K+1,)`` per-row saturation, rad/s; every entry positive.
+        ang_vel_clip: same shape, per-row dead band, rad/s; every entry non-negative.
+    """
+    if not bool((ang_vel_max > 0.0).all()):
+        raise ValueError("ang_vel_max must be positive on every row")
+    if bool((ang_vel_clip < 0.0).any()):
+        raise ValueError("ang_vel_clip must be non-negative on every row")
+
+
+def heading_rate_command_rows(
+    heading_target: torch.Tensor,
+    yaw: torch.Tensor,
+    stiffness: float,
+    ang_vel_max: torch.Tensor,
+    ang_vel_clip: torch.Tensor,
+) -> torch.Tensor:
+    """:func:`heading_rate_command` with PER-ROW saturation and dead band.
+
+    Same expression, same order (scale -> saturate -> dead-band the *saturated* value, strict
+    ``>``); only the two limits become ``(N,)`` tensors so a command pool can give a type its
+    own turn demand (``ang_scale`` scales BOTH, which is what keeps the dead band the same
+    fraction of the cap -- scaling the cap alone would silently swallow a whole type's turns).
+
+    With unit scales this is bitwise :func:`heading_rate_command`: the shipped legacy path
+    still calls the scalar version, so the two never have to be compared at runtime, but a
+    unit test pins them against each other.
+
+    NO VALIDATION HERE, deliberately: this runs every physics step of a pooled run, and the
+    two limits come from tables built once at construction. Their validation lives in
+    :func:`check_row_ang_limits`, which the command term calls once -- see that docstring for
+    why a per-step ``bool(tensor)`` is not free.
+
+    Args:
+        heading_target, yaw, stiffness: as :func:`heading_rate_command`.
+        ang_vel_max: ``(N,)`` per-row saturation, rad/s. Every entry must be positive
+            (checked once by :func:`check_row_ang_limits`).
+        ang_vel_clip: ``(N,)`` per-row dead band, rad/s. Every entry must be non-negative.
+    """
+    wz = torch.clip(
+        wrap_to_pi(heading_target - yaw) * stiffness,
+        min=-ang_vel_max,
+        max=ang_vel_max,
+    )
+    return wz * (torch.abs(wz) > ang_vel_clip)
+
+
 # ------------------------------------------------------------------------- the samplers
 
 
@@ -374,3 +436,433 @@ def sample_travel_dir(
     if hi < lo:
         raise ValueError(f"dir_band must satisfy lo <= hi, got ({lo}, {hi})")
     return yaw + (lo + u * (hi - lo))
+
+
+# ============================================================== the per-type command pool
+#
+# The four slots above are a REGIME taxonomy (does this row travel? does it turn?) and they
+# are all the shipped sampler has: direction and turn-ness are drawn independently from one
+# global ``dir_band`` and one global ``slot_probs``, so "forward while turning, but never
+# sideways while turning" is inexpressible -- the two levers are orthogonal.
+#
+# A COMMAND POOL is a list of named TYPES, each carrying its own probability, its own travel
+# direction set and its own turn flag. The pool does not replace the slots: every type
+# PROJECTS onto one of them (``POOL_TYPES[name].slot``), so every metric, reward, eval hold
+# and piece of telemetry downstream keeps reading ``slot_id`` and never learns that a pool
+# exists. That projection is the whole reason a capability curriculum can be added without
+# touching ``_update_metrics``, ``reward_yaw_progress``, ``schedule_hook`` or the eval
+# harness.
+#
+# WHAT A TYPE'S BAND MEANS. Exactly what ``dir_band`` means today: a BODY-RELATIVE band
+# snapshotted against the yaw at the resample instant and then HELD as a world direction
+# ("clamp-only re-cap", see :func:`body_command_from_world`). ``fwd`` is the zero-width band
+# ``(0, 0)`` -- bitwise ``theta == yaw`` -- and ``side_l`` is ``(+pi/2, +pi/2)``, the same
+# numbers stages 1a and 1b pass through ``dir_band`` today. The two ``omni`` types are the
+# other mode: WORLD-uniform over ``travel_dir_range``, the robot's attitude not entering.
+#
+# NON-TRAVELLING TYPES (``stand``, ``turn``) carry the zero-width body band ``(0, 0)``: their
+# speed is exactly 0, so the held direction is unobservable in ``vel_command_b``, and pinning
+# it to the body's own nose is both cheaper and tidier than a random world ray (the parkour
+# event's ground bead trail reads ``travel_dir_w`` and is gated on the commanded speed).
+#
+# THE ONE VISIBLE CONSEQUENCE, and the ruling on it (2026-09-18). A legacy window draws ONE
+# direction band for every row, whatever its slot; a pool draws each row's band from its TYPE.
+# So a pool twin of a legacy window is bitwise on ``slot_id / speed_cmd / heading_target /
+# vel_command_b`` for every row and on ``travel_dir_w`` for every MOVING row, but its
+# NON-MOVING rows hold ``yaw + 0`` where the legacy window held whatever its global band said:
+# a random world ray when ``dir_band is None`` (the 1c-style windows), and ``yaw + pi/2`` when
+# ``dir_band = (pi/2, pi/2)`` (a 1b-style window with a ``stand`` share). Both divergences are
+# the same fact and neither is fixable while a type has ONE band: making ``stand``/``turn``
+# world types would merely move the mismatch onto the body-band windows. The plan's twin
+# bullet ("bitwise on ... travel_dir_w") is therefore read as "on the moving rows", and the
+# difference is unobservable downstream -- ``travel_dir_w`` on a speed-0 row reaches only
+# ``OmniParkourEvent.target_pos_rel``, whose one consumer (the PLAY bead trail) is gated on
+# ``speed_cmd > 0``; no omni reward or observation reads it. Pinned by
+# ``test_pool_1c_twin_matches_the_legacy_world_uniform_window`` and
+# ``test_pool_standing_rows_hold_the_body_axis_not_the_windows_band``.
+
+
+class PoolType(NamedTuple):
+    """One entry of :data:`POOL_TYPES`: where a named command type lands and how it travels.
+
+    ``slot``
+        The 2-bit regime slot the type projects onto (``SLOT_STAND`` ... ``SLOT_MOVE_TURN``).
+    ``world``
+        ``True`` -> the travel direction is drawn WORLD-uniform over ``travel_dir_range``
+        (the ``omni`` types); ``False`` -> from ``band``, body-relative at resample time.
+    ``band``
+        ``(lo, hi)`` body-relative radians, or ``None`` for a world type. Zero-width for
+        every axis-pinned type, which is what makes ``theta == yaw + <exact literal>``.
+    """
+
+    slot: int
+    world: bool
+    band: tuple[float, float] | None
+
+
+_HALF_PI = math.pi / 2.0
+
+POOL_TYPES: MappingProxyType[str, PoolType] = MappingProxyType({
+    # -- stand: no travel, no turn. The band is unobservable (speed 0); see the note above.
+    "stand": PoolType(SLOT_STAND, False, (0.0, 0.0)),
+    # -- the five pure-travel types (slot 1)
+    "fwd": PoolType(SLOT_MOVE, False, (0.0, 0.0)),
+    "side_l": PoolType(SLOT_MOVE, False, (_HALF_PI, _HALF_PI)),
+    "side_r": PoolType(SLOT_MOVE, False, (-_HALF_PI, -_HALF_PI)),
+    "back": PoolType(SLOT_MOVE, False, (math.pi, math.pi)),
+    "omni": PoolType(SLOT_MOVE, True, None),
+    # -- turn in place (slot 2)
+    "turn": PoolType(SLOT_TURN, False, (0.0, 0.0)),
+    # -- the five travel-while-turning types (slot 3), one per travel type
+    "fwd_turn": PoolType(SLOT_MOVE_TURN, False, (0.0, 0.0)),
+    "side_l_turn": PoolType(SLOT_MOVE_TURN, False, (_HALF_PI, _HALF_PI)),
+    "side_r_turn": PoolType(SLOT_MOVE_TURN, False, (-_HALF_PI, -_HALF_PI)),
+    "back_turn": PoolType(SLOT_MOVE_TURN, False, (math.pi, math.pi)),
+    "omni_turn": PoolType(SLOT_MOVE_TURN, True, None),
+})
+"""Every command type a pool may name, in the curriculum's own order.
+
+``side_l`` / ``side_r`` are SEPARATE types (the shipped ``dir_band`` can only express one
+lateral direction at a time, and the RSI bank's source-1 frames are left-leading only), and
+``back`` is its own type rather than a widening of ``omni`` so a stage can enable backward
+travel without enabling every bearing at once."""
+
+POOL_FLOOR_SHARE = 0.025
+"""Smallest share a curriculum stage may give a type it has ENABLED.
+
+Below this a type is present in the config dump and absent from the training distribution:
+at 64 envs x 10 s resampling a 1 % type is drawn a few times per minute, which neither
+teaches the capability nor shows up in ``pool_<name>_draws`` as anything but noise. The
+campaign driver's recipe validator imports this constant rather than re-spelling it."""
+
+
+class CmdPool(NamedTuple):
+    """A parsed command pool: K named types with weights and per-type scales.
+
+    All four tuples are K long and index-aligned. ``weights`` are raw, non-negative and not
+    all zero (the sampler normalises, exactly as it does for ``slot_probs``, so the config
+    dump keeps saying what the launcher asked for). A weight of ``0.0`` is legal and KEPT:
+    :meth:`rescale_to` never drops a type, so the type list -- and therefore the
+    ``pool_<name>_*`` metric names and the render -> parse round trip -- is stable along a
+    chain of stages.
+
+    ``ang_scale``
+        Multiplies the row's yaw-rate P-control cap AND its dead band (``ang_vel_max`` and
+        ``clips.ang_vel_clip``), so a type can be given a gentler turn demand without
+        changing the dead band's share of the cap. Default 1.0.
+    ``speed_scale``
+        Multiplies the ellipse cap AT DRAW TIME, so a type can be given a slower speed band.
+        The per-step re-cap in ``_write_command`` stays the GLOBAL ellipse: the scale picks a
+        smaller speed, it does not narrow the clamp the body's own rotation runs into.
+        Default 1.0.
+    """
+
+    names: tuple[str, ...]
+    weights: tuple[float, ...]
+    ang_scale: tuple[float, ...]
+    speed_scale: tuple[float, ...]
+
+    def slot_of(self, name: str) -> int:
+        """The 2-bit regime slot a type name projects onto."""
+        try:
+            return POOL_TYPES[str(name)].slot
+        except KeyError:
+            raise ValueError(
+                f"unknown command-pool type {name!r}; known: {tuple(POOL_TYPES)}"
+            ) from None
+
+    def projected_slot_probs(self) -> tuple[float, float, float, float]:
+        """The pool's weights summed per slot and NORMALISED, in ``SLOT_NAMES`` order.
+
+        This is the 4-tuple ``KRABBY_OMNI_SLOTS`` has to carry for the same distribution --
+        the command cfg's validator refuses a pool whose projection disagrees with
+        ``slot_probs``, so a launcher can never describe two different regimes at once.
+        """
+        acc = [0.0] * N_SLOTS
+        for name, weight in zip(self.names, self.weights):
+            acc[POOL_TYPES[name].slot] += float(weight)
+        total = sum(acc)
+        if total <= 0.0:
+            raise ValueError("command pool weights must not be all zero")
+        return tuple(x / total for x in acc)  # type: ignore[return-value]
+
+    def rescale_to(self, slot_probs) -> CmdPool:
+        """A new pool with the given slot projection, keeping the WITHIN-slot proportions.
+
+        The teacher windows (2a/2b) are described by a slot mix, not by a pool; this is how a
+        curriculum's final pool is carried into them unchanged in shape and re-weighted in
+        regime. Every type keeps its ``ang_scale`` / ``speed_scale`` and its position.
+
+        Rules:
+
+        * a target slot with positive probability but NO type of that slot in the pool is a
+          ``ValueError`` naming the slot (silently dropping the mass would train a regime
+          nobody asked for);
+        * a target slot with probability 0 keeps its types at weight ``0.0`` -- never
+          dropped, so ``render_cmd_pool`` -> :func:`parse_cmd_pool` still round-trips and the
+          metric names do not move;
+        * a slot whose types are all at weight 0 but which is given positive mass splits it
+          UNIFORMLY (there are no within-slot proportions to keep).
+        """
+        target = tuple(float(p) for p in slot_probs)
+        if len(target) != N_SLOTS:
+            raise ValueError(f"rescale_to needs {N_SLOTS} slot probs {SLOT_NAMES}, got {slot_probs!r}")
+        if any((not math.isfinite(p)) or p < 0.0 for p in target):
+            raise ValueError(f"rescale_to slot probs must be finite and non-negative, got {slot_probs!r}")
+        total = sum(target)
+        if total <= 0.0:
+            raise ValueError(f"rescale_to slot probs must not be all zero, got {slot_probs!r}")
+        target = tuple(p / total for p in target)
+
+        slots = tuple(POOL_TYPES[n].slot for n in self.names)
+        per_slot = [0.0] * N_SLOTS
+        count = [0] * N_SLOTS
+        for slot, weight in zip(slots, self.weights):
+            per_slot[slot] += float(weight)
+            count[slot] += 1
+        for slot in range(N_SLOTS):
+            if target[slot] > 0.0 and count[slot] == 0:
+                raise ValueError(
+                    f"rescale_to: slot {SLOT_NAMES[slot]!r} is given probability {target[slot]} "
+                    f"but the pool has no type in it (types: {self.names})"
+                )
+        out = []
+        for slot, weight in zip(slots, self.weights):
+            if target[slot] <= 0.0:
+                out.append(0.0)
+            elif per_slot[slot] > 0.0:
+                out.append(float(weight) / per_slot[slot] * target[slot])
+            else:
+                out.append(target[slot] / count[slot])
+        return CmdPool(self.names, tuple(out), self.ang_scale, self.speed_scale)
+
+
+def parse_cmd_pool(text: str) -> CmdPool:
+    """``name:weight[:ang_scale[:speed_scale]],...`` -> :class:`CmdPool`.
+
+    The canonical spelling of a curriculum stage's training distribution, and the string the
+    command cfg stores VERBATIM (``cmd_pool``) so a config dump says exactly what the
+    launcher asked for. Whitespace around tokens and around fields is tolerated; everything
+    else is refused by name, because every failure mode is silent in a training log:
+
+    * an unknown type name (a typo would otherwise drop a whole capability);
+    * a duplicate name (which of the two weights wins is invisible);
+    * a negative weight, a non-finite weight, or all weights zero;
+    * an ``ang_scale`` / ``speed_scale`` that is not strictly positive (0 would make a type's
+      turns or steps inert while the dump still listed it);
+    * a token with no ``:``, with more than four fields, or empty (a stray comma).
+
+    A weight of exactly ``0.0`` IS accepted: a stage may keep a type in the list at zero mass
+    so the type list, the metric names and the render round trip stay stable.
+    """
+    raw = str(text).strip()
+    if raw == "":
+        raise ValueError("command pool must not be empty, got ''")
+    names: list[str] = []
+    weights: list[float] = []
+    ang: list[float] = []
+    spd: list[float] = []
+    for token in raw.split(","):
+        fields = [f.strip() for f in token.strip().split(":")]
+        if len(fields) < 2 or len(fields) > 4 or any(f == "" for f in fields):
+            raise ValueError(
+                f"command pool entry must be 'name:weight[:ang_scale[:speed_scale]]', got {token!r}"
+            )
+        name = fields[0]
+        if name not in POOL_TYPES:
+            raise ValueError(f"unknown command-pool type {name!r}; known: {tuple(POOL_TYPES)}")
+        if name in names:
+            raise ValueError(f"command-pool type {name!r} appears twice in {text!r}")
+        numbers = []
+        for field in fields[1:]:
+            try:
+                value = float(field)
+            except (TypeError, ValueError) as exc:
+                raise ValueError(f"command pool entry {token!r} has a non-numeric field {field!r}") from exc
+            if not math.isfinite(value):
+                raise ValueError(f"command pool entry {token!r} has a non-finite field {field!r}")
+            numbers.append(value)
+        weight = numbers[0]
+        if weight < 0.0:
+            raise ValueError(f"command-pool weight must be non-negative, got {token!r}")
+        a_scale = numbers[1] if len(numbers) > 1 else 1.0
+        s_scale = numbers[2] if len(numbers) > 2 else 1.0
+        if not a_scale > 0.0:
+            raise ValueError(f"command-pool ang_scale must be positive, got {token!r}")
+        if not s_scale > 0.0:
+            raise ValueError(f"command-pool speed_scale must be positive, got {token!r}")
+        names.append(name)
+        weights.append(weight)
+        ang.append(a_scale)
+        spd.append(s_scale)
+    if sum(weights) <= 0.0:
+        raise ValueError(f"command pool weights must not all be zero, got {text!r}")
+    return CmdPool(tuple(names), tuple(weights), tuple(ang), tuple(spd))
+
+
+def render_cmd_pool(pool: CmdPool) -> str:
+    """:class:`CmdPool` -> the canonical knob string, in the pool's own type order.
+
+    ``repr`` precision on every float, NEVER a fixed number of decimals: the campaign driver
+    composes a stage's pool from TRANSFORMS (a share edit, then a scale edit), renders it to
+    one string per stage and records that string as the truth. A ``f"{w:.3f}"`` would make
+    the render lossy, so a rendered-then-parsed pool would no longer match the ``SLOTS``
+    projection the same recipe computed, and the command cfg's validator would refuse it --
+    or, worse, accept it 1e-4 off.
+
+    Shortest faithful form: ``name:weight`` when both scales are 1.0, ``name:weight:ang``
+    when only ``speed_scale`` is 1.0, and all four fields otherwise.
+    """
+    parts = []
+    for name, weight, a_scale, s_scale in zip(pool.names, pool.weights, pool.ang_scale, pool.speed_scale):
+        if float(s_scale) != 1.0:
+            parts.append(f"{name}:{float(weight)!r}:{float(a_scale)!r}:{float(s_scale)!r}")
+        elif float(a_scale) != 1.0:
+            parts.append(f"{name}:{float(weight)!r}:{float(a_scale)!r}")
+        else:
+            parts.append(f"{name}:{float(weight)!r}")
+    return ",".join(parts)
+
+
+def pool_type_min_cap(name: str, a: float, b: float, c: float) -> float:
+    """The smallest ellipse cap the pool type ``name`` can ever draw at, m/s.
+
+    A zero-width body band is one exact direction, so its cap is :func:`ellipse_cap` there --
+    which is why ``fwd`` may take a ``speed_scale`` the lateral axis could not. Anything wider
+    (a world type, or a band that is genuinely a range) is judged against the smallest
+    semi-axis, because it really can draw that direction.
+
+    Non-moving types (``stand``, ``turn``) never draw a speed at all; this still answers for
+    them (their band is ``(0, 0)``), and callers gate on the slot.
+    """
+    spec = POOL_TYPES[name]
+    band = spec.band
+    if spec.world or band is None or float(band[0]) != float(band[1]):
+        return float(min(a, b, c))
+    return float(ellipse_cap(torch.tensor([float(band[0])], dtype=torch.float64), a, b, c))
+
+
+def pool_speed_scale_floor(name: str, speed_ellipse, min_speed: float) -> float:
+    """The strict lower bound on a legal ``speed_scale`` for pool type ``name``.
+
+    A type's speed band is ``floor + u * (cap * speed_scale - floor)``: once
+    ``cap * speed_scale`` sinks to ``min_speed`` (the walk floor plus its headroom) the band
+    is empty or INVERTED and every draw sits under the gait clock's stop speed -- a type that
+    is still in the config dump, still drawn at its weight, and training a creeper. So a
+    ``speed_scale`` is legal iff ``speed_scale > pool_speed_scale_floor(...)`` (or is exactly
+    1.0, which is the unscaled case the ellipse check already covers).
+
+    THIS IS THE BOUND, exported rather than re-spelled: ``_validate_omni_cfg`` refuses with it
+    at config build, and the campaign driver's recipe validator is meant to call it at COMPOSE
+    time so a ``pool_edit {speed_scale: ...}`` that cannot be honoured is caught before a GPU
+    window is booked, not after. At the shipped ellipse (0.35, 0.25, 0.25) with
+    ``lin_vel_clip`` 0.2 the bound is ~0.88 for every world / lateral / backward type and
+    ~0.63 for ``fwd``: the shipped ellipse simply has no room under it, and the way to buy
+    room is a wider ``speed_ellipse`` or a smaller ``lin_vel_clip`` in the same overlay, not a
+    smaller scale.
+
+    Args:
+        name: A key of :data:`POOL_TYPES`.
+        speed_ellipse: ``(a, b, c)`` semi-axes, m/s.
+        min_speed: The speed a draw must stay strictly above -- the walk floor plus the
+            construction headroom (``omni_walk_floor(cfg) + MIN_CAP_HEADROOM_M_S``).
+
+    Returns:
+        ``min_speed / min_cap``, a float. ``speed_scale`` values at or below it are refused.
+    """
+    a, b, c = (float(x) for x in speed_ellipse)
+    return float(min_speed) / pool_type_min_cap(name, a, b, c)
+
+
+class PoolTables(NamedTuple):
+    """The per-type lookup tables :class:`CrabHexOmniCommand` gathers with ``type_id``.
+
+    Every table has **K + 1** entries. The trailing one is the ``type_id = -1`` SENTINEL --
+    "this row was not drawn from the pool" (an eval ``schedule_hook`` row, an RSI-staged row,
+    and every row at all when no pool is configured). Python's negative indexing makes
+    ``table[-1]`` land on it for free, so the gather needs no ``where``: the sentinel's scales
+    are exactly 1.0 (the GLOBAL cap and dead band), its band is zero-width body-relative, and
+    its slot is ``SLOT_MOVE`` (what a staged row is forced to).
+
+    Getting this wrong is silent and expensive: a K-entry table indexed with ``-1`` would hand
+    every eval and every RSI row the LAST type's scales.
+    """
+
+    slot: torch.Tensor
+    lo: torch.Tensor
+    hi: torch.Tensor
+    world: torch.Tensor
+    ang_scale: torch.Tensor
+    speed_scale: torch.Tensor
+
+
+def pool_tables(
+    pool: CmdPool,
+    device: torch.device | str | None = None,
+    dtype: torch.dtype = torch.float32,
+) -> PoolTables:
+    """Build the K+1-entry gather tables for ``pool`` (see :class:`PoolTables`)."""
+    slot = [POOL_TYPES[n].slot for n in pool.names] + [SLOT_MOVE]
+    lo, hi, world = [], [], []
+    for name in pool.names:
+        spec = POOL_TYPES[name]
+        band = (0.0, 0.0) if spec.band is None else spec.band
+        lo.append(float(band[0]))
+        hi.append(float(band[1]))
+        world.append(bool(spec.world))
+    lo.append(0.0)
+    hi.append(0.0)
+    world.append(False)
+    return PoolTables(
+        slot=torch.tensor(slot, dtype=torch.long, device=device),
+        lo=torch.tensor(lo, dtype=dtype, device=device),
+        hi=torch.tensor(hi, dtype=dtype, device=device),
+        world=torch.tensor(world, dtype=torch.bool, device=device),
+        ang_scale=torch.tensor([float(s) for s in pool.ang_scale] + [1.0], dtype=dtype, device=device),
+        speed_scale=torch.tensor([float(s) for s in pool.speed_scale] + [1.0], dtype=dtype, device=device),
+    )
+
+
+def sample_pool_travel_dir(
+    yaw: torch.Tensor,
+    type_id: torch.Tensor,
+    lo_t: torch.Tensor,
+    hi_t: torch.Tensor,
+    world_t: torch.Tensor,
+    travel_dir_range: tuple[float, float],
+    generator: torch.Generator | None = None,
+) -> torch.Tensor:
+    """:func:`sample_travel_dir` with a PER-ROW band, gathered by ``type_id``.
+
+    ONE uniform draw per environment, like both legacy modes -- the resample RNG stream must
+    not depend on the type mix, or no pooled run is comparable with a legacy one (and no
+    seed-3 record reproduces). Both branches are evaluated and selected with ``where`` for
+    exactly that reason.
+
+    The two expressions are the legacy ones, character for character:
+
+    * world types: ``theta = lo + u * (hi - lo)`` over ``travel_dir_range``;
+    * body types: ``theta = yaw + (lo_row + u * (hi_row - lo_row))``, so a zero-width band
+      gives ``yaw + 0.0`` BITWISE (``fwd`` is ``theta == yaw``, ``side_l`` is exactly
+      ``yaw + math.pi/2``) -- the property the legacy twins are pinned on.
+
+    Args:
+        yaw: Current world yaw, radians, shape ``(N,)``.
+        type_id: ``(N,)`` int64 pool type ids; ``-1`` lands on the tables' sentinel entry.
+        lo_t, hi_t: ``(K+1,)`` body-relative band tables (``pool_tables``).
+        world_t: ``(K+1,)`` bool "this type draws world-uniform" table.
+        travel_dir_range: ``(lo, hi)`` world band for the world types.
+        generator: Optional ``torch.Generator``.
+
+    Returns:
+        The world travel direction ``theta``, shape/dtype/device of ``yaw``. NOT wrapped.
+    """
+    u = torch.rand(tuple(yaw.shape), generator=generator, device=yaw.device, dtype=yaw.dtype)
+    lo, hi = float(travel_dir_range[0]), float(travel_dir_range[1])
+    if hi < lo:
+        raise ValueError(f"travel_dir_range must satisfy lo <= hi, got ({lo}, {hi})")
+    world = lo + u * (hi - lo)
+    lo_row = lo_t[type_id]
+    hi_row = hi_t[type_id]
+    body = yaw + (lo_row + u * (hi_row - lo_row))
+    return torch.where(world_t[type_id], world, body)

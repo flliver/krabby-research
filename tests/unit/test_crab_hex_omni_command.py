@@ -551,6 +551,8 @@ def test_shipped_cfg_defaults_are_the_plan_values():
     assert cfg.travel_dir_range == (-math.pi, math.pi)
     assert cfg.ang_vel_max == 0.3
     assert cfg.dir_band is None
+    # DEFAULT-OFF: the pool is opt-in, so every shipped preset takes the legacy sampler
+    assert cfg.cmd_pool is None
     assert cfg.clips.ang_vel_clip == 0.2
     assert cfg.clips.lin_vel_clip == 0.2
     # the commands-cfg literal carries the same, on the omni class
@@ -589,6 +591,11 @@ def test_init_rejects_other_unhonourable_cfgs():
     with pytest.raises(ValueError, match="ang_vel_max"):
         # cap at or below the dead band -> every yaw-rate command would be zeroed
         _term(_cfg(ang_vel_max=0.2), n=8)
+    # a cmd_pool string the grammar does not accept must fail HERE, at construction -- and
+    # for the GRAMMAR's reason: this cfg would also fail the slot-projection comparison, so
+    # the match is on the bad type name rather than on "some ValueError".
+    with pytest.raises(ValueError, match="sideways"):
+        _term(_cfg(cmd_pool="fwd:0.5,sideways:0.5", slot_probs=(0.0, 1.0, 0.0, 0.0)), n=8)
 
 
 def test_state_and_metric_names_are_the_ones_other_steps_read():
@@ -1026,11 +1033,13 @@ def test_forward_command_class_and_cfg_have_none_of_the_omni_surface():
         "travel_dir_range",
         "ang_vel_max",
         "dir_band",
+        "cmd_pool",
     )
     for name in omni_only:
         assert not hasattr(pcfg.ParkourCommandCfg, name), f"ParkourCommandCfg gained {name}"
         assert hasattr(CrabHexOmniCommandCfg, name), name
-    for name in ("rsi_cmd_staged", "schedule_hook", "travel_dir_w", "speed_cmd", "slot_id", "recap_mask"):
+    for name in ("rsi_cmd_staged", "schedule_hook", "travel_dir_w", "speed_cmd", "slot_id",
+                 "type_id", "recap_mask"):
         assert not hasattr(upc.UniformParkourCommand, name), f"UniformParkourCommand gained {name}"
     # the omni term subclasses it but overrides the three implementation hooks
     assert issubclass(CrabHexOmniCommand, upc.UniformParkourCommand)
@@ -1249,4 +1258,1017 @@ def test_omni_term_replaces_both_base_debug_vis_hooks_and_leaves_the_cfg_alone()
     # the marker cfgs live at module scope precisely so the config dump does not move
     assert set(CrabHexOmniCommandCfg.__cfg_fields__) == set(pcfg.ParkourCommandCfg.__cfg_fields__) | {
         "slot_probs", "speed_ellipse", "facing_delta", "travel_dir_range", "ang_vel_max", "dir_band",
+        # 2026-09-18: the seventh and (per the plan) last sampler field -- the command pool's
+        # canonical string. It widens the omni-vs-forward config-dump delta by exactly one
+        # entry, ``cmd_pool: null``, on every shipped window.
+        "cmd_pool",
     }
+
+
+# ============================================================ the per-type command pool
+#
+# The pool is an ADDITIVE lever: with ``cmd_pool`` unset the term must be the shipped sampler
+# down to the last float and the last RNG draw (every recorded seed-3 run depends on it), and
+# with a pool set it must be able to reproduce a legacy distribution exactly. The two claims
+# are pinned in opposite directions below -- "the default takes the legacy path" and "these
+# three pools are bitwise twins of these three legacy configs".
+
+SLOTS_TEACHER = (0.15, 0.45, 0.15, 0.25)
+POOL_1C = "stand:0.15,omni:0.55,turn:0.10,omni_turn:0.20"
+
+
+def _pool_term(pool: str, slots, **overrides):
+    """A term on ``pool`` with the matching slot projection, over the standard yaw spread."""
+    n = overrides.pop("n", 4096)
+    yaw = overrides.pop("yaw", None)
+    if yaw is None:
+        yaw = _spread_yaw(n)
+    return _term(_cfg(cmd_pool=pool, slot_probs=slots, **overrides), n=n, yaw=yaw)
+
+
+def _state(term):
+    """The five tensors a twin has to match, cloned."""
+    return {
+        name: getattr(term, name).clone()
+        for name in ("slot_id", "travel_dir_w", "speed_cmd", "heading_target", "vel_command_b")
+    }
+
+
+# ------------------------------------------------------------------- the pool type table
+def test_pool_types_project_onto_the_two_bit_slot():
+    """Every type's slot is exactly ``moving + 2 * turning`` for what its name promises.
+
+    The projection is the whole reason a pool can be added without touching a single metric,
+    reward, eval hold or piece of telemetry: they all keep reading ``slot_id``.
+    """
+    travelling = {"fwd", "side_l", "side_r", "back", "omni"}
+    turning = {"turn", "fwd_turn", "side_l_turn", "side_r_turn", "back_turn", "omni_turn"}
+    assert set(omni_math.POOL_TYPES) == {"stand"} | travelling | turning
+    for name, spec in omni_math.POOL_TYPES.items():
+        moves = name in travelling or (name.endswith("_turn") and name != "turn")
+        turns = name in turning
+        assert spec.slot == int(moves) + 2 * int(turns), name
+        assert bool(omni_math.slot_is_moving(torch.tensor(spec.slot))) == moves, name
+        assert bool(omni_math.slot_is_turning(torch.tensor(spec.slot))) == turns, name
+    # the four slots are all reachable, and every travel type has a turning twin
+    assert {s.slot for s in omni_math.POOL_TYPES.values()} == {0, 1, 2, 3}
+    for name in travelling:
+        assert f"{name}_turn" in omni_math.POOL_TYPES, name
+
+
+def test_pool_type_bands_are_the_exact_body_axes():
+    """``fwd``/``side_l``/``side_r``/``back`` are the zero-width literals the legacy
+    ``dir_band`` uses, and only the two ``omni`` types draw world-uniform."""
+    axes = {"fwd": 0.0, "side_l": math.pi / 2, "side_r": -math.pi / 2, "back": math.pi}
+    for name, angle in axes.items():
+        for full in (name, f"{name}_turn"):
+            spec = omni_math.POOL_TYPES[full]
+            assert spec.world is False, full
+            assert spec.band == (angle, angle), full
+    for name in ("omni", "omni_turn"):
+        assert omni_math.POOL_TYPES[name].world is True
+        assert omni_math.POOL_TYPES[name].band is None
+    # the non-travelling types carry a zero-width body band (their speed is exactly 0, so the
+    # held direction is unobservable; pinning it to the nose beats a random world ray)
+    for name in ("stand", "turn"):
+        assert omni_math.POOL_TYPES[name] == omni_math.PoolType(
+            omni_math.POOL_TYPES[name].slot, False, (0.0, 0.0)
+        )
+
+
+def test_pool_floor_share_is_the_planned_constant():
+    """The campaign's recipe validator imports this rather than re-spelling 0.025."""
+    assert omni_math.POOL_FLOOR_SHARE == 0.025
+
+
+# --------------------------------------------------------------------- grammar and render
+def test_parse_cmd_pool_grammar():
+    pool = omni_math.parse_cmd_pool("stand:0.2,fwd:0.8")
+    assert pool.names == ("stand", "fwd")
+    assert pool.weights == (0.2, 0.8)
+    assert pool.ang_scale == (1.0, 1.0)
+    assert pool.speed_scale == (1.0, 1.0)
+    # whitespace is tolerated, and the optional scales are positional
+    scaled = omni_math.parse_cmd_pool(" fwd : 0.6 : 0.3 , turn : 0.4 : 1.0 : 0.5 ")
+    assert scaled.names == ("fwd", "turn")
+    assert scaled.ang_scale == (0.3, 1.0)
+    assert scaled.speed_scale == (1.0, 0.5)
+    # a zero weight is LEGAL (a type kept in the list at no mass; see rescale_to)
+    zeroed = omni_math.parse_cmd_pool("stand:0.0,fwd:1.0")
+    assert zeroed.weights == (0.0, 1.0)
+    # the order is the string's own, not POOL_TYPES'
+    assert omni_math.parse_cmd_pool("back:0.5,fwd:0.5").names == ("back", "fwd")
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        "",                       # empty
+        "   ",                    # blank
+        "sideways:1.0",           # unknown type name
+        "fwd:0.5,fwd:0.5",        # duplicate
+        "stand:0.0,fwd:0.0",      # all-zero weights
+        "fwd:-0.1,stand:1.0",     # negative weight
+        "fwd:1.0:0",              # zero ang_scale
+        "fwd:1.0:-1",             # negative ang_scale
+        "fwd:1.0:1.0:0",          # zero speed_scale
+        "fwd:1.0:1.0:1.0:1.0",    # too many fields
+        "fwd",                    # no weight
+        "fwd:",                   # empty weight field
+        "fwd:1.0,",               # stray comma
+        "fwd:nan",                # non-finite
+        "fwd:abc",                # non-numeric
+    ],
+)
+def test_parse_cmd_pool_rejections(bad):
+    with pytest.raises(ValueError):
+        omni_math.parse_cmd_pool(bad)
+
+
+def test_render_cmd_pool_shortest_faithful_form():
+    assert omni_math.render_cmd_pool(omni_math.parse_cmd_pool("stand:0.2,fwd:0.8")) == "stand:0.2,fwd:0.8"
+    # only ang_scale differs -> three fields; speed_scale differs -> all four
+    assert omni_math.render_cmd_pool(omni_math.parse_cmd_pool("fwd:1.0:0.3")) == "fwd:1.0:0.3"
+    assert omni_math.render_cmd_pool(omni_math.parse_cmd_pool("fwd:1.0:1.0:0.5")) == "fwd:1.0:1.0:0.5"
+
+
+def test_render_parse_round_trip_is_exact():
+    """``repr`` precision, never fixed decimals: the driver renders a composed pool to ONE
+    string per stage and records it as the truth, so a lossy render would leave the recorded
+    pool disagreeing with the ``SLOTS`` projection the same recipe computed."""
+    pool = omni_math.parse_cmd_pool(POOL_1C).rescale_to(SLOTS_TEACHER)
+    text = omni_math.render_cmd_pool(pool)
+    back = omni_math.parse_cmd_pool(text)
+    assert back.names == pool.names
+    assert back.weights == pool.weights, "repr() round-trips a float exactly"
+    assert back.ang_scale == pool.ang_scale and back.speed_scale == pool.speed_scale
+    assert omni_math.render_cmd_pool(back) == text
+    # The two tolerances the plan names, asserted where they can actually BITE: a third of a
+    # share (and c6's 0.035 / 0.025) is exactly what a ``%.3f`` render would round off. On the
+    # rescaled pool above they would be vacuous -- ``back.weights == pool.weights`` already
+    # holds there, which makes any downstream comparison exact by construction.
+    thirds = omni_math.parse_cmd_pool(
+        "fwd:0.3333333333333333,side_l:0.6666666666666666,"
+        "side_l_turn:0.035,side_r_turn:0.025,turn:0.1"
+    )
+    thirds_back = omni_math.parse_cmd_pool(omni_math.render_cmd_pool(thirds))
+    assert thirds_back.weights == thirds.weights
+    for got, want in zip(thirds_back.projected_slot_probs(), thirds.projected_slot_probs()):
+        assert abs(got - want) < 1e-6
+    assert abs(sum(thirds_back.weights) - sum(thirds.weights)) < 1e-9
+
+
+# ------------------------------------------------------------------ projection and rescale
+def test_projected_slot_probs_sums_the_weights_per_slot():
+    pool = omni_math.parse_cmd_pool(
+        "stand:0.15,fwd:0.25,side_l:0.15,side_r:0.15,turn:0.10,fwd_turn:0.20"
+    )
+    assert pool.projected_slot_probs() == pytest.approx((0.15, 0.55, 0.10, 0.20), abs=1e-12)
+    # un-normalised weights normalise, exactly like slot_probs
+    doubled = omni_math.parse_cmd_pool("stand:0.3,fwd:1.1,turn:0.2,fwd_turn:0.4")
+    assert doubled.projected_slot_probs() == pytest.approx((0.15, 0.55, 0.10, 0.20), abs=1e-12)
+    assert pool.slot_of("side_r") == S_MOVE and pool.slot_of("omni_turn") == S_MOVE_TURN
+    with pytest.raises(ValueError):
+        pool.slot_of("sideways")
+
+
+def test_rescale_to_round_trips_the_teacher_slots():
+    """The teacher windows are described by a slot mix; this is how a curriculum's final pool
+    is carried into them with its shape (and its scales) intact."""
+    pool = omni_math.parse_cmd_pool(POOL_1C)
+    rescaled = pool.rescale_to(SLOTS_TEACHER)
+    assert rescaled.names == pool.names
+    for got, want in zip(rescaled.projected_slot_probs(), SLOTS_TEACHER):
+        assert abs(got - want) < 1e-6
+    assert abs(sum(rescaled.weights) - 1.0) < 1e-9
+    # WITHIN-slot proportions survive: the move_turn slot's two types keep their ratio
+    mixed = omni_math.parse_cmd_pool("fwd_turn:0.06,side_l_turn:0.02,fwd:1.0")
+    out = mixed.rescale_to((0.0, 0.5, 0.0, 0.5))
+    assert out.weights[0] / out.weights[1] == pytest.approx(3.0)
+    # and so do the per-type scales
+    scaled = omni_math.parse_cmd_pool("fwd:0.5:0.3,turn:0.5:1.0:0.7")
+    assert scaled.rescale_to((0.0, 0.8, 0.2, 0.0)).ang_scale == (0.3, 1.0)
+    assert scaled.rescale_to((0.0, 0.8, 0.2, 0.0)).speed_scale == (1.0, 0.7)
+
+
+def test_rescale_to_keeps_zeroed_types_and_refuses_an_unreachable_slot():
+    pool = omni_math.parse_cmd_pool(POOL_1C)
+    # a slot given zero mass keeps its types at weight 0.0 -- never dropped, so the render
+    # round trip and the pool_<name>_* metric names are stable along a chain of stages
+    zeroed = pool.rescale_to((0.2, 0.8, 0.0, 0.0))
+    assert zeroed.names == pool.names
+    assert zeroed.weights[pool.names.index("turn")] == 0.0
+    assert zeroed.weights[pool.names.index("omni_turn")] == 0.0
+    assert omni_math.parse_cmd_pool(omni_math.render_cmd_pool(zeroed)).names == pool.names
+    # ... and a zeroed type can be brought back by a later rescale (uniformly within its slot)
+    assert zeroed.rescale_to(SLOTS_TEACHER).projected_slot_probs() == pytest.approx(
+        SLOTS_TEACHER, abs=1e-9
+    )
+    # a slot with positive mass and NO type is a loud failure, not silently dropped mass
+    no_turn = omni_math.parse_cmd_pool("stand:0.2,fwd:0.8")
+    with pytest.raises(ValueError, match="turn"):
+        no_turn.rescale_to(SLOTS_TEACHER)
+    for bad in ((0.0, 0.0, 0.0, 0.0), (0.5, 0.5, 0.5), (-0.1, 1.0, 0.0, 0.0)):
+        with pytest.raises(ValueError):
+            pool.rescale_to(bad)
+
+
+# ------------------------------------------------------------------------ the gather tables
+def test_pool_tables_trailing_entry_is_the_unit_sentinel():
+    """``type_id = -1`` must land on UNIT scales, which negative indexing gives for free.
+
+    A K-entry table indexed with -1 would hand every eval hold and every RSI-staged row the
+    LAST type's scales -- silent, and exactly wrong in the direction that makes an eval look
+    like a policy failure.
+    """
+    pool = omni_math.parse_cmd_pool("fwd:0.5:0.3:0.4,turn:0.5:0.2:0.6")
+    tables = omni_math.pool_tables(pool, device="cpu", dtype=torch.float32)
+    for table in (tables.slot, tables.lo, tables.hi, tables.world,
+                  tables.ang_scale, tables.speed_scale):
+        assert table.shape == (3,), "K + 1 entries"
+    assert float(tables.ang_scale[-1]) == 1.0
+    assert float(tables.speed_scale[-1]) == 1.0
+    assert bool(tables.world[-1]) is False
+    assert float(tables.lo[-1]) == 0.0 and float(tables.hi[-1]) == 0.0
+    # the sentinel's SLOT is what a staged row is forced to; unused today (the pool branch
+    # only ever gathers slots for rows sample_slots drew), but the docstring advertises it
+    assert int(tables.slot[-1]) == S_MOVE
+    # the K real entries are the pool's own, in order
+    assert tables.ang_scale[:2].tolist() == pytest.approx([0.3, 0.2])
+    assert tables.speed_scale[:2].tolist() == pytest.approx([0.4, 0.6])
+    assert tables.slot[:2].tolist() == [S_MOVE, S_TURN]
+    # the index a -1 row really takes
+    sentinel = torch.tensor([-1, 0, 1])
+    assert tables.ang_scale[sentinel].tolist() == pytest.approx([1.0, 0.3, 0.2])
+
+
+def test_heading_rate_command_rows_is_the_scalar_version_at_unit_scale():
+    yaw = _spread_yaw(257).double()
+    target = torch.linspace(-4.0, 4.0, 257, dtype=torch.float64)
+    scalar = omni_math.heading_rate_command(target, yaw, STIFFNESS, 0.3, 0.2)
+    rows = omni_math.heading_rate_command_rows(
+        target, yaw, STIFFNESS, torch.full((257,), 0.3, dtype=torch.float64),
+        torch.full((257,), 0.2, dtype=torch.float64),
+    )
+    assert torch.equal(scalar, rows)
+    # halving BOTH limits keeps their ratio (0.1/0.15 == 0.2/0.3) and halves the effective
+    # facing-error threshold: a scaled-down type turns at a smaller rate for smaller errors,
+    # which is what "a gentler turn demand" has to mean. Scaling the cap ALONE would leave the
+    # unchanged dead band swallowing twice the share of it and make the type's turns vanish --
+    # the silent failure ``ang_scale`` scales both to avoid.
+    half = omni_math.heading_rate_command_rows(
+        target, yaw, STIFFNESS, torch.full((257,), 0.15, dtype=torch.float64),
+        torch.full((257,), 0.1, dtype=torch.float64),
+    )
+    assert float(half.abs().max()) == pytest.approx(0.15, abs=1e-12)
+    raw = omni_math.wrap_to_pi(target - yaw) * STIFFNESS
+    assert torch.equal(scalar != 0.0, raw.abs() > 0.2), "the band is a threshold on the P output"
+    assert torch.equal(half != 0.0, raw.abs() > 0.1)
+    assert bool(((scalar != 0.0) <= (half != 0.0)).all()), "a smaller band can only let more through"
+    # the band is a STRICT ``>``: a row sitting EXACTLY on the clip is zeroed, not passed.
+    # No grid point of the linspace above lands on it, so the edge row is built by reading the
+    # raw P output back out and handing it in as the clip -- an exact float equality.
+    edge_target = torch.tensor([0.5], dtype=torch.float64)
+    edge_raw = omni_math.wrap_to_pi(edge_target) * STIFFNESS          # yaw = 0
+    edge = omni_math.heading_rate_command_rows(
+        edge_target, torch.zeros(1, dtype=torch.float64), STIFFNESS,
+        torch.full((1,), 10.0, dtype=torch.float64),                  # cap: no saturation
+        edge_raw.abs(),
+    )
+    assert float(edge_raw[0]) != 0.0
+    assert float(edge[0]) == 0.0, "|wz| == clip is INSIDE the dead band (strict >)"
+
+
+def test_row_ang_limits_are_validated_once_not_per_step():
+    """The guard lives in ``check_row_ang_limits``, NOT inside the per-step expression.
+
+    Two whole-tensor reductions plus two ``bool()`` calls per physics step would be two
+    host-device synchronisations per step on CUDA -- a pooled stage slower than the legacy
+    stage it is compared against, bought with a check that cannot fire (the tables are the
+    cfg values times ``ang_scale``, and both are already validated). So: the checker raises,
+    and the hot function does NOT.
+    """
+    yaw = _spread_yaw(257).double()
+    target = torch.linspace(-4.0, 4.0, 257, dtype=torch.float64)
+    cap = torch.full((257,), 0.3, dtype=torch.float64)
+    with pytest.raises(ValueError, match="ang_vel_max"):
+        omni_math.check_row_ang_limits(torch.zeros(257), torch.zeros(257))
+    with pytest.raises(ValueError, match="ang_vel_clip"):
+        omni_math.check_row_ang_limits(cap, -torch.ones(257))
+    omni_math.check_row_ang_limits(cap, torch.zeros(257))  # a zero dead band is legal
+    # the hot path is guard-free: a zero cap saturates to zero rather than raising
+    assert bool((omni_math.heading_rate_command_rows(
+        target, yaw, STIFFNESS, torch.zeros(257, dtype=torch.float64),
+        torch.zeros(257, dtype=torch.float64),
+    ) == 0.0).all())
+
+
+def test_construction_validates_the_pool_turn_limit_tables_once(monkeypatch):
+    """A pooled term runs ``check_row_ang_limits`` on its built tables at construction.
+
+    Belt and braces -- ``parse_cmd_pool`` already refuses ``ang_scale <= 0`` and
+    ``_validate_omni_cfg`` the two cfg values -- but it is the ONLY place the per-row limits
+    are ever checked now, so it has to actually run. Re-deriving the checker's verdict from
+    outside would pass with the call DELETED, so this spies on the symbol the command module
+    imported and pins the call itself: once, with the built tables times the two cfg values.
+    """
+    calls = []
+    real = omni_math.check_row_ang_limits
+
+    def spy(ang_vel_max, ang_vel_clip):
+        calls.append((ang_vel_max.clone(), ang_vel_clip.clone()))
+        return real(ang_vel_max, ang_vel_clip)
+
+    monkeypatch.setattr(omni, "check_row_ang_limits", spy)
+    term, _ = _pool_term("stand:0.2,fwd:0.4:0.5,fwd_turn:0.4:0.25", (0.2, 0.4, 0.0, 0.4), n=8)
+    assert len(calls) == 1, "once at construction, never per step"
+    tables = term._pool_tables
+    assert torch.equal(calls[0][0], 0.3 * tables.ang_scale), "the CAP table, not the cfg scalar"
+    assert torch.equal(calls[0][1], 0.2 * tables.ang_scale), "the CLIP table, scaled the same"
+    # the checker itself still refuses what it is there to refuse
+    with pytest.raises(ValueError, match="ang_vel_max"):
+        real(0.0 * tables.ang_scale, 0.2 * tables.ang_scale)
+    # ... and a pool-less term never calls it at all (the legacy path takes the scalar form)
+    calls.clear()
+    _term(_cfg(), n=8)
+    assert calls == []
+
+
+# ------------------------------------------------------------------ the legacy bitwise twins
+def _independent_legacy_sampler(cfg, yaw, seed):
+    """The legacy resample, re-derived from five EXPLICIT uniforms in the recorded order.
+
+    Nothing here calls the module under test: the draw order (slot, direction, speed, facing
+    magnitude, facing sign), each draw's shape, and each expression are written out again.
+    That is the point -- every other twin in this file is RELATIVE (pool branch vs legacy
+    branch), so a mutation applied to BOTH branches (swapping two draws, say) passes them all
+    while destroying the RNG stream every recorded seed-3 run and every Verification-3 smoke
+    reference depends on. This is the ABSOLUTE pin of THE ONE HARD INVARIANT.
+    """
+    n = yaw.numel()
+    a, b, c = (float(x) for x in cfg.speed_ellipse)
+    floor = float(cfg.clips.lin_vel_clip) + command_sampling.WALK_MARGIN_M_S
+    torch.manual_seed(seed)
+
+    # (1) the slot: one uniform against the float32 cumulative of the normalised weights
+    p = torch.as_tensor(cfg.slot_probs, dtype=torch.float64)
+    cum = torch.cumsum(p / p.sum(), dim=0)
+    cum[-1] = 1.0
+    u_slot = torch.rand(n)
+    slot = torch.searchsorted(
+        cum.to(torch.float32).contiguous(), u_slot.contiguous(), right=True
+    ).clamp_(max=3).to(torch.long)
+
+    # (2) the world travel direction: world-uniform, or body-relative at the resample yaw
+    u_dir = torch.rand(n)
+    if cfg.dir_band is None:
+        lo, hi = (float(x) for x in cfg.travel_dir_range)
+        theta = lo + u_dir * (hi - lo)
+    else:
+        lo, hi = (float(x) for x in cfg.dir_band)
+        theta = yaw + (lo + u_dir * (hi - lo))
+
+    # (3) the speed, on the ellipse evaluated at the STARTING body direction
+    u_speed = torch.rand(n)
+    phi0 = travel_frame.wrap_to_pi(theta - yaw)  # the shared implementation, not the copy
+    cos0, sin0 = torch.cos(phi0), torch.sin(phi0)
+    axis = torch.where(cos0 >= 0.0, torch.full_like(phi0, a), torch.full_like(phi0, c))
+    cap = axis * b / torch.sqrt(torch.square(b * cos0) + torch.square(axis * sin0))
+    moving = (slot & 1) != 0
+    speed = torch.where(moving, floor + u_speed * (cap - floor), torch.zeros_like(u_speed))
+
+    # (4, 5) the facing target: magnitude then sign, held on non-turning slots
+    dlo, dhi = (float(x) for x in cfg.facing_delta)
+    u_mag = torch.rand(n)
+    u_sign = torch.rand(n)
+    sign = torch.where(u_sign < 0.5, -torch.ones_like(yaw), torch.ones_like(yaw))
+    psi = yaw + sign * (dlo + u_mag * (dhi - dlo))
+    psi = torch.where((slot & 2) != 0, psi, yaw)
+    return {"slot_id": slot, "travel_dir_w": theta, "speed_cmd": speed, "heading_target": psi}
+
+
+@pytest.mark.parametrize(
+    "legacy",
+    [
+        {"slot_probs": (0.2, 0.8, 0.0, 0.0), "dir_band": (0.0, 0.0)},                  # 1a
+        {"slot_probs": (0.0, 1.0, 0.0, 0.0), "dir_band": (math.pi / 2, math.pi / 2)},  # 1b
+        {"slot_probs": (0.15, 0.55, 0.10, 0.20), "facing_delta": (0.2, 0.6)},          # 1c
+        {"slot_probs": (0.15, 0.45, 0.15, 0.25), "facing_delta": (0.2, 1.2)},          # 2a
+    ],
+    ids=["1a", "1b", "1c", "2a"],
+)
+def test_the_legacy_sampler_is_pinned_absolutely(legacy):
+    """The legacy path is what it was at HEAD, checked against an independent re-derivation.
+
+    Guards the RNG STREAM and every expression in it: five uniforms, in the order
+    slot -> direction -> speed -> facing magnitude -> facing sign, each of shape ``(n,)``.
+    Any reordering, any extra or missing draw, and any change to a sampled expression fails
+    here even if the pool branch is changed identically alongside it.
+    """
+    yaw = _spread_yaw(2048)
+    cfg = _cfg(**legacy)
+    term, _ = _term(cfg, n=2048, yaw=yaw)
+    assert cfg.cmd_pool is None, "this is the legacy path"
+    _resample(term)
+    want = _independent_legacy_sampler(cfg, yaw, SEED)
+    for name, expected in want.items():
+        assert torch.equal(getattr(term, name), expected), name
+    # ... and the stream is exactly five draws long, so the NEXT numbers agree too
+    torch.manual_seed(SEED)
+    for _ in range(5):
+        torch.rand(2048)
+    after = torch.rand(8)
+    _resample(term)
+    assert torch.equal(after, torch.rand(8))
+
+
+def test_default_cfg_takes_the_legacy_path():
+    """No pool configured -> no pool state, no pool metrics, ``type_id`` all -1 forever."""
+    term, _ = _term(_cfg(), n=64, yaw=_spread_yaw(64))
+    assert term.cfg.cmd_pool is None
+    assert term._pool is None and term._pool_tables is None
+    assert torch.equal(term.type_id, torch.full((64,), -1, dtype=torch.long))
+    _resample(term)
+    assert torch.equal(term.type_id, torch.full((64,), -1, dtype=torch.long)), "still the sentinel"
+    assert not any(k.startswith("pool_") for k in term.metrics)
+
+
+@pytest.mark.parametrize(
+    "pool, slots, legacy",
+    [
+        # 1a: body +x only, 20 % standing
+        ("stand:0.2,fwd:0.8", (0.2, 0.8, 0.0, 0.0), {"dir_band": (0.0, 0.0)}),
+        # 1b: body +y only, every row moving (math.pi/2 on BOTH sides, so the float is the same)
+        ("side_l:1.0", (0.0, 1.0, 0.0, 0.0), {"dir_band": (math.pi / 2, math.pi / 2)}),
+    ],
+    ids=["stand+fwd == dir_band(0,0)", "side_l == dir_band(pi/2,pi/2)"],
+)
+def test_pool_is_a_bitwise_twin_of_the_legacy_sampler(pool, slots, legacy):
+    """A pool that describes a legacy distribution reproduces it EXACTLY -- same five uniforms
+    in the same order, same expressions, same floats.
+
+    This is the property that makes the pool safe to add: a curriculum stage whose pool
+    happens to be a shipped window is that window, not an approximation of it.
+    """
+    yaw = _spread_yaw(4096)
+    legacy_term, _ = _term(_cfg(slot_probs=slots, **legacy), n=4096, yaw=yaw)
+    pool_term, _ = _term(_cfg(cmd_pool=pool, slot_probs=slots), n=4096, yaw=yaw)
+    _resample(legacy_term)
+    _resample(pool_term)
+    legacy_term._update_command()
+    pool_term._update_command()
+    a, b = _state(legacy_term), _state(pool_term)
+    for name in a:
+        assert torch.equal(a[name], b[name]), name
+
+
+def test_pool_1c_twin_matches_the_legacy_world_uniform_window():
+    """The 1c twin, where only the two WORLD types can match a ``dir_band=None`` window.
+
+    Everything the command publishes is bitwise: slots, speeds, facings and the whole
+    ``vel_command_b``. ``travel_dir_w`` matches on every MOVING row; on a standing or
+    turn-in-place row the pool deliberately holds the body axis instead of a random world
+    bearing, which is unobservable in the command (speed is exactly 0) and is the one
+    documented behaviour difference of the pool path.
+    """
+    yaw = _spread_yaw(8192)
+    slots = (0.15, 0.55, 0.10, 0.20)
+    legacy_term, _ = _term(_cfg(slot_probs=slots), n=8192, yaw=yaw)   # dir_band None = 1c
+    pool_term, _ = _term(_cfg(cmd_pool=POOL_1C, slot_probs=slots), n=8192, yaw=yaw)
+    _resample(legacy_term)
+    _resample(pool_term)
+    legacy_term._update_command()
+    pool_term._update_command()
+    a, b = _state(legacy_term), _state(pool_term)
+    for name in ("slot_id", "speed_cmd", "heading_target", "vel_command_b"):
+        assert torch.equal(a[name], b[name]), name
+    moving = omni_math.slot_is_moving(a["slot_id"])
+    assert bool(moving.any())
+    assert torch.equal(a["travel_dir_w"][moving], b["travel_dir_w"][moving])
+    # the non-moving rows are exactly the documented difference, and they command nothing
+    still = ~moving
+    assert torch.equal(b["travel_dir_w"][still], yaw[still]), "the pool holds the body axis"
+    assert bool((b["speed_cmd"][still] == 0.0).all())
+    assert bool((b["vel_command_b"][still, :2] == 0.0).all())
+
+
+@pytest.mark.parametrize(
+    "legacy_band, pool, same",
+    [
+        (None, "stand:0.3,omni:0.4,turn:0.3", False),
+        ((math.pi / 2, math.pi / 2), "stand:0.3,side_l:0.4,turn:0.3", False),
+        ((0.0, 0.0), "stand:0.3,fwd:0.4,turn:0.3", True),
+    ],
+    ids=["dir_band None (1c)", "dir_band (pi/2,pi/2) (1b)", "dir_band (0,0) (1a)"],
+)
+def test_pool_standing_rows_hold_the_body_axis_not_the_windows_band(legacy_band, pool, same):
+    """The ONE documented behaviour difference of the pool path, pinned in BOTH directions.
+
+    A legacy window gives every row -- standing, turning, moving -- the same global direction
+    band; a pool gives each row its TYPE's band, and ``stand`` / ``turn`` carry the zero-width
+    ``(0, 0)``. So a pool twin of a window with a ``stand`` share diverges on the standing
+    rows' ``travel_dir_w`` whenever the window's band is not ``(0, 0)`` -- a random world ray
+    for ``dir_band=None``, ``yaw + pi/2`` for the 1b band. Not fixable while a type has one
+    band (world ``stand`` types would merely move the mismatch onto the body-band windows);
+    the ruling is recorded in the math module. What must hold either way: the MOVING rows are
+    bitwise, and nothing the command publishes moves (speed is exactly 0 on those rows).
+    """
+    yaw = _spread_yaw(4096)
+    slots = (0.3, 0.4, 0.3, 0.0)  # a real stand AND turn share on both sides
+    legacy_term, _ = _term(_cfg(slot_probs=slots, dir_band=legacy_band), n=4096, yaw=yaw)
+    pool_term, _ = _term(_cfg(cmd_pool=pool, slot_probs=slots), n=4096, yaw=yaw)
+    _resample(legacy_term)
+    _resample(pool_term)
+    legacy_term._update_command()
+    pool_term._update_command()
+    a, b = _state(legacy_term), _state(pool_term)
+    for name in ("slot_id", "speed_cmd", "heading_target", "vel_command_b"):
+        assert torch.equal(a[name], b[name]), name
+    moving = omni_math.slot_is_moving(a["slot_id"])
+    still = ~moving
+    assert bool(moving.any()) and bool(still.any())
+    assert torch.equal(a["travel_dir_w"][moving], b["travel_dir_w"][moving]), "moving rows"
+    # the pool's non-moving rows always hold the nose ...
+    assert torch.equal(b["travel_dir_w"][still], yaw[still])
+    # ... which IS the legacy value only for the (0, 0) window; the other two diverge, and
+    # the divergence is unobservable (speed exactly 0 -> a zero body command)
+    if same:
+        assert torch.equal(a["travel_dir_w"][still], b["travel_dir_w"][still])
+    else:
+        assert not torch.equal(a["travel_dir_w"][still], b["travel_dir_w"][still])
+    assert bool((b["speed_cmd"][still] == 0.0).all())
+    assert bool((b["vel_command_b"][still, :2] == 0.0).all())
+
+
+def _rand_call_shapes(monkeypatch, fn):
+    """Every ``torch.rand`` shape ``fn`` consumes, in order (the module calls it by path)."""
+    shapes = []
+    real = torch.rand
+
+    def spy(*args, **kwargs):
+        first = args[0] if args else kwargs.get("size")
+        shapes.append(tuple(first) if isinstance(first, (tuple, list, torch.Size)) else (first,))
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(torch, "rand", spy)
+    try:
+        fn()
+    finally:
+        monkeypatch.undo()
+    return shapes
+
+
+def test_a_pool_draws_the_same_five_uniforms_as_the_legacy_path(monkeypatch):
+    """The RNG stream must not depend on the type count, or no pooled run is comparable with
+    a legacy one and no seed-3 record reproduces."""
+    for pool, slots in (("stand:0.2,fwd:0.8", (0.2, 0.8, 0.0, 0.0)),
+                        (POOL_1C, (0.15, 0.55, 0.10, 0.20)),
+                        ("stand:0.1,fwd:0.2,side_l:0.1,side_r:0.1,back:0.1,omni:0.2,"
+                         "turn:0.1,fwd_turn:0.1", (0.1, 0.7, 0.1, 0.1))):
+        term, _ = _term(_cfg(cmd_pool=pool, slot_probs=slots), n=32, yaw=_spread_yaw(32))
+        legacy, _ = _term(_cfg(), n=32, yaw=_spread_yaw(32))
+        # FIVE draws of (32,) on each path, in the same order -- counted, not inferred from
+        # the stream position (a pool that drew four and a longer one would also "agree" if
+        # the total happened to match).
+        pool_shapes = _rand_call_shapes(
+            monkeypatch, lambda: term._resample_command(torch.arange(32))
+        )
+        legacy_shapes = _rand_call_shapes(
+            monkeypatch, lambda: legacy._resample_command(torch.arange(32))
+        )
+        assert pool_shapes == [(32,)] * 5, pool
+        assert legacy_shapes == pool_shapes, pool
+        # both consumed exactly the same number of draws, so the NEXT numbers agree
+        torch.manual_seed(1234)
+        term._resample_command(torch.arange(32))
+        after_pool = torch.rand(8)
+        torch.manual_seed(1234)
+        legacy._resample_command(torch.arange(32))
+        assert torch.equal(after_pool, torch.rand(8)), pool
+
+
+# ------------------------------------------------------------------- what a pool samples
+def test_pool_type_frequencies_and_slot_projection():
+    # side_l and side_r carry DIFFERENT weights on purpose: equal ones would make the test
+    # blind to the two being swapped, which is the mistake the pool table invites.
+    pool = "stand:0.15,fwd:0.25,side_l:0.18,side_r:0.12,turn:0.10,fwd_turn:0.20"
+    slots = (0.15, 0.55, 0.10, 0.20)
+    term, _ = _pool_term(pool, slots, n=20_000)
+    _resample(term)
+    parsed = omni_math.parse_cmd_pool(pool)
+    freq = torch.bincount(term.type_id, minlength=len(parsed.names)).double() / 20_000
+    assert torch.allclose(freq, torch.tensor(parsed.weights, dtype=torch.float64), atol=0.02)
+    # ... and the slot every consumer downstream reads is the projection of that
+    slot_freq = torch.bincount(term.slot_id, minlength=4).double() / 20_000
+    assert torch.allclose(slot_freq, torch.tensor(slots, dtype=torch.float64), atol=0.02)
+
+
+def test_pool_body_axis_types_command_the_exact_body_axes():
+    """``side_l`` is the robot's LEFT, ``side_r`` its RIGHT and ``back`` straight behind --
+    the sign errors that are invisible in a log and obvious in a video."""
+    yaw = _spread_yaw(3000)
+    term, _ = _pool_term(
+        "fwd:0.25,side_l:0.25,side_r:0.25,back:0.25", (0.0, 1.0, 0.0, 0.0), n=3000, yaw=yaw
+    )
+    _resample(term)
+    term._update_command()
+    cmd = term.vel_command_b
+    index = {name: i for i, name in enumerate(term._pool.names)}
+    fwd = term.type_id == index["fwd"]
+    left = term.type_id == index["side_l"]
+    right = term.type_id == index["side_r"]
+    back = term.type_id == index["back"]
+    for mask in (fwd, left, right, back):
+        assert bool(mask.any())
+    assert torch.equal(cmd[fwd, 1], torch.zeros(int(fwd.sum()))), "fwd: vy_b exactly zero"
+    assert bool((cmd[fwd, 0] > 0.0).all())
+    assert torch.allclose(cmd[left, 0], torch.zeros(int(left.sum())), atol=1e-6)
+    assert bool((cmd[left, 1] > 0.0).all()), "+y is the robot's LEFT"
+    assert torch.allclose(cmd[right, 0], torch.zeros(int(right.sum())), atol=1e-6)
+    assert bool((cmd[right, 1] < 0.0).all()), "side_r is the MIRROR of side_l, not a repeat"
+    assert torch.allclose(cmd[back, 1], torch.zeros(int(back.sum())), atol=1e-6)
+    assert bool((cmd[back, 0] < 0.0).all())
+    # the ellipse is read at each row's own direction: backward is capped at c, lateral at b
+    assert float(cmd[back, 0].abs().max()) <= C + 1e-6
+    assert float(cmd[left, 1].max()) <= B + 1e-6
+    assert float(cmd[fwd, 0].max()) > B + 0.02
+    # "EXACT body axes" taken literally: the held world direction is ``yaw + <the literal>``
+    # BITWISE on every one of the four, not merely a command with the right signs (an
+    # ``atol`` on ``vel_command_b`` would pass a band that is a hair off the axis).
+    theta = term.travel_dir_w
+    for mask, offset in ((fwd, 0.0), (left, math.pi / 2), (right, -math.pi / 2), (back, math.pi)):
+        want = yaw[mask] if offset == 0.0 else yaw[mask] + offset
+        assert torch.equal(theta[mask], want), offset
+
+
+def test_pool_omni_type_is_world_uniform():
+    yaw = _spread_yaw(8192)
+    term, _ = _pool_term("omni:1.0", (0.0, 1.0, 0.0, 0.0), n=8192, yaw=yaw)
+    _resample(term)
+    theta = term.travel_dir_w
+    assert float(theta.min()) < -3.0 and float(theta.max()) > 3.0
+    corr = torch.corrcoef(torch.stack([theta.double(), yaw.double()]))[0, 1]
+    assert abs(float(corr)) < 0.05, "a world type must not track the body yaw"
+    # ... while a body type in the same pool does track it, exactly
+    mixed, _ = _pool_term("omni:0.5,fwd:0.5", (0.0, 1.0, 0.0, 0.0), n=8192, yaw=yaw)
+    _resample(mixed)
+    is_fwd = mixed.type_id == mixed._pool.names.index("fwd")
+    assert torch.equal(mixed.travel_dir_w[is_fwd], yaw[is_fwd])
+
+
+def test_pool_turning_types_turn_and_travelling_types_do_not():
+    term, _ = _pool_term(
+        "stand:0.25,fwd:0.25,turn:0.25,fwd_turn:0.25", (0.25, 0.25, 0.25, 0.25), n=8000
+    )
+    _resample(term)
+    yaw = _spread_yaw(8000)
+    face_err = omni_math.wrap_to_pi(term.heading_target - yaw).abs()
+    turning = omni_math.slot_is_turning(term.slot_id)
+    moving = omni_math.slot_is_moving(term.slot_id)
+    assert torch.equal(face_err[~turning], torch.zeros_like(face_err[~turning]))
+    assert bool((face_err[turning] >= 0.2 - 1e-6).all())
+    assert bool((term.speed_cmd[~moving] == 0.0).all())
+    assert bool((term.speed_cmd[moving] > 0.0).all())
+
+
+# ------------------------------------------------------------------------ the per-type scales
+def test_speed_scale_applies_to_its_own_rows_only():
+    """``speed_scale`` narrows the draw-time band of ONE type, leaving its twin alone.
+
+    A roomier ellipse than the shipped one, because the shipped ``c`` (0.25 m/s) has only
+    0.04 m/s of headroom over the walk floor -- a halved backward cap would sit UNDER it, and
+    the construction check below (``test_a_speed_scale_that_sinks_a_type_under_the_walk_floor
+    _is_refused``) refuses exactly that.
+    """
+    yaw = torch.zeros(8000)
+    a, b, c = 0.60, 0.50, 0.50
+    term, _ = _pool_term(
+        "fwd:0.5,back:0.5:1.0:0.5", (0.0, 1.0, 0.0, 0.0), n=8000, yaw=yaw,
+        speed_ellipse=(a, b, c),
+    )
+    _resample(term)
+    floor = omni.omni_walk_floor(term.cfg)
+    is_fwd = term.type_id == term._pool.names.index("fwd")
+    is_back = term.type_id == term._pool.names.index("back")
+    assert float(term.speed_cmd[is_fwd].max()) > a - 0.01, "fwd keeps the whole fore-aft band"
+    # back's cap is c * 0.5, and the floor is unchanged -- so the band shrinks from ABOVE
+    assert float(term.speed_cmd[is_back].max()) <= c * 0.5 + 1e-6
+    assert float(term.speed_cmd[is_back].max()) > c * 0.5 - 0.01
+    assert float(term.speed_cmd[is_back].min()) >= floor - 1e-7
+    # ... and the per-step re-cap stays the GLOBAL ellipse: the scale picks a smaller speed,
+    # it does not narrow the clamp the body's own rotation runs into
+    term._update_command()
+    assert float(term.vel_command_b[is_back, 0].abs().max()) == pytest.approx(
+        float(term.speed_cmd[is_back].max()), abs=1e-6
+    )
+
+
+def test_a_speed_scale_that_sinks_a_type_under_the_walk_floor_is_refused():
+    """A scaled cap below the walk floor would INVERT the speed band, silently.
+
+    ``speed = floor + u * (cap - floor)`` with ``cap < floor`` draws speeds BELOW the floor --
+    i.e. under ``CLOCK_CMD_STOP_M_S``, where the gait clock freezes. The type would still
+    appear in the dump, still be drawn at its weight, and train a creeper. So it is refused at
+    construction, with the type and both numbers named.
+    """
+    with pytest.raises(ValueError, match="walk floor"):
+        _term(
+            _cfg(cmd_pool="fwd:0.5,back:0.5:1.0:0.5", slot_probs=(0.0, 1.0, 0.0, 0.0)), n=8
+        )
+    # the check is per TYPE and reads each type's OWN cap: ``fwd`` only ever draws at phi = 0,
+    # where the cap is the fore-aft semi-axis, so a scale the lateral axis could not take is
+    # still legal for it
+    term, _ = _term(_cfg(cmd_pool="fwd:1.0:1.0:0.7", slot_probs=(0.0, 1.0, 0.0, 0.0)), n=8)
+    assert term is not None                       # 0.35 * 0.7 = 0.245 > 0.21 + 0.01
+    with pytest.raises(ValueError, match="walk floor"):
+        _term(_cfg(cmd_pool="fwd:1.0:1.0:0.6", slot_probs=(0.0, 1.0, 0.0, 0.0)), n=8)
+    # a WORLD type is judged against the SMALLEST semi-axis: it can draw any direction, so the
+    # same 0.7 that ``fwd`` may take sinks it (0.25 * 0.7 = 0.175)
+    with pytest.raises(ValueError, match="walk floor"):
+        _term(_cfg(cmd_pool="omni:1.0:1.0:0.7", slot_probs=(0.0, 1.0, 0.0, 0.0)), n=8)
+    # a non-moving type never draws a speed at all, so its scale cannot sink anything
+    term, _ = _term(
+        _cfg(cmd_pool="stand:0.5:1.0:0.01,fwd:0.5", slot_probs=(0.5, 0.5, 0.0, 0.0)), n=8
+    )
+    assert term is not None
+
+
+def test_pool_speed_scale_floor_is_the_bound_the_refusal_uses():
+    """The refusal's bound is EXPORTED, so it is spelled once.
+
+    The construction refusal above is loud but late: a ``pool_edit {speed_scale: ...}`` that
+    cannot be honoured at the shipped ellipse dies when the config is built, after a GPU
+    window has been booked. ``pool_speed_scale_floor`` is the same arithmetic as a plain
+    function the campaign driver's recipe validator can call at COMPOSE time -- so this pins
+    the two against each other: a scale just above the published bound builds, a scale just
+    below it raises, for the roomiest type and for the tightest.
+    """
+    min_speed = omni.omni_walk_floor(_cfg()) + omni.MIN_CAP_HEADROOM_M_S
+    # each type is judged at the smallest cap IT can draw: its own axis when the band is one
+    # exact direction, the smallest semi-axis when it can draw anywhere
+    assert omni_math.pool_type_min_cap("fwd", A, B, C) == pytest.approx(A, abs=1e-9)
+    assert omni_math.pool_type_min_cap("side_l", A, B, C) == pytest.approx(B, abs=1e-9)
+    assert omni_math.pool_type_min_cap("side_r", A, B, C) == pytest.approx(B, abs=1e-9)
+    assert omni_math.pool_type_min_cap("back", A, B, C) == pytest.approx(C, abs=1e-9)
+    assert omni_math.pool_type_min_cap("omni", A, B, C) == pytest.approx(min(A, B, C))
+    assert omni_math.pool_type_min_cap("omni_turn", A, B, C) == pytest.approx(min(A, B, C))
+    for name in ("fwd", "omni"):
+        bound = omni_math.pool_speed_scale_floor(name, (A, B, C), min_speed)
+        assert bound == pytest.approx(
+            min_speed / omni_math.pool_type_min_cap(name, A, B, C), rel=1e-12
+        )
+        term, _ = _term(
+            _cfg(cmd_pool=f"{name}:1.0:1.0:{bound * 1.02!r}", slot_probs=(0.0, 1.0, 0.0, 0.0)),
+            n=8,
+        )
+        assert term is not None, f"{name}: just above the published bound must BUILD"
+        with pytest.raises(ValueError, match="walk floor"):
+            _term(
+                _cfg(cmd_pool=f"{name}:1.0:1.0:{bound * 0.98!r}",
+                     slot_probs=(0.0, 1.0, 0.0, 0.0)),
+                n=8,
+            )
+    # ... and the refusal NAMES the bound, so the message alone says what would have worked
+    with pytest.raises(ValueError, match="speed_scale > 0.88"):
+        _term(_cfg(cmd_pool="omni:1.0:1.0:0.5", slot_probs=(0.0, 1.0, 0.0, 0.0)), n=8)
+
+
+def test_ang_scale_applies_to_its_own_rows_and_minus_one_uses_the_global_cap():
+    """The -1 sentinel test: a pool whose LAST type is scaled must not leak that scale onto
+    eval / RSI-staged rows, which is exactly what a K-entry table indexed with -1 would do."""
+    n = 6
+    yaw = torch.zeros(n)
+    # LAST type carries the reduced turn demand, so a mis-sized table is caught
+    term, _ = _pool_term("turn:0.5,fwd_turn:0.5:0.3", (0.0, 0.0, 0.5, 0.5), n=n, yaw=yaw)
+    assert term._pool.names[-1] == "fwd_turn"
+    term.speed_cmd[:] = 0.0
+    term.travel_dir_w[:] = 0.0
+    term.heading_target[:] = 2.0                      # a saturating facing error on every row
+    term.type_id[:] = torch.tensor([0, 0, 1, 1, -1, -1])
+    term._update_command()
+    wz = term.vel_command_b[:, 2]
+    cap = float(term.cfg.ang_vel_max)
+    assert float(wz[0]) == pytest.approx(cap, abs=1e-6), "unscaled type: the global cap"
+    assert float(wz[2]) == pytest.approx(cap * 0.3, abs=1e-6), "scaled type: 0.3 x the cap"
+    assert float(wz[4]) == pytest.approx(cap, abs=1e-6), "type_id -1 -> the GLOBAL cap"
+    # the dead band scales with it, so the scaled type still turns at all
+    small = 0.14                                       # 0.14 * 1.5 = 0.21, just over 0.2
+    term.heading_target[:] = small
+    term._update_command()
+    assert float(term.vel_command_b[2, 2]) == pytest.approx(
+        min(small * STIFFNESS, cap * 0.3), abs=1e-6
+    ), "a 0.3-scaled dead band is 0.06, so this error still commands a turn"
+
+    # ... and the OTHER half of the sentinel's failure space: the pool above leaves its FIRST
+    # type unscaled, so a gather written ``ang_scale[type_id.clamp_min(0)]`` -- the plan's own
+    # illustrative formula with its ``torch.where`` dropped, i.e. the expected slip -- would
+    # fold -1 onto index 0 and still read 1.0. With EVERY type scaled, the unit entry is
+    # reachable only by landing on the table's trailing sentinel.
+    both, _ = _pool_term("turn:0.5:0.6,fwd_turn:0.5:0.3", (0.0, 0.0, 0.5, 0.5), n=n, yaw=yaw)
+    both.speed_cmd[:] = 0.0
+    both.travel_dir_w[:] = 0.0
+    both.heading_target[:] = 2.0
+    both.type_id[:] = torch.tensor([0, 0, 1, 1, -1, -1])
+    both._update_command()
+    wz2 = both.vel_command_b[:, 2]
+    assert float(wz2[0]) == pytest.approx(cap * 0.6, abs=1e-6), "first type: 0.6 x the cap"
+    assert float(wz2[2]) == pytest.approx(cap * 0.3, abs=1e-6), "last type: 0.3 x the cap"
+    assert float(wz2[4]) == pytest.approx(cap, abs=1e-6), "-1 -> the trailing UNIT entry"
+    assert abs(float(wz2[4]) - cap * 0.6) > 1e-3, "-1 must not fold onto index 0"
+    assert abs(float(wz2[4]) - cap * 0.3) > 1e-3, "-1 must not fold onto the last type"
+    # and directly, without going through the P-control: the gather an all-(-1) population
+    # performs on EVERY table is the unit / neutral entry
+    all_minus_one = torch.full((n,), -1, dtype=torch.long)
+    tables = both._pool_tables
+    assert torch.equal(tables.ang_scale[all_minus_one], torch.ones(n, dtype=tables.ang_scale.dtype))
+    assert torch.equal(
+        tables.speed_scale[all_minus_one], torch.ones(n, dtype=tables.speed_scale.dtype)
+    )
+
+
+def test_schedule_hook_clears_the_type_id():
+    """An eval hold did not come from the pool: it must run at the GLOBAL turn cap, or the
+    manifest's own ``hold_s >= settle_s + |dface| / ang_vel_max`` sizing rule is wrong."""
+    # EVERY type scaled, so "the global cap" is a value no type could have produced -- a
+    # sentinel that folded onto index 0 would read 0.6 x the cap here and pass a pool whose
+    # first type happened to be unscaled.
+    term, _ = _pool_term("turn:0.5:0.6,fwd_turn:0.5:0.3", (0.0, 0.0, 0.5, 0.5), n=4,
+                         yaw=torch.zeros(4))
+    _resample(term)
+    assert bool((term.type_id >= 0).all()), "a resample really did draw from the pool"
+    term.schedule_hook({"speed": 0.0, "dir": 0.0, "face": math.pi / 2})
+    assert torch.equal(term.type_id, torch.full((4,), -1, dtype=torch.long))
+    assert torch.allclose(
+        term.vel_command_b[:, 2], torch.full((4,), float(term.cfg.ang_vel_max)), atol=1e-6
+    ), "a hold runs at the GLOBAL cap, never at some type's reduced turn demand"
+
+
+# ------------------------------------------------------------------------- the pool metrics
+def test_pool_metrics_exist_only_with_a_pool():
+    """The nine-name metric set of a shipped (pool-less) run must not move."""
+    plain, _ = _term(_cfg(), n=8)
+    assert set(plain.metrics) == {
+        "error_vel_xy", "error_vel_yaw", "stand_frac_actual", "move_frac_actual",
+        "turn_frac_actual", "move_turn_frac_actual", "facing_err_abs", "recap_frac",
+        "yaw_progress",
+    }
+    pooled, _ = _pool_term("stand:0.2,fwd:0.8", (0.2, 0.8, 0.0, 0.0), n=8)
+    assert set(pooled.metrics) - set(plain.metrics) == {
+        "pool_stand_frac", "pool_fwd_frac", "pool_stand_draws", "pool_fwd_draws",
+    }
+
+
+def test_pool_frac_metrics_are_step_weighted_and_exclude_staged_rows():
+    n = 8
+    term, _ = _pool_term("stand:0.5,fwd:0.5", (0.5, 0.5, 0.0, 0.0), n=n, yaw=torch.zeros(n))
+    term.type_id[:] = torch.tensor([0, 0, 0, 1, 1, 1, -1, -1])
+    term._update_command()
+    term._update_metrics()
+    per_step = 1.0 / EPISODE_STEPS
+    assert torch.equal(
+        term.metrics["pool_stand_frac"],
+        torch.tensor([1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0]) * per_step,
+    )
+    assert torch.equal(
+        term.metrics["pool_fwd_frac"],
+        torch.tensor([0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 0.0, 0.0]) * per_step,
+    )
+    # the staged rows are in NO type -- while the four slot fracs still sum to 1 per row,
+    # because a staged row IS in a slot, it just did not come from the pool
+    slot_sum = sum(
+        term.metrics[k] for k in
+        ("stand_frac_actual", "move_frac_actual", "turn_frac_actual", "move_turn_frac_actual")
+    )
+    assert torch.allclose(slot_sum, torch.full((n,), per_step), atol=1e-9)
+
+    # STEP-WEIGHTED, the first half of this test's name: a second step ACCUMULATES on top of
+    # the first (``+=``, like the four ``*_frac_actual`` siblings). One call cannot tell that
+    # apart from an overwrite -- and under an overwrite the metric would report 1/episode_steps
+    # for whichever type the env sits in on the LAST step of the episode instead of that
+    # type's share of it, which is exactly the number the campaign reads per stage.
+    term.type_id[0] = 1                    # env 0 moves from ``stand`` into ``fwd``
+    term._update_command()
+    term._update_metrics()
+    assert torch.equal(
+        term.metrics["pool_stand_frac"],
+        torch.tensor([1.0, 2.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0]) * per_step,
+    ), "one step of stand on env 0, two on envs 1-2"
+    assert torch.equal(
+        term.metrics["pool_fwd_frac"],
+        torch.tensor([1.0, 0.0, 0.0, 2.0, 2.0, 2.0, 0.0, 0.0]) * per_step,
+    ), "env 0's second step landed on fwd, and the first step's stand is still there"
+    assert torch.equal(
+        term.metrics["pool_stand_frac"][6:], torch.zeros(2)
+    ), "the staged rows stay in NO type across steps"
+
+
+def test_pool_draw_metrics_track_the_weights_and_skip_staged_rows():
+    n = 4000
+    weights = (0.3, 0.7)
+    term, _ = _pool_term("stand:0.3,fwd:0.7", (0.3, 0.7, 0.0, 0.0), n=n, yaw=torch.zeros(n))
+    for seed in range(4):
+        _resample(term, seed=SEED + seed)
+    term._update_metrics()
+    got = [float(term.metrics[f"pool_{name}_draws"].mean()) for name in ("stand", "fwd")]
+    assert got == pytest.approx(list(weights), abs=0.02)
+    assert sum(got) == pytest.approx(1.0, abs=1e-6), "every draw picked exactly one type"
+
+    # LIFETIME, not per-call: a second ``_update_metrics()`` with no intervening resample must
+    # reproduce the EXACT same tensor -- an accumulating ``+=`` would double it, while the real
+    # overwrite (``[:] =``) recomputes the same ratio from the same, unchanged lifetime counters.
+    first_call = {name: term.metrics[f"pool_{name}_draws"].clone() for name in ("stand", "fwd")}
+    term._update_metrics()
+    for name in ("stand", "fwd"):
+        assert torch.equal(term.metrics[f"pool_{name}_draws"], first_call[name]), (
+            f"pool_{name}_draws changed on a second _update_metrics() with no resample in between"
+        )
+
+    # NOT RESET across resamples either: pin the lifetime ratio by hand against the observed
+    # type_id history, on a population small enough to compute exactly rather than statistically.
+    # Row 0 is never touched again (one lifetime draw survives untouched); rows 1-2 get a
+    # genuine second draw; row 3's second "draw" is RSI-staged and must extend neither the
+    # numerator nor the denominator of its lifetime ratio.
+    small_n = 4
+    small, _ = _pool_term("stand:0.5,fwd:0.5", (0.5, 0.5, 0.0, 0.0), n=small_n, yaw=torch.zeros(small_n))
+    _resample(small, seed=SEED)
+    first_types = small.type_id.clone()
+    assert bool((first_types >= 0).all()), "nothing staged on the first draw"
+    small._update_metrics()
+
+    second_ids = torch.tensor([1, 2, 3])
+    small.rsi_cmd_staged[3] = torch.tensor([0.0, 0.22, 0.0])  # row 3's second draw is staged
+    torch.manual_seed(SEED + 100)
+    small._resample_command(second_ids)
+    second_types = small.type_id.clone()  # row 0 untouched; 1, 2 redrawn; 3 forced to -1
+    assert int(second_types[3]) == -1
+    small._update_metrics()
+
+    names = ("stand", "fwd")
+    expected = {name: torch.zeros(small_n) for name in names}
+    for row in range(small_n):
+        draws = [int(first_types[row])]
+        if row in (1, 2):  # genuinely redrawn from the pool a second time
+            draws.append(int(second_types[row]))
+        # row 3's second "draw" was staged (-1): it does not extend the history at all
+        total = len(draws)
+        for index, name in enumerate(names):
+            expected[name][row] = draws.count(index) / total
+
+    for name in names:
+        assert torch.equal(small.metrics[f"pool_{name}_draws"], expected[name]), (
+            f"pool_{name}_draws is not the exact lifetime draw ratio ({name}) across two resamples"
+        )
+
+    # an RSI-staged row is not a pool draw: it counts in neither the numerator nor the total
+    staged, _ = _pool_term("stand:0.5,fwd:0.5", (0.5, 0.5, 0.0, 0.0), n=8, yaw=torch.zeros(8))
+    staged.rsi_cmd_staged[:] = torch.tensor([0.0, 0.22, 0.0]).expand(8, 3).clone()
+    _resample(staged)
+    assert torch.equal(staged.type_id, torch.full((8,), -1, dtype=torch.long))
+    assert float(staged._pool_draw_n.sum()) == 0.0
+    staged._update_metrics()
+    for name in ("stand", "fwd"):
+        assert torch.equal(staged.metrics[f"pool_{name}_draws"], torch.zeros(8))
+
+
+# -------------------------------------------------------------- the two refusals at build
+def test_pool_and_dir_band_are_refused_together():
+    """Two spellings of one lever: whichever won would depend on knob application order."""
+    with pytest.raises(ValueError, match="dir_band"):
+        _term(
+            _cfg(cmd_pool="stand:0.2,fwd:0.8", slot_probs=(0.2, 0.8, 0.0, 0.0),
+                 dir_band=(0.0, 0.0)),
+            n=8,
+        )
+
+
+def test_pool_that_disagrees_with_slot_probs_is_refused():
+    """The pool is what is DRAWN and ``slot_probs`` is what every metric, reward and eval
+    reads: a mismatch trains one distribution and reports another, in silence."""
+    with pytest.raises(ValueError, match="slot_probs"):
+        _term(_cfg(cmd_pool="stand:0.2,fwd:0.8", slot_probs=(0.15, 0.55, 0.10, 0.20)), n=8)
+    # un-normalised slot_probs describing the SAME regime are fine (both sides normalise)
+    term, _ = _term(_cfg(cmd_pool="stand:0.2,fwd:0.8", slot_probs=(2.0, 8.0, 0.0, 0.0)), n=8)
+    assert term is not None
+    # ... and so is a tolerable rounding difference, while a visible one is not
+    tol = omni.POOL_SLOT_MATCH_TOL
+    _term(_cfg(cmd_pool="stand:0.2,fwd:0.8", slot_probs=(0.2 + tol / 4, 0.8, 0.0, 0.0)), n=8)
+    with pytest.raises(ValueError, match="slot_probs"):
+        _term(_cfg(cmd_pool="stand:0.2,fwd:0.8", slot_probs=(0.21, 0.79, 0.0, 0.0)), n=8)
+
+
+def test_a_pooled_term_still_consumes_rsi_staging_exactly_once():
+    """Staging is orthogonal to the pool: a staged row is still forced to MOVE, still
+    re-NaNned, and (new) still carries the -1 sentinel so it runs at the global cap."""
+    yaw = _spread_yaw(16)
+    term, _ = _pool_term("stand:1.0,fwd:0.0", (1.0, 0.0, 0.0, 0.0), n=16, yaw=yaw)
+    rows = torch.tensor([1, 4, 9])
+    theta_s, v_s = torch.tensor([0.3, -1.1, 2.7]), torch.tensor([0.22, 0.24, 0.23])
+    term.rsi_cmd_staged[rows] = torch.stack([theta_s, v_s, yaw[rows].clone()], dim=1)
+    _resample(term)
+    mask = torch.zeros(16, dtype=torch.bool)
+    mask[rows] = True
+    assert torch.equal(term.travel_dir_w[mask], theta_s)
+    assert torch.equal(term.slot_id[mask], torch.full((3,), S_MOVE))
+    assert torch.equal(term.type_id[mask], torch.full((3,), -1))
+    assert bool((term.type_id[~mask] == 0).all()), "the un-staged rows drew 'stand'"
+    assert bool(torch.isnan(term.rsi_cmd_staged).all())

@@ -92,12 +92,20 @@ def test_emit_keys_keep_every_key_the_driver_greps():
         assert extra in keys
 
 
-def test_emit_keys_add_exactly_the_four_omni_keys():
+def test_emit_keys_add_exactly_the_five_omni_keys():
+    """FIVE since 2026-09-18: ``track_ratio_move_mean`` joins the four original omni keys.
+
+    The slot-gated tracking ratio is WATCHED telemetry, so it is added next to
+    ``track_ratio_mean`` rather than replacing it -- promotion and the driver's gate keep
+    reading the original key, and the pair is what makes "did tracking really fall, or did the
+    window merely enable turning?" answerable from one log.
+    """
     base = set(xs.ExposureLedger.emit_keys(N_SECT))
     omni = set(ox.OmniExposureLedger.emit_keys(N_SECT))
     assert omni - base == set(ox.OMNI_EXTRA_KEYS)
     assert ox.OMNI_EXTRA_KEYS == (
-        "track_ratio_mean", "heading_err_rms_mean", "block_steps_mean", "r_max_mean"
+        "track_ratio_mean", "track_ratio_move_mean", "heading_err_rms_mean",
+        "block_steps_mean", "r_max_mean",
     )
 
 
@@ -369,6 +377,77 @@ def test_extra_keys_grouping():
     assert means["r_max_mean"] == pytest.approx(2.5)            # all four
 
 
+def test_move_ratio_args_are_optional_and_leave_the_mean_empty():
+    """A caller that does not measure the slot-gated pair must not be forced to fake one.
+
+    An omitted ``track_ratio_move`` leaves the ring EMPTY (NaN), which the parkour term emits
+    as 0.0 -- distinguishable, in the code, from "measured and zero"; a fabricated zero would
+    not be. The other four means must be unaffected by the omission.
+    """
+    ledger = ox.OmniExposureLedger(N_SECT, capacity=64)
+    per_ep = ox.episode_exposure_omni(*_episode(), clear_radius=2.0)
+    ledger.push_episodes(
+        per_ep,
+        spawn_kind=torch.zeros(4, dtype=torch.long),
+        is_obst=torch.ones(4, dtype=torch.bool),
+        failed=torch.zeros(4),
+        ep_steps=_episode()[4],
+        track_ratio=torch.tensor([0.4, 0.6, 0.4, 0.6]),
+        track_ratio_valid=torch.ones(4, dtype=torch.bool),
+        heading_err_rms=torch.zeros(4),
+        block_steps=torch.zeros(4),
+        r_max=torch.zeros(4),
+    )
+    means = ledger.means()
+    assert means["track_ratio_move_mean"] != means["track_ratio_move_mean"], "empty group -> NaN"
+    assert means["track_ratio_mean"] == pytest.approx(0.5)
+
+
+def test_move_ratio_uses_its_own_validity_rule():
+    """``track_ratio_move_valid`` selects rows INDEPENDENTLY of ``track_ratio_valid``.
+
+    They are two different integrals with the same ``min_cmd_dist_m`` threshold: an episode
+    that was commanded plenty of distance overall may have been asked to WALK for almost none
+    of it (a turn-heavy episode), and counting its meaningless move-ratio would drag the
+    watched number around for a reason that has nothing to do with walking.
+    """
+    ledger = ox.OmniExposureLedger(N_SECT, capacity=64)
+    per_ep = ox.episode_exposure_omni(*_episode(), clear_radius=2.0)
+    ledger.push_episodes(
+        per_ep,
+        spawn_kind=torch.zeros(4, dtype=torch.long),
+        is_obst=torch.ones(4, dtype=torch.bool),
+        failed=torch.zeros(4),
+        ep_steps=_episode()[4],
+        track_ratio=torch.tensor([0.1, 0.1, 0.1, 0.1]),
+        track_ratio_valid=torch.ones(4, dtype=torch.bool),
+        heading_err_rms=torch.zeros(4),
+        block_steps=torch.zeros(4),
+        r_max=torch.zeros(4),
+        track_ratio_move=torch.tensor([0.8, 0.6, 500.0, 500.0]),
+        track_ratio_move_valid=torch.tensor([True, True, False, False]),
+    )
+    means = ledger.means()
+    assert means["track_ratio_move_mean"] == pytest.approx(0.7), "only the two valid rows"
+    assert means["track_ratio_mean"] == pytest.approx(0.1), "the original ratio is untouched"
+    # ... and with no mask at all, every pushed episode counts
+    open_ledger = ox.OmniExposureLedger(N_SECT, capacity=64)
+    open_ledger.push_episodes(
+        per_ep,
+        spawn_kind=torch.zeros(4, dtype=torch.long),
+        is_obst=torch.ones(4, dtype=torch.bool),
+        failed=torch.zeros(4),
+        ep_steps=_episode()[4],
+        track_ratio=torch.zeros(4),
+        track_ratio_valid=torch.ones(4, dtype=torch.bool),
+        heading_err_rms=torch.zeros(4),
+        block_steps=torch.zeros(4),
+        r_max=torch.zeros(4),
+        track_ratio_move=torch.tensor([0.2, 0.4, 0.6, 0.8]),
+    )
+    assert open_ledger.means()["track_ratio_move_mean"] == pytest.approx(0.5)
+
+
 def test_extra_keys_are_nan_before_any_episode():
     means = ox.OmniExposureLedger(N_SECT, capacity=8).means()
     for key in ox.OMNI_EXTRA_KEYS:
@@ -417,3 +496,203 @@ def test_default_spawn_kind_is_platform():
     term = _Term()
     ox.note_spawn_xy_to_parkour(_env_with_terms({"p": term}), torch.tensor([0]), torch.zeros(1, 2))
     assert term.calls[0][2] == ox.SPAWN_PLATFORM == xs.SPAWN_PLATFORM
+
+
+# ========================================================== the term's slot-gated telemetry
+#
+# ``omni_parkour_event.py`` is the OTHER half of the watched tracking number: the ledger above
+# only means anything if the term integrates the right rows into it. The module cannot be
+# imported (its base class reaches Isaac through ``parkour_isaaclab.terrains``), so the ONE
+# class statement under test is compiled out of the source with the names it closes over
+# injected -- the ``_exec_module_level`` idea of ``test_crab_hex_omni_rewards.py``, widened to
+# a ClassDef. Nothing else in the file is executed and nothing is registered in ``sys.modules``.
+import ast  # noqa: E402
+import textwrap  # noqa: E402
+
+import crab_hex_omni_command_math as omni_math  # noqa: E402
+
+OMNI_EVENT_PY = OMNI_MDP / "omni_parkour_event.py"
+
+
+class _BaseParkourEvent:
+    """Stand-in for ``ParkourEvent``: only the two hooks the overrides under test call up to."""
+
+    def _begin_episodes(self, env_ids) -> None:
+        self.base_begin_calls.append(env_ids)
+
+    def _failure_flags(self, env_ids) -> torch.Tensor:
+        return torch.zeros(len(env_ids))
+
+
+def _load_event_class():
+    src = OMNI_EVENT_PY.read_text()
+    tree = ast.parse(src)
+    node = next(
+        n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == "OmniParkourEvent"
+    )
+    ns = {
+        "torch": torch,
+        "np": None,  # only the debug-vis path uses numpy, and no test drives it
+        "ParkourEvent": _BaseParkourEvent,
+        "SLOT_MOVE": omni_math.SLOT_MOVE,
+        "wrap_to_pi": omni_math.wrap_to_pi,
+    }
+    for name in ("SPAWN_PLATFORM", "OmniExposureLedger", "block_mask_from_height_field",
+                 "episode_exposure_omni", "global_pixel_index", "promotion_mask",
+                 "sector_index", "tile_pixel_index", "tracking_ratio"):
+        ns[name] = getattr(ox, name)
+    source = "from __future__ import annotations\n" + textwrap.dedent(
+        " " * node.col_offset + ast.get_source_segment(src, node)
+    )
+    exec(compile(source, str(OMNI_EVENT_PY), "exec"), ns)  # noqa: S102
+    return ns["OmniParkourEvent"]
+
+
+OmniParkourEvent = _load_event_class()
+
+EV_N = 4
+EV_DT = 0.1
+
+
+def _event(slot_ids, *, cmd_xy=(1.0, 0.0), speed_b=(1.0, 0.0), min_cmd_dist=1.0):
+    """A bare term with only the attributes the three methods under test read.
+
+    ``object.__new__``: the real ``__init__`` builds a block mask off the terrain. Every env
+    gets the SAME kinematics and the same command magnitude, so the only thing that can
+    separate the rows in what follows is the slot.
+    """
+    ev = object.__new__(OmniParkourEvent)
+    n = len(slot_ids)
+    ev.num_envs = n
+    ev.device = "cpu"
+    ev.simulation_time = EV_DT
+    ev.clear_radius = 2.0
+    ev.n_sectors = N_SECT
+    ev.min_cmd_dist = min_cmd_dist
+    ev._foot_ids = []
+    ev._env_arange = torch.arange(n)
+    ev.env_origins = torch.zeros(n, 3)
+    ev.base_begin_calls = []
+    ev.robot = types.SimpleNamespace(
+        data=types.SimpleNamespace(
+            root_pos_w=torch.zeros(n, 3),
+            root_lin_vel_b=torch.tensor([list(speed_b) for _ in range(n)]),
+            heading_w=torch.zeros(n),
+        )
+    )
+    ev._cmd_term_cache = types.SimpleNamespace(
+        vel_command_b=torch.tensor([list(cmd_xy) + [0.0] for _ in range(n)]),
+        slot_id=torch.tensor(list(slot_ids), dtype=torch.long),
+        heading_target=torch.zeros(n),
+        travel_dir_w=torch.zeros(n),
+        speed_cmd=torch.zeros(n),
+    )
+    for name in ("ep_r_max", "ep_field_steps", "ep_steps", "ep_block_steps", "ep_track_dist",
+                 "ep_cmd_dist", "ep_track_dist_move", "ep_cmd_dist_move", "ep_head_err_sq"):
+        setattr(ev, name, torch.zeros(n))
+    ev.ep_sector_seen = torch.zeros(n, N_SECT, dtype=torch.bool)
+    ev.spawn_kind = torch.zeros(n, dtype=torch.long)
+    ev.is_obst_tile = torch.ones(n, dtype=torch.bool)
+    ev.exposure = ox.OmniExposureLedger(N_SECT, capacity=64)
+    return ev
+
+
+def test_move_distances_accumulate_on_SLOT_MOVE_rows_only():
+    """The gate is ``slot_id == SLOT_MOVE`` -- moving and NOT turning.
+
+    ``SLOT_MOVE_TURN`` is the row the watched number exists to exclude: its body command
+    swings as the commanded turn executes, so it keeps adding to the denominator while the
+    robot is correctly doing something else. A gate of ``slot_is_moving`` instead of
+    ``== SLOT_MOVE`` would silently let it back in, and the number would fall for a reason
+    that has nothing to do with walking.
+    """
+    ev = _event([omni_math.SLOT_STAND, omni_math.SLOT_MOVE,
+                 omni_math.SLOT_TURN, omni_math.SLOT_MOVE_TURN])
+    ev._accumulate_exposure()
+    # the unrestricted pair integrates over EVERY row, as it always has
+    assert ev.ep_cmd_dist.tolist() == pytest.approx([EV_DT] * 4)
+    assert ev.ep_track_dist.tolist() == pytest.approx([EV_DT] * 4)
+    # the slot-gated twin counts the one walking row and nothing else
+    assert ev.ep_cmd_dist_move.tolist() == pytest.approx([0.0, EV_DT, 0.0, 0.0])
+    assert ev.ep_track_dist_move.tolist() == pytest.approx([0.0, EV_DT, 0.0, 0.0])
+
+
+def test_move_distances_are_the_same_integrands_as_the_unrestricted_pair():
+    """On an all-``SLOT_MOVE`` population the two pairs must be BYTE-identical.
+
+    That is what makes ``track_ratio_move_mean`` comparable with ``track_ratio_mean``: the
+    only difference between them is which rows are in the sum, never how a row is measured
+    (a swapped numerator/denominator, or a missing ``dt``, would show up here)."""
+    ev = _event([omni_math.SLOT_MOVE] * EV_N, cmd_xy=(0.3, -0.4), speed_b=(0.2, 0.1))
+    for _ in range(5):
+        ev._accumulate_exposure()
+    assert torch.equal(ev.ep_track_dist, ev.ep_track_dist_move)
+    assert torch.equal(ev.ep_cmd_dist, ev.ep_cmd_dist_move)
+    # ... and they are the projected / commanded distances, not something else
+    assert ev.ep_cmd_dist.tolist() == pytest.approx([5 * EV_DT * 0.5] * EV_N)   # |(0.3,-0.4)|
+    # v . c_hat = (0.2, 0.1) . (0.6, -0.8) = 0.04 (the 1e-6 guard in c_hat costs ~2e-6 rel)
+    assert ev.ep_track_dist.tolist() == pytest.approx([5 * EV_DT * 0.04] * EV_N, rel=1e-4)
+
+
+def test_move_distances_reset_with_the_episode():
+    """Both buffers clear in ``_begin_episodes``, exactly like their two siblings.
+
+    A missing reset leaks the previous episode's distance into the next one -- silent, and
+    it biases the watched mean upward for exactly the envs that reset most often."""
+    ev = _event([omni_math.SLOT_MOVE] * EV_N)
+    ev._accumulate_exposure()
+    assert float(ev.ep_cmd_dist_move.sum()) > 0.0
+    ids = torch.tensor([0, 2])
+    ev._begin_episodes(ids)
+    assert ev.base_begin_calls == [ids], "the base bookkeeping still runs first"
+    for name in ("ep_track_dist", "ep_cmd_dist", "ep_track_dist_move", "ep_cmd_dist_move"):
+        buf = getattr(ev, name)
+        assert buf[0] == 0.0 and buf[2] == 0.0, name
+        assert buf[1] > 0.0 and buf[3] > 0.0, f"{name}: only the reset rows"
+
+
+def test_finalize_pushes_the_move_ratio_with_its_own_validity_rule():
+    """``track_ratio_move_mean`` reaches the ledger from the term, gated on the WALKING rows'
+    commanded distance -- the same ``min_cmd_dist_m`` threshold the existing ratio uses.
+
+    Row 0 walks the whole episode; row 1 is commanded the same total distance but almost all
+    of it while turning, so its move-ratio is meaningless and must be left OUT of the mean
+    rather than counted as a near-zero."""
+    ev = _event([omni_math.SLOT_MOVE] * EV_N, min_cmd_dist=1.0)
+    ev.ep_steps = torch.full((EV_N,), 10.0)
+    ev.ep_cmd_dist = torch.tensor([4.0, 4.0, 4.0, 4.0])
+    ev.ep_track_dist = torch.tensor([2.0, 2.0, 2.0, 2.0])
+    ev.ep_cmd_dist_move = torch.tensor([4.0, 0.5, 2.0, 0.0])
+    ev.ep_track_dist_move = torch.tensor([3.0, 0.4, 1.0, 0.0])
+    ev._finalize_episodes(torch.arange(EV_N))
+    means = ev.exposure.means()
+    # rows 0 and 2 are valid (>= 1.0 m commanded while walking): 0.75 and 0.5
+    assert means["track_ratio_move_mean"] == pytest.approx(0.625)
+    # the unrestricted ratio is untouched and keeps its own (all-valid) population
+    assert means["track_ratio_mean"] == pytest.approx(0.5)
+    assert ev._exposure_means["track_ratio_move_mean"] == pytest.approx(0.625)
+
+
+def test_the_command_term_probe_requires_the_slot_the_gate_reads():
+    """``_cmd_term`` fails with a message on a command term without ``slot_id``.
+
+    The gate reads it every step; without the probe a wrong command class would surface as an
+    ``AttributeError`` in the middle of a step instead of at the first lookup."""
+    ev = _event([omni_math.SLOT_MOVE])
+    ev._cmd_term_cache = None
+    ev._command_name = "base_velocity"
+    full = types.SimpleNamespace(
+        travel_dir_w=None, speed_cmd=None, heading_target=None,
+        vel_command_b=None, slot_id=None,
+    )
+    for missing in ("slot_id", "travel_dir_w"):
+        term = types.SimpleNamespace(**{k: v for k, v in vars(full).items() if k != missing})
+        ev.env = types.SimpleNamespace(
+            command_manager=types.SimpleNamespace(get_term=lambda name, t=term: t)
+        )
+        with pytest.raises(TypeError, match=missing):
+            _ = ev._cmd_term
+    ev.env = types.SimpleNamespace(
+        command_manager=types.SimpleNamespace(get_term=lambda name: full)
+    )
+    assert ev._cmd_term is full

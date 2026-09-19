@@ -37,8 +37,8 @@ therefore redefined, and ONLY these definitions are in play for the omni task:
     share of the episode's steps spent outside the clear disc (the corridor's "past the
     platform edge").
 
-Four omni-only keys are appended (:data:`OMNI_EXTRA_KEYS`): ``track_ratio_mean``,
-``heading_err_rms_mean``, ``block_steps_mean``, ``r_max_mean``.
+Five omni-only keys are appended (:data:`OMNI_EXTRA_KEYS`): ``track_ratio_mean``,
+``track_ratio_move_mean``, ``heading_err_rms_mean``, ``block_steps_mean``, ``r_max_mean``.
 
 A NOTE ABOUT ``reach_obst`` / ``block_steps_mean`` (measured, not hypothetical)
 -------------------------------------------------------------------------------
@@ -106,7 +106,13 @@ __all__ = [
 
 TWO_PI = 2.0 * math.pi
 
-OMNI_EXTRA_KEYS = ("track_ratio_mean", "heading_err_rms_mean", "block_steps_mean", "r_max_mean")
+OMNI_EXTRA_KEYS = (
+    "track_ratio_mean",
+    "track_ratio_move_mean",
+    "heading_err_rms_mean",
+    "block_steps_mean",
+    "r_max_mean",
+)
 """Omni-only ledger keys, appended to the forward ``ExposureLedger`` key list.
 
 Grouping (stated once, because a mixed rule would be a silent trap):
@@ -114,6 +120,14 @@ Grouping (stated once, because a mixed rule would be a silent trap):
 * ``track_ratio_mean`` -- mean of ``ep_track_dist / ep_cmd_dist`` over episodes whose
   commanded distance reached ``min_cmd_dist_m`` (the same episodes the promotion rule
   judges; standing-dominated episodes are excluded, not counted as zero).
+* ``track_ratio_move_mean`` -- the SAME quantity accumulated over ``SLOT_MOVE`` steps only
+  (moving, not turning), with the same ``min_cmd_dist_m`` validity rule applied to its own
+  commanded distance. WATCHED, never gated on: ``track_ratio_mean`` keeps driving promotion
+  and keeps its meaning. It exists because the unrestricted ratio is not comparable across
+  windows -- a ``move_turn`` row's body command swings away from the travel direction as the
+  commanded turn executes (the "clamp-only re-cap"), so the denominator keeps growing while
+  the robot is correctly turning, and the ratio drops when a window merely ENABLES turning.
+  This key is emitted on every omni run, pooled or legacy, so the two are comparable.
 * ``heading_err_rms_mean`` -- mean over ALL finished episodes of the per-episode RMS of
   ``wrap(heading_target - yaw)``.
 * ``r_max_mean`` -- mean over ALL finished episodes of the furthest distance reached from
@@ -373,7 +387,7 @@ def episode_exposure_omni(
 
 
 class OmniExposureLedger:
-    """The forward :class:`ExposureLedger` plus the four omni-only rings.
+    """The forward :class:`ExposureLedger` plus the five omni-only rings.
 
     Keeping the forward ledger as a member (rather than subclassing and duplicating
     ``ring_keys``) means the shared keys can never drift from the corridor task's, which is
@@ -387,7 +401,7 @@ class OmniExposureLedger:
 
     @staticmethod
     def emit_keys(n_sectors: int) -> list[str]:
-        """Every key :meth:`means` reports (forward keys first, then the omni four)."""
+        """Every key :meth:`means` reports (forward keys first, then the omni five)."""
         return ExposureLedger.emit_keys(int(n_sectors)) + list(OMNI_EXTRA_KEYS)
 
     def push_episodes(
@@ -402,11 +416,29 @@ class OmniExposureLedger:
         heading_err_rms: torch.Tensor,
         block_steps: torch.Tensor,
         r_max: torch.Tensor,
+        track_ratio_move: torch.Tensor | None = None,
+        track_ratio_move_valid: torch.Tensor | None = None,
     ) -> None:
-        """Push one batch of finished episodes (see :data:`OMNI_EXTRA_KEYS` for grouping)."""
+        """Push one batch of finished episodes (see :data:`OMNI_EXTRA_KEYS` for grouping).
+
+        ``track_ratio_move`` / ``track_ratio_move_valid`` are OPTIONAL: left out (or ``None``),
+        nothing is pushed and ``track_ratio_move_mean`` stays an empty group -- which the
+        parkour term's ``_update_metrics`` emits as 0.0, exactly as it does for any other ring
+        before its first episode. Keeping them optional means a caller that does not measure
+        the slot-gated pair (a test double, an older term) is not forced to fabricate one, and
+        a fabricated zero would be indistinguishable from a policy that tracks nothing.
+        ``track_ratio_move`` without a validity mask counts every episode.
+        """
         self.base.push_episodes(per_ep, spawn_kind, is_obst, failed, ep_steps)
         valid = track_ratio_valid.bool()
         self._extra["track_ratio_mean"].push(track_ratio[valid])
+        if track_ratio_move is not None:
+            move_valid = (
+                torch.ones_like(track_ratio_move, dtype=torch.bool)
+                if track_ratio_move_valid is None
+                else track_ratio_move_valid.bool()
+            )
+            self._extra["track_ratio_move_mean"].push(track_ratio_move[move_valid])
         self._extra["heading_err_rms_mean"].push(heading_err_rms)
         self._extra["block_steps_mean"].push(block_steps[is_obst.bool()])
         self._extra["r_max_mean"].push(r_max)

@@ -47,7 +47,29 @@ five things the forward block cannot know about:
    for the turn-gated twin. NO PRESET SETS IT and the rewards class body keeps the stock func,
    so every shipped omni run is bit-identical unless a launcher arms it by hand;
 8. ``apply_omni_ring_knobs`` -- the ring-generator guard and the ``KRABBY_RING_*`` knobs
-   (``mdp/omni_terrain_knobs.py``).
+   (``mdp/omni_terrain_knobs.py``);
+9. **six CAPABILITY-CURRICULUM knobs, all DEFAULT-OFF and set by NO preset** (2026-09-18, the
+   facing-and-tracking plan, Part A1). Unset or blank, every one of them is a bitwise no-op --
+   that is what keeps the shipped 1a/1c windows reproducible while the campaign drives them as
+   env overlays:
+
+   ==================================  =======================================================
+   variable                            what it writes
+   ==================================  =======================================================
+   ``KRABBY_OMNI_CMD_POOL``            ``commands.base_velocity.cmd_pool`` (the pool STRING,
+                                       verbatim; blank => ``None``, like ``DIR_BAND``)
+   ``KRABBY_OMNI_ANG_VEL_CLIP``        ``commands.base_velocity.clips.ang_vel_clip``
+   ``KRABBY_OMNI_FACING_TURN_W``       ``rewards.reward_facing_turn.weight``
+   ``KRABBY_OMNI_TRACK_FACING_SIGMA``  ``rewards.track_lin_vel_xy_exp``'s FUNC (the
+                                       facing-coupled twin) + ``params["facing_sigma"]``
+   ``KRABBY_OMNI_PROGRESS_W``          ``rewards.reward_forward_progress_along_command.weight``
+   ``KRABBY_OMNI_FACING_OBS_ENCODING`` the omni obs term's ``params["facing_obs_encoding"]``
+   ==================================  =======================================================
+
+10. **the clock-radius rule** (:func:`_check_clock_radius_rule`) -- a cross-knob consistency
+    check, not a dose: ``omni_clock_turn_radius x ang_vel_max`` is the tangential speed a
+    pure turn feeds the gait clock, and below :data:`CLOCK_TURN_MIN_SPEED` the clock STOPS, so
+    a turn stage would train a statue while both knobs looked individually reasonable.
 
 Every parser is pure and lives at module scope with no Isaac import (the Isaac-touching bits
 are lazy imports inside :func:`apply_omni_knobs`), so this module can be path-loaded and
@@ -59,8 +81,11 @@ rather than padding or truncating: a typo in a launcher must not silently retune
 """
 from __future__ import annotations
 
+import importlib.util
 import math
 import os
+import sys
+from pathlib import Path
 
 __all__ = [
     "SLOTS_VAR",
@@ -68,26 +93,40 @@ __all__ = [
     "SPEED_ELLIPSE_VAR",
     "FACING_VAR",
     "ANG_VEL_MAX_VAR",
+    "ANG_VEL_CLIP_VAR",
     "ANG_VEL_STD_VAR",
     "ANG_TURN_ONLY_VAR",
+    "CMD_POOL_VAR",
     "CLOCK_TURN_R_VAR",
     "CLOCK_COMBINE_VAR",
+    "CLOCK_TURN_MIN_SPEED",
     "YAW_RANGE_VAR",
     "RSI_SOURCE_VAR",
     "RSI_BANK_VAR",
     "RSI_FRAC_VAR",
     "YAW_PROGRESS_W_VAR",
+    "FACING_TURN_W_VAR",
+    "TRACK_FACING_SIGMA_VAR",
+    "PROGRESS_W_VAR",
+    "FACING_OBS_ENCODING_VAR",
+    "FACING_OBS_ENCODINGS",
     "parse_slots",
     "parse_dir_band",
     "parse_speed_ellipse",
     "parse_facing",
     "parse_ang_vel_max",
+    "parse_ang_vel_clip",
     "parse_ang_vel_std",
     "parse_ang_turn_only",
+    "parse_cmd_pool",
     "parse_clock_turn_radius",
     "parse_clock_combine",
     "parse_yaw_range",
     "parse_rsi_source",
+    "parse_facing_turn_w",
+    "parse_track_facing_sigma",
+    "parse_progress_w",
+    "parse_facing_obs_encoding",
     "apply_omni_knobs",
 ]
 
@@ -120,6 +159,25 @@ ANG_VEL_STD_VAR = "KRABBY_OMNI_ANG_VEL_STD"
 #: ``experiments/2026-09-16_1805_omni_formation/replay_reward_economy.md`` (the PROBE table;
 #: restate it with ``replay_reward_economy.py --new-ang-turn-only``).
 ANG_TURN_ONLY_VAR = "KRABBY_OMNI_ANG_TURN_ONLY"
+#: The yaw-rate DEAD BAND, ``commands.base_velocity.clips.ang_vel_clip`` (2026-09-18, Part A1).
+#: The class body's 0.2 rad/s is already the tightened omni value (the forward task's is 0.4), but
+#: at stiffness 1.5 it still swallows every facing error below 0.133 rad: a policy that turns most
+#: of the way and stops is paid as if it had arrived. A curriculum stage that wants a finer facing
+#: demand moves it here rather than by retuning the stiffness, which would also move the P-control
+#: gain. Must stay BELOW ``ang_vel_max`` -- the command cfg's own validator refuses the inversion,
+#: which is why this knob is applied inside :func:`_apply_command_knobs` alongside it.
+ANG_VEL_CLIP_VAR = "KRABBY_OMNI_ANG_VEL_CLIP"
+#: The per-type COMMAND POOL (2026-09-18, Part A1): the canonical string
+#: ``name:weight[:ang_scale[:speed_scale]],...`` over the type names in
+#: ``crab_hex_omni_command_math.POOL_TYPES``. Parsed HERE only to fail a typo at config build;
+#: the string itself is what reaches ``cmd_pool``, verbatim, because the config dump and the
+#: campaign's ``params/env.yaml`` audit have to show exactly what the launcher asked for.
+#:
+#: Blank (``""``) means "no pool" -- the shipped four-slot sampler -- exactly like
+#: :data:`DIR_BAND_VAR`, and for the same reason: the campaign's overlays must be able to SWITCH
+#: a preset's lever off, which an absent key cannot do (``activate_phase`` is ``setdefault``).
+#: A pool and a ``dir_band`` are mutually exclusive and the command cfg refuses both at once.
+CMD_POOL_VAR = "KRABBY_OMNI_CMD_POOL"
 CLOCK_TURN_R_VAR = "KRABBY_OMNI_CLOCK_TURN_R"
 #: The gait-clock schedule term's ``combine`` mode (Revision 4, 2026-09-18), omni-only.
 #:
@@ -144,6 +202,46 @@ RSI_FRAC_VAR = "KRABBY_RSI_FRAC"
 #: ``_overrides`` table, since no forward cfg has that term. Inert in a forward/sideways
 #: process (nothing reads it there).
 YAW_PROGRESS_W_VAR = "KRABBY_YAW_PROGRESS_W"
+#: Weight of ``rewards.reward_facing_turn`` -- the facing income paid ONLY on rows that command a
+#: turn (the term ships at weight 0.0, so this knob is the whole dose). Named like the other
+#: weight knobs and applied here, next to ``KRABBY_YAW_PROGRESS_W``, for the same reason: no
+#: forward cfg has the term, so the forward ``_overrides`` table cannot reach it.
+FACING_TURN_W_VAR = "KRABBY_OMNI_FACING_TURN_W"
+#: Couples the TRANSLATION tracking kernel to the facing error (2026-09-18, Part A1):
+#: ``rewards.track_lin_vel_xy_exp``'s func becomes
+#: ``crab_hex_omni_rewards.track_lin_vel_xy_exp_facing_coupled`` -- the stock kernel times a
+#: Gaussian of the facing error at this width -- and ``params["facing_sigma"]`` is this value.
+#:
+#: WHY A FUNC SWAP AND NOT A WEIGHT. The diagnosis is that the head walks the commanded line
+#: while ignoring the commanded facing: the two demands are priced by two INDEPENDENT terms, so
+#: the cheapest policy is to buy the larger one and drop the other. Multiplying them makes
+#: translation income conditional on facing, which no re-weighting of two separate terms can do.
+#: Default OFF (the stock, uncoupled func), like every lever whose effect is behavioural.
+TRACK_FACING_SIGMA_VAR = "KRABBY_OMNI_TRACK_FACING_SIGMA"
+#: Weight of ``rewards.reward_forward_progress_along_command`` -- the term that pays for actually
+#: TRANSLATING along the command (0.6 in the forward class body, and reachable from the forward
+#: block only by a name the omni presets must not write). The campaign moves it to trade
+#: translation income against the facing income the two knobs above introduce.
+PROGRESS_W_VAR = "KRABBY_OMNI_PROGRESS_W"
+#: How the facing error reaches the policy's observation (2026-09-18, Part A1): ``"raw"`` (the
+#: shipped default -- one clipped signed angle) or ``"sincos"`` (its sine and cosine, which is
+#: continuous across ``+-pi`` and cannot be read as "nearly zero" when it is nearly a half turn).
+#: The obs term must ALREADY carry the key: writing a param the observation function does not
+#: accept would raise inside the observation manager on the first step of training.
+FACING_OBS_ENCODING_VAR = "KRABBY_OMNI_FACING_OBS_ENCODING"
+FACING_OBS_ENCODINGS = ("raw", "sincos")
+"""The only two spellings :func:`parse_facing_obs_encoding` accepts."""
+
+CLOCK_TURN_MIN_SPEED = 0.25
+"""Smallest ``omni_clock_turn_radius x ang_vel_max`` a config may ship, m/s.
+
+The gait clock is driven by a commanded SPEED and freezes below ``CLOCK_CMD_STOP_M_S`` (the
+0.2 m/s lin_vel_clip). A pure turn has no translation, so the clock is fed the tangential speed
+of a point at ``omni_clock_turn_radius`` -- ``radius x ang_vel_max``. Under this floor the
+clock stops on every turn row, the gait rewards pay a statue, and NEITHER knob looks wrong on
+its own: 1.2 m and 0.3 rad/s are both ordinary numbers, and so are 1.2 and 0.1. Today's presets
+give 1.2 x 0.3 = 0.36, comfortably clear. The check is a cross-knob one, hence a rule in
+:func:`apply_omni_knobs` rather than a bound inside either parser."""
 
 
 # ------------------------------------------------------------------------------ parsers
@@ -223,6 +321,130 @@ def parse_ang_vel_max(text: str) -> float:
     return value
 
 
+def parse_ang_vel_clip(text: str) -> float:
+    """``KRABBY_OMNI_ANG_VEL_CLIP`` -> the yaw-rate dead band, rad/s. Strictly positive.
+
+    Zero is refused rather than read as "no dead band": the stock expression is a strict
+    ``|wz| > clip``, so 0 would still zero an exactly-zero command and otherwise pass
+    everything -- an intent better spelled by a tiny positive number, and a value a launcher
+    reaches for by accident when it means "off". The upper bound is a CROSS-knob one
+    (``ang_vel_max`` must exceed it) and lives in the command cfg's own validator, which sees
+    both.
+    """
+    (value,) = _floats(ANG_VEL_CLIP_VAR, text, 1)
+    if value <= 0.0:
+        raise ValueError(f"{ANG_VEL_CLIP_VAR} must be positive, got {text!r}")
+    return value
+
+
+_CMD_MATH_PY = Path(__file__).resolve().parents[2] / "mdp" / "crab_hex_omni_command_math.py"
+_CMD_MATH_NAME = "_crab_hex_omni_command_math__knobs"
+_CMD_MATH = None
+
+
+def _command_math():
+    """The pure command-math module (``POOL_TYPES``, ``parse_cmd_pool``), Isaac-free.
+
+    Loaded LAZILY and, in a bare interpreter, BY PATH: this module is pinned pure
+    (``test_knobs_module_is_pure``) and ``import parkour_tasks...`` reaches Isaac through the
+    package ``__init__``s, so the pool grammar could not otherwise be validated -- or unit
+    tested -- without booting Kit. Inside a real Isaac process the command cfg has already
+    imported the real module, so the ``sys.modules`` hit below returns exactly the object the
+    command term will use. The path copy is only ever a VALIDATOR: what reaches ``cmd_pool``
+    is the launcher's string, re-parsed by the term against its own module, so two class
+    identities can never disagree about anything that trains.
+    """
+    global _CMD_MATH
+    if _CMD_MATH is None:
+        real = sys.modules.get("parkour_tasks.crab_hex_omni_task.mdp.crab_hex_omni_command_math")
+        if real is not None:
+            _CMD_MATH = real
+        else:
+            spec = importlib.util.spec_from_file_location(_CMD_MATH_NAME, _CMD_MATH_PY)
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[_CMD_MATH_NAME] = module
+            spec.loader.exec_module(module)
+            _CMD_MATH = module
+    return _CMD_MATH
+
+
+def parse_cmd_pool(text: str):
+    """``KRABBY_OMNI_CMD_POOL`` -> a ``CmdPool``, or ``None`` for "no pool".
+
+    Empty / ``"none"`` / ``"off"`` / ``"null"`` mean the shipped four-slot sampler, exactly as
+    they do for :func:`parse_dir_band` and for exactly the same reason: an env OVERLAY has to be
+    able to switch a preset's lever OFF, and an absent key cannot (``activate_phase`` is
+    ``setdefault``). Every other string is handed to
+    ``crab_hex_omni_command_math.parse_cmd_pool``, which owns the grammar, the type names and
+    every rejection -- this module validates, it does not re-spell.
+
+    The RETURN VALUE is only used to fail loudly here; what is written onto the cfg is the
+    launcher's own string (see :func:`_apply_command_knobs`).
+    """
+    raw = str(text).strip()
+    if raw.lower() in ("", "none", "off", "null"):
+        return None
+    try:
+        return _command_math().parse_cmd_pool(raw)
+    except ValueError as exc:
+        raise ValueError(f"{CMD_POOL_VAR}: {exc}") from exc
+
+
+def parse_facing_turn_w(text: str) -> float:
+    """``KRABBY_OMNI_FACING_TURN_W`` -> ``reward_facing_turn``'s weight. Non-negative.
+
+    A REWARD, not a penalty: a negative weight would pay the policy for facing the wrong way,
+    which is not an ablation anybody wants and is invisible in the log except as one curve with
+    the wrong sign. ``0.0`` is the legitimate ablation and is accepted.
+    """
+    (value,) = _floats(FACING_TURN_W_VAR, text, 1)
+    if value < 0.0:
+        raise ValueError(f"{FACING_TURN_W_VAR} must be non-negative, got {text!r}")
+    return value
+
+
+def parse_track_facing_sigma(text: str) -> float:
+    """``KRABBY_OMNI_TRACK_FACING_SIGMA`` -> the facing-coupling kernel width, rad. Positive.
+
+    Strictly positive for the same reason as :func:`parse_ang_vel_std`: the coupling is
+    ``exp(-err^2 / sigma^2)``, so 0 is a division by zero and a negative width is the same
+    kernel as its absolute value. "Do not couple" is spelled by leaving the knob UNSET, which
+    keeps the stock func -- not by a degenerate sigma.
+    """
+    (value,) = _floats(TRACK_FACING_SIGMA_VAR, text, 1)
+    if value <= 0.0:
+        raise ValueError(f"{TRACK_FACING_SIGMA_VAR} must be positive, got {text!r}")
+    return value
+
+
+def parse_progress_w(text: str) -> float:
+    """``KRABBY_OMNI_PROGRESS_W`` -> ``reward_forward_progress_along_command``'s weight.
+
+    Non-negative: the term pays for clamped progress ALONG the command, so a negative weight
+    would pay for standing still. ``0.0`` is the legitimate ablation.
+    """
+    (value,) = _floats(PROGRESS_W_VAR, text, 1)
+    if value < 0.0:
+        raise ValueError(f"{PROGRESS_W_VAR} must be non-negative, got {text!r}")
+    return value
+
+
+def parse_facing_obs_encoding(text: str) -> str:
+    """``KRABBY_OMNI_FACING_OBS_ENCODING`` -> ``"raw"`` or ``"sincos"``.
+
+    Validated here, at config build, rather than inside the observation function on the first
+    step: an unknown encoding that fell through to a default would change the OBSERVATION the
+    policy is trained on while the launcher believed the other one was armed, and the two are
+    indistinguishable in a training log.
+    """
+    token = str(text).strip().lower()
+    if token not in FACING_OBS_ENCODINGS:
+        raise ValueError(
+            f"{FACING_OBS_ENCODING_VAR} must be one of {FACING_OBS_ENCODINGS}, got {text!r}"
+        )
+    return token
+
+
 def parse_ang_vel_std(text: str) -> float:
     """``KRABBY_OMNI_ANG_VEL_STD`` -> ``track_ang_vel_z_exp``'s kernel std, rad/s. Positive.
 
@@ -269,7 +491,10 @@ def parse_clock_combine(text: str) -> str:
 def parse_clock_turn_radius(text: str) -> float:
     """``KRABBY_OMNI_CLOCK_TURN_R`` -> the turn radius the gait clock prices, metres.
 
-    Non-negative; 0 means "turning does not drive the clock" (the forward behaviour).
+    Non-negative; 0 means "turning does not drive the clock" (the forward behaviour). NOTE that
+    :func:`_check_clock_radius_rule` then refuses the built cfg -- the PARSER's job is the value's
+    own shape, the cross-knob product ``radius x ang_vel_max`` is checked once, where both
+    knobs are final.
     """
     (value,) = _floats(CLOCK_TURN_R_VAR, text, 1)
     if value < 0.0:
@@ -305,12 +530,18 @@ def parse_rsi_source(text: str):
 
 # ------------------------------------------------------------------------------ application
 def _apply_command_knobs(cmd_cfg, env, *, cmd_cls=None) -> None:
-    """The five sampler knobs onto the omni command cfg (unset knob = cfg default kept).
+    """The SEVEN sampler knobs onto the omni command cfg (unset knob = cfg default kept).
+
+    The four-row table below (``KRABBY_OMNI_SLOTS`` / ``_SPEED_ELLIPSE`` / ``_FACING`` /
+    ``_ANG_VEL_MAX``) plus the three that cannot join it: ``KRABBY_OMNI_ANG_VEL_CLIP`` (it
+    lives one level down, on ``clips``) and ``KRABBY_OMNI_DIR_BAND`` / ``KRABBY_OMNI_CMD_POOL``
+    (an EMPTY value is a meaningful "off" for both, so they are applied when PRESENT rather
+    than when non-empty).
 
     ``isinstance``-checked rather than left to ``setattr`` to fail on its own: a
     ``configclass`` instance happily accepts an unknown attribute (it does not raise
     ``AttributeError``), so a leaked forward/sideways command cfg would otherwise silently grow
-    five orphan fields here instead of failing loudly.
+    seven orphan fields here instead of failing loudly.
 
     Args:
         cmd_cls: the class to check against; defaults to the real ``CrabHexOmniCommandCfg``,
@@ -343,11 +574,23 @@ def _apply_command_knobs(cmd_cfg, env, *, cmd_cls=None) -> None:
         raw = env.get(var)
         if raw is not None and str(raw).strip():
             setattr(cmd_cfg, attr, parser(raw))
+    # The dead band lives one level down, on ``clips`` (shared with the forward cfg's shape),
+    # so it cannot join the table above. Written BEFORE the cfg is ever validated, because the
+    # command term refuses ``ang_vel_max <= ang_vel_clip`` and has to see both final values.
+    raw_clip = env.get(ANG_VEL_CLIP_VAR)
+    if raw_clip is not None and str(raw_clip).strip():
+        cmd_cfg.clips.ang_vel_clip = parse_ang_vel_clip(raw_clip)
     # dir_band is special: an EMPTY value is a meaningful "no band" (stage 1c+), so the knob
     # is applied whenever it is present, not only when it is non-empty.
     raw_band = env.get(DIR_BAND_VAR)
     if raw_band is not None:
         cmd_cfg.dir_band = parse_dir_band(raw_band)
+    # ... and the pool is special the same way, for the same reason (a curriculum overlay must
+    # be able to turn a pool OFF). The parse is a VALIDATOR: what is stored is the launcher's
+    # own string, so the config dump and the campaign's env.yaml audit show it verbatim.
+    raw_pool = env.get(CMD_POOL_VAR)
+    if raw_pool is not None:
+        cmd_cfg.cmd_pool = None if parse_cmd_pool(raw_pool) is None else str(raw_pool).strip()
 
 
 def _apply_spawn_yaw(cfg, yaw_range) -> None:
@@ -413,32 +656,48 @@ def _apply_facing_obs_clip_knob(cfg, env) -> None:
         term.params["facing_obs_clip"] = clip
 
 
+#: ``(variable, rewards attribute, parser)`` for every reward WEIGHT this module doses.
+#:
+#: All three name terms the forward ``_overrides`` table cannot reach: ``reward_yaw_progress``
+#: and ``reward_facing_turn`` do not exist on a forward cfg at all, and while
+#: ``reward_forward_progress_along_command`` does, the omni presets must not write a
+#: forward-owned variable whose meaning is pinned by the forward lineage's own records (the
+#: ``KRABBY_OMNI_CLOCK_COMBINE`` precedent).
+_REWARD_WEIGHT_KNOBS = (
+    (YAW_PROGRESS_W_VAR, "reward_yaw_progress", float),
+    (FACING_TURN_W_VAR, "reward_facing_turn", parse_facing_turn_w),
+    (PROGRESS_W_VAR, "reward_forward_progress_along_command", parse_progress_w),
+)
+
+
 def _apply_reward_weight_knobs(cfg, env) -> None:
-    """``KRABBY_YAW_PROGRESS_W`` -> ``rewards.reward_yaw_progress.weight`` (no-op when unset).
+    """The :data:`_REWARD_WEIGHT_KNOBS` doses onto their terms (no-op for every unset knob).
 
     PRESENCE-based, exactly like the forward block's ``_overrides``: an explicitly-set knob
-    wins even at ``0.0``, which is how an ablation switches the added term off. Only an empty
+    wins even at ``0.0``, which is how an ablation switches a term off. Only an empty
     value is ignored (``float("")`` would raise).
 
     The ``hasattr`` check is the same silent-failure insurance as
     :func:`_apply_command_knobs`'s type check: a ``configclass`` instance accepts an unknown
     attribute without complaint, so a forward/sideways rewards cfg leaking into an omni env
     (or a future refactor that stops wiring ``CrabHexOmniFlatWalkRewardsCfg``) would otherwise
-    grow an orphan ``reward_yaw_progress.weight`` nobody reads, and the run would train with
-    no rotation income at all while the launcher looked correct.
+    grow an orphan ``<term>.weight`` nobody reads, and the run would train with no rotation
+    income at all -- or with no facing income -- while the launcher looked correct.
     """
-    raw = env.get(YAW_PROGRESS_W_VAR)
-    if raw is None or not str(raw).strip():
-        return
-    term = getattr(getattr(cfg, "rewards", None), "reward_yaw_progress", None)
-    if term is None or not hasattr(term, "weight"):
-        raise RuntimeError(
-            f"{YAW_PROGRESS_W_VAR} is set but this env's rewards cfg has no "
-            "reward_yaw_progress term: it is not a CrabHexOmniFlatWalkRewardsCfg (a "
-            "forward/sideways rewards cfg leaked into an omni env), so the knob would be "
-            "silently ignored and the omni task would train with no yaw-progress income."
-        )
-    term.weight = float(raw)
+    for var, attr, parser in _REWARD_WEIGHT_KNOBS:
+        raw = env.get(var)
+        if raw is None or not str(raw).strip():
+            continue
+        weight = float(parser(raw))
+        term = getattr(getattr(cfg, "rewards", None), attr, None)
+        if term is None or not hasattr(term, "weight"):
+            raise RuntimeError(
+                f"{var} is set but this env's rewards cfg has no {attr} term: it is not a "
+                "CrabHexOmniFlatWalkRewardsCfg (a forward/sideways rewards cfg leaked into an "
+                "omni env), so the knob would be silently ignored and the omni task would "
+                "train without the income it doses."
+            )
+        term.weight = weight
 
 
 def _apply_ang_vel_std_knob(cfg, env) -> None:
@@ -527,6 +786,149 @@ def _apply_ang_turn_only_knob(cfg, env, *, gated_func=None, stock_func=None) -> 
             "refusing to clobber a func this knob does not know about."
         )
     term.func = gated_func
+
+
+def _apply_track_facing_sigma_knob(cfg, env, *, coupled_func=None, stock_func=None) -> None:
+    """``KRABBY_OMNI_TRACK_FACING_SIGMA=<rad>`` -> couple translation tracking to the facing.
+
+    Swaps ``rewards.track_lin_vel_xy_exp``'s FUNC for
+    ``crab_hex_omni_rewards.track_lin_vel_xy_exp_facing_coupled`` (the stock kernel times a
+    Gaussian of ``wrap(heading_target - yaw)``) and writes ``params["facing_sigma"]``. Unset or
+    empty leaves the shipped stock func and adds no param -- the default is OFF and no preset
+    sets it.
+
+    ``track_lin_vel_xy_exp`` is INHERITED from the forward ``CrabHexFlatWalkRewardsCfg`` (the
+    omni rewards cfg re-declares four other terms, not this one), so the func this knob expects
+    to find is the stock ``isaaclab.envs.mdp.rewards.track_lin_vel_xy_exp`` at weight 1.25, and
+    its ``std`` is whatever ``KRABBY_TRACK_SIGMA2`` wrote in the forward ``__post_init__`` --
+    which is why this runs AFTER the forward block and passes ``std`` straight through.
+
+    Three loud guards, the :func:`_apply_ang_turn_only_knob` set, for the same reason (the term
+    keeps its NAME under the swap, so ``Episode_Reward/track_lin_vel_xy_exp`` appears either way
+    and merely reads lower):
+
+    * no ``track_lin_vel_xy_exp`` term -> a leaked forward/sideways rewards cfg, and the swap
+      would create an orphan attribute nobody reads;
+    * its ``params`` are not the stock term's (``command_name`` / ``std``) -> the coupled twin
+      is the stock signature plus one keyword, so the reward manager would raise on the first
+      training step rather than here;
+    * its ``func`` is not the stock one -> something else already owns the term, and this knob
+      must not clobber a func it does not know about.
+
+    Args:
+        coupled_func / stock_func: injected for the pure unit tests (the ``cmd_cls`` /
+            ``gated_func`` precedent); ``None`` -> the real ones, imported lazily so this
+            module stays Isaac-free at module scope.
+    """
+    raw = env.get(TRACK_FACING_SIGMA_VAR)
+    if raw is None or not str(raw).strip():
+        return
+    sigma = parse_track_facing_sigma(raw)
+
+    term = getattr(getattr(cfg, "rewards", None), "track_lin_vel_xy_exp", None)
+    if term is None or not hasattr(term, "func"):
+        raise RuntimeError(
+            f"{TRACK_FACING_SIGMA_VAR} is set but this env's rewards cfg has no "
+            "track_lin_vel_xy_exp term, so the facing coupling would be silently ignored and "
+            "the run would train under the uncoupled kernel the knob exists to replace."
+        )
+    params = getattr(term, "params", None)
+    if not isinstance(params, dict) or "command_name" not in params or "std" not in params:
+        raise RuntimeError(
+            f"{TRACK_FACING_SIGMA_VAR} is set but rewards.track_lin_vel_xy_exp does not carry "
+            "the stock params ('command_name', 'std'); the coupled twin is the stock signature "
+            "plus a 'facing_sigma' keyword, so the reward manager would raise on the first "
+            "training step rather than here."
+        )
+
+    if stock_func is None:
+        from isaaclab.envs.mdp.rewards import track_lin_vel_xy_exp as stock_func  # noqa: PLC0415
+    if coupled_func is None:
+        from parkour_tasks.crab_hex_omni_task.mdp.crab_hex_omni_rewards import (  # noqa: PLC0415
+            track_lin_vel_xy_exp_facing_coupled as coupled_func,
+        )
+
+    if term.func is not stock_func:
+        raise RuntimeError(
+            f"{TRACK_FACING_SIGMA_VAR} expects rewards.track_lin_vel_xy_exp to carry the stock "
+            f"isaaclab track_lin_vel_xy_exp, but it carries "
+            f"{getattr(term.func, '__name__', term.func)!r}: something else owns the func and "
+            "this knob refuses to clobber it."
+        )
+    term.func = coupled_func
+    term.params["facing_sigma"] = sigma
+
+
+def _apply_facing_obs_encoding_knob(cfg, env) -> None:
+    """``KRABBY_OMNI_FACING_OBS_ENCODING=raw|sincos`` -> the omni obs term's param.
+
+    Unset or empty is a no-op (the class body's ``"raw"`` survives). The term must exist AND
+    must ALREADY carry the key: the observation function takes ``facing_obs_encoding`` as a
+    declared keyword, so writing the key onto a term that does not have it would mean either a
+    leaked forward observation cfg (the knob silently inert) or a param the function does not
+    accept (a crash inside the observation manager on the first step of training).
+    """
+    raw = env.get(FACING_OBS_ENCODING_VAR)
+    if raw is None or not str(raw).strip():
+        return
+    encoding = parse_facing_obs_encoding(raw)
+    terms = _omni_obs_terms(cfg)
+    if not terms:
+        raise RuntimeError(
+            f"{FACING_OBS_ENCODING_VAR} is set but no omni observation term is installed"
+        )
+    missing = [f"{g}.{t}" for g, t, term in terms
+               if not isinstance(getattr(term, "params", None), dict)
+               or "facing_obs_encoding" not in term.params]
+    if missing:
+        raise RuntimeError(
+            f"{FACING_OBS_ENCODING_VAR} is set but {missing} do not declare a "
+            "'facing_obs_encoding' param; the observation function would be called with a "
+            "keyword it does not accept, so the run would die inside the observation manager "
+            "on its first step."
+        )
+    for _g, _t, term in terms:
+        term.params["facing_obs_encoding"] = encoding
+
+
+def _check_clock_radius_rule(cfg) -> None:
+    """Refuse a config whose gait clock would STOP on every commanded turn.
+
+    ``omni_clock_turn_radius x ang_vel_max`` is the tangential speed a pure turn hands the gait
+    clock (see :data:`CLOCK_TURN_MIN_SPEED`). A cross-knob rule, so it cannot live in either
+    parser: both 1.2 m and 0.1 rad/s are perfectly ordinary values, and their product is not.
+    Checked after BOTH knobs have been applied, so it sees the effective pair, and it names both
+    variables and both values -- the failure it prevents (gait rewards paying a statue on every
+    turn row) looks like a training problem, not a config one.
+    """
+    radius = getattr(cfg, "omni_clock_turn_radius", None)
+    if radius is None:
+        raise RuntimeError(
+            f"{CLOCK_TURN_R_VAR}: this env cfg has no 'omni_clock_turn_radius' attribute, so "
+            "the gait clock's turn radius cannot be checked (a forward/sideways env cfg leaked "
+            "into the omni knob block)."
+        )
+    cap = getattr(getattr(cfg.commands, "base_velocity", None), "ang_vel_max", None)
+    if cap is None:
+        # Same leak, spotted one level down (a forward/sideways command cfg has no
+        # ``ang_vel_max``): a bare AttributeError here would not name the knob block.
+        raise RuntimeError(
+            f"{ANG_VEL_MAX_VAR}: commands.base_velocity has no 'ang_vel_max' attribute, so the "
+            "gait clock's turn speed cannot be checked (a forward/sideways command cfg leaked "
+            "into the omni knob block)."
+        )
+    ang_vel_max = float(cap)
+    speed = float(radius) * ang_vel_max
+    if not speed >= CLOCK_TURN_MIN_SPEED:
+        raise RuntimeError(
+            f"{CLOCK_TURN_R_VAR}={radius} x {ANG_VEL_MAX_VAR}={ang_vel_max} = {speed} m/s is "
+            f"below {CLOCK_TURN_MIN_SPEED} m/s: the gait clock stops at the lin_vel_clip, so "
+            "every commanded turn would be a frozen clock and the gait rewards would pay a "
+            "motionless robot. Raise the radius or the yaw-rate cap. NOTE this also refuses "
+            f"{CLOCK_TURN_R_VAR}=0 (the forward 'turning does not drive the clock' behaviour): "
+            "an omni env that wants it has to say so by changing this rule, not by a value "
+            "that is indistinguishable from a mis-set radius."
+        )
 
 
 def _clock_combine_terms(cfg):
@@ -619,6 +1021,8 @@ def apply_omni_knobs(cfg, environ=None) -> None:
     raw_turn_r = env.get(CLOCK_TURN_R_VAR)
     if raw_turn_r is not None and str(raw_turn_r).strip():
         cfg.omni_clock_turn_radius = parse_clock_turn_radius(raw_turn_r)
+    # Both halves of the product are now final (the command knobs wrote ang_vel_max above).
+    _check_clock_radius_rule(cfg)
 
     raw_yaw = env.get(YAW_RANGE_VAR)
     yaw_range = parse_yaw_range(raw_yaw) if raw_yaw and str(raw_yaw).strip() else None
@@ -631,8 +1035,13 @@ def apply_omni_knobs(cfg, environ=None) -> None:
     # The staged lever (2026-09-18), default OFF and set by no preset. AFTER the std knob on
     # purpose: the gated twin passes std through, so it prices the kernel that knob just wrote.
     _apply_ang_turn_only_knob(cfg, env)
+    # The capability-curriculum levers (2026-09-18, Part A1), all default-off. The facing
+    # coupling runs here for the same reason the turn gate does: it swaps a FUNC on a term
+    # whose params the forward block has already written, and it passes them through.
+    _apply_track_facing_sigma_knob(cfg, env)
     _apply_clock_combine_knob(cfg, env)
     _apply_facing_obs_clip_knob(cfg, env)
+    _apply_facing_obs_encoding_knob(cfg, env)
 
     from parkour_tasks.crab_hex_omni_task.mdp.omni_terrain_knobs import (  # noqa: PLC0415
         apply_omni_ring_knobs,

@@ -55,15 +55,23 @@ from parkour_isaaclab.envs.mdp.parkour_commands.command_sampling import WALK_MAR
 
 from .crab_hex_omni_command_math import (
     N_SLOTS,
+    POOL_TYPES,
     SLOT_MOVE,
     SLOT_MOVE_TURN,
     SLOT_NAMES,
     SLOT_STAND,
     SLOT_TURN,
     body_command_details,
+    check_row_ang_limits,
     ellipse_cap,
     heading_rate_command,
+    heading_rate_command_rows,
+    parse_cmd_pool,
+    pool_speed_scale_floor,
+    pool_tables,
+    pool_type_min_cap,
     sample_facing,
+    sample_pool_travel_dir,
     sample_slots,
     sample_travel_dir,
     slot_is_moving,
@@ -84,6 +92,18 @@ walk floor: below it a "moving" slot would draw a speed indistinguishable from t
 ``CLOCK_CMD_STOP_M_S``). Separate constant from ``WALK_MARGIN_M_S`` even though both are
 0.01 m/s today: one is the gap the sampler leaves ABOVE the clip, this one is the width the
 band must still have."""
+
+POOL_SLOT_MATCH_TOL = 1e-6
+"""How far a pool's slot projection may sit from ``slot_probs`` before construction refuses.
+
+The two are the same distribution written twice -- once per TYPE (``cmd_pool``, what the
+sampler draws) and once per SLOT (``slot_probs``, what every metric, reward and eval hold
+downstream reads). A mismatch is invisible: the run trains one regime and reports another.
+1e-6 is the round-trip error of ``render_cmd_pool`` -> ``parse_cmd_pool`` -> projection with
+``repr``-precision floats, i.e. exactly zero in practice and a real tolerance only against
+the hand-written decimals a launcher types into ``KRABBY_OMNI_SLOTS``. The campaign driver's
+recipe validator applies the SAME comparison at load, so a bad recipe fails before a GPU is
+booked."""
 
 
 # ----------------------------------------------------------------- debug-vis constants
@@ -274,6 +294,53 @@ def _validate_omni_cfg(cfg: CrabHexOmniCommandCfg) -> None:
             "otherwise the dead band zeroes every yaw-rate command, including saturated ones"
         )
 
+    if cfg.cmd_pool is not None:
+        pool = parse_cmd_pool(cfg.cmd_pool)  # grammar / names / weights, by name
+        if cfg.dir_band is not None:
+            raise ValueError(
+                f"cmd_pool ({cfg.cmd_pool!r}) and dir_band ({tuple(cfg.dir_band)}) are two "
+                "spellings of the same lever: the pool gives every TYPE its own direction "
+                "band, so a global one would silently win or lose depending on the order the "
+                "knobs were applied. Set KRABBY_OMNI_DIR_BAND='' when a pool is used."
+            )
+        projected = pool.projected_slot_probs()
+        total = sum(float(p) for p in probs)
+        declared = tuple(float(p) / total for p in probs)
+        if any(abs(d - p) > POOL_SLOT_MATCH_TOL for d, p in zip(declared, projected)):
+            raise ValueError(
+                "cmd_pool and slot_probs describe different regimes: the pool projects onto "
+                f"{projected} but slot_probs normalises to {declared} (tolerance "
+                f"{POOL_SLOT_MATCH_TOL}). The two must agree -- every metric, reward and eval "
+                "downstream reads the SLOT, so a mismatch trains one distribution and reports "
+                "another. Set KRABBY_OMNI_SLOTS to the pool's projection."
+            )
+        # A ``speed_scale`` that pulls a MOVING type's cap under the walk floor inverts its
+        # speed band (``floor + u * (cap - floor)`` with ``cap < floor`` draws BELOW the floor,
+        # where the gait clock stops) -- and does it silently: the type is still in the dump
+        # and still drawn at its weight. Same bound as the ellipse check above, per type, and
+        # the SAME bound the driver's recipe validator is meant to apply at compose time --
+        # see ``pool_speed_scale_floor``, which is exported so it is spelled in one place.
+        min_speed = floor + MIN_CAP_HEADROOM_M_S
+        for name, scale in zip(pool.names, pool.speed_scale):
+            spec = POOL_TYPES[name]
+            if not spec.slot & 1 or float(scale) == 1.0:
+                continue  # a non-moving type never draws a speed; an unscaled one is covered
+            scaled = pool_type_min_cap(name, a, b, c) * float(scale)
+            if not scaled > min_speed:
+                bound = pool_speed_scale_floor(name, (a, b, c), min_speed)
+                raise ValueError(
+                    f"cmd_pool type {name!r} has speed_scale {float(scale)}, which puts its "
+                    f"smallest speed cap at {scaled} m/s -- at or below the walk floor "
+                    f"({floor} + MIN_CAP_HEADROOM_M_S {MIN_CAP_HEADROOM_M_S} = {min_speed}). "
+                    "Its speed band would be inverted and every draw would sit under the gait "
+                    "clock's stop speed, so the type would silently train a creeper. The "
+                    f"largest cut this type can take at speed_ellipse {(a, b, c)} and "
+                    f"lin_vel_clip {float(cfg.clips.lin_vel_clip)} is speed_scale > {bound} "
+                    "(crab_hex_omni_command_math.pool_speed_scale_floor); to go lower, widen "
+                    "speed_ellipse or lower lin_vel_clip in the same overlay -- there is no "
+                    "scale that both keeps this ellipse and stays above the clock's stop speed."
+                )
+
 
 class CrabHexOmniCommand(UniformParkourCommand):
     """Four-slot omnidirectional command: world travel direction + speed, world facing.
@@ -292,6 +359,13 @@ class CrabHexOmniCommand(UniformParkourCommand):
         the current yaw on non-turning slots, i.e. "hold what you have".
     ``slot_id``
         ``int64`` command regime, ``SLOT_STAND | SLOT_MOVE | SLOT_TURN | SLOT_MOVE_TURN``.
+    ``type_id``
+        ``int64`` index into ``cfg.cmd_pool``'s type list, or ``-1`` for "not drawn from the
+        pool" -- an eval ``schedule_hook`` row, an RSI-staged row, and EVERY row when no pool
+        is configured. Always present, so a consumer never has to ask whether a pool is set;
+        ``-1`` gathers the trailing UNIT entry of every per-type table
+        (``crab_hex_omni_command_math.pool_tables``), i.e. the global speed cap and the global
+        yaw-rate cap / dead band.
     ``rsi_cmd_staged``
         ``(N, 3)`` NaN-filled staging buffer written by the RSI reset event
         (``reset_from_reference_states_omni``, plan D6) with ``(theta, v, psi)`` in world
@@ -311,7 +385,10 @@ class CrabHexOmniCommand(UniformParkourCommand):
     ``yaw_progress`` (SIGNED mean ``wz_b * sign(cmd_wz)`` over the turning rows -- see
     :meth:`_yaw_progress_step`; the one metric that distinguishes "turns the wrong way" from
     "does not turn", which is what the 2026-09-17 yaw smoke had to be re-derived offline to
-    learn).
+    learn). WITH A POOL, and only then, two more families appear -- ``pool_<name>_frac``
+    (step-weighted, the slot fracs' per-type twin) and ``pool_<name>_draws`` (the realised
+    draw rates, to be read against the pool's own weights); a shipped pool-less run logs
+    exactly the nine names above.
 
     DEBUG VISUALISATION (PLAY only -- ``_apply_play`` in ``crab_hex_omni_env_cfg`` is the
     only place that sets ``debug_vis``; a training run never builds a marker). Three arrows
@@ -368,10 +445,42 @@ class CrabHexOmniCommand(UniformParkourCommand):
         self.rsi_cmd_staged = torch.full((n, 3), float("nan"), device=dev)
         self.phi_b = torch.zeros(n, device=dev)
         self.recap_mask = torch.zeros(n, dtype=torch.bool, device=dev)
+        # ``-1`` everywhere until a pool draws: "this row did not come from the pool". With no
+        # pool configured it STAYS -1 for the whole run, so any consumer may read it
+        # unconditionally, and every table gather lands on the sentinel (unit) entry.
+        self.type_id = torch.full((n,), -1, dtype=torch.long, device=dev)
         # ``stand_frac_actual`` already exists (base class); the rest are new.
         for key in ("move_frac_actual", "turn_frac_actual", "move_turn_frac_actual",
                     "facing_err_abs", "recap_frac", "yaw_progress"):
             self.metrics[key] = torch.zeros(n, device=dev)
+
+        # -- the optional per-type command pool (plan: the capability curriculum).
+        self._pool = None if cfg.cmd_pool is None else parse_cmd_pool(cfg.cmd_pool)
+        self._pool_tables = (
+            None if self._pool is None
+            else pool_tables(self._pool, device=dev, dtype=self.travel_dir_w.dtype)
+        )
+        if self._pool_tables is not None:
+            # The per-row turn limits ``_write_command`` will gather, validated ONCE here: the
+            # per-step expression does not re-check them, because a ``bool(tensor)`` per step
+            # is a host-device sync on CUDA (see ``check_row_ang_limits``).
+            check_row_ang_limits(
+                float(cfg.ang_vel_max) * self._pool_tables.ang_scale,
+                float(cfg.clips.ang_vel_clip) * self._pool_tables.ang_scale,
+            )
+        # Lifetime draw counters, NOT per-episode: ``pool_<name>_draws`` is "does the sampler
+        # really draw at the asked rates", and a running total converges to the weights
+        # instead of jittering with a handful of per-episode draws. They are deliberately not
+        # reset with the episode (see _update_metrics).
+        if self._pool is not None:
+            k = len(self._pool.names)
+            self._pool_draws = torch.zeros(n, k, device=dev)
+            self._pool_draw_n = torch.zeros(n, device=dev)
+            # Per-type metrics exist ONLY with a pool, so the nine-name metric set of a
+            # shipped (pool-less) run is untouched.
+            for name in self._pool.names:
+                self.metrics[f"pool_{name}_frac"] = torch.zeros(n, device=dev)
+                self.metrics[f"pool_{name}_draws"] = torch.zeros(n, device=dev)
 
     def __str__(self) -> str:
         msg = "CrabHexOmniCommand:\n"
@@ -383,6 +492,8 @@ class CrabHexOmniCommand(UniformParkourCommand):
         msg += f"\tFacing delta band: {tuple(self.cfg.facing_delta)} rad\n"
         msg += f"\tTravel direction: {'world ' + str(tuple(self.cfg.travel_dir_range)) if self.cfg.dir_band is None else 'body-relative ' + str(tuple(self.cfg.dir_band))}\n"
         msg += f"\tYaw-rate cap / dead band: {self.cfg.ang_vel_max} / {self.cfg.clips.ang_vel_clip} rad/s"
+        if self._pool is not None:
+            msg += f"\n\tCommand pool: {self.cfg.cmd_pool}"
         return msg
 
     # ------------------------------------------------------------------ implementation
@@ -394,6 +505,13 @@ class CrabHexOmniCommand(UniformParkourCommand):
         for every row regardless of slot or staging, so the RNG stream a run consumes does
         not depend on the slot mix, on ``dir_band`` or on which rows the RSI event happened
         to stage. Only the *use* of a draw is conditional.
+
+        TWO BRANCHES, ONE STREAM. With ``cfg.cmd_pool`` unset the block below is the shipped
+        legacy sampler, character for character -- that is the invariant every recorded
+        seed-3 run depends on, so it is kept whole under one ``if`` rather than threaded with
+        per-row tensors that happen to be unit-valued. The pool branch draws the SAME five
+        uniforms in the SAME order (one categorical, one direction, one speed, two facing),
+        so a pool that describes a legacy distribution reproduces it bitwise.
         """
         n = len(env_ids)
         if n == 0:
@@ -403,23 +521,50 @@ class CrabHexOmniCommand(UniformParkourCommand):
         floor = omni_walk_floor(cfg)
         yaw = self.robot.data.heading_w[env_ids]
 
-        slot = sample_slots(None, cfg.slot_probs, n, device=self.device)
-        theta = sample_travel_dir(yaw, cfg.dir_band, cfg.travel_dir_range)
-        u_speed = torch.rand(n, device=self.device)
-        psi = sample_facing(yaw, float(cfg.facing_delta[0]), float(cfg.facing_delta[1]))
+        if cfg.cmd_pool is None:
+            slot = sample_slots(None, cfg.slot_probs, n, device=self.device)
+            theta = sample_travel_dir(yaw, cfg.dir_band, cfg.travel_dir_range)
+            u_speed = torch.rand(n, device=self.device)
+            psi = sample_facing(yaw, float(cfg.facing_delta[0]), float(cfg.facing_delta[1]))
 
-        # Speed band is direction-scaled: the cap is evaluated at the body-frame direction
-        # the slot STARTS at (phi0). The per-step re-cap in ``_update_command`` then keeps
-        # the command inside the ellipse as the body turns.
-        phi0 = wrap_to_pi(theta - yaw)
-        cap0 = ellipse_cap(phi0, a, b, c)
-        speed = torch.where(
-            slot_is_moving(slot),
-            floor + u_speed * (cap0 - floor),
-            torch.zeros_like(u_speed),
-        )
-        # Non-turning slots hold the facing they have (zero commanded facing change).
-        psi = torch.where(slot_is_turning(slot), psi, yaw)
+            # Speed band is direction-scaled: the cap is evaluated at the body-frame direction
+            # the slot STARTS at (phi0). The per-step re-cap in ``_update_command`` then keeps
+            # the command inside the ellipse as the body turns.
+            phi0 = wrap_to_pi(theta - yaw)
+            cap0 = ellipse_cap(phi0, a, b, c)
+            speed = torch.where(
+                slot_is_moving(slot),
+                floor + u_speed * (cap0 - floor),
+                torch.zeros_like(u_speed),
+            )
+            # Non-turning slots hold the facing they have (zero commanded facing change).
+            psi = torch.where(slot_is_turning(slot), psi, yaw)
+
+            # No pool: every row keeps the -1 sentinel, so ``_write_command`` gathers the unit
+            # scales and downstream code can read ``type_id`` without asking whether one is set.
+            type_id = torch.full((n,), -1, dtype=torch.long, device=self.device)
+        else:
+            tables = self._pool_tables
+            # One uniform, K categories instead of 4 -- the SAME draw, read against a longer
+            # cumulative vector; the slot each type projects onto comes from the table.
+            type_id = sample_slots(None, self._pool.weights, n, device=self.device)
+            slot = tables.slot[type_id]
+            theta = sample_pool_travel_dir(
+                yaw, type_id, tables.lo, tables.hi, tables.world, cfg.travel_dir_range
+            )
+            u_speed = torch.rand(n, device=self.device)
+            psi = sample_facing(yaw, float(cfg.facing_delta[0]), float(cfg.facing_delta[1]))
+
+            # As above, times the type's own ``speed_scale`` (1.0 for every type by default,
+            # so this is bitwise the legacy cap unless a stage asked for a slower type).
+            phi0 = wrap_to_pi(theta - yaw)
+            cap0 = ellipse_cap(phi0, a, b, c) * tables.speed_scale[type_id]
+            speed = torch.where(
+                slot_is_moving(slot),
+                floor + u_speed * (cap0 - floor),
+                torch.zeros_like(u_speed),
+            )
+            psi = torch.where(slot_is_turning(slot), psi, yaw)
 
         # RSI-staged rows override all three and become a MOVE slot: the staged speed is
         # already clamped into [floor, cap] by the reset event and the staged psi is the
@@ -430,39 +575,80 @@ class CrabHexOmniCommand(UniformParkourCommand):
         speed = torch.where(has_staged, staged[:, 1], speed)
         psi = torch.where(has_staged, staged[:, 2], psi)
         slot = torch.where(has_staged, torch.full_like(slot, SLOT_MOVE), slot)
+        # A staged row did not come from the pool: back to the sentinel, so it gets the global
+        # turn cap in ``_write_command`` and counts in no ``pool_<name>_*`` metric.
+        type_id = torch.where(has_staged, torch.full_like(type_id, -1), type_id)
 
         self.travel_dir_w[env_ids] = theta
         self.speed_cmd[env_ids] = speed
         self.heading_target[env_ids] = psi
         self.slot_id[env_ids] = slot
+        self.type_id[env_ids] = type_id
         # Consumed exactly once: whatever was staged is gone even if this row was not
         # staged (writing NaN over NaN), so a stale row can never be replayed.
         self.rsi_cmd_staged[env_ids] = float("nan")
+
+        if self._pool is not None:
+            self._count_pool_draws(env_ids, type_id, has_staged)
 
         # Refresh the published command for these rows now. ``compute()`` calls
         # ``_update_command`` right after this, but ``reset()`` resamples WITHOUT it, and
         # the observation manager may run before the next ``compute``.
         self._write_command(env_ids)
 
+    def _count_pool_draws(self, env_ids, type_id: torch.Tensor, has_staged: torch.Tensor) -> None:
+        """Tally this resample's pool draws (staged rows excluded) into the lifetime counters.
+
+        No ``if not drawn.any(): return`` short circuit: ``bool(tensor)`` is a host-device
+        SYNCHRONISATION on CUDA, and the all-staged case it would skip is already a no-op
+        (``scatter_`` writes 0.0 and both ``+=`` add zero). Same no-sync-in-the-hot-path rule
+        as ``check_row_ang_limits`` -- this runs once per resample rather than once per step,
+        but the guard bought nothing to pay a sync for.
+        """
+        drawn = ~has_staged
+        one_hot = torch.zeros_like(self._pool_draws[env_ids])
+        # ``clamp_min(0)`` only matters for the staged rows, whose contribution the ``drawn``
+        # gate zeroes anyway -- it keeps ``scatter_`` from seeing the -1 sentinel as an index.
+        one_hot.scatter_(1, type_id.clamp_min(0).unsqueeze(1), drawn.to(one_hot.dtype).unsqueeze(1))
+        self._pool_draws[env_ids] += one_hot
+        self._pool_draw_n[env_ids] += drawn.to(self._pool_draw_n.dtype)
+
     def _update_command(self):
         """Re-project the held world command into the CURRENT body frame (every step)."""
         self._write_command(slice(None))
 
     def _write_command(self, env_ids):
-        """World command -> ``vel_command_b`` for ``env_ids`` (a tensor/list or a slice)."""
+        """World command -> ``vel_command_b`` for ``env_ids`` (a tensor/list or a slice).
+
+        The xy half is the global ellipse on BOTH paths: a pool type's ``speed_scale`` picks a
+        slower speed at draw time, it does not narrow the clamp the body's own rotation runs
+        into. Only the yaw-rate half is per-row, and only when a pool is configured.
+        """
         cfg = self.cfg
         a, b, c = (float(x) for x in cfg.speed_ellipse)
         yaw = self.robot.data.heading_w[env_ids]
         speed = self.speed_cmd[env_ids]
         cmd_xy, phi, cap = body_command_details(self.travel_dir_w[env_ids], speed, yaw, a, b, c)
         self.vel_command_b[env_ids, :2] = cmd_xy
-        self.vel_command_b[env_ids, 2] = heading_rate_command(
-            self.heading_target[env_ids],
-            yaw,
-            float(cfg.heading_control_stiffness),
-            float(cfg.ang_vel_max),
-            float(cfg.clips.ang_vel_clip),
-        )
+        if self._pool is None:
+            self.vel_command_b[env_ids, 2] = heading_rate_command(
+                self.heading_target[env_ids],
+                yaw,
+                float(cfg.heading_control_stiffness),
+                float(cfg.ang_vel_max),
+                float(cfg.clips.ang_vel_clip),
+            )
+        else:
+            # ``ang_scale`` per row, gathered by ``type_id``; ``-1`` (eval holds, RSI-staged
+            # rows) lands on the tables' trailing UNIT entry, i.e. exactly the global cap.
+            scale = self._pool_tables.ang_scale[self.type_id[env_ids]]
+            self.vel_command_b[env_ids, 2] = heading_rate_command_rows(
+                self.heading_target[env_ids],
+                yaw,
+                float(cfg.heading_control_stiffness),
+                float(cfg.ang_vel_max) * scale,
+                float(cfg.clips.ang_vel_clip) * scale,
+            )
         self.phi_b[env_ids] = phi
         self.recap_mask[env_ids] = speed > cap
 
@@ -486,6 +672,46 @@ class CrabHexOmniCommand(UniformParkourCommand):
         )
         self.metrics["recap_frac"] += self.recap_mask.float() / episode_steps
         self.metrics["yaw_progress"] += self._yaw_progress_step() / episode_steps
+        if self._pool is not None:
+            self._update_pool_metrics(episode_steps)
+
+    def _update_pool_metrics(self, episode_steps: float) -> None:
+        """The two per-type metric families -- only ever called when a pool is configured.
+
+        ``pool_<name>_frac``
+            STEP-weighted, exactly like the four ``*_frac_actual`` siblings: the share of the
+            episode's steps this env spent under that type. RSI-staged rows carry the -1
+            sentinel and therefore count towards no type, so the pool fracs sum to the
+            non-staged share of the episode while ``stand/move/turn/move_turn_frac_actual``
+            still sum to 1 (a staged row IS in a slot -- ``SLOT_MOVE`` -- it just did not come
+            from the pool).
+        ``pool_<name>_draws``
+            The share of this env's pool DRAWS (one per resample, staged rows excluded) that
+            picked that type -- a LIFETIME running fraction, OVERWRITTEN each step rather than
+            accumulated. It answers "is the sampler really drawing at the asked rates", which
+            a per-episode count could not: an env sees only a handful of resamples per
+            episode. Overwriting a metric is the parkour event's own ledger-mean pattern; the
+            manager's reset zeroes it and the next step writes it back.
+
+        ONE-HOT, not K comparisons: this runs every physics step of a pooled run, and a pooled
+        stage is compared against a legacy stage on wall clock as well as on reward. The
+        ``(type_id == index)`` scan and the ``_pool_draws[:, index] / drawn`` divide are
+        hoisted out of the loop, which leaves only the K accumulator writes -- the same
+        wall-clock hygiene ``check_row_ang_limits`` bought for the yaw-rate expression.
+        Bitwise identical to the per-index form: a one-hot column IS ``type_id == index`` as a
+        float, and the division is elementwise either way.
+        """
+        drawn = self._pool_draw_n.clamp_min(1.0)
+        # ``clamp_min(0)`` folds the -1 sentinel onto column 0; ``active`` then zeroes that
+        # whole row, so a staged / eval row counts towards NO type (never towards the first).
+        active = (self.type_id >= 0).to(self._pool_draws.dtype).unsqueeze(1)
+        one_hot = torch.nn.functional.one_hot(
+            self.type_id.clamp_min(0), len(self._pool.names)
+        ).to(self._pool_draws.dtype) * active
+        shares = self._pool_draws / drawn.unsqueeze(1)
+        for index, name in enumerate(self._pool.names):
+            self.metrics[f"pool_{name}_frac"] += one_hot[:, index] / episode_steps
+            self.metrics[f"pool_{name}_draws"][:] = shares[:, index]
 
     def _yaw_progress_step(self) -> torch.Tensor:
         """Mean ``wz_b * sign(cmd_wz)`` over the envs commanding a turn this step (0 if none).
@@ -604,6 +830,11 @@ class CrabHexOmniCommand(UniformParkourCommand):
         self.travel_dir_w[:] = direction
         self.speed_cmd[:] = speed
         self.heading_target[:] = face
+        # An eval hold did not come from the pool: clear the type BEFORE ``_write_command``,
+        # so the yaw-rate cap it uses is the global one and a hold is never quietly run at
+        # some type's reduced turn demand. (The hold's own validator sizes it against
+        # ``ang_vel_max``, so a scaled cap would make a legal row unachievable.)
+        self.type_id[:] = -1
         self._write_command(slice(None))
         moving = self.speed_cmd > 0.0
         turning = self.vel_command_b[:, 2] != 0.0
@@ -656,7 +887,23 @@ class CrabHexOmniCommandCfg(ParkourCommandCfg):
     """None -> world-uniform travel direction over ``travel_dir_range``. ``(lo, hi)`` ->
     body-relative at resample time (``theta = yaw + U(lo, hi)``), then held as a world
     direction. Phase-1 stages: 1a ``(0, 0)`` = body ``+x``, 1b ``(pi/2, pi/2)`` = body
-    ``+y``."""
+    ``+y``. Mutually exclusive with ``cmd_pool``."""
+
+    cmd_pool: str | None = None
+    """None (the default and EVERY shipped preset) -> the legacy sampler above, bitwise.
+
+    Otherwise the canonical pool STRING, stored verbatim so the config dump says exactly what
+    the launcher asked for (``KRABBY_OMNI_CMD_POOL``, grammar
+    ``name:weight[:ang_scale[:speed_scale]],...``; see
+    ``crab_hex_omni_command_math.parse_cmd_pool`` and :data:`POOL_TYPES` for the names). A
+    pool replaces BOTH ``slot_probs`` and ``dir_band`` as the thing that is drawn: every type
+    projects onto one of the four slots, ``dir_band`` is refused outright, and ``slot_probs``
+    must equal the pool's projection to within :data:`POOL_SLOT_MATCH_TOL` -- it stays as the
+    dump path and the slot-level truth every metric, reward and eval hold downstream reads.
+
+    A STRING rather than a parsed object because it is a config field: it has to survive a
+    YAML dump and an ``env.yaml`` audit unchanged, and the campaign driver composes it from
+    transforms and records the rendered result as the run's truth."""
 
     clips: ParkourCommandCfg.Clips = ParkourCommandCfg.Clips(lin_vel_clip=0.2, ang_vel_clip=0.2)
     """Re-declared with a DEFAULT (the parent's is MISSING) so the term's contract holds

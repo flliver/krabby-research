@@ -53,7 +53,7 @@ from isaaclab.utils import configclass
 from parkour_isaaclab.envs.mdp.parkours.parkour_event import ParkourEvent
 from parkour_isaaclab.envs.mdp.parkours.parkour_events_cfg import ParkourEventsCfg
 
-from .crab_hex_omni_command_math import wrap_to_pi
+from .crab_hex_omni_command_math import SLOT_MOVE, wrap_to_pi
 from .omni_exposure import (
     SPAWN_PLATFORM,
     OmniExposureLedger,
@@ -100,6 +100,11 @@ class OmniParkourEvent(ParkourEvent):
         self.ep_block_steps = torch.zeros(n, device=dev)
         self.ep_track_dist = torch.zeros(n, device=dev)
         self.ep_cmd_dist = torch.zeros(n, device=dev)
+        # The same two integrals restricted to the rows that are actually being asked to WALK
+        # (``SLOT_MOVE``): see _accumulate_exposure for why the unrestricted pair cannot
+        # answer "is it tracking".
+        self.ep_track_dist_move = torch.zeros(n, device=dev)
+        self.ep_cmd_dist_move = torch.zeros(n, device=dev)
         self.ep_head_err_sq = torch.zeros(n, device=dev)
         # The base sets this inside _update_command; ours never advances goals, so define it
         # once so any consumer that reads it sees a well-shaped all-false mask.
@@ -171,7 +176,7 @@ class OmniParkourEvent(ParkourEvent):
 
     @property
     def _cmd_term(self):
-        """The omni command term (``travel_dir_w``, ``speed_cmd``, ``heading_target``).
+        """The omni command term (``travel_dir_w``, ``speed_cmd``, ``heading_target``, ``slot_id``).
 
         Resolved lazily and cached: the command manager is built before the parkour manager
         (``ParkourManagerBasedRLEnv.load_managers``), so an eager lookup would work today,
@@ -181,7 +186,7 @@ class OmniParkourEvent(ParkourEvent):
         """
         if self._cmd_term_cache is None:
             term = self.env.command_manager.get_term(self._command_name)
-            for attr in ("travel_dir_w", "speed_cmd", "heading_target", "vel_command_b"):
+            for attr in ("travel_dir_w", "speed_cmd", "heading_target", "vel_command_b", "slot_id"):
                 if not hasattr(term, attr):
                     raise TypeError(
                         f"OmniParkourEvent needs an omni command term at "
@@ -295,6 +300,19 @@ class OmniParkourEvent(ParkourEvent):
         v_along = (self.robot.data.root_lin_vel_b[:, :2] * c_hat).sum(dim=1).clamp(min=0.0)
         self.ep_track_dist += v_along * dt
         self.ep_cmd_dist += cmd_norm * dt
+        # -- the SLOT-GATED twin (WATCH telemetry, 2026-09-18). The pair above integrates over
+        # every row, and the gate they feed (``track_ratio_mean``, the promotion rule) is a
+        # ratio of two integrals -- so a ``move_turn`` row whose body command swings from
+        # forward to lateral as the commanded turn executes ("clamp-only re-cap") keeps adding
+        # to the DENOMINATOR while the robot is, correctly, doing something else. The result is
+        # a tracking number that falls as soon as a window enables turning, for a reason that
+        # has nothing to do with walking worse. Restricting to ``SLOT_MOVE`` -- moving, not
+        # turning -- gives the number that IS comparable across windows: "when it is simply
+        # told to walk somewhere, how much of that does it cover". Watched only; the existing
+        # ratio stays exactly as it is and keeps driving promotion.
+        move = (cmd.slot_id == SLOT_MOVE).to(v_along.dtype)
+        self.ep_track_dist_move += v_along * move * dt
+        self.ep_cmd_dist_move += cmd_norm * move * dt
         err = wrap_to_pi(cmd.heading_target - self.robot.data.heading_w)
         self.ep_head_err_sq += err * err
 
@@ -322,6 +340,8 @@ class OmniParkourEvent(ParkourEvent):
         self.ep_block_steps[env_ids] = 0.0
         self.ep_track_dist[env_ids] = 0.0
         self.ep_cmd_dist[env_ids] = 0.0
+        self.ep_track_dist_move[env_ids] = 0.0
+        self.ep_cmd_dist_move[env_ids] = 0.0
         self.ep_head_err_sq[env_ids] = 0.0
 
     def _finalize_episodes(self, env_ids) -> None:
@@ -343,6 +363,12 @@ class OmniParkourEvent(ParkourEvent):
             steps.cpu(),
             track_ratio=tracking_ratio(self.ep_track_dist[ids], self.ep_cmd_dist[ids]).cpu(),
             track_ratio_valid=(self.ep_cmd_dist[ids] >= self.min_cmd_dist).cpu(),
+            # Same rule, same threshold, restricted to the walking rows: an episode that was
+            # barely asked to WALK is left out of the mean rather than counted as a zero.
+            track_ratio_move=tracking_ratio(
+                self.ep_track_dist_move[ids], self.ep_cmd_dist_move[ids]
+            ).cpu(),
+            track_ratio_move_valid=(self.ep_cmd_dist_move[ids] >= self.min_cmd_dist).cpu(),
             heading_err_rms=torch.sqrt(self.ep_head_err_sq[ids] / steps.clamp(min=1)).cpu(),
             block_steps=self.ep_block_steps[ids].cpu(),
             r_max=self.ep_r_max[ids].cpu(),
