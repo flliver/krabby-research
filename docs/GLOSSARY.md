@@ -13,13 +13,16 @@ For in-depth explanations of the stack see [TECHNOLOGY_AND_TERMINOLOGY.md](TECHN
 | **CLI** | Command-Line Interface | The terminal command wrapper around the SDK (e.g. `python -m firmware …`). |
 | **CRC** | Cyclic Redundancy Check | A checksum stored alongside EEPROM data to detect corruption; a bad CRC means "don't trust this saved calibration." |
 | **DoF** | Degrees of Freedom | The number of independently controllable joints. Each Krabby leg has three (yaw, hip, knee). |
+| **DR** | Domain Randomization | Randomized pushes, chassis mass and CoM offsets during training (`KRABBY_DR_PUSH` / `KRABBY_DR_MASS` / `KRABBY_DR_COM`) so the policy tolerates model error. |
 | **ECR** | (AWS) Elastic Container Registry | Where built locomotion container images are published. The bench watchdog polls it for new images to deploy. |
 | **EEPROM** | Electrically Erasable Programmable Read-Only Memory | Tiny non-volatile memory on the MCU. Krabby stores each board's role/serial and per-joint calibration here so it survives power-off. |
 | **EMI** | Electromagnetic Interference | Electrical noise (e.g. from a running motor) that a floating/unconnected sensor pin can pick up — a source of false readings the firmware has to guard against. |
+| **Exposure (obstacle)** | — | Training-time telemetry of how often episodes leave the start platform and reach each obstacle (`Metrics/<term>/reach_edge_frac`, `reach_obst_frac`, `obst_coverage_k`). |
+| **Gait clock** | — | A per-env phase advanced each step at a cadence linear in the commanded forward speed (frozen on stop commands); the policy observes its sin/cos and the clock rewards pay for a tripod contact schedule locked to it. |
 | **HAL** | Hardware Abstraction Layer | The boundary that lets the *same* policy run against either simulation or real hardware. Talks over ZMQ; swap the backend, not the policy. |
 | **Hall (sensor)** | Hall-effect sensor | A magnetic position sensor. On Krabby it gives *incremental* counts (relative motion), used on the hip-lift and yaw joints. |
 | **H-bridge** | — | The motor-driver circuit (one per motor) that lets the MCU drive a motor forward or backward. Also outputs the current-sense ("IS") signal. |
-| **Hexapod / "hex"** | — | A six-legged robot. Krabby's target chassis; the reference model lives in `assets/crab_hex_ref.urdf`. |
+| **Hexapod / "hex"** | — | A six-legged robot. Krabby's target chassis. The **training plant** is `assets/crab.usda` (generated, A15+B geometry; see [crab-hexapod-plant.md](crab-hexapod-plant.md)); `assets/crab_hex_ref.*` is the legacy teleop/HAL demo model. |
 | **HL** | Hip-Lift | The joint that raises/lowers a leg. Driven by a Hall linear actuator. |
 | **HY** | Hip-Yaw | The joint that swings a leg sideways. Uses a Hall encoder. |
 | **IAM** | (AWS) Identity and Access Management | Controls *what* a device or user is allowed to do in AWS. Each bench device has its own IAM identity. |
@@ -38,6 +41,7 @@ For in-depth explanations of the stack see [TECHNOLOGY_AND_TERMINOLOGY.md](TECHN
 | **PWM** | Pulse-Width Modulation | How motor speed is set: the driver switches power on/off fast, and the on-fraction (duty cycle) sets effective voltage. Higher PWM = harder drive. |
 | **RGB-D** | Red-Green-Blue + Depth | A camera image that carries colour *and* per-pixel distance. The depth channel is what the parkour policy "sees." |
 | **RL** | Reinforcement Learning | Training a policy by reward/trial-and-error in simulation. Krabby learns parkour locomotion this way. |
+| **RSI** | Reference State Initialization | Starting a fraction of episode resets (`KRABBY_RSI_FRAC`) from a bank of states sampled along a scripted reference gait, so the policy starts inside the gait instead of from a stand. |
 | **S3** | (AWS) Simple Storage Service | Object storage; the bench smoke test compares deployed firmware against a manifest kept in S3. |
 | **SDK** | Software Development Kit | The Python library you call from code (e.g. `KrabbyMCUSDK`). The CLI is a thin wrapper around it. |
 | **Shield** | — | A board that plugs on top of an Arduino to add hardware. The Krabby-Uno shield carries motor-driver and sensor wiring; it has no CPU of its own. |

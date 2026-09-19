@@ -1,0 +1,43 @@
+campaign: 2026-08-13_2000_onedir_spin
+era: A
+dates: 2026-08-13..2026-08-15
+question: Can a penalty/positive-spin reward reliably produce a certified velocity-era
+  flat-walk reference with sustained one-direction quick-return shaft spin?
+verdict: 'CAMPAIGN CLOSED - UNBAKED (RESULTS.md, user decision 2026-08-15): the model_22998
+  reference bake and the -0.3 reversal default were rescinded because all era weight
+  evidence was scored with the dominant tracking term inert; successor is the Task-1
+  velocity campaign (C1 tracking -> C2 -> C3 -> CPG escalation).'
+plant: hand-authored crab_simple.usda (era A, pre-2026-08-20 rebuild)
+aliases: []
+records:
+- RESULTS.md
+- CHANGELOG.md
+- lottery_summary.md
+- staged_ramp_summary.md
+head:
+  role: flat_walk
+  task: Isaac-Crab-Hex-Flat-Walk-v0
+  source: screen_r4c_ft19999/logs/rsl_rl/crab_hex_flat_walk/2026-08-14_17-25-51/model_22998.pt
+  sha256: 580b6f3b1e77dd84116d31ff8c524e3f68b249977d08c13590a47c93c7764831
+  dest: head/model_22998.pt
+  why: The campaign's SPIN reference candidate (RESULTS.md 'Current best artifacts'
+    + BAKED 2026-08-14 block) - the quick-return mechanism working as designed; that
+    bake was later rescinded (CLOSED - UNBAKED) but it remains the era's checkpoint
+    of record.
+  metrics:
+    one_direction_ratio: '1.0'
+    completion: '1.0'
+    slip: 24.7%
+    rear_phase_lock: 0.18 -> 0.19 (static)
+  env:
+    KRABBY_REVERSAL_W: '-0.3'
+    KRABBY_CAM_SCHED_W: '-0.1'
+    KRABBY_PHASE_LOCK_W: '0.1'
+evals:
+- in_tree: '**/gait_eval*/**'
+keep_globs:
+- run_meta.json
+- scenario_metrics.json
+- summary.md
+- gait_diagram_*.png
+paths_note: true

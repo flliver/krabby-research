@@ -1,0 +1,54 @@
+{
+  "settled_root_height_m": 1.112891435623169,
+  "settled_foot_forces_N": [
+    233.9,
+    552.5,
+    364.8,
+    198.1,
+    501.4,
+    354.2
+  ],
+  "gait_steps": 800,
+  "true_stance_fraction": 0.722083330154419,
+  "dead_zone_fraction_of_stance": 0.016733987256884575,
+  "thresholds": {
+    "0.05": {
+      "precision": 0.723,
+      "recall": 0.983,
+      "f1": 0.833
+    },
+    "0.1": {
+      "precision": 0.723,
+      "recall": 0.982,
+      "f1": 0.833
+    },
+    "0.15": {
+      "precision": 0.75,
+      "recall": 0.958,
+      "f1": 0.842
+    },
+    "0.2": {
+      "precision": 0.773,
+      "recall": 0.934,
+      "f1": 0.846
+    },
+    "0.3": {
+      "precision": 0.821,
+      "recall": 0.882,
+      "f1": 0.85
+    },
+    "0.5": {
+      "precision": 0.858,
+      "recall": 0.802,
+      "f1": 0.829
+    },
+    "0.1_driving_only": {
+      "precision": 0.723,
+      "recall": 0.999
+    },
+    "0.2_driving_only": {
+      "precision": 0.773,
+      "recall": 0.95
+    }
+  }
+}

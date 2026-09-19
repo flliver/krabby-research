@@ -1,0 +1,165 @@
+# Crab-hex gait eval scenario set, version 1 (Milestone 18, Task 0, AC 0b).
+#
+# This is the fixed, versioned eval set every later task is scored against. Changing a scenario's
+# meaning invalidates the committed baselines, so add a `scenarios_v2.yaml` instead of editing
+# holds/terrain here; only checkpoint paths + shas are expected to move within v1.
+#
+# Run one scenario:
+#   cd krabby-research/parkour
+#   "$ISAACLAB_PATH/isaaclab.sh" -p parkour_tasks/parkour_tasks/crab_hexapod_task/scripts/eval_crab_hex_gait.py \
+#     --headless --scenario teacher_2b2_forward
+# Run the whole set: scripts/run_gait_eval_suite.py (one Isaac process per scenario).
+#
+# BASELINE CHECKPOINT NOTE
+# The grant text names teacher `model_6300.pt` and student `model_9800.pt`. Both predate the
+# cam-mechanism migration: they drove `*_Body_Hip_RevoluteJoint` directly, whereas the current asset
+# drives `*_Body_CamShaft_RevoluteJoint` with the hip passive and kinematically slaved
+# (theta_hip = radians(50) * sin(theta_shaft), see mdp/crab_hex_cam_mapping.py). Both are still
+# 18-dim, so they *load* -- and produce meaningless gait, because the joints no longer mean what the
+# policy learned. The scenarios below therefore baseline the current-geometry checkpoints. The
+# harness pins each checkpoint by sha256 and refuses to run on a mismatch.
+
+manifest_version: 1
+
+defaults:
+  prologue_s: 1.5             # spawn drop + settle; never counted as steady state
+  settle_s: 1.0               # skipped after each command change (step response, not gait)
+  min_window_s: 1.0           # shorter scoring windows are discarded, not scored
+  fall_exclusion_s: 0.5       # trimmed before a fall termination
+  contact_force_threshold: 1.0  # matches ParkourHexContactSensorCfg.force_threshold
+  slip_speed_threshold: 0.02
+  min_cycles: 2
+  lin_vel_clip: 0.2           # |vx| below this is silently zeroed to a stop by the command term
+
+scenarios:
+  # --- teacher, 2b2-mixed terrain (the distillation source MDP) ---
+  - id: teacher_2b2_forward
+    role: teacher
+    task: Isaac-Crab-Hex-Teacher-v0
+    env:
+      KRABBY_HEX_TEACHER_MODE: "2b2"
+    terrain_label: 2b2-mixed
+    checkpoint: logs/rsl_rl/crab_hex_teacher/2026-08-05_17-36-56/model_21100.pt
+    checkpoint_sha256: 3e3940d429fac0e9e08a8914c6698bef75428773d61f543788198c3c72b3e011
+    episodes: 10
+    env_seed: 1
+    terrain_generator_seed: 20260807
+    episode_length_s: 24.0
+    freeze_terrain_levels: true
+    rotate_holds_by_env: true   # otherwise speed is confounded with position along the course
+    schedule:
+      - {vx: 0.45, hold_s: 6.0, label: low}
+      - {vx: 0.65, hold_s: 6.0, label: mid}
+      - {vx: 0.85, hold_s: 6.0, label: high}
+    notes: >-
+      Forward holds spanning the teacher's trained lin_vel_x range (0.45-0.85). Sized so the
+      schedule fits inside one episode with headroom before the goal course runs out.
+
+  # --- student, same 2b2-mixed terrain (the deployable policy) ---
+  - id: student_2b2_forward
+    role: student
+    task: Isaac-Crab-Hex-Student-v0
+    terrain_label: 2b2-mixed
+    checkpoint: logs/rsl_rl/crab_hex_student/2026-08-06_14-22-48/model_29098.pt
+    checkpoint_sha256: ba5ef0e820b7c141ff5e0d66f3ed54dd3962f86d8a845579521922c02b8d7318
+    episodes: 10
+    env_seed: 1
+    terrain_generator_seed: 20260807
+    episode_length_s: 24.0
+    freeze_terrain_levels: true
+    rotate_holds_by_env: true
+    schedule:
+      - {vx: 0.45, hold_s: 6.0, label: low}
+      - {vx: 0.65, hold_s: 6.0, label: mid}
+      - {vx: 0.85, hold_s: 6.0, label: high}
+
+  # --- student on 100% flat: the cleanest surface for gait-quality comparison ---
+  - id: student_flat_forward
+    role: student
+    task: Isaac-Crab-Hex-Student-v0
+    env:
+      KRABBY_HEX_PLAY_FLAT: "1"
+    terrain_label: flat
+    checkpoint: logs/rsl_rl/crab_hex_student/2026-08-06_14-22-48/model_29098.pt
+    checkpoint_sha256: ba5ef0e820b7c141ff5e0d66f3ed54dd3962f86d8a845579521922c02b8d7318
+    episodes: 10
+    env_seed: 1
+    episode_length_s: 24.0
+    rotate_holds_by_env: false
+    schedule:
+      - {vx: 0.45, hold_s: 6.0, label: low}
+      - {vx: 0.65, hold_s: 6.0, label: mid}
+      - {vx: 0.85, hold_s: 6.0, label: high}
+    notes: >-
+      Flat removes the parkour goal-yaw confound (on non-flat terrain the policy steers toward
+      parkour_event.target_yaw, which the command schedule does not control), so tracking error is
+      only interpretable here.
+
+  # --- flat-walk stage teacher, its own narrower speed range ---
+  - id: flat_walk_forward
+    role: teacher
+    task: Isaac-Crab-Hex-Flat-Walk-v0
+    terrain_label: flat
+    # NOTE(task1-velocity, BAKED 2026-08-16): C2 screen checkpoint adopted as the
+    # velocity-era reference (user decision) — tracking deficits <=0.08 (gate PASS),
+    # tripod 0.573, reward 27.1, completion 0.9. Known gaps: slip 11.3%, tippy 23.8%,
+    # 3k-scale only; tripod formation is trajectory-dependent (20k rolls missed it).
+    # 2026-09-09: the bundled copy of the same checkpoint (experiments/<campaign>/head/, sha unchanged)
+    checkpoint: parkour_tasks/parkour_tasks/crab_hex_forward_task/experiments/2026-08-15_1530_task1_velocity/head/model_2999.pt
+    checkpoint_sha256: 7500414ccf08d163e8f05476cebf6f2c5bad9bd78cbb07ca57f7e7b01d0dff7c
+    episodes: 10
+    env_seed: 1
+    episode_length_s: 24.0
+    schedule:
+      - {vx: 0.30, hold_s: 6.0, label: low}
+      - {vx: 0.475, hold_s: 6.0, label: mid}
+      - {vx: 0.65, hold_s: 6.0, label: high}
+    notes: Flat-walk's trained lin_vel_x is (0.30, 0.65), not the teacher stack's (0.45, 0.85).
+
+  # --- off-axis probes: RECORDED, NOT GATED ---
+  # observations.py concatenates `0 * commands[:, 0:2]` then `commands[:, 0:1]`, so vy is explicitly
+  # zeroed and wz never enters the observation vector. A vy probe is open-loop by construction: its
+  # "tracking error" will equal the commanded vy exactly. That is a null result and a code-level
+  # verdict on the grant's suspect 2, not a capability measurement.
+  - id: student_flat_probe_vy
+    role: student
+    task: Isaac-Crab-Hex-Student-v0
+    env:
+      KRABBY_HEX_PLAY_FLAT: "1"
+    terrain_label: flat
+    probe: vy
+    checkpoint: logs/rsl_rl/crab_hex_student/2026-08-06_14-22-48/model_29098.pt
+    checkpoint_sha256: ba5ef0e820b7c141ff5e0d66f3ed54dd3962f86d8a845579521922c02b8d7318
+    episodes: 5
+    env_seed: 7
+    episode_length_s: 16.0
+    schedule:
+      - {vx: 0.45, vy: 0.0, hold_s: 4.0, label: baseline}
+      - {vx: 0.45, vy: 0.15, hold_s: 4.0, label: vy_pos}
+      - {vx: 0.45, vy: -0.15, hold_s: 4.0, label: vy_neg}
+    notes: >-
+      Open-loop by construction (the policy cannot observe vy). Documents the absence of lateral
+      capability; do not gate on its tracking error.
+
+  # Yaw is reachable only through the delta_yaw hint at obs dims 6/7, so the probe injects there and
+  # derives its wz reference the way UniformParkourCommand._update_command would.
+  - id: student_flat_probe_yaw
+    role: student
+    task: Isaac-Crab-Hex-Student-v0
+    env:
+      KRABBY_HEX_PLAY_FLAT: "1"
+    terrain_label: flat
+    probe: yaw
+    yaw_mode: delta_yaw_inject
+    checkpoint: logs/rsl_rl/crab_hex_student/2026-08-06_14-22-48/model_29098.pt
+    checkpoint_sha256: ba5ef0e820b7c141ff5e0d66f3ed54dd3962f86d8a845579521922c02b8d7318
+    episodes: 5
+    env_seed: 7
+    episode_length_s: 16.0
+    schedule:
+      - {vx: 0.45, delta_yaw: 0.0, hold_s: 4.0, label: straight}
+      - {vx: 0.45, delta_yaw: 0.4, hold_s: 4.0, label: yaw_pos}
+      - {vx: 0.45, delta_yaw: -0.4, hold_s: 4.0, label: yaw_neg}
+    notes: >-
+      On flat terrain CrabHexParkourObservations forces delta_yaw to zero, so this probe MUST inject
+      to measure anything. Verify empirically that the robot actually turns before trusting it.

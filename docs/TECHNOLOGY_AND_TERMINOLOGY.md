@@ -181,14 +181,14 @@ Key files:
   - Visual and collision geometries
   - Actuator specifications
 - **Where it fits**: 
-  - Robot model: `assets/crab_hex_ref.urdf`
+  - Robot model: `assets/crab_hex_ref.urdf` — the legacy teleop/HAL demo model. The training plant is `assets/crab.usda` (generated USD, A15+B geometry; see [crab-hexapod-plant.md](crab-hexapod-plant.md)), not this URDF.
 - **Why**: URDF is the standard format for robot descriptions in ROS and many simulation platforms, allowing robots to be easily imported into simulators
 
 #### **Xacro (XML Macros)**
 - **What it is**: An XML macro language that extends URDF, allowing parameterized and reusable robot descriptions
 - **Usage**: Used in the URDF file to define reusable leg macros, making it easier to define multiple identical legs
 - **Where it fits**: 
-  - Robot model: `assets/crab_hex_ref.urdf` (uses `xacro:macro` for leg definitions)
+  - Robot model: `assets/crab_hex_ref.urdf` (uses `xacro:macro` for leg definitions) — legacy teleop/HAL demo model; the training plant `assets/crab.usda` is generated, not Xacro-authored
 - **Why**: Xacro reduces code duplication and makes robot descriptions more maintainable
 
 ### Terrain Generation
@@ -298,7 +298,7 @@ The project follows a modular architecture with clear separation between simulat
 
 ### Core Training Architecture
 
-1. **Environment Layer** (`parkour/parkour_isaaclab/envs/`): Defines the RL environment with managers for actions, observations, rewards, and terminations
+1. **Environment Layer** (`parkour/parkour_isaaclab/envs/`): Defines the RL environment with managers for actions, observations, rewards, and terminations, plus the parkour manager (`envs/mdp/parkours/`: goal tracking, terrain-level curriculum, obstacle-exposure telemetry), the velocity-command term (`envs/mdp/parkour_commands/`) and the reset / domain-randomization events (`envs/mdp/events.py`).
 2. **Terrain Layer** (`parkour/parkour_isaaclab/terrains/`): Generates diverse parkour terrains programmatically
 3. **RL Layer** (`parkour/scripts/rsl_rl/`): Implements the training algorithms, neural networks, and training loops
 4. **Task Configuration** (`parkour/parkour_tasks/`): Defines specific task configurations for different robot models and training scenarios

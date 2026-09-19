@@ -1,0 +1,39 @@
+campaign: 2026-08-08_1701_stride_length_v3
+era: A
+dates: 2026-08-08..2026-08-09
+question: Does a v3 redesign of reward_stride_length (stance-only, direction-gated
+  body progress instead of joint displacement) fix the v2 term's snap exploit and
+  net-negative training/gait-eval regression?
+verdict: 'KEPT (CHANGELOG.md Verdict): v3 is by a wide margin the strongest run in
+  the series -- bridge/2b1/2b2 crab_failure and gate clearance beat every other run
+  incl. baseline, flat-walk stability fully recovered, forward_progress still never
+  clears its 0.15 gate; accepted 2b2 model_21900.pt in the record.'
+plant: hand-authored crab_simple.usda (era A, pre-2026-08-20 rebuild)
+aliases:
+- sim_fine_tuning/stride_length_v3
+records:
+- CHANGELOG.md
+- logs/rsl_rl/curriculum_state.json
+head:
+  role: flat_walk
+  task: Isaac-Crab-Hex-Flat-Walk-v0
+  source: logs/rsl_rl/crab_hex_flat_walk/2026-08-08_17-01-57/model_19999.pt
+  sha256: ced680b4f48973a61e900f0df96d5bd1154588b4523a2a27e5b6cbc103cc5bb9
+  dest: head/model_19999.pt
+  why: Flat stage marked complete on this checkpoint in curriculum_state.json (mean_reward
+    40.95, crab_failure 2.49%); its gait_eval showed flat-walk stability fully recovered
+    with the series-best slip ratio -- the record's accepted 2b2 teacher model_21900.pt
+    is not bundled.
+  metrics:
+    flat_crab_failure: 2.49%
+    flat_gait_eval: 100% completion / 0 falls / tripod 0.0
+    flat_slip_ratio: 1.7%
+    flat_tippy_tap_fraction: 19.1%
+evals:
+- in_tree: '**/gait_eval*/**'
+keep_globs:
+- run_meta.json
+- scenario_metrics.json
+- summary.md
+- gait_diagram_*.png
+paths_note: true

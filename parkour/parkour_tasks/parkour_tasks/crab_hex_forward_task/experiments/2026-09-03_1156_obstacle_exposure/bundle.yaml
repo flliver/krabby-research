@@ -1,0 +1,49 @@
+campaign: 2026-09-03_1156_obstacle_exposure
+era: B
+dates: 2026-09-03..2026-09-04
+question: 'PLAN H: can training-time obstacle exposure be raised to a measured partway-through-the-course
+  target (reach_obst >= 0.80, goals_passed >= 2, cov[3] >= 0.50, cov[6] >= 0.20, field_frac
+  >= 0.20) without breaking the gait, with corridors widened (recal2b2w) to fit the
+  robot?'
+verdict: 'REPORT.md CAMPAIGN CLOSE block (user decision 2026-09-04): ANSWERED BUT
+  NOT SOLVED - exposure hypothesis confirmed but the target was reached by no lever
+  or pairing (all arms FAIL vs C0 control; limiter is onset survival); no Phase D
+  replay, no re-bake; the 30k schedule of record 2026-09-02_00-42-53/model_29994.pt
+  stands unchanged.'
+plant: legacy_golden
+aliases: []
+records:
+- REPORT.md
+- CHANGELOG.md
+- state.json
+- detail_C1.md
+- detail_C1_C4f.md
+- detail_C2.md
+- detail_C2_aborted.md
+- detail_C4.md
+- detail_C5.md
+- probe_a001_probe_20k/summary.json
+- probe_a002_probe_30k/summary.json
+- probe_C1_termination/summary.json
+- probe_C1_C4f_termination/summary.json
+- probe_C2_termination/summary.json
+- probe_c3_termination/summary.json
+- probe_C4_termination/summary.json
+- probe_C5_termination/summary.json
+- check_armed/summary.json
+- check_unarmed/summary.json
+head:
+  ref: 2026-08-31_1414_gait_income_phaseout
+evals:
+- source: parkour/logs/rsl_rl/gait_eval/obstacle_exposure
+  dest: evals/obstacle_exposure
+- source: parkour/logs/rsl_rl/gait_eval/obstacle_exposure_obst
+  dest: evals/obstacle_exposure_obst
+- source: parkour/logs/rsl_rl/gait_eval/timing_probe
+  dest: evals/timing_probe
+keep_globs:
+- run_meta.json
+- scenario_metrics.json
+- summary.md
+- gait_diagram_*.png
+paths_note: true

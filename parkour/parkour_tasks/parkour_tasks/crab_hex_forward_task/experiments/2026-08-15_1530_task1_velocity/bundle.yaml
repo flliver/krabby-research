@@ -1,0 +1,38 @@
+campaign: 2026-08-15_1530_task1_velocity
+era: A
+dates: 2026-08-15..2026-08-17
+question: Can disciplined one-change-per-run reward screens (C1 tracking L1, C2 air-time
+  threshold, C3+ stance/tripod/power/symmetry) restore command-following and produce
+  a certified velocity-era tripod flat-walk reference?
+verdict: 'CHANGELOG.md BAKED block (user decision 2026-08-16): C2 model_2999 adopted
+  as the velocity-era reference with C1 (-0.5 L1) and C2 (0.20 air-time threshold)
+  defaults baked; all three carry-up lineages later closed, successor = 2026-08-17_1500_phased_flat.'
+plant: hand-authored crab_simple.usda (era A, pre-2026-08-20 rebuild)
+aliases: []
+records:
+- CHANGELOG.md
+head:
+  role: flat_walk
+  task: Isaac-Crab-Hex-Flat-Walk-v0
+  source: screen_C2_airtime/logs/rsl_rl/crab_hex_flat_walk/2026-08-15_18-01-57/model_2999.pt
+  sha256: 7500414ccf08d163e8f05476cebf6f2c5bad9bd78cbb07ca57f7e7b01d0dff7c
+  dest: head/model_2999.pt
+  why: 'BAKED 2026-08-16 as the velocity-era reference: first tripod of the era (0.573
+    at 3k, above the position-era 0.517) with tracking PASS; scenarios_v1.yaml flat_walk_forward
+    points at it (sha 7500414c...).'
+  metrics:
+    reward_3k: '27.1'
+    tracking_deficit_lo_mid_hi: +0.02 / -0.01 / -0.08
+    tripod: '0.573'
+    completion_slip_tippy: 0.90 / 0.113 / 0.238
+  env:
+    KRABBY_TRACK_L1_W: '-0.5'
+    KRABBY_AIRTIME_THRESH: '0.20'
+evals:
+- in_tree: '**/gait_eval*/**'
+keep_globs:
+- run_meta.json
+- scenario_metrics.json
+- summary.md
+- gait_diagram_*.png
+paths_note: true

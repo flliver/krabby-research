@@ -1,0 +1,155 @@
+{
+  "campaign": "smoke",
+  "plant": "A15+B",
+  "phase": "done",
+  "run_no": 2,
+  "keys": {
+    "seed3": {
+      "2b": {
+        "phase": "2b",
+        "tag": "seed3_2b_001_A15pB_it200",
+        "task": "Isaac-Crab-Hex-Teacher-v0",
+        "mode": "2b",
+        "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_teacher/2026-09-07_13-24-28/model_10197.pt",
+        "status": "ok",
+        "resume": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_flat_walk/2026-09-06_23-59-54/model_9998.pt",
+        "iters": 200,
+        "log": "/home/nickmagus/krabby/krabby-research/sim_fine_tuning/2026-09-07_1330_phase_pipeline/smoke/logs/seed3_2b_001_A15pB_it200_train.log",
+        "wall_h": 0.10000308891137441,
+        "env": {
+          "KRABBY_PHASE": "2b",
+          "KRABBY_PLANT": "A15+B"
+        },
+        "evals": {},
+        "smoke": {
+          "fail_2k": 0.33961900000000006,
+          "fail_end": 0.33961900000000006,
+          "coll_2k": -0.03564900000000001,
+          "ep_len_2k": 1563.9245000000003
+        },
+        "exposure": {
+          "reach_edge_frac": 0.8890300000000002,
+          "reach_obst_frac": 0.8393799999999999,
+          "field_frac_mean": 0.4974,
+          "field_steps_mean": 710.61984,
+          "goals_passed_mean": 0.9945399999999998,
+          "obst_coverage_1": 0.8393799999999999,
+          "obst_coverage_2": 0.5850349999999999,
+          "obst_coverage_3": 0.34414999999999996,
+          "obst_coverage_4": 0.21500499999999997,
+          "obst_coverage_5": 0.12141000000000002,
+          "obst_coverage_6": 0.058199999999999995,
+          "reach_edge_frac_rsi": 1.0,
+          "reach_obst_frac_rsi": 1.0,
+          "field_frac_mean_rsi": 1.0,
+          "field_steps_mean_rsi": 925.0789499999998,
+          "goals_passed_mean_rsi": 0.0,
+          "obst_coverage_1_rsi": 1.0,
+          "obst_coverage_2_rsi": 1.0,
+          "obst_coverage_3_rsi": 1.0,
+          "obst_coverage_4_rsi": 0.9543899999999997,
+          "obst_coverage_5_rsi": 0.8746000000000003,
+          "obst_coverage_6_rsi": 0.6827049999999998,
+          "crab_failure_flat": 0.17144999999999996,
+          "crab_failure_obst": 0.50008,
+          "crab_failure_obst_rsi": 0.537145,
+          "crab_failure_obst_spread": 0.0,
+          "crab_failure_hazard_flat": 0.1197,
+          "crab_failure_hazard_obst": 0.4509499999999999,
+          "ep_steps_flat": 1432.076735,
+          "ep_steps_obst": 1109.01728,
+          "ep_steps_obst_spread": 0.0,
+          "spread_frac_actual": 0.0,
+          "rsi_frac_actual": 0.19691999999999998,
+          "terrain_levels": 4.374065,
+          "how_far_from_start_point": 3.8259399999999992,
+          "current_goal_idx": 1.034155,
+          "stand_frac_actual": 0.16206,
+          "failure_all": 0.34195000000000003,
+          "eplen": 1567.322,
+          "mean_reward": 51.598945000000015,
+          "vloss": 0.023470500000000002,
+          "track": 0.72677,
+          "prints": 200
+        },
+        "checks": [
+          [
+            "plant is A15+B (params/env.yaml usd path)",
+            true
+          ],
+          [
+            "episode_length_s 40 in params",
+            true
+          ],
+          [
+            "experiment crab_hex_teacher",
+            true
+          ],
+          [
+            "exposure telemetry logged (Metrics/base_parkour/reach_obst_frac)",
+            true
+          ],
+          [
+            "gait income telemetry logged (Episode_Reward/reward_clock_schedule)",
+            true
+          ],
+          [
+            "mirror-symmetry loss active (Loss/symmetry or mirror)",
+            true
+          ]
+        ]
+      },
+      "3a": {
+        "phase": "3a",
+        "tag": "seed3_3a_002_A15pB_it200",
+        "task": "Isaac-Crab-Hex-Student-v0",
+        "mode": null,
+        "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_student/2026-09-07_13-30-34/model_20195.pt",
+        "status": "ok",
+        "resume": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_flat_walk/2026-09-07_04-38-50/model_19996.pt",
+        "iters": 200,
+        "log": "/home/nickmagus/krabby/krabby-research/sim_fine_tuning/2026-09-07_1330_phase_pipeline/smoke/logs/seed3_3a_002_A15pB_it200_train.log",
+        "wall_h": 0.46666903456052145,
+        "env": {
+          "KRABBY_PHASE": "3a",
+          "KRABBY_PLANT": "A15+B"
+        },
+        "evals": {},
+        "student": {
+          "depth_actor_loss_first": 10.756935,
+          "depth_actor_loss_last": 3.7672499999999998,
+          "yaw_loss_first": 0.933915,
+          "yaw_loss_last": 0.8721249999999999,
+          "iterations_logged": 200
+        },
+        "checks": [
+          [
+            "plant is A15+B (params/env.yaml usd path)",
+            true
+          ],
+          [
+            "episode_length_s 40 in params",
+            true
+          ],
+          [
+            "experiment crab_hex_student",
+            true
+          ],
+          [
+            "distillation algorithm (DistillationWithExtractor)",
+            true
+          ],
+          [
+            "depth losses logged",
+            true
+          ],
+          [
+            "iteration counter continued from the teacher head",
+            true
+          ]
+        ]
+      }
+    }
+  },
+  "current": {}
+}

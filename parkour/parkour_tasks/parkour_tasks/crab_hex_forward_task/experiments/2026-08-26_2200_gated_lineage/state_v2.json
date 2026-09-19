@@ -1,0 +1,151 @@
+{
+  "phase": "done",
+  "round": 3,
+  "accepted": {
+    "yaw_income": 1,
+    "terrain50": 1,
+    "terrain_recal": 1,
+    "terrain_curriculum": 1,
+    "dr_push": 1,
+    "dr_masscom": 1,
+    "safety_pack": 1,
+    "clearance_pack": 2,
+    "turning": 2,
+    "goalvel_income": 2
+  },
+  "pending": [],
+  "failed": [
+    "speed_band",
+    "episode40"
+  ],
+  "bake_head": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_flat_walk/2026-08-31_01-12-23/model_19996.pt",
+  "cand_idx": 0,
+  "run_no": 52,
+  "controls": {
+    "0": {
+      "probe": {
+        "clock": 0.45713,
+        "failure": 0.13413500000000003,
+        "eplen": 955.4405,
+        "clock_trend": 0.008522000000000196,
+        "fail_trend": -0.011266999999999985
+      },
+      "canary": {
+        "tripod": 0.49361562053318864,
+        "completion": 0.97,
+        "tracking": 0.44929943160361957
+      }
+    },
+    "1": {
+      "probe": {
+        "clock": 0.5093500000000001,
+        "failure": 0.08211,
+        "eplen": 941.677,
+        "clock_trend": 0.0035250000000002224,
+        "fail_trend": 0.0023420000000000385
+      },
+      "canary": {
+        "tripod": 0.44970102221800456,
+        "completion": 1.0,
+        "tracking": 0.4549774929239505
+      }
+    },
+    "2": {
+      "probe": {
+        "clock": 0.5153899999999999,
+        "failure": 0.102765,
+        "eplen": 935.1510000000001,
+        "clock_trend": 0.01333899999999999,
+        "fail_trend": -0.00619699999999998
+      },
+      "canary": {
+        "tripod": 0.4314069944562717,
+        "completion": 1.0,
+        "tracking": 0.4639890920324603
+      }
+    },
+    "3": {
+      "probe": {
+        "clock": 0.42232499999999995,
+        "failure": 0.33405,
+        "eplen": 816.3279999999999,
+        "clock_trend": -9.900000000001574e-05,
+        "fail_trend": 0.022048000000000123
+      },
+      "canary": {
+        "tripod": 0.4328394556398676,
+        "completion": 0.98,
+        "tracking": 0.525188910829115
+      }
+    }
+  },
+  "anchor_done": false,
+  "bank": "/home/nickmagus/krabby/krabby-research/sim_fine_tuning/2026-08-26_2200_gated_lineage/rsi_bank_C4.npz",
+  "anchor_ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_flat_walk/2026-08-27_01-06-53/model_4999.pt",
+  "ref_probe": {
+    "clock": 0.364965,
+    "failure": 0.40515,
+    "eplen": 1392.1225,
+    "clock_trend": -0.012105000000000032,
+    "fail_trend": -0.01765100000000025
+  },
+  "costs": {
+    "goalvel_income": {
+      "clock_ratio": 0.9199188690591463,
+      "fail_delta": 0.07724999999999999
+    },
+    "safety_pack": {
+      "clock_ratio": 1.0406723177741493,
+      "fail_delta": -0.011410000000000003
+    },
+    "turning": {
+      "clock_ratio": 1.0064007221327533,
+      "fail_delta": -0.023635000000000017
+    },
+    "yaw_income": {
+      "clock_ratio": 0.9761689931532296,
+      "fail_delta": 0.04694000000000001
+    },
+    "terrain50": {
+      "clock_ratio": 1.02856676816007,
+      "fail_delta": -0.07052500000000006
+    },
+    "terrain_recal": {
+      "clock_ratio": 0.9804307145802275,
+      "fail_delta": 0.09182000000000004
+    },
+    "terrain_curriculum": {
+      "clock_ratio": 0.9991589026915113,
+      "fail_delta": -0.03613999999999998
+    },
+    "dr_push": {
+      "clock_ratio": 0.9574456603855035,
+      "fail_delta": -5.551115123125783e-17
+    },
+    "dr_masscom": {
+      "clock_ratio": 1.0079693400214171,
+      "fail_delta": 0.025120000000000003
+    },
+    "clearance_pack": {
+      "clock_ratio": 0.9457789246978018,
+      "fail_delta": 0.05906000000000003
+    },
+    "episode40": {
+      "clock_ratio": 0.8641804297638076,
+      "fail_delta": -0.09647371687836381
+    }
+  },
+  "last_pass_ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_flat_walk/2026-08-30_20-11-36/model_19995.pt",
+  "queue": [],
+  "queue_round": 3,
+  "last_bake_canary": {
+    "tripod": 0.43617479954199057,
+    "completion": 0.99,
+    "tracking": 0.4945130159443393
+  },
+  "ref_canary": {
+    "tripod": 0.42438438048118665,
+    "completion": 1.0,
+    "tracking": 0.5139557529800043
+  }
+}

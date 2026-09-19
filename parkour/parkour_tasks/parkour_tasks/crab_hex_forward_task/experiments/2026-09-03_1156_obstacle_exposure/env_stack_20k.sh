@@ -1,0 +1,13 @@
+# Lineage env stack of the 20k head's window (window 3: elements @5k+@10k, clock 0.5,
+# satellites eps, bank pg_r2). Source this for manual probes / smoke checks.
+export KRABBY_CLOCK_W=0.5 KRABBY_APEX_W=0.001 KRABBY_AIRTIME_W=0.001 KRABBY_STRIDE_W=0.001
+export KRABBY_RSI_FRAC=0.2
+export KRABBY_RSI_BANK=/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/experiments/2026-08-31_1414_gait_income_phaseout/rsi_bank_pg_r2.npz
+export KRABBY_FLAT_TERRAIN_MODE=light KRABBY_FLAT_TERRAIN_FLAT_FRAC=0.5 KRABBY_FLAT_TERRAIN_DIFF=0.20:0.70
+export KRABBY_FLAT_TERRAIN_GEOM=recal2b2 KRABBY_FLAT_TERRAIN_CURRICULUM=1 KRABBY_TERRAIN_PROMOTE=0.45:0.25
+export KRABBY_TRACK_SIGMA2=0.1 KRABBY_TRACK_L1_W=-1.0 KRABBY_LIN_VEL_X=0.0:0.35
+export KRABBY_YAW_W=0.2 KRABBY_DR_PUSH=0.5 KRABBY_DR_MASS=-0.5:1.5 KRABBY_DR_COM=0.01
+export KRABBY_EDGE_W=-0.3 KRABBY_STUMBLE_W=-1.0 KRABBY_COLLISION_W=-2.0
+export KRABBY_CLEARANCE_W=0.9 KRABBY_FOOT_CLEAR_FLAT=1 KRABBY_FOOT_CLEAR_W=1.0 KRABBY_FOOT_CLEAR_MIN=0.03
+export KRABBY_SWING_MIN_CLEAR_W=-0.4 KRABBY_HEADING=-1.2:1.2 KRABBY_GOAL_VEL_W=0.75
+export OMNI_KIT_ACCEPT_EULA=yes TERM=xterm

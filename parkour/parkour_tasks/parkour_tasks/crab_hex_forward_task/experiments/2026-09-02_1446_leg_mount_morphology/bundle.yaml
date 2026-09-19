@@ -1,0 +1,37 @@
+campaign: 2026-09-02_1446_leg_mount_morphology
+era: B
+dates: 2026-09-02..2026-09-03
+question: Do outward leg-mount splay (A10/15/20) and/or outboard yaw axes (B) on the
+  front/rear rows widen the forward tip margin enough to stop the plant's nose-down
+  topples, evaluated across all 8 configurations via a kinematics -> statics -> open-loop
+  -> transfer -> formation ladder?
+verdict: 'PAUSED 2026-09-03 11:40 by the user (RESULTS.md CAMPAIGN PAUSED block):
+  the golden crab_simple.usda stays the default plant; geometry gains are real for
+  existing policies (rung iv step-onset falls 74 -> 0-30) but the 0-5k formation config
+  does not form a robust gait on wider plants, so training-side changes are explored
+  first; resumable via run_formation_arms.py.'
+plant: per-arm variants (base = legacy_golden)
+aliases: []
+records:
+- PLAN.md
+- RESULTS.md
+- formation_state.json
+- stop1_rows.json
+- stop2_table.csv
+- stop3_decision_table.csv
+- kinematic_screen.csv
+- clearance_sweep.csv
+- probe/probe_scores.json
+- statics/statics_A10_B.json
+head:
+  none: probe-only campaign (statics, kinematic screens, formation probes per variant);
+    no bake
+evals:
+- source: parkour/logs/rsl_rl/gait_eval/leg_mount_morphology
+  dest: evals/leg_mount_morphology
+keep_globs:
+- run_meta.json
+- scenario_metrics.json
+- summary.md
+- gait_diagram_*.png
+paths_note: true

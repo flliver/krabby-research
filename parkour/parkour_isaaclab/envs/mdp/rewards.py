@@ -6,7 +6,25 @@ from isaaclab.managers import ManagerTermBase, SceneEntityCfg
 from isaaclab.sensors import ContactSensor
 from isaaclab.assets import Articulation
 from isaaclab.utils.math  import euler_xyz_from_quat, wrap_to_pi, quat_apply
-from parkour_isaaclab.envs.mdp.parkours import ParkourEvent 
+from parkour_isaaclab.envs.mdp.parkours import ParkourEvent
+from parkour_tasks.crab_hex_forward_task.mdp.crab_hex_stride_reward import stride_length_reward_step
+from parkour_tasks.crab_hex_forward_task.mdp.crab_hex_clock_reward import (
+    APEX_SIGMA_M as CLOCK_APEX_SIGMA_M,
+    APEX_TARGET_M as CLOCK_APEX_TARGET_M,
+    FOOT_ORDER as CLOCK_FOOT_ORDER,
+    FORCE_REF_N as CLOCK_FORCE_REF_N,
+    VEL_REF_M_S as CLOCK_VEL_REF_M_S,
+    clock_schedule_income,
+    clock_swing_apex_income,
+)
+from parkour_tasks.crab_hex_forward_task.mdp.crab_hex_tripod_reward import (
+    RESET_T_SINCE,
+    S_T_SINCE,
+    STATE_DIM,
+    TRIPOD_A_IDX,
+    TRIPOD_B_IDX,
+    tripod_swap_crossing_reward_step,
+)
 from collections.abc import Sequence
 
 if TYPE_CHECKING:
@@ -71,12 +89,20 @@ def reward_torques(
     asset: Articulation = env.scene[asset_cfg.name]
     return torch.sum(torch.square(asset.data.applied_torque), dim=1)
 
-def reward_dof_error(    
-    env: ParkourManagerBasedRLEnv,        
+def reward_dof_error(
+    env: ParkourManagerBasedRLEnv,
     asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
-    ) -> torch.Tensor: 
+    ) -> torch.Tensor:
     asset: Articulation = env.scene[asset_cfg.name]
-    return torch.sum(torch.square(asset.data.joint_pos - asset.data.default_joint_pos), dim=1)
+    # asset_cfg.joint_ids is slice(None) when no joint_names filter is given (Go2 path),
+    # preserving the historical all-joints behavior.
+    return torch.sum(
+        torch.square(
+            asset.data.joint_pos[:, asset_cfg.joint_ids]
+            - asset.data.default_joint_pos[:, asset_cfg.joint_ids]
+        ),
+        dim=1,
+    )
 
 def reward_hip_pos(
     env: ParkourManagerBasedRLEnv,        
@@ -878,5 +904,409 @@ def penalty_joint_deviation_when_in_contact(
     if num_joints != num_feet:
         load_frac = in_contact.float().sum(dim=1) / float(num_feet)
         return torch.sum(joint_sq, dim=1) * load_frac
-
     return torch.sum(joint_sq * in_contact.float(), dim=1)
+
+
+class PenaltyMotorDirectionReversal(ManagerTermBase):
+    """Penalize the cam-shaft motor changing rotational direction; encourages sustained
+    one-directional spin so the cam geometry -- not motor reversal -- produces the leg's
+    back-and-forth yaw motion."""
+
+    def __init__(self, cfg: RewardTermCfg, env: ParkourManagerBasedRLEnv):
+        super().__init__(cfg, env)
+        asset_cfg: SceneEntityCfg = cfg.params["asset_cfg"]
+        self.joint_ids = asset_cfg.joint_ids
+        self.prev_dir = torch.zeros(env.num_envs, len(self.joint_ids), device=self.device)
+
+    def reset(self, env_ids: Sequence[int] | None = None) -> None:
+        if env_ids is None:
+            env_ids = slice(None)
+        self.prev_dir[env_ids] = 0.0
+
+    def __call__(
+        self,
+        env: ParkourManagerBasedRLEnv,
+        asset_cfg: SceneEntityCfg,
+        vel_deadzone: float = 0.05,
+    ) -> torch.Tensor:
+        asset: Articulation = env.scene[asset_cfg.name]
+        vel = asset.data.joint_vel[:, self.joint_ids]
+        cur_dir = torch.sign(vel) * (vel.abs() > vel_deadzone).float()
+        reversed_mask = (self.prev_dir * cur_dir) < 0
+        penalty = reversed_mask.float().sum(dim=1)
+        nonzero = cur_dir != 0
+        self.prev_dir = torch.where(nonzero, cur_dir, self.prev_dir)
+        return penalty
+
+
+class RewardOneDirectionSpin(ManagerTermBase):
+    """Reward sustained one-directional cam-shaft rotation (velocity era, 2026-08-14).
+
+    Five-point penalty dose-response (onedir-spin campaign) showed taxing reversals is
+    either absorbed (<= -0.6) or collapses locomotion (-1.0); this term shapes TOWARD the
+    spin basin instead. Per shaft it pays the signed-consistency of an EMA'd velocity:
+    |ema(v)| / ema(|v|) in [0, 1] — a symmetric oscillation earns ~0, a continuous spin
+    earns ~1 — scaled by min(ema(|v|)/speed_ref, 1) so slow/parked shafts cannot farm it,
+    and gated on an active velocity command so standing still earns nothing.
+    """
+
+    def __init__(self, cfg: RewardTermCfg, env: ParkourManagerBasedRLEnv):
+        super().__init__(cfg, env)
+        asset_cfg: SceneEntityCfg = cfg.params["asset_cfg"]
+        self.joint_ids = asset_cfg.joint_ids
+        n = len(self.joint_ids)
+        self.ema_signed = torch.zeros(env.num_envs, n, device=self.device)
+        self.ema_abs = torch.zeros(env.num_envs, n, device=self.device)
+
+    def reset(self, env_ids: Sequence[int] | None = None) -> None:
+        if env_ids is None:
+            env_ids = slice(None)
+        self.ema_signed[env_ids] = 0.0
+        self.ema_abs[env_ids] = 0.0
+
+    def __call__(
+        self,
+        env: ParkourManagerBasedRLEnv,
+        asset_cfg: SceneEntityCfg,
+        command_name: str = "base_velocity",
+        ema_tau: float = 2.0,
+        speed_ref: float = 4.0,
+        min_cmd_norm: float = 0.12,
+    ) -> torch.Tensor:
+        asset: Articulation = env.scene[asset_cfg.name]
+        vel = asset.data.joint_vel[:, self.joint_ids]
+        alpha = 1.0 - torch.exp(torch.tensor(-env.step_dt / ema_tau, device=self.device))
+        self.ema_signed = self.ema_signed + alpha * (vel - self.ema_signed)
+        self.ema_abs = self.ema_abs + alpha * (vel.abs() - self.ema_abs)
+        consistency = self.ema_signed.abs() / self.ema_abs.clamp_min(1e-6)
+        speed_scale = (self.ema_abs / speed_ref).clamp(max=1.0)
+        cmd = env.command_manager.get_command(command_name)
+        cmd_active = (torch.norm(cmd[:, :2], dim=1) > min_cmd_norm).float()
+        return (consistency * speed_scale).mean(dim=1) * cmd_active
+
+
+def penalty_tracking_error_l1(
+    env: ParkourManagerBasedRLEnv,
+    command_name: str = "base_velocity",
+    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
+) -> torch.Tensor:
+    """Linear planar velocity-tracking error |cmd_xy - v_xy| (task1-velocity C1).
+
+    The exponential tracking term's gradient dies outside ~+-0.25 m/s (narrow sigma) or
+    pays income without tracking (wide sigma). This L1 penalty supplies constant
+    gradient pressure at every error magnitude and cannot be satisfied at a fixed
+    deficit; as a pure penalty its optimum is exact tracking."""
+    asset: Articulation = env.scene[asset_cfg.name]
+    cmd = env.command_manager.get_command(command_name)
+    return torch.norm(cmd[:, :2] - asset.data.root_lin_vel_b[:, :2], dim=1)
+
+
+def penalty_mechanical_power(
+    env: ParkourManagerBasedRLEnv,
+    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
+) -> torch.Tensor:
+    """Total mechanical power sum |tau * qdot| (lit review s5, replayed 2026-08-15):
+    continuous one-direction spin costs ~738 W vs ~1260-1420 W for shaft-oscillation
+    gaits — the saving is in the LEG chain (fewer reversal transients), so this prices
+    the oscillation basin ~1.7x harder than spin on physics grounds. Weight scale:
+    ~1e-3 puts the differential at a few percent of locomotion income."""
+    asset: Articulation = env.scene[asset_cfg.name]
+    return torch.sum(
+        torch.abs(asset.data.applied_torque * asset.data.joint_vel), dim=1
+    )
+
+
+class PenaltyCamContactSchedule(ManagerTermBase):
+    """Contact-schedule penalty referenced to each leg's OWN cam-shaft phase (round 4,
+    lit-review synthesis: Siekmann-style swing/stance windows, but the clock is the
+    hardware phase variable the quick-return linkage provides).
+
+    Return stroke (fast hip sweep, |d theta_hip/d s| > g_thresh): contact is penalized —
+    the foot should be in swing while the cam snaps the leg back. Power stroke: planar
+    foot speed while in contact is penalized — a planted foot must not slide. The target
+    behavior (contact only during power stroke, no slide) pays exactly zero; as a pure
+    penalty there is no holdable positive-income state to farm.
+    """
+
+    def __init__(self, cfg: RewardTermCfg, env: ParkourManagerBasedRLEnv):
+        super().__init__(cfg, env)
+        asset: Articulation = env.scene[cfg.params["asset_cfg"].name]
+        # resolve leg order by name so shaft, footpad-body, and sensor indices agree
+        shaft_ids, shaft_names = asset.find_joints([".*_Body_CamShaft_RevoluteJoint"], preserve_order=True)
+        legs = [n.split("_")[0] for n in shaft_names]
+        self._shaft_ids = shaft_ids
+        body_ids, body_names = asset.find_bodies([f"{leg}_Footpad" for leg in legs], preserve_order=True)
+        self._foot_body_ids = body_ids
+        sensor: ContactSensor = env.scene.sensors[cfg.params["sensor_cfg"].name]
+        name_to_sensor = {n: i for i, n in enumerate(sensor.body_names)}
+        self._sensor_ids = [name_to_sensor[f"{leg}_Footpad"] for leg in legs]
+
+    def __call__(
+        self,
+        env: ParkourManagerBasedRLEnv,
+        asset_cfg: SceneEntityCfg,
+        sensor_cfg: SceneEntityCfg,
+        g_thresh: float = 0.55,
+        contact_force_threshold: float = 1.0,
+    ) -> torch.Tensor:
+        from parkour_tasks.crab_hex_forward_task.mdp.crab_hex_cam_mapping import cam_shaft_to_hip
+
+        asset: Articulation = env.scene[asset_cfg.name]
+        sensor: ContactSensor = env.scene.sensors[sensor_cfg.name]
+        theta = asset.data.joint_pos[:, self._shaft_ids]
+        _, g = cam_shaft_to_hip(theta, torch.ones_like(theta))
+        in_return = g.abs() > g_thresh
+        forces = sensor.data.net_forces_w_history[:, :, self._sensor_ids, :].norm(dim=-1).max(dim=1)[0]
+        contact = forces > contact_force_threshold
+        foot_speed = asset.data.body_lin_vel_w[:, self._foot_body_ids, :2].norm(dim=-1)
+        force_pen = (contact & in_return).float().sum(dim=1)
+        slide_pen = (foot_speed * (contact & ~in_return).float()).sum(dim=1)
+        return force_pen + slide_pen
+
+
+class RewardClockContactSchedule(ManagerTermBase):
+    """Clock-referenced contact-schedule income (gait-formation-v2 Phase 1) -- see
+    ``crab_hex_clock_reward`` for the pure math and design rationale. Reads the gait clock
+    from ``CrabHexDelayedJointPositionAction.clock_phase``, contact forces from the
+    privileged sensor, and foot world velocities from the articulation. Pays only upright:
+    a fallen robot has every foot unloaded, which would otherwise be free swing income
+    (same gate rationale as RewardCamPhaseLock's round-4 post-mortem)."""
+
+    def __init__(self, cfg: RewardTermCfg, env: ParkourManagerBasedRLEnv):
+        super().__init__(cfg, env)
+        asset: Articulation = env.scene[cfg.params["asset_cfg"].name]
+        foot_names = [f"{leg}_Footpad" for leg in CLOCK_FOOT_ORDER]
+        self._foot_body_ids, _ = asset.find_bodies(foot_names, preserve_order=True)
+        sensor = env.scene.sensors[cfg.params["sensor_cfg"].name]
+        self._foot_sensor_ids, _ = sensor.find_bodies(foot_names, preserve_order=True)
+        from parkour_tasks.crab_hex_forward_task.mdp import crab_hex_dimensions as _dims
+
+        self._cmd_stop = _dims.CLOCK_CMD_STOP_M_S
+
+    def __call__(
+        self,
+        env: ParkourManagerBasedRLEnv,
+        asset_cfg: SceneEntityCfg,
+        sensor_cfg: SceneEntityCfg,
+        command_name: str = "base_velocity",
+        force_ref: float = CLOCK_FORCE_REF_N,
+        vel_ref: float = CLOCK_VEL_REF_M_S,
+        min_upright_gz: float = 0.9,
+        combine: str = "sum",
+    ) -> torch.Tensor:
+        asset: Articulation = env.scene[asset_cfg.name]
+        sensor = env.scene.sensors[sensor_cfg.name]
+        phase = env.action_manager.get_term("joint_pos").clock_phase
+        force = sensor.data.net_forces_w[:, self._foot_sensor_ids].norm(dim=-1)
+        speed_xy = asset.data.body_lin_vel_w[:, self._foot_body_ids, :2].norm(dim=-1)
+        cmd = env.command_manager.get_command(command_name)
+        clock_running = cmd[:, 0].abs() > self._cmd_stop
+        income = clock_schedule_income(
+            phase, force, speed_xy, clock_running, force_ref=force_ref, vel_ref=vel_ref,
+            combine=combine,
+        )
+        upright = (-asset.data.projected_gravity_b[:, 2] > min_upright_gz).float()
+        return income * upright
+
+
+class RewardClockSwingApex(ManagerTermBase):
+    """Scheduled swing-apex income (gait-formation-v2 Phase 4) -- see
+    ``crab_hex_clock_reward.clock_swing_apex_income``. Foot height measured above the
+    nominal ground plane (root z + ground offset, as reward_foot_clearance does).
+    Upright-gated for the same fallen-farming reason as the schedule term."""
+
+    def __init__(self, cfg: RewardTermCfg, env: ParkourManagerBasedRLEnv):
+        super().__init__(cfg, env)
+        asset: Articulation = env.scene[cfg.params["asset_cfg"].name]
+        foot_names = [f"{leg}_Footpad" for leg in CLOCK_FOOT_ORDER]
+        self._foot_body_ids, _ = asset.find_bodies(foot_names, preserve_order=True)
+        from parkour_tasks.crab_hex_forward_task.mdp import crab_hex_dimensions as _dims
+
+        self._cmd_stop = _dims.CLOCK_CMD_STOP_M_S
+
+    def __call__(
+        self,
+        env: ParkourManagerBasedRLEnv,
+        asset_cfg: SceneEntityCfg,
+        command_name: str = "base_velocity",
+        apex_m: float = CLOCK_APEX_TARGET_M,
+        sigma_m: float = CLOCK_APEX_SIGMA_M,
+        ground_offset_from_root_m: float = -1.05,
+        min_upright_gz: float = 0.9,
+    ) -> torch.Tensor:
+        asset: Articulation = env.scene[asset_cfg.name]
+        phase = env.action_manager.get_term("joint_pos").clock_phase
+        foot_z = asset.data.body_pos_w[:, self._foot_body_ids, 2]
+        ground_z = asset.data.root_pos_w[:, 2].unsqueeze(1) + ground_offset_from_root_m
+        height = foot_z - ground_z
+        cmd = env.command_manager.get_command(command_name)
+        clock_running = cmd[:, 0].abs() > self._cmd_stop
+        income = clock_swing_apex_income(
+            phase, height, clock_running, apex_m=apex_m, sigma_m=sigma_m
+        )
+        upright = (-asset.data.projected_gravity_b[:, 2] > min_upright_gz).float()
+        return income * upright
+
+
+class RewardCamPhaseLock(ManagerTermBase):
+    """Reward in-tripod-set cam-phase coherence, gated by one-direction spin (round 4).
+
+    Sets A = {FL, MR, RL}, B = {FR, ML, RR}. Per set: |mean_j exp(i * dir_j * theta_j)|
+    in [0, 1] (1 = shafts phase-locked), multiplied by the set's mean spin gate
+    (EMA |mean v|/mean |v| x speed scale — the replay-validated one-direction measure),
+    so a non-spinning policy cannot farm the coherence of parked shafts (offline replica:
+    oscillator 3/min vs spin gait 26/min vs ideal 59/min).
+    """
+
+    _SET_A = ("FL", "MR", "RL")
+    _SET_B = ("FR", "ML", "RR")
+
+    def __init__(self, cfg: RewardTermCfg, env: ParkourManagerBasedRLEnv):
+        super().__init__(cfg, env)
+        asset: Articulation = env.scene[cfg.params["asset_cfg"].name]
+        shaft_ids, shaft_names = asset.find_joints([".*_Body_CamShaft_RevoluteJoint"], preserve_order=True)
+        legs = [n.split("_")[0] for n in shaft_names]
+        self._shaft_ids = shaft_ids
+        self._a_cols = [legs.index(leg) for leg in self._SET_A]
+        self._b_cols = [legs.index(leg) for leg in self._SET_B]
+        n = len(shaft_ids)
+        self.ema_signed = torch.zeros(env.num_envs, n, device=self.device)
+        self.ema_abs = torch.zeros(env.num_envs, n, device=self.device)
+
+    def reset(self, env_ids: Sequence[int] | None = None) -> None:
+        if env_ids is None:
+            env_ids = slice(None)
+        self.ema_signed[env_ids] = 0.0
+        self.ema_abs[env_ids] = 0.0
+
+    def __call__(
+        self,
+        env: ParkourManagerBasedRLEnv,
+        asset_cfg: SceneEntityCfg,
+        command_name: str = "base_velocity",
+        ema_tau: float = 2.0,
+        speed_ref: float = 4.0,
+        min_cmd_norm: float = 0.12,
+        min_upright_gz: float = 0.9,
+    ) -> torch.Tensor:
+        asset: Articulation = env.scene[asset_cfg.name]
+        vel = asset.data.joint_vel[:, self._shaft_ids]
+        alpha = 1.0 - torch.exp(torch.tensor(-env.step_dt / ema_tau, device=self.device))
+        self.ema_signed = self.ema_signed + alpha * (vel - self.ema_signed)
+        self.ema_abs = self.ema_abs + alpha * (vel.abs() - self.ema_abs)
+        gate = (self.ema_signed.abs() / self.ema_abs.clamp_min(1e-6)) * (
+            self.ema_abs / speed_ref
+        ).clamp(max=1.0)
+        # direction-normalized phase so opposite-spinning sets compare consistently
+        theta = asset.data.joint_pos[:, self._shaft_ids] * torch.sign(
+            self.ema_signed + 1e-9
+        )
+        z = torch.exp(1j * theta.to(torch.complex64))
+        coh_a = z[:, self._a_cols].mean(dim=1).abs() * gate[:, self._a_cols].mean(dim=1)
+        coh_b = z[:, self._b_cols].mean(dim=1).abs() * gate[:, self._b_cols].mean(dim=1)
+        # NOTE(round-4 screen post-mortem): without these gates the optimal policy is to
+        # FALL OVER and spin — a fallen robot phase-locks trivially (feet off the ground,
+        # no contact-schedule pressure, no ground disturbances). 100% crab_failure at ~80
+        # steps for 3000 iters. Pay only upright, commanded locomotion.
+        cmd = env.command_manager.get_command(command_name)
+        cmd_active = (torch.norm(cmd[:, :2], dim=1) > min_cmd_norm).float()
+        upright = (-asset.data.projected_gravity_b[:, 2] > min_upright_gz).float()
+        return 0.5 * (coh_a + coh_b) * cmd_active * upright
+
+
+class RewardStrideLength(ManagerTermBase):
+    """Reward each leg's stance-phase contribution to real body progress along the commanded
+    direction -- only a planted foot can push the robot forward, so only stance counts, and only
+    the component of body motion actually moving in the desired direction (motion the wrong way
+    earns nothing). Convex in accumulated stance progress so one long productive stance outscores
+    several short ones covering the same net range, same anti-tippy-tap rationale as before. See
+    ``crab_hex_stride_reward.stride_length_reward_step`` for the pure math and the rationale for
+    dropping the earlier swing-phase reward (real training data showed a leg "snapping" through
+    its whole joint range in a single physics step to bank reward without moving the robot at
+    all -- measuring body progress rather than joint-space movement eliminates that structurally,
+    no separate velocity cost needed).
+
+    This is v3 of the term (v4, per-foot touchdown-to-touchdown displacement, was tried and
+    reverted back to this design -- see ``parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/experiments/2026-08-09_0106_stride_length_v4/CHANGELOG.md``: v4
+    finally beat the target stride-length metric at 2b2 but at the cost of the worst tippy-tap in
+    the whole comparison series and broad regressions vs this design on training stability)."""
+
+    def __init__(self, cfg: RewardTermCfg, env: ParkourManagerBasedRLEnv):
+        super().__init__(cfg, env)
+        sensor_cfg: SceneEntityCfg = cfg.params["sensor_cfg"]
+        self.body_ids = sensor_cfg.body_ids
+        self.stance_progress = torch.zeros(env.num_envs, len(self.body_ids), device=self.device)
+
+    def reset(self, env_ids: Sequence[int] | None = None) -> None:
+        if env_ids is None:
+            env_ids = slice(None)
+        self.stance_progress[env_ids] = 0.0
+
+    def __call__(
+        self,
+        env: ParkourManagerBasedRLEnv,
+        asset_cfg: SceneEntityCfg,
+        sensor_cfg: SceneEntityCfg,
+        command_name: str,
+        power: float = 2.0,
+        min_phase_duration: float = 0.1,
+        min_cmd_norm: float = 0.12,
+    ) -> torch.Tensor:
+        asset: Articulation = env.scene[asset_cfg.name]
+        contact_sensor: ContactSensor = env.scene.sensors[sensor_cfg.name]
+        root_lin_vel_b_xy = asset.data.root_lin_vel_b[:, :2]
+        command_xy = env.command_manager.get_command(command_name)[:, :2]
+        in_contact = contact_sensor.data.current_contact_time[:, self.body_ids] > 0.0
+        first_contact = contact_sensor.compute_first_contact(env.step_dt)[:, self.body_ids]
+        first_air = contact_sensor.compute_first_air(env.step_dt)[:, self.body_ids]
+        last_contact_time = contact_sensor.data.last_contact_time[:, self.body_ids]
+        reward, self.stance_progress = stride_length_reward_step(
+            root_lin_vel_b_xy, command_xy, in_contact, first_contact, first_air,
+            last_contact_time, self.stance_progress, env.step_dt, power,
+            min_phase_duration, min_cmd_norm,
+        )
+        return reward
+
+
+class RewardTripodSchedule(ManagerTermBase):
+    """Event credit for genuine tripod-support alternation (v5 crossing credit). See
+    ``crab_hex_tripod_reward.tripod_swap_crossing_reward_step`` for the full math and the
+    campaign history (v1-v4 addenda) that led to it. Uses *raw* per-foot contact -- the healthy
+    gait's stance bouts are shorter than any useful debounce window."""
+
+    def __init__(self, cfg: RewardTermCfg, env: ParkourManagerBasedRLEnv):
+        super().__init__(cfg, env)
+        sensor_cfg: SceneEntityCfg = cfg.params["sensor_cfg"]
+        self.body_ids = sensor_cfg.body_ids
+        self.state = torch.zeros(env.num_envs, STATE_DIM, device=self.device)
+        self.state[:, S_T_SINCE] = RESET_T_SINCE
+
+    def reset(self, env_ids: Sequence[int] | None = None) -> None:
+        if env_ids is None:
+            env_ids = slice(None)
+        self.state[env_ids] = 0.0
+        self.state[env_ids, S_T_SINCE] = RESET_T_SINCE
+
+    def __call__(
+        self,
+        env: ParkourManagerBasedRLEnv,
+        sensor_cfg: SceneEntityCfg,
+        command_name: str,
+        min_cmd_norm: float = 0.12,
+        ema_tau: float = 0.06,
+        corr_tau: float = 0.20,
+        min_period: float = 0.10,
+        max_period: float = 0.60,
+        min_amp: float = 0.15,
+        var_min: float = 0.01,
+        credit_scale: float = 1.0,
+    ) -> torch.Tensor:
+        contact_sensor: ContactSensor = env.scene.sensors[sensor_cfg.name]
+        contact = contact_sensor.data.current_contact_time[:, self.body_ids] > 0.0
+        command_xy = env.command_manager.get_command(command_name)[:, :2]
+        reward, self.state = tripod_swap_crossing_reward_step(
+            contact, command_xy, self.state, env.step_dt,
+            TRIPOD_A_IDX, TRIPOD_B_IDX, min_cmd_norm, ema_tau, corr_tau,
+            min_period, max_period, min_amp, var_min, credit_scale,
+        )
+        return reward

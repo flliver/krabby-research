@@ -1,0 +1,9 @@
+config,hardware,splay,axis in,rung i walk tip p50/p10,rung i lead tip p50,rung i prefall frac neg,rung i min clearance mm (tripod),rung i lateral reach loss mm,rung ii sound,rung ii standing lead tip Δ,rung ii K proxy,rung iii survivors/8 @0.3 / @0.5,rung iii ttf ratio @0.5,rung iii pitch-fwd share @0.5,rung iii hip/femur N,rung iv 30k falls fwd / step (Δ vs base),rung iv 20k falls fwd / step (Δ vs base),rung iv 30k step pitch-fwd share (of falls),rung iv 30k step prefall tip p25
+base,none,0°,5.5,6.9 / 1.7,18.1,0.33,-75,0,yes,0.0°,1.00×,6 / 4,1.00×,0.25,0,100 / 74,95 / 36,1.00,-1.0°
+B,re-hinge 3 in,0°,2.5,8.8 / 3.7,22.0,0.15,-75,0,yes,2.0°,1.28×,8 / 8,1.39×,—,0,40 (-60) / 30 (-44),6 (-89) / 17 (-19),1.00,-0.6°
+A10,10° shims,10°,5.5,9.5 / 4.4,22.8,0.10,-62,10,yes,3.2°,1.68×,8 / 5,1.39×,0.33,192,33 (-67) / 21 (-53),0 (-95) / 6 (-30),1.00,1.6°
+A15,15° shims,15°,5.5,10.8 / 5.7,24.9,0.04,-56,22,yes,5.9°,1.45×,8 / 8,1.39×,—,0,28 (-72) / 6 (-68),1 (-94) / 3 (-33),1.00,2.0°
+A20,20° shims,20°,5.5,12.1 / 7.0,26.7,0.01,-51,39,yes,7.4°,2.50×,6 / 6,1.39×,0.00,40,31 (-69) / 7 (-67),1 (-94) / 0 (-36),1.00,4.2°
+A10+B,10° shims + re-hinge,10°,2.5,11.5 / 6.3,26.4,0.03,-62,10,yes,5.1°,2.66×,8 / 8,1.39×,—,0,24 (-76) / 2 (-72),0 (-95) / 1 (-35),1.00,-4.9°
+A15+B,15° shims + re-hinge,15°,2.5,12.8 / 7.7,28.3,0.01,-55,22,yes,8.0°,3.21×,8 / 8,1.39×,—,50,22 (-78) / 0 (-74),0 (-95) / 0 (-36),—,—
+A20+B,20° shims + re-hinge,20°,2.5,14.1 / 9.0,30.1,0.00,-41,39,yes,10.0°,3.75×,8 / 8,1.39×,—,943,19 (-81) / 1 (-73),0 (-95) / 0 (-36),1.00,8.1°

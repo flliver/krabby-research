@@ -1,0 +1,107 @@
+{
+  "action_dim": 18,
+  "action_joint_names": [
+    "FL_Body_CamShaft_RevoluteJoint",
+    "FR_Body_CamShaft_RevoluteJoint",
+    "ML_Body_CamShaft_RevoluteJoint",
+    "MR_Body_CamShaft_RevoluteJoint",
+    "RL_Body_CamShaft_RevoluteJoint",
+    "RR_Body_CamShaft_RevoluteJoint",
+    "FL_Hip_Femur_RevoluteJoint",
+    "FR_Hip_Femur_RevoluteJoint",
+    "ML_Hip_Femur_RevoluteJoint",
+    "MR_Hip_Femur_RevoluteJoint",
+    "RL_Hip_Femur_RevoluteJoint",
+    "RR_Hip_Femur_RevoluteJoint",
+    "FL_Femur_Tibia_RevoluteJoint",
+    "FR_Femur_Tibia_RevoluteJoint",
+    "ML_Femur_Tibia_RevoluteJoint",
+    "MR_Femur_Tibia_RevoluteJoint",
+    "RL_Femur_Tibia_RevoluteJoint",
+    "RR_Femur_Tibia_RevoluteJoint"
+  ],
+  "checkpoint": "/home/nickmagus/krabby/krabby-research/sim_fine_tuning/gait_tuned/t2_hybrid/logs/rsl_rl/crab_hex_teacher/2026-08-09_23-17-24/model_20696.pt",
+  "checkpoint_sha256": "532d04d52429121182adff33b8d15bd6aeb99ddbdda7e691002f11f9fdd9c256",
+  "command_override_max_deviation": 0.0,
+  "dt": 0.02,
+  "env_overrides": {
+    "episode_length_s": 24.0,
+    "freeze_terrain_levels": true,
+    "seed": 1,
+    "terrain_generator_seed": 20260807
+  },
+  "env_vars": {
+    "KRABBY_HEX_TEACHER_MODE": "2b2"
+  },
+  "foot_body_ids": [
+    25,
+    26,
+    27,
+    28,
+    29,
+    30
+  ],
+  "foot_body_names": [
+    "FL_Footpad",
+    "FR_Footpad",
+    "ML_Footpad",
+    "MR_Footpad",
+    "RL_Footpad",
+    "RR_Footpad"
+  ],
+  "hold_labels": [
+    "low",
+    "mid",
+    "high"
+  ],
+  "n_steps_per_env": [
+    975,
+    244,
+    975,
+    975,
+    417,
+    975,
+    975,
+    975,
+    111,
+    245
+  ],
+  "n_steps_planned": 975,
+  "notes": "Forward holds spanning the teacher's trained lin_vel_x range (0.45-0.85). Sized so the schedule fits inside one episode with headroom before the goal course runs out.",
+  "num_envs": 10,
+  "num_prop": 75,
+  "obs_dim_actual": 1151,
+  "obs_dim_warning": "num_prop=75 but observation width is 1151; train and play share this slicing so it is self-consistent, but the 'scan' slice is not the height scan.",
+  "policy_sees_command_channel": {
+    "vx": true,
+    "vy": false,
+    "wz": false
+  },
+  "robot_num_joints": 24,
+  "role": "teacher",
+  "scenario_id": "teacher_2b2_forward",
+  "sensor_foot_ids": [
+    3,
+    8,
+    13,
+    18,
+    23,
+    28
+  ],
+  "started_utc": "2026-08-10T03:32:48.876998+00:00",
+  "task": "Isaac-Crab-Hex-Teacher-v0",
+  "termination_reason": [
+    "schedule_complete",
+    "fall",
+    "schedule_complete",
+    "schedule_complete",
+    "fall",
+    "schedule_complete",
+    "schedule_complete",
+    "schedule_complete",
+    "fall",
+    "fall"
+  ],
+  "terrain_source": "raycast_mesh",
+  "zero_actions": false
+}

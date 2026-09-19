@@ -1,0 +1,118 @@
+{
+ "label": "check_unarmed",
+ "checkpoint": "logs/rsl_rl/crab_hex_flat_walk/2026-09-01_15-10-31/model_19996.pt",
+ "task": "Isaac-Crab-Hex-Flat-Walk-v0",
+ "episode_length_s": 20.0,
+ "resampling_time_range": [
+  6.0,
+  6.0
+ ],
+ "lin_vel_x": [
+  0.0,
+  0.35
+ ],
+ "policy_std_mean": 2.0001144409179688,
+ "env_vars": {
+  "KRABBY_FLAT_TERRAIN_DIFF": "0.20:0.70",
+  "KRABBY_RSI_BANK": "/home/nickmagus/krabby/krabby-research/sim_fine_tuning/2026-08-31_1414_gait_income_phaseout/rsi_bank_pg_r2.npz",
+  "KRABBY_FOOT_CLEAR_MIN": "0.03",
+  "KRABBY_HEADING": "-1.2:1.2",
+  "KRABBY_TRACK_SIGMA2": "0.1",
+  "KRABBY_RSI_FRAC": "0.2",
+  "KRABBY_DR_MASS": "-0.5:1.5",
+  "KRABBY_FOOT_CLEAR_FLAT": "1",
+  "KRABBY_AIRTIME_W": "0.001",
+  "KRABBY_FLAT_TERRAIN_FLAT_FRAC": "0.5",
+  "KRABBY_FLAT_TERRAIN_MODE": "light",
+  "KRABBY_STUMBLE_W": "-1.0",
+  "KRABBY_CLOCK_W": "0.5",
+  "KRABBY_APEX_W": "0.001",
+  "KRABBY_STRIDE_W": "0.001",
+  "KRABBY_FOOT_CLEAR_W": "1.0",
+  "KRABBY_DR_PUSH": "0.5",
+  "KRABBY_GOAL_VEL_W": "0.75",
+  "KRABBY_YAW_W": "0.2",
+  "KRABBY_EDGE_W": "-0.3",
+  "KRABBY_FLAT_TERRAIN_CURRICULUM": "1",
+  "KRABBY_COLLISION_W": "-2.0",
+  "KRABBY_TRACK_L1_W": "-1.0",
+  "KRABBY_SWING_MIN_CLEAR_W": "-0.4",
+  "KRABBY_DR_COM": "0.01",
+  "KRABBY_CLEARANCE_W": "0.9",
+  "KRABBY_TERRAIN_PROMOTE": "0.45:0.25",
+  "KRABBY_FLAT_TERRAIN_GEOM": "recal2b2",
+  "KRABBY_LIN_VEL_X": "0.0:0.35"
+ },
+ "modes": {
+  "stochastic": {
+   "mode": "stochastic",
+   "steps": 300,
+   "num_envs": 16,
+   "episodes_pushed": 1,
+   "exposure": {
+    "reach_edge_frac": NaN,
+    "reach_obst_frac": NaN,
+    "field_frac_mean": NaN,
+    "field_steps_mean": NaN,
+    "goals_passed_mean": NaN,
+    "obst_coverage_1": NaN,
+    "obst_coverage_2": NaN,
+    "obst_coverage_3": NaN,
+    "obst_coverage_4": NaN,
+    "obst_coverage_5": NaN,
+    "obst_coverage_6": NaN,
+    "reach_edge_frac_rsi": NaN,
+    "reach_obst_frac_rsi": NaN,
+    "field_frac_mean_rsi": NaN,
+    "field_steps_mean_rsi": NaN,
+    "goals_passed_mean_rsi": NaN,
+    "obst_coverage_1_rsi": NaN,
+    "obst_coverage_2_rsi": NaN,
+    "obst_coverage_3_rsi": NaN,
+    "obst_coverage_4_rsi": NaN,
+    "obst_coverage_5_rsi": NaN,
+    "obst_coverage_6_rsi": NaN,
+    "crab_failure_flat": 1.0,
+    "crab_failure_obst": NaN,
+    "crab_failure_obst_rsi": NaN,
+    "ep_steps_flat": 180.0,
+    "ep_steps_obst": NaN,
+    "spread_frac_actual": 0.0,
+    "rsi_frac_actual": 0.0,
+    "crab_failure_hazard_flat": 5.555555555555555,
+    "crab_failure_hazard_obst": NaN
+   },
+   "timeline": {
+    "walking_frac_all": 0.6137499809265137,
+    "walking_frac_non_rsi": 0.6279487013816833,
+    "cmd_on_frac": 0.16249999403953552,
+    "walking_given_cmd_on": 0.8589743375778198,
+    "walking_given_cmd_off": 0.5661691427230835,
+    "mean_root_vx_walking": 0.1367545872926712,
+    "mean_root_vx_cmd_on": 0.17589648067951202,
+    "motion_profile_bins_s": 6.0,
+    "motion_profile_walking": [
+     0.6279487013816833,
+     NaN,
+     NaN,
+     NaN
+    ],
+    "motion_profile_cmd_on": [
+     0.20000000298023224,
+     NaN,
+     NaN,
+     NaN
+    ],
+    "motion_profile_walking_obst": [
+     0.6183333396911621,
+     NaN,
+     NaN,
+     NaN
+    ]
+   },
+   "terrain_levels_mean": 1.875,
+   "obst_tile_frac": 0.5,
+   "wall_s": 11.70554256439209
+  }
+ }
+}

@@ -1,0 +1,45 @@
+campaign: 2026-08-22_1200_gait_formation_v2
+era: B
+dates: 2026-08-22..2026-08-25
+question: Can a clock-scheduled swing/stance reward (plus mirror loss and RSI) form
+  a real tripod gait on the collision-fixed hardware-morphology plant, then add lift
+  and smoothness on top of it?
+verdict: CAMPAIGN CLOSED with M1C (J1+K1 combination, +5k consolidation) as REFERENCE
+  OF RECORD 2026-08-25_19-09-15/model_24900.pt; lift closed at ~5 cm (plant property)
+  and smoothness closed (churn is load-bearing) - CHANGELOG.md 'M1C - FINAL BAKE'
+  row
+plant: legacy_golden
+aliases: []
+records:
+- CHANGELOG.md
+head:
+  role: flat_walk
+  task: Isaac-Crab-Hex-Flat-Walk-v0
+  source: parkour/logs/rsl_rl/crab_hex_flat_walk/2026-08-25_19-09-15/model_24900.pt
+  sha256: f6948736eb01d3c68fd77a43d34462ef9ffb1456e355bea44318c946b85ef384
+  dest: head/model_24900.pt
+  why: 'M1C final bake (user: reference = J1 + K1): dominates J1 on flat and matches
+    K1''s obstacle crossing with far better terrain gait; model_24900 = 98% of the
+    batch after a trainer hang at iter 24963'
+  metrics:
+    flat: tripod 0.604 / completion 0.94 / tracking 0.428
+    obstacle: tripod 0.563 / completion 0.57
+  env:
+    KRABBY_CLOCK_W: '1.0'
+    KRABBY_TRACK_SIGMA2: '0.1'
+    KRABBY_TRACK_L1_W: '-1.0'
+    KRABBY_LIN_VEL_X: 0.0:0.35
+    KRABBY_RSI_FRAC: '0.2'
+    KRABBY_APEX_W: '1.0'
+    KRABBY_FLAT_TERRAIN_MODE: light
+evals:
+- source: parkour/logs/rsl_rl/gait_eval/gait_formation_v2
+  dest: evals/gait_formation_v2
+- source: parkour/logs/rsl_rl/gait_eval/gait_formation_v2_obstacle
+  dest: evals/gait_formation_v2_obstacle
+keep_globs:
+- run_meta.json
+- scenario_metrics.json
+- summary.md
+- gait_diagram_*.png
+paths_note: true

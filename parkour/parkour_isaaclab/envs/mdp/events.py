@@ -44,12 +44,125 @@ def reset_joints_by_offset(
     asset.write_joint_state_to_sim(joint_pos, joint_vel, env_ids=env_ids)
 
 
+# ---------------------------------------------------------------------------
+# PLAN H (2026-09-03) obstacle-exposure spawn machinery
+# ---------------------------------------------------------------------------
+from parkour_isaaclab.envs.mdp.parkours.exposure_stats import (  # noqa: E402
+    SPAWN_PLATFORM,
+    SPAWN_RSI,
+    SPAWN_SPREAD,
+    global_height_field,
+    local_to_world_x,
+    patch_is_flat,
+    sample_spread_x,
+    world_to_pixel,
+)
+
+SPREAD_MAX_TRIES = 8
+SPREAD_FLAT_RX_M = 0.3
+"""Half-window along x for the spawn clearance check (no obstacle face within 0.3 m). The
+flat stretches between obstacles are only 0.5-1.35 m long (gap/hurdle spacing 0.8-1.5 m
+minus the obstacle, stones 0.7-1.0 m), so a wider window rejected nearly every in-field
+draw on obstacle tiles (armed check 2026-09-03: all accepted spread spawns on obstacle
+tiles landed on the platform)."""
+SPREAD_FLAT_RY_M = 1.2
+"""Half-window across y: covers the 1.19 m half-stance so no foot spawns in a side trench."""
+SPREAD_FLAT_TOL_M = 0.05
+"""Max height range inside the window; above the +-0.02 m tile noise, below the shallowest
+gap (0.06) / hurdle (0.032 + noise) so an obstacle face inside the window rejects the draw."""
+
+
+def note_spawn_to_parkour(env, env_ids: torch.Tensor, x_w: torch.Tensor, kind) -> None:
+    """Tell every parkour term that implements ``note_spawn`` where env_ids were placed."""
+    pm = getattr(env, "parkour_manager", None)
+    if pm is None:
+        return
+    for name in pm.active_terms:
+        term = pm.get_term(name)
+        if hasattr(term, "note_spawn"):
+            term.note_spawn(env_ids, x_w, kind)
+
+
+def _height_field_cpu(env) -> torch.Tensor:
+    """Global (rows*W, cols*L) int16 height field, cached on the env (CPU)."""
+    hf = getattr(env, "_krabby_height_field_cpu", None)
+    if hf is None:
+        gen = env.scene.terrain.terrain_generator_class
+        hf = global_height_field(torch.from_numpy(gen.height_fields)).contiguous()
+        env._krabby_height_field_cpu = hf
+    return hf
+
+
+def _apply_spawn_spread(
+    env, env_ids: torch.Tensor, positions: torch.Tensor, origin: torch.Tensor, default_z: torch.Tensor,
+    spread: tuple[float, float], spread_frac: float,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Move a Bernoulli(spread_frac) subset of spawns to a uniform tile-local x in ``spread``.
+
+    Upper bound clamped per env to the last obstacle's goal x - 0.5 m; z from the height
+    field; draws whose clearance window is not flat are re-drawn (up to SPREAD_MAX_TRIES),
+    then fall back to the platform spawn. Returns (positions, spawn_kind).
+    """
+    tg = env.scene.terrain.cfg.terrain_generator
+    n = len(env_ids)
+    kind = torch.full((n,), SPAWN_PLATFORM, dtype=torch.long, device=env.device)
+    pick = torch.rand(n, device=env.device) < spread_frac
+    if not bool(pick.any()):
+        return positions, kind
+    hf = _height_field_cpu(env)
+    size_x, size_y = float(tg.size[0]), float(tg.size[1])
+    hscale, vscale = float(tg.horizontal_scale), float(tg.vertical_scale)
+    rows_offset = size_x * tg.num_rows / 2
+    cols_offset = size_y * tg.num_cols / 2
+    rx_px, ry_px = int(round(SPREAD_FLAT_RX_M / hscale)), int(round(SPREAD_FLAT_RY_M / hscale))
+    tol_px = SPREAD_FLAT_TOL_M / vscale
+    lo, hi = float(spread[0]), float(spread[1])
+    hi_t = torch.full((n,), hi, device=env.device)
+    pm = getattr(env, "parkour_manager", None)
+    if pm is not None:
+        for name in pm.active_terms:
+            term = pm.get_term(name)
+            if hasattr(term, "env_goals") and hasattr(term, "num_goals"):
+                last_obst_local = term.env_goals[env_ids, term.num_goals - 2, 0] + 0.5 * size_x
+                hi_t = torch.minimum(hi_t, last_obst_local - 0.5)
+                break
+    accepted = torch.zeros(n, dtype=torch.bool, device=env.device)
+    x_local = torch.zeros(n, device=env.device)
+    z_terr = torch.zeros(n, device=env.device)
+    for _ in range(SPREAD_MAX_TRIES):
+        todo = pick & ~accepted
+        if not bool(todo.any()):
+            break
+        u = torch.rand(n, device=env.device)
+        xl = sample_spread_x(u, lo, hi_t)
+        x_w = local_to_world_x(xl, origin[:, 0], size_x)
+        ix, iy = world_to_pixel(x_w.cpu(), origin[:, 1].cpu(), rows_offset, cols_offset, hscale, tuple(hf.shape))
+        flat = patch_is_flat(hf, ix, iy, rx_px, ry_px, tol_px).to(env.device)
+        ok = flat & todo
+        x_local[ok] = xl[ok]
+        z_terr[ok] = (hf[ix, iy].float() * vscale).to(env.device)[ok]
+        accepted |= ok
+    positions = positions.clone()
+    positions[accepted, 0] = local_to_world_x(x_local, origin[:, 0], size_x)[accepted]
+    positions[accepted, 2] = default_z[accepted] + z_terr[accepted]
+    kind[accepted] = SPAWN_SPREAD
+    return positions, kind
+
+
 def reset_root_state(
     env: ManagerBasedEnv,
     env_ids: torch.Tensor,
     asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
-    offset: float = 3.0
+    offset: float = 3.0,
+    spread: tuple[float, float] | None = None,
+    spread_frac: float = 0.5,
 ):
+    """Place resetting envs on their tile's platform (tile-local x = size_y+... see below).
+
+    PLAN H (2026-09-03): ``spread``/``spread_frac`` (B3, ``KRABBY_SPAWN_SPREAD``) move a
+    fraction of spawns along the course; unset = bit-identical to before. Every spawn is
+    reported to the parkour term (``note_spawn``) for the exposure telemetry (B0).
+    """
     asset: Articulation = env.scene[asset_cfg.name]
     terrain_gen_cfg = env.scene.terrain.cfg.terrain_generator
     root_states = asset.data.default_root_state[env_ids].clone()
@@ -57,8 +170,14 @@ def reset_root_state(
     origin[:,-1] = 0
     positions = root_states[:, 0:3] + origin - \
         torch.tensor((terrain_gen_cfg.size[1] + offset, 0, 0)).to(env.device)
+    spawn_kind = None
+    if spread is not None and spread_frac > 0.0:
+        positions, spawn_kind = _apply_spawn_spread(
+            env, env_ids, positions, origin, root_states[:, 2], spread, spread_frac
+        )
     asset.write_root_pose_to_sim(torch.cat([positions, root_states[:, 3:7]], dim=-1), env_ids=env_ids)
     asset.write_root_velocity_to_sim(root_states[:, 7:13] , env_ids=env_ids) ## it mush need for init vel
+    note_spawn_to_parkour(env, env_ids, positions[:, 0], SPAWN_PLATFORM if spawn_kind is None else spawn_kind)
 
 def randomize_actuator_gains(
     env: ManagerBasedEnv,

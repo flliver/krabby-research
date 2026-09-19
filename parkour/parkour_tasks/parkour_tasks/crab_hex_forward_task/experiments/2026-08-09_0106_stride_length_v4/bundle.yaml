@@ -1,0 +1,36 @@
+campaign: 2026-08-09_0106_stride_length_v4
+era: A
+dates: 2026-08-09..2026-08-09
+question: Does a redesigned v4 stride-length reward (per-foot signed touchdown-to-touchdown
+  displacement, min_swing_duration 0.1 s) beat stride_length_v3 on the harness's literal
+  stride-length metric without regressing stability?
+verdict: 'Not kept, reverting to v3: 2b2 stride length hit a series-best 0.189 m but
+  v4 regressed vs v3 on tippy-tap (worst in series), crab_failure at every stage,
+  2b2 slip_ratio and forward_progress peak (CHANGELOG.md Verdict block).'
+plant: hand-authored crab_simple.usda (era A, pre-2026-08-20 rebuild)
+aliases:
+- sim_fine_tuning/stride_length_v4
+records:
+- CHANGELOG.md
+head:
+  role: flat_walk
+  task: Isaac-Crab-Hex-Flat-Walk-v0
+  source: logs/rsl_rl/crab_hex_flat_walk/2026-08-09_01-06-25/model_19999.pt
+  sha256: aa5f44a61ef32d4a15f014f432d094ef2f1501987c49aeab9f30b8c28ce16b04
+  dest: head/model_19999.pt
+  why: Final flat-walk checkpoint of the 20000-iter from-scratch run that seeded bridge/2b1/2b2;
+    campaign was reverted so no bake, kept as the flat head of record for this attempt
+    (CHANGELOG.md).
+  metrics:
+    flat_gait_eval: 100% completion / 0 falls / tripod 0.0242 / stride 0.170 m
+    flat_tippy_tap: 39.2%
+    flat_crab_failure: 3.52%
+    2b2_stride_length: 0.189 m (series best)
+evals:
+- in_tree: '**/gait_eval*/**'
+keep_globs:
+- run_meta.json
+- scenario_metrics.json
+- summary.md
+- gait_diagram_*.png
+paths_note: true

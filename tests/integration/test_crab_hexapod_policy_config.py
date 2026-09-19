@@ -14,14 +14,14 @@ pytestmark = pytest.mark.isaacsim
 
 def test_crab_hexapod_package_imports() -> None:
     pytest.importorskip("isaaclab")
-    pkg = importlib.import_module("parkour_tasks.crab_hexapod_task")
+    pkg = importlib.import_module("parkour_tasks.crab_hex_forward_task")
     assert pkg is not None
 
 
 def test_crab_hexapod_registered_env_ids() -> None:
     gym = pytest.importorskip("gymnasium")
     pytest.importorskip("isaaclab")
-    importlib.import_module("parkour_tasks.crab_hexapod_task.config.crab_hex")
+    importlib.import_module("parkour_tasks.crab_hex_forward_task.config.crab_hex")
     assert "Isaac-Crab-Hex-Teacher-v0" in gym.registry
     assert "Isaac-Crab-Hex-Student-v0" in gym.registry
 
@@ -29,11 +29,45 @@ def test_crab_hexapod_registered_env_ids() -> None:
 def test_crab_hexapod_action_joint_regexes() -> None:
     pytest.importorskip("isaaclab")
     mdp_cfg = importlib.import_module(
-        "parkour_tasks.crab_hexapod_task.config.crab_hex.agents.parkour_mdp_cfg"
+        "parkour_tasks.crab_hex_forward_task.config.crab_hex.agents.parkour_mdp_cfg"
     )
-    # Same delayed joint-position action as Go2 extreme parkour (`ActionsCfg`).
+    # Same delayed joint-position action as Go2 extreme parkour (`ActionsCfg`). Note: this is
+    # the Teacher-stage action config (unconverted -- teacher's own cam-mechanism migration is
+    # a later, separate step); CrabHexFlatWalkActionsCfg is checked below.
     joint_names = mdp_cfg.ActionsCfg.joint_pos.joint_names
     assert joint_names == [".*"]
+
+
+def test_crab_hexapod_flat_walk_action_joint_names_exclude_passive_hip() -> None:
+    """NOTE(cam-mechanism-migration): FlatWalk's action space must explicitly exclude
+    ``*_Body_Hip_RevoluteJoint`` (now passive/kinematically-slaved to ``*_Body_CamShaft_RevoluteJoint``,
+    see crab_hex_cam_mapping.py) rather than using a ".*" wildcard that would incorrectly include it.
+    """
+    pytest.importorskip("isaaclab")
+    mdp_cfg = importlib.import_module(
+        "parkour_tasks.crab_hex_forward_task.config.crab_hex.agents.parkour_mdp_cfg"
+    )
+    joint_names = mdp_cfg.CrabHexFlatWalkActionsCfg.joint_pos.joint_names
+    assert joint_names == mdp_cfg._CRAB_ACTUATED_JOINT_NAMES
+    assert not any("Body_Hip_RevoluteJoint" in pattern for pattern in joint_names)
+    assert any("Body_CamShaft_RevoluteJoint" in pattern for pattern in joint_names)
+
+
+def test_crab_hexapod_stride_length_reward_config() -> None:
+    """RewardStrideLength (v3) rewards stance-phase body progress along the command -- it needs
+    a command_name to know the desired direction, and its footpad sensor_cfg must use the
+    canonical FL/FR/ML/MR/RL/RR order with preserve_order=True (see
+    crab_hex_stride_reward.py's module docstring)."""
+    pytest.importorskip("isaaclab")
+    mdp_cfg = importlib.import_module(
+        "parkour_tasks.crab_hex_forward_task.config.crab_hex.agents.parkour_mdp_cfg"
+    )
+    for rewards_cfg_cls in (mdp_cfg.CrabHexRewardsCfg, mdp_cfg.CrabHexFlatWalkRewardsCfg):
+        term = rewards_cfg_cls.reward_stride_length
+        sensor_cfg = term.params["sensor_cfg"]
+        assert sensor_cfg.body_names == mdp_cfg._CRAB_FOOT_BODY_NAMES
+        assert sensor_cfg.preserve_order is True
+        assert term.params["command_name"] == "base_velocity"
 
 
 def test_crab_hex_scene_contact_and_base_paths() -> None:
@@ -41,7 +75,7 @@ def test_crab_hex_scene_contact_and_base_paths() -> None:
     pytest.importorskip("pxr")
     pytest.importorskip("isaaclab")
     scene_mod = importlib.import_module(
-        "parkour_tasks.crab_hexapod_task.config.crab_hex.crab_hex_scene_cfg"
+        "parkour_tasks.crab_hex_forward_task.config.crab_hex.crab_hex_scene_cfg"
     )
     teacher = scene_mod.CrabHexTeacherSceneCfg(num_envs=1, env_spacing=1.0)
     assert teacher.height_scanner.prim_path == "{ENV_REGEX_NS}/Robot/krabby/chassis/body"
@@ -62,7 +96,7 @@ def test_crab_hexapod_teacher_runtime_rollout_smoke() -> None:
     gym = pytest.importorskip("gymnasium")
     torch = pytest.importorskip("torch")
     pytest.importorskip("isaaclab")
-    importlib.import_module("parkour_tasks.crab_hexapod_task.config.crab_hex")
+    importlib.import_module("parkour_tasks.crab_hex_forward_task.config.crab_hex")
     env = gym.make("Isaac-Crab-Hex-Teacher-v0", num_envs=2, headless=True)
     obs, _ = env.reset()
     assert "policy" in obs
@@ -81,7 +115,7 @@ def test_crab_hexapod_student_depth_shape_smoke() -> None:
     _require_runtime_smoke()
     gym = pytest.importorskip("gymnasium")
     pytest.importorskip("isaaclab")
-    importlib.import_module("parkour_tasks.crab_hexapod_task.config.crab_hex")
+    importlib.import_module("parkour_tasks.crab_hex_forward_task.config.crab_hex")
     env = gym.make("Isaac-Crab-Hex-Student-v0", num_envs=1, headless=True)
     obs, _ = env.reset()
     assert "depth_camera" in obs

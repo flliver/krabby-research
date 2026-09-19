@@ -1,0 +1,42 @@
+campaign: 2026-08-07_1441_baseline
+era: A
+dates: 2026-08-07..2026-08-07
+question: 'Establish the Milestone 18 Task 1 reference run: measure the CAD-derived
+  Whitworth cam-mapping correction''s own effect on gait (motor-reversal penalty zeroed)
+  as the baseline every later reward-shaping change is compared against.'
+verdict: 'Reference (CHANGELOG.md Verdict block): the flat model_19999 and 2b2 model_21500
+  checkpoints are the baseline every later change in this series is measured against;
+  2b2 clears 4/5 README §4.2b gates (forward_progress 0.121 misses).'
+plant: hand-authored crab_simple.usda (era A, pre-2026-08-20 rebuild)
+aliases:
+- sim_fine_tuning/baseline
+records:
+- CHANGELOG.md
+head:
+  role: flat_walk
+  task: Isaac-Crab-Hex-Flat-Walk-v0
+  source: logs/rsl_rl/crab_hex_flat_walk/2026-08-07_15-31-12/model_19999.pt
+  sha256: 6034767965c6d123a3d909222cac642104ab80b9aae1d5fd5bc4fea40c301ea4
+  dest: head/model_19999.pt
+  why: CHANGELOG.md Verdict names this flat checkpoint (20000 iter from scratch) as
+    the reference baseline for the whole series; 2b2 model_21500 is the valid Task
+    1 resume point.
+  metrics:
+    flat_crab_failure: 0.78%
+    flat_mean_reward: '46.18'
+    flat_gait_eval: schedule_completion 100% / tripod 0.0 / slip 3.0%
+    teacher_2b2: crab_failure 18.75% / completion 90% / forward_progress 0.121
+  extra_heads:
+  - role: teacher
+    task: Isaac-Crab-Hex-Teacher-v0
+    source: logs/rsl_rl/crab_hex_teacher/2026-08-07_22-21-05/model_21500.pt
+    sha256: 9f0ddbdd3eee6a8ee87b4eb35eda3ae44c7a772dccd2b58a227bf573039d302c
+    dest: head/model_21500.pt
+evals:
+- in_tree: '**/gait_eval*/**'
+keep_globs:
+- run_meta.json
+- scenario_metrics.json
+- summary.md
+- gait_diagram_*.png
+paths_note: true

@@ -18,6 +18,9 @@ class ParkourTerrainGenerator(TerrainGenerator):
         self.total_length_pixels = length_pixels * cfg.num_cols
         self.goal_heights = np.zeros((cfg.num_rows, cfg.num_cols, self.num_goals), dtype=np.int16)
         self.x_edge_maskes = np.zeros((cfg.num_rows, cfg.num_cols, width_pixels, length_pixels), dtype=np.int16)
+        # PLAN H (2026-09-03): raw height fields per tile (int16 x vertical_scale = metres),
+        # same pixel frame as x_edge_maskes; consumed by the spawn-spread event.
+        self.height_fields = np.zeros((cfg.num_rows, cfg.num_cols, width_pixels, length_pixels), dtype=np.int16)
 
         super().__init__(cfg=cfg, device=device)
         self.cfg:ParkourTerrainGeneratorCfg
@@ -42,12 +45,13 @@ class ParkourTerrainGenerator(TerrainGenerator):
             sub_terrains_name = sub_terrains_names[sub_index]
             self.terrain_type[sub_row, sub_col] = sub_col
             sub_terrains_cfg = sub_terrains_cfgs[sub_index]
-            mesh, origin, sub_terrain_goal, goal_heights, x_edge_mask = self._get_terrain_mesh(difficulty, sub_terrains_cfg)
+            mesh, origin, sub_terrain_goal, goal_heights, x_edge_mask, heights = self._get_terrain_mesh(difficulty, sub_terrains_cfg)
             # add to sub-terrains
             self.terrain_names[sub_row, sub_col] = sub_terrains_name
             self._add_sub_terrain(mesh, origin, sub_row, sub_col, sub_terrain_goal)
             self.goal_heights[sub_row, sub_col, :] = goal_heights
-            self.x_edge_maskes[sub_row, sub_col,: ,:] = x_edge_mask 
+            self.x_edge_maskes[sub_row, sub_col,: ,:] = x_edge_mask
+            self.height_fields[sub_row, sub_col, :, :] = heights
 
     def _generate_curriculum_terrains(self):
         """Add terrains based on the difficulty parameter."""
@@ -76,13 +80,14 @@ class ParkourTerrainGenerator(TerrainGenerator):
                 # generate terrain
                 sub_terrains_cfg = sub_terrains_cfgs[sub_indices[sub_col]]
                 sub_terrains_name = sub_terrains_names[sub_indices[sub_col]]
-                mesh, origin, sub_terrain_goal, goal_heights, x_edge_mask = self._get_terrain_mesh(difficulty, sub_terrains_cfg)
+                mesh, origin, sub_terrain_goal, goal_heights, x_edge_mask, heights = self._get_terrain_mesh(difficulty, sub_terrains_cfg)
                 # add to sub-terrains
                 self.terrain_type[sub_row, sub_col] = sub_indices[sub_col]
                 self.terrain_names[sub_row, sub_col] = sub_terrains_name
                 self._add_sub_terrain(mesh, origin, sub_row, sub_col, sub_terrain_goal)
                 self.goal_heights[sub_row, sub_col, :] = goal_heights
                 self.x_edge_maskes[sub_row, sub_col,: ,:] = x_edge_mask
+                self.height_fields[sub_row, sub_col, :, :] = heights
 
     def _get_terrain_mesh(
         self, 
@@ -96,7 +101,7 @@ class ParkourTerrainGenerator(TerrainGenerator):
         cfg.seed = self.cfg.seed
         # generate hash for the sub-terrain
         # generate the terrain
-        meshes, origin, goals, goal_heights, x_edge_mask = cfg.function(difficulty, cfg, self.num_goals)
+        meshes, origin, goals, goal_heights, x_edge_mask, heights = cfg.function(difficulty, cfg, self.num_goals)
         mesh = trimesh.util.concatenate(meshes)
         # offset mesh such that they are in their center
         transform = np.eye(4)
@@ -107,7 +112,7 @@ class ParkourTerrainGenerator(TerrainGenerator):
 
         # if caching is enabled, save the mesh and origin
 
-        return mesh, origin, goals, goal_heights, x_edge_mask
+        return mesh, origin, goals, goal_heights, x_edge_mask, heights
     
     def _add_terrain_border(self):
         """Add a surrounding border over all the sub-terrains into the terrain meshes."""

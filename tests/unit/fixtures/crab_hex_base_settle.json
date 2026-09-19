@@ -1,0 +1,101 @@
+{
+ "plant": "legacy_golden",
+ "splay_deg": 0.0,
+ "outer_axis_in": 5.5,
+ "source": "statics_base.npz last settle, golden plant, 2026-09-02 (PLAN G rung ii)",
+ "joint_names": [
+  "FL_Body_Hip_RevoluteJoint",
+  "FL_Body_CamShaft_RevoluteJoint",
+  "FR_Body_Hip_RevoluteJoint",
+  "FR_Body_CamShaft_RevoluteJoint",
+  "ML_Body_Hip_RevoluteJoint",
+  "ML_Body_CamShaft_RevoluteJoint",
+  "MR_Body_Hip_RevoluteJoint",
+  "MR_Body_CamShaft_RevoluteJoint",
+  "RL_Body_Hip_RevoluteJoint",
+  "RL_Body_CamShaft_RevoluteJoint",
+  "RR_Body_Hip_RevoluteJoint",
+  "RR_Body_CamShaft_RevoluteJoint",
+  "FL_Hip_Femur_RevoluteJoint",
+  "FR_Hip_Femur_RevoluteJoint",
+  "ML_Hip_Femur_RevoluteJoint",
+  "MR_Hip_Femur_RevoluteJoint",
+  "RL_Hip_Femur_RevoluteJoint",
+  "RR_Hip_Femur_RevoluteJoint",
+  "FL_Femur_Tibia_RevoluteJoint",
+  "FR_Femur_Tibia_RevoluteJoint",
+  "ML_Femur_Tibia_RevoluteJoint",
+  "MR_Femur_Tibia_RevoluteJoint",
+  "RL_Femur_Tibia_RevoluteJoint",
+  "RR_Femur_Tibia_RevoluteJoint"
+ ],
+ "joint_pos": [
+  3.662642484414391e-05,
+  0.0026652526576071978,
+  0.007540757302194834,
+  0.019645441323518753,
+  0.0073506212793290615,
+  0.018776454031467438,
+  -0.0020808095578104258,
+  0.0041165780276060104,
+  0.0008890947210602462,
+  -0.0008789109997451305,
+  0.001873847097158432,
+  0.005896781105548143,
+  0.010729795321822166,
+  0.017280861735343933,
+  0.021221380680799484,
+  0.0151634206995368,
+  0.01638920046389103,
+  0.014925939030945301,
+  0.32671231031417847,
+  -0.3189573884010315,
+  0.3184381127357483,
+  -0.31877511739730835,
+  0.318336546421051,
+  -0.3243615925312042
+ ],
+ "root_pos_w": [
+  -79.01531982421875,
+  -78.00186920166016,
+  1.0605138540267944
+ ],
+ "root_quat_w_wxyz": [
+  0.9999744892120361,
+  0.001514970324933529,
+  -0.006938830018043518,
+  -0.0007331679807975888
+ ],
+ "footpad_pos_w": {
+  "FL": [
+   -79.2183609008789,
+   -78.98241424560547,
+   0.028116822242736816
+  ],
+  "FR": [
+   -79.21829986572266,
+   -77.01359558105469,
+   0.02990800142288208
+  ],
+  "ML": [
+   -78.99967956542969,
+   -78.98088836669922,
+   0.025636136531829834
+  ],
+  "MR": [
+   -78.99880981445312,
+   -77.01210021972656,
+   0.03357166051864624
+  ],
+  "RL": [
+   -78.78622436523438,
+   -78.985107421875,
+   0.030061423778533936
+  ],
+  "RR": [
+   -78.7844467163086,
+   -77.01659393310547,
+   0.03813093900680542
+  ]
+ }
+}

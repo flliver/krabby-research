@@ -1,0 +1,250 @@
+{
+ "base@0.3": {
+  "leg_contact_hipfemur_max_N": 0.0,
+  "leg_contact_tibia_max_N": 1186.423828125,
+  "n": 8,
+  "survivors": 6,
+  "ttf_median_s": 15.0,
+  "ttf_fallen_median_s": 3.14,
+  "pitch_fwd_share": 0.5,
+  "classes": {
+   "pitch_back": 1,
+   "none": 6,
+   "pitch_fwd": 1
+  },
+  "vx_first2s_mean": -0.05143272061832249,
+  "walk_tip_p50_deg": 9.271741884700134,
+  "prefall_frac_neg": 0.0
+ },
+ "base@0.5": {
+  "leg_contact_hipfemur_max_N": 0.0,
+  "leg_contact_tibia_max_N": 1120.93017578125,
+  "n": 8,
+  "survivors": 4,
+  "ttf_median_s": 10.8,
+  "ttf_fallen_median_s": 2.73,
+  "pitch_fwd_share": 0.25,
+  "classes": {
+   "pitch_back": 3,
+   "none": 4,
+   "pitch_fwd": 1
+  },
+  "vx_first2s_mean": -0.08635735814459622,
+  "walk_tip_p50_deg": 9.851121482837659,
+  "prefall_frac_neg": 0.25
+ },
+ "B@0.3": {
+  "leg_contact_hipfemur_max_N": 0.0,
+  "leg_contact_tibia_max_N": 1753.4464111328125,
+  "n": 8,
+  "survivors": 8,
+  "ttf_median_s": 15.0,
+  "ttf_fallen_median_s": null,
+  "pitch_fwd_share": null,
+  "classes": {
+   "none": 8
+  },
+  "vx_first2s_mean": -0.00019677466480061412,
+  "walk_tip_p50_deg": 13.715473483922977,
+  "prefall_frac_neg": null
+ },
+ "B@0.5": {
+  "leg_contact_hipfemur_max_N": 0.0,
+  "leg_contact_tibia_max_N": 2006.7410888671875,
+  "n": 8,
+  "survivors": 8,
+  "ttf_median_s": 15.0,
+  "ttf_fallen_median_s": null,
+  "pitch_fwd_share": null,
+  "classes": {
+   "none": 8
+  },
+  "vx_first2s_mean": -0.00932040170300752,
+  "walk_tip_p50_deg": 12.486434143592643,
+  "prefall_frac_neg": null
+ },
+ "A10@0.3": {
+  "leg_contact_hipfemur_max_N": 358.7416687011719,
+  "leg_contact_tibia_max_N": 892.841064453125,
+  "n": 8,
+  "survivors": 8,
+  "ttf_median_s": 15.0,
+  "ttf_fallen_median_s": null,
+  "pitch_fwd_share": null,
+  "classes": {
+   "none": 8
+  },
+  "vx_first2s_mean": -0.006253965417272411,
+  "walk_tip_p50_deg": 10.729754672455865,
+  "prefall_frac_neg": null
+ },
+ "A10@0.5": {
+  "leg_contact_hipfemur_max_N": 191.7039794921875,
+  "leg_contact_tibia_max_N": 1022.2546997070312,
+  "n": 8,
+  "survivors": 5,
+  "ttf_median_s": 15.0,
+  "ttf_fallen_median_s": 10.64,
+  "pitch_fwd_share": 0.3333333333333333,
+  "classes": {
+   "pitch_back": 2,
+   "none": 5,
+   "pitch_fwd": 1
+  },
+  "vx_first2s_mean": 0.00017031999595928937,
+  "walk_tip_p50_deg": 9.44699496470147,
+  "prefall_frac_neg": 0.23894208846329232
+ },
+ "A15@0.3": {
+  "leg_contact_hipfemur_max_N": 0.0,
+  "leg_contact_tibia_max_N": 1247.761474609375,
+  "n": 8,
+  "survivors": 8,
+  "ttf_median_s": 15.0,
+  "ttf_fallen_median_s": null,
+  "pitch_fwd_share": null,
+  "classes": {
+   "none": 8
+  },
+  "vx_first2s_mean": 0.012936661019921303,
+  "walk_tip_p50_deg": 11.704279813770121,
+  "prefall_frac_neg": null
+ },
+ "A15@0.5": {
+  "leg_contact_hipfemur_max_N": 0.0,
+  "leg_contact_tibia_max_N": 904.4159545898438,
+  "n": 8,
+  "survivors": 8,
+  "ttf_median_s": 15.0,
+  "ttf_fallen_median_s": null,
+  "pitch_fwd_share": null,
+  "classes": {
+   "none": 8
+  },
+  "vx_first2s_mean": 0.0005263225175440311,
+  "walk_tip_p50_deg": 9.918089942811477,
+  "prefall_frac_neg": null
+ },
+ "A20@0.3": {
+  "leg_contact_hipfemur_max_N": 0.0,
+  "leg_contact_tibia_max_N": 809.5509643554688,
+  "n": 8,
+  "survivors": 6,
+  "ttf_median_s": 15.0,
+  "ttf_fallen_median_s": 7.93,
+  "pitch_fwd_share": 1.0,
+  "classes": {
+   "none": 6,
+   "pitch_fwd": 2
+  },
+  "vx_first2s_mean": 0.0031811550725251436,
+  "walk_tip_p50_deg": 12.08102640560412,
+  "prefall_frac_neg": 0.6590909090909091
+ },
+ "A20@0.5": {
+  "leg_contact_hipfemur_max_N": 40.30695724487305,
+  "leg_contact_tibia_max_N": 771.2614135742188,
+  "n": 8,
+  "survivors": 6,
+  "ttf_median_s": 15.0,
+  "ttf_fallen_median_s": 7.52,
+  "pitch_fwd_share": 0.0,
+  "classes": {
+   "pitch_back": 2,
+   "none": 6
+  },
+  "vx_first2s_mean": -0.002485781500581652,
+  "walk_tip_p50_deg": 10.162782802587788,
+  "prefall_frac_neg": 0.08888888888888889
+ },
+ "A10+B@0.3": {
+  "leg_contact_hipfemur_max_N": 0.0,
+  "leg_contact_tibia_max_N": 989.2631225585938,
+  "n": 8,
+  "survivors": 8,
+  "ttf_median_s": 15.0,
+  "ttf_fallen_median_s": null,
+  "pitch_fwd_share": null,
+  "classes": {
+   "none": 8
+  },
+  "vx_first2s_mean": 0.01232344466552604,
+  "walk_tip_p50_deg": 15.143042514406812,
+  "prefall_frac_neg": null
+ },
+ "A10+B@0.5": {
+  "leg_contact_hipfemur_max_N": 0.0,
+  "leg_contact_tibia_max_N": 857.0678100585938,
+  "n": 8,
+  "survivors": 8,
+  "ttf_median_s": 15.0,
+  "ttf_fallen_median_s": null,
+  "pitch_fwd_share": null,
+  "classes": {
+   "none": 8
+  },
+  "vx_first2s_mean": 0.0012001580325886607,
+  "walk_tip_p50_deg": 14.16004634629408,
+  "prefall_frac_neg": null
+ },
+ "A15+B@0.3": {
+  "leg_contact_hipfemur_max_N": 40.99517822265625,
+  "leg_contact_tibia_max_N": 1035.7098388671875,
+  "n": 8,
+  "survivors": 8,
+  "ttf_median_s": 15.0,
+  "ttf_fallen_median_s": null,
+  "pitch_fwd_share": null,
+  "classes": {
+   "none": 8
+  },
+  "vx_first2s_mean": 0.008763019621255808,
+  "walk_tip_p50_deg": 15.3788129157487,
+  "prefall_frac_neg": null
+ },
+ "A15+B@0.5": {
+  "leg_contact_hipfemur_max_N": 50.26991271972656,
+  "leg_contact_tibia_max_N": 803.0540161132812,
+  "n": 8,
+  "survivors": 8,
+  "ttf_median_s": 15.0,
+  "ttf_fallen_median_s": null,
+  "pitch_fwd_share": null,
+  "classes": {
+   "none": 8
+  },
+  "vx_first2s_mean": 0.0065008108504116535,
+  "walk_tip_p50_deg": 14.770184872771688,
+  "prefall_frac_neg": null
+ },
+ "A20+B@0.3": {
+  "leg_contact_hipfemur_max_N": 301.66424560546875,
+  "leg_contact_tibia_max_N": 573.8172607421875,
+  "n": 8,
+  "survivors": 8,
+  "ttf_median_s": 15.0,
+  "ttf_fallen_median_s": null,
+  "pitch_fwd_share": null,
+  "classes": {
+   "none": 8
+  },
+  "vx_first2s_mean": 0.010836153029231355,
+  "walk_tip_p50_deg": 15.636619664973386,
+  "prefall_frac_neg": null
+ },
+ "A20+B@0.5": {
+  "leg_contact_hipfemur_max_N": 943.3636474609375,
+  "leg_contact_tibia_max_N": 943.7014770507812,
+  "n": 8,
+  "survivors": 8,
+  "ttf_median_s": 15.0,
+  "ttf_fallen_median_s": null,
+  "pitch_fwd_share": null,
+  "classes": {
+   "none": 8
+  },
+  "vx_first2s_mean": -0.010900693014264107,
+  "walk_tip_p50_deg": 15.54700686854516,
+  "prefall_frac_neg": null
+ }
+}

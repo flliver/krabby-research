@@ -1,0 +1,27 @@
+campaign: 2026-08-20_2100_gait_formation
+era: B
+dates: 2026-08-20..2026-08-22
+question: Can a from-scratch cumulative reward stack (PLAN D) on the hardware-morphology
+  plant first clear the wheelie/survival gate and then form a stable tripod gait with
+  good leg lift, smooth motion and continuous cam spin?
+verdict: 'CHANGELOG.md Phase B header + CAMPAIGN HALT row: the user baked the C5 survival
+  stack (LIN_VEL_X 0.0:0.35, TRACK_L1 -1.0, SIGMA2 0.25) as the base after Phase A
+  closed with no reproducible walking winner, and the campaign was halted mid-wave-3
+  when the leg self-collision plant fix invalidated all prior quantitative results.'
+plant: legacy_golden
+aliases: []
+records:
+- CHANGELOG.md
+head:
+  none: a reward STACK (C5) was baked as the base, not a checkpoint file
+evals:
+- source: parkour/logs/rsl_rl/gait_eval/gait_formation
+  dest: evals/gait_formation
+- source: parkour/logs/rsl_rl/gait_eval/gait_formation_fixtures
+  dest: evals/gait_formation_fixtures
+keep_globs:
+- run_meta.json
+- scenario_metrics.json
+- summary.md
+- gait_diagram_*.png
+paths_note: true

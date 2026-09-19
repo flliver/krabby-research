@@ -1,0 +1,39 @@
+campaign: 2026-08-09_1526_gait_tuned
+era: A
+dates: 2026-08-09..2026-08-10
+question: Does the baked flat-walk reward config (from 2026-08-09_0920_short_runs)
+  reproduce from scratch, and which teacher-stack arm (T0 control / T1 full mirror
+  / T2 hybrid) carries it up through bridge->2b1->2b2 without re-opening the tracking-error
+  and camshaft-reversal concerns?
+verdict: 'KEPT: T2 hybrid (reward_action_rate=-0.3, reward_delta_torques=-1e-6, reversal
+  penalty kept at default) recommended for the teacher stack on its 2b2 batch1 result;
+  the batches 2-4 extension worsened held-out gait quality; bake proposed but not
+  applied (CHANGELOG.md Verdict / Bake proposal block).'
+plant: hand-authored crab_simple.usda (era A, pre-2026-08-20 rebuild)
+aliases:
+- sim_fine_tuning/gait_tuned
+records:
+- CHANGELOG.md
+- RESULTS.md
+head:
+  role: flat_walk
+  task: Isaac-Crab-Hex-Flat-Walk-v0
+  source: logs/rsl_rl/crab_hex_flat_walk/2026-08-09_15-27-14/model_19999.pt
+  sha256: 3f29b97b7d3554728f139f2db9df0f482dfb64813555779bc54d0efc0a0ccf9e
+  dest: head/model_19999.pt
+  why: Phase 0 from-scratch flat-walk retrain on the baked config (20000 iters); first
+    checkpoint to show emergent tripod_score 0.401 (series prior ~0-0.025) and the
+    seed for all three teacher-stack arms (CHANGELOG.md section 1).
+  metrics:
+    tripod_score: '0.401'
+    tippy_tap: 7.97% (series-best)
+    slip_ratio: 2.31%
+    stride: 0.163 m / completion 100%
+evals:
+- in_tree: '**/gait_eval*/**'
+keep_globs:
+- run_meta.json
+- scenario_metrics.json
+- summary.md
+- gait_diagram_*.png
+paths_note: true

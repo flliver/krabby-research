@@ -1,0 +1,23 @@
+campaign: 2026-08-12_1550_seed_basin_search
+era: A
+dates: 2026-08-12..2026-08-13
+question: Does a deliberate 8-seed from-scratch basin lottery (v5 crossing-credit
+  active, 3000 iters) find an alternating tripod basin worth resuming to 20k, or is
+  the symmetry route justified?
+verdict: 'CLOSED 0/7 alternating (seed 9 skipped per user directive); handedness broke
+  both ways by lottery and the user''s pre-authorized conditional fired: proceed to
+  mirror-symmetry training (RESULTS.md ''Campaign closed'' block).'
+plant: hand-authored crab_simple.usda (era A, pre-2026-08-20 rebuild)
+aliases: []
+records:
+- RESULTS.md
+head:
+  none: per-seed screening; no single bake
+evals:
+- in_tree: '**/gait_eval*/**'
+keep_globs:
+- run_meta.json
+- scenario_metrics.json
+- summary.md
+- gait_diagram_*.png
+paths_note: true

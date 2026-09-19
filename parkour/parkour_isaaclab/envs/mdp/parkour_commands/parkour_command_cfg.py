@@ -14,6 +14,14 @@ class ParkourCommandCfg(CommandTermCfg):
     heading_control_stiffness: float = 1.0
     small_commands_to_zero: bool = True 
 
+    stand_frac: float | None = None
+    """PLAN H B1 (2026-09-03): when set, a resampled slot stands with probability
+    ``stand_frac`` (Bernoulli) and walking slots draw vx from
+    ``[max(lin_vel_clip, lo) + 0.01, hi]`` -- replacing the implicit
+    ``small_commands_to_zero`` rule (|vx| <= clip -> 0), which zeroes ~57% of slots on the
+    0.0:0.35 band. None (default) keeps today's rule bit-identically.
+    See ``command_sampling.sample_slot``."""
+
     @configclass
     class Ranges:
         lin_vel_x: tuple[float, float] = MISSING

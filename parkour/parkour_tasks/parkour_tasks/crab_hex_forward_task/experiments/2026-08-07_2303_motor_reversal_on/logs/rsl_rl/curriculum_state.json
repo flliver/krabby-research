@@ -1,0 +1,24 @@
+{
+  "stages": {
+    "flat": {
+      "status": "complete",
+      "checkpoint": "/home/nickmagus/krabby/krabby-research/sim_fine_tuning/motor_reversal_on/logs/rsl_rl/crab_hex_flat_walk/2026-08-07_23-03-37/model_19999.pt",
+      "note": "CAD-derived Whitworth mapping, penalty_motor_direction_reversal weight=-0.3 (restored, vs 0.0 in sim_fine_tuning/baseline). mean_reward=40.85, crab_failure=0.78%, penalty_motor_direction_reversal=-0.1785 (active, confirms penalty firing). gait_eval (2026-08-08_08-58-36): tripod_score=0.0 (same non-tripod gait as baseline), slip_ratio=2.5% (baseline 3%), tippy_tap_fraction=0.31 (baseline 0.135, notably higher despite penalty being active -- needs investigation), schedule_completion_rate=1.0"
+    },
+    "bridge": {
+      "status": "complete",
+      "checkpoint": "/home/nickmagus/krabby/krabby-research/sim_fine_tuning/motor_reversal_on/logs/rsl_rl/crab_hex_teacher/2026-08-08_04-59-59/model_20098.pt",
+      "note": "fixed 100 iters from flat. crab_failure=27.6% (baseline bridge was 6.33% -- notably worse mode transition, watching if this persists into 2b1/2b2)"
+    },
+    "2b1": {
+      "status": "complete",
+      "checkpoint": "/home/nickmagus/krabby/krabby-research/sim_fine_tuning/motor_reversal_on/logs/rsl_rl/crab_hex_teacher/2026-08-08_05-03-05/model_20197.pt",
+      "note": "fixed 100 iters from bridge. crab_failure=14.27% (recovering from bridge's 27.6%, baseline 2b1 was 6.30%)"
+    },
+    "2b2": {
+      "status": "complete",
+      "checkpoint": "/home/nickmagus/krabby/krabby-research/sim_fine_tuning/motor_reversal_on/logs/rsl_rl/crab_hex_teacher/2026-08-08_05-33-50/model_21400.pt",
+      "note": "4 batches (2000 iters, matching baseline's budget) from 2b1. Accepted: model_21400 (batch 3, iter 21395) clears 4/5 gates: obstacle_clearance=0.257(>0.15 ok), crab_failure=7.8%(<20% ok), episode_length=892.7(>=750-800 ok), current_goal_idx=1.36(>0.7-0.9 ok). Only forward_progress_along_command misses (0.126 vs >0.15-0.20 -- closest miss of either run, but DECLINING across this run's own batches 0.139->0.112 even as other metrics improved). crab_failure much lower than baseline throughout (final batch 4.7-11.6% vs baseline's 15-24%)."
+    }
+  }
+}

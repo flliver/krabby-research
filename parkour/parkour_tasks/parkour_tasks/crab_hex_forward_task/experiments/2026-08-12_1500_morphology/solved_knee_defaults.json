@@ -1,0 +1,139 @@
+{
+  "solved_knee_defaults": {
+    "FL_Femur_Tibia_RevoluteJoint": -0.0106,
+    "FR_Femur_Tibia_RevoluteJoint": 0.1172,
+    "ML_Femur_Tibia_RevoluteJoint": -0.0546,
+    "MR_Femur_Tibia_RevoluteJoint": 0.0749,
+    "RL_Femur_Tibia_RevoluteJoint": -0.0624,
+    "RR_Femur_Tibia_RevoluteJoint": 0.1005
+  },
+  "final_forces_N": {
+    "FL_Footpad": 124.96912384033203,
+    "FR_Footpad": 159.32769775390625,
+    "ML_Footpad": 234.55377197265625,
+    "MR_Footpad": 260.7701110839844,
+    "RL_Footpad": 135.41075134277344,
+    "RR_Footpad": 86.98332977294922
+  },
+  "final_rms_dev_N": 61.349212646484375,
+  "final_spread_N": 173.78677368164062,
+  "final_pitch_rad": 0.0012573152379779763,
+  "final_roll_rad": -0.008552573889640118,
+  "history": [
+    {
+      "round": 0,
+      "knees": {
+        "FL_Femur_Tibia_RevoluteJoint": -0.07000000029802322,
+        "FR_Femur_Tibia_RevoluteJoint": 0.10000000149011612,
+        "ML_Femur_Tibia_RevoluteJoint": -0.07000000029802322,
+        "MR_Femur_Tibia_RevoluteJoint": 0.10000000149011612,
+        "RL_Femur_Tibia_RevoluteJoint": -0.07000000029802322,
+        "RR_Femur_Tibia_RevoluteJoint": 0.10000000149011612
+      },
+      "forces": {
+        "FL_Footpad": 179.5637969970703,
+        "FR_Footpad": 154.49339294433594,
+        "ML_Footpad": 127.08942413330078,
+        "MR_Footpad": 243.5167694091797,
+        "RL_Footpad": 192.83248901367188,
+        "RR_Footpad": 110.282470703125
+      },
+      "spread_N": 133.2342987060547,
+      "rms_dev_N": 44.04650115966797,
+      "pitch_rad": 0.0054188417091168934,
+      "roll_rad": -0.0025311962918447718
+    },
+    {
+      "round": 1,
+      "knees": {
+        "FL_Femur_Tibia_RevoluteJoint": -0.06522663682699203,
+        "FR_Femur_Tibia_RevoluteJoint": 0.09764274209737778,
+        "ML_Femur_Tibia_RevoluteJoint": -0.06974515318870544,
+        "MR_Femur_Tibia_RevoluteJoint": 0.10108309984207153,
+        "RL_Femur_Tibia_RevoluteJoint": -0.06754764914512634,
+        "RR_Femur_Tibia_RevoluteJoint": 0.10053733736276627
+      },
+      "forces": {
+        "FL_Footpad": 131.25653076171875,
+        "FR_Footpad": 191.03424072265625,
+        "ML_Footpad": 246.40420532226562,
+        "MR_Footpad": 74.66194915771484,
+        "RL_Footpad": 135.63169860839844,
+        "RR_Footpad": 222.4243927001953
+      },
+      "spread_N": 171.74224853515625,
+      "rms_dev_N": 58.7967643737793,
+      "pitch_rad": 0.01175738091034427,
+      "roll_rad": 0.0035316015306233934
+    },
+    {
+      "round": 2,
+      "knees": {
+        "FL_Femur_Tibia_RevoluteJoint": -0.06455457210540771,
+        "FR_Femur_Tibia_RevoluteJoint": 0.08146212995052338,
+        "ML_Femur_Tibia_RevoluteJoint": -0.06275046616792679,
+        "MR_Femur_Tibia_RevoluteJoint": 0.092925064265728,
+        "RL_Femur_Tibia_RevoluteJoint": -0.07105442136526108,
+        "RR_Femur_Tibia_RevoluteJoint": 0.11853733658790588
+      },
+      "forces": {
+        "FL_Footpad": 121.61116027832031,
+        "FR_Footpad": 157.83209228515625,
+        "ML_Footpad": 246.04129028320312,
+        "MR_Footpad": 257.2375183105469,
+        "RL_Footpad": 125.89430236816406,
+        "RR_Footpad": 92.31311798095703
+      },
+      "spread_N": 164.92440795898438,
+      "rms_dev_N": 62.98432540893555,
+      "pitch_rad": 0.002242737773387606,
+      "roll_rad": -0.008673415924698183
+    },
+    {
+      "round": 3,
+      "knees": {
+        "FL_Femur_Tibia_RevoluteJoint": -0.0465545728802681,
+        "FR_Femur_Tibia_RevoluteJoint": 0.099462129175663,
+        "ML_Femur_Tibia_RevoluteJoint": -0.04475046694278717,
+        "MR_Femur_Tibia_RevoluteJoint": 0.11092506349086761,
+        "RL_Femur_Tibia_RevoluteJoint": -0.0890544205904007,
+        "RR_Femur_Tibia_RevoluteJoint": 0.10053733736276627
+      },
+      "forces": {
+        "FL_Footpad": 125.3076171875,
+        "FR_Footpad": 157.82235717773438,
+        "ML_Footpad": 232.96429443359375,
+        "MR_Footpad": 265.2756042480469,
+        "RL_Footpad": 136.49346923828125,
+        "RR_Footpad": 83.5660629272461
+      },
+      "spread_N": 181.70953369140625,
+      "rms_dev_N": 62.88042068481445,
+      "pitch_rad": 0.0010460559661563695,
+      "roll_rad": -0.00842371087734465
+    },
+    {
+      "round": 4,
+      "knees": {
+        "FL_Femur_Tibia_RevoluteJoint": -0.02855457179248333,
+        "FR_Femur_Tibia_RevoluteJoint": 0.09923762083053589,
+        "ML_Femur_Tibia_RevoluteJoint": -0.06275046616792679,
+        "MR_Femur_Tibia_RevoluteJoint": 0.092925064265728,
+        "RL_Femur_Tibia_RevoluteJoint": -0.07105442136526108,
+        "RR_Femur_Tibia_RevoluteJoint": 0.11853733658790588
+      },
+      "forces": {
+        "FL_Footpad": 119.96415710449219,
+        "FR_Footpad": 162.12876892089844,
+        "ML_Footpad": 244.19654846191406,
+        "MR_Footpad": 253.8946075439453,
+        "RL_Footpad": 129.14031982421875,
+        "RR_Footpad": 92.681396484375
+      },
+      "spread_N": 161.2132110595703,
+      "rms_dev_N": 61.512447357177734,
+      "pitch_rad": 0.0020422343946498956,
+      "roll_rad": -0.0087561990539927
+    }
+  ]
+}

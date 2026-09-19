@@ -1,0 +1,103 @@
+# Crab-hex gait eval scenario set, version 2 (gait-formation campaign, 2026-08-20).
+#
+# v2 exists because the hardware-morphology rebuild changed the gait timescale: at
+# CAM_VEL_SCALE = pi the full-throttle gait cycle is 2.0 s, so v1's 6 s holds leave only
+# ~2.5 cycles per steady window -- right at min_cycles = 2, pushing tripod metrics into
+# low_confidence on any slowdown. v2 holds are 10 s (>= 4 cycles at full throttle).
+# The v1 set is untouched (its header forbids in-place edits); campaign checkpoints are
+# NOT sha-pinned here because arms produce fresh checkpoints every screen -- pass
+# --checkpoint explicitly and (for the pinned baselines below, if any accrue)
+# --allow-checkpoint-sha-mismatch is not needed.
+#
+# Run:
+#   cd krabby-research/parkour
+#   <python> parkour_tasks/parkour_tasks/crab_hex_forward_task/scripts/eval_crab_hex_gait.py \
+#     --headless --manifest parkour_tasks/parkour_tasks/crab_hex_forward_task/experiments/eval/scenarios_v2.yaml \
+#     --scenario flat_walk_forward_v2 --checkpoint <model.pt>
+
+manifest_version: 2
+
+defaults:
+  prologue_s: 1.5
+  settle_s: 1.0
+  min_window_s: 1.0
+  fall_exclusion_s: 0.5
+  contact_force_threshold: 1.0
+  slip_speed_threshold: 0.02
+  min_cycles: 2
+  lin_vel_clip: 0.2
+
+scenarios:
+  # Flat-walk forward holds for the gait-formation campaign. Same speed points as v1's
+  # flat_walk_forward; holds lengthened 6 -> 10 s for cycle confidence at the 2 s cam
+  # cycle. Checkpoint is supplied per-run (campaign arms), so no sha pin.
+  - id: flat_walk_forward_v2
+    role: teacher
+    task: Isaac-Crab-Hex-Flat-Walk-v0
+    terrain_label: flat
+    checkpoint: SUPPLIED-PER-RUN--pass---checkpoint
+    episodes: 100
+    env_seed: 1
+    episode_length_s: 36.0
+    schedule:
+      - {vx: 0.30, hold_s: 10.0, label: low}
+      - {vx: 0.475, hold_s: 10.0, label: mid}
+      - {vx: 0.65, hold_s: 10.0, label: high}
+    notes: >-
+      Gait-formation campaign scenario: 3 x 10 s holds (~4-5 gait cycles per steady
+      window at the pi rad/s cam), 36 s episode fits schedule + prologue with margin.
+
+  # PLAN F turning-school probe (P1 gate): forward walk with injected delta_yaw steering
+  # at two magnitudes. Gate = achieved-yaw-rate / wz_ref ratio >= 0.5 at the trained band.
+  - id: turn_walk_v1
+    role: teacher
+    task: Isaac-Crab-Hex-Flat-Walk-v0
+    terrain_label: flat
+    checkpoint: SUPPLIED-PER-RUN--pass---checkpoint
+    episodes: 100
+    env_seed: 1
+    episode_length_s: 46.0
+    probe: yaw
+    yaw_mode: delta_yaw_inject
+    schedule:
+      - {vx: 0.25, hold_s: 10.0, label: straight}
+      - {vx: 0.25, hold_s: 10.0, delta_yaw: 0.4, label: turn_l}
+      - {vx: 0.25, hold_s: 10.0, delta_yaw: -0.4, label: turn_r}
+      - {vx: 0.25, hold_s: 10.0, delta_yaw: 0.8, label: turn_hard}
+    notes: >-
+      Turning-school gate probe. delta_yaw injection is the policy's only steering channel
+      (wz commands cannot reach it); wz_ref = clamp(delta_yaw * heading_stiffness).
+
+  # PLAN F speed-widening probe (P5 gate): holds at and above the formation band top.
+  - id: flat_walk_speed_v1
+    role: teacher
+    task: Isaac-Crab-Hex-Flat-Walk-v0
+    terrain_label: flat
+    checkpoint: SUPPLIED-PER-RUN--pass---checkpoint
+    episodes: 100
+    env_seed: 1
+    episode_length_s: 36.0
+    schedule:
+      - {vx: 0.35, hold_s: 10.0, label: band_top}
+      - {vx: 0.45, hold_s: 10.0, label: widened}
+      - {vx: 0.55, hold_s: 10.0, label: ceiling}
+    notes: >-
+      Speed-band widening gate: tracking_ratio >= 0.30 at vx 0.45 promotes the band.
+
+  # Stand-first probe for Phase A survival arms trained on KRABBY_LIN_VEL_X="0.0:0.35".
+  - id: flat_walk_slow_v2
+    role: teacher
+    task: Isaac-Crab-Hex-Flat-Walk-v0
+    terrain_label: flat
+    checkpoint: SUPPLIED-PER-RUN--pass---checkpoint
+    episodes: 100
+    env_seed: 1
+    episode_length_s: 36.0
+    schedule:
+      - {vx: 0.0, hold_s: 10.0, label: stand}
+      - {vx: 0.25, hold_s: 10.0, label: creep}
+      - {vx: 0.35, hold_s: 10.0, label: low}
+    notes: >-
+      Survival-phase probe: standing hold (fall/oscillation check), then the low end of
+      the stand-first command range. the vx 0.0 hold is a commanded stop by construction (interpret its tracking as station-keeping only);
+      0.25 is just above lin_vel_clip 0.2 and is scored as a walking hold.

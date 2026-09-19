@@ -227,7 +227,7 @@ parkour/logs/
 parkour/outputs/
 
 # Crab hex local-only scripts (RSL runner, diagnostics; not committed)
-parkour/parkour_tasks/parkour_tasks/crab_hexapod_task/tempscripts/
+parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/tempscripts/
 
 # macOS Finder artifact
 .DS_Store
@@ -245,3 +245,6 @@ fleet/infra/cdk.out/
 fleet/infra/.cdk.staging/
 fleet/infra/cdk.context.json
 node_modules/
+
+# Campaign records live in parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/experiments/
+# (nested experiments/.gitignore holds the keep-set rules).

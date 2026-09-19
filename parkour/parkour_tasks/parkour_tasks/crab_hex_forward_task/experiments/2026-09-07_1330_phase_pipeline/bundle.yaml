@@ -1,0 +1,48 @@
+campaign: 2026-09-07_1330_phase_pipeline
+era: B
+dates: 2026-09-07..2026-09-09
+question: Can the fine-tuning curriculum be folded back into the three-phase paradigm
+  (1a / 2a-2c / 3a-3b via KRABBY_PHASE) with a phase-3 depth student distilled from
+  the A15+B 2c teacher that matches it on every eval?
+verdict: 'REPORT.md BAKE block (2026-09-09 12:26): user baked 3a (crab_hex_student/2026-09-08_05-54-01/model_24995.pt)
+  as the phase-3 head of record; 3b run but not baked (equivalent); seed-2 replay
+  waived; CAMPAIGN CLOSE.'
+plant: A15+B
+aliases: []
+records:
+- REPORT.md
+- CHANGELOG.md
+- CHARTER.md
+- heads.json
+- state.json
+- smoke/REPORT.md
+- smoke/CHANGELOG.md
+- smoke/heads.json
+- smoke/state.json
+head:
+  role: student
+  task: Isaac-Crab-Hex-Student-v0
+  source: parkour/logs/rsl_rl/crab_hex_student/2026-09-08_05-54-01/model_24995.pt
+  sha256: e79c4a908ab01359bede3618cc3347d150e7e62975dd91a9d1728cb5ca57e384
+  dest: head/model_24995.pt
+  why: 'Phase-3 head of record per REPORT.md BAKE block: 3a depth student (5000 distillation
+    its from 2c head model_19996, clip_actions fix) reproduces the privileged teacher
+    within eval noise; 3b equivalent and 5k costlier, not baked.'
+  metrics:
+    flat_canary: 0.79 / 21 falls / tripod 0.51
+    step_onset: 0.71 / 29 falls / tripod 0.48
+    obstacles_0.20-0.70: 0.64 / 36 falls / tripod 0.49
+    hard_band_0.70-0.90: 0.51 / 49 falls / tripod 0.46
+  env:
+    KRABBY_PHASE: 3a
+    KRABBY_PLANT: A15+B
+    KRABBY_STUDENT_MDP: '1'
+evals:
+- source: parkour/logs/rsl_rl/gait_eval/phases
+  dest: evals/phases
+keep_globs:
+- run_meta.json
+- scenario_metrics.json
+- summary.md
+- gait_diagram_*.png
+paths_note: true

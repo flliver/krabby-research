@@ -1,0 +1,26 @@
+campaign: 2026-08-09_0920_short_runs
+era: A
+dates: 2026-08-09..2026-08-09
+question: Can short flat-walk resumes from the stride_length_v3 checkpoint, sweeping
+  only existing reward weights/params via Hydra overrides, clear the Task 1 targets
+  (tippy_tap <= 13.5%, stride >= 0.178 m, completion 100%)?
+verdict: 'SUCCESS, KEPT pending user review before baking (CHANGELOG.md Verdict block):
+  r14 combined-winners config (airtime 0.8, reversal 0.0, action_rate -0.3, delta_torques
+  -1e-6) clears all three targets at 2000 iters; no checkpoint of record kept here,
+  head refers to the v3 campaign.'
+plant: hand-authored crab_simple.usda (era A, pre-2026-08-20 rebuild)
+aliases:
+- sim_fine_tuning/short_runs
+records:
+- CHANGELOG.md
+- RESULTS.md
+head:
+  ref: 2026-08-08_1701_stride_length_v3
+evals:
+- in_tree: '**/gait_eval*/**'
+keep_globs:
+- run_meta.json
+- scenario_metrics.json
+- summary.md
+- gait_diagram_*.png
+paths_note: true

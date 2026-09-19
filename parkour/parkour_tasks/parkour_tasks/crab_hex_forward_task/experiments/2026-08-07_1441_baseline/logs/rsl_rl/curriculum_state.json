@@ -1,0 +1,24 @@
+{
+  "stages": {
+    "flat": {
+      "status": "complete",
+      "checkpoint": "/home/nickmagus/krabby/krabby-research/sim_fine_tuning/baseline/logs/rsl_rl/crab_hex_flat_walk/2026-08-07_15-31-12/model_19999.pt",
+      "note": "CAD-derived Whitworth mapping baseline; motor_direction_reversal penalty weight=0.0; mean_reward=46.18, crab_failure=0.78%; gait_eval tripod_score=0.0 (front/middle/rear duty split, not L/R tripod), slip_ratio~3%"
+    },
+    "bridge": {
+      "status": "complete",
+      "checkpoint": "/home/nickmagus/krabby/krabby-research/sim_fine_tuning/baseline/logs/rsl_rl/crab_hex_teacher/2026-08-07_21-38-48/model_20098.pt",
+      "note": "fixed 100 iters from flat baseline, crab_failure=6.33%, no gates required"
+    },
+    "2b1": {
+      "status": "complete",
+      "checkpoint": "/home/nickmagus/krabby/krabby-research/sim_fine_tuning/baseline/logs/rsl_rl/crab_hex_teacher/2026-08-07_21-47-42/model_20197.pt",
+      "note": "fixed 100 iters from bridge, crab_failure=6.30%, no gates required"
+    },
+    "2b2": {
+      "status": "complete",
+      "checkpoint": "/home/nickmagus/krabby/krabby-research/sim_fine_tuning/baseline/logs/rsl_rl/crab_hex_teacher/2026-08-07_22-21-05/model_21500.pt",
+      "note": "4 batches (500 iters each, 2000 total) from 2b1. Accepted as final: model_21500 (batch 3, iter 21495) clears 4/5 README §4.2b gates: obstacle_clearance=0.211(>0.15 ok), crab_failure=18.75%(<20% ok), episode_length=812(>=750-800 ok), current_goal_idx=1.61(>0.7-0.9 ok). Only reward_forward_progress_along_command misses (0.121 vs >0.15-0.20 target) -- plateaued at batch-max 0.129-0.140 across all 4 batches with no improving trend. User accepted this checkpoint as final 2b2 rather than investigating reward shaping."
+    }
+  }
+}
