@@ -3966,13 +3966,20 @@ def _wall_hours(ctx: Ctx, header: dict) -> float | None:
 
 
 def _apply_squash_view(ctx: Ctx, view: dict, *, before_x: set, moved: list, moved_ids: set,
-                       resurrected: list, frozen_named: list, warn: list) -> bool:
+                       resurrected: list, frozen_named: list, warn: list,
+                       e_moved: list, e_moved_ids: set, e_restored: list) -> bool:
     """Make the stored records agree with ONE view. Returns True when anything moved.
 
     Split out of :func:`squash_and_report` so the reconcile can be iterated to a FIXPOINT: moving a
     header or restoring an entry's ``pre_squash_status`` changes the inputs the view is derived
     from, and the plan's promise ("recomputed from the ledger on every launch") only holds if the
     record the next recompute reads is already the converged one.
+
+    ``e_moved`` / ``e_restored`` are the ENTRY half of the same report. An entry-only squash (a
+    SKIP entry whose referent flipped, a carried-forward milestone whose recipe moved) moves no
+    header, and while only ``moved`` was collected such a squash produced no SQUASH line, no REPORT
+    block and no CHANGELOG row -- the OVERRIDE-APPLIED line said "squashed 0" for an override that
+    had just voided a recorded answer.
     """
     xsq, esq = view["experiments"], view["entries"]
     changed = False
@@ -4027,6 +4034,10 @@ def _apply_squash_view(ctx: Ctx, view: dict, *, before_x: set, moved: list, move
                 e["pre_squash_status"] = e.get("status")
                 e["status"] = "squashed"
                 e["squashed_by"] = "derived"
+                if e["id"] not in e_moved_ids:
+                    e_moved_ids.add(e["id"])
+                    e_moved.append({"id": e["id"], "why": esq[e["id"]],
+                                    "named": f"{e['id']} ({e.get('candidate') or e.get('kind')})"})
                 changed = True
         elif e.get("status") == "squashed" and e.get("squashed_by") == "derived":
             restored, why = e.get("pre_squash_status"), "resurrected: the base hash matches again"
@@ -4034,11 +4045,18 @@ def _apply_squash_view(ctx: Ctx, view: dict, *, before_x: set, moved: list, move
                 # No driver write can produce this (every derived squash stores the status it
                 # replaced), but a hand-edited ledger can -- and it used to reach the agreement
                 # assertion below, which sits BEFORE `loop()`'s halt handling, so the LAUNCH died
-                # with a traceback instead of a HALT line. Loud, not fatal: `decided` is the
-                # conservative restore (terminal, not frozen, re-decidable by a new experiment) and
-                # the WARN says the record was repaired.
-                restored = "decided"
-                why = ("resurrected as 'decided': stored squashed(derived) with no "
+                # with a traceback instead of a HALT line. Loud, not fatal: the repair restores the
+                # kind's own conservative NON-TERMINAL-or-re-decidable status and the WARN says the
+                # record was repaired.
+                #
+                # Kind-aware, because `decided` is a CANDIDATE status: a milestone's own statuses
+                # are open/await/final, nothing reads `decided` off a milestone entry, and a
+                # milestone repaired to it was a closed entry no reader could close again --
+                # `next_item` skipped it as terminal while `_previous_promoted` found no head on
+                # it. `open` is the milestone's start: its (i) stage is re-booked and the close
+                # re-decides it.
+                restored = "open" if e.get("kind") in lc.MILESTONE_KINDS else "decided"
+                why = (f"resurrected as {restored!r}: stored squashed(derived) with no "
                        "pre_squash_status (a hand-edited or pre-schema ledger)")
                 warn.append(f"{e.get('id')}: {why}")
             # Through the guard like every other ledger write (the table's `squashed -> <pre>` rows).
@@ -4047,8 +4065,15 @@ def _apply_squash_view(ctx: Ctx, view: dict, *, before_x: set, moved: list, move
             e["status"] = restored
             e.pop("pre_squash_status", None)
             e.pop("squashed_by", None)
+            e_restored.append(f"{e['id']} ({restored})")
             changed = True
     return changed
+
+
+#: What :func:`squash_and_report` returns when the reconcile moved NOTHING -- no header, no entry.
+#: A prefix test is not enough any more: an entry-only squash keeps the "; squashed 0" head and
+#: adds its own clause, and reading that as "nothing moved" is exactly the P2 wart.
+NOTHING_MOVED = "; squashed 0; resurrected 0"
 
 
 def squash_and_report(ctx: Ctx, trigger: str, extra_frozen: list | None = None) -> str:
@@ -4070,12 +4095,14 @@ def squash_and_report(ctx: Ctx, trigger: str, extra_frozen: list | None = None) 
     """
     before_x = set(ctx.lad.get("squashed") or {})
     moved, moved_ids, resurrected, warn = [], set(), [], []
+    e_moved, e_moved_ids, e_restored = [], set(), []
     frozen_named = list(extra_frozen or [])
     view = None
     for _round in range(16):
         view = ctx.recompute()
         if not _apply_squash_view(ctx, view, before_x=before_x, moved=moved, moved_ids=moved_ids,
-                                  resurrected=resurrected, frozen_named=frozen_named, warn=warn):
+                                  resurrected=resurrected, frozen_named=frozen_named, warn=warn,
+                                  e_moved=e_moved, e_moved_ids=e_moved_ids, e_restored=e_restored):
             break
     else:                                                               # pragma: no cover - bounded
         raise RuntimeError(f"the squash reconcile did not converge in 16 rounds ({trigger})")
@@ -4092,24 +4119,34 @@ def squash_and_report(ctx: Ctx, trigger: str, extra_frozen: list | None = None) 
     ctx.write_ledger()
     ctx.save()
     long_rows = [f"{m['named']} ({m['why']})" for m in moved]
-    if moved or resurrected or frozen_named or warn:
+    e_long_rows = [f"{m['named']} ({m['why']})" for m in e_moved]
+    if moved or resurrected or frozen_named or warn or e_moved or e_restored:
         ctx.c.report_block(f"## SQUASHED — {trigger} — {now_iso()}\n\n"
                            + "\n".join([f"- squashed {m}" for m in long_rows]
                                        + [f"- resurrected {x}" for x in resurrected]
+                                       + [f"- squashed entry {m}" for m in e_long_rows]
+                                       + [f"- restored entry {x}" for x in e_restored]
                                        + [f"- {f}" for f in frozen_named]
                                        + [f"- WARN {w}" for w in warn]))
         ctx.c.changelog_row(f"SQUASH — {trigger} — squashed {len(moved)}, resurrected {len(resurrected)}"
+                            + (f", entries squashed {len(e_moved)}" if e_moved else "")
+                            + (f", entries restored {len(e_restored)}" if e_restored else "")
                             + (f", {len(warn)} repaired" if warn else ""))
         ctx.notify("SQUASH", trigger, [f"squashed: {', '.join(long_rows) or 'none'}",
                                        f"resurrected: {', '.join(resurrected) or 'none'}"]
+                                      + ([f"entries squashed: {', '.join(e_long_rows)}"] if e_moved else [])
+                                      + ([f"entries restored: {', '.join(e_restored)}"] if e_restored else [])
                                       + frozen_named + [f"WARN {w}" for w in warn])
     # The plan's OVERRIDE-APPLIED contract names the squashed experiments and what they cost
     # ("squashed: X12 (2.1 h)"), not just how many: the user is being asked to confirm an answer
-    # whose price is GPU hours already spent.
+    # whose price is GPU hours already spent. An ENTRY-only squash costs no GPU hours but voids a
+    # recorded answer, so it is named here too rather than reading as "squashed 0".
     return (f"; squashed {len(moved)}"
             + (f": {', '.join(m['named'] for m in moved)}" if moved else "")
             + f"; resurrected {len(resurrected)}"
-            + (f": {', '.join(resurrected)}" if resurrected else ""))
+            + (f": {', '.join(resurrected)}" if resurrected else "")
+            + (f"; entries squashed: {', '.join(m['named'] for m in e_moved)}" if e_moved else "")
+            + (f"; entries restored: {', '.join(e_restored)}" if e_restored else ""))
 
 
 # ================================================================== stage floors / retention / infra
@@ -5648,7 +5685,7 @@ def _reconcile_after_decision(ctx: Ctx, entry: dict, item: dict) -> str:
     """
     note = squash_and_report(ctx, f"{entry['id']} {item.get('candidate')} -> "
                                   f"{lc.effective_choice(entry)}")
-    return "" if note.startswith("; squashed 0; resurrected 0") else note
+    return "" if note == NOTHING_MOVED else note
 
 
 def _retention_lines(ctx: Ctx, header: dict) -> list[str]:
@@ -6797,9 +6834,48 @@ def loop(ctx: Ctx) -> int:
                           "relaunch to continue: the queue is derived, nothing is lost"])
 
 
+def _squashed_before_dispatch(ctx: Ctx, header: dict) -> bool:
+    """Did this window's base move between the last poll tick and this dispatch? Record it if so.
+
+    ``interrupt_reason`` catches an override that lands WHILE a window trains and the top of
+    ``loop`` catches the ones that landed while the driver was parked, but the gap between the last
+    poll tick and the dispatch belongs to neither -- and a decision written in that gap is a
+    decision about a base recipe that no longer exists. The write still LOOKED right, because
+    ``_dispatch_candidate``'s own reconcile then squashed the fresh entry together with the run
+    that produced it; what the user read was a DECISION line saying "chosen ADOPT (clear,
+    squashed) ... this decision moved the recipe; squashed 1: X11" -- an adoption that never
+    applied, announced as one that did.
+
+    So the overrides are ingested once more here and the header is checked against the view: a
+    listed xid means no decision at all, the run archived as the record of a window whose base
+    moved while it ran. The SQUASH line is the reconcile's own (the ingest above usually writes it
+    while archiving this very header); calling it again is the cheap guarantee that the record
+    agrees with the view even when the override's apply path did not reconcile.
+    """
+    ingest_overrides(ctx)
+    xid = header.get("xid")
+    why = (ctx.view.get("experiments") or {}).get(xid)
+    if not why:
+        return False
+    ctx.c.log(f"{xid}: its base moved while it ran ({why}) — no decision is written")
+    squash_and_report(ctx, f"{xid} {header.get('label')} finished on a base that moved")
+    ctx.c.changelog_row(f"{xid} {header.get('label')} finished — no decision: its base moved while "
+                        f"it ran ({why})")
+    ctx.c.report_block(f"### experiment {xid} — {header.get('label')} — squashed — {now_iso()}\n\n"
+                       f"- the window finished ({header.get('status')}) and its base moved while it "
+                       f"ran: {why}\n"
+                       f"- NO decision is written: the screen answers a question about a recipe "
+                       f"that no longer exists\n"
+                       f"- recipe `{header.get('recipe_id')}` base `{header.get('base_recipe_id')}` "
+                       f"seed {header.get('seed')}\n")
+    return True
+
+
 def _after_experiment(ctx: Ctx, item: dict, header: dict) -> None:
     """Dispatch a finished experiment, or record why it produced no decision."""
     status = header.get("status")
+    if status in ("ok", "rejected_by_floor") and _squashed_before_dispatch(ctx, header):
+        return
     if status == "ok":
         dispatch(ctx, item, header)
         ctx.c.report_block(f"### experiment {header['xid']} — {header.get('label')} — ok — {now_iso()}\n\n"

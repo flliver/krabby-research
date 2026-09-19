@@ -6556,3 +6556,145 @@ def test_a_second_accept_on_an_accepted_milestone_is_already_applied_in_both_hal
     assert (m1["status"], m1["sub_status"]) == ("await", "accepted_i")
     assert len(m1["history"]) == rows and m1["accepted_uuid"] != uid
     assert uid in ctx.lad["applied_overrides"]
+
+
+# ============================================================ the post-commit minors (P1-P4)
+def test_an_override_that_lands_before_the_dispatch_writes_no_decision_for_that_run(rc, cands,
+                                                                                    tmp_path):
+    """P1: the gap between the last poll tick and the dispatch.
+
+    ``interrupt_reason`` catches an override that lands while the window trains and the top of
+    ``loop`` catches one that landed while the driver was parked; a line that lands in between was
+    caught by neither, so the screen was DISPATCHED against a base recipe that had already moved.
+    The entry it wrote was then squashed by its own reconcile in the same breath, and what the user
+    read was `chosen ADOPT (clear, squashed) ... this decision moved the recipe; squashed 1: X11`
+    -- an adoption announced as applied that never applied. No decision at all is the record.
+    """
+    led, st = ledger(), state()
+    with_baseline(rc, cands, led, st)
+    base_c1 = rid(rc, cands, led, "C1")
+    r_c1 = rc._recipe_with(led, cands, CODE, "C1", set())
+    led["entries"].append(entry("D05", "C1", "ADOPT", "decided", experiment="X03", base=base_c1,
+                                recipe=r_c1["recipe_id"]))
+    st["ladder"]["experiments"]["X03"] = exp("X03", "candidate", "C1", "3", r_c1["recipe_id"],
+                                             base_c1, base_rank("C1"))
+    ctx = make_ctx(rc, cands, tmp_path, led=led, st=st)
+    # C2's window finished on the recipe that had C1 adopted, and its screen is a clear ADOPT
+    item, header = _candidate_header(rc, cands, ctx, "C2", xid="X11",
+                                     screen_=screen(closed=0.72, prog=0.11),
+                                     started="2026-09-19T09:00:00")
+    ctx.lad["experiments"]["X11"] = header
+    ctx.save()
+    dids = [e["id"] for e in rc.entries(ctx.ledger)]
+    before = len([l for l in notify_lines(ctx) if " SQUASH " in l])
+    # the answer lands AFTER the last poll tick of that window and before the dispatch
+    rc.lc.append_override(ctx.dir, {"decision": "D05", "action": "overrule", "choice": "REJECT",
+                                    "why": "the user disagrees"})
+
+    rc._after_experiment(ctx, item, header)
+
+    assert [e["id"] for e in rc.entries(ctx.ledger)] == dids, "no decision is written for X11"
+    assert rc.newest_entry(ctx.ledger, "C2", set(ctx.view["entries"])) is None
+    assert "X11" in ctx.lad["squashed"] and "X11" not in ctx.lad["experiments"]
+    assert "base recipe changed" in ctx.lad["squashed"]["X11"]["reason"]
+    fresh = [l for l in notify_lines(ctx) if " SQUASH " in l][before:]
+    assert len(fresh) == 1 and "X11" in fresh[0], fresh
+    assert not [l for l in notify_lines(ctx) if " DECISION " in l and "C2" in l]
+    report = (ctx.dir / "REPORT.md").read_text()
+    assert f"### experiment X11 — {header['label']} — squashed" in report
+    assert "NO decision is written" in report
+    assert "no decision: its base moved while it ran" in (ctx.dir / "CHANGELOG.md").read_text()
+    # the queue carries on under the NEW recipe, and C2 is undecided again (it re-screens at rank)
+    nxt = rc.next_item(cands, ctx.ledger, ctx.state, code=CODE, view=ctx.view)
+    assert nxt["label"] == "C1b s3", nxt
+    assert rc.entry_by_id(ctx.ledger, "D05")["status"] == "overruled"
+
+
+def test_an_entry_only_squash_still_writes_a_squash_line_naming_the_entry(rc, cands, tmp_path):
+    """P2: a squash that moves no HEADER is still a voided answer, and has to say so.
+
+    An overrule that flips C1 to REJECT makes C1b's SKIP predicate hold again, so the SKIP entry is
+    squashed (cause b) -- and nothing else is. While only the experiment half was collected that
+    reconcile wrote no SQUASH line, no REPORT block and no CHANGELOG row, and the OVERRIDE-APPLIED
+    line the user reads said `squashed 0` for an override that had just voided a recorded answer.
+    """
+    led, st = ledger(), state()
+    with_baseline(rc, cands, led, st)
+    led["entries"].append(entry("D05", "C1", "ADOPT", "decided", base=rid(rc, cands, led, "C1")))
+    ctx = make_ctx(rc, cands, tmp_path, led=led, st=st)
+    skip = rc.write_skip_entry(ctx, "C1b", "predicate", "C1 is adopted",
+                               predicate="decision(C1).chosen == REJECT")
+    before = len([l for l in notify_lines(ctx) if " SQUASH " in l])
+    rc.lc.append_override(ctx.dir, {"decision": "D05", "action": "overrule", "choice": "REJECT",
+                                    "why": "the user disagrees"})
+
+    rc.ingest_overrides(ctx)
+
+    assert ctx.lad["squashed"] == {}, "this override moves no header at all"
+    assert rc.entry_by_id(ctx.ledger, skip["id"])["status"] == "squashed"
+    assert skip["id"] in ctx.view["entries"]
+    fresh = [l for l in notify_lines(ctx) if " SQUASH " in l][before:]
+    assert len(fresh) == 1 and skip["id"] in fresh[0] and "entries squashed" in fresh[0], fresh
+    applied = [l for l in notify_lines(ctx) if " OVERRIDE-APPLIED " in l][-1]
+    assert f"entries squashed: {skip['id']} (C1b)" in applied, applied
+    report = (ctx.dir / "REPORT.md").read_text()
+    assert "## SQUASHED" in report and f"- squashed entry {skip['id']}" in report
+    assert "entries squashed 1" in (ctx.dir / "CHANGELOG.md").read_text()
+
+
+def test_the_cli_refuses_to_confirm_or_overrule_a_squashed_entry(rc, cli, cands, tmp_path, capsys):
+    """P3: a voided record is not a choice, and the CLI says so instead of the driver.
+
+    Only ``derived`` may move a ``squashed`` entry (the table's resurrection rows), so the CLI used
+    to accept the line with rc 0 and print "(frozen)" while the driver refused it one poll later
+    inside an OVERRIDE-APPLIED note -- the same split ``_refuse_skipped`` closes for SKIP entries.
+    """
+    led, st = ledger(), state()
+    with_baseline(rc, cands, led, st)
+    led["entries"].append(entry("D05", "C6", "ADOPT", "squashed", experiment="X03",
+                                squashed_by="derived", pre_squash_status="decided",
+                                history=[{"at": "2026-09-19T09:00:00", "from": "decided",
+                                          "to": "squashed", "by": "derived",
+                                          "why": "its experiment X03 was squashed"}]))
+    ctx = make_ctx(rc, cands, tmp_path, led=led, st=st)
+
+    for argv in (["confirm", "D05"],
+                 ["overrule", "D05", "--choose", "REJECT", "--why", "no"]):
+        code, out = cli_run(cli, ["--campaign-dir", str(ctx.dir)] + argv, capsys)
+        assert code == 2, (argv, out)
+        assert "SQUASHED" in out and "decide C6 --choose run" in out, out
+        assert "X03 was squashed" in out, out
+    assert rc.lc.read_overrides(ctx.dir) == [], "a refused verb appends nothing"
+    assert rc.entry_by_id(rc.lc.read_ledger(ctx.dir), "D05")["status"] == "squashed"
+
+
+def test_a_milestone_repaired_without_a_pre_status_comes_back_open_not_decided(rc, cands, tmp_path):
+    """P4: the WARN repair is kind-aware.
+
+    ``decided`` is a CANDIDATE status; a milestone's own statuses are open/await/final. A milestone
+    entry repaired to ``decided`` was a closed record no reader could close again -- ``next_item``
+    read it as terminal while it carried no promoted head. ``open`` is the milestone's start.
+    """
+    led, st = ledger(), state()
+    with_baseline(rc, cands, led, st)
+    led["entries"].append({"id": "M1", "kind": "milestone", "candidate": "M1", "chosen": None,
+                           "status": "squashed", "squashed_by": "derived",   # hand-edited: no
+                           "options": ["PASS", "WATCH", "FAIL"], "history": [],  # pre_squash_status
+                           "evidence": {}, "eligibility": 1,
+                           "recipe_id": rc.milestone_recipe(cands, led, "M1", CODE)["recipe_id"]})
+    ctx = make_ctx(rc, cands, tmp_path, led=led, st=st)
+    assert "M1" not in ctx.view["entries"], "the view says this milestone is live"
+
+    rc.squash_and_report(ctx, "launch reconcile (test)")
+
+    got = rc.entry_by_id(ctx.ledger, "M1")
+    assert got["status"] == "open" and "squashed_by" not in got
+    assert got["history"][-1]["to"] == "open"
+    assert "no pre_squash_status" in got["history"][-1]["why"]
+    line = [l for l in notify_lines(ctx) if " SQUASH " in l][-1]
+    assert "WARN" in line and "M1" in line and "'open'" in line, line
+    # and a candidate entry in the same state still comes back `decided`
+    ctx.ledger["entries"].append(entry("D05", "C6", "ADOPT", "squashed", squashed_by="derived"))
+    ctx.write_ledger()
+    rc.squash_and_report(ctx, "launch reconcile (test, candidate)")
+    assert rc.entry_by_id(ctx.ledger, "D05")["status"] == "decided"

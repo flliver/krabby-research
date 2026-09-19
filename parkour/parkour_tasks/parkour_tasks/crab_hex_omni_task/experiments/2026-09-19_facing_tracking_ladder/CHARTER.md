@@ -929,6 +929,32 @@ Nothing is pushed (the user publishes).
   errors**, `--dry-run` rc 0 with B0 and every `scratch_1c` recipe id unchanged and every pooled
   recipe id moved once to its canonical value (nothing had been recorded under the old ids). A final
   single-lens review of round 2 precedes the Part G commits.
+- **2026-09-19 11:08–11:11 — Verification 8, the stop drill, PASSED (stop half).** On a copy of this
+  directory (`/tmp/ladder_v8`, `candidates.yaml` + `resolution.json` only) the launcher started unit
+  `cands-ladder_v8-1789830527` with `--smoke-stage 1a:20` (`code_sha 4c3f99c9a2c5` — the committed
+  tree); with the 20-iteration training child alive, `systemctl --user stop <unit>` returned in **46 s**
+  (budget 360 s): the driver logged "stop requested — terminating the training child", classified the
+  window `running (sigterm) — no decision from this experiment`, wrote `phase = await_user:stop` and the
+  `AWAIT await_user:stop | stopped (sigterm) | records are complete; relaunch with …` line; zero
+  `_r2`/retry lines; no child left behind. The resume half (a relaunch picks the `inflight` header up)
+  is recorded below.
+- **2026-09-19 11:11 — Verification 8, the resume half, PASSED.** Relaunching the drill directory
+  (`cands-ladder_v8-1789830676`) found the `inflight` header, logged "X01:1a — resuming at model_19.pt
+  (1 iterations left of 20)" and "the window had already reached its final iteration before the stop
+  -- continuing at its eval", and closed the smoke hook at `await_user:smoke_done` ("relaunch without
+  --smoke-stage to run the campaign"); the unit exited on its own in 5 s, no child left. Verification
+  1–8 is therefore complete before the first real window.
+- **2026-09-19 11:12 — CAMPAIGN LAUNCHED.** Unit **`cands-2026-09-19_facing_tracking_ladder-1789830730`**
+  (`launch_candidates.sh --campaign-dir $LAD`), `code_sha 4c3f99c9a2c5`, `tools_sha 28eb7860f4fa`, on
+  the committed tree (81a1aa3). The driver ingested `resolution.json` and emitted `RESOLUTION D00`
+  (blocks F R=0.550@0.95, T R=0.518@0.95, F_abs R=0.578@0.95, T_abs R=0.518@0.95; guards @0.99
+  one-sided completion ±0.155, tripod_walking_dir ±0.042, turn_survival_l90 ±0.079, turn_survival_r90
+  ±0.028) and started **`X01` = B0 seed 3** (`1c` preset from scratch, 8000 iterations,
+  `seed3_X01_1c_A15pB`). Heartbeat every 1800 s (`/tmp/heartbeat_ladder.log`); the assistant's
+  persistent monitor tails `notify.log` and relays every line as a push notification. Expected next
+  lines: `DECISION D02` (B0 s3 baseline, ≈ 3.7 h + evals), then `X02` = B0 seed 2, then `RESOLUTION
+  D00b`. The `DerivedDataCache.corrupt-2026-08-13` quarantine (≈ 101 GB) is still on disk — the user's
+  call to delete.
 - **`MemoryPeak` is not yet measured.** The launcher runs the driver under `MemoryMax=48G`,
   `MemorySwapMax=0`, `OOMPolicy=continue`, `KillMode=mixed`, `TimeoutStopSec=360`; the measured
   `MemoryPeak` of the unit is recorded HERE after `B0` completes (`systemctl --user show <unit> -p

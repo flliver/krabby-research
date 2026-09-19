@@ -410,6 +410,26 @@ def _refuse_skipped(entry: dict, verb: str) -> str | None:
             f"has nothing to freeze or flip. To run it anyway use `decide {cid} --choose run`.")
 
 
+def _refuse_squashed(entry: dict, verb: str) -> str | None:
+    """A SQUASHED entry is a VOIDED record, not a standing choice -- the verb for it is ``decide run``.
+
+    The driver's transition table lets only ``derived`` move a ``squashed`` entry (that move is the
+    resurrection), so without this the CLI accepted the line with rc 0 and printed "(frozen)", and
+    the driver refused it one poll later inside an ``OVERRIDE-APPLIED`` note -- the same split
+    :func:`_refuse_skipped` closes for SKIP entries, and a worse one to read: the entry the user
+    was answering had already been voided by a recipe move, so freezing it could not have been the
+    answer they wanted either way.
+    """
+    if entry.get("status") != "squashed":
+        return None
+    cid = entry.get("candidate") or "<Cid>"
+    why = next((h.get("why") for h in reversed(entry.get("history") or [])
+                if h.get("to") == "squashed"), None)
+    return (f"{entry.get('id')} is SQUASHED ({why or 'the recipe it was decided on has moved'}): a "
+            f"voided record is not a choice, so `{verb}` has nothing to freeze or flip. To screen "
+            f"{cid} again use `decide {cid} --choose run`; `show` lists the live entries.")
+
+
 def cmd_confirm(cdir: Path, args) -> int:
     led = read_ledger(cdir)
     e = by_id(led, args.ident)
@@ -420,7 +440,7 @@ def cmd_confirm(cdir: Path, args) -> int:
     if refusal:
         print(refusal, file=sys.stderr)
         return 2
-    refusal = _refuse_skipped(e, "confirm")
+    refusal = _refuse_skipped(e, "confirm") or _refuse_squashed(e, "confirm")
     if refusal:
         print(refusal, file=sys.stderr)
         return 2
@@ -458,7 +478,7 @@ def cmd_overrule(cdir: Path, args) -> int:
     if refusal:
         print(refusal, file=sys.stderr)
         return 2
-    refusal = _refuse_skipped(e, "overrule")
+    refusal = _refuse_skipped(e, "overrule") or _refuse_squashed(e, "overrule")
     if refusal:
         print(refusal, file=sys.stderr)
         return 2
