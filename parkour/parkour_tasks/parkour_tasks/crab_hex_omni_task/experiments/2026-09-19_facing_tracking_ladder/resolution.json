@@ -1,0 +1,5168 @@
+{
+  "B": 2000,
+  "aliases": {
+    "dir_ratio_by_hold.back": "ratio_by_hold.back",
+    "dir_ratio_by_hold.diag": "ratio_by_hold.diag",
+    "dir_ratio_by_hold.lat_l": "ratio_by_hold.lat_l",
+    "dir_ratio_by_hold.move_turn": "ratio_by_hold.move_turn",
+    "speed_ratio_by_hold.back": "ratio_by_hold.back",
+    "speed_ratio_by_hold.diag": "ratio_by_hold.diag",
+    "speed_ratio_by_hold.fwd": "ratio_by_hold.fwd",
+    "speed_ratio_by_hold.lat_l": "ratio_by_hold.lat_l"
+  },
+  "blocks": {
+    "F": {
+      "R_eval": 0.5495086645617453,
+      "level": 0.95,
+      "mde": {
+        "facing_closed_by_hold.move_turn": 0.026617326985502628,
+        "facing_closed_by_hold.turn_l90": 0.03307293134568298,
+        "facing_closed_by_hold.turn_r90": 0.021211752072288786,
+        "yaw_progress_by_hold.move_turn": 0.004423177981105793,
+        "yaw_progress_by_hold.turn_l90": 0.003946074212924824,
+        "yaw_progress_by_hold.turn_r90": 0.004186106899494936
+      },
+      "members": [
+        "facing_closed_by_hold.move_turn",
+        "facing_closed_by_hold.turn_l90",
+        "facing_closed_by_hold.turn_r90",
+        "yaw_progress_by_hold.move_turn",
+        "yaw_progress_by_hold.turn_l90",
+        "yaw_progress_by_hold.turn_r90"
+      ],
+      "members_used": {
+        "1c-004 vs 2a-reeval @slow__omni": [
+          "facing_closed_by_hold.move_turn",
+          "facing_closed_by_hold.turn_l90",
+          "facing_closed_by_hold.turn_r90",
+          "yaw_progress_by_hold.move_turn",
+          "yaw_progress_by_hold.turn_l90",
+          "yaw_progress_by_hold.turn_r90"
+        ],
+        "1c-004 vs 2b @slow__omni": [
+          "facing_closed_by_hold.move_turn",
+          "facing_closed_by_hold.turn_l90",
+          "facing_closed_by_hold.turn_r90",
+          "yaw_progress_by_hold.move_turn",
+          "yaw_progress_by_hold.turn_l90",
+          "yaw_progress_by_hold.turn_r90"
+        ]
+      },
+      "n_draws": 2000,
+      "pairs_used": [
+        "1c-004 vs 2a-reeval @slow__omni",
+        "1c-004 vs 2b @slow__omni"
+      ],
+      "per_pair": {
+        "1c-004 vs 2a-reeval @slow__omni": 0.5096694305970607,
+        "1c-004 vs 2b @slow__omni": 0.5495086645617453
+      }
+    },
+    "F_abs": {
+      "R_eval": 0.5776571598080181,
+      "level": 0.95,
+      "mde": {
+        "facing_closed_by_hold.move_turn": 0.027980795389986216,
+        "facing_closed_by_hold.turn_l90": 0.034767087072065814,
+        "facing_closed_by_hold.turn_r90": 0.022298320748777505,
+        "net_yaw_by_hold.move_turn": 0.004737962617271244,
+        "net_yaw_by_hold.turn_l90": 0.0042251049213157124,
+        "net_yaw_by_hold.turn_r90": 0.004129707550209509
+      },
+      "members": [
+        "facing_closed_by_hold.move_turn",
+        "facing_closed_by_hold.turn_l90",
+        "facing_closed_by_hold.turn_r90",
+        "net_yaw_by_hold.move_turn",
+        "net_yaw_by_hold.turn_l90",
+        "net_yaw_by_hold.turn_r90"
+      ],
+      "members_used": {
+        "1c-004 vs 2a-reeval @slow__omni": [
+          "facing_closed_by_hold.move_turn",
+          "facing_closed_by_hold.turn_l90",
+          "facing_closed_by_hold.turn_r90",
+          "net_yaw_by_hold.move_turn",
+          "net_yaw_by_hold.turn_l90",
+          "net_yaw_by_hold.turn_r90"
+        ],
+        "1c-004 vs 2b @slow__omni": [
+          "facing_closed_by_hold.move_turn",
+          "facing_closed_by_hold.turn_l90",
+          "facing_closed_by_hold.turn_r90",
+          "net_yaw_by_hold.move_turn",
+          "net_yaw_by_hold.turn_l90",
+          "net_yaw_by_hold.turn_r90"
+        ]
+      },
+      "n_draws": 2000,
+      "pairs_used": [
+        "1c-004 vs 2a-reeval @slow__omni",
+        "1c-004 vs 2b @slow__omni"
+      ],
+      "per_pair": {
+        "1c-004 vs 2a-reeval @slow__omni": 0.5475648785272191,
+        "1c-004 vs 2b @slow__omni": 0.5776571598080181
+      }
+    },
+    "T": {
+      "R_eval": 0.5176746916782369,
+      "level": 0.95,
+      "mde": {
+        "ratio_by_hold.back": 0.026158533076230516,
+        "ratio_by_hold.diag": 0.01787136990261199,
+        "ratio_by_hold.fwd": 0.025073853709455515,
+        "ratio_by_hold.lat_l": 0.020609641264587426
+      },
+      "members": [
+        "ratio_by_hold.back",
+        "ratio_by_hold.diag",
+        "ratio_by_hold.fwd",
+        "ratio_by_hold.lat_l"
+      ],
+      "members_used": {
+        "1c-004 vs 2a-reeval @slow__omni": [
+          "ratio_by_hold.back",
+          "ratio_by_hold.diag",
+          "ratio_by_hold.fwd",
+          "ratio_by_hold.lat_l"
+        ],
+        "1c-004 vs 2b @slow__omni": [
+          "ratio_by_hold.back",
+          "ratio_by_hold.diag",
+          "ratio_by_hold.fwd",
+          "ratio_by_hold.lat_l"
+        ]
+      },
+      "n_draws": 2000,
+      "pairs_used": [
+        "1c-004 vs 2a-reeval @slow__omni",
+        "1c-004 vs 2b @slow__omni"
+      ],
+      "per_pair": {
+        "1c-004 vs 2a-reeval @slow__omni": 0.4260302514063111,
+        "1c-004 vs 2b @slow__omni": 0.5176746916782369
+      }
+    },
+    "T_abs": {
+      "R_eval": 0.5176746969757255,
+      "level": 0.95,
+      "mde": {
+        "achieved_speed_by_hold.back": 0.005754877398236223,
+        "achieved_speed_by_hold.diag": 0.004467842599543115,
+        "achieved_speed_by_hold.fwd": 0.0062684635353322,
+        "achieved_speed_by_hold.lat_l": 0.004534121069939186
+      },
+      "members": [
+        "achieved_speed_by_hold.back",
+        "achieved_speed_by_hold.diag",
+        "achieved_speed_by_hold.fwd",
+        "achieved_speed_by_hold.lat_l"
+      ],
+      "members_used": {
+        "1c-004 vs 2a-reeval @slow__omni": [
+          "achieved_speed_by_hold.back",
+          "achieved_speed_by_hold.diag",
+          "achieved_speed_by_hold.fwd",
+          "achieved_speed_by_hold.lat_l"
+        ],
+        "1c-004 vs 2b @slow__omni": [
+          "achieved_speed_by_hold.back",
+          "achieved_speed_by_hold.diag",
+          "achieved_speed_by_hold.fwd",
+          "achieved_speed_by_hold.lat_l"
+        ]
+      },
+      "n_draws": 2000,
+      "pairs_used": [
+        "1c-004 vs 2a-reeval @slow__omni",
+        "1c-004 vs 2b @slow__omni"
+      ],
+      "per_pair": {
+        "1c-004 vs 2a-reeval @slow__omni": 0.42603023556744746,
+        "1c-004 vs 2b @slow__omni": 0.5176746969757255
+      }
+    }
+  },
+  "by_row": {
+    "light__omni": {
+      "blocks": {
+        "F": {
+          "R_eval": 0.5340440277743974,
+          "level": 0.95,
+          "mde": {
+            "facing_closed_by_hold.move_turn": 0.028402544304239292,
+            "facing_closed_by_hold.turn_l90": 0.03442337050247685,
+            "facing_closed_by_hold.turn_r90": 0.018978436181220536,
+            "yaw_progress_by_hold.move_turn": 0.005524862872035936,
+            "yaw_progress_by_hold.turn_l90": 0.004089691324928382,
+            "yaw_progress_by_hold.turn_r90": 0.005084038676396765
+          },
+          "members": [
+            "facing_closed_by_hold.move_turn",
+            "facing_closed_by_hold.turn_l90",
+            "facing_closed_by_hold.turn_r90",
+            "yaw_progress_by_hold.move_turn",
+            "yaw_progress_by_hold.turn_l90",
+            "yaw_progress_by_hold.turn_r90"
+          ],
+          "members_used": {
+            "1c-004 vs 2a-reeval @light__omni": [
+              "facing_closed_by_hold.move_turn",
+              "facing_closed_by_hold.turn_l90",
+              "facing_closed_by_hold.turn_r90",
+              "yaw_progress_by_hold.move_turn",
+              "yaw_progress_by_hold.turn_l90",
+              "yaw_progress_by_hold.turn_r90"
+            ],
+            "1c-004 vs 2b @light__omni": [
+              "facing_closed_by_hold.move_turn",
+              "facing_closed_by_hold.turn_l90",
+              "facing_closed_by_hold.turn_r90",
+              "yaw_progress_by_hold.move_turn",
+              "yaw_progress_by_hold.turn_l90",
+              "yaw_progress_by_hold.turn_r90"
+            ]
+          },
+          "n_draws": 2000,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @light__omni",
+            "1c-004 vs 2b @light__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @light__omni": 0.5340440277743974,
+            "1c-004 vs 2b @light__omni": 0.4639283349456126
+          }
+        },
+        "F_abs": {
+          "R_eval": 0.5365652070339755,
+          "level": 0.95,
+          "mde": {
+            "facing_closed_by_hold.move_turn": 0.028536630450502396,
+            "facing_closed_by_hold.turn_l90": 0.034585880488998556,
+            "facing_closed_by_hold.turn_r90": 0.01906803186470514,
+            "net_yaw_by_hold.move_turn": 0.005509830218215387,
+            "net_yaw_by_hold.turn_l90": 0.004087213258560275,
+            "net_yaw_by_hold.turn_r90": 0.003868534484960808
+          },
+          "members": [
+            "facing_closed_by_hold.move_turn",
+            "facing_closed_by_hold.turn_l90",
+            "facing_closed_by_hold.turn_r90",
+            "net_yaw_by_hold.move_turn",
+            "net_yaw_by_hold.turn_l90",
+            "net_yaw_by_hold.turn_r90"
+          ],
+          "members_used": {
+            "1c-004 vs 2a-reeval @light__omni": [
+              "facing_closed_by_hold.move_turn",
+              "facing_closed_by_hold.turn_l90",
+              "facing_closed_by_hold.turn_r90",
+              "net_yaw_by_hold.move_turn",
+              "net_yaw_by_hold.turn_l90",
+              "net_yaw_by_hold.turn_r90"
+            ],
+            "1c-004 vs 2b @light__omni": [
+              "facing_closed_by_hold.move_turn",
+              "facing_closed_by_hold.turn_l90",
+              "facing_closed_by_hold.turn_r90",
+              "net_yaw_by_hold.move_turn",
+              "net_yaw_by_hold.turn_l90",
+              "net_yaw_by_hold.turn_r90"
+            ]
+          },
+          "n_draws": 2000,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @light__omni",
+            "1c-004 vs 2b @light__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @light__omni": 0.5365652070339755,
+            "1c-004 vs 2b @light__omni": 0.4742178484712538
+          }
+        },
+        "T": {
+          "R_eval": 0.4608351465543734,
+          "level": 0.95,
+          "mde": {
+            "ratio_by_hold.back": 0.014560132022633296,
+            "ratio_by_hold.diag": 0.014312323366582922,
+            "ratio_by_hold.fwd": 0.015159618425992286,
+            "ratio_by_hold.lat_l": 0.017010030317207582
+          },
+          "members": [
+            "ratio_by_hold.back",
+            "ratio_by_hold.diag",
+            "ratio_by_hold.fwd",
+            "ratio_by_hold.lat_l"
+          ],
+          "members_used": {
+            "1c-004 vs 2a-reeval @light__omni": [
+              "ratio_by_hold.back",
+              "ratio_by_hold.diag",
+              "ratio_by_hold.fwd",
+              "ratio_by_hold.lat_l"
+            ],
+            "1c-004 vs 2b @light__omni": [
+              "ratio_by_hold.back",
+              "ratio_by_hold.diag",
+              "ratio_by_hold.fwd",
+              "ratio_by_hold.lat_l"
+            ]
+          },
+          "n_draws": 2000,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @light__omni",
+            "1c-004 vs 2b @light__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @light__omni": 0.4195587445485436,
+            "1c-004 vs 2b @light__omni": 0.4608351465543734
+          }
+        },
+        "T_abs": {
+          "R_eval": 0.46083513258174824,
+          "level": 0.95,
+          "mde": {
+            "achieved_speed_by_hold.back": 0.003203228701513161,
+            "achieved_speed_by_hold.diag": 0.0035780808168500698,
+            "achieved_speed_by_hold.fwd": 0.0037899044848535425,
+            "achieved_speed_by_hold.lat_l": 0.0037422064779275934
+          },
+          "members": [
+            "achieved_speed_by_hold.back",
+            "achieved_speed_by_hold.diag",
+            "achieved_speed_by_hold.fwd",
+            "achieved_speed_by_hold.lat_l"
+          ],
+          "members_used": {
+            "1c-004 vs 2a-reeval @light__omni": [
+              "achieved_speed_by_hold.back",
+              "achieved_speed_by_hold.diag",
+              "achieved_speed_by_hold.fwd",
+              "achieved_speed_by_hold.lat_l"
+            ],
+            "1c-004 vs 2b @light__omni": [
+              "achieved_speed_by_hold.back",
+              "achieved_speed_by_hold.diag",
+              "achieved_speed_by_hold.fwd",
+              "achieved_speed_by_hold.lat_l"
+            ]
+          },
+          "n_draws": 2000,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @light__omni",
+            "1c-004 vs 2b @light__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @light__omni": 0.4195587538205543,
+            "1c-004 vs 2b @light__omni": 0.46083513258174824
+          }
+        }
+      },
+      "control_head": "1c-004",
+      "heads": [
+        "1c-004",
+        "2a-reeval",
+        "2b"
+      ],
+      "metrics": {
+        "achieved_speed_by_hold.back": {
+          "R_eval": 0.00695092121897832,
+          "below_min_n": false,
+          "block": "T_abs",
+          "blocks_all": [
+            "T_abs"
+          ],
+          "hold": "back",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 69,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @light__omni",
+            "1c-004 vs 2b @light__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @light__omni": 0.00695092121897832,
+            "1c-004 vs 2b @light__omni": 0.006847083786865161
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @light__omni": {
+              "a": 0.11926665862903915,
+              "b": 0.11855324785914094,
+              "delta": 0.0007134107698982123
+            },
+            "1c-004 vs 2b @light__omni": {
+              "a": 0.11926665862903915,
+              "b": 0.12605049334868476,
+              "delta": -0.0067838347196456095
+            }
+          },
+          "source": "json"
+        },
+        "achieved_speed_by_hold.diag": {
+          "R_eval": 0.007764340354878105,
+          "below_min_n": false,
+          "block": "T_abs",
+          "blocks_all": [
+            "T_abs"
+          ],
+          "hold": "diag",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 82,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @light__omni",
+            "1c-004 vs 2b @light__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @light__omni": 0.007764340354878105,
+            "1c-004 vs 2b @light__omni": 0.007148944913185349
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @light__omni": {
+              "a": 0.10449951030362796,
+              "b": 0.12075415080686633,
+              "delta": -0.01625464050323837
+            },
+            "1c-004 vs 2b @light__omni": {
+              "a": 0.10449951030362796,
+              "b": 0.12152856138721622,
+              "delta": -0.017029051083588265
+            }
+          },
+          "source": "json"
+        },
+        "achieved_speed_by_hold.fwd": {
+          "R_eval": 0.00822399208936451,
+          "below_min_n": false,
+          "block": "T_abs",
+          "blocks_all": [
+            "T_abs"
+          ],
+          "hold": "fwd",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 98,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @light__omni",
+            "1c-004 vs 2b @light__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @light__omni": 0.00793970330604752,
+            "1c-004 vs 2b @light__omni": 0.00822399208936451
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @light__omni": {
+              "a": 0.14871678696574803,
+              "b": 0.14951713563566713,
+              "delta": -0.0008003486699190987
+            },
+            "1c-004 vs 2b @light__omni": {
+              "a": 0.14871678696574803,
+              "b": 0.1540982260183265,
+              "delta": -0.005381439052578485
+            }
+          },
+          "source": "json"
+        },
+        "achieved_speed_by_hold.lat_l": {
+          "R_eval": 0.008120488680979109,
+          "below_min_n": false,
+          "block": "T_abs",
+          "blocks_all": [
+            "T_abs"
+          ],
+          "hold": "lat_l",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 82,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @light__omni",
+            "1c-004 vs 2b @light__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @light__omni": 0.007585819454263899,
+            "1c-004 vs 2b @light__omni": 0.008120488680979109
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @light__omni": {
+              "a": 0.08238788479962972,
+              "b": 0.09494812331225395,
+              "delta": -0.012560238512624236
+            },
+            "1c-004 vs 2b @light__omni": {
+              "a": 0.08238788479962972,
+              "b": 0.10616427330439092,
+              "delta": -0.0237763885047612
+            }
+          },
+          "source": "json"
+        },
+        "completion": {
+          "R_eval": 0.17504999999999993,
+          "below_min_n": false,
+          "block": "guard",
+          "blocks_all": [],
+          "hold": null,
+          "level": 0.99,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 100,
+          "one_sided": true,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @light__omni",
+            "1c-004 vs 2b @light__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @light__omni": 0.16504999999999992,
+            "1c-004 vs 2b @light__omni": 0.17504999999999993
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @light__omni": {
+              "a": 0.56,
+              "b": 0.59,
+              "delta": -0.029999999999999916
+            },
+            "1c-004 vs 2b @light__omni": {
+              "a": 0.56,
+              "b": 0.54,
+              "delta": 0.020000000000000018
+            }
+          },
+          "source": "json"
+        },
+        "facing_closed_by_hold.move_turn": {
+          "R_eval": 0.0531839002537029,
+          "below_min_n": false,
+          "block": "F",
+          "blocks_all": [
+            "F",
+            "F_abs"
+          ],
+          "hold": "move_turn",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 64,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @light__omni",
+            "1c-004 vs 2b @light__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @light__omni": 0.04817083108755238,
+            "1c-004 vs 2b @light__omni": 0.0531839002537029
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @light__omni": {
+              "a": 0.2246813814450493,
+              "b": 0.2351638330025796,
+              "delta": -0.010482451557530303
+            },
+            "1c-004 vs 2b @light__omni": {
+              "a": 0.2246813814450493,
+              "b": 0.14877780788536116,
+              "delta": 0.07590357355968813
+            }
+          },
+          "source": "raw"
+        },
+        "facing_closed_by_hold.turn_l90": {
+          "R_eval": 0.06445792614877574,
+          "below_min_n": false,
+          "block": "F",
+          "blocks_all": [
+            "F",
+            "F_abs"
+          ],
+          "hold": "turn_l90",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 64,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @light__omni",
+            "1c-004 vs 2b @light__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @light__omni": 0.06445792614877574,
+            "1c-004 vs 2b @light__omni": 0.06380582750236673
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @light__omni": {
+              "a": 0.7119538052345851,
+              "b": 0.6922748844436414,
+              "delta": 0.019678920790943688
+            },
+            "1c-004 vs 2b @light__omni": {
+              "a": 0.7119538052345851,
+              "b": 0.6312474705110855,
+              "delta": 0.08070633472349953
+            }
+          },
+          "source": "raw"
+        },
+        "facing_closed_by_hold.turn_r90": {
+          "R_eval": 0.03553721265325679,
+          "below_min_n": false,
+          "block": "F",
+          "blocks_all": [
+            "F",
+            "F_abs"
+          ],
+          "hold": "turn_r90",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 64,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @light__omni",
+            "1c-004 vs 2b @light__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @light__omni": 0.033287325675500204,
+            "1c-004 vs 2b @light__omni": 0.03553721265325679
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @light__omni": {
+              "a": 0.8976028320253138,
+              "b": 0.8788841424706699,
+              "delta": 0.01871868955464384
+            },
+            "1c-004 vs 2b @light__omni": {
+              "a": 0.8976028320253138,
+              "b": 0.8581038408682988,
+              "delta": 0.03949899115701494
+            }
+          },
+          "source": "raw"
+        },
+        "net_yaw_by_hold.move_turn": {
+          "R_eval": 0.010268705734150412,
+          "below_min_n": false,
+          "block": "F_abs",
+          "blocks_all": [
+            "F_abs"
+          ],
+          "hold": "move_turn",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 64,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @light__omni",
+            "1c-004 vs 2b @light__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @light__omni": 0.00867500470264414,
+            "1c-004 vs 2b @light__omni": 0.010268705734150412
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @light__omni": {
+              "a": 0.04544932395219803,
+              "b": 0.042845651507377625,
+              "delta": 0.002603672444820404
+            },
+            "1c-004 vs 2b @light__omni": {
+              "a": 0.04544932395219803,
+              "b": 0.02731228992342949,
+              "delta": 0.01813703402876854
+            }
+          },
+          "source": "json"
+        },
+        "net_yaw_by_hold.turn_l90": {
+          "R_eval": 0.007617365429177877,
+          "below_min_n": false,
+          "block": "F_abs",
+          "blocks_all": [
+            "F_abs"
+          ],
+          "hold": "turn_l90",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 64,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @light__omni",
+            "1c-004 vs 2b @light__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @light__omni": 0.0075988073367625475,
+            "1c-004 vs 2b @light__omni": 0.007617365429177877
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @light__omni": {
+              "a": 0.09395609299341838,
+              "b": 0.09342932204405467,
+              "delta": 0.0005267709493637085
+            },
+            "1c-004 vs 2b @light__omni": {
+              "a": 0.09395609299341838,
+              "b": 0.08417901893456776,
+              "delta": 0.009777074058850616
+            }
+          },
+          "source": "json"
+        },
+        "net_yaw_by_hold.turn_r90": {
+          "R_eval": 0.007209812403501316,
+          "below_min_n": false,
+          "block": "F_abs",
+          "blocks_all": [
+            "F_abs"
+          ],
+          "hold": "turn_r90",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 64,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @light__omni",
+            "1c-004 vs 2b @light__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @light__omni": 0.007209812403501316,
+            "1c-004 vs 2b @light__omni": 0.006101912131998679
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @light__omni": {
+              "a": 0.08416901528835297,
+              "b": 0.07719252755244572,
+              "delta": 0.006976487735907241
+            },
+            "1c-004 vs 2b @light__omni": {
+              "a": 0.08416901528835297,
+              "b": 0.06778447547306617,
+              "delta": 0.0163845398152868
+            }
+          },
+          "source": "json"
+        },
+        "ratio_by_hold.back": {
+          "R_eval": 0.03159509887971482,
+          "below_min_n": false,
+          "block": "T",
+          "blocks_all": [
+            "T"
+          ],
+          "hold": "back",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 69,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @light__omni",
+            "1c-004 vs 2b @light__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @light__omni": 0.03159509887971482,
+            "1c-004 vs 2b @light__omni": 0.031123107403663083
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @light__omni": {
+              "a": 0.5421211800942272,
+              "b": 0.5388784059296612,
+              "delta": 0.0032427741645659758
+            },
+            "1c-004 vs 2b @light__omni": {
+              "a": 0.5421211800942272,
+              "b": 0.5729567923837471,
+              "delta": -0.03083561228951992
+            }
+          },
+          "source": "json"
+        },
+        "ratio_by_hold.diag": {
+          "R_eval": 0.03105736069306994,
+          "below_min_n": false,
+          "block": "T",
+          "blocks_all": [
+            "T"
+          ],
+          "hold": "diag",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 82,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @light__omni",
+            "1c-004 vs 2b @light__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @light__omni": 0.03105736069306994,
+            "1c-004 vs 2b @light__omni": 0.028595781474559503
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @light__omni": {
+              "a": 0.41799804146374625,
+              "b": 0.48301660372074284,
+              "delta": -0.06501856225699659
+            },
+            "1c-004 vs 2b @light__omni": {
+              "a": 0.41799804146374625,
+              "b": 0.4861142478735835,
+              "delta": -0.06811620640983723
+            }
+          },
+          "source": "json"
+        },
+        "ratio_by_hold.fwd": {
+          "R_eval": 0.032895968415906446,
+          "below_min_n": false,
+          "block": "T",
+          "blocks_all": [
+            "T"
+          ],
+          "hold": "fwd",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 98,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @light__omni",
+            "1c-004 vs 2b @light__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @light__omni": 0.0317588124817408,
+            "1c-004 vs 2b @light__omni": 0.032895968415906446
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @light__omni": {
+              "a": 0.5948671573362565,
+              "b": 0.598068550079603,
+              "delta": -0.0032013927433465206
+            },
+            "1c-004 vs 2b @light__omni": {
+              "a": 0.5948671573362565,
+              "b": 0.6163929123308036,
+              "delta": -0.02152575499454712
+            }
+          },
+          "source": "json"
+        },
+        "ratio_by_hold.lat_l": {
+          "R_eval": 0.036911312959504464,
+          "below_min_n": false,
+          "block": "T",
+          "blocks_all": [
+            "T"
+          ],
+          "hold": "lat_l",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 82,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @light__omni",
+            "1c-004 vs 2b @light__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @light__omni": 0.03448099714741848,
+            "1c-004 vs 2b @light__omni": 0.036911312959504464
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @light__omni": {
+              "a": 0.3744903883155374,
+              "b": 0.431582381782322,
+              "delta": -0.05709199346678462
+            },
+            "1c-004 vs 2b @light__omni": {
+              "a": 0.3744903883155374,
+              "b": 0.48256488173437245,
+              "delta": -0.10807449341883507
+            }
+          },
+          "source": "json"
+        },
+        "tripod_walking_dir": {
+          "R_eval": 0.04489165258141446,
+          "below_min_n": false,
+          "block": "guard",
+          "blocks_all": [],
+          "hold": null,
+          "level": 0.99,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 69,
+          "one_sided": true,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @light__omni",
+            "1c-004 vs 2b @light__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @light__omni": 0.04489165258141446,
+            "1c-004 vs 2b @light__omni": 0.03051242582331761
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @light__omni": {
+              "a": 0.4953824651872751,
+              "b": 0.42120652988343604,
+              "delta": 0.07417593530383904
+            },
+            "1c-004 vs 2b @light__omni": {
+              "a": 0.4953824651872751,
+              "b": 0.37266176079126745,
+              "delta": 0.12272070439600763
+            }
+          },
+          "source": "json"
+        },
+        "turn_survival_l90": {
+          "R_eval": 0.0863416382448216,
+          "below_min_n": false,
+          "block": "guard",
+          "blocks_all": [],
+          "hold": "turn_l90",
+          "level": 0.99,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 100,
+          "one_sided": true,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @light__omni",
+            "1c-004 vs 2b @light__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @light__omni": 0.0863416382448216,
+            "1c-004 vs 2b @light__omni": 0.06239815820247248
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @light__omni": {
+              "a": 0.9367088607594937,
+              "b": 0.9583333333333333,
+              "delta": -0.021624472573839593
+            },
+            "1c-004 vs 2b @light__omni": {
+              "a": 0.9367088607594937,
+              "b": 1.0,
+              "delta": -0.06329113924050633
+            }
+          },
+          "source": "json"
+        },
+        "turn_survival_r90": {
+          "R_eval": 0.038966165413533836,
+          "below_min_n": false,
+          "block": "guard",
+          "blocks_all": [],
+          "hold": "turn_r90",
+          "level": 0.99,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 100,
+          "one_sided": true,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @light__omni",
+            "1c-004 vs 2b @light__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @light__omni": 0.03846153846153849,
+            "1c-004 vs 2b @light__omni": 0.038966165413533836
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @light__omni": {
+              "a": 0.9729729729729729,
+              "b": 1.0,
+              "delta": -0.027027027027027084
+            },
+            "1c-004 vs 2b @light__omni": {
+              "a": 0.9729729729729729,
+              "b": 1.0,
+              "delta": -0.027027027027027084
+            }
+          },
+          "source": "json"
+        },
+        "yaw_progress_by_hold.move_turn": {
+          "R_eval": 0.010345332191168833,
+          "below_min_n": false,
+          "block": "F",
+          "blocks_all": [
+            "F"
+          ],
+          "hold": "move_turn",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 64,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @light__omni",
+            "1c-004 vs 2b @light__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @light__omni": 0.008626801575125577,
+            "1c-004 vs 2b @light__omni": 0.010345332191168833
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @light__omni": {
+              "a": 0.043719102392642525,
+              "b": 0.04233839514516149,
+              "delta": 0.0013807072474810375
+            },
+            "1c-004 vs 2b @light__omni": {
+              "a": 0.043719102392642525,
+              "b": 0.026582149917267088,
+              "delta": 0.017136952475375437
+            }
+          },
+          "source": "json"
+        },
+        "yaw_progress_by_hold.turn_l90": {
+          "R_eval": 0.0076579665949490575,
+          "below_min_n": false,
+          "block": "F",
+          "blocks_all": [
+            "F"
+          ],
+          "hold": "turn_l90",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 64,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @light__omni",
+            "1c-004 vs 2b @light__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @light__omni": 0.007640683328881093,
+            "1c-004 vs 2b @light__omni": 0.0076579665949490575
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @light__omni": {
+              "a": 0.09400524888498088,
+              "b": 0.09435776874005872,
+              "delta": -0.00035251985507783745
+            },
+            "1c-004 vs 2b @light__omni": {
+              "a": 0.09400524888498088,
+              "b": 0.08460334400864666,
+              "delta": 0.009401904876334216
+            }
+          },
+          "source": "json"
+        },
+        "yaw_progress_by_hold.turn_r90": {
+          "R_eval": 0.009519886773351346,
+          "below_min_n": false,
+          "block": "F",
+          "blocks_all": [
+            "F"
+          ],
+          "hold": "turn_r90",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 64,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @light__omni",
+            "1c-004 vs 2b @light__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @light__omni": 0.009519886773351346,
+            "1c-004 vs 2b @light__omni": 0.008195091048906184
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @light__omni": {
+              "a": 0.10019982556616229,
+              "b": 0.08597757177492668,
+              "delta": 0.014222253791235609
+            },
+            "1c-004 vs 2b @light__omni": {
+              "a": 0.10019982556616229,
+              "b": 0.0719533232275838,
+              "delta": 0.02824650233857849
+            }
+          },
+          "source": "json"
+        }
+      },
+      "watch_metrics": {
+        "facing_by_hold.turn_l90.settle": {
+          "R_eval": null,
+          "below_min_n": true,
+          "block": "watch",
+          "blocks_all": [],
+          "hold": "turn_l90",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": null,
+          "n_valid": 2,
+          "one_sided": false,
+          "pairs_used": [],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @light__omni": null,
+            "1c-004 vs 2b @light__omni": null
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @light__omni": {
+              "a": 11.68,
+              "b": 11.71,
+              "delta": -0.030000000000001137
+            },
+            "1c-004 vs 2b @light__omni": {
+              "a": 11.68,
+              "b": null,
+              "delta": null
+            }
+          },
+          "source": "json"
+        },
+        "facing_by_hold.turn_r90.settle": {
+          "R_eval": 1.3102499999999986,
+          "below_min_n": true,
+          "block": "watch",
+          "blocks_all": [],
+          "hold": "turn_r90",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 39,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @light__omni",
+            "1c-004 vs 2b @light__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @light__omni": 1.0499999999999998,
+            "1c-004 vs 2b @light__omni": 1.3102499999999986
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @light__omni": {
+              "a": 10.06,
+              "b": 10.46,
+              "delta": -0.40000000000000036
+            },
+            "1c-004 vs 2b @light__omni": {
+              "a": 10.06,
+              "b": 10.86,
+              "delta": -0.7999999999999989
+            }
+          },
+          "source": "json"
+        },
+        "ratio_by_hold.move_turn": {
+          "R_eval": 0.04537231919528006,
+          "below_min_n": false,
+          "block": "watch",
+          "blocks_all": [],
+          "hold": "move_turn",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 63,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @light__omni",
+            "1c-004 vs 2b @light__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @light__omni": 0.04537231919528006,
+            "1c-004 vs 2b @light__omni": 0.04313462623963396
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @light__omni": {
+              "a": 0.4214892245537517,
+              "b": 0.47427777956513134,
+              "delta": -0.052788555011379634
+            },
+            "1c-004 vs 2b @light__omni": {
+              "a": 0.4214892245537517,
+              "b": 0.5511498524673104,
+              "delta": -0.1296606279135587
+            }
+          },
+          "source": "json"
+        },
+        "survival_by_hold.turn_l90": {
+          "R_eval": 0.13499999999999995,
+          "below_min_n": false,
+          "block": "watch",
+          "blocks_all": [],
+          "hold": "turn_l90",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 100,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @light__omni",
+            "1c-004 vs 2b @light__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @light__omni": 0.13,
+            "1c-004 vs 2b @light__omni": 0.13499999999999995
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @light__omni": {
+              "a": 0.74,
+              "b": 0.69,
+              "delta": 0.050000000000000044
+            },
+            "1c-004 vs 2b @light__omni": {
+              "a": 0.74,
+              "b": 0.64,
+              "delta": 0.09999999999999998
+            }
+          },
+          "source": "json"
+        },
+        "survival_by_hold.turn_r90": {
+          "R_eval": 0.135,
+          "below_min_n": false,
+          "block": "watch",
+          "blocks_all": [],
+          "hold": "turn_r90",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 100,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @light__omni",
+            "1c-004 vs 2b @light__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @light__omni": 0.135,
+            "1c-004 vs 2b @light__omni": 0.13499999999999995
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @light__omni": {
+              "a": 0.72,
+              "b": 0.69,
+              "delta": 0.030000000000000027
+            },
+            "1c-004 vs 2b @light__omni": {
+              "a": 0.72,
+              "b": 0.64,
+              "delta": 0.07999999999999996
+            }
+          },
+          "source": "json"
+        },
+        "tripod_by_hold.move_turn": {
+          "R_eval": 0.04407337230703428,
+          "below_min_n": false,
+          "block": "watch",
+          "blocks_all": [],
+          "hold": "move_turn",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 62,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @light__omni",
+            "1c-004 vs 2b @light__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @light__omni": 0.03803661307123526,
+            "1c-004 vs 2b @light__omni": 0.04407337230703428
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @light__omni": {
+              "a": 0.4722651385997522,
+              "b": 0.47242983073398986,
+              "delta": -0.00016469213423764284
+            },
+            "1c-004 vs 2b @light__omni": {
+              "a": 0.4722651385997522,
+              "b": 0.4766341458382255,
+              "delta": -0.004369007238473277
+            }
+          },
+          "source": "json"
+        }
+      }
+    },
+    "ring__omni": {
+      "blocks": {
+        "F": {
+          "R_eval": 0.4771034116356705,
+          "level": 0.95,
+          "mde": {
+            "facing_closed_by_hold.move_turn": 0.026205389643894343,
+            "facing_closed_by_hold.turn_l90": 0.03964028573356804,
+            "facing_closed_by_hold.turn_r90": 0.025036331102531943,
+            "yaw_progress_by_hold.move_turn": 0.004104820110143945,
+            "yaw_progress_by_hold.turn_l90": 0.0034266042878525983,
+            "yaw_progress_by_hold.turn_r90": 0.0037671778973481763
+          },
+          "members": [
+            "facing_closed_by_hold.move_turn",
+            "facing_closed_by_hold.turn_l90",
+            "facing_closed_by_hold.turn_r90",
+            "yaw_progress_by_hold.move_turn",
+            "yaw_progress_by_hold.turn_l90",
+            "yaw_progress_by_hold.turn_r90"
+          ],
+          "members_used": {
+            "1c-004 vs 2a-reeval @ring__omni": [
+              "facing_closed_by_hold.move_turn",
+              "facing_closed_by_hold.turn_l90",
+              "facing_closed_by_hold.turn_r90",
+              "yaw_progress_by_hold.move_turn",
+              "yaw_progress_by_hold.turn_l90",
+              "yaw_progress_by_hold.turn_r90"
+            ],
+            "1c-004 vs 2b @ring__omni": [
+              "facing_closed_by_hold.move_turn",
+              "facing_closed_by_hold.turn_l90",
+              "facing_closed_by_hold.turn_r90",
+              "yaw_progress_by_hold.move_turn",
+              "yaw_progress_by_hold.turn_l90",
+              "yaw_progress_by_hold.turn_r90"
+            ]
+          },
+          "n_draws": 2000,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @ring__omni",
+            "1c-004 vs 2b @ring__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @ring__omni": 0.4538092243336767,
+            "1c-004 vs 2b @ring__omni": 0.4771034116356705
+          }
+        },
+        "F_abs": {
+          "R_eval": 0.5089138940779059,
+          "level": 0.95,
+          "mde": {
+            "facing_closed_by_hold.move_turn": 0.027952612713000383,
+            "facing_closed_by_hold.turn_l90": 0.04228326958692136,
+            "facing_closed_by_hold.turn_r90": 0.026705608142963695,
+            "net_yaw_by_hold.move_turn": 0.004439837105334134,
+            "net_yaw_by_hold.turn_l90": 0.0036934460836370434,
+            "net_yaw_by_hold.turn_r90": 0.004902421452490579
+          },
+          "members": [
+            "facing_closed_by_hold.move_turn",
+            "facing_closed_by_hold.turn_l90",
+            "facing_closed_by_hold.turn_r90",
+            "net_yaw_by_hold.move_turn",
+            "net_yaw_by_hold.turn_l90",
+            "net_yaw_by_hold.turn_r90"
+          ],
+          "members_used": {
+            "1c-004 vs 2a-reeval @ring__omni": [
+              "facing_closed_by_hold.move_turn",
+              "facing_closed_by_hold.turn_l90",
+              "facing_closed_by_hold.turn_r90",
+              "net_yaw_by_hold.move_turn",
+              "net_yaw_by_hold.turn_l90",
+              "net_yaw_by_hold.turn_r90"
+            ],
+            "1c-004 vs 2b @ring__omni": [
+              "facing_closed_by_hold.move_turn",
+              "facing_closed_by_hold.turn_l90",
+              "facing_closed_by_hold.turn_r90",
+              "net_yaw_by_hold.move_turn",
+              "net_yaw_by_hold.turn_l90",
+              "net_yaw_by_hold.turn_r90"
+            ]
+          },
+          "n_draws": 2000,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @ring__omni",
+            "1c-004 vs 2b @ring__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @ring__omni": 0.5089138940779059,
+            "1c-004 vs 2b @ring__omni": 0.49465525186140774
+          }
+        },
+        "T": {
+          "R_eval": 0.5261095358926625,
+          "level": 0.95,
+          "mde": {
+            "ratio_by_hold.back": 0.02823959091760346,
+            "ratio_by_hold.diag": 0.017924910674165722,
+            "ratio_by_hold.fwd": 0.01968130231152354,
+            "ratio_by_hold.lat_l": 0.016892232025558826
+          },
+          "members": [
+            "ratio_by_hold.back",
+            "ratio_by_hold.diag",
+            "ratio_by_hold.fwd",
+            "ratio_by_hold.lat_l"
+          ],
+          "members_used": {
+            "1c-004 vs 2a-reeval @ring__omni": [
+              "ratio_by_hold.back",
+              "ratio_by_hold.diag",
+              "ratio_by_hold.fwd",
+              "ratio_by_hold.lat_l"
+            ],
+            "1c-004 vs 2b @ring__omni": [
+              "ratio_by_hold.back",
+              "ratio_by_hold.diag",
+              "ratio_by_hold.fwd",
+              "ratio_by_hold.lat_l"
+            ]
+          },
+          "n_draws": 2000,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @ring__omni",
+            "1c-004 vs 2b @ring__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @ring__omni": 0.4850002764976141,
+            "1c-004 vs 2b @ring__omni": 0.5261095358926625
+          }
+        },
+        "T_abs": {
+          "R_eval": 0.5261095404824465,
+          "level": 0.95,
+          "mde": {
+            "achieved_speed_by_hold.back": 0.006212709879629743,
+            "achieved_speed_by_hold.diag": 0.004481227728705627,
+            "achieved_speed_by_hold.fwd": 0.004920325661751843,
+            "achieved_speed_by_hold.lat_l": 0.0037162909311092675
+          },
+          "members": [
+            "achieved_speed_by_hold.back",
+            "achieved_speed_by_hold.diag",
+            "achieved_speed_by_hold.fwd",
+            "achieved_speed_by_hold.lat_l"
+          ],
+          "members_used": {
+            "1c-004 vs 2a-reeval @ring__omni": [
+              "achieved_speed_by_hold.back",
+              "achieved_speed_by_hold.diag",
+              "achieved_speed_by_hold.fwd",
+              "achieved_speed_by_hold.lat_l"
+            ],
+            "1c-004 vs 2b @ring__omni": [
+              "achieved_speed_by_hold.back",
+              "achieved_speed_by_hold.diag",
+              "achieved_speed_by_hold.fwd",
+              "achieved_speed_by_hold.lat_l"
+            ]
+          },
+          "n_draws": 2000,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @ring__omni",
+            "1c-004 vs 2b @ring__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @ring__omni": 0.4850002806407187,
+            "1c-004 vs 2b @ring__omni": 0.5261095404824465
+          }
+        }
+      },
+      "control_head": "1c-004",
+      "heads": [
+        "1c-004",
+        "2a-reeval",
+        "2b"
+      ],
+      "metrics": {
+        "achieved_speed_by_hold.back": {
+          "R_eval": 0.01180877631288085,
+          "below_min_n": false,
+          "block": "T_abs",
+          "blocks_all": [
+            "T_abs"
+          ],
+          "hold": "back",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 69,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @ring__omni",
+            "1c-004 vs 2b @ring__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @ring__omni": 0.010701487928863752,
+            "1c-004 vs 2b @ring__omni": 0.01180877631288085
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @ring__omni": {
+              "a": 0.1173873723472052,
+              "b": 0.12128646247906102,
+              "delta": -0.0038990901318558258
+            },
+            "1c-004 vs 2b @ring__omni": {
+              "a": 0.1173873723472052,
+              "b": 0.13061366692927104,
+              "delta": -0.01322629458206584
+            }
+          },
+          "source": "json"
+        },
+        "achieved_speed_by_hold.diag": {
+          "R_eval": 0.008517670530354394,
+          "below_min_n": false,
+          "block": "T_abs",
+          "blocks_all": [
+            "T_abs"
+          ],
+          "hold": "diag",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 78,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @ring__omni",
+            "1c-004 vs 2b @ring__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @ring__omni": 0.008517670530354394,
+            "1c-004 vs 2b @ring__omni": 0.008093209677078227
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @ring__omni": {
+              "a": 0.09980699939568091,
+              "b": 0.11993550005096573,
+              "delta": -0.02012850065528482
+            },
+            "1c-004 vs 2b @ring__omni": {
+              "a": 0.09980699939568091,
+              "b": 0.12148968441423716,
+              "delta": -0.021682685018556247
+            }
+          },
+          "source": "json"
+        },
+        "achieved_speed_by_hold.fwd": {
+          "R_eval": 0.009352283665564906,
+          "below_min_n": false,
+          "block": "T_abs",
+          "blocks_all": [
+            "T_abs"
+          ],
+          "hold": "fwd",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 99,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @ring__omni",
+            "1c-004 vs 2b @ring__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @ring__omni": 0.008110304232661115,
+            "1c-004 vs 2b @ring__omni": 0.009352283665564906
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @ring__omni": {
+              "a": 0.15125258778634768,
+              "b": 0.1516936899966243,
+              "delta": -0.0004411022102766282
+            },
+            "1c-004 vs 2b @ring__omni": {
+              "a": 0.15125258778634768,
+              "b": 0.1594124220141983,
+              "delta": -0.008159834227850632
+            }
+          },
+          "source": "json"
+        },
+        "achieved_speed_by_hold.lat_l": {
+          "R_eval": 0.007063720851177495,
+          "below_min_n": false,
+          "block": "T_abs",
+          "blocks_all": [
+            "T_abs"
+          ],
+          "hold": "lat_l",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 79,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @ring__omni",
+            "1c-004 vs 2b @ring__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @ring__omni": 0.007063720851177495,
+            "1c-004 vs 2b @ring__omni": 0.007013355814569577
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @ring__omni": {
+              "a": 0.08295455564463076,
+              "b": 0.10235486815671893,
+              "delta": -0.019400312512088166
+            },
+            "1c-004 vs 2b @ring__omni": {
+              "a": 0.08295455564463076,
+              "b": 0.10600695039679238,
+              "delta": -0.023052394752161615
+            }
+          },
+          "source": "json"
+        },
+        "completion": {
+          "R_eval": 0.165,
+          "below_min_n": false,
+          "block": "guard",
+          "blocks_all": [],
+          "hold": null,
+          "level": 0.99,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 100,
+          "one_sided": true,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @ring__omni",
+            "1c-004 vs 2b @ring__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @ring__omni": 0.165,
+            "1c-004 vs 2b @ring__omni": 0.16004999999999997
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @ring__omni": {
+              "a": 0.56,
+              "b": 0.56,
+              "delta": 0.0
+            },
+            "1c-004 vs 2b @ring__omni": {
+              "a": 0.56,
+              "b": 0.54,
+              "delta": 0.020000000000000018
+            }
+          },
+          "source": "json"
+        },
+        "facing_closed_by_hold.move_turn": {
+          "R_eval": 0.054926016047660356,
+          "below_min_n": false,
+          "block": "F",
+          "blocks_all": [
+            "F",
+            "F_abs"
+          ],
+          "hold": "move_turn",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 62,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @ring__omni",
+            "1c-004 vs 2b @ring__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @ring__omni": 0.053492891501018276,
+            "1c-004 vs 2b @ring__omni": 0.054926016047660356
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @ring__omni": {
+              "a": 0.21296359425794553,
+              "b": 0.2470112870754676,
+              "delta": -0.03404769281752207
+            },
+            "1c-004 vs 2b @ring__omni": {
+              "a": 0.21296359425794553,
+              "b": 0.17324840166973393,
+              "delta": 0.0397151925882116
+            }
+          },
+          "source": "raw"
+        },
+        "facing_closed_by_hold.turn_l90": {
+          "R_eval": 0.08308531183557846,
+          "below_min_n": false,
+          "block": "F",
+          "blocks_all": [
+            "F",
+            "F_abs"
+          ],
+          "hold": "turn_l90",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 63,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @ring__omni",
+            "1c-004 vs 2b @ring__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @ring__omni": 0.07769159052014764,
+            "1c-004 vs 2b @ring__omni": 0.08308531183557846
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @ring__omni": {
+              "a": 0.7060726996595478,
+              "b": 0.6675236199725325,
+              "delta": 0.038549079687015264
+            },
+            "1c-004 vs 2b @ring__omni": {
+              "a": 0.7060726996595478,
+              "b": 0.5745081750226158,
+              "delta": 0.13156452463693202
+            }
+          },
+          "source": "raw"
+        },
+        "facing_closed_by_hold.turn_r90": {
+          "R_eval": 0.05247569078724255,
+          "below_min_n": false,
+          "block": "F",
+          "blocks_all": [
+            "F",
+            "F_abs"
+          ],
+          "hold": "turn_r90",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 62,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @ring__omni",
+            "1c-004 vs 2b @ring__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @ring__omni": 0.03613066184047433,
+            "1c-004 vs 2b @ring__omni": 0.05247569078724255
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @ring__omni": {
+              "a": 0.887862582548998,
+              "b": 0.8562116410213062,
+              "delta": 0.03165094152769177
+            },
+            "1c-004 vs 2b @ring__omni": {
+              "a": 0.887862582548998,
+              "b": 0.8386858199927255,
+              "delta": 0.04917676255627246
+            }
+          },
+          "source": "raw"
+        },
+        "net_yaw_by_hold.move_turn": {
+          "R_eval": 0.008724142054283297,
+          "below_min_n": false,
+          "block": "F_abs",
+          "blocks_all": [
+            "F_abs"
+          ],
+          "hold": "move_turn",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 62,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @ring__omni",
+            "1c-004 vs 2b @ring__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @ring__omni": 0.008224543020035486,
+            "1c-004 vs 2b @ring__omni": 0.008724142054283297
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @ring__omni": {
+              "a": 0.03624053190875527,
+              "b": 0.044282712042331696,
+              "delta": -0.008042180133576424
+            },
+            "1c-004 vs 2b @ring__omni": {
+              "a": 0.03624053190875527,
+              "b": 0.0306684747338295,
+              "delta": 0.005572057174925774
+            }
+          },
+          "source": "json"
+        },
+        "net_yaw_by_hold.turn_l90": {
+          "R_eval": 0.007257506872216856,
+          "below_min_n": false,
+          "block": "F_abs",
+          "blocks_all": [
+            "F_abs"
+          ],
+          "hold": "turn_l90",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 63,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @ring__omni",
+            "1c-004 vs 2b @ring__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @ring__omni": 0.007257506872216856,
+            "1c-004 vs 2b @ring__omni": 0.006515835784375661
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @ring__omni": {
+              "a": 0.09151058395703633,
+              "b": 0.09236766894658408,
+              "delta": -0.0008570849895477434
+            },
+            "1c-004 vs 2b @ring__omni": {
+              "a": 0.09151058395703633,
+              "b": 0.077396293481191,
+              "delta": 0.014114290475845337
+            }
+          },
+          "source": "json"
+        },
+        "net_yaw_by_hold.turn_r90": {
+          "R_eval": 0.00963310593312295,
+          "below_min_n": false,
+          "block": "F_abs",
+          "blocks_all": [
+            "F_abs"
+          ],
+          "hold": "turn_r90",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 62,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @ring__omni",
+            "1c-004 vs 2b @ring__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @ring__omni": 0.008465726326297334,
+            "1c-004 vs 2b @ring__omni": 0.00963310593312295
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @ring__omni": {
+              "a": 0.07878856337629259,
+              "b": 0.07501400122419,
+              "delta": 0.0037745621521025896
+            },
+            "1c-004 vs 2b @ring__omni": {
+              "a": 0.07878856337629259,
+              "b": 0.06036965176463127,
+              "delta": 0.018418911611661315
+            }
+          },
+          "source": "json"
+        },
+        "ratio_by_hold.back": {
+          "R_eval": 0.053676257492061376,
+          "below_min_n": false,
+          "block": "T",
+          "blocks_all": [
+            "T"
+          ],
+          "hold": "back",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 69,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @ring__omni",
+            "1c-004 vs 2b @ring__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @ring__omni": 0.048643127427174804,
+            "1c-004 vs 2b @ring__omni": 0.053676257492061376
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @ring__omni": {
+              "a": 0.533578970067744,
+              "b": 0.5513021069785484,
+              "delta": -0.017723136910804405
+            },
+            "1c-004 vs 2b @ring__omni": {
+              "a": 0.533578970067744,
+              "b": 0.5936984889144777,
+              "delta": -0.06011951884673372
+            }
+          },
+          "source": "json"
+        },
+        "ratio_by_hold.diag": {
+          "R_eval": 0.03407068196122334,
+          "below_min_n": false,
+          "block": "T",
+          "blocks_all": [
+            "T"
+          ],
+          "hold": "diag",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 78,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @ring__omni",
+            "1c-004 vs 2b @ring__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @ring__omni": 0.03407068196122334,
+            "1c-004 vs 2b @ring__omni": 0.0323728389464821
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @ring__omni": {
+              "a": 0.39922799802518544,
+              "b": 0.4797420005714641,
+              "delta": -0.08051400254627866
+            },
+            "1c-004 vs 2b @ring__omni": {
+              "a": 0.39922799802518544,
+              "b": 0.48595873811138424,
+              "delta": -0.0867307400861988
+            }
+          },
+          "source": "json"
+        },
+        "ratio_by_hold.fwd": {
+          "R_eval": 0.03740913435094806,
+          "below_min_n": false,
+          "block": "T",
+          "blocks_all": [
+            "T"
+          ],
+          "hold": "fwd",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 99,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @ring__omni",
+            "1c-004 vs 2b @ring__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @ring__omni": 0.032441217985664406,
+            "1c-004 vs 2b @ring__omni": 0.03740913435094806
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @ring__omni": {
+              "a": 0.605010359594068,
+              "b": 0.6067747683555063,
+              "delta": -0.0017644087614382409
+            },
+            "1c-004 vs 2b @ring__omni": {
+              "a": 0.605010359594068,
+              "b": 0.6376496980970129,
+              "delta": -0.03263933850294487
+            }
+          },
+          "source": "json"
+        },
+        "ratio_by_hold.lat_l": {
+          "R_eval": 0.032107823320285146,
+          "below_min_n": false,
+          "block": "T",
+          "blocks_all": [
+            "T"
+          ],
+          "hold": "lat_l",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 79,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @ring__omni",
+            "1c-004 vs 2b @ring__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @ring__omni": 0.032107823320285146,
+            "1c-004 vs 2b @ring__omni": 0.031878891982600126
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @ring__omni": {
+              "a": 0.37706616669115695,
+              "b": 0.4652494045373927,
+              "delta": -0.08818323784623577
+            },
+            "1c-004 vs 2b @ring__omni": {
+              "a": 0.37706616669115695,
+              "b": 0.4818497771867693,
+              "delta": -0.10478361049561236
+            }
+          },
+          "source": "json"
+        },
+        "tripod_walking_dir": {
+          "R_eval": 0.044493928182513465,
+          "below_min_n": false,
+          "block": "guard",
+          "blocks_all": [],
+          "hold": null,
+          "level": 0.99,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 69,
+          "one_sided": true,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @ring__omni",
+            "1c-004 vs 2b @ring__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @ring__omni": 0.035877493605967446,
+            "1c-004 vs 2b @ring__omni": 0.044493928182513465
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @ring__omni": {
+              "a": 0.4906199718365833,
+              "b": 0.3940579252691704,
+              "delta": 0.0965620465674129
+            },
+            "1c-004 vs 2b @ring__omni": {
+              "a": 0.4906199718365833,
+              "b": 0.3717651385494216,
+              "delta": 0.11885483328716168
+            }
+          },
+          "source": "json"
+        },
+        "turn_survival_l90": {
+          "R_eval": 0.08077199757685903,
+          "below_min_n": false,
+          "block": "guard",
+          "blocks_all": [],
+          "hold": "turn_l90",
+          "level": 0.99,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 100,
+          "one_sided": true,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @ring__omni",
+            "1c-004 vs 2b @ring__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @ring__omni": 0.07765488163045518,
+            "1c-004 vs 2b @ring__omni": 0.08077199757685903
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @ring__omni": {
+              "a": 0.9285714285714287,
+              "b": 0.984375,
+              "delta": -0.055803571428571286
+            },
+            "1c-004 vs 2b @ring__omni": {
+              "a": 0.9285714285714287,
+              "b": 0.9841269841269841,
+              "delta": -0.05555555555555536
+            }
+          },
+          "source": "json"
+        },
+        "turn_survival_r90": {
+          "R_eval": 0.03225806451612906,
+          "below_min_n": false,
+          "block": "guard",
+          "blocks_all": [],
+          "hold": "turn_r90",
+          "level": 0.99,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 100,
+          "one_sided": true,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @ring__omni",
+            "1c-004 vs 2b @ring__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @ring__omni": 0.03225806451612906,
+            "1c-004 vs 2b @ring__omni": 0.0
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @ring__omni": {
+              "a": 1.0,
+              "b": 0.9841269841269841,
+              "delta": 0.015873015873015928
+            },
+            "1c-004 vs 2b @ring__omni": {
+              "a": 1.0,
+              "b": 1.0,
+              "delta": 0.0
+            }
+          },
+          "source": "json"
+        },
+        "yaw_progress_by_hold.move_turn": {
+          "R_eval": 0.00860362766233686,
+          "below_min_n": false,
+          "block": "F",
+          "blocks_all": [
+            "F"
+          ],
+          "hold": "move_turn",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 62,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @ring__omni",
+            "1c-004 vs 2b @ring__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @ring__omni": 0.007696004901059946,
+            "1c-004 vs 2b @ring__omni": 0.00860362766233686
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @ring__omni": {
+              "a": 0.038462944770726606,
+              "b": 0.0439718232821906,
+              "delta": -0.005508878511463991
+            },
+            "1c-004 vs 2b @ring__omni": {
+              "a": 0.038462944770726606,
+              "b": 0.030734693469858028,
+              "delta": 0.0077282513008685785
+            }
+          },
+          "source": "json"
+        },
+        "yaw_progress_by_hold.turn_l90": {
+          "R_eval": 0.007182099738304217,
+          "below_min_n": false,
+          "block": "F",
+          "blocks_all": [
+            "F"
+          ],
+          "hold": "turn_l90",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 63,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @ring__omni",
+            "1c-004 vs 2b @ring__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @ring__omni": 0.007182099738304217,
+            "1c-004 vs 2b @ring__omni": 0.006397220999695112
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @ring__omni": {
+              "a": 0.0911891209551201,
+              "b": 0.0921261104526396,
+              "delta": -0.000936989497519497
+            },
+            "1c-004 vs 2b @ring__omni": {
+              "a": 0.0911891209551201,
+              "b": 0.07801073419982761,
+              "delta": 0.013178386755292495
+            }
+          },
+          "source": "json"
+        },
+        "yaw_progress_by_hold.turn_r90": {
+          "R_eval": 0.007895935777178845,
+          "below_min_n": false,
+          "block": "F",
+          "blocks_all": [
+            "F"
+          ],
+          "hold": "turn_r90",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 62,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @ring__omni",
+            "1c-004 vs 2b @ring__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @ring__omni": 0.006033142831533533,
+            "1c-004 vs 2b @ring__omni": 0.007895935777178845
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @ring__omni": {
+              "a": 0.09216061389797449,
+              "b": 0.08316937567903562,
+              "delta": 0.008991238218938866
+            },
+            "1c-004 vs 2b @ring__omni": {
+              "a": 0.09216061389797449,
+              "b": 0.06730404536362586,
+              "delta": 0.02485656853434863
+            }
+          },
+          "source": "json"
+        }
+      },
+      "watch_metrics": {
+        "facing_by_hold.turn_l90.settle": {
+          "R_eval": null,
+          "below_min_n": true,
+          "block": "watch",
+          "blocks_all": [],
+          "hold": "turn_l90",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": null,
+          "n_valid": 0,
+          "one_sided": false,
+          "pairs_used": [],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @ring__omni": null,
+            "1c-004 vs 2b @ring__omni": null
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @ring__omni": {
+              "a": 10.76,
+              "b": null,
+              "delta": null
+            },
+            "1c-004 vs 2b @ring__omni": {
+              "a": 10.76,
+              "b": null,
+              "delta": null
+            }
+          },
+          "source": "json"
+        },
+        "facing_by_hold.turn_r90.settle": {
+          "R_eval": 1.8399999999999999,
+          "below_min_n": true,
+          "block": "watch",
+          "blocks_all": [],
+          "hold": "turn_r90",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 33,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @ring__omni",
+            "1c-004 vs 2b @ring__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @ring__omni": 1.8399999999999999,
+            "1c-004 vs 2b @ring__omni": 1.3499999999999996
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @ring__omni": {
+              "a": 9.98,
+              "b": 10.26,
+              "delta": -0.27999999999999936
+            },
+            "1c-004 vs 2b @ring__omni": {
+              "a": 9.98,
+              "b": 10.0,
+              "delta": -0.019999999999999574
+            }
+          },
+          "source": "json"
+        },
+        "ratio_by_hold.move_turn": {
+          "R_eval": 0.041931178800044176,
+          "below_min_n": false,
+          "block": "watch",
+          "blocks_all": [],
+          "hold": "move_turn",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 61,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @ring__omni",
+            "1c-004 vs 2b @ring__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @ring__omni": 0.041931178800044176,
+            "1c-004 vs 2b @ring__omni": 0.02970143375715257
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @ring__omni": {
+              "a": 0.4297558125095604,
+              "b": 0.454702535656726,
+              "delta": -0.024946723147165617
+            },
+            "1c-004 vs 2b @ring__omni": {
+              "a": 0.4297558125095604,
+              "b": 0.5266146182432921,
+              "delta": -0.09685880573373173
+            }
+          },
+          "source": "json"
+        },
+        "survival_by_hold.turn_l90": {
+          "R_eval": 0.14499999999999996,
+          "below_min_n": false,
+          "block": "watch",
+          "blocks_all": [],
+          "hold": "turn_l90",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 100,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @ring__omni",
+            "1c-004 vs 2b @ring__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @ring__omni": 0.14499999999999996,
+            "1c-004 vs 2b @ring__omni": 0.13499999999999995
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @ring__omni": {
+              "a": 0.65,
+              "b": 0.63,
+              "delta": 0.020000000000000018
+            },
+            "1c-004 vs 2b @ring__omni": {
+              "a": 0.65,
+              "b": 0.62,
+              "delta": 0.030000000000000027
+            }
+          },
+          "source": "json"
+        },
+        "survival_by_hold.turn_r90": {
+          "R_eval": 0.14499999999999996,
+          "below_min_n": false,
+          "block": "watch",
+          "blocks_all": [],
+          "hold": "turn_r90",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 100,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @ring__omni",
+            "1c-004 vs 2b @ring__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @ring__omni": 0.14499999999999996,
+            "1c-004 vs 2b @ring__omni": 0.13499999999999995
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @ring__omni": {
+              "a": 0.65,
+              "b": 0.62,
+              "delta": 0.030000000000000027
+            },
+            "1c-004 vs 2b @ring__omni": {
+              "a": 0.65,
+              "b": 0.62,
+              "delta": 0.030000000000000027
+            }
+          },
+          "source": "json"
+        },
+        "tripod_by_hold.move_turn": {
+          "R_eval": 0.06642038676070329,
+          "below_min_n": false,
+          "block": "watch",
+          "blocks_all": [],
+          "hold": "move_turn",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 61,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @ring__omni",
+            "1c-004 vs 2b @ring__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @ring__omni": 0.04882326592883483,
+            "1c-004 vs 2b @ring__omni": 0.06642038676070329
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @ring__omni": {
+              "a": 0.48550213950204035,
+              "b": 0.483161110595705,
+              "delta": 0.002341028906335363
+            },
+            "1c-004 vs 2b @ring__omni": {
+              "a": 0.48550213950204035,
+              "b": 0.4690898431571386,
+              "delta": 0.016412296344901767
+            }
+          },
+          "source": "json"
+        }
+      }
+    },
+    "slow__omni": {
+      "blocks": {
+        "F": {
+          "R_eval": 0.5495086645617453,
+          "level": 0.95,
+          "mde": {
+            "facing_closed_by_hold.move_turn": 0.026617326985502628,
+            "facing_closed_by_hold.turn_l90": 0.03307293134568298,
+            "facing_closed_by_hold.turn_r90": 0.021211752072288786,
+            "yaw_progress_by_hold.move_turn": 0.004423177981105793,
+            "yaw_progress_by_hold.turn_l90": 0.003946074212924824,
+            "yaw_progress_by_hold.turn_r90": 0.004186106899494936
+          },
+          "members": [
+            "facing_closed_by_hold.move_turn",
+            "facing_closed_by_hold.turn_l90",
+            "facing_closed_by_hold.turn_r90",
+            "yaw_progress_by_hold.move_turn",
+            "yaw_progress_by_hold.turn_l90",
+            "yaw_progress_by_hold.turn_r90"
+          ],
+          "members_used": {
+            "1c-004 vs 2a-reeval @slow__omni": [
+              "facing_closed_by_hold.move_turn",
+              "facing_closed_by_hold.turn_l90",
+              "facing_closed_by_hold.turn_r90",
+              "yaw_progress_by_hold.move_turn",
+              "yaw_progress_by_hold.turn_l90",
+              "yaw_progress_by_hold.turn_r90"
+            ],
+            "1c-004 vs 2b @slow__omni": [
+              "facing_closed_by_hold.move_turn",
+              "facing_closed_by_hold.turn_l90",
+              "facing_closed_by_hold.turn_r90",
+              "yaw_progress_by_hold.move_turn",
+              "yaw_progress_by_hold.turn_l90",
+              "yaw_progress_by_hold.turn_r90"
+            ]
+          },
+          "n_draws": 2000,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @slow__omni",
+            "1c-004 vs 2b @slow__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @slow__omni": 0.5096694305970607,
+            "1c-004 vs 2b @slow__omni": 0.5495086645617453
+          }
+        },
+        "F_abs": {
+          "R_eval": 0.5776571598080181,
+          "level": 0.95,
+          "mde": {
+            "facing_closed_by_hold.move_turn": 0.027980795389986216,
+            "facing_closed_by_hold.turn_l90": 0.034767087072065814,
+            "facing_closed_by_hold.turn_r90": 0.022298320748777505,
+            "net_yaw_by_hold.move_turn": 0.004737962617271244,
+            "net_yaw_by_hold.turn_l90": 0.0042251049213157124,
+            "net_yaw_by_hold.turn_r90": 0.004129707550209509
+          },
+          "members": [
+            "facing_closed_by_hold.move_turn",
+            "facing_closed_by_hold.turn_l90",
+            "facing_closed_by_hold.turn_r90",
+            "net_yaw_by_hold.move_turn",
+            "net_yaw_by_hold.turn_l90",
+            "net_yaw_by_hold.turn_r90"
+          ],
+          "members_used": {
+            "1c-004 vs 2a-reeval @slow__omni": [
+              "facing_closed_by_hold.move_turn",
+              "facing_closed_by_hold.turn_l90",
+              "facing_closed_by_hold.turn_r90",
+              "net_yaw_by_hold.move_turn",
+              "net_yaw_by_hold.turn_l90",
+              "net_yaw_by_hold.turn_r90"
+            ],
+            "1c-004 vs 2b @slow__omni": [
+              "facing_closed_by_hold.move_turn",
+              "facing_closed_by_hold.turn_l90",
+              "facing_closed_by_hold.turn_r90",
+              "net_yaw_by_hold.move_turn",
+              "net_yaw_by_hold.turn_l90",
+              "net_yaw_by_hold.turn_r90"
+            ]
+          },
+          "n_draws": 2000,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @slow__omni",
+            "1c-004 vs 2b @slow__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @slow__omni": 0.5475648785272191,
+            "1c-004 vs 2b @slow__omni": 0.5776571598080181
+          }
+        },
+        "T": {
+          "R_eval": 0.5176746916782369,
+          "level": 0.95,
+          "mde": {
+            "ratio_by_hold.back": 0.026158533076230516,
+            "ratio_by_hold.diag": 0.01787136990261199,
+            "ratio_by_hold.fwd": 0.025073853709455515,
+            "ratio_by_hold.lat_l": 0.020609641264587426
+          },
+          "members": [
+            "ratio_by_hold.back",
+            "ratio_by_hold.diag",
+            "ratio_by_hold.fwd",
+            "ratio_by_hold.lat_l"
+          ],
+          "members_used": {
+            "1c-004 vs 2a-reeval @slow__omni": [
+              "ratio_by_hold.back",
+              "ratio_by_hold.diag",
+              "ratio_by_hold.fwd",
+              "ratio_by_hold.lat_l"
+            ],
+            "1c-004 vs 2b @slow__omni": [
+              "ratio_by_hold.back",
+              "ratio_by_hold.diag",
+              "ratio_by_hold.fwd",
+              "ratio_by_hold.lat_l"
+            ]
+          },
+          "n_draws": 2000,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @slow__omni",
+            "1c-004 vs 2b @slow__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @slow__omni": 0.4260302514063111,
+            "1c-004 vs 2b @slow__omni": 0.5176746916782369
+          }
+        },
+        "T_abs": {
+          "R_eval": 0.5176746969757255,
+          "level": 0.95,
+          "mde": {
+            "achieved_speed_by_hold.back": 0.005754877398236223,
+            "achieved_speed_by_hold.diag": 0.004467842599543115,
+            "achieved_speed_by_hold.fwd": 0.0062684635353322,
+            "achieved_speed_by_hold.lat_l": 0.004534121069939186
+          },
+          "members": [
+            "achieved_speed_by_hold.back",
+            "achieved_speed_by_hold.diag",
+            "achieved_speed_by_hold.fwd",
+            "achieved_speed_by_hold.lat_l"
+          ],
+          "members_used": {
+            "1c-004 vs 2a-reeval @slow__omni": [
+              "achieved_speed_by_hold.back",
+              "achieved_speed_by_hold.diag",
+              "achieved_speed_by_hold.fwd",
+              "achieved_speed_by_hold.lat_l"
+            ],
+            "1c-004 vs 2b @slow__omni": [
+              "achieved_speed_by_hold.back",
+              "achieved_speed_by_hold.diag",
+              "achieved_speed_by_hold.fwd",
+              "achieved_speed_by_hold.lat_l"
+            ]
+          },
+          "n_draws": 2000,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @slow__omni",
+            "1c-004 vs 2b @slow__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @slow__omni": 0.42603023556744746,
+            "1c-004 vs 2b @slow__omni": 0.5176746969757255
+          }
+        }
+      },
+      "control_head": "1c-004",
+      "heads": [
+        "1c-004",
+        "2a-reeval",
+        "2b"
+      ],
+      "metrics": {
+        "achieved_speed_by_hold.back": {
+          "R_eval": 0.011116783246035447,
+          "below_min_n": false,
+          "block": "T_abs",
+          "blocks_all": [
+            "T_abs"
+          ],
+          "hold": "back",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 65,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @slow__omni",
+            "1c-004 vs 2b @slow__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @slow__omni": 0.00750120455758658,
+            "1c-004 vs 2b @slow__omni": 0.011116783246035447
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @slow__omni": {
+              "a": 0.11096763166238463,
+              "b": 0.11789016500265725,
+              "delta": -0.006922533340272624
+            },
+            "1c-004 vs 2b @slow__omni": {
+              "a": 0.11096763166238463,
+              "b": 0.13273917838925045,
+              "delta": -0.02177154672686582
+            }
+          },
+          "source": "json"
+        },
+        "achieved_speed_by_hold.diag": {
+          "R_eval": 0.008630598763363199,
+          "below_min_n": false,
+          "block": "T_abs",
+          "blocks_all": [
+            "T_abs"
+          ],
+          "hold": "diag",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 77,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @slow__omni",
+            "1c-004 vs 2b @slow__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @slow__omni": 0.008630598763363199,
+            "1c-004 vs 2b @slow__omni": 0.006095109167272203
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @slow__omni": {
+              "a": 0.10334696554312676,
+              "b": 0.11605854831603485,
+              "delta": -0.012711582772908084
+            },
+            "1c-004 vs 2b @slow__omni": {
+              "a": 0.10334696554312676,
+              "b": 0.1274081117370676,
+              "delta": -0.024061146193940827
+            }
+          },
+          "source": "json"
+        },
+        "achieved_speed_by_hold.fwd": {
+          "R_eval": 0.012108885313407806,
+          "below_min_n": false,
+          "block": "T_abs",
+          "blocks_all": [
+            "T_abs"
+          ],
+          "hold": "fwd",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 98,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @slow__omni",
+            "1c-004 vs 2b @slow__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @slow__omni": 0.009520021695831162,
+            "1c-004 vs 2b @slow__omni": 0.012108885313407806
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @slow__omni": {
+              "a": 0.15211955087987994,
+              "b": 0.14599237309544674,
+              "delta": 0.0061271777844331965
+            },
+            "1c-004 vs 2b @slow__omni": {
+              "a": 0.15211955087987994,
+              "b": 0.1506301761159537,
+              "delta": 0.0014893747639262434
+            }
+          },
+          "source": "json"
+        },
+        "achieved_speed_by_hold.lat_l": {
+          "R_eval": 0.008758629881714688,
+          "below_min_n": false,
+          "block": "T_abs",
+          "blocks_all": [
+            "T_abs"
+          ],
+          "hold": "lat_l",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 82,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @slow__omni",
+            "1c-004 vs 2b @slow__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @slow__omni": 0.007983256377371904,
+            "1c-004 vs 2b @slow__omni": 0.008758629881714688
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @slow__omni": {
+              "a": 0.09074396522749296,
+              "b": 0.1040276105737874,
+              "delta": -0.013283645346294434
+            },
+            "1c-004 vs 2b @slow__omni": {
+              "a": 0.09074396522749296,
+              "b": 0.10338777980105801,
+              "delta": -0.012643814573565046
+            }
+          },
+          "source": "json"
+        },
+        "completion": {
+          "R_eval": 0.15500000000000003,
+          "below_min_n": false,
+          "block": "guard",
+          "blocks_all": [],
+          "hold": null,
+          "level": 0.99,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 100,
+          "one_sided": true,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @slow__omni",
+            "1c-004 vs 2b @slow__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @slow__omni": 0.15499999999999997,
+            "1c-004 vs 2b @slow__omni": 0.15500000000000003
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @slow__omni": {
+              "a": 0.6,
+              "b": 0.57,
+              "delta": 0.030000000000000027
+            },
+            "1c-004 vs 2b @slow__omni": {
+              "a": 0.6,
+              "b": 0.5,
+              "delta": 0.09999999999999998
+            }
+          },
+          "source": "json"
+        },
+        "facing_closed_by_hold.move_turn": {
+          "R_eval": 0.04843841180690206,
+          "below_min_n": false,
+          "block": "F",
+          "blocks_all": [
+            "F",
+            "F_abs"
+          ],
+          "hold": "move_turn",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 57,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @slow__omni",
+            "1c-004 vs 2b @slow__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @slow__omni": 0.04843841180690206,
+            "1c-004 vs 2b @slow__omni": 0.04602179346729533
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @slow__omni": {
+              "a": 0.22073725874232952,
+              "b": 0.18770419381785075,
+              "delta": 0.03303306492447877
+            },
+            "1c-004 vs 2b @slow__omni": {
+              "a": 0.22073725874232952,
+              "b": 0.16295173494751347,
+              "delta": 0.05778552379481605
+            }
+          },
+          "source": "raw"
+        },
+        "facing_closed_by_hold.turn_l90": {
+          "R_eval": 0.0601863691668264,
+          "below_min_n": false,
+          "block": "F",
+          "blocks_all": [
+            "F",
+            "F_abs"
+          ],
+          "hold": "turn_l90",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 58,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @slow__omni",
+            "1c-004 vs 2b @slow__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @slow__omni": 0.060006540732521194,
+            "1c-004 vs 2b @slow__omni": 0.0601863691668264
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @slow__omni": {
+              "a": 0.6956642056199807,
+              "b": 0.6730437791181741,
+              "delta": 0.022620426501806512
+            },
+            "1c-004 vs 2b @slow__omni": {
+              "a": 0.6956642056199807,
+              "b": 0.5940108468230929,
+              "delta": 0.10165335879688775
+            }
+          },
+          "source": "raw"
+        },
+        "facing_closed_by_hold.turn_r90": {
+          "R_eval": 0.03860130593064623,
+          "below_min_n": false,
+          "block": "F",
+          "blocks_all": [
+            "F",
+            "F_abs"
+          ],
+          "hold": "turn_r90",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 57,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @slow__omni",
+            "1c-004 vs 2b @slow__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @slow__omni": 0.03860130593064623,
+            "1c-004 vs 2b @slow__omni": 0.037870199082463626
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @slow__omni": {
+              "a": 0.9062128890842167,
+              "b": 0.8701909976581185,
+              "delta": 0.03602189142609824
+            },
+            "1c-004 vs 2b @slow__omni": {
+              "a": 0.9062128890842167,
+              "b": 0.8465470295238152,
+              "delta": 0.05966585956040149
+            }
+          },
+          "source": "raw"
+        },
+        "net_yaw_by_hold.move_turn": {
+          "R_eval": 0.008202032186090943,
+          "below_min_n": false,
+          "block": "F_abs",
+          "blocks_all": [
+            "F_abs"
+          ],
+          "hold": "move_turn",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 57,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @slow__omni",
+            "1c-004 vs 2b @slow__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @slow__omni": 0.008058048877865074,
+            "1c-004 vs 2b @slow__omni": 0.008202032186090943
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @slow__omni": {
+              "a": 0.0396723598241806,
+              "b": 0.033836349844932556,
+              "delta": 0.005836009979248047
+            },
+            "1c-004 vs 2b @slow__omni": {
+              "a": 0.0396723598241806,
+              "b": 0.031066954135894775,
+              "delta": 0.008605405688285828
+            }
+          },
+          "source": "json"
+        },
+        "net_yaw_by_hold.turn_l90": {
+          "R_eval": 0.0073142085224389974,
+          "below_min_n": false,
+          "block": "F_abs",
+          "blocks_all": [
+            "F_abs"
+          ],
+          "hold": "turn_l90",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 58,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @slow__omni",
+            "1c-004 vs 2b @slow__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @slow__omni": 0.0073142085224389974,
+            "1c-004 vs 2b @slow__omni": 0.005977058007071408
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @slow__omni": {
+              "a": 0.09202090899149576,
+              "b": 0.09079304337501526,
+              "delta": 0.0012278656164805002
+            },
+            "1c-004 vs 2b @slow__omni": {
+              "a": 0.09202090899149576,
+              "b": 0.07854045803348224,
+              "delta": 0.01348045095801352
+            }
+          },
+          "source": "json"
+        },
+        "net_yaw_by_hold.turn_r90": {
+          "R_eval": 0.007149063211788113,
+          "below_min_n": false,
+          "block": "F_abs",
+          "blocks_all": [
+            "F_abs"
+          ],
+          "hold": "turn_r90",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 57,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @slow__omni",
+            "1c-004 vs 2b @slow__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @slow__omni": 0.00711295183282346,
+            "1c-004 vs 2b @slow__omni": 0.007149063211788113
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @slow__omni": {
+              "a": 0.08129392735039194,
+              "b": 0.0753563636293014,
+              "delta": 0.005937563721090541
+            },
+            "1c-004 vs 2b @slow__omni": {
+              "a": 0.08129392735039194,
+              "b": 0.0634136622150739,
+              "delta": 0.01788026513531804
+            }
+          },
+          "source": "json"
+        },
+        "ratio_by_hold.back": {
+          "R_eval": 0.05053083238708814,
+          "below_min_n": false,
+          "block": "T",
+          "blocks_all": [
+            "T"
+          ],
+          "hold": "back",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 65,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @slow__omni",
+            "1c-004 vs 2b @slow__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @slow__omni": 0.0340963851268044,
+            "1c-004 vs 2b @slow__omni": 0.05053083238708814
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @slow__omni": {
+              "a": 0.5043983284712468,
+              "b": 0.5358643898497507,
+              "delta": -0.03146606137850394
+            },
+            "1c-004 vs 2b @slow__omni": {
+              "a": 0.5043983284712468,
+              "b": 0.6033599069068992,
+              "delta": -0.09896157843565245
+            }
+          },
+          "source": "json"
+        },
+        "ratio_by_hold.diag": {
+          "R_eval": 0.034522394449447075,
+          "below_min_n": false,
+          "block": "T",
+          "blocks_all": [
+            "T"
+          ],
+          "hold": "diag",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 77,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @slow__omni",
+            "1c-004 vs 2b @slow__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @slow__omni": 0.034522394449447075,
+            "1c-004 vs 2b @slow__omni": 0.024380435578574756
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @slow__omni": {
+              "a": 0.413387863228177,
+              "b": 0.46423419369907193,
+              "delta": -0.05084633047089493
+            },
+            "1c-004 vs 2b @slow__omni": {
+              "a": 0.413387863228177,
+              "b": 0.5096324495519671,
+              "delta": -0.09624458632379007
+            }
+          },
+          "source": "json"
+        },
+        "ratio_by_hold.fwd": {
+          "R_eval": 0.04843554091502755,
+          "below_min_n": false,
+          "block": "T",
+          "blocks_all": [
+            "T"
+          ],
+          "hold": "fwd",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 98,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @slow__omni",
+            "1c-004 vs 2b @slow__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @slow__omni": 0.03808008530479107,
+            "1c-004 vs 2b @slow__omni": 0.04843554091502755
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @slow__omni": {
+              "a": 0.6084782136745955,
+              "b": 0.5839695019292191,
+              "delta": 0.024508711745376388
+            },
+            "1c-004 vs 2b @slow__omni": {
+              "a": 0.6084782136745955,
+              "b": 0.6025207130370969,
+              "delta": 0.005957500637498669
+            }
+          },
+          "source": "json"
+        },
+        "ratio_by_hold.lat_l": {
+          "R_eval": 0.03981195448781461,
+          "below_min_n": false,
+          "block": "T",
+          "blocks_all": [
+            "T"
+          ],
+          "hold": "lat_l",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 82,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @slow__omni",
+            "1c-004 vs 2b @slow__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @slow__omni": 0.036287530036770425,
+            "1c-004 vs 2b @slow__omni": 0.03981195448781461
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @slow__omni": {
+              "a": 0.4124725719695793,
+              "b": 0.47285277881929644,
+              "delta": -0.06038020684971712
+            },
+            "1c-004 vs 2b @slow__omni": {
+              "a": 0.4124725719695793,
+              "b": 0.46994445764272597,
+              "delta": -0.05747188567314665
+            }
+          },
+          "source": "json"
+        },
+        "tripod_walking_dir": {
+          "R_eval": 0.041730762775439155,
+          "below_min_n": false,
+          "block": "guard",
+          "blocks_all": [],
+          "hold": null,
+          "level": 0.99,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 64,
+          "one_sided": true,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @slow__omni",
+            "1c-004 vs 2b @slow__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @slow__omni": 0.040212541448818785,
+            "1c-004 vs 2b @slow__omni": 0.041730762775439155
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @slow__omni": {
+              "a": 0.48859443940575564,
+              "b": 0.3924168555222984,
+              "delta": 0.09617758388345726
+            },
+            "1c-004 vs 2b @slow__omni": {
+              "a": 0.48859443940575564,
+              "b": 0.3769291624080501,
+              "delta": 0.11166527699770556
+            }
+          },
+          "source": "json"
+        },
+        "turn_survival_l90": {
+          "R_eval": 0.07919640116902477,
+          "below_min_n": false,
+          "block": "guard",
+          "blocks_all": [],
+          "hold": "turn_l90",
+          "level": 0.99,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 100,
+          "one_sided": true,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @slow__omni",
+            "1c-004 vs 2b @slow__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @slow__omni": 0.07919640116902477,
+            "1c-004 vs 2b @slow__omni": 0.06576797633815186
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @slow__omni": {
+              "a": 0.9615384615384615,
+              "b": 0.9459459459459459,
+              "delta": 0.01559251559251551
+            },
+            "1c-004 vs 2b @slow__omni": {
+              "a": 0.9615384615384615,
+              "b": 0.9827586206896551,
+              "delta": -0.021220159151193685
+            }
+          },
+          "source": "json"
+        },
+        "turn_survival_r90": {
+          "R_eval": 0.028177179016125688,
+          "below_min_n": false,
+          "block": "guard",
+          "blocks_all": [],
+          "hold": "turn_r90",
+          "level": 0.99,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 100,
+          "one_sided": true,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @slow__omni",
+            "1c-004 vs 2b @slow__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @slow__omni": 0.027030729359496478,
+            "1c-004 vs 2b @slow__omni": 0.028177179016125688
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @slow__omni": {
+              "a": 0.9866666666666667,
+              "b": 1.0,
+              "delta": -0.013333333333333308
+            },
+            "1c-004 vs 2b @slow__omni": {
+              "a": 0.9866666666666667,
+              "b": 1.0,
+              "delta": -0.013333333333333308
+            }
+          },
+          "source": "json"
+        },
+        "yaw_progress_by_hold.move_turn": {
+          "R_eval": 0.008049332551714087,
+          "below_min_n": false,
+          "block": "F",
+          "blocks_all": [
+            "F"
+          ],
+          "hold": "move_turn",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 57,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @slow__omni",
+            "1c-004 vs 2b @slow__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @slow__omni": 0.007607569190835444,
+            "1c-004 vs 2b @slow__omni": 0.008049332551714087
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @slow__omni": {
+              "a": 0.039468400380719686,
+              "b": 0.03365791508607799,
+              "delta": 0.005810485294641697
+            },
+            "1c-004 vs 2b @slow__omni": {
+              "a": 0.039468400380719686,
+              "b": 0.031415639100014235,
+              "delta": 0.00805276128070545
+            }
+          },
+          "source": "json"
+        },
+        "yaw_progress_by_hold.turn_l90": {
+          "R_eval": 0.0071810955266228115,
+          "below_min_n": false,
+          "block": "F",
+          "blocks_all": [
+            "F"
+          ],
+          "hold": "turn_l90",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 58,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @slow__omni",
+            "1c-004 vs 2b @slow__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @slow__omni": 0.0071810955266228115,
+            "1c-004 vs 2b @slow__omni": 0.006130023160559934
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @slow__omni": {
+              "a": 0.092288412291576,
+              "b": 0.09101246829649123,
+              "delta": 0.0012759439950847662
+            },
+            "1c-004 vs 2b @slow__omni": {
+              "a": 0.092288412291576,
+              "b": 0.0789287885483039,
+              "delta": 0.013359623743272098
+            }
+          },
+          "source": "json"
+        },
+        "yaw_progress_by_hold.turn_r90": {
+          "R_eval": 0.007617908814656309,
+          "below_min_n": false,
+          "block": "F",
+          "blocks_all": [
+            "F"
+          ],
+          "hold": "turn_r90",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 57,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @slow__omni",
+            "1c-004 vs 2b @slow__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @slow__omni": 0.006307614791307945,
+            "1c-004 vs 2b @slow__omni": 0.007617908814656309
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @slow__omni": {
+              "a": 0.09839037554353693,
+              "b": 0.08491611999580831,
+              "delta": 0.013474255547728617
+            },
+            "1c-004 vs 2b @slow__omni": {
+              "a": 0.09839037554353693,
+              "b": 0.07149449217263021,
+              "delta": 0.026895883370906717
+            }
+          },
+          "source": "json"
+        }
+      },
+      "watch_metrics": {
+        "facing_by_hold.turn_l90.settle": {
+          "R_eval": null,
+          "below_min_n": true,
+          "block": "watch",
+          "blocks_all": [],
+          "hold": "turn_l90",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": null,
+          "n_valid": 1,
+          "one_sided": false,
+          "pairs_used": [],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @slow__omni": null,
+            "1c-004 vs 2b @slow__omni": null
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @slow__omni": {
+              "a": 11.18,
+              "b": 11.68,
+              "delta": -0.5
+            },
+            "1c-004 vs 2b @slow__omni": {
+              "a": 11.18,
+              "b": null,
+              "delta": null
+            }
+          },
+          "source": "json"
+        },
+        "facing_by_hold.turn_r90.settle": {
+          "R_eval": 1.3049999999999997,
+          "below_min_n": true,
+          "block": "watch",
+          "blocks_all": [],
+          "hold": "turn_r90",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 35,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @slow__omni",
+            "1c-004 vs 2b @slow__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @slow__omni": 1.1351249999999982,
+            "1c-004 vs 2b @slow__omni": 1.3049999999999997
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @slow__omni": {
+              "a": 10.29,
+              "b": 10.68,
+              "delta": -0.39000000000000057
+            },
+            "1c-004 vs 2b @slow__omni": {
+              "a": 10.29,
+              "b": 10.82,
+              "delta": -0.5300000000000011
+            }
+          },
+          "source": "json"
+        },
+        "ratio_by_hold.move_turn": {
+          "R_eval": 0.042578271419060724,
+          "below_min_n": false,
+          "block": "watch",
+          "blocks_all": [],
+          "hold": "move_turn",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 56,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @slow__omni",
+            "1c-004 vs 2b @slow__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @slow__omni": 0.03130672169070606,
+            "1c-004 vs 2b @slow__omni": 0.042578271419060724
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @slow__omni": {
+              "a": 0.4427545255309057,
+              "b": 0.48818456155673473,
+              "delta": -0.04543003602582901
+            },
+            "1c-004 vs 2b @slow__omni": {
+              "a": 0.4427545255309057,
+              "b": 0.5397648730180786,
+              "delta": -0.09701034748717291
+            }
+          },
+          "source": "json"
+        },
+        "survival_by_hold.turn_l90": {
+          "R_eval": 0.125,
+          "below_min_n": false,
+          "block": "watch",
+          "blocks_all": [],
+          "hold": "turn_l90",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 100,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @slow__omni",
+            "1c-004 vs 2b @slow__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @slow__omni": 0.12,
+            "1c-004 vs 2b @slow__omni": 0.125
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @slow__omni": {
+              "a": 0.75,
+              "b": 0.7,
+              "delta": 0.050000000000000044
+            },
+            "1c-004 vs 2b @slow__omni": {
+              "a": 0.75,
+              "b": 0.57,
+              "delta": 0.18000000000000005
+            }
+          },
+          "source": "json"
+        },
+        "survival_by_hold.turn_r90": {
+          "R_eval": 0.12499999999999994,
+          "below_min_n": false,
+          "block": "watch",
+          "blocks_all": [],
+          "hold": "turn_r90",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 100,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @slow__omni",
+            "1c-004 vs 2b @slow__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @slow__omni": 0.11999999999999994,
+            "1c-004 vs 2b @slow__omni": 0.12499999999999994
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @slow__omni": {
+              "a": 0.74,
+              "b": 0.7,
+              "delta": 0.040000000000000036
+            },
+            "1c-004 vs 2b @slow__omni": {
+              "a": 0.74,
+              "b": 0.57,
+              "delta": 0.17000000000000004
+            }
+          },
+          "source": "json"
+        },
+        "tripod_by_hold.move_turn": {
+          "R_eval": 0.05688041054507829,
+          "below_min_n": false,
+          "block": "watch",
+          "blocks_all": [],
+          "hold": "move_turn",
+          "level": 0.95,
+          "n": 100,
+          "n_draws": 2000,
+          "n_valid": 55,
+          "one_sided": false,
+          "pairs_used": [
+            "1c-004 vs 2a-reeval @slow__omni",
+            "1c-004 vs 2b @slow__omni"
+          ],
+          "per_pair": {
+            "1c-004 vs 2a-reeval @slow__omni": 0.03281011071307359,
+            "1c-004 vs 2b @slow__omni": 0.05688041054507829
+          },
+          "points": {
+            "1c-004 vs 2a-reeval @slow__omni": {
+              "a": 0.5081900559760959,
+              "b": 0.45915640539698654,
+              "delta": 0.049033650579109356
+            },
+            "1c-004 vs 2b @slow__omni": {
+              "a": 0.5081900559760959,
+              "b": 0.4769599405732356,
+              "delta": 0.031230115402860303
+            }
+          },
+          "source": "json"
+        }
+      }
+    }
+  },
+  "candidates_sha256": "7303819ea5cf6895d82f9018c99058fa4bd70819aca31e5f443764116c839027",
+  "charter_cite": "the sideways formation campaign's CHARTER.md:227 -- paired episode bootstraps, n=100: completion +-0.06..0.10, walking tripod +-0.016..0.056",
+  "charter_floors": {
+    "completion": 0.1,
+    "tripod_walking_dir": 0.056
+  },
+  "created": "2026-09-19T09:05:39-04:00",
+  "decision_rule": {
+    "blocks": {
+      "F": {
+        "level": 0.95,
+        "metrics": [
+          "facing_closed_by_hold.turn_l90",
+          "facing_closed_by_hold.turn_r90",
+          "facing_closed_by_hold.move_turn",
+          "yaw_progress_by_hold.turn_l90",
+          "yaw_progress_by_hold.turn_r90",
+          "yaw_progress_by_hold.move_turn"
+        ]
+      },
+      "F_abs": {
+        "level": 0.95,
+        "metrics": [
+          "facing_closed_by_hold.turn_l90",
+          "facing_closed_by_hold.turn_r90",
+          "facing_closed_by_hold.move_turn",
+          "net_yaw_by_hold.turn_l90",
+          "net_yaw_by_hold.turn_r90",
+          "net_yaw_by_hold.move_turn"
+        ]
+      },
+      "T": {
+        "level": 0.95,
+        "metrics": [
+          "ratio_by_hold.fwd",
+          "ratio_by_hold.lat_l",
+          "ratio_by_hold.diag",
+          "ratio_by_hold.back"
+        ]
+      },
+      "T_abs": {
+        "level": 0.95,
+        "metrics": [
+          "achieved_speed_by_hold.fwd",
+          "achieved_speed_by_hold.lat_l",
+          "achieved_speed_by_hold.diag",
+          "achieved_speed_by_hold.back"
+        ]
+      }
+    },
+    "bootstrap": {
+      "B": 2000,
+      "paired_on": "env_index",
+      "rng_seed": 20260919
+    },
+    "charter_floors": {
+      "completion": 0.1,
+      "tripod_walking_dir": 0.056
+    },
+    "control_head": "1c-004",
+    "guards": {
+      "level": 0.99,
+      "metrics": [
+        "completion",
+        "tripod_walking_dir",
+        "turn_survival_l90",
+        "turn_survival_r90"
+      ]
+    },
+    "text": "F block = facing on turn_l90, turn_r90, move_turn: the per-episode closed fraction clip(1 - final/max(initial, 0.15), -1, 1) (None = uninformative when initial < 0.15) and the signed yaw_progress_rate; T block = speed_ratio on fwd, lat_l, diag, back; guards (four) = completion, tripod_walking_dir (min over the four direction holds), turn_survival_l90 = surv[turn_l90]/surv[back] and turn_survival_r90 = surv[turn_r90]/surv[turn_l90] (falls DURING the turns, not the cumulative survivals nested inside completion; a conditional survival is MISSING when its denominator is 0 or unavailable, and the bootstrap drops zero-denominator resamples). WATCH, never scored: track_ratio_tail (the training-log ratio includes the ~20 % move+turn rows, so a successful facing fix lowers it by design), the slot-gated track_ratio_move_tail, dir_ratio[move_turn], tripod_by_hold[move_turn], settle, right-handed holds, the cumulative survivals. One standardiser everywhere: R_i = R_eval,i, the metric's D00 paired-bootstrap half-width, never re-fitted. Block statistic z_F = mean_i(delta_i / R_i) (a closed fraction and a rad/s rate weigh equally); block resolution R_F = max(R_F^eval, R_F^seed) where R_F^eval is the paired-bootstrap 95 % half-width of z_F itself and R_F^seed is the block-level seed term of decision 6 -- likewise R_T and the two absolute-units blocks; guards one-sided at 99 % on their own per-metric R (max(R_eval,i, R_seed,i) single-seed). Null candidate all-TIE ~= 0.95^2 x 0.99^4 ~= 0.87 under eval noise (pinned), and B0_s2 submitted against B0_s3 is TIE on both blocks and every guard by construction (pinned). Per block: BETTER if z > R, WORSE if z < -R, else TIE. Clear ADOPT = >= 1 block BETTER, no WORSE (blocks or guards), and anchored drift OK; clear REJECT = any WORSE, or a FLOOR gate (a MISSING metric never blocks a REJECT); UNCERTAIN = all TIE -> speculative pick = the candidate's speculative_default when declared (C1c: candidate), else the sign of z_F + z_T (exact tie -> incumbent), notify, pair queued. Anchored drift (z of candidate vs anchor >= -R on both blocks and every guard) is a precondition of ANY ADOPT, clear or speculative, s3 or pooled -- a clear-ADOPT screen that fails it is recorded confidence: uncertain (evidence.anchored_drift: FAIL), status speculative, pick REJECT, and queues the pair exactly like an all-TIE UNCERTAIN; at the pooled level drift = the candidate's two-seed mean deltas vs the anchor's s3 (and its s2, paired seed-wise, when the anchor recipe has an ok s2 screen) at R_F^pooled/R_pooled,i, and a pooled drift pass with a pooled clear ADOPT is an ADOPT (a different pick -> self-overrule as usual). MISSING in a guard -> a decided REJECT (TERMINAL) with confidence: uncertain, evidence.missing: [<guards>] + WATCH and NO pair (a pair cannot supply the metric; decide --choose run re-runs the candidate later); MISSING in F/T -> that metric leaves the block mean and the best outcome is a speculative ADOPT. Absolute-units candidates (C3a, C3b -- any candidate that changes the command cap/clip or, if ever added, the speed ellipse): F = facing_closed + whole-hold net_yaw_rate_toward, T = achieved_vx m/s.",
+    "watch": [
+      "track_ratio_tail",
+      "track_ratio_move_tail",
+      "ratio_by_hold.move_turn",
+      "tripod_by_hold.move_turn",
+      "facing_by_hold.turn_l90.settle",
+      "facing_by_hold.turn_r90.settle",
+      "ratio_by_hold.lat_r",
+      "ratio_by_hold.move_turn_r",
+      "facing_closed_by_hold.move_turn_r",
+      "survival_by_hold.turn_l90",
+      "survival_by_hold.turn_r90"
+    ]
+  },
+  "diagnostics": {
+    "control_head": "1c-004",
+    "null_calibrated": {
+      "N": 1000,
+      "all_tie": 0.888,
+      "blocks": {
+        "F": 0.953,
+        "F_abs": 0.956,
+        "T": 0.962,
+        "T_abs": 0.962
+      },
+      "guards": {
+        "completion": 0.988,
+        "tripod_walking_dir": 0.99,
+        "turn_survival_l90": 0.991,
+        "turn_survival_r90": 0.994
+      }
+    },
+    "null_under_d00_R": {
+      "N": 1000,
+      "all_tie": 0.851,
+      "blocks": {
+        "F": 0.949,
+        "F_abs": 0.943,
+        "T": 0.96,
+        "T_abs": 0.96
+      },
+      "guards": {
+        "completion": 0.99,
+        "tripod_walking_dir": 1.0,
+        "turn_survival_l90": 0.99,
+        "turn_survival_r90": 0.949
+      }
+    },
+    "same_run_blocks": {
+      "F": 0.522608443684849,
+      "F_abs": 0.5623778457721345,
+      "T": 0.5027452379312146,
+      "T_abs": 0.5027452329289314
+    },
+    "same_run_spread": {
+      "achieved_speed_by_hold.back": 0.009971093752078313,
+      "achieved_speed_by_hold.diag": 0.008410431611208039,
+      "achieved_speed_by_hold.fwd": 0.012942070590112646,
+      "achieved_speed_by_hold.lat_l": 0.008826815888973938,
+      "completion": 0.16000000000000003,
+      "facing_by_hold.turn_l90.settle": 0.879999999999999,
+      "facing_by_hold.turn_r90.settle": 1.2951249999999983,
+      "facing_closed_by_hold.move_turn": 0.05138314048169147,
+      "facing_closed_by_hold.turn_l90": 0.06502990724001112,
+      "facing_closed_by_hold.turn_r90": 0.03506986572464606,
+      "net_yaw_by_hold.move_turn": 0.009081825334578752,
+      "net_yaw_by_hold.turn_l90": 0.005624175195892648,
+      "net_yaw_by_hold.turn_r90": 0.009313995812165857,
+      "ratio_by_hold.back": 0.045323153346557565,
+      "ratio_by_hold.diag": 0.03364172644759156,
+      "ratio_by_hold.fwd": 0.05176828226121276,
+      "ratio_by_hold.lat_l": 0.04012189087410534,
+      "ratio_by_hold.move_turn": 0.03890964924058535,
+      "survival_by_hold.turn_l90": 0.12000000000000005,
+      "survival_by_hold.turn_r90": 0.12000000000000005,
+      "tripod_by_hold.move_turn": 0.035301195429862466,
+      "tripod_walking_dir": 0.02332069961357719,
+      "turn_survival_l90": 0.07077310120416161,
+      "turn_survival_r90": 0.044947510323097115,
+      "yaw_progress_by_hold.move_turn": 0.008782558374378682,
+      "yaw_progress_by_hold.turn_l90": 0.006236263303455572,
+      "yaw_progress_by_hold.turn_r90": 0.007620036320386844
+    }
+  },
+  "inputs": [
+    {
+      "accepted": true,
+      "env_vars_defaulted": [
+        "KRABBY_OMNI_ANG_VEL_CLIP",
+        "KRABBY_OMNI_FACING_OBS_ENCODING"
+      ],
+      "facing_closed_source": "metric",
+      "head": "1c-004",
+      "mask_deviation": 0.0,
+      "n_episodes": 100,
+      "process_floor_pair": false,
+      "provenance_ok": true,
+      "reason": "ok",
+      "row": "slow__omni",
+      "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-16_1805_omni_formation/seed3_1c_004_A15pB/slow__omni/seed001/2026-09-18_08-27-40",
+      "waived": false
+    },
+    {
+      "accepted": true,
+      "env_vars_defaulted": [
+        "KRABBY_OMNI_ANG_VEL_CLIP",
+        "KRABBY_OMNI_FACING_OBS_ENCODING"
+      ],
+      "facing_closed_source": "metric",
+      "head": "1c-004",
+      "mask_deviation": 0.0,
+      "n_episodes": 100,
+      "process_floor_pair": false,
+      "provenance_ok": true,
+      "reason": "ok",
+      "row": "light__omni",
+      "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-16_1805_omni_formation/seed3_1c_004_A15pB/light__omni/seed001/2026-09-18_08-31-01",
+      "waived": false
+    },
+    {
+      "accepted": true,
+      "env_vars_defaulted": [
+        "KRABBY_OMNI_ANG_VEL_CLIP",
+        "KRABBY_OMNI_FACING_OBS_ENCODING"
+      ],
+      "facing_closed_source": "metric",
+      "head": "1c-004",
+      "mask_deviation": 0.0,
+      "n_episodes": 100,
+      "process_floor_pair": false,
+      "provenance_ok": true,
+      "reason": "ok",
+      "row": "ring__omni",
+      "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-16_1805_omni_formation/seed3_1c_004_A15pB_obst/ring__omni/seed001/2026-09-18_08-34-23",
+      "waived": false
+    },
+    {
+      "accepted": true,
+      "env_vars_defaulted": [
+        "KRABBY_OMNI_ANG_VEL_CLIP",
+        "KRABBY_OMNI_FACING_OBS_ENCODING"
+      ],
+      "facing_closed_source": "metric",
+      "head": "2b",
+      "mask_deviation": 0.0,
+      "n_episodes": 100,
+      "process_floor_pair": false,
+      "provenance_ok": true,
+      "reason": "ok",
+      "row": "slow__omni",
+      "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-16_1805_omni_formation/seed3_2b_006_A15pB/slow__omni/seed001/2026-09-18_18-53-00",
+      "waived": false
+    },
+    {
+      "accepted": true,
+      "env_vars_defaulted": [
+        "KRABBY_OMNI_ANG_VEL_CLIP",
+        "KRABBY_OMNI_FACING_OBS_ENCODING"
+      ],
+      "facing_closed_source": "metric",
+      "head": "2b",
+      "mask_deviation": 0.0,
+      "n_episodes": 100,
+      "process_floor_pair": false,
+      "provenance_ok": true,
+      "reason": "ok",
+      "row": "light__omni",
+      "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-16_1805_omni_formation/seed3_2b_006_A15pB/light__omni/seed001/2026-09-18_18-56-10",
+      "waived": false
+    },
+    {
+      "accepted": true,
+      "env_vars_defaulted": [
+        "KRABBY_OMNI_ANG_VEL_CLIP",
+        "KRABBY_OMNI_FACING_OBS_ENCODING"
+      ],
+      "facing_closed_source": "metric",
+      "head": "2b",
+      "mask_deviation": 0.0,
+      "n_episodes": 100,
+      "process_floor_pair": false,
+      "provenance_ok": true,
+      "reason": "ok",
+      "row": "ring__omni",
+      "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-16_1805_omni_formation/seed3_2b_006_A15pB_obst/ring__omni/seed001/2026-09-18_18-59-24",
+      "waived": false
+    },
+    {
+      "accepted": true,
+      "env_vars_defaulted": [
+        "KRABBY_OMNI_ANG_VEL_CLIP",
+        "KRABBY_OMNI_FACING_OBS_ENCODING"
+      ],
+      "facing_closed_source": "metric",
+      "head": "2a-reeval",
+      "mask_deviation": 0.0,
+      "n_episodes": 100,
+      "process_floor_pair": false,
+      "provenance_ok": true,
+      "reason": "ok",
+      "row": "slow__omni",
+      "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/reeval_2a/slow__omni/slow__omni/seed001/2026-09-18_16-42-00",
+      "waived": false
+    },
+    {
+      "accepted": true,
+      "env_vars_defaulted": [
+        "KRABBY_OMNI_ANG_VEL_CLIP",
+        "KRABBY_OMNI_FACING_OBS_ENCODING"
+      ],
+      "facing_closed_source": "metric",
+      "head": "2a-reeval",
+      "mask_deviation": 0.0,
+      "n_episodes": 100,
+      "process_floor_pair": false,
+      "provenance_ok": true,
+      "reason": "ok",
+      "row": "light__omni",
+      "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/reeval_2a/light__omni/light__omni/seed001/2026-09-18_16-45-24",
+      "waived": false
+    },
+    {
+      "accepted": true,
+      "env_vars_defaulted": [
+        "KRABBY_OMNI_ANG_VEL_CLIP",
+        "KRABBY_OMNI_FACING_OBS_ENCODING"
+      ],
+      "facing_closed_source": "metric",
+      "head": "2a-reeval",
+      "mask_deviation": 0.0,
+      "n_episodes": 100,
+      "process_floor_pair": false,
+      "provenance_ok": true,
+      "reason": "ok",
+      "row": "ring__omni",
+      "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/reeval_2a/ring__omni/ring__omni/seed001/2026-09-18_16-48-58",
+      "waived": false
+    },
+    {
+      "accepted": false,
+      "env_vars_defaulted": [
+        "KRABBY_OMNI_ANG_VEL_CLIP",
+        "KRABBY_OMNI_FACING_OBS_ENCODING"
+      ],
+      "facing_closed_source": "metric",
+      "head": "1a-corrected",
+      "mask_deviation": 0.0,
+      "n_episodes": 100,
+      "process_floor_pair": false,
+      "provenance_ok": false,
+      "reason": "informational: run_meta.env_vars lacks KRABBY_OMNI_FACING_OBS_CLIP, KRABBY_OMNI_SPEED_ELLIPSE, KRABBY_OMNI_ANG_VEL_MAX, KRABBY_OMNI_CLOCK_TURN_R, KRABBY_OMNI_YAW_RANGE (refusal waived by candidates.yaml provenance_ok; never a candidate-R source)",
+      "row": "slow__omni",
+      "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/reeval_corrected/1a/slow__omni/seed001/2026-09-18_05-12-15",
+      "waived": true
+    },
+    {
+      "accepted": false,
+      "env_vars_defaulted": [
+        "KRABBY_OMNI_ANG_VEL_CLIP",
+        "KRABBY_OMNI_FACING_OBS_ENCODING"
+      ],
+      "facing_closed_source": "metric",
+      "head": "1b-corrected",
+      "mask_deviation": 0.0,
+      "n_episodes": 100,
+      "process_floor_pair": false,
+      "provenance_ok": false,
+      "reason": "informational: run_meta.env_vars lacks KRABBY_OMNI_FACING_OBS_CLIP, KRABBY_OMNI_SPEED_ELLIPSE, KRABBY_OMNI_ANG_VEL_MAX, KRABBY_OMNI_CLOCK_TURN_R, KRABBY_OMNI_YAW_RANGE (refusal waived by candidates.yaml provenance_ok; never a candidate-R source)",
+      "row": "slow__omni",
+      "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/reeval_corrected/1b/slow__omni/seed001/2026-09-18_05-15-35",
+      "waived": true
+    },
+    {
+      "accepted": false,
+      "env_vars_defaulted": [
+        "KRABBY_OMNI_ANG_VEL_CLIP",
+        "KRABBY_OMNI_FACING_OBS_ENCODING"
+      ],
+      "facing_closed_source": "metric",
+      "head": "1c-corrected",
+      "mask_deviation": 0.0,
+      "n_episodes": 100,
+      "process_floor_pair": false,
+      "provenance_ok": false,
+      "reason": "informational: run_meta.env_vars lacks KRABBY_OMNI_FACING_OBS_CLIP, KRABBY_OMNI_SPEED_ELLIPSE, KRABBY_OMNI_ANG_VEL_MAX, KRABBY_OMNI_CLOCK_TURN_R, KRABBY_OMNI_YAW_RANGE (refusal waived by candidates.yaml provenance_ok; never a candidate-R source)",
+      "row": "slow__omni",
+      "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/reeval_corrected/1c/slow__omni/seed001/2026-09-18_05-18-59",
+      "waived": true
+    },
+    {
+      "accepted": true,
+      "env_vars_defaulted": [],
+      "facing_closed_source": "metric",
+      "head": "2b_floor",
+      "mask_deviation": 0.0,
+      "n_episodes": 100,
+      "process_floor_pair": true,
+      "provenance_ok": true,
+      "reason": "ok",
+      "row": "slow__omni",
+      "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/campaign/seed3_2b_006_A15pB_floor/slow__omni/seed001/2026-09-19_06-17-18",
+      "waived": false
+    }
+  ],
+  "levels": {
+    "block": 0.95,
+    "guard": 0.99,
+    "guard_one_sided": true
+  },
+  "metrics": {
+    "achieved_speed_by_hold.back": {
+      "R_eval": 0.011116783246035447,
+      "below_min_n": false,
+      "block": "T_abs",
+      "blocks_all": [
+        "T_abs"
+      ],
+      "hold": "back",
+      "level": 0.95,
+      "n": 100,
+      "n_draws": 2000,
+      "n_valid": 65,
+      "one_sided": false,
+      "pairs_used": [
+        "1c-004 vs 2a-reeval @slow__omni",
+        "1c-004 vs 2b @slow__omni"
+      ],
+      "per_pair": {
+        "1c-004 vs 2a-reeval @slow__omni": 0.00750120455758658,
+        "1c-004 vs 2b @slow__omni": 0.011116783246035447
+      },
+      "points": {
+        "1c-004 vs 2a-reeval @slow__omni": {
+          "a": 0.11096763166238463,
+          "b": 0.11789016500265725,
+          "delta": -0.006922533340272624
+        },
+        "1c-004 vs 2b @slow__omni": {
+          "a": 0.11096763166238463,
+          "b": 0.13273917838925045,
+          "delta": -0.02177154672686582
+        }
+      },
+      "source": "json"
+    },
+    "achieved_speed_by_hold.diag": {
+      "R_eval": 0.008630598763363199,
+      "below_min_n": false,
+      "block": "T_abs",
+      "blocks_all": [
+        "T_abs"
+      ],
+      "hold": "diag",
+      "level": 0.95,
+      "n": 100,
+      "n_draws": 2000,
+      "n_valid": 77,
+      "one_sided": false,
+      "pairs_used": [
+        "1c-004 vs 2a-reeval @slow__omni",
+        "1c-004 vs 2b @slow__omni"
+      ],
+      "per_pair": {
+        "1c-004 vs 2a-reeval @slow__omni": 0.008630598763363199,
+        "1c-004 vs 2b @slow__omni": 0.006095109167272203
+      },
+      "points": {
+        "1c-004 vs 2a-reeval @slow__omni": {
+          "a": 0.10334696554312676,
+          "b": 0.11605854831603485,
+          "delta": -0.012711582772908084
+        },
+        "1c-004 vs 2b @slow__omni": {
+          "a": 0.10334696554312676,
+          "b": 0.1274081117370676,
+          "delta": -0.024061146193940827
+        }
+      },
+      "source": "json"
+    },
+    "achieved_speed_by_hold.fwd": {
+      "R_eval": 0.012108885313407806,
+      "below_min_n": false,
+      "block": "T_abs",
+      "blocks_all": [
+        "T_abs"
+      ],
+      "hold": "fwd",
+      "level": 0.95,
+      "n": 100,
+      "n_draws": 2000,
+      "n_valid": 98,
+      "one_sided": false,
+      "pairs_used": [
+        "1c-004 vs 2a-reeval @slow__omni",
+        "1c-004 vs 2b @slow__omni"
+      ],
+      "per_pair": {
+        "1c-004 vs 2a-reeval @slow__omni": 0.009520021695831162,
+        "1c-004 vs 2b @slow__omni": 0.012108885313407806
+      },
+      "points": {
+        "1c-004 vs 2a-reeval @slow__omni": {
+          "a": 0.15211955087987994,
+          "b": 0.14599237309544674,
+          "delta": 0.0061271777844331965
+        },
+        "1c-004 vs 2b @slow__omni": {
+          "a": 0.15211955087987994,
+          "b": 0.1506301761159537,
+          "delta": 0.0014893747639262434
+        }
+      },
+      "source": "json"
+    },
+    "achieved_speed_by_hold.lat_l": {
+      "R_eval": 0.008758629881714688,
+      "below_min_n": false,
+      "block": "T_abs",
+      "blocks_all": [
+        "T_abs"
+      ],
+      "hold": "lat_l",
+      "level": 0.95,
+      "n": 100,
+      "n_draws": 2000,
+      "n_valid": 82,
+      "one_sided": false,
+      "pairs_used": [
+        "1c-004 vs 2a-reeval @slow__omni",
+        "1c-004 vs 2b @slow__omni"
+      ],
+      "per_pair": {
+        "1c-004 vs 2a-reeval @slow__omni": 0.007983256377371904,
+        "1c-004 vs 2b @slow__omni": 0.008758629881714688
+      },
+      "points": {
+        "1c-004 vs 2a-reeval @slow__omni": {
+          "a": 0.09074396522749296,
+          "b": 0.1040276105737874,
+          "delta": -0.013283645346294434
+        },
+        "1c-004 vs 2b @slow__omni": {
+          "a": 0.09074396522749296,
+          "b": 0.10338777980105801,
+          "delta": -0.012643814573565046
+        }
+      },
+      "source": "json"
+    },
+    "completion": {
+      "R_eval": 0.15500000000000003,
+      "below_min_n": false,
+      "block": "guard",
+      "blocks_all": [],
+      "hold": null,
+      "level": 0.99,
+      "n": 100,
+      "n_draws": 2000,
+      "n_valid": 100,
+      "one_sided": true,
+      "pairs_used": [
+        "1c-004 vs 2a-reeval @slow__omni",
+        "1c-004 vs 2b @slow__omni"
+      ],
+      "per_pair": {
+        "1c-004 vs 2a-reeval @slow__omni": 0.15499999999999997,
+        "1c-004 vs 2b @slow__omni": 0.15500000000000003
+      },
+      "points": {
+        "1c-004 vs 2a-reeval @slow__omni": {
+          "a": 0.6,
+          "b": 0.57,
+          "delta": 0.030000000000000027
+        },
+        "1c-004 vs 2b @slow__omni": {
+          "a": 0.6,
+          "b": 0.5,
+          "delta": 0.09999999999999998
+        }
+      },
+      "source": "json"
+    },
+    "facing_closed_by_hold.move_turn": {
+      "R_eval": 0.04843841180690206,
+      "below_min_n": false,
+      "block": "F",
+      "blocks_all": [
+        "F",
+        "F_abs"
+      ],
+      "hold": "move_turn",
+      "level": 0.95,
+      "n": 100,
+      "n_draws": 2000,
+      "n_valid": 57,
+      "one_sided": false,
+      "pairs_used": [
+        "1c-004 vs 2a-reeval @slow__omni",
+        "1c-004 vs 2b @slow__omni"
+      ],
+      "per_pair": {
+        "1c-004 vs 2a-reeval @slow__omni": 0.04843841180690206,
+        "1c-004 vs 2b @slow__omni": 0.04602179346729533
+      },
+      "points": {
+        "1c-004 vs 2a-reeval @slow__omni": {
+          "a": 0.22073725874232952,
+          "b": 0.18770419381785075,
+          "delta": 0.03303306492447877
+        },
+        "1c-004 vs 2b @slow__omni": {
+          "a": 0.22073725874232952,
+          "b": 0.16295173494751347,
+          "delta": 0.05778552379481605
+        }
+      },
+      "source": "raw"
+    },
+    "facing_closed_by_hold.turn_l90": {
+      "R_eval": 0.0601863691668264,
+      "below_min_n": false,
+      "block": "F",
+      "blocks_all": [
+        "F",
+        "F_abs"
+      ],
+      "hold": "turn_l90",
+      "level": 0.95,
+      "n": 100,
+      "n_draws": 2000,
+      "n_valid": 58,
+      "one_sided": false,
+      "pairs_used": [
+        "1c-004 vs 2a-reeval @slow__omni",
+        "1c-004 vs 2b @slow__omni"
+      ],
+      "per_pair": {
+        "1c-004 vs 2a-reeval @slow__omni": 0.060006540732521194,
+        "1c-004 vs 2b @slow__omni": 0.0601863691668264
+      },
+      "points": {
+        "1c-004 vs 2a-reeval @slow__omni": {
+          "a": 0.6956642056199807,
+          "b": 0.6730437791181741,
+          "delta": 0.022620426501806512
+        },
+        "1c-004 vs 2b @slow__omni": {
+          "a": 0.6956642056199807,
+          "b": 0.5940108468230929,
+          "delta": 0.10165335879688775
+        }
+      },
+      "source": "raw"
+    },
+    "facing_closed_by_hold.turn_r90": {
+      "R_eval": 0.03860130593064623,
+      "below_min_n": false,
+      "block": "F",
+      "blocks_all": [
+        "F",
+        "F_abs"
+      ],
+      "hold": "turn_r90",
+      "level": 0.95,
+      "n": 100,
+      "n_draws": 2000,
+      "n_valid": 57,
+      "one_sided": false,
+      "pairs_used": [
+        "1c-004 vs 2a-reeval @slow__omni",
+        "1c-004 vs 2b @slow__omni"
+      ],
+      "per_pair": {
+        "1c-004 vs 2a-reeval @slow__omni": 0.03860130593064623,
+        "1c-004 vs 2b @slow__omni": 0.037870199082463626
+      },
+      "points": {
+        "1c-004 vs 2a-reeval @slow__omni": {
+          "a": 0.9062128890842167,
+          "b": 0.8701909976581185,
+          "delta": 0.03602189142609824
+        },
+        "1c-004 vs 2b @slow__omni": {
+          "a": 0.9062128890842167,
+          "b": 0.8465470295238152,
+          "delta": 0.05966585956040149
+        }
+      },
+      "source": "raw"
+    },
+    "net_yaw_by_hold.move_turn": {
+      "R_eval": 0.008202032186090943,
+      "below_min_n": false,
+      "block": "F_abs",
+      "blocks_all": [
+        "F_abs"
+      ],
+      "hold": "move_turn",
+      "level": 0.95,
+      "n": 100,
+      "n_draws": 2000,
+      "n_valid": 57,
+      "one_sided": false,
+      "pairs_used": [
+        "1c-004 vs 2a-reeval @slow__omni",
+        "1c-004 vs 2b @slow__omni"
+      ],
+      "per_pair": {
+        "1c-004 vs 2a-reeval @slow__omni": 0.008058048877865074,
+        "1c-004 vs 2b @slow__omni": 0.008202032186090943
+      },
+      "points": {
+        "1c-004 vs 2a-reeval @slow__omni": {
+          "a": 0.0396723598241806,
+          "b": 0.033836349844932556,
+          "delta": 0.005836009979248047
+        },
+        "1c-004 vs 2b @slow__omni": {
+          "a": 0.0396723598241806,
+          "b": 0.031066954135894775,
+          "delta": 0.008605405688285828
+        }
+      },
+      "source": "json"
+    },
+    "net_yaw_by_hold.turn_l90": {
+      "R_eval": 0.0073142085224389974,
+      "below_min_n": false,
+      "block": "F_abs",
+      "blocks_all": [
+        "F_abs"
+      ],
+      "hold": "turn_l90",
+      "level": 0.95,
+      "n": 100,
+      "n_draws": 2000,
+      "n_valid": 58,
+      "one_sided": false,
+      "pairs_used": [
+        "1c-004 vs 2a-reeval @slow__omni",
+        "1c-004 vs 2b @slow__omni"
+      ],
+      "per_pair": {
+        "1c-004 vs 2a-reeval @slow__omni": 0.0073142085224389974,
+        "1c-004 vs 2b @slow__omni": 0.005977058007071408
+      },
+      "points": {
+        "1c-004 vs 2a-reeval @slow__omni": {
+          "a": 0.09202090899149576,
+          "b": 0.09079304337501526,
+          "delta": 0.0012278656164805002
+        },
+        "1c-004 vs 2b @slow__omni": {
+          "a": 0.09202090899149576,
+          "b": 0.07854045803348224,
+          "delta": 0.01348045095801352
+        }
+      },
+      "source": "json"
+    },
+    "net_yaw_by_hold.turn_r90": {
+      "R_eval": 0.007149063211788113,
+      "below_min_n": false,
+      "block": "F_abs",
+      "blocks_all": [
+        "F_abs"
+      ],
+      "hold": "turn_r90",
+      "level": 0.95,
+      "n": 100,
+      "n_draws": 2000,
+      "n_valid": 57,
+      "one_sided": false,
+      "pairs_used": [
+        "1c-004 vs 2a-reeval @slow__omni",
+        "1c-004 vs 2b @slow__omni"
+      ],
+      "per_pair": {
+        "1c-004 vs 2a-reeval @slow__omni": 0.00711295183282346,
+        "1c-004 vs 2b @slow__omni": 0.007149063211788113
+      },
+      "points": {
+        "1c-004 vs 2a-reeval @slow__omni": {
+          "a": 0.08129392735039194,
+          "b": 0.0753563636293014,
+          "delta": 0.005937563721090541
+        },
+        "1c-004 vs 2b @slow__omni": {
+          "a": 0.08129392735039194,
+          "b": 0.0634136622150739,
+          "delta": 0.01788026513531804
+        }
+      },
+      "source": "json"
+    },
+    "ratio_by_hold.back": {
+      "R_eval": 0.05053083238708814,
+      "below_min_n": false,
+      "block": "T",
+      "blocks_all": [
+        "T"
+      ],
+      "hold": "back",
+      "level": 0.95,
+      "n": 100,
+      "n_draws": 2000,
+      "n_valid": 65,
+      "one_sided": false,
+      "pairs_used": [
+        "1c-004 vs 2a-reeval @slow__omni",
+        "1c-004 vs 2b @slow__omni"
+      ],
+      "per_pair": {
+        "1c-004 vs 2a-reeval @slow__omni": 0.0340963851268044,
+        "1c-004 vs 2b @slow__omni": 0.05053083238708814
+      },
+      "points": {
+        "1c-004 vs 2a-reeval @slow__omni": {
+          "a": 0.5043983284712468,
+          "b": 0.5358643898497507,
+          "delta": -0.03146606137850394
+        },
+        "1c-004 vs 2b @slow__omni": {
+          "a": 0.5043983284712468,
+          "b": 0.6033599069068992,
+          "delta": -0.09896157843565245
+        }
+      },
+      "source": "json"
+    },
+    "ratio_by_hold.diag": {
+      "R_eval": 0.034522394449447075,
+      "below_min_n": false,
+      "block": "T",
+      "blocks_all": [
+        "T"
+      ],
+      "hold": "diag",
+      "level": 0.95,
+      "n": 100,
+      "n_draws": 2000,
+      "n_valid": 77,
+      "one_sided": false,
+      "pairs_used": [
+        "1c-004 vs 2a-reeval @slow__omni",
+        "1c-004 vs 2b @slow__omni"
+      ],
+      "per_pair": {
+        "1c-004 vs 2a-reeval @slow__omni": 0.034522394449447075,
+        "1c-004 vs 2b @slow__omni": 0.024380435578574756
+      },
+      "points": {
+        "1c-004 vs 2a-reeval @slow__omni": {
+          "a": 0.413387863228177,
+          "b": 0.46423419369907193,
+          "delta": -0.05084633047089493
+        },
+        "1c-004 vs 2b @slow__omni": {
+          "a": 0.413387863228177,
+          "b": 0.5096324495519671,
+          "delta": -0.09624458632379007
+        }
+      },
+      "source": "json"
+    },
+    "ratio_by_hold.fwd": {
+      "R_eval": 0.04843554091502755,
+      "below_min_n": false,
+      "block": "T",
+      "blocks_all": [
+        "T"
+      ],
+      "hold": "fwd",
+      "level": 0.95,
+      "n": 100,
+      "n_draws": 2000,
+      "n_valid": 98,
+      "one_sided": false,
+      "pairs_used": [
+        "1c-004 vs 2a-reeval @slow__omni",
+        "1c-004 vs 2b @slow__omni"
+      ],
+      "per_pair": {
+        "1c-004 vs 2a-reeval @slow__omni": 0.03808008530479107,
+        "1c-004 vs 2b @slow__omni": 0.04843554091502755
+      },
+      "points": {
+        "1c-004 vs 2a-reeval @slow__omni": {
+          "a": 0.6084782136745955,
+          "b": 0.5839695019292191,
+          "delta": 0.024508711745376388
+        },
+        "1c-004 vs 2b @slow__omni": {
+          "a": 0.6084782136745955,
+          "b": 0.6025207130370969,
+          "delta": 0.005957500637498669
+        }
+      },
+      "source": "json"
+    },
+    "ratio_by_hold.lat_l": {
+      "R_eval": 0.03981195448781461,
+      "below_min_n": false,
+      "block": "T",
+      "blocks_all": [
+        "T"
+      ],
+      "hold": "lat_l",
+      "level": 0.95,
+      "n": 100,
+      "n_draws": 2000,
+      "n_valid": 82,
+      "one_sided": false,
+      "pairs_used": [
+        "1c-004 vs 2a-reeval @slow__omni",
+        "1c-004 vs 2b @slow__omni"
+      ],
+      "per_pair": {
+        "1c-004 vs 2a-reeval @slow__omni": 0.036287530036770425,
+        "1c-004 vs 2b @slow__omni": 0.03981195448781461
+      },
+      "points": {
+        "1c-004 vs 2a-reeval @slow__omni": {
+          "a": 0.4124725719695793,
+          "b": 0.47285277881929644,
+          "delta": -0.06038020684971712
+        },
+        "1c-004 vs 2b @slow__omni": {
+          "a": 0.4124725719695793,
+          "b": 0.46994445764272597,
+          "delta": -0.05747188567314665
+        }
+      },
+      "source": "json"
+    },
+    "tripod_walking_dir": {
+      "R_eval": 0.041730762775439155,
+      "below_min_n": false,
+      "block": "guard",
+      "blocks_all": [],
+      "hold": null,
+      "level": 0.99,
+      "n": 100,
+      "n_draws": 2000,
+      "n_valid": 64,
+      "one_sided": true,
+      "pairs_used": [
+        "1c-004 vs 2a-reeval @slow__omni",
+        "1c-004 vs 2b @slow__omni"
+      ],
+      "per_pair": {
+        "1c-004 vs 2a-reeval @slow__omni": 0.040212541448818785,
+        "1c-004 vs 2b @slow__omni": 0.041730762775439155
+      },
+      "points": {
+        "1c-004 vs 2a-reeval @slow__omni": {
+          "a": 0.48859443940575564,
+          "b": 0.3924168555222984,
+          "delta": 0.09617758388345726
+        },
+        "1c-004 vs 2b @slow__omni": {
+          "a": 0.48859443940575564,
+          "b": 0.3769291624080501,
+          "delta": 0.11166527699770556
+        }
+      },
+      "source": "json"
+    },
+    "turn_survival_l90": {
+      "R_eval": 0.07919640116902477,
+      "below_min_n": false,
+      "block": "guard",
+      "blocks_all": [],
+      "hold": "turn_l90",
+      "level": 0.99,
+      "n": 100,
+      "n_draws": 2000,
+      "n_valid": 100,
+      "one_sided": true,
+      "pairs_used": [
+        "1c-004 vs 2a-reeval @slow__omni",
+        "1c-004 vs 2b @slow__omni"
+      ],
+      "per_pair": {
+        "1c-004 vs 2a-reeval @slow__omni": 0.07919640116902477,
+        "1c-004 vs 2b @slow__omni": 0.06576797633815186
+      },
+      "points": {
+        "1c-004 vs 2a-reeval @slow__omni": {
+          "a": 0.9615384615384615,
+          "b": 0.9459459459459459,
+          "delta": 0.01559251559251551
+        },
+        "1c-004 vs 2b @slow__omni": {
+          "a": 0.9615384615384615,
+          "b": 0.9827586206896551,
+          "delta": -0.021220159151193685
+        }
+      },
+      "source": "json"
+    },
+    "turn_survival_r90": {
+      "R_eval": 0.028177179016125688,
+      "below_min_n": false,
+      "block": "guard",
+      "blocks_all": [],
+      "hold": "turn_r90",
+      "level": 0.99,
+      "n": 100,
+      "n_draws": 2000,
+      "n_valid": 100,
+      "one_sided": true,
+      "pairs_used": [
+        "1c-004 vs 2a-reeval @slow__omni",
+        "1c-004 vs 2b @slow__omni"
+      ],
+      "per_pair": {
+        "1c-004 vs 2a-reeval @slow__omni": 0.027030729359496478,
+        "1c-004 vs 2b @slow__omni": 0.028177179016125688
+      },
+      "points": {
+        "1c-004 vs 2a-reeval @slow__omni": {
+          "a": 0.9866666666666667,
+          "b": 1.0,
+          "delta": -0.013333333333333308
+        },
+        "1c-004 vs 2b @slow__omni": {
+          "a": 0.9866666666666667,
+          "b": 1.0,
+          "delta": -0.013333333333333308
+        }
+      },
+      "source": "json"
+    },
+    "yaw_progress_by_hold.move_turn": {
+      "R_eval": 0.008049332551714087,
+      "below_min_n": false,
+      "block": "F",
+      "blocks_all": [
+        "F"
+      ],
+      "hold": "move_turn",
+      "level": 0.95,
+      "n": 100,
+      "n_draws": 2000,
+      "n_valid": 57,
+      "one_sided": false,
+      "pairs_used": [
+        "1c-004 vs 2a-reeval @slow__omni",
+        "1c-004 vs 2b @slow__omni"
+      ],
+      "per_pair": {
+        "1c-004 vs 2a-reeval @slow__omni": 0.007607569190835444,
+        "1c-004 vs 2b @slow__omni": 0.008049332551714087
+      },
+      "points": {
+        "1c-004 vs 2a-reeval @slow__omni": {
+          "a": 0.039468400380719686,
+          "b": 0.03365791508607799,
+          "delta": 0.005810485294641697
+        },
+        "1c-004 vs 2b @slow__omni": {
+          "a": 0.039468400380719686,
+          "b": 0.031415639100014235,
+          "delta": 0.00805276128070545
+        }
+      },
+      "source": "json"
+    },
+    "yaw_progress_by_hold.turn_l90": {
+      "R_eval": 0.0071810955266228115,
+      "below_min_n": false,
+      "block": "F",
+      "blocks_all": [
+        "F"
+      ],
+      "hold": "turn_l90",
+      "level": 0.95,
+      "n": 100,
+      "n_draws": 2000,
+      "n_valid": 58,
+      "one_sided": false,
+      "pairs_used": [
+        "1c-004 vs 2a-reeval @slow__omni",
+        "1c-004 vs 2b @slow__omni"
+      ],
+      "per_pair": {
+        "1c-004 vs 2a-reeval @slow__omni": 0.0071810955266228115,
+        "1c-004 vs 2b @slow__omni": 0.006130023160559934
+      },
+      "points": {
+        "1c-004 vs 2a-reeval @slow__omni": {
+          "a": 0.092288412291576,
+          "b": 0.09101246829649123,
+          "delta": 0.0012759439950847662
+        },
+        "1c-004 vs 2b @slow__omni": {
+          "a": 0.092288412291576,
+          "b": 0.0789287885483039,
+          "delta": 0.013359623743272098
+        }
+      },
+      "source": "json"
+    },
+    "yaw_progress_by_hold.turn_r90": {
+      "R_eval": 0.007617908814656309,
+      "below_min_n": false,
+      "block": "F",
+      "blocks_all": [
+        "F"
+      ],
+      "hold": "turn_r90",
+      "level": 0.95,
+      "n": 100,
+      "n_draws": 2000,
+      "n_valid": 57,
+      "one_sided": false,
+      "pairs_used": [
+        "1c-004 vs 2a-reeval @slow__omni",
+        "1c-004 vs 2b @slow__omni"
+      ],
+      "per_pair": {
+        "1c-004 vs 2a-reeval @slow__omni": 0.006307614791307945,
+        "1c-004 vs 2b @slow__omni": 0.007617908814656309
+      },
+      "points": {
+        "1c-004 vs 2a-reeval @slow__omni": {
+          "a": 0.09839037554353693,
+          "b": 0.08491611999580831,
+          "delta": 0.013474255547728617
+        },
+        "1c-004 vs 2b @slow__omni": {
+          "a": 0.09839037554353693,
+          "b": 0.07149449217263021,
+          "delta": 0.026895883370906717
+        }
+      },
+      "source": "json"
+    }
+  },
+  "notes": [
+    "light__omni: MISSING: facing_by_hold.turn_l90.settle produced no half-width on any pair (n_valid 2) -- decision 5's MISSING rules apply",
+    "light__omni: thin: facing_by_hold.turn_r90.settle has 39 usable episodes (< 50); its half-width is reported, not dropped",
+    "ring__omni: MISSING: facing_by_hold.turn_l90.settle produced no half-width on any pair (n_valid 0) -- decision 5's MISSING rules apply",
+    "ring__omni: thin: facing_by_hold.turn_r90.settle has 33 usable episodes (< 50); its half-width is reported, not dropped",
+    "slow__omni: MISSING: facing_by_hold.turn_l90.settle produced no half-width on any pair (n_valid 1) -- decision 5's MISSING rules apply",
+    "slow__omni: thin: facing_by_hold.turn_r90.settle has 35 usable episodes (< 50); its half-width is reported, not dropped",
+    "no half-width for facing_closed_by_hold.move_turn_r on light__omni, ring__omni, slow__omni -- hold 'move_turn_r' is not on this row (it is a curriculum-row hold; see watch_metrics)",
+    "no half-width for ratio_by_hold.lat_r on light__omni, ring__omni, slow__omni -- hold 'lat_r' is not on this row (it is a curriculum-row hold; see watch_metrics)",
+    "no half-width for ratio_by_hold.move_turn_r on light__omni, ring__omni, slow__omni -- hold 'move_turn_r' is not on this row (it is a curriculum-row hold; see watch_metrics)",
+    "no half-width for track_ratio_move_tail on light__omni, ring__omni, slow__omni -- not an eval-row quantity (a training-log tail or a cross-row label); it is WATCH and carries no bootstrap half-width",
+    "no half-width for track_ratio_tail on light__omni, ring__omni, slow__omni -- not an eval-row quantity (a training-log tail or a cross-row label); it is WATCH and carries no bootstrap half-width",
+    "lat_r / move_turn_r borrow lat_l / move_turn's R (no curriculum row among the D00 inputs); re-derive with --curriculum-runs at the first milestone",
+    "charter floor cited, not applied: completion +-0.1 (the sideways formation campaign's CHARTER.md:227 -- paired episode bootstraps, n=100: completion +-0.06..0.10, walking tripod +-0.016..0.056); the bootstrap resolves it at +-0.155 (wider than the floor) and supersedes it (decision 6)",
+    "charter floor cited, not applied: tripod_walking_dir +-0.056 (the sideways formation campaign's CHARTER.md:227 -- paired episode bootstraps, n=100: completion +-0.06..0.10, walking tripod +-0.016..0.056); the bootstrap resolves it at +-0.042 (tighter than the floor) and supersedes it (decision 6)",
+    "null-candidate check on 1c-004 @slow__omni (N=1000, two independent episode resamples per trial): all-TIE 0.888 with R re-derived on the same resample distribution (blocks F 0.953, T 0.962), 0.851 under D00's cross-head R",
+    "degenerate pair on turn_survival_r90: its cross-head R 0.0282 is at or below the perfectly-correlated floor of the same-run spread (0.0449/sqrt2 = 0.0318), i.e. one side of every pair is effectively constant on it, so the paired difference carries only the other side's variation. A null candidate then trips this guard more often than its level says (measured null TIE 0.949 under this R vs 0.994 under the calibrated one). Decision 6's max(R_eval, R_seed) from D00b is the mitigation -- watch it at window 2.",
+    "facing re-score window verified against the recorded per-episode keys (max abs deviation per row): 1c-004 @slow__omni 0.0e+00; 1c-004 @light__omni 0.0e+00; 1c-004 @ring__omni 0.0e+00; 2b @slow__omni 0.0e+00; 2b @light__omni 0.0e+00; 2b @ring__omni 0.0e+00; 2a-reeval @slow__omni 0.0e+00; 2a-reeval @light__omni 0.0e+00; 2a-reeval @ring__omni 0.0e+00; 1a-corrected @slow__omni 0.0e+00; 1b-corrected @slow__omni 0.0e+00; 1c-corrected @slow__omni 0.0e+00; 2b_floor @slow__omni 0.0e+00"
+  ],
+  "pairs": [
+    {
+      "a": "1c-004",
+      "b": "2a-reeval",
+      "kind": "cross_head",
+      "n": 100,
+      "name": "1c-004 vs 2a-reeval @light__omni",
+      "row": "light__omni"
+    },
+    {
+      "a": "1c-004",
+      "b": "2b",
+      "kind": "cross_head",
+      "n": 100,
+      "name": "1c-004 vs 2b @light__omni",
+      "row": "light__omni"
+    },
+    {
+      "a": "1c-004",
+      "b": "2a-reeval",
+      "kind": "cross_head",
+      "n": 100,
+      "name": "1c-004 vs 2a-reeval @ring__omni",
+      "row": "ring__omni"
+    },
+    {
+      "a": "1c-004",
+      "b": "2b",
+      "kind": "cross_head",
+      "n": 100,
+      "name": "1c-004 vs 2b @ring__omni",
+      "row": "ring__omni"
+    },
+    {
+      "a": "1c-004",
+      "b": "2a-reeval",
+      "kind": "cross_head",
+      "n": 100,
+      "name": "1c-004 vs 2a-reeval @slow__omni",
+      "row": "slow__omni"
+    },
+    {
+      "a": "1c-004",
+      "b": "2b",
+      "kind": "cross_head",
+      "n": 100,
+      "name": "1c-004 vs 2b @slow__omni",
+      "row": "slow__omni"
+    },
+    {
+      "a": "2b",
+      "b": "2b_floor",
+      "kind": "process_floor",
+      "n": 100,
+      "name": "2b vs 2b_floor @slow__omni",
+      "row": "slow__omni"
+    }
+  ],
+  "process_floor": {
+    "achieved_speed_by_hold.back": 0.0,
+    "achieved_speed_by_hold.diag": 0.0,
+    "achieved_speed_by_hold.fwd": 0.0,
+    "achieved_speed_by_hold.lat_l": 0.0,
+    "completion": 0.0,
+    "facing_by_hold.turn_r90.settle": 0.0,
+    "facing_closed_by_hold.move_turn": 0.0,
+    "facing_closed_by_hold.turn_l90": 0.0,
+    "facing_closed_by_hold.turn_r90": 0.0,
+    "net_yaw_by_hold.move_turn": 0.0,
+    "net_yaw_by_hold.turn_l90": 0.0,
+    "net_yaw_by_hold.turn_r90": 0.0,
+    "ratio_by_hold.back": 0.0,
+    "ratio_by_hold.diag": 0.0,
+    "ratio_by_hold.fwd": 0.0,
+    "ratio_by_hold.lat_l": 0.0,
+    "ratio_by_hold.move_turn": 0.0,
+    "survival_by_hold.turn_l90": 0.0,
+    "survival_by_hold.turn_r90": 0.0,
+    "tripod_by_hold.move_turn": 0.0,
+    "tripod_walking_dir": 0.0,
+    "turn_survival_l90": 0.0,
+    "turn_survival_r90": 0.0,
+    "yaw_progress_by_hold.move_turn": 0.0,
+    "yaw_progress_by_hold.turn_l90": 0.0,
+    "yaw_progress_by_hold.turn_r90": 0.0
+  },
+  "process_floor_detail": {
+    "achieved_speed_by_hold.back": {
+      "R": 0.0,
+      "level": 0.95,
+      "pair": "2b vs 2b_floor @slow__omni"
+    },
+    "achieved_speed_by_hold.diag": {
+      "R": 0.0,
+      "level": 0.95,
+      "pair": "2b vs 2b_floor @slow__omni"
+    },
+    "achieved_speed_by_hold.fwd": {
+      "R": 0.0,
+      "level": 0.95,
+      "pair": "2b vs 2b_floor @slow__omni"
+    },
+    "achieved_speed_by_hold.lat_l": {
+      "R": 0.0,
+      "level": 0.95,
+      "pair": "2b vs 2b_floor @slow__omni"
+    },
+    "completion": {
+      "R": 0.0,
+      "level": 0.99,
+      "pair": "2b vs 2b_floor @slow__omni"
+    },
+    "facing_by_hold.turn_r90.settle": {
+      "R": 0.0,
+      "level": 0.95,
+      "pair": "2b vs 2b_floor @slow__omni"
+    },
+    "facing_closed_by_hold.move_turn": {
+      "R": 0.0,
+      "level": 0.95,
+      "pair": "2b vs 2b_floor @slow__omni"
+    },
+    "facing_closed_by_hold.turn_l90": {
+      "R": 0.0,
+      "level": 0.95,
+      "pair": "2b vs 2b_floor @slow__omni"
+    },
+    "facing_closed_by_hold.turn_r90": {
+      "R": 0.0,
+      "level": 0.95,
+      "pair": "2b vs 2b_floor @slow__omni"
+    },
+    "net_yaw_by_hold.move_turn": {
+      "R": 0.0,
+      "level": 0.95,
+      "pair": "2b vs 2b_floor @slow__omni"
+    },
+    "net_yaw_by_hold.turn_l90": {
+      "R": 0.0,
+      "level": 0.95,
+      "pair": "2b vs 2b_floor @slow__omni"
+    },
+    "net_yaw_by_hold.turn_r90": {
+      "R": 0.0,
+      "level": 0.95,
+      "pair": "2b vs 2b_floor @slow__omni"
+    },
+    "ratio_by_hold.back": {
+      "R": 0.0,
+      "level": 0.95,
+      "pair": "2b vs 2b_floor @slow__omni"
+    },
+    "ratio_by_hold.diag": {
+      "R": 0.0,
+      "level": 0.95,
+      "pair": "2b vs 2b_floor @slow__omni"
+    },
+    "ratio_by_hold.fwd": {
+      "R": 0.0,
+      "level": 0.95,
+      "pair": "2b vs 2b_floor @slow__omni"
+    },
+    "ratio_by_hold.lat_l": {
+      "R": 0.0,
+      "level": 0.95,
+      "pair": "2b vs 2b_floor @slow__omni"
+    },
+    "ratio_by_hold.move_turn": {
+      "R": 0.0,
+      "level": 0.95,
+      "pair": "2b vs 2b_floor @slow__omni"
+    },
+    "survival_by_hold.turn_l90": {
+      "R": 0.0,
+      "level": 0.95,
+      "pair": "2b vs 2b_floor @slow__omni"
+    },
+    "survival_by_hold.turn_r90": {
+      "R": 0.0,
+      "level": 0.95,
+      "pair": "2b vs 2b_floor @slow__omni"
+    },
+    "tripod_by_hold.move_turn": {
+      "R": 0.0,
+      "level": 0.95,
+      "pair": "2b vs 2b_floor @slow__omni"
+    },
+    "tripod_walking_dir": {
+      "R": 0.0,
+      "level": 0.99,
+      "pair": "2b vs 2b_floor @slow__omni"
+    },
+    "turn_survival_l90": {
+      "R": 0.0,
+      "level": 0.99,
+      "pair": "2b vs 2b_floor @slow__omni"
+    },
+    "turn_survival_r90": {
+      "R": 0.0,
+      "level": 0.99,
+      "pair": "2b vs 2b_floor @slow__omni"
+    },
+    "yaw_progress_by_hold.move_turn": {
+      "R": 0.0,
+      "level": 0.95,
+      "pair": "2b vs 2b_floor @slow__omni"
+    },
+    "yaw_progress_by_hold.turn_l90": {
+      "R": 0.0,
+      "level": 0.95,
+      "pair": "2b vs 2b_floor @slow__omni"
+    },
+    "yaw_progress_by_hold.turn_r90": {
+      "R": 0.0,
+      "level": 0.95,
+      "pair": "2b vs 2b_floor @slow__omni"
+    }
+  },
+  "resolution_line": "RESOLUTION D00 | paired episode bootstrap B=2000 on env_index | blocks F R=0.550@0.95 (MDE per member 0.004..0.033); T R=0.518@0.95 (MDE per member 0.018..0.026); F_abs R=0.578@0.95 (MDE per member 0.004..0.035); T_abs R=0.518@0.95 (MDE per member 0.004..0.006) | guards @0.99 one-sided completion+-0.155, tripod_walking_dir+-0.042, turn_survival_l90+-0.079, turn_survival_r90+-0.028",
+  "rng_seed": 20260919,
+  "schema": 1,
+  "screen_row": "slow__omni",
+  "seed_terms": {},
+  "watch_metrics": {
+    "achieved_speed_by_hold.lat_r": {
+      "R_eval": 0.008758629881714688,
+      "block": "watch",
+      "blocks_all": [],
+      "borrowed_from": "achieved_speed_by_hold.lat_l",
+      "hold": "lat_r",
+      "level": 0.95,
+      "n": 100,
+      "n_valid": 82,
+      "one_sided": false,
+      "pairs_used": [
+        "1c-004 vs 2a-reeval @slow__omni",
+        "1c-004 vs 2b @slow__omni"
+      ],
+      "source": "json"
+    },
+    "facing_by_hold.turn_l90.settle": {
+      "R_eval": null,
+      "below_min_n": true,
+      "block": "watch",
+      "blocks_all": [],
+      "hold": "turn_l90",
+      "level": 0.95,
+      "n": 100,
+      "n_draws": null,
+      "n_valid": 1,
+      "one_sided": false,
+      "pairs_used": [],
+      "per_pair": {
+        "1c-004 vs 2a-reeval @slow__omni": null,
+        "1c-004 vs 2b @slow__omni": null
+      },
+      "points": {
+        "1c-004 vs 2a-reeval @slow__omni": {
+          "a": 11.18,
+          "b": 11.68,
+          "delta": -0.5
+        },
+        "1c-004 vs 2b @slow__omni": {
+          "a": 11.18,
+          "b": null,
+          "delta": null
+        }
+      },
+      "source": "json"
+    },
+    "facing_by_hold.turn_r90.settle": {
+      "R_eval": 1.3049999999999997,
+      "below_min_n": true,
+      "block": "watch",
+      "blocks_all": [],
+      "hold": "turn_r90",
+      "level": 0.95,
+      "n": 100,
+      "n_draws": 2000,
+      "n_valid": 35,
+      "one_sided": false,
+      "pairs_used": [
+        "1c-004 vs 2a-reeval @slow__omni",
+        "1c-004 vs 2b @slow__omni"
+      ],
+      "per_pair": {
+        "1c-004 vs 2a-reeval @slow__omni": 1.1351249999999982,
+        "1c-004 vs 2b @slow__omni": 1.3049999999999997
+      },
+      "points": {
+        "1c-004 vs 2a-reeval @slow__omni": {
+          "a": 10.29,
+          "b": 10.68,
+          "delta": -0.39000000000000057
+        },
+        "1c-004 vs 2b @slow__omni": {
+          "a": 10.29,
+          "b": 10.82,
+          "delta": -0.5300000000000011
+        }
+      },
+      "source": "json"
+    },
+    "facing_closed_by_hold.move_turn_r": {
+      "R_eval": 0.04843841180690206,
+      "block": "watch",
+      "blocks_all": [],
+      "borrowed_from": "facing_closed_by_hold.move_turn",
+      "hold": "move_turn_r",
+      "level": 0.95,
+      "n": 100,
+      "n_valid": 57,
+      "one_sided": false,
+      "pairs_used": [
+        "1c-004 vs 2a-reeval @slow__omni",
+        "1c-004 vs 2b @slow__omni"
+      ],
+      "source": "raw"
+    },
+    "net_yaw_by_hold.move_turn_r": {
+      "R_eval": 0.008202032186090943,
+      "block": "watch",
+      "blocks_all": [],
+      "borrowed_from": "net_yaw_by_hold.move_turn",
+      "hold": "move_turn_r",
+      "level": 0.95,
+      "n": 100,
+      "n_valid": 57,
+      "one_sided": false,
+      "pairs_used": [
+        "1c-004 vs 2a-reeval @slow__omni",
+        "1c-004 vs 2b @slow__omni"
+      ],
+      "source": "json"
+    },
+    "ratio_by_hold.lat_r": {
+      "R_eval": 0.03981195448781461,
+      "block": "watch",
+      "blocks_all": [],
+      "borrowed_from": "ratio_by_hold.lat_l",
+      "hold": "lat_r",
+      "level": 0.95,
+      "n": 100,
+      "n_valid": 82,
+      "one_sided": false,
+      "pairs_used": [
+        "1c-004 vs 2a-reeval @slow__omni",
+        "1c-004 vs 2b @slow__omni"
+      ],
+      "source": "json"
+    },
+    "ratio_by_hold.move_turn": {
+      "R_eval": 0.042578271419060724,
+      "below_min_n": false,
+      "block": "watch",
+      "blocks_all": [],
+      "hold": "move_turn",
+      "level": 0.95,
+      "n": 100,
+      "n_draws": 2000,
+      "n_valid": 56,
+      "one_sided": false,
+      "pairs_used": [
+        "1c-004 vs 2a-reeval @slow__omni",
+        "1c-004 vs 2b @slow__omni"
+      ],
+      "per_pair": {
+        "1c-004 vs 2a-reeval @slow__omni": 0.03130672169070606,
+        "1c-004 vs 2b @slow__omni": 0.042578271419060724
+      },
+      "points": {
+        "1c-004 vs 2a-reeval @slow__omni": {
+          "a": 0.4427545255309057,
+          "b": 0.48818456155673473,
+          "delta": -0.04543003602582901
+        },
+        "1c-004 vs 2b @slow__omni": {
+          "a": 0.4427545255309057,
+          "b": 0.5397648730180786,
+          "delta": -0.09701034748717291
+        }
+      },
+      "source": "json"
+    },
+    "ratio_by_hold.move_turn_r": {
+      "R_eval": 0.042578271419060724,
+      "block": "watch",
+      "blocks_all": [],
+      "borrowed_from": "ratio_by_hold.move_turn",
+      "hold": "move_turn_r",
+      "level": 0.95,
+      "n": 100,
+      "n_valid": 56,
+      "one_sided": false,
+      "pairs_used": [
+        "1c-004 vs 2a-reeval @slow__omni",
+        "1c-004 vs 2b @slow__omni"
+      ],
+      "source": "json"
+    },
+    "survival_by_hold.turn_l90": {
+      "R_eval": 0.125,
+      "below_min_n": false,
+      "block": "watch",
+      "blocks_all": [],
+      "hold": "turn_l90",
+      "level": 0.95,
+      "n": 100,
+      "n_draws": 2000,
+      "n_valid": 100,
+      "one_sided": false,
+      "pairs_used": [
+        "1c-004 vs 2a-reeval @slow__omni",
+        "1c-004 vs 2b @slow__omni"
+      ],
+      "per_pair": {
+        "1c-004 vs 2a-reeval @slow__omni": 0.12,
+        "1c-004 vs 2b @slow__omni": 0.125
+      },
+      "points": {
+        "1c-004 vs 2a-reeval @slow__omni": {
+          "a": 0.75,
+          "b": 0.7,
+          "delta": 0.050000000000000044
+        },
+        "1c-004 vs 2b @slow__omni": {
+          "a": 0.75,
+          "b": 0.57,
+          "delta": 0.18000000000000005
+        }
+      },
+      "source": "json"
+    },
+    "survival_by_hold.turn_r90": {
+      "R_eval": 0.12499999999999994,
+      "below_min_n": false,
+      "block": "watch",
+      "blocks_all": [],
+      "hold": "turn_r90",
+      "level": 0.95,
+      "n": 100,
+      "n_draws": 2000,
+      "n_valid": 100,
+      "one_sided": false,
+      "pairs_used": [
+        "1c-004 vs 2a-reeval @slow__omni",
+        "1c-004 vs 2b @slow__omni"
+      ],
+      "per_pair": {
+        "1c-004 vs 2a-reeval @slow__omni": 0.11999999999999994,
+        "1c-004 vs 2b @slow__omni": 0.12499999999999994
+      },
+      "points": {
+        "1c-004 vs 2a-reeval @slow__omni": {
+          "a": 0.74,
+          "b": 0.7,
+          "delta": 0.040000000000000036
+        },
+        "1c-004 vs 2b @slow__omni": {
+          "a": 0.74,
+          "b": 0.57,
+          "delta": 0.17000000000000004
+        }
+      },
+      "source": "json"
+    },
+    "tripod_by_hold.move_turn": {
+      "R_eval": 0.05688041054507829,
+      "below_min_n": false,
+      "block": "watch",
+      "blocks_all": [],
+      "hold": "move_turn",
+      "level": 0.95,
+      "n": 100,
+      "n_draws": 2000,
+      "n_valid": 55,
+      "one_sided": false,
+      "pairs_used": [
+        "1c-004 vs 2a-reeval @slow__omni",
+        "1c-004 vs 2b @slow__omni"
+      ],
+      "per_pair": {
+        "1c-004 vs 2a-reeval @slow__omni": 0.03281011071307359,
+        "1c-004 vs 2b @slow__omni": 0.05688041054507829
+      },
+      "points": {
+        "1c-004 vs 2a-reeval @slow__omni": {
+          "a": 0.5081900559760959,
+          "b": 0.45915640539698654,
+          "delta": 0.049033650579109356
+        },
+        "1c-004 vs 2b @slow__omni": {
+          "a": 0.5081900559760959,
+          "b": 0.4769599405732356,
+          "delta": 0.031230115402860303
+        }
+      },
+      "source": "json"
+    },
+    "yaw_progress_by_hold.move_turn_r": {
+      "R_eval": 0.008049332551714087,
+      "block": "watch",
+      "blocks_all": [],
+      "borrowed_from": "yaw_progress_by_hold.move_turn",
+      "hold": "move_turn_r",
+      "level": 0.95,
+      "n": 100,
+      "n_valid": 57,
+      "one_sided": false,
+      "pairs_used": [
+        "1c-004 vs 2a-reeval @slow__omni",
+        "1c-004 vs 2b @slow__omni"
+      ],
+      "source": "json"
+    }
+  }
+}

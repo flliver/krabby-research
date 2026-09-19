@@ -35,6 +35,9 @@ PKGS = {
     ],
     "crab_hex_omni_task": [
         "tools/run_phases.py",
+        "tools/run_candidates.py",
+        "tools/ledger_cli.py",
+        "tools/resolution.py",
     ],
 }
 
@@ -130,3 +133,33 @@ def test_omni_run_phases_is_self_relative():
     assert "experiments/2026-" not in source
     assert "rx." not in source
     assert "rf." not in source
+
+
+def test_omni_ladder_tools_are_self_relative_and_carry_no_dated_path():
+    """The candidate-ladder tools: repo root by depth, no campaign identity in the source.
+
+    Every dated path the ladder touches arrives as a CLI or yaml input (``--campaign-dir``,
+    ``candidates.yaml``'s ``replay.script`` and ``resolution_inputs``), so the tools stay usable by
+    the next campaign and a record commit cannot change what they mean.
+    """
+    for name in ("tools/run_candidates.py", "tools/ledger_cli.py", "tools/resolution.py"):
+        path = _exp("crab_hex_omni_task") / name
+        assert path.exists(), path
+        source = path.read_text()
+        assert "experiments/2026-" not in source, name
+        assert "rx." not in source and "rf." not in source, name
+        assert "STUDENT_TASK" not in source, name
+
+
+def test_the_ladder_campaign_tree_tracks_records_only():
+    """``$LAD``'s .gitignore mirrors experiments/.gitignore's intent: records in, bulk out."""
+    ladders = sorted(_exp("crab_hex_omni_task").glob("*_facing_tracking_ladder/.gitignore"))
+    if not ladders:
+        pytest.skip("the ladder campaign directory does not exist yet")
+    text = ladders[0].read_text()
+    for pattern in ("logs/", "*.pt", "*.log", "raw/", "metrics/", "STOP"):
+        assert pattern in text, pattern
+    assert "!notify.log" not in text, (
+        "a `!notify.log` re-include would make the first record commit fail "
+        "test_only_the_keep_set_is_tracked, which refuses any tracked file ending .log; the "
+        "ledger, REPORT.md and CHANGELOG.md are the records")

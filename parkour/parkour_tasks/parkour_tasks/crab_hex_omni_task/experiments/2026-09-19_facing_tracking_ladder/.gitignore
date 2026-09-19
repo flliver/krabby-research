@@ -1,0 +1,23 @@
+# $LAD/.gitignore -- the ladder campaign's tree, same intent as experiments/.gitignore one level up:
+# git tracks the RECORDS (candidates.yaml, CHARTER.md, REPORT.md, CHANGELOG.md, ledger.json,
+# ledger_overrides.jsonl, resolution.json, state.json, heads.json) and nothing that a run produces
+# in bulk. Patterns are relative to this directory.
+#
+# notify.log is NOT re-included: the repo-wide keep-set rule (tests/unit/test_experiment_layout.py
+# test_only_the_keep_set_is_tracked) refuses any tracked file ending .log, and a re-include here
+# would make the first record commit fail that test. Every line it carries is also in the ledger,
+# REPORT.md and CHANGELOG.md, which ARE the records.
+logs/
+outputs/
+videos/
+raw/
+metrics/
+*.pt
+*.log
+*.mp4
+*.pid
+*.tmp
+events.out.tfevents.*
+__pycache__/
+# the STOP file is a live control signal, never a record
+STOP
