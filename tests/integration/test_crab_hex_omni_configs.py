@@ -163,6 +163,13 @@ EXPECTED_RL: dict[tuple, tuple] = {
     ("observations", "policy", "extreme_parkour_observations", "params", "facing_obs_clip"): (
         MISSING, 0.6,
     ),
+    # 2026-09-18 (plan Part A2): the facing-error ENCODING, declared on the omni obs term at
+    # its class default so KRABBY_OMNI_FACING_OBS_ENCODING has a key to overwrite (the applier
+    # refuses a term without it). The forward term has no such param, so this is an addition,
+    # and "raw" is bitwise the observation every omni run to date trained on -- no preset sets
+    # the knob, so every dump must read "raw".
+    ("observations", "policy", "extreme_parkour_observations", "params",
+     "facing_obs_encoding"): (MISSING, "raw"),
     # four reward functions swapped UNDER THE FORWARD NAMES (weights, knobs and telemetry
     # labels unchanged), plus the params each twin needs
     ("rewards", "penalty_lin_vel_y", "func"): (
@@ -187,6 +194,11 @@ EXPECTED_RL: dict[tuple, tuple] = {
     # ``diff_paths`` reports the whole block as one path. Its contents are asserted by
     # ``test_yaw_progress_term_block`` below.
     ("rewards", "reward_yaw_progress"): (MISSING, PRESENT),
+    # THE SECOND ADDED TERM (the 37th name, 2026-09-18, plan Part A2): the facing term paid
+    # only on the turn slots, shipped at weight 0.0 -- a NAME that logs 0 on every line until
+    # KRABBY_OMNI_FACING_TURN_W arms it. Same whole-block path as above (no forward key); its
+    # contents, weight 0.0 included, are asserted by ``test_facing_turn_term_block`` below.
+    ("rewards", "reward_facing_turn"): (MISSING, PRESENT),
     # NOTE(Revision 4, 2026-09-18): ``track_ang_vel_z_exp.params.std`` is NOT in this list any
     # more. The omni rewards CLASS BODY still declares 0.15 (plan D4: gradient at the plant's
     # 0.15-0.3 rad/s turn rate), but every omni preset now sets KRABBY_OMNI_ANG_VEL_STD=0.5 --
@@ -239,10 +251,12 @@ CLOCK_COMBINE_PATH = ("rewards", "reward_clock_schedule", "params", "combine")
 
 # ---------------------------------------------------------------------------------------------
 # The replaced-subtree blocks.
-#: ``commands.base_velocity``: the class, the six new sampler fields and the tighter dead band.
-#: ``ranges.heading`` additionally differs where the forward window runs the turning school.
+#: ``commands.base_velocity``: the class, the seven new sampler fields and the tighter dead
+#: band. ``ranges.heading`` additionally differs where the forward window runs the turning
+#: school. ``cmd_pool`` (2026-09-18, plan Part A1) is the canonical pool STRING, dumped
+#: verbatim and ``null`` in every preset -- a default-off addition, like the encoding param.
 CMD_FIELDS_ADDED = ("slot_probs", "speed_ellipse", "facing_delta", "travel_dir_range",
-                    "ang_vel_max", "dir_band")
+                    "ang_vel_max", "dir_band", "cmd_pool")
 FWD_CMD_CLASS = ("parkour_isaaclab.envs.mdp.parkour_commands.uniform_parkour_command:"
                  "UniformParkourCommand")
 OMNI_CMD_CLASS = f"{_OMNI_MDP}.crab_hex_omni_command:CrabHexOmniCommand"
@@ -461,6 +475,11 @@ def test_command_term_block(dumps, omni_dumps, pair):
     assert f["clips"]["ang_vel_clip"] == FWD_ANG_VEL_CLIP
     assert o["clips"]["ang_vel_clip"] == EXPECTED_ANG_VEL_CLIP
     assert o["clips"]["lin_vel_clip"] == f["clips"]["lin_vel_clip"] == 0.2
+    assert o["cmd_pool"] is None, (
+        f"{pair_id}: no preset ships a command pool -- the default-off sampler path is what "
+        "every recorded omni window trained on"
+    )
+    assert "cmd_pool" not in f, f"{pair_id}: the forward command cfg grew cmd_pool"
     assert _close_list(o["speed_ellipse"], EXPECTED_SPEED_ELLIPSE)
     assert _close(o["ang_vel_max"], EXPECTED_ANG_VEL_MAX)
     assert _close_list(o["travel_dir_range"], [-math.pi, math.pi])
@@ -716,6 +735,13 @@ def test_siblings_carry_no_omni_attribute(dumps, side_dumps, sibling):
         # forward/sideways process (nothing there reads it)
         assert "reward_yaw_progress" not in e["rewards"], \
             f"{sibling} {task}: rewards grew reward_yaw_progress"
+        # 2026-09-18 (plan Part A2): the second added term is omni-only too, and
+        # KRABBY_OMNI_FACING_TURN_W is inert in a forward/sideways process (the omni knob
+        # module is never imported there)
+        assert "reward_facing_turn" not in e["rewards"], \
+            f"{sibling} {task}: rewards grew reward_facing_turn"
+        assert "facing_obs_encoding" not in e["observations"]["policy"]["extreme_parkour_observations"]["params"], \
+            f"{sibling} {task}: obs term grew facing_obs_encoding"
         # Revision 3 (2026-09-17): the facing-error observation clip is omni-only -- neither
         # sibling's obs term takes a ``facing_obs_clip`` param, and KRABBY_OMNI_FACING_OBS_CLIP
         # is inert in a forward/sideways process (the omni knob module is never imported there)
@@ -758,6 +784,49 @@ def test_yaw_progress_term_block(omni_dumps, pair):
     if omni_phase in ("1a", "1b"):
         slots = EXPECTED_CMD[omni_phase]["slot_probs"]
         assert slots[2] == slots[3] == 0.0, f"{pair_id}: 1a/1b must have no turning slots"
+
+
+@pytest.mark.parametrize("pair", ALL_PAIRS, ids=[p[0] for p in ALL_PAIRS])
+def test_facing_turn_term_block(omni_dumps, pair):
+    """``rewards.reward_facing_turn``: the 37th name, present in every window at weight 0.0.
+
+    The weight is the whole bitwise-identity claim of Part A2: at 0.0 this term contributes
+    nothing to any return and its only trace is one extra ``Episode_Reward/reward_facing_turn``
+    label printing 0 on every line -- which is exactly what Verification 3(a) allows a legacy
+    smoke to gain. If a preset ever arms it, that comparison stops being valid and this test
+    says so. The dose lives in ``KRABBY_OMNI_FACING_TURN_W``, which no preset exports (pinned
+    preset-side by ``tests/unit/test_crab_hex_omni_phases.py``).
+    """
+    pair_id, omni_phase, fwd_phase, fwd_task, omni_task = pair
+    o = subtree(_env(omni_dumps[omni_phase], omni_task), ("rewards", "reward_facing_turn"))
+    assert o["func"] == f"{_OMNI_REWARDS}:reward_facing_exp_turn_slot", f"{pair_id}: {o['func']}"
+    assert o["weight"] == 0.0, f"{pair_id}: the shipped dose must be OFF, got {o['weight']!r}"
+    assert set(o["params"]) == {"asset_cfg", "parkour_name", "command_name"}, sorted(o["params"])
+    assert o["params"]["command_name"] == "base_velocity"
+    assert o["params"]["parkour_name"] == "base_parkour"
+    assert o["params"]["asset_cfg"]["name"] == "robot"
+    # it is the ungated facing term plus a gate: same params, different func, own weight
+    yaw = subtree(_env(omni_dumps[omni_phase], omni_task), ("rewards", "reward_tracking_yaw"))
+    assert o["params"] == yaw["params"], f"{pair_id}: the two facing terms must agree on params"
+    assert yaw["func"] == f"{_OMNI_REWARDS}:reward_facing_exp"
+
+
+@pytest.mark.parametrize("pair", ALL_PAIRS, ids=[p[0] for p in ALL_PAIRS])
+def test_facing_obs_encoding_is_raw_in_every_window(omni_dumps, pair):
+    """The observation the policy trains on is the shipped ``raw`` one, in every window.
+
+    The param exists only so ``KRABBY_OMNI_FACING_OBS_ENCODING`` has a declared key to write
+    (the applier refuses a term without it); no preset sets the knob, so every dump must read
+    ``"raw"`` -- the positive twin of the ``(MISSING, "raw")`` entry in ``EXPECTED_RL``. The
+    facing-error CLIP is unchanged beside it: under ``raw`` it is what clamps slots 6/7.
+    """
+    pair_id, omni_phase, fwd_phase, fwd_task, omni_task = pair
+    params = subtree(
+        _env(omni_dumps[omni_phase], omni_task),
+        ("observations", "policy", "extreme_parkour_observations", "params"),
+    )
+    assert params["facing_obs_encoding"] == "raw", f"{pair_id}: {params['facing_obs_encoding']!r}"
+    assert _close(params["facing_obs_clip"], 0.6), f"{pair_id}: {params['facing_obs_clip']!r}"
 
 
 @pytest.mark.parametrize("pair", ALL_PAIRS, ids=[p[0] for p in ALL_PAIRS])
@@ -805,22 +874,26 @@ def test_clock_schedule_combine_is_product_on_the_omni_side_only(dumps, omni_dum
 
 @pytest.mark.parametrize("pair", RL_PAIRS, ids=[p[0] for p in RL_PAIRS])
 def test_reward_names_and_scan_pattern_unchanged(dumps, omni_dumps, pair):
-    """The forward 35 reward names are a SUBSET of the omni 36 and the extra one is
-    ``reward_yaw_progress``; same termination names; the scan grid NOT re-shaped.
+    """The forward 35 reward names are a SUBSET of the omni 37 and the extra two are
+    ``reward_yaw_progress`` and ``reward_facing_turn``; same termination names; the scan grid
+    NOT re-shaped.
 
     The subset direction is the load-bearing half: ``Episode_Reward/<name>``,
     ``KRABBY_PHASEOUT``'s term list and the driver's log scraping all key on the forward
-    names, so a RENAME or a DROP breaks them silently. One pure addition is safe -- and it has
-    to be this one and only this one, or the omni stack has grown shaping nobody reviewed.
+    names, so a RENAME or a DROP breaks them silently. Pure additions are safe -- and they
+    have to be these two and only these two, or the omni stack has grown shaping nobody
+    reviewed. (2026-09-18: ``reward_facing_turn`` is the second, at weight 0.0 -- the ONLY new
+    label a legacy-path smoke may print, and it must print 0 on every line.)
     """
     pair_id, omni_phase, fwd_phase, fwd_task, omni_task = pair
     fwd, omni = _env(dumps[fwd_phase], fwd_task), _env(omni_dumps[omni_phase], omni_task)
     assert set(fwd["rewards"]) <= set(omni["rewards"]), \
         f"{pair_id}: forward reward names missing from omni: {sorted(set(fwd['rewards']) - set(omni['rewards']))}"
-    assert set(omni["rewards"]) - set(fwd["rewards"]) == {"reward_yaw_progress"}, \
-        f"{pair_id}: unexpected omni-only reward terms: {sorted(set(omni['rewards']) - set(fwd['rewards']))}"
+    assert set(omni["rewards"]) - set(fwd["rewards"]) == {
+        "reward_yaw_progress", "reward_facing_turn",
+    }, f"{pair_id}: unexpected omni-only reward terms: {sorted(set(omni['rewards']) - set(fwd['rewards']))}"
     assert len(fwd["rewards"]) == 35, f"{pair_id}: expected 35 forward reward terms, got {len(fwd['rewards'])}"
-    assert len(omni["rewards"]) == 36, f"{pair_id}: expected 36 omni reward terms, got {len(omni['rewards'])}"
+    assert len(omni["rewards"]) == 37, f"{pair_id}: expected 37 omni reward terms, got {len(omni['rewards'])}"
     assert set(omni["terminations"]) == set(fwd["terminations"]), \
         f"{pair_id}: termination names changed"
     f_pat = subtree(fwd, ("scene", "height_scanner", "pattern_cfg"))

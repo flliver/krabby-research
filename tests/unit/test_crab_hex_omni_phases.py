@@ -539,6 +539,9 @@ class _FakeOmniCommandCfg:
         self.facing_delta = None
         self.ang_vel_max = None
         self.dir_band = None
+        # 2026-09-18 (Part A1): the pool string, and the nested dead band
+        self.cmd_pool = None
+        self.clips = types.SimpleNamespace(lin_vel_clip=0.2, ang_vel_clip=0.2)
 
 
 class _FakeForwardCommandCfg:
@@ -937,3 +940,650 @@ def test_driver_eval_env_turns_debug_vis_off(drv=None):
     assert ev["KRABBY_PLAY_DEBUG_VIS"] == "0"
     ev2 = m.eval_env_for(m.ph.PHASES["2a"], "A15+B", keep=m.CANARY_KEEP + m.TERRAIN_PASS, extra=m.OBST_EVAL)
     assert ev2["KRABBY_PLAY_DEBUG_VIS"] == "0"
+
+
+# ==================================================== the capability-curriculum knobs (A1)
+#
+# Six knobs added 2026-09-18 for the facing-and-tracking campaign, ALL default-off and set by
+# NO preset: the campaign drives them as env overlays on the shipped 1a/1c windows, so the
+# windows themselves have to stay bitwise reproducible. Every test below therefore checks the
+# unset/blank case as well as the applied one -- "does nothing when nobody asks" is the half
+# of the contract a recorded run depends on.
+
+NEW_KNOB_VARS = {
+    "CMD_POOL_VAR": "KRABBY_OMNI_CMD_POOL",
+    "ANG_VEL_CLIP_VAR": "KRABBY_OMNI_ANG_VEL_CLIP",
+    "FACING_TURN_W_VAR": "KRABBY_OMNI_FACING_TURN_W",
+    "TRACK_FACING_SIGMA_VAR": "KRABBY_OMNI_TRACK_FACING_SIGMA",
+    "PROGRESS_W_VAR": "KRABBY_OMNI_PROGRESS_W",
+    "FACING_OBS_ENCODING_VAR": "KRABBY_OMNI_FACING_OBS_ENCODING",
+}
+
+
+def test_new_knob_names_and_exports(knobs):
+    """The names are a CONTRACT: the driver, the recipes and the later plan steps bind to them."""
+    for attr, name in NEW_KNOB_VARS.items():
+        assert getattr(knobs, attr) == name, attr
+        assert attr in knobs.__all__, attr
+    for parser in ("parse_cmd_pool", "parse_ang_vel_clip", "parse_facing_turn_w",
+                   "parse_track_facing_sigma", "parse_progress_w", "parse_facing_obs_encoding"):
+        assert parser in knobs.__all__ and callable(getattr(knobs, parser)), parser
+
+
+def test_no_preset_sets_a_curriculum_knob(omni):
+    """DEFAULT OFF, everywhere: the campaign overlays them, the presets never do."""
+    for name in PHASE_NAMES:
+        for var in NEW_KNOB_VARS.values():
+            assert var not in omni.PHASES[name].env, f"{name} arms {var}"
+    src = OMNI_PHASES_PY.read_text()
+    for var in NEW_KNOB_VARS.values():
+        assert var not in src, var
+
+
+# ------------------------------------------------------------------ KRABBY_OMNI_CMD_POOL
+def test_parse_cmd_pool_knob(knobs):
+    """Blank means "no pool" (the DIR_BAND spelling); everything else is the math module's."""
+    for empty in ("", "  ", "none", "OFF", "null"):
+        assert knobs.parse_cmd_pool(empty) is None, empty
+    pool = knobs.parse_cmd_pool(" stand:0.2 , fwd:0.8 ")
+    assert pool.names == ("stand", "fwd")
+    assert pool.weights == (0.2, 0.8)
+    assert pool.projected_slot_probs() == pytest.approx((0.2, 0.8, 0.0, 0.0), abs=1e-12)
+    # the optional per-type scales survive the knob layer untouched
+    scaled = knobs.parse_cmd_pool("fwd:0.6:0.3,turn:0.4:1.0:0.5")
+    assert scaled.ang_scale == (0.3, 1.0) and scaled.speed_scale == (1.0, 0.5)
+    for bad in ("sideways:1.0", "fwd:0.5,fwd:0.5", "fwd:-1", "fwd:1:0", "fwd", "fwd:1.0,"):
+        with pytest.raises(ValueError, match="KRABBY_OMNI_CMD_POOL"):
+            knobs.parse_cmd_pool(bad)
+
+
+def test_pool_type_names_match_the_math_module(knobs):
+    """The knob layer must not keep its own copy of the type list.
+
+    It delegates to ``crab_hex_omni_command_math`` -- lazily and, without Isaac, BY PATH -- so
+    the names a launcher may write are exactly the names the sampler implements. A second
+    spelling here would drift the moment a type is added.
+    """
+    math_mod = knobs._command_math()
+    assert tuple(math_mod.POOL_TYPES) == (
+        "stand", "fwd", "side_l", "side_r", "back", "omni",
+        "turn", "fwd_turn", "side_l_turn", "side_r_turn", "back_turn", "omni_turn",
+    )
+    assert math_mod.POOL_FLOOR_SHARE == 0.025
+    # every name round-trips through the knob's own parser
+    for name in math_mod.POOL_TYPES:
+        assert knobs.parse_cmd_pool(f"{name}:1.0").names == (name,)
+    # ...and the knob returns the math module's own object, not a look-alike
+    assert isinstance(knobs.parse_cmd_pool("fwd:1.0"), math_mod.CmdPool)
+
+
+def test_cmd_pool_knob_is_applied_verbatim_and_can_be_switched_off(knobs):
+    """What reaches the cfg is the launcher's STRING, stripped -- not a re-rendered one.
+
+    The campaign records ``params/env.yaml`` as the run's truth and audits it against the
+    recipe, so a normalising round trip here would make an honest run look edited.
+    """
+    cfg = _FakeOmniCommandCfg()
+    knobs._apply_command_knobs(
+        cfg, {"KRABBY_OMNI_CMD_POOL": "  stand:0.20,fwd:0.80  "}, cmd_cls=_FakeOmniCommandCfg
+    )
+    assert cfg.cmd_pool == "stand:0.20,fwd:0.80", "verbatim, only stripped"
+    # PRESENT-but-empty is the meaningful "no pool" (an overlay switching a preset's off)
+    knobs._apply_command_knobs(cfg, {"KRABBY_OMNI_CMD_POOL": ""}, cmd_cls=_FakeOmniCommandCfg)
+    assert cfg.cmd_pool is None
+    # absent -> untouched
+    cfg.cmd_pool = "fwd:1.0"
+    knobs._apply_command_knobs(cfg, {}, cmd_cls=_FakeOmniCommandCfg)
+    assert cfg.cmd_pool == "fwd:1.0"
+    # a typo fails HERE, at config build, not thousands of GPU-seconds later
+    with pytest.raises(ValueError, match="KRABBY_OMNI_CMD_POOL"):
+        knobs._apply_command_knobs(
+            cfg, {"KRABBY_OMNI_CMD_POOL": "sideways:1.0"}, cmd_cls=_FakeOmniCommandCfg
+        )
+    assert cfg.cmd_pool == "fwd:1.0", "a refused pool leaves the cfg alone"
+
+
+# -------------------------------------------------------------- KRABBY_OMNI_ANG_VEL_CLIP
+def test_parse_ang_vel_clip(knobs):
+    assert knobs.parse_ang_vel_clip("0.1") == 0.1
+    assert knobs.parse_ang_vel_clip(" 0.05 ") == 0.05
+    for bad in ("0", "-0.1", "nan", "inf", "0.1:0.2", ""):
+        with pytest.raises(ValueError, match="KRABBY_OMNI_ANG_VEL_CLIP"):
+            knobs.parse_ang_vel_clip(bad)
+
+
+def test_ang_vel_clip_knob_writes_the_nested_clip(knobs):
+    cfg = _FakeOmniCommandCfg()
+    knobs._apply_command_knobs(
+        cfg, {"KRABBY_OMNI_ANG_VEL_CLIP": "0.1"}, cmd_cls=_FakeOmniCommandCfg
+    )
+    assert cfg.clips.ang_vel_clip == 0.1
+    assert cfg.clips.lin_vel_clip == 0.2, "the walk floor's clip is a different lever"
+    # unset / blank -> the class-body 0.2 survives
+    cfg2 = _FakeOmniCommandCfg()
+    knobs._apply_command_knobs(cfg2, {}, cmd_cls=_FakeOmniCommandCfg)
+    knobs._apply_command_knobs(
+        cfg2, {"KRABBY_OMNI_ANG_VEL_CLIP": "  "}, cmd_cls=_FakeOmniCommandCfg
+    )
+    assert cfg2.clips.ang_vel_clip == 0.2
+
+
+def test_ang_vel_clip_is_written_before_anything_validates_it_against_the_cap(knobs):
+    """Source order: the dead band has to be final before the command cfg is constructed.
+
+    ``CrabHexOmniCommand.__init__`` refuses ``ang_vel_max <= clips.ang_vel_clip``, so the two
+    must be written in the same pass -- a clip applied later (or elsewhere) would be validated
+    against the wrong cap, or not at all.
+    """
+    src = OMNI_KNOBS_PY.read_text()
+    body = src[src.index("def _apply_command_knobs"):src.index("def _apply_spawn_yaw")]
+    assert "cmd_cfg.clips.ang_vel_clip = parse_ang_vel_clip(raw_clip)" in body
+    assert "ANG_VEL_MAX_VAR" in body, "the cap is written in the same function"
+
+
+# ------------------------------------------------------------- KRABBY_OMNI_PROGRESS_W etc
+def test_parse_facing_turn_w_and_progress_w(knobs):
+    for parser, var in ((knobs.parse_facing_turn_w, "KRABBY_OMNI_FACING_TURN_W"),
+                        (knobs.parse_progress_w, "KRABBY_OMNI_PROGRESS_W")):
+        assert parser("0.6") == 0.6
+        assert parser(" 0 ") == 0.0, "0.0 is the legitimate ablation"
+        for bad in ("-0.1", "nan", "inf", "0.6:0.6", "", "abc"):
+            with pytest.raises(ValueError, match=var):
+                parser(bad)
+
+
+class _FakeCurriculumRewardsCfg:
+    """The three weight paths :func:`_apply_reward_weight_knobs` doses, in their shipped shapes."""
+
+    def __init__(self, *, with_facing_turn=True, with_progress=True):
+        self.rewards = types.SimpleNamespace(reward_yaw_progress=_FakeTerm(1.0))
+        if with_facing_turn:
+            self.rewards.reward_facing_turn = _FakeTerm(0.0)   # ships at 0.0; the knob is the dose
+        if with_progress:
+            self.rewards.reward_forward_progress_along_command = _FakeTerm(0.6)
+
+
+def test_progress_weight_knob_is_applied(knobs):
+    cfg = _FakeCurriculumRewardsCfg()
+    knobs._apply_reward_weight_knobs(cfg, {"KRABBY_OMNI_PROGRESS_W": "0.3"})
+    assert cfg.rewards.reward_forward_progress_along_command.weight == 0.3
+    # presence-based: an explicit 0.0 is an ablation and must win over the class-body 0.6
+    knobs._apply_reward_weight_knobs(cfg, {"KRABBY_OMNI_PROGRESS_W": "0"})
+    assert cfg.rewards.reward_forward_progress_along_command.weight == 0.0
+    # unset / blank -> the forward class-body literal survives
+    cfg2 = _FakeCurriculumRewardsCfg()
+    knobs._apply_reward_weight_knobs(cfg2, {})
+    knobs._apply_reward_weight_knobs(cfg2, {"KRABBY_OMNI_PROGRESS_W": "  "})
+    assert cfg2.rewards.reward_forward_progress_along_command.weight == 0.6
+    # the other two doses are untouched by this one
+    assert cfg2.rewards.reward_yaw_progress.weight == 1.0
+    assert cfg2.rewards.reward_facing_turn.weight == 0.0
+
+
+def test_progress_weight_knob_refuses_a_cfg_without_the_term(knobs):
+    cfg = _FakeCurriculumRewardsCfg(with_progress=False)
+    with pytest.raises(RuntimeError, match="reward_forward_progress_along_command"):
+        knobs._apply_reward_weight_knobs(cfg, {"KRABBY_OMNI_PROGRESS_W": "0.3"})
+    assert not hasattr(cfg.rewards, "reward_forward_progress_along_command")
+    knobs._apply_reward_weight_knobs(cfg, {})      # unset is still a no-op
+
+
+def test_facing_turn_weight_knob_refuses_a_cfg_without_the_term(knobs):
+    """The APPLY of this knob lands on a term step A2 adds; the refusal is testable now."""
+    cfg = _FakeCurriculumRewardsCfg(with_facing_turn=False)
+    with pytest.raises(RuntimeError, match="reward_facing_turn"):
+        knobs._apply_reward_weight_knobs(cfg, {"KRABBY_OMNI_FACING_TURN_W": "0.5"})
+    assert not hasattr(cfg.rewards, "reward_facing_turn")
+    knobs._apply_reward_weight_knobs(cfg, {})
+    knobs._apply_reward_weight_knobs(cfg, {"KRABBY_OMNI_FACING_TURN_W": ""})
+    # ... and a rejected VALUE never reaches the term either
+    good = _FakeCurriculumRewardsCfg()
+    with pytest.raises(ValueError, match="KRABBY_OMNI_FACING_TURN_W"):
+        knobs._apply_reward_weight_knobs(good, {"KRABBY_OMNI_FACING_TURN_W": "-1"})
+    assert good.rewards.reward_facing_turn.weight == 0.0
+
+
+def test_every_weight_knob_is_independent(knobs):
+    """One pass, three doses, no cross-talk -- they share a table, not a value."""
+    cfg = _FakeCurriculumRewardsCfg()
+    knobs._apply_reward_weight_knobs(cfg, {
+        "KRABBY_YAW_PROGRESS_W": "0.2",
+        "KRABBY_OMNI_FACING_TURN_W": "0.4",
+        "KRABBY_OMNI_PROGRESS_W": "0.6",
+    })
+    assert cfg.rewards.reward_yaw_progress.weight == 0.2
+    assert cfg.rewards.reward_facing_turn.weight == 0.4
+    assert cfg.rewards.reward_forward_progress_along_command.weight == 0.6
+
+
+# --------------------------------------------------------- KRABBY_OMNI_TRACK_FACING_SIGMA
+def test_parse_track_facing_sigma(knobs):
+    assert knobs.parse_track_facing_sigma("0.5") == 0.5
+    assert knobs.parse_track_facing_sigma(" 1.0 ") == 1.0
+    for bad in ("0", "-0.5", "nan", "inf", "0.5:0.5", ""):
+        with pytest.raises(ValueError, match="KRABBY_OMNI_TRACK_FACING_SIGMA"):
+            knobs.parse_track_facing_sigma(bad)
+
+
+def _STOCK_TRACK(env, std, command_name="base_velocity", asset_cfg=None):
+    """Stand-in for isaaclab's ``track_lin_vel_xy_exp`` -- the INHERITED forward class body's func."""
+
+
+def _COUPLED_TRACK(env, std, command_name="base_velocity", asset_cfg=None, facing_sigma=1.0):
+    """Stand-in for ``crab_hex_omni_rewards.track_lin_vel_xy_exp_facing_coupled`` (A2 writes it)."""
+
+
+class _FakeTrackRewardsCfg:
+    """``rewards.track_lin_vel_xy_exp`` in its shipped shape (inherited from the forward cfg)."""
+
+    def __init__(self, *, present=True, params=None, func=_STOCK_TRACK):
+        self.rewards = types.SimpleNamespace()
+        if present:
+            term = _FakeParamTerm(func=func)
+            term.weight = 1.25
+            term.params = dict(
+                {"command_name": "base_velocity", "std": 0.2} if params is None else params
+            )
+            self.rewards.track_lin_vel_xy_exp = term
+
+
+def _apply_sigma(knobs, cfg, environ):
+    """The applier with both real functions replaced by stand-ins (keeps this file Isaac-free)."""
+    knobs._apply_track_facing_sigma_knob(
+        cfg, environ, coupled_func=_COUPLED_TRACK, stock_func=_STOCK_TRACK
+    )
+
+
+def test_track_facing_sigma_defaults_off(knobs):
+    for environ in ({}, {"KRABBY_OMNI_TRACK_FACING_SIGMA": ""},
+                    {"KRABBY_OMNI_TRACK_FACING_SIGMA": "   "}):
+        cfg = _FakeTrackRewardsCfg()
+        _apply_sigma(knobs, cfg, environ)
+        assert cfg.rewards.track_lin_vel_xy_exp.func is _STOCK_TRACK, environ
+        assert "facing_sigma" not in cfg.rewards.track_lin_vel_xy_exp.params
+
+
+def test_track_facing_sigma_swaps_the_func_and_adds_one_param(knobs):
+    """A COUPLING, not a retuning: weight and ``std`` pass straight through.
+
+    ``std`` is whatever ``KRABBY_TRACK_SIGMA2`` wrote in the forward ``__post_init__`` -- this
+    knob runs afterwards, so the coupled twin prices exactly the kernel the window chose.
+    """
+    cfg = _FakeTrackRewardsCfg()
+    term = cfg.rewards.track_lin_vel_xy_exp
+    _apply_sigma(knobs, cfg, {"KRABBY_OMNI_TRACK_FACING_SIGMA": "0.5"})
+    assert term.func is _COUPLED_TRACK
+    assert term.weight == 1.25
+    assert term.params == {"command_name": "base_velocity", "std": 0.2, "facing_sigma": 0.5}
+
+
+def test_track_facing_sigma_guards(knobs):
+    # (a) no such term -- a leaked forward/sideways rewards cfg
+    missing = _FakeTrackRewardsCfg(present=False)
+    with pytest.raises(RuntimeError, match="track_lin_vel_xy_exp"):
+        _apply_sigma(knobs, missing, {"KRABBY_OMNI_TRACK_FACING_SIGMA": "0.5"})
+    _apply_sigma(knobs, missing, {})                     # unset is still a no-op
+    # (b) the term lost a stock param -> the twin's signature would not be satisfiable
+    for params in ({"command_name": "base_velocity"}, {"std": 0.2}):
+        lost = _FakeTrackRewardsCfg(params=params)
+        with pytest.raises(RuntimeError, match="stock params"):
+            _apply_sigma(knobs, lost, {"KRABBY_OMNI_TRACK_FACING_SIGMA": "0.5"})
+        assert lost.rewards.track_lin_vel_xy_exp.func is _STOCK_TRACK
+    # (c) something else already owns the func
+    def _someone_elses(env, std, command_name="base_velocity", asset_cfg=None):
+        pass
+
+    owned = _FakeTrackRewardsCfg(func=_someone_elses)
+    with pytest.raises(RuntimeError, match="owns the func"):
+        _apply_sigma(knobs, owned, {"KRABBY_OMNI_TRACK_FACING_SIGMA": "0.5"})
+    assert owned.rewards.track_lin_vel_xy_exp.func is _someone_elses
+    # (d) a rejected value never reaches the term
+    good = _FakeTrackRewardsCfg()
+    with pytest.raises(ValueError, match="KRABBY_OMNI_TRACK_FACING_SIGMA"):
+        _apply_sigma(knobs, good, {"KRABBY_OMNI_TRACK_FACING_SIGMA": "0"})
+    assert good.rewards.track_lin_vel_xy_exp.func is _STOCK_TRACK
+
+
+def test_track_facing_sigma_resolves_the_shipped_twin_when_not_injected(knobs):
+    """The stand-ins above must not drift from what the applier really imports (source-level:
+    importing the real modules needs Kit)."""
+    src = OMNI_KNOBS_PY.read_text()
+    body = src[src.index("def _apply_track_facing_sigma_knob"):
+               src.index("def _apply_facing_obs_encoding_knob")]
+    assert "from isaaclab.envs.mdp.rewards import track_lin_vel_xy_exp as stock_func" in body
+    assert "crab_hex_omni_rewards import" in body
+    assert "track_lin_vel_xy_exp_facing_coupled as coupled_func" in body
+
+
+# ------------------------------------------------------- KRABBY_OMNI_FACING_OBS_ENCODING
+def test_parse_facing_obs_encoding(knobs):
+    assert knobs.parse_facing_obs_encoding("raw") == "raw"
+    assert knobs.parse_facing_obs_encoding(" SinCos ") == "sincos"
+    assert knobs.FACING_OBS_ENCODINGS == ("raw", "sincos")
+    for bad in ("", "sin_cos", "cos", "1", "none"):
+        with pytest.raises(ValueError, match="KRABBY_OMNI_FACING_OBS_ENCODING"):
+            knobs.parse_facing_obs_encoding(bad)
+
+
+def _obs_cfg_with_encoding(func=_FakeObsFunc, *, declared=True):
+    cfg = _FakeObsCfg(func)
+    if declared:
+        cfg.observations.policy.proprio.params["facing_obs_encoding"] = "raw"
+    return cfg
+
+
+def test_facing_obs_encoding_knob_absent_is_a_no_op(knobs):
+    cfg = _obs_cfg_with_encoding()
+    knobs._apply_facing_obs_encoding_knob(cfg, {})
+    knobs._apply_facing_obs_encoding_knob(cfg, {"KRABBY_OMNI_FACING_OBS_ENCODING": "  "})
+    assert cfg.observations.policy.proprio.params["facing_obs_encoding"] == "raw"
+
+
+def test_facing_obs_encoding_knob_writes_the_declared_param(knobs):
+    cfg = _obs_cfg_with_encoding()
+    knobs._apply_facing_obs_encoding_knob(cfg, {"KRABBY_OMNI_FACING_OBS_ENCODING": "sincos"})
+    assert cfg.observations.policy.proprio.params["facing_obs_encoding"] == "sincos"
+    assert cfg.observations.policy.proprio.params["asset_cfg"] == "robot"
+
+
+def test_facing_obs_encoding_knob_refuses_a_term_that_does_not_declare_the_param(knobs):
+    """Writing a keyword the observation function does not accept would kill the run on its
+    FIRST step, inside the observation manager -- so the key must already be there (A2 adds
+    it with the default "raw")."""
+    cfg = _obs_cfg_with_encoding(declared=False)
+    with pytest.raises(RuntimeError, match="facing_obs_encoding"):
+        knobs._apply_facing_obs_encoding_knob(cfg, {"KRABBY_OMNI_FACING_OBS_ENCODING": "sincos"})
+    assert "facing_obs_encoding" not in cfg.observations.policy.proprio.params
+
+
+def test_facing_obs_encoding_knob_refuses_a_leaked_forward_obs(knobs):
+    cfg = _FakeObsCfg(_FakeForwardObsFunc)
+    with pytest.raises(RuntimeError, match="no omni observation term"):
+        knobs._apply_facing_obs_encoding_knob(cfg, {"KRABBY_OMNI_FACING_OBS_ENCODING": "sincos"})
+
+
+# -------------------------------------------------------------------- the clock-radius rule
+def _clock_cfg(radius, ang_vel_max):
+    return types.SimpleNamespace(
+        omni_clock_turn_radius=radius,
+        commands=types.SimpleNamespace(base_velocity=types.SimpleNamespace(ang_vel_max=ang_vel_max)),
+    )
+
+
+def test_clock_radius_rule_refuses_a_stopped_clock(knobs):
+    """``omni_clock_turn_radius x ang_vel_max`` is the tangential speed a pure TURN hands the
+    gait clock; under the floor the clock freezes and the gait rewards pay a statue.
+
+    A cross-knob rule, which is exactly why neither parser can catch it: 1.2 m and 0.1 rad/s
+    are both ordinary values on their own.
+    """
+    assert knobs.CLOCK_TURN_MIN_SPEED == 0.25
+    knobs._check_clock_radius_rule(_clock_cfg(1.2, 0.3))          # today's presets: 0.36
+    knobs._check_clock_radius_rule(_clock_cfg(2.5, 0.1))          # exactly 0.25 is allowed
+    for radius, cap in ((1.2, 0.1), (0.5, 0.3), (0.0, 0.3), (1.2, 0.2)):
+        with pytest.raises(RuntimeError) as exc:
+            knobs._check_clock_radius_rule(_clock_cfg(radius, cap))
+        message = str(exc.value)
+        # BOTH knobs and BOTH values, because the failure looks like a training problem
+        assert "KRABBY_OMNI_CLOCK_TURN_R" in message and "KRABBY_OMNI_ANG_VEL_MAX" in message
+        assert str(radius) in message and str(cap) in message
+    # a cfg with no such attribute is a leaked forward/sideways env cfg, not a pass
+    with pytest.raises(RuntimeError, match="omni_clock_turn_radius"):
+        knobs._check_clock_radius_rule(
+            types.SimpleNamespace(
+                commands=types.SimpleNamespace(
+                    base_velocity=types.SimpleNamespace(ang_vel_max=0.3)
+                )
+            )
+        )
+    # ... and the same leak spotted one level down names the OTHER knob, not AttributeError
+    with pytest.raises(RuntimeError, match="KRABBY_OMNI_ANG_VEL_MAX"):
+        knobs._check_clock_radius_rule(
+            types.SimpleNamespace(
+                omni_clock_turn_radius=1.2,
+                commands=types.SimpleNamespace(base_velocity=types.SimpleNamespace()),
+            )
+        )
+
+
+def test_clock_radius_rule_runs_after_both_knobs_are_applied(knobs):
+    """Source order: it has to see the EFFECTIVE pair, not the class-body defaults."""
+    src = OMNI_KNOBS_PY.read_text()
+    body = src[src.index("def apply_omni_knobs"):]
+    assert body.index("_apply_command_knobs(cfg.commands.base_velocity, env)") < body.index(
+        "_check_clock_radius_rule(cfg)"
+    ), "ang_vel_max must be final first"
+    assert body.index("parse_clock_turn_radius(raw_turn_r)") < body.index(
+        "_check_clock_radius_rule(cfg)"
+    ), "the radius must be final first"
+
+
+def test_apply_omni_knobs_really_arms_the_clock_radius_rule(knobs, monkeypatch):
+    """BEHAVIOURAL: the rule fires through the shipped entry point, not only when called
+    directly.
+
+    The source-order test above would still pass if the call were deleted and re-added
+    somewhere unreachable; this one drives ``apply_omni_knobs`` itself. The only thing stubbed
+    is ``_apply_command_knobs``'s lazy import of the real (Isaac-backed) cfg class -- the
+    apply itself still runs, so the rule really does see the knob's ``ang_vel_max`` and not
+    the fake cfg's default.
+    """
+    real_apply = knobs._apply_command_knobs
+    monkeypatch.setattr(
+        knobs,
+        "_apply_command_knobs",
+        lambda cmd_cfg, env, **kw: real_apply(cmd_cfg, env, cmd_cls=_FakeOmniCommandCfg),
+    )
+    cmd_cfg = _FakeOmniCommandCfg()
+    cfg = types.SimpleNamespace(
+        omni_clock_turn_radius=1.2,
+        commands=types.SimpleNamespace(base_velocity=cmd_cfg),
+    )
+    with pytest.raises(RuntimeError) as exc:
+        knobs.apply_omni_knobs(cfg, {"KRABBY_OMNI_ANG_VEL_MAX": "0.1"})
+    message = str(exc.value)
+    assert "KRABBY_OMNI_CLOCK_TURN_R" in message and "KRABBY_OMNI_ANG_VEL_MAX" in message
+    assert cmd_cfg.ang_vel_max == 0.1, "the knob was applied before the rule read it"
+
+
+def test_the_class_body_defaults_clear_the_clock_radius_rule():
+    """With NEITHER knob set -- a PLAY session, an eval, any non-preset entry point -- the new
+    rule must not refuse the build. 1.2 x 0.3 = 0.36 >= 0.25, read off the two sources."""
+    env_src = (OMNI / "config/crab_hex/crab_hex_omni_env_cfg.py").read_text()
+    cmd_src = (OMNI / "mdp/crab_hex_omni_command.py").read_text()
+    radius_line = next(
+        l for l in env_src.splitlines() if l.startswith("OMNI_CLOCK_TURN_RADIUS")
+    )
+    cap_line = next(
+        l for l in cmd_src.splitlines() if l.strip().startswith("ang_vel_max: float =")
+    )
+    radius = float(radius_line.split("=", 1)[1].split("#")[0].strip())
+    cap = float(cap_line.split("=", 1)[1].split("#")[0].strip())
+    knobs_mod = _load(OMNI_KNOBS_PY, "crab_hex_omni_knobs")
+    assert radius * cap >= knobs_mod.CLOCK_TURN_MIN_SPEED
+    knobs_mod._check_clock_radius_rule(_clock_cfg(radius, cap))
+
+
+@pytest.mark.parametrize("name", PHASE_NAMES)
+def test_every_preset_clears_the_clock_radius_rule(name, omni, knobs):
+    """The rule is armed on every shipped window, so it has to pass on every shipped window."""
+    env = omni.PHASES[name].env
+    radius = knobs.parse_clock_turn_radius(env["KRABBY_OMNI_CLOCK_TURN_R"])
+    cap = knobs.parse_ang_vel_max(env["KRABBY_OMNI_ANG_VEL_MAX"])
+    knobs._check_clock_radius_rule(_clock_cfg(radius, cap))
+    assert radius * cap == pytest.approx(0.36)
+
+
+# ============================================================================================
+# The THREE A2-bound knobs, driven through the SHIPPED entry point ``apply_omni_knobs``.
+#
+# Everything above tests each applier in isolation, which leaves one hole the campaign cannot
+# afford: deleting a call from ``apply_omni_knobs`` would keep every one of those tests green
+# while the knob became inert in every real run (the reviewer's surviving mutation, step 1).
+# These four drive ``apply_omni_knobs(cfg, environ)`` itself, on a cfg shaped like the real
+# omni env cfg -- the same technique as
+# ``test_apply_omni_knobs_really_arms_the_clock_radius_rule`` above, extended to the whole
+# knob block. Only three things are stood in for, all of them Isaac imports this suite must
+# not perform: the command cfg CLASS (``_apply_command_knobs``'s lazy import), the two
+# ``track_lin_vel_xy_exp`` functions (the sigma knob's lazy imports) and the ring-terrain
+# module the entry point imports last. Every applier still runs for real.
+# ============================================================================================
+_OMNI_TERRAIN_MOD = "parkour_tasks.crab_hex_omni_task.mdp.omni_terrain_knobs"
+
+
+class _FakeFullObsTerm:
+    """The omni observation term as the env cfg declares it (func + the declared params)."""
+
+    def __init__(self):
+        self.func = _FakeObsFunc
+        self.params = {
+            "asset_cfg": "robot",
+            "parkour_name": "base_parkour",
+            "history_length": 10,
+            "facing_obs_encoding": "raw",     # the class default, declared so the knob can write
+        }
+
+
+class _FullOmniEnvCfg:
+    """Every path ``apply_omni_knobs`` walks, in the shipped shapes.
+
+    Deliberately NOT a ``_FakeXCfg`` per applier: the point is that ONE cfg goes through the
+    ONE entry point and comes out with every dose applied, so a call that stops being made is
+    a failure here.
+    """
+
+    def __init__(self):
+        self.omni_clock_turn_radius = 1.2
+        self.commands = types.SimpleNamespace(base_velocity=_FakeOmniCommandCfg())
+        self.rewards = types.SimpleNamespace(
+            reward_yaw_progress=_FakeTerm(1.0),
+            reward_facing_turn=_FakeTerm(0.0),                 # ships OFF; the knob is the dose
+            reward_forward_progress_along_command=_FakeTerm(0.6),
+            track_ang_vel_z_exp=_FakeParamTerm(
+                func=_STOCK_ANG, command_name="base_velocity", std=0.15
+            ),
+            reward_clock_schedule=_FakeParamTerm(command_name="base_velocity", combine="sum"),
+        )
+        track = _FakeParamTerm(func=_STOCK_TRACK, command_name="base_velocity", std=0.2)
+        track.weight = 1.25
+        self.rewards.track_lin_vel_xy_exp = track
+        self.observations = types.SimpleNamespace(policy=types.SimpleNamespace())
+        self.observations.policy.extreme_parkour_observations = _FakeFullObsTerm()
+
+    # the two shortcuts the assertions use
+    @property
+    def obs_params(self):
+        return self.observations.policy.extreme_parkour_observations.params
+
+    @property
+    def track_term(self):
+        return self.rewards.track_lin_vel_xy_exp
+
+
+def _apply_all(knobs, monkeypatch, environ):
+    """``apply_omni_knobs`` on a full fake cfg, with only the Isaac imports stood in for."""
+    real_cmd = knobs._apply_command_knobs
+    monkeypatch.setattr(
+        knobs,
+        "_apply_command_knobs",
+        lambda cmd_cfg, env, **kw: real_cmd(cmd_cfg, env, cmd_cls=_FakeOmniCommandCfg),
+    )
+    real_sigma = knobs._apply_track_facing_sigma_knob
+    monkeypatch.setattr(
+        knobs,
+        "_apply_track_facing_sigma_knob",
+        lambda cfg, env, **kw: real_sigma(
+            cfg, env, coupled_func=_COUPLED_TRACK, stock_func=_STOCK_TRACK
+        ),
+    )
+    ring = types.ModuleType(_OMNI_TERRAIN_MOD)
+    calls = []
+    ring.apply_omni_ring_knobs = lambda cfg, env=None, classes=None: calls.append(cfg)
+    monkeypatch.setitem(sys.modules, _OMNI_TERRAIN_MOD, ring)
+
+    cfg = _FullOmniEnvCfg()
+    env = {"KRABBY_OMNI_ANG_VEL_MAX": "0.3"}     # keeps the clock-radius rule satisfied
+    env.update(environ)
+    knobs.apply_omni_knobs(cfg, env)
+    assert calls == [cfg], "the ring-terrain block must still run last"
+    return cfg
+
+
+def test_apply_omni_knobs_really_doses_the_facing_turn_weight(knobs, monkeypatch):
+    """``KRABBY_OMNI_FACING_TURN_W`` reaches ``rewards.reward_facing_turn.weight`` end to end."""
+    cfg = _apply_all(knobs, monkeypatch, {"KRABBY_OMNI_FACING_TURN_W": "0.45"})
+    assert cfg.rewards.reward_facing_turn.weight == 0.45
+    # the other two weight doses are untouched by this one
+    assert cfg.rewards.reward_yaw_progress.weight == 1.0
+    assert cfg.rewards.reward_forward_progress_along_command.weight == 0.6
+    # and with the knob UNSET the shipped 0.0 survives the whole entry point
+    off = _apply_all(knobs, monkeypatch, {})
+    assert off.rewards.reward_facing_turn.weight == 0.0
+
+
+def test_apply_omni_knobs_really_swaps_the_facing_coupled_tracking_func(knobs, monkeypatch):
+    """``KRABBY_OMNI_TRACK_FACING_SIGMA`` swaps the FUNC and writes ``facing_sigma``, end to end."""
+    cfg = _apply_all(knobs, monkeypatch, {"KRABBY_OMNI_TRACK_FACING_SIGMA": "0.5"})
+    assert cfg.track_term.func is _COUPLED_TRACK
+    assert cfg.track_term.weight == 1.25, "a coupling, not a retuning"
+    assert cfg.track_term.params == {
+        "command_name": "base_velocity", "std": 0.2, "facing_sigma": 0.5
+    }
+    # unset -> the inherited stock func and NO extra param (the shipped state)
+    off = _apply_all(knobs, monkeypatch, {})
+    assert off.track_term.func is _STOCK_TRACK
+    assert "facing_sigma" not in off.track_term.params
+
+
+def test_apply_omni_knobs_really_writes_the_facing_obs_encoding(knobs, monkeypatch):
+    """``KRABBY_OMNI_FACING_OBS_ENCODING`` reaches the SHIPPED obs term's params, end to end.
+
+    Against the declared param the omni env cfg really ships (``facing_obs_encoding: "raw"``),
+    not a ``_FakeObsCfg`` -- the applier refuses a term that does not already carry the key,
+    so this is also the test that fails if that declaration is ever dropped from the env cfg.
+    """
+    cfg = _apply_all(knobs, monkeypatch, {"KRABBY_OMNI_FACING_OBS_ENCODING": "sincos"})
+    assert cfg.obs_params["facing_obs_encoding"] == "sincos"
+    # the term's other params are untouched
+    assert cfg.obs_params["history_length"] == 10
+    # unset -> the class default survives the whole entry point
+    off = _apply_all(knobs, monkeypatch, {})
+    assert off.obs_params["facing_obs_encoding"] == "raw"
+
+
+def test_the_shipped_omni_obs_term_declares_the_encoding_param():
+    """The env cfg's own literal: the knob has a key to overwrite in EVERY preset.
+
+    ``_apply_facing_obs_encoding_knob`` refuses a term without the key (it would otherwise
+    hand the observation function a keyword it does not accept, killing the run on its first
+    step), and no preset re-declares the observation block -- so this one literal covers all
+    seven windows.
+    """
+    env_src = (OMNI / "config/crab_hex/crab_hex_omni_env_cfg.py").read_text()
+    block = env_src[env_src.index("extreme_parkour_observations = ObsTerm"):]
+    block = block[: block.index("clip=")]
+    assert '"facing_obs_encoding": "raw"' in block, block
+    obs_src = (OMNI / "mdp/crab_hex_omni_observations.py").read_text()
+    assert 'facing_obs_encoding: str = "raw"' in obs_src, "the class default must agree"
+    assert 'FACING_OBS_ENCODINGS = ("raw", "sincos")' in obs_src
+
+
+def test_apply_omni_knobs_applies_all_three_a2_knobs_in_one_pass(knobs, monkeypatch):
+    """One pass, three doses, no cross-talk -- through the entry point a real run uses."""
+    cfg = _apply_all(knobs, monkeypatch, {
+        "KRABBY_OMNI_FACING_TURN_W": "0.4",
+        "KRABBY_OMNI_TRACK_FACING_SIGMA": "0.8",
+        "KRABBY_OMNI_FACING_OBS_ENCODING": "sincos",
+        "KRABBY_OMNI_PROGRESS_W": "0.3",
+        "KRABBY_YAW_PROGRESS_W": "2.0",
+    })
+    assert cfg.rewards.reward_facing_turn.weight == 0.4
+    assert cfg.rewards.reward_forward_progress_along_command.weight == 0.3
+    assert cfg.rewards.reward_yaw_progress.weight == 2.0
+    assert cfg.track_term.func is _COUPLED_TRACK
+    assert cfg.track_term.params["facing_sigma"] == 0.8
+    assert cfg.obs_params["facing_obs_encoding"] == "sincos"
+    # nothing else moved: the command cap is the one the environ set, the clock rule passed
+    assert cfg.commands.base_velocity.ang_vel_max == 0.3
+    assert cfg.rewards.track_ang_vel_z_exp.func is _STOCK_ANG
+    assert cfg.rewards.reward_clock_schedule.params["combine"] == "sum"

@@ -80,6 +80,19 @@ def _source_of(path: Path, *, cls: str | None, name: str) -> str:
     return textwrap.dedent(" " * node.col_offset + segment)
 
 
+def _module_assign(path: Path, name: str) -> str:
+    """Source of a module-level ``name = ...`` assignment (``_source_of`` takes defs only)."""
+    src = path.read_text()
+    tree = ast.parse(src, str(path))
+    node = [
+        n
+        for n in tree.body
+        if isinstance(n, ast.Assign)
+        and any(isinstance(t, ast.Name) and t.id == name for t in n.targets)
+    ][0]
+    return ast.get_source_segment(src, node)
+
+
 # --------------------------------------------------------------------- the stub base class
 class _Data:
     pass
@@ -232,6 +245,10 @@ _OMNI_NS = {
 exec(
     compile(
         "from __future__ import annotations\n"
+        + _module_assign(OMNI_OBS_PY, "FACING_OBS_ENCODINGS")
+        + "\n\n"
+        + _source_of(OMNI_OBS_PY, cls=None, name="_check_facing_obs_encoding")
+        + "\n\n"
         + _source_of(OMNI_OBS_PY, cls=None, name="_check_omni")
         + "\n\n"
         + _source_of(OMNI_OBS_PY, cls=None, name="CrabHexOmniParkourObservations"),
@@ -242,6 +259,7 @@ exec(
 )
 OmniObs = _OMNI_NS["CrabHexOmniParkourObservations"]
 check_omni = _OMNI_NS["_check_omni"]
+FACING_OBS_ENCODINGS = _OMNI_NS["FACING_OBS_ENCODINGS"]
 
 
 def _make(term_cls=OmniObs, seed: int = 7):
@@ -450,3 +468,143 @@ def test_facing_error_clip_rejects_non_positive(bad):
     env = _Env(N, torch.zeros(N, 4), torch.zeros(N))
     with pytest.raises(ValueError, match="facing_obs_clip"):
         OmniObs(_ClipCfg(bad), env)
+
+
+# --------------------------------------------- facing-error encoding (2026-09-18, plan A2)
+class _ParamCfg:
+    """An obs-term cfg carrying an arbitrary params dict (what the env cfg declares)."""
+
+    def __init__(self, **params):
+        self.params = dict(params)
+
+
+#: Facing targets spanning the circle, well past the 0.6-rad observation clip.
+ENCODING_TARGETS = torch.tensor([0.0, 0.3, -0.3, 2.0, -2.5, 3.0])
+
+
+def _encoding_term(**params):
+    """``(term, env)`` at ``heading_w == 0``, so the facing error IS ``ENCODING_TARGETS``."""
+    env = _Env(N, torch.zeros(N, 4), ENCODING_TARGETS.clone())
+    term = OmniObs(_ParamCfg(**params) if params else None, env)
+    term.asset.data.heading_w = torch.zeros(N)
+    return term, env
+
+
+def test_facing_obs_encoding_defaults_to_raw_and_is_bitwise_todays_observation(monkeypatch):
+    """The DEFAULT is the whole bitwise-identity claim: no params, no change.
+
+    A term built with no ``facing_obs_encoding`` at all, and one built with an explicit
+    ``"raw"``, must produce byte-identical observations -- so adding the parameter to the
+    shipped cfg cannot move a single number in a legacy run.
+    """
+    monkeypatch.delenv("KRABBY_HEADING", raising=False)
+    assert OmniObs.facing_obs_encoding == "raw"
+    plain, env, _ = _make()
+    explicit = OmniObs(_ParamCfg(facing_obs_encoding="raw"), env)
+    assert plain.facing_obs_encoding == explicit.facing_obs_encoding == "raw"
+    # the two terms draw identical stub state (same seed in _StubForwardObservations.__init__)
+    obs_a = plain(env, None, None, "base_parkour", HISTORY)
+    obs_b = explicit(env, None, None, "base_parkour", HISTORY)
+    assert torch.equal(obs_a, obs_b)
+    err = _facing_error(plain, env)
+    assert torch.equal(obs_a[:, 6], err) and torch.equal(obs_a[:, 7], err)
+
+
+def test_sincos_writes_sin_into_slot_6_and_cos_into_slot_7(monkeypatch):
+    monkeypatch.delenv("KRABBY_HEADING", raising=False)
+    term, env = _encoding_term(facing_obs_encoding="sincos")
+    assert term.facing_obs_encoding == "sincos"
+    raw = _facing_error(term, env)
+    # heading_w = 0, so the facing error IS the target (up to wrap_to_pi's own rounding)
+    assert torch.allclose(raw, ENCODING_TARGETS, atol=1e-6)
+    a, b = term._steering_channels(env, torch.zeros(N, dtype=torch.bool))
+    assert torch.equal(a, torch.sin(raw))
+    assert torch.equal(b, torch.cos(raw))
+    # ... and they reach the observation's slots 6/7 in that order
+    obs = term(env, None, None, "base_parkour", HISTORY)
+    assert torch.equal(obs[:, 6], torch.sin(raw))
+    assert torch.equal(obs[:, 7], torch.cos(raw))
+    # both channels are bounded by construction -- the out-of-distribution input the clip was
+    # introduced to prevent cannot occur here
+    assert bool((obs[:, 6].abs() <= 1.0).all()) and bool((obs[:, 7].abs() <= 1.0).all())
+    # the encoding is injective over the circle where the raw angle saturates: a half turn and
+    # a 0.6-rad turn are DIFFERENT observations (the magnitude-blindness this knob exists for)
+    far = wrap_to_pi(torch.tensor([3.0, 0.6]))
+    assert not torch.allclose(torch.cos(far[0:1]), torch.cos(far[1:2]))
+
+
+def test_sincos_is_continuous_across_pi_where_the_raw_angle_jumps(monkeypatch):
+    """The second half of the encoding's case: +pi and -pi are the same heading."""
+    monkeypatch.delenv("KRABBY_HEADING", raising=False)
+    eps = 1e-3
+    targets = torch.tensor([math.pi - eps, -math.pi + eps, 0.0, 0.0, 0.0, 0.0])
+    env = _Env(N, torch.zeros(N, 4), targets)
+    term = OmniObs(_ParamCfg(facing_obs_encoding="sincos"), env)
+    term.asset.data.heading_w = torch.zeros(N)
+    a, b = term._steering_channels(env, torch.zeros(N, dtype=torch.bool))
+    # two nearly identical headings -> two nearly identical observations ...
+    assert abs(float(a[0] - a[1])) < 3 * eps and abs(float(b[0] - b[1])) < 3 * eps
+    # ... while the RAW channel jumps by ~2 pi between them
+    raw_term = OmniObs(None, env)
+    raw_term.asset.data.heading_w = torch.zeros(N)
+    raw_a, raw_b = raw_term._steering_channels(env, torch.zeros(N, dtype=torch.bool))
+    assert abs(float(raw_a[0] - raw_a[1])) > 6.0
+    assert torch.equal(raw_a, raw_b), "the raw encoding still writes one angle twice"
+
+
+def test_the_clip_applies_to_raw_only(monkeypatch):
+    """``facing_obs_clip`` is a RAW-encoding guard; under ``sincos`` it is ignored.
+
+    Every preset sets the clip at 0.6, so an overlay that arms the encoding must not have to
+    unset it -- and clipping the ANGLE before the sine and cosine would cap slot 7 at
+    cos(0.6) = 0.825 and throw away exactly the magnitude information the encoding exists to
+    supply, i.e. it would make the knob silently inert on top of the presets.
+    """
+    monkeypatch.delenv("KRABBY_HEADING", raising=False)
+    term, env = _encoding_term(facing_obs_clip=0.6, facing_obs_encoding="sincos")
+    assert term.facing_obs_clip == 0.6 and term.facing_obs_encoding == "sincos"
+    raw = _facing_error(term, env)
+    assert bool((raw.abs() > 0.6).any()), "the fixture must exercise out-of-band errors"
+    a, b = term._steering_channels(env, torch.zeros(N, dtype=torch.bool))
+    assert torch.equal(a, torch.sin(raw)), "the UNCLIPPED error"
+    assert torch.equal(b, torch.cos(raw))
+    assert float(b.min()) < math.cos(0.6), "a clipped angle could not reach here"
+    # the same cfg under raw DOES clip
+    raw_term, raw_env = _encoding_term(facing_obs_clip=0.6, facing_obs_encoding="raw")
+    c, d = raw_term._steering_channels(raw_env, torch.zeros(N, dtype=torch.bool))
+    assert torch.equal(c, torch.clamp(raw, -0.6, 0.6)) and torch.equal(c, d)
+
+
+def test_encoding_is_validated_at_construction_and_per_call(monkeypatch):
+    monkeypatch.delenv("KRABBY_HEADING", raising=False)
+    env = _Env(N, torch.zeros(N, 4), ENCODING_TARGETS.clone())
+    assert FACING_OBS_ENCODINGS == ("raw", "sincos")
+    for bad in ("", "sin_cos", "cos", "none", 1):
+        with pytest.raises(ValueError, match="facing_obs_encoding"):
+            OmniObs(_ParamCfg(facing_obs_encoding=bad), env)
+    # tolerated spellings, normalised (the knob parser lower-cases too)
+    assert OmniObs(
+        _ParamCfg(facing_obs_encoding=" SinCos "), env
+    ).facing_obs_encoding == "sincos"
+    # a per-call value wins (the manager passes every declared param on every step)
+    term, term_env = _encoding_term(facing_obs_encoding="raw")
+    raw = _facing_error(term, term_env)
+    obs = term(term_env, None, None, "base_parkour", HISTORY, facing_obs_encoding="sincos")
+    assert term.facing_obs_encoding == "sincos"
+    assert torch.equal(obs[:, 6], torch.sin(raw)) and torch.equal(obs[:, 7], torch.cos(raw))
+    with pytest.raises(ValueError, match="facing_obs_encoding"):
+        term(term_env, None, None, "base_parkour", HISTORY, facing_obs_encoding="cos")
+
+
+def test_the_encoding_spellings_match_the_knob_modules(monkeypatch):
+    """``omni_knobs`` validates what a launcher asked for; this class validates what the built
+    cfg carries. Two doors, one vocabulary -- and the MIRROR's third copy must agree too, or a
+    spelling the knob accepts would make the mirror refuse to build."""
+    knobs = _load(
+        TASKS / "crab_hex_omni_task/config/crab_hex/omni_knobs.py", "omni_knobs__obs_test"
+    )
+    mirror = _load(
+        TASKS / "crab_hex_omni_task/mdp/crab_hex_omni_mirror.py", "omni_mirror__obs_test"
+    )
+    assert knobs.FACING_OBS_ENCODINGS == FACING_OBS_ENCODINGS == mirror.FACING_OBS_ENCODINGS
+    assert knobs.FACING_OBS_ENCODING_VAR == "KRABBY_OMNI_FACING_OBS_ENCODING"

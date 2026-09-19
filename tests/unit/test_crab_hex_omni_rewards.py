@@ -24,7 +24,14 @@ The anchors are therefore:
   MATH produces, clip at the command's own ``ang_vel_max``, and be exactly zero wherever no
   turn is commanded;
 * the termination must be the forward one minus the goal cutoff;
-* the cfg must carry the forward task's 35 term names plus ``reward_yaw_progress`` (36);
+* the cfg must carry the forward task's 35 term names plus ``reward_yaw_progress`` and
+  ``reward_facing_turn`` (37) -- the second at weight 0.0, which is what makes its addition
+  bitwise invisible to every run that does not set ``KRABBY_OMNI_FACING_TURN_W``;
+* the two A2 CANDIDATES (2026-09-18, DEFAULT OFF) must each reduce to something already
+  pinned: ``reward_facing_exp_turn_slot`` is ``reward_facing_exp`` times a slot mask (and
+  raises without a ``slot_id``), and ``track_lin_vel_xy_exp_facing_coupled`` is the SHIPPED
+  Isaac Lab ``track_lin_vel_xy_exp`` -- CALLED, not re-derived -- times a Gaussian of the
+  wrapped facing error, bitwise the stock term at zero error;
 * the STAGED LEVER ``track_ang_vel_z_exp_turn_gated`` (2026-09-18, DEFAULT OFF) must be
   BITWISE the shipped Isaac Lab ``track_ang_vel_z_exp`` on rows that command a turn and
   exactly 0.0 on rows that do not -- and must reach that by CALLING the stock function, not by
@@ -181,8 +188,11 @@ _STOCK_NS: dict = {
     "ManagerBasedRLEnv": object,
 }
 if ISAACLAB_REWARDS_PY is not None:
-    _exec_module_level(ISAACLAB_REWARDS_PY, ("track_ang_vel_z_exp",), _STOCK_NS)
+    _exec_module_level(
+        ISAACLAB_REWARDS_PY, ("track_ang_vel_z_exp", "track_lin_vel_xy_exp"), _STOCK_NS
+    )
 track_ang_vel_z_exp = _STOCK_NS.get("track_ang_vel_z_exp")
+track_lin_vel_xy_exp = _STOCK_NS.get("track_lin_vel_xy_exp")
 requires_isaaclab_source = pytest.mark.skipif(
     track_ang_vel_z_exp is None,
     reason="isaaclab's rewards.py not locatable -- the bitwise anchor needs the shipped source",
@@ -196,8 +206,11 @@ _OMNI_NS = {
     "Articulation": object,
     "ParkourManagerBasedRLEnv": object,
     "mdp_rewards": _MdpRewardsStub,
-    # the omni twin CALLS this name (it does not re-derive the kernel)
+    # the omni twins CALL these names (they do not re-derive the kernels)
     "track_ang_vel_z_exp": track_ang_vel_z_exp,
+    "track_lin_vel_xy_exp": track_lin_vel_xy_exp,
+    # the REAL slot constant the turn-slot gate imports -- not a retyped 2
+    "SLOT_TURN": omni_cmd_math.SLOT_TURN,
 }
 _exec_module_level(
     OMNI_REWARDS_PY,
@@ -215,6 +228,9 @@ _exec_module_level(
         "reward_obstacle_clearance_omni",
         "_yaw_progress_clip",
         "reward_yaw_progress",
+        "_slot_is_turning",
+        "reward_facing_exp_turn_slot",
+        "track_lin_vel_xy_exp_facing_coupled",
         "terminate_episode_no_goals",
     ),
     _OMNI_NS,
@@ -243,6 +259,8 @@ reward_tracking_command_vel_on_obstacle = _OMNI_NS["reward_tracking_command_vel_
 reward_facing_exp = _OMNI_NS["reward_facing_exp"]
 reward_obstacle_clearance_omni = _OMNI_NS["reward_obstacle_clearance_omni"]
 reward_yaw_progress = _OMNI_NS["reward_yaw_progress"]
+reward_facing_exp_turn_slot = _OMNI_NS["reward_facing_exp_turn_slot"]
+track_lin_vel_xy_exp_facing_coupled = _OMNI_NS["track_lin_vel_xy_exp_facing_coupled"]
 track_ang_vel_z_exp_turn_gated = _OMNI_NS["track_ang_vel_z_exp_turn_gated"]
 terminate_episode_no_goals = _OMNI_NS["terminate_episode_no_goals"]
 penalty_lin_vel_y_l2 = _FWD_NS["penalty_lin_vel_y_l2"]
@@ -291,6 +309,9 @@ class _CmdCfg:
 class _CmdTerm:
     def __init__(self, n):
         self.heading_target = torch.zeros(n)
+        #: the 2-bit command regime the omni sampler drew (``moving + 2 * turning``);
+        #: ``SLOT_STAND`` on every row until a test says otherwise
+        self.slot_id = torch.zeros(n, dtype=torch.long)
         self.cfg = _CmdCfg()
 
 
@@ -611,6 +632,232 @@ def test_yaw_progress_mirrors_the_linear_progress_terms_shape():
     fwd_body = "\n".join(ast.unparse(n) for n in fwd.body)
     assert "torch.clamp(progress, min=0.0, max=max_speed_scale)" in fwd_body
     assert "active.float()" in fwd_body
+
+
+# ------------------------- the A2 CANDIDATES (default OFF): reward_facing_exp_turn_slot
+SLOT_STAND, SLOT_MOVE = omni_cmd_math.SLOT_STAND, omni_cmd_math.SLOT_MOVE
+SLOT_TURN, SLOT_MOVE_TURN = omni_cmd_math.SLOT_TURN, omni_cmd_math.SLOT_MOVE_TURN
+#: one row per slot, twice -- the gate must select exactly the two turning ones
+ALL_SLOTS = torch.tensor([SLOT_STAND, SLOT_MOVE, SLOT_TURN, SLOT_MOVE_TURN,
+                          SLOT_MOVE_TURN, SLOT_TURN, SLOT_MOVE, SLOT_STAND])
+TURN_SLOT_ROWS = torch.tensor([False, False, True, True, True, True, False, False])
+
+
+def _slot_env(errors: torch.Tensor, slots: torch.Tensor) -> "_Env":
+    """An env with a per-row facing error and a per-row command slot."""
+    n = errors.numel()
+    env = _Env(n)
+    env.asset.data.heading_w = torch.zeros(n)
+    env.command_manager.term.heading_target = errors.clone()
+    env.command_manager.term.slot_id = slots.clone().long()
+    return env
+
+
+def test_facing_turn_slot_is_the_facing_term_on_the_turn_slots_and_zero_elsewhere():
+    """The whole contract: the SAME number as ``reward_facing_exp``, masked by the slot.
+
+    The two turning slots are ``SLOT_TURN`` (2) and ``SLOT_MOVE_TURN`` (3) -- the rows whose
+    drawn command asks for a turn; stand (0) and move (1) pay exactly nothing.
+    """
+    errors = torch.tensor([0.0, 0.3, 0.0, 0.3, -1.2, 2.0, -0.4, 3.0])
+    env = _slot_env(errors, ALL_SLOTS)
+    ungated = reward_facing_exp(env, ROBOT, "base_parkour")
+    got = reward_facing_exp_turn_slot(env, ROBOT, "base_parkour")
+    assert torch.equal(got[TURN_SLOT_ROWS], ungated[TURN_SLOT_ROWS])
+    assert torch.equal(got[~TURN_SLOT_ROWS], torch.zeros(int((~TURN_SLOT_ROWS).sum())))
+    assert not bool(torch.signbit(got).any()), "0.0, never -0.0"
+    # the ungated term is genuinely non-trivial on the masked rows (not a vacuous equality)
+    assert float(ungated.max()) > 0.9 and float(ungated.min()) < 0.2
+    # and the mask really is the slot: move the SAME errors onto non-turning slots -> all zero
+    env_flat = _slot_env(errors, torch.full_like(ALL_SLOTS, SLOT_MOVE))
+    assert torch.equal(
+        reward_facing_exp_turn_slot(env_flat, ROBOT, "base_parkour"), torch.zeros(8)
+    )
+
+
+def test_facing_turn_slot_gate_is_the_slot_not_the_yaw_dead_band():
+    """Deliberately NOT ``cmd_wz != 0``: a settled turn must keep paying.
+
+    ``reward_yaw_progress``'s gate closes as soon as the facing error is inside the P-control
+    dead band -- i.e. the moment the turn is achieved. A facing-POSITION term gated that way
+    would stop paying exactly when it is satisfied, which is an incentive to overshoot. This
+    one is gated on the drawn slot, so an on-target turn row still collects ~1.0.
+    """
+    settled = torch.zeros(4)                       # error 0 -> the command's dead band
+    env = _slot_env(settled, torch.tensor([SLOT_TURN, SLOT_MOVE_TURN, SLOT_MOVE, SLOT_STAND]))
+    env.command_manager.cmd[:, 2] = heading_rate_command(
+        env.command_manager.term.heading_target,
+        env.asset.data.heading_w,
+        STIFFNESS,
+        ANG_VEL_MAX,
+        ANG_VEL_CLIP,
+    )
+    assert torch.equal(env.command_manager.cmd[:, 2], torch.zeros(4)), "the dead band is shut"
+    assert torch.equal(reward_yaw_progress(env, "base_velocity", ROBOT), torch.zeros(4))
+    got = reward_facing_exp_turn_slot(env, ROBOT, "base_parkour")
+    assert torch.allclose(got[:2], torch.ones(2), atol=1e-7), "a settled turn is still paid"
+    assert torch.equal(got[2:], torch.zeros(2))
+
+
+def test_facing_turn_slot_refuses_a_command_term_without_a_slot():
+    """A leaked forward/sideways command term must raise, not pay on no row (or every row)."""
+    env = _slot_env(torch.zeros(3), torch.full((3,), SLOT_TURN))
+    del env.command_manager.term.slot_id
+    with pytest.raises(RuntimeError, match="slot_id"):
+        reward_facing_exp_turn_slot(env, ROBOT, "base_parkour")
+    with pytest.raises(RuntimeError, match="slot_id"):
+        _OMNI_NS["_slot_is_turning"](env, "base_velocity")
+
+
+def test_facing_turn_slot_imports_the_slot_constant_rather_than_retyping_it():
+    """Source-level: the turn bit comes from the command math module, not from a literal 2."""
+    src, tree = _nodes(OMNI_REWARDS_PY)
+    imports = [
+        n for n in tree.body
+        if isinstance(n, ast.ImportFrom) and n.module and n.module.endswith(
+            "crab_hex_omni_command_math"
+        )
+    ]
+    assert any(a.name == "SLOT_TURN" for imp in imports for a in imp.names), \
+        "SLOT_TURN must be imported from crab_hex_omni_command_math"
+    fn = [n for n in tree.body
+          if isinstance(n, ast.FunctionDef) and n.name == "_slot_is_turning"][0]
+    body = "\n".join(
+        ast.unparse(n) for n in fn.body
+        if not (isinstance(n, ast.Expr) and isinstance(n.value, ast.Constant))
+    )
+    assert "SLOT_TURN" in body and ">= 2" not in body
+    # the gate really is "the turn bit", i.e. slots 2 and 3 and no others
+    assert (omni_cmd_math.SLOT_TURN, omni_cmd_math.SLOT_MOVE_TURN) == (2, 3)
+    assert omni_cmd_math.SLOT_NAMES == ("stand", "move", "turn", "move_turn")
+
+
+# --------------------- the A2 CANDIDATES (default OFF): the facing-coupled tracking twin
+def _coupled_env(errors: torch.Tensor, cmd_xy, vel_b):
+    n = errors.numel()
+    env = _Env(n)
+    env.asset.data.heading_w = torch.zeros(n)
+    env.command_manager.term.heading_target = errors.clone()
+    env.command_manager.cmd[:, 0:2] = torch.tensor(cmd_xy).expand(n, 2).clone()
+    env.asset.data.root_lin_vel_b[:, :2] = torch.tensor(vel_b).expand(n, 2).clone()
+    return env
+
+
+@requires_isaaclab_source
+def test_facing_coupled_tracking_is_the_stock_kernel_times_the_facing_gaussian():
+    """Value for value: ``stock x exp(-(err/sigma)^2)``, and BITWISE stock at zero error."""
+    errors = torch.tensor([0.0, 0.2, -0.2, 0.5, -1.0, 2.0])
+    env = _coupled_env(errors, (0.3, 0.0), (0.25, 0.05))
+    sigma, std = 0.5, math.sqrt(0.04)
+    stock = track_lin_vel_xy_exp(env, std=std, command_name="base_velocity", asset_cfg=ROBOT)
+    got = track_lin_vel_xy_exp_facing_coupled(
+        env, std=std, command_name="base_velocity", asset_cfg=ROBOT, facing_sigma=sigma
+    )
+    err = wrap_to_pi(env.command_manager.term.heading_target - env.asset.data.heading_w)
+    assert torch.allclose(got, stock * torch.exp(-((err / sigma) ** 2)), atol=1e-7)
+    # a zero facing error costs NOTHING: the factor is exactly 1.0 there
+    assert torch.equal(got[0], stock[0])
+    assert float(stock[0]) > 0.0
+    # ... and every other row is strictly cheaper, monotonically in |err|
+    assert bool((got[1:] < stock[1:]).all())
+    assert got[1] == pytest.approx(float(got[2]), abs=1e-7), "even in the error"
+    assert float(got[3]) > float(got[4]) > float(got[5])
+    # the documented landmarks: exp(-1) at one sigma, exp(-4) at two
+    at_sigma = _coupled_env(torch.tensor([sigma, 2 * sigma]), (0.3, 0.0), (0.3, 0.0))
+    s2 = track_lin_vel_xy_exp(at_sigma, std=std, command_name="base_velocity", asset_cfg=ROBOT)
+    c2 = track_lin_vel_xy_exp_facing_coupled(
+        at_sigma, std=std, command_name="base_velocity", asset_cfg=ROBOT, facing_sigma=sigma
+    )
+    assert float(c2[0] / s2[0]) == pytest.approx(math.exp(-1.0), abs=1e-6)
+    assert float(c2[1] / s2[1]) == pytest.approx(math.exp(-4.0), abs=1e-6)
+
+
+@requires_isaaclab_source
+def test_facing_coupled_tracking_passes_std_through_and_wraps_the_error():
+    """``std`` is the window's (``KRABBY_TRACK_SIGMA2``), and the facing error WRAPS."""
+    env = _coupled_env(torch.zeros(4), (0.3, 0.0), (0.1, 0.0))
+    kw = dict(command_name="base_velocity", asset_cfg=ROBOT, facing_sigma=1.0)
+    tight = track_lin_vel_xy_exp_facing_coupled(env, std=0.2, **kw)
+    wide = track_lin_vel_xy_exp_facing_coupled(env, std=0.5, **kw)
+    assert bool((tight < wide).all()), "a tighter translation kernel pays less off-target"
+    assert torch.allclose(
+        wide, track_lin_vel_xy_exp(env, std=0.5, command_name="base_velocity", asset_cfg=ROBOT),
+        atol=1e-7,
+    )
+    # an error of 2 pi - 0.1 is an error of -0.1 (and pays the same as +0.1)
+    wrapped = _coupled_env(
+        torch.tensor([0.1, -0.1, 2 * math.pi - 0.1, -2 * math.pi + 0.1, 4 * math.pi]),
+        (0.3, 0.0), (0.3, 0.0),
+    )
+    got = track_lin_vel_xy_exp_facing_coupled(wrapped, std=0.2, **kw)
+    assert torch.allclose(got[:4], got[0].expand(4), atol=1e-5)
+    stock = track_lin_vel_xy_exp(wrapped, std=0.2, command_name="base_velocity", asset_cfg=ROBOT)
+    assert float(got[4]) == pytest.approx(float(stock[4]), abs=1e-5), "4 pi is no error at all"
+
+
+def test_facing_coupled_tracking_refuses_a_degenerate_sigma():
+    env = _coupled_env(torch.zeros(2), (0.3, 0.0), (0.3, 0.0))
+    for bad in (0.0, -0.5):
+        with pytest.raises(ValueError, match="facing_sigma"):
+            track_lin_vel_xy_exp_facing_coupled(
+                env, std=0.2, command_name="base_velocity", asset_cfg=ROBOT, facing_sigma=bad
+            )
+
+
+def test_facing_coupled_tracking_calls_the_stock_term_and_keeps_its_signature():
+    """Source-level: the stock kernel is CALLED, and ``facing_sigma`` is a REQUIRED keyword.
+
+    The knob swaps the func and leaves the stock ``params`` in place, so the signature must be
+    the stock one plus exactly one keyword-only argument with NO default -- a default would
+    let a cfg that lost the param train under a silently chosen coupling width instead of
+    failing in the reward manager's static check at env build.
+    """
+    src, tree = _nodes(OMNI_REWARDS_PY)
+    fn = [n for n in tree.body if isinstance(n, ast.FunctionDef)
+          and n.name == "track_lin_vel_xy_exp_facing_coupled"][0]
+    body = "\n".join(
+        ast.unparse(n) for n in fn.body
+        if not (isinstance(n, ast.Expr) and isinstance(n.value, ast.Constant))
+    )
+    assert "track_lin_vel_xy_exp(env, std=std" in body, body
+    assert "torch.exp" in body and "lin_vel_error" not in body, "the kernel must not be re-derived"
+    assert [a.arg for a in fn.args.args] == ["env", "std", "command_name", "asset_cfg"]
+    assert [a.arg for a in fn.args.kwonlyargs] == ["facing_sigma"]
+    assert fn.args.kw_defaults == [None], "facing_sigma must stay REQUIRED"
+    # the module imports the stock symbol from isaaclab, like the ang-vel twin does
+    imports = [n for n in tree.body if isinstance(n, ast.ImportFrom)
+               and n.module == "isaaclab.envs.mdp.rewards"]
+    assert any(a.name == "track_lin_vel_xy_exp" for imp in imports for a in imp.names)
+    # ... and the isaaclab argument order is the one we mirrored
+    if ISAACLAB_REWARDS_PY is not None:
+        _, stock_tree = _nodes(ISAACLAB_REWARDS_PY)
+        stock_fn = [n for n in stock_tree.body if isinstance(n, ast.FunctionDef)
+                    and n.name == "track_lin_vel_xy_exp"][0]
+        assert [a.arg for a in stock_fn.args.args] == ["env", "std", "command_name", "asset_cfg"]
+
+
+def test_facing_coupled_tracking_satisfies_the_managers_static_argument_check():
+    """Isaac's ``ManagerBase._resolve_common_term_cfg`` check, replayed on the swapped term.
+
+    The knob leaves the stock params and adds ``facing_sigma``; the manager compares
+    ``set(args[1:])`` against ``set(term_params + args_with_defaults)`` after moving the
+    defaulted arguments to the back. A keyword-only required argument has to survive that, or
+    the armed run dies at env build instead of training.
+    """
+    import inspect
+
+    params = {"command_name": "base_velocity", "std": math.sqrt(0.04), "facing_sigma": 0.5}
+    args = inspect.signature(track_lin_vel_xy_exp_facing_coupled).parameters
+    with_defaults = [a for a in args if args[a].default is not inspect.Parameter.empty]
+    without = [a for a in args if args[a].default is inspect.Parameter.empty]
+    ordered = without + with_defaults
+    assert ordered[0] == "env"
+    assert set(ordered[1:]) == set(list(params) + with_defaults)
+    # and the call the manager would make actually works
+    env = _coupled_env(torch.zeros(2), (0.3, 0.0), (0.3, 0.0))
+    if track_lin_vel_xy_exp is not None:
+        out = track_lin_vel_xy_exp_facing_coupled(env, asset_cfg=ROBOT, **params)
+        assert out.shape == (2,)
 
 
 # ------------------------------- the STAGED LEVER: track_ang_vel_z_exp_turn_gated (OFF)
@@ -935,24 +1182,26 @@ SWAPPED_FIELDS = {
     "reward_tracking_yaw",
     "reward_obstacle_clearance",
 }
-#: The ONE added field: the omni cfg is the forward 35 plus this (36), nothing else.
-ADDED_FIELDS = {"reward_yaw_progress"}
+#: The TWO added fields: the omni cfg is the forward 35 plus these (37), nothing else.
+#: ``reward_facing_turn`` joined on 2026-09-18 (plan Part A2) at weight 0.0 -- a name that logs
+#: zero on every line until ``KRABBY_OMNI_FACING_TURN_W`` arms it.
+ADDED_FIELDS = {"reward_yaw_progress", "reward_facing_turn"}
 
 
 def test_the_cfg_is_the_forward_35_plus_reward_yaw_progress():
-    """The forward 35 are a SUBSET of the omni 36, and the extra one is the yaw-progress term.
+    """The forward 35 are a SUBSET of the omni 37, and the extra two are the added terms.
 
     Every other name still has to match exactly: the telemetry labels, the ``KRABBY_PHASEOUT``
     term list and the driver's log scraping all key on the forward names, so an omni-only
-    RENAME would break them silently -- only a pure ADDITION is safe, and only this one.
+    RENAME would break them silently -- only a pure ADDITION is safe, and only these two.
     """
     assert len(FWD_FIELDS) == 35
     assert _bases(OMNI_REWARDS_PY, "CrabHexOmniFlatWalkRewardsCfg") == ["CrabHexFlatWalkRewardsCfg"]
     assert set(OMNI_FIELDS) == SWAPPED_FIELDS | ADDED_FIELDS
     assert SWAPPED_FIELDS <= set(FWD_FIELDS)                # every swap is a parent field
     assert set(OMNI_FIELDS) - set(FWD_FIELDS) == ADDED_FIELDS
-    # the full term set the built cfg exposes: 35 inherited names + the added one
-    assert len(set(FWD_FIELDS) | set(OMNI_FIELDS)) == 36
+    # the full term set the built cfg exposes: 35 inherited names + the two added ones
+    assert len(set(FWD_FIELDS) | set(OMNI_FIELDS)) == 37
 
 
 def test_the_added_yaw_progress_term():
@@ -977,6 +1226,47 @@ def test_the_added_yaw_progress_term():
         fwd_params["max_speed_scale"]
     )
     assert 1.0 * ANG_VEL_MAX < fwd_ceiling
+
+
+def test_the_added_facing_turn_term():
+    """The 37th name: weight **0.0** (the shipped dose), the turn-slot function, and the same
+    three params as ``reward_tracking_yaw``.
+
+    The weight is the whole bitwise-identity claim for this step: at 0.0 the term appears in
+    the log as ``Episode_Reward/reward_facing_turn`` printing 0 on every line and changes no
+    other number, so the legacy path is untouched until ``KRABBY_OMNI_FACING_TURN_W`` is set.
+    """
+    call = _kwargs(OMNI_FIELDS["reward_facing_turn"])
+    assert isinstance(call["func"], ast.Name)
+    assert call["func"].id == "reward_facing_exp_turn_slot"
+    assert ast.literal_eval(call["weight"]) == 0.0, "the shipped dose is OFF"
+    params = {
+        ast.literal_eval(k): v for k, v in zip(call["params"].keys, call["params"].values)
+    }
+    assert set(params) == {"asset_cfg", "parkour_name", "command_name"}
+    assert ast.literal_eval(params["command_name"]) == "base_velocity"
+    assert ast.literal_eval(params["parkour_name"]) == "base_parkour"
+    assert ast.unparse(params["asset_cfg"]) == "SceneEntityCfg('robot')"
+    # it is the FACING term with a gate: same params as the ungated one, term for term
+    yaw_params = {
+        ast.literal_eval(k): ast.unparse(v)
+        for k, v in zip(
+            _kwargs(OMNI_FIELDS["reward_tracking_yaw"])["params"].keys,
+            _kwargs(OMNI_FIELDS["reward_tracking_yaw"])["params"].values,
+        )
+    }
+    assert {k: ast.unparse(v) for k, v in params.items()} == yaw_params
+    # ... and it is DECLARED AFTER reward_yaw_progress, so it is the 37th field, not the 36th
+    order = [
+        t.id
+        for node in ast.parse(OMNI_REWARDS_PY.read_text()).body
+        if isinstance(node, ast.ClassDef) and node.name == "CrabHexOmniFlatWalkRewardsCfg"
+        for stmt in node.body
+        if isinstance(stmt, ast.Assign)
+        for t in stmt.targets
+        if isinstance(t, ast.Name)
+    ]
+    assert order[-2:] == ["reward_yaw_progress", "reward_facing_turn"]
 
 
 @pytest.mark.parametrize(
@@ -1004,6 +1294,7 @@ def test_every_params_key_is_a_real_argument_of_the_swapped_function():
         ("reward_tracking_yaw", "reward_facing_exp"),
         ("reward_obstacle_clearance", "reward_obstacle_clearance_omni"),
         ("reward_yaw_progress", "reward_yaw_progress"),
+        ("reward_facing_turn", "reward_facing_exp_turn_slot"),
     ):
         sig = inspect.signature(_OMNI_NS[func])
         args = set(sig.parameters) - {"env"}
@@ -1021,8 +1312,9 @@ def test_every_params_key_is_a_real_argument_of_the_swapped_function():
 def test_weights_are_the_forward_literals():
     """The knob-timing pillar: every RE-DECLARED term keeps the forward class-body weight.
 
-    (The added term has no forward literal to match; its own weight is pinned by
-    ``test_the_added_yaw_progress_term`` and dosed by ``KRABBY_YAW_PROGRESS_W``.)
+    (The two added terms have no forward literal to match; their weights are pinned by
+    ``test_the_added_yaw_progress_term`` / ``test_the_added_facing_turn_term`` and dosed by
+    ``KRABBY_YAW_PROGRESS_W`` / ``KRABBY_OMNI_FACING_TURN_W``.)
     """
     for term in set(OMNI_FIELDS) - ADDED_FIELDS:
         omni_w = ast.literal_eval(_kwargs(OMNI_FIELDS[term])["weight"])

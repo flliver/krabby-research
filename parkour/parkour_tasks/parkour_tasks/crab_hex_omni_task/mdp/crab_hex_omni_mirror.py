@@ -38,6 +38,30 @@ term's meanings)::
     15,16  clock sin/cos       -1 under M_y (tripod sets swap => schedule advanced by pi),
                                +1 under M_x (each set maps to itself)
 
+THE FACING SLOTS DEPEND ON THE OBSERVATION'S ENCODING (2026-09-18, plan Part A2). The table
+above is the ``raw`` encoding: slots 6/7 both carry the signed angle ``err = wrap(psi - yaw)``,
+a yaw pseudo-scalar, hence -1 under BOTH reflections. Under ``facing_obs_encoding="sincos"``
+the same two slots carry ``sin(err)`` and ``cos(err)``, and the derivation runs:
+
+1. The raw literals say ``err -> -err`` under EITHER plane (-1 at slots 6 and 7 in both
+   tables) -- read that off the shipped tables, do not re-derive it from a mental picture.
+2. It is true because a reflection maps a world heading ``theta`` to ``-theta`` (``M_y``) or
+   to ``pi - theta`` (``M_x``), and a DIFFERENCE of two headings negates either way:
+   ``(pi - psi) - (pi - yaw) = -(psi - yaw)``.
+3. ``sin`` is ODD: ``sin(-err) = -sin(err)``, so slot 6 keeps **-1 in both tables** -- the
+   same literal as ``raw``.
+4. ``cos`` is EVEN: ``cos(-err) = +cos(err)``, so slot 7 becomes **+1 in both tables**. That
+   single entry is the whole difference between the two encodings.
+5. ``R_z(pi) = M_x M_y`` maps ``err -> err`` (both headings rotate together), so slots 6 and 7
+   are both +1 there -- and indeed the elementwise product gives ``(-1)(-1) = +1`` at slot 6
+   and ``(+1)(+1) = +1`` at slot 7, the same value ``raw``'s product already had.
+
+:func:`head_signs` returns the triple for an encoding; :func:`build_mirrors` resolves which
+one this env asked for from the observation term's own params (:func:`_facing_obs_encoding`)
+and REFUSES to guess -- a mirror that silently assumed ``raw`` under a ``sincos`` head would
+teach the policy that its cosine channel flips sign under a reflection it does not flip
+under, which is invisible in every training curve.
+
 Numerically ``HEAD_SIGNS_LR`` coincides with the forward table and ``HEAD_SIGNS_FA`` differs
 from the sideways table at slot 8 alone -- see ``tests/unit/test_crab_hex_omni_mirror.py``,
 which pins both difference sets. The coincidences are NOT accidents to rely on: the forward
@@ -112,6 +136,9 @@ N_HEAD = len(HEAD_SIGNS_LR)
 
 #: The composed image ``M_x M_y = R_z(pi)``: elementwise product of the two tables.
 #: (Documentary -- the augmentation applies the two maps in sequence rather than this.)
+#: Like the two above, this is the ``raw`` encoding's table; :func:`head_signs` returns the
+#: per-encoding triple. It happens to be encoding-INDEPENDENT (slot 7 is +1 either way,
+#: because the two tables' entries flip together), which is the derivation's own check.
 HEAD_SIGNS_ROT_Z_PI = [a * b for a, b in zip(HEAD_SIGNS_LR, HEAD_SIGNS_FA)]
 
 #: L/R plane constants -- the forward module's, verbatim.
@@ -133,17 +160,85 @@ REQUIRED_SCANNER_OFFSET_XY = (0.0, 0.0)
 #: The four images, in the order both outputs list them.
 IMAGE_NAMES = ("identity", "M_y", "M_x", "M_x M_y")
 
+#: The two facing-error head slots, and the encodings :func:`head_signs` knows.
+FACING_SIN_SLOT = 6
+FACING_COS_SLOT = 7
+FACING_OBS_ENCODINGS = ("raw", "sincos")
+
+#: The observation term the encoding is read off, as the omni env cfg declares it.
+OBS_GROUP_ATTR = "policy"
+OBS_TERM_ATTR = "extreme_parkour_observations"
+OBS_ENCODING_PARAM = "facing_obs_encoding"
+
+
+def head_signs(encoding: str = "raw") -> tuple[list, list, list]:
+    """``(lr, fa, rot_z_pi)`` head sign tables for a facing-error ``encoding``.
+
+    ``"raw"`` returns copies of the module constants verbatim. ``"sincos"`` returns copies
+    with slot 7 (``cos(err)``, an EVEN function of a quantity both reflections negate) flipped
+    to +1 in BOTH plane tables; slot 6 (``sin(err)``, odd) keeps the raw -1. The composed
+    table is recomputed as the elementwise product in both cases, so it is +1 at slot 7 either
+    way -- see the module docstring's five-step derivation.
+
+    Raises:
+        ValueError: for any other spelling. The mirror must never fall back to a default: the
+            wrong table is a silent, plausible-looking training corruption.
+    """
+    token = str(encoding).strip().lower()
+    if token not in FACING_OBS_ENCODINGS:
+        raise ValueError(
+            f"crab_hex_omni_mirror.head_signs: unknown facing observation encoding "
+            f"{encoding!r}; expected one of {FACING_OBS_ENCODINGS}."
+        )
+    lr = list(HEAD_SIGNS_LR)
+    fa = list(HEAD_SIGNS_FA)
+    if token == "sincos":
+        lr[FACING_COS_SLOT] = 1.0
+        fa[FACING_COS_SLOT] = 1.0
+    return lr, fa, [a * b for a, b in zip(lr, fa)]
+
+
+def _facing_obs_encoding(env) -> str:
+    """The facing encoding this env's OBSERVATION TERM declares, or a named ``ValueError``.
+
+    ``env.cfg.observations.policy.extreme_parkour_observations.params["facing_obs_encoding"]``,
+    defaulting to ``"raw"`` only when the params dict is genuinely reachable and simply does
+    not carry the key (an older cfg, or a hand-built term) -- never when the path itself
+    cannot be walked. A mirror built against the wrong encoding flips the sign of a channel
+    that does not flip, which no training curve shows; so an unresolvable cfg is a refusal,
+    not a default.
+    """
+    uenv = getattr(env, "unwrapped", env)
+    cfg = getattr(uenv, "cfg", None)
+    group = getattr(getattr(cfg, "observations", None), OBS_GROUP_ATTR, None)
+    term = getattr(group, OBS_TERM_ATTR, None)
+    params = getattr(term, "params", None)
+    if not isinstance(params, dict):
+        raise ValueError(
+            "crab_hex_omni_mirror: cannot resolve "
+            f"env.cfg.observations.{OBS_GROUP_ATTR}.{OBS_TERM_ATTR}.params on "
+            f"{type(uenv).__name__}, so the facing-error encoding the head was built with is "
+            "unknown and the mirror sign tables cannot be chosen. (Refusing rather than "
+            f"assuming {FACING_OBS_ENCODINGS[0]!r}: under 'sincos' slot "
+            f"{FACING_COS_SLOT} does NOT flip under either reflection, and a mirror that got "
+            "that wrong would train a symmetry the observation does not have.)"
+        )
+    return str(params.get(OBS_ENCODING_PARAM, FACING_OBS_ENCODINGS[0])).strip().lower()
+
 
 def build_mirrors(env, obs_dim: int) -> tuple[object, object]:
     """``(lr, fa)`` -- the two ``CrabHexMirror`` maps for this env's resolved layout.
 
     One ``_resolve_layout`` call feeds both: the name lists, scan grid and history length
-    are properties of the observation, not of the mirror plane.
+    are properties of the observation, not of the mirror plane. The head sign tables come from
+    :func:`head_signs` at the encoding :func:`_facing_obs_encoding` reads off the env's own
+    observation term -- the mirror and the observation are two halves of one contract.
     """
+    lr_signs, fa_signs, _ = head_signs(_facing_obs_encoding(env))
     layout = _fwd._resolve_layout(env, obs_dim, n_head=N_HEAD)
     lr = _fwd.CrabHexMirror(
         **layout,
-        head_signs=list(HEAD_SIGNS_LR),
+        head_signs=lr_signs,
         joint_sign_rules=JOINT_SIGN_RULES_LR,
         leg_swap=LEG_SWAP_LR,
         scan_axis=SCAN_AXIS_LR,
@@ -151,7 +246,7 @@ def build_mirrors(env, obs_dim: int) -> tuple[object, object]:
     )
     fa = _fwd.CrabHexMirror(
         **layout,
-        head_signs=list(HEAD_SIGNS_FA),
+        head_signs=fa_signs,
         joint_sign_rules=JOINT_SIGN_RULES_FA,
         leg_swap=LEG_SWAP_FA,
         scan_axis=SCAN_AXIS_FA,

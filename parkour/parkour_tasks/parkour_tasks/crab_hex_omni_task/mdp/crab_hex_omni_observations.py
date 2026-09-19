@@ -16,6 +16,16 @@ width, same dtype, same history mechanics::
     slots 8, 9  cmd[:, 0], cmd[:, 1]          the body-frame xy velocity command
     slot 10     ||cmd[:, :2]||                its magnitude          (was cmd[:, 0])
 
+THE FACING-ERROR ENCODING (``facing_obs_encoding``, knob ``KRABBY_OMNI_FACING_OBS_ENCODING``;
+2026-09-18, plan Part A2). ``"raw"`` -- the SHIPPED default, bitwise what the table above says
+-- writes the clipped signed angle into both channels. ``"sincos"`` writes ``sin(err)`` into
+slot 6 and ``cos(err)`` into slot 7 instead: two bounded channels that are continuous across
++-pi and that stay informative past the clip, where a raw angle saturates. See
+:data:`CrabHexOmniParkourObservations.facing_obs_encoding` for the interaction with
+``facing_obs_clip`` (the clip applies to ``raw`` only) and ``crab_hex_omni_mirror.head_signs``
+for the mirror sign tables the choice selects -- the two MUST agree, which is why the mirror
+reads the encoding off this term's params rather than taking a default.
+
 ``ZERO_STEERING_HISTORY = False``: the forward task blanks dims 6-7 in the history copy so
 the policy cannot read the goal heading out of its own past (it is supposed to steer from
 what it sees). Here those dims ARE the command -- a facing error the policy must integrate
@@ -52,6 +62,28 @@ from isaaclab.utils.math import wrap_to_pi
 from parkour_isaaclab.envs import ParkourManagerBasedRLEnv
 
 from parkour_tasks.crab_hex_forward_task.mdp.observations import CrabHexParkourObservations
+
+#: The only two spellings :data:`CrabHexOmniParkourObservations.facing_obs_encoding` accepts.
+#: Must stay equal to ``omni_knobs.FACING_OBS_ENCODINGS`` (the knob validates at config build,
+#: this class at term construction; pinned by ``tests/unit/test_crab_hex_omni_observations.py``).
+FACING_OBS_ENCODINGS = ("raw", "sincos")
+
+
+def _check_facing_obs_encoding(value) -> str:
+    """``value`` -> one of :data:`FACING_OBS_ENCODINGS`, or a named ``ValueError``.
+
+    Spelled out here as well as in the knob parser because the two guard different doors: the
+    knob validates what a LAUNCHER asked for, this validates what the built cfg actually
+    carries (a hand-edited params dict, a recipe overlay, an eval harness). An unknown
+    encoding that fell through to ``raw`` would change the observation the policy is trained
+    on while every log line looked like the other one.
+    """
+    token = str(value).strip().lower()
+    if token not in FACING_OBS_ENCODINGS:
+        raise ValueError(
+            f"facing_obs_encoding must be one of {FACING_OBS_ENCODINGS}, got {value!r}"
+        )
+    return token
 
 
 def _check_omni(cfg=None) -> None:
@@ -107,15 +139,47 @@ class CrabHexOmniParkourObservations(CrabHexParkourObservations):
     #: needs only the sign; clipping keeps every out-of-band target inside the trained range.
     facing_obs_clip: float | None = None
 
+    #: How the facing error reaches slots 6/7: ``"raw"`` (the shipped default -- one clipped
+    #: signed angle in BOTH channels, bitwise what every run to date trained on) or
+    #: ``"sincos"`` (slot 6 = ``sin(err)``, slot 7 = ``cos(err)``). Set through the obs term's
+    #: ``params["facing_obs_encoding"]`` (knob ``KRABBY_OMNI_FACING_OBS_ENCODING``).
+    #:
+    #: WHY IT EXISTS (2026-09-18, plan Part A2, mechanism 3). The raw channels are clipped at
+    #: 0.6 rad in every preset and the yaw-rate command saturates 0.2 rad past the dead band,
+    #: so above 0.6 rad the policy is MAGNITUDE-BLIND: a half turn and a 35-degree turn look
+    #: identical, and the 0.2-s observation history cannot integrate a 12-s turn. ``sincos``
+    #: is bounded by construction (no out-of-distribution input, which is what the clip was
+    #: introduced to prevent -- Revision 3) while staying informative over the whole circle,
+    #: and it is continuous across +-pi, where the raw error jumps by 2 pi.
+    #:
+    #: THE CLIP APPLIES TO ``raw`` ONLY, and deliberately. ``facing_obs_clip`` exists because
+    #: a raw angle 2.6x larger than anything a head trained on destabilised it; ``sin`` and
+    #: ``cos`` cannot leave ``[-1, 1]``, so there is no out-of-band value to clamp, and
+    #: clamping the ANGLE first would cap ``cos`` at ``cos(clip)`` = 0.825 and throw away
+    #: exactly the magnitude information this encoding exists to supply -- i.e. it would make
+    #: the knob silently inert on top of the presets, all of which set the clip. So under
+    #: ``sincos`` the clip is IGNORED (not refused: every preset sets it, and an overlay that
+    #: adds the encoding must not have to unset it). Pinned by the obs tests.
+    #:
+    #: THE MIRROR MUST AGREE: under ``sincos`` slot 7 stops being a yaw pseudo-scalar (a
+    #: cosine is EVEN, so it does not flip under either reflection).
+    #: ``crab_hex_omni_mirror.build_mirrors`` reads this very param off the env cfg and
+    #: selects ``head_signs(encoding)`` accordingly -- never a default.
+    facing_obs_encoding: str = "raw"
+
     def __init__(self, cfg, env: ParkourManagerBasedRLEnv):
         _check_omni()
         clip = None
+        encoding = "raw"
         params = getattr(cfg, "params", None)
         if isinstance(params, dict) and params.get("facing_obs_clip") is not None:
             clip = float(params["facing_obs_clip"])
             if not clip > 0.0:
                 raise ValueError(f"facing_obs_clip must be > 0 rad, got {clip!r}")
+        if isinstance(params, dict) and params.get("facing_obs_encoding") is not None:
+            encoding = _check_facing_obs_encoding(params["facing_obs_encoding"])
         self.facing_obs_clip = clip
+        self.facing_obs_encoding = encoding
         super().__init__(cfg, env)
 
     # ------------------------------------------------------------------ the two hooks
@@ -129,9 +193,16 @@ class CrabHexOmniParkourObservations(CrabHexParkourObservations):
         WORLD yaw written by ``CrabHexOmniCommand``; ``heading_w`` is the same quantity the
         command term's yaw-rate P-control measures against, so the observed error is exactly
         the error slot 5's command is driving to zero.
+
+        Under ``facing_obs_encoding == "sincos"`` the pair is ``(sin(err), cos(err))``
+        instead, on the UNCLIPPED error -- see the class attribute's docstring for why the
+        clip does not apply there. The ``"raw"`` branch below is untouched and is what every
+        shipped preset runs.
         """
         cmd_term = env.command_manager.get_term("base_velocity")
         facing_err = wrap_to_pi(cmd_term.heading_target - self.asset.data.heading_w)
+        if self.facing_obs_encoding == "sincos":
+            return torch.sin(facing_err), torch.cos(facing_err)
         clip = self.facing_obs_clip
         if clip is not None:
             facing_err = torch.clamp(facing_err, -clip, clip)
@@ -162,6 +233,7 @@ class CrabHexOmniParkourObservations(CrabHexParkourObservations):
         parkour_name: str,
         history_length: int,
         facing_obs_clip: float | None = None,
+        facing_obs_encoding: str | None = None,
     ) -> torch.Tensor:
         # The observation manager validates the term's ``params`` against THIS signature and
         # passes them as keyword arguments, so the clip must be an optional parameter here
@@ -172,6 +244,11 @@ class CrabHexOmniParkourObservations(CrabHexParkourObservations):
             if not clip > 0.0:
                 raise ValueError(f"facing_obs_clip must be > 0 rad, got {clip!r}")
             self.facing_obs_clip = clip
+        # Same contract for the encoding: it is a declared param (the omni obs term ships it
+        # at "raw" in every preset, which is what KRABBY_OMNI_FACING_OBS_ENCODING overwrites),
+        # so the manager passes it here on every step.
+        if facing_obs_encoding is not None:
+            self.facing_obs_encoding = _check_facing_obs_encoding(facing_obs_encoding)
         observations = super().__call__(
             env, asset_cfg, sensor_cfg, parkour_name, history_length
         )

@@ -90,9 +90,10 @@ SPAWN_YAW_RANGE = (-math.pi, math.pi)
 class CrabHexOmniObservationsCfg:
     """``CrabHexTeacherObservationsCfg``'s literal with the omni observation function.
 
-    Same term name, same params, same clip, same 1149-dim output: only the five slots the
-    omni policy needs (facing error on every tile, ``cmd_vx_b`` / ``cmd_vy_b`` / ``|cmd|``,
-    the yaw-rate command) are filled differently. Standalone rather than a subclass because
+    Same term name, same clip, same 1149-dim output, and the forward params plus the one
+    omni-only key the encoding knob needs a home for (``facing_obs_encoding``): only the five
+    slots the omni policy needs (facing error on every tile, ``cmd_vx_b`` / ``cmd_vy_b`` /
+    ``|cmd|``, the yaw-rate command) are filled differently. Standalone rather than a subclass because
     the single member has to be rebuilt anyway (different function, and knob timing).
     """
 
@@ -105,6 +106,13 @@ class CrabHexOmniObservationsCfg:
                 "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_Footpad"),
                 "parkour_name": "base_parkour",
                 "history_length": 10,
+                # 2026-09-18 (plan Part A2): the facing-error encoding, DECLARED here at the
+                # class default so ``KRABBY_OMNI_FACING_OBS_ENCODING`` has a key to overwrite
+                # -- ``omni_knobs._apply_facing_obs_encoding_knob`` refuses a term that does
+                # not already carry it, because writing a keyword the observation function
+                # does not accept would kill the run inside the observation manager on its
+                # first step. "raw" is bitwise today's observation.
+                "facing_obs_encoding": "raw",
             },
             clip=(-100, 100),
         )

@@ -2,8 +2,10 @@
 """Omnidirectional reward twins, their cfg, and the goal-free termination (plan D4/A6).
 
 FOUR reward FUNCTIONS are swapped under the SAME term names, one term's ``std`` is retuned,
-and ONE term is ADDED (:func:`reward_yaw_progress`, the 36th name -- see "THE ADDED TERM"
-below). Everything else -- the forward 35 names, every weight, every ramp, every
+and TWO terms are ADDED (:func:`reward_yaw_progress`, the 36th name -- see "THE ADDED TERM"
+below -- and :func:`reward_facing_exp_turn_slot` as ``reward_facing_turn``, the 37th, which
+ships at weight 0.0 and therefore logs 0 on every line until its knob arms it). Everything
+else -- the forward 35 names, every weight, every ramp, every
 ``KRABBY_*_W`` knob in the parent's ``__post_init__`` -- is inherited untouched, because the
 whole telemetry/driver/phase-out machinery keys on the NAMES (``Episode_Reward/<name>``,
 ``KRABBY_PHASEOUT``'s term list, the driver's ``exposure_from_log``). This is the sideways
@@ -57,6 +59,23 @@ The cfg class body below keeps the STOCK ``func`` and no preset arms it; the omn
 because the gate also drops the term's yaw-rate damping on non-turn rows -- see the function's
 own docstring for the measured margin (+16.6 % -> +37.5 %) and the trade.
 
+TWO MORE CANDIDATES, BOTH DEFAULT-OFF (2026-09-18, plan Part A2):
+
+:func:`reward_facing_exp_turn_slot`
+    :func:`reward_facing_exp` masked to the rows whose command SLOT asks for a turn, bound as
+    the 37th NAME ``reward_facing_turn`` at weight **0.0** -- so it logs 0 on every line of
+    every shipped run and ``KRABBY_OMNI_FACING_TURN_W`` is its whole dose. It exists because
+    the facing sub-economy is paid on every row (``reward_facing_exp`` has no gate at all, by
+    design), which pays a robot that never turns as much as one that turns correctly; this
+    twin moves facing income onto the rows where facing is the thing being commanded.
+:func:`track_lin_vel_xy_exp_facing_coupled`
+    the stock translation kernel MULTIPLIED by a Gaussian of the facing error, armed by
+    ``KRABBY_OMNI_TRACK_FACING_SIGMA`` (func swap, the ``ANG_TURN_ONLY`` pattern). Translation
+    and facing are otherwise priced by two INDEPENDENT terms, so the cheapest policy buys the
+    larger one and drops the other -- which is the measured failure (walks the commanded line,
+    ignores the commanded facing). A product makes translation income conditional on facing,
+    which no re-weighting of two separate terms can do.
+
 THE ADDED TERM (:func:`reward_yaw_progress`, the 36th name; 2026-09-17). The plan's
 500-iteration yaw-capability smoke (``KRABBY_OMNI_SLOTS=0:0:1:0``, flat, from scratch; run
 ``crab_hex_omni_flat_walk/2026-09-16_20-35-23``) FAILED its gate: the policy learned to stand
@@ -105,7 +124,7 @@ from __future__ import annotations
 
 import torch
 from isaaclab.assets import Articulation
-from isaaclab.envs.mdp.rewards import track_ang_vel_z_exp
+from isaaclab.envs.mdp.rewards import track_ang_vel_z_exp, track_lin_vel_xy_exp
 from isaaclab.managers import RewardTermCfg as RewTerm
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.managers import TerminationTermCfg as DoneTerm
@@ -118,6 +137,7 @@ from parkour_tasks.crab_hex_forward_task.config.crab_hex.agents.parkour_mdp_cfg 
     CrabHexFlatWalkRewardsCfg,
     CrabHexFlatWalkTerminationsCfg,
 )
+from parkour_tasks.crab_hex_omni_task.mdp.crab_hex_omni_command_math import SLOT_TURN
 
 #: Floor of the divisor that turns ``cmd[:, :2]`` into a unit direction. ``clamp_min`` (not
 #: ``+ eps``) keeps ``dir_b`` EXACTLY ``(+-1, 0)`` / ``(0, +-1)`` for an axis-aligned
@@ -406,6 +426,137 @@ def reward_yaw_progress(
     return progress * turning_cmd.float()
 
 
+# ------------------------------- the A2 CANDIDATES (both default OFF, 2026-09-18, plan A2)
+def _slot_is_turning(env: ParkourManagerBasedRLEnv, command_name: str) -> torch.Tensor:
+    """``(N,)`` float 0/1 mask: the rows whose command SLOT asks for a turn.
+
+    The omni sampler's ``slot_id`` is the 2-bit regime ``moving + 2 * turning``
+    (``SLOT_STAND`` 0, ``SLOT_MOVE`` 1, ``SLOT_TURN`` 2, ``SLOT_MOVE_TURN`` 3), so "the turn
+    bit is set" is exactly ``slot_id >= SLOT_TURN`` -- the constant is IMPORTED from
+    ``crab_hex_omni_command_math`` rather than retyped, so a change to the encoding cannot
+    leave this mask quietly selecting the wrong half of the sampler.
+
+    WHY THE SLOT AND NOT ``cmd_wz != 0`` (:func:`reward_yaw_progress`'s gate). That gate is
+    the P-control's dead band, which CLOSES the moment the facing error is inside 0.133 rad --
+    i.e. exactly when a turn has been completed successfully. A facing-position term gated
+    that way would stop paying at the instant it started being satisfied, which is an
+    incentive to overshoot. The SLOT is a property of the drawn command, constant for the
+    whole hold, so this term pays for arriving at the commanded facing AND for staying there.
+
+    Raises loudly when the command term has no ``slot_id`` -- a forward/sideways command term
+    in an omni env would otherwise make this reward silently pay on no row at all (or, worse,
+    on every row, depending on how the attribute were defaulted).
+    """
+    cmd_term = env.command_manager.get_term(command_name)
+    slot_id = getattr(cmd_term, "slot_id", None)
+    if slot_id is None:
+        raise RuntimeError(
+            f"reward_facing_exp_turn_slot: the command term {command_name!r} "
+            f"({type(cmd_term).__name__}) has no slot_id; it is not a CrabHexOmniCommand, so "
+            "'the command asks for a turn' is undefined and this reward cannot be gated."
+        )
+    return (slot_id >= SLOT_TURN).float()
+
+
+def reward_facing_exp_turn_slot(
+    env: ParkourManagerBasedRLEnv,
+    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
+    parkour_name: str | None = None,
+    command_name: str = "base_velocity",
+) -> torch.Tensor:
+    """:func:`reward_facing_exp` on the TURN slots, exactly 0.0 on every other row.
+
+    Bound as the added term ``reward_facing_turn`` at weight **0.0** (the 37th name); the dose
+    is ``KRABBY_OMNI_FACING_TURN_W`` alone, so with the knob unset this term logs 0 on every
+    line and changes nothing.
+
+    WHY IT EXISTS (plan Part A2, mechanism 1 -- "Price"). Under the shipped economy the whole
+    facing sub-economy spans 0.423/s, of which the facing-POSITION term
+    (``reward_facing_exp``, ``KRABBY_YAW_W`` 0.2) is 0.121/s and 0.302/s is the even
+    ``track_ang_vel_z_exp`` kernel -- which pays a robot that never turns. The reachable gain
+    from actually turning at this plant's 0.08 rad/s is 0.206/s, against a 1.638/s translation
+    stake, so facing is cheap to ignore. This twin buys facing income concentrated on the rows
+    that command a turn, without touching the ungated ``reward_tracking_yaw`` term the
+    presets already dose (both terms keep their own weight and their own name, so an armed run
+    is a pure addition in the log).
+
+    ``parkour_name`` is accepted and IGNORED, exactly as in :func:`reward_facing_exp`: the
+    term is declared with the same three params as ``reward_tracking_yaw`` so the two read as
+    the same facing term with and without the turn gate.
+
+    Returns:
+        ``(N,)`` in ``[0, 1]``: ``exp(-|wrap(heading_target - heading_w)|)`` on the turn slots,
+        exactly 0.0 (never -0.0) elsewhere.
+    """
+    value = reward_facing_exp(env, asset_cfg, parkour_name, command_name)
+    return value * _slot_is_turning(env, command_name)
+
+
+def track_lin_vel_xy_exp_facing_coupled(
+    env: ParkourManagerBasedRLEnv,
+    std: float,
+    command_name: str = "base_velocity",
+    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
+    *,
+    facing_sigma: float,
+) -> torch.Tensor:
+    """The stock ``track_lin_vel_xy_exp`` MULTIPLIED by a Gaussian of the facing error.
+
+    ``stock(env, std, ...) * exp(-(wrap(heading_target - heading_w) / facing_sigma) ** 2)``.
+
+    A DROP-IN twin of the stock term plus ONE keyword: the signature is Isaac Lab's
+    ``track_lin_vel_xy_exp(env, std, command_name, asset_cfg)`` argument for argument, with
+    ``facing_sigma`` appended as a KEYWORD-ONLY, NO-DEFAULT parameter -- which is exactly what
+    ``omni_knobs._apply_track_facing_sigma_knob`` produces: it swaps the ``func``, leaves the
+    stock ``params`` (``command_name`` / ``std``) in place and adds ``facing_sigma``. No
+    default on purpose (the ``std`` precedent): a cfg that somehow carried this func without
+    the sigma must fail in the reward manager's static check at env build, not silently pick a
+    coupling width. The stock value is not re-derived here -- the stock function is CALLED --
+    so ``exp(-|v_cmd - v|^2 / std^2)`` stays whatever upstream says it is and the two can
+    never drift apart; with a zero facing error this term is BITWISE the stock one.
+
+    **DEFAULT OFF.** Nothing in this package selects it: the omni rewards cfg does not
+    re-declare ``track_lin_vel_xy_exp`` at all (it is inherited from the forward
+    ``CrabHexFlatWalkRewardsCfg`` with the stock func at weight 1.25) and no preset sets
+    ``KRABBY_OMNI_TRACK_FACING_SIGMA``.
+
+    WHY A PRODUCT AND NOT A WEIGHT (plan Part A2, mechanism 1). Ignoring facing currently
+    costs translation NOTHING: the command term re-projects a held WORLD travel direction into
+    the body frame every step, so world-frame tracking is heading-independent by construction
+    and the two demands are priced by two independent terms. The cheapest policy therefore
+    buys the larger one (translation, 1.638/s) and drops the other (0.423/s) -- which is the
+    behaviour the campaign measured. Multiplying makes the translation income conditional on
+    the facing, which no re-weighting of two separate terms can express.
+
+    The coupling is EVEN in the error (a Gaussian), so it prices the magnitude of the facing
+    error and not its direction; the signed pressure is ``reward_yaw_progress``'s job. At
+    ``facing_sigma`` the factor is ``exp(-1)`` = 0.368, at 2 sigma 0.018: the width is "the
+    facing error at which translation income is worth a third of its face value".
+
+    Args:
+        env: the omni env.
+        std: the stock translation kernel's width -- passed straight through to the stock
+            function, so the armed run prices whatever ``KRABBY_TRACK_SIGMA2`` chose (the knob
+            applier runs after the forward block).
+        command_name: the command term supplying the velocity command AND (through its
+            ``heading_target``) the facing error.
+        asset_cfg: the articulation whose ``root_lin_vel_b`` / ``heading_w`` are read.
+        facing_sigma: the coupling kernel's width, radians. Required; must be > 0.
+
+    Returns:
+        ``(N,)`` in ``[0, 1]``: the stock value times the facing factor.
+    """
+    sigma = float(facing_sigma)
+    if not sigma > 0.0:
+        raise ValueError(
+            f"track_lin_vel_xy_exp_facing_coupled: facing_sigma must be positive, got {sigma}"
+        )
+    value = track_lin_vel_xy_exp(env, std=std, command_name=command_name, asset_cfg=asset_cfg)
+    asset: Articulation = env.scene[asset_cfg.name]
+    err = _facing_error(env, asset, command_name)
+    return value * torch.exp(-torch.square(err / sigma))
+
+
 # --------------------------------------------- the STAGED LEVER (default OFF, 2026-09-18)
 def track_ang_vel_z_exp_turn_gated(
     env: ParkourManagerBasedRLEnv,
@@ -499,19 +650,21 @@ def terminate_episode_no_goals(
 # --------------------------------------------------------------------------- cfg classes
 @configclass
 class CrabHexOmniFlatWalkRewardsCfg(CrabHexFlatWalkRewardsCfg):
-    """The 35 flat-walk reward terms (four functions swapped, one ``std`` retuned) + 1 added.
+    """The 35 flat-walk reward terms (four functions swapped, one ``std`` retuned) + 2 added.
 
-    36 names: the forward 35 with their attribute names, weights and knobs, plus
-    ``reward_yaw_progress``. Re-declaring an inherited field keeps its position in the
-    parent's field order; the added one lands after them all. Weights stay at the forward
+    37 names: the forward 35 with their attribute names, weights and knobs, plus
+    ``reward_yaw_progress`` (1.0) and ``reward_facing_turn`` (0.0 -- a name that logs zero
+    until ``KRABBY_OMNI_FACING_TURN_W`` arms it). Re-declaring an inherited field keeps its
+    position in the parent's field order; the added ones land after them all, in declaration
+    order. Weights stay at the forward
     class-body literals on purpose (the KNOB-TIMING pillar): ``KRABBY_GOAL_VEL_W`` /
     ``KRABBY_YAW_W`` / ``KRABBY_CLEARANCE_W`` are applied by the parent's ``__post_init__``,
     which this class inherits unchanged, so the per-phase doses come from the presets and
-    live in exactly one place. The ADDED term's weight follows the same rule from the other
-    side: the class body carries the plan's default and ``KRABBY_YAW_PROGRESS_W`` (applied in
-    ``omni_knobs.apply_omni_knobs``, which runs after the forward knob block) is the only
-    thing that moves it -- the parent's ``_overrides`` table cannot know a name that does not
-    exist on it.
+    live in exactly one place. The ADDED terms' weights follow the same rule from the other
+    side: the class body carries the plan's default and ``KRABBY_YAW_PROGRESS_W`` /
+    ``KRABBY_OMNI_FACING_TURN_W`` (applied in ``omni_knobs.apply_omni_knobs``, which runs
+    after the forward knob block) are the only things that move them -- the parent's
+    ``_overrides`` table cannot know a name that does not exist on it.
     """
 
     track_ang_vel_z_exp = RewTerm(
@@ -568,6 +721,21 @@ class CrabHexOmniFlatWalkRewardsCfg(CrabHexFlatWalkRewardsCfg):
             "command_name": "base_velocity",
             "asset_cfg": SceneEntityCfg("robot"),
             "clip": None,
+        },
+    )
+    # The 37th name (2026-09-18, plan Part A2): the facing term paid ONLY on the turn slots.
+    # Weight 0.0 is the SHIPPED dose -- this term logs ``Episode_Reward/reward_facing_turn``
+    # as 0 on every line of every run until KRABBY_OMNI_FACING_TURN_W arms it, which is what
+    # makes adding it a bitwise-identical change to the legacy path. Same three params as
+    # ``reward_tracking_yaw`` above, so the pair reads as one facing term with and without the
+    # turn gate (``parkour_name`` is carried and ignored, exactly as it is there).
+    reward_facing_turn = RewTerm(
+        func=reward_facing_exp_turn_slot,
+        weight=0.0,
+        params={
+            "asset_cfg": SceneEntityCfg("robot"),
+            "parkour_name": "base_parkour",
+            "command_name": "base_velocity",
         },
     )
 

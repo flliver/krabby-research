@@ -16,6 +16,7 @@ synthetic ``parkour_isaaclab`` packages; collection order must not matter).
 import importlib.util
 import math
 import sys
+import types
 from pathlib import Path
 
 import numpy as np
@@ -111,26 +112,134 @@ class _ActionManager:
         return _ActionTerm()
 
 
+class _ObsTerm:
+    """The omni observation term as the env cfg declares it -- the params the mirror reads."""
+
+    def __init__(self, encoding="raw", *, declared=True):
+        self.params = {"history_length": 10, "facing_obs_clip": 0.6}
+        if declared:
+            self.params["facing_obs_encoding"] = encoding
+
+
+class _EnvCfg:
+    def __init__(self, encoding="raw", *, declared=True):
+        self.observations = types.SimpleNamespace(
+            policy=types.SimpleNamespace(
+                extreme_parkour_observations=_ObsTerm(encoding, declared=declared)
+            )
+        )
+
+
 class _Env:
+    """The live env the mirror resolves its layout AND its facing encoding from."""
+
     scene = _Scene()
     action_manager = _ActionManager()
     device = "cpu"
 
+    def __init__(self, encoding="raw", *, declared=True, with_cfg=True):
+        if with_cfg:
+            self.cfg = _EnvCfg(encoding, declared=declared)
+
 
 @pytest.fixture()
 def mirrors():
-    """The shipped builder on the shipped layout -- ``(lr, fa)``."""
+    """The shipped builder on the shipped layout, ``raw`` encoding -- ``(lr, fa)``."""
     return omni.build_mirrors(_Env(), OBS_DIM)
+
+
+@pytest.fixture()
+def sincos_mirrors():
+    """The same builder on a head whose obs term declares ``facing_obs_encoding="sincos"``."""
+    return omni.build_mirrors(_Env("sincos"), OBS_DIM)
 
 
 # --------------------------------------------------------------------------- the tables
 def test_head_tables_are_the_plan_literals():
+    """Both encodings, pinned as literals -- the module constants stay the ``raw`` ones."""
     assert omni.HEAD_SIGNS_LR == [-1.0, 1.0, -1.0, -1.0, 1.0, -1.0, -1.0, -1.0, 1.0, -1.0,
                                   1.0, 1.0, 1.0, 1.0, -1.0, -1.0, -1.0]
     assert omni.HEAD_SIGNS_FA == [1.0, -1.0, -1.0, 1.0, -1.0, -1.0, -1.0, -1.0, -1.0, 1.0,
                                   1.0, 1.0, 1.0, -1.0, 1.0, 1.0, 1.0]
     assert len(omni.HEAD_SIGNS_LR) == len(omni.HEAD_SIGNS_FA) == 17 == omni.N_HEAD
     assert all(abs(s) == 1.0 for s in omni.HEAD_SIGNS_LR + omni.HEAD_SIGNS_FA)
+
+    # ``raw`` -> the constants themselves, as copies (a caller must not be able to mutate the
+    # module tables through the return value)
+    lr, fa, rot = omni.head_signs("raw")
+    assert lr == omni.HEAD_SIGNS_LR and fa == omni.HEAD_SIGNS_FA
+    assert rot == omni.HEAD_SIGNS_ROT_Z_PI
+    assert lr is not omni.HEAD_SIGNS_LR and fa is not omni.HEAD_SIGNS_FA
+    assert omni.head_signs() == omni.head_signs("raw"), "raw is the default"
+
+    # ``sincos`` -> slot 6 = sin(err) keeps -1 in BOTH tables (sin is odd, and both planes
+    # negate the error); slot 7 = cos(err) becomes +1 in BOTH (cos is even). Nothing else moves.
+    s_lr, s_fa, s_rot = omni.head_signs("sincos")
+    assert s_lr[6] == s_fa[6] == -1.0, "sin(err) is odd: the raw -1 survives"
+    assert s_lr[7] == s_fa[7] == +1.0, "cos(err) is even: the one entry that changes"
+    assert {i for i in range(17) if s_lr[i] != omni.HEAD_SIGNS_LR[i]} == {7}
+    assert {i for i in range(17) if s_fa[i] != omni.HEAD_SIGNS_FA[i]} == {7}
+    # R_z(pi) maps err -> err, so both facing slots are +1 -- and the composed table is
+    # ENCODING-INDEPENDENT, because the two planes' slot-7 entries flip together
+    assert s_rot == [a * b for a, b in zip(s_lr, s_fa)]
+    assert s_rot[6] == s_rot[7] == +1.0
+    assert s_rot == omni.HEAD_SIGNS_ROT_Z_PI
+    assert omni.FACING_OBS_ENCODINGS == ("raw", "sincos")
+    assert (omni.FACING_SIN_SLOT, omni.FACING_COS_SLOT) == (6, 7)
+
+
+@pytest.mark.parametrize("bad", ["", "sin_cos", "RAW ", "cos", None, 1])
+def test_head_signs_refuses_an_unknown_encoding(bad):
+    """No default: the wrong table is a silent training corruption, so it must raise."""
+    if bad == "RAW ":
+        assert omni.head_signs(bad) == omni.head_signs("raw"), "case/space tolerated"
+        return
+    with pytest.raises(ValueError, match="encoding"):
+        omni.head_signs(bad)
+
+
+def test_build_mirrors_reads_the_encoding_off_the_observation_term():
+    """The mirror and the observation are two halves of one contract, resolved per env."""
+    raw_lr, raw_fa = omni.build_mirrors(_Env("raw"), OBS_DIM)
+    sc_lr, sc_fa = omni.build_mirrors(_Env("sincos"), OBS_DIM)
+    for m, table in ((raw_lr, omni.HEAD_SIGNS_LR), (raw_fa, omni.HEAD_SIGNS_FA)):
+        assert m.obs_sign[:17].tolist() == table
+    s_lr, s_fa, _ = omni.head_signs("sincos")
+    assert sc_lr.obs_sign[:17].tolist() == s_lr
+    assert sc_fa.obs_sign[:17].tolist() == s_fa
+    # exactly one head slot differs between the two builds, in each plane
+    for a, b in ((raw_lr, sc_lr), (raw_fa, sc_fa)):
+        differ = {i for i in range(17) if a.obs_sign[i] != b.obs_sign[i]}
+        assert differ == {7}
+    # a term that simply does not carry the key is the pre-A2 cfg: "raw", not a refusal
+    legacy_lr, _ = omni.build_mirrors(_Env(declared=False), OBS_DIM)
+    assert legacy_lr.obs_sign[:17].tolist() == omni.HEAD_SIGNS_LR
+
+
+def test_build_mirrors_refuses_an_unresolvable_observation_cfg():
+    """Never a silent ``raw``: an env whose obs cfg cannot be walked is a REFUSAL.
+
+    The failure this prevents is invisible: a ``sincos`` head mirrored with the raw table
+    learns that its cosine channel flips under a reflection it does not flip under, and every
+    training curve (including the mirror loss, which falls happily) looks normal.
+    """
+    for env in (_Env(with_cfg=False),                       # no cfg at all
+                types.SimpleNamespace(cfg=types.SimpleNamespace()),          # no observations
+                types.SimpleNamespace(cfg=types.SimpleNamespace(             # no policy group
+                    observations=types.SimpleNamespace())),
+                types.SimpleNamespace(cfg=types.SimpleNamespace(             # no term
+                    observations=types.SimpleNamespace(policy=types.SimpleNamespace())))):
+        with pytest.raises(ValueError, match="facing"):
+            omni._facing_obs_encoding(env)
+    with pytest.raises(ValueError, match="facing"):
+        omni.build_mirrors(_Env(with_cfg=False), OBS_DIM)
+    # an unknown spelling in a resolvable cfg raises too (via head_signs), rather than
+    # falling back to either table
+    with pytest.raises(ValueError, match="encoding"):
+        omni.build_mirrors(_Env("sin_cos"), OBS_DIM)
+    # ... and a wrapped env is resolved through ``unwrapped``, like the layout is
+    wrapped = types.SimpleNamespace(unwrapped=_Env("sincos"))
+    assert omni._facing_obs_encoding(wrapped) == "sincos"
 
 
 def test_difference_from_the_two_sibling_tables():
@@ -328,23 +437,29 @@ def _heading(R: np.ndarray) -> float:
     return math.atan2(fwd[1], fwd[0])
 
 
+@pytest.mark.parametrize("encoding", ["raw", "sincos"])
 @pytest.mark.parametrize(
-    "label,M,q_reflect,signs",
+    "label,M,q_reflect,plane",
     [
-        ("M_y", MY, lambda q: np.array([q[0], -q[1], q[2], -q[3]]), omni.HEAD_SIGNS_LR),
-        ("M_x", MX, lambda q: np.array([q[0], q[1], -q[2], -q[3]]), omni.HEAD_SIGNS_FA),
+        ("M_y", MY, lambda q: np.array([q[0], -q[1], q[2], -q[3]]), 0),
+        ("M_x", MX, lambda q: np.array([q[0], q[1], -q[2], -q[3]]), 1),
     ],
 )
-def test_kinematic_head_signs_independent(label, M, q_reflect, signs):
+def test_kinematic_head_signs_independent(label, M, q_reflect, plane, encoding):
     """Rebuild every head channel from a root state and from its reflection.
 
     Nothing here reads the mirror module's tables except the final comparison: the
     quaternion reflection rule (axis ``v' = -M v`` for an improper ``M``), the world
     pseudo-/true-vector rules and the harness's own roll/pitch decomposition do the work.
     Slot 5 is the yaw-rate command (a pseudo-scalar: the P-control output on the facing
-    error), slots 6-7 the facing error, 8-9 the body-frame command (a true vector) and slot
-    10 its norm.
+    error), slots 6-7 the facing error (or its sine and cosine under ``sincos``), 8-9 the
+    body-frame command (a true vector) and slot 10 its norm.
+
+    Run for BOTH facing encodings: the signs come from ``head_signs(encoding)``, and the
+    quantity actually written into slots 6/7 changes with it -- which is the whole point, and
+    the only place a ``sincos`` head's cosine channel can be caught flipping when it must not.
     """
+    signs = omni.head_signs(encoding)[plane]
     rng = np.random.default_rng(20260916)
     for _ in range(64):
         q = rng.normal(size=4)
@@ -376,8 +491,20 @@ def test_kinematic_head_signs_independent(label, M, q_reflect, signs):
         psi = float(rng.uniform(-1.0, 1.0)) + heading      # |err| <= 1 rad: no wrap corner
         err = psi - heading
         err_ref = (-psi) - heading_ref
-        assert err_ref == pytest.approx(signs[6] * err, abs=1e-12)
-        assert err_ref == pytest.approx(signs[7] * err, abs=1e-12)
+        assert err_ref == pytest.approx(-err, abs=1e-12), "both planes negate the error"
+        if encoding == "raw":
+            # slots 6, 7 both carry the angle itself: a yaw pseudo-scalar
+            assert err_ref == pytest.approx(signs[6] * err, abs=1e-12)
+            assert err_ref == pytest.approx(signs[7] * err, abs=1e-12)
+        else:
+            # slot 6 = sin(err) is ODD -> -1; slot 7 = cos(err) is EVEN -> +1
+            assert math.sin(err_ref) == pytest.approx(signs[6] * math.sin(err), abs=1e-12)
+            assert math.cos(err_ref) == pytest.approx(signs[7] * math.cos(err), abs=1e-12)
+            assert (signs[6], signs[7]) == (-1.0, 1.0)
+            # and the raw table would be WRONG here: cos does not flip
+            assert math.cos(err_ref) != pytest.approx(
+                omni.HEAD_SIGNS_LR[7] * math.cos(err), abs=1e-6
+            ) or abs(math.cos(err)) < 1e-6
         # slot 5 = the P-control on that error: clip(k * err, +-cap) -- odd, so same sign
         wz = float(np.clip(1.5 * err, -0.3, 0.3))
         wz_ref = float(np.clip(1.5 * err_ref, -0.3, 0.3))
