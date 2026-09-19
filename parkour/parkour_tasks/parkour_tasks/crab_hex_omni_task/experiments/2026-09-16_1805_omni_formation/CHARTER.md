@@ -507,3 +507,36 @@ Decision table (rows 1a, 1b, 1c-004, 2a re-eval, 2b): `DECISION_TABLE_2b_seed3.m
 precedent — 2a was the peak window there too) or the 2b head (widest band, same turn rate); (b) run seed 2 from scratch
 (1a→1b→1c→2a→2b, Revision 4 economy, ~10 h) as planned; (c) run the 2c / 2c_clockheld pair from the 2b head (two launches); (d) a
 policy iteration on the turn rate (staged `KRABBY_OMNI_ANG_TURN_ONLY`, the lit review's recommendation 1) before any more windows.
+
+### 2026-09-19 — CAMPAIGN CLOSED at the 2b decision point; continued by the facing/tracking ladder
+
+Closed 2026-09-19, when the user asked for the ranked candidate ladder (plan approved 2026-09-18).
+**None of the options (a)-(d) offered at the decision point above was taken as such** -- no record
+shows the user choosing one, and the successor is not any of them. Option (d)'s lever (staged
+`KRABBY_OMNI_ANG_TURN_ONLY`, the lit review's recommendation 1) survives only as the ladder's
+conditional candidate C11, DEMOTED: the replay margin it buys (+16.6 % -> +37.5 %) comes with the
+erasure of the turn-row settle bonus, so it runs only if the creeper signature returns on the
+move-only rows. Nothing further is trained, evaluated or written under this campaign directory; the
+seed-2 chain (option (b)) and the `2c` / `2c_clockheld` pair (option (c)) are NOT run, and no head
+of record is named here. The evidence this campaign produced is what the successor is standardised
+by: H1 answered (the three-stage curriculum formed a gait but lost translation at every handoff, fwd
+speed ratio 0.76 -> 0.16, and the single from-scratch Revision-4 window 1c-004 is what replaced that
+chain); H2 answered PARTLY (turning works -- yaw-progress 0.079 / 0.071 rad/s on the 90-degree
+holds, PASS -- but never closes: `turn_l90` ends at 0.68 rad and `move_turn` at 1.218 rad, and the
+rate has sat at 0.07-0.09 rad/s under every head since 1c-004, half the 0.15-0.18 rad/s kinematic
+estimate); H3 answered (ring 0.540 vs flat 0.500 completion -- the ring is not the limiter); H4 NOT
+answered (no `2c` window ran, so the sideways 2c regression is still untested on this chain).
+
+Successor: **`experiments/2026-09-19_facing_tracking_ladder/`** (plan
+`/home/nickmagus/.claude/plans/the-facing-and-tracking-fancy-breeze.md`, approved 2026-09-18) -- an
+autonomous, speculative ladder of ranked candidate recipes over the five established mechanisms
+(price, kinematics, observation, curriculum, economy), each screened from scratch at 8000 iterations
+against the recipe already adopted, with a MEASURED decision resolution. It never writes into this
+directory. It does read four things out of it, as measurements: the recorded 1c-004 and 2b eval rows
+(which, with the `parkour/outputs/omni_plan/reeval_2a` rows from outside this dir, give the `D00`
+paired-bootstrap half-widths and the M1 WATCH references), the 1c failure analysis and replay
+(`ANALYSIS_1c_failure_2026-09-18.md`, `replay_reward_economy.md` -- whose script the ladder re-uses
+as its advisory replay screen, with four new per-term weight flags), the RSI
+bank (`rsi_bank_omni.npz`, which `crab_hex_omni_phases.OMNI_BANK` still points at, so every window of
+every campaign resolves it here), and this CHARTER's caveats. Its own CHARTER carries the decision
+rule, the resolution policy and the `D00` numbers.

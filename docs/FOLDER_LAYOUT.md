@@ -206,7 +206,10 @@ crab_hex_omni_task/
 ├── config/crab_hex/                  # Env, scene cfgs; crab_hex_omni_phases.py (KRABBY_OMNI_PHASE presets); omni_knobs.py
 │   └── agents/                       # RSL-RL PPO runner cfgs (teacher only -- no student)
 ├── mdp/                              # crab_hex_omni_command(_math).py; omni observations/rewards/mirror/RSI; omni_parkour_event.py, omni_exposure.py, omni_events.py, omni_terrain_knobs.py
-└── experiments/                      # Campaigns; eval/scenarios_omni.yaml; tools/ (driver copies)
+└── experiments/                      # Campaigns; eval/scenarios_omni.yaml; lit reviews; tools/
+    ├── 2026-09-16_1805_omni_formation/   # First training campaign (CLOSED at its 2b decision point): CHARTER.md, RSI_BANK.md, replay_reward_economy.py
+    ├── 2026-09-19_facing_tracking_ladder/ # The facing/tracking candidate ladder: CHARTER.md, candidates.yaml (the spec), resolution.json (D00). Written by the driver at launch, not present before it: ledger.json + ledger_overrides.jsonl, REPORT.md, CHANGELOG.md, notify.log, state.json/heads.json
+    └── tools/                        # run_phases.py + launch/heartbeat (the phase chain); run_candidates.py + ledger_cli.py + resolution.py + launch_candidates.sh (the candidate ladder)
 ```
 
 Preset variable: `KRABBY_OMNI_PHASE` (never `KRABBY_PHASE` or `KRABBY_SIDE_PHASE` in the same
@@ -217,7 +220,13 @@ directories: `parkour/logs/rsl_rl/crab_hex_omni_{flat_walk,teacher}`; eval root:
 forward task's `experiments/` (above), including: never add an `__init__.py` anywhere under
 `experiments/` (same reason -- `parkour_tasks/__init__.py`'s `import_packages` would import the
 campaign trees at gym registration). The ring-terrain generator lives outside this task package,
-in the shared import graph: `parkour/parkour_isaaclab/terrains/omni/`.
+in the shared import graph: `parkour/parkour_isaaclab/terrains/omni/`. Two drivers share
+`experiments/tools/`: `run_phases.py` runs the preset chain `1a`..`2c` (launch/heartbeat via
+`launch_phases.sh` / `heartbeat_phases.sh`) and REFUSES a campaign `state.json` that carries a
+`ladder` key, while `run_candidates.py` (with `ledger_cli.py`, `resolution.py` and
+`launch_candidates.sh`) runs the candidate ladder, whose campaign dir adds `candidates.yaml`,
+`resolution.json`, `ledger.json` and `ledger_overrides.jsonl` to the usual
+`state.json`/`heads.json`/`REPORT.md`/`CHANGELOG.md` records.
 
 ## Assets (robot plant)
 

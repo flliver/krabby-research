@@ -30,6 +30,8 @@ student (the shared camera-event bug and the +y mount decision stay open).
 | Five `cmd[:,0]`-only gate sites + two clock-reward sites | the literal `cmd[:,0]` | dispatch through shared `_cmd_gate`/`_clock_cmd_speed` helpers; forward branch = each site's old literal, unchanged **Revision 2 (2026-09-17):** the omni branch of `_cmd_gate` reads the clock speed max(‖cmd_xy‖, r_turn·\|cmd_wz\|), not ‖cmd_xy‖ alone, so a pure turn switches the gait-shaping terms on like translation does — both earlier yaw smokes had stepped in place with them off. |
 | Reward twins (same NAMES) | `penalty_lin_vel_y`, `reward_tracking_goal_vel`, `reward_tracking_yaw`, `reward_obstacle_clearance` | `penalty_cross_command_vel_l2` (velocity across the commanded direction, gated `‖cmd‖>0.12`, weight −3.0), `reward_tracking_command_vel_on_obstacle` (world progress along the commanded direction, obstacle-masked), `reward_facing_exp` = `exp(−\|wrap(heading_target−heading_w)\|)` on every tile no gate (`KRABBY_YAW_W` 0.2 **from 1c**, 0 in 1a/1b), `reward_obstacle_clearance_omni` (lift-and-cross bonus read along the commanded direction) |
 | Reward ADDED (the 36th name) | — | `reward_yaw_progress` = `clip(wz_b·sign(cmd_wz), ±ang_vel_max)`, gated `cmd_wz ≠ 0`, weight 1.0 (`KRABBY_YAW_PROGRESS_W`, armed in every window) — the rotational twin of `reward_forward_progress_along_command`: dense, SIGNED income for rotating the way the turn was commanded. Added 2026-09-17 after the yaw-capability smoke stood, stepped in place and rotated the **wrong way** (see [The turning fix](#the-turning-fix)) |
+| Reward ADDED (the 37th name, **default-off**) | — | `reward_facing_turn` = `reward_facing_exp × (slot_id >= SLOT_TURN)` — the facing settle bonus on the turn and move+turn slots only, exactly 0 on every translation row. **Weight 0.0 in the class body and set by no preset**; armed per run by `KRABBY_OMNI_FACING_TURN_W` (candidate C4 of the 2026-09-19 ladder). See "The facing/tracking ladder levers" |
+| Command sampler (optional) | slot mix + one direction band | + an optional TYPE POOL, `KRABBY_OMNI_CMD_POOL` / `cmd_pool` — twelve named command types projected onto the same four slots, with per-type `ang_scale` / `speed_scale`. `None` by default and bitwise-inert; see "The command pool" |
 | `track_ang_vel_z_exp` std | 0.5 | class body 0.15 (plan D4: gradient at 0.15–0.3 rad/s), but **every preset sets `KRABBY_OMNI_ANG_VEL_STD=0.5` — back to the forward value** (Revision 4, 2026-09-18; the tight kernel taxed gait wobble on the 88 % of steps that command no turn) |
 | Termination | `terminate_episode` (course-goal cutoff) | `terminate_episode_no_goals` (roll/pitch/height/timeout only — the ring's sector anchors never advance) |
 | Mirror-symmetry | 1 image (L/R only) | **4 images**: `identity, M_y (L/R), M_x (fore-aft), M_x M_y = R_z(π)` — both body mirror planes preserve the task now that any direction is commandable |
@@ -44,7 +46,8 @@ student (the shared camera-event bug and the +y mount decision stay open).
 | Eval harness | body-frame holds | same harness, **world-frame holds** (`speed, dir, face`) driven through the SAME `schedule_hook`/P-control training uses; `facing_metrics`, per-step travel-frame rotation |
 
 Everything else — the forward 35 reward NAMES and their weights/ramps (the omni stack is those
-35 plus the one added `reward_yaw_progress`), the clock/stride/tripod reward
+35 plus `reward_yaw_progress`, armed in every window, and `reward_facing_turn`, weight 0.0 unless a
+run arms it — **37 names**), the clock/stride/tripod reward
 math, the contact proxy, DR knobs, PPO hyper-parameters, seed and env counts, the scan grid
 size/resolution/ordering (108 rays) — is the forward recipe unchanged; `travel_frame.py` and the
 pinned seam-site set are untouched (the omni cfg carries no `travel_yaw` — the stock 2-D
@@ -323,7 +326,14 @@ them.) No phase 3 (teacher only in this plan).
 `KRABBY_OMNI_DIR_BAND` (`lo:hi` body-relative radians, or empty/`none`/`off` for world-uniform) ·
 `KRABBY_OMNI_SPEED_ELLIPSE` (`a:b:c` m/s, fore-aft/lateral/backward, must clear the walk floor) ·
 `KRABBY_OMNI_FACING` (`lo:hi` radians, `0 <= lo <= hi`) · `KRABBY_OMNI_ANG_VEL_MAX` (rad/s, must
-exceed `ang_vel_clip`) · `KRABBY_OMNI_CLOCK_TURN_R` (metres, ≥ 0) · `KRABBY_OMNI_YAW_RANGE`
+exceed `ang_vel_clip`; `KRABBY_OMNI_ANG_VEL_CLIP` moves the dead band, below) ·
+`KRABBY_OMNI_CLOCK_TURN_R` (metres, **`> 0`** — `apply_omni_knobs` runs a cross-knob CLOCK RULE
+after the command knobs and refuses `omni_clock_turn_radius × ang_vel_max < 0.25 m/s`
+(`CLOCK_TURN_MIN_SPEED`), naming both variables and both values. That inequality also refuses
+`CLOCK_TURN_R=0` — the forward "turning does not drive the clock" behaviour — deliberately: below
+0.25 m/s the gait clock STOPS, so a turn stage would train a statue while both knobs looked
+individually reasonable, and a 0 is indistinguishable from a mis-set radius. Inert on every preset
+and on the class-body defaults: 1.2 × 0.3 = 0.36) · `KRABBY_OMNI_YAW_RANGE`
 (`lo:hi` spawn-yaw band radians, applied to BOTH the ring spawn and the RSI re-yaw) ·
 `KRABBY_OMNI_RSI_SOURCE` (`0`, `1`, or `all`) · `KRABBY_RING_CLEAR_R` (metres) · `KRABBY_RING_BLOCKS`
 (`sparse:dense` counts) · `KRABBY_YAW_PROGRESS_W` (the added `reward_yaw_progress` term's weight;
@@ -343,7 +353,138 @@ swaps `rewards.track_ang_vel_z_exp`'s **func** — not a param — for
 `crab_hex_omni_rewards.track_ang_vel_z_exp_turn_gated`, keeping the weight and every param.
 **Staged 2026-09-18, DEFAULT OFF — set by no preset**; see the note below). `KRABBY_RSI_BANK` /
 `KRABBY_RSI_FRAC` are shared with the forward task, as are `KRABBY_TRACK_SIGMA2` /
-`KRABBY_TRACK_L1_W` (the omni presets re-point both: Revision 4).
+`KRABBY_TRACK_L1_W` (the omni presets re-point both: Revision 4). **Six more omni knobs landed
+2026-09-19 for the candidate ladder** (`KRABBY_OMNI_CMD_POOL`, `_ANG_VEL_CLIP`, `_FACING_TURN_W`,
+`_TRACK_FACING_SIGMA`, `_PROGRESS_W`, `_FACING_OBS_ENCODING`) — all default-off and set by no
+preset; they have their own two subsections below.
+
+### The facing/tracking ladder levers (2026-09-19) — six knobs, ALL default-off, set by NO preset
+
+Landed for the candidate ladder
+(`experiments/2026-09-19_facing_tracking_ladder/CHARTER.md`, plan
+`the-facing-and-tracking-fancy-breeze.md`). Unset or blank, every one of them is a **bitwise
+no-op** — that is what keeps the shipped `1a`…`2c` windows reproducible while the campaign drives
+them as env overlays. They are applied by `apply_omni_knobs` (`config/crab_hex/omni_knobs.py`);
+every parser is pure and Isaac-free.
+
+| variable | writes | domain / guard |
+|---|---|---|
+| `KRABBY_OMNI_CMD_POOL` | `commands.base_velocity.cmd_pool` — the pool STRING, stored verbatim so a config dump says exactly what the launcher asked for | the grammar below; blank ⇒ `None` (like `DIR_BAND`). Refused together with `dir_band`, and the parsed pool's slot projection must equal `KRABBY_OMNI_SLOTS` within `POOL_SLOT_MATCH_TOL` 1e-6 |
+| `KRABBY_OMNI_ANG_VEL_CLIP` | `commands.base_velocity.clips.ang_vel_clip` — the facing P-control's dead band | a single float `> 0`, and `ang_vel_max` must still exceed it. Class-body value 0.2 (dead band 0.133 rad at stiffness 1.5) |
+| `KRABBY_OMNI_FACING_TURN_W` | `rewards.reward_facing_turn.weight` (the 37th name, below) | float `>= 0`; presence-based, so `=0` is a legitimate ablation. Raises by name if the term is missing |
+| `KRABBY_OMNI_TRACK_FACING_SIGMA` | swaps `rewards.track_lin_vel_xy_exp`'s **func** for `crab_hex_omni_rewards.track_lin_vel_xy_exp_facing_coupled` and writes `params["facing_sigma"]` | float `> 0`. The `ANG_TURN_ONLY` swap pattern with the same three guards: it refuses if the term is missing, has lost `std`, or already carries a func this knob does not know. Unset = the stock kernel, bitwise |
+| `KRABBY_OMNI_PROGRESS_W` | `rewards.reward_forward_progress_along_command.weight` | float `>= 0` |
+| `KRABBY_OMNI_FACING_OBS_ENCODING` | the omni observation term's `params["facing_obs_encoding"]`, via `_omni_obs_terms(cfg)` | `raw` (default, bitwise) or `sincos`, nothing else parses |
+
+**`reward_facing_turn` — the 37th reward name, weight 0.0 in the class body.**
+`reward_facing_exp_turn_slot` = `reward_facing_exp × (slot_id >= SLOT_TURN)`, i.e. the settle bonus
+paid ONLY on the turn and move+turn slots and exactly **0** on every translation row. The gate is
+the drawn SLOT, deliberately **not** `cmd_wz != 0`: the P-control's dead-band gate closes exactly
+when a turn succeeds, so gating on it would reward overshoot. The term carries `parkour_name`
+(accepted and ignored) so its `params/env.yaml` block is identical to `reward_tracking_yaw`'s — the
+pair reads as one facing term with and without the gate. The omni reward stack is therefore **37
+names**: the forward 35, plus `reward_yaw_progress` (armed everywhere) and `reward_facing_turn`
+(off unless a run sets `KRABBY_OMNI_FACING_TURN_W`).
+
+**`sincos` facing encoding, and the mirror signs it moves.** Under `raw`, steering slots 6 and 7
+both carry `wrap(heading_target − heading_w)` clipped to `±facing_obs_clip`; under `sincos` they
+carry `sin(err)` and `cos(err)` of the **UNCLIPPED** error, which is bounded by construction and
+keeps the magnitude information the 0.6-rad clip destroys above the band edge. The clip is therefore
+**ignored, not applied and not refused**, under `sincos`: clipping first would cap slot 7 at
+`cos(0.6) = 0.825` and make the whole lever silently inert on top of every preset (all of which set
+the clip at 0.6). `crab_hex_omni_mirror.head_signs(encoding)` returns the tables:
+`sin` is ODD, so slot 6 keeps **−1** in both `HEAD_SIGNS_LR` and `HEAD_SIGNS_FA`; `cos` is EVEN, so
+slot 7 becomes **+1 in both** — the one entry that differs between the encodings. The composed
+`R_z(π)` table is the elementwise product and is **+1 at both facing slots under either encoding**,
+which is the derivation's own consistency check. The module constants stay the `raw` literals
+byte-for-byte and `build_mirrors` resolves the encoding from
+`env.cfg.observations.policy.extreme_parkour_observations.params["facing_obs_encoding"]`, raising a
+named `ValueError` when that path cannot be walked — **never a silent `raw`**, because the wrong
+sign table is a plausible-looking training corruption. That declaration in
+`crab_hex_omni_env_cfg.py` is load-bearing for every EVAL row too (see `EVAL_CARRY_DEFAULTS` below).
+
+### The command pool (`KRABBY_OMNI_CMD_POOL`)
+
+The capability curriculum's sampler. Today the command term draws a REGIME SLOT from
+`KRABBY_OMNI_SLOTS` (`stand:move:turn:move_turn`) and then a direction from one band; a pool names
+the individual COMMAND TYPES instead and **projects onto the same 2-bit slot**, so every downstream
+reward, metric, gate and eval is unchanged. With no pool the legacy path runs **bitwise unchanged**
+(same five uniforms per row, in the same order).
+
+```
+KRABBY_OMNI_CMD_POOL="name:weight[:ang_scale[:speed_scale]],..."
+# e.g. the c2 stage:  stand:0.2,fwd:0.3,side_l:0.2,side_r:0.2,back:0.1
+# with a per-type yaw-cap scale:  ...,turn:0.15:0.3,fwd_turn:0.05:0.3
+```
+
+The twelve types (`crab_hex_omni_command_math.POOL_TYPES`, in this order — the order a bitwise
+legacy twin must be written in):
+
+| type | slot | frame | body band |
+|---|---|---|---|
+| `stand` | 0 stand | body | (0, 0) |
+| `fwd` · `side_l` · `side_r` · `back` | 1 move | body | (0,0) · (+π/2,+π/2) · (−π/2,−π/2) · (π,π) |
+| `omni` | 1 move | **WORLD** | the full `travel_dir_range` |
+| `turn` | 2 turn | body | (0, 0) |
+| `fwd_turn` · `side_l_turn` · `side_r_turn` · `back_turn` | 3 move+turn | body | as their travel twins |
+| `omni_turn` | 3 move+turn | **WORLD** | the full range |
+
+`side_l` / `side_r` are SEPARATE types (the shipped `dir_band` can express only one lateral
+direction at a time, and the RSI bank's source-1 frames are left-leading only), and `back` is its
+own type rather than a widening of `omni` so a stage can enable backward travel without enabling
+every bearing at once.
+
+- **Grammar.** Weight `>= 0` (an explicit `0.0` is legal and KEPT, so the type list, the metric
+  names and the render round trip stay stable; not all weights may be zero). `ang_scale` and
+  `speed_scale` default to 1.0 and must be strictly positive. Unknown names, duplicates, negative or
+  non-finite weights, empty tokens and tokens with more than four fields are all refused BY NAME —
+  every one of those failures is silent in a training log. Whitespace is tolerated.
+  `render_cmd_pool` emits the shortest faithful form (2/3/4 fields) in the pool's own order with
+  `repr(float)` precision, so render → parse round-trips.
+- **Projection rule.** `_validate_omni_cfg` REQUIRES the parsed pool's normalised slot projection to
+  equal the normalised `slot_probs` (`KRABBY_OMNI_SLOTS`) within `POOL_SLOT_MATCH_TOL` **1e-6**, and
+  refuses a pool together with a `dir_band`. The ladder's recipe validator applies the same
+  comparison at LOAD time, so a stale `SLOTS` beside an edited pool dies before a GPU window is
+  booked. `CmdPool.projected_slot_probs()` computes it and `CmdPool.rescale_to(slot_probs)` goes the
+  other way (used to build the 2a/2b teacher pool from the final stage's, round-trip pinned).
+- **`ang_scale` / `speed_scale`.** `ang_scale` scales that type's rows' P-control cap AND clip;
+  `speed_scale` scales the ellipse cap at draw time. A **construction-time refusal** keeps every
+  scaled draw above the gait clock's stop threshold (`CLOCK_CMD_STOP_M_S` 0.2 m/s): a legal
+  `speed_scale` must exceed `pool_speed_scale_floor(name, speed_ellipse, walk_floor +
+  MIN_CAP_HEADROOM_M_S)`, which at the shipped ellipse (0.35, 0.25, 0.25) with `lin_vel_clip` 0.2 is
+  **0.88** for `omni`/`omni_turn`/`side_*`/`back`(+`_turn`) and **0.6286** for `fwd`/`fwd_turn`
+  (`scale == 1.0` is always legal). The tightness is a property of the ellipse — smallest semi-axis
+  0.25 against a 0.21 floor leaves 0.04 m/s of room — not of the guard: scaling the whole band
+  instead would put EVERY draw of a scaled type below 0.2 m/s, where the clock freezes, converting a
+  loud refusal into exactly the silent creeper the floor exists to catch. To buy room, widen
+  `KRABBY_OMNI_SPEED_ELLIPSE` or lower `lin_vel_clip` in the same overlay. The refusal message names
+  the largest legal scale and both remedies.
+- **`POOL_FLOOR_SHARE = 0.025`** — the smallest share a curriculum stage may give a type it has
+  ENABLED. Below it a type is in the config dump and absent from the training distribution (at 64
+  envs and 10-s resampling a 1 % type is drawn a few times a minute). The ladder's validator imports
+  the constant rather than re-spelling it.
+- **The `−1` sentinel.** `pool_tables` builds `K+1`-entry tables whose TRAILING entry is the unit
+  scale, and `type_id = −1` indexes it by ordinary negative indexing — so an eval `schedule_hook`
+  row, an RSI-staged row, and every row of a pool-less run resolve to **exactly the global cap**.
+  (Pinned in both directions, including against the `clamp_min(0)` slip that would silently hand
+  those rows the FIRST type's scale.)
+- **Metrics — only with a pool.** Two families appear beside the nine shipped names:
+  `Metrics/base_velocity/pool_<name>_frac`, the **step-weighted** share of steps spent in that type
+  (the `*_frac_actual` slot metrics' per-type twin, staged rows in no type), and
+  `Metrics/base_velocity/pool_<name>_draws`, a **LIFETIME running fraction of draws** — overwritten
+  every step and NEVER reset, so it is what Verification 3(b) needs on a fresh run (`_draws` ≈ the
+  weights) but is not comparable across a resumed run and drifts towards the whole-run mix. A
+  pool-less run logs exactly the nine legacy names, which is what keeps the nine-name metric test
+  green. `run_phases.exposure_from_log` collects both families by the prefix
+  `Metrics/base_velocity/pool_`.
+- **Slot-gated tracking telemetry (WATCH).** `Metrics/base_parkour/track_ratio_move_mean` is
+  `ep_track_dist_move / ep_cmd_dist_move` accumulated over `SLOT_MOVE` steps ONLY (moving, not
+  turning), with the same `min_cmd_dist_m` validity rule as `track_ratio_mean`. It exists because the
+  un-gated `track_ratio_mean` includes the ≈20 % move+turn rows, where the commanded turn is
+  infeasible on this plant — so a successful facing fix LOWERS the un-gated ratio by design. It is
+  emitted on the legacy path too (printed as 0 until the first finished walking episode, exactly like
+  `track_ratio_mean`), and `OMNI_EXTRA_KEYS` is now five names:
+  `track_ratio_mean, track_ratio_move_mean, heading_err_rms_mean, block_steps_mean, r_max_mean`.
 
 ## Training
 
@@ -398,6 +539,114 @@ decision point). No student anywhere: the training subprocess env carries only
 reruns): `dead_plant` (soundness at 2000 iterations on FROM-SCRATCH windows only, the sideways rule —
 no omni window qualifies (1a is 1000 it), so collapse is covered by the soft gates and `gate_1c`), `gate_1a`/`gate_1b` (soft, short-stage), `gate_1c` (the written
 formation gate), `gate_facing` (the turn-rate gate from 2a; facing precision watched), `nan`, `infra`.
+
+Since 2026-09-19 `run_phases.py` also refuses a `state.json` that carries a `ladder` key (`SystemExit`
+naming `run_candidates.py`, raised before any write, so no `logs/` is created): a ladder campaign
+directory belongs to the candidate driver below, never to the phase chain.
+
+### The candidate ladder (autonomous, ranked candidates)
+
+A second driver, `experiments/tools/run_candidates.py`, works down a RANKED list of candidate
+recipes: each is screened once (seed 3, 8000 iterations of the effective recipe's chain), decided by
+a pure function of the eval summary and a MEASURED resolution, and — when the outcome is inside that
+resolution — adopted or rejected SPECULATIVELY so the campaign keeps moving while the confirming
+seed-2 pair runs as the next windows. The user is notified of every decision and may confirm
+(freeze) or overrule any of them; an overrule discards the work done under the wrong branch (SQUASH)
+and the queue resumes from the new choice. It reuses `run_phases.py`'s subprocess layer by
+import-by-path (`train_retry`, `eval_morph`/`eval_obst`, `summarize`, `Campaign`,
+`_wait_isaac_clear`, `CURRENT_CHILD`) and edits nothing in it.
+
+**Files.** Tools in `experiments/tools/`: `run_candidates.py` (the driver), `resolution.py` (the
+paired-bootstrap resolution, step 0), `ledger_cli.py` (the read/override CLI **and** the notification
+contract), `launch_candidates.sh` (the launcher). Campaign directory (`experiments/<date>_<name>/`):
+`candidates.yaml` (chains, ranked candidates, milestones, the decision rule, the resolution inputs —
+the driver contains no dated path and no candidate), `resolution.json`, `ledger.json`
+(driver-owned, atomic), `ledger_overrides.jsonl` (CLI-owned, append-only, one uuid per line),
+`state.json`/`heads.json` (the same contract `heartbeat_phases.sh` reads), `REPORT.md`,
+`CHANGELOG.md`, `notify.log`, `orchestrator.log`, and a `STOP` control file.
+
+**Launch, watch, dry-run:**
+
+```bash
+R=/home/nickmagus/krabby/krabby-research
+PY=/home/nickmagus/krabby/isaac_venv/bin/python
+OMNI=$R/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task
+LAD=$OMNI/experiments/2026-09-19_facing_tracking_ladder
+"$OMNI/experiments/tools/launch_candidates.sh" --campaign-dir "$LAD"     # prints the unit name
+"$OMNI/experiments/tools/heartbeat_phases.sh" <unit> "$LAD" 1800         # unchanged
+# print the derived queue, every stage env, the validator verdicts, D00 and code_sha; no GPU,
+# no state.json, no ledger:
+$PY "$OMNI/experiments/tools/run_candidates.py" --campaign-dir /tmp/ladder_dry \
+  --candidates "$LAD/candidates.yaml" --dry-run
+```
+
+The launcher is `systemd-run --user --unit cands-<dir>-<epoch>` with `OOMPolicy=continue`,
+`MemoryMax=48G`, `MemorySwapMax=0`, `KillMode=mixed`, `TimeoutStopSec=360` and **no `timeout`
+wrapper** (a many-day campaign; `--max-wall-h` parks cleanly at `await_user:relaunch` instead). It
+refuses to start beside another `run_phases.py`/`run_candidates.py` and waits up to 10 min for any
+other Isaac process. `systemctl --user stop <unit>` is the EMERGENCY path: `KillMode=mixed` SIGTERMs
+the driver only, so its own handler stops the Kit child with SIGTERM first — a SIGKILL of a live Kit
+corrupts its `DerivedDataCache`. The normal stop is `ledger_cli.py ... stop`.
+
+**The notify/ledger protocol.** The driver appends one physical line per event to `notify.log`
+(`%Y-%m-%d %H:%M TAG <id> | field | ...`, absolute paths), produced by `ledger_cli.format_notify`
+and parsed back by `ledger_cli.parse_notify`. Thirteen tags: `RESOLUTION, DECISION, CONFIRM,
+SELF-OVERRULE, OVERRIDE-APPLIED, SQUASH, MILESTONE, RETENTION, INFRA, HALT, DONE, RELAUNCH, AWAIT`.
+Every DECISION line carries both blocks with their `z` and `R`, the four guards, the anchored-drift
+verdict, the resolution id and levels, a WATCH row, the next queued item, and the exact commands to
+answer it. The user answers through the CLI, which writes ONLY `ledger_overrides.jsonl` — never
+`ledger.json`, never `state.json` — so an answer is a durable uuid-stamped fact that a RUNNING driver
+picks up at its next `ingest_overrides()` (within one poll tick) and a STOPPED driver picks up at its
+next launch:
+
+```bash
+# $R / $PY / $OMNI / $LAD as assigned in the launch block above (same shell), or copy the
+# assignment block from the ladder CHARTER's "How to confirm, overrule, decide, resume".
+$PY "$OMNI/experiments/tools/ledger_cli.py" --campaign-dir "$LAD" pending
+$PY "$OMNI/experiments/tools/ledger_cli.py" --campaign-dir "$LAD" show [<id>] [--json]
+$PY "$OMNI/experiments/tools/ledger_cli.py" --campaign-dir "$LAD" confirm <Did> [--why "..."]
+$PY "$OMNI/experiments/tools/ledger_cli.py" --campaign-dir "$LAD" overrule <Did> --choose ADOPT|REJECT|SKIP --why "..."
+$PY "$OMNI/experiments/tools/ledger_cli.py" --campaign-dir "$LAD" decide <Cid> --choose run|skip [--why "..."]
+$PY "$OMNI/experiments/tools/ledger_cli.py" --campaign-dir "$LAD" resume-milestone <Mid> (--accept | --drop <Cid>) [--why "..."]
+$PY "$OMNI/experiments/tools/ledger_cli.py" --campaign-dir "$LAD" stop | unstop
+```
+
+`overrule` of a `resolution`, `measurement` or `baseline` entry is refused (those are measurements,
+not choices), and the CLI prints "driver not running — applied at next launch" when the recorded unit
+is inactive.
+
+**`code_sha`.** Every experiment header records a sha256 over the blob ids of `git ls-tree -r HEAD`
+under the omni `mdp`/`config`, the forward `config`/`mdp`/`scripts/gait_eval`, `parkour/scripts`,
+`parkour/parkour_isaaclab`, `experiments/tools/run_phases.py` and
+`experiments/eval/scenarios_omni.yaml`, after an `fnmatch` filter drops `*.md`,
+`*/experiments/20*`, `*/tests/*` and `tests/*`. A launch is REFUSED while any of those paths is
+dirty or untracked, and a CHANGED hash at relaunch is refused without `--accept-code-change <why>`.
+Record and docs commits (a campaign directory, this README, `docs/FOLDER_LAYOUT.md`) leave it
+unchanged — which is what lets a campaign commit its own records while it runs. The three ladder
+tools are OUTSIDE the hash by design and are recorded informationally per entry as `tools_sha`.
+
+**`EVAL_CARRY` — the knobs an eval must reproduce from its training window.** `run_phases.py` carries
+**seven** names into every eval env (`eval_env_for`), and `EVAL_CARRY_DEFAULTS` injects a value for
+the two whose presets may be silent, so `run_meta.env_vars` always records what the eval was actually
+asked for:
+
+| key | default injected | why it is carried |
+|---|---|---|
+| `KRABBY_OMNI_FACING_OBS_CLIP` | — (every preset sets 0.6) | scoring a head on a raw 1.57-rad error against a ±0.6-rad training support is the defect that voided the 1c canary (Revision 4, cause 1) |
+| `KRABBY_OMNI_SPEED_ELLIPSE` | — | it is the denominator of every speed ratio |
+| `KRABBY_OMNI_ANG_VEL_MAX` | — | the yaw-rate cap the P-control saturates at |
+| `KRABBY_OMNI_CLOCK_TURN_R` | — | the clock's turn radius |
+| `KRABBY_OMNI_YAW_RANGE` | — | the spawn-yaw band |
+| `KRABBY_OMNI_FACING_OBS_ENCODING` | **`"raw"`** | a `sincos` head scored under `raw` reads the wrong two channels |
+| `KRABBY_OMNI_ANG_VEL_CLIP` | **`"0.2"`** | the dead band, which decides when the command is non-zero at all |
+
+The two defaults MUST equal the class-body values they stand in for (`facing_obs_encoding` `"raw"`,
+`CrabHexOmniCommandCfg.clips.ang_vel_clip` `0.2`) and are pinned against the shipped cfg by
+`tests/unit/test_crab_hex_omni_gate.py`. **`KRABBY_OMNI_CMD_POOL` is deliberately NOT carried and has
+no default**: the pool is a SAMPLER knob (which command types a TRAINING window draws), while every
+eval row's commands come from the manifest's own schedule. A candidate that changes a carried knob
+declares it in its own `eval_carry`, and it reaches the eval through `eval_env_for`'s
+`carry_overlay`.
 
 ### Gates
 
@@ -454,7 +703,7 @@ $PY parkour_tasks/parkour_tasks/crab_hex_forward_task/scripts/eval_crab_hex_gait
 ```
 
 Phase-2 heads add `--task Isaac-Crab-Hex-Omni-Teacher-Play-v0`. `scenarios_omni.yaml` (manifest
-v2) has three rows, each an 8-hold schedule — 8 s per hold except the two turn holds at 12 s, 80-s
+v2) has three LEGACY rows, each an 8-hold schedule — 8 s per hold except the two turn holds at 12 s, 80-s
 episodes (a 90° turn to ≤ 0.30 rad needs ≥ 0.16 rad/s sustained in 8 s, above the plant's ~0.15–0.2
 rad/s) — (stand, fwd 0.25, lat_l 0.22, diag 0.25, back 0.22,
 turn_l90 (face +π/2), turn_r90 (a right 90° turn back to face 0, not an absolute −π/2 — that would
@@ -464,6 +713,24 @@ be a 180° swing and no hold is long enough), move_turn 0.22 while turning to fa
 - **`light__omni`** — step onset: ring geometry at `0.05:0.2`.
 - **`ring__omni`** — no `env:` block; the driver injects the ring at `0.20:0.70` at run time
   (the PLAN H convention).
+
+A fourth row was APPENDED 2026-09-19 for the candidate ladder's curriculum chain (the three legacy
+rows are byte-unchanged; the file's diff was `+50 / −0`):
+
+- **`curriculum__omni`** — flat, no `env:` block, `role: teacher`,
+  `Isaac-Crab-Hex-Omni-Walk-Play-v0`, 100 episodes, `env_seed 1`, `spawn_yaw: first_face`,
+  `episode_length_s` **92.0**. **TEN** holds in the curriculum's own prefix-enabling order — `stand,
+  fwd` (c1) · `lat_l, lat_r, back` (c2) · `turn_l90, turn_r90` (c3) · `move_turn, move_turn_r` (c4) ·
+  `diag` (c5) — so stage `c<k>`'s eval reads exactly the capabilities `c<k>` has enabled, and the
+  RETENTION check compares the previous stage's holds. 8 holds × 8 s + 2 turn holds × 12 s = 88.0 s +
+  the 1.5-s prologue = **89.5 s**, margin 2.5 s. **WATCH telemetry only** at the curriculum-stage
+  evals; scoring always stays on `slow__omni`. The header's "6 holds × 8 s + 2 × 12 s = 72 s,
+  `episode_length_s` 80 frozen" arithmetic describes the three LEGACY rows and does not constrain a
+  new one. Caveat: `move_turn_r` (0.22 m/s, dir 0, face 0) is a right-handed COUNTERPART of
+  `move_turn`, not its reflection — its ellipse cap is the fore-aft 0.35 where `move_turn`'s is the
+  lateral 0.25 — and a 90° facing change inside 8 s cannot close at ~0.15–0.2 rad/s, so
+  `facing_by_hold[move_turn_r]` reads "never closed" by construction. Expected, WATCH-only, and never
+  read as a handedness asymmetry.
 
 `facing_metrics` adds `heading_error_rms`, `heading_error_final_abs`, `heading_error_max_abs`,
 `settle_time_s`, `yaw_progress_rate` (the gate quantity), `net_yaw_rate_toward` (cross-check from the
@@ -519,7 +786,9 @@ RUN_CRAB_HEX_CFG_IDENTITY=1 pytest tests/integration/test_crab_hex_phase_configs
 ```
 
 The pure suite includes the omni-specific modules (`test_crab_hex_omni_{command,observations,
-rewards,mirror,rsi,ring_terrain,terrain_knobs,exposure,phases,gate}.py`) plus the seam tests shared
+rewards,mirror,rsi,ring_terrain,terrain_knobs,exposure,phases,gate}.py`, plus
+`test_crab_hex_omni_{candidates,resolution}.py` for the candidate ladder — both load the tools by
+path and need no Isaac) plus the seam tests shared
 with the forward/sideways tasks (`test_crab_hex_clock_speed.py`, `test_travel_frame_seams.py`,
 `test_crab_hex_forward_seam_literals.py`, `test_crab_hex_gait_schedule.py`,
 `test_crab_hex_gait_metrics.py`, `test_crab_hex_stability_metrics.py`,
@@ -561,7 +830,18 @@ documented delta and that the forward AND sideways config dumps are byte-identic
   its 2a teacher head is one of this task's two RSI sources.
 - `docs/crab-hex-forward-policy-config.md` — the shared config reference; its `KRABBY_PHASE` row
   names all three preset variables.
-- This package's campaign CHARTER
+- This package's first campaign CHARTER
   (`experiments/2026-09-16_1805_omni_formation/CHARTER.md`) — the question, hypotheses, held-fixed
-  list, gates, decision table and caveats for the first training campaign; `RSI_BANK.md` in the
-  same directory has the harvest provenance.
+  list, gates, decision table and caveats for the formation campaign, CLOSED at its 2b decision
+  point; `RSI_BANK.md` in the same directory has the harvest provenance, and
+  `ANALYSIS_1c_failure_2026-09-18.md` / `replay_reward_economy.md` are the evidence behind
+  Revision 4.
+- The candidate ladder's CHARTER
+  (`experiments/2026-09-19_facing_tracking_ladder/CHARTER.md`) — the five mechanisms with their
+  numbers, the decision rule and resolution policy verbatim, the measured `D00` half-widths every
+  decision is standardised by, the ranked candidates, the milestones, the speculation/squash
+  protocol and how to confirm, overrule, decide or resume; `candidates.yaml` beside it is the
+  machine-readable specification.
+- `experiments/lit-review-omnidirectional-gait-formation.md` — the verified literature review
+  (command spaces, turning in sprawled hexapods, the stand-still optimum) that the ladder's
+  mechanisms 2, 3 and 5 cite.
