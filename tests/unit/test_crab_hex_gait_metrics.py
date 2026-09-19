@@ -894,3 +894,76 @@ def test_body_rows_are_unaffected_by_the_world_branch():
     with_extra = R.score_run(dict(raw, heading_err=np.zeros((T, 1))), **kwargs)
     assert base == with_extra
     assert "facing_by_hold" not in R.aggregate(base)
+
+
+# ---------------------------------------------------------------------------
+# facing_closed / heading_error_initial_abs (2026-09-18): the SCALE-FREE facing quantity.
+# heading_error_final_abs answers "where did it end up", which is only comparable between holds
+# that started at the same error -- the candidate ladder compares holds and recipes that do not.
+# ---------------------------------------------------------------------------
+def test_facing_closed_is_the_fraction_of_the_initial_error_closed():
+    n = 200
+    # 1.5 rad -> 0.3 rad: four fifths of the turn closed.
+    out = M.facing_metrics(np.linspace(1.5, 0.3, n), np.full(n, 0.2), DT, wz_cmd_t=np.full(n, 0.3))
+    assert out["heading_error_initial_abs"] == pytest.approx(1.5)
+    assert out["facing_closed"] == pytest.approx(1.0 - 0.3 / 1.5)
+    assert out["n_uninformative"] == 0
+    # A right turn is the mirror image, not a sign flip: both sides are magnitudes.
+    mirror = M.facing_metrics(np.linspace(-1.5, -0.3, n), np.full(n, -0.2), DT, wz_cmd_t=np.full(n, -0.3))
+    assert mirror["facing_closed"] == pytest.approx(out["facing_closed"])
+
+
+def test_facing_closed_is_none_when_there_was_no_turn_to_close():
+    """A hold that starts on target measures nothing: dividing a wobble by ~0 manufactures a
+    verdict. UNINFORMATIVE and counted, never 0.0 (which reads as "closed nothing")."""
+    on_target = M.facing_metrics(np.full(50, 0.02), np.zeros(50), DT, wz_cmd_t=np.zeros(50))
+    assert on_target["facing_closed"] is None and on_target["n_uninformative"] == 1
+    assert on_target["heading_error_initial_abs"] == pytest.approx(0.02)
+    # Exactly at the floor is informative; a hair under is not.
+    at = M.facing_metrics(np.full(50, M.FACING_CLOSED_MIN_INITIAL_RAD), np.zeros(50), DT)
+    under = M.facing_metrics(np.full(50, M.FACING_CLOSED_MIN_INITIAL_RAD - 1e-9), np.zeros(50), DT)
+    assert at["facing_closed"] == pytest.approx(0.0) and at["n_uninformative"] == 0
+    assert under["facing_closed"] is None and under["n_uninformative"] == 1
+    empty = M.facing_metrics(np.array([]), np.array([]), DT)
+    assert empty["facing_closed"] is None and empty["heading_error_initial_abs"] is None
+    assert empty["n_uninformative"] == 0            # nothing was measured, so nothing was DISCARDED
+
+
+def test_facing_closed_is_clipped_and_refused_across_a_moving_target():
+    """A body that spins away from the target would otherwise own a median on its own; and across
+    holds the target MOVES, so "the initial error" belongs to a different command than the final
+    one -- the same reason net_yaw_rate_toward is refused there."""
+    opened = M.facing_metrics(np.linspace(0.5, 3.0, N_HOLD), np.zeros(N_HOLD), DT)
+    assert opened["facing_closed"] == pytest.approx(-1.0)          # clipped, not -5.0
+    held = M.facing_metrics(np.full(N_HOLD, 0.8), np.zeros(N_HOLD), DT)
+    assert held["facing_closed"] == pytest.approx(0.0)             # ended where it started
+    episode = M.facing_metrics(np.linspace(1.5, 0.0, N_HOLD), np.zeros(N_HOLD), DT,
+                               constant_target=False)
+    assert episode["facing_closed"] is None and episode["n_uninformative"] == 0
+    assert episode["heading_error_initial_abs"] == pytest.approx(1.5)   # still recorded
+
+
+def test_world_row_carries_the_closed_fraction_through_to_the_aggregate():
+    """End to end on a world row: the turn hold closes its whole error, the travel hold has none to
+    close, and both keys reach ``aggregate``'s facing block (body rows still have no facing at all).
+    """
+    R, raw, compiled, scenario, T = _world_raw_and_scenario()
+    episodes = R.score_run(
+        raw, compiled=compiled, scenario=scenario, dt=DT,
+        term_reason=["schedule_complete"], n_steps_env=[T], travel_yaw=raw["travel_yaw"],
+    )
+    turn = episodes[0]["holds"]["turn_l90"]["facing"]
+    assert turn["heading_error_initial_abs"] == pytest.approx(math.pi / 2, abs=1e-6)
+    assert turn["facing_closed"] == pytest.approx(1.0, abs=1e-6)     # error pi/2 -> ~0
+    move = episodes[0]["holds"]["move"]["facing"]
+    assert move["facing_closed"] is None and move["n_uninformative"] == 1
+    agg = R.aggregate(episodes)
+    assert agg["facing_by_hold"]["turn_l90"]["facing_closed"]["median"] == pytest.approx(1.0, abs=1e-6)
+    assert agg["facing_by_hold"]["turn_l90"]["heading_error_initial_abs"]["median"] == pytest.approx(
+        math.pi / 2, abs=1e-6)
+    # the uninformative hold: measured for error, no closed fraction (n 0, not a 0.0 median)
+    assert agg["facing_by_hold"]["move"]["facing_closed"]["n"] == 0
+    assert agg["facing_by_hold"]["move"]["facing_closed"]["median"] is None
+    assert agg["facing_by_hold"]["move"]["heading_error_rms"]["n"] == 1
+    text = R.summary_text({"scenario_id": "s", "task": "t", "command_override_max_deviation": 0.0}, episodes)
+    assert "closed=1.000" in text and "initial=1.571" in text

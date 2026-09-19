@@ -699,6 +699,15 @@ def orientation_metrics(root_quat_w: np.ndarray, *, travel_yaw=0.0) -> dict:
 # --------------------------------------------------------------------------------------
 #: |heading error| below this counts as "on target" for ``settle_time_s`` (rad).
 FACING_SETTLE_TOL_RAD = 0.15
+#: Smallest INITIAL |heading error| a ``facing_closed`` fraction is computed from (rad).
+#:
+#: The closed fraction divides by the error the window started with, so a window that starts
+#: already on target measures nothing: ``1 - final/initial`` on ``initial = 0.02`` turns a 0.01-rad
+#: wobble into -0.5 "opened", and on ``initial = 0`` it is undefined. Below this floor the metric is
+#: ``None`` (UNINFORMATIVE, counted in ``n_uninformative``) rather than a number nobody can compare
+#: -- a stand hold's facing entry must not dilute a turn hold's. 0.15 rad is the settle tolerance:
+#: an error the metric would call "already on target" cannot also be a turn worth scoring.
+FACING_CLOSED_MIN_INITIAL_RAD = 0.15
 
 
 def facing_metrics(
@@ -710,16 +719,36 @@ def facing_metrics(
     settle_tol: float = FACING_SETTLE_TOL_RAD,
     cmd_eps: float = 1e-6,
     constant_target: bool = True,
+    min_initial: float = FACING_CLOSED_MIN_INITIAL_RAD,
 ) -> dict:
     """Facing-command tracking over one window.
 
     ``heading_err_t`` is the per-step wrapped error ``wrap(heading_target - heading_w)`` (rad),
     ``wz_t`` the achieved body yaw rate and ``wz_cmd_t`` (optional) the commanded one.
 
-    * ``heading_error_rms`` / ``heading_error_max_abs`` / ``heading_error_final_abs`` -- the
-      window's error, its worst step and where it ended up. Scored over the WHOLE hold, not the
-      steady window: a turn command *is* the transient, and masking the settle window out would
-      throw away the only steps that measure it.
+    * ``heading_error_rms`` / ``heading_error_max_abs`` / ``heading_error_final_abs`` /
+      ``heading_error_initial_abs`` -- the window's error, its worst step, where it ended up and
+      where it started. Scored over the WHOLE hold, not the steady window: a turn command *is* the
+      transient, and masking the settle window out would throw away the only steps that measure it.
+    * ``facing_closed`` -- the fraction of the window's INITIAL heading error that was closed by its
+      end: ``clip(1 - final/max(initial, min_initial), -1, 1)``. 1.0 = the turn was completed, 0.0 =
+      the error ended where it started, negative = the body opened the error (clipped at -1 so one
+      spinning episode cannot dominate a median). Scale-free where ``heading_error_final_abs`` is
+      not: a hold that starts at 1.57 rad and one that starts at 0.3 rad are directly comparable,
+      which is what makes it a decision-rule quantity rather than a report line. ``None``
+      (UNINFORMATIVE, with ``n_uninformative`` 1) when ``initial < min_initial`` -- there was no
+      turn to close -- and when ``constant_target`` is False, for the same reason
+      ``net_yaw_rate_toward`` is: across holds the target moves, so "the initial error" is the
+      initial error of a DIFFERENT command than the final one. A hold containing a fall is scored on
+      its truncated window (the caller's window mask already ends at the fall), so ``final`` is the
+      error at the fall, not at a hold end the episode never reached.
+    * ``n_uninformative`` -- 1 when the window carried steps and a constant target but was too
+      close to its target to yield a ``facing_closed``, else 0. Summed over a HOLD's episodes (the
+      ``constant_target=True`` call) it is the count of episodes the closed fraction could not be
+      measured on: the same number as ``heading_error_rms``'s aggregate ``n`` minus
+      ``facing_closed``'s. That identity is per hold only -- an EPISODE-level window
+      (``constant_target=False``) yields ``facing_closed`` ``None`` with ``n_uninformative`` 0,
+      because the refusal there is "the target moved", not "there was nothing to close".
     * ``settle_time_s`` -- time from the window start until ``|err|`` drops below ``settle_tol``
       **and stays there to the end**; ``None`` when it never does (so "slow" and "never" are
       different answers, and neither is silently 0).
@@ -754,7 +783,10 @@ def facing_metrics(
         "n_steps": int(err.size),
         "heading_error_rms": None,
         "heading_error_final_abs": None,
+        "heading_error_initial_abs": None,
         "heading_error_max_abs": None,
+        "facing_closed": None,
+        "n_uninformative": 0,
         "settle_time_s": None,
         "yaw_rate_ratio": None,
         "yaw_progress_rate": None,
@@ -765,7 +797,15 @@ def facing_metrics(
         abs_err = np.abs(err)
         out["heading_error_rms"] = float(np.sqrt(np.mean(err**2)))
         out["heading_error_final_abs"] = float(abs_err[-1])
+        out["heading_error_initial_abs"] = float(abs_err[0])
         out["heading_error_max_abs"] = float(abs_err.max())
+        if constant_target:
+            initial = float(abs_err[0])
+            if initial < float(min_initial):
+                out["n_uninformative"] = 1
+            else:
+                closed = 1.0 - float(abs_err[-1]) / max(initial, float(min_initial))
+                out["facing_closed"] = float(min(1.0, max(-1.0, closed)))
         # First index from which every later step is inside the tolerance.
         outside = np.flatnonzero(abs_err >= settle_tol)
         if outside.size == 0:

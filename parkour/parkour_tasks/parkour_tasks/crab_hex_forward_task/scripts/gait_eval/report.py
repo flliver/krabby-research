@@ -402,7 +402,13 @@ def aggregate(episodes: list[dict]) -> dict:
     # ``yaw_progress_rate`` (the gated turning-rate quantity) and ``net_yaw_rate_toward`` are signed,
     # so their aggregates must be too: a hold where half the episodes turn the wrong way has to show
     # a median near zero, which magnitudes could never report (2026-09-17 yaw-smoke finding).
-    facing_keys = ("heading_error_rms", "heading_error_final_abs", "heading_error_max_abs",
+    # ``facing_closed`` / ``heading_error_initial_abs`` (2026-09-18) are additive: an aggregate
+    # written before them simply has no such key, which is what the driver's proxy path keys off.
+    # ``facing_closed`` is None on a window with nothing to close, so its ``n`` is the INFORMATIVE
+    # episode count for that hold and ``heading_error_rms``'s ``n`` minus it is the uninformative
+    # one (``metrics.facing_metrics``'s per-window ``n_uninformative``, summed).
+    facing_keys = ("heading_error_rms", "heading_error_final_abs", "heading_error_initial_abs",
+                   "heading_error_max_abs", "facing_closed",
                    "settle_time_s", "yaw_rate_ratio", "yaw_progress_rate", "net_yaw_rate_toward")
     facing_by_hold: dict[str, dict] = {}
     for e in episodes:
@@ -501,12 +507,15 @@ def summary_text(run_meta: dict, episodes: list[dict]) -> str:
     if agg.get("facing_by_hold"):
         lines.append("")
         lines.append("facing by hold (whole hold; err rad, settle s, yaw rad/s: progress = "
-                     "wz*sign(wz_cmd), net = net rotation toward the target; ratio is wobble-sensitive):")
+                     "wz*sign(wz_cmd), net = net rotation toward the target; closed = fraction of "
+                     "the initial error closed, n/a when there was none; ratio is wobble-sensitive):")
         for label, fac in agg["facing_by_hold"].items():
             lines.append(
                 f"  {label:>8}: err rms={_median_txt(fac['heading_error_rms'])} "
+                f"initial={_median_txt(fac.get('heading_error_initial_abs') or {})} "
                 f"final={_median_txt(fac['heading_error_final_abs'])} "
-                f"max={_median_txt(fac['heading_error_max_abs'])} | "
+                f"max={_median_txt(fac['heading_error_max_abs'])} "
+                f"closed={_median_txt(fac.get('facing_closed') or {})} | "
                 f"settle={_median_txt(fac['settle_time_s'])} "
                 f"(n={fac['settle_time_s']['n']}/{fac['heading_error_rms']['n']}) | "
                 f"progress={_median_txt(fac['yaw_progress_rate'])} "

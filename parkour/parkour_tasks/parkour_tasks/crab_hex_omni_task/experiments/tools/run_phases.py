@@ -115,6 +115,15 @@ CANARY_KEEP = ("KRABBY_LIN_VEL_X", "KRABBY_TRACK_SIGMA2", "KRABBY_TRACK_L1_W", "
 #       TODAY; it is carried so a body-frame or unpinned row added later spawns from the band the
 #       policy trained on rather than the class default, and so ``_apply_spawn_yaw``'s structural
 #       guard (a leaked forward reset event has no ``yaw_range`` param) runs in the eval too.
+#   KRABBY_OMNI_FACING_OBS_ENCODING -- ``params["facing_obs_encoding"]`` on the omni observation
+#       term: whether the facing error reaches the policy RAW (one channel pair) or as
+#       ``(sin, cos)``. It changes the observation VECTOR, so an eval that does not match training
+#       scores the policy through inputs it never saw -- the same defect class as the obs clip
+#       above, one step worse (the clip changes a value, the encoding changes the shape's meaning).
+#   KRABBY_OMNI_ANG_VEL_CLIP -- ``clips.ang_vel_clip``, the yaw-rate DEAD BAND: a commanded
+#       |wz| at or below it is zeroed before the command is written. It therefore decides whether a
+#       turn hold's small P-control tail is a command at all, which is what the eval's turn metrics
+#       are computed over.
 #
 # NOT carried, deliberately: KRABBY_OMNI_SLOTS / _DIR_BAND / _FACING / _RSI_SOURCE, KRABBY_RSI_*,
 # KRABBY_YAW_W, KRABBY_YAW_PROGRESS_W, KRABBY_STAND_FRAC, KRABBY_RESAMPLE_S and the
@@ -127,7 +136,23 @@ CANARY_KEEP = ("KRABBY_LIN_VEL_X", "KRABBY_TRACK_SIGMA2", "KRABBY_TRACK_L1_W", "
 # omni command cfg's Go2 literal 0.8 is overwritten before ``apply_omni_knobs`` runs. Only
 # KRABBY_HEADING_STIFFNESS would change it and no omni preset sets it (see the CANARY_KEEP note).
 EVAL_CARRY = ("KRABBY_OMNI_FACING_OBS_CLIP", "KRABBY_OMNI_SPEED_ELLIPSE", "KRABBY_OMNI_ANG_VEL_MAX",
-              "KRABBY_OMNI_CLOCK_TURN_R", "KRABBY_OMNI_YAW_RANGE")
+              "KRABBY_OMNI_CLOCK_TURN_R", "KRABBY_OMNI_YAW_RANGE",
+              "KRABBY_OMNI_FACING_OBS_ENCODING", "KRABBY_OMNI_ANG_VEL_CLIP")
+#: The value an eval carries for an :data:`EVAL_CARRY` key the phase's preset does not set.
+#:
+#: A preset that never mentions a knob trains on the config's CLASS DEFAULT, and an eval that also
+#: never mentions it builds on the same class default -- so omitting the key is already correct
+#: TODAY. It is injected anyway, for one reason: ``run_meta.env_vars`` is the record of what the
+#: eval was asked for, and a blank there cannot be distinguished later from "the eval forgot".
+#: These two values must therefore equal the class-body defaults they stand in for
+#: (``facing_obs_encoding`` "raw"; ``CrabHexOmniCommandCfg.clips.ang_vel_clip`` 0.2) -- pinned by
+#: ``tests/unit/test_crab_hex_omni_gate.py``. A candidate that changes either one sets it in its own
+#: overlay, which reaches the eval through ``eval_env_for``'s ``carry_overlay``.
+#: KRABBY_OMNI_CMD_POOL is deliberately NOT carried and has no default here: the pool is a SAMPLER
+#: knob (which command types a training window draws), and every eval row's commands come from the
+#: manifest schedule override instead -- the sampler never runs. Carrying it would be the exact
+#: mistake the "NOT carried, deliberately" list below exists to prevent.
+EVAL_CARRY_DEFAULTS = {"KRABBY_OMNI_FACING_OBS_ENCODING": "raw", "KRABBY_OMNI_ANG_VEL_CLIP": "0.2"}
 # Evals never carry RSI resets: set explicitly (not merely omitted) so a preset that later grows a
 # different default, or a leaked parent value, cannot re-arm reference-state resets inside an eval.
 # apply_omni_knobs / the forward knob block build events.rsi_reference_reset only for RSI_FRAC > 0.
@@ -151,6 +176,28 @@ OBST_EVAL = {"KRABBY_FLAT_TERRAIN_GEOM": "ring", "KRABBY_FLAT_TERRAIN_DIFF": "0.
              "KRABBY_FLAT_TERRAIN_MODE": "light", "KRABBY_FLAT_TERRAIN_FLAT_FRAC": "0.0"}
 SMOKE_ITERS = 2000       # soundness window (rung-v precedent)
 STALL_S = 900
+# ------------------------------------------------- the subprocess poll layer (2026-09-18)
+#: Seconds between two poll ticks of a TRAINING child. Every tick asks ``interrupt_check()`` first,
+#: so this is also the worst-case latency between a stop request and the child's SIGTERM.
+POLL_S = 120
+#: Seconds between two poll ticks of an EVAL child (shorter: an eval row is ~3 min, not ~2 h).
+EVAL_POLL_S = 30
+#: Seconds between a failed eval attempt and the next one (and between a train infra death and its
+#: one retry): long enough for the GPU and Kit's own file locks to clear.
+RETRY_WAIT_S = 120
+#: Seconds a terminated child is given to exit on its own before it is SIGKILLed. Kit writes its
+#: DerivedDataCache on the way out; a SIGKILL mid-write corrupts it and every later Kit start then
+#: balloons until the machine OOMs (2026-08-13, 2026-09-18), which is why nothing here kills first.
+TERM_GRACE_S = 120
+#: The child (train or eval) this process currently owns, or ``None``. A campaign driver that
+#: imports this module by path registers its SIGTERM handler against ``<module>.CURRENT_CHILD``:
+#: the handler only sets its own flag and signals this child, and the poll layer below classifies
+#: the resulting exit as ``interrupted`` rather than ``infra`` (so no retry fires during a shutdown).
+CURRENT_CHILD: "subprocess.Popen | None" = None
+#: ``{status, rc, attempts}`` of the last :func:`_run_eval` call. ``eval_morph`` / ``eval_obst``
+#: return ``None`` when an eval produced no metrics, which says nothing about WHY; the infra
+#: detector reads the child's return code (``-9`` = SIGKILL, i.e. the OOM killer) from here.
+LAST_EVAL_INFO: dict = {}
 DEFAULT_PAUSE = "2b"     # the campaign's decision point (Part H); 2c/2c_clockheld are always separate launches
 GATE_SOFT_TRIPOD = 0.30      # 1a/1b soft-gate floor (short stages: formation is not yet load-bearing)
 GATE_SOFT_COMPLETION = 0.70
@@ -215,11 +262,24 @@ ph = _load(PHASES_PY, "crab_hex_omni_phases")
 # Verbatim structure from the sideways driver (2026-09-11), itself inlined from the forward
 # campaign scripts (run_exposure.py / run_formation_arms.py); re-pointed for the omni task and
 # stripped of every distillation-only path (this task has no student).
+#: ``track_ratio_move_mean`` is the omni ledger's slot-gated twin of ``track_ratio_mean`` (the same
+#: ratio over the MOVING rows only). It must be listed here or the number never reaches the REPORT:
+#: ``exposure_from_log`` collects exactly these keys. ``set(OMNI_EXTRA_KEYS) <= set(EXPO_KEYS)`` is
+#: pinned in ``tests/unit/test_crab_hex_omni_gate.py`` so a key added to the ledger cannot go
+#: uncollected here.
 EXPO_BASE = ["reach_edge_frac", "reach_obst_frac", "field_frac_mean", "field_steps_mean",
-             "goals_passed_mean", "track_ratio_mean", "heading_err_rms_mean", "block_steps_mean", "r_max_mean"]
+             "goals_passed_mean", "track_ratio_mean", "track_ratio_move_mean",
+             "heading_err_rms_mean", "block_steps_mean", "r_max_mean"]
 EXPO_KEYS = EXPO_BASE + [
     "crab_failure_flat", "crab_failure_obst", "ep_steps_flat", "ep_steps_obst",
     "rsi_frac_actual", "terrain_levels", "how_far_from_start_point", "current_goal_idx"]
+#: The command-pool telemetry labels, collected BY PREFIX rather than from a pinned type list: the
+#: pool's type set is a knob (``KRABBY_OMNI_CMD_POOL``), so a fixed list here would silently stop
+#: reporting a type someone adds. ``pool_<type>_frac`` is step-weighted (share of steps this type
+#: held) and ``pool_<type>_draws`` is a LIFETIME running fraction of the draws, overwritten each
+#: step and never reset -- so it drifts towards the whole-run mix and is NOT comparable across a
+#: resumed run. Present only when a pool is set.
+POOL_METRIC_PREFIX = "Metrics/base_velocity/pool_"
 
 
 def series(log_path: Path, label: str) -> list[float]:
@@ -247,13 +307,21 @@ def fmt(v) -> str:
 
 
 # ------------------------------------------------------------------ translation floor (pure)
-def track_ratio_series(log_path: Path) -> list[float]:
-    """Every ``Metrics/base_parkour/track_ratio_mean`` value in a training log, in order.
+def track_ratio_series(log_path: Path, key: str = "track_ratio_mean") -> list[float]:
+    """Every ``Metrics/base_parkour/<key>`` value in a training log, in order.
 
     The trainer prints one line per iteration, so index == iteration for a from-scratch run
     (a RESUMED run's list still starts at this run's first iteration, which is why the early
-    abort below is from-scratch-only)."""
-    return series(log_path, TRACK_RATIO_LABEL)
+    abort below is from-scratch-only).
+
+    ``key`` defaults to today's label (:data:`TRACK_RATIO_LABEL`, bitwise) -- every existing caller
+    is unchanged. The parameter exists for ``track_ratio_move_mean``, the slot-gated twin: the
+    plain ratio includes the ~20 % move+turn rows, so a change that BUYS turning capability lowers
+    it by design, and a campaign that scores on the plain number alone would read that as a
+    regression. The move-gated series is WATCH-only for the same reason -- it is the cross-check,
+    not a second floor.
+    """
+    return series(log_path, f"Metrics/base_parkour/{key}")
 
 
 def track_ratio_tail(vals: list[float], n: int = GATE_TRACK_RATIO_N) -> float | None:
@@ -293,6 +361,27 @@ def _med(x):
     return x
 
 
+def pool_series_from_log(tlog: Path) -> dict[str, list[float]]:
+    """``{pool_<type>_frac | pool_<type>_draws: [values in order]}`` from one training log.
+
+    Collected by PREFIX (:data:`POOL_METRIC_PREFIX`) in ONE pass over the file: the pool's type set
+    comes from a knob, so the labels cannot be pinned here without going stale the first time a type
+    is added. Returns ``{}`` for a log written without a pool (the labels only exist when one is
+    set), which is what makes an empty result mean "no pool", never "the parser missed it".
+    """
+    pat = re.compile(re.escape(POOL_METRIC_PREFIX) + r"(\w+_(?:frac|draws)):\s*(-?[0-9.]+(?:e-?\d+)?)")
+    out: dict[str, list[float]] = {}
+    for line in tlog.read_text(errors="ignore").splitlines():
+        m = pat.search(line)
+        if not m:
+            continue
+        try:
+            out.setdefault("pool_" + m.group(1), []).append(float(m.group(2)))
+        except ValueError:
+            pass
+    return out
+
+
 def exposure_from_log(tlog: Path, n: int = 20) -> dict:
     out = {k: tail_mean(series(tlog, f"Metrics/base_parkour/{k}"), n) for k in EXPO_KEYS}
     out["stand_frac_actual"] = tail_mean(series(tlog, "Metrics/base_velocity/stand_frac_actual"), n)
@@ -304,6 +393,11 @@ def exposure_from_log(tlog: Path, n: int = 20) -> dict:
     out["mean_reward"] = tail_mean(series(tlog, "Mean reward"), n)
     out["vloss"] = tail_mean(series(tlog, "Mean value_function"), 200)
     out["track"] = tail_mean(series(tlog, "Episode_Reward/track_lin_vel_xy_exp"), n)
+    # Command-pool telemetry, present only when the window ran with a pool. Absent keys therefore
+    # mean "no pool", and a `_frac` that is present but ~0 means "this type was declared and never
+    # drawn" -- two different answers a fixed key list with a nan would have merged into one.
+    for label, vals in pool_series_from_log(tlog).items():
+        out[label] = tail_mean(vals, n)
     out["prints"] = len(series(tlog, "Mean reward"))
     return out
 
@@ -313,7 +407,10 @@ def expo_lines(ex: dict) -> list[str]:
         f"- exposure (ring): reach_edge {fmt(ex.get('reach_edge_frac'))} | reach_obst "
         f"{fmt(ex.get('reach_obst_frac'))} | field_frac {fmt(ex.get('field_frac_mean'))} (steps "
         f"{fmt(ex.get('field_steps_mean'))}) | goals_passed {fmt(ex.get('goals_passed_mean'))}",
-        f"- terrain-promotion telemetry: track_ratio_mean {fmt(ex.get('track_ratio_mean'))} | "
+        f"- terrain-promotion telemetry: track_ratio_mean {fmt(ex.get('track_ratio_mean'))} "
+        # nan, not None: a campaign recorded before the move-gated key existed re-renders as "n/a"
+        # (fmt's own missing-number word) rather than the literal string "None".
+        f"(move rows only {fmt(ex.get('track_ratio_move_mean', float('nan')))}) | "
         f"heading_err_rms_mean {fmt(ex.get('heading_err_rms_mean'))} | block_steps_mean "
         f"{fmt(ex.get('block_steps_mean'))} | r_max_mean {fmt(ex.get('r_max_mean'))}",
         f"- failure share flat {fmt(ex.get('crab_failure_flat'))} | obst {fmt(ex.get('crab_failure_obst'))} | "
@@ -362,12 +459,150 @@ def _facing_by_hold(a: dict) -> dict[str, dict]:
                   "net": _med(v.get("net_yaw_rate_toward")),
                   "yaw_rate_ratio": _med(v.get("yaw_rate_ratio")),
                   "rms": _med(v.get("heading_error_rms")),
-                  "max": _med(v.get("heading_error_max_abs"))}
+                  "max": _med(v.get("heading_error_max_abs")),
+                  # 2026-09-18, additive: an aggregate written before these keys has neither, and
+                  # facing_closed_by_hold() then reports None rather than deriving a fraction from
+                  # "max" -- the peak error is not the starting error (see that function).
+                  "initial": _med(v.get("heading_error_initial_abs")),
+                  "closed": _med(v.get("facing_closed"))}
     return out
+
+
+#: Must equal ``gait_eval.metrics.FACING_CLOSED_MIN_INITIAL_RAD`` (cross-pinned in
+#: ``tests/unit/test_crab_hex_omni_gate.py``); this module deliberately imports nothing from the
+#: harness, so the floor is restated rather than imported.
+FACING_CLOSED_MIN_INITIAL_RAD = 0.15
+
+
+def facing_closed_by_hold(fac_by_hold: dict[str, dict]) -> tuple[dict[str, float | None], str | None]:
+    """``({hold: closed fraction | None}, source)`` -- the scale-free facing quantity.
+
+    ``closed = clip(1 - final/max(initial, 0.15), -1, 1)``: 1.0 = the hold's initial heading error
+    was closed, 0.0 = it ended where it started, negative = the body opened it. Unlike
+    ``heading_error_final_abs`` it is comparable across holds that start at different errors, which
+    is why the decision rule scores it rather than the raw final error.
+
+    Two sources, and WHICH ONE was used is returned rather than inferred:
+
+    ``"metric"``
+        the harness computed the fraction PER EPISODE (``facing_metrics.facing_closed``) and this is
+        the median of those -- the number of record.
+    ``"proxy"``
+        the fraction is rebuilt from the hold's MEDIAN initial and final errors. A ratio of medians
+        is not the median of ratios, and on real data it is not close either: recomputed per episode
+        from the recorded 1a slow row's raws (100 episodes, 2026-09-18 review), the proxy reads
+        ``back`` -0.775 against the metric's -0.469, ``turn_l90`` -0.120 against -0.011, ``turn_r90``
+        +0.258 against +0.080, and flips sign on ``move_turn`` (-0.029 against +0.029). It is a
+        stop-gap for re-scoring an old row, NEVER a number to compare against a ``"metric"`` one --
+        which is why the source is returned rather than left to be inferred.
+
+        It also cannot arise from an aggregate ONE shipped harness version wrote: this branch needs
+        the per-hold ``heading_error_initial_abs`` present while ``facing_closed``'s ``n`` is 0, and
+        ``n == 0`` means every episode's initial error was under the floor -- whose median is then
+        under the floor too, so the branch refuses anyway. Both keys were added in the same pass, so
+        in practice a row has both or neither. Reachable only for a hand-built or mixed-version
+        aggregate; kept because that is exactly the shape a partial re-score produces.
+
+    An aggregate that carries no ``heading_error_initial_abs`` at all yields ``None`` for every
+    hold -- deliberately, and this is the ONLY answer available. ``heading_error_max_abs`` was
+    tried as a stand-in for the initial error and is WRONG, not merely imprecise: measured on the
+    recorded 1a slow row (2026-09-18 review), the max-derived fraction reads +0.30 / +0.28 / +0.29
+    on ``lat_l`` / ``diag`` / ``back`` where the per-episode metric reads -0.51 / -0.39 / -0.40 --
+    three sign flips of ~0.7 -- and overstates ``turn_r90`` threefold, because the peak error is
+    not the starting error whenever the body first turns the wrong way (``max > initial`` makes
+    ``1 - final/max`` flatter by construction, always in the flattering direction). ``None`` says
+    "re-score this run_dir from its raws", which is recoverable; a wrong-signed number is not.
+
+    ``None`` also for a hold whose initial error is under the floor (nothing to close -- a stand or
+    a travel hold), missing entirely, or unmeasured. ``source`` is ``None`` when no hold yielded a
+    number, and ``"mixed"`` if both paths were used in one row (which should not happen: an
+    aggregate is written by one version of the harness).
+    """
+    out: dict[str, float | None] = {}
+    sources: set[str] = set()
+    for h, v in (fac_by_hold or {}).items():
+        if v.get("closed") is not None:
+            out[h] = v["closed"]
+            sources.add("metric")
+            continue
+        initial = v.get("initial")
+        final = v.get("final")
+        if initial is None or final is None or initial < FACING_CLOSED_MIN_INITIAL_RAD:
+            out[h] = None
+            continue
+        closed = 1.0 - final / max(initial, FACING_CLOSED_MIN_INITIAL_RAD)
+        out[h] = min(1.0, max(-1.0, closed))
+        sources.add("proxy")
+    if not sources:
+        return out, None
+    return out, (sources.pop() if len(sources) == 1 else "mixed")
 
 
 def _speed_ratio_by_hold(a: dict, holds: tuple[str, ...] = DIRECTION_HOLDS) -> dict[str, float | None]:
     return {h: _med((v or {}).get("ratio")) for h, v in (a.get("tracking_by_hold") or {}).items() if h in holds}
+
+
+def _is_walking_hold(entry: dict | None) -> bool:
+    """A hold the harness scored for tracking, or one commanded above the clip but never reached.
+
+    ``ratio.n > 0`` is the harness's own definition of "walking" (``|cmd| > lin_vel_clip``) and is
+    what :func:`walking_tripod` reads. The ``cmd_vx_mean`` clause adds the holds that were COMMANDED
+    to walk but produced no ratio -- every episode fell before them, or none had a long enough
+    window. Those must appear as ``None`` rather than vanish: a direction hold silently missing from
+    a WATCH table reads as "not in this schedule", which is the opposite of what happened.
+    """
+    entry = entry or {}
+    if (((entry.get("ratio") or {}).get("n")) or 0) > 0:
+        return True
+    return (entry.get("cmd_vx_mean") or 0.0) > WALKING_CMD_MIN
+
+
+def ratio_by_hold(a: dict) -> dict[str, float | None]:
+    """Median speed ratio on EVERY walking hold of the row, whatever the row's schedule is.
+
+    ``speed_ratio_by_hold`` / ``dir_ratio_by_hold`` are keyed by the fixed hold names the gates
+    score. This one is data-driven, so a curriculum row that adds mirrored holds (``lat_r``,
+    ``move_turn_r``) reports them without a code change. WATCH only -- no gate reads it; the gates
+    keep their named holds so a manifest edit cannot quietly change what they enforce.
+    """
+    return {h: _med((v or {}).get("ratio"))
+            for h, v in (a.get("tracking_by_hold") or {}).items() if _is_walking_hold(v)}
+
+
+def achieved_speed_by_hold(a: dict) -> dict[str, float | None]:
+    """Median ACHIEVED speed per hold, in m/s -- the absolute-units twin of the ratio.
+
+    A candidate that changes the command cap or the speed ellipse changes the DENOMINATOR of every
+    ratio, so ratios stop being comparable across it and the decision rule scores metres per second
+    instead (decision 5, "absolute-units candidates"). Every hold with a tracking entry is reported,
+    stand holds included: "how fast did it move when told to stop" is a real number there.
+    """
+    return {h: _med((v or {}).get("achieved_vx")) for h, v in (a.get("tracking_by_hold") or {}).items()}
+
+
+def _min_or_none(values: list) -> float | None:
+    """``min`` of the values, or ``None`` if any is missing -- a floor over an incomplete set is a
+    number that flatters (the worst hold might be the unmeasured one)."""
+    if not values or any(v is None for v in values):
+        return None
+    return min(values)
+
+
+def conditional_survival(surv: dict | None, hold: str, given: str) -> float | None:
+    """``surv[hold] / surv[given]`` -- the share of the episodes that reached ``given`` which also
+    reached the end of ``hold``.
+
+    ``survival_by_hold`` is CUMULATIVE (it counts episodes that reached the end of each hold), so
+    ``surv[turn_l90]`` on its own mostly measures the four travel holds before it. Dividing by the
+    survival through the hold immediately before isolates the falls that happen DURING the turn,
+    which is the quantity the turn guards are about. ``None`` when either number is unavailable or
+    the denominator is 0 (no episode reached the conditioning hold, so nothing is conditioned on).
+    """
+    surv = surv or {}
+    num, den = surv.get(hold), surv.get(given)
+    if num is None or den is None or den == 0:
+        return None
+    return num / den
 
 
 PROLOGUE_S = 1.5   # gait_eval/schedule.py DEFAULTS["prologue_s"]; the schedule starts after it
@@ -417,6 +652,8 @@ def summarize(a: dict | None) -> dict:
     poly = a.get("support_polygon", {})
     tri_walk, tri_by_hold = walking_tripod(a)
     fac_by_hold = _facing_by_hold(a)
+    closed_by_hold, closed_source = facing_closed_by_hold(fac_by_hold)
+    surv = a.get("survival_by_hold")
     return {"tripod": _med(a.get("tripod_score")),
             "tripod_walking": tri_walk,       # the gated number (min over walking holds)
             "tripod_by_hold": tri_by_hold,
@@ -431,6 +668,27 @@ def summarize(a: dict | None) -> dict:
             "yaw_progress_by_hold": {h: v.get("progress") for h, v in fac_by_hold.items()},
             "net_yaw_by_hold": {h: v.get("net") for h, v in fac_by_hold.items()},
             "facing_error_rms": _med(a.get("facing_error_rms")),
+            # ---------------------------------------------- hoisted for the candidate ladder
+            # Pure re-readings of the keys above, hoisted so a decision rule is a function of
+            # summarize()'s OUTPUT and never re-derives a definition. WATCH / decision use is
+            # decided by the ladder; nothing here is read by the gates above.
+            "ratio_by_hold": ratio_by_hold(a),                   # every walking hold (WATCH)
+            "achieved_speed_by_hold": achieved_speed_by_hold(a),  # m/s, the absolute-units twin
+            "facing_closed_by_hold": closed_by_hold,             # scale-free facing quantity
+            "facing_closed_source": closed_source,               # "metric" | "proxy" | "mixed" | None
+            # The minimum over the four DIRECTION holds -- tripod_walking's stricter sibling. It
+            # excludes move_turn, whose tripod is a turning-gait number that a facing change moves
+            # by design: a guard that included it would reject a candidate for the thing it did.
+            "tripod_walking_dir": _min_or_none([tri_by_hold.get(h) for h in DIRECTION_HOLDS]),
+            # The gated turning rate as ONE number: the worse of the two turn holds (a left turn
+            # that works does not excuse a right turn that does not). None if either is unscored.
+            "yaw_progress_turn_min": _min_or_none(
+                [(fac_by_hold.get(h) or {}).get("progress") for h in TURN_HOLDS]),
+            # Falls DURING each turn, conditioned on having reached the turn at all (see
+            # conditional_survival): turn_l90 given the travel holds ended at `back`, turn_r90
+            # given turn_l90.
+            "turn_survival_l90": conditional_survival(surv, "turn_l90", "back"),
+            "turn_survival_r90": conditional_survival(surv, "turn_r90", "turn_l90"),
             "falls": a.get("termination_reasons", {}).get("fall", 0),
             "n": a.get("n_episodes"),
             "pitch_fwd_share": (fc.get("pitch_fwd", 0) / max(1, sum(v for k, v in fc.items() if k != "none")))
@@ -460,9 +718,25 @@ class Campaign:
         return {"campaign": self.dir.name, "plant": self.plant, "phase": "run", "run_no": 0, "keys": {}, "current": {}}
 
     def save(self) -> None:
-        self.state_path.write_text(json.dumps(self.st, indent=2))
+        """Rewrite ``state.json`` and the derived ``heads.json``, each atomically.
+
+        Temp file + ``os.replace`` (2026-09-18): ``save()`` runs inside the poll loop and right
+        before every stop, so a SIGKILL during a plain ``write_text`` would leave a TRUNCATED
+        state.json -- and the campaign's only record of which experiments ran is then a JSON parse
+        error. ``os.replace`` is atomic within a directory, so a reader sees either the previous
+        file or the new one. Serialisation happens BEFORE anything is opened, so a record that
+        cannot be serialised raises with both files still intact.
+
+        The guarantee is against THIS PROCESS dying (a SIGKILL, an OOM, an unserialisable record),
+        not against the machine going down: neither the temp file nor the directory is ``fsync``ed,
+        so a power loss can make the rename durable ahead of the bytes it renamed.
+        """
         heads = {k: {p: r.get("ckpt") for p, r in recs.items() if r.get("ckpt")} for k, recs in self.st["keys"].items()}
-        (self.dir / "heads.json").write_text(json.dumps(heads, indent=2))
+        for path, payload in ((self.state_path, json.dumps(self.st, indent=2)),
+                              (self.dir / "heads.json", json.dumps(heads, indent=2))):
+            tmp = path.with_suffix(path.suffix + ".tmp")
+            tmp.write_text(payload)
+            os.replace(tmp, path)
 
     @property
     def recs(self) -> dict:
@@ -514,7 +788,107 @@ class Campaign:
                               if getattr(args, "from_scratch", False) else ""))
 
 
+def set_seed(c: Campaign, seed) -> Campaign:
+    """Point ``c`` at another seed's records (``seed`` and the derived ``key``), returning it.
+
+    A campaign that runs the same recipe on two seeds writes both into ONE ``state.json`` under
+    ``keys["seed<N>"]`` -- ``Campaign.recs`` is keyed off ``self.key``, and nothing else reads
+    ``self.seed`` except the ``--seed`` the training subprocess is launched with. Setting the two
+    together is the whole operation; setting only ``seed`` would train seed 2 and file the record
+    under seed 3, which no later reader could detect.
+    """
+    c.seed = str(seed)
+    c.key = f"seed{c.seed}"
+    return c
+
+
 # ------------------------------------------------------------------ subprocess plumbing
+def _interrupted(interrupt_check) -> bool:
+    """``True`` when the caller's stop condition fires. ``None`` (no check) is never interrupted.
+
+    The check returns a REASON (a truthy string) or a falsy value, so the campaign driver can keep
+    "why" without a second call; nothing here looks at the reason.
+    """
+    return bool(interrupt_check()) if interrupt_check is not None else False
+
+
+def _stop_child(proc, *, grace: float | None = None) -> None:
+    """SIGTERM, then SIGKILL only if it is still alive after ``grace`` seconds.
+
+    Never ``kill()`` first: Kit flushes its DerivedDataCache on the way out and a SIGKILL mid-write
+    corrupts it, after which every later Kit start balloons until the machine OOMs (the 2026-08-13
+    and 2026-09-18 incidents). Safe on an already-dead child -- both calls are no-ops then.
+
+    SCOPE (recorded 2026-09-18 after review): the plan names only the eval timeout as the path that
+    changes from an immediate SIGKILL to this. It is used on EVERY path that stops a live child --
+    the eval timeout and stop, and ``train``'s stall / nan / dead_plant / dead_walker / stop /
+    exception exits, which previously did ``proc.kill(); proc.wait(60)``. The cost is up to
+    ``TERM_GRACE_S`` extra per such death; the reason is that those four train exits kill a running
+    Kit exactly like the timeout does, and the one they were protecting (``wait`` raising
+    ``TimeoutExpired`` into the generic handler) used to reclassify a ``nan``/``dead_plant`` death
+    as ``infra`` and relaunch the window. Amend the plan record rather than this function.
+    """
+    grace = TERM_GRACE_S if grace is None else grace
+    try:
+        proc.terminate()
+        proc.wait(timeout=grace)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        try:
+            proc.wait(timeout=60)
+        except subprocess.TimeoutExpired:
+            pass
+    except OSError:
+        pass
+
+
+def _refuse_ladder_dir(cdir: Path) -> None:
+    """Refuse to run the phase chain inside a candidate-LADDER campaign directory.
+
+    A ladder campaign keeps its ledger inside the SAME ``state.json`` this driver rewrites on every
+    save. One run of the phase driver there would drop the ``ladder`` key on the first save (this
+    driver's state has no such field) and take the campaign's decisions with it, unrecoverably. The
+    ladder driver owns those directories; refuse rather than "merge".
+
+    Deliberately reads the file itself rather than a loaded :class:`Campaign`: constructing one
+    creates ``logs/``, and this guard must run before ANY write, not merely before the first
+    ``save()``. A missing or unparseable state is not this guard's business -- the loader reports
+    it -- so it says nothing about those.
+    """
+    sp = cdir / "state.json"
+    try:
+        st = json.loads(sp.read_text())
+    except (OSError, ValueError):
+        return
+    if isinstance(st, dict) and "ladder" in st:
+        raise SystemExit(
+            f"{sp} carries a 'ladder' key: this is a candidate-ladder campaign directory "
+            "and belongs to run_candidates.py, whose ledger this driver's save() would erase. Point "
+            "--campaign-dir at a phase-chain campaign, or relaunch the ladder driver on this one.")
+
+
+def _interruptible_sleep(total: float, interrupt_check=None, *, tick: float | None = None) -> bool:
+    """Sleep ``total`` seconds in ``tick`` slices; return True the moment a stop is pending.
+
+    A plain ``time.sleep(RETRY_WAIT_S)`` puts the stop check on the WRONG side of two minutes: a
+    stop that arrives DURING the wait is only seen by the next attempt's top-of-loop check -- and
+    on the last attempt there is no next attempt, so the row would be filed as "produced nothing"
+    (an infra question the driver retries or halts on) instead of ``interrupted``. Checked once
+    before the first slice too, so a flag already set costs nothing.
+    """
+    if _interrupted(interrupt_check):
+        return True
+    deadline = time.time() + float(total)
+    tick = EVAL_POLL_S if tick is None else float(tick)
+    while True:
+        remaining = deadline - time.time()
+        if remaining <= 0:
+            return False
+        time.sleep(min(tick, remaining))
+        if _interrupted(interrupt_check):
+            return True
+
+
 def _subenv(env_vars: dict) -> dict:
     assert "KRABBY_PHASE" not in env_vars, "omni driver must never export KRABBY_PHASE"
     assert "KRABBY_SIDE_PHASE" not in env_vars, "omni driver must never export KRABBY_SIDE_PHASE"
@@ -526,9 +900,17 @@ def _subenv(env_vars: dict) -> dict:
     return env
 
 
-def _wait_isaac_clear() -> None:
+def _wait_isaac_clear(interrupt_check=None) -> None:
+    """Wait (up to 10 min) for every other Isaac process to exit -- one GPU, one Isaac process.
+
+    ``interrupt_check`` returns EARLY when a stop is pending: the wait exists to protect the NEXT
+    launch, and during a shutdown there is no next launch -- ten minutes of waiting would just eat
+    the stop budget the caller has to save its state in.
+    """
     pattern = r"isaac_venv/bin/python [^ ]*(eval_crab_hex_gait|rsl_rl/train|training_timeline_probe|crab_hex_phase_cfg_dump)\.py"
     for _ in range(60):
+        if _interrupted(interrupt_check):
+            return
         out = subprocess.run(["pgrep", "-f", pattern], capture_output=True, text=True).stdout.split()
         if not any(int(p) != os.getpid() for p in out):
             return
@@ -539,8 +921,23 @@ def _ckpt_iter(ckpt: str | None) -> int:
     return int(Path(ckpt).stem.split("_")[1]) if ckpt else 0
 
 
-def latest_run_ckpt(exp_dir: Path, t0: float) -> str | None:
+def latest_run_ckpt(exp_dir: Path, t0: float, name_suffix: str | None = None) -> str | None:
+    """The newest checkpoint of the run this process just started under ``exp_dir``.
+
+    ``name_suffix`` is the ``--run_name`` the run was launched with. RSL-RL names its log directory
+    ``<timestamp>_<run_name>``, so restricting to ``*_<run_name>*`` identifies the run BY NAME
+    instead of by "newest directory whose mtime is past ``t0``". The mtime rule alone is only safe
+    while exactly one training process exists per experiment; a campaign that overlaps an eval, or
+    two chains sharing one experiment name, can otherwise pick up a sibling's directory and report
+    its checkpoint as this window's head -- a silent lineage error no later record could detect.
+
+    ``None`` when nothing matches: no directory, none newer than ``t0``, or (with a suffix) no
+    directory carrying that name. All three mean "this window produced nothing", which the caller
+    classifies as ``infra``. Unchanged when ``name_suffix`` is ``None``.
+    """
     runs = [p for p in exp_dir.iterdir() if p.is_dir()] if exp_dir.exists() else []
+    if name_suffix:
+        runs = [p for p in runs if f"_{name_suffix}" in p.name]
     if not runs:
         return None
     run_dir = max(runs, key=lambda p: p.stat().st_mtime)
@@ -571,7 +968,8 @@ def with_plant(ev: dict, plant: str) -> dict:
 
 
 def eval_env_for(spec, plant: str, *, keep: tuple[str, ...] = CANARY_KEYS,
-                 keep_source: dict | None = None, extra: dict | None = None) -> dict:
+                 keep_source: dict | None = None, extra: dict | None = None,
+                 carry_overlay: dict | None = None) -> dict:
     """The subprocess environment for ONE eval of ``spec`` -- pure, no ``os.environ``, no I/O.
 
     ``keep`` are the reward/tracking keys the row reproduces, read from ``keep_source``. The flat
@@ -583,6 +981,13 @@ def eval_env_for(spec, plant: str, *, keep: tuple[str, ...] = CANARY_KEYS,
     (see the EVAL_CARRY block). Then :data:`EVAL_RSI_OFF`, the ring geometry every omni process
     requires, ``extra`` (the caller's row-specific terrain block), and the plant.
 
+    ``carry_overlay`` is the TRAINING environment of a campaign that overrides preset knobs per
+    experiment (a candidate ladder): filtered to :data:`EVAL_CARRY`, it is applied last so the eval
+    matches what the window actually trained under rather than what its base preset says. Filtered,
+    not merged: the same overlay carries sampler/reward keys, and those must not reach an eval.
+    Passing the whole overlay is therefore the intended call -- the filter is here, once, rather
+    than at each call site where it could be forgotten.
+
     Never contains a preset variable: ``KRABBY_OMNI_PHASE`` in an eval would re-expand the whole
     training preset (sampler, rewards, RSI, terrain) inside the Play env, and ``KRABBY_PHASE`` /
     ``KRABBY_SIDE_PHASE`` would raise at config import (one task per process).
@@ -591,6 +996,12 @@ def eval_env_for(spec, plant: str, *, keep: tuple[str, ...] = CANARY_KEYS,
     src = pe if keep_source is None else keep_source
     ev = {k: src[k] for k in keep if k in src}
     ev.update({k: pe[k] for k in EVAL_CARRY if k in pe})
+    # Record the effective value of every carried knob the preset is silent about, so
+    # run_meta.env_vars answers "what was this eval asked for" without a reader having to know the
+    # class defaults of the version that ran. Bitwise inert for a key the preset does set.
+    ev.update({k: v for k, v in EVAL_CARRY_DEFAULTS.items() if k not in pe})
+    if carry_overlay:
+        ev.update({k: str(v) for k, v in carry_overlay.items() if k in EVAL_CARRY})
     ev.update(EVAL_RSI_OFF)
     ev.update(EVAL_DEBUG_VIS_OFF)
     ev.update(TERRAIN_GEOM_REQUIRED)
@@ -603,11 +1014,19 @@ def eval_env_for(spec, plant: str, *, keep: tuple[str, ...] = CANARY_KEYS,
 
 
 # ------------------------------------------------------------------ training
+#: Keys a caller's ``extra_env`` may never carry: the first two are this function's own (a window
+#: whose preset or plant came from an overlay is a window whose record lies about what it ran), the
+#: other two raise at config import (one task per process).
+TRAIN_ENV_RESERVED = ("KRABBY_OMNI_PHASE", "KRABBY_PLANT", "KRABBY_PHASE", "KRABBY_SIDE_PHASE")
+
+
 def train(c: Campaign, spec, tag: str, iters: int, resume_ckpt: str | None, soundness: bool,
-          early_abort: bool = False) -> tuple[str | None, str, Path]:
+          early_abort: bool = False, *, extra_env: dict | None = None, interrupt_check=None,
+          run_name: str | None = None, abort_track_ratio_min: float | None = None
+          ) -> tuple[str | None, str, Path]:
     """One phase of training. Returns (ckpt | None, status, log).
 
-    ``status`` in ``{ok, dead_plant, dead_walker, nan, infra}``.
+    ``status`` in ``{ok, dead_plant, dead_walker, nan, infra, interrupted}``.
 
     ``early_abort`` (2026-09-18, decision D) arms the from-scratch translation abort: at
     ``ABORT_AT_ITERS`` iterations, if the training log's ``track_ratio_mean`` over its 800-1000
@@ -615,65 +1034,146 @@ def train(c: Campaign, spec, tag: str, iters: int, resume_ckpt: str | None, soun
     iterations would buy nothing -- kill and report ``dead_walker``. Unlike ``dead_plant`` the
     checkpoint IS returned when one exists, so the record has a head and ``--continue`` can carry
     it forward unretrained (:data:`OVERRIDABLE_STATUSES`) if the user disagrees with the abort.
+    ``abort_track_ratio_min`` overrides that floor for one call -- a campaign that MEASURES the
+    floor off its own baseline (rather than inheriting the constant) passes the measured number.
+
+    The keyword arguments are the campaign-driver seam; with all of them omitted this function
+    behaves as it did before they existed, with ONE deliberate exception on that default path: a
+    ``KeyboardInterrupt`` / ``SystemExit`` out of the poll loop now stops the training child before
+    it propagates instead of orphaning it (see the handler's own note near the end of this function).
+
+    The seam itself:
+
+    ``extra_env``
+        merged into the subprocess environment AFTER the two fixed keys, and refused if it carries
+        any of :data:`TRAIN_ENV_RESERVED`. Recorded in ``state["current"]["extra_env"]`` so an
+        interrupted window can be read back with the overlay it ran under.
+    ``interrupt_check``
+        a callable returning a truthy REASON when this run should stop. It is asked immediately
+        before the child is launched, FIRST in every poll tick, and once more after the poll loop
+        ends for any reason -- that last check is what makes a child that exited between two ticks
+        (the normal outcome of a SIGTERM handler signalling it) report ``interrupted`` rather than
+        ``infra``: ``infra`` would trigger a retry in the middle of a shutdown. The child is always
+        SIGTERMed and only SIGKILLed after :data:`TERM_GRACE_S` (see :func:`_stop_child`).
+    ``run_name``
+        passed to the trainer as ``--run_name``, which names its log directory
+        ``<timestamp>_<run_name>``; the head is then resolved BY NAME (see :func:`latest_run_ckpt`)
+        instead of by "newest directory", so two chains sharing an experiment name cannot pick up
+        each other's checkpoint.
     """
+    global CURRENT_CHILD
     t0 = time.time()
     log_path = c.logs / f"{tag}_train.log"
     cmd = [PY, str(TRAIN), "--task", spec.task, "--headless", "--num_envs", NUM_ENVS[spec.kind],
            "--seed", c.seed, "--max_iterations", str(iters)]
     if resume_ckpt:
         cmd += ["--resume", "--checkpoint", resume_ckpt]
-    env = {"KRABBY_OMNI_PHASE": spec.name, "KRABBY_PLANT": c.plant}
+    if run_name:
+        cmd += ["--run_name", str(run_name)]
+    extra_env = dict(extra_env or {})
+    reserved = [k for k in TRAIN_ENV_RESERVED if k in extra_env]
+    assert not reserved, f"{tag}: extra_env must not set {reserved} (the driver owns them)"
+    # PYTHONUNBUFFERED: the poll loop reads the child's stdout FILE, so a buffered child looks
+    # stalled for as long as its buffer takes to fill -- which the STALL_S watchdog calls an infra
+    # death, and the dead_walker window reads as "no track_ratio prints yet".
+    env = {"KRABBY_OMNI_PHASE": spec.name, "KRABBY_PLANT": c.plant, "PYTHONUNBUFFERED": "1"}
+    env.update(extra_env)
+    # ... and re-set AFTER the merge: TRAIN_ENV_RESERVED guards the preset/plant keys because an
+    # overlay that sets them makes the record lie, but this one is not about the record -- an
+    # overlay that unbuffered=0 would make every window look stalled to the STALL_S watchdog. The
+    # re-assignment keeps the key's place in the dict (and so in the `env {...}` log line).
+    env["PYTHONUNBUFFERED"] = "1"
+    abort_floor = ABORT_TRACK_RATIO_MIN if abort_track_ratio_min is None else float(abort_track_ratio_min)
     c.st["current"] = {"tag": tag, "phase": spec.name, "iters": iters, "kind": spec.kind, "log": str(log_path),
                        "resume": resume_ckpt, "target_final": _ckpt_iter(resume_ckpt) + iters - 1,
-                       "started": datetime.now().isoformat(timespec="seconds")}
+                       "started": datetime.now().isoformat(timespec="seconds"), "extra_env": extra_env}
     c.save()
     c.log(f"{tag}: {spec.task}" + (f" mode {spec.teacher_mode}" if spec.teacher_mode else "") +
           f" | {iters} its | {'resume ' + Path(resume_ckpt).name if resume_ckpt else 'from scratch'} | env {env}")
+    # Last look before the GPU is committed: a stop that arrived while the previous phase was being
+    # recorded must not start another two-hour window.
+    if _interrupted(interrupt_check):
+        c.log(f"{tag}: stop requested before launch — not starting")
+        return None, "interrupted", log_path
     with log_path.open("w") as fh:
         proc = subprocess.Popen(cmd, cwd=PARKOUR, env=_subenv(env), stdout=fh, stderr=subprocess.STDOUT)
+        # Registered in the SAME statement group as the launch (as in _run_eval): the campaign's
+        # SIGTERM handler reaches the live child only through this slot, and any gap between the
+        # Popen and the assignment is a window in which a signal finds it empty.
+        CURRENT_CHILD = proc
     try:
         while proc.poll() is None:
-            time.sleep(120)
+            time.sleep(POLL_S)
+            if _interrupted(interrupt_check):
+                c.log(f"{tag}: stop requested — terminating the training child")
+                _stop_child(proc)
+                return None, "interrupted", log_path
             try:
                 if time.time() - log_path.stat().st_mtime > STALL_S:
                     c.log(f"{tag}: no log progress for {STALL_S // 60} min — infra death")
-                    proc.kill(); proc.wait(timeout=60)
+                    _stop_child(proc)
                     return None, "infra", log_path
                 tail = log_path.read_text(errors="ignore")[-20000:]
                 if re.search(r"Mean (reward|value_function|surrogate):\s*nan", tail, re.I) or "Traceback" in tail:
                     c.log(f"{tag}: NaN / traceback in the training log")
-                    proc.kill(); proc.wait(timeout=60)
+                    _stop_child(proc)
                     return None, "nan", log_path
                 if soundness:
                     ep = series(log_path, "Mean episode length")
                     if len(ep) >= SMOKE_ITERS and tail_mean(ep, 100) < 1.2 * tail_mean(ep[:100], 100):
                         c.log(f"{tag}: DEAD PLANT — episode length {tail_mean(ep[:100], 100):.0f} -> "
                               f"{tail_mean(ep, 100):.0f} by {SMOKE_ITERS}")
-                        proc.kill(); proc.wait(timeout=60)
+                        _stop_child(proc)
                         return None, "dead_plant", log_path
                 if early_abort:
                     tr = track_ratio_series(log_path)
-                    if dead_walker(tr):
+                    if dead_walker(tr, floor=abort_floor):
                         got = sum(tr[ABORT_AT_ITERS - ABORT_WINDOW:ABORT_AT_ITERS]) / ABORT_WINDOW
                         c.log(f"{tag}: DEAD WALKER — track_ratio_mean {got:.3f} over its "
                               f"{ABORT_AT_ITERS - ABORT_WINDOW}-{ABORT_AT_ITERS} (need >= "
-                              f"{ABORT_TRACK_RATIO_MIN}); the walker is not forming — aborting early. "
+                              f"{abort_floor}); the walker is not forming — aborting early. "
                               f"NOTE: --continue carries the {ABORT_AT_ITERS}-iteration head into the next "
                               f"phase UNRETRAINED; to finish this window instead relaunch "
                               f"--phases {spec.name} --from-checkpoint <this head> --iterations "
                               f"{iters - ABORT_AT_ITERS} (then the chain with the same --phases list)")
-                        proc.kill(); proc.wait(timeout=60)
+                        _stop_child(proc)
                         # keep whatever head exists: the verdict is a floor on a head that ran,
                         # not a run that produced nothing (--continue may carry it forward).
-                        return latest_run_ckpt(LOG_ROOT / spec.experiment, t0), "dead_walker", log_path
+                        return latest_run_ckpt(LOG_ROOT / spec.experiment, t0, run_name), "dead_walker", log_path
             except OSError:
                 pass
         proc.wait(timeout=300)
     except Exception:
-        proc.kill()
-        return None, "infra", log_path
+        # SIGTERM first here too: this path is reached with a LIVE Kit child (an OSError out of the
+        # log stat, a bad poll), and the cache it is mid-way through writing is the one whose
+        # corruption OOMs every later Kit start.
+        _stop_child(proc)
+        # A stop that arrived mid-exception is still a stop: classifying it as infra would fire the
+        # retry below while the campaign is shutting down.
+        return None, ("interrupted" if _interrupted(interrupt_check) else "infra"), log_path
+    except (KeyboardInterrupt, SystemExit):
+        # DELIBERATE CHANGE from HEAD (kept at the 2026-09-19 compatibility review): HEAD let a
+        # Ctrl-C unwind past a LIVE training child, and an orphaned 256-env Kit holding the one GPU
+        # with no supervisor left to reap it is the worse failure, so the child is stopped (SIGTERM,
+        # never kill: see :func:`_stop_child`) before the exception propagates -- and this is the
+        # last moment anything in the process holds a handle on it, since the ``finally`` below
+        # clears ``CURRENT_CHILD``. The blast radius is only an ATTACHED terminal: under
+        # ``systemd-run`` a SIGTERM to the driver raises no Python exception at all, so the
+        # supervised path never reaches here and stops through ``interrupt_check`` instead; the
+        # exception itself is re-raised untouched, because a signal is not this function's verdict
+        # to give.
+        _stop_child(proc)
+        raise
+    finally:
+        CURRENT_CHILD = None
+    # The child exited on its own BETWEEN two ticks (the usual shape of a signalled shutdown: the
+    # handler SIGTERMs it, the loop's sleep is still running). Checked before the checkpoint
+    # classification, which would otherwise call a deliberately stopped window an infra death.
+    if _interrupted(interrupt_check):
+        c.log(f"{tag}: stop requested — the training child had already exited")
+        return None, "interrupted", log_path
     base = _ckpt_iter(resume_ckpt)
-    ckpt = latest_run_ckpt(LOG_ROOT / spec.experiment, t0)
+    ckpt = latest_run_ckpt(LOG_ROOT / spec.experiment, t0, run_name)
     if ckpt is None or _ckpt_iter(ckpt) < base + iters - 100:
         c.log(f"{tag}: no checkpoint at >= {base + iters - 100} under {spec.experiment} (got {ckpt})")
         return None, "infra", log_path
@@ -681,12 +1181,29 @@ def train(c: Campaign, spec, tag: str, iters: int, resume_ckpt: str | None, soun
 
 
 def train_retry(c: Campaign, spec, tag: str, iters: int, resume_ckpt: str | None, soundness: bool,
-                early_abort: bool = False):
-    ckpt, status, lp = train(c, spec, tag, iters, resume_ckpt, soundness, early_abort)
-    if ckpt is None and status == "infra":
+                early_abort: bool = False, *, extra_env: dict | None = None, interrupt_check=None,
+                run_name: str | None = None, abort_track_ratio_min: float | None = None):
+    """:func:`train`, retried ONCE on an infra death. Every keyword is forwarded unchanged.
+
+    The retry is skipped while a stop is pending: an ``infra`` verdict reached during a shutdown is
+    almost always the shutdown itself (a child killed out from under the poll loop), and relaunching
+    a two-hour window at that moment is the one thing a stop must never cause.
+    """
+    ckpt, status, lp = train(c, spec, tag, iters, resume_ckpt, soundness, early_abort,
+                             extra_env=extra_env, interrupt_check=interrupt_check,
+                             run_name=run_name, abort_track_ratio_min=abort_track_ratio_min)
+    if ckpt is None and status == "infra" and not _interrupted(interrupt_check):
         c.log(f"{tag}: infra death — one retry")
-        _wait_isaac_clear(); time.sleep(120)
-        ckpt, status, lp = train(c, spec, f"{tag}_r2", iters, resume_ckpt, soundness, early_abort)
+        # Ticked, not slept, for the reason _run_eval's pause is (see _interruptible_sleep): a stop
+        # arriving inside the two-minute wait must end the call, not commit the GPU to the retry
+        # window the wait was preparing. The second check keeps the verdict identical when the flag
+        # was already set before the wait began.
+        _wait_isaac_clear(interrupt_check)
+        if _interruptible_sleep(RETRY_WAIT_S, interrupt_check) or _interrupted(interrupt_check):
+            return None, "interrupted", lp
+        ckpt, status, lp = train(c, spec, f"{tag}_r2", iters, resume_ckpt, soundness, early_abort,
+                                 extra_env=extra_env, interrupt_check=interrupt_check,
+                                 run_name=run_name, abort_track_ratio_min=abort_track_ratio_min)
     return ckpt, status, lp
 
 
@@ -715,16 +1232,80 @@ def _plant_guard(run_dir: Path, plant: str, tag: str) -> None:
         raise RuntimeError(f"{tag}: eval spawned plant {got} but {plant} requested {want or 'the main asset'} (rung-iv defect)")
 
 
-def _run_eval(c: Campaign, tag: str, sid: str, cmd_tail: list[str], env: dict, out_root: Path, plant: str, timeout: int):
+def _run_eval(c: Campaign, tag: str, sid: str, cmd_tail: list[str], env: dict, out_root: Path, plant: str,
+              timeout: int, *, max_attempts: int = 3, interrupt_check=None):
+    """Run one eval row, up to ``max_attempts`` times. Returns ``(latest_dir, aggregate, info)``.
+
+    ``info`` = ``{"status": "ok" | "none" | "interrupted", "rc": <last child return code>,
+    "attempts": <children launched>}``, also stored in :data:`LAST_EVAL_INFO`. It exists because
+    ``(None, None)`` conflates three different situations the campaign must treat differently: the
+    eval ran and produced nothing (retry, then halt as ``eval_infra``), the machine killed it
+    (``rc == -9``: the OOM killer or the Kit cache pathology -- retrying makes it worse), and the
+    campaign asked it to stop (no retry, no verdict).
+
+    The child is polled every :data:`EVAL_POLL_S` rather than handed to ``subprocess.run`` with a
+    timeout, so a stop reaches it within one tick. Freshness, the plant guard, ``survival_by_hold``
+    and the 3-attempt cadence are unchanged; FOUR things about the WAITING are not, and all four
+    are deliberate:
+
+    * on the timeout the child is SIGTERMed and only SIGKILLed :data:`TERM_GRACE_S` later (Kit
+      corrupts its shader cache when killed mid-write) -- the change the plan names;
+    * ``timeout`` is now enforced at tick granularity, so a hung row runs up to
+      ``timeout + EVAL_POLL_S + TERM_GRACE_S`` per attempt instead of exactly ``timeout``;
+    * every attempt costs at least one tick: the loop sleeps :data:`EVAL_POLL_S` BEFORE re-testing
+      ``poll()``, so an eval that finishes in two seconds still returns after one tick where
+      ``subprocess.run`` returned at once (~30 s per eval row, measured);
+    * the :data:`RETRY_WAIT_S` pause is ticked (a stop during it ends the call as ``interrupted``)
+      and is skipped after the LAST attempt, where no retry is waiting on it. The
+      :func:`_wait_isaac_clear` in front of that pause is NOT skipped there -- it protects the NEXT
+      EVAL ROW, not this row's retry; see the note in the loop.
+    """
+    global CURRENT_CHILD, LAST_EVAL_INFO
     lp = c.logs / f"{tag}_{sid}_eval.log"
-    for attempt in range(3):
+    # ``info`` is filled in PLACE as the loop runs and is the very object :data:`LAST_EVAL_INFO`
+    # points at, so an exception escaping mid-loop (``_plant_guard``) leaves THIS row's return code
+    # and attempt count readable there rather than the previous row's. The caller gets a copy.
+    info = {"status": "none", "rc": None, "attempts": 0}
+    LAST_EVAL_INFO = info
+    latest_out, agg_out = None, None
+    for attempt in range(max_attempts):
+        if _interrupted(interrupt_check):
+            info["status"] = "interrupted"
+            break
         t0 = time.time()
+        stopped = False
         with lp.open("a") as fh:
+            proc = subprocess.Popen([PY, str(EVAL), "--headless", *cmd_tail, "--no-plot",
+                                     "--output-root", str(out_root)],
+                                    cwd=PARKOUR, env=_subenv(env), stdout=fh, stderr=subprocess.STDOUT)
+            CURRENT_CHILD = proc
+            info["attempts"] += 1
             try:
-                subprocess.run([PY, str(EVAL), "--headless", *cmd_tail, "--no-plot", "--output-root", str(out_root)],
-                               cwd=PARKOUR, env=_subenv(env), stdout=fh, stderr=subprocess.STDOUT, timeout=timeout)
-            except subprocess.TimeoutExpired:
-                pass
+                while proc.poll() is None:
+                    time.sleep(EVAL_POLL_S)
+                    if _interrupted(interrupt_check):
+                        c.log(f"{tag}/{sid}: stop requested — terminating the eval child")
+                        _stop_child(proc)
+                        stopped = True
+                        break
+                    if time.time() - t0 > timeout:
+                        c.log(f"{tag}/{sid}: no result after {timeout}s — terminating the eval child")
+                        _stop_child(proc)
+                        break
+            except BaseException:
+                _stop_child(proc)
+                raise
+            finally:
+                info["rc"] = proc.poll()
+                CURRENT_CHILD = None
+        if stopped or _interrupted(interrupt_check):
+            # After-loop check, same as train's and for the same reason: a child the campaign's own
+            # SIGTERM handler killed exits between two ticks, and without this the attempt reads as
+            # "no fresh metrics" and RELAUNCHES an eval in the middle of a shutdown. A row scored
+            # under a stop is discarded rather than filed, exactly like an interrupted window's
+            # checkpoint: the experiment is being abandoned, so its evidence is not evidence.
+            info["status"] = "interrupted"
+            break
         d = out_root / sid / "seed001"
         if d.exists():
             latest = max(d.iterdir(), key=lambda p: p.stat().st_mtime)
@@ -741,13 +1322,43 @@ def _run_eval(c: Campaign, tag: str, sid: str, cmd_tail: list[str], env: dict, o
                         dt=float((m.get("run_meta") or {}).get("dt") or 0.02))
                 except Exception as exc:  # noqa: BLE001 - a missing number halts the gate, never the driver
                     c.log(f"{tag}/{sid}: survival_by_hold unavailable ({exc!r})")
-                return latest, a
-        c.log(f"{tag}/{sid}: no fresh metrics — retry {attempt + 1}")
-        _wait_isaac_clear(); time.sleep(120)
-    return None, None
+                info["status"], latest_out, agg_out = "ok", latest, a
+                break
+        last = attempt == max_attempts - 1
+        # The campaign log is what a human reads at 3 a.m. to decide whether an eval_infra halt was
+        # one attempt or three, so it may not say "retry" on a call that will not retry (Part B's
+        # own shape is max_attempts=1, where the driver owns the cadence).
+        c.log(f"{tag}/{sid}: no fresh metrics (rc {info['rc']})"
+              + (" — no attempts left" if last else f" — retry {attempt + 1}"))
+        # HEAD's shape, restored 2026-09-19 after review: the Kit-clear wait runs after EVERY failed
+        # attempt, the LAST one included. What waits on it is not this row's retry but the NEXT ROW
+        # -- eval_morph(slow) -> eval_morph(light) -> eval_obst(ring) run back to back inside
+        # run_phase and _run_eval never waits BEFORE an attempt, so a row that gave up and returned
+        # at once would fire the next row's Popen while a wedged Kit (three timeouts, each ending in
+        # a SIGTERM with up to TERM_GRACE_S of grace) still holds the one GPU. It is interrupt-aware,
+        # so a stop still costs nothing: _wait_isaac_clear returns before it polls.
+        _wait_isaac_clear(interrupt_check)
+        if last:
+            break                    # only the retry PAUSE is skipped: no attempt is waiting on it
+        # Ticked, not slept: a stop arriving during the wait is a stop, not "produced nothing".
+        if _interruptible_sleep(RETRY_WAIT_S, interrupt_check):
+            info["status"] = "interrupted"
+            break
+    return latest_out, agg_out, dict(info)
 
 
-def eval_morph(c: Campaign, spec, ckpt: str, scenario: str, tag: str) -> dict | None:
+def _interrupted_eval() -> dict:
+    """What ``eval_morph`` / ``eval_obst`` return when the campaign stopped the eval.
+
+    Distinguishable from ``None`` (the eval RAN and produced no metrics -- an infra question, which
+    the driver answers by retrying or halting) and from a summary (it produced metrics): an
+    interrupted row is not evidence about the policy at all, and must not be filed as either.
+    """
+    return {"eval_status": "interrupted", "run_dir": None}
+
+
+def eval_morph(c: Campaign, spec, ckpt: str, scenario: str, tag: str, *, carry_overlay: dict | None = None,
+               interrupt_check=None, max_attempts: int = 3) -> dict | None:
     """Omni-manifest eval (slow__omni / light__omni): the campaign's flat canary / light-ring onset.
 
     ``KRABBY_FLAT_TERRAIN_GEOM=ring`` is NOT optional here, unlike in the forward/sideways drivers:
@@ -763,17 +1374,22 @@ def eval_morph(c: Campaign, spec, ckpt: str, scenario: str, tag: str) -> dict | 
     be measured through the inputs it was trained on. See :func:`eval_env_for`.
     """
     sid = f"{scenario}__omni"
-    ev = eval_env_for(spec, c.plant, keep=CANARY_KEYS, keep_source=ph.FORMATION)
-    latest, a = _run_eval(c, tag, sid, ["--manifest", str(OMNI_MANIFEST), "--scenario", sid, "--checkpoint", ckpt,
-                                        "--save-raw"], ev, EVAL_ROOT / c.dir.name / tag, c.plant, 3600)
+    ev = eval_env_for(spec, c.plant, keep=CANARY_KEYS, keep_source=ph.FORMATION, carry_overlay=carry_overlay)
+    latest, a, info = _run_eval(c, tag, sid, ["--manifest", str(OMNI_MANIFEST), "--scenario", sid, "--checkpoint", ckpt,
+                                              "--save-raw"], ev, EVAL_ROOT / c.dir.name / tag, c.plant, 3600,
+                                max_attempts=max_attempts, interrupt_check=interrupt_check)
+    if info["status"] == "interrupted":
+        return _interrupted_eval()
     if a is None:
         return None
     s = summarize(a)
     s["run_dir"] = str(latest)
+    s["eval_status"], s["eval_rc"] = info["status"], info["rc"]
     return s
 
 
-def eval_obst(c: Campaign, spec, ckpt: str, tag: str) -> dict | None:
+def eval_obst(c: Campaign, spec, ckpt: str, tag: str, *, carry_overlay: dict | None = None,
+              interrupt_check=None, max_attempts: int = 3) -> dict | None:
     """PLAN H obstacle eval (ring__omni on the ring geometry @ 0.20-0.70) on the plant.
 
     ``ring__omni`` carries no ``env:`` block in the manifest (frozen shape); this driver injects the
@@ -788,15 +1404,19 @@ def eval_obst(c: Campaign, spec, ckpt: str, tag: str) -> dict | None:
     ``TERRAIN_PASS`` off the preset), but it carries the same :data:`EVAL_CARRY` observation/command
     knobs -- it was scored on class defaults too before 2026-09-17. See :func:`eval_env_for`.
     """
-    ev = eval_env_for(spec, c.plant, keep=CANARY_KEEP + TERRAIN_PASS, extra=OBST_EVAL)
-    latest, a = _run_eval(c, tag, "ring__omni", ["--manifest", str(OMNI_MANIFEST), "--scenario", "ring__omni",
-                                                 "--checkpoint", ckpt], ev, Path(str(EVAL_ROOT / c.dir.name / tag) + "_obst"),
-                          c.plant, 5400)
+    ev = eval_env_for(spec, c.plant, keep=CANARY_KEEP + TERRAIN_PASS, extra=OBST_EVAL, carry_overlay=carry_overlay)
+    latest, a, info = _run_eval(c, tag, "ring__omni", ["--manifest", str(OMNI_MANIFEST), "--scenario", "ring__omni",
+                                                       "--checkpoint", ckpt], ev,
+                                Path(str(EVAL_ROOT / c.dir.name / tag) + "_obst"), c.plant, 5400,
+                                max_attempts=max_attempts, interrupt_check=interrupt_check)
+    if info["status"] == "interrupted":
+        return _interrupted_eval()
     if a is None:
         return None
     return {"completion": a.get("schedule_completion_rate") or 0.0, "tripod": _med(a.get("tripod_score")) or 0.0,
             "tripod_walking": walking_tripod(a)[0], "falls": (a.get("termination_reasons") or {}).get("fall", 0),
-            "n": a.get("n_episodes"), "run_dir": str(latest)}
+            "n": a.get("n_episodes"), "run_dir": str(latest),
+            "eval_status": info["status"], "eval_rc": info["rc"]}
 
 
 # ------------------------------------------------------------------ records
@@ -1250,7 +1870,9 @@ def main() -> int:
     if args.from_scratch and args.from_checkpoint:
         ap.error("--from-scratch and --from-checkpoint contradict each other: pick one")
     pause_after = {p.strip() for p in args.pause_after.split(",") if p.strip()}
-    c = Campaign(Path(args.campaign_dir).resolve(), args.plant, str(args.seed))
+    cdir = Path(args.campaign_dir).resolve()
+    _refuse_ladder_dir(cdir)
+    c = Campaign(cdir, args.plant, str(args.seed))
     c.dir.mkdir(parents=True, exist_ok=True)
     c.ensure_header(phases, args)
     c.st["phase"] = "run"
