@@ -127,6 +127,16 @@ NOT_REPLAYED = (
 
 HOLD_LABELS = ["stand", "fwd", "lat_l", "diag", "back", "turn_l90", "turn_r90", "move_turn"]
 MOVING_HOLDS = ("fwd", "lat_l", "diag", "back", "move_turn")
+#: ``slow__omni``'s turn-type holds -- the dedicated in-place turns plus the simultaneous
+#: move+turn. These are the holds whose command was DRAWN as a turn, i.e. the eval analogue of
+#: a training row with ``slot_id >= SLOT_TURN``: the gate the shipped
+#: :func:`reward_facing_exp_turn_slot` uses (see the transcription note below ``OLD``/``NEW``).
+#: Part A5 (step 4): ``--facing-turn-w`` pays on exactly this set and exactly 0 elsewhere.
+#: SCOPE: these are the labels of ``slow__omni`` (the only schedule ``HOLD_LABELS`` and
+#: ``DEFAULT_RAWS`` describe). The Part A6 ``curriculum__omni`` row adds a second move+turn hold
+#: ``move_turn_r``; pointing this replay at curriculum raws means extending BOTH tuples.
+TURN_HOLDS = ("turn_l90", "turn_r90", "move_turn")
+_TURN_HOLD_IDS = [HOLD_LABELS.index(h) for h in TURN_HOLDS]
 
 REPO = "/home/nickmagus/krabby/krabby-research"
 DEFAULT_RAWS = {
@@ -146,6 +156,13 @@ class Terms:
     ("widen OR GATE track_ang_vel_z_exp ... turning rows only", "raise the progress weight
     well above 0.6"). They are replayed so the report can say what the decided four buy and
     what a minimal addition would buy on top.
+
+    Part A5 (step 4, 2026-09-18): four more fields for the ranked-candidates plan's cheap
+    reward-shaping levers (C2/C4/C6/C9). Every default below reproduces the value this module
+    already hardcoded before this pass -- ``yaw_w``/``yaw_progress_w`` from ``WEIGHTS``,
+    ``facing_turn_w``/``coupled_sigma`` at the shipped terms' own OFF values (the knobs are unset
+    in every preset) -- so constructing ``OLD``/``NEW`` with no override (as this file already
+    does) is bit-identical to before this pass.
     """
 
     sigma2: float = 0.1        # track_lin_vel_xy_exp: exp(-|err|^2 / sigma2); std = sqrt(sigma2)
@@ -154,6 +171,11 @@ class Terms:
     combine: str = "sum"       # reward_clock_schedule combine
     ang_turn_only: bool = False  # PROBE: zero track_ang_vel_z_exp on rows with cmd_wz == 0
     progress_w: float = 0.6      # PROBE: reward_forward_progress_along_command weight
+    # --- Part A5 additions (candidates C2/C4/C6/C9; none shipped yet -- see term_incomes) ---
+    yaw_w: float = WEIGHTS["reward_tracking_yaw"]            # reward_facing_exp weight (KRABBY_YAW_W)
+    yaw_progress_w: float = WEIGHTS["reward_yaw_progress"]   # reward_yaw_progress weight (C2)
+    facing_turn_w: float = 0.0                               # reward_facing_turn weight (C4); off
+    coupled_sigma: float | None = None                       # facing-coupled tracking sigma (C6); off
 
     @property
     def tag(self) -> str:
@@ -162,11 +184,48 @@ class Terms:
             s += " ang@turn"
         if self.progress_w != 0.6:
             s += f" prog={self.progress_w:g}"
+        if self.yaw_w != WEIGHTS["reward_tracking_yaw"]:
+            s += f" yaw_w={self.yaw_w:g}"
+        if self.yaw_progress_w != WEIGHTS["reward_yaw_progress"]:
+            s += f" yaw_prog_w={self.yaw_progress_w:g}"
+        if self.facing_turn_w != 0.0:
+            s += f" facing_turn_w={self.facing_turn_w:g}"
+        if self.coupled_sigma is not None:
+            s += f" coupled_sigma={self.coupled_sigma:g}"
         return s
 
 
 OLD = Terms(0.1, -1.0, 0.15, "sum")
 NEW = Terms(0.04, -2.0, 0.5, "product")
+
+# --- Part A5 (step 4): the two A2 candidate terms, TRANSCRIBED from the shipped code -----------
+# Both terms are now landed in ``$OMNI/mdp/crab_hex_omni_rewards.py`` (step 2, 2026-09-18), so --
+# like every other formula in this file -- they are transcribed, not reconstructed:
+#   C4 ``reward_facing_turn`` = ``crab_hex_omni_rewards.reward_facing_exp_turn_slot``
+#       = ``reward_facing_exp(...) * _slot_is_turning(...)``
+#       = ``exp(-|wrap(heading_target - heading_w)|)`` on the rows whose command SLOT asks for a
+#         turn, and exactly 0.0 on every other row.
+#       Here ``exp(-|heading_err|)`` is already the primitive ``p["facing"]`` (the same value the
+#       ungated ``reward_tracking_yaw`` is paid on), so C4 is that primitive times the turn gate
+#       and nothing else -- no separate kernel, no ramp. The plan's own arithmetic pins this
+#       reading: 0.2 * (exp(-0.1) - exp(-1.2)) = 0.121 and 1.0 * (...) = 0.604, i.e. the
+#       candidates table's "0.12 -> 0.60/s over the settled-0.1-rad vs 1.2-rad span".
+#       THE GATE: ``slot_id >= SLOT_TURN``. On a TRAINING row the slot is drawn and is constant
+#       for the whole command, so the term pays a settled turn too -- which is the entire point
+#       (``_slot_is_turning``'s own docstring: a ``cmd_wz != 0`` gate "would stop paying at the
+#       instant it started being satisfied, which is an incentive to overshoot"). The eval
+#       harness's
+#       ``schedule_hook`` re-derives ``slot_id`` from ``vel_command_b[:, 2] != 0`` instead, so a
+#       LITERAL eval-time evaluation of the shipped term would follow the facing P-control's dead
+#       band and would also fire on translation holds whose facing merely drifted. That is an
+#       artefact of the eval harness, not the income the candidate buys in training, so the
+#       replay gates on the HOLD (``p["turn_hold"]``, i.e. ``seg in TURN_HOLDS``) -- the eval
+#       analogue of the drawn slot, constant across the hold and exactly 0 on translation rows,
+#       as the candidates table states.
+#   C6 ``crab_hex_omni_rewards.track_lin_vel_xy_exp_facing_coupled``
+#       = ``stock(env, std, ...) * exp(-(wrap(heading_target - heading_w) / facing_sigma) ** 2)``
+#       -- applied on EVERY row, not gated, since it REPLACES the stock ``track_lin_vel_xy_exp``
+#       func rather than adding a term.
 
 #: which reconstruction of penalty_foot_idle_when_forward to score (see episode_primitives)
 IDLE_KEY = "idle"
@@ -227,6 +286,18 @@ def episode_primitives(z, n_offsets: int) -> dict:
     torque = z["applied_torque"].astype(np.float64)
     herr = z["heading_err"].astype(np.float64)
     seg = z["segment_id"].astype(np.int32)
+    # These raws must be ``slow__omni``'s: ``HOLD_LABELS`` is that schedule's label list read
+    # POSITIONALLY, so ``hold_mask``, ``MOVING_HOLDS`` and ``_TURN_HOLD_IDS`` all name holds by
+    # segment index. A raw from any other manifest row -- e.g. Part A6's 10-hold
+    # ``curriculum__omni``, where index 3 is ``lat_r`` and not ``diag`` -- would be silently
+    # re-labelled (and would pay ``facing_turn`` on whatever landed at 5/6/7). Refuse it loudly.
+    if seg.size and int(seg.max()) >= len(HOLD_LABELS):
+        raise SystemExit(
+            f"segment_id {int(seg.max())} is outside this script's {len(HOLD_LABELS)}-hold "
+            f"schedule {list(HOLD_LABELS)}: these raws are not slow__omni's. Extend HOLD_LABELS, "
+            "MOVING_HOLDS and TURN_HOLDS together (and re-check the weights) before replaying "
+            "another schedule's raws."
+        )
     steady = z["steady_mask"].astype(bool)
     done = z["done"].astype(bool)
     T = cmd.shape[0]
@@ -256,7 +327,8 @@ def episode_primitives(z, n_offsets: int) -> dict:
     cross = v_b[:, 0] * (-dir_b[:, 1]) + v_b[:, 1] * dir_b[:, 0]
     cross_pen = cross**2 * (speed_cmd > MIN_CMD_NORM)
     yaw_prog = np.clip(w_b[:, 2] * np.sign(cmd_wz), -ANG_VEL_MAX, ANG_VEL_MAX) * (cmd_wz != 0.0)
-    facing = np.exp(-np.abs(herr))
+    herr_abs = np.abs(herr)
+    facing = np.exp(-herr_abs)
 
     # ---- attitude
     gx, gy, gz = _gravity_b(quat)
@@ -341,6 +413,7 @@ def episode_primitives(z, n_offsets: int) -> dict:
         "progress": progress,
         "yaw_prog": yaw_prog,
         "facing": facing,
+        "herr_abs": herr_abs,
         "cross": cross_pen,
         "arate": arate,
         "orient": orient,
@@ -349,6 +422,10 @@ def episode_primitives(z, n_offsets: int) -> dict:
         "idle": idle_pen_carry,
         "idle_reset": idle_pen_reset,
         "turning": (cmd_wz != 0.0).astype(np.float64),
+        # The eval analogue of ``slot_id >= SLOT_TURN``: the hold's command was DRAWN as a turn.
+        # Constant across the hold (unlike ``turning``, which follows the facing P-control's dead
+        # band) -- see the C4 transcription note above ``OLD``/``NEW``.
+        "turn_hold": np.isin(seg, _TURN_HOLD_IDS).astype(np.float64),
         "excess": excess,
         "dtau": dtau,
         "v_along": np.sum(v_b[:, :2] * dir_prog, axis=1),
@@ -367,14 +444,25 @@ def term_incomes(p: dict, mask: np.ndarray, t: Terms) -> dict[str, float]:
     ang = np.exp(-p["err_wz_sq"] / t.ang_std**2)
     if t.ang_turn_only:
         ang = ang * p["turning"]
+    # C6: track_lin_vel_xy_exp_facing_coupled == the stock kernel times a Gaussian of the facing
+    # error (see the transcription note above `OLD`/`NEW`); unset (the default) is the stock
+    # kernel, bit-identical to before this pass.
+    lin = np.exp(-p["err_xy_sq"] / t.sigma2)
+    if t.coupled_sigma is not None:
+        lin = lin * np.exp(-(p["herr_abs"] ** 2) / t.coupled_sigma**2)
+    # C4: reward_facing_exp_turn_slot == the SAME exp(-|heading_err|) kernel the ungated
+    # reward_tracking_yaw is paid on (p["facing"]), gated to the turn slots -- on an eval
+    # schedule, the turn HOLDS.
+    facing_turn_bonus = p["facing"] * p["turn_hold"]
     out = {
-        "track_lin_exp": WEIGHTS["track_lin_vel_xy_exp"] * np.exp(-p["err_xy_sq"][m] / t.sigma2).mean(),
+        "track_lin_exp": WEIGHTS["track_lin_vel_xy_exp"] * lin[m].mean(),
         "track_ang_exp": WEIGHTS["track_ang_vel_z_exp"] * ang[m].mean(),
         "clock_sched": WEIGHTS["reward_clock_schedule"] * clock[m].mean(),
         "clock_apex": WEIGHTS["reward_clock_swing_apex"] * p["apex"][m].mean(),
         "progress": t.progress_w * p["progress"][m].mean(),
-        "yaw_progress": WEIGHTS["reward_yaw_progress"] * p["yaw_prog"][m].mean(),
-        "facing": WEIGHTS["reward_tracking_yaw"] * p["facing"][m].mean(),
+        "yaw_progress": t.yaw_progress_w * p["yaw_prog"][m].mean(),
+        "facing": t.yaw_w * p["facing"][m].mean(),
+        "facing_turn": t.facing_turn_w * facing_turn_bonus[m].mean(),
         "air_time": WEIGHTS["reward_feet_air_time_positive"] * p["air"][m].mean(),
         "L1": t.l1_w * p["err_l1"][m].mean(),
         "cross_vel": WEIGHTS["penalty_lin_vel_y"] * p["cross"][m].mean(),
@@ -444,7 +532,7 @@ def totals(inc: dict[str, float]) -> tuple[float, float, float]:
 # gait-income-phaseout precedent made between its BEHAVIORAL and ACTION_STREAM columns.
 TRACKING = ("track_lin_exp", "L1", "progress")
 COMMAND = TRACKING + ("clock_sched", "clock_apex", "track_ang_exp", "facing", "yaw_progress",
-                      "air_time", "cross_vel")
+                      "facing_turn", "air_time", "cross_vel")
 REGULARIZERS = ("action_rate", "foot_idle", "excess_feet", "orientation", "lin_vel_z",
                 "delta_torque")
 
@@ -462,6 +550,14 @@ def tracking_income(t: Terms, cmd_speed: float, v: float) -> float:
     row ``cmd_wz == 0``, so track_ang_vel_z_exp and reward_yaw_progress are constants in
     ``v`` and drop out of any comparison along this axis. Perfect-direction travel assumed
     (the error is then the scalar |cmd - v|), which is the best case for the mover.
+
+    BLIND TO TWO OF THE A5 LEVERS (read G3 accordingly). This analytic model -- which is all
+    that G3, the zero-velocity sweep and the final candidate table see -- hardcodes
+    ``WEIGHTS["reward_forward_progress_along_command"]`` rather than ``t.progress_w``, and it
+    carries no heading term at all. So neither ``--progress-w``/``--new-progress-w`` (C9) nor
+    ``--coupled-sigma`` (C6) can move G3: pre-existing behaviour for C9, newly reachable for C6.
+    An unchanged G3 under those two levers is therefore NOT evidence that the lever is inert --
+    G1/G2, the per-hold tables and the turn-hold table are where they show up.
     """
     err = abs(cmd_speed - v)
     return (
@@ -495,8 +591,35 @@ def main() -> int:
     ap.add_argument("--ang-std", type=float, default=0.5, help="NEW track_ang_vel_z_exp std")
     ap.add_argument("--new-ang-turn-only", action="store_true",
                     help="probe: make the NEW variant also gate track_ang_vel_z_exp on cmd_wz != 0")
-    ap.add_argument("--new-progress-w", type=float, default=0.6,
-                    help="probe: forward_progress weight inside the NEW variant")
+    ap.add_argument("--new-progress-w", "--progress-w", dest="new_progress_w", type=float,
+                    default=None,
+                    help="forward_progress weight inside the NEW variant (--progress-w is an "
+                         "alias of this same flag, not a second lever, so the two spellings are "
+                         "byte-identical; supplying EITHER arms the turn-hold income table; "
+                         f"default {NEW.progress_w:g} = no change; C9 candidate value 1.5)")
+    # The five Part A5 levers parse to None when NOT supplied, so "armed" below follows the FLAG
+    # and not the value: `--facing-turn-w 0` (a deliberate price-this-at-zero run) still prints
+    # the turn-hold table. Each is resolved to its "no change" default right after parsing.
+    ap.add_argument("--yaw-w", type=float, default=None,
+                    help="override reward_facing_exp's weight inside the NEW variant "
+                         f"(KRABBY_YAW_W twin; default {WEIGHTS['reward_tracking_yaw']:g} = no change)")
+    ap.add_argument("--yaw-progress-w", type=float, default=None,
+                    help="override reward_yaw_progress's weight inside the NEW variant "
+                         f"(KRABBY_YAW_PROGRESS_W twin; default {WEIGHTS['reward_yaw_progress']:g} "
+                         "= no change; C2 candidate value 3.0)")
+    ap.add_argument("--facing-turn-w", type=float, default=None,
+                    help="price the shipped turn-slot settle bonus reward_facing_turn "
+                         "(reward_facing_exp_turn_slot) inside the NEW variant "
+                         "(KRABBY_OMNI_FACING_TURN_W twin; exp(-|heading_err|) on the turn holds, "
+                         "0 on translation rows; must be >= 0, as parse_facing_turn_w requires; "
+                         "default 0.0 = no change, matching the knob's off-by-default shipped "
+                         "semantics; C4 candidate value 0.8)")
+    ap.add_argument("--coupled-sigma", type=float, default=None,
+                    help="price the shipped track_lin_vel_xy_exp_facing_coupled kernel inside "
+                         "the NEW variant (KRABBY_OMNI_TRACK_FACING_SIGMA twin; the stock "
+                         "tracking kernel times a Gaussian of the facing error; must be > 0, as "
+                         "parse_track_facing_sigma requires); unset (default) = the stock "
+                         "kernel, no change; C6 candidate value 1.0")
     ap.add_argument("--combine", nargs="*", default=["sum", "product"])
     ap.add_argument("--n-offsets", type=int, default=36, help="clock-phase fit grid size")
     ap.add_argument("--limit", type=int, default=0, help="episodes per head (0 = all)")
@@ -509,6 +632,33 @@ def main() -> int:
     ap.add_argument("--out", default=os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                                   "replay_reward_economy.md"))
     args = ap.parse_args()
+
+    # Part A5 levers: which were SUPPLIED (arms the turn-hold table), then their resolved values.
+    # The domains are the shipped knob parsers' own (omni_knobs.parse_facing_turn_w requires
+    # >= 0, parse_track_facing_sigma requires > 0), so the replay cannot price a recipe the
+    # trainer would refuse at config build.
+    # ``--new-progress-w``/``--progress-w`` (C9) arms the table on the SAME supplied-ness rule: it
+    # is ONE flag with two spellings (a true argparse alias, one dest) parsing to None when unset,
+    # so the two spellings stay byte-identical to each other, a run with NO new flag stays
+    # byte-identical to before this pass (the weight resolves to the value the flag defaulted to),
+    # and C9's own declared replay (``--progress-w 1.5``, nothing else) gets the turn-hold table
+    # instead of a screen report missing it. C9 is priced in the per-hold, GATE and sweep tables
+    # exactly as ``--new-progress-w`` always was, and pays the turn-hold table's ``progress``
+    # column.
+    new_levers_armed = any(v is not None for v in (args.yaw_w, args.yaw_progress_w,
+                                                   args.facing_turn_w, args.coupled_sigma,
+                                                   args.new_progress_w))
+    if args.facing_turn_w is not None and not args.facing_turn_w >= 0.0:
+        ap.error(f"--facing-turn-w must be >= 0 (KRABBY_OMNI_FACING_TURN_W's own domain), "
+                 f"got {args.facing_turn_w!r}")
+    if args.coupled_sigma is not None and not args.coupled_sigma > 0.0:
+        ap.error(f"--coupled-sigma must be > 0 (KRABBY_OMNI_TRACK_FACING_SIGMA's own domain), "
+                 f"got {args.coupled_sigma!r}")
+    yaw_w = WEIGHTS["reward_tracking_yaw"] if args.yaw_w is None else args.yaw_w
+    yaw_progress_w = (WEIGHTS["reward_yaw_progress"] if args.yaw_progress_w is None
+                      else args.yaw_progress_w)
+    facing_turn_w = 0.0 if args.facing_turn_w is None else args.facing_turn_w
+    new_progress_w = NEW.progress_w if args.new_progress_w is None else args.new_progress_w
 
     global IDLE_KEY
     IDLE_KEY = "idle" if args.idle == "carry" else "idle_reset"
@@ -581,15 +731,23 @@ def main() -> int:
     variants = [
         ("OLD", OLD),
         ("NEW", replace(NEW, ang_std=args.ang_std, ang_turn_only=args.new_ang_turn_only,
-                        progress_w=args.new_progress_w)),
+                        progress_w=new_progress_w, yaw_w=yaw_w,
+                        yaw_progress_w=yaw_progress_w, facing_turn_w=facing_turn_w,
+                        coupled_sigma=args.coupled_sigma)),
     ]
+    # ``facing_turn`` is a COMMAND member, so it must be a DISPLAYED column whenever it can be
+    # non-zero -- otherwise the row's COMMAND/POS/NET would not add up from its own columns. It
+    # is non-zero iff the C4 weight is armed, so the column is shown exactly then (which also
+    # keeps a no-new-flags run's table byte-identical to before this pass).
+    facing_turn_cols = ["facing_turn"] if facing_turn_w != 0.0 else []
     emit("## Per-hold income (per second) on the MOVING holds")
     emit()
     for vname, t in variants:
         emit(f"### {vname}  ({t.tag})")
         emit()
         cols = ["track_lin_exp", "L1", "progress", "clock_sched", "clock_apex", "track_ang_exp",
-                "facing", "yaw_progress", "air_time", "cross_vel", "action_rate", "foot_idle",
+                "facing"] + facing_turn_cols + [
+                "yaw_progress", "air_time", "cross_vel", "action_rate", "foot_idle",
                 "excess_feet", "orientation", "lin_vel_z", "delta_torque"]
         emit("| hold | head | v_along | " + " | ".join(cols)
              + " | TRACK | COMMAND | REG | POS | NEG | NET |")
@@ -608,14 +766,72 @@ def main() -> int:
                      + f" | {pos:.3f} | {neg:.3f} | {net:.3f} |")
         emit()
 
+    # ---------------- Part A5 (step 4): turn-hold income ordering, only when a new lever is armed
+    # (keeps a no-new-flags run's output byte-identical to before this pass -- see the dry run in
+    # the step report). ``new_levers_armed`` follows the FLAGS, not the values (set above).
+    #
+    # ADVISORY ONLY, AND ISOLATED. Everything below this block -- the GATE, the sweeps, the
+    # VERDICT (G1/G2/G3) and the `--out` file itself -- is the decided output of this screen, so
+    # a failure while pricing a candidate must never take it down with it. The whole block is
+    # therefore guarded: an exception is reported as one line and the report continues.
+    if new_levers_armed:
+        try:
+            emit("## Turn-hold income ordering -- the terms the A5 levers move, on "
+                 "turn_l90/turn_r90/move_turn")
+            emit()
+            emit("Candidates C2 (--yaw-progress-w), C4 (--facing-turn-w), C6 "
+                 "(--coupled-sigma) and C9 (--progress-w / --new-progress-w, one flag under two "
+                 "spellings) are priced here on the holds where a turn is commanded, OLD vs the "
+                 "armed NEW variant, per head. Any one of them SUPPLIED arms this table (the "
+                 "flag, not the value), and C9's weight is what pays the `progress` column. "
+                 "YAW = the four facing/turn-rate terms (what C2 and C4 move); TRACK = "
+                 "the translation sub-economy (what C6 rescales through track_lin_exp and what "
+                 "the NEW variant's progress weight pays through progress); the two clock "
+                 "columns are context, in neither subtotal. COMMAND is the row's full command "
+                 "subtotal -- the same one the GATE scores -- so it also contains air_time and "
+                 "cross_vel, which are NOT columns here: a row's COMMAND is the sum of its "
+                 "printed columns only on the two in-place turn holds, where both of those terms "
+                 "are identically 0; on move_turn they are not. 'order' ranks the four YAW terms "
+                 "by income, descending -- which term dominates the hold's turning economy.")
+            emit()
+            yaw_cols = ("track_ang_exp", "yaw_progress", "facing", "facing_turn")
+            track_cols = TRACKING                     # track_lin_exp, L1, progress
+            clock_cols = ("clock_sched", "clock_apex")
+            turn_cols = yaw_cols + track_cols + clock_cols
+            emit("| hold | head | variant | " + " | ".join(yaw_cols) + " | YAW | "
+                 + " | ".join(track_cols) + " | TRACK | " + " | ".join(clock_cols)
+                 + " | COMMAND | order (desc, YAW) |")
+            emit("|" + "---|" * (len(turn_cols) + 7))
+            for hold in TURN_HOLDS:
+                for hname, eps in heads.items():
+                    for vname, t in variants:
+                        inc, n, _ = head_hold_income(eps, hold, t, args.upright_only)
+                        if not inc:
+                            continue
+                        order = ", ".join(
+                            f"{c}={inc[c]:+.3f}" for c in sorted(yaw_cols, key=lambda c: -inc[c])
+                        )
+                        emit(f"| {hold} | {hname} | {vname} | "
+                             + " | ".join(f"{inc[c]:.3f}" for c in yaw_cols)
+                             + f" | {subtotal(inc, yaw_cols):.3f} | "
+                             + " | ".join(f"{inc[c]:.3f}" for c in track_cols)
+                             + f" | {subtotal(inc, track_cols):.3f} | "
+                             + " | ".join(f"{inc[c]:.3f}" for c in clock_cols)
+                             + f" | {subtotal(inc, COMMAND):.3f} | {order} |")
+            emit()
+        except Exception as exc:  # advisory table only -- never break the decided screen
+            emit(f"turn-hold income ordering: error ({type(exc).__name__}: {exc})")
+            emit()
+
     # ---------------- the gate: walker vs creeper margin
     emit("## GATE -- walker vs creeper margin per moving hold")
     emit()
     emit("margin = (walker - creeper) / walker POSITIVE income, on three nested subtotals:")
     emit("  NET     = every replayed term")
     emit("  COMMAND = every term that prices the command "
-         "(tracking + clock + ang + facing + yaw + air-time + cross-vel); "
-         "excludes the gait/action regularizers, which the fix does not touch")
+         "(tracking + clock + ang + facing + yaw + air-time + cross-vel"
+         + (" + facing-turn" if facing_turn_w != 0.0 else "")
+         + "); excludes the gait/action regularizers, which the fix does not touch")
     emit("  TRACK   = track_lin_exp + L1 + progress, the sub-economy the fix moves directly")
     emit("target: >= +25 % on every moving hold")
     emit()
