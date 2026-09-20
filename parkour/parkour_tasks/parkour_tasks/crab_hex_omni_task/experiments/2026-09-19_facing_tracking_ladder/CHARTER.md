@@ -953,9 +953,76 @@ Nothing is pushed (the user publishes).
   `seed3_X01_1c_A15pB`). Heartbeat every 1800 s (`/tmp/heartbeat_ladder.log`); the assistant's
   persistent monitor tails `notify.log` and relays every line as a push notification. Expected next
   lines: `DECISION D02` (B0 s3 baseline, ≈ 3.7 h + evals), then `X02` = B0 seed 2, then `RESOLUTION
-  D00b`. The `DerivedDataCache.corrupt-2026-08-13` quarantine (≈ 101 GB) is still on disk — the user's
-  call to delete.
-- **`MemoryPeak` is not yet measured.** The launcher runs the driver under `MemoryMax=48G`,
+  D00b`. The `DerivedDataCache.corrupt-2026-08-13` quarantine (101 GB) was deleted on the user's instruction
+  at 11:45 the same day (disk 477 → 377 GB used; the live 4.0 GB cache and the running unit untouched).
+- **2026-09-19 14:15 — B0 seed 3 (X01) landed; `MemoryPeak` measured.** `systemctl --user show <unit> -p MemoryPeak` after the
+  8000-iteration window and its `slow__omni` eval: **9.27 GB** (`MemoryPeak=9271455744`) — the 48 G cap holds a 5× margin and is
+  not lowered yet (the ring/light evals of the milestones and the 100-episode evals have not run under this unit).
+- **2026-09-19 14:15 — Verification 6 (B0 pre-flight) PASSED on X01.** `overlay_checks` empty (the `1c`
+  preset carries no overlay — nothing to audit), the `slow__omni` eval's `run_meta.env_vars` carries exactly
+  the seven `EVAL_CARRY` keys (the two defaulted ones included: `FACING_OBS_ENCODING=raw`,
+  `ANG_VEL_CLIP=0.2`), `KRABBY_RSI_FRAC=0`, `KRABBY_PLAY_DEBUG_VIS=0`, ring geometry; `eval_status ok`;
+  `decision_table.py --phases X01:1c` renders the row; `D02` (baseline, final) and `D03` (dead_walker floor
+  0.422 = max(0.35, 0.75 × 0.563)) written. **B0 seed 3 screen:** completion 0.56, `tripod_walking_dir`
+  0.384, speed ratios fwd/lat_l/diag/back 0.602/0.542/0.553/0.611 (move_turn 0.441, WATCH), yaw progress
+  0.071/0.070 rad/s, `facing_closed` turn_l90 0.544 / turn_r90 0.845 / move_turn 0.132, finals turn_l90
+  0.724 rad, move_turn 1.295 rad, turn survivals 0.952/0.983, training `track_ratio_tail` 0.637
+  (`track_ratio_move_tail` 0.636), 44/100 falls. Within D00 of the 1c-004 prior row and the 2b lineage on
+  every scored quantity — the incumbent is what it was. X02 = B0 seed 2 started 14:15.
+- **2026-09-19 17:19 — B0 seed 2 (X02) landed; `RESOLUTION D00b` written; C1 started.** X02 screen:
+  completion 0.68, `tripod_walking_dir` 0.472, speed ratios fwd/lat_l/diag/back 0.628/0.462/0.542/0.583
+  (move_turn 0.353), yaw progress 0.081/0.084 rad/s, `facing_closed` turn_l90 0.629 / turn_r90 0.860 /
+  move_turn 0.310 — a better walker than seed 3 on completion, tripod and facing, which is what the seed
+  terms now carry. **D00b:** the control check (B0 s2 submitted against B0 s3) decides all-TIE on every
+  block and guard, in both unit systems; `R_F(D00b) ≥ R_F(D00)` holds on every block. Block levels from
+  here on: **F R = 2.043** (R_eval 0.550, R_seed 2.043), **T R = 0.597** (0.518 / 0.597), F_abs 1.993,
+  T_abs 0.597 — the facing block's seed term is ~4× its eval half-width, so a single-seed screen can
+  clear F only by moving the standardised block mean by more than two eval half-widths (≈ +0.12 on the
+  turn-hold closed fractions and +0.015 rad/s on the progress rates at once); most facing candidates
+  will therefore land UNCERTAIN and run their pairs — the designed behaviour, not a defect. Guards:
+  completion ±0.155 (eval; seed 0.120), tripod_walking_dir ±0.088 (seed), turn_survival_l90 ±0.079 and
+  turn_survival_r90 ±0.028 both still carried by the degenerate eval half-width (caveat 27: a lone
+  WORSE on either is read as uncertain and confirmed by the user). `MemoryPeak` after two windows
+  10.67 GB. **X03 = C1 (curriculum) stage c1 started 17:19** (1000 it, `1a` base + the c1 pool).
+- **2026-09-19 19:19 — `DECISION D05`: C1 (the user's additive curriculum) REJECTED by the stage-c4 FLOOR**
+  — survival through `move_turn_r` on the curriculum row 0.230 (floor 0.30) at 4500 of 8000 iterations;
+  clear, no pair; the c4 head kept (`…_seed3_X03_c4_A15pB/model_4496.pt`). Profile: through the ninth hold
+  0.40 (c1, forward-only) → 0.00 (c2, lateral+back added) → 0.23 (c4, turning added 2500 it earlier;
+  yaw progress 0.034/0.031 rad/s, speed ratios fwd/lat/back 0.65/0.45/0.60) — a chain still forming, not
+  a dead one; the 0.30 floor was set without a B0 number on this row (B0 has no curriculum-row eval) and
+  is uncalibrated. Driver proceeded to **C1b** (X04, the same chain with `ang_scale 0.3` on the `*_turn`
+  types; its c1/c2 reproduce C1's). **User decision (19:40): option 1 — wait for C1b's own c4 result**
+  before relaxing the floor; if C1b also lands near 0.2, the floor (not the demand) is the problem and C1
+  is re-run under a relaxed c4 floor (`candidates.yaml` c4 `min`, relaunch with
+  `--accept-candidates-change`, `decide C1 --choose run`); if C1b clears 0.30, the turn demand was the
+  problem and the ladder's own answer stands.
+- **2026-09-19 20:14 — `DECISION D06`: C1b REJECTED by the stage-c2 FLOOR (survival through `back` 0.250 vs
+  0.30); `D07`: C1c SKIP (predicate `decision(C1).chosen == ADOPT` false); X05 = C2 (yaw-progress 3.0,
+  `scratch_1c`) started 20:15.** The decisive evidence on the floors: C1b's c1 reproduced C1's c1 to the
+  digit (survival 0.81/0.78/0.63/0.59/0.40, ratios 0.62/0.19/0.60, track tail 0.664 — deterministic), and
+  its c2 ran the IDENTICAL overlay (the `*_turn` scale touches no c1/c2 type) yet landed at 0.25 through
+  `back` where C1's c2 landed at 0.36 (fwd survival 0.59 vs 0.71; lateral ratio 0.41 vs 0.36) — the
+  run-to-run divergence begins at c2 (RSI resets enter there). Two identical configurations straddle the
+  0.30 floor, so the c2/c4 floors gate on run noise (band ≈ ±0.1 at 2000 iterations from scratch), not on
+  whether the chain is alive. Recommended amendment (awaiting the user): relax the non-final floors to
+  `min: 0.10` (a dead chain, not a forming one), keep the final screen as the judge, relaunch with
+  `--accept-candidates-change`, `decide C1 --choose run` (queued after X05 resumes); C1b re-queued by hand
+  only if C1's re-run is rejected at its screen.
+- **2026-09-19 20:25 — CAMPAIGN PAUSED by the user** ("pause for now; resume later with a more narrowly scoped
+  plan"). Normal stop: `ledger_cli stop` → the driver terminated X05's training child (C2, `scratch_1c`,
+  interrupted at `model_400.pt` of 8000, header left `inflight` and resumable), parked at
+  `phase = await_user:stop` in 3 min, and the unit went inactive; the `STOP` file stays in place so a
+  relaunch is refused until `ledger_cli unstop`. Ledger at the pause: D00, D01, D02, D03, D04, D00b
+  (records), **D05 C1 REJECT (c4 floor)**, **D06 C1b REJECT (c2 floor)**, **D07 C1c SKIP**; two B0
+  screens (X01 s3, X02 s2) are the incumbent; no candidate has been adopted. **Open question for the
+  next plan:** the non-final curriculum floors (c2/c4 at 0.30) gate on run-to-run noise (an identical c2
+  configuration scored 0.36 and 0.25); the prepared amendment (floors → 0.10, re-run C1) was NOT applied.
+  The approved plan is saved verbatim beside this file as `PLAN_2026-09-18_facing_tracking_ladder.md`
+  with the deviation log `PLAN_AMENDMENTS.md`. **To resume as-is:** `ledger_cli unstop`, then
+  `launch_candidates.sh --campaign-dir $LAD` (X05 resumes from its last checkpoint; the queue continues
+  C2 → C3a → …). To resume under a narrowed plan: edit `candidates.yaml`, relaunch with
+  `--accept-candidates-change "<why>"`; a code change needs `--accept-code-change` and a `B<k>` rerun.
+- **`MemoryPeak` policy.** The launcher runs the driver under `MemoryMax=48G`,
   `MemorySwapMax=0`, `OOMPolicy=continue`, `KillMode=mixed`, `TimeoutStopSec=360`; the measured
   `MemoryPeak` of the unit is recorded HERE after `B0` completes (`systemctl --user show <unit> -p
   MemoryPeak`), and the cap is lowered only with that evidence.
