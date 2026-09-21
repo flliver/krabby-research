@@ -521,8 +521,11 @@ untracked by the keep-set rule — every line it carries is also in the ledger, 
 
 **Notification contract** — `notify.log` line = `%Y-%m-%d %H:%M TAG <id> | field | ...`, one physical
 line, absolute paths, produced by `ledger_cli.format_notify` and parsed by
-`ledger_cli.parse_notify` (round-trip tested). The thirteen tags: `RESOLUTION, DECISION, CONFIRM,
-SELF-OVERRULE, OVERRIDE-APPLIED, SQUASH, MILESTONE, RETENTION, INFRA, HALT, DONE, RELAUNCH, AWAIT`.
+`ledger_cli.parse_notify` (round-trip tested). The fourteen tags: `RESOLUTION, DECISION, CONFIRM,
+SELF-OVERRULE, OVERRIDE-APPLIED, SQUASH, MILESTONE, RETENTION, INFRA, HALT, DONE, RELAUNCH, AWAIT,
+MIGRATION` (`MIGRATION`, added by the per-category evaluation plan of 2026-09-21, carries the
+eval-only rescreen/reeval/rescore items that move a paused campaign onto a new `eval_sha`; its
+lines say "eval-only" — nothing trains).
 Each DECISION line carries the blocks with their `z` and `R`, the guards, the anchored-drift verdict,
 the resolution id and levels, the WATCH row, the next item, and the exact `confirm:` / `overrule:`
 commands. The assistant's persistent Monitor tails the file and relays every new line as a push
@@ -1043,3 +1046,256 @@ Nothing is pushed (the user publishes).
   `MemorySwapMax=0`, `OOMPolicy=continue`, `KillMode=mixed`, `TimeoutStopSec=360`; the measured
   `MemoryPeak` of the unit is recorded HERE after `B0` completes (`systemctl --user show <unit> -p
   MemoryPeak`), and the cap is lowered only with that evidence.
+
+## Per-category evaluation (2026-09-21)
+
+Plan of record: `PLAN_2026-09-21_per_category_eval.md` (saved verbatim beside this file; audited in
+five further passes after its pass-1 review — passes 2–6, `PLAN_AMENDMENTS.md` item 30). It answers
+the paused campaign's floor rejections (D05 C1, D06 C1b): their `curriculum__omni` floors read
+*prefix survival* on a ten-hold episode, which counts every earlier fall regardless of whether that
+hold was trained, and is noisy at the threshold (two identical c2 configurations scored 0.36 and
+0.25 against a 0.30 floor). It replaces this CHARTER's Decision rule (decision 5) and Resolution
+policy (decision 6) sections above wherever they conflict — those sections stay as the record of the
+2026-09-19 rule; the ladder's ranked candidate list, speculation/squash protocol and milestone
+structure are otherwise unchanged. **Supersedes:** the 2026-09-18 plan's decision 4 (floors),
+decision 5's blocks/guards by hold, and decision 6's curriculum-row borrow (`BORROW` /
+`--curriculum-runs`, retired behind `rule_version == 2`); decision 6's resolution / seed-term /
+pooled-R machinery stays.
+
+**Vocabulary.** **category** — one of `stand, fwd, side, back, diag, turn, move_turn` (mirror pairs
+share a category; **hand** l|r reports handedness inside it). **hold** — one command row of the
+suite. **suite** — the manifest row `suite__omni`. **decisive / present / watch** — the categories a
+stage's command distribution trains at/above, at all, and below the pool floor share
+(`eval_categories.trained_categories`); the decisive set of a comparison is the CANDIDATE's decisive
+set. **eval_sha** — a sha256 over the eval-side files, split from `code_sha`. **rescreen / reeval /
+rescore** — the three eval-only migration items (D9); none trains. **N/A block** — a block with no
+decisive member; never TIE, never MISSING.
+
+### D1–D3: the suite and its metrics
+
+`suite__omni` (`kind: category_suite`) is ONE Kit launch, TEN waves in wave order; wave k = every
+env runs `[settle 2 s, hold_k 12 s]` at 100 envs/wave (1000 episodes total,
+`env_index = wave*100 + env`), so a fall in one hold never contaminates another hold's number — the
+fix for the prefix-survival contamination above. The harness re-seeds before every wave
+(`env.seed(env_seed*1_000_003 + wave)`) and resets between waves ON THIS ROW ONLY; every legacy row
+(`slow/light/ring/curriculum__omni`) runs its single-pass loop unchanged, because that reseed writes
+process state and any env write after Kit startup can flip a same-seed eval (see "Isaac headless
+launch quirks" / process-state sensitivity). Holds, in wave order:
+
+| wave | label | category/hand | speed | dir (world) | face | note |
+|---|---|---|---|---|---|---|
+| 0 | `stand` | stand | 0.00 | 0 | 0 | |
+| 1 | `fwd` | fwd | 0.25 | 0 | 0 | = legacy |
+| 2 | `lat_l` | side/l | 0.22 | +π/2 | 0 | = legacy |
+| 3 | `lat_r` | side/r | 0.22 | −π/2 | 0 | = curriculum row |
+| 4 | `back` | back | 0.22 | π | 0 | = legacy |
+| 5 | `diag` | diag | 0.25 | +π/4 | 0 | = legacy |
+| 6 | `turn_l90` | turn/l | 0.00 | 0 | +π/2 | = legacy |
+| 7 | `turn_r90` | turn/r | 0.00 | 0 | −π/2 | NEW meaning: 90° right from face 0 (legacy: the return turn +π/2 → 0) |
+| 8 | `move_turn` | move_turn/l | 0.22 | 0 | +π/2 | = legacy |
+| 9 | `move_turn_r` | move_turn/r | 0.22 | 0 | −π/2 | mirror of `move_turn` |
+
+`n` = 100 per hand, 100 for a singleton category, 200 for a paired one; the floor band and RETENTION
+read the distinct-env count `n_env` (100 for every category — a paired category's two hands share
+the same startup-randomised robots). New per-hold metrics, world rows only, gated like `facing`:
+`motion` (`speed_abs_mean_m_s, pos_drift_m, path_len_m, yaw_drift_rad, foot_lift_count,
+contact_churn_per_s, n_steps`) and `direction` (`direction_error_rad, cross_track_ratio,
+travel_speed_m_s`, commanded-speed-> 0 holds only) — `gait_eval.metrics.hold_motion_metrics` /
+`travel_direction_metrics`. The suite's `aggregate.suite` block carries `hold_labels` (the 11-label
+union), `hold_of_wave`, `category_of_hold`, `hand_of_hold`, `n_by_hold`, per-hold OWN-hold
+`survival_by_hold`, `trained_categories`, and `by_category` — `report.aggregate`'s pooled-both-hands
+reduction (never a mean of hand medians) that `summarize()`'s `cat` dict (D5) reads. Category metric
+roles:
+
+| category | decisive members | guards | WATCH |
+|---|---|---|---|
+| stand | — | `survival` | `drift_speed`; per-hold `motion_by_hold` |
+| fwd, side, back, diag | T: `ratio`; T_abs: `achieved_speed` | `survival`; `cat_tripod_min` | `direction_error`, `cross_track_ratio`, `heading_final` |
+| turn | F: `facing_closed`, `yaw_progress`; F_abs: `facing_closed`, `net_yaw` | `survival` | `settle_s`, `heading_final` |
+| move_turn | F_mt: `facing_closed`, `yaw_progress`; F_mt_abs: `facing_closed`, `net_yaw` | `survival`; **`ratio`** (`achieved_speed` under `absolute_units`) | `tripod`, `achieved_speed`, `direction_error`, `cross_track_ratio`, `settle_s` |
+
+`move_turn` is decisive in its OWN block `F_mt`/`F_mt_abs` — user amendment 2026-09-21, applied after
+the pass-1 review — because the hold's demand is infeasible by construction and it is where the
+sacrifice the campaign exists to fix is largest (the 2b head ends at 1.218 rad there versus 0.68 on
+the in-place turn); the separate block keeps it from drowning, or being drowned by, the in-place
+turn's F, and `cat.move_turn.ratio` (or `achieved_speed` under `absolute_units`) is a GUARD so a
+candidate cannot win F_mt by walking less. `drift_speed` stays WATCH this window (lower-is-better; a
+standing collapse is still caught by `cat.stand.survival`).
+
+### D4: trained categories (`eval_categories.py`)
+
+New Isaac-free module at the omni task root (`$OMNI/eval_categories.py`, outside `mdp/`/`config/`,
+hence in `eval_sha` not `code_sha`), loading `crab_hex_omni_command_math.py` and `omni_knobs.py` BY
+PATH (never a dotted import, which would run Isaac's `import_packages`).
+`trained_categories(env) -> TrainedCategories(decisive, present, watch, hands, demand, source,
+facing_band_hi, encoding, notes)` reads the stage's COMPOSED training env (never the overlay alone):
+`present` = share > 0, `decisive` = share ≥ `POOL_FLOOR_SHARE` at the suite's full demand, `watch` =
+present − decisive with a note (`watch (reduced demand)` / `watch (one hand)` / `watch (below floor
+share)`). `CATEGORY_HOLDS`, `HAND_OF_HOLD`, `TYPE_TO_CATEGORIES` map pool types to categories
+(`omni` → all four bearings; `fwd_turn|side_*_turn|back_turn|omni_turn` → `move_turn` alone); a scale
+edit demotes ONLY the categories its own type maps to (`{"*_turn": 0.3}` touches `move_turn`, never
+`turn` — this is what un-inverts the C1b/C7 floor reading). `turn` is decisive for every recipe
+regardless of the FACING band or `sincos` encoding (`turn_annotation` prints the band/encoding as
+information on the RESOLUTION/DECISION lines, never a demotion). The two pure helpers both tools
+share, never re-implemented: `expand_rule(rule, decisive, present, *, absolute_units)` and
+`composite_guards(screen, decisive)`.
+
+### D5: decision rule v2
+
+`summarize()` gains `cat[c] = {n, n_env, survival, ratio, achieved_speed, tripod, facing_closed,
+yaw_progress, net_yaw, settle_s, heading_final, drift_speed, direction_error, cross_track_ratio,
+by_hand}` per category, read from `aggregate.suite.by_category`. `decision_rule` becomes
+`rule_version: 2` with `per_category` templates:
+
+> F `{turn: [facing_closed, yaw_progress]}`; **F_mt `{move_turn: [facing_closed, yaw_progress]}`**;
+> T `{fwd|side|back|diag: [ratio]}`; F_abs `{turn: [facing_closed, net_yaw]}`; **F_mt_abs
+> `{move_turn: [facing_closed, net_yaw]}`**; T_abs `{...: [achieved_speed]}`; guards
+> `{every category: [survival]}` + **`{move_turn: [ratio]}`** + `composite: [cat_tripod_min]`, and
+> **`guards_abs: {move_turn: [achieved_speed]}`** in place of the ratio guard for an
+> `absolute_units` candidate.
+
+`eval_categories.expand_rule` turns this into today's flat `{blocks, guards, watch}` shape
+restricted to the decisive set (ids `cat.<c>.<key>`, `cat_tripod_min`), keeps every PRESENT
+category's `survival` guard, and moves every other member/guard of a non-decisive category to WATCH
+with its note. **The block set is derived from the expanded rule everywhere it is enumerated, never
+hard-wired** — a candidate scores `{F, F_mt, T}` or, under `absolute_units`, `{F_abs, F_mt_abs,
+T_abs}`. A block with no member is **N/A** (never TIE); an all-N/A comparison is a terminal
+`status: decided, chosen: SKIP, confidence: none` with no pair (squash cause (b) exempts it from ever
+being re-screened). Resolution (D00s/D00bs) uses `expand_rule_union` — the UNION of both unit
+systems — so an `absolute_units` candidate is decidable. Guards are one-sided at 99 % on
+`R_i = max(R_eval,i, R_seed,i, R_binom,i)`; `R_binom` (survival guards only) uses the clipped
+`p̄ = clip((surv_a+surv_b)/2, 0.05, 0.95)`, so a survival saturated on both heads floors at 0.072
+(n=100) / 0.051 (n=200) instead of reading MISSING. **Speculative sign:** the all-TIE pick and
+`decide_pooled`'s per-seed/pooled-fallback signs use `sign(Σ_b z_b / R_b)` over the non-N/A blocks —
+each in units of its own resolution, because F_mt's seed spread is ≈ 3× F's and a raw `Σ z_b` would
+be dominated by it.
+
+### D6: floors and RETENTION
+
+`floor: {kind: category_survival, row: suite, min_new: 0.10, min_prev: 0.30}` on every non-final
+chain stage. For each decisive category: `min_prev` if it was decisive at any earlier stage
+(`eval: []` stages included), else `min_new`. The test is a BAND test — FAIL only when the one-sided
+99 % upper binomial bound on `n_env` (the category's distinct-env count, 100 for every category) is
+below the threshold (effective point thresholds at n=100: passes down to p̂ ≈ 0.05 new / ≈ 0.21
+previous) — which is what un-inverts C1's and C1b's 2026-09-19 rejections: on the recorded per-hold
+survivals (C1 c2 `back` 0.58, C1b c2 0.52, C1 c4 `move_turn` 0.66–0.76) neither floor would have
+fired. RETENTION compares `cat.c.survival` and a per-category retention metric (`ratio` for
+translation, `facing_closed` for turn/move_turn plus `ratio` for move_turn, `drift_speed` for stand
+— lower is better) against the incumbent trace, per metric-kind threshold (survival 0.10, `ratio` a
+20 % relative drop, `facing_closed` an ABSOLUTE drop of `max(0.10, R_eval)`, `drift_speed` a rise of
+≥ 0.02 m/s absolute AND 20 % relative); WATCH + notify, never a gate.
+
+### D7: milestones
+
+The 2026-09-18 three-row verdict structure is KEPT with the suite in place of `slow`: the 2b head
+FAILS iff ≥ 2 of the three rows {suite, light, ring} are WORSE. The **suite row** is WORSE iff ≥ 2
+decisive UNITS are WORSE (a unit = a block, or a counting guard; `cat_tripod_min` does not count);
+nominal suite-row WORSE rate under the null ≈ 1 % at B0's set (3 blocks + 8 counting guards).
+**light and ring keep the frozen v1 per-row rule byte-for-byte**, scored from three named sources:
+the rule (D00s copies D00's frozen `decision_rule` verbatim as `by_row_rule`), the R (D00's copied
+`by_row` tables) and the seed terms (D00b's v1 terms) — so their scoring never changes under this
+plan.
+
+### D8: `eval_sha`
+
+`CODE_PATHSPECS` loses `scenarios_omni.yaml`, `run_phases.py` and `gait_eval`;
+`EVAL_PATHSPECS = (gait_eval/, eval_crab_hex_gait.py, scenarios_omni.yaml, run_phases.py,
+eval_categories.py)`. Every header/entry carries `eval_sha`; `ok_screen` additionally requires it to
+match the current one, so a screen measured on the old eval is never a control or an anchor until
+rescreened. A changed `eval_sha` is refused without `--accept-eval-change WHY`; **a campaign with a
+recorded `code_sha` and no `eval_sha` counts as changed** (every pre-suite campaign, this one
+included) — `main()` runs the acceptance path and its ALIAS PROOF before the `code_sha` comparison,
+so a real launch is refused naming `--accept-eval-change`, never `--accept-code-change` (which would
+queue an 8000-iteration B0 rerun). The alias proof: `code_sha_at(commit, pathspecs)` finds the newest
+commit whose training-side tree (`CODE_PATHSPECS_V1`, the pre-split pathspec) equals the recorded
+`lad.code_sha`, then proves that SAME commit's narrowed-pathspec tree equals the current `code_sha()`
+— measured identical at `81a1aa3`, `75dd943`, `9f61eb2`, `9c2c1fba`, `464be672` (`lad.code_sha` =
+`4c3f99c9a2c5…`, the narrowed value `a617f5ee59d1…`) — else refused ("the training tree also moved:
+use `--accept-code-change`"). A rescreen's old screen is kept under `header.screens_superseded`,
+never overwritten.
+
+### D9: migration and the resume sequence
+
+`migration_item(ctx)` runs BEFORE `find_inflight`/`_next_item_raw` (whose baseline-rerun rule would
+otherwise book an 8000-iteration B0 rerun the moment `ok_screen` goes stale). Order, each item
+eval-only and notified `MIGRATION` (a rescore PASS under `MIGRATION` too; only a rescore FAIL, which writes a REJECT entry, under `DECISION`):
+
+1. **rescreen X01, then X02** — every stale-`eval_sha` `ok` header on the suite, filed beside the
+   kept `slow` row (old screen kept under `screens_superseded`).
+2. **reeval** the three D00 inputs (`1c-004`, `2b`, `2a-reeval`) on the suite.
+3. **`D00s`** — resolved IN-PROCESS from the cross-head suite pairs (env-clustered paired bootstrap,
+   B = 2000), with D00's `light`/`ring` `by_row` tables and rule copied across; written to
+   `resolution.<eval_sha[:12]>.json`.
+4. **`D00bs`** — the seed terms per block/guard from the two rescreened B0 screens against `D00s`.
+5. **rescore** the floor-rejected chains: X03 (C1) at its c4 checkpoint, X04 (C1b) at its c2
+   checkpoint, each re-decided under D6 on that stage's trained categories; **PASS** re-opens the
+   chain at its next stage (C1 → c5, C1b → c3, the latter `rescored_awaiting_predicate` since C1b
+   `depends_on: [C1]`); **FAIL** keeps the REJECT effective, now under the current `eval_sha`.
+6. **the ordinary queue, in rank order** — a `candidate` header resumes only when `_next_item_raw`
+   would dispatch it NOW, so **X05 (C2) parks until C1, C1b and C1c are terminal** (logged "not
+   resumed (waiting on C<id> at rank k)").
+
+Both D00s and D00bs compute their acceptance (a null band / a construction check) BEFORE any write;
+a failure writes only the diagnostic `resolution.<eval_sha[:12]>.<kind>.rejected.json` (kind =
+`D00s`|`D00bs`) and halts `halt:resolution <kind>` (stop-and-wait) until `--accept-resolution <kind>
+WHY` is given at relaunch. A failed migration item halts the CAMPAIGN (`halt:migration <item>
+<why>`), never a recorded header.
+
+### D10: resolution on the suite
+
+`bootstrap_pair` draws clustered on the WITHIN-WAVE env index (both heads share the draw; a paired
+category's 100/100 hand split and the within-env correlation across categories, including
+`cat_tripod_min`, are preserved). A stamp is read only after `resolve_eval_dir`'s FRESHNESS check
+(`complete.json`, written LAST by `write_run`, plus a checkpoint-sha match) — never a partially
+written raw set.
+
+### Relaunch (execution step 8)
+
+```bash
+$PY $TOOLS/ledger_cli.py --campaign-dir $LAD unstop
+"$OMNI/experiments/tools/launch_candidates.sh" --campaign-dir "$LAD" \
+  --accept-eval-change "per-category suite (user 2026-09-21)" \
+  --accept-candidates-change "categories, floors, rule v2"
+```
+
+Budget before the first training window resumes: 7 suite evals (2 rescreens, 3 reevals, 2 rescores)
+≈ 50–60 GPU-min plus the D00s bootstrap (CPU) and ≈ 6 GB of raws/JSON, then C1 c5–c6 (≈ 1.7 h
+including its stage evals) before C1's screen; every later screen and promotion carries one suite
+(≈ 0.75–0.95 GB). Read, in order: the MIGRATION lines, the `D00s` then `D00bs` RESOLUTION lines (the
+F and F_mt seed-dominance sentences first — a `halt:resolution` stops here), then the C1 and C1b
+rescore verdicts, then the queue.
+
+### Caveats carried from the plan
+
+1. `move_turn` is scored RELATIVELY — its facing block compares two heads under the same infeasible
+   demand, and `cat.move_turn.ratio` guards against winning it by walking less; its tripod and
+   direction numbers stay WATCH.
+2. `turn` is decisive for every recipe although each trains a narrower FACING band than the suite's
+   90° demand; the comparison is symmetric and the band/encoding are printed, never a demotion.
+3. The facing blocks are expected to stay seed-dominated, F_mt far more than F: on the recorded B0
+   pair split along the v2 blocks, `R_F^seed` ≈ 1.2 and `R_F_mt^seed` ≈ 3.7; `D00bs` measures every
+   block before any decision and states per block whether a single-seed screen can clear it at all.
+4. `run_phases.py` sits on the eval side of the hash; its training seam is pinned by a source hash
+   (`test_run_phases_training_seam_is_unchanged`), not by `code_sha`.
+5. The stage floors are absolute and band-tested at 99 % on the category's distinct-env count (100,
+   paired categories included); the translation/move_turn proxies are legacy 8-s holds while the
+   suite's are 12-s, so the proxies OVERSTATE the suite's survival (≈ p^1.5 on 12 s; still above the floors) — calibrated on
+   conditional per-hold survivals, a proxy the C1/C1b rescores validate with the first real
+   per-category numbers.
+6. A suite eval costs ≈ 2× a legacy row in time and ≈ 3.2–3.5× in disk; raws are kept (re-scoring
+   needs them). The migration adds ≈ 1 GPU-h and ≈ 6 GB before the first training window resumes.
+7. `turn_r90` and `move_turn_r` change MEANING relative to the legacy rows (both now mirror their
+   left-handed twin from face 0); a predicate reading a screen's legacy per-hand key
+   (`predicate_context`, e.g. C10's `screen.yaw_progress_turn_min`) now reads the suite screen — C10
+   is deferred and its predicate is re-expressed on `cat.turn.yaw_progress` when undeferred.
+8. `by_category` pools both hands; a handedness asymmetry is visible only in the WATCH `by_hand`
+   rows.
+9. Three blocks and nine guards cost sensitivity: a null candidate reads some WORSE about 15 % of
+   the time, so a clear REJECT is worth reading before it is trusted; every DECISION line quotes the
+   overrule command. The survival guards' binomial floor is unpaired, so a category's survival must
+   drop by ≈ 0.10–0.16 (n=100, p̄ 0.9–0.5; ≈ 0.07–0.12 for side/turn/move_turn at n=200) before it
+   reads WORSE — fewer spurious REJECTs at the price of sensitivity to falls.
+10. A present-but-watch category (e.g. `move_turn` after a C1b/C7-style `ang_scale` adoption) keeps
+    only its `survival` guard from then on (`rescale_to` keeps `ang_scale`) — its facing and speed
+    are WATCH lines for every later screen and milestone, and only a survival regression can REJECT
+    or FAIL.

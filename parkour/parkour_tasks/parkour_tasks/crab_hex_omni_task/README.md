@@ -590,8 +590,11 @@ corrupts its `DerivedDataCache`. The normal stop is `ledger_cli.py ... stop`.
 
 **The notify/ledger protocol.** The driver appends one physical line per event to `notify.log`
 (`%Y-%m-%d %H:%M TAG <id> | field | ...`, absolute paths), produced by `ledger_cli.format_notify`
-and parsed back by `ledger_cli.parse_notify`. Thirteen tags: `RESOLUTION, DECISION, CONFIRM,
-SELF-OVERRULE, OVERRIDE-APPLIED, SQUASH, MILESTONE, RETENTION, INFRA, HALT, DONE, RELAUNCH, AWAIT`.
+and parsed back by `ledger_cli.parse_notify`. Fourteen tags: `RESOLUTION, DECISION, CONFIRM,
+SELF-OVERRULE, OVERRIDE-APPLIED, SQUASH, MILESTONE, RETENTION, INFRA, HALT, DONE, RELAUNCH, AWAIT,
+MIGRATION` (`MIGRATION`, per-category plan 2026-09-21, carries the eval-only rescreen/reeval/rescore
+items that move a paused campaign onto a new `eval_sha` — its lines say "eval-only": nothing
+trains).
 Every DECISION line carries both blocks with their `z` and `R`, the four guards, the anchored-drift
 verdict, the resolution id and levels, a WATCH row, the next queued item, and the exact commands to
 answer it. The user answers through the CLI, which writes ONLY `ledger_overrides.jsonl` — never
@@ -624,6 +627,26 @@ dirty or untracked, and a CHANGED hash at relaunch is refused without `--accept-
 Record and docs commits (a campaign directory, this README, `docs/FOLDER_LAYOUT.md`) leave it
 unchanged — which is what lets a campaign commit its own records while it runs. The three ladder
 tools are OUTSIDE the hash by design and are recorded informationally per entry as `tools_sha`.
+
+**`eval_sha` vs `code_sha` (per-category plan 2026-09-21, D8).** The eval-side files
+(`scripts/gait_eval/`, `eval_crab_hex_gait.py`, `experiments/eval/scenarios_omni.yaml`,
+`experiments/tools/run_phases.py` and `eval_categories.py`) were split out of `code_sha`'s pathspec
+into their own `EVAL_PATHSPECS`/`eval_sha()`, so an eval-only change (a new metric, a new manifest
+row) no longer forces a training rerun. Every header/entry now carries `eval_sha`, and `ok_screen`
+additionally requires it to equal the current one, so a screen measured under an old eval is never a
+control or an anchor until it is rescreened. A changed `eval_sha` is refused without
+`--accept-eval-change WHY`; a campaign with a recorded `code_sha` and no `eval_sha` (every
+pre-suite campaign) counts as changed too, and `main()` tries an ALIAS PROOF first —
+`code_sha_at(commit, pathspecs)` finds the newest commit whose training-side tree under the
+pre-split pathspecs equals the recorded `code_sha`, then checks that the SAME commit's tree under
+the narrowed, current `CODE_PATHSPECS` equals today's `code_sha()`. A successful proof appends
+`{sha, proved_at, why, at}` to `lad.code_sha_aliases` (which `ok_runs`/`baseline_label` read as
+equivalent to the current `code_sha`) and the launch proceeds without a `B<k>` rerun; a failed proof
+falls through to the ordinary `code_sha` refusal, naming `--accept-code-change` instead. A
+resolution acceptance failure (the null band for `D00s`, the construction check for `D00bs`) is a
+separate gate: it writes nothing but a `resolution.<eval_sha[:12]>.<kind>.rejected.json` diagnostic
+and halts `halt:resolution <kind>` until `--accept-resolution <kind> WHY` is given at relaunch
+(recorded in `lad.resolution_acceptances`).
 
 **`EVAL_CARRY` — the knobs an eval must reproduce from its training window.** `run_phases.py` carries
 **seven** names into every eval env (`eval_env_for`), and `EVAL_CARRY_DEFAULTS` injects a value for
@@ -740,6 +763,62 @@ unwrapped heading error), `yaw_rate_ratio` (wobble-sensitive, kept for continuit
 row after it has been evaluated once (process-state sensitivity flips same-seed outcomes between
 two repeatable results); a new row may carry whatever it needs.
 
+### Per-category evaluation (`suite__omni`, 2026-09-21)
+
+A fifth manifest row, added for the candidate ladder's per-category evaluation plan
+(`experiments/2026-09-19_facing_tracking_ladder/PLAN_2026-09-21_per_category_eval.md`), answers a
+defect in the legacy rows above: their per-hold survival is a *prefix* survival (nested holds in one
+episode), so a fall in an untrained hold contaminates every later hold's number, and a bearing sweep
+like `move_turn` is scored even for a recipe that never trained it.
+
+- **`suite__omni`** — `kind: category_suite`, no `env:` block. ONE Kit launch runs **ten waves**
+  back to back; wave k puts EVERY env through `[settle 2 s, hold_k 12 s]` at 100 envs/wave (1000
+  episodes total, `env_index = wave*100 + env`, the same 100 startup-randomised robots every wave),
+  so each episode carries exactly one category's hold and a fall never contaminates another hold's
+  number. Seven categories, ten holds (mirror pairs share a category and report `hand: l|r`):
+  `stand` (1), `fwd`/`back`/`diag` (1 each), `side` (`lat_l`/`lat_r`), `turn` (`turn_l90`/`turn_r90`),
+  `move_turn` (`move_turn`/`move_turn_r`). `turn_r90` and `move_turn_r` change MEANING relative to
+  the legacy rows above: both are now a 90°-from-face-0 mirror of their left-handed twin, not the
+  legacy nested "turn back to face 0". The harness re-seeds before every wave
+  (`env.seed(env_seed*1_000_003 + wave)`) and resets between waves ON THIS ROW ONLY — every legacy
+  row keeps its single-pass loop unchanged, because that reseed writes process state and this task
+  is already sensitive to any env write after Kit startup (see the Caveats below).
+- **New metrics** (world rows only, gated like `facing`; `gait_eval.metrics.hold_motion_metrics` /
+  `travel_direction_metrics`): `motion` per hold (`speed_abs_mean_m_s, pos_drift_m, path_len_m,
+  yaw_drift_rad, foot_lift_count, contact_churn_per_s, n_steps`) and `direction` per hold, commanded
+  speed > 0 only (`direction_error_rad, cross_track_ratio, travel_speed_m_s`). On a suite row
+  `aggregate.suite` additionally carries `hold_labels` (the 11-label union, `settle` first),
+  `hold_of_wave`, `category_of_hold`, `hand_of_hold`, `n_by_hold`, own-hold `survival_by_hold`,
+  `trained_categories` and **`by_category`** — `{c: {key: _stats}}` pooling BOTH hands' episodes of
+  a category's own hold(s) (never a mean of hand medians), plus `by_hand: {l|r: {key: _stats}}`.
+  `run_phases.summarize()` hoists this into `cat[c] = {n, n_env, survival, ratio, achieved_speed,
+  tripod, facing_closed, yaw_progress, net_yaw, settle_s, heading_final, drift_speed,
+  direction_error, cross_track_ratio, by_hand}` — the ids the decision rule and `ledger_cli` read as
+  `cat.<c>.<key>` / `cat.<c>.by_hand.<h>.<key>` (`eval_categories.cat_id`).
+- **`eval_categories.py`** (task root, outside `mdp/`/`config/`, hence eval-side): loads the command
+  math and knob parsers BY PATH (no Isaac import). `trained_categories(env) -> TrainedCategories`
+  reads a stage's COMPOSED training env and returns `decisive` (categories trained at ≥
+  `POOL_FLOOR_SHARE` at full demand), `present` (share > 0) and `watch` (present − decisive, each
+  with a note — `watch (reduced demand)`, `watch (one hand)`, `watch (below floor share)`); a scale
+  edit (`{"*_turn": 0.3}`) demotes only the categories `TYPE_TO_CATEGORIES` maps that pool type to
+  (`move_turn` alone, never `turn`), and `turn` is decisive for every recipe regardless of the FACING
+  band or the `sincos` encoding (an annotation, `turn_annotation`, never a demotion). The two pure
+  helpers every tool shares: `expand_rule(rule, decisive, present, *, absolute_units)` turns a
+  `rule_version: 2` `decision_rule` into the flat `{blocks, guards, watch}` shape restricted to what
+  the stage actually trains (a block with no decisive member is `N/A`, never TIE), and
+  `composite_guards(screen, decisive)` computes `cat_tripod_min` (the min tripod over the decisive
+  translation categories). `expand_rule_union` is the union of both unit systems, for resolution.
+- **Decision rule v2.** `decision_rule.rule_version: 2` scores three blocks per unit system — F (the
+  in-place `turn` hold), **F_mt** (the `move_turn` hold, its own block since the pass-1 review: the
+  hold is infeasible by construction and is where the facing-vs-translation sacrifice is largest) and
+  T (the four translation categories) — plus per-category `survival` guards, a `cat.move_turn.ratio`
+  guard (the anti-sacrifice guard so a candidate cannot win F_mt by walking less), and the
+  `cat_tripod_min` composite guard. Only a category's DECISIVE members and PRESENT `survival` guard
+  reach a block/guard; everything else prints as a WATCH row with its `untrained`/`watch (...)` note.
+  Stage floors (`floor: {kind: category_survival, min_new: 0.10, min_prev: 0.30}`) are a 99 %-band
+  test per category, and milestones keep the CHARTER's three-row structure with the suite in place of
+  `slow`. `eval_sha` (below) versions this row's schema against `code_sha`.
+
 ### Log dirs and eval root
 
 - Training: `parkour/logs/rsl_rl/crab_hex_omni_{flat_walk,teacher}`
@@ -787,8 +866,8 @@ RUN_CRAB_HEX_CFG_IDENTITY=1 pytest tests/integration/test_crab_hex_phase_configs
 
 The pure suite includes the omni-specific modules (`test_crab_hex_omni_{command,observations,
 rewards,mirror,rsi,ring_terrain,terrain_knobs,exposure,phases,gate}.py`, plus
-`test_crab_hex_omni_{candidates,resolution}.py` for the candidate ladder — both load the tools by
-path and need no Isaac) plus the seam tests shared
+`test_crab_hex_omni_{candidates,resolution,eval_categories}.py` for the candidate ladder — all three
+load the tools/module by path and need no Isaac) plus the seam tests shared
 with the forward/sideways tasks (`test_crab_hex_clock_speed.py`, `test_travel_frame_seams.py`,
 `test_crab_hex_forward_seam_literals.py`, `test_crab_hex_gait_schedule.py`,
 `test_crab_hex_gait_metrics.py`, `test_crab_hex_stability_metrics.py`,

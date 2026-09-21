@@ -108,7 +108,7 @@ krabby-research/
 ├── tests/                            # Test suite (pytest.ini at the root; its norecursedirs skips any experiments/, logs/ or outputs/ dir, so tests never live in campaign trees)
 │   ├── helpers.py                    # Test helpers (create_dummy_hw_obs, etc.)
 │   ├── unit/                         # Unit tests: crab-hex rewards/metrics/plant (test_crab_hex_*.py), hal/, controller/,
-│   │                                 #   firmware/, teleop/, bench/, krabby/, data_collection/, fixtures/, test_experiment_layout.py (campaign keep-set + bundled heads), test_policy_of_record.py (policy/ manifest)
+│   │                                 #   firmware/, teleop/, bench/, krabby/, data_collection/, fixtures/ (candidates_v1_2026-09-19.yaml -- the pre-rule-v2 candidates.yaml frozen byte-for-byte for the v1-rule/legacy state-machine tests; gait_eval_compile_snapshot.json + its generator gen_gait_eval_compile_snapshot.py -- the step-0 compile-identity snapshot of every committed gait-eval scenario manifest), test_experiment_layout.py (campaign keep-set + bundled heads), test_policy_of_record.py (policy/ manifest)
 │   └── integration/                  # Integration tests: HAL (Isaac/Jetson), game loop, timing, crab-hex phase configs
 │
 ├── docs/                             # Documentation (list below)
@@ -206,9 +206,10 @@ crab_hex_omni_task/
 ├── config/crab_hex/                  # Env, scene cfgs; crab_hex_omni_phases.py (KRABBY_OMNI_PHASE presets); omni_knobs.py
 │   └── agents/                       # RSL-RL PPO runner cfgs (teacher only -- no student)
 ├── mdp/                              # crab_hex_omni_command(_math).py; omni observations/rewards/mirror/RSI; omni_parkour_event.py, omni_exposure.py, omni_events.py, omni_terrain_knobs.py
+├── eval_categories.py                # Per-category eval plan (2026-09-21, D4): trained_categories/expand_rule/composite_guards -- Isaac-free, loaded by path; task-root (outside mdp/config), so it hashes into eval_sha, not code_sha
 └── experiments/                      # Campaigns; eval/scenarios_omni.yaml; lit reviews; tools/
     ├── 2026-09-16_1805_omni_formation/   # First training campaign (CLOSED at its 2b decision point): CHARTER.md, RSI_BANK.md, replay_reward_economy.py
-    ├── 2026-09-19_facing_tracking_ladder/ # The facing/tracking candidate ladder: CHARTER.md, candidates.yaml (the spec), resolution.json (D00). Written by the driver at launch, not present before it: ledger.json + ledger_overrides.jsonl, REPORT.md, CHANGELOG.md, notify.log, state.json/heads.json
+    ├── 2026-09-19_facing_tracking_ladder/ # The facing/tracking candidate ladder: CHARTER.md, PLAN_AMENDMENTS.md, candidates.yaml (the spec), resolution.json (D00). Written by the driver at launch, not present before it: ledger.json + ledger_overrides.jsonl, REPORT.md, CHANGELOG.md, notify.log, state.json/heads.json. Per-category evaluation plan (2026-09-21, D9) adds, once the migration runs: resolution.<eval_sha[:12]>.json (D00s/D00bs, superseding D00 at the new eval) and, only on a failed acceptance, resolution.<eval_sha[:12]>.<kind>.rejected.json (kind = D00s|D00bs, overwritten each recomputation, never cited)
     └── tools/                        # run_phases.py + launch/heartbeat (the phase chain); run_candidates.py + ledger_cli.py + resolution.py + launch_candidates.sh (the candidate ladder)
 ```
 

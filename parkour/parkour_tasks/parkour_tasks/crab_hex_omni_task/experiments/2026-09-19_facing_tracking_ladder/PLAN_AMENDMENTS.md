@@ -176,3 +176,51 @@
     - `_resume_field` (OVERRIDE-APPLIED line) consults `migration_item` before `next_item`.
     - `resolution_notify_fields`' guard loop (:5163) iterates the expanded rule's guards (display only).
     - Suggestion: the paired-category survival floor could use `n_env` instead of `n_c` (caveat 9's numbers would move).
+31. (2026-09-21, per-category plan landing) The 2026-09-18 plan's decisions 4 (floors), 5 (blocks/guards by hold) and
+    decision 6's curriculum-row borrow (`BORROW` / `--curriculum-runs`, its A6) are SUPERSEDED by
+    `PLAN_2026-09-21_per_category_eval.md`'s D1-D10 (decision 6's resolution / seed-term / pooled-R machinery
+    stays). Decision 7's sign rule becomes `sign(Σ z_b / R_b)` over the non-N/A blocks (D5); decision 9's
+    pathspecs split into `code_sha` + `eval_sha` (D8); Part C (ii)'s milestone verdict keeps its three-row
+    structure with the suite in place of `slow` (D7) — see the header comment of the per-category plan file for
+    the full supersession list.
+32. (execution deviations, 2026-09-21) Step 2 (the categories module, B1) ran on opus·high instead of the routed
+    sonnet·high — the audit moved `expand_rule`/`composite_guards`, whose output shape the tools consume, into
+    that module. Step 3's implementer B ran as three sequential opus·xhigh agents instead of one: B1
+    (fixtures + `run_phases.py` + `ledger_cli.py` + the manifest row), B2 (hashes/rule v2/stages), B3
+    (migration/milestones/rendering). Suite waves always run to full length — no early break when every env has
+    fallen — because `common_step_counter` (the 5-step observation refresh, the action-delay update) is not
+    reset by `env.reset()` and an early break would shift later waves' phase between heads. `resume_gate` PARKS a
+    candidate header when the queue cannot be derived (it resumed before — a silent rank-gate bypass would
+    otherwise be possible).
+33. (implementation choices within the plan's text) Motion/direction entries are gated on the world frame only
+    (they do not read `heading_err`); `run_meta.suite.hold_s` and `aggregate.suite.hold_s` are per-label maps;
+    wave > 0 setup runs under `torch.inference_mode()`; the student's `depth_latent`/`yaw_pred` reset each wave;
+    `complete.json` also records `raw_written`; the `[INFO] wave k/W` lines count from 1; direction metric
+    definitions — `direction_error_rad` = |angle of the mean travel-frame velocity| (`None` below `min_speed`),
+    `cross_track_ratio` = |mean cross-track velocity| / mean commanded speed, `travel_speed_m_s` = |mean
+    velocity|, `yaw_drift_rad` signed (+ left). `resolve()` requires `decisive_at` under rule v2 (the CLI
+    defaults it to all seven categories); the rank gate applies to rule-v2 specs only (a v1 spec is a record);
+    v1 promotion stages keep `EVAL_FULL`; reeval stamps are recorded as full paths.
+34. (review findings deferred at steps 1-3, left for implementation / a later fix) `null_construction` drops a
+    scored block with no calibrated R, and `acceptance_d00s` checks completeness on the cross-head R only; at a
+    milestone `_row_worse` never runs the `decisive_at` subset check (no `by_row` `decisive_at`);
+    `_rescore_fail_complete` does not copy the new entry's floor fields onto the header after a crash between the
+    ledger write and the reconcile save; the pooled DECISION line loses the watch reason; `_migrate_d00s` always
+    writes `supersedes "D00"` (wrong after a second eval change); a rescreen does not run `squash_and_report`
+    (matters only for a future rescreen of a candidate whose predicate reads `screen.<key>`); `dry_run_migration`
+    lists a false pending D00s on an already-migrated campaign; `ledger_cli show`'s `trained:` omits watch
+    categories; the validator does not check `screen.eval` or that checkpoint-shape inputs name a
+    `category_suite` row; `tests/unit/fixtures/gen_gait_eval_compile_snapshot.py` would raise on the suite row if
+    re-run (it compiles every row); the C1b/C7 `eval_categories` tests build the pool with
+    `render_pool(apply_pool_edit(...))` rather than the driver's `compose_recipe`; `expand_rule`'s watch notes
+    read "reduced demand" where D5 writes "watch (reduced demand)".
+35. (step 5 review fixes, 2026-09-21) Two independent opus·xhigh fresh-eyes reviews of the whole diff (the plan's fable·high
+    step, run within the opus ceiling with a second reviewer) found nothing blocking; three follow-ups were applied:
+    `prepare_resume` resumes from the NEWEST run dir that saved a checkpoint (run-dir names sort chronologically) instead
+    of the highest iteration pooled across every run with the tag — tags are not campaign-unique, so a smoke drill's X01
+    would otherwise resume from the 2026-09-19 V8 drill's model_19 (test
+    `test_prepare_resume_takes_the_newest_run_not_a_stranger_with_the_same_tag`; the infra-halt test's placeholder run
+    dir renamed to a real older timestamp); `_baseline_raw_dir` prefers the legacy `slow` raws again because
+    `replay_reward_economy.py` reads only that layout (suite raws are the fallback for a suite-only rec); two CHARTER
+    wording fixes (a rescore PASS notifies MIGRATION; the 8-s proxies overstate the suite's survival). Deferred: the
+    first resume of a rescore-reopened header logs "at None" (cosmetic).
