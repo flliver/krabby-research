@@ -80,6 +80,13 @@ def score_episode(
     would discard the steps that measure it). Per hold the facing target is constant, so the hold
     entries carry ``net_yaw_rate_toward``; the episode-level entry passes ``constant_target=False``
     because an episode's target steps between holds.
+
+    World rows also carry, per hold, ``motion`` (:func:`gait_eval.metrics.hold_motion_metrics` over
+    the whole hold) and -- only when the hold's commanded speed is > 0 -- ``direction``
+    (:func:`gait_eval.metrics.travel_direction_metrics` on the tracking window's travel-frame
+    velocity). On a category-suite row (the compiled schedule carries ``wave_of_env``) the episode
+    also carries its ``wave``, its own ``hold``, that hold's ``category`` and ``hand``. Body rows
+    gain none of these keys.
     """
     world = scenario.command_frame == "world"
     has_facing = world and "heading_err" in raw
@@ -125,6 +132,7 @@ def score_episode(
         # Tracking needs steps, not contact cycles: a policy with no measurable gait window can
         # still be creeping at 20% of command, and that is exactly the case the ratio must catch
         # (2026-08-21 creep-audit). So it is gated on window length only, never on tripod validity.
+        vel_travel = None
         if idx.size >= min_window_steps:
             cmd_window = raw["cmd_applied"][idx, env_idx, :]
             if world:
@@ -133,16 +141,17 @@ def score_episode(
                 # and the driver's ratio gate are unchanged.
                 speed = np.linalg.norm(cmd_window[:, :2], axis=-1)
                 cmd_window = np.stack([speed, np.zeros_like(speed), cmd_window[:, 2]], axis=-1)
+            vel_travel = M.lin_vel_to_travel_frame(
+                raw["root_lin_vel_b"][idx, env_idx, :], _travel_yaw_at(travel_yaw, idx)
+            )
             entry["tracking"] = M.tracking_metrics(
                 cmd_window,
-                M.lin_vel_to_travel_frame(
-                    raw["root_lin_vel_b"][idx, env_idx, :], _travel_yaw_at(travel_yaw, idx)
-                ),
+                vel_travel,
                 raw["root_ang_vel_b"][idx, env_idx, :],
                 ratio_min_cmd=lin_vel_clip,
             )
 
-        if has_facing:
+        if world:
             whole = _window_mask(
                 segment_id=segment_id,
                 steady=np.ones_like(steady),
@@ -152,12 +161,30 @@ def score_episode(
                 ended_in_fall=ended_in_fall,
             )
             widx = np.flatnonzero(whole)
+        if has_facing:
             entry["facing"] = M.facing_metrics(
                 raw["heading_err"][widx, env_idx],
                 raw["root_ang_vel_b"][widx, env_idx, 2],
                 dt,
                 wz_cmd_t=raw["cmd_applied"][widx, env_idx, 2],
             )
+        if world:
+            # Plan D3 (2026-09-21), additive and world-row-only like ``facing``: what the body did
+            # over the whole hold, and -- on a moving hold only -- how well it held the commanded
+            # direction (on the tracking window, in the travel frame tracking already reads).
+            entry["motion"] = M.hold_motion_metrics(
+                raw["root_pos_w"][widx, env_idx],
+                raw["root_quat_w"][widx, env_idx],
+                raw["root_lin_vel_b"][widx, env_idx],
+                contact_all[widx],
+                dt,
+            )
+            if scenario.schedule[hold_idx].as_world()[0] > 0.0:
+                entry["direction"] = (
+                    M.travel_direction_metrics(vel_travel[:, :2], cmd_window[:, 0])
+                    if vel_travel is not None
+                    else None
+                )
 
         if tri["valid"]:
             entry["air_time"] = M.air_time_metrics(contact, dt=dt)
@@ -279,6 +306,15 @@ def score_episode(
         if h.get("tracking") and h["tracking"]["vx"].get("ratio") is not None
     ]
     out["tracking_ratio"] = float(np.mean(ratios)) if ratios else None
+    if compiled.wave_of_env is not None and compiled.hold_of_env is not None:
+        # Category suite: which wave this episode ran in and its OWN hold (the settle hold is
+        # never one); category / hand come from the suite so readers never re-derive them.
+        own = compiled.hold_labels[int(compiled.hold_of_env[env_idx])]
+        suite = scenario.suite
+        out["wave"] = int(compiled.wave_of_env[env_idx])
+        out["hold"] = own
+        out["category"] = suite.category_of_hold().get(own) if suite is not None else None
+        out["hand"] = suite.hand_of_hold().get(own) if suite is not None else None
     return out
 
 
@@ -314,11 +350,144 @@ def score_run(
     ]
 
 
-def aggregate(episodes: list[dict]) -> dict:
+#: ``aggregate.suite.by_category`` keys -> where each is read on an episode's OWN hold entry
+#: (plan D3). ``tripod`` is special-cased: ``tripod.tripod_score``, excluding ``low_confidence``
+#: windows exactly as ``tripod_score_by_hold`` does.
+CATEGORY_METRIC_SOURCES: dict[str, tuple[str, ...]] = {
+    "ratio": ("tracking", "vx", "ratio"),
+    "achieved_speed": ("tracking", "vx", "actual_mean"),
+    "tripod": ("tripod", "tripod_score"),
+    "facing_closed": ("facing", "facing_closed"),
+    "yaw_progress": ("facing", "yaw_progress_rate"),
+    "net_yaw": ("facing", "net_yaw_rate_toward"),
+    "heading_final": ("facing", "heading_error_final_abs"),
+    "settle_s": ("facing", "settle_time_s"),
+    "drift_speed": ("motion", "speed_abs_mean_m_s"),
+    "direction_error": ("direction", "direction_error_rad"),
+    "cross_track_ratio": ("direction", "cross_track_ratio"),
+}
+
+
+def _category_value(hold: dict, key: str) -> float | None:
+    """One ``by_category`` value from an episode's own hold entry, or ``None`` when unmeasured."""
+    if key == "tripod":
+        tri = hold.get("tripod") or {}
+        return None if tri.get("low_confidence") else tri.get("tripod_score")
+    value: Any = hold
+    for part in CATEGORY_METRIC_SOURCES[key]:
+        if not isinstance(value, dict):
+            return None
+        value = value.get(part)
+    return value
+
+
+def suite_aggregate_arg(run_meta: dict) -> dict | None:
+    """``aggregate``'s ``suite=`` argument for a run: ``run_meta["suite"]`` plus the run-time
+    ``waves`` / ``wave_seeds`` / ``episodes_total`` / ``trained_categories``; ``None`` on every
+    non-suite row (so their aggregate is unchanged)."""
+    if not run_meta.get("suite"):
+        return None
+    return {
+        **run_meta["suite"],
+        "waves": run_meta.get("waves"),
+        "wave_seeds": run_meta.get("wave_seeds"),
+        "episodes_total": run_meta.get("episodes_total"),
+        "trained_categories": run_meta.get("trained_categories"),
+    }
+
+
+def _suite_block(episodes: list[dict], suite: dict, stats) -> dict:
+    """``aggregate``'s ``suite`` block (plan D3): own-hold survival and the pooled ``by_category``.
+
+    ``by_category[c][key]`` POOLS the per-episode values of the category's own-hold episodes over
+    both hands (never an average of hand medians -- the pooled median is what the env-clustered
+    bootstrap resamples). A hold's survival is the fraction of ITS OWN episodes with ``n_steps >=
+    round((prologue_s + settle_hold_s + hold_s[label]) / dt)`` -- a fall on the wave's last step
+    counts as survived (the legacy ``survival_by_hold`` convention), and ``term_reason`` is never
+    read.
+    """
+    categories = suite.get("categories") or []
+    dt = float(suite["dt"])
+    prologue_s = float(suite["prologue_s"])
+    settle_hold_s = float(suite["settle_hold_s"])
+    hold_s = suite["hold_s"]
+    hold_of_wave = [h["label"] for c in categories for h in c["holds"]]
+    hold_s_map = (
+        {lab: float(hold_s[lab]) for lab in hold_of_wave}
+        if isinstance(hold_s, dict)
+        else {lab: float(hold_s) for lab in hold_of_wave}
+    )
+    category_of_hold = {h["label"]: c["name"] for c in categories for h in c["holds"]}
+    hand_of_hold = {h["label"]: h.get("hand") for c in categories for h in c["holds"]}
+
+    own: dict[str, list[dict]] = {lab: [] for lab in hold_of_wave}
+    for e in episodes:
+        if "hold" not in e:
+            raise ValueError(f"suite aggregate: episode {e.get('env_index')} carries no own 'hold'")
+        if e["hold"] not in own:
+            raise ValueError(f"suite aggregate: episode {e.get('env_index')} hold {e['hold']!r} is not a suite hold")
+        own[e["hold"]].append(e)
+
+    survival_by_hold: dict[str, float | None] = {}
+    for lab, eps in own.items():
+        end = int(round((prologue_s + settle_hold_s + hold_s_map[lab]) / dt))
+        survival_by_hold[lab] = (
+            float(sum(1 for e in eps if int(e["n_steps"]) >= end) / len(eps)) if eps else None
+        )
+
+    by_category: dict[str, dict] = {}
+    for cat in categories:
+        labels = [h["label"] for h in cat["holds"]]
+        pooled = {key: [] for key in CATEGORY_METRIC_SOURCES}
+        hands = sorted({hand_of_hold[lab] for lab in labels if hand_of_hold[lab] is not None})
+        per_hand = {h: {key: [] for key in CATEGORY_METRIC_SOURCES} for h in hands}
+        for lab in labels:
+            for e in own[lab]:
+                hold = e["holds"].get(lab) or {}
+                for key in CATEGORY_METRIC_SOURCES:
+                    value = _category_value(hold, key)
+                    if value is None:
+                        continue
+                    pooled[key].append(value)
+                    if hand_of_hold[lab] is not None:
+                        per_hand[hand_of_hold[lab]][key].append(value)
+        block: dict[str, Any] = {key: stats(vals) for key, vals in pooled.items()}
+        block["by_hand"] = (
+            {h: {key: stats(vals) for key, vals in slots.items()} for h, slots in per_hand.items()}
+            if hands
+            else None
+        )
+        by_category[cat["name"]] = block
+
+    return {
+        "waves": suite.get("waves"),
+        "wave_seeds": suite.get("wave_seeds"),
+        "episodes_total": suite.get("episodes_total") if suite.get("episodes_total") is not None else len(episodes),
+        "dt": dt,
+        "prologue_s": prologue_s,
+        "settle_hold_s": settle_hold_s,
+        "hold_s": hold_s,
+        "hold_labels": [suite.get("settle_label") or "settle"] + hold_of_wave,
+        "hold_of_wave": hold_of_wave,
+        "category_of_hold": category_of_hold,
+        "hand_of_hold": hand_of_hold,
+        "n_by_hold": {lab: len(eps) for lab, eps in own.items()},
+        "survival_by_hold": survival_by_hold,
+        "trained_categories": suite.get("trained_categories"),
+        "by_category": by_category,
+    }
+
+
+def aggregate(episodes: list[dict], *, suite: dict | None = None) -> dict:
     """Scenario-level roll-up.
 
     Headline is the **median** tripod score across episodes: a single fall-heavy episode should not
     move a gate. Episodes with no measurable window contribute to ``n_unscored``, not a zero.
+
+    ``suite`` (category-suite rows only: :func:`suite_aggregate_arg` of the run's ``run_meta``)
+    adds the ``suite`` block -- own-hold survival and the pooled ``by_category``; the pooled keys
+    below are then means over every hold of the suite and are WATCH-only downstream. Without it
+    (every other row) the output has no ``suite`` key at all.
     """
     scores = [e["tripod_score"] for e in episodes if e["tripod_score"] is not None]
     tips = [e["tippy_tap_fraction"] for e in episodes if e.get("tippy_tap_fraction") is not None]
@@ -430,9 +599,31 @@ def aggregate(episodes: list[dict]) -> dict:
             [e["facing_error_rms"] for e in episodes if e.get("facing_error_rms") is not None]
         )
 
+    # Motion / direction (plan D3, world rows only): ABSENT -- not empty -- when no episode carries
+    # the entry, exactly as ``facing_by_hold`` is on body rows.
+    motion_extra: dict[str, Any] = {}
+    for block_key, out_key in (("motion", "motion_by_hold"), ("direction", "direction_by_hold")):
+        by_hold: dict[str, dict[str, list[float]]] = {}
+        for e in episodes:
+            for label, hold in e["holds"].items():
+                block = hold.get(block_key)
+                if not block:
+                    continue
+                slot = by_hold.setdefault(label, {k: [] for k in block})
+                for key, value in block.items():
+                    if value is not None:
+                        slot.setdefault(key, []).append(value)
+        if by_hold:
+            motion_extra[out_key] = {
+                label: {key: _stats(vals) for key, vals in slots.items()} for label, slots in by_hold.items()
+            }
+    if suite is not None:
+        motion_extra["suite"] = _suite_block(episodes, suite, _stats)
+
     n_eps = len(episodes)
     return {
         **facing_extra,
+        **motion_extra,
         "n_episodes": n_eps,
         "fall_classes": fall_classes,
         "orientation": orientation,
@@ -467,7 +658,7 @@ def _median_txt(stats: dict) -> str:
 
 
 def summary_text(run_meta: dict, episodes: list[dict]) -> str:
-    agg = aggregate(episodes)
+    agg = aggregate(episodes, suite=suite_aggregate_arg(run_meta))
     lines = [
         "=== crab-hex gait eval ===",
         f"scenario   : {run_meta['scenario_id']}  ({run_meta['task']})",
@@ -522,6 +713,35 @@ def summary_text(run_meta: dict, episodes: list[dict]) -> str:
                 f"net={_median_txt(fac['net_yaw_rate_toward'])} "
                 f"yaw_rate_ratio={_median_txt(fac['yaw_rate_ratio'])}"
             )
+    if agg.get("suite"):
+        sb = agg["suite"]
+        trained = sb.get("trained_categories")
+        lines.append("")
+        lines.append(
+            f"by category ({sb['waves']} waves, {sb['episodes_total']} episodes, one own hold each; "
+            "surv = own-hold survival; medians pooled over both hands; "
+            f"trained: {', '.join(trained) if trained is not None else 'n/a'}):"
+        )
+        for name, cat in sb["by_category"].items():
+            labels = [lab for lab in sb["hold_of_wave"] if sb["category_of_hold"][lab] == name]
+            n = sum(sb["n_by_hold"][lab] for lab in labels)
+            surv = (
+                sum(sb["survival_by_hold"][lab] * sb["n_by_hold"][lab] for lab in labels if sb["n_by_hold"][lab]) / n
+                if n
+                else None
+            )
+            surv_txt = "n/a" if surv is None else f"{surv:.3f}"
+            per_hold = " ".join(
+                f"{lab}={'n/a' if sb['survival_by_hold'][lab] is None else format(sb['survival_by_hold'][lab], '.2f')}"
+                for lab in labels
+            )
+            lines.append(
+                f"  {name:>9}: n={n} surv={surv_txt} ({per_hold}) | "
+                f"ratio={_median_txt(cat['ratio'])} achieved={_median_txt(cat['achieved_speed'])} "
+                f"tripod={_median_txt(cat['tripod'])} | closed={_median_txt(cat['facing_closed'])} "
+                f"progress={_median_txt(cat['yaw_progress'])} net={_median_txt(cat['net_yaw'])} | "
+                f"drift={_median_txt(cat['drift_speed'])} dir_err={_median_txt(cat['direction_error'])}"
+            )
     for key in ("command_override_warning", "schedule_state_warning", "obs_dim_warning"):
         if run_meta.get(key):
             lines.append(f"\n[WARN] {run_meta[key]}")
@@ -538,9 +758,17 @@ def write_run(
     compiled: CompiledSchedule | None = None,
     history_root: Path | None = None,
 ) -> None:
+    """Write a run's JSON, summary, raw npz and history line.
+
+    On a category-suite row (``run_meta`` carries ``suite``) the aggregate gains its ``suite``
+    block and ``complete.json`` (``episodes_total``, the checkpoint sha256) is written as the very
+    LAST file, after every raw npz: a stamp without it is partial and no reader may use it (plan
+    D10's freshness marker). Every other row writes exactly what it always did.
+    """
     run_dir = Path(run_dir)
     (run_dir / "metrics").mkdir(parents=True, exist_ok=True)
-    agg = aggregate(episode_metrics)
+    suite = suite_aggregate_arg(run_meta)
+    agg = aggregate(episode_metrics, suite=suite)
 
     (run_dir / "run_meta.json").write_text(json.dumps(M.json_safe(run_meta), indent=2, sort_keys=True))
     for ep in episode_metrics:
@@ -583,8 +811,10 @@ def write_run(
         # reward_foot_clearance 0.1).
         raw_dir = run_dir / "raw"
         raw_dir.mkdir(parents=True, exist_ok=True)
-        n_env = int(run_meta["num_envs"])
-        for env_idx in range(n_env):
+        # One raw file per EPISODE: W*E on a suite row, num_envs everywhere else. Never called
+        # ``n_env`` -- that is the distinct-env count the tools' floor band reads.
+        n_raw = len(run_meta["n_steps_per_env"])
+        for env_idx in range(n_raw):
             n = int(run_meta["n_steps_per_env"][env_idx])
             payload = {k: np.asarray(v)[:n, env_idx] for k, v in raw.items()}
             if compiled is not None:
@@ -606,3 +836,19 @@ def write_run(
         }
         with (history_root / f"gait_eval_{scenario.id}.jsonl").open("a") as fh:
             fh.write(json.dumps(M.json_safe(record)) + "\n")
+
+    if suite is not None:
+        # LAST write of the run: its presence says every file above is complete.
+        (run_dir / "complete.json").write_text(
+            json.dumps(
+                M.json_safe(
+                    {
+                        "episodes_total": run_meta.get("episodes_total"),
+                        "checkpoint_sha256": run_meta.get("checkpoint_sha256"),
+                        "raw_written": raw is not None,
+                    }
+                ),
+                indent=2,
+                sort_keys=True,
+            )
+        )

@@ -2272,3 +2272,29 @@ def test_a_pooled_term_still_consumes_rsi_staging_exactly_once():
     assert torch.equal(term.type_id[mask], torch.full((3,), -1))
     assert bool((term.type_id[~mask] == 0).all()), "the un-staged rows drew 'stand'"
     assert bool(torch.isnan(term.rsi_cmd_staged).all())
+
+
+# --------------------------------------------------------------------------- per-category eval
+#: sha256 of ``schedule_hook``'s source (decorators excluded) as committed before the per-category
+#: suite (plan D2, 2026-09-21). The suite runs one hold per wave precisely so every row it hands the
+#: hook stays SCALAR and the hook -- inside ``code_sha`` -- never changes; a diff here means the
+#: training-side command term moved, which this eval-only change must not do.
+SCHEDULE_HOOK_SOURCE_SHA256 = "d74b2fa38a0ad1f62a27c9d9ec281995d7350d1e4266343781cf7dc809b618bf"
+
+
+def test_schedule_hook_is_untouched_by_the_suite():
+    import ast  # noqa: PLC0415
+    import hashlib  # noqa: PLC0415
+
+    src = (OMNI_MDP / "crab_hex_omni_command.py").read_text()
+    tree = ast.parse(src)
+    hooks = [
+        (cls.name, fn)
+        for cls in tree.body
+        if isinstance(cls, ast.ClassDef)
+        for fn in cls.body
+        if isinstance(fn, ast.FunctionDef) and fn.name == "schedule_hook"
+    ]
+    assert len(hooks) == 1, hooks
+    digest = hashlib.sha256(ast.get_source_segment(src, hooks[0][1]).encode()).hexdigest()
+    assert digest == SCHEDULE_HOOK_SOURCE_SHA256

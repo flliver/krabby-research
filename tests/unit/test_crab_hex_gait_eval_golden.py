@@ -84,9 +84,12 @@ def test_the_fixture_actually_exercises_the_paths_under_test(golden):
 
 
 def test_body_rows_carry_no_omni_fields(scored):
-    """The world-row additions (facing) must be absent -- not null -- on body rows."""
+    """The world-row additions (facing; the per-category suite's direction / motion and episode
+    wave / hold / category / hand) must be absent -- not null -- on body rows."""
     for key in ("yaw_0", "yaw_half_pi"):
         for ep in scored[key]:
-            assert "facing" not in ep and "facing_error_rms" not in ep
+            for field in ("facing", "facing_error_rms", "wave", "hold", "category", "hand"):
+                assert field not in ep, field
             for hold in ep["holds"].values():
-                assert "facing" not in hold
+                for field in ("facing", "direction", "motion"):
+                    assert field not in hold, field

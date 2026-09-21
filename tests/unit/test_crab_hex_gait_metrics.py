@@ -967,3 +967,257 @@ def test_world_row_carries_the_closed_fraction_through_to_the_aggregate():
     assert agg["facing_by_hold"]["move"]["heading_error_rms"]["n"] == 1
     text = R.summary_text({"scenario_id": "s", "task": "t", "command_override_max_deviation": 0.0}, episodes)
     assert "closed=1.000" in text and "initial=1.571" in text
+
+
+# ---------------------------------------------------------------------------
+# per-category eval (plan D3, 2026-09-21): per-hold motion / travel direction on world rows, and
+# the category-suite aggregate -- own-hold survival and by_category pooled over both hands.
+# ---------------------------------------------------------------------------
+def test_travel_direction_metrics_reads_the_angle_the_drift_and_the_net_speed():
+    v = np.tile(np.array([0.2, 0.05]), (100, 1))
+    out = M.travel_direction_metrics(v, 0.25)
+    assert out["direction_error_rad"] == pytest.approx(math.atan2(0.05, 0.2))
+    assert out["cross_track_ratio"] == pytest.approx(0.05 / 0.25)
+    assert out["travel_speed_m_s"] == pytest.approx(math.hypot(0.2, 0.05))
+    # A drift to the right is the same size of error (a magnitude), and a per-step command is averaged.
+    mirror = M.travel_direction_metrics(v * np.array([1.0, -1.0]), np.full(100, 0.25))
+    assert mirror["direction_error_rad"] == pytest.approx(out["direction_error_rad"])
+    assert mirror["cross_track_ratio"] == pytest.approx(out["cross_track_ratio"])
+    backwards = M.travel_direction_metrics(np.tile(np.array([-0.2, 0.0]), (10, 1)), 0.2)
+    assert backwards["direction_error_rad"] == pytest.approx(math.pi)
+    # Wobble around a standstill has no direction: None, never a noisy angle.
+    still = M.travel_direction_metrics(np.tile(np.array([0.001, 0.005]), (10, 1)), 0.22)
+    assert still["direction_error_rad"] is None
+    assert still["cross_track_ratio"] == pytest.approx(0.005 / 0.22)
+    assert M.travel_direction_metrics(v, 0.0)["cross_track_ratio"] is None
+    assert M.travel_direction_metrics(np.zeros((0, 2)), 0.25) is None
+
+
+def _yaw_quat(yaw: np.ndarray) -> np.ndarray:
+    return np.stack([np.cos(yaw / 2), np.zeros_like(yaw), np.zeros_like(yaw), np.sin(yaw / 2)], axis=-1)
+
+
+def test_hold_motion_metrics_on_a_known_trajectory():
+    n = 101
+    # out 1 m along +x, then back half a metre: net drift 0.5 m over a 1.5 m path
+    x = np.concatenate([np.linspace(0.0, 1.0, 51), np.linspace(1.0, 0.5, 51)[1:]])
+    pos = np.stack([x, np.zeros(n), np.full(n, 0.3)], axis=-1)
+    yaw = np.linspace(0.0, 3.0 * math.pi, n)          # > pi: the drift must be unwrapped
+    vel = np.tile(np.array([0.3, 0.4, 0.1]), (n, 1))  # planar speed 0.5 (vz ignored)
+    contact = np.ones((n, 6), dtype=bool)
+    contact[10:20, 0] = False                         # FL lifts twice, touches down twice
+    contact[40:50, 0] = False
+    contact[60:, 3] = False                           # MR lifts once, never lands
+    out = M.hold_motion_metrics(pos, _yaw_quat(yaw), vel, contact, DT)
+    assert out["speed_abs_mean_m_s"] == pytest.approx(0.5)
+    assert out["pos_drift_m"] == pytest.approx(0.5)
+    assert out["path_len_m"] == pytest.approx(1.5)
+    assert out["yaw_drift_rad"] == pytest.approx(3.0 * math.pi)
+    assert out["foot_lift_count"] == 3
+    assert out["contact_churn_per_s"] == pytest.approx(5 / (n * DT))
+    assert out["n_steps"] == n
+    back = M.hold_motion_metrics(pos, _yaw_quat(-yaw), vel, contact, DT)
+    assert back["yaw_drift_rad"] == pytest.approx(-3.0 * math.pi)    # signed: + = left
+    one = M.hold_motion_metrics(pos[:1], _yaw_quat(yaw[:1]), vel[:1], contact[:1], DT)
+    assert one["path_len_m"] == 0.0 and one["foot_lift_count"] == 0 and one["contact_churn_per_s"] == 0.0
+    assert M.hold_motion_metrics(pos[:0], _yaw_quat(yaw[:0]), vel[:0], contact[:0], DT) is None
+
+
+SUITE_E = 4
+# per-env tracking ratio (achieved/commanded speed) of the synthetic suite, env_index = wave*E + env:
+# wave 0 fwd, wave 1 lat_l, wave 2 lat_r, wave 3 turn_l90.
+SUITE_RATIOS = [1.0] * 4 + [0.1, 0.2, 0.3, 0.4] + [0.9] * 4 + [0.0] * 4
+
+
+def _suite_run(n_steps_of=None, term_of=None, trained=("fwd", "side")):
+    """A synthetic E = 4, W = 4 category suite (fwd, lat_l, lat_r, turn_l90) scored end to end."""
+    from gait_eval import report as R  # noqa: PLC0415
+    from gait_eval import schedule as S  # noqa: PLC0415
+
+    suite = S.CategorySuite(
+        settle_hold_s=2.0,
+        settle_label="settle",
+        hold_s=8.0,
+        categories=[
+            S.Category("fwd", "translate", [S.CategoryHold("fwd", 0.25, 0.0, 0.0)]),
+            S.Category("side", "translate", [
+                S.CategoryHold("lat_l", 0.22, math.pi / 2, 0.0, "l"),
+                S.CategoryHold("lat_r", 0.22, -math.pi / 2, 0.0, "r"),
+            ]),
+            S.Category("turn", "turn", [S.CategoryHold("turn_l90", 0.0, 0.0, math.pi / 2)]),
+        ],
+    )
+    scenario = S.Scenario(
+        id="synthetic_suite", task="Isaac-Crab-Hex-Omni-Walk-Play-v0", checkpoint="",
+        schedule=S.suite_schedule(suite), episodes=SUITE_E, kind=S.SUITE_KIND, suite=suite, waves=4,
+        speed_ellipse={"fwd": 0.35, "lat": 0.25, "back": 0.25},
+    )
+    S.validate_scenario(scenario)
+    compiled = S.stack_waves([S.compile_wave(scenario, k, dt=DT) for k in range(4)])
+    T, N = compiled.n_steps, 4 * SUITE_E
+    speed, direction = compiled.world_speed, compiled.world_dir     # the body faces 0: body == world
+    cmd = np.zeros((T, N, 3))
+    cmd[..., 0] = speed * np.cos(direction)
+    cmd[..., 1] = speed * np.sin(direction)
+    heading_err = np.vectorize(lambda a: math.remainder(a, 2 * math.pi))(compiled.world_face)
+    cmd[..., 2] = np.clip(heading_err * 0.8, -0.3, 0.3)
+    lin = cmd * np.asarray(SUITE_RATIOS)[None, :, None]
+    lin[..., 2] = 0.0
+    pos = np.cumsum(lin, axis=0) * DT
+    contact = _tripod_contact(T, 5)
+    raw = {
+        "foot_force_norm": np.repeat(np.where(contact, 400.0, 0.0)[:, None, :], N, axis=1),
+        "cmd_applied": cmd,
+        "root_lin_vel_b": lin,
+        "root_ang_vel_b": np.zeros((T, N, 3)),
+        "root_quat_w": np.tile(np.array([1.0, 0.0, 0.0, 0.0]), (T, N, 1)),
+        "root_pos_w": pos,
+        "foot_pos_w": np.zeros((T, N, 6, 3)),
+        "foot_lin_vel_w": np.zeros((T, N, 6, 3)),
+        "foot_ang_vel_w": np.zeros((T, N, 6, 3)),
+        "terrain_z": np.zeros((T, N, 6)),
+        "actions": np.zeros((T, N, 4)),
+        "joint_vel": np.zeros((T, N, 4)),
+        "crab_failure": np.zeros((T, N), dtype=bool),
+        "heading_err": heading_err,
+        "travel_yaw": np.arctan2(cmd[..., 1], cmd[..., 0]),
+    }
+    n_steps = [T] * N if n_steps_of is None else [n_steps_of.get(i, T) for i in range(N)]
+    terms = ["schedule_complete"] * N if term_of is None else [term_of.get(i, "schedule_complete") for i in range(N)]
+    episodes = R.score_run(raw, compiled=compiled, scenario=scenario, dt=DT, term_reason=terms,
+                           n_steps_env=n_steps, travel_yaw=raw["travel_yaw"])
+    run_meta = {
+        "scenario_id": scenario.id, "task": scenario.task, "command_override_max_deviation": 0.0,
+        **S.suite_run_meta(scenario, dt=DT, num_envs=SUITE_E, wave_seeds=[S.wave_seed(scenario, k) for k in range(4)],
+                           trained_categories=list(trained)),
+    }
+    return R, episodes, run_meta, compiled
+
+
+def test_world_row_holds_carry_direction_and_motion():
+    # A legacy world row: every hold carries motion; direction only on the moving hold.
+    R, raw, compiled, scenario, T = _world_raw_and_scenario(travel_dir=math.pi / 4)
+    ep = R.score_run(raw, compiled=compiled, scenario=scenario, dt=DT,
+                     term_reason=["schedule_complete"], n_steps_env=[T], travel_yaw=raw["travel_yaw"])[0]
+    move, turn = ep["holds"]["move"], ep["holds"]["turn_l90"]
+    assert move["motion"]["n_steps"] == int(round(6.0 / DT))           # the WHOLE hold, not the steady window
+    assert turn["motion"]["n_steps"] == int(round(7.0 / DT))
+    assert move["motion"]["speed_abs_mean_m_s"] == pytest.approx(0.24)
+    assert "direction" not in turn                                     # commanded speed 0: none at all
+    assert move["direction"]["direction_error_rad"] == pytest.approx(0.0, abs=1e-9)   # dead on the 45-deg line
+    assert move["direction"]["cross_track_ratio"] == pytest.approx(0.0, abs=1e-9)
+    assert move["direction"]["travel_speed_m_s"] == pytest.approx(0.24)
+    agg = R.aggregate([ep])
+    assert set(agg["motion_by_hold"]) == {"move", "turn_l90"} and set(agg["direction_by_hold"]) == {"move"}
+    assert agg["motion_by_hold"]["move"]["speed_abs_mean_m_s"]["median"] == pytest.approx(0.24)
+    assert "suite" not in agg                                          # no suite argument, no suite block
+
+    # A suite row: the settle and the standing turn carry no direction; a hold the episode never
+    # visited carries an entry with nothing measured (motion None), never numbers from another wave.
+    R, episodes, _, _ = _suite_run()
+    fwd_ep = episodes[0]
+    assert "direction" not in fwd_ep["holds"]["settle"] and fwd_ep["holds"]["settle"]["motion"]["n_steps"] == 100
+    assert "direction" not in fwd_ep["holds"]["turn_l90"]
+    assert fwd_ep["holds"]["fwd"]["direction"]["direction_error_rad"] == pytest.approx(0.0, abs=1e-9)
+    # first to last sample of the 400-step hold: 399 steps of 0.25 m/s
+    assert fwd_ep["holds"]["fwd"]["motion"]["pos_drift_m"] == pytest.approx(0.25 * 399 * DT, rel=1e-9)
+    assert fwd_ep["holds"]["lat_l"]["motion"] is None and fwd_ep["holds"]["lat_l"]["direction"] is None
+    lat_ep = episodes[SUITE_E]                                          # wave 1 env 0, ratio 0.1
+    assert lat_ep["holds"]["lat_l"]["direction"]["travel_speed_m_s"] == pytest.approx(0.022)
+
+
+def test_suite_aggregate_pools_both_hands_and_scores_own_hold_survival():
+    T = 75 + 100 + 400
+    # env 12 = turn_l90 env 0 falls mid-hold; env 13 = turn_l90 env 1 falls ON the wave's last step;
+    # env 1 = fwd env 1 falls ONE step before its own hold ends (pins both sides of the >= boundary)
+    R, episodes, run_meta, compiled = _suite_run(
+        n_steps_of={1: T - 1, 12: 300, 13: T}, term_of={1: "fall", 12: "fall", 13: "fall"}
+    )
+    assert compiled.n_steps == T
+    assert [(e["wave"], e["hold"], e["category"], e["hand"]) for e in episodes[::SUITE_E]] == [
+        (0, "fwd", "fwd", None), (1, "lat_l", "side", "l"), (2, "lat_r", "side", "r"), (3, "turn_l90", "turn", None),
+    ]
+    agg = R.aggregate(episodes, suite=R.suite_aggregate_arg(run_meta))
+    sb = agg["suite"]
+    assert set(sb) == {"waves", "wave_seeds", "episodes_total", "dt", "prologue_s", "settle_hold_s", "hold_s",
+                       "hold_labels", "hold_of_wave", "category_of_hold", "hand_of_hold", "n_by_hold",
+                       "survival_by_hold", "trained_categories", "by_category"}
+    assert sb["waves"] == 4 and sb["episodes_total"] == 16 and sb["wave_seeds"] == [1_000_003 + k for k in range(4)]
+    assert sb["hold_labels"] == ["settle", "fwd", "lat_l", "lat_r", "turn_l90"]
+    assert sb["hold_of_wave"] == ["fwd", "lat_l", "lat_r", "turn_l90"]
+    assert sb["category_of_hold"] == {"fwd": "fwd", "lat_l": "side", "lat_r": "side", "turn_l90": "turn"}
+    assert sb["hand_of_hold"]["lat_r"] == "r" and sb["hand_of_hold"]["turn_l90"] is None
+    assert sb["n_by_hold"] == {"fwd": 4, "lat_l": 4, "lat_r": 4, "turn_l90": 4}
+    assert sb["trained_categories"] == ["fwd", "side"]
+    # OWN-hold survival: each fall touches no other hold, a fall on the last step survived, and a
+    # fall one step short of the own hold's end did not.
+    assert sb["survival_by_hold"] == {"fwd": 0.75, "lat_l": 1.0, "lat_r": 1.0, "turn_l90": 0.75}
+    # ...while the legacy pooled completion counts all three falls (WATCH-only on a suite row).
+    assert agg["schedule_completion_rate"] == pytest.approx(13 / 16)
+    # side: the POOLED median of 2 x 4 episodes (0.65), not the mean of the hand medians (0.575).
+    side = sb["by_category"]["side"]
+    assert side["ratio"]["n"] == 8
+    assert side["ratio"]["median"] == pytest.approx(0.65)
+    assert side["by_hand"]["l"]["ratio"]["median"] == pytest.approx(0.25)
+    assert side["by_hand"]["r"]["ratio"]["median"] == pytest.approx(0.9)
+    assert side["achieved_speed"]["median"] == pytest.approx(0.65 * 0.22)
+    assert side["direction_error"]["n"] == 8 and side["tripod"]["n"] == 8
+    assert sb["by_category"]["fwd"]["ratio"]["median"] == pytest.approx(1.0)
+    assert sb["by_category"]["fwd"]["by_hand"] is None
+    turn = sb["by_category"]["turn"]
+    assert turn["ratio"]["n"] == 0 and turn["direction_error"]["n"] == 0     # a standing turn: no speed keys
+    assert turn["facing_closed"]["n"] == 4 and turn["heading_final"]["n"] == 4
+    assert set(turn) == set(R.CATEGORY_METRIC_SOURCES) | {"by_hand"}
+    # the per-hold view is keyed by label and never mixes in the unvisited holds of other waves
+    assert agg["tracking_by_hold"]["lat_l"]["ratio"]["n"] == 4
+    text = R.summary_text(run_meta, episodes)
+    assert "by category" in text and "trained: fwd, side" in text and "turn_l90=0.75" in text
+    json.dumps(M.json_safe(agg))
+
+
+def test_category_value_excludes_low_confidence_tripod():
+    from gait_eval import report as R
+
+    assert R._category_value({"tripod": {"tripod_score": 0.9, "low_confidence": True}}, "tripod") is None
+    assert R._category_value({"tripod": {"tripod_score": 0.9, "low_confidence": False}}, "tripod") == 0.9
+    assert R._category_value({}, "tripod") is None
+
+
+def test_aggregate_has_no_suite_block_on_body_rows():
+    from gait_eval import report as R
+    from gait_eval.schedule import Hold, Scenario, compile_schedule
+
+    scenario = Scenario(
+        id="body", task="Isaac-Crab-Hex-Flat-Walk-v0", checkpoint="",
+        schedule=[Hold(hold_s=3.0, vx=0.3, label="hold0")], episodes=1, env_seed=1,
+    )
+    compiled = compile_schedule(scenario, dt=DT, num_envs=1)
+    T = compiled.n_steps
+    contact = _tripod_contact(T, 5)
+    raw = {
+        "foot_force_norm": np.where(contact, 400.0, 0.0)[:, None, :],
+        "cmd_applied": compiled.cmd.astype(np.float64),
+        "root_lin_vel_b": np.tile(np.array([0.3, 0.0, 0.0]), (T, 1))[:, None, :],
+        "root_ang_vel_b": np.zeros((T, 1, 3)),
+        "root_quat_w": np.tile(np.array([1.0, 0.0, 0.0, 0.0]), (T, 1))[:, None, :],
+        "root_pos_w": np.zeros((T, 1, 3)),
+        "foot_pos_w": np.zeros((T, 1, 6, 3)),
+        "foot_lin_vel_w": np.zeros((T, 1, 6, 3)),
+        "foot_ang_vel_w": np.zeros((T, 1, 6, 3)),
+        "terrain_z": np.zeros((T, 1, 6)),
+        "actions": np.zeros((T, 1, 4)),
+        "joint_vel": np.zeros((T, 1, 4)),
+        "crab_failure": np.zeros((T, 1), dtype=bool),
+    }
+    episodes = R.score_run(raw, compiled=compiled, scenario=scenario, dt=DT,
+                           term_reason=["schedule_complete"], n_steps_env=[T])
+    agg = R.aggregate(episodes)
+    # ABSENT, not empty -- a body row's aggregate key set is exactly what it always was.
+    for key in ("suite", "direction_by_hold", "motion_by_hold", "facing_by_hold"):
+        assert key not in agg
+    for key in ("wave", "hold", "category", "hand"):
+        assert key not in episodes[0]
+    assert "direction" not in episodes[0]["holds"]["hold0"] and "motion" not in episodes[0]["holds"]["hold0"]
+    assert R.suite_aggregate_arg({"scenario_id": "body"}) is None
+    text = R.summary_text({"scenario_id": "body", "task": "t", "command_override_max_deviation": 0.0}, episodes)
+    assert "by category" not in text

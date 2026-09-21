@@ -520,7 +520,8 @@ def test_committed_omni_manifest_parses():
     """The shipped scenarios_omni.yaml: three world rows, 8 holds (6 x 8 s + the two turn holds
     `turn_l90`/`turn_r90` x 12 s -- step-16 review decision, 2026-09-17), the ring env on
     light__omni only, and every validator rule satisfied as committed. Plus the Part A6
-    curriculum-chain telemetry row `curriculum__omni` (10 holds, 2026-09-18)."""
+    curriculum-chain telemetry row `curriculum__omni` (10 holds, 2026-09-18) and the per-category
+    suite `suite__omni` (plan D1, 2026-09-21)."""
     manifest = (
         SCRIPTS_DIR.parents[1]
         / "crab_hex_omni_task"
@@ -530,7 +531,7 @@ def test_committed_omni_manifest_parses():
     )
     scenarios, _ = S.load_manifest(manifest)
     by_id = {s.id: s for s in scenarios}
-    assert set(by_id) == {"slow__omni", "light__omni", "ring__omni", "curriculum__omni"}
+    assert set(by_id) == {"slow__omni", "light__omni", "ring__omni", "curriculum__omni", "suite__omni"}
 
     slow = by_id["slow__omni"]
     assert slow.task == "Isaac-Crab-Hex-Omni-Walk-Play-v0"
@@ -620,6 +621,44 @@ def test_committed_omni_manifest_parses():
     assert curriculum.schedule[3].as_world() == pytest.approx((0.22, -HALF_PI, 0.0), abs=1e-6)
     assert curriculum.schedule[8].as_world() == pytest.approx((0.22, 0.0, 0.0), abs=1e-6)
 
+    # Plan D1 (2026-09-21): suite__omni -- ten waves, one category hold per wave, settle first.
+    suite = by_id["suite__omni"]
+    assert suite.kind == S.SUITE_KIND and S.uses_waves(suite)
+    assert suite.task == "Isaac-Crab-Hex-Omni-Walk-Play-v0"
+    assert suite.role == "teacher" and suite.terrain_label == "flat"
+    assert suite.command_frame == "world"
+    assert suite.episodes == 100 and suite.waves == 10 and suite.env_seed == 1
+    assert suite.episode_length_s == 18.0
+    assert suite.env_vars == {}
+    assert suite.spawn_yaw == "first_face" and suite.spawn_yaw_rad() == pytest.approx(0.0)
+    assert suite.get_speed_ellipse() == (0.35, 0.25, 0.25) and suite.ang_vel_max == 0.3
+    assert suite.suite.settle_hold_s == 2.0 and suite.suite.settle_label == "settle"
+    assert suite.suite.hold_s == 12.0
+    assert suite.schedule_duration_s == pytest.approx(14.0)
+    assert suite.total_duration_s == pytest.approx(15.5)
+    assert [(c.name, c.kind) for c in suite.suite.categories] == [
+        ("stand", "stand"), ("fwd", "translate"), ("side", "translate"), ("back", "translate"),
+        ("diag", "translate"), ("turn", "turn"), ("move_turn", "move_turn"),
+    ]
+    holds = suite.suite.holds()
+    assert [h.label for h in holds] == [
+        "stand", "fwd", "lat_l", "lat_r", "back", "diag", "turn_l90", "turn_r90", "move_turn", "move_turn_r",
+    ]
+    assert [h.hand for h in holds] == [None, None, "l", "r", None, None, "l", "r", "l", "r"]
+    assert [h.speed for h in holds] == pytest.approx([0.0, 0.25, 0.22, 0.22, 0.22, 0.25, 0.0, 0.0, 0.22, 0.22])
+    assert [h.dir for h in holds] == pytest.approx(
+        [0.0, 0.0, HALF_PI, -HALF_PI, math.pi, math.pi / 4, 0.0, 0.0, 0.0, 0.0], abs=1e-6)
+    assert [h.face for h in holds] == pytest.approx(
+        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, HALF_PI, -HALF_PI, HALF_PI, -HALF_PI], abs=1e-6)
+    # Every hold whose command is the legacy one keeps the legacy label AND command; turn_r90 and
+    # move_turn_r are the two new meanings (a right turn from face 0 / the mirror of move_turn).
+    for h in holds:
+        if h.label in slow_by_label and h.label != "turn_r90":
+            assert (h.speed, h.dir, h.face) == pytest.approx(slow_by_label[h.label].as_world(), abs=1e-9)
+    assert slow_by_label["turn_r90"].face == pytest.approx(0.0)
+    assert [h.label for h in suite.schedule] == ["settle"] + [h.label for h in holds]
+    assert suite.schedule[0].as_world() == (0.0, 0.0, 0.0) and suite.schedule[0].hold_s == 2.0
+
 
 def test_spawn_pin_that_disagrees_with_the_first_face_must_also_be_feasible():
     """A numeric spawn_yaw makes the first hold a turn; "first_face" makes it a zero turn."""
@@ -628,3 +667,459 @@ def test_spawn_pin_that_disagrees_with_the_first_face_must_also_be_feasible():
     S.validate_scenario(_world_scenario(schedule=holds, spawn_yaw=-1.0))  # 1.0 rad needs 4.33 s
     with pytest.raises(S.ManifestError, match="cannot finish inside the hold"):
         S.validate_scenario(_world_scenario(schedule=holds, spawn_yaw=math.pi))
+
+
+# ---------------------------------------------------------------------------
+# category suites (omni per-category eval, plan D1/D2/A1, 2026-09-21): one hold per wave, the waves
+# run in one launch, every episode carries exactly one category hold. The schedule is DERIVED (a
+# label union, settle first) and compiles per wave; every legacy row compiles exactly as before.
+# ---------------------------------------------------------------------------
+REPO = Path(__file__).resolve().parents[2]
+EVAL_SCRIPT = SCRIPTS_DIR / "eval_crab_hex_gait.py"
+FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
+SUITE_LABELS = ["stand", "fwd", "lat_l", "lat_r", "back", "diag", "turn_l90", "turn_r90", "move_turn", "move_turn_r"]
+
+
+def _suite_row(**overrides) -> dict:
+    """The plan-D1 suite row as a manifest mapping (JSON, so no PyYAML is needed)."""
+    row = {
+        "id": "suite",
+        "kind": "category_suite",
+        "task": "Isaac-Crab-Hex-Omni-Walk-Play-v0",
+        "checkpoint": "/tmp/model.pt",
+        "episodes": 100,
+        "waves": 10,
+        "env_seed": 1,
+        "episode_length_s": 18.0,
+        "spawn_yaw": "first_face",
+        "settle": {"hold_s": 2.0, "label": "settle"},
+        "hold_s": 12.0,
+        "categories": [
+            {"name": "stand", "kind": "stand", "holds": [{"label": "stand", "speed": 0.0, "dir": 0.0, "face": 0.0}]},
+            {"name": "fwd", "kind": "translate", "holds": [{"label": "fwd", "speed": 0.25, "dir": 0.0, "face": 0.0}]},
+            {"name": "side", "kind": "translate", "holds": [
+                {"label": "lat_l", "speed": 0.22, "dir": HALF_PI, "face": 0.0, "hand": "l"},
+                {"label": "lat_r", "speed": 0.22, "dir": -HALF_PI, "face": 0.0, "hand": "r"},
+            ]},
+            {"name": "back", "kind": "translate", "holds": [{"label": "back", "speed": 0.22, "dir": math.pi, "face": 0.0}]},
+            {"name": "diag", "kind": "translate", "holds": [{"label": "diag", "speed": 0.25, "dir": math.pi / 4, "face": 0.0}]},
+            {"name": "turn", "kind": "turn", "holds": [
+                {"label": "turn_l90", "speed": 0.0, "dir": 0.0, "face": HALF_PI, "hand": "l"},
+                {"label": "turn_r90", "speed": 0.0, "dir": 0.0, "face": -HALF_PI, "hand": "r"},
+            ]},
+            {"name": "move_turn", "kind": "move_turn", "holds": [
+                {"label": "move_turn", "speed": 0.22, "dir": 0.0, "face": HALF_PI, "hand": "l"},
+                {"label": "move_turn_r", "speed": 0.22, "dir": 0.0, "face": -HALF_PI, "hand": "r"},
+            ]},
+        ],
+    }
+    row.update(overrides)
+    return row
+
+
+def _load_rows(tmp_path, *rows) -> list:
+    path = tmp_path / "suite.json"
+    path.write_text(json.dumps({
+        "manifest_version": 2,
+        "speed_ellipse": {"fwd": 0.35, "lat": 0.25, "back": 0.25},
+        "ang_vel_max": 0.3,
+        "scenarios": list(rows),
+    }))
+    return S.load_manifest(path)[0]
+
+
+def _suite(tmp_path, **overrides) -> S.Scenario:
+    return _load_rows(tmp_path, _suite_row(**overrides))[0]
+
+
+def test_category_suite_row_derives_the_union_schedule(tmp_path):
+    sc = _suite(tmp_path)
+    assert sc.kind == S.SUITE_KIND and sc.waves == 10
+    # 11 labels: the settle first (segment 0), then one hold per category hold in manifest order.
+    assert [h.label for h in sc.schedule] == ["settle"] + SUITE_LABELS
+    assert sc.suite.hold_labels() == ["settle"] + SUITE_LABELS
+    assert sc.schedule[0].as_world() == (0.0, 0.0, 0.0) and sc.schedule[0].hold_s == 2.0
+    assert all(h.hold_s == 12.0 for h in sc.schedule[1:])
+    # Per-WAVE durations, not the sum of the union: 2 + 12 = 14 s; + the 1.5 s prologue = 15.5 s.
+    assert sc.schedule_duration_s == pytest.approx(14.0)
+    assert sc.total_duration_s == pytest.approx(15.5)
+    assert sc.command_frame == "world" and sc.spawn_yaw_rad() == 0.0
+    assert sc.suite.hold_s_by_label() == {lab: 12.0 for lab in SUITE_LABELS}
+    assert sc.suite.category_of_hold()["lat_r"] == "side"
+    assert sc.suite.hand_of_hold()["move_turn_r"] == "r" and sc.suite.hand_of_hold()["fwd"] is None
+
+
+def test_wave_plan_gives_every_hold_100_episodes_and_unique_env_indices(tmp_path):
+    sc = _suite(tmp_path)
+    plan = S.wave_plan(sc)
+    assert len(plan) == 1000
+    assert [a.env_index for a in plan] == list(range(1000))
+    assert all(a.env_index == a.wave * 100 + a.env for a in plan)
+    by_label = {lab: sum(1 for a in plan if a.label == lab) for lab in SUITE_LABELS}
+    assert by_label == {lab: 100 for lab in SUITE_LABELS}
+    assert all(a.label != "settle" for a in plan)             # the settle is never an own hold
+    for cat in ("side", "turn", "move_turn"):
+        eps = [a for a in plan if a.category == cat]
+        assert len(eps) == 200
+        assert sum(a.hand == "l" for a in eps) == 100 and sum(a.hand == "r" for a in eps) == 100
+    for cat in ("stand", "fwd", "back", "diag"):
+        eps = [a for a in plan if a.category == cat]
+        assert len(eps) == 100 and all(a.hand is None for a in eps)
+    # Each wave is exactly one hold, run by every env.
+    for wave, label in enumerate(SUITE_LABELS):
+        assert {a.label for a in plan if a.wave == wave} == {label}
+        assert sorted(a.env for a in plan if a.wave == wave) == list(range(100))
+    assert len(S.wave_plan(sc, num_envs=7)) == 70
+
+
+def test_compile_wave_is_uniform_and_row_global(tmp_path):
+    sc = _suite(tmp_path, episodes=3)
+    prologue = int(round(1.5 / DT))
+    settle = int(round(2.0 / DT))
+    settle_s = int(round(sc.get_default("settle_s") / DT))
+    for wave, label in enumerate(SUITE_LABELS):
+        comp = S.compile_wave(sc, wave, dt=DT)
+        assert comp.n_steps == 775 == prologue + settle + int(round(12.0 / DT))
+        assert comp.cmd.shape == (775, 3, 3) and not comp.cmd.any()      # world rows write no vel_command_b
+        assert comp.hold_labels == ["settle"] + SUITE_LABELS
+        assert comp.hold_labels[wave + 1] == label
+        assert set(np.unique(comp.segment_id).tolist()) == {-1, 0, wave + 1}
+        assert (comp.segment_id[:prologue] == -1).all()
+        assert (comp.segment_id[prologue : prologue + settle] == 0).all()
+        assert (comp.segment_id[prologue + settle :] == wave + 1).all()
+        # Steady windows: each hold's first settle_s is its transient, never scored.
+        steady = comp.steady_mask[:, 0]
+        assert not steady[: prologue + settle_s].any()
+        assert steady[prologue + settle_s : prologue + settle].all()
+        assert not steady[prologue + settle : prologue + settle + settle_s].any()
+        assert steady[prologue + settle + settle_s :].all()
+        assert comp.world_uniform and comp.delta_yaw is None
+        # The prologue and the settle hold the settle command; the hold holds its own row.
+        hold = sc.schedule[wave + 1]
+        assert (comp.world_speed[: prologue + settle] == 0.0).all() and (comp.world_face[: prologue + settle] == 0.0).all()
+        assert (comp.world_speed[prologue + settle :] == hold.speed).all()
+        assert (comp.world_dir[prologue + settle :] == hold.dir).all()
+        assert (comp.world_face[prologue + settle :] == hold.face).all()
+        assert comp.world_speed.dtype == np.float64
+        assert comp.wave_of_env.tolist() == [wave] * 3 and comp.hold_of_env.tolist() == [wave + 1] * 3
+        row = comp.row(prologue + settle + 5)
+        assert row.label == label and isinstance(row.speed, float)
+        assert S.own_hold_end_step(prologue_s=1.5, settle_hold_s=2.0, hold_s=12.0, dt=DT) == comp.n_steps
+    with pytest.raises(ValueError, match="out of range"):
+        S.compile_wave(sc, 10, dt=DT)
+    with pytest.raises(ValueError, match="category_suite"):
+        S.compile_wave(_world_scenario(), 0, dt=DT)
+
+
+def test_stack_waves_concatenates_and_labels_every_env(tmp_path):
+    sc = _suite(tmp_path, episodes=4)
+    parts = [S.compile_wave(sc, k, dt=DT) for k in range(sc.waves)]
+    stacked = S.stack_waves(parts)
+    assert stacked.n_steps == 775 and stacked.hold_labels == ["settle"] + SUITE_LABELS
+    for name in ("cmd", "segment_id", "steady_mask", "world_speed", "world_dir", "world_face"):
+        arr = getattr(stacked, name)
+        assert arr.shape[:2] == (775, 40)
+        for k, part in enumerate(parts):
+            assert np.array_equal(arr[:, 4 * k : 4 * k + 4], getattr(part, name))
+    assert stacked.wave_of_env.tolist() == [k for k in range(10) for _ in range(4)]
+    assert stacked.hold_of_env.tolist() == [k + 1 for k in range(10) for _ in range(4)]
+    # every env's own hold is the one its segment_id carries after the settle
+    for env in range(40):
+        assert set(np.unique(stacked.segment_id[:, env]).tolist()) == {-1, 0, int(stacked.hold_of_env[env])}
+    assert stacked.delta_yaw is None
+    assert not stacked.world_uniform                   # different envs run different holds
+    with pytest.raises(ValueError):
+        S.stack_waves([])
+    with pytest.raises(ValueError, match="not a compile_wave"):
+        S.stack_waves([S.compile_schedule(_world_scenario(), dt=DT)])
+
+
+def test_compile_schedule_refuses_a_suite_row(tmp_path):
+    with pytest.raises(ValueError, match="category_suite rows compile per wave: use compile_wave"):
+        S.compile_schedule(_suite(tmp_path), dt=DT)
+
+
+def test_suite_transition_pairs_are_from_the_settle_face(tmp_path):
+    sc = _suite(tmp_path)
+    faces = [h.face for h in sc.schedule]
+    assert sc.transition_pairs() == [(0, 0.0, 0.0)] + [(i, 0.0, faces[i]) for i in range(1, 11)]
+    # turn_r90 is a 90-degree RIGHT turn from the settle face, not a swing off turn_l90.
+    assert (8, 0.0, pytest.approx(-HALF_PI)) in sc.transition_pairs()
+    # Legacy rows: exactly today's pairs -- consecutive, + the spawn pin first, + the wrap-around
+    # under rotation (which replaces the spawn pair).
+    w = _world_scenario()
+    wf = [h.face for h in w.schedule]
+    assert w.transition_pairs() == [(0, 0.0, wf[0])] + list(zip(range(1, 4), wf[:-1], wf[1:]))
+    rot = _world_scenario(rotate_holds_by_env=True)
+    assert rot.transition_pairs() == list(zip(range(1, 4), wf[:-1], wf[1:])) + [(0, wf[-1], wf[0])]
+
+
+def _set_hold(row: dict, which: str, **fields) -> dict:
+    for cat in row["categories"]:
+        for hold in cat["holds"]:
+            if hold["label"] == which:
+                hold.update(fields)
+    return row
+
+
+def _drop_hold(row: dict, label: str) -> dict:
+    for cat in row["categories"]:
+        cat["holds"] = [h for h in cat["holds"] if h["label"] != label]
+    return row
+
+
+@pytest.mark.parametrize(
+    "mutate, match",
+    [
+        (lambda r: _set_hold(r, "lat_r", label="lat_l"), "duplicate hold labels"),
+        (lambda r: _set_hold(r, "fwd", label="settle"), "duplicate hold labels"),
+        (lambda r: dict(r, schedule=[{"speed": 0.0, "dir": 0.0, "face": 0.0, "hold_s": 8.0}]), "remove the explicit"),
+        (lambda r: dict(r, kind="bogus_suite"), "unknown kind"),
+        (lambda r: (r["categories"][1].update(kind="spin"), r)[1], "unknown kind 'spin'"),
+        (lambda r: dict(_drop_hold(r, "lat_r"), waves=9), "unbalanced hands"),
+        (lambda r: _set_hold(r, "turn_r90", hand="l"), "unbalanced hands"),
+        (lambda r: _set_hold(r, "turn_r90", hand="x"), "hand must be one of"),
+        # 0.30 m/s along +pi/2 while facing +pi/2 clears the END cap (fore-aft 0.35) but not the
+        # START one: the body still faces the settle face 0 when the hold begins (lateral 0.25).
+        (lambda r: _set_hold(r, "move_turn", speed=0.30, dir=HALF_PI), "START body direction"),
+        (lambda r: dict(r, hold_s=1.9, episode_length_s=18.0), "shorter than settle_s . min_window_s"),
+        (lambda r: dict(r, episode_length_s=15.4), "shorter than prologue . schedule"),
+        (lambda r: dict(r, waves=9), "waves=9"),
+        (lambda r: dict(r, rotate_holds_by_env=True), "rotate_holds_by_env"),
+        (lambda r: (r["categories"][5].update(watch_only=True), r)[1], "remove .'watch_only'."),
+        (lambda r: (r["categories"][0].update(notes="x"), r)[1], "remove .'notes'."),
+        (lambda r: _set_hold(r, "fwd", hold_s=8.0), "remove .'hold_s'."),
+        (lambda r: dict(r, settle={"hold_s": 2.0, "label": "settle", "face": 1.0}), "remove .'face'."),
+        # turn feasibility runs from the settle face: at ang_vel_max 0.1 a 90-degree turn needs
+        # settle_s + (pi/2)/0.1 = 16.7 s > the 12-s hold (at the committed 0.3 it needs 6.24 s).
+        (lambda r: dict(r, ang_vel_max=0.1), "cannot finish inside the hold"),
+    ],
+)
+def test_suite_validator_rejects(tmp_path, mutate, match):
+    with pytest.raises(S.ManifestError, match=match):
+        _load_rows(tmp_path, mutate(_suite_row()))
+
+
+def test_suite_validator_accepts_the_plan_row_and_rejects_suite_keys_on_a_schedule_row(tmp_path):
+    _suite(tmp_path)  # the plan-D1 row validates as written
+    legacy = {"id": "s", "task": "t", "checkpoint": "/tmp/a.pt",
+              "schedule": [{"speed": 0.0, "dir": 0.0, "face": 0.0, "hold_s": 8.0}]}
+    for key, value in (("waves", 1), ("settle", {"hold_s": 2.0}), ("hold_s", 12.0), ("categories", [])):
+        with pytest.raises(S.ManifestError, match="category_suite"):
+            _load_rows(tmp_path, dict(legacy, **{key: value}))
+    assert _load_rows(tmp_path, dict(legacy, kind="schedule"))[0].kind == "schedule"
+    # A schedule row built in code may not carry a suite either.
+    with pytest.raises(S.ManifestError, match="belong to a 'category_suite' row"):
+        S.validate_scenario(_world_scenario(waves=2))
+
+
+def _committed_manifests() -> list[Path]:
+    fwd_eval = SCRIPTS_DIR.parent / "experiments" / "eval"
+    tasks = SCRIPTS_DIR.parents[1]
+    return [
+        fwd_eval / "scenarios_v1.yaml",
+        fwd_eval / "scenarios_v2.yaml",
+        fwd_eval / "scenarios_morph.yaml",
+        tasks / "crab_hex_sideways_task" / "experiments" / "eval" / "scenarios_side.yaml",
+        tasks / "crab_hex_omni_task" / "experiments" / "eval" / "scenarios_omni.yaml",
+    ]
+
+
+def test_only_a_suite_row_takes_the_wave_path():
+    """``uses_waves`` -- the one predicate the harness loop branches on -- is False for every committed
+    legacy row, so no legacy eval gains an ``env.seed`` call, an extra reset or a re-install."""
+    suite_rows = []
+    for manifest in _committed_manifests():
+        for sc in S.load_manifest(manifest)[0]:
+            if S.uses_waves(sc):
+                suite_rows.append(sc.id)
+            else:
+                assert sc.kind == "schedule" and sc.suite is None and sc.waves == 1, sc.id
+    assert suite_rows == ["suite__omni"]
+    # And the harness only calls env.seed / env.reset / re-installs the override under the suite
+    # branch: every such call site sits inside an ``if`` whose test reads ``suite_mode``.
+    import ast  # noqa: PLC0415
+
+    tree = ast.parse(EVAL_SCRIPT.read_text())
+    parents = {child: node for node in ast.walk(tree) for child in ast.iter_child_nodes(node)}
+    sites = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        is_env_call = (
+            isinstance(func, ast.Attribute)
+            and func.attr in ("seed", "reset")
+            and isinstance(func.value, ast.Name)
+            and func.value.id == "env"
+        )
+        is_reinstall = isinstance(func, ast.Name) and func.id == "_install_schedule_override_world"
+        if not (is_env_call or is_reinstall):
+            continue
+        guarded, cur = False, node
+        while cur in parents:
+            cur = parents[cur]
+            if isinstance(cur, ast.If) and "suite_mode" in ast.unparse(cur.test):
+                guarded = True
+                break
+        sites.append((ast.unparse(node), guarded))
+    assert any(src.startswith("env.seed(") for src, _ in sites)
+    assert any(src.startswith("env.reset(") for src, _ in sites)
+    # the one unguarded install is the pre-loop one every world row has always run
+    unguarded = [src for src, ok in sites if not ok]
+    assert unguarded == ["_install_schedule_override_world(cmd_term, compiled, device, compiled.hold_labels)"]
+
+
+def test_a_legacy_row_refuses_waves_and_trained_categories(tmp_path):
+    legacy = S.load_manifest(_committed_manifests()[-1])[0][0]
+    assert legacy.id == "slow__omni"
+    assert S.suite_cli_args(legacy) is None
+    for kwargs in ({"waves": 1}, {"trained_categories": "fwd"}, {"trained_categories": ""},
+                   {"waves": 10, "trained_categories": "stand,fwd"}):
+        with pytest.raises(S.ManifestError, match="category_suite' row only"):
+            S.suite_cli_args(legacy, **kwargs)
+    sc = _suite(tmp_path)
+    assert S.suite_cli_args(sc) is None
+    assert S.suite_cli_args(sc, waves=10) is None
+    assert S.suite_cli_args(sc, trained_categories="stand, fwd,side") == ["stand", "fwd", "side"]
+    assert S.suite_cli_args(sc, trained_categories="") == []
+    with pytest.raises(S.ManifestError, match="--waves 9"):
+        S.suite_cli_args(sc, waves=9)
+    with pytest.raises(S.ManifestError, match="not categories"):
+        S.suite_cli_args(sc, trained_categories="stand,lat_l")
+    with pytest.raises(S.ManifestError, match="duplicate"):
+        S.suite_cli_args(sc, trained_categories="fwd,fwd")
+    # The harness routes both flags through this check before building anything.
+    assert "S.suite_cli_args(" in EVAL_SCRIPT.read_text()
+
+
+def test_suite_run_meta_records_the_waves_and_the_run_time_geometry(tmp_path):
+    sc = _suite(tmp_path, episodes=7)
+    seeds = [S.wave_seed(sc, k) for k in range(sc.waves)]
+    assert seeds[0] == 1_000_003 and seeds[9] == 1_000_012
+    meta = S.suite_run_meta(sc, dt=DT, num_envs=7, wave_seeds=seeds, trained_categories=["stand", "fwd"])
+    assert set(meta) == {"waves", "wave_seeds", "episodes_total", "env_index_map", "suite",
+                         "trained_categories", "hold_labels_kind"}
+    assert meta["episodes_total"] == 70 and meta["waves"] == 10 and meta["hold_labels_kind"] == "union"
+    assert [m["env_index"] for m in meta["env_index_map"]] == list(range(70))
+    assert set(meta["suite"]) == {"dt", "prologue_s", "settle_label", "settle_hold_s", "hold_s", "categories"}
+    assert meta["suite"]["hold_s"] == {lab: 12.0 for lab in SUITE_LABELS}
+    assert [c["name"] for c in meta["suite"]["categories"]] == ["stand", "fwd", "side", "back", "diag", "turn", "move_turn"]
+    json.dumps(meta)  # JSON-able as is
+
+
+def _write_run_order(tmp_path, monkeypatch, scenario, compiled, run_meta, n_raw):
+    """Run report.write_run on a tiny synthetic run and return the ordered list of written names."""
+    from gait_eval import report as R  # noqa: PLC0415
+
+    T = compiled.n_steps
+    contact = np.zeros((T, n_raw, 6))
+    raw = {
+        "foot_force_norm": contact,
+        "cmd_applied": np.zeros((T, n_raw, 3)),
+        "root_lin_vel_b": np.zeros((T, n_raw, 3)),
+        "root_ang_vel_b": np.zeros((T, n_raw, 3)),
+        "root_quat_w": np.tile(np.array([1.0, 0.0, 0.0, 0.0]), (T, n_raw, 1)),
+        "root_pos_w": np.zeros((T, n_raw, 3)),
+        "foot_pos_w": np.zeros((T, n_raw, 6, 3)),
+        "foot_lin_vel_w": np.zeros((T, n_raw, 6, 3)),
+        "foot_ang_vel_w": np.zeros((T, n_raw, 6, 3)),
+        "terrain_z": np.zeros((T, n_raw, 6)),
+        "actions": np.zeros((T, n_raw, 4)),
+        "joint_vel": np.zeros((T, n_raw, 4)),
+        "crab_failure": np.zeros((T, n_raw), dtype=bool),
+    }
+    if compiled.command_frame == "world":
+        raw["heading_err"] = np.zeros((T, n_raw))
+        raw["travel_yaw"] = np.zeros((T, n_raw))
+    eps = R.score_run(raw, compiled=compiled, scenario=scenario, dt=DT, term_reason=run_meta["termination_reason"],
+                      n_steps_env=run_meta["n_steps_per_env"],
+                      travel_yaw=(raw["travel_yaw"] if "travel_yaw" in raw else 0.0))
+    order: list[str] = []
+    real_write_text = Path.write_text
+    real_savez = np.savez_compressed
+
+    def _write_text(self, *a, **k):
+        order.append(self.name)
+        return real_write_text(self, *a, **k)
+
+    def _savez(path, *a, **k):
+        order.append(Path(path).name)
+        return real_savez(path, *a, **k)
+
+    monkeypatch.setattr(Path, "write_text", _write_text)
+    monkeypatch.setattr(np, "savez_compressed", _savez)
+    run_dir = tmp_path / scenario.id
+    R.write_run(run_dir, run_meta=run_meta, episode_metrics=eps, raw=raw, scenario=scenario,
+                compiled=compiled, history_root=tmp_path / "history")
+    monkeypatch.undo()
+    return order, run_dir
+
+
+def test_write_run_writes_the_completion_marker_last_on_suite_rows_only(tmp_path, monkeypatch):
+    sc = _suite(tmp_path, episodes=2)
+    parts = [S.compile_wave(sc, k, dt=DT) for k in range(sc.waves)]
+    stacked = S.stack_waves(parts)
+    n_raw = 20
+    run_meta = {
+        "scenario_id": sc.id, "task": sc.task, "checkpoint": "/tmp/model.pt", "checkpoint_sha256": "ab" * 32,
+        "command_override_max_deviation": 0.0, "dt": DT, "num_envs": 2,
+        "termination_reason": ["schedule_complete"] * n_raw, "n_steps_per_env": [stacked.n_steps] * n_raw,
+        **S.suite_run_meta(sc, dt=DT, num_envs=2, wave_seeds=[S.wave_seed(sc, k) for k in range(10)],
+                           trained_categories=None),
+    }
+    order, run_dir = _write_run_order(tmp_path, monkeypatch, sc, stacked, run_meta, n_raw)
+    assert order[-1] == "complete.json" and order.count("complete.json") == 1
+    # one raw per EPISODE (W*E = 20, n_raw), all before the marker; episode_{env_index:02d}
+    raws = [name for name in order if name.endswith(".npz")]
+    assert raws == [f"episode_{i:02d}.npz" for i in range(n_raw)]
+    assert order.index("scenario_metrics.json") < order.index(raws[0])
+    marker = json.loads((run_dir / "complete.json").read_text())
+    assert marker == {"episodes_total": 20, "checkpoint_sha256": "ab" * 32, "raw_written": True}
+    agg = json.loads((run_dir / "scenario_metrics.json").read_text())["aggregate"]
+    assert agg["suite"]["episodes_total"] == 20 and agg["suite"]["n_by_hold"] == {lab: 2 for lab in SUITE_LABELS}
+    assert "by category" in (run_dir / "summary.md").read_text()
+
+    # A legacy (world) row: no marker, no suite block -- the files it always wrote, in the same order.
+    legacy = _world_scenario(episodes=2)
+    comp = S.compile_schedule(legacy, dt=DT)
+    meta = {"scenario_id": legacy.id, "task": legacy.task, "checkpoint": "", "checkpoint_sha256": None,
+            "command_override_max_deviation": 0.0, "dt": DT, "num_envs": 2,
+            "termination_reason": ["schedule_complete"] * 2, "n_steps_per_env": [comp.n_steps] * 2}
+    order, run_dir = _write_run_order(tmp_path, monkeypatch, legacy, comp, meta, 2)
+    assert "complete.json" not in order and not (run_dir / "complete.json").exists()
+    assert order == ["run_meta.json", "episode_00.json", "episode_01.json", "scenario_metrics.json",
+                     "summary.md", "episode_00.npz", "episode_01.npz"]
+    assert "suite" not in json.loads((run_dir / "scenario_metrics.json").read_text())["aggregate"]
+
+
+def test_legacy_rows_compile_byte_identically():
+    """Every legacy row of every committed manifest compiles to EXACTLY the step-0 snapshot
+    (``fixtures/gait_eval_compile_snapshot.json``, captured from the unedited code). Never regenerate
+    the fixture to make this pass: a diff here means a forward/sideways/legacy-omni schedule moved."""
+    if str(FIXTURES_DIR) not in sys.path:
+        sys.path.insert(0, str(FIXTURES_DIR))
+    import gen_gait_eval_compile_snapshot as GEN  # noqa: PLC0415
+
+    snapshot = json.loads(GEN.FIXTURE_PATH.read_text())
+    assert [p.resolve() for p in GEN.MANIFESTS] == [p.resolve() for p in _committed_manifests()]
+    current: dict[str, dict] = {}
+    for manifest in GEN.MANIFESTS:
+        for sc in S.load_manifest(manifest)[0]:
+            if S.uses_waves(sc):
+                continue  # the suite compiles per wave; it is not a legacy row
+            comp = S.compile_schedule(sc, dt=GEN.DT, num_envs=sc.episodes)
+            current[f"{manifest.name}::{sc.id}"] = {
+                "n_steps": comp.n_steps,
+                "hold_labels": list(comp.hold_labels),
+                "arrays": {f: GEN._array_identity(getattr(comp, f)) for f in GEN.ARRAY_FIELDS},
+            }
+    # The same row set (the four legacy omni rows included) and the same bytes, row by row.
+    assert set(current) == set(snapshot)
+    assert len(snapshot) == 49
+    assert {k for k in snapshot if k.startswith("scenarios_omni.yaml::")} == {
+        "scenarios_omni.yaml::slow__omni", "scenarios_omni.yaml::light__omni",
+        "scenarios_omni.yaml::ring__omni", "scenarios_omni.yaml::curriculum__omni",
+    }
+    for key in sorted(snapshot):
+        assert current[key] == snapshot[key], key

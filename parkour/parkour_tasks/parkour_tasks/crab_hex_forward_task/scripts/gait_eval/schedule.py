@@ -21,6 +21,16 @@ all: the harness hands each step's row to the command term's ``schedule_hook`` (
 :class:`ScheduleRow`), which does the world -> body conversion and the facing P-control itself, so
 the eval sees the same closed loop training does. A scenario is all body rows or all world rows;
 mixing them is a manifest error, and every body-row code path below is untouched.
+
+**Category suites (omni per-category eval, 2026-09-21, plan D1/D2/A1).** A ``kind:
+category_suite`` row is not one timeline: it is W *waves* run back to back in one launch, wave k
+being every env on ``[settle, hold_k]``, so each episode carries exactly ONE category hold and a
+fall in one hold cannot contaminate another's numbers. Its ``schedule`` is DERIVED -- ``[settle] +
+[one hold per category hold]`` -- as a label union, not a timeline: ``schedule_duration_s`` is one
+wave's ``settle + hold``. :func:`compile_schedule` refuses such a row; :func:`compile_wave`
+compiles one wave (row-global ``segment_id``, so every position-keyed reader indexes the union
+``hold_labels``) and :func:`stack_waves` joins the waves along the env axis for scoring. Every
+other row is untouched and compiles exactly as before.
 """
 
 from __future__ import annotations
@@ -62,6 +72,27 @@ DEFAULTS: dict[str, Any] = {
 BODY_HOLD_KEYS: tuple[str, ...] = ("vx", "vy", "wz", "delta_yaw")
 #: Hold keys that only a world row may carry.
 WORLD_HOLD_KEYS: tuple[str, ...] = ("speed", "dir", "face")
+
+#: ``Scenario.kind`` values. ``schedule`` is every row that existed before the category suite.
+SCHEDULE_KIND = "schedule"
+SUITE_KIND = "category_suite"
+SCENARIO_KINDS: tuple[str, ...] = (SCHEDULE_KIND, SUITE_KIND)
+#: ``Category.kind`` values (plan D3's metric roles key off the category, not the kind; the kind
+#: only documents what the hold asks for).
+CATEGORY_KINDS: tuple[str, ...] = ("stand", "translate", "turn", "move_turn")
+#: A paired category's hands; ``None`` on a singleton category's hold.
+HANDS: tuple[str, ...] = ("l", "r")
+#: The only keys a suite's category mapping / category hold / settle block may carry -- anything
+#: else (a ``watch_only`` flag, a per-hold ``hold_s``) is a ManifestError, never silently ignored:
+#: watch status comes only from what a recipe trains (plan D4), and every category hold shares the
+#: row's ``hold_s``.
+CATEGORY_KEYS: tuple[str, ...] = ("name", "kind", "holds")
+CATEGORY_HOLD_KEYS: tuple[str, ...] = ("label", "speed", "dir", "face", "hand")
+SETTLE_KEYS: tuple[str, ...] = ("hold_s", "label")
+#: Row keys only a suite row may carry (a ``schedule`` row carrying one is a ManifestError).
+SUITE_ROW_KEYS: tuple[str, ...] = ("waves", "settle", "hold_s", "categories")
+#: Per-wave env seed: ``env_seed * WAVE_SEED_STRIDE + wave`` (plan D2).
+WAVE_SEED_STRIDE = 1_000_003
 
 
 class ManifestError(ValueError):
@@ -177,6 +208,106 @@ class Hold:
 
 
 @dataclass
+class CategoryHold:
+    """One hold of a category suite: a world-frame command held for the row's ``hold_s``.
+
+    ``hand`` is ``"l"``/``"r"`` on a paired category's two holds (the mirror pair shares the
+    category, handedness is reported inside it) and ``None`` on a singleton category's one hold.
+    """
+
+    label: str
+    speed: float
+    dir: float
+    face: float
+    hand: str | None = None
+
+
+@dataclass
+class Category:
+    """A command category (plan D1): one hold, or a left/right pair of holds."""
+
+    name: str
+    kind: str  # one of CATEGORY_KINDS
+    holds: list[CategoryHold] = field(default_factory=list)
+
+
+@dataclass
+class CategorySuite:
+    """The manifest half of a ``kind: category_suite`` row (plan D1).
+
+    Carries no run-time field: ``dt``, the wave seeds and the trained categories are recorded by
+    the harness in ``run_meta`` (plan D3). The settle hold is a commanded stop at face 0
+    (speed 0, dir 0, face 0), held ``settle_hold_s`` before every wave's own hold; it is never an
+    episode's own hold.
+    """
+
+    settle_hold_s: float
+    settle_label: str
+    hold_s: float
+    categories: list[Category] = field(default_factory=list)
+
+    #: The settle command (speed, dir, face) -- fixed by the plan, not a manifest field.
+    SETTLE_COMMAND = (0.0, 0.0, 0.0)
+
+    def holds(self) -> list[CategoryHold]:
+        """Every category hold in manifest order == wave order (one hold per wave)."""
+        return [h for c in self.categories for h in c.holds]
+
+    def hold_labels(self) -> list[str]:
+        """The union label list: ``[settle] + category holds`` (row-global ``segment_id`` order)."""
+        return [self.settle_label] + [h.label for h in self.holds()]
+
+    def hold_s_by_label(self) -> dict[str, float]:
+        """The derived per-hold duration map (every category hold shares ``hold_s``)."""
+        return {h.label: float(self.hold_s) for h in self.holds()}
+
+    def category_of_hold(self) -> dict[str, str]:
+        return {h.label: c.name for c in self.categories for h in c.holds}
+
+    def hand_of_hold(self) -> dict[str, str | None]:
+        return {h.label: h.hand for c in self.categories for h in c.holds}
+
+    def categories_meta(self) -> list[dict[str, Any]]:
+        """JSON-able ``[{name, kind, holds: [{label, speed, dir, face, hand}]}]``."""
+        return [
+            {
+                "name": c.name,
+                "kind": c.kind,
+                "holds": [
+                    {"label": h.label, "speed": h.speed, "dir": h.dir, "face": h.face, "hand": h.hand}
+                    for h in c.holds
+                ],
+            }
+            for c in self.categories
+        ]
+
+
+def suite_schedule(suite: CategorySuite) -> list[Hold]:
+    """The DERIVED ``Scenario.schedule`` of a suite row: ``[settle] + [one Hold per category hold]``.
+
+    A label union, not a timeline -- no episode runs these holds in sequence (see
+    :func:`compile_wave`). Every position-keyed reader indexes this list.
+    """
+    s0, d0, f0 = CategorySuite.SETTLE_COMMAND
+    holds = [Hold(hold_s=float(suite.settle_hold_s), label=suite.settle_label, speed=s0, dir=d0, face=f0)]
+    for h in suite.holds():
+        holds.append(
+            Hold(hold_s=float(suite.hold_s), label=h.label, speed=float(h.speed), dir=float(h.dir), face=float(h.face))
+        )
+    return holds
+
+
+def own_hold_end_step(*, prologue_s: float, settle_hold_s: float, hold_s: float, dt: float) -> int:
+    """The step at which a suite episode's own hold ends: ``round((prologue + settle + hold)/dt)``.
+
+    An episode with ``n_steps >=`` this survived its hold (plan D3: a fall on the wave's last step
+    counts as survived, the legacy ``survival_by_hold`` convention). :func:`compile_wave` asserts
+    it equals the wave's compiled step count.
+    """
+    return int(round((float(prologue_s) + float(settle_hold_s) + float(hold_s)) / float(dt)))
+
+
+@dataclass
 class Scenario:
     id: str
     task: str
@@ -201,6 +332,10 @@ class Scenario:
     spawn_yaw: str | float | None = None  # "first_face" | a world yaw in radians | None
     speed_ellipse: dict[str, float] | None = None  # {"fwd", "lat", "back"}; world rows only
     ang_vel_max: float = DEFAULT_ANG_VEL_MAX  # WZ_MAX for the turn-feasibility rule
+    # Category-suite fields (inert on every other row -- see the module docstring).
+    kind: str = SCHEDULE_KIND  # one of SCENARIO_KINDS
+    suite: CategorySuite | None = None
+    waves: int = 1  # a suite row: one wave per category hold (derived, validated)
 
     def __post_init__(self) -> None:
         # A world scenario pins the spawn yaw by default: without it the robot starts at a random
@@ -210,6 +345,10 @@ class Scenario:
 
     @property
     def schedule_duration_s(self) -> float:
+        if self.suite is not None:
+            # One wave: the settle hold then the wave's own hold. The derived schedule is a label
+            # union, never a timeline, so summing it would be meaningless.
+            return float(self.suite.settle_hold_s) + float(self.suite.hold_s)
         return float(sum(h.hold_s for h in self.schedule))
 
     @property
@@ -242,6 +381,36 @@ class Scenario:
     def get_default(self, key: str) -> Any:
         return self.defaults.get(key, DEFAULTS.get(key))
 
+    def transition_pairs(self) -> list[tuple[int, float, float]]:
+        """``[(schedule index, previous face, face)]`` -- every facing change a hold must finish.
+
+        A ``schedule`` row: the consecutive pairs, plus the wrap-around pair under
+        ``rotate_holds_by_env`` (every env starts at a different hold) or else the spawn pin as a
+        first pair (the pin fixes the body heading, so the first hold is a turn whenever the two
+        disagree). A suite row: ``[(spawn -> settle.face)] + [(settle.face -> hold.face)]`` per
+        hold -- every wave starts from the spawn pin and settles at the settle face first.
+        """
+        faces = [h.as_world()[2] for h in self.schedule]
+        if self.kind == SUITE_KIND:
+            settle_face = faces[0] if faces else 0.0
+            pairs: list[tuple[int, float, float]] = []
+            spawn = self.spawn_yaw_rad() if self.spawn_yaw is not None else None
+            if spawn is not None:
+                pairs.append((0, spawn, settle_face))
+            pairs.extend((i, settle_face, faces[i]) for i in range(1, len(faces)))
+            return pairs
+        pairs = list(zip(range(1, len(faces)), faces[:-1], faces[1:]))
+        if self.rotate_holds_by_env and len(faces) > 1:
+            # Every env starts at a different hold, so the wrap-around pair is a real transition too.
+            pairs.append((0, faces[-1], faces[0]))
+        elif self.spawn_yaw is not None:
+            # The spawn pins the body heading, so the first hold is a turn too whenever the pin and the
+            # first face disagree (they agree by construction under spawn_yaw "first_face").
+            spawn = self.spawn_yaw_rad()
+            if spawn is not None:
+                pairs.insert(0, (0, spawn, faces[0]))
+        return pairs
+
     def get_speed_ellipse(self) -> tuple[float, float, float]:
         """``(fwd, lat, back)`` semi-axes for :func:`ellipse_cap`."""
         block = self.speed_ellipse or DEFAULT_SPEED_ELLIPSE
@@ -266,6 +435,10 @@ class CompiledSchedule:
     world_dir: np.ndarray | None = None  # (T, E) float64 -- world travel direction, rad
     world_speed: np.ndarray | None = None  # (T, E) float64 -- m/s
     world_face: np.ndarray | None = None  # (T, E) float64 -- absolute world heading target, rad
+    # Category suites only (None on every other row): per-env wave index and OWN hold (an index
+    # into ``hold_labels``), set by compile_wave and concatenated by stack_waves.
+    wave_of_env: np.ndarray | None = None  # (E,) int64
+    hold_of_env: np.ndarray | None = None  # (E,) int64
 
     @property
     def command_frame(self) -> str:
@@ -356,6 +529,73 @@ def _coerce_hold(raw: dict[str, Any], index: int) -> Hold:
     return hold
 
 
+def _parse_suite(raw: dict[str, Any]) -> CategorySuite:
+    """Parse a ``kind: category_suite`` row's ``settle`` / ``hold_s`` / ``categories`` blocks.
+
+    Structure only (required keys, no unknown keys); the semantic rules -- kinds, unique labels,
+    balanced hands, caps, durations -- live in :func:`_validate_suite` so a suite built in code is
+    held to them too.
+    """
+    sid = raw.get("id", "<no id>")
+    settle = raw.get("settle")
+    if not isinstance(settle, dict) or settle.get("hold_s") is None:
+        raise ManifestError(f"scenario {sid!r}: a category_suite row needs a 'settle: {{hold_s, label}}' block")
+    extra = sorted(set(settle) - set(SETTLE_KEYS))
+    if extra:
+        raise ManifestError(
+            f"scenario {sid!r}: settle carries only {list(SETTLE_KEYS)} (the settle command is a "
+            f"stop at face 0 by construction); remove {extra}"
+        )
+    if raw.get("hold_s") is None:
+        raise ManifestError(f"scenario {sid!r}: a category_suite row needs a row-level 'hold_s'")
+    cats_raw = raw.get("categories")
+    if not isinstance(cats_raw, list) or not cats_raw:
+        raise ManifestError(f"scenario {sid!r}: a category_suite row needs a non-empty 'categories' list")
+    categories: list[Category] = []
+    for ci, cat in enumerate(cats_raw):
+        if not isinstance(cat, dict):
+            raise ManifestError(f"scenario {sid!r} categories[{ci}]: must be a mapping")
+        extra = sorted(set(cat) - set(CATEGORY_KEYS))
+        if extra:
+            raise ManifestError(
+                f"scenario {sid!r} category {cat.get('name', ci)!r}: a category carries only "
+                f"{list(CATEGORY_KEYS)}; remove {extra} (watch status comes from what a recipe "
+                "trains, never from the manifest)"
+            )
+        missing = [k for k in CATEGORY_KEYS if cat.get(k) in (None, "")]
+        if missing:
+            raise ManifestError(f"scenario {sid!r} categories[{ci}]: missing {missing}")
+        holds: list[CategoryHold] = []
+        for hi, hold in enumerate(cat["holds"] or []):
+            if not isinstance(hold, dict):
+                raise ManifestError(f"scenario {sid!r} category {cat['name']!r} holds[{hi}]: must be a mapping")
+            extra = sorted(set(hold) - set(CATEGORY_HOLD_KEYS))
+            if extra:
+                raise ManifestError(
+                    f"scenario {sid!r} category {cat['name']!r} holds[{hi}]: a category hold carries "
+                    f"only {list(CATEGORY_HOLD_KEYS)}; remove {extra} (every hold runs the row's hold_s)"
+                )
+            missing = [k for k in ("label", "speed", "dir", "face") if hold.get(k) is None]
+            if missing:
+                raise ManifestError(f"scenario {sid!r} category {cat['name']!r} holds[{hi}]: missing {missing}")
+            holds.append(
+                CategoryHold(
+                    label=str(hold["label"]),
+                    speed=float(hold["speed"]),
+                    dir=float(hold["dir"]),
+                    face=float(hold["face"]),
+                    hand=(str(hold["hand"]) if hold.get("hand") is not None else None),
+                )
+            )
+        categories.append(Category(name=str(cat["name"]), kind=str(cat["kind"]), holds=holds))
+    return CategorySuite(
+        settle_hold_s=float(settle["hold_s"]),
+        settle_label=str(settle.get("label") or "settle"),
+        hold_s=float(raw["hold_s"]),
+        categories=categories,
+    )
+
+
 def load_manifest(path: str | Path) -> tuple[list[Scenario], dict[str, Any]]:
     """Load a scenario manifest (YAML if PyYAML is importable, else JSON).
 
@@ -399,12 +639,33 @@ def load_manifest(path: str | Path) -> tuple[list[Scenario], dict[str, Any]]:
         for key in ("id", "task", "checkpoint"):
             if not raw.get(key):
                 raise ManifestError(f"scenario {raw.get('id', '<no id>')!r} is missing '{key}'")
+        kind = str(raw.get("kind", SCHEDULE_KIND))
+        if kind not in SCENARIO_KINDS:
+            raise ManifestError(f"scenario {raw['id']!r}: unknown kind {kind!r} (expected one of {list(SCENARIO_KINDS)})")
+        suite: CategorySuite | None = None
+        waves = 1
+        if kind == SUITE_KIND:
+            if "schedule" in raw:
+                raise ManifestError(
+                    f"scenario {raw['id']!r}: a category_suite row DERIVES its schedule from 'settle' + "
+                    "'categories'; remove the explicit 'schedule:'"
+                )
+            suite = _parse_suite(raw)
+            schedule = suite_schedule(suite)
+            waves = int(raw.get("waves", len(suite.holds())))
+        else:
+            stray = [k for k in SUITE_ROW_KEYS if k in raw]
+            if stray:
+                raise ManifestError(
+                    f"scenario {raw['id']!r}: {stray} belong to a 'kind: category_suite' row only"
+                )
+            schedule = [_coerce_hold(h, i) for i, h in enumerate(raw.get("schedule", []) or [])]
         scenario = Scenario(
             id=str(raw["id"]),
             task=str(raw["task"]),
             checkpoint=str(raw["checkpoint"]),
             role=str(raw.get("role", "teacher")),
-            schedule=[_coerce_hold(h, i) for i, h in enumerate(raw.get("schedule", []) or [])],
+            schedule=schedule,
             episodes=int(raw.get("episodes", 10)),
             episode_length_s=(float(raw["episode_length_s"]) if raw.get("episode_length_s") else None),
             env_seed=int(raw.get("env_seed", 1)),
@@ -428,6 +689,9 @@ def load_manifest(path: str | Path) -> tuple[list[Scenario], dict[str, Any]]:
             ),
             speed_ellipse=({str(k): float(v) for k, v in ellipse.items()} if ellipse else None),
             ang_vel_max=(float(ang_vel_max) if ang_vel_max is not None else DEFAULT_ANG_VEL_MAX),
+            kind=kind,
+            suite=suite,
+            waves=waves,
         )
         validate_scenario(scenario)
         scenarios.append(scenario)
@@ -483,18 +747,7 @@ def _validate_world_scenario(scenario: Scenario) -> None:
     # Turn feasibility: the facing P-control is capped at ``ang_vel_max``, so a hold that changes
     # the facing target by more than it can physically turn in the hold measures a turn that never
     # finished -- the "settle then score" contract silently becomes "score the transient".
-    faces = [h.as_world()[2] for h in scenario.schedule]
-    pairs = list(zip(range(1, len(faces)), faces[:-1], faces[1:]))
-    if scenario.rotate_holds_by_env and len(faces) > 1:
-        # Every env starts at a different hold, so the wrap-around pair is a real transition too.
-        pairs.append((0, faces[-1], faces[0]))
-    elif scenario.spawn_yaw is not None:
-        # The spawn pins the body heading, so the first hold is a turn too whenever the pin and the
-        # first face disagree (they agree by construction under spawn_yaw "first_face").
-        spawn = scenario.spawn_yaw_rad()
-        if spawn is not None:
-            pairs.insert(0, (0, spawn, faces[0]))
-    for idx, prev_face, face in pairs:
+    for idx, prev_face, face in scenario.transition_pairs():
         d_face = abs(wrap_to_pi(face - prev_face))
         need = settle_s + d_face / wz_max
         hold = scenario.schedule[idx]
@@ -509,8 +762,86 @@ def _validate_world_scenario(scenario: Scenario) -> None:
         scenario.spawn_yaw_rad()  # raises on a bad spelling
 
 
+def _validate_suite(scenario: Scenario) -> None:
+    """The category-suite rules (plan A1). Reached only from :func:`validate_scenario`.
+
+    The world-row rules (:func:`_validate_world_scenario`) still apply on top: the end-of-hold
+    speed cap and turn feasibility through :meth:`Scenario.transition_pairs`.
+    """
+    sid = scenario.id
+    suite = scenario.suite
+    if suite is None:
+        raise ManifestError(f"scenario {sid!r}: kind {SUITE_KIND!r} needs a CategorySuite")
+    if not suite.categories:
+        raise ManifestError(f"scenario {sid!r}: a category suite needs at least one category")
+    names = [c.name for c in suite.categories]
+    dupes = sorted({n for n in names if names.count(n) > 1})
+    if dupes:
+        raise ManifestError(f"scenario {sid!r}: duplicate category names {dupes}")
+    labels = suite.hold_labels()
+    dupes = sorted({lab for lab in labels if labels.count(lab) > 1})
+    if dupes:
+        raise ManifestError(f"scenario {sid!r}: duplicate hold labels {dupes} (the settle label included)")
+    for cat in suite.categories:
+        if cat.kind not in CATEGORY_KINDS:
+            raise ManifestError(
+                f"scenario {sid!r} category {cat.name!r}: unknown kind {cat.kind!r} (expected one of {list(CATEGORY_KINDS)})"
+            )
+        if not cat.holds:
+            raise ManifestError(f"scenario {sid!r} category {cat.name!r}: no holds")
+        hands = [h.hand for h in cat.holds]
+        bad = [h for h in hands if h is not None and h not in HANDS]
+        if bad:
+            raise ManifestError(f"scenario {sid!r} category {cat.name!r}: hand must be one of {list(HANDS)} or absent, got {bad}")
+        if any(h is not None for h in hands) and (
+            any(h is None for h in hands) or hands.count("l") != hands.count("r")
+        ):
+            raise ManifestError(
+                f"scenario {sid!r} category {cat.name!r}: unbalanced hands {hands} -- a paired category "
+                "carries equally many 'l' and 'r' holds, a singleton carries none"
+            )
+    derived = [(h.label, h.hold_s, h.as_world()) for h in suite_schedule(suite)]
+    if [(h.label, h.hold_s, h.as_world()) for h in scenario.schedule] != derived:
+        raise ManifestError(f"scenario {sid!r}: schedule is not the one derived from the suite (settle + category holds)")
+    n_holds = len(suite.holds())
+    if scenario.waves != n_holds:
+        raise ManifestError(
+            f"scenario {sid!r}: waves={scenario.waves} but the suite has {n_holds} category holds "
+            "(one hold per wave)"
+        )
+    if scenario.rotate_holds_by_env:
+        raise ManifestError(f"scenario {sid!r}: rotate_holds_by_env has no meaning on a category suite (one hold per wave)")
+    if suite.settle_hold_s <= 0.0:
+        raise ManifestError(f"scenario {sid!r}: settle hold_s must be > 0")
+    need = float(scenario.get_default("settle_s")) + float(scenario.get_default("min_window_s"))
+    if suite.hold_s < need:
+        raise ManifestError(
+            f"scenario {sid!r}: hold_s={suite.hold_s} is shorter than settle_s + min_window_s = {need}; "
+            "no steady window would be left to score"
+        )
+    # The END-of-hold cap (body angle wrap(dir - face)) is _validate_world_scenario's; a suite hold
+    # also STARTS with the body at the settle face, so the start angle must clear the cap too.
+    fwd, lat, back = scenario.get_speed_ellipse()
+    settle_face = CategorySuite.SETTLE_COMMAND[2]
+    for hold in suite.holds():
+        phi = wrap_to_pi(hold.dir - settle_face)
+        cap = ellipse_cap(phi, fwd, lat, back)
+        if hold.speed > cap + _ELLIPSE_TOL:
+            raise ManifestError(
+                f"scenario {sid!r} hold {hold.label!r}: speed={hold.speed} exceeds the direction-scaled "
+                f"cap {cap:.4f} m/s at the hold's START body direction {phi:+.4f} rad (the body faces "
+                f"the settle face {settle_face} when the hold begins)"
+            )
+
+
 def validate_scenario(scenario: Scenario) -> None:
     """Reject manifests that would silently measure something other than what they say."""
+    if scenario.kind not in SCENARIO_KINDS:
+        raise ManifestError(f"scenario {scenario.id!r}: unknown kind {scenario.kind!r}")
+    if scenario.kind == SUITE_KIND:
+        _validate_suite(scenario)
+    elif scenario.suite is not None or scenario.waves != 1:
+        raise ManifestError(f"scenario {scenario.id!r}: suite / waves belong to a {SUITE_KIND!r} row only")
     if not scenario.schedule:
         raise ManifestError(f"scenario {scenario.id!r}: empty schedule")
     if scenario.episodes < 1:
@@ -564,6 +895,8 @@ def compile_schedule(scenario: Scenario, *, dt: float, num_envs: int | None = No
     confounded with position along the course -- on parkour terrain the last hold otherwise always
     lands on the hardest section, and the speed effect and the terrain effect become inseparable.
     """
+    if scenario.kind == SUITE_KIND:
+        raise ValueError("category_suite rows compile per wave: use compile_wave")
     if dt <= 0:
         raise ValueError("dt must be > 0")
     n_envs = int(num_envs if num_envs is not None else scenario.episodes)
@@ -634,3 +967,227 @@ def compile_schedule(scenario: Scenario, *, dt: float, num_envs: int | None = No
         world_speed=world_speed,
         world_face=world_face,
     )
+
+
+# --------------------------------------------------------------------------------------
+# category suites (plan D1/D2/A1): one hold per wave, the waves run back to back in one launch
+# --------------------------------------------------------------------------------------
+def uses_waves(scenario: Scenario) -> bool:
+    """True only for a ``category_suite`` row -- the one predicate the harness loop branches on.
+
+    Every other row (forward, sideways, the legacy omni rows) runs the harness's single-pass loop
+    verbatim: no ``env.seed`` call, no extra reset, no re-install (plan D2 -- any env write after
+    Kit startup can flip a same-seed eval between two repeatable outcomes).
+    """
+    return scenario.kind == SUITE_KIND
+
+
+def wave_seed(scenario: Scenario, wave: int) -> int:
+    """The env seed set before wave ``wave`` (wave 0 included): ``env_seed * 1_000_003 + wave``."""
+    return int(scenario.env_seed) * WAVE_SEED_STRIDE + int(wave)
+
+
+def compile_wave(scenario: Scenario, wave: int, *, dt: float, num_envs: int | None = None) -> CompiledSchedule:
+    """Wave ``wave`` of a suite row: every env on ``[settle, hold_wave]``, uniform across envs.
+
+    The prologue holds the settle command. ``segment_id`` is ROW-GLOBAL -- ``-1`` in the prologue,
+    ``0`` (the settle) and ``wave + 1`` (the wave's own hold) -- and ``hold_labels`` is the union,
+    so every position-keyed reader indexes the same list in every wave. Built by compiling the
+    two-hold schedule with :func:`compile_schedule` itself, so the step arithmetic (rounding,
+    steady windows, float64 world arrays) is exactly the legacy one.
+    """
+    if not uses_waves(scenario) or scenario.suite is None:
+        raise ValueError(f"compile_wave needs a {SUITE_KIND!r} row; {scenario.id!r} is {scenario.kind!r}")
+    suite = scenario.suite
+    union = suite_schedule(suite)
+    n_waves = len(union) - 1
+    if not 0 <= int(wave) < n_waves:
+        raise ValueError(f"wave {wave} out of range for {scenario.id!r} ({n_waves} waves)")
+    seg = int(wave) + 1
+    two = Scenario(
+        id=f"{scenario.id}#wave{wave}",
+        task=scenario.task,
+        checkpoint=scenario.checkpoint,
+        schedule=[union[0], union[seg]],
+        episodes=scenario.episodes,
+        defaults=scenario.defaults,
+        spawn_yaw=scenario.spawn_yaw,
+        speed_ellipse=scenario.speed_ellipse,
+        ang_vel_max=scenario.ang_vel_max,
+    )
+    part = compile_schedule(two, dt=dt, num_envs=num_envs)
+    end = own_hold_end_step(
+        prologue_s=float(scenario.get_default("prologue_s")),
+        settle_hold_s=suite.settle_hold_s,
+        hold_s=suite.hold_s,
+        dt=dt,
+    )
+    if part.n_steps != end:
+        raise ValueError(
+            f"{scenario.id!r} wave {wave}: compiled {part.n_steps} steps but the own-hold survival end is "
+            f"round((prologue + settle + hold)/dt) = {end}; pick durations that are whole steps at dt={dt}"
+        )
+    n_envs = part.segment_id.shape[1]
+    segment_id = np.where(part.segment_id == 1, seg, part.segment_id).astype(np.int16)
+    return CompiledSchedule(
+        cmd=part.cmd,
+        segment_id=segment_id,
+        steady_mask=part.steady_mask,
+        delta_yaw=None,
+        n_steps=part.n_steps,
+        dt=part.dt,
+        hold_labels=[h.label for h in union],
+        world_dir=part.world_dir,
+        world_speed=part.world_speed,
+        world_face=part.world_face,
+        wave_of_env=np.full(n_envs, int(wave), dtype=np.int64),
+        hold_of_env=np.full(n_envs, seg, dtype=np.int64),
+    )
+
+
+def stack_waves(parts: list[CompiledSchedule]) -> CompiledSchedule:
+    """Concatenate per-wave schedules along the env axis: env ``wave * E + e`` is wave ``wave``'s env ``e``.
+
+    The single ``(T, W*E)`` object scoring, ``write_run`` and ``travel_yaw_by_hold`` read. Every
+    wave of a suite has the same step count (one ``hold_s`` for every hold), so no padding.
+    """
+    if not parts:
+        raise ValueError("stack_waves needs at least one wave")
+    first = parts[0]
+    for k, part in enumerate(parts):
+        if part.n_steps != first.n_steps or part.dt != first.dt or part.hold_labels != first.hold_labels:
+            raise ValueError(f"wave {k} does not share n_steps/dt/hold_labels with wave 0")
+        if part.wave_of_env is None or part.hold_of_env is None or part.world_dir is None:
+            raise ValueError(f"wave {k} is not a compile_wave schedule")
+
+    def _cat(name: str) -> np.ndarray:
+        return np.concatenate([getattr(p, name) for p in parts], axis=1)
+
+    return CompiledSchedule(
+        cmd=_cat("cmd"),
+        segment_id=_cat("segment_id"),
+        steady_mask=_cat("steady_mask"),
+        delta_yaw=None,
+        n_steps=first.n_steps,
+        dt=first.dt,
+        hold_labels=list(first.hold_labels),
+        world_dir=_cat("world_dir"),
+        world_speed=_cat("world_speed"),
+        world_face=_cat("world_face"),
+        wave_of_env=np.concatenate([p.wave_of_env for p in parts]),
+        hold_of_env=np.concatenate([p.hold_of_env for p in parts]),
+    )
+
+
+@dataclass
+class EpisodeAssignment:
+    """Where one suite episode ran: ``env_index = wave * episodes + env``."""
+
+    env_index: int
+    wave: int
+    env: int
+    label: str
+    category: str
+    hand: str | None
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "env_index": self.env_index,
+            "wave": self.wave,
+            "env": self.env,
+            "label": self.label,
+            "category": self.category,
+            "hand": self.hand,
+        }
+
+
+def wave_plan(scenario: Scenario, num_envs: int | None = None) -> list[EpisodeAssignment]:
+    """The ``env_index -> (wave, env, own hold, category, hand)`` map of a suite run.
+
+    The settle hold is never an episode's own hold. Identical ``(episodes, waves, suite)`` across
+    two heads is what makes their episodes pairable on ``env_index`` (plan D2).
+    """
+    if not uses_waves(scenario) or scenario.suite is None:
+        raise ValueError(f"wave_plan needs a {SUITE_KIND!r} row; {scenario.id!r} is {scenario.kind!r}")
+    n_envs = int(num_envs if num_envs is not None else scenario.episodes)
+    cat_of = scenario.suite.category_of_hold()
+    hand_of = scenario.suite.hand_of_hold()
+    plan: list[EpisodeAssignment] = []
+    for wave, hold in enumerate(scenario.suite.holds()):
+        for env in range(n_envs):
+            plan.append(
+                EpisodeAssignment(
+                    env_index=wave * n_envs + env,
+                    wave=wave,
+                    env=env,
+                    label=hold.label,
+                    category=cat_of[hold.label],
+                    hand=hand_of[hold.label],
+                )
+            )
+    return plan
+
+
+def suite_cli_args(
+    scenario: Scenario, *, waves: int | None = None, trained_categories: str | None = None
+) -> list[str] | None:
+    """Check the harness's ``--waves`` / ``--trained-categories`` against the row; returns the parsed
+    trained-category list (``None`` when the flag was not given).
+
+    Either flag on a non-suite row is an error, so a legacy invocation's ``run_meta`` key set can
+    never change. ``--waves`` is a consistency assertion (the wave count is derived from the
+    manifest), never a configuration. Category names are checked against the suite.
+    """
+    if not uses_waves(scenario):
+        given = [flag for flag, val in (("--waves", waves), ("--trained-categories", trained_categories)) if val is not None]
+        if given:
+            raise ManifestError(
+                f"scenario {scenario.id!r} is a {scenario.kind!r} row: {given} apply to a {SUITE_KIND!r} row only"
+            )
+        return None
+    if waves is not None and int(waves) != scenario.waves:
+        raise ManifestError(f"--waves {waves} but scenario {scenario.id!r} has {scenario.waves} waves (one per category hold)")
+    if trained_categories is None:
+        return None
+    names = [n.strip() for n in str(trained_categories).split(",") if n.strip()]
+    known = [c.name for c in scenario.suite.categories]
+    unknown = [n for n in names if n not in known]
+    if unknown:
+        raise ManifestError(f"--trained-categories: {unknown} are not categories of {scenario.id!r} ({known})")
+    if len(set(names)) != len(names):
+        raise ManifestError(f"--trained-categories: duplicate names in {names}")
+    return names
+
+
+def suite_run_meta(
+    scenario: Scenario,
+    *,
+    dt: float,
+    num_envs: int,
+    wave_seeds: list[int],
+    trained_categories: list[str] | None,
+) -> dict[str, Any]:
+    """The suite-row-only ``run_meta`` keys (plan A2); a legacy row's ``run_meta`` gains none of them.
+
+    ``suite.hold_s`` is the derived per-label map (every category hold's duration), which is what
+    the own-hold survival end ``round((prologue_s + settle_hold_s + hold_s[label]) / dt)`` reads.
+    """
+    if not uses_waves(scenario) or scenario.suite is None:
+        raise ValueError(f"suite_run_meta needs a {SUITE_KIND!r} row")
+    suite = scenario.suite
+    return {
+        "waves": scenario.waves,
+        "wave_seeds": [int(v) for v in wave_seeds],
+        "episodes_total": scenario.waves * int(num_envs),
+        "env_index_map": [a.as_dict() for a in wave_plan(scenario, num_envs)],
+        "suite": {
+            "dt": float(dt),
+            "prologue_s": float(scenario.get_default("prologue_s")),
+            "settle_label": suite.settle_label,
+            "settle_hold_s": float(suite.settle_hold_s),
+            "hold_s": suite.hold_s_by_label(),
+            "categories": suite.categories_meta(),
+        },
+        "trained_categories": (list(trained_categories) if trained_categories is not None else None),
+        "hold_labels_kind": "union",
+    }

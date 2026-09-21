@@ -830,6 +830,81 @@ def facing_metrics(
     return out
 
 
+# --------------------------------------------------------------------------------------
+# per-hold motion / travel direction (omni per-category eval, 2026-09-21, plan D3): world rows
+# only, additive -- no body-row code path calls these.
+# --------------------------------------------------------------------------------------
+def travel_direction_metrics(vel_travel_xy: np.ndarray, cmd_speed, *, min_speed: float = 0.02) -> dict | None:
+    """How well a moving hold held its commanded DIRECTION (plan D3 ``direction``).
+
+    ``vel_travel_xy`` is the ``(T, 2)`` achieved velocity in the travel frame (x along the
+    commanded direction, y to its left -- the frame ``tracking_metrics`` already reads), and
+    ``cmd_speed`` the commanded speed (scalar or ``(T,)``; its mean is used). With ``v̄`` the mean
+    travel-frame velocity over the window:
+
+    * ``direction_error_rad`` -- ``|atan2(v̄_y, v̄_x)|``, the angle between where the body went and
+      where it was sent (0 = on the commanded line, pi = backwards). ``None`` when ``|v̄| <
+      min_speed``: a body that did not move has no direction, and a number there would be noise;
+    * ``cross_track_ratio`` -- ``|v̄_y| / mean(cmd_speed)``, the sideways drift as a fraction of the
+      commanded speed (``None`` on a zero command);
+    * ``travel_speed_m_s`` -- ``|v̄|``, the net travel speed in whatever direction the body went
+      (WATCH only: the along-command speed a block reads is ``tracking.vx.actual_mean``).
+
+    ``None`` on an empty window.
+    """
+    v = np.asarray(vel_travel_xy, dtype=np.float64).reshape(-1, 2)
+    if v.shape[0] == 0:
+        return None
+    mean = v.mean(axis=0)
+    speed = float(math.hypot(float(mean[0]), float(mean[1])))
+    cmd = float(np.mean(np.asarray(cmd_speed, dtype=np.float64)))
+    return {
+        "direction_error_rad": (
+            float(abs(math.atan2(float(mean[1]), float(mean[0])))) if speed >= float(min_speed) else None
+        ),
+        "cross_track_ratio": (float(abs(float(mean[1])) / cmd) if cmd > 0.0 else None),
+        "travel_speed_m_s": speed,
+    }
+
+
+def hold_motion_metrics(
+    root_pos_w: np.ndarray,
+    root_quat_w: np.ndarray,
+    root_lin_vel_b: np.ndarray,
+    contact: np.ndarray,
+    dt: float,
+) -> dict | None:
+    """What the body did over one whole hold (plan D3 ``motion``); ``None`` on an empty window.
+
+    * ``speed_abs_mean_m_s`` -- mean planar body speed ``‖v_xy,body‖`` (a stand hold's drift);
+    * ``pos_drift_m`` -- planar distance between the window's first and last root position;
+    * ``path_len_m`` -- planar path length of the root over the window;
+    * ``yaw_drift_rad`` -- SIGNED net yaw change (unwrapped last minus first; + = left);
+    * ``foot_lift_count`` -- contact -> air transitions, summed over the six feet;
+    * ``contact_churn_per_s`` -- every contact state change (lift or touchdown), summed over the
+      feet, per second of window (``n_steps * dt``);
+    * ``n_steps``.
+    """
+    pos = np.asarray(root_pos_w, dtype=np.float64)
+    n = int(pos.shape[0]) if pos.ndim >= 1 else 0
+    if n == 0:
+        return None
+    xy = pos[:, :2]
+    vel = np.asarray(root_lin_vel_b, dtype=np.float64)[:, :2]
+    yaw = np.unwrap(yaw_from_quat_wxyz(root_quat_w))
+    c = np.asarray(contact, dtype=bool).astype(np.int8)
+    changes = np.diff(c, axis=0) if n > 1 else np.zeros((0,) + c.shape[1:], dtype=np.int8)
+    return {
+        "speed_abs_mean_m_s": float(np.linalg.norm(vel, axis=-1).mean()),
+        "pos_drift_m": float(np.linalg.norm(xy[-1] - xy[0])),
+        "path_len_m": float(np.linalg.norm(np.diff(xy, axis=0), axis=-1).sum()) if n > 1 else 0.0,
+        "yaw_drift_rad": float(yaw[-1] - yaw[0]),
+        "foot_lift_count": int(np.count_nonzero(changes < 0)),
+        "contact_churn_per_s": float(np.count_nonzero(changes) / (n * dt)) if dt > 0.0 else None,
+        "n_steps": n,
+    }
+
+
 def _sticky_sign_reversals(series: np.ndarray, deadzone: float) -> np.ndarray:
     """Count sign reversals per column with a sticky previous direction.
 
