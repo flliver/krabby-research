@@ -12,7 +12,12 @@ queue resumes from the new choice. That is the whole design: a branch predictor 
 mispredict cost.
 
     launch_candidates.sh --campaign-dir <dir> [--max-wall-h H] [--accept-code-change WHY]
+                         [--accept-eval-change WHY] [--accept-resolution D00s|D00bs WHY]
     run_candidates.py --campaign-dir <dir> [--candidates <yaml>] --dry-run
+
+A relaunch under a new ``eval_sha`` first runs the eval-only MIGRATION (plan 2026-09-21 D9: rescreen
+/ reeval / D00s / D00bs / rescore, derived from the records by :func:`migration_item`) before any
+resume or queue item; nothing in it trains.
 
 Everything the campaign is comes from ``candidates.yaml`` (chains, ranked candidates, milestones,
 the decision rule, the resolution inputs): this file contains no dated path, no campaign identity
@@ -36,6 +41,7 @@ is what makes "the recipe" a fact rather than a claim.
 from __future__ import annotations
 
 import argparse
+import copy
 import fnmatch
 import hashlib
 import importlib.util
@@ -94,11 +100,12 @@ FORBIDDEN_OVERLAY_KEYS = ("KRABBY_OMNI_PHASE", "KRABBY_PLANT", "KRABBY_PHASE", "
 ABSOLUTE_UNITS_KEYS = ("KRABBY_OMNI_ANG_VEL_MAX", "KRABBY_OMNI_ANG_VEL_CLIP",
                        "KRABBY_OMNI_SPEED_ELLIPSE")
 
-# ------------------------------------------------------------------ code_sha
-#: The tree the SCREENS depend on. A change here invalidates every recorded screen, so a relaunch
-#: under a different ``code_sha`` is refused without ``--accept-code-change``. The eval manifest is
-#: in the list because it defines every screen's holds.
-CODE_PATHSPECS = (
+# ------------------------------------------------------------------ code_sha / eval_sha
+#: The pre-suite ``code_sha`` pathspecs (2026-09-19 .. 2026-09-21), kept VERBATIM: every ladder that
+#: predates the per-category plan recorded its ``lad.code_sha`` over this list, and the
+#: ``--accept-eval-change`` alias proof (plan D8) recomputes that value at an old commit to show the
+#: training tree did not move when the list was narrowed.
+CODE_PATHSPECS_V1 = (
     "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/mdp",
     "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/config",
     "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/eval/scenarios_omni.yaml",
@@ -109,6 +116,34 @@ CODE_PATHSPECS = (
     "parkour/scripts",
     "parkour/parkour_isaaclab",
 )
+#: The tree the TRAINING depends on (plan D8): ``CODE_PATHSPECS_V1`` minus the eval-side files. A
+#: change here invalidates every recorded screen (a relaunch under a different ``code_sha`` is
+#: refused without ``--accept-code-change``, and a ``B<k>`` rerun follows); an eval-only change is
+#: :data:`EVAL_PATHSPECS`' business and re-EVALUATES instead of retraining.
+CODE_PATHSPECS = (
+    "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/mdp",
+    "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/config",
+    "parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/config",
+    "parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/mdp",
+    "parkour/scripts",
+    "parkour/parkour_isaaclab",
+)
+#: The tree the EVALUATION depends on (plan D8): the harness (``gait_eval`` + its entry point), the
+#: omni manifest (every screen's holds), the eval side of ``run_phases.py`` (its TRAINING seam is
+#: pinned by ``test_run_phases_training_seam_is_unchanged``, not by this hash -- the price of not
+#: splitting the module) and ``eval_categories.py`` (what a stage trained, hence what is decisive).
+#: A changed ``eval_sha`` is refused without ``--accept-eval-change WHY``; ``ok_screen`` then
+#: requires the current value, so an old-eval screen is never a control or an anchor until it is
+#: rescreened.
+EVAL_PATHSPECS = (
+    "parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/scripts/gait_eval",
+    "parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/scripts/eval_crab_hex_gait.py",
+    "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/eval/scenarios_omni.yaml",
+    "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/tools/run_phases.py",
+    "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/eval_categories.py",
+)
+#: How far back the alias proof looks for the commit that recorded ``lad.code_sha`` (plan D8).
+ALIAS_PROOF_DEPTH = 300
 #: Dropped from ``code_sha`` by a Python ``fnmatch`` (git's ``:(exclude)`` magic is deliberately not
 #: used -- it interacts with ``git status`` differently and the two checks must filter identically):
 #: documentation, every campaign record tree, and the test suite. A record commit must not move the
@@ -332,10 +367,16 @@ def sha_rows(rows) -> str:
     return sha256_text("\n".join(sorted(rows)))
 
 
-def code_rows(repo: Path = REPO) -> list[str]:
-    """``["<blob id> <path>", ...]`` for every code-bearing tracked file at HEAD."""
+def code_rows(repo: Path = REPO, *, pathspecs=None, commit: str = "HEAD") -> list[str]:
+    """``["<blob id> <path>", ...]`` for every tracked file under ``pathspecs`` at ``commit``.
+
+    Defaults: :data:`CODE_PATHSPECS` at HEAD (the ``code_sha`` rows). ``eval_rows`` and
+    ``code_sha_at`` reuse this exact row format and drop filter, so a value recomputed at an old
+    commit is comparable with the one a launch recorded there.
+    """
+    specs = CODE_PATHSPECS if pathspecs is None else tuple(pathspecs)
     rows = []
-    for line in _git_out(["ls-tree", "-r", "HEAD", "--", *CODE_PATHSPECS], repo).splitlines():
+    for line in _git_out(["ls-tree", "-r", str(commit), "--", *specs], repo).splitlines():
         meta, _, path = line.partition("\t")
         parts = meta.split()
         if len(parts) < 3 or not path:
@@ -356,15 +397,86 @@ def code_sha(repo: Path = REPO) -> str:
     return sha_rows(code_rows(repo))
 
 
-def dirty_paths(repo: Path = REPO) -> list[str]:
-    """Code-bearing paths that are modified or untracked right now (launch is refused while any is).
+def eval_rows(repo: Path = REPO, *, commit: str = "HEAD") -> list[str]:
+    """``code_rows`` over :data:`EVAL_PATHSPECS` (the same row format and drop globs)."""
+    return code_rows(repo, pathspecs=EVAL_PATHSPECS, commit=commit)
 
-    Filtered by exactly the same ``fnmatch`` as :func:`code_sha`, so the two can never disagree
-    about what "the code" is. Untracked lines count: an un-added new reward module is as much a
-    change as an edited one.
+
+def eval_sha(repo: Path = REPO) -> str:
+    """sha256 over the eval-bearing tree at HEAD (plan D8; see :data:`EVAL_PATHSPECS`)."""
+    return sha_rows(eval_rows(repo))
+
+
+def code_sha_at(commit: str, pathspecs, repo: Path = REPO) -> str:
+    """The ``code_sha`` a launch at ``commit`` would have recorded over ``pathspecs``.
+
+    ``git ls-tree -r <commit>`` with the SAME row format and drop globs as :func:`code_rows` -- so
+    ``code_sha_at(C, CODE_PATHSPECS_V1)`` at the commit a pre-suite campaign launched on reproduces
+    its recorded ``lad.code_sha`` exactly (the alias proof's first half).
+    """
+    return sha_rows(code_rows(repo, pathspecs=pathspecs, commit=commit))
+
+
+def prove_code_alias(recorded: str, *, repo: Path = REPO, depth: int = ALIAS_PROOF_DEPTH,
+                     current: str | None = None) -> dict:
+    """Plan D8's alias proof: did the TRAINING tree stay put while the pathspecs were narrowed?
+
+    Finds the newest commit ``C`` in ``git log -n depth`` with ``code_sha_at(C, CODE_PATHSPECS_V1) ==
+    recorded`` (the commit the recorded ``code_sha`` was measured on, or one with the same code
+    tree), then requires ``code_sha_at(C, CODE_PATHSPECS) == code_sha()`` (``current``): the narrowed
+    training-side tree at that commit is the one HEAD carries now. Returns ``{ok, sha, proved_at,
+    narrowed_at, current, why}``; ``ok`` False with the reason when no commit matches or the
+    training tree moved (the caller then falls through to the ``code_sha`` refusal).
+    """
+    current = code_sha(repo) if current is None else current
+    out = {"ok": False, "sha": recorded, "proved_at": None, "narrowed_at": None, "current": current,
+           "why": ""}
+    try:
+        commits = _git_out(["log", "-n", str(int(depth)), "--format=%H"], repo).split()
+    except RuntimeError as exc:
+        out["why"] = f"git log failed: {exc}"
+        return out
+    for commit in commits:
+        if code_sha_at(commit, CODE_PATHSPECS_V1, repo) != recorded:
+            continue
+        narrowed = code_sha_at(commit, CODE_PATHSPECS, repo)
+        out.update(proved_at=commit, narrowed_at=narrowed)
+        if narrowed == current:
+            out.update(ok=True, why=(f"the recorded code_sha {recorded[:12]} is the pre-suite hash of "
+                                     f"{commit[:12]}, whose training-side tree ({narrowed[:12]}) is "
+                                     f"HEAD's ({current[:12]})"))
+        else:
+            out["why"] = (f"the recorded code_sha {recorded[:12]} is {commit[:12]}'s, but the training "
+                          f"tree also moved since ({narrowed[:12]} -> {current[:12]}): use "
+                          "--accept-code-change")
+        return out
+    out["why"] = (f"no commit in the last {depth} carries the recorded code_sha {recorded[:12]} under "
+                  "the pre-suite pathspecs: the training tree cannot be proved unchanged -- use "
+                  "--accept-code-change")
+    return out
+
+
+def pathspec_covers(path: str, pathspecs) -> bool:
+    """Is ``path`` under one of ``pathspecs`` (a file spec, or a directory spec as a prefix)?"""
+    path = str(path).strip("/")
+    for spec in pathspecs:
+        spec = str(spec).strip("/")
+        if path == spec or path.startswith(spec + "/"):
+            return True
+    return False
+
+
+def dirty_paths(repo: Path = REPO) -> list[str]:
+    """Code- or eval-bearing paths that are modified or untracked (launch is refused while any is).
+
+    Both :data:`CODE_PATHSPECS` and :data:`EVAL_PATHSPECS` (plan D8: "the dirty check covers both
+    lists"). Filtered by exactly the same ``fnmatch`` as :func:`code_sha`, so the two can never
+    disagree about what "the code" is. Untracked lines count: an un-added new reward module is as
+    much a change as an edited one.
     """
     out = []
-    for line in _git_out(["status", "--porcelain", "--", *CODE_PATHSPECS], repo).splitlines():
+    specs = list(dict.fromkeys(CODE_PATHSPECS + EVAL_PATHSPECS))
+    for line in _git_out(["status", "--porcelain", "--", *specs], repo).splitlines():
         if not line.strip():
             continue
         path = line[3:].strip()
@@ -419,6 +531,41 @@ def knobs():
     if _KNOBS is None:
         _KNOBS = _load(rp.PKG / "config/crab_hex/omni_knobs.py", "omni_knobs_ladder")
     return _KNOBS
+
+
+_EVAL_CATEGORIES = None
+
+
+def eval_categories():
+    """``$OMNI/eval_categories.py`` (plan D4/D5), loaded by path and cached.
+
+    The ONE home of ``trained_categories``, ``expand_rule`` and ``composite_guards``: the driver and
+    ``resolution.py`` must share those definitions, never re-implement them (a second copy of the
+    expansion is how a missing block becomes a silent all-TIE nobody can see).
+    """
+    global _EVAL_CATEGORIES
+    if _EVAL_CATEGORIES is None:
+        _EVAL_CATEGORIES = _load(rp.PKG / "eval_categories.py", "crab_hex_omni_eval_categories_ladder")
+    return _EVAL_CATEGORIES
+
+
+def rule_version(rule: dict | None) -> int:
+    """``decision_rule.rule_version`` (1 when absent: the pre-suite rule carried no version)."""
+    try:
+        return int((rule or {}).get("rule_version") or 1)
+    except (TypeError, ValueError):
+        return 1
+
+
+def is_rule_v2(rule: dict | None) -> bool:
+    """A per-category (``rule_version: 2``) rule, raw or already expanded."""
+    return rule_version(rule) == 2
+
+
+class ResolutionMissing(RuntimeError):
+    """A v2-scored comparison has no usable resolution: no ``D00s``, no ``D00bs`` at the current
+    ``eval_sha``, or a decisive block narrower than the ``decisive_at`` its R was measured on (plan
+    D5/D9). The campaign halts ``halt:resolution_missing`` -- never a header."""
 
 
 def parse_pool(text: str):
@@ -577,38 +724,92 @@ def chain_by_name(cands: dict, name: str) -> dict:
 
 
 def chain_stages(cands: dict, name: str) -> list[dict]:
-    """The chain's stages, each annotated with ``previous_holds``.
+    """The chain's stages, each annotated with ``previous_holds`` / ``previous_categories``.
 
-    RETENTION compares the holds that were ALREADY enabled before this stage, so the comparison set
-    is a property of the chain rather than of the yaml row -- derived here, once, so every consumer
-    (the recipe, the run loop, the report) reads the same list.
+    RETENTION (and, since the per-category plan, the floor's ``min_new``/``min_prev`` split)
+    compares what was ALREADY trained before this stage, so the comparison set is a property of the
+    chain rather than of the yaml row -- derived here, once, so every consumer (the recipe, the run
+    loop, the report) reads the same list.
+
+    A per-category stage (one that declares ``categories:``, plan D6) gets ``previous_categories``
+    = the union of ``decisive(stages[:i])`` -- every earlier stage, ``eval: []`` ones included --
+    from each stage's composed env on this chain alone (preset + the stage's own overlay). The run
+    loop recomputes it from the HEADER's ``trained_categories_by_stage``, which carries the
+    recipe's adopted edits as well; this is the declaration a resume and a report fall back to.
     """
     out = []
     prev: list = []
-    for stage in (chain_by_name(cands, name).get("stages") or []):
+    stages = list(chain_by_name(cands, name).get("stages") or [])
+    per_category = any("categories" in s for s in stages)
+    prev_cats: set = set()
+    for stage in stages:
         row = dict(stage)
         row["previous_holds"] = list(prev)
         prev = list(stage.get("holds") or prev)
+        if per_category:
+            row["previous_categories"] = _ordered_categories(prev_cats)
+            prev_cats |= set(_stage_decisive(stage))
         out.append(row)
     return out
+
+
+def _ordered_categories(cats) -> list[str]:
+    """Category names in the suite's wave order (unknown names kept, sorted, at the end)."""
+    order = list(eval_categories().CATEGORIES)
+    s = set(cats or ())
+    return [c for c in order if c in s] + sorted(s - set(order))
+
+
+def _stage_decisive(stage: dict, overlay: dict | None = None) -> list[str]:
+    """``decisive(stage)`` from the stage's composed env (``[]`` when it cannot be derived).
+
+    The failure case (a stage whose stand share is 0 raises ``EvalMismatch``) is the VALIDATOR's to
+    refuse and the run loop's to halt on; an annotation must not raise.
+    """
+    env = _effective_stage_cfg({}, stage, stage.get("overlay") if overlay is None else overlay)
+    try:
+        return sorted(eval_categories().trained_categories(env).decisive)
+    except (ValueError, KeyError):
+        return []
 
 
 def stage_names(cands: dict, name: str) -> list[str]:
     return [str(s["stage"]) for s in chain_stages(cands, name)]
 
 
+#: The rows BOTH promotion stages evaluate (plan D7) when ``candidates.yaml`` names none under
+#: ``promotion.eval``: the per-category suite in place of ``slow``; light/ring stay legacy rows,
+#: scored at milestones by the frozen v1 per-row rule. ``ph.EVAL_FULL`` (inside ``code_sha``) is
+#: never edited -- it is what a PRE-SUITE (rule-v1) spec's promotions evaluated, and it stays that.
+PROMOTION_EVAL = ("suite", "light", "ring")
+
+
+def promotion_eval(cands: dict) -> list[str]:
+    """The promotion stages' eval rows: ``promotion.eval`` from the yaml; else :data:`PROMOTION_EVAL`
+    for a rule-v2 spec; else ``ph.EVAL_FULL`` (the frozen v1 records' promotions, unchanged)."""
+    rows = (cands.get("promotion") or {}).get("eval")
+    if rows:
+        return [str(r) for r in rows]
+    if is_rule_v2(cands.get("decision_rule")):
+        return list(PROMOTION_EVAL)
+    return list(ph.EVAL_FULL)
+
+
 def promotion_stage_list(cands: dict) -> list[dict]:
-    """The milestone promotion stages: 2a from the recipe head, then 2b from 2a, EVAL_FULL at both.
+    """The milestone promotion stages: 2a from the recipe head, then 2b from 2a.
 
     Spelled here rather than in the yaml because it is not a campaign choice: it is what "promote
-    the recipe" means for this task, and both stages' iteration counts are their presets'.
+    the recipe" means for this task, and both stages' iteration counts are their presets'. BOTH
+    stages evaluate :func:`promotion_eval` (plan D7: ``[suite, light, ring]`` under rule v2);
+    ``final_s2_stage_list`` and ``item_from_header``'s milestone branch inherit it from here.
     """
+    rows = promotion_eval(cands)
     return [
         {"stage": "2a", "base": "2a", "iters": int(ph.PHASES["2a"].iterations), "from_scratch": False,
-         "resume_from": "recipe_head", "overlay": {}, "eval": list(ph.EVAL_FULL), "floor": {"kind": "none"},
+         "resume_from": "recipe_head", "overlay": {}, "eval": list(rows), "floor": {"kind": "none"},
          "holds": []},
         {"stage": "2b", "base": "2b", "iters": int(ph.PHASES["2b"].iterations), "from_scratch": False,
-         "resume_from": "previous_stage", "overlay": {}, "eval": list(ph.EVAL_FULL), "floor": {"kind": "none"},
+         "resume_from": "previous_stage", "overlay": {}, "eval": list(rows), "floor": {"kind": "none"},
          "holds": []},
     ]
 
@@ -964,18 +1165,37 @@ def experiments(state: dict) -> dict:
     return ((state.get("ladder") or {}).get("experiments") or {})
 
 
+def code_aliases(state: dict) -> set[str]:
+    """The ``code_sha`` values proved equal to the current training tree (``lad.code_sha_aliases``).
+
+    Written by ``main()``'s ``--accept-eval-change`` path only after :func:`prove_code_alias`
+    succeeded (plan D8): the pathspec narrowing moved the VALUE of ``code_sha`` without moving a
+    training file, so a header recorded under the old value is still a run of this code.
+    """
+    lad = state.get("ladder") or {}
+    return {str(a.get("sha")) for a in (lad.get("code_sha_aliases") or []) if a.get("sha")}
+
+
+def same_code(state: dict, recorded, code: str) -> bool:
+    """``recorded`` is the current ``code_sha`` or one of its proved aliases."""
+    return recorded == code or (recorded is not None and str(recorded) in code_aliases(state))
+
+
 def ok_runs(state: dict, code: str, view=None) -> list[dict]:
     """Every finished, non-squashed experiment under the CURRENT ``code_sha`` (an "ok run").
 
-    "ok" is the run's own verdict (``status ok``) plus code identity. A screen adds recipe identity
-    and a seed; the ``D00c`` lookup needs only this.
+    "ok" is the run's own verdict (``status ok``) plus code identity -- the current ``code_sha`` or
+    a proved alias of it (``lad.code_sha_aliases``, plan D8), read here so no caller can forget it.
+    A screen adds recipe identity, a seed and the current ``eval_sha``; the ``D00c`` lookup needs
+    only this.
     """
     squashed = set((view or {}).get("experiments") or ())
+    aliases = code_aliases(state)
     out = []
     for xid, h in experiments(state).items():
         if xid in squashed:
             continue
-        if h.get("status") != "ok" or h.get("code_sha") != code:
+        if h.get("status") != "ok" or not (h.get("code_sha") == code or h.get("code_sha") in aliases):
             continue
         out.append(dict(h, xid=xid))
     return out
@@ -1002,12 +1222,20 @@ def ok_screen(state: dict, code: str, recipe_id: str, seed, view=None) -> dict |
     Newest, not first: a candidate re-run after an out-of-rank ``decide run`` leaves the older
     screen in place as a record, and the re-run's screen is the one the recipe head resolves to.
     Kind-filtered by :data:`SCREEN_KINDS`: a promotion is not a screen of the recipe it promotes.
+
+    Eval-filtered (plan D8): once the campaign records ``lad.eval_sha``, a header whose screen was
+    measured under another eval (``header.eval_sha``, written together with ``header.screen``) is
+    never a control or an anchor until it is rescreened -- its numbers are not the ones a current
+    screen carries. A pre-suite state (no ``lad.eval_sha`` yet) filters nothing.
     """
+    want_eval = (state.get("ladder") or {}).get("eval_sha")
     best = None
     for h in ok_runs(state, code, view):
         if h.get("kind") not in SCREEN_KINDS:
             continue
         if h.get("recipe_id") != recipe_id or str(h.get("seed")) != str(seed):
+            continue
+        if want_eval and h.get("eval_sha") != want_eval:
             continue
         if best is None or str(h.get("started") or "") >= str(best.get("started") or ""):
             best = h
@@ -1282,7 +1510,9 @@ def _effective_stage_cfg(cands: dict, stage: dict, overlay: dict) -> dict:
     return env
 
 
-def _turn_hold_s(row: str = "slow__omni", hold: str = "turn_l90") -> float | None:
+def _turn_hold_s(row: str = "suite__omni", hold: str = "turn_l90") -> float | None:
+    """The scored turn hold's duration -- the SUITE's ``turn_l90`` (plan B3: every screen is scored
+    there now; 12 s, as the legacy ``slow`` row's was)."""
     try:
         return float(rp._manifest_hold_s(row)[hold])
     except Exception:                                                   # noqa: BLE001
@@ -1494,32 +1724,21 @@ def validate_candidates(cands: dict, *, strict: bool = True, check_replay: bool 
         if list(mstone.get("promote") or []) != list(PROMOTION_STAGES):
             g.append(f"milestone {mstone.get('id')} promote must be {list(PROMOTION_STAGES)}")
     rule = cands.get("decision_rule") or {}
-    for block in ("F", "T", "F_abs", "T_abs"):
-        if not ((rule.get("blocks") or {}).get(block) or {}).get("metrics"):
-            g.append(f"decision_rule.blocks.{block}.metrics is empty")
-    if not ((rule.get("guards") or {}).get("metrics")):
-        g.append("decision_rule.guards.metrics is empty")
+    _check_rule_v2(rule, g)
     script = cands.get("replay", {}).get("script")
     script_path = repo_path(script) if script else None
     if script and not script_path.exists():
         g.append(f"replay.script {script} does not exist under the repo root")
     for item in cands.get("resolution_inputs") or []:
-        run_dir = item.get("run_dir")
-        if not run_dir or Path(run_dir).is_absolute():
-            g.append(f"resolution_inputs run_dir must be a repo-relative path, got {run_dir!r}")
-        elif not (REPO / run_dir).exists():
-            notes.append(f"resolution input {run_dir} is not on this machine (resolution.py refuses it)")
+        _check_resolution_input(item, g, notes)
+    for row in (cands.get("promotion") or {}).get("eval") or []:
+        if not _known_eval_row(str(row)):
+            g.append(f"promotion.eval names row {row!r}, which the omni manifest does not carry")
     for stage, table in (cands.get("milestone_reference") or {}).items():
         if str(stage) not in PROMOTION_STAGES:
             g.append(f"milestone_reference names stage {stage!r}, not one of {list(PROMOTION_STAGES)}")
         for row, rel in (table or {}).items():
-            if not rel or Path(str(rel)).is_absolute():
-                g.append(f"milestone_reference[{stage}][{row}] must be a repo-relative path, got {rel!r}")
-            elif not (REPO / str(rel)).exists():
-                # A typo here would silently turn M1's only cross-lineage read into "n/a" rather
-                # than failing anything, so it is named at load.
-                notes.append(f"milestone_reference[{stage}][{row}] {rel} is not on this machine: "
-                             "M1's WATCH comparison against it will read n/a")
+            _check_milestone_reference(str(stage), str(row), rel, g, notes)
     verdicts.append({"id": "<campaign>", "ok": not g, "deferred": False, "reasons": g, "notes": notes})
 
     # ---------------- chains
@@ -1549,18 +1768,11 @@ def validate_candidates(cands: dict, *, strict: bool = True, check_replay: bool 
             if iters <= 0:
                 r.append(f"{where}: iters must be positive")
             total += iters
-            floor = stage.get("floor") or {}
-            if str(floor.get("kind")) not in ("survival", "dead_walker", "none"):
-                r.append(f"{where}: floor kind {floor.get('kind')!r} unknown")
-            if floor.get("kind") == "survival":
-                if floor.get("hold") not in (stage.get("holds") or []):
-                    r.append(f"{where}: floor hold {floor.get('hold')!r} is not one of the stage's holds")
-                if str(floor.get("row")) not in [str(x) for x in (stage.get("eval") or [])]:
-                    r.append(f"{where}: floor row {floor.get('row')!r} is not one of the stage's eval rows")
             overlay = dict(stage.get("overlay") or {})
             for key, value in overlay.items():
                 _check_knob(key, value, where, whitelist, parsers, r, set())
             stage_env_ = _effective_stage_cfg(cands, stage, overlay)
+            _check_stage_categories(stage, stage_env_, where, r)
             _check_pool_overlay(overlay, where, r, stage_env_)
             _check_cap_rules(stage_env_, where, chain.get("notes") or "", r)
         if screen_iters and total != screen_iters:
@@ -1754,6 +1966,184 @@ def _check_knob(key: str, value, where: str, whitelist: set, parsers: dict, reas
             parser(str(value))
         except Exception as exc:                                        # noqa: BLE001
             reasons.append(f"{where}: {key}={value!r} does not round-trip ({exc})")
+
+
+#: The v2 rule's block set, in both unit systems (plan D5). The validator requires every one of them
+#: to carry a member at the full category set: a missing block would be N/A for every candidate --
+#: a silent all-TIE no band check can see.
+RULE_V2_BLOCKS = ("F", "F_mt", "T", "F_abs", "F_mt_abs", "T_abs")
+#: Stage floor kinds (plan D6). ``survival`` (the pre-suite hold-keyed prefix survival) is refused
+#: for campaign use: it read contaminated survival through every earlier hold, trained or not.
+FLOOR_KINDS = ("category_survival", "dead_walker", "none")
+
+
+def _check_rule_v2(rule: dict, reasons: list) -> None:
+    """The campaign's ``decision_rule`` must be the per-category rule (``rule_version: 2``, D5).
+
+    Expanded at the FULL category set (``expand_rule_union``), every block of both unit systems must
+    carry a member and the guards must be non-empty; the rule's own ``per_category`` templates are
+    validated by ``eval_categories`` (unknown categories/keys/composites refused by name). The
+    ``bootstrap`` and ``control_head`` pins are required too -- ``resolve()`` reads them from the
+    rule, and without ``control_head`` the D00s control would default to the first accepted input,
+    now possibly a ``seed_pair`` row.
+    """
+    if rule_version(rule) != 2:
+        reasons.append(f"decision_rule.rule_version must be 2 (the per-category rule, plan 2026-09-21 "
+                       f"D5), got {rule.get('rule_version', 1)!r}: a v1 rule is a record of the "
+                       "pre-suite ladder, not a campaign spec")
+        return
+    ec = eval_categories()
+    try:
+        union = ec.expand_rule_union(rule, ec.CATEGORIES, ec.CATEGORIES)
+    except ValueError as exc:
+        reasons.append(f"decision_rule (rule_version 2) does not expand: {exc}")
+        return
+    for block in RULE_V2_BLOCKS:
+        if not ((union.get("blocks") or {}).get(block) or {}).get("metrics"):
+            reasons.append(f"decision_rule.per_category.blocks.{block} has no member at the full "
+                           "category set (every candidate would read it N/A)")
+    extra = sorted(set(union.get("blocks") or {}) - set(RULE_V2_BLOCKS))
+    if extra:
+        reasons.append(f"decision_rule.per_category.blocks names {extra}, outside {list(RULE_V2_BLOCKS)}")
+    if not (union.get("guards") or {}).get("metrics"):
+        reasons.append("decision_rule.per_category.guards has no member")
+    boot = rule.get("bootstrap") or {}
+    if not boot.get("B") or not boot.get("paired_on"):
+        reasons.append(f"decision_rule.bootstrap must name B and paired_on, got {boot!r}")
+    if not rule.get("control_head"):
+        reasons.append("decision_rule.control_head is not pinned (the D00s control would default to "
+                       "the first accepted input)")
+
+
+_EVAL_ROW_KINDS: dict = {}
+
+
+def _eval_row_kind(row: str) -> str | None:
+    """The manifest ``kind`` of an eval ROW short name (``suite`` -> ``category_suite``), or None."""
+    sid = _sid_for(row)
+    if sid not in _EVAL_ROW_KINDS:
+        try:
+            _EVAL_ROW_KINDS[sid] = str(rp._manifest_row(sid)["kind"])
+        except Exception:                                                  # noqa: BLE001
+            _EVAL_ROW_KINDS[sid] = None
+    return _EVAL_ROW_KINDS[sid]
+
+
+def _known_eval_row(row: str) -> bool:
+    return _eval_row_kind(row) is not None
+
+
+def _check_resolution_input(item: dict, reasons: list, notes: list) -> None:
+    """A ``resolution_inputs`` entry is ``run_dir`` XOR ``checkpoint + eval_dir + preset`` (plan D9).
+
+    The checkpoint shape is a suite re-evaluation (``role: pair``, a D00 head) or a rescreen
+    (``role: seed_pair``) whose stamped run dir does not exist when the yaml is written: the D00s
+    queue item reads the stamp ``lad.reevals`` records (pair) or the newest fresh stamp under
+    ``eval_dir`` (seed_pair). Neither shape, or both, is refused by name.
+    """
+    run_dir = item.get("run_dir")
+    shape = [k for k in ("checkpoint", "eval_dir", "preset") if item.get(k) not in (None, "")]
+    label = f"resolution input {item.get('head')}/{item.get('row')}"
+    if run_dir and shape:
+        reasons.append(f"{label}: carries run_dir AND {shape} -- one shape or the other, never both")
+        return
+    if not run_dir and not shape:
+        reasons.append(f"{label}: carries neither run_dir nor checkpoint + eval_dir + preset")
+        return
+    if run_dir:
+        if Path(str(run_dir)).is_absolute():
+            reasons.append(f"resolution_inputs run_dir must be a repo-relative path, got {run_dir!r}")
+        elif not (REPO / str(run_dir)).exists():
+            notes.append(f"resolution input {run_dir} is not on this machine (resolution.py refuses it)")
+        return
+    missing = [k for k in ("checkpoint", "eval_dir", "preset") if k not in shape]
+    if missing:
+        reasons.append(f"{label}: the checkpoint shape needs checkpoint + eval_dir + preset; missing "
+                       f"{missing}")
+        return
+    if str(item["preset"]) not in ph.PHASES:
+        reasons.append(f"{label}: preset {item['preset']!r} is not one of {sorted(ph.PHASES)}")
+    for key in ("checkpoint", "eval_dir"):
+        if Path(str(item[key])).is_absolute():
+            reasons.append(f"{label}: {key} must be a repo-relative path, got {item[key]!r}")
+    if not Path(str(item["checkpoint"])).is_absolute() and not (REPO / str(item["checkpoint"])).exists():
+        notes.append(f"{label}: checkpoint {item['checkpoint']} is not on this machine (its suite "
+                     "eval cannot run)")
+    if item.get("role") not in (None, "pair", "seed_pair", "informational"):
+        reasons.append(f"{label}: role {item.get('role')!r} unknown (pair, seed_pair, informational)")
+
+
+def _check_milestone_reference(stage: str, row: str, ref, reasons: list, notes: list) -> None:
+    """A reference row is a recorded run dir (legacy light/ring) or ``{eval_dir, checkpoint}``.
+
+    The suite reference names its re-evaluation ROOT and the head's checkpoint (plan D7/D10): the
+    stamp is resolved with the same freshness rule ``load_row`` applies, and the checkpoint is what
+    that rule compares against.
+    """
+    where = f"milestone_reference[{stage}][{row}]"
+    if isinstance(ref, dict):
+        missing = [k for k in ("eval_dir", "checkpoint") if not ref.get(k)]
+        if missing:
+            reasons.append(f"{where} must carry eval_dir and checkpoint, missing {missing}")
+            return
+        for key in ("eval_dir", "checkpoint"):
+            if Path(str(ref[key])).is_absolute():
+                reasons.append(f"{where}.{key} must be a repo-relative path, got {ref[key]!r}")
+        if not (REPO / str(ref["checkpoint"])).exists():
+            notes.append(f"{where}.checkpoint {ref['checkpoint']} is not on this machine")
+        return
+    if not ref or Path(str(ref)).is_absolute():
+        reasons.append(f"{where} must be a repo-relative path, got {ref!r}")
+    elif not (REPO / str(ref)).exists():
+        # A typo here would silently turn M1's only cross-lineage read into "n/a" rather than
+        # failing anything, so it is named at load.
+        notes.append(f"{where} {ref} is not on this machine: M1's WATCH comparison against it will "
+                     "read n/a")
+
+
+def _check_stage_categories(stage: dict, env: dict, where: str, reasons: list) -> None:
+    """Plan D6's stage fields: ``categories:`` in place of ``holds:``, and the category floor.
+
+    ``categories`` must equal ``sorted(decisive | watch)`` of ``trained_categories`` of the stage's
+    composed env (compared as sorted lists), so the yaml cannot claim a category the command
+    distribution does not carry. A ``category_survival`` floor needs its row among the stage's
+    eval rows and a category-suite row, and two thresholds in (0, 1].
+    """
+    floor = stage.get("floor") or {}
+    kind = str(floor.get("kind"))
+    if kind not in FLOOR_KINDS:
+        reasons.append(f"{where}: floor kind {floor.get('kind')!r} unknown (one of {list(FLOOR_KINDS)}"
+                       + ("; `survival` is the pre-suite hold-keyed floor, replaced by "
+                          "category_survival -- plan D6)" if kind == "survival" else ")"))
+    if "holds" in stage:
+        reasons.append(f"{where}: `holds:` is replaced by `categories:` (plan D6)")
+    for row in stage.get("eval") or []:
+        if not _known_eval_row(str(row)):
+            reasons.append(f"{where}: eval row {row!r} is not in the omni manifest")
+    if "categories" not in stage:
+        reasons.append(f"{where}: no `categories:` (= sorted(decisive | watch) of the stage's trained "
+                       "categories, plan D6)")
+    else:
+        try:
+            tc = eval_categories().trained_categories(env)
+        except ValueError as exc:
+            reasons.append(f"{where}: the stage's trained categories cannot be derived ({exc})")
+        else:
+            want = sorted(set(tc.decisive) | set(tc.watch))
+            got = sorted(str(c) for c in stage.get("categories") or [])
+            if got != want:
+                reasons.append(f"{where}: categories {got} but the stage's composed env trains "
+                               f"{want} (decisive {sorted(tc.decisive)}, watch {dict(tc.watch)})")
+    if kind == "category_survival":
+        row = str(floor.get("row"))
+        if row not in [str(x) for x in (stage.get("eval") or [])]:
+            reasons.append(f"{where}: floor row {floor.get('row')!r} is not one of the stage's eval rows")
+        elif _eval_row_kind(row) not in (None, "category_suite"):
+            reasons.append(f"{where}: floor row {row!r} is not a category-suite row")
+        for key in ("min_new", "min_prev"):
+            val = _num(floor.get(key))
+            if val is None or not 0.0 < val <= 1.0:
+                reasons.append(f"{where}: floor {key} must be a number in (0, 1], got {floor.get(key)!r}")
 
 
 def _composed_final_pool(cands: dict, spec: dict, chain_name: str) -> str | None:
@@ -2366,18 +2756,79 @@ def block_resolution(resolution: dict, seed_terms: dict, block: str, *, pooled: 
     return {"R": max(eval_part, r_seed), "R_eval": r_eval, "R_seed": r_seed, "pooled": pooled}
 
 
+def survival_guard_category(mid: str) -> str | None:
+    """The category of a per-category ``survival`` guard id (``cat.<c>.survival``), else None.
+
+    Only these guards take the binomial floor (plan D5): a survival is a binomial proportion on
+    ``n_c`` episodes, so a pair saturated on both heads has a paired ``R_eval`` of 0 and would read
+    MISSING -- a REJECT for every candidate -- where the honest resolution is the binomial spread.
+    """
+    if not str(mid).startswith("cat."):
+        return None
+    parsed = eval_categories().parse_cat_id(mid)
+    if parsed is None or parsed[1] is not None or parsed[2] != "survival":
+        return None
+    return parsed[0]
+
+
+def binomial_floor(mid: str, screens, *, cats_n=None) -> dict | None:
+    """``{R_binom, p_bar, n_c}`` of a survival guard over the screens it compares, or None.
+
+    ``R_binom = z_0.99 sqrt(2 p(1-p)/n_c)`` with ``p = clip(mean of the survivals, 0.05, 0.95)`` and
+    ``n_c = min(cat.<c>.n)`` over the same screens (two single-seed, four pooled) -- computed by
+    ``resolution.binomial_guard_floor``, the one definition the D00s null uses too. None for a
+    non-survival guard, or when a value or an ``n`` is missing (the value case is MISSING anyway).
+    """
+    cat = survival_guard_category(mid)
+    if cat is None:
+        return None
+    vals, ns = [], []
+    for scr in screens:
+        if scr is None:
+            continue
+        v, n = _num(dget(scr, mid)), _num(dget(scr, f"cat.{cat}.n"))
+        if v is None or n is None or n <= 0:
+            return None
+        vals.append(v)
+        ns.append(n)
+    if not vals:
+        return None
+    p_bar, n_c = sum(vals) / len(vals), min(ns)
+    r = resolution_tool().binomial_guard_floor(p_bar, n_c)
+    return None if r is None else {"R_binom": float(r), "p_bar": p_bar, "n_c": n_c}
+
+
 def guard_rows(mids, cand, base, resolution, seed_terms, *, cand2=None, base2=None,
-               pooled: bool = False) -> list[dict]:
-    """Guard rows with their own per-metric R: ``max(R_eval, R_seed)``, or the pooled combination.
+               pooled: bool = False, anchor_s2_reused: bool = False) -> list[dict]:
+    """Guard rows with their own per-metric R: ``max(R_eval, R_seed, R_binom)``, or the pooled form.
 
     Guards are compared in their OWN units (a completion fraction, a tripod score), one-sided: a
     guard may only make a candidate worse. ``R_pooled,i = sqrt((R_eval,i/sqrt 2)^2 + R_seed,i^2)``.
+
+    Per-category ``survival`` guards (``cat.<c>.survival``, plan D5) also take the binomial floor
+    :func:`binomial_floor` -- ``R_binom`` single-seed; ``R_binom/sqrt 2`` pooled (four screens:
+    ``p_bar`` over all four, ``n_c`` their min); ``R_binom * sqrt(3)/2`` for a pooled anchored
+    drift whose anchor has no s2 (``anchor_s2_reused``: ``mean(a, a2) - b`` has variance
+    ``1.5 sigma^2``). A survival guard whose ``R_eval`` is None or 0 is then scored against
+    ``max(R_seed, floor)`` WHATEVER ``R_seed`` is (``R_from_floor: binomial``): MISSING is reserved
+    for a missing VALUE. Every other guard keeps the ``R_seed > 0`` rescue only -- an unresolved
+    ``cat.move_turn.ratio`` or ``cat_tripod_min`` stays MISSING and never reads as a silent TIE.
     """
     rows = metric_rows(mids, cand, base, resolution, seed_terms, cand2=cand2, base2=base2,
                        pooled=pooled)
+    screens = [cand, base] + ([cand2, base2] if pooled else [])
     for row in rows:
         r_eval, r_seed = row["R_eval"], row["R_seed"] or 0.0
-        if row.get("missing") == "resolution" and r_seed > 0:
+        binom = binomial_floor(row["metric"], screens)
+        r_floor = None
+        if binom is not None:
+            factor = ((math.sqrt(3.0) / 2.0) if anchor_s2_reused else (1.0 / math.sqrt(2.0))) \
+                if pooled else 1.0
+            r_floor = binom["R_binom"] * factor
+            row["R_binom"] = binom["R_binom"]
+            row["binomial"] = dict(binom, factor=factor)
+        survival = survival_guard_category(row["metric"]) is not None
+        if row.get("missing") == "resolution" and (r_seed > 0 or (survival and r_floor)):
             # Decision 6 spells a guard's resolution `max(R_eval,i, R_seed,i)`, and a guard is
             # compared in its OWN units -- so a guard the eval bootstrap could not resolve is still
             # scorable against the seed term alone. `metric_rows` marks it MISSING because a BLOCK
@@ -2392,13 +2843,18 @@ def guard_rows(mids, cand, base, resolution, seed_terms, *, cand2=None, base2=No
                 row["delta"] = (d1 + d2) / 2.0 if pooled else d1
                 row["delta_s3"], row["delta_s2"] = d1, (d2 if pooled else None)
                 row["missing"] = None
-                row["R_from_seed_term_only"] = True
+                if survival and r_floor:
+                    row["R_from_floor"] = "binomial"      # scored at max(R_seed, the floor)
+                else:
+                    row["R_from_seed_term_only"] = True
         if r_eval is None:
             row["R"] = r_seed or None
         elif pooled:
             row["R"] = math.sqrt((r_eval / math.sqrt(2.0)) ** 2 + r_seed ** 2)
         else:
             row["R"] = max(r_eval, r_seed)
+        if r_floor:
+            row["R"] = max(row["R"] or 0.0, r_floor)
         # A guard the resolution carries no half-width for is already MISSING (metric_rows leaves
         # its delta None with `missing: "resolution"`), and decision 5 turns a MISSING guard into a
         # REJECT -- so, unlike a block, it can never read as a silent TIE.
@@ -2414,19 +2870,155 @@ def guard_rows(mids, cand, base, resolution, seed_terms, *, cand2=None, base2=No
     return rows
 
 
-def block_names(cand_spec: dict) -> tuple[str, str]:
-    """``("F", "T")``, or the absolute-units pair for a candidate that moves the command cap/ellipse."""
-    return ("F_abs", "T_abs") if cand_spec.get("absolute_units") else ("F", "T")
+def _rule_block_names(rule: dict) -> list[str]:
+    """Every block the rule names, in its own order: an expanded or v1 rule's ``blocks``, a raw v2
+    rule's ``per_category.blocks``."""
+    if is_rule_v2(rule) and not rule.get("expanded"):
+        return list(((rule.get("per_category") or {}).get("blocks") or {}).keys())
+    return list((rule.get("blocks") or {}).keys())
+
+
+def block_names(cand_spec: dict, rule: dict) -> tuple[str, ...]:
+    """The blocks a candidate is scored on, DERIVED from the rule actually passed (plan D5).
+
+    One unit system: the ``*_abs`` blocks for a candidate that declares ``absolute_units`` (it moves
+    the command cap/ellipse, i.e. the denominator of every ratio), the others otherwise. So a v1
+    rule gives ``(F, T)`` / ``(F_abs, T_abs)`` and a v2 rule ``(F, F_mt, T)`` / ``(F_abs, F_mt_abs,
+    T_abs)`` -- never a hard-wired tuple: a two-block null reads all-TIE ~0.82, inside the v2 band,
+    so a seam that dropped F_mt would be invisible to every calibration check.
+    """
+    absolute = bool((cand_spec or {}).get("absolute_units"))
+    return tuple(b for b in _rule_block_names(rule) if str(b).endswith("_abs") == absolute)
+
+
+def block_label(block: str) -> str:
+    """A block's slot in a comparison record: the ratio-system name (``F_abs`` sits in slot ``F``)."""
+    return block[:-len("_abs")] if str(block).endswith("_abs") else str(block)
+
+
+def _tc_of(screen: dict | None):
+    """A screen's recorded ``trained_categories`` (the dict ``_screen_of`` copies), or None."""
+    tc = (screen or {}).get("trained_categories")
+    return tc if isinstance(tc, dict) and tc.get("decisive") is not None else None
+
+
+def trained_sets(cand: dict | None, decisive=None, present=None) -> tuple[frozenset, frozenset, dict]:
+    """``(decisive, present, watch notes)`` of a v2 comparison -- the CANDIDATE's (plan D5).
+
+    Explicit arguments win (a milestone row has no screen, D7); otherwise the candidate screen's
+    ``trained_categories``. A v2 comparison without either is refused by name: an empty decisive
+    set would be scored as the all-N/A SKIP, which is a statement about the recipe, not about a
+    screen that forgot to carry its sets (``_screen_of`` halts ``eval_mismatch`` first).
+    """
+    notes: dict = {}
+    if decisive is None:
+        tc = _tc_of(cand)
+        if tc is None:
+            raise ValueError("a rule_version 2 comparison needs the candidate's trained categories: "
+                             "the screen carries no trained_categories and none were passed")
+        decisive, notes = tc.get("decisive"), dict(tc.get("watch") or {})
+        if present is None:
+            present = tc.get("present")
+    dec = frozenset(str(c) for c in decisive or ())
+    pres = frozenset(str(c) for c in (present if present is not None else dec)) | dec
+    return dec, pres, notes
+
+
+def _check_decisive_at(raw_rule: dict, scoring: dict, resolution: dict | None, absolute: bool) -> None:
+    """Plan D5: a NON-EMPTY block (or ``cat_tripod_min``) narrower than at ``decisive_at`` halts.
+
+    Every published block R and the ``cat_tripod_min`` R were measured on B0's members
+    (``resolution.decisive_at``); a comparison whose block keeps only a strict subset of them (a T
+    without ``diag``) would be judged at an R that belongs to another statistic. A memberless block
+    is N/A and never halts (C1b/C7's F_mt after an adoption).
+    """
+    dat = (resolution or {}).get("decisive_at")
+    if not dat:
+        return
+    ec = eval_categories()
+    ref = ec.expand_rule(raw_rule, dat, dat, absolute_units=absolute)
+    narrow = []
+    for name, body in (scoring.get("blocks") or {}).items():
+        mine = set(body.get("categories") or ())
+        want = set(((ref.get("blocks") or {}).get(name) or {}).get("categories") or ())
+        if mine and mine < want:
+            narrow.append(f"block {name} {sorted(mine)} of {sorted(want)}")
+    for name, members in (scoring.get("composite") or {}).items():
+        mine, want = set(members or ()), set((ref.get("composite") or {}).get(name) or ())
+        if mine and mine < want:
+            narrow.append(f"{name} {sorted(mine)} of {sorted(want)}")
+    if narrow:
+        raise ResolutionMissing(
+            "the comparison's decisive set is a strict subset of the resolution's decisive_at "
+            f"{sorted(dat)} on " + "; ".join(narrow) + " -- every published R was measured on "
+            "decisive_at's members, so no R exists for this narrower statistic")
+
+
+def scoring_rule(rule: dict, cand_spec: dict, decisive=None, present=None, notes=None) -> dict:
+    """The rule a comparison is scored on: a v1 (or already expanded) rule as it stands, a raw v2
+    rule expanded at ``decisive``/``present`` in the candidate's own unit system (plan D5)."""
+    if not is_rule_v2(rule) or rule.get("expanded"):
+        return rule
+    return eval_categories().expand_rule(rule, decisive or (), present or (),
+                                         absolute_units=bool((cand_spec or {}).get("absolute_units")),
+                                         watch_notes=notes)
 
 
 def _screen_compare(cand_spec: dict, rule: dict, cand: dict, base: dict, resolution: dict,
-                    seed_terms: dict, *, cand2=None, base2=None, pooled: bool = False) -> dict:
-    """The whole standardised comparison of two screens: both blocks, every guard, the WATCH set."""
-    f_name, t_name = block_names(cand_spec)
+                    seed_terms: dict, *, cand2=None, base2=None, pooled: bool = False,
+                    decisive=None, present=None, anchor_s2_reused: bool = False,
+                    watch_notes: dict | None = None) -> dict:
+    """The whole standardised comparison of two screens: every block, every guard, the WATCH set.
+
+    Under a v2 rule (plan D5) the rule is expanded at the CANDIDATE's decisive/present categories
+    (``decisive``/``present`` when passed, else the candidate screen's ``trained_categories``), the
+    shared ``composite_guards`` are injected into shallow copies of every screen compared (four when
+    pooled), a block with no decisive member is ``N/A`` (never TIE, never MISSING), and the record
+    carries ``decisive``, ``present``, ``untrained {candidate, base}`` and ``na_blocks``. The block
+    set is :func:`block_names` of the rule scored -- never a hard-wired pair.
+    """
+    v2 = is_rule_v2(rule)
+    info: dict = {}
+    scoring = rule
+    if v2:
+        ec = eval_categories()
+        if decisive is None and rule.get("expanded"):
+            # an already-expanded rule carries the sets it was expanded at
+            decisive, present = rule.get("decisive") or (), rule.get("present")
+        dec, pres, notes = trained_sets(cand, decisive, present)
+        if watch_notes:
+            # explicit sets come with their own reasons (a milestone row: the promotion stage's)
+            notes = dict(watch_notes)
+        scoring = scoring_rule(rule, cand_spec, dec, pres, notes)
+        if not rule.get("expanded"):
+            _check_decisive_at(rule, scoring, resolution, bool(cand_spec.get("absolute_units")))
+        cand, base = ec.with_composites(cand, dec), ec.with_composites(base, dec)
+        cand2, base2 = ec.with_composites(cand2, dec), ec.with_composites(base2, dec)
+        base_tc = _tc_of(base)
+        all_cats = list(ec.CATEGORIES)
+        info = {"decisive": _ordered_categories(dec), "present": _ordered_categories(pres),
+                "untrained": {"candidate": [c for c in all_cats if c not in pres],
+                              "base": (None if base_tc is None else
+                                       [c for c in all_cats if c not in set(base_tc.get("present") or ())])},
+                "category_notes": {c: n for c, n in notes.items() if c in pres and c not in dec}}
+        if base_tc is not None:
+            base_pres = set(base_tc.get("present") or ())
+            for c in info["decisive"]:
+                if c not in base_pres:
+                    info["category_notes"][c] = "base untrained"
     out = {"blocks": {}, "guards": {}, "absolute_units": bool(cand_spec.get("absolute_units")),
            "pooled": pooled}
-    for label, block in (("F", f_name), ("T", t_name)):
-        mids = ((rule.get("blocks") or {}).get(block) or {}).get("metrics") or []
+    for block in block_names(cand_spec, scoring):
+        label = block_label(block)
+        body = (scoring.get("blocks") or {}).get(block) or {}
+        mids = body.get("metrics") or []
+        if v2 and not mids:
+            res = block_resolution(resolution, seed_terms, block, pooled=pooled)
+            out["blocks"][label] = {"block": block, "rows": [], "z": None, "k": 0, "used": [],
+                                    "missing": [], **res, "class": "N/A", "na": True,
+                                    "resolution_missing": False, "level": body.get("level"),
+                                    "why": "no decisive member (N/A: never TIE, never MISSING)"}
+            continue
         rows = metric_rows(mids, cand, base, resolution, seed_terms, cand2=cand2, base2=base2,
                            pooled=pooled)
         stat = block_stat(rows)
@@ -2437,14 +3029,22 @@ def _screen_compare(cand_spec: dict, rule: dict, cand: dict, base: dict, resolut
                                 # can never be WORSE, so a REJECT on it is impossible: say so in the
                                 # record rather than letting it read as an ordinary TIE.
                                 "resolution_missing": res["R"] is None,
-                                "level": ((rule.get("blocks") or {}).get(block) or {}).get("level")}
-    gmids = (rule.get("guards") or {}).get("metrics") or []
-    grows = guard_rows(gmids, cand, base, resolution, seed_terms, cand2=cand2, base2=base2, pooled=pooled)
-    out["guards"] = {"rows": grows, "level": (rule.get("guards") or {}).get("level"),
+                                "level": body.get("level")}
+        if v2:
+            out["blocks"][label]["categories"] = list(body.get("categories") or [])
+    gmids = (scoring.get("guards") or {}).get("metrics") or []
+    grows = guard_rows(gmids, cand, base, resolution, seed_terms, cand2=cand2, base2=base2, pooled=pooled,
+                       anchor_s2_reused=anchor_s2_reused)
+    out["guards"] = {"rows": grows, "level": (scoring.get("guards") or {}).get("level"),
                      "missing": [r["metric"] for r in grows if r["delta"] is None],
                      "worse": [r["metric"] for r in grows if r["class"] == "WORSE"]}
-    out["watch"] = {mid: {"a": _num(dget(cand, mid)), "b": _num(dget(base, mid))}
-                    for mid in (rule.get("watch") or [])}
+    watch = scoring.get("watch") or []
+    out["watch"] = {mid: {"a": _num(dget(cand, mid)), "b": _num(dget(base, mid)),
+                          **({"note": watch.get(mid)} if isinstance(watch, dict) else {})}
+                    for mid in watch}
+    if v2:
+        info["na_blocks"] = [k for k, v in out["blocks"].items() if v["class"] == "N/A"]
+        out.update(info)
     return out
 
 
@@ -2458,8 +3058,33 @@ def _better_blocks(cmpres: dict) -> list[str]:
     return [k for k, v in cmpres["blocks"].items() if v["class"] == "BETTER"]
 
 
+def _scored_blocks(cmpres: dict) -> list[str]:
+    """The blocks that are not N/A (a v1 comparison has no N/A block)."""
+    return [k for k, v in cmpres["blocks"].items() if v.get("class") != "N/A"]
+
+
+def standardised_sum(cmpres: dict) -> tuple[float, list[str]]:
+    """``sum_b z_b / R_b`` over the non-N/A blocks -- each block in units of its OWN resolution.
+
+    The speculative sign (user decision 2026-09-21, plan D5): a raw ``sum z_b`` would follow F_mt,
+    whose recorded seed spread is ~3x F's, so its noise would decide every all-TIE pick. A block
+    with no ``z`` (no member measurable) or no ``R`` contributes nothing and is named.
+    """
+    total, skipped = 0.0, []
+    for label, v in cmpres["blocks"].items():
+        if v.get("class") == "N/A":
+            continue
+        z, r = v.get("z"), v.get("R")
+        if z is None or r is None or not r > 0:
+            skipped.append(label)
+            continue
+        total += float(z) / float(r)
+    return total, skipped
+
+
 def anchored_drift(cand_spec: dict, rule: dict, cand: dict, anchor: dict | None, resolution: dict,
-                   seed_terms: dict, *, cand2=None, anchor2=None, pooled: bool = False) -> dict:
+                   seed_terms: dict, *, cand2=None, anchor2=None, pooled: bool = False,
+                   decisive=None, present=None) -> dict:
     """"No worse than the anchor": a precondition of ANY ADOPT, clear or speculative.
 
     The anchor is the last adoption that was clear at its final level or that the user settled, and
@@ -2477,10 +3102,15 @@ def anchored_drift(cand_spec: dict, rule: dict, cand: dict, anchor: dict | None,
     if not anchor:
         return {"verdict": "n/a", "why": "no anchor screen (the baseline is the control)"}
     anchor_seed2 = "own s2 screen"
+    reused = False
     if pooled and cand2 is not None and anchor2 is None:
         anchor2, anchor_seed2 = anchor, "its s3 reused (the anchor recipe has no ok s2 screen)"
+        reused = True
+    # `anchor_s2_reused`: `mean(a, a2) - b` has variance 1.5 sigma^2, so a survival guard's binomial
+    # floor is R_binom * sqrt(3)/2 there, not the pooled R_binom / sqrt 2 (plan D5).
     cmpres = _screen_compare(cand_spec, rule, cand, anchor, resolution, seed_terms,
-                             cand2=cand2, base2=anchor2, pooled=pooled)
+                             cand2=cand2, base2=anchor2, pooled=pooled, decisive=decisive,
+                             present=present, anchor_s2_reused=reused)
     worse = _any_worse(cmpres)
     return {"verdict": "FAIL" if worse else "OK", "worse": worse, "pooled": bool(pooled),
             "anchor_seed2": anchor_seed2 if pooled else None,
@@ -2490,28 +3120,49 @@ def anchored_drift(cand_spec: dict, rule: dict, cand: dict, anchor: dict | None,
                    "below the anchor"}
 
 
+def _v2_evidence(cmpres: dict) -> dict:
+    """The per-category fields a v2 decision records (plan D5): what was decisive, what either side
+    never trained, and every N/A block. Empty for a v1 comparison."""
+    if "decisive" not in cmpres:
+        return {}
+    return {"decisive": cmpres.get("decisive"), "present": cmpres.get("present"),
+            "untrained": cmpres.get("untrained"), "na_blocks": cmpres.get("na_blocks"),
+            "category_notes": cmpres.get("category_notes")}
+
+
 def decide(screen: dict, base: dict, resolution: dict, *, cand_spec: dict, rule: dict,
            seed_terms: dict | None = None, anchor_screen: dict | None = None,
-           anchor_label: str | None = None, resolution_id: str = "D00") -> dict:
+           anchor_label: str | None = None, resolution_id: str = "D00",
+           decisive=None, present=None) -> dict:
     """The seed-3 decision (decision 5), a pure function of two screens and the resolution record.
 
     Returns the ledger fields: ``chosen`` / ``alternative`` / ``confidence`` / ``status`` / ``pair``
     (whether a confirming seed-2 pair is queued) / ``evidence``. Nothing here reads the ledger, the
     clock or the disk, which is what makes a decision re-derivable from the records months later.
+
+    Under a v2 rule ``decisive``/``present`` default to the candidate screen's trained categories
+    (plan D5), and one branch is new: when EVERY scored block is N/A (the candidate trained no turn,
+    move+turn or translation category at the suite's demand) the decision is a terminal ``SKIP``
+    (``confidence: none``, ``evidence.source: no_decisive_block``, ``alternative: ADOPT``, no pair):
+    a narrow recipe is never rejected for being narrow, and the DECISION line quotes the overrule.
+    It comes after the WORSE and MISSING-guard branches -- a fall regression still rejects.
     """
     seed_terms = seed_terms or {}
-    cmpres = _screen_compare(cand_spec, rule, screen, base, resolution, seed_terms)
+    cmpres = _screen_compare(cand_spec, rule, screen, base, resolution, seed_terms,
+                             decisive=decisive, present=present)
     worse = _any_worse(cmpres)
     better = _better_blocks(cmpres)
     guard_missing = cmpres["guards"]["missing"]
     block_missing = sorted({m for v in cmpres["blocks"].values() for m in v["missing"]})
-    drift = anchored_drift(cand_spec, rule, screen, anchor_screen, resolution, seed_terms)
+    drift = anchored_drift(cand_spec, rule, screen, anchor_screen, resolution, seed_terms,
+                           decisive=decisive, present=present)
 
     evidence = {"seed3": cmpres, "anchored_drift": drift, "missing": {"guards": guard_missing,
                                                                      "blocks": block_missing},
                 "resolution_id": resolution_id, "anchor": anchor_label,
                 "levels": {"blocks": {k: v.get("level") for k, v in cmpres["blocks"].items()},
-                           "guards": cmpres["guards"]["level"]}}
+                           "guards": cmpres["guards"]["level"]},
+                **_v2_evidence(cmpres)}
     out = {"options": list(CANDIDATE_OPTIONS), "evidence": evidence, "pair": False}
 
     if worse:
@@ -2523,6 +3174,15 @@ def decide(screen: dict, base: dict, resolution: dict, *, cand_spec: dict, rule:
         # a re-run, which the user asks for with `decide <Cid> --choose run`.
         out.update(chosen="REJECT", alternative="ADOPT", confidence="uncertain", status="decided",
                    why="guard MISSING: " + ", ".join(guard_missing))
+        return out
+    if cmpres["blocks"] and not _scored_blocks(cmpres):
+        # Plan D5: all scored blocks N/A -> a TERMINAL SKIP. Not `undecided` (that would re-screen
+        # forever) and not a REJECT (the recipe is narrow, not worse); squash_view's cause (b)
+        # exempts it (it answers the screen, not the predicate), causes (a) and (c) still apply.
+        evidence["source"] = "no_decisive_block"
+        trained = ", ".join(cmpres.get("decisive") or []) or "none"
+        out.update(chosen="SKIP", alternative="ADOPT", confidence="none", status="decided",
+                   why=f"no decisive block (trained: {trained})")
         return out
     if better:
         if drift["verdict"] == "FAIL":
@@ -2549,26 +3209,35 @@ def decide(screen: dict, base: dict, resolution: dict, *, cand_spec: dict, rule:
     return out
 
 
+SIGN_FORMULA = "sign(Σ z_b/R_b)"
+
+
 def _speculative_pick(cand_spec: dict, cmpres: dict) -> tuple[str, str]:
-    """The all-TIE pick: the candidate's declared ``speculative_default``, else ``sign(z_F + z_T)``."""
+    """The all-TIE pick: the candidate's declared ``speculative_default``, else ``sign(Σ z_b/R_b)``.
+
+    The sum runs over the non-N/A blocks, each in units of its OWN resolution (user decision
+    2026-09-21, plan D5): a large raw ``z_F_mt`` inside its (seed-dominated) R must not outvote F
+    and T. Exact tie -> the incumbent.
+    """
     default = cand_spec.get("speculative_default")
     if default == "candidate":
         return "ADOPT", "speculative_default: candidate"
     if default == "incumbent":
         return "REJECT", "speculative_default: incumbent"
-    total = sum((v["z"] or 0.0) for v in cmpres["blocks"].values())
+    total, skipped = standardised_sum(cmpres)
+    tail = f" (no z or R on {skipped})" if skipped else ""
     if total > 0:
-        return "ADOPT", f"sign(z_F + z_T) = +{total:.3f}"
+        return "ADOPT", f"{SIGN_FORMULA} = +{total:.3f}{tail}"
     if total == 0:
-        return "REJECT", "sign(z_F + z_T) = 0.000 (exact tie -> incumbent)"
-    return "REJECT", f"sign(z_F + z_T) = {total:.3f}"
+        return "REJECT", f"{SIGN_FORMULA} = 0.000 (exact tie -> incumbent){tail}"
+    return "REJECT", f"{SIGN_FORMULA} = {total:.3f}{tail}"
 
 
 def decide_pooled(screen_s3: dict, screen_s2: dict, base_s3: dict, base_s2: dict, resolution: dict, *,
                   cand_spec: dict, rule: dict, prior: dict, seed_terms: dict | None = None,
                   anchor_s3: dict | None = None, anchor_s2: dict | None = None,
                   anchor_label: str | None = None, resolution_id: str = "D00b",
-                  floor_tripped: bool = False) -> dict:
+                  floor_tripped: bool = False, decisive=None, present=None) -> dict:
     """The pooled (two-seed) decision -- decision 7. Every outcome is TERMINAL.
 
     Pick order: a pooled CLEAR verdict; a MISSING guard (decision 5's rule, terminal REJECT); else a
@@ -2577,20 +3246,30 @@ def decide_pooled(screen_s3: dict, screen_s2: dict, base_s3: dict, base_s2: dict
     incumbent). Same pick as the s3 decision -> ``final``; a different pick -> the driver overrules
     ITSELF (``overruled``, ``override.by: driver``), which is what triggers SQUASH of everything
     screened on the wrong branch.
+
+    Every sign is ``sign(Σ z_b/R_b)`` over the non-N/A blocks (plan D5): a seed's own sign in units
+    of its single-seed block R, the pooled fallback in units of the pooled R. Under a v2 rule the
+    decisive/present sets are the CANDIDATE's (its s3 screen's, unless passed) for all four screens.
     """
     seed_terms = seed_terms or {}
+    if is_rule_v2(rule) and decisive is None:
+        decisive, present, _notes = trained_sets(screen_s3)
     cmpres = _screen_compare(cand_spec, rule, screen_s3, base_s3, resolution, seed_terms,
-                             cand2=screen_s2, base2=base_s2, pooled=True)
+                             cand2=screen_s2, base2=base_s2, pooled=True, decisive=decisive,
+                             present=present)
     worse = _any_worse(cmpres)
     better = _better_blocks(cmpres)
     drift = anchored_drift(cand_spec, rule, screen_s3, anchor_s3, resolution, seed_terms,
-                           cand2=screen_s2, anchor2=anchor_s2, pooled=True)
+                           cand2=screen_s2, anchor2=anchor_s2, pooled=True, decisive=decisive,
+                           present=present)
 
     per_seed = {}
     for label, cand_row, base_row in (("s3", screen_s3, base_s3), ("s2", screen_s2, base_s2)):
-        single = _screen_compare(cand_spec, rule, cand_row, base_row, resolution, seed_terms)
-        total = sum((v["z"] or 0.0) for v in single["blocks"].values())
-        per_seed[label] = {"z_sum": total, "sign": (1 if total > 0 else (-1 if total < 0 else 0)),
+        single = _screen_compare(cand_spec, rule, cand_row, base_row, resolution, seed_terms,
+                                 decisive=decisive, present=present)
+        total, _skipped = standardised_sum(single)
+        per_seed[label] = {"score": total, "formula": SIGN_FORMULA,
+                           "sign": (1 if total > 0 else (-1 if total < 0 else 0)),
                            "blocks": {k: {"z": v["z"], "R": v["R"], "class": v["class"]}
                                       for k, v in single["blocks"].items()}}
     disagree = per_seed["s3"]["sign"] * per_seed["s2"]["sign"] < 0
@@ -2617,8 +3296,8 @@ def decide_pooled(screen_s3: dict, screen_s2: dict, base_s3: dict, base_s2: dict
         # (uncertain) instead of `disputed -> incumbent`. A drift FAIL only ever forbids an ADOPT,
         # and the incumbent is the pick here anyway, so the disagreement is what the record says.
         confidence, pick, why = "disputed", "REJECT", (
-            f"the two seeds disagree in sign (s3 {per_seed['s3']['z_sum']:+.3f}, "
-            f"s2 {per_seed['s2']['z_sum']:+.3f}) -> the incumbent stands")
+            f"the two seeds disagree in {SIGN_FORMULA} (s3 {per_seed['s3']['score']:+.3f}, "
+            f"s2 {per_seed['s2']['score']:+.3f}) -> the incumbent stands")
         if better and block_missing:
             why += (f"; blocks {better} read BETTER but MISSING members {block_missing} left the "
                     "mean, so that verdict was not clear")
@@ -2664,7 +3343,8 @@ def decide_pooled(screen_s3: dict, screen_s2: dict, base_s3: dict, base_s2: dict
                         # the block threshold actually used (max(R_F^eval/sqrt2, R_F^seed)).
                         "levels": {"blocks": {k: v.get("level") for k, v in cmpres["blocks"].items()},
                                    "guards": cmpres["guards"]["level"],
-                                   "pooled_R": {k: v.get("R") for k, v in cmpres["blocks"].items()}}}}
+                                   "pooled_R": {k: v.get("R") for k, v in cmpres["blocks"].items()}},
+                        **_v2_evidence(cmpres)}}
     return out
 
 
@@ -2739,16 +3419,22 @@ def squash_view(ledger: dict, cands: dict, state: dict, *, code: str = "", check
     (a) its ``base_recipe_id`` differs from the recipe composed of the effective choices of the
         candidates ranked before it (a milestone: when its own ``recipe_id`` moved),
     (b) it is a conditional SKIP entry whose predicate, re-evaluated against the current effective
-        ledger, now HOLDS (the referent flipped; a SKIP the USER asked for is never squashed by this),
+        ledger, now HOLDS (the referent flipped; a SKIP the USER asked for, and the all-N/A SKIP of a
+        screened candidate -- ``evidence.source: no_decisive_block`` -- are never squashed by this),
     (c) -- transitively -- it is a SKIP entry whose ``conditional_refs`` include a candidate squashed
         in this pass,
     (d) its candidate's newest ``user_choice`` is ``skip`` and is newer than the header's ``started``
         -- an experiment OF that candidate, which a ``twin`` is not (see below),
     (e) it is a USER squash: an entry overridden with ``decide run``, or the own seed-2 run of a
-        decision the user confirmed/overruled while it was still speculative.
+        decision the user confirmed/overruled while it was still speculative,
+    (f) it is a ledger entry NAMED by some header's ``rescores[].supersedes`` (plan D9 item 5): the
+        floor REJECT a rescore re-decided under the current eval. Keyed on that STATE record and
+        nothing else -- so the launch reconcile squashes nothing before a rescore has run, and the
+        REJECT a rescore FAIL writes (never named) stays effective.
 
-    (d) and (e) are ``squashed_by: user_choice`` and are NEVER resurrected. (a)-(c) are recomputed
-    from scratch, so reverting an overrule resurrects what it squashed -- if the files still exist.
+    (d) and (e) are ``squashed_by: user_choice`` and are NEVER resurrected. (a)-(c) and (f) are
+    recomputed from scratch, so reverting an overrule resurrects what it squashed -- if the files
+    still exist.
 
     The loop is a fixpoint: squashing an entry changes the effective ledger, which changes the
     composed recipes, which can squash more. It is bounded and asserted stable.
@@ -2764,6 +3450,15 @@ def squash_view(ledger: dict, cands: dict, state: dict, *, code: str = "", check
     esq: dict = {}
     for xid, why in _user_squashed_s2(ledger, set()).items():
         xsq.setdefault(xid, why)
+    # (f) the entries a rescore re-decided: exactly the ids named by `rescores[].supersedes`, on
+    # live and squashed headers alike (a record is never rewritten, so neither is its supersession)
+    for h in headers.values():
+        for rec in h.get("rescores") or []:
+            sid = rec.get("supersedes")
+            if sid and sid not in esq:
+                esq[sid] = (f"re-decided by the rescore of {h.get('xid')}:{rec.get('floor_stage') or '?'} "
+                            f"under eval_sha {str(rec.get('eval_sha') or '')[:12]} ({rec.get('verdict')}; "
+                            "cause f)")
 
     for _round in range(64):
         changed = False
@@ -2849,9 +3544,14 @@ def squash_view(ledger: dict, cands: dict, state: dict, *, code: str = "", check
             cid = e.get("candidate")
             cand = candidate_by_id(cands, cid) or {}
             by_user = bool((e.get("evidence") or {}).get("user"))
+            # The all-N/A SKIP (plan D5: `evidence.source: no_decisive_block`) answers the SCREEN,
+            # not the predicate: a conditional candidate is only screened when its predicate holds,
+            # so cause (b) would squash that SKIP at once and re-screen it forever. Exempt from (b)
+            # exactly as a user SKIP is; causes (a) and (c) still apply to it.
+            no_block = (e.get("evidence") or {}).get("source") == "no_decisive_block"
             refs = e.get("conditional_refs") or conditional_refs(cand.get("conditional"))
             recipe = compose_recipe(ledger, cands, code, upto=cid, squashed=set(esq))
-            if not by_user and cand.get("conditional"):
+            if not by_user and not no_block and cand.get("conditional"):
                 ctx = predicate_context(cands, ledger, state, recipe, code,
                                         {"entries": set(esq), "experiments": set(xsq)})
                 try:
@@ -2965,8 +3665,11 @@ def baseline_label(cands: dict, state: dict, recipe_id: str, code: str) -> str:
     overrule or by a ``code_sha`` landing gets the next number -- which is what the CHANGELOG and the
     budget line mean by "B<k>".
     """
-    seen = {(h.get("recipe_id"), h.get("code_sha")) for h in all_headers(state).values()
-            if h.get("kind") == "baseline"}
+    # Normalised through the proved aliases (plan D8): a header recorded under a pre-suite value of
+    # the SAME training tree is the same baseline, not a spurious `B1`.
+    aliases = code_aliases(state)
+    seen = {(h.get("recipe_id"), code if h.get("code_sha") in aliases else h.get("code_sha"))
+            for h in all_headers(state).values() if h.get("kind") == "baseline"}
     seen.discard((recipe_id, code))
     return (cands.get("baseline") or {}).get("id", "B0") if not seen else f"B{len(seen)}"
 
@@ -3229,12 +3932,23 @@ def _next_item_raw(cands: dict, ledger: dict, state: dict, *, code: str, view=No
         ok, dispatch_why = dispatch_check(cand)
         if not ok:
             return _item("await", cid=cid, seed=s3, why=dispatch_why, label=f"await_user:{cid} code")
-        recipe = _recipe_with(ledger, cands, code, cid, esq)
         # When the user forced a candidate whose predicate is FALSE, the reason this window runs is
         # the user -- quoting the predicate would make the DECISION report read as if a false
         # condition had held.
         reason = (f"the user asked to run it (decide {cid} --choose run); predicate: {pred_why}"
                   if choice == "run" and not holds else pred_why)
+        held = _rescored_header(state, cid, xsq)
+        if held is not None:
+            # Plan D9 item 6: a floor-rejected header whose rescore PASSED under the current eval and
+            # whose candidate is conditional waits here, not in `find_inflight`. Dispatched WITH ITS
+            # XID -- without it this step would book a fresh experiment from the chain's first stage
+            # and orphan the re-opened one -- and `needs_s3` = the composed base (item 30).
+            item = item_from_header_raw(cands, held)
+            item["needs_s3"] = base
+            item["why"] = (f"rank {order.index(cid) + 1}: {reason}; resumes {held.get('xid')} (floor "
+                           "rescored under the current eval) at its next stage")
+            return item
+        recipe = _recipe_with(ledger, cands, code, cid, esq)
         return _item("candidate", cid=cid, seed=s3, recipe=recipe, base_recipe=base,
                      stages=_stages_for(cands, recipe["chain"]), needs_s3=base,
                      why=f"rank {order.index(cid) + 1}: {reason}", label=f"{cid} s{s3}")
@@ -3254,6 +3968,28 @@ def _user_skip_stands(state: dict, cid: str, uc: dict | None) -> bool:
         return True                      # no stamp recorded: the choice is all the evidence there is
     return not any(str(h.get("started") or "") > at
                    for h in all_headers(state).values() if h.get("candidate") == cid)
+
+
+#: A floor-rejected header whose rescore PASSED under the current eval (plan D9 item 5) and whose
+#: candidate declares ``depends_on`` / ``conditional``: it is re-opened, but only step 8 of the queue
+#: -- after the dependency, the predicate and the user's choice -- may dispatch it (with its xid).
+#: ``run_experiment`` flips it to ``running`` at that dispatch; ``find_inflight`` never resumes it.
+RESCORED_AWAITING = "rescored_awaiting_predicate"
+
+
+def _rescored_header(state: dict, cid: str, xsq) -> dict | None:
+    """The live ``rescored_awaiting_predicate`` header of ``cid`` (oldest first), or None."""
+    squashed = set(xsq or ())
+    for xid, h in sorted(experiments(state).items(), key=lambda kv: _xid_key(kv[0])):
+        if h.get("candidate") == cid and h.get("status") == RESCORED_AWAITING and xid not in squashed:
+            return dict(h, xid=h.get("xid") or xid)
+    return None
+
+
+def _xid_key(xid: str) -> tuple:
+    """``X03`` < ``X10`` < ``X100``: experiment ids in creation order (numeric, never lexical)."""
+    m = re.fullmatch(r"X(\d+)", str(xid))
+    return (0, int(m.group(1)), "") if m else (1, 0, str(xid))
 
 
 def next_item(cands: dict, ledger: dict, state: dict, *, code: str, view=None,
@@ -3463,6 +4199,11 @@ class Ctx:
         self.c = rp.Campaign(self.dir, self.plant, self.seed_screen)
         self.ledger = lc.read_ledger(self.dir)
         self.code = ""
+        #: The CURRENT ``eval_sha`` (plan D8), set by ``main`` beside ``code``. Stamped on every stage
+        #: rec that ran an eval, on ``header.eval_sha`` together with ``header.screen``, on every floor
+        #: verdict (``header.floor_eval_sha``) and on every ledger entry; ``lad.eval_sha`` is the
+        #: recorded value ``ok_screen`` compares against.
+        self.eval_sha = ""
         self.tools = ""
         self.view = {"experiments": {}, "entries": {}, "candidates": []}
         self._ovr_stamp = None
@@ -3625,8 +4366,14 @@ def ingest_overrides(ctx: Ctx, *, cheap: bool = False) -> bool:
 
 
 def _resume_field(ctx: Ctx) -> str:
-    """``resume: <next item> under recipe <id>`` -- derived, and never allowed to raise."""
+    """``resume: <next item> under recipe <id>`` -- derived, and never allowed to raise.
+
+    The migration comes first (plan D9 / item 30): while an eval-only migration item is pending the
+    loop runs IT before any resume or queue item, so the line names it."""
     try:
+        mig = migration_item(ctx)
+        if mig is not None:
+            return f"resume: {mig['label']} (migration, eval-only)"
         nxt = next_item(ctx.cands, ctx.ledger, ctx.state, code=ctx.code, view=ctx.view,
                         resolution=ctx.resolution)
     except Exception as exc:                                            # noqa: BLE001
@@ -3936,7 +4683,8 @@ def write_skip_entry(ctx: Ctx, cid: str, source: str, why: str, predicate: str |
                           "override_uuid": override_uuid},
              "depends_on": list(cand.get("depends_on") or []),
              "conditional_refs": conditional_refs(cand.get("conditional")),
-             "base_recipe_id": base["recipe_id"], "code_sha": ctx.code, "tools_sha": ctx.tools,
+             "base_recipe_id": base["recipe_id"], "code_sha": ctx.code, "eval_sha": ctx.eval_sha,
+             "tools_sha": ctx.tools,
              "decided_at": now_iso(), "decided_by": source, "history": []}
     ctx.ledger.setdefault("entries", []).append(entry)
     ctx.write_ledger()
@@ -4150,11 +4898,35 @@ def squash_and_report(ctx: Ctx, trigger: str, extra_frozen: list | None = None) 
 
 
 # ================================================================== stage floors / retention / infra
-def stage_floor(stage: dict, rec: dict, *, dead_walker_floor: float | None = None) -> tuple[bool, str]:
+#: The one-sided 99 % normal quantile (the category floor's band, plan D6).
+Z_99 = 2.3263478740408408
+
+
+def floor_band(p_hat: float, n_env: float) -> float:
+    """The one-sided 99 % upper binomial bound ``p + z_0.99 sqrt(p(1-p)/n_env)`` (plan D6).
+
+    A Wald bound on the category's DISTINCT-ENV count (a paired category's two hands share each env's
+    startup-randomised physics, D1). ~2 % false-FAIL at the threshold; a Wilson bound at the same z
+    would be the refinement if that ever matters (PLAN_AMENDMENTS 30).
+    """
+    p = min(1.0, max(0.0, float(p_hat)))
+    return p + Z_99 * math.sqrt(p * (1.0 - p) / float(n_env))
+
+
+def stage_floor(stage: dict, rec: dict, *, dead_walker_floor: float | None = None,
+                decisive=None, previous=None) -> tuple[bool, str]:
     """Decision 4's stage FLOOR: ``(passed, why)``. Never a relative check -- that is RETENTION.
 
-    ``survival``: the fraction of episodes that reached the END of the stage's last enabled hold, on
-    the stage's own eval row. Below 0.30 the stage produced nothing usable, whatever the screen says.
+    ``category_survival`` (plan D6): for every ``c`` in ``decisive`` (the stage's own trained
+    categories; default the stage's ``categories``), the category's own-hold survival on the stage's
+    suite row is BAND-tested -- FAIL only when the one-sided 99 % upper bound (:func:`floor_band`,
+    ``n_env`` = ``cat.<c>.n_env``) is below ``min_prev`` when ``c`` was decisive at an earlier stage
+    (``previous``; default ``previous_categories``) and below ``min_new`` otherwise. A decisive
+    category the row does not carry raises ``EvalMismatch`` (the run loop halts ``eval_mismatch``,
+    never a silent pass); "not scored (no verdict)" survives only for a stage with no eval row.
+
+    ``survival`` (the pre-suite hold-keyed floor, kept for the v1 records): the fraction of episodes
+    that reached the END of the stage's last enabled hold, on the stage's own eval row.
     ``dead_walker`` is armed inside ``train`` (``early_abort``) rather than read here; this reports
     the same verdict when a NON-candidate kind trips it, which is WATCH by decision 4.
     """
@@ -4162,6 +4934,8 @@ def stage_floor(stage: dict, rec: dict, *, dead_walker_floor: float | None = Non
     kind = str(floor.get("kind") or "none")
     if kind == "none":
         return True, "no floor at this stage"
+    if kind == "category_survival":
+        return _category_floor(stage, rec, floor, decisive, previous)
     if kind == "dead_walker":
         vals = []
         log = rec.get("log")
@@ -4183,13 +4957,75 @@ def stage_floor(stage: dict, rec: dict, *, dead_walker_floor: float | None = Non
     return float(surv) >= want, (f"survival through {hold} on {row}: {float(surv):.3f} (need >= {want})")
 
 
-def stage_retention(stage: dict, rec: dict, trace: dict) -> tuple[list[str], dict]:
-    """RETENTION: every PREVIOUSLY enabled hold against the incumbent's own stage trace.
+def _category_floor(stage: dict, rec: dict, floor: dict, decisive, previous) -> tuple[bool, str]:
+    """:func:`stage_floor`'s ``category_survival`` branch (plan D6)."""
+    ec = eval_categories()
+    row = str(floor.get("row") or "suite")
+    summary = (rec.get("evals") or {}).get(row)
+    if summary is None:
+        if not stage.get("eval"):
+            return True, f"category floor on {row}: not scored (no verdict) -- the stage has no eval row"
+        raise ec.EvalMismatch(f"the category floor reads the {row} row, which this stage did not "
+                              f"evaluate (eval rows {list(stage.get('eval') or [])})")
+    dec = list(decisive) if decisive is not None else list(stage.get("categories") or [])
+    prev = set(previous if previous is not None else (stage.get("previous_categories") or []))
+    min_new = float(floor.get("min_new", 0.10))
+    min_prev = float(floor.get("min_prev", FLOOR_SURVIVAL_MIN))
+    cat = summary.get("cat") or {}
+    parts, fails = [], []
+    for c in _ordered_categories(dec):
+        entry = cat.get(c) or {}
+        p, n = _num(entry.get("survival")), _num(entry.get("n_env"))
+        if p is None or not n:
+            raise ec.EvalMismatch(f"decisive category {c} is not on the {row} row (cat.{c}.survival "
+                                  f"{entry.get('survival')!r}, n_env {entry.get('n_env')!r}) -- a "
+                                  "category the stage trained must be scored, never passed silently")
+        want, which = (min_prev, "prev") if c in prev else (min_new, "new")
+        bound = floor_band(p, n)
+        ok = not bound < want
+        parts.append(f"{c} {p:.3f} (bound {bound:.3f}, n_env {int(n)}, {which} >= {want:g})")
+        if not ok:
+            fails.append(c)
+    why = (f"category survival on {row} (one-sided 99 % band): " + ("; ".join(parts) or "no decisive "
+           "category") + (f" -- FAIL on {fails}" if fails else ""))
+    return not fails, why
+
+
+#: RETENTION's metric per category KIND (plan D6), beside ``survival`` (every category): a
+#: translation category keeps its speed ``ratio``; ``turn`` its ``facing_closed``; ``move_turn``
+#: both; ``stand`` its ``drift_speed`` (WATCH in screens, tracked here -- LOWER is better).
+RETENTION_METRICS = {"stand": ("drift_speed",), "fwd": ("ratio",), "side": ("ratio",),
+                     "back": ("ratio",), "diag": ("ratio",), "turn": ("facing_closed",),
+                     "move_turn": ("facing_closed", "ratio")}
+#: ``facing_closed`` is a signed fraction that can sit at or below 0, where a relative drop flips
+#: sign or fires on noise: its RETENTION drop is ABSOLUTE, at ``max(this, R_eval)``.
+RETENTION_FACING_DROP = 0.10
+#: ``drift_speed`` (lower is better) is flagged on a rise of at least this many m/s AND
+#: :data:`RETENTION_RATIO_DROP` relative.
+RETENTION_DRIFT_RISE_M_S = 0.02
+RETENTION_TRACE_KEYS = ("survival", "ratio", "facing_closed", "drift_speed")
+
+
+def stage_retention(stage: dict, rec: dict, trace: dict, *, previous=None, resolution: dict | None = None,
+                    legacy_trace: bool = False) -> tuple[list[str], dict]:
+    """RETENTION: every PREVIOUSLY trained category (or enabled hold) against the incumbent's trace.
 
     WATCH + notify, never a verdict (decision 4) -- the curriculum's first run SEEDS the trace that
     later runs are compared against, so the first pass has nothing to say and says so. Returns the
     WATCH lines and the trace this stage contributes.
+
+    A per-category stage (``categories:``, plan D6) compares every ``c`` in ``previous`` (default the
+    stage's ``previous_categories`` = the union of the earlier stages' decisive sets) on the stage's
+    suite row against ``stage_trace_v2`` (keyed by category): ``survival`` on an absolute 0.10 drop,
+    ``ratio`` on a 20 % relative drop, ``facing_closed`` on an ABSOLUTE drop of ``max(0.10,
+    R_eval)`` (``resolution``'s ``cat.<c>.facing_closed``), ``drift_speed`` on a rise of >= 0.02
+    m/s AND >= 20 % (lower is better -- the per-metric sign lives here). ``legacy_trace`` says the
+    incumbent's only trace is the pre-suite hold-keyed one: it cannot be compared, so this run
+    re-seeds it and the line says "trace predates the suite".
     """
+    if "categories" in stage:
+        return _category_retention(stage, rec, trace, previous=previous, resolution=resolution,
+                                   legacy_trace=legacy_trace)
     row = None
     for candidate_row in (stage.get("eval") or []):
         row = str(candidate_row)
@@ -4220,6 +5056,67 @@ def stage_retention(stage: dict, rec: dict, trace: dict) -> tuple[list[str], dic
             lines.append(f"RETENTION {stage['stage']} {hold}: speed_ratio {wr:.3f} -> {nr:.3f}"
                          + (f" DROPPED {rel * 100:.0f}% (>{RETENTION_RATIO_DROP * 100:.0f}%)"
                             if rel > RETENTION_RATIO_DROP else " held"))
+    return lines, mine
+
+
+def _category_retention(stage: dict, rec: dict, trace: dict, *, previous=None,
+                        resolution: dict | None = None, legacy_trace: bool = False
+                        ) -> tuple[list[str], dict]:
+    """:func:`stage_retention` on a per-category stage (plan D6)."""
+    row = None
+    for candidate_row in (stage.get("eval") or []):
+        row = str(candidate_row)
+    cat = ((rec.get("evals") or {}).get(row) or {}).get("cat") or {}
+    mine = {c: {k: _num((cat.get(c) or {}).get(k)) for k in RETENTION_TRACE_KEYS}
+            for c in _ordered_categories(cat)}
+    prev = _ordered_categories(previous if previous is not None
+                               else (stage.get("previous_categories") or []))
+    lines: list[str] = []
+    name = stage["stage"]
+    if not prev or row is None:
+        # nothing previously trained, or no eval row at this stage (c3/c5): nothing to compare and
+        # nothing to seed
+        return lines, mine
+    if not trace:
+        if legacy_trace:
+            lines.append(f"RETENTION {name}: the incumbent's trace predates the suite (hold-keyed) -- "
+                         f"this run re-seeds it by category ({len(mine)} categories recorded)")
+        else:
+            lines.append(f"RETENTION {name}: no incumbent trace yet -- this run seeds it "
+                         f"({len(mine)} categories recorded)")
+        return lines, mine
+    for c in prev:
+        was_c, now_c = trace.get(c) or {}, mine.get(c) or {}
+        was, now = _num(was_c.get("survival")), _num(now_c.get("survival"))
+        if was is not None and now is not None:
+            drop = was - now
+            lines.append(f"RETENTION {name} {c}: survival {was:.3f} -> {now:.3f}"
+                         + (f" DROPPED {drop:.3f} (>{RETENTION_SURV_DROP})" if drop > RETENTION_SURV_DROP
+                            else " held"))
+        for key in RETENTION_METRICS.get(c, ()):
+            was, now = _num(was_c.get(key)), _num(now_c.get(key))
+            if was is None or now is None:
+                continue
+            head = f"RETENTION {name} {c}: {key} {was:.3f} -> {now:.3f}"
+            if key == "ratio":
+                if not was:
+                    continue
+                rel = (was - now) / was
+                lines.append(head + (f" DROPPED {rel * 100:.0f}% (>{RETENTION_RATIO_DROP * 100:.0f}%)"
+                                     if rel > RETENTION_RATIO_DROP else " held"))
+            elif key == "facing_closed":
+                r_eval = _num(resolution_metric(resolution or {}, f"cat.{c}.facing_closed").get("R_eval"))
+                thr = max(RETENTION_FACING_DROP, r_eval or 0.0)
+                drop = was - now
+                lines.append(head + (f" DROPPED {drop:.3f} absolute (>{thr:.3f} = max("
+                                     f"{RETENTION_FACING_DROP}, R_eval))" if drop > thr else " held"))
+            elif key == "drift_speed":
+                rise = now - was
+                rel = (rise / was) if was > 0 else (math.inf if rise > 0 else 0.0)
+                bad = rise >= RETENTION_DRIFT_RISE_M_S and rel >= RETENTION_RATIO_DROP
+                lines.append(head + (f" ROSE {rise:.3f} m/s (>= {RETENTION_DRIFT_RISE_M_S} and "
+                                     f">= {RETENTION_RATIO_DROP * 100:.0f}%; lower is better)"
+                                     if bad else " held"))
     return lines, mine
 
 
@@ -4355,7 +5252,12 @@ def summarize_run_dir(run_dir: str | Path, sid: str) -> dict | None:
         fallback = f"resolution.summarize_run_dir refused this row ({exc}); summarize() only"
     m = json.loads(path.read_text())
     a = m.get("aggregate") or {}
-    if not a.get("survival_by_hold"):
+    if a.get("suite"):
+        # Plan D10's third injection site: a category-suite row's survival is each hold's OWN
+        # (`aggregate.suite.survival_by_hold`, the harness's own table). The cumulative walk below
+        # would count the settle hold and every earlier wave's label, and read nonsense.
+        a["survival_by_hold"] = dict(a["suite"].get("survival_by_hold") or {})
+    elif not a.get("survival_by_hold"):
         try:
             a["survival_by_hold"] = rp.survival_by_hold(
                 m.get("episodes") or [], (m.get("run_meta") or {}).get("hold_labels") or [],
@@ -4399,6 +5301,62 @@ def _record_stage(ctx: Ctx, item: dict, xid: str, stage: dict, spec, tag: str, c
         rec["pool_series_tail"] = {k: (v[-1] if v else None)
                                   for k, v in rp.pool_series_from_log(Path(log)).items()}
     return rec
+
+
+def _stage_spec_of(ctx: Ctx, header: dict, sname: str) -> dict | None:
+    """The stage dict a header ran ``sname`` under: its recorded ``stage_specs`` (a LIST, looked up
+    by ``stage``), else its chain in candidates.yaml, else the promotion stages."""
+    for spec in header.get("stage_specs") or []:
+        if str(spec.get("stage")) == str(sname):
+            return spec
+    chain = header.get("chain")
+    if chain and chain in (ctx.cands.get("chains") or {}):
+        for spec in chain_stages(ctx.cands, chain):
+            if str(spec.get("stage")) == str(sname):
+                return spec
+    for spec in promotion_stage_list(ctx.cands):
+        if str(spec.get("stage")) == str(sname):
+            return spec
+    return None
+
+
+def header_trained_categories(ctx: Ctx, header: dict, sname: str, *, stage: dict | None = None
+                              ) -> dict | None:
+    """``header.trained_categories_by_stage[sname]`` -- COMPUTED AND APPENDED when absent (plan D4).
+
+    ``trained_categories(ph.phase_env(stage.base) | header.overlay_by_stage[stage])``: the stage's
+    COMPOSED training env as the window recorded it (the recipe's adopted edits included), never the
+    chain overlay alone. A header that predates the record (X01-X05, every milestone header) gets
+    the key appended -- a new key, nothing else rewritten; the caller saves. ``None`` when the stage
+    cannot be found or its sets cannot be derived (a zero stand share): the reader halts
+    ``eval_mismatch``.
+    """
+    table = header.get("trained_categories_by_stage") or {}
+    if str(sname) in table:
+        return table[str(sname)]
+    stage = stage or _stage_spec_of(ctx, header, sname)
+    if stage is None:
+        return None
+    overlay = (header.get("overlay_by_stage") or {}).get(str(sname)) or {}
+    try:
+        tc = eval_categories().trained_categories(_effective_stage_cfg(ctx.cands, stage, overlay))
+    except ValueError as exc:
+        ctx.c.log(f"{header.get('xid')}:{sname}: trained categories cannot be derived ({exc})")
+        return None
+    header.setdefault("trained_categories_by_stage", {})[str(sname)] = tc.to_dict()
+    return header["trained_categories_by_stage"][str(sname)]
+
+
+def previous_decisive(ctx: Ctx, header: dict, names, sname: str) -> list[str]:
+    """``previous_categories`` from the HEADER (plan D6): the union of ``decisive`` over every stage
+    before ``sname`` in ``names`` -- ``eval: []`` stages included, each from its own composed env."""
+    out: set = set()
+    for name in names:
+        if str(name) == str(sname):
+            break
+        tc = header_trained_categories(ctx, header, str(name))
+        out |= set((tc or {}).get("decisive") or ())
+    return _ordered_categories(out)
 
 
 def _filtered_phase_checks(ctx: Ctx, rec: dict, spec) -> list[tuple[str, bool]]:
@@ -4489,11 +5447,24 @@ def run_experiment(ctx: Ctx, item: dict) -> dict:
         "supersedes": _supersedes(ctx, item),
     }
     ctx.lad.setdefault("experiments", {})[xid] = header
+    # Plan D4: the trained categories of EVERY stage (eval: [] ones included -- D6's min_prev split
+    # and RETENTION's previous_categories read them), from the composed env this header records. A
+    # header that predates the record gets it appended here on resume; a stage whose sets cannot be
+    # derived is left absent and halts eval_mismatch where it is read.
+    for stage in item.get("stages") or []:
+        header_trained_categories(ctx, header, str(stage["stage"]), stage=stage)
     if header.get("status") in RESUMABLE_HALTS:
         # A relaunch after an infra halt the plan says to continue (see RESUMABLE_HALTS): the
         # window is live again, and the halt it is continuing from is kept as a record.
         header.setdefault("halts", []).append({"at": now_iso(), "status": header["status"],
                                               "why": header.get("halt")})
+        header["status"] = "running"
+    elif header.get("status") == RESCORED_AWAITING:
+        # Plan D9 item 6: step 8 dispatched a re-opened conditional header (its predicate holds).
+        # From here on it is an ordinary running window -- every later resume goes through
+        # `find_inflight` / `prepare_resume`, and `_live_window` covers it.
+        header.setdefault("history", []).append({"at": now_iso(), "from": RESCORED_AWAITING,
+                                                "to": "running", "why": "step-8 dispatch"})
         header["status"] = "running"
     _link_pair_run(ctx, item, xid)
     ctx.save()
@@ -4632,9 +5603,12 @@ def run_experiment(ctx: Ctx, item: dict) -> dict:
                 floor_why = (f"aborted by train at its {D03_AT_ITERS} (early_abort, floor "
                              f"{fmt_num(ctx.lad.get('d03') or DEAD_WALKER_FLOOR_MIN)}); the measured "
                              f"track_ratio_mean is in {rec.get('log')}")
+            # `floor_eval_sha` in the same write as `floor`/`floor_stage` (plan D8): every floor
+            # verdict names the eval it was measured under. A dead_walker REJECT is a training-log
+            # verdict and is never rescored, but the stamp is uniform so no reader has to special-case it.
             header.update(status="rejected_by_floor", floor_stage=sname, ckpt=ckpt,
                           floor=f"dead_walker at {sname}: {floor_why}",
-                          inflight=None)
+                          floor_eval_sha=ctx.eval_sha, inflight=None)
             ctx.save()
             return header
         # ---- the record: smoke, exposure, the filtered phase checks and the overlay audit
@@ -4646,68 +5620,24 @@ def run_experiment(ctx: Ctx, item: dict) -> dict:
             return _halt(ctx, header, "config_mismatch", f"{sname}: the overlay did not reach the "
                                                          f"config: {bad}", item=item)
         # ---- evals
+        # Plan D4/D7: a SUITE row is told the stage's trained categories (`--trained-categories`,
+        # recorded in run_meta; scoring never reads it). Legacy rows get no flag (the harness refuses
+        # it there), so their command line is exactly what it always was.
+        stage_tc = header_trained_categories(ctx, header, sname, stage=stage)
         for row in (stage.get("eval") or []):
             row = str(row)
-            # The heartbeat reads current.kind; an eval row is not an `rl` window (a beat during one
-            # counts "episode" lines out of 100 instead of iterations).
-            ctx.state["current"] = dict(ctx.state.get("current") or {}, kind="eval",
-                                       tag=f"{tag}_{_sid_for(row)}", iters=100,
-                                       log=str(ctx.c.logs / f"{tag}_{_sid_for(row)}_eval.log"))
-            ctx.save()
-            oom_before, row_t0 = _oom_kills(), time.time()
-            summary, raised = _row_or_error(ctx, item, header, spec, ckpt, row, tag, env, xid)
-            if raised:
-                ctx.c.recs[f"{xid}:{sname}"] = rec
-                return _halt(ctx, header, "eval_mismatch",
-                             f"{sname}/{row}: the eval seam raised {raised}", item=item)
-            if summary is None:
-                sig, notes = infra_signature((rp.LAST_EVAL_INFO or {}).get("rc"), oom_before,
-                                             ctx.c.logs / f"{tag}_{_sid_for(row)}_eval.log",
-                                             since=row_t0)
-                if sig:
-                    ctx.notify("INFRA", xid, [f"{row}: {sig}", *notes,
-                                              "quarantine the Kit DerivedDataCache and relaunch; the "
-                                              "experiment resumes at this eval"])
-                    ctx.c.recs[f"{xid}:{sname}"] = rec
-                    return _halt(ctx, header, "eval_infra", f"{sname}/{row}: {sig}", item=item)
-                ctx.c.log(f"{tag}/{row}: produced nothing (no OOM/cache signature) — "
-                          f"{INFRA_WAIT_S // 60} min, then ONE retry")
-                # No `_wait_isaac_clear` here: `_run_row` makes it immediately before the relaunch,
-                # which is the side of the INFRA_WAIT_S sleep that matters (a wait taken BEFORE a
-                # 20-minute sleep proves nothing about the GPU when the retry actually starts). One
-                # per launch keeps the F7 invariant readable: n_stages + n_eval_rows.
-                if rp._interruptible_sleep(INFRA_WAIT_S, lambda: interrupt_reason(ctx, xid),
-                                           tick=INFRA_TICK_S):
-                    _mark_interrupt(ctx, header, interrupt_reason(ctx, xid)
-                                    or "stop: during the infra wait")
+            summary, fail = _eval_row_infra(ctx, item, header, spec, ckpt, row, tag, env, xid,
+                                            where=f"{sname}/{row}", ident=xid, trained=stage_tc)
+            if fail is not None:
+                what, detail = fail
+                if what == "interrupted_wait":
+                    _mark_interrupt(ctx, header, detail)
                     return header
-                # The retry gets its OWN infra read. The plan makes the signature the thing that
-                # decides what the assistant does ("NOTIFY INFRA with the signature ... the
-                # assistant quarantines the cache and relaunches"), and an eval that fails
-                # transiently first and dies to the OOM killer or the DerivedDataCache pathology on
-                # the retry used to halt with no INFRA line at all.
-                oom_retry, retry_t0 = _oom_kills(), time.time()
-                summary, raised = _row_or_error(ctx, item, header, spec, ckpt, row, tag, env, xid)
-                if raised:
-                    ctx.c.recs[f"{xid}:{sname}"] = rec
-                    return _halt(ctx, header, "eval_mismatch",
-                                 f"{sname}/{row}: the eval seam raised {raised}", item=item)
-                if summary is None:
-                    sig2, notes2 = infra_signature((rp.LAST_EVAL_INFO or {}).get("rc"), oom_retry,
-                                                   ctx.c.logs / f"{tag}_{_sid_for(row)}_eval.log",
-                                                   since=retry_t0)
-                    if sig2:
-                        ctx.notify("INFRA", xid, [f"{row} (retry): {sig2}", *notes2,
-                                                  "quarantine the Kit DerivedDataCache and relaunch; "
-                                                  "the experiment resumes at this eval"])
-                    ctx.c.recs[f"{xid}:{sname}"] = rec
-                    return _halt(ctx, header, "eval_infra",
-                                 f"{sname}/{row}: no metrics after one retry"
-                                 + (f" ({sig2})" if sig2 else " (no OOM/cache signature)"), item=item)
-            if summary.get("eval_status") == "interrupted":
                 ctx.c.recs[f"{xid}:{sname}"] = rec
-                _mark_interrupt(ctx, header, interrupt_reason(ctx, xid) or "stop: eval interrupted")
-                return header
+                if what == "interrupted":
+                    _mark_interrupt(ctx, header, detail)
+                    return header
+                return _halt(ctx, header, what, detail, item=item)
             rec["evals"][row] = summary
             if summary.get("run_dir"):
                 header.setdefault("eval_dirs", []).append(summary["run_dir"])
@@ -4715,20 +5645,54 @@ def run_experiment(ctx: Ctx, item: dict) -> dict:
             if bad:
                 ctx.c.recs[f"{xid}:{sname}"] = rec
                 return _halt(ctx, header, "eval_mismatch", f"{sname}/{row}: {bad}", item=item)
+        if stage.get("eval"):
+            # Plan D8: the eval a stage's rows were measured under, on the rec itself.
+            rec["eval_sha"] = ctx.eval_sha
         # ---- floor + retention
-        passed, floor_why = stage_floor(stage, rec, dead_walker_floor=ctx.lad.get("d03"))
+        per_category = "categories" in stage or str((stage.get("floor") or {}).get("kind")) == \
+            "category_survival"
+        decisive = previous = None
+        if per_category:
+            names = [str(s["stage"]) for s in item.get("stages") or []]
+            tc = header_trained_categories(ctx, header, sname, stage=stage)
+            if tc is None:
+                ctx.c.recs[f"{xid}:{sname}"] = rec
+                return _halt(ctx, header, "eval_mismatch",
+                             f"{sname}: the stage's trained categories cannot be derived from its "
+                             "composed env (plan D4: a zero stand share is not scorable)", item=item)
+            decisive = list(tc.get("decisive") or [])
+            previous = previous_decisive(ctx, header, names, sname)
+            rec["categories"] = {"decisive": decisive, "previous": previous}
+        try:
+            passed, floor_why = stage_floor(stage, rec, dead_walker_floor=ctx.lad.get("d03"),
+                                            decisive=decisive, previous=previous)
+        except eval_categories().EvalMismatch as exc:
+            ctx.c.recs[f"{xid}:{sname}"] = rec
+            return _halt(ctx, header, "eval_mismatch", f"{sname}: {exc}", item=item)
         rec["floor"] = {"passed": passed, "why": floor_why}
-        trace = ((ctx.lad.get("stage_trace") or {}).get(recipe.get("chain")) or {}).get(sname) or {}
-        lines, mine = stage_retention(stage, rec, trace)
+        chain = recipe.get("chain")
+        if per_category:
+            # stage_trace_v2 is keyed by CATEGORY (plan D6); the pre-suite hold-keyed trace cannot be
+            # compared with it and is re-seeded with the line "trace predates the suite".
+            trace = ((ctx.lad.get("stage_trace_v2") or {}).get(chain) or {}).get(sname) or {}
+            legacy = bool(((ctx.lad.get("stage_trace") or {}).get(chain) or {}).get(sname))
+            lines, mine = stage_retention(stage, rec, trace, previous=previous,
+                                          resolution=ctx.resolution, legacy_trace=legacy)
+        else:
+            trace = ((ctx.lad.get("stage_trace") or {}).get(chain) or {}).get(sname) or {}
+            lines, mine = stage_retention(stage, rec, trace)
         rec["retention"] = lines
         if lines:
             ctx.notify("RETENTION", f"{xid}:{sname}", lines)
-        if not trace and mine.get("survival"):
-            ctx.lad.setdefault("stage_trace", {}).setdefault(recipe.get("chain"), {})[sname] = mine
+        if per_category:
+            if not trace and mine:
+                ctx.lad.setdefault("stage_trace_v2", {}).setdefault(chain, {})[sname] = mine
+        elif not trace and mine.get("survival"):
+            ctx.lad.setdefault("stage_trace", {}).setdefault(chain, {})[sname] = mine
         if not passed:
             if item["kind"] == "candidate":
                 header.update(status="rejected_by_floor", floor_stage=sname, floor=floor_why, ckpt=ckpt,
-                              inflight=None)
+                              floor_eval_sha=ctx.eval_sha, inflight=None)
                 ctx.c.recs[f"{xid}:{sname}"] = rec
                 ctx.save()
                 return header
@@ -4746,6 +5710,11 @@ def run_experiment(ctx: Ctx, item: dict) -> dict:
     header["status"] = "ok"
     header["inflight"] = None
     header["screen"] = _screen_of(ctx, item, xid)
+    # Plan D8: `header.eval_sha` is (re)written TOGETHER with `header.screen` -- it names the eval
+    # that produced the screen, not the header's birth, so a pre-suite header that resumes under the
+    # new eval (X05, a re-opened X03) qualifies as an ok screen once this lands, and is never
+    # rescreened.
+    header["eval_sha"] = ctx.eval_sha
     ctx.save()
     return header
 
@@ -4755,12 +5724,16 @@ def _sid_for(row: str) -> str:
 
 
 def _run_row(ctx: Ctx, item: dict, header: dict, spec, ckpt: str, row: str, tag: str, env: dict,
-             xid: str):
+             xid: str | None, *, trained_categories=None):
     """One eval row, ONE attempt: the driver owns the retry cadence (the infra detector sits between).
 
     ``carry_overlay=env`` is the whole point of the seam: the eval must be scored through the
     observation and command semantics the window actually trained under, and ``eval_env_for`` filters
     the overlay to ``EVAL_CARRY`` so the sampler and reward keys cannot leak into an eval.
+
+    ``trained_categories`` (a CSV, plan D7) is forwarded as ``--trained-categories`` and is passed
+    ONLY for a category-suite row -- the harness refuses the flag on every other row, so a legacy
+    row's call (and its command line) is exactly what it always was.
     """
     check = lambda: interrupt_reason(ctx, xid)                            # noqa: E731
     # Plan: "`_wait_isaac_clear()` before every train/eval". `_run_eval` waits AFTER a failed
@@ -4772,12 +5745,15 @@ def _run_row(ctx: Ctx, item: dict, header: dict, spec, ckpt: str, row: str, tag:
     if row == "ring":
         return rp.eval_obst(ctx.c, spec, ckpt, tag, carry_overlay=env, interrupt_check=check,
                             max_attempts=1)
+    extra = {"trained_categories": trained_categories} \
+        if trained_categories and _eval_row_kind(row) == "category_suite" else {}
     return rp.eval_morph(ctx.c, spec, ckpt, row, tag, carry_overlay=env, interrupt_check=check,
-                         max_attempts=1)
+                         max_attempts=1, **extra)
 
 
 def _row_or_error(ctx: Ctx, item: dict, header: dict, spec, ckpt: str, row: str, tag: str,
-                  env: dict, xid: str) -> tuple[dict | None, str | None]:
+                  env: dict, xid: str | None, *, trained_categories=None
+                  ) -> tuple[dict | None, str | None]:
     """:func:`_run_row`, with an exception from the eval seam turned into a NAMED halt reason.
 
     The live case is ``run_phases._plant_guard``, which raises when an eval spawned the wrong plant
@@ -4790,10 +5766,84 @@ def _row_or_error(ctx: Ctx, item: dict, header: dict, spec, ckpt: str, row: str,
     ``Exception`` only: ``KeyboardInterrupt`` and ``SystemExit`` still propagate.
     """
     try:
-        return _run_row(ctx, item, header, spec, ckpt, row, tag, env, xid), None
+        return _run_row(ctx, item, header, spec, ckpt, row, tag, env, xid,
+                        trained_categories=trained_categories), None
     except Exception as exc:                                            # noqa: BLE001
         ctx.c.log(f"{tag}/{row}: the eval seam raised {type(exc).__name__}: {exc}")
         return None, f"{type(exc).__name__}: {exc}"
+
+
+def _trained_csv(tc: dict | None) -> str | None:
+    """``--trained-categories``' value: the stage's PRESENT categories (decisive + watch), in wave
+    order, or None when the stage recorded none (the flag is then not passed at all)."""
+    cats = list((tc or {}).get("present") or []) or list((tc or {}).get("decisive") or [])
+    return ",".join(_ordered_categories(cats)) if cats else None
+
+
+def _eval_row_infra(ctx: Ctx, item: dict, header: dict, spec, ckpt: str, row: str, tag: str,
+                    env: dict, xid: str | None, *, where: str, ident: str, trained: dict | None = None,
+                    resume_note: str = "the experiment resumes at this eval"
+                    ) -> tuple[dict | None, tuple[str, str] | None]:
+    """ONE eval row through ``run_experiment``'s infra path, shared with the migration (plan D9).
+
+    The OOM / DerivedDataCache signature read, the INFRA line with the quarantine advice, the ONE
+    ticked retry after :data:`INFRA_WAIT_S`, each attempt through :func:`_row_or_error` -- and NO
+    verdict: the caller decides what an outcome means (``run_experiment`` halts the header; the
+    migration halts the CAMPAIGN and never touches a recorded header). Returns ``(summary, None)`` on
+    a scored row, else ``(None, (what, detail))`` with ``what`` one of ``eval_mismatch`` (the seam
+    raised), ``eval_infra`` (nothing after the retry, or a stop-now signature), ``interrupted`` (the
+    eval was stopped) or ``interrupted_wait`` (a stop during the retry wait) -- ``detail`` being the
+    halt text or the interrupt reason.
+
+    The heartbeat reads ``current.kind``; an eval row is not an ``rl`` window: a beat counts
+    "episode" lines, out of 100 on a legacy row and 1000 on a suite row (ten waves of 100).
+    """
+    suite = _eval_row_kind(row) == "category_suite"
+    csv = _trained_csv(trained) if suite else None
+    log = ctx.c.logs / f"{tag}_{_sid_for(row)}_eval.log"
+    ctx.state["current"] = dict(ctx.state.get("current") or {}, kind="eval",
+                               tag=f"{tag}_{_sid_for(row)}", iters=1000 if suite else 100,
+                               log=str(log))
+    ctx.save()
+    oom_before, row_t0 = _oom_kills(), time.time()
+    summary, raised = _row_or_error(ctx, item, header, spec, ckpt, row, tag, env, xid,
+                                    trained_categories=csv)
+    if raised:
+        return None, ("eval_mismatch", f"{where}: the eval seam raised {raised}")
+    if summary is None:
+        sig, notes = infra_signature((rp.LAST_EVAL_INFO or {}).get("rc"), oom_before, log, since=row_t0)
+        if sig:
+            ctx.notify("INFRA", ident, [f"{row}: {sig}", *notes,
+                                        f"quarantine the Kit DerivedDataCache and relaunch; {resume_note}"])
+            return None, ("eval_infra", f"{where}: {sig}")
+        ctx.c.log(f"{tag}/{row}: produced nothing (no OOM/cache signature) — "
+                  f"{INFRA_WAIT_S // 60} min, then ONE retry")
+        # No `_wait_isaac_clear` here: `_run_row` makes it immediately before the relaunch, which is
+        # the side of the INFRA_WAIT_S sleep that matters (a wait taken BEFORE a 20-minute sleep
+        # proves nothing about the GPU when the retry actually starts). One per launch keeps the F7
+        # invariant readable: n_stages + n_eval_rows.
+        if rp._interruptible_sleep(INFRA_WAIT_S, lambda: interrupt_reason(ctx, xid), tick=INFRA_TICK_S):
+            return None, ("interrupted_wait", interrupt_reason(ctx, xid) or "stop: during the infra wait")
+        # The retry gets its OWN infra read. The plan makes the signature the thing that decides
+        # what the assistant does ("NOTIFY INFRA with the signature ... the assistant quarantines the
+        # cache and relaunches"), and an eval that fails transiently first and dies to the OOM killer
+        # or the DerivedDataCache pathology on the retry used to halt with no INFRA line at all.
+        oom_retry, retry_t0 = _oom_kills(), time.time()
+        summary, raised = _row_or_error(ctx, item, header, spec, ckpt, row, tag, env, xid,
+                                        trained_categories=csv)
+        if raised:
+            return None, ("eval_mismatch", f"{where}: the eval seam raised {raised}")
+        if summary is None:
+            sig2, notes2 = infra_signature((rp.LAST_EVAL_INFO or {}).get("rc"), oom_retry, log,
+                                           since=retry_t0)
+            if sig2:
+                ctx.notify("INFRA", ident, [f"{row} (retry): {sig2}", *notes2,
+                                            f"quarantine the Kit DerivedDataCache and relaunch; {resume_note}"])
+            return None, ("eval_infra", f"{where}: no metrics after one retry"
+                          + (f" ({sig2})" if sig2 else " (no OOM/cache signature)"))
+    if summary.get("eval_status") == "interrupted":
+        return None, ("interrupted", interrupt_reason(ctx, xid) or "stop: eval interrupted")
+    return summary, None
 
 
 def _carry_mismatch(ctx: Ctx, item: dict, summary: dict, env: dict, spec) -> str | None:
@@ -4829,21 +5879,43 @@ def _carry_mismatch(ctx: Ctx, item: dict, summary: dict, env: dict, spec) -> str
 
 
 def _screen_of(ctx: Ctx, item: dict, xid: str) -> dict:
-    """The screen an experiment is judged by: ``summarize()`` of its FINAL stage's slow row.
+    """The screen an experiment is judged by: ``summarize()`` of its FINAL stage's suite row.
+
+    The per-category suite (``evals["suite"]``, plan D5) whenever the rec carries one -- ``slow`` is
+    read ONLY on a legacy rec with no suite row, so a rescreened record (suite written beside its
+    kept ``slow``) is judged on the suite and never re-files its old screen under a new
+    ``eval_sha``. A suite screen carries a copy of the stage's ``trained_categories`` (from
+    ``header.trained_categories_by_stage``, computed and appended when a pre-suite header lacks it,
+    D4): an empty or underivable set halts ``eval_mismatch`` here rather than reaching the decision
+    as an all-N/A SKIP.
 
     Plus the two WATCH training-log ratios, which are never scored (the plain ratio includes the
-    move+turn rows a facing fix lowers by design) and are in the line so a reader sees them.
+    move+turn rows a facing fix lowers by design) and are in the line so a reader sees them --
+    C11's predicate reads ``screen.track_ratio_move_tail``, so they are copied on both paths.
     """
+    header = all_headers(ctx.state).get(xid) or {}
     stages = [str(s["stage"]) for s in item.get("stages") or []]
     for sname in reversed(stages):
         rec = ctx.c.recs.get(f"{xid}:{sname}") or {}
-        slow = (rec.get("evals") or {}).get("slow")
-        if slow:
-            out = dict(slow)
-            out["track_ratio_tail"] = rec.get("track_ratio_tail")
-            out["track_ratio_move_tail"] = rec.get("track_ratio_move_tail")
-            out["stage"] = sname
-            return out
+        evals = rec.get("evals") or {}
+        row = evals.get("suite") or evals.get("slow")
+        if not row:
+            continue
+        out = dict(row)
+        out["track_ratio_tail"] = rec.get("track_ratio_tail")
+        out["track_ratio_move_tail"] = rec.get("track_ratio_move_tail")
+        out["stage"] = sname
+        if evals.get("suite"):
+            stage = next((s for s in item.get("stages") or [] if str(s["stage"]) == sname), None)
+            tc = header_trained_categories(ctx, header, sname, stage=stage) if header else None
+            if not tc or not tc.get("decisive"):
+                _halt(ctx, header or {"xid": xid}, "eval_mismatch",
+                      f"{sname}: the suite screen has no trained categories (header."
+                      f"trained_categories_by_stage[{sname}] is {'empty' if tc else 'missing'}): "
+                      "nothing would be decisive -- plan D4 halts rather than letting the decision "
+                      "read it as an all-N/A SKIP", item=item)
+            out["trained_categories"] = json.loads(json.dumps(tc))
+        return out
     return {}
 
 
@@ -4898,8 +5970,10 @@ def _halt_verbs(ctx: Ctx, header: dict, item: dict | None, *, why: str = "") -> 
 #: reuse list ("``rp.gate_1c_verdict`` / ``rp.gate_facing_verdict`` -- WATCH-only context") was
 #: unrealised: a screen could fail the very formation gate the rest of the campaign enforces and no
 #: record of the ladder would say so.
-GATE_WATCH = {"gate_1c": "the written formation gate, on a final chain stage's slow row",
-              "gate_facing": "the 2a/2b turn gate, on a promotion stage's slow row"}
+GATE_WATCH = {"gate_1c": "the written formation gate, on a final chain stage's suite row (its legacy "
+                         "per-hand keys; slow on a pre-suite record)",
+              "gate_facing": "the 2a/2b turn gate, on a promotion stage's suite row (slow on a pre-suite "
+                             "record)"}
 
 
 def gate_watch(name: str, screen: dict | None, *, track_ratio=None, label: str = "") -> str:
@@ -4939,6 +6013,13 @@ def gate_watch(name: str, screen: dict | None, *, track_ratio=None, label: str =
             + (" (WATCH only: this gate never decides in the ladder)" if verdict == "FAIL" else ""))
 
 
+def _gate_row(evals: dict | None) -> dict | None:
+    """The row a formation-era gate WATCH reads: the SUITE (plan D7 -- the gate verdicts stay WATCH
+    context on the suite's legacy per-hand keys), the legacy ``slow`` row on a pre-suite record."""
+    evals = evals or {}
+    return evals.get("suite") or evals.get("slow")
+
+
 def _stage_gate_watch(item: dict, stage: dict, rec: dict) -> list[str]:
     """The gate WATCH line for ONE stage: ``gate_facing`` on 2a/2b, ``gate_1c`` on a final stage.
 
@@ -4947,13 +6028,63 @@ def _stage_gate_watch(item: dict, stage: dict, rec: dict) -> list[str]:
     exactly the reading ("stage c3 FAILED") the campaign must not make.
     """
     sname = str(stage["stage"])
-    slow = (rec.get("evals") or {}).get("slow")
+    row = _gate_row(rec.get("evals"))
     if sname in rp.FACING_GATE_PHASES:
-        return [gate_watch("gate_facing", slow)]
+        return [gate_watch("gate_facing", row)]
     names = [str(s["stage"]) for s in item.get("stages") or []]
     if names and sname == names[-1]:
-        return [gate_watch("gate_1c", slow, track_ratio=rec.get("track_ratio_tail"))]
+        return [gate_watch("gate_1c", row, track_ratio=rec.get("track_ratio_tail"))]
     return []
+
+
+#: What a stage report prints per category KIND (beside ``n`` and ``surv``), as ``(key, label)``.
+CATEGORY_REPORT_KEYS = {
+    "stand": (("drift_speed", "drift"),),
+    "fwd": (("ratio", "ratio"), ("tripod", "tripod")),
+    "side": (("ratio", "ratio"), ("tripod", "tripod")),
+    "back": (("ratio", "ratio"), ("tripod", "tripod")),
+    "diag": (("ratio", "ratio"), ("tripod", "tripod")),
+    "turn": (("facing_closed", "closed"), ("yaw_progress", "progress")),
+    "move_turn": (("facing_closed", "closed"), ("yaw_progress", "progress"), ("ratio", "ratio")),
+}
+
+
+def _watch_reason(note) -> str:
+    """``watch (reduced demand)`` -> ``reduced demand``; ``untrained`` stays; None -> ``watch``."""
+    text = str(note or "watch")
+    m = re.fullmatch(r"watch \((.+)\)", text)
+    return m.group(1) if m else text
+
+
+def category_mark(c: str, tc: dict | None) -> str:
+    """``decisive`` / ``WATCH: <reason>`` for one category of a stage (its trained categories)."""
+    tc = tc or {}
+    if c in (tc.get("decisive") or ()):
+        return "decisive"
+    if c in (tc.get("present") or ()):
+        return f"WATCH: {_watch_reason((tc.get('watch') or {}).get(c))}"
+    return "WATCH: untrained"
+
+
+def category_lines(row: str, summary: dict, tc: dict | None) -> list[str]:
+    """One report line per category of a suite row (plan B3's rendering):
+    ``- suite fwd: n 100 surv 0.930 ratio 0.620 tripod 0.510 [decisive]`` -- the hands of a paired
+    category in parentheses, every category printed (only the decisive ones decide anything)."""
+    cat = (summary or {}).get("cat") or {}
+    out = []
+    for c in _ordered_categories(cat):
+        entry = cat.get(c) or {}
+        keys = CATEGORY_REPORT_KEYS.get(c, ())
+        text = (f"- {row} {c}: n {entry.get('n')} surv {fmt_num(entry.get('survival'))}"
+                + "".join(f" {label} {fmt_num(entry.get(key))}" for key, label in keys))
+        hands = entry.get("by_hand") or {}
+        if hands:
+            text += " (" + "; ".join(
+                f"{h}: surv {fmt_num((hv or {}).get('survival'))}"
+                + "".join(f" {label} {fmt_num((hv or {}).get(key))}" for key, label in keys)
+                for h, hv in hands.items()) + ")"
+        out.append(f"{text} [{category_mark(c, tc)}]")
+    return out
 
 
 def _stage_report(ctx: Ctx, item: dict, xid: str, stage: dict, rec: dict, spec) -> str:
@@ -4963,12 +6094,23 @@ def _stage_report(ctx: Ctx, item: dict, xid: str, stage: dict, rec: dict, spec) 
             f"code_sha `{ctx.code[:12]}`\n"
             f"- overlay `{rec.get('overlay')}`\n")
     lines = rp.phase_lines(rec, spec)
+    header = all_headers(ctx.state).get(xid) or {}
+    tc = (header.get("trained_categories_by_stage") or {}).get(str(stage["stage"]))
     # `rp.phase_lines` renders the three LEGACY rows only (slow / light / ring). The plan's reuse
     # list says the ladder adds "the driver's own curriculum-row lines", and a curriculum stage's
     # whole eval is that row -- without this its per-hold numbers are in `state.json` and in no
-    # human-readable record.
+    # human-readable record. A category-suite row (plan B3) is one line per category instead, marked
+    # decisive / WATCH from the stage's own trained categories.
     for row, summary in sorted((rec.get("evals") or {}).items()):
         if row in ("slow", "light", "ring") or not isinstance(summary, dict):
+            continue
+        if summary.get("cat"):
+            if tc:
+                watch = [f"{c} ({_watch_reason(n)})" for c, n in (tc.get("watch") or {}).items()]
+                lines.append(f"- {row} trained categories: decisive "
+                             f"{', '.join(tc.get('decisive') or []) or 'none'}"
+                             + (f"; watch {', '.join(watch)}" if watch else ""))
+            lines.extend(category_lines(row, summary, tc))
             continue
         surv = summary.get("survival_by_hold") or {}
         ratio = summary.get("ratio_by_hold") or {}
@@ -4988,7 +6130,7 @@ def _stage_report(ctx: Ctx, item: dict, xid: str, stage: dict, rec: dict, spec) 
 
 
 # ================================================================== seed terms (D00b / D00c)
-def seed_terms_from_pair(s3: dict, s2: dict, resolution: dict, rule: dict) -> dict:
+def seed_terms_from_pair(s3: dict, s2: dict, resolution: dict, rule: dict, *, decisive=None) -> dict:
     """Decision 6's seed terms from ONE control pair (the same recipe at seeds 3 and 2).
 
     Per metric ``R_seed,i = |s3 - s2|``. Per block
@@ -4996,7 +6138,22 @@ def seed_terms_from_pair(s3: dict, s2: dict, resolution: dict, rule: dict) -> di
     the signed pair statistic alone can cancel to near zero when the seed deltas alternate in sign,
     while the rms term is the independence-model spread of a k-metric block mean and cannot cancel.
     The max of the two is the honest floor.
+
+    Under rule v2 (plan D5) ``rule`` arrives EXPANDED at ``decisive(B0)`` -- the union of both unit
+    systems (``eval_categories.expand_rule_union``), so every block and guard either system scores
+    has a term; a raw v2 rule is expanded here at ``decisive`` (required then). The shared
+    ``composite_guards`` are applied to shallow copies of BOTH screens before any guard is read, so
+    ``cat_tripod_min`` gets its ``R_seed`` like every other guard.
     """
+    if is_rule_v2(rule):
+        ec = eval_categories()
+        if not rule.get("expanded"):
+            if decisive is None:
+                raise ValueError("seed_terms_from_pair: a raw rule_version 2 rule needs decisive "
+                                 "(decisive(B0)) to be expanded at")
+            rule = ec.expand_rule_union(rule, decisive, decisive)
+        dec = rule.get("decisive") or decisive or ()
+        s3, s2 = ec.with_composites(s3, dec), ec.with_composites(s2, dec)
     out = {"metrics": {}, "blocks": {}, "k": {}}
     for block, spec in (rule.get("blocks") or {}).items():
         mids = spec.get("metrics") or []
@@ -5022,19 +6179,56 @@ def seed_terms_from_pair(s3: dict, s2: dict, resolution: dict, rule: dict) -> di
     return out
 
 
-def seed_terms_for(ctx: Ctx, *chains: str) -> tuple[dict, list[str]]:
+def _entry_eval_sha(entry: dict) -> str:
+    return str(entry.get("eval_sha") or (entry.get("evidence") or {}).get("eval_sha") or "")
+
+
+def current_resolution_entry(ctx: Ctx, stem: str, *, need_blocks: bool = False) -> dict | None:
+    """The NEWEST live ``stem`` entry (``D00bs``, ``D00c-<chain>``, or one of their ``@<eval_sha>``
+    successors) measured at the CURRENT ``eval_sha``; with ``need_blocks``, one whose seed terms
+    carry at least one block term (an empty-terms D00c is treated as absent, plan B3)."""
+    found = None
+    for e in entries(ctx.ledger):
+        ident = str(e.get("id") or "")
+        if ident != stem and not ident.startswith(stem + "@"):
+            continue
+        if e.get("status") == "squashed" or _entry_eval_sha(e) != str(ctx.eval_sha or ""):
+            continue
+        if need_blocks and not ((e.get("evidence") or {}).get("seed_terms") or {}).get("blocks"):
+            continue
+        found = e
+    return found
+
+
+def seed_terms_for(ctx: Ctx, *chains: str, lineage: str | None = None) -> tuple[dict, list[str]]:
     """The seed terms a decision cites, and the ids for its DECISION line.
 
     ``D00b`` (B0's pair) is cited by every decision on the baseline chain AND by every decision on
     any other chain until that chain's own ``D00c-<chain>`` exists. A pooled decision whose candidate
     and base sit on different chains takes the element-wise MAX of the two -- the wider of two
     measured seed spreads, never the narrower.
+
+    Rule v2 (``lineage="v2"``, the default when the campaign's rule is v2; plan B3): a chain's
+    ``D00c-<chain>`` counts only when it carries the CURRENT ``eval_sha`` and non-empty block terms,
+    else ``D00bs`` at the current ``eval_sha`` -- and NEVER ``D00b``, whose terms are the v1
+    lineage's slow-row spread (the milestones' light/ring rows are its one sanctioned citation, which
+    pass ``lineage="v1"``). No D00bs raises :class:`ResolutionMissing` (the campaign halts
+    ``halt:resolution_missing``) rather than judging at eval-only R.
     """
+    v2 = (lineage == "v2") if lineage else is_rule_v2(ctx.cands.get("decision_rule"))
     ids, tables = [], []
     for chain in dict.fromkeys([c for c in chains if c]):
-        entry = entry_by_id(ctx.ledger, f"D00c-{chain}")
-        if entry is None:
-            entry = entry_by_id(ctx.ledger, "D00b")
+        if v2:
+            entry = current_resolution_entry(ctx, f"D00c-{chain}", need_blocks=True) \
+                or current_resolution_entry(ctx, "D00bs")
+            if entry is None:
+                raise ResolutionMissing(f"no D00bs at eval_sha {str(ctx.eval_sha)[:12] or '(none)'} "
+                                        f"(and no current D00c-{chain}): a v2-scored comparison "
+                                        "never cites D00b's v1 seed terms")
+        else:
+            entry = entry_by_id(ctx.ledger, f"D00c-{chain}")
+            if entry is None:
+                entry = entry_by_id(ctx.ledger, "D00b")
         if entry is None:
             continue
         ids.append(entry["id"])
@@ -5115,40 +6309,138 @@ def ensure_resolution(ctx: Ctx) -> dict:
                  "evidence": {"resolution": {k: v for k, v in resolution.items() if k != "inputs"},
                               "inputs": resolution.get("inputs"),
                               "decision_rule": ctx.cands.get("decision_rule")},
-                 "code_sha": ctx.code, "tools_sha": ctx.tools, "decided_at": now_iso(),
+                 "code_sha": ctx.code, "eval_sha": ctx.eval_sha,
+                 "tools_sha": ctx.tools, "decided_at": now_iso(),
                  "decided_by": "resolution.py", "history": []}
         ctx.ledger.setdefault("entries", []).append(entry)
         ctx.write_ledger()
         ctx.lad.setdefault("resolution_ids", []).append("D00")
         ctx.notify("RESOLUTION", "D00", resolution_notify_fields(ctx, resolution, "D00"))
-    if entry_by_id(ctx.ledger, "D01") is None:
-        entry = {"id": "D01", "kind": "measurement", "candidate": None,
-                 "question": "what turn rate can this plant actually deliver?",
-                 "options": ["RECORD"], "chosen": "RECORD", "status": "final",
-                 "evidence": {"turn_rate": D01_EVIDENCE}, "code_sha": ctx.code,
-                 "tools_sha": ctx.tools, "decided_at": now_iso(), "decided_by": "record", "history": []}
-        ctx.ledger.setdefault("entries", []).append(entry)
-        ctx.write_ledger()
-        ctx.lad.setdefault("resolution_ids", []).append("D01")
+    _ensure_d01(ctx)
     ctx.recompute()
     ctx.save()
     return resolution
 
 
+def resolution_label(resolution: dict | None) -> str:
+    """The id a decision cites for the loaded resolution record (plan B3): ``D00s`` for a rule-v2
+    record (it carries ``rule_version: 2``), ``D00`` for the pre-suite one."""
+    res = resolution or {}
+    if res.get("id"):
+        return str(res["id"])
+    return "D00s" if rule_version(res) == 2 or res.get("decisive_at") is not None else "D00"
+
+
+def _campaign_halt(ctx: Ctx, why: str, detail: str) -> None:
+    """Park the CAMPAIGN, never a header: ``phase = halt:<why>`` + a HALT line, then exit.
+
+    The migration and resolution halts (``halt:resolution_missing``, ``halt:resolution D00s|D00bs``,
+    ``halt:migration``, plan D9) are statements about the campaign's records, not about any
+    experiment -- so no header's ``status`` is rewritten and a relaunch re-derives the same state.
+    """
+    ctx.state["phase"] = f"halt:{why}"
+    ctx.save()
+    ctx.notify("HALT", why, [detail, "fix the records or tools and relaunch -- no experiment header "
+                             "was touched", f"log: {ctx.dir / 'orchestrator.log'}"])
+    ctx.c.report_block(f"## HALT — {why} — {now_iso()}\n\n- {detail}\n")
+    raise SystemExit(1)
+
+
+def require_resolution(ctx: Ctx, what: str) -> None:
+    """Halt ``halt:resolution_missing`` when a v2 decision has no loaded resolution (plan D9 item 3:
+    ``_dispatch_candidate``, ``_dispatch_pooled``, ``milestone_i``, ``_write_d00bs``)."""
+    if ctx.resolution is None or (is_rule_v2(ctx.cands.get("decision_rule")) and not ctx.resolution):
+        _campaign_halt(ctx, "resolution_missing",
+                       f"{what}: no suite resolution (D00s) is loaded at eval_sha "
+                       f"{str(ctx.eval_sha)[:12] or '(none)'} -- a v2 decision is never taken on the "
+                       "old record")
+
+
+def decisive_b0(ctx: Ctx) -> list[str]:
+    """``decisive(B0)`` (plan D5): the loaded D00s' ``decisive_at``, else ``trained_categories`` of the
+    baseline chain's final stage (its composed env on the chain alone)."""
+    dat = (ctx.resolution or {}).get("decisive_at")
+    if dat:
+        return _ordered_categories(dat)
+    chain = (ctx.cands.get("baseline") or {}).get("chain")
+    stages = chain_stages(ctx.cands, chain) if chain else []
+    return _ordered_categories(_stage_decisive(stages[-1])) if stages else []
+
+
+def _scoring_union(ctx: Ctx, resolution: dict | None = None) -> dict:
+    """The rule a v2 RESOLUTION line and a seed-term fit enumerate: the union of both unit systems at
+    ``decisive(B0)`` (the record's ``decisive_at``). A v1 rule is returned as it stands."""
+    rule = ctx.cands.get("decision_rule") or {}
+    if not is_rule_v2(rule):
+        return rule
+    dat = (resolution or {}).get("decisive_at") or decisive_b0(ctx) or list(eval_categories().CATEGORIES)
+    return eval_categories().expand_rule_union(rule, dat, dat)
+
+
+def baseline_trained(ctx: Ctx) -> dict | None:
+    """``trained_categories`` of the baseline chain's final stage (its composed env on the chain
+    alone) -- B0's sets and turn annotation for the RESOLUTION line; None when underivable."""
+    chain = (ctx.cands.get("baseline") or {}).get("chain")
+    stages = chain_stages(ctx.cands, chain) if chain else []
+    if not stages:
+        return None
+    try:
+        return eval_categories().trained_categories(
+            _effective_stage_cfg(ctx.cands, stages[-1], stages[-1].get("overlay"))).to_dict()
+    except (ValueError, KeyError):
+        return None
+
+
+def d00s_fields(ctx: Ctx, resolution: dict) -> list[str]:
+    """The D00s-specific fields of a RESOLUTION line (plan D9 item 3 / D10): what it supersedes and at
+    which eval, ``decisive_at``, the null band against its nominal, the acceptance, D00's copied
+    light/ring tables and B0's turn-magnitude / encoding annotation (D4: never a demotion)."""
+    acc = resolution.get("acceptance") or {}
+    null = ((resolution.get("diagnostics") or {}).get("null_calibrated") or {}).get("all_tie")
+    nominal = _num(resolution.get("null_nominal"))
+    if acc.get("ok"):
+        verdict = "ok"
+    elif acc.get("accepted"):
+        verdict = (f"ACCEPTED with failures by --accept-resolution D00s: {acc['accepted'].get('why')} "
+                   f"({'; '.join(acc.get('failures') or [])})")
+    else:
+        verdict = "FAILED: " + "; ".join(acc.get("failures") or [])
+    out = [f"on {resolution.get('screen_row')} at eval_sha {str(resolution.get('eval_sha') or '')[:12]}, "
+           f"supersedes {resolution.get('supersedes')}, decisive_at "
+           f"{', '.join(resolution.get('decisive_at') or []) or 'none'}",
+           f"null all-TIE {fmt_num(null)} vs nominal {fmt_num(nominal)} (band [nominal - 0.03, 0.98], "
+           f"env-clustered, survival guards floored); acceptance {verdict}"]
+    if resolution.get("by_row_rule"):
+        out.append("light/ring by_row copied from D00 with its frozen decision_rule as by_row_rule "
+                   "(milestones score those rows on the v1 rule, with D00b's seed terms)")
+    note = turn_note(baseline_trained(ctx))
+    if note:
+        out.append(f"B0 {note}")
+    return out
+
+
 def resolution_notify_fields(ctx: Ctx, resolution: dict, ident: str, seed_terms: dict | None = None,
                              seed_ids=None) -> list[str]:
-    """The RESOLUTION line: the effective MDE per block and per guard, with the levels cited."""
-    rule = ctx.cands.get("decision_rule") or {}
-    boot = (rule.get("bootstrap") or {})
+    """The RESOLUTION line: the effective MDE per block and per guard, with the levels cited.
+
+    Blocks and guards are those of the rule actually scored (plan D5): a v1 rule's own, a v2 rule's
+    union of both unit systems at ``decisive_at`` -- F, F_mt, T and the ``_abs`` twins, the seven
+    survival guards, both move_turn guards and ``cat_tripod_min``.
+    """
+    raw_rule = ctx.cands.get("decision_rule") or {}
+    rule = _scoring_union(ctx, resolution)
+    boot = (raw_rule.get("bootstrap") or {})
     fields = [f"B={resolution.get('B', boot.get('B'))} paired on "
               f"{boot.get('paired_on', 'env_index')}, rng {resolution.get('rng_seed', boot.get('rng_seed'))}"]
+    if str(ident).startswith("D00s") and rule_version(resolution) == 2:
+        fields.extend(d00s_fields(ctx, resolution))
     # resolution.py publishes its own line, whose per-member MDE (`R_F x R_i`, in each member's own
     # units) is the quantity Verification 5 asks the RESOLUTION line to name. Relay it as its own
     # FIELDS rather than as one string: `ledger_cli._field` rewrites an embedded " | " to " / ".
     if resolution.get("resolution_line"):
         fields.extend(str(resolution["resolution_line"]).split(" | ")[1:])
     blocks = []
-    for block in ("F", "T", "F_abs", "T_abs"):
+    for block in _rule_block_names(rule):
         r_eval = _num(resolution_block(resolution, block).get("R_eval"))
         r_seed = seed_term(seed_terms or {}, block, block=True)
         eff = None if r_eval is None else max(r_eval, r_seed or 0.0)
@@ -5181,7 +6473,7 @@ def resolution_notify_fields(ctx: Ctx, resolution: dict, ident: str, seed_terms:
         fields.append(f"guards still carried by the EVAL half-width (the seed term does not widen "
                       f"them): {degenerate} -- a degenerate cross-head pair stays under-resolved "
                       f"here; treat a lone WORSE on one of them as uncertain")
-    floors = (rule.get("charter_floors") or {})
+    floors = (raw_rule.get("charter_floors") or {})
     fields.append("sideways CHARTER floors (cited until the bootstrap supersedes them): "
                   + ", ".join(f"{k} +/-{v}" for k, v in floors.items()))
     pf = {k: v for k, v in (resolution.get("process_floor") or {}).items() if v is not None}
@@ -5225,11 +6517,20 @@ BLOCK_FAMILIES = {"facing_closed_by_hold": "closed", "yaw_progress_by_hold": "pr
                   "net_yaw_by_hold": "net_yaw", "ratio_by_hold": "ratio",
                   "achieved_speed_by_hold": "speed", "survival_by_hold": "surv",
                   "tripod_by_hold": "tripod"}
+#: A HOLD's short name -- and a CATEGORY's (plan B3: the per-category ids ``cat.<c>.<key>`` render
+#: as ``<family> <category>``; ``move_turn`` is both a legacy hold and a category, ``mt`` either way;
+#: every other category keeps its own name, and a hand renders ``side.l``).
 HOLD_SHORT = {"turn_l90": "l90", "turn_r90": "r90", "move_turn": "mt", "move_turn_r": "mt_r"}
+#: A ``cat.<c>.<key>`` id's metric FAMILY in a notify line (the block rows group by it).
+CAT_KEY_SHORT = {"facing_closed": "closed", "yaw_progress": "progress", "net_yaw": "net_yaw",
+                 "ratio": "ratio", "achieved_speed": "speed", "survival": "surv", "tripod": "tripod",
+                 "settle_s": "settle", "heading_final": "heading", "drift_speed": "drift",
+                 "direction_error": "dir_err", "cross_track_ratio": "xtrack", "n": "n", "n_env": "n_env"}
 
 #: The WATCH set's own labels, in the plan's spelling. Every one of these ids used to render as its
 #: LAST dotted part, which collides three times over ("move_turn" for the ratio and the tripod,
-#: "settle" for both holds, "move_turn_r" for the ratio and the closed fraction).
+#: "settle" for both holds, "move_turn_r" for the ratio and the closed fraction). A ``cat.`` id is
+#: labelled ``<category> <key>`` (``mt tripod``, ``side.l surv``) by :func:`_watch_label`.
 WATCH_LABELS = {
     "track_ratio_tail": "track", "track_ratio_move_tail": "track_move",
     "ratio_by_hold.move_turn": "move_turn dir_ratio", "tripod_by_hold.move_turn": "move_turn tripod",
@@ -5237,11 +6538,27 @@ WATCH_LABELS = {
     "ratio_by_hold.lat_r": "lat_r ratio", "ratio_by_hold.move_turn_r": "move_turn_r ratio",
     "facing_closed_by_hold.move_turn_r": "closed mt_r",
     "survival_by_hold.turn_l90": "surv l90", "survival_by_hold.turn_r90": "surv r90",
+    "cat_tripod_min": "tripod_min",
 }
 
 
+def _cat_parts(mid: str) -> tuple[str, str] | None:
+    """``(family, category[.hand])`` of a ``cat.<c>[.by_hand.<h>].<key>`` id, else None."""
+    if not str(mid).startswith("cat."):
+        return None
+    parsed = eval_categories().parse_cat_id(mid)
+    if parsed is None:
+        return None
+    c, hand, key = parsed
+    return CAT_KEY_SHORT.get(key, key), HOLD_SHORT.get(c, c) + (f".{hand}" if hand else "")
+
+
 def _metric_parts(mid: str) -> tuple[str, str | None]:
-    """``(family, hold)`` for a block/guard metric id; ``hold`` is ``None`` for a bare one."""
+    """``(family, hold)`` for a block/guard metric id; ``hold`` is ``None`` for a bare one. A
+    per-category id is ``(family, category)`` -- ``cat.turn.facing_closed`` -> ``(closed, turn)``."""
+    cat = _cat_parts(mid)
+    if cat is not None:
+        return cat
     parts = str(mid).split(".")
     if len(parts) == 1:
         return BLOCK_FAMILIES.get(parts[0], parts[0]), None
@@ -5252,6 +6569,9 @@ def _watch_label(mid: str) -> str:
     """The WATCH row's name. Unknown ids fall back to ``family hold``, which is still unique."""
     if mid in WATCH_LABELS:
         return WATCH_LABELS[mid]
+    cat = _cat_parts(mid)
+    if cat is not None:
+        return f"{cat[1]} {cat[0]}"
     family, hold = _metric_parts(mid)
     return f"{family} {hold}" if hold else family
 
@@ -5276,6 +6596,10 @@ def _block_rows_field(rows) -> str:
 
 
 def _block_field(label: str, block: dict, rows_fmt) -> str:
+    if block.get("class") == "N/A":
+        name = block.get("block")
+        shown = label if not name or name == label else f"{label}={name}"
+        return f"{shown} N/A (no decisive member: never TIE, never MISSING)"
     z, r = block.get("z"), block.get("R")
     parts = [rows_fmt(block.get("rows") or [])]
     # The block NAME, not just the F/T slot: an absolute-units candidate's "F" is F_abs and its
@@ -5292,6 +6616,78 @@ def _row_fmt(row: dict) -> str:
     """One GUARD row. The four guard ids carry no dots, so they render under their own names."""
     family, hold = _metric_parts(row["metric"])
     return f"{family}{'' if hold is None else ' ' + hold} {fmt_num(row['b'])}->{fmt_num(row['a'])}"
+
+
+def trained_field(cmpres: dict) -> str:
+    """The DECISION line's ``trained:`` field of a v2 comparison (plan B3).
+
+    ``trained: stand, fwd, ... (decisive); watch: move_turn (reduced demand); untrained: none`` --
+    a decisive category the BASE never trained is marked ``(base untrained)``, and the base's own
+    untrained set follows when it differs from none.
+    """
+    notes = cmpres.get("category_notes") or {}
+    dec = [f"{c} (base untrained)" if notes.get(c) == "base untrained" else c
+           for c in cmpres.get("decisive") or []]
+    watch = [f"{c} ({_watch_reason(notes.get(c))})" for c in cmpres.get("present") or []
+             if c not in (cmpres.get("decisive") or [])]
+    untrained = cmpres.get("untrained") or {}
+    text = "trained: " + (", ".join(dec) or "none") + " (decisive)"
+    if watch:
+        text += "; watch: " + ", ".join(watch)
+    text += "; untrained: " + (", ".join(untrained.get("candidate") or []) or "none")
+    if untrained.get("base"):
+        text += f" (base untrained: {', '.join(untrained['base'])})"
+    if cmpres.get("na_blocks"):
+        text += f"; N/A blocks: {', '.join(cmpres['na_blocks'])}"
+    return text
+
+
+def _watch_value(mid: str, v: dict) -> str:
+    note = str((v or {}).get("note") or "")
+    if note.startswith("N/A") and v.get("a") is None and v.get("b") is None:
+        return f"{_watch_label(mid)} {note}"
+    return f"{_watch_label(mid)} {fmt_num(v.get('b'))}->{fmt_num(v.get('a'))}"
+
+
+def watch_fields(watch: dict) -> list[str]:
+    """The WATCH rows of a v2 comparison, grouped by WHY they are watched (plan B3):
+    ``WATCH:`` (the decisive categories' own watch keys and hands), ``WATCH <c> (<reason>):`` per
+    watch category, ``untrained WATCH:`` (a category the candidate never trained -- decided on
+    nothing, printed for information) and ``WATCH legacy:`` (the pooled suite keys, WATCH only)."""
+    plain, legacy = [], []
+    by_cat: dict[str, list[str]] = {}
+    reasons: dict[str, str] = {}
+    untrained: dict[str, list[str]] = {}
+    for mid, v in (watch or {}).items():
+        note = (v or {}).get("note")
+        parsed = eval_categories().parse_cat_id(mid) if str(mid).startswith("cat.") else None
+        if parsed is not None and note == "untrained":
+            untrained.setdefault(parsed[0], []).append(_watch_value(mid, v))
+        elif parsed is not None and str(note or "").startswith("watch"):
+            by_cat.setdefault(parsed[0], []).append(_watch_value(mid, v))
+            reasons[parsed[0]] = _watch_reason(note)
+        elif parsed is None and note is not None:
+            legacy.append(_watch_value(mid, v))
+        else:
+            plain.append(_watch_value(mid, v))
+    out = ["WATCH: " + (", ".join(plain) or "none")]
+    for c in _ordered_categories(by_cat):
+        out.append(f"WATCH {c} ({reasons[c]}): " + ", ".join(by_cat[c]))
+    if untrained:
+        out.append("untrained WATCH (decided on nothing): " + "; ".join(
+            f"{c}: " + ", ".join(untrained[c]) for c in _ordered_categories(untrained)))
+    if legacy:
+        out.append("WATCH legacy: " + ", ".join(legacy))
+    return out
+
+
+def turn_note(tc: dict | None) -> str | None:
+    """The trained categories' turn-magnitude / encoding annotation (``turn: demand 1.571 rad > FACING
+    band 0.600; encoding raw clips at 0.6``), or None."""
+    for note in (tc or {}).get("notes") or []:
+        if str(note).startswith("turn: demand"):
+            return str(note)
+    return None
 
 
 def decision_notify_fields(ctx: Ctx, entry: dict, item: dict, decision: dict, *,
@@ -5317,8 +6713,14 @@ def decision_notify_fields(ctx: Ctx, entry: dict, item: dict, decision: dict, *,
               + (f"s{ctx.seed_screen} + s{ctx.seed_confirm}" if pooled else f"s{item.get('seed')}"),
               f"chosen {entry.get('chosen')} ({entry.get('pooled_confidence') if pooled else entry.get('confidence')}"
               f", {entry.get('status')}) alt {entry.get('alternative')}"]
-    for label in ("F", "T"):
-        block = (cmpres.get("blocks") or {}).get(label)
+    own = all_headers(ctx.state).get(entry.get("experiment") or "") or {}
+    scr = own.get("screen") or {}
+    v2 = "decisive" in cmpres
+    if v2:
+        # Plan B3: what was decisive, what was only watched (with its reason) and what the candidate
+        # never trained -- the informational half of the request, on the line the user reads.
+        fields.append(trained_field(cmpres))
+    for label, block in (cmpres.get("blocks") or {}).items():
         if block:
             fields.append(_block_field(label, block, _block_rows_field))
     guards = cmpres.get("guards") or {}
@@ -5346,15 +6748,21 @@ def decision_notify_fields(ctx: Ctx, entry: dict, item: dict, decision: dict, *,
     fields.append(f"resolution {ev.get('resolution_id')} @{(levels.get('blocks') or {}).get('F')}/"
                   f"{levels.get('guards')}")
     watch = cmpres.get("watch") or {}
-    fields.append("WATCH: " + ", ".join(f"{_watch_label(k)} {fmt_num(v['b'])}->{fmt_num(v['a'])}"
-                                       for k, v in watch.items()))
+    if v2:
+        fields.extend(watch_fields(watch))
+        # D4: the in-place turn's demand vs the trained FACING band and the observation encoding
+        # -- an ANNOTATION, never a demotion (turn is decisive for every recipe that trains it).
+        note = turn_note((scr.get("trained_categories") or {}))
+        if note and "turn" in (cmpres.get("decisive") or []):
+            fields.append(note)
+    else:
+        fields.append("WATCH: " + ", ".join(f"{_watch_label(k)} {fmt_num(v['b'])}->{fmt_num(v['a'])}"
+                                           for k, v in watch.items()))
     # The written formation gate on this candidate's OWN screen -- WATCH context, never a verdict
     # (see :func:`gate_watch`). A screen the ladder is about to adopt on a relative comparison can
     # still be a head the phase pipeline would refuse to promote, and the DECISION line is where the
     # reader has to see that. The s3 screen is the one named: the s2 half of a pooled pair carries
     # its own line in its stage report.
-    own = all_headers(ctx.state).get(entry.get("experiment") or "") or {}
-    scr = own.get("screen") or {}
     fields.append(gate_watch("gate_1c", scr, track_ratio=scr.get("track_ratio_tail")))
     if decision.get("why"):
         fields.append(f"why: {decision['why']}")
@@ -5390,20 +6798,46 @@ def _d00c_lookup(ctx: Ctx, item: dict, header: dict) -> None:
     baseline_chain = (ctx.cands.get("baseline") or {}).get("chain")
     if not chain or chain == baseline_chain:
         return
-    if entry_by_id(ctx.ledger, f"D00c-{chain}") is not None:
-        return
+    raw_rule = ctx.cands.get("decision_rule") or {}
+    v2 = is_rule_v2(raw_rule)
+    stem = f"D00c-{chain}"
+    extra: dict = {}
+    if v2:
+        # Plan B3: a v2 SEAM. The raw v2 rule has no `blocks`/`guards.metrics`, so passing it through
+        # wrote EMPTY seed terms that `seed_terms_for` then preferred (F_mt judged at R_eval alone,
+        # ~3.7x too tight). Expanded exactly as `_write_d00bs` does -- the union of both unit systems
+        # at decisive(B0) -- with the composites applied to both screens (in seed_terms_from_pair),
+        # stamped with eval_sha and decisive_at; the early return fires only for a D00c measured at
+        # the CURRENT eval_sha, and a stale one is superseded by a new entry, never rewritten.
+        if current_resolution_entry(ctx, stem) is not None:
+            return
+        if not ctx.resolution:
+            return                      # no D00s: the pooled decision that would cite it halts first
+        dat = decisive_b0(ctx)
+        rule = eval_categories().expand_rule_union(raw_rule, dat, dat)
+        stale = [e.get("id") for e in entries(ctx.ledger)
+                 if str(e.get("id") or "") == stem or str(e.get("id") or "").startswith(stem + "@")]
+        used = {e.get("id") for e in entries(ctx.ledger)}
+        ident = stem if stem not in used else f"{stem}@{str(ctx.eval_sha)[:12] or 'none'}"
+        extra = {"eval_sha": ctx.eval_sha, "decisive_at": dat,
+                 **({"supersedes": stale[-1]} if stale else {})}
+    else:
+        if entry_by_id(ctx.ledger, stem) is not None:
+            return
+        rule, ident = raw_rule, stem
     s3 = ok_screen(ctx.state, ctx.code, header.get("recipe_id"), ctx.seed_screen, ctx.view)
     if not s3:
         return
     terms = seed_terms_from_pair(s3.get("screen") or {}, header.get("screen") or {},
-                                ctx.resolution, ctx.cands.get("decision_rule") or {})
-    entry = {"id": f"D00c-{chain}", "kind": "resolution", "candidate": None,
+                                ctx.resolution, rule)
+    entry = {"id": ident, "kind": "resolution", "candidate": None,
              "question": f"what is the seed spread on chain {chain}?",
              "options": ["RECORD"], "chosen": "RECORD", "status": "final",
              "evidence": {"seed_terms": terms, "pair": {"s3": s3.get("xid"), "s2": header.get("xid")},
-                          "chain": chain, "recipe_id": header.get("recipe_id")},
-             "code_sha": ctx.code, "tools_sha": ctx.tools, "decided_at": now_iso(),
-             "decided_by": "driver", "history": []}
+                          "chain": chain, "recipe_id": header.get("recipe_id"),
+                          **({"decisive_at": extra["decisive_at"]} if extra else {})},
+             "code_sha": ctx.code, "eval_sha": ctx.eval_sha, "tools_sha": ctx.tools, "decided_at": now_iso(),
+             "decided_by": "driver", "history": [], **extra}
     ctx.ledger.setdefault("entries", []).append(entry)
     ctx.write_ledger()
     ctx.lad.setdefault("resolution_ids", []).append(entry["id"])
@@ -5494,7 +6928,7 @@ def _dispatch_baseline(ctx: Ctx, item: dict, header: dict) -> None:
              "question": f"the {item['label']} control screen",
              "options": ["RECORD"], "chosen": "RECORD", "status": "final", "confidence": "clear",
              "base_recipe_id": header.get("base_recipe_id"), "recipe_id_if_adopted": header.get("recipe_id"),
-             "code_sha": ctx.code, "tools_sha": ctx.tools, "decided_at": now_iso(),
+             "code_sha": ctx.code, "eval_sha": ctx.eval_sha, "tools_sha": ctx.tools, "decided_at": now_iso(),
              "decided_by": "driver", "evidence": {"screen": header.get("screen")}, "history": []}
     ctx.ledger.setdefault("entries", []).append(entry)
     ctx.write_ledger()
@@ -5502,7 +6936,11 @@ def _dispatch_baseline(ctx: Ctx, item: dict, header: dict) -> None:
     is_first = item["candidate"] == (ctx.cands.get("baseline") or {}).get("id", "B0")
     if str(item["seed"]) == ctx.seed_screen and is_first and ctx.lad.get("d03") is None:
         _write_d03(ctx, header)
-    if str(item["seed"]) == ctx.seed_confirm and is_first and entry_by_id(ctx.ledger, "D00b") is None:
+    if str(item["seed"]) == ctx.seed_confirm and is_first and entry_by_id(ctx.ledger, "D00b") is None \
+            and not is_rule_v2(ctx.cands.get("decision_rule")):
+        # Rule v1 only. Under rule v2 the seed terms are D00bs, written against D00s by the
+        # migration's own item (plan D9 item 4) once both B0 screens exist at the current eval_sha
+        # -- never a D00b, whose terms a v2-scored comparison must not cite.
         _write_d00b(ctx, header)
     ctx.c.changelog_row(f"{entry['id']} {item['label']} baseline screen recorded ({header['xid']})")
 
@@ -5532,7 +6970,7 @@ def _write_d03(ctx: Ctx, header: dict) -> None:
                                   "baseline's own its-800-1000 mean)",
                           "experiment": header["xid"], "armed_on": "candidate kinds only, from_scratch, "
                                                                   f"iters > {D03_AT_ITERS}"},
-             "code_sha": ctx.code, "tools_sha": ctx.tools, "decided_at": now_iso(),
+             "code_sha": ctx.code, "eval_sha": ctx.eval_sha, "tools_sha": ctx.tools, "decided_at": now_iso(),
              "decided_by": "driver", "history": []}
     ctx.ledger.setdefault("entries", []).append(entry)
     ctx.write_ledger()
@@ -5554,7 +6992,7 @@ def _write_d00b(ctx: Ctx, header: dict) -> None:
              "options": ["RECORD"], "chosen": "RECORD", "status": "final",
              "evidence": {"seed_terms": terms, "pair": {"s3": (s3 or {}).get("xid"), "s2": header["xid"]},
                           "chain": header.get("chain"), "recipe_id": header.get("recipe_id")},
-             "code_sha": ctx.code, "tools_sha": ctx.tools, "decided_at": now_iso(),
+             "code_sha": ctx.code, "eval_sha": ctx.eval_sha, "tools_sha": ctx.tools, "decided_at": now_iso(),
              "decided_by": "driver", "history": []}
     ctx.ledger.setdefault("entries", []).append(entry)
     ctx.write_ledger()
@@ -5567,7 +7005,9 @@ def _write_d00b(ctx: Ctx, header: dict) -> None:
     # -- which C3a and C3b are scored in, so the property must be checked there too, before C3a is
     # ever screened.
     lines = []
-    for label, spec in (("F/T", {}), ("F_abs/T_abs", {"absolute_units": True})):
+    for spec in ({}, {"absolute_units": True}):
+        # The label is the rule's OWN block set in that unit system (`block_names`), never a literal.
+        label = "/".join(block_names(spec, rule))
         cmpres = _screen_compare(spec, rule, header.get("screen") or {},
                                  (s3 or {}).get("screen") or {}, ctx.resolution, terms)
         worse = _any_worse(cmpres)
@@ -5581,7 +7021,7 @@ def _write_d00b(ctx: Ctx, header: dict) -> None:
     # unrepresentative (one lucky seed), and every later decision on that block leans on the eval
     # number alone. Not a refusal: it is a measurement, and the record has to say so.
     tight = []
-    for block in ("F", "T", "F_abs", "T_abs"):
+    for block in _rule_block_names(rule):
         r_eval = _num(resolution_block(ctx.resolution, block).get("R_eval"))
         r_seed = seed_term(terms, block, block=True)
         if r_eval is not None and r_seed is not None and r_seed < r_eval:
@@ -5593,6 +7033,152 @@ def _write_d00b(ctx: Ctx, header: dict) -> None:
                lines + ["a non-TIE here means the resolution is too tight for single-seed screens"])
     entry.setdefault("evidence", {})["r_f_floor"] = {"violations": tight}
     ctx.write_ledger()
+
+
+def d00bs_evidence(s3_screen: dict, s2_screen: dict, resolution: dict, rule: dict, decisive_at) -> dict:
+    """Everything ``D00bs`` records, and its acceptance -- a PURE function, computed before any write.
+
+    Plan D9 item 4: the seed terms per block and guard from the two rescreened B0 screens, standardised
+    through D00s's per-metric ``R_eval`` (so this cannot precede D00s), over the rule expanded at
+    ``decisive(B0)`` -- the UNION of both unit systems, every block the expansion names (F, F_mt, T,
+    F_abs, F_mt_abs, T_abs; never a literal tuple). Per unit system:
+
+    * the CONSTRUCTION check: B0 s2 submitted against B0 s3 under the full R decides all-TIE (the
+      pair's own delta is inside its own seed term, so a non-TIE is a bug) with empty
+      ``block_missing`` / ``guards.missing`` (a value missing on a rescreened B0 screen);
+    * the seed-dominance verdict per decisive block (``R_b^seed > R_b^eval`` -> a single-seed screen
+      is judged at ``R_b^seed``) and the per-member MDE ``R_b x R_i``;
+    * the informative statement: the same pair classed at D00s's EVAL-ONLY R per block;
+    * ``R(D00bs) >= R(D00s)`` per block, a recorded note (not a gate).
+
+    ``acceptance = {ok, failures}`` is the construction check and the completeness of both systems.
+    """
+    dat = _ordered_categories(decisive_at)
+    ec = eval_categories()
+    union = ec.expand_rule_union(rule, dat, dat)
+    terms = seed_terms_from_pair(s3_screen or {}, s2_screen or {}, resolution, union)
+    systems, failures, tight = {}, [], []
+    for units, spec in (("ratio", {}), ("absolute", {"absolute_units": True})):
+        full = _screen_compare(spec, rule, s2_screen or {}, s3_screen or {}, resolution, terms,
+                               decisive=dat, present=dat)
+        eval_only = _screen_compare(spec, rule, s2_screen or {}, s3_screen or {}, resolution, {},
+                                    decisive=dat, present=dat)
+        worse, better = _any_worse(full), _better_blocks(full)
+        block_missing = sorted({m for v in full["blocks"].values() for m in v["missing"]})
+        guard_missing = list(full["guards"]["missing"])
+        blocks = {}
+        for label, v in full["blocks"].items():
+            if v.get("class") == "N/A":
+                blocks[v["block"]] = {"class": "N/A"}
+                continue
+            r_eval, r_seed, r_eff = v.get("R_eval"), v.get("R_seed"), v.get("R")
+            mde = {row["metric"]: (None if r_eff is None or row.get("R_eval") is None
+                                   else r_eff * row["R_eval"]) for row in v.get("rows") or []}
+            eo = eval_only["blocks"].get(label) or {}
+            blocks[v["block"]] = {
+                "R_eval": r_eval, "R_seed": r_seed, "R": r_eff,
+                "seed_dominated": bool(r_eval is not None and (r_seed or 0.0) > r_eval),
+                "member_mde": mde, "class_full_R": v.get("class"),
+                "eval_only": {"z": eo.get("z"), "R_eval": eo.get("R"), "class": eo.get("class")}}
+            if r_eval is not None and r_seed is not None and r_seed < r_eval:
+                tight.append(f"{v['block']}: R^seed {fmt_num(r_seed)} < R^eval {fmt_num(r_eval)}")
+        all_tie = not worse and not better
+        systems[units] = {"blocks": blocks, "all_tie": all_tie, "worse": worse, "better": better,
+                          "block_missing": block_missing, "guards_missing": guard_missing,
+                          "guards": {r["metric"]: {"R": r.get("R"), "R_seed": r.get("R_seed"),
+                                                   "R_binom": r.get("R_binom"), "class": r.get("class")}
+                                     for r in full["guards"]["rows"]}}
+        if not all_tie:
+            failures.append(f"construction check ({units}): B0 s2 vs s3 under the full R is NOT "
+                            f"all-TIE -- worse {worse or 'none'}, better {better or 'none'} (a bug: the "
+                            "pair's own delta is inside its seed term)")
+        if block_missing:
+            failures.append(f"block members MISSING on a B0 screen ({units}): {block_missing}")
+        if guard_missing:
+            failures.append(f"guards MISSING on a B0 screen ({units}): {guard_missing}")
+    failures = list(dict.fromkeys(failures))
+    return {"seed_terms": terms, "decisive_at": dat, "systems": systems,
+            "r_floor": {"violations": list(dict.fromkeys(tight)),
+                        "note": "R(D00bs) >= R(D00s) per block -- recorded, not a gate"},
+            "acceptance": {"ok": not failures, "failures": failures}}
+
+
+def d00bs_lines(evidence: dict) -> list[str]:
+    """The D00bs RESOLUTION line's own fields: seed dominance per decisive block (F and F_mt first),
+    the per-member MDE, the eval-only classing, the construction check and the R-floor note."""
+    lines = []
+    for units in ("ratio", "absolute"):
+        sysd = (evidence.get("systems") or {}).get(units) or {}
+        dom, mde, eo = [], [], []
+        for block, b in (sysd.get("blocks") or {}).items():
+            if b.get("class") == "N/A":
+                dom.append(f"{block} N/A")
+                continue
+            dom.append(f"{block} R^seed {fmt_num(b.get('R_seed'))} vs R^eval {fmt_num(b.get('R_eval'))} "
+                       f"seed-dominated {'yes' if b.get('seed_dominated') else 'no'}")
+            mde.append(f"{block}: " + ", ".join(f"{m} {fmt_num(v)}" for m, v in (b.get("member_mde")
+                                                                            or {}).items()))
+            e = b.get("eval_only") or {}
+            eo.append(f"{block} {e.get('class')} (z {fmt_num(e.get('z'))}, "
+                      f"R_eval {fmt_num(e.get('R_eval'))})")
+        lines.append(f"seed dominance ({units}): " + "; ".join(dom)
+                     + " -- a seed-dominated block judges a single-seed screen at R^seed")
+        lines.append(f"per-member MDE = R_b x R_i ({units}): " + "; ".join(mde))
+        lines.append(f"B0 s2 vs s3 at D00s's eval-only R ({units}): " + "; ".join(eo))
+        lines.append(f"construction check ({units}, full R): "
+                     + ("all-TIE" if sysd.get("all_tie") else "NOT all-TIE")
+                     + (f", MISSING {sysd.get('block_missing') + sysd.get('guards_missing')}"
+                        if (sysd.get("block_missing") or sysd.get("guards_missing")) else ""))
+    tight = (evidence.get("r_floor") or {}).get("violations") or []
+    lines.append("R(D00bs) >= R(D00s): " + ("holds on every block" if not tight else
+                 "VIOLATED on " + "; ".join(tight) + " (recorded, not a gate)"))
+    return lines
+
+
+def _write_d00bs(ctx: Ctx, s3_header: dict, s2_header: dict, *,
+                 accepted: dict | None = None) -> tuple[dict | None, dict]:
+    """``D00bs``: the rule-v2 seed terms from the two rescreened B0 screens against ``D00s``.
+
+    Generalises :func:`_write_d00b` (plan B3): id ``D00bs`` (``D00bs@<eval_sha[:12]>`` when that id
+    is taken by an earlier eval), standardised through the loaded ``D00s``, over the expanded rule's
+    blocks (:func:`d00bs_evidence`). The acceptance is computed BEFORE any write: a failure writes
+    NOTHING and returns ``(None, evidence)`` -- the caller (the migration's D00bs item) writes the
+    ``.rejected.json`` diagnostic and halts ``halt:resolution D00bs``, unless ``accepted`` (the
+    ``lad.resolution_acceptances`` record of ``--accept-resolution D00bs WHY``) is passed, in which
+    case the entry is written with ``acceptance.ok = false`` and the line cites the acceptance.
+    Returns ``(entry, evidence)``.
+    """
+    require_resolution(ctx, "D00bs")
+    rule = ctx.cands.get("decision_rule") or {}
+    dat = decisive_b0(ctx)
+    ev = d00bs_evidence(s3_header.get("screen") or {}, s2_header.get("screen") or {}, ctx.resolution,
+                        rule, dat)
+    if not ev["acceptance"]["ok"] and accepted is None:
+        return None, ev
+    used = {e.get("id") for e in entries(ctx.ledger)}
+    ident = "D00bs" if "D00bs" not in used else f"D00bs@{str(ctx.eval_sha)[:12] or 'none'}"
+    acceptance = dict(ev["acceptance"], **({"accepted": accepted} if accepted is not None else {}))
+    entry = {"id": ident, "kind": "resolution", "candidate": None,
+             "question": "how much do two seeds of the SAME recipe differ, on the per-category suite?",
+             "options": ["RECORD"], "chosen": "RECORD", "status": "final",
+             "evidence": {"seed_terms": ev["seed_terms"],
+                          "pair": {"s3": s3_header.get("xid"), "s2": s2_header.get("xid")},
+                          "chain": s3_header.get("chain"), "recipe_id": s3_header.get("recipe_id"),
+                          "against": resolution_label(ctx.resolution), "decisive_at": dat,
+                          "systems": ev["systems"], "r_floor": ev["r_floor"], "acceptance": acceptance},
+             "eval_sha": ctx.eval_sha, "code_sha": ctx.code, "tools_sha": ctx.tools,
+             "decided_at": now_iso(), "decided_by": "driver", "history": []}
+    ctx.ledger.setdefault("entries", []).append(entry)
+    ctx.write_ledger()
+    ctx.lad.setdefault("resolution_ids", []).append(ident)
+    ctx.recompute()
+    ctx.notify("RESOLUTION", ident, resolution_notify_fields(ctx, ctx.resolution, ident, ev["seed_terms"],
+                                                             [ident]))
+    tail = ([f"ACCEPTED with failures by --accept-resolution D00bs: {accepted.get('why')} "
+             f"({'; '.join(ev['acceptance']['failures'])})"] if accepted is not None
+            and not ev["acceptance"]["ok"] else [])
+    ctx.notify("RESOLUTION", ident, d00bs_lines(ev) + tail)
+    return entry, ev
 
 
 def _prior_user_choice(ledger: dict, cid: str) -> dict | None:
@@ -5617,11 +7203,15 @@ def _prior_user_choice(ledger: dict, cid: str) -> dict | None:
 def _dispatch_candidate(ctx: Ctx, item: dict, header: dict) -> None:
     cand = candidate_by_id(ctx.cands, item["candidate"]) or {}
     rule = ctx.cands.get("decision_rule") or {}
+    require_resolution(ctx, f"{header.get('xid')} {item['candidate']} decision")
     base = ok_screen(ctx.state, ctx.code, (item.get("base_recipe") or {}).get("recipe_id"),
                      ctx.seed_screen, ctx.view)
     if base is None:
         _halt(ctx, header, "control_missing", "the base recipe has no ok s3 screen at dispatch", item=item)
-    terms, seed_ids = seed_terms_for(ctx, header.get("chain"), (base or {}).get("chain"))
+    try:
+        terms, seed_ids = seed_terms_for(ctx, header.get("chain"), (base or {}).get("chain"))
+    except ResolutionMissing as exc:
+        _campaign_halt(ctx, "resolution_missing", f"{header.get('xid')} {item['candidate']}: {exc}")
     # The anchor is COMPOSED here, never read off the item: the Vocabulary makes it "recomputed by
     # `compose_recipe` under the current `code_sha`", and `_resolve_pair` already does exactly this.
     # `item_from_header` cannot carry one (a resumed window rebuilds its item from the header), so
@@ -5632,9 +7222,17 @@ def _dispatch_candidate(ctx: Ctx, item: dict, header: dict) -> None:
     a3, a2, alabel = _anchor_screens(ctx, compose_recipe(ctx.ledger, ctx.cands, ctx.code,
                                                          upto=item["candidate"], inclusive=True,
                                                          squashed=set(ctx.view["entries"])))
-    decision = decide(header.get("screen") or {}, (base or {}).get("screen") or {}, ctx.resolution,
-                      cand_spec=cand, rule=rule, seed_terms=terms, anchor_screen=a3,
-                      anchor_label=alabel, resolution_id=", ".join(["D00"] + seed_ids))
+    try:
+        decision = decide(header.get("screen") or {}, (base or {}).get("screen") or {}, ctx.resolution,
+                          cand_spec=cand, rule=rule, seed_terms=terms, anchor_screen=a3,
+                          anchor_label=alabel,
+                          resolution_id=", ".join([resolution_label(ctx.resolution)] + seed_ids))
+    except ResolutionMissing as exc:
+        _campaign_halt(ctx, "resolution_missing", f"{header.get('xid')} {item['candidate']}: {exc}")
+    except ValueError as exc:
+        # a v2 comparison of a screen that carries no trained categories (``trained_sets``) -- a
+        # named halt, never a traceback that would crash-loop the relaunch
+        _halt(ctx, header, "eval_mismatch", f"the decision cannot be scored: {exc}", item=item)
     entry = {"id": _next_did(ctx.ledger), "kind": "candidate", "candidate": item["candidate"],
              "experiment": header["xid"], "seed2_experiment": None,
              "question": cand.get("question"), "options": decision["options"],
@@ -5645,7 +7243,8 @@ def _dispatch_candidate(ctx: Ctx, item: dict, header: dict) -> None:
              "conditional_refs": conditional_refs(cand.get("conditional")),
              "base_recipe_id": (item.get("base_recipe") or {}).get("recipe_id"),
              "recipe_id_if_adopted": header.get("recipe_id"), "base_code_sha": header.get("code_sha"),
-             "code_sha": ctx.code, "tools_sha": ctx.tools, "decided_at": now_iso(),
+             "code_sha": ctx.code, "eval_sha": ctx.eval_sha, "tools_sha": ctx.tools,
+             "decided_at": now_iso(),
              "decided_by": "driver", "why": decision.get("why"), "history": [],
              "control_experiment": (base or {}).get("xid")}
     entry["evidence"]["replay"] = header.get("replay")
@@ -5696,8 +7295,12 @@ def _retention_lines(ctx: Ctx, header: dict) -> list[str]:
     return out
 
 
-def _dispatch_floor_reject(ctx: Ctx, item: dict, header: dict) -> None:
-    """A FLOOR trip on a CANDIDATE is a clear REJECT (decision 4): nothing usable was produced."""
+def _dispatch_floor_reject(ctx: Ctx, item: dict, header: dict, *, rescore: dict | None = None) -> None:
+    """A FLOOR trip on a CANDIDATE is a clear REJECT (decision 4): nothing usable was produced.
+
+    ``rescore`` (plan D9 item 5, a rescore FAIL's step (2)): ``{eval_sha, supersedes, label}`` -- the
+    entry records it and the DECISION line says the floor was re-decided eval-only and which entry
+    it supersedes (squashed by cause (f) once step (3) lands)."""
     cand = candidate_by_id(ctx.cands, item["candidate"]) or {}
     entry = {"id": _next_did(ctx.ledger), "kind": "candidate", "candidate": item["candidate"],
              "experiment": header["xid"], "question": cand.get("question"),
@@ -5706,11 +7309,12 @@ def _dispatch_floor_reject(ctx: Ctx, item: dict, header: dict) -> None:
              "evidence": {"floor": header.get("floor"), "floor_stage": header.get("floor_stage"),
                           "retention": _retention_lines(ctx, header),
                           "replay": header.get("replay"),
+                          **({"rescore": dict(rescore)} if rescore else {}),
                           "resolution_id": "D03" if "dead_walker" in str(header.get("floor")) else None},
              "depends_on": list(cand.get("depends_on") or []),
              "conditional_refs": conditional_refs(cand.get("conditional")),
              "base_recipe_id": header.get("base_recipe_id"),
-             "recipe_id_if_adopted": header.get("recipe_id"), "code_sha": ctx.code,
+             "recipe_id_if_adopted": header.get("recipe_id"), "code_sha": ctx.code, "eval_sha": ctx.eval_sha,
              "tools_sha": ctx.tools, "decided_at": now_iso(), "decided_by": "driver",
              "why": f"FLOOR: {header.get('floor')}", "history": []}
     ctx.ledger.setdefault("entries", []).append(entry)
@@ -5725,6 +7329,9 @@ def _dispatch_floor_reject(ctx: Ctx, item: dict, header: dict) -> None:
                 f"FLOOR at stage {header.get('floor_stage')}: {header.get('floor')}",
                 "no pair: a floor is not a resolution question",
                 "re-run it: " + ctx.cli(f"decide {item['candidate']} --choose run --why \"...\"")]
+               + ([f"{rescore.get('label')} (eval-only: nothing trained) under eval_sha "
+                   f"{str(rescore.get('eval_sha'))[:12]}: supersedes {rescore.get('supersedes')}, whose "
+                   "floor was measured under an older eval"] if rescore else [])
                + ([f"this decision moved the recipe{note}"] if note else []))
     ctx.c.changelog_row(f"{entry['id']} {item['candidate']} REJECT (floor at {header.get('floor_stage')})")
 
@@ -5780,6 +7387,7 @@ def _resolve_pair(ctx: Ctx, item: dict, entry: dict, s2_screen: dict, *, s2_xid:
     cid = entry.get("candidate")
     cand = candidate_by_id(ctx.cands, cid) or {}
     rule = ctx.cands.get("decision_rule") or {}
+    require_resolution(ctx, f"{entry.get('id')} {cid} pooled decision")
     base = item.get("base_recipe") or compose_recipe(ctx.ledger, ctx.cands, ctx.code, upto=cid,
                                                     squashed=set(ctx.view["entries"]))
     # The two s3 screens are the ones the s3 DECISION was made against, so they are looked up by the
@@ -5805,14 +7413,23 @@ def _resolve_pair(ctx: Ctx, item: dict, entry: dict, s2_screen: dict, *, s2_xid:
             # the same condition.
             _halt(ctx, header, "control_missing", detail, item=item)
         raise RuntimeError(detail)
-    terms, seed_ids = seed_terms_for(ctx, (cand_s3 or {}).get("chain"), (base_s3 or {}).get("chain"))
     a3, a2, alabel = _anchor_screens(ctx, compose_recipe(ctx.ledger, ctx.cands, ctx.code, upto=cid,
                                                         inclusive=True, squashed=set(ctx.view["entries"])))
-    pooled = decide_pooled(cand_s3.get("screen") or {}, s2_screen, base_s3.get("screen") or {},
-                           (base_s2 or {}).get("screen") or {}, ctx.resolution, cand_spec=cand,
-                           rule=rule, prior=entry, seed_terms=terms, anchor_s3=a3, anchor_s2=a2,
-                           anchor_label=alabel, resolution_id=", ".join(["D00"] + seed_ids),
-                           floor_tripped=floor_tripped)
+    try:
+        terms, seed_ids = seed_terms_for(ctx, (cand_s3 or {}).get("chain"), (base_s3 or {}).get("chain"))
+        pooled = decide_pooled(cand_s3.get("screen") or {}, s2_screen, base_s3.get("screen") or {},
+                               (base_s2 or {}).get("screen") or {}, ctx.resolution, cand_spec=cand,
+                               rule=rule, prior=entry, seed_terms=terms, anchor_s3=a3, anchor_s2=a2,
+                               anchor_label=alabel,
+                               resolution_id=", ".join([resolution_label(ctx.resolution)] + seed_ids),
+                               floor_tripped=floor_tripped)
+    except ResolutionMissing as exc:
+        _campaign_halt(ctx, "resolution_missing", f"{entry.get('id')} {cid} pooled decision: {exc}")
+    except ValueError as exc:
+        # a v2 pair whose candidate screen carries no trained categories: named, never a traceback
+        if header is not None:
+            _halt(ctx, header, "eval_mismatch", f"{entry.get('id')} pooled decision: {exc}", item=item)
+        _campaign_halt(ctx, "eval_mismatch", f"{entry.get('id')} {cid} pooled decision: {exc}")
     target = "final" if not pooled["self_overrule"] else "overruled"
     check_transition(entry.get("status"), target, "driver")
     _history(entry, target, "driver", f"pooled: {pooled['why']}")
@@ -5880,7 +7497,7 @@ def _milestone_entry_new(ctx: Ctx, mid: str, recipe: dict, eligibility: int) -> 
              "status": "open", "confidence": None, "pooled_confidence": None,
              "recipe_id": recipe.get("recipe_id"), "base_recipe_id": None,
              "eligibility": int(eligibility), "evidence": {}, "promoted_head": {},
-             "code_sha": ctx.code, "tools_sha": ctx.tools, "decided_at": now_iso(),
+             "code_sha": ctx.code, "eval_sha": ctx.eval_sha, "tools_sha": ctx.tools, "decided_at": now_iso(),
              "decided_by": "driver", "history": []}
     ctx.ledger.setdefault("entries", []).append(entry)
     return entry
@@ -5941,12 +7558,21 @@ def milestone_i(ctx: Ctx, item: dict) -> None:
         ctx.notify("MILESTONE", entry["id"], fields + [f"(i) WATCH -- {why}", "the promotion follows"])
         return
     rule = ctx.cands.get("decision_rule") or {}
-    terms, seed_ids = seed_terms_for(ctx, recipe.get("chain"), base.get("chain"))
-    pooled = decide_pooled(cand_s3["screen"], cand_s2["screen"], base_s3["screen"], base_s2["screen"],
-                           ctx.resolution, cand_spec=_recipe_cand_spec(ctx, recipe), rule=rule,
-                           prior={"chosen": "ADOPT", "status": "decided"}, seed_terms=terms,
-                           resolution_id=", ".join(["D00"] + seed_ids),
-                           floor_tripped=bool(cand_s2.get("floor_watch")))
+    # Plan B3: milestone_i joins D9 item 3's resolution_missing halt list, and cites the loaded
+    # resolution's own id (D00s under rule v2).
+    require_resolution(ctx, f"{mid} (i)")
+    try:
+        terms, seed_ids = seed_terms_for(ctx, recipe.get("chain"), base.get("chain"))
+        pooled = decide_pooled(cand_s3["screen"], cand_s2["screen"], base_s3["screen"],
+                               base_s2["screen"], ctx.resolution,
+                               cand_spec=_recipe_cand_spec(ctx, recipe), rule=rule,
+                               prior={"chosen": "ADOPT", "status": "decided"}, seed_terms=terms,
+                               resolution_id=", ".join([resolution_label(ctx.resolution)] + seed_ids),
+                               floor_tripped=bool(cand_s2.get("floor_watch")))
+    except ResolutionMissing as exc:
+        _campaign_halt(ctx, "resolution_missing", f"{mid} (i): {exc}")
+    except ValueError as exc:
+        _campaign_halt(ctx, "eval_mismatch", f"{mid} (i): {exc}")
     entry["evidence"]["pair"] = pooled["evidence"]
     entry["evidence"]["stage"] = "i"
     entry["pooled_confidence"] = pooled["pooled_confidence"]
@@ -6027,7 +7653,8 @@ def _recipe_cand_spec(ctx: Ctx, recipe: dict | None) -> dict:
 
 
 def _row_worse(ctx: Ctx, row: str, cand_summary: dict, base_summary: dict, terms: dict,
-               *, cand_spec: dict | None = None) -> dict:
+               *, cand_spec: dict | None = None, decisive=None, present=None,
+               v1_terms: dict | None = None, watch_notes: dict | None = None) -> dict:
     """One milestone ROW: is it WORSE than the previous milestone's same row?
 
     Blocks at ``R_F = max(R_F^eval(row), R_F^seed(chain))`` -- the standardised block seed term is
@@ -6035,11 +7662,37 @@ def _row_worse(ctx: Ctx, row: str, cand_summary: dict, base_summary: dict, terms
     seed term borrowed. Ring completion is WATCH (decision 6); every other guard, the two conditional
     turn survivals included, is scored on every row; a guard that is MISSING on a row is never WORSE
     there.
+
+    Rule v2 (plan D7) has two branches:
+
+    * a LEGACY row -- its per-row table carries ``by_row_source: D00`` (light/ring, copied from D00
+      into D00s) -- keeps the frozen v1 per-row rule byte for byte: scored with D00s'
+      ``by_row_rule`` (D00's frozen ``decision_rule``; no ``expand_rule``, no decisive/present), the
+      copied table's R, D00b's v1 seed terms (``v1_terms``, else read here: the one sanctioned D00b
+      citation under rule v2), today's ``_any_worse`` and today's ring-completion clause;
+    * the SUITE row takes ``decisive``/``present`` explicitly (a milestone row has no screen: the
+      promotion stage's own sets) and is WORSE iff >= 2 decisive UNITS are WORSE -- a unit is a
+      block (a member is never classed alone) or a counting guard (every ``survival`` guard and the
+      move_turn translation guard; ``cat_tripod_min`` does not count). ``units_worse`` names every
+      WORSE unit (one alone is recorded, not a WORSE row) and ``nominal`` the independence-model
+      null rate of ">= 2 of these units" (~1 % at B0's set: 3 blocks + 8 counting guards).
     """
     rule = ctx.cands.get("decision_rule") or {}
+    if is_rule_v2(rule):
+        require_resolution(ctx, f"milestone row {row}")
     resolution = _row_resolution(ctx.resolution, row)
+    legacy = resolution.get("by_row_source") == "D00" and is_rule_v2(rule)
+    if legacy:
+        rule = (ctx.resolution or {}).get("by_row_rule") or {}
+        if not rule or is_rule_v2(rule):
+            raise ResolutionMissing(f"row {row}: its table is D00's copy but D00s carries no v1 "
+                                    "by_row_rule to score it with (plan D7)")
+        terms = v1_terms if v1_terms is not None else v1_seed_terms(ctx)[0]
+        decisive = present = watch_notes = None
     ring_completion = None
-    if row == "ring":
+    # A raw v2 rule has no `guards.metrics` to strip: under rule v2 the ring row is a LEGACY row and
+    # reaches this clause with D00's frozen v1 rule (the branch above), unchanged (amendment 16).
+    if row == "ring" and not is_rule_v2(rule):
         # Decision 6 is conditional: "ring completion WATCH at milestones UNLESS the bootstrap
         # resolves it". Part C (ii)'s "ring completion is WATCH (decision 6)" points back at that
         # sentence rather than restating it, so the escape clause governs. `resolution.py` publishes
@@ -6055,11 +7708,60 @@ def _row_worse(ctx: Ctx, row: str, cand_summary: dict, base_summary: dict, terms
             ring_completion = "WATCH (the bootstrap does not resolve it on this row)"
         else:
             ring_completion = f"scored (the bootstrap resolves it at +/-{fmt_num(r_completion)})"
-    cmpres = _screen_compare(cand_spec or {}, rule, cand_summary, base_summary, resolution, terms)
+    # Plan D7: a milestone row has no SCREEN (it gets `summarize_run_dir` output), so a v2 row takes
+    # the promotion stage's decisive/present sets as EXPLICIT arguments; they are passed through to
+    # the expansion unchanged (None -> the summary's own trained_categories, if it carries any).
+    cmpres = _screen_compare(cand_spec or {}, rule, cand_summary, base_summary, resolution, terms,
+                             decisive=decisive, present=present, watch_notes=watch_notes)
     worse = _any_worse(cmpres)
-    return {"row": row, "worse": worse, "compare": cmpres,
-            "ring_completion": ring_completion,
-            "resolution_source": resolution.get("__source__", "global")}
+    out = {"row": row, "worse": worse, "compare": cmpres,
+           "ring_completion": ring_completion,
+           "resolution_source": resolution.get("__source__", "global")}
+    if legacy:
+        out["rule"] = "v1 by_row_rule (D00's frozen rule, D00b seed terms)"
+    elif "decisive" in cmpres and _eval_row_kind(row) == "category_suite":
+        units, n_blocks, n_guards = worse_units(cmpres)
+        out.update(units_worse=units, worse=(units if len(units) >= 2 else []),
+                   units={"blocks": n_blocks, "guards": n_guards},
+                   nominal=suite_row_null_rate(n_blocks, n_guards, cmpres),
+                   rule=">= 2 decisive units WORSE")
+    return out
+
+
+def worse_units(cmpres: dict) -> tuple[list[str], int, int]:
+    """``(WORSE units, n scored blocks, n counting guards)`` of a v2 comparison (plan D7).
+
+    A unit is a scored (non-N/A) block, or a guard that COUNTS: every guard except a composite
+    (``cat_tripod_min``) -- i.e. the present categories' ``survival`` guards and the move_turn
+    translation guard (``ratio``, ``achieved_speed`` under absolute units)."""
+    composites = set(eval_categories().COMPOSITES)
+    blocks = [k for k, v in cmpres["blocks"].items() if v.get("class") != "N/A"]
+    guards = [r["metric"] for r in cmpres["guards"]["rows"] if r["metric"] not in composites]
+    units = [f"block {k}" for k in blocks if cmpres["blocks"][k].get("class") == "WORSE"]
+    units += [f"guard {m}" for m in cmpres["guards"]["worse"] if m not in composites]
+    return units, len(blocks), len(guards)
+
+
+def suite_row_null_rate(n_blocks: int, n_guards: int, cmpres: dict | None = None) -> float:
+    """P(>= 2 of the units WORSE) for a null comparison, independence model: a block is WORSE at
+    ``(1 - level)/2`` (two-sided), a guard at ``1 - level`` (one-sided). 3 blocks + 8 guards at
+    95 % / 99 % -> 0.0098 (plan D7: "~1 %")."""
+    levels = [v.get("level") for v in ((cmpres or {}).get("blocks") or {}).values() if v.get("level")]
+    b_level = float(levels[0]) if levels else 0.95
+    g_level = float(((cmpres or {}).get("guards") or {}).get("level") or 0.99)
+    rates = [(1.0 - b_level) / 2.0] * int(n_blocks) + [1.0 - g_level] * int(n_guards)
+    p0 = math.prod(1.0 - p for p in rates)
+    p1 = sum(p * math.prod(1.0 - q for j, q in enumerate(rates) if j != i) for i, p in enumerate(rates))
+    return max(0.0, 1.0 - p0 - p1)
+
+
+def v1_seed_terms(ctx: Ctx) -> tuple[dict, list[str]]:
+    """D00b's seed terms -- the v1 lineage the legacy light/ring milestone rows are scored with
+    under rule v2 (plan D7: the one sanctioned D00b citation). ``({}, [])`` when D00b is absent."""
+    entry = entry_by_id(ctx.ledger, "D00b")
+    if entry is None:
+        return {}, []
+    return (entry.get("evidence") or {}).get("seed_terms") or {}, ["D00b"]
 
 
 def _row_resolution(resolution: dict, row: str) -> dict:
@@ -6077,10 +7779,25 @@ def _row_resolution(resolution: dict, row: str) -> dict:
             if key in table:
                 out = dict(table[key])
                 out["__source__"] = f"{field}[{key}]"
+                # A v2 record's per-row table (the suite's) is measured on the record's decisive_at;
+                # carried along so a narrower comparison halts here too (plan D5), never on a D00 copy.
+                if (resolution or {}).get("decisive_at") and out.get("by_row_source") != "D00":
+                    out.setdefault("decisive_at", resolution["decisive_at"])
                 return out
     out = dict(resolution or {})
     out["__source__"] = "global (the record carries no per-row table)"
     return out
+
+
+def reference_run_dir(ref, row: str) -> Path:
+    """The run dir a ``milestone_reference`` entry names: a recorded legacy run dir (light/ring), or
+    -- the suite row, plan D7/D10 -- ``{eval_dir, checkpoint}``: the reeval ROOT resolved to its
+    newest COMPLETE stamp whose checkpoint matches, by the SAME helper ``load_row`` uses
+    (``resolution.resolve_eval_dir``; a ``ResolutionError`` names every refused stamp)."""
+    if isinstance(ref, dict):
+        return Path(resolution_tool().resolve_eval_dir(ref["eval_dir"], _sid_for(row),
+                                                       checkpoint=ref.get("checkpoint")))
+    return repo_path(ref)
 
 
 def _reference_watch(ctx: Ctx, heads: dict, terms: dict,
@@ -6105,20 +7822,37 @@ def _reference_watch(ctx: Ctx, heads: dict, terms: dict,
     for stage in ("2b", "2a"):
         table = ref.get(stage) or ref.get(str(stage)) or {}
         marks = []
-        for row in ("slow", "light", "ring"):
+        # Plan D7: the suite row is scored on the promotion STAGE's own trained categories.
+        sets = (heads.get(stage) or {}).get("trained_categories") or {}
+        for row in promotion_eval(ctx.cands):
             run_dir = (heads.get(stage, {}).get("evals") or {}).get(row)
             rel = table.get(row)
             if not run_dir or not rel:
                 marks.append(f"{row} n/a")
                 continue
-            ref_dir = repo_path(rel)
+            try:
+                ref_dir = reference_run_dir(rel, row)
+            except Exception as exc:                                    # noqa: BLE001
+                out[f"{stage}/{row}"] = {"reference": str(rel), "missing": True, "why": str(exc)}
+                marks.append(f"{row} MISSING ({exc})")
+                continue
             a = summarize_run_dir(run_dir, _sid_for(row))
             b = summarize_run_dir(ref_dir, _sid_for(row)) if Path(ref_dir).exists() else None
             if a is None or b is None:
                 out[f"{stage}/{row}"] = {"reference": str(ref_dir), "missing": True}
                 marks.append(f"{row} MISSING")
                 continue
-            verdict = _row_worse(ctx, row, a, b, terms, cand_spec=cand_spec)
+            kw = ({"decisive": sets.get("decisive"), "present": sets.get("present"),
+                   "watch_notes": sets.get("watch") or {}}
+                  if _eval_row_kind(row) == "category_suite" and is_rule_v2(ctx.cands.get("decision_rule"))
+                  else {})
+            try:
+                verdict = _row_worse(ctx, row, a, b, terms, cand_spec=cand_spec, **kw)
+            except (ValueError, ResolutionMissing) as exc:
+                # WATCH only: a row that cannot be scored is reported, never a halt of a milestone
+                out[f"{stage}/{row}"] = {"reference": str(ref_dir), "missing": True, "why": str(exc)}
+                marks.append(f"{row} n/a ({exc})")
+                continue
             verdict["reference"] = str(ref_dir)
             verdict["facing_closed_via"] = {"head": a.get("facing_closed_via"),
                                             "reference": b.get("facing_closed_via")}
@@ -6152,22 +7886,44 @@ def _close_milestone_promo(ctx: Ctx, item: dict, header: dict) -> None:
         eligibility = 1 + sum(1 for e in entries(ctx.ledger)
                               if e.get("kind") == "milestone" and e.get("candidate") == mid)
         entry = _milestone_entry_new(ctx, mid, item["recipe"], eligibility)
+    v2 = is_rule_v2(ctx.cands.get("decision_rule"))
     heads, gate_lines = {}, []
     for stage in ("2a", "2b"):
         rec = ctx.c.recs.get(f"{header['xid']}:{stage}") or {}
         heads[stage] = {"ckpt": rec.get("ckpt"),
                         "evals": {row: (summary or {}).get("run_dir")
                                   for row, summary in (rec.get("evals") or {}).items()}}
+        if v2:
+            # Plan D7: the suite row is scored on THIS promotion stage's trained categories (its
+            # composed env; D4's compute-and-append rule covers a header that predates the record),
+            # passed explicitly -- a milestone row has no screen to carry them.
+            tc = header_trained_categories(ctx, header, stage)
+            if tc:
+                heads[stage]["trained_categories"] = {"decisive": list(tc.get("decisive") or []),
+                                                      "present": list(tc.get("present") or []),
+                                                      "watch": dict(tc.get("watch") or {})}
         # The written 2a/2b turn gate on each promotion stage -- WATCH context, never a verdict (see
         # :func:`gate_watch`). The promotion's verdict is the rolling row comparison below; this says
         # whether the head the milestone is about to record would clear the gate the phase pipeline
-        # enforces at the same two stages.
-        gate_lines.append(gate_watch("gate_facing", (rec.get("evals") or {}).get("slow"), label=stage))
+        # enforces at the same two stages. It reads the suite's legacy per-hand keys (plan D7).
+        gate_lines.append(gate_watch("gate_facing", _gate_row(rec.get("evals")), label=stage))
     entry["promoted_head"] = heads
     entry["experiment"] = header["xid"]
     entry["base_code_sha"] = header.get("code_sha")
     prev_heads, prev_id = _previous_promoted(ctx, mid)
-    terms, seed_ids = seed_terms_for(ctx, header.get("chain"))
+    try:
+        terms, seed_ids = seed_terms_for(ctx, header.get("chain"))
+    except ResolutionMissing as exc:
+        _campaign_halt(ctx, "resolution_missing", f"{mid} (ii): {exc}")
+    # the legacy light/ring rows' v1 lineage (plan D7) -- D00b's terms, whatever the chain
+    v1_terms = v1_seed_terms(ctx)[0] if v2 else None
+
+    def row_sets(stage: str, row: str) -> dict:
+        if not v2 or _eval_row_kind(row) != "category_suite":
+            return {}
+        sets = heads[stage].get("trained_categories") or {}
+        return {"decisive": sets.get("decisive") or [], "present": sets.get("present") or [],
+                "watch_notes": sets.get("watch") or {}}
     # A recipe that adopted a cap/clip/ellipse candidate is scored in absolute units at the
     # milestone too: those knobs are `eval_carry`, so the two sides' rows ran under different ratio
     # denominators (decision 5). The header carries `adopted`; a header written before it did (or
@@ -6191,7 +7947,12 @@ def _close_milestone_promo(ctx: Ctx, item: dict, header: dict) -> None:
         if a is None or b is None:
             watch_2a.append(f"2a/{row}: vs {prev_id} MISSING")
             continue
-        verdict = _row_worse(ctx, row, a, b, terms, cand_spec=spec)
+        try:
+            verdict = _row_worse(ctx, row, a, b, terms, cand_spec=spec, v1_terms=v1_terms,
+                                 **row_sets("2a", row))
+        except (ValueError, ResolutionMissing) as exc:
+            watch_2a.append(f"2a/{row}: vs {prev_id} n/a ({exc})")       # WATCH: reported, never a halt
+            continue
         watch_2a_rows[row] = verdict
         watch_2a.append(f"2a/{row}: vs {prev_id} "
                         + (f"below on {verdict['worse']}" if verdict["worse"] else "ok"))
@@ -6207,12 +7968,14 @@ def _close_milestone_promo(ctx: Ctx, item: dict, header: dict) -> None:
         ctx.save()
         ctx.notify("MILESTONE", entry["id"], fields + watch_lines + [
             "chosen WATCH (final): at M1 the comparison is unequal compute and a different lineage -- "
-            "the seed-3 2b record and outputs/omni_plan/reeval_2a are the reference, not a gate",
+            "the milestone_reference rows (the recorded 2b / 2a heads; under rule v2 their suite "
+            "reevals) are the reference, not a gate",
             f"these heads are the next milestone's rolling reference"])
         ctx.c.changelog_row(f"{entry['id']} {mid} promotion WATCH — heads recorded")
         return
     verdicts = []
-    for row in ("slow", "light", "ring"):
+    rows = promotion_eval(ctx.cands)
+    for row in rows:
         run_dir = (heads["2b"]["evals"] or {}).get(row)
         prev_dir = ((prev_heads or {}).get("2b") or {}).get("evals", {}).get(row)
         if not run_dir or not prev_dir:
@@ -6223,7 +7986,13 @@ def _close_milestone_promo(ctx: Ctx, item: dict, header: dict) -> None:
         if a is None or b is None:
             verdicts.append({"row": row, "worse": [], "missing": True})
             continue
-        verdict = _row_worse(ctx, row, a, b, terms, cand_spec=spec)
+        try:
+            verdict = _row_worse(ctx, row, a, b, terms, cand_spec=spec, v1_terms=v1_terms,
+                                 **row_sets("2b", row))
+        except ResolutionMissing as exc:
+            _campaign_halt(ctx, "resolution_missing", f"{mid} (ii) row {row}: {exc}")
+        except ValueError as exc:
+            _campaign_halt(ctx, "eval_mismatch", f"{mid} (ii) row {row} cannot be scored: {exc}")
         # `summarize_run_dir` falls back to a plain `summarize()` when the re-score REFUSES a row
         # (the window-replication check), and the F block then runs on `yaw_progress` alone -- half
         # its members, silently. `_reference_watch` already surfaces this for M1's rows; the rolling
@@ -6239,6 +8008,16 @@ def _close_milestone_promo(ctx: Ctx, item: dict, header: dict) -> None:
     fields.append(f"2b rows vs {prev_id}: " + "; ".join(
         f"{v['row']} {'WORSE ' + str(v['worse']) if v.get('worse') else ('MISSING' if v.get('missing') else 'ok')}"
         for v in verdicts))
+    for v in verdicts:
+        if "units_worse" in v:
+            # Plan D7: the suite row's own rule, with its null rate, on the line the user reads.
+            n = v.get("units") or {}
+            fields.append(f"{v['row']} row: WORSE iff >= 2 decisive units WORSE ({n.get('blocks')} blocks + "
+                          f"{n.get('guards')} counting guards; nominal null rate {v.get('nominal', 0.0):.3f}); "
+                          f"units WORSE: {v['units_worse'] or 'none'}")
+        elif v.get("rule", "").startswith("v1"):
+            fields.append(f"{v['row']} row: the frozen v1 per-row rule (D00's by_row_rule, D00's R, "
+                          "D00b's seed terms; any WORSE block or guard)")
     ring_note = next((v.get("ring_completion") for v in verdicts
                       if v.get("row") == "ring" and v.get("ring_completion")), None)
     if ring_note:
@@ -6263,7 +8042,7 @@ def _close_milestone_promo(ctx: Ctx, item: dict, header: dict) -> None:
         ctx.notify("MILESTONE", entry["id"], fields + [
             f"chosen WATCH (final): {missing_rows} could not be read (no eval run dir, or an "
             "aggregate this driver cannot summarise), so the rolling comparison is incomplete",
-            f"{len(worse_rows)} of {3 - len(missing_rows)} readable rows WORSE -- not a PASS and "
+            f"{len(worse_rows)} of {len(rows) - len(missing_rows)} readable rows WORSE -- not a PASS and "
             "not the >= 2 a FAIL needs; re-run the promotion to get a verdict"])
         ctx.c.changelog_row(f"{entry['id']} {mid} promotion WATCH — rows {missing_rows} unreadable")
         return
@@ -6350,13 +8129,13 @@ def _close_final_s2(ctx: Ctx, item: dict, header: dict) -> None:
         rec = ctx.c.recs.get(f"{header['xid']}:{stage}") or {}
         rows[stage] = {"ckpt": rec.get("ckpt"),
                        "evals": {row: (s or {}).get("run_dir") for row, s in (rec.get("evals") or {}).items()}}
-        gate_lines.append(gate_watch("gate_facing", (rec.get("evals") or {}).get("slow"), label=stage))
+        gate_lines.append(gate_watch("gate_facing", _gate_row(rec.get("evals")), label=stage))
     entry = {"id": _next_did(ctx.ledger), "kind": "milestone_s2", "candidate": mid,
              "experiment": header["xid"],
              "question": f"{mid}: the final recipe's seed-2 promotion (the head of record is the user's call)",
              "options": ["RECORD"], "chosen": "RECORD", "status": "final",
              "evidence": {"promoted_head_s2": rows}, "recipe_id": header.get("recipe_id"),
-             "code_sha": ctx.code, "tools_sha": ctx.tools, "decided_at": now_iso(),
+             "code_sha": ctx.code, "eval_sha": ctx.eval_sha, "tools_sha": ctx.tools, "decided_at": now_iso(),
              "decided_by": "driver", "history": []}
     ctx.ledger.setdefault("entries", []).append(entry)
     ctx.write_ledger()
@@ -6433,7 +8212,9 @@ def run_replay(ctx: Ctx, item: dict) -> dict | None:
 
 
 def _baseline_raw_dir(ctx: Ctx) -> str | None:
-    """B0's own ``slow`` raw directory, once it exists -- the replay's walker reference."""
+    """B0's own raw directory for the replay's walker reference -- the legacy ``slow`` row first, because
+    ``replay_reward_economy.py`` reads only the 8-hold slow layout; a suite-only rec falls back to its
+    ``suite`` raws (step-5 review, 2026-09-21)."""
     base_id = (ctx.cands.get("baseline") or {}).get("id", "B0")
     for xid, h in all_headers(ctx.state).items():
         if h.get("kind") != "baseline" or h.get("candidate") != base_id:
@@ -6447,7 +8228,8 @@ def _baseline_raw_dir(ctx: Ctx) -> str | None:
         bucket = (ctx.state.get("keys") or {}).get(f"seed{ctx.seed_screen}") or {}
         for key in h.get("recs") or []:
             rec = bucket.get(key) or ctx.c.recs.get(key) or {}
-            run_dir = ((rec.get("evals") or {}).get("slow") or {}).get("run_dir")
+            evals = rec.get("evals") or {}
+            run_dir = (evals.get("slow") or evals.get("suite") or {}).get("run_dir")
             if run_dir and (Path(run_dir) / "raw").exists():
                 return str(Path(run_dir) / "raw")
     return None
@@ -6461,11 +8243,29 @@ def item_from_header(ctx: Ctx, header: dict) -> dict:
     is frozen there, so a recipe recompute that happened while it ran (an override landing) cannot
     silently change what the resumed stages run. If the recompute means this experiment should not
     continue at all, the derived squash view says so and the resume is skipped.
+
+    :func:`item_from_header_raw` is the ctx-free body (``_next_item_raw`` is a function of ``(cands,
+    ledger, state)`` and dispatches a rescored header through it, plan D9 item 6).
     """
+    return item_from_header_raw(ctx.cands, header)
+
+
+#: The stage fields that describe the EVAL side, not the training window: a resumed header takes
+#: them from the CURRENT chain definition (plan D9 item 6) -- the eval side is not a property of
+#: the window, and a pre-suite header's frozen ``eval: [slow]`` / hold-keyed floor would otherwise
+#: evaluate a row nothing reads any more.
+EVAL_SIDE_STAGE_KEYS = ("eval", "floor", "categories", "previous_categories")
+
+
+def item_from_header_raw(cands: dict, header: dict) -> dict:
+    """:func:`item_from_header` without a ``Ctx`` -- the frozen overlay and stage list, with each
+    frozen ``stage_specs`` entry's ``eval``/``floor``/``categories``/``previous_categories`` taken
+    from the CURRENT chain when that chain exists in ``candidates.yaml`` (a smoke header keeps its
+    frozen specs; so does a key the current stage does not carry). Carries the header's ``xid``."""
     kind = header.get("kind")
     chain = header.get("chain")
     if kind in ("milestone", "milestone_s2"):
-        stages = final_s2_stage_list(ctx.cands) if kind == "milestone_s2" else promotion_stage_list(ctx.cands)
+        stages = final_s2_stage_list(cands) if kind == "milestone_s2" else promotion_stage_list(cands)
     elif header.get("stage_specs"):
         # The header's own stage list: the only source for an experiment whose chain is not in
         # candidates.yaml (--smoke-stage), and the faithful one for every other kind -- a running
@@ -6473,8 +8273,15 @@ def item_from_header(ctx: Ctx, header: dict) -> dict:
         # been edited since.
         names = header.get("stages") or [str(s["stage"]) for s in header["stage_specs"]]
         stages = [dict(s) for s in header["stage_specs"] if str(s["stage"]) in names]
+        if kind != "smoke" and chain and chain in (cands.get("chains") or {}):
+            current = {str(s["stage"]): s for s in chain_stages(cands, chain)}
+            for spec in stages:
+                cur = current.get(str(spec["stage"]))
+                for key in EVAL_SIDE_STAGE_KEYS:
+                    if cur is not None and key in cur:
+                        spec[key] = json.loads(json.dumps(cur[key]))
     else:
-        stages = [dict(s) for s in chain_stages(ctx.cands, chain)] if chain else []
+        stages = [dict(s) for s in chain_stages(cands, chain)] if chain else []
         names = header.get("stages") or [str(s["stage"]) for s in stages]
         stages = [s for s in stages if str(s["stage"]) in names]
     recipe = {"chain": chain, "overlay_by_stage": header.get("overlay_by_stage") or {},
@@ -6512,7 +8319,15 @@ RESUMABLE_HALTS = ("halt:infra", "halt:eval_infra")
 
 
 def find_inflight(ctx: Ctx) -> dict | None:
-    """The experiment this process (or a killed predecessor) left running, if it may still continue."""
+    """The experiment this process (or a killed predecessor) left running, if it may still continue.
+
+    Plan D9: None while an eval-only migration item is pending (the loop runs it first), and a
+    ``candidate`` header passes the RANK GATE (:func:`resume_gate`) -- it resumes only when the queue
+    would dispatch that same candidate now; otherwise it stays parked and the loop falls through to
+    ``next_item``. Twin, baseline, milestone, pair and smoke headers resume unconditionally.
+    """
+    if migration_item(ctx) is not None:
+        return None
     # list(): interrupt_reason() below re-ingests overrides, which can move a header out of
     # `experiments` into `squashed` while this loop runs.
     for xid, header in list((ctx.lad.get("experiments") or {}).items()):
@@ -6526,8 +8341,50 @@ def find_inflight(ctx: Ctx) -> dict | None:
         if why:
             ctx.c.log(f"{xid}: not resumed ({why})")
             continue
+        parked = resume_gate(ctx, header)
+        if parked:
+            ctx.c.log(f"{xid}: {parked}")
+            continue
         return header
     return None
+
+
+def resume_gate(ctx: Ctx, header: dict) -> str | None:
+    """Plan D9 item 6's rank gate: None when ``header`` may resume now, else ``not resumed (...)``.
+
+    A ``candidate`` header resumes only when ``_next_item_raw`` would dispatch THAT candidate now --
+    steps 1-7 return nothing and step 8's first non-terminal ranked candidate is the header's cid (a
+    speculative entry never reaches step 8: step 3 returns its pair first). Without it a lower-ranked
+    window recorded ``running`` (X05, C2) would resume ahead of re-opened higher-ranked candidates
+    (C1, C1b) and spend ~3.3 GPU-h on a base that may still move. Every other kind passes.
+
+    Scoped to a rule-v2 spec, the only kind a campaign can launch on (the validator refuses v1): a
+    frozen rule-v1 spec is a record, and its state-machine tests keep the pre-suite resume order.
+    """
+    if header.get("kind") != "candidate" or not is_rule_v2(ctx.cands.get("decision_rule")):
+        return None
+    try:
+        raw = _next_item_raw(ctx.cands, ctx.ledger, ctx.state, code=ctx.code, view=ctx.view,
+                             resolution=ctx.resolution)
+    except Exception as exc:                                            # noqa: BLE001
+        # Park, never resume: a gate that cannot see the queue must not let a lower-ranked window
+        # through. next_item then derives the same queue and raises the error where it is visible.
+        ctx.c.log(f"{header.get('xid')}: the rank gate could not derive the queue ({exc}); parked")
+        return f"not resumed (the rank gate could not derive the queue: {exc})"
+    if raw is not None and raw.get("kind") == "candidate" and raw.get("candidate") == header.get("candidate"):
+        return None
+    return f"not resumed ({_waiting_on(ctx.cands, raw)})"
+
+
+def _waiting_on(cands: dict, raw: dict | None) -> str:
+    if raw is None:
+        return "the queue has nothing for it"
+    cid, order = raw.get("candidate"), candidate_ids(cands)
+    if raw.get("kind") in ("candidate", "skip", "await") and cid in order:
+        return f"waiting on {cid} at rank {order.index(cid) + 1}"
+    if raw.get("kind") in ("twin", "seed2", "pooled") and cid in order:
+        return f"waiting on {cid}'s pair ({raw.get('label')})"
+    return f"waiting on {raw.get('label')}"
 
 
 def prepare_resume(ctx: Ctx, header: dict) -> None:
@@ -6553,9 +8410,16 @@ def prepare_resume(ctx: Ctx, header: dict) -> None:
         return
     spec = ph.PHASES[str(stage["base"])]
     exp_dir = rp.LOG_ROOT / spec.experiment
-    runs = [p for p in exp_dir.iterdir() if p.is_dir() and f"_{fl.get('tag')}" in p.name] \
+    runs = sorted(p for p in exp_dir.iterdir() if p.is_dir() and f"_{fl.get('tag')}" in p.name) \
         if exp_dir.exists() else []
-    models = sorted((m for r in runs for m in r.glob("model_*.pt")), key=rp._ckpt_iter)
+    # Run-dir names start with their launch timestamp, so they sort chronologically: resume from the
+    # NEWEST run that saved a checkpoint. Tags are not campaign-unique (a smoke drill's X01 reuses an
+    # older drill's tag), so pooling every run's checkpoints could resume from a stranger's model.
+    models: list[Path] = []
+    for r in reversed(runs):
+        models = sorted(r.glob("model_*.pt"), key=rp._ckpt_iter)
+        if models:
+            break
     if not models:
         fl["remaining"] = None
         fl["ckpt"] = None
@@ -6568,6 +8432,700 @@ def prepare_resume(ctx: Ctx, header: dict) -> None:
     fl["remaining"] = max(0, target_final - rp._ckpt_iter(last) + 1)
     ctx.c.log(f"{header['xid']}:{fl.get('stage')} — resuming at {Path(last).name} "
               f"({fl['remaining']} iterations left of {fl.get('iters')})")
+
+
+# ================================================================== the migration (plan D9)
+#: The eval-only work a relaunch under a new ``eval_sha`` does before ANY resume or queue item (plan
+#: D9, "zero decisions by hand"), in this order: (1) rescreen every ok screen of this code measured
+#: under an older eval, (2) reeval every ``role: pair`` resolution input, (3) ``D00s``, (4)
+#: ``D00bs``, (5) rescore every floor REJECT measured under an older eval. Every item is DERIVED
+#: from the records on every loop pass -- nothing stores a migration queue -- and none trains.
+MIGRATION_KINDS = ("rescreen", "reeval", "resolution", "rescore", "rescore_complete")
+#: The two resolution kinds ``--accept-resolution <kind> WHY`` may accept (plan D9 item 4).
+RESOLUTION_KINDS = ("D00s", "D00bs")
+
+
+def _cur_eval(ctx: Ctx) -> str:
+    """The current ``eval_sha`` the migration is keyed on (``lad.eval_sha`` once ``main`` records it,
+    which is ``ctx.eval_sha``)."""
+    return str(ctx.eval_sha or ctx.lad.get("eval_sha") or "")
+
+
+def suite_resolution_path(ctx: Ctx, eval_sha: str | None = None) -> Path:
+    """``<campaign>/resolution.<eval_sha[:12]>.json`` -- D00s' record (plan D9 item 3). Absolute (the
+    driver's cwd is the repo root), and never the pre-suite ``resolution.json`` (D00's)."""
+    return Path(ctx.dir).resolve() / f"resolution.{str(eval_sha or _cur_eval(ctx))[:12]}.json"
+
+
+def rejected_resolution_path(ctx: Ctx, kind: str) -> Path:
+    """``resolution.<eval_sha[:12]>.<kind>.rejected.json``: the ONLY write of a failing acceptance --
+    a diagnostic, overwritten on each recomputation and never cited (plan D9 item 4)."""
+    return Path(ctx.dir).resolve() / f"resolution.{_cur_eval(ctx)[:12]}.{kind}.rejected.json"
+
+
+def _ensure_d01(ctx: Ctx) -> bool:
+    """``D01`` (decision 8's turn-rate evidence) once -- True when it was written now."""
+    if entry_by_id(ctx.ledger, "D01") is not None:
+        return False
+    entry = {"id": "D01", "kind": "measurement", "candidate": None,
+             "question": "what turn rate can this plant actually deliver?",
+             "options": ["RECORD"], "chosen": "RECORD", "status": "final",
+             "evidence": {"turn_rate": D01_EVIDENCE}, "code_sha": ctx.code, "eval_sha": ctx.eval_sha,
+             "tools_sha": ctx.tools, "decided_at": now_iso(), "decided_by": "record", "history": []}
+    ctx.ledger.setdefault("entries", []).append(entry)
+    ctx.write_ledger()
+    ctx.lad.setdefault("resolution_ids", []).append("D01")
+    return True
+
+
+def load_resolution(ctx: Ctx) -> dict | None:
+    """The resolution every decision is standardised by, loaded at STARTUP -- both branches, the
+    ``--smoke-stage`` one included (plan D9 item 3). It never computes anything.
+
+    Rule v2: ``resolution.<eval_sha[:12]>.json`` (D00s at the current eval) when it exists, else
+    ``ctx.resolution = None`` -- never the pre-suite slow-row record, which no v2 decision may be
+    taken on. D00s is a migration QUEUE item (:func:`migration_item`), and every v2 decision seam
+    halts ``halt:resolution_missing`` while this is None. A v1 spec keeps its pre-suite behaviour:
+    :func:`ensure_resolution` (``resolution.json`` + D00/D01), or -- under ``--smoke-stage``, which
+    never decides -- the record as it lies (``{}`` when absent).
+    """
+    smoke = bool(getattr(ctx.args, "smoke_stage", None))
+    if not is_rule_v2(ctx.cands.get("decision_rule")):
+        if smoke:
+            path = ctx.dir / "resolution.json"
+            ctx.resolution = json.loads(path.read_text()) if path.exists() else {}
+            return ctx.resolution
+        return ensure_resolution(ctx)
+    wrote = False if smoke else _ensure_d01(ctx)
+    ctx.resolution = None
+    cur = _cur_eval(ctx)
+    path = suite_resolution_path(ctx)
+    if cur and path.exists():
+        payload = json.loads(path.read_text())
+        if str(payload.get("eval_sha") or "") != cur:
+            ctx.c.log(f"{path.name} records eval_sha {payload.get('eval_sha')}, not {cur}: not loaded")
+        else:
+            entry = current_resolution_entry(ctx, "D00s")
+            if entry is not None:
+                payload["id"] = entry["id"]
+            ctx.resolution = payload
+    if wrote:
+        ctx.recompute()
+        ctx.save()
+    return ctx.resolution
+
+
+def resolution_acceptance(ctx: Ctx, kind: str) -> dict | None:
+    """The newest ``lad.resolution_acceptances`` record ``{kind, eval_sha, why, at}`` of ``kind`` AT
+    THE CURRENT ``eval_sha`` (``--accept-resolution <kind> WHY``), or None."""
+    cur = _cur_eval(ctx)
+    found = None
+    for rec in ctx.lad.get("resolution_acceptances") or []:
+        if rec.get("kind") == kind and str(rec.get("eval_sha") or "") == cur:
+            found = rec
+    return found
+
+
+def pair_inputs(cands: dict) -> list[dict]:
+    """The checkpoint-shaped ``role: pair`` resolution inputs -- the D00 heads a migration REEVALS
+    (plan D9 item 2). ``seed_pair`` entries are filled by the rescreens and never reevaluated."""
+    return [dict(e) for e in cands.get("resolution_inputs") or []
+            if str(e.get("role") or "pair") == "pair" and e.get("checkpoint") and not e.get("run_dir")]
+
+
+def reeval_record(ctx: Ctx, head: str, eval_sha: str | None = None) -> dict | None:
+    """The newest ``lad.reevals`` record ``{head, eval_sha, stamp}`` of ``head`` at ``eval_sha``."""
+    want = str(eval_sha or _cur_eval(ctx))
+    found = None
+    for rec in ctx.lad.get("reevals") or []:
+        if str(rec.get("head")) == str(head) and str(rec.get("eval_sha") or "") == want:
+            found = rec
+    return found
+
+
+def b0_screens(ctx: Ctx) -> tuple[dict | None, dict | None]:
+    """The baseline recipe's ok s3 / s2 screens at the CURRENT eval (``ok_screen``) -- D00bs' pair."""
+    order = candidate_ids(ctx.cands)
+    b0 = compose_recipe(ctx.ledger, ctx.cands, ctx.code, upto=(order[0] if order else None),
+                        squashed=set(ctx.view["entries"]))
+    return (ok_screen(ctx.state, ctx.code, b0["recipe_id"], ctx.seed_screen, ctx.view),
+            ok_screen(ctx.state, ctx.code, b0["recipe_id"], ctx.seed_confirm, ctx.view))
+
+
+def rescreen_due(ctx: Ctx, xid: str, header: dict, eval_sha: str) -> bool:
+    """D9 item 1: a non-squashed ``ok`` screen (``SCREEN_KINDS``) of the current or an aliased
+    ``code_sha`` whose ``eval_sha`` is stale. A header stamped per D8 (``eval_sha`` written WITH its
+    screen) never matches again -- a pre-suite window resumed under the new eval included."""
+    return (header.get("kind") in SCREEN_KINDS and header.get("status") == "ok"
+            and xid not in ctx.view["experiments"]
+            and same_code(ctx.state, header.get("code_sha"), ctx.code)
+            and str(header.get("eval_sha") or "") != eval_sha
+            and bool(header.get("recs")))
+
+
+def _floor_spec(header: dict, sname) -> dict | None:
+    """The header's RECORDED ``stage_specs`` entry of ``sname`` (a LIST, looked up by ``stage``)."""
+    return next((s for s in header.get("stage_specs") or [] if str(s.get("stage")) == str(sname)), None)
+
+
+def rescore_due(ctx: Ctx, xid: str, header: dict, eval_sha: str) -> str | None:
+    """D9 item 5: the floor stage to rescore, or None.
+
+    Only a floor MEASURED UNDER AN OLDER EVAL: ``rejected_by_floor`` with a recorded ``floor_stage``,
+    an eval-row floor (the RECORDED stage spec's ``floor.kind`` in ``survival``/``category_survival``;
+    a ``dead_walker`` REJECT is a training-log verdict and never rescored), ``floor_eval_sha`` !=
+    the current eval (absent = pre-suite), current or aliased code, and no ``rescores[]`` record at
+    the current eval -- so a floor REJECT written under this eval is never a second-chance floor.
+    """
+    fs = header.get("floor_stage")
+    if header.get("status") != "rejected_by_floor" or not fs or xid in ctx.view["experiments"]:
+        return None
+    if str(header.get("floor") or "").startswith("dead_walker at"):
+        return None
+    spec = _floor_spec(header, fs)
+    if spec is None or str((spec.get("floor") or {}).get("kind")) not in ("survival", "category_survival"):
+        return None
+    if str(header.get("floor_eval_sha") or "") == eval_sha:
+        return None
+    if not same_code(ctx.state, header.get("code_sha"), ctx.code):
+        return None
+    if any(str(r.get("eval_sha") or "") == eval_sha for r in header.get("rescores") or []):
+        return None
+    return str(fs)
+
+
+def _floor_entries(ctx: Ctx, xid: str) -> list[dict]:
+    """The eval-row floor REJECT entries of experiment ``xid`` (never a dead_walker one), in order."""
+    return [e for e in entries(ctx.ledger)
+            if e.get("kind") == "candidate" and e.get("experiment") == xid and e.get("floor_stage")
+            and not str((e.get("evidence") or {}).get("floor") or "").startswith("dead_walker")]
+
+
+def rescore_supersedes(ctx: Ctx, xid: str, floor_stage: str, eval_sha: str) -> str | None:
+    """The entry a rescore re-decides, computed BEFORE any write (plan D9 item 5): the newest
+    ``candidate`` entry of ``xid`` at ``floor_stage`` whose ``eval_sha`` is not the current one
+    (absent counts as stale) -- so it can never name the replacement a FAIL writes."""
+    found = None
+    for e in _floor_entries(ctx, xid):
+        if str(e.get("floor_stage")) == str(floor_stage) and _entry_eval_sha(e) != eval_sha:
+            found = e.get("id")
+    return found
+
+
+def rescore_completion(ctx: Ctx, xid: str, header: dict, eval_sha: str) -> dict | None:
+    """A rescore FAIL that crashed between its ledger write (2) and its state write (3), derived
+    INDEPENDENTLY of ``floor_eval_sha`` (the save inside (2) already moved it): a current-eval floor
+    entry AND a stale-eval floor entry for the same ``(xid, floor_stage)`` that no
+    ``rescores[].supersedes`` names. ``{floor_stage, old, new}`` or None. (A re-opened header's later
+    floor REJECT has no stale twin, so it never matches.)"""
+    named = {r.get("supersedes") for r in header.get("rescores") or [] if r.get("supersedes")}
+    rows = _floor_entries(ctx, xid)
+    for fs in dict.fromkeys(str(e["floor_stage"]) for e in rows):
+        new = [e for e in rows if str(e["floor_stage"]) == fs and _entry_eval_sha(e) == eval_sha]
+        old = [e for e in rows if str(e["floor_stage"]) == fs and _entry_eval_sha(e) != eval_sha
+               and e.get("id") not in named]
+        if new and old:
+            return {"floor_stage": fs, "old": old[-1]["id"], "new": new[-1]["id"]}
+    return None
+
+
+def migration_item(ctx: Ctx) -> dict | None:
+    """The next eval-only migration item, DERIVED from the records (plan D9), or None.
+
+    Checked by ``loop`` BEFORE ``find_inflight`` and ``next_item`` -- whose baseline-rerun rule would
+    otherwise book an 8000-iteration B0 rerun the moment ``ok_screen`` goes stale -- and
+    ``find_inflight`` returns None while one is pending. None under ``--smoke-stage`` (a drill, never
+    a campaign), for a v1 spec (the pre-suite record), and before any ``eval_sha`` is known. Order:
+    rescreens (xid order), reevals (``resolution_inputs`` order), D00s, D00bs (once both B0 screens
+    exist at this eval), then per header a crashed rescore FAIL's completion or a rescore.
+    """
+    if getattr(ctx.args, "smoke_stage", None):
+        return None
+    if not is_rule_v2(ctx.cands.get("decision_rule")):
+        return None
+    cur = _cur_eval(ctx)
+    if not cur:
+        return None
+    exps = sorted(experiments(ctx.state).items(), key=lambda kv: _xid_key(kv[0]))
+    for xid, h in exps:
+        if rescreen_due(ctx, xid, h, cur):
+            return {"kind": "rescreen", "xid": xid, "label": f"rescreen {xid}", "ident": xid,
+                    "why": (f"{xid} ({h.get('label')}) is an ok screen of this code measured under eval_sha "
+                            f"{str(h.get('eval_sha') or 'none (pre-suite)')[:24]}; the current is {cur[:12]}")}
+    for entry in pair_inputs(ctx.cands):
+        head = str(entry.get("head"))
+        if reeval_record(ctx, head, cur) is None:
+            return {"kind": "reeval", "head": head, "entry": entry, "label": f"reeval {head}",
+                    "ident": f"reeval_{head}",
+                    "why": f"D00 head {head} has no suite eval at eval_sha {cur[:12]} (lad.reevals)"}
+    if current_resolution_entry(ctx, "D00s") is None or not suite_resolution_path(ctx).exists():
+        return {"kind": "resolution", "which": "D00s", "label": "D00s", "ident": "D00s",
+                "why": f"no D00s entry and resolution file at eval_sha {cur[:12]}"}
+    if current_resolution_entry(ctx, "D00bs") is None:
+        s3, s2 = b0_screens(ctx)
+        if s3 is not None and s2 is not None:
+            return {"kind": "resolution", "which": "D00bs", "label": "D00bs", "ident": "D00bs",
+                    "s3": s3.get("xid"), "s2": s2.get("xid"),
+                    "why": f"no D00bs at eval_sha {cur[:12]} and both B0 screens exist ({s3.get('xid')}, "
+                           f"{s2.get('xid')})"}
+    for xid, h in exps:
+        comp = rescore_completion(ctx, xid, h, cur)
+        if comp is not None:
+            fs = comp["floor_stage"]
+            return {"kind": "rescore_complete", "xid": xid, "floor_stage": fs, "old": comp["old"],
+                    "new": comp["new"], "label": f"rescore {xid}:{fs} (completion)", "ident": f"{xid}:{fs}",
+                    "why": f"{comp['new']} (current eval) and {comp['old']} (stale) both decide "
+                           f"{xid}:{fs} and no rescores[] record names {comp['old']}: step (3) never landed"}
+        fs = rescore_due(ctx, xid, h, cur)
+        if fs:
+            return {"kind": "rescore", "xid": xid, "floor_stage": fs, "label": f"rescore {xid}:{fs}",
+                    "ident": f"{xid}:{fs}",
+                    "why": f"{xid}'s floor at {fs} was measured under eval_sha "
+                           f"{str(h.get('floor_eval_sha') or 'none (pre-suite)')[:24]}, not {cur[:12]}"}
+    return None
+
+
+def run_migration_item(ctx: Ctx, mig: dict) -> None:
+    """Run ONE migration item (its writes are exactly those D9 lists for it)."""
+    ctx.c.log(f"migration: {mig['label']} -- {mig['why']}")
+    {"rescreen": _migrate_rescreen, "reeval": _migrate_reeval, "resolution": _migrate_resolution,
+     "rescore": _migrate_rescore, "rescore_complete": _migrate_rescore_complete}[mig["kind"]](ctx, mig)
+
+
+def _migration_halt(ctx: Ctx, mig: dict, why: str, detail: str) -> None:
+    """``phase = halt:migration <item> <why>``: a CAMPAIGN halt (plan D9) -- no recorded header's
+    status is ever rewritten, and the next launch re-derives the same item."""
+    _campaign_halt(ctx, f"migration {mig['label']} {why}", detail)
+
+
+def _migration_eval(ctx: Ctx, mig: dict, item: dict, header: dict, spec, ckpt: str, row: str,
+                    tag: str, env: dict, xid: str | None, trained: dict | None) -> dict | None:
+    """One migration eval through ``run_experiment``'s infra path (:func:`_eval_row_infra`).
+
+    The summary, or None when the eval was INTERRUPTED -- which writes nothing (never
+    ``_mark_interrupt``, which would rewrite a recorded header's status: X01 would turn ``running``);
+    the loop's stop check parks and the next launch re-derives the item. A seam error, no metrics
+    after the retry, a stop-now infra signature or an EVAL_CARRY mismatch halts the CAMPAIGN."""
+    summary, fail = _eval_row_infra(ctx, item, header, spec, ckpt, row, tag, env, xid,
+                                    where=f"{mig['label']} {row}", ident=mig["ident"], trained=trained,
+                                    resume_note="the migration re-derives this eval-only item at the "
+                                                "next launch (nothing is re-trained)")
+    if fail is not None:
+        what, detail = fail
+        if what.startswith("interrupted"):
+            ctx.c.log(f"migration {mig['label']}: interrupted ({detail}) -- nothing written; the next "
+                      "launch re-derives it")
+            return None
+        _migration_halt(ctx, mig, what, detail)
+    bad = _carry_mismatch(ctx, item, summary, env, spec)
+    if bad:
+        _migration_halt(ctx, mig, "eval_mismatch", f"{row}: {bad}")
+    return summary
+
+
+def _header_stage(ctx: Ctx, mig: dict, header: dict, item: dict, sname: str) -> tuple[dict, dict, dict]:
+    """``(stage, rec, trained categories)`` of a recorded header's stage -- the migration's common
+    preamble. D4: the trained-categories record of EVERY stage is written (appended) BEFORE the
+    eval; an empty or underivable set is a campaign ``halt:migration ... eval_mismatch``."""
+    xid = header["xid"]
+    for s in item["stages"]:
+        header_trained_categories(ctx, header, str(s["stage"]), stage=s)
+    stage = next((s for s in item["stages"] if str(s["stage"]) == str(sname)), None)
+    rec = ctx.c.recs.get(f"{xid}:{sname}")
+    if stage is None or rec is None or not rec.get("ckpt"):
+        _migration_halt(ctx, mig, "record_missing",
+                        f"{xid}:{sname} has no stage spec, no rec or no checkpoint in the records")
+    tc = header_trained_categories(ctx, header, str(sname), stage=stage)
+    if not tc or not tc.get("decisive"):
+        _migration_halt(ctx, mig, "eval_mismatch",
+                        f"{xid}:{sname}: the stage's trained categories are "
+                        f"{'empty' if tc else 'underivable'} (plan D4) -- nothing would be decisive")
+    ctx.save()
+    return stage, rec, tc
+
+
+def _eval_rows_of(stage: dict) -> list[str]:
+    """The rows a migration eval runs on a stage: its CURRENT eval rows (``item_from_header`` takes
+    them from the current chain), the suite when the stage names none."""
+    return [str(r) for r in stage.get("eval") or []] or ["suite"]
+
+
+def _file_rows(header: dict, rec: dict, results: dict) -> list[str]:
+    """File ``results`` into ``rec.evals`` BESIDE the rows it keeps (a row it already carried moves
+    to ``evals_superseded``, never overwritten silently); returns the run dirs."""
+    evals = rec.setdefault("evals", {})
+    dirs = []
+    for row, summary in results.items():
+        if row in evals:
+            rec.setdefault("evals_superseded", []).append({"row": row, "eval_sha": rec.get("eval_sha"),
+                                                            "summary": evals[row]})
+        evals[row] = summary
+        if summary.get("run_dir"):
+            header.setdefault("eval_dirs", []).append(summary["run_dir"])
+            dirs.append(summary["run_dir"])
+    return dirs
+
+
+def _cat_brief(summary: dict) -> str:
+    cat = (summary or {}).get("cat") or {}
+    return "survival " + ", ".join(f"{c} {fmt_num((cat.get(c) or {}).get('survival'))}"
+                                   for c in _ordered_categories(cat))
+
+
+def _migrate_rescreen(ctx: Ctx, mig: dict) -> None:
+    """D9 item 1: run the suite on a recorded ok screen's final-stage checkpoint and file it.
+
+    ``rp.set_seed`` first (X02 is a seed-2 record: filing it under seed 3 would leave it screenless
+    and book a 3.9 h rerun); the item is ``item_from_header``'s, so the tag, out root, overlay and
+    ``_carry_mismatch`` are the recorded ones. Writes ``rec.evals.suite`` beside the kept ``slow``,
+    then ``header.screen`` = ``_screen_of`` of that rec (the old one under ``screens_superseded``),
+    ``header.eval_sha`` and ``header.rescreens[]``. No ledger entry.
+    """
+    xid = mig["xid"]
+    header = experiments(ctx.state)[xid]
+    rp.set_seed(ctx.c, header.get("seed"))
+    item = item_from_header(ctx, header)
+    if not item["stages"]:
+        _migration_halt(ctx, mig, "record_missing", f"{xid} records no stages")
+    sname = str(item["stages"][-1]["stage"])
+    stage, rec, tc = _header_stage(ctx, mig, header, item, sname)
+    spec = ph.PHASES[str(stage["base"])]
+    env = stage_env(item["recipe"], sname)
+    tag = rec.get("orig_tag") or _tag_for(ctx, item, xid, sname)
+    results = {}
+    for row in _eval_rows_of(stage):
+        summary = _migration_eval(ctx, mig, item, header, spec, rec["ckpt"], row, tag, env, xid, tc)
+        if summary is None:
+            return
+        results[row] = summary
+    _rescreen_write(ctx, mig, header, item, stage, results)
+
+
+def _rescreen_write(ctx: Ctx, mig: dict, header: dict, item: dict, stage: dict, results: dict) -> None:
+    """A rescreen's ONE state write (D8's stamping with it)."""
+    xid, sname, cur = header["xid"], str(stage["stage"]), _cur_eval(ctx)
+    rec = ctx.c.recs[f"{xid}:{sname}"]
+    kept = sorted(r for r in (rec.get("evals") or {}) if r not in results)
+    dirs = _file_rows(header, rec, results)
+    rec["eval_sha"] = cur
+    header.setdefault("screens_superseded", []).append({"eval_sha": header.get("eval_sha"),
+                                                        "screen": header.get("screen")})
+    header["screen"] = _screen_of(ctx, item, xid)
+    header["eval_sha"] = cur
+    header.setdefault("rescreens", []).append({"eval_sha": cur, "stage": sname, "rows": list(results),
+                                               "run_dirs": dirs, "kept": kept, "at": now_iso()})
+    chain = header.get("chain")
+    if (chain and header.get("kind") == "baseline" and str(header.get("seed")) == ctx.seed_screen
+            and not ((ctx.lad.get("stage_trace_v2") or {}).get(chain) or {}).get(sname)):
+        # item 30: the incumbent's rescreen seeds its chain's category trace (otherwise the first v2
+        # run of that chain would)
+        _lines, mine = _category_retention(dict(stage, eval=list(results)), rec, {}, previous=[])
+        if mine:
+            ctx.lad.setdefault("stage_trace_v2", {}).setdefault(chain, {})[sname] = mine
+    ctx.save()
+    scr = header["screen"]
+    ctx.notify("MIGRATION", mig["ident"],
+               [f"{mig['label']} ({header.get('label')}, {header.get('kind')} s{header.get('seed')}) at "
+                f"{sname} -- eval-only: nothing trains", f"{', '.join(results)} filed beside "
+                f"{', '.join(kept) or 'nothing'} under eval_sha {cur[:12]}; the old screen is kept under "
+                "screens_superseded", "trained: " + ", ".join((scr.get("trained_categories") or {})
+                                                             .get("decisive") or []),
+                _cat_brief(scr), f"run dir: {', '.join(dirs) or 'n/a'}",
+                "no ledger entry (a rescreen re-files a recorded screen)"])
+    ctx.c.changelog_row(f"MIGRATION {mig['label']} (eval-only) — {', '.join(results)} filed, "
+                        f"eval_sha {cur[:12]}")
+
+
+def _repo_rel(path) -> str:
+    try:
+        return str(Path(path).resolve().relative_to(REPO.resolve()))
+    except ValueError:
+        return str(path)
+
+
+def _migrate_reeval(ctx: Ctx, mig: dict) -> None:
+    """D9 item 2: the suite on one ``role: pair`` D00 head (``checkpoint + preset + eval_dir``).
+
+    Out root ``EVAL_ROOT/<campaign>/reeval_<head>`` (``eval_morph``'s ``<campaign>/<tag>``); the
+    stamp passes D10's freshness rule against the entry's checkpoint BEFORE it is recorded, and on
+    completion ``{head, eval_sha, stamp}`` is APPENDED to ``lad.reevals`` (older records kept) --
+    exactly the stamp D00s will read."""
+    entry, head, cur = mig["entry"], mig["head"], _cur_eval(ctx)
+    preset = str(entry.get("preset"))
+    if preset not in ph.PHASES:
+        _migration_halt(ctx, mig, "eval_mismatch", f"{head}: preset {preset!r} is not a phase")
+    spec = ph.PHASES[preset]
+    ckpt = str(repo_path(entry["checkpoint"]))
+    if not Path(ckpt).exists():
+        _migration_halt(ctx, mig, "checkpoint_missing", f"{head}: {ckpt} does not exist")
+    try:
+        tc = eval_categories().trained_categories(ph.phase_env(preset)).to_dict()
+    except ValueError as exc:
+        _migration_halt(ctx, mig, "eval_mismatch", f"{head}: preset {preset}'s trained categories: {exc}")
+    row = str(entry.get("row") or "suite__omni")
+    row = row[:-len("__omni")] if row.endswith("__omni") else row
+    item = _item("reeval", cid=head, seed=ctx.seed_screen, label=mig["label"],
+                 recipe={"chain": None, "recipe_id": None, "overlay_by_stage": {}, "eval_carry": []})
+    header = {"xid": None, "kind": "reeval", "candidate": head}
+    summary = _migration_eval(ctx, mig, item, header, spec, ckpt, row, f"reeval_{head}", {}, None, tc)
+    if summary is None:
+        return
+    run_dir = summary.get("run_dir")
+    try:
+        resolution_tool().check_suite_stamp(run_dir, checkpoint=entry["checkpoint"])
+    except Exception as exc:                                             # noqa: BLE001
+        _migration_halt(ctx, mig, "stamp_refused",
+                        f"{head}: the reeval stamp {run_dir} fails D10's freshness rule ({exc})")
+    want = repo_path(entry["eval_dir"]).resolve()
+    if want not in Path(run_dir).resolve().parents:
+        ctx.c.log(f"reeval {head}: the stamp {run_dir} is not under the yaml's eval_dir {want} -- "
+                  "recorded as a full path, which is what D00s reads")
+    stamp = _repo_rel(run_dir)
+    ctx.lad.setdefault("reevals", []).append({"head": head, "eval_sha": cur, "stamp": stamp,
+                                              "checkpoint": entry["checkpoint"], "at": now_iso()})
+    ctx.save()
+    ctx.notify("MIGRATION", mig["ident"],
+               [f"{mig['label']} (preset {preset}) -- eval-only: nothing trains",
+                f"lad.reevals += {{head {head}, eval_sha {cur[:12]}, stamp {stamp}}}",
+                _cat_brief(summary), "D00s reads exactly this stamp"])
+    ctx.c.changelog_row(f"MIGRATION {mig['label']} (eval-only) — stamp {stamp}")
+
+
+def _migrate_resolution(ctx: Ctx, mig: dict) -> None:
+    if mig["which"] == "D00s":
+        _migrate_d00s(ctx, mig)
+    else:
+        _migrate_d00bs(ctx, mig)
+
+
+def _migrate_d00s(ctx: Ctx, mig: dict) -> None:
+    """D9 item 3: ``D00s`` -- ``resolution.resolve()`` IN PROCESS, then the file, then the entry.
+
+    ``res.main`` reads ``resolution_inputs`` only from the yaml on disk and has no channel for the
+    recorded stamps, so the driver builds the entries itself: each ``role: pair`` input gets its
+    ``lad.reevals`` stamp at the current eval (a missing one raises ``ResolutionError`` naming the
+    head), and ``resolve(..., eval_sha, decisive_at=sorted(decisive(B0)), d00=<D00's record>,
+    supersedes="D00", candidates_sha256=<the live yaml's>)``. The acceptance is computed BEFORE any
+    write: a failure writes only ``resolution.<sha12>.D00s.rejected.json`` and halts
+    ``halt:resolution D00s`` (the item stays pending; a relaunch recomputes -- deterministic, CPU
+    only) unless ``--accept-resolution D00s WHY`` recorded an acceptance at this eval, which writes
+    it with ``acceptance.ok = false``. A ``ResolutionError`` writes nothing and halts. A record
+    already on disk at this eval (the entry write crashed) is completed, not recomputed.
+    """
+    res, cur = resolution_tool(), _cur_eval(ctx)
+    path = suite_resolution_path(ctx)
+    ctx.state["current"] = {"tag": "D00s", "phase": "resolution", "iters": 0, "kind": "bootstrap",
+                            "log": str(ctx.dir / "orchestrator.log")}
+    ctx.save()
+    payload = None
+    if path.exists():
+        payload = json.loads(path.read_text())
+        if str(payload.get("eval_sha") or "") != cur:
+            payload = None
+    if payload is None:
+        stamps: dict = {}
+        for rec in ctx.lad.get("reevals") or []:
+            if str(rec.get("eval_sha") or "") == cur:
+                stamps[str(rec.get("head"))] = str(rec.get("stamp"))
+        inputs = res.apply_reeval_stamps(ctx.cands.get("resolution_inputs") or [], stamps)
+        d00_path = ctx.dir / "resolution.json"
+        d00 = json.loads(d00_path.read_text()) if d00_path.exists() else None
+        try:
+            payload = res.resolve(dict(ctx.cands, resolution_inputs=inputs), eval_sha=cur,
+                                  decisive_at=sorted(decisive_b0(ctx)), d00=d00, supersedes="D00",
+                                  candidates_sha256=sha256_file(ctx.cands["__path__"]))
+        except res.ResolutionError as exc:
+            _campaign_halt(ctx, "resolution D00s", f"D00s refused: {exc} — fix and relaunch")
+        acc = payload.get("acceptance") or {"ok": False, "failures": [
+            "the record carries no acceptance (not a rule-version-2 D00s)"]}
+        if not acc.get("ok"):
+            accepted = resolution_acceptance(ctx, "D00s")
+            if accepted is None:
+                rejected = res.write_resolution(payload, rejected_resolution_path(ctx, "D00s"))
+                _campaign_halt(ctx, "resolution D00s",
+                               f"D00s acceptance: {'; '.join(acc.get('failures') or [])} — fix the tools "
+                               "and relaunch, or relaunch with --accept-resolution D00s WHY "
+                               f"(diagnostic only, never cited: {rejected})")
+            payload["acceptance"] = dict(acc, accepted=accepted)
+        res.write_resolution(payload, path)
+    _write_d00s_entry(ctx, payload, path)
+
+
+def _write_d00s_entry(ctx: Ctx, payload: dict, path: Path) -> dict:
+    """The D00s ledger entry -- AFTER its file -- then :func:`load_resolution` (so the next item sees
+    it in the same process) and its RESOLUTION line."""
+    used = {e.get("id") for e in entries(ctx.ledger)}
+    ident = "D00s" if "D00s" not in used else f"D00s@{_cur_eval(ctx)[:12]}"
+    entry = {"id": ident, "kind": "resolution", "candidate": None,
+             "question": "what is the eval resolution every decision is standardised by, on the "
+                         "per-category suite?",
+             "options": ["RECORD"], "chosen": "RECORD", "status": "final",
+             "supersedes": payload.get("supersedes") or "D00",
+             "evidence": {"resolution": {k: v for k, v in payload.items() if k != "inputs"},
+                          "inputs": payload.get("inputs"), "decision_rule": ctx.cands.get("decision_rule"),
+                          "acceptance": payload.get("acceptance"), "path": str(path),
+                          "eval_sha": payload.get("eval_sha")},
+             "code_sha": ctx.code, "eval_sha": _cur_eval(ctx), "tools_sha": ctx.tools,
+             "decided_at": now_iso(), "decided_by": "resolution.py (in process)", "history": []}
+    ctx.ledger.setdefault("entries", []).append(entry)
+    ctx.write_ledger()
+    ctx.lad.setdefault("resolution_ids", []).append(ident)
+    ctx.recompute()
+    ctx.save()
+    load_resolution(ctx)
+    ctx.notify("RESOLUTION", ident, resolution_notify_fields(ctx, payload, ident))
+    ctx.c.changelog_row(f"{ident} written ({path.name}) — supersedes {entry['supersedes']}")
+    return entry
+
+
+def _migrate_d00bs(ctx: Ctx, mig: dict) -> None:
+    """D9 item 4: ``D00bs`` from the two rescreened B0 screens against D00s (``_write_d00bs``, whose
+    acceptance is computed before any write). A failure writes only the rejected diagnostic and
+    halts ``halt:resolution D00bs``; ``--accept-resolution D00bs WHY`` lets the next computation
+    write it with ``acceptance.ok = false``."""
+    s3, s2 = b0_screens(ctx)
+    if s3 is None or s2 is None:
+        _migration_halt(ctx, mig, "control_missing", "a B0 screen vanished between derivation and run")
+    entry, ev = _write_d00bs(ctx, s3, s2, accepted=resolution_acceptance(ctx, "D00bs"))
+    if entry is None:
+        rejected = resolution_tool().write_resolution(
+            {"kind": "D00bs", "eval_sha": _cur_eval(ctx), "against": resolution_label(ctx.resolution),
+             "pair": {"s3": s3.get("xid"), "s2": s2.get("xid")}, **ev},
+            rejected_resolution_path(ctx, "D00bs"))
+        _campaign_halt(ctx, "resolution D00bs",
+                       f"D00bs acceptance: {'; '.join(ev['acceptance']['failures'])} — fix the tools and "
+                       "relaunch, or relaunch with --accept-resolution D00bs WHY "
+                       f"(diagnostic only, never cited: {rejected})")
+
+
+def _migrate_rescore(ctx: Ctx, mig: dict) -> None:
+    """D9 item 5: re-decide a floor measured under an older eval, on the suite, at the failed stage's
+    checkpoint with that stage's recorded overlay and eval_carry, under D6 on its trained categories.
+
+    ``supersedes`` is computed BEFORE any write. PASS -> ONE state write (``rescores[]`` takes the
+    header's floor fields, the rec key is appended, the header re-opens at its NEXT stage) then the
+    squash reconcile (cause (f)); FAIL -> the three ordered writes of :func:`_rescore_fail`."""
+    xid, fs, cur = mig["xid"], mig["floor_stage"], _cur_eval(ctx)
+    header = experiments(ctx.state)[xid]
+    supersedes = rescore_supersedes(ctx, xid, fs, cur)            # BEFORE any write (plan D9 item 5)
+    rp.set_seed(ctx.c, header.get("seed"))
+    item = item_from_header(ctx, header)
+    stage, rec, tc = _header_stage(ctx, mig, header, item, fs)
+    spec = ph.PHASES[str(stage["base"])]
+    env = stage_env(item["recipe"], fs)
+    tag = rec.get("orig_tag") or _tag_for(ctx, item, xid, fs)
+    results = {}
+    for row in _eval_rows_of(stage):
+        summary = _migration_eval(ctx, mig, item, header, spec, rec["ckpt"], row, tag, env, xid, tc)
+        if summary is None:
+            return
+        results[row] = summary
+    names = [str(s["stage"]) for s in item["stages"]]
+    previous = previous_decisive(ctx, header, names, fs)
+    try:
+        passed, why = stage_floor(stage, {"evals": results}, dead_walker_floor=ctx.lad.get("d03"),
+                                  decisive=list(tc.get("decisive") or []), previous=previous)
+    except eval_categories().EvalMismatch as exc:
+        _migration_halt(ctx, mig, "eval_mismatch", f"{xid}:{fs}: {exc}")
+    if passed:
+        _rescore_pass(ctx, mig, header, item, fs, results, why, supersedes)
+    else:
+        _rescore_fail(ctx, mig, header, item, fs, results, why, supersedes)
+
+
+def _file_rescore_rec(ctx: Ctx, header: dict, fs: str, results: dict, passed: bool, why: str) -> list[str]:
+    """The rescored rec: the suite filed beside its old rows and ``floor_rescored`` beside its old
+    ``floor`` (item 30) -- in memory; the caller's write persists it."""
+    rec = ctx.c.recs[f"{header['xid']}:{fs}"]
+    dirs = _file_rows(header, rec, results)
+    rec["floor_rescored"] = {"passed": bool(passed), "why": why, "eval_sha": _cur_eval(ctx), "at": now_iso()}
+    return dirs
+
+
+def _next_stage(item: dict, fs: str) -> str | None:
+    names = [str(s["stage"]) for s in item["stages"]]
+    i = names.index(str(fs)) if str(fs) in names else -1
+    return names[i + 1] if 0 <= i < len(names) - 1 else None
+
+
+def _rescore_pass(ctx: Ctx, mig: dict, header: dict, item: dict, fs: str, results: dict, why: str,
+                  supersedes: str | None) -> None:
+    """PASS, in ONE write: ``rescores[]`` gains ``{eval_sha, floor, floor_stage, floor_eval_sha,
+    verdict, supersedes}`` (the header's floor fields MOVE into it), ``recs`` gains ``<xid>:<fs>``
+    (the rec exists with its ckpt; without it the resumed chain would re-train the stage),
+    ``eval_sha``, ``inflight = None`` and ``status`` = ``running`` -- or
+    ``rescored_awaiting_predicate`` for a candidate that declares ``depends_on``/``conditional``
+    (step 8 dispatches it). Then ``squash_and_report``: cause (f) is keyed on STATE, and the view is
+    otherwise recomputed only after ledger writes -- without it this process would still see the
+    superseded entry effective and the rank gate would resume a lower-ranked window first."""
+    xid, cur = header["xid"], _cur_eval(ctx)
+    dirs = _file_rescore_rec(ctx, header, fs, results, True, why)
+    header.setdefault("rescores", []).append({
+        "eval_sha": cur, "verdict": "PASS", "why": why, "supersedes": supersedes,
+        "floor": header.pop("floor", None), "floor_stage": header.pop("floor_stage", None),
+        "floor_eval_sha": header.pop("floor_eval_sha", None), "run_dirs": dirs, "at": now_iso()})
+    key = f"{xid}:{fs}"
+    if key not in (header.get("recs") or []):
+        header.setdefault("recs", []).append(key)
+    cand = candidate_by_id(ctx.cands, header.get("candidate")) or {}
+    status = RESCORED_AWAITING if (cand.get("depends_on") or cand.get("conditional")) else "running"
+    header.setdefault("history", []).append({"at": now_iso(), "from": header.get("status"), "to": status,
+                                             "why": f"rescore PASS at {fs} under eval_sha {cur[:12]}"})
+    header.update(eval_sha=cur, inflight=None, status=status)
+    ctx.save()
+    note = squash_and_report(ctx, f"rescore {xid}:{fs} PASS")
+    nxt = _next_stage(item, fs)
+    ctx.notify("MIGRATION", mig["ident"],
+               [f"{mig['label']} -- eval-only: nothing trains", f"floor PASS: {why}",
+                f"supersedes {supersedes or 'nothing (no stale entry found)'} (its floor was measured under an "
+                "older eval)", f"{xid} re-opens at {nxt or '(no stage left)'} as {status}"
+                + (" (step 8 dispatches it once its predicate holds)" if status == RESCORED_AWAITING else ""),
+                f"reconcile{note}"])
+    ctx.c.changelog_row(f"MIGRATION {mig['label']} (eval-only) PASS — {xid} re-opens at {nxt}")
+
+
+def _rescore_fail(ctx: Ctx, mig: dict, header: dict, item: dict, fs: str, results: dict, why: str,
+                  supersedes: str | None) -> None:
+    """FAIL, in this order (plan D9 item 5): (1) the new floor fields on the header (in memory);
+    (2) the ledger REJECT with the current ``eval_sha`` -- its reconcile runs while the superseded
+    entry is still effective (no dependant is archived) and its save persists (1); (3) ONE state write
+    of the ``rescores[]`` record and ``header.eval_sha``, then the reconcile, where (f) squashes the
+    superseded entry. A crash between (2) and (3) is completed on relaunch without a second eval."""
+    cur = _cur_eval(ctx)
+    _file_rescore_rec(ctx, header, fs, results, False, why)
+    header.update(floor=why, floor_stage=fs, floor_eval_sha=cur)                      # (1)
+    _dispatch_floor_reject(ctx, item, header, rescore={"eval_sha": cur, "supersedes": supersedes,
+                                                       "label": mig["label"]})           # (2)
+    old = entry_by_id(ctx.ledger, supersedes) if supersedes else None
+    _rescore_fail_complete(ctx, mig, header, fs, old)                                  # (3)
+
+
+def _rescore_fail_complete(ctx: Ctx, mig: dict, header: dict, fs: str, old: dict | None) -> None:
+    """A rescore FAIL's step (3): the ``rescores[]`` record -- ``{eval_sha, verdict: FAIL,
+    supersedes, floor, floor_stage, floor_eval_sha}`` with the OLD values from the superseded
+    entry's evidence (the save inside (2) already moved the header's) -- and ``header.eval_sha``, in
+    one write, then the reconcile (cause (f))."""
+    cur, xid = _cur_eval(ctx), header["xid"]
+    ev = (old or {}).get("evidence") or {}
+    header.setdefault("rescores", []).append({
+        "eval_sha": cur, "verdict": "FAIL", "supersedes": (old or {}).get("id"),
+        "floor": ev.get("floor"), "floor_stage": (old or {}).get("floor_stage") or ev.get("floor_stage") or fs,
+        "floor_eval_sha": _entry_eval_sha(old or {}) or None, "new_floor": header.get("floor"),
+        "at": now_iso()})
+    header["eval_sha"] = cur
+    ctx.save()
+    note = squash_and_report(ctx, f"rescore {xid}:{fs} FAIL")
+    ctx.c.log(f"{mig['label']}: FAIL recorded; {(old or {}).get('id')} superseded{note}")
+
+
+def _migrate_rescore_complete(ctx: Ctx, mig: dict) -> None:
+    """The relaunch completion of a crashed rescore FAIL: step (3) from the two ledger entries,
+    without a second eval."""
+    header = experiments(ctx.state)[mig["xid"]]
+    _rescore_fail_complete(ctx, mig, header, mig["floor_stage"], entry_by_id(ctx.ledger, mig["old"]))
+    ctx.notify("MIGRATION", mig["ident"],
+               [f"{mig['label']} -- eval-only, no eval re-run: the FAIL's ledger REJECT {mig['new']} landed "
+                f"before the crash; its rescores[] record now names {mig['old']}"])
 
 
 # ================================================================== the dry run
@@ -6585,8 +9143,18 @@ def dry_run(ctx: Ctx, verdicts: list) -> int:
         print(f"    - {spec}")
     print(f"  fnmatch drops: {list(CODE_DROP_GLOBS)}")
     print(f"  tracked code files hashed: {len(code_rows())}")
+    print(f"eval_sha {ctx.eval_sha} (recorded {ctx.lad.get('eval_sha') or 'none: the campaign predates it'})"
+          "\n  pathspecs:")
+    for spec in EVAL_PATHSPECS:
+        print(f"    - {spec}")
+    proof = getattr(ctx, "eval_proof", None)
+    if proof is not None:
+        print(f"  alias proof ({'ok' if proof.get('ok') else 'FAILED'}): recorded code_sha "
+              f"{proof.get('sha')} == code_sha_at({proof.get('proved_at')}, CODE_PATHSPECS_V1); "
+              f"narrowed there {proof.get('narrowed_at')} vs code_sha() {proof.get('current')} -- "
+              f"{proof.get('why')}")
     dirty = dirty_paths()
-    print(f"  dirty: {dirty if dirty else 'clean'}")
+    print(f"  dirty (code + eval): {dirty if dirty else 'clean'}")
     print(f"tools_sha {ctx.tools} over {list(TOOL_FILES)} + the replay script")
 
     print("\n## validator")
@@ -6630,11 +9198,17 @@ def dry_run(ctx: Ctx, verdicts: list) -> int:
 
     print("\n## D00 (the decision rule the resolution is measured for)")
     rule = cands.get("decision_rule") or {}
+    if is_rule_v2(rule):
+        # a raw v2 rule has no flat `blocks`/`guards`: print what every comparison can score -- the
+        # union of both unit systems at decisive(B0) (plan D5), never a hard-wired block tuple
+        print(f"  rule_version 2 expanded at decisive(B0) {decisive_b0(ctx)} (both unit systems):")
+        rule = dict(_scoring_union(ctx, ctx.resolution), bootstrap=rule.get("bootstrap"),
+                    charter_floors=rule.get("charter_floors"))
     for block, spec in (rule.get("blocks") or {}).items():
         print(f"  block {block} @{spec.get('level')}: {spec.get('metrics')}")
     print(f"  guards @{(rule.get('guards') or {}).get('level')}: "
           f"{(rule.get('guards') or {}).get('metrics')}")
-    print(f"  WATCH (never scored): {rule.get('watch')}")
+    print(f"  WATCH (never scored): {list(rule.get('watch') or [])}")
     for gate, where in GATE_WATCH.items():
         print(f"  WATCH {gate}: {where} — rendered on the stage report and on every DECISION / "
               "MILESTONE line, read by nothing")
@@ -6645,23 +9219,41 @@ def dry_run(ctx: Ctx, verdicts: list) -> int:
           f"(facing precision {rp.GATE_FACING_MAX_RAD} rad is WATCHED, demoted 2026-09-18)")
     print(f"  bootstrap {rule.get('bootstrap')}  charter floors {rule.get('charter_floors')}")
     path = ctx.dir / "resolution.json"
-    if path.exists():
+    if is_rule_v2(cands.get("decision_rule")):
+        # Plan D9 item 3: D00s lives in resolution.<eval_sha[:12]>.json and is computed IN PROCESS by
+        # a migration queue item; startup only loads it. The pre-suite resolution.json is D00's.
+        spath = suite_resolution_path(ctx)
+        if spath.exists():
+            sres = json.loads(spath.read_text())
+            print(f"  D00s record {spath}: present ({len(sres.get('metrics') or {})} metrics, blocks "
+                  f"{sorted(sres.get('blocks') or {})})")
+            for field in resolution_notify_fields(ctx, sres, "D00s"):
+                print(f"    | {field}")
+        else:
+            print(f"  D00s record {spath}: absent -- a migration queue item computes it in process "
+                  "(resolve() with the recorded reeval stamps; plan D9 item 3); startup never does")
+        print(f"  D00 (pre-suite) record {path}: " + (
+            "present -- its light/ring by_row tables and frozen decision_rule are copied into D00s"
+            if path.exists() else "absent -- D00s then carries no light/ring by_row copy"))
+    elif path.exists():
         resolution = json.loads(path.read_text())
         print(f"  resolution.json present: {len(resolution.get('metrics') or {})} metrics, "
               f"blocks {sorted((resolution.get('blocks') or {}))}")
         for mid, row in (resolution.get("metrics") or {}).items():
             print(f"    {mid}: R_eval {row.get('R_eval')} @{row.get('level')} block {row.get('block')} "
                   f"n {row.get('n')} source {row.get('source')}")
-        for field in resolution_notify_fields(ctx, resolution, "D00"):
+        for field in resolution_notify_fields(ctx, resolution, resolution_label(resolution)):
             print(f"    | {field}")
     else:
         print(f"  resolution.json absent ({path}) — the dry run does not need it; the driver computes "
               "it by calling resolution.py at startup")
     print(f"\n## resolution inputs ({len(cands.get('resolution_inputs') or [])})")
-    for item in cands.get("resolution_inputs") or []:
-        exists = (REPO / item["run_dir"]).exists()
-        print(f"  {'ok ' if exists else 'ABSENT'} {item.get('head')}/{item.get('row')} "
-              f"role={item.get('role')} provenance_ok={item.get('provenance_ok')} {item['run_dir']}")
+    for line in resolution_input_lines(ctx):
+        print(line)
+    print("\n## migration (the REAL migration_item derivation and find_inflight order on this campaign "
+          "dir's records -- eval outcomes simulated in memory, nothing written, no GPU)")
+    for line in dry_run_migration(ctx):
+        print(line)
     print(f"\n## notification contract: tags {list(lc.NOTIFY_TAGS)}")
     print("  " + lc.format_notify("DECISION", "D08",
                                   ["X09 C2-reward {KRABBY_YAW_PROGRESS_W=3.0} on recipe abc s3",
@@ -6669,6 +9261,262 @@ def dry_run(ctx: Ctx, verdicts: list) -> int:
                                    "confirm: " + ctx.cli("confirm D08")]))
     print(f"\n## the launcher\n  {HERE / 'launch_candidates.sh'} --campaign-dir {ctx.dir}")
     return 0
+
+
+def resolution_input_lines(ctx: Ctx) -> list[str]:
+    """The dry run's ``resolution_inputs`` listing -- BOTH shapes (plan D9 item 2): a recorded
+    ``run_dir`` (legacy, informational) or ``checkpoint + preset + eval_dir`` (a suite reeval head
+    or a B0 rescreen), with the stamp D00s would read at the current eval (``lad.reevals`` for a
+    ``pair``, the newest fresh stamp under ``eval_dir`` for a ``seed_pair``)."""
+    out = []
+    cur = _cur_eval(ctx)
+    for item in ctx.cands.get("resolution_inputs") or []:
+        head, row, role = item.get("head"), item.get("row"), item.get("role") or "pair"
+        if item.get("run_dir"):
+            exists = (REPO / item["run_dir"]).exists()
+            out.append(f"  {'ok ' if exists else 'ABSENT'} {head}/{row} role={role} "
+                       f"provenance_ok={item.get('provenance_ok')} {item['run_dir']}")
+            continue
+        ckpt = item.get("checkpoint")
+        exists = bool(ckpt) and repo_path(ckpt).exists()
+        out.append(f"  {'ok ' if exists else 'ABSENT'} {head}/{row} role={role} preset={item.get('preset')} "
+                   f"checkpoint {ckpt} eval_dir {item.get('eval_dir')}")
+        if role == "pair":
+            rec = reeval_record(ctx, str(head), cur) if cur else None
+            out.append(f"      stamp: {rec['stamp']} (lad.reevals at eval_sha {cur[:12]})" if rec else
+                       f"      stamp: none recorded at eval_sha {cur[:12] or '(none)'} -- the migration "
+                       f"reevals {head} (D9 item 2) and D00s reads exactly that stamp")
+        else:
+            try:
+                stamp = resolution_tool().resolve_eval_dir(item["eval_dir"], _sid_for(str(row or "suite")),
+                                                          checkpoint=ckpt)
+                out.append(f"      newest fresh stamp: {stamp}")
+            except Exception as exc:                                     # noqa: BLE001
+                out.append(f"      no fresh stamp yet ({str(exc)[:320]}) -- filled by the rescreen "
+                           "(D9 item 1), never reevaluated")
+    return out
+
+
+class _DrySim(Ctx):
+    """An IN-MEMORY copy of a campaign the dry run drives the REAL derivations on (plan Verification
+    4): ``migration_item``, ``find_inflight`` / ``resume_gate``, ``next_item`` and the real record
+    writers (``_rescreen_write``, ``_rescore_pass``, ``squash_and_report``) run on deep copies of
+    the recorded state and ledger; every write lands in memory or a throw-away temp dir (never the
+    campaign dir), and no eval, training or resolution computation ever runs."""
+
+    def __init__(self, ctx: Ctx, tmpdir: Path, sink: list):  # noqa: D107 -- deliberately no super()
+        self.dir = Path(tmpdir)
+        self.cands = ctx.cands
+        self.args = argparse.Namespace(**{**vars(ctx.args), "smoke_stage": None, "dry_run": False})
+        self.plant = ctx.plant
+        self.seed_screen, self.seed_confirm = ctx.seed_screen, ctx.seed_confirm
+        self.c = _SimCampaign(copy.deepcopy(ctx.c.st), ctx.plant, ctx.seed_screen, self.dir, sink)
+        self.ledger = copy.deepcopy(ctx.ledger)
+        self.code, self.eval_sha, self.tools = ctx.code, ctx.eval_sha, ctx.tools
+        self.view = {"experiments": {}, "entries": {}, "candidates": []}
+        self._ovr_stamp = None
+        self.t0 = time.time()
+        self.resolution = None
+        self.lad.setdefault("experiments", {})
+        self.lad.setdefault("squashed", {})
+
+
+class _SimCampaign(rp.Campaign):
+    """``rp.Campaign`` whose writes go to a sink (the dry run's in-memory campaign)."""
+
+    def __init__(self, st: dict, plant: str, seed: str, cdir: Path, sink: list):  # noqa: D107
+        super().__init__(Path(cdir), plant, seed)
+        self.st = st
+        self.sink = sink
+
+    def save(self) -> None:
+        pass
+
+    def log(self, msg: str) -> None:
+        self.sink.append(("log", str(msg)))
+
+    def notify(self, msg: str) -> None:
+        self.sink.append(("notify", str(msg)))
+
+    def report_block(self, block: str) -> None:
+        pass
+
+    def changelog_row(self, row: str) -> None:
+        pass
+
+
+def _dry_decide(sim: Ctx, header: dict, outcome: str = "REJECT") -> None:
+    """Close a simulated window: ``ok`` with a stamped screen and a clear ``outcome`` decision."""
+    header.update(status="ok", inflight=None, eval_sha=_cur_eval(sim),
+                  screen=header.get("screen") or {"note": "dry run"})
+    if header.get("kind") == "candidate":
+        sim.ledger.setdefault("entries", []).append(
+            {"id": _next_did(sim.ledger), "kind": "candidate", "candidate": header.get("candidate"),
+             "experiment": header.get("xid"), "chosen": outcome, "options": list(CANDIDATE_OPTIONS),
+             "status": "decided", "confidence": "clear", "base_recipe_id": header.get("base_recipe_id"),
+             "recipe_id_if_adopted": header.get("recipe_id"), "code_sha": sim.code,
+             "eval_sha": _cur_eval(sim), "conditional_refs": [], "history": [], "evidence": {}})
+    sim.recompute()
+
+
+def _dry_migrate(sim: Ctx, mig: dict) -> str:
+    """Apply ONE migration item's record effects with a SIMULATED eval outcome (every rescore
+    PASSES); the writers are the real ones wherever the item writes state. Returns what it did."""
+    cur = _cur_eval(sim)
+    if mig["kind"] == "rescreen":
+        header = experiments(sim.state)[mig["xid"]]
+        rp.set_seed(sim.c, header.get("seed"))
+        item = item_from_header(sim, header)
+        sname = str(item["stages"][-1]["stage"])
+        stage, _rec, _tc = _header_stage(sim, mig, header, item, sname)
+        rows = _eval_rows_of(stage)
+        _rescreen_write(sim, mig, header, item, stage,
+                        {r: {"run_dir": None, "eval_status": "dry-run", "cat": {}} for r in rows})
+        return f"{sname}: {', '.join(rows)} filed beside the kept rows; eval_sha stamped"
+    if mig["kind"] == "reeval":
+        sim.lad.setdefault("reevals", []).append({"head": mig["head"], "eval_sha": cur,
+                                                  "stamp": "(dry run)", "at": now_iso()})
+        return (f"lad.reevals += {{head {mig['head']}, eval_sha {cur[:12]}}} (dry run: no eval; the real "
+                f"one runs the suite on {mig['entry'].get('checkpoint')} under tag reeval_{mig['head']})")
+    if mig["kind"] == "resolution":
+        ident = mig["which"]
+        used = {e.get("id") for e in entries(sim.ledger)}
+        if ident in used:
+            ident = f"{ident}@{cur[:12]}"
+        entry = {"id": ident, "kind": "resolution", "candidate": None, "chosen": "RECORD",
+                 "options": ["RECORD"], "status": "final", "eval_sha": cur, "history": [],
+                 "evidence": {"seed_terms": {"blocks": {}, "metrics": {}}}}
+        if mig["which"] == "D00s":
+            stub = {"rule_version": 2, "eval_sha": cur, "decisive_at": sorted(decisive_b0(sim)),
+                    "supersedes": "D00", "id": ident}
+            suite_resolution_path(sim).write_text(json.dumps(stub))
+            sim.resolution = stub
+            entry["supersedes"] = "D00"
+        sim.ledger.setdefault("entries", []).append(entry)
+        sim.recompute()
+        return (f"{ident} at eval_sha {cur[:12]}" + (f" (pair {mig.get('s3')}/{mig.get('s2')})"
+                                                     if mig["which"] == "D00bs" else
+                                                     f", file {suite_resolution_path(sim).name}"))
+    if mig["kind"] == "rescore":
+        header = experiments(sim.state)[mig["xid"]]
+        rp.set_seed(sim.c, header.get("seed"))
+        item = item_from_header(sim, header)
+        _header_stage(sim, mig, header, item, mig["floor_stage"])
+        sup = rescore_supersedes(sim, mig["xid"], mig["floor_stage"], cur)
+        _rescore_pass(sim, mig, header, item, mig["floor_stage"],
+                      {"suite": {"run_dir": None, "eval_status": "dry-run", "cat": {}}},
+                      "dry run: PASS assumed (no eval)", sup)
+        return (f"PASS assumed -> {mig['xid']} re-opens at {_next_stage(item, mig['floor_stage'])} as "
+                f"{header.get('status')}; rescores[] supersedes {sup}")
+    header = experiments(sim.state)[mig["xid"]]
+    _rescore_fail_complete(sim, mig, header, mig["floor_stage"], entry_by_id(sim.ledger, mig["old"]))
+    return f"step (3) completed from {mig['new']} / {mig['old']}"
+
+
+def dry_run_migration(ctx: Ctx, *, limit: int = 24) -> list[str]:
+    """Plan Verification 4's dry-run section: the REAL ``migration_item`` derivation and the REAL
+    ``find_inflight`` order, iterated on the campaign dir's own records.
+
+    Simulates the relaunch (``lad.eval_sha`` = the current eval, the proved ``code_sha`` alias),
+    reports what the launch reconcile would squash, walks every migration item with simulated
+    outcomes (rescore PASS), then the resume/queue order with every decision a clear REJECT: each
+    live candidate header's rank-gate verdict, the header ``find_inflight`` returns, or the next
+    queue item. Nothing is written to the campaign dir and nothing is launched.
+    """
+    import tempfile                                                   # noqa: PLC0415
+    lines: list[str] = []
+    if not is_rule_v2(ctx.cands.get("decision_rule")):
+        return ["  (rule_version 1: no migration -- the pre-suite record is scored as it stands)"]
+    sink: list = []
+    with tempfile.TemporaryDirectory(prefix="ladder-dry-run-") as tmp:
+        sim = _DrySim(ctx, Path(tmp), sink)
+        recorded_eval = sim.lad.get("eval_sha")
+        sim.lad["eval_sha"] = ctx.eval_sha
+        proof = getattr(ctx, "eval_proof", None)
+        old_code = sim.lad.get("code_sha")
+        if old_code and old_code != ctx.code:
+            if not (proof or {}).get("ok"):
+                lines.append(f"  WARNING: the alias proof did not succeed ({(proof or {}).get('why')}): a "
+                             "relaunch falls through to the code_sha refusal; simulated as if proved")
+            sim.lad.setdefault("code_sha_aliases", []).append(
+                {"sha": old_code, "proved_at": (proof or {}).get("proved_at"), "why": "dry run", "at": now_iso()})
+        sim.lad["code_sha"] = ctx.code
+        lines.append(f"  simulated relaunch: lad.eval_sha <- {ctx.eval_sha[:12]} (recorded: "
+                     f"{str(recorded_eval)[:12] if recorded_eval else 'none -- pre-suite'}); code_sha "
+                     + (f"{str(old_code)[:12]} aliased to {ctx.code[:12]}" if old_code and old_code != ctx.code
+                        else "unchanged"))
+        view = sim.recompute()
+        moved = [f"{k} ({v})" for k, v in view["entries"].items()
+                 if (entry_by_id(sim.ledger, k) or {}).get("status") != "squashed"]
+        moved += [f"{k} ({v})" for k, v in view["experiments"].items() if k in experiments(sim.state)]
+        decided = [f"{e['id']} {e.get('status')}" for e in entries(sim.ledger)
+                   if e.get("kind") == "candidate"]
+        lines.append("  launch reconcile: " + ("squashes nothing" if not moved else
+                                               "SQUASHES " + "; ".join(moved))
+                     + f" ({', '.join(decided) or 'no candidate entry'})")
+        running = [f"{x} ({h.get('label')})" for x, h in experiments(sim.state).items()
+                   if h.get("status") == "running"]
+        n = 0
+        mig = migration_item(sim)
+        if mig is not None and running:
+            lines.append(f"  recorded running: {', '.join(running)} -- find_inflight returns "
+                         f"{(find_inflight(sim) or {}).get('xid')} while a migration item is pending")
+        while mig is not None and n < limit:
+            n += 1
+            try:
+                did = _dry_migrate(sim, mig)
+            except SystemExit:
+                halt = [m for kind, m in sink if kind == "notify" and m.startswith("HALT")]
+                lines.append(f"  {n:>2}. {mig['label']:<24} would HALT: {halt[-1] if halt else sim.state.get('phase')}")
+                return lines
+            lines.append(f"  {n:>2}. {mig['label']:<24} {did}")
+            lines.append(f"      why: {mig['why']}")
+            squash = [m for kind, m in sink if kind == "notify" and m.startswith("SQUASH")]
+            for m in squash:
+                lines.append(f"      {m}")
+            sink[:] = [s for s in sink if not (s[0] == "notify" and s[1].startswith("SQUASH"))]
+            mig = migration_item(sim)
+        lines.append("  after the migration (simulated: every rescore PASSES, every decision is a clear "
+                     "REJECT):")
+        while n < limit:
+            n += 1
+            gates = [f"{x} ({h.get('label')}): {resume_gate(sim, h) or 'resumes'}"
+                     for x, h in sorted(experiments(sim.state).items(), key=lambda kv: _xid_key(kv[0]))
+                     if h.get("status") == "running" and h.get("kind") == "candidate"
+                     and x not in sim.view["experiments"]]
+            if gates:
+                lines.append("      rank gate: " + " | ".join(gates))
+            header = find_inflight(sim)
+            if header is not None:
+                item = item_from_header(sim, header)
+                done = set(header.get("recs") or [])
+                left = [str(s["stage"]) for s in item["stages"] if f"{header['xid']}:{s['stage']}" not in done]
+                lines.append(f"  {n:>2}. resume {header['xid']} ({header.get('label')}) at "
+                             f"{left[0] if left else '(its eval)'} -- find_inflight")
+                _dry_decide(sim, header)
+                continue
+            item = next_item(sim.cands, sim.ledger, sim.state, code=sim.code, view=sim.view,
+                             resolution=sim.resolution)
+            if item is None:
+                lines.append(f"  {n:>2}. done")
+                break
+            xid = item.get("xid")
+            lines.append(f"  {n:>2}. {item['label']:<24} {item['kind']:<10} "
+                         + (f"(resumes {xid} at its next stage) " if xid else "") + f"-- {item['why']}")
+            if item["kind"] == "await":
+                break
+            if xid:
+                header = experiments(sim.state)[xid]
+                header.setdefault("history", []).append({"at": now_iso(), "from": header.get("status"),
+                                                        "to": "running", "why": "step-8 dispatch (dry run)"})
+                _dry_decide(sim, header)
+                continue
+            before = set(experiments(sim.state))
+            _simulate_apply(sim.cands, sim.ledger, sim.state, item, "REJECT", sim.code)
+            for x in set(experiments(sim.state)) - before:
+                experiments(sim.state)[x]["eval_sha"] = _cur_eval(sim)
+            sim.recompute()
+    return lines
 
 
 def _dry_recipes(ctx: Ctx, ledger: dict):
@@ -6751,6 +9599,13 @@ def loop(ctx: Ctx) -> int:
                           f"{HERE / 'launch_candidates.sh'} --campaign-dir {ctx.dir}",
                           f"remove {ctx.dir / lc.STOP_NAME} first ({ctx.cli('unstop')})"
                           if why == "stop" else "the unit was stopped"])
+        # Plan D9: the eval-only migration runs BEFORE any resume and before `next_item` (whose
+        # baseline-rerun rule would book an 8000-it B0 rerun the moment `ok_screen` goes stale). An
+        # interrupted migration eval writes nothing and comes back here, where the stop check parks.
+        mig = migration_item(ctx)
+        if mig is not None:
+            run_migration_item(ctx, mig)
+            continue
         header = find_inflight(ctx)
         if header is not None:
             prepare_resume(ctx, header)
@@ -6901,15 +9756,20 @@ def _smoke_done(ctx: Ctx) -> bool:
 
 
 def smoke_item(ctx: Ctx, spec_str: str) -> dict:
-    """``--smoke-stage 1a:20``: ONE tiny real window, for the stop drill (Verification 8).
+    """``--smoke-stage 1a:20[:suite]``: ONE tiny real window, for the stop drill (Verification 8).
 
     It runs through the same header / ``inflight`` / resume / interrupt machinery as a real
     experiment and writes no ledger entry, so the drill can stop the unit mid-child and check that
-    the header is resumed by the next launch without touching the campaign's decisions.
+    the header is resumed by the next launch without touching the campaign's decisions. The optional
+    third field names the stage's EVAL rows (comma-separated): ``1a:20:suite`` is the per-category
+    plan's V6 drill, stopped during the suite's wave 3.
     """
-    base, _, iters = str(spec_str).partition(":")
+    parts = str(spec_str).split(":")
+    base = parts[0]
+    iters = parts[1] if len(parts) > 1 else ""
+    rows = [r.strip() for r in parts[2].split(",") if r.strip()] if len(parts) > 2 else []
     stage = {"stage": base, "base": base, "iters": int(iters or 20), "from_scratch": True,
-             "resume_from": "scratch", "overlay": {}, "eval": [], "floor": {"kind": "none"},
+             "resume_from": "scratch", "overlay": {}, "eval": rows, "floor": {"kind": "none"},
              "holds": [], "previous_holds": []}
     recipe = {"chain": None, "overlay_by_stage": {base: {}}, "stages": [stage], "adopted": [],
               "eval_carry": [], "conflicts": [], "anchor": None, "has_pool": False,
@@ -6931,18 +9791,76 @@ def build_parser() -> argparse.ArgumentParser:
                     help="park at await_user:relaunch after this many hours (no default cap)")
     ap.add_argument("--accept-code-change", default=None, metavar="WHY",
                     help="accept a changed code_sha: old screens stop being ok and B<k> reruns are queued")
+    ap.add_argument("--accept-eval-change", default=None, metavar="WHY",
+                    help="accept a changed eval_sha (the harness, the omni manifest, run_phases.py's "
+                         "eval side, eval_categories.py): old screens are re-EVALUATED, never "
+                         "retrained. A pre-suite campaign (a recorded code_sha, no eval_sha) needs it "
+                         "once; the narrowed code_sha is then proved an alias of the recorded one "
+                         "(the training tree did not move) or the launch falls through to the "
+                         "code_sha refusal")
     ap.add_argument("--accept-candidates-change", default=None, metavar="WHY",
                     help="accept a changed candidates.yaml sha256")
-    ap.add_argument("--smoke-stage", default=None, metavar="BASE:ITERS",
-                    help="test hook: run ONE tiny window (e.g. 1a:20) through the full experiment "
+    ap.add_argument("--accept-resolution", nargs=2, action="append", default=None,
+                    metavar=("KIND", "WHY"),
+                    help="accept a D00s or D00bs whose acceptance FAILED at the current eval_sha "
+                         "(plan D9 item 4): recorded in lad.resolution_acceptances; the next "
+                         "computation of that kind then writes the entry with acceptance.ok = false "
+                         "and cites the acceptance. Repeatable.")
+    ap.add_argument("--smoke-stage", default=None, metavar="BASE:ITERS[:ROWS]",
+                    help="test hook: run ONE tiny window (e.g. 1a:20, or 1a:20:suite with the "
+                         "comma-separated eval rows as a third field) through the full experiment "
                          "machinery -- header, inflight, resume, interrupt, records -- and then park "
                          "at await_user:smoke_done without touching the ledger or booking a real "
-                         "window. This is the stop drill's launch (Verification 8).")
+                         "window. This is the stop drill's launch (Verification 8 / the per-category "
+                         "plan's V6). The migration never runs under it.")
     return ap
+
+
+def _eval_change_gate(ctx: Ctx, args, old_code: str | None) -> tuple[dict | None, dict | None]:
+    """Plan D8's eval-side relaunch gate -- run BEFORE the ``code_sha`` comparison. ``(alias, proof)``.
+
+    A campaign with a recorded ``code_sha`` whose ``lad.eval_sha`` is absent (every pre-suite
+    campaign) or differs from ``eval_sha()`` has CHANGED its eval. Without ``--accept-eval-change`` a
+    real launch is refused by a message naming that flag -- never ``--accept-code-change``, whose
+    answer (a ``B<k>`` retrain) is the wrong one for an eval-only change. With it, and when the
+    ``code_sha`` VALUE also moved (the pathspec narrowing moves it), :func:`prove_code_alias` must
+    show the training tree did not move: a proof returns the alias record ``{sha, proved_at, why,
+    at}`` (the caller appends it to ``lad.code_sha_aliases`` and the code refusal and its RELAUNCH
+    "B<k> rerun is queued" text are bypassed); a FAILED proof returns ``(None, proof)`` and the
+    launch falls through to the ``code_sha`` refusal. A dry run never refuses: it only computes the
+    proof so ``dry_run`` can print it.
+    """
+    old_eval = ctx.lad.get("eval_sha")
+    if not old_code or old_eval == ctx.eval_sha:
+        return None, None
+    if not args.accept_eval_change:
+        if args.dry_run:
+            return None, (prove_code_alias(old_code, current=ctx.code) if old_code != ctx.code else None)
+        raise SystemExit(
+            f"eval_sha changed: recorded {old_eval or 'none (this campaign predates the per-category suite)'}"
+            f", now {ctx.eval_sha}.\nEvery recorded screen was measured under the old evaluation. "
+            "Relaunch with --accept-eval-change \"<why>\" to accept it: old screens are "
+            "RE-EVALUATED (rescreen / reeval / rescore), never retrained"
+            + (f"; the changed code_sha ({old_code[:12]} -> {ctx.code[:12]}) is then proved an alias "
+               "of the recorded one or refused" if old_code != ctx.code else "") + ".")
+    if old_code == ctx.code:
+        return None, None
+    proof = prove_code_alias(old_code, current=ctx.code)
+    if not proof["ok"]:
+        ctx.c.log(f"--accept-eval-change: the alias proof FAILED ({proof['why']}); the code_sha "
+                  "comparison decides")
+        return None, proof
+    alias = {"sha": old_code, "proved_at": proof["proved_at"], "narrowed": proof["narrowed_at"],
+             "why": args.accept_eval_change, "at": now_iso()}
+    return alias, proof
 
 
 def main(argv=None) -> int:
     args = build_parser().parse_args(argv)
+    for kind, _why in args.accept_resolution or []:
+        if kind not in RESOLUTION_KINDS:
+            raise SystemExit(f"--accept-resolution names {kind!r}; it accepts one of "
+                             f"{list(RESOLUTION_KINDS)} (the migration's two acceptance-checked records)")
     cdir = Path(args.campaign_dir)
     cdir.mkdir(parents=True, exist_ok=True)
     cands_path = Path(args.candidates) if args.candidates else (cdir / "candidates.yaml")
@@ -6954,16 +9872,19 @@ def main(argv=None) -> int:
     # launch must leave the tree exactly as it found it.
     dirty = dirty_paths()
     if dirty and not args.dry_run:
-        raise SystemExit("the code-bearing tree is dirty; every screen would be unreproducible:\n  - "
+        raise SystemExit("the code- or eval-bearing tree is dirty; every screen would be "
+                         "unreproducible:\n  - "
                          + "\n  - ".join(dirty) + "\ncommit or stash, then relaunch (the ladder's own "
                          "tools and records are outside code_sha by design)")
     ctx = Ctx(cdir, cands, args)
     ctx.code = code_sha()
+    ctx.eval_sha = eval_sha()
     replay_script = (cands.get("replay") or {}).get("script")
     ctx.tools = tools_sha(repo_path(replay_script) if replay_script else None)
     sha = sha256_file(cands_path)
     old_code = ctx.lad.get("code_sha")
-    if old_code and old_code != ctx.code:
+    alias, proof = _eval_change_gate(ctx, args, old_code)
+    if old_code and old_code != ctx.code and alias is None:
         if not args.accept_code_change and not args.dry_run:
             raise SystemExit(f"code_sha changed: recorded {old_code}, now {ctx.code}.\nEvery recorded "
                              "screen was measured under the old tree. Relaunch with "
@@ -6981,10 +9902,35 @@ def main(argv=None) -> int:
                          "--accept-candidates-change \"<why>\" to accept it.")
     if args.dry_run:
         install_sigterm(ctx)
+        ctx.eval_proof = proof
         return dry_run(ctx, verdicts)
 
+    # Only now, past every refusal, is the eval change RECORDED (a refused launch leaves the tree
+    # exactly as it found it).
+    old_eval = ctx.lad.get("eval_sha")
+    if alias is not None:
+        ctx.lad.setdefault("code_sha_aliases", []).append(alias)
+        ctx.c.log(f"--accept-eval-change: {proof['why']} -- {alias['sha'][:12]} recorded as an alias "
+                  f"of {ctx.code[:12]}")
+    if old_eval != ctx.eval_sha:
+        ctx.lad.setdefault("eval_sha_history", []).append(
+            {"from": old_eval, "to": ctx.eval_sha, "why": args.accept_eval_change, "at": now_iso(),
+             "alias": (alias or {}).get("sha")})
+        if old_code:
+            ctx.c.changelog_row(
+                f"eval_sha {str(old_eval or 'none')[:12]} -> {ctx.eval_sha[:12]} accepted "
+                f"({args.accept_eval_change})" + (f"; code_sha {alias['sha'][:12]} proved an alias of "
+                                                  f"{ctx.code[:12]} at {str(alias['proved_at'])[:12]}"
+                                                  if alias else ""))
+    ctx.lad["eval_sha"] = ctx.eval_sha
     ctx.lad["code_sha"] = ctx.code
     ctx.lad["candidates_sha256"] = sha
+    for kind, why in args.accept_resolution or []:
+        # plan D9 item 4: an acceptance is for ONE kind at ONE eval_sha; the next computation of that
+        # kind writes its entry with acceptance.ok = false and cites this record
+        ctx.lad.setdefault("resolution_acceptances", []).append(
+            {"kind": kind, "eval_sha": ctx.eval_sha, "why": why, "at": now_iso()})
+        ctx.c.changelog_row(f"--accept-resolution {kind} at eval_sha {ctx.eval_sha[:12]}: {why}")
     if args.unit:
         ctx.lad["unit"] = args.unit
     ctx.state["phase"] = "run"
@@ -7003,11 +9949,10 @@ def main(argv=None) -> int:
     ctx.c.log(f"ladder start: code_sha {ctx.code[:12]} tools_sha {ctx.tools[:12]} unit {args.unit} "
               f"candidates {cands_path}")
     rp._wait_isaac_clear(lambda: interrupt_reason(ctx, None))
-    if not args.smoke_stage:
-        ensure_resolution(ctx)
-    else:
-        path = ctx.dir / "resolution.json"
-        ctx.resolution = json.loads(path.read_text()) if path.exists() else {}
+    # Plan D9 item 3: BOTH startup branches (the smoke one included) LOAD the resolution; nothing is
+    # computed here -- under rule v2 D00s is a migration queue item and `ctx.resolution` stays None
+    # until it lands (every v2 decision seam halts `resolution_missing` meanwhile).
+    load_resolution(ctx)
     return loop(ctx)
 
 

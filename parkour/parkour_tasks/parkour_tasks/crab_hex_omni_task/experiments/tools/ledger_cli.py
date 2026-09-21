@@ -40,9 +40,15 @@ OVERRIDES_NAME = "ledger_overrides.jsonl"
 STATE_NAME = "state.json"
 STOP_NAME = "STOP"
 
-#: Every tag the driver may emit. The assistant's Monitor relays ALL of them.
+#: Every tag the driver may emit. The assistant's Monitor relays ALL of them. ``MIGRATION``
+#: (per-category plan 2026-09-21, B5) carries the eval-only rescreen / reeval / rescore items that
+#: move a paused campaign onto a new ``eval_sha``; its lines say "eval-only" (nothing trains).
 NOTIFY_TAGS = ("RESOLUTION", "DECISION", "CONFIRM", "SELF-OVERRULE", "OVERRIDE-APPLIED", "SQUASH",
-               "MILESTONE", "RETENTION", "INFRA", "HALT", "DONE", "RELAUNCH", "AWAIT")
+               "MILESTONE", "RETENTION", "INFRA", "HALT", "DONE", "RELAUNCH", "AWAIT", "MIGRATION")
+
+#: What ``show`` prints for an entry (or a campaign) recorded before ``eval_sha`` existed (D8):
+#: every pre-suite record -- D00..D07 of the 2026-09-19 ladder -- has none.
+PREDATES_SUITE = "— (predates the suite)"
 
 #: Milestone entries. They have their OWN verb (``resume-milestone``) and are not decisions.
 MILESTONE_KINDS = ("milestone", "milestone_s2")
@@ -333,6 +339,43 @@ def _load_cands(path: Path) -> dict:
     return yaml.safe_load(path.read_text())
 
 
+def _eval_sha_field(record: dict) -> str:
+    """``eval_sha`` of a ledger entry or campaign record, or :data:`PREDATES_SUITE` when it has none."""
+    return str(record.get("eval_sha") or PREDATES_SUITE)
+
+
+def _names(values) -> str:
+    return ",".join(str(v) for v in values) if values else "none"
+
+
+def _trained_field(entry: dict) -> str:
+    """``trained:`` for ``show`` -- the categories the entry's comparison decided on (plan D4/D5).
+
+    Read from the entry's evidence: ``decisive`` (the CANDIDATE's decisive categories) and
+    ``untrained: {candidate, base}``, as rule v2 decisions record them; a baseline / rescreen entry
+    that carries a screen reads its ``trained_categories`` (``decisive`` + ``watch`` with notes).
+    ``—`` for an entry that predates the per-category suite (nothing was recorded).
+    """
+    ev = entry.get("evidence") or {}
+    tc = ev.get("trained_categories") or (ev.get("screen") or {}).get("trained_categories") or {}
+    decisive = ev.get("decisive")
+    if decisive is None and isinstance(tc, dict):
+        decisive = tc.get("decisive")
+    if decisive is None:
+        return "—"
+    out = _names(decisive)
+    watch = tc.get("watch") if isinstance(tc, dict) else None
+    if watch:
+        notes = watch.items() if isinstance(watch, dict) else ((c, None) for c in watch)
+        out += " (watch: " + ", ".join(f"{c} {note}" if note else str(c) for c, note in notes) + ")"
+    untrained = ev.get("untrained") or {}
+    if isinstance(untrained, dict):
+        parts = [f"{side} {_names(cats)}" for side, cats in untrained.items() if cats]
+        if parts:
+            out += " | untrained: " + "; ".join(parts)
+    return out
+
+
 def cmd_show(cdir: Path, args) -> int:
     led = read_ledger(cdir)
     st = read_state(cdir)
@@ -346,7 +389,8 @@ def cmd_show(cdir: Path, args) -> int:
     if args.json:
         print(json.dumps(rows, indent=2))
         return 0
-    print(f"campaign {cdir}  phase {st.get('phase')}  unit {lad.get('unit')}  code_sha {lad.get('code_sha')}")
+    print(f"campaign {cdir}  phase {st.get('phase')}  unit {lad.get('unit')}  code_sha {lad.get('code_sha')}  "
+          f"eval_sha {_eval_sha_field(lad)}")
     print(f"pending pairs: {lad.get('pending') or []}   user_choice: "
           f"{ {k: v.get('choice') for k, v in (lad.get('user_choice') or {}).items()} }")
     print("| id | kind | candidate | chosen | eff | status | conf | pooled | experiment | frozen |")
@@ -357,6 +401,9 @@ def cmd_show(cdir: Path, args) -> int:
               f"{'/' + e['sub_status'] if e.get('sub_status') else ''} | {e.get('confidence') or ''} | "
               f"{e.get('pooled_confidence') or ''} | {e.get('experiment') or ''} | "
               f"{'yes' if e.get('frozen') else ''} |")
+    for e in rows:
+        # The eval that produced the entry's evidence (D8) and what its comparison decided on (D5).
+        print(f"- {e.get('id')}: eval_sha: {_eval_sha_field(e)} | trained: {_trained_field(e)}")
     for e in rows:
         # A milestone is NOT advertised here: its verb is `resume-milestone`, and advertising
         # confirm/overrule beside it is what made `overrule M1 --choose FAIL` look like the answer.

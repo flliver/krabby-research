@@ -8,12 +8,22 @@ tool's own replication checks run against it for real. No Isaac, no GPU, no netw
 The one test that wants the recorded 1c-004 row (decision 6's null construction names it) skips when
 that run dir is absent -- eval output is untracked, so a fresh checkout has none. Its property is
 pinned unconditionally on synthetic columns by the test above it.
+
+Rule version 2 (per-category eval plan 2026-09-21, D5/D9/D10): ``make_run(suite=True)`` builds a
+``suite__omni`` stamp the way the harness writes one (the real manifest row, row-global segments,
+``aggregate.suite`` from ``report.aggregate`` itself, ``complete.json`` last), and the tests below it
+pin ``D00s``: the env-clustered draw, the expanded rule's six blocks and ten guards, the ratio-system
+null with floored survival guards, the acceptance, the freshness rule and the recorded stamps. The
+v1 tests keep ``RULE`` (hold-keyed) and the frozen v1 ``candidates.yaml`` fixture.
 """
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import json
 import math
+import os
+import shutil
 import sys
 from pathlib import Path
 
@@ -108,14 +118,19 @@ def _raw_episode(sid, rng, *, closes: float, fall: bool):
 
 
 def make_run(tmp: Path, sid, *, head, rng, n_eps=12, closes=0.6, ratio=0.6, tripod=0.5,
-             fall_every=4, env_vars=None, with_raws=True, ge_mods=None):
+             fall_every=4, env_vars=None, with_raws=True, ge_mods=None, suite=False, **suite_kw):
     """One synthetic eval run dir: run_meta, metrics/episode_XX.json, scenario_metrics, raw/*.npz.
 
     The per-hold ``facing`` block is computed from the raws through the harness's own
     ``facing_metrics`` over the harness's own whole-hold window, so ``resolution.py``'s window
     replication check passes iff the tool cuts the same window the harness does -- which is the point
     of building the fixture this way rather than hand-writing numbers.
+
+    ``suite=True`` builds a ``category_suite`` stamp instead (:func:`make_suite_run`).
     """
+    if suite:
+        return make_suite_run(tmp, head=head, rng=rng, closes=closes, ratio=ratio, tripod=tripod,
+                              env_vars=env_vars, with_raws=with_raws, ge_mods=ge_mods, **suite_kw)
     RPT, M = ge_mods
     labels, hold_s, prologue_s, fall_excl = _schedule(sid)
     fall_trim = int(round(fall_excl / DT))
@@ -176,6 +191,160 @@ def make_run(tmp: Path, sid, *, head, rng, n_eps=12, closes=0.6, ratio=0.6, trip
                                          "tippy_tap_fraction", "slip_ratio_mean",
                                          "termination_reason", "n_steps", "facing_error_rms")}
                       for e in episodes]}, sort_keys=True))
+    return run
+
+
+SUITE = "suite__omni"
+
+
+def _suite_scenario():
+    """The committed ``suite__omni`` row, parsed by the harness's own loader."""
+    S = res._gait_schedule()
+    return next(sc for sc in S.load_manifest(res.rp.OMNI_MANIFEST)[0] if sc.id == SUITE)
+
+
+def ckpt_of(run: Path) -> Path:
+    """Where :func:`make_suite_run` put the checkpoint file the stamp records."""
+    return run.parent / f"{run.name}_ckpt" / "model_999.pt"
+
+
+def make_suite_run(run: Path, *, head, rng, ge_mods, n_env=8, closes=0.6, ratio=0.6, tripod=0.5,
+                   fall_every=5, fall_offset=0, env_vars=None, with_raws=True, complete=True,
+                   checkpoint=None, ckpt_bytes=None):
+    """One synthetic ``suite__omni`` stamp, written the way the harness writes a suite row.
+
+    The real manifest row (ten waves, 2 s settle, 12 s holds); ``n_env`` envs per wave, episode
+    ``env_index = wave * n_env + env`` running ``[prologue, settle, its own hold]`` with row-global
+    ``segment_id`` into the 11-label union. Every union label carries an entry (unvisited ones with
+    ``n_steps: 0``), facing from the harness's ``facing_metrics`` on the harness's window (the new
+    harness keeps ``facing_closed``), and the aggregate -- incl. ``aggregate.suite`` -- comes from
+    ``report.aggregate(..., suite=suite_aggregate_arg(run_meta))`` itself. ``complete.json`` is
+    written LAST, as ``write_run`` does. Env ``j`` falls halfway through its own hold in wave ``w``
+    when ``(j + w + fall_offset) % fall_every == 0`` (heads with different offsets fall on different
+    episodes, so their paired survival difference is not degenerate); otherwise env ``n_env - 1`` of
+    wave 0 falls ON the wave's last step (which counts as survived).
+    """
+    RPT, M = ge_mods
+    S = res._gait_schedule()
+    sc = _suite_scenario()
+    suite = sc.suite
+    labels = suite.hold_labels()
+    settle = labels[0]
+    geo = res._manifest_scenario(SUITE)
+    n_pro = int(round(geo["prologue_s"] / DT))
+    n_set = int(round(geo["settle_hold_s"] / DT))
+    fall_trim = int(round(geo["fall_exclusion_s"] / DT))
+    cat_of, hand_of = suite.category_of_hold(), suite.hand_of_hold()
+    hold_def = {h.label: h for h in suite.holds()}
+    ckpt = Path(checkpoint) if checkpoint is not None else ckpt_of(run)
+    if checkpoint is None:
+        ckpt.parent.mkdir(parents=True, exist_ok=True)
+        ckpt.write_bytes(ckpt_bytes if ckpt_bytes is not None else f"weights of {head}".encode())
+    sha = hashlib.sha256(ckpt.read_bytes()).hexdigest()
+    (run / "metrics").mkdir(parents=True, exist_ok=True)
+    if with_raws:
+        (run / "raw").mkdir(parents=True, exist_ok=True)
+    episodes, n_steps_env, raws = [], [], []
+    for w, own in enumerate(labels[1:]):
+        hd = hold_def[own]
+        n_hold = int(round(float(geo["hold_s"][own]) / DT))
+        turning = abs(hd.face) > 0.0
+        for j in range(n_env):
+            i = w * n_env + j
+            seg = np.concatenate([np.full(n_pro, -1), np.zeros(n_set), np.full(n_hold, w + 1)])
+            seg = seg.astype(np.int16)
+            t = np.arange(n_hold) / max(1, n_hold - 1)
+            e0 = (np.sign(hd.face) * (1.5708 + 0.05 * rng.standard_normal()) if turning
+                  else 0.03 * rng.standard_normal())
+            e_hold = e0 * (1.0 - closes * t) + 0.01 * rng.standard_normal(n_hold)
+            err = np.concatenate([0.01 * rng.standard_normal(n_pro + n_set), e_hold])
+            wz = np.gradient(-err, DT) * 0.5 + 0.01 * rng.standard_normal(err.size)
+            cmd = np.zeros((err.size, 3))
+            cmd[n_pro + n_set:, 0] = hd.speed
+            if turning:
+                cmd[n_pro + n_set:, 2] = 0.3 * np.sign(hd.face)
+            raw = {"segment_id": seg, "steady_mask": np.ones(seg.size, dtype=bool),
+                   "heading_err": err.astype(np.float32),
+                   "root_ang_vel_b": np.stack([np.zeros(err.size), np.zeros(err.size), wz],
+                                              axis=-1).astype(np.float32),
+                   "cmd_applied": cmd.astype(np.float32)}
+            total = seg.size
+            n_steps, reason = total, "schedule_complete"
+            if fall_every and (j + w + fall_offset) % fall_every == 0:
+                n_steps, reason = n_pro + n_set + n_hold // 2, "fall"
+            elif w == 0 and j == n_env - 1:
+                reason = "fall"                          # ON the last step: survived
+            raw = {k: v[:n_steps] for k, v in raw.items()}
+            holds = {}
+            for hi, label in enumerate(labels):
+                widx = res.whole_hold_index(raw["segment_id"], hi, n_steps,
+                                            ended_in_fall=reason in ("fall", "hard_fall"),
+                                            fall_trim_steps=fall_trim)
+                fac = M.facing_metrics(raw["heading_err"][widx], raw["root_ang_vel_b"][widx, 2], DT,
+                                       wz_cmd_t=raw["cmd_applied"][widx, 2],
+                                       min_initial=res.FACING_CLOSED_MIN_INITIAL_RAD)
+                entry = {"label": label, "n_steps": int(widx.size), "facing": fac,
+                         "tripod": {"tripod_score": None, "low_confidence": False, "valid": False,
+                                    "discard_reason": "short"}}
+                if widx.size and label in (own, settle):
+                    entry["motion"] = {"speed_abs_mean_m_s": float(abs(0.02 + 0.01 * rng.standard_normal())),
+                                       "pos_drift_m": 0.1, "path_len_m": 0.2, "yaw_drift_rad": 0.0,
+                                       "foot_lift_count": 3, "contact_churn_per_s": 1.0,
+                                       "n_steps": int(widx.size)}
+                if widx.size and label == own:
+                    entry["tripod"] = {"tripod_score": float(tripod + 0.05 * rng.standard_normal()),
+                                       "low_confidence": bool(rng.random() < 0.1), "valid": True,
+                                       "discard_reason": None}
+                    if hd.speed > 0.0:
+                        got = float(hd.speed * (ratio + 0.05 * rng.standard_normal()))
+                        entry["tracking"] = {"vx": {"cmd_mean": hd.speed, "actual_mean": got,
+                                                    "ratio": got / hd.speed, "mean_abs": abs(got),
+                                                    "rms": abs(got), "signed_mean": got},
+                                             "vy": {"actual_mean": 0.0, "cmd_mean": 0.0},
+                                             "wz": {"actual_mean": 0.0, "cmd_mean": 0.0}}
+                        entry["direction"] = {
+                            "direction_error_rad": float(abs(0.1 * rng.standard_normal())),
+                            "cross_track_ratio": float(abs(0.1 * rng.standard_normal())),
+                            "travel_speed_m_s": got}
+                holds[label] = entry
+            own_entry = holds[own]
+            ep = {"env_index": i, "n_steps": int(n_steps), "duration_s": n_steps * DT,
+                  "termination_reason": reason, "completed_schedule": reason == "schedule_complete",
+                  "tripod_score": own_entry["tripod"]["tripod_score"], "tippy_tap_fraction": 0.1,
+                  "slip_ratio_mean": 0.1, "facing_error_rms": 0.5, "holds": holds,
+                  "discarded_windows": [],
+                  "tracking_ratio": (own_entry["tracking"]["vx"]["ratio"]
+                                     if own_entry.get("tracking") else None),
+                  "wave": w, "hold": own, "category": cat_of[own], "hand": hand_of[own]}
+            episodes.append(ep)
+            n_steps_env.append(int(n_steps))
+            raws.append(raw)
+    meta = {"scenario_id": SUITE, "hold_labels": list(labels), "dt": DT, "num_envs": n_env,
+            "n_steps_per_env": n_steps_env, "plant": "A15+B", "checkpoint": str(ckpt),
+            "checkpoint_sha256": sha,
+            "env_vars": dict(FIVE_CARRY if env_vars is None else env_vars)}
+    meta.update(S.suite_run_meta(sc, dt=DT, num_envs=n_env,
+                                 wave_seeds=[S.wave_seed(sc, k) for k in range(sc.waves)],
+                                 trained_categories=list(res._ec().CATEGORIES)))
+    agg = RPT.aggregate(episodes, suite=RPT.suite_aggregate_arg(meta))
+    (run / "run_meta.json").write_text(json.dumps(meta, sort_keys=True))
+    for ep in episodes:
+        (run / "metrics" / f"episode_{ep['env_index']:02d}.json").write_text(json.dumps(ep, sort_keys=True))
+    (run / "scenario_metrics.json").write_text(json.dumps(
+        {"scenario_id": SUITE, "aggregate": agg, "run_meta": meta,
+         "episodes": [{k: e[k] for k in ("env_index", "tripod_score", "tracking_ratio",
+                                         "tippy_tap_fraction", "slip_ratio_mean",
+                                         "termination_reason", "n_steps", "facing_error_rms")}
+                      for e in episodes]}, sort_keys=True))
+    if with_raws:
+        for ep, raw in zip(episodes, raws):
+            payload = dict(raw)
+            payload["dt"] = np.asarray(DT, dtype=np.float64)
+            np.savez_compressed(run / "raw" / f"episode_{ep['env_index']:02d}.npz", **payload)
+    if complete:
+        (run / "complete.json").write_text(json.dumps(
+            {"episodes_total": len(episodes), "checkpoint_sha256": sha, "raw_written": with_raws},
+            sort_keys=True))
     return run
 
 
@@ -879,6 +1048,9 @@ def test_summary_text_names_every_input_and_the_resolution_line(three_heads):
 LADDER = (REPO / "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments"
           / "2026-09-19_facing_tracking_ladder")
 SHIPPED_D00 = LADDER / "resolution.json"
+#: The pre-suite ``candidates.yaml`` (``git show 464be672:<ladder>/candidates.yaml``), frozen byte for
+#: byte: the live yaml moves to rule version 2, and D00 is the record of THIS spec.
+CANDIDATES_V1 = REPO / "tests/unit/fixtures/candidates_v1_2026-09-19.yaml"
 
 
 def test_the_null_construction_is_run_under_D00s_own_cross_head_R():
@@ -897,7 +1069,7 @@ def test_the_null_construction_is_run_under_D00s_own_cross_head_R():
     shipped = json.loads(SHIPPED_D00.read_text())
     row = res.load_row({"run_dir": str(RECORDED_1C)}, ring_proxy=False, rule=RULE)
     specs, _ = res.specs_from_rule(RULE, row.hold_labels)
-    scored = shipped["by_row"][res.SCREEN_ROW]
+    scored = shipped["by_row"][res.LEGACY_SCREEN_ROW]     # D00 is the v1 record: slow__omni
     r_metrics = {mid: m["R_eval"] for mid, m in scored["metrics"].items()}
     r_blocks = {name: b["R_eval"] for name, b in scored["blocks"].items()}
     assert r_metrics and r_blocks, "the shipped record carries the screen row's own table"
@@ -921,7 +1093,8 @@ def test_the_shipped_record_pins_its_control_head_rather_than_the_input_order():
     if not SHIPPED_D00.exists():
         pytest.skip("the shipped resolution.json is untracked")
     import yaml
-    doc = yaml.safe_load((LADDER / "candidates.yaml").read_text())
+    # The FROZEN v1 spec D00 was measured against (the live yaml is rule v2 since the suite).
+    doc = yaml.safe_load(CANDIDATES_V1.read_text())
     assert doc["decision_rule"]["control_head"] == "1c-004"
     shipped = json.loads(SHIPPED_D00.read_text())
     for sid, table in shipped["by_row"].items():
@@ -945,3 +1118,723 @@ def test_a_metric_in_two_blocks_takes_the_wider_of_their_levels():
                                            "diag", "back"))
     shared2 = [s for s in specs2 if s.mid == "facing_closed_by_hold.turn_l90"]
     assert len(shared2) == 1 and shared2[0].level == 0.99
+
+
+# =================================================================================================
+# Rule version 2: D00s on the category suite (per-category eval plan 2026-09-21, D5 / D9 / D10)
+# =================================================================================================
+EC = res._ec()
+ALL7 = list(EC.CATEGORIES)
+RULE_V2 = EC.default_rule_v2(bootstrap={"B": 200, "paired_on": "env_index", "rng_seed": 7},
+                             control_head="1c-004",
+                             charter_floors={"completion": 0.10, "tripod_walking_dir": 0.056})
+EVAL_SHA = "e" * 64
+STAMP = "2026-09-22_01-00-00"
+NormalDistZ99 = 2.3263478740408408          # z_0.99, the one-sided guard level
+
+
+def _union(decisive=None):
+    dec = ALL7 if decisive is None else decisive
+    return EC.expand_rule_union(RULE_V2, dec, dec)
+
+
+def _stamp_dir(root: Path, stamp: str = STAMP) -> Path:
+    """``<eval_dir>/suite__omni/seed001/<stamp>`` -- the harness's stamp layout."""
+    return root / SUITE / "seed001" / stamp
+
+
+def _pair_entry(root: Path, head: str, run: Path, **kw) -> dict:
+    """A checkpoint-shaped ``role: pair`` input (plan D9 item 2) with its recorded stamp."""
+    return {"head": head, "role": "pair", "preset": "1c", "eval_dir": str(root),
+            "checkpoint": str(ckpt_of(run)), "stamp": run.name, "row": SUITE, **kw}
+
+
+def _fake_d00():
+    """A D00-shaped record: light/ring by_row tables and the frozen v1 decision_rule."""
+    table = {"metrics": {"completion": {"R_eval": 0.11, "block": "guard"}},
+             "blocks": {"F": {"R_eval": 0.8}, "T": {"R_eval": 0.7}},
+             "watch_metrics": {}, "control_head": "1c-004", "heads": ["1c-004", "2b"]}
+    return {"by_row": {"light__omni": dict(table), "ring__omni": dict(table, heads=["x"]),
+                       "slow__omni": dict(table, heads=["slow"])},
+            "decision_rule": json.loads(json.dumps(RULE))}
+
+
+@pytest.fixture(scope="module")
+def suite_heads(tmp_path_factory, ge):
+    """1c-004 / 2b / 2a-reeval on ``suite__omni``, each a stamp under its own reeval root."""
+    base = tmp_path_factory.mktemp("suite_heads")
+    rng = np.random.default_rng(21)
+    out = {}
+    for head, kw in (("1c-004", dict(closes=0.7, fall_offset=0)),
+                     ("2b", dict(closes=0.4, ratio=0.5, tripod=0.4, fall_offset=1)),
+                     ("2a-reeval", dict(closes=0.6, fall_offset=2))):
+        root = base / f"reeval_{head}"
+        run = _stamp_dir(root)
+        run.parent.mkdir(parents=True)
+        make_run(run, SUITE, head=head, rng=rng, ge_mods=ge, suite=True, **kw)
+        out[head] = (root, run)
+    return out
+
+
+def _v2_cands(suite_heads, *extra, rule=None):
+    return {"resolution_inputs": [_pair_entry(root, head, run)
+                                  for head, (root, run) in suite_heads.items()] + list(extra),
+            "decision_rule": json.loads(json.dumps(RULE_V2 if rule is None else rule))}
+
+
+@pytest.fixture(scope="module")
+def d00s(suite_heads):
+    """The D00s payload of the three suite heads -- resolve() exactly as the driver calls it."""
+    return res.resolve(_v2_cands(suite_heads), eval_sha=EVAL_SHA, decisive_at=sorted(ALL7),
+                       d00=_fake_d00(), supersedes="D00", candidates_sha256="c" * 64)
+
+
+def _copy_run(src: Path, dst: Path) -> Path:
+    shutil.copytree(src, dst)
+    ck = ckpt_of(src)
+    if ck.exists() and not ckpt_of(dst).exists():
+        shutil.copytree(ck.parent, ckpt_of(dst).parent)
+    return dst
+
+
+# ---------------------------------------------------------------------------- the clustered draw
+def test_clustered_draw_keeps_every_hold_count_and_hand_split(suite_heads):
+    W, E, B = 10, 7, 50
+    draw = res.cluster_draw(np.random.default_rng(3), E, W, B)
+    assert draw.shape == (B, W * E)
+    # every drawn position stays inside its own wave -> every hold keeps exactly E episodes
+    assert np.array_equal(draw // E, np.broadcast_to(np.repeat(np.arange(W), E), draw.shape))
+    # ... and the SAME env draw is taken in every wave (the robot is resampled, not the episode)
+    env = draw % E
+    for w in range(1, W):
+        assert np.array_equal(env[:, w * E:(w + 1) * E], env[:, :E])
+    assert len(np.unique(env)) > 1, "a resample, not the identity"
+    # on a real suite row: per replicate, every hold has its n and each paired category its l/r split
+    _, run = suite_heads["1c-004"]
+    row = res.load_row(_entry(run, head="1c-004"), ring_proxy=False, rule=_union())
+    assert row.suite and row.waves == 10 and row.episodes_per_wave == 8
+    idx = res.cluster_draw(np.random.default_rng(4), row.episodes_per_wave, row.waves, 40)
+    holds = np.asarray(row.hold_index)[idx]
+    hands = np.asarray(row.hand_index, dtype=object)[idx]
+    cats = np.asarray(row.category_index)[idx]
+    for label in row.hold_of_wave:
+        assert np.all(np.sum(holds == label, axis=1) == 8), label
+    for cat in ("side", "turn", "move_turn"):
+        in_cat = cats == cat
+        assert np.all(np.sum(in_cat & (hands == "l"), axis=1) == 8), cat
+        assert np.all(np.sum(in_cat & (hands == "r"), axis=1) == 8), cat
+    # one wave is the legacy episode draw, bit for bit
+    assert np.array_equal(res.cluster_draw(np.random.default_rng(11), 13, 1, 40),
+                          np.random.default_rng(11).integers(0, 13, size=(40, 13)))
+
+
+def test_suite_pairing_on_env_index_pairs_within_category_and_hand(suite_heads, tmp_path, ge):
+    rows = {h: res.load_row(_entry(run, head=h), ring_proxy=False, rule=_union())
+            for h, (_, run) in suite_heads.items()}
+    a, b = rows["1c-004"], rows["2b"]
+    assert a.env_index == b.env_index and a.hold_index == b.hold_index
+    assert a.hand_index == b.hand_index and a.pairing_key == b.pairing_key
+    specs, _ = res.specs_from_rule(_union(), a.hold_labels, suite=True)
+    pr = res.bootstrap_pair(a, b, B=200, rng_seed=7, specs=specs)
+    # the pair-local block diagnostics iterate the rule's blocks (F_mt included), never a literal
+    assert list(pr.blocks) == ["F", "F_mt", "T", "F_abs", "F_mt_abs", "T_abs"]
+    assert set(pr.blocks["F_mt"]["members"]) == {"cat.move_turn.facing_closed",
+                                                 "cat.move_turn.yaw_progress"}
+    # the SAME clustered draw is applied to both heads, and a hand's column is NaN outside that hand
+    draw = res.cluster_draw(res.pair_rng(7, pr.name), a.episodes_per_wave, a.waves, 200)
+    for mid, col in (("cat.side.by_hand.l.ratio", "cat:side:hand:l:ratio"),
+                     ("cat.move_turn.facing_closed", "cat:move_turn:facing_closed"),
+                     ("cat.turn.survival", "cat:turn:survival")):
+        red = "mean" if mid.endswith("survival") else "median"
+        want = res._reduce(red, [a.cols[col][draw]]) - res._reduce(red, [b.cols[col][draw]])
+        np.testing.assert_array_equal(pr.deltas[mid], want)
+    lat_l = np.asarray(a.hold_index) == "lat_l"
+    assert np.all(np.isfinite(a.cols["cat:side:hand:l:survival"][lat_l]))
+    assert np.all(np.isnan(a.cols["cat:side:hand:l:survival"][~lat_l]))
+    # a row of another geometry is refused, never paired on env_index
+    odd = make_run(tmp_path / "odd", SUITE, head="odd", rng=np.random.default_rng(5), ge_mods=ge,
+                   suite=True, n_env=6)
+    other = res.load_row(_entry(odd, head="odd"), ring_proxy=False, rule=_union())
+    with pytest.raises(res.ResolutionError, match="pairing precondition"):
+        res.bootstrap_pair(a, other, B=50, rng_seed=7, specs=specs)
+
+
+# ----------------------------------------------------------------------- the v2 record (D00s)
+def test_resolve_expands_the_v2_rule_and_publishes_F_mt_R(d00s):
+    out = d00s
+    assert out["rule_version"] == 2 and out["screen_row"] == SUITE
+    assert out["eval_sha"] == EVAL_SHA and out["supersedes"] == "D00"
+    assert out["decisive_at"] == sorted(ALL7), "recorded exactly as the driver passed it"
+    six = ("F", "F_mt", "T", "F_abs", "F_mt_abs", "T_abs")
+    assert set(out["blocks"]) == set(six)
+    for block in six:
+        assert out["blocks"][block]["R_eval"] > 0.0, block
+        for mid in out["blocks"][block]["members"]:
+            assert out["metrics"][mid]["R_eval"] > 0.0, (block, mid)
+    assert set(out["blocks"]["F_mt"]["members"]) == {"cat.move_turn.facing_closed",
+                                                     "cat.move_turn.yaw_progress"}
+    assert set(out["blocks"]["F_mt_abs"]["members"]) == {"cat.move_turn.facing_closed",
+                                                         "cat.move_turn.net_yaw"}
+    assert set(out["blocks"]["F"]["members"]) == {"cat.turn.facing_closed", "cat.turn.yaw_progress"}
+    # both move_turn guards (ratio for ratio-units candidates, achieved_speed for absolute_units)
+    for g in ("cat.move_turn.ratio", "cat.move_turn.achieved_speed", "cat_tripod_min"):
+        assert out["metrics"][g]["block"] == "guard" and out["metrics"][g]["R_eval"] > 0.0, g
+        assert out["metrics"][g]["one_sided"] and out["metrics"][g]["level"] == 0.99
+    guards = {m for m, v in out["metrics"].items() if v["block"] == "guard"}
+    assert guards == set(_union()["guards"]["metrics"]) and len(guards) == 10
+    assert {f"cat.{c}.survival" for c in ALL7} <= guards
+    sys_ = out["scored_systems"]
+    assert sys_["ratio"]["blocks"] == ["F", "F_mt", "T"] and len(sys_["ratio"]["guards"]) == 9
+    assert sys_["absolute"]["blocks"] == ["F_abs", "F_mt_abs", "T_abs"]
+    assert out["acceptance"] == {"ok": True, "failures": []}
+    assert out["resolution_line"].startswith("RESOLUTION D00s | env-clustered paired bootstrap")
+    assert "F_mt R=" in out["resolution_line"] and "F_mt_abs R=" in out["resolution_line"]
+    assert out["by_category_n"]["side"] == {"n": 16, "n_env": 8, "holds": {"lat_l": 8, "lat_r": 8}}
+    assert out["by_category_n"]["fwd"]["n"] == 8
+    assert out["decision_rule"] == RULE_V2, "the raw v2 rule is frozen verbatim"
+    assert out["watch_metrics"] and all(v["block"] == "watch" for v in out["watch_metrics"].values())
+    assert not any("borrowed_from" in v for v in out["watch_metrics"].values())
+    for rec in out["inputs"]:
+        assert rec["role"] == "pair" and rec["suite"] and rec["stamp"] == STAMP
+    json.dumps(out)                                         # JSON-safe as written
+    text = res.summary_text(out)
+    assert "rule_version 2 on suite__omni" in text and "acceptance ok" in text
+    assert out["resolution_line"] in text
+    # the legacy charter floors are cited against the WATCH R the suite measured for them
+    assert any("charter floor cited, not applied: completion" in n for n in out["notes"])
+    # the raw v2 rule never reaches specs_from_rule unexpanded (it would score the legacy surface)
+    with pytest.raises(res.ResolutionError, match="not expanded"):
+        res.specs_from_rule(RULE_V2, res._manifest_scenario(SUITE)["hold_labels"], suite=True)
+
+
+def test_null_all_tie_scores_exactly_the_ratio_systems_blocks_and_guards(d00s, suite_heads):
+    out = d00s
+    ratio = EC.expand_rule(RULE_V2, ALL7, ALL7, absolute_units=False)
+    assert out["diagnostics"]["null_scored"] == {"blocks": ["F", "F_mt", "T"],
+                                                 "guards": sorted(ratio["guards"]["metrics"])}
+    assert len(out["diagnostics"]["null_scored"]["guards"]) == 9
+    assert out["null_nominal"] == pytest.approx(0.95 ** 3 * 0.99 ** 9)
+    # the absolute-units system is measured and reported, never scored into all_tie
+    cal = out["diagnostics"]["null_calibrated"]
+    assert "cat.move_turn.achieved_speed" in cal["guards"] and "F_abs" in cal["blocks"]
+    # pinned directly: all_tie is the conjunction of exactly those TIE indicators
+    _, run = suite_heads["1c-004"]
+    row = res.load_row(_entry(run, head="1c-004"), ring_proxy=False, rule=_union())
+    specs, _ = res.specs_from_rule(_union(), row.hold_labels, suite=True)
+    kw = dict(n=len(row.env_index), B=200, N=400, waves=row.waves,
+              survival_guards=[f"cat.{c}.survival" for c in ALL7])
+    base = res.null_construction(row.cols, specs, rng=np.random.default_rng(9),
+                                 scored_blocks=["F", "F_mt", "T"],
+                                 scored_guards=ratio["guards"]["metrics"], **kw)
+    wider = res.null_construction(row.cols, specs, rng=np.random.default_rng(9),
+                                  scored_blocks=["F", "F_mt", "T", "F_abs", "F_mt_abs", "T_abs"],
+                                  scored_guards=_union()["guards"]["metrics"], **kw)
+    assert base["scored"]["blocks"] == ["F", "F_mt", "T"]
+    assert wider["all_tie"] <= base["all_tie"], "more conjuncts can only remove TIEs"
+    assert base["blocks"] == wider["blocks"] and base["guards"] == wider["guards"]
+
+
+def test_d00s_copies_light_and_ring_by_row_from_d00(d00s, suite_heads):
+    d00 = _fake_d00()
+    for row in ("light__omni", "ring__omni"):
+        want = dict(d00["by_row"][row], by_row_source="D00")
+        assert d00s["by_row"][row] == want, row
+    assert "slow__omni" not in d00s["by_row"], "only light/ring are copied"
+    assert d00s["by_row_rule"] == d00["decision_rule"] and d00s["by_row_rule"] == RULE
+    assert d00s["by_row_source"] == {"light__omni": "D00", "ring__omni": "D00"}
+    assert "by_row_source" not in d00s["by_row"][SUITE], "the suite table is D00s' own"
+    broken = _fake_d00()
+    del broken["by_row"]["ring__omni"]
+    with pytest.raises(res.ResolutionError, match="ring__omni"):
+        res.resolve(_v2_cands(suite_heads), eval_sha=EVAL_SHA, decisive_at=ALL7, d00=broken)
+    with pytest.raises(res.ResolutionError, match="decision_rule"):
+        res.resolve(_v2_cands(suite_heads), eval_sha=EVAL_SHA, decisive_at=ALL7,
+                    d00={"by_row": _fake_d00()["by_row"]})
+    if SHIPPED_D00.exists():                  # the real record has both tables and its rule
+        shipped = json.loads(SHIPPED_D00.read_text())
+        real = res.resolve(_v2_cands(suite_heads), eval_sha=EVAL_SHA, decisive_at=ALL7, d00=shipped)
+        assert real["by_row"]["ring__omni"]["metrics"] == shipped["by_row"]["ring__omni"]["metrics"]
+        assert real["by_row_rule"] == shipped["decision_rule"]
+
+
+def test_one_member_block_R_eval_is_exactly_one(suite_heads):
+    """A one-member block standardises its member by that member's own merged R: z = delta / R, and
+    the 95 % half-width of z is then exactly 1 on the pair that set R (<= 1 on the others)."""
+    out = res.resolve(_v2_cands(suite_heads), eval_sha=EVAL_SHA, decisive_at=["stand", "fwd"])
+    assert out["blocks"]["T"]["members"] == ["cat.fwd.ratio"]
+    assert out["blocks"]["T_abs"]["members"] == ["cat.fwd.achieved_speed"]
+    for block in ("T", "T_abs"):
+        assert out["blocks"][block]["R_eval"] == pytest.approx(1.0, abs=1e-12), block
+        assert all(v <= 1.0 + 1e-12 for v in out["blocks"][block]["per_pair"].values())
+    # F / F_mt have no decisive member: N/A -- absent from the record, never a TIE-ing R
+    assert not {"F", "F_mt", "F_abs", "F_mt_abs"} & set(out["blocks"])
+    assert out["scored_systems"]["ratio"]["blocks"] == ["T"]
+    assert set(out["scored_systems"]["ratio"]["na_blocks"]) == {"F", "F_mt"}
+    assert out["null_nominal"] == pytest.approx(0.95 * 0.99 ** 3)   # stand/fwd survival + tripod_min
+
+
+def test_the_screen_row_is_the_suite(three_heads, suite_heads):
+    assert res.SCREEN_ROW == "suite__omni" and res.LEGACY_SCREEN_ROW == "slow__omni"
+    a, b, c = three_heads
+    legacy = _cands(_entry(a, head="1c-004"), _entry(b, head="2b"))
+    assert res.resolve(legacy)["screen_row"] == "slow__omni", "a v1 rule stays on the legacy row"
+    with pytest.raises(res.ResolutionError, match="suite__omni"):
+        res.resolve({"resolution_inputs": legacy["resolution_inputs"],
+                     "decision_rule": json.loads(json.dumps(RULE_V2))}, decisive_at=ALL7)
+    # informational legacy rows ride along under v2 without pairs or category-id noise
+    out = res.resolve(_v2_cands(suite_heads, _entry(a, head="1c-004", role="informational")),
+                      decisive_at=ALL7)
+    assert out["screen_row"] == SUITE and "slow__omni" not in out["by_row"]
+    assert not any("slow__omni" in n and "category id" in n for n in out["notes"])
+    with pytest.raises(res.ResolutionError, match="decisive_at"):
+        res.resolve(_v2_cands(suite_heads))
+    with pytest.raises(res.ResolutionError, match="rule_version 2 arguments"):
+        res.resolve(legacy, decisive_at=ALL7)
+
+
+def test_borrow_and_curriculum_runs_are_retired_under_rule_v2(suite_heads, three_heads, d00s):
+    assert any("retired" in n for n in d00s["notes"])
+    assert not any("borrow lat_l" in n for n in d00s["notes"])
+    assert "ratio_by_hold.lat_r" not in d00s["watch_metrics"]
+    a, _, _ = three_heads
+    with pytest.raises(res.ResolutionError, match="retired under rule_version 2"):
+        res.resolve(_v2_cands(suite_heads), decisive_at=ALL7, curriculum_runs=[a])
+
+
+# --------------------------------------------------------------------- the inputs and their stamps
+def test_resolve_eval_dir_requires_the_completion_marker_and_matches_checkpoints_by_sha(
+        tmp_path, ge):
+    root = tmp_path / "reeval_x"
+    run = _stamp_dir(root)
+    run.parent.mkdir(parents=True)
+    make_run(run, SUITE, head="x", rng=np.random.default_rng(6), ge_mods=ge, suite=True, n_env=4)
+    ck = ckpt_of(run)
+    assert res.resolve_eval_dir(root, SUITE) == run
+    # the harness records an ABSOLUTE path; candidates.yaml a repo-relative one -- still the same file
+    rel = os.path.relpath(ck, res.REPO)
+    assert not Path(rel).is_absolute()
+    assert res.resolve_eval_dir(str(root), SUITE, checkpoint=rel) == run
+    # the same bytes somewhere else match by sha256 ...
+    twin = tmp_path / "elsewhere" / "model_999.pt"
+    twin.parent.mkdir()
+    twin.write_bytes(ck.read_bytes())
+    assert res.resolve_eval_dir(root, SUITE, checkpoint=twin) == run
+    assert res.checkpoint_matches(twin, json.loads((run / "run_meta.json").read_text()))
+    # ... and another checkpoint's bytes are refused
+    other = tmp_path / "other" / "model_999.pt"
+    other.parent.mkdir()
+    other.write_bytes(b"another head")
+    with pytest.raises(res.ResolutionError, match="not the entry's checkpoint"):
+        res.check_suite_stamp(run, checkpoint=other)
+    # a missing raw -> a refusal naming the stamp, never a FileNotFoundError
+    gone = next((run / "raw").glob("episode_*.npz"))
+    gone.unlink()
+    with pytest.raises(res.ResolutionError, match="partial raw set") as exc:
+        res.check_suite_stamp(run)
+    assert str(run) in str(exc.value)
+    with pytest.raises(res.ResolutionError):
+        res.load_row(_entry(run), ring_proxy=False, rule=_union())
+    # no completion marker -> partial: never read, whatever else is there
+    part = _stamp_dir(tmp_path / "reeval_y")
+    part.parent.mkdir(parents=True)
+    make_run(part, SUITE, head="y", rng=np.random.default_rng(7), ge_mods=ge, suite=True, n_env=4,
+             complete=False)
+    with pytest.raises(res.ResolutionError, match="complete.json"):
+        res.resolve_eval_dir(tmp_path / "reeval_y", SUITE)
+    with pytest.raises(res.ResolutionError, match="complete.json"):
+        res.load_row(_entry(part), ring_proxy=False, rule=_union())
+
+
+def test_resolve_eval_dir_takes_the_newest_stamp_or_refuses(tmp_path, ge):
+    root = tmp_path / "reeval_z"
+    old = _stamp_dir(root, "2026-09-22_01-00-00")
+    new = _stamp_dir(root, "2026-09-22_02-00-00")
+    old.parent.mkdir(parents=True)
+    ck = tmp_path / "ck" / "model_999.pt"
+    ck.parent.mkdir()
+    ck.write_bytes(b"the head")
+    for run in (old, new):
+        make_run(run, SUITE, head="z", rng=np.random.default_rng(8), ge_mods=ge, suite=True,
+                 n_env=4, checkpoint=ck)
+    assert res.resolve_eval_dir(root, SUITE, checkpoint=ck) == new
+    (new / "complete.json").unlink()                        # the newer one is partial
+    assert res.resolve_eval_dir(root, SUITE, checkpoint=ck) == old
+    (old / "complete.json").unlink()
+    with pytest.raises(res.ResolutionError, match="passes the freshness rule") as exc:
+        res.resolve_eval_dir(root, SUITE)
+    assert "2026-09-22_01-00-00" in str(exc.value) and "2026-09-22_02-00-00" in str(exc.value)
+    with pytest.raises(res.ResolutionError, match="no eval stamps"):
+        res.resolve_eval_dir(tmp_path / "nothing", SUITE)
+
+
+def test_a_pair_input_reads_its_recorded_stamp_and_refuses_without_one(suite_heads, tmp_path, ge):
+    root, run = suite_heads["2b"]
+    entry = _pair_entry(root, "2b", run)
+    row = res.load_row(entry, ring_proxy=False, rule=_union())
+    assert row.run_dir == run and row.stamp == STAMP and row.entry_checkpoint == str(ckpt_of(run))
+    # a NEWER complete stamp of the same checkpoint is never picked over the recorded one
+    newer = _copy_run(run, _stamp_dir(root, "2026-09-30_00-00-00"))
+    try:
+        assert res.load_row(entry, ring_proxy=False, rule=_union()).run_dir == run
+    finally:
+        shutil.rmtree(newer)
+        shutil.rmtree(ckpt_of(newer).parent, ignore_errors=True)
+    missing = {k: v for k, v in entry.items() if k != "stamp"}
+    with pytest.raises(res.ResolutionError, match=r"2b \(role: pair\): no reeval stamp"):
+        res.load_row(missing, ring_proxy=False, rule=_union())
+    with pytest.raises(res.ResolutionError, match="both run_dir and checkpoint"):
+        res.load_row(dict(entry, run_dir=str(run)), ring_proxy=False, rule=_union())
+    with pytest.raises(res.ResolutionError, match="neither run_dir nor"):
+        res.load_row({"head": "ghost", "role": "pair"}, ring_proxy=False, rule=_union())
+    with pytest.raises(res.ResolutionError, match="needs both checkpoint and eval_dir"):
+        res.load_row({"head": "half", "checkpoint": "x.pt"}, ring_proxy=False, rule=_union())
+    # resolve() refuses the whole record when one pair input has no stamp (the driver halts D00s)
+    cands = _v2_cands(suite_heads)
+    cands["resolution_inputs"][1] = missing
+    with pytest.raises(res.ResolutionError, match="2b"):
+        res.resolve(cands, decisive_at=ALL7)
+
+
+def test_seed_pair_role_is_excluded_from_cross_head_pairs(suite_heads, tmp_path, ge):
+    root = tmp_path / "X02"
+    run = _stamp_dir(root)
+    run.parent.mkdir(parents=True)
+    make_run(run, SUITE, head="B0-s2", rng=np.random.default_rng(12), ge_mods=ge, suite=True,
+             closes=0.5, fall_offset=3)
+    seed_pair = {"head": "B0-s2", "role": "seed_pair", "preset": "1c", "eval_dir": str(root),
+                 "checkpoint": str(ckpt_of(run)), "row": SUITE}
+    base = res.resolve(_v2_cands(suite_heads), decisive_at=ALL7)
+    out = res.resolve(_v2_cands(suite_heads, seed_pair), decisive_at=ALL7)
+    assert {p["name"] for p in out["pairs"]} == {"1c-004 vs 2b @suite__omni",
+                                                 "1c-004 vs 2a-reeval @suite__omni"}
+    rec = next(i for i in out["inputs"] if i["head"] == "B0-s2")
+    assert rec["accepted"] is False and rec["role"] == "seed_pair" and "seed_pair" in rec["reason"]
+    assert rec["run_dir"] == str(run), "resolved through resolve_eval_dir (newest fresh stamp)"
+    for mid, m in out["metrics"].items():
+        assert m["R_eval"] == base["metrics"][mid]["R_eval"], mid
+        assert not any("B0-s2" in k for k in m["per_pair"]), mid
+
+
+# ------------------------------------------------------------------------------ load_row on a suite
+def test_load_row_verifies_a_suite_row_under_the_full_v2_rule_and_rule_less(suite_heads):
+    _, run = suite_heads["1c-004"]
+    row = res.load_row(_entry(run, head="1c-004"), ring_proxy=False, rule=_union())
+    assert row.suite and row.facing_closed_source == "metric" and row.mask_deviation == 0.0
+    assert row.reducer_check and all(v <= 1e-9 for v in row.reducer_check.values())
+    assert {"cat.turn.facing_closed", "cat.move_turn.yaw_progress", "cat.side.ratio",
+            "cat.stand.survival", "cat_tripod_min"} <= set(row.reducer_check)
+    labels = row.hold_labels
+    specs, unresolved = res.specs_from_rule(_union(), labels, suite=True)
+    assert {"turn_survival_l90", "turn_survival_r90"} <= set(unresolved)
+    assert "not nested" in res.why_unresolved("turn_survival_l90", labels, suite=True)
+    assert not any(s.mid.startswith("turn_survival") for s in res.metric_specs(labels, suite=True))
+    assert any(s.mid.startswith("turn_survival") for s in res.metric_specs(labels)), "legacy kept"
+    # surv:<h> is each hold's OWN survival: NaN outside that hold's episodes
+    agg = json.loads((run / "scenario_metrics.json").read_text())["aggregate"]
+    own = np.asarray(row.hold_index)
+    for label in row.hold_of_wave:
+        col = row.cols[f"surv:{label}"]
+        assert np.all(np.isnan(col[own != label])) and np.all(np.isfinite(col[own == label]))
+        assert float(np.mean(col[own == label])) == pytest.approx(
+            agg["suite"]["survival_by_hold"][label], abs=1e-12)
+    assert np.all(np.isnan(row.cols["surv:settle"]))
+    # a fall ON the wave's last step survived (env 7 of wave 0 -- the fixture's boundary case)
+    assert row.cols["surv:stand"][7] == 1.0
+    # rule-less: the fallback both shared helpers use verifies too, and is never refused
+    bare = res.load_row(_entry(run), ring_proxy=False)
+    assert bare.reducer_check and all(v <= 1e-9 for v in bare.reducer_check.values())
+    summary = res.summarize_run_dir(run)
+    assert summary["facing_closed_source"] == "metric"
+    assert summary["facing_closed_by_hold"]["turn_l90"] is not None
+    assert summary["facing_closed_by_hold"]["fwd"] is None, "a travel hold has nothing to close"
+    assert summary["cat"]["side"]["n"] == 16 and summary["cat"]["side"]["n_env"] == 8
+    closed, source = res.facing_closed_by_hold_from_raws(run)
+    assert source == "metric" and closed["move_turn_r"] is not None
+
+
+def test_load_row_refuses_a_populated_hold_that_is_not_the_episodes_own(suite_heads, tmp_path):
+    _, src = suite_heads["2a-reeval"]
+    run = _copy_run(src, tmp_path / "copy")
+    path = run / "metrics" / "episode_32.json"               # wave 4 = back
+    ep = json.loads(path.read_text())
+    assert ep["hold"] == "back" and ep["holds"]["fwd"]["n_steps"] == 0
+    ep["holds"]["fwd"]["n_steps"] = 5
+    path.write_text(json.dumps(ep, sort_keys=True))
+    with pytest.raises(res.ResolutionError, match="has 5 steps in hold 'fwd'"):
+        res.load_row(_entry(run), ring_proxy=False, rule=_union())
+    # an episode whose own-hold key disagrees with aggregate.suite is refused too
+    ep["holds"]["fwd"]["n_steps"] = 0
+    ep["hold"] = "diag"
+    path.write_text(json.dumps(ep, sort_keys=True))
+    with pytest.raises(res.ResolutionError, match="own hold is 'diag'"):
+        res.load_row(_entry(run), ring_proxy=False, rule=_union())
+
+
+def test_summary_with_survival_uses_the_suite_block(suite_heads, monkeypatch):
+    _, run = suite_heads["2b"]
+
+    def _no_walk(sid):                       # the cumulative walk must never run on a suite row
+        raise AssertionError(f"_manifest_hold_s({sid!r}) called on a suite row")
+
+    monkeypatch.setattr(res.rp, "_manifest_hold_s", _no_walk)
+    agg = json.loads((run / "scenario_metrics.json").read_text())["aggregate"]
+    summary = res._summary_with_survival(run, SUITE)
+    assert summary["survival_by_hold"] == agg["suite"]["survival_by_hold"]
+    assert "settle" not in summary["survival_by_hold"]
+    # ... which is NOT what a cumulative walk over the union labels would give
+    eps = json.loads((run / "scenario_metrics.json").read_text())["episodes"]
+    geo = res._manifest_scenario(SUITE)
+    walked = res.rp.survival_by_hold(eps, geo["hold_labels"], {"settle": 2.0, **geo["hold_s"]},
+                                     dt=DT)
+    assert walked["fwd"] != summary["survival_by_hold"]["fwd"]
+    # the own-hold ends are round((prologue + settle + hold) / dt) for every label
+    ends = res._survival_end_steps(SUITE, DT)
+    assert set(ends) == set(geo["hold_s"]) and set(ends.values()) == {round(15.5 / DT)}
+    assert res._manifest_scenario(SUITE)["kind"] == "category_suite"
+    assert res._manifest_scenario("slow__omni")["kind"] == "schedule"
+
+
+# ------------------------------------------------------------------------- the registry on a suite
+def test_cat_ids_reproduce_summarize_cat_keys(suite_heads):
+    """Every per-episode ``cat`` key, pooled and per hand, reproduces ``summarize()['cat']``."""
+    _, run = suite_heads["1c-004"]
+    labels = res._manifest_scenario(SUITE)["hold_labels"]
+    ids = [f"cat.{c}.{k}" for c in ALL7 for k in res.CAT_COLUMN_KEYS]
+    ids += [f"cat.{c}.by_hand.{h}.{k}" for c in EC.PAIRED_CATEGORIES for h in "lr"
+            for k in res.CAT_COLUMN_KEYS]
+    rule = {"rule_version": 2, "expanded": True, "blocks": {},
+            "guards": {"level": 0.99, "metrics": ["cat_tripod_min"]},
+            "composite": {"cat_tripod_min": ["fwd", "side", "back", "diag"]}, "watch": ids}
+    specs, unresolved = res.specs_from_rule(rule, labels, suite=True)
+    assert unresolved == [] and len(specs) == len(ids) + 1
+    row = res.load_row(_entry(run), ring_proxy=False, rule=rule)
+    checked = {m for m, v in row.reducer_check.items() if v == 0.0 or v <= 1e-9}
+    assert set(ids) | {"cat_tripod_min"} <= set(row.reducer_check)
+    assert set(row.reducer_check) == checked
+    # ... against the actual summary values (not a vacuous both-missing pass) where there is one
+    summary = res._summary_with_survival(run, SUITE)
+    live = [m for m in ids if res._summary_value(summary, m) is not None]
+    assert len(live) > len(ids) // 2
+    # the counts are no per-episode quantity; category ids never resolve off a suite row
+    for mid in ("cat.fwd.n", "cat.side.n_env"):
+        assert res.spec_for(mid, labels, block="watch", blocks_all=(), level=0.95, one_sided=False,
+                            suite=True) is None
+        assert "count" in res.why_unresolved(mid, labels, suite=True)
+    legacy_labels = res._manifest_scenario("slow__omni")["hold_labels"]
+    for mid in ("cat.fwd.ratio", "cat_tripod_min"):
+        assert res.spec_for(mid, legacy_labels, block="watch", blocks_all=(), level=0.95,
+                            one_sided=False) is None
+        assert "category_suite row only" in res.why_unresolved(mid, legacy_labels)
+
+
+def test_reducer_check_covers_cat_tripod_min(suite_heads, tmp_path):
+    _, src = suite_heads["1c-004"]
+    row = res.load_row(_entry(src), ring_proxy=False, rule=_union())
+    assert row.reducer_check["cat_tripod_min"] <= 1e-9
+    spec = next(s for s in res.specs_from_rule(_union(), row.hold_labels, suite=True)[0]
+                if s.mid == "cat_tripod_min")
+    assert spec.needs == tuple(f"cat:{c}:tripod" for c in ("fwd", "side", "back", "diag"))
+    assert spec.reducer == "min_of_medians" and spec.block == "guard"
+    # its reference is the SHARED composite over the summary: move the fwd tripod and it disagrees
+    run = _copy_run(src, tmp_path / "moved")
+    sm_path = run / "scenario_metrics.json"
+    sm = json.loads(sm_path.read_text())
+    sm["aggregate"]["suite"]["by_category"]["fwd"]["tripod"]["median"] = -1.0
+    sm_path.write_text(json.dumps(sm, sort_keys=True))
+    with pytest.raises(res.ResolutionError, match="cat_tripod_min"):
+        res.load_row(_entry(run), ring_proxy=False, rule=_union())
+    # ... and a summary with no value for a member is a NAMED refusal, not a NaN
+    sm["aggregate"]["suite"]["by_category"]["fwd"]["tripod"]["median"] = None
+    sm_path.write_text(json.dumps(sm, sort_keys=True))
+    with pytest.raises(res.ResolutionError, match="composite_guards gives no value"):
+        res.load_row(_entry(run), ring_proxy=False, rule=_union())
+    # a narrower decisive set narrows the composite (the expanded rule's own members)
+    narrow = EC.expand_rule_union(RULE_V2, ["stand", "fwd", "back"], ["stand", "fwd", "back"])
+    spec2 = next(s for s in res.specs_from_rule(narrow, row.hold_labels, suite=True)[0]
+                 if s.mid == "cat_tripod_min")
+    assert spec2.needs == ("cat:fwd:tripod", "cat:back:tripod")
+
+
+# ------------------------------------------------------------------------------ guards and nulls
+def test_survival_guard_R_has_the_binomial_floor(d00s):
+    assert res.binomial_guard_floor(1.0, 100) == pytest.approx(0.0717, abs=5e-4)
+    assert res.binomial_guard_floor(1.0, 200) == pytest.approx(0.0507, abs=5e-4)
+    assert res.binomial_guard_floor(0.0, 100) == pytest.approx(res.binomial_guard_floor(1.0, 100))
+    assert res.binomial_guard_floor(0.5, 100) == pytest.approx(
+        NormalDistZ99 * math.sqrt(2 * 0.25 / 100))
+    assert res.binomial_guard_floor(None, 100) is None and res.binomial_guard_floor(0.5, 0) is None
+    # the pooled form: max(today's, R_binom / sqrt2); None keeps today's rule exactly
+    assert res.pooled_guard_R(0.08, 0.03) == res.pooled_guard_R(0.08, 0.03, None)
+    assert res.pooled_guard_R(0.0, None, r_binom=0.0717) == pytest.approx(0.0717 / math.sqrt(2))
+    assert res.pooled_guard_R(None, None, r_binom=0.0717) == pytest.approx(0.0717 / math.sqrt(2))
+    assert res.pooled_guard_R(0.3, 0.2, r_binom=0.01) == pytest.approx(res.pooled_guard_R(0.3, 0.2))
+    assert res.pooled_guard_R(0.02, 0.01) < 0.0717 / math.sqrt(2)          # the floor binds here
+    assert res.pooled_guard_R(0.02, 0.01, r_binom=0.0717) == pytest.approx(0.0717 / math.sqrt(2))
+    # D00s names each survival guard's floor per cross-head pair
+    for c in ALL7:
+        m = d00s["metrics"][f"cat.{c}.survival"]
+        for name, pp in m["binomial_floor"]["per_pair"].items():
+            pt = m["points"][name]
+            assert pp["p_bar"] == pytest.approx((pt["a"] + pt["b"]) / 2)
+            assert pp["R_binom"] == pytest.approx(res.binomial_guard_floor(pp["p_bar"], pp["n_c"]))
+            assert pp["n_c"] == (8 if c in ("stand", "fwd", "back", "diag") else 16)
+        assert m["binomial_floor"]["R_binom"] == max(
+            v["R_binom"] for v in m["binomial_floor"]["per_pair"].values())
+    assert any(n.startswith("binomial floors") for n in d00s["notes"])
+    assert set(d00s["null_survival_tie"]) == {f"cat.{c}.survival" for c in ALL7}
+
+
+
+def test_null_band_uses_the_clustered_draw_and_the_floored_guard_R():
+    W, E = 10, 12
+    n = W * E
+    wave = np.repeat(np.arange(W), E)
+    # a quantity that exists only in wave 3: a clustered resample always has exactly E of it, so its
+    # mean indicator over all episodes never moves -- an unclustered one does
+    ind = res._spec("x", "guard", (), None, ("x",), "mean", level=0.99, one_sided=True)
+    cols = {"x": (wave == 3).astype(np.float64)}
+    clustered = res.null_construction(cols, [ind], n=n, B=300, N=200, waves=W,
+                                      rng=np.random.default_rng(1))
+    flat = res.null_construction(cols, [ind], n=n, B=300, N=200, rng=np.random.default_rng(1))
+    assert clustered["R_metrics"]["x"] == 0.0 and flat["R_metrics"]["x"] > 0.0
+    # the survival floor: against a tiny R a Bernoulli(0.5) survival trips often; floored at R_binom
+    # (z_0.99 sqrt(2 p(1-p) / n_c), n_c = the category's episode count) it almost never does
+    rng = np.random.default_rng(2)
+    surv = np.full(n, np.nan)
+    surv[wave == 5] = (rng.random(E) < 0.5).astype(np.float64)
+    g = res._spec("cat.fwd.survival", "guard", (), "fwd", ("cat:fwd:survival",), "mean",
+                  level=0.99, one_sided=True)
+    c2 = {"cat:fwd:survival": surv}
+    tiny = {"R_metrics": {"cat.fwd.survival": 1e-6}, "R_blocks": {}}
+    raw = res.null_construction(c2, [g], n=n, N=400, waves=W, rng=np.random.default_rng(3), **tiny)
+    floored = res.null_construction(c2, [g], n=n, N=400, waves=W, rng=np.random.default_rng(3),
+                                    survival_guards=["cat.fwd.survival"], **tiny)
+    assert raw["guards"]["cat.fwd.survival"] < 0.8
+    assert floored["guards"]["cat.fwd.survival"] >= 0.99
+    p = float(np.mean(surv[wave == 5]))
+    assert floored["binomial_floor"]["cat.fwd.survival"] == pytest.approx(
+        res.binomial_guard_floor(p, E), rel=0.35)
+    # a survival guard with no R at all is scored on the floor alone, never dropped
+    none_r = res.null_construction(c2, [g], n=n, N=100, waves=W, rng=np.random.default_rng(4),
+                                   R_metrics={"cat.fwd.survival": None}, R_blocks={},
+                                   survival_guards=["cat.fwd.survival"])
+    assert "cat.fwd.survival" in none_r["guards"]
+
+
+def test_d00s_acceptance_is_the_null_band_and_completeness():
+    systems = {"ratio": {"blocks": ["F", "F_mt", "T"], "na_blocks": [],
+                         "members": {"F": ["m.f"], "F_mt": ["m.fmt"], "T": ["m.t"]},
+                         "guards": ["cat.fwd.survival", "cat.move_turn.ratio", "cat_tripod_min"]},
+               "absolute": {"blocks": ["T_abs"], "na_blocks": [], "members": {"T_abs": ["m.ta"]},
+                            "guards": ["cat.fwd.survival", "cat.move_turn.achieved_speed"]}}
+    good_m = {k: {"R_eval": 0.1} for k in ("m.f", "m.fmt", "m.t", "m.ta", "cat.move_turn.ratio",
+                                            "cat_tripod_min", "cat.move_turn.achieved_speed")}
+    good_m["cat.fwd.survival"] = {"R_eval": 0.0}           # exempt: scored on the binomial floor
+    good_b = {b: {"R_eval": 0.9} for b in ("F", "F_mt", "T", "T_abs")}
+    nominal = 0.78
+    ok = res.acceptance_d00s(good_b, good_m, systems, {"all_tie": 0.80}, nominal)
+    assert ok == {"ok": True, "failures": []}
+    assert not res.acceptance_d00s(good_b, good_m, systems, {"all_tie": 0.74}, nominal)["ok"]
+    assert not res.acceptance_d00s(good_b, good_m, systems, {"all_tie": 0.99}, nominal)["ok"]
+    assert not res.acceptance_d00s(good_b, good_m, systems, None, nominal)["ok"]
+    for mutate, needle in (
+            (lambda b, m: b.pop("F_mt"), "block F_mt"),                      # F_mt with no R
+            (lambda b, m: m["m.f"].update(R_eval=0.0), "F member m.f"),       # a member at 0
+            (lambda b, m: m["cat_tripod_min"].update(R_eval=None), "guard cat_tripod_min"),
+            (lambda b, m: m.pop("cat.move_turn.achieved_speed"), "cat.move_turn.achieved_speed")):
+        b, m = json.loads(json.dumps(good_b)), json.loads(json.dumps(good_m))
+        mutate(b, m)
+        got = res.acceptance_d00s(b, m, systems, {"all_tie": 0.80}, nominal)
+        assert not got["ok"] and any(needle in f for f in got["failures"]), (needle, got)
+
+
+# ------------------------------------------------------------------------------ legacy bit-identity
+def test_legacy_pairs_are_bit_identical_under_the_clustered_path(three_heads):
+    a, b, _ = three_heads
+    rows = [res.load_row(_entry(r, head=h), ring_proxy=False, rule=RULE)
+            for r, h in ((a, "1c-004"), (b, "2b"))]
+    assert not rows[0].suite and rows[0].waves == 1
+    specs, _ = res.specs_from_rule(RULE, rows[0].hold_labels)
+    pr = res.bootstrap_pair(rows[0], rows[1], B=200, rng_seed=7, specs=specs)
+    n = len(rows[0].env_index)
+    draw = res.pair_rng(7, pr.name).integers(0, n, size=(200, n))     # the pre-suite draw
+    for spec in specs:
+        want = (res._reduce(spec.reducer, [rows[0].cols[c][draw] for c in spec.needs])
+                - res._reduce(spec.reducer, [rows[1].cols[c][draw] for c in spec.needs]))
+        np.testing.assert_array_equal(pr.deltas[spec.mid], want, err_msg=spec.mid)
+    # the null construction's legacy draw: two plain episode resamples per call, in that order
+    rng = np.random.default_rng(5)
+    got = res.null_construction(rows[0].cols, specs, n=n, B=100, N=50, rng=rng)
+    rng = np.random.default_rng(5)
+    ia, ib = rng.integers(0, n, size=(100, n)), rng.integers(0, n, size=(100, n))
+    for spec in specs:
+        ref = (res._reduce(spec.reducer, [rows[0].cols[c][ia] for c in spec.needs])
+               - res._reduce(spec.reducer, [rows[0].cols[c][ib] for c in spec.needs]))
+        want = res.half_width(ref, res.quantile_p(spec.level, one_sided=spec.one_sided))
+        assert got["R_metrics"][spec.mid] == res._jf(want), spec.mid
+    assert got["scored"]["blocks"] == ["F", "T"]
+    assert "binomial_floor" not in got, "no guard of a legacy null is floored"
+
+
+@pytest.mark.skipif(not (SHIPPED_D00.exists() and CANDIDATES_V1.exists()),
+                    reason="the shipped D00 record or its recorded inputs are untracked")
+def test_the_shipped_d00_is_reproduced_bit_for_bit_from_the_frozen_v1_spec():
+    """The strongest legacy pin: D00 recomputed from the frozen v1 candidates.yaml under today's
+    code equals the shipped record in every number (``created`` aside)."""
+    cands = res.load_candidates(CANDIDATES_V1)
+    if not all(Path(e["run_dir"]).exists() or (res.REPO / e["run_dir"]).exists()
+               for e in cands["resolution_inputs"]):
+        pytest.skip("the D00 input run dirs are untracked")
+    sha = hashlib.sha256(CANDIDATES_V1.read_bytes()).hexdigest()
+    out = res.resolve(cands, candidates_sha256=sha)
+    shipped = json.loads(SHIPPED_D00.read_text())
+    out.pop("created"), shipped.pop("created")
+    assert json.loads(json.dumps(out)) == shipped
+
+
+# ---------------------------------------------------------------------------------- the CLI mirror
+def test_main_mirrors_the_in_process_d00s_call(suite_heads, tmp_path, monkeypatch):
+    import yaml
+    camp = tmp_path / "camp"
+    camp.mkdir()
+    cands = _v2_cands(suite_heads)
+    stamps = {}
+    for e in cands["resolution_inputs"]:
+        stamps[e["head"]] = e.pop("stamp")          # the yaml never carries the stamps
+    (camp / "candidates.yaml").write_text(yaml.safe_dump(cands))
+    d00_path = tmp_path / "resolution.json"
+    d00_path.write_text(json.dumps(_fake_d00()))
+    reevals = [{"head": h, "eval_sha": EVAL_SHA, "stamp": s} for h, s in stamps.items()]
+    reevals.append({"head": "2b", "eval_sha": "f" * 64, "stamp": "an-older-eval"})
+    before = sorted(p.name for p in camp.iterdir())
+    argv = ["--campaign-dir", str(camp), "--eval-sha", EVAL_SHA, "--reeval-stamps",
+            json.dumps(reevals), "--supersedes", "D00", "--d00", str(d00_path)]
+    assert res.main(argv) == 0
+    out_path = camp / f"resolution.{EVAL_SHA[:12]}.json"
+    assert sorted(p.name for p in camp.iterdir()) == sorted(before + [out_path.name])
+    written = json.loads(out_path.read_text())
+    sha = hashlib.sha256((camp / "candidates.yaml").read_bytes()).hexdigest()
+    in_process = res.resolve(dict(cands, resolution_inputs=res.apply_reeval_stamps(
+        cands["resolution_inputs"], stamps)), eval_sha=EVAL_SHA, decisive_at=ALL7,
+        d00=_fake_d00(), supersedes="D00", candidates_sha256=sha)
+    written.pop("created"), in_process.pop("created")
+    assert written == json.loads(json.dumps(in_process))
+    assert written["eval_sha"] == EVAL_SHA and written["supersedes"] == "D00"
+    # the object form works too; a missing stamp refuses (rc 1) and writes nothing
+    out_path.unlink()
+    assert res.main(argv[:4] + ["--reeval-stamps", json.dumps(stamps)]) == 0 and out_path.exists()
+    out_path.unlink()
+    assert res.main(argv[:4] + ["--reeval-stamps", json.dumps({"1c-004": STAMP})]) == 1
+    assert not out_path.exists()
+    assert res.main(["--campaign-dir", str(camp)]) == 1, "rule v2 needs --eval-sha or --out"
+    # a failing acceptance writes only the rejected diagnostic, never the record
+    monkeypatch.setattr(res, "acceptance_d00s",
+                        lambda *a, **k: {"ok": False, "failures": ["forced"]})
+    assert res.main(argv) == 2
+    assert not out_path.exists()
+    assert (camp / f"resolution.{EVAL_SHA[:12]}.D00s.rejected.json").exists()
+    # resolve() itself never writes
+    snapshot = sorted(p.name for p in camp.iterdir())
+    res.resolve(dict(cands, resolution_inputs=res.apply_reeval_stamps(
+        cands["resolution_inputs"], stamps)), eval_sha=EVAL_SHA, decisive_at=ALL7)
+    assert sorted(p.name for p in camp.iterdir()) == snapshot

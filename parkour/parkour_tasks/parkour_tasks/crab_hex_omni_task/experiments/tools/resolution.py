@@ -76,17 +76,50 @@ ledger, not here. The combination rules are still defined here, once, as pure fu
 (:func:`single_block_R`, :func:`single_guard_R`, :func:`pooled_block_R`, :func:`pooled_guard_R`,
 :func:`block_seed_term`) so the driver imports them instead of re-deriving decision 6's arithmetic.
 
+RULE VERSION 2 -- ``D00s``, THE SUITE RESOLUTION (per-category eval plan 2026-09-21, D5/D9/D10)
+-----------------------------------------------------------------------------------------------
+A ``decision_rule`` with ``rule_version: 2`` carries per-category templates, not flat blocks, and is
+scored on the ``suite__omni`` row (:data:`SCREEN_ROW`; the recorded rows keep
+:data:`LEGACY_SCREEN_ROW`). :func:`resolve` then
+
+* expands the rule with the SHARED ``eval_categories.expand_rule`` (loaded by path, never
+  re-implemented) at ``decisive = present = decisive_at`` -- the UNION of both unit systems, so the
+  record carries an R for ``F, F_mt, T`` and ``F_abs, F_mt_abs, T_abs``, the seven ``survival``
+  guards, ``cat.move_turn.ratio``, ``cat.move_turn.achieved_speed`` and ``cat_tripod_min``;
+* reads each ``role: pair`` input from the eval stamp the driver recorded for it (the entry's
+  ``stamp``; a missing one is a :class:`ResolutionError` naming the head) and every other
+  checkpoint-shaped input through :func:`resolve_eval_dir`; every SUITE stamp must pass the
+  completion-marker freshness rule (``complete.json``, a full raw set, the entry's checkpoint);
+* draws the paired bootstrap CLUSTERED ON THE WITHIN-WAVE ENV: a replicate resamples env ids and
+  takes every wave's episode of each drawn env, so each hold keeps its n, each paired category its
+  hand split, and the same startup-randomised robot stays correlated across categories. A legacy
+  row (one wave) reduces to the episode draw above, bit for bit;
+* runs the null candidate on the RATIO system only (its three blocks and nine guards), clustered
+  the same way, with every ``survival`` guard floored at :func:`binomial_guard_floor` and no seed
+  term, and records ``acceptance = {ok, failures}``: that calibrated null inside
+  ``[nominal - 0.03, 0.98]`` AND a finite positive ``R_eval`` for every non-empty block, every block
+  member and every non-survival guard in both unit systems (survival guards pass on the floor);
+* copies ``D00``'s ``light``/``ring`` ``by_row`` tables (``by_row_source: D00``) and its frozen
+  ``decision_rule`` as ``by_row_rule`` -- milestones score those rows on the v1 rule unchanged.
+
+``BORROW`` and ``--curriculum-runs`` are retired under rule version 2 (the suite measures both
+hands). :func:`resolve` never writes; :func:`write_resolution` does.
+
 Usage::
 
     resolution.py --campaign-dir <ladder dir> [--candidates <candidates.yaml>] [--out resolution.json]
+    resolution.py --campaign-dir <dir> --eval-sha <sha> --reeval-stamps '{"2b": "<stamp>", ...}' \\
+        --supersedes D00 --d00 <dir>/resolution.json          # a rule_version 2 (D00s) manual run
 
 ``--candidates`` defaults to ``<campaign-dir>/candidates.yaml`` and supplies ``resolution_inputs``
 (the run dirs) and ``decision_rule`` (frozen verbatim into the record). The driver calls
-:func:`main` by import-by-path when ``resolution.json`` is absent.
+:func:`main` by import-by-path when ``resolution.json`` is absent; under rule version 2 it calls
+:func:`resolve` in process instead (the CLI above is the manual mirror).
 """
 from __future__ import annotations
 
 import argparse
+import copy
 import hashlib
 import importlib.util
 import json
@@ -97,6 +130,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
+from statistics import NormalDist
 from typing import Any, Iterable, Sequence
 
 import numpy as np
@@ -108,6 +142,10 @@ PKG = HERE.parents[1]
 FWD_PKG = PKG.parent / "crab_hex_forward_task"
 GAIT_SCRIPTS = FWD_PKG / "scripts"          # the dir `from gait_eval import metrics` resolves against
 RUN_PHASES_PY = HERE / "run_phases.py"
+#: The shared category helpers (``expand_rule``, ``composite_guards``, the category tables). Loaded
+#: BY PATH like everything else here: a dotted import would run the package ``__init__``'s Isaac
+#: ``import_packages``.
+EVAL_CATEGORIES_PY = PKG / "eval_categories.py"
 
 
 def _load(path: Path, name: str):
@@ -130,6 +168,13 @@ def _load(path: Path, name: str):
 
 
 rp = _load(RUN_PHASES_PY, "crab_hex_omni_run_phases")   # EVAL_CARRY(+DEFAULTS), summarize, _manifest_hold_s
+
+
+@lru_cache(maxsize=1)
+def _ec():
+    """``eval_categories``, loaded by path on first use (it is pure, but a legacy-only reader of this
+    module has no reason to load it)."""
+    return _load(EVAL_CATEGORIES_PY, "crab_hex_omni_eval_categories")
 
 SCHEMA = 1
 #: Bootstrap draws (decision 6). 2000 is the plan's number; the 95 %/99 % quantiles of a 2000-sample
@@ -156,15 +201,39 @@ FACING_CLOSED_MIN_INITIAL_RAD = 0.15     # == gait_eval.metrics.FACING_CLOSED_MI
 #: The re-scored facing keys must reproduce the recorded ones to this tolerance (measured deviation
 #: on the twelve D00 inputs: exactly 0.0 on every key, every episode, every hold).
 MASK_CHECK_TOL = 1e-9
-#: The row every screen is scored on (decision 1 / the `screen {eval: [slow]}` block). Its metrics
-#: and blocks are the flat ``metrics``/``blocks`` of the record; other rows land in ``by_row``.
-SCREEN_ROW = "slow__omni"
+#: The row every screen is scored on under rule version 2 (per-category plan D1/D10: the category
+#: suite). Its metrics and blocks are the flat ``metrics``/``blocks`` of the record; other rows land
+#: in ``by_row``.
+SCREEN_ROW = "suite__omni"
+#: The screen row of the recorded rule-version-1 records (``D00``, ``resolution.json``): a v1 rule is
+#: still resolved there, and its ``by_row`` tables (light/ring) are what milestones score on.
+LEGACY_SCREEN_ROW = "slow__omni"
 F_HOLDS = ("turn_l90", "turn_r90", "move_turn")
 T_HOLDS = ("fwd", "lat_l", "diag", "back")
 #: Right-handed holds: WATCH only (decision 5), and present only on the curriculum row. They borrow
-#: their left-handed twin's R until ``--curriculum-runs`` re-derives them (decision 6).
+#: their left-handed twin's R until ``--curriculum-runs`` re-derives them (decision 6). Rule
+#: version 1 only: the suite measures both hands, so rule version 2 retires both mechanisms.
 BORROW = {"lat_r": "lat_l", "move_turn_r": "move_turn"}
 CURRICULUM_ROW = "curriculum__omni"
+#: Every block name, in the order records and lines enumerate them. The set a record actually
+#: carries is always DERIVED from the rule passed (a v1 rule has F/T/F_abs/T_abs, the expanded v2
+#: union all six); this tuple only orders them.
+BLOCK_ORDER = ("F", "F_mt", "T", "F_abs", "F_mt_abs", "T_abs")
+#: The null candidate's scored blocks under a v1 rule (decision 5's two blocks).
+LEGACY_SCORED_BLOCKS = ("F", "T")
+#: Ids that exist only because the legacy holds are nested in one episode (``turn_l90`` given
+#: ``back``, ``turn_r90`` given ``turn_l90``). Undefined on a suite row, where no hold follows another.
+CONDITIONAL_SURVIVAL_IDS = ("turn_survival_l90", "turn_survival_r90")
+#: ``summarize()['cat'][c]`` keys that are counts, not per-episode quantities (never resampled).
+CAT_COUNT_KEYS = ("n", "n_env")
+#: The binomial floor's clip on the pooled survival (D5): a survival saturated on both heads floors
+#: at ``z_0.99 * sqrt(2 * 0.95 * 0.05 / n)`` instead of 0.
+BINOM_P_CLIP = (0.05, 0.95)
+#: The null band's lower slack below the nominal all-TIE rate (D9 item 4).
+NULL_BAND_SLACK = 0.03
+NULL_BAND_HI = 0.98
+#: The completion marker a suite stamp's ``write_run`` writes LAST (D10's freshness rule).
+COMPLETE_MARKER = "complete.json"
 #: Cited, not applied (plan decision 6: "the bootstrap supersedes when it resolves"). Measured on the
 #: sideways formation campaign's paired episode bootstraps.
 CHARTER_FLOORS = {"completion": 0.10, "tripod_walking_dir": 0.056}
@@ -246,13 +315,75 @@ def pooled_block_R(r_eval: float | None, r_seed: float | None) -> float | None:
     return single_block_R(a, r_seed)
 
 
-def pooled_guard_R(r_eval: float | None, r_seed: float | None) -> float | None:
-    """``R_pooled,i = sqrt((R_eval,i / sqrt(2))**2 + R_seed,i**2)`` (decision 6)."""
+def pooled_guard_R(r_eval: float | None, r_seed: float | None,
+                   r_binom: float | None = None) -> float | None:
+    """``R_pooled,i = sqrt((R_eval,i / sqrt(2))**2 + R_seed,i**2)`` (decision 6).
+
+    ``r_binom`` (per-category plan D5; ``survival`` guards only) is the guard's UNPOOLED binomial
+    floor (:func:`binomial_guard_floor` at the pooled ``p_bar`` and the smallest ``n_c``); the pooled
+    guard is then ``max(that, r_binom / sqrt(2))``, so a survival saturated on every screen is scored
+    against a floor rather than going MISSING. ``None`` (the default) is today's rule exactly.
+    """
     a = 0.0 if r_eval is None or not math.isfinite(float(r_eval)) else float(r_eval) / math.sqrt(2.0)
     b = 0.0 if r_seed is None or not math.isfinite(float(r_seed)) else float(r_seed)
+    floor = (None if r_binom is None or not math.isfinite(float(r_binom))
+             else float(r_binom) / math.sqrt(2.0))
     if a == 0.0 and b == 0.0:
+        return floor if floor else None
+    base = float(math.sqrt(a * a + b * b))
+    return base if floor is None else max(base, floor)
+
+
+def binomial_guard_floor(p_bar: float | None, n: int | float | None, *,
+                         level: float = GUARD_LEVEL) -> float | None:
+    """``R_binom = z_level * sqrt(2 p(1 - p) / n)`` with ``p = clip(p_bar, 0.05, 0.95)`` (plan D5).
+
+    The one-sided test of a DIFFERENCE of two binomial proportions, each on ``n`` episodes, at
+    ``level``: the floor a ``survival`` guard is scored against when its paired ``R_eval`` is 0 or
+    missing (both heads saturated) or below the unpaired spread. ``p_bar`` is the mean of the two
+    survivals compared and is clipped, so a guard at 1.00 vs 1.00 floors at 0.0717 (n = 100) /
+    0.0507 (n = 200) instead of 0. ``None`` without a ``p_bar`` or a positive ``n``.
+    """
+    if p_bar is None or n is None or not math.isfinite(float(p_bar)) or not float(n) > 0:
         return None
-    return float(math.sqrt(a * a + b * b))
+    p = min(BINOM_P_CLIP[1], max(BINOM_P_CLIP[0], float(p_bar)))
+    z = NormalDist().inv_cdf(float(level))
+    return float(z * math.sqrt(2.0 * p * (1.0 - p) / float(n)))
+
+
+def cluster_draw(rng: np.random.Generator, n_clusters: int, waves: int, B: int) -> np.ndarray:
+    """``(B, waves * n_clusters)`` episode positions of an ENV-CLUSTERED bootstrap (plan D10).
+
+    Each replicate resamples the within-wave env ids ``0..E-1`` with replacement and takes EVERY
+    wave's episode of each drawn env: position ``w * E + j`` of a replicate is episode
+    ``w * E + env[j]``. So every wave -- one hold -- keeps exactly its ``E`` episodes, a paired
+    category keeps its hand split, and the same startup-randomised robot (env ``j`` is the same
+    robot in every wave, plan D1) stays correlated across holds and categories. With one wave this
+    is exactly ``rng.integers(0, n, size=(B, n))``, the legacy episode draw, bit for bit.
+    """
+    env = rng.integers(0, int(n_clusters), size=(int(B), int(n_clusters)))
+    if int(waves) == 1:
+        return env
+    offsets = np.arange(int(waves), dtype=env.dtype) * int(n_clusters)
+    return (offsets[None, :, None] + env[:, None, :]).reshape(int(B), int(waves) * int(n_clusters))
+
+
+def _wave_support(draw: np.ndarray, cols: Sequence[np.ndarray], per_wave: int) -> np.ndarray:
+    """``draw`` restricted to the waves in which any of ``cols`` has a value (suite rows only).
+
+    A clustered draw never moves an episode out of its wave, so every drawn position in a wave
+    where all of ``cols`` are NaN reads NaN: dropping those positions leaves every NaN-ignoring
+    reducer's value unchanged and saves the ~5-10x of resampling a category's columns over all ten
+    waves. Returns ``draw`` itself when nothing is finite (every reduction is NaN either way).
+    """
+    finite = np.zeros(np.asarray(cols[0]).shape[0], dtype=bool)
+    for c in cols:
+        finite |= np.isfinite(c)
+    waves = np.unique(np.flatnonzero(finite) // int(per_wave))
+    if waves.size == 0 or waves.size * int(per_wave) == draw.shape[1]:
+        return draw
+    keep = (waves[:, None] * int(per_wave) + np.arange(int(per_wave))[None, :]).ravel()
+    return draw[:, keep]
 
 
 def block_seed_term(seed_deltas: dict[str, float | None], r_eval: dict[str, float | None]) -> float | None:
@@ -291,26 +422,47 @@ def _facing_metrics():
     return M.facing_metrics
 
 
+@lru_cache(maxsize=1)
+def _gait_schedule():
+    """``gait_eval.schedule``, imported lazily for the same reason as :func:`_facing_metrics`."""
+    if str(GAIT_SCRIPTS) not in sys.path:
+        sys.path.insert(0, str(GAIT_SCRIPTS))
+    from gait_eval import schedule as S  # noqa: PLC0415 -- deliberate: see _facing_metrics
+    return S
+
+
 @lru_cache(maxsize=None)
 def _manifest_scenario(sid: str) -> dict:
-    """``{hold_s: {...}, fall_exclusion_s: float, hold_labels: [...]}`` for one manifest row.
+    """``{hold_labels, hold_s, fall_exclusion_s, prologue_s, kind, settle_hold_s}`` for one row.
 
     Parsed from the manifest rather than pinned, for the same reason ``rp._manifest_hold_s`` is: a
     manifest edit must not silently desynchronise the window this module cuts from the one the
-    harness cut.
+    harness cut. Read through the harness's own ``gait_eval.schedule.load_manifest`` (plan D10's
+    suite-aware readers): a ``category_suite`` row has no ``schedule:`` of its own -- the loader
+    DERIVES the label union ``[settle] + category holds`` -- and ``hold_s`` is then the derived
+    per-hold map of the category holds (the settle hold's duration is ``settle_hold_s``; it is never
+    an episode's own hold). ``kind`` is ``schedule`` for every other row, whose values are exactly
+    the ones the raw yaml gave.
     """
-    import yaml  # noqa: PLC0415 -- the harness's own dependency, imported where it is used
-
-    doc = yaml.safe_load(rp.OMNI_MANIFEST.read_text())
-    file_defaults = dict(doc.get("defaults") or {})
-    for sc in doc.get("scenarios", []):
-        if sc.get("id") == sid:
-            merged = dict(file_defaults)
-            merged.update(sc.get("defaults") or {})
-            return {"hold_labels": [str(h["label"]) for h in sc["schedule"]],
-                    "hold_s": {str(h["label"]): float(h["hold_s"]) for h in sc["schedule"]},
-                    "fall_exclusion_s": float(merged.get("fall_exclusion_s", 0.5)),
-                    "prologue_s": float(merged.get("prologue_s", rp.PROLOGUE_S))}
+    S = _gait_schedule()
+    try:
+        scenarios, _ = S.load_manifest(rp.OMNI_MANIFEST)
+    except S.ManifestError as exc:
+        raise ResolutionError(f"{rp.OMNI_MANIFEST} does not load: {exc}") from exc
+    for sc in scenarios:
+        if sc.id != sid:
+            continue
+        labels = [str(h.label) for h in sc.schedule]
+        if sc.suite is not None:
+            hold_s = {str(k): float(v) for k, v in sc.suite.hold_s_by_label().items()}
+            settle_hold_s = float(sc.suite.settle_hold_s)
+        else:
+            hold_s = {str(h.label): float(h.hold_s) for h in sc.schedule}
+            settle_hold_s = None
+        return {"hold_labels": labels, "hold_s": hold_s,
+                "fall_exclusion_s": float(sc.get_default("fall_exclusion_s")),
+                "prologue_s": float(sc.get_default("prologue_s")),
+                "kind": str(sc.kind), "settle_hold_s": settle_hold_s}
     raise ResolutionError(f"scenario {sid!r} is not in {rp.OMNI_MANIFEST}")
 
 
@@ -355,6 +507,11 @@ def rescore_facing(run_dir: Path, episodes: Sequence[dict], hold_labels: Sequenc
     for pos, ep in enumerate(episodes):
         idx = int(ep["env_index"])
         npz = run_dir / "raw" / f"episode_{idx:02d}.npz"
+        if not npz.exists():
+            # A partial raw set is a refusal naming the stamp, never a FileNotFoundError (plan D10).
+            raise ResolutionError(f"{run_dir}: raw/{npz.name} is missing -- a partial raw set "
+                                  "(the eval was killed during its raw writes, or the files were "
+                                  "pruned); re-run the eval rather than score part of it")
         with np.load(npz) as z:
             seg = z["segment_id"]
             her = z["heading_err"]
@@ -441,7 +598,7 @@ class MetricSpec:
     """
 
     mid: str
-    block: str                      # F | T | guard | F_abs | T_abs | watch
+    block: str                      # a block of the rule (F | F_mt | T | *_abs) | guard | watch
     blocks_all: tuple[str, ...]     # every block it is a member of (facing_closed is in F and F_abs)
     hold: str | None
     level: float
@@ -455,7 +612,21 @@ def _spec(mid, block, blocks_all, hold, needs, reducer="median", *, level=BLOCK_
                       one_sided=one_sided, needs=tuple(needs), reducer=reducer)
 
 
-def metric_specs(hold_labels: Sequence[str]) -> list[MetricSpec]:
+def suite_categories_on(hold_labels: Sequence[str]) -> list[str]:
+    """The categories every one of whose holds is on this row, in ``CATEGORIES`` order."""
+    have = set(str(h) for h in hold_labels)
+    ec = _ec()
+    return [c for c in ec.CATEGORIES if all(h in have for h in ec.CATEGORY_HOLDS[c])]
+
+
+def default_suite_rule(hold_labels: Sequence[str]) -> dict:
+    """The rule-less fallback on a suite row: ``eval_categories``' default v2 rule, expanded at every
+    category the row carries, both unit systems (the same union :func:`resolve` scores)."""
+    cats = suite_categories_on(hold_labels)
+    return _ec().expand_rule_union(_ec().default_rule_v2(), cats, cats)
+
+
+def metric_specs(hold_labels: Sequence[str], *, suite: bool = False) -> list[MetricSpec]:
     """Decision 5's scored surface, restricted to the holds this row actually has.
 
     F = the closed fraction and the signed ``yaw_progress_rate`` on the two in-place turns and
@@ -463,7 +634,18 @@ def metric_specs(hold_labels: Sequence[str]) -> list[MetricSpec]:
     direction-hold tripod floor, and the two CONDITIONAL turn survivals); ``F_abs``/``T_abs`` the
     absolute-units twins a cap candidate is scored on. Right-handed holds and everything else in
     decision 5's WATCH list are not here -- ``watch_specs`` carries the two the curriculum row adds.
+
+    ``suite=True`` (a ``category_suite`` row, plan D10): the block set comes from the EXPANDED v2
+    rule (:func:`default_suite_rule`), never from the hold-keyed tuples above -- ``cat.<c>.<key>``
+    members of ``F, F_mt, T`` and their ``_abs`` twins, the per-category guards and
+    ``cat_tripod_min``, and the rule's category WATCH ids. The conditional turn survivals are
+    omitted: undefined on a row whose holds are not nested, and ``summarize()`` returns ``None`` for
+    them there, so the reducer check would refuse every suite row. The per-hold readings are in
+    :func:`watch_specs`.
     """
+    if suite:
+        specs, _ = specs_from_rule(default_suite_rule(hold_labels), hold_labels, suite=True)
+        return specs
     have = set(str(h) for h in hold_labels)
     out: list[MetricSpec] = []
     for hold in F_HOLDS:
@@ -525,16 +707,74 @@ _EPISODE_COLUMNS = {"tripod": "ep_tripod", "tracking": "ep_tracking",
 _UNRESOLVABLE = _NOT_EVAL_ROW + ("tripod_walking",)
 
 
+def is_category_id(mid: str) -> bool:
+    """``cat.*`` or a category composite (``cat_tripod_min``) -- defined on a suite row only."""
+    return str(mid).startswith("cat.") or str(mid) in _ec().COMPOSITES
+
+
+def _cat_spec(mid: str, hold_labels: Sequence[str], *, block: str, blocks_all: Sequence[str],
+              level: float, one_sided: bool, composite: dict | None) -> MetricSpec | None:
+    """A category id's spec on a suite row (``None`` when the row lacks its holds, or it is a count).
+
+    ``cat.<c>.<key>`` reads column ``cat:<c>:<key>`` and ``cat.<c>.by_hand.<h>.<key>`` column
+    ``cat:<c>:hand:<h>:<key>`` (NaN outside that category / hand); ``survival`` is the mean of the
+    own-hold survival indicator (= the n-weighted mean of the holds' own survivals), every other key
+    the median the harness pools. ``cat_tripod_min`` is the min over its member categories'
+    ``cat:<c>:tripod`` medians -- the members are the rule's (``composite`` = the expanded rule's
+    ``composite`` block, the decisive translation categories), else every translation category on
+    the row.
+    """
+    ec = _ec()
+    have = set(str(h) for h in hold_labels)
+    if mid in ec.COMPOSITES:
+        members = list((composite or {}).get(mid) or [c for c in ec.TRANSLATION_CATEGORIES
+                                                        if c in suite_categories_on(hold_labels)])
+        if not members or not all(c in suite_categories_on(hold_labels) for c in members):
+            return None
+        return _spec(mid, block, blocks_all, None, tuple(f"cat:{c}:tripod" for c in members),
+                     "min_of_medians", level=level, one_sided=one_sided)
+    parsed = ec.parse_cat_id(mid)
+    if parsed is None:
+        return None
+    cat, hand, key = parsed
+    if key in CAT_COUNT_KEYS:
+        return None
+    holds = ec.CATEGORY_HOLDS[cat]
+    if hand is not None:
+        holds = tuple(h for h in holds if ec.HAND_OF_HOLD.get(h) == hand)
+        if not holds:
+            return None
+    if not all(h in have for h in holds):
+        return None
+    col = f"cat:{cat}:hand:{hand}:{key}" if hand else f"cat:{cat}:{key}"
+    return _spec(mid, block, blocks_all, holds[0] if len(holds) == 1 else None, (col,),
+                 "mean" if key == "survival" else "median", level=level, one_sided=one_sided)
+
+
 def spec_for(mid: str, hold_labels: Sequence[str], *, block: str, blocks_all: Sequence[str],
-             level: float, one_sided: bool) -> MetricSpec | None:
+             level: float, one_sided: bool, suite: bool = False,
+             composite: dict | None = None) -> MetricSpec | None:
     """The :class:`MetricSpec` for one ``summarize()`` id, or ``None`` when it cannot be resolved.
 
     ``None`` for an id this row has no holds for, and for the handful of ids with no per-episode
     form at all (:data:`_UNRESOLVABLE`). Everything else resolves through :data:`_STEM_COLUMNS` or
     the three composite rules below, so ``candidates.yaml``'s ``decision_rule`` decides MEMBERSHIP
     and this module decides only HOW each member is computed.
+
+    ``suite`` says the row is a ``category_suite`` row (read from its ``run_meta`` /
+    ``aggregate.suite``, never inferred from labels -- plan D10). Category ids (``cat.*``,
+    ``cat_tripod_min``) resolve ONLY there; on any other row they are ``None`` and land in the
+    caller's unresolved list. On a suite row the conditional turn survivals are ``None`` (holds are
+    not nested); every other legacy id resolves as it does on a legacy row, per hand.
     """
     have = set(str(h) for h in hold_labels)
+    if is_category_id(mid):
+        if not suite:
+            return None
+        return _cat_spec(mid, hold_labels, block=block, blocks_all=blocks_all, level=level,
+                         one_sided=one_sided, composite=composite)
+    if suite and mid in CONDITIONAL_SURVIVAL_IDS:
+        return None
     if mid in _UNRESOLVABLE:
         return None
     if mid == "completion":
@@ -575,9 +815,21 @@ def spec_for(mid: str, hold_labels: Sequence[str], *, block: str, blocks_all: Se
     return None
 
 
-def why_unresolved(mid: str, hold_labels: Sequence[str]) -> str:
-    """Why :func:`spec_for` said no -- so a note says which of the three reasons it is."""
+def why_unresolved(mid: str, hold_labels: Sequence[str], *, suite: bool = False) -> str:
+    """Why :func:`spec_for` said no -- so a note says which of the reasons it is."""
     have = set(str(h) for h in hold_labels)
+    if is_category_id(mid):
+        if not suite:
+            return ("a category id: defined on a category_suite row only (this row is a legacy "
+                    "hold-keyed row -- informational here)")
+        parsed = _ec().parse_cat_id(mid)
+        if parsed is not None and parsed[2] in CAT_COUNT_KEYS:
+            return "a count, not a per-episode quantity (no bootstrap half-width)"
+        if parsed is None and mid not in _ec().COMPOSITES:
+            return "not a known category id (eval_categories.parse_cat_id refuses it)"
+        return "its category's holds are not all on this row"
+    if suite and mid in CONDITIONAL_SURVIVAL_IDS:
+        return "undefined on a suite row: holds are not nested (each episode runs one hold)"
     if mid in _NOT_EVAL_ROW:
         return ("not an eval-row quantity (a training-log tail or a cross-row label); it is WATCH "
                 "and carries no bootstrap half-width")
@@ -593,7 +845,13 @@ def why_unresolved(mid: str, hold_labels: Sequence[str]) -> str:
     return "no per-episode reconstruction is registered for this id"
 
 
-def specs_from_rule(rule: dict, hold_labels: Sequence[str]) -> tuple[list[MetricSpec], list[str]]:
+def rule_version(rule: dict | None) -> int:
+    """``decision_rule.rule_version`` (1 when absent -- every record before the suite)."""
+    return int((rule or {}).get("rule_version") or 1)
+
+
+def specs_from_rule(rule: dict, hold_labels: Sequence[str], *,
+                    suite: bool = False) -> tuple[list[MetricSpec], list[str]]:
     """``(specs, unresolvable ids)`` from ``candidates.yaml``'s ``decision_rule`` block.
 
     The yaml is authoritative for what is scored and at which level; a member it names that this
@@ -601,12 +859,28 @@ def specs_from_rule(rule: dict, hold_labels: Sequence[str]) -> tuple[list[Metric
     quietly absent block member shrinks the block mean, which is exactly the kind of quiet failure
     that costs a branch. Falls back to :func:`metric_specs` + :func:`watch_specs` when the yaml
     carries no machine-readable rule.
+
+    A ``rule_version: 2`` rule must arrive EXPANDED (``eval_categories.expand_rule``, as
+    :func:`resolve` does): the raw v2 rule has no ``blocks``/``guards`` key, and the fallback would
+    otherwise score the legacy hold-keyed surface silently -- so it is refused by name. The
+    expanded rule's ``composite`` block names ``cat_tripod_min``'s members; its N/A blocks
+    (``metrics: []``) contribute no member, hence no block.
     """
+    if rule_version(rule) == 2 and not (rule or {}).get("expanded"):
+        raise ResolutionError(
+            "decision_rule has rule_version 2 but was not expanded: expand it with "
+            "eval_categories.expand_rule (resolve() does, at decisive_at) before specs_from_rule -- "
+            "the raw per_category templates carry no blocks/guards and would fall back to the "
+            "legacy hold-keyed surface")
     blocks = (rule or {}).get("blocks") or {}
     guards = (rule or {}).get("guards") or {}
     watch = list((rule or {}).get("watch") or [])
+    composite = dict((rule or {}).get("composite") or {})
     if not blocks and not guards:
-        return metric_specs(hold_labels) + watch_specs(hold_labels), []
+        fallback = metric_specs(hold_labels, suite=suite)
+        seen_fb = {s.mid for s in fallback}
+        return fallback + [s for s in watch_specs(hold_labels, suite=suite)
+                           if s.mid not in seen_fb], []
     membership: dict[str, list[str]] = {}
     levels: dict[str, float] = {}
     for block, body in blocks.items():
@@ -627,35 +901,64 @@ def specs_from_rule(rule: dict, hold_labels: Sequence[str]) -> tuple[list[Metric
     for mid, in_blocks in sorted(membership.items()):
         primary = in_blocks[0]
         spec = spec_for(mid, hold_labels, block=primary, blocks_all=tuple(sorted(set(in_blocks))),
-                        level=levels[mid], one_sided=False)
+                        level=levels[mid], one_sided=False, suite=suite, composite=composite)
         (specs.append(spec) if spec else unresolved.append(mid))
         seen.add(mid)
     for mid in guard_ids:
         if mid in seen:
             continue
         spec = spec_for(mid, hold_labels, block="guard", blocks_all=(), level=guard_level,
-                        one_sided=True)
+                        one_sided=True, suite=suite, composite=composite)
         (specs.append(spec) if spec else unresolved.append(mid))
         seen.add(mid)
     for mid in watch:
         if mid in seen:
             continue
         spec = spec_for(mid, hold_labels, block="watch", blocks_all=(), level=BLOCK_LEVEL,
-                        one_sided=False)
+                        one_sided=False, suite=suite, composite=composite)
         (specs.append(spec) if spec else unresolved.append(mid))
         seen.add(mid)
     return specs, unresolved
 
 
-def watch_specs(hold_labels: Sequence[str]) -> list[MetricSpec]:
+def block_names(specs: Iterable[MetricSpec]) -> list[str]:
+    """The blocks the specs are members of, in :data:`BLOCK_ORDER` (unknown names after, sorted).
+
+    Every place that enumerates blocks iterates THIS, i.e. the blocks of the rule actually passed
+    (F/T/F_abs/T_abs for a v1 rule, the six of the expanded v2 union) -- never a literal tuple, so a
+    block the rule adds (``F_mt``) can never be dropped by a seam that forgot it (plan D5/B4).
+    """
+    names = {b for s in specs for b in s.blocks_all}
+    return [b for b in BLOCK_ORDER if b in names] + sorted(names - set(BLOCK_ORDER))
+
+
+def watch_specs(hold_labels: Sequence[str], *, suite: bool = False) -> list[MetricSpec]:
     """The right-handed holds' quantities -- WATCH only, and only where the row has them.
 
     ``lat_r`` is a travel hold (ratio + achieved speed); ``move_turn_r`` is a move+turn hold whose
     facing "never closes" by construction (a 90 deg change inside 8 s at ~0.15-0.2 rad/s), so its
     facing quantities are watched too. None of these is ever a block member (decision 5).
+
+    ``suite=True``: every category hold's own per-hold reading (the legacy per-hold keys are the
+    per-hand readings on a suite row) -- the speed ratio and achieved speed of each moving hold and
+    the facing quantities of each turning hold, WATCH only.
     """
     have = set(str(h) for h in hold_labels)
     out: list[MetricSpec] = []
+    if suite:
+        ec = _ec()
+        for cat in suite_categories_on(hold_labels):
+            for hold in ec.CATEGORY_HOLDS[cat]:
+                if cat not in ("stand", "turn"):
+                    out.append(_spec(f"ratio_by_hold.{hold}", "watch", (), hold, (f"ratio:{hold}",)))
+                    out.append(_spec(f"achieved_speed_by_hold.{hold}", "watch", (), hold,
+                                     (f"achieved:{hold}",)))
+                if cat in ("turn", "move_turn"):
+                    for stem, key in (("facing_closed_by_hold", "closed"),
+                                      ("yaw_progress_by_hold", "progress"),
+                                      ("net_yaw_by_hold", "net")):
+                        out.append(_spec(f"{stem}.{hold}", "watch", (), hold, (f"{key}:{hold}",)))
+        return out
     for hold in BORROW:
         if hold not in have:
             continue
@@ -767,10 +1070,32 @@ class Row:
     reducer_check: dict[str, float]
     checkpoint: str = ""
     floor_of: str | None = None
+    #: ``role`` of the input entry (``pair`` | ``informational`` | ``process_floor`` | ``seed_pair``).
+    role: str = "pair"
+    #: A ``category_suite`` row (read from ``run_meta.suite`` / ``aggregate.suite``, plan D10).
+    suite: bool = False
+    #: Suite geometry: ``waves`` x ``episodes_per_wave`` episodes, ``env_index = wave * E + env``.
+    waves: int = 1
+    episodes_per_wave: int = 0
+    hold_of_wave: tuple[str, ...] = ()
+    #: Per episode (``env_index`` order), from ``aggregate.suite`` -- never from the hold dicts.
+    hold_index: tuple[str, ...] = ()
+    category_index: tuple[str, ...] = ()
+    hand_index: tuple[str | None, ...] = ()
+    #: The eval stamp's completion marker (``complete.json``), suite rows only.
+    complete: dict | None = None
+    #: The entry's own checkpoint (checkpoint-shaped inputs) and recorded stamp (``role: pair``).
+    entry_checkpoint: str | None = None
+    stamp: str | None = None
 
     @property
     def label(self) -> str:
         return f"{self.head} @{self.row}"
+
+    @property
+    def pairing_key(self) -> tuple:
+        """What two rows must share to be paired on ``env_index`` (plan D2's precondition)."""
+        return (self.suite, self.waves, self.episodes_per_wave, self.hold_of_wave)
 
 
 def required_carry_keys() -> tuple[str, ...]:
@@ -788,13 +1113,30 @@ def _episodes(run_dir: Path) -> list[dict]:
     return sorted(eps, key=lambda e: int(e["env_index"]))
 
 
-def _survival_end_steps(sid: str, dt: float) -> dict[str, int]:
+def _survival_end_steps(sid: str, dt: float, *, suite: dict | None = None) -> dict[str, int]:
     """``{hold: the step index an episode must reach to have survived that hold}``.
 
     The same walk ``rp.survival_by_hold`` makes (prologue then each hold's duration, rounded to
     steps), hoisted so the indicator can be computed per episode and resampled.
+
+    A suite row has no walk: every category hold's end is its OWN wave's end,
+    ``round((prologue_s + settle_hold_s + hold_s[label]) / dt)`` -- the convention
+    ``aggregate.suite.survival_by_hold`` uses (a fall on the wave's last step survived). ``suite`` is
+    the row's RECORDED geometry (``aggregate.suite``: ``prologue_s``, ``settle_hold_s``, the per-label
+    ``hold_s`` map), so an old stamp is re-read on its own durations; without it the manifest row's.
+    The settle hold has no entry (it is never an episode's own hold).
     """
-    sc = _manifest_scenario(sid)
+    if suite is None:
+        sc = _manifest_scenario(sid)
+        if sc.get("kind") == "category_suite":
+            suite = {"prologue_s": sc["prologue_s"], "settle_hold_s": sc["settle_hold_s"],
+                     "hold_s": sc["hold_s"]}
+    if suite is not None:
+        hold_s = suite["hold_s"]
+        if not isinstance(hold_s, dict):          # a scalar: every category hold shares it
+            hold_s = {str(h): float(hold_s) for h in suite["hold_of_wave"]}
+        base = float(suite["prologue_s"]) + float(suite["settle_hold_s"])
+        return {str(h): int(round((base + float(s)) / float(dt))) for h, s in hold_s.items()}
     out: dict[str, int] = {}
     t_end = float(sc["prologue_s"])
     for hold in sc["hold_labels"]:
@@ -803,14 +1145,61 @@ def _survival_end_steps(sid: str, dt: float) -> dict[str, int]:
     return out
 
 
+#: ``cat:<c>:<key>`` column sources on an episode's OWN hold entry -- written out here, not imported
+#: from ``report.CATEGORY_METRIC_SOURCES``, so :func:`_reducer_check` is a real cross-check of the
+#: harness's ``aggregate.suite.by_category`` rather than a re-reading of its own table. ``tripod``
+#: (not ``low_confidence``), ``facing_closed`` (the re-scored fraction) and ``survival`` (the
+#: own-hold end) are special-cased in :func:`_category_value`.
+CAT_COLUMN_SOURCES: dict[str, tuple[str, ...]] = {
+    "ratio": ("tracking", "vx", "ratio"),
+    "achieved_speed": ("tracking", "vx", "actual_mean"),
+    "yaw_progress": ("facing", "yaw_progress_rate"),
+    "net_yaw": ("facing", "net_yaw_rate_toward"),
+    "heading_final": ("facing", "heading_error_final_abs"),
+    "settle_s": ("facing", "settle_time_s"),
+    "drift_speed": ("motion", "speed_abs_mean_m_s"),
+    "direction_error": ("direction", "direction_error_rad"),
+    "cross_track_ratio": ("direction", "cross_track_ratio"),
+}
+#: Every per-episode ``cat`` key (``summarize()['cat'][c]`` minus the two counts).
+CAT_COLUMN_KEYS = ("survival", "ratio", "achieved_speed", "tripod", "facing_closed", "yaw_progress",
+                   "net_yaw", "settle_s", "heading_final", "drift_speed", "direction_error",
+                   "cross_track_ratio")
+
+
+def _category_value(entry: dict, key: str, *, closed: float, survived: float) -> float:
+    """One episode's ``cat`` value from its own hold entry (NaN when the harness excludes it)."""
+    if key == "survival":
+        return survived
+    if key == "facing_closed":
+        return closed
+    if key == "tripod":
+        tri = entry.get("tripod") or {}
+        score = tri.get("tripod_score")
+        return float(score) if score is not None and not tri.get("low_confidence") else np.nan
+    node: Any = entry
+    for part in CAT_COLUMN_SOURCES[key]:
+        if not isinstance(node, dict):
+            return np.nan
+        node = node.get(part)
+    return np.nan if node is None else float(node)
+
+
 def _columns(episodes: Sequence[dict], hold_labels: Sequence[str], closed: dict[str, np.ndarray],
-             end_steps: dict[str, int]) -> dict[str, np.ndarray]:
+             end_steps: dict[str, int], *, suite_index: dict | None = None) -> dict[str, np.ndarray]:
     """Per-episode value arrays, NaN where the harness's own aggregate would have excluded the episode.
 
     The exclusions are copied from ``report.aggregate``: a tripod score only when it is present and
     not ``low_confidence``; a tracking ratio only when the hold has a tracking block whose
     ``vx.actual_mean`` is not None and whose ``ratio`` is not None; a facing quantity only when the
     key is not None. ``completed`` and the survival indicators are defined for every episode.
+
+    ``suite_index`` (a suite row: ``{hold, category, hand}`` tuples in episode order, read from
+    ``aggregate.suite`` by :func:`_suite_index`) adds the plan-D10 columns: ``cat:<c>:<key>`` and
+    ``cat:<c>:hand:<h>:<key>``, NaN outside that category / hand, each read on the episode's OWN
+    hold entry (pooled over both hands exactly as ``aggregate.suite.by_category`` pools), with
+    ``survival`` the own-hold end indicator; and each ``surv:<h>`` becomes NaN outside hold ``h``'s
+    own episodes, so ``survival_by_hold.<h>`` reproduces ``aggregate.suite.survival_by_hold``.
     """
     n = len(episodes)
     cols: dict[str, np.ndarray] = {}
@@ -827,9 +1216,10 @@ def _columns(episodes: Sequence[dict], hold_labels: Sequence[str], closed: dict[
             if ep.get(src) is not None:
                 cols[key][pos] = float(ep[src])
         steps = int(ep.get("n_steps", 0))
+        own = suite_index["hold"][pos] if suite_index is not None else None
         for hold in hold_labels:
             end = end_steps.get(hold)
-            if end is not None:
+            if end is not None and (own is None or hold == own):
                 cols[f"surv:{hold}"][pos] = 1.0 if steps >= end else 0.0
             entry = (ep.get("holds") or {}).get(hold) or {}
             fac = entry.get("facing") or {}
@@ -848,7 +1238,36 @@ def _columns(episodes: Sequence[dict], hold_labels: Sequence[str], closed: dict[
                 cols[f"achieved:{hold}"][pos] = float(vx["actual_mean"])
                 if vx.get("ratio") is not None:
                     cols[f"ratio:{hold}"][pos] = float(vx["ratio"])
+    if suite_index is not None:
+        cols.update(_category_columns(episodes, closed, end_steps, suite_index))
     return cols
+
+
+def _category_columns(episodes: Sequence[dict], closed: dict[str, np.ndarray],
+                      end_steps: dict[str, int], suite_index: dict) -> dict[str, np.ndarray]:
+    """The ``cat:<c>:<key>`` / ``cat:<c>:hand:<h>:<key>`` columns of a suite row (see :func:`_columns`)."""
+    n = len(episodes)
+    cats = list(dict.fromkeys(suite_index["category"]))
+    out: dict[str, np.ndarray] = {}
+    for cat in cats:
+        hands = sorted({h for c, h in zip(suite_index["category"], suite_index["hand"])
+                        if c == cat and h is not None})
+        for key in CAT_COLUMN_KEYS:
+            out[f"cat:{cat}:{key}"] = np.full(n, np.nan, dtype=np.float64)
+            for hand in hands:
+                out[f"cat:{cat}:hand:{hand}:{key}"] = np.full(n, np.nan, dtype=np.float64)
+    for pos, ep in enumerate(episodes):
+        own, cat, hand = (suite_index["hold"][pos], suite_index["category"][pos],
+                          suite_index["hand"][pos])
+        entry = (ep.get("holds") or {}).get(own) or {}
+        survived = 1.0 if int(ep.get("n_steps", 0)) >= int(end_steps[own]) else 0.0
+        closed_v = float(closed[own][pos]) if own in closed else np.nan
+        for key in CAT_COLUMN_KEYS:
+            v = _category_value(entry, key, closed=closed_v, survived=survived)
+            out[f"cat:{cat}:{key}"][pos] = v
+            if hand is not None:
+                out[f"cat:{cat}:hand:{hand}:{key}"][pos] = v
+    return out
 
 
 def _summary_with_survival(run_dir: Path, sid: str) -> dict:
@@ -861,6 +1280,19 @@ def _summary_with_survival(run_dir: Path, sid: str) -> dict:
     agg = dict(sm["aggregate"])
     meta = sm.get("run_meta") or {}
     eps = sm.get("episodes") or []
+    if agg.get("suite"):
+        # A suite row's survival is each hold's OWN (plan D10's three injection sites): the
+        # cumulative walk would count every earlier wave's falls, and the manifest row has no
+        # schedule to walk. The harness already wrote the right table.
+        if "survival_by_hold" not in agg:
+            agg["survival_by_hold"] = dict(agg["suite"].get("survival_by_hold") or {})
+        summary = rp.summarize(agg)
+        if not summary.get("cat"):
+            # run_phases.summarize owns the plan-D5 hoist; without it every cat.* reducer check
+            # would read "missing" -- refuse by name rather than as a wall of NaN disagreements.
+            raise ResolutionError(f"{run_dir}: run_phases.summarize() emits no 'cat' for this "
+                                  "suite aggregate (it predates the per-category hoist, plan D5)")
+        return summary
     if "survival_by_hold" not in agg:
         agg["survival_by_hold"] = rp.survival_by_hold(eps, meta.get("hold_labels") or [],
                                                       rp._manifest_hold_s(sid),
@@ -919,6 +1351,14 @@ def _reducer_check(specs: Sequence[MetricSpec], cols: dict[str, np.ndarray], sum
     aggregate exactly, or the per-episode reconstruction is not the estimator the decision rule
     reads. ``facing_closed_by_hold.*`` is exempt -- it exists only by re-score, and the recorded
     aggregate has nothing to compare it against (the mask check covers it instead).
+
+    Every ``cat.<c>.<key>`` is checked against ``summarize()['cat']`` (the suite's pooled
+    ``by_category`` medians and own-hold survivals); ``cat.<c>.facing_closed`` included -- on a suite
+    row the harness wrote the per-episode fraction, so the re-score is checked against it. A
+    COMPOSITE (``cat_tripod_min``) is checked against the SHARED ``eval_categories.composite_guards``
+    applied to a copy of the summary over the spec's own member categories -- one definition for the
+    harness, the driver and this module -- and a composite with no summary value is a named
+    :class:`ResolutionError`, never a NaN that reads as "both missing".
     """
     out: dict[str, float] = {}
     ident = np.arange(n)[None, :]
@@ -926,6 +1366,16 @@ def _reducer_check(specs: Sequence[MetricSpec], cols: dict[str, np.ndarray], sum
         if spec.mid.startswith("facing_closed_by_hold."):
             continue
         got = float(_reduce(spec.reducer, [cols[c][ident] for c in spec.needs])[0])
+        if spec.mid in _ec().COMPOSITES:
+            members = [c.split(":")[1] for c in spec.needs]
+            want = _ec().composite_guards(copy.deepcopy(summary), members).get(spec.mid)
+            if want is None:
+                raise ResolutionError(
+                    f"{spec.mid}: composite_guards gives no value on this row's summary over "
+                    f"{members} (a member's cat.<c>.tripod is missing) -- the composite cannot be "
+                    "checked, so it cannot be resolved")
+            out[spec.mid] = abs(got - float(want)) if math.isfinite(got) else float("inf")
+            continue
         want = _summary_value(summary, spec.mid)
         if want is None:
             out[spec.mid] = float("nan") if math.isfinite(got) else 0.0
@@ -941,6 +1391,218 @@ def _summary_value(summary: dict, mid: str) -> float | None:
             return None
         node = node.get(part)
     return None if node is None else float(node)
+
+
+# ------------------------------------------------------------- suite stamps (plan D9 item 2 / D10)
+def _repo_path(p: str | Path) -> Path:
+    p = Path(str(p))
+    return p if p.is_absolute() else REPO / p
+
+
+def _sha256_file(path: Path) -> str:
+    h = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def checkpoint_matches(entry_checkpoint: str | Path, meta: dict, complete: dict | None = None) -> bool:
+    """Is the stamp's evaluated checkpoint the entry's? By resolved path, else by sha256.
+
+    The harness records ABSOLUTE checkpoint paths and ``candidates.yaml`` repo-relative ones, so the
+    path test resolves both against the repo; a checkpoint moved or reached through another path
+    still matches when its sha256 equals the one the stamp recorded (``complete.json`` or
+    ``run_meta.checkpoint_sha256``).
+    """
+    mine = _repo_path(entry_checkpoint)
+    recorded = (meta or {}).get("checkpoint")
+    if recorded and mine.resolve() == _repo_path(recorded).resolve():
+        return True
+    want = (complete or {}).get("checkpoint_sha256") or (meta or {}).get("checkpoint_sha256")
+    if want and mine.is_file():
+        return _sha256_file(mine) == str(want)
+    return False
+
+
+def check_suite_stamp(run_dir: str | Path, *, checkpoint: str | Path | None = None) -> dict:
+    """D10's FRESHNESS RULE for one suite-row eval stamp: its ``complete.json`` on success.
+
+    A suite row's ``write_run`` writes ``complete.json`` LAST (after the ~1000 raw npz, which follow
+    the aggregate), so a stamp killed mid-write has none. Refused -- always a
+    :class:`ResolutionError` naming the stamp, never a ``FileNotFoundError`` -- when the marker is
+    missing, when the episode JSONs or the raw npz do not number ``episodes_total`` (a partial raw
+    set), or when ``checkpoint`` is given and is not what the stamp evaluated
+    (:func:`checkpoint_matches`). Legacy rows carry no marker and never come here.
+    """
+    run_dir = Path(run_dir)
+    marker = run_dir / COMPLETE_MARKER
+    if not marker.is_file():
+        raise ResolutionError(
+            f"{run_dir}: no {COMPLETE_MARKER} -- a suite stamp without its completion marker is "
+            "partial (the eval was stopped or killed before write_run finished) and is never read")
+    try:
+        complete = json.loads(marker.read_text())
+    except ValueError as exc:
+        raise ResolutionError(f"{run_dir}: {COMPLETE_MARKER} does not parse ({exc})") from exc
+    for needed in ("run_meta.json", "scenario_metrics.json", "metrics"):
+        if not (run_dir / needed).exists():
+            raise ResolutionError(f"{run_dir}: {needed} is missing beside a completion marker")
+    meta = json.loads((run_dir / "run_meta.json").read_text())
+    total = complete.get("episodes_total", meta.get("episodes_total"))
+    if total is None:
+        raise ResolutionError(f"{run_dir}: neither {COMPLETE_MARKER} nor run_meta records "
+                              "episodes_total")
+    total = int(total)
+    if meta.get("episodes_total") is not None and int(meta["episodes_total"]) != total:
+        raise ResolutionError(f"{run_dir}: {COMPLETE_MARKER} says {total} episodes, run_meta "
+                              f"{meta['episodes_total']}")
+    n_json = sum(1 for _ in (run_dir / "metrics").glob("episode_*.json"))
+    if n_json != total:
+        raise ResolutionError(f"{run_dir}: {n_json} of {total} metrics/episode_*.json -- a partial "
+                              "episode set")
+    raw = run_dir / "raw"
+    n_raw = sum(1 for _ in raw.glob("episode_*.npz")) if raw.is_dir() else 0
+    if complete.get("raw_written") is False or n_raw != total:
+        raise ResolutionError(f"{run_dir}: missing or partial raw set ({n_raw} of {total} "
+                              "raw/episode_*.npz) -- a suite row is re-scored from its raws")
+    if checkpoint is not None and not checkpoint_matches(checkpoint, meta, complete):
+        raise ResolutionError(
+            f"{run_dir}: evaluated {meta.get('checkpoint')!r} (sha256 "
+            f"{complete.get('checkpoint_sha256') or meta.get('checkpoint_sha256')}), not the "
+            f"entry's checkpoint {str(checkpoint)!r} (by resolved path or by sha256)")
+    return complete
+
+
+def resolve_eval_dir(root: str | Path, sid: str = SCREEN_ROW, *,
+                     checkpoint: str | Path | None = None, seed_dir: str = "seed001") -> Path:
+    """The NEWEST eval stamp under ``<root>/<sid>/<seed_dir>`` that passes :func:`check_suite_stamp`.
+
+    ``root`` is repo-relative (``candidates.yaml``'s ``eval_dir``) or absolute. Stamps are the
+    harness's ``%Y-%m-%d_%H-%M-%S`` directory names, so name order is time order. A newer stamp
+    that fails the freshness rule (partial, or another checkpoint's) is passed over for an older
+    one that passes; none passing is a :class:`ResolutionError` listing every stamp's reason. Used
+    for ``role: seed_pair`` inputs and ``milestone_reference`` (the driver calls it too).
+    """
+    base = _repo_path(root) / str(sid) / str(seed_dir)
+    if not base.is_dir():
+        raise ResolutionError(f"no eval stamps under {base} (the eval has not run, or eval_dir / "
+                              "row names another tree)")
+    why: list[str] = []
+    for stamp in sorted((d for d in base.iterdir() if d.is_dir()), key=lambda d: d.name,
+                        reverse=True):
+        try:
+            check_suite_stamp(stamp, checkpoint=checkpoint)
+            return stamp
+        except ResolutionError as exc:
+            why.append(f"{stamp.name}: {exc}")
+    raise ResolutionError(f"no stamp under {base} passes the freshness rule"
+                          + (": " + " | ".join(why) if why else " (the directory is empty)"))
+
+
+def input_run_dir(entry: dict) -> tuple[Path, str | None, str | None]:
+    """``(run dir, entry checkpoint, recorded stamp)`` for one ``resolution_inputs`` entry.
+
+    Two shapes, exactly one per entry (plan D9 item 2): ``run_dir`` (a recorded legacy row), or
+    ``checkpoint + eval_dir`` (+ ``preset``, which the driver's validator requires). A checkpoint-
+    shaped ``role: pair`` input is read from the stamp the driver recorded for it at this eval_sha
+    (``lad.reevals``, passed in as the entry's ``stamp``: a stamp name under
+    ``<eval_dir>/<row>/seed001``, or a path); a missing stamp is a :class:`ResolutionError` NAMING
+    THE HEAD, never a fallback to "the newest stamp", which could be another eval's. Every other
+    checkpoint-shaped input (``seed_pair``, ``informational``) takes :func:`resolve_eval_dir`. Both
+    pass the freshness rule against the entry's checkpoint.
+    """
+    head = entry.get("head") or entry.get("checkpoint") or entry.get("run_dir") or "?"
+    has_run = bool(entry.get("run_dir"))
+    has_ckpt = bool(entry.get("checkpoint")) or bool(entry.get("eval_dir"))
+    if has_run and has_ckpt:
+        raise ResolutionError(f"resolution input {head}: carries both run_dir and checkpoint/eval_dir "
+                              "-- an entry is one shape or the other")
+    if not has_run and not has_ckpt:
+        raise ResolutionError(f"resolution input {head}: carries neither run_dir nor "
+                              "checkpoint + eval_dir")
+    if has_run:
+        run_dir = Path(entry["run_dir"])
+        if not run_dir.is_absolute():
+            run_dir = (REPO / run_dir).resolve()
+        return run_dir, None, None
+    if not (entry.get("checkpoint") and entry.get("eval_dir")):
+        raise ResolutionError(f"resolution input {head}: a checkpoint-shaped input needs both "
+                              "checkpoint and eval_dir")
+    sid = str(entry.get("row") or SCREEN_ROW)
+    ckpt = str(entry["checkpoint"])
+    if str(entry.get("role") or "pair") == "pair":
+        stamp = entry.get("stamp")
+        if not stamp:
+            raise ResolutionError(
+                f"resolution input {head} (role: pair): no reeval stamp recorded for it at this "
+                "eval_sha (lad.reevals) -- the reeval must complete before D00s reads it")
+        sp = Path(str(stamp))
+        if sp.is_absolute():
+            run_dir = sp
+        elif len(sp.parts) == 1:
+            run_dir = _repo_path(entry["eval_dir"]) / sid / "seed001" / sp
+        else:
+            run_dir = REPO / sp
+        check_suite_stamp(run_dir, checkpoint=ckpt)
+        return run_dir, ckpt, str(stamp)
+    return resolve_eval_dir(entry["eval_dir"], sid, checkpoint=ckpt), ckpt, None
+
+
+def _suite_index(run_dir: Path, meta: dict, agg: dict, episodes: Sequence[dict]) -> dict:
+    """``{hold, category, hand}`` per episode (``env_index`` order) + the suite geometry.
+
+    Read from ``aggregate.suite`` (``waves``, ``episodes_total``, ``hold_of_wave``,
+    ``category_of_hold``, ``hand_of_hold``: episode ``i`` ran wave ``i // E``'s hold) -- never from
+    which hold dicts carry steps -- and cross-checked against ``run_meta.env_index_map`` and the
+    episode's own ``hold`` key where they exist. Refuses an incomplete episode set, and any episode
+    with steps in a hold that is neither its own nor the settle (plan D10: every union label
+    carries an entry, the unvisited ones with ``n_steps: 0``).
+    """
+    sb = agg.get("suite") or {}
+    if not sb:
+        raise ResolutionError(f"{run_dir}: run_meta marks a category_suite row but the aggregate "
+                              "carries no suite block")
+    waves = int(sb.get("waves") or meta.get("waves") or 0)
+    total = int(sb.get("episodes_total") or meta.get("episodes_total") or 0)
+    hold_of_wave = [str(h) for h in (sb.get("hold_of_wave") or [])]
+    if not waves or not total or total % waves or len(hold_of_wave) != waves:
+        raise ResolutionError(f"{run_dir}: inconsistent suite geometry (waves {waves}, "
+                              f"episodes_total {total}, {len(hold_of_wave)} holds of wave)")
+    per_wave = total // waves
+    idx = [int(e["env_index"]) for e in episodes]
+    if idx != list(range(total)):
+        raise ResolutionError(f"{run_dir}: {len(idx)} episodes whose env_index is not 0..{total - 1} "
+                              "-- a partial or re-indexed suite row cannot be paired")
+    cat_of = {str(k): str(v) for k, v in (sb.get("category_of_hold") or {}).items()}
+    hand_of = dict(sb.get("hand_of_hold") or {})
+    labels = list(sb.get("hold_labels") or [])
+    settle = str(labels[0] if labels else ((meta.get("suite") or {}).get("settle_label") or "settle"))
+    emap = {int(r["env_index"]): r for r in (meta.get("env_index_map") or [])}
+    holds: list[str] = []
+    for ep in episodes:
+        i = int(ep["env_index"])
+        wave, own = i // per_wave, hold_of_wave[i // per_wave]
+        rec = emap.get(i)
+        if rec is not None and (str(rec.get("label")) != own or int(rec.get("wave", wave)) != wave):
+            raise ResolutionError(f"{run_dir}: env_index {i} is wave {wave} / {own} by "
+                                  f"aggregate.suite but {rec} by run_meta.env_index_map")
+        if ep.get("hold") is not None and str(ep["hold"]) != own:
+            raise ResolutionError(f"{run_dir}: episode {i} says its own hold is {ep['hold']!r}; "
+                                  f"aggregate.suite says wave {wave} ran {own!r}")
+        for lab, entry in (ep.get("holds") or {}).items():
+            if lab in (own, settle):
+                continue
+            steps = int((entry or {}).get("n_steps") or 0)
+            if steps > 0:
+                raise ResolutionError(
+                    f"{run_dir}: episode {i} (own hold {own!r}) has {steps} steps in hold {lab!r} -- "
+                    "a suite episode runs the settle and ONE hold, so a populated foreign hold means "
+                    "the wave did not run the schedule its label says")
+        holds.append(own)
+    return {"hold": tuple(holds), "category": tuple(cat_of[h] for h in holds),
+            "hand": tuple(hand_of.get(h) for h in holds), "waves": waves,
+            "episodes_per_wave": per_wave, "hold_of_wave": tuple(hold_of_wave), "settle": settle}
 
 
 def load_row(entry: dict, *, ring_proxy: bool, rule: dict | None = None, verify: bool = True) -> Row:
@@ -967,10 +1629,17 @@ def load_row(entry: dict, *, ring_proxy: bool, rule: dict | None = None, verify:
     plan says it must not be. A row whose ``env_vars`` does not record the five knobs cannot be
     SHOWN to have been evaluated under the configuration of the row it would be paired with, so its
     spread is not the candidate-vs-control eval resolution.
+
+    **Suite rows (plan D10).** An entry is ``run_dir`` or checkpoint-shaped (:func:`input_run_dir`);
+    ``role: seed_pair`` rows (the two rescreened B0 screens, D00bs' inputs) are read and recorded
+    but never pooled. A ``category_suite`` row -- the kind read from ``run_meta.suite`` /
+    ``aggregate.suite``, never from labels -- must pass the freshness rule
+    (:func:`check_suite_stamp`); each episode's hold/category/hand comes from ``aggregate.suite``
+    (:func:`_suite_index`, which also refuses a populated foreign hold); survival is own-hold; and
+    the ``suite`` flag reaches every spec reader, so category ids resolve and the conditional turn
+    survivals do not.
     """
-    run_dir = Path(entry["run_dir"])
-    if not run_dir.is_absolute():
-        run_dir = (REPO / run_dir).resolve()
+    run_dir, entry_ckpt, stamp = input_run_dir(entry)
     # A refusal, not a traceback: the ladder driver reports "resolution input <run_dir> is not on
     # this machine (resolution.py refuses it)" and needs this to come back as a ResolutionError.
     for needed in (run_dir / "run_meta.json", run_dir / "scenario_metrics.json", run_dir / "metrics"):
@@ -980,6 +1649,14 @@ def load_row(entry: dict, *, ring_proxy: bool, rule: dict | None = None, verify:
     meta = json.loads((run_dir / "run_meta.json").read_text())
     sid = str(entry.get("row") or meta["scenario_id"])
     dt = float(meta.get("dt", 0.02))
+    agg_rec = (json.loads((run_dir / "scenario_metrics.json").read_text()).get("aggregate") or {})
+    is_suite = bool(meta.get("suite")) or bool(agg_rec.get("suite"))
+    complete = None
+    if is_suite:
+        # Every suite-row stamp read passes the freshness rule; a checkpoint-shaped entry was
+        # already checked against its checkpoint by input_run_dir.
+        complete = check_suite_stamp(run_dir) if entry_ckpt is None else json.loads(
+            (run_dir / COMPLETE_MARKER).read_text())
     hold_labels = tuple(str(h) for h in (meta.get("hold_labels") or _manifest_scenario(sid)["hold_labels"]))
     env_vars = dict(meta.get("env_vars") or {})
     ckpt = Path(str(meta.get("checkpoint", "unknown")))
@@ -1000,6 +1677,9 @@ def load_row(entry: dict, *, ring_proxy: bool, rule: dict | None = None, verify:
                   + " (refusal waived by candidates.yaml provenance_ok; never a candidate-R source)")
     elif role == "informational":
         accepted, reason = False, "informational by role (reported, never pooled)"
+    elif role == "seed_pair":
+        accepted, reason = False, ("seed_pair by role (a rescreened B0 seed, D00bs' input; recorded, "
+                                   "never a cross-head arm)")
     else:
         accepted, reason = True, "ok"
 
@@ -1029,10 +1709,12 @@ def load_row(entry: dict, *, ring_proxy: bool, rule: dict | None = None, verify:
         if source is None:
             closed = {}
 
-    end_steps = _survival_end_steps(sid, dt)
-    cols = _columns(episodes, hold_labels, closed, end_steps)
+    suite_idx = _suite_index(run_dir, meta, agg_rec, episodes) if is_suite else None
+    end_steps = _survival_end_steps(sid, dt, suite=(agg_rec.get("suite") if is_suite else None))
+    cols = _columns(episodes, hold_labels, closed, end_steps, suite_index=suite_idx)
     summary = _summary_with_survival(run_dir, sid)
-    specs = specs_from_rule(rule or {}, hold_labels)[0] + watch_specs(hold_labels)
+    specs = (specs_from_rule(rule or {}, hold_labels, suite=is_suite)[0]
+             + watch_specs(hold_labels, suite=is_suite))
     checks = _reducer_check(specs, cols, summary, n) if (verify and n) else {}
     bad = {k: v for k, v in checks.items() if not (math.isfinite(v) and v <= 1e-9)}
     if bad:
@@ -1040,6 +1722,13 @@ def load_row(entry: dict, *, ring_proxy: bool, rule: dict | None = None, verify:
             f"{run_dir}: the per-episode reconstruction does not reproduce summarize()'s own "
             f"numbers: {bad}. The bootstrap would resample a different estimator than the decision "
             "rule reads.")
+    geometry: dict[str, Any] = {}
+    if suite_idx is not None:
+        geometry = {"suite": True, "waves": suite_idx["waves"],
+                    "episodes_per_wave": suite_idx["episodes_per_wave"],
+                    "hold_of_wave": suite_idx["hold_of_wave"], "hold_index": suite_idx["hold"],
+                    "category_index": suite_idx["category"], "hand_index": suite_idx["hand"],
+                    "complete": complete}
     return Row(run_dir=run_dir, row=sid, head=head, dt=dt, hold_labels=hold_labels, env_vars=env_vars,
                provenance_ok=provenance_ok, waived=waived, accepted=accepted, reason=reason,
                env_vars_defaulted=defaulted,
@@ -1048,7 +1737,9 @@ def load_row(entry: dict, *, ring_proxy: bool, rule: dict | None = None, verify:
                n_episodes=n,
                process_floor_pair=bool(entry.get("process_floor_pair")) or role == "process_floor",
                mask_deviation=mask_dev, reducer_check=checks, checkpoint=str(ckpt),
-               floor_of=(str(entry["floor_of"]) if entry.get("floor_of") else None))
+               floor_of=(str(entry["floor_of"]) if entry.get("floor_of") else None),
+               role=role, entry_checkpoint=entry_ckpt, stamp=stamp,
+               episodes_per_wave=(geometry.pop("episodes_per_wave", n)), **geometry)
 
 
 # ------------------------------------------------------------------------------------ the bootstrap
@@ -1094,12 +1785,22 @@ def bootstrap_pair(a: Row, b: Row, *, B: int, rng_seed: int,
     that is the whole of "paired on ``env_index``". Each head then reduces over its own valid subset
     of those episodes, so the resampled statistic is the estimator the harness reports rather than an
     intersection-of-valid-episodes variant that no recorded number corresponds to.
+
+    On a suite row the draw is CLUSTERED on the within-wave env (:func:`cluster_draw`, plan D10) and
+    both rows must share the pairing key -- ``(waves, episodes per wave, hold of each wave)`` -- and
+    the full ``env_index`` set, or the pairing is refused. A legacy pair draws exactly as it always
+    did. The block statistics iterate the blocks the specs name (:func:`block_names`).
     """
     if a.facing_closed_source != b.facing_closed_source:
         raise ResolutionError(
             f"{_pair_name(a, b)}: facing_closed sources differ ({a.facing_closed_source!r} vs "
             f"{b.facing_closed_source!r}). A proxy row is never pooled against a re-scored one "
             "(plan decision 6 / step-3 hand-off) -- re-score both sides or proxy both sides.")
+    if (a.suite or b.suite) and a.pairing_key != b.pairing_key:
+        raise ResolutionError(
+            f"{_pair_name(a, b)}: the rows do not share the suite geometry (suite, waves, episodes "
+            f"per wave, hold of each wave): {a.pairing_key} vs {b.pairing_key} -- identical "
+            "(episodes, waves, suite) is the env_index pairing precondition (plan D2)")
     shared = sorted(set(a.env_index) & set(b.env_index))
     if len(shared) < MIN_BOOTSTRAP_N:
         raise ResolutionError(f"{_pair_name(a, b)}: only {len(shared)} shared env_index values")
@@ -1108,12 +1809,16 @@ def bootstrap_pair(a: Row, b: Row, *, B: int, rng_seed: int,
     take_a = np.array([pos_a[v] for v in shared], dtype=np.int64)
     take_b = np.array([pos_b[v] for v in shared], dtype=np.int64)
     n = len(shared)
-    draw = pair_rng(rng_seed, _pair_name(a, b)).integers(0, n, size=(B, n))
+    rng = pair_rng(rng_seed, _pair_name(a, b))
+    if a.suite:
+        draw = cluster_draw(rng, a.episodes_per_wave, a.waves, B)
+    else:
+        draw = rng.integers(0, n, size=(B, n))
     ident = np.arange(n)[None, :]
 
     if specs is None:
         holds = tuple(h for h in a.hold_labels if h in set(b.hold_labels))
-        specs = metric_specs(holds) + watch_specs(holds)
+        specs = metric_specs(holds, suite=a.suite) + watch_specs(holds, suite=a.suite)
 
     out: dict[str, dict] = {}
     deltas: dict[str, np.ndarray] = {}
@@ -1123,8 +1828,9 @@ def bootstrap_pair(a: Row, b: Row, *, B: int, rng_seed: int,
         cols_a = [a.cols[c][take_a] for c in spec.needs]
         cols_b = [b.cols[c][take_b] for c in spec.needs]
         n_valid = min(int(np.sum(np.isfinite(c))) for c in cols_a + cols_b)
-        va = _reduce(spec.reducer, [c[draw] for c in cols_a])
-        vb = _reduce(spec.reducer, [c[draw] for c in cols_b])
+        sub = draw if not a.suite else _wave_support(draw, cols_a + cols_b, a.episodes_per_wave)
+        va = _reduce(spec.reducer, [c[sub] for c in cols_a])
+        vb = _reduce(spec.reducer, [c[sub] for c in cols_b])
         delta = va - vb
         p = quantile_p(spec.level, one_sided=spec.one_sided)
         R = half_width(delta, p) if n_valid >= MIN_R_EVAL_N else None
@@ -1146,7 +1852,7 @@ def bootstrap_pair(a: Row, b: Row, *, B: int, rng_seed: int,
         deltas[spec.mid] = delta
 
     blocks: dict[str, dict] = {}
-    for block in ("F", "T", "F_abs", "T_abs"):
+    for block in block_names(specs):
         # PAIR-LOCAL (a diagnostic): standardised by this pair's own R. The published number is
         # re-derived against the merged R in :func:`_standardised_blocks`.
         members = [s.mid for s in specs if block in s.blocks_all and s.mid in deltas
@@ -1166,7 +1872,10 @@ def null_construction(cols: dict[str, np.ndarray], specs: Sequence[MetricSpec], 
                       B: int = BOOTSTRAP_B, N: int = 1000,
                       rng: np.random.Generator | None = None,
                       R_metrics: dict[str, float | None] | None = None,
-                      R_blocks: dict[str, float | None] | None = None) -> dict:
+                      R_blocks: dict[str, float | None] | None = None,
+                      waves: int = 1, scored_blocks: Sequence[str] | None = None,
+                      scored_guards: Sequence[str] | None = None,
+                      survival_guards: Sequence[str] = ()) -> dict:
     """Decision 6's NULL CANDIDATE: one run submitted against itself, ``N`` times.
 
     A trial is two INDEPENDENT episode resamples of the same run, one called candidate and one
@@ -1183,27 +1892,51 @@ def null_construction(cols: dict[str, np.ndarray], specs: Sequence[MetricSpec], 
     Pass D00's cross-head ``R`` instead to see how much slack the real thresholds carry.
 
     Returns ``{all_tie, blocks: {b: tie_freq}, guards: {g: tie_freq}, R_metrics, R_blocks, N}``.
+
+    Rule version 2 (plan D9 item 4 / D10), all keyword-only and inert at their defaults (a legacy
+    call is bit-identical): ``waves`` > 1 makes both resamples ENV-CLUSTERED (:func:`cluster_draw`
+    on ``n // waves`` envs); ``scored_blocks`` / ``scored_guards`` name what enters ``all_tie`` --
+    the RATIO system's three blocks and nine guards -- while every block and guard is still
+    reported (default: decision 5's ``F``/``T`` and every guard spec); ``survival_guards`` are
+    floored per trial at :func:`binomial_guard_floor` of that trial's two resampled survivals over
+    the category's episode count (the column's non-NaN count), i.e. the guard is tested against
+    ``max(R, R_binom)`` with no seed term -- matching decide() and the eval-noise nominal. A
+    survival guard with no ``R`` is scored on the floor alone. The per-trial floors' median is
+    reported under ``binomial_floor``.
     """
     rng = rng if rng is not None else np.random.default_rng(RNG_SEED)
+    waves = int(waves)
+    per_wave = int(n) // waves
+    floor_ids = set(str(g) for g in survival_guards)
 
-    def _deltas(rows: int) -> dict[str, np.ndarray]:
-        idx_a = rng.integers(0, n, size=(rows, n))
-        idx_b = rng.integers(0, n, size=(rows, n))
+    def _deltas(rows: int) -> tuple[dict[str, np.ndarray], dict[str, np.ndarray]]:
+        if waves == 1:
+            idx_a = rng.integers(0, n, size=(rows, n))
+            idx_b = rng.integers(0, n, size=(rows, n))
+        else:
+            idx_a = cluster_draw(rng, per_wave, waves, rows)
+            idx_b = cluster_draw(rng, per_wave, waves, rows)
         out: dict[str, np.ndarray] = {}
+        pbar: dict[str, np.ndarray] = {}
         for spec in specs:
             if any(c not in cols for c in spec.needs):
                 continue
-            va = _reduce(spec.reducer, [cols[c][idx_a] for c in spec.needs])
-            vb = _reduce(spec.reducer, [cols[c][idx_b] for c in spec.needs])
+            use = [cols[c] for c in spec.needs]
+            sub_a = idx_a if waves == 1 else _wave_support(idx_a, use, per_wave)
+            sub_b = idx_b if waves == 1 else _wave_support(idx_b, use, per_wave)
+            va = _reduce(spec.reducer, [c[sub_a] for c in use])
+            vb = _reduce(spec.reducer, [c[sub_b] for c in use])
             out[spec.mid] = va - vb
-        return out
+            if spec.mid in floor_ids:
+                pbar[spec.mid] = (va + vb) / 2.0
+        return out, pbar
 
     if R_metrics is None or R_blocks is None:
-        ref = _deltas(B)
+        ref, _ = _deltas(B)
         derived_m = {s.mid: half_width(ref[s.mid], quantile_p(s.level, one_sided=s.one_sided))
                      for s in specs if s.mid in ref}
         derived_b: dict[str, float | None] = {}
-        for block in ("F", "T", "F_abs", "T_abs"):
+        for block in block_names(specs):
             members = [s.mid for s in specs if block in s.blocks_all
                        and s.mid in ref and derived_m.get(s.mid)]
             if not members:
@@ -1213,7 +1946,7 @@ def null_construction(cols: dict[str, np.ndarray], specs: Sequence[MetricSpec], 
         R_metrics = R_metrics if R_metrics is not None else derived_m
         R_blocks = R_blocks if R_blocks is not None else derived_b
 
-    trial = _deltas(N)
+    trial, trial_pbar = _deltas(N)
     tie_blocks: dict[str, np.ndarray] = {}
     for block, R_F in sorted(R_blocks.items()):
         members = [s.mid for s in specs if block in s.blocks_all
@@ -1223,23 +1956,45 @@ def null_construction(cols: dict[str, np.ndarray], specs: Sequence[MetricSpec], 
         z = block_mean(np.stack([trial[m] / R_metrics[m] for m in members], axis=0))
         tie_blocks[block] = ~((z > R_F) | (z < -R_F)) | ~np.isfinite(z)
     tie_guards: dict[str, np.ndarray] = {}
+    floors: dict[str, float | None] = {}
     for spec in specs:
         if spec.block != "guard" or spec.mid not in trial:
             continue
         R = R_metrics.get(spec.mid)
+        d = trial[spec.mid]
+        if spec.mid in floor_ids:
+            n_c = int(np.sum(np.isfinite(cols[spec.needs[0]])))
+            pb = np.clip(trial_pbar[spec.mid], *BINOM_P_CLIP)
+            z99 = NormalDist().inv_cdf(GUARD_LEVEL)
+            r_binom = (z99 * np.sqrt(2.0 * pb * (1.0 - pb) / n_c) if n_c > 0
+                       else np.full(d.shape, np.nan))
+            base = 0.0 if R is None or not math.isfinite(float(R)) else float(R)
+            thr = np.where(np.isfinite(r_binom), np.maximum(base, r_binom), base)
+            floors[spec.mid] = _jf(np.nanmedian(r_binom)) if np.any(np.isfinite(r_binom)) else None
+            if R is None and not np.any(thr > 0):
+                continue
+            tie_guards[spec.mid] = ~(d < -thr) | ~np.isfinite(d)
+            continue
         if R is None:
             continue
-        d = trial[spec.mid]
         tie_guards[spec.mid] = ~(d < -R) | ~np.isfinite(d)
-    scored = [v for k, v in sorted(tie_blocks.items()) if k in ("F", "T")]
-    scored += [v for _, v in sorted(tie_guards.items())]
+    scored_b = LEGACY_SCORED_BLOCKS if scored_blocks is None else tuple(scored_blocks)
+    scored = [v for k, v in sorted(tie_blocks.items()) if k in scored_b]
+    scored += [v for k, v in sorted(tie_guards.items())
+               if scored_guards is None or k in set(scored_guards)]
     all_tie = np.logical_and.reduce(scored) if scored else np.ones(N, dtype=bool)
-    return {"N": int(N), "B": int(B),
-            "all_tie": float(np.mean(all_tie)),
-            "blocks": {k: float(np.mean(v)) for k, v in sorted(tie_blocks.items())},
-            "guards": {k: float(np.mean(v)) for k, v in sorted(tie_guards.items())},
-            "R_metrics": {k: _jf(v) for k, v in sorted(R_metrics.items())},
-            "R_blocks": {k: _jf(v) for k, v in sorted(R_blocks.items())}}
+    result = {"N": int(N), "B": int(B),
+              "all_tie": float(np.mean(all_tie)),
+              "blocks": {k: float(np.mean(v)) for k, v in sorted(tie_blocks.items())},
+              "guards": {k: float(np.mean(v)) for k, v in sorted(tie_guards.items())},
+              "R_metrics": {k: _jf(v) for k, v in sorted(R_metrics.items())},
+              "R_blocks": {k: _jf(v) for k, v in sorted(R_blocks.items())}}
+    result["scored"] = {"blocks": sorted(k for k in tie_blocks if k in scored_b),
+                        "guards": sorted(k for k in tie_guards
+                                         if scored_guards is None or k in set(scored_guards))}
+    if floor_ids:
+        result["binomial_floor"] = {k: v for k, v in sorted(floors.items())}
+    return result
 
 
 def _jf(x: Any) -> float | None:
@@ -1278,7 +2033,8 @@ def _standardised_blocks(pairs: Sequence[PairResult],
         for block in m.get("blocks_all") or []:
             member_of.setdefault(block, []).append(mid)
     blocks: dict[str, dict] = {}
-    for block in ("F", "T", "F_abs", "T_abs"):
+    order = [b for b in BLOCK_ORDER if b in member_of] + sorted(set(member_of) - set(BLOCK_ORDER))
+    for block in order:
         members = member_of.get(block) or []
         if not members:
             continue
@@ -1487,10 +2243,18 @@ def _borrowed_watch(*sources: dict[str, dict]) -> dict[str, dict]:
     return out
 
 
-def _resolution_line(blocks: dict[str, dict], metrics: dict[str, dict], B: int) -> str:
-    """One line naming the effective MDE per block and per guard (Verification 5)."""
+def _resolution_line(blocks: dict[str, dict], metrics: dict[str, dict], B: int, *,
+                     label: str = "D00", tail: str = "",
+                     draw: str = "paired episode bootstrap") -> str:
+    """One line naming the effective MDE per block and per guard (Verification 5).
+
+    The blocks are the record's own (in :data:`BLOCK_ORDER`), never a literal list: a v2 record
+    names ``F_mt`` / ``F_mt_abs`` too. ``label`` is the record id (``D00`` / ``D00s``); ``tail`` an
+    optional closing field (the v2 null all-TIE against its nominal).
+    """
     parts = []
-    for block in ("F", "T", "F_abs", "T_abs"):
+    order = [b for b in BLOCK_ORDER if b in blocks] + sorted(set(blocks) - set(BLOCK_ORDER))
+    for block in order:
         b = blocks.get(block)
         if not b or b.get("R_eval") is None:
             continue
@@ -1501,15 +2265,110 @@ def _resolution_line(blocks: dict[str, dict], metrics: dict[str, dict], B: int) 
         parts.append(head)
     guards = [f"{m}+-{float(v['R_eval']):.3f}" for m, v in sorted(metrics.items())
               if v.get("block") == "guard" and v.get("R_eval") is not None]
-    return ("RESOLUTION D00 | paired episode bootstrap B=%d on env_index | blocks %s | "
-            "guards @%.2f one-sided %s" % (int(B), "; ".join(parts) or "none", GUARD_LEVEL,
-                                           ", ".join(guards) or "none"))
+    return ("RESOLUTION %s | %s B=%d on env_index | blocks %s | "
+            "guards @%.2f one-sided %s%s" % (label, draw, int(B), "; ".join(parts) or "none",
+                                             GUARD_LEVEL, ", ".join(guards) or "none", tail))
+
+
+#: The legacy rows whose ``by_row`` tables ``D00s`` copies verbatim from ``D00`` (plan D7).
+D00_COPIED_ROWS = ("light__omni", "ring__omni")
+
+
+def _positive(v: Any) -> bool:
+    """A finite, strictly positive number (the completeness test's notion of "resolved")."""
+    f = _jf(v)
+    return f is not None and f > 0.0
+
+
+def _is_survival_guard(mid: str) -> bool:
+    parsed = _ec().parse_cat_id(mid) if str(mid).startswith("cat.") else None
+    return parsed is not None and parsed[1] is None and parsed[2] == "survival"
+
+
+def v2_scoring_rule(rule: dict, decisive_at: Sequence[str] | None) -> tuple[dict, dict]:
+    """``(union rule, systems)`` -- the v2 rule expanded for ``D00s`` (plan D5/D10).
+
+    The UNION of ``eval_categories.expand_rule`` in both unit systems at ``decisive = present =
+    decisive_at`` (B0 trains all seven categories), so every block, member and guard either system
+    can score has an R. ``systems`` records, per unit system, the non-empty blocks, their members
+    and the guards -- the null construction scores ``systems['ratio']`` and the completeness test
+    walks both.
+    """
+    ec = _ec()
+    if decisive_at is None:
+        raise ResolutionError("decision_rule has rule_version 2: resolve() needs decisive_at "
+                              "(the categories B0's final-stage composed env trains -- the driver "
+                              "passes sorted(decisive(B0)); the CLI's --decisive-at)")
+    dec = [str(c) for c in decisive_at]
+    unknown = [c for c in dec if c not in ec.CATEGORIES]
+    if unknown or not dec:
+        raise ResolutionError(f"decisive_at {dec}: unknown categories {unknown} (known: "
+                              f"{list(ec.CATEGORIES)})" if unknown else "decisive_at is empty")
+    try:
+        union = ec.expand_rule_union(rule, dec, dec)
+        by_units = {"ratio": ec.expand_rule(rule, dec, dec, absolute_units=False),
+                    "absolute": ec.expand_rule(rule, dec, dec, absolute_units=True)}
+    except ValueError as exc:
+        raise ResolutionError(f"decision_rule (rule_version 2) does not expand: {exc}") from exc
+    systems = {}
+    for units, exp in by_units.items():
+        blocks = [b for b, body in exp["blocks"].items() if body["metrics"]]
+        systems[units] = {"blocks": blocks, "na_blocks": list(exp["na_blocks"]),
+                          "members": {b: list(exp["blocks"][b]["metrics"]) for b in blocks},
+                          "guards": list(exp["guards"]["metrics"])}
+    return union, systems
+
+
+def null_nominal(system: dict) -> float:
+    """``0.95 ** blocks * 0.99 ** guards`` -- the independence-model all-TIE rate of one unit system
+    (plan D9 item 4: 0.95**3 * 0.99**9 ~ 0.78 in the ratio system at B0's decisive set)."""
+    return float(BLOCK_LEVEL ** len(system["blocks"]) * GUARD_LEVEL ** len(system["guards"]))
+
+
+def acceptance_d00s(blocks: dict[str, dict], metrics: dict[str, dict], systems: dict,
+                    null: dict | None, nominal: float) -> dict:
+    """``{ok, failures}`` -- D00s' acceptance (plan D9 item 4), computed BEFORE anything is written.
+
+    (1) The CALIBRATED env-clustered null (R re-derived on the same resample distribution, survival
+    guards floored at ``R_binom``) all-TIE inside ``[nominal - 0.03, 0.98]``. (2) Completeness, in
+    BOTH unit systems: a finite positive ``R_eval`` for every non-empty block, every member of those
+    blocks, and every non-survival guard (``cat.move_turn.ratio`` / ``achieved_speed``,
+    ``cat_tripod_min``) -- without it an unresolved block is a permanent TIE the band cannot see.
+    ``survival`` guards are exempt: a None or 0 ``R_eval`` is scored on the binomial floor.
+    """
+    failures: list[str] = []
+    lo, hi = nominal - NULL_BAND_SLACK, NULL_BAND_HI
+    if null is None:
+        failures.append("no null construction: no accepted control row on the screen row")
+    elif not (lo <= float(null["all_tie"]) <= hi):
+        failures.append(f"null all-TIE {float(null['all_tie']):.3f} outside [{lo:.3f}, {hi:.2f}] "
+                        f"(nominal {nominal:.3f}; env-clustered, survival guards floored)")
+    for units in ("ratio", "absolute"):
+        sysd = systems[units]
+        for b in sysd["blocks"]:
+            R = (blocks.get(b) or {}).get("R_eval")
+            if not _positive(R):
+                failures.append(f"block {b} ({units}): R_eval {R!r} is not finite and positive")
+            for m in sysd["members"][b]:
+                R = (metrics.get(m) or {}).get("R_eval")
+                if not _positive(R):
+                    failures.append(f"{b} member {m}: R_eval {R!r} is not finite and positive")
+        for g in sysd["guards"]:
+            if _is_survival_guard(g):
+                continue
+            R = (metrics.get(g) or {}).get("R_eval")
+            if not _positive(R):
+                failures.append(f"guard {g} ({units}): R_eval {R!r} is not finite and positive")
+    failures = list(dict.fromkeys(failures))
+    return {"ok": not failures, "failures": failures}
 
 
 def resolve(candidates: dict, *, bootstrap: int | None = None, rng_seed: int | None = None,
             ring_proxy: bool = False, control_head: str | None = None,
             curriculum_runs: Sequence[str | Path] = (), verify: bool = True,
-            candidates_sha256: str | None = None) -> dict:
+            candidates_sha256: str | None = None, eval_sha: str | None = None,
+            decisive_at: Sequence[str] | None = None, d00: dict | None = None,
+            supersedes: str | None = None) -> dict:
     """Build the ``resolution.json`` payload (schema 1) from a parsed ``candidates.yaml``.
 
     ``bootstrap`` / ``rng_seed`` default to ``decision_rule.bootstrap.{B, rng_seed}`` when the yaml
@@ -1520,11 +2379,25 @@ def resolve(candidates: dict, *, bootstrap: int | None = None, rng_seed: int | N
     its own stream, keyed to ``(rng_seed, pair name)`` by :func:`pair_rng`, so re-running the tool
     after the process-floor eval lands leaves the existing pairs' numbers bit-identical instead of
     silently re-fitting every recorded ``R``.
+
+    **Rule version 2 (``D00s``, plan D9 item 3 / D10).** The driver calls this IN PROCESS with
+    ``eval_sha`` (``lad.eval_sha``, recorded), ``decisive_at`` (``sorted(decisive(B0))``, used for
+    both decisive and present), ``d00`` (the parsed ``D00`` record: its light/ring ``by_row`` tables
+    and ``decision_rule``) and ``supersedes`` (``"D00"``), and ``resolution_inputs`` whose
+    ``role: pair`` entries carry their recorded ``stamp``. The rule is expanded here
+    (:func:`v2_scoring_rule`); the screen row is :data:`SCREEN_ROW`; ``BORROW`` and
+    ``curriculum_runs`` are retired (the latter is refused). The payload gains ``rule_version``,
+    ``eval_sha``, ``supersedes``, ``decisive_at``, ``scored_systems``, ``by_category_n``,
+    ``null_nominal``, ``null_survival_tie`` (per survival guard, both nulls), ``by_row_rule`` /
+    ``by_row_source`` (D00's copies) and ``acceptance = {ok, failures}`` (:func:`acceptance_d00s`).
+    Nothing is written here -- the caller decides from ``acceptance`` whether
+    :func:`write_resolution` runs. A rule-version-1 call is unchanged, bit for bit.
     """
     entries = list(candidates.get("resolution_inputs") or [])
     if not entries:
         raise ResolutionError("candidates.yaml carries no resolution_inputs")
     rule = dict(candidates.get("decision_rule") or {})
+    v2 = rule_version(rule) == 2
     boot_cfg = dict(rule.get("bootstrap") or {})
     bootstrap = int(bootstrap if bootstrap is not None else boot_cfg.get("B", BOOTSTRAP_B))
     rng_seed = int(rng_seed if rng_seed is not None else boot_cfg.get("rng_seed", RNG_SEED))
@@ -1541,8 +2414,22 @@ def resolve(candidates: dict, *, bootstrap: int | None = None, rng_seed: int | N
     # `--control-head` still wins.
     control_head = control_head or (rule.get("control_head") or None)
     notes: list[str] = []
+    systems: dict | None = None
+    if v2:
+        if curriculum_runs:
+            raise ResolutionError("--curriculum-runs is retired under rule_version 2: the suite "
+                                  "measures both hands of every paired category (lat_r and "
+                                  "move_turn_r included), so nothing is borrowed or re-derived")
+        scoring_rule, systems = v2_scoring_rule(rule, decisive_at)
+        screen_row = SCREEN_ROW
+    else:
+        if decisive_at is not None or d00 is not None:
+            raise ResolutionError("decisive_at / d00 are rule_version 2 arguments; this "
+                                  "decision_rule is rule_version 1")
+        scoring_rule = rule
+        screen_row = LEGACY_SCREEN_ROW
 
-    rows = [load_row(e, ring_proxy=ring_proxy, rule=rule, verify=verify) for e in entries]
+    rows = [load_row(e, ring_proxy=ring_proxy, rule=scoring_rule, verify=verify) for e in entries]
     by_scenario: dict[str, list[Row]] = {}
     for r in rows:
         by_scenario.setdefault(r.row, []).append(r)
@@ -1556,18 +2443,22 @@ def resolve(candidates: dict, *, bootstrap: int | None = None, rng_seed: int | N
     floor_metrics: dict[str, dict] = {}
     unresolved_rows: dict[tuple[str, str], list[str]] = {}
     for sid in sorted(by_scenario):
-        specs, unresolved = specs_from_rule(rule, by_scenario[sid][0].hold_labels)
-        for mid in unresolved:
-            key = (mid, why_unresolved(mid, by_scenario[sid][0].hold_labels))
-            unresolved_rows.setdefault(key, []).append(sid)
+        first = by_scenario[sid][0]
+        specs, unresolved = specs_from_rule(scoring_rule, first.hold_labels, suite=first.suite)
+        # Under v2 the legacy rows are informational: listing every category id as "not on this
+        # row" for each of them would bury the notes that matter.
+        if not v2 or any(r.accepted for r in by_scenario[sid]):
+            for mid in unresolved:
+                key = (mid, why_unresolved(mid, first.hold_labels, suite=first.suite))
+                unresolved_rows.setdefault(key, []).append(sid)
         cross, floor, n2 = build_pairs(by_scenario[sid], control=control_head, B=bootstrap,
                                        rng_seed=rng_seed, specs=specs)
         notes.extend(n2)
         if cross:
             merged, blocks, n3 = _merge_pairs(cross)
             notes.extend(f"{sid}: {m}" for m in n3)
-            # ``metrics`` stays exactly the schema's enumerated blocks (F/T/guard/F_abs/T_abs) so it
-            # is a clean input to decide(); everything the rule only WATCHES goes to watch_metrics.
+            # ``metrics`` stays exactly the rule's blocks and guards so it is a clean input to
+            # decide(); everything the rule only WATCHES goes to watch_metrics.
             scored = {k: v for k, v in merged.items() if v["block"] != "watch"}
             watched = {k: v for k, v in merged.items() if v["block"] == "watch"}
             for block in blocks.values():
@@ -1591,16 +2482,23 @@ def resolve(candidates: dict, *, bootstrap: int | None = None, rng_seed: int | N
     for (mid, why), sids in sorted(unresolved_rows.items()):
         notes.append(f"no half-width for {mid} on {', '.join(sorted(sids))} -- {why}")
 
-    if SCREEN_ROW not in by_row:
+    if screen_row not in by_row:
         raise ResolutionError(
-            f"no cross-head pair on the screen row {SCREEN_ROW!r}: every candidate screen is scored "
-            f"there, so D00 without it has no R. Rows resolved: {sorted(by_row)}")
-    metrics = {k: dict(v) for k, v in by_row[SCREEN_ROW]["metrics"].items()}
-    blocks = {k: dict(v) for k, v in by_row[SCREEN_ROW]["blocks"].items()}
-    watch = {k: dict(v) for k, v in by_row[SCREEN_ROW]["watch_metrics"].items()}
-    watch.update(_borrowed_watch(metrics, watch))
+            f"no cross-head pair on the screen row {screen_row!r}: every candidate screen is scored "
+            f"there, so {'D00s' if v2 else 'D00'} without it has no R. Rows resolved: "
+            f"{sorted(by_row)}")
+    metrics = {k: dict(v) for k, v in by_row[screen_row]["metrics"].items()}
+    blocks = {k: dict(v) for k, v in by_row[screen_row]["blocks"].items()}
+    watch = {k: dict(v) for k, v in by_row[screen_row]["watch_metrics"].items()}
+    if v2:
+        notes.append("rule_version 2: both hands of every paired category are measured on the "
+                     "suite -- BORROW and --curriculum-runs are retired")
+    else:
+        watch.update(_borrowed_watch(metrics, watch))
 
-    if curriculum_runs:
+    if v2:
+        pass
+    elif curriculum_runs:
         watch, cnotes, crow = _rederive_curriculum(curriculum_runs, watch, ring_proxy=ring_proxy,
                                                    bootstrap=bootstrap, rng_seed=rng_seed,
                                                    verify=verify, rule=rule)
@@ -1612,7 +2510,8 @@ def resolve(candidates: dict, *, bootstrap: int | None = None, rng_seed: int | N
                      "D00 inputs); re-derive with --curriculum-runs at the first milestone")
 
     for mid, floor in sorted(floors.items()):
-        got = (metrics.get(mid) or {}).get("R_eval")
+        # Under v2 the cited ids (completion, tripod_walking_dir) are WATCH: their R is in watch.
+        got = ((metrics.get(mid) or (watch.get(mid) if v2 else None) or {}).get("R_eval"))
         if got is None:
             notes.append(f"charter floor cited, unsuperseded: {mid} +-{floor} ({cite}) -- the "
                          "bootstrap measured no half-width for it on this row")
@@ -1625,28 +2524,47 @@ def resolve(candidates: dict, *, bootstrap: int | None = None, rng_seed: int | N
     # decision 6's null-candidate calibration. Neither changes an R; both say whether the recorded
     # thresholds are trustworthy, which is the one thing a resolution record cannot assert about
     # itself.
-    ctrl_row = next((r for r in by_scenario[SCREEN_ROW]
-                     if r.accepted and r.head == by_row[SCREEN_ROW]["control_head"]), None)
+    ctrl_row = next((r for r in by_scenario[screen_row]
+                     if r.accepted and r.head == by_row[screen_row]["control_head"]), None)
     diagnostics: dict[str, Any] = {}
+    nul: dict | None = None
+    cross_null: dict | None = None
+    null_kw: dict[str, Any] = {}
+    if v2:
+        null_kw = {"scored_blocks": systems["ratio"]["blocks"],
+                   "scored_guards": systems["ratio"]["guards"],
+                   "survival_guards": [g for g in scoring_rule["guards"]["metrics"]
+                                       if _is_survival_guard(g)]}
     if ctrl_row is not None:
-        specs, _ = specs_from_rule(rule, ctrl_row.hold_labels)
+        specs, _ = specs_from_rule(scoring_rule, ctrl_row.hold_labels, suite=ctrl_row.suite)
         n_ctrl = len(ctrl_row.env_index)
+        if v2:
+            null_kw["waves"] = ctrl_row.waves
         nul = null_construction(ctrl_row.cols, specs, n=n_ctrl, B=bootstrap, N=1000,
-                                rng=pair_rng(rng_seed, f"null::{ctrl_row.label}"))
+                                rng=pair_rng(rng_seed, f"null::{ctrl_row.label}"), **null_kw)
         cross_null = null_construction(ctrl_row.cols, specs, n=n_ctrl, B=bootstrap, N=1000,
                                        rng=pair_rng(rng_seed, f"null-d00::{ctrl_row.label}"),
                                        R_metrics={k: v["R_eval"] for k, v in metrics.items()},
-                                       R_blocks={k: v["R_eval"] for k, v in blocks.items()})
+                                       R_blocks={k: v["R_eval"] for k, v in blocks.items()},
+                                       **null_kw)
         diagnostics = {"control_head": ctrl_row.head,
                        "same_run_spread": nul["R_metrics"], "same_run_blocks": nul["R_blocks"],
                        "null_calibrated": {k: nul[k] for k in ("N", "all_tie", "blocks", "guards")},
                        "null_under_d00_R": {k: cross_null[k] for k in ("N", "all_tie", "blocks",
                                                                       "guards")}}
-        notes.append(f"null-candidate check on {ctrl_row.head} @{SCREEN_ROW} (N=1000, two independent "
-                     f"episode resamples per trial): all-TIE {nul['all_tie']:.3f} with R re-derived on "
+        if v2:
+            # What entered all_tie (the ratio system) and the per-trial survival floors' medians.
+            diagnostics["null_scored"] = nul["scored"]
+            diagnostics["null_calibrated"]["binomial_floor"] = nul.get("binomial_floor")
+            diagnostics["null_under_d00_R"]["binomial_floor"] = cross_null.get("binomial_floor")
+        shown = systems["ratio"]["blocks"] if v2 else ("F", "T")
+        notes.append(f"null-candidate check on {ctrl_row.head} @{screen_row} (N=1000, two independent "
+                     f"{'env-clustered ' if v2 else ''}episode resamples per trial): all-TIE "
+                     f"{nul['all_tie']:.3f} with R re-derived on "
                      f"the same resample distribution (blocks "
-                     + ", ".join(f"{k} {v:.3f}" for k, v in nul['blocks'].items() if k in ('F', 'T'))
-                     + f"), {cross_null['all_tie']:.3f} under D00's cross-head R")
+                     + ", ".join(f"{k} {v:.3f}" for k, v in nul['blocks'].items() if k in shown)
+                     + f"), {cross_null['all_tie']:.3f} under "
+                     + ("this record's" if v2 else "D00's") + " cross-head R")
         floor_ratio = 1.0 / math.sqrt(2.0)
         for mid, m in sorted(metrics.items()):
             R, spread = m.get("R_eval"), nul["R_metrics"].get(mid)
@@ -1675,6 +2593,30 @@ def resolve(candidates: dict, *, bootstrap: int | None = None, rng_seed: int | N
                      "is a 4-min GPU row; list it with process_floor_pair: true, and floor_of: "
                      "<head> when its label differs from the head it re-evaluates)")
 
+    extra: dict[str, Any] = {}
+    line_kw: dict[str, Any] = {}
+    if v2:
+        extra = _v2_payload(rows=rows, by_row=by_row, metrics=metrics, blocks=blocks,
+                            systems=systems, nul=nul, cross_null=cross_null, ctrl_row=ctrl_row,
+                            screen_row=screen_row, d00=d00, notes=notes, eval_sha=eval_sha,
+                            decisive_at=decisive_at, supersedes=supersedes)
+        line_kw = {"label": "D00s", "draw": "env-clustered paired bootstrap",
+                   "tail": (f" | null all-TIE {nul['all_tie']:.3f} (nominal "
+                            f"{extra['null_nominal']:.3f}) | acceptance "
+                            + ("ok" if extra["acceptance"]["ok"] else
+                               f"FAILED ({len(extra['acceptance']['failures'])})")
+                            if nul is not None else " | no null (no control row)")}
+    inputs = [{"run_dir": str(r.run_dir), "row": r.row, "head": r.head,
+               "provenance_ok": r.provenance_ok, "accepted": r.accepted, "reason": r.reason,
+               "env_vars_defaulted": list(r.env_vars_defaulted),
+               "waived": r.waived, "n_episodes": r.n_episodes,
+               "facing_closed_source": r.facing_closed_source,
+               "process_floor_pair": r.process_floor_pair,
+               "mask_deviation": _jf(r.mask_deviation)} for r in rows]
+    if v2:
+        for rec, r in zip(inputs, rows):
+            rec.update({"role": r.role, "suite": r.suite, "stamp": r.stamp,
+                        "checkpoint": r.entry_checkpoint or r.checkpoint})
     payload = {
         "schema": SCHEMA,
         "created": datetime.now().astimezone().isoformat(timespec="seconds"),
@@ -1685,20 +2627,15 @@ def resolve(candidates: dict, *, bootstrap: int | None = None, rng_seed: int | N
         # makes this record stale: the driver (which pins the same hash in state.ladder) can compare.
         "candidates_sha256": candidates_sha256,
         "decision_rule": candidates.get("decision_rule") or {},
-        "inputs": [{"run_dir": str(r.run_dir), "row": r.row, "head": r.head,
-                    "provenance_ok": r.provenance_ok, "accepted": r.accepted, "reason": r.reason,
-                    "env_vars_defaulted": list(r.env_vars_defaulted),
-                    "waived": r.waived, "n_episodes": r.n_episodes,
-                    "facing_closed_source": r.facing_closed_source,
-                    "process_floor_pair": r.process_floor_pair,
-                    "mask_deviation": _jf(r.mask_deviation)} for r in rows],
+        "inputs": inputs,
         "pairs": pair_records,
         "metrics": metrics,
         "blocks": blocks,
         "watch_metrics": watch,
-        "aliases": alias_map(specs_from_rule(rule, by_scenario[SCREEN_ROW][0].hold_labels)[0]),
+        "aliases": alias_map(specs_from_rule(scoring_rule, by_scenario[screen_row][0].hold_labels,
+                                             suite=by_scenario[screen_row][0].suite)[0]),
         "by_row": by_row,
-        "screen_row": SCREEN_ROW,
+        "screen_row": screen_row,
         "process_floor": {k: v["R"] for k, v in sorted(floor_metrics.items())},
         "process_floor_detail": {k: v for k, v in sorted(floor_metrics.items())},
         "diagnostics": diagnostics,
@@ -1706,10 +2643,101 @@ def resolve(candidates: dict, *, bootstrap: int | None = None, rng_seed: int | N
         "charter_cite": cite,
         "seed_terms": {},
         "levels": {"block": BLOCK_LEVEL, "guard": GUARD_LEVEL, "guard_one_sided": True},
-        "resolution_line": _resolution_line(blocks, metrics, bootstrap),
+        "resolution_line": _resolution_line(blocks, metrics, bootstrap, **line_kw),
         "notes": notes,
     }
+    if not v2:
+        for key, val in (("eval_sha", eval_sha), ("supersedes", supersedes)):
+            if val is not None:
+                payload[key] = val
+    payload.update(extra)
     return payload
+
+
+def _v2_payload(*, rows: Sequence[Row], by_row: dict, metrics: dict, blocks: dict, systems: dict,
+                nul: dict | None, cross_null: dict | None, ctrl_row: Row | None, screen_row: str,
+                d00: dict | None, notes: list[str], eval_sha: str | None,
+                decisive_at: Sequence[str], supersedes: str | None) -> dict:
+    """The keys a rule-version-2 (``D00s``) record adds; mutates ``by_row`` / ``metrics`` / ``notes``.
+
+    ``by_category_n`` (per category: episode count, distinct envs, per-hold n, from the control's
+    suite row); each survival guard's ``binomial_floor`` (named per cross-head pair: the floor a
+    comparison of those two heads would take); ``null_survival_tie``; D00's light/ring tables and
+    frozen rule; ``acceptance``.
+    """
+    ec = _ec()
+    nominal = null_nominal(systems["ratio"])
+    by_category_n: dict[str, dict] = {}
+    if ctrl_row is not None and ctrl_row.suite:
+        for cat in ec.CATEGORIES:
+            holds = [h for h, c in zip(ctrl_row.hold_index, ctrl_row.category_index) if c == cat]
+            if not holds:
+                continue
+            by_category_n[cat] = {"n": len(holds), "n_env": int(ctrl_row.episodes_per_wave),
+                                  "holds": {h: holds.count(h) for h in dict.fromkeys(holds)}}
+    floors_named: list[str] = []
+    for mid, m in sorted(metrics.items()):
+        if not _is_survival_guard(mid):
+            continue
+        per_pair: dict[str, dict] = {}
+        for name, pt in (m.get("points") or {}).items():
+            a, b = pt.get("a"), pt.get("b")
+            if a is None or b is None:
+                continue
+            p_bar = (float(a) + float(b)) / 2.0
+            n_c = int(m.get("n_valid") or 0)
+            per_pair[name] = {"p_bar": p_bar, "n_c": n_c,
+                              "R_binom": binomial_guard_floor(p_bar, n_c)}
+        worst = max((v["R_binom"] for v in per_pair.values() if v["R_binom"] is not None),
+                    default=None)
+        m["binomial_floor"] = {"R_binom": worst, "per_pair": per_pair}
+        by_row[screen_row]["metrics"][mid]["binomial_floor"] = m["binomial_floor"]
+        if worst is not None:
+            floors_named.append(f"{mid} {worst:.4f} (R_eval {m.get('R_eval')})")
+    if floors_named:
+        notes.append("binomial floors (survival guards, z_0.99 sqrt(2 p(1-p)/n_c), p clipped to "
+                      "[0.05, 0.95], worst cross-head pair): " + "; ".join(floors_named))
+    null_survival_tie = {}
+    if nul is not None and cross_null is not None:
+        for g in sorted(set(nul["guards"]) | set(cross_null["guards"])):
+            if _is_survival_guard(g):
+                null_survival_tie[g] = {
+                    "calibrated": nul["guards"].get(g),
+                    "under_cross_head_R": cross_null["guards"].get(g),
+                    "binomial_floor_median": (nul.get("binomial_floor") or {}).get(g)}
+    by_row_rule = None
+    if d00 is not None:
+        d00_rows = dict(d00.get("by_row") or {})
+        missing = [r for r in D00_COPIED_ROWS if r not in d00_rows]
+        if missing or not d00.get("decision_rule"):
+            raise ResolutionError(
+                f"d00 carries no by_row {missing} or no decision_rule: D00s copies D00's light/ring "
+                "tables and its frozen rule verbatim (plan D7), so it needs the parsed D00 record")
+        for r in D00_COPIED_ROWS:
+            if r in by_row:
+                notes.append(f"by_row[{r}] measured here is replaced by D00's copy (light/ring keep "
+                             "the frozen v1 per-row rule and its R, plan D7)")
+            table = copy.deepcopy(d00_rows[r])
+            table["by_row_source"] = "D00"
+            by_row[r] = table
+        by_row_rule = copy.deepcopy(d00["decision_rule"])
+        notes.append(f"by_row {', '.join(D00_COPIED_ROWS)} copied from D00 with its frozen "
+                     "decision_rule as by_row_rule (milestones score those rows on the v1 rule)")
+    else:
+        notes.append("no D00 record given: the light/ring by_row tables are NOT copied -- a "
+                     "milestone cannot score those rows against this record")
+    acceptance = acceptance_d00s(blocks, metrics, systems, nul, nominal)
+    return {"rule_version": 2,
+            "eval_sha": eval_sha,
+            "supersedes": supersedes,
+            "decisive_at": list(decisive_at),
+            "scored_systems": systems,
+            "by_category_n": by_category_n,
+            "null_nominal": nominal,
+            "null_survival_tie": null_survival_tie,
+            "by_row_rule": by_row_rule,
+            "by_row_source": {r: "D00" for r in D00_COPIED_ROWS} if d00 is not None else {},
+            "acceptance": acceptance}
 
 
 def _rederive_curriculum(run_dirs: Sequence[str | Path], watch: dict[str, dict], *,
@@ -1782,6 +2810,17 @@ def load_candidates(path: Path) -> dict:
 def summary_text(payload: dict) -> str:
     """A human-readable digest of the record -- what the RESOLUTION notify line quotes."""
     lines = [payload["resolution_line"], ""]
+    if payload.get("rule_version") == 2:
+        acc = payload.get("acceptance") or {}
+        lines.append(f"rule_version 2 on {payload['screen_row']}: eval_sha {payload.get('eval_sha')}, "
+                     f"supersedes {payload.get('supersedes')}, decisive_at "
+                     f"{', '.join(payload.get('decisive_at') or [])}")
+        lines.append(f"null nominal {payload.get('null_nominal', float('nan')):.3f}; acceptance "
+                     + ("ok" if acc.get("ok") else "FAILED: " + "; ".join(acc.get("failures") or [])))
+        for g, t in sorted((payload.get("null_survival_tie") or {}).items()):
+            lines.append(f"  null TIE {g:28s} calibrated {t.get('calibrated')} under cross-head R "
+                         f"{t.get('under_cross_head_R')}")
+        lines.append("")
     lines.append(f"inputs ({len(payload['inputs'])}):")
     for i in payload["inputs"]:
         flag = "USED " if i["accepted"] else "info "
@@ -1846,6 +2885,48 @@ def _fmt(points: list) -> str:
     return " ".join("n/a" if p.get("delta") is None else f"{p['delta']:+.3f}" for p in points)
 
 
+def parse_reeval_stamps(text: str | None, *, eval_sha: str | None = None) -> dict[str, str]:
+    """``{head: stamp}`` from ``--reeval-stamps``: a JSON object ``{head: stamp}``, or a JSON list of
+    ``lad.reevals`` records ``[{head, eval_sha, stamp}]`` (filtered to ``eval_sha`` when given; a
+    later record wins -- the list is append-only), inline or in a file."""
+    if text is None:
+        return {}
+    raw = text
+    try:
+        if Path(text).is_file():
+            raw = Path(text).read_text()
+    except OSError:
+        pass
+    try:
+        data = json.loads(raw)
+    except ValueError as exc:
+        raise ResolutionError(f"--reeval-stamps is not JSON (or a JSON file): {exc}") from exc
+    if isinstance(data, dict):
+        return {str(k): str(v) for k, v in data.items()}
+    if isinstance(data, list):
+        out: dict[str, str] = {}
+        for rec in data:
+            if eval_sha is not None and rec.get("eval_sha") != eval_sha:
+                continue
+            out[str(rec["head"])] = str(rec["stamp"])
+        return out
+    raise ResolutionError("--reeval-stamps must be a JSON object {head: stamp} or a list of "
+                          "{head, eval_sha, stamp} records")
+
+
+def apply_reeval_stamps(entries: Sequence[dict], stamps: dict[str, str]) -> list[dict]:
+    """``resolution_inputs`` with each checkpoint-shaped ``role: pair`` entry's recorded ``stamp``
+    set from ``stamps`` (by ``head``) -- what the driver does from ``lad.reevals`` in process."""
+    out = []
+    for e in entries or []:
+        e = dict(e)
+        if (str(e.get("role") or "pair") == "pair" and e.get("checkpoint")
+                and str(e.get("head")) in stamps):
+            e["stamp"] = stamps[str(e["head"])]
+        out.append(e)
+    return out
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="D00: the measured eval resolution (plan decision 6)")
     ap.add_argument("--campaign-dir", required=True, type=Path,
@@ -1874,21 +2955,63 @@ def main(argv: Sequence[str] | None = None) -> int:
     ap.add_argument("--no-verify", action="store_true",
                     help="skip the window / reducer replication checks (diagnostics only)")
     ap.add_argument("--print", dest="do_print", action="store_true", help="print the digest")
+    # ---- rule version 2 (D00s): the manual mirror of the driver's in-process resolve() call
+    ap.add_argument("--eval-sha", default=None,
+                    help="rule v2: the campaign's lad.eval_sha, recorded in D00s; the default output "
+                         "is then <campaign-dir>/resolution.<eval_sha[:12]>.json")
+    ap.add_argument("--reeval-stamps", default=None,
+                    help="rule v2: the role:pair inputs' recorded eval stamps -- JSON {head: stamp} "
+                         "or the lad.reevals list [{head, eval_sha, stamp}] (filtered to --eval-sha), "
+                         "inline or a file")
+    ap.add_argument("--supersedes", default=None, help="rule v2: the record D00s supersedes (D00)")
+    ap.add_argument("--d00", type=Path, default=None,
+                    help="rule v2: D00's resolution.json -- its light/ring by_row tables and frozen "
+                         "decision_rule are copied into D00s")
+    ap.add_argument("--decisive-at", default=None,
+                    help="rule v2: CSV of decisive(B0) (default: all seven categories -- B0 trains "
+                         "every one)")
     args = ap.parse_args(argv)
 
     cand_path = args.candidates or (args.campaign_dir / "candidates.yaml")
-    out_path = args.out or (args.campaign_dir / "resolution.json")
     try:
         cands = load_candidates(cand_path)
         sha = hashlib.sha256(Path(cand_path).read_bytes()).hexdigest()
+        v2 = rule_version(cands.get("decision_rule")) == 2
+        kw: dict[str, Any] = {"eval_sha": args.eval_sha, "supersedes": args.supersedes}
+        if v2:
+            if args.out is None and not args.eval_sha:
+                raise ResolutionError("rule_version 2: pass --eval-sha (names the output "
+                                      "resolution.<eval_sha[:12]>.json) or --out")
+            stamps = parse_reeval_stamps(args.reeval_stamps, eval_sha=args.eval_sha)
+            cands = dict(cands, resolution_inputs=apply_reeval_stamps(
+                cands.get("resolution_inputs") or [], stamps))
+            kw["decisive_at"] = ([c.strip() for c in args.decisive_at.split(",") if c.strip()]
+                                 if args.decisive_at else list(_ec().CATEGORIES))
+            kw["d00"] = json.loads(args.d00.read_text()) if args.d00 else None
+        elif args.reeval_stamps or args.d00 or args.decisive_at:
+            raise ResolutionError("--reeval-stamps / --d00 / --decisive-at are rule_version 2 "
+                                  "flags; this decision_rule is rule_version 1")
+        out_path = args.out or (args.campaign_dir / (f"resolution.{args.eval_sha[:12]}.json"
+                                                     if v2 else "resolution.json"))
         payload = resolve(cands, bootstrap=args.bootstrap,
                           rng_seed=args.rng_seed, ring_proxy=args.ring_proxy,
                           control_head=args.control_head,
                           curriculum_runs=args.curriculum_runs, verify=not args.no_verify,
-                          candidates_sha256=sha)
+                          candidates_sha256=sha, **kw)
     except ResolutionError as exc:
         print(f"resolution refused: {exc}", file=sys.stderr)
         return 1
+    acceptance = payload.get("acceptance")
+    if acceptance is not None and not acceptance.get("ok"):
+        # The driver's rule: a failing D00s writes NOTHING but its diagnostic, never the record.
+        rejected = out_path.with_name(f"{out_path.stem}.D00s.rejected.json")
+        write_resolution(payload, rejected)
+        print(f"resolution acceptance FAILED -- wrote only the diagnostic {rejected}:",
+              file=sys.stderr)
+        for f in acceptance.get("failures") or []:
+            print(f"  - {f}", file=sys.stderr)
+        print(payload["resolution_line"])
+        return 2
     write_resolution(payload, out_path)
     if args.do_print:
         print(summary_text(payload))

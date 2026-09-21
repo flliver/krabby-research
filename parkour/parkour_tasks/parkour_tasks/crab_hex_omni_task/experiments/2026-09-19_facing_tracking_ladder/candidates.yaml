@@ -5,9 +5,18 @@
 # without `--accept-candidates-change <why>`, because every recorded decision names the recipe this
 # file composes and a silent edit would re-interpret the whole ledger.
 #
-# Vocabulary (one word, one meaning) and the decision rule are the plan's; the `decision_rule`
-# block below is frozen verbatim into the `D00` resolution entry, so a later edit of it is visible
-# in the ledger rather than only here.
+# Vocabulary (one word, one meaning) and the decision rule are the plans'; the `decision_rule`
+# block below is frozen verbatim into the resolution entry that measures it (`D00` for the v1 rule,
+# `D00s` for this v2 rule), so a later edit of it is visible in the ledger rather than only here.
+#
+# REVISION 2 (2026-09-21, PLAN_2026-09-21_per_category_eval.md, B6; relaunched with
+# `--accept-candidates-change`): the screen, the promotions and every chain stage evaluate the
+# per-category suite `suite__omni` (one launch, ten waves, one single-category episode per env); the
+# decision rule is `rule_version: 2` (per category, only the candidate's trained categories
+# decisive); stage floors are per-category survival band tests; the resolution inputs are the
+# suite re-evaluations of the D00 heads and the B0 rescreens (checkpoint + preset + eval_dir). The
+# ranked candidates and the milestones are unchanged. The pre-change file is frozen byte-for-byte
+# as `tests/unit/fixtures/candidates_v1_2026-09-19.yaml` (git show 464be672).
 #
 # EVERY path is written relative to the repository root. No driver may contain a dated path.
 schema: 1
@@ -16,10 +25,16 @@ plant: A15+B
 seeds: {screen: 3, confirm: 2}
 
 #: The screen every candidate is judged by: 8000 iterations of the effective recipe's chain at
-#: seed 3, scored on the flat canary `slow__omni` row alone (`eval` names ROW SHORT NAMES, which
-#: `eval_morph` expands to `<name>__omni` -- the manifest ids are `slow__omni` / `light__omni` /
-#: `ring__omni` / `curriculum__omni`).
-screen: {chain: scratch_1c, eval: [slow], iters: 8000}
+#: seed 3, scored on the per-category suite `suite__omni` alone (`eval` names ROW SHORT NAMES, which
+#: `eval_morph` expands to `<name>__omni` -- the manifest ids are `suite__omni` / `slow__omni` /
+#: `light__omni` / `ring__omni` / `curriculum__omni`; `slow` and `curriculum` are records now,
+#: nothing runs them).
+screen: {chain: scratch_1c, eval: [suite], iters: 8000}
+
+#: The rows BOTH promotion stages (2a, 2b) evaluate at a milestone (D7): the suite in place of
+#: `slow`; light/ring stay legacy rows scored by the frozen v1 per-row rule. Read by
+#: `promotion_stage_list` (default PROMOTION_EVAL); `ph.EVAL_FULL` (inside code_sha) is never edited.
+promotion: {eval: [suite, light, ring]}
 
 baseline: {id: B0, chain: scratch_1c}
 
@@ -27,33 +42,53 @@ replay:
   script: parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-09-16_1805_omni_formation/replay_reward_economy.py
   mode: advisory
 
-# ---------------------------------------------------------------------------- resolution (step 0)
-# The run dirs `resolution.py` measures D00 on. `provenance_ok: true` waives the EVAL_CARRY
-# provenance rule for a row recorded before a key existed (the three corrected re-evals, which are
-# informational only -- their n is degenerate and they never enter a candidate's R).
-# `role`: pair = a half of a cross-head pair the half-widths come from; informational = reported,
-# never pooled; process_floor = the same-head 2b re-eval (4 min GPU, run 2026-09-19), paired against
-# the recorded 2b slow row and reported as the process-noise floor, NEVER as the candidate R
-# (decision 6). A flagged row is excluded from cross-head pairing whatever it is labelled;
-# `floor_of` names the head it re-evaluates when the labels differ.
+# ---------------------------------------------------------------------------- resolution (D00s)
+# What `resolution.py` measures D00s on (D9 items 1-3, D10). Two shapes: a SUITE entry carries
+# `checkpoint + preset + eval_dir` and no `run_dir` (its stamp is the one the migration records --
+# `lad.reevals` at the D00s eval_sha for a `role: pair` entry, the newest COMPLETE stamp under
+# `<eval_dir>/suite__omni/seed001` whose checkpoint matches for a `role: seed_pair` entry); a LEGACY
+# entry carries `run_dir` (the validator refuses neither/both).
+# `role`: pair = a half of a cross-head suite pair the per-category half-widths come from (every
+# pair is measured against `decision_rule.control_head`); seed_pair = the B0 s3 / s2 rescreens
+# (X01 / X02; filled by the rescreen items, never re-evaluated, excluded from cross-head pairing:
+# D00bs' seed terms read them); informational = reported, never pooled -- the legacy
+# slow/light/ring rows D00 was measured on (D00's light/ring `by_row` tables are COPIED into D00s,
+# D7) and the three corrected re-evals (`provenance_ok: true` waives the EVAL_CARRY provenance rule
+# for a row recorded before a key existed). The 2b process-floor row is dropped: the harness is
+# bitwise deterministic at a fixed env_seed, so its floor is 0.0 by construction (amendment 19).
 resolution_inputs:
-  - {head: 1c-004, row: slow__omni, role: pair, provenance_ok: false,
+  - {head: 1c-004, row: suite__omni, role: pair, preset: "1c",
+     checkpoint: parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-09-18_02-35-35/model_4999.pt,
+     eval_dir: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-19_facing_tracking_ladder/reeval_1c-004}
+  - {head: 2b, row: suite__omni, role: pair, preset: "2b",
+     checkpoint: parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-09-18_12-58-58/model_14997.pt,
+     eval_dir: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-19_facing_tracking_ladder/reeval_2b}
+  - {head: 2a-reeval, row: suite__omni, role: pair, preset: "2a",
+     checkpoint: parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-09-18_09-41-10/model_9998.pt,
+     eval_dir: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-19_facing_tracking_ladder/reeval_2a-reeval}
+  - {head: B0-s3, row: suite__omni, role: seed_pair, preset: "1c",
+     checkpoint: parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-09-19_11-12-21_seed3_X01_1c_A15pB/model_7999.pt,
+     eval_dir: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-19_facing_tracking_ladder/seed3_X01_1c_A15pB}
+  - {head: B0-s2, row: suite__omni, role: seed_pair, preset: "1c",
+     checkpoint: parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-09-19_14-16-00_seed2_X02_1c_A15pB/model_7999.pt,
+     eval_dir: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-19_facing_tracking_ladder/seed2_X02_1c_A15pB}
+  - {head: 1c-004, row: slow__omni, role: informational, provenance_ok: false,
      run_dir: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-16_1805_omni_formation/seed3_1c_004_A15pB/slow__omni/seed001/2026-09-18_08-27-40}
-  - {head: 1c-004, row: light__omni, role: pair, provenance_ok: false,
+  - {head: 1c-004, row: light__omni, role: informational, provenance_ok: false,
      run_dir: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-16_1805_omni_formation/seed3_1c_004_A15pB/light__omni/seed001/2026-09-18_08-31-01}
-  - {head: 1c-004, row: ring__omni, role: pair, provenance_ok: false,
+  - {head: 1c-004, row: ring__omni, role: informational, provenance_ok: false,
      run_dir: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-16_1805_omni_formation/seed3_1c_004_A15pB_obst/ring__omni/seed001/2026-09-18_08-34-23}
-  - {head: 2b, row: slow__omni, role: pair, provenance_ok: false,
+  - {head: 2b, row: slow__omni, role: informational, provenance_ok: false,
      run_dir: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-16_1805_omni_formation/seed3_2b_006_A15pB/slow__omni/seed001/2026-09-18_18-53-00}
-  - {head: 2b, row: light__omni, role: pair, provenance_ok: false,
+  - {head: 2b, row: light__omni, role: informational, provenance_ok: false,
      run_dir: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-16_1805_omni_formation/seed3_2b_006_A15pB/light__omni/seed001/2026-09-18_18-56-10}
-  - {head: 2b, row: ring__omni, role: pair, provenance_ok: false,
+  - {head: 2b, row: ring__omni, role: informational, provenance_ok: false,
      run_dir: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-16_1805_omni_formation/seed3_2b_006_A15pB_obst/ring__omni/seed001/2026-09-18_18-59-24}
-  - {head: 2a-reeval, row: slow__omni, role: pair, provenance_ok: false,
+  - {head: 2a-reeval, row: slow__omni, role: informational, provenance_ok: false,
      run_dir: parkour/outputs/omni_plan/reeval_2a/slow__omni/slow__omni/seed001/2026-09-18_16-42-00}
-  - {head: 2a-reeval, row: light__omni, role: pair, provenance_ok: false,
+  - {head: 2a-reeval, row: light__omni, role: informational, provenance_ok: false,
      run_dir: parkour/outputs/omni_plan/reeval_2a/light__omni/light__omni/seed001/2026-09-18_16-45-24}
-  - {head: 2a-reeval, row: ring__omni, role: pair, provenance_ok: false,
+  - {head: 2a-reeval, row: ring__omni, role: informational, provenance_ok: false,
      run_dir: parkour/outputs/omni_plan/reeval_2a/ring__omni/ring__omni/seed001/2026-09-18_16-48-58}
   - {head: 1a-corrected, row: slow__omni, role: informational, provenance_ok: true,
      run_dir: parkour/outputs/omni_plan/reeval_corrected/1a/slow__omni/seed001/2026-09-18_05-12-15}
@@ -61,121 +96,117 @@ resolution_inputs:
      run_dir: parkour/outputs/omni_plan/reeval_corrected/1b/slow__omni/seed001/2026-09-18_05-15-35}
   - {head: 1c-corrected, row: slow__omni, role: informational, provenance_ok: true,
      run_dir: parkour/outputs/omni_plan/reeval_corrected/1c/slow__omni/seed001/2026-09-18_05-18-59}
-  - {head: 2b_floor, floor_of: 2b, row: slow__omni, role: process_floor, process_floor_pair: true,
-     provenance_ok: false,
-     run_dir: parkour/logs/rsl_rl/gait_eval/omni_phases/campaign/seed3_2b_006_A15pB_floor/slow__omni/seed001/2026-09-19_06-17-18}
 
 # --------------------------------------------------------------------- the M1 WATCH references
-# M1 has no previous milestone, so its promotion is WATCH-only against the recorded seed-3 2b rows
-# and, for the 2a head, against `outputs/omni_plan/reeval_2a` (plan, Part C (ii)). The driver
-# re-scores BOTH sides through `resolution.summarize_run_dir` so the F block's closed fractions
-# exist on the recorded side too (step 3's hand-off: an aggregate written before the key yields
-# {hold: None}). WATCH only: no milestone verdict ever reads these.
+# M1 has no previous milestone, so its promotion is WATCH-only against the recorded seed-3 2b head
+# and the 2a re-eval head (plan, Part C (ii)). Per stage: the SUITE row is the migration's reeval of
+# that head (`eval_dir` = the reeval ROOT, resolved to its newest COMPLETE stamp whose checkpoint
+# matches `checkpoint` -- `resolve_eval_dir`, the helper `load_row` uses, D10); light/ring keep their
+# recorded run dirs. The driver re-scores both sides through `resolution.summarize_run_dir`. WATCH
+# only: no milestone verdict ever reads these.
 milestone_reference:
   "2b":
-    slow: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-16_1805_omni_formation/seed3_2b_006_A15pB/slow__omni/seed001/2026-09-18_18-53-00
+    suite: {eval_dir: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-19_facing_tracking_ladder/reeval_2b,
+            checkpoint: parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-09-18_12-58-58/model_14997.pt}
     light: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-16_1805_omni_formation/seed3_2b_006_A15pB/light__omni/seed001/2026-09-18_18-56-10
     ring: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-16_1805_omni_formation/seed3_2b_006_A15pB_obst/ring__omni/seed001/2026-09-18_18-59-24
   "2a":
-    slow: parkour/outputs/omni_plan/reeval_2a/slow__omni/slow__omni/seed001/2026-09-18_16-42-00
+    suite: {eval_dir: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-19_facing_tracking_ladder/reeval_2a-reeval,
+            checkpoint: parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-09-18_09-41-10/model_9998.pt}
     light: parkour/outputs/omni_plan/reeval_2a/light__omni/light__omni/seed001/2026-09-18_16-45-24
     ring: parkour/outputs/omni_plan/reeval_2a/ring__omni/ring__omni/seed001/2026-09-18_16-48-58
 
 # ---------------------------------------------------------------------------- the decision rule
-# Frozen verbatim into D00 (kind resolution). `text` is decision 5 of the plan; the lists below are
-# the same rule in the form both tools read, and the metric ids are DOTTED PATHS into the dict
-# `run_phases.summarize()` returns for a row's aggregate JSON.
+# Rule v2 (D5), frozen verbatim into D00s. `text` restates it per category; `per_category` is the
+# same rule in the form both tools read -- `eval_categories.expand_rule` turns it into the flat
+# blocks/guards/watch shape at a comparison's decisive/present categories, with metric ids
+# `cat.<category>.<key>` (dotted paths into `run_phases.summarize()['cat']`) and the composite
+# `cat_tripod_min`. It equals `eval_categories.RULE_V2_PER_CATEGORY` (pinned by a test).
 decision_rule:
+  rule_version: 2
   text: >-
-    F block = facing on turn_l90, turn_r90, move_turn: the per-episode closed fraction
-    clip(1 - final/max(initial, 0.15), -1, 1) (None = uninformative when initial < 0.15) and the
-    signed yaw_progress_rate; T block = speed_ratio on fwd, lat_l, diag, back; guards (four) =
-    completion, tripod_walking_dir (min over the four direction holds), turn_survival_l90 =
-    surv[turn_l90]/surv[back] and turn_survival_r90 = surv[turn_r90]/surv[turn_l90] (falls DURING
-    the turns, not the cumulative survivals nested inside completion; a conditional survival is
-    MISSING when its denominator is 0 or unavailable, and the bootstrap drops zero-denominator
-    resamples). WATCH, never scored: track_ratio_tail (the training-log ratio includes the ~20 %
-    move+turn rows, so a successful facing fix lowers it by design), the slot-gated
-    track_ratio_move_tail, dir_ratio[move_turn], tripod_by_hold[move_turn], settle, right-handed
-    holds, the cumulative survivals. One standardiser everywhere: R_i = R_eval,i, the metric's D00
-    paired-bootstrap half-width, never re-fitted. Block statistic z_F = mean_i(delta_i / R_i) (a
-    closed fraction and a rad/s rate weigh equally); block resolution R_F = max(R_F^eval,
-    R_F^seed) where R_F^eval is the paired-bootstrap 95 % half-width of z_F itself and R_F^seed is
-    the block-level seed term of decision 6 -- likewise R_T and the two absolute-units blocks;
-    guards one-sided at 99 % on their own per-metric R (max(R_eval,i, R_seed,i) single-seed).
-    Null candidate all-TIE ~= 0.95^2 x 0.99^4 ~= 0.87 under eval noise (pinned), and B0_s2
-    submitted against B0_s3 is TIE on both blocks and every guard by construction (pinned).
-    Per block: BETTER if z > R, WORSE if z < -R, else TIE. Clear ADOPT = >= 1 block BETTER, no
-    WORSE (blocks or guards), and anchored drift OK; clear REJECT = any WORSE, or a FLOOR gate (a
-    MISSING metric never blocks a REJECT); UNCERTAIN = all TIE -> speculative pick = the
-    candidate's speculative_default when declared (C1c: candidate), else the sign of z_F + z_T
-    (exact tie -> incumbent), notify, pair queued. Anchored drift (z of candidate vs anchor >= -R on both blocks
-    and every guard) is a precondition of ANY ADOPT, clear or speculative, s3 or pooled -- a
-    clear-ADOPT screen that fails it is recorded confidence: uncertain (evidence.anchored_drift:
-    FAIL), status speculative, pick REJECT, and queues the pair exactly like an all-TIE UNCERTAIN;
-    at the pooled level drift = the candidate's two-seed mean deltas vs the anchor's s3 (and its s2,
-    paired seed-wise, when the anchor recipe has an ok s2 screen) at R_F^pooled/R_pooled,i, and a
-    pooled drift pass with a pooled clear ADOPT is an ADOPT (a different pick -> self-overrule as
-    usual). MISSING in a guard -> a decided REJECT (TERMINAL) with confidence: uncertain,
-    evidence.missing: [<guards>] + WATCH and NO pair (a pair cannot supply the metric;
-    decide --choose run re-runs the candidate later);
-    MISSING in F/T -> that metric leaves the block mean and the best outcome is a
-    speculative ADOPT. Absolute-units candidates (C3a, C3b -- any candidate that changes the
-    command cap/clip or, if ever added, the speed ellipse): F = facing_closed + whole-hold
-    net_yaw_rate_toward, T = achieved_vx m/s.
-  blocks:
-    F:
-      level: 0.95
-      metrics: [facing_closed_by_hold.turn_l90, facing_closed_by_hold.turn_r90,
-                facing_closed_by_hold.move_turn, yaw_progress_by_hold.turn_l90,
-                yaw_progress_by_hold.turn_r90, yaw_progress_by_hold.move_turn]
-    T:
-      level: 0.95
-      metrics: [ratio_by_hold.fwd, ratio_by_hold.lat_l, ratio_by_hold.diag, ratio_by_hold.back]
-    F_abs:
-      level: 0.95
-      metrics: [facing_closed_by_hold.turn_l90, facing_closed_by_hold.turn_r90,
-                facing_closed_by_hold.move_turn, net_yaw_by_hold.turn_l90,
-                net_yaw_by_hold.turn_r90, net_yaw_by_hold.move_turn]
-    T_abs:
-      level: 0.95
-      metrics: [achieved_speed_by_hold.fwd, achieved_speed_by_hold.lat_l,
-                achieved_speed_by_hold.diag, achieved_speed_by_hold.back]
-  guards:
-    level: 0.99
-    metrics: [completion, tripod_walking_dir, turn_survival_l90, turn_survival_r90]
-  #: Reported in every DECISION line, scored by nothing. Every id here is a real `summarize()` key
-  #: (plus the two training-log ratios the driver injects into the screen), so a WATCH line carries
-  #: numbers rather than None -> None -- except on the SCREEN row (`slow__omni`), where five of them
-  #: name holds that row does not have (`lat_r`, `move_turn_r`, and `turn_l90.settle` whenever no
-  #: episode settled) and the two training-log ratios do not exist until the window's log does.
-  #: Ring completion is decision 6's OTHER watched quantity; it is not an id at all but a per-ROW
-  #: rule, applied by the milestone comparison -- and it is CONDITIONAL: "ring completion WATCH at
-  #: milestones UNLESS the bootstrap resolves it" (decision 6). `_row_worse` therefore strips
-  #: `completion` from the ring row's guards only when that row's own resolution carries no
-  #: half-width for it; with the shipped D00 (`by_row[ring__omni].metrics.completion`) it is scored
-  #: like every other guard, and the MILESTONE line says which.
-  watch: [track_ratio_tail, track_ratio_move_tail, ratio_by_hold.move_turn,
-          tripod_by_hold.move_turn, facing_by_hold.turn_l90.settle,
-          facing_by_hold.turn_r90.settle, ratio_by_hold.lat_r, ratio_by_hold.move_turn_r,
-          facing_closed_by_hold.move_turn_r, survival_by_hold.turn_l90,
-          survival_by_hold.turn_r90]
+    Every metric is a per-category number of the suite__omni row (summarize()['cat'][c]: the median
+    pooled over both hands of a paired category; survival = the category's own-hold survival), and
+    only the categories the CANDIDATE trained at the suite's demand are decisive -- every category
+    is still run and printed. Blocks (95 %): F = turn: facing_closed, yaw_progress; F_mt =
+    move_turn: facing_closed, yaw_progress, a block of its own (the hold's demand is infeasible by
+    construction, so it is scored RELATIVELY: both heads face the same impossible demand, and the
+    noisiest facing member neither dilutes nor is diluted by F); T = fwd, side, back, diag: ratio.
+    Absolute-units candidates (C3a, C3b) score F_abs = turn: facing_closed, net_yaw; F_mt_abs =
+    move_turn: facing_closed, net_yaw; T_abs = fwd, side, back, diag: achieved_speed. Guards
+    (one-sided 99 %): the survival of every PRESENT category (a category trained at reduced demand
+    keeps it), move_turn.ratio (achieved_speed under absolute_units) -- the anti-sacrifice guard, so
+    F_mt cannot be won by walking less -- and cat_tripod_min (the min of the tripod medians over the
+    decisive translation categories); R_i = max(R_eval,i, R_seed,i, R_binom,i) with R_binom =
+    z_0.99 sqrt(2 p(1-p)/n_c), p clipped to [0.05, 0.95], for the survival guards only, so a survival
+    saturated on both heads is scored, never MISSING. Block statistic z_b = mean_i(delta_i / R_i);
+    block resolution R_b = max(R_b^eval, R_b^seed). Per block: BETTER if z > R, WORSE if z < -R,
+    else TIE; a block with no decisive member is N/A, never TIE. Clear ADOPT = >= 1 block BETTER, no
+    WORSE block or guard, and anchored drift OK; clear REJECT = any WORSE, or a stage floor (a
+    category_survival band test); a MISSING guard value -> a decided REJECT, confidence uncertain,
+    no pair; all scored blocks N/A -> a terminal SKIP (confidence none, no pair); all-TIE ->
+    speculative pick = the candidate's speculative_default when declared, else sign(sum_b z_b / R_b)
+    over the non-N/A blocks (each block in units of its own resolution; exact tie -> incumbent),
+    pair queued. WATCH, never scored: direction_error, cross_track_ratio, heading_final, settle_s,
+    stand.drift_speed, move_turn.tripod, move_turn.achieved_speed (ratio units), both hands of every
+    paired category, every other member and guard of a watch or untrained category (with its note),
+    the legacy completion, tripod_walking_dir, track_ratio_tail, track_ratio_move_tail;
+    turn_survival_l90/r90 print N/A (suite). Null candidate all-TIE ~= 0.95^3 x 0.99^9 ~= 0.78 at
+    B0's decisive set in ratio units (asserted against the measured null in D00s). At milestones
+    the suite row is WORSE on >= 2 decisive units; light__omni / ring__omni keep the frozen v1
+    per-row rule (D00's decision_rule, copied into D00s as by_row_rule).
+  per_category:
+    blocks:
+      F: {level: 0.95, units: ratio, members: {turn: [facing_closed, yaw_progress]}}
+      F_mt: {level: 0.95, units: ratio, members: {move_turn: [facing_closed, yaw_progress]}}
+      T: {level: 0.95, units: ratio,
+          members: {fwd: [ratio], side: [ratio], back: [ratio], diag: [ratio]}}
+      F_abs: {level: 0.95, units: absolute, members: {turn: [facing_closed, net_yaw]}}
+      F_mt_abs: {level: 0.95, units: absolute, members: {move_turn: [facing_closed, net_yaw]}}
+      T_abs: {level: 0.95, units: absolute,
+              members: {fwd: [achieved_speed], side: [achieved_speed], back: [achieved_speed],
+                        diag: [achieved_speed]}}
+    guards:
+      level: 0.99
+      members: {stand: [survival], fwd: [survival], side: [survival], back: [survival],
+                diag: [survival], turn: [survival], move_turn: [survival, ratio]}
+      composite: [cat_tripod_min]
+    #: REPLACES a category's non-survival guard keys for an `absolute_units` candidate.
+    guards_abs: {members: {move_turn: [achieved_speed]}}
+    watch:
+      members:
+        stand: [drift_speed]
+        fwd: [direction_error, cross_track_ratio, heading_final]
+        side: [direction_error, cross_track_ratio, heading_final]
+        back: [direction_error, cross_track_ratio, heading_final]
+        diag: [direction_error, cross_track_ratio, heading_final]
+        turn: [settle_s, heading_final]
+        move_turn: [tripod, direction_error, cross_track_ratio, settle_s]
+      hands: true
+      legacy: {completion: legacy, tripod_walking_dir: legacy, track_ratio_tail: legacy,
+               track_ratio_move_tail: legacy, turn_survival_l90: N/A (suite),
+               turn_survival_r90: N/A (suite)}
   #: The sideways CHARTER's measured floors (2026-09-11_0414_sideways_formation/CHARTER.md:227),
-  #: cited until the bootstrap resolves the same quantity; the bootstrap supersedes them.
+  #: carried over verbatim from the v1 rule (resolution.py reads them from the rule).
   charter_floors: {completion: 0.10, tripod_walking_dir: 0.056}
   bootstrap: {B: 2000, paired_on: env_index, rng_seed: 20260919}
-  #: The head every cross-head pair is measured AGAINST (decision 6: "1c-004 vs 2b, 1c-004 vs
-  #: 2a-reeval, per row"). Pinned rather than inferred from the order of `resolution_inputs`: the
-  #: per-metric R is the MAX over the pairs a control forms, so a reorder of that list would
-  #: silently re-fit D00 after decisions had already been taken against it.
+  #: The head every cross-head pair is measured AGAINST (D00s: "1c-004 vs 2b, 1c-004 vs
+  #: 2a-reeval"). Pinned rather than inferred from the order of `resolution_inputs`: the per-metric
+  #: R is the MAX over the pairs a control forms, and without the pin the control would default to
+  #: the first accepted input -- possibly a seed_pair row.
   control_head: 1c-004
 
 # ---------------------------------------------------------------------------- chains
 # A chain is a list of stages. `base` names the PRESET the stage runs on (KRABBY_OMNI_PHASE), never
 # a new preset: every difference from that preset is an env OVERLAY, recorded in params/env.yaml
-# and audited per run by `overlay_checks`. `holds` is the cumulative set of eval holds the stage's
-# capabilities cover (RETENTION compares the PREVIOUS stage's holds); `floor` is decision 4's
-# stage gate.
+# and audited per run by `overlay_checks`. `categories` is sorted(decisive | watch) of
+# `eval_categories.trained_categories` of the stage's COMPOSED env (the preset's env with the overlay
+# on top; the validator recomputes it); RETENTION compares every category decisive at an EARLIER
+# stage. `floor` is the stage gate (D6): `category_survival` = for each decisive category, FAIL only
+# when the one-sided 99 % upper binomial bound on its own-hold survival (n = its distinct-env count)
+# is below `min_prev` (decisive at an earlier stage) or `min_new` (new at this stage); `none` on a
+# stage the screen's guards cover or that evaluates nothing; `scratch_*` keep the training-log
+# `dead_walker` abort.
 chains:
   scratch_1c:
     notes: the incumbent recipe at equal compute -- the 1c preset from scratch for 8000 iterations
@@ -186,8 +217,8 @@ chains:
         from_scratch: true
         resume_from: scratch
         overlay: {}
-        eval: [slow]
-        holds: [stand, fwd, lat_l, diag, back, turn_l90, turn_r90, move_turn]
+        eval: [suite]
+        categories: [back, diag, fwd, move_turn, side, stand, turn]
         floor: {kind: dead_walker}
 
   scratch_c6:
@@ -208,8 +239,8 @@ chains:
           KRABBY_OMNI_RSI_SOURCE: all
           KRABBY_OMNI_FACING: 0.2:0.6
           KRABBY_YAW_W: "0.2"
-        eval: [slow]
-        holds: [stand, fwd, lat_l, lat_r, back, turn_l90, turn_r90, move_turn, move_turn_r, diag]
+        eval: [suite]
+        categories: [back, diag, fwd, move_turn, side, stand, turn]
         floor: {kind: dead_walker}
 
   curriculum:
@@ -236,9 +267,9 @@ chains:
           KRABBY_OMNI_RSI_SOURCE: "0"
           KRABBY_OMNI_FACING: 0.2:0.6
           KRABBY_YAW_W: "0.2"
-        eval: [curriculum]
-        holds: [stand, fwd]
-        floor: {kind: survival, row: curriculum, hold: fwd, min: 0.30}
+        eval: [suite]
+        categories: [fwd, stand]
+        floor: {kind: category_survival, row: suite, min_new: 0.10, min_prev: 0.30}
       - stage: c2
         base: "1a"
         iters: 1000
@@ -251,9 +282,9 @@ chains:
           KRABBY_OMNI_RSI_SOURCE: all
           KRABBY_OMNI_FACING: 0.2:0.6
           KRABBY_YAW_W: "0.2"
-        eval: [curriculum]
-        holds: [stand, fwd, lat_l, lat_r, back]
-        floor: {kind: survival, row: curriculum, hold: back, min: 0.30}
+        eval: [suite]
+        categories: [back, fwd, side, stand]
+        floor: {kind: category_survival, row: suite, min_new: 0.10, min_prev: 0.30}
       - stage: c3
         base: "1a"
         iters: 1000
@@ -267,7 +298,7 @@ chains:
           KRABBY_OMNI_FACING: 0.2:0.6
           KRABBY_YAW_W: "0.2"
         eval: []
-        holds: [stand, fwd, lat_l, lat_r, back, turn_l90, turn_r90]
+        categories: [back, fwd, side, stand, turn]
         floor: {kind: none}
       - stage: c4
         base: "1a"
@@ -281,9 +312,9 @@ chains:
           KRABBY_OMNI_RSI_SOURCE: all
           KRABBY_OMNI_FACING: 0.2:0.6
           KRABBY_YAW_W: "0.2"
-        eval: [curriculum]
-        holds: [stand, fwd, lat_l, lat_r, back, turn_l90, turn_r90, move_turn, move_turn_r]
-        floor: {kind: survival, row: curriculum, hold: move_turn_r, min: 0.30}
+        eval: [suite]
+        categories: [back, fwd, move_turn, side, stand, turn]
+        floor: {kind: category_survival, row: suite, min_new: 0.10, min_prev: 0.30}
       - stage: c5
         base: "1a"
         iters: 1500
@@ -297,7 +328,7 @@ chains:
           KRABBY_OMNI_FACING: 0.2:0.6
           KRABBY_YAW_W: "0.2"
         eval: []
-        holds: [stand, fwd, lat_l, lat_r, back, turn_l90, turn_r90, move_turn, move_turn_r, diag]
+        categories: [back, diag, fwd, move_turn, side, stand, turn]
         floor: {kind: none}
       - stage: c6
         base: "1a"
@@ -311,8 +342,8 @@ chains:
           KRABBY_OMNI_RSI_SOURCE: all
           KRABBY_OMNI_FACING: 0.2:0.6
           KRABBY_YAW_W: "0.2"
-        eval: [slow, curriculum]
-        holds: [stand, fwd, lat_l, lat_r, back, turn_l90, turn_r90, move_turn, move_turn_r, diag]
+        eval: [suite]
+        categories: [back, diag, fwd, move_turn, side, stand, turn]
         floor: {kind: none}
 
 # ---------------------------------------------------------------------------- ranked candidates
@@ -514,7 +545,7 @@ candidates:
 # `after` = every candidate up to and including this one has a TERMINAL entry (and is not
 # undecided). A milestone is (i) a zero-GPU pooled seed-2 confirmation, preceded when needed by one
 # ordinary experiment `M<k>.s2`, then (ii) one promotion experiment `M<k>.promo` (2a then 2b from
-# the recipe head, EVAL_FULL at both), and for M3 (iii) `M3.final_s2` from recipe_head_s2.
+# the recipe head, `promotion.eval` at both), and for M3 (iii) `M3.final_s2` from recipe_head_s2.
 milestones:
   - {id: M1, after: C3b, promote: ["2a", "2b"]}
   - {id: M2, after: C7, promote: ["2a", "2b"]}
