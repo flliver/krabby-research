@@ -31,7 +31,10 @@ one) every test in this file errors at fixture setup with a clear ``FileNotFound
 logic failure; it will collect and run once step 7 lands.
 """
 import ast
+import copy
+import hashlib
 import importlib.util
+import inspect
 import json
 import os
 import signal
@@ -1341,6 +1344,9 @@ FAKE_CHILD = textwrap.dedent('''
         with open(os.environ["FAKE_EVAL_JSON"]) as src, \\
                 open(os.path.join(out, "scenario_metrics.json"), "w") as dst:
             dst.write(src.read())
+        if os.environ.get("FAKE_EVAL_COMPLETE"):   # a suite row's LAST write (plan D10's marker)
+            with open(os.path.join(out, "complete.json"), "w") as fh:
+                fh.write(os.environ["FAKE_EVAL_COMPLETE"])
     with open(mark + ".ready", "w") as fh:
         fh.write("ready")
     line = os.environ.get("FAKE_LINE", "")
@@ -1823,9 +1829,9 @@ def _eval_payload(hold_labels, episodes, aggregate, usd="assets/crab.usda") -> d
             "run_meta": {"hold_labels": list(hold_labels), "dt": 0.02, "usd_path": usd}}
 
 
-def _arm_eval_output(drv, tmp_path, monkeypatch, payload, run="2026-09-18_00-00-00"):
+def _arm_eval_output(drv, tmp_path, monkeypatch, payload, run="2026-09-18_00-00-00", sid="slow__omni"):
     """Make the fake eval child leave one fresh run directory, and return its path."""
-    run_dir = tmp_path / "out" / "slow__omni" / "seed001" / run
+    run_dir = tmp_path / "out" / sid / "seed001" / run
     src = tmp_path / f"metrics_{run}.json"
     src.write_text(json.dumps(payload))
     monkeypatch.setenv("FAKE_EVAL_OUT", str(run_dir))
@@ -2345,3 +2351,478 @@ def test_train_system_exit_in_the_poll_loop_also_stops_the_child(drv, tmp_path, 
             if p is not None and p.poll() is None:
                 p.kill()
                 p.wait(timeout=10)
+
+
+# ================================================================== the training seam (plan 2026-09-21, D8)
+#: run_phases.py sits on the EVAL side of the ladder's hashes (``EVAL_PATHSPECS``, D8): an edit to
+#: its eval half moves ``eval_sha`` and nothing else. Its TRAINING half would then move neither hash,
+#: so it is pinned here instead -- the source of every function the training command line, the
+#: training env and the abort read, the ``Campaign`` record they write through, and the module
+#: constants they read. A training-relevant edit must bump :data:`TRAINING_SEAM_SHA256` AND be
+#: declared at relaunch with ``--accept-code-change`` (the recorded caveat 4 of the plan).
+TRAINING_SEAM = ("train", "train_retry", "_subenv", "with_plant", "latest_run_ckpt", "_ckpt_iter", "set_seed",
+                 "series", "tail_mean", "track_ratio_series", "dead_walker", "Campaign")
+#: ``_training_seam_pin`` over the UNEDITED run_phases.py -- ``git show 464be672:<path>`` executed
+#: with ``__file__`` at its real path -- computed ONCE when the pin was written (per-category plan
+#: step 3), never over the edited file: that would prove nothing.
+TRAINING_SEAM_SHA256 = "17d0bdb15cd674fbe1317222fa1e8622e4a7b3973c0385a4bdd39455fb0daf00"
+
+
+def _seam_functions(obj) -> list:
+    """The functions whose globals the pin reads: ``obj`` itself, or -- ``getclosurevars`` refuses a
+    class -- every method, property accessor and static/class method a class defines."""
+    if not inspect.isclass(obj):
+        return [obj]
+    out = []
+    for attr in vars(obj).values():
+        if isinstance(attr, (staticmethod, classmethod)):
+            attr = attr.__func__
+        if isinstance(attr, property):
+            out += [f for f in (attr.fget, attr.fset, attr.fdel) if f is not None]
+        elif inspect.isfunction(attr):
+            out.append(attr)
+    return out
+
+
+def _global_reads(fn) -> dict:
+    """``inspect.getclosurevars(fn).globals`` plus the globals read in ``fn``'s NESTED code objects:
+    before Python 3.12 a comprehension is its own code object, which ``getclosurevars`` never opens
+    (``train`` reads ``TRAIN_ENV_RESERVED`` inside one)."""
+    out = dict(inspect.getclosurevars(fn).globals)
+    stack = [c for c in fn.__code__.co_consts if inspect.iscode(c)]
+    while stack:
+        code = stack.pop()
+        out.update({n: fn.__globals__[n] for n in code.co_names if n in fn.__globals__ and n not in out})
+        stack += [c for c in code.co_consts if inspect.iscode(c)]
+    return out
+
+
+def _pin_value(mod, value) -> str:
+    """A constant's repr with repo paths made repo-relative, so a worktree pins the same value."""
+    if isinstance(value, Path):
+        try:
+            return f"<REPO>/{value.relative_to(mod.REPO).as_posix()}"
+        except ValueError:
+            return repr(value)
+    if isinstance(value, dict):
+        return "{" + ", ".join(f"{k!r}: {_pin_value(mod, v)}" for k, v in value.items()) + "}"
+    if isinstance(value, (tuple, list)):
+        return f"{type(value).__name__}(" + ", ".join(_pin_value(mod, v) for v in value) + ")"
+    return repr(value)
+
+
+def _training_seam_pin(mod, source: str) -> str:
+    """sha256 over the SOURCE of every :data:`TRAINING_SEAM` object (decorators included) plus a sorted
+    repr of the module-level non-callable, non-module globals they read. Names any function assigns
+    through ``global`` (``CURRENT_CHILD``, ``LAST_EVAL_INFO``) are runtime state and excluded."""
+    tree = ast.parse(source)
+    top = {n.name: n for n in tree.body if isinstance(n, (ast.FunctionDef, ast.ClassDef))}
+    runtime_state = {name for n in ast.walk(tree) if isinstance(n, ast.Global) for name in n.names}
+    lines = source.splitlines()
+    parts, consts = [], {}
+    for name in TRAINING_SEAM:
+        node = top[name]
+        first = min([node.lineno] + [d.lineno for d in node.decorator_list])
+        parts.append(f"## {name}\n" + "\n".join(lines[first - 1:node.end_lineno]))
+        for fn in _seam_functions(getattr(mod, name)):
+            for gname, value in _global_reads(fn).items():
+                if gname in runtime_state or callable(value) or inspect.ismodule(value):
+                    continue
+                consts[gname] = _pin_value(mod, value)
+    parts.append("## globals\n" + "\n".join(f"{k} = {v}" for k, v in sorted(consts.items())))
+    return hashlib.sha256("\n".join(parts).encode()).hexdigest()
+
+
+def test_run_phases_training_seam_is_unchanged(drv):
+    """The per-category plan edits run_phases.py's EVAL half only (``eval_morph``'s two keywords, the
+    suite-aware manifest readers, own-hold survival, ``summarize()['cat']``, the completion marker):
+    the training command line, env composition, abort parsers, record and constants hash exactly
+    as they did at the pre-change HEAD (``464be672``)."""
+    assert _training_seam_pin(drv, DRIVER.read_text()) == TRAINING_SEAM_SHA256
+
+
+def test_the_training_seam_pin_moves_with_the_source_and_with_a_constant(drv, monkeypatch):
+    """The pin is not vacuous: a one-character source edit, a changed constant a seam function
+    reads (including one read only inside a comprehension), and a changed ``Campaign`` method each
+    move it; an eval-side edit does not."""
+    src = DRIVER.read_text()
+    base = _training_seam_pin(drv, src)
+    assert base != _training_seam_pin(drv, src.replace('"--max_iterations", str(iters)',
+                                                         '"--max_iterations", str(iters + 0)', 1))
+    assert base != _training_seam_pin(drv, src.replace("def save(self) -> None:",
+                                                         "def save(self) -> None:  # x", 1))
+    assert base == _training_seam_pin(drv, src.replace("def eval_morph(", "def eval_morph( ", 1))
+    for name, value in (("NUM_ENVS", {"rl": "512"}), ("STALL_S", 901), ("TRAIN_ENV_RESERVED", ("KRABBY_PLANT",)),
+                        ("LOG_ROOT", drv.PARKOUR / "logs/other")):
+        with monkeypatch.context() as m:
+            m.setattr(drv, name, value)
+            assert _training_seam_pin(drv, src) != base, name
+    with monkeypatch.context() as m:                  # runtime state is not a constant
+        m.setattr(drv, "CURRENT_CHILD", object())
+        assert _training_seam_pin(drv, src) == base
+
+
+# ================================================================== the per-category suite (plan 2026-09-21, B2)
+# The eval half of run_phases.py on a `kind: category_suite` row: summarize()'s additive `cat`
+# (D5), the manifest read through the harness's own parser (D10), own-hold survival at every reader
+# (never the cumulative walk), the completion marker, and the eval_morph seam the ladder passes
+# `--trained-categories` through. The synthetic suite below is built with the HARNESS's own
+# `suite_run_meta` / `report.aggregate` / `report.write_run`, so every number is the harness's.
+EVAL_CATEGORIES = OMNI / "eval_categories.py"
+RESOLUTION = OMNI / "experiments/tools/resolution.py"
+CANDIDATES_DRIVER = OMNI / "experiments/tools/run_candidates.py"
+SUITE_SID = "suite__omni"
+SUITE_E = 4                                   # envs per wave here (the manifest row runs 100)
+SUITE_DT = 0.02
+ALL_CATEGORIES = ("stand", "fwd", "side", "back", "diag", "turn", "move_turn")
+#: Per-env speed ratio on every hold commanded to move. ``lat_r``'s 0.90 outlier makes the POOLED
+#: side median (0.605) differ from the mean of the two hand medians (0.515).
+SUITE_RATIO = {"fwd": (0.70, 0.71, 0.72, 0.73), "lat_l": (0.60, 0.61, 0.62, 0.63),
+               "lat_r": (0.40, 0.41, 0.42, 0.90), "back": (0.50, 0.52, 0.54, 0.56),
+               "diag": (0.65, 0.66, 0.67, 0.68), "move_turn": (0.35, 0.36, 0.37, 0.38),
+               "move_turn_r": (0.45, 0.46, 0.47, 0.48)}
+#: (hold, env) -> steps short of the hold's own end. 0 = a fall ON the last step, which counts as
+#: survived (the legacy convention the harness keeps, D3).
+SUITE_FALLS = {("lat_r", 0): 300, ("turn_l90", 1): 50, ("move_turn_r", 2): 0}
+
+
+@pytest.fixture(scope="module")
+def ec():
+    return _load(EVAL_CATEGORIES, "omni_eval_categories_gate_test")
+
+
+def _suite_scenario(drv):
+    S = drv._gait_schedule()
+    scenarios, _ = S.load_manifest(drv.OMNI_MANIFEST)
+    return S, next(sc for sc in scenarios if sc.id == SUITE_SID)
+
+
+def _suite_hold(label: str, hold, e: int, k: int, n_steps: int) -> dict:
+    """One own-hold entry of the shape ``score_episode`` writes on a world row."""
+    moving = hold.speed > 0
+    ratio = SUITE_RATIO[label][e] if moving else None
+    entry = {"label": label, "n_steps": n_steps,
+             "tripod": {"tripod_score": 0.40 + 0.02 * e + 0.01 * k, "low_confidence": False},
+             "tracking": {"vx": {"cmd_mean": hold.speed, "actual_mean": (ratio * hold.speed) if moving else 0.004,
+                                 "ratio": ratio}},
+             "motion": {"speed_abs_mean_m_s": (ratio * hold.speed) if moving else 0.01 + 0.001 * e,
+                        "pos_drift_m": 0.1 * e, "path_len_m": 1.0, "yaw_drift_rad": 0.01, "foot_lift_count": 20,
+                        "contact_churn_per_s": 3.0, "n_steps": n_steps}}
+    turning = abs(hold.face) > 0
+    entry["facing"] = {"heading_error_rms": 0.4 if turning else 0.02,
+                       "heading_error_initial_abs": 1.5708 if turning else 0.01,
+                       "heading_error_final_abs": (0.30 - 0.05 * e) if turning else 0.02 + 0.001 * e,
+                       "heading_error_max_abs": 1.6 if turning else 0.03,
+                       "facing_closed": (0.50 + 0.10 * e) if turning else None,
+                       "settle_time_s": (3.0 + e) if turning else None,
+                       "yaw_rate_ratio": 0.9,
+                       "yaw_progress_rate": (0.08 + 0.01 * e) if turning else 0.0,
+                       "net_yaw_rate_toward": (0.07 + 0.01 * e) if turning else 0.0}
+    if moving:
+        entry["direction"] = {"direction_error_rad": 0.05 + 0.01 * e, "cross_track_ratio": 0.10 + 0.01 * e,
+                              "travel_speed_m_s": ratio * hold.speed}
+    return entry
+
+
+def _suite_run(drv, trained=ALL_CATEGORIES):
+    """``(scenario, run_meta, episodes, aggregate)`` of a synthetic suite run at E = 4, W = 10."""
+    S, sc = _suite_scenario(drv)
+    suite = sc.suite
+    seeds = [sc.env_seed * S.WAVE_SEED_STRIDE + k for k in range(sc.waves)]
+    run_meta = S.suite_run_meta(sc, dt=SUITE_DT, num_envs=SUITE_E, wave_seeds=seeds, trained_categories=list(trained))
+    cat_of, hand_of = suite.category_of_hold(), suite.hand_of_hold()
+    episodes = []
+    for k, hold in enumerate(suite.holds()):
+        end = S.own_hold_end_step(prologue_s=sc.get_default("prologue_s"), settle_hold_s=suite.settle_hold_s,
+                                  hold_s=suite.hold_s, dt=SUITE_DT)
+        for e in range(SUITE_E):
+            short = SUITE_FALLS.get((hold.label, e))
+            n_steps = end - (short or 0)
+            own = _suite_hold(hold.label, hold, e, k, n_steps)
+            settle = {"label": suite.settle_label, "n_steps": 100,
+                      "tripod": {"tripod_score": None, "low_confidence": True}}
+            episodes.append({"env_index": k * SUITE_E + e, "wave": k, "hold": hold.label,
+                             "category": cat_of[hold.label], "hand": hand_of[hold.label], "n_steps": n_steps,
+                             "termination_reason": "fall" if short is not None else "schedule_complete",
+                             "completed_schedule": short is None, "tripod_score": own["tripod"]["tripod_score"],
+                             "tracking_ratio": own["tracking"]["vx"]["ratio"], "tippy_tap_fraction": 0.0,
+                             "slip_ratio_mean": 0.0, "facing_error_rms": 0.3,
+                             "holds": {suite.settle_label: settle, hold.label: own}})
+    run_meta.update({"scenario_id": SUITE_SID, "task": sc.task, "checkpoint": "/ckpt/model_1.pt",
+                     "checkpoint_sha256": "ab" * 32, "dt": SUITE_DT, "hold_labels": suite.hold_labels(),
+                     "command_override_max_deviation": 0.0,
+                     "n_steps_per_env": [ep["n_steps"] for ep in episodes]})
+    return sc, run_meta, episodes, R.aggregate(episodes, suite=R.suite_aggregate_arg(run_meta))
+
+
+def _suite_stamp(drv, run_dir: Path, *, complete: bool = True) -> tuple[Path, dict]:
+    """A suite stamp written by the harness's own ``write_run`` (``complete.json`` LAST, suite rows
+    only); ``complete=False`` removes the marker -- a stamp killed mid-way through its raws."""
+    sc, run_meta, episodes, agg = _suite_run(drv)
+    R.write_run(run_dir, run_meta=run_meta, episode_metrics=episodes, raw=None, scenario=sc)
+    assert (run_dir / "complete.json").exists()
+    if not complete:
+        (run_dir / "complete.json").unlink()
+    return run_dir, agg
+
+
+def test_summarize_hoists_cat_from_the_suite_block_and_is_empty_without_it(drv, ec):
+    _sc, _meta, _eps, agg = _suite_run(drv)
+    by_cat = agg["suite"]["by_category"]
+    cat = drv.summarize(agg)["cat"]
+    assert list(cat) == list(ALL_CATEGORIES)
+    for c, entry in cat.items():
+        # the key set is D5's, cross-pinned against the categories module's contract
+        assert set(entry) == set(ec.CAT_KEYS) | {"by_hand"}, c
+        for key in drv.CAT_METRIC_KEYS:
+            assert entry[key] == by_cat[c][key]["median"], (c, key)       # re-read, never recomputed
+        paired = c in ("side", "turn", "move_turn")
+        assert entry["n"] == (2 if paired else 1) * SUITE_E and entry["n_env"] == SUITE_E
+        if paired:
+            assert set(entry["by_hand"]) == {"l", "r"}
+            for h, hand in entry["by_hand"].items():
+                assert set(hand) == set(ec.CAT_KEYS), (c, h)
+                assert hand["n"] == SUITE_E and hand["n_env"] == SUITE_E
+                for key in drv.CAT_METRIC_KEYS:
+                    assert hand[key] == by_cat[c]["by_hand"][h][key]["median"], (c, h, key)
+        else:
+            assert entry["by_hand"] is None
+    # the pooled median over both hands (0.605), not the mean of the hand medians (0.515)
+    assert cat["side"]["ratio"] == pytest.approx(0.605)
+    assert cat["side"]["by_hand"]["l"]["ratio"] == pytest.approx(0.615)
+    assert cat["side"]["by_hand"]["r"]["ratio"] == pytest.approx(0.415)
+    # own-hold survival, n-weighted over the hands; a fall on the last step counts as survived
+    assert cat["side"]["survival"] == pytest.approx(7 / 8)
+    assert cat["side"]["by_hand"]["r"]["survival"] == pytest.approx(0.75)
+    assert cat["side"]["by_hand"]["l"]["survival"] == pytest.approx(1.0)
+    assert cat["turn"]["survival"] == pytest.approx(7 / 8)
+    assert cat["move_turn"]["survival"] == pytest.approx(1.0)
+    assert cat["fwd"]["survival"] == cat["stand"]["survival"] == 1.0
+    # zero-speed categories carry no translation numbers; stand's drift is there (WATCH)
+    assert cat["stand"]["ratio"] is None and cat["turn"]["direction_error"] is None
+    assert cat["stand"]["drift_speed"] == pytest.approx(0.0115)
+    assert cat["turn"]["facing_closed"] == pytest.approx(0.65) and cat["fwd"]["facing_closed"] is None
+    # every other row: the key is there and empty
+    assert drv.summarize(_synthetic_aggregate(turning=True))["cat"] == {}
+    assert drv.cat_summary(None) == {} and drv.summarize({}) == {}
+
+
+def test_summarize_legacy_keys_unchanged_on_a_suite_aggregate(drv):
+    """On a suite row every pre-existing key is computed exactly as it would be without the suite
+    block (the per-hold ones are the per-HAND readings); only ``cat`` and the two conditional turn
+    survivals differ."""
+    _sc, _meta, _eps, agg = _suite_run(drv)
+    plain = copy.deepcopy(agg)
+    plain.pop("suite")
+    plain["survival_by_hold"] = dict(agg["suite"]["survival_by_hold"])
+    s, p = drv.summarize(agg), drv.summarize(plain)
+    assert set(s) == set(p) and p["cat"] == {}
+    differ = {k for k in s if s[k] != p[k]}
+    assert differ == {"cat", "turn_survival_l90", "turn_survival_r90"}, differ
+    assert s["survival_by_hold"] == agg["suite"]["survival_by_hold"]
+    assert s["ratio_by_hold"]["lat_r"] == agg["tracking_by_hold"]["lat_r"]["ratio"]["median"]
+    assert s["facing_closed_by_hold"]["turn_r90"] == agg["facing_by_hold"]["turn_r90"]["facing_closed"]["median"]
+
+
+def test_turn_survivals_are_none_on_a_suite_row(drv):
+    """``surv[turn_l90] / surv[back]`` means "fell DURING the turn, given it reached it" only when the
+    holds are nested in one episode; a suite episode runs one hold, so both are undefined (None) --
+    and a cumulative table a reader might inject beside the suite block is never read."""
+    _sc, _meta, _eps, agg = _suite_run(drv)
+    s = drv.summarize(agg)
+    assert s["turn_survival_l90"] is None and s["turn_survival_r90"] is None
+    plain = copy.deepcopy(agg)
+    plain.pop("suite")
+    plain["survival_by_hold"] = dict(agg["suite"]["survival_by_hold"])
+    assert drv.summarize(plain)["turn_survival_l90"] == pytest.approx(0.75)   # the flag, not the data
+    injected = dict(agg, survival_by_hold={h: 0.123 for h in agg["suite"]["hold_labels"]})
+    s2 = drv.summarize(injected)
+    assert s2["survival_by_hold"] == agg["suite"]["survival_by_hold"]
+    assert s2["turn_survival_l90"] is None and s2["cat"] == s["cat"]
+
+
+def test_manifest_readers_derive_a_suite_rows_holds(drv):
+    """The suite row has no ``schedule:`` -- the old raw-YAML read died on it. The readers go
+    through the harness's parser: the union labels, a per-label ``hold_s`` of the category holds
+    (``run_meta.suite.hold_s``), ``settle_hold_s``, and OWN-hold survival ends; every legacy row
+    reads exactly what its ``schedule:`` says, as before."""
+    import yaml
+    row = drv._manifest_row(SUITE_SID)
+    labels = ["stand", "fwd", "lat_l", "lat_r", "back", "diag", "turn_l90", "turn_r90", "move_turn", "move_turn_r"]
+    assert row["kind"] == "category_suite" and row["waves"] == 10
+    assert row["hold_labels"] == ["settle"] + labels and row["settle_label"] == "settle"
+    assert row["hold_s"] == {h: 12.0 for h in labels} and row["settle_hold_s"] == 2.0
+    assert row["prologue_s"] == 1.5
+    assert drv._manifest_hold_s(SUITE_SID) == {h: 12.0 for h in labels}
+    assert drv._is_suite_row(SUITE_SID) is True
+    # own-hold ends: round((1.5 + 2 + 12) / 0.02) = 775 for every category hold, none for settle
+    assert drv._survival_end_steps(SUITE_SID, 0.02) == {h: 775 for h in labels}
+    doc = yaml.safe_load(drv.OMNI_MANIFEST.read_text())
+    legacy = [sc for sc in doc["scenarios"] if sc.get("kind", "schedule") == "schedule"]
+    assert {sc["id"] for sc in legacy} == {"slow__omni", "light__omni", "ring__omni", "curriculum__omni"}
+    for sc in legacy:
+        raw = {str(h["label"]): float(h["hold_s"]) for h in sc["schedule"]}
+        assert drv._manifest_hold_s(sc["id"]) == raw, sc["id"]         # the pre-suite reading
+        assert drv._manifest_row(sc["id"])["settle_hold_s"] is None and not drv._is_suite_row(sc["id"])
+        t, walk = 1.5, {}
+        for h in sc["schedule"]:
+            t += float(h["hold_s"])
+            walk[str(h["label"])] = int(round(t / 0.02))
+        assert drv._survival_end_steps(sc["id"], 0.02) == walk, sc["id"]
+    # consistent with survival_by_hold's own walk on a legacy row
+    eps = [{"n_steps": n} for n in walk.values()]
+    assert drv.survival_by_hold(eps, list(walk), drv._manifest_hold_s(legacy[-1]["id"])) == \
+        {h: (len(walk) - i) / len(walk) for i, h in enumerate(walk)}
+    with pytest.raises(KeyError):
+        drv._manifest_row("nope__omni")
+    assert drv._is_suite_row("nope__omni") is False
+
+
+def _suite_payload(drv, tmp_path) -> tuple[dict, dict]:
+    run_dir, agg = _suite_stamp(drv, tmp_path / "harness_stamp")
+    return json.loads((run_dir / "scenario_metrics.json").read_text()), agg
+
+
+def test_run_eval_files_a_suite_row_only_once_its_completion_marker_exists(drv, tmp_path, monkeypatch, child):
+    """D10's freshness rule: ``write_run`` writes ``complete.json`` LAST on a suite row, so a stamp
+    with ``scenario_metrics.json`` but no marker was killed mid-way through its ~1000 raws and is
+    never ``ok`` -- the row is re-run. With the marker it is filed, with the harness's OWN-hold
+    survival. A legacy row needs no marker (``test_run_eval_files_a_fresh_row...`` above)."""
+    _patch_subprocess_layer(drv, monkeypatch, tmp_path)
+    monkeypatch.setattr(drv, "EVAL", child.script)
+    monkeypatch.setenv("FAKE_SLEEP", "0")
+    payload, agg = _suite_payload(drv, tmp_path)
+    c = _campaign(drv, tmp_path)
+
+    def run():
+        return drv._run_eval(c, "tag", SUITE_SID, ["--manifest", "m"], {"KRABBY_PLANT": "A15+B"},
+                             tmp_path / "out", "A15+B", 3600, max_attempts=1)
+
+    _arm_eval_output(drv, tmp_path, monkeypatch, payload, run="2026-09-21_00-00-00", sid=SUITE_SID)
+    latest, a, info = run()
+    assert (latest, a) == (None, None) and info["status"] == "none"
+    assert "no fresh metrics" in (c.dir / "orchestrator.log").read_text()
+    monkeypatch.setenv("FAKE_EVAL_COMPLETE", json.dumps({"episodes_total": 40}))
+    run_dir = _arm_eval_output(drv, tmp_path, monkeypatch, payload, run="2026-09-21_00-00-01", sid=SUITE_SID)
+    latest, a, info = run()
+    assert info["status"] == "ok" and latest == run_dir
+    assert a["survival_by_hold"] == agg["suite"]["survival_by_hold"]
+
+
+def test_run_eval_refuses_a_suite_aggregate_without_the_marker_even_if_the_manifest_lookup_failed(
+        drv, tmp_path, monkeypatch, child):
+    """Belt and braces: the marker rule also keys off the stamp's own ``aggregate.suite``, so an
+    unreadable manifest cannot let a partial suite stamp through."""
+    _patch_subprocess_layer(drv, monkeypatch, tmp_path)
+    monkeypatch.setattr(drv, "EVAL", child.script)
+    monkeypatch.setenv("FAKE_SLEEP", "0")
+    payload, _agg = _suite_payload(drv, tmp_path)
+    monkeypatch.setattr(drv, "_is_suite_row", lambda sid: (_ for _ in ()).throw(ValueError("bad manifest")))
+    c = _campaign(drv, tmp_path)
+    _arm_eval_output(drv, tmp_path, monkeypatch, payload, run="2026-09-21_00-00-02", sid=SUITE_SID)
+    latest, a, info = drv._run_eval(c, "tag", SUITE_SID, ["--manifest", "m"], {"KRABBY_PLANT": "A15+B"},
+                                    tmp_path / "out", "A15+B", 3600, max_attempts=1)
+    assert (latest, a) == (None, None) and info["status"] == "none"
+    log = (c.dir / "orchestrator.log").read_text()
+    assert "manifest unreadable" in log and "no complete.json" in log
+
+
+def _spy_calls(monkeypatch, *mods) -> list:
+    """Record every call of ``survival_by_hold`` (the cumulative walk) on each module's copy."""
+    calls: list = []
+    for mod in mods:
+        real = mod.survival_by_hold
+
+        def spy(*a, _real=real, **k):
+            calls.append(a[1] if len(a) > 1 else k.get("hold_labels"))
+            return _real(*a, **k)
+
+        monkeypatch.setattr(mod, "survival_by_hold", spy)
+    return calls
+
+
+def _site_run_eval(drv, tmp_path, monkeypatch, child):
+    _patch_subprocess_layer(drv, monkeypatch, tmp_path)
+    monkeypatch.setattr(drv, "EVAL", child.script)
+    monkeypatch.setenv("FAKE_SLEEP", "0")
+    monkeypatch.setenv("FAKE_EVAL_COMPLETE", "{}")
+    payload, _agg = _suite_payload(drv, tmp_path)
+    _arm_eval_output(drv, tmp_path, monkeypatch, payload, run="2026-09-21_00-00-03", sid=SUITE_SID)
+    calls = _spy_calls(monkeypatch, drv)
+    _latest, a, info = drv._run_eval(_campaign(drv, tmp_path), "tag", SUITE_SID, ["--manifest", "m"],
+                                     {"KRABBY_PLANT": "A15+B"}, tmp_path / "out", "A15+B", 3600, max_attempts=1)
+    assert info["status"] == "ok"
+    return drv.summarize(a), a["survival_by_hold"], calls
+
+
+def _site_resolution(drv, tmp_path, monkeypatch, child):
+    res = _load(RESOLUTION, "omni_resolution_gate_test")
+    run_dir, _agg = _suite_stamp(drv, tmp_path / "stamp")
+    calls = _spy_calls(monkeypatch, res.rp)
+    summary = res._summary_with_survival(run_dir, SUITE_SID)
+    return summary, summary["survival_by_hold"], calls
+
+
+def _site_run_candidates(drv, tmp_path, monkeypatch, child):
+    rc = _load(CANDIDATES_DRIVER, "omni_run_candidates_gate_test")
+    run_dir, _agg = _suite_stamp(drv, tmp_path / "stamp")
+    calls = _spy_calls(monkeypatch, rc.rp, rc.resolution_tool().rp)
+    summary = rc.summarize_run_dir(run_dir, SUITE_SID)
+    return summary, summary["survival_by_hold"], calls
+
+
+@pytest.mark.parametrize("site", [
+    "run_phases._run_eval",
+    "resolution._summary_with_survival",
+    "run_candidates.summarize_run_dir",
+])
+def test_no_reader_injects_cumulative_survival_on_a_suite_row(drv, tmp_path, monkeypatch, child, site):
+    """D10's three injection sites: every reader of a suite row takes ``aggregate.suite.
+    survival_by_hold`` (own-hold) and never calls the cumulative walk, whose union-label reading
+    would count the settle hold and every earlier wave's label."""
+    fn = {"run_phases._run_eval": _site_run_eval, "resolution._summary_with_survival": _site_resolution,
+          "run_candidates.summarize_run_dir": _site_run_candidates}[site]
+    _sc, _meta, _eps, agg = _suite_run(drv)
+    summary, surv, calls = fn(drv, tmp_path, monkeypatch, child)
+    assert calls == [], f"{site} walked the suite row cumulatively: {calls}"
+    assert surv == agg["suite"]["survival_by_hold"]
+    assert summary["survival_by_hold"] == agg["suite"]["survival_by_hold"]
+    assert summary["turn_survival_l90"] is None and summary["turn_survival_r90"] is None
+    assert set(summary["cat"]) == set(ALL_CATEGORIES)     # key order: the stamp is written sort_keys
+
+
+def test_eval_morph_forwards_trained_categories_and_extra_args(drv, tmp_path, monkeypatch, child):
+    """``--trained-categories`` (suite rows; a CSV or any iterable of names) and ``extra_args`` go
+    AFTER the fixed harness tail, and a call with neither launches exactly the command it always
+    did -- checked on the real argv of a real child, not a mock."""
+    _patch_subprocess_layer(drv, monkeypatch, tmp_path)
+    monkeypatch.setattr(drv, "EVAL", child.script)
+    monkeypatch.setenv("FAKE_SLEEP", "0")
+    monkeypatch.setattr(drv, "EVAL_ROOT", tmp_path / "evals")
+    c, spec = _campaign(drv, tmp_path), drv.ph.PHASES["1c"]
+    out_root = tmp_path / "evals" / c.dir.name / "tag"
+    fixed = [str(child.script), "--headless", "--manifest", str(drv.OMNI_MANIFEST), "--scenario", "slow__omni",
+             "--checkpoint", "/a/model_1.pt", "--save-raw", "--no-plot", "--output-root", str(out_root)]
+    assert drv.eval_morph(c, spec, "/a/model_1.pt", "slow", "tag", max_attempts=1) is None
+    assert child.argv == fixed                                  # byte-identical default command
+
+    seen: list = []
+
+    def fake(c_, tag, sid, cmd_tail, env, out_root_, plant, timeout, **kw):
+        seen.append((sid, list(cmd_tail)))
+        return None, None, {"status": "none", "rc": 1, "attempts": 1}
+
+    monkeypatch.setattr(drv, "_run_eval", fake)
+    head = ["--manifest", str(drv.OMNI_MANIFEST), "--scenario", SUITE_SID, "--checkpoint", "/a/m.pt", "--save-raw"]
+    drv.eval_morph(c, spec, "/a/m.pt", "suite", "tag", trained_categories="stand,fwd,side,back,diag,turn,move_turn",
+                   extra_args=("--episodes", "7", "--waves", 10))
+    assert seen[-1] == (SUITE_SID, head + ["--trained-categories", "stand,fwd,side,back,diag,turn,move_turn",
+                                           "--episodes", "7", "--waves", "10"])
+    drv.eval_morph(c, spec, "/a/m.pt", "suite", "tag", trained_categories=["stand", "fwd"])
+    assert seen[-1][1] == head + ["--trained-categories", "stand,fwd"]
+    drv.eval_morph(c, spec, "/a/m.pt", "suite", "tag", trained_categories=frozenset({"turn", "fwd"}))
+    assert seen[-1][1] == head + ["--trained-categories", "fwd,turn"]
+    drv.eval_morph(c, spec, "/a/m.pt", "suite", "tag", extra_args=["--waves", "10"])
+    assert seen[-1][1] == head + ["--waves", "10"]
+    drv.eval_morph(c, spec, "/a/m.pt", "suite", "tag")
+    assert seen[-1][1] == head

@@ -608,15 +608,97 @@ def conditional_survival(surv: dict | None, hold: str, given: str) -> float | No
 PROLOGUE_S = 1.5   # gait_eval/schedule.py DEFAULTS["prologue_s"]; the schedule starts after it
 
 
+#: The dir ``from gait_eval import schedule`` resolves against (as ``resolution.GAIT_SCRIPTS``).
+GAIT_SCRIPTS = FWD_PKG / "scripts"
+
+
+def _gait_schedule():
+    """The harness's own manifest parser, ``gait_eval.schedule`` (pure numpy; no Isaac).
+
+    Loaded lazily, the way ``resolution._facing_metrics`` loads ``gait_eval.metrics``: importing it
+    puts ``$FWD/scripts`` on ``sys.path``, and importing THIS module must stay free of side effects.
+    """
+    if str(GAIT_SCRIPTS) not in sys.path:
+        sys.path.insert(0, str(GAIT_SCRIPTS))
+    from gait_eval import schedule as S  # noqa: PLC0415 -- deliberate: see the docstring
+    return S
+
+
+def _manifest_row(sid: str) -> dict:
+    """Scenario ``sid`` of the omni manifest, read through the HARNESS's parser (plan D10).
+
+    ``{id, kind, waves, hold_labels, hold_s: {label: s}, settle_label, settle_hold_s, prologue_s,
+    fall_exclusion_s}``. A ``kind: category_suite`` row has no ``schedule:`` in the YAML -- the
+    harness DERIVES it (``[settle] + one hold per category hold``, a label union, never a
+    timeline), so reading the raw YAML's ``schedule`` would fail on it. There ``hold_labels`` is
+    that union and ``hold_s`` the derived per-label map of the CATEGORY holds -- the same map as
+    ``run_meta.suite.hold_s`` -- with the settle hold's duration in ``settle_hold_s`` (the settle
+    hold is never an episode's own hold); ``settle_*`` are ``None`` on every ``schedule`` row, whose
+    ``hold_s`` is exactly the one its ``schedule:`` gives. Parsed on every call rather than pinned,
+    so a manifest edit cannot desynchronise the windows the tools cut from the ones the harness
+    cut. ``KeyError`` for an unknown id.
+    """
+    S = _gait_schedule()
+    scenarios, _defaults = S.load_manifest(OMNI_MANIFEST)
+    for sc in scenarios:
+        if sc.id == sid:
+            suite = sc.suite
+            hold_s = (suite.hold_s_by_label() if suite is not None
+                      else {str(h.label): float(h.hold_s) for h in sc.schedule})
+            return {"id": sc.id, "kind": sc.kind, "waves": int(sc.waves),
+                    "hold_labels": [str(h.label) for h in sc.schedule],
+                    "hold_s": {str(k): float(v) for k, v in hold_s.items()},
+                    "settle_label": suite.settle_label if suite is not None else None,
+                    "settle_hold_s": float(suite.settle_hold_s) if suite is not None else None,
+                    "prologue_s": float(sc.get_default("prologue_s")),
+                    "fall_exclusion_s": float(sc.get_default("fall_exclusion_s"))}
+    raise KeyError(f"scenario {sid!r} not in {OMNI_MANIFEST}")
+
+
 def _manifest_hold_s(sid: str) -> dict[str, float]:
     """``{label: hold_s}`` for scenario ``sid`` of the omni manifest (the durations the survival
-    windows are cut at). Parsed here rather than pinned so a manifest edit cannot desynchronise."""
-    import yaml  # the harness's own dependency
-    doc = yaml.safe_load(OMNI_MANIFEST.read_text())
-    for sc in doc.get("scenarios", []):
-        if sc.get("id") == sid:
-            return {str(h["label"]): float(h["hold_s"]) for h in sc["schedule"]}
-    raise KeyError(f"scenario {sid!r} not in {OMNI_MANIFEST}")
+    windows are cut at). On a category-suite row this is the derived per-label map of the category
+    holds (``run_meta.suite.hold_s``; the settle hold is ``_manifest_row(sid)["settle_hold_s"]``) --
+    per-wave durations, never a timeline: the suite's survival is own-hold (see
+    :func:`_survival_end_steps`)."""
+    return dict(_manifest_row(sid)["hold_s"])
+
+
+#: The harness's completion marker on a category-suite stamp: ``write_run`` writes it LAST (after
+#: the aggregate and the ~1000 raw npz), so a stamp without it is partial and never ``ok`` (D10).
+SUITE_COMPLETE_MARKER = "complete.json"
+
+
+def _is_suite_row(sid: str) -> bool:
+    """``sid`` is a ``kind: category_suite`` row of the omni manifest (``False`` for an unknown id)."""
+    try:
+        return _manifest_row(sid)["kind"] == _gait_schedule().SUITE_KIND
+    except KeyError:
+        return False
+
+
+def _survival_end_steps(sid: str, dt: float) -> dict[str, int]:
+    """``{hold: the step an episode must reach (n_steps >=) to have survived that hold}`` for ``sid``.
+
+    A ``schedule`` row: the CUMULATIVE walk :func:`survival_by_hold` makes (prologue, then each
+    hold's duration in schedule order). A category-suite row: every category hold's OWN end,
+    ``round((prologue_s + settle_hold_s + hold_s[label]) / dt)`` -- each episode runs one wave's
+    ``[settle, own hold]`` and nothing else, so there is no walk (plan D10); the settle hold is
+    never an episode's own hold and has no entry. The same step count the harness's
+    ``aggregate.suite.survival_by_hold`` is cut at (``schedule.own_hold_end_step``).
+    """
+    S = _gait_schedule()
+    row = _manifest_row(sid)
+    if row["kind"] == S.SUITE_KIND:
+        return {h: S.own_hold_end_step(prologue_s=row["prologue_s"], settle_hold_s=row["settle_hold_s"],
+                                       hold_s=row["hold_s"][h], dt=float(dt))
+                for h in row["hold_labels"] if h in row["hold_s"]}
+    out: dict[str, int] = {}
+    t_end = float(row["prologue_s"])
+    for h in row["hold_labels"]:
+        t_end += float(row["hold_s"][h])
+        out[h] = int(round(t_end / float(dt)))
+    return out
 
 
 def survival_by_hold(episodes: list, hold_labels: list, hold_s: dict, *, prologue_s: float = PROLOGUE_S,
@@ -645,6 +727,81 @@ def survival_by_hold(episodes: list, hold_labels: list, hold_s: dict, *, prologu
     return out
 
 
+#: ``summarize()['cat'][c]``'s metric keys, each the MEDIAN of ``aggregate.suite.by_category[c][key]``
+#: (plan D5; the harness pools the category's own-hold episodes over both hands). The full key set
+#: (``n, n_env, survival`` + these, ``by_hand`` holding the same per hand) is cross-pinned against
+#: ``eval_categories.CAT_KEYS`` in the gate tests.
+CAT_METRIC_KEYS = ("ratio", "achieved_speed", "tripod", "facing_closed", "yaw_progress", "net_yaw",
+                   "settle_s", "heading_final", "drift_speed", "direction_error", "cross_track_ratio")
+
+
+def _median_of(stats: dict | None) -> float | None:
+    """``stats["median"]`` of a harness ``_stats`` dict -- never its mean (D5 reads the median)."""
+    return (stats or {}).get("median")
+
+
+def _weighted_survival(holds: list[str], n_by_hold: dict, surv_by_hold: dict) -> float | None:
+    """The n-weighted mean of the holds' OWN survival = the survived share of all their episodes.
+
+    ``None`` when no hold has an episode or a hold that has episodes carries no survival (a partial
+    number would flatter: the missing hand might be the one that fell)."""
+    num, den = 0.0, 0
+    for h in holds:
+        n = int(n_by_hold.get(h) or 0)
+        if n == 0:
+            continue
+        s = surv_by_hold.get(h)
+        if s is None:
+            return None
+        num += float(s) * n
+        den += n
+    return num / den if den else None
+
+
+def cat_summary(a: dict | None) -> dict:
+    """``summarize()['cat']`` (plan D5): one entry per category of a category-suite row, ``{}`` when
+    the aggregate carries no ``suite`` block (every other row).
+
+    ``cat[c] = {n, n_env, survival, <CAT_METRIC_KEYS>, by_hand}``: ``n`` = the category's episode
+    count (both hands), ``n_env`` = ``episodes_total / waves`` (the DISTINCT-env count the floor
+    band reads -- the ten waves reuse the same envs), ``survival`` = the n-weighted mean of its
+    holds' own survival (``aggregate.suite.survival_by_hold``), every metric key the median of
+    ``aggregate.suite.by_category[c][key]``. ``by_hand`` = ``{l, r}`` with the same keys over each
+    hand's own hold (``n`` / ``survival`` of that hold), or ``None`` on a singleton category.
+    Pure re-readings: nothing here recomputes what the harness pooled.
+    """
+    suite = (a or {}).get("suite")
+    if not suite:
+        return {}
+    by_cat = suite.get("by_category") or {}
+    n_by_hold = suite.get("n_by_hold") or {}
+    surv_by_hold = suite.get("survival_by_hold") or {}
+    cat_of = suite.get("category_of_hold") or {}
+    hand_of = suite.get("hand_of_hold") or {}
+    order = list(suite.get("hold_of_wave") or cat_of)
+    waves, total = suite.get("waves"), suite.get("episodes_total")
+    n_env = int(total) // int(waves) if waves and total is not None else None
+    out: dict[str, dict] = {}
+    for c, block in by_cat.items():
+        block = block or {}
+        holds = [h for h in order if cat_of.get(h) == c]
+        entry: dict = {"n": sum(int(n_by_hold.get(h) or 0) for h in holds), "n_env": n_env,
+                       "survival": _weighted_survival(holds, n_by_hold, surv_by_hold)}
+        entry.update({key: _median_of(block.get(key)) for key in CAT_METRIC_KEYS})
+        hands = block.get("by_hand")
+        if hands:
+            entry["by_hand"] = {}
+            for h, hblock in hands.items():
+                own = [lab for lab in holds if hand_of.get(lab) == h]
+                entry["by_hand"][h] = {"n": sum(int(n_by_hold.get(lab) or 0) for lab in own), "n_env": n_env,
+                                       "survival": _weighted_survival(own, n_by_hold, surv_by_hold),
+                                       **{key: _median_of((hblock or {}).get(key)) for key in CAT_METRIC_KEYS}}
+        else:
+            entry["by_hand"] = None
+        out[c] = entry
+    return out
+
+
 def summarize(a: dict | None) -> dict:
     if not a:
         return {}
@@ -653,12 +810,16 @@ def summarize(a: dict | None) -> dict:
     tri_walk, tri_by_hold = walking_tripod(a)
     fac_by_hold = _facing_by_hold(a)
     closed_by_hold, closed_source = facing_closed_by_hold(fac_by_hold)
-    surv = a.get("survival_by_hold")
+    suite = a.get("suite")
+    # On a category-suite row the survival table is the harness's OWN-hold one (plan D3/D10),
+    # whatever a reader injected beside it: a suite episode runs one hold, so a cumulative walk
+    # over the union labels would count settle + every earlier label and read nonsense.
+    surv = suite.get("survival_by_hold") if suite else a.get("survival_by_hold")
     return {"tripod": _med(a.get("tripod_score")),
             "tripod_walking": tri_walk,       # the gated number (min over walking holds)
             "tripod_by_hold": tri_by_hold,
             "completion": a.get("schedule_completion_rate"),
-            "survival_by_hold": a.get("survival_by_hold"),      # reached the END of each hold (the soft gates' number)
+            "survival_by_hold": surv,      # reached the END of each hold (the soft gates' number); own-hold on a suite row
             "tracking": _med(a.get("tracking_ratio")),
             "speed_ratio_by_hold": _speed_ratio_by_hold(a),      # fwd/lat_l/diag/back (D12: per-direction tracking)
             "dir_ratio_by_hold": _speed_ratio_by_hold(a, GATE_1C_DIR_HOLDS),  # lat_l/diag/back/move_turn
@@ -686,16 +847,22 @@ def summarize(a: dict | None) -> dict:
                 [(fac_by_hold.get(h) or {}).get("progress") for h in TURN_HOLDS]),
             # Falls DURING each turn, conditioned on having reached the turn at all (see
             # conditional_survival): turn_l90 given the travel holds ended at `back`, turn_r90
-            # given turn_l90.
-            "turn_survival_l90": conditional_survival(surv, "turn_l90", "back"),
-            "turn_survival_r90": conditional_survival(surv, "turn_r90", "turn_l90"),
+            # given turn_l90. UNDEFINED on a category-suite row (None): its holds are not nested --
+            # every episode runs one hold -- so there is nothing to condition on (plan D5/D10).
+            "turn_survival_l90": None if suite else conditional_survival(surv, "turn_l90", "back"),
+            "turn_survival_r90": None if suite else conditional_survival(surv, "turn_r90", "turn_l90"),
             "falls": a.get("termination_reasons", {}).get("fall", 0),
             "n": a.get("n_episodes"),
             "pitch_fwd_share": (fc.get("pitch_fwd", 0) / max(1, sum(v for k, v in fc.items() if k != "none")))
             if any(k != "none" for k in fc) else None,
             "pitch_max_abs_p50": ((a.get("orientation") or {}).get("pitch_max_abs") or {}).get("median"),
             "prefall_tip_p25": (poly.get("prefall_tip_angle_fwd_deg") or {}).get("p25"),
-            "walk_tip_p50": (poly.get("walking_tip_angle_fwd_deg") or {}).get("median")}
+            "walk_tip_p50": (poly.get("walking_tip_angle_fwd_deg") or {}).get("median"),
+            # ---------------------------------------------- the per-category suite (plan D5)
+            # Additive: {} on every row whose aggregate has no ``suite`` block. On a suite row the
+            # legacy per-hold keys above are the per-HAND readings and the pooled keys (completion,
+            # tripod, ...) are means over all ten holds -- WATCH only; decisions read ``cat``.
+            "cat": cat_summary(a)}
 
 
 # ------------------------------------------------------------------ campaign record
@@ -1259,6 +1426,11 @@ def _run_eval(c: Campaign, tag: str, sid: str, cmd_tail: list[str], env: dict, o
       and is skipped after the LAST attempt, where no retry is waiting on it. The
       :func:`_wait_isaac_clear` in front of that pause is NOT skipped there -- it protects the NEXT
       EVAL ROW, not this row's retry; see the note in the loop.
+
+    A category-suite row (plan D10, 2026-09-21) adds two things and changes nothing else: its stamp
+    is fresh only when it also carries :data:`SUITE_COMPLETE_MARKER` (the harness's last write), and
+    its ``survival_by_hold`` is the harness's OWN-hold ``aggregate.suite.survival_by_hold``, never
+    the cumulative walk (a suite episode runs one hold).
     """
     global CURRENT_CHILD, LAST_EVAL_INFO
     lp = c.logs / f"{tag}_{sid}_eval.log"
@@ -1268,6 +1440,14 @@ def _run_eval(c: Campaign, tag: str, sid: str, cmd_tail: list[str], env: dict, o
     info = {"status": "none", "rc": None, "attempts": 0}
     LAST_EVAL_INFO = info
     latest_out, agg_out = None, None
+    # A category-suite stamp is fresh only once the harness's LAST write exists (plan D10): a stamp
+    # killed mid-way through its ~1000 raw files already has its scenario_metrics.json.
+    try:
+        suite_row = _is_suite_row(sid)
+    except Exception as exc:  # noqa: BLE001 - the stamp's own aggregate still applies the marker rule below
+        c.log(f"{tag}/{sid}: manifest unreadable ({exc!r}) — the completion marker is enforced from "
+              "the stamp's aggregate only")
+        suite_row = False
     for attempt in range(max_attempts):
         if _interrupted(interrupt_check):
             info["status"] = "interrupted"
@@ -1309,21 +1489,35 @@ def _run_eval(c: Campaign, tag: str, sid: str, cmd_tail: list[str], env: dict, o
         d = out_root / sid / "seed001"
         if d.exists():
             latest = max(d.iterdir(), key=lambda p: p.stat().st_mtime)
-            if latest.stat().st_mtime >= t0 and (latest / "scenario_metrics.json").exists():
+            if (latest.stat().st_mtime >= t0 and (latest / "scenario_metrics.json").exists()
+                    and (not suite_row or (latest / SUITE_COMPLETE_MARKER).exists())):
                 _plant_guard(latest, plant, tag)
                 m = json.loads((latest / "scenario_metrics.json").read_text())
                 a = m["aggregate"]
-                # Survival THROUGH each hold (2026-09-17 gate fix): the whole-schedule completion
-                # counts falls on holds a short stage never trained, so the soft gates read this.
-                try:
-                    a["survival_by_hold"] = survival_by_hold(
-                        m.get("episodes") or [], (m.get("run_meta") or {}).get("hold_labels") or [],
-                        _manifest_hold_s(sid), prologue_s=PROLOGUE_S,
-                        dt=float((m.get("run_meta") or {}).get("dt") or 0.02))
-                except Exception as exc:  # noqa: BLE001 - a missing number halts the gate, never the driver
-                    c.log(f"{tag}/{sid}: survival_by_hold unavailable ({exc!r})")
-                info["status"], latest_out, agg_out = "ok", latest, a
-                break
+                if a.get("suite") is not None and not (latest / SUITE_COMPLETE_MARKER).exists():
+                    # a suite aggregate from a row the manifest lookup did not call a suite: the
+                    # same marker rule (plan D10) -- a stamp without it is partial, never `ok`
+                    c.log(f"{tag}/{sid}: {latest.name} carries a suite aggregate but no "
+                          f"{SUITE_COMPLETE_MARKER} — partial, not filed")
+                elif a.get("suite") is not None:
+                    # OWN-hold survival, computed by the harness (plan D3/D10): a suite episode runs
+                    # one hold, so the cumulative walk below would count settle + hold_0 + ... and
+                    # read nonsense. Never recomputed here.
+                    a["survival_by_hold"] = dict(a["suite"].get("survival_by_hold") or {})
+                    info["status"], latest_out, agg_out = "ok", latest, a
+                    break
+                else:
+                    # Survival THROUGH each hold (2026-09-17 gate fix): the whole-schedule completion
+                    # counts falls on holds a short stage never trained, so the soft gates read this.
+                    try:
+                        a["survival_by_hold"] = survival_by_hold(
+                            m.get("episodes") or [], (m.get("run_meta") or {}).get("hold_labels") or [],
+                            _manifest_hold_s(sid), prologue_s=PROLOGUE_S,
+                            dt=float((m.get("run_meta") or {}).get("dt") or 0.02))
+                    except Exception as exc:  # noqa: BLE001 - a missing number halts the gate, never the driver
+                        c.log(f"{tag}/{sid}: survival_by_hold unavailable ({exc!r})")
+                    info["status"], latest_out, agg_out = "ok", latest, a
+                    break
         last = attempt == max_attempts - 1
         # The campaign log is what a human reads at 3 a.m. to decide whether an eval_infra halt was
         # one attempt or three, so it may not say "retry" on a call that will not retry (Part B's
@@ -1358,8 +1552,10 @@ def _interrupted_eval() -> dict:
 
 
 def eval_morph(c: Campaign, spec, ckpt: str, scenario: str, tag: str, *, carry_overlay: dict | None = None,
-               interrupt_check=None, max_attempts: int = 3) -> dict | None:
-    """Omni-manifest eval (slow__omni / light__omni): the campaign's flat canary / light-ring onset.
+               interrupt_check=None, max_attempts: int = 3, trained_categories=None,
+               extra_args=()) -> dict | None:
+    """Omni-manifest eval (slow__omni / light__omni / suite__omni): the campaign's flat canary /
+    light-ring onset / per-category suite.
 
     ``KRABBY_FLAT_TERRAIN_GEOM=ring`` is NOT optional here, unlike in the forward/sideways drivers:
     ``apply_omni_ring_knobs`` -> ``require_ring_geom`` raises in EVERY omni process whose
@@ -1372,11 +1568,25 @@ def eval_morph(c: Campaign, spec, ckpt: str, scenario: str, tag: str, *, carry_o
     The reward frame is FORMATION's, fixed across phases so the canary number is comparable; the
     observation/command semantics are the PHASE's (:data:`EVAL_CARRY`), because a policy can only
     be measured through the inputs it was trained on. See :func:`eval_env_for`.
+
+    ``trained_categories`` (plan D4/D7; the ladder passes it for ``suite`` rows only -- the harness
+    refuses the flag on any other row) is a CSV string or an iterable of category names, forwarded
+    as ``--trained-categories`` (recorded in ``run_meta`` and ``aggregate.suite``; scoring never
+    reads it). ``extra_args`` are further harness flags (``("--episodes", "7", "--waves", "10")``
+    for the suite dry run). Both go AFTER the fixed harness tail, so a call with neither launches
+    exactly the command it always did.
     """
     sid = f"{scenario}__omni"
     ev = eval_env_for(spec, c.plant, keep=CANARY_KEYS, keep_source=ph.FORMATION, carry_overlay=carry_overlay)
-    latest, a, info = _run_eval(c, tag, sid, ["--manifest", str(OMNI_MANIFEST), "--scenario", sid, "--checkpoint", ckpt,
-                                              "--save-raw"], ev, EVAL_ROOT / c.dir.name / tag, c.plant, 3600,
+    tail = ["--manifest", str(OMNI_MANIFEST), "--scenario", sid, "--checkpoint", ckpt, "--save-raw"]
+    if trained_categories is not None:
+        if not isinstance(trained_categories, str):
+            names = (sorted(trained_categories) if isinstance(trained_categories, (set, frozenset))
+                     else list(trained_categories))       # a set has no order of its own: sort it
+            trained_categories = ",".join(names)
+        tail += ["--trained-categories", trained_categories]
+    tail += [str(arg) for arg in extra_args]
+    latest, a, info = _run_eval(c, tag, sid, tail, ev, EVAL_ROOT / c.dir.name / tag, c.plant, 3600,
                                 max_attempts=max_attempts, interrupt_check=interrupt_check)
     if info["status"] == "interrupted":
         return _interrupted_eval()
