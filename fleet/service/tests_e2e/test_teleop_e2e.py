@@ -26,10 +26,11 @@ SIGNALING_TIMEOUT_S = float(os.environ.get("TELEOP_E2E_SIGNALING_TIMEOUT_S", "90
 VIDEO_TIMEOUT_S = float(os.environ.get("TELEOP_E2E_VIDEO_TIMEOUT_S", "120"))
 CONTROL_TIMEOUT_S = float(os.environ.get("TELEOP_E2E_CONTROL_TIMEOUT_S", "60"))
 MQTT_IDLE_SECS = float(os.environ.get("TELEOP_E2E_MQTT_IDLE_SECS", "8"))
+ICE_STUCK_NEW_SECS = float(os.environ.get("TELEOP_E2E_ICE_STUCK_NEW_SECS", "30"))
 
 
 def _viewer_url(thing: str, token: str) -> str:
-    # e2e=1: TURN relay-only ICE (GitHub Actions cannot reach bench host candidates).
+    # e2e=1: single stream + catalog_ids aligned with one recvonly m-line (see teleop_session.js).
     return (
         f"{FLEET_PORTAL_URL}/teleop/viewer.html"
         f"?thing={quote(thing)}&e2e=1&token={quote(token)}"
@@ -167,6 +168,34 @@ def _assert_no_bad_webrtc_sequence(diag: dict[str, Any], timeline: list[tuple[fl
         raise AssertionError(
             f"viewer reported WebRTC error: {status!r}\n{_format_diagnostic_timeline(timeline)}"
         )
+    if (
+        status.startswith("WebRTC connecting")
+        and diag.get("pcSignalingState") == "stable"
+        and diag.get("pcIceConnectionState") == "new"
+        and timeline
+    ):
+        stuck_start: float | None = None
+        for elapsed, d in timeline:
+            if not d:
+                continue
+            st = str(d.get("status") or "")
+            if (
+                st.startswith("WebRTC connecting")
+                and d.get("pcSignalingState") == "stable"
+                and d.get("pcIceConnectionState") == "new"
+            ):
+                if stuck_start is None:
+                    stuck_start = elapsed
+            else:
+                stuck_start = None
+        if stuck_start is not None and timeline[-1][0] - stuck_start >= ICE_STUCK_NEW_SECS:
+            raise AssertionError(
+                "WebRTC ICE never left 'new' after SDP stable (fast-fail). "
+                f"forceRelayIce={diag.get('forceRelayIce')!r} iceGathering={diag.get('pcIceGatheringState')!r} — "
+                "avoid ?ice=relay in CI; ensure coturn + bench locomotion 0.1.1+ and optional "
+                "KRABBY_TELEOP_TURN_* on HAL.\n"
+                f"{_format_diagnostic_timeline(timeline)}"
+            )
 
 
 def _poll_teleop(

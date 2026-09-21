@@ -63,8 +63,8 @@
   }
   var params = new URLSearchParams(location.search);
   var e2eMode = params.get('e2e') === '1';
-  var forceRelayIce =
-    e2eMode || params.get('ice') === 'relay';
+  /** Manual/debug only — ``e2e=1`` does not force relay (breaks ICE in headless CI). */
+  var forceRelayIce = params.get('ice') === 'relay';
   var token = params.get('token') || (typeof window.TELEOP_ACCESS_TOKEN === 'string' ? window.TELEOP_ACCESS_TOKEN : '');
   var qs = token ? '?token=' + encodeURIComponent(token) : '';
   var httpProto = location.protocol === 'https:' ? 'https:' : 'http:';
@@ -833,17 +833,32 @@
     return selectedCatalogIdsFromCheckboxes();
   }
 
+  /** Hello/offer ``catalog_ids`` must match recvonly ``m=video`` count (HAL validates length). */
+  function catalogIdsForSignaling() {
+    var ids = readCatalogIdsArray();
+    if (e2eMode) {
+      if (ids.length > 0) {
+        return [ids[0]];
+      }
+      if (availableCatalogIds.length > 0) {
+        return [availableCatalogIds[0]];
+      }
+      return [];
+    }
+    return ids;
+  }
+
   function helloPayload() {
     return {
       type: 'hello',
       role: 'browser',
       version: 1,
-      catalog_ids: readCatalogIdsArray(),
+      catalog_ids: catalogIdsForSignaling(),
     };
   }
 
   function offerPayload(sdp) {
-    return { type: 'offer', sdp: sdp, catalog_ids: readCatalogIdsArray() };
+    return { type: 'offer', sdp: sdp, catalog_ids: catalogIdsForSignaling() };
   }
 
   async function startRtc(numStreams) {
@@ -860,7 +875,7 @@
     telemetryDc = null;
     resetCockpitHud();
     videosEl.innerHTML = '';
-    var videoLabelsForSession = readCatalogIdsArray().slice();
+    var videoLabelsForSession = catalogIdsForSignaling().slice();
     if (streamStatus) {
       streamStatus.textContent = 'Requested ' + numStreams + ' stream(s); negotiating...';
     }
@@ -1115,6 +1130,7 @@
         wsReadyState: ws ? ws.readyState : -1,
         pcConnectionState: pc ? pc.connectionState : 'none',
         pcIceConnectionState: pc ? pc.iceConnectionState : 'none',
+        pcIceGatheringState: pc ? pc.iceGatheringState : 'none',
         pcSignalingState: pc ? pc.signalingState : 'none',
         controlDcReadyState: controlDc ? controlDc.readyState : 'none',
         videoTiles: videosEl ? videosEl.querySelectorAll('video').length : 0,

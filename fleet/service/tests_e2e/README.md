@@ -32,9 +32,10 @@ Teleop also needs runner AWS creds with `iot:DescribeEndpoint` and MQTT SigV4 on
 Bench preconditions for teleop (always-on setup on the Orin):
 [`../../BENCH-TELEOP.md`](../../BENCH-TELEOP.md).
 
-Playwright opens the viewer with **`?e2e=1`**: **relay-only ICE** (GitHub Actions
-cannot reach the bench on host/srflx candidates) and a **single** recvonly video
-line. The deployed portal must include that flag in `teleop_session.js`.
+Playwright opens the viewer with **`?e2e=1`**: one recvonly video line and matching
+``catalog_ids`` (HAL rejects m-line / catalog length mismatch). ICE uses normal
+STUN+TURN from ``/api/teleop/ice-servers`` (not ``?ice=relay`` — relay-only stalls
+headless Chromium). Deployed portal must ship current `teleop_session.js`.
 
 * `krabby-agent.service` — MQTT + teleop shim on **`127.0.0.1:9000`**
 * HAL in **portal** mode with **`--teleop-ip 127.0.0.1`**, **`--teleop-control-echo`**

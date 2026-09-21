@@ -86,6 +86,18 @@ def run_cmd(image_ref: str, extra_args: list[str], entrypoint: str | None = None
     ]
 
 
+def _teleop_turn_env_forward() -> list[str]:
+    """Forward optional coturn REST env into locomotion (``teleop.edge.turn_mint``)."""
+    flags: list[str] = []
+    for name in (
+        "KRABBY_TELEOP_TURN_HOST",
+        "KRABBY_TELEOP_TURN_AUTH_SECRET",
+        "KRABBY_TELEOP_TURN_TTL_SECS",
+    ):
+        flags.extend(["-e", name])
+    return flags
+
+
 def fleet_hal_cmd(
     image_ref: str,
     hal_argv: list[str],
@@ -109,6 +121,7 @@ def fleet_hal_cmd(
         "-v", "/dev:/dev",
         *mounts,
         *network_flags(),
+        *_teleop_turn_env_forward(),
         image_ref,
         *hal_argv,
     ]
