@@ -1022,6 +1022,23 @@ Nothing is pushed (the user publishes).
   `launch_candidates.sh --campaign-dir $LAD` (X05 resumes from its last checkpoint; the queue continues
   C2 → C3a → …). To resume under a narrowed plan: edit `candidates.yaml`, relaunch with
   `--accept-candidates-change "<why>"`; a code change needs `--accept-code-change` and a `B<k>` rerun.
+- **2026-09-21 — PER-CATEGORY EVALUATION PLAN APPROVED; the campaign stays paused until it lands.** Saved verbatim beside
+  this file as `PLAN_2026-09-21_per_category_eval.md` (610 lines). It supersedes this plan's decisions 4 (floors), 5
+  (blocks/guards by hold) and A6 (the `curriculum__omni` row) and leaves the ranked candidate list, the speculation/squash
+  protocol and the milestone structure intact. What it changes: one manifest row `suite__omni` runs ten waves in a single Kit
+  launch, each env taking one single-category episode (2 s settle at the pinned yaw, then 12 s of that category's command), so
+  survival is the hold's OWN completion and no category's number depends on another's; seven categories (`stand, fwd, side,
+  back, diag, turn, move_turn`) each score metrics matched to their motion (stillness and drift; speed ratio and a new
+  direction error; facing closure, turn rate and settle); a new `eval_categories.py` derives which categories a recipe's
+  command distribution actually trains, and blocks, guards, stage floors, RETENTION and milestones are restricted to those
+  while every untrained category is still run and printed as a WATCH row. `move_turn` is decisive in its own block `F_mt`
+  (user amendment) with `cat.move_turn.ratio` as the anti-sacrifice guard. The stage floors become per-category, absolute
+  (0.10 newly enabled / 0.30 previously enabled) and BAND-tested at 99 %, which is what un-inverts the C1 and C1b rejections:
+  neither would have fired. An `eval_sha` split from `code_sha` (with a proof that the training tree did not move - verified
+  identical at `81a1aa3`, `75dd943`, `9f61eb2`, `9c2c1fba`) lets the migration RE-EVALUATE the recorded heads instead of
+  retraining B0: rescreen X01/X02, reeval the three D00 heads, write `D00s` then `D00bs`, rescore X03:c4 and X04:c2 and resume
+  those chains from their next stage, then the ordinary queue. Audit: one pass, three lenses, 9 blocking + 19 substantial + 44
+  minor findings all applied; further passes declined by the user, so execution steps 1, 3 and 5 carry the review lenses.
 - **`MemoryPeak` policy.** The launcher runs the driver under `MemoryMax=48G`,
   `MemorySwapMax=0`, `OOMPolicy=continue`, `KillMode=mixed`, `TimeoutStopSec=360`; the measured
   `MemoryPeak` of the unit is recorded HERE after `B0` completes (`systemctl --user show <unit> -p
