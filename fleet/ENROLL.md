@@ -24,7 +24,7 @@ fleet teleop **`signaling/out`** (awscrt QoS) needs **≥ 0.1.20**. From PyPI:
 
 ```bash
 python3 -m venv .venv-krabby && source .venv-krabby/bin/activate
-pip install -U pip && pip install 'krabby-launcher>=0.1.21'
+pip install -U pip && pip install 'krabby-launcher>=0.1.22'
 command -v krabby
 krabby --help | grep -E 'enroll|agent'
 ```
