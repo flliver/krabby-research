@@ -1,0 +1,207 @@
+{
+  "mode": "policy",
+  "task": "Isaac-Crab-Hex-Teacher-Play-v0",
+  "plant": "A15+B",
+  "phase": "2c",
+  "num_envs": 32,
+  "gait_steps": 1200,
+  "leg_steps_scored": 227550,
+  "proxy_source": "live obs term",
+  "live_vs_recomputed_max_abs_gap": 0.0,
+  "settled_root_height_m": 1.058668613433838,
+  "true_stance_fraction": 0.5,
+  "always_stance_agreement": 0.5,
+  "dead_zone_fraction_of_stance": 0.01,
+  "mean_proxy_in_stance": 1.188,
+  "mean_proxy_in_swing": 0.408,
+  "thresholds": {
+    "0.05": {
+      "precision": 0.513,
+      "recall": 0.99,
+      "f1": 0.675,
+      "agreement": 0.525,
+      "specificity": 0.061,
+      "balanced_accuracy": 0.525,
+      "fractions": {
+        "tp": 0.495,
+        "fp": 0.47,
+        "fn": 0.005,
+        "tn": 0.03
+      }
+    },
+    "0.1": {
+      "precision": 0.513,
+      "recall": 0.99,
+      "f1": 0.675,
+      "agreement": 0.525,
+      "specificity": 0.061,
+      "balanced_accuracy": 0.525,
+      "fractions": {
+        "tp": 0.495,
+        "fp": 0.47,
+        "fn": 0.005,
+        "tn": 0.03
+      }
+    },
+    "0.15": {
+      "precision": 0.549,
+      "recall": 0.976,
+      "f1": 0.702,
+      "agreement": 0.587,
+      "specificity": 0.199,
+      "balanced_accuracy": 0.587,
+      "fractions": {
+        "tp": 0.487,
+        "fp": 0.401,
+        "fn": 0.012,
+        "tn": 0.1
+      }
+    },
+    "0.2": {
+      "precision": 0.605,
+      "recall": 0.961,
+      "f1": 0.743,
+      "agreement": 0.667,
+      "specificity": 0.375,
+      "balanced_accuracy": 0.668,
+      "fractions": {
+        "tp": 0.48,
+        "fp": 0.313,
+        "fn": 0.02,
+        "tn": 0.187
+      }
+    },
+    "0.3": {
+      "precision": 0.697,
+      "recall": 0.929,
+      "f1": 0.796,
+      "agreement": 0.762,
+      "specificity": 0.596,
+      "balanced_accuracy": 0.763,
+      "fractions": {
+        "tp": 0.464,
+        "fp": 0.202,
+        "fn": 0.036,
+        "tn": 0.298
+      }
+    },
+    "0.5": {
+      "precision": 0.71,
+      "recall": 0.872,
+      "f1": 0.783,
+      "agreement": 0.758,
+      "specificity": 0.645,
+      "balanced_accuracy": 0.758,
+      "fractions": {
+        "tp": 0.435,
+        "fp": 0.178,
+        "fn": 0.064,
+        "tn": 0.323
+      }
+    },
+    "0.1_driving_only": {
+      "precision": 0.513,
+      "recall": 1.0
+    },
+    "0.2_driving_only": {
+      "precision": 0.605,
+      "recall": 0.971
+    }
+  },
+  "gait": {
+    "checkpoint": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/policy/2c_teacher/model_19996.pt",
+    "resets": 16,
+    "mean_steps_per_episode": 2400.0,
+    "mean_vx_body_m_s": 0.191
+  },
+  "best_by_f1": 0.3,
+  "best_by_agreement": 0.3,
+  "best_by_balanced_accuracy": 0.3,
+  "roc_auc": 0.83,
+  "per_leg": {
+    "FL_Footpad": {
+      "precision": 0.875,
+      "recall": 0.918,
+      "f1": 0.896,
+      "agreement": 0.899,
+      "specificity": 0.882,
+      "balanced_accuracy": 0.9,
+      "fractions": {
+        "tp": 0.433,
+        "fp": 0.062,
+        "fn": 0.039,
+        "tn": 0.466
+      }
+    },
+    "FR_Footpad": {
+      "precision": 0.852,
+      "recall": 0.916,
+      "f1": 0.883,
+      "agreement": 0.889,
+      "specificity": 0.867,
+      "balanced_accuracy": 0.891,
+      "fractions": {
+        "tp": 0.417,
+        "fp": 0.072,
+        "fn": 0.038,
+        "tn": 0.472
+      }
+    },
+    "ML_Footpad": {
+      "precision": 0.475,
+      "recall": 0.996,
+      "f1": 0.644,
+      "agreement": 0.492,
+      "specificity": 0.063,
+      "balanced_accuracy": 0.529,
+      "fractions": {
+        "tp": 0.458,
+        "fp": 0.506,
+        "fn": 0.002,
+        "tn": 0.034
+      }
+    },
+    "MR_Footpad": {
+      "precision": 0.488,
+      "recall": 0.996,
+      "f1": 0.655,
+      "agreement": 0.506,
+      "specificity": 0.069,
+      "balanced_accuracy": 0.532,
+      "fractions": {
+        "tp": 0.469,
+        "fp": 0.492,
+        "fn": 0.002,
+        "tn": 0.036
+      }
+    },
+    "RL_Footpad": {
+      "precision": 0.933,
+      "recall": 0.891,
+      "f1": 0.911,
+      "agreement": 0.9,
+      "specificity": 0.913,
+      "balanced_accuracy": 0.902,
+      "fractions": {
+        "tp": 0.513,
+        "fp": 0.037,
+        "fn": 0.063,
+        "tn": 0.388
+      }
+    },
+    "RR_Footpad": {
+      "precision": 0.921,
+      "recall": 0.878,
+      "f1": 0.899,
+      "agreement": 0.888,
+      "specificity": 0.902,
+      "balanced_accuracy": 0.89,
+      "fractions": {
+        "tp": 0.494,
+        "fp": 0.043,
+        "fn": 0.069,
+        "tn": 0.395
+      }
+    }
+  }
+}

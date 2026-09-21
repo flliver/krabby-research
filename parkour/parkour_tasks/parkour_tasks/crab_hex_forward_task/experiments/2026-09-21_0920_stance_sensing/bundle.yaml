@@ -1,0 +1,27 @@
+campaign: 2026-09-21_0920_stance_sensing
+era: B
+dates: 2026-09-21..2026-09-21
+question: How often does the motor-current stance proxy the policy observes agree with
+  the privileged footpad contact sensor, measured on the A15+B plant under a REAL trained
+  gait rather than the 2026-08-20 scripted sine?
+verdict: 'RESULTS.md: the proxy carries a real stance signal on a trained gait (ROC AUC
+  0.83-0.85, per-leg 0.92-0.97) but no single threshold can read it -- the middle legs
+  sit at a different current offset (swing ~0.75 vs corner-leg stance ~1.05), so one global
+  threshold tops out at 0.76-0.79 agreement while per-leg thresholds reach 0.92 and transfer
+  across heads. The 2026-08-20 precision collapse was one threshold serving two load regimes,
+  not a failing sensing model; no `_CURRENT_SENSE_*` retune indicated for sim, per-actuator
+  calibration required on hardware.'
+plant: A15+B
+aliases: []
+records:
+- RESULTS.md
+- stance_current_probe_v2.py
+- report_scripted_A15pB.json
+- report_policy_2c.json
+- report_policy_1a.json
+- bundle.yaml
+head:
+  none: sensing-model measurement only (no training, no bake); heads used are the policy-of-record
+    stages 2c_teacher/model_19996.pt and 1a_formation/model_4999.pt
+keep_globs: []
+paths_note: true
