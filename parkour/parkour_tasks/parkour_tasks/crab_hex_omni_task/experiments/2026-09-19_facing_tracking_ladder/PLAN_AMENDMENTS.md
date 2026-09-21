@@ -141,3 +141,38 @@
     on an `accepted_i` milestone is relayed as already applied. The drift anchor's s3 screen is resolved through `ok_screen` under
     the CURRENT code_sha (falls back to the baseline anchor when none exists), never the recorded old-code header.
 29. (V8) Stop drill: systemctl --user stop returned in 46 s; phase await_user:stop; AWAIT line; no retry; no orphan. Resume half: see the CHARTER Log.
+30. (2026-09-21, audit of PLAN_2026-09-21_per_category_eval.md) The per-category plan was audited in five further passes after
+    its pass-1 review (passes 2-6; four fresh opus·xhigh auditors per pass — harness, driver state machine, statistics,
+    assembly — every blocking finding adversarially verified), then ACCEPTED AS IS by the user at the 6-pass cap. Distinct
+    blocking findings per pass 4 → 5 → 3 → 2 (passes 3-6), each pass's mostly fallout of the previous pass's fixes; pass 6's
+    two fixes (V3 world-frame label identities; D00s/D00bs completeness) are un-re-audited. The plan file now carries the
+    audited text and its Audit trail. User decisions taken during the audit (pass 2): (a) milestones keep the 2026-09-18
+    three-row rule with the suite in place of slow (light/ring on the frozen v1 per-row rule, D00s' copied by_row_rule, D00b
+    seed terms); (b) every PRESENT category keeps its survival guard, watch categories included; (c) the all-TIE speculative
+    pick and the pooled signs use sign(Σ z_b / R_b). Surfaced, not reversed: the move_turn ratio guard vs a facing-for-speed
+    trade (D3's example rewritten to the recorded data point). From pass 4 the audit used the revised plan-audit guide
+    (blocking / deferred / nit; deferred findings are listed here, not edited into the plan).
+    LEFT FOR IMPLEMENTATION (deferred findings — each one the implementer will hit early and plainly):
+    - V6 needs per-wave `wave k/W start|end` and `write_run start|done` log lines on the suite path to time the stop.
+    - The golden test FILE changes only in `test_body_rows_carry_no_omni_fields` (its key list); the fixture stays byte-identical.
+    - Per-wave host arrays must be `.copy()`-ed before the buffers are zeroed if `--device cpu`.
+    - Rename the pathspec-coverage test so TOOL_FILES and drop-glob matches are exempt.
+    - D00s/D00bs/D00c ids need an eval_sha suffix at a second eval-only change.
+    - V4's printed queue shows X03 resumed before X05's park line (find_inflight returns the first passing header).
+    - Step-8 dispatch of a rescored header: `needs_s3` = the composed base (compose_recipe upto cid).
+    - `make_ctx`/`_main_env` in the candidates tests write the LIVE yaml and patch `ensure_resolution`: repoint to the v1
+      fixture path and `load_resolution` during the fixture split.
+    - `_baseline_raw_dir` (:6450) reads `suite` before `slow` for the replay walker.
+    - The all-N/A SKIP entry sets `alternative: ADOPT` so the DECISION line's overrule command is well-formed.
+    - The floor band is a Wald bound (≈ 2 % false-FAIL at the threshold); switch to Wilson (same z) if it matters.
+    - Tests asserting the literal `sign(z_F + z_T)` why-string move to `sign(Σ z_b/R_b)`.
+    - `anchored_drift` passes an `anchor_s2_reused` flag so guard_rows uses the √3/2 binomial factor.
+    - Part G placement: resolution.py + its tests and ledger_cli.py in commit 4, the compile-snapshot fixture in commit 1.
+    - Step 0: inline the cfg-identity command from the 2026-09-18 plan.
+    - `inspect.getclosurevars` must be applied per method for the `Campaign` class in the seam pin.
+    - Write a `floor_rescored` field on a rescored rec beside its old `floor`.
+    - Let the X01 rescreen seed `stage_trace_v2` for scratch_1c (otherwise the first v2 run, X05, seeds it).
+    - A `resolution_missing` raised inside `_dispatch_candidate` should not orphan an ok header (unreachable today).
+    - `_resume_field` (OVERRIDE-APPLIED line) consults `migration_item` before `next_item`.
+    - `resolution_notify_fields`' guard loop (:5163) iterates the expanded rule's guards (display only).
+    - Suggestion: the paired-category survival floor could use `n_env` instead of `n_c` (caveat 9's numbers would move).
