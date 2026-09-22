@@ -495,6 +495,18 @@ candidates:
       scratch for 3000 iterations, then c4-c6 unchanged -- 8000 iterations, equal compute (user
       2026-09-22). Screened on the effective recipe like every other candidate.
 
+  - id: C2r
+    kind: reward
+    stages: all
+    overlay: {KRABBY_YAW_PROGRESS_W: "3.0"}
+    replay_args: ["--yaw-progress-w", "3"]
+    question: >-
+      C2 again (user 2026-09-22: "retry c2 after c1d"), ranked after C1d so it composes on the
+      post-C1d recipe. D10 rejected C2 on the guard cat.move_turn.survival (0.58 -> 0.12) with F
+      (+7.7) and F_mt (+4.3) BETTER on B0. If C1d is adopted this asks whether the turn-first recipe
+      keeps the facing gain without the move+turn survival collapse; if not, it is an uninterrupted
+      seed-3 redraw of C2 on B0 (X05 itself was resumed at model_400). Same overlay as C2; D10 stays
+      the record of C2 on B0.
   - id: C3b
     kind: kinematics
     stages: all

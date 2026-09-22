@@ -8022,7 +8022,7 @@ def test_milestone_i_cites_the_loaded_resolution_and_halts_without_it(rc, cands,
     def ready(name, resolution):
         led, st = ledger(), state()
         b0 = with_baseline(rc, cands, led, st, screen_=screen_cat())
-        for cid in ("C1", "C1b", "C1c", "C3a", "C3b"):
+        for cid in ("C1", "C1b", "C1c", "C3a", "C1d", "C2r", "C3b"):
             led["entries"].append(entry(f"D_{cid}", cid, "REJECT", "decided"))
         r_c2 = rc._recipe_with(led, cands, CODE, "C2", set())
         led["entries"].append(entry("D_C2", "C2", "ADOPT", "decided", experiment="X03",

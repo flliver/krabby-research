@@ -241,3 +241,30 @@
     `systemctl --user stop` (X07 at model_6100; at most 99 iterations lost), relaunch with `--accept-candidates-change`
     (candidates.yaml sha256 cc48245c1be5...); X07 resumed at model_6100 (1900 of 8000 left) as `seed2_X07_1c_A15pB_c` --
     a resumed window is not bit-identical to an uninterrupted one (restarted simulator/RNG state).
+37. (C2r, user request 2026-09-22: "retry c2 after c1d") Candidate **C2r** = C2's overlay (`KRABBY_YAW_PROGRESS_W 3.0`,
+    `stages: all`, same `replay_args`), unconditional, ranked right after C1d (before C3b). The ladder's own verb
+    `decide C2 --choose run` was not used: it re-screens C2 at rank 4, always on B0 (its base composes only candidates ranked
+    before it), voids D10 permanently (cause e), and if it adopted it would squash C3a/C1d (cause a); a relaunch while it is
+    pending parks X08 behind it (rank gate). A new candidate is the only way to place a C2 run after a lower-ranked one.
+    C2r composes on the post-C1d recipe: after a C1d ADOPT it tests C2 on the turn-first chain (control = C1d's screen; a
+    speculative C2r then needs a twin, fa03ac033e7c has no s2 screen); after a C1d REJECT it is an uninterrupted seed-3
+    redraw of C2 on B0 (recipe 27333979fd03 = X05's; X05 itself was resumed at model_400), most likely rejecting again on
+    move_turn survival (D10 0.58 -> 0.12 against a seed spread of 0.06). `ledger_cli decide C2r --choose skip` before its
+    dispatch drops that branch. D10 stays C2's record on B0. M1 now also waits for C2r. Validator ok (only the note that
+    `KRABBY_YAW_PROGRESS_W` is set by C2 and C2r), launch reconcile squashes nothing, dry-run queue: resume X08 -> C2r s3.
+    Applied by a stop inside X08's c4 suite eval (the stage is not yet in `recs`, so the relaunch re-runs only the eval and
+    c5 starts from the c4 checkpoint in a fresh process, as at any stage boundary) and a relaunch with
+    `--accept-candidates-change`. Tests: `test_milestone_i_cites_the_loaded_resolution_and_halts_without_it` hard-codes the
+    live list of candidates decided before M1 and was broken by C1d (item 36, suite not re-run then); it now lists C1d and
+    C2r. Two other candidates tests read the live campaign state and have failed since the 2026-09-21 migration, not
+    because of C1d/C2r: `test_a_pre_suite_state_without_eval_sha_takes_the_alias_path` (asserts the ladder is pre-suite) and
+    `test_dry_run_prints_checkpoint_shape_inputs` (expects the unfilled seed_pair inputs) -- left for a fix off the live dir.
+    FINDING (2026-09-22, not fixed -- a training-code change would move code_sha): the PPO update counter that drives the
+    `priv_reg` coefficient (`ppo_with_extractor.py:114/347/526`, schedule 0 -> 0.1 over updates 2000-5000) is NOT restored
+    on resume (the runner restores `iter`, not `alg.counter`), and the adaptive learning rate restarts from its initial
+    value. Consequences: (i) X07 (C3a s2, the run whose sign overruled D11) was stopped at 08:16 for item 36 and resumed at
+    model_6100 -- its last 1900 iterations trained with `priv_reg_coef` 0.0 instead of 0.1 (logged `Mean priv_reg` rose
+    0.0003 -> 0.0157); (ii) X05 (C2) resumed at model_400, its ramp shifted by 400 iterations; (iii) every chain stage is a
+    fresh process, so curriculum chains (C1, C1b, C1d, and C2r on C1d's chain) train c4-c6 at coef 0 (t3 ends at 0.033),
+    while a single-window 8000-it recipe (B0, C2, C3a) runs at 0.1 from update 5000 -- a confound in every chain-vs-B0
+    comparison, beyond the curriculum itself.
