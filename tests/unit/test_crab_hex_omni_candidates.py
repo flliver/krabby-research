@@ -35,7 +35,10 @@ TOOLS = OMNI / "experiments/tools"
 DRIVER = TOOLS / "run_candidates.py"
 CLI = TOOLS / "ledger_cli.py"
 LADDER = OMNI / "experiments/2026-09-19_facing_tracking_ladder"
-CANDS_YAML = LADDER / "candidates.yaml"
+# the full rule-v2 ladder (C1..C12, C1d, C2r, milestones M1-M3), frozen at 18948abe: the live yaml was narrowed to
+# C1..C1d on 2026-09-22 (PLAN_AMENDMENTS 38), and these tests pin the full ladder's mechanics, not the live scope
+CANDS_YAML = REPO / "tests/unit/fixtures/candidates_v2_2026-09-22.yaml"
+LIVE_CANDS_YAML = LADDER / "candidates.yaml"
 # the pre-suite spec (rule v1, hold-keyed stages, run_dir resolution inputs), frozen: never regenerated
 CANDS_YAML_V1 = REPO / "tests/unit/fixtures/candidates_v1_2026-09-19.yaml"
 

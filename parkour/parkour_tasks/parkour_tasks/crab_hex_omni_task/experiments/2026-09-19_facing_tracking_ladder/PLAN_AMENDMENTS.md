@@ -268,3 +268,29 @@
     fresh process, so curriculum chains (C1, C1b, C1d, and C2r on C1d's chain) train c4-c6 at coef 0 (t3 ends at 0.033),
     while a single-window 8000-it recipe (B0, C2, C3a) runs at 0.1 from update 5000 -- a confound in every chain-vs-B0
     comparison, beyond the curriculum itself.
+38. (scope narrowed to the C1 question, user 2026-09-22: "We're getting too tangled up in the test ladder. Lets narrow
+    the scope of this plan just to resolving the C1 question we are currently testing") The campaign now ends when C1d
+    is terminal: its screen decision, plus its seed-2 pair (no twin: X02 is B0's s2 screen) and pooled decision if the
+    screen is speculative. candidates.yaml keeps C1, C1b, C1c, C2, C3a (all recorded) and C1d; C3b, C4-C12 and the
+    milestones M1-M3 are removed (`milestones: []`) and C2r (item 37) is withdrawn before it was ever loaded -- the stop
+    job that would have applied it was cancelled while still waiting. With an empty queue the driver sets phase `done`,
+    notifies DONE and exits. Chosen over the alternatives on a scratch copy and independently reviewed: `decide <cid>
+    --choose skip` for the rest still runs milestone M1 (no verb skips a milestone); a timed stop after C1d's DECISION
+    races a millisecond gap before C3b's header is written; a fake `deferred`/`user_decision` parks with a false message.
+    Launch reconcile squashes nothing; no recorded recipe_id or base moves (C1d composes only ranks 1-5). Applied
+    11:14:22 by a stop inside X08's c4 suite eval (not at c6: c4 carries a category_survival floor whose REJECT would have
+    dispatched C3b under the old list before the c6 window) and a relaunch with `--accept-candidates-change` (yaml sha256
+    137988470c43...): X08 resumed at model_4498 with "the window had already reached its final iteration -- continuing at
+    its eval" (no training redone). The REPORT header table (written at campaign start) still lists C3b-C12 and M1-M3.
+    Parked, not decided: the D10 (C2) overrule question, a redo of C3a's interrupted s2 run X07 (item 37 FINDING (i)).
+    Tests: the candidates and eval_categories tests pinned the live yaml; they now load the full v2 ladder frozen at
+    18948abe as `tests/unit/fixtures/candidates_v2_2026-09-22.yaml` (as the v1 spec was frozen); the two tests that read
+    the live state.json stay red (item 37).
+    Relevant to the C1 answer (scope check, 2026-09-22): the teacher is EVALUATED on the history latent
+    (`eval_crab_hex_gait.py:804-807`, hist_encoding=True) while it trains on the privileged latent, and priv_reg is what
+    pulls the two together; because every chain stage restarts the PPO counter (item 37), C1/C1b ended with a latent gap
+    ~0.035 (~90x B0's 0.0004) and every head with an open gap turns 0.17-0.25 while every head with a closed gap turns
+    0.29-0.75 -- but the partition is collinear with the curriculum, and translation and survival held, so the data cannot
+    attribute the turning loss. A C1d REJECT on F therefore leaves "curriculum vs stage-boundary resets" open; the control
+    that separates them is B0's 1c recipe split into processes at C1d's boundaries (3000/1500/1500/2000, ~3.6 h). It is
+    NOT scheduled (optional); after `done` it can be added and relaunched with no timing constraint.

@@ -28,7 +28,8 @@ MODULE = OMNI / "eval_categories.py"
 PHASES_PY = OMNI / "config/crab_hex/crab_hex_omni_phases.py"
 DRIVER = OMNI / "experiments/tools/run_candidates.py"
 LADDER = OMNI / "experiments/2026-09-19_facing_tracking_ladder"
-CANDS_YAML = LADDER / "candidates.yaml"
+# the full rule-v2 ladder, frozen at 18948abe (the live yaml was narrowed to C1..C1d on 2026-09-22)
+CANDS_YAML = REPO / "tests/unit/fixtures/candidates_v2_2026-09-22.yaml"
 MANIFEST = OMNI / "experiments/eval/scenarios_omni.yaml"
 SUITE_ROW = "suite__omni"
 

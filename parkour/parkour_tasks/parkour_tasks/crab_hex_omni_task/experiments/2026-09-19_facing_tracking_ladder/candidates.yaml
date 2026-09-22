@@ -18,6 +18,16 @@
 # ranked candidates and the milestones are unchanged. The pre-change file is frozen byte-for-byte
 # as `tests/unit/fixtures/candidates_v1_2026-09-19.yaml` (git show 464be672).
 #
+# REVISION 3 (2026-09-22, the user: "narrow the scope of this plan just to resolving the C1
+# question we are currently testing"; relaunched with `--accept-candidates-change`): the ladder ENDS
+# at C1d. C3b, C4-C12 and the milestones M1-M3 are REMOVED -- nothing after C1d is dispatched, no
+# promotion runs, and the queue is empty (phase `done`) once C1d is TERMINAL (its screen decision,
+# or its seed-2 pair + pooled decision when the screen is speculative). The ranked rows C1..C1d,
+# every chain and the non-candidate blocks are byte-identical to revision 2 (b910d44a), so every
+# recorded recipe_id / base_recipe_id is unchanged; `promotion` and `milestone_reference` are inert
+# with no milestone. The removed rows are git show b910d44a:<this file> (lines 498-632); C2r
+# (18948abe) was never loaded by a driver and is not carried.
+#
 # EVERY path is written relative to the repository root. No driver may contain a dated path.
 schema: 1
 
@@ -495,150 +505,7 @@ candidates:
       scratch for 3000 iterations, then c4-c6 unchanged -- 8000 iterations, equal compute (user
       2026-09-22). Screened on the effective recipe like every other candidate.
 
-  - id: C2r
-    kind: reward
-    stages: all
-    overlay: {KRABBY_YAW_PROGRESS_W: "3.0"}
-    replay_args: ["--yaw-progress-w", "3"]
-    question: >-
-      C2 again (user 2026-09-22: "retry c2 after c1d"), ranked after C1d so it composes on the
-      post-C1d recipe. D10 rejected C2 on the guard cat.move_turn.survival (0.58 -> 0.12) with F
-      (+7.7) and F_mt (+4.3) BETTER on B0. If C1d is adopted this asks whether the turn-first recipe
-      keeps the facing gain without the move+turn survival collapse; if not, it is an uninterrupted
-      seed-3 redraw of C2 on B0 (X05 itself was resumed at model_400). Same overlay as C2; D10 stays
-      the record of C2 on B0.
-  - id: C3b
-    kind: kinematics
-    stages: all
-    absolute_units: true
-    depends_on: [C3a]
-    eval_carry: [KRABBY_OMNI_ANG_VEL_MAX, KRABBY_OMNI_ANG_VEL_CLIP, KRABBY_OMNI_CLOCK_TURN_R]
-    overlay: {KRABBY_OMNI_ANG_VEL_MAX: "0.18", KRABBY_OMNI_ANG_VEL_CLIP: "0.12",
-              KRABBY_OMNI_CLOCK_TURN_R: "2.0"}
-    conditional: >-
-      decision(C3a).chosen != REJECT or decision(C3a).pooled_confidence in (uncertain, disputed)
-    question: >-
-      The paired cap variant: 0.18 rad/s at the kinematic bound with the dead band moved to 0.12
-      (a 0.08 rad linear region instead of 0.133) and a cadence-preserving radius (2.0 x 0.18 =
-      0.36). A clear seed-3 REJECT of C3a -- no pair -- skips this arm. ABSOLUTE UNITS.
-
-  - id: C4
-    kind: reward
-    stages: all
-    overlay: {KRABBY_OMNI_FACING_TURN_W: "0.8"}
-    replay_args: ["--facing-turn-w", "0.8"]
-    question: >-
-      Price (mechanism 1), turn rows only: reward_facing_exp_turn_slot at 0.8 raises the settle
-      bonus on the turn slots from 0.12 to 0.60/s across the settled-0.1-rad vs 1.2-rad span
-      (weight 0.2 -> 1.0 on that span) and pays exactly 0 on every translation row, so the
-      translation stake is untouched.
-
-  - id: C5
-    kind: observation
-    stages: all
-    eval_carry: [KRABBY_OMNI_FACING_OBS_ENCODING]
-    overlay: {KRABBY_OMNI_FACING_OBS_ENCODING: sincos}
-    question: >-
-      Observation (mechanism 3): slots 6/7 clip the facing error at 0.6 rad, so the policy is
-      magnitude-blind above it and cannot tell 0.7 rad from 1.57. (sin, cos) of the UNCLIPPED
-      error is bounded by construction and keeps the magnitude. Screened from scratch, which is
-      what an observation change needs.
-
-  - id: C6
-    kind: reward
-    stages: all
-    overlay: {KRABBY_OMNI_TRACK_FACING_SIGMA: "1.0"}
-    replay_args: ["--coupled-sigma", "1.0"]
-    question: >-
-      Coupling (mechanism 1): ignoring facing costs translation NOTHING today -- the command term
-      re-projects a held world travel direction into the body frame every step. Multiplying the
-      stock tracking kernel by exp(-(herr/1.0)^2) makes it cost, on every row. After the cheaper
-      fixes, because it lowers the translation income a candidate before it may have bought.
-
-  - id: C7
-    kind: kinematics
-    depends_on: [C1b]
-    pool_edit: {ang_scale: {"*_turn": 0.3}}
-    conditional: recipe.has_pool and decision(C1b).chosen != ADOPT
-    question: >-
-      Reduced-demand move+turn types on whatever pool the recipe carries (0.3 x the recipe's
-      cap/clip on every *_turn type): the same lever C1b tested inside a rejected curriculum,
-      applied to an ADOPTED one. Training distribution only -- the eval holds are unchanged.
-
-  - id: C8
-    kind: economy
-    stages: all
-    teacher_overlay: {KRABBY_OMNI_SLOTS: 0.05:0.55:0.15:0.25}
-    overlay_by_chain:
-      curriculum: {pool_edit: {set_share: {stand: 0.05}, renormalise: true}}
-      scratch_c6: {pool_edit: {set_share: {stand: 0.05}, renormalise: true}}
-      curriculum_turnfirst: {pool_edit: {set_share: {stand: 0.05}, renormalise: true}}
-      scratch_1c: {stages: all, overlay: {KRABBY_OMNI_SLOTS: 0.05:0.65:0.1:0.2}}
-    question: >-
-      Economy (mechanism 5): the stand share is 0.15 of every window and the shipped terms pay a
-      stander ~1.0/s. 0.05 with the freed share redistributed over the WALKING types only (turn
-      and move+turn shares unchanged) triples the walking exposure per window without touching
-      the regime mix the facing work is measured on. On 2a/2b the same edit lands on
-      SLOTS_TEACHER -> 0.05:0.55:0.15:0.25.
-
-  - id: C9
-    kind: economy
-    stages: all
-    overlay: {KRABBY_OMNI_PROGRESS_W: "1.5"}
-    replay_args: ["--progress-w", "1.5"]
-    question: >-
-      Economy (lit recommendation 3): reward_forward_progress_along_command 0.6 -> 1.5 raises the
-      translation stake, which is the opposite side of every facing trade above -- so it runs
-      LATE, after the facing levers have been priced. The replay's alias --progress-w DOES arm
-      its turn-hold income table when supplied (PLAN_AMENDMENTS 15; replay_reward_economy.py
-      lines 640-650 -- one argparse dest, either spelling arms it).
-
-  - id: C10
-    kind: seeding
-    stages: all
-    deferred: true
-    requires_knob: KRABBY_OMNI_RSI_TURN_SOURCE
-    overlay: {KRABBY_OMNI_RSI_TURN_SOURCE: "2"}
-    conditional: screen.yaw_progress_turn_min < 0.10
-    question: >-
-      Seeding (lit recommendation 6): the RSI bank holds no turn or backward frame, so a turn is
-      always started from a standing pose. A source-tag-2 bank harvested from the recipe head's
-      own turn holds seeds mid-turn states. DEFERRED -- the harvester (--mode turn), the
-      staged-turn tuple, the staged-slot rule and their tests are outside the code freeze:
-      reached with its predicate true, the driver stops at await_user:C10 code.
-
-  - id: C11
-    kind: economy
-    stages: all
-    overlay: {KRABBY_OMNI_ANG_TURN_ONLY: "1"}
-    replay_args: ["--new-ang-turn-only"]
-    conditional: screen.track_ratio_move_tail < 0.45
-    question: >-
-      Economy (mechanism 5), demoted: gating track_ang_vel_z_exp to the turn rows lifts the
-      replay's walker-vs-creeper margin +16.6 % -> +37.5 %, but it also erases the turn-row settle
-      bonus (finish vs dawdle becomes near-indifferent). It runs only if the creeper signature
-      returns on the MOVE-ONLY rows (track_ratio_move_tail < 0.45 -- a creeper reads ~0.25 there
-      against a walker's ~0.6).
-
-  - id: C12
-    kind: task_definition
-    stages: all
-    deferred: true
-    user_decision: true
-    requires_knob: KRABBY_OMNI_TRAVEL_FRAME
-    overlay: {KRABBY_OMNI_TRAVEL_FRAME: body}
-    question: >-
-      Task definition: make the *_turn types' travel direction BODY-locked instead of world-held,
-      which is the only change that makes move+turn kinematically honourable. It redefines the
-      task of record, so it is the USER's decision (await_user:C12, answered by
-      `ledger_cli decide C12 --choose run|skip`), and its knob is outside the code freeze.
-
 # ---------------------------------------------------------------------------- milestones
-# `after` = every candidate up to and including this one has a TERMINAL entry (and is not
-# undecided). A milestone is (i) a zero-GPU pooled seed-2 confirmation, preceded when needed by one
-# ordinary experiment `M<k>.s2`, then (ii) one promotion experiment `M<k>.promo` (2a then 2b from
-# the recipe head, `promotion.eval` at both), and for M3 (iii) `M3.final_s2` from recipe_head_s2.
-milestones:
-  - {id: M1, after: C3b, promote: ["2a", "2b"]}
-  - {id: M2, after: C7, promote: ["2a", "2b"]}
-  - {id: M3, after: C12, promote: ["2a", "2b"], final: true}
+# None (revision 3): the campaign ends when C1d is terminal. M1 (after C3b), M2 (after C7) and M3
+# (after C12, final) were removed with their `after` candidates.
+milestones: []
