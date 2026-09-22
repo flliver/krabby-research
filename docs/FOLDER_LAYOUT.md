@@ -227,7 +227,11 @@ in the shared import graph: `parkour/parkour_isaaclab/terrains/omni/`. Two drive
 `ladder` key, while `run_candidates.py` (with `ledger_cli.py`, `resolution.py` and
 `launch_candidates.sh`) runs the candidate ladder, whose campaign dir adds `candidates.yaml`,
 `resolution.json`, `ledger.json` and `ledger_overrides.jsonl` to the usual
-`state.json`/`heads.json`/`REPORT.md`/`CHANGELOG.md` records.
+`state.json`/`heads.json`/`REPORT.md`/`CHANGELOG.md` records. `record_categories.py` beside them is
+a VIEWER, not a driver: it replays a head through one follow-cam episode per suite command hold
+(both hands, the command term's own travel/facing/achieved arrows on) composed exactly as the
+per-category eval composes it, and writes mp4s plus a sanity JSON under `parkour/logs/videos/` --
+nothing in the ladder reads its output, and it is outside both `code_sha` and `eval_sha`.
 
 ## Assets (robot plant)
 
