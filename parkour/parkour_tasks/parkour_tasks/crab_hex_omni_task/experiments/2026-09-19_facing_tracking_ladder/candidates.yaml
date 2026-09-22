@@ -424,6 +424,45 @@ chains:
         categories: [back, diag, fwd, move_turn, side, stand, turn]
         floor: {kind: none}
 
+  curriculum_twostage:
+    notes: >-
+      C1e's chain (user 2026-09-22): a simpler two-stage curriculum. Stage 1 is C1d's t3 verbatim
+      (c3's pool and economy from scratch for 3000 iterations); stage 2 (m2) introduces every
+      combined form of movement at once -- c6's overlay (the curriculum's final pool: fwd_turn,
+      side_l_turn, side_r_turn, omni and omni_turn added together) for 5000 iterations. Total 8000
+      iterations = B0.
+    stages:
+      - stage: t3
+        base: "1a"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_CMD_POOL: stand:0.15,fwd:0.25,side_l:0.16,side_r:0.16,back:0.08,turn:0.2
+          KRABBY_OMNI_SLOTS: 0.15:0.65:0.2:0
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_RSI_SOURCE: all
+          KRABBY_OMNI_FACING: 0.2:0.6
+          KRABBY_YAW_W: "0.2"
+        eval: [suite]
+        categories: [back, fwd, side, stand, turn]
+        floor: {kind: category_survival, row: suite, min_new: 0.10, min_prev: 0.30}
+      - stage: m2
+        base: "1a"
+        iters: 5000
+        from_scratch: false
+        resume_from: previous_stage
+        overlay:
+          KRABBY_OMNI_CMD_POOL: stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07
+          KRABBY_OMNI_SLOTS: 0.15:0.55:0.1:0.2
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_RSI_SOURCE: all
+          KRABBY_OMNI_FACING: 0.2:0.6
+          KRABBY_YAW_W: "0.2"
+        eval: [suite]
+        categories: [back, diag, fwd, move_turn, side, stand, turn]
+        floor: {kind: none}
+
 # ---------------------------------------------------------------------------- ranked candidates
 # Rank order IS this list's order. Each is screened on the EFFECTIVE recipe (the adopted choices of
 # every candidate ranked before it) at seed 3 for 8000 iterations; its control is that recipe's own
@@ -505,7 +544,18 @@ candidates:
       scratch for 3000 iterations, then c4-c6 unchanged -- 8000 iterations, equal compute (user
       2026-09-22). Screened on the effective recipe like every other candidate.
 
+  - id: C1e
+    kind: curriculum
+    chain: curriculum_twostage
+    teacher_overlay: {}
+    question: >-
+      Is the turn-first curriculum's middle staging (c4 then c5 then c6) needed, or does a simpler
+      two-stage curriculum do as well? Stage 1 = C1d's t3 verbatim (stand, fwd, side, back, turn
+      from scratch, 3000 iterations); stage 2 = every combined form of movement at once (c6's pool:
+      fwd_turn, side_l/r_turn, omni, omni_turn added together) for 5000 iterations -- 8000
+      iterations, equal compute (user 2026-09-22). Screened on the effective recipe (C1d adopted).
+
 # ---------------------------------------------------------------------------- milestones
-# None (revision 3): the campaign ends when C1d is terminal. M1 (after C3b), M2 (after C7) and M3
+# None (revision 3): the campaign ends when C1e is terminal (C1d before it). M1 (after C3b), M2 (after C7) and M3
 # (after C12, final) were removed with their `after` candidates.
 milestones: []

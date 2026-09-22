@@ -294,3 +294,22 @@
     attribute the turning loss. A C1d REJECT on F therefore leaves "curriculum vs stage-boundary resets" open; the control
     that separates them is B0's 1c recipe split into processes at C1d's boundaries (3000/1500/1500/2000, ~3.6 h). It is
     NOT scheduled (optional); after `done` it can be added and relaunched with no timing constraint.
+39. (C1e, user 2026-09-22: "test a simpler two stage curriculum, the first stage is the same, the second stage introduces
+    all of the combined forms of movement"; plan audited, 1 pass, opus + fable auditors, no blocking findings) Candidate
+    **C1e** on a new chain `curriculum_twostage`: `t3` = C1d's t3 byte for byte (3000 its from scratch, suite eval,
+    category_survival floor), then `m2` = C1d's c6 overlay byte for byte (fwd_turn, side_l/r_turn, omni -> diag and
+    omni_turn introduced together) for 5000 its, final suite eval, floor none -- 8000 its, equal compute. Ranked after C1d,
+    no conditional; the milestones comment now says the campaign ends when C1e is terminal. With C1d adopted (D12
+    overruled), C1e's chain replaces C1d's (`compose_recipe`, last adopted chain wins): recipe 7a8086a9c734 on base
+    fa03ac033e7c, control X08 (C1d s3), seed terms D00bs -- the question is "two-stage vs four-stage turn-first", all seven
+    categories decisive incl. the cat_tripod_min guard that rejected C1d. Exposure (share x its): diag via omni 700 (C1d
+    505), move+turn 1000 (775), in-place turn 1100 (1175). Stage 1 is expected to reproduce X08:t3 bit for bit (same-seed
+    from-scratch stages do: X03:c1 == X04:c1, sha256 7f0459ec...); the driver cannot resume from another experiment's
+    stage, so t3 is retrained (1.36 h). CAVEAT: the 5000-it m2 is long enough for priv_reg to ramp to full (mean coef
+    0.024 over 8000 its vs C1d's 0.0027, every chain stage restarting the PPO counter, item 37), so a C1e win cannot be
+    credited to the staging alone; the unmerged counter fix was left out by the user. An all-TIE result reads as "as good
+    as C1d": a REJECT reached through the speculative branch is the incumbent default, not evidence that C1e is worse.
+    Budget: clear decision ~3.5 GPU-h; speculative -> twin C1d s2 (3.75 h, dispatched with D13 and always completed) +
+    C1e s2 (3.5 h, dropped if the user settles D13), ~10.8 h. Stage renamed s2 -> m2 before launch (the ladder's "s2"
+    means seed 2). Validated on a copy of the live dir (validator ok, dry run rc 0, real-driver queue sim: X09 C1e s3 on
+    recipe 7a8086a9c734, control X08, squashed 0); ladder tests 514 passed with the 2 known live-state failures.
