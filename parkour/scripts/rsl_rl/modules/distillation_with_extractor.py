@@ -71,6 +71,15 @@ class DistillationWithExtractor():
         }
         return loss_dict
 
+    def resume_state(self):
+        """Training state a resumed distillation run needs besides the networks."""
+        return {"depth_actor_optimizer": self.depth_actor_optimizer.state_dict()}
+
+    def load_resume_state(self, state):
+        # A teacher checkpoint carries PPO state (no depth optimizer): the student starts fresh.
+        if "depth_actor_optimizer" in state:
+            self.depth_actor_optimizer.load_state_dict(state["depth_actor_optimizer"])
+
     def broadcast_parameters(self):
         # obtain the model parameters on current GPU
         model_params = [self.policy.state_dict()]

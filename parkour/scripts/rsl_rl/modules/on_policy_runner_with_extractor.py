@@ -22,7 +22,7 @@ from rsl_rl.runners.on_policy_runner import OnPolicyRunner
 from .feature_extractors import DefaultEstimator
 from parkour_isaaclab.utils.nonfinite_logging import warn_if_nonfinite
 
-from .ppo_with_extractor import PPOWithExtractor 
+from .ppo_with_extractor import PPOWithExtractor, updates_through_iteration
 from .distillation_with_extractor import DistillationWithExtractor 
 from copy import copy 
 import warnings
@@ -686,6 +686,7 @@ class OnPolicyRunnerWithExtractor(OnPolicyRunner):
             'estimator_state_dict': self.alg.estimator.state_dict(),
             "optimizer_state_dict": self.alg.optimizer.state_dict(),
             "iter": self.current_learning_iteration,
+            "alg_state": self.alg.resume_state(),
             "infos": infos,
         }
         # -- Save RND model if used
@@ -737,10 +738,33 @@ class OnPolicyRunnerWithExtractor(OnPolicyRunner):
             # -- RND optimizer if used
             if self.alg.rnd:
                 self.alg.rnd_optimizer.load_state_dict(loaded_dict["rnd_optimizer_state_dict"])
+            # -- algorithm training state (priv_reg schedule counter, adaptive LR, estimator /
+            #    history-encoder / depth optimizers); without it every resume restarts them
+            if self.cfg.get("resume_alg_state", True):
+                self._load_alg_state(loaded_dict)
         # -- load current learning iteration
         if resumed_training:
             self.current_learning_iteration = loaded_dict["iter"]
         return loaded_dict["infos"]
+
+    def _load_alg_state(self, loaded_dict: dict) -> None:
+        state = loaded_dict.get("alg_state")
+        if isinstance(self.alg, PPOWithExtractor) and (state is None or "counter" not in state):
+            # Checkpoint saved before ``alg_state`` existed (or by the distillation runner): rebuild
+            # the counter an uninterrupted run would have reached, and take the adaptive LR from the
+            # policy optimizer, whose param groups carry it at save time.
+            state = {
+                "counter": updates_through_iteration(loaded_dict["iter"], self.dagger_update_freq),
+                "learning_rate": self.alg.optimizer.param_groups[0]["lr"],
+            }
+        if state is None:
+            return
+        self.alg.load_resume_state(state)
+        if isinstance(self.alg, PPOWithExtractor):
+            print(
+                f"[INFO]: Restored algorithm state: counter {self.alg.counter}, "
+                f"learning_rate {self.alg.learning_rate:.3g}"
+            )
 
     def get_estimator_inference_policy(self, device=None):
         self.alg: PPOWithExtractor

@@ -27,6 +27,18 @@ def _safe_advantage_normalize(adv: torch.Tensor) -> torch.Tensor:
     return adv - adv.mean()
 
 
+def updates_through_iteration(iteration: int, dagger_update_freq: int) -> int:
+    """``PPOWithExtractor.counter`` after iterations ``0..iteration`` of one uninterrupted run.
+
+    ``learn_rl`` runs ``update`` every iteration and ``update_dagger`` on iterations with
+    ``it % dagger_update_freq == 0``; both advance the counter. Used to rebuild the counter
+    for checkpoints saved before it was stored in them.
+    """
+    if iteration < 0:
+        return 0
+    return (iteration + 1) + (iteration // dagger_update_freq + 1)
+
+
 class PPOWithExtractor:
     """PPO with privileged estimator and RMA policy (ActorCriticRMA).
 
@@ -341,15 +353,7 @@ class PPOWithExtractor:
             with torch.inference_mode():
                 hist_latent_batch = self.policy.actor.infer_hist_latent(obs_batch)
             priv_reg_loss = (priv_latent_batch - hist_latent_batch.detach()).norm(p=2, dim=1).mean()
-            sched = self.priv_reg_coef_schedual
-            if len(sched) >= 4:
-                priv_reg_stage = min(
-                    max((self.counter - sched[2]), 0) / sched[3],
-                    1.0,
-                )
-                priv_reg_coef = priv_reg_stage * (sched[1] - sched[0]) + sched[0]
-            else:
-                priv_reg_coef = sched[0] if sched else 0.0
+            priv_reg_coef = self.priv_reg_coef()
 
             priv_states_predicted = self.estimator(obs_batch[:, : self.num_prop])
             estimator_loss = (
@@ -522,8 +526,42 @@ class PPOWithExtractor:
             loss_dict["symmetry"] = mean_symmetry_loss
         return loss_dict
 
+    def priv_reg_coef(self) -> float:
+        """``priv_reg_coef_schedual`` = [start, end, begin, length], in updates (``counter``)."""
+        sched = self.priv_reg_coef_schedual
+        if len(sched) >= 4:
+            priv_reg_stage = min(
+                max((self.counter - sched[2]), 0) / sched[3],
+                1.0,
+            )
+            return priv_reg_stage * (sched[1] - sched[0]) + sched[0]
+        return sched[0] if sched else 0.0
+
     def update_counter(self) -> None:
         self.counter += 1
+
+    def resume_state(self) -> dict[str, Any]:
+        """Training state a resumed run needs besides the networks and the policy optimizer.
+
+        ``counter`` drives the ``priv_reg`` coefficient schedule; ``learning_rate`` is the
+        adaptive-schedule value (the policy optimizer's param groups are overwritten with it on
+        the first minibatch after a resume).
+        """
+        return {
+            "counter": self.counter,
+            "learning_rate": self.learning_rate,
+            "estimator_optimizer": self.estimator_optimizer.state_dict(),
+            "hist_encoder_optimizer": self.hist_encoder_optimizer.state_dict(),
+        }
+
+    def load_resume_state(self, state: dict[str, Any]) -> None:
+        self.counter = int(state["counter"])
+        if self.schedule == "adaptive":
+            self.learning_rate = float(state["learning_rate"])
+        if "estimator_optimizer" in state:
+            self.estimator_optimizer.load_state_dict(state["estimator_optimizer"])
+        if "hist_encoder_optimizer" in state:
+            self.hist_encoder_optimizer.load_state_dict(state["hist_encoder_optimizer"])
 
     def update_dagger(self) -> float:
         if self.storage is None:
