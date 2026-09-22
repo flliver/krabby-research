@@ -224,3 +224,20 @@
     `replay_reward_economy.py` reads only that layout (suite raws are the fallback for a suite-only rec); two CHARTER
     wording fixes (a rescore PASS notifies MIGRATION; the 8-s proxies overstate the suite's survival). Deferred: the
     first resume of a rescore-reopened header logs "at None" (cosmetic).
+36. (C1d, user request 2026-09-22) A turn-first variant of the curriculum joins the ranked list: candidate **C1d** on a new
+    chain `curriculum_turnfirst` = `t3` (c3's pool and overlay verbatim -- stand, fwd, side, back, turn -- from scratch for
+    3000 iterations, `eval [suite]`, categories `[back, fwd, side, stand, turn]`, floor `category_survival` 0.10/0.30) then
+    c4, c5, c6 copied verbatim from `curriculum` (8000 iterations = B0's compute). Question: C1 and C1b lost in-place
+    turning (facing_closed 0.42 -> 0.19 / 0.17 at their screens) after a curriculum whose first 2000 iterations carry no
+    turn command -- does the ORDER, not the content, cost turning? User decisions: it composes on the ladder's recipe like
+    every candidate (B0 + C3a's caps if C3a's pooled decision adopts, B0 otherwise), and it runs next after C3a's seed-2
+    pair (X07) and C3a's pooled decision -- ranked between C3a and C3b (M1 stays `after: C3b`). The `curriculum` chain is
+    untouched (C1/C1b's records name it). One edit beyond the request, required by the validator: C8's `overlay_by_chain`
+    gains `curriculum_turnfirst: {pool_edit: {set_share: {stand: 0.05}, renormalise: true}}` (the same row C8 carries for
+    `curriculum` and `scratch_c6`; inert unless C1d is adopted). If C1d is adopted, C7's predicate (`recipe.has_pool and
+    decision(C1b) != ADOPT`) holds and C7 runs on C1d's chain, as its question intends. Validated on a scratch copy
+    (validator ok, launch reconcile squashes nothing, queue simulated for both pooled outcomes: X07 -> C3a pooled -> C1d s3
+    -> C3b [or SKIP] -> M1) and independently reviewed (no blocking findings). Applied live 2026-09-22 08:16: graceful
+    `systemctl --user stop` (X07 at model_6100; at most 99 iterations lost), relaunch with `--accept-candidates-change`
+    (candidates.yaml sha256 cc48245c1be5...); X07 resumed at model_6100 (1900 of 8000 left) as `seed2_X07_1c_A15pB_c` --
+    a resumed window is not bit-identical to an uninterrupted one (restarted simulator/RNG state).
