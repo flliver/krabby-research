@@ -313,3 +313,12 @@
     C1e s2 (3.5 h, dropped if the user settles D13), ~10.8 h. Stage renamed s2 -> m2 before launch (the ladder's "s2"
     means seed 2). Validated on a copy of the live dir (validator ok, dry run rc 0, real-driver queue sim: X09 C1e s3 on
     recipe 7a8086a9c734, control X08, squashed 0); ladder tests 514 passed with the 2 known live-state failures.
+40. (C1e result, 2026-09-22 19:01) D13: C1e clear REJECT against C1d (control X08). WORSE: block T (z -1.98, R 1.13;
+    fwd ratio 0.748 -> 0.668, back 0.736 -> 0.633, side 0.430 -> 0.400, diag 0.527 -> 0.541) and guard cat.diag.survival
+    (0.79 -> 0.49). Better but not decisive: F_mt z +3.82 (R 4.12; move_turn facing 0.235 -> 0.399, survival 0.75 -> 0.90,
+    ratio 0.424 -> 0.556); in-place turn held (F TIE, 0.618 -> 0.607); cat_tripod_min TIE (0.396 -> 0.380). Plan step 5
+    FAILED its expectation: X09:t3 did NOT reproduce X08:t3 (checkpoint sha256 03b87cd3... vs f3783ec5...; the training
+    metrics are identical for ~20 iterations, then differ at the 4th decimal of mean reward and diverge), so same-seed
+    from-scratch stages are not reliably bit-reproducible (X03:c1 == X04:c1 was not general); the two t3 heads already
+    evaluate differently (fwd survival 0.73 vs 0.90, turn facing 0.536 vs 0.501). The comparison stands at seed-3 level;
+    the C1d/C1e branch point is not shared. Awaiting the user's confirm/overrule of D13.
