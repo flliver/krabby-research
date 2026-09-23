@@ -15,11 +15,15 @@
 # onto the incumbent recipe in rank order on ADOPT (the ladder's compose-on-adopt rule). Nothing is
 # promoted (promotion.enabled: false, no milestone).
 #
-# NOT LAUNCHABLE YET, on purpose: the reward weights of M2, M3, M4 and M6 are `TBD_replay_gate` --
-# they are set by the plan's step-3 offline reward-replay gate. The validator refuses the file BY
-# NAME until they are filled ("... is a PLACEHOLDER, not a value"). Also before launch: the step-1
-# X08:c6 re-eval under the new eval_sha, then `run_candidates.py --q-spread-check` on it (and on
-# X08:c4's), and any zero-spread Q member demoted under decision_rule.per_category.demoted.
+# The reward weights of M2, M3 and M4 come from the plan's step-3 offline reward-replay gate
+# (REPLAY_GATE.md, 2026-09-23): each is the magnitude costing ~10 % of task-tracking income in its
+# worst category (Gate 2). Gate 1 (episode ranking) FAILED for power / smoothness / joint speed /
+# slip and was OVERRULED by the user 2026-09-23 (a single deterministic policy's episodes barely vary
+# in jitter; the screens are the test). STAND_POSE_W was DROPPED from M6 (anti-correlated with the
+# defect, rho -0.61) and the KRABBY_AIRTIME_W de-weight DROPPED from M4 (the air-time term is inert in
+# training: a float32 first-contact bug, see REPLAY_GATE.md). M3 is the user-chosen REBALANCED form.
+# Before launch: `run_candidates.py --q-spread-check` on the step-1 X08:c6 stamp; demote any
+# zero-spread Q member under decision_rule.per_category.demoted.
 #
 # EVERY path is written relative to the repository root. No driver may contain a dated path.
 schema: 1
@@ -148,7 +152,9 @@ decision_rule:
     # launch -- one line each, `{category: {key: "<why>"}}`, as printed by
     #   run_candidates.py --campaign-dir <this dir> --q-spread-check <X08-c6 reeval stamp> <X08-c4 reeval stamp>
     # (never --accept-resolution). Empty until the step-1 re-eval exists.
-    demoted: {}
+    demoted:
+      stand:
+        settle_six_down_s: "zero spread on X08:c6 model_7996 @suite__omni (step-1 stamp 2026-09-23_05-43-42): censored at the 12-s hold in every episode (six-down never reached), same-run R 0.0 -- no finite R in D00s; demoted to WATCH before launch"
   charter_floors: {completion: 0.10, tripod_walking_dir: 0.056}
   bootstrap: {B: 2000, paired_on: env_index, rng_seed: 20260922}
   control_head: X08-c6
@@ -205,9 +211,8 @@ chains:
 # driver parks at await_user:M2 and the user answers `ledger_cli decide M2 --choose run|skip` (M3 and
 # M4 park the same way; answer all three at the first stop to pass them in one go).
 #
-# The reward weights marked TBD_replay_gate are the step-3 replay gate's output (plan step 3); every
-# penalty weight is the RewTerm weight, sign included (<= 0). KRABBY_AIRTIME_W is the existing
-# forward knob on reward_feet_air_time_positive (+0.8 stock), de-weighted, so it stays >= 0.
+# The reward weights are the step-3 replay gate's output (REPLAY_GATE.md); every penalty weight is
+# the RewTerm weight, sign included (<= 0).
 candidates:
   - id: M1
     kind: exploration
@@ -230,7 +235,7 @@ candidates:
     await_why: >-
       M1 (the sigma reset) did not ADOPT, so M2-M4 would run at sigma 2.0, where a regulariser bites
       weakly (plan cause 1) -- the user decides whether they run anyway
-    overlay: {KRABBY_POWER_W: TBD_replay_gate}
+    overlay: {KRABBY_POWER_W: "-0.00023"}
     question: >-
       Does a single energy term remove the high-frequency tapping (Fu et al. 2021)? The existing
       penalty_mechanical_power (sum |tau qdot| over every joint, rods and cams) is present at weight
@@ -244,13 +249,15 @@ candidates:
     await_why: >-
       M1 (the sigma reset) did not ADOPT, so M2-M4 would run at sigma 2.0, where a regulariser bites
       weakly (plan cause 1) -- the user decides whether they run anyway
-    overlay: {KRABBY_ACTION_SMOOTH2_W: TBD_replay_gate, KRABBY_ACTION_RATE_SQ: "1",
-              KRABBY_JOINT_VEL_W: TBD_replay_gate}
+    overlay: {KRABBY_ACTION_SMOOTH2_W: "-0.024", KRABBY_ACTION_RATE_SQ: "1",
+              KRABBY_ACTION_RATE_W: "-0.14", KRABBY_JOINT_VEL_W: "-0.049"}
     question: >-
       Does direct smoothness regularisation quiet the action path? A squared second difference of
       the action history, the action-rate penalty squared (||da||^2, so small dither costs little
       and large jumps cost a lot), and a squared rod-joint speed penalty -- the terms the current
-      recipe is missing entirely (plan cause 2).
+      recipe is missing entirely (plan cause 2). REBALANCED (user 2026-09-23): squaring at the
+      stock -0.3 costs 30-38 % of task income (58-67 % under sigma-2.0 noise), so the squared
+      action rate is re-weighted to -0.14 (the cost of today's unsquared -0.3); M3 total ~6-9 %.
 
   - id: M4
     kind: reward
@@ -260,11 +267,11 @@ candidates:
     await_why: >-
       M1 (the sigma reset) did not ADOPT, so M2-M4 would run at sigma 2.0, where a regulariser bites
       weakly (plan cause 1) -- the user decides whether they run anyway
-    overlay: {KRABBY_FOOT_SLIP_W: TBD_replay_gate, KRABBY_AIRTIME_W: TBD_replay_gate}
+    overlay: {KRABBY_FOOT_SLIP_W: "-0.27"}
     question: >-
       Does the reward economy pay for leg motion that does not move the body (plan cause 3)? An
-      unsquared, phase-independent slip penalty on loaded feet, with the swing-paying
-      feet_air_time_positive term (+0.8) de-weighted.
+      unsquared, phase-independent slip penalty on loaded feet. (The planned air-time de-weight is
+      dropped: feet_air_time_positive pays ~0 in training -- float32 first-contact bug, REPLAY_GATE.md.)
 
   - id: M5
     kind: command
@@ -282,12 +289,13 @@ candidates:
     kind: stand
     stages: all
     eval_carry: [KRABBY_OMNI_STAND_PARK]
-    overlay: {KRABBY_OMNI_STAND_PARK: "1", KRABBY_STAND_POSE_W: TBD_replay_gate}
+    overlay: {KRABBY_OMNI_STAND_PARK: "1"}
     question: >-
       Is stand a regime of its own (plan cause 5)? On the STAND slot the clock parks at its next
-      touchdown (all six legs stance, no swing or apex income), and a stand-gated L1 pose penalty
-      holds the rods at the default pose. STAND_PARK changes the clock the policy observes, so it
-      is carried into the eval. Likely to TIE on Q outside stand.
+      touchdown (all six legs stance, no swing or apex income). (The planned stand-gated pose
+      penalty is dropped: on the baseline its cost runs AGAINST the defect, rho -0.61 vs contact
+      switching.) STAND_PARK changes the clock the policy observes, so it is carried into the eval.
+      Likely to TIE on Q outside stand.
 
   - id: M7
     kind: action

@@ -214,18 +214,20 @@ def test_every_q_member_is_defined_on_its_category(ec, rule, M):
 
 
 # ================================================================== the validator
-def test_the_campaign_yaml_is_refused_only_for_its_placeholder_weights(rc, cands):
+def test_the_campaign_yaml_validates_and_a_placeholder_is_refused_by_name(rc, cands, tmp_path):
+    """The step-3 weights are filled (REPLAY_GATE.md, 2026-09-23): the campaign yaml validates. A
+    `TBD_replay_gate` placeholder put back into a copy is still refused BY NAME."""
     verdicts = rc.validate_candidates(copy.deepcopy(cands), strict=False, check_replay=False)
-    bad = {v["id"]: v["reasons"] for v in verdicts if not v["ok"]}
-    assert set(bad) == {"M2", "M3", "M4", "M6"}, bad
-    for cid, reasons in bad.items():
-        assert reasons and all("PLACEHOLDER" in r and "TBD_replay_gate" in r for r in reasons), reasons
-    named = " ".join(r for rs in bad.values() for r in rs)
-    for key in ("KRABBY_POWER_W", "KRABBY_ACTION_SMOOTH2_W", "KRABBY_JOINT_VEL_W", "KRABBY_FOOT_SLIP_W",
-                "KRABBY_AIRTIME_W", "KRABBY_STAND_POSE_W"):
-        assert key in named, key
+    assert all(v["ok"] for v in verdicts), [(v["id"], v["reasons"]) for v in verdicts if not v["ok"]]
+    text = CAMPAIGN_YAML.read_text().replace('KRABBY_POWER_W: "-0.00023"', "KRABBY_POWER_W: TBD_replay_gate")
+    assert "TBD_replay_gate" in text
+    path = tmp_path / "candidates.yaml"
+    path.write_text(text)
+    bad = {v["id"]: v["reasons"] for v in rc.validate_candidates(rc.load_candidates(path), strict=False,
+                                                                check_replay=False) if not v["ok"]}
+    assert set(bad) == {"M2"} and all("PLACEHOLDER" in r and "KRABBY_POWER_W" in r for r in bad["M2"]), bad
     with pytest.raises(SystemExit, match="PLACEHOLDER"):
-        rc.validate_candidates(copy.deepcopy(cands), strict=True, check_replay=False)
+        rc.validate_candidates(rc.load_candidates(path), strict=True, check_replay=False)
 
 
 def test_the_filled_campaign_yaml_validates(rc, filled):
