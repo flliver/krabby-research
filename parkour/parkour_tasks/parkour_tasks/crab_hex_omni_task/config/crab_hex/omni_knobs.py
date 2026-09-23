@@ -78,6 +78,14 @@ five things the forward block cannot know about:
     (``motion_knobs.apply_motion_knobs``); the runner-side three (std clamp / std reset /
     entropy) are applied by the omni runner cfgs (``agents/rsl_rl_ppo_cfg.py``).
 
+12. **the CLOCK-HIDE knobs** (clock-deprecation plan step 2, 2026-09-23; DEFAULT OFF, set by no
+    preset) -- ``clock_knobs.py``, path-loaded and re-exported here exactly like the motion knobs
+    (same reason: the ladder's whitelist reads this module's ``*_VAR`` names).
+    ``KRABBY_OMNI_CLOCK_HIDE=1`` zeroes the gait clock's sin/cos in the omni observation (width
+    unchanged); ``KRABBY_OMNI_CLOCK_HIDE_RAMP=t0:t1`` phases that in per episode and is refused
+    without it. Applied by :func:`apply_omni_knobs` (``clock_knobs.apply_clock_knobs``) with the
+    other observation knobs, before the motion knobs.
+
 Every parser is pure and lives at module scope with no Isaac import (the Isaac-touching bits
 are lazy imports inside :func:`apply_omni_knobs`), so this module can be path-loaded and
 unit-tested without booting Kit -- see ``tests/unit/test_crab_hex_omni_phases.py``.
@@ -109,6 +117,21 @@ def _motion_knobs():
     return mod
 
 
+_CLOCK_KNOBS_PY = Path(__file__).resolve().parent / "clock_knobs.py"
+_CLOCK_KNOBS_NAME = "crab_hex_omni_clock_knobs"
+
+
+def _clock_knobs():
+    """``clock_knobs.py`` (pure), by path -- the same object for every loader of this module."""
+    mod = sys.modules.get(_CLOCK_KNOBS_NAME)
+    if mod is None:
+        spec = importlib.util.spec_from_file_location(_CLOCK_KNOBS_NAME, _CLOCK_KNOBS_PY)
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules[_CLOCK_KNOBS_NAME] = mod
+        spec.loader.exec_module(mod)
+    return mod
+
+
 _mk = _motion_knobs()
 # Re-exported so ``dir(omni_knobs)`` -- the ladder's knob whitelist -- names every motion knob.
 ACTION_STD_MAX_VAR = _mk.ACTION_STD_MAX_VAR
@@ -129,6 +152,14 @@ POWER_W_VAR = _mk.POWER_W_VAR
 ACTION_RATE_W_VAR = _mk.ACTION_RATE_W_VAR
 AIRTIME_W_VAR = _mk.AIRTIME_W_VAR
 MOTION_KNOB_PARSERS = _mk.MOTION_KNOB_PARSERS
+
+_ck = _clock_knobs()
+# NOTE(clock-deprecation step 2, 2026-09-23): re-exported for the same whitelist reason.
+CLOCK_HIDE_VAR = _ck.CLOCK_HIDE_VAR
+CLOCK_HIDE_RAMP_VAR = _ck.CLOCK_HIDE_RAMP_VAR
+parse_clock_hide = _ck.parse_clock_hide
+parse_clock_hide_ramp = _ck.parse_clock_hide_ramp
+CLOCK_KNOB_PARSERS = _ck.CLOCK_KNOB_PARSERS
 
 __all__ = [
     "SLOTS_VAR",
@@ -177,6 +208,9 @@ __all__ = [
     "ACTION_LPF_HZ_VAR", "ACTION_LPF_OBS_VAR", "RELAY_HYST_VAR", "STAND_HOLD_VAR",
     "STAND_PARK_VAR", "STAND_OBS_VAR", "POWER_W_VAR", "ACTION_RATE_W_VAR", "AIRTIME_W_VAR",
     "MOTION_KNOB_PARSERS",
+    # clock-hide knobs (clock_knobs.py)
+    "CLOCK_HIDE_VAR", "CLOCK_HIDE_RAMP_VAR", "parse_clock_hide", "parse_clock_hide_ramp",
+    "CLOCK_KNOB_PARSERS",
 ]
 
 SLOTS_VAR = "KRABBY_OMNI_SLOTS"
@@ -1091,6 +1125,9 @@ def apply_omni_knobs(cfg, environ=None) -> None:
     _apply_clock_combine_knob(cfg, env)
     _apply_facing_obs_clip_knob(cfg, env)
     _apply_facing_obs_encoding_knob(cfg, env)
+    # NOTE(clock-deprecation step 2, 2026-09-23): the clock-hide knobs, default off (unset writes
+    # nothing). With the other obs-param knobs; before the motion knobs, which stay LAST.
+    _ck.apply_clock_knobs(cfg, env)
 
     from parkour_tasks.crab_hex_omni_task.mdp.omni_terrain_knobs import (  # noqa: PLC0415
         apply_omni_ring_knobs,

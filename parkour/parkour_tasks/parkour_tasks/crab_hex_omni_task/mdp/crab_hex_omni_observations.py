@@ -42,6 +42,17 @@ per-step proprio head right after the clock (dims 17+), in this order:
 head tables to match (the stand bit is invariant under both planes; the rod channels are leg
 scalars, permuted with the plane's leg swap and never negated).
 
+THE CLOCK-HIDE KNOB (clock-deprecation plan step 2, 2026-09-23; DEFAULT OFF, WIDTH-PRESERVING).
+``params["clock_hide"]`` (``KRABBY_OMNI_CLOCK_HIDE=1``) makes :meth:`_clock_channels` return
+(0, 0) on every row -- the deployment value, mirror-invariant, so a formed head keeps loading
+at 1149 wide and the history copies / critic follow through ``obs_buf``. With
+``params["clock_hide_ramp"] = (t0, t1)`` (env steps; refused without ``clock_hide``) the mask is
+per EPISODE instead: :meth:`reset` latches ``hidden ~ Bernoulli(p(t))`` once per reset, with
+``p`` the cosine ``curriculums.ramp_value(t, 0, 1, t0, t1, eps=0)`` on
+``env.common_step_counter``, and every row is hidden from ``t1`` on. Either way the term logs
+``Metrics/clock_hidden_frac`` into ``env.extras["log"]`` at each reset (1.0 without a ramp),
+which the campaign's removal verification reads. It composes with ``stand_obs`` (both zero).
+
 ``ZERO_STEERING_HISTORY = False``: the forward task blanks dims 6-7 in the history copy so
 the policy cannot read the goal heading out of its own past (it is supposed to steer from
 what it sees). Here those dims ARE the command -- a facing error the policy must integrate
@@ -77,6 +88,7 @@ from isaaclab.utils.math import wrap_to_pi
 
 from parkour_isaaclab.envs import ParkourManagerBasedRLEnv
 
+from parkour_tasks.crab_hex_forward_task.mdp.curriculums import ramp_value
 from parkour_tasks.crab_hex_forward_task.mdp.observations import CrabHexParkourObservations
 
 #: The only two spellings :data:`CrabHexOmniParkourObservations.facing_obs_encoding` accepts.
@@ -187,6 +199,31 @@ class CrabHexOmniParkourObservations(CrabHexParkourObservations):
     #: selects ``head_signs(encoding)`` accordingly -- never a default.
     facing_obs_encoding: str = "raw"
 
+    #: NOTE(clock-deprecation step 2, 2026-09-23): the training-log key the clock-hide knob
+    #: writes at every reset -- the fraction of rows whose clock channels read (0, 0).
+    CLOCK_HIDDEN_FRAC_KEY = "Metrics/clock_hidden_frac"
+
+    @staticmethod
+    def _check_clock_hide_ramp(ramp, clock_hide: bool) -> tuple[int, int] | None:
+        """``None`` or ``(t0, t1)`` env steps, ``0 <= t0 < t1``; a ramp without the hide flag raises.
+
+        The knob parser refuses the same things at config build; this guards what the built cfg
+        actually carries (a hand-edited params dict, an overlay), because a ramp the term then
+        ignored would train the full clock while the recipe claimed a removal schedule.
+        """
+        if ramp is None:
+            return None
+        if not clock_hide:
+            raise ValueError("clock_hide_ramp is set but clock_hide is not: the ramp only schedules "
+                             "when the hidden clock applies")
+        try:
+            t0, t1 = ramp
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"clock_hide_ramp must be a (t0, t1) pair of env steps, got {ramp!r}") from exc
+        if int(t0) != t0 or int(t1) != t1 or not 0 <= int(t0) < int(t1):
+            raise ValueError(f"clock_hide_ramp needs integer env steps 0 <= t0 < t1, got {ramp!r}")
+        return (int(t0), int(t1))
+
     def __init__(self, cfg, env: ParkourManagerBasedRLEnv):
         _check_omni()
         clip = None
@@ -204,7 +241,19 @@ class CrabHexOmniParkourObservations(CrabHexParkourObservations):
         # ``_extra_head_dim()``, which reads these two.
         self.stand_obs = bool(params.get("stand_obs", False)) if isinstance(params, dict) else False
         self.lpf_obs = bool(params.get("lpf_obs", False)) if isinstance(params, dict) else False
+        # NOTE(clock-deprecation step 2, 2026-09-23): the clock-hide knob (width unchanged).
+        self.clock_hide = bool(params.get("clock_hide", False)) if isinstance(params, dict) else False
+        ramp = params.get("clock_hide_ramp") if isinstance(params, dict) else None
+        self.clock_hide_ramp = (
+            None if ramp is None else self._check_clock_hide_ramp(ramp, self.clock_hide)
+        )
         super().__init__(cfg, env)
+        # The per-episode latch (ramp mode). All-False before the first reset is the draw at
+        # t = 0, where p(0) = 0 for every legal t0 >= 0; rows are forced hidden from t1 on anyway.
+        self._clock_hidden = (
+            torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
+            if self.clock_hide else None
+        )
 
     # ------------------------------------------------ the optional head extensions (default off)
     def _extra_head_dim(self) -> int:
@@ -224,10 +273,58 @@ class CrabHexOmniParkourObservations(CrabHexParkourObservations):
 
     def _clock_channels(self, env: ParkourManagerBasedRLEnv, clock_phase: torch.Tensor):
         sin_c, cos_c = super()._clock_channels(env, clock_phase)
+        if self.clock_hide:
+            return self._hide_clock(env, *self._stand_clock(env, sin_c, cos_c))
+        return self._stand_clock(env, sin_c, cos_c)
+
+    def _stand_clock(self, env: ParkourManagerBasedRLEnv, sin_c, cos_c):
         if not self.stand_obs:
             return sin_c, cos_c
         moving = (1.0 - self._stand_bit(env))[:, None]
         return sin_c * moving, cos_c * moving
+
+    # -------------------------------------------- the clock-hide knob (default off, 2026-09-23)
+    def _clock_hidden_rows(self, env: ParkourManagerBasedRLEnv) -> torch.Tensor | None:
+        """``(N,)`` bool of rows whose clock reads (0, 0); ``None`` = every row (no ramp)."""
+        if self.clock_hide_ramp is None:
+            return None
+        if int(env.common_step_counter) >= self.clock_hide_ramp[1]:
+            return torch.ones_like(self._clock_hidden)
+        return self._clock_hidden
+
+    def _hide_clock(self, env: ParkourManagerBasedRLEnv, sin_c, cos_c):
+        """Exact zeros (never ``-0.0``) on the hidden rows; the visible ones pass through."""
+        hidden = self._clock_hidden_rows(env)
+        if hidden is None:
+            return torch.zeros_like(sin_c), torch.zeros_like(cos_c)
+        mask = hidden[:, None]
+        return (torch.where(mask, torch.zeros_like(sin_c), sin_c),
+                torch.where(mask, torch.zeros_like(cos_c), cos_c))
+
+    def reset(self, env_ids=None) -> None:
+        """The base reset, then (ramp mode) one Bernoulli(p(t)) latch per reset row, and the log.
+
+        ``p(t) = ramp_value(t, 0, 1, t0, t1, eps=0)``: ``eps=0`` because the reward-weight default
+        (1e-3) would hide 0.1 % of episodes BEFORE ``t0``. Knob off: the base reset, nothing else.
+        """
+        super().reset(env_ids)
+        if not self.clock_hide:
+            return
+        env = self._env
+        if self.clock_hide_ramp is not None:
+            t0, t1 = self.clock_hide_ramp
+            p = ramp_value(int(env.common_step_counter), 0.0, 1.0, t0, t1, eps=0.0)
+            if env_ids is None:
+                ids = torch.arange(self.num_envs, device=self.device)
+            else:
+                ids = torch.as_tensor(env_ids, device=self.device, dtype=torch.long).reshape(-1)
+            self._clock_hidden[ids] = torch.rand(ids.numel(), device=self.device) < p
+            frac = self._clock_hidden_rows(env).float().mean()
+        else:
+            frac = torch.ones((), device=self.device)
+        extras = getattr(env, "extras", None)
+        if isinstance(extras, dict):
+            extras.setdefault("log", {})[self.CLOCK_HIDDEN_FRAC_KEY] = frac
 
     # ------------------------------------------------------------------ the two hooks
     def _steering_channels(
@@ -283,6 +380,8 @@ class CrabHexOmniParkourObservations(CrabHexParkourObservations):
         facing_obs_encoding: str | None = None,
         stand_obs: bool = False,
         lpf_obs: bool = False,
+        clock_hide: bool = False,
+        clock_hide_ramp: tuple[int, int] | None = None,
     ) -> torch.Tensor:
         # The observation manager validates the term's ``params`` against THIS signature and
         # passes them as keyword arguments, so the clip must be an optional parameter here
@@ -304,6 +403,17 @@ class CrabHexOmniParkourObservations(CrabHexParkourObservations):
                 "stand_obs / lpf_obs changed after the observation term was built "
                 f"(built {self.stand_obs}/{self.lpf_obs}, called {stand_obs}/{lpf_obs}); they set "
                 "the observation width and are construction-time only"
+            )
+        # The clock-hide knob keeps the width, but its per-episode latch and log are set up at
+        # construction, so it is construction-time only too.
+        if bool(clock_hide) != self.clock_hide or (
+            (clock_hide_ramp is not None or self.clock_hide_ramp is not None)
+            and self._check_clock_hide_ramp(clock_hide_ramp, bool(clock_hide)) != self.clock_hide_ramp
+        ):
+            raise ValueError(
+                "clock_hide / clock_hide_ramp changed after the observation term was built "
+                f"(built {self.clock_hide}/{self.clock_hide_ramp}, called {clock_hide}/"
+                f"{clock_hide_ramp}); they are construction-time only"
             )
         observations = super().__call__(
             env, asset_cfg, sensor_cfg, parkour_name, history_length
