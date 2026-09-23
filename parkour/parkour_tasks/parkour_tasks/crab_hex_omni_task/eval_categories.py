@@ -45,8 +45,9 @@ THE CONTRACTS (each pinned by ``tests/unit/test_crab_hex_omni_eval_categories.py
   resolution's D00s / D00bs use.
 
 * **Metric sense and guard keys (gait-motion-quality campaign, 2026-09-23).** :func:`metric_sign`
-  is -1 for the lower-is-better motion-quality keys (:data:`LOWER_IS_BETTER_KEYS`) and +1 for every
-  other id, and every delta a decision or a resolution forms is multiplied by it (positive = better).
+  is -1 for the lower-is-better motion-quality keys and rigidity stepping counts
+  (:data:`LOWER_IS_BETTER_KEYS`) and +1 for every other id, and every delta a decision or a
+  resolution forms is multiplied by it (positive = better).
   A guard whose metric is also a block member is resolved under :func:`guard_key` (``...@guard``).
   ``per_category.demoted: {category: {key: why}}`` removes a member from every block and guard and
   watches it with its reason (the pre-launch zero-spread demotion).
@@ -162,9 +163,21 @@ on turn/move_turn, ``six_down_frac`` / ``settle_six_down_s`` / ``foot_disp_end``
 stand); elsewhere ``summarize()['cat'][c][key]`` is None -- N/A, never 0 -- so a rule must only
 name a key on a category it is defined on."""
 
+RIGIDITY_KEYS = ("steps_per_m", "steps_per_rad", "support_feet", "steps_per_s",
+                 "taps_per_m", "taps_per_rad", "swing_apex", "step_rate_hz",
+                 "gait_hz", "clock_hz", "cadence_ratio", "steps_per_rad_pre", "steps_per_rad_post",
+                 "hz_speed_slope", "offset_R")
+"""The rigidity keys (clock-deprecation plan step 3; ``gait_eval.metrics.RIGIDITY_KEYS``,
+cross-pinned by test). Defined per category like the motion-quality keys
+(``gait_eval.metrics.RIGIDITY_APPLIES``: ``steps_per_m`` / ``taps_per_m`` on fwd/side/back/diag,
+``steps_per_rad`` / ``taps_per_rad`` on turn/move_turn, ``steps_per_s`` on stand, ``support_feet``
+everywhere, the ``_pre`` / ``_post`` closure split on turn). The last two (``hz_speed_slope``,
+``offset_R``) are one statistic across the category's episodes, not a median -- WATCH only, with no
+per-episode form (``resolution`` names them unresolvable)."""
+
 CAT_KEYS = ("n", "n_env", "survival", "ratio", "achieved_speed", "tripod", "facing_closed",
             "yaw_progress", "net_yaw", "settle_s", "heading_final", "drift_speed", "direction_error",
-            "cross_track_ratio") + MOTION_QUALITY_KEYS
+            "cross_track_ratio") + MOTION_QUALITY_KEYS + RIGIDITY_KEYS
 """The keys of ``summarize()['cat'][c]`` (D5); ``by_hand`` holds the same keys per hand."""
 
 COMPOSITES = ("cat_tripod_min",)
@@ -554,7 +567,14 @@ _EXPANDED_KEYS = ("blocks", "guards", "watch", "per_category")
 #: WORSE all read "positive = better" whatever the metric's units. ``drift_speed`` and the direction
 #: keys are lower-is-better too but only ever WATCH (never a signed comparison), so they keep +1 and
 #: no recorded number moves.
-LOWER_IS_BETTER_KEYS = frozenset(k for k in MOTION_QUALITY_KEYS if k != "six_down_frac")
+#: NOTE(clock-deprecation 2026-09-23, plan step 3): the rigidity block RIG adds the stepping
+#: counts -- ``steps_per_m``, ``steps_per_rad``, ``steps_per_s`` and the two tap rates. ``support_feet``
+#: (more feet loaded = the longer stance the campaign wants) and ``swing_apex`` (more lift) keep +1,
+#: and so does every rigidity WATCH key (the cadence set, ``offset_R``, the turn closure split).
+RIGIDITY_LOWER_IS_BETTER_KEYS = frozenset({"steps_per_m", "steps_per_rad", "steps_per_s",
+                                           "taps_per_m", "taps_per_rad"})
+LOWER_IS_BETTER_KEYS = (frozenset(k for k in MOTION_QUALITY_KEYS if k != "six_down_frac")
+                        | RIGIDITY_LOWER_IS_BETTER_KEYS)
 
 #: The resolution-record key of a GUARD whose metric is ALSO a block member of the same rule (the
 #: motion-quality campaign's ``cat.<c>.ratio`` speed guard beside T, its ``slip_per_m`` guard beside
@@ -588,7 +608,9 @@ def metric_sign(mid: str) -> int:
     return -1 if parsed[2] in LOWER_IS_BETTER_KEYS else 1
 
 
-_CAT_ID = re.compile(r"^cat\.(?P<c>[a-z_]+)\.(?:by_hand\.(?P<h>[lr])\.)?(?P<key>[a-z_]+)$")
+# The key admits capitals for ``offset_R`` (clock-deprecation plan step 3); membership in CAT_KEYS
+# is still what makes an id valid.
+_CAT_ID = re.compile(r"^cat\.(?P<c>[a-z_]+)\.(?:by_hand\.(?P<h>[lr])\.)?(?P<key>[A-Za-z_]+)$")
 
 
 def cat_id(category: str, key: str, hand: str | None = None) -> str:

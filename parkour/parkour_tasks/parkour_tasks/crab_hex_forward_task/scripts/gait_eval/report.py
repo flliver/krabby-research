@@ -65,6 +65,7 @@ def score_episode(
     travel_yaw: float = 0.0,
     motion_groups: dict[str, list[int]] | None = None,
     action_clip: float | None = None,
+    terrain_mesh: bool = True,
 ) -> dict:
     """All derived metrics for one episode, per hold plus an episode roll-up.
 
@@ -96,6 +97,12 @@ def score_episode(
     articulation's joint names (``None`` leaves the joint/work metrics unmeasured) and
     ``action_clip`` the runner's ``clip_actions`` (the actions are clipped before the action
     metrics, as the env clips them). Every other hold and every non-suite row is unchanged.
+
+    Beside it the own hold carries ``rigidity`` (:func:`gait_eval.metrics.rigidity_metrics` over
+    the same whole hold, clock-deprecation plan step 3): ``terrain_mesh`` says whether ``terrain_z``
+    came from the raycast mesh (the harness's ``run_meta.terrain_source``); under the root-offset
+    fallback it is False and ``swing_apex`` is ``None``. The recorded ``clock_phase`` and
+    ``heading_err`` feed the cadence / phase keys and the turn split when present.
     """
     world = scenario.command_frame == "world"
     has_facing = world and "heading_err" in raw
@@ -203,6 +210,8 @@ def score_episode(
                     raw, env_idx, widx, own_category, dt=dt, motion_groups=motion_groups,
                     action_clip=action_clip, hold_s_nominal=float(scenario.schedule[hold_idx].hold_s),
                 )
+                entry["rigidity"] = _rigidity_block(raw, env_idx, widx, own_category, dt=dt,
+                                                    terrain_mesh=terrain_mesh)
 
         if tri["valid"]:
             entry["air_time"] = M.air_time_metrics(contact, dt=dt)
@@ -364,6 +373,26 @@ def _quality_block(raw: dict, env_idx: int, widx: np.ndarray, category: str, *, 
     )
 
 
+def _rigidity_block(raw: dict, env_idx: int, widx: np.ndarray, category: str, *, dt: float,
+                    terrain_mesh: bool) -> dict | None:
+    """``rigidity_metrics`` of one episode's own hold; inputs the harness did not record (an older
+    npz: no ``clock_phase``) leave their metrics ``None``, and so does ``terrain_z`` off the mesh."""
+    def _opt(key):
+        return raw[key][widx, env_idx] if key in raw else None
+
+    return M.rigidity_metrics(
+        category,
+        dt=dt,
+        foot_force_norm=raw["foot_force_norm"][widx, env_idx],
+        root_pos_w=raw["root_pos_w"][widx, env_idx],
+        root_quat_w=raw["root_quat_w"][widx, env_idx],
+        foot_pos_w=_opt("foot_pos_w"),
+        terrain_z=_opt("terrain_z") if terrain_mesh else None,
+        clock_phase=_opt("clock_phase"),
+        heading_err=_opt("heading_err"),
+    )
+
+
 def score_run(
     raw: dict[str, np.ndarray],
     *,
@@ -377,9 +406,12 @@ def score_run(
     travel_yaw: float = 0.0,
     motion_groups: dict[str, list[int]] | None = None,
     action_clip: float | None = None,
+    terrain_mesh: bool = True,
 ) -> list[dict]:
     """``travel_yaw`` is a scalar (forward/sideways), a ``(T,)`` array shared by every env, or a
-    ``(T, E)`` array -- the per-step, per-env command direction the omni harness logs."""
+    ``(T, E)`` array -- the per-step, per-env command direction the omni harness logs.
+    ``terrain_mesh`` is False when the harness fell back to root-offset ground (see
+    :func:`score_episode`)."""
     ndim = np.ndim(travel_yaw)
     return [
         score_episode(
@@ -395,6 +427,7 @@ def score_run(
             travel_yaw=(np.asarray(travel_yaw)[:, i] if ndim == 2 else travel_yaw),
             motion_groups=motion_groups,
             action_clip=action_clip,
+            terrain_mesh=terrain_mesh,
         )
         for i in range(len(term_reason))
     ]
@@ -418,7 +451,24 @@ CATEGORY_METRIC_SOURCES: dict[str, tuple[str, ...]] = {
     # Motion quality (gait-motion-quality plan step 1): the own hold's ``quality`` block. A key not
     # defined on the category is None there, so its by_category stats read n = 0 / median None.
     **{key: ("quality", key) for key in M.MOTION_QUALITY_KEYS},
+    # Rigidity (clock-deprecation plan step 3): the own hold's ``rigidity`` block, same convention.
+    **{key: ("rigidity", key) for key in M.RIGIDITY_EPISODE_KEYS},
 }
+#: ``aggregate.suite.by_category`` keys that are ONE statistic across the category's own-hold
+#: episodes (``metrics.rigidity_pooled_metrics``), not a pool of per-episode values. Each is written
+#: in the ``_stats`` shape so every reader takes the same ``median`` slot: there the statistic
+#: itself (one value is its own median), ``mean`` the same, ``p25`` / ``p75`` ``None``, and ``n`` the
+#: episodes that contributed; ``offset_R`` adds ``rayleigh_p``.
+CATEGORY_POOLED_KEYS: tuple[str, ...] = M.RIGIDITY_POOLED_KEYS
+
+
+def _pooled_block(category: str, blocks: list) -> dict[str, dict]:
+    """The :data:`CATEGORY_POOLED_KEYS` entries of one category (or hand) in the ``_stats`` shape."""
+    out: dict[str, dict] = {}
+    for key, got in M.rigidity_pooled_metrics(category, blocks).items():
+        value = got.pop("value")
+        out[key] = {"median": value, "mean": value, "p25": None, "p75": None, **got}
+    return out
 
 
 def _category_value(hold: dict, key: str) -> float | None:
@@ -454,7 +504,8 @@ def _suite_block(episodes: list[dict], suite: dict, stats) -> dict:
 
     ``by_category[c][key]`` POOLS the per-episode values of the category's own-hold episodes over
     both hands (never an average of hand medians -- the pooled median is what the env-clustered
-    bootstrap resamples). A hold's survival is the fraction of ITS OWN episodes with ``n_steps >=
+    bootstrap resamples); the :data:`CATEGORY_POOLED_KEYS` are computed once over the same episodes
+    (and once per hand). A hold's survival is the fraction of ITS OWN episodes with ``n_steps >=
     round((prologue_s + settle_hold_s + hold_s[label]) / dt)`` -- a fall on the wave's last step
     counts as survived (the legacy ``survival_by_hold`` convention), and ``term_reason`` is never
     read.
@@ -510,6 +561,12 @@ def _suite_block(episodes: list[dict], suite: dict, stats) -> dict:
             if hands
             else None
         )
+        # The across-episode rigidity keys: one statistic over the category's (or hand's) own holds.
+        rig = [((e["holds"].get(lab) or {}).get("rigidity"), hand_of_hold[lab])
+               for lab in labels for e in own[lab]]
+        block.update(_pooled_block(cat["name"], [b for b, _h in rig]))
+        for h in hands:
+            block["by_hand"][h].update(_pooled_block(cat["name"], [b for b, hh in rig if hh == h]))
         by_category[cat["name"]] = block
 
     return {
@@ -802,6 +859,16 @@ def summary_text(run_meta: dict, episodes: list[dict]) -> str:
         for name, cat in sb["by_category"].items():
             parts = [f"{key}={_median_txt(cat[key])}" for key in M.MOTION_QUALITY_KEYS
                      if name in M.MOTION_QUALITY_APPLIES[key] and key in cat]
+            lines.append(f"  {name:>9}: " + " ".join(parts))
+        # Rigidity (clock-deprecation plan step 3): again only the keys defined on each category.
+        lines.append("")
+        lines.append(f"rigidity by category (own hold, whole hold; medians; step = unloaded run >= "
+                     f"{M.RIGIDITY_STEP_MIN_STEPS} env steps, tap = shorter; loaded = foot force > "
+                     f"{M.MOTION_TOUCH_REF_N:g} N; hz_speed_slope / offset_R are one statistic over "
+                     "the category's episodes):")
+        for name, cat in sb["by_category"].items():
+            parts = [f"{key}={_median_txt(cat[key])}" for key in M.RIGIDITY_KEYS
+                     if name in M.RIGIDITY_APPLIES[key] and key in cat]
             lines.append(f"  {name:>9}: " + " ".join(parts))
     for key in ("command_override_warning", "schedule_state_warning", "obs_dim_warning"):
         if run_meta.get(key):

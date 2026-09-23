@@ -736,7 +736,8 @@ def is_category_id(mid: str) -> bool:
 
 def _cat_spec(mid: str, hold_labels: Sequence[str], *, block: str, blocks_all: Sequence[str],
               level: float, one_sided: bool, composite: dict | None) -> MetricSpec | None:
-    """A category id's spec on a suite row (``None`` when the row lacks its holds, or it is a count).
+    """A category id's spec on a suite row (``None`` when the row lacks its holds, or it is a count
+    or a :data:`CAT_POOLED_KEYS` statistic).
 
     ``cat.<c>.<key>`` reads column ``cat:<c>:<key>`` and ``cat.<c>.by_hand.<h>.<key>`` column
     ``cat:<c>:hand:<h>:<key>`` (NaN outside that category / hand); ``survival`` is the mean of the
@@ -759,7 +760,7 @@ def _cat_spec(mid: str, hold_labels: Sequence[str], *, block: str, blocks_all: S
     if parsed is None:
         return None
     cat, hand, key = parsed
-    if key in CAT_COUNT_KEYS:
+    if key in CAT_COUNT_KEYS or key in CAT_POOLED_KEYS:
         return None
     holds = ec.CATEGORY_HOLDS[cat]
     if hand is not None:
@@ -848,6 +849,9 @@ def why_unresolved(mid: str, hold_labels: Sequence[str], *, suite: bool = False)
         parsed = _ec().parse_cat_id(mid)
         if parsed is not None and parsed[2] in CAT_COUNT_KEYS:
             return "a count, not a per-episode quantity (no bootstrap half-width)"
+        if parsed is not None and parsed[2] in CAT_POOLED_KEYS:
+            return ("one statistic across the category's episodes, not a per-episode quantity (no "
+                    "bootstrap half-width; WATCH only)")
         if parsed is None and mid not in _ec().COMPOSITES:
             return "not a known category id (eval_categories.parse_cat_id refuses it)"
         return "its category's holds are not all on this row"
@@ -1205,10 +1209,22 @@ CAT_QUALITY_KEYS = ("action_jitter", "action_fft_freq", "joint_speed_mean", "rod
                     "swings_per_rad", "slip_per_rad", "work_per_rad", "cam_work_per_rad",
                     "six_down_frac", "settle_six_down_s", "foot_disp_end", "work_per_s")
 CAT_COLUMN_SOURCES.update({key: ("quality", key) for key in CAT_QUALITY_KEYS})
-#: Every per-episode ``cat`` key (``summarize()['cat'][c]`` minus the two counts).
+#: Rigidity keys (clock-deprecation plan step 3), each read at ``rigidity.<key>`` on the own hold
+#: entry -- None (NaN here) on a category the key is not defined on. The per-EPISODE ones only:
+#: :data:`CAT_POOLED_KEYS` have no per-episode value.
+CAT_RIGIDITY_KEYS = ("steps_per_m", "steps_per_rad", "support_feet", "steps_per_s",
+                     "taps_per_m", "taps_per_rad", "swing_apex", "step_rate_hz",
+                     "gait_hz", "clock_hz", "cadence_ratio", "steps_per_rad_pre", "steps_per_rad_post")
+CAT_COLUMN_SOURCES.update({key: ("rigidity", key) for key in CAT_RIGIDITY_KEYS})
+#: ``summarize()['cat'][c]`` keys that are ONE statistic across the category's episodes
+#: (``gait_eval.metrics.RIGIDITY_POOLED_KEYS``: the cadence-vs-speed slope and the gait-vs-clock
+#: phase concentration). There is no per-episode column to resample, so -- like the counts -- they
+#: never resolve (WATCH only), and :func:`why_unresolved` says so.
+CAT_POOLED_KEYS = ("hz_speed_slope", "offset_R")
+#: Every per-episode ``cat`` key (``summarize()['cat'][c]`` minus the two counts and the pooled keys).
 CAT_COLUMN_KEYS = ("survival", "ratio", "achieved_speed", "tripod", "facing_closed", "yaw_progress",
                    "net_yaw", "settle_s", "heading_final", "drift_speed", "direction_error",
-                   "cross_track_ratio") + CAT_QUALITY_KEYS
+                   "cross_track_ratio") + CAT_QUALITY_KEYS + CAT_RIGIDITY_KEYS
 
 
 def _category_value(entry: dict, key: str, *, closed: float, survived: float) -> float:

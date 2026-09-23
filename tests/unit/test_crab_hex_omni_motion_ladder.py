@@ -154,7 +154,9 @@ def test_metric_sign_is_lower_is_better_for_quality_keys_except_six_down(ec):
     # every pre-Q key keeps +1, so no recorded number of an earlier campaign can move
     assert not ({"survival", "ratio", "achieved_speed", "facing_closed", "yaw_progress", "net_yaw",
                  "tripod"} & ec.LOWER_IS_BETTER_KEYS)
-    assert ec.LOWER_IS_BETTER_KEYS == frozenset(ec.MOTION_QUALITY_KEYS) - {"six_down_frac"}
+    # ... plus the clock-deprecation campaign's rigidity stepping counts (2026-09-23, plan step 3)
+    assert ec.LOWER_IS_BETTER_KEYS == (frozenset(ec.MOTION_QUALITY_KEYS) - {"six_down_frac"}) | {
+        "steps_per_m", "steps_per_rad", "steps_per_s", "taps_per_m", "taps_per_rad"}
 
 
 def test_guard_key_round_trips(ec):

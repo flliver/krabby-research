@@ -298,6 +298,13 @@ def make_suite_run(run: Path, *, head, rng, ge_mods, n_env=8, closes=0.6, ratio=
                         key: (float(abs(1.0 + 0.2 * rng.standard_normal()))
                               if cat_of[own] in M.MOTION_QUALITY_APPLIES[key] else None)
                         for key in M.MOTION_QUALITY_KEYS}
+                    # rigidity (clock-deprecation plan step 3), same N/A convention. Deterministic
+                    # per (episode, key) -- it draws nothing from ``rng``, so every number the
+                    # stream below feeds (and every pinned D00s value) is unchanged.
+                    entry["rigidity"] = {
+                        key: (1.0 + 0.01 * ((7 * i + 3 * k) % 17)
+                              if cat_of[own] in M.RIGIDITY_APPLIES[key] else None)
+                        for k, key in enumerate(M.RIGIDITY_EPISODE_KEYS)}
                     entry["tripod"] = {"tripod_score": float(tripod + 0.05 * rng.standard_normal()),
                                        "low_confidence": bool(rng.random() < 0.1), "valid": True,
                                        "discard_reason": None}
@@ -1785,6 +1792,8 @@ def test_legacy_pairs_are_bit_identical_under_the_clustered_path(three_heads):
 #: The six EVAL_CARRY_DEFAULTS keys added with the motion-quality knobs (all at their OFF value).
 MOTION_CARRY_DEFAULTS = ("KRABBY_OMNI_RELAY_HYST", "KRABBY_OMNI_STAND_HOLD", "KRABBY_OMNI_STAND_PARK",
                          "KRABBY_ACTION_LPF_HZ", "KRABBY_ACTION_LPF_OBS", "KRABBY_OMNI_STAND_OBS")
+#: ... and the clock-hide knob's (clock-deprecation plan step 2/3, 2026-09-23; OFF value "0").
+CLOCK_CARRY_DEFAULTS = ("KRABBY_OMNI_CLOCK_HIDE",)
 
 
 @pytest.mark.skipif(not (SHIPPED_D00.exists() and CANDIDATES_V1.exists()),
@@ -1803,8 +1812,9 @@ def test_the_shipped_d00_is_reproduced_bit_for_bit_from_the_frozen_v1_spec():
     # 2026-09-22 (motion-quality plan step 2): EVAL_CARRY_DEFAULTS grew six knob-OFF defaults, which
     # the recorded rows (evaluated before the knobs existed) take at their default -- so they appear
     # in each input's ``env_vars_defaulted`` provenance list and nowhere else. No number moves; the
-    # names are dropped here so the pin still covers every number and every other field.
-    added = set(MOTION_CARRY_DEFAULTS)
+    # names are dropped here so the pin still covers every number and every other field. The
+    # clock-hide default (2026-09-23) is the same case.
+    added = set(MOTION_CARRY_DEFAULTS) | set(CLOCK_CARRY_DEFAULTS)
     for inp in out.get("inputs") or []:
         if "env_vars_defaulted" in inp:
             inp["env_vars_defaulted"] = [k for k in inp["env_vars_defaulted"] if k not in added]

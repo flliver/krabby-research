@@ -566,7 +566,13 @@ def test_eval_carry_names_the_obs_and_command_knobs(drv):
         "KRABBY_ACTION_LPF_HZ",             # the rod-command low-pass (what an action does)
         "KRABBY_ACTION_LPF_OBS",            # + 12 observation channels
         "KRABBY_OMNI_STAND_OBS",            # + the stand bit, zeroed clock
+        # clock-deprecation plan step 2 (2026-09-23), default off:
+        "KRABBY_OMNI_CLOCK_HIDE",           # the clock's sin/cos (dims 15-16 + history) read (0, 0)
     }
+    # The hide RAMP is keyed on the env step counter, which restarts at 0 in an eval process: carried,
+    # it would show the clock on every eval episode, so it is never carried.
+    assert "KRABBY_OMNI_CLOCK_HIDE_RAMP" not in drv.EVAL_CARRY
+    assert "KRABBY_OMNI_CLOCK_HIDE_RAMP" not in drv.EVAL_CARRY_DEFAULTS
     # Sampling / reward / terrain knobs are NOT carried: the canary is a minimal flat eval whose
     # commands come from the manifest schedule override and whose verdict must not move when a
     # stage re-weights a reward. KRABBY_OMNI_CMD_POOL is the newest member of that list and the
@@ -607,14 +613,15 @@ def test_eval_carry_defaults_stand_in_only_for_keys_no_preset_sets(drv):
         assert key not in pe, f"{key} is set by the 1c preset; the default would be dead code"
         assert isinstance(value, str) and value, f"{key}: an env value is a non-empty string"
     # The two class-body defaults these restate (crab_hex_omni_command.py: facing_obs_encoding
-    # "raw", clips.ang_vel_clip 0.2), plus the six motion-quality knobs at their OFF value (the
-    # knob-off cfg is the class default: motion_knobs writes nothing for "0"). A drift here
-    # silently re-specifies every eval.
+    # "raw", clips.ang_vel_clip 0.2), plus the six motion-quality knobs and the clock-hide knob at
+    # their OFF value (the knob-off cfg is the class default: motion_knobs / clock_knobs write
+    # nothing for "0"). A drift here silently re-specifies every eval.
     assert drv.EVAL_CARRY_DEFAULTS == {"KRABBY_OMNI_FACING_OBS_ENCODING": "raw",
                                        "KRABBY_OMNI_ANG_VEL_CLIP": "0.2",
                                        "KRABBY_OMNI_RELAY_HYST": "0", "KRABBY_OMNI_STAND_HOLD": "0",
                                        "KRABBY_OMNI_STAND_PARK": "0", "KRABBY_ACTION_LPF_HZ": "0",
-                                       "KRABBY_ACTION_LPF_OBS": "0", "KRABBY_OMNI_STAND_OBS": "0"}
+                                       "KRABBY_ACTION_LPF_OBS": "0", "KRABBY_OMNI_STAND_OBS": "0",
+                                       "KRABBY_OMNI_CLOCK_HIDE": "0"}
     # The five keys the presets DO set keep the preset's value, bitwise -- the defaults changed
     # nothing about the rows that already ran.
     ev = _eval_envs(drv)["canary"]
@@ -660,6 +667,45 @@ def test_motion_carry_defaults_are_the_knob_off_values_and_build_nothing(drv):
     mk.apply_motion_knobs(carried, {k: drv.EVAL_CARRY_DEFAULTS[k] for k in mk.EVAL_SEMANTIC_KNOBS})
     mk.apply_motion_knobs(unset, {})
     assert _snapshot(carried) == _snapshot(unset) == _snapshot(_cfg())
+
+
+def test_clock_hide_carry_default_is_the_knob_off_value_and_builds_nothing(drv):
+    """The clock-hide carry (clock-deprecation plan step 2/3, 2026-09-23): the hide knob is carried
+    with its OFF value "0" as the default -- which writes nothing into a cfg, so an eval of a
+    clock-visible head builds exactly the cfg it trained on -- and the ramp is never carried."""
+    knobs = _load(OMNI_KNOBS, "omni_knobs_gate_clock_test")
+    ck = knobs._ck
+    assert tuple(ck.EVAL_SEMANTIC_KNOBS) == ("KRABBY_OMNI_CLOCK_HIDE",)
+    assert set(ck.EVAL_SEMANTIC_KNOBS) <= set(drv.EVAL_CARRY)
+    for key in ck.EVAL_SEMANTIC_KNOBS:
+        assert drv.EVAL_CARRY_DEFAULTS[key] == ck.KNOB_OFF_VALUES[key] == "0", key
+    assert ck.CLOCK_HIDE_RAMP_VAR not in drv.EVAL_CARRY
+    assert ck.CLOCK_HIDE_RAMP_VAR not in drv.EVAL_CARRY_DEFAULTS
+
+    class _Bag:
+        pass
+
+    class _OmniObs:                      # the probe ``clock_knobs`` finds the omni term by
+        OBSERVED_COMMAND_SLOTS = {8: 0, 9: 1, 5: 2}
+
+    def _cfg():
+        cfg = _Bag()
+        cfg.observations = _Bag()
+        cfg.observations.policy = _Bag()
+        cfg.observations.policy.omni_obs = _Bag()
+        cfg.observations.policy.omni_obs.func = _OmniObs
+        cfg.observations.policy.omni_obs.params = {"history_length": 10}
+        return cfg
+
+    carried = _cfg()
+    ck.apply_clock_knobs(carried, {k: drv.EVAL_CARRY_DEFAULTS[k] for k in ck.EVAL_SEMANTIC_KNOBS})
+    assert carried.observations.policy.omni_obs.params == {"history_length": 10}
+    armed = _cfg()                       # the same cfg IS found and armed by the ON value
+    ck.apply_clock_knobs(armed, {"KRABBY_OMNI_CLOCK_HIDE": "1"})
+    assert armed.observations.policy.omni_obs.params == {"history_length": 10, "clock_hide": True}
+    # a ramp carried without the hide would be refused anyway -- the carry never sends one
+    with pytest.raises(ValueError):
+        ck.apply_clock_knobs(_cfg(), {"KRABBY_OMNI_CLOCK_HIDE": "0", ck.CLOCK_HIDE_RAMP_VAR: "0:240"})
 
 
 @pytest.mark.parametrize("key,value", [("KRABBY_OMNI_ANG_VEL_CLIP", "0.05"),

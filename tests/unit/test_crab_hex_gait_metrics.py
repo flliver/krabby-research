@@ -1167,7 +1167,17 @@ def test_suite_aggregate_pools_both_hands_and_scores_own_hold_survival():
     turn = sb["by_category"]["turn"]
     assert turn["ratio"]["n"] == 0 and turn["direction_error"]["n"] == 0     # a standing turn: no speed keys
     assert turn["facing_closed"]["n"] == 4 and turn["heading_final"]["n"] == 4
-    assert set(turn) == set(R.CATEGORY_METRIC_SOURCES) | {"by_hand"}
+    # every per-episode key plus the across-episode rigidity keys (clock-deprecation plan step 3)
+    assert set(turn) == set(R.CATEGORY_METRIC_SOURCES) | set(R.CATEGORY_POOLED_KEYS) | {"by_hand"}
+    assert set(R.CATEGORY_POOLED_KEYS) == set(M.RIGIDITY_POOLED_KEYS)
+    # rigidity on the own hold: the fixture's tripod keeps exactly 3 feet loaded at every step and
+    # its 5-step unloaded runs are steps; the standing turn never yaws, so per-radian keys are None
+    fwd = sb["by_category"]["fwd"]
+    assert fwd["support_feet"]["n"] == 4 and fwd["support_feet"]["median"] == pytest.approx(3.0)
+    assert fwd["steps_per_m"]["n"] == 4 and fwd["steps_per_m"]["median"] > 0.0
+    assert fwd["steps_per_rad"]["n"] == 0 and fwd["steps_per_s"]["n"] == 0    # N/A off turning / stand
+    assert turn["support_feet"]["n"] == 4 and turn["steps_per_rad"]["n"] == 0
+    assert set(side["by_hand"]["l"]) >= set(R.CATEGORY_POOLED_KEYS)
     # the per-hold view is keyed by label and never mixes in the unvisited holds of other waves
     assert agg["tracking_by_hold"]["lat_l"]["ratio"]["n"] == 4
     text = R.summary_text(run_meta, episodes)

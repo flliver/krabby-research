@@ -172,6 +172,9 @@ POLICY_SEES_COMMAND_CHANNEL = {"vx": True, "vy": False, "wz": False}
 OBS_IDX_DELTA_YAW = 6
 OBS_IDX_DELTA_NEXT_YAW = 7
 OBS_IDX_CMD_VX = 10
+#: The gait clock's (sin, cos) observation dims (``observations.py`` ``_clock_channels``), recorded
+#: as fed on world rows (``clock_obs``) -- the direct proof of what a clock-hidden policy saw.
+OBS_IDX_CLOCK = slice(15, 17)
 #: ``{observation slot -> vel_command_b channel}``. The end-to-end "the schedule reached the
 #: policy" check runs over these pairs; today's single pair is obs dim 10 == commanded vx.
 DEFAULT_OBSERVED_COMMAND_SLOTS = {OBS_IDX_CMD_VX: 0}
@@ -706,6 +709,15 @@ def main() -> None:
         # raw buffers, not run_meta: (T, E) floats are an npz column, not a JSON field.
         buf["travel_yaw"] = torch.zeros(T, num_envs, device=device)
         buf["heading_err"] = torch.zeros(T, num_envs, device=device)
+    # NOTE(clock-deprecation 2026-09-23, plan step 3): world rows record the gait clock's phase
+    # (radians, the action term's ``clock_phase``) and the observation's clock dims 15-16 exactly
+    # as the policy was fed them, both at the instant the step's observation was built -- so
+    # ``clock_obs`` is (sin, cos) of ``clock_phase`` while the clock is visible and (0, 0) under
+    # KRABBY_OMNI_CLOCK_HIDE. Body rows (forward / sideways) record neither.
+    _record_clock = world_frame and hasattr(action_term, "clock_phase")
+    if _record_clock:
+        buf["clock_phase"] = torch.zeros(T, num_envs, device=device)
+        buf["clock_obs"] = torch.zeros(T, num_envs, 2, device=device)
 
     alive = torch.ones(num_envs, dtype=torch.bool, device=device)
     n_steps_env = torch.zeros(num_envs, dtype=torch.long, device=device)
@@ -848,6 +860,11 @@ def main() -> None:
                     actions = policy(obs, hist_encoding=True)
 
                 buf["obs_cmd_vx"][t] = obs[:, OBS_IDX_CMD_VX]
+                if _record_clock:
+                    # Before env.step: the phase the obs above was built from (process_actions
+                    # advances it only inside the step).
+                    buf["clock_phase"][t] = action_term.clock_phase
+                    buf["clock_obs"][t] = obs[:, OBS_IDX_CLOCK]
                 buf["cmd_applied"][t] = cmd_term.vel_command_b
                 if world_frame:
                     # Travel frame of THIS step = the direction of the body command the policy is
@@ -1109,6 +1126,8 @@ def main() -> None:
         # Motion quality (suite rows only): rod / cam / actuated joint groups and the env's action clip.
         motion_groups=M.motion_joint_groups(list(robot.joint_names)),
         action_clip=(float(agent_cfg.clip_actions) if agent_cfg.clip_actions is not None else None),
+        # Rigidity's swing_apex is mesh-terrain only (run_meta.terrain_source above).
+        terrain_mesh=mesh is not None,
     )
     if suite_mode:
         print("[INFO] write_run start", flush=True)

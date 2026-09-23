@@ -1567,3 +1567,365 @@ def motion_quality_metrics(
     if category != "stand":
         extra["settle_six_down_censored"] = None
     return {**out, **extra}
+
+
+# ---------------------------------------------------------------------------------------------
+# Rigidity (clock-deprecation plan, step 3, 2026-09-23)
+# ---------------------------------------------------------------------------------------------
+# NOTE(clock-deprecation 2026-09-23): the two side effects of the gait clock the campaign prices
+# -- stepping without travel, and the fixed 50/50 tripod (scored as the loaded-foot count) -- plus
+# the WATCH set that says whether the cadence still follows the clock. Additive: only the
+# category suite's OWN hold carries a ``rigidity`` block (``report.score_episode``), so every
+# other row and every earlier key is unchanged. Contacts use ``MOTION_TOUCH_REF_N`` (loaded =
+# force > 50 N) like the motion-quality block, and the per-metre / per-radian floors are its
+# ``MIN_TRAVEL_M`` / ``MIN_NET_YAW_RAD``.
+#: A STEP is an unloaded run of at least this many env steps (0.10 s at dt 0.02 s); an unloaded run
+#: of 1 .. this-1 steps is a TAP (micro-lift chatter, not a stride).
+RIGIDITY_STEP_MIN_STEPS = 5
+#: ``gait_hz``'s search band, Hz.
+GAIT_HZ_BAND: tuple[float, float] = (0.1, 3.0)
+#: ``gait_hz``'s zero padding: the FFT length is this many times the next power of two >= the window.
+GAIT_FFT_PAD = 8
+#: The clock is "running" at or above this rate, Hz: ``cadence_ratio`` and the per-episode
+#: gait-vs-clock phase offset are ``None`` below it (a stopped clock has no phase to follow).
+MIN_CLOCK_HZ = 0.05
+#: ``hz_speed_slope`` / ``offset_R`` need at least this many contributing episodes.
+MIN_POOLED_EPISODES = 3
+
+#: The per-episode rigidity keys of an own hold's ``rigidity`` block, in print order. A category's
+#: summary value is the MEDIAN of these over its episodes (like every motion-quality key).
+RIGIDITY_EPISODE_KEYS: tuple[str, ...] = (
+    "steps_per_m", "steps_per_rad", "support_feet", "steps_per_s",
+    "taps_per_m", "taps_per_rad", "swing_apex", "step_rate_hz",
+    "gait_hz", "clock_hz", "cadence_ratio", "steps_per_rad_pre", "steps_per_rad_post",
+)
+#: The rigidity keys that are ONE statistic across a category's episodes (never a per-episode
+#: value): :func:`rigidity_pooled_metrics`, computed by ``report._suite_block``.
+RIGIDITY_POOLED_KEYS: tuple[str, ...] = ("hz_speed_slope", "offset_R")
+#: Every rigidity key a category summary carries, in print order.
+RIGIDITY_KEYS: tuple[str, ...] = RIGIDITY_EPISODE_KEYS + RIGIDITY_POOLED_KEYS
+
+_MOVING = _ALL_CATS - {"stand"}
+#: key -> the categories it is DEFINED on; everywhere else it is ``None`` (N/A, never 0), the
+#: motion-quality convention. Per-metre keys on the translation categories, per-radian keys on the
+#: turning ones (the plan's RIG members are turn only; move_turn is WATCH), ``steps_per_s`` on stand
+#: (the stand guard), the before/after-closure split on turn, and the speed slope wherever a speed
+#: is commanded.
+RIGIDITY_APPLIES: dict[str, frozenset] = {
+    **{k: _TRANSLATE for k in ("steps_per_m", "taps_per_m")},
+    **{k: _TURNING for k in ("steps_per_rad", "taps_per_rad")},
+    **{k: _ALL_CATS for k in ("support_feet", "gait_hz", "clock_hz", "cadence_ratio")},
+    "steps_per_s": frozenset({"stand"}),
+    **{k: _MOVING for k in ("step_rate_hz", "swing_apex", "offset_R")},
+    **{k: frozenset({"turn"}) for k in ("steps_per_rad_pre", "steps_per_rad_post")},
+    "hz_speed_slope": _TRANSLATE | frozenset({"move_turn"}),
+}
+
+
+def step_tap_runs(loaded: np.ndarray, *,
+                  min_step_steps: int = RIGIDITY_STEP_MIN_STEPS) -> tuple[list, list, int]:
+    """``(steps, taps, censored)`` of a ``(T, 6)`` loaded mask: ``(foot, start, end)`` unloaded runs.
+
+    A run is counted only when it BEGINS AT A LIFTOFF inside the window (``start > 0``): a foot
+    already in the air at the first step lifted before the window, and counting it would bias a
+    12-s count upward by the fraction of feet airborne at the start. A step is a run of at least
+    ``min_step_steps`` (found with :func:`debounce`, which drops the shorter runs); a tap is a run of
+    ``1 .. min_step_steps - 1``. A run still unloaded at the window's LAST step and shorter than
+    ``min_step_steps`` could be either, so it is ``censored`` (counted in neither); one already
+    ``min_step_steps`` long is a step.
+    """
+    lo = np.asarray(loaded, dtype=bool)
+    n = int(lo.shape[0])
+    steps: list[tuple[int, int, int]] = []
+    taps: list[tuple[int, int, int]] = []
+    censored = 0
+    for f in range(lo.shape[1]):
+        up = ~lo[:, f]
+        for start, end in contiguous_runs(debounce(up, min_true=min_step_steps)):
+            if start > 0:
+                steps.append((f, start, end))
+        for start, end in contiguous_runs(up):
+            if start == 0 or end - start >= min_step_steps:
+                continue
+            if end == n:
+                censored += 1
+            else:
+                taps.append((f, start, end))
+    return steps, taps, censored
+
+
+def _tripod_difference(loaded: np.ndarray) -> np.ndarray:
+    """``a(t) - b(t)``: the two tripod sets' loaded-foot counts (float)."""
+    lo = np.asarray(loaded, dtype=bool)
+    return (lo[:, TRIPOD_A_IDX].sum(axis=1) - lo[:, TRIPOD_B_IDX].sum(axis=1)).astype(np.float64)
+
+
+def gait_frequency_hz(loaded: np.ndarray, dt: float, *, band: tuple[float, float] = GAIT_HZ_BAND,
+                      pad: int = GAIT_FFT_PAD) -> float | None:
+    """``gait_hz``: the peak of the zero-padded FFT, within ``band``, of ``a(t) - b(t)``.
+
+    ``a`` / ``b`` are the loaded-foot counts of tripod sets A / B, so a tripod gait puts its cycle
+    rate at the peak whatever its duty, and a wave or ripple gait still has a fundamental there.
+    The signal is de-meaned; the FFT is ``pad`` times the next power of two long (a finer grid than
+    the ``1 / (n dt)`` bin, which zero padding interpolates). ``None`` under :data:`MIN_FFT_STEPS`
+    steps or when ``a - b`` is constant (no alternation at all).
+    """
+    x = _tripod_difference(loaded)
+    n = int(x.size)
+    if n < MIN_FFT_STEPS or not dt > 0.0:
+        return None
+    x = x - x.mean()
+    if not float(x.var()) > _VAR_EPS:
+        return None
+    n_fft = int(pad) * (1 << int(math.ceil(math.log2(n))))
+    amp = np.abs(np.fft.rfft(x, n=n_fft))
+    freqs = np.fft.rfftfreq(n_fft, d=dt)
+    sel = (freqs >= band[0]) & (freqs <= band[1])
+    if not sel.any():
+        return None
+    return float(freqs[sel][int(np.argmax(amp[sel]))])
+
+
+def clock_frequency_hz(clock_phase: np.ndarray, dt: float) -> float | None:
+    """``clock_hz``: the recorded gait-clock phase's mean rate, ``unwrap`` delta / (2 pi (n - 1) dt).
+
+    ``clock_phase`` is the action term's ``clock_phase`` in radians (``[0, 2 pi)``, advanced at most
+    ~0.06 rad per step, so ``np.unwrap`` is exact). The env keeps integrating it after the clock is
+    removed from reward and observation, so the command-locked cadence law stays measurable.
+    ``None`` under two samples.
+    """
+    ph = np.asarray(clock_phase, dtype=np.float64).ravel()
+    if ph.size < 2 or not dt > 0.0:
+        return None
+    u = np.unwrap(ph)
+    return float((u[-1] - u[0]) / (2.0 * math.pi * (ph.size - 1) * dt))
+
+
+def _analytic_phase(x: np.ndarray) -> np.ndarray:
+    """Instantaneous phase of the analytic signal of a real series (a numpy Hilbert transform)."""
+    n = int(x.size)
+    h = np.zeros(n)
+    h[0] = 1.0
+    if n % 2 == 0:
+        h[n // 2] = 1.0
+        h[1:n // 2] = 2.0
+    else:
+        h[1:(n + 1) // 2] = 2.0
+    return np.angle(np.fft.ifft(np.fft.fft(x) * h))
+
+
+def gait_clock_phase_offset(loaded: np.ndarray, clock_phase: np.ndarray) -> tuple[float | None, float | None]:
+    """``(mean offset, PLV)`` of the gait phase against the clock phase over one window.
+
+    The gait phase is the analytic-signal phase of the de-meaned ``a(t) - b(t)``; the offset is the
+    circular mean of ``gait - clock`` (radians, ``(-pi, pi]``) and the PLV its resultant length
+    (1 = locked within the window). Across episodes the clock's reset phase is uniform, so the
+    offsets concentrate (``offset_R`` near 1) only when the gait follows the OBSERVED clock phase; a
+    policy that keeps the clock's cadence but not its phase scatters them. ``None`` under
+    :data:`MIN_FFT_STEPS` steps or with no alternation.
+    """
+    x = _tripod_difference(loaded)
+    ph = np.asarray(clock_phase, dtype=np.float64).ravel()
+    n = min(int(x.size), int(ph.size))
+    if n < MIN_FFT_STEPS:
+        return None, None
+    x = x[:n] - x[:n].mean()
+    if not float(x.var()) > _VAR_EPS:
+        return None, None
+    z = np.exp(1j * (_analytic_phase(x) - ph[:n])).mean()
+    return float(np.angle(z)), float(abs(z))
+
+
+def rayleigh_test(angles: Sequence[float]) -> tuple[float | None, float | None, int]:
+    """``(R, p, n)``: the resultant length of ``angles`` and its Rayleigh p (uniformity null).
+
+    ``R = |mean exp(i a)|``; ``p`` is Zar's approximation
+    ``exp(sqrt(1 + 4n + 4(n^2 - (nR)^2)) - (1 + 2n))`` (Biostatistical Analysis, eq. 27.4), clipped
+    to ``[0, 1]``. Under the null ``R`` is about ``sqrt(pi / (4 n))``; its 99 % critical value is about
+    ``sqrt(4.6 / n)`` (0.21 at n = 100). ``None`` values under :data:`MIN_POOLED_EPISODES` angles.
+    """
+    a = np.asarray([v for v in angles if v is not None and math.isfinite(v)], dtype=np.float64)
+    n = int(a.size)
+    if n < MIN_POOLED_EPISODES:
+        return None, None, n
+    r = float(abs(np.exp(1j * a).mean()))
+    rn = n * r
+    p = math.exp(math.sqrt(max(0.0, 1.0 + 4.0 * n + 4.0 * (n * n - rn * rn))) - (1.0 + 2.0 * n))
+    return r, float(min(1.0, max(0.0, p))), n
+
+
+def ols_slope(x: Sequence[float], y: Sequence[float]) -> tuple[float | None, int]:
+    """``(slope, n)``: the least-squares slope of ``y`` on ``x`` over the finite pairs.
+
+    ``None`` under :data:`MIN_POOLED_EPISODES` pairs or when ``x`` does not vary.
+    """
+    pairs = [(float(a), float(b)) for a, b in zip(x, y)
+             if a is not None and b is not None and math.isfinite(a) and math.isfinite(b)]
+    n = len(pairs)
+    if n < MIN_POOLED_EPISODES:
+        return None, n
+    xs = np.asarray([p[0] for p in pairs])
+    ys = np.asarray([p[1] for p in pairs])
+    dx = xs - xs.mean()
+    sxx = float((dx * dx).sum())
+    if not sxx > _VAR_EPS:
+        return None, n
+    return float((dx * (ys - ys.mean())).sum() / sxx), n
+
+
+def rigidity_metrics(
+    category: str,
+    *,
+    dt: float,
+    foot_force_norm: np.ndarray,
+    root_pos_w: np.ndarray,
+    root_quat_w: np.ndarray,
+    foot_pos_w: np.ndarray | None = None,
+    terrain_z: np.ndarray | None = None,
+    clock_phase: np.ndarray | None = None,
+    heading_err: np.ndarray | None = None,
+    touch_ref_n: float = MOTION_TOUCH_REF_N,
+    min_step_steps: int = RIGIDITY_STEP_MIN_STEPS,
+) -> dict | None:
+    """The rigidity block of one episode's OWN hold (``hold["rigidity"]``); ``None`` if empty.
+
+    Every array is the hold's whole 12-s command window (time first). The keys of
+    :data:`RIGIDITY_EPISODE_KEYS` are always present; a key not defined on ``category``
+    (:data:`RIGIDITY_APPLIES`) or not measurable here (missing input, under its floor) is ``None``
+    -- never 0. The two :data:`RIGIDITY_POOLED_KEYS` are across-episode statistics and are not in
+    this block; ``speed_m_s`` and ``phase_offset_rad`` below are their per-episode inputs.
+
+    Definitions (``loaded`` = foot force > ``touch_ref_n`` = 50 N; ``W`` = the window, ``|W|`` =
+    ``n * dt``; steps and taps from :func:`step_tap_runs`, summed over the six feet):
+
+    * ``D`` = net planar root displacement, ``Y`` = |net yaw| (unwrapped) -- the motion-quality
+      normalisers;
+    * ``steps_per_m`` = steps / D (``None`` if D < :data:`MIN_TRAVEL_M`); ``taps_per_m`` = taps / D;
+    * ``steps_per_rad`` = steps / Y (``None`` if Y < :data:`MIN_NET_YAW_RAD`); ``taps_per_rad`` =
+      taps / Y;
+    * ``support_feet`` = mean over steps of the loaded-foot count (a 50/50 tripod reads 3, a wave
+      gait 5; higher is the longer stance the campaign hopes for);
+    * ``steps_per_s`` (stand) and ``step_rate_hz`` (every other category) = steps / |W| -- the same
+      rate, the first the stand-stillness guard, the second the speed decomposition
+      (``steps_per_m = step_rate_hz / speed``); divide by 6 for a per-foot cadence;
+    * ``swing_apex`` = median over the steps that ended inside the window of each step's peak foot
+      height above ``terrain_z``, calibrated by :func:`swing_clearance_metrics`'s stance offset (the
+      median height of the loaded samples). MESH TERRAIN ONLY: the caller passes ``terrain_z=None``
+      under the root-offset fallback, and the key is then ``None``;
+    * ``gait_hz`` = :func:`gait_frequency_hz`; ``clock_hz`` = :func:`clock_frequency_hz` of the
+      recorded ``clock_phase``; ``cadence_ratio`` = gait_hz / clock_hz (``None`` if clock_hz <
+      :data:`MIN_CLOCK_HZ`);
+    * ``steps_per_rad_pre`` / ``steps_per_rad_post`` (turn) = the steps that lifted off before /
+      at-or-after CLOSURE, each over the whole hold's Y, so the two sum to ``steps_per_rad`` (the
+      post part is the stepping done once the turn was over -- stepping without travel). Closure is
+      the first step with ``|heading_err| < FACING_SETTLE_TOL_RAD`` (0.15 rad, the facing metrics'
+      "on target"); a hold that never closes has ``post`` ``None`` and every step in ``pre``.
+
+    Extra (non-category) fields: ``category``, ``n_steps``, ``duration_s``, ``distance_m``,
+    ``net_yaw_rad``, ``speed_m_s`` (D / |W|), ``steps``, ``taps``, ``runs_censored``,
+    ``phase_offset_rad`` / ``phase_plv`` (:func:`gait_clock_phase_offset`, only while the clock runs
+    at >= :data:`MIN_CLOCK_HZ`), ``closure_s``, ``stance_z_offset_m``, ``swing_apex_n``,
+    ``touch_ref_n``, ``min_step_steps``.
+    """
+    force = np.asarray(foot_force_norm, dtype=np.float64)
+    n = int(force.shape[0]) if force.ndim >= 1 else 0
+    if n == 0:
+        return None
+    dur = n * dt
+    loaded = force > touch_ref_n
+    out: dict[str, Any] = {k: None for k in RIGIDITY_EPISODE_KEYS}
+    extra: dict[str, Any] = {"category": category, "n_steps": n, "duration_s": dur,
+                             "touch_ref_n": float(touch_ref_n), "min_step_steps": int(min_step_steps),
+                             "closure_s": None, "phase_offset_rad": None, "phase_plv": None,
+                             "stance_z_offset_m": None, "swing_apex_n": 0}
+
+    # ---- steps and taps
+    steps, taps, censored = step_tap_runs(loaded, min_step_steps=min_step_steps)
+    n_steps_, n_taps = len(steps), len(taps)
+    extra["steps"], extra["taps"], extra["runs_censored"] = n_steps_, n_taps, censored
+
+    # ---- normalisers (the motion-quality convention)
+    xy = np.asarray(root_pos_w, dtype=np.float64)[:, :2]
+    dist = float(np.linalg.norm(xy[-1] - xy[0]))
+    yaw = np.unwrap(yaw_from_quat_wxyz(np.asarray(root_quat_w, dtype=np.float64)))
+    net_yaw = float(abs(yaw[-1] - yaw[0]))
+    extra["distance_m"], extra["net_yaw_rad"] = dist, net_yaw
+    extra["speed_m_s"] = float(dist / dur) if dur > 0 else None
+
+    def _per(num: float, den: float, floor: float) -> float | None:
+        return None if den < floor else float(num / den)
+
+    out["steps_per_m"] = _per(float(n_steps_), dist, MIN_TRAVEL_M)
+    out["taps_per_m"] = _per(float(n_taps), dist, MIN_TRAVEL_M)
+    out["steps_per_rad"] = _per(float(n_steps_), net_yaw, MIN_NET_YAW_RAD)
+    out["taps_per_rad"] = _per(float(n_taps), net_yaw, MIN_NET_YAW_RAD)
+    out["support_feet"] = float(loaded.sum(axis=1).mean())
+    rate = float(n_steps_ / dur) if dur > 0 else None
+    out["steps_per_s"] = out["step_rate_hz"] = rate
+
+    # ---- swing apex (mesh terrain only)
+    if foot_pos_w is not None and terrain_z is not None:
+        fp = np.asarray(foot_pos_w, dtype=np.float64)
+        tz = np.asarray(terrain_z, dtype=np.float64)
+        offset = swing_clearance_metrics(loaded, fp, tz)["stance_z_offset_m"]
+        clearance = fp[:, :, 2] - tz - offset
+        peaks = [float(clearance[s:e, f].max()) for f, s, e in steps if e < n]
+        extra["stance_z_offset_m"], extra["swing_apex_n"] = float(offset), len(peaks)
+        out["swing_apex"] = float(np.median(peaks)) if peaks else None
+
+    # ---- cadence and phase
+    out["gait_hz"] = gait_frequency_hz(loaded, dt)
+    if clock_phase is not None:
+        out["clock_hz"] = clock_frequency_hz(clock_phase, dt)
+        if out["clock_hz"] is not None and out["clock_hz"] >= MIN_CLOCK_HZ:
+            if out["gait_hz"] is not None:
+                out["cadence_ratio"] = float(out["gait_hz"] / out["clock_hz"])
+            extra["phase_offset_rad"], extra["phase_plv"] = gait_clock_phase_offset(loaded, clock_phase)
+
+    # ---- the turn split around closure
+    if heading_err is not None and out["steps_per_rad"] is not None:
+        err = np.abs(np.asarray(heading_err, dtype=np.float64).ravel())
+        on = np.flatnonzero(err < FACING_SETTLE_TOL_RAD)
+        if on.size:
+            t_c = int(on[0])
+            extra["closure_s"] = float(t_c * dt)
+            pre = sum(1 for _f, s, _e in steps if s < t_c)
+            out["steps_per_rad_pre"] = float(pre / net_yaw)
+            out["steps_per_rad_post"] = float((n_steps_ - pre) / net_yaw)
+        else:
+            out["steps_per_rad_pre"] = out["steps_per_rad"]
+
+    for k in RIGIDITY_EPISODE_KEYS:
+        if category not in RIGIDITY_APPLIES[k]:
+            out[k] = None
+    return {**out, **extra}
+
+
+def rigidity_pooled_metrics(category: str, blocks: Sequence[dict | None]) -> dict[str, dict]:
+    """The across-episode rigidity keys of one category (or one hand of it).
+
+    ``blocks`` are the category's own-hold :func:`rigidity_metrics` blocks (``None`` entries --
+    unmeasured holds -- are skipped). Returns ``{key: {"value", "n", ...}}`` for every
+    :data:`RIGIDITY_POOLED_KEYS`; ``value`` is ``None`` off :data:`RIGIDITY_APPLIES` or under
+    :data:`MIN_POOLED_EPISODES` contributing episodes.
+
+    * ``hz_speed_slope`` -- the OLS slope (Hz per m/s) of per-episode ``gait_hz`` on ``speed_m_s``
+      within the category: about 0 while the clock locks the cadence to the COMMAND (every episode
+      of a category shares one command), positive when the cadence follows the ACHIEVED speed;
+    * ``offset_R`` -- :func:`rayleigh_test`'s R over the per-episode ``phase_offset_rad``, with its
+      ``rayleigh_p``: near 1 when the gait follows the observed clock phase (the reset phase is
+      uniform and evals run with RSI off), at the null when it ignores it.
+    """
+    got = [b for b in blocks if b]
+    out: dict[str, dict] = {}
+    if category in RIGIDITY_APPLIES["hz_speed_slope"]:
+        slope, n = ols_slope([b.get("speed_m_s") for b in got], [b.get("gait_hz") for b in got])
+    else:
+        slope, n = None, 0
+    out["hz_speed_slope"] = {"value": slope, "n": n}
+    if category in RIGIDITY_APPLIES["offset_R"]:
+        r, p, n = rayleigh_test([b.get("phase_offset_rad") for b in got])
+    else:
+        r, p, n = None, None, 0
+    out["offset_R"] = {"value": r, "n": n, "rayleigh_p": p}
+    return out

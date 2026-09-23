@@ -140,6 +140,12 @@ CANARY_KEEP = ("KRABBY_LIN_VEL_X", "KRABBY_TRACK_SIGMA2", "KRABBY_TRACK_L1_W", "
 #       command; the stand bit + a zeroed clock): the observation WIDTH itself.
 #   The reward-weight and exploration knobs of the same plan are NOT carried (the reward/sampler rule
 #   below; the std clamp / reset only shape training noise, and evals act on the mean).
+#   KRABBY_OMNI_CLOCK_HIDE -- ``params["clock_hide"]`` on the omni observation term
+#       (clock-deprecation plan step 2, 2026-09-23; DEFAULT OFF, ``config/crab_hex/clock_knobs.py``):
+#       the clock's sin/cos (obs dims 15-16 and every history copy) read (0, 0). It changes what the
+#       policy OBSERVES, so a head trained clock-hidden is only scored honestly clock-hidden.
+#       KRABBY_OMNI_CLOCK_HIDE_RAMP is NEVER carried: the ramp is keyed on ``common_step_counter``,
+#       which restarts at 0 in the eval process, so it would show the clock on every eval episode.
 #
 # NOT carried, deliberately: KRABBY_OMNI_SLOTS / _DIR_BAND / _FACING / _RSI_SOURCE, KRABBY_RSI_*,
 # KRABBY_YAW_W, KRABBY_YAW_PROGRESS_W, KRABBY_STAND_FRAC, KRABBY_RESAMPLE_S and the
@@ -156,7 +162,9 @@ EVAL_CARRY = ("KRABBY_OMNI_FACING_OBS_CLIP", "KRABBY_OMNI_SPEED_ELLIPSE", "KRABB
               "KRABBY_OMNI_FACING_OBS_ENCODING", "KRABBY_OMNI_ANG_VEL_CLIP",
               # motion-quality plan step 2 (default off; see the block above)
               "KRABBY_OMNI_RELAY_HYST", "KRABBY_OMNI_STAND_HOLD", "KRABBY_OMNI_STAND_PARK",
-              "KRABBY_ACTION_LPF_HZ", "KRABBY_ACTION_LPF_OBS", "KRABBY_OMNI_STAND_OBS")
+              "KRABBY_ACTION_LPF_HZ", "KRABBY_ACTION_LPF_OBS", "KRABBY_OMNI_STAND_OBS",
+              # clock-deprecation plan step 2 (default off; the ramp is never carried)
+              "KRABBY_OMNI_CLOCK_HIDE")
 #: The value an eval carries for an :data:`EVAL_CARRY` key the phase's preset does not set.
 #:
 #: A preset that never mentions a knob trains on the config's CLASS DEFAULT, and an eval that also
@@ -174,10 +182,13 @@ EVAL_CARRY = ("KRABBY_OMNI_FACING_OBS_CLIP", "KRABBY_OMNI_SPEED_ELLIPSE", "KRABB
 #: The six motion-quality knobs default to their OFF value ("0"), which ``motion_knobs`` treats
 #: exactly like an unset variable -- nothing is written into the cfg -- so an eval carrying the
 #: default builds the same cfg as one that omits the key (pinned by the class-default test).
+#: KRABBY_OMNI_CLOCK_HIDE likewise defaults to "0" (``clock_knobs.KNOB_OFF_VALUES``): off, it writes
+#: nothing into the cfg.
 EVAL_CARRY_DEFAULTS = {"KRABBY_OMNI_FACING_OBS_ENCODING": "raw", "KRABBY_OMNI_ANG_VEL_CLIP": "0.2",
                        "KRABBY_OMNI_RELAY_HYST": "0", "KRABBY_OMNI_STAND_HOLD": "0",
                        "KRABBY_OMNI_STAND_PARK": "0", "KRABBY_ACTION_LPF_HZ": "0",
-                       "KRABBY_ACTION_LPF_OBS": "0", "KRABBY_OMNI_STAND_OBS": "0"}
+                       "KRABBY_ACTION_LPF_OBS": "0", "KRABBY_OMNI_STAND_OBS": "0",
+                       "KRABBY_OMNI_CLOCK_HIDE": "0"}
 # Evals never carry RSI resets: set explicitly (not merely omitted) so a preset that later grows a
 # different default, or a leaked parent value, cannot re-arm reference-state resets inside an eval.
 # apply_omni_knobs / the forward knob block build events.rsi_reference_reset only for RSI_FRAC > 0.
@@ -763,7 +774,14 @@ CAT_METRIC_KEYS = ("ratio", "achieved_speed", "tripod", "facing_closed", "yaw_pr
                    "contact_switch_hz", "foot_slip", "wz_active_frac", "clock_restarts",
                    "swings_per_m", "slip_per_m", "work_per_m", "cam_work_per_m",
                    "swings_per_rad", "slip_per_rad", "work_per_rad", "cam_work_per_rad",
-                   "six_down_frac", "settle_six_down_s", "foot_disp_end", "work_per_s")
+                   "six_down_frac", "settle_six_down_s", "foot_disp_end", "work_per_s",
+                   # rigidity (clock-deprecation plan step 3; None where N/A for the category). The
+                   # last two are one statistic over the category's episodes, which the harness
+                   # writes into the same ``median`` slot.
+                   "steps_per_m", "steps_per_rad", "support_feet", "steps_per_s",
+                   "taps_per_m", "taps_per_rad", "swing_apex", "step_rate_hz",
+                   "gait_hz", "clock_hz", "cadence_ratio", "steps_per_rad_pre", "steps_per_rad_post",
+                   "hz_speed_slope", "offset_R")
 
 
 def _median_of(stats: dict | None) -> float | None:

@@ -282,10 +282,14 @@ def test_new_keys_are_registered_everywhere_they_must_agree():
     ec = _load(TASKS / "crab_hex_omni_task/eval_categories.py", "eval_categories_mq_test")
     res = _load(TASKS / "crab_hex_omni_task/experiments/tools/resolution.py", "resolution_mq_test")
     mq = tuple(M.MOTION_QUALITY_KEYS)
+    # the rigidity keys (clock-deprecation plan step 3) follow the quality keys everywhere; the
+    # per-episode columns carry only rigidity's per-episode keys (the pooled two have no column).
+    # Their own cross-pins are in tests/unit/test_crab_hex_rigidity_metrics.py.
+    rig, rig_ep = len(M.RIGIDITY_KEYS), len(M.RIGIDITY_EPISODE_KEYS)
     assert tuple(ec.MOTION_QUALITY_KEYS) == mq
-    assert tuple(ec.CAT_KEYS[-len(mq):]) == mq
-    assert tuple(res.CAT_QUALITY_KEYS) == mq and tuple(res.CAT_COLUMN_KEYS[-len(mq):]) == mq
-    assert tuple(res.rp.CAT_METRIC_KEYS[-len(mq):]) == mq
+    assert tuple(ec.CAT_KEYS[-len(mq) - rig:-rig]) == mq
+    assert tuple(res.CAT_QUALITY_KEYS) == mq and tuple(res.CAT_COLUMN_KEYS[-len(mq) - rig_ep:-rig_ep]) == mq
+    assert tuple(res.rp.CAT_METRIC_KEYS[-len(mq) - rig:-rig]) == mq
     for key in mq:
         assert R.CATEGORY_METRIC_SOURCES[key] == ("quality", key)
         assert res.CAT_COLUMN_SOURCES[key] == ("quality", key)
