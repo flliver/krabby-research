@@ -57,8 +57,10 @@ EXPECTED_CMD_GATE_SITES = {
 # rewards here, and ``process_actions`` in the action term (asserted separately below). All
 # three must agree, or the reward prices a schedule the clock is not advancing.
 EXPECTED_CLOCK_SPEED_SITES = {
-    "RewardClockContactSchedule",
-    "RewardClockSwingApex",
+    # 2026-09-22 (motion-quality plan step 2): the two clock-income rewards read the speed through
+    # ``_clock_running`` (the literal ``_clock_cmd_speed(env, cmd) > cmd_stop``, plus the default-off
+    # KRABBY_OMNI_STAND_PARK gate); ``test_both_clock_rewards_read_the_clock_running_seam`` pins them.
+    "_clock_running",
     # Revision 2 (2026-09-17): the command gate itself reads the clock speed in its omni branch,
     # so a pure turn command switches the gait-shaping terms on (the forward branch is untouched).
     "_cmd_gate",
@@ -115,6 +117,12 @@ def test_clock_command_speed_sites_are_exactly_the_audited_ones():
     defs = _top_level_defs(REWARDS_PY)
     got = {name for name, node in defs.items() if _references(node, "_clock_cmd_speed")}
     assert got == EXPECTED_CLOCK_SPEED_SITES
+
+
+def test_both_clock_rewards_read_the_clock_running_seam():
+    defs = _top_level_defs(REWARDS_PY)
+    got = {name for name, node in defs.items() if _references(node, "_clock_running")}
+    assert got == {"RewardClockContactSchedule", "RewardClockSwingApex"}
 
 
 def test_the_gait_clock_advance_reads_the_shared_speed_seam():

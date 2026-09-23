@@ -50,7 +50,7 @@ class CrabHexParkourObservations(ExtremeParkourObservations):
 
     def __init__(self, cfg, env: ParkourManagerBasedRLEnv):
         super().__init__(cfg, env)
-        self._obs_buf_dim += _CRAB_EXTRA_BASE_DIM
+        self._obs_buf_dim += _CRAB_EXTRA_BASE_DIM + self._extra_head_dim()
         self._obs_history_buffer = torch.zeros(
             self.num_envs, self.history_length, self._obs_buf_dim, device=self.device
         )
@@ -133,6 +133,30 @@ class CrabHexParkourObservations(ExtremeParkourObservations):
             delta_next_yaw = torch.where(on_flat, torch.zeros_like(self.delta_next_yaw), self.delta_next_yaw)
         return delta_yaw, delta_next_yaw
 
+    def _extra_head_dim(self) -> int:
+        """Width of the OPTIONAL channels appended to the proprio head after the clock (hook).
+
+        0 here -- the forward and sideways terms append nothing, so their width and layout are
+        exactly what every recorded run trained on. A sibling term that grows the head (the omni
+        term's default-off stand bit / filtered rod target) returns its width here, and
+        :meth:`_extra_head_channels` the ``(N, width)`` tensor.
+        """
+        return 0
+
+    def _extra_head_channels(self, env: ParkourManagerBasedRLEnv) -> torch.Tensor | None:
+        """The optional head channels (see :meth:`_extra_head_dim`); ``None`` = none."""
+        return None
+
+    def _clock_channels(
+        self, env: ParkourManagerBasedRLEnv, clock_phase: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Obs dims 15-16: the gait clock as ``(sin, cos)``, each ``(N, 1)`` (hook).
+
+        Verbatim the two expressions ``__call__``'s ``torch.cat`` held inline; a sibling term may
+        blank them (the omni stand observation zeroes them while the STAND bit is set).
+        """
+        return torch.sin(clock_phase)[:, None], torch.cos(clock_phase)[:, None]
+
     def _command_channels(self, commands: torch.Tensor) -> torch.Tensor:
         """Obs dims 8-10: the command block of the proprio vector, ``[N, 3]``.
 
@@ -177,6 +201,8 @@ class CrabHexParkourObservations(ExtremeParkourObservations):
         joint_pos_delta[:, self._cam_shaft_obs_ids] = wrap_to_pi(
             joint_pos_delta[:, self._cam_shaft_obs_ids]
         )
+        clock_sin, clock_cos = self._clock_channels(env, clock_phase)
+        extra_head = self._extra_head_channels(env)
         obs_buf = torch.cat(
             (
                 self.asset.data.root_ang_vel_b * 0.25,
@@ -191,8 +217,9 @@ class CrabHexParkourObservations(ExtremeParkourObservations):
                 # NOTE(gait-formation-v2 Phase 1): the gait clock, as sin/cos. Under the L/R
                 # mirror a swapped-handedness gait is the same schedule advanced by pi, so
                 # both dims carry mirror sign -1 (see crab_hex_mirror._HEAD_SIGNS).
-                torch.sin(clock_phase)[:, None],
-                torch.cos(clock_phase)[:, None],
+                clock_sin,
+                clock_cos,
+                *(() if extra_head is None else (extra_head,)),
                 joint_pos_delta,
                 self.asset.data.joint_vel * 0.05,
                 env.action_manager.get_term("joint_pos").action_history_buf[:, -1],

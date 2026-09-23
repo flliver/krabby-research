@@ -16,7 +16,10 @@ from parkour_isaaclab.envs.mdp.parkour_actions.joint_actions import DelayedJoint
 
 from parkour_tasks.crab_hex_forward_task.mdp import crab_hex_linkage as linkage
 from parkour_tasks.crab_hex_forward_task.mdp.crab_hex_cam_mapping import cam_shaft_to_hip
-from parkour_tasks.crab_hex_forward_task.mdp.crab_hex_clock_reward import clock_command_speed
+from parkour_tasks.crab_hex_forward_task.mdp.crab_hex_clock_reward import (
+    clock_command_speed,
+    park_clock_phase,
+)
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
@@ -139,6 +142,47 @@ class CrabHexDelayedJointPositionAction(DelayedJointPositionAction):
         self.hip_rod_speed = torch.zeros((self.num_envs, len(pitch_ids)), device=self.device)
         self.knee_rod_speed = torch.zeros((self.num_envs, len(knee_ids)), device=self.device)
 
+        # NOTE(motion-quality campaign, 2026-09-22): two OPTIONAL, DEFAULT-OFF knobs. Both are
+        # read off attributes the shipped cfgs do not carry (``getattr`` -> off), so every
+        # recorded run takes the untouched code path below.
+        #
+        # ``lpf_hz`` (``KRABBY_ACTION_LPF_HZ``): a first-order low-pass on the policy's ROD-LENGTH
+        # command, BEFORE the rod slew limiter -- noise and dither on the pitch/knee channels
+        # otherwise become a full-rate sawtooth on the rods. Runs every physics substep with
+        # ``alpha = 1 - exp(-2 pi f_c physics_dt)``; the filter state is synced to the physical
+        # rod length on the first substep after a reset, like the rod state itself.
+        # ``rod_cmd_filtered`` exposes the filtered command, normalised to [-1, 1] per stroke
+        # window, for the optional observation slot (``KRABBY_ACTION_LPF_OBS``).
+        lpf_hz = getattr(cfg, "lpf_hz", None)
+        self._lpf_alpha = (
+            linkage.lpf_alpha(float(lpf_hz), float(env.physics_dt))
+            if lpf_hz is not None and float(lpf_hz) > 0.0 else None
+        )
+        if self._lpf_alpha is not None:
+            self._hip_rod_cmd_lpf = self._hip_rod_len.clone()
+            self._knee_rod_cmd_lpf = self._knee_rod_len.clone()
+        # ``omni_stand_park`` (``KRABBY_OMNI_STAND_PARK``, an ENV-cfg attribute): while the omni
+        # command term reports the STAND slot, the gait clock advances (at full cadence) to its
+        # next touchdown and holds there instead of freezing mid-swing; ``clock_parked`` is the
+        # per-env flag the clock rewards read to treat all six legs as stance.
+        self._stand_park = bool(getattr(env.cfg, "omni_stand_park", False))
+        if self._stand_park:
+            self.clock_parked = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
+
+    @property
+    def rod_cmd_filtered(self) -> torch.Tensor:
+        """``(N, 12)`` low-passed rod-length command, [hip x6 | knee x6] in leg order, each in
+        [-1, 1] over its stroke window. Only exists with ``lpf_hz`` set."""
+        if self._lpf_alpha is None:
+            raise RuntimeError("rod_cmd_filtered needs the action cfg's lpf_hz (KRABBY_ACTION_LPF_HZ)")
+        return torch.cat(
+            (
+                linkage.hip_rod_normalized(self._hip_rod_cmd_lpf),
+                linkage.knee_rod_normalized(self._knee_rod_cmd_lpf),
+            ),
+            dim=-1,
+        )
+
     def reset(self, env_ids: Sequence[int] | None = None) -> None:
         super().reset(env_ids)
         if env_ids is None:
@@ -175,6 +219,9 @@ class CrabHexDelayedJointPositionAction(DelayedJointPositionAction):
             self._knee_rod_len[sync] = linkage.knee_actuator_length(
                 theta_h_live[sync], theta_k_live[sync]
             )
+            if self._lpf_alpha is not None:
+                self._hip_rod_cmd_lpf[sync] = self._hip_rod_len[sync]
+                self._knee_rod_cmd_lpf[sync] = self._knee_rod_len[sync]
             self._rod_sync_needed[:] = False
 
         # --- hip pitch: rod-length command, window clamp, loaded-speed slew ---
@@ -182,6 +229,9 @@ class CrabHexDelayedJointPositionAction(DelayedJointPositionAction):
         lam_h_cmd = linkage.hip_actuator_length(theta_h_cmd).clamp(
             linkage.HIP_LEN_MIN_M, linkage.HIP_LEN_MAX_M
         )
+        if self._lpf_alpha is not None:
+            self._hip_rod_cmd_lpf = linkage.lpf_step(self._hip_rod_cmd_lpf, lam_h_cmd, self._lpf_alpha)
+            lam_h_cmd = self._hip_rod_cmd_lpf
         max_step_h = linkage.HIP_SPEED_M_S * dt
         dlam_h = (lam_h_cmd - self._hip_rod_len).clamp(-max_step_h, max_step_h)
         self._hip_rod_len += dlam_h
@@ -208,6 +258,9 @@ class CrabHexDelayedJointPositionAction(DelayedJointPositionAction):
         lam_k_cmd = linkage.knee_actuator_length(theta_h_default, theta_k_cmd).clamp(
             linkage.KNEE_LEN_MIN_M, linkage.KNEE_LEN_MAX_M
         )
+        if self._lpf_alpha is not None:
+            self._knee_rod_cmd_lpf = linkage.lpf_step(self._knee_rod_cmd_lpf, lam_k_cmd, self._lpf_alpha)
+            lam_k_cmd = self._knee_rod_cmd_lpf
         max_step_k = linkage.KNEE_SPEED_M_S * dt
         dlam_k = (lam_k_cmd - self._knee_rod_len).clamp(-max_step_k, max_step_k)
         self._knee_rod_len += dlam_k
@@ -276,9 +329,17 @@ class CrabHexDelayedJointPositionAction(DelayedJointPositionAction):
             (v / linkage.dims.CLOCK_V_MAX_M_S).clamp(max=1.0) * linkage.dims.CLOCK_F_MAX_REV_S,
             torch.zeros_like(v),
         )
-        self.clock_phase = torch.remainder(
+        advanced = torch.remainder(
             self.clock_phase + 2.0 * math.pi * freq_rev_s * self._env.step_dt, 2.0 * math.pi
         )
+        if self._stand_park:
+            # KRABBY_OMNI_STAND_PARK (default off): the STAND slot parks the clock at its next
+            # touchdown (full cadence until it gets there) whatever the yaw-rate relay says.
+            parked = self._env.command_manager.get_term("base_velocity").stand_mask()
+            self.clock_parked = parked
+            park_step = 2.0 * math.pi * linkage.dims.CLOCK_F_MAX_REV_S * self._env.step_dt
+            advanced = torch.where(parked, park_clock_phase(self.clock_phase, park_step), advanced)
+        self.clock_phase = advanced
         if self.env.common_step_counter % self._delay_update_global_steps == 0:
             if len(self._action_delay_steps) != 0:
                 self.delay = torch.tensor(

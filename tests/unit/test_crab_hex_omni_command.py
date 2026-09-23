@@ -2279,7 +2279,17 @@ def test_a_pooled_term_still_consumes_rsi_staging_exactly_once():
 #: suite (plan D2, 2026-09-21). The suite runs one hold per wave precisely so every row it hands the
 #: hook stays SCALAR and the hook -- inside ``code_sha`` -- never changes; a diff here means the
 #: training-side command term moved, which this eval-only change must not do.
-SCHEDULE_HOOK_SOURCE_SHA256 = "d74b2fa38a0ad1f62a27c9d9ec281995d7350d1e4266343781cf7dc809b618bf"
+#:
+#: RE-PINNED 2026-09-22 (motion-quality plan step 2, a TRAINING-side change that moves ``code_sha``
+#: on purpose): the hook gained the two default-off knob branches -- ``KRABBY_OMNI_RELAY_HYST``
+#: re-arms its latch on a new facing target, and ``KRABBY_OMNI_STAND_HOLD`` is applied AFTER the
+#: slot is re-derived from the raw relay output (``_write_command(..., apply_hold=False)``), so a
+#: suite stand hold receives the hold and a turn hold can never be latched into "stand"; and with
+#: any stand-keyed knob armed (``eval_slot_latch``) the turning bit is latched per hold, the
+#: sampler's rule. With every knob off the hook is behaviourally the pre-change one (pinned by
+#: ``test_with_every_motion_knob_off_the_hook_is_the_legacy_hook``).
+#: Previous digest: d74b2fa38a0ad1f62a27c9d9ec281995d7350d1e4266343781cf7dc809b618bf.
+SCHEDULE_HOOK_SOURCE_SHA256 = "320d3d82056ebdc0a6619479734699b408ed68efb247adb6b181c2e170dcfea1"
 
 
 def test_schedule_hook_is_untouched_by_the_suite():
@@ -2298,3 +2308,130 @@ def test_schedule_hook_is_untouched_by_the_suite():
     assert len(hooks) == 1, hooks
     digest = hashlib.sha256(ast.get_source_segment(src, hooks[0][1]).encode()).hexdigest()
     assert digest == SCHEDULE_HOOK_SOURCE_SHA256
+
+
+# ======================================================== motion-quality knobs (plan step 2)
+def test_relay_hyst_math_latches_on_at_engage_and_off_at_release():
+    target = torch.zeros(5)
+    yaw = -torch.tensor([0.10, 0.20, 0.30, 0.04, 0.06])          # err = +0.10 .. +0.06
+    off = torch.zeros(5, dtype=torch.bool)
+    wz, latch = omni_math.heading_rate_command_hyst(target, yaw, 1.5, 0.3, off, 0.25, 0.05)
+    # disengaged: only the 0.30 row passes engage
+    assert torch.equal(latch, torch.tensor([False, False, True, False, False]))
+    assert torch.equal(wz, torch.tensor([0.0, 0.0, 0.3, 0.0, 0.0]))
+    on = torch.ones(5, dtype=torch.bool)
+    wz, latch = omni_math.heading_rate_command_hyst(target, yaw, 1.5, 0.3, on, 0.25, 0.05)
+    # engaged: everything above release stays on, with NO dead band (0.10 * 1.5 = 0.15 < 0.2 clip)
+    assert torch.equal(latch, torch.tensor([True, True, True, False, True]))
+    assert torch.allclose(wz, torch.tensor([0.15, 0.3, 0.3, 0.0, 0.09]))
+    # sign follows the error, the saturation is the per-row tensor when given one
+    wz, _ = omni_math.heading_rate_command_hyst(target, -yaw, 1.5, torch.full((5,), 0.2), on, 0.25, 0.05)
+    assert torch.allclose(wz, -torch.tensor([0.15, 0.2, 0.2, 0.0, 0.09]))
+
+
+@pytest.mark.parametrize("engage,release", [(0.05, 0.05), (0.05, 0.25), (0.25, -0.01), (float("nan"), 0.0)])
+def test_relay_hyst_thresholds_are_validated(engage, release):
+    with pytest.raises(ValueError):
+        omni_math.check_relay_hyst(engage, release)
+
+
+def test_motion_knobs_off_allocate_nothing_and_keep_the_legacy_relay():
+    term, _ = _term(_cfg(), n=8, yaw=_spread_yaw(8))
+    assert term._relay_hyst is None and term._stand_hold is False and term._slot_latch is False
+    assert not hasattr(term, "relay_latch") and not hasattr(term, "_hook_turning")
+    assert torch.equal(term.stand_mask(), term.slot_id == S_STAND)
+
+
+def test_relay_hyst_term_ignores_drift_below_engage_and_rearms_on_a_new_turn():
+    yaw = torch.zeros(4)
+    term, robot = _term(_cfg(relay_hyst=(0.25, 0.05), slot_probs=(1.0, 0.0, 0.0, 0.0)), n=4, yaw=yaw)
+    _resample(term)
+    assert bool((term.slot_id == S_STAND).all()) and not bool(term.relay_latch.any())
+    robot.data.heading_w[:] = torch.tensor([0.10, 0.20, 0.30, -0.30])   # drift off the held facing
+    term._update_command()
+    # the stock relay would fire on every row past 0.133 rad; the latch only past 0.25
+    assert torch.equal(term.relay_latch, torch.tensor([False, False, True, True]))
+    assert torch.allclose(term.vel_command_b[:, 2], torch.tensor([0.0, 0.0, -0.3, 0.3]))
+    robot.data.heading_w[:] = torch.tensor([0.10, 0.20, 0.10, -0.04])   # back inside
+    term._update_command()
+    assert torch.equal(term.relay_latch, torch.tensor([False, False, True, False]))
+    assert torch.allclose(term.vel_command_b[:, 2], torch.tensor([0.0, 0.0, -0.15, 0.0]))
+    # a commanded turn smaller than engage is NOT swallowed: a fresh target re-arms at > release
+    robot.data.heading_w[:] = 0.0
+    term.schedule_hook({"speed": 0.0, "dir": 0.0, "face": 0.2})
+    assert bool(term.relay_latch.all()) and bool((term.vel_command_b[:, 2] > 0.0).all())
+    term.schedule_hook({"speed": 0.0, "dir": 0.0, "face": 0.2})       # same target: latch kept
+    assert bool(term.relay_latch.all())
+
+
+def test_stand_hold_zeroes_wz_on_training_stand_slots_only():
+    yaw = _spread_yaw(64)
+    plain, plain_robot = _term(_cfg(slot_probs=(0.5, 0.5, 0.0, 0.0)), n=64, yaw=yaw)
+    held, held_robot = _term(_cfg(slot_probs=(0.5, 0.5, 0.0, 0.0), stand_hold=True), n=64, yaw=yaw)
+    _resample(plain)
+    _resample(held)
+    assert torch.equal(plain.slot_id, held.slot_id)
+    drift = yaw + 0.4
+    plain_robot.data.heading_w[:] = drift
+    held_robot.data.heading_w[:] = drift
+    plain._update_command()
+    held._update_command()
+    stand = held.stand_mask()
+    assert bool(stand.any()) and bool((~stand).any())
+    assert bool((plain.vel_command_b[stand, 2] != 0.0).all()), "the relay fires on the drift"
+    assert torch.equal(held.vel_command_b[stand, 2], torch.zeros(int(stand.sum())))
+    assert torch.equal(held.vel_command_b[~stand], plain.vel_command_b[~stand])
+    # a stand slot's planar command is exactly zero, so the clock speed is exactly zero
+    assert torch.equal(held.vel_command_b[stand, :2], torch.zeros(int(stand.sum()), 2))
+
+
+def test_a_suite_stand_hold_receives_the_hold_even_after_drifting():
+    """The eval path: a stand hold (speed 0, face = the spawn facing) must be a STAND slot for the
+    whole hold -- keyed on ``slot_id``, not ``type_id`` (the hook sets -1) -- and so get wz 0 even
+    when the body drifts past the dead band, where the legacy re-derivation says "turn"."""
+    term, robot = _term(_cfg(stand_hold=True, eval_slot_latch=True), n=4, yaw=torch.zeros(4))
+    row = {"speed": 0.0, "dir": 0.0, "face": 0.0}
+    term.schedule_hook(row)
+    assert bool((term.slot_id == S_STAND).all()) and bool((term.type_id == -1).all())
+    robot.data.heading_w[:] = 0.4                                   # drift well past 0.133 rad
+    term.schedule_hook(row)
+    assert bool((term.slot_id == S_STAND).all())
+    assert torch.equal(term.vel_command_b[:, 2], torch.zeros(4))
+    # the legacy derivation (no latch) would have called it a turn and applied the relay
+    legacy, legacy_robot = _term(_cfg(stand_hold=True), n=4, yaw=torch.zeros(4))
+    legacy.schedule_hook(row)
+    legacy_robot.data.heading_w[:] = 0.4
+    legacy.schedule_hook(row)
+    assert bool((legacy.slot_id == S_TURN).all()) and bool((legacy.vel_command_b[:, 2] != 0.0).all())
+
+
+def test_a_turn_hold_is_never_latched_into_stand_by_the_hold():
+    term, robot = _term(_cfg(stand_hold=True, eval_slot_latch=True), n=4, yaw=torch.zeros(4))
+    term.schedule_hook({"speed": 0.0, "dir": 0.0, "face": 0.0})       # a stand hold first
+    turn = {"speed": 0.0, "dir": 0.0, "face": math.pi / 2}
+    term.schedule_hook(turn)
+    assert bool((term.slot_id == S_TURN).all())
+    assert float(term.vel_command_b[0, 2]) == pytest.approx(0.3, abs=1e-6)
+    robot.data.heading_w[:] = math.pi / 2 - 0.3                        # still turning
+    term.schedule_hook(turn)
+    assert bool((term.slot_id == S_TURN).all()) and bool((term.vel_command_b[:, 2] > 0.0).all())
+    # a reset mid-hold re-samples the target, so the next hook call is fresh again
+    term.heading_target[:] = 1.0
+    robot.data.heading_w[:] = math.pi / 2
+    term.schedule_hook(turn)
+    assert bool((term.slot_id == S_STAND).all())
+    assert torch.equal(term.vel_command_b[:, 2], torch.zeros(4))
+
+
+def test_with_every_motion_knob_off_the_hook_is_the_legacy_hook():
+    """Knob-off equivalence on the eval path: same rows, same robot, bitwise the same outputs."""
+    yaw = torch.tensor([0.0, 0.3, -0.5, 1.0])
+    a, ra = _term(_cfg(), n=4, yaw=yaw)
+    b, rb = _term(_cfg(), n=4, yaw=yaw)
+    for row in ({"speed": 0.0, "dir": 0.0, "face": 0.0}, {"speed": 0.22, "dir": 1.0, "face": 0.5},
+                {"speed": 0.0, "dir": 0.0, "face": math.pi / 2}):
+        a.schedule_hook(row)
+        b.schedule_hook(row)
+        assert torch.equal(a.vel_command_b, b.vel_command_b) and torch.equal(a.slot_id, b.slot_id)
+        ra.data.heading_w[:] += 0.1
+        rb.data.heading_w[:] += 0.1

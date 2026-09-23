@@ -75,6 +75,16 @@ The forward scanner sits 0.6 m ahead (``pos=(0.6, 0.0, 20.0)``), which the fore-
 does not contain -- hence the omni scene's ``pos=(0.0, 0.0, 20.0)``
 (:data:`REQUIRED_SCANNER_OFFSET_XY`, plan D7).
 
+OPTIONAL HEAD EXTENSIONS (motion-quality campaign 2026-09-22, DEFAULT OFF). The observation term
+may append up to two blocks after slot 16 (``crab_hex_omni_observations``): the STAND bit
+(``params["stand_obs"]``, 1 dim) and the low-passed rod-length command (``params["lpf_obs"]``,
+12 dims: hip x6 | knee x6 in the action term's leg order). :func:`extend_head` grows both head
+tables to match: the stand bit is a scalar (+1 under both planes); each rod channel is a physical
+rod LENGTH, frame-free, so it is +1 too and is only PERMUTED with the plane's leg swap (the
+``head_perm`` the forward ``CrabHexMirror`` accepts). :func:`build_mirrors` reads both flags off the
+observation term's own params -- the same contract as the facing encoding -- so the mirror and the
+observation can never disagree on the width.
+
 ENTRY POINT. ``crab_hex_omni_symmetry_augmentation`` is the rsl-rl ``data_augmentation_func``
 (``PPOWithExtractor``): ``f(obs, actions, env, obs_type) -> (obs_aug, act_aug)`` where each
 output is ``cat([x, M_y x, M_x x, M_x M_y x])`` along the batch dim. The fork derives
@@ -169,6 +179,11 @@ FACING_OBS_ENCODINGS = ("raw", "sincos")
 OBS_GROUP_ATTR = "policy"
 OBS_TERM_ATTR = "extreme_parkour_observations"
 OBS_ENCODING_PARAM = "facing_obs_encoding"
+#: The two optional head-extension params and their widths (``crab_hex_omni_observations``).
+OBS_STAND_PARAM = "stand_obs"
+OBS_LPF_PARAM = "lpf_obs"
+STAND_OBS_DIM = 1
+LPF_OBS_DIM = 12
 
 
 def head_signs(encoding: str = "raw") -> tuple[list, list, list]:
@@ -196,6 +211,64 @@ def head_signs(encoding: str = "raw") -> tuple[list, list, list]:
         lr[FACING_COS_SLOT] = 1.0
         fa[FACING_COS_SLOT] = 1.0
     return lr, fa, [a * b for a, b in zip(lr, fa)]
+
+
+def extend_head(
+    lr_signs: list,
+    fa_signs: list,
+    *,
+    stand_obs: bool = False,
+    lpf_obs: bool = False,
+    rod_leg_names: list[str] | None = None,
+) -> tuple[list, list, list | None, list | None]:
+    """Grow the two 17-slot head tables by the optional extensions.
+
+    Returns ``(lr_signs, fa_signs, lr_perm, fa_perm)``; the perms are ``None`` (identity) when no
+    rod block is present, so a head without extensions builds exactly the shipped mirror.
+    ``rod_leg_names``: the six leg-ordered names (e.g. ``"FL_Hip_Femur_RevoluteJoint"``) the rod
+    block is laid out in -- the hip and knee halves share this leg order.
+    """
+    lr = list(lr_signs)
+    fa = list(fa_signs)
+    lr_perm: list[int] | None = None
+    fa_perm: list[int] | None = None
+    if stand_obs:
+        lr.append(1.0)
+        fa.append(1.0)
+    if lpf_obs:
+        if rod_leg_names is None or len(rod_leg_names) * 2 != LPF_OBS_DIM:
+            raise ValueError(f"lpf_obs needs the 6 leg-ordered rod names, got {rod_leg_names!r}")
+        base = len(lr)
+        lr_perm = list(range(base))
+        fa_perm = list(range(base))
+        leg_lr = _fwd.build_name_permutation(list(rod_leg_names), LEG_SWAP_LR)
+        leg_fa = _fwd.build_name_permutation(list(rod_leg_names), LEG_SWAP_FA)
+        n = len(rod_leg_names)
+        for half in range(2):                     # hip block, then knee block
+            off = base + half * n
+            lr_perm.extend(off + p for p in leg_lr)
+            fa_perm.extend(off + p for p in leg_fa)
+        lr.extend([1.0] * LPF_OBS_DIM)
+        fa.extend([1.0] * LPF_OBS_DIM)
+    return lr, fa, lr_perm, fa_perm
+
+
+def _obs_params(env) -> dict:
+    """The omni observation term's params dict (``{}`` if the path exists but holds none)."""
+    uenv = getattr(env, "unwrapped", env)
+    cfg = getattr(uenv, "cfg", None)
+    group = getattr(getattr(cfg, "observations", None), OBS_GROUP_ATTR, None)
+    term = getattr(group, OBS_TERM_ATTR, None)
+    params = getattr(term, "params", None)
+    return params if isinstance(params, dict) else {}
+
+
+def _rod_leg_names(env) -> list[str]:
+    """The pitch joint names in the order the action term lays out its rod state."""
+    uenv = getattr(env, "unwrapped", env)
+    term = uenv.action_manager.get_term("joint_pos")
+    names = list(uenv.scene["robot"].joint_names)
+    return [names[i] for i in term._pitch_joint_ids]
 
 
 def _facing_obs_encoding(env) -> str:
@@ -235,9 +308,17 @@ def build_mirrors(env, obs_dim: int) -> tuple[object, object]:
     observation term -- the mirror and the observation are two halves of one contract.
     """
     lr_signs, fa_signs, _ = head_signs(_facing_obs_encoding(env))
-    layout = _fwd._resolve_layout(env, obs_dim, n_head=N_HEAD)
+    params = _obs_params(env)
+    stand_obs = bool(params.get(OBS_STAND_PARAM, False))
+    lpf_obs = bool(params.get(OBS_LPF_PARAM, False))
+    lr_signs, fa_signs, lr_perm, fa_perm = extend_head(
+        lr_signs, fa_signs, stand_obs=stand_obs, lpf_obs=lpf_obs,
+        rod_leg_names=_rod_leg_names(env) if lpf_obs else None,
+    )
+    layout = _fwd._resolve_layout(env, obs_dim, n_head=len(lr_signs))
     lr = _fwd.CrabHexMirror(
         **layout,
+        head_perm=lr_perm,
         head_signs=lr_signs,
         joint_sign_rules=JOINT_SIGN_RULES_LR,
         leg_swap=LEG_SWAP_LR,
@@ -246,6 +327,7 @@ def build_mirrors(env, obs_dim: int) -> tuple[object, object]:
     )
     fa = _fwd.CrabHexMirror(
         **layout,
+        head_perm=fa_perm,
         head_signs=fa_signs,
         joint_sign_rules=JOINT_SIGN_RULES_FA,
         leg_swap=LEG_SWAP_FA,

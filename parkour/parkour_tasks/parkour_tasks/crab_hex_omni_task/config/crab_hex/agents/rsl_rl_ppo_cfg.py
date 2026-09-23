@@ -17,6 +17,13 @@ schedules -- the campaign changes the command space, not the policy):
 
 There is no student runner: this plan is teacher-only.
 
+A THIRD, DEFAULT-OFF delta (motion-quality plan step 2, 2026-09-22): the three runner-side
+exploration knobs -- ``KRABBY_ACTION_STD_MAX`` (``policy.action_std_max``),
+``KRABBY_ACTION_STD_RESET`` (``policy.action_std_reset``) and ``KRABBY_ENTROPY_COEF``
+(``algorithm.entropy_coef``) -- via ``motion_knobs.apply_exploration_knobs``. Unset, each writes
+nothing, so the runner cfg (and ``params/agent.yaml``) is unchanged; set, the effective value is
+on the cfg ``train.py`` dumps, which is where the campaign ladder's agent-side audit reads it.
+
 Neither forward RL runner's ``__post_init__`` calls its own ``super()``:
 ``super().__post_init__()`` from the classes below therefore lands on the forward body and
 runs exactly it, once.
@@ -41,6 +48,15 @@ OMNI_MIRROR = (
 )
 
 
+def _apply_exploration_knobs(cfg) -> None:
+    """The runner-side motion-quality knobs (no-op while all three are unset)."""
+    from parkour_tasks.crab_hex_omni_task.config.crab_hex.motion_knobs import (  # noqa: PLC0415
+        apply_exploration_knobs,
+    )
+
+    apply_exploration_knobs(cfg)
+
+
 def _repoint_symmetry(cfg) -> None:
     """Point an already-armed symmetry loss at the omni mirror (no-op when it is off)."""
     sym = cfg.algorithm.symmetry_cfg
@@ -57,6 +73,7 @@ class CrabHexOmniFlatWalkPPORunnerCfg(CrabHexFlatWalkPPORunnerCfg):
     def __post_init__(self):
         super().__post_init__()
         _repoint_symmetry(self)
+        _apply_exploration_knobs(self)
 
 
 @configclass
@@ -68,3 +85,4 @@ class CrabHexOmniTeacherPPORunnerCfg(CrabHexTeacherPPORunnerCfg):
     def __post_init__(self):
         super().__post_init__()
         _repoint_symmetry(self)
+        _apply_exploration_knobs(self)

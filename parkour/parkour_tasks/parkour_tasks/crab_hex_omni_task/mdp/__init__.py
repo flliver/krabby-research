@@ -47,4 +47,8 @@ Modules (documentary only -- none of these names is bound here):
 ``crab_hex_omni_mirror`` (A8/D5, pure)
     The four-image symmetry augmentation (L/R x fore-aft = R_z(pi)) and its entry point
     ``crab_hex_omni_symmetry_augmentation`` -- the rsl-rl dotted string above.
+``crab_hex_omni_motion_rewards`` (motion-quality plan step 2, pure torch)
+    The four DEFAULT-OFF penalty terms ``config/crab_hex/motion_knobs.py`` adds to the rewards
+    cfg only when their weight knob is armed (second-difference smoothness, rod joint speed,
+    loaded-foot slip, stand-gated pose deviation).
 """

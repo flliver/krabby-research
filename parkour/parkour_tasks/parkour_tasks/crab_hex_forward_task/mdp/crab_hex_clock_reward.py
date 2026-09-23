@@ -77,6 +77,32 @@ def clock_command_speed(
     )
 
 
+#: Tolerance (in units of pi) under which a phase counts as sitting ON a touchdown boundary.
+PARK_EPS = 1e-5
+
+
+def park_clock_phase(phase: torch.Tensor, max_step: float | torch.Tensor) -> torch.Tensor:
+    """Advance a PARKED gait clock toward its next touchdown and hold it there, ``[N]``.
+
+    The stand-park knob (``KRABBY_OMNI_STAND_PARK``, omni task only; default OFF, and nothing
+    on the forward/sideways path calls this). Under the alternating-tripod schedule above a
+    swing window is ``sin(phase + offset_i) > 0``: set A swings on ``(0, pi)`` and touches down
+    at ``pi``, set B swings on ``(pi, 2 pi)`` and touches down at ``2 pi == 0``. So the next
+    TOUCHDOWN is the next multiple of ``pi`` at or after ``phase``; there every foot is at the
+    boundary of its stance window, and the clock resumes from a touchdown -- not from the
+    middle of a swing it froze in -- when motion is commanded again.
+
+    ``phase`` advances by at most ``max_step`` rad and never past that multiple (it lands on it
+    exactly), then is wrapped to ``[0, 2 pi)``. A phase already ON a multiple of ``pi`` stays
+    where it is (a float32 phase a few ulp PAST a multiple counts as on it -- :data:`PARK_EPS`
+    -- so rounding can never send a parked clock round another half cycle). Pure torch: the
+    unit tests pin exactly the function the action term calls.
+    """
+    target = torch.ceil(phase / torch.pi - PARK_EPS) * torch.pi
+    advanced = torch.minimum(phase + max_step, target)
+    return torch.remainder(advanced, 2.0 * torch.pi)
+
+
 def clock_schedule_income(
     phase: torch.Tensor,
     foot_force_n: torch.Tensor,

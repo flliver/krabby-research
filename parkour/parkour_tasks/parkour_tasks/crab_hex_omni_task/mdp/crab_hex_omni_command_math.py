@@ -258,6 +258,62 @@ def heading_rate_command(
     return wz * (torch.abs(wz) > ang_vel_clip)
 
 
+def check_relay_hyst(engage: float, release: float) -> None:
+    """``0 <= release < engage``, both finite -- anything else is a relay that never turns off
+    (release >= engage chatters exactly like the dead band it replaces) or never turns on."""
+    if not (math.isfinite(engage) and math.isfinite(release)):
+        raise ValueError(f"relay hysteresis thresholds must be finite, got ({engage}, {release})")
+    if not (0.0 <= release < engage):
+        raise ValueError(
+            f"relay hysteresis needs 0 <= release < engage (rad), got engage={engage}, "
+            f"release={release}"
+        )
+
+
+def heading_rate_command_hyst(
+    heading_target: torch.Tensor,
+    yaw: torch.Tensor,
+    stiffness: float,
+    ang_vel_max,
+    latch: torch.Tensor,
+    engage: float,
+    release: float,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """:func:`heading_rate_command` with a HYSTERESIS latch in place of the dead band.
+
+    ``KRABBY_OMNI_RELAY_HYST`` (motion-quality campaign 2026-09-22; default OFF -- the shipped
+    path calls :func:`heading_rate_command` / :func:`heading_rate_command_rows` and never this).
+    The stock relay zeroes ``|wz| <= ang_vel_clip`` and passes everything above it, so a facing
+    error that wanders across the ~0.133 rad band edge toggles a >= 0.2 rad/s command on and off
+    -- and with it the gait clock. Here, per env, with ``err = wrap(heading_target - yaw)``:
+
+        ``latch' = |err| > release  if latch  else  |err| > engage``
+        ``wz = clip(err * stiffness, +-ang_vel_max) * latch'``
+
+    i.e. the turn command switches ON only past ``engage`` and stays on (a plain saturated
+    P-control, NO dead band) until the error is below ``release``. The dead band is replaced,
+    not stacked: with it, an engaged command would be cut again at the old band edge.
+
+    Args:
+        heading_target, yaw, stiffness: as :func:`heading_rate_command`.
+        ang_vel_max: saturation, a float or an ``(N,)`` per-row tensor (the pool path).
+        latch: ``(N,)`` bool, the previous step's latch.
+        engage, release: thresholds on ``|err|``, rad (validated by :func:`check_relay_hyst`
+            once, where the cfg is built -- not per step).
+
+    Returns:
+        ``(wz, latch')`` -- the yaw-rate command and the updated latch, both ``(N,)``.
+    """
+    err = wrap_to_pi(heading_target - yaw)
+    abs_err = torch.abs(err)
+    new_latch = torch.where(latch, abs_err > release, abs_err > engage)
+    if isinstance(ang_vel_max, torch.Tensor):
+        wz = torch.clip(err * stiffness, min=-ang_vel_max, max=ang_vel_max)
+    else:
+        wz = torch.clip(err * stiffness, min=-float(ang_vel_max), max=float(ang_vel_max))
+    return wz * new_latch, new_latch
+
+
 def check_row_ang_limits(ang_vel_max: torch.Tensor, ang_vel_clip: torch.Tensor) -> None:
     """Validate the per-row turn limits :func:`heading_rate_command_rows` will be handed.
 

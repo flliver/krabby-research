@@ -106,6 +106,11 @@ class _Asset:
 class _CmdTerm:
     def __init__(self, heading_target):
         self.heading_target = heading_target
+        # the STAND-slot predicate the optional stand observation reads (all moving by default)
+        self.slot_id = torch.ones(len(heading_target), dtype=torch.long)
+
+    def stand_mask(self):
+        return self.slot_id == 0
 
 
 class _CommandManager:
@@ -126,6 +131,8 @@ class _JointAction:
     def __init__(self, clock_phase, action_history_buf):
         self.clock_phase = clock_phase
         self.action_history_buf = action_history_buf
+        # the optional filtered-rod observation block (KRABBY_ACTION_LPF_OBS)
+        self.rod_cmd_filtered = torch.linspace(-1.0, 1.0, 12).repeat(len(clock_phase), 1)
 
 
 class _ActionManager:
@@ -178,7 +185,8 @@ exec(
     _FWD_CALL_NS,
 )
 _FWD_HOOK_NS = dict(_FWD_CALL_NS)
-for _hook in ("_steering_channels", "_command_channels"):
+for _hook in ("_steering_channels", "_command_channels", "_extra_head_dim", "_extra_head_channels",
+              "_clock_channels"):
     exec(
         compile(
             "from __future__ import annotations\n"
@@ -197,6 +205,9 @@ class _StubForwardObservations:
     __call__ = _FWD_CALL_NS["__call__"]
     _steering_channels = _FWD_HOOK_NS["_steering_channels"]
     _command_channels = _FWD_HOOK_NS["_command_channels"]
+    _extra_head_dim = _FWD_HOOK_NS["_extra_head_dim"]
+    _extra_head_channels = _FWD_HOOK_NS["_extra_head_channels"]
+    _clock_channels = _FWD_HOOK_NS["_clock_channels"]
 
     def __init__(self, cfg, env):
         g = torch.Generator().manual_seed(20260916)
@@ -218,7 +229,8 @@ class _StubForwardObservations:
         self.delta_yaw = torch.zeros(n)
         self.delta_next_yaw = torch.zeros(n)
         self.measured_heights = torch.zeros(n, NSCAN)
-        self._obs_history_buffer = torch.zeros(n, HISTORY, N_PROP)
+        # sized like the forward __init__: the 89-wide step plus any optional head extension
+        self._obs_history_buffer = torch.zeros(n, HISTORY, N_PROP + self._extra_head_dim())
 
     def _get_heights(self):
         return torch.zeros(self.num_envs, NSCAN)
@@ -246,6 +258,10 @@ exec(
     compile(
         "from __future__ import annotations\n"
         + _module_assign(OMNI_OBS_PY, "FACING_OBS_ENCODINGS")
+        + "\n"
+        + _module_assign(OMNI_OBS_PY, "STAND_OBS_DIM")
+        + "\n"
+        + _module_assign(OMNI_OBS_PY, "LPF_OBS_DIM")
         + "\n\n"
         + _source_of(OMNI_OBS_PY, cls=None, name="_check_facing_obs_encoding")
         + "\n\n"
@@ -608,3 +624,67 @@ def test_the_encoding_spellings_match_the_knob_modules(monkeypatch):
     )
     assert knobs.FACING_OBS_ENCODINGS == FACING_OBS_ENCODINGS == mirror.FACING_OBS_ENCODINGS
     assert knobs.FACING_OBS_ENCODING_VAR == "KRABBY_OMNI_FACING_OBS_ENCODING"
+
+
+# ------------------------------------------------ motion-quality head extensions (step 2)
+def _ext_term(**params):
+    env = _Env(N, torch.zeros(N, 4), torch.zeros(N))
+    term = OmniObs(_ParamCfg(**params), env)
+    return term, env
+
+
+def test_head_extensions_are_off_by_default_and_the_width_is_unchanged(monkeypatch):
+    """No param -> no channel: the knob-off observation is the shipped 1149-wide one, bitwise."""
+    monkeypatch.delenv("KRABBY_HEADING", raising=False)
+    term, env = _ext_term()
+    assert term.stand_obs is False and term.lpf_obs is False and term._extra_head_dim() == 0
+    obs = term(env, None, None, "base_parkour", HISTORY)
+    assert obs.shape == (N, 1149)
+    plain, plain_env = _ext_term(stand_obs=False, lpf_obs=False)
+    assert torch.equal(plain(plain_env, None, None, "base_parkour", HISTORY), obs)
+
+
+def test_stand_obs_appends_the_stand_bit_and_zeroes_the_clock_on_stand_rows(monkeypatch):
+    monkeypatch.delenv("KRABBY_HEADING", raising=False)
+    term, env = _ext_term(stand_obs=True)
+    phase = torch.linspace(0.3, 5.9, N)
+    env.action_manager.get_term("joint_pos").clock_phase = phase
+    cmd_term = env.command_manager.get_term("base_velocity")
+    cmd_term.slot_id = torch.tensor([0, 1, 2, 3, 0, 1])                # rows 0 and 4 stand
+    stand = cmd_term.slot_id == 0
+    obs = term(env, None, None, "base_parkour", HISTORY, stand_obs=True)
+    step = N_PROP + 1
+    assert obs.shape == (N, step + NSCAN + 9 + 5 + 2 * NJ + HISTORY * step)
+    assert torch.equal(obs[:, 17], stand.float())                      # the bit, right after the clock
+    assert torch.equal(obs[stand, 15], torch.zeros(2)) and torch.equal(obs[stand, 16], torch.zeros(2))
+    assert torch.equal(obs[~stand, 15], torch.sin(phase[~stand]))
+    assert torch.equal(obs[~stand, 16], torch.cos(phase[~stand]))
+    # the joint block moved one slot right, intact (its first six -- the cam shafts -- are wrapped)
+    delta = term.asset.data.joint_pos - term.asset.data.default_joint_pos
+    assert torch.equal(obs[:, 18 + 6:18 + NJ], delta[:, 6:])
+
+
+def test_lpf_obs_appends_the_filtered_rod_command(monkeypatch):
+    monkeypatch.delenv("KRABBY_HEADING", raising=False)
+    term, env = _ext_term(stand_obs=True, lpf_obs=True)
+    obs = term(env, None, None, "base_parkour", HISTORY, stand_obs=True, lpf_obs=True)
+    rods = env.action_manager.get_term("joint_pos").rod_cmd_filtered
+    assert term._extra_head_dim() == 13
+    assert torch.equal(obs[:, 17], torch.zeros(N))                     # stand bit first ...
+    assert torch.equal(obs[:, 18:30], rods)                            # ... then the 12 rods
+    only, only_env = _ext_term(lpf_obs=True)
+    got = only(only_env, None, None, "base_parkour", HISTORY, lpf_obs=True)
+    assert torch.equal(got[:, 17:29], rods)
+
+
+def test_the_head_extensions_cannot_change_after_construction(monkeypatch):
+    monkeypatch.delenv("KRABBY_HEADING", raising=False)
+    term, env = _ext_term()
+    with pytest.raises(ValueError, match="construction-time"):
+        term(env, None, None, "base_parkour", HISTORY, stand_obs=True)
+
+
+def test_the_extension_widths_match_the_mirror(monkeypatch):
+    mirror = _load(TASKS / "crab_hex_omni_task/mdp/crab_hex_omni_mirror.py", "omni_mirror__ext_test")
+    assert _OMNI_NS["STAND_OBS_DIM"] == mirror.STAND_OBS_DIM == 1
+    assert _OMNI_NS["LPF_OBS_DIM"] == mirror.LPF_OBS_DIM == 12

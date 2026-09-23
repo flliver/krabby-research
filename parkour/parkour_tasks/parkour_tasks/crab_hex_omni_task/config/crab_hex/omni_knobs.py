@@ -71,6 +71,13 @@ five things the forward block cannot know about:
     pure turn feeds the gait clock, and below :data:`CLOCK_TURN_MIN_SPEED` the clock STOPS, so
     a turn stage would train a statue while both knobs looked individually reasonable.
 
+11. **the MOTION-QUALITY knobs** (gait-stabilisation plan step 2, 2026-09-22; all DEFAULT OFF,
+    set by no preset) -- ``motion_knobs.py``, path-loaded below and re-exported here (their
+    ``*_VAR`` names and parsers) so the campaign ladder's whitelist / parser table, which reads
+    this module, sees them. :func:`apply_omni_knobs` applies the env-side ones LAST
+    (``motion_knobs.apply_motion_knobs``); the runner-side three (std clamp / std reset /
+    entropy) are applied by the omni runner cfgs (``agents/rsl_rl_ppo_cfg.py``).
+
 Every parser is pure and lives at module scope with no Isaac import (the Isaac-touching bits
 are lazy imports inside :func:`apply_omni_knobs`), so this module can be path-loaded and
 unit-tested without booting Kit -- see ``tests/unit/test_crab_hex_omni_phases.py``.
@@ -86,6 +93,42 @@ import math
 import os
 import sys
 from pathlib import Path
+
+_MOTION_KNOBS_PY = Path(__file__).resolve().parent / "motion_knobs.py"
+_MOTION_KNOBS_NAME = "crab_hex_omni_motion_knobs"
+
+
+def _motion_knobs():
+    """``motion_knobs.py`` (pure), by path -- the same object for every loader of this module."""
+    mod = sys.modules.get(_MOTION_KNOBS_NAME)
+    if mod is None:
+        spec = importlib.util.spec_from_file_location(_MOTION_KNOBS_NAME, _MOTION_KNOBS_PY)
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules[_MOTION_KNOBS_NAME] = mod
+        spec.loader.exec_module(mod)
+    return mod
+
+
+_mk = _motion_knobs()
+# Re-exported so ``dir(omni_knobs)`` -- the ladder's knob whitelist -- names every motion knob.
+ACTION_STD_MAX_VAR = _mk.ACTION_STD_MAX_VAR
+ACTION_STD_RESET_VAR = _mk.ACTION_STD_RESET_VAR
+ENTROPY_COEF_VAR = _mk.ENTROPY_COEF_VAR
+ACTION_RATE_SQ_VAR = _mk.ACTION_RATE_SQ_VAR
+ACTION_SMOOTH2_W_VAR = _mk.ACTION_SMOOTH2_W_VAR
+JOINT_VEL_W_VAR = _mk.JOINT_VEL_W_VAR
+FOOT_SLIP_W_VAR = _mk.FOOT_SLIP_W_VAR
+STAND_POSE_W_VAR = _mk.STAND_POSE_W_VAR
+ACTION_LPF_HZ_VAR = _mk.ACTION_LPF_HZ_VAR
+ACTION_LPF_OBS_VAR = _mk.ACTION_LPF_OBS_VAR
+RELAY_HYST_VAR = _mk.RELAY_HYST_VAR
+STAND_HOLD_VAR = _mk.STAND_HOLD_VAR
+STAND_PARK_VAR = _mk.STAND_PARK_VAR
+STAND_OBS_VAR = _mk.STAND_OBS_VAR
+POWER_W_VAR = _mk.POWER_W_VAR
+ACTION_RATE_W_VAR = _mk.ACTION_RATE_W_VAR
+AIRTIME_W_VAR = _mk.AIRTIME_W_VAR
+MOTION_KNOB_PARSERS = _mk.MOTION_KNOB_PARSERS
 
 __all__ = [
     "SLOTS_VAR",
@@ -128,6 +171,12 @@ __all__ = [
     "parse_progress_w",
     "parse_facing_obs_encoding",
     "apply_omni_knobs",
+    # motion-quality knobs (motion_knobs.py)
+    "ACTION_STD_MAX_VAR", "ACTION_STD_RESET_VAR", "ENTROPY_COEF_VAR", "ACTION_RATE_SQ_VAR",
+    "ACTION_SMOOTH2_W_VAR", "JOINT_VEL_W_VAR", "FOOT_SLIP_W_VAR", "STAND_POSE_W_VAR",
+    "ACTION_LPF_HZ_VAR", "ACTION_LPF_OBS_VAR", "RELAY_HYST_VAR", "STAND_HOLD_VAR",
+    "STAND_PARK_VAR", "STAND_OBS_VAR", "POWER_W_VAR", "ACTION_RATE_W_VAR", "AIRTIME_W_VAR",
+    "MOTION_KNOB_PARSERS",
 ]
 
 SLOTS_VAR = "KRABBY_OMNI_SLOTS"
@@ -1048,3 +1097,6 @@ def apply_omni_knobs(cfg, environ=None) -> None:
     )
 
     apply_omni_ring_knobs(cfg, env)
+    # The motion-quality knobs (all default off; each one unset writes nothing). LAST, so a term
+    # they add, and the obs params they arm, see the otherwise-final cfg.
+    _mk.apply_motion_knobs(cfg, env)

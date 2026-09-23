@@ -105,6 +105,24 @@ def _clock_cmd_speed(env: ParkourManagerBasedRLEnv, cmd: torch.Tensor) -> torch.
     )
 
 
+def _clock_running(
+    env: ParkourManagerBasedRLEnv, cmd: torch.Tensor, cmd_stop: float, stand_park: bool
+) -> torch.Tensor:
+    """Is the gait clock's schedule live (swing windows exist) for each env?
+
+    ``_clock_cmd_speed(env, cmd) > cmd_stop`` -- the literal both clock rewards always used.
+    ``stand_park`` (``KRABBY_OMNI_STAND_PARK``, an omni env-cfg attribute that no shipped cfg
+    carries, so it is ``False`` on every recorded path) additionally forces the ALL-STANCE
+    schedule on the envs whose clock the action term has parked (the omni STAND slot): swing and
+    apex income are then zero there even when the facing relay's yaw-rate command would have
+    kept the clock running.
+    """
+    running = _clock_cmd_speed(env, cmd) > cmd_stop
+    if stand_park:
+        running = running & ~env.action_manager.get_term("joint_pos").clock_parked
+    return running
+
+
 class reward_feet_edge(ManagerTermBase):
     def __init__(self, cfg: RewardTermCfg, env: ParkourManagerBasedRLEnv):
         super().__init__(cfg, env)
@@ -312,9 +330,16 @@ class reward_action_rate(ManagerTermBase):
         self,
         env: ParkourManagerBasedRLEnv,        
         asset_cfg: SceneEntityCfg,
+        squared: bool = False,
         ) -> torch.Tensor:
         self.previous_actions[:, 0, :] = self.previous_actions[:, 1, :]
         self.previous_actions[:, 1, :] = env.action_manager.get_term('joint_pos').raw_actions
+        if squared:
+            # ``KRABBY_ACTION_RATE_SQ=1`` (omni motion-quality campaign; default off -- no
+            # shipped cfg carries the param, so the line below is the untouched path): the
+            # squared L2 ``||a_t - a_{t-1}||^2`` of legged-gym's action-rate term, which prices
+            # large jumps quadratically instead of every jump linearly.
+            return torch.sum(torch.square(self.previous_actions[:, 1, :] - self.previous_actions[:, 0, :]), dim=1)
         return torch.norm(self.previous_actions[:, 1, :] - self.previous_actions[:,0,:], dim=1)
     
 class reward_dof_acc(ManagerTermBase):
@@ -1185,6 +1210,7 @@ class RewardClockContactSchedule(ManagerTermBase):
         from parkour_tasks.crab_hex_forward_task.mdp import crab_hex_dimensions as _dims
 
         self._cmd_stop = _dims.CLOCK_CMD_STOP_M_S
+        self._stand_park = bool(getattr(env.cfg, "omni_stand_park", False))
 
     def __call__(
         self,
@@ -1203,7 +1229,7 @@ class RewardClockContactSchedule(ManagerTermBase):
         force = sensor.data.net_forces_w[:, self._foot_sensor_ids].norm(dim=-1)
         speed_xy = asset.data.body_lin_vel_w[:, self._foot_body_ids, :2].norm(dim=-1)
         cmd = env.command_manager.get_command(command_name)
-        clock_running = _clock_cmd_speed(env, cmd) > self._cmd_stop
+        clock_running = _clock_running(env, cmd, self._cmd_stop, self._stand_park)
         income = clock_schedule_income(
             phase, force, speed_xy, clock_running, force_ref=force_ref, vel_ref=vel_ref,
             combine=combine,
@@ -1226,6 +1252,7 @@ class RewardClockSwingApex(ManagerTermBase):
         from parkour_tasks.crab_hex_forward_task.mdp import crab_hex_dimensions as _dims
 
         self._cmd_stop = _dims.CLOCK_CMD_STOP_M_S
+        self._stand_park = bool(getattr(env.cfg, "omni_stand_park", False))
 
     def __call__(
         self,
@@ -1243,7 +1270,7 @@ class RewardClockSwingApex(ManagerTermBase):
         ground_z = asset.data.root_pos_w[:, 2].unsqueeze(1) + ground_offset_from_root_m
         height = foot_z - ground_z
         cmd = env.command_manager.get_command(command_name)
-        clock_running = _clock_cmd_speed(env, cmd) > self._cmd_stop
+        clock_running = _clock_running(env, cmd, self._cmd_stop, self._stand_park)
         income = clock_swing_apex_income(
             phase, height, clock_running, apex_m=apex_m, sigma_m=sigma_m
         )

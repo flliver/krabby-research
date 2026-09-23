@@ -138,8 +138,16 @@ class CrabHexMirror:
         leg_swap: dict[str, str] | None = None,
         scan_axis: str = "y",
         vec3_signs: tuple[float, float, float] = (1.0, -1.0, 1.0),
+        head_perm: list[int] | None = None,
     ):
         head_signs = _HEAD_SIGNS if head_signs is None else head_signs
+        # ``head_perm`` (default None = identity, every recorded run): a permutation WITHIN the
+        # proprio head, for a sibling head that carries per-leg channels (the omni term's optional
+        # filtered-rod block). ``head_signs[i]`` is the sign applied to output slot ``i``, whose
+        # value is read from input slot ``head_perm[i]`` -- the joint blocks' convention.
+        if head_perm is not None:
+            if sorted(head_perm) != list(range(len(head_signs))):
+                raise ValueError(f"head_perm must permute range({len(head_signs)}), got {head_perm}")
         joint_sign_rules = _JOINT_SIGN_RULES if joint_sign_rules is None else joint_sign_rules
         leg_swap = _LEG_SWAP if leg_swap is None else leg_swap
 
@@ -159,7 +167,7 @@ class CrabHexMirror:
         n_prop = n_head + 2 * nj + na + nc
 
         # Assemble the per-step (n_prop) map.
-        step_perm: list[int] = list(range(n_head))
+        step_perm: list[int] = list(range(n_head)) if head_perm is None else list(head_perm)
         step_sign: list[float] = list(head_signs)
         base = n_head
         for block_sign_from_perm, size, perm, signs in (

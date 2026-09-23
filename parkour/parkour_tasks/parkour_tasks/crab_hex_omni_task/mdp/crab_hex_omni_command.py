@@ -62,9 +62,11 @@ from .crab_hex_omni_command_math import (
     SLOT_STAND,
     SLOT_TURN,
     body_command_details,
+    check_relay_hyst,
     check_row_ang_limits,
     ellipse_cap,
     heading_rate_command,
+    heading_rate_command_hyst,
     heading_rate_command_rows,
     parse_cmd_pool,
     pool_speed_scale_floor,
@@ -449,6 +451,25 @@ class CrabHexOmniCommand(UniformParkourCommand):
         # pool configured it STAYS -1 for the whole run, so any consumer may read it
         # unconditionally, and every table gather lands on the sentinel (unit) entry.
         self.type_id = torch.full((n,), -1, dtype=torch.long, device=dev)
+        # -- two OPTIONAL, DEFAULT-OFF command knobs (motion-quality campaign, 2026-09-22), read
+        # off cfg attributes no shipped cfg carries (``getattr`` -> off), so the recorded path is
+        # untouched. ``relay_hyst`` = ``(engage, release)`` rad (``KRABBY_OMNI_RELAY_HYST``): the
+        # yaw-rate relay gets a per-env hysteresis latch (``heading_rate_command_hyst``) in place
+        # of its dead band. ``stand_hold`` (``KRABBY_OMNI_STAND_HOLD``): the APPLIED yaw-rate
+        # command is zero on every row whose slot is STAND -- keyed on ``slot_id``, never on
+        # ``type_id`` (an eval hold sets ``type_id = -1``), so it is live under the eval's
+        # schedule override too. Zero wz plus the stand slot's exactly-zero planar command is a
+        # zero clock speed, i.e. the gait clock stops (``clock_command_speed``).
+        hyst = getattr(cfg, "relay_hyst", None)
+        self._relay_hyst = None if hyst is None else (float(hyst[0]), float(hyst[1]))
+        if self._relay_hyst is not None:
+            check_relay_hyst(*self._relay_hyst)
+            self.relay_latch = torch.zeros(n, dtype=torch.bool, device=dev)
+        self._stand_hold = bool(getattr(cfg, "stand_hold", False))
+        # ``eval_slot_latch``: see :meth:`schedule_hook` (eval only; the sampler latches anyway).
+        self._slot_latch = bool(getattr(cfg, "eval_slot_latch", False))
+        if self._slot_latch:
+            self._hook_turning = torch.zeros(n, dtype=torch.bool, device=dev)
         # ``stand_frac_actual`` already exists (base class); the rest are new.
         for key in ("move_frac_actual", "turn_frac_actual", "move_turn_frac_actual",
                     "facing_err_abs", "recap_frac", "yaw_progress"):
@@ -584,6 +605,11 @@ class CrabHexOmniCommand(UniformParkourCommand):
         self.heading_target[env_ids] = psi
         self.slot_id[env_ids] = slot
         self.type_id[env_ids] = type_id
+        if self._relay_hyst is not None:
+            # A FRESH command re-arms the latch: a commanded turn starts engaged whenever there is
+            # more than ``release`` of it to do (so a small commanded turn below ``engage`` is not
+            # swallowed); a held facing (psi = yaw) starts disengaged.
+            self.relay_latch[env_ids] = torch.abs(wrap_to_pi(psi - yaw)) > self._relay_hyst[1]
         # Consumed exactly once: whatever was staged is gone even if this row was not
         # staged (writing NaN over NaN), so a stale row can never be replayed.
         self.rsi_cmd_staged[env_ids] = float("nan")
@@ -617,12 +643,25 @@ class CrabHexOmniCommand(UniformParkourCommand):
         """Re-project the held world command into the CURRENT body frame (every step)."""
         self._write_command(slice(None))
 
-    def _write_command(self, env_ids):
+    def stand_mask(self) -> torch.Tensor:
+        """``(N,)`` bool: the rows whose command regime is the STAND slot (by ``slot_id``).
+
+        The one predicate every stand-keyed knob reads (``KRABBY_OMNI_STAND_HOLD`` here, the
+        action term's ``KRABBY_OMNI_STAND_PARK`` clock park, the stand observation bit and the
+        stand-pose penalty) -- keyed on the SLOT, never on ``type_id``: an eval hold carries
+        ``type_id = -1`` while its ``slot_id`` is re-derived by :meth:`schedule_hook`.
+        """
+        return self.slot_id == SLOT_STAND
+
+    def _write_command(self, env_ids, apply_hold: bool = True):
         """World command -> ``vel_command_b`` for ``env_ids`` (a tensor/list or a slice).
 
         The xy half is the global ellipse on BOTH paths: a pool type's ``speed_scale`` picks a
         slower speed at draw time, it does not narrow the clamp the body's own rotation runs
         into. Only the yaw-rate half is per-row, and only when a pool is configured.
+
+        ``apply_hold=False`` skips the ``stand_hold`` zeroing (a no-op without that knob): the eval
+        hook re-derives ``slot_id`` from the RAW relay output first and applies the hold after.
         """
         cfg = self.cfg
         a, b, c = (float(x) for x in cfg.speed_ellipse)
@@ -630,7 +669,23 @@ class CrabHexOmniCommand(UniformParkourCommand):
         speed = self.speed_cmd[env_ids]
         cmd_xy, phi, cap = body_command_details(self.travel_dir_w[env_ids], speed, yaw, a, b, c)
         self.vel_command_b[env_ids, :2] = cmd_xy
-        if self._pool is None:
+        if self._relay_hyst is not None:
+            # KRABBY_OMNI_RELAY_HYST (default off): the latch replaces the dead band on both
+            # paths; a pool row keeps its own saturation (``ang_scale``), as below.
+            ang_max = (float(cfg.ang_vel_max) if self._pool is None
+                       else float(cfg.ang_vel_max) * self._pool_tables.ang_scale[self.type_id[env_ids]])
+            wz, latch = heading_rate_command_hyst(
+                self.heading_target[env_ids],
+                yaw,
+                float(cfg.heading_control_stiffness),
+                ang_max,
+                self.relay_latch[env_ids],
+                self._relay_hyst[0],
+                self._relay_hyst[1],
+            )
+            self.relay_latch[env_ids] = latch
+            self.vel_command_b[env_ids, 2] = wz
+        elif self._pool is None:
             self.vel_command_b[env_ids, 2] = heading_rate_command(
                 self.heading_target[env_ids],
                 yaw,
@@ -649,8 +704,16 @@ class CrabHexOmniCommand(UniformParkourCommand):
                 float(cfg.ang_vel_max) * scale,
                 float(cfg.clips.ang_vel_clip) * scale,
             )
+        if self._stand_hold and apply_hold:
+            self._apply_stand_hold(env_ids)
         self.phi_b[env_ids] = phi
         self.recap_mask[env_ids] = speed > cap
+
+    def _apply_stand_hold(self, env_ids) -> None:
+        """``KRABBY_OMNI_STAND_HOLD``: zero the applied yaw-rate command on the STAND-slot rows."""
+        stand = self.slot_id[env_ids] == SLOT_STAND
+        wz = self.vel_command_b[env_ids, 2]
+        self.vel_command_b[env_ids, 2] = torch.where(stand, torch.zeros_like(wz), wz)
 
     def _update_metrics(self):
         """Override: the 2-D command has no travel frame, and standing is a SLOT."""
@@ -819,6 +882,16 @@ class CrabHexOmniCommand(UniformParkourCommand):
         band -- using the 2-bit slot encoding (``slot = moving + 2 * turning``). So a turn
         hold reports ``turn`` while it is still turning and ``stand`` once the facing error
         has settled inside the dead band.
+
+        With ``eval_slot_latch`` armed (set by the motion-quality knobs whenever a STAND-keyed
+        knob is -- ``KRABBY_OMNI_STAND_HOLD`` / ``_STAND_PARK`` / ``_STAND_OBS``; default OFF) the
+        TURNING bit is instead LATCHED when a hold's facing target arrives (a fresh target: it
+        differs from the held one, which is also true after any reset's resample) and kept for the
+        rest of the hold -- the training sampler's rule, where a slot is drawn once and holds for
+        its whole duration. Without it a stand hold that drifted past the dead band would re-derive
+        as ``turn`` and escape the stand hold/park/bit, and a settled turn hold would re-derive as
+        ``stand`` and receive them: the legacy re-derivation only ever calls a hold "stand" where
+        the relay already outputs zero, so a stand-keyed knob would be a no-op in every eval.
         """
         speed = float(_row_field(row, "speed"))
         direction = float(_row_field(row, "dir"))
@@ -827,6 +900,14 @@ class CrabHexOmniCommand(UniformParkourCommand):
             raise ValueError(f"schedule_hook: speed must be finite and >= 0, got {speed}")
         if not (math.isfinite(direction) and math.isfinite(face)):
             raise ValueError(f"schedule_hook: dir/face must be finite, got ({direction}, {face})")
+        # A NEW facing target is a fresh command (the sampler's re-arm point). Only the two
+        # default-off latches below read it.
+        fresh = self.heading_target != face
+        if self._relay_hyst is not None:
+            # Engaged if there is more than ``release`` of turn to do; an unchanged target keeps
+            # its latch.
+            armed = torch.abs(wrap_to_pi(face - self.robot.data.heading_w)) > self._relay_hyst[1]
+            self.relay_latch[:] = torch.where(fresh, armed, self.relay_latch)
         self.travel_dir_w[:] = direction
         self.speed_cmd[:] = speed
         self.heading_target[:] = face
@@ -835,10 +916,19 @@ class CrabHexOmniCommand(UniformParkourCommand):
         # some type's reduced turn demand. (The hold's own validator sizes it against
         # ``ang_vel_max``, so a scaled cap would make a legal row unachievable.)
         self.type_id[:] = -1
-        self._write_command(slice(None))
+        # The slot is re-derived from the RAW relay output, so the hold below cannot latch a
+        # turn hold into "stand" (a zeroed wz would otherwise read as "not turning" next step).
+        self._write_command(slice(None), apply_hold=False)
         moving = self.speed_cmd > 0.0
         turning = self.vel_command_b[:, 2] != 0.0
+        if self._slot_latch:
+            self._hook_turning = torch.where(fresh, turning, self._hook_turning)
+            turning = self._hook_turning
         self.slot_id[:] = moving.long() + 2 * turning.long()
+        if self._stand_hold:
+            # KRABBY_OMNI_STAND_HOLD (default off): a suite stand hold IS a stand slot here, so it
+            # receives the hold exactly as a training stand slot does.
+            self._apply_stand_hold(slice(None))
 
 
 @configclass
@@ -853,6 +943,13 @@ class CrabHexOmniCommandCfg(ParkourCommandCfg):
     forward/omni dumps stay comparable: ``ranges.lin_vel_x``, ``ranges.heading``,
     ``stand_frac``, ``small_commands_to_zero``. A unit test pins that changing any of them
     changes nothing about the omni sampler.
+
+    NOT declared here, deliberately: ``relay_hyst`` (``(engage, release)`` rad), ``stand_hold``
+    and ``eval_slot_latch`` (bools) -- the motion-quality knobs (``KRABBY_OMNI_RELAY_HYST`` /
+    ``KRABBY_OMNI_STAND_HOLD``; the latch is armed with any stand-keyed knob), see
+    ``config/crab_hex/motion_knobs.py``. They are written onto the INSTANCE only when armed and
+    read with ``getattr`` defaults, so a knob-off config dump is byte-identical to one built
+    before they existed.
     """
 
     class_type: type = CrabHexOmniCommand

@@ -26,6 +26,22 @@ slot 6 and ``cos(err)`` into slot 7 instead: two bounded channels that are conti
 for the mirror sign tables the choice selects -- the two MUST agree, which is why the mirror
 reads the encoding off this term's params rather than taking a default.
 
+TWO OPTIONAL HEAD EXTENSIONS (motion-quality campaign 2026-09-22, DEFAULT OFF; both change the
+observation WIDTH, so a head trained without them cannot load with them -- from-scratch confirm
+runs only). Each is armed by a param the shipped cfg does not carry, and is appended to the
+per-step proprio head right after the clock (dims 17+), in this order:
+
+    ``stand_obs``  (``KRABBY_OMNI_STAND_OBS=1``)  1 dim: the STAND-slot bit
+                   (``command.stand_mask()``); while it is set the clock sin/cos (dims 15-16)
+                   read 0 -- a standing robot has no gait phase to track.
+    ``lpf_obs``    (``KRABBY_ACTION_LPF_OBS=1``) 12 dims: the action term's low-passed rod-length
+                   command (``rod_cmd_filtered``: hip x6 | knee x6, leg order, [-1, 1] per
+                   stroke window). Requires ``KRABBY_ACTION_LPF_HZ``.
+
+``crab_hex_omni_mirror.build_mirrors`` reads the same two params off the env cfg and extends its
+head tables to match (the stand bit is invariant under both planes; the rod channels are leg
+scalars, permuted with the plane's leg swap and never negated).
+
 ``ZERO_STEERING_HISTORY = False``: the forward task blanks dims 6-7 in the history copy so
 the policy cannot read the goal heading out of its own past (it is supposed to steer from
 what it sees). Here those dims ARE the command -- a facing error the policy must integrate
@@ -67,6 +83,10 @@ from parkour_tasks.crab_hex_forward_task.mdp.observations import CrabHexParkourO
 #: Must stay equal to ``omni_knobs.FACING_OBS_ENCODINGS`` (the knob validates at config build,
 #: this class at term construction; pinned by ``tests/unit/test_crab_hex_omni_observations.py``).
 FACING_OBS_ENCODINGS = ("raw", "sincos")
+
+#: Widths of the two optional head extensions (see the module docstring).
+STAND_OBS_DIM = 1
+LPF_OBS_DIM = 12
 
 
 def _check_facing_obs_encoding(value) -> str:
@@ -180,7 +200,34 @@ class CrabHexOmniParkourObservations(CrabHexParkourObservations):
             encoding = _check_facing_obs_encoding(params["facing_obs_encoding"])
         self.facing_obs_clip = clip
         self.facing_obs_encoding = encoding
+        # Read BEFORE super().__init__: the forward __init__ sizes the history buffer from
+        # ``_extra_head_dim()``, which reads these two.
+        self.stand_obs = bool(params.get("stand_obs", False)) if isinstance(params, dict) else False
+        self.lpf_obs = bool(params.get("lpf_obs", False)) if isinstance(params, dict) else False
         super().__init__(cfg, env)
+
+    # ------------------------------------------------ the optional head extensions (default off)
+    def _extra_head_dim(self) -> int:
+        return (STAND_OBS_DIM if self.stand_obs else 0) + (LPF_OBS_DIM if self.lpf_obs else 0)
+
+    def _stand_bit(self, env: ParkourManagerBasedRLEnv) -> torch.Tensor:
+        """``(N,)`` float: 1.0 on the STAND-slot rows (the command term's latched slot)."""
+        return env.command_manager.get_term("base_velocity").stand_mask().float()
+
+    def _extra_head_channels(self, env: ParkourManagerBasedRLEnv) -> torch.Tensor | None:
+        parts = []
+        if self.stand_obs:
+            parts.append(self._stand_bit(env)[:, None])
+        if self.lpf_obs:
+            parts.append(env.action_manager.get_term("joint_pos").rod_cmd_filtered)
+        return torch.cat(parts, dim=-1) if parts else None
+
+    def _clock_channels(self, env: ParkourManagerBasedRLEnv, clock_phase: torch.Tensor):
+        sin_c, cos_c = super()._clock_channels(env, clock_phase)
+        if not self.stand_obs:
+            return sin_c, cos_c
+        moving = (1.0 - self._stand_bit(env))[:, None]
+        return sin_c * moving, cos_c * moving
 
     # ------------------------------------------------------------------ the two hooks
     def _steering_channels(
@@ -234,6 +281,8 @@ class CrabHexOmniParkourObservations(CrabHexParkourObservations):
         history_length: int,
         facing_obs_clip: float | None = None,
         facing_obs_encoding: str | None = None,
+        stand_obs: bool = False,
+        lpf_obs: bool = False,
     ) -> torch.Tensor:
         # The observation manager validates the term's ``params`` against THIS signature and
         # passes them as keyword arguments, so the clip must be an optional parameter here
@@ -249,6 +298,13 @@ class CrabHexOmniParkourObservations(CrabHexParkourObservations):
         # so the manager passes it here on every step.
         if facing_obs_encoding is not None:
             self.facing_obs_encoding = _check_facing_obs_encoding(facing_obs_encoding)
+        # The two head extensions fix the WIDTH, so they cannot change after construction.
+        if bool(stand_obs) != self.stand_obs or bool(lpf_obs) != self.lpf_obs:
+            raise ValueError(
+                "stand_obs / lpf_obs changed after the observation term was built "
+                f"(built {self.stand_obs}/{self.lpf_obs}, called {stand_obs}/{lpf_obs}); they set "
+                "the observation width and are construction-time only"
+            )
         observations = super().__call__(
             env, asset_cfg, sensor_cfg, parkour_name, history_length
         )

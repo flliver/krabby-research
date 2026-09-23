@@ -642,3 +642,84 @@ def test_required_scanner_offset_lies_on_both_planes():
     assert fwd_x != 0.0                              # -> the fore-aft plane misses the grid
     for axis_offset in omni.REQUIRED_SCANNER_OFFSET_XY:
         assert axis_offset == 0.0
+
+
+# ------------------------------------------------ motion-quality head extensions (step 2)
+PITCH_IDS = [i for i, n in enumerate(JOINT_NAMES) if "_Hip_Femur_" in n]
+
+
+class _ExtActionTerm(_ActionTerm):
+    _pitch_joint_ids = PITCH_IDS
+
+
+class _ExtActionManager:
+    def get_term(self, name):
+        assert name == "joint_pos"
+        return _ExtActionTerm()
+
+
+class _ExtEnv(_Env):
+    action_manager = _ExtActionManager()
+
+    def __init__(self, *, stand_obs=False, lpf_obs=False):
+        super().__init__("raw")
+        params = self.cfg.observations.policy.extreme_parkour_observations.params
+        if stand_obs:
+            params["stand_obs"] = True
+        if lpf_obs:
+            params["lpf_obs"] = True
+
+
+def _ext_dim(extra: int) -> int:
+    step = N_PROP + extra
+    return step + NX * NY + 9 + 5 + 48 + HISTORY * step
+
+
+def test_extend_head_without_extensions_is_the_shipped_table():
+    lr, fa, lr_perm, fa_perm = omni.extend_head(omni.HEAD_SIGNS_LR, omni.HEAD_SIGNS_FA)
+    assert lr == omni.HEAD_SIGNS_LR and fa == omni.HEAD_SIGNS_FA
+    assert lr_perm is None and fa_perm is None
+    # and the knob-off env builds exactly the shipped mirror
+    base_lr, base_fa = omni.build_mirrors(_Env(), OBS_DIM)
+    ext_lr, ext_fa = omni.build_mirrors(_ExtEnv(), OBS_DIM)
+    assert torch.equal(base_lr.obs_perm, ext_lr.obs_perm) and torch.equal(base_lr.obs_sign, ext_lr.obs_sign)
+    assert torch.equal(base_fa.obs_perm, ext_fa.obs_perm) and torch.equal(base_fa.obs_sign, ext_fa.obs_sign)
+
+
+def test_stand_bit_is_invariant_under_both_planes():
+    lr, fa = omni.build_mirrors(_ExtEnv(stand_obs=True), _ext_dim(1))
+    assert lr.n_prop == fa.n_prop == N_PROP + 1
+    x = torch.randn(3, _ext_dim(1))
+    for m in (lr, fa):
+        y = m.mirror_obs(x)
+        assert torch.equal(y[:, 17], x[:, 17])                           # the bit: fixed, +1
+        assert torch.equal(m.mirror_obs(y), x)                           # still an involution
+    # the shipped head (0-16) keeps its shipped signs
+    assert lr.obs_sign[:17].tolist() == omni.HEAD_SIGNS_LR and fa.obs_sign[:17].tolist() == omni.HEAD_SIGNS_FA
+
+
+def test_rod_block_is_leg_permuted_and_never_negated():
+    lr, fa = omni.build_mirrors(_ExtEnv(stand_obs=True, lpf_obs=True), _ext_dim(13))
+    names = [JOINT_NAMES[i] for i in PITCH_IDS]
+    legs = [n.split("_")[0] for n in names]
+    x = torch.randn(2, _ext_dim(13))
+    for m, swap in ((lr, omni.LEG_SWAP_LR), (fa, omni.LEG_SWAP_FA)):
+        y = m.mirror_obs(x)
+        for half in range(2):
+            base = 18 + 6 * half
+            for i, leg in enumerate(legs):
+                j = legs.index(swap[leg])
+                assert torch.equal(y[:, base + i], x[:, base + j]), (half, leg)
+        assert bool((m.obs_sign[18:30] == 1.0).all())
+        assert torch.equal(m.mirror_obs(y), x)
+        # the history copies carry the same map (last history step's rod block)
+        step = N_PROP + 13
+        hist0 = _ext_dim(13) - step
+        assert torch.equal(m.obs_perm[hist0 + 18:hist0 + 30] - hist0, m.obs_perm[18:30])
+
+
+def test_the_forward_mirror_head_perm_is_validated():
+    fwd = omni._fwd
+    with pytest.raises(ValueError, match="head_perm"):
+        fwd.CrabHexMirror(JOINT_NAMES, ACTION_NAMES, CONTACT_NAMES, NX, NY, "xy", HISTORY, "cpu",
+                          head_perm=[0] * 17)
