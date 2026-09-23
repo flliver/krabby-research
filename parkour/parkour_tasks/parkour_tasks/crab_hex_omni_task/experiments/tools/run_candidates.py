@@ -14,6 +14,7 @@ mispredict cost.
     launch_candidates.sh --campaign-dir <dir> [--max-wall-h H] [--accept-code-change WHY]
                          [--accept-eval-change WHY] [--accept-resolution D00s|D00bs WHY]
     run_candidates.py --campaign-dir <dir> [--candidates <yaml>] --dry-run
+    run_candidates.py --campaign-dir <dir> --q-spread-check <suite stamp> [<stamp> ...]  # pre-launch
 
 A relaunch under a new ``eval_sha`` first runs the eval-only MIGRATION (plan 2026-09-21 D9: rescreen
 / reeval / D00s / D00bs / rescore, derived from the records by :func:`migration_item`) before any
@@ -77,7 +78,28 @@ lc = _load(HERE / "ledger_cli.py", "ledger_cli_ladder")
 ph = rp.ph
 PHASES_ALLOWED_BASES = ("1a", "1b", "1c", "2a", "2b")
 PROMOTION_STAGES = ("2a", "2b")
-RESUME_KINDS = ("scratch", "previous_stage", "recipe_head", "recipe_head_s2")
+#: ``checkpoint`` (gait-motion-quality campaign, 2026-09-23) is the only kind spelled as a MAPPING:
+#: ``resume_from: {checkpoint: <repo-relative .pt>}`` forks a named head that is NOT one of this
+#: campaign's own screens (``recipe_head`` resolves only those) -- the fine-tune screens all fork
+#: X08:c6. The path is part of the recipe's identity (``compose_recipe`` hashes it into
+#: ``recipe_id``), and every seed of the recipe forks the same file.
+RESUME_KINDS = ("scratch", "previous_stage", "recipe_head", "recipe_head_s2", "checkpoint")
+
+
+def resume_kind(stage: dict) -> str:
+    """A stage's resume kind: its ``resume_from`` string, or ``checkpoint`` for the mapping form."""
+    source = (stage or {}).get("resume_from")
+    if isinstance(source, dict):
+        return "checkpoint" if set(source) == {"checkpoint"} else f"<mapping {sorted(source)}>"
+    return str(source)
+
+
+def resume_checkpoint(stage: dict) -> str | None:
+    """The repo-relative checkpoint a ``resume_from: {checkpoint: <path>}`` stage forks, else None."""
+    source = (stage or {}).get("resume_from")
+    if isinstance(source, dict) and source.get("checkpoint"):
+        return str(source["checkpoint"])
+    return None
 
 # ------------------------------------------------------------------ overlay vocabulary
 #: The pool and its slot projection. Written into a 2a/2b overlay ONLY in the rescaled teacher form
@@ -784,6 +806,14 @@ def stage_names(cands: dict, name: str) -> list[str]:
 PROMOTION_EVAL = ("suite", "light", "ring")
 
 
+def promotions_enabled(cands: dict) -> bool:
+    """``promotion.enabled`` (default true). A campaign that disables promotions (the gait-motion-
+    quality fine-tune ladder: every screen is a fork of one head, nothing is promoted through 2a/2b)
+    composes EMPTY 2a/2b overlays -- no teacher pool rescale, no teacher overlay, no eval-carry copy
+    -- so its recipe ids carry nothing that never runs, and the validator refuses any milestone."""
+    return bool((cands.get("promotion") or {}).get("enabled", True))
+
+
 def promotion_eval(cands: dict) -> list[str]:
     """The promotion stages' eval rows: ``promotion.eval`` from the yaml; else :data:`PROMOTION_EVAL`
     for a rule-v2 spec; else ``ph.EVAL_FULL`` (the frozen v1 records' promotions, unchanged)."""
@@ -920,6 +950,9 @@ def compose_recipe(ledger: dict, cands: dict, code: str, *, upto: str | None = N
     overlay_by_stage = {name: dict(stages[i].get("overlay") or {}) for i, name in enumerate(names)}
     for st in PROMOTION_STAGES:
         overlay_by_stage[st] = {}
+    # A campaign with promotions disabled composes nothing for 2a/2b (they stay `{}`): nothing is
+    # ever promoted, so no teacher rescale, teacher overlay or eval-carry copy may enter the identity.
+    promote = promotions_enabled(cands)
 
     pool_edits, teacher = [], {}
     eval_carry: list[str] = []
@@ -937,7 +970,9 @@ def compose_recipe(ledger: dict, cands: dict, code: str, *, upto: str | None = N
                 _merge_overlay(overlay_by_stage[str(name)], block, f"stage {name}", cid, conflicts)
         if spec.get("pool_edit"):
             pool_edits.append((cid, dict(spec["pool_edit"])))
-        _merge_overlay(teacher, _teacher_overlay_for(spec, chain_name, names), "stage 2a/2b", cid, conflicts)
+        if promote:
+            _merge_overlay(teacher, _teacher_overlay_for(spec, chain_name, names), "stage 2a/2b", cid,
+                           conflicts)
         for key in spec.get("eval_carry") or []:
             if key not in eval_carry:
                 eval_carry.append(key)
@@ -966,7 +1001,7 @@ def compose_recipe(ledger: dict, cands: dict, code: str, *, upto: str | None = N
     # edit is re-applied here; the share edits still go on AFTER the rescale, which is what makes
     # them survive it (C8 -> 0.05:0.55:0.15:0.25).
     final_raw = overlay_by_stage.get(names[-1], {}).get("KRABBY_OMNI_CMD_POOL") if names else None
-    if final_raw and str(final_raw).strip():
+    if promote and final_raw and str(final_raw).strip():
         pool = parse_pool(final_raw)
         pool = pool.rescale_to(parse_slots_str(ph.SLOTS_TEACHER))
         for _cid, edit in pool_edits:
@@ -978,14 +1013,14 @@ def compose_recipe(ledger: dict, cands: dict, code: str, *, upto: str | None = N
         for st in PROMOTION_STAGES:
             overlay_by_stage[st]["KRABBY_OMNI_CMD_POOL"] = render_pool(pool)
             overlay_by_stage[st]["KRABBY_OMNI_SLOTS"] = slots_str(pool_slots(pool))
-    for st in PROMOTION_STAGES:
+    for st in (PROMOTION_STAGES if promote else ()):
         _merge_overlay(overlay_by_stage[st], teacher, f"stage {st}", "teacher_overlay", conflicts)
     # An `eval_carry` key decides what the policy SEES or what command it is scored against, so it
     # must be in the 2a/2b env too -- otherwise the promotion's EVAL_FULL rows would score the head
     # through inputs it did not train under (the 0.00-vs-0.39 defect class). A candidate with
     # `stages: all` already carries it; this covers one that sets it per stage.
     final_stage = names[-1] if names else None
-    for key in eval_carry:
+    for key in (eval_carry if promote else ()):
         value = overlay_by_stage.get(final_stage, {}).get(key) if final_stage else None
         if value is None:
             continue
@@ -1000,7 +1035,7 @@ def compose_recipe(ledger: dict, cands: dict, code: str, *, upto: str | None = N
         raw = overlay_by_stage[name].get("KRABBY_OMNI_ANG_VEL_MAX")
         if raw is not None:
             cap = float(raw)
-    if cap is not None:
+    if cap is not None and promote:
         for st in PROMOTION_STAGES:
             preset = ph.phase_env(st).get("KRABBY_OMNI_FACING")
             lo, hi = knobs().parse_facing(overlay_by_stage[st].get("KRABBY_OMNI_FACING") or preset)
@@ -1012,8 +1047,15 @@ def compose_recipe(ledger: dict, cands: dict, code: str, *, upto: str | None = N
               "eval_carry": eval_carry, "conflicts": conflicts, "anchor": anchor,
               "code_sha": code, "stages": stages,
               "has_pool": any("KRABBY_OMNI_CMD_POOL" in overlay_by_stage[n] for n in names)}
-    recipe["recipe_id"] = sha256_text(canonical({"chain": chain_name,
-                                                 "overlay_by_stage": overlay_by_stage}))[:12]
+    ident = {"chain": chain_name, "overlay_by_stage": overlay_by_stage}
+    # A `resume_from: {checkpoint: <path>}` stage forks a head named in the yaml: the SAME chain and
+    # overlays forking another file is another recipe, so the path is part of the identity. Only
+    # when such a stage exists -- every recipe without one keeps its recorded id bit for bit.
+    forks = {str(s["stage"]): resume_checkpoint(s) for s in stages if resume_checkpoint(s)}
+    if forks:
+        ident["resume_checkpoints"] = forks
+        recipe["resume_checkpoints"] = dict(forks)
+    recipe["recipe_id"] = sha256_text(canonical(ident))[:12]
     return recipe
 
 
@@ -1348,6 +1390,60 @@ def _func_swapped_ok(txt: str, term: str, needle: str) -> bool:
     return got.strip().strip("'\"").rsplit(":", 1)[-1].rsplit(".", 1)[-1] == str(needle).strip()
 
 
+# ---- the motion-quality knobs (gait-stabilisation plan step 2, 2026-09-22). Every one is DEFAULT
+# OFF and writes NOTHING into the cfg when off, so "off" is audited as ABSENCE of the field/term.
+def _motion():
+    """``motion_knobs`` (the parsers), reached through the path-loaded ``omni_knobs``."""
+    return knobs()._mk
+
+
+def _flag_dump_ok(txt: str, key: str, value, indent: str = r"\s*") -> bool:
+    on = _motion().parse_flag(value)
+    got = _grep_scalar(txt, key, indent)
+    return got == "true" if on else got in (None, "false")
+
+
+def _added_term_ok(txt: str, term: str, value) -> bool:
+    """A weight knob that ADDS a reward term: absent at 0 (off), else the term at that weight."""
+    weight = _motion().parse_penalty_w(value)
+    if weight == 0.0:
+        return _yaml_block(txt, term) == ""
+    return _weight_ok(txt, term, weight)
+
+
+def _action_rate_sq_ok(txt: str, value) -> bool:
+    got = _grep_scalar(_yaml_block(txt, "reward_action_rate"), "squared", indent=r"\s{6}")
+    return got == "true" if _motion().parse_flag(value) else got is None
+
+
+def _lpf_hz_ok(txt: str, value) -> bool:
+    hz = _motion().parse_lpf_hz(value)
+    got = _grep_scalar(txt, "lpf_hz")
+    if hz is None:
+        return got is None
+    return got is not None and _num(got) is not None and abs(_num(got) - hz) < 1e-9
+
+
+def _relay_hyst_ok(txt: str, value) -> bool:
+    pair = _motion().parse_relay_hyst(value)
+    if pair is None:
+        return _grep_scalar(txt, "relay_hyst") is None
+    got = _grep_tuple_n(txt, "relay_hyst", 2)
+    return got is not None and all(abs(a - b) < 1e-9 for a, b in zip(got, pair))
+
+
+def _agent_optional_ok(txt: str, key: str, parsed) -> bool:
+    """An optional runner field: absent while its knob is unset, else equal to the parsed value."""
+    got = _grep_scalar(txt, key)
+    if parsed is None:
+        return got is None
+    return got is not None and _num(got) is not None and abs(_num(got) - float(parsed)) < 1e-9
+
+
+#: Overlay keys audited against ``params/agent.yaml`` (the RUNNER cfg) instead of ``env.yaml``.
+AGENT_DUMP_KEYS = frozenset({"KRABBY_ACTION_STD_MAX", "KRABBY_ACTION_STD_RESET", "KRABBY_ENTROPY_COEF"})
+
+
 #: ``KRABBY_*`` -> what the config DUMP must show for it. Every overlay key a recipe may carry needs
 #: an entry: the validator refuses a candidate whose key has none, because an unaudited overlay key
 #: is exactly the silent failure ``overlay_checks`` exists to catch (a knob that never reached the
@@ -1380,6 +1476,29 @@ OVERLAY_DUMP_CHECKS = {
                                                                   "track_ang_vel_z_exp_turn_gated")
                                                  if str(v).strip() == "1" else True),
     "KRABBY_OMNI_ANG_VEL_STD": lambda txt, v: _scalar_num_ok(_yaml_block(txt, "track_ang_vel_z_exp"), "std", v),
+    # ---- motion-quality knobs (step 2). Env side: params/env.yaml.
+    "KRABBY_POWER_W": lambda txt, v: _weight_ok(txt, "penalty_mechanical_power", v),
+    "KRABBY_ACTION_RATE_W": lambda txt, v: _weight_ok(txt, "reward_action_rate", v),
+    "KRABBY_AIRTIME_W": lambda txt, v: _weight_ok(txt, "reward_feet_air_time_positive", v),
+    "KRABBY_ACTION_RATE_SQ": _action_rate_sq_ok,
+    "KRABBY_ACTION_SMOOTH2_W": lambda txt, v: _added_term_ok(txt, "penalty_action_smooth2", v),
+    "KRABBY_JOINT_VEL_W": lambda txt, v: _added_term_ok(txt, "penalty_joint_vel", v),
+    "KRABBY_FOOT_SLIP_W": lambda txt, v: _added_term_ok(txt, "penalty_foot_slip", v),
+    "KRABBY_STAND_POSE_W": lambda txt, v: _added_term_ok(txt, "penalty_stand_pose", v),
+    "KRABBY_ACTION_LPF_HZ": _lpf_hz_ok,
+    "KRABBY_ACTION_LPF_OBS": lambda txt, v: _flag_dump_ok(txt, "lpf_obs", v),
+    "KRABBY_OMNI_RELAY_HYST": _relay_hyst_ok,
+    "KRABBY_OMNI_STAND_HOLD": lambda txt, v: _flag_dump_ok(txt, "stand_hold", v),
+    "KRABBY_OMNI_STAND_PARK": lambda txt, v: _flag_dump_ok(txt, "omni_stand_park", v, indent=""),
+    "KRABBY_OMNI_STAND_OBS": lambda txt, v: _flag_dump_ok(txt, "stand_obs", v),
+    # Runner side (AGENT_DUMP_KEYS): params/agent.yaml.
+    "KRABBY_ACTION_STD_MAX": lambda txt, v: _agent_optional_ok(txt, "action_std_max",
+                                                               _motion().parse_std_max(v)),
+    "KRABBY_ACTION_STD_RESET": lambda txt, v: _agent_optional_ok(txt, "action_std_reset",
+                                                                 _motion().parse_std_reset(v)),
+    "KRABBY_ENTROPY_COEF": lambda txt, v: (_agent_optional_ok(txt, "entropy_coef", _motion().parse_entropy_coef(v))
+                                           if _motion().parse_entropy_coef(v) is not None
+                                           else _grep_scalar(txt, "entropy_coef") is not None),
 }
 
 
@@ -1391,27 +1510,37 @@ def overlay_checks(rec: dict, env: dict) -> list[tuple[str, bool]]:
     skipped a term all produce a run whose log looks perfect and whose recipe is a different one.
     This reads the dump the trainer wrote (``params/env.yaml``) and compares it with the overlay,
     key by key. A FAIL halts the campaign (``halt:<xid> config_mismatch``) rather than deciding.
+    The runner-side keys (:data:`AGENT_DUMP_KEYS` -- the exploration knobs) are read from the
+    RUNNER dump, ``params/agent.yaml``, instead: that is where ``train.py`` writes the policy's std
+    clamp / reset and PPO's entropy coefficient.
     """
     ckpt = rec.get("ckpt")
     if not ckpt:
         return [("overlay audit needs a checkpoint", False)]
-    envy = Path(ckpt).parent / "params" / "env.yaml"
+    params_dir = Path(ckpt).parent / "params"
+    envy = params_dir / "env.yaml"
     if not envy.exists():
         return [(f"params/env.yaml exists ({envy})", False)]
-    txt = envy.read_text(errors="ignore")
+    txts = {"env.yaml": envy.read_text(errors="ignore")}
+    if any(k in AGENT_DUMP_KEYS for k in (env or {})):
+        agenty = params_dir / "agent.yaml"
+        if not agenty.exists():
+            return [(f"params/agent.yaml exists ({agenty})", False)]
+        txts["agent.yaml"] = agenty.read_text(errors="ignore")
     out = []
     for key in sorted(env or {}):
         value = env[key]
+        dump = "agent.yaml" if key in AGENT_DUMP_KEYS else "env.yaml"
         check = OVERLAY_DUMP_CHECKS.get(key)
         if check is None:
             out.append((f"overlay {key} has a dump check (none registered)", False))
             continue
         try:
-            ok = bool(check(txt, value))
+            ok = bool(check(txts[dump], value))
         except Exception as exc:                                        # noqa: BLE001
             out.append((f"overlay {key}={value} audited ({exc!r})", False))
             continue
-        out.append((f"overlay {key}={value} in params/env.yaml", ok))
+        out.append((f"overlay {key}={value} in params/{dump}", ok))
     return out
 
 
@@ -1440,6 +1569,9 @@ def knob_parsers() -> dict:
         k.TRACK_FACING_SIGMA_VAR: k.parse_track_facing_sigma, k.PROGRESS_W_VAR: k.parse_progress_w,
         k.FACING_OBS_ENCODING_VAR: k.parse_facing_obs_encoding,
         k.FACING_OBS_CLIP_VAR: float, k.YAW_PROGRESS_W_VAR: float, "KRABBY_YAW_W": float,
+        # motion-quality knobs (step 2): their own parsers, plus the three reused forward weights
+        **k.MOTION_KNOB_PARSERS,
+        k.POWER_W_VAR: float, k.ACTION_RATE_W_VAR: float, k.AIRTIME_W_VAR: float,
     }
     _KNOB_PARSERS_CACHE = table
     return table
@@ -1718,6 +1850,9 @@ def validate_candidates(cands: dict, *, strict: bool = True, check_replay: bool 
         g.append("baseline needs an id (B0)")
     if len(order) != len(set(order)):
         g.append(f"duplicate candidate ids in {order}")
+    if not promotions_enabled(cands) and (cands.get("milestones") or []):
+        g.append("promotion.enabled is false but milestones are declared: a milestone IS a promotion "
+                 "(2a -> 2b) of the recipe head")
     for mstone in cands.get("milestones") or []:
         if mstone.get("after") not in order:
             g.append(f"milestone {mstone.get('id')} after {mstone.get('after')!r} is not a candidate id")
@@ -1745,6 +1880,7 @@ def validate_candidates(cands: dict, *, strict: bool = True, check_replay: bool 
     screen_iters = int((cands.get("screen") or {}).get("iters") or 0)
     for name, chain in (cands.get("chains") or {}).items():
         r: list[str] = []
+        cn: list[str] = []
         stages = list(chain.get("stages") or [])
         if not stages:
             r.append("chain has no stages")
@@ -1758,12 +1894,16 @@ def validate_candidates(cands: dict, *, strict: bool = True, check_replay: bool 
             seen.add(sname)
             if str(stage.get("base")) not in PHASES_ALLOWED_BASES:
                 r.append(f"{where}: base {stage.get('base')!r} is not one of {PHASES_ALLOWED_BASES}")
-            if str(stage.get("resume_from")) not in RESUME_KINDS:
-                r.append(f"{where}: resume_from {stage.get('resume_from')!r} not in {RESUME_KINDS}")
-            if stage.get("resume_from") == "previous_stage" and i == 0:
+            kind = resume_kind(stage)
+            if kind not in RESUME_KINDS:
+                r.append(f"{where}: resume_from {stage.get('resume_from')!r} not in {RESUME_KINDS} "
+                         "(the checkpoint kind is spelled `resume_from: {checkpoint: <path>}`)")
+            if kind == "previous_stage" and i == 0:
                 r.append(f"{where}: the first stage cannot resume from the previous stage")
-            if stage.get("from_scratch") and stage.get("resume_from") != "scratch":
+            if stage.get("from_scratch") and kind != "scratch":
                 r.append(f"{where}: from_scratch but resume_from={stage.get('resume_from')!r}")
+            if kind == "checkpoint":
+                _check_fork_stage(stage, where, r, cn)
             iters = int(stage.get("iters") or 0)
             if iters <= 0:
                 r.append(f"{where}: iters must be positive")
@@ -1778,7 +1918,7 @@ def validate_candidates(cands: dict, *, strict: bool = True, check_replay: bool 
         if screen_iters and total != screen_iters:
             r.append(f"chain {name} totals {total} iterations; every screen is {screen_iters} "
                      "(equal compute is what makes the screens comparable)")
-        verdicts.append({"id": f"chain:{name}", "ok": not r, "deferred": False, "reasons": r, "notes": []})
+        verdicts.append({"id": f"chain:{name}", "ok": not r, "deferred": False, "reasons": r, "notes": cn})
 
     # ---------------- candidates
     raw_pool_setters: dict[tuple, list[str]] = {}
@@ -1818,6 +1958,17 @@ def validate_candidates(cands: dict, *, strict: bool = True, check_replay: bool 
                 compile_predicate(cand["conditional"])
             except ValueError as exc:
                 r.append(f"conditional does not parse: {exc}")
+        if cand.get("await_if"):
+            # The branch-and-ask gate (``await_if``): same vocabulary and the same ordering rule as
+            # `conditional` -- a decision it names must be TERMINAL before it is read.
+            try:
+                compile_predicate(cand["await_if"])
+            except ValueError as exc:
+                r.append(f"await_if does not parse: {exc}")
+            for ref in conditional_refs(cand.get("await_if")):
+                if ref not in deps:
+                    r.append(f"await_if names decision({ref}) but {ref} is not in depends_on (the "
+                             "gate would be evaluated before its referent is decided)")
         for key in cand.get("eval_carry") or []:
             if key not in rp.EVAL_CARRY:
                 r.append(f"eval_carry {key} is not in run_phases.EVAL_CARRY {rp.EVAL_CARRY}")
@@ -1859,9 +2010,11 @@ def validate_candidates(cands: dict, *, strict: bool = True, check_replay: bool 
                                    f"({stage_names(cands, cand['chain'])} + {list(PROMOTION_STAGES)})")
                             if msg not in r:
                                 r.append(msg)
-            t_overlay = _teacher_overlay_for(spec, chain_name, stage_names(cands, chain_name))
-            chain_blocks.append((f"{cid} teacher overlay on {chain_name}", chain_name, t_overlay,
-                                 "teacher"))
+            if promotions_enabled(cands):
+                # (a campaign with promotions disabled composes no teacher overlay: nothing to check)
+                t_overlay = _teacher_overlay_for(spec, chain_name, stage_names(cands, chain_name))
+                chain_blocks.append((f"{cid} teacher overlay on {chain_name}", chain_name, t_overlay,
+                                     "teacher"))
             blocks.extend(chain_blocks)
             for where, _c, block, label in chain_blocks:
                 if label in ("teacher",) + PROMOTION_STAGES and "KRABBY_OMNI_FACING" in (block or {}) \
@@ -1872,7 +2025,8 @@ def validate_candidates(cands: dict, *, strict: bool = True, check_replay: bool 
                         r.append(msg)
             if spec.get("pool_edit"):
                 _check_pool_edit(cands, chain_name, dict(spec["pool_edit"]), f"{cid} on {chain_name}", r)
-            _check_teacher_slots(cands, cand, spec, chain_name, f"{cid} on {chain_name} 2a/2b", r)
+            if promotions_enabled(cands):
+                _check_teacher_slots(cands, cand, spec, chain_name, f"{cid} on {chain_name} 2a/2b", r)
         for where, chain_name, overlay, label in blocks:
             for key, value in (overlay or {}).items():
                 _check_knob(key, value, where, whitelist, parsers, r, exempt)
@@ -1910,6 +2064,15 @@ def validate_candidates(cands: dict, *, strict: bool = True, check_replay: bool 
         if cand.get("absolute_units") and not moved:
             n.append("absolute_units is declared but no cap/clip/ellipse key is overlaid: the F_abs "
                      "and T_abs blocks are scored anyway")
+        if cand.get("absolute_units") and is_rule_v2(rule):
+            named = list(((rule.get("per_category") or {}).get("blocks") or {}))
+            if not any(str(b).endswith("_abs") for b in named):
+                r.append(f"{cid} declares absolute_units but the decision rule carries no *_abs block: "
+                         "every block would read N/A and the screen would be a terminal SKIP")
+            req = adopt_requires(rule)
+            if req is not None and f"{req}_abs" not in named:
+                r.append(f"{cid} declares absolute_units but adopt_requires {req} has no {req}_abs "
+                         "twin: the candidate could never be adopted")
         if cand.get("replay_args") and check_replay and script_path is not None:
             have = replay_flags(script_path)
             for tok in cand["replay_args"]:
@@ -1946,6 +2109,43 @@ def validate_candidates(cands: dict, *, strict: bool = True, check_replay: bool 
     return verdicts
 
 
+#: An overlay value starting with this (case-insensitive) is a placeholder the yaml has not filled in
+#: yet (``TBD_replay_gate``): refused BY NAME, so the one thing a reader sees is what to fill in.
+PLACEHOLDER_PREFIX = "TBD"
+
+
+def _check_fork_stage(stage: dict, where: str, reasons: list, notes: list) -> None:
+    """A ``resume_from: {checkpoint: <path>}`` stage (the named-fork resume kind).
+
+    The path is repo-relative (the record must not carry a machine prefix) and names a ``.pt``; a
+    file not on this machine is a NOTE -- the run would halt ``resume_head_missing`` before booking
+    anything. Its ``category_survival`` floor must carry an explicit ``min_by_category`` for EVERY
+    category the stage trains: the head it forks already trained them, but no earlier stage of THIS
+    chain says so, so ``previous_categories`` is empty and ``min_new`` (a formation stage's 0.10)
+    would pass a collapsed fine-tune.
+    """
+    rel = resume_checkpoint(stage)
+    if not rel or not str(rel).strip():
+        reasons.append(f"{where}: resume_from.checkpoint is empty")
+        return
+    if Path(str(rel)).is_absolute():
+        reasons.append(f"{where}: resume_from.checkpoint must be a repo-relative path, got {rel!r}")
+    elif not str(rel).endswith(".pt"):
+        reasons.append(f"{where}: resume_from.checkpoint {rel!r} is not a .pt checkpoint")
+    elif not (REPO / str(rel)).is_file():
+        notes.append(f"{where}: fork checkpoint {rel} is not on this machine (the window would halt "
+                     "resume_head_missing before booking a GPU)")
+    floor = stage.get("floor") or {}
+    if str(floor.get("kind")) == "category_survival":
+        mins = floor.get("min_by_category") or {}
+        missing = [c for c in (stage.get("categories") or []) if str(c) not in mins]
+        if missing:
+            reasons.append(f"{where}: a checkpoint fork's category_survival floor needs "
+                           f"floor.min_by_category for every category it trains; missing {missing} "
+                           "(no earlier stage of the chain trained them, so min_new would read them "
+                           "as NEW at a formation floor)")
+
+
 def _check_knob(key: str, value, where: str, whitelist: set, parsers: dict, reasons: list,
                 exempt: set) -> None:
     if key in FORBIDDEN_OVERLAY_KEYS:
@@ -1960,6 +2160,13 @@ def _check_knob(key: str, value, where: str, whitelist: set, parsers: dict, reas
     if key not in OVERLAY_DUMP_CHECKS:
         reasons.append(f"{where}: {key} has no entry in OVERLAY_DUMP_CHECKS, so overlay_checks could "
                        "not audit it against params/env.yaml -- add one before using the knob")
+    if str(value).strip().upper().startswith(PLACEHOLDER_PREFIX):
+        # A value the campaign has not chosen yet (the motion-quality ladder's reward weights are
+        # set by the offline replay gate, plan step 3): named as such, never as a parse failure.
+        reasons.append(f"{where}: {key}={value!r} is a PLACEHOLDER, not a value -- fill it in "
+                       "(the motion-quality reward weights come from the step-3 offline replay "
+                       "gate) before the campaign can launch")
+        return
     parser = parsers.get(key)
     if parser is not None:
         try:
@@ -1971,21 +2178,74 @@ def _check_knob(key: str, value, where: str, whitelist: set, parsers: dict, reas
 #: The v2 rule's block set, in both unit systems (plan D5). The validator requires every one of them
 #: to carry a member at the full category set: a missing block would be N/A for every candidate --
 #: a silent all-TIE no band check can see.
-RULE_V2_BLOCKS = ("F", "F_mt", "T", "F_abs", "F_mt_abs", "T_abs")
+#: Every block name a v2 rule may carry (plan D5; ``Q`` = the gait-motion-quality campaign's motion-
+#: quality block, 2026-09-23). The REQUIRED set is derived from each campaign's own rule
+#: (:func:`rule_v2_required_blocks`): every block the rule names must carry a member at the full
+#: category set -- a named block with no member would be N/A for every candidate, a silent all-TIE
+#: no band check can see -- and a name outside this tuple is refused.
+RULE_V2_BLOCKS = ("F", "F_mt", "T", "F_abs", "F_mt_abs", "T_abs", "Q")
+#: The facing / translation families both unit systems carry (``X`` and ``X_abs``).
+RULE_V2_FAMILIES = ("F", "F_mt", "T")
+
+
+def rule_v2_required_blocks(rule: dict) -> list[str]:
+    """The blocks a v2 rule must carry a member in, DERIVED from the rule itself.
+
+    Every block it names; and when it carries the absolute-units system at all (any ``*_abs``
+    block), BOTH systems complete over :data:`RULE_V2_FAMILIES` -- an absolute-units candidate is
+    scored on the ``_abs`` twins of exactly the ratio blocks, so a family present in one system and
+    missing from the other is the silent N/A the check exists for (the facing ladder's six-block
+    rule: required = all six, exactly as before). A rule with no ``*_abs`` block (the motion-quality
+    ladder's F/F_mt/T/Q -- it screens no cap candidate) requires only what it names.
+    """
+    named = [str(b) for b in ((rule.get("per_category") or {}).get("blocks") or {})]
+    need = set(named)
+    if any(b.endswith("_abs") for b in named):
+        need |= set(RULE_V2_FAMILIES) | {f"{b}_abs" for b in RULE_V2_FAMILIES}
+    return [b for b in RULE_V2_BLOCKS if b in need] + sorted(need - set(RULE_V2_BLOCKS))
 #: Stage floor kinds (plan D6). ``survival`` (the pre-suite hold-keyed prefix survival) is refused
 #: for campaign use: it read contaminated survival through every earlier hold, trained or not.
 FLOOR_KINDS = ("category_survival", "dead_walker", "none")
 
 
+def _required_block_class(cmpres: dict, req: str) -> str:
+    """The ``adopt_requires`` block's class, with an UNMEASURED block named as such: ``classify``
+    maps a missing z to TIE (pinned), but a required block with no measured member (k == 0 while
+    members are missing) is "MISSING", not a TIE -- the REJECT it yields is then `uncertain`."""
+    body = cmpres["blocks"].get(req)
+    if not body:
+        return "absent"
+    if not body.get("na") and body.get("k", 0) == 0 and body.get("missing"):
+        return "MISSING"
+    return body.get("class") or "absent"
+
+
+def adopt_requires(rule: dict | None) -> str | None:
+    """``decision_rule.adopt_requires``: the block (label) an ADOPT requires to read BETTER, or None.
+
+    The gait-motion-quality campaign sets ``Q``: a win on F/F_mt/T without quieting is not this
+    campaign's goal, so Q TIE (or WORSE) is a clear REJECT whatever else is BETTER, an all-TIE
+    (Q included) is a clear REJECT with no seed-2 pair, and the pooled decision requires pooled Q
+    BETTER too (:func:`decide`, :func:`decide_pooled`). Absent -- every earlier campaign -- the rule
+    behaves exactly as before.
+    """
+    req = (rule or {}).get("adopt_requires")
+    return None if req in (None, "") else block_label(str(req))
+
+
 def _check_rule_v2(rule: dict, reasons: list) -> None:
     """The campaign's ``decision_rule`` must be the per-category rule (``rule_version: 2``, D5).
 
-    Expanded at the FULL category set (``expand_rule_union``), every block of both unit systems must
-    carry a member and the guards must be non-empty; the rule's own ``per_category`` templates are
-    validated by ``eval_categories`` (unknown categories/keys/composites refused by name). The
-    ``bootstrap`` and ``control_head`` pins are required too -- ``resolve()`` reads them from the
-    rule, and without ``control_head`` the D00s control would default to the first accepted input,
-    now possibly a ``seed_pair`` row.
+    Expanded at the FULL category set (``expand_rule_union``), every block of
+    :func:`rule_v2_required_blocks` (the rule's OWN set: a campaign without the ``*_abs`` twins
+    validates, one with them must be complete in both systems) must carry a member and no block may
+    be named outside :data:`RULE_V2_BLOCKS`; the guards must be non-empty; the
+    rule's own ``per_category`` templates are validated by ``eval_categories`` (unknown
+    categories/keys/composites refused by name). ``adopt_requires`` must name one of the rule's
+    ratio-system blocks, and every ``per_category.demoted`` entry must name a member some block or
+    guard actually scores (a typo would be a silent no-op). The ``bootstrap`` and ``control_head``
+    pins are required too -- ``resolve()`` reads them from the rule, and without ``control_head`` the
+    D00s control would default to the first accepted input, now possibly a ``seed_pair`` row.
     """
     if rule_version(rule) != 2:
         reasons.append(f"decision_rule.rule_version must be 2 (the per-category rule, plan 2026-09-21 "
@@ -1998,7 +2258,7 @@ def _check_rule_v2(rule: dict, reasons: list) -> None:
     except ValueError as exc:
         reasons.append(f"decision_rule (rule_version 2) does not expand: {exc}")
         return
-    for block in RULE_V2_BLOCKS:
+    for block in rule_v2_required_blocks(rule):
         if not ((union.get("blocks") or {}).get(block) or {}).get("metrics"):
             reasons.append(f"decision_rule.per_category.blocks.{block} has no member at the full "
                            "category set (every candidate would read it N/A)")
@@ -2007,6 +2267,27 @@ def _check_rule_v2(rule: dict, reasons: list) -> None:
         reasons.append(f"decision_rule.per_category.blocks names {extra}, outside {list(RULE_V2_BLOCKS)}")
     if not (union.get("guards") or {}).get("metrics"):
         reasons.append("decision_rule.per_category.guards has no member")
+    req = rule.get("adopt_requires")
+    if req not in (None, ""):
+        ratio_blocks = [b for b, body in ((rule.get("per_category") or {}).get("blocks") or {}).items()
+                        if (body or {}).get("units") == "ratio"]
+        if str(req) not in ratio_blocks:
+            reasons.append(f"decision_rule.adopt_requires names {req!r}, which is not one of the rule's "
+                           f"ratio-system blocks {ratio_blocks}")
+    pc = rule.get("per_category") or {}
+    scored_keys: set = set()
+    for body in (pc.get("blocks") or {}).values():
+        for c, keys in ((body or {}).get("members") or {}).items():
+            scored_keys.update((str(c), str(k)) for k in keys or ())
+    for c, keys in ((pc.get("guards") or {}).get("members") or {}).items():
+        scored_keys.update((str(c), str(k)) for k in keys or ())
+    for c, keys in (pc.get("demoted") or {}).items():
+        for k, why in (keys or {}).items():
+            if (str(c), str(k)) not in scored_keys:
+                reasons.append(f"decision_rule.per_category.demoted.{c}.{k} demotes a member no block or "
+                               "guard scores (a typo: the demotion would be a silent no-op)")
+            if not str(why or "").strip():
+                reasons.append(f"decision_rule.per_category.demoted.{c}.{k} records no reason")
     boot = rule.get("bootstrap") or {}
     if not boot.get("B") or not boot.get("paired_on"):
         reasons.append(f"decision_rule.bootstrap must name B and paired_on, got {boot!r}")
@@ -2140,7 +2421,24 @@ def _check_stage_categories(stage: dict, env: dict, where: str, reasons: list) -
             reasons.append(f"{where}: floor row {floor.get('row')!r} is not one of the stage's eval rows")
         elif _eval_row_kind(row) not in (None, "category_suite"):
             reasons.append(f"{where}: floor row {row!r} is not a category-suite row")
+        mins = floor.get("min_by_category")
+        if mins is not None:
+            # An explicit per-category minimum (the checkpoint-fork stages: every category the fork
+            # trains was already trained by the head it forks, and no stage before it says so).
+            if not isinstance(mins, dict):
+                reasons.append(f"{where}: floor min_by_category must map category -> minimum, got {mins!r}")
+                mins = {}
+            for c, v in mins.items():
+                if str(c) not in eval_categories().CATEGORIES:
+                    reasons.append(f"{where}: floor min_by_category names {c!r}, not a category")
+                val = _num(v)
+                if val is None or not 0.0 < val <= 1.0:
+                    reasons.append(f"{where}: floor min_by_category.{c} must be a number in (0, 1], "
+                                   f"got {v!r}")
+        covered = mins is not None and all(str(c) in (mins or {}) for c in (stage.get("categories") or []))
         for key in ("min_new", "min_prev"):
+            if covered and floor.get(key) is None:
+                continue                  # every category has its own explicit minimum
             val = _num(floor.get(key))
             if val is None or not 0.0 < val <= 1.0:
                 reasons.append(f"{where}: floor {key} must be a number in (0, 1], got {floor.get(key)!r}")
@@ -2672,6 +2970,14 @@ def resolution_metric(resolution: dict, mid: str) -> dict:
     return {}
 
 
+def guard_resolution_key(resolution: dict, mid: str) -> str:
+    """The key a GUARD's ``R_eval`` is read under: ``<mid>@guard`` when the record resolved one (the
+    guard's metric is also a block member of the rule, so it has its own one-sided 99 % half-width),
+    else ``mid`` -- every guard before the motion-quality campaign."""
+    key = eval_categories().guard_key(mid)
+    return key if key in ((resolution or {}).get("metrics") or {}) else str(mid)
+
+
 def resolution_block(resolution: dict, block: str) -> dict:
     return ((resolution or {}).get("blocks") or {}).get(block) or {}
 
@@ -2687,9 +2993,19 @@ def seed_term(seed_terms: dict, key: str, *, block: bool = False) -> float | Non
     return None
 
 
+def metric_sign(mid: str) -> int:
+    """+1 higher-is-better, -1 lower-is-better (``eval_categories.metric_sign``, the ONE definition)."""
+    return eval_categories().metric_sign(mid)
+
+
+def _signed_delta(sign: int, a: float, b: float) -> float:
+    """``sign * (a - b)`` -- exactly ``a - b`` for every higher-is-better metric (no float moves)."""
+    return (a - b) if sign >= 0 else (b - a)
+
+
 def metric_rows(mids, cand: dict, base: dict, resolution: dict, seed_terms: dict, *,
                 cand2: dict | None = None, base2: dict | None = None,
-                pooled: bool | None = None) -> list[dict]:
+                pooled: bool | None = None, r_key=None) -> list[dict]:
     """One row per metric: the two values, the delta, the half-widths and the standardised z.
 
     With ``cand2``/``base2`` the delta is the TWO-SEED MEAN delta (a pooled decision), which is why
@@ -2701,6 +3017,12 @@ def metric_rows(mids, cand: dict, base: dict, resolution: dict, seed_terms: dict
     pooled (sqrt-2 shrunk) threshold whenever one side had no second screen -- which is exactly the
     anchored-drift case where the anchor recipe has no ok s2 screen. With the flag, a pooled
     comparison that is missing a second screen is MISSING, never quietly half-pooled.
+
+    Every delta is SIGNED by :func:`metric_sign` (the motion-quality campaign, 2026-09-23): ``delta =
+    sign * (a - b)``, so a positive delta, a positive block ``z`` and a BETTER always mean "better" --
+    a LOWER jitter is a positive delta. ``a``/``b`` stay the raw values; a lower-is-better row carries
+    ``lower_is_better: True``. ``r_key`` maps a metric id to the resolution key its ``R_eval`` is read
+    under (a guard that is also a block member: ``<mid>@guard``, :func:`guard_rows`).
     """
     rows = []
     if pooled is None:
@@ -2709,19 +3031,26 @@ def metric_rows(mids, cand: dict, base: dict, resolution: dict, seed_terms: dict
         a, b = _num(dget(cand, mid)), _num(dget(base, mid))
         a2 = _num(dget(cand2, mid)) if (pooled and cand2 is not None) else None
         b2 = _num(dget(base2, mid)) if (pooled and base2 is not None) else None
-        r_eval = _num(resolution_metric(resolution, mid).get("R_eval"))
+        rkey = r_key(mid) if r_key is not None else mid
+        r_eval = _num(resolution_metric(resolution, rkey).get("R_eval"))
         r_seed = seed_term(seed_terms, mid) or 0.0
-        level = resolution_metric(resolution, mid).get("level")
+        level = resolution_metric(resolution, rkey).get("level")
+        sign = metric_sign(mid)
         row = {"metric": mid, "a": a, "b": b, "a2": a2, "b2": b2, "R_eval": r_eval, "R_seed": r_seed,
                "level": level, "delta": None, "z": None, "missing": None}
+        if sign < 0:
+            row["lower_is_better"] = True
+        if rkey != mid:
+            row["r_key"] = rkey
         if a is None or b is None or (pooled and (a2 is None or b2 is None)):
             row["missing"] = "value"
         elif r_eval is None or r_eval <= 0:
             row["missing"] = "resolution"
         else:
-            d1 = a - b
-            row["delta"] = (d1 + (a2 - b2)) / 2.0 if pooled else d1
-            row["delta_s3"], row["delta_s2"] = d1, ((a2 - b2) if pooled else None)
+            d1 = _signed_delta(sign, a, b)
+            d2 = _signed_delta(sign, a2, b2) if pooled else None
+            row["delta"] = (d1 + d2) / 2.0 if pooled else d1
+            row["delta_s3"], row["delta_s2"] = d1, d2
             row["z"] = row["delta"] / r_eval
         rows.append(row)
     return rows
@@ -2815,7 +3144,7 @@ def guard_rows(mids, cand, base, resolution, seed_terms, *, cand2=None, base2=No
     ``cat.move_turn.ratio`` or ``cat_tripod_min`` stays MISSING and never reads as a silent TIE.
     """
     rows = metric_rows(mids, cand, base, resolution, seed_terms, cand2=cand2, base2=base2,
-                       pooled=pooled)
+                       pooled=pooled, r_key=lambda m: guard_resolution_key(resolution, m))
     screens = [cand, base] + ([cand2, base2] if pooled else [])
     for row in rows:
         r_eval, r_seed = row["R_eval"], row["R_seed"] or 0.0
@@ -2837,8 +3166,10 @@ def guard_rows(mids, cand, base, resolution, seed_terms, *, cand2=None, base2=No
             # missing VALUE (decision 5: a zero-denominator conditional survival), not about a
             # missing half-width. Unreachable with the shipped D00 -- all four guards carry an
             # `R_eval` on all three rows -- and kept so the code IS the stated formula.
-            d1 = None if row["a"] is None or row["b"] is None else row["a"] - row["b"]
-            d2 = None if row["a2"] is None or row["b2"] is None else row["a2"] - row["b2"]
+            sign = metric_sign(row["metric"])
+            d1 = None if row["a"] is None or row["b"] is None else _signed_delta(sign, row["a"], row["b"])
+            d2 = (None if row["a2"] is None or row["b2"] is None
+                  else _signed_delta(sign, row["a2"], row["b2"]))
             if d1 is not None and (not pooled or d2 is not None):
                 row["delta"] = (d1 + d2) / 2.0 if pooled else d1
                 row["delta_s3"], row["delta_s2"] = d1, (d2 if pooled else None)
@@ -3184,6 +3515,24 @@ def decide(screen: dict, base: dict, resolution: dict, *, cand_spec: dict, rule:
         out.update(chosen="SKIP", alternative="ADOPT", confidence="none", status="decided",
                    why=f"no decisive block (trained: {trained})")
         return out
+    req = adopt_requires(rule)
+    if req is not None:
+        req_cls = _required_block_class(cmpres, req)
+        evidence["adopt_requires"] = {"block": req, "class": req_cls}
+        if req_cls != "BETTER":
+            # The campaign's adoption rule (`adopt_requires`): an ADOPT needs this block BETTER. Q TIE
+            # while another block is BETTER is a clear REJECT (a win without quieting is not this
+            # campaign's goal), and so is an all-TIE -- decided, no seed-2 pair: a pair could only
+            # turn a TIE into a BETTER, and the orchestrator's call is that an unresolved quieting is
+            # not worth a confirming window. WORSE and a MISSING guard were answered above.
+            what = (f"blocks {better} BETTER but {req} {req_cls}" if better else
+                    f"all TIE ({req} {req_cls})")
+            # An UNMEASURED required block (N/A, MISSING, absent) is not evidence against the
+            # candidate: the REJECT stands but reads `uncertain`, never `clear` (review 2026-09-23).
+            conf = "clear" if req_cls in ("TIE", "WORSE") else "uncertain"
+            out.update(chosen="REJECT", alternative="ADOPT", confidence=conf, status="decided",
+                       why=f"{what} -- ADOPT requires {req} BETTER (adopt_requires)")
+            return out
     if better:
         if drift["verdict"] == "FAIL":
             out.update(chosen="REJECT", alternative="ADOPT", confidence="uncertain",
@@ -3277,6 +3626,8 @@ def decide_pooled(screen_s3: dict, screen_s2: dict, base_s3: dict, base_s2: dict
     confidence, pick, why = "uncertain", None, ""
     guard_missing = cmpres["guards"]["missing"]
     block_missing = sorted({m for v in cmpres["blocks"].values() for m in v["missing"]})
+    req = adopt_requires(rule)
+    req_cls = None if req is None else _required_block_class(cmpres, req)
     if worse:
         confidence, pick, why = "clear", "REJECT", "pooled WORSE on " + ", ".join(worse)
     elif guard_missing:
@@ -3286,6 +3637,13 @@ def decide_pooled(screen_s3: dict, screen_s2: dict, base_s3: dict, base_s2: dict
         # outcome is terminal -- so the answer is `decide <Cid> --choose run`.
         confidence, pick, why = "uncertain", "REJECT", ("pooled guard MISSING: "
                                                         + ", ".join(guard_missing))
+    elif req is not None and req_cls != "BETTER":
+        # `adopt_requires` at the pooled level: the pooled ADOPT needs the required block pooled
+        # BETTER too, whatever else is BETTER and whatever the two seeds' signs say.
+        what = (f"pooled blocks {better} BETTER but {req} {req_cls}" if better else
+                f"pooled all TIE ({req} {req_cls})")
+        confidence = "clear" if req_cls in ("TIE", "WORSE") else "uncertain"   # unmeasured != evidence
+        pick, why = "REJECT", f"{what} -- ADOPT requires {req} BETTER (adopt_requires)"
     elif better and drift["verdict"] != "FAIL" and not block_missing:
         confidence, pick, why = "clear", "ADOPT", f"pooled blocks {better} BETTER, nothing WORSE"
     elif disagree:
@@ -3344,6 +3702,7 @@ def decide_pooled(screen_s3: dict, screen_s2: dict, base_s3: dict, base_s2: dict
                         "levels": {"blocks": {k: v.get("level") for k, v in cmpres["blocks"].items()},
                                    "guards": cmpres["guards"]["level"],
                                    "pooled_R": {k: v.get("R") for k, v in cmpres["blocks"].items()}},
+                        **({"adopt_requires": {"block": req, "class": req_cls}} if req is not None else {}),
                         **_v2_evidence(cmpres)}}
     return out
 
@@ -3929,6 +4288,20 @@ def _next_item_raw(cands: dict, ledger: dict, state: dict, *, code: str, view=No
                          why=f"{cid} redefines the task: the user decides "
                              f"(ledger_cli decide {cid} --choose run, or --choose skip)",
                          label=f"await_user:{cid}")
+        if cand.get("await_if") and choice not in ("run", "skip"):
+            # The branch-and-ask gate: `user_decision` made CONDITIONAL. While the predicate holds
+            # the driver parks here (a user `decide <Cid> --choose run|skip`, typed now or before the
+            # driver arrives, releases it); when it is false the candidate dispatches as usual.
+            try:
+                stop, await_why = compile_predicate(cand["await_if"]).evaluate(ctx)
+            except ValueError as exc:
+                stop, await_why = True, f"unevaluable ({exc}) -- parked, the safe direction"
+            if stop:
+                note = str(cand.get("await_why") or "the user decides").strip()
+                return _item("await", cid=cid, seed=s3,
+                             why=f"{cid}: {note} ({await_why}) -- ledger_cli decide {cid} --choose "
+                                 "run, or --choose skip",
+                             label=f"await_user:{cid}", extra={"await_if": await_why})
         ok, dispatch_why = dispatch_check(cand)
         if not ok:
             return _item("await", cid=cid, seed=s3, why=dispatch_why, label=f"await_user:{cid} code")
@@ -4969,8 +5342,11 @@ def _category_floor(stage: dict, rec: dict, floor: dict, decisive, previous) -> 
                               f"evaluate (eval rows {list(stage.get('eval') or [])})")
     dec = list(decisive) if decisive is not None else list(stage.get("categories") or [])
     prev = set(previous if previous is not None else (stage.get("previous_categories") or []))
-    min_new = float(floor.get("min_new", 0.10))
-    min_prev = float(floor.get("min_prev", FLOOR_SURVIVAL_MIN))
+    min_new = float(floor.get("min_new") if floor.get("min_new") is not None else 0.10)
+    min_prev = float(floor.get("min_prev") if floor.get("min_prev") is not None else FLOOR_SURVIVAL_MIN)
+    # An explicit per-category minimum wins over the prev/new split (a checkpoint fork's floor:
+    # the forked head already trained every category, the chain has no earlier stage to say so).
+    by_cat = {str(k): float(v) for k, v in (floor.get("min_by_category") or {}).items()}
     cat = summary.get("cat") or {}
     parts, fails = [], []
     for c in _ordered_categories(dec):
@@ -4980,7 +5356,10 @@ def _category_floor(stage: dict, rec: dict, floor: dict, decisive, previous) -> 
             raise ec.EvalMismatch(f"decisive category {c} is not on the {row} row (cat.{c}.survival "
                                   f"{entry.get('survival')!r}, n_env {entry.get('n_env')!r}) -- a "
                                   "category the stage trained must be scored, never passed silently")
-        want, which = (min_prev, "prev") if c in prev else (min_new, "new")
+        if c in by_cat:
+            want, which = by_cat[c], "min"
+        else:
+            want, which = (min_prev, "prev") if c in prev else (min_new, "new")
         bound = floor_band(p, n)
         ok = not bound < want
         parts.append(f"{c} {p:.3f} (bound {bound:.3f}, n_env {int(n)}, {which} >= {want:g})")
@@ -5271,11 +5650,18 @@ def summarize_run_dir(run_dir: str | Path, sid: str) -> dict | None:
 
 
 def _resume_ckpt_for(ctx: Ctx, item: dict, stage: dict, prev_ckpt: str | None) -> tuple[str | None, str]:
-    kind = str(stage.get("resume_from"))
+    kind = resume_kind(stage)
     if kind == "scratch":
         return None, "scratch"
     if kind == "previous_stage":
         return prev_ckpt, "previous stage"
+    if kind == "checkpoint":
+        # A named fork (every seed of the recipe forks the same file; the seed only moves the run).
+        # Absolute, because the trainer's cwd is parkour/; None when the file is gone, which the
+        # caller halts `resume_head_missing` on before any GPU is booked.
+        rel = resume_checkpoint(stage)
+        path = repo_path(rel)
+        return (str(path) if path.is_file() else None), f"checkpoint {rel}"
     seed = ctx.seed_screen if kind == "recipe_head" else ctx.seed_confirm
     rid = (item.get("recipe") or {}).get("recipe_id")
     head = recipe_head(ctx.state, ctx.code, rid, seed, ctx.view)
@@ -5485,7 +5871,7 @@ def run_experiment(ctx: Ctx, item: dict) -> dict:
         env = stage_env(recipe, sname)
         tag = _tag_for(ctx, item, xid, sname)
         resume, resume_why = _resume_ckpt_for(ctx, item, stage, prev_ckpt)
-        if resume is None and str(stage.get("resume_from")) != "scratch":
+        if resume is None and resume_kind(stage) != "scratch":
             return _halt(ctx, header, "resume_head_missing",
                          f"{sname} resumes from {resume_why} and there is no such checkpoint")
         iters = int(stage["iters"])
@@ -6453,7 +6839,7 @@ def resolution_notify_fields(ctx: Ctx, resolution: dict, ident: str, seed_terms:
     guards = []
     degenerate = []
     for mid in (rule.get("guards") or {}).get("metrics") or []:
-        r_eval = _num(resolution_metric(resolution, mid).get("R_eval"))
+        r_eval = _num(resolution_metric(resolution, guard_resolution_key(resolution, mid)).get("R_eval"))
         r_seed = seed_term(seed_terms or {}, mid)
         eff = None if r_eval is None and r_seed is None else max(r_eval or 0.0, r_seed or 0.0)
         # BOTH halves, not only the max: decision 6's mitigation for a degenerate cross-head pair
@@ -6525,7 +6911,16 @@ HOLD_SHORT = {"turn_l90": "l90", "turn_r90": "r90", "move_turn": "mt", "move_tur
 CAT_KEY_SHORT = {"facing_closed": "closed", "yaw_progress": "progress", "net_yaw": "net_yaw",
                  "ratio": "ratio", "achieved_speed": "speed", "survival": "surv", "tripod": "tripod",
                  "settle_s": "settle", "heading_final": "heading", "drift_speed": "drift",
-                 "direction_error": "dir_err", "cross_track_ratio": "xtrack", "n": "n", "n_env": "n_env"}
+                 "direction_error": "dir_err", "cross_track_ratio": "xtrack", "n": "n", "n_env": "n_env",
+                 # motion quality (block Q, 2026-09-23); lower is better except six_down
+                 "action_jitter": "jitter", "action_fft_freq": "fft_hz", "joint_speed_mean": "jspeed",
+                 "rod_speed_mean": "rodspeed", "contact_switch_hz": "switch_hz", "foot_slip": "slip",
+                 "wz_active_frac": "wz_frac", "clock_restarts": "restarts",
+                 "swings_per_m": "swings/m", "slip_per_m": "slip/m", "work_per_m": "work/m",
+                 "cam_work_per_m": "camwork/m", "swings_per_rad": "swings/rad",
+                 "slip_per_rad": "slip/rad", "work_per_rad": "work/rad",
+                 "cam_work_per_rad": "camwork/rad", "six_down_frac": "six_down",
+                 "settle_six_down_s": "settle6", "foot_disp_end": "disp_end", "work_per_s": "work/s"}
 
 #: The WATCH set's own labels, in the plan's spelling. Every one of these ids used to render as its
 #: LAST dotted part, which collides three times over ("move_turn" for the ratio and the tripod,
@@ -6737,6 +7132,11 @@ def decision_notify_fields(ctx: Ctx, entry: dict, item: dict, decision: dict, *,
     drift = ev.get("anchored_drift") or {}
     fields.append(f"anchored drift {drift.get('verdict')} ({drift.get('why')}) anchor "
                   f"{ev.get('anchor') or 'B0'}")
+    req = ev.get("adopt_requires")
+    if req:
+        fields.append(f"adopt_requires {req.get('block')}: {req.get('class')} (an ADOPT needs "
+                      f"{req.get('block')} BETTER; lower-is-better members are sign-flipped, so "
+                      "a positive delta is always the better direction)")
     prior = entry.get("prior_user_choice")
     if prior:
         # The plan's SQUASH paragraph: "the re-run's DECISION line quotes the old frozen choice as
@@ -7477,7 +7877,8 @@ def _decision_report(ctx: Ctx, entry: dict, item: dict, decision: dict, *, poole
                      f"missing {block.get('missing')})")
         for row in block.get("rows") or []:
             lines.append(f"  - {row['metric']}: {fmt_num(row['b'])} -> {fmt_num(row['a'])} "
-                         f"(delta {fmt_num(row.get('delta'))}, R_eval {fmt_num(row.get('R_eval'))}, "
+                         f"({'lower is better, signed ' if row.get('lower_is_better') else ''}"
+                         f"delta {fmt_num(row.get('delta'))}, R_eval {fmt_num(row.get('R_eval'))}, "
                          f"R_seed {fmt_num(row.get('R_seed'))}, z {fmt_num(row.get('z'))}"
                          f"{', MISSING ' + str(row.get('missing')) if row.get('missing') else ''})")
     for row in (cmpres.get("guards") or {}).get("rows") or []:
@@ -8945,7 +9346,9 @@ def _migrate_d00s(ctx: Ctx, mig: dict) -> None:
                 _campaign_halt(ctx, "resolution D00s",
                                f"D00s acceptance: {'; '.join(acc.get('failures') or [])} — fix the tools "
                                "and relaunch, or relaunch with --accept-resolution D00s WHY "
-                               f"(diagnostic only, never cited: {rejected})")
+                               f"(diagnostic only, never cited: {rejected}); a member with ZERO "
+                               "spread is demoted instead (decision_rule.per_category.demoted, "
+                               "found by run_candidates.py --q-spread-check)")
             payload["acceptance"] = dict(acc, accepted=accepted)
         res.write_resolution(payload, path)
     _write_d00s_entry(ctx, payload, path)
@@ -9755,6 +10158,29 @@ def _smoke_done(ctx: Ctx) -> bool:
                for h in all_headers(ctx.state).values())
 
 
+def smoke_overlay(pairs) -> dict:
+    """``--smoke-overlay KEY=VALUE`` (repeatable) -> the smoke window's overlay, validated.
+
+    Each key goes through the same checks a candidate's overlay does (:func:`_check_knob`: the
+    whitelist, the value round trip, an ``OVERLAY_DUMP_CHECKS`` entry), so a knob smoke exercises
+    the real overlay audit (``overlay_checks``) against the dump its 20-iteration window writes.
+    """
+    overlay: dict = {}
+    for pair in pairs or []:
+        key, sep, value = str(pair).partition("=")
+        key = key.strip()
+        if not sep or not key:
+            raise SystemExit(f"--smoke-overlay wants KEY=VALUE, got {pair!r}")
+        overlay[key] = value.strip()
+    reasons: list[str] = []
+    whitelist, parsers = knob_whitelist(), knob_parsers()
+    for key, value in overlay.items():
+        _check_knob(key, value, "--smoke-overlay", whitelist, parsers, reasons, set())
+    if reasons:
+        raise SystemExit("--smoke-overlay refused:\n  - " + "\n  - ".join(reasons))
+    return overlay
+
+
 def smoke_item(ctx: Ctx, spec_str: str) -> dict:
     """``--smoke-stage 1a:20[:suite]``: ONE tiny real window, for the stop drill (Verification 8).
 
@@ -9768,10 +10194,11 @@ def smoke_item(ctx: Ctx, spec_str: str) -> dict:
     base = parts[0]
     iters = parts[1] if len(parts) > 1 else ""
     rows = [r.strip() for r in parts[2].split(",") if r.strip()] if len(parts) > 2 else []
+    overlay = smoke_overlay(getattr(ctx.args, "smoke_overlay", None))
     stage = {"stage": base, "base": base, "iters": int(iters or 20), "from_scratch": True,
-             "resume_from": "scratch", "overlay": {}, "eval": rows, "floor": {"kind": "none"},
+             "resume_from": "scratch", "overlay": dict(overlay), "eval": rows, "floor": {"kind": "none"},
              "holds": [], "previous_holds": []}
-    recipe = {"chain": None, "overlay_by_stage": {base: {}}, "stages": [stage], "adopted": [],
+    recipe = {"chain": None, "overlay_by_stage": {base: dict(overlay)}, "stages": [stage], "adopted": [],
               "eval_carry": [], "conflicts": [], "anchor": None, "has_pool": False,
               "recipe_id": f"smoke-{base}-{stage['iters']}"}
     return _item("smoke", cid=f"SMOKE-{base}", seed=ctx.seed_screen, recipe=recipe, base_recipe=recipe,
@@ -9813,7 +10240,65 @@ def build_parser() -> argparse.ArgumentParser:
                          "at await_user:smoke_done without touching the ledger or booking a real "
                          "window. This is the stop drill's launch (Verification 8 / the per-category "
                          "plan's V6). The migration never runs under it.")
+    ap.add_argument("--smoke-overlay", action="append", default=None, metavar="KEY=VALUE",
+                    help="with --smoke-stage only: an overlay key for the smoke window (repeatable), "
+                         "validated like a candidate overlay and audited against the window's "
+                         "params/env.yaml (params/agent.yaml for the runner-side knobs) -- the "
+                         "per-knob smoke of the motion-quality plan's step 2")
+    ap.add_argument("--q-spread-check", nargs="+", default=None, metavar="SUITE_STAMP",
+                    help="PRE-LAUNCH, CPU only, writes nothing: the zero-spread check of every scored "
+                         "member (resolution.member_spread_check). The first stamp (a suite run dir, "
+                         "or an eval_dir root -> its newest fresh stamp) is the control -- the "
+                         "incumbent's re-eval at the current eval_sha; each further one forms a "
+                         "cross-head pair with it, drawn exactly as D00s draws it. Prints every member "
+                         "with no finite positive R and the decision_rule.per_category.demoted lines "
+                         "that demote it to WATCH (the campaign's answer, never --accept-resolution)")
+    ap.add_argument("--q-spread-heads", default=None, metavar="CSV",
+                    help="with --q-spread-check: head labels for the stamps, in order")
     return ap
+
+
+def q_spread_report(cands: dict, run_dirs, heads=None) -> tuple[int, list[str]]:
+    """``--q-spread-check``: ``(exit code, lines)`` -- 0 when every scored member resolves, 3 when
+    some member has zero spread (the lines then carry the yaml to demote it)."""
+    rule = cands.get("decision_rule") or {}
+    res = resolution_tool()
+    chain = (cands.get("baseline") or {}).get("chain")
+    stages = chain_stages(cands, chain) if chain else []
+    dat = _ordered_categories(_stage_decisive(stages[-1])) if stages else None
+    try:
+        out = res.member_spread_check(list(run_dirs), rule, decisive_at=dat or None, heads=heads)
+    except res.ResolutionError as exc:
+        return 2, [f"q-spread-check refused: {exc}"]
+    lines = [f"# member spread check (B={out['B']}, rng {out['rng_seed']}, decisive_at "
+             f"{', '.join(out['decisive_at'])})"]
+    for r in out["rows"]:
+        lines.append(f"  row {r['head']}: {r['run_dir']} (n={r['n']})")
+    for key, m in sorted(out["members"].items()):
+        same = ", ".join(f"{h} {fmt_num(v, 4)}" for h, v in m["same_run"].items())
+        cross = ", ".join(f"{n} {fmt_num(v, 4)}" for n, v in m["cross"].items()) or "-"
+        mark = "ZERO " if m["zero"] else "ok   "
+        sense = " (lower is better)" if m.get("sign", 1) < 0 else ""
+        lines.append(f"  {mark}{key}{sense} [{m['block']}] same-run R {same}; cross-head R {cross}")
+    if out["unresolved"]:
+        lines.append(f"  unresolved on this row (no per-episode form): {out['unresolved']}")
+    if out.get("absent"):
+        lines.append(f"{len(out['absent'])} member(s) carry NO value on a stamp (it predates the metric, "
+                     f"or the key is N/A there) -- re-evaluate under the current eval_sha; these are "
+                     f"never demoted: {out['absent']}")
+    if not out["zero"]:
+        lines.append("no scored member has zero spread -- nothing to demote"
+                     + ("" if not out.get("absent") else " (but see the absent members above)"))
+        return (3 if out.get("absent") else 0), lines
+    lines.append(f"{len(out['zero'])} member(s) with zero spread: {out['zero']}")
+    lines.append("demote them before launch -- add under decision_rule.per_category (never "
+                 "--accept-resolution):")
+    lines.append("    demoted:")
+    for c, keys in out["demote"].items():
+        lines.append(f"      {c}:")
+        for k, why in keys.items():
+            lines.append(f"        {k}: {json.dumps(why)}")
+    return 3, lines
 
 
 def _eval_change_gate(ctx: Ctx, args, old_code: str | None) -> tuple[dict | None, dict | None]:
@@ -9867,6 +10352,13 @@ def main(argv=None) -> int:
     if not cands_path.exists():
         raise SystemExit(f"no candidates.yaml at {cands_path}")
     cands = load_candidates(cands_path)
+    if args.q_spread_check:
+        # CPU only and read-only: no validation gate (the check runs BEFORE the yaml is final --
+        # its answer is what gets written into it), no Ctx (no logs/ dir), no state.
+        heads = [h.strip() for h in args.q_spread_heads.split(",")] if args.q_spread_heads else None
+        code, lines = q_spread_report(cands, args.q_spread_check, heads)
+        print("\n".join(lines))
+        return code
     verdicts = validate_candidates(cands, strict=not args.dry_run)
     # Before `Ctx`, which builds the `rp.Campaign` and so mkdirs `<campaign-dir>/logs/`: a REFUSED
     # launch must leave the tree exactly as it found it.

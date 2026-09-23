@@ -292,6 +292,12 @@ def make_suite_run(run: Path, *, head, rng, ge_mods, n_env=8, closes=0.6, ratio=
                                        "foot_lift_count": 3, "contact_churn_per_s": 1.0,
                                        "n_steps": int(widx.size)}
                 if widx.size and label == own:
+                    # motion quality (gait-motion-quality step 1): the keys defined on the category,
+                    # None elsewhere -- exactly the harness's N/A convention
+                    entry["quality"] = {
+                        key: (float(abs(1.0 + 0.2 * rng.standard_normal()))
+                              if cat_of[own] in M.MOTION_QUALITY_APPLIES[key] else None)
+                        for key in M.MOTION_QUALITY_KEYS}
                     entry["tripod"] = {"tripod_score": float(tripod + 0.05 * rng.standard_normal()),
                                        "low_confidence": bool(rng.random() < 0.1), "valid": True,
                                        "discard_reason": None}
@@ -1776,6 +1782,11 @@ def test_legacy_pairs_are_bit_identical_under_the_clustered_path(three_heads):
     assert "binomial_floor" not in got, "no guard of a legacy null is floored"
 
 
+#: The six EVAL_CARRY_DEFAULTS keys added with the motion-quality knobs (all at their OFF value).
+MOTION_CARRY_DEFAULTS = ("KRABBY_OMNI_RELAY_HYST", "KRABBY_OMNI_STAND_HOLD", "KRABBY_OMNI_STAND_PARK",
+                         "KRABBY_ACTION_LPF_HZ", "KRABBY_ACTION_LPF_OBS", "KRABBY_OMNI_STAND_OBS")
+
+
 @pytest.mark.skipif(not (SHIPPED_D00.exists() and CANDIDATES_V1.exists()),
                     reason="the shipped D00 record or its recorded inputs are untracked")
 def test_the_shipped_d00_is_reproduced_bit_for_bit_from_the_frozen_v1_spec():
@@ -1789,6 +1800,14 @@ def test_the_shipped_d00_is_reproduced_bit_for_bit_from_the_frozen_v1_spec():
     out = res.resolve(cands, candidates_sha256=sha)
     shipped = json.loads(SHIPPED_D00.read_text())
     out.pop("created"), shipped.pop("created")
+    # 2026-09-22 (motion-quality plan step 2): EVAL_CARRY_DEFAULTS grew six knob-OFF defaults, which
+    # the recorded rows (evaluated before the knobs existed) take at their default -- so they appear
+    # in each input's ``env_vars_defaulted`` provenance list and nowhere else. No number moves; the
+    # names are dropped here so the pin still covers every number and every other field.
+    added = set(MOTION_CARRY_DEFAULTS)
+    for inp in out.get("inputs") or []:
+        if "env_vars_defaulted" in inp:
+            inp["env_vars_defaulted"] = [k for k in inp["env_vars_defaulted"] if k not in added]
     assert json.loads(json.dumps(out)) == shipped
 
 

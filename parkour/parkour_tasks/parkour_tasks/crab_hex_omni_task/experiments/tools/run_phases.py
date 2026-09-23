@@ -124,6 +124,22 @@ CANARY_KEEP = ("KRABBY_LIN_VEL_X", "KRABBY_TRACK_SIGMA2", "KRABBY_TRACK_L1_W", "
 #       |wz| at or below it is zeroed before the command is written. It therefore decides whether a
 #       turn hold's small P-control tail is a command at all, which is what the eval's turn metrics
 #       are computed over.
+#   The six MOTION-QUALITY semantics knobs (gait-stabilisation plan step 2, 2026-09-22; all DEFAULT
+#   OFF, set by no preset -- ``config/crab_hex/motion_knobs.py``). Each changes what the policy
+#   OBSERVES, how its COMMAND or CLOCK is computed, or what its ACTION does, so a policy trained with
+#   one is only scored honestly by an eval built with it:
+#   KRABBY_OMNI_RELAY_HYST -- ``relay_hyst``: the yaw-rate relay's hysteresis latch replaces the dead
+#       band in ``_write_command`` (the turn holds' command, and the clock speed it feeds).
+#   KRABBY_OMNI_STAND_HOLD -- ``stand_hold``: the applied wz is 0 on the STAND slot, which the eval's
+#       ``schedule_hook`` re-derives for a stand hold -- so a suite stand hold receives the hold.
+#   KRABBY_OMNI_STAND_PARK -- ``omni_stand_park``: the STAND-slot clock parks at its next touchdown
+#       (the clock PHASE the policy observes).
+#   KRABBY_ACTION_LPF_HZ -- ``actions.joint_pos.lpf_hz``: the low-pass between the policy's rod
+#       command and the rods (what an action DOES).
+#   KRABBY_ACTION_LPF_OBS / KRABBY_OMNI_STAND_OBS -- two extra observation blocks (the filtered rod
+#       command; the stand bit + a zeroed clock): the observation WIDTH itself.
+#   The reward-weight and exploration knobs of the same plan are NOT carried (the reward/sampler rule
+#   below; the std clamp / reset only shape training noise, and evals act on the mean).
 #
 # NOT carried, deliberately: KRABBY_OMNI_SLOTS / _DIR_BAND / _FACING / _RSI_SOURCE, KRABBY_RSI_*,
 # KRABBY_YAW_W, KRABBY_YAW_PROGRESS_W, KRABBY_STAND_FRAC, KRABBY_RESAMPLE_S and the
@@ -137,7 +153,10 @@ CANARY_KEEP = ("KRABBY_LIN_VEL_X", "KRABBY_TRACK_SIGMA2", "KRABBY_TRACK_L1_W", "
 # KRABBY_HEADING_STIFFNESS would change it and no omni preset sets it (see the CANARY_KEEP note).
 EVAL_CARRY = ("KRABBY_OMNI_FACING_OBS_CLIP", "KRABBY_OMNI_SPEED_ELLIPSE", "KRABBY_OMNI_ANG_VEL_MAX",
               "KRABBY_OMNI_CLOCK_TURN_R", "KRABBY_OMNI_YAW_RANGE",
-              "KRABBY_OMNI_FACING_OBS_ENCODING", "KRABBY_OMNI_ANG_VEL_CLIP")
+              "KRABBY_OMNI_FACING_OBS_ENCODING", "KRABBY_OMNI_ANG_VEL_CLIP",
+              # motion-quality plan step 2 (default off; see the block above)
+              "KRABBY_OMNI_RELAY_HYST", "KRABBY_OMNI_STAND_HOLD", "KRABBY_OMNI_STAND_PARK",
+              "KRABBY_ACTION_LPF_HZ", "KRABBY_ACTION_LPF_OBS", "KRABBY_OMNI_STAND_OBS")
 #: The value an eval carries for an :data:`EVAL_CARRY` key the phase's preset does not set.
 #:
 #: A preset that never mentions a knob trains on the config's CLASS DEFAULT, and an eval that also
@@ -152,7 +171,13 @@ EVAL_CARRY = ("KRABBY_OMNI_FACING_OBS_CLIP", "KRABBY_OMNI_SPEED_ELLIPSE", "KRABB
 #: knob (which command types a training window draws), and every eval row's commands come from the
 #: manifest schedule override instead -- the sampler never runs. Carrying it would be the exact
 #: mistake the "NOT carried, deliberately" list below exists to prevent.
-EVAL_CARRY_DEFAULTS = {"KRABBY_OMNI_FACING_OBS_ENCODING": "raw", "KRABBY_OMNI_ANG_VEL_CLIP": "0.2"}
+#: The six motion-quality knobs default to their OFF value ("0"), which ``motion_knobs`` treats
+#: exactly like an unset variable -- nothing is written into the cfg -- so an eval carrying the
+#: default builds the same cfg as one that omits the key (pinned by the class-default test).
+EVAL_CARRY_DEFAULTS = {"KRABBY_OMNI_FACING_OBS_ENCODING": "raw", "KRABBY_OMNI_ANG_VEL_CLIP": "0.2",
+                       "KRABBY_OMNI_RELAY_HYST": "0", "KRABBY_OMNI_STAND_HOLD": "0",
+                       "KRABBY_OMNI_STAND_PARK": "0", "KRABBY_ACTION_LPF_HZ": "0",
+                       "KRABBY_ACTION_LPF_OBS": "0", "KRABBY_OMNI_STAND_OBS": "0"}
 # Evals never carry RSI resets: set explicitly (not merely omitted) so a preset that later grows a
 # different default, or a leaked parent value, cannot re-arm reference-state resets inside an eval.
 # apply_omni_knobs / the forward knob block build events.rsi_reference_reset only for RSI_FRAC > 0.
@@ -732,7 +757,13 @@ def survival_by_hold(episodes: list, hold_labels: list, hold_s: dict, *, prologu
 #: (``n, n_env, survival`` + these, ``by_hand`` holding the same per hand) is cross-pinned against
 #: ``eval_categories.CAT_KEYS`` in the gate tests.
 CAT_METRIC_KEYS = ("ratio", "achieved_speed", "tripod", "facing_closed", "yaw_progress", "net_yaw",
-                   "settle_s", "heading_final", "drift_speed", "direction_error", "cross_track_ratio")
+                   "settle_s", "heading_final", "drift_speed", "direction_error", "cross_track_ratio",
+                   # motion quality (gait-motion-quality plan step 1; None where N/A for the category)
+                   "action_jitter", "action_fft_freq", "joint_speed_mean", "rod_speed_mean",
+                   "contact_switch_hz", "foot_slip", "wz_active_frac", "clock_restarts",
+                   "swings_per_m", "slip_per_m", "work_per_m", "cam_work_per_m",
+                   "swings_per_rad", "slip_per_rad", "work_per_rad", "cam_work_per_rad",
+                   "six_down_frac", "settle_six_down_s", "foot_disp_end", "work_per_s")
 
 
 def _median_of(stats: dict | None) -> float | None:

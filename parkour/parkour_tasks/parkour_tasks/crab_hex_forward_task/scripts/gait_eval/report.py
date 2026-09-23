@@ -63,6 +63,8 @@ def score_episode(
     action_groups: dict[str, list[int]] | None = None,
     joint_vel_groups: dict[str, list[int]] | None = None,
     travel_yaw: float = 0.0,
+    motion_groups: dict[str, list[int]] | None = None,
+    action_clip: float | None = None,
 ) -> dict:
     """All derived metrics for one episode, per hold plus an episode roll-up.
 
@@ -87,6 +89,13 @@ def score_episode(
     velocity). On a category-suite row (the compiled schedule carries ``wave_of_env``) the episode
     also carries its ``wave``, its own ``hold``, that hold's ``category`` and ``hand``. Body rows
     gain none of these keys.
+
+    On a category-suite row the episode's OWN hold additionally carries ``quality``
+    (:func:`gait_eval.metrics.motion_quality_metrics` over the whole hold, gait-motion-quality plan
+    step 1): ``motion_groups`` are :func:`gait_eval.metrics.motion_joint_groups` of the
+    articulation's joint names (``None`` leaves the joint/work metrics unmeasured) and
+    ``action_clip`` the runner's ``clip_actions`` (the actions are clipped before the action
+    metrics, as the env clips them). Every other hold and every non-suite row is unchanged.
     """
     world = scenario.command_frame == "world"
     has_facing = world and "heading_err" in raw
@@ -97,6 +106,10 @@ def score_episode(
     slip_thresh = float(scenario.get_default("slip_speed_threshold"))
     lin_vel_clip = float(scenario.get_default("lin_vel_clip"))
     ended_in_fall = term_reason in ("fall", "hard_fall")
+    own_label = own_category = None
+    if world and compiled.hold_of_env is not None and scenario.suite is not None:
+        own_label = compiled.hold_labels[int(compiled.hold_of_env[env_idx])]
+        own_category = scenario.suite.category_of_hold().get(own_label)
 
     contact_all = raw["foot_force_norm"][:, env_idx, :] > threshold
     segment_id = compiled.segment_id[:, env_idx]
@@ -184,6 +197,11 @@ def score_episode(
                     M.travel_direction_metrics(vel_travel[:, :2], cmd_window[:, 0])
                     if vel_travel is not None
                     else None
+                )
+            if own_category is not None and label == own_label:
+                entry["quality"] = _quality_block(
+                    raw, env_idx, widx, own_category, dt=dt, motion_groups=motion_groups,
+                    action_clip=action_clip, hold_s_nominal=float(scenario.schedule[hold_idx].hold_s),
                 )
 
         if tri["valid"]:
@@ -318,6 +336,34 @@ def score_episode(
     return out
 
 
+def _quality_block(raw: dict, env_idx: int, widx: np.ndarray, category: str, *, dt: float,
+                   motion_groups, action_clip, hold_s_nominal: float) -> dict | None:
+    """``motion_quality_metrics`` of one episode's own hold; inputs the harness did not record (an
+    older npz: no ``applied_torque`` / ``clock_running`` / ``rod_speed``) leave their metrics
+    ``None``."""
+    def _opt(key):
+        return raw[key][widx, env_idx] if key in raw else None
+
+    return M.motion_quality_metrics(
+        category,
+        dt=dt,
+        actions=_opt("actions"),
+        foot_force_norm=raw["foot_force_norm"][widx, env_idx],
+        foot_pos_w=raw["foot_pos_w"][widx, env_idx],
+        foot_lin_vel_w=raw["foot_lin_vel_w"][widx, env_idx],
+        root_pos_w=raw["root_pos_w"][widx, env_idx],
+        root_quat_w=raw["root_quat_w"][widx, env_idx],
+        cmd_wz=raw["cmd_applied"][widx, env_idx, 2],
+        joint_vel=_opt("joint_vel"),
+        applied_torque=_opt("applied_torque"),
+        groups=motion_groups,
+        clock_running=_opt("clock_running"),
+        rod_speed=_opt("rod_speed"),
+        action_clip=action_clip,
+        hold_s_nominal=hold_s_nominal,
+    )
+
+
 def score_run(
     raw: dict[str, np.ndarray],
     *,
@@ -329,6 +375,8 @@ def score_run(
     action_groups: dict[str, list[int]] | None = None,
     joint_vel_groups: dict[str, list[int]] | None = None,
     travel_yaw: float = 0.0,
+    motion_groups: dict[str, list[int]] | None = None,
+    action_clip: float | None = None,
 ) -> list[dict]:
     """``travel_yaw`` is a scalar (forward/sideways), a ``(T,)`` array shared by every env, or a
     ``(T, E)`` array -- the per-step, per-env command direction the omni harness logs."""
@@ -345,6 +393,8 @@ def score_run(
             action_groups=action_groups,
             joint_vel_groups=joint_vel_groups,
             travel_yaw=(np.asarray(travel_yaw)[:, i] if ndim == 2 else travel_yaw),
+            motion_groups=motion_groups,
+            action_clip=action_clip,
         )
         for i in range(len(term_reason))
     ]
@@ -365,6 +415,9 @@ CATEGORY_METRIC_SOURCES: dict[str, tuple[str, ...]] = {
     "drift_speed": ("motion", "speed_abs_mean_m_s"),
     "direction_error": ("direction", "direction_error_rad"),
     "cross_track_ratio": ("direction", "cross_track_ratio"),
+    # Motion quality (gait-motion-quality plan step 1): the own hold's ``quality`` block. A key not
+    # defined on the category is None there, so its by_category stats read n = 0 / median None.
+    **{key: ("quality", key) for key in M.MOTION_QUALITY_KEYS},
 }
 
 
@@ -742,6 +795,14 @@ def summary_text(run_meta: dict, episodes: list[dict]) -> str:
                 f"progress={_median_txt(cat['yaw_progress'])} net={_median_txt(cat['net_yaw'])} | "
                 f"drift={_median_txt(cat['drift_speed'])} dir_err={_median_txt(cat['direction_error'])}"
             )
+        # Motion quality: only the keys defined on each category (the rest are N/A by design).
+        lines.append("")
+        lines.append("motion quality by category (own hold, whole hold; medians; loaded = foot force > "
+                     f"{M.MOTION_TOUCH_REF_N:g} N; per-m / per-rad over net displacement / |net yaw|):")
+        for name, cat in sb["by_category"].items():
+            parts = [f"{key}={_median_txt(cat[key])}" for key in M.MOTION_QUALITY_KEYS
+                     if name in M.MOTION_QUALITY_APPLIES[key] and key in cat]
+            lines.append(f"  {name:>9}: " + " ".join(parts))
     for key in ("command_override_warning", "schedule_state_warning", "obs_dim_warning"):
         if run_meta.get(key):
             lines.append(f"\n[WARN] {run_meta[key]}")

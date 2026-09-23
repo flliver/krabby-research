@@ -559,6 +559,13 @@ def test_eval_carry_names_the_obs_and_command_knobs(drv):
         "KRABBY_OMNI_YAW_RANGE",            # the reset event's spawn-yaw band
         "KRABBY_OMNI_FACING_OBS_ENCODING",  # raw vs (sin, cos): the observation VECTOR itself
         "KRABBY_OMNI_ANG_VEL_CLIP",         # the yaw-rate dead band the turn metrics are scored over
+        # motion-quality plan step 2 (2026-09-22), all default off:
+        "KRABBY_OMNI_RELAY_HYST",           # the yaw-rate relay's hysteresis latch (turn command)
+        "KRABBY_OMNI_STAND_HOLD",           # applied wz 0 on the stand slot (stand holds)
+        "KRABBY_OMNI_STAND_PARK",           # the stand slot's parked clock phase (observed)
+        "KRABBY_ACTION_LPF_HZ",             # the rod-command low-pass (what an action does)
+        "KRABBY_ACTION_LPF_OBS",            # + 12 observation channels
+        "KRABBY_OMNI_STAND_OBS",            # + the stand bit, zeroed clock
     }
     # Sampling / reward / terrain knobs are NOT carried: the canary is a minimal flat eval whose
     # commands come from the manifest schedule override and whose verdict must not move when a
@@ -600,15 +607,59 @@ def test_eval_carry_defaults_stand_in_only_for_keys_no_preset_sets(drv):
         assert key not in pe, f"{key} is set by the 1c preset; the default would be dead code"
         assert isinstance(value, str) and value, f"{key}: an env value is a non-empty string"
     # The two class-body defaults these restate (crab_hex_omni_command.py: facing_obs_encoding
-    # "raw", clips.ang_vel_clip 0.2). A drift here silently re-specifies every eval.
+    # "raw", clips.ang_vel_clip 0.2), plus the six motion-quality knobs at their OFF value (the
+    # knob-off cfg is the class default: motion_knobs writes nothing for "0"). A drift here
+    # silently re-specifies every eval.
     assert drv.EVAL_CARRY_DEFAULTS == {"KRABBY_OMNI_FACING_OBS_ENCODING": "raw",
-                                       "KRABBY_OMNI_ANG_VEL_CLIP": "0.2"}
+                                       "KRABBY_OMNI_ANG_VEL_CLIP": "0.2",
+                                       "KRABBY_OMNI_RELAY_HYST": "0", "KRABBY_OMNI_STAND_HOLD": "0",
+                                       "KRABBY_OMNI_STAND_PARK": "0", "KRABBY_ACTION_LPF_HZ": "0",
+                                       "KRABBY_ACTION_LPF_OBS": "0", "KRABBY_OMNI_STAND_OBS": "0"}
     # The five keys the presets DO set keep the preset's value, bitwise -- the defaults changed
     # nothing about the rows that already ran.
     ev = _eval_envs(drv)["canary"]
     for key in ("KRABBY_OMNI_FACING_OBS_CLIP", "KRABBY_OMNI_SPEED_ELLIPSE", "KRABBY_OMNI_ANG_VEL_MAX",
                 "KRABBY_OMNI_CLOCK_TURN_R", "KRABBY_OMNI_YAW_RANGE"):
         assert ev[key] == pe[key]
+
+
+def test_motion_carry_defaults_are_the_knob_off_values_and_build_nothing(drv):
+    """The six motion-quality carry defaults (2026-09-22) restate each knob's OFF value, and that
+    value writes NOTHING into an env cfg -- so an eval carrying the default builds exactly the
+    class-default cfg a policy trained without the knob saw (the whole point of the pin)."""
+    knobs = _load(OMNI_KNOBS, "omni_knobs_gate_motion_test")
+    mk = knobs._mk
+    assert set(mk.EVAL_SEMANTIC_KNOBS) <= set(drv.EVAL_CARRY)
+    for key in mk.EVAL_SEMANTIC_KNOBS:
+        assert drv.EVAL_CARRY_DEFAULTS[key] == mk.KNOB_OFF_VALUES[key], key
+    # the reward / exploration knobs of the same plan are NOT carried (reward and sampler rule)
+    for banned in ("KRABBY_ACTION_STD_MAX", "KRABBY_ACTION_STD_RESET", "KRABBY_ENTROPY_COEF",
+                   "KRABBY_ACTION_RATE_SQ", "KRABBY_ACTION_SMOOTH2_W", "KRABBY_JOINT_VEL_W",
+                   "KRABBY_FOOT_SLIP_W", "KRABBY_STAND_POSE_W", "KRABBY_POWER_W", "KRABBY_AIRTIME_W"):
+        assert banned not in drv.EVAL_CARRY and banned not in drv.EVAL_CARRY_DEFAULTS
+
+    class _Bag:
+        pass
+
+    def _cfg():
+        cfg = _Bag()
+        cfg.commands = _Bag()
+        cfg.commands.base_velocity = _Bag()
+        cfg.actions = _Bag()
+        cfg.actions.joint_pos = _Bag()
+        cfg.rewards = _Bag()
+        cfg.observations = _Bag()
+        return cfg
+
+    def _snapshot(obj):
+        if isinstance(obj, _Bag):
+            return {k: _snapshot(v) for k, v in vars(obj).items()}
+        return obj
+
+    carried, unset = _cfg(), _cfg()
+    mk.apply_motion_knobs(carried, {k: drv.EVAL_CARRY_DEFAULTS[k] for k in mk.EVAL_SEMANTIC_KNOBS})
+    mk.apply_motion_knobs(unset, {})
+    assert _snapshot(carried) == _snapshot(unset) == _snapshot(_cfg())
 
 
 @pytest.mark.parametrize("key,value", [("KRABBY_OMNI_ANG_VEL_CLIP", "0.05"),

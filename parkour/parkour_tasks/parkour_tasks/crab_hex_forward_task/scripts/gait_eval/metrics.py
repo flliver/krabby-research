@@ -1263,3 +1263,307 @@ def fall_direction_metrics(
         rate = float(np.abs(seg).max()) if seg.size else None
     return {"fall_class": cls, "t_fail_s": t * dt, "pitch_at_fail": pitch,
             "roll_at_fail": roll, "max_pitch_rate": rate}
+
+
+# ---------------------------------------------------------------------------------------------
+# Motion quality (gait-motion-quality plan, step 1, 2026-09-22)
+# ---------------------------------------------------------------------------------------------
+#: Contact threshold for every motion-quality metric, newtons. Mirrors
+#: ``crab_hex_forward_task/mdp/crab_hex_clock_reward.TOUCH_REF_N`` (the clock reward's "really
+#: loaded" half-load point; pinned against that file's source by a unit test) -- NOT the scenario's
+#: ``contact_force_threshold``, which the tripod score uses and which a lightly grazing foot clears.
+MOTION_TOUCH_REF_N = 50.0
+#: ``settle_six_down_s``: six-down must then HOLD this long to count as settled (a touchdown that
+#: is lifted again 0.1 s later is not a settled stance).
+SIX_DOWN_DWELL_S = 0.5
+#: Per-metre metrics are undefined (``None``) below this net planar displacement, metres.
+MIN_TRAVEL_M = 0.05
+#: Per-radian metrics are undefined (``None``) below this |net yaw|, radians.
+MIN_NET_YAW_RAD = 0.05
+#: Spectra need at least this many samples (``action_fft_freq`` / ``action_sm``).
+MIN_FFT_STEPS = 16
+
+#: Every motion-quality key a category summary carries, in print order.
+MOTION_QUALITY_KEYS: tuple[str, ...] = (
+    "action_jitter", "action_fft_freq", "joint_speed_mean", "rod_speed_mean", "contact_switch_hz",
+    "foot_slip", "wz_active_frac", "clock_restarts",
+    "swings_per_m", "slip_per_m", "work_per_m", "cam_work_per_m",
+    "swings_per_rad", "slip_per_rad", "work_per_rad", "cam_work_per_rad",
+    "six_down_frac", "settle_six_down_s", "foot_disp_end", "work_per_s",
+)
+
+_ALL_CATS = frozenset({"stand", "fwd", "side", "back", "diag", "turn", "move_turn"})
+_TRANSLATE = frozenset({"fwd", "side", "back", "diag"})
+_TURNING = frozenset({"turn", "move_turn"})
+#: key -> the categories it is DEFINED on (the plan's step-1 table). Everywhere else the key is
+#: ``None`` -- N/A, never 0: a per-metre number where the only distance is drift is noise, and a
+#: stand-only number on a walking hold means nothing.
+MOTION_QUALITY_APPLIES: dict[str, frozenset] = {
+    **{k: _ALL_CATS for k in ("action_jitter", "action_fft_freq", "joint_speed_mean", "rod_speed_mean",
+                              "contact_switch_hz", "foot_slip", "wz_active_frac", "clock_restarts")},
+    **{k: _TRANSLATE for k in ("swings_per_m", "slip_per_m", "work_per_m", "cam_work_per_m")},
+    **{k: _TURNING for k in ("swings_per_rad", "slip_per_rad", "work_per_rad", "cam_work_per_rad")},
+    **{k: frozenset({"stand"}) for k in ("six_down_frac", "settle_six_down_s", "foot_disp_end", "work_per_s")},
+}
+
+
+def motion_joint_groups(joint_names: Sequence[str]) -> dict[str, list[int]]:
+    """Articulation joint indices for the motion-quality metrics.
+
+    * ``rod`` -- the linear-actuator (lead-screw) joints: hip pitch ``*_Hip_Femur_RevoluteJoint`` and
+      knee ``*_Femur_Tibia_RevoluteJoint`` (``parkour_actions.CrabHexDelayedJointPositionAction``'s
+      pitch linkage);
+    * ``cam`` -- the cam mechanism: the velocity-commanded ``*_Body_CamShaft_RevoluteJoint`` motor
+      AND the ``*_Body_Hip_RevoluteJoint`` it drives through the high-gain linkage emulator (that
+      actuator carries the cam's mechanical load in sim);
+    * ``actuated`` -- the 18 policy-commanded joints (camshaft + rod), i.e. the action set.
+    """
+    groups: dict[str, list[int]] = {"rod": [], "cam": [], "actuated": []}
+    for i, name in enumerate(joint_names):
+        if "_Hip_Femur_" in name or "_Femur_Tibia_" in name:
+            groups["rod"].append(i)
+            groups["actuated"].append(i)
+        elif "_Body_CamShaft_" in name:
+            groups["cam"].append(i)
+            groups["actuated"].append(i)
+        elif "_Body_Hip_" in name:
+            groups["cam"].append(i)
+    return groups
+
+
+def action_jitter(actions: np.ndarray) -> float | None:
+    """Mean absolute SECOND difference of the actions, ``mean_t,d |a[t+1] - 2 a[t] + a[t-1]|``.
+
+    Action units per step^2 (raw policy units; the harness clips to ``clip_actions`` first). A
+    constant or a straight ramp scores 0; a +-a sawtooth at the step rate scores 4a. ``None`` under
+    three steps.
+    """
+    a = np.asarray(actions, dtype=np.float64)
+    if a.ndim == 1:
+        a = a[:, None]
+    if a.shape[0] < 3:
+        return None
+    return float(np.abs(a[2:] - 2.0 * a[1:-1] + a[:-2]).mean())
+
+
+def _action_spectrum(actions: np.ndarray, dt: float) -> tuple[np.ndarray, np.ndarray] | None:
+    a = np.asarray(actions, dtype=np.float64)
+    if a.ndim == 1:
+        a = a[:, None]
+    n = a.shape[0]
+    if n < MIN_FFT_STEPS or not dt > 0.0:
+        return None
+    spec = np.fft.rfft(a - a.mean(axis=0, keepdims=True), axis=0)
+    freqs = np.fft.rfftfreq(n, d=dt)
+    return freqs, np.abs(spec)
+
+
+def action_fft_freq(actions: np.ndarray, dt: float) -> float | None:
+    """POWER-weighted mean frequency of the actions, Hz: ``sum_{d,i} P_di f_i / sum_{d,i} P_di``.
+
+    Each action dimension is de-meaned (so a held offset carries no power), ``P = |rfft|^2``, the DC
+    bin is excluded and the power is pooled over dimensions (a dimension that barely moves barely
+    counts). The Christmann et al. 2024 smoothness family (see :func:`action_sm` for their exact
+    amplitude-weighted ``Sm``); this form reads directly as "where the action energy sits".
+    ``None`` under :data:`MIN_FFT_STEPS` steps or when the actions carry no AC power at all.
+    """
+    got = _action_spectrum(actions, dt)
+    if got is None:
+        return None
+    freqs, amp = got
+    power = amp[1:] ** 2
+    total = float(power.sum())
+    if not total > _VAR_EPS:
+        return None
+    return float((power * freqs[1:, None]).sum() / total)
+
+
+def action_sm(actions: np.ndarray, dt: float) -> float | None:
+    """Christmann et al. 2024's smoothness ``Sm = 2 / (n f_s) * sum_i M_i f_i``, mean over dims.
+
+    ``M_i = |rfft(a - mean)|_i / T`` (amplitude), ``n`` the number of rfft bins, ``f_s = 1/dt``.
+    Kept beside :func:`action_fft_freq` as the literature's own number (diagnostic, not a category
+    key). ``None`` under :data:`MIN_FFT_STEPS` steps.
+    """
+    got = _action_spectrum(actions, dt)
+    if got is None:
+        return None
+    freqs, amp = got
+    T = (freqs.size - 1) * 2 if freqs.size > 1 else 1
+    m = amp / max(1, T)
+    fs = 1.0 / dt
+    per_dim = 2.0 / (freqs.size * fs) * (m * freqs[:, None]).sum(axis=0)
+    return float(per_dim.mean())
+
+
+def contact_transitions(contact: np.ndarray) -> tuple[int, int]:
+    """``(liftoffs, touchdowns)`` summed over feet: True->False and False->True between steps."""
+    c = np.asarray(contact, dtype=bool).astype(np.int8)
+    if c.shape[0] < 2:
+        return 0, 0
+    d = np.diff(c, axis=0)
+    return int(np.count_nonzero(d < 0)), int(np.count_nonzero(d > 0))
+
+
+def settle_time_s(mask: np.ndarray, dt: float, dwell_s: float = SIX_DOWN_DWELL_S) -> float | None:
+    """Seconds from the window start to the first step that begins a run of ``mask`` at least
+    ``dwell_s`` long (``ceil(dwell_s/dt)`` steps); ``None`` when no such run exists (censored)."""
+    m = np.asarray(mask, dtype=bool)
+    need = max(1, int(math.ceil(dwell_s / dt - 1e-9)))
+    for start, end in contiguous_runs(m):
+        if end - start >= need:
+            return float(start * dt)
+    return None
+
+
+def motion_quality_metrics(
+    category: str,
+    *,
+    dt: float,
+    actions: np.ndarray | None,
+    foot_force_norm: np.ndarray,
+    foot_pos_w: np.ndarray,
+    foot_lin_vel_w: np.ndarray,
+    root_pos_w: np.ndarray,
+    root_quat_w: np.ndarray,
+    cmd_wz: np.ndarray,
+    joint_vel: np.ndarray | None = None,
+    applied_torque: np.ndarray | None = None,
+    groups: dict[str, Sequence[int]] | None = None,
+    clock_running: np.ndarray | None = None,
+    rod_speed: np.ndarray | None = None,
+    action_clip: float | None = None,
+    hold_s_nominal: float | None = None,
+    touch_ref_n: float = MOTION_TOUCH_REF_N,
+) -> dict | None:
+    """The motion-quality block of one episode's OWN hold (``hold["quality"]``); ``None`` if empty.
+
+    Every array is the hold's window only (time first). The keys of :data:`MOTION_QUALITY_KEYS`
+    are always present; a key not defined on ``category`` (:data:`MOTION_QUALITY_APPLIES`) or not
+    measurable on this window (missing input, too short, no distance) is ``None`` -- never 0.
+
+    Definitions (``loaded`` = foot force > ``touch_ref_n`` = 50 N; ``W`` = the window, ``|W|`` its
+    duration ``n * dt``):
+
+    * ``action_jitter`` -- :func:`action_jitter` of the actions clipped to ``+-action_clip``;
+    * ``action_fft_freq`` -- :func:`action_fft_freq`, Hz;
+    * ``joint_speed_mean`` -- mean ``|qdot|`` over the ``actuated`` joints, rad/s;
+    * ``rod_speed_mean`` -- mean ``|rod speed|`` over the 12 linear actuators, m/s (the action term's
+      slew-limited rod-length rate, recorded by the harness as ``rod_speed``);
+    * ``contact_switch_hz`` -- loaded<->unloaded transitions per foot per second (mean over feet);
+    * ``foot_slip`` -- mean planar speed of the loaded feet over loaded (step, foot) samples, m/s;
+    * ``wz_active_frac`` -- fraction of steps whose APPLIED yaw-rate command is nonzero (the heading
+      relay engaged: the dead band zeroes it exactly);
+    * ``clock_restarts`` -- gait-clock stopped->running transitions inside the window (a count;
+      needs the harness's ``clock_running``);
+    * per metre (translation categories), ``D`` = net planar root displacement over the window,
+      ``None`` below :data:`MIN_TRAVEL_M`: ``swings_per_m`` = liftoffs (loaded->unloaded, summed over
+      feet) / D; ``slip_per_m`` = (sum over loaded samples of planar foot speed * dt) / D (m/m);
+      ``work_per_m`` = (sum over rod joints and steps of max(tau*qdot, 0) * dt) / D, J/m;
+      ``cam_work_per_m`` = (sum over cam joints of |tau*qdot| * dt) / D, J/m;
+    * per radian (turn, move_turn), the same numerators over ``|net yaw|`` (unwrapped, ``None`` below
+      :data:`MIN_NET_YAW_RAD`): ``swings_per_rad``, ``slip_per_rad`` (m/rad), ``work_per_rad``,
+      ``cam_work_per_rad`` (J/rad);
+    * stand only: ``six_down_frac`` = fraction of steps with all six feet loaded;
+      ``settle_six_down_s`` = :func:`settle_time_s` of six-down (first run >= 0.5 s), CENSORED at
+      ``hold_s_nominal`` (else ``|W|``) when never reached, with ``settle_six_down_censored`` True;
+      ``foot_disp_end`` = mean over feet of the planar distance between each foot's position at the
+      window's last step and at its first (the footholds at the end of the settle hold), m;
+      ``work_per_s`` = (rod positive work + cam |work|) / |W|, W.
+
+    Extra (non-category) fields: ``category``, ``n_steps``, ``duration_s``, ``distance_m``,
+    ``net_yaw_rad``, ``liftoffs``, ``touchdowns``, ``rod_work_pos_j``, ``cam_work_abs_j``,
+    ``slip_m``, ``action_sm``, ``settle_six_down_censored``, ``touch_ref_n``.
+    """
+    force = np.asarray(foot_force_norm, dtype=np.float64)
+    n = int(force.shape[0]) if force.ndim >= 1 else 0
+    if n == 0:
+        return None
+    dur = n * dt
+    loaded = force > touch_ref_n
+    applies = {k: category in cats for k, cats in MOTION_QUALITY_APPLIES.items()}
+    out: dict[str, Any] = {k: None for k in MOTION_QUALITY_KEYS}
+    extra: dict[str, Any] = {"category": category, "n_steps": n, "duration_s": dur,
+                             "touch_ref_n": float(touch_ref_n), "settle_six_down_censored": None}
+
+    # ---- actions
+    acts = None
+    if actions is not None:
+        acts = np.asarray(actions, dtype=np.float64)
+        if action_clip is not None:
+            acts = np.clip(acts, -float(action_clip), float(action_clip))
+    out["action_jitter"] = action_jitter(acts) if acts is not None else None
+    out["action_fft_freq"] = action_fft_freq(acts, dt) if acts is not None else None
+    extra["action_sm"] = action_sm(acts, dt) if acts is not None else None
+
+    # ---- joints
+    g = {k: list(v) for k, v in (groups or {}).items()}
+    jv = np.asarray(joint_vel, dtype=np.float64) if joint_vel is not None else None
+    if jv is not None and g.get("actuated"):
+        out["joint_speed_mean"] = float(np.abs(jv[:, g["actuated"]]).mean())
+    if rod_speed is not None:
+        rs = np.asarray(rod_speed, dtype=np.float64)
+        out["rod_speed_mean"] = float(np.abs(rs).mean()) if rs.size else None
+    rod_work = cam_work = None
+    if jv is not None and applied_torque is not None and g.get("rod") and g.get("cam"):
+        power = np.asarray(applied_torque, dtype=np.float64) * jv
+        rod_work = float(np.clip(power[:, g["rod"]], 0.0, None).sum() * dt)
+        cam_work = float(np.abs(power[:, g["cam"]]).sum() * dt)
+    extra["rod_work_pos_j"], extra["cam_work_abs_j"] = rod_work, cam_work
+
+    # ---- contacts, slip
+    lifts, downs = contact_transitions(loaded)
+    extra["liftoffs"], extra["touchdowns"] = lifts, downs
+    out["contact_switch_hz"] = float((lifts + downs) / (loaded.shape[1] * dur)) if dur > 0 else None
+    speed_xy = np.linalg.norm(np.asarray(foot_lin_vel_w, dtype=np.float64)[..., :2], axis=-1)
+    out["foot_slip"] = float(speed_xy[loaded].mean()) if loaded.any() else None
+    slip_m = float(speed_xy[loaded].sum() * dt)
+    extra["slip_m"] = slip_m
+
+    # ---- command / clock
+    wz = np.asarray(cmd_wz, dtype=np.float64)
+    out["wz_active_frac"] = float(np.count_nonzero(wz != 0.0) / wz.size) if wz.size else None
+    if clock_running is not None:
+        cr = np.asarray(clock_running, dtype=bool).astype(np.int8)
+        out["clock_restarts"] = int(np.count_nonzero(np.diff(cr) > 0)) if cr.size > 1 else 0
+
+    # ---- normalisers
+    xy = np.asarray(root_pos_w, dtype=np.float64)[:, :2]
+    dist = float(np.linalg.norm(xy[-1] - xy[0]))
+    yaw = np.unwrap(yaw_from_quat_wxyz(np.asarray(root_quat_w, dtype=np.float64)))
+    net_yaw = float(abs(yaw[-1] - yaw[0]))
+    extra["distance_m"], extra["net_yaw_rad"] = dist, net_yaw
+
+    def _per(num: float | None, den: float, floor: float) -> float | None:
+        return None if num is None or den < floor else float(num / den)
+
+    out["swings_per_m"] = _per(float(lifts), dist, MIN_TRAVEL_M)
+    out["slip_per_m"] = _per(slip_m, dist, MIN_TRAVEL_M)
+    out["work_per_m"] = _per(rod_work, dist, MIN_TRAVEL_M)
+    out["cam_work_per_m"] = _per(cam_work, dist, MIN_TRAVEL_M)
+    out["swings_per_rad"] = _per(float(lifts), net_yaw, MIN_NET_YAW_RAD)
+    out["slip_per_rad"] = _per(slip_m, net_yaw, MIN_NET_YAW_RAD)
+    out["work_per_rad"] = _per(rod_work, net_yaw, MIN_NET_YAW_RAD)
+    out["cam_work_per_rad"] = _per(cam_work, net_yaw, MIN_NET_YAW_RAD)
+
+    # ---- stand
+    six = loaded.all(axis=1)
+    out["six_down_frac"] = float(six.mean())
+    settle = settle_time_s(six, dt)
+    if settle is None:
+        out["settle_six_down_s"] = float(hold_s_nominal) if hold_s_nominal is not None else float(dur)
+        extra["settle_six_down_censored"] = True
+    else:
+        out["settle_six_down_s"] = settle
+        extra["settle_six_down_censored"] = False
+    fp = np.asarray(foot_pos_w, dtype=np.float64)
+    out["foot_disp_end"] = float(np.linalg.norm(fp[-1, :, :2] - fp[0, :, :2], axis=-1).mean())
+    out["work_per_s"] = (float((rod_work + cam_work) / dur)
+                         if rod_work is not None and cam_work is not None and dur > 0 else None)
+
+    for k in MOTION_QUALITY_KEYS:
+        if not applies[k]:
+            out[k] = None
+    if category != "stand":
+        extra["settle_six_down_censored"] = None
+    return {**out, **extra}

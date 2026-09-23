@@ -105,6 +105,16 @@ scored on the ``suite__omni`` row (:data:`SCREEN_ROW`; the recorded rows keep
 ``BORROW`` and ``--curriculum-runs`` are retired under rule version 2 (the suite measures both
 hands). :func:`resolve` never writes; :func:`write_resolution` does.
 
+The gait-motion-quality campaign (2026-09-23) adds three things, all inert for every earlier rule:
+a block ``Q`` (:data:`BLOCK_ORDER`); a per-metric SIGN (``MetricSpec.sign`` =
+``eval_categories.metric_sign``: -1 for the lower-is-better motion-quality keys), applied to every
+delta the bootstrap and the null form, so a signed block ``z`` and a guard's WORSE read "positive =
+better" -- the per-metric half-widths are sign-invariant, the block half-width is not; and a
+SEPARATE guard spec for a guard whose metric is also a block member (:func:`specs_from_rule`),
+recorded under ``<mid>@guard`` (``eval_categories.guard_key``) with its own one-sided 99 % half-width.
+:func:`member_spread_check` is the pre-launch zero-spread check behind the driver's
+``--q-spread-check``.
+
 Usage::
 
     resolution.py --campaign-dir <ladder dir> [--candidates <candidates.yaml>] [--out resolution.json]
@@ -120,6 +130,7 @@ from __future__ import annotations
 
 import argparse
 import copy
+import dataclasses
 import hashlib
 import importlib.util
 import json
@@ -217,8 +228,8 @@ BORROW = {"lat_r": "lat_l", "move_turn_r": "move_turn"}
 CURRICULUM_ROW = "curriculum__omni"
 #: Every block name, in the order records and lines enumerate them. The set a record actually
 #: carries is always DERIVED from the rule passed (a v1 rule has F/T/F_abs/T_abs, the expanded v2
-#: union all six); this tuple only orders them.
-BLOCK_ORDER = ("F", "F_mt", "T", "F_abs", "F_mt_abs", "T_abs")
+#: union all six, the gait-motion-quality campaign's F/F_mt/T/Q); this tuple only orders them.
+BLOCK_ORDER = ("F", "F_mt", "T", "F_abs", "F_mt_abs", "T_abs", "Q")
 #: The null candidate's scored blocks under a v1 rule (decision 5's two blocks).
 LEGACY_SCORED_BLOCKS = ("F", "T")
 #: Ids that exist only because the legacy holds are nested in one episode (``turn_l90`` given
@@ -605,11 +616,22 @@ class MetricSpec:
     one_sided: bool
     needs: tuple[str, ...]          # column keys, in the reducer's order
     reducer: str                    # median | mean | min_of_medians | ratio_of_means
+    #: +1 higher-is-better, -1 lower-is-better (``eval_categories.metric_sign``): every delta this
+    #: module forms is ``sign * (a - b)``, so a block ``z`` and a guard's WORSE read "positive =
+    #: better" (the motion-quality block Q). +1 for every id before Q, so no recorded number moves.
+    sign: int = 1
 
 
-def _spec(mid, block, blocks_all, hold, needs, reducer="median", *, level=BLOCK_LEVEL, one_sided=False):
+def _spec(mid, block, blocks_all, hold, needs, reducer="median", *, level=BLOCK_LEVEL, one_sided=False,
+          sign=1):
     return MetricSpec(mid=mid, block=block, blocks_all=tuple(blocks_all), hold=hold, level=level,
-                      one_sided=one_sided, needs=tuple(needs), reducer=reducer)
+                      one_sided=one_sided, needs=tuple(needs), reducer=reducer, sign=int(sign))
+
+
+def _signed(spec: "MetricSpec", delta):
+    """``sign * delta`` -- the identity (the same object) for a higher-is-better spec, so every
+    record measured before the lower-is-better keys existed is bit-identical."""
+    return delta if spec.sign >= 0 else -delta
 
 
 def suite_categories_on(hold_labels: Sequence[str]) -> list[str]:
@@ -748,7 +770,8 @@ def _cat_spec(mid: str, hold_labels: Sequence[str], *, block: str, blocks_all: S
         return None
     col = f"cat:{cat}:hand:{hand}:{key}" if hand else f"cat:{cat}:{key}"
     return _spec(mid, block, blocks_all, holds[0] if len(holds) == 1 else None, (col,),
-                 "mean" if key == "survival" else "median", level=level, one_sided=one_sided)
+                 "mean" if key == "survival" else "median", level=level, one_sided=one_sided,
+                 sign=ec.metric_sign(mid))
 
 
 def spec_for(mid: str, hold_labels: Sequence[str], *, block: str, blocks_all: Sequence[str],
@@ -905,6 +928,19 @@ def specs_from_rule(rule: dict, hold_labels: Sequence[str], *,
         (specs.append(spec) if spec else unresolved.append(mid))
         seen.add(mid)
     for mid in guard_ids:
+        if mid in membership:
+            # A guard on a metric that is ALSO a block member (the motion-quality campaign's speed
+            # guard ``cat.<c>.ratio`` beside T, its ``slip_per_m`` guard beside Q) keeps its OWN spec:
+            # one-sided at the guard level, resolved under ``eval_categories.guard_key`` so the block
+            # member's two-sided half-width is never read as the guard's.
+            key = _ec().guard_key(mid)
+            if key in seen:
+                continue
+            spec = spec_for(mid, hold_labels, block="guard", blocks_all=(), level=guard_level,
+                            one_sided=True, suite=suite, composite=composite)
+            (specs.append(dataclasses.replace(spec, mid=key)) if spec else unresolved.append(key))
+            seen.add(key)
+            continue
         if mid in seen:
             continue
         spec = spec_for(mid, hold_labels, block="guard", blocks_all=(), level=guard_level,
@@ -1161,10 +1197,18 @@ CAT_COLUMN_SOURCES: dict[str, tuple[str, ...]] = {
     "direction_error": ("direction", "direction_error_rad"),
     "cross_track_ratio": ("direction", "cross_track_ratio"),
 }
+#: Motion-quality keys (gait-motion-quality plan step 1), each read at ``quality.<key>`` on the own
+#: hold entry -- None (NaN here) on a category the key is not defined on.
+CAT_QUALITY_KEYS = ("action_jitter", "action_fft_freq", "joint_speed_mean", "rod_speed_mean",
+                    "contact_switch_hz", "foot_slip", "wz_active_frac", "clock_restarts",
+                    "swings_per_m", "slip_per_m", "work_per_m", "cam_work_per_m",
+                    "swings_per_rad", "slip_per_rad", "work_per_rad", "cam_work_per_rad",
+                    "six_down_frac", "settle_six_down_s", "foot_disp_end", "work_per_s")
+CAT_COLUMN_SOURCES.update({key: ("quality", key) for key in CAT_QUALITY_KEYS})
 #: Every per-episode ``cat`` key (``summarize()['cat'][c]`` minus the two counts).
 CAT_COLUMN_KEYS = ("survival", "ratio", "achieved_speed", "tripod", "facing_closed", "yaw_progress",
                    "net_yaw", "settle_s", "heading_final", "drift_speed", "direction_error",
-                   "cross_track_ratio")
+                   "cross_track_ratio") + CAT_QUALITY_KEYS
 
 
 def _category_value(entry: dict, key: str, *, closed: float, survived: float) -> float:
@@ -1376,7 +1420,8 @@ def _reducer_check(specs: Sequence[MetricSpec], cols: dict[str, np.ndarray], sum
                     "checked, so it cannot be resolved")
             out[spec.mid] = abs(got - float(want)) if math.isfinite(got) else float("inf")
             continue
-        want = _summary_value(summary, spec.mid)
+        # a guard resolved under its own key (``...@guard``) reads the plain id's summary value
+        want = _summary_value(summary, _ec().base_metric_id(spec.mid))
         if want is None:
             out[spec.mid] = float("nan") if math.isfinite(got) else 0.0
             continue
@@ -1831,7 +1876,7 @@ def bootstrap_pair(a: Row, b: Row, *, B: int, rng_seed: int,
         sub = draw if not a.suite else _wave_support(draw, cols_a + cols_b, a.episodes_per_wave)
         va = _reduce(spec.reducer, [c[sub] for c in cols_a])
         vb = _reduce(spec.reducer, [c[sub] for c in cols_b])
-        delta = va - vb
+        delta = _signed(spec, va - vb)
         p = quantile_p(spec.level, one_sided=spec.one_sided)
         R = half_width(delta, p) if n_valid >= MIN_R_EVAL_N else None
         point_a = float(_reduce(spec.reducer, [c[ident] for c in cols_a])[0])
@@ -1842,11 +1887,14 @@ def bootstrap_pair(a: Row, b: Row, *, B: int, rng_seed: int,
             "n": n, "n_valid": n_valid, "below_min_n": n_valid < MIN_PAIRED_HOLD_N,
             "n_draws": int(np.sum(np.isfinite(delta))),
             "point_a": _jf(point_a), "point_b": _jf(point_b),
-            "delta_point": _jf(point_a - point_b),
+            "delta_point": _jf(_signed(spec, point_a - point_b)),
             "source": ("raw" if spec.mid.startswith("facing_closed_by_hold.")
                        and a.facing_closed_source == "metric" else
                        "proxy" if spec.mid.startswith("facing_closed_by_hold.") else "json"),
         }
+        if spec.sign < 0:
+            # recorded only where it is not the default, so every pre-Q record is unchanged
+            out[spec.mid]["lower_is_better"] = True
         # Every delta is kept: which of them join a block mean is decided against the MERGED
         # ``R_eval,i`` in :func:`_standardised_blocks`, not against this pair's own.
         deltas[spec.mid] = delta
@@ -1926,7 +1974,7 @@ def null_construction(cols: dict[str, np.ndarray], specs: Sequence[MetricSpec], 
             sub_b = idx_b if waves == 1 else _wave_support(idx_b, use, per_wave)
             va = _reduce(spec.reducer, [c[sub_a] for c in use])
             vb = _reduce(spec.reducer, [c[sub_b] for c in use])
-            out[spec.mid] = va - vb
+            out[spec.mid] = _signed(spec, va - vb)
             if spec.mid in floor_ids:
                 pbar[spec.mid] = (va + vb) / 2.0
         return out, pbar
@@ -2081,6 +2129,7 @@ def _merge_pairs(pairs: Sequence[PairResult]) -> tuple[dict[str, dict], dict[str
                 "source": m["source"], "pairs_used": [], "per_pair": {}, "n": m["n"],
                 "n_valid": m["n_valid"], "below_min_n": bool(m["below_min_n"]), "points": {},
                 "n_draws": None,
+                **({"lower_is_better": True} if m.get("lower_is_better") else {}),
             })
             slot["per_pair"][pr.name] = _jf(m["R_eval"])
             slot["points"][pr.name] = {"a": m["point_a"], "b": m["point_b"],
@@ -2285,6 +2334,19 @@ def _is_survival_guard(mid: str) -> bool:
     return parsed is not None and parsed[1] is None and parsed[2] == "survival"
 
 
+def dual_guards(rule: dict) -> set[str]:
+    """The guard ids of an EXPANDED rule that are also block members (resolved under ``@guard``)."""
+    members = {str(m) for body in (rule.get("blocks") or {}).values() for m in body.get("metrics") or []}
+    return {str(g) for g in (rule.get("guards") or {}).get("metrics") or [] if str(g) in members}
+
+
+def guard_metric_key(mid: str, metrics: dict) -> str:
+    """The key a guard's half-width is recorded under: ``<mid>@guard`` when the record carries one
+    (a guard that is also a block member), else ``mid`` itself (every guard before block Q)."""
+    key = _ec().guard_key(mid)
+    return key if key in (metrics or {}) else str(mid)
+
+
 def v2_scoring_rule(rule: dict, decisive_at: Sequence[str] | None) -> tuple[dict, dict]:
     """``(union rule, systems)`` -- the v2 rule expanded for ``D00s`` (plan D5/D10).
 
@@ -2356,11 +2418,113 @@ def acceptance_d00s(blocks: dict[str, dict], metrics: dict[str, dict], systems: 
         for g in sysd["guards"]:
             if _is_survival_guard(g):
                 continue
-            R = (metrics.get(g) or {}).get("R_eval")
+            key = guard_metric_key(g, metrics)
+            R = (metrics.get(key) or {}).get("R_eval")
             if not _positive(R):
-                failures.append(f"guard {g} ({units}): R_eval {R!r} is not finite and positive")
+                failures.append(f"guard {key} ({units}): R_eval {R!r} is not finite and positive")
     failures = list(dict.fromkeys(failures))
     return {"ok": not failures, "failures": failures}
+
+
+def _spread_run_dir(path: str | Path) -> Path:
+    """A suite stamp dir as given, or the newest fresh stamp under an ``eval_dir`` root."""
+    p = _repo_path(path)
+    if (p / "run_meta.json").exists():
+        return p
+    return resolve_eval_dir(p, SCREEN_ROW)
+
+
+def member_spread_check(run_dirs: Sequence[str | Path], rule: dict, *,
+                        decisive_at: Sequence[str] | None = None, B: int | None = None,
+                        rng_seed: int | None = None, heads: Sequence[str] | None = None,
+                        verify: bool = True) -> dict:
+    """PRE-LAUNCH: which scored members of a v2 rule would carry no finite positive ``R`` in D00s.
+
+    The motion-quality campaign's zero-spread check (plan step 4: "D00s needs a finite R > 0 for
+    every member ... any member with zero spread on X08:c6 is demoted to WATCH before launch"). CPU
+    only: it reads recorded suite stamps. ``run_dirs[0]`` is the CONTROL (the incumbent's suite
+    re-eval); each further run dir forms one cross-head pair with it, drawn with D00s' own
+    construction (:func:`bootstrap_pair`, the rule's ``B`` / ``rng_seed``, the pair's own stream),
+    so with the recorded reeval stamps it reproduces D00s' per-member ``R_eval`` exactly.
+
+    Per scored member (every block member and every non-survival guard of the rule expanded at
+    ``decisive_at``, both unit systems; survival guards are floored at ``R_binom`` and exempt):
+    ``same_run`` = each row's own resample spread (two independent env-clustered resamples of that
+    row, :func:`null_construction`'s derived ``R``), ``cross`` = each pair's ``R_eval``; ``zero`` when
+    the control's own spread or any pair's ``R`` is None or 0 -- a median that no resample moves (a
+    count that is 0 on most episodes, a censored settle time, a fraction pinned at 0). Such a member
+    cannot pass D00s' acceptance; the campaign demotes it (``per_category.demoted``), never
+    ``--accept-resolution``. A member with NO finite value on some row is ``absent`` instead (the
+    stamp predates the metric, e.g. a pre-step-1 eval): re-evaluate, never demote on it.
+
+    Returns ``{rows, members: {key: {...}}, zero: [key, ...], absent: [key, ...],
+    demote: {category: {key: why}}}`` (``demote`` covers the ``zero`` members only).
+    """
+    ec = _ec()
+    if rule_version(rule) != 2:
+        raise ResolutionError("member_spread_check takes a rule_version 2 decision rule")
+    dat = list(decisive_at) if decisive_at else list(ec.CATEGORIES)
+    scoring, _systems = v2_scoring_rule(rule, dat)
+    boot = dict(rule.get("bootstrap") or {})
+    B = int(B if B is not None else boot.get("B", BOOTSTRAP_B))
+    rng_seed = int(rng_seed if rng_seed is not None else boot.get("rng_seed", RNG_SEED))
+    if not run_dirs:
+        raise ResolutionError("member_spread_check needs at least the control's suite stamp")
+    rows = []
+    for i, d in enumerate(run_dirs):
+        head = str(heads[i]) if heads and i < len(heads) and heads[i] else None
+        entry = {"run_dir": str(_spread_run_dir(d))}
+        if head:
+            entry["head"] = head
+        rows.append(load_row(entry, ring_proxy=False, rule=scoring, verify=verify))
+    if not all(r.suite for r in rows):
+        raise ResolutionError("member_spread_check reads category_suite stamps only: "
+                              + ", ".join(r.label for r in rows if not r.suite))
+    specs, unresolved = specs_from_rule(scoring, rows[0].hold_labels, suite=True)
+    scored = [s for s in specs if s.block != "watch" and not _is_survival_guard(s.mid)]
+    same: dict[str, dict[str, float | None]] = {}
+    for row in rows:
+        nul = null_construction(row.cols, scored, n=len(row.env_index), B=B, N=1,
+                                rng=pair_rng(rng_seed, f"spread::{row.label}"), waves=row.waves)
+        same[row.label] = dict(nul["R_metrics"])
+    cross: dict[str, dict[str, float | None]] = {}
+    for other in rows[1:]:
+        pr = bootstrap_pair(rows[0], other, B=B, rng_seed=rng_seed, specs=scored)
+        cross[pr.name] = {k: _jf(v.get("R_eval")) for k, v in pr.metrics.items()}
+    members: dict[str, dict] = {}
+    zero: list[str] = []
+    absent: list[str] = []
+    demote: dict[str, dict[str, str]] = {}
+    ctrl = rows[0].label
+    for spec in scored:
+        key = spec.mid
+        s_ctrl = _jf(same[ctrl].get(key))
+        pairs = {name: tab.get(key) for name, tab in cross.items()}
+        is_zero = (not _positive(s_ctrl)) or any(not _positive(v) for v in pairs.values())
+        # A member with NO value on some row is not a spread question: the stamp predates the
+        # metric (a pre-step-1 eval), or the key is N/A there. Re-evaluate; never demote on it.
+        n_finite = {r.label: int(min(np.sum(np.isfinite(r.cols[c])) if c in r.cols else 0
+                                     for c in spec.needs)) for r in rows}
+        members[key] = {"block": spec.block, "blocks_all": list(spec.blocks_all),
+                        "same_run": {lab: _jf(tab.get(key)) for lab, tab in same.items()},
+                        "cross": pairs, "zero": is_zero, "sign": spec.sign, "n_finite": n_finite}
+        if not is_zero:
+            continue
+        if any(v == 0 for v in n_finite.values()):
+            members[key]["absent"] = True
+            absent.append(key)
+            continue
+        zero.append(key)
+        parsed = ec.parse_cat_id(ec.base_metric_id(key))
+        if parsed is not None and parsed[1] is None:
+            c, _h, k = parsed
+            why = (f"zero spread on {ctrl} ({rows[0].run_dir.name}): same-run R {s_ctrl}"
+                   + (", cross-head R " + ", ".join(f"{n} {v}" for n, v in pairs.items()) if pairs else "")
+                   + " -- no finite R in D00s; demoted to WATCH before launch")
+            demote.setdefault(c, {})[k] = why
+    return {"rows": [{"head": r.head, "run_dir": str(r.run_dir), "n": r.n_episodes} for r in rows],
+            "B": B, "rng_seed": rng_seed, "decisive_at": dat, "members": members, "zero": zero,
+            "absent": absent, "demote": demote, "unresolved": list(unresolved)}
 
 
 def resolve(candidates: dict, *, bootstrap: int | None = None, rng_seed: int | None = None,
@@ -2531,8 +2695,11 @@ def resolve(candidates: dict, *, bootstrap: int | None = None, rng_seed: int | N
     cross_null: dict | None = None
     null_kw: dict[str, Any] = {}
     if v2:
+        dual = dual_guards(scoring_rule)
         null_kw = {"scored_blocks": systems["ratio"]["blocks"],
-                   "scored_guards": systems["ratio"]["guards"],
+                   # a guard that is also a block member is its own spec under ``@guard``
+                   "scored_guards": [(_ec().guard_key(g) if g in dual else g)
+                                     for g in systems["ratio"]["guards"]],
                    "survival_guards": [g for g in scoring_rule["guards"]["metrics"]
                                        if _is_survival_guard(g)]}
     if ctrl_row is not None:

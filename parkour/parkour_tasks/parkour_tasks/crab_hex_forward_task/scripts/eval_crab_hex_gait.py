@@ -106,6 +106,14 @@ parser.add_argument(
          "run_meta and aggregate.suite; scoring never reads it). Refused on any other row.",
 )
 parser.add_argument(
+    "--sample-actions",
+    action="store_true",
+    help="DIAGNOSTIC ONLY (gait-motion-quality plan step 1): roll out with actions SAMPLED from the "
+         "policy's training Gaussian (its learned std, clamped as in training) instead of the mean. "
+         "Teacher policies only; recorded as run_meta.sample_actions. Never feed such a run to a gate "
+         "or a ladder decision.",
+)
+parser.add_argument(
     "--allow-checkpoint-sha-mismatch",
     action="store_true",
     help="Proceed even if the checkpoint sha256 differs from the manifest's pin.",
@@ -558,6 +566,9 @@ def main() -> None:
     depth_encoder = None
     estimator = None
     is_student = False
+    sample_actions_std = None
+    if args_cli.sample_actions and args_cli.zero_actions:
+        raise SystemExit("--sample-actions and --zero-actions are mutually exclusive")
     checkpoint_sha = None
     num_prop = num_scan = num_priv_explicit = 0
 
@@ -595,6 +606,22 @@ def main() -> None:
         else:
             policy = runner.get_inference_policy(device=device)
             estimator = runner.get_estimator_inference_policy(device=device)
+        if args_cli.sample_actions:
+            if is_student:
+                raise SystemExit("--sample-actions: the depth student is a deterministic actor (no "
+                                 "Gaussian to sample); teacher checkpoints only")
+            if agent_cfg.to_dict().get("empirical_normalization"):
+                raise SystemExit("--sample-actions: empirical_normalization is not supported here")
+            _pol_module = runner.alg.policy
+            # ``act`` = update_distribution (the training std, clamped exactly as in training by the
+            # crab actor-critic) + a Normal sample. Diagnostic only; see the flag's help.
+            policy = lambda _obs, hist_encoding=True: _pol_module.act(_obs, hist_encoding=hist_encoding)  # noqa: E731
+            _std = getattr(_pol_module, "std", None)
+            if _std is None and getattr(_pol_module, "log_std", None) is not None:
+                _std = torch.exp(_pol_module.log_std)
+            sample_actions_std = [float(v) for v in _std.detach().cpu().reshape(-1)] if _std is not None else None
+            print(f"[WARN] --sample-actions: SAMPLED rollout at the training std {sample_actions_std} "
+                  "(diagnostic only, never a gate)", flush=True)
 
     if suite_mode:
         # Category suite (plan D2): one uniform two-hold schedule [settle, hold_k] per wave, every
@@ -659,6 +686,20 @@ def main() -> None:
         "body_pos_w": torch.zeros(T, num_envs, int(robot.num_bodies), 3, device=device),
         "leg_contact_force": torch.zeros(T, num_envs, len(sensor_leg_ids), device=device),
     }
+    # Gait-motion-quality plan step 1: the gait clock's running state (stopped -> running = a
+    # restart) and the 12 linear-actuator rod speeds, both read off the action term after each
+    # env.step (process_actions / apply_actions of THAT step). Absent on an action term without them.
+    _clock_stop = None
+    if hasattr(action_term, "clock_cmd_speed"):
+        from parkour_tasks.crab_hex_forward_task.mdp import crab_hex_dimensions as _dims  # noqa: PLC0415
+
+        _clock_stop = float(_dims.CLOCK_CMD_STOP_M_S)
+        buf["clock_cmd_speed"] = torch.zeros(T, num_envs, device=device)
+        buf["clock_running"] = torch.zeros(T, num_envs, dtype=torch.bool, device=device)
+    _has_rods = hasattr(action_term, "hip_rod_speed") and hasattr(action_term, "knee_rod_speed")
+    if _has_rods:
+        _n_rods = int(action_term.hip_rod_speed.shape[1] + action_term.knee_rod_speed.shape[1])
+        buf["rod_speed"] = torch.zeros(T, num_envs, _n_rods, device=device)
     if world_frame:
         # Per-step travel frame (the direction of the body command) and facing error -- the two
         # series the omni scoring needs and a constant travel_yaw cannot express. They live in the
@@ -841,6 +882,20 @@ def main() -> None:
                 # right before this step() call (this step's base command plus any yaw override above).
                 obs_reflects_cmd = cmd_term.vel_command_b.clone()
                 obs, _, dones, extras = env.step(actions)
+                if _clock_stop is not None:
+                    # the same gate process_actions applies: the cadence is zero at or below the stop;
+                    # a clock the stand-park knob holds at its touchdown (``clock_parked``, only with
+                    # KRABBY_OMNI_STAND_PARK) is not running a gait either
+                    buf["clock_cmd_speed"][t] = action_term.clock_cmd_speed
+                    _running = action_term.clock_cmd_speed > _clock_stop
+                    _parked = getattr(action_term, "clock_parked", None)
+                    if _parked is not None:
+                        _running = _running & ~_parked
+                    buf["clock_running"][t] = _running
+                if _has_rods:
+                    buf["rod_speed"][t] = torch.cat(
+                        [action_term.hip_rod_speed, action_term.knee_rod_speed], dim=1
+                    )
 
                 dones_b = dones.bool().reshape(-1)
                 try:
@@ -947,6 +1002,10 @@ def main() -> None:
         "hold_labels": compiled.hold_labels,
         "notes": scenario.notes,
     }
+    if args_cli.sample_actions:
+        # Only when set, so a normal run's run_meta key set is unchanged.
+        run_meta["sample_actions"] = True
+        run_meta["sample_actions_std"] = sample_actions_std
     if world_frame:
         # World-row provenance: what was commanded, how it became a body command, and where the
         # per-step series live. The (T, E) travel_yaw/heading_err arrays go in the raw npz, not
@@ -1047,6 +1106,9 @@ def main() -> None:
         joint_vel_groups=jv_groups,
         # World rows: the (T, E) per-step command direction replaces the constant travel frame.
         travel_yaw=(host["travel_yaw"] if world_frame else travel_yaw),
+        # Motion quality (suite rows only): rod / cam / actuated joint groups and the env's action clip.
+        motion_groups=M.motion_joint_groups(list(robot.joint_names)),
+        action_clip=(float(agent_cfg.clip_actions) if agent_cfg.clip_actions is not None else None),
     )
     if suite_mode:
         print("[INFO] write_run start", flush=True)

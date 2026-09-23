@@ -44,6 +44,13 @@ THE CONTRACTS (each pinned by ``tests/unit/test_crab_hex_omni_eval_categories.py
   :func:`expand_rule_union` is the UNION of both unit systems (six blocks, ten guards at B0), which
   resolution's D00s / D00bs use.
 
+* **Metric sense and guard keys (gait-motion-quality campaign, 2026-09-23).** :func:`metric_sign`
+  is -1 for the lower-is-better motion-quality keys (:data:`LOWER_IS_BETTER_KEYS`) and +1 for every
+  other id, and every delta a decision or a resolution forms is multiplied by it (positive = better).
+  A guard whose metric is also a block member is resolved under :func:`guard_key` (``...@guard``).
+  ``per_category.demoted: {category: {key: why}}`` removes a member from every block and guard and
+  watches it with its reason (the pre-launch zero-spread demotion).
+
 * **composite_guards(screen, decisive) -> dict.** ``{"cat_tripod_min": min(cat.<c>.tripod)}`` over
   the decisive TRANSLATION categories (``fwd, side, back, diag`` -- never ``move_turn``); ``None``
   when any of those tripods is missing (a MISSING value, never a silently narrower min); ``{}`` when
@@ -143,9 +150,21 @@ SETTLE_LABEL = "settle"
 #: FACING-band annotation.
 SUITE_TURN_DEMAND_RAD = math.pi / 2.0
 
+MOTION_QUALITY_KEYS = ("action_jitter", "action_fft_freq", "joint_speed_mean", "rod_speed_mean",
+                         "contact_switch_hz", "foot_slip", "wz_active_frac", "clock_restarts",
+                         "swings_per_m", "slip_per_m", "work_per_m", "cam_work_per_m",
+                         "swings_per_rad", "slip_per_rad", "work_per_rad", "cam_work_per_rad",
+                         "six_down_frac", "settle_six_down_s", "foot_disp_end", "work_per_s")
+"""The motion-quality keys (gait-motion-quality plan step 1; ``gait_eval.metrics.MOTION_QUALITY_KEYS``,
+cross-pinned by test). Each is defined on a subset of the categories only
+(``gait_eval.metrics.MOTION_QUALITY_APPLIES``: per-metre keys on fwd/side/back/diag, per-radian keys
+on turn/move_turn, ``six_down_frac`` / ``settle_six_down_s`` / ``foot_disp_end`` / ``work_per_s`` on
+stand); elsewhere ``summarize()['cat'][c][key]`` is None -- N/A, never 0 -- so a rule must only
+name a key on a category it is defined on."""
+
 CAT_KEYS = ("n", "n_env", "survival", "ratio", "achieved_speed", "tripod", "facing_closed",
             "yaw_progress", "net_yaw", "settle_s", "heading_final", "drift_speed", "direction_error",
-            "cross_track_ratio")
+            "cross_track_ratio") + MOTION_QUALITY_KEYS
 """The keys of ``summarize()['cat'][c]`` (D5); ``by_hand`` holds the same keys per hand."""
 
 COMPOSITES = ("cat_tripod_min",)
@@ -525,6 +544,50 @@ BLOCKS_ABS = ("F_abs", "F_mt_abs", "T_abs")
 #: Top-level keys of the raw rule that the expansion REPLACES (everything else is carried through).
 _EXPANDED_KEYS = ("blocks", "guards", "watch", "per_category")
 
+# ------------------------------------------------------------------ metric sense (plan step 4)
+#: ``cat`` keys for which a LOWER value is the better one (the gait-motion-quality campaign's block Q,
+#: 2026-09-23). Every other key -- ``survival``, ``ratio``, ``facing_closed``, ``yaw_progress``,
+#: ``net_yaw``, ``achieved_speed``, ``tripod`` and ``six_down_frac`` (more of the stand hold with all
+#: six feet down is quieter) -- is higher-is-better, which is what every block and guard before Q
+#: assumed. The sign is applied where a DELTA is formed (``run_candidates.metric_rows`` /
+#: ``guard_rows`` and ``resolution``'s bootstrap and null), so a delta, a block ``z`` and a guard's
+#: WORSE all read "positive = better" whatever the metric's units. ``drift_speed`` and the direction
+#: keys are lower-is-better too but only ever WATCH (never a signed comparison), so they keep +1 and
+#: no recorded number moves.
+LOWER_IS_BETTER_KEYS = frozenset(k for k in MOTION_QUALITY_KEYS if k != "six_down_frac")
+
+#: The resolution-record key of a GUARD whose metric is ALSO a block member of the same rule (the
+#: motion-quality campaign's ``cat.<c>.ratio`` speed guard beside T, its ``slip_per_m`` guard beside
+#: Q). The two need different half-widths -- a block member is two-sided at 95 %, a guard one-sided
+#: at 99 % -- so the guard is resolved under its own key (``cat.fwd.ratio@guard``) and read back by
+#: that key; the VALUE is still ``summarize()``'s at the plain id.
+GUARD_KEY_SUFFIX = "@guard"
+
+
+def guard_key(mid: str) -> str:
+    """``cat.fwd.ratio`` -> ``cat.fwd.ratio@guard`` (idempotent)."""
+    mid = str(mid)
+    return mid if mid.endswith(GUARD_KEY_SUFFIX) else mid + GUARD_KEY_SUFFIX
+
+
+def base_metric_id(key: str) -> str:
+    """A resolution key back to its ``summarize()`` id (``...@guard`` stripped)."""
+    key = str(key)
+    return key[:-len(GUARD_KEY_SUFFIX)] if key.endswith(GUARD_KEY_SUFFIX) else key
+
+
+def metric_sign(mid: str) -> int:
+    """+1 when a higher value of ``mid`` is better, -1 when a lower one is (:data:`LOWER_IS_BETTER_KEYS`).
+
+    ``cat.<c>[.by_hand.<h>].<key>`` ids (and their ``@guard`` keys) take their key's sense; every
+    other id (the legacy hold-keyed ids, ``cat_tripod_min``) is +1.
+    """
+    parsed = parse_cat_id(base_metric_id(mid))
+    if parsed is None:
+        return 1
+    return -1 if parsed[2] in LOWER_IS_BETTER_KEYS else 1
+
+
 _CAT_ID = re.compile(r"^cat\.(?P<c>[a-z_]+)\.(?:by_hand\.(?P<h>[lr])\.)?(?P<key>[a-z_]+)$")
 
 
@@ -570,10 +633,32 @@ def _per_category(rule: Mapping) -> dict:
     _check_keys("guards.members", (pc.get("guards") or {}).get("members") or {})
     _check_keys("guards_abs.members", (pc.get("guards_abs") or {}).get("members") or {})
     _check_keys("watch.members", (pc.get("watch") or {}).get("members") or {})
+    _check_keys("demoted", pc.get("demoted") or {})
+    for c, keys in (pc.get("demoted") or {}).items():
+        if not isinstance(keys, Mapping):
+            raise ValueError(f"decision_rule.per_category.demoted.{c} must map each demoted key to the "
+                             "reason it was demoted (the record of why it is WATCH), got "
+                             f"{type(keys).__name__}")
     bad = [c for c in (pc.get("guards") or {}).get("composite") or () if c not in COMPOSITES]
     if bad:
         raise ValueError(f"decision_rule.per_category.guards.composite names {bad}; known: {COMPOSITES}")
     return pc
+
+
+def _demoted(pc: Mapping) -> dict[tuple[str, str], str]:
+    """``{(category, key): why}`` of ``per_category.demoted`` -- members moved to WATCH before launch.
+
+    The motion-quality campaign's pre-launch spread check (``run_candidates --q-spread-check``): a
+    block member whose paired half-width on the baseline is zero can never carry a finite ``R`` in
+    D00s, so instead of accepting a failed resolution it is demoted -- removed from every block and
+    guard and printed as WATCH with its reason. One yaml line per member; the block's own member list
+    stays as designed, so the demotion is visible as a demotion.
+    """
+    out: dict[tuple[str, str], str] = {}
+    for c, keys in (pc.get("demoted") or {}).items():
+        for key, why in (keys or {}).items():
+            out[(str(c), str(key))] = str(why or "demoted")
+    return out
 
 
 def _cats(x) -> frozenset:
@@ -611,6 +696,7 @@ def expand_rule(rule: Mapping, decisive, present, *, absolute_units: bool,
     pres = _cats(present) | dec
     wn = dict(watch_notes or {})
     units = "absolute" if absolute_units else "ratio"
+    demoted = _demoted(pc)
 
     def note(c: str) -> str | None:
         if c in dec:
@@ -618,6 +704,13 @@ def expand_rule(rule: Mapping, decisive, present, *, absolute_units: bool,
         if c in pres:
             return wn.get(c) or "watch"
         return NOTE_UNTRAINED
+
+    def demote(c: str, key: str) -> bool:
+        """A demoted member is WATCH wherever the rule would have scored it (with its reason)."""
+        if (c, key) not in demoted:
+            return False
+        watch.setdefault(cat_id(c, key), f"demoted: {demoted[(c, key)]}" if c in pres else note(c))
+        return True
 
     out = {k: copy.deepcopy(v) for k, v in rule.items() if k not in _EXPANDED_KEYS}
     watch: dict[str, str | None] = {}
@@ -629,6 +722,8 @@ def expand_rule(rule: Mapping, decisive, present, *, absolute_units: bool,
         metrics, cats = [], []
         for c in CATEGORIES:
             for key in members.get(c) or ():
+                if demote(c, key):
+                    continue
                 if c in dec:
                     metrics.append(cat_id(c, key))
                     cats.append(c)
@@ -642,6 +737,8 @@ def expand_rule(rule: Mapping, decisive, present, *, absolute_units: bool,
     for c in CATEGORIES:
         keys, swapped = _guard_keys(pc, c, absolute_units)
         for key in keys:
+            if demote(c, key):
+                continue
             keep = (c in pres) if key == "survival" else (c in dec)
             if keep:
                 guard_ids.append(cat_id(c, key))
