@@ -1,0 +1,311 @@
+# The gait-motion-quality candidate ladder -- the campaign's only machine-readable specification.
+#
+# Plan: /home/nickmagus/.claude/plans/there-is-a-lot-compressed-unicorn.md, step 4 ("New ladder
+# campaign"); the question, the user decisions and the caveats are in CHARTER.md beside this file.
+#
+# Read by `experiments/tools/run_candidates.py` (the driver) and by `resolution.py` (D00s). The
+# sha256 of this file is pinned in `state.json` at the first launch; a changed hash is refused
+# without `--accept-candidates-change <why>`. The `decision_rule` block is frozen verbatim into D00s.
+#
+# THE SHAPE, in one paragraph. Every experiment is a 2000-iteration FINE-TUNE forked from the
+# incumbent head X08:c6 (C1d s3, model_7996, recipe fa03ac033e7c) on its own C1d c6 overlay -- the
+# `checkpoint:` resume kind, so the fork path is part of every recipe_id and every seed forks the
+# same file. X0 (the baseline, no knob) is the control until the first ADOPT; its s3/s2 screens give
+# D00bs. The screens M1..M7 each add ONE lever (a knob group) as a `stages: all` overlay and compose
+# onto the incumbent recipe in rank order on ADOPT (the ladder's compose-on-adopt rule). Nothing is
+# promoted (promotion.enabled: false, no milestone).
+#
+# NOT LAUNCHABLE YET, on purpose: the reward weights of M2, M3, M4 and M6 are `TBD_replay_gate` --
+# they are set by the plan's step-3 offline reward-replay gate. The validator refuses the file BY
+# NAME until they are filled ("... is a PLACEHOLDER, not a value"). Also before launch: the step-1
+# X08:c6 re-eval under the new eval_sha, then `run_candidates.py --q-spread-check` on it (and on
+# X08:c4's), and any zero-spread Q member demoted under decision_rule.per_category.demoted.
+#
+# EVERY path is written relative to the repository root. No driver may contain a dated path.
+schema: 1
+
+plant: A15+B
+seeds: {screen: 3, confirm: 2}
+
+#: The screen every candidate is judged by: 2000 iterations of the effective recipe's (single-stage)
+#: chain at seed 3, scored on the per-category suite `suite__omni` (the row short name `suite`).
+screen: {chain: fork_c6, eval: [suite], iters: 2000}
+
+#: Nothing is promoted through 2a/2b in this campaign: the recipes compose EMPTY 2a/2b overlays and
+#: the validator refuses a milestone (run_candidates.promotions_enabled).
+promotion: {enabled: false}
+
+baseline: {id: X0, chain: fork_c6}
+
+# ---------------------------------------------------------------------------- resolution (D00s)
+# Both heads EXIST before any window runs (the migration re-evaluates them at the current eval_sha
+# and D00s is computed from those two stamps before the first training item -- plan step 4,
+# "Resolution inputs", audit pass 3/4). X08-c6 is the control (decision_rule.control_head); X08-c4
+# (the same C1d chain, 3500 iterations earlier) is its one cross-head pair, which keeps Q's R tight.
+# NO seed_pair rows: D00bs is built from X0's own s3/s2 screens (run_candidates._write_d00bs via
+# b0_screens). Head labels use '-' (they name the reeval tag directory, reeval_<head>).
+resolution_inputs:
+  - {head: X08-c6, row: suite__omni, role: pair, preset: "1a",
+     checkpoint: parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-09-22_11-58-07_seed3_X08_c6_A15pB/model_7996.pt,
+     eval_dir: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-22_gait_motion_quality/reeval_X08-c6}
+  - {head: X08-c4, row: suite__omni, role: pair, preset: "1a",
+     checkpoint: parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-09-22_10-32-02_seed3_X08_c4_A15pB/model_4498.pt,
+     eval_dir: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-22_gait_motion_quality/reeval_X08-c4}
+
+# ---------------------------------------------------------------------------- the decision rule
+# Rule v2 (per category), with the motion-quality block Q and the adoption rule `adopt_requires: Q`.
+# `per_category` is the form both tools read (eval_categories.expand_rule); it is this campaign's
+# OWN template -- the shared RULE_V2_PER_CATEGORY constant stays pinned to the facing ladder's yaml.
+decision_rule:
+  rule_version: 2
+  adopt_requires: Q
+  text: >-
+    Every metric is a per-category number of the suite__omni row (summarize()['cat'][c]: the median
+    pooled over both hands of a paired category; survival = the category's own-hold survival); only
+    the categories the candidate trained at the suite's demand are decisive (every fork trains all
+    seven). Blocks (95 %, two-sided): F = turn: facing_closed, yaw_progress; F_mt = move_turn:
+    facing_closed, yaw_progress; T = fwd, side, back, diag: ratio; Q (motion quality) = stand: every
+    stand-applicable quality metric (action_jitter, action_fft_freq, joint_speed_mean,
+    rod_speed_mean, contact_switch_hz, foot_slip, wz_active_frac, clock_restarts, six_down_frac,
+    settle_six_down_s, foot_disp_end, work_per_s); fwd, side, back, diag: action_jitter,
+    swings_per_m, slip_per_m, work_per_m, cam_work_per_m; turn, move_turn: action_jitter,
+    swings_per_rad, slip_per_rad, work_per_rad, cam_work_per_rad. Every Q member is LOWER-is-better
+    except six_down_frac (eval_categories.metric_sign): each delta is sign x (candidate - control),
+    so z > R is BETTER in every block. The per-second rates of the moving categories
+    (joint_speed_mean, rod_speed_mean, contact_switch_hz, action_fft_freq, wz_active_frac,
+    clock_restarts, foot_slip) are WATCH there -- a slower gait lowers them without being quieter.
+    Guards (99 %, one-sided): the survival of every present category; move_turn.ratio; fwd, side,
+    back, diag: ratio (the speed guard -- "shuffles slower" must not pass as "quieter"; D12 let
+    side 0.521 -> 0.430 through T as a TIE) and slip_per_m (a gait that swings less but drags its
+    feet must not win Q); each resolved under its own guard key (cat.<c>.<key>@guard) although the
+    metric is also a T / Q member. cat_tripod_min is NOT a guard (user decision 2026-09-22): tripod
+    is WATCH on fwd, side, back, diag, move_turn. R_i = max(R_eval,i, R_seed,i) (+ R_binom for the
+    survival guards); z_b = mean_i(delta_i / R_i); R_b = max(R_b^eval, R_b^seed). Per block: BETTER
+    if z > R, WORSE if z < -R, else TIE. ADOPTION (adopt_requires: Q): ADOPT requires Q BETTER.
+    Clear REJECT = any block or guard WORSE; or Q TIE while another block is BETTER (a win without
+    quieting is not this campaign's goal); or all-TIE, Q included (no seed-2 pair); or a stage
+    floor. Q BETTER + nothing WORSE + anchored drift OK + no MISSING member = clear ADOPT; Q BETTER
+    with a MISSING member or a drift FAIL = speculative, pair queued, and the pooled decision again
+    requires pooled Q BETTER. A MISSING guard -> decided REJECT, uncertain, no pair. WATCH, never
+    scored: tripod, the moving categories' per-second rates, direction_error, cross_track_ratio,
+    heading_final, settle_s, stand.drift_speed, both hands of every paired category, every
+    per_category.demoted member (with its reason) and the legacy pooled keys.
+  per_category:
+    blocks:
+      F: {level: 0.95, units: ratio, members: {turn: [facing_closed, yaw_progress]}}
+      F_mt: {level: 0.95, units: ratio, members: {move_turn: [facing_closed, yaw_progress]}}
+      T: {level: 0.95, units: ratio,
+          members: {fwd: [ratio], side: [ratio], back: [ratio], diag: [ratio]}}
+      Q:
+        level: 0.95
+        units: ratio
+        members:
+          stand: [action_jitter, action_fft_freq, joint_speed_mean, rod_speed_mean, contact_switch_hz,
+                  foot_slip, wz_active_frac, clock_restarts, six_down_frac, settle_six_down_s,
+                  foot_disp_end, work_per_s]
+          fwd: [action_jitter, swings_per_m, slip_per_m, work_per_m, cam_work_per_m]
+          side: [action_jitter, swings_per_m, slip_per_m, work_per_m, cam_work_per_m]
+          back: [action_jitter, swings_per_m, slip_per_m, work_per_m, cam_work_per_m]
+          diag: [action_jitter, swings_per_m, slip_per_m, work_per_m, cam_work_per_m]
+          turn: [action_jitter, swings_per_rad, slip_per_rad, work_per_rad, cam_work_per_rad]
+          move_turn: [action_jitter, swings_per_rad, slip_per_rad, work_per_rad, cam_work_per_rad]
+    guards:
+      level: 0.99
+      members:
+        stand: [survival]
+        fwd: [survival, ratio, slip_per_m]
+        side: [survival, ratio, slip_per_m]
+        back: [survival, ratio, slip_per_m]
+        diag: [survival, ratio, slip_per_m]
+        turn: [survival]
+        move_turn: [survival, ratio]
+      # no composite: cat_tripod_min is WATCH only in this campaign (user decision 2026-09-22)
+    watch:
+      members:
+        stand: [drift_speed]
+        fwd: [tripod, direction_error, cross_track_ratio, heading_final, joint_speed_mean,
+              rod_speed_mean, contact_switch_hz, action_fft_freq, wz_active_frac, clock_restarts,
+              foot_slip]
+        side: [tripod, direction_error, cross_track_ratio, heading_final, joint_speed_mean,
+               rod_speed_mean, contact_switch_hz, action_fft_freq, wz_active_frac, clock_restarts,
+               foot_slip]
+        back: [tripod, direction_error, cross_track_ratio, heading_final, joint_speed_mean,
+               rod_speed_mean, contact_switch_hz, action_fft_freq, wz_active_frac, clock_restarts,
+               foot_slip]
+        diag: [tripod, direction_error, cross_track_ratio, heading_final, joint_speed_mean,
+               rod_speed_mean, contact_switch_hz, action_fft_freq, wz_active_frac, clock_restarts,
+               foot_slip]
+        turn: [settle_s, heading_final, joint_speed_mean, rod_speed_mean, contact_switch_hz,
+               action_fft_freq, wz_active_frac, clock_restarts, foot_slip]
+        move_turn: [tripod, direction_error, cross_track_ratio, settle_s, joint_speed_mean,
+                    rod_speed_mean, contact_switch_hz, action_fft_freq, wz_active_frac,
+                    clock_restarts, foot_slip]
+      hands: true
+      legacy: {completion: legacy, tripod_walking_dir: legacy, track_ratio_tail: legacy,
+               track_ratio_move_tail: legacy, turn_survival_l90: N/A (suite),
+               turn_survival_r90: N/A (suite)}
+    # Q members with ZERO spread on the baseline (no finite R in D00s) are demoted here BEFORE
+    # launch -- one line each, `{category: {key: "<why>"}}`, as printed by
+    #   run_candidates.py --campaign-dir <this dir> --q-spread-check <X08-c6 reeval stamp> <X08-c4 reeval stamp>
+    # (never --accept-resolution). Empty until the step-1 re-eval exists.
+    demoted: {}
+  charter_floors: {completion: 0.10, tripod_walking_dir: 0.056}
+  bootstrap: {B: 2000, paired_on: env_index, rng_seed: 20260922}
+  control_head: X08-c6
+
+# ---------------------------------------------------------------------------- chains
+# ONE chain: the fork. Stage c6ft forks X08:c6 (`resume_from: {checkpoint: ...}`; the path is hashed
+# into recipe_id) for 2000 iterations on the C1d c6 overlay, copied VERBATIM from the facing ladder's
+# curriculum_turnfirst chain's c6 stage (2026-09-19_facing_tracking_ladder/candidates.yaml) on the
+# same preset (1a). The resume restarts PPO's counters (memory: ppo-counter-reset-on-resume) -- the
+# same reset for every screen, X0 included.
+#
+# FLOOR (plan step 4 item 3): category_survival with an explicit min_by_category for EVERY category
+# (a fork has no previous stage, so min_new would read all seven as new at a formation floor of
+# 0.10). Each minimum is X08:c6's own suite survival (REPORT.md, X08:c6 stage report: stand 0.990,
+# fwd 0.920, side 0.975, back 0.920, diag 0.790, turn 0.950, move_turn 0.750) minus a 0.20 margin,
+# band-tested one-sided at 99 % on n_env 100 -- a COLLAPSE detector (it trips near a 0.3 drop, e.g.
+# after a bad sigma reset); smaller losses are the survival guards' business. A FLOOR on a candidate
+# is a clear REJECT; on X0 / a seed-2 run it is WATCH.
+chains:
+  fork_c6:
+    notes: >-
+      The incumbent head X08:c6 (C1d s3, model_7996) fine-tuned for 2000 iterations on its own c6
+      overlay -- every screen of this campaign is this fork plus one lever.
+    stages:
+      - stage: c6ft
+        base: "1a"
+        iters: 2000
+        from_scratch: false
+        resume_from: {checkpoint: parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-09-22_11-58-07_seed3_X08_c6_A15pB/model_7996.pt}
+        overlay:
+          KRABBY_OMNI_CMD_POOL: stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07
+          KRABBY_OMNI_SLOTS: 0.15:0.55:0.1:0.2
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_RSI_SOURCE: all
+          KRABBY_OMNI_FACING: 0.2:0.6
+          KRABBY_YAW_W: "0.2"
+        eval: [suite]
+        categories: [back, diag, fwd, move_turn, side, stand, turn]
+        floor:
+          kind: category_survival
+          row: suite
+          min_by_category: {stand: 0.79, fwd: 0.72, side: 0.77, back: 0.72, diag: 0.59, turn: 0.75,
+                            move_turn: 0.55}
+
+# ---------------------------------------------------------------------------- ranked candidates
+# Rank order IS this list's order (the plan's table, by expected leverage across all modes; the
+# step-1 baseline may re-rank them -- a re-rank before launch is a plain edit). Each is screened on
+# the EFFECTIVE recipe (the adopted choices ranked before it) at seed 3; its control is that recipe's
+# own ok s3 screen (X0 until the first ADOPT).
+#
+# BRANCH AFTER M1 (plan: "If M1 doesn't ADOPT, stop and ask the user before running M2-M4 at
+# sigma 2.0"): M2, M3 and M4 carry `depends_on: [M1]` and `await_if: decision(M1).chosen != ADOPT`
+# -- the driver's conditional await_user gate. M1 ADOPT -> they dispatch as usual; otherwise the
+# driver parks at await_user:M2 and the user answers `ledger_cli decide M2 --choose run|skip` (M3 and
+# M4 park the same way; answer all three at the first stop to pass them in one go).
+#
+# The reward weights marked TBD_replay_gate are the step-3 replay gate's output (plan step 3); every
+# penalty weight is the RewTerm weight, sign included (<= 0). KRABBY_AIRTIME_W is the existing
+# forward knob on reward_feet_air_time_positive (+0.8 stock), de-weighted, so it stays >= 0.
+candidates:
+  - id: M1
+    kind: exploration
+    stages: all
+    overlay: {KRABBY_ACTION_STD_RESET: "0.4", KRABBY_ACTION_STD_MAX: "0.5"}
+    question: >-
+      Is the saturated exploration noise the root of the extra motion (plan cause 1)? X08:c6's raw
+      std sits at 2.0001-2.0004 on all 18 dimensions, at the 2.0 clamp whose gradient is zero, so
+      the action-rate penalty is near a constant and the policy trains amid violent dither. Reset
+      the std to 0.4 on the fork and clamp it at 0.5 (the literature's best is sigma 0.1-0.5). The
+      reset sits BELOW the clamp on purpose: the step-2 smoke measured that a reset EQUAL to the
+      clamp drifts straight back above it, where the clamp's gradient is zero again and the std is
+      pinned at the ceiling -- the saturation the knob exists to undo.
+
+  - id: M2
+    kind: reward
+    stages: all
+    depends_on: [M1]
+    await_if: decision(M1).chosen != ADOPT
+    await_why: >-
+      M1 (the sigma reset) did not ADOPT, so M2-M4 would run at sigma 2.0, where a regulariser bites
+      weakly (plan cause 1) -- the user decides whether they run anyway
+    overlay: {KRABBY_POWER_W: TBD_replay_gate}
+    question: >-
+      Does a single energy term remove the high-frequency tapping (Fu et al. 2021)? The existing
+      penalty_mechanical_power (sum |tau qdot| over every joint, rods and cams) is present at weight
+      0; KRABBY_POWER_W arms it at the replay gate's weight.
+
+  - id: M3
+    kind: reward
+    stages: all
+    depends_on: [M1]
+    await_if: decision(M1).chosen != ADOPT
+    await_why: >-
+      M1 (the sigma reset) did not ADOPT, so M2-M4 would run at sigma 2.0, where a regulariser bites
+      weakly (plan cause 1) -- the user decides whether they run anyway
+    overlay: {KRABBY_ACTION_SMOOTH2_W: TBD_replay_gate, KRABBY_ACTION_RATE_SQ: "1",
+              KRABBY_JOINT_VEL_W: TBD_replay_gate}
+    question: >-
+      Does direct smoothness regularisation quiet the action path? A squared second difference of
+      the action history, the action-rate penalty squared (||da||^2, so small dither costs little
+      and large jumps cost a lot), and a squared rod-joint speed penalty -- the terms the current
+      recipe is missing entirely (plan cause 2).
+
+  - id: M4
+    kind: reward
+    stages: all
+    depends_on: [M1]
+    await_if: decision(M1).chosen != ADOPT
+    await_why: >-
+      M1 (the sigma reset) did not ADOPT, so M2-M4 would run at sigma 2.0, where a regulariser bites
+      weakly (plan cause 1) -- the user decides whether they run anyway
+    overlay: {KRABBY_FOOT_SLIP_W: TBD_replay_gate, KRABBY_AIRTIME_W: TBD_replay_gate}
+    question: >-
+      Does the reward economy pay for leg motion that does not move the body (plan cause 3)? An
+      unsquared, phase-independent slip penalty on loaded feet, with the swing-paying
+      feet_air_time_positive term (+0.8) de-weighted.
+
+  - id: M5
+    kind: command
+    stages: all
+    eval_carry: [KRABBY_OMNI_RELAY_HYST, KRABBY_OMNI_STAND_HOLD]
+    overlay: {KRABBY_OMNI_RELAY_HYST: "1", KRABBY_OMNI_STAND_HOLD: "1"}
+    question: >-
+      Does the heading relay restart the gait clock under commands that need no stepping (plan
+      cause 3)? A hysteresis latch (engage 0.25 rad, release 0.05 rad) replaces the 0.133-rad dead
+      band, and the STAND slot's applied wz is held at 0 (clock speed 0). Both change the command the
+      policy is scored against, so both are carried into the eval. Likely to TIE on Q outside stand
+      (it acts on a small share of the steps) -- a TIE is a clear REJECT under adopt_requires.
+
+  - id: M6
+    kind: stand
+    stages: all
+    eval_carry: [KRABBY_OMNI_STAND_PARK]
+    overlay: {KRABBY_OMNI_STAND_PARK: "1", KRABBY_STAND_POSE_W: TBD_replay_gate}
+    question: >-
+      Is stand a regime of its own (plan cause 5)? On the STAND slot the clock parks at its next
+      touchdown (all six legs stance, no swing or apex income), and a stand-gated L1 pose penalty
+      holds the rods at the default pose. STAND_PARK changes the clock the policy observes, so it
+      is carried into the eval. Likely to TIE on Q outside stand.
+
+  - id: M7
+    kind: action
+    stages: all
+    eval_carry: [KRABBY_ACTION_LPF_HZ]
+    overlay: {KRABBY_ACTION_LPF_HZ: "4"}
+    user_decision: >-
+      only if jitter survives M1-M3 (plan table): the user reads the M1-M3 decisions' action_jitter
+      rows and answers `ledger_cli decide M7 --choose run` or `--choose skip`
+    question: >-
+      Does a first-order low-pass on the rod-length command (about 4 Hz, Li et al. 2024), before the
+      rod slew limiter, remove the full-rate sawtooth dither leaves on the rods (plan cause 4)? The
+      fine-tune variant filters WITHOUT observing the filtered target (the observation width is
+      unchanged, so X08:c6 loads); the observed variant (KRABBY_ACTION_LPF_OBS) is for the step-6
+      from-scratch confirm only.
+
+# ---------------------------------------------------------------------------- milestones
+# None: promotions are disabled (promotion.enabled: false). The campaign is done when M7 is
+# terminal; the winners then go into the step-6 from-scratch confirm, which runs OUTSIDE this driver
+# and is judged by hand against X08:c6 (CHARTER.md).
+milestones: []
