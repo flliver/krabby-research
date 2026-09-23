@@ -5894,8 +5894,9 @@ def test_the_shipped_conditionals_all_use_the_fixed_vocabulary(rc, cands):
     for cand in cands["candidates"]:
         if cand.get("conditional"):
             rc.compile_predicate(cand["conditional"])      # raises on an unknown field
+    # + the clock-deprecation campaign's step-12 class (plan step 4, 2026-09-23), never `class`
     assert rc.DECISION_FIELDS == ("chosen", "confidence", "pooled_confidence", "status",
-                                  "floor_stage")
+                                  "floor_stage", "arm_class")
     assert rc.RECIPE_FIELDS == ("chain", "has_pool")
 
 

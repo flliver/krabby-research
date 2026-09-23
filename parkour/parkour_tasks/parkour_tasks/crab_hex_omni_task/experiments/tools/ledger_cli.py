@@ -10,10 +10,11 @@ next launch. Nothing here ever writes ``ledger.json`` or ``state.json``.
 
     ledger_cli.py --campaign-dir <dir> pending
     ledger_cli.py --campaign-dir <dir> show [<id>] [--json]
-    ledger_cli.py --campaign-dir <dir> confirm <Did> [--why ...]
-    ledger_cli.py --campaign-dir <dir> overrule <Did> --choose ADOPT|REJECT|SKIP|PASS|WATCH|FAIL --why ...
+    ledger_cli.py --campaign-dir <dir> confirm <Did> [--why ...] [--cancel-pair]
+    ledger_cli.py --campaign-dir <dir> overrule <Did> --choose ADOPT|REJECT|SKIP|PASS|WATCH|FAIL --why ... [--cancel-pair]
     ledger_cli.py --campaign-dir <dir> decide <Cid> --choose run|skip [--why ...]
     ledger_cli.py --campaign-dir <dir> resume-milestone <Mid> (--accept | --drop <Cid>) [--why ...]
+    ledger_cli.py --campaign-dir <dir> ack-flag <Did> [--why ...]
     ledger_cli.py --campaign-dir <dir> stop | unstop
 
 This module is also the notification CONTRACT: :func:`format_notify` writes every line the driver
@@ -43,8 +44,11 @@ STOP_NAME = "STOP"
 #: Every tag the driver may emit. The assistant's Monitor relays ALL of them. ``MIGRATION``
 #: (per-category plan 2026-09-21, B5) carries the eval-only rescreen / reeval / rescore items that
 #: move a paused campaign onto a new ``eval_sha``; its lines say "eval-only" (nothing trains).
+#: ``REFERENCE`` (clock-deprecation plan step 4, 2026-09-23) is a finished ``--reference-chain`` run
+#: (judged by hand, no decision).
 NOTIFY_TAGS = ("RESOLUTION", "DECISION", "CONFIRM", "SELF-OVERRULE", "OVERRIDE-APPLIED", "SQUASH",
-               "MILESTONE", "RETENTION", "INFRA", "HALT", "DONE", "RELAUNCH", "AWAIT", "MIGRATION")
+               "MILESTONE", "RETENTION", "INFRA", "HALT", "DONE", "RELAUNCH", "AWAIT", "MIGRATION",
+               "REFERENCE")
 
 #: What ``show`` prints for an entry (or a campaign) recorded before ``eval_sha`` existed (D8):
 #: every pre-suite record -- D00..D07 of the 2026-09-19 ladder -- has none.
@@ -264,6 +268,18 @@ def confirm_choice(entry: dict | None):
     return effective_choice(entry)
 
 
+def flag_acked(entry: dict | None) -> bool:
+    """Has the user acknowledged this entry's flags at their CURRENT level (clock-deprecation plan
+    step 4)? An ack of the seed-3 line never releases the pooled line that replaces it."""
+    level = ((entry or {}).get("flags") or {}).get("level")
+    return any(a.get("level") == level for a in (entry or {}).get("flag_acks") or [])
+
+
+def flag_parked(entry: dict | None) -> bool:
+    """Does this entry's flag list park the driver right now (a park with no ack at its level)?"""
+    return bool(((entry or {}).get("flags") or {}).get("park")) and not flag_acked(entry)
+
+
 def unoverrulable_note(entry: dict | None) -> str | None:
     """Why ``confirm``/``overrule`` is refused for this entry, and what the verb for it IS.
 
@@ -432,6 +448,13 @@ def cmd_pending(cdir: Path, args) -> int:
         e = by_id(led, did) or {}
         print(f"  {did}: {e.get('candidate')} chosen {effective_choice(e)} ({e.get('status')}) — "
               f"confirm {did} / overrule {did} --choose <other>")
+    for e in entries(led):
+        # NOTE(clock-deprecation 2026-09-23): a flagged DECISION the driver is parked on
+        if e.get("status") != "squashed" and flag_parked(e):
+            fl = e.get("flags") or {}
+            print(f"flagged (driver parks): {e.get('id')} ({e.get('candidate')}) on its {fl.get('level')} "
+                  f"line -- {'; '.join(str(f.get('text')) for f in fl.get('items') or [])} -- "
+                  f"ack-flag {e.get('id')} --why ...")
     awaits = [e for e in entries(led) if e.get("status") == "await"]
     for e in awaits:
         print(f"awaiting user: {e.get('id')} ({e.get('candidate')}) sub {e.get('sub_status')} — "
@@ -477,6 +500,60 @@ def _refuse_squashed(entry: dict, verb: str) -> str | None:
             f"{cid} again use `decide {cid} --choose run`; `show` lists the live entries.")
 
 
+def _s3_rule(cdir: Path, args) -> bool:
+    """Is this a campaign under the S3 rule (clock-deprecation plan step 12)? Its decision rule
+    carries ``pair_on`` -- read from candidates.yaml; a campaign without the file (or the key)
+    behaves exactly as before."""
+    path = Path(getattr(args, "candidates", None) or (Path(cdir) / "candidates.yaml"))
+    if not path.exists():
+        return False
+    try:
+        import yaml  # noqa: PLC0415 -- the harness's own dependency, as in _load_cands
+        doc = yaml.safe_load(path.read_text()) or {}
+    except Exception:                                                   # noqa: BLE001
+        return False
+    return bool(((doc.get("decision_rule") or {}) if isinstance(doc, dict) else {}).get("pair_on"))
+
+
+def _refuse_speculative(cdir: Path, entry: dict, verb: str, args) -> str | None:
+    """The S3 rule (plan step 12; left-for-implementation item 6): a SPECULATIVE line is answered by
+    its pooled line. Confirming or overruling it now cancels its seed-2 pair (and squashes it if in
+    flight), which makes WIN unreachable -- so it is refused unless ``--cancel-pair`` says the cancel
+    is intended. Only under a rule with ``pair_on``."""
+    if entry.get("status") != "speculative" or getattr(args, "cancel_pair", False) or not _s3_rule(cdir, args):
+        return None
+    return (f"{entry.get('id')} is SPECULATIVE: its seed-2 pair is queued (or in flight) and its POOLED "
+            f"line answers it. `{verb}` now would cancel that pair (squashing it if in flight) and make "
+            "WIN unreachable. Wait for the pooled line -- or, if cancelling the pair is intended, add "
+            "--cancel-pair.")
+
+
+def cmd_ack_flag(cdir: Path, args) -> int:
+    """``ack-flag <Did>`` (clock-deprecation plan step 4): release the driver's park on a flagged
+    DECISION -- a recorded acknowledgement the queue re-derivation honours. It moves no status: the
+    decision stands (``confirm``/``overrule`` remain the answer to the decision itself)."""
+    led = read_ledger(cdir)
+    e = by_id(led, args.ident)
+    if e is None:
+        print(f"no ledger entry {args.ident!r} (see `show`)", file=sys.stderr)
+        return 2
+    fl = e.get("flags") or {}
+    if not fl.get("park"):
+        print(f"{args.ident} carries no parked flag (nothing to acknowledge); `pending` shows what the "
+              "driver is waiting for", file=sys.stderr)
+        return 2
+    if flag_acked(e):
+        print(f"{args.ident}'s {fl.get('level')} line is already acknowledged -- the park is released")
+        print(_applied_note(cdir))
+        return 0
+    uid = append_override(cdir, {"ack_flag": args.ident, "level": fl.get("level"),
+                                 "why": args.why or "user ack-flag"})
+    items = "; ".join(str(f.get("text")) for f in fl.get("items") or [])
+    print(f"ack-flag {args.ident} ({fl.get('level')} line: {items or 'flagged'}); uuid {uid}")
+    print(_applied_note(cdir))
+    return 0
+
+
 def cmd_confirm(cdir: Path, args) -> int:
     led = read_ledger(cdir)
     e = by_id(led, args.ident)
@@ -487,7 +564,8 @@ def cmd_confirm(cdir: Path, args) -> int:
     if refusal:
         print(refusal, file=sys.stderr)
         return 2
-    refusal = _refuse_skipped(e, "confirm") or _refuse_squashed(e, "confirm")
+    refusal = _refuse_skipped(e, "confirm") or _refuse_squashed(e, "confirm") \
+        or _refuse_speculative(cdir, e, "confirm", args)
     if refusal:
         print(refusal, file=sys.stderr)
         return 2
@@ -502,8 +580,10 @@ def cmd_confirm(cdir: Path, args) -> int:
               f"`overrule {args.ident} --choose <choice> --why ...`.", file=sys.stderr)
         return 2
     choice = confirm_choice(e)
-    uid = append_override(cdir, {"decision": args.ident, "action": "confirm",
-                                 "choice": choice, "why": args.why or "user confirm"})
+    rec = {"decision": args.ident, "action": "confirm", "choice": choice, "why": args.why or "user confirm"}
+    if getattr(args, "cancel_pair", False):
+        rec["cancel_pair"] = True
+    uid = append_override(cdir, rec)
     print(f"confirm {args.ident} -> {choice} (frozen); uuid {uid}")
     if choice != effective_choice(e):
         print(f"note: {args.ident} stands at {effective_choice(e)} under a "
@@ -525,7 +605,8 @@ def cmd_overrule(cdir: Path, args) -> int:
     if refusal:
         print(refusal, file=sys.stderr)
         return 2
-    refusal = _refuse_skipped(e, "overrule") or _refuse_squashed(e, "overrule")
+    refusal = _refuse_skipped(e, "overrule") or _refuse_squashed(e, "overrule") \
+        or _refuse_speculative(cdir, e, "overrule", args)
     if refusal:
         print(refusal, file=sys.stderr)
         return 2
@@ -536,8 +617,10 @@ def cmd_overrule(cdir: Path, args) -> int:
     if not args.why:
         print("overrule needs --why (it is the record of a branch mispredict)", file=sys.stderr)
         return 2
-    uid = append_override(cdir, {"decision": args.ident, "action": "overrule",
-                                 "choice": args.choose, "why": args.why})
+    rec = {"decision": args.ident, "action": "overrule", "choice": args.choose, "why": args.why}
+    if getattr(args, "cancel_pair", False):
+        rec["cancel_pair"] = True
+    uid = append_override(cdir, rec)
     print(f"overrule {args.ident} -> {args.choose}; uuid {uid}")
     print(_applied_note(cdir))
     return 0
@@ -659,9 +742,14 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("show"); p.add_argument("ident", nargs="?"); p.add_argument("--json", action="store_true")
     sub.add_parser("pending")
+    cancel_help = ("under a rule with pair_on (the S3 rule): confirm/overrule a SPECULATIVE line anyway, "
+                   "cancelling its seed-2 pair (squashed if in flight) -- WIN becomes unreachable")
     p = sub.add_parser("confirm"); p.add_argument("ident"); p.add_argument("--why", default=None)
+    p.add_argument("--cancel-pair", action="store_true", help=cancel_help)
     p = sub.add_parser("overrule"); p.add_argument("ident"); p.add_argument("--choose", required=True)
     p.add_argument("--why", default=None)
+    p.add_argument("--cancel-pair", action="store_true", help=cancel_help)
+    p = sub.add_parser("ack-flag"); p.add_argument("ident"); p.add_argument("--why", default=None)
     p = sub.add_parser("decide"); p.add_argument("ident"); p.add_argument("--choose", required=True)
     p.add_argument("--why", default=None)
     p = sub.add_parser("resume-milestone"); p.add_argument("ident")
@@ -680,7 +768,7 @@ def main(argv=None) -> int:
         return 2
     verbs = {"show": cmd_show, "pending": cmd_pending, "confirm": cmd_confirm, "overrule": cmd_overrule,
              "decide": cmd_decide, "resume-milestone": cmd_resume_milestone, "stop": cmd_stop,
-             "unstop": cmd_unstop}
+             "unstop": cmd_unstop, "ack-flag": cmd_ack_flag}
     try:
         return verbs[args.verb](cdir, args)
     except CandidatesMissing as exc:

@@ -15,6 +15,7 @@ mispredict cost.
                          [--accept-eval-change WHY] [--accept-resolution D00s|D00bs WHY]
     run_candidates.py --campaign-dir <dir> [--candidates <yaml>] --dry-run
     run_candidates.py --campaign-dir <dir> --q-spread-check <suite stamp> [<stamp> ...]  # pre-launch
+    launch_candidates.sh --campaign-dir <dir> --reference-chain <name> [--seed N]  # a references: run
 
 A relaunch under a new ``eval_sha`` first runs the eval-only MIGRATION (plan 2026-09-21 D9: rescreen
 / reeval / D00s / D00bs / rescore, derived from the records by :func:`migration_item`) before any
@@ -83,14 +84,23 @@ PROMOTION_STAGES = ("2a", "2b")
 #: campaign's own screens (``recipe_head`` resolves only those) -- the fine-tune screens all fork
 #: X08:c6. The path is part of the recipe's identity (``compose_recipe`` hashes it into
 #: ``recipe_id``), and every seed of the recipe forks the same file.
-RESUME_KINDS = ("scratch", "previous_stage", "recipe_head", "recipe_head_s2", "checkpoint")
+#: NOTE(clock-deprecation 2026-09-23, plan step 4): ``reference`` is the second mapping kind --
+#: ``resume_from: {reference: <name>}`` forks the recorded head of a ``references:`` run (the
+#: reference-chain launcher, :func:`reference_loop`), resolved at LAUNCH: the confirm tails fork the
+#: ``t3_s2`` reference's head, which does not exist when the yaml is written.
+RESUME_KINDS = ("scratch", "previous_stage", "recipe_head", "recipe_head_s2", "checkpoint", "reference")
 
 
 def resume_kind(stage: dict) -> str:
-    """A stage's resume kind: its ``resume_from`` string, or ``checkpoint`` for the mapping form."""
+    """A stage's resume kind: its ``resume_from`` string, or ``checkpoint`` / ``reference`` for the
+    two mapping forms."""
     source = (stage or {}).get("resume_from")
     if isinstance(source, dict):
-        return "checkpoint" if set(source) == {"checkpoint"} else f"<mapping {sorted(source)}>"
+        if set(source) == {"checkpoint"}:
+            return "checkpoint"
+        if set(source) == {"reference"}:
+            return "reference"
+        return f"<mapping {sorted(source)}>"
     return str(source)
 
 
@@ -99,6 +109,14 @@ def resume_checkpoint(stage: dict) -> str | None:
     source = (stage or {}).get("resume_from")
     if isinstance(source, dict) and source.get("checkpoint"):
         return str(source["checkpoint"])
+    return None
+
+
+def resume_reference(stage: dict) -> str | None:
+    """The ``references:`` name a ``resume_from: {reference: <name>}`` stage forks, else None."""
+    source = (stage or {}).get("resume_from")
+    if isinstance(source, dict) and source.get("reference"):
+        return str(source["reference"])
     return None
 
 # ------------------------------------------------------------------ overlay vocabulary
@@ -738,6 +756,20 @@ def candidate_by_id(cands: dict, cid: str) -> dict | None:
     return None
 
 
+def baseline_control(cand: dict | None) -> bool:
+    """``control: baseline`` (clock-deprecation plan step 4, 2026-09-23).
+
+    The candidate is one of several ALTERNATIVES judged against the baseline, never a step of a
+    composition: its control is the baseline's own s3/s2 screens whatever was adopted before it,
+    its drift anchor is pinned to the baseline, it is excluded from compose-on-adopt, and its
+    adoption never becomes another candidate's anchor (:func:`compose_recipe`). Without it the
+    driver would judge A4500 and A3000 against an adopted A6000 (the three wave-1 arms remove the
+    clock at three different boundaries -- they answer "removal HERE vs clock held", not "and then
+    also here").
+    """
+    return str((cand or {}).get("control") or "").strip() == "baseline"
+
+
 def chain_by_name(cands: dict, name: str) -> dict:
     chains = cands.get("chains") or {}
     if name not in chains:
@@ -850,6 +882,68 @@ def final_s2_stage_list(cands: dict) -> list[dict]:
     return stages
 
 
+# ================================================================== references (reference chains)
+# NOTE(clock-deprecation 2026-09-23, plan step 4): `references:` names chains the driver runs OUTSIDE
+# the queue -- `run_candidates.py --reference-chain <name> [--seed N]` -- with stage evals, recorded
+# in heads.json (the stage recs) and `lad.references`, and NO decision: the never-clocked Z chain
+# and the formation-seed-2 confirm prefix `t3_s2` (plus its tails) are judged by hand. The yaml
+# shape is `references: {<name>: {chain: <chain, default the name>, seed: <int, optional>}}`.
+def reference_spec(cands: dict, name: str) -> dict:
+    """``references[name]`` normalised to ``{name, chain, seed}`` (``seed`` None when unpinned)."""
+    refs = cands.get("references") or {}
+    if name not in refs:
+        raise KeyError(f"unknown reference {name!r} (known: {sorted(refs)})")
+    ref = refs.get(name) or {}
+    if not isinstance(ref, dict):
+        ref = {}
+    seed = ref.get("seed")
+    return {"name": str(name), "chain": str(ref.get("chain") or name),
+            "seed": None if seed in (None, "") else str(seed)}
+
+
+def reference_only_chains(cands: dict) -> set:
+    """The chains ONLY a ``references:`` entry runs (exempt from ``screen.iters``): no screen, no
+    baseline and no candidate runs them."""
+    refs = cands.get("references") or {}
+    if not isinstance(refs, dict):
+        return set()
+    used = {(cands.get("screen") or {}).get("chain"), (cands.get("baseline") or {}).get("chain")}
+    used |= {c.get("chain") for c in cands.get("candidates") or [] if c.get("chain")}
+    out = set()
+    for name in refs:
+        try:
+            out.add(reference_spec(cands, str(name))["chain"])
+        except KeyError:
+            continue
+    return out - used
+
+
+def reference_recipe(cands: dict, name: str, code: str = "") -> dict:
+    """The recipe a reference run trains: its chain's own stages and overlays, nothing adopted.
+
+    Same shape as :func:`compose_recipe`'s (``stage_env`` reads it), with no 2a/2b overlays -- a
+    reference is never promoted. The identity hashes the reference's name, its chain and overlays,
+    and any checkpoint/reference fork, so two references on one chain are two recipes.
+    """
+    ref = reference_spec(cands, name)
+    stages = chain_stages(cands, ref["chain"])
+    names = [str(s["stage"]) for s in stages]
+    overlay_by_stage = {n: dict(stages[i].get("overlay") or {}) for i, n in enumerate(names)}
+    ident = {"reference": ref["name"], "chain": ref["chain"], "overlay_by_stage": overlay_by_stage}
+    recipe = {"chain": ref["chain"], "adopted": [], "overlay_by_stage": overlay_by_stage,
+              "eval_carry": [], "conflicts": [], "anchor": None, "code_sha": code, "stages": stages,
+              "has_pool": any("KRABBY_OMNI_CMD_POOL" in overlay_by_stage[n] for n in names),
+              "reference": ref["name"]}
+    forks = {str(s["stage"]): resume_checkpoint(s) for s in stages if resume_checkpoint(s)}
+    if forks:
+        ident["resume_checkpoints"] = recipe["resume_checkpoints"] = forks
+    refs = {str(s["stage"]): resume_reference(s) for s in stages if resume_reference(s)}
+    if refs:
+        ident["resume_references"] = recipe["resume_references"] = refs
+    recipe["recipe_id"] = sha256_text(canonical(ident))[:12]
+    return recipe
+
+
 # ================================================================== the recipe
 def _cand_spec(cand: dict, chain_name: str) -> dict:
     """A candidate's contribution ON THIS CHAIN (``overlay_by_chain`` applied).
@@ -912,6 +1006,12 @@ def compose_recipe(ledger: dict, cands: dict, code: str, *, upto: str | None = N
     Only EFFECTIVE choices count: the newest non-squashed entry per candidate, with a user or driver
     override applied (an ``overruled`` entry's override is its choice; a ``squashed`` entry is not a
     choice at all).
+
+    A ``control: baseline`` candidate (:func:`baseline_control`) never composes: bounded AT one,
+    the recipe is the baseline (``inclusive=False``) or the baseline plus that one candidate
+    (``inclusive=True``, :func:`_recipe_with`'s form), whatever was adopted before it; bounded
+    anywhere else, such candidates are skipped (excluded from compose-on-adopt, never an anchor).
+    A campaign without the key composes exactly as before.
     """
     squashed = set(squashed or ())
     order = candidate_ids(cands)
@@ -920,6 +1020,13 @@ def compose_recipe(ledger: dict, cands: dict, code: str, *, upto: str | None = N
             raise KeyError(f"unknown candidate {upto!r} (known: {order})")
         cut = order.index(upto) + (1 if inclusive else 0)
         order = order[:cut]
+    # NOTE(clock-deprecation 2026-09-23, plan step 4): `control: baseline` -- the candidate's base
+    # recipe is the baseline's, so its control is the baseline's own s3/s2 screens and its drift
+    # anchor re-resolves to `_baseline_anchor` (nothing it composes can qualify).
+    if upto is not None and baseline_control(candidate_by_id(cands, upto)):
+        order = [upto] if inclusive else []
+    else:
+        order = [cid for cid in order if not baseline_control(candidate_by_id(cands, cid))]
 
     adopted, anchor = [], None
     for cid in order:
@@ -932,7 +1039,7 @@ def compose_recipe(ledger: dict, cands: dict, code: str, *, upto: str | None = N
         if lc.effective_choice(entry) != "ADOPT":
             continue
         adopted.append(cid)
-        if _anchor_qualifies(entry):
+        if _anchor_qualifies(entry) and not baseline_control(candidate_by_id(cands, cid)):
             anchor = {"candidate": cid, "decision": entry.get("id"),
                       "experiment": entry.get("experiment"), "why": _anchor_reason(entry)}
     if anchor is None:
@@ -1055,6 +1162,12 @@ def compose_recipe(ledger: dict, cands: dict, code: str, *, upto: str | None = N
     if forks:
         ident["resume_checkpoints"] = forks
         recipe["resume_checkpoints"] = dict(forks)
+    # NOTE(clock-deprecation 2026-09-23): likewise a `resume_from: {reference: <name>}` fork -- the
+    # reference's NAME is the identity (its head is resolved at launch); absent, nothing moves.
+    refs = {str(s["stage"]): resume_reference(s) for s in stages if resume_reference(s)}
+    if refs:
+        ident["resume_references"] = refs
+        recipe["resume_references"] = dict(refs)
     recipe["recipe_id"] = sha256_text(canonical(ident))[:12]
     return recipe
 
@@ -1440,6 +1553,77 @@ def _agent_optional_ok(txt: str, key: str, parsed) -> bool:
     return got is not None and _num(got) is not None and abs(_num(got) - float(parsed)) < 1e-9
 
 
+# ---- the clock-deprecation knobs (clock-deprecation plan step 4, 2026-09-23). The two clock reward
+# weights are the forward cfg's presence-based overrides; KRABBY_PHASEOUT is the forward
+# reward-weight curriculum (`curriculums.py`, one `phaseout_<term>` curriculum block per entry);
+# the two clock-HIDE knobs are `clock_knobs.py`'s (default off: nothing in the cfg while off).
+#: The two clock reward terms and the knob that sets each one's static weight.
+CLOCK_TERM_KNOBS = {"reward_clock_schedule": "KRABBY_CLOCK_W", "reward_clock_swing_apex": "KRABBY_APEX_W"}
+#: The removal weight (settled decision 13): 0.001, never 0.0 -- a term at exactly 0.0 is skipped by
+#: the reward manager and its Episode_Reward telemetry flatlines (``curriculums.EPS_WEIGHT``).
+CLOCK_EPS_W = 0.001
+#: Every overlay key the clock rules (i)-(v) read; a chain or candidate that sets none of them is
+#: never looked at by those rules (every earlier campaign validates exactly as before).
+CLOCK_KNOB_KEYS = ("KRABBY_CLOCK_W", "KRABBY_APEX_W", "KRABBY_PHASEOUT", "KRABBY_OMNI_CLOCK_HIDE",
+                   "KRABBY_OMNI_CLOCK_HIDE_RAMP")
+_CURRICULUMS = None
+
+
+def curriculums():
+    """The forward task's ``mdp/curriculums.py`` (``parse_phaseout_spec``, ``ramp_value``), by path.
+
+    Pure at module scope: its Isaac-Lab manager term is defined only when ``isaaclab`` imports, so a
+    path-load here gets the parser and the ramp and nothing else.
+    """
+    global _CURRICULUMS
+    if _CURRICULUMS is None:
+        _CURRICULUMS = _load(rp.FWD_PKG / "mdp/curriculums.py", "crab_hex_curriculums_ladder")
+    return _CURRICULUMS
+
+
+def _clock():
+    """``clock_knobs`` (the hide / ramp parsers), reached through the path-loaded ``omni_knobs``."""
+    return knobs()._ck
+
+
+def _phaseout_ok(txt: str, value) -> bool:
+    """``KRABBY_PHASEOUT``: the dump's ``curriculum`` section holds EXACTLY the ``phaseout_<term>``
+    blocks the spec names -- no missing and no extra one -- each with that entry's
+    ``term_name``/``w0``/``w1``/``t0``/``t1``.
+
+    Exact, not "contains": a stray ``phaseout_*`` block (a preset's ramp the overlay was meant to
+    replace) anneals a term the recipe does not claim to, and the dump is the only place it shows.
+    """
+    want = {e["term_name"]: e for e in curriculums().parse_phaseout_spec(str(value))}
+    section = _yaml_block(txt, "curriculum", indent=0)
+    got = re.findall(r"^  (phaseout_\w+):\s*$", section, re.M)
+    if sorted(got) != sorted(f"phaseout_{term}" for term in want):
+        return False
+    for term, entry in want.items():
+        params = _yaml_block(section, f"phaseout_{term}", indent=2)
+        name = _grep_scalar(params, "term_name", indent=r"\s{6}")
+        if name is None or name.strip().strip("'\"") != term:
+            return False
+        for key in ("w0", "w1", "t0", "t1"):
+            got_v = _num(_grep_scalar(params, key, indent=r"\s{6}"))
+            if got_v is None or abs(got_v - float(entry[key])) > 1e-9:
+                return False
+    return True
+
+
+def _clock_hide_ok(txt: str, value) -> bool:
+    """``KRABBY_OMNI_CLOCK_HIDE``, a scalar: ``clock_hide: true`` on, ABSENT (or false) off."""
+    got = _grep_scalar(txt, _clock().CLOCK_HIDE_PARAM)
+    return got == "true" if _clock().parse_clock_hide(value) else got in (None, "false")
+
+
+def _clock_hide_ramp_ok(txt: str, value) -> bool:
+    """``KRABBY_OMNI_CLOCK_HIDE_RAMP``: the ``clock_hide_ramp`` tuple (``_tuple_ok``); blank = absent."""
+    if _clock().parse_clock_hide_ramp(value) is None:
+        return _grep_scalar(txt, _clock().CLOCK_HIDE_RAMP_PARAM) is None
+    return _tuple_ok(txt, _clock().CLOCK_HIDE_RAMP_PARAM, value, 2)
+
+
 #: Overlay keys audited against ``params/agent.yaml`` (the RUNNER cfg) instead of ``env.yaml``.
 AGENT_DUMP_KEYS = frozenset({"KRABBY_ACTION_STD_MAX", "KRABBY_ACTION_STD_RESET", "KRABBY_ENTROPY_COEF"})
 
@@ -1499,6 +1683,13 @@ OVERLAY_DUMP_CHECKS = {
     "KRABBY_ENTROPY_COEF": lambda txt, v: (_agent_optional_ok(txt, "entropy_coef", _motion().parse_entropy_coef(v))
                                            if _motion().parse_entropy_coef(v) is not None
                                            else _grep_scalar(txt, "entropy_coef") is not None),
+    # ---- clock-deprecation knobs (plan step 4). The dump shows the STATIC reward weight; a
+    # PHASEOUT stage's effective end weight is its curriculum block's w1 (removal verification).
+    "KRABBY_CLOCK_W": lambda txt, v: _weight_ok(txt, "reward_clock_schedule", v),
+    "KRABBY_APEX_W": lambda txt, v: _weight_ok(txt, "reward_clock_swing_apex", v),
+    "KRABBY_PHASEOUT": _phaseout_ok,
+    "KRABBY_OMNI_CLOCK_HIDE": _clock_hide_ok,
+    "KRABBY_OMNI_CLOCK_HIDE_RAMP": _clock_hide_ramp_ok,
 }
 
 
@@ -1572,6 +1763,11 @@ def knob_parsers() -> dict:
         # motion-quality knobs (step 2): their own parsers, plus the three reused forward weights
         **k.MOTION_KNOB_PARSERS,
         k.POWER_W_VAR: float, k.ACTION_RATE_W_VAR: float, k.AIRTIME_W_VAR: float,
+        # clock-deprecation knobs (plan step 4, 2026-09-23): the two clock-hide knobs' own parsers,
+        # the two forward clock weights and the forward reward-weight curriculum's spec parser
+        **k.CLOCK_KNOB_PARSERS,
+        "KRABBY_CLOCK_W": float, "KRABBY_APEX_W": float,
+        "KRABBY_PHASEOUT": lambda text: curriculums().parse_phaseout_spec(str(text)),
     }
     _KNOB_PARSERS_CACHE = table
     return table
@@ -1860,6 +2056,16 @@ def validate_candidates(cands: dict, *, strict: bool = True, check_replay: bool 
             g.append(f"milestone {mstone.get('id')} promote must be {list(PROMOTION_STAGES)}")
     rule = cands.get("decision_rule") or {}
     _check_rule_v2(rule, g)
+    pilot = rule.get("pilot")
+    if pilot not in (None, "") and str(pilot) not in order:
+        g.append(f"decision_rule.pilot names {pilot!r}, which is not a candidate id (the pilot stop "
+                 "parks on that candidate's seed-3 line)")
+    refs = cands.get("references") or {}
+    if not isinstance(refs, dict):
+        g.append(f"references must map a name to {{chain, seed}}, got {type(refs).__name__}")
+        refs = {}
+    for rname, ref in refs.items():
+        _check_reference(cands, str(rname), ref, g)
     script = cands.get("replay", {}).get("script")
     script_path = repo_path(script) if script else None
     if script and not script_path.exists():
@@ -1878,6 +2084,9 @@ def validate_candidates(cands: dict, *, strict: bool = True, check_replay: bool 
 
     # ---------------- chains
     screen_iters = int((cands.get("screen") or {}).get("iters") or 0)
+    # A chain only a `references:` run uses is exempt from `screen.iters` (it is judged by hand, never
+    # against a screen): Z's from-scratch chain is 8000 iterations, the t3_s2 prefix 3000.
+    ref_only = reference_only_chains(cands)
     for name, chain in (cands.get("chains") or {}).items():
         r: list[str] = []
         cn: list[str] = []
@@ -1904,6 +2113,8 @@ def validate_candidates(cands: dict, *, strict: bool = True, check_replay: bool 
                 r.append(f"{where}: from_scratch but resume_from={stage.get('resume_from')!r}")
             if kind == "checkpoint":
                 _check_fork_stage(stage, where, r, cn)
+            if kind == "reference":
+                _check_reference_stage(stage, where, r, refs)
             iters = int(stage.get("iters") or 0)
             if iters <= 0:
                 r.append(f"{where}: iters must be positive")
@@ -1915,9 +2126,16 @@ def validate_candidates(cands: dict, *, strict: bool = True, check_replay: bool 
             _check_stage_categories(stage, stage_env_, where, r)
             _check_pool_overlay(overlay, where, r, stage_env_)
             _check_cap_rules(stage_env_, where, chain.get("notes") or "", r)
-        if screen_iters and total != screen_iters:
+        if screen_iters and total != screen_iters and name not in ref_only:
             r.append(f"chain {name} totals {total} iterations; every screen is {screen_iters} "
                      "(equal compute is what makes the screens comparable)")
+        if stages and all(isinstance(s, dict) and s.get("iters") for s in stages):
+            try:
+                composed, touches = _composed_clock_stages(cands, name)
+            except (KeyError, ValueError):
+                composed, touches = [], False       # a bad base/stage: refused above by name
+            if touches:
+                _check_clock_chain(composed, f"chain {name}", r)
         verdicts.append({"id": f"chain:{name}", "ok": not r, "deferred": False, "reasons": r, "notes": cn})
 
     # ---------------- candidates
@@ -2030,7 +2248,9 @@ def validate_candidates(cands: dict, *, strict: bool = True, check_replay: bool 
         for where, chain_name, overlay, label in blocks:
             for key, value in (overlay or {}).items():
                 _check_knob(key, value, where, whitelist, parsers, r, exempt)
-                key_setters.setdefault(key, []).append(cid)
+                if not baseline_control(cand):
+                    # (a `control: baseline` arm never composes, so it can conflict with nothing)
+                    key_setters.setdefault(key, []).append(cid)
                 if key == "KRABBY_OMNI_CMD_POOL":
                     raw_pool_setters.setdefault((chain_name, label), []).append(cid)
             if overlay and ("KRABBY_OMNI_ANG_VEL_MAX" in overlay or "KRABBY_OMNI_ANG_VEL_CLIP" in overlay
@@ -2088,6 +2308,27 @@ def validate_candidates(cands: dict, *, strict: bool = True, check_replay: bool 
                 n.append(f"deferred: its knob(s) {req_keys} now exist -- the dispatch check passes")
         if cand.get("user_decision"):
             n.append("user_decision: the driver stops at await_user before dispatching it")
+        # NOTE(clock-deprecation 2026-09-23, plan step 4): `control: baseline` and the clock rules
+        # (i)-(v) on every chain the candidate composes onto (its own, else the baseline/screen one).
+        if cand.get("control") not in (None, "", "baseline"):
+            r.append(f"control {cand.get('control')!r} unknown (the only per-candidate control is "
+                     "`baseline`: judged against the baseline's own screens, never composed)")
+        if baseline_control(cand):
+            n.append("control: baseline -- its control and drift anchor are the baseline's screens, "
+                     "and it is excluded from compose-on-adopt")
+        clock_kind = str(cand.get("kind") or "") == "clock"
+        own_chains = [cand["chain"]] if cand.get("chain") else list(dict.fromkeys(
+            c for c in ((cands.get("baseline") or {}).get("chain"), (cands.get("screen") or {}).get("chain"))
+            if c))
+        for chain_name in own_chains:
+            if chain_name not in (cands.get("chains") or {}):
+                continue
+            try:
+                composed, touches = _composed_clock_stages(cands, chain_name, cand)
+            except (KeyError, ValueError):
+                continue                             # refused above by name
+            if touches or clock_kind:
+                _check_clock_chain(composed, f"{cid} on {chain_name}", r, clock_kind=clock_kind)
         r = list(dict.fromkeys(r))          # one reason per distinct message, in order
         verdicts.append({"id": cid, "ok": not r, "deferred": deferred, "reasons": r, "notes": n})
 
@@ -2146,6 +2387,211 @@ def _check_fork_stage(stage: dict, where: str, reasons: list, notes: list) -> No
                            "as NEW at a formation floor)")
 
 
+def _check_reference_stage(stage: dict, where: str, reasons: list, refs: dict) -> None:
+    """A ``resume_from: {reference: <name>}`` stage (clock-deprecation plan step 4, 2026-09-23).
+
+    The name must be a ``references:`` key. Its ``category_survival`` floor needs an explicit
+    ``min_by_category`` for every category it trains, for the checkpoint fork's reason: the head it
+    forks trained them, no earlier stage of THIS chain says so (the confirm's fork-first c4 stage
+    uses X0's c4 floors).
+    """
+    name = resume_reference(stage)
+    if not name or name not in refs:
+        reasons.append(f"{where}: resume_from.reference {name!r} is not a references: key "
+                       f"(known: {sorted(refs)})")
+    floor = stage.get("floor") or {}
+    if str(floor.get("kind")) == "category_survival":
+        mins = floor.get("min_by_category") or {}
+        missing = [c for c in (stage.get("categories") or []) if str(c) not in mins]
+        if missing:
+            reasons.append(f"{where}: a reference fork's category_survival floor needs "
+                           f"floor.min_by_category for every category it trains; missing {missing}")
+
+
+#: The clock weight an ABSENT KRABBY_CLOCK_W / KRABBY_APEX_W is judged at (see clock_stage_state).
+CLOCK_HELD_W = 1.0
+
+
+def clock_stage_state(env: dict, iters: int) -> dict:
+    """ONE stage's clock state, from its composed env (preset + overlays) -- pure.
+
+    ``hide`` / ``ramp`` (the clock-hide knobs), ``phaseout`` (the clock-term entries of
+    ``KRABBY_PHASEOUT``; ``phaseout_terms`` lists every term it names), ``static`` (each clock term's
+    RewTerm weight: its knob, else the HELD weight :data:`CLOCK_HELD_W` -- an absent knob must never
+    read as 0.0 "removed", which would blind rules (ii)/(iv)/(v) and removal verification; every
+    phase preset sets both knobs, and ``defaulted`` lists any knob this fell back for), and per term the weight
+    at the stage's first step (``start_w``), at its last env step ``24 x iters`` (``end_w`` -- the
+    EFFECTIVE end weight rule (v) and removal verification read) and its maximum over the window
+    (``max_w``; the cosine is monotone, so the larger endpoint). A PHASEOUT entry replaces the static
+    weight from the first step (the curriculum writes the term's weight every step). ``errors``
+    collects values that do not parse (the knob round trip refuses them by name elsewhere).
+    """
+    cur = curriculums()
+    out = {"hide": False, "ramp": None, "phaseout": {}, "phaseout_terms": [], "static": {},
+           "start_w": {}, "end_w": {}, "max_w": {}, "errors": [], "defaulted": []}
+    try:
+        out["hide"] = _clock().parse_clock_hide(env.get(_clock().CLOCK_HIDE_VAR))
+    except ValueError as exc:
+        out["errors"].append(str(exc))
+    try:
+        out["ramp"] = _clock().parse_clock_hide_ramp(env.get(_clock().CLOCK_HIDE_RAMP_VAR))
+    except ValueError as exc:
+        out["errors"].append(str(exc))
+    raw = env.get("KRABBY_PHASEOUT")
+    entries_ = []
+    if raw is not None and str(raw).strip():
+        try:
+            entries_ = cur.parse_phaseout_spec(str(raw))
+        except ValueError as exc:
+            out["errors"].append(str(exc))
+    out["phaseout_terms"] = [e["term_name"] for e in entries_]
+    out["phaseout"] = {e["term_name"]: e for e in entries_ if e["term_name"] in CLOCK_TERM_KNOBS}
+    end_step = int(ph.STEPS_PER_ITER) * int(iters)
+    for term, knob in CLOCK_TERM_KNOBS.items():
+        static = _num(env.get(knob))
+        if static is None:
+            out["defaulted"].append(knob)
+        out["static"][term] = CLOCK_HELD_W if static is None else static
+        entry = out["phaseout"].get(term)
+        if entry is None:
+            w0 = w_end = out["static"][term]
+        else:
+            w0 = cur.ramp_value(0, entry["w0"], entry["w1"], entry["t0"], entry["t1"])
+            w_end = cur.ramp_value(end_step, entry["w0"], entry["w1"], entry["t0"], entry["t1"])
+        out["start_w"][term], out["end_w"][term], out["max_w"][term] = w0, w_end, max(w0, w_end)
+    return out
+
+
+def _touches_clock(*overlays) -> bool:
+    return any(key in (ov or {}) for ov in overlays for key in CLOCK_KNOB_KEYS)
+
+
+def _check_clock_chain(stages: list, where: str, reasons: list, *, clock_kind: bool = False) -> None:
+    """The clock-deprecation validator rules (i)-(v) (plan step 4, 2026-09-23) on ONE composed chain.
+
+    ``stages`` is ``[(stage name, iters, composed env)]`` in chain order. The rules:
+
+    (i)   a clock weight of exactly 0.0 (a knob, or a clock-term PHASEOUT endpoint) is refused -- use
+          0.001: a 0.0 term is skipped by the reward manager and its telemetry flatlines;
+    (ii)  HIDE without a ramp needs both clock weights <= 0.001 over the whole stage: the reward
+          comes off with or before the observation, never after (a clock that pays while hidden is
+          non-Markov -- Siekmann 2021; Zhang 2024's unbalanced gaits);
+    (iii) a ramp needs HIDE plus a PHASEOUT on exactly the two clock terms with PHASEOUT t1 <= ramp
+          t0 < ramp t1 <= 24 x the stage's iterations, every value a multiple of 24 (env steps per
+          iteration) -- and the PHASEOUT must reach 0.001 (w1) before the first episode is hidden,
+          which is (ii) in the ramped form;
+    (iv)  removal is monotone: a clock-term PHASEOUT never rises (and ends inside its stage, t
+          multiples of 24), a hidden clock stays hidden in every later stage (a later ramp would
+          show it again), a clock weight at <= 0.001 at a stage's end stays there;
+    (v)   (``clock_kind``: a ``kind: clock`` candidate) the chain ENDS phase 1 with HIDE=1 and both
+          EFFECTIVE end weights <= 0.001 (a PHASEOUT stage's w1, reached by the stage's end).
+    """
+    step = int(ph.STEPS_PER_ITER)
+    states = []
+    for sname, iters, env in stages:
+        st = clock_stage_state(env, iters)
+        w = f"{where} stage {sname}"
+        end = step * int(iters)
+        for err in st["errors"]:
+            reasons.append(f"{w}: {err}")
+        # (i)
+        for term, knob in CLOCK_TERM_KNOBS.items():
+            if knob in env and _num(env.get(knob)) == 0.0:
+                reasons.append(f"{w}: (i) {knob}=0.0 is refused -- a term at exactly 0.0 is skipped by "
+                               f"the reward manager and its telemetry flatlines; use {CLOCK_EPS_W}")
+            entry = st["phaseout"].get(term)
+            if entry and (float(entry["w0"]) == 0.0 or float(entry["w1"]) == 0.0):
+                reasons.append(f"{w}: (i) KRABBY_PHASEOUT ramps {term} to/from 0.0 -- use {CLOCK_EPS_W}")
+        # (iv), within the stage: every clock-term PHASEOUT falls, ends inside the stage, on 24s
+        for term, entry in st["phaseout"].items():
+            if float(entry["w1"]) > float(entry["w0"]):
+                reasons.append(f"{w}: (iv) KRABBY_PHASEOUT RAISES {term} ({entry['w0']} -> "
+                               f"{entry['w1']}) -- removal is monotone")
+            if int(entry["t1"]) > end:
+                reasons.append(f"{w}: KRABBY_PHASEOUT {term} ends at t1 {entry['t1']}, beyond the "
+                               f"stage end {end} (24 x {iters}): its end weight is never settled")
+            bad = [t for t in (entry["t0"], entry["t1"]) if int(t) % step]
+            if bad:
+                reasons.append(f"{w}: KRABBY_PHASEOUT {term} window {bad} is not a multiple of {step} "
+                               "env steps per iteration")
+        # (ii)
+        if st["hide"] and st["ramp"] is None:
+            high = {t: st["max_w"][t] for t in CLOCK_TERM_KNOBS if st["max_w"][t] > CLOCK_EPS_W + 1e-12}
+            if high:
+                reasons.append(f"{w}: (ii) KRABBY_OMNI_CLOCK_HIDE=1 without a ramp needs both clock "
+                               f"weights <= {CLOCK_EPS_W} over the whole stage, got {high} -- the reward "
+                               "must come off with or before the observation (a hidden clock that "
+                               "still pays is a non-Markov reward)")
+        # (iii)
+        if st["ramp"] is not None:
+            t0r, t1r = st["ramp"]
+            if not st["hide"]:
+                reasons.append(f"{w}: (iii) KRABBY_OMNI_CLOCK_HIDE_RAMP needs KRABBY_OMNI_CLOCK_HIDE=1")
+            if sorted(st["phaseout_terms"]) != sorted(CLOCK_TERM_KNOBS):
+                reasons.append(f"{w}: (iii) a ramp needs a KRABBY_PHASEOUT on exactly the two clock "
+                               f"terms {sorted(CLOCK_TERM_KNOBS)}, got {st['phaseout_terms']}")
+            for term, entry in st["phaseout"].items():
+                if int(entry["t1"]) > t0r:
+                    reasons.append(f"{w}: (iii) the {term} PHASEOUT ends at {entry['t1']}, after the "
+                                   f"hide ramp starts at {t0r} (PHASEOUT t1 <= ramp t0)")
+                if float(entry["w1"]) > CLOCK_EPS_W + 1e-12:
+                    reasons.append(f"{w}: (iii) the {term} PHASEOUT ends at w1 {entry['w1']} > "
+                                   f"{CLOCK_EPS_W}: episodes would be hidden while the clock still pays")
+            if not t1r <= end:
+                reasons.append(f"{w}: (iii) the hide ramp ends at {t1r}, beyond the stage end {end} "
+                               f"(24 x {iters})")
+            bad = [t for t in (t0r, t1r) if int(t) % step]
+            if bad:
+                reasons.append(f"{w}: (iii) hide ramp window {bad} is not a multiple of {step} env steps")
+        states.append((sname, st))
+    # (iv), along the chain
+    hidden_at, removed_at = None, {t: None for t in CLOCK_TERM_KNOBS}
+    for sname, st in states:
+        if hidden_at is not None and (not st["hide"] or st["ramp"] is not None):
+            reasons.append(f"{where} stage {sname}: (iv) shows the clock again after stage {hidden_at} "
+                           "hid it -- removal is monotone along a chain")
+        for term in CLOCK_TERM_KNOBS:
+            if removed_at[term] is not None and st["max_w"][term] > CLOCK_EPS_W + 1e-12:
+                reasons.append(f"{where} stage {sname}: (iv) {term} rises to {st['max_w'][term]} after "
+                               f"stage {removed_at[term]} removed it -- removal is monotone")
+        if st["hide"] and hidden_at is None:
+            hidden_at = sname
+        for term in CLOCK_TERM_KNOBS:
+            if st["end_w"][term] <= CLOCK_EPS_W + 1e-12 and removed_at[term] is None:
+                removed_at[term] = sname
+    # (v)
+    if clock_kind and states:
+        last, st = states[-1]
+        if not st["hide"]:
+            reasons.append(f"{where}: (v) a kind: clock candidate ends phase 1 with "
+                           f"KRABBY_OMNI_CLOCK_HIDE=1, but its final stage {last} shows the clock")
+        high = {t: st["end_w"][t] for t in CLOCK_TERM_KNOBS if st["end_w"][t] > CLOCK_EPS_W + 1e-12}
+        if high:
+            reasons.append(f"{where}: (v) a kind: clock candidate ends phase 1 with both effective end "
+                           f"weights <= {CLOCK_EPS_W}, but its final stage {last} ends at {high}")
+
+
+def _composed_clock_stages(cands: dict, chain_name: str, cand: dict | None = None) -> tuple[list, bool]:
+    """``([(stage, iters, composed env)], touches)`` of ``chain_name`` (+ ``cand``'s overlay on it)."""
+    spec = _cand_spec(cand, chain_name) if cand else {}
+    overlay = spec.get("overlay") or {}
+    if isinstance(overlay, dict) and spec.get("stages") != "all":
+        overlay = {str(k): v for k, v in overlay.items()}
+    out, touches = [], False
+    for stage in chain_stages(cands, chain_name):
+        sname = str(stage["stage"])
+        own = {}
+        if cand:
+            if spec.get("stages") == "all":
+                own = dict(overlay) if isinstance(overlay, dict) else {}
+            elif isinstance(overlay, dict) and isinstance(overlay.get(sname), dict):
+                own = dict(overlay[sname])
+        merged = {**(stage.get("overlay") or {}), **own}
+        touches = touches or _touches_clock(stage.get("overlay"), own)
+        out.append((sname, int(stage.get("iters") or 0), _effective_stage_cfg(cands, stage, merged)))
+    return out, touches
+
+
 def _check_knob(key: str, value, where: str, whitelist: set, parsers: dict, reasons: list,
                 exempt: set) -> None:
     if key in FORBIDDEN_OVERLAY_KEYS:
@@ -2183,7 +2629,22 @@ def _check_knob(key: str, value, where: str, whitelist: set, parsers: dict, reas
 #: (:func:`rule_v2_required_blocks`): every block the rule names must carry a member at the full
 #: category set -- a named block with no member would be N/A for every candidate, a silent all-TIE
 #: no band check can see -- and a name outside this tuple is refused.
-RULE_V2_BLOCKS = ("F", "F_mt", "T", "F_abs", "F_mt_abs", "T_abs", "Q")
+#: NOTE(clock-deprecation 2026-09-23, plan step 4): ``RIG`` = the rigidity block (stepping without
+#: travel + loaded-foot count; :data:`RIG_BLOCK`), the clock campaign's ``adopt_requires``.
+RULE_V2_BLOCKS = ("F", "F_mt", "T", "F_abs", "F_mt_abs", "T_abs", "Q", "RIG")
+#: The rigidity block's name. A rule that carries it arms the clock campaign's DECISION machinery
+#: (the flag list and its driver park, the RIG z split, the ``arm_class`` field) -- every other
+#: rule decides, prints and queues exactly as before.
+RIG_BLOCK = "RIG"
+#: RIG's two halves (the balanced-RIG rule, settled decision 11): the stepping counts (lower is
+#: better) and the loaded-foot count (higher is better). A WIN needs each half of z >= 0.
+RIG_STEPS_KEYS = ("steps_per_m", "steps_per_rad")
+RIG_SUPPORT_KEYS = ("support_feet",)
+#: ``decision_rule.pair_on`` (plan step 4): the s3 outcomes that queue a seed-2 pair instead of
+#: deciding -- ``adopt`` (an ADOPT, which a WIN needs POOLED), ``neutral`` (the required block TIE,
+#: nothing WORSE) and ``lone_guard`` (the required block BETTER, exactly one guard WORSE, no block
+#: WORSE). Both of the last two are a clear REJECT without it.
+PAIR_ON_CASES = ("adopt", "neutral", "lone_guard")
 #: The facing / translation families both unit systems carry (``X`` and ``X_abs``).
 RULE_V2_FAMILIES = ("F", "F_mt", "T")
 
@@ -2294,6 +2755,17 @@ def _check_rule_v2(rule: dict, reasons: list) -> None:
     if not rule.get("control_head"):
         reasons.append("decision_rule.control_head is not pinned (the D00s control would default to "
                        "the first accepted input)")
+    # NOTE(clock-deprecation 2026-09-23, plan step 4): pair_on / steps_guard_flag.
+    pair_on = rule.get("pair_on")
+    if pair_on is not None:
+        if not isinstance(pair_on, (list, tuple)) or not set(map(str, pair_on)) <= set(PAIR_ON_CASES):
+            reasons.append(f"decision_rule.pair_on must be a list of {list(PAIR_ON_CASES)}, got {pair_on!r}")
+        elif {"neutral", "lone_guard"} & set(map(str, pair_on)) and req in (None, ""):
+            reasons.append("decision_rule.pair_on names neutral/lone_guard, which are defined on the "
+                           "adopt_requires block -- the rule names none")
+    if rule.get("steps_guard_flag") not in (None, True, False):
+        reasons.append(f"decision_rule.steps_guard_flag must be true or false, got "
+                       f"{rule.get('steps_guard_flag')!r}")
 
 
 _EVAL_ROW_KINDS: dict = {}
@@ -2380,6 +2852,29 @@ def _check_milestone_reference(stage: str, row: str, ref, reasons: list, notes: 
         # failing anything, so it is named at load.
         notes.append(f"{where} {ref} is not on this machine: M1's WATCH comparison against it will "
                      "read n/a")
+
+
+def _check_reference(cands: dict, name: str, ref, reasons: list) -> None:
+    """One ``references:`` entry (clock-deprecation plan step 4): ``{chain, seed}`` -- the chain
+    exists (default: the reference's own name), the seed is an integer when pinned, and no stage of
+    the chain forks this same reference (a run cannot resume from its own head)."""
+    where = f"references.{name}"
+    if ref is not None and not isinstance(ref, dict):
+        reasons.append(f"{where} must be a mapping {{chain, seed}}, got {ref!r}")
+        return
+    spec = reference_spec(cands, name)
+    if spec["chain"] not in (cands.get("chains") or {}):
+        reasons.append(f"{where}: chain {spec['chain']!r} is not defined")
+        return
+    if spec["seed"] is not None:
+        try:
+            int(spec["seed"])
+        except ValueError:
+            reasons.append(f"{where}: seed {spec['seed']!r} is not an integer")
+    for stage in (chain_by_name(cands, spec["chain"]).get("stages") or []):
+        if resume_reference(stage) == name:
+            reasons.append(f"{where}: its own chain's stage {stage.get('stage')} resumes from "
+                           f"reference {name} -- a run cannot fork its own head")
 
 
 def _check_stage_categories(stage: dict, env: dict, where: str, reasons: list) -> None:
@@ -2647,7 +3142,11 @@ def _tokenise(text: str) -> list[str]:
 #: used to compile, evaluate to ``None`` and SKIP the candidate at its rank -- a 3.9-hour window
 #: silently written off, recoverable only by a `decide --choose run` nobody knew to type. A
 #: load-time refusal costs nothing and `validate_candidates` already reports it.
-DECISION_FIELDS = ("chosen", "confidence", "pooled_confidence", "status", "floor_stage")
+#: NOTE(clock-deprecation 2026-09-23, plan step 4): ``arm_class`` -- the step-12 class of a RIG
+#: rule's decision (WIN / BREAK / RIGID / NEUTRAL / UNCLASSED, :func:`arm_class`), so ``await_if``
+#: can read it (``decision(A6000).arm_class == BREAK``). Named ``arm_class``, never ``class``: every
+#: comparison record already carries a per-block ``class`` (BETTER/TIE/WORSE/N/A).
+DECISION_FIELDS = ("chosen", "confidence", "pooled_confidence", "status", "floor_stage", "arm_class")
 #: Likewise for ``recipe.<field>``. ``screen.<key>`` stays open: its keys are `summarize()`'s and a
 #: new one is added by the harness, not by this vocabulary.
 RECIPE_FIELDS = ("chain", "has_pool")
@@ -2657,7 +3156,7 @@ class _Pred:
     """A parsed conditional: a tiny fixed-vocabulary predicate, never ``eval``.
 
     The vocabulary is exactly the plan's -- ``decision(<Cid>).chosen|confidence|pooled_confidence|
-    status|floor_stage``, ``recipe.chain``, ``recipe.has_pool``, ``screen.<key>`` -- with ``and``,
+    status|floor_stage|arm_class``, ``recipe.chain``, ``recipe.has_pool``, ``screen.<key>`` -- with ``and``,
     ``or``, parentheses, the six comparisons, ``in (a, b)`` and ``is [not] None``. It is a parser
     rather than ``eval`` because a candidate's predicate decides whether a 3.9-hour window runs:
     an expression language that can reach anything else is a hole, and an unparseable one must be a
@@ -2913,19 +3412,23 @@ def predicate_context(cands: dict, ledger: dict, state: dict, recipe: dict, code
     "the number the campaign is standing on right now", never a candidate's own pending result.
     """
     squashed = set((view or {}).get("entries") or ())
+    rule = cands.get("decision_rule") or {}
 
     def decision(cid: str) -> dict:
         entry = newest_entry(ledger, cid, squashed)
         if entry is None:
             return {"chosen": None, "confidence": None, "pooled_confidence": "none", "status": None,
-                    "floor_stage": None}
+                    "floor_stage": None, "arm_class": None}
         return {"chosen": lc.effective_choice(entry),
                 "confidence": entry.get("confidence"),
                 # "none" rather than None: the Vocabulary says an absent pair evaluates to `none`, so
                 # `pooled_confidence in (uncertain, disputed)` is FALSE rather than unevaluable.
                 "pooled_confidence": entry.get("pooled_confidence") or "none",
                 "status": entry.get("status"),
-                "floor_stage": entry.get("floor_stage") or (entry.get("evidence") or {}).get("floor_stage")}
+                "floor_stage": entry.get("floor_stage") or (entry.get("evidence") or {}).get("floor_stage"),
+                # left-for-implementation item 1: the class the step-12 table gives this entry (None
+                # under a rule without RIG, and while the entry is still waiting for its pair)
+                "arm_class": arm_class(entry, rule)[0]}
 
     scr = ok_screen(state, code, recipe["recipe_id"], (cands.get("seeds") or {}).get("screen", 3), view)
     return {"decision": decision,
@@ -3465,6 +3968,68 @@ def decide(screen: dict, base: dict, resolution: dict, *, cand_spec: dict, rule:
            seed_terms: dict | None = None, anchor_screen: dict | None = None,
            anchor_label: str | None = None, resolution_id: str = "D00",
            decisive=None, present=None) -> dict:
+    """The seed-3 decision: :func:`_decide_s3`, then ``decision_rule.pair_on`` (:func:`apply_pair_on`).
+
+    A pure function of two screens and the resolution record; without ``pair_on`` it IS
+    :func:`_decide_s3`'s answer, field for field.
+    """
+    out = _decide_s3(screen, base, resolution, cand_spec=cand_spec, rule=rule, seed_terms=seed_terms,
+                     anchor_screen=anchor_screen, anchor_label=anchor_label,
+                     resolution_id=resolution_id, decisive=decisive, present=present)
+    return apply_pair_on(out, rule)
+
+
+def apply_pair_on(out: dict, rule: dict | None) -> dict:
+    """``decision_rule.pair_on: [adopt, neutral, lone_guard]`` (clock-deprecation plan step 4).
+
+    A DECIDED seed-3 outcome in one of the named cases queues a seed-2 pair instead: the entry is
+    ``speculative`` (``pair`` True) until it is pooled, and the pooled decision is final. The cases:
+
+    * ``adopt`` -- a clear ADOPT (a WIN needs a POOLED ADOPT);
+    * ``neutral`` -- the ``adopt_requires`` block (RIG) TIE with nothing WORSE (``decide`` makes it a
+      clear REJECT under ``adopt_requires``);
+    * ``lone_guard`` -- the required block BETTER, exactly ONE guard WORSE and no block WORSE (a clear
+      REJECT on that guard without it).
+
+    Neither of the last two is paired while a guard is MISSING, or while ANY member of the required
+    block (RIG) is MISSING: a pair cannot supply a metric the row never produced (``decide``'s own
+    rule), so that REJECT stays decided. The s3 ``confidence``
+    is kept (it is that screen's classification); ``evidence.pair_on`` names the case.
+    """
+    cases = set(str(c) for c in ((rule or {}).get("pair_on") or ()))
+    if not cases or out.get("status") != "decided" or out.get("chosen") not in ("ADOPT", "REJECT"):
+        return out
+    cmpres = (out.get("evidence") or {}).get("seed3") or {}
+    if not cmpres.get("blocks"):
+        return out
+    worse_blocks = [k for k, v in cmpres["blocks"].items() if v.get("class") == "WORSE"]
+    guards = cmpres.get("guards") or {}
+    worse_guards, guard_missing = list(guards.get("worse") or []), list(guards.get("missing") or [])
+    req = adopt_requires(rule)
+    req_cls = _required_block_class(cmpres, req) if req is not None else None
+    req_missing = bool((cmpres["blocks"].get(req) or {}).get("missing")) if req is not None else False
+    case = None
+    if "adopt" in cases and out["chosen"] == "ADOPT":
+        case = "adopt"
+    elif (out["chosen"] == "REJECT" and not worse_blocks and not guard_missing and not req_missing
+          and req is not None):
+        if "neutral" in cases and req_cls == "TIE" and not worse_guards:
+            case = "neutral"
+        elif "lone_guard" in cases and req_cls == "BETTER" and len(worse_guards) == 1:
+            case = "lone_guard"
+    if case is None:
+        return out
+    out = dict(out, status="speculative", pair=True)
+    out["evidence"] = dict(out.get("evidence") or {}, pair_on=case)
+    out["why"] = (f"{out.get('why')}; pair_on {case}: a seed-2 pair is queued -- the entry stays "
+                  "speculative until it is pooled, and the pooled decision is final")
+    return out
+
+
+def _decide_s3(screen: dict, base: dict, resolution: dict, *, cand_spec: dict, rule: dict,
+               seed_terms: dict | None = None, anchor_screen: dict | None = None,
+               anchor_label: str | None = None, resolution_id: str = "D00",
+               decisive=None, present=None) -> dict:
     """The seed-3 decision (decision 5), a pure function of two screens and the resolution record.
 
     Returns the ledger fields: ``chosen`` / ``alternative`` / ``confidence`` / ``status`` / ``pair``
@@ -3705,6 +4270,315 @@ def decide_pooled(screen_s3: dict, screen_s2: dict, base_s3: dict, base_s2: dict
                         **({"adopt_requires": {"block": req, "class": req_cls}} if req is not None else {}),
                         **_v2_evidence(cmpres)}}
     return out
+
+
+# ================================================================== the RIG rule: class, split, flags
+# NOTE(clock-deprecation 2026-09-23, plan step 4). Everything in this section is armed ONLY by a rule
+# that carries block RIG (:func:`flags_enabled`); for every other rule it returns None / [] and no
+# record, line or queue item changes.
+#: The margin flags of settled decision 7, each against the matched clock-held twin (the control):
+#: ``(category key or "*walk" / "*all", key, drop)`` -- a flag when the candidate sits at least
+#: ``drop`` below the control.
+MARGIN_FLAGS = (("turn", "facing_closed", 0.05), ("move_turn", "facing_closed", 0.10),
+                ("*all", "survival", 0.05), ("*walk", "ratio", 0.05))
+#: The walking categories whose speed ratio the margin flag reads (the T categories + move_turn).
+WALK_CATEGORIES = ("fwd", "side", "back", "diag", "move_turn")
+#: taps up > 25 %; swing_apex down >= 30 % (lift loss); support_feet down > 10 %; and, with
+#: ``decision_rule.steps_guard_flag``, steps per m / rad adverse (up) by > 15 % of the control's.
+TAPS_UP_FRAC = 0.25
+APEX_DOWN_FRAC = 0.30
+SUPPORT_DOWN_FRAC = 0.10
+STEPS_UP_FRAC = 0.15
+TAP_KEYS = {"fwd": "taps_per_m", "side": "taps_per_m", "back": "taps_per_m", "diag": "taps_per_m",
+            "turn": "taps_per_rad", "move_turn": "taps_per_rad"}
+STEPS_GUARD_KEYS = {"fwd": "steps_per_m", "side": "steps_per_m", "back": "steps_per_m",
+                    "diag": "steps_per_m", "turn": "steps_per_rad"}
+#: The two flags that park at the SEED-3 line even while a pair is queued (never deferred).
+IMMEDIATE_FLAGS = ("removal", "pilot")
+
+
+def flags_enabled(rule: dict | None) -> bool:
+    """Does this decision rule carry block RIG (the clock campaign's DECISION machinery)?"""
+    return RIG_BLOCK in _rule_block_names(rule or {})
+
+
+def _rig_key(mid: str) -> str | None:
+    parsed = eval_categories().parse_cat_id(str(mid)) if str(mid).startswith("cat.") else None
+    return parsed[2] if parsed else None
+
+
+def rig_split(block: dict | None) -> dict | None:
+    """RIG's ``z`` split into its steps part and its support_feet part (additive: ``z = steps +
+    support + other``, each part = its members' ``sum(delta_i / R_i) / k``). A part with no measured
+    member is None. None for an absent block."""
+    if not block or block.get("class") == "N/A":
+        return None
+    rows = [r for r in block.get("rows") or [] if r.get("z") is not None]
+    k = len(rows)
+    out = {"z": block.get("z"), "k": k, "class": block.get("class")}
+    for part, keys in (("steps", RIG_STEPS_KEYS), ("support", RIG_SUPPORT_KEYS)):
+        mine = [r for r in rows if _rig_key(r["metric"]) in keys]
+        out[f"k_{part}"] = len(mine)
+        out[part] = (sum(r["z"] for r in mine) / k) if (mine and k) else None
+    return out
+
+
+def rig_split_text(split: dict | None) -> str:
+    if not split:
+        return "RIG z split: n/a (no RIG block on this line)"
+    part = lambda p: ("n/a" if split.get(p) is None else f"{split[p]:+.3f}")  # noqa: E731
+    return (f"RIG z split: steps {part('steps')} (k {split.get('k_steps')}) + support "
+            f"{part('support')} (k {split.get('k_support')}) of z {fmt_num(split.get('z'))} "
+            f"({split.get('class')}; a WIN needs both parts >= 0)")
+
+
+def arm_class(entry: dict | None, rule: dict | None) -> tuple[str | None, str]:
+    """The step-12 class of one decision (plan step 12; clock-deprecation step 4). ``(class, why)``.
+
+    Read on the POOLED line when one exists, else the seed-3 line; all against the control (X0).
+    Precedence BREAK > RIGID > NEUTRAL, with the user's own answer first:
+
+    * UNCLASSED -- SKIPped, user-overruled, RIG N/A or MISSING, a guard MISSING, or anything the
+      table does not name (e.g. an s3 ADOPT confirmed before its pair pooled) -> ask at S4;
+    * BREAK -- F, F_mt or T (any non-RIG block) WORSE, any guard WORSE, or a floor (the seed-3
+      screen's FLOOR REJECT, or a floor its seed-2 run tripped);
+    * RIGID -- RIG WORSE and nothing else WORSE;
+    * NEUTRAL -- nothing WORSE and RIG TIE, or a pooled ADOPT with a negative RIG part (balanced-RIG);
+    * WIN -- a pooled ADOPT with both RIG parts >= 0 and removal verification passed on every run.
+
+    ``(None, why)`` under a rule without RIG, for no entry, and while the entry is speculative (its
+    pair is queued: the pooled line decides). A driver self-overrule (``decide_pooled``'s
+    ``overruled``) is classed on its pooled line like any other -- it is NOT user-overruled (item 12).
+    """
+    if not flags_enabled(rule):
+        return None, "the rule carries no RIG block"
+    if not entry:
+        return None, "no decision"
+    status = entry.get("status")
+    if status == "speculative":
+        return None, "pending: its seed-2 pair is queued (the pooled line decides)"
+    if status == "skipped" or entry.get("chosen") == "SKIP":
+        return "UNCLASSED", "SKIPped"
+    if status == "overruled" and (entry.get("override") or {}).get("by") == "user":
+        return "UNCLASSED", f"user-overruled to {lc.effective_choice(entry)}"
+    ev = entry.get("evidence") or {}
+    if entry.get("floor_stage") or ev.get("floor"):
+        return "BREAK", f"floor at {entry.get('floor_stage') or ev.get('floor_stage')}"
+    if ev.get("s2_floor_watch"):
+        # the pair's own run tripped a floor (WATCH for the pooled pick, a floor for the class)
+        return "BREAK", f"floor on the seed-2 run: {'; '.join(map(str, ev['s2_floor_watch']))}"
+    pooled = bool(ev.get("pooled"))
+    cmpres = ev.get("pooled") or ev.get("seed3") or {}
+    blocks = cmpres.get("blocks") or {}
+    if not blocks:
+        return "UNCLASSED", "no comparison recorded"
+    worse = [f"block {k}" for k, v in blocks.items() if k != RIG_BLOCK and v.get("class") == "WORSE"]
+    worse += [f"guard {m}" for m in (cmpres.get("guards") or {}).get("worse") or []]
+    line = "pooled" if pooled else "seed-3"
+    if worse:
+        return "BREAK", f"WORSE on the {line} line: {', '.join(worse)}"
+    rig = _required_block_class(cmpres, RIG_BLOCK)
+    if rig in ("N/A", "MISSING", "absent"):
+        return "UNCLASSED", f"RIG {rig} on the {line} line"
+    missing = list((cmpres.get("guards") or {}).get("missing") or [])
+    if missing:
+        return "UNCLASSED", f"guard MISSING on the {line} line: {', '.join(missing)}"
+    if rig == "WORSE":
+        return "RIGID", f"RIG WORSE, nothing else WORSE ({line} line)"
+    if rig == "TIE":
+        return "NEUTRAL", f"RIG TIE, nothing WORSE ({line} line)"
+    if pooled and lc.effective_choice(entry) == "ADOPT":
+        split = rig_split(blocks.get(RIG_BLOCK))
+        parts = [(p, (split or {}).get(p)) for p in ("steps", "support")]
+        if any(v is None for _p, v in parts):
+            return "UNCLASSED", "a pooled ADOPT whose RIG part is unmeasured (" + ", ".join(
+                p for p, v in parts if v is None) + ")"
+        negative = [f"{p} {v:+.3f}" for p, v in parts if v < 0]
+        if negative:
+            return "NEUTRAL", f"a pooled ADOPT with a negative RIG part ({', '.join(negative)}; balanced-RIG)"
+        removal = ev.get("removal") or {}
+        runs = [r for r in removal.values() if isinstance(r, dict)]
+        if not runs:
+            return "UNCLASSED", "a pooled ADOPT whose removal verification is not recorded"
+        bad = [f"{k}" for k, r in removal.items() if isinstance(r, dict) and not r.get("ok")]
+        if bad:
+            return "UNCLASSED", f"a pooled ADOPT whose removal verification FAILED ({', '.join(bad)})"
+        return "WIN", "a pooled ADOPT, both RIG parts >= 0, removal verified"
+    return "UNCLASSED", (f"RIG BETTER, nothing WORSE, but no pooled ADOPT ({line} line, "
+                         f"{lc.effective_choice(entry)}, {status})")
+
+
+def _mean_of(screens, mid: str) -> float | None:
+    """The mean of ``mid`` over ``screens`` (a pooled line averages its two seeds), None if any lacks it."""
+    vals = [_num(dget(s, mid)) for s in screens or []]
+    if not vals or any(v is None for v in vals):
+        return None
+    return sum(vals) / len(vals)
+
+
+def _member_mde(cmpres: dict, mid: str) -> tuple[float, str] | None:
+    """The MDE a flag prints beside its member, with its label: a block member's SINGLE-MEMBER MDE
+    ``k x R_b x R_i`` (the block z is the mean of ``delta_i / R_i`` over its k measured members, so
+    one member alone must move k times as far to carry the block), a guard's own R."""
+    for label, body in (cmpres.get("blocks") or {}).items():
+        for row in body.get("rows") or []:
+            if row.get("metric") == mid and _num(body.get("R")) is not None and _num(row.get("R_eval")) is not None:
+                k = max(int(body.get("k") or len(body.get("rows") or []) or 1), 1)
+                return (k * float(body["R"]) * float(row["R_eval"]),
+                        f"single-member MDE (k={k} x R_{label} x R_i)")
+    for row in (cmpres.get("guards") or {}).get("rows") or []:
+        if row.get("metric") == mid and _num(row.get("R")) is not None:
+            return float(row["R"]), "guard MDE (R)"
+    return None
+
+
+def _flag(kind: str, text: str, *, metric: str | None = None, mde=None, value=None) -> dict:
+    mde, mde_label = mde if isinstance(mde, tuple) else (mde, None)
+    out = {"flag": kind, "text": text, "metric": metric, "mde": _num(mde), "value": _num(value)}
+    if mde_label:
+        out["mde_label"] = mde_label
+    return out
+
+
+def decision_flags(rule: dict, cmpres: dict, cand_screens, base_screens, *, removal=(),
+                   pilot: bool = False) -> list[dict]:
+    """The stop-and-ask flags of one DECISION line (plan step 4 / "Decision rule"). Never a verdict.
+
+    Values are read on the line's own screens (``cand_screens`` / ``base_screens``: one each on a
+    seed-3 line, both seeds on a pooled one -- averaged), deltas are candidate - control:
+
+    * the margin flags (settled decision 7): turn ``facing_closed`` -0.05, move_turn
+      ``facing_closed`` -0.10, any category's survival -0.05, any walking speed ratio -0.05;
+    * taps up > 25 % (``taps_per_m`` / ``taps_per_rad``); ``swing_apex`` down >= 30 % (lift loss);
+      ``support_feet`` down > 10 % in any category;
+    * with ``decision_rule.steps_guard_flag``: ``steps_per_m`` / ``steps_per_rad`` adverse by > 15 %
+      of the control's value (the null-band fallback of plan step 10);
+    * speed-driven -- the steps members' mean ``delta/R`` BETTER, their mean dlog ``step_rate_hz``
+      >= 0 and the T block's z > 0 (fewer steps per metre only because the robot moves faster);
+    * removal verification failed on any run; the pilot stop (``pilot``).
+
+    Each flag carries its member's MDE (:func:`_member_mde`) where the member is scored.
+    """
+    if not flags_enabled(rule):
+        return []
+    out: list[dict] = []
+    cats = list(cmpres.get("present") or cmpres.get("decisive") or eval_categories().CATEGORIES)
+
+    def vals(c: str, key: str):
+        mid = f"cat.{c}.{key}"
+        return mid, _mean_of(cand_screens, mid), _mean_of(base_screens, mid)
+
+    for cat, key, drop in MARGIN_FLAGS:
+        targets = cats if cat == "*all" else ([c for c in WALK_CATEGORIES if c in cats]
+                                             if cat == "*walk" else ([cat] if cat in cats else []))
+        for c in targets:
+            mid, a, b = vals(c, key)
+            if a is None or b is None:
+                continue
+            delta = a - b
+            if delta <= -drop + 1e-12:
+                out.append(_flag("margin", f"margin {c}.{key} {b:.3f}->{a:.3f} (delta {delta:+.3f} <= "
+                                 f"-{drop})", metric=mid, mde=_member_mde(cmpres, mid), value=delta))
+
+    def rel(a, b):
+        if a is None or b is None:
+            return None
+        if b > 0:
+            return (a - b) / b
+        return math.inf if a > b else (0.0 if a == b else -math.inf)
+
+    for c, key in TAP_KEYS.items():
+        if c not in cats:
+            continue
+        mid, a, b = vals(c, key)
+        r = rel(a, b)
+        if r is not None and r > TAPS_UP_FRAC:
+            out.append(_flag("taps", f"taps up {c}.{key} {b:.3f}->{a:.3f} ({r * 100:+.0f}% > "
+                             f"+{TAPS_UP_FRAC * 100:.0f}%)", metric=mid, mde=_member_mde(cmpres, mid), value=r))
+    for c in cats:
+        mid, a, b = vals(c, "swing_apex")
+        r = rel(a, b)
+        if r is not None and -r >= APEX_DOWN_FRAC - 1e-12:
+            out.append(_flag("lift_loss", f"swing_apex down {c} {b:.4f}->{a:.4f} ({r * 100:+.0f}% <= "
+                             f"-{APEX_DOWN_FRAC * 100:.0f}%; the lift rescue is a re-budget option)",
+                             metric=mid, mde=_member_mde(cmpres, mid), value=r))
+        mid, a, b = vals(c, "support_feet")
+        r = rel(a, b)
+        if r is not None and -r > SUPPORT_DOWN_FRAC:
+            out.append(_flag("support_down", f"support_feet down {c} {b:.3f}->{a:.3f} ({r * 100:+.0f}% "
+                             f"< -{SUPPORT_DOWN_FRAC * 100:.0f}%)", metric=mid,
+                             mde=_member_mde(cmpres, mid), value=r))
+    if (rule or {}).get("steps_guard_flag"):
+        for c, key in STEPS_GUARD_KEYS.items():
+            if c not in cats:
+                continue
+            mid, a, b = vals(c, key)
+            r = rel(a, b)
+            if r is not None and r > STEPS_UP_FRAC:
+                out.append(_flag("steps_guard", f"{c}.{key} adverse {b:.3f}->{a:.3f} ({r * 100:+.0f}% > "
+                                 f"+{STEPS_UP_FRAC * 100:.0f}% of the control's; steps_guard_flag)",
+                                 metric=mid, mde=_member_mde(cmpres, mid), value=r))
+    # speed-driven: all three conditions
+    rig = (cmpres.get("blocks") or {}).get(RIG_BLOCK) or {}
+    steps_rows = [r for r in rig.get("rows") or [] if r.get("z") is not None
+                  and _rig_key(r["metric"]) in RIG_STEPS_KEYS]
+    t_z = _num(((cmpres.get("blocks") or {}).get("T") or {}).get("z"))
+    if steps_rows:
+        mean_z = sum(r["z"] for r in steps_rows) / len(steps_rows)
+        dlogs = []
+        for r in steps_rows:
+            c = eval_categories().parse_cat_id(r["metric"])[0]
+            _mid, a, b = vals(c, "step_rate_hz")
+            if a is not None and b is not None and a > 0 and b > 0:
+                dlogs.append(math.log(a) - math.log(b))
+        mean_dlog = (sum(dlogs) / len(dlogs)) if dlogs else None
+        if mean_z > 0 and mean_dlog is not None and mean_dlog >= 0 and t_z is not None and t_z > 0:
+            out.append(_flag("speed_driven", f"speed-driven: steps members' mean delta/R {mean_z:+.3f} "
+                             f"(BETTER side), mean dlog step_rate_hz {mean_dlog:+.3f} >= 0, T z "
+                             f"{t_z:+.3f} > 0 -- fewer steps per unit because it moves faster",
+                             value=mean_z))
+    for run in removal or ():
+        if isinstance(run, dict) and run.get("applies") and not run.get("ok"):
+            bad = [f"{c.get('stage')}: {c.get('check')}" for c in run.get("checks") or [] if not c.get("ok")]
+            out.append(_flag("removal", f"removal verification FAILED on {run.get('xid')} ("
+                             + "; ".join(bad) + ") -- a halt-and-fix defect"))
+    if pilot:
+        out.append(_flag("pilot", "pilot stop (S3p): the pilot arm's seed-3 line has RIG TIE -- the "
+                         "premise (removing the clock moves steps/support beyond R) is unproven; "
+                         "continue wave 1, go to wave 2, or pause for MQ's action-bound fix"))
+    return out
+
+
+def flag_text(fl: dict) -> str:
+    mde = fl.get("mde")
+    return fl.get("text", "") + (f" [{fl.get('mde_label') or 'MDE'} {mde:.4g}]" if mde is not None else
+                                 (" [MDE n/a: not a scored member]" if fl.get("metric") else ""))
+
+
+def pilot_stop(rule: dict | None, cid: str | None, decision: dict) -> bool:
+    """``decision_rule.pilot``'s seed-3 line with RIG TIE (plan step 12, S3p) -- an immediate park."""
+    pilot = (rule or {}).get("pilot")
+    if not pilot or str(pilot) != str(cid) or not flags_enabled(rule):
+        return False
+    cmpres = (decision.get("evidence") or {}).get("seed3") or {}
+    return _required_block_class(cmpres, RIG_BLOCK) == "TIE" if cmpres.get("blocks") else False
+
+
+def flag_park(ledger: dict, esq=None) -> dict | None:
+    """The first live ledger entry whose flags PARK the driver and carry no acknowledgement at their
+    level (``ledger_cli ack-flag <Did>``, :func:`ledger_cli.flag_parked`), else None.
+
+    Derived from the ledger on every pass, like the rest of the queue: a relaunch re-derives the same
+    park, and an ack row (applied by :func:`ingest_overrides`) releases it. A squashed entry never
+    parks (a user ``decide run`` voids its line with it).
+    """
+    esq = set(esq or ())
+    for e in entries(ledger):
+        if e.get("id") in esq or hidden_by_stored_squash(e):
+            continue
+        if lc.flag_parked(e):
+            return e
+    return None
 
 
 # ================================================================== the derived squash view
@@ -4136,6 +5010,20 @@ def _next_item_raw(cands: dict, ledger: dict, state: dict, *, code: str, view=No
 
     def screen_of(recipe_id, seed):
         return ok_screen(state, code, recipe_id, seed, view)
+
+    # ---- 0: a flagged DECISION parks the driver (clock-deprecation plan step 4, 2026-09-23) --
+    # before anything else, the pending-pair dispatch included (the pilot stop parks BEFORE its own
+    # pair and before the next arm). Only a rule with block RIG writes flags, and only
+    # `ledger_cli ack-flag <Did>` releases one; with no flagged entry this step is inert.
+    parked = flag_park(ledger, esq)
+    if parked is not None:
+        fl = parked.get("flags") or {}
+        did = parked.get("id")
+        texts = "; ".join(flag_text(f) for f in fl.get("items") or []) or fl.get("why") or "flagged"
+        return _item("await", cid=parked.get("candidate"), seed=s3,
+                     why=(f"{did} ({parked.get('candidate')}) is FLAGGED on its {fl.get('level')} line "
+                          f"-- stop and ask: {texts}"),
+                     label=f"await_user:{did} flag", extra={"flag_park": did})
 
     # ---- 1 / 2: the baseline recipe's own two screens
     b0 = compose_recipe(ledger, cands, code, upto=(order[0] if order else None), squashed=esq)
@@ -4759,6 +5647,8 @@ def _resume_field(ctx: Ctx) -> str:
 
 def _apply_override(ctx: Ctx, rec: dict) -> str:
     """One override line -> the ledger. Returns the OVERRIDE-APPLIED note."""
+    if rec.get("ack_flag"):
+        return _apply_flag_ack(ctx, rec)
     if rec.get("decision"):
         return _apply_decision_override(ctx, rec)
     if rec.get("candidate"):
@@ -4766,6 +5656,37 @@ def _apply_override(ctx: Ctx, rec: dict) -> str:
     if rec.get("milestone"):
         return _apply_milestone_answer(ctx, rec)
     raise ValueError(f"override {rec} names neither a decision, a candidate nor a milestone")
+
+
+def _apply_flag_ack(ctx: Ctx, rec: dict) -> str:
+    """``ledger_cli ack-flag <Did>`` (clock-deprecation plan step 4): release a flag park.
+
+    Recorded on the entry as ``flag_acks[] = {uuid, at, why, level}`` -- the queue re-derivation
+    (:func:`flag_park`) honours an ack at the flags' CURRENT level only, so an ack typed against the
+    seed-3 line never releases the pooled line that replaces it (the CLI stamps the level it saw; a
+    mismatch is refused and the user acks the new line). No status moves: the decision stands, the
+    user has only said "seen, go on". Idempotent by uuid (a crash between the ledger write and the
+    ``applied_overrides`` save replays the line).
+    """
+    did = rec["ack_flag"]
+    entry = entry_by_id(ctx.ledger, did)
+    if entry is None:
+        raise KeyError(f"no ledger entry {did}")
+    if any(a.get("uuid") == rec["uuid"] for a in entry.get("flag_acks") or []):
+        ctx.recompute()
+        return f"{did}: flags already acknowledged by this line (ingested before the record was saved)"
+    level = (entry.get("flags") or {}).get("level")
+    if not (entry.get("flags") or {}).get("park"):
+        raise ValueError(f"{did} carries no parked flag (nothing to acknowledge)")
+    if rec.get("level") and level and str(rec["level"]) != str(level):
+        raise ValueError(f"the ack names {did}'s {rec['level']} line, but its flags are now on the "
+                         f"{level} line (it landed after the ack was typed): read it and ack again")
+    entry.setdefault("flag_acks", []).append({"uuid": rec["uuid"], "at": rec.get("at"),
+                                              "why": rec.get("why"), "level": level,
+                                              "applied_at": now_iso()})
+    ctx.write_ledger()
+    ctx.recompute()
+    return f"{did}: flags acknowledged on its {level} line -- the park is released"
 
 
 def _live_window(header: dict) -> bool:
@@ -5662,6 +6583,15 @@ def _resume_ckpt_for(ctx: Ctx, item: dict, stage: dict, prev_ckpt: str | None) -
         rel = resume_checkpoint(stage)
         path = repo_path(rel)
         return (str(path) if path.is_file() else None), f"checkpoint {rel}"
+    if kind == "reference":
+        # NOTE(clock-deprecation 2026-09-23): the recorded head of a `references:` run, resolved NOW
+        # (at launch) -- None when that reference has not finished under this code, which the caller
+        # halts `resume_head_missing` on before any GPU is booked.
+        name = resume_reference(stage)
+        rec = reference_head(ctx, name)
+        head = (rec or {}).get("ckpt")
+        return ((head if head and Path(head).is_file() else None),
+                f"reference {name}" + (f" ({rec.get('xid')} s{rec.get('seed')})" if rec else ""))
     seed = ctx.seed_screen if kind == "recipe_head" else ctx.seed_confirm
     rid = (item.get("recipe") or {}).get("recipe_id")
     head = recipe_head(ctx.state, ctx.code, rid, seed, ctx.view)
@@ -5687,6 +6617,14 @@ def _record_stage(ctx: Ctx, item: dict, xid: str, stage: dict, spec, tag: str, c
         rec["pool_series_tail"] = {k: (v[-1] if v else None)
                                   for k, v in rp.pool_series_from_log(Path(log)).items()}
     return rec
+
+
+def ramp_stage(overlay: dict | None) -> bool:
+    """Does a stage's OVERLAY carry a step-keyed schedule (``KRABBY_PHASEOUT`` or
+    ``KRABBY_OMNI_CLOCK_HIDE_RAMP``)? Such a window is never continued: it re-runs whole (plan step 4).
+    The overlay only: a preset's own PHASEOUT (2a/2b promotions) resumes exactly as before."""
+    return any(str((overlay or {}).get(k) or "").strip()
+               for k in ("KRABBY_PHASEOUT", "KRABBY_OMNI_CLOCK_HIDE_RAMP"))
 
 
 def _stage_spec_of(ctx: Ctx, header: dict, sname: str) -> dict | None:
@@ -5794,6 +6732,23 @@ def _supersedes(ctx: Ctx, item: dict) -> list[str]:
     return [xid for _at, xid in rows]
 
 
+_RUN_DIR_STAMP = re.compile(r"^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}_(?P<name>.+)$")
+
+
+def _log_for_ckpt(ctx: Ctx, ckpt: str, fallback: Path) -> Path:
+    """The training log of the run whose directory holds ``ckpt``. A run directory is
+    ``<timestamp>_<run_name>`` and ``rp.train`` writes ``<tag>_train.log`` with ``tag == run_name``
+    (or ``<run_name>_r2`` after ``train_retry``'s own infra retry); the newest existing one wins.
+    ``fallback`` when the directory name does not parse or no such log exists."""
+    m = _RUN_DIR_STAMP.match(Path(ckpt).parent.name)
+    if not m:
+        return fallback
+    name = m.group("name")
+    found = [p for p in (ctx.c.logs / f"{name}_train.log", ctx.c.logs / f"{name}_r2_train.log")
+             if p.is_file()]
+    return max(found, key=lambda p: p.stat().st_mtime) if found else fallback
+
+
 def run_experiment(ctx: Ctx, item: dict) -> dict:
     """One experiment: its stages in order, each trained then evaluated, recorded and audited.
 
@@ -5894,9 +6849,22 @@ def run_experiment(ctx: Ctx, item: dict) -> dict:
             # to re-run that one iteration would produce a checkpoint at the same number.
             if remaining <= 1 and resumed.get("ckpt"):
                 skip_train, ckpt = True, resumed["ckpt"]
-                log = ctx.c.logs / f"{tag}_train.log"
+                # The log of the run that WROTE this checkpoint (the newest "_w"/"_c" run, found
+                # by `prepare_resume`), not the original tag's: removal verification reads its
+                # tail, and the original process may have died mid-window.
+                log = _log_for_ckpt(ctx, ckpt, ctx.c.logs / f"{tag}_train.log")
                 ctx.c.log(f"{tag}: the window had already reached its final iteration before the "
                           f"stop -- continuing at its eval")
+            elif ramp_stage(env):
+                # NOTE(clock-deprecation 2026-09-23, plan step 4): a KRABBY_PHASEOUT / HIDE_RAMP
+                # schedule is keyed on `common_step_counter`, which restarts at 0 in EVERY process: a
+                # continuation would replay the ramp from its start on a head that is already past
+                # it. The WHOLE window re-runs from its original resume point instead (a "_w" run).
+                iters, resume, train_tag = int(stage["iters"]), orig_resume, f"{tag}_w"
+                ctx.c.log(f"{tag}: the overlay carries a step-keyed ramp (KRABBY_PHASEOUT / "
+                          f"KRABBY_OMNI_CLOCK_HIDE_RAMP) and the env counter restarts per process -- "
+                          f"the WHOLE {iters}-iteration window re-runs from {orig_resume or 'scratch'} "
+                          f"({remaining} iterations were left)")
             else:
                 iters, resume, train_tag = remaining, (resumed.get("ckpt") or resume), f"{tag}_c"
         header["inflight"] = {"stage": sname, "iters": int(stage["iters"]), "tag": tag,
@@ -6920,7 +7888,15 @@ CAT_KEY_SHORT = {"facing_closed": "closed", "yaw_progress": "progress", "net_yaw
                  "cam_work_per_m": "camwork/m", "swings_per_rad": "swings/rad",
                  "slip_per_rad": "slip/rad", "work_per_rad": "work/rad",
                  "cam_work_per_rad": "camwork/rad", "six_down_frac": "six_down",
-                 "settle_six_down_s": "settle6", "foot_disp_end": "disp_end", "work_per_s": "work/s"}
+                 "settle_six_down_s": "settle6", "foot_disp_end": "disp_end", "work_per_s": "work/s",
+                 # rigidity (block RIG, clock-deprecation 2026-09-23); the stepping counts are
+                 # lower-is-better, support_feet / swing_apex higher
+                 "steps_per_m": "steps/m", "steps_per_rad": "steps/rad", "support_feet": "support",
+                 "steps_per_s": "steps/s", "taps_per_m": "taps/m", "taps_per_rad": "taps/rad",
+                 "swing_apex": "apex", "step_rate_hz": "step_hz", "gait_hz": "gait_hz",
+                 "clock_hz": "clock_hz", "cadence_ratio": "cadence", "steps_per_rad_pre": "steps/rad_pre",
+                 "steps_per_rad_post": "steps/rad_post", "hz_speed_slope": "hz_slope",
+                 "offset_R": "offset_R"}
 
 #: The WATCH set's own labels, in the plan's spelling. Every one of these ids used to render as its
 #: LAST dotted part, which collides three times over ("move_turn" for the ratio and the tripod,
@@ -7166,10 +8142,26 @@ def decision_notify_fields(ctx: Ctx, entry: dict, item: dict, decision: dict, *,
     fields.append(gate_watch("gate_1c", scr, track_ratio=scr.get("track_ratio_tail")))
     if decision.get("why"):
         fields.append(f"why: {decision['why']}")
+    rule = ctx.cands.get("decision_rule") or {}
+    rig_rule = flags_enabled(rule)
+    if rig_rule:
+        fields.extend(rig_fields(ctx, entry, cmpres))
     nxt = next_item(ctx.cands, ctx.ledger, ctx.state, code=ctx.code, view=ctx.view)
     fields.append(f"next: {nxt['label'] if nxt else 'done'}")
     did = entry.get("id")
     alt = entry.get("alternative")
+    # the S3 rule (plan step 12): a speculative line's own confirm/overrule cancels its pair, so the
+    # CLI refuses them without --cancel-pair. The quoted commands deliberately do NOT carry it (a
+    # relayed command run as-is must hit that refusal, not silently make WIN unreachable); the flag
+    # is named in prose only, after the primary action (the ack-flag release, or waiting).
+    speculative = bool(rig_rule and rule.get("pair_on") and entry.get("status") == "speculative")
+    if speculative:
+        fl = entry.get("flags") or {}
+        if fl.get("park") and not lc.flag_acked(entry):
+            fields.append(f"PRIMARY ACTION: {ctx.cli(f'ack-flag {did} --why ...')} (releases the park; "
+                          "the pair then runs)")
+        else:
+            fields.append("PRIMARY ACTION: none -- wait for the pooled line (the pair is queued)")
     reverts = lc.confirm_choice(entry)
     if reverts != lc.effective_choice(entry):
         # An `overruled(driver)` entry: the plan's table makes `confirm` the REVERT, and
@@ -7181,7 +8173,35 @@ def decision_notify_fields(ctx: Ctx, entry: dict, item: dict, decision: dict, *,
                       f"{lc.effective_choice(entry)}")
     fields.append("confirm: " + ctx.cli(f"confirm {did}"))
     fields.append("overrule: " + ctx.cli(f"overrule {did} --choose {alt} --why \"...\""))
+    if speculative:
+        fields.append("speculative line: confirm/overrule are refused until the pooled line lands; "
+                      "to answer now anyway add --cancel-pair; WIN becomes unreachable for this arm")
     return fields
+
+
+def rig_fields(ctx: Ctx, entry: dict, cmpres: dict) -> list[str]:
+    """A RIG rule's extra DECISION-line fields (clock-deprecation plan step 4): RIG's z split, the
+    ``arm_class``, removal verification per run, the flag list with each member's MDE, and -- on a
+    seed-3 line with a queued pair -- the S3 rule; on a parked line, its release verb."""
+    rule = ctx.cands.get("decision_rule") or {}
+    ev = entry.get("evidence") or {}
+    out = [rig_split_text(rig_split((cmpres.get("blocks") or {}).get(RIG_BLOCK)))]
+    cls, why = arm_class(entry, rule)
+    out.append(f"arm_class {cls or 'pending'} ({why})")
+    for label, run in (ev.get("removal") or {}).items():
+        if isinstance(run, dict):
+            out.append(f"removal verification {label}: {removal_text(run)}")
+    fl = entry.get("flags") or {}
+    items = fl.get("items") or []
+    out.append(f"flags ({fl.get('level') or '-'} line): "
+               + ("; ".join(flag_text(f) for f in items) if items else "none"))
+    did = entry.get("id")
+    if fl.get("pair_queued"):
+        out.append("pair queued — wait for the pooled line; confirm cancels it"
+                   + (f" (immediate park: {', '.join(fl.get('immediate') or [])})" if fl.get("park") else ""))
+    if fl.get("park") and not lc.flag_acked(entry):
+        out.append(f"PARKED at await_user:{did} flag -- release: {ctx.cli(f'ack-flag {did} --why ...')}")
+    return out
 
 
 # ================================================================== dispatch (per kind)
@@ -7330,9 +8350,22 @@ def _dispatch_baseline(ctx: Ctx, item: dict, header: dict) -> None:
              "base_recipe_id": header.get("base_recipe_id"), "recipe_id_if_adopted": header.get("recipe_id"),
              "code_sha": ctx.code, "eval_sha": ctx.eval_sha, "tools_sha": ctx.tools, "decided_at": now_iso(),
              "decided_by": "driver", "evidence": {"screen": header.get("screen")}, "history": []}
+    if flags_enabled(ctx.cands.get("decision_rule")) and header.get("floor_watch"):
+        # NOTE(clock-deprecation 2026-09-23, plan step 4): a BASELINE screen that trips a floor parks
+        # the driver (every arm is judged against it); `ack-flag <Did>` releases it.
+        entry["flags"] = {"level": "screen", "park": True, "pair_queued": False, "immediate": ["floor"],
+                          "items": [_flag("floor", f"baseline floor tripped: {w}")
+                                    for w in header.get("floor_watch") or []]}
     ctx.ledger.setdefault("entries", []).append(entry)
     ctx.write_ledger()
     ctx.recompute()
+    if (entry.get("flags") or {}).get("park"):
+        did = entry["id"]
+        ctx.notify("DECISION", did,
+                   [f"{item['label']} ({header['xid']}) tripped a FLOOR -- the driver parks here: every "
+                    "arm is judged against this screen",
+                    *[flag_text(f) for f in entry["flags"]["items"]],
+                    f"release: {ctx.cli(f'ack-flag {did} --why ...')}"])
     is_first = item["candidate"] == (ctx.cands.get("baseline") or {}).get("id", "B0")
     if str(item["seed"]) == ctx.seed_screen and is_first and ctx.lad.get("d03") is None:
         _write_d03(ctx, header)
@@ -7600,6 +8633,140 @@ def _prior_user_choice(ledger: dict, cid: str) -> dict | None:
     return found
 
 
+#: The clock/apex income a removed term may still log over the tail (Episode_Reward, per second): at
+#: weight 0.001 it is ~3e-4/s (the clock-held X08:c6 logs 0.32/s and 0.14/s), so 0.005 is "at eps"
+#: with ~15x headroom and is still ~30x below the held income.
+CLOCK_INCOME_EPS = 0.005
+#: How many of the train log's last logged values "the tail" is (the phase driver's ``tail_mean``).
+REMOVAL_TAIL_N = 20
+#: The train-log label of the per-reset hidden fraction (``CrabHexOmniParkourObservations.
+#: CLOCK_HIDDEN_FRAC_KEY``, restated: that module imports Isaac).
+CLOCK_HIDDEN_FRAC_KEY = "Metrics/clock_hidden_frac"
+
+
+def _npz_clock_obs_zero(run_dir) -> tuple[bool, str]:
+    """``clock_obs`` is identically 0 in every ``raw/episode_*.npz`` of an eval stamp (``--save-raw``)."""
+    import numpy as np  # noqa: PLC0415 -- the harness's own dependency, only this check needs it
+    raw = Path(str(run_dir)) / "raw"
+    files = sorted(raw.glob("episode_*.npz")) if raw.is_dir() else []
+    if not files:
+        return False, f"no raw/episode_*.npz under {run_dir}"
+    worst = 0.0
+    for f in files:
+        try:
+            with np.load(f, allow_pickle=False) as z:
+                if "clock_obs" not in z.files:
+                    return False, f"{f.name} carries no clock_obs"
+                arr = np.asarray(z["clock_obs"], dtype=float)
+        except Exception as exc:                                        # noqa: BLE001
+            return False, f"{f.name} unreadable ({type(exc).__name__})"
+        if arr.size:
+            worst = max(worst, float(np.max(np.abs(arr))))
+    return worst == 0.0, f"max |clock_obs| {worst:g} over {len(files)} episodes"
+
+
+def removal_verification(ctx: Ctx, header: dict) -> dict:
+    """The driver's own K-stage checks on ONE finished run (clock-deprecation plan step 4, "Removal
+    verification"): ``{xid, applies, ok, checks: [{stage, check, ok, detail}]}``.
+
+    For every stage whose overlay touches a clock knob and removes something (HIDE, or a clock term
+    whose effective end weight is <= 0.001):
+
+    * each removed term: a K stage's DUMPED static weight <= 0.001; a PHASEOUT stage's dumped
+      ``phaseout_<term>`` block w1 <= 0.001 with t1 <= the stage end; either way the train log's
+      ``Episode_Reward/<term>`` at eps (<= :data:`CLOCK_INCOME_EPS`) over the tail;
+    * HIDE: ``Metrics/clock_hidden_frac`` 1.0 over the train log's tail, and every eval row of the
+      stage shows ``clock_obs`` identically 0 (the stamp's raw npz) with the carry in ``run_meta``.
+
+    ``applies`` False (and ok) for a run that removes nothing. A check that cannot be read FAILS: an
+    unverifiable removal is not a verified one.
+    """
+    xid = header.get("xid")
+    bucket = (ctx.state.get("keys") or {}).get(f"seed{header.get('seed')}") or {}
+    checks: list[dict] = []
+
+    def add(stage, check, ok, detail=""):
+        checks.append({"stage": stage, "check": check, "ok": bool(ok), "detail": detail})
+
+    for sname in header.get("stages") or []:
+        sname = str(sname)
+        overlay = (header.get("overlay_by_stage") or {}).get(sname) or {}
+        stage = _stage_spec_of(ctx, header, sname)
+        if stage is None or not _touches_clock(overlay):
+            continue
+        iters = int(stage.get("iters") or 0)
+        st = clock_stage_state(_effective_stage_cfg(ctx.cands, stage, overlay), iters)
+        removed = [t for t in CLOCK_TERM_KNOBS if st["end_w"][t] <= CLOCK_EPS_W + 1e-12]
+        if not removed and not st["hide"]:
+            continue
+        rec = bucket.get(f"{xid}:{sname}") or ctx.c.recs.get(f"{xid}:{sname}") or {}
+        dump_path = Path(rec["ckpt"]).parent / "params/env.yaml" if rec.get("ckpt") else None
+        dump = dump_path.read_text(errors="ignore") if dump_path and dump_path.exists() else None
+        log = Path(rec["log"]) if rec.get("log") else None
+        log_ok = bool(log and log.exists())
+        if not rec:
+            add(sname, "stage record", False, "no stage record for this run")
+            continue
+        end = int(ph.STEPS_PER_ITER) * iters
+        for term in removed:
+            if term in st["phaseout"]:
+                params = _yaml_block(_yaml_block(dump or "", "curriculum", indent=0), f"phaseout_{term}",
+                                     indent=2)
+                w1 = _num(_grep_scalar(params, "w1", indent=r"\s{6}"))
+                t1 = _num(_grep_scalar(params, "t1", indent=r"\s{6}"))
+                add(sname, f"{term}: dumped PHASEOUT w1 <= {CLOCK_EPS_W} with t1 <= {end}",
+                    w1 is not None and t1 is not None and w1 <= CLOCK_EPS_W + 1e-12 and t1 <= end,
+                    f"w1 {w1}, t1 {t1}" if dump else "no params/env.yaml")
+            else:
+                got = _num(_grep_scalar(_yaml_block(dump or "", term), "weight", indent=r"\s{4}"))
+                add(sname, f"{term}: dumped weight <= {CLOCK_EPS_W}",
+                    got is not None and got <= CLOCK_EPS_W + 1e-12,
+                    f"weight {got}" if dump else "no params/env.yaml")
+            vals = rp.series(log, f"Episode_Reward/{term}")[-REMOVAL_TAIL_N:] if log_ok else []
+            tail = (sum(vals) / len(vals)) if vals else None
+            add(sname, f"{term}: logged income at eps over the tail (<= {CLOCK_INCOME_EPS}/s)",
+                tail is not None and abs(tail) <= CLOCK_INCOME_EPS,
+                f"tail mean {fmt_num(tail, 5)} over {len(vals)}" if log_ok else "no train log")
+        if st["hide"]:
+            vals = rp.series(log, CLOCK_HIDDEN_FRAC_KEY)[-REMOVAL_TAIL_N:] if log_ok else []
+            add(sname, "clock_hidden_frac is 1.0 over the tail",
+                bool(vals) and min(vals) >= 1.0 - 1e-9,
+                f"tail min {fmt_num(min(vals)) if vals else 'n/a'} over {len(vals)}" if log_ok else "no train log")
+            for row, summary in sorted((rec.get("evals") or {}).items()):
+                run_dir = (summary or {}).get("run_dir")
+                if not run_dir:
+                    add(sname, f"{row}: clock_obs == 0", False, "the row recorded no run dir")
+                    continue
+                ok, detail = _npz_clock_obs_zero(run_dir)
+                add(sname, f"{row}: clock_obs == 0", ok, detail)
+                meta = Path(run_dir) / "run_meta.json"
+                carried = ((json.loads(meta.read_text()) or {}).get("env_vars") or {}).get(
+                    _clock().CLOCK_HIDE_VAR) if meta.exists() else None
+                add(sname, f"{row}: run_meta carries {_clock().CLOCK_HIDE_VAR}=1", str(carried) == "1",
+                    f"env_vars {carried!r}")
+    applies = bool(checks)
+    return {"xid": xid, "applies": applies, "ok": all(c["ok"] for c in checks), "checks": checks}
+
+
+def removal_text(removal: dict | None) -> str:
+    if not removal or not removal.get("applies"):
+        return "removes nothing (no check applies)"
+    bad = [f"{c['stage']}: {c['check']} ({c['detail']})" for c in removal.get("checks") or [] if not c["ok"]]
+    n = len(removal.get("checks") or [])
+    return (f"{removal.get('xid')} verified ({n} checks)" if not bad
+            else f"{removal.get('xid')} FAILED {len(bad)}/{n}: " + "; ".join(bad))
+
+
+def _flag_record(level: str, items: list, *, pair_queued: bool) -> dict:
+    """``entry.flags``: the flag list of the line at ``level`` and whether it PARKS the driver -- a
+    queued pair defers every flag to the pooled line except the two immediate ones (removal
+    verification, the pilot stop), which park at the seed-3 line."""
+    immediate = [f for f in items if f.get("flag") in IMMEDIATE_FLAGS]
+    park = bool(immediate) if pair_queued else bool(items)
+    return {"level": level, "items": items, "park": park, "pair_queued": bool(pair_queued),
+            "immediate": [f.get("flag") for f in immediate]}
+
+
 def _dispatch_candidate(ctx: Ctx, item: dict, header: dict) -> None:
     cand = candidate_by_id(ctx.cands, item["candidate"]) or {}
     rule = ctx.cands.get("decision_rule") or {}
@@ -7651,6 +8818,17 @@ def _dispatch_candidate(ctx: Ctx, item: dict, header: dict) -> None:
     entry["evidence"]["retention"] = _retention_lines(ctx, header)
     entry["evidence"]["floor_watch"] = header.get("floor_watch")
     entry["prior_user_choice"] = _prior_user_choice(ctx.ledger, item["candidate"])
+    if flags_enabled(rule):
+        # NOTE(clock-deprecation 2026-09-23, plan step 4): the seed-3 line's flags. With a pair
+        # queued they are printed and deferred to the pooled line, except removal verification and
+        # the pilot stop, which park HERE (before the pair and before the next arm).
+        removal = removal_verification(ctx, header)
+        entry["evidence"]["removal"] = {"s3": removal}
+        cmp3 = decision["evidence"].get("seed3") or {}
+        entry["evidence"]["rig_split"] = rig_split((cmp3.get("blocks") or {}).get(RIG_BLOCK))
+        items = decision_flags(rule, cmp3, [header.get("screen") or {}], [(base or {}).get("screen") or {}],
+                               removal=[removal], pilot=pilot_stop(rule, item["candidate"], decision))
+        entry["flags"] = _flag_record("s3", items, pair_queued=decision["status"] == "speculative")
     if entry["chosen"] not in entry["options"]:
         raise ValueError(f"{entry['id']}: chosen {entry['chosen']} not in options {entry['options']}")
     ctx.ledger.setdefault("entries", []).append(entry)
@@ -7839,6 +9017,22 @@ def _resolve_pair(ctx: Ctx, item: dict, entry: dict, s2_screen: dict, *, s2_xid:
     entry["seed2_experiment"] = s2_xid or entry.get("seed2_experiment")
     entry.setdefault("evidence", {}).update(pooled["evidence"])
     entry["why_pooled"] = pooled["why"]
+    if flags_enabled(rule):
+        # NOTE(clock-deprecation 2026-09-23, plan step 4): the POOLED line's flags -- read on the
+        # pair (both seeds), removal verification of both runs, and ANY flag parks the driver.
+        removal = dict((entry["evidence"].get("removal") or {}))
+        removal["s2"] = (removal_verification(ctx, header) if header is not None
+                         else {"xid": s2_xid, "applies": True, "ok": False,
+                               "checks": [{"stage": "-", "check": "the seed-2 header", "ok": False,
+                                           "detail": "not found"}]})
+        entry["evidence"]["removal"] = removal
+        entry["evidence"]["s2_floor_watch"] = list((header or {}).get("floor_watch") or [])
+        pcmp = pooled["evidence"].get("pooled") or {}
+        entry["evidence"]["rig_split_pooled"] = rig_split((pcmp.get("blocks") or {}).get(RIG_BLOCK))
+        items = decision_flags(rule, pcmp, [cand_s3.get("screen") or {}, s2_screen or {}],
+                               [base_s3.get("screen") or {}, (base_s2 or {}).get("screen") or {}],
+                               removal=[r for r in removal.values() if isinstance(r, dict)])
+        entry["flags"] = _flag_record("pooled", items, pair_queued=False)
     if pooled["self_overrule"]:
         entry["override"] = {"id": f"driver:{s2_xid or entry['id']}", "by": "driver",
                              "choice": pooled["chosen"], "why": pooled["why"], "at": now_iso(),
@@ -8738,6 +9932,8 @@ def find_inflight(ctx: Ctx) -> dict | None:
             continue                      # nothing recorded to continue from
         if xid in ctx.view["experiments"]:
             continue
+        if header.get("kind") == "reference":
+            continue                      # only `--reference-chain` resumes one (reference_loop)
         why = interrupt_reason(ctx, xid)
         if why:
             ctx.c.log(f"{xid}: not resumed ({why})")
@@ -9599,6 +10795,26 @@ def dry_run(ctx: Ctx, verdicts: list) -> int:
         if recipe["conflicts"]:
             print(f"      CONFLICTS {recipe['conflicts']}")
 
+    refs = cands.get("references") or {}
+    if refs:
+        # NOTE(clock-deprecation 2026-09-23): the reference chains (run with --reference-chain)
+        print("\n## references (run one with --reference-chain <name> [--seed N]; judged by hand)")
+        for name in refs:
+            try:
+                spec = reference_spec(cands, str(name))
+                recipe = reference_recipe(cands, str(name), code)
+            except (KeyError, ValueError) as exc:
+                print(f"  {name}: ERROR {exc}")
+                continue
+            head = reference_head(ctx, str(name))
+            print(f"  {name}: chain {spec['chain']} seed {spec['seed'] or '(--seed)'} recipe "
+                  f"{recipe['recipe_id']} -- recorded head: "
+                  f"{(head or {}).get('ckpt') or 'none yet under this code_sha'}")
+            for stage in recipe["stages"]:
+                src = resume_reference(stage) or resume_checkpoint(stage) or stage.get("resume_from")
+                print(f"      {str(stage['stage']):<5} {stage.get('iters')} its from {src} "
+                      f"eval {stage.get('eval')} {stage_env(recipe, str(stage['stage']))}")
+
     print("\n## D00 (the decision rule the resolution is measured for)")
     rule = cands.get("decision_rule") or {}
     if is_rule_v2(rule):
@@ -9612,6 +10828,15 @@ def dry_run(ctx: Ctx, verdicts: list) -> int:
     print(f"  guards @{(rule.get('guards') or {}).get('level')}: "
           f"{(rule.get('guards') or {}).get('metrics')}")
     print(f"  WATCH (never scored): {list(rule.get('watch') or [])}")
+    raw_rule = cands.get("decision_rule") or {}
+    if flags_enabled(raw_rule):
+        print(f"  RIG rule (plan step 4): adopt_requires {raw_rule.get('adopt_requires')}, pair_on "
+              f"{raw_rule.get('pair_on') or []}, pilot {raw_rule.get('pilot') or 'none'}, "
+              f"steps_guard_flag {bool(raw_rule.get('steps_guard_flag'))}; every flagged DECISION parks "
+              "(release: ledger_cli ack-flag <Did>)")
+        base_ctl = [c["id"] for c in cands.get("candidates") or [] if baseline_control(c)]
+        print(f"  control: baseline {base_ctl or 'none'} (their control and drift anchor are the "
+              "baseline's own screens; excluded from compose-on-adopt)")
     for gate, where in GATE_WATCH.items():
         print(f"  WATCH {gate}: {where} — rendered on the stage report and on every DECISION / "
               "MILESTONE line, read by nothing")
@@ -10038,6 +11263,12 @@ def loop(ctx: Ctx) -> int:
             return 0
         if item["kind"] == "await":
             phase = item["label"] if item["label"].startswith("await_user") else f"await_user:{item['candidate']}"
+            flagged = (item.get("extra") or {}).get("flag_park")
+            if flagged:
+                # NOTE(clock-deprecation 2026-09-23): a flag park names its own release verb
+                return _park(ctx, phase, [item["why"],
+                                          f"release: {ctx.cli(f'ack-flag {flagged} --why ...')} (after the "
+                                          "user decides; a `decide --choose run` would squash the decision)"])
             return _park(ctx, phase, [item["why"], f"answer with {ctx.cli('decide <Cid> --choose run')} "
                                                    f"(or --choose skip)"
                                                    f" or {ctx.cli('resume-milestone <Mid> --accept')}"])
@@ -10205,6 +11436,144 @@ def smoke_item(ctx: Ctx, spec_str: str) -> dict:
                  stages=[stage], why="--smoke-stage test hook", label=f"smoke {base} {stage['iters']}it")
 
 
+# ================================================================== the reference-chain launcher
+# NOTE(clock-deprecation 2026-09-23, plan step 4). `--reference-chain <name> [--seed N]` runs ONE
+# `references:` chain through the ordinary experiment machinery (header, inflight, resume, stage
+# evals with each stage's overlay as `carry_overlay`, the overlay audit, floors as WATCH), records
+# its head, and parks. It writes no DECISION, it is exempt from `screen.iters`, and its kind
+# (`reference`) never arms the dead_walker early abort -- Z's formation readout must not be cut at
+# 1000 its. The main queue never touches it (`find_inflight` skips its headers).
+def reference_seed(cands: dict, name: str, seed=None) -> str:
+    """The seed a reference runs at: ``--seed`` or the reference's pinned one (both: they agree)."""
+    pinned = reference_spec(cands, name)["seed"]
+    if seed is not None and pinned is not None and str(seed) != str(pinned):
+        raise SystemExit(f"--seed {seed} disagrees with references.{name}.seed {pinned}")
+    got = str(seed) if seed is not None else pinned
+    if got is None:
+        raise SystemExit(f"references.{name} pins no seed: pass --seed N")
+    return got
+
+
+def reference_records(state: dict, name: str) -> list[dict]:
+    """``lad.references[name]``: every finished run of that reference, oldest first."""
+    return list(((state.get("ladder") or {}).get("references") or {}).get(name) or [])
+
+
+def reference_head(ctx: Ctx, name: str | None) -> dict | None:
+    """The NEWEST finished run of reference ``name`` under the current ``code_sha`` (or a proved alias)
+    at its pinned seed (any seed when unpinned) -- what ``resume_from: {reference: <name>}`` forks."""
+    if not name:
+        return None
+    try:
+        pinned = reference_spec(ctx.cands, name)["seed"]
+    except KeyError:
+        return None
+    found = None
+    for rec in reference_records(ctx.state, name):
+        if not same_code(ctx.state, rec.get("code_sha"), ctx.code):
+            continue
+        if pinned is not None and str(rec.get("seed")) != pinned:
+            continue
+        found = rec
+    return found
+
+
+def reference_item(ctx: Ctx, name: str, seed: str) -> dict:
+    recipe = reference_recipe(ctx.cands, name, ctx.code)
+    return _item("reference", cid=name, seed=seed, recipe=recipe, base_recipe=recipe,
+                 stages=_stages_for(ctx.cands, recipe["chain"]),
+                 why=f"--reference-chain {name}: a reference run (judged by hand, no decision)",
+                 label=f"ref:{name} s{seed}")
+
+
+def _reference_inflight(ctx: Ctx, name: str, seed: str) -> dict | None:
+    """This reference's own window left running (or at a resumable infra halt), if any."""
+    for xid, header in list((ctx.lad.get("experiments") or {}).items()):
+        if header.get("kind") != "reference" or header.get("candidate") != name:
+            continue
+        if str(header.get("seed")) != str(seed) or xid in ctx.view["experiments"]:
+            continue
+        if header.get("status") == "running" or (header.get("status") in RESUMABLE_HALTS
+                                                 and header.get("inflight")):
+            return header
+    return None
+
+
+def record_reference(ctx: Ctx, name: str, header: dict) -> dict:
+    """Append the finished run to ``lad.references[name]`` (its stage heads are in heads.json already:
+    every stage rec carries its checkpoint) and relay it."""
+    bucket = (ctx.state.get("keys") or {}).get(f"seed{header.get('seed')}") or {}
+    stage_ckpts = {}
+    for key in header.get("recs") or []:
+        rec = bucket.get(key) or ctx.c.recs.get(key) or {}
+        stage_ckpts[key.split(":", 1)[-1]] = rec.get("ckpt")
+    row = {"xid": header.get("xid"), "seed": str(header.get("seed")), "ckpt": header.get("ckpt"),
+           "stage_ckpts": stage_ckpts, "recipe_id": header.get("recipe_id"),
+           "chain": header.get("chain"), "code_sha": ctx.code, "eval_sha": ctx.eval_sha,
+           "floor_watch": list(header.get("floor_watch") or []), "at": now_iso()}
+    ctx.lad.setdefault("references", {}).setdefault(name, []).append(row)
+    ctx.save()
+    ctx.notify("REFERENCE", f"{name} s{row['seed']}",
+               [f"{row['xid']} on chain {row['chain']} (recipe {row['recipe_id']}) finished -- judged by "
+                "hand, no decision", f"head {row['ckpt']}",
+               *[f"{s}: {c}" for s, c in stage_ckpts.items()],
+               *([f"FLOOR WATCH: {w}" for w in row["floor_watch"]] or ["floors held"])])
+    ctx.c.changelog_row(f"reference {name} s{row['seed']} {row['xid']} finished (head {row['ckpt']})")
+    return row
+
+
+def reference_loop(ctx: Ctx, name: str, seed: str, main_phase=...) -> int:
+    """Run (or resume) ONE reference chain, record its head, and park. Never touches the queue.
+
+    Nor the main ladder's recorded ``state.phase`` (e.g. a flag park ``ledger_cli pending`` shows):
+    the reference's own park goes to the notify line only, and ``main_phase`` (the phase recorded
+    before this launch; :func:`main` passes it, else the current one) is restored on every exit.
+    """
+    if main_phase is ...:
+        main_phase = ctx.state.get("phase")
+
+    def _ref_park(ctx_: Ctx, phase: str, fields: list) -> int:
+        if main_phase is None:
+            ctx_.state.pop("phase", None)
+        else:
+            ctx_.state["phase"] = main_phase
+        ctx_.save()
+        ctx_.notify("AWAIT", phase, fields)
+        return 0
+
+    ingest_overrides(ctx)
+    why = stop_requested(ctx)
+    if why:
+        return _ref_park(ctx, "await_user:stop", [f"stopped ({why}) before reference {name} s{seed}"])
+    header = _reference_inflight(ctx, name, seed)
+    if header is not None:
+        prepare_resume(ctx, header)
+        item = item_from_header(ctx, header)
+        ctx.c.log(f"resuming reference {header['xid']} ({header.get('label')}) at "
+                  f"{(header.get('inflight') or {}).get('stage')}")
+    else:
+        done = [r for r in reference_records(ctx.state, name)
+                if str(r.get("seed")) == str(seed) and same_code(ctx.state, r.get("code_sha"), ctx.code)]
+        if done:
+            return _ref_park(ctx, f"await_user:reference_done:{name}",
+                         [f"reference {name} s{seed} already finished under this code_sha "
+                          f"({done[-1].get('xid')}, head {done[-1].get('ckpt')}) -- nothing to run"])
+        item = reference_item(ctx, name, seed)
+    ctx.state["phase"] = "run"
+    rp._wait_isaac_clear(lambda: interrupt_reason(ctx, None))
+    header = run_experiment(ctx, item)
+    if header.get("status") != "ok":
+        return _ref_park(ctx, "await_user:stop" if header.get("status") == "running"
+                     else f"await_user:reference_{header.get('status')}",
+                     [f"reference {name} s{seed} {header.get('xid')}: {header.get('status')} "
+                      f"({header.get('interrupt') or header.get('halt') or ''})",
+                      f"relaunch with --reference-chain {name} --seed {seed} to resume it"])
+    row = record_reference(ctx, name, header)
+    return _ref_park(ctx, f"await_user:reference_done:{name}",
+                 [f"reference {name} s{seed} recorded ({row['xid']}, head {row['ckpt']})",
+                  "judge it by hand; forks name it as resume_from: {reference: " + name + "}"])
+
+
 def build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--campaign-dir", required=True)
@@ -10255,6 +11624,13 @@ def build_parser() -> argparse.ArgumentParser:
                          "that demote it to WATCH (the campaign's answer, never --accept-resolution)")
     ap.add_argument("--q-spread-heads", default=None, metavar="CSV",
                     help="with --q-spread-check: head labels for the stamps, in order")
+    ap.add_argument("--reference-chain", default=None, metavar="NAME",
+                    help="run ONE `references:` chain (the reference NAME; its chain defaults to that "
+                         "name) with stage evals, record its head in heads.json / lad.references and "
+                         "park -- no DECISION, exempt from screen.iters, no dead_walker early abort; "
+                         "a stage may fork it as resume_from: {reference: NAME}")
+    ap.add_argument("--seed", default=None, metavar="N",
+                    help="with --reference-chain: the seed (required unless the reference pins one)")
     return ap
 
 
@@ -10360,6 +11736,16 @@ def main(argv=None) -> int:
         print("\n".join(lines))
         return code
     verdicts = validate_candidates(cands, strict=not args.dry_run)
+    ref_seed = None
+    if args.reference_chain:
+        # NOTE(clock-deprecation 2026-09-23): refused before anything is written, like every refusal
+        if args.reference_chain not in (cands.get("references") or {}):
+            raise SystemExit(f"--reference-chain {args.reference_chain!r} is not a references: key "
+                             f"(known: {sorted(cands.get('references') or {})})")
+        ref_seed = reference_seed(cands, args.reference_chain, args.seed)
+    elif args.seed is not None:
+        raise SystemExit("--seed only goes with --reference-chain (the ladder's own seeds are "
+                         "candidates.yaml's)")
     # Before `Ctx`, which builds the `rp.Campaign` and so mkdirs `<campaign-dir>/logs/`: a REFUSED
     # launch must leave the tree exactly as it found it.
     dirty = dirty_paths()
@@ -10425,6 +11811,7 @@ def main(argv=None) -> int:
         ctx.c.changelog_row(f"--accept-resolution {kind} at eval_sha {ctx.eval_sha[:12]}: {why}")
     if args.unit:
         ctx.lad["unit"] = args.unit
+    main_phase = ctx.state.get("phase")          # restored by a --reference-chain launch's park
     ctx.state["phase"] = "run"
     ensure_ladder_header(ctx, cands)
     install_sigterm(ctx)
@@ -10445,6 +11832,8 @@ def main(argv=None) -> int:
     # computed here -- under rule v2 D00s is a migration queue item and `ctx.resolution` stays None
     # until it lands (every v2 decision seam halts `resolution_missing` meanwhile).
     load_resolution(ctx)
+    if args.reference_chain:
+        return reference_loop(ctx, args.reference_chain, ref_seed, main_phase=main_phase)
     return loop(ctx)
 
 
