@@ -1,1 +1,2 @@
 {"at": "2026-09-24T08:05:24", "candidate": "A6000", "choice": "run", "uuid": "cdcf7c4d-5e85-431d-a8fd-c9d66f8bd582", "why": "S2 cleared by the user 2026-09-24: X0 sanity mixed (F_mt BETTER, T WORSE side ~9% slower) accepted; RIG power passes on the uniform MDE"}
+{"ack_flag": "D05", "at": "2026-09-24T10:27:01", "level": "s3", "uuid": "6b1bc190-af1f-418e-b0cc-74aa21f018b8", "why": "S3p pilot stop answered by the user 2026-09-24: continue wave 1 (A4500 next). A6000: clear REJECT on side/turn foot_slip guards; RIG TIE; survival and F up."}
