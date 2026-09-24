@@ -408,6 +408,9 @@ chains:
 # seed 2 vs a clock-held C1d chain at seed 2) adds its own entries at step 15.
 references:
   scratch_free: {chain: scratch_free, seed: 3}
+  # Z's seed-2 pair (user, 2026-09-24): Z moved into wave 1, run right after A4500's seed-3 line and
+  # before any arm's seed-2 pair; judged by hand, pooled Z (s3+s2) against pooled X0 (s3+s2).
+  scratch_free_s2: {chain: scratch_free, seed: 2}
   t3_s2: {chain: t3_clock, seed: 2}
 
 # ---------------------------------------------------------------------------- ranked candidates

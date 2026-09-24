@@ -239,3 +239,16 @@ replay tool for the step-9 gate.
   c04251d0 (phase-config test). Step 10: `candidates.yaml` (from the step-4 fixture) and this charter written;
   `--dry-run` validator clean except the two placeholder D00s stamps. Next: step-0 stamps, spread check, standalone
   D00s, S1.
+- **2026-09-23 / 09-24 — S1, S2, S3p answered.**
+  - **S1** (user): proceed with wave 1, despite the step-0 zero-shot collapse and the RG1/RG2 failures.
+  - **S2** (user): X0 accepted, mixed against X08:c6 (F_mt BETTER; T WORSE, side ~9 % slower); A6000 cleared.
+  - **D05 A6000:** clear REJECT on the side/turn `foot_slip` guards. F BETTER, T TIE, RIG TIE, survival up.
+  - **S3p** (user): continue wave 1.
+- **2026-09-24 — Z moved into wave 1, with a seed-2 pair (user).**
+  - Z's reference chains run right after A4500's seed-3 DECISION and before any arm's seed-2 pair or A3000:
+    `scratch_free` (s3), then the new `scratch_free_s2` (s2).
+  - The ladder driver is stopped (`STOP`) the moment that DECISION is written, and relaunched after Z. The GPU is
+    exclusive throughout.
+  - Z is judged by hand, pooled Z (s3+s2) against pooled X0 (s3+s2), under the full decision rule. The
+    from-scratch seed-spread caveat still applies.
+  - Budget: +4.0 GPU-h, which brings the worst case to ~49.5 h against the 47-h cap (noted to the user).
