@@ -1,0 +1,574 @@
+# Candidate ladder `2026-09-23_clock_deprecation`
+
+Plant **A15+B** (`assets/crab.usda (main)`), screen seed 3, confirm seed 2, 5000 iterations per screen.
+
+Driver: `parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/tools/run_candidates.py` (overlays on the `KRABBY_OMNI_PHASE` presets; the ledger is `ledger.json`, the user's answers go through `ledger_cli.py`).
+
+`code_sha` `8ce6da6156b31b7d85cb499394b517bc4bea6c83e91c4db56562f1a68d373a73` · `candidates.yaml` sha256 `303422311a5b606d6a8d67362879e45f41d1581e93e9b45be1d30ed225d3baa2`
+
+| rank | id | kind | chain | change | conditional |
+|---|---|---|---|---|---|
+| 0 | X0 | baseline | tail | the incumbent recipe at equal compute | — |
+| 1 | A6000 | clock | effective | `{"c6":{"KRABBY_APEX_W":"0.001","KRABBY_CLOCK_W":"0.001","KRABBY_OMNI_CLOCK_HIDE":"1"}}` | `—` |
+| 2 | A4500 | clock | effective | `{"c5":{"KRABBY_APEX_W":"0.001","KRABBY_CLOCK_W":"0.001","KRABBY_OMNI_CLOCK_HIDE":"1"},"c6":{"KRABBY_APEX_W":"0.001","KRABBY_CLOCK_W":"0.001","KRABBY_OMNI_CLOCK_HIDE":"1"}}` | `—` |
+| 3 | A3000 | clock | effective | `{"c4":{"KRABBY_APEX_W":"0.001","KRABBY_CLOCK_W":"0.001","KRABBY_OMNI_CLOCK_HIDE":"1"},"c5":{"KRABBY_APEX_W":"0.001","KRABBY_CLOCK_W":"0.001","KRABBY_OMNI_CLOCK_HIDE":"1"},"c6":{"KRABBY_APEX_W":"0.001","KRABBY_CLOCK_W":"0.001","KRABBY_OMNI_CLOCK_HIDE":"1"}}` | `—` |
+
+### X01:c4 — X0 s3 (baseline) — 2026-09-23T19:20:23
+
+- recipe `f8f4ad5d955e` on chain `tail`, base `f8f4ad5d955e`, code_sha `8ce6da6156b3`
+- overlay `{'KRABBY_OMNI_CMD_POOL': 'stand:0.15,fwd:0.22,side_l:0.14,side_r:0.14,back:0.1,turn:0.15,fwd_turn:0.05,side_l_turn:0.025,side_r_turn:0.025', 'KRABBY_OMNI_SLOTS': '0.15:0.6:0.15:0.1', 'KRABBY_OMNI_DIR_BAND': '', 'KRABBY_OMNI_RSI_SOURCE': 'all', 'KRABBY_OMNI_FACING': '0.2:0.6', 'KRABBY_YAW_W': '0.2'}`
+- status **ok** | checkpoint `2026-09-23_18-29-32_seed3_X01_c4_A15pB/model_4498.pt` | resume `model_2999.pt` | 1500 its | wall 0.70 h
+- smoke fail@2k 0.212 fail@end 0.212 coll@2k 0.000 ep_len@2k 1830.111
+- training translation floor: track_ratio_mean (last 500 its) 0.600 (gate floor 0.6)
+- exposure (ring): reach_edge 0.481 | reach_obst 0.379 | field_frac 0.161 (steps 304.699) | goals_passed 0.608
+- terrain-promotion telemetry: track_ratio_mean 0.594 (move rows only 0.599) | heading_err_rms_mean 0.153 | block_steps_mean 80.489 | r_max_mean 2.344
+- failure share flat 0.226 | obst 0.319 | campaign-wide 0.191
+- slot fractions (logged): stand 0.143 | move 0.531 | turn 0.153 | move_turn 0.115 | rsi_frac_actual 0.183 | terrain_levels 0.973 | mean ep len 1854.399 | prints 1500
+- slow canary (omni manifest): walking-hold tripod None (gated; by hold: n/a; episode None) | completion None | tracking None | falls None/None | pitch-fwd share None
+- per-direction speed_ratio: fwd None / lat_l None / diag None / back None
+- check PASS: plant is A15+B (params/env.yaml usd path)
+- check PASS: episode_length_s 40 in params
+- check PASS: experiment crab_hex_omni_flat_walk
+- check PASS: exposure telemetry logged (Metrics/base_parkour/reach_obst_frac)
+- check PASS: gait income telemetry logged (Episode_Reward/reward_clock_schedule)
+- check PASS: mirror-symmetry loss active (Loss/symmetry or mirror)
+- check PASS: terrain-promotion telemetry logged (Metrics/base_parkour/track_ratio_mean)
+- check PASS: yaw-progress reward logged (Episode_Reward/reward_yaw_progress)
+- check PASS: yaw-progress telemetry logged (Metrics/base_velocity/yaw_progress)
+- check PASS: omni parkour class (OmniParkourEvent) in params/env.yaml
+- check PASS: omni reset func (reset_root_state_ring) in params/env.yaml
+- check PASS: omni command class (CrabHexOmniCommand) in params/env.yaml
+- check PASS: omni obs func (CrabHexOmniParkourObservations) in params/env.yaml
+- check PASS: ring generator installed (omni_ring_sparse/dense sub-terrain) in params/env.yaml
+- check PASS: omni RSI bank path (rsi_bank_omni.npz) in params/env.yaml
+- suite trained categories: decisive stand, fwd, side, back, turn, move_turn
+- suite stand: n 100 surv 1.000 drift 0.097 [decisive]
+- suite fwd: n 100 surv 0.870 ratio 0.698 tripod 0.577 [decisive]
+- suite side: n 200 surv 0.940 ratio 0.472 tripod 0.463 (l: surv 0.920 ratio 0.473 tripod 0.475; r: surv 0.960 ratio 0.468 tripod 0.455) [decisive]
+- suite back: n 100 surv 0.850 ratio 0.633 tripod 0.525 [decisive]
+- suite diag: n 100 surv 0.620 ratio 0.587 tripod 0.418 [WATCH: untrained]
+- suite turn: n 200 surv 0.975 closed 0.505 progress 0.067 (l: surv 0.980 closed 0.508 progress 0.067; r: surv 0.970 closed 0.497 progress 0.066) [decisive]
+- suite move_turn: n 200 surv 0.795 closed 0.134 progress 0.018 ratio 0.473 (l: surv 0.740 closed 0.145 progress 0.022 ratio 0.476; r: surv 0.850 closed 0.120 progress 0.016 ratio 0.471) [decisive]
+- overlay PASS: overlay KRABBY_OMNI_CMD_POOL=stand:0.15,fwd:0.22,side_l:0.14,side_r:0.14,back:0.1,turn:0.15,fwd_turn:0.05,side_l_turn:0.025,side_r_turn:0.025 in params/env.yaml
+- overlay PASS: overlay KRABBY_OMNI_DIR_BAND= in params/env.yaml
+- overlay PASS: overlay KRABBY_OMNI_FACING=0.2:0.6 in params/env.yaml
+- overlay PASS: overlay KRABBY_OMNI_RSI_SOURCE=all in params/env.yaml
+- overlay PASS: overlay KRABBY_OMNI_SLOTS=0.15:0.6:0.15:0.1 in params/env.yaml
+- overlay PASS: overlay KRABBY_YAW_W=0.2 in params/env.yaml
+- floor PASS: category survival on suite (one-sided 99 % band): stand 1.000 (bound 1.000, n_env 100, min >= 0.69); fwd 0.870 (bound 0.948, n_env 100, min >= 0.52); side 0.940 (bound 0.995, n_env 100, min >= 0.65); back 0.850 (bound 0.933, n_env 100, min >= 0.55); turn 0.975 (bound 1.011, n_env 100, min >= 0.62); move_turn 0.795 (bound 0.889, n_env 100, min >= 0.315)
+
+>>> ENTRY X01:c4
+
+### X01:c5 — X0 s3 (baseline) — 2026-09-23T20:08:53
+
+- recipe `f8f4ad5d955e` on chain `tail`, base `f8f4ad5d955e`, code_sha `8ce6da6156b3`
+- overlay `{'KRABBY_OMNI_CMD_POOL': 'stand:0.15,fwd:0.15,side_l:0.1,side_r:0.1,back:0.1,omni:0.15,turn:0.1,fwd_turn:0.07,side_l_turn:0.04,side_r_turn:0.04', 'KRABBY_OMNI_SLOTS': '0.15:0.6:0.1:0.15', 'KRABBY_OMNI_DIR_BAND': '', 'KRABBY_OMNI_RSI_SOURCE': 'all', 'KRABBY_OMNI_FACING': '0.2:0.6', 'KRABBY_YAW_W': '0.2'}`
+- status **ok** | checkpoint `2026-09-23_19-20-33_seed3_X01_c5_A15pB/model_5997.pt` | resume `model_4498.pt` | 1500 its | wall 0.67 h
+- smoke fail@2k 0.269 fail@end 0.269 coll@2k 0.000 ep_len@2k 1755.707
+- training translation floor: track_ratio_mean (last 500 its) 0.595 (gate floor 0.6)
+- exposure (ring): reach_edge 0.526 | reach_obst 0.444 | field_frac 0.180 (steps 341.677) | goals_passed 0.705
+- terrain-promotion telemetry: track_ratio_mean 0.602 (move rows only 0.610) | heading_err_rms_mean 0.152 | block_steps_mean 90.829 | r_max_mean 2.315
+- failure share flat 0.287 | obst 0.302 | campaign-wide 0.257
+- slot fractions (logged): stand 0.135 | move 0.483 | turn 0.067 | move_turn 0.148 | rsi_frac_actual 0.190 | terrain_levels 0.973 | mean ep len 1834.750 | prints 1500
+- slow canary (omni manifest): walking-hold tripod None (gated; by hold: n/a; episode None) | completion None | tracking None | falls None/None | pitch-fwd share None
+- per-direction speed_ratio: fwd None / lat_l None / diag None / back None
+- check PASS: plant is A15+B (params/env.yaml usd path)
+- check PASS: episode_length_s 40 in params
+- check PASS: experiment crab_hex_omni_flat_walk
+- check PASS: exposure telemetry logged (Metrics/base_parkour/reach_obst_frac)
+- check PASS: gait income telemetry logged (Episode_Reward/reward_clock_schedule)
+- check PASS: mirror-symmetry loss active (Loss/symmetry or mirror)
+- check PASS: terrain-promotion telemetry logged (Metrics/base_parkour/track_ratio_mean)
+- check PASS: yaw-progress reward logged (Episode_Reward/reward_yaw_progress)
+- check PASS: yaw-progress telemetry logged (Metrics/base_velocity/yaw_progress)
+- check PASS: omni parkour class (OmniParkourEvent) in params/env.yaml
+- check PASS: omni reset func (reset_root_state_ring) in params/env.yaml
+- check PASS: omni command class (CrabHexOmniCommand) in params/env.yaml
+- check PASS: omni obs func (CrabHexOmniParkourObservations) in params/env.yaml
+- check PASS: ring generator installed (omni_ring_sparse/dense sub-terrain) in params/env.yaml
+- check PASS: omni RSI bank path (rsi_bank_omni.npz) in params/env.yaml
+- suite trained categories: decisive stand, fwd, side, back, diag, turn, move_turn
+- suite stand: n 100 surv 1.000 drift 0.090 [decisive]
+- suite fwd: n 100 surv 0.880 ratio 0.718 tripod 0.556 [decisive]
+- suite side: n 200 surv 0.980 ratio 0.404 tripod 0.486 (l: surv 0.990 ratio 0.408 tripod 0.485; r: surv 0.970 ratio 0.401 tripod 0.487) [decisive]
+- suite back: n 100 surv 0.870 ratio 0.706 tripod 0.542 [decisive]
+- suite diag: n 100 surv 0.720 ratio 0.550 tripod 0.398 [decisive]
+- suite turn: n 200 surv 0.990 closed 0.492 progress 0.066 (l: surv 1.000 closed 0.483 progress 0.064; r: surv 0.980 closed 0.524 progress 0.068) [decisive]
+- suite move_turn: n 200 surv 0.870 closed 0.290 progress 0.038 ratio 0.497 (l: surv 0.850 closed 0.247 progress 0.035 ratio 0.491; r: surv 0.890 closed 0.328 progress 0.043 ratio 0.497) [decisive]
+- overlay PASS: overlay KRABBY_OMNI_CMD_POOL=stand:0.15,fwd:0.15,side_l:0.1,side_r:0.1,back:0.1,omni:0.15,turn:0.1,fwd_turn:0.07,side_l_turn:0.04,side_r_turn:0.04 in params/env.yaml
+- overlay PASS: overlay KRABBY_OMNI_DIR_BAND= in params/env.yaml
+- overlay PASS: overlay KRABBY_OMNI_FACING=0.2:0.6 in params/env.yaml
+- overlay PASS: overlay KRABBY_OMNI_RSI_SOURCE=all in params/env.yaml
+- overlay PASS: overlay KRABBY_OMNI_SLOTS=0.15:0.6:0.1:0.15 in params/env.yaml
+- overlay PASS: overlay KRABBY_YAW_W=0.2 in params/env.yaml
+- RETENTION c5: no incumbent trace yet -- this run seeds it (7 categories recorded)
+- floor PASS: category survival on suite (one-sided 99 % band): stand 1.000 (bound 1.000, n_env 100, prev >= 0.3); fwd 0.880 (bound 0.956, n_env 100, prev >= 0.3); side 0.980 (bound 1.013, n_env 100, prev >= 0.3); back 0.870 (bound 0.948, n_env 100, prev >= 0.3); diag 0.720 (bound 0.824, n_env 100, new >= 0.1); turn 0.990 (bound 1.013, n_env 100, prev >= 0.3); move_turn 0.870 (bound 0.948, n_env 100, prev >= 0.3)
+
+>>> ENTRY X01:c5
+
+### X01:c6 — X0 s3 (baseline) — 2026-09-23T21:02:25
+
+- recipe `f8f4ad5d955e` on chain `tail`, base `f8f4ad5d955e`, code_sha `8ce6da6156b3`
+- overlay `{'KRABBY_OMNI_CMD_POOL': 'stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07', 'KRABBY_OMNI_SLOTS': '0.15:0.55:0.1:0.2', 'KRABBY_OMNI_DIR_BAND': '', 'KRABBY_OMNI_RSI_SOURCE': 'all', 'KRABBY_OMNI_FACING': '0.2:0.6', 'KRABBY_YAW_W': '0.2'}`
+- status **ok** | checkpoint `2026-09-23_20-09-04_seed3_X01_c6_A15pB/model_7996.pt` | resume `model_5997.pt` | 2000 its | wall 0.77 h
+- smoke fail@2k 0.333 fail@end 0.333 coll@2k 0.000 ep_len@2k 1700.021
+- training translation floor: track_ratio_mean (last 500 its) 0.620 (gate floor 0.6)
+- exposure (ring): reach_edge 0.499 | reach_obst 0.395 | field_frac 0.161 (steps 298.495) | goals_passed 0.649
+- terrain-promotion telemetry: track_ratio_mean 0.620 (move rows only 0.628) | heading_err_rms_mean 0.154 | block_steps_mean 81.022 | r_max_mean 2.289
+- failure share flat 0.356 | obst 0.426 | campaign-wide 0.310
+- slot fractions (logged): stand 0.137 | move 0.454 | turn 0.104 | move_turn 0.120 | rsi_frac_actual 0.205 | terrain_levels 0.973 | mean ep len 1723.970 | prints 2000
+- slow canary (omni manifest): walking-hold tripod None (gated; by hold: n/a; episode None) | completion None | tracking None | falls None/None | pitch-fwd share None
+- per-direction speed_ratio: fwd None / lat_l None / diag None / back None
+- check PASS: plant is A15+B (params/env.yaml usd path)
+- check PASS: episode_length_s 40 in params
+- check PASS: experiment crab_hex_omni_flat_walk
+- check PASS: exposure telemetry logged (Metrics/base_parkour/reach_obst_frac)
+- check PASS: gait income telemetry logged (Episode_Reward/reward_clock_schedule)
+- check PASS: mirror-symmetry loss active (Loss/symmetry or mirror)
+- check PASS: terrain-promotion telemetry logged (Metrics/base_parkour/track_ratio_mean)
+- check PASS: yaw-progress reward logged (Episode_Reward/reward_yaw_progress)
+- check PASS: yaw-progress telemetry logged (Metrics/base_velocity/yaw_progress)
+- check PASS: omni parkour class (OmniParkourEvent) in params/env.yaml
+- check PASS: omni reset func (reset_root_state_ring) in params/env.yaml
+- check PASS: omni command class (CrabHexOmniCommand) in params/env.yaml
+- check PASS: omni obs func (CrabHexOmniParkourObservations) in params/env.yaml
+- check PASS: ring generator installed (omni_ring_sparse/dense sub-terrain) in params/env.yaml
+- check PASS: omni RSI bank path (rsi_bank_omni.npz) in params/env.yaml
+- suite trained categories: decisive stand, fwd, side, back, diag, turn, move_turn
+- suite stand: n 100 surv 0.990 drift 0.082 [decisive]
+- suite fwd: n 100 surv 0.850 ratio 0.733 tripod 0.590 [decisive]
+- suite side: n 200 surv 0.970 ratio 0.396 tripod 0.496 (l: surv 0.960 ratio 0.395 tripod 0.501; r: surv 0.980 ratio 0.401 tripod 0.488) [decisive]
+- suite back: n 100 surv 0.880 ratio 0.746 tripod 0.586 [decisive]
+- suite diag: n 100 surv 0.720 ratio 0.539 tripod 0.385 [decisive]
+- suite turn: n 200 surv 0.985 closed 0.629 progress 0.082 (l: surv 0.980 closed 0.633 progress 0.083; r: surv 0.990 closed 0.627 progress 0.080) [decisive]
+- suite move_turn: n 200 surv 0.745 closed 0.330 progress 0.048 ratio 0.498 (l: surv 0.690 closed 0.279 progress 0.043 ratio 0.480; r: surv 0.800 closed 0.375 progress 0.050 ratio 0.515) [decisive]
+- WATCH gate_1c: FAIL -- formation gate FAILED — walking-hold tripod 0.385 (need >= 0.4; by hold: back 0.586, diag 0.385, fwd 0.590, lat_l 0.501, lat_r 0.488, move_turn 0.494, move_turn_r 0.536, settle 0.518, stand 0.604, turn_l90 0.638, turn_r90 0.651), completion 0.884 (need >= 0.7), yaw-progress rate turn_l90 0.083, turn_r90 0.080 rad/s (net turn_l90 0.083, turn_r90 0.080) (need >= 0.05 rad/s on each), per-direction speed_ratio lat_l 0.395, diag 0.539, back 0.746, move_turn 0.480 (need >= 0.3 on each of lat_l, diag, back, move_turn; failing: none) on slow__omni, training track_ratio_mean 0.620 (need >= 0.6 over the last 500 its) (WATCH only: this gate never decides in the ladder)
+- overlay PASS: overlay KRABBY_OMNI_CMD_POOL=stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07 in params/env.yaml
+- overlay PASS: overlay KRABBY_OMNI_DIR_BAND= in params/env.yaml
+- overlay PASS: overlay KRABBY_OMNI_FACING=0.2:0.6 in params/env.yaml
+- overlay PASS: overlay KRABBY_OMNI_RSI_SOURCE=all in params/env.yaml
+- overlay PASS: overlay KRABBY_OMNI_SLOTS=0.15:0.55:0.1:0.2 in params/env.yaml
+- overlay PASS: overlay KRABBY_YAW_W=0.2 in params/env.yaml
+- RETENTION c6: no incumbent trace yet -- this run seeds it (7 categories recorded)
+- floor PASS: category survival on suite (one-sided 99 % band): stand 0.990 (bound 1.013, n_env 100, min >= 0.79); fwd 0.850 (bound 0.933, n_env 100, min >= 0.72); side 0.970 (bound 1.010, n_env 100, min >= 0.77); back 0.880 (bound 0.956, n_env 100, min >= 0.72); diag 0.720 (bound 0.824, n_env 100, min >= 0.59); turn 0.985 (bound 1.013, n_env 100, min >= 0.75); move_turn 0.745 (bound 0.846, n_env 100, min >= 0.55)
+
+>>> ENTRY X01:c6
+
+### experiment X01 — X0 s3 — ok — 2026-09-23T21:02:25
+
+- recipe `f8f4ad5d955e` base `f8f4ad5d955e` chain `tail` seed 3
+- stages ['X01:c4', 'X01:c5', 'X01:c6']
+- screen: completion 0.884, tripod_dir 0.385, track tail 0.620
+- replay: none
+
+>>> ENTRY X01
+
+### X02:c4 — X0 s2 (baseline) — 2026-09-23T21:43:55
+
+- recipe `f8f4ad5d955e` on chain `tail`, base `f8f4ad5d955e`, code_sha `8ce6da6156b3`
+- overlay `{'KRABBY_OMNI_CMD_POOL': 'stand:0.15,fwd:0.22,side_l:0.14,side_r:0.14,back:0.1,turn:0.15,fwd_turn:0.05,side_l_turn:0.025,side_r_turn:0.025', 'KRABBY_OMNI_SLOTS': '0.15:0.6:0.15:0.1', 'KRABBY_OMNI_DIR_BAND': '', 'KRABBY_OMNI_RSI_SOURCE': 'all', 'KRABBY_OMNI_FACING': '0.2:0.6', 'KRABBY_YAW_W': '0.2'}`
+- status **ok** | checkpoint `2026-09-23_21-02-35_seed2_X02_c4_A15pB/model_4498.pt` | resume `model_2999.pt` | 1500 its | wall 0.57 h
+- smoke fail@2k 0.242 fail@end 0.242 coll@2k 0.000 ep_len@2k 1803.793
+- training translation floor: track_ratio_mean (last 500 its) 0.587 (gate floor 0.6)
+- exposure (ring): reach_edge 0.481 | reach_obst 0.445 | field_frac 0.159 (steps 305.304) | goals_passed 0.618
+- terrain-promotion telemetry: track_ratio_mean 0.572 (move rows only 0.579) | heading_err_rms_mean 0.152 | block_steps_mean 101.457 | r_max_mean 2.222
+- failure share flat 0.270 | obst 0.284 | campaign-wide 0.256
+- slot fractions (logged): stand 0.099 | move 0.509 | turn 0.159 | move_turn 0.084 | rsi_frac_actual 0.214 | terrain_levels 1.027 | mean ep len 1739.197 | prints 1500
+- slow canary (omni manifest): walking-hold tripod None (gated; by hold: n/a; episode None) | completion None | tracking None | falls None/None | pitch-fwd share None
+- per-direction speed_ratio: fwd None / lat_l None / diag None / back None
+- check PASS: plant is A15+B (params/env.yaml usd path)
+- check PASS: episode_length_s 40 in params
+- check PASS: experiment crab_hex_omni_flat_walk
+- check PASS: exposure telemetry logged (Metrics/base_parkour/reach_obst_frac)
+- check PASS: gait income telemetry logged (Episode_Reward/reward_clock_schedule)
+- check PASS: mirror-symmetry loss active (Loss/symmetry or mirror)
+- check PASS: terrain-promotion telemetry logged (Metrics/base_parkour/track_ratio_mean)
+- check PASS: yaw-progress reward logged (Episode_Reward/reward_yaw_progress)
+- check PASS: yaw-progress telemetry logged (Metrics/base_velocity/yaw_progress)
+- check PASS: omni parkour class (OmniParkourEvent) in params/env.yaml
+- check PASS: omni reset func (reset_root_state_ring) in params/env.yaml
+- check PASS: omni command class (CrabHexOmniCommand) in params/env.yaml
+- check PASS: omni obs func (CrabHexOmniParkourObservations) in params/env.yaml
+- check PASS: ring generator installed (omni_ring_sparse/dense sub-terrain) in params/env.yaml
+- check PASS: omni RSI bank path (rsi_bank_omni.npz) in params/env.yaml
+- suite trained categories: decisive stand, fwd, side, back, turn, move_turn
+- suite stand: n 100 surv 0.990 drift 0.100 [decisive]
+- suite fwd: n 100 surv 0.880 ratio 0.643 tripod 0.518 [decisive]
+- suite side: n 200 surv 0.935 ratio 0.444 tripod 0.447 (l: surv 0.960 ratio 0.444 tripod 0.448; r: surv 0.910 ratio 0.446 tripod 0.445) [decisive]
+- suite back: n 100 surv 0.910 ratio 0.626 tripod 0.536 [decisive]
+- suite diag: n 100 surv 0.710 ratio 0.532 tripod 0.393 [WATCH: untrained]
+- suite turn: n 200 surv 0.955 closed 0.519 progress 0.069 (l: surv 0.950 closed 0.513 progress 0.070; r: surv 0.960 closed 0.522 progress 0.069) [decisive]
+- suite move_turn: n 200 surv 0.845 closed 0.191 progress 0.027 ratio 0.413 (l: surv 0.800 closed 0.171 progress 0.027 ratio 0.406; r: surv 0.890 closed 0.203 progress 0.026 ratio 0.428) [decisive]
+- overlay PASS: overlay KRABBY_OMNI_CMD_POOL=stand:0.15,fwd:0.22,side_l:0.14,side_r:0.14,back:0.1,turn:0.15,fwd_turn:0.05,side_l_turn:0.025,side_r_turn:0.025 in params/env.yaml
+- overlay PASS: overlay KRABBY_OMNI_DIR_BAND= in params/env.yaml
+- overlay PASS: overlay KRABBY_OMNI_FACING=0.2:0.6 in params/env.yaml
+- overlay PASS: overlay KRABBY_OMNI_RSI_SOURCE=all in params/env.yaml
+- overlay PASS: overlay KRABBY_OMNI_SLOTS=0.15:0.6:0.15:0.1 in params/env.yaml
+- overlay PASS: overlay KRABBY_YAW_W=0.2 in params/env.yaml
+- floor PASS: category survival on suite (one-sided 99 % band): stand 0.990 (bound 1.013, n_env 100, min >= 0.69); fwd 0.880 (bound 0.956, n_env 100, min >= 0.52); side 0.935 (bound 0.992, n_env 100, min >= 0.65); back 0.910 (bound 0.977, n_env 100, min >= 0.55); turn 0.955 (bound 1.003, n_env 100, min >= 0.62); move_turn 0.845 (bound 0.929, n_env 100, min >= 0.315)
+
+>>> ENTRY X02:c4
+
+### X02:c5 — X0 s2 (baseline) — 2026-09-23T22:25:26
+
+- recipe `f8f4ad5d955e` on chain `tail`, base `f8f4ad5d955e`, code_sha `8ce6da6156b3`
+- overlay `{'KRABBY_OMNI_CMD_POOL': 'stand:0.15,fwd:0.15,side_l:0.1,side_r:0.1,back:0.1,omni:0.15,turn:0.1,fwd_turn:0.07,side_l_turn:0.04,side_r_turn:0.04', 'KRABBY_OMNI_SLOTS': '0.15:0.6:0.1:0.15', 'KRABBY_OMNI_DIR_BAND': '', 'KRABBY_OMNI_RSI_SOURCE': 'all', 'KRABBY_OMNI_FACING': '0.2:0.6', 'KRABBY_YAW_W': '0.2'}`
+- status **ok** | checkpoint `2026-09-23_21-44-06_seed2_X02_c5_A15pB/model_5997.pt` | resume `model_4498.pt` | 1500 its | wall 0.57 h
+- smoke fail@2k 0.262 fail@end 0.262 coll@2k 0.000 ep_len@2k 1775.173
+- training translation floor: track_ratio_mean (last 500 its) 0.593 (gate floor 0.6)
+- exposure (ring): reach_edge 0.495 | reach_obst 0.453 | field_frac 0.159 (steps 302.954) | goals_passed 0.646
+- terrain-promotion telemetry: track_ratio_mean 0.594 (move rows only 0.608) | heading_err_rms_mean 0.154 | block_steps_mean 106.024 | r_max_mean 2.294
+- failure share flat 0.246 | obst 0.269 | campaign-wide 0.264
+- slot fractions (logged): stand 0.123 | move 0.559 | turn 0.087 | move_turn 0.148 | rsi_frac_actual 0.208 | terrain_levels 1.027 | mean ep len 1802.036 | prints 1500
+- slow canary (omni manifest): walking-hold tripod None (gated; by hold: n/a; episode None) | completion None | tracking None | falls None/None | pitch-fwd share None
+- per-direction speed_ratio: fwd None / lat_l None / diag None / back None
+- check PASS: plant is A15+B (params/env.yaml usd path)
+- check PASS: episode_length_s 40 in params
+- check PASS: experiment crab_hex_omni_flat_walk
+- check PASS: exposure telemetry logged (Metrics/base_parkour/reach_obst_frac)
+- check PASS: gait income telemetry logged (Episode_Reward/reward_clock_schedule)
+- check PASS: mirror-symmetry loss active (Loss/symmetry or mirror)
+- check PASS: terrain-promotion telemetry logged (Metrics/base_parkour/track_ratio_mean)
+- check PASS: yaw-progress reward logged (Episode_Reward/reward_yaw_progress)
+- check PASS: yaw-progress telemetry logged (Metrics/base_velocity/yaw_progress)
+- check PASS: omni parkour class (OmniParkourEvent) in params/env.yaml
+- check PASS: omni reset func (reset_root_state_ring) in params/env.yaml
+- check PASS: omni command class (CrabHexOmniCommand) in params/env.yaml
+- check PASS: omni obs func (CrabHexOmniParkourObservations) in params/env.yaml
+- check PASS: ring generator installed (omni_ring_sparse/dense sub-terrain) in params/env.yaml
+- check PASS: omni RSI bank path (rsi_bank_omni.npz) in params/env.yaml
+- suite trained categories: decisive stand, fwd, side, back, diag, turn, move_turn
+- suite stand: n 100 surv 0.990 drift 0.086 [decisive]
+- suite fwd: n 100 surv 0.950 ratio 0.715 tripod 0.633 [decisive]
+- suite side: n 200 surv 0.975 ratio 0.397 tripod 0.496 (l: surv 0.980 ratio 0.395 tripod 0.500; r: surv 0.970 ratio 0.402 tripod 0.491) [decisive]
+- suite back: n 100 surv 0.990 ratio 0.707 tripod 0.626 [decisive]
+- suite diag: n 100 surv 0.870 ratio 0.508 tripod 0.438 [decisive]
+- suite turn: n 200 surv 0.925 closed 0.671 progress 0.089 (l: surv 0.930 closed 0.716 progress 0.091; r: surv 0.920 closed 0.660 progress 0.088) [decisive]
+- suite move_turn: n 200 surv 0.685 closed 0.193 progress 0.031 ratio 0.311 (l: surv 0.650 closed 0.201 progress 0.032 ratio 0.321; r: surv 0.720 closed 0.161 progress 0.030 ratio 0.283) [decisive]
+- overlay PASS: overlay KRABBY_OMNI_CMD_POOL=stand:0.15,fwd:0.15,side_l:0.1,side_r:0.1,back:0.1,omni:0.15,turn:0.1,fwd_turn:0.07,side_l_turn:0.04,side_r_turn:0.04 in params/env.yaml
+- overlay PASS: overlay KRABBY_OMNI_DIR_BAND= in params/env.yaml
+- overlay PASS: overlay KRABBY_OMNI_FACING=0.2:0.6 in params/env.yaml
+- overlay PASS: overlay KRABBY_OMNI_RSI_SOURCE=all in params/env.yaml
+- overlay PASS: overlay KRABBY_OMNI_SLOTS=0.15:0.6:0.1:0.15 in params/env.yaml
+- overlay PASS: overlay KRABBY_YAW_W=0.2 in params/env.yaml
+- RETENTION c5 stand: survival 1.000 -> 0.990 held
+- RETENTION c5 stand: drift_speed 0.090 -> 0.086 held
+- RETENTION c5 fwd: survival 0.880 -> 0.950 held
+- RETENTION c5 fwd: ratio 0.718 -> 0.715 held
+- RETENTION c5 side: survival 0.980 -> 0.975 held
+- RETENTION c5 side: ratio 0.404 -> 0.397 held
+- RETENTION c5 back: survival 0.870 -> 0.990 held
+- RETENTION c5 back: ratio 0.706 -> 0.707 held
+- RETENTION c5 turn: survival 0.990 -> 0.925 held
+- RETENTION c5 turn: facing_closed 0.492 -> 0.671 held
+- RETENTION c5 move_turn: survival 0.870 -> 0.685 DROPPED 0.185 (>0.1)
+- RETENTION c5 move_turn: facing_closed 0.290 -> 0.193 held
+- RETENTION c5 move_turn: ratio 0.497 -> 0.311 DROPPED 37% (>20%)
+- floor PASS: category survival on suite (one-sided 99 % band): stand 0.990 (bound 1.013, n_env 100, prev >= 0.3); fwd 0.950 (bound 1.001, n_env 100, prev >= 0.3); side 0.975 (bound 1.011, n_env 100, prev >= 0.3); back 0.990 (bound 1.013, n_env 100, prev >= 0.3); diag 0.870 (bound 0.948, n_env 100, new >= 0.1); turn 0.925 (bound 0.986, n_env 100, prev >= 0.3); move_turn 0.685 (bound 0.793, n_env 100, prev >= 0.3)
+
+>>> ENTRY X02:c5
+
+### X02:c6 — X0 s2 (baseline) — 2026-09-23T23:18:27
+
+- recipe `f8f4ad5d955e` on chain `tail`, base `f8f4ad5d955e`, code_sha `8ce6da6156b3`
+- overlay `{'KRABBY_OMNI_CMD_POOL': 'stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07', 'KRABBY_OMNI_SLOTS': '0.15:0.55:0.1:0.2', 'KRABBY_OMNI_DIR_BAND': '', 'KRABBY_OMNI_RSI_SOURCE': 'all', 'KRABBY_OMNI_FACING': '0.2:0.6', 'KRABBY_YAW_W': '0.2'}`
+- status **ok** | checkpoint `2026-09-23_22-25-37_seed2_X02_c6_A15pB/model_7996.pt` | resume `model_5997.pt` | 2000 its | wall 0.77 h
+- smoke fail@2k 0.299 fail@end 0.299 coll@2k 0.000 ep_len@2k 1694.173
+- training translation floor: track_ratio_mean (last 500 its) 0.594 (gate floor 0.6)
+- exposure (ring): reach_edge 0.492 | reach_obst 0.479 | field_frac 0.163 (steps 307.982) | goals_passed 0.641
+- terrain-promotion telemetry: track_ratio_mean 0.595 (move rows only 0.604) | heading_err_rms_mean 0.166 | block_steps_mean 101.977 | r_max_mean 2.297
+- failure share flat 0.307 | obst 0.277 | campaign-wide 0.323
+- slot fractions (logged): stand 0.178 | move 0.537 | turn 0.061 | move_turn 0.101 | rsi_frac_actual 0.198 | terrain_levels 1.027 | mean ep len 1712.698 | prints 2000
+- slow canary (omni manifest): walking-hold tripod None (gated; by hold: n/a; episode None) | completion None | tracking None | falls None/None | pitch-fwd share None
+- per-direction speed_ratio: fwd None / lat_l None / diag None / back None
+- check PASS: plant is A15+B (params/env.yaml usd path)
+- check PASS: episode_length_s 40 in params
+- check PASS: experiment crab_hex_omni_flat_walk
+- check PASS: exposure telemetry logged (Metrics/base_parkour/reach_obst_frac)
+- check PASS: gait income telemetry logged (Episode_Reward/reward_clock_schedule)
+- check PASS: mirror-symmetry loss active (Loss/symmetry or mirror)
+- check PASS: terrain-promotion telemetry logged (Metrics/base_parkour/track_ratio_mean)
+- check PASS: yaw-progress reward logged (Episode_Reward/reward_yaw_progress)
+- check PASS: yaw-progress telemetry logged (Metrics/base_velocity/yaw_progress)
+- check PASS: omni parkour class (OmniParkourEvent) in params/env.yaml
+- check PASS: omni reset func (reset_root_state_ring) in params/env.yaml
+- check PASS: omni command class (CrabHexOmniCommand) in params/env.yaml
+- check PASS: omni obs func (CrabHexOmniParkourObservations) in params/env.yaml
+- check PASS: ring generator installed (omni_ring_sparse/dense sub-terrain) in params/env.yaml
+- check PASS: omni RSI bank path (rsi_bank_omni.npz) in params/env.yaml
+- suite trained categories: decisive stand, fwd, side, back, diag, turn, move_turn
+- suite stand: n 100 surv 0.990 drift 0.090 [decisive]
+- suite fwd: n 100 surv 0.950 ratio 0.740 tripod 0.618 [decisive]
+- suite side: n 200 surv 0.985 ratio 0.389 tripod 0.502 (l: surv 0.980 ratio 0.398 tripod 0.505; r: surv 0.990 ratio 0.381 tripod 0.499) [decisive]
+- suite back: n 100 surv 0.920 ratio 0.696 tripod 0.622 [decisive]
+- suite diag: n 100 surv 0.740 ratio 0.544 tripod 0.404 [decisive]
+- suite turn: n 200 surv 0.985 closed 0.560 progress 0.074 (l: surv 1.000 closed 0.572 progress 0.076; r: surv 0.970 closed 0.534 progress 0.071) [decisive]
+- suite move_turn: n 200 surv 0.980 closed 0.365 progress 0.048 ratio 0.514 (l: surv 0.970 closed 0.359 progress 0.047 ratio 0.506; r: surv 0.990 closed 0.377 progress 0.049 ratio 0.516) [decisive]
+- WATCH gate_1c: FAIL -- formation gate FAILED — walking-hold tripod 0.404 (need >= 0.4; by hold: back 0.622, diag 0.404, fwd 0.618, lat_l 0.505, lat_r 0.499, move_turn 0.584, move_turn_r 0.588, settle 0.547, stand 0.586, turn_l90 0.635, turn_r90 0.596), completion 0.950 (need >= 0.7), yaw-progress rate turn_l90 0.076, turn_r90 0.071 rad/s (net turn_l90 0.075, turn_r90 0.070) (need >= 0.05 rad/s on each), per-direction speed_ratio lat_l 0.398, diag 0.544, back 0.696, move_turn 0.506 (need >= 0.3 on each of lat_l, diag, back, move_turn; failing: none) on slow__omni, training track_ratio_mean 0.594 (need >= 0.6 over the last 500 its) (WATCH only: this gate never decides in the ladder)
+- overlay PASS: overlay KRABBY_OMNI_CMD_POOL=stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07 in params/env.yaml
+- overlay PASS: overlay KRABBY_OMNI_DIR_BAND= in params/env.yaml
+- overlay PASS: overlay KRABBY_OMNI_FACING=0.2:0.6 in params/env.yaml
+- overlay PASS: overlay KRABBY_OMNI_RSI_SOURCE=all in params/env.yaml
+- overlay PASS: overlay KRABBY_OMNI_SLOTS=0.15:0.55:0.1:0.2 in params/env.yaml
+- overlay PASS: overlay KRABBY_YAW_W=0.2 in params/env.yaml
+- RETENTION c6 stand: survival 0.990 -> 0.990 held
+- RETENTION c6 stand: drift_speed 0.082 -> 0.090 held
+- RETENTION c6 fwd: survival 0.850 -> 0.950 held
+- RETENTION c6 fwd: ratio 0.733 -> 0.740 held
+- RETENTION c6 side: survival 0.970 -> 0.985 held
+- RETENTION c6 side: ratio 0.396 -> 0.389 held
+- RETENTION c6 back: survival 0.880 -> 0.920 held
+- RETENTION c6 back: ratio 0.746 -> 0.696 held
+- RETENTION c6 diag: survival 0.720 -> 0.740 held
+- RETENTION c6 diag: ratio 0.539 -> 0.544 held
+- RETENTION c6 turn: survival 0.985 -> 0.985 held
+- RETENTION c6 turn: facing_closed 0.629 -> 0.560 held
+- RETENTION c6 move_turn: survival 0.745 -> 0.980 held
+- RETENTION c6 move_turn: facing_closed 0.330 -> 0.365 held
+- RETENTION c6 move_turn: ratio 0.498 -> 0.514 held
+- floor PASS: category survival on suite (one-sided 99 % band): stand 0.990 (bound 1.013, n_env 100, min >= 0.79); fwd 0.950 (bound 1.001, n_env 100, min >= 0.72); side 0.985 (bound 1.013, n_env 100, min >= 0.77); back 0.920 (bound 0.983, n_env 100, min >= 0.72); diag 0.740 (bound 0.842, n_env 100, min >= 0.59); turn 0.985 (bound 1.013, n_env 100, min >= 0.75); move_turn 0.980 (bound 1.013, n_env 100, min >= 0.55)
+
+>>> ENTRY X02:c6
+
+### experiment X02 — X0 s2 — ok — 2026-09-23T23:18:27
+
+- recipe `f8f4ad5d955e` base `f8f4ad5d955e` chain `tail` seed 2
+- stages ['X02:c4', 'X02:c5', 'X02:c6']
+- screen: completion 0.950, tripod_dir 0.404, track tail 0.594
+- replay: none
+
+>>> ENTRY X02
+
+### X03:c4 — A6000 s3 (candidate) — 2026-09-24T08:47:01
+
+- recipe `8dffe9930f3d` on chain `tail`, base `f8f4ad5d955e`, code_sha `8ce6da6156b3`
+- overlay `{'KRABBY_OMNI_CMD_POOL': 'stand:0.15,fwd:0.22,side_l:0.14,side_r:0.14,back:0.1,turn:0.15,fwd_turn:0.05,side_l_turn:0.025,side_r_turn:0.025', 'KRABBY_OMNI_SLOTS': '0.15:0.6:0.15:0.1', 'KRABBY_OMNI_DIR_BAND': '', 'KRABBY_OMNI_RSI_SOURCE': 'all', 'KRABBY_OMNI_FACING': '0.2:0.6', 'KRABBY_YAW_W': '0.2'}`
+- status **ok** | checkpoint `2026-09-24_08-05-40_seed3_X03_c4_A15pB/model_4498.pt` | resume `model_2999.pt` | 1500 its | wall 0.57 h
+- smoke fail@2k 0.280 fail@end 0.280 coll@2k 0.000 ep_len@2k 1747.022
+- training translation floor: track_ratio_mean (last 500 its) 0.591 (gate floor 0.6)
+- exposure (ring): reach_edge 0.467 | reach_obst 0.404 | field_frac 0.162 (steps 314.801) | goals_passed 0.598
+- terrain-promotion telemetry: track_ratio_mean 0.588 (move rows only 0.594) | heading_err_rms_mean 0.155 | block_steps_mean 82.244 | r_max_mean 2.295
+- failure share flat 0.262 | obst 0.258 | campaign-wide 0.263
+- slot fractions (logged): stand 0.144 | move 0.564 | turn 0.115 | move_turn 0.075 | rsi_frac_actual 0.189 | terrain_levels 0.973 | mean ep len 1758.769 | prints 1500
+- slow canary (omni manifest): walking-hold tripod None (gated; by hold: n/a; episode None) | completion None | tracking None | falls None/None | pitch-fwd share None
+- per-direction speed_ratio: fwd None / lat_l None / diag None / back None
+- check PASS: plant is A15+B (params/env.yaml usd path)
+- check PASS: episode_length_s 40 in params
+- check PASS: experiment crab_hex_omni_flat_walk
+- check PASS: exposure telemetry logged (Metrics/base_parkour/reach_obst_frac)
+- check PASS: gait income telemetry logged (Episode_Reward/reward_clock_schedule)
+- check PASS: mirror-symmetry loss active (Loss/symmetry or mirror)
+- check PASS: terrain-promotion telemetry logged (Metrics/base_parkour/track_ratio_mean)
+- check PASS: yaw-progress reward logged (Episode_Reward/reward_yaw_progress)
+- check PASS: yaw-progress telemetry logged (Metrics/base_velocity/yaw_progress)
+- check PASS: omni parkour class (OmniParkourEvent) in params/env.yaml
+- check PASS: omni reset func (reset_root_state_ring) in params/env.yaml
+- check PASS: omni command class (CrabHexOmniCommand) in params/env.yaml
+- check PASS: omni obs func (CrabHexOmniParkourObservations) in params/env.yaml
+- check PASS: ring generator installed (omni_ring_sparse/dense sub-terrain) in params/env.yaml
+- check PASS: omni RSI bank path (rsi_bank_omni.npz) in params/env.yaml
+- suite trained categories: decisive stand, fwd, side, back, turn, move_turn
+- suite stand: n 100 surv 0.970 drift 0.091 [decisive]
+- suite fwd: n 100 surv 0.820 ratio 0.636 tripod 0.523 [decisive]
+- suite side: n 200 surv 0.940 ratio 0.436 tripod 0.456 (l: surv 0.910 ratio 0.437 tripod 0.466; r: surv 0.970 ratio 0.434 tripod 0.446) [decisive]
+- suite back: n 100 surv 0.760 ratio 0.642 tripod 0.520 [decisive]
+- suite diag: n 100 surv 0.670 ratio 0.553 tripod 0.398 [WATCH: untrained]
+- suite turn: n 200 surv 0.950 closed 0.588 progress 0.080 (l: surv 0.950 closed 0.585 progress 0.080; r: surv 0.950 closed 0.596 progress 0.079) [decisive]
+- suite move_turn: n 200 surv 0.800 closed 0.138 progress 0.021 ratio 0.438 (l: surv 0.750 closed 0.124 progress 0.020 ratio 0.449; r: surv 0.850 closed 0.151 progress 0.022 ratio 0.433) [decisive]
+- overlay PASS: overlay KRABBY_OMNI_CMD_POOL=stand:0.15,fwd:0.22,side_l:0.14,side_r:0.14,back:0.1,turn:0.15,fwd_turn:0.05,side_l_turn:0.025,side_r_turn:0.025 in params/env.yaml
+- overlay PASS: overlay KRABBY_OMNI_DIR_BAND= in params/env.yaml
+- overlay PASS: overlay KRABBY_OMNI_FACING=0.2:0.6 in params/env.yaml
+- overlay PASS: overlay KRABBY_OMNI_RSI_SOURCE=all in params/env.yaml
+- overlay PASS: overlay KRABBY_OMNI_SLOTS=0.15:0.6:0.15:0.1 in params/env.yaml
+- overlay PASS: overlay KRABBY_YAW_W=0.2 in params/env.yaml
+- floor PASS: category survival on suite (one-sided 99 % band): stand 0.970 (bound 1.010, n_env 100, min >= 0.69); fwd 0.820 (bound 0.909, n_env 100, min >= 0.52); side 0.940 (bound 0.995, n_env 100, min >= 0.65); back 0.760 (bound 0.859, n_env 100, min >= 0.55); turn 0.950 (bound 1.001, n_env 100, min >= 0.62); move_turn 0.800 (bound 0.893, n_env 100, min >= 0.315)
+
+>>> ENTRY X03:c4
+
+### X03:c5 — A6000 s3 (candidate) — 2026-09-24T09:28:32
+
+- recipe `8dffe9930f3d` on chain `tail`, base `f8f4ad5d955e`, code_sha `8ce6da6156b3`
+- overlay `{'KRABBY_OMNI_CMD_POOL': 'stand:0.15,fwd:0.15,side_l:0.1,side_r:0.1,back:0.1,omni:0.15,turn:0.1,fwd_turn:0.07,side_l_turn:0.04,side_r_turn:0.04', 'KRABBY_OMNI_SLOTS': '0.15:0.6:0.1:0.15', 'KRABBY_OMNI_DIR_BAND': '', 'KRABBY_OMNI_RSI_SOURCE': 'all', 'KRABBY_OMNI_FACING': '0.2:0.6', 'KRABBY_YAW_W': '0.2'}`
+- status **ok** | checkpoint `2026-09-24_08-47-11_seed3_X03_c5_A15pB/model_5997.pt` | resume `model_4498.pt` | 1500 its | wall 0.57 h
+- smoke fail@2k 0.253 fail@end 0.253 coll@2k 0.000 ep_len@2k 1774.584
+- training translation floor: track_ratio_mean (last 500 its) 0.576 (gate floor 0.6)
+- exposure (ring): reach_edge 0.496 | reach_obst 0.400 | field_frac 0.165 (steps 313.281) | goals_passed 0.638
+- terrain-promotion telemetry: track_ratio_mean 0.576 (move rows only 0.582) | heading_err_rms_mean 0.156 | block_steps_mean 83.150 | r_max_mean 2.241
+- failure share flat 0.265 | obst 0.280 | campaign-wide 0.282
+- slot fractions (logged): stand 0.098 | move 0.546 | turn 0.136 | move_turn 0.114 | rsi_frac_actual 0.188 | terrain_levels 0.973 | mean ep len 1778.332 | prints 1500
+- slow canary (omni manifest): walking-hold tripod None (gated; by hold: n/a; episode None) | completion None | tracking None | falls None/None | pitch-fwd share None
+- per-direction speed_ratio: fwd None / lat_l None / diag None / back None
+- check PASS: plant is A15+B (params/env.yaml usd path)
+- check PASS: episode_length_s 40 in params
+- check PASS: experiment crab_hex_omni_flat_walk
+- check PASS: exposure telemetry logged (Metrics/base_parkour/reach_obst_frac)
+- check PASS: gait income telemetry logged (Episode_Reward/reward_clock_schedule)
+- check PASS: mirror-symmetry loss active (Loss/symmetry or mirror)
+- check PASS: terrain-promotion telemetry logged (Metrics/base_parkour/track_ratio_mean)
+- check PASS: yaw-progress reward logged (Episode_Reward/reward_yaw_progress)
+- check PASS: yaw-progress telemetry logged (Metrics/base_velocity/yaw_progress)
+- check PASS: omni parkour class (OmniParkourEvent) in params/env.yaml
+- check PASS: omni reset func (reset_root_state_ring) in params/env.yaml
+- check PASS: omni command class (CrabHexOmniCommand) in params/env.yaml
+- check PASS: omni obs func (CrabHexOmniParkourObservations) in params/env.yaml
+- check PASS: ring generator installed (omni_ring_sparse/dense sub-terrain) in params/env.yaml
+- check PASS: omni RSI bank path (rsi_bank_omni.npz) in params/env.yaml
+- suite trained categories: decisive stand, fwd, side, back, diag, turn, move_turn
+- suite stand: n 100 surv 0.970 drift 0.083 [decisive]
+- suite fwd: n 100 surv 0.900 ratio 0.658 tripod 0.590 [decisive]
+- suite side: n 200 surv 0.980 ratio 0.374 tripod 0.483 (l: surv 0.990 ratio 0.371 tripod 0.485; r: surv 0.970 ratio 0.377 tripod 0.481) [decisive]
+- suite back: n 100 surv 0.960 ratio 0.663 tripod 0.606 [decisive]
+- suite diag: n 100 surv 0.810 ratio 0.535 tripod 0.441 [decisive]
+- suite turn: n 200 surv 0.955 closed 0.484 progress 0.065 (l: surv 0.940 closed 0.486 progress 0.066; r: surv 0.970 closed 0.480 progress 0.063) [decisive]
+- suite move_turn: n 200 surv 0.870 closed 0.152 progress 0.021 ratio 0.373 (l: surv 0.850 closed 0.150 progress 0.021 ratio 0.373; r: surv 0.890 closed 0.152 progress 0.021 ratio 0.374) [decisive]
+- overlay PASS: overlay KRABBY_OMNI_CMD_POOL=stand:0.15,fwd:0.15,side_l:0.1,side_r:0.1,back:0.1,omni:0.15,turn:0.1,fwd_turn:0.07,side_l_turn:0.04,side_r_turn:0.04 in params/env.yaml
+- overlay PASS: overlay KRABBY_OMNI_DIR_BAND= in params/env.yaml
+- overlay PASS: overlay KRABBY_OMNI_FACING=0.2:0.6 in params/env.yaml
+- overlay PASS: overlay KRABBY_OMNI_RSI_SOURCE=all in params/env.yaml
+- overlay PASS: overlay KRABBY_OMNI_SLOTS=0.15:0.6:0.1:0.15 in params/env.yaml
+- overlay PASS: overlay KRABBY_YAW_W=0.2 in params/env.yaml
+- RETENTION c5 stand: survival 1.000 -> 0.970 held
+- RETENTION c5 stand: drift_speed 0.090 -> 0.083 held
+- RETENTION c5 fwd: survival 0.880 -> 0.900 held
+- RETENTION c5 fwd: ratio 0.718 -> 0.658 held
+- RETENTION c5 side: survival 0.980 -> 0.980 held
+- RETENTION c5 side: ratio 0.404 -> 0.374 held
+- RETENTION c5 back: survival 0.870 -> 0.960 held
+- RETENTION c5 back: ratio 0.706 -> 0.663 held
+- RETENTION c5 turn: survival 0.990 -> 0.955 held
+- RETENTION c5 turn: facing_closed 0.492 -> 0.484 held
+- RETENTION c5 move_turn: survival 0.870 -> 0.870 held
+- RETENTION c5 move_turn: facing_closed 0.290 -> 0.152 DROPPED 0.138 absolute (>0.100 = max(0.1, R_eval))
+- RETENTION c5 move_turn: ratio 0.497 -> 0.373 DROPPED 25% (>20%)
+- floor PASS: category survival on suite (one-sided 99 % band): stand 0.970 (bound 1.010, n_env 100, prev >= 0.3); fwd 0.900 (bound 0.970, n_env 100, prev >= 0.3); side 0.980 (bound 1.013, n_env 100, prev >= 0.3); back 0.960 (bound 1.006, n_env 100, prev >= 0.3); diag 0.810 (bound 0.901, n_env 100, new >= 0.1); turn 0.955 (bound 1.003, n_env 100, prev >= 0.3); move_turn 0.870 (bound 0.948, n_env 100, prev >= 0.3)
+
+>>> ENTRY X03:c5
+
+### X03:c6 — A6000 s3 (candidate) — 2026-09-24T10:25:33
+
+- recipe `8dffe9930f3d` on chain `tail`, base `f8f4ad5d955e`, code_sha `8ce6da6156b3`
+- overlay `{'KRABBY_OMNI_CMD_POOL': 'stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07', 'KRABBY_OMNI_SLOTS': '0.15:0.55:0.1:0.2', 'KRABBY_OMNI_DIR_BAND': '', 'KRABBY_OMNI_RSI_SOURCE': 'all', 'KRABBY_OMNI_FACING': '0.2:0.6', 'KRABBY_YAW_W': '0.2', 'KRABBY_CLOCK_W': '0.001', 'KRABBY_APEX_W': '0.001', 'KRABBY_OMNI_CLOCK_HIDE': '1'}`
+- status **ok** | checkpoint `2026-09-24_09-28-42_seed3_X03_c6_A15pB/model_7996.pt` | resume `model_5997.pt` | 2000 its | wall 0.83 h
+- smoke fail@2k 0.380 fail@end 0.380 coll@2k 0.000 ep_len@2k 1602.799
+- training translation floor: track_ratio_mean (last 500 its) 0.612 (gate floor 0.6)
+- exposure (ring): reach_edge 0.466 | reach_obst 0.378 | field_frac 0.139 (steps 259.911) | goals_passed 0.596
+- terrain-promotion telemetry: track_ratio_mean 0.627 (move rows only 0.631) | heading_err_rms_mean 0.167 | block_steps_mean 81.821 | r_max_mean 2.316
+- failure share flat 0.344 | obst 0.381 | campaign-wide 0.351
+- slot fractions (logged): stand 0.148 | move 0.483 | turn 0.072 | move_turn 0.135 | rsi_frac_actual 0.196 | terrain_levels 0.973 | mean ep len 1674.753 | prints 2000
+- slow canary (omni manifest): walking-hold tripod None (gated; by hold: n/a; episode None) | completion None | tracking None | falls None/None | pitch-fwd share None
+- per-direction speed_ratio: fwd None / lat_l None / diag None / back None
+- check PASS: plant is A15+B (params/env.yaml usd path)
+- check PASS: episode_length_s 40 in params
+- check PASS: experiment crab_hex_omni_flat_walk
+- check PASS: exposure telemetry logged (Metrics/base_parkour/reach_obst_frac)
+- check PASS: gait income telemetry logged (Episode_Reward/reward_clock_schedule)
+- check PASS: mirror-symmetry loss active (Loss/symmetry or mirror)
+- check PASS: terrain-promotion telemetry logged (Metrics/base_parkour/track_ratio_mean)
+- check PASS: yaw-progress reward logged (Episode_Reward/reward_yaw_progress)
+- check PASS: yaw-progress telemetry logged (Metrics/base_velocity/yaw_progress)
+- check PASS: omni parkour class (OmniParkourEvent) in params/env.yaml
+- check PASS: omni reset func (reset_root_state_ring) in params/env.yaml
+- check PASS: omni command class (CrabHexOmniCommand) in params/env.yaml
+- check PASS: omni obs func (CrabHexOmniParkourObservations) in params/env.yaml
+- check PASS: ring generator installed (omni_ring_sparse/dense sub-terrain) in params/env.yaml
+- check PASS: omni RSI bank path (rsi_bank_omni.npz) in params/env.yaml
+- suite trained categories: decisive stand, fwd, side, back, diag, turn, move_turn
+- suite stand: n 100 surv 1.000 drift 0.084 [decisive]
+- suite fwd: n 100 surv 0.990 ratio 0.694 tripod 0.642 [decisive]
+- suite side: n 200 surv 0.995 ratio 0.435 tripod 0.461 (l: surv 1.000 ratio 0.421 tripod 0.470; r: surv 0.990 ratio 0.448 tripod 0.435) [decisive]
+- suite back: n 100 surv 1.000 ratio 0.725 tripod 0.646 [decisive]
+- suite diag: n 100 surv 0.870 ratio 0.551 tripod 0.436 [decisive]
+- suite turn: n 200 surv 1.000 closed 0.704 progress 0.092 (l: surv 1.000 closed 0.705 progress 0.092; r: surv 1.000 closed 0.700 progress 0.092) [decisive]
+- suite move_turn: n 200 surv 0.730 closed 0.330 progress 0.047 ratio 0.510 (l: surv 0.740 closed 0.306 progress 0.046 ratio 0.510; r: surv 0.720 closed 0.351 progress 0.050 ratio 0.509) [decisive]
+- WATCH gate_1c: PASS -- formation gate passed — walking-hold tripod 0.435 (by hold: back 0.646, diag 0.436, fwd 0.642, lat_l 0.470, lat_r 0.435, move_turn 0.466, move_turn_r 0.489, settle 0.527, stand 0.692, turn_l90 0.559, turn_r90 0.533), completion 0.931, yaw-progress rate turn_l90 0.092, turn_r90 0.092 rad/s (net turn_l90 0.092, turn_r90 0.092), per-direction speed_ratio lat_l 0.421, diag 0.551, back 0.725, move_turn 0.510 on slow__omni, training track_ratio_mean 0.612 (need >= 0.6 over the last 500 its)
+- overlay PASS: overlay KRABBY_APEX_W=0.001 in params/env.yaml
+- overlay PASS: overlay KRABBY_CLOCK_W=0.001 in params/env.yaml
+- overlay PASS: overlay KRABBY_OMNI_CLOCK_HIDE=1 in params/env.yaml
+- overlay PASS: overlay KRABBY_OMNI_CMD_POOL=stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07 in params/env.yaml
+- overlay PASS: overlay KRABBY_OMNI_DIR_BAND= in params/env.yaml
+- overlay PASS: overlay KRABBY_OMNI_FACING=0.2:0.6 in params/env.yaml
+- overlay PASS: overlay KRABBY_OMNI_RSI_SOURCE=all in params/env.yaml
+- overlay PASS: overlay KRABBY_OMNI_SLOTS=0.15:0.55:0.1:0.2 in params/env.yaml
+- overlay PASS: overlay KRABBY_YAW_W=0.2 in params/env.yaml
+- RETENTION c6 stand: survival 0.990 -> 1.000 held
+- RETENTION c6 stand: drift_speed 0.082 -> 0.084 held
+- RETENTION c6 fwd: survival 0.850 -> 0.990 held
+- RETENTION c6 fwd: ratio 0.733 -> 0.694 held
+- RETENTION c6 side: survival 0.970 -> 0.995 held
+- RETENTION c6 side: ratio 0.396 -> 0.435 held
+- RETENTION c6 back: survival 0.880 -> 1.000 held
+- RETENTION c6 back: ratio 0.746 -> 0.725 held
+- RETENTION c6 diag: survival 0.720 -> 0.870 held
+- RETENTION c6 diag: ratio 0.539 -> 0.551 held
+- RETENTION c6 turn: survival 0.985 -> 1.000 held
+- RETENTION c6 turn: facing_closed 0.629 -> 0.704 held
+- RETENTION c6 move_turn: survival 0.745 -> 0.730 held
+- RETENTION c6 move_turn: facing_closed 0.330 -> 0.330 held
+- RETENTION c6 move_turn: ratio 0.498 -> 0.510 held
+- floor PASS: category survival on suite (one-sided 99 % band): stand 1.000 (bound 1.000, n_env 100, min >= 0.79); fwd 0.990 (bound 1.013, n_env 100, min >= 0.72); side 0.995 (bound 1.011, n_env 100, min >= 0.77); back 1.000 (bound 1.000, n_env 100, min >= 0.72); diag 0.870 (bound 0.948, n_env 100, min >= 0.59); turn 1.000 (bound 1.000, n_env 100, min >= 0.75); move_turn 0.730 (bound 0.833, n_env 100, min >= 0.55)
+
+>>> ENTRY X03:c6
+
+## D05 — A6000 — REJECT (clear, decided) — 2026-09-24T10:25:33
+
+- question: Does removing both clock rewards (to eps 0.001) and the clock observation (zeroed, width kept) from the c5 -> c6 boundary on -- 2000 clock-free iterations, c6's omni_turn arriving clock-free -- make the gait less rigid (RIG BETTER with both its steps and support parts >= 0: fewer steps per metre and per radian, more loaded feet) without losing facing, turning, speed, slip or survival against the clock-held twin X0? The pilot arm: a seed-3 RIG TIE parks the driver (S3p), because nothing yet shows that removal moves steps or support (n = 0).
+- experiment `X03` recipe `8dffe9930f3d` base `f8f4ad5d955e` control `X01`
+- why: WORSE on guard cat.side.foot_slip, guard cat.turn.foot_slip
+- block F (F): z 1.537 vs R 1.280 -> BETTER (k=2, missing [])
+  - cat.turn.facing_closed: 0.629 -> 0.704 (delta 0.075, R_eval 0.050, R_seed 0.068, z 1.508)
+  - cat.turn.yaw_progress: 0.082 -> 0.092 (delta 0.010, R_eval 0.007, R_seed 0.008, z 1.565)
+- block F_mt (F_mt): z -0.060 vs R 0.912 -> TIE (k=2, missing [])
+  - cat.move_turn.facing_closed: 0.330 -> 0.330 (delta 0.000, R_eval 0.040, R_seed 0.035, z 0.008)
+  - cat.move_turn.yaw_progress: 0.048 -> 0.047 (delta -0.001, R_eval 0.006, R_seed 0.000, z -0.128)
+- block T (T): z 0.326 vs R 0.487 -> TIE (k=4, missing [])
+  - cat.fwd.ratio: 0.733 -> 0.694 (delta -0.039, R_eval 0.041, R_seed 0.008, z -0.949)
+  - cat.side.ratio: 0.396 -> 0.435 (delta 0.039, R_eval 0.018, R_seed 0.007, z 2.180)
+  - cat.back.ratio: 0.746 -> 0.725 (delta -0.021, R_eval 0.053, R_seed 0.050, z -0.394)
+  - cat.diag.ratio: 0.539 -> 0.551 (delta 0.012, R_eval 0.026, R_seed 0.005, z 0.465)
+- block RIG (RIG): z 0.389 vs R 0.786 -> TIE (k=10, missing [])
+  - cat.fwd.steps_per_m: 16.339 -> 16.905 (lower is better, signed delta -0.566, R_eval 1.635, R_seed 1.206, z -0.346)
+  - cat.fwd.support_feet: 3.061 -> 3.087 (delta 0.027, R_eval 0.030, R_seed 0.052, z 0.897)
+  - cat.side.steps_per_m: 35.112 -> 36.221 (lower is better, signed delta -1.109, R_eval 1.377, R_seed 0.383, z -0.806)
+  - cat.side.support_feet: 3.528 -> 3.564 (delta 0.036, R_eval 0.028, R_seed 0.010, z 1.303)
+  - cat.back.steps_per_m: 17.352 -> 18.166 (lower is better, signed delta -0.814, R_eval 2.032, R_seed 0.268, z -0.401)
+  - cat.back.support_feet: 3.050 -> 3.091 (delta 0.041, R_eval 0.030, R_seed 0.034, z 1.380)
+  - cat.diag.steps_per_m: 25.117 -> 24.697 (lower is better, signed delta 0.420, R_eval 1.623, R_seed 0.558, z 0.259)
+  - cat.diag.support_feet: 3.340 -> 3.315 (delta -0.025, R_eval 0.074, R_seed 0.001, z -0.339)
+  - cat.turn.steps_per_rad: 39.863 -> 31.407 (lower is better, signed delta 8.456, R_eval 3.898, R_seed 4.840, z 2.169)
+  - cat.turn.support_feet: 3.187 -> 3.182 (delta -0.005, R_eval 0.022, R_seed 0.090, z -0.231)
+- guard cat.stand.survival: 0.990 -> 1.000 (R 0.072) -> TIE
+- guard cat.stand.steps_per_s: 3.500 -> 2.750 (R 0.333) -> TIE
+- guard cat.fwd.survival: 0.850 -> 0.990 (R 0.110) -> TIE
+- guard cat.fwd.ratio: 0.733 -> 0.694 (R 0.051) -> TIE
+- guard cat.fwd.foot_slip: 0.147 -> 0.138 (R 0.008) -> TIE
+- guard cat.fwd.steps_per_m: 16.339 -> 16.905 (R 1.933) -> TIE
+- guard cat.side.survival: 0.970 -> 0.995 (R 0.051) -> TIE
+- guard cat.side.ratio: 0.396 -> 0.435 (R 0.021) -> TIE
+- guard cat.side.foot_slip: 0.173 -> 0.190 (R 0.005) -> WORSE
+- guard cat.side.steps_per_m: 35.112 -> 36.221 (R 1.569) -> TIE
+- guard cat.back.survival: 0.880 -> 1.000 (R 0.105) -> TIE
+- guard cat.back.ratio: 0.746 -> 0.725 (R 0.062) -> TIE
+- guard cat.back.foot_slip: 0.143 -> 0.135 (R 0.007) -> TIE
+- guard cat.back.steps_per_m: 17.352 -> 18.166 (R 2.395) -> TIE
+- guard cat.diag.survival: 0.720 -> 0.870 (R 0.140) -> TIE
+- guard cat.diag.ratio: 0.539 -> 0.551 (R 0.029) -> TIE
+- guard cat.diag.foot_slip: 0.186 -> 0.182 (R 0.010) -> TIE
+- guard cat.diag.steps_per_m: 25.117 -> 24.697 (R 2.024) -> TIE
+- guard cat.turn.survival: 0.985 -> 1.000 (R 0.058) -> TIE
+- guard cat.turn.foot_slip: 0.115 -> 0.121 (R 0.004) -> WORSE
+- guard cat.turn.steps_per_rad: 39.863 -> 31.407 (R 4.840) -> TIE
+- guard cat.move_turn.survival: 0.745 -> 0.730 (R 0.235) -> TIE
+- guard cat.move_turn.ratio: 0.498 -> 0.510 (R 0.037) -> TIE
+- anchored drift: FAIL — drifted below the anchor on guard cat.side.foot_slip, guard cat.turn.foot_slip
+
+>>> ENTRY D05
+
+### experiment X03 — A6000 s3 — ok — 2026-09-24T10:25:33
+
+- recipe `8dffe9930f3d` base `f8f4ad5d955e` chain `tail` seed 3
+- stages ['X03:c4', 'X03:c5', 'X03:c6']
+- screen: completion 0.931, tripod_dir 0.436, track tail 0.612
+- replay: none
+
+>>> ENTRY X03
+
