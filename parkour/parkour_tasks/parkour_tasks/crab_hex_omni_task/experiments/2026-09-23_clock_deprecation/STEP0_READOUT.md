@@ -5,6 +5,9 @@ Isaac, no GPU). Replay report: `STEP0_REPLAY.json` (same directory). Reading 3 u
 `resolution.36e5a8af7000.json` (inputs E1/E2, acceptance ok, null all-TIE 0.729 inside [0.616, 0.98]). That file was
 written by another session while this readout was in progress.*
 
+> **2026-09-25 correction.** The replay gate used the wrong action clip and overstated `action_rate`. The corrected
+> RG1/RG2/RG3 are in the addendum at the end. The original numbers below are left exactly as recorded.
+
 ## Verdicts (pre-registered rules)
 
 | Item | Result |
@@ -232,3 +235,99 @@ stand guard may become a flag, does not arise.
 - **Also owed at S1, not covered here.**
   - The `--q-spread-check` demotions. The D00s' frozen rule shows `per_category.demoted: {}`.
   - The D00s acceptance: ok, null all-TIE 0.729.
+
+## Addendum 2026-09-25: replay gate re-run with the runner's action clip
+
+**What was wrong.** `replay_clock_economy.py` took its action clip from the OF tool: `ACTION_CLIP = [1.0]*6 + [4.8]*12`
+(`2026-09-16_1805_omni_formation/replay_reward_economy.py:100`). That is only the action term's own per-joint clip. The
+runner clamps first:
+
+- every step-0 head's `params/agent.yaml` has `clip_actions: 1.0`;
+- `train.py:182`, `evaluation.py:121` and `eval_crab_hex_gait.py` pass it to `ParkourRslRlVecEnvWrapper`, which clamps
+  before `env.step` (`vecenv_wrapper.py:135-136`);
+- `reward_action_rate` reads the clamped `raw_actions` (`rewards.py:335`).
+
+Reading 5 shows the heads are bang-bang saturated, so the extra ±4.8 headroom inflated every hip and knee flip. The
+tool's docstring said it "clips exactly as the runner does". It did not.
+
+**The fix.** The tool now reads the clip from each stamp's own head: `params/agent.yaml` beside `run_meta.checkpoint`.
+`--action-clip` can pass it explicitly instead, and a missing agent.yaml is refused rather than defaulted.
+`action_rate` applies the runner's clamp first and then the action term's own clip.
+`tests/unit/test_crab_hex_clock_economy_replay.py` pins the clip to agent.yaml.
+
+**Re-run.** The inputs are unchanged: E1 and E3 healthy, E6 and E7 degenerate, the X08:c6 economy, and the recorded clock
+phase in all 4000 episodes. The clip resolves to 1.0 for all four stamps. E6's `--zero-actions` stamp uses the X08:c6
+checkpoint, and its actions are all zero anyway. Output: `STEP0_REPLAY_2026-09-25_runner_clip.json`.
+`STEP0_REPLAY.json` is left as it was.
+
+**Control.** The pre-fix code re-run on the same inputs reproduces `STEP0_REPLAY.json` byte for byte, so the clip is the
+only change.
+
+### `action_rate` income (/s, both economies; original → corrected)
+
+| Head | Moving holds | Overstatement | stand |
+|---|---|---|---|
+| E1 c6 | −0.84 to −1.05 → **−0.25 to −0.31** | 3.3–3.4× | −1.085 → −0.325 |
+| E3 t3 | −0.82 to −1.04 → **−0.27 to −0.36** | 2.9–3.0× | −1.181 → −0.403 |
+| E7 creeper | −0.17 to −0.30 → **−0.12 to −0.15** | 1.4–2.1× | −0.080 → −0.080 |
+| E6 statue | 0 → 0 | — | 0 → 0 |
+
+The walkers' extra `action_rate` cost over E7 falls from 0.65–0.88/s to **0.13–0.23/s**.
+
+### Corrected verdicts
+
+| Gate | Original (2026-09-23) | Corrected (2026-09-25) |
+|---|---|---|
+| RG1 | **FAIL.** 3 of 18 judged triples fail; 6 more were reversed with the clock held. | **FAIL.** 2 of 24 judged triples fail; none is reversed with the clock held. |
+| RG2 | **FAIL.** 0.231 → 0.354 (+12.3 pts; 35.4% free) | **PASS.** 0.085 → 0.139 (+5.4 pts, limit 10; 13.9% free, cap 25%) |
+| RG3 | Does not fire (stand 15.9%) | **Unchanged**, identical in every category |
+
+RG3 cannot move: `action_rate` is a negative term, and RG3 prices positive income only.
+
+### RG1 corrected: FAIL (22 of 24 judged triples pass)
+
+| Triple | Held H / D | Held ratio | Free H / D | Free ratio | Floor | Result |
+|---|---|---|---|---|---|---|
+| E3 > E7 fwd | 1.363 / 1.338 | 1.019 | 0.783 / 0.788 | 0.993 | 1.019 | **FAIL**: order flips |
+| E3 > E7 back | 1.369 / 1.163 | 1.176 | 0.790 / 0.736 | 1.073 | 1.100 | **FAIL**: ratio below the floor |
+| E1 > E7 fwd | 1.781 / 1.338 | 1.331 | 1.181 / 0.788 | 1.498 | 1.100 | pass |
+| E1 > E7 side | 1.465 / 0.857 | 1.709 | 0.892 / 0.377 | 2.364 | 1.100 | pass |
+| E1 > E7 back | 1.902 / 1.163 | 1.635 | 1.285 / 0.736 | 1.745 | 1.100 | pass |
+| E1 > E7 diag | 1.344 / 1.165 | 1.153 | 0.790 / 0.570 | 1.385 | 1.100 | pass |
+| E1 > E7 turn | 1.621 / 0.797 | 2.032 | 1.108 / 0.409 | 2.708 | 1.100 | pass |
+| E1 > E7 move_turn | 1.157 / 0.478 | — | 0.625 / −0.003 | undefined (D ≤ 0) | — | pass (on ordering only) |
+| E3 > E7 side | 1.351 / 0.857 | 1.576 | 0.811 / 0.377 | 2.148 | 1.100 | pass |
+| E3 > E7 diag | 1.235 / 1.165 | 1.060 | 0.687 / 0.570 | 1.206 | 1.060 | pass |
+| E3 > E7 turn | 1.605 / 0.797 | 2.013 | 1.019 / 0.409 | 2.491 | 1.100 | pass |
+| E3 > E7 move_turn | 1.034 / 0.478 | — | 0.485 / −0.003 | undefined (D ≤ 0) | — | pass (on ordering only) |
+| E1, E3 > E6, all 6 moving categories (12 triples) | 1.03–1.90 / −34.97 to −36.08 | undefined | 0.49–1.29 / −35.15 to −36.26 | undefined | — | pass (on ordering only, audit item 11) |
+
+Both failures are t3 against the creeper. On fwd, t3 barely out-earns E7 even with the clock held (ratio 1.019).
+Removing the clock then costs t3 more than E7: 0.580/s against 0.550/s on fwd, and 0.579/s against 0.427/s on back.
+
+### RG2 corrected: PASS
+
+The step count is unchanged at 915,817. The fraction of steps with pre-clip total ≤ 0 goes from **0.085** clock-held to
+**0.139** clock-free. That is a rise of **+5.4 pts** against a limit of 10, and 0.139 against a cap of 0.25.
+
+Held → free per category, corrected:
+
+| Head | fwd | side | back | diag | turn | move_turn | stand (not in RG2) |
+|---|---|---|---|---|---|---|---|
+| E1 | 0.050→0.077 | 0.067→0.124 | 0.044→0.065 | 0.091→0.163 | 0.052→0.074 | 0.126→0.201 | 0.033→0.041 |
+| E3 | 0.119→0.182 | 0.079→0.144 | 0.109→0.163 | 0.110→0.191 | 0.053→0.086 | 0.146→0.225 | 0.050→0.065 |
+
+**Method check.** Run with the old clip, the same breakdown script reproduces the original per-category table exactly.
+
+### What this changes in the readout above
+
+- **"Why" (RG1).** The `action_rate` bullet is withdrawn. It was the clip, not the chatter, that let E7 out-earn the
+  walkers with the clock held. Corrected, E7 out-earns neither walker on any moving category.
+- **Unaffected.** The clock-income bullet (E7 keeps clock_sched at 0.22–0.38/s) and the E6 bullet (`foot_idle` about
+  −36/s) stand: neither term reads actions. Readings 1–5 do not use the replay.
+- **S1.** The plan offers the same menu on an RG1 or an RG2 failure. RG1 still fails, so the menu still applied. Its
+  basis is now narrower: 2 t3-vs-creeper triples, and no RG2 failure.
+- **The OF tool has the same clip bug.** Its three heads (1a `2026-09-16_23-11-00`, 1b `2026-09-16_23-44-00`, 1c
+  `2026-09-17_00-13-40`) all have `clip_actions: 1.0`. On its canary raws' moving holds it overstates `action_rate`
+  2.4–2.5× for the walker, 2.8–2.9× for the mid head and 1.5–2.0× for the creeper. `run_candidates.py` also runs it, in advisory mode.
+  Neither the tool nor its records (`replay_reward_economy.md`) were changed here.

@@ -129,8 +129,8 @@ def _synthetic_tripod_episode(T: int = 300, dt: float = 0.02, freq: float = 0.33
 def test_episode_primitives_uses_the_recorded_clock_phase_when_present():
     z, phase = _synthetic_tripod_episode()
     z_recorded = dict(z, clock_phase=phase)
-    p_recorded = m.episode_primitives(z_recorded, n_offsets=36)
-    p_fitted = m.episode_primitives(dict(z), n_offsets=36)
+    p_recorded = m.episode_primitives(z_recorded, action_clip=1.0, n_offsets=36)
+    p_fitted = m.episode_primitives(dict(z), action_clip=1.0, n_offsets=36)
     assert p_recorded["phase_source"] == "recorded"
     assert p_fitted["phase_source"].startswith("fitted")
     assert p_recorded["offset_best"] is None and p_recorded["offset_scores"] is None
@@ -143,7 +143,7 @@ def test_episode_primitives_fallback_is_exactly_the_of_tools_own_fit():
     """Absent ``clock_phase``, :func:`episode_primitives` calls ``OF.episode_primitives`` directly
     (not a reimplementation) -- every non-phase-source key must be byte-identical."""
     z, _ = _synthetic_tripod_episode(seed=3)
-    ours = m.episode_primitives(dict(z), n_offsets=12)
+    ours = m.episode_primitives(dict(z), action_clip=None, n_offsets=12)   # None = OF's model
     of_direct = OF.episode_primitives(dict(z), 12)
     for key in ("clock_sum", "clock_prod", "apex", "err_xy_sq", "progress", "facing", "arate", "dtau"):
         np.testing.assert_array_equal(ours[key], of_direct[key])
@@ -153,7 +153,7 @@ def test_episode_primitives_fallback_is_exactly_the_of_tools_own_fit():
 # ============================================================================ term scoring
 def test_pre_clip_total_is_the_sum_of_term_values():
     z, phase = _synthetic_tripod_episode(seed=1)
-    p = m.episode_primitives(dict(z, clock_phase=phase), n_offsets=8)
+    p = m.episode_primitives(dict(z, clock_phase=phase), action_clip=1.0, n_offsets=8)
     econ = m.Economy()
     vals = m.term_values(p, econ)
     total = m.pre_clip_total(p, econ)
@@ -167,7 +167,8 @@ def test_term_incomes_reproduces_the_of_tools_clock_held_table():
     ``term_incomes`` / ``head_hold_income`` output, term for term, to float precision -- because
     both ultimately run the SAME transcribed formulas on the SAME primitives (this module's
     ``episode_primitives`` falls back to ``OF.episode_primitives`` directly whenever, as here,
-    ``clock_phase`` is absent from the npz)."""
+    ``clock_phase`` is absent from the npz). ``action_clip=None`` is OF's own runner-less clip, so
+    OF's ``action_rate`` is reproduced as OF prices it, not as the runner does."""
     n_offsets, limit = 8, 5
     econ = m.Economy(
         track_lin_w=OF.WEIGHTS["track_lin_vel_xy_exp"], track_lin_std=math.sqrt(OF.OLD.sigma2),
@@ -187,7 +188,7 @@ def test_term_incomes_reproduces_the_of_tools_clock_held_table():
         for hold in ("fwd", "diag"):
             of_eps = OF.load_head(OF.DEFAULT_RAWS[head_name], n_offsets, limit)
             of_inc, of_n, _ = OF.head_hold_income(of_eps, hold, OF.OLD, upright_only=False)
-            our_eps = [m.episode_primitives(dict(z), n_offsets=n_offsets) for z in
+            our_eps = [m.episode_primitives(dict(z), action_clip=None, n_offsets=n_offsets) for z in
                       _load_raw_episodes(OF.DEFAULT_RAWS[head_name], limit)]
             hold_idx = OF.HOLD_LABELS.index(hold)
             our_inc, our_n = m.head_hold_income(our_eps, hold_idx, econ)
@@ -231,13 +232,20 @@ SUITE_LABELS = ["settle"] + [h[1] for h in SUITE_HOLDS]
 
 def _make_suite_stamp(root: Path, *, per_cat: int = 2, T: int = 80, settle: int = 20,
                       speed_scale: float = 1.0, seed0: int = 0, label_order=None,
-                      with_clock_phase: bool = False, holds=None) -> Path:
+                      with_clock_phase: bool = False, holds=None, clip_actions="1.0",
+                      action_scale: float = 0.1) -> Path:
     """A synthetic ``suite__omni`` stamp (RMT's own directory contract), following the pattern in
     ``test_crab_hex_omni_replay_motion.py``'s ``_synthetic_stamp``. ``label_order`` lets a test
     deliberately reorder the hold labels relative to OF's own ``HOLD_LABELS`` (the mislabeling
-    hazard the module docstring's REUSE section names)."""
+    hazard the module docstring's REUSE section names). ``run_meta.checkpoint`` points at a fake
+    head whose ``params/agent.yaml`` carries ``clip_actions: <clip_actions>`` (``None`` writes no
+    agent.yaml at all)."""
     run = root / "suite__omni/seed001/2026-01-01_00-00-00"
     (run / "raw").mkdir(parents=True)
+    head = root / "head"
+    (head / "params").mkdir(parents=True)
+    if clip_actions is not None:
+        (head / "params" / "agent.yaml").write_text(f"seed: 3\nclip_actions: {clip_actions}\n")
     holds = holds or HOLDS
     labels = label_order or (["settle"] + [h[1] for h in holds])
     emap, n_steps = [], []
@@ -255,7 +263,7 @@ def _make_suite_stamp(root: Path, *, per_cat: int = 2, T: int = 80, settle: int 
             pos = np.zeros((T, 3)); pos[:, 0] = np.cumsum(v[:, 0]) * 0.02
             quat = np.stack([np.cos(yaw / 2), 0 * yaw, 0 * yaw, np.sin(yaw / 2)], axis=1)
             force = rng.uniform(0, 150, (T, 6))
-            z = {"actions": rng.normal(0, 0.1, (T, 18)), "cmd_applied": cmd,
+            z = {"actions": rng.normal(0, action_scale, (T, 18)), "cmd_applied": cmd,
                 "foot_force_norm": force, "foot_pos_w": rng.normal(0, 0.02, (T, 6, 3)),
                 "foot_lin_vel_w": rng.normal(0, 0.02, (T, 6, 3)), "root_pos_w": pos,
                 "root_quat_w": quat, "root_lin_vel_b": v,
@@ -272,7 +280,7 @@ def _make_suite_stamp(root: Path, *, per_cat: int = 2, T: int = 80, settle: int 
                         "label": label, "wave": 0})
             n_steps.append(T)
             idx += 1
-    meta = {"checkpoint": None, "checkpoint_sha256": "0" * 64, "scenario_id": "suite__omni",
+    meta = {"checkpoint": str(head / "model_0.pt"), "checkpoint_sha256": "0" * 64, "scenario_id": "suite__omni",
             "dt": 0.02, "joint_names": JOINTS, "hold_labels": labels, "env_index_map": emap,
             "episodes_total": idx, "n_steps_per_env": n_steps,
             "termination_reason": ["schedule_complete"] * idx,
@@ -456,6 +464,8 @@ def test_main_runs_end_to_end_on_two_synthetic_stamps_and_writes_rg1_rg2_rg3(tmp
     assert payload["RG1"]["pass"] in (True, False)
     assert payload["RG2"]["pass"] in (True, False)
     assert set(payload["RG3"]) == set(m.ALL_CATEGORIES)
+    assert payload["action_clips"]["E1"]["clip"] == payload["action_clips"]["E6"]["clip"] == 1.0
+    assert payload["action_clips"]["E1"]["source"].endswith("head/params/agent.yaml")
 
 
 # ============================================================================ step-6 review fixes
@@ -503,7 +513,7 @@ def test_episode_primitives_idle_reset_matches_of_across_the_segment_remap():
     z = dict(z, segment_id=seg)
     z["foot_force_norm"] = z["foot_force_norm"].copy()
     z["foot_force_norm"][:, 0] = 0.0                                  # one foot always idle
-    ours = m.episode_primitives(dict(z), n_offsets=4)
+    ours = m.episode_primitives(dict(z), action_clip=1.0, n_offsets=4)
     of_direct = OF.episode_primitives(dict(z), 4)
     np.testing.assert_array_equal(ours["idle_reset"], of_direct["idle_reset"])
     np.testing.assert_array_equal(ours["seg"], of_direct["seg"])
@@ -551,3 +561,91 @@ def test_rg1_and_rg3_pool_both_hands_of_a_category():
     rg3 = m.rg3_income_share_removed(healthy, econ, econ_free, categories=("side",))
     assert rg3["side"]["n"] == 2 * T
     assert rg3["side"]["pos_held"] == pytest.approx(2.0)
+
+
+# ============================================================================ the runner's action clip
+# 2026-09-25 fix: the runner clamps every action to +-clip_actions (the head's params/agent.yaml)
+# before the action term's own +-1 / +-4.8 clip, and reward_action_rate reads the result. OF's
+# primitives apply only the second clamp, which overstated action_rate 2.9-3.4x on the step-0 walkers.
+OMNI_RUNS = X08_C6_ENV_YAML.parents[2]                     # .../logs/rsl_rl/crab_hex_omni_flat_walk
+#: The step-0 replay heads (STEP0_READOUT.md): E1 and E6's donor X08:c6, E3 X08:t3, E7 the 1c creeper.
+STEP0_HEAD_AGENT_YAMLS = {
+    "X08:c6": X08_C6_ENV_YAML.parent / "agent.yaml",
+    "X08:t3": OMNI_RUNS / "2026-09-22_09-10-29_seed3_X08_t3_A15pB/params/agent.yaml",
+    "1c creeper": OMNI_RUNS / "2026-09-17_00-13-40/params/agent.yaml",
+}
+
+
+def _expected_arate(actions: np.ndarray, clip: float) -> np.ndarray:
+    a = np.clip(np.asarray(actions, dtype=np.float64), -clip, clip)
+    out = np.zeros(a.shape[0])
+    out[1:] = np.linalg.norm(np.diff(a, axis=0), axis=1)
+    return out
+
+
+def test_load_suite_rollout_takes_the_action_clip_from_the_heads_agent_yaml(tmp_path):
+    run = _make_suite_stamp(tmp_path, per_cat=1, clip_actions="0.5", action_scale=3.0)
+    rollout = m.load_suite_rollout(run)
+    assert rollout["action_clip"] == 0.5
+    assert rollout["action_clip_source"] == f"agent: {tmp_path / 'head/params/agent.yaml'}"
+    scored = m.score_rollout(rollout, n_offsets=4)
+    for e, ep in zip(scored, rollout["episodes"]):
+        assert e["p"]["action_clip"] == 0.5
+        np.testing.assert_allclose(e["p"]["arate"], _expected_arate(ep["z"]["actions"], 0.5))
+        assert e["p"]["arate"].max() <= 2 * 0.5 * math.sqrt(18) + 1e-12
+        # OF's own (runner-less) arate on the same saturated actions is larger: the bug
+        assert OF.episode_primitives(dict(ep["z"]), 4)["arate"].sum() > 2 * e["p"]["arate"].sum()
+
+
+def test_an_explicit_action_clip_overrides_agent_yaml_and_must_be_positive(tmp_path):
+    run = _make_suite_stamp(tmp_path, per_cat=1, clip_actions="0.5")
+    rollout = m.load_suite_rollout(run, action_clip=0.25)
+    assert rollout["action_clip"] == 0.25
+    assert rollout["action_clip_source"].startswith("explicit")
+    for bad in (0.0, -1.0, float("nan")):
+        with pytest.raises(ValueError, match="action clip"):
+            m.load_suite_rollout(run, action_clip=bad)
+
+
+def test_a_missing_agent_yaml_key_or_checkpoint_is_refused_not_defaulted(tmp_path):
+    run = _make_suite_stamp(tmp_path / "nofile", per_cat=1, clip_actions=None)
+    with pytest.raises(SystemExit, match="--action-clip"):
+        m.load_suite_rollout(run)
+    run = _make_suite_stamp(tmp_path / "nokey", per_cat=1)
+    (tmp_path / "nokey/head/params/agent.yaml").write_text("seed: 3\n")
+    with pytest.raises(SystemExit, match="no clip_actions key"):
+        m.load_suite_rollout(run)
+    run = _make_suite_stamp(tmp_path / "nockpt", per_cat=1)
+    meta = json.loads((run / "run_meta.json").read_text())
+    (run / "run_meta.json").write_text(json.dumps(dict(meta, checkpoint=None)))
+    with pytest.raises(SystemExit, match="no checkpoint"):
+        m.load_suite_rollout(run)
+
+
+def test_clip_actions_null_means_no_runner_clamp_which_is_ofs_own_arate(tmp_path):
+    run = _make_suite_stamp(tmp_path, per_cat=1, clip_actions="null", action_scale=3.0)
+    rollout = m.load_suite_rollout(run)
+    assert rollout["action_clip"] is None
+    ep = rollout["episodes"][0]
+    p = m.episode_primitives(dict(ep["z"]), action_clip=rollout["action_clip"], n_offsets=4,
+                             hold_labels=rollout["meta"]["hold_labels"])
+    np.testing.assert_array_equal(p["arate"], OF.episode_primitives(dict(ep["z"]), 4)["arate"])
+
+
+def test_bang_bang_action_rate_is_bounded_by_the_runner_clip():
+    """Every column flipping +-8 each step (the step-0 heads are this saturated: median |mu| 5-8).
+    Runner clip 1.0: 2 * sqrt(18) per step. OF's term-only clip (1.0 cam, 4.8 hip/knee):
+    sqrt(6 * 2^2 + 12 * 9.6^2), ~3.96x more."""
+    a = np.tile(np.array([[8.0] * 18, [-8.0] * 18]), (10, 1))
+    np.testing.assert_allclose(m.action_rate_primitive(a, 1.0)[1:], 2 * math.sqrt(18))
+    of_model = m.action_rate_primitive(a, None)[1:]
+    np.testing.assert_allclose(of_model, math.sqrt(6 * 2.0**2 + 12 * 9.6**2))
+    assert of_model[0] / (2 * math.sqrt(18)) == pytest.approx(3.96, abs=0.01)
+
+
+@pytest.mark.parametrize("head", sorted(STEP0_HEAD_AGENT_YAMLS))
+def test_the_step0_heads_agent_yaml_pins_clip_actions_to_1(head):
+    path = STEP0_HEAD_AGENT_YAMLS[head]
+    if not path.is_file():
+        pytest.skip(f"{path} not on disk (gitignored run dir)")
+    assert m.action_clip_from_agent_yaml(path) == 1.0

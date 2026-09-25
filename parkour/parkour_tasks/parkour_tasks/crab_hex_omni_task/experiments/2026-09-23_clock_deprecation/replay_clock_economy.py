@@ -25,8 +25,9 @@ REUSE (plan step 5's spec). This module is loaded by path, pure numpy/pyyaml at 
   the omni-formation 1c-fix reward-economy replay) -- its TRANSCRIBED shipped-formula primitives:
   ``_gravity_b``, ``_clock_income``, ``_apex_income`` (called directly, byte-for-byte the same
   code) and its ``episode_primitives`` (called directly for every OTHER per-step quantity --
-  tracking errors, progress, yaw progress, facing, cross-command penalty, action/torque streams,
-  foot-idle, air time, excess-feet-contact -- none of which depend on the clock phase). OF's own
+  tracking errors, progress, yaw progress, facing, cross-command penalty, torque stream,
+  foot-idle, air time, excess-feet-contact -- none of which depend on the clock phase; the ONE
+  exception is ``arate``, re-derived here with the runner's clip -- see THE ACTION CLIP). OF's own
   module-level shipped constants (``FORCE_REF_N=100``, ``VEL_REF_M_S=0.1``, ``TOUCH_REF_N=50``,
   ``APEX_MID_THRESH=0.7``, ``APEX_TARGET_M=0.08``, ``APEX_SIGMA_M=0.03``,
   ``GROUND_OFFSET_FROM_ROOT_M=-1.05``, ``MIN_UPRIGHT_GZ=0.9``, ``OMNI_CLOCK_TURN_R=1.2``,
@@ -57,12 +58,27 @@ reimplemented -- and every output the fallback produces is tagged ``phase_source
 so a reader always knows which one was used. A report that mixes recorded and fitted episodes
 prints the count of each.
 
+THE ACTION CLIP (fixed 2026-09-25). The eval npz stores the policy's PRE-clip mean. Before the
+action term sees it, the runner's ``ParkourRslRlVecEnvWrapper`` clamps every column to
+``+-clip_actions`` (the head's ``params/agent.yaml``; ``train.py`` / ``evaluation.py`` pass
+``agent_cfg.clip_actions``, ``vecenv_wrapper.py`` ``step`` clamps before ``env.step``); the action
+term then applies its OWN per-joint clip (``_clip_raw_actions``: CamShaft +-1, Hip_Femur and
+Femur_Tibia +-4.8 -- OF's ``ACTION_CLIP``) and ``reward_action_rate`` reads the result
+(``raw_actions``). OF's ``episode_primitives`` applies only the second clamp, so on the omni heads
+(``clip_actions: 1.0``, bang-bang saturated -- median |mu| 5-8) it overstated ``action_rate``
+2.9-3.4x on the step-0 walkers (1.4-2.1x on the creeper). :func:`episode_primitives` therefore
+re-derives ``arate`` from both clamps in order (:func:`runner_clipped_actions`), and
+:func:`load_suite_rollout` reads the first from each stamp's OWN head (``run_meta.checkpoint``'s
+``params/agent.yaml``, RMT's ``_train_dumps_for`` convention) unless ``--action-clip`` passes it
+explicitly. A missing agent.yaml is refused, never defaulted.
+Step 0's ``STEP0_REPLAY.json`` predates this fix; its corrected numbers are the 2026-09-25
+addendum in ``STEP0_READOUT.md``.
+
 EMITTED QUANTITIES
 
 * :func:`term_values` -- every replayed term's PRE-CLIP per-step ``weight * value`` series
-  (length T, unmasked; "pre-clip" because nothing here reproduces the runner's ``clip_actions`` on
-  the ACTION stream -- OF's ``episode_primitives`` already clips actions before ``arate``/``dtau``
-  read them, exactly as the runner does, so "pre-clip" names the REWARD total, not the action).
+  (length T, unmasked). "Pre-clip" names the REWARD total (no reward-side clip is reproduced), not
+  the action: ``arate`` is computed on the runner-clipped actions (THE ACTION CLIP above).
 * :func:`pre_clip_total` -- their per-step sum: one number per env-step, the plan's "per-step
   pre-clip totals".
 * :func:`term_incomes` -- the mean of :func:`term_values` over a boolean mask (a hold), the same
@@ -100,7 +116,7 @@ THE GATES (plan step 9's own text; RG3 is report-only)
 USAGE
     <isaac_venv>/bin/python replay_clock_economy.py --healthy E1=<run_dir> --healthy E3=<run_dir> \\
         --degenerate E6=<run_dir> --degenerate E7=<run_dir> [--weights-env-yaml P] [--out DIR]
-        [--n-offsets 36] [--limit N]
+        [--n-offsets 36] [--limit N] [--action-clip C]
 """
 
 from __future__ import annotations
@@ -273,6 +289,56 @@ KNOWN_SIMPLIFICATIONS = (
 )
 
 
+# ============================================================================ the action clip
+def _check_clip(clip: float) -> float:
+    clip = float(clip)
+    if not (math.isfinite(clip) and clip > 0.0):
+        raise ValueError(f"action clip must be finite and > 0, got {clip!r}")
+    return clip
+
+
+def head_agent_yaml(meta: dict) -> Path:
+    """The scored head's ``params/agent.yaml``: beside ``run_meta.checkpoint`` (RMT's
+    ``_train_dumps_for`` convention). A stamp with no checkpoint is refused."""
+    ckpt = meta.get("checkpoint")
+    if not ckpt:
+        raise SystemExit("run_meta has no checkpoint, so the head's params/agent.yaml (clip_actions) "
+                         "cannot be found; pass --action-clip explicitly")
+    return Path(ckpt).parent / "params" / "agent.yaml"
+
+
+def action_clip_from_agent_yaml(path: Path | str) -> float | None:
+    """``clip_actions`` of a training ``params/agent.yaml`` (module docstring's THE ACTION CLIP).
+    ``None`` only when the dump says ``clip_actions: null`` (the wrapper then does not clamp). A
+    missing file or key is refused, never defaulted."""
+    path = Path(path)
+    if not path.is_file():
+        raise SystemExit(f"{path}: not found, so the runner's clip_actions is unknown; pass "
+                         "--action-clip explicitly")
+    d = RMT._yaml_load_tolerant(path) or {}
+    if "clip_actions" not in d:
+        raise SystemExit(f"{path}: no clip_actions key; pass --action-clip explicitly")
+    return None if d["clip_actions"] is None else _check_clip(d["clip_actions"])
+
+
+def runner_clipped_actions(actions: np.ndarray, action_clip: float | None) -> np.ndarray:
+    """What ``reward_action_rate`` reads (before the action delay): the runner's ``+-clip_actions``
+    clamp, then the action term's own per-joint clip (``OF.ACTION_CLIP``). ``action_clip=None``
+    means the runner applied no clamp, which is OF's own model -- byte-identical to OF's ``a``."""
+    a = np.asarray(actions).astype(np.float64)
+    if action_clip is not None:
+        a = np.clip(a, -action_clip, action_clip)
+    return np.clip(a, -OF.ACTION_CLIP, OF.ACTION_CLIP)
+
+
+def action_rate_primitive(actions: np.ndarray, action_clip: float | None) -> np.ndarray:
+    """OF's ``arate`` formula (``||a_t - a_{t-1}||``, 0 at t=0) on :func:`runner_clipped_actions`."""
+    a = runner_clipped_actions(actions, action_clip)
+    arate = np.zeros(a.shape[0])
+    arate[1:] = np.linalg.norm(a[1:] - a[:-1], axis=1)
+    return arate
+
+
 # ============================================================================ per-step primitives
 #: The turn-type holds (the eval analogue of a drawn turn slot; OF's ``TURN_HOLDS`` plus the
 #: suite's mirrored ``move_turn_r``), named by LABEL and resolved against each stamp's own
@@ -294,13 +360,17 @@ def _segment_runs_parity(seg: np.ndarray) -> np.ndarray:
     return runs % 2
 
 
-def episode_primitives(z: dict, *, n_offsets: int = 36,
+def episode_primitives(z: dict, *, action_clip: float | None, n_offsets: int = 36,
                        hold_labels: list[str] | tuple[str, ...] | None = None) -> dict:
     """OF's ``episode_primitives`` (transcribed shipped formulas), called directly for every
     per-step quantity that does not depend on the clock phase, with the phase itself re-sourced
     from the RECORDED ``clock_phase`` field when the npz carries it (module docstring) instead of
     OF's offset fit. Adds ``phase_source`` (``"recorded"`` or ``"fitted (clock_phase absent...)"``)
     to the returned dict.
+
+    ``action_clip`` is the scored head's ``clip_actions`` (required, so no caller can fall back
+    to OF's runner-less clip by omission); ``arate`` is re-derived from it
+    (:func:`action_rate_primitive`). ``None`` = no runner clamp = OF's own ``arate``.
 
     ``hold_labels`` is the stamp's OWN label list (``run_meta.json``; :func:`score_rollout` always
     passes it). OF is handed a boundary-preserving 0/1 ``segment_id`` (:func:`_segment_runs_parity`)
@@ -314,6 +384,8 @@ def episode_primitives(z: dict, *, n_offsets: int = 36,
                              f"{list(OF.HOLD_LABELS)}: pass the stamp's own hold_labels")
         hold_labels = OF.HOLD_LABELS
     p = dict(OF.episode_primitives(dict(z, segment_id=_segment_runs_parity(seg)), n_offsets))
+    p["arate"] = action_rate_primitive(z["actions"], action_clip)
+    p["action_clip"] = action_clip
     p["seg"] = seg
     turn_ids = [i for i, lab in enumerate(hold_labels) if lab in TURN_HOLD_LABELS]
     p["turn_hold"] = np.isin(seg, turn_ids).astype(np.float64)
@@ -437,18 +509,28 @@ def head_hold_income(eps: list[dict], hold_idx: int, econ: Economy) -> tuple[dic
 
 
 # ============================================================================ suite-npz loading
-def load_suite_rollout(run_dir: Path | str, *, limit: int | None = None) -> dict:
+def load_suite_rollout(run_dir: Path | str, *, limit: int | None = None,
+                       action_clip: float | None = None) -> dict:
     """Every episode of one ``suite__omni`` eval stamp, following RMT's ``load_run``'s directory
     contract (``run_meta.json`` + ``complete.json`` + ``raw/episode_*.npz``). Category and hold
     come from the run's OWN ``env_index_map``/``hold_labels`` (never a hardcoded label tuple --
-    see the module docstring's REUSE section for why that matters). Returns
-    ``{run_dir, meta, episodes: [{env_index, category, hold, hold_idx, z}]}``."""
+    see the module docstring's REUSE section for why that matters). The runner's action clip is
+    the head's own ``clip_actions`` (:func:`head_agent_yaml`) unless ``action_clip`` passes one
+    explicitly. Returns ``{run_dir, meta, action_clip, action_clip_source,
+    episodes: [{env_index, category, hold, hold_idx, z}]}``."""
     run_dir = Path(run_dir)
     if not (run_dir / "complete.json").is_file():
         raise SystemExit(f"{run_dir}: no complete.json -- the stamp is partial; refusing")
     meta = json.loads((run_dir / "run_meta.json").read_text())
     if not meta.get("suite"):
         raise SystemExit(f"{run_dir}: not a category-suite stamp (run_meta has no 'suite')")
+    if action_clip is None:
+        agent_yaml = head_agent_yaml(meta)
+        clip = action_clip_from_agent_yaml(agent_yaml)
+        clip_source = f"agent: {agent_yaml}"
+    else:
+        clip = _check_clip(action_clip)
+        clip_source = "explicit (--action-clip)"
     hold_labels = list(meta["hold_labels"])
     emap = meta.get("env_index_map") or []
     n_total = int(meta.get("episodes_total") or len(emap))
@@ -462,18 +544,21 @@ def load_suite_rollout(run_dir: Path | str, *, limit: int | None = None) -> dict
             z = {k: npz[k] for k in npz.files}
         episodes.append({"env_index": idx, "category": cat, "hold": label,
                          "hold_idx": hold_labels.index(label), "z": z})
-    return {"run_dir": str(run_dir), "meta": meta, "episodes": episodes}
+    return {"run_dir": str(run_dir), "meta": meta, "action_clip": clip,
+            "action_clip_source": clip_source, "episodes": episodes}
 
 
 def score_rollout(rollout: dict, *, n_offsets: int = 36) -> list[dict]:
-    """Every episode's primitives (:func:`episode_primitives`), plus its category/hold/hold_idx.
+    """Every episode's primitives (:func:`episode_primitives`, at the rollout's own
+    ``action_clip``), plus its category/hold/hold_idx.
     Computed ONCE per rollout -- the phase does not depend on the economy, so both variants
     (clock-held / clock-free) reuse the same primitives (the only per-economy work is
     :func:`term_values`/:func:`pre_clip_total`, applied downstream)."""
     out = []
     hold_labels = list(rollout["meta"]["hold_labels"])
     for ep in rollout["episodes"]:
-        p = episode_primitives(ep["z"], n_offsets=n_offsets, hold_labels=hold_labels)
+        p = episode_primitives(ep["z"], action_clip=rollout["action_clip"], n_offsets=n_offsets,
+                               hold_labels=hold_labels)
         out.append({**{k: ep[k] for k in ("env_index", "category", "hold", "hold_idx")}, "p": p})
     return out
 
@@ -654,21 +739,28 @@ def main(argv: list[str] | None = None) -> int:
                     help="the ONE economy every rollout is priced under (default: X08:c6's own dump)")
     ap.add_argument("--n-offsets", type=int, default=36, help="clock-phase fallback fit grid size")
     ap.add_argument("--limit", type=int, default=0, help="episodes per rollout (0 = all)")
+    ap.add_argument("--action-clip", type=float, default=None,
+                    help="the runner's clip_actions for EVERY rollout (default: each stamp's own "
+                         "head's params/agent.yaml, beside run_meta.checkpoint)")
     ap.add_argument("--out", default=str(CAMPAIGN_DIR / "replay_clock_economy.json"))
     args = ap.parse_args(argv)
 
     econ_held = economy_from_env_yaml(args.weights_env_yaml, clock=CLOCK_HELD)
     econ_free = replace(econ_held, clock=CLOCK_FREE)
+    action_clips: dict[str, dict] = {}
 
     def _load_group(pairs: list[tuple[str, str]]) -> dict[str, list[dict]]:
         out = {}
         for name, path in pairs:
-            rollout = load_suite_rollout(path, limit=args.limit or None)
+            rollout = load_suite_rollout(path, limit=args.limit or None, action_clip=args.action_clip)
+            action_clips[name] = {"clip": rollout["action_clip"], "source": rollout["action_clip_source"]}
             out[name] = score_rollout(rollout, n_offsets=args.n_offsets)
         return out
 
     healthy = _load_group(args.healthy)
     degenerate = _load_group(args.degenerate)
+    for name, c in action_clips.items():
+        print(f"[replay] {name}: action clip {c['clip']} ({c['source']})")
 
     if not healthy or not degenerate:
         print("[replay] at least one --healthy and one --degenerate stamp are required for "
@@ -679,6 +771,7 @@ def main(argv: list[str] | None = None) -> int:
         "economy_notes": list(econ_held.notes),
         "not_replayed": NOT_REPLAYED_NOTES,
         "known_simplifications": KNOWN_SIMPLIFICATIONS,
+        "action_clips": action_clips,
         "phase_sources": {name: phase_source_counts(eps)
                           for name, eps in {**healthy, **degenerate}.items()},
     }
