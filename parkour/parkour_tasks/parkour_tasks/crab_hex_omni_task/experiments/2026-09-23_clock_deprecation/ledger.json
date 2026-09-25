@@ -17735,7 +17735,54 @@
         "park": true,
         "pair_queued": false,
         "immediate": []
-      }
+      },
+      "flag_acks": [
+        {
+          "uuid": "007733de-282c-42e1-973c-16203fce7243",
+          "at": "2026-09-25T08:24:34",
+          "why": "autonomous wave 1 (user 2026-09-24: run the rest of wave 1 without input)",
+          "level": "s3",
+          "applied_at": "2026-09-25T08:24:35"
+        }
+      ]
+    },
+    {
+      "id": "D07",
+      "kind": "candidate",
+      "candidate": "A3000",
+      "experiment": "X08",
+      "question": "The same removal from the t3 -> c4 boundary on: the whole 5000-iteration tail clock-free, move_turn, omni and omni_turn all arriving clock-free. Sent automatically unless A6000 and A4500 both BREAK.",
+      "options": [
+        "ADOPT",
+        "REJECT",
+        "SKIP"
+      ],
+      "chosen": "REJECT",
+      "alternative": "ADOPT",
+      "confidence": "clear",
+      "status": "decided",
+      "floor_stage": "c4",
+      "evidence": {
+        "floor": "category survival on suite (one-sided 99 % band): stand 1.000 (bound 1.000, n_env 100, min >= 0.69); fwd 0.740 (bound 0.842, n_env 100, min >= 0.52); side 0.990 (bound 1.013, n_env 100, min >= 0.65); back 0.810 (bound 0.901, n_env 100, min >= 0.55); turn 0.990 (bound 1.013, n_env 100, min >= 0.62); move_turn 0.190 (bound 0.281, n_env 100, min >= 0.315) -- FAIL on ['move_turn']",
+        "floor_stage": "c4",
+        "retention": [],
+        "replay": null,
+        "resolution_id": null
+      },
+      "depends_on": [
+        "A6000",
+        "A4500"
+      ],
+      "conditional_refs": [],
+      "base_recipe_id": "f8f4ad5d955e",
+      "recipe_id_if_adopted": "3d1d63630d84",
+      "code_sha": "8ce6da6156b31b7d85cb499394b517bc4bea6c83e91c4db56562f1a68d373a73",
+      "eval_sha": "36e5a8af7000f2c3351f693b046257e6d7fba1547077cc2efb6feb00e5a842df",
+      "tools_sha": "6caaa468ab5f1c2efe41e0428314f6aa4b460079a1728c236e1da148523e7bb4",
+      "decided_at": "2026-09-25T09:08:26",
+      "decided_by": "driver",
+      "why": "FLOOR: category survival on suite (one-sided 99 % band): stand 1.000 (bound 1.000, n_env 100, min >= 0.69); fwd 0.740 (bound 0.842, n_env 100, min >= 0.52); side 0.990 (bound 1.013, n_env 100, min >= 0.65); back 0.810 (bound 0.901, n_env 100, min >= 0.55); turn 0.990 (bound 1.013, n_env 100, min >= 0.62); move_turn 0.190 (bound 0.281, n_env 100, min >= 0.315) -- FAIL on ['move_turn']",
+      "history": []
     }
   ]
 }
