@@ -121,6 +121,15 @@ class TestParseVersions:
         )
         assert _parse_versions(output) == ["0.2.9", "0.2.9", "0.2.9"]
 
+    def test_new_role_lines_leader_usb(self):
+        output = (
+            "Attached boards:\n"
+            "  front (/dev/ttyUSB0): 0.2.15 (release/0.2.15 abc)\n"
+            "  left: 0.2.15 (release/0.2.15 abc)\n"
+            "  right: 0.2.15 (release/0.2.15 abc)\n"
+        )
+        assert _parse_versions(output) == ["0.2.15", "0.2.15", "0.2.15"]
+
 
 class TestParsePorts:
     def test_extracts_three_ports(self):
@@ -142,6 +151,14 @@ class TestParsePorts:
         )
         assert _parse_ports(output) == ["/dev/ttyUSB0", "/dev/ttyACM0"]
 
+    def test_new_format_leader_usb_one_port(self):
+        output = (
+            "  front (/dev/ttyUSB0): 0.2.15 (release/0.2.15 abc)\n"
+            "  left: 0.2.15 (release/0.2.15 abc)\n"
+            "  right: 0.2.15 (release/0.2.15 abc)\n"
+        )
+        assert _parse_ports(output) == ["/dev/ttyUSB0"]
+
 
 class TestRunSmoke:
     # New flow: show(ports) → update×N → show(versions)
@@ -151,6 +168,11 @@ class TestRunSmoke:
         "  /dev/ttyUSB1  right: 0.2.0 (mainline abc)\n"
     )
     _SHOW_1 = "  /dev/ttyACM0  primary: 0.2.0 (mainline abc)\n"
+    _SHOW_LEADER_USB = (
+        "  front (/dev/ttyUSB0): 0.2.0 (mainline abc)\n"
+        "  left: 0.2.0 (mainline abc)\n"
+        "  right: 0.2.0 (mainline abc)\n"
+    )
 
     def _mock_firmware(self, side_effects):
         """side_effects: list of (rc, stdout, stderr) per _run_firmware call."""
@@ -180,25 +202,50 @@ class TestRunSmoke:
         assert not result.ok
         assert result.step == "firmware_update"
 
-    def test_fails_when_fewer_than_three_ports(self):
-        # show finds only 1 port — fail before any updates
-        calls = [(0, self._SHOW_1, "")]
+    def test_fails_when_no_ports(self):
+        calls = [(0, "Attached boards:\n", "")]
         with self._mock_firmware(calls):
             result = run_smoke("mainline", "myimage:tag")
         assert not result.ok
         assert result.step == "firmware_show_ports"
 
-    def test_fails_daisy_chain_masks_missing_usb(self):
-        # show finds 1 port but daisy chain reports 3 versions — should still fail
-        show_3_versions_1_port = (
-            "  /dev/ttyACM0  primary: 0.2.0 (mainline abc) | "
-            "left: 0.2.0 (mainline abc) | right: 0.2.0 (mainline abc)\n"
-        )
-        calls = [(0, show_3_versions_1_port, "")]
+    def test_passes_leader_usb_three_roles(self):
+        # One USB to the leader; show lists three roles — flash that port once.
+        calls = [
+            (0, self._SHOW_LEADER_USB, ""),
+            (0, "", ""),
+            (0, self._SHOW_LEADER_USB, ""),
+        ]
         with self._mock_firmware(calls):
-            result = run_smoke("mainline", "myimage:tag")
+            with self._mock_s3("0.2.0"):
+                result = run_smoke("mainline", "myimage:tag")
+        assert result.ok
+        assert result.ver_observed == ["0.2.0", "0.2.0", "0.2.0"]
+
+    def test_skips_flash_when_all_dev_local(self):
+        show = (
+            "  front (/dev/ttyUSB0): dev-local (dev-local dev-local)\n"
+            "  left: dev-local (dev-local dev-local)\n"
+            "  right: dev-local (dev-local dev-local)\n"
+        )
+        with self._mock_firmware([(0, show, "")]):
+            result = run_smoke("release/0.2.15", "myimage:tag")
+        assert result.ok
+        assert result.skipped_flash
+        assert result.step == "dev_local_skip"
+        assert result.ver_observed == ["dev-local", "dev-local", "dev-local"]
+
+    def test_refuses_flash_when_mixed_dev_local(self):
+        show = (
+            "  front (/dev/ttyUSB0): 0.2.15 (release/0.2.15 abc)\n"
+            "  left: dev-local (dev-local dev-local)\n"
+            "  right: 0.2.15 (release/0.2.15 abc)\n"
+        )
+        with self._mock_firmware([(0, show, "")]):
+            result = run_smoke("release/0.2.15", "myimage:tag")
         assert not result.ok
-        assert result.step == "firmware_show_ports"
+        assert result.step == "dev_local_mixed"
+        assert result.skipped_flash
 
     def test_fails_when_boards_disagree(self):
         show_disagree = (
@@ -513,3 +560,105 @@ class TestSsmFetch:
         with patch("boto3.client", return_value=mock_client):
             result = fetch_secrets("/krabby/bench", "AKIATEST", "secretkey")
         assert result is None
+
+
+# ---------------------------------------------------------------------------
+# harness: stage skip + summary
+# ---------------------------------------------------------------------------
+
+class TestHarness:
+    def test_skip_all_hardware_stages_passes(self):
+        from krabby_bench._harness import HarnessConfig, run_harness
+
+        cfg = HarnessConfig(
+            skip_install=True,
+            skip_flash=True,
+            skip_bringup=True,
+            skip_motion=True,
+        )
+        result = run_harness(cfg)
+        assert result.ok
+        assert result.failed_stage is None
+        assert [s.stage for s in result.stages] == ["flash", "bringup", "motion"]
+        assert all(s.detail == "skipped" for s in result.stages)
+
+    def test_summary_lines_include_fail_command(self):
+        from krabby_bench._harness import HarnessResult, StageResult
+
+        hr = HarnessResult(
+            ok=False,
+            failed_stage="flash",
+            stages=[
+                StageResult(stage="install", ok=True, detail="ok"),
+                StageResult(
+                    stage="flash",
+                    ok=False,
+                    detail="ver_mismatch",
+                    command="krabby firmware update",
+                ),
+            ],
+        )
+        lines = hr.summary_lines()
+        assert any("FAIL" in ln and "flash" in ln for ln in lines)
+        assert any("krabby firmware update" in ln for ln in lines)
+
+
+# ---------------------------------------------------------------------------
+# Discord notify
+# ---------------------------------------------------------------------------
+
+class TestDiscord:
+    def test_skip_when_no_webhook(self, caplog, monkeypatch):
+        import logging
+        from krabby_bench._discord import post_discord
+
+        monkeypatch.delenv("DISCORD_WEBHOOK_URL", raising=False)
+        with caplog.at_level(logging.INFO):
+            assert post_discord("", ok=True) is False
+            assert post_discord(None, ok=False, failed_stage="motion") is False
+        assert any("Discord skipped" in r.message for r in caplog.records)
+
+    def test_payload_includes_stage_and_run_url(self):
+        from krabby_bench._discord import format_discord_payload
+
+        payload = format_discord_payload(
+            ok=False,
+            title="krabby-bench harness",
+            commit="abcdef1234567890",
+            subject="fix motion peak",
+            failed_stage="motion",
+            run_url="https://github.com/org/repo/actions/runs/1",
+            detail="[FAIL] motion: no pot change",
+        )
+        assert "FAIL" in payload["content"]
+        assert "motion" in payload["content"]
+        desc = payload["embeds"][0]["description"]
+        assert "abcdef1" in desc
+        assert "fix motion peak" in desc
+        assert "motion" in desc
+        assert "actions/runs/1" in desc
+
+    def test_post_sends_json(self):
+        from krabby_bench._discord import post_discord
+
+        mock_resp = MagicMock()
+        mock_resp.raise_for_status = MagicMock()
+        with patch("krabby_bench._discord.requests.post", return_value=mock_resp) as post:
+            assert post_discord(
+                "https://discord.com/api/webhooks/test",
+                ok=True,
+                commit="abc1234deadbeef",
+                subject="ok",
+            )
+            post.assert_called_once()
+            kwargs = post.call_args.kwargs
+            assert kwargs["json"]["embeds"][0]["color"] == 0x2ECC71
+
+    def test_default_run_url_from_env(self, monkeypatch):
+        from krabby_bench._discord import default_run_url
+
+        monkeypatch.setenv("GITHUB_SERVER_URL", "https://github.com")
+        monkeypatch.setenv("GITHUB_REPOSITORY", "flliver/krabby-research")
+        monkeypatch.setenv("GITHUB_RUN_ID", "42")
+        assert default_run_url() == "https://github.com/flliver/krabby-research/actions/runs/42"
+

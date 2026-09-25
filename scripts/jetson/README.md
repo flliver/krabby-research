@@ -66,6 +66,10 @@ single step.
 - **`jetson-reset.sh`** — reset a Jetson to pristine: uninstall krabby packages,
   remove systemd units, config, udev rules, and Docker images. Leaves SSH keys
   and the user account intact.
+- **`bench-reset.sh`** — light dual-use reset for the bench harness: stops
+  `krabby` containers / `krabby-locomotion`, clears `~/.config/krabby/state.json`,
+  removes **`~/.venv-krabby-bench` only** (never `~/.venv-krabby`). Optional
+  `--rmi` drops locomotion images.
 - **`pair_pro_controller.sh`** — pair a Nintendo Switch Pro Controller over
   Bluetooth and persist the link key so it auto-reconnects across Bluetooth
   restarts. See [CONNECT_PRO_CONTROLLER.md](../../controller/scripts/jetson/CONNECT_PRO_CONTROLLER.md).

@@ -201,6 +201,92 @@ Within one poll cycle the watchdog detects the failure and fires an alert.
 
 `/var/lib/krabby-bench/state.json` — persists the last-tested digest and last-alert metadata. Clear it to force a re-test on the next poll.
 
+## Four-stage harness (install → flash → bringup → motion)
+
+One-shot CI path for cold-start verification. Extends this package rather than a second bench
+service. Dual-use Orin: uses `~/.venv-krabby-bench` and
+`scripts/jetson/bench-reset.sh` (never deletes `~/.venv-krabby`).
+
+```bash
+# From cold-start or any venv that has this package (editable ok):
+cd /path/to/krabby-research
+source ~/.venv-krabby/bin/activate   # or bench venv after first install
+pip install -e ./bench
+
+# Full run (reset + fresh Install + Flash + Bringup + Motion).
+# Requires sudo for krabby install; keep one leg free to move.
+krabby-bench harness --repo-root "$(pwd)"
+
+# After Install already proved — skip wipe/reinstall:
+krabby-bench harness --skip-install --no-reset --repo-root "$(pwd)"
+```
+
+| Stage | What it does |
+|---|---|
+| **install** | `bench-reset.sh` → create `~/.venv-krabby-bench` → `pip install krabby-launcher` (+ local `./bench`) → `sudo … krabby install --no-launch-on-startup` |
+| **flash** | Existing `run_smoke`: flash all boards, assert versions match S3 |
+| **bringup** | `krabby run --gamepad-only`; wait for container + MCU connected in logs |
+| **motion** | Stop container; jog RLKL, RRKL, FLKL, FRHL, FRKL (override with `--joint …`) via **host** repo `firmware/` (PIN_REV=2 is local-testing only / `dev-local` — not S3; will not be used going forward); assert pot or hall delta per joint |
+
+Motion stops the stack temporarily because Jetson HAL observations do not carry
+real pot/hall (KNOWN-ISSUES #6/#7). Failure output names the stage and the
+command that failed.
+
+Useful flags: `--skip-flash`, `--skip-bringup`, `--skip-motion`, `--firmware-channel`,
+`--joint`, `--rmi` (pass through to reset), `--no-discord`, `--run-url`, `--commit`.
+
+Discord: set `DISCORD_WEBHOOK_URL` to post PASS/FAIL after the harness (skipped if unset).
+In GitHub Actions the same secret name is used.
+
+### Flash note (PIN_REV=2 / local only)
+
+**`PIN_REV=2` is for local Uno v0.1 testing only and will not be used going
+forward.** Those boards report `dev-local`, so the harness **does not take the
+published S3 firmware** (wrong pin map) and **skips S3 overwrite**. Future CI
+should use the published pin revision / S3 artifact path.
+
+## CI: artifact health (hosted runners)
+
+Workflow: [`.github/workflows/artifact-health.yml`](../.github/workflows/artifact-health.yml)
+
+Runs on push to `mainline` / `release/**` (and `workflow_dispatch`). No Orin required.
+
+| Job | Check |
+|---|---|
+| packages | `pip install` + import for `krabby-launcher`, `krabby-firmware`, `krabby-bench` |
+| locomotion-image | pull `mainline-latest` + `release-latest`, `docker run … --help` (arm64 via QEMU) |
+| firmware-artifact | S3 `latest.json` + manifest `ver_string` + HEX HEAD for `release/0.2.15` |
+| notify | Discord summary (skipped if `DISCORD_WEBHOOK_URL` secret unset) |
+
+## CI: self-hosted Orin runner (deferred)
+
+Workflow: [`.github/workflows/bench-harness.yml`](../.github/workflows/bench-harness.yml)
+
+The hardware harness job is **gated** on repo variable `BENCH_RUNNER_ENABLED=true`
+so it does not queue forever before a runner exists. Until then a stub job
+explains the skip.
+
+When you have repo admin permission:
+
+1. On the Orin, install the GitHub Actions runner for **linux-arm64** from
+   Settings → Actions → Runners → New self-hosted runner.
+2. Configure with labels: `self-hosted`, `krabby-bench` (default `self-hosted`
+   is fine; add `krabby-bench` explicitly).
+3. Install as a service; ensure the runner user is in `dialout`, can use Docker,
+   and can `sudo` the same `krabby install` path the harness uses
+   (`sudo -E env PATH=…`).
+4. Repo **Actions variable**: `BENCH_RUNNER_ENABLED` = `true`.
+5. Repo **secret** (optional): `DISCORD_WEBHOOK_URL` = Discord channel webhook.
+6. Keep dual-venv reset: harness uses `scripts/jetson/bench-reset.sh` and must
+   **never** delete `~/.venv-krabby`.
+
+Until the runner is registered, exercise hardware locally:
+
+```bash
+krabby-bench harness --skip-install --no-reset --repo-root "$(pwd)"
+# optional: export DISCORD_WEBHOOK_URL=… to prove notifications
+```
+
 ## Local development
 
 Set `BENCH_SMTP_*` and `BENCH_GITHUB_TOKEN` env vars directly; the watchdog reads them as fallback when no SSM prefix is configured:

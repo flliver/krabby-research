@@ -1,0 +1,153 @@
+# Artifact health checks — hosted runners, no Orin / MCU required.
+# Watches the same branches publish workflows use (KNOWN-ISSUES #1: not `main`).
+#
+# Discord: set repo secret DISCORD_WEBHOOK_URL (optional; skipped if unset).
+
+name: Artifact health
+
+on:
+  push:
+    branches:
+      - mainline
+      - 'release/**'
+  workflow_dispatch:
+
+jobs:
+  packages:
+    name: Packages (pip install + import)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        # Cold-start / bench facing packages. Heavy torch stacks are out of scope here.
+        package:
+          - krabby-launcher
+          - krabby-firmware
+          - krabby-bench
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install and import ${{ matrix.package }}
+        run: |
+          set -euo pipefail
+          python -m venv /tmp/pkg-venv
+          # shellcheck disable=SC1091
+          source /tmp/pkg-venv/bin/activate
+          pip install -U pip
+          pip install "${{ matrix.package }}"
+          case "${{ matrix.package }}" in
+            krabby-launcher) python -c "import krabby; print('krabby', getattr(krabby, '__version__', '?'))" ;;
+            krabby-firmware) python -c "import firmware; print('firmware ok')" ;;
+            krabby-bench) python -c "import krabby_bench; print('krabby_bench ok')" ;;
+            *) echo "unknown package"; exit 1 ;;
+          esac
+
+  locomotion-image:
+    name: Locomotion image (pull + start)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: Pull and smoke-start channel tags
+        run: |
+          set -euo pipefail
+          ECR=public.ecr.aws/t7t7b3i3/krabby-locomotion
+          for TAG in mainline-latest release-latest; do
+            echo "=== ${ECR}:${TAG} ==="
+            docker pull "${ECR}:${TAG}"
+            docker image inspect "${ECR}:${TAG}" --format '{{.Id}} {{.Architecture}} {{.Os}}'
+            # Image is linux/arm64; --help is the same smoke publish-locomotion uses.
+            docker run --rm --platform linux/arm64 --network host "${ECR}:${TAG}" --help \
+              | grep -q -- '--teleop-ip'
+            echo "OK ${TAG}"
+          done
+
+  firmware-artifact:
+    name: Firmware artifact (S3 latest + manifest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check public S3 channel artifacts
+        env:
+          # Match harness default channel; workflow_dispatch can override later.
+          FIRMWARE_CHANNEL: release/0.2.15
+        run: |
+          set -euo pipefail
+          BASE=https://krabby-firmware-public.s3.amazonaws.com
+          CHANNEL="${FIRMWARE_CHANNEL}"
+          echo "Channel: ${CHANNEL}"
+          curl -fsSL "${BASE}/${CHANNEL}/latest.json" -o /tmp/latest.json
+          python3 - <<'PY'
+          import json, sys, urllib.request
+          latest = json.load(open("/tmp/latest.json"))
+          for key in ("branch", "build_key", "hex_url", "manifest_url"):
+              if key not in latest:
+                  sys.exit(f"latest.json missing {key}")
+          print("latest:", latest["branch"], latest["build_key"])
+          with urllib.request.urlopen(latest["manifest_url"], timeout=30) as r:
+              manifest = json.load(r)
+          ver = manifest.get("ver_string") or manifest.get("version")
+          if not ver:
+              sys.exit(f"manifest missing ver_string: keys={list(manifest)}")
+          print("ver_string:", ver)
+          commit = manifest.get("commit") or ""
+          print("commit:", commit or "(none)")
+          # Confirm HEX object exists (public GetObject).
+          req = urllib.request.Request(latest["hex_url"], method="HEAD")
+          with urllib.request.urlopen(req, timeout=30) as r:
+              if r.status not in (200, 204):
+                  sys.exit(f"hex HEAD status {r.status}")
+          print("hex OK:", latest["hex_url"])
+          PY
+
+  notify:
+    name: Discord summary
+    needs: [packages, locomotion-image, firmware-artifact]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (for Discord helper)
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Notify Discord
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          PKG: ${{ needs.packages.result }}
+          IMG: ${{ needs.locomotion-image.result }}
+          FW: ${{ needs.firmware-artifact.result }}
+        run: |
+          set -euo pipefail
+          pip install -q requests
+          pip install -q -e ./bench
+          python - <<'PY'
+          import os
+          from krabby_bench._discord import post_discord
+
+          results = {
+              "packages": os.environ["PKG"],
+              "locomotion-image": os.environ["IMG"],
+              "firmware-artifact": os.environ["FW"],
+          }
+          ok = all(v == "success" for v in results.values())
+          failed = [k for k, v in results.items() if v != "success"]
+          detail = "; ".join(f"{k}={v}" for k, v in results.items())
+          post_discord(
+              ok=ok,
+              title="artifact-health",
+              failed_stage=(",".join(failed) if failed else None),
+              detail=detail,
+          )
+          PY

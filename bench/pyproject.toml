@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "krabby-bench"
-version = "0.2.4"
-description = "Bench watchdog: polls ECR, runs smoke tests, and alerts on failure"
+version = "0.3.0"
+description = "Bench watchdog + four-stage harness (install/flash/bringup/motion)"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "Apache-2.0"
