@@ -252,3 +252,15 @@ replay tool for the step-9 gate.
   - Z is judged by hand, pooled Z (s3+s2) against pooled X0 (s3+s2), under the full decision rule. The
     from-scratch seed-spread caveat still applies.
   - Budget: +4.0 GPU-h, which brings the worst case to ~49.5 h against the 47-h cap (noted to the user).
+- **2026-09-24 / 09-25 — rebooted, resumed, then Z s2 hit the dead_plant check (Z s3 done).**
+  - **Resume:** the user resumed at 23:21 after the reboot. The wave-1 autopilot (`parkour/outputs/omni_plan/
+    clock_deprecation/wave1_autopilot.sh`) runs Z s3, then Z s2, then the driver, answering parks by the
+    pre-registered autonomous policy.
+  - **Z s3 (X05):** failed its t3 formation readout. Survival was 0.00 on fwd, back and move_turn and 0.01 on diag,
+    at speed ratios of 0.64–0.69. It recovered only partly by c6: fwd 0.46, back 0.56, diag 0.30, move_turn 0.55,
+    against X0's 0.85, 0.88, 0.72 and 0.75.
+  - **Z s2 (X06):** died `dead_plant` twice. Its episode length plateaued at ~650–700 steps and never grew 20 % over
+    its first 100 iterations by 2000. This is slow never-clocked formation, not the Kit cache.
+  - **Fix (tools_sha only):** reference chains are now exempt from the dead_plant check, as they already were from
+    the dead_walker abort, so Z's readout is never truncated. X07 was stopped at ~4 minutes in and resumes under the
+    fix.

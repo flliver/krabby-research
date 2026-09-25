@@ -6882,7 +6882,13 @@ def run_experiment(ctx: Ctx, item: dict) -> dict:
         # None only for `resume_from: scratch`), so nothing changes for an unresumed window.
         from_scratch_now = bool(stage.get("from_scratch")) and resume is None
         early = item["kind"] == "candidate" and from_scratch_now and iters > D03_AT_ITERS
-        sound = from_scratch_now and iters >= rp.SMOKE_ITERS
+        # NOTE(clock-deprecation, 2026-09-24): a REFERENCE chain is exempt from the dead_plant
+        # soundness check as it is from the dead_walker abort -- its formation readout must never be
+        # truncated. Z (never clocked, from scratch) forms slowly: seed 2's episode length plateaued
+        # at ~650-700 steps by 2000 its and was killed twice, while seed 3 (~860) passed and recovered
+        # by c6. The check guards clocked formation windows, not a reference measuring whether
+        # formation happens at all.
+        sound = item["kind"] != "reference" and from_scratch_now and iters >= rp.SMOKE_ITERS
         if not skip_train:
             # Plan: "`_wait_isaac_clear()` before every train/eval". The per-EXPERIMENT wait in
             # `loop` does not cover a chain's second and later stages, and the previous stage's eval

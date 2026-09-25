@@ -1122,6 +1122,7 @@ def test_the_reference_launcher_runs_t3_s2_with_no_decision_and_no_early_abort(r
     t3 = calls["train"][0]
     assert t3["iters"] == 3000 and t3["resume"] is None and t3["tag"].startswith("seed2_")
     assert t3["early_abort"] is False and t3["abort_floor"] is None, "Z/t3_s2 are never cut at 1000 its"
+    assert t3["soundness"] is False, "a reference is never judged by dead_plant either (Z s2, 2026-09-24)"
     assert [c["row"] for c in calls["eval"]] == ["suite"]
     st = json.loads((cdir / "state.json").read_text())
     # step-6 fix 10: the reference park goes to the notify line; the main ladder's phase is untouched
