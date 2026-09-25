@@ -19,6 +19,51 @@ and the 18-channel action space are the forward recipe (verified by an Isaac con
 see `tests/integration/test_crab_hex_omni_configs.py`). Teacher-only in this plan — no depth
 student (the shared camera-event bug and the +y mount decision stay open).
 
+## Head of record (phase 1)
+
+**Baked 2026-09-25:** `W`, the hard clock cut (`policy/5_c6x_clockfree/model_11995.pt`) — details
+and every stage's sha256/evals in [`policy/README.md`](policy/README.md) (generated from
+[`policy/manifest.yaml`](policy/manifest.yaml)). Recipe: C1d `t3` (0 → 3000, from scratch) →
+`c4` (3000 → 4500, +move_turn) → `c5` (4500 → 6000, +omni) → `c6` (6000 → 8000, +omni_turn) — all
+four with the clock held — then `c6x` (8000 → 12000), the same c6 overlay with the clock and apex rewards cut
+to ε 0.001 and the clock observation hidden; 12000 iterations total.
+
+**Observation contract:** the current head was trained with `KRABBY_OMNI_CLOCK_HIDE=1` (clock
+columns zeroed on every frame) — any play, eval or export of it must set `KRABBY_OMNI_CLOCK_HIDE=1`
+too, or it is fed an out-of-distribution live clock. Full contract (width, exact columns, the rest
+of the carried eval env) in `policy/README.md`'s Observation contract section.
+
+```bash
+cd parkour  # from krabby-research/; the full carried env -- KRABBY_FLAT_TERRAIN_GEOM=ring is required by
+# every omni process and KRABBY_OMNI_FACING_OBS_CLIP=0.6 is what the heads trained with (class default: no clip)
+P=parkour_tasks/parkour_tasks/crab_hex_omni_task
+env \
+  KRABBY_OMNI_CLOCK_HIDE=1 \
+  KRABBY_ACTION_LPF_HZ=0 \
+  KRABBY_ACTION_LPF_OBS=0 \
+  KRABBY_FLAT_TERRAIN_GEOM=ring \
+  KRABBY_OMNI_ANG_VEL_CLIP=0.2 \
+  KRABBY_OMNI_ANG_VEL_MAX=0.3 \
+  KRABBY_OMNI_CLOCK_TURN_R=1.2 \
+  KRABBY_OMNI_FACING_OBS_CLIP=0.6 \
+  KRABBY_OMNI_FACING_OBS_ENCODING=raw \
+  KRABBY_OMNI_RELAY_HYST=0 \
+  KRABBY_OMNI_SPEED_ELLIPSE=0.35:0.25:0.25 \
+  KRABBY_OMNI_STAND_HOLD=0 \
+  KRABBY_OMNI_STAND_OBS=0 \
+  KRABBY_OMNI_STAND_PARK=0 \
+  KRABBY_OMNI_YAW_RANGE=-3.14159:3.14159 \
+  KRABBY_PLANT=A15+B \
+  python scripts/rsl_rl/play.py --task Isaac-Crab-Hex-Omni-Walk-Play-v0 \
+  --num_envs 1 --real-time --checkpoint $PWD/$P/policy/5_c6x_clockfree/model_11995.pt
+```
+
+(Copied from `policy/README.md`, which also has the exact suite-eval command.)
+
+**Open follow-up:** `move_turn` — nobody actually turns during move+turn (survival 0.365 vs. the
+clock-held twin's 0.865). See `followups.move_turn` in `policy/manifest.yaml` and
+`policy/README.md`'s "Open follow-ups" section.
+
 ## Delta from the forward task
 
 | Site | Forward | Omni |

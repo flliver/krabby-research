@@ -264,3 +264,14 @@ replay tool for the step-9 gate.
   - **Fix (tools_sha only):** reference chains are now exempt from the dead_plant check, as they already were from
     the dead_walker abort, so Z's readout is never truncated. X07 was stopped at ~4 minutes in and resumes under the
     fix.
+- **2026-09-25, wave 1 done, then S4, a new final stage (wave 2, amended) and the close.**
+  - **Wave 1:** every arm broke (records 22e1f432, WAVE1_READOUT.md). At S4 the user asked for one more experiment:
+    a stage after c6.
+  - **Design:** a 9-agent design run plus a fable check recommended a hard cut over 4000 its. The user chose the
+    cut, E10 first and the rule frozen, with a 1-pass audit.
+  - **Wave 2** (`../2026-09-23_clock_deprecation_w2/`): W was decided D05 floor REJECT, move_turn 0.365; everything
+    else was at or above the twin X0x.
+  - **Close:** the user overruled D05 to ADOPT, and W is baked as the omni phase-1 head of record in
+    `crab_hex_omni_task/policy/`. The formation-seed-2 confirm was waived.
+  - **Follow-up:** move_turn ("Nobody actually turns during move_turn").
+  - The campaign is **CLOSED**. See the w2 REPORT.md "Close".

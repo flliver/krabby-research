@@ -1,0 +1,283 @@
+# POLICY OF RECORD for the crab-hexapod OMNIDIRECTIONAL walk task (phase 1) -- the head that ships
+# (`current`) and the stage heads it was trained through, in training order. Consumed by
+# experiments/tools/bundle_policy.py (--sync / --check) and tests/unit/test_policy_of_record_omni.py.
+# Changes only on a user bake decision: edit here, --sync, commit.
+# Schema = the forward task's policy/manifest.yaml adapted: every stage is a phase-1a stage on the
+# KRABBY_OMNI_PHASE=1a preset plus a per-stage overlay from a campaign's candidates.yaml (`stage`,
+# `overlay_ref`); there are NO omni presets for these overlays -- the bake added none and moved no
+# config / mdp code. Evals are the per-category suite (`suite__omni`, 100 episodes per category,
+# paired categories pooled over both hands; read with experiments/tools/run_phases.summarize(
+# json(scenario_metrics.json)["aggregate"])["cat"]). sha256 of every stage file and of every eval
+# stamp's run_meta.checkpoint_sha256 verified by hand on 2026-09-25 when this file was created.
+task: crab_hex_omni_task
+plant: A15+B
+seed: 3
+current: 5_c6x_clockfree
+baked: '2026-09-25 (user decision: accept W -- the c6x hard clock cut -- as the omni phase-1 head of record, overruling
+  D05''s move_turn floor REJECT; formation-seed-2 confirm waived)'
+recipe: 'base preset KRABBY_OMNI_PHASE=1a + the per-stage overlay named by each stage''s overlay_ref, in stage order;
+  the current stage adds the removal set K (KRABBY_CLOCK_W=0.001, KRABBY_APEX_W=0.001, KRABBY_OMNI_CLOCK_HIDE=1). The
+  recipe of record keeps the clock reward weights at eps 0.001 exactly as W trained (not 0).'
+assets:
+- dir: rsi
+  file: rsi_bank_omni.npz
+  source: parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-09-16_1805_omni_formation/rsi_bank_omni.npz
+  sha256: 98ce8420192efcbf24c37c07fa521c91e00a264d54ecb1d73b41b1d9901c46c6
+  what: omni RSI reference-state bank -- forward frames (the forward 2c teacher, source 0) merged with sideways
+    frames (the sideways 2a teacher, source 1), 2000 each, provenance-tagged (sha256 pinned in that campaign's
+    bundle.yaml; harvest recipe in its RSI_BANK.md)
+  used_by: every omni preset via KRABBY_RSI_BANK (config/crab_hex/crab_hex_omni_phases.py:132 OMNI_BANK,
+    :153 OMNI_COMMON) at KRABBY_RSI_FRAC=0.2 (the forward FORMATION value, inherited); which frames a stage
+    draws is KRABBY_OMNI_RSI_SOURCE (1a preset "0"; every overlay here sets "all"). The presets still read it
+    from its experiments/ source path
+  notes: backward travel has no RSI seed (rotating a stored frame never yields backward momentum); the bank's
+    frames carry a gait-clock phase, which the clock-free stage still resets from (the clock keeps running
+    internally, only its observation is zeroed)
+obs_contract:
+  width: 1149
+  clock_columns: 'the gait clock sin/cos = obs dims 15-16 of the per-step proprio head plus the same two dims in
+    each of the 10 history copies (history_length 10, config/crab_hex/crab_hex_omni_env_cfg.py:108) = 22 columns;
+    the critic reads the same obs_buf'
+  hide_knob: KRABBY_OMNI_CLOCK_HIDE
+  refs: config/crab_hex/clock_knobs.py (KRABBY_OMNI_CLOCK_HIDE=1 -> obs term params["clock_hide"]; width-preserving;
+    EVAL_SEMANTIC_KNOBS), mdp/crab_hex_omni_observations.py (CrabHexOmniParkourObservations._clock_channels /
+    _hide_clock -> exact (0, 0) on every row), experiments/tools/run_phases.py EVAL_CARRY / EVAL_CARRY_DEFAULTS
+  hazard: 'run_phases.EVAL_CARRY carries KRABBY_OMNI_CLOCK_HIDE (and the rest of eval_env below) into DRIVER evals only.
+    scripts/rsl_rl/play.py, scripts/eval_crab_hex_gait.py run by hand, and any exported jit / onnx policy do NOT set
+    it: they build the clock VISIBLE unless the variable is exported. A clock-free head fed a live clock sees inputs
+    it never trained on. Likewise KRABBY_OMNI_FACING_OBS_CLIP: the obs term''s class default is None (no clip), the
+    heads trained with 0.6 -- export it too.'
+  eval_env:
+    # exactly the env_vars of W's suite__omni run_meta.json (2026-09-25_20-31-29) minus KRABBY_OMNI_CLOCK_HIDE, which
+    # is per stage (below). EVAL_CARRY keys = the semantics the heads trained under (all identical on every stage's
+    # eval stamp); the rest are the driver's fixed eval block.
+    carry:
+      KRABBY_OMNI_FACING_OBS_CLIP: '0.6'
+      KRABBY_OMNI_SPEED_ELLIPSE: '0.35:0.25:0.25'
+      KRABBY_OMNI_ANG_VEL_MAX: '0.3'
+      KRABBY_OMNI_CLOCK_TURN_R: '1.2'
+      KRABBY_OMNI_YAW_RANGE: '-3.14159:3.14159'
+      KRABBY_OMNI_FACING_OBS_ENCODING: raw
+      KRABBY_OMNI_ANG_VEL_CLIP: '0.2'
+      KRABBY_OMNI_RELAY_HYST: '0'
+      KRABBY_OMNI_STAND_HOLD: '0'
+      KRABBY_OMNI_STAND_PARK: '0'
+      KRABBY_ACTION_LPF_HZ: '0'
+      KRABBY_ACTION_LPF_OBS: '0'
+      KRABBY_OMNI_STAND_OBS: '0'
+    fixed:
+      KRABBY_FLAT_TERRAIN_GEOM: ring
+      KRABBY_RSI_FRAC: '0'
+      KRABBY_PLAY_DEBUG_VIS: '0'
+      KRABBY_PLANT: A15+B
+      KRABBY_LIN_VEL_X: '0.0:0.35'
+      KRABBY_TRACK_SIGMA2: '0.1'
+      KRABBY_TRACK_L1_W: '-1.0'
+      KRABBY_CLOCK_W: '1.0'
+      KRABBY_APEX_W: '1.0'
+    fixed_notes: KRABBY_FLAT_TERRAIN_GEOM=ring is REQUIRED by every omni process (apply_omni_ring_knobs); the
+      LIN_VEL_X / TRACK_* / CLOCK_W / APEX_W keys are the driver's fixed FORMATION reward frame (CANARY_KEYS) --
+      reward-only in an eval, they do not reach the policy (CLOCK_W 1.0 at eval does NOT show the clock; only
+      KRABBY_OMNI_CLOCK_HIDE decides that)
+stages:
+- dir: 1_t3
+  phase: 1a
+  stage: t3
+  task: Isaac-Crab-Hex-Omni-Walk-v0
+  play_task: Isaac-Crab-Hex-Omni-Walk-Play-v0
+  kind: rl
+  iterations: 0 -> 3000
+  resume_from: scratch
+  source: parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-09-22_09-10-29_seed3_X08_t3_A15pB/model_2999.pt
+  file: model_2999.pt
+  sha256: 03b87cd3432cc58e9e1cafbbbf36e3a6737034a8cc82a674e8181e9993432035
+  trained_in: experiments/2026-09-19_facing_tracking_ladder (experiment X08 = C1d turn-first curriculum s3, chain
+    curriculum_turnfirst stage t3, driver experiments/tools/run_candidates.py)
+  overlay_ref: experiments/2026-09-19_facing_tracking_ladder/candidates.yaml chains.curriculum_turnfirst stage t3
+  what: 'C1d t3 formation from scratch: pool stand / fwd / side_l / side_r / back / turn (c3''s pool moved to the
+    front), facing 0.2:0.6, yaw 0.2'
+  clock: held (reward KRABBY_CLOCK_W 1.0 / KRABBY_APEX_W 1.0, observation visible)
+  obs_contract:
+    KRABBY_OMNI_CLOCK_HIDE: '0'
+  notes: its suite__omni eval is the clock-deprecation campaign's step-0 re-score E3 (X08-t3, clock visible), not a
+    facing-ladder record
+  evals:
+    row: suite__omni
+    clock_at_eval: visible
+    stamp: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-23_clock_deprecation/step0_E3_X08-t3_visible/suite__omni/seed001/2026-09-23_21-38-11
+    categories:
+      stand: {survival: 0.99, n: 100}
+      fwd: {survival: 0.73, ratio: 0.558, n: 100}
+      side: {survival: 0.92, ratio: 0.478, n: 200}
+      back: {survival: 0.78, ratio: 0.524, n: 100}
+      diag: {survival: 0.66, ratio: 0.521, n: 100}
+      turn: {survival: 0.965, facing_closed: 0.536, yaw_progress: 0.072, n: 200}
+      move_turn: {survival: 0.665, ratio: 0.43, n: 200}
+- dir: 2_c4
+  phase: 1a
+  stage: c4
+  task: Isaac-Crab-Hex-Omni-Walk-v0
+  play_task: Isaac-Crab-Hex-Omni-Walk-Play-v0
+  kind: rl
+  iterations: 3000 -> 4500
+  resume_from: '`1_t3/` (by `checkpoint:`)'
+  source: parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-09-23_18-29-32_seed3_X01_c4_A15pB/model_4498.pt
+  file: model_4498.pt
+  sha256: 661e8c4b90f661d140e30ed968af2875e2fe43beff967c5e4910bd6a5b6a38dc
+  trained_in: experiments/2026-09-23_clock_deprecation (X0 s3 = experiment X01, chain tail stage c4 -- C1d's
+    c4 -> c5 -> c6 tail re-run forked from 1_t3's checkpoint, the clock-held baseline of that campaign)
+  overlay_ref: experiments/2026-09-23_clock_deprecation/candidates.yaml chains.tail stage c4
+  what: C1d c4 (+move_turn) -- adds fwd_turn / side_l_turn / side_r_turn to the t3 pool
+  clock: held
+  obs_contract:
+    KRABBY_OMNI_CLOCK_HIDE: '0'
+  evals:
+    row: suite__omni
+    clock_at_eval: visible
+    stamp: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-23_clock_deprecation/seed3_X01_c4_A15pB/suite__omni/seed001/2026-09-23_23-11-33
+    categories:
+      stand: {survival: 1.0, n: 100}
+      fwd: {survival: 0.87, ratio: 0.698, n: 100}
+      side: {survival: 0.94, ratio: 0.472, n: 200}
+      back: {survival: 0.85, ratio: 0.633, n: 100}
+      diag: {survival: 0.62, ratio: 0.587, n: 100}
+      turn: {survival: 0.975, facing_closed: 0.505, yaw_progress: 0.067, n: 200}
+      move_turn: {survival: 0.795, ratio: 0.473, n: 200}
+- dir: 3_c5
+  phase: 1a
+  stage: c5
+  task: Isaac-Crab-Hex-Omni-Walk-v0
+  play_task: Isaac-Crab-Hex-Omni-Walk-Play-v0
+  kind: rl
+  iterations: 4500 -> 6000
+  resume_from: '`2_c4/`'
+  source: parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-09-23_19-20-33_seed3_X01_c5_A15pB/model_5997.pt
+  file: model_5997.pt
+  sha256: 6832ac3e35bacbdf10fc3d54d764b9902d7c06e5dac6e5513d15591b7b27b821
+  trained_in: experiments/2026-09-23_clock_deprecation (X01, chain tail stage c5)
+  overlay_ref: experiments/2026-09-23_clock_deprecation/candidates.yaml chains.tail stage c5
+  what: C1d c5 (+omni) -- adds the omni (any-direction) slot
+  clock: held
+  obs_contract:
+    KRABBY_OMNI_CLOCK_HIDE: '0'
+  evals:
+    row: suite__omni
+    clock_at_eval: visible
+    stamp: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-23_clock_deprecation/seed3_X01_c5_A15pB/suite__omni/seed001/2026-09-24_00-00-34
+    categories:
+      stand: {survival: 1.0, n: 100}
+      fwd: {survival: 0.88, ratio: 0.718, n: 100}
+      side: {survival: 0.98, ratio: 0.404, n: 200}
+      back: {survival: 0.87, ratio: 0.706, n: 100}
+      diag: {survival: 0.72, ratio: 0.55, n: 100}
+      turn: {survival: 0.99, facing_closed: 0.492, yaw_progress: 0.066, n: 200}
+      move_turn: {survival: 0.87, ratio: 0.497, n: 200}
+- dir: 4_c6
+  phase: 1a
+  stage: c6
+  task: Isaac-Crab-Hex-Omni-Walk-v0
+  play_task: Isaac-Crab-Hex-Omni-Walk-Play-v0
+  kind: rl
+  iterations: 6000 -> 8000
+  resume_from: '`3_c5/`'
+  source: parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-09-23_20-09-04_seed3_X01_c6_A15pB/model_7996.pt
+  file: model_7996.pt
+  sha256: 184ae0f68a4f5991fb54445d0816cdd31b91d925c691bae8218df28be8120e76
+  trained_in: experiments/2026-09-23_clock_deprecation (X01, chain tail stage c6)
+  overlay_ref: experiments/2026-09-23_clock_deprecation/candidates.yaml chains.tail stage c6
+  what: C1d c6 (+omni_turn) -- the full C1d pool; the clock-held head the clock cut forks
+  clock: held
+  obs_contract:
+    KRABBY_OMNI_CLOCK_HIDE: '0'
+  evals:
+    row: suite__omni
+    clock_at_eval: visible
+    stamp: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-23_clock_deprecation/seed3_X01_c6_A15pB/suite__omni/seed001/2026-09-24_00-55-05
+    categories:
+      stand: {survival: 0.99, n: 100}
+      fwd: {survival: 0.85, ratio: 0.733, n: 100}
+      side: {survival: 0.97, ratio: 0.396, n: 200}
+      back: {survival: 0.88, ratio: 0.746, n: 100}
+      diag: {survival: 0.72, ratio: 0.539, n: 100}
+      turn: {survival: 0.985, facing_closed: 0.629, yaw_progress: 0.082, n: 200}
+      move_turn: {survival: 0.745, ratio: 0.498, n: 200}
+- dir: 5_c6x_clockfree
+  phase: 1a
+  stage: c6x
+  task: Isaac-Crab-Hex-Omni-Walk-v0
+  play_task: Isaac-Crab-Hex-Omni-Walk-Play-v0
+  kind: rl
+  iterations: 8000 -> 12000
+  resume_from: '`4_c6/` (by `checkpoint:`)'
+  source: parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-09-25_14-53-27_seed3_X03_c6x_A15pB/model_11995.pt
+  file: model_11995.pt
+  sha256: 3a527683eccdc73b66ca06bdf89bfd9d27c0f87b1f929cf25bf7fc6f01145202
+  trained_in: experiments/2026-09-23_clock_deprecation_w2 (candidate W = experiment X03, chain c6x; the driver's
+    D05 move_turn floor REJECT was overruled to ADOPT by the user on 2026-09-25)
+  overlay_ref: experiments/2026-09-23_clock_deprecation_w2/candidates.yaml chains.c6x stage c6x + candidates W overlay
+  what: 'c6x, the hard clock cut: C1d''s c6 overlay verbatim for 4000 more iterations with the removal set K from
+    iteration 0 (clock reward and apex reward to eps, clock observation zeroed); the head that SHIPS'
+  clock: 'REMOVED: KRABBY_CLOCK_W=0.001, KRABBY_APEX_W=0.001, KRABBY_OMNI_CLOCK_HIDE=1'
+  removal_set:
+    KRABBY_CLOCK_W: '0.001'
+    KRABBY_APEX_W: '0.001'
+    KRABBY_OMNI_CLOCK_HIDE: '1'
+  obs_contract:
+    KRABBY_OMNI_CLOCK_HIDE: '1'
+  notes: move_turn survival 0.365 is below the D05 floor 0.545 (accepted by the user, see followups.move_turn);
+    seed 3 only (the seed-2 confirm was waived)
+  evals:
+    row: suite__omni
+    clock_at_eval: hidden (KRABBY_OMNI_CLOCK_HIDE=1, as trained)
+    stamp: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-23_clock_deprecation_w2/seed3_X03_c6x_A15pB/suite__omni/seed001/2026-09-25_20-31-29
+    categories:
+      stand: {survival: 1.0, n: 100}
+      fwd: {survival: 0.95, ratio: 0.785, n: 100}
+      side: {survival: 0.995, ratio: 0.473, n: 200}
+      back: {survival: 0.98, ratio: 0.784, n: 100}
+      diag: {survival: 0.87, ratio: 0.581, n: 100}
+      turn: {survival: 0.99, facing_closed: 0.787, yaw_progress: 0.102, n: 200}
+      move_turn: {survival: 0.365, ratio: 0.442, n: 200}
+  twin:
+    id: X0x s3
+    what: the same 4000 c6x iterations from 4_c6 with the clock HELD (experiments/2026-09-23_clock_deprecation_w2
+      baseline X0x = experiment X01 there); not baked
+    source: parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-09-25_11-25-53_seed3_X01_c6x_A15pB/model_11995.pt
+    sha256: f97160f43ffff858711e530b339f0dd572d0b6b60a7e7f330701881e3b5ae86e
+    clock_at_eval: visible
+    stamp: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-23_clock_deprecation_w2/seed3_X01_c6x_A15pB/suite__omni/seed001/2026-09-25_17-01-55
+    categories:
+      stand: {survival: 0.99, n: 100}
+      fwd: {survival: 0.84, ratio: 0.719, n: 100}
+      side: {survival: 0.965, ratio: 0.418, n: 200}
+      back: {survival: 0.87, ratio: 0.712, n: 100}
+      diag: {survival: 0.74, ratio: 0.523, n: 100}
+      turn: {survival: 0.97, facing_closed: 0.687, yaw_progress: 0.089, n: 200}
+      move_turn: {survival: 0.865, ratio: 0.521, n: 200}
+followups:
+- id: move_turn
+  recorded: '2026-09-25 (user decision to bake W with this open)'
+  headline: Nobody actually turns during move_turn.
+  detail: 'W move_turn survival 0.365 vs the clock-held twin X0x s3 0.865 (floor 0.545; D05 overruled); move_turn speed
+    ratio 0.442 vs 0.521. Failure mode: a slow forward nose-dive -- the front pair (FL, FR) lift together, pitch builds
+    ~0.05 -> 0.17 rad over the hold, the middle legs unload, tilt termination (125/127 pitch_fwd, both hands alike);
+    penalty_base_pitch_forward_linear sits at weight 0 in c6x. The same failure grows with clock-free training in
+    wave 1 (move_turn survival A3000 0.19, A4500 0.59, A6000 0.73). "Nobody actually turns during move_turn": every
+    omni head, clock-held or not (W, X0x, X0 s3 c6, A4500, A3000, E10), reaches only 0.02-0.07 rad/s against the
+    0.3 rad/s commanded; heading error at hold end 1.1-1.5 rad -- the hold is effectively 12 s of translation with an
+    unclosed yaw error.'
+  evidence:
+  - experiments/2026-09-23_clock_deprecation_w2/MOVE_TURN_MECHANISM.md
+  - experiments/2026-09-23_clock_deprecation_w2/WAVE2_METRICS.md
+  levers: 'untested: re-enable / extend the forward-pitch penalty to move-turn commands; a front-pair support term;
+    move_turn curriculum / weighting; examine why the turn-rate command is not tracked while translating (command
+    math / reward kernels) -- offline replay gate first'
+- id: seed2_confirm_waived
+  recorded: '2026-09-25'
+  headline: W is seed 3 only.
+  detail: The plan's formation-seed-2 confirm (7.65 GPU-h) was waived by the user on 2026-09-25.
+- id: phase2_clock_free
+  recorded: '2026-09-25'
+  headline: No clock-free phase-2 presets yet.
+  detail: Omni 2a / 2b / 2c presets resume 1c, re-arm apex via KRABBY_PHASEOUT and show the clock again; forking W into
+    them needs clock-free phase-2 presets (open).

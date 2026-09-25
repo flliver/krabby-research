@@ -202,16 +202,34 @@ parkour term, RSI, mirror) -- see the task's own README for the full delta table
 
 ```
 crab_hex_omni_task/
-├── README.md                         # Task usage + the delta table vs. the forward task
+├── README.md                         # Task usage + the delta table vs. the forward task + "Head of record (phase 1)"
 ├── config/crab_hex/                  # Env, scene cfgs; crab_hex_omni_phases.py (KRABBY_OMNI_PHASE presets); omni_knobs.py
 │   └── agents/                       # RSL-RL PPO runner cfgs (teacher only -- no student)
 ├── mdp/                              # crab_hex_omni_command(_math).py; omni observations/rewards/mirror/RSI; omni_parkour_event.py, omni_exposure.py, omni_events.py, omni_terrain_knobs.py
 ├── eval_categories.py                # Per-category eval plan (2026-09-21, D4): trained_categories/expand_rule/composite_guards -- Isaac-free, loaded by path; task-root (outside mdp/config), so it hashes into eval_sha, not code_sha
+├── policy/                           # POLICY OF RECORD (phase 1): the shipped head + the stage heads it was trained through
+│   ├── manifest.yaml                 #   (1_t3 -> 2_c4 -> 3_c5 -> 4_c6 -> 5_c6x_clockfree, one .pt each, obs_contract + followups blocks); manifest = source of truth, README generated (experiments/tools/bundle_policy.py --sync / --check)
+│   └── <stage>/model_N.pt
 └── experiments/                      # Campaigns; eval/scenarios_omni.yaml; lit reviews; tools/
     ├── 2026-09-16_1805_omni_formation/   # First training campaign (CLOSED at its 2b decision point): CHARTER.md, RSI_BANK.md, replay_reward_economy.py
     ├── 2026-09-19_facing_tracking_ladder/ # The facing/tracking candidate ladder: CHARTER.md, PLAN_AMENDMENTS.md, candidates.yaml (the spec), resolution.json (D00). Written by the driver at launch, not present before it: ledger.json + ledger_overrides.jsonl, REPORT.md, CHANGELOG.md, notify.log, state.json/heads.json. Per-category evaluation plan (2026-09-21, D9) adds, once the migration runs: resolution.<eval_sha[:12]>.json (D00s/D00bs, superseding D00 at the new eval) and, only on a failed acceptance, resolution.<eval_sha[:12]>.<kind>.rejected.json (kind = D00s|D00bs, overwritten each recomputation, never cited)
     └── tools/                        # run_phases.py + launch/heartbeat (the phase chain); run_candidates.py + ledger_cli.py + resolution.py + launch_candidates.sh (the candidate ladder)
 ```
+
+### Policy of record
+
+`crab_hex_omni_task/policy/` is the task's shipped phase-1 lineage: the current head
+(`5_c6x_clockfree/model_11995.pt`, the hard clock cut baked 2026-09-25) and the four stage heads it
+was trained through (`1_t3`, `2_c4`, `3_c5`, `4_c6`), each sha-pinned in `policy/manifest.yaml`
+with its source run, overlay (`overlay_ref` into a campaign's `candidates.yaml`, not a
+`KRABBY_OMNI_PHASE` preset -- there is no phase-1c/2 lineage here) and evals. It changes only on a
+user bake decision (edit the manifest, `bundle_policy.py --sync`, commit); campaign records under
+`experiments/<campaign>/` are the provenance. Unlike the forward policy, the manifest also carries
+an `obs_contract` block (the clock observation columns, which stage was trained with
+`KRABBY_OMNI_CLOCK_HIDE` on, and the exact eval-env knobs the heads trained under) and a
+`followups` block (open items recorded at bake time, e.g. `move_turn`). No `--pin-mdp` /
+`POLICY_SUMMARY.md` here: every stage is an overlay on the `1a` preset recorded in a campaign's
+`candidates.yaml`, not its own preset. Guarded by `tests/unit/test_policy_of_record_omni.py`.
 
 Preset variable: `KRABBY_OMNI_PHASE` (never `KRABBY_PHASE` or `KRABBY_SIDE_PHASE` in the same
 process -- setting any two raises at import). Gym ids: `Isaac-Crab-Hex-Omni-Walk-v0`,
