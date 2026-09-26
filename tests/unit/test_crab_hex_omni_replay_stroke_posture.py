@@ -77,10 +77,13 @@ def _body_point(root, psi, r0):
 
 
 def walker(T: int, *, speed: float, dir_w: float, wz: float, hold_start: int = PRO + SETTLE,
-           shift=(0.0, 0.0), gait: bool | None = None, stance_force: float = 300.0, seed: int = 0):
+           shift=(0.0, 0.0), gait: bool | None = None, stance_force: float = 300.0, seed: int = 0,
+           unison: bool = False):
     """A kinematic tripod walker: body at constant world velocity / yaw rate from ``hold_start``;
     stance feet exactly planted at the body point they reach at mid-stance; swing feet unloaded.
-    ``shift`` moves every foot's nominal body-frame point (a posture offset)."""
+    ``shift`` moves every foot's nominal body-frame point (a posture offset). ``unison`` (the
+    UNISON-flag tests): both tripod sets swing on the SAME phase instead of alternating -- a
+    tripod-locked rock the per-foot stroke income cannot see (SA0 decision 7)."""
     rng = np.random.default_rng(seed)
     gait = (speed > 0 or wz != 0) if gait is None else gait
     root = np.zeros((T + PERIOD * 2, 3))
@@ -101,7 +104,7 @@ def walker(T: int, *, speed: float, dir_w: float, wz: float, hold_start: int = P
                 feet[k, f, :2] = feet[hold_start, f, :2]
                 force[k, f] = stance_force
             continue
-        off = 0 if leg in TRIPOD_A else PERIOD // 2
+        off = 0 if (unison or leg in TRIPOD_A) else PERIOD // 2
         starts = [hold_start + off + j * PERIOD for j in range(-1, T // PERIOD + 3)]
         prev_anchor, prev_end = feet[hold_start, f, :2].copy(), hold_start
         for s0 in starts:
@@ -170,8 +173,9 @@ def _head(root: Path, clock: float = 0.001) -> Path:
 
 def omni_stamp(root: Path, *, labels=("stand", "fwd", "lat_l", "lat_r", "turn_l90", "turn_r90"), per: int = 2,
                T: int = 300, shift_side: float = 0.0, done_at: dict | None = None, name: str = "run",
-               speed_scale: float = 1.0) -> Path:
-    """A synthetic ``suite__omni`` stamp: one wave per hold label, ``per`` envs per wave."""
+               speed_scale: float = 1.0, unison: bool = False) -> Path:
+    """A synthetic ``suite__omni`` stamp: one wave per hold label, ``per`` envs per wave. ``unison``
+    is passed through to :func:`walker` (the UNISON-flag tests)."""
     run = root / name / "suite__omni/seed001/2026-01-01_00-00-00"
     (run / "raw").mkdir(parents=True)
     (run / "metrics").mkdir()
@@ -186,7 +190,7 @@ def omni_stamp(root: Path, *, labels=("stand", "fwd", "lat_l", "lat_r", "turn_l9
             shift = (0.0, 0.0)
             if cat in ("side", "diag", "fwd", "back") and shift_side:
                 shift = tuple(-shift_side * np.array([math.cos(dir_w), math.sin(dir_w)]))
-            z = walker(T, speed=speed, dir_w=dir_w, wz=wz, shift=shift, seed=idx)
+            z = walker(T, speed=speed, dir_w=dir_w, wz=wz, shift=shift, seed=idx, unison=unison)
             psi = z.pop("psi")
             seg = np.full(T, hid, dtype=np.int16)
             seg[:PRO] = -1
@@ -605,3 +609,140 @@ def test_the_gate_runs_end_to_end_and_never_hides_a_fail(tmp_path):
     assert rep["criteria"]["R1"]["pass"] is True
     assert rep["criteria"]["R2"]["pass"] is False and "| R2 | **FAIL** |" in md
     assert rep["criteria"]["R4"]["shares_at_w_S"]["H"]["fwd"] <= 0.10 + 1e-9
+
+
+# ============================================================================ UNISON flag (SA0 decision 7)
+def _inject_roll(path: Path, *, amp: float, period_steps: int) -> None:
+    """Overwrite ``root_quat_w`` with a sinusoidal ROLL of amplitude ``amp`` composed onto the
+    saved yaw (exact composition -- see :func:`gait_eval.metrics.roll_pitch_from_quat_wxyz`'s
+    ``atan2``/``arcsin`` extraction, which recovers ``roll``/``0`` from this exactly)."""
+    with np.load(path) as z:
+        d = dict(z)
+    psi = t.heading_from_quat(d["root_quat_w"])
+    n = psi.shape[0]
+    roll = amp * np.sin(2 * np.pi * np.arange(n) / period_steps)
+    cz, sz = np.cos(psi / 2), np.sin(psi / 2)
+    cx, sx = np.cos(roll / 2), np.sin(roll / 2)
+    d["root_quat_w"] = np.stack([cz * cx, cz * sx, sz * sx, sz * cx], axis=-1).astype(np.float32)
+    np.savez(path, **d)
+
+
+def test_unison_values_recompute_gait_evals_own_tripod_score_and_roll_rms(tmp_path):
+    run = omni_stamp(tmp_path, labels=("fwd",), per=3, T=400)
+    st = t.load_stamp(run)
+    vals = t.unison_values(st)
+    assert np.all(np.isfinite(vals["tripod_coherence"]))
+    assert vals["tripod_coherence"].min() > 0.8       # a clean alternating tripod
+    assert vals["roll_rms"] == pytest.approx(0.0, abs=1e-9)   # the walker's quat carries only yaw
+    table = t.unison_table(st, vals)
+    assert set(table) == {"fwd"} and table["fwd"]["n"] == 3
+
+
+def test_unison_flags_do_not_fire_between_two_healthy_runs(tmp_path):
+    labels = ("fwd", "lat_l", "back", "diag")
+    run_a = omni_stamp(tmp_path, labels=labels, per=3, T=400, name="a")
+    run_b = omni_stamp(tmp_path, labels=labels, per=3, T=400, name="b")
+    st_a, st_b = t.load_stamp(run_a), t.load_stamp(run_b)
+    flags = t.unison_flags(st_a, t.unison_values(st_a), st_b, t.unison_values(st_b))
+    cats = {f["category"] for f in flags}
+    assert cats == {"fwd", "side", "back", "diag"}
+    assert not any(f["flagged"] for f in flags), [f for f in flags if f["flagged"]]
+
+
+def test_unison_flags_catch_a_lock_step_gait_the_stroke_term_cannot_see(tmp_path):
+    """A tripod-locked rock (both sets swing on the same phase, SA0's forward-era ``lunge``
+    signature): the per-foot stroke income still pays it (it prices sweep alone), but the UNISON
+    tripod-coherence flag catches what the income cannot."""
+    labels = ("fwd", "lat_l", "back", "diag")
+    base = omni_stamp(tmp_path, labels=labels, per=3, T=400, name="base")
+    arm = omni_stamp(tmp_path, labels=labels, per=3, T=400, name="arm", unison=True)
+    st_base, st_arm = t.load_stamp(base), t.load_stamp(arm)
+    v_base, v_arm = t.unison_values(st_base), t.unison_values(st_arm)
+    table_arm = t.unison_table(st_arm, v_arm)
+    for cat in ("fwd", "side", "back", "diag"):
+        assert table_arm[cat]["tripod_coherence"] == pytest.approx(0.0, abs=1e-6)
+    flags = t.unison_flags(st_arm, v_arm, st_base, v_base)
+    tri = {f["category"]: f for f in flags if f["metric"] == "tripod_coherence"}
+    assert set(tri) == {"fwd", "side", "back", "diag"}
+    for cat, f in tri.items():
+        assert f["flagged"], (cat, f)
+        assert f["band"] is not None and f["band"] < 1.0
+    # the flag is a report, never a gate: the arm still earns real stroke income the term can see
+    rp_arm = t.replay(st_arm)
+    assert rp_arm.pay.sum() > 0.0
+
+
+def test_unison_flags_catch_a_roll_rms_collapse(tmp_path):
+    """The v3 tip-rock/unison signature: ``roll_rms`` collapsing (0.038 -> 0.014 in the real
+    campaign) while the per-foot stroke income is blind to it."""
+    labels = ("fwd",)
+    base = omni_stamp(tmp_path, labels=labels, per=4, T=400, name="rbase")
+    arm = omni_stamp(tmp_path, labels=labels, per=4, T=400, name="rarm")
+    for run, amp in ((base, 0.08), (arm, 0.03)):
+        for p in sorted((run / "raw").glob("episode_*.npz")):
+            _inject_roll(p, amp=amp, period_steps=40)
+    st_base, st_arm = t.load_stamp(base), t.load_stamp(arm)
+    v_base, v_arm = t.unison_values(st_base), t.unison_values(st_arm)
+    table_base, table_arm = t.unison_table(st_base, v_base), t.unison_table(st_arm, v_arm)
+    assert table_arm["fwd"]["roll_rms"] < 0.5 * table_base["fwd"]["roll_rms"]
+    flags = t.unison_flags(st_arm, v_arm, st_base, v_base)
+    roll = {f["category"]: f for f in flags if f["metric"] == "roll_rms"}
+    assert roll["fwd"]["flagged"] and roll["fwd"]["ratio"] < 0.5
+    # tripod coherence is unaffected by a pure roll change: it must not also flag here
+    tri = {f["category"]: f for f in flags if f["metric"] == "tripod_coherence"}
+    assert not tri["fwd"]["flagged"]
+
+
+def test_unison_flags_band_is_the_max_of_mde_and_seed_delta(tmp_path, monkeypatch):
+    """The band arithmetic (module docstring above :func:`unison_flags`), isolated from the
+    synthetic walker's physical fidelity by faking :func:`paired_bootstrap`'s return: a -0.05 drop
+    flags against a 0.02 MDE alone, but not once an (identically faked) seed pair reports its OWN
+    0.08 delta -- the band widens past the drop and the same reading stops flagging."""
+    run = omni_stamp(tmp_path, labels=("fwd",), per=2, T=260)
+    st = t.load_stamp(run)
+    vals = t.unison_values(st)
+
+    def arm_vs_base(*_a, **_kw):
+        return {"fwd": {"n_pairs": 2, "n_clusters": 2,
+                        "tripod_coherence": {"delta": -0.05, "ci": None, "mde": 0.02},
+                        "roll_rms": {"delta": 0.0, "ci": None, "mde": 0.0}}}
+
+    def seed_pair(*_a, **_kw):
+        return {"fwd": {"n_pairs": 2, "n_clusters": 2,
+                        "tripod_coherence": {"delta": 0.08, "ci": None, "mde": 0.02},
+                        "roll_rms": {"delta": 0.0, "ci": None, "mde": 0.0}}}
+
+    monkeypatch.setattr(t, "paired_bootstrap", arm_vs_base)
+    # the shipped minimum drop (0.10) keeps a -0.05 wobble from flagging at all
+    tri0 = next(f for f in t.unison_flags(st, vals, st, vals) if f["metric"] == "tripod_coherence")
+    assert tri0["band"] == pytest.approx(t.UNISON_MIN_DROP) and not tri0["flagged"]
+    monkeypatch.setattr(t, "UNISON_MIN_DROP", 0.0)  # isolate the MDE / seed-band arithmetic
+    tri = next(f for f in t.unison_flags(st, vals, st, vals) if f["metric"] == "tripod_coherence")
+    assert tri["band"] == pytest.approx(0.02) and tri["flagged"]
+
+    calls = iter([arm_vs_base, seed_pair])
+    monkeypatch.setattr(t, "paired_bootstrap", lambda *a, **kw: next(calls)(*a, **kw))
+    tri2 = next(f for f in t.unison_flags(st, vals, st, vals, seed_a=(st, vals), seed_b=(st, vals))
+               if f["metric"] == "tripod_coherence")
+    assert tri2["seed_delta"] == pytest.approx(0.08)
+    assert tri2["band"] == pytest.approx(0.08) and not tri2["flagged"]
+
+
+def test_readout_vs_prints_unison_flags_and_the_cli_wires_a_seed_pair(tmp_path, capsys):
+    labels = ("fwd", "lat_l")
+    base = omni_stamp(tmp_path, labels=labels, per=3, T=260, name="base")
+    arm = omni_stamp(tmp_path, labels=labels, per=3, T=260, name="arm", unison=True)
+    seed_a = omni_stamp(tmp_path, labels=labels, per=3, T=260, name="seed_a")
+    seed_b = omni_stamp(tmp_path, labels=labels, per=3, T=260, name="seed_b", speed_scale=0.97)
+    head_yaml = Path(json.loads((base / "run_meta.json").read_text())["checkpoint"]).parent / "params" / "env.yaml"
+    out = tmp_path / "readout.json"
+    rc = t.main(["readout", str(arm), "--vs", str(base), "--seed-a", str(seed_a), "--seed-b", str(seed_b),
+                "--econ-env-yaml", str(head_yaml), "--json", str(out)])
+    assert rc == 0
+    text = capsys.readouterr().out
+    assert "UNISON flags" in text and "FLAG" in text
+    dumped = json.loads(out.read_text())["unison"]
+    assert any(row["flagged"] for row in dumped if row["metric"] == "tripod_coherence")
+    with pytest.raises(SystemExit, match="--seed-a and --seed-b"):
+        t.main(["readout", str(arm), "--vs", str(base), "--seed-a", str(seed_a),
+               "--econ-env-yaml", str(head_yaml)])

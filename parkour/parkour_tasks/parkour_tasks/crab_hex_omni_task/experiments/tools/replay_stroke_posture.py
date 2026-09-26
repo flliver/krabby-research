@@ -13,14 +13,17 @@ episode of a stamp is replayed at once as one batch of "envs" (float32 torch, li
 
 SUBCOMMANDS
 
-``readout <run_dir> [--vs <run_dir>] [--validate] [--json P]``
+``readout <run_dir> [--vs <run_dir>] [--seed-a P --seed-b P] [--validate] [--json P]``
     Per category and per hand, the median over episodes of each episode's own-hold value (the MEAN
     for ``stride_along``), over the episode's steady own-hold window. With ``--vs``: an
     env-clustered PAIRED bootstrap (B = 2000, paired on ``env_index``, clustered on the within-wave
     env as ``resolution.cluster_draw`` does) of run minus vs-run, with its 95 % CI and MDE (the
-    centred 95 % half-width, ``resolution.half_width``). ``--validate`` checks the step-6
-    reproduction targets (:data:`VALIDATION_OMNI` on an omni stamp, :data:`VALIDATION_SIDE` on the
-    sideways head) and exits 1 naming every hard target that missed.
+    centred 95 % half-width, ``resolution.half_width``); also SA0 decision 7's UNISON flags
+    (:func:`unison_flags`) on ARM ``run_dir`` vs BASELINE ``--vs``, over :data:`UNISON_CATEGORIES` --
+    tripod coherence and roll-RMS collapse, neither of which the stroke income can see. ``--seed-a``
+    / ``--seed-b`` (a same-stage seed pair, e.g. B's two seeds) add the seed band. ``--validate``
+    checks the step-6 reproduction targets (:data:`VALIDATION_OMNI` on an omni stamp,
+    :data:`VALIDATION_SIDE` on the sideways head) and exits 1 naming every hard target that missed.
 ``income <run_dir> --w-stroke W --w-centring W [--params k=v ...] [--econ-env-yaml P]``
     Per category: term income/s at w = 1, tracking income/s, the DELIVERED (post-clip) pay in the
     manager's units, the absorbed share, the clip-bind fraction shift, and the stances each gate
@@ -792,10 +795,150 @@ def readout_table(st: Stamp, vals: dict[str, np.ndarray]) -> dict[str, dict]:
     return out
 
 
+# ============================================================================ unison/phase flag (SA0 decision 7)
+# R5 as written FAILs on a cross-plant clause a per-foot stroke income cannot see: the term-alone
+# credit on the forward-era ``lunge`` degenerate (a tripod-locked rock, both tripods planted and paid
+# through the anchor-capped sweep) is 3.0x healthy at p = 1.5 (5.1x at p = 2). SA0's adopted mitigation
+# is not a gate -- it is a FLAG, read at every readout park on arms S and C against their baseline B:
+# per UNISON_CATEGORIES, (a) tripod coherence falling beyond its band, or (b) roll_rms collapsing
+# beyond UNISON_ROLL_COLLAPSE_FRAC of the baseline's -- the v3 tip-rock/unison signature (roll_rms
+# 0.038 -> 0.014). Neither metric is priced by the stroke term; both are recomputed here straight
+# from the raw npz, in gait_eval.metrics's own terms, so the flag cannot inherit a stroke bug.
+UNISON_CATEGORIES = ("fwd", "side", "back", "diag")
+UNISON_KEYS = ("tripod_coherence", "roll_rms")
+UNISON_ROLL_COLLAPSE_FRAC = 0.5      # SA0 decision 7: "roll_rms collapsing 0.038 -> 0.014"
+
+
+def _unison_schedule_defaults() -> dict:
+    """``gait_eval.schedule.DEFAULTS`` -- the eval's own window/contact constants (module docstring:
+    "gait_eval metrics' definitions"), not re-guessed here."""
+    return RMT.gait_schedule_defaults()
+
+
+def episode_tripod_coherence(st: Stamp, i: int) -> float:
+    """Episode ``i``'s ``tripod_score`` (:func:`gait_eval.metrics.tripod_window_metrics`), recomputed
+    from raw contact (``foot_force_norm > contact_force_threshold``) over its steady own-hold window
+    -- the SAME row indexing ``gait_eval/report.py`` uses (unshifted; ``st.own`` is already built from
+    the raw ``steady_mask``/``segment_id`` at that indexing, module docstring). ``nan`` (never 0.0) on
+    a window too short to score, or one ``gait_eval`` itself calls ``low_confidence`` -- exactly the
+    exclusion ``tripod_score_by_hold`` applies before aggregating."""
+    m = st.own[i]
+    if not m.any():
+        return float("nan")
+    gm = gait_metrics()
+    d = _unison_schedule_defaults()
+    contact = st.arr["foot_force_norm"][i, m] > float(d["contact_force_threshold"])
+    min_window_steps = max(1, int(round(float(d["min_window_s"]) / st.dt)))
+    tri = gm.tripod_window_metrics(contact, dt=st.dt, min_window_steps=min_window_steps,
+                                   min_cycles=int(d["min_cycles"]))
+    if not tri["valid"] or tri["low_confidence"]:
+        return float("nan")
+    score = tri["tripod_score"]
+    return float(score) if score is not None else float("nan")
+
+
+def episode_roll_rms(st: Stamp, i: int) -> float:
+    """Episode ``i``'s roll RMS (rad, :func:`gait_eval.metrics.orientation_metrics`) over its steady
+    own-hold window, recomputed from ``root_quat_w`` at the same unshifted indexing as
+    :func:`episode_tripod_coherence`. Roll is unaffected by a yaw rotation, so no travel-frame
+    correction applies (``travel_yaw`` defaults to 0.0). ``nan`` on an empty window."""
+    m = st.own[i]
+    if not m.any():
+        return float("nan")
+    gm = gait_metrics()
+    out = gm.orientation_metrics(st.arr["root_quat_w"][i, m])
+    rms = out["roll_rms"]
+    return float(rms) if rms is not None else float("nan")
+
+
+def unison_values(st: Stamp) -> dict[str, np.ndarray]:
+    """Every :data:`UNISON_KEYS` metric, per episode ([N] arrays, NaN where unmeasured)."""
+    out = {k: np.full(st.N, np.nan) for k in UNISON_KEYS}
+    for i in range(st.N):
+        out["tripod_coherence"][i] = episode_tripod_coherence(st, i)
+        out["roll_rms"][i] = episode_roll_rms(st, i)
+    return out
+
+
+def _unison_row_masks(st: Stamp) -> list[tuple[str, np.ndarray]]:
+    """One row per :data:`UNISON_CATEGORIES` member present (no hand split -- the flag is a
+    category-level watch, not a paired-hand comparison)."""
+    cats = np.array([e["category"] for e in st.episodes])
+    return [(c, cats == c) for c in UNISON_CATEGORIES if (cats == c).any()]
+
+
+def unison_table(st: Stamp, vals: dict[str, np.ndarray]) -> dict[str, dict]:
+    out = {}
+    for name, m in _unison_row_masks(st):
+        out[name] = {"n": int(m.sum()), **{k: aggregate(vals, m, k) for k in UNISON_KEYS}}
+    return out
+
+
+#: Smallest tripod-coherence drop that can raise the unison flag, whatever the band (SA0 follow-up, 2026-09-26).
+UNISON_MIN_DROP = 0.10
+
+
+def unison_flags(st_arm: Stamp, va: dict, st_base: Stamp, vb: dict, *,
+                 seed_a: tuple[Stamp, dict] | None = None, seed_b: tuple[Stamp, dict] | None = None,
+                 roll_collapse_frac: float = UNISON_ROLL_COLLAPSE_FRAC) -> list[dict]:
+    """SA0 decision 7's flag, per :data:`UNISON_CATEGORIES` (module docstring above).
+
+    ``seed_a``/``seed_b`` are an optional same-stage seed pair (e.g. B's two seeds) whose OWN paired
+    tripod-coherence delta gives the seed band: the band a single-seed arm-vs-baseline delta must
+    clear is ``max(bootstrap MDE, |seed-pair delta|)``, so ordinary seed noise never flags on its own.
+    Without a seed pair the band is the bootstrap MDE alone. This never rejects an arm -- it is
+    reported, per the plan's step-7 mitigation and decision 7.
+    """
+    table_a, table_b = unison_table(st_arm, va), unison_table(st_base, vb)
+    boot = paired_bootstrap(st_arm, va, st_base, vb, keys=UNISON_KEYS, rows_fn=_unison_row_masks)
+    seed_boot = (paired_bootstrap(seed_a[0], seed_a[1], seed_b[0], seed_b[1], keys=UNISON_KEYS,
+                                  rows_fn=_unison_row_masks) if seed_a and seed_b else None)
+    out: list[dict] = []
+    for cat in UNISON_CATEGORIES:
+        ta, tb = table_a.get(cat), table_b.get(cat)
+        if ta is None or tb is None:
+            continue
+        rb = boot.get(cat)
+        rs = seed_boot.get(cat) if seed_boot else None
+        d_tri = rb["tripod_coherence"]["delta"] if rb else float("nan")
+        mde_tri = rb["tripod_coherence"]["mde"] if rb else None
+        seed_d_tri = rs["tripod_coherence"]["delta"] if rs else None
+        seed_d_abs = abs(seed_d_tri) if seed_d_tri is not None and math.isfinite(seed_d_tri) else None
+        band_parts = [v for v in (mde_tri, seed_d_abs) if v is not None]
+        # a unison or phase-locked gait drives tripod coherence toward 0; healthy heads differ by a few
+        # hundredths (W vs X0x side: -0.016), so a flag also needs the drop to reach UNISON_MIN_DROP
+        band_tri = max(band_parts + [UNISON_MIN_DROP]) if band_parts else None
+        flag_tri = band_tri is not None and math.isfinite(d_tri) and d_tri < -band_tri
+        reason = ""
+        if flag_tri:
+            reason = f"tripod coherence fell {d_tri:+.3f} beyond its band -{band_tri:.3f}"
+        elif band_tri is None and math.isfinite(d_tri):
+            reason = "no band: bootstrap MDE needs >= 20 finite pairs and no seed pair was given"
+        out.append({"category": cat, "metric": "tripod_coherence", "arm": ta["tripod_coherence"],
+                    "baseline": tb["tripod_coherence"], "delta": d_tri, "mde": mde_tri,
+                    "seed_delta": seed_d_tri, "band": band_tri, "flagged": bool(flag_tri),
+                    "reason": reason})
+        ra_roll, rb_roll = ta["roll_rms"], tb["roll_rms"]
+        ratio = (ra_roll / rb_roll if math.isfinite(ra_roll) and math.isfinite(rb_roll) and rb_roll > 0
+                else float("nan"))
+        flag_roll = math.isfinite(ratio) and ratio < roll_collapse_frac
+        out.append({"category": cat, "metric": "roll_rms", "arm": ra_roll, "baseline": rb_roll,
+                    "ratio": ratio, "threshold": roll_collapse_frac, "flagged": bool(flag_roll),
+                    "reason": (f"roll_rms collapsed to {ratio:.2f}x baseline (< {roll_collapse_frac:g})"
+                              if flag_roll else "")})
+    return out
+
+
 # ============================================================================ paired bootstrap
 def paired_bootstrap(st_a: Stamp, va: dict, st_b: Stamp, vb: dict, *, B: int = BOOT_B,
-                     seed: int = BOOT_SEED) -> dict[str, dict]:
-    """Env-clustered paired bootstrap of ``a - b`` per row and metric (module docstring)."""
+                     seed: int = BOOT_SEED, keys: Sequence[str] = READOUT_KEYS,
+                     rows_fn: Callable[[Stamp], list[tuple[str, np.ndarray]]] = _row_masks) -> dict[str, dict]:
+    """Env-clustered paired bootstrap of ``a - b`` per row and metric (module docstring).
+
+    ``keys``/``rows_fn`` default to the readout's own (:data:`READOUT_KEYS`, :func:`_row_masks`);
+    :func:`unison_flags` reuses this exact pairing, clustering and bootstrap for :data:`UNISON_KEYS`
+    over :func:`_unison_row_masks` instead.
+    """
     R = res()
     ia = {e["env_index"]: i for i, e in enumerate(st_a.episodes)}
     ib = {e["env_index"]: i for i, e in enumerate(st_b.episodes)}
@@ -812,7 +955,7 @@ def paired_bootstrap(st_a: Stamp, va: dict, st_b: Stamp, vb: dict, *, B: int = B
     rng = np.random.default_rng(seed)
     out: dict[str, dict] = {}
     clusters = np.array([st_a.episodes[i]["env"] for i in pa])
-    for name, m in _row_masks(sub):
+    for name, m in rows_fn(sub):
         idx = np.flatnonzero(m)
         cl = clusters[idx]
         uniq = np.unique(cl)
@@ -824,7 +967,7 @@ def paired_bootstrap(st_a: Stamp, va: dict, st_b: Stamp, vb: dict, *, B: int = B
         draw = rng.integers(0, uniq.size, size=(B, uniq.size))
         pos = tab[draw].reshape(B, -1)
         row = {}
-        for key in READOUT_KEYS:
+        for key in keys:
             xa = va[key][pa].astype(np.float64)
             xb = vb[key][pb].astype(np.float64)
             xa_p = np.where(pos >= 0, xa[np.clip(pos, 0, None)], np.nan)
@@ -1204,6 +1347,30 @@ def render_readout(name: str, st: Stamp, table: dict, boot: dict | None = None) 
                 if v[k]["delta"] is not None and math.isfinite(v[k]["delta"]) else "--" for k, _ in _READOUT_COLS])
         parts += ["== delta (run - vs) ± MDE (env-clustered paired bootstrap, B=2000, 95 % half-width)",
                   print_table(rows, head)]
+    return "\n".join(parts)
+
+
+def render_unison(flags: list[dict]) -> str:
+    """SA0 decision 7's readout section: one row per :data:`UNISON_CATEGORIES` x :data:`UNISON_KEYS`
+    (module docstring above ``unison_flags``); FLAG never fails the run, it only marks the row."""
+    head = ["category", "metric", "arm", "baseline", "delta/ratio", "band/thr", "seed Δ", "flag"]
+    rows = []
+    for f in flags:
+        if f["metric"] == "tripod_coherence":
+            deltacol = _fmt(f["delta"], "{:+.3f}")
+            bandcol = _fmt(f["band"], "{:.3f}") if f["band"] is not None else "--"
+            seedcol = _fmt(f["seed_delta"], "{:+.3f}")
+        else:
+            deltacol = _fmt(f["ratio"], "{:.2f}x")
+            bandcol = f"<{f['threshold']:g}"
+            seedcol = "--"
+        rows.append([f["category"], f["metric"], _fmt(f["arm"], "{:.4f}"), _fmt(f["baseline"], "{:.4f}"),
+                    deltacol, bandcol, seedcol, "FLAG" if f["flagged"] else "ok"])
+    parts = ["== UNISON flags (SA0 decision 7: a per-foot stroke income cannot see unison or phase; "
+            "reported, never gates)", print_table(rows, head)]
+    reasons = [f"{f['category']}/{f['metric']}: {f['reason']}" for f in flags if f["reason"]]
+    if reasons:
+        parts.append("\n".join(reasons))
     return "\n".join(parts)
 
 
@@ -1988,6 +2155,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     a.add_argument("--econ-env-yaml", default=str(W_ENV_YAML))
     a.add_argument("--limit", type=int, default=None)
     a.add_argument("--json", default=None)
+    a.add_argument("--seed-a", default=None,
+                   help="SA0 decision 7's UNISON seed band: a same-stage seed pair's first run dir "
+                        "(with --seed-b; only used with --vs)")
+    a.add_argument("--seed-b", default=None, help="the seed pair's second run dir")
     b = sub.add_parser("income")
     b.add_argument("run_dir")
     b.add_argument("--w-stroke", type=float, required=True)
@@ -2037,10 +2208,21 @@ def main(argv: Sequence[str] | None = None) -> int:
         if st.guard_max is not None:
             print(f"[readout] heading guard: max |wrap(psi - (face - heading_err))| = {st.guard_max:.2e}")
         boot = None
+        unison = None
         if args.vs:
+            if bool(args.seed_a) != bool(args.seed_b):
+                raise SystemExit("--seed-a and --seed-b must be given together")
             st2, _rp2, vals2, _t2 = _readout(args.vs, params, econ, args.limit)
             boot = paired_bootstrap(st, vals, st2, vals2)
+            seed_a = seed_b = None
+            if args.seed_a and args.seed_b:
+                st_sa = load_stamp(args.seed_a, limit=args.limit)
+                st_sb = load_stamp(args.seed_b, limit=args.limit)
+                seed_a, seed_b = (st_sa, unison_values(st_sa)), (st_sb, unison_values(st_sb))
+            unison = unison_flags(st, unison_values(st), st2, unison_values(st2), seed_a=seed_a, seed_b=seed_b)
         print(render_readout(Path(args.run_dir).name, st, table, boot))
+        if unison is not None:
+            print(render_unison(unison))
         if st.kind == "omni":
             for line in premise(table):
                 print(f"[readout] {line}")
@@ -2056,7 +2238,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 print("[validate] all hard targets reproduced")
         if args.json:
             Path(args.json).write_text(json.dumps(_jsonable({"table": table, "bootstrap": boot,
-                                                             "params": params, "notes": st.notes}), indent=2))
+                                                             "unison": unison, "params": params,
+                                                             "notes": st.notes}), indent=2))
         return rc
     # income
     st = load_stamp(args.run_dir, limit=args.limit)

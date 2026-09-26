@@ -1,0 +1,283 @@
+# The stroke/posture SCREEN -- the campaign's only machine-readable specification.
+#
+# Plan: /home/nickmagus/.claude/plans/let-s-examine-the-stride-gleaming-dream.md steps 9-14 (approved
+# by the user 2026-09-25, "run the whole plan without asking"). SA0 decisions (binding):
+# SA0_DECISIONS.md beside this file. The question, the settled decisions, the outcome table, the
+# stops and the caveats are in CHARTER.md beside this file.
+#
+# THE SHAPE. One extra phase-1 stage `c6y` after W: 4000 iterations of C1d's c6 overlay verbatim (as
+# the clock campaign's c6x used it), forked from W's BAKED copy (policy/5_c6x_clockfree/model_11995.pt,
+# sha256 3a527683...; byte-identical to the run-dir checkpoint). Phase 1 total 16000 its.
+#
+# THE CHAIN OVERLAY CARRIES the removal set K = {KRABBY_CLOCK_W 0.001, KRABBY_APEX_W 0.001,
+# KRABBY_OMNI_CLOCK_HIDE 1} -- W's recipe of record is clock-free -- plus BOTH stroke/posture knobs
+# at eps 0.001 and the per-category reward telemetry flag. The baseline B therefore inherits them
+# (the clock campaign put K in W's CANDIDATE overlay; a verbatim copy would give B the clock back).
+# Every arm differs from B in ONE weight: S doses KRABBY_OMNI_STROKE_W, P doses
+# KRABBY_OMNI_CENTRING_W. `require_env` pins K and the split flag onto every composed run (baseline,
+# twins, every candidate); the driver refuses a stage that drops or changes one.
+#
+# DOSES (SA0 decision table): w_S = 0.0865 (R4 binds on W fwd at 10 % of tracking income, delivered),
+# w_P = 0.155 (P2 prize parity with S). BOTH are subject to the window-0 dose smoke (plan step
+# 12(ii)): r_S on the fwd row, r_P on the side row; rescale by 1/r only when r is in [0.5, 2], else
+# STOP (SA3). If the smoke rescales, the two values below are edited BEFORE the first launch (the
+# campaign's candidates_sha256 is recorded at the first launch, not before).
+#
+# EVERY path is written relative to the repository root. No driver may contain a dated path.
+schema: 1
+
+plant: A15+B
+seeds: {screen: 3, confirm: 2}
+
+#: Every arm is judged by the whole 4000-iteration c6y stage at seed 3, scored on the per-category
+#: suite `suite__omni` of its stage-end head.
+screen: {chain: c6y, eval: [suite], iters: 4000}
+
+promotion: {enabled: false}
+
+#: B = W + 4000 its of c6y with both stroke/posture knobs at eps (s3 AND s2 -- both fork the same
+#: baked W; its pair is D00bs). No exact twin of "W + 4000 its" exists: B IS the in-campaign control.
+baseline: {id: B, chain: c6y}
+
+#: Pinned onto every composed stage env (validator: `_check_require_env`, plan step 3): K and the
+#: telemetry flag. The eval half (KRABBY_OMNI_CLOCK_HIDE=1 in every eval) is EVAL_CARRY's: HIDE is an
+#: EVAL_CARRY key present in every stage env, so `_carry_mismatch` halts any eval that ran without it.
+require_env:
+  KRABBY_CLOCK_W: "0.001"
+  KRABBY_APEX_W: "0.001"
+  KRABBY_OMNI_CLOCK_HIDE: "1"
+  KRABBY_OMNI_REWARD_SPLIT: "1"
+
+# ---------------------------------------------------------------------------- resolution (D00s)
+# The clock campaign's step-0 suite evals E1 and E2, UNCHANGED (eval_sha 36e5a8af7000 -- this
+# branch does not touch EVAL_PATHSPECS), exactly as wave 2 computed D00s from them: X08-c6 is the
+# control (decision_rule.control_head), X08-c4 its one cross-head pair. NO seed_pair rows: D00bs is
+# built from B's own s3/s2 screens. The driver computes D00s at the first launch (a migration item).
+#   E1 = X08-c6: parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-09-22_11-58-07_seed3_X08_c6_A15pB/model_7996.pt
+#   E2 = X08-c4: parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-09-22_10-32-02_seed3_X08_c4_A15pB/model_4498.pt
+resolution_inputs:
+  - {head: X08-c6, row: suite__omni, role: pair, run_dir: "parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-23_clock_deprecation/step0_E1_X08-c6_visible/suite__omni/seed001/2026-09-23_21-23-41"}
+  - {head: X08-c4, row: suite__omni, role: pair, run_dir: "parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-23_clock_deprecation/step0_E2_X08-c4_visible/suite__omni/seed001/2026-09-23_21-31-11"}
+
+# ---------------------------------------------------------------------------- the decision rule
+# Rule v2 (per category). Blocks F, F_mt, T and RIG VERBATIM from the clock campaign's wave 2 (RIG is
+# NOT adopt-required here: it stays as the rigidity readout and arms the flag/park machinery), plus
+# the new mechanism block LEN. NO adopt_requires (decision 5: S's adoption never requires LEN BETTER;
+# the orchestrator reads decision 5's adoption at SA4 from the pooled line + the offline readout).
+# Signs come from eval_categories.metric_sign: steps_per_m and foot_slip are LOWER-is-better.
+decision_rule:
+  rule_version: 2
+  #: the s3 outcomes that queue a seed-2 pair instead of deciding (run_candidates.PAIR_ON_CASES).
+  #: `neutral` / `lone_guard` are defined on an adopt_requires block, which this rule does not name
+  #: (the validator refuses them without one). An all-TIE s3 line is ALREADY paired by
+  #: `_decide_s3` (speculative, pair queued) -- which is plan decision 5's "an all-TIE single-seed S
+  #: gets its s2 pair" -- and `adopt` pairs a clear s3 ADOPT. A clear s3 REJECT (a block or guard
+  #: WORSE) is decided with no pair.
+  pair_on: [adopt]
+  steps_guard_flag: false
+  text: >-
+    STROKE/POSTURE SCREEN: the baseline is B (W + 4000 its of c6y, both stroke/posture knobs at eps,
+    clock-free K in the chain) and every arm (S = the per-foot stroke income at w_S, P = the
+    body-centring bonus at w_P) is judged against B's own screens (control: baseline), never
+    another arm. Every metric is a per-category number of the suite__omni row
+    (summarize()['cat'][c]: the median pooled over both hands of a paired category; survival = the
+    category's own-hold survival), computed over each category's 12-s command window. Blocks (95 %,
+    two-sided), wave 2's verbatim: F = turn: facing_closed, yaw_progress; F_mt = move_turn:
+    facing_closed, yaw_progress; T = fwd, side, back, diag: ratio; RIG (10 members) = steps_per_m on
+    fwd, side, back, diag and steps_per_rad on turn (LOWER is better) plus support_feet on fwd,
+    side, back, diag, turn (HIGHER is better); and LEN (new) = side and diag steps_per_m (LOWER is
+    better: a longer step), the mechanism block neither lever pays directly. Each delta is sign x
+    (candidate - control), so z > R is BETTER in every block; z_b = mean_i(delta_i / R_i); BETTER if
+    z > R, WORSE if z < -R, else TIE. Guards (99 %, one-sided; 23, wave 2's): survival on all seven
+    categories (floored at R_binom); move_turn.ratio; ratio@guard on fwd, side, back, diag;
+    foot_slip on fwd, side, back, diag, turn; steps_per_m@guard on fwd, side, back, diag and
+    steps_per_rad@guard on turn; stand.steps_per_s. R_i = max(R_eval,i, R_seed,i) (+ R_binom for
+    the survival guards), R_eval from D00s (X08-c6 vs X08-c4), R_seed from D00bs (B s3 vs s2). NO
+    adopt_requires: the driver's ADOPT = some block BETTER, nothing WORSE, anchored drift OK;
+    REJECT = any block or guard WORSE, or a stage floor on a non-park category. pair_on [adopt]: an
+    s3 ADOPT queues a seed-2 pair; an all-TIE s3 line is paired by the driver itself; the pooled
+    decision is final. FLOORS: W's suite survival (survival_by_hold) - 0.20 per category; a floor
+    on move_turn or diag PARKS AND FLAGS (floor.park_categories, user decision at audit pass 3):
+    the run continues to its screen and the survival guard against B decides. The driver's
+    ADOPT/REJECT is mechanical: the ADOPTION of S is plan decision 5 (pooled s3 + s2: the S
+    manipulation check of decision 9 passed, side stroke_share not lower beyond its MDE, no block or
+    guard WORSE; LEN BETTER reported as mechanism evidence, not required), read by the orchestrator
+    at SA4 from this line plus `replay_stroke_posture.py readout`. FLAGS (stop and ask, never a
+    verdict; every flagged DECISION parks the driver until `ledger_cli ack-flag`): the clock
+    campaign's set, read against B -- turn facing_closed down >= 0.05, move_turn facing_closed down
+    >= 0.10, any category's survival down >= 0.05, any walking speed ratio down >= 0.05; taps up >
+    25 %; swing_apex down >= 30 %; support_feet down > 10 %; speed-driven; removal verification
+    failed (every arm is clock-free: every HIDE eval shows clock_obs == 0, every stage ends with
+    both clock weights <= 0.001); a park-category floor (floor_park, immediate). At the orchestrator
+    (SA4, offline readout, not driver flags): term income > 25 % of tracking in any category; side
+    knee_cap_frac up > 20 %; the unison/phase flag on S (and C): tripod coherence below its seed
+    band, or roll_rms collapsing, relative to B (SA0 decision 7). WATCH, never scored: as wave 2
+    (the cadence set, taps, swing_apex, tripod, slip_per_m, six_down_frac, direction_error,
+    cross_track_ratio, heading_final, settle_s, stand.drift_speed, both hands), plus move_turn
+    survival and pitch (W's known forward nose-dive).
+  #: RECORD ONLY -- the stop-and-ask flag thresholds (run_candidates.py constants MARGIN_FLAGS,
+  #: TAPS_UP_FRAC, APEX_DOWN_FRAC, SUPPORT_DOWN_FRAC, STEPS_UP_FRAC, IMMEDIATE_FLAGS; they must agree
+  #: with this block). Each delta is candidate - control (B); a fraction is relative to B's value.
+  flags:
+    margin:
+      turn.facing_closed: -0.05
+      move_turn.facing_closed: -0.10
+      any_category.survival: -0.05
+      any_walking_category.ratio: -0.05   # fwd, side, back, diag, move_turn
+    taps_up_frac: 0.25
+    swing_apex_down_frac: 0.30
+    support_feet_down_frac: 0.10
+    steps_up_frac: 0.15             # only with steps_guard_flag: true
+    speed_driven: steps members' mean delta/R BETTER, mean dlog step_rate_hz >= 0, T z > 0
+    removal_verification: every clock-free stage verified (clock_obs, weights, clock_hidden_frac)
+    floor_park: a stage floor on a floor.park_categories category (move_turn, diag)
+    immediate: [removal, pilot, floor_park]   # park at the seed-3 line, never deferred to the pooled line
+  per_category:
+    blocks:
+      F: {level: 0.95, units: ratio, members: {turn: [facing_closed, yaw_progress]}}
+      F_mt: {level: 0.95, units: ratio, members: {move_turn: [facing_closed, yaw_progress]}}
+      T: {level: 0.95, units: ratio,
+          members: {fwd: [ratio], side: [ratio], back: [ratio], diag: [ratio]}}
+      RIG:
+        level: 0.95
+        units: ratio
+        members:
+          fwd: [steps_per_m, support_feet]
+          side: [steps_per_m, support_feet]
+          back: [steps_per_m, support_feet]
+          diag: [steps_per_m, support_feet]
+          turn: [steps_per_rad, support_feet]
+      #: the mechanism block (plan step 13): side and diag steps per metre, lower is better. NOT
+      #: adopt-required (decision 5); decisive for the mechanism reading of the step-14 table.
+      LEN: {level: 0.95, units: ratio, members: {side: [steps_per_m], diag: [steps_per_m]}}
+    guards:
+      level: 0.99
+      members:                      # 23: 2 + 4 x 4 + 3 + 2 (wave 2's)
+        stand: [survival, steps_per_s]
+        fwd: [survival, ratio, foot_slip, steps_per_m]
+        side: [survival, ratio, foot_slip, steps_per_m]
+        back: [survival, ratio, foot_slip, steps_per_m]
+        diag: [survival, ratio, foot_slip, steps_per_m]
+        turn: [survival, foot_slip, steps_per_rad]
+        move_turn: [survival, ratio]
+    watch:
+      members:
+        stand: [drift_speed, support_feet, gait_hz, clock_hz, cadence_ratio, six_down_frac,
+                settle_six_down_s, action_jitter, action_fft_freq, joint_speed_mean, rod_speed_mean,
+                contact_switch_hz, foot_slip, wz_active_frac, clock_restarts, foot_disp_end,
+                work_per_s]
+        fwd: [tripod, gait_hz, clock_hz, cadence_ratio, hz_speed_slope, offset_R, step_rate_hz,
+              taps_per_m, swing_apex, slip_per_m, action_jitter, swings_per_m, work_per_m,
+              cam_work_per_m, direction_error, cross_track_ratio, heading_final]
+        side: [tripod, gait_hz, clock_hz, cadence_ratio, hz_speed_slope, offset_R, step_rate_hz,
+               taps_per_m, swing_apex, slip_per_m, action_jitter, swings_per_m, work_per_m,
+               cam_work_per_m, direction_error, cross_track_ratio, heading_final]
+        back: [tripod, gait_hz, clock_hz, cadence_ratio, hz_speed_slope, offset_R, step_rate_hz,
+               taps_per_m, swing_apex, slip_per_m, action_jitter, swings_per_m, work_per_m,
+               cam_work_per_m, direction_error, cross_track_ratio, heading_final]
+        diag: [tripod, gait_hz, clock_hz, cadence_ratio, hz_speed_slope, offset_R, step_rate_hz,
+               taps_per_m, swing_apex, slip_per_m, action_jitter, swings_per_m, work_per_m,
+               cam_work_per_m, direction_error, cross_track_ratio, heading_final]
+        turn: [steps_per_rad_pre, steps_per_rad_post, taps_per_rad, swing_apex, gait_hz, clock_hz,
+               cadence_ratio, offset_R, step_rate_hz, action_jitter, swings_per_rad, slip_per_rad,
+               work_per_rad, cam_work_per_rad, settle_s, heading_final]
+        move_turn: [tripod, steps_per_rad, support_feet, taps_per_rad, swing_apex, foot_slip, gait_hz,
+                    clock_hz, cadence_ratio, offset_R, step_rate_hz, action_jitter, swings_per_rad,
+                    slip_per_rad, work_per_rad, cam_work_per_rad, direction_error,
+                    cross_track_ratio, settle_s]
+      hands: true
+      legacy: {completion: legacy, tripod_walking_dir: legacy, track_ratio_tail: legacy,
+               track_ratio_move_tail: legacy, turn_survival_l90: N/A (suite),
+               turn_survival_r90: N/A (suite)}
+    # Wave 2 ran the zero-spread check on these same E1/E2 stamps and demoted nothing; LEN's two
+    # members are RIG members already scored there. Empty.
+    demoted: {}
+  charter_floors: {completion: 0.10, tripod_walking_dir: 0.056}
+  bootstrap: {B: 2000, paired_on: env_index, rng_seed: 20260923}
+  control_head: X08-c6
+
+# ---------------------------------------------------------------------------- chains
+# `c6y` is every screen: ONE extra stage after W on preset 1a, C1d's c6 overlay VERBATIM (the six keys
+# the clock campaign's c6x carried), forked from W's baked copy by the `checkpoint:` resume kind. The
+# PPO resume fix (eabe7324) carries the priv_reg counter, LR and aux optimisers across the fork.
+#
+# FLOOR (SA0 decision 5): W's suite survival (survival_by_hold) - 0.20 per category (W: stand 1.000,
+# fwd 0.95, side 0.995, back 0.98, diag 0.87, turn 0.99, move_turn 0.365). move_turn and diag are
+# `park_categories`: a floor there PARKS AND FLAGS on every run kind (candidate, baseline, seed 2) --
+# the run continues to its screen and the survival guard against B decides. A floor on any other
+# category is a candidate REJECT (class BREAK) and parks a baseline, as in wave 2.
+chains:
+  c6y:
+    notes: >-
+      W (C1d then c6x, the clock-free omni head of record) extended by 4000 iterations of C1d's c6
+      overlay with K held in the chain -- B is this chain with both stroke/posture knobs at eps, S
+      doses the per-foot stroke income, P the body-centring bonus.
+    stages:
+      - stage: c6y
+        base: "1a"
+        iters: 4000
+        from_scratch: false
+        resume_from: {checkpoint: parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/5_c6x_clockfree/model_11995.pt}
+        overlay:
+          # C1d's c6 overlay, verbatim (the clock campaign's c6x)
+          KRABBY_OMNI_CMD_POOL: stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07
+          KRABBY_OMNI_SLOTS: 0.15:0.55:0.1:0.2
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_RSI_SOURCE: all
+          KRABBY_OMNI_FACING: 0.2:0.6
+          KRABBY_YAW_W: "0.2"
+          # K: W's recipe of record is clock-free (pinned by require_env)
+          KRABBY_CLOCK_W: "0.001"
+          KRABBY_APEX_W: "0.001"
+          KRABBY_OMNI_CLOCK_HIDE: "1"
+          # both stroke/posture knobs ARMED at eps (every arm differs from B in one weight) + telemetry
+          KRABBY_OMNI_STROKE_W: "0.001"
+          KRABBY_OMNI_CENTRING_W: "0.001"
+          KRABBY_OMNI_REWARD_SPLIT: "1"
+        eval: [suite]
+        categories: [back, diag, fwd, move_turn, side, stand, turn]
+        floor:
+          kind: category_survival
+          row: suite
+          min_by_category: {stand: 0.80, fwd: 0.75, side: 0.795, back: 0.78, diag: 0.67, turn: 0.79,
+                            move_turn: 0.165}
+          park_categories: [move_turn, diag]
+
+# ---------------------------------------------------------------------------- ranked candidates
+# Queue (plan decision 7; the driver's own order): B s3 -> B s2 -> S s3 -> [S s2: queued by the driver
+# when S s3 is an ADOPT (pair_on) or all-TIE (_decide_s3)] -> P s3 -> [P s2, likewise]. No hold after
+# S. Arm C (both doses) is CONDITIONAL on the user's yes at SA5 and is NOT queued here; it is added as
+# a third candidate (overlay {c6y: {KRABBY_OMNI_STROKE_W: <w_S>, KRABBY_OMNI_CENTRING_W: <w_P>}})
+# only then (with overrides_chain naming both knobs). Each arm's overlay OVERRIDES the chain's eps for
+# its one knob, declared in `overrides_chain`.
+candidates:
+  - id: S
+    control: baseline
+    eval_carry: [KRABBY_OMNI_CLOCK_HIDE]
+    #: the ONE chain key this arm re-sets (its dose over the chain's eps): declared, so compose_recipe
+    #: records no conflict for it (any other key it changed would still be one)
+    overrides_chain: [KRABBY_OMNI_STROKE_W]
+    overlay:
+      c6y: {KRABBY_OMNI_STROKE_W: "0.0865"}
+    question: >-
+      On W, does a per-foot loaded stance-stroke income at w_S (the replaced stride term, alive and
+      command-general; R4: fwd delivered income 10 % of tracking) for a further 4000 iterations change
+      the stroke (the decision-9 manipulation check: the delivered dose landed and some stroke key
+      moved beyond its MDE), keep its extra stride stroke-borne (side stroke_share not lower), and
+      lengthen side/diag steps (LEN, mechanism evidence, not required) with no block or guard WORSE
+      against B, the same 4000 iterations at eps?
+  - id: P
+    control: baseline
+    eval_carry: [KRABBY_OMNI_CLOCK_HIDE]
+    overrides_chain: [KRABBY_OMNI_CENTRING_W]
+    overlay:
+      c6y: {KRABBY_OMNI_CENTRING_W: "0.155"}
+    question: >-
+      On W, does a body-centring bonus at w_P (P2 prize parity with S) for a further 4000 iterations
+      pull the body back over its six-foot centroid on side holds (body_offset down >= 0.05 m, the
+      manipulation check) and does the recentred posture lengthen side/diag steps (LEN) with no block
+      or guard WORSE against B? A POS+ reads "posture or side-row emphasis" (recorded, not
+      controlled).
+
+# ---------------------------------------------------------------------------- milestones
+milestones: []

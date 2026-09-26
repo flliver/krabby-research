@@ -960,10 +960,16 @@ def _cand_spec(cand: dict, chain_name: str) -> dict:
     return spec
 
 
-def _merge_overlay(dst: dict, src: dict, where: str, who: str, conflicts: list) -> None:
-    """Merge ``src`` into ``dst``, recording a conflict for any key that changes MEANING."""
+def _merge_overlay(dst: dict, src: dict, where: str, who: str, conflicts: list, *,
+                   quiet=frozenset()) -> None:
+    """Merge ``src`` into ``dst``, recording a conflict for any key that changes MEANING.
+
+    ``quiet`` (keys): a DECLARED override of the chain's own value (a candidate's
+    ``overrides_chain``, resolved by :func:`compose_recipe` to the keys whose ``dst`` value is still
+    the chain's) is not a conflict. Empty -- every campaign before 2026-09-26 -- nothing changes.
+    """
     for key, value in (src or {}).items():
-        if key in dst and not numeric_equal(dst[key], value):
+        if key in dst and not numeric_equal(dst[key], value) and key not in quiet:
             conflicts.append(f"{where}: {key} set to {dst[key]!r} and {value!r} (by {who})")
         dst[key] = value
 
@@ -1063,18 +1069,30 @@ def compose_recipe(ledger: dict, cands: dict, code: str, *, upto: str | None = N
 
     pool_edits, teacher = [], {}
     eval_carry: list[str] = []
+    chain_overlay = {name: dict(stages[i].get("overlay") or {}) for i, name in enumerate(names)}
+
+    def _quiet(spec: dict, name: str) -> frozenset:
+        # NOTE(stride/posture 2026-09-26): `overrides_chain` -- only while the stage still holds the
+        # CHAIN's value for the key (another candidate's value is still a conflict).
+        keys = spec.get("overrides_chain") or ()
+        return frozenset(k for k in keys if k in overlay_by_stage.get(name, {})
+                         and k in chain_overlay.get(name, {})
+                         and numeric_equal(overlay_by_stage[name][k], chain_overlay[name][k]))
+
     for cid in adopted:
         spec = _cand_spec(candidate_by_id(cands, cid) or {}, chain_name)
         overlay = spec.get("overlay") or {}
         if spec.get("stages") == "all":
             for name in names:
-                _merge_overlay(overlay_by_stage[name], overlay, f"stage {name}", cid, conflicts)
+                _merge_overlay(overlay_by_stage[name], overlay, f"stage {name}", cid, conflicts,
+                               quiet=_quiet(spec, name))
         elif isinstance(overlay, dict):
             for name, block in overlay.items():
                 if str(name) not in overlay_by_stage:
                     conflicts.append(f"{cid}: overlay names stage {name!r}, not in chain {chain_name}")
                     continue
-                _merge_overlay(overlay_by_stage[str(name)], block, f"stage {name}", cid, conflicts)
+                _merge_overlay(overlay_by_stage[str(name)], block, f"stage {name}", cid, conflicts,
+                               quiet=_quiet(spec, str(name)))
         if spec.get("pool_edit"):
             pool_edits.append((cid, dict(spec["pool_edit"])))
         if promote:
@@ -2182,6 +2200,10 @@ def validate_candidates(cands: dict, *, strict: bool = True, check_replay: bool 
                 _check_knob(key, value, where, whitelist, parsers, r, set())
             stage_env_ = _effective_stage_cfg(cands, stage, overlay)
             _check_stage_categories(stage, stage_env_, where, r)
+            if floor_park_categories(stage) and not flags_enabled(rule):
+                r.append(f"{where}: floor park_categories needs a decision rule with block "
+                         f"{RIG_BLOCK} (the flag/park machinery): without it a park-category floor "
+                         "would be recorded and park nothing")
             _check_pool_overlay(overlay, where, r, stage_env_)
             _check_cap_rules(stage_env_, where, chain.get("notes") or "", r)
             _check_require_env(stage_env_, where, require_env, r)
@@ -2328,6 +2350,25 @@ def validate_candidates(cands: dict, *, strict: bool = True, check_replay: bool 
                     env = _effective_stage_cfg(cands, stage, {**(stage.get("overlay") or {}), **overlay})
                     _check_cap_rules(env, f"{where} @ preset {stage['base']}",
                                      cand.get("question") or "", r)
+        # NOTE(stride/posture 2026-09-26): `overrides_chain` -- the chain-overlay keys this candidate
+        # deliberately re-sets (compose_recipe records no conflict for them). Each must be set by the
+        # candidate's own overlay AND by some chain stage overlay: a typo would silence nothing, or
+        # would silence a real conflict with nothing to override.
+        oc = cand.get("overrides_chain")
+        if oc is not None:
+            if not isinstance(oc, (list, tuple)) or any(not isinstance(k, str) for k in oc):
+                r.append(f"overrides_chain must be a list of KRABBY_* keys, got {oc!r}")
+            else:
+                chain_keys = {k for cname in (cands.get("chains") or {})
+                              for st in chain_stages(cands, cname) for k in (st.get("overlay") or {})}
+                own_keys = {k for _w, _c, block, label in blocks if label != "teacher"
+                            for k in (block or {})}
+                for key in oc:
+                    if key not in own_keys:
+                        r.append(f"overrides_chain names {key}, which {cid}'s overlay does not set")
+                    if key not in chain_keys:
+                        r.append(f"overrides_chain names {key}, which no chain stage overlay sets "
+                                 "(nothing to override)")
         moved = sorted({key for _w, _c, block, _l in blocks for key in (block or {})
                         if key in ABSOLUTE_UNITS_KEYS})
         if moved and not cand.get("absolute_units"):
@@ -3009,6 +3050,21 @@ def _check_stage_categories(stage: dict, env: dict, where: str, reasons: list) -
             val = _num(floor.get(key))
             if val is None or not 0.0 < val <= 1.0:
                 reasons.append(f"{where}: floor {key} must be a number in (0, 1], got {floor.get(key)!r}")
+    # NOTE(stride/posture plan, audit pass 3, 2026-09-26): `park_categories` (park and flag).
+    park = floor.get("park_categories")
+    if park is not None:
+        cats = [str(c) for c in stage.get("categories") or []]
+        if kind != "category_survival":
+            reasons.append(f"{where}: floor park_categories needs kind category_survival, got {kind!r}")
+        elif (not isinstance(park, (list, tuple)) or not park
+              or any(not isinstance(c, str) for c in park)):
+            reasons.append(f"{where}: floor park_categories must be a non-empty list of category "
+                           f"names, got {park!r}")
+        else:
+            bad = [c for c in park if c not in cats]
+            if bad:
+                reasons.append(f"{where}: floor park_categories {bad} are not among the stage's "
+                               f"categories {cats} (a typo would silently turn a park into a REJECT)")
 
 
 def _composed_final_pool(cands: dict, spec: dict, chain_name: str) -> str | None:
@@ -4366,7 +4422,8 @@ TAP_KEYS = {"fwd": "taps_per_m", "side": "taps_per_m", "back": "taps_per_m", "di
 STEPS_GUARD_KEYS = {"fwd": "steps_per_m", "side": "steps_per_m", "back": "steps_per_m",
                     "diag": "steps_per_m", "turn": "steps_per_rad"}
 #: The two flags that park at the SEED-3 line even while a pair is queued (never deferred).
-IMMEDIATE_FLAGS = ("removal", "pilot")
+#: ``floor_park`` (stride/posture 2026-09-26): a floor tripped only on ``floor.park_categories``.
+IMMEDIATE_FLAGS = ("removal", "pilot", "floor_park")
 
 
 def flags_enabled(rule: dict | None) -> bool:
@@ -6279,8 +6336,45 @@ def floor_band(p_hat: float, n_env: float) -> float:
     return p + Z_99 * math.sqrt(p * (1.0 - p) / float(n_env))
 
 
+def floor_park_categories(stage: dict | None) -> list[str]:
+    """``floor.park_categories`` of one stage (stride/posture plan, audit pass 3), ``[]`` when absent.
+
+    A ``category_survival`` floor tripped ONLY on these categories parks and flags instead of
+    rejecting (:func:`floor_disposition`): the run continues to its screen and the survival guard
+    against the control decides. Absent -- every campaign before 2026-09-26 -- nothing changes.
+    """
+    return [str(c) for c in (((stage or {}).get("floor") or {}).get("park_categories") or [])]
+
+
+def floor_disposition(stage: dict, passed: bool, fails, kind: str) -> str:
+    """What the run loop does with one stage's floor verdict -- pure.
+
+    ``"pass"`` (the floor held); ``"park"`` (it failed, every failing category is one of
+    :func:`floor_park_categories` -- recorded as ``header.floor_park`` on ANY run kind, flagged at
+    the DECISION, never a REJECT); else the pre-existing split: ``"reject"`` for a candidate (a clear
+    floor REJECT, decision 4) and ``"watch"`` for every other kind (``header.floor_watch``). With no
+    ``park_categories`` the answer is exactly the old ``candidate -> reject / else watch``.
+    """
+    if passed:
+        return "pass"
+    park = set(floor_park_categories(stage))
+    fails = [str(c) for c in (fails or ())]
+    if park and fails and set(fails) <= park:
+        return "park"
+    return "reject" if kind == "candidate" else "watch"
+
+
+def floor_park_flags(lines, *, where: str = "") -> list[dict]:
+    """The ``floor_park`` flag items of one run's ``header.floor_park`` lines (immediate: they park
+    at the line they are raised on, :data:`IMMEDIATE_FLAGS`)."""
+    tag = f" ({where})" if where else ""
+    return [_flag("floor_park", f"FLOOR on a park category{tag} -- park and flag, never an auto-REJECT; "
+                               f"the survival guard against the control decides: {w}")
+            for w in (lines or [])]
+
+
 def stage_floor(stage: dict, rec: dict, *, dead_walker_floor: float | None = None,
-                decisive=None, previous=None) -> tuple[bool, str]:
+                decisive=None, previous=None, detail: dict | None = None) -> tuple[bool, str]:
     """Decision 4's stage FLOOR: ``(passed, why)``. Never a relative check -- that is RETENTION.
 
     ``category_survival`` (plan D6): for every ``c`` in ``decisive`` (the stage's own trained
@@ -6295,13 +6389,16 @@ def stage_floor(stage: dict, rec: dict, *, dead_walker_floor: float | None = Non
     that reached the END of the stage's last enabled hold, on the stage's own eval row.
     ``dead_walker`` is armed inside ``train`` (``early_abort``) rather than read here; this reports
     the same verdict when a NON-candidate kind trips it, which is WATCH by decision 4.
+
+    ``detail`` (a dict, optional): the ``category_survival`` branch writes ``detail["fails"]`` (the
+    failing categories) into it, which :func:`floor_disposition` reads. Omitted, nothing changes.
     """
     floor = stage.get("floor") or {}
     kind = str(floor.get("kind") or "none")
     if kind == "none":
         return True, "no floor at this stage"
     if kind == "category_survival":
-        return _category_floor(stage, rec, floor, decisive, previous)
+        return _category_floor(stage, rec, floor, decisive, previous, detail=detail)
     if kind == "dead_walker":
         vals = []
         log = rec.get("log")
@@ -6323,7 +6420,8 @@ def stage_floor(stage: dict, rec: dict, *, dead_walker_floor: float | None = Non
     return float(surv) >= want, (f"survival through {hold} on {row}: {float(surv):.3f} (need >= {want})")
 
 
-def _category_floor(stage: dict, rec: dict, floor: dict, decisive, previous) -> tuple[bool, str]:
+def _category_floor(stage: dict, rec: dict, floor: dict, decisive, previous, *,
+                    detail: dict | None = None) -> tuple[bool, str]:
     """:func:`stage_floor`'s ``category_survival`` branch (plan D6)."""
     ec = eval_categories()
     row = str(floor.get("row") or "suite")
@@ -6360,6 +6458,8 @@ def _category_floor(stage: dict, rec: dict, floor: dict, decisive, previous) -> 
             fails.append(c)
     why = (f"category survival on {row} (one-sided 99 % band): " + ("; ".join(parts) or "no decisive "
            "category") + (f" -- FAIL on {fails}" if fails else ""))
+    if detail is not None:
+        detail["fails"] = list(fails)
     return not fails, why
 
 
@@ -7095,13 +7195,17 @@ def run_experiment(ctx: Ctx, item: dict) -> dict:
             decisive = list(tc.get("decisive") or [])
             previous = previous_decisive(ctx, header, names, sname)
             rec["categories"] = {"decisive": decisive, "previous": previous}
+        floor_detail: dict = {}
         try:
             passed, floor_why = stage_floor(stage, rec, dead_walker_floor=ctx.lad.get("d03"),
-                                            decisive=decisive, previous=previous)
+                                            decisive=decisive, previous=previous, detail=floor_detail)
         except eval_categories().EvalMismatch as exc:
             ctx.c.recs[f"{xid}:{sname}"] = rec
             return _halt(ctx, header, "eval_mismatch", f"{sname}: {exc}", item=item)
+        disposition = floor_disposition(stage, passed, floor_detail.get("fails"), item["kind"])
         rec["floor"] = {"passed": passed, "why": floor_why}
+        if disposition == "park":
+            rec["floor"]["park"] = True
         chain = recipe.get("chain")
         if per_category:
             # stage_trace_v2 is keyed by CATEGORY (plan D6); the pre-suite hold-keyed trace cannot be
@@ -7121,7 +7225,17 @@ def run_experiment(ctx: Ctx, item: dict) -> dict:
                 ctx.lad.setdefault("stage_trace_v2", {}).setdefault(chain, {})[sname] = mine
         elif not trace and mine.get("survival"):
             ctx.lad.setdefault("stage_trace", {}).setdefault(chain, {})[sname] = mine
-        if not passed:
+        if disposition == "park":
+            # NOTE(stride/posture plan, audit pass 3, 2026-09-26): a floor tripped ONLY on the
+            # stage's `floor.park_categories` parks and flags on every run kind -- the run continues
+            # to its screen, its DECISION (or baseline) line carries an immediate `floor_park` flag,
+            # and the survival guard against the control decides. Never a REJECT, never floor_watch.
+            header.setdefault("floor_park", []).append(f"{sname}: {floor_why}")
+            ctx.notify("RETENTION", f"{xid}:{sname}",
+                       [f"FLOOR tripped only on park categories {floor_park_categories(stage)} on a "
+                        f"{item['kind']} run -- PARK AND FLAG: the run continues to its screen and "
+                        f"its decision line parks (floor_park): {floor_why}"])
+        elif not passed:
             if item["kind"] == "candidate":
                 header.update(status="rejected_by_floor", floor_stage=sname, floor=floor_why, ckpt=ckpt,
                               floor_eval_sha=ctx.eval_sha, inflight=None)
@@ -7557,7 +7671,9 @@ def _stage_report(ctx: Ctx, item: dict, xid: str, stage: dict, rec: dict, spec) 
     for line in rec.get("retention") or []:
         lines.append(f"- {line}")
     if rec.get("floor"):
-        lines.append(f"- floor {'PASS' if rec['floor']['passed'] else 'FAIL'}: {rec['floor']['why']}")
+        lines.append(f"- floor {'PASS' if rec['floor']['passed'] else 'FAIL'}"
+                     + (" (PARK: park_categories only -- park and flag)" if rec["floor"].get("park") else "")
+                     + f": {rec['floor']['why']}")
     return head + "\n".join(lines) + f"\n\n>>> ENTRY {xid}:{stage['stage']}\n"
 
 
@@ -8428,12 +8544,17 @@ def _dispatch_baseline(ctx: Ctx, item: dict, header: dict) -> None:
              "base_recipe_id": header.get("base_recipe_id"), "recipe_id_if_adopted": header.get("recipe_id"),
              "code_sha": ctx.code, "eval_sha": ctx.eval_sha, "tools_sha": ctx.tools, "decided_at": now_iso(),
              "decided_by": "driver", "evidence": {"screen": header.get("screen")}, "history": []}
-    if flags_enabled(ctx.cands.get("decision_rule")) and header.get("floor_watch"):
+    if flags_enabled(ctx.cands.get("decision_rule")) and (header.get("floor_watch")
+                                                          or header.get("floor_park")):
         # NOTE(clock-deprecation 2026-09-23, plan step 4): a BASELINE screen that trips a floor parks
         # the driver (every arm is judged against it); `ack-flag <Did>` releases it.
-        entry["flags"] = {"level": "screen", "park": True, "pair_queued": False, "immediate": ["floor"],
+        # NOTE(stride/posture 2026-09-26): a park-category floor (`header.floor_park`) parks it too.
+        entry["flags"] = {"level": "screen", "park": True, "pair_queued": False,
+                          "immediate": (["floor"] if header.get("floor_watch") else [])
+                          + (["floor_park"] if header.get("floor_park") else []),
                           "items": [_flag("floor", f"baseline floor tripped: {w}")
-                                    for w in header.get("floor_watch") or []]}
+                                    for w in header.get("floor_watch") or []]
+                          + floor_park_flags(header.get("floor_park"), where="baseline")}
     ctx.ledger.setdefault("entries", []).append(entry)
     ctx.write_ledger()
     ctx.recompute()
@@ -8906,6 +9027,11 @@ def _dispatch_candidate(ctx: Ctx, item: dict, header: dict) -> None:
         entry["evidence"]["rig_split"] = rig_split((cmp3.get("blocks") or {}).get(RIG_BLOCK))
         items = decision_flags(rule, cmp3, [header.get("screen") or {}], [(base or {}).get("screen") or {}],
                                removal=[removal], pilot=pilot_stop(rule, item["candidate"], decision))
+        if header.get("floor_park"):
+            # NOTE(stride/posture 2026-09-26): a park-category floor -- an immediate flag (parks here,
+            # before any pair), recorded beside the verdict it does not change.
+            entry["evidence"]["floor_park"] = list(header["floor_park"])
+            items = items + floor_park_flags(header["floor_park"], where="seed-3 run")
         entry["flags"] = _flag_record("s3", items, pair_queued=decision["status"] == "speculative")
     if entry["chosen"] not in entry["options"]:
         raise ValueError(f"{entry['id']}: chosen {entry['chosen']} not in options {entry['options']}")
@@ -9110,6 +9236,12 @@ def _resolve_pair(ctx: Ctx, item: dict, entry: dict, s2_screen: dict, *, s2_xid:
         items = decision_flags(rule, pcmp, [cand_s3.get("screen") or {}, s2_screen or {}],
                                [base_s3.get("screen") or {}, (base_s2 or {}).get("screen") or {}],
                                removal=[r for r in removal.values() if isinstance(r, dict)])
+        s2_park = list((header or {}).get("floor_park") or [])
+        if s2_park:
+            # NOTE(stride/posture 2026-09-26): the seed-2 run's park-category floor (never a
+            # floor_watch, so neither `floor_tripped` nor arm_class BREAK): a flag on the pooled line.
+            entry["evidence"]["s2_floor_park"] = s2_park
+            items = items + floor_park_flags(s2_park, where="seed-2 run")
         entry["flags"] = _flag_record("pooled", items, pair_queued=False)
     if pooled["self_overrule"]:
         entry["override"] = {"id": f"driver:{s2_xid or entry['id']}", "by": "driver",

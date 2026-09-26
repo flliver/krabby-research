@@ -51,6 +51,7 @@ from parkour_tasks.crab_hex_omni_task.mdp.crab_hex_omni_stroke_math import (
     reset_centring_state,
     reset_stroke_state,
 )
+from parkour_tasks.crab_hex_omni_task.mdp.crab_hex_omni_stroke_parity import get_recorder as _get_parity_recorder
 
 if TYPE_CHECKING:
     from isaaclab.managers import RewardTermCfg
@@ -160,12 +161,14 @@ class RewardFootStroke(ManagerTermBase, _OncePerStep):
         self._init_resample(env.num_envs)
         #: Last per-foot stance pay (0 except on a stance's close step) -- telemetry / replay parity.
         self.pay = torch.zeros(env.num_envs, num_feet, device=self.device)
+        self._parity = _get_parity_recorder()
 
     def reset(self, env_ids: Sequence[int] | None = None) -> None:
         idx = slice(None) if env_ids is None else env_ids
         reset_stroke_state(self.state, env_ids)
         self._reset_resample(idx)
         self.pay[idx] = 0.0
+        self._parity.note_reset(env_ids)
 
     def __call__(
         self,
@@ -185,21 +188,26 @@ class RewardFootStroke(ManagerTermBase, _OncePerStep):
         asset: Articulation = env.scene[asset_cfg.name]
         contact_sensor: ContactSensor = env.scene.sensors[sensor_cfg.name]
         cmd_term = _omni_command_term(env, command_name)
+        force = contact_sensor.data.net_forces_w[:, self.sensor_body_ids].norm(dim=-1)
+        foot_pos_w = asset.data.body_pos_w[:, self.body_ids]
+        root_pos_w = asset.data.root_pos_w
+        heading = asset.data.heading_w
+        cmd = env.command_manager.get_command(command_name)
+        stand = cmd_term.stand_mask()
+        root_lin_vel_b_xy = asset.data.root_lin_vel_b[:, :2]
+        root_ang_vel_b_z = asset.data.root_ang_vel_b[:, 2]
+        turning = cmd_term.slot_id >= SLOT_TURN
+        resampled = self._resampled(cmd_term)
         reward, self.state, self.pay = foot_stroke_step(
-            contact_sensor.data.net_forces_w[:, self.sensor_body_ids].norm(dim=-1),
-            asset.data.body_pos_w[:, self.body_ids],
-            asset.data.root_pos_w,
-            asset.data.heading_w,
-            env.command_manager.get_command(command_name),
-            cmd_term.stand_mask(),
-            asset.data.root_lin_vel_b[:, :2],
-            asset.data.root_ang_vel_b[:, 2],
-            self.state,
-            env.step_dt,
-            self.turn_radius,
-            cmd_term.slot_id >= SLOT_TURN,
-            self._resampled(cmd_term),
+            force, foot_pos_w, root_pos_w, heading, cmd, stand, root_lin_vel_b_xy, root_ang_vel_b_z,
+            self.state, env.step_dt, self.turn_radius, turning, resampled,
             rho0, drho, power, c_max, prog_tau, prog_lo, prog_width,
+        )
+        self._parity.record_stroke(
+            int(env.common_step_counter), force=force, foot_pos_w=foot_pos_w, root_pos_w=root_pos_w,
+            heading=heading, cmd=cmd, stand=stand, root_lin_vel_b_xy=root_lin_vel_b_xy,
+            root_ang_vel_b_z=root_ang_vel_b_z, turning=turning, resampled=resampled, reward=reward,
+            pay=self.pay, dt=env.step_dt, turn_radius=self.turn_radius,
         )
         return reward
 
@@ -235,12 +243,14 @@ class RewardBodyCentring(ManagerTermBase, _OncePerStep):
         #: Last body lead over the six-foot centroid (m), :func:`crab_hex_omni_stroke_math.body_lead`
         #: -- the readout's ``body_offset`` -- kept for telemetry.
         self.o = torch.zeros(env.num_envs, device=self.device)
+        self._parity = _get_parity_recorder()
 
     def reset(self, env_ids: Sequence[int] | None = None) -> None:
         idx = slice(None) if env_ids is None else env_ids
         reset_centring_state(self.state, env_ids)
         self._reset_resample(idx)
         self.o[idx] = 0.0
+        self._parity.note_reset(env_ids)
 
     def __call__(
         self,
@@ -260,17 +270,18 @@ class RewardBodyCentring(ManagerTermBase, _OncePerStep):
         resampled = self._resampled(cmd_term)
         bearing = wrap_to_pi(cmd_term.travel_dir_w - cmd_term.heading_target)
         lat_share = torch.where(slot == SLOT_MOVE, torch.sin(bearing).abs(), torch.zeros_like(bearing))
+        foot_pos_w = asset.data.body_pos_w[:, self.body_ids]
+        root_pos_w = asset.data.root_pos_w
+        heading = asset.data.heading_w
+        cmd = env.command_manager.get_command(command_name)
+        stand = cmd_term.stand_mask()
+        root_lin_vel_b_xy = asset.data.root_lin_vel_b[:, :2]
         b, self.state, self.o = body_centring_step(
-            asset.data.body_pos_w[:, self.body_ids],
-            asset.data.root_pos_w,
-            asset.data.heading_w,
-            env.command_manager.get_command(command_name),
-            cmd_term.stand_mask(),
-            asset.data.root_lin_vel_b[:, :2],
-            self.state,
-            env.step_dt,
-            lat_share,
-            resampled,
-            sigma, tau, min_cmd, phi_lo, phi_sat,
+            foot_pos_w, root_pos_w, heading, cmd, stand, root_lin_vel_b_xy, self.state, env.step_dt,
+            lat_share, resampled, sigma, tau, min_cmd, phi_lo, phi_sat,
+        )
+        self._parity.record_centring(
+            int(env.common_step_counter), foot_pos_w=foot_pos_w, root_pos_w=root_pos_w, heading=heading,
+            cmd=cmd, stand=stand, lat_share=lat_share, resampled=resampled, b=b, o=self.o, dt=env.step_dt,
         )
         return b
