@@ -14,9 +14,9 @@ swaps ``RewardFootStroke`` in under the existing ``reward_stride_length`` name, 
 With both knobs unset, a built cfg is unchanged: ``rewards.py``, ``RewardStrideLength`` and
 ``crab_hex_stride_reward.py`` are never imported by this module and stay untouched.
 
-``_clock_cmd_speed`` is read the way ``crab_hex_omni_rewards.py`` reads the forward mdp helpers --
-through the ``parkour_isaaclab.envs.mdp.rewards`` module object, never re-implemented here, so the
-gate this term uses can never drift from the gait clock's own definition of "commanded speed".
+The stroke gate's clock speed is computed inside the math (``clock_speed``) from the command with
+the facing relay's yaw rate removed on MOVE slots, using the env's own ``omni_clock_turn_radius``. On
+TURN / MOVE_TURN slots it equals ``parkour_isaaclab.envs.mdp.rewards._clock_cmd_speed`` exactly.
 """
 
 from __future__ import annotations
@@ -29,16 +29,20 @@ from isaaclab.assets import Articulation
 from isaaclab.managers import ManagerTermBase, SceneEntityCfg
 from isaaclab.sensors import ContactSensor
 
-from parkour_isaaclab.envs.mdp import rewards as mdp_rewards
 from parkour_tasks.crab_hex_forward_task.mdp.crab_hex_clock_reward import FOOT_ORDER
+from parkour_tasks.crab_hex_omni_task.mdp.crab_hex_omni_command_math import SLOT_MOVE, SLOT_TURN, wrap_to_pi
 from parkour_tasks.crab_hex_omni_task.mdp.crab_hex_omni_stroke_math import (
     C_MAX,
     CENTRING_MIN_CMD_M_S,
+    CENTRING_PHI_LO,
     CENTRING_PHI_SAT,
     CENTRING_SIGMA_M,
     CENTRING_TAU_S,
     DRHO,
     POWER,
+    PROG_LO,
+    PROG_TAU_S,
+    PROG_WIDTH,
     RHO0,
     body_centring_step,
     foot_stroke_step,
@@ -88,14 +92,41 @@ def _assert_foot_order(asset, asset_cfg: SceneEntityCfg, sensor, sensor_cfg: Sce
         )
 
 
-class RewardFootStroke(ManagerTermBase):
+def _omni_command_term(env: ParkourManagerBasedRLEnv, command_name: str):
+    """The omni command term; raises by name if it is not one (no ``slot_id``)."""
+    term = env.command_manager.get_term(command_name)
+    if getattr(term, "slot_id", None) is None:
+        raise RuntimeError(
+            f"crab_hex_omni_stroke_rewards: the command term {command_name!r} ({type(term).__name__}) has no "
+            "slot_id; the stroke and centring terms need the omni command (CrabHexOmniCommand)."
+        )
+    return term
+
+
+class _OncePerStep:
+    """Stateful terms must advance exactly once per env step: raise if called twice in the same step."""
+
+    def _check_once(self, env: ParkourManagerBasedRLEnv) -> None:
+        step = int(env.common_step_counter)
+        if getattr(self, "_last_step", None) == step:
+            raise RuntimeError(
+                f"{type(self).__name__} was called twice in env step {step}; its per-foot state would advance "
+                "twice. Read telemetry from the reward manager's values, never by re-calling the term."
+            )
+        self._last_step = step
+
+
+class RewardFootStroke(ManagerTermBase, _OncePerStep):
     """Per-foot loaded stance-stroke income (stride/posture plan, replaces ``RewardStrideLength``).
 
-    See ``crab_hex_omni_stroke_math.foot_stroke_step`` for the math and the full rationale for
-    dropping ``RewardStrideLength``'s ``compute_first_contact`` / ``compute_first_air`` edges (the
-    float32 sensor timestamp drift that kills them about 2 s into every episode). This wrapper
-    owns the per-env, per-foot :class:`~crab_hex_omni_stroke_math.StrokeState` between steps and
-    the last per-foot ``pay`` for telemetry / the offline replay tool's parity check.
+    See ``crab_hex_omni_stroke_math.foot_stroke_step`` for the math, including why
+    ``RewardStrideLength``'s ``compute_first_contact`` / ``compute_first_air`` edges were dropped (the
+    float32 sensor timestamp drift that kills them about 2 s into every episode). This wrapper owns the
+    per-env, per-foot :class:`~crab_hex_omni_stroke_math.StrokeState` between steps, and keeps the last
+    per-foot ``pay`` for telemetry and the offline replay tool's parity check.
+
+    Only TURN / MOVE_TURN slots keep the command's yaw rate in the projection. On MOVE slots it is only
+    the facing relay's P-control, so the math's ``turning`` mask drops it.
     """
 
     def __init__(self, cfg: RewardTermCfg, env: ParkourManagerBasedRLEnv):
@@ -108,6 +139,7 @@ class RewardFootStroke(ManagerTermBase):
         sensor: ContactSensor = env.scene.sensors[sensor_cfg.name]
         _assert_foot_order(asset, asset_cfg, sensor, sensor_cfg)
         num_feet = len(FOOT_ORDER)
+        self.turn_radius = float(getattr(env.cfg, "omni_clock_turn_radius", 0.0))
         self.state = init_stroke_state(env.num_envs, num_feet, device=self.device)
         #: Last per-foot stance pay (0 except on a stance's close step) -- telemetry / replay parity.
         self.pay = torch.zeros(env.num_envs, num_feet, device=self.device)
@@ -127,37 +159,60 @@ class RewardFootStroke(ManagerTermBase):
         drho: float = DRHO,
         power: float = POWER,
         c_max: float = C_MAX,
+        prog_tau: float = PROG_TAU_S,
+        prog_lo: float = PROG_LO,
+        prog_width: float = PROG_WIDTH,
     ) -> torch.Tensor:
+        self._check_once(env)
         asset: Articulation = env.scene[asset_cfg.name]
         contact_sensor: ContactSensor = env.scene.sensors[sensor_cfg.name]
-        force = contact_sensor.data.net_forces_w[:, self.sensor_body_ids].norm(dim=-1)
-        foot_pos_w = asset.data.body_pos_w[:, self.body_ids]
-        root_pos_w = asset.data.root_pos_w
-        heading = asset.data.heading_w
-        cmd = env.command_manager.get_command(command_name)
-        stand = env.command_manager.get_term(command_name).stand_mask()
-        v_clk = mdp_rewards._clock_cmd_speed(env, cmd)
+        cmd_term = _omni_command_term(env, command_name)
         reward, self.state, self.pay = foot_stroke_step(
-            force, foot_pos_w, root_pos_w, heading, cmd, stand, v_clk, self.state,
-            env.step_dt, rho0, drho, power, c_max,
+            contact_sensor.data.net_forces_w[:, self.sensor_body_ids].norm(dim=-1),
+            asset.data.body_pos_w[:, self.body_ids],
+            asset.data.root_pos_w,
+            asset.data.heading_w,
+            env.command_manager.get_command(command_name),
+            cmd_term.stand_mask(),
+            asset.data.root_lin_vel_b[:, :2],
+            asset.data.root_ang_vel_b[:, 2],
+            self.state,
+            env.step_dt,
+            self.turn_radius,
+            cmd_term.slot_id >= SLOT_TURN,
+            rho0, drho, power, c_max, prog_tau, prog_lo, prog_width,
         )
         return reward
 
 
-class RewardBodyCentring(ManagerTermBase):
+class RewardBodyCentring(ManagerTermBase, _OncePerStep):
     """Body-centring bonus for a commanded lateral hold (stride/posture plan, the P arm).
 
-    See ``crab_hex_omni_stroke_math.body_centring_step`` for the math: an EMA'd six-foot centroid
-    and the body's lead over it along the command, paid on the lateral SHARE of the command with a
-    statue guard. This wrapper owns the per-env
-    :class:`~crab_hex_omni_stroke_math.CentringState` and the last body lead ``o`` for telemetry.
+    See ``crab_hex_omni_stroke_math.body_centring_step`` for the math: an EMA'd six-foot centroid and
+    the body's lead over it along the command, paid on the lateral share of the command with an EMA'd
+    statue guard. The wrapper supplies two inputs:
+
+    * ``lat_share``: ``|sin(travel - facing)|`` of the hold's INTENDED bearing, on MOVE slots only (0
+      elsewhere), so a heading error cannot steer it.
+    * ``resampled``: a command resample (slot, travel target or facing target changed) re-seeds the
+      EMAs, so a new hold never inherits the last one's posture.
+
+    It keeps the last body lead ``o`` for telemetry.
     """
 
     def __init__(self, cfg: RewardTermCfg, env: ParkourManagerBasedRLEnv):
         super().__init__(cfg, env)
         asset_cfg: SceneEntityCfg = cfg.params["asset_cfg"]
         self.body_ids = asset_cfg.body_ids
+        asset: Articulation = env.scene[asset_cfg.name]
+        names = _resolved_body_names(asset, asset_cfg.body_ids)
+        if len(names) != len(FOOT_ORDER) or not all(n.startswith(f"{leg}_") for n, leg in zip(names, FOOT_ORDER)):
+            raise RuntimeError(
+                f"RewardBodyCentring: asset_cfg must resolve to the six foot bodies in FOOT_ORDER {FOOT_ORDER}, "
+                f"got {names}; the centroid would be taken over the wrong bodies with no error at all."
+            )
         self.state = init_centring_state(env.num_envs, device=self.device)
+        self._prev_cmd = torch.full((env.num_envs, 3), float("nan"), device=self.device)
         #: Last body lead over the six-foot centroid (m), :func:`crab_hex_omni_stroke_math.body_lead`
         #: -- the readout's ``body_offset`` -- kept for telemetry.
         self.o = torch.zeros(env.num_envs, device=self.device)
@@ -165,6 +220,7 @@ class RewardBodyCentring(ManagerTermBase):
     def reset(self, env_ids: Sequence[int] | None = None) -> None:
         idx = slice(None) if env_ids is None else env_ids
         reset_centring_state(self.state, env_ids)
+        self._prev_cmd[idx] = float("nan")
         self.o[idx] = 0.0
 
     def __call__(
@@ -175,17 +231,29 @@ class RewardBodyCentring(ManagerTermBase):
         sigma: float = CENTRING_SIGMA_M,
         tau: float = CENTRING_TAU_S,
         min_cmd: float = CENTRING_MIN_CMD_M_S,
+        phi_lo: float = CENTRING_PHI_LO,
         phi_sat: float = CENTRING_PHI_SAT,
     ) -> torch.Tensor:
+        self._check_once(env)
         asset: Articulation = env.scene[asset_cfg.name]
-        foot_pos_w = asset.data.body_pos_w[:, self.body_ids]
-        root_pos_w = asset.data.root_pos_w
-        heading = asset.data.heading_w
-        cmd = env.command_manager.get_command(command_name)
-        stand = env.command_manager.get_term(command_name).stand_mask()
-        root_lin_vel_b_xy = asset.data.root_lin_vel_b[:, :2]
+        cmd_term = _omni_command_term(env, command_name)
+        slot = cmd_term.slot_id
+        now = torch.stack((slot.float(), cmd_term.travel_dir_w, cmd_term.heading_target), dim=-1)
+        resampled = (now != self._prev_cmd).any(dim=-1)  # NaN (after a reset) compares unequal
+        self._prev_cmd.copy_(now)
+        bearing = wrap_to_pi(cmd_term.travel_dir_w - cmd_term.heading_target)
+        lat_share = torch.where(slot == SLOT_MOVE, torch.sin(bearing).abs(), torch.zeros_like(bearing))
         b, self.state, self.o = body_centring_step(
-            foot_pos_w, root_pos_w, heading, cmd, stand, root_lin_vel_b_xy, self.state,
-            env.step_dt, sigma, tau, min_cmd, phi_sat,
+            asset.data.body_pos_w[:, self.body_ids],
+            asset.data.root_pos_w,
+            asset.data.heading_w,
+            env.command_manager.get_command(command_name),
+            cmd_term.stand_mask(),
+            asset.data.root_lin_vel_b[:, :2],
+            self.state,
+            env.step_dt,
+            lat_share,
+            resampled,
+            sigma, tau, min_cmd, phi_lo, phi_sat,
         )
         return b
