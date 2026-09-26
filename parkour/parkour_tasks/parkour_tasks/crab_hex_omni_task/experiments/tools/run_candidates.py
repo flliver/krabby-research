@@ -1624,6 +1624,37 @@ def _clock_hide_ramp_ok(txt: str, value) -> bool:
     return _tuple_ok(txt, _clock().CLOCK_HIDE_RAMP_PARAM, value, 2)
 
 
+# ---- the stroke/posture knobs (stride/posture plan step 3, 2026-09-25). All three DEFAULT OFF.
+def _stroke():
+    """``stroke_knobs`` (the parsers), reached through the path-loaded ``omni_knobs``."""
+    return knobs()._sk
+
+
+def _stroke_w_ok(txt: str, value) -> bool:
+    """``KRABBY_OMNI_STROKE_W``: off keeps the stock ``RewardStrideLength`` func; on swaps the
+    ``reward_stride_length`` term's func to ``RewardFootStroke`` at the knob's weight, TOGETHER."""
+    w = _stroke().parse_stroke_w(value)
+    if w is None:
+        return _func_swapped_ok(txt, _stroke().STROKE_TERM, "RewardStrideLength")
+    return (_func_swapped_ok(txt, _stroke().STROKE_TERM, "RewardFootStroke")
+            and _weight_ok(txt, _stroke().STROKE_TERM, w))
+
+
+def _centring_w_ok(txt: str, value) -> bool:
+    """``KRABBY_OMNI_CENTRING_W``: a weight knob that ADDS a term; absent at unset, else present."""
+    w = _stroke().parse_centring_w(value)
+    if w is None:
+        return _yaml_block(txt, _stroke().CENTRING_TERM) == ""
+    return _weight_ok(txt, _stroke().CENTRING_TERM, w)
+
+
+def _reward_split_ok(txt: str, value) -> bool:
+    """``KRABBY_OMNI_REWARD_SPLIT``: ``reward_category_split`` on the ENV cfg (top-level, no indent)."""
+    on = _stroke().parse_reward_split(value)
+    got = _grep_scalar(txt, "reward_category_split", indent="")
+    return got == "true" if on else got in (None, "false")
+
+
 #: Overlay keys audited against ``params/agent.yaml`` (the RUNNER cfg) instead of ``env.yaml``.
 AGENT_DUMP_KEYS = frozenset({"KRABBY_ACTION_STD_MAX", "KRABBY_ACTION_STD_RESET", "KRABBY_ENTROPY_COEF"})
 
@@ -1690,6 +1721,10 @@ OVERLAY_DUMP_CHECKS = {
     "KRABBY_PHASEOUT": _phaseout_ok,
     "KRABBY_OMNI_CLOCK_HIDE": _clock_hide_ok,
     "KRABBY_OMNI_CLOCK_HIDE_RAMP": _clock_hide_ramp_ok,
+    # ---- stroke/posture knobs (stride/posture plan step 3, 2026-09-25).
+    "KRABBY_OMNI_STROKE_W": _stroke_w_ok,
+    "KRABBY_OMNI_CENTRING_W": _centring_w_ok,
+    "KRABBY_OMNI_REWARD_SPLIT": _reward_split_ok,
 }
 
 
@@ -1768,6 +1803,8 @@ def knob_parsers() -> dict:
         **k.CLOCK_KNOB_PARSERS,
         "KRABBY_CLOCK_W": float, "KRABBY_APEX_W": float,
         "KRABBY_PHASEOUT": lambda text: curriculums().parse_phaseout_spec(str(text)),
+        # stroke/posture knobs (stride/posture plan step 3, 2026-09-25): their own parsers.
+        **k.STROKE_KNOB_PARSERS,
     }
     _KNOB_PARSERS_CACHE = table
     return table
@@ -1945,6 +1982,23 @@ def walk_floor(env: dict) -> float:
     return (0.2 if clip is None else clip) + WALK_MARGIN_M_S
 
 
+def _check_require_env(env: dict, where: str, require_env: dict, reasons: list) -> None:
+    """Every ``candidates.yaml`` ``require_env`` var reaches this composed stage env, at exactly the
+    value the campaign pinned.
+
+    ``require_env`` exists so a launcher can pin a cross-cutting knob -- the stride/posture plan's
+    clock-free ``K`` is the model -- onto EVERY run a campaign composes: the baseline chain and
+    every candidate's own chain (which is also what a run's seed-2 twin trains under, since a twin
+    differs only in seed). A stage missing the var, or carrying a different one, is refused by
+    name: a preset or an overlay that silently drops it would otherwise train the wrong recipe with
+    a config dump that never says so.
+    """
+    for var, want in (require_env or {}).items():
+        got = env.get(var)
+        if got is None or str(got).strip() != str(want).strip():
+            reasons.append(f"{where}: require_env {var} must be {want!r}, got {got!r}")
+
+
 def _check_pool_overlay(overlay: dict, where: str, reasons: list, env: dict | None = None) -> None:
     """The pool rules replicated from ``_validate_omni_cfg``: projection equality, no ``dir_band``,
     the floor share, the ``POOL_TYPES`` render order that makes a pool a bitwise twin -- and, when
@@ -2025,9 +2079,13 @@ def validate_candidates(cands: dict, *, strict: bool = True, check_replay: bool 
     whitelist = knob_whitelist()
     parsers = knob_parsers()
     math_mod = pool_math()
+    require_env = cands.get("require_env") or {}
 
     # ---------------- global
     g: list[str] = []
+    if not isinstance(require_env, dict) or any(not isinstance(k2, str) for k2 in require_env):
+        g.append(f"require_env must map KRABBY_* variable names to values, got {require_env!r}")
+        require_env = {}
     notes: list[str] = []
     if int(cands.get("schema") or 0) != 1:
         g.append(f"schema must be 1, got {cands.get('schema')!r}")
@@ -2126,6 +2184,7 @@ def validate_candidates(cands: dict, *, strict: bool = True, check_replay: bool 
             _check_stage_categories(stage, stage_env_, where, r)
             _check_pool_overlay(overlay, where, r, stage_env_)
             _check_cap_rules(stage_env_, where, chain.get("notes") or "", r)
+            _check_require_env(stage_env_, where, require_env, r)
         if screen_iters and total != screen_iters and name not in ref_only:
             r.append(f"chain {name} totals {total} iterations; every screen is {screen_iters} "
                      "(equal compute is what makes the screens comparable)")
@@ -2329,6 +2388,12 @@ def validate_candidates(cands: dict, *, strict: bool = True, check_replay: bool 
                 continue                             # refused above by name
             if touches or clock_kind:
                 _check_clock_chain(composed, f"{cid} on {chain_name}", r, clock_kind=clock_kind)
+            # NOTE(stride/posture plan step 3, 2026-09-25): require_env, on every stage of every
+            # chain the candidate composes onto -- unconditionally, not gated on `touches`/`clock_kind`
+            # (a twin trains this same composed env under a different seed, so checking it here
+            # covers the baseline, every twin and every candidate at once).
+            for sname, _iters, senv in composed:
+                _check_require_env(senv, f"{cid} on {chain_name} stage {sname}", require_env, r)
         r = list(dict.fromkeys(r))          # one reason per distinct message, in order
         verdicts.append({"id": cid, "ok": not r, "deferred": deferred, "reasons": r, "notes": n})
 
@@ -2631,7 +2696,10 @@ def _check_knob(key: str, value, where: str, whitelist: set, parsers: dict, reas
 #: no band check can see -- and a name outside this tuple is refused.
 #: NOTE(clock-deprecation 2026-09-23, plan step 4): ``RIG`` = the rigidity block (stepping without
 #: travel + loaded-foot count; :data:`RIG_BLOCK`), the clock campaign's ``adopt_requires``.
-RULE_V2_BLOCKS = ("F", "F_mt", "T", "F_abs", "F_mt_abs", "T_abs", "Q", "RIG")
+#: NOTE(stride/posture plan step 3, 2026-09-25): ``LEN`` = the stroke/posture screen's mechanism
+#: block (side/diag ``steps_per_m``, lower is better; decision 5 -- S's adoption never requires it,
+#: so LEN is decisive for the mechanism reading only and no rule may name it in ``adopt_requires``).
+RULE_V2_BLOCKS = ("F", "F_mt", "T", "F_abs", "F_mt_abs", "T_abs", "Q", "RIG", "LEN")
 #: The rigidity block's name. A rule that carries it arms the clock campaign's DECISION machinery
 #: (the flag list and its driver park, the RIG z split, the ``arm_class`` field) -- every other
 #: rule decides, prints and queues exactly as before.
@@ -2735,6 +2803,10 @@ def _check_rule_v2(rule: dict, reasons: list) -> None:
         if str(req) not in ratio_blocks:
             reasons.append(f"decision_rule.adopt_requires names {req!r}, which is not one of the rule's "
                            f"ratio-system blocks {ratio_blocks}")
+        # NOTE(stride/posture plan step 3, 2026-09-25): LEN is mechanism evidence only (decision 5).
+        if str(req) == "LEN":
+            reasons.append("decision_rule.adopt_requires names 'LEN', which is mechanism evidence only "
+                           "(stride/posture plan decision 5: an adoption never requires LEN BETTER)")
     pc = rule.get("per_category") or {}
     scored_keys: set = set()
     for body in (pc.get("blocks") or {}).values():

@@ -229,8 +229,9 @@ CURRICULUM_ROW = "curriculum__omni"
 #: Every block name, in the order records and lines enumerate them. The set a record actually
 #: carries is always DERIVED from the rule passed (a v1 rule has F/T/F_abs/T_abs, the expanded v2
 #: union all six, the gait-motion-quality campaign's F/F_mt/T/Q, the clock-deprecation campaign's
-#: F/F_mt/T/RIG -- plan step 4, 2026-09-23); this tuple only orders them.
-BLOCK_ORDER = ("F", "F_mt", "T", "F_abs", "F_mt_abs", "T_abs", "Q", "RIG")
+#: F/F_mt/T/RIG -- plan step 4, 2026-09-23; the stride/posture screen's LEN, 2026-09-25); this
+#: tuple only orders them.
+BLOCK_ORDER = ("F", "F_mt", "T", "F_abs", "F_mt_abs", "T_abs", "Q", "RIG", "LEN")
 #: The null candidate's scored blocks under a v1 rule (decision 5's two blocks).
 LEGACY_SCORED_BLOCKS = ("F", "T")
 #: Ids that exist only because the legacy holds are nested in one episode (``turn_l90`` given

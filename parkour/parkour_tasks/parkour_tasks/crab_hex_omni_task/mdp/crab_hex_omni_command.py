@@ -61,6 +61,7 @@ from .crab_hex_omni_command_math import (
     SLOT_NAMES,
     SLOT_STAND,
     SLOT_TURN,
+    TELEMETRY_CATEGORIES,
     body_command_details,
     check_relay_hyst,
     check_row_ang_limits,
@@ -78,6 +79,7 @@ from .crab_hex_omni_command_math import (
     sample_travel_dir,
     slot_is_moving,
     slot_is_turning,
+    telemetry_category as _telemetry_category,
     wrap_to_pi,
 )
 
@@ -652,6 +654,23 @@ class CrabHexOmniCommand(UniformParkourCommand):
         ``type_id = -1`` while its ``slot_id`` is re-derived by :meth:`schedule_hook`.
         """
         return self.slot_id == SLOT_STAND
+
+    TELEMETRY_CATEGORIES = TELEMETRY_CATEGORIES
+    """Re-exported so a consumer holding the TERM (not this module) can name the indices
+    :meth:`telemetry_category` returns, without importing ``parkour_tasks`` -- the per-category
+    reward manager (``parkour_isaaclab``, which must not depend on any task package) reads it
+    this way, duck-typed, off whatever command term ``reward_category_command`` names."""
+
+    def telemetry_category(self) -> torch.Tensor:
+        """``(N,)`` int64: this step's :data:`TELEMETRY_CATEGORIES` index, per env.
+
+        Calls the pure :func:`crab_hex_omni_command_math.telemetry_category` on the COMMANDED
+        pair -- ``slot_id`` and the intended bearing ``travel_dir_w - heading_target`` -- never
+        on ``phi_b`` (the instantaneous body-frame command): a facing-tracking error must not
+        move a row between categories mid-episode.
+        """
+        bearing = self.travel_dir_w - self.heading_target
+        return _telemetry_category(self.slot_id, bearing)
 
     def _write_command(self, env_ids, apply_hold: bool = True):
         """World command -> ``vel_command_b`` for ``env_ids`` (a tensor/list or a slice).

@@ -15,7 +15,12 @@ module it imports by package name. Two measures close that:
 ``parkour_isaaclab`` has no ``__init__.py``, so it is a namespace package: Python merges every checkout's portion,
 this one first. A submodule missing here would silently load from the main checkout; measure 2 catches that.
 
-In the main checkout ``<root>`` IS the editable target, so both measures are no-ops there.
+In the main checkout ``<root>`` IS the editable target, so nothing is changed there: no ``sys.path`` or
+``PYTHONPATH`` edit, and the guard finds nothing. From a worktree, the exported ``PYTHONPATH`` is visible to
+``test_crab_hex_omni_gate.py::test_train_without_the_new_kwargs_names_no_run_and_carries_no_overlay``, which
+asserts the exact ``PYTHON*`` env of a driver child and so fails there. Its fixture logs
+(``tests/unit/fixtures/omni_track_ratio/*.log``) are also git-ignored, so its 7 fixture tests fail in any
+fresh worktree.
 
 For hand-run tools from a worktree, export the same paths::
 
@@ -51,12 +56,13 @@ def _main_checkout(root: Path) -> Path:
 
 MAIN = _main_checkout(ROOT)
 
-for _p in reversed(_IMPORT_ROOTS):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
-os.environ["PYTHONPATH"] = os.pathsep.join(
-    [str(p) for p in _IMPORT_ROOTS] + [p for p in os.environ.get("PYTHONPATH", "").split(os.pathsep) if p]
-)
+if MAIN != ROOT:  # a worktree: redirect imports here. The main checkout is left exactly as it was.
+    for _p in reversed(_IMPORT_ROOTS):
+        if str(_p) not in sys.path:
+            sys.path.insert(0, str(_p))
+    os.environ["PYTHONPATH"] = os.pathsep.join(
+        [str(p) for p in _IMPORT_ROOTS] + [p for p in os.environ.get("PYTHONPATH", "").split(os.pathsep) if p]
+    )
 
 
 def _foreign_modules() -> list[str]:

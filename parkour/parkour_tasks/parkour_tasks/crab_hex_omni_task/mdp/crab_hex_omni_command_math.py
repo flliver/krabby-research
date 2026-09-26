@@ -92,6 +92,75 @@ def wrap_to_pi(angles: torch.Tensor) -> torch.Tensor:
     return torch.where((wrapped_angle == 0) & (angles > 0), torch.pi, wrapped_angle - torch.pi)
 
 
+# ------------------------------------------------------------------- telemetry categories
+#
+# The seven buckets the per-category reward telemetry (stride/posture plan, step 4) reports
+# against. ``stand`` / ``turn`` / ``move_turn`` come straight off the slot; the four
+# ``SLOT_MOVE`` rows are split by the INTENDED bearing so a heading-tracking error can never
+# move a row between categories (see :func:`telemetry_category`).
+TELEMETRY_CATEGORIES = ("stand", "fwd", "side", "back", "diag", "turn", "move_turn")
+
+_CAT_STAND = TELEMETRY_CATEGORIES.index("stand")
+_CAT_FWD = TELEMETRY_CATEGORIES.index("fwd")
+_CAT_SIDE = TELEMETRY_CATEGORIES.index("side")
+_CAT_BACK = TELEMETRY_CATEGORIES.index("back")
+_CAT_DIAG = TELEMETRY_CATEGORIES.index("diag")
+_CAT_TURN = TELEMETRY_CATEGORIES.index("turn")
+_CAT_MOVE_TURN = TELEMETRY_CATEGORIES.index("move_turn")
+
+_FWD_MAX_DEG = 22.5
+_SIDE_LO_DEG = 67.5
+_SIDE_HI_DEG = 112.5
+_BACK_MIN_DEG = 157.5
+
+_BEARING_TOL_DEG = 1e-4
+"""Slack on the boundary comparisons below, degrees. A bearing built from a wrap + ``rad2deg``
+of an exact boundary value (a caller's ``22.5``, ``67.5``, ...) rounds to within ~5e-6 deg of
+it even in float64 -- direction unpredictable -- so the four bucket edges stay INCLUSIVE (per
+the spec) only with a tolerance comfortably above that noise floor and comfortably below the
+narrowest gap between two edges (45 deg)."""
+
+
+def telemetry_category(slot_id: torch.Tensor, bearing: torch.Tensor) -> torch.Tensor:
+    """``(slot_id, bearing)`` -> index into :data:`TELEMETRY_CATEGORIES`.
+
+    ``stand``, ``turn`` and ``move_turn`` come straight from the slot. A ``SLOT_MOVE`` row is
+    bucketed by ``|bearing|``: ``fwd`` <= 22.5 deg, ``side`` in [67.5, 112.5] deg, ``back`` >=
+    157.5 deg, ``diag`` otherwise.
+
+    Args:
+        slot_id: ``(N,)`` int64, ``SLOT_STAND`` .. ``SLOT_MOVE_TURN``.
+        bearing: ``(N,)`` the commanded WORLD travel bearing relative to the WORLD facing
+            target -- i.e. ``travel_dir_w - heading_target``, in radians. This is the
+            INTENDED bearing, not ``phi_b`` (the instantaneous body-frame command): using the
+            commanded pair means a facing-tracking error never moves a row between
+            categories. Need not be pre-wrapped; this function wraps it.
+
+    Returns:
+        ``(N,)`` int64, dtype/device of ``slot_id``. Rows outside ``SLOT_MOVE`` ignore
+        ``bearing`` entirely.
+    """
+    # Promoted to float64 for the wrap + degree conversion only: a bearing that lands exactly
+    # on a boundary (67.5 deg from the caller's ``travel_dir_w - heading_target`` in float32)
+    # must not fall the wrong side of it from wrap/rad2deg rounding alone. The output stays
+    # ``slot_id``'s own dtype (int64) regardless.
+    abs_deg = torch.rad2deg(wrap_to_pi(bearing.double()).abs())
+    move_cat = torch.full_like(slot_id, _CAT_DIAG)
+    move_cat = torch.where(abs_deg <= _FWD_MAX_DEG + _BEARING_TOL_DEG, torch.full_like(slot_id, _CAT_FWD), move_cat)
+    move_cat = torch.where(abs_deg >= _BACK_MIN_DEG - _BEARING_TOL_DEG, torch.full_like(slot_id, _CAT_BACK), move_cat)
+    move_cat = torch.where(
+        (abs_deg >= _SIDE_LO_DEG - _BEARING_TOL_DEG) & (abs_deg <= _SIDE_HI_DEG + _BEARING_TOL_DEG),
+        torch.full_like(slot_id, _CAT_SIDE),
+        move_cat,
+    )
+
+    category = torch.full_like(slot_id, _CAT_STAND)
+    category = torch.where(slot_id == SLOT_MOVE, move_cat, category)
+    category = torch.where(slot_id == SLOT_TURN, torch.full_like(slot_id, _CAT_TURN), category)
+    category = torch.where(slot_id == SLOT_MOVE_TURN, torch.full_like(slot_id, _CAT_MOVE_TURN), category)
+    return category
+
+
 # ------------------------------------------------------------------------- the speed cap
 
 

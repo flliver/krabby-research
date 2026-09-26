@@ -86,6 +86,17 @@ five things the forward block cannot know about:
     without it. Applied by :func:`apply_omni_knobs` (``clock_knobs.apply_clock_knobs``) with the
     other observation knobs, before the motion knobs.
 
+13. **the STROKE/POSTURE knobs** (stride/posture plan, step 3, 2026-09-25; all DEFAULT OFF, set by
+    no preset) -- ``stroke_knobs.py``, path-loaded and re-exported here the same way.
+    ``KRABBY_OMNI_STROKE_W`` swaps ``rewards.reward_stride_length``'s func for the new
+    ``RewardFootStroke`` (the old name, so the driver's dump audit and every ``KRABBY_STRIDE_W``/
+    ``KRABBY_PHASEOUT`` reference keep resolving); ``KRABBY_OMNI_CENTRING_W`` ADDS
+    ``rewards.reward_body_centring``; ``KRABBY_OMNI_REWARD_SPLIT=1`` sets
+    ``reward_category_split`` on the env cfg. Applied by :func:`apply_omni_knobs`
+    (``stroke_knobs.apply_stroke_knobs``) LAST of all -- after the motion knobs -- so the swap and
+    the added term see the otherwise-final cfg. Forward and sideways cfg modules must never import
+    this module.
+
 Every parser is pure and lives at module scope with no Isaac import (the Isaac-touching bits
 are lazy imports inside :func:`apply_omni_knobs`), so this module can be path-loaded and
 unit-tested without booting Kit -- see ``tests/unit/test_crab_hex_omni_phases.py``.
@@ -132,6 +143,21 @@ def _clock_knobs():
     return mod
 
 
+_STROKE_KNOBS_PY = Path(__file__).resolve().parent / "stroke_knobs.py"
+_STROKE_KNOBS_NAME = "crab_hex_omni_stroke_knobs"
+
+
+def _stroke_knobs():
+    """``stroke_knobs.py`` (pure), by path -- the same object for every loader of this module."""
+    mod = sys.modules.get(_STROKE_KNOBS_NAME)
+    if mod is None:
+        spec = importlib.util.spec_from_file_location(_STROKE_KNOBS_NAME, _STROKE_KNOBS_PY)
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules[_STROKE_KNOBS_NAME] = mod
+        spec.loader.exec_module(mod)
+    return mod
+
+
 _mk = _motion_knobs()
 # Re-exported so ``dir(omni_knobs)`` -- the ladder's knob whitelist -- names every motion knob.
 ACTION_STD_MAX_VAR = _mk.ACTION_STD_MAX_VAR
@@ -160,6 +186,18 @@ CLOCK_HIDE_RAMP_VAR = _ck.CLOCK_HIDE_RAMP_VAR
 parse_clock_hide = _ck.parse_clock_hide
 parse_clock_hide_ramp = _ck.parse_clock_hide_ramp
 CLOCK_KNOB_PARSERS = _ck.CLOCK_KNOB_PARSERS
+
+_sk = _stroke_knobs()
+# NOTE(stride/posture plan step 3, 2026-09-25): re-exported for the same whitelist reason.
+STROKE_W_VAR = _sk.STROKE_W_VAR
+CENTRING_W_VAR = _sk.CENTRING_W_VAR
+REWARD_SPLIT_VAR = _sk.REWARD_SPLIT_VAR
+STROKE_TERM = _sk.STROKE_TERM
+CENTRING_TERM = _sk.CENTRING_TERM
+parse_stroke_w = _sk.parse_stroke_w
+parse_centring_w = _sk.parse_centring_w
+parse_reward_split = _sk.parse_reward_split
+STROKE_KNOB_PARSERS = _sk.STROKE_KNOB_PARSERS
 
 __all__ = [
     "SLOTS_VAR",
@@ -211,6 +249,9 @@ __all__ = [
     # clock-hide knobs (clock_knobs.py)
     "CLOCK_HIDE_VAR", "CLOCK_HIDE_RAMP_VAR", "parse_clock_hide", "parse_clock_hide_ramp",
     "CLOCK_KNOB_PARSERS",
+    # stroke/posture knobs (stroke_knobs.py)
+    "STROKE_W_VAR", "CENTRING_W_VAR", "REWARD_SPLIT_VAR", "STROKE_TERM", "CENTRING_TERM",
+    "parse_stroke_w", "parse_centring_w", "parse_reward_split", "STROKE_KNOB_PARSERS",
 ]
 
 SLOTS_VAR = "KRABBY_OMNI_SLOTS"
@@ -1126,7 +1167,7 @@ def apply_omni_knobs(cfg, environ=None) -> None:
     _apply_facing_obs_clip_knob(cfg, env)
     _apply_facing_obs_encoding_knob(cfg, env)
     # NOTE(clock-deprecation step 2, 2026-09-23): the clock-hide knobs, default off (unset writes
-    # nothing). With the other obs-param knobs; before the motion knobs, which stay LAST.
+    # nothing). With the other obs-param knobs; before the motion and stroke/posture knobs.
     _ck.apply_clock_knobs(cfg, env)
 
     from parkour_tasks.crab_hex_omni_task.mdp.omni_terrain_knobs import (  # noqa: PLC0415
@@ -1134,6 +1175,8 @@ def apply_omni_knobs(cfg, environ=None) -> None:
     )
 
     apply_omni_ring_knobs(cfg, env)
-    # The motion-quality knobs (all default off; each one unset writes nothing). LAST, so a term
-    # they add, and the obs params they arm, see the otherwise-final cfg.
+    # The motion-quality knobs (all default off; each one unset writes nothing).
     _mk.apply_motion_knobs(cfg, env)
+    # NOTE(stride/posture plan step 3, 2026-09-25): the stroke/posture knobs, all default off. LAST
+    # of all, so the func swap and the added term see the otherwise-final cfg.
+    _sk.apply_stroke_knobs(cfg, env)

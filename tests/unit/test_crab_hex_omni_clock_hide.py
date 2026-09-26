@@ -498,8 +498,10 @@ def test_omni_knobs_reexports_and_applies_the_clock_knobs():
           if isinstance(n, ast.FunctionDef) and n.name == "apply_omni_knobs"][0]
     calls = [ast.unparse(s) for s in fn.body if isinstance(s, ast.Expr)]
     assert "_ck.apply_clock_knobs(cfg, env)" in calls
-    # before the motion knobs, which stay LAST (pinned by test_crab_hex_omni_motion_knobs.py)
-    assert calls[-1] == "_mk.apply_motion_knobs(cfg, env)"
+    # before the motion and stroke/posture knobs, which stay LAST in that order (pinned by
+    # test_crab_hex_omni_motion_knobs.py)
+    assert calls.index("_ck.apply_clock_knobs(cfg, env)") < calls.index("_mk.apply_motion_knobs(cfg, env)")
+    assert calls[-1] == "_sk.apply_stroke_knobs(cfg, env)"
 
 
 def test_no_preset_arms_a_clock_knob():

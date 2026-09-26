@@ -289,15 +289,18 @@ def test_exploration_knobs():
         mk.apply_exploration_knobs(agent, {"KRABBY_ACTION_STD_RESET": "2.5"})   # over the stock 2.0
 
 
-def test_omni_knobs_reexports_and_applies_the_motion_knobs_last():
+def test_omni_knobs_reexports_and_applies_the_motion_knobs_before_stroke_posture():
     knobs = _load(OMNI_KNOBS_PY, "omni_knobs__motion_test")
     for var in ALL_KNOBS + ("KRABBY_POWER_W", "KRABBY_ACTION_RATE_W", "KRABBY_AIRTIME_W"):
         assert var in {getattr(knobs, a) for a in dir(knobs) if a.endswith("_VAR")}, var
     assert knobs.MOTION_KNOB_PARSERS is knobs._mk.MOTION_KNOB_PARSERS
     fn = [n for n in ast.parse(OMNI_KNOBS_PY.read_text()).body
           if isinstance(n, ast.FunctionDef) and n.name == "apply_omni_knobs"][0]
-    last = fn.body[-1]
-    assert isinstance(last, ast.Expr) and ast.unparse(last) == "_mk.apply_motion_knobs(cfg, env)"
+    calls = [ast.unparse(s) for s in fn.body if isinstance(s, ast.Expr)]
+    # NOTE(stride/posture plan step 3, 2026-09-25): the stroke/posture knobs (stroke_knobs.py) now
+    # apply LAST of all, so a term they add sees the motion knobs' own additions too.
+    assert calls[-1] == "_sk.apply_stroke_knobs(cfg, env)"
+    assert calls[-2] == "_mk.apply_motion_knobs(cfg, env)"
     # the runner side: both omni runner cfgs call the exploration applier
     runner_src = (OMNI / "config/crab_hex/agents/rsl_rl_ppo_cfg.py").read_text()
     assert runner_src.count("_apply_exploration_knobs(self)") == 2
