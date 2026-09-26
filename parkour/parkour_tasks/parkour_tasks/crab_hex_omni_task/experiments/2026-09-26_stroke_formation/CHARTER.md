@@ -63,11 +63,11 @@ The two eps knobs cannot be pinned, because each arm re-sets one of them.
 
 **Arms.** Each differs from B_f in one weight (`overrides_chain`), with `control: baseline`.
 
-| Arm | Knob | Dose (provisional) |
+| Arm | Knob | Dose |
 |---|---|---|
 | B_f | both at eps | — |
-| S_f | `KRABBY_OMNI_STROKE_W` | 0.135 |
-| P_f | `KRABBY_OMNI_CENTRING_W` | 0.16 |
+| S_f | `KRABBY_OMNI_STROKE_W` | 0.119 (final) |
+| P_f | `KRABBY_OMNI_CENTRING_W` | 0.158 (final) |
 
 **Doses are provisional until the t3 dose smoke.**
 - The smoke runs the stroke_posture window-0 method from the baked C1d t3 head,
@@ -177,4 +177,29 @@ The build verifier left four items open. Each is settled here with the conservat
    direction-free manipulation check on a fine-tune; this gate also decides whether to continue.
 4. **Launch from the main checkout** after fast-forwarding `feat/crab-hex-omni-task` to this branch, exactly as
    the stroke_posture screen did. The D00s inputs live only under the main checkout's `parkour/logs`.
+
+## t3 dose smoke — PASS, doses rescaled (2026-09-26 17:32–17:45)
+
+- **What ran.** `formation_dose_smoke.py`: 300 its of arm C's composed `t3f` env (both doses at 0.135 / 0.16,
+  clock held, no K, the split flag, play keys ring / 0.6), forked from `policy/1_t3/model_2999.pt` (sha 03b87cd3…,
+  checked against the manifest). Run dir: worktree
+  `parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-09-26_17-32-42_t3_dose_smokeC` (model_3298.pt).
+- **Wrapper → replay parity: PASS** (300 steps × 16 envs). Max |diff|: pay_sum 1.2e-7, b 3.0e-7, pay 1.3e-7,
+  o 6.0e-8.
+- **r = delivered (`Episode_RewardCat`, post-clip, last 200 its) ÷ replay-predicted on E3 (X08:t3's suite eval,
+  priced in X08:t3's own clock-held economy):**
+
+  | Category | Stroke log/s | Stroke replay/s | r_S | Centring log/s | Centring replay/s | r_P |
+  |---|---|---|---|---|---|---|
+  | fwd | 0.0803 | 0.0708 | **1.13** | 0.0015 | 0 | — |
+  | side | 0.0183 | 0.0160 | 1.14 | 0.0678 | 0.0668 | **1.01** |
+  | back | 0.0648 | 0.0587 | 1.10 | 0 | 0 | — |
+  | turn | 0.0184 | 0.0438 | 0.42 | 0 | 0 | — |
+
+  diag and move_turn are not in t3's pool (replay only). Turn's 0.42 is the command-distribution effect the
+  screen's window 0 recorded (training turn holds reach their target and the relay drops to 0); it sets no dose.
+- **Dose rule** (r in [0.5, 2] → rescale by 1/r): w_S → 0.135 / 1.134 = **0.119**; w_P → 0.16 / 1.015 =
+  **0.158**. Side's r_S (1.14) is in band. At 0.158, diag's replayed centring share is ≈ 8.8 % (≤ 10 %).
+  w_S lands within 2 % of the screen's R4 dose on W (0.117).
+- JSON: `parkour/outputs/omni_plan/stroke_formation/t3_dose_smoke/t3_dose_smokeC_r.json` (worktree).
 

@@ -12,9 +12,9 @@
 # clock reward and clock obs are live, as in X08:t3). The CHAIN overlay adds both stroke/posture knobs at eps and the
 # per-category reward telemetry flag, so the baseline B_f inherits them and every arm differs from B_f in ONE weight.
 #
-# DOSES ARE PROVISIONAL: w_S 0.135 (R4 re-derived on X08:t3's E3, fwd delivered 9.9 %) and w_P 0.16. The t3 dose smoke
-# (from the baked C1d t3 head, policy/1_t3/model_2999.pt; the stroke_posture window-0 method) finalises them BEFORE
-# the first launch -- the campaign's candidates_sha256 is recorded at the first launch, not before.
+# DOSES ARE FINAL (t3 dose smoke, 2026-09-26; CHARTER.md): w_S 0.119 = 0.135 / r_S 1.134 (fwd row; 0.135 was R4
+# re-derived on X08:t3's E3, fwd delivered 9.9 %) and w_P 0.158 = 0.16 / r_P 1.015 (side row). The campaign's
+# candidates_sha256 is recorded at the first launch.
 #
 # SEEDS: every arm runs at s3 AND s2 whatever its s3 verdict (`pair_on: [always]`): the formation seed band
 # (~0.05 m side body_offset) equals P's bar, so a single-seed arm is uninterpretable. Queue: B_f s3, B_f s2,
@@ -173,7 +173,7 @@ candidates:
     control: baseline
     overrides_chain: [KRABBY_OMNI_STROKE_W]
     overlay:
-      t3: {KRABBY_OMNI_STROKE_W: "0.135"}     # PROVISIONAL (R4 at t3: fwd 9.9 %); the t3 dose smoke finalises it
+      t3: {KRABBY_OMNI_STROKE_W: "0.119"}     # FINAL: 0.135 / r_S 1.134 (t3 dose smoke, fwd row)
     question: >-
       Armed from iteration 0 of formation (C1d's t3, from scratch, clock held), does the per-foot loaded
       stance-stroke income at w_S land (fwd delivered >= 0.5 x the replay prediction) and move the stroke --
@@ -184,7 +184,7 @@ candidates:
     control: baseline
     overrides_chain: [KRABBY_OMNI_CENTRING_W]
     overlay:
-      t3: {KRABBY_OMNI_CENTRING_W: "0.16"}    # PROVISIONAL: the t3 dose smoke finalises it before launch
+      t3: {KRABBY_OMNI_CENTRING_W: "0.158"}   # FINAL: 0.16 / r_P 1.015 (t3 dose smoke, side row)
     question: >-
       Armed from iteration 0 of formation (C1d's t3, from scratch, clock held), does the side body-centring
       bonus at w_P keep the lateral posture from forming -- pooled side body_offset <= -0.05 m against B_f over
