@@ -17,7 +17,8 @@
 # KRABBY_OMNI_CENTRING_W. `require_env` pins K and the split flag onto every composed run (baseline,
 # twins, every candidate); the driver refuses a stage that drops or changes one.
 #
-# DOSES (SA0 decision table): w_S = 0.0865 (R4 binds on W fwd at 10 % of tracking income, delivered),
+# DOSES: window-0 rescaled (WINDOW0.md: r_S 0.74 on fwd, r_P 0.97 on side) -> w_S = 0.117, w_P = 0.160.
+# SA0 replay values were: w_S = 0.0865 (R4 binds on W fwd at 10 % of tracking income, delivered),
 # w_P = 0.155 (P2 prize parity with S). BOTH are subject to the window-0 dose smoke (plan step
 # 12(ii)): r_S on the fwd row, r_P on the side row; rescale by 1/r only when r is in [0.5, 2], else
 # STOP (SA3). If the smoke rescales, the two values below are edited BEFORE the first launch (the
@@ -258,7 +259,7 @@ candidates:
     #: records no conflict for it (any other key it changed would still be one)
     overrides_chain: [KRABBY_OMNI_STROKE_W]
     overlay:
-      c6y: {KRABBY_OMNI_STROKE_W: "0.0865"}
+      c6y: {KRABBY_OMNI_STROKE_W: "0.117"}
     question: >-
       On W, does a per-foot loaded stance-stroke income at w_S (the replaced stride term, alive and
       command-general; R4: fwd delivered income 10 % of tracking) for a further 4000 iterations change
@@ -271,7 +272,7 @@ candidates:
     eval_carry: [KRABBY_OMNI_CLOCK_HIDE]
     overrides_chain: [KRABBY_OMNI_CENTRING_W]
     overlay:
-      c6y: {KRABBY_OMNI_CENTRING_W: "0.155"}
+      c6y: {KRABBY_OMNI_CENTRING_W: "0.160"}
     question: >-
       On W, does a body-centring bonus at w_P (P2 prize parity with S) for a further 4000 iterations
       pull the body back over its six-foot centroid on side holds (body_offset down >= 0.05 m, the
