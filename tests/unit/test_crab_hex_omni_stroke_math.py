@@ -531,3 +531,89 @@ def test_info_reports_the_closing_stance_before_it_is_cleared():
     assert len(seen) == 1
     B, n, pay = seen[0]
     assert B == pytest.approx((K - 1) * v * DT, rel=1e-5) and n == K - 1 and pay > 0
+
+
+# ------------------------------------------------------------------------------------------ re-review fixes
+def _walker_run(T, v=0.25, resample_at=(), rest_until=0):
+    """The steady two-foot walker, optionally at rest (zero body velocity) until ``rest_until`` and with
+    command resamples flagged at ``resample_at``. Returns pay [T, 1, F]."""
+    args, kw = _alternating_gait(T, v, rock=False)
+    force, foot, root, hdg, cmd = args
+    vel = kw["vel"].clone()
+    vel[:rest_until] = 0.0
+    st = sm.init_stroke_state(1, F)
+    pays = []
+    for t in range(T):
+        res = torch.tensor([t in resample_at])
+        _, st, pay = sm.foot_stroke_step(force[t], foot[t], root[t], hdg[t], cmd[t], torch.zeros(1, dtype=torch.bool),
+                                         vel[t], torch.zeros(1), st, DT, TURN_R, torch.zeros(1, dtype=torch.bool), res)
+        pays.append(pay)
+    return torch.stack(pays)
+
+
+def test_progress_guard_starts_a_hold_at_its_pass_value_not_cold():
+    T = int(12 / DT)
+    pay = _walker_run(T)
+    # the first stance opens inside the reset taint and is (correctly) unpaid; the next two close at ~2 s and ~3 s
+    first, steady = pay[int(1.5 / DT): int(3.5 / DT)].sum().item() / 2.0, pay[int(6 / DT):].sum().item() / 6.0
+    assert first >= 0.9 * steady  # an honest gait is paid in full from the hold's first paid stance
+
+
+def test_progress_guard_reseeds_at_a_resample():
+    T = int(20 / DT)
+    # a long stretch of zero progress drives the guard to 0; a resample then gives the new hold a clean start
+    pay_no = _walker_run(T, rest_until=int(10 / DT))
+    pay_re = _walker_run(T, rest_until=int(10 / DT), resample_at=(int(10 / DT),))
+    win = slice(int(10 / DT), int(12 / DT))
+    assert pay_re[win].sum().item() > pay_no[win].sum().item()
+
+
+def _yaw_wiggle_walk(T, v=0.25, amp=0.05):
+    """The two-foot walker translating along world +x while its heading wiggles by +-``amp`` in phase with
+    the stances (a linear ramp -amp -> +amp during A's stance and back during B's)."""
+    half = int(round(1.0 / DT))
+    force = torch.zeros(T, 1, F)
+    foot = torch.zeros(T, 1, F, 3)
+    root = torch.zeros(T, 1, 3)
+    hdg = torch.zeros(T, 1)
+    body = {0: torch.tensor([0.4, 0.8]), 1: torch.tensor([0.4, -0.8])}
+    planted = {0: None, 1: None}
+    for t in range(T):
+        k = t % half
+        a_phase = (t // half) % 2 == 0
+        frac = k / half
+        psi = (-amp + 2 * amp * frac) if a_phase else (amp - 2 * amp * frac)
+        hdg[t, 0] = psi
+        root[t, 0, 0] = v * DT * t
+        c, s = math.cos(psi), math.sin(psi)
+        rot = torch.tensor([[c, -s], [s, c]])
+        for i, down in ((0, a_phase), (1, not a_phase)):
+            here = root[t, 0, :2] + rot @ body[i]
+            if down:
+                if planted[i] is None:
+                    planted[i] = here
+                foot[t, 0, i, :2] = planted[i]
+                force[t, 0, i] = 300.0
+            else:
+                planted[i] = None
+                foot[t, 0, i, :2] = here
+    cmd = torch.zeros(T, 1, 3)
+    cmd[..., 0] = v
+    vel = torch.zeros(T, 1, 2)
+    vel[..., 0] = v
+    return force, foot, root, hdg, cmd, vel
+
+
+def test_heading_wiggle_is_not_paid_as_stroke_on_a_non_turning_slot():
+    T = int(20 / DT)
+    no_turn = torch.zeros(T, 1, dtype=torch.bool)
+    f, fo, ro, h, c, vel = _yaw_wiggle_walk(T, amp=0.0)
+    honest = _run_stroke(f, fo, ro, h, c, vel=vel, wz=torch.zeros(T, 1), turning=no_turn)[1].sum().item()
+    assert honest > 0
+    rot_incl = []
+    for amp in (0.05, -0.05):  # both phases of the wiggle relative to the tripods
+        f, fo, ro, h, c, vel = _yaw_wiggle_walk(T, amp=amp)
+        wiggle = _run_stroke(f, fo, ro, h, c, vel=vel, wz=torch.zeros(T, 1), turning=no_turn)[1].sum().item()
+        assert wiggle <= 1.01 * honest
+        rot_incl.append(_run_stroke(f, fo, ro, h, c, vel=vel, wz=torch.zeros(T, 1))[1].sum().item())  # rotation counts
+    assert max(rot_incl) > 1.05 * honest  # with rotation-inclusive differencing one phase WOULD pay; the change closes it

@@ -44,7 +44,12 @@ Evidence: ``~/.claude/plans/let-s-examine-the-stride-gleaming-dream.evidence/``.
   measured to RECTIFY side income.
 * **Progress guard.** Sway ACROSS stances -- a tripod-locked rock that is paid on the forward half and
   zero on the backward half -- is caught by an EMA of each foot point's tracking ratio,
-  ``(v_b + w_b x r_i) . v_i / |v_i|^2``. It pays nothing below ``PROG_LO``.
+  ``(v_b + w_b x r_i) . v_i / |v_i|^2`` (without ``w_b x r_i`` on non-turning rows), clamped per step.
+  It pays nothing below ``PROG_LO``. A fresh hold starts at the pass value. A rock slower than the EMA
+  (half-periods >= 2 s) can still pass it, but at the R4 dose such a rock loses several times more
+  tracking income than it earns here.
+* **No yaw credit on non-turning rows.** There the sweep is differenced with both foot positions in the
+  CURRENT heading frame, so heading wiggle or drift is never paid as stroke.
 * **Normalised** to the gait clock's planned stroke: ``L = max(|v_i|, v_clk / 2) / (2 f)``, which is
   0.35 m for any translation. The floor stops a foot near a turn's centre from being over-weighted.
   Normalised as ``C = own sweep / mean L``.
@@ -116,6 +121,9 @@ C_MAX = 1.5
 PROG_TAU_S = 4.0
 PROG_LO = 0.15
 PROG_WIDTH = 0.15
+#: Per-step clamp on the tracking ratio before the EMA.
+PROG_Q_MIN = -1.0
+PROG_Q_MAX = 1.5
 
 #: Centring defaults: EMA time constant (s, about one gait cycle), Gaussian width (m), the command
 #: speed below which there is no travel direction, and the statue guard's dead zone and saturation
@@ -230,6 +238,7 @@ class StrokeState(NamedTuple):
     prog_has: torch.Tensor  # [N, F] bool -- prog holds a real value
     prev_r: torch.Tensor  # [N, F, 2] -- heading-frame foot position at the previous step
     prev_p: torch.Tensor  # [N, F, 2] -- world foot xy at the previous step
+    prev_root: torch.Tensor  # [N, 2] -- world root xy at the previous step
     steps: torch.Tensor  # [N] long -- reward calls since the last reset (0 on the first)
     has_prev: torch.Tensor  # [N] bool -- prev_r / prev_p hold a real previous step
 
@@ -248,6 +257,8 @@ def init_stroke_state(num_envs: int, num_feet: int, device: torch.device | str =
             fields[name] = torch.zeros(nf, dtype=torch.long, device=device)
         elif name in ("prev_r", "prev_p"):
             fields[name] = torch.zeros(num_envs, num_feet, 2, device=device)
+        elif name == "prev_root":
+            fields[name] = torch.zeros(num_envs, 2, device=device)
         elif name == "steps":
             fields[name] = torch.zeros(num_envs, dtype=torch.long, device=device)
         elif name == "has_prev":
@@ -283,6 +294,7 @@ def foot_stroke_step(
     dt: float,
     turn_radius: float,
     turning: torch.Tensor | None = None,
+    resampled: torch.Tensor | None = None,
     rho0: float = RHO0,
     drho: float = DRHO,
     power: float = POWER,
@@ -306,6 +318,8 @@ def foot_stroke_step(
         dt: env step (s).
         turn_radius: the omni clock's turn radius (``omni_clock_turn_radius``).
         turning: ``[N]`` bool, the slots that command a turn (TURN / MOVE_TURN); ``None`` = every row.
+        resampled: ``[N]`` bool, the command was resampled this step: the progress guard re-seeds at its
+            pass value for the new hold.
         info: when a dict is passed, it is filled with this step's per-foot stance internals BEFORE the
             closed stances are cleared (``closing``, ``payable``, ``B``, ``Ba``, ``W``, ``n``, ``mean_l``,
             ``slip_gate``, ``g_prog``, ``loaded``, ``credit``), for the offline readout. Training passes
@@ -336,9 +350,15 @@ def foot_stroke_step(
     state.n.masked_fill_(e.opening, 0)
     state.tainted.copy_(torch.where(e.opening, (state.steps < RESET_TAINT_STEPS)[:, None], state.tainted))
 
-    # This step's increments.
-    d = -((r - state.prev_r) * u_i).sum(dim=-1)
+    # This step's increments. On turning rows the heading-frame displacement -dr includes the body's
+    # rotation: that rotation IS the commanded motion. On non-turning rows both positions are taken in the
+    # CURRENT heading frame, so body yaw (heading wiggle, drift) is never credited as a foot's stroke.
+    root = root_pos_w[:, :2]
     dp = p - state.prev_p
+    d_rot = -((r - state.prev_r) * u_i).sum(dim=-1)
+    d_lin = -(heading_frame_xy(dp - (root - state.prev_root)[:, None, :], heading) * u_i).sum(dim=-1)
+    rot_rows = torch.ones_like(gate) if turning is None else turning.bool()
+    d = torch.where(rot_rows[:, None], d_rot, d_lin)
     d_a = d + (heading_frame_xy(dp, heading) * u_i).sum(dim=-1)
     dw = torch.linalg.norm(dp, dim=-1)
     z = torch.zeros_like(d)
@@ -359,14 +379,21 @@ def foot_stroke_step(
     _clear(state, ungated)
     state.n.masked_fill_(ungated, 0)
 
-    # Progress guard: EMA of each foot point's tracking ratio, on steps with a defined foot command.
-    w_b = root_ang_vel_b_z[:, None]
+    # Progress guard: EMA of each foot point's tracking ratio, on steps with a defined foot command. The
+    # ratio is clamped (a foot near a turn's centre has a tiny commanded speed, which would otherwise let
+    # one step swing the EMA). A fresh hold -- after a reset or a resample -- starts AT the pass value: a
+    # guard that started cold would tax every honest hold's first seconds (every eval hold starts from
+    # rest), and replay and training would then price different statistics.
+    w_b = torch.where(rot_rows, root_ang_vel_b_z, torch.zeros_like(root_ang_vel_b_z))[:, None]
     v_pt = torch.stack((root_lin_vel_b_xy[:, None, 0] - w_b * r[..., 1], root_lin_vel_b_xy[:, None, 1] + w_b * r[..., 0]),
                        dim=-1)
-    q = (v_pt * v_i).sum(dim=-1) / (speed_i * speed_i).clamp_min(_EPS)
+    q = ((v_pt * v_i).sum(dim=-1) / (speed_i * speed_i).clamp_min(_EPS)).clamp(PROG_Q_MIN, PROG_Q_MAX)
+    if resampled is not None:
+        state.prog_has.logical_and_(~resampled.bool()[:, None])
     upd = gate[:, None] & (speed_i > MIN_FOOT_CMD_M_S)
-    ema = state.prog + (dt / prog_tau) * (q - state.prog)
-    state.prog.copy_(torch.where(upd, torch.where(state.prog_has, ema, q), state.prog))
+    seed = torch.full_like(state.prog, prog_lo + prog_width)
+    base = torch.where(state.prog_has, state.prog, seed)
+    state.prog.copy_(torch.where(upd, base + (dt / prog_tau) * (q - base), state.prog))
     state.prog_has.logical_or_(upd)
     g_prog = ((state.prog - prog_lo) / prog_width).clamp(0.0, 1.0)
 
@@ -392,6 +419,7 @@ def foot_stroke_step(
     state.prev_ok.copy_(e.ok)
     state.prev_r.copy_(r)
     state.prev_p.copy_(p)
+    state.prev_root.copy_(root)
     state.steps.add_(1)
     state.has_prev.fill_(True)
 

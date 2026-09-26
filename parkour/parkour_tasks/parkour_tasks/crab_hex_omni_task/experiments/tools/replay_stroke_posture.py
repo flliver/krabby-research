@@ -617,7 +617,7 @@ def replay(st: Stamp, params: StrokeParams | None = None, *, dup: np.ndarray | N
             info: dict = {}
             R, stt, p = SM.foot_stroke_step(
                 force, FP[:, s + 1], RP[:, s + 1], PSI[:, s + 1], CMD[:, s], STAND[:, s], V[:, s + 1, :2],
-                Wz[:, s + 1], stt, st.dt, st.turn_radius, TURN[:, s], info=info, **kw)
+                Wz[:, s + 1], stt, st.dt, st.turn_radius, TURN[:, s], RES_[:, s], info=info, **kw)
             b, cst, o = SM.body_centring_step(
                 FP[:, s + 1], RP[:, s + 1], PSI[:, s + 1], CMD[:, s], STAND[:, s], V[:, s + 1, :2], cst, st.dt,
                 LAT[:, s], RES_[:, s], **ckw)
@@ -1276,7 +1276,7 @@ def parity_check(dump: dict, *, tol: float = 1e-5, params: StrokeParams | None =
             R, stt, pay = SM.foot_stroke_step(
                 t("force")[s], t("foot_pos_w")[s], t("root_pos_w")[s], t("heading")[s], t("cmd")[s],
                 t("stand")[s].bool(), t("root_lin_vel_b_xy")[s], t("root_ang_vel_b_z")[s], stt, dt, turn_radius,
-                t("turning")[s].bool(), **params.stroke_kwargs())
+                t("turning")[s].bool(), t("resampled")[s].bool(), **params.stroke_kwargs())
             b, cst, o = SM.body_centring_step(
                 t("foot_pos_w")[s], t("root_pos_w")[s], t("heading")[s], t("cmd")[s], t("stand")[s].bool(),
                 t("root_lin_vel_b_xy")[s], cst, dt, t("lat_share")[s], t("resampled")[s].bool(),

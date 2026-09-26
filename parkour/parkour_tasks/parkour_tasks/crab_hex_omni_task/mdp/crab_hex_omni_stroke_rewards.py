@@ -104,7 +104,23 @@ def _omni_command_term(env: ParkourManagerBasedRLEnv, command_name: str):
 
 
 class _OncePerStep:
-    """Stateful terms must advance exactly once per env step: raise if called twice in the same step."""
+    """Stateful terms must advance exactly once per env step: raise if called twice in the same step.
+
+    Also detects a command resample: the slot, the travel target or the facing target changed since this
+    term's previous call. NaN after a reset compares unequal, so a fresh env counts as resampled.
+    """
+
+    def _init_resample(self, num_envs: int) -> None:
+        self._prev_cmd = torch.full((num_envs, 3), float("nan"), device=self.device)
+
+    def _reset_resample(self, idx) -> None:
+        self._prev_cmd[idx] = float("nan")
+
+    def _resampled(self, cmd_term) -> torch.Tensor:
+        now = torch.stack((cmd_term.slot_id.float(), cmd_term.travel_dir_w, cmd_term.heading_target), dim=-1)
+        resampled = (now != self._prev_cmd).any(dim=-1)
+        self._prev_cmd.copy_(now)
+        return resampled
 
     def _check_once(self, env: ParkourManagerBasedRLEnv) -> None:
         step = int(env.common_step_counter)
@@ -141,12 +157,14 @@ class RewardFootStroke(ManagerTermBase, _OncePerStep):
         num_feet = len(FOOT_ORDER)
         self.turn_radius = float(getattr(env.cfg, "omni_clock_turn_radius", 0.0))
         self.state = init_stroke_state(env.num_envs, num_feet, device=self.device)
+        self._init_resample(env.num_envs)
         #: Last per-foot stance pay (0 except on a stance's close step) -- telemetry / replay parity.
         self.pay = torch.zeros(env.num_envs, num_feet, device=self.device)
 
     def reset(self, env_ids: Sequence[int] | None = None) -> None:
         idx = slice(None) if env_ids is None else env_ids
         reset_stroke_state(self.state, env_ids)
+        self._reset_resample(idx)
         self.pay[idx] = 0.0
 
     def __call__(
@@ -180,6 +198,7 @@ class RewardFootStroke(ManagerTermBase, _OncePerStep):
             env.step_dt,
             self.turn_radius,
             cmd_term.slot_id >= SLOT_TURN,
+            self._resampled(cmd_term),
             rho0, drho, power, c_max, prog_tau, prog_lo, prog_width,
         )
         return reward
@@ -212,7 +231,7 @@ class RewardBodyCentring(ManagerTermBase, _OncePerStep):
                 f"got {names}; the centroid would be taken over the wrong bodies with no error at all."
             )
         self.state = init_centring_state(env.num_envs, device=self.device)
-        self._prev_cmd = torch.full((env.num_envs, 3), float("nan"), device=self.device)
+        self._init_resample(env.num_envs)
         #: Last body lead over the six-foot centroid (m), :func:`crab_hex_omni_stroke_math.body_lead`
         #: -- the readout's ``body_offset`` -- kept for telemetry.
         self.o = torch.zeros(env.num_envs, device=self.device)
@@ -220,7 +239,7 @@ class RewardBodyCentring(ManagerTermBase, _OncePerStep):
     def reset(self, env_ids: Sequence[int] | None = None) -> None:
         idx = slice(None) if env_ids is None else env_ids
         reset_centring_state(self.state, env_ids)
-        self._prev_cmd[idx] = float("nan")
+        self._reset_resample(idx)
         self.o[idx] = 0.0
 
     def __call__(
@@ -238,9 +257,7 @@ class RewardBodyCentring(ManagerTermBase, _OncePerStep):
         asset: Articulation = env.scene[asset_cfg.name]
         cmd_term = _omni_command_term(env, command_name)
         slot = cmd_term.slot_id
-        now = torch.stack((slot.float(), cmd_term.travel_dir_w, cmd_term.heading_target), dim=-1)
-        resampled = (now != self._prev_cmd).any(dim=-1)  # NaN (after a reset) compares unequal
-        self._prev_cmd.copy_(now)
+        resampled = self._resampled(cmd_term)
         bearing = wrap_to_pi(cmd_term.travel_dir_w - cmd_term.heading_target)
         lat_share = torch.where(slot == SLOT_MOVE, torch.sin(bearing).abs(), torch.zeros_like(bearing))
         b, self.state, self.o = body_centring_step(
