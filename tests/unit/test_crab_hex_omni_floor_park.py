@@ -165,14 +165,15 @@ def test_park_categories_needs_the_rig_flag_machinery(rc, screen):
 
 # ================================================================== overrides_chain
 def test_overrides_chain_silences_only_the_declared_chain_override(rc, screen):
+    dose = rc.candidate_by_id(screen, "S")["overlay"]["c6y"]["KRABBY_OMNI_STROKE_W"]  # the campaign's own dose
     s = rc._recipe_with({"entries": []}, screen, "code", "S", set())
     assert s["conflicts"] == []
-    assert s["overlay_by_stage"]["c6y"]["KRABBY_OMNI_STROKE_W"] == "0.0865"
+    assert s["overlay_by_stage"]["c6y"]["KRABBY_OMNI_STROKE_W"] == dose != "0.001"
     assert s["overlay_by_stage"]["c6y"]["KRABBY_OMNI_CENTRING_W"] == "0.001"
     undeclared = copy.deepcopy(screen)
     rc.candidate_by_id(undeclared, "S").pop("overrides_chain")
     s2 = rc._recipe_with({"entries": []}, undeclared, "code", "S", set())
-    assert s2["conflicts"] == ["stage c6y: KRABBY_OMNI_STROKE_W set to '0.001' and '0.0865' (by S)"]
+    assert s2["conflicts"] == [f"stage c6y: KRABBY_OMNI_STROKE_W set to '0.001' and '{dose}' (by S)"]
     assert s2["recipe_id"] == s["recipe_id"]            # a record-only field: identity unchanged
 
 
