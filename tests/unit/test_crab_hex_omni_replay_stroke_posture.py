@@ -475,7 +475,8 @@ def test_income_rows_absorb_and_bind_as_the_context_says(tmp_path):
     # each episode's first stance began loaded at reset (prologue) -> reset-tainted, never paid; every
     # other stance is exactly planted, so the gates trim nothing else
     assert s["rej_taint"] == 3 * 2 and s["scored"] > 0
-    assert s["lost_anchor"] == s["lost_slip"] == s["lost_prog"] == pytest.approx(0.0, abs=1e-6)
+    for key in ("lost_anchor", "lost_slip", "lost_prog"):
+        assert s[key] == pytest.approx(0.0, abs=1e-6), key
     assert s["kept"] * s["ungated_credit"] + s["lost_n_taint"] == pytest.approx(s["ungated_credit"], rel=1e-5)
 
 

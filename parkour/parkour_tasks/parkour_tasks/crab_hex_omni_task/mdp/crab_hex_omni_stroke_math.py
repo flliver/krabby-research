@@ -107,10 +107,15 @@ MIN_STROKE_NORM_M = 0.05
 #: Floor on the own sweep in the slip ratio's denominator (m).
 MIN_SWEEP_M = 0.01
 
-#: Starting values (plan step 2); the replay gate (step 7) calibrates them.
+#: Calibrated by the replay gate (plan step 7, 2026-09-26; experiments/2026-09-26_stroke_posture/REPLAY_GATE.md).
+#: No neighbour of rho0 / drho / c_max beat these. ``POWER`` is 1.5 (SA0 decision): a stance split k ways still
+#: pays less, but 1.5 pulls about 1.85x harder than 2 at omni side's short strokes (C ~ 0.1) with fwd held
+#: at the same 10 % dose. It also pays the older-plant lunge (5.1x -> 3.0x) and the creeper's move_turn
+#: (2.8x -> 1.9x) less. Its costs stay inside the gate: short-stance share 0.96 % (limit 2 %); creeper
+#: translation 0.14x (limit 0.5x).
 RHO0 = 0.5
 DRHO = 0.3
-POWER = 2.0
+POWER = 1.5
 C_MAX = 1.5
 
 #: Progress guard: EMA time constant (s), and the tracking ratio below which a stance pays nothing /

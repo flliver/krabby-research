@@ -1,0 +1,428 @@
+{
+ "step": "plan step 8 -- premise and power preview (0 GPU)",
+ "date": "2026-09-26",
+ "worktree_head": "d716483b",
+ "plan": "~/.claude/plans/let-s-examine-the-stride-gleaming-dream.md",
+ "runs": {
+  "W": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-23_clock_deprecation_w2/seed3_X03_c6x_A15pB/suite__omni/seed001/2026-09-25_20-31-29",
+  "E1": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-23_clock_deprecation/step0_E1_X08-c6_visible/suite__omni/seed001/2026-09-23_21-23-41",
+  "E2": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-23_clock_deprecation/step0_E2_X08-c4_visible/suite__omni/seed001/2026-09-23_21-31-11",
+  "X0x_s3": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-23_clock_deprecation_w2/seed3_X01_c6x_A15pB/suite__omni/seed001/2026-09-25_17-01-55",
+  "X0x_s2": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-23_clock_deprecation_w2/seed2_X02_c6x_A15pB/suite__omni/seed001/2026-09-25_18-45-27"
+ },
+ "tool": "experiments/tools/replay_stroke_posture.py readout [--vs] (B=2000 env-clustered paired bootstrap, 95 % centred half-width)",
+ "stroke_params": {
+  "rho0": 0.5,
+  "drho": 0.3,
+  "power": 2.0,
+  "c_max": 1.5,
+  "prog_tau": 4.0,
+  "prog_lo": 0.15,
+  "prog_width": 0.15,
+  "force_open": 50.0,
+  "force_hold": 20.0,
+  "n_off": 2,
+  "min_loaded": 5,
+  "sigma": 0.2,
+  "tau": 2.0,
+  "min_cmd": 0.12,
+  "phi_lo": 0.1,
+  "phi_sat": 0.25
+ },
+ "premise": {
+  "side_body_offset_m": 0.23088528960943222,
+  "threshold_m": 0.15,
+  "body_offset_pass": true,
+  "side_stride_along_m": 0.08349639954775114,
+  "fwd_stride_along_m": 0.24004663041990287,
+  "ratio": 0.3478340829100355,
+  "threshold_ratio": 0.6,
+  "stride_pass": true,
+  "hands": {
+   "side/l": 0.2307118922472,
+   "side/r": 0.2312900647521019
+  },
+  "pre_measured": {
+   "body_offset": 0.231,
+   "side_stride": 0.083,
+   "fwd_stride": 0.24
+  },
+  "verdict": "PASS"
+ },
+ "power": {
+  "a_guard_level": {
+   "source": "2026-09-23_clock_deprecation_w2/notify.log line 3 (2026-09-25 14:53 RESOLUTION D00bs)",
+   "level": "0.99 one-sided",
+   "rule": "max(R_eval, R_seed)",
+   "cat.side.steps_per_m": {
+    "R_eval": 1.569,
+    "R_seed": 1.85,
+    "MDE": 1.85,
+    "seed_dominated": true
+   },
+   "cat.diag.steps_per_m": {
+    "R_eval": 2.024,
+    "R_seed": 3.205,
+    "MDE": 3.205,
+    "seed_dominated": true
+   }
+  },
+  "b_len_block": {
+   "members": [
+    "cat.side.steps_per_m",
+    "cat.diag.steps_per_m"
+   ],
+   "sign": "lower is better (eval_categories.metric_sign = -1)",
+   "level": "0.95 two-sided",
+   "R_eval": 0.6945005804749813,
+   "R_seed": 1.1944283002286435,
+   "R": 1.1944283002286435,
+   "seed_dominated": true,
+   "R_eval_i": {
+    "cat.side.steps_per_m": 1.3766856356730623,
+    "cat.diag.steps_per_m": 1.622672695378993
+   },
+   "per_member_mde": {
+    "cat.side.steps_per_m": 1.6443522837661655,
+    "cat.diag.steps_per_m": 1.9381661893689621
+   },
+   "eval_only_per_member_mde": {
+    "cat.diag.steps_per_m": 1.126947128861613,
+    "cat.side.steps_per_m": 0.9561089731065104
+   },
+   "single_member_mde_k2": {
+    "cat.side.steps_per_m": 3.288704567532331,
+    "cat.diag.steps_per_m": 3.8763323787379242
+   },
+   "seed_pair_rows": [
+    {
+     "metric": "cat.side.steps_per_m",
+     "s3": 33.604922170195195,
+     "s2": 35.454450860307006,
+     "signed_delta_s2_vs_s3": -1.8495286901118106,
+     "R_eval_i": 1.3766856356730623,
+     "z_i": -1.3434647984887087
+    },
+    {
+     "metric": "cat.diag.steps_per_m",
+     "s3": 26.890381909496675,
+     "s2": 23.685146065577996,
+     "signed_delta_s2_vs_s3": 3.205235843918679,
+     "R_eval_i": 1.622672695378993,
+     "z_i": 1.9752818008502084
+    }
+   ],
+   "z_pair": 0.31590850118074987,
+   "rms_over_sqrt_k": 1.1944283002286435,
+   "construction_check": "TIE",
+   "eval_only_class_of_seed_pair": {
+    "z": 0.31590850118074987,
+    "R_eval": 0.6945005804749813,
+    "class": "TIE"
+   },
+   "d00bs_acceptance": {
+    "ok": true,
+    "failures": []
+   },
+   "reproduces_w2_recorded": {
+    "D00s_blocks": {
+     "F": 0.9655309511328086,
+     "F_mt": 0.9121735583948933,
+     "T": 0.4870912093615064,
+     "RIG": 0.3300019984580903
+    },
+    "D00bs_blocks_recomputed": {
+     "F": 1.8972670167699877,
+     "F_mt": 0.11416677621920951,
+     "T": 1.0246997185007192,
+     "RIG": 1.131773247631141
+    },
+    "D00bs_blocks_recorded": {
+     "F": 1.8972670167699877,
+     "F_mt": 0.11416677621920951,
+     "T": 1.0246997185007192,
+     "RIG": 1.131773247631141
+    }
+   },
+   "status": "PROVISIONAL -- replace the seed term with B s3/s2 once those screens exist"
+  },
+  "c_S_effect_vs_LEN": {
+   "W_side_steps_per_m": 32.08764720064606,
+   "W_side_stride_along": 0.08349639954775114,
+   "W_fwd_steps_per_m": 14.704254302767389,
+   "W_fwd_stride_along": 0.24004663041990287,
+   "effect_m": 0.02,
+   "primary": "inverse_k_const",
+   "conversions": {
+    "inverse_k_const": {
+     "k": 2.679203011212422,
+     "formula": "Delta = -SPM*0.02/(s+0.02)",
+     "spm_after": 25.88691995972567,
+     "delta": -6.20072724092039
+    },
+    "within_W_elasticity": {
+     "b": -0.47637889076534995,
+     "spm_after": 28.967563848320285,
+     "delta": -3.120083352325775
+    },
+    "within_W_linear": {
+     "slope": -191.43079451926073,
+     "delta": -3.8286158903852145
+    },
+    "fwd_side_chord": {
+     "slope": -111.0403529974669,
+     "delta": -2.220807059949338
+    }
+   },
+   "LEN_per_member_mde_side": 1.6443522837661655,
+   "LEN_single_member_mde_side": 3.288704567532331,
+   "stride_equivalent_of_mde_m": {
+    "per_member_mde": 0.0045099420301732696,
+    "single_member_mde": 0.009534898348992085,
+    "guard_mde": 0.005108477459848118
+   },
+   "verdict": "PASS",
+   "all_conversions_exceed_per_member_mde": true,
+   "conversions_below_single_member_mde": [
+    "within_W_elasticity",
+    "fwd_side_chord"
+   ],
+   "within_W_cross_episode": {
+    "fwd": {
+     "n": 100,
+     "median_spm": 14.704254302767389,
+     "mean_stride": 0.24004663041990287,
+     "k_median": 3.635987461563629,
+     "k_ratio_of_centres": 3.52970669821667,
+     "elasticity_loglog": -0.4566545657127446,
+     "linear_slope_spm_per_m": -60.93349914092115,
+     "spearman": -0.7565556555655565
+    },
+    "side": {
+     "n": 200,
+     "median_spm": 32.08764720064606,
+     "mean_stride": 0.08349639954775114,
+     "k_median": 2.699521558799642,
+     "k_ratio_of_centres": 2.679203011212422,
+     "elasticity_loglog": -0.47637889076534995,
+     "linear_slope_spm_per_m": -191.43079451926073,
+     "spearman": -0.690327758193955
+    },
+    "back": {
+     "n": 100,
+     "median_spm": 16.94148125692447,
+     "mean_stride": 0.2137639541391558,
+     "k_median": 3.6613416081360115,
+     "k_ratio_of_centres": 3.62147802245457,
+     "elasticity_loglog": -0.598567982793059,
+     "linear_slope_spm_per_m": -60.56916447609468,
+     "spearman": -0.7657365736573657
+    },
+    "diag": {
+     "n": 100,
+     "median_spm": 24.11399873875525,
+     "mean_stride": 0.11535719852010687,
+     "k_median": 2.798688456611398,
+     "k_ratio_of_centres": 2.781723339620196,
+     "elasticity_loglog": -0.5276012922741872,
+     "linear_slope_spm_per_m": -116.35415359380403,
+     "spearman": -0.6314791479147914
+    }
+   }
+  },
+  "d_readout_keys": [
+   {
+    "key": "side.body_offset",
+    "W": 0.23088528960943222,
+    "E1": 0.23339307308197021,
+    "X0x_s3": 0.23731105774641037,
+    "eval_pair_E1_vs_E2": {
+     "delta": 0.006544969975948334,
+     "ci": [
+      0.0007229249924421311,
+      0.012068196572363375
+     ],
+     "mde": 0.005672635789960621
+    },
+    "seed_pair_s3_vs_s2": {
+     "delta": 0.017131343483924866,
+     "ci": [
+      0.013047131150960923,
+      0.023576796799898145
+     ],
+     "mde": 0.00526483282446861
+    },
+    "R_eval_readout": 0.005672635789960621,
+    "R_seed_abs_delta": 0.017131343483924866,
+    "effective_single_seed": 0.017131343483924866,
+    "rel_to_W": 0.07419850572942266,
+    "threshold": 0.05,
+    "threshold_kind": "abs",
+    "checked_value": 0.017131343483924866,
+    "verdict": "PASS",
+    "verdict_on_bootstrap_mde_alone": "PASS"
+   },
+   {
+    "key": "side.stride_along",
+    "W": 0.08349639954775114,
+    "E1": 0.07473080687838163,
+    "X0x_s3": 0.0751993139654472,
+    "eval_pair_E1_vs_E2": {
+     "delta": -0.001897509133503672,
+     "ci": [
+      -0.004919304212051574,
+      0.001087504938204667
+     ],
+     "mde": 0.003003404575128121
+    },
+    "seed_pair_s3_vs_s2": {
+     "delta": 0.0008396485960683181,
+     "ci": [
+      -0.0026534821191865586,
+      0.004072107760888935
+     ],
+     "mde": 0.003362794940037747
+    },
+    "R_eval_readout": 0.003362794940037747,
+    "R_seed_abs_delta": 0.0008396485960683181,
+    "effective_single_seed": 0.003362794940037747,
+    "rel_to_W": 0.0402747299075403,
+    "threshold": 0.25,
+    "threshold_kind": "rel",
+    "checked_value": 0.0402747299075403,
+    "verdict": "PASS",
+    "verdict_on_bootstrap_mde_alone": "PASS"
+   },
+   {
+    "key": "side.stance_stroke",
+    "W": 0.04020875506103039,
+    "E1": 0.031271887477487326,
+    "X0x_s3": 0.028908878564834595,
+    "eval_pair_E1_vs_E2": {
+     "delta": -0.001743548084050417,
+     "ci": [
+      -0.00481721586547792,
+      0.0011913622613064934
+     ],
+     "mde": 0.0030042890633922067
+    },
+    "seed_pair_s3_vs_s2": {
+     "delta": -0.0026705488562583923,
+     "ci": [
+      -0.004632624378427863,
+      -0.000443501048721374
+     ],
+     "mde": 0.0020945616648532445
+    },
+    "R_eval_readout": 0.0030042890633922067,
+    "R_seed_abs_delta": 0.0026705488562583923,
+    "effective_single_seed": 0.0030042890633922067,
+    "rel_to_W": 0.0747172862933006,
+    "threshold": 0.01,
+    "threshold_kind": "abs",
+    "checked_value": 0.0030042890633922067,
+    "verdict": "PASS",
+    "verdict_on_bootstrap_mde_alone": "PASS"
+   },
+   {
+    "key": "side.stroke_share",
+    "W": 0.5621172189712524,
+    "E1": 0.5184906125068665,
+    "X0x_s3": 0.5173048675060272,
+    "eval_pair_E1_vs_E2": {
+     "delta": 0.022872328758239746,
+     "ci": [
+      0.007311705499887466,
+      0.037657189369201656
+     ],
+     "mde": 0.015172741934657093
+    },
+    "seed_pair_s3_vs_s2": {
+     "delta": -0.03294423222541809,
+     "ci": [
+      -0.05010785460472107,
+      -0.008491527289152156
+     ],
+     "mde": 0.02080816365778445
+    },
+    "R_eval_readout": 0.02080816365778445,
+    "R_seed_abs_delta": 0.03294423222541809,
+    "effective_single_seed": 0.03294423222541809,
+    "rel_to_W": 0.05860740627321525,
+    "verdict": "REPORT"
+   },
+   {
+    "key": "fwd.stance_stroke",
+    "W": 0.17069919407367706,
+    "E1": 0.12547757662832737,
+    "X0x_s3": 0.14238223433494568,
+    "eval_pair_E1_vs_E2": {
+     "delta": 0.03712532855570316,
+     "ci": [
+      0.019548886083066465,
+      0.0549365545623004
+     ],
+     "mde": 0.017693834239616967
+    },
+    "seed_pair_s3_vs_s2": {
+     "delta": 0.011662915349006653,
+     "ci": [
+      -0.021961676608771085,
+      0.03251623157411809
+     ],
+     "mde": 0.02723895409144459
+    },
+    "R_eval_readout": 0.02723895409144459,
+    "R_seed_abs_delta": 0.011662915349006653,
+    "effective_single_seed": 0.02723895409144459,
+    "rel_to_W": 0.1595728335992479,
+    "verdict": "REPORT"
+   },
+   {
+    "key": "side.lead_scuff_frac",
+    "W": 0.4185056913834854,
+    "E1": 0.40941009932238004,
+    "X0x_s3": 0.3955842175190404,
+    "eval_pair_E1_vs_E2": {
+     "delta": -0.018429411988907518,
+     "ci": [
+      -0.029357307634437266,
+      -0.012042200181989848
+     ],
+     "mde": 0.008657553726223708
+    },
+    "seed_pair_s3_vs_s2": {
+     "delta": 0.009251714405715372,
+     "ci": [
+      0.0002580787709908412,
+      0.01877619247859071
+     ],
+     "mde": 0.009259056853799932
+    },
+    "R_eval_readout": 0.009259056853799932,
+    "R_seed_abs_delta": 0.009251714405715372,
+    "effective_single_seed": 0.009259056853799932,
+    "rel_to_W": 0.02212408826076314,
+    "verdict": "REPORT"
+   }
+  ]
+ },
+ "verdicts": {
+  "premise.body_offset": "PASS",
+  "premise.stride_ratio": "PASS",
+  "c.LEN_power": "PASS",
+  "d.side.body_offset": "PASS",
+  "d.side.stride_along": "PASS",
+  "d.side.stance_stroke": "PASS",
+  "d.side.stroke_share": "REPORT",
+  "d.fwd.stance_stroke": "REPORT",
+  "d.side.lead_scuff_frac": "REPORT"
+ },
+ "caveats": [
+  "LEN per-member MDE (R x R_eval,i) assumes an equal standardised shift in side and diag; a side-only shift needs 2x (3.289 steps/m). The primary inverse-law conversion (-6.20) and the per-episode linear fit (-3.83) clear it; the log-log elasticity (-3.12) and fwd-side chord (-2.22) do not.",
+  "side body_offset and side stroke_share are seed-dominated: seed-pair |delta| 0.0171 m and 0.0329 exceed their bootstrap half-widths (0.0053, 0.0208); single-seed changes must clear the seed term.",
+  "LEN seed term is PROVISIONAL (w2 B0 pair X01/X02); swap to B s3/s2 once those screens exist.",
+  "stroke_share is the tool's scored-stance B/Ba, not the investigation's 0.81/0.40 stance definition."
+ ],
+ "overall": "PASS (no STOP fired)"
+}

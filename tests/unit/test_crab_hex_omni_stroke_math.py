@@ -58,6 +58,7 @@ def _run_stroke(force, foot_pos_w, root_pos_w, heading, cmd, vel=None, wz=None, 
     ``vel`` / ``wz`` are the body's planar velocity and yaw rate (default: it tracks the command exactly).
     """
     T, N = force.shape[:2]
+    kw.setdefault("power", 2.0)  # the arithmetic below is written for p = 2; the shipped default is pinned separately
     vel = cmd[..., :2] if vel is None else vel
     wz = cmd[..., 2] if wz is None else wz
     stand = torch.zeros(T, N, dtype=torch.bool) if stand is None else stand
@@ -617,3 +618,7 @@ def test_heading_wiggle_is_not_paid_as_stroke_on_a_non_turning_slot():
         assert wiggle <= 1.01 * honest
         rot_incl.append(_run_stroke(f, fo, ro, h, c, vel=vel, wz=torch.zeros(T, 1))[1].sum().item())  # rotation counts
     assert max(rot_incl) > 1.05 * honest  # with rotation-inclusive differencing one phase WOULD pay; the change closes it
+
+
+def test_shipped_power_is_the_sa0_choice():
+    assert sm.POWER == 1.5  # SA0 decision, 2026-09-26 (REPLAY_GATE.md); change only with a new replay gate
