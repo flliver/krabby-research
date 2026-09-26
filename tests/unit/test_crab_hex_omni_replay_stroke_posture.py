@@ -437,14 +437,18 @@ def test_patched_math_restores_the_module_constants():
 
 
 # ============================================================================ economy / income
-def test_the_economy_is_clock_free_and_asserted_against_the_dump(tmp_path):
+def test_the_economy_is_clock_free_or_clock_held_and_asserted_against_the_dump(tmp_path):
     head = _head(tmp_path)
     econ, info = t.load_economy(head / "params" / "env.yaml")
     assert tuple(econ.clock) == (0.001, 0.001) and info["dump_clock"] == [0.001, 0.001]
     assert dict(econ.extra)["tibia"] == -0.28
     held = _head(tmp_path / "held", clock=1.0)
+    econ_h, info_h = t.load_economy(held / "params" / "env.yaml")
+    assert tuple(econ_h.clock) == (1.0, 1.0) and info_h["dump_clock"] == [1.0, 1.0]
+    assert dict(econ_h.extra)["tibia"] == -0.28
+    bad = _head(tmp_path / "bad", clock=0.5)
     with pytest.raises(SystemExit, match="clock"):
-        t.load_economy(held / "params" / "env.yaml")
+        t.load_economy(bad / "params" / "env.yaml")
 
 
 def test_delivered_pay_is_the_managers_post_clip_share():
@@ -494,6 +498,24 @@ def test_income_cli_runs_on_a_synthetic_stamp(tmp_path, capsys):
     assert "stances per gate" in text and "tibia" in text
     rows = json.loads(out.read_text())["rows"]
     assert rows["stand"]["stroke_nominal_per_s"] == 0.0 and rows["turn"]["stroke_nominal_per_s"] > 0
+
+
+def test_income_refuses_a_clock_held_stamp_priced_under_a_clock_free_economy(tmp_path):
+    # verification 2026-09-26: --econ-env-yaml defaults to W's clock-FREE dump, so a t3 (clock-held)
+    # stamp priced without it was silently read under the wrong economy.
+    run = omni_stamp(tmp_path, labels=("stand", "fwd"), per=1, T=250)
+    own_yaml = Path(json.loads((run / "run_meta.json").read_text())["checkpoint"]).parent / "params" / "env.yaml"
+    own_yaml.write_text(ENV_YAML.format(clock=1.0))                  # the stamp's head: clock HELD
+    st = t.load_stamp(run)
+    assert t.stamp_clock(st) == ((1.0, 1.0), own_yaml)
+    free = _head(tmp_path / "free", clock=0.001) / "params" / "env.yaml"
+    args = ["income", str(run), "--w-stroke", "0.1", "--w-centring", "0.2"]
+    with pytest.raises(SystemExit, match="clock weights"):
+        t.main(args + ["--econ-env-yaml", str(free)])
+    assert t.main(args + ["--econ-env-yaml", str(free), "--allow-econ-mismatch"]) == 0
+    assert t.main(args + ["--econ-env-yaml", str(own_yaml)]) == 0     # its own economy: accepted
+    (own_yaml).unlink()
+    assert t.stamp_clock(t.load_stamp(run)) is None                    # no own dump: nothing to compare
 
 
 # ============================================================================ bootstrap / validate
@@ -746,3 +768,126 @@ def test_readout_vs_prints_unison_flags_and_the_cli_wires_a_seed_pair(tmp_path, 
     with pytest.raises(SystemExit, match="--seed-a and --seed-b"):
         t.main(["readout", str(arm), "--vs", str(base), "--seed-a", str(seed_a),
                "--econ-env-yaml", str(head_yaml)])
+
+
+# ============================================================================ pooled two-seed readout
+def test_bar_verdict_requires_both_direction_and_resolvability():
+    assert t.bar_verdict(-0.2, band=0.05, bar=-0.05) == "PASS"
+    assert t.bar_verdict(-0.01, band=0.005, bar=-0.05) == "TIE"     # right direction, short of the bar
+    assert t.bar_verdict(-0.2, band=0.3, bar=-0.05) == "TIE"        # past the bar, but not resolvable
+    assert t.bar_verdict(0.2, band=0.05, bar=-0.05) == "TIE"        # wrong direction
+    assert t.bar_verdict(0.02, band=0.005, bar=0.010) == "PASS"     # a positive bar
+    assert t.bar_verdict(float("nan"), band=0.05, bar=-0.05) == "TIE"
+
+
+def test_parse_bars_layers_overrides_onto_the_defaults():
+    bars = t.parse_bars(["side.body_offset=-0.08", "fwd.stroke_share=0.05"])
+    assert bars["side"]["body_offset"] == -0.08
+    assert bars["side"]["stance_stroke"] == pytest.approx(0.010)      # untouched default
+    assert bars["fwd"]["stroke_share"] == pytest.approx(0.05)
+    assert t.parse_bars([]) == t.DEFAULT_BARS
+    with pytest.raises(SystemExit, match="cat.key=value"):
+        t.parse_bars(["side_body_offset=-0.08"])
+
+
+def test_pooled_delta_averages_two_independent_paired_bootstraps_draw_by_draw(monkeypatch):
+    """Isolated from the synthetic walker (module docstring's pattern for the band arithmetic tests):
+    a fake ``paired_bootstrap`` returns a constant length-B draw array per call, so the pooled mde is
+    the half-width of the ELEMENT-WISE mean of the two (0.0, since each combined draw is identical),
+    never the mean of the two individual mde's (0.01 each)."""
+    sent_a, sent_b = object(), object()
+
+    def fake(st_a, va, st_b, vb, *, B=2000, seed=0, keys=(), rows_fn=None, return_raw=False):
+        delta = -0.20 if st_a is sent_a else -0.16
+        row = {"delta": delta, "ci": None, "mde": 0.01}
+        if return_raw:
+            boot = np.full(B, delta)
+            boot[0] = np.nan          # exercise the isfinite filter
+            row["boot"] = boot
+        return {"side": {"n_pairs": 5, "n_clusters": 5, "body_offset": row}}
+
+    monkeypatch.setattr(t, "paired_bootstrap", fake)
+    out = t.pooled_delta(sent_a, None, None, None, sent_b, None, None, None, keys=("body_offset",), B=2000, seed=0)
+    row = out["side"]["body_offset"]
+    assert row["delta_a"] == pytest.approx(-0.20) and row["delta_b"] == pytest.approx(-0.16)
+    assert row["mean_delta"] == pytest.approx(-0.18)
+    assert row["pooled_mde"] == pytest.approx(0.0, abs=1e-9)
+
+
+def test_pooled_readout_band_is_the_max_of_pooled_mde_and_baseline_seed_delta(monkeypatch):
+    """Isolated band/verdict arithmetic: :func:`pooled_delta` and the baseline seed-pair
+    ``paired_bootstrap`` call are both faked, so only :func:`pooled_readout`'s own composition
+    (mean delta, band, bar) is under test."""
+
+    def fake_pooled_delta(*_a, **_kw):
+        return {"side": {"n_pairs_a": 5, "n_pairs_b": 5,
+                        "body_offset": {"delta_a": -0.20, "delta_b": -0.16, "mean_delta": -0.18,
+                                        "pooled_mde": 0.01},
+                        "stride_along": {"delta_a": 0.01, "delta_b": 0.02, "mean_delta": 0.015,
+                                        "pooled_mde": 0.03}}}
+
+    def fake_paired_bootstrap(*_a, **_kw):
+        return {"side": {"body_offset": {"delta": 0.5, "ci": None, "mde": 0.01},
+                        "stride_along": {"delta": 0.001, "ci": None, "mde": 0.005}}}
+
+    monkeypatch.setattr(t, "pooled_delta", fake_pooled_delta)
+    monkeypatch.setattr(t, "paired_bootstrap", fake_paired_bootstrap)
+    monkeypatch.setattr(t, "load_stamp", lambda run_dir, limit=None: run_dir)
+    monkeypatch.setattr(t, "replay", lambda st, *a, **kw: None)
+    monkeypatch.setattr(t, "episode_values", lambda st, rp, econ=None: None)
+
+    rep = t.pooled_readout("arm3", "base3", "arm2", "base2", keys=("body_offset", "stride_along"))
+    bo = rep["rows"]["side"]["body_offset"]
+    # the baseline seed delta (|0.5|) swamps the pooled mde (0.01) -> the band widens to 0.5, and the
+    # -0.18 move that would clear a 0.01 band (|delta| > band) is no longer resolvable past a 0.5 one
+    assert bo["base_seed_delta"] == pytest.approx(0.5)
+    assert bo["band"] == pytest.approx(0.5)
+    assert bo["verdict"] == "TIE"
+    sa = rep["rows"]["side"]["stride_along"]
+    # here the pooled mde (0.03) beats the baseline seed delta (0.001) -> band = 0.03; 0.015 does not
+    # clear the +0.02 bar at all, so still TIE, but for the "short of the bar" reason
+    assert sa["band"] == pytest.approx(0.03)
+    assert sa["verdict"] == "TIE"
+
+
+def test_pooled_readout_end_to_end_on_synthetic_stamps_passes_a_real_posture_fix(tmp_path):
+    labels = ("lat_l", "lat_r")
+    kw = dict(labels=labels, per=3, T=300)
+    arm_s3 = omni_stamp(tmp_path, name="arm_s3", shift_side=0.0, **kw)
+    base_s3 = omni_stamp(tmp_path, name="base_s3", shift_side=0.2, **kw)
+    arm_s2 = omni_stamp(tmp_path, name="arm_s2", shift_side=0.02, **kw)
+    base_s2 = omni_stamp(tmp_path, name="base_s2", shift_side=0.18, **kw)
+    rep = t.pooled_readout(str(arm_s3), str(base_s3), str(arm_s2), str(base_s2))
+    row = rep["rows"]["side"]
+    bo = row["body_offset"]
+    assert bo["delta_s3"] == pytest.approx(-0.2, abs=0.03)
+    assert bo["delta_s2"] == pytest.approx(-0.16, abs=0.03)
+    assert bo["mean_delta"] == pytest.approx((bo["delta_s3"] + bo["delta_s2"]) / 2)
+    assert bo["pooled_mde"] is not None and bo["pooled_mde"] >= 0.0
+    assert bo["base_seed_delta"] == pytest.approx(0.02, abs=0.03)
+    assert bo["band"] == pytest.approx(max(bo["pooled_mde"], bo["base_seed_delta"]))
+    assert bo["bar"] == pytest.approx(-0.05)
+    assert bo["verdict"] == "PASS"
+    # a key with no bar (the default only names side body_offset / stance_stroke / stride_along)
+    assert "verdict" not in row["slip_ratio"] and "bar" not in row["slip_ratio"]
+
+
+def test_pooled_cli_prints_json_and_writes_the_same_json_to_file(tmp_path, capsys):
+    labels = ("lat_l",)
+    kw = dict(labels=labels, per=2, T=260)
+    arm_s3 = omni_stamp(tmp_path, name="arm_s3", shift_side=0.0, **kw)
+    base_s3 = omni_stamp(tmp_path, name="base_s3", shift_side=0.2, **kw)
+    arm_s2 = omni_stamp(tmp_path, name="arm_s2", shift_side=0.0, **kw)
+    base_s2 = omni_stamp(tmp_path, name="base_s2", shift_side=0.2, **kw)
+    out = tmp_path / "pooled.json"
+    rc = t.main(["pooled", str(arm_s3), str(base_s3), str(arm_s2), str(base_s2), "--json", str(out)])
+    assert rc == 0
+    printed = json.loads(capsys.readouterr().out)
+    assert printed["rows"]["side"]["body_offset"]["verdict"] == "PASS"
+    assert json.loads(out.read_text()) == printed
+    # --bar overrides the default
+    rc2 = t.main(["pooled", str(arm_s3), str(base_s3), str(arm_s2), str(base_s2),
+                 "--bar", "side.body_offset=-999"])
+    assert rc2 == 0
+    printed2 = json.loads(capsys.readouterr().out)
+    assert printed2["rows"]["side"]["body_offset"]["verdict"] == "TIE"     # an unreachable bar

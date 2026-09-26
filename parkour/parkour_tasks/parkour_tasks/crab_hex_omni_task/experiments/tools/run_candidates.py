@@ -2753,7 +2753,13 @@ RIG_SUPPORT_KEYS = ("support_feet",)
 #: deciding -- ``adopt`` (an ADOPT, which a WIN needs POOLED), ``neutral`` (the required block TIE,
 #: nothing WORSE) and ``lone_guard`` (the required block BETTER, exactly one guard WORSE, no block
 #: WORSE). Both of the last two are a clear REJECT without it.
-PAIR_ON_CASES = ("adopt", "neutral", "lone_guard")
+#: NOTE(stroke formation 2026-09-26): ``always`` -- EVERY decided s3 ADOPT or REJECT queues its
+#: seed-2 pair whatever its class (a WORSE block or guard, a MISSING guard included). For a campaign
+#: whose gate is read by the orchestrator from a pooled two-seed readout, not by the driver's blocks
+#: (the formation seed band equals the effect bar, so a single-seed arm is uninterpretable). A floor
+#: or dead_walker REJECT (``_dispatch_floor_reject``) is not a ``decide`` outcome and stays unpaired.
+#: Inert unless named: a rule without it decides and pairs exactly as before.
+PAIR_ON_CASES = ("adopt", "neutral", "lone_guard", "always")
 #: The facing / translation families both unit systems carry (``X`` and ``X_abs``).
 RULE_V2_FAMILIES = ("F", "F_mt", "T")
 
@@ -4117,7 +4123,9 @@ def apply_pair_on(out: dict, rule: dict | None) -> dict:
     * ``neutral`` -- the ``adopt_requires`` block (RIG) TIE with nothing WORSE (``decide`` makes it a
       clear REJECT under ``adopt_requires``);
     * ``lone_guard`` -- the required block BETTER, exactly ONE guard WORSE and no block WORSE (a clear
-      REJECT on that guard without it).
+      REJECT on that guard without it);
+    * ``always`` (stroke formation, 2026-09-26) -- every decided ADOPT or REJECT, whatever its class
+      (checked last, so a line that matches a narrower case records that case).
 
     Neither of the last two is paired while a guard is MISSING, or while ANY member of the required
     block (RIG) is MISSING: a pair cannot supply a metric the row never produced (``decide``'s own
@@ -4129,7 +4137,8 @@ def apply_pair_on(out: dict, rule: dict | None) -> dict:
         return out
     cmpres = (out.get("evidence") or {}).get("seed3") or {}
     if not cmpres.get("blocks"):
-        return out
+        # NOTE(stroke formation 2026-09-26): `always` pairs even a line with no scored block.
+        return _paired(out, "always") if "always" in cases else out
     worse_blocks = [k for k, v in cmpres["blocks"].items() if v.get("class") == "WORSE"]
     guards = cmpres.get("guards") or {}
     worse_guards, guard_missing = list(guards.get("worse") or []), list(guards.get("missing") or [])
@@ -4145,8 +4154,15 @@ def apply_pair_on(out: dict, rule: dict | None) -> dict:
             case = "neutral"
         elif "lone_guard" in cases and req_cls == "BETTER" and len(worse_guards) == 1:
             case = "lone_guard"
+    if case is None and "always" in cases:
+        case = "always"
     if case is None:
         return out
+    return _paired(out, case)
+
+
+def _paired(out: dict, case: str) -> dict:
+    """``out`` turned into a speculative line with its seed-2 pair queued (``evidence.pair_on``)."""
     out = dict(out, status="speculative", pair=True)
     out["evidence"] = dict(out.get("evidence") or {}, pair_on=case)
     out["why"] = (f"{out.get('why')}; pair_on {case}: a seed-2 pair is queued -- the entry stays "
@@ -5485,11 +5501,21 @@ def _simulate_apply(cands: dict, ledger: dict, state: dict, item: dict, outcome:
             "started": f"sim-{xid}", "ckpt": f"/sim/{xid}/model.pt", "stages": stages,
             "screen": {"completion": 0.5}, "base_rank": _rank_for(cands, item), "eval_dirs": []}
     kind = item["kind"]
+    # NOTE(stroke formation 2026-09-26): under `pair_on: [always]` every clear s3 line is paired, so
+    # the simulated entry is speculative and its `pooled` item closes it (`final`). Without `always`
+    # both branches below are exactly the old simulation.
+    always = "always" in set(map(str, ((cands.get("decision_rule") or {}).get("pair_on") or ())))
+    if kind == "pooled" and always:
+        entry = entry_by_id(ledger, item.get("decision"))
+        if entry is not None:
+            entry.update(status="final", pair=False)
+        return
     if kind == "candidate":
         did = _next_did(ledger)
         ledger["entries"].append({"id": did, "kind": "candidate", "candidate": item["candidate"],
                                   "experiment": xid, "chosen": outcome, "options": CANDIDATE_OPTIONS,
-                                  "status": "decided", "confidence": "clear",
+                                  "status": "speculative" if always else "decided", "confidence": "clear",
+                                  **({"pair": True} if always else {}),
                                   "base_recipe_id": (item.get("base_recipe") or {}).get("recipe_id"),
                                   "recipe_id_if_adopted": recipe.get("recipe_id"), "code_sha": code,
                                   "conditional_refs": []})

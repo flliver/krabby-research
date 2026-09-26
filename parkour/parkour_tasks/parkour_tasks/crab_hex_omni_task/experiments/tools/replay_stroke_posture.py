@@ -34,6 +34,14 @@ SUBCOMMANDS
 ``parity <dump.npz> [--tol 1e-5]``
     Recompute both terms from a per-step dump of the Isaac wrapper's own inputs and outputs and
     assert agreement (:func:`parity_check`; the dump format is below).
+``pooled <arm_s3> <base_s3> <arm_s2> <base_s2> [--bar cat.key=value ...] [--json P]``
+    A POOLED two-seed readout (:func:`pooled_readout`): per category/hand row and key, the MEAN of the
+    two seed-matched paired deltas (``arm_s3`` vs ``base_s3``, ``arm_s2`` vs ``base_s2``), a POOLED mde
+    (:func:`pooled_delta` -- the half-width of the two paired bootstraps' own draws averaged
+    element-wise), the baseline seed delta ``|base_s2 - base_s3|``, the band
+    ``max(pooled mde, |base seed delta|)``, and a PASS/TIE :func:`bar_verdict` against a bar (default
+    :data:`DEFAULT_BARS`: side body_offset -0.05, side stance_stroke +0.010, side stride_along +0.02).
+    JSON to stdout (and ``--json`` if given).
 
 REPLAY CONVENTIONS (pinned by ``tests/unit/test_crab_hex_omni_replay_stroke_posture.py``)
 
@@ -90,10 +98,13 @@ the per-episode values unless stated)
   translation ``track_lin_vel_xy_exp``; turn ``track_ang_vel_z_exp + reward_yaw_progress``;
   move_turn all three.
 
-THE ECONOMY (``income`` / ``gate``). ``replay_clock_economy.economy_from_env_yaml(W's params/env.yaml,
-clock=CLOCK_FREE)`` -- and the returned clock weights are ASSERTED equal to the dump's own
-``reward_clock_schedule`` / ``reward_clock_swing_apex`` weights (0.001 / 0.001 for W): the helper
-defaults to CLOCK_HELD. ``penalty_tibia_deviation_in_stance`` (the replay helper's gap) is priced
+THE ECONOMY (``income`` / ``gate``). :func:`load_economy` reads the dump's own ``reward_clock_schedule``
+/ ``reward_clock_swing_apex`` weights and calls ``replay_clock_economy.economy_from_env_yaml`` with
+whichever of ``REC.CLOCK_FREE`` (0.001 / 0.001, e.g. W) or ``REC.CLOCK_HELD`` (1.0 / 1.0, e.g. a t3
+from-scratch stage) matches -- and the returned clock weights are then ASSERTED equal to the dump's own
+(the helper's ``clock=`` argument sets ``Economy.clock`` directly; it does not read it off the dump
+itself). A dump whose clock weights are neither is refused. ``penalty_tibia_deviation_in_stance`` (the
+replay helper's gap) is priced
 here from ``joint_pos`` and the knee defaults of the dump's ``init_state`` (:func:`tibia_deviation`).
 ``reward_stride_length`` is the term being swapped, so it is not in the context. The per-step
 context is ``pre_clip_total`` (weight x value, NO dt) of row ``s + 1``. The manager sums
@@ -932,12 +943,15 @@ def unison_flags(st_arm: Stamp, va: dict, st_base: Stamp, vb: dict, *,
 # ============================================================================ paired bootstrap
 def paired_bootstrap(st_a: Stamp, va: dict, st_b: Stamp, vb: dict, *, B: int = BOOT_B,
                      seed: int = BOOT_SEED, keys: Sequence[str] = READOUT_KEYS,
-                     rows_fn: Callable[[Stamp], list[tuple[str, np.ndarray]]] = _row_masks) -> dict[str, dict]:
+                     rows_fn: Callable[[Stamp], list[tuple[str, np.ndarray]]] = _row_masks,
+                     return_raw: bool = False) -> dict[str, dict]:
     """Env-clustered paired bootstrap of ``a - b`` per row and metric (module docstring).
 
     ``keys``/``rows_fn`` default to the readout's own (:data:`READOUT_KEYS`, :func:`_row_masks`);
     :func:`unison_flags` reuses this exact pairing, clustering and bootstrap for :data:`UNISON_KEYS`
-    over :func:`_unison_row_masks` instead.
+    over :func:`_unison_row_masks` instead. ``return_raw=True`` also keeps each key's own length-``B``
+    bootstrap draw array (``"boot"``, NaN where a draw's resample was all-NaN) -- :func:`pooled_delta`
+    combines two independent calls' own draws into a POOLED mde.
     """
     R = res()
     ia = {e["env_index"]: i for i, e in enumerate(st_a.episodes)}
@@ -981,6 +995,8 @@ def paired_bootstrap(st_a: Stamp, va: dict, st_b: Stamp, vb: dict, *, B: int = B
                         "ci": ([float(np.quantile(fin, 0.025)), float(np.quantile(fin, 0.975))]
                                if fin.size >= 20 else None),
                         "mde": R.half_width(fin, 0.975) if fin.size >= 20 else None}
+            if return_raw:
+                row[key]["boot"] = d
         out[name] = {"n_pairs": int(m.sum()), "n_clusters": int(uniq.size), **row}
     return out
 
@@ -992,6 +1008,108 @@ def _quiet():
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", category=RuntimeWarning)
         yield
+
+
+# ============================================================================ pooled two-seed readout
+#: Formation gate default bars (t3-first plan step): a side key must clear this signed shift, in this
+#: direction, to PASS. Only ``side`` (and its ``side/l``, ``side/r`` hand rows) ship a default; any
+#: other category/key is reported with no bar and no verdict unless ``--bar`` adds one.
+DEFAULT_BARS: dict[str, dict[str, float]] = {
+    "side": {"body_offset": -0.05, "stance_stroke": 0.010, "stride_along": 0.02},
+}
+
+
+def parse_bars(pairs: Sequence[str] | None, base: dict[str, dict[str, float]] | None = None) \
+        -> dict[str, dict[str, float]]:
+    """``--bar cat.key=value ...``, layered onto ``base`` (default :data:`DEFAULT_BARS`)."""
+    bars = {cat: dict(keys) for cat, keys in (base if base is not None else DEFAULT_BARS).items()}
+    for pair in pairs or ():
+        lhs, _, v = pair.partition("=")
+        cat, dot, key = lhs.partition(".")
+        if not (dot and v):
+            raise SystemExit(f"--bar expects cat.key=value, got {pair!r}")
+        bars.setdefault(cat, {})[key] = float(v)
+    return bars
+
+
+def bar_verdict(mean_delta: float, band: float, bar: float) -> str:
+    """PASS iff ``mean_delta`` clears ``bar`` in ``bar``'s own sign AND is resolvable (``|mean_delta|
+    > band``); TIE otherwise (wrong direction, short of the bar, or not resolvable from noise) --
+    never a hard FAIL (BACKGROUND: "continue only arms that move their own target")."""
+    if not (math.isfinite(mean_delta) and math.isfinite(band)):
+        return "TIE"
+    cleared = mean_delta <= bar if bar < 0 else mean_delta >= bar
+    return "PASS" if cleared and abs(mean_delta) > band else "TIE"
+
+
+def pooled_delta(st_arm_a: Stamp, va_a: dict, st_base_a: Stamp, vb_a: dict,
+                 st_arm_b: Stamp, va_b: dict, st_base_b: Stamp, vb_b: dict, *,
+                 keys: Sequence[str] = READOUT_KEYS, B: int = BOOT_B, seed: int = BOOT_SEED) -> dict[str, dict]:
+    """Two independent seed-matched paired bootstraps (``a`` e.g. seed 3, ``b`` e.g. seed 2), combined
+    per row/key into the MEAN of the two paired deltas and a POOLED mde: the half-width of the two
+    bootstraps' own draws averaged element-wise (same ``B``/``seed`` in both calls, so draw ``i`` of
+    ``a`` and draw ``i`` of ``b`` are a matched pair to average, per the plan's "half-width of the mean
+    of the two independent estimates")."""
+    boot_a = paired_bootstrap(st_arm_a, va_a, st_base_a, vb_a, B=B, seed=seed, keys=keys, return_raw=True)
+    boot_b = paired_bootstrap(st_arm_b, va_b, st_base_b, vb_b, B=B, seed=seed, keys=keys, return_raw=True)
+    R = res()
+    out: dict[str, dict] = {}
+    for name in [n for n in boot_a if n in boot_b]:
+        ra, rb = boot_a[name], boot_b[name]
+        row: dict[str, Any] = {"n_pairs_a": ra["n_pairs"], "n_pairs_b": rb["n_pairs"]}
+        for key in keys:
+            da, db = ra[key], rb[key]
+            mean_delta = (da["delta"] + db["delta"]) / 2.0
+            comb = (da["boot"] + db["boot"]) / 2.0
+            fin = comb[np.isfinite(comb)]
+            row[key] = {"delta_a": da["delta"], "delta_b": db["delta"], "mean_delta": mean_delta,
+                       "pooled_mde": R.half_width(fin, 0.975) if fin.size >= 20 else None}
+        out[name] = row
+    return out
+
+
+def pooled_readout(arm_s3: str, base_s3: str, arm_s2: str, base_s2: str, *,
+                   keys: Sequence[str] = READOUT_KEYS, bars: dict[str, dict[str, float]] | None = None,
+                   limit: int | None = None) -> dict:
+    """The pooled two-seed readout: per category/hand row and key, the mean of the two seed-matched
+    paired deltas (arm vs its own-seed baseline, seeds 3 and 2), a pooled mde (:func:`pooled_delta`),
+    the baseline seed delta ``|base_s2 - base_s3|`` (the two baselines' own paired point delta -- the
+    band a real move must clear even where the bootstrap mde is small), the band
+    ``max(pooled mde, |base seed delta|)``, and, where ``bars`` (default :data:`DEFAULT_BARS`) names
+    one for that category, a PASS/TIE :func:`bar_verdict`. A category's bar also applies to its hand
+    rows (``side`` -> ``side/l``, ``side/r``)."""
+    bars = bars if bars is not None else DEFAULT_BARS
+
+    def _vals(run_dir):
+        st = load_stamp(run_dir, limit=limit)
+        return st, episode_values(st, replay(st))
+
+    sa3, va3 = _vals(arm_s3)
+    sb3, vb3 = _vals(base_s3)
+    sa2, va2 = _vals(arm_s2)
+    sb2, vb2 = _vals(base_s2)
+    pooled = pooled_delta(sa3, va3, sb3, vb3, sa2, va2, sb2, vb2, keys=keys)
+    seed_delta = paired_bootstrap(sb2, vb2, sb3, vb3, keys=keys)   # the baselines' own seed-pair delta
+    rows: dict[str, dict] = {}
+    for name, prow in pooled.items():
+        cat = name.split("/", 1)[0]
+        row_bars = bars.get(cat) or {}
+        seed_row = seed_delta.get(name)
+        orow: dict[str, Any] = {"n_pairs_s3": prow["n_pairs_a"], "n_pairs_s2": prow["n_pairs_b"]}
+        for key in keys:
+            v = prow[key]
+            base_seed = abs(seed_row[key]["delta"]) if seed_row else float("nan")
+            cands = [x for x in (v["pooled_mde"], base_seed) if x is not None and math.isfinite(x)]
+            band = max(cands) if cands else float("nan")
+            entry = {"delta_s3": v["delta_a"], "delta_s2": v["delta_b"], "mean_delta": v["mean_delta"],
+                     "pooled_mde": v["pooled_mde"], "base_seed_delta": base_seed, "band": band}
+            bar = row_bars.get(key)
+            if bar is not None:
+                entry["bar"] = bar
+                entry["verdict"] = bar_verdict(v["mean_delta"], band, bar)
+            orow[key] = entry
+        rows[name] = orow
+    return {"arm_s3": arm_s3, "base_s3": base_s3, "arm_s2": arm_s2, "base_s2": base_s2, "bars": bars, "rows": rows}
 
 
 # ============================================================================ validation / premise
@@ -1066,19 +1184,29 @@ def extra_terms():
 
 
 def load_economy(env_yaml: Path | str) -> tuple[ExtEconomy, dict]:
-    """W's economy, clock-free, with the tibia penalty priced (module docstring). Asserts that the
-    returned clock weights equal the dump's own."""
+    """The dump's own economy (module docstring), clock-free OR clock-held depending on the dump's own
+    ``reward_clock_schedule`` / ``reward_clock_swing_apex`` weights, with the tibia penalty priced.
+    Asserts that the returned clock weights equal the dump's own. Behaviour on a clock-free dump (e.g.
+    W) is unchanged; a clock-held dump (e.g. a t3 from-scratch stage) now builds the economy with
+    ``REC.CLOCK_HELD`` instead of refusing."""
     env_yaml = Path(env_yaml)
     if not env_yaml.is_file():
         raise SystemExit(f"{env_yaml}: the economy's env.yaml is not on disk")
-    econ = REC.economy_from_env_yaml(env_yaml, clock=REC.CLOCK_FREE)
     d = RMT._yaml_load_tolerant(env_yaml)
     rw = d.get("rewards") or {}
     dump_clock = (float((rw.get("reward_clock_schedule") or {}).get("weight") or 0.0),
                   float((rw.get("reward_clock_swing_apex") or {}).get("weight") or 0.0))
-    if tuple(econ.clock) != dump_clock or tuple(econ.clock) != tuple(REC.CLOCK_FREE):
-        raise SystemExit(f"economy clock weights {econ.clock} != the dump's {dump_clock} (expected CLOCK_FREE "
-                         f"{REC.CLOCK_FREE}): {env_yaml} is not a clock-free economy")
+    if dump_clock == tuple(REC.CLOCK_FREE):
+        clock = REC.CLOCK_FREE
+    elif dump_clock == tuple(REC.CLOCK_HELD):
+        clock = REC.CLOCK_HELD
+    else:
+        raise SystemExit(f"{env_yaml}: dump clock weights {dump_clock} are neither CLOCK_FREE "
+                         f"{REC.CLOCK_FREE} nor CLOCK_HELD {REC.CLOCK_HELD}: not a recognised economy")
+    econ = REC.economy_from_env_yaml(env_yaml, clock=clock)
+    if tuple(econ.clock) != dump_clock:
+        raise SystemExit(f"economy clock weights {econ.clock} != the dump's {dump_clock}: {env_yaml} "
+                         f"is not a {'clock-free' if clock == REC.CLOCK_FREE else 'clock-held'} economy")
     tib = rw.get("penalty_tibia_deviation_in_stance") or {}
     tib_w = float(tib.get("weight") or 0.0)
     prm = tib.get("params") or {}
@@ -1093,6 +1221,24 @@ def load_economy(env_yaml: Path | str) -> tuple[ExtEconomy, dict]:
                if tib_w else "penalty_tibia_deviation_in_stance: weight 0 in the dump"]}
     fields = {f.name: getattr(econ, f.name) for f in dataclasses.fields(REC.Economy)}
     return ExtEconomy(**fields, extra=(("tibia", tib_w),)), info
+
+
+def stamp_clock(st: Stamp) -> tuple[tuple[float, float], Path] | None:
+    """``((schedule, apex) clock weights, env.yaml)`` of the head a stamp evaluated -- its checkpoint's
+    own ``params/env.yaml`` -- or None when the stamp names no checkpoint or that file is not on disk.
+
+    NOTE(stroke formation 2026-09-26, verification): ``income``'s ``--econ-env-yaml`` defaults to W's
+    CLOCK-FREE dump, so a clock-HELD stamp (a t3 head) priced without the flag was silently read under
+    W's economy. ``income`` compares this against the economy's own clock and refuses a mismatch."""
+    ck = (st.meta or {}).get("checkpoint")
+    if not ck:
+        return None
+    p = Path(ck).parent / "params" / "env.yaml"
+    if not p.is_file():
+        return None
+    rw = RMT._yaml_load_tolerant(p).get("rewards") or {}
+    return ((float((rw.get("reward_clock_schedule") or {}).get("weight") or 0.0),
+             float((rw.get("reward_clock_swing_apex") or {}).get("weight") or 0.0)), p)
 
 
 def tibia_deviation(z: dict, joint_names: Sequence[str], info: dict) -> np.ndarray:
@@ -2166,6 +2312,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     b.add_argument("--params", nargs="*", default=[])
     b.add_argument("--econ-env-yaml", default=str(W_ENV_YAML))
     b.add_argument("--action-clip", type=float, default=None)
+    b.add_argument("--allow-econ-mismatch", action="store_true",
+                   help="price a stamp whose head's own clock weights differ from --econ-env-yaml's "
+                        "(refused by default: the default economy is W's clock-free dump)")
     b.add_argument("--train-log-dir", default=None,
                    help="a knob-on training run dir (tensorboard events): per-category r = log / replay")
     b.add_argument("--limit", type=int, default=None)
@@ -2176,8 +2325,27 @@ def main(argv: Sequence[str] | None = None) -> int:
     p = sub.add_parser("parity")
     p.add_argument("dump")
     p.add_argument("--tol", type=float, default=1e-5)
+    q = sub.add_parser("pooled", help="a pooled two-seed readout: does an arm move its own target "
+                                      "past a bar on BOTH seeds, pooled (module docstring)")
+    q.add_argument("arm_s3")
+    q.add_argument("base_s3")
+    q.add_argument("arm_s2")
+    q.add_argument("base_s2")
+    q.add_argument("--bar", nargs="*", default=[],
+                   help="cat.key=value, layered onto the default bars (side.body_offset=-0.05, "
+                        "side.stance_stroke=0.010, side.stride_along=0.02)")
+    q.add_argument("--limit", type=int, default=None)
+    q.add_argument("--json", default=None)
     args = ap.parse_args(argv)
 
+    if args.cmd == "pooled":
+        rep = pooled_readout(args.arm_s3, args.base_s3, args.arm_s2, args.base_s2,
+                             bars=parse_bars(args.bar), limit=args.limit)
+        text = json.dumps(_jsonable(rep), indent=2, sort_keys=True)
+        print(text)
+        if args.json:
+            Path(args.json).write_text(text)
+        return 0
     if args.cmd == "parity":
         with np.load(args.dump) as z:
             dump = {k: z[k] for k in z.files}
@@ -2243,6 +2411,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         return rc
     # income
     st = load_stamp(args.run_dir, limit=args.limit)
+    own = stamp_clock(st)
+    if own is not None and tuple(own[0]) != tuple(econ_info["dump_clock"]) and not args.allow_econ_mismatch:
+        raise SystemExit(f"[income] the stamp's head trained with clock weights {list(own[0])} ({own[1]}) but "
+                         f"the economy {econ_info['source']} has {econ_info['dump_clock']}: pass "
+                         f"--econ-env-yaml {own[1]} (or --allow-econ-mismatch to price it under the other economy)")
     if args.action_clip is not None:
         st.action_clip = float(args.action_clip)
     rp = replay(st, params)
