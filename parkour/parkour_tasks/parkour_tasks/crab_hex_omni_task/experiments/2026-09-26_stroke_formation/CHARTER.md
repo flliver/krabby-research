@@ -1,5 +1,7 @@
 # Stroke formation: arm the stroke or centring term from iteration 0 of omni formation
 
+> **STATUS 2026-09-27: Stage 1 DONE → STOP RULE.** Neither arm passed the t3 gate (S_f: no stroke lengthening beyond band; P_f: pooled side body_offset +0.022 vs ≤ −0.05, and health FAIL at s2). Stage 2 did not run. Record: [GATE_t3.md](GATE_t3.md).
+
 A two-stage campaign. Stage 1 is a t3 gate from scratch. Stage 2 runs only for arms that pass it.
 
 - **Design:** the user's, 2026-09-26. It follows the stroke/posture screen
