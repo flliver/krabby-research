@@ -9,10 +9,9 @@ from typing import Dict, Optional
 from firmware.krabby_mcu import DEFAULT_BAUD, KrabbyMCUSDK, JOINT_GROUP_NAMES
 from firmware.interfaces.joint_telemetry import JointTelemetry
 
-JOG_PWM = 200  # jog magnitude sent while a Retract/Extend button is held
-TELEMETRY_REFRESH_MS = (
-    100  # GUI poll period; decoupled from the firmware's telemetry tick
-)
+JOG_PWM_DEFAULT = 30
+TELEMETRY_REFRESH_MS = 100  # GUI poll period; decoupled from the firmware's telemetry tick
+JOG_HEARTBEAT_MS = 100  # re-send a held jog so one lost line doesn't stall the joint
 ROLE_STALE_S = 1.0  # a board counts as present if its telemetry arrived within this window
 
 # Placeholder for a joint cell before its first telemetry arrives.
@@ -32,25 +31,35 @@ STATE_COLOR_OK = "#2e7d32"
 STATE_COLOR_STALE = "#c0392b"
 
 
+def _jog_sign(name: str) -> int:
+    """Wire-PWM sign for this joint's "extend" leg motion. The knee (KL)
+    linkages run opposite to the hips: positive PWM extends an HL but tucks a
+    KL, so KLs flip. Bench-observed 2026-07-13; the wire protocol itself stays
+    actuator-relative — this mapping is GUI-only."""
+    return -1 if name.endswith("KL") else 1
+
+
 class JointRow:
     """One row in the telemetry grid: name, jog buttons, live values."""
 
-    def __init__(self, parent: tk.Widget, name: str, row: int, jog_cb):
+    def __init__(self, parent: tk.Widget, name: str, row: int, jog_cb, get_jog_pwm):
         self.name = name
         self._jog_cb = jog_cb
+        self._get_jog_pwm = get_jog_pwm
         self._active_dir = 0
+        self._jog_after_id = None
 
         self.lbl_name = ttk.Label(parent, text=name, font=FONT_JOINT_NAME, width=6)
         self.lbl_name.grid(row=row, column=0, padx=4, pady=2, sticky="w")
 
         self.btn_retract = ttk.Button(parent, text="\u25c0 Retract", width=10)
         self.btn_retract.grid(row=row, column=1, padx=2, pady=2)
-        self.btn_retract.bind("<ButtonPress-1>", lambda e: self._start_jog(1))
+        self.btn_retract.bind("<ButtonPress-1>", lambda e: self._start_jog(-1))
         self.btn_retract.bind("<ButtonRelease-1>", lambda e: self._stop_jog())
 
         self.btn_extend = ttk.Button(parent, text="Extend \u25b6", width=10)
         self.btn_extend.grid(row=row, column=2, padx=2, pady=2)
-        self.btn_extend.bind("<ButtonPress-1>", lambda e: self._start_jog(-1))
+        self.btn_extend.bind("<ButtonPress-1>", lambda e: self._start_jog(1))
         self.btn_extend.bind("<ButtonRelease-1>", lambda e: self._stop_jog())
 
         self.var_pot = tk.StringVar(value=NO_VALUE_TEXT)
@@ -73,11 +82,32 @@ class JointRow:
 
     def _start_jog(self, direction: int):
         self._active_dir = direction
-        self._jog_cb(self.name, direction * JOG_PWM)
+        self._send_jog_heartbeat()
+
+    def _send_jog_heartbeat(self):
+        # While the button is held, keep re-sending the jog; reschedule until the
+        # button is released (_active_dir back to 0).
+        if self._active_dir == 0:
+            return
+        self._jog_cb(self.name, self._active_dir * _jog_sign(self.name) * self._get_jog_pwm())
+        self._jog_after_id = self.lbl_name.after(JOG_HEARTBEAT_MS, self._send_jog_heartbeat)
 
     def _stop_jog(self):
         self._active_dir = 0
+        if self._jog_after_id is not None:
+            self.lbl_name.after_cancel(self._jog_after_id)
+            self._jog_after_id = None
+        # Send the stop redundantly: a single J 0 line can be lost or delayed when the
+        # board is busy digesting a jog backlog (motor EMI slows its loop), and the
+        # firmware has no jog timeout — a lost stop leaves the motor running. Re-sends
+        # are cheap and skipped if a new jog started in the meantime.
         self._jog_cb(self.name, 0)
+        for delay_ms in (120, 260):
+            self.lbl_name.after(delay_ms, self._resend_stop)
+
+    def _resend_stop(self):
+        if self._active_dir == 0:
+            self._jog_cb(self.name, 0)
 
     def update_from_telemetry(self, jt: Optional[JointTelemetry]):
         if jt is None:
@@ -166,12 +196,14 @@ class KrabbyTestGUI(tk.Tk):
     def __init__(self, port: Optional[str] = None, baud: int = DEFAULT_BAUD):
         super().__init__()
         self.title("Krabby MCU Test")
+        self.geometry("960x820")
         self.resizable(True, True)
         self.protocol("WM_DELETE_WINDOW", self._on_close)
 
         self._mcu = KrabbyMCUSDK(port=port, baud=baud)
         self._joint_rows: Dict[str, JointRow] = {}
         self._connected = False
+        self._jog_pwm_var = tk.IntVar(value=JOG_PWM_DEFAULT)
 
         self._build_ui()
         self._connect()
@@ -189,8 +221,22 @@ class KrabbyTestGUI(tk.Tk):
             side="left", padx=(16, 0)
         )
 
+        pwm_frame = ttk.LabelFrame(top, text="Jog PWM", padding=(6, 2))
+        pwm_frame.pack(side="right", padx=(8, 0))
+        self._jog_pwm_label = ttk.Label(pwm_frame, text=str(JOG_PWM_DEFAULT), width=4, anchor="e")
+        self._jog_pwm_label.pack(side="right", padx=(4, 0))
+        ttk.Scale(
+            pwm_frame,
+            from_=0,
+            to=120,
+            orient="horizontal",
+            length=120,
+            variable=self._jog_pwm_var,
+            command=self._on_jog_pwm_changed,
+        ).pack(side="left")
+
         btn_frame = ttk.Frame(top)
-        btn_frame.pack(side="right")
+        btn_frame.pack(side="right", padx=(8, 0))
         ttk.Button(btn_frame, text="Hold All", command=self._hold_all).pack(
             side="left", padx=4
         )
@@ -237,9 +283,15 @@ class KrabbyTestGUI(tk.Tk):
             ).grid(row=row, column=0, columnspan=7, sticky="w", pady=(6, 2))
             row += 1
             for jname in joint_names:
-                jr = JointRow(self._grid_frame, jname, row, self._jog_joint)
+                jr = JointRow(self._grid_frame, jname, row, self._jog_joint, self._get_jog_pwm)
                 self._joint_rows[jname] = jr
                 row += 1
+
+    def _get_jog_pwm(self) -> int:
+        return max(0, min(255, self._jog_pwm_var.get()))
+
+    def _on_jog_pwm_changed(self, _value: str) -> None:
+        self._jog_pwm_label.config(text=str(self._get_jog_pwm()))
 
     def _connect(self):
         def _do():
