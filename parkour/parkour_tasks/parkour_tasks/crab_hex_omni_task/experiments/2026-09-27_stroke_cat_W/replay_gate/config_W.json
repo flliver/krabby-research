@@ -1,0 +1,65 @@
+{
+ "primary": "W",
+ "dose_runs": [
+  "W"
+ ],
+ "healthy": {
+  "W": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-23_clock_deprecation_w2/seed3_X03_c6x_A15pB/suite__omni/seed001/2026-09-25_20-31-29",
+  "X0x_s3": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-23_clock_deprecation_w2/seed3_X01_c6x_A15pB/suite__omni/seed001/2026-09-25_17-01-55",
+  "X0x_s2": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-23_clock_deprecation_w2/seed2_X02_c6x_A15pB/suite__omni/seed001/2026-09-25_18-45-27",
+  "E1": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-23_clock_deprecation/step0_E1_X08-c6_visible/suite__omni/seed001/2026-09-23_21-23-41"
+ },
+ "sideways": {
+  "side_slow": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/side_phases/2026-09-11_0414_sideways_formation/seed2_2a_006_A15pB/slow__side/seed001/2026-09-12_09-18-39",
+  "side_step": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/side_phases/2026-09-11_0414_sideways_formation/seed2_2a_006_A15pB/step__side/seed001/2026-09-12_09-20-17"
+ },
+ "posture": {
+  "Z_t3": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-23_clock_deprecation/seed3_X05_t3_A15pB/suite__omni/seed001/2026-09-25_04-33-44",
+  "Z_c6": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-23_clock_deprecation/seed3_X05_c6_A15pB/suite__omni/seed001/2026-09-25_06-52-47",
+  "A4500": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-23_clock_deprecation/seed3_X04_c6_A15pB/suite__omni/seed001/2026-09-24_16-39-45"
+ },
+ "degenerate": {
+  "E6_statue": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-23_clock_deprecation/step0_E6_statue/suite__omni/seed001/2026-09-23_21-59-41",
+  "E7_creeper": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-23_clock_deprecation/step0_E7_creeper-1c/suite__omni/seed001/2026-09-23_22-07-41"
+ },
+ "statue": "E6_statue",
+ "creeper": "E7_creeper",
+ "x08": "E1",
+ "dropped": {
+  "forward-era degenerates (v1 lunge, v2 tip-rock, v3 skate, v3b drag) and v4 tippy-tap": "LOCATED under crab_hex_forward_task/experiments/2026-08-10_0058_tripod_stability/*/gait_eval*/ (untracked, main checkout) but NOT loadable by the tool (forward-task stamps: no suite, travel_yaw 0, no joint_pos; pre-2026-08-20 plant). Replayed term-alone by replay_gate_calib/fwd_era.py instead; results in replay_gate.json step7.forward_era_term_alone."
+ },
+ "params": {
+  "rho0": 0.5,
+  "drho": 0.3,
+  "power": 1.5,
+  "c_max": 1.5,
+  "prog_tau": 4.0,
+  "prog_lo": 0.15,
+  "prog_width": 0.15,
+  "force_open": 50.0,
+  "force_hold": 20.0,
+  "n_off": 2,
+  "min_loaded": 5,
+  "sigma": 0.2,
+  "tau": 2.0,
+  "min_cmd": 0.12,
+  "phi_lo": 0.1,
+  "phi_sat": 0.25
+ },
+ "_note": "Per-category stroke plan step 4 (W economy, clock-free): the p15 gate config of record (2026-09-26_stroke_posture/replay_gate_config_p15.json, same stamps + params) with dose_targets 0.1 on fwd/back/side/diag/turn (decision 3, equal share), move_turn held at multiplier 1 (decision 7), hand-min binding, fwd=back mirror tie. Economy = the primary W head's own params/env.yaml.",
+ "dose_targets": {
+  "fwd": 0.1,
+  "back": 0.1,
+  "side": 0.1,
+  "diag": 0.1,
+  "turn": 0.1
+ },
+ "stroke_cat_w": "move_turn:1",
+ "dose_hand_min": true,
+ "tie": [
+  [
+   "fwd",
+   "back"
+  ]
+ ]
+}

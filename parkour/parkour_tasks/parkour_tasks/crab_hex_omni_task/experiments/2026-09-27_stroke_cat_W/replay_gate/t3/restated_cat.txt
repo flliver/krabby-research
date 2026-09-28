@@ -1,0 +1,187 @@
+R3 FAIL
+R5 FAIL
+R7 PASS
+R8 FAIL
+{
+ "R3": {
+  "pass": false,
+  "short_share_max": [
+   "Bf_s3.side",
+   0.010607770644128323
+  ],
+  "short_ok": true,
+  "tap": {
+   "E3.side": {
+    "rho_pay_per_stance_vs_switch": -0.057581409283786224,
+    "ci95": [
+     -0.19895833050462813,
+     0.0868535140724363
+    ],
+    "n": 199
+   },
+   "Bf_s3.side": {
+    "rho_pay_per_stance_vs_switch": -0.17709476957126535,
+    "ci95": [
+     -0.3152252141916414,
+     -0.018904099649327627
+    ],
+    "n": 196
+   },
+   "Bf_s2.side": {
+    "rho_pay_per_stance_vs_switch": -0.10033327402623643,
+    "ci95": [
+     -0.22865020383902232,
+     0.03480527697211499
+    ],
+    "n": 200
+   }
+  },
+  "tap_ok": false,
+  "scale_invariant": true
+ },
+ "R5": {
+  "pass": false,
+  "no_flip": false,
+  "n_rows": 36,
+  "term_alone_translation_max": [
+   "E7_creeper/Bf_s3.fwd",
+   0.3152001186801285
+  ],
+  "term_alone_rotational": {
+   "E6_statue/Bf_s2.move_turn": 0.0,
+   "E6_statue/Bf_s2.turn": 0.0,
+   "E6_statue/Bf_s3.move_turn": 0.0,
+   "E6_statue/Bf_s3.turn": 0.0,
+   "E6_statue/E3.move_turn": 0.0,
+   "E6_statue/E3.turn": 0.0,
+   "E7_creeper/Bf_s2.move_turn": 3.027159633246193,
+   "E7_creeper/Bf_s2.turn": 0.8031619942508504,
+   "E7_creeper/Bf_s3.move_turn": 3.1853216471003627,
+   "E7_creeper/Bf_s3.turn": 0.5638206737434405,
+   "E7_creeper/E3.move_turn": 2.1660242625074164,
+   "E7_creeper/E3.turn": 0.4595987312092729
+  },
+  "creeper_move_turn": {
+   "E7_creeper/E3": {
+    "creeper_S_per_s": 0.33690650241193143,
+    "healthy_S_per_s": 0.15554142594041134,
+    "ratio": 2.1660242625074164,
+    "w_move_turn": 0.1362210975498265,
+    "healthy_track_per_s": 1.3820526944880989,
+    "creeper_credit_share_of_healthy_track": 0.033206963608015866,
+    "healthy_credit_share_of_own_track": 0.015330836400500461,
+    "creeper_excess_share_of_healthy_track": 0.017876127207515406
+   },
+   "E7_creeper/Bf_s3": {
+    "creeper_S_per_s": 0.33690650241193143,
+    "healthy_S_per_s": 0.10576844028251324,
+    "ratio": 3.1853216471003627,
+    "w_move_turn": 0.1362210975498265,
+    "healthy_track_per_s": 1.279313612367496,
+    "creeper_credit_share_of_healthy_track": 0.03587374752098167,
+    "healthy_credit_share_of_own_track": 0.011262205671957175,
+    "creeper_excess_share_of_healthy_track": 0.0246115418490245
+   },
+   "E7_creeper/Bf_s2": {
+    "creeper_S_per_s": 0.33690650241193143,
+    "healthy_S_per_s": 0.11129459401869987,
+    "ratio": 3.027159633246193,
+    "w_move_turn": 0.1362210975498265,
+    "healthy_track_per_s": 1.2834566178895868,
+    "creeper_credit_share_of_healthy_track": 0.03575794685268803,
+    "healthy_credit_share_of_own_track": 0.011812375687086835,
+    "creeper_excess_share_of_healthy_track": 0.023945571165601195
+   }
+  },
+  "cross_plant": "not run (forward-era stamps not loadable); known FAIL (lunge 3.0x at p=1.5), mitigated by the unison flag; not counted"
+ },
+ "R7": {
+  "pass": true,
+  "max_shift": [
+   "Bf_s3.diag",
+   -0.4058441558441567
+  ],
+  "max_absorbed": [
+   "Bf_s3.move_turn",
+   0.10662193227305139
+  ]
+ },
+ "R8": {
+  "pass": false,
+  "scale_invariant": true
+ }
+}
+{
+"E3.side": {
+"gap": 0.0031999117409014983,
+"ci95": [
+-0.11323775731046368,
+0.1299043187827549
+],
+"fail": false
+},
+"E3.turn": {
+"gap": -0.21417943398290365,
+"ci95": [
+-0.3677595043474713,
+-0.07228744078545755
+],
+"fail": true
+},
+"E3.move_turn": {
+"gap": -0.15029364256222585,
+"ci95": [
+-0.3065147825585657,
+0.023392081319433464
+],
+"fail": false
+},
+"Bf_s3.side": {
+"gap": -0.05000046506658386,
+"ci95": [
+-0.1681207644614896,
+0.06031758989017209
+],
+"fail": false
+},
+"Bf_s3.turn": {
+"gap": 0.0880882375848459,
+"ci95": [
+-0.06779076545308828,
+0.24134649414515544
+],
+"fail": false
+},
+"Bf_s3.move_turn": {
+"gap": -0.19732327981583703,
+"ci95": [
+-0.4235605340471877,
+0.03425336000444425
+],
+"fail": false
+},
+"Bf_s2.side": {
+"gap": -0.016721356071635076,
+"ci95": [
+-0.12133707707780783,
+0.09009222507564905
+],
+"fail": false
+},
+"Bf_s2.turn": {
+"gap": -0.010478444441637482,
+"ci95": [
+-0.1812226729069708,
+0.15816107284086753
+],
+"fail": false
+},
+"Bf_s2.move_turn": {
+"gap": 0.21065340101285956,
+"ci95": [
+-0.02452346642078027,
+0.46584912356994285
+],
+"fail": false
+}
+}

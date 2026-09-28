@@ -1,0 +1,62 @@
+{
+ "primary": "E3",
+ "dose_runs": [
+  "E3"
+ ],
+ "economy_env_yaml": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-09-22_09-10-29_seed3_X08_t3_A15pB/params/env.yaml",
+ "healthy": {
+  "E3": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-23_clock_deprecation/step0_E3_X08-t3_visible/suite__omni/seed001/2026-09-23_21-38-11",
+  "Bf_s3": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-26_stroke_formation/seed3_X01_t3_A15pB/suite__omni/seed001/2026-09-26_22-56-51",
+  "Bf_s2": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-26_stroke_formation/seed2_X02_t3_A15pB/suite__omni/seed001/2026-09-27_04-08-09"
+ },
+ "sideways": {
+  "side_slow": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/side_phases/2026-09-11_0414_sideways_formation/seed2_2a_006_A15pB/slow__side/seed001/2026-09-12_09-18-39",
+  "side_step": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/side_phases/2026-09-11_0414_sideways_formation/seed2_2a_006_A15pB/step__side/seed001/2026-09-12_09-20-17"
+ },
+ "degenerate": {
+  "E6_statue": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-23_clock_deprecation/step0_E6_statue/suite__omni/seed001/2026-09-23_21-59-41",
+  "E7_creeper": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-23_clock_deprecation/step0_E7_creeper-1c/suite__omni/seed001/2026-09-23_22-07-41"
+ },
+ "statue": "E6_statue",
+ "creeper": "E7_creeper",
+ "x08": "E3",
+ "params": {
+  "rho0": 0.5,
+  "drho": 0.3,
+  "power": 1.5,
+  "c_max": 1.5,
+  "prog_tau": 4.0,
+  "prog_lo": 0.15,
+  "prog_width": 0.15,
+  "force_open": 50.0,
+  "force_hold": 20.0,
+  "n_off": 2,
+  "min_loaded": 5,
+  "sigma": 0.2,
+  "tau": 2.0,
+  "min_cmd": 0.12,
+  "phi_lo": 0.1,
+  "phi_sat": 0.25
+ },
+ "dose_targets": {
+  "fwd": 0.1,
+  "back": 0.1,
+  "side": 0.1,
+  "diag": 0.1,
+  "turn": 0.1
+ },
+ "stroke_cat_w": "move_turn:1",
+ "dose_hand_min": true,
+ "tie": [
+  [
+   "fwd",
+   "back"
+  ]
+ ],
+ "dropped": {
+  "W, X0x_s3, X0x_s2, E1 (p15 healthy)": "not the t3 setting's heads; the t3 healthy set is E3 (X08:t3) + the formation B_f pair (all clock-held (1.0, 1.0) by stamp_clock)",
+  "Z_t3, Z_c6, A4500 (p15 posture)": "clock-FREE heads (stamp_clock (0.001, 0.001)); pricing them in X08:t3's clock-held economy would mis-state their clock income, so they are dropped from the t3 R5 no-flip set",
+  "forward-era degenerates": "as in p15: not loadable by the tool (forward-task stamps, pre-2026-08-20 plant)"
+ },
+ "_note": "Per-category stroke plan step 4 (t3 economy, clock-held; plan item 10): X08:t3's own params/env.yaml (clock weights 1.0/1.0) with clock-held healthy stamps E3 (X08:t3 visible) + B_f s3/s2 (formation B pair). Degenerates E6 statue and E7 creeper are both clock-held heads (stamp_clock (1.0, 1.0)) and kept; the sideways head (clock-held, model_9998) kept for R1-R3/R6/P1 rows. Same params as p15, dose_targets 0.1 on fwd/back/side/diag/turn, move_turn m=1 (decision 7), hand-min, fwd=back tie."
+}
