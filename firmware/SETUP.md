@@ -106,7 +106,7 @@ Wiring is selected at **compile time** in **`arduino/board_pins.h`** (`#define K
   - Compile only: `make -C firmware compile-firmware`.
   - See **`firmware/Makefile`** for **`ARDUINO_CLI`**, **`FQBN`**, **`PIN_REV`**.
 
-Flash each Mega with the image that matches **that** board’s wiring. All three boards use the same sketch; role is elected at runtime.
+Flash each Mega with the image that matches **that** board’s wiring. All three boards use the same sketch; each board's role is stored in its EEPROM and set with `krabby-firmware set role=…` (see *Board roles* below).
 
 #### Remote flashing over SSH (boards on another host)
 
@@ -150,12 +150,21 @@ python -m firmware --debug
 |---------|------|---------|
 | 0–25 | 26 bytes | `CalData` struct — calibration min/max for 6 actuators + magic word (`0xDEADBEEF`) |
 | 26–31 | 6 bytes | Reserved (alignment gap) |
-| 32 | 1 byte | Role magic sentinel (`0xAB`) — written once after first successful role election |
-| 33 | 1 byte | `BoardRole` value: `1`=FRONT, `2`=LEFT, `3`=RIGHT |
+| 32 | 1 byte | Role magic sentinel (`0xAB`) — written by `SET role …` |
+| 33 | 1 byte | `BoardRole` value: `0`=UNKNOWN, `1`=FRONT, `2`=LEFT, `3`=RIGHT |
 
-The role bytes survive power cycles. On each boot, the board prints `ROLE_HINT: LEFT/RIGHT/FRONT` immediately before the 3-second role-election window. `krabby-firmware show` reads this hint so follower boards can be labeled correctly even when probed individually (when they would otherwise appear as `ROLE_UNKNOWN` and show as "front").
+### Board roles
 
-Role bytes are only written when a valid role is elected (FRONT, LEFT, or RIGHT). A board that times out as ROLE_UNKNOWN does not update EEPROM, preserving the last valid role.
+A board's role (which 6 joints it drives, and which serial it listens on) is loaded from EEPROM on boot — there is no boot-time election. A board with no stored role boots `UNKNOWN`: it drives no actuators and sends no telemetry, but answers `SET`/`GET` on USB and on Serial1/Serial2 so it can be assigned. Boards that already stored a role under the older SYNC-election firmware keep it.
+
+Assign roles once per board:
+
+1. Plug USB into the board that will be FRONT: `krabby-firmware set role=FRONT`.
+2. With the followers wired to FRONT's Serial1/Serial2: `krabby-firmware set --board left role=LEFT` and `krabby-firmware set --board right role=RIGHT`.
+   (Alternatively, on a USB hub, set each board directly: `krabby-firmware set --port <port> role=LEFT`.)
+3. Verify: `krabby-firmware get role`, `get --board left role`, `get --board right role`. Roles persist across power cycles.
+
+`SET` applies immediately (no reboot). Wire format: `SET role <FRONT|LEFT|RIGHT|UNKNOWN>` (no reply) and `GET <role|version> …` → `GET <key> <val> …`; FRONT relays `SET_LEFT`/`GET_LEFT` and `SET_RIGHT`/`GET_RIGHT` to its followers and re-tags their replies. On each boot the board prints `ROLE_HINT: <role>`, which `krabby-firmware show` uses to label boards probed individually.
 
 ### Feature 1: Auto-Calibration (Run Once)
 The robot now calibrates itself automatically and saves limits to EEPROM.
@@ -218,10 +227,10 @@ If a follower board is missing, its slot contains `-`.
 > host image in the same session.** M16 moved `BAUD_RATE` from 115200 to
 > 250000 (see the serial-budget section under the M16 sensor cluster below),
 > so a mixed fleet talks at mixed bauds: the symptom is garbage characters or
-> no telemetry at all on the host. A partial reflash also breaks role
-> election — boards on different bauds can't hear each other, so every board
-> times out and boots `ROLE_UNKNOWN` (front actuator map), including the ones
-> wired as LEFT/RIGHT. Do not stop halfway through step 3.
+> no telemetry at all on the host. A partial reflash also cuts FRONT
+> off from its followers — boards on different bauds can't hear each other, so
+> LEFT/RIGHT telemetry and `SET_LEFT`/`SET_RIGHT` stop working. Do not stop halfway
+> through step 3.
 
 ```bash
 # 1. One-time host setup (udev rules, dialout group, flash tools)
@@ -261,16 +270,14 @@ identically — they differ only in *where* the tool runs.
 
 ## I2C Sensor Cluster (Milestone 16) — LSM6DSO IMU
 
-The **leader board only** (role `FRONT` after election, or the solo-board `UNKWN`
-bench case) carries a shared I2C bus on the Mega's hardware I2C pins. Followers
+The **leader board only** (role `FRONT`) carries a shared I2C bus on the Mega's hardware I2C pins. Followers
 never initialize the bus. Device-specific bus constants and the concrete adapter
 live in `arduino/src/imu/lsm6dso_adapter.h`.
 
-Naming note — three spellings, one state: `UNKWN` is the telemetry **wire
-prefix** the firmware actually emits for an un-elected role, `ROLE: UNKNOWN
-(front actuators)` is the same state in the **boot log**, and the `UNKNOWN` in
-§2.2's role-prefix list is the long-form name of that prefix slot. All three
-mean "no role elected; front actuator map assumed".
+Naming note: `UNKWN` is the fixed-width telemetry label for an unassigned board
+and `UNKNOWN` its config/boot-log name. An unassigned board sends no telemetry,
+so a solo bench board needs `krabby-firmware set role=FRONT` before its IMU
+segment appears.
 
 ### Wiring (SparkFun 6DoF LSM6DSO Qwiic breakout, via Qwiic→Dupont adapter)
 
@@ -361,8 +368,8 @@ only bytes 40–65. Constants live in `src/imu/imu_constants.h`; the
 | :--- | ---: | :--- | :--- |
 | 0–25 | 26 | Joint calibration (`CalData`, pre-existing) | per-actuator min/max for 6 actuators + magic word `0xDEADBEEF` |
 | 26–31 | 6 | — | unused (pre-existing alignment gap) |
-| 32 | 1 | Role election (pre-existing, M14) | role magic sentinel `0xAB` |
-| 33 | 1 | Role election (pre-existing, M14) | `BoardRole` value (1=FRONT, 2=LEFT, 3=RIGHT) |
+| 32 | 1 | Board role (`SET role`) | role magic sentinel `0xAB` |
+| 33 | 1 | Board role (`SET role`) | `BoardRole` value (0=UNKNOWN, 1=FRONT, 2=LEFT, 3=RIGHT) |
 | 34–39 | 6 | — | unused gap left before the M16 block |
 | 40 | 1 | `ImuCalibrationRecord.magic` | `0xC7` (`EEPROM_IMU_CAL_MAGIC`) |
 | 41 | 1 | `ImuCalibrationRecord.schema` | layout version, currently `1` (`EEPROM_IMU_CAL_SCHEMA`) |
@@ -459,8 +466,8 @@ the Mega enumerates but gets no serial driver until allowed).
 2. **Wire (USB unplugged).** Qwiic→Dupont: black→GND, red→3V3, blue→D20 (SDA),
    yellow→D21 (SCL). Either Qwiic jack on the breakout works.
 3. **Flash + watch boot.** `make -C firmware upload-firmware PORT=$PORT`, then
-   `python firmware/scripts/imu_bench.py $PORT watch`. Expected boot on a solo
-   board: `ROLE: UNKNOWN (front actuators)` (the bench-leader case), then
+   `python firmware/scripts/imu_bench.py $PORT watch`. On a solo board, first
+   `krabby-firmware set role=FRONT` (once). Expected boot: `Krabby Ready … role=FRONT`, then
    `IMU CAL: LSM6DSO online at 0x6B` (or `0x6A` if the ADR/SA0 jumper is cut);
    firmware probes 0x6B then 0x6A. First
    boot: `gyro bias captured and saved to EEPROM` (board must sit still ~1 s;

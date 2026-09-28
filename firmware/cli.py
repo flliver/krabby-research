@@ -1,4 +1,4 @@
-"""krabby-firmware show / update CLI commands."""
+"""krabby-firmware show / update / set / get CLI commands."""
 from __future__ import annotations
 
 import json
@@ -13,7 +13,13 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Optional
 
-from firmware.krabby_mcu import DEFAULT_BAUD, parse_ver_reply
+from firmware.krabby_mcu import (
+    DEFAULT_BAUD,
+    KrabbyMCUSDK,
+    build_get_line,
+    build_set_line,
+    parse_ver_reply,
+)
 from firmware.mcu_port import MEGA_USB_IDS
 from firmware.manifest import (
     BranchBuild,
@@ -59,8 +65,8 @@ _PROBE_V_RETRY_LIMIT = 8
 def _probe_version(port: str, timeout: float = 6.0) -> tuple[Optional[str], Optional[str]]:
     """Open port, wait for boot, send V. Return (ver_line, role_hint). Either may be None.
 
-    Captures the ROLE_HINT line printed from EEPROM before role election so the
-    caller can label follower boards correctly even when probed alone (ROLE_UNKNOWN).
+    Captures the ROLE_HINT line (the EEPROM role, printed at boot) so the caller can
+    label follower boards correctly even when each is probed on its own.
     """
     try:
         import serial
@@ -229,6 +235,69 @@ def _show_branch_builds(branch: str) -> None:
         date = b.commit_date or "?"
         lines.append(f"  {b.build_key:<26}  {date:<12}  {ver}")
     _page("\n".join(lines) + "\n")
+
+
+# --- set / get (board config) ---
+
+def _parse_assignments(assignments: list[str]) -> list[tuple[str, str]]:
+    pairs: list[tuple[str, str]] = []
+    for a in assignments:
+        key, sep, val = a.partition("=")
+        if not sep or not key or not val:
+            raise ValueError(f"expected key=value, got {a!r}")
+        pairs.append((key, val))
+    return pairs
+
+
+def _open_config_sdk(port: Optional[str]) -> KrabbyMCUSDK:
+    """Open a board for a quick config exchange: short settle, no hold-on-connect."""
+    sdk = KrabbyMCUSDK(port=port)
+    # Opening a local CH340 port resets the board; wait out its boot.
+    if not sdk.connect(settle=2.0, hold=False):
+        sys.exit(f"could not open serial port {sdk.port}")
+    return sdk
+
+
+def cmd_set(port: Optional[str], board: Optional[str], assignments: list[str]) -> None:
+    # Validate client-side before touching the port (the SDK is the validation layer).
+    try:
+        pairs = _parse_assignments(assignments)
+        build_set_line(board, pairs)
+    except ValueError as exc:
+        sys.exit(f"error: {exc}")
+
+    keys = [k for k, _ in pairs]
+    sdk = _open_config_sdk(port)
+    try:
+        sdk.send_set(board=board, **dict(pairs))
+        result = sdk.send_get(*keys, board=board, timeout=2.0)  # best-effort read-back
+    finally:
+        sdk.close()
+
+    label = f" ({board})" if board else ""
+    if result:
+        print(f"set{label}: " + "  ".join(f"{k}={result.get(k, '?')}" for k in keys))
+    else:
+        sent = " ".join(f"{k}={v}" for k, v in pairs)
+        print(f"set{label}: sent {sent} (no read-back — run `get` to confirm)")
+
+
+def cmd_get(port: Optional[str], board: Optional[str], keys: list[str]) -> None:
+    try:
+        build_get_line(board, keys)
+    except ValueError as exc:
+        sys.exit(f"error: {exc}")
+
+    sdk = _open_config_sdk(port)
+    try:
+        result = sdk.send_get(*keys, board=board, timeout=2.0)
+    finally:
+        sdk.close()
+
+    label = f" ({board})" if board else ""
+    if result is None:
+        sys.exit(f"get{label}: no response from board")
+    print("  ".join(f"{k}={result.get(k, '?')}" for k in keys))
 
 
 # --- --update ---

@@ -43,6 +43,70 @@ def parse_ver_reply(line: str) -> Optional[list[tuple[str, str, str]]]:
     return result
 
 
+# --- SET / GET config command path ---
+# The SDK is the validation layer: bad keys / roles / boards raise ValueError here,
+# client-side, before any bytes hit the wire. The firmware silently ignores anything
+# malformed, so there is no error reply for SET/GET.
+CONFIG_KEYS = ("role",)                       # writable via SET
+GETTABLE_KEYS = CONFIG_KEYS + ("version",)    # readable via GET; version is read-only
+ROLE_VALUES = ("FRONT", "LEFT", "RIGHT", "UNKNOWN")
+# Board <-> wire-suffix mapping: the board on USB (front) takes the bare command; a
+# follower gets a side suffix the front board routes on. Encode and decode both derive
+# from this table.
+_BOARD_SUFFIX = {"front": "", "left": "_LEFT", "right": "_RIGHT"}
+BOARDS = tuple(_BOARD_SUFFIX)
+_TAG_TO_BOARD = {"GET" + suffix: board for board, suffix in _BOARD_SUFFIX.items()}
+
+
+def _board_suffix(board: Optional[str]) -> str:
+    """Wire-command suffix for a target board. None/"front" -> "" (the board on USB)."""
+    suffix = _BOARD_SUFFIX.get("front" if board is None else board)
+    if suffix is None:
+        raise ValueError(f"invalid board {board!r}; expected one of {', '.join(BOARDS)}")
+    return suffix
+
+
+def _check_key(key: str, allowed=CONFIG_KEYS) -> None:
+    if key not in allowed:
+        raise ValueError(f"unknown config key {key!r}; allowed: {', '.join(allowed)}")
+
+
+def build_set_line(board: Optional[str], pairs) -> str:
+    """Build a 'SET[_LEFT|_RIGHT] <key> <val> …' wire line. Raises ValueError if invalid."""
+    pairs = list(pairs)
+    if not pairs:
+        raise ValueError("set requires at least one key=value")
+    parts = ["SET" + _board_suffix(board)]
+    for key, val in pairs:
+        _check_key(key)
+        if key == "role" and val not in ROLE_VALUES:
+            raise ValueError(f"invalid role {val!r}; allowed: {', '.join(ROLE_VALUES)}")
+        parts += [key, val]
+    return " ".join(parts)
+
+
+def build_get_line(board: Optional[str], keys) -> str:
+    """Build a 'GET[_LEFT|_RIGHT] <key> …' wire line. Raises ValueError if invalid."""
+    keys = list(keys)
+    if not keys:
+        raise ValueError("get requires at least one key")
+    for key in keys:
+        _check_key(key, GETTABLE_KEYS)
+    return " ".join(["GET" + _board_suffix(board)] + keys)
+
+
+def parse_get_reply(line: str):
+    """Parse 'GET[_LEFT|_RIGHT] <key> <val> …' into (board, {key: val}). None if not a GET line."""
+    parts = line.split()
+    if not parts:
+        return None
+    board = _TAG_TO_BOARD.get(parts[0])
+    if board is None:
+        return None
+    kv = parts[1:]
+    return board, {kv[i]: kv[i + 1] for i in range(0, len(kv) - 1, 2)}
+
+
 def _raw_rx_to_stderr() -> bool:
     """When True, every non-empty decoded line is printed to stderr (see __main__.py --debug)."""
     v = os.environ.get("KRABBY_MCU_RAW_RX", "").strip().lower()
@@ -78,15 +142,20 @@ class KrabbyMCUSDK:
         self.last_error = None
         self.last_cmd: Dict[str, Optional[float]] = {}
         self._last_ver_line: Optional[str] = None
+        self._last_get_line: Optional[str] = None
         # Last time a telemetry line was seen per role prefix (FRONT/UNKWN/LEFT/RIGHT).
         self.role_last_seen: Dict[str, float] = {}
 
-    def connect(self):
+    def connect(self, settle: float = 5.0, hold: bool = True):
+        """Open the serial port and start the reader thread.
+
+        settle: seconds to wait after opening before reading (board boot; CH340
+            adapters reset the board on open regardless of DTR).
+        hold: send 'H' (hold all joints) on connect. The control paths want this so
+            the legs don't drift; the config-only CLI (set/get) passes hold=False.
+        """
         try:
-            # Open without toggling DTR so the leader board is not reset on connect.
-            # A DTR reset would break three-board role election (followers stay in
-            # their assigned roles and stop broadcasting SYNC, so a newly-reset
-            # leader can never hear from them).
+            # Open without toggling DTR so the board is not reset where avoidable.
             ser = serial.Serial()
             ser.port = self.port
             ser.baudrate = self.baud
@@ -94,9 +163,7 @@ class KrabbyMCUSDK:
             ser.dtr = False
             ser.open()
             self.ser = ser
-            time.sleep(
-                5.0
-            )  # wait for boot + 3-board role election before starting reader
+            time.sleep(settle)
             self.running = True
             self.last_error = None
             self.imu = None  # drop any sample cached from a prior connection
@@ -107,7 +174,8 @@ class KrabbyMCUSDK:
             # On startup, immediately command the MCU to hold all joints
             # at their current positions so the legs don't drift or move
             # unexpectedly before the user issues a command.
-            self.send_command_joints_hold()
+            if hold:
+                self.send_command_joints_hold()
 
             return True
         except Exception:
@@ -143,6 +211,9 @@ class KrabbyMCUSDK:
                     self._parse_telemetry_line(line)
                     self.last_feedback_ts = time.time()
                     self.role_last_seen[role] = self.last_feedback_ts
+                elif line.startswith("GET"):
+                    # "GET …" / "GET_LEFT …" / "GET_RIGHT …" — tagged config reply
+                    self._last_get_line = line
                 elif line.startswith("VER "):
                     self._last_ver_line = line
                 elif "Krabby" in line or "CAL" in line or "Saved" in line:
@@ -249,6 +320,48 @@ class KrabbyMCUSDK:
         while time.time() < deadline:
             if self._last_ver_line is not None:
                 return self._last_ver_line
+            time.sleep(0.02)
+        return None
+
+    def send_set(self, board: Optional[str] = None, **kwargs: str) -> None:
+        """Write config keys to a board (fire-and-forget; no reply).
+
+        board=None/"front" targets the board on USB; "left"/"right" forward via the
+        front board. Validates client-side (ValueError) before anything reaches the
+        wire — to confirm, follow with send_get.
+
+            mcu.send_set(role="FRONT")
+            mcu.send_set(board="left", role="LEFT")
+        """
+        line = build_set_line(board, list(kwargs.items()))
+        if not self.ser or not self.ser.is_open:
+            return
+        self.ser.write((line + "\n").encode("utf-8"))
+        self.ser.flush()
+        logger.info("CMD -> %s", line)
+
+    def send_get(self, *keys: str, board: Optional[str] = None,
+                 timeout: float = 1.0) -> Optional[Dict[str, str]]:
+        """Read config keys from a board; block on the tagged reply. Returns a dict,
+        or None on timeout. Same request/reply pattern as read_version.
+
+            mcu.send_get("role")                 # the board on USB
+            mcu.send_get("role", board="left")   # the left follower
+        """
+        line = build_get_line(board, list(keys))
+        if not self.ser or not self.ser.is_open:
+            return None
+        want_board = board or "front"
+        self._last_get_line = None
+        self.ser.write((line + "\n").encode("utf-8"))
+        self.ser.flush()
+        logger.info("CMD -> %s", line)
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            if (reply := self._last_get_line) is not None:
+                self._last_get_line = None
+                if (parsed := parse_get_reply(reply)) and parsed[0] == want_board:
+                    return parsed[1]
             time.sleep(0.02)
         return None
 
