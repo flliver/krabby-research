@@ -54,7 +54,10 @@ constexpr unsigned long OLED_REDRAW_INTERVAL_MILLISECONDS = 250;
 #define EEPROM_ROLE_MAGIC 0xAB
 
 static_assert(JOINTCAL_BASE_ADDR > EEPROM_ROLE_ADDR + 1, "JointCalBlock overlaps the role bytes");
-static_assert(JOINTCAL_BASE_ADDR + sizeof(JointCalBlock) <= EEPROM_IMU_CAL_ADDR, "JointCalBlock overlaps IMU cal");
+static_assert(JOINTCAL_BASE_ADDR + sizeof(JointCalBlock) <= BOARDSERIAL_BASE_ADDR, "JointCalBlock overlaps the board serial");
+static_assert(BOARDSERIAL_BASE_ADDR + sizeof(BoardSerialBlock) <= EEPROM_IMU_CAL_ADDR, "Board serial overlaps IMU cal");
+
+BoardSerialBlock g_serial;  // loaded in setup(), written by `SET serial …`
 
 static void saveRole(BoardRole r)
 {
@@ -347,6 +350,7 @@ void setup()
     pinMode(LED_BUILTIN, OUTPUT);
 
     applyRole(loadRole());
+    boardSerialLoad(g_serial);
     hallHwInit();
 
     // ROLE_HINT lets `krabby-firmware show` label this port when probed on its own.
@@ -410,7 +414,8 @@ static void parseVerToken(const String& reply, String& ver, String& branch, Stri
 // SET / GET config commands. The payload is a "key val [key val …]" list, walked
 // with the same tokenizer as the T command.
 //   SET role <FRONT|LEFT|RIGHT|UNKNOWN> — persist the role and apply it now. No reply.
-//   GET <role|version> …               — reply "GET <key> <val> …".
+//   SET serial <id>                    — persist this board's serial number. No reply.
+//   GET <role|serial|version> …        — reply "GET <key> <val> …" (unset serial is "-").
 //   SET_LEFT / GET_LEFT, SET_RIGHT / GET_RIGHT — front only: relay the bare command to
 //     the follower on Serial1 / Serial2; for GET, re-tag its reply "GET_LEFT …" / "GET_RIGHT …".
 // Unknown keys and commands are silently ignored — the SDK validates before sending.
@@ -451,6 +456,12 @@ void handleConfig(const String &cmd, const String &payload, HardwareSerial &out)
                 saveRole(role);
                 applyRole(role);
             }
+            else if (key == "serial")
+            {
+                memset(g_serial.serial, 0, BOARDSERIAL_LEN);
+                val.toCharArray(g_serial.serial, BOARDSERIAL_LEN);
+                boardSerialSave(g_serial);
+            }
         }
     }
     else if (cmd == "GET")
@@ -464,6 +475,11 @@ void handleConfig(const String &cmd, const String &payload, HardwareSerial &out)
             {
                 out.print(" role ");
                 out.print(roleConfigName(currentRole));
+            }
+            else if (key == "serial")
+            {
+                out.print(" serial ");
+                out.print(g_serial.serial[0] ? g_serial.serial : "-");
             }
             else if (key == "version")
             {

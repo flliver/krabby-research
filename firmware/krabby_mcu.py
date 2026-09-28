@@ -47,7 +47,7 @@ def parse_ver_reply(line: str) -> Optional[list[tuple[str, str, str]]]:
 # The SDK is the validation layer: bad keys / roles / boards raise ValueError here,
 # client-side, before any bytes hit the wire. The firmware silently ignores anything
 # malformed, so there is no error reply for SET/GET.
-CONFIG_KEYS = ("role",)                       # writable via SET
+CONFIG_KEYS = ("role", "serial")              # writable via SET
 GETTABLE_KEYS = CONFIG_KEYS + ("version",)    # readable via GET; version is read-only
 ROLE_VALUES = ("FRONT", "LEFT", "RIGHT", "UNKNOWN")
 # Board <-> wire-suffix mapping: the board on USB (front) takes the bare command; a
@@ -56,6 +56,7 @@ ROLE_VALUES = ("FRONT", "LEFT", "RIGHT", "UNKNOWN")
 _BOARD_SUFFIX = {"front": "", "left": "_LEFT", "right": "_RIGHT"}
 BOARDS = tuple(_BOARD_SUFFIX)
 _TAG_TO_BOARD = {"GET" + suffix: board for board, suffix in _BOARD_SUFFIX.items()}
+_SERIAL_MAX_LEN = 15  # firmware BoardSerialBlock.serial is char[16] (15 chars + NUL)
 
 
 def _board_suffix(board: Optional[str]) -> str:
@@ -71,6 +72,19 @@ def _check_key(key: str, allowed=CONFIG_KEYS) -> None:
         raise ValueError(f"unknown config key {key!r}; allowed: {', '.join(allowed)}")
 
 
+def _validate_value(key: str, val: str) -> None:
+    _check_key(key)  # SET: only writable keys
+    if key == "role" and val not in ROLE_VALUES:
+        raise ValueError(f"invalid role {val!r}; allowed: {', '.join(ROLE_VALUES)}")
+    if key == "serial":
+        if not val:
+            raise ValueError("serial must be non-empty")
+        if len(val) > _SERIAL_MAX_LEN:
+            raise ValueError(f"serial {val!r} too long (max {_SERIAL_MAX_LEN} chars)")
+        if any(c.isspace() for c in val) or not val.isascii() or not val.isprintable():
+            raise ValueError(f"serial {val!r} must be printable ASCII with no spaces")
+
+
 def build_set_line(board: Optional[str], pairs) -> str:
     """Build a 'SET[_LEFT|_RIGHT] <key> <val> …' wire line. Raises ValueError if invalid."""
     pairs = list(pairs)
@@ -78,9 +92,7 @@ def build_set_line(board: Optional[str], pairs) -> str:
         raise ValueError("set requires at least one key=value")
     parts = ["SET" + _board_suffix(board)]
     for key, val in pairs:
-        _check_key(key)
-        if key == "role" and val not in ROLE_VALUES:
-            raise ValueError(f"invalid role {val!r}; allowed: {', '.join(ROLE_VALUES)}")
+        _validate_value(key, val)
         parts += [key, val]
     return " ".join(parts)
 
@@ -406,7 +418,7 @@ class KrabbyMCUSDK:
         front board. Validates client-side (ValueError) before anything reaches the
         wire — to confirm, follow with send_get.
 
-            mcu.send_set(role="FRONT")
+            mcu.send_set(role="FRONT", serial="FRT-0042")
             mcu.send_set(board="left", role="LEFT")
         """
         line = build_set_line(board, list(kwargs.items()))
@@ -421,7 +433,7 @@ class KrabbyMCUSDK:
         """Read config keys from a board; block on the tagged reply. Returns a dict,
         or None on timeout. Same request/reply pattern as read_version.
 
-            mcu.send_get("role")                 # the board on USB
+            mcu.send_get("role", "serial")       # the board on USB
             mcu.send_get("role", board="left")   # the left follower
         """
         line = build_get_line(board, list(keys))

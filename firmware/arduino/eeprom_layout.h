@@ -62,3 +62,34 @@ inline bool jointCalLoad(JointCalBlock& cal) {
         cal = JointCalBlock{};  // value-init: all slots 0 = uncalibrated
     return valid;
 }
+
+// ============================================================================
+// Board serial number (`SET serial …`) — its own block, magic, and CRC, after the
+// calibration block. boardSerialLoad() yields "" when nothing valid is stored.
+// ============================================================================
+
+constexpr uint16_t BOARDSERIAL_MAGIC     = 0x5E17;  // sentinel marking an initialized block
+constexpr int      BOARDSERIAL_BASE_ADDR = 164;     // after JointCalBlock (64-160)
+constexpr size_t   BOARDSERIAL_LEN       = 16;      // zero-padded ASCII (15 chars + NUL)
+
+struct BoardSerialBlock {
+    uint16_t magic;                  // BOARDSERIAL_MAGIC when valid
+    char     serial[BOARDSERIAL_LEN];
+    uint32_t crc32;                  // over all bytes before this field
+};
+
+inline void boardSerialSave(BoardSerialBlock& block) {
+    block.magic = BOARDSERIAL_MAGIC;
+    block.crc32 = eepromCrc32(reinterpret_cast<const uint8_t*>(&block),
+                              offsetof(BoardSerialBlock, crc32));
+    EEPROM.put(BOARDSERIAL_BASE_ADDR, block);
+}
+
+inline void boardSerialLoad(BoardSerialBlock& block) {
+    EEPROM.get(BOARDSERIAL_BASE_ADDR, block);
+    const bool valid = block.magic == BOARDSERIAL_MAGIC
+                    && block.crc32 == eepromCrc32(reinterpret_cast<const uint8_t*>(&block),
+                                                  offsetof(BoardSerialBlock, crc32));
+    if (!valid)
+        block = BoardSerialBlock{};  // value-init: empty serial
+}

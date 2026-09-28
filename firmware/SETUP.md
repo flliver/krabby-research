@@ -151,6 +151,7 @@ python -m firmware --debug
 | 32 | 1 byte | Role magic sentinel (`0xAB`) — written by `SET role …` |
 | 33 | 1 byte | `BoardRole` value: `0`=UNKNOWN, `1`=FRONT, `2`=LEFT, `3`=RIGHT |
 | 64–160 | 97 bytes | `JointCalBlock` (`eeprom_layout.h`) — per-joint min/max stops + flags, magic `0xCA17`, CRC32 |
+| 164–185 | 22 bytes | `BoardSerialBlock` (`eeprom_layout.h`) — board serial number (`SET serial …`), magic `0x5E17`, CRC32 |
 | 192–217 | 26 bytes | IMU calibration record (see the I2C Sensor Cluster section) |
 
 ### Board roles
@@ -163,8 +164,9 @@ Assign roles once per board:
 2. With the followers wired to FRONT's Serial1/Serial2: `krabby-firmware set --board left role=LEFT` and `krabby-firmware set --board right role=RIGHT`.
    (Alternatively, on a USB hub, set each board directly: `krabby-firmware set --port <port> role=LEFT`.)
 3. Verify: `krabby-firmware get role`, `get --board left role`, `get --board right role`. Roles persist across power cycles.
+4. Optionally give each board a serial number (≤15 printable chars, no spaces): `krabby-firmware set serial=FRT-0042`, `set --board left serial=…`, `set --board right serial=…`. `get serial` prints `-` when unset.
 
-`SET` applies immediately (no reboot). Wire format: `SET role <FRONT|LEFT|RIGHT|UNKNOWN>` (no reply) and `GET <role|version> …` → `GET <key> <val> …`; FRONT relays `SET_LEFT`/`GET_LEFT` and `SET_RIGHT`/`GET_RIGHT` to its followers and re-tags their replies. On each boot the board prints `ROLE_HINT: <role>`, which `krabby-firmware show` uses to label boards probed individually.
+`SET` applies immediately (no reboot). Wire format: `SET role <FRONT|LEFT|RIGHT|UNKNOWN>` / `SET serial <id>` (no reply) and `GET <role|serial|version> …` → `GET <key> <val> …`; FRONT relays `SET_LEFT`/`GET_LEFT` and `SET_RIGHT`/`GET_RIGHT` to its followers and re-tags their replies. On each boot the board prints `ROLE_HINT: <role>`, which `krabby-firmware show` uses to label boards probed individually.
 
 Per-joint calibration lives in a **separate** `JointCalBlock` at EEPROM address 64 (magic `0xCA17`, own schema version and CRC32) holding `minStop`/`maxStop` plus a validity-flags byte per actuator slot — clear of the role bytes so writing calibration can never clobber the role. The flags record which stops have been captured (directional calibration writes one at a time); a slot only overrides the actuator's full-range defaults once **both** stops are recorded. Loaded on boot in `applyRole()`.
 
@@ -376,6 +378,7 @@ don't overlap.
 | 32 | 1 | Board role (`SET role`) | role magic sentinel `0xAB` |
 | 33 | 1 | Board role (`SET role`) | `BoardRole` value (0=UNKNOWN, 1=FRONT, 2=LEFT, 3=RIGHT) |
 | 64–160 | 97 | `JointCalBlock` (`eeprom_layout.h`) | magic `0xCA17`, schema, per-slot min/max stops + flags, CRC32 |
+| 164–185 | 22 | `BoardSerialBlock` (`eeprom_layout.h`) | magic `0x5E17`, serial[16], CRC32 |
 | 192 | 1 | `ImuCalibrationRecord.magic` | `0xC7` (`EEPROM_IMU_CAL_MAGIC`) |
 | 193 | 1 | `ImuCalibrationRecord.schema` | layout version, currently `1` (`EEPROM_IMU_CAL_SCHEMA`) |
 | 194–205 | 12 | `ImuCalibrationRecord.gyroBiasDegreesPerSecond[3]` | 3 × 4-byte float; gyro zero-rate bias, deg/s, raw sensor frame |

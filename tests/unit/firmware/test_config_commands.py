@@ -42,6 +42,21 @@ class TestBuildSetLine:
     def test_role_unknown_is_valid(self):
         assert build_set_line(None, [("role", "UNKNOWN")]) == "SET role UNKNOWN"
 
+    def test_serial_pair(self):
+        assert build_set_line(None, [("role", "FRONT"), ("serial", "FRT-0042")]) == \
+            "SET role FRONT serial FRT-0042"
+
+    def test_serial_with_space_raises(self):
+        with pytest.raises(ValueError):
+            build_set_line(None, [("serial", "has space")])
+
+    def test_serial_too_long_raises(self):
+        with pytest.raises(ValueError):
+            build_set_line(None, [("serial", "X" * 16)])
+
+    def test_serial_at_max_len_ok(self):
+        assert build_set_line(None, [("serial", "X" * 15)]) == "SET serial " + "X" * 15
+
     def test_version_is_not_settable(self):
         with pytest.raises(ValueError, match="unknown config key"):
             build_set_line(None, [("version", "1.0")])
@@ -75,6 +90,10 @@ class TestParseGetReply:
         assert parse_get_reply("FRONT; FLHY 0.5 500 0 0 0 0 0 0") is None
         assert parse_get_reply("VER 1.0 main abc") is None
         assert parse_get_reply("") is None
+
+    def test_unset_serial_sentinel(self):
+        # firmware prints "-" for an unset serial
+        assert parse_get_reply("GET serial -") == ("front", {"serial": "-"})
 
     def test_version_reply_pipe_joined(self):
         assert parse_get_reply("GET version 0.2.16|main|abc123") == (
