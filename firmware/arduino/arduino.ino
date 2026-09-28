@@ -23,9 +23,20 @@
 // --- Serial: left follower = Serial1 (TX1/RX1 on Krabby-Uno v0.1 shield), right follower = Serial2 ---
 #define SERIAL_LEFT  Serial1  // pins 18 (TX1), 19 (RX1) — Krabby-Uno v0.1 shield Serial1 connector
 #define SERIAL_RIGHT Serial2   // pins 16 (TX2), 17 (RX2) — Krabby-Uno v0.1 shield Serial2 connector
+#define SERIAL_LEFT_RX  19    // RX1 — pulled up so a disconnected uplink idles high, not noise
+#define SERIAL_RIGHT_RX 17    // RX2 — same
 // Exact on the Mega's 16 MHz clock, with headroom for the leader to transmit
 // joint data from all three controller boards plus I2C sensor data.
 #define BAUD_RATE 250000
+
+// Max input lines drained from a board's main channel per loop() pass. Bounds the
+// drain so a flooded/noisy uplink (e.g. a disconnected follower RX picking up EMI)
+// can't starve the actuator-update work that runs after the drain loop.
+// 16, not more: garbage that starts with a command letter still costs a blocking
+// readStringUntil() (≤50 ms) per iteration, so the budget also caps the worst-case
+// pass at ~0.8 s under continuous line noise. Legit traffic is ≤~100 lines/s and
+// loop() runs far faster than that, so 16/pass is still ample headroom.
+constexpr int RX_DRAIN_BUDGET = 16;
 
 BoardRole currentRole = ROLE_UNKNOWN;
 
@@ -216,6 +227,20 @@ void updateActuatorStatusFromTelemetry(
 }
 
 // Forward only complete lines (up to and including \n) from follower serial to mainSerial.
+// Drain is BOUNDED per call: on a bench with no followers these RX lines idle on a weak
+// pullup, and a brushed motor's EMI bursts punch through it as a continuous garbage-byte
+// stream — an unbounded drain here captured loop() (telemetry, command parsing all dead
+// until motor power was cut; bench 2026-07-03, runaway FLHY). Same failure mode as
+// COMMS_DEBUG.md root cause #1, leader side.
+static const int FWD_DRAIN_BUDGET = 256;  // bytes per call ≈ one full telemetry line + margin
+
+static bool lineIsPrintable(const char* s, size_t len)
+{
+    for (size_t i = 0; i < len; i++)
+        if (s[i] < 0x20 || s[i] > 0x7E) return false;
+    return true;
+}
+
 void forwardFullLines(
     HardwareSerial* from,
     HardwareSerial* to,
@@ -225,13 +250,19 @@ void forwardFullLines(
     BoardRole boardRole)
 {
     if (!from || !to || !partial || !partialPos) return;
-    while (from->available())
+    int budget = FWD_DRAIN_BUDGET;
+    while (budget-- > 0 && from->available())
     {
         char c = (char)from->read();
         if (c == '\n')
         {
             partial[*partialPos] = '\0';
-            if (*partialPos > 0)
+            // Forward only clean printable-ASCII lines. Motor EMI on these ports
+            // arrives as framing garbage (control/high-bit bytes); forwarding it
+            // upstream turns noise into blocking TX writes that stall the loop and
+            // delay jog-stop processing (bench 2026-07-03). Real follower lines
+            // (telemetry/VER/GET replies) are pure printable ASCII.
+            if (*partialPos > 0 && lineIsPrintable(partial, *partialPos))
             {
                 to->println(partial);
                 updateActuatorStatusFromTelemetry(partial, boardRole);
@@ -246,8 +277,9 @@ void forwardFullLines(
         else
         {
             // TODO: THIS SHOULD THROW SOME KIND OF BAD ERROR CONDITION
-            // Buffer full before \n: discard rest of line so we don't forward a partial or get stuck
-            while (from->available())
+            // Buffer full before \n: discard rest of line (still within budget) so we
+            // don't forward a partial or get stuck.
+            while (budget-- > 0 && from->available())
             {
                 char d = (char)from->read();
                 if (d == '\n' || d == '\r') break;
@@ -295,6 +327,21 @@ void setup()
     Serial.begin(BAUD_RATE);
     SERIAL_LEFT.begin(BAUD_RATE);
     SERIAL_RIGHT.begin(BAUD_RATE);
+    // Bound readStringUntil() so a partial/garbled line — e.g. an unconnected follower
+    // uplink floating on the bench — can't stall the loop for the 1 s stream default.
+    Serial.setTimeout(50);
+    SERIAL_LEFT.setTimeout(50);
+    SERIAL_RIGHT.setTimeout(50);
+    // Pull up the follower-uplink RX pins so a disconnected/dangling cable idles high
+    // (UART idle) instead of floating and picking up EMI as a stream of phantom bytes.
+    // A driven uplink (the leader's TX) still overrides the weak pull-up. Done after
+    // begin() so it isn't reset by USART init.
+    pinMode(SERIAL_LEFT_RX, INPUT_PULLUP);
+    pinMode(SERIAL_RIGHT_RX, INPUT_PULLUP);
+    // Same for RX0 (pin 0): the USB serial chip drives this line when healthy, but it
+    // drops off the bus under motor EMI and tri-states, leaving RX0 floating. The
+    // pull-up makes a dead/absent USB chip read as UART idle instead of garbage.
+    pinMode(0, INPUT_PULLUP);
     pinMode(LED_BUILTIN, OUTPUT);
 
     applyRole(loadRole());
@@ -441,21 +488,25 @@ static void dispatchConfigLine(HardwareSerial &port)
 }
 
 // SET/GET on a channel other than the board's main one, so a board stays
-// configurable over USB (and an UNKNOWN board over Serial1/Serial2). Handles at
-// most one line or byte per call; anything that isn't S/G is discarded.
+// configurable over USB (and an UNKNOWN board over Serial1/Serial2). Non-config
+// bytes are discarded singly; the drain is bounded like loop()'s.
 static void processConfig(HardwareSerial &port)
 {
-    if (!port.available()) return;
-    char c = port.peek();
-    if (c == 'S' || c == 'G')
-        dispatchConfigLine(port);
-    else
-        port.read();
+    int rxBudget = RX_DRAIN_BUDGET;
+    while (port.available() && rxBudget-- > 0)
+    {
+        char c = port.peek();
+        if (c == 'S' || c == 'G')
+            dispatchConfigLine(port);
+        else
+            port.read();
+    }
 }
 
 void loop()
 {
-    while (mainSerial->available())
+    int rxBudget = RX_DRAIN_BUDGET;
+    while (mainSerial->available() && rxBudget-- > 0)
     {
         char cmdType = mainSerial->peek();
         if (cmdType == 'S' || cmdType == 'G')
@@ -565,7 +616,15 @@ void loop()
         }
         else
         {
-            mainSerial->readStringUntil('\n');
+            // Unknown byte: discard it and move on — do NOT line-drain. The SDK
+            // validates before sending, so an unknown byte is line noise, not a
+            // command: when the USB bridge chip glitches under motor EMI the RX0
+            // line floats and delivers continuous garbage, and a readStringUntil()
+            // here costs a 50 ms timeout PLUS a heap String allocation per call —
+            // dozens of those per pass stalled the loop for seconds and fragmented
+            // the heap toward a hard hang (bench 2026-07-03, runaway FLHY).
+            // Single-byte discard is non-blocking and self-resynchronizing.
+            mainSerial->read();
         }
     }
 
