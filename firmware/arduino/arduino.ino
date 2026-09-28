@@ -690,7 +690,11 @@ void loop()
     forwardFullLines(leftSerial, mainSerial, leftPartial, TELEMETRY_LINE_MAX, &leftPartialPos, ROLE_LEFT);
     forwardFullLines(rightSerial, mainSerial, rightPartial, TELEMETRY_LINE_MAX, &rightPartialPos, ROLE_RIGHT);
 
-    if (actuatorManager) actuatorManager->updateAll();
+    if (actuatorManager)
+    {
+        actuatorManager->updateAll();
+        actuatorManager->reportFaults(*mainSerial);
+    }
 
     if (currentRole == ROLE_FRONT || currentRole == ROLE_UNKNOWN)
     {

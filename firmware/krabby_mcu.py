@@ -4,6 +4,7 @@ import serial
 import time
 import threading
 import logging
+from collections import deque
 from typing import Dict, Optional
 from firmware.interfaces.imu_telemetry import ImuTelemetry
 from firmware.interfaces.joint_telemetry import JointTelemetry
@@ -157,7 +158,36 @@ def parse_cal_reply(line: str):
         return None
 
 
+# ERR channel (M17 Task 1 §5): "ERR <token> <errorcode>". Codes are the canonical
+# vocabulary in Task 1 §5; each maps to an operator-facing fix (Task 4 §5).
+_FIX_INSTRUCTIONS = {
+    "motor_did_not_move": "Check motor power wiring on {joint} (H-bridge output + power harness).",
+    "motor_jammed": "Motor on {joint} is drawing current but not moving — mechanical jam, bind, or obstruction. Investigate before re-driving.",
+    "pot_value_invalid": "Check potentiometer wiring on {joint} (3-wire harness: VCC, signal, GND).",
+    "hall_no_edges": "Check Hall encoder wiring on {joint} (A/B channels and power).",
+    "hall_drift": "Hall count drifts between repeat sweeps on {joint}. Check signal integrity and encoder coupling to the motor shaft.",
+    "not_calibrated": "{joint} is PARTIALLY_CALIBRATED — a position target was rejected. Jog the joint to either end-stop or run `calibrate-joint {joint}`.",
+    "not_in_starting_pose": "Robot is not in the auto-squat starting pose. Re-run calibration from any state — the cal routine drives there automatically.",
+    "current_sense_no_signal": "Check current-sense wiring on {joint} (shunt + analog IS line back to the shield).",
+    "current_sense_no_spike": "Current sense on {joint} reads but does not spike under load. Verify the motor is actually bearing weight; if so, check the shunt resistor.",
+}
+
+
+def parse_err_line(line: str):
+    """Parse 'ERR <token> <code>' into (token, code), or None if not an ERR line."""
+    parts = line.split()
+    if len(parts) != 3 or parts[0] != "ERR":
+        return None
+    return parts[1], parts[2]
+
+
 class KrabbyMCUSDK:
+    @staticmethod
+    def explain_failures(errors) -> list[str]:
+        """Turn (joint, code) pairs from ERR lines into operator-facing fix instructions."""
+        return [_FIX_INSTRUCTIONS.get(code, f"Unknown failure on {{joint}}: {code}").format(joint=joint)
+                for joint, code in errors]
+
     def __init__(self, port=None, baud=DEFAULT_BAUD):
         self.port = port or default_port()
         self.baud = baud
@@ -181,6 +211,8 @@ class KrabbyMCUSDK:
         self._last_ver_line: Optional[str] = None
         self._last_get_line: Optional[str] = None
         self._last_cal_line: Optional[str] = None
+        # Recent (token, code) pairs from ERR lines, oldest first.
+        self.errors: deque = deque(maxlen=64)
         # Last time a telemetry line was seen per role prefix (FRONT/UNKWN/LEFT/RIGHT).
         self.role_last_seen: Dict[str, float] = {}
 
@@ -278,6 +310,8 @@ class KrabbyMCUSDK:
                 elif line.startswith("GET"):
                     # "GET …" / "GET_LEFT …" / "GET_RIGHT …" — tagged config reply
                     self._last_get_line = line
+                elif line.startswith("ERR "):
+                    self._on_err_line(line)
                 elif line.startswith("CAL "):
                     # calibration result ("CAL <joint> ... saved" / "... FAIL <why>")
                     self._last_cal_line = line
@@ -290,6 +324,12 @@ class KrabbyMCUSDK:
                 self.last_error = exc
                 self.running = False
                 break
+
+    def _on_err_line(self, line: str):
+        if (err := parse_err_line(line)) is None:
+            return
+        self.errors.append(err)
+        logger.warning("[MCU] %s — %s", line, self.explain_failures([err])[0])
 
     def _parse_telemetry_line(self, line: str):
         parsed = TelemetryFrame.parse_line(line)

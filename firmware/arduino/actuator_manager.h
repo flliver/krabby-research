@@ -349,6 +349,20 @@ public:
             actuators[i]->update();
     }
 
+    // One "ERR <joint> pot_value_invalid" per fault event: printed when the pot
+    // goes invalid (unplugged, railed, or jumping while idle), re-armed once it
+    // reads valid again.
+    void reportFaults(Print &out)
+    {
+        for (size_t i = 0; i < count && i < CONTROLLER_ACTUATOR_COUNT; i++)
+        {
+            const bool potValid = actuators[i]->potTracker.isValid();
+            if (!potValid && potWasValid[i])
+                printErr(out, actuators[i]->name, "pot_value_invalid");
+            potWasValid[i] = potValid;
+        }
+    }
+
     void applyCommands(const Command *cmds, size_t cmdCount)
     {
         // TODO: This is O(N^2), but N is small so probably ok for now. Would need to add a map for larger actuator sets.
@@ -548,6 +562,7 @@ private:
     }
 
     JointCalBlock cal;
+    bool potWasValid[CONTROLLER_ACTUATOR_COUNT] = {true, true, true, true, true, true};
     LinearActuator **actuators;
     size_t count;
 };

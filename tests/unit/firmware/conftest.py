@@ -1,4 +1,6 @@
 """Shared fixtures for firmware unit tests."""
+from collections import deque
+
 import pytest
 from unittest.mock import Mock
 
@@ -17,6 +19,7 @@ def bare_sdk():
     sdk._last_ver_line = None
     sdk._last_get_line = None
     sdk._last_cal_line = None
+    sdk.errors = deque(maxlen=64)
     sdk.ser = Mock()
     sdk.ser.is_open = True
     return sdk
