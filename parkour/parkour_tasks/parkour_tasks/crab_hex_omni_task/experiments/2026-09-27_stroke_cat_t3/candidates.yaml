@@ -230,8 +230,10 @@ chains:
           KRABBY_OMNI_REWARD_SPLIT: "1"
           # PROVISIONAL replay-scale doses (REPLAY_GATE_CAT.md's t3-economy table, decision 3's 10 %
           # delivered-share solve). Phase C step 9's dose smoke rescales these to training scale.
-          KRABBY_OMNI_STROKE_W: "0.1362210975498265"
-          KRABBY_OMNI_STROKE_CAT_W: "fwd:1.0,back:1.0,side:4.150041141570944,diag:1.318716993366581,turn:1.7449369222400448,move_turn:1.0"
+          # FINAL training-scale doses (WINDOW0_t3.md, 2026-09-28): r_fwd 1.213; side rescaled by the DWELL-WEIGHTED r 1.454
+          # (user decision; the tool mean-of-rates 4.61 was one 0.008-s-dwell spike); diag/turn replay-set; move_turn m = 1.
+          KRABBY_OMNI_STROKE_W: "0.112339"
+          KRABBY_OMNI_STROKE_CAT_W: "fwd:1.000000,back:1.000000,side:3.460881,diag:1.599056,turn:2.115884,move_turn:1.000000"
         eval: [suite]
         categories: [back, fwd, side, stand, turn]
         # the facing ladder's t3 floor, verbatim -- identical to t3f's above
