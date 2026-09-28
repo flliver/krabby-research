@@ -495,6 +495,15 @@ class JetsonHalServer(HalServerBase):
         joint_velocities = np.zeros(obs_joint_count, dtype=np.float32)
         num_joints_vel = min(len(joint_vel), obs_joint_count)
         joint_velocities[:num_joints_vel] = joint_vel[:num_joints_vel].astype(np.float32)
+
+        # Measured joint state from MCU telemetry replaces the commanded-position echo
+        # (and zero velocity) for every joint with live, connected telemetry.
+        if self._mcusdk is not None:
+            measured_pos, measured_vel = self._mcusdk.joint_state()
+            for i, name in enumerate(self.robot_definition.get_joint_names()[:obs_joint_count]):
+                if name in measured_pos:
+                    joint_positions[i] = measured_pos[name]
+                    joint_velocities[i] = measured_vel[name]
         
         base_ang_vel_b = base_ang_vel.astype(np.float32)
         base_lin_vel_b = base_lin_vel.astype(np.float32)
@@ -510,8 +519,11 @@ class JetsonHalServer(HalServerBase):
         if zed_lin_vel is not None:
             base_lin_vel_b = zed_lin_vel
 
-        # Contact forces (placeholder - 5 values, normalized to [-0.5, 0.5])
+        # Contact forces from per-leg current sense (first-pass mapping, see
+        # krabby_mcusdk.py); zeros when no MCU is attached.
         contact_forces = np.zeros(5, dtype=np.float32)
+        if self._mcusdk is not None:
+            contact_forces[:] = self._mcusdk.contact_forces()
         
         # Previous action (from last command or zeros if none)
         previous_action = np.zeros(obs_joint_count, dtype=np.float32)

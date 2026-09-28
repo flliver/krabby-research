@@ -5,6 +5,7 @@ to the Krabby MCU (real hardware on Jetson).
 """
 
 import logging
+import time
 from typing import Optional
 
 from hal.client.data_structures.hardware import JointCommand
@@ -19,6 +20,28 @@ PWM_SCALE = 255 / JOINT_LIMIT_RAD
 
 _HAL_TO_FW_SUFFIX = {"hip_yaw": "HY", "hip_pitch": "HL", "knee": "KL"}
 
+# Current sense -> contact_forces (M17 Task 6 §3, Option A). FIRST-PASS MAPPING,
+# expected to be refined in M15. The model's contact_forces is 5-wide but the hex
+# has 6 legs: five legs fill the five slots and MR is dropped (the middle pair is
+# redundant for a forward gait). A leg's load proxy is the sum of its joints' raw
+# current (avgIS counts), mapped linearly so 0 -> -0.5 (no contact) and
+# CONTACT_FULLSCALE -> +0.5, clipped. CONTACT_FULLSCALE is a placeholder until
+# Task 4's loaded/unloaded current ranges are measured on the chassis.
+CONTACT_LEGS = ("FL", "FR", "ML", "RL", "RR")
+CONTACT_FULLSCALE = 300.0
+
+
+def contact_forces_from_joints(joints) -> list[float]:
+    """joints: firmware joint name -> JointTelemetry. A leg with no telemetry reads 0.0 (unknown)."""
+    forces = []
+    for leg in CONTACT_LEGS:
+        currents = [jt.current for name, jt in joints.items() if jt is not None and name.startswith(leg)]
+        if not currents:
+            forces.append(0.0)
+            continue
+        forces.append(max(-0.5, min(0.5, sum(currents) / CONTACT_FULLSCALE - 0.5)))
+    return forces
+
 
 def _hal_to_firmware_name(hal_name: str) -> str:
     leg, _, suffix = hal_name.partition("_")
@@ -27,6 +50,17 @@ def _hal_to_firmware_name(hal_name: str) -> str:
 
 def _rad_to_pwm(rad: float) -> int:
     return max(-255, min(255, int(round(rad * PWM_SCALE))))
+
+
+def _normalized_to_rad(n: float) -> float:
+    """Inverse of the command mapping in _map_mcu_joints_to_normalized, so measured
+    positions reach the model in the same radian scale as its commands."""
+    return (n - JOINT_NEUTRAL) * 2.0 * JOINT_LIMIT_RAD
+
+
+# Joint velocity is differentiated from successive measured positions (the MCU
+# reports position only), smoothed with a single-pole EMA to suppress serial jitter.
+JOINT_VEL_EMA_ALPHA = 0.2
 
 
 def _map_mcu_joints_to_normalized(command: dict[str, float], mcu_joints: tuple[str, ...]) -> dict[str, float]:
@@ -66,6 +100,8 @@ class KrabbyMCUSDK:
         self._mcu_joints = mcu_joints
         self._mcu = FirmwareKrabbyMCUSDK(port=port, baud=baud)
         self._connected = False
+        self._last_pos: dict[str, tuple[float, float]] = {}  # HAL name -> (rad, t)
+        self._vel: dict[str, float] = {}
         
         logger.info(f"KrabbyMCUSDK initialized (port={port}, baud={baud}, auto_connect={auto_connect})")
         
@@ -138,6 +174,34 @@ class KrabbyMCUSDK:
                 f"MCU normalized: min={min(cmds_by_fw.values()):.4f}, max={max(cmds_by_fw.values()):.4f}"
             )
     
+    def joint_state(self, now: Optional[float] = None) -> tuple[dict[str, float], dict[str, float]]:
+        """Measured (positions, velocities) in rad and rad/s, keyed by HAL joint name.
+
+        Only joints with live, connected telemetry are included; the caller keeps
+        its fallback for the rest. Velocity is 0.0 on a joint's first sample.
+        """
+        now = time.monotonic() if now is None else now
+        joints = dict(self._mcu.joints)
+        positions, velocities = {}, {}
+        for name in self._mcu_joints:
+            jt = joints.get(_hal_to_firmware_name(name))
+            if jt is None or not jt.connected:
+                continue
+            rad = _normalized_to_rad(jt.pos)
+            prev = self._last_pos.get(name)
+            if prev is not None and now > prev[1]:
+                raw = (rad - prev[0]) / (now - prev[1])
+                self._vel[name] = self._vel.get(name, 0.0) + JOINT_VEL_EMA_ALPHA * (raw - self._vel.get(name, 0.0))
+            self._last_pos[name] = (rad, now)
+            positions[name] = rad
+            velocities[name] = self._vel.get(name, 0.0)
+        return positions, velocities
+
+    def contact_forces(self) -> list[float]:
+        """5-slot contact_forces from the latest per-joint current telemetry."""
+        # Copy: the firmware SDK's reader thread updates .joints concurrently.
+        return contact_forces_from_joints(dict(self._mcu.joints))
+
     def close(self) -> None:
         """Close MCU connection and release resources."""
         self._mcu.close()
