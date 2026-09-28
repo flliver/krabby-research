@@ -155,8 +155,13 @@ class TestConnectionStateField:
     def test_unknown_connection_state_token_is_rejected(self):
         assert JointTelemetry.from_tokens((self.NINE + " 3").split()) is None
 
-    def test_eleven_fields_is_rejected(self):
-        assert JointTelemetry.from_tokens((self.NINE + " 1 2").split()) is None
+    def test_eleventh_field_is_cal_state(self):
+        jt = JointTelemetry.from_tokens((self.NINE + " 1 2").split())
+        assert jt.connection_state is ActuatorConnection.CONNECTED
+        assert jt.cal_state_name == "FULL"
+
+    def test_twelve_fields_is_rejected(self):
+        assert JointTelemetry.from_tokens((self.NINE + " 1 2 0").split()) is None
 
     def test_non_finite_legacy_position_remains_disconnected(self):
         jt = JointTelemetry.from_tokens("FLHY nan 300 210 1 1 0 255 7 1".split())

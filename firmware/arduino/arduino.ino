@@ -50,9 +50,11 @@ constexpr unsigned long OLED_REDRAW_INTERVAL_MILLISECONDS = 250;
 
 // EEPROM address 32: magic sentinel byte (0xAB); address 33: BoardRole value.
 // Loaded on boot; written only by `SET role …`. Unset → ROLE_UNKNOWN.
-// Calibration data (CalData) occupies addresses 0–25; gap at 26–31 kept for alignment.
 #define EEPROM_ROLE_ADDR  32
 #define EEPROM_ROLE_MAGIC 0xAB
+
+static_assert(JOINTCAL_BASE_ADDR > EEPROM_ROLE_ADDR + 1, "JointCalBlock overlaps the role bytes");
+static_assert(JOINTCAL_BASE_ADDR + sizeof(JointCalBlock) <= EEPROM_IMU_CAL_ADDR, "JointCalBlock overlaps IMU cal");
 
 static void saveRole(BoardRole r)
 {
@@ -318,7 +320,7 @@ void applyRole(BoardRole role)
             list[i]->setControlConfig(ACTUATOR_CONFIG);
         actuatorManager = new ActuatorManager(list, ACT_COUNT);
         actuatorManager->initAll();
-        actuatorManager->loadCalibration();
+        actuatorManager->loadCalibration();  // persisted per-joint limits (EEPROM @64)
     }
 }
 
@@ -558,11 +560,23 @@ void loop()
         }
         else if (cmdType == 'C')
         {
+            // "C <joint> [retract|extend]" — calibrate ONE named joint (find
+            // its travel limits, persist to EEPROM); the optional direction
+            // records just that one stop. Forward first: the joint may live on
+            // a follower; each board acts only on a joint it owns and ignores
+            // the rest, so broadcasting is safe. Calibration BLOCKS the owning
+            // board's loop for its duration (bench-time command).
             mainSerial->read();
-            mainSerial->readStringUntil('\n');
-            if (actuatorManager) actuatorManager->startAutoCalibration();
-            if (leftSerial)  leftSerial->println("C");
-            if (rightSerial) rightSerial->println("C");
+            String calArgs = mainSerial->readStringUntil('\n');
+            calArgs.trim();
+            if (leftSerial)  { leftSerial->print("C ");  leftSerial->println(calArgs); }
+            if (rightSerial) { rightSerial->print("C "); rightSerial->println(calArgs); }
+            int calSp = calArgs.indexOf(' ');
+            String calName = calSp < 0 ? calArgs : calArgs.substring(0, calSp);
+            String calDir  = calSp < 0 ? String() : calArgs.substring(calSp + 1);
+            calDir.trim();
+            if (actuatorManager && calName.length())
+                actuatorManager->calibrateJoint(calName, calDir, *mainSerial);
         }
         else if (cmdType == 'H')
         {

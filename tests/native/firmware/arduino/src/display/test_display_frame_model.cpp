@@ -160,10 +160,25 @@ static void test_multi_character_connection_state_field_is_rejected()
         line, ROLE_LEFT, actuators));
 }
 
-static void test_eleven_field_segment_is_rejected()
+static void test_eleven_field_segment_carries_cal_state()
+{
+    // The 11th field is the joint's calState; the connection state still parses.
+    const char *line =
+        "LEFT ; RLHY 0.1 0 0 1 1 0 30 0 2 2; RLHL 0.2 0 0 0 0 0 0 0 1;"
+        " RLKL 0.2 0 0 1 1 40 0 0 0; MLHY 0.3 0 0 0 0 0 0 0 1;"
+        " MLHL 0.4 0 0 0 0 0 0 0 0; MLKL 0.5 0 0 0 0 0 0 0 1";
+    ActuatorStatus actuators[CONTROLLER_ACTUATOR_COUNT];
+    TEST_ASSERT_TRUE(parseActuatorStatus(
+        line, ROLE_LEFT, actuators));
+    TEST_ASSERT_EQUAL_INT(
+        static_cast<int>(ActuatorConnection::Disconnected),
+        static_cast<int>(actuators[0].connectionState));
+}
+
+static void test_twelve_field_segment_is_rejected()
 {
     const char *line =
-        "LEFT ; RLHY 0.1 0 0 1 1 0 30 0 1 9; RLHL 0.2 0 0 0 0 0 0 0 1;"
+        "LEFT ; RLHY 0.1 0 0 1 1 0 30 0 1 2 9; RLHL 0.2 0 0 0 0 0 0 0 1;"
         " RLKL 0.2 0 0 1 1 40 0 0 0; MLHY 0.3 0 0 0 0 0 0 0 1;"
         " MLHL 0.4 0 0 0 0 0 0 0 0; MLKL 0.5 0 0 0 0 0 0 0 1";
     ActuatorStatus actuators[CONTROLLER_ACTUATOR_COUNT];
@@ -555,7 +570,8 @@ int main()
     RUN_TEST(test_invalid_actuator_identity_rejects_the_whole_line);
     RUN_TEST(test_tenth_field_carries_composed_connection_state);
     RUN_TEST(test_multi_character_connection_state_field_is_rejected);
-    RUN_TEST(test_eleven_field_segment_is_rejected);
+    RUN_TEST(test_eleven_field_segment_carries_cal_state);
+    RUN_TEST(test_twelve_field_segment_is_rejected);
     RUN_TEST(test_unverified_follower_channel_renders_unverified);
     RUN_TEST(test_glyph_boundaries_and_disconnection);
     RUN_TEST(test_unknown_connection_is_distinct_from_hold);

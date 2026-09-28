@@ -118,6 +118,30 @@ JOINT_GROUP_NAMES = (
     ("LEFT", ["RLHY", "RLHL", "RLKL", "MLHY", "MLHL", "MLKL"]),
     ("RIGHT", ["RRHY", "RRHL", "RRKL", "MRHY", "MRHL", "MRKL"]),
 )
+ALL_JOINT_NAMES = frozenset(n for _, names in JOINT_GROUP_NAMES for n in names)
+
+
+CAL_DIRECTIONS = ("retract", "extend")  # single-stop calibration ("C <joint> <dir>")
+
+
+def parse_cal_reply(line: str):
+    """Parse a firmware calibration reply into a dict, or None if not a CAL line.
+
+    "CAL <joint> <min> <max> saved"          -> {"joint", "min", "max", "ok": True}
+    "CAL <joint> <retract|extend> <v> saved" -> {"joint", "dir", "value", "ok": True}
+    "CAL <joint> FAIL <why>"                 -> {"joint", "why", "ok": False}
+    """
+    parts = line.split()
+    if len(parts) < 3 or parts[0] != "CAL":
+        return None
+    if parts[2] == "FAIL":
+        return {"joint": parts[1], "why": parts[3] if len(parts) > 3 else "?", "ok": False}
+    try:
+        if parts[2] in CAL_DIRECTIONS:
+            return {"joint": parts[1], "dir": parts[2], "value": int(parts[3]), "ok": True}
+        return {"joint": parts[1], "min": int(parts[2]), "max": int(parts[3]), "ok": True}
+    except (ValueError, IndexError):
+        return None
 
 
 class KrabbyMCUSDK:
@@ -143,6 +167,7 @@ class KrabbyMCUSDK:
         self.last_cmd: Dict[str, Optional[float]] = {}
         self._last_ver_line: Optional[str] = None
         self._last_get_line: Optional[str] = None
+        self._last_cal_line: Optional[str] = None
         # Last time a telemetry line was seen per role prefix (FRONT/UNKWN/LEFT/RIGHT).
         self.role_last_seen: Dict[str, float] = {}
 
@@ -238,7 +263,11 @@ class KrabbyMCUSDK:
                     self._last_get_line = line
                 elif line.startswith("VER "):
                     self._last_ver_line = line
-                elif "Krabby" in line or "CAL" in line or "Saved" in line:
+                elif line.startswith("CAL "):
+                    # calibration result ("CAL <joint> ... saved" / "... FAIL <why>")
+                    self._last_cal_line = line
+                    logger.info(f"[MCU] {line}")
+                elif "Krabby" in line or "Saved" in line:
                     logger.info(f"[MCU] {line}")
 
             except (serial.SerialException, AttributeError) as e:
@@ -332,18 +361,43 @@ class KrabbyMCUSDK:
         self.ser.flush()
         logger.debug("CMD -> %s", cmd.strip())
 
-    def read_version(self, timeout: float = 1.0) -> Optional[str]:
+    def _request(self, cmd: str, slot: str, accept, *,
+                 timeout: float, poll: float = 0.02):
+        """Sends a command and waits for its reply.
+
+        Replies arrive on the reader thread (_reader_loop), which stashes each
+        recognized reply line in a per-kind attribute (_last_ver_line, etc.).
+        This method clears that attribute, writes `cmd` to the serial port,
+        then polls the attribute every `poll` seconds until `timeout` expires.
+
+        slot: name of the attribute the reader thread will fill, e.g.
+            "_last_get_line".
+        accept: called with each line that shows up in the slot. It should
+            parse the line and return the caller's result, or return None to
+            reject it (e.g. a GET reply from a different board) and keep
+            waiting for the next line.
+
+        Returns whatever `accept` returned, or None if the port is closed or
+        no acceptable reply arrived in time.
+        """
         if not self.ser or not self.ser.is_open:
             return None
-        self._last_ver_line = None
-        self.ser.write(b"V\n")
+        setattr(self, slot, None)
+        self.ser.write((cmd + "\n").encode("utf-8"))
         self.ser.flush()
+        logger.info("CMD -> %s", cmd)
         deadline = time.time() + timeout
         while time.time() < deadline:
-            if self._last_ver_line is not None:
-                return self._last_ver_line
-            time.sleep(0.02)
+            if (line := getattr(self, slot)) is not None:
+                setattr(self, slot, None)
+                if (result := accept(line)) is not None:
+                    return result
+            time.sleep(poll)
         return None
+
+    def read_version(self, timeout: float = 1.0) -> Optional[str]:
+        return self._request("V", "_last_ver_line", lambda line: line,
+                             timeout=timeout)
 
     def send_set(self, board: Optional[str] = None, **kwargs: str) -> None:
         """Write config keys to a board (fire-and-forget; no reply).
@@ -371,28 +425,42 @@ class KrabbyMCUSDK:
             mcu.send_get("role", board="left")   # the left follower
         """
         line = build_get_line(board, list(keys))
-        if not self.ser or not self.ser.is_open:
-            return None
         want_board = board or "front"
-        self._last_get_line = None
-        self.ser.write((line + "\n").encode("utf-8"))
-        self.ser.flush()
-        logger.info("CMD -> %s", line)
-        deadline = time.time() + timeout
-        while time.time() < deadline:
-            if (reply := self._last_get_line) is not None:
-                self._last_get_line = None
-                if (parsed := parse_get_reply(reply)) and parsed[0] == want_board:
-                    return parsed[1]
-            time.sleep(0.02)
-        return None
 
-    def send_command_calibrate(self):
-        if not self.ser or not self.ser.is_open:
-            return
-        self.ser.write(b"C\n")
-        self.ser.flush()
-        logger.info("CMD -> AUTO-CALIBRATE (C)")
+        def accept(reply):
+            if (parsed := parse_get_reply(reply)) and parsed[0] == want_board:
+                return parsed[1]
+            return None
+        return self._request(line, "_last_get_line", accept, timeout=timeout)
+
+    def calibrate_joint(self, joint: str, direction: Optional[str] = None,
+                        timeout: float = 40.0) -> Optional[Dict]:
+        """Calibrate ONE joint: the board sweeps it and persists the limits to
+        EEPROM. direction=None sweeps to both stops; "retract"/"extend" records
+        only that stop — for stances where the full sweep can't run (e.g. feet
+        on the ground). Blocks until the board's "CAL ..." reply (the sweep takes
+        seconds; the owning board pauses telemetry while it runs). Returns
+        parse_cal_reply's dict, or None if no reply arrived in `timeout`.
+
+        Validates the joint name and direction client-side (ValueError) before
+        touching the wire. Works for follower joints too — the front board
+        broadcasts the command.
+        """
+        joint = joint.upper()
+        if joint not in ALL_JOINT_NAMES:
+            raise ValueError(f"unknown joint {joint!r}; expected one of "
+                             f"{', '.join(sorted(ALL_JOINT_NAMES))}")
+        if direction is not None and direction not in CAL_DIRECTIONS:
+            raise ValueError(f"invalid direction {direction!r}; allowed: "
+                             f"{', '.join(CAL_DIRECTIONS)}")
+        cmd = f"C {joint}" if direction is None else f"C {joint} {direction}"
+
+        def accept(reply):
+            if (parsed := parse_cal_reply(reply)) and parsed["joint"] == joint:
+                return parsed
+            return None
+        return self._request(cmd, "_last_cal_line", accept,
+                             timeout=timeout, poll=0.05)
 
     def send_command_joints_hold(self):
         """

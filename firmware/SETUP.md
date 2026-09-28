@@ -83,7 +83,7 @@ Telemetry is sent as **newline-terminated lines** over serial. The Python side p
 
 - **Line format:** `<ROLE>; <name> <pos> <pot> <current> <enL> <enR> <pwmL> <pwmR> <saf>; <name> ...; ...`
 - **Role prefix:** One of `FRONT`, `UNKNOWN`, `LEFT`, `RIGHT` (no semicolon inside the role).
-- **Segment format:** Each joint segment is 10 space-separated values: joint name, position (0–1), pot raw, current raw, enable L/R, PWM L/R, safety, and composed connection state (`0` unknown, `1` connected, `2` disconnected). The parser still accepts legacy 9-field segments.
+- **Segment format:** Each joint segment is 11 space-separated values: joint name, position (0–1), pot raw, current raw, enable L/R, PWM L/R, safety, composed connection state (`0` unknown, `1` connected, `2` disconnected), and calibration state (`0` = no end-stops recorded, `1` = one stop, `2` = both stops recorded and applied). The host parser also accepts the older 9- and 10-value forms.
 - **Example:** `FRONT; FLHY 0.723 740 694 0 0 0 0 0 1;FLHL 0.723 740 691 ...`
 
 On the Arduino side, telemetry is built in **telemetry_manager.h** (struct `JointTelemetry`, `appendTo()`). The old standalone `joint_telemetry.h` was removed; all telemetry formatting and collection lives in `telemetry_manager.h` and `actuator_manager.h`.
@@ -148,10 +148,10 @@ python -m firmware --debug
 
 | Address | Size | Purpose |
 |---------|------|---------|
-| 0–25 | 26 bytes | `CalData` struct — calibration min/max for 6 actuators + magic word (`0xDEADBEEF`) |
-| 26–31 | 6 bytes | Reserved (alignment gap) |
 | 32 | 1 byte | Role magic sentinel (`0xAB`) — written by `SET role …` |
 | 33 | 1 byte | `BoardRole` value: `0`=UNKNOWN, `1`=FRONT, `2`=LEFT, `3`=RIGHT |
+| 64–160 | 97 bytes | `JointCalBlock` (`eeprom_layout.h`) — per-joint min/max stops + flags, magic `0xCA17`, CRC32 |
+| 192–217 | 26 bytes | IMU calibration record (see the I2C Sensor Cluster section) |
 
 ### Board roles
 
@@ -166,12 +166,19 @@ Assign roles once per board:
 
 `SET` applies immediately (no reboot). Wire format: `SET role <FRONT|LEFT|RIGHT|UNKNOWN>` (no reply) and `GET <role|version> …` → `GET <key> <val> …`; FRONT relays `SET_LEFT`/`GET_LEFT` and `SET_RIGHT`/`GET_RIGHT` to its followers and re-tags their replies. On each boot the board prints `ROLE_HINT: <role>`, which `krabby-firmware show` uses to label boards probed individually.
 
-### Feature 1: Auto-Calibration (Run Once)
-The robot now calibrates itself automatically and saves limits to EEPROM.
- - Select Option 2 (Auto-Calibrate) in the menu.
- - Stand Back: The robot will perform the safety sequence:
-    - Yaw Left -> Yaw Right -> Hip Up -> Knee Out -> Knee In -> Hip Down.
- - Result: Limits are saved. You do not need to repeat this after rebooting.
+Per-joint calibration lives in a **separate** `JointCalBlock` at EEPROM address 64 (magic `0xCA17`, own schema version and CRC32) holding `minStop`/`maxStop` plus a validity-flags byte per actuator slot — clear of the role bytes so writing calibration can never clobber the role. The flags record which stops have been captured (directional calibration writes one at a time); a slot only overrides the actuator's full-range defaults once **both** stops are recorded. Loaded on boot in `applyRole()`.
+
+### Per-joint calibration (`calibrate-joint`)
+
+Calibrate one joint at a time from the host:
+
+```bash
+krabby-firmware calibrate-joint FLHL          # front-board joint, full sweep
+krabby-firmware calibrate-joint RLKL          # follower joint — front forwards the command
+krabby-firmware calibrate-joint FLHL retract  # record ONLY the retract stop
+```
+
+The joint retracts until its pot stops changing, records the stop, extends the same way, records the other stop, and persists both to EEPROM (they survive power cycles and are reloaded on boot). With a `retract`/`extend` argument only that one stop is swept and recorded — use this when the full sweep can't run in the robot's current stance (e.g. extending a hip with feet on the ground lifts the chassis instead of reaching the stop); run the opposite direction later, in a stance where it's free, to complete the pair. The sweep is deliberately gentle — low PWM with a timeout instead of a hard push — and BLOCKS the owning board (telemetry pauses) for its few-second duration. Joints without a working pot (the yaws) fail with `no_stop`; positioning those is Task 3's manual sequence.
 
 ### Feature 2: Manual Jog Mode
  - Select Option 3 (Jog Mode).
@@ -341,7 +348,7 @@ To force a re-capture, invalidate the magic byte with a throwaway sketch:
 
 ```cpp
 #include <EEPROM.h>
-void setup() { EEPROM.write(40, 0x00); }  // 40 = EEPROM_IMU_CAL_ADDR
+void setup() { EEPROM.write(192, 0x00); }  // 192 = EEPROM_IMU_CAL_ADDR
 void loop() {}
 ```
 
@@ -358,30 +365,29 @@ one". The **schema byte** is a layout version number: if a future firmware
 changes the field layout of `ImuCalibrationRecord`, it bumps the schema, and old data
 is rejected as stale instead of being silently misread field-by-field.
 
-Full EEPROM map after M16 Task 1. Every address below is a byte offset into
-the 4 KB EEPROM, ranges inclusive. Bytes 0–33 are the pre-existing layout
-(same as the "EEPROM address layout" table earlier in this file); M16 adds
-only bytes 40–65. Constants live in `src/imu/imu_constants.h`; the
-`ImuCalibrationRecord` struct lives in `src/imu/imu_calibrator.h`.
+Full EEPROM map. Every address below is a byte offset into the 4 KB EEPROM,
+ranges inclusive. Constants live in `eeprom_layout.h` and
+`src/imu/imu_constants.h`; the `ImuCalibrationRecord` struct lives in
+`src/imu/imu_calibrator.h`. `arduino.ino` static-asserts that the regions
+don't overlap.
 
 | Bytes | Size | Owner | Contents |
 | :--- | ---: | :--- | :--- |
-| 0–25 | 26 | Joint calibration (`CalData`, pre-existing) | per-actuator min/max for 6 actuators + magic word `0xDEADBEEF` |
-| 26–31 | 6 | — | unused (pre-existing alignment gap) |
 | 32 | 1 | Board role (`SET role`) | role magic sentinel `0xAB` |
 | 33 | 1 | Board role (`SET role`) | `BoardRole` value (0=UNKNOWN, 1=FRONT, 2=LEFT, 3=RIGHT) |
-| 34–39 | 6 | — | unused gap left before the M16 block |
-| 40 | 1 | `ImuCalibrationRecord.magic` | `0xC7` (`EEPROM_IMU_CAL_MAGIC`) |
-| 41 | 1 | `ImuCalibrationRecord.schema` | layout version, currently `1` (`EEPROM_IMU_CAL_SCHEMA`) |
-| 42–53 | 12 | `ImuCalibrationRecord.gyroBiasDegreesPerSecond[3]` | 3 × 4-byte float; gyro zero-rate bias, deg/s, raw sensor frame |
-| 54–65 | 12 | `ImuCalibrationRecord.accelBiasG[3]` | 3 × 4-byte float; reserved accelerometer offset, g, raw sensor frame; zero until accelerometer calibration is implemented |
-| 66– | — | free | `EEPROM_SENSOR_CAL_NEXT_ADDR` = 66; Task 3 (INA228 cal) and later blocks allocate from here, each with its own magic + schema |
+| 64–160 | 97 | `JointCalBlock` (`eeprom_layout.h`) | magic `0xCA17`, schema, per-slot min/max stops + flags, CRC32 |
+| 192 | 1 | `ImuCalibrationRecord.magic` | `0xC7` (`EEPROM_IMU_CAL_MAGIC`) |
+| 193 | 1 | `ImuCalibrationRecord.schema` | layout version, currently `1` (`EEPROM_IMU_CAL_SCHEMA`) |
+| 194–205 | 12 | `ImuCalibrationRecord.gyroBiasDegreesPerSecond[3]` | 3 × 4-byte float; gyro zero-rate bias, deg/s, raw sensor frame |
+| 206–217 | 12 | `ImuCalibrationRecord.accelBiasG[3]` | 3 × 4-byte float; reserved accelerometer offset, g, raw sensor frame; zero until accelerometer calibration is implemented |
+| 218– | — | free | `EEPROM_SENSOR_CAL_NEXT_ADDR` = 218; later sensor blocks allocate from here, each with its own magic + schema |
 
-So "`ImuCalibrationRecord` is 26 bytes" means exactly bytes 40–65:
+So "`ImuCalibrationRecord` is 26 bytes" means exactly bytes 192–217:
 1 (magic) + 1 (schema) + 12 (gyro bias) + 12 (accel bias) = 26. The
 test-only EEPROM layout contract pins this stored shape to
 `EEPROM_IMU_CAL_SIZE` and verifies that it cannot overlap the joint, role, or
-next-sensor regions.
+next-sensor regions. Boards flashed with firmware that stored it at byte 40
+re-capture the gyro bias on their first boot (keep the robot still).
 
 ### Loop timing (AC 1c) and serial budget
 

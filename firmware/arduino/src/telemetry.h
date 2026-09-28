@@ -13,7 +13,9 @@ static constexpr char TELEMETRY_FIELD_SEPARATOR = ' ';
 static constexpr char IMU_TELEMETRY_TAG[] = "IMU";
 static constexpr size_t CONTROLLER_ACTUATOR_COUNT = 6;
 static constexpr size_t ACTUATOR_TELEMETRY_FIELD_COUNT = 9;
-static constexpr size_t ACTUATOR_TELEMETRY_MAX_FIELD_COUNT = 10;
+static constexpr size_t ACTUATOR_TELEMETRY_CONNECTION_FIELD_COUNT = 10;
+// 11th field is the joint's calState (see actuator_manager.h); not parsed here.
+static constexpr size_t ACTUATOR_TELEMETRY_MAX_FIELD_COUNT = 11;
 static constexpr size_t ACTUATOR_TELEMETRY_NAME_FIELD_INDEX = 0;
 static constexpr size_t ACTUATOR_TELEMETRY_POSITION_FIELD_INDEX = 1;
 static constexpr size_t ACTUATOR_TELEMETRY_RETRACT_PWM_FIELD_INDEX = 6;

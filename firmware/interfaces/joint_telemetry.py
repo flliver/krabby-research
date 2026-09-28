@@ -4,8 +4,14 @@ import math
 from typing import Tuple, Optional
 
 # Must match actuator_manager.h telemetry output.
-# Segment format: <name> <pos> <pot> <current> <enL> <enR> <pwmL> <pwmR> <saf> [<connection>]
+# Segment format: <name> <pos> <pot> <current> <enL> <enR> <pwmL> <pwmR> <saf> [<connection> [<cal_state>]]
+# saf: cumulative HallA edge count since boot (pins depend on KRABBY_PIN_REV in board_pins.h).
 # connection: locally composed state, 0 unknown / 1 connected / 2 disconnected.
+# cal_state (11th token, older firmware omits it): 0=UNCAL (no end-stops recorded),
+# 1=PARTIAL (one stop recorded, or degenerate range — pos still uses full-range defaults, so
+# it is not trustworthy), 2=FULL (both stops recorded and applied).
+
+CAL_STATE_NAMES = {0: "UNCAL", 1: "PARTIAL", 2: "FULL"}
 
 
 class ActuatorConnection(IntEnum):
@@ -24,19 +30,21 @@ class JointTelemetry:
     pwm: Tuple[int, int]
     saf: int
     connection_state: ActuatorConnection = ActuatorConnection.UNKNOWN
+    cal_state: int = 0  # 0=UNCAL, 1=PARTIAL, 2=FULL (default for pre-cal-state firmware)
 
     @classmethod
     def from_tokens(cls, tokens) -> Optional["JointTelemetry"]:
         if not tokens:
             return None
-        if not tokens or len(tokens) not in (9, 10):
+        # 9 tokens (legacy), 10 (+connection) or 11 (+cal_state). Anything else is corrupt.
+        if not tokens or len(tokens) not in (9, 10, 11):
             return None
         name, pos, pot, cur, enL, enR, pwmL, pwmR, saf = tokens[:9]
         try:
             position = float(pos)
             connection_state = (
                 ActuatorConnection(int(tokens[9]))
-                if len(tokens) == 10
+                if len(tokens) >= 10
                 else ActuatorConnection.UNKNOWN
             )
             # A non-finite position was the legacy disconnection encoding.
@@ -51,6 +59,7 @@ class JointTelemetry:
                 pwm=(int(pwmL), int(pwmR)),
                 saf=int(saf),
                 connection_state=connection_state,
+                cal_state=int(tokens[10]) if len(tokens) == 11 else 0,
             )
         except ValueError:
             return None
@@ -61,6 +70,10 @@ class JointTelemetry:
             math.isfinite(self.pos)
             and self.connection_state is not ActuatorConnection.DISCONNECTED
         )
+
+    @property
+    def cal_state_name(self) -> str:
+        return CAL_STATE_NAMES.get(self.cal_state, "?")
 
     def format_compact(self, target: Optional[float] = None) -> str:
         if not self.connected:

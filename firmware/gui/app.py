@@ -34,8 +34,8 @@ STATE_COLOR_STALE = "#c0392b"
 def _jog_sign(name: str) -> int:
     """Wire-PWM sign for this joint's "extend" leg motion. The knee (KL)
     linkages run opposite to the hips: positive PWM extends an HL but tucks a
-    KL, so KLs flip. Bench-observed 2026-07-13; the wire protocol itself stays
-    actuator-relative — this mapping is GUI-only."""
+    KL, so KLs flip. Bench-observed 2026-07-13; the wire protocol itself (jog,
+    C retract/extend) stays actuator-relative — this mapping is GUI-only."""
     return -1 if name.endswith("KL") else 1
 
 
@@ -62,23 +62,27 @@ class JointRow:
         self.btn_extend.bind("<ButtonPress-1>", lambda e: self._start_jog(1))
         self.btn_extend.bind("<ButtonRelease-1>", lambda e: self._stop_jog())
 
+        self.var_pos = tk.StringVar(value=NO_VALUE_TEXT)
+        self.var_cal = tk.StringVar(value=NO_VALUE_TEXT)
         self.var_pot = tk.StringVar(value=NO_VALUE_TEXT)
         self.var_cur = tk.StringVar(value=NO_VALUE_TEXT)
         self.var_pwm = tk.StringVar(value=NO_VALUE_TEXT)
         self.var_hall = tk.StringVar(value=NO_VALUE_TEXT)
 
-        ttk.Label(parent, textvariable=self.var_pot, width=6, anchor="e").grid(
-            row=row, column=3, padx=4
-        )
-        ttk.Label(parent, textvariable=self.var_cur, width=6, anchor="e").grid(
-            row=row, column=4, padx=4
-        )
-        ttk.Label(parent, textvariable=self.var_pwm, width=10, anchor="e").grid(
-            row=row, column=5, padx=4
-        )
-        ttk.Label(parent, textvariable=self.var_hall, width=6, anchor="e").grid(
-            row=row, column=6, padx=4
-        )
+        # Normalized [0,1] position is the canonical operator value; it's colored by
+        # calibration state so an unusable (PARTIAL) or uncalibrated (UNCAL) reading —
+        # where pos still maps through full-range defaults — is visibly distinct from a
+        # FULL, end-stop-anchored one. Raw pot ADC and the Hall edge count stay as debug
+        # fields for spotting wiring issues.
+        self.lbl_pos = tk.Label(parent, textvariable=self.var_pos, width=7, anchor="e",
+                                font=FONT_JOINT_NAME)
+        self.lbl_pos.grid(row=row, column=3, padx=4)
+        self.lbl_cal = tk.Label(parent, textvariable=self.var_cal, width=8, anchor="center")
+        self.lbl_cal.grid(row=row, column=4, padx=4)
+        ttk.Label(parent, textvariable=self.var_pot, width=6, anchor="e").grid(row=row, column=5, padx=4)
+        ttk.Label(parent, textvariable=self.var_cur, width=6, anchor="e").grid(row=row, column=6, padx=4)
+        ttk.Label(parent, textvariable=self.var_pwm, width=10, anchor="e").grid(row=row, column=7, padx=4)
+        ttk.Label(parent, textvariable=self.var_hall, width=6, anchor="e").grid(row=row, column=8, padx=4)
 
     def _start_jog(self, direction: int):
         self._active_dir = direction
@@ -109,9 +113,18 @@ class JointRow:
         if self._active_dir == 0:
             self._jog_cb(self.name, 0)
 
+    # Pos/CAL text color by calibration state: green = FULL (both end-stops recorded,
+    # trustworthy), orange = PARTIAL (one stop recorded, pos not yet anchored), gray = UNCAL.
+    _CAL_COLORS = {"FULL": "#1a7f1a", "PARTIAL": "#c8780a", "UNCAL": "#999999"}
+
     def update_from_telemetry(self, jt: Optional[JointTelemetry]):
         if jt is None:
             return
+        self.var_pos.set(f"{jt.pos:.3f}" if jt.connected else "DISC")
+        self.var_cal.set(jt.cal_state_name)
+        color = self._CAL_COLORS.get(jt.cal_state_name, "#000000")
+        self.lbl_pos.config(fg=color)
+        self.lbl_cal.config(fg=color)
         self.var_pot.set(str(jt.pot))
         self.var_cur.set(str(jt.current))
         self.var_pwm.set(f"L{jt.pwm[0]} R{jt.pwm[1]}")
@@ -237,15 +250,8 @@ class KrabbyTestGUI(tk.Tk):
 
         btn_frame = ttk.Frame(top)
         btn_frame.pack(side="right", padx=(8, 0))
-        ttk.Button(btn_frame, text="Hold All", command=self._hold_all).pack(
-            side="left", padx=4
-        )
-        ttk.Button(btn_frame, text="Neutral (0.5)", command=self._neutral).pack(
-            side="left", padx=4
-        )
-        ttk.Button(btn_frame, text="Calibrate", command=self._calibrate).pack(
-            side="left", padx=4
-        )
+        ttk.Button(btn_frame, text="Hold All", command=self._hold_all).pack(side="left", padx=4)
+        ttk.Button(btn_frame, text="Neutral (0.5)", command=self._neutral).pack(side="left", padx=4)
 
         imu_frame = ttk.Frame(self, padding=(8, 0))
         imu_frame.pack(fill="x")
@@ -267,7 +273,7 @@ class KrabbyTestGUI(tk.Tk):
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
 
-        headers = ["Joint", "Retract", "Extend", "Pot", "Cur", "PWM", "Hall"]
+        headers = ["Joint", "Retract", "Extend", "Pos", "CAL", "Pot", "Cur", "PWM", "Hall"]
         for c, h in enumerate(headers):
             ttk.Label(
                 self._grid_frame, text=h, font=FONT_TABLE_HEADER, anchor="center"
@@ -280,7 +286,7 @@ class KrabbyTestGUI(tk.Tk):
                 text=f"── {group_name} ──",
                 font=FONT_GROUP_LABEL,
                 foreground=GROUP_LABEL_COLOR,
-            ).grid(row=row, column=0, columnspan=7, sticky="w", pady=(6, 2))
+            ).grid(row=row, column=0, columnspan=9, sticky="w", pady=(6, 2))
             row += 1
             for jname in joint_names:
                 jr = JointRow(self._grid_frame, jname, row, self._jog_joint, self._get_jog_pwm)
@@ -359,14 +365,6 @@ class KrabbyTestGUI(tk.Tk):
             for n in names:
                 cmds[n] = 0.5
         self._mcu.send_command_joints(cmds)
-
-    def _calibrate(self):
-        if not self._connected:
-            return
-        if messagebox.askyesno(
-            "Calibrate", "This will move ALL limbs to find limits. Continue?"
-        ):
-            self._mcu.send_command_calibrate()
 
     def _on_close(self):
         self._connected = False

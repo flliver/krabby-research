@@ -83,6 +83,8 @@ inline int analogRead(int pin)
     fakeArduino::events.push_back({'r', pin, value});
     return value;
 }
+// Blocking delays advance the fake clock so millis()-bounded loops terminate.
+inline void delay(unsigned long duration) { fakeArduino::now += duration; }
 inline void delayMicroseconds(unsigned int duration)
 {
     fakeArduino::events.push_back({'d', -1, static_cast<int>(duration)});

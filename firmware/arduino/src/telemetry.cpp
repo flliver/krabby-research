@@ -92,8 +92,7 @@ static bool parseActuatorStatusFields(
         fieldEnd[fieldCount++] = cursor;
     }
 
-    if (fieldCount != ACTUATOR_TELEMETRY_FIELD_COUNT &&
-        fieldCount != ACTUATOR_TELEMETRY_MAX_FIELD_COUNT)
+    if (fieldCount < ACTUATOR_TELEMETRY_FIELD_COUNT)
         return false;
 
     const char *actuatorName =
@@ -117,7 +116,7 @@ static bool parseActuatorStatusFields(
     status.connectionState = isPositionValid
         ? ActuatorConnection::Unknown
         : ActuatorConnection::Disconnected;
-    if (fieldCount == ACTUATOR_TELEMETRY_MAX_FIELD_COUNT)
+    if (fieldCount >= ACTUATOR_TELEMETRY_CONNECTION_FIELD_COUNT)
     {
         if (!parseActuatorConnectionState(
                 fieldBegin[ACTUATOR_TELEMETRY_CONNECTION_STATE_FIELD_INDEX],

@@ -10,7 +10,7 @@ import time
 from typing import NoReturn, Optional
 
 from firmware.gui.remote import DEFAULT_SERIAL_DEV
-from firmware.krabby_mcu import BOARDS, KrabbyMCUSDK, parse_ver_reply, logger
+from firmware.krabby_mcu import BOARDS, CAL_DIRECTIONS, KrabbyMCUSDK, parse_ver_reply, logger
 
 # Joint order per leg pair: LKL, LHL, LHY, RHY, RHL, RKL
 JOINTS_FRONT = ["FLKL", "FLHL", "FLHY", "FRHY", "FRHL", "FRKL"]
@@ -115,6 +115,17 @@ def main():
                        help="Target board (default: the board on --port).")
     get_p.add_argument("keys", nargs="+", metavar="KEY", help="e.g. role version")
 
+    cal_p = subparsers.add_parser(
+        "calibrate-joint",
+        help="Sweep ONE joint to its stops and persist its travel limits to EEPROM. MOVES THE JOINT.")
+    cal_p.add_argument("joint", metavar="JOINT",
+                       help="Joint name, e.g. FLHL (works for follower joints too — the front board forwards).")
+    cal_p.add_argument("direction", nargs="?", default=None, choices=CAL_DIRECTIONS,
+                       help="Record only this end-stop (default: sweep both). Use when the full "
+                            "sweep can't run in the robot's current stance.")
+    cal_p.add_argument("--port", default=None, metavar="PORT",
+                       help="Serial port of the front board (default: auto-detect / $KRABBY_MCU_PORT).")
+
     args = parser.parse_args()
 
     if args.command == "help":
@@ -146,6 +157,11 @@ def main():
         cmd_get(args.port, args.board, args.keys)
         return
 
+    if args.command == "calibrate-joint":
+        from firmware.cli import cmd_calibrate_joint
+        cmd_calibrate_joint(args.port, args.joint, args.direction)
+        return
+
     if args.debug:
         logger.setLevel(logging.DEBUG)
 
@@ -167,7 +183,7 @@ def main():
         print("\n=== Krabby MCU — Direct key control (18 joints) ===")
         print("Extend: Q W E R T Y  |  Retract: A S D F G H")
         print("Hold 1: LEFT set  |  Hold 2: RIGHT set  |  Hold 1+2: all 18  |  No 1/2: FRONT")
-        print("0: Neutral (0.5)  |  9: Auto-calibrate  |  V: firmware version  |  ESC: Quit")
+        print("0: Neutral (0.5)  |  V: firmware version  |  ESC: Quit")
         print()
 
         prev_jog = {}
@@ -185,11 +201,6 @@ def main():
                     "RRHY": 0.5, "MRHY": 0.5, "RRHL": 0.5, "RRKL": 0.5, "MRHL": 0.5, "MRKL": 0.5,
                 })
                 time.sleep(0.3)  # debounce
-                continue
-            if is_pressed("9"):
-                print("WARNING: This will move ALL limbs to find limits.")
-                mcu.send_command_calibrate()
-                time.sleep(0.5)
                 continue
             if is_pressed("v"):
                 reply = mcu.read_version()

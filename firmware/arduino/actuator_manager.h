@@ -2,8 +2,8 @@
 
 #include "src/actuator/actuator_constants.h"
 #include <Arduino.h>
-#include <EEPROM.h>
 #include "command.h"
+#include "eeprom_layout.h"
 #include "hall_hw.h"
 #include "src/actuator/actuator_status.h"
 #include "src/actuator/actuator_current_tracker.h"
@@ -212,36 +212,41 @@ public:
     }
 
     // Helper to detect stall (used in calibration)
-    // Returns true if motor is powered but position hasn't changed for 'timeout' ms
+    // Returns true if motor is powered but position hasn't changed for 'timeout' ms.
+    // State is per-actuator (member, not static): shared state leaks stale
+    // positions between actuators or across sweep reversals.
+    int stallLastPos = -1;
+    unsigned long stallLastMoveTime = 0;
+
     bool isStalled(unsigned long timeout)
     {
-        static int lastPos = -1;
-        static unsigned long lastMoveTime = 0;
-
         if (abs(currentPwm) < 50)
         { // Not trying to move
-            lastMoveTime = millis();
+            stallLastMoveTime = millis();
             return false;
         }
 
-        if (abs(getRawPos() - lastPos) > 2)
+        if (abs(getRawPos() - stallLastPos) > 2)
         { // Moved
-            lastPos = getRawPos();
-            lastMoveTime = millis();
+            stallLastPos = getRawPos();
+            stallLastMoveTime = millis();
             return false;
         }
 
-        if (millis() - lastMoveTime > timeout)
+        if (millis() - stallLastMoveTime > timeout)
             return true;
         return false;
     }
 
-    // Joint segment: "<name> <pos> <pot> <current> <enL> <enR> <pwmL> <pwmR> <hallEdges>".
+    // Joint segment: "<name> <pos> <pot> <current> <enL> <enR> <pwmL> <pwmR> <hallEdges> <connection> <calState>".
     // The manager owns separators between segments; the loop owns role prefix,
     // optional sensor segments, and the one line ending.
+    // connection: 0 unknown / 1 connected / 2 disconnected (see ActuatorConnection).
+    // calState: 0 = no stops recorded, 1 = one stop (pos still full-range default,
+    // not trustworthy), 2 = both stops recorded and applied.
     // Keep in sync with firmware/interfaces/joint_telemetry.py
     // Keeping it super simple to avoid any string parsing and external library overhead
-    void printTelemetry(Print& out) const
+    void printTelemetry(Print& out, uint8_t calState) const
     {
         out.print(name);
         out.print(TELEMETRY_FIELD_SEPARATOR);
@@ -267,6 +272,8 @@ public:
 
         out.print(TELEMETRY_FIELD_SEPARATOR);
         out.print(static_cast<int>(getConnectionState()));
+        out.print(TELEMETRY_FIELD_SEPARATOR);
+        out.print(static_cast<int>(calState));
     }
 
     ActuatorConnection getConnectionState() const
@@ -338,15 +345,8 @@ public:
 
     void updateAll()
     {
-        if (calState != CAL_IDLE) // Run calibration logic instead of normal PID
-        {
-            updateCalibration(); 
-        }
-        else
-        {
-            for (size_t i = 0; i < count; i++)
-                actuators[i]->update();
-        }
+        for (size_t i = 0; i < count; i++)
+            actuators[i]->update();
     }
 
     void applyCommands(const Command *cmds, size_t cmdCount)
@@ -385,235 +385,169 @@ public:
         for (size_t i = 0; i < count; i++)
         {
             if (i) out.print(TELEMETRY_SEGMENT_DELIMITER);
-            actuators[i]->printTelemetry(out);
+            actuators[i]->printTelemetry(out, calState(i));
         }
     }
 
     // ==================================================
-    // AUTO-CALIBRATION & PERSISTENCE
+    // PER-JOINT CALIBRATION (M17 Task 2)
     // ==================================================
-    enum CalState
-    {
-        CAL_IDLE,
-        CAL_START,
-        CAL_YAW_L_MIN,
-        CAL_YAW_L_MAX,
-        CAL_YAW_L_CENTER,
-        CAL_YAW_R_MIN,
-        CAL_YAW_R_MAX,
-        CAL_YAW_R_CENTER,
-        // Left Leg Sequence
-        CAL_LHL_MIN,
-        CAL_LKL_MAX,
-        CAL_LKL_MIN,
-        CAL_LHL_MAX,
-        // Right Leg Sequence
-        CAL_RHL_MIN,
-        CAL_RKL_MAX,
-        CAL_RKL_MIN,
-        CAL_RHL_MAX,
-        CAL_FINISH
-    };
-
-    CalState calState = CAL_IDLE;
-    unsigned long stateTimer = 0;
-
-    // Struct to save to EEPROM
-    struct CalData
-    {
-        // TODO: Should be stored with Joint information, so that when joints change this changes, not hardcoded here
-        int minVals[6];
-        int maxVals[6];
-        int magic; // 0xDEADBEEF to check validity
-    };
-
-    void startAutoCalibration()
-    {
-        calState = CAL_START;
-        stateTimer = millis();
-        Serial.println("Starting Auto-Calibration Sequence...");
-    }
-
-    void updateCalibration()
-    {
-        // TODO: Fix hardcoded actuator order, store actuator naming information in EEPROM struct
-        // Helper lambda to get actuator by index (Hardcoded order: LHY, LHL, LKL, RHY, RHL, RKL)
-        // 0=LHY, 1=LHL, 2=LKL, 3=RHY, 4=RHL, 5=RKL
-        auto drive = [&](int idx, int pwm)
-        { actuators[idx]->manualDrive(pwm); };
-        auto isStalled = [&](int idx)
-        { return actuators[idx]->isStalled(250); }; // 250ms stall check
-        auto saveMin = [&](int idx)
-        { actuators[idx]->minStop = actuators[idx]->getRawPos(); };
-        auto saveMax = [&](int idx)
-        { actuators[idx]->maxStop = actuators[idx]->getRawPos(); };
-
-        // Simple State Machine
-        switch (calState)
-        {
-        case CAL_START:
-            calState = CAL_YAW_L_MIN;
-            break;
-
-        // --- YAWS FIRST ---
-        case CAL_YAW_L_MIN:
-            drive(0, -150); // Retract LHY
-            if (isStalled(0))
-            {
-                saveMin(0);
-                calState = CAL_YAW_L_MAX;
-            }
-            break;
-        case CAL_YAW_L_MAX:
-            drive(0, 150); // Extend LHY
-            if (isStalled(0))
-            {
-                saveMax(0);
-                calState = CAL_YAW_L_CENTER;
-            }
-            break;
-        case CAL_YAW_L_CENTER:
-            drive(0, 0); // Stop
-            calState = CAL_YAW_R_MIN;
-            break;
-
-        case CAL_YAW_R_MIN:
-            drive(3, -150); // Retract RHY
-            if (isStalled(3))
-            {
-                saveMin(3);
-                calState = CAL_YAW_R_MAX;
-            }
-            break;
-        case CAL_YAW_R_MAX:
-            drive(3, 150); // Extend RHY
-            if (isStalled(3))
-            {
-                saveMax(3);
-                calState = CAL_YAW_R_CENTER;
-            }
-            break;
-        case CAL_YAW_R_CENTER:
-            drive(3, 0);
-            calState = CAL_LHL_MIN;
-            break;
-
-        // --- LEFT LEG SEQUENCE (Hip Up -> Knee Out -> Knee In -> Hip Down) ---
-        case CAL_LHL_MIN: // Hip Retract (Up)
-            drive(1, -200);
-            if (isStalled(1))
-            {
-                saveMin(1);
-                calState = CAL_LKL_MAX;
-            }
-            break;
-        case CAL_LKL_MAX: // Knee Extend (Out)
-            drive(2, 200);
-            if (isStalled(2))
-            {
-                saveMax(2);
-                calState = CAL_LKL_MIN;
-            }
-            break;
-        case CAL_LKL_MIN: // Knee Retract (In)
-            drive(2, -200);
-            if (isStalled(2))
-            {
-                saveMin(2);
-                calState = CAL_LHL_MAX;
-            }
-            break;
-        case CAL_LHL_MAX: // Hip Extend (Tuck)
-            drive(1, 200);
-            if (isStalled(1))
-            {
-                saveMax(1);
-                calState = CAL_RHL_MIN;
-            }
-            break;
-
-        // --- RIGHT LEG SEQUENCE ---
-        case CAL_RHL_MIN:
-            drive(4, -200);
-            if (isStalled(4))
-            {
-                saveMin(4);
-                calState = CAL_RKL_MAX;
-            }
-            break;
-        case CAL_RKL_MAX:
-            drive(5, 200);
-            if (isStalled(5))
-            {
-                saveMax(5);
-                calState = CAL_RKL_MIN;
-            }
-            break;
-        case CAL_RKL_MIN:
-            drive(5, -200);
-            if (isStalled(5))
-            {
-                saveMin(5);
-                calState = CAL_RHL_MAX;
-            }
-            break;
-        case CAL_RHL_MAX:
-            drive(4, 200);
-            if (isStalled(4))
-            {
-                saveMax(4);
-                calState = CAL_FINISH;
-            }
-            break;
-
-        case CAL_FINISH:
-            // Stop all
-            for (int i = 0; i < 6; i++)
-                actuators[i]->manualDrive(0);
-            saveCalibration(); // Write to EEPROM
-            calState = CAL_IDLE;
-            Serial.println("CALIBRATION COMPLETE & SAVED.");
-            break;
-
-        default:
-            calState = CAL_IDLE;
-            break;
-        }
-    }
-
-    void saveCalibration()
-    {
-        CalData data;
-        data.magic = 0xDEADBEEF;
-        for (int i = 0; i < count; i++)
-        {
-            data.minVals[i] = actuators[i]->minStop;
-            data.maxVals[i] = actuators[i]->maxStop;
-        }
-        EEPROM.put(0, data);
-        Serial.println("Limits saved to EEPROM.");
-    }
-
+    // Load persisted limits into the actuators. Called once after initAll();
+    // slots without both stops recorded (or with a degenerate range) keep the
+    // actuator's full-range defaults.
     void loadCalibration()
     {
-        CalData data;
-        EEPROM.get(0, data);
-        if (data.magic == 0xDEADBEEF)
+        jointCalLoad(cal);
+        for (size_t i = 0; i < count && i < JOINTCAL_COUNT; i++)
         {
-            for (int i = 0; i < count && i < 6; i++)
+            if (calComplete(i))
             {
-                actuators[i]->minStop = data.minVals[i];
-                actuators[i]->maxStop = data.maxVals[i];
+                actuators[i]->minStop = cal.minStop[i];
+                actuators[i]->maxStop = cal.maxStop[i];
             }
-            Serial.println("Calibration loaded from EEPROM.");
         }
-        else
+    }
+
+    // Calibrate ONE joint. dir "" sweeps both stops: retract until the pot
+    // stops changing, record minStop; extend the same way, record maxStop.
+    // dir "retract"/"extend" records ONLY that stop — for joints whose full
+    // sweep isn't possible in the robot's current stance (e.g. extending a hip
+    // presses the foot into the ground and lifts the chassis instead of
+    // reaching the stop). Limits are persisted to EEPROM immediately, but only
+    // applied to the live actuator once BOTH stops have been recorded.
+    // BLOCKING (up to ~2x CAL_TIMEOUT_MS) — bench-time only; telemetry and
+    // commands pause while it runs. Replies "CAL <name> <min> <max> saved",
+    // "CAL <name> <dir> <val> saved", or "CAL <name> FAIL <why>" on `out`.
+    // Returns false if this board doesn't own the joint (not an error: the
+    // leader broadcasts C to all boards and only the owner acts). An unknown
+    // dir is dropped silently — the SDK validates client-side.
+    bool calibrateJoint(const String &name, const String &dir, Print &out)
+    {
+        for (size_t i = 0; i < count; i++)
         {
-            Serial.println("No EEPROM calibration found. Using defaults.");
+            if (String(actuators[i]->name) != name)
+                continue;
+            if (dir.length())
+                return calibrateOneStop(i, dir, out);
+            int mn = sweepToStop(actuators[i], -CAL_PWM);
+            // Second sweep starts at the stop the first just found — require
+            // real motion before its stall can be believed (see sweepToStop).
+            int mx = (mn >= 0) ? sweepToStop(actuators[i], CAL_PWM, true) : -1;
+            out.print("CAL ");
+            out.print(name);
+            if (mn < 0 || mx < 0)
+                out.println(" FAIL no_stop");        // never stalled: no pot signal, or free-spinning (yaw)
+            else if (abs(mx - mn) < CAL_MIN_RANGE)
+                out.println(" FAIL range_too_small"); // stops indistinguishable: jammed or pot not tracking
+            else
+            {
+                actuators[i]->minStop = mn;
+                actuators[i]->maxStop = mx;
+                cal.minStop[i] = mn;
+                cal.maxStop[i] = mx;
+                cal.flags[i] = JOINTCAL_FLAG_BOTH;
+                jointCalSave(cal);
+                out.print(' '); out.print(mn);
+                out.print(' '); out.print(mx);
+                out.println(" saved");
+            }
+            return true;
         }
+        return false;
     }
 
 private:
+    // Gentle by design: low PWM, and the sweep gives up after CAL_TIMEOUT_MS
+    // instead of pushing harder (the knee can be damaged by a hard shove).
+    // CAL_PWM must be >= 50 or isStalled() treats the joint as idle.
+    static const int CAL_PWM = 120;
+    static const unsigned long CAL_TIMEOUT_MS = 30000;  // bench-measured ~15 s full-travel at CAL_PWM; 2x headroom
+    static const unsigned long CAL_STALL_MS = 400;      // pot quiet this long = at the stop
+    static const int CAL_MIN_RANGE = 100;               // sane travel spans far more raw ADC than this
+    static const int CAL_MIN_MOVE = 30;                 // pot counts a sweep must cover before a stall is believed
+
+    // Both stops recorded and distinguishable — safe to apply to the live actuator.
+    bool calComplete(size_t i) const
+    {
+        return (cal.flags[i] & JOINTCAL_FLAG_BOTH) == JOINTCAL_FLAG_BOTH
+            && abs((int)cal.maxStop[i] - (int)cal.minStop[i]) >= CAL_MIN_RANGE;
+    }
+
+    // Telemetry calibration state: 2 = complete (limits applied), 1 = at least one
+    // stop recorded but not usable yet (single stop, or degenerate range), 0 = none.
+    uint8_t calState(size_t i) const
+    {
+        if (i >= JOINTCAL_COUNT || cal.flags[i] == 0)
+            return 0;
+        return calComplete(i) ? 2 : 1;
+    }
+
+    // Directional calibration: sweep toward one stop and record just that one.
+    // Replies "CAL <name> <dir> <val> saved" / "CAL <name> FAIL no_stop".
+    bool calibrateOneStop(size_t i, const String &dir, Print &out)
+    {
+        bool retract = dir == "retract";
+        if (!retract && dir != "extend")
+            return true;  // owned, but unknown dir token: SDK validates, drop silently
+        int v = sweepToStop(actuators[i], retract ? -CAL_PWM : CAL_PWM);
+        out.print("CAL ");
+        out.print(actuators[i]->name);
+        if (v < 0)
+            out.println(" FAIL no_stop");
+        else
+        {
+            if (retract) { cal.minStop[i] = v; cal.flags[i] |= JOINTCAL_FLAG_MIN; }
+            else         { cal.maxStop[i] = v; cal.flags[i] |= JOINTCAL_FLAG_MAX; }
+            if (calComplete(i))
+            {
+                actuators[i]->minStop = cal.minStop[i];
+                actuators[i]->maxStop = cal.maxStop[i];
+            }
+            jointCalSave(cal);
+            out.print(' '); out.print(dir);
+            out.print(' '); out.print(v);
+            out.println(" saved");
+        }
+        return true;
+    }
+
+    // Drive one actuator until its pot stops changing; return the resting raw
+    // pot value, or -1 on timeout. Blocking. Pumps updateSensors() itself —
+    // loop()'s updateAll() isn't running while we block, and without fresh
+    // sensor reads avgPot freezes and isStalled() fires instantly on stale data.
+    //
+    // requireMotion: don't believe a stall until the pot has moved CAL_MIN_MOVE
+    // from where the sweep began. Set on the SECOND sweep of a full calibration,
+    // which by construction starts at the opposite stop — reversing off a hard
+    // stop (gear lash, chassis load) can hold the pot quiet past the grace
+    // period and fake a stall at the same value the first sweep recorded.
+    // First/directional sweeps leave it false: legitimately starting at the
+    // target stop should record immediately.
+    int sweepToStop(LinearActuator *act, int pwm, bool requireMotion = false)
+    {
+        act->stopMotor();   // clears any position target so update paths can't fight the sweep
+        act->isStalled(1);  // |pwm|<50 path resets this actuator's stall clock before we start
+        int startPos = act->getRawPos();
+        unsigned long start = millis();
+        while (millis() - start < CAL_TIMEOUT_MS)
+        {
+            act->updateSensors();
+            act->manualDrive(pwm);
+            bool armed = !requireMotion
+                         || abs(act->getRawPos() - startPos) > CAL_MIN_MOVE;
+            // Grace period so the motor can start moving before stall counts.
+            if (armed && millis() - start > 600 && act->isStalled(CAL_STALL_MS))
+            {
+                act->manualDrive(0);
+                return act->getRawPos();
+            }
+            delay(10);
+        }
+        act->manualDrive(0);
+        return -1;
+    }
+
+    JointCalBlock cal;
     LinearActuator **actuators;
     size_t count;
 };

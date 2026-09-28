@@ -219,12 +219,12 @@ static void test_telemetry_keeps_valid_position_when_current_is_absent()
     actuator.manualDrive(100);
     for (int i = 0; i < 3; ++i) actuator.updateSensors();
     Print out;
-    actuator.printTelemetry(out);
-    TEST_ASSERT_EQUAL_STRING("FLHY 0.500 500 0 1 1 0 100 0 2", out.output.c_str());
+    actuator.printTelemetry(out, 0);
+    TEST_ASSERT_EQUAL_STRING("FLHY 0.500 500 0 1 1 0 100 0 2 0", out.output.c_str());
     analog[4] = 0;
     for (int i = 0; i < 40; ++i) actuator.updateSensors();
     out.output.clear();
-    actuator.printTelemetry(out);
+    actuator.printTelemetry(out, 0);
     TEST_ASSERT_NOT_NULL(std::strstr(out.output.c_str(), "FLHY nan "));
 }
 
@@ -343,13 +343,13 @@ static void test_telemetry_fields_and_hall_bounds()
         actuator.maxStop = 1000;
         actuator.manualDrive(-23);
         Print out;
-        actuator.printTelemetry(out);
+        actuator.printTelemetry(out, 0);
         const std::string expected = "FLHY 0.500 500 500 1 1 23 0 " +
-            std::to_string(slot >= 0 && slot < 6 ? 100 + slot : 0) + " 0";
+            std::to_string(slot >= 0 && slot < 6 ? 100 + slot : 0) + " 0 0";
         TEST_ASSERT_EQUAL_STRING(expected.c_str(), out.output.c_str());
         actuator.manualDrive(24);
         out.output.clear();
-        actuator.printTelemetry(out);
+        actuator.printTelemetry(out, 0);
         TEST_ASSERT_NOT_NULL(std::strstr(out.output.c_str(), " 1 1 0 24 "));
     }
 }
@@ -391,7 +391,11 @@ static void test_manager_dispatch_hold_and_telemetry()
     TEST_ASSERT_TRUE(out.output.empty());
 }
 
-static void test_calibration_states_and_persistence()
+// Pot pin of makeActuator() ("FLHY", pot on pin 4); a constant reading makes the
+// sweep stall immediately, which is how a real stop looks to sweepToStop().
+static constexpr int FLHY_POT_PIN = 4;
+
+static void test_directional_calibration_states_and_persistence()
 {
     LinearActuator storage[] = {
         makeActuator(), makeActuator(), makeActuator(),
@@ -399,66 +403,44 @@ static void test_calibration_states_and_persistence()
     LinearActuator *acts[6];
     for (int i = 0; i < 6; ++i) acts[i] = &storage[i];
     ActuatorManager manager(acts, 6);
+    manager.initAll();
     manager.loadCalibration();
     TEST_ASSERT_EQUAL_INT(1023, acts[0]->maxStop);
-    manager.startAutoCalibration();
-    TEST_ASSERT_EQUAL_INT(ActuatorManager::CAL_START, manager.calState);
-    manager.updateAll();
-    TEST_ASSERT_EQUAL_INT(ActuatorManager::CAL_YAW_L_MIN, manager.calState);
-    struct Step { ActuatorManager::CalState state; int index; int pwm; bool minimum; };
-    const Step steps[] = {
-        {ActuatorManager::CAL_YAW_L_MIN, 0, -150, true},
-        {ActuatorManager::CAL_YAW_L_MAX, 0, 150, false},
-        {ActuatorManager::CAL_YAW_R_MIN, 3, -150, true},
-        {ActuatorManager::CAL_YAW_R_MAX, 3, 150, false},
-        {ActuatorManager::CAL_LHL_MIN, 1, -200, true},
-        {ActuatorManager::CAL_LKL_MAX, 2, 200, false},
-        {ActuatorManager::CAL_LKL_MIN, 2, -200, true},
-        {ActuatorManager::CAL_LHL_MAX, 1, 200, false},
-        {ActuatorManager::CAL_RHL_MIN, 4, -200, true},
-        {ActuatorManager::CAL_RKL_MAX, 5, 200, false},
-        {ActuatorManager::CAL_RKL_MIN, 5, -200, true},
-        {ActuatorManager::CAL_RHL_MAX, 4, 200, false}};
-    for (const auto &step : steps)
-    {
-        manager.calState = step.state;
-        auto &actuator = *acts[step.index];
-        actuator.avgPot = step.minimum ? 100 : 900;
-        actuator.currentPwm = 0;
-        actuator.isStalled(250);
-        manager.updateAll();
-        TEST_ASSERT_EQUAL_INT(step.state, manager.calState);
-        TEST_ASSERT_EQUAL_INT(step.pwm, actuator.currentPwm);
-        now += 251;
-        manager.updateAll();
-        TEST_ASSERT_EQUAL_INT(step.state + 1, manager.calState);
-        TEST_ASSERT_EQUAL_INT(step.minimum ? 100 : 900,
-            step.minimum ? actuator.minStop : actuator.maxStop);
-    }
-    for (auto state : {ActuatorManager::CAL_YAW_L_CENTER, ActuatorManager::CAL_YAW_R_CENTER})
-    {
-        manager.calState = state;
-        manager.updateAll();
-        TEST_ASSERT_EQUAL_INT(state + 1, manager.calState);
-    }
-    manager.calState = ActuatorManager::CAL_FINISH;
-    manager.updateAll();
-    TEST_ASSERT_EQUAL_INT(ActuatorManager::CAL_IDLE, manager.calState);
-    TEST_ASSERT_EQUAL_UINT(1, EEPROM.writes);
-    for (auto *actuator : acts)
-    {
-        TEST_ASSERT_EQUAL_INT(0, actuator->currentPwm);
-        actuator->minStop = 0;
-        actuator->maxStop = 1023;
-    }
-    manager.loadCalibration();
-    for (auto *actuator : acts)
-    {
-        TEST_ASSERT_EQUAL_INT(100, actuator->minStop);
-        TEST_ASSERT_EQUAL_INT(900, actuator->maxStop);
-    }
-    manager.updateCalibration();
-    TEST_ASSERT_EQUAL_INT(ActuatorManager::CAL_IDLE, manager.calState);
+
+    Print reply;
+    TEST_ASSERT_FALSE(manager.calibrateJoint("MISSING", "", reply));
+    TEST_ASSERT_TRUE(reply.output.empty());
+
+    // One stop recorded: persisted, but not applied (PARTIAL = calState 1).
+    analog[FLHY_POT_PIN] = 100;
+    TEST_ASSERT_TRUE(manager.calibrateJoint("FLHY", "retract", reply));
+    TEST_ASSERT_EQUAL_STRING("CAL FLHY retract 100 saved\n", reply.output.c_str());
+    TEST_ASSERT_EQUAL_INT(0, acts[0]->minStop);
+    Print telemetry;
+    manager.printTelemetry(telemetry);
+    TEST_ASSERT_EQUAL_STRING(" 1", telemetry.output.substr(telemetry.output.find(';') - 2, 2).c_str());
+
+    // Second stop completes the slot: applied live (FULL = calState 2).
+    analog[FLHY_POT_PIN] = 900;
+    acts[0]->avgPot = 900;  // settle the pot filter at the new stop
+    reply.output.clear();
+    TEST_ASSERT_TRUE(manager.calibrateJoint("FLHY", "extend", reply));
+    TEST_ASSERT_EQUAL_STRING("CAL FLHY extend 900 saved\n", reply.output.c_str());
+    TEST_ASSERT_EQUAL_INT(100, acts[0]->minStop);
+    TEST_ASSERT_EQUAL_INT(900, acts[0]->maxStop);
+    TEST_ASSERT_EQUAL_INT(0, acts[0]->currentPwm);
+    telemetry.output.clear();
+    manager.printTelemetry(telemetry);
+    TEST_ASSERT_EQUAL_STRING(" 2", telemetry.output.substr(telemetry.output.find(';') - 2, 2).c_str());
+
+    // Limits survive a reload from EEPROM; untouched slots keep full range.
+    acts[0]->minStop = 0;
+    acts[0]->maxStop = 1023;
+    ActuatorManager reloaded(acts, 6);
+    reloaded.loadCalibration();
+    TEST_ASSERT_EQUAL_INT(100, acts[0]->minStop);
+    TEST_ASSERT_EQUAL_INT(900, acts[0]->maxStop);
+    TEST_ASSERT_EQUAL_INT(1023, acts[1]->maxStop);
 }
 
 int main()
@@ -478,6 +460,6 @@ int main()
     RUN_TEST(test_stall_timeout_and_motion_reset);
     RUN_TEST(test_telemetry_fields_and_hall_bounds);
     RUN_TEST(test_manager_dispatch_hold_and_telemetry);
-    RUN_TEST(test_calibration_states_and_persistence);
+    RUN_TEST(test_directional_calibration_states_and_persistence);
     return UNITY_END();
 }

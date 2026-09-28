@@ -23,8 +23,10 @@ static constexpr float IMU_CAL_MAX_BIAS_DPS = 10.0f;
 static constexpr uint8_t IMU_BAD_TICKS_BEFORE_RECOVERY = 3;
 static constexpr uint32_t IMU_RECOVERY_RETRY_INTERVAL_MS = 1000UL;
 
-// Joint calibration occupies 0-25, role data 32-33
-static constexpr uint16_t EEPROM_IMU_CAL_ADDR = 40;
+// EEPROM map: board role @32-33 (arduino.ino), JointCalBlock @64
+// (eeprom_layout.h), IMU calibration here. arduino.ino static_asserts that these
+// regions don't overlap.
+static constexpr uint16_t EEPROM_IMU_CAL_ADDR = 192;
 static constexpr uint16_t EEPROM_IMU_CAL_SIZE = 26;
 static constexpr uint16_t EEPROM_SENSOR_CAL_NEXT_ADDR = EEPROM_IMU_CAL_ADDR + EEPROM_IMU_CAL_SIZE;
 
