@@ -9,6 +9,7 @@ import logging
 import time
 from typing import NoReturn, Optional
 
+from firmware.gui.remote import DEFAULT_SERIAL_DEV
 from firmware.krabby_mcu import BOARDS, KrabbyMCUSDK, parse_ver_reply, logger
 
 # Joint order per leg pair: LKL, LHL, LHY, RHY, RHL, RKL
@@ -90,6 +91,12 @@ def main():
         "branch", nargs="?", default=None, metavar="BRANCH",
         help="Optional branch (e.g. release/0.2.9) — list all its builds newest-first, paged.",
     )
+    show_p.add_argument("--remote", default=None, metavar="HOST",
+                        help="ssh host the board is attached to; auto-starts the serial/TCP "
+                             "bridge there and probes through a tunnel instead of scanning "
+                             "local USB ports (like the GUI's --remote).")
+    show_p.add_argument("--serial", default=DEFAULT_SERIAL_DEV,
+                        help="Serial device on the remote host (only with --remote).")
     update_p = subparsers.add_parser("update", help="Flash firmware from S3 channel to board(s).")
     update_p.add_argument("channel", nargs="?", default=None, metavar="CHANNEL")
     update_p.add_argument("port", nargs="?", default=None, metavar="PORT")
@@ -121,7 +128,7 @@ def main():
 
     if args.command == "show":
         from firmware.cli import cmd_show
-        cmd_show(args.branch)
+        cmd_show(args.branch, remote=args.remote, remote_serial=args.serial)
         return
 
     if args.command == "update":

@@ -146,23 +146,29 @@ class KrabbyMCUSDK:
         # Last time a telemetry line was seen per role prefix (FRONT/UNKWN/LEFT/RIGHT).
         self.role_last_seen: Dict[str, float] = {}
 
-    def connect(self, settle: float = 5.0, hold: bool = True):
+    def connect(self, settle: Optional[float] = None, hold: bool = True):
         """Open the serial port and start the reader thread.
 
-        settle: seconds to wait after opening before reading (board boot; CH340
-            adapters reset the board on open regardless of DTR).
+        settle: seconds to wait after opening before reading (board boot). Default
+            (None) picks by port type: 5 s on a local device (CH340 adapters reset
+            the board on open regardless of DTR, so wait out its boot), 0.5 s over a
+            socket:// bridge (our open never touches the board).
         hold: send 'H' (hold all joints) on connect. The control paths want this so
             the legs don't drift; the config-only CLI (set/get) passes hold=False.
         """
         try:
-            # Open without toggling DTR so the board is not reset where avoidable.
-            ser = serial.Serial()
-            ser.port = self.port
-            ser.baudrate = self.baud
-            ser.timeout = 0.5
+            # serial_for_url opens plain device paths via Serial and socket://host:port
+            # URLs via a TCP client (the remote serial/TCP bridge, for running the
+            # GUI/SDK on a different host than the MCU). Clear DTR before opening so
+            # a local open does not reset the board where avoidable. Over a socket
+            # DTR is a no-op; the bridge owns the real port.
+            ser = serial.serial_for_url(self.port, baudrate=self.baud,
+                                        timeout=0.5, do_not_open=True)
             ser.dtr = False
             ser.open()
             self.ser = ser
+            if settle is None:
+                settle = 0.5 if "://" in self.port else 5.0
             time.sleep(settle)
             self.running = True
             self.last_error = None
@@ -184,8 +190,24 @@ class KrabbyMCUSDK:
 
     def _reader_loop(self):
         while self.running and self.ser.is_open:
+            # The link-death tuple wraps ONLY the read, so a bug in the parse code
+            # below still gets a full logger.exception traceback instead of being
+            # misreported as a lost link.
+            #   SerialException/OSError: the link itself died (unplug, bridge gone).
+            #   AttributeError/TypeError: pyserial's fd/handle goes None when close()
+            #   lands while readline() is blocked — the normal shutdown race, not a
+            #   fault. self.running distinguishes the two: close() clears it first.
             try:
                 raw = self.ser.readline()
+            except (serial.SerialException, OSError, AttributeError, TypeError) as e:
+                if self.running:
+                    logger.warning("Serial link lost on %s: %s", self.port, e)
+                else:
+                    logger.debug("Reader loop stopped: %s", e)
+                self.last_error = e
+                self.running = False
+                break
+            try:
                 try:
                     line = raw.decode("utf-8").strip()
                 except UnicodeDecodeError as e:

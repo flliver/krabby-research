@@ -233,6 +233,9 @@ parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/tempscripts/
 .DS_Store
 docs/m14-task1-plan.html
 
+# Bench-run history (local measurement data, per machine)
+firmware/tools/bench_runs.sqlite3
+
 # Beads / Dolt files — local-only issue tracker, never commit
 .beads/
 .dolt/

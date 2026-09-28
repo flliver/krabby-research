@@ -14,6 +14,11 @@
 # (apt install avrdude) and permission on the port (dialout group). Flash boards
 # one at a time, passing each board's PORT.
 #
+# To push the host-side Python (the menu / SDK / CLI / TCP bridge in this dir) to
+# a bench host over ssh, e.g. for `python -m firmware.gui --remote krabby-orin`:
+#   make -C firmware sync-remote REMOTE=krabby-orin
+# __pycache__ is excluded so host .pyc files don't litter the Jetson.
+#
 # Prerequisites: arduino-cli on PATH, pyserial for auto-detect (pip install pyserial).
 # Windows: winget install GnuWin32.Make, then add GnuWin32\bin to PATH.
 
@@ -26,9 +31,13 @@ PIN_REV     ?= 3
 SKETCH      := $(CURDIR)/arduino
 
 # Remote flashing (flash-remote): compile here, flash on REMOTE via avrdude.
+# sync-remote: REMOTE_DIR is where the host-side Python lands on REMOTE; must match
+# DEFAULT_REMOTE_DIR in firmware/gui/remote.py (the --remote bridge launcher).
 # NOTE: no trailing inline comments on these — make would fold the padding spaces
 # into the value and corrupt the .hex path / ssh target.
 REMOTE      ?=
+RSYNC       ?= rsync
+REMOTE_DIR  ?= ~/krabby-fw-bench/firmware/
 AVRDUDE     ?= avrdude
 SSH         ?= ssh
 SCP         ?= scp
@@ -75,7 +84,7 @@ endif
 $(info Using PORT=$(PORT))
 endif
 
-.PHONY: arduino-core fetch-libs compile-firmware upload-firmware flash-remote test-native test-native-coverage test-firmware
+.PHONY: arduino-core fetch-libs compile-firmware upload-firmware flash-remote sync-remote test-native test-native-coverage test-firmware
 
 test-native:
 	$(CMAKE) -S "$(NATIVE_TEST_SOURCE)" -B "$(NATIVE_TEST_BUILD)"
@@ -150,3 +159,11 @@ flash-remote: compile-firmware
 	@test -n "$(strip $(PORT))" || { echo "ERROR: set PORT=/dev/ttyACMx (the board's serial device on $(REMOTE))"; exit 1; }
 	$(SCP) "$(HEX)" "$(REMOTE):$(REMOTE_HEX)"
 	$(SSH) "$(REMOTE)" "$(AVRDUDE) -p m2560 -c wiring -P '$(PORT)' -b 115200 -D -U flash:w:$(REMOTE_HEX):i"
+
+# Push this firmware/ tree (host-side Python: the interactive menu, SDK, CLI,
+# serial/TCP bridge) to REMOTE for bench use, without touching any board's
+# flash. Excludes __pycache__ so host-compiled .pyc files don't litter the
+# Jetson (its Python recompiles its own).
+sync-remote:
+	@test -n "$(REMOTE)" || { echo "ERROR: set REMOTE=user@host (the bench machine, e.g. krabby-orin)"; exit 1; }
+	$(RSYNC) -az --exclude='__pycache__' "$(CURDIR)/" "$(REMOTE):$(REMOTE_DIR)"
