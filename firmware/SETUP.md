@@ -89,7 +89,24 @@ Telemetry is sent as **newline-terminated lines** over serial. The Python side p
 
 On the Arduino side, telemetry is built in **telemetry_manager.h** (struct `JointTelemetry`, `appendTo()`). The old standalone `joint_telemetry.h` was removed; all telemetry formatting and collection lives in `telemetry_manager.h` and `actuator_manager.h`.
 
-### 2.3 Pin revisions (`KRABBY_PIN_REV`)
+### 2.3 Command protocol (host → firmware)
+
+Commands are **newline-terminated lines** sent to the main serial (250000 baud). The first byte selects the command; the dispatch lives in `arduino/arduino.ino` `loop()`. The leader forwards every command down `leftSerial`/`rightSerial` to the follower boards. A leading `S` or `G` is read as a whole line and dispatched as a multi-letter config command (`SET…`/`GET…`, see "Board roles"); any other unknown leading byte is discarded as line noise, one byte at a time (see the floating-RX guard comment in `loop()`).
+
+| Cmd | Format | What it does | Python SDK sender (`krabby_mcu.py`) |
+|-----|--------|--------------|-------------------------------------|
+| `T` | `T <name> <pos> [<name> <pos> ...]` | Closed-loop position targets (0–1 per joint); parsed by `parseCommands` (`command.h`), applied by each board's actuator manager | `send_command_joints` |
+| `B` | `B <name> <pwm> [<name> <pwm> ...]` | Batch jog — multiple joints at raw PWM (−255 to 255) in one line | `send_commands_jog` |
+| `J` | `J<name> <pwm>` (no space after `J`) | Single-joint jog at raw PWM (−255 to 255) | `send_command_jog` |
+| `C` | `C <name> [retract\|extend]` | Calibrate one named joint: sweep to both stops (or, with a direction, record just that one stop), persist limits to EEPROM; replies `CAL <name> <min> <max> saved`, `CAL <name> <dir> <val> saved`, or `CAL <name> FAIL <why>`. Blocks the owning board while it runs | `calibrate_joint` |
+| `H` | `H` | Hold all joints at their current position | `send_command_joints_hold` |
+| `V` | `V` | Version query — leader collects follower versions and replies with a single `VER` line (see §4.2) | `read_version` |
+| `SET` | `SET <key> <val> [<key> <val> ...]` | Write config (role, serial) to EEPROM on the receiving board; fire-and-forget, no reply | `send_set` |
+| `GET` | `GET <key> [<key> ...]` | Read config; replies `GET <key> <val> …` (keys: role, serial, version) | `send_get` |
+| `SET_LEFT` / `SET_RIGHT` | same payload as `SET` | Front-only: strips the suffix and relays the bare `SET …` to the LEFT/RIGHT follower over Serial1/Serial2 | `send_set(board="left"/"right")` |
+| `GET_LEFT` / `GET_RIGHT` | same payload as `GET` | Front-only: relays `GET …` to the follower, reads its reply, re-tags it `GET_LEFT …`/`GET_RIGHT …` on USB | `send_get(board="left"/"right")` |
+
+### 2.4 Pin revisions (`KRABBY_PIN_REV`)
 
 Wiring is selected at **compile time** in **`arduino/board_pins.h`** (`#define KRABBY_PIN_REV`, default **3**). Rev **3** matches **`MOTOR_HEADER_PINOUT.md`**.
 
@@ -123,7 +140,7 @@ One-time setup on the remote: `sudo apt install avrdude` and make sure your user
 
 This is distinct from `krabby firmware update` (which downloads a **published** HEX from S3) — `flash-remote` flashes a **local, unpublished** build.
 
-### 2.4 Python SDK
+### 2.5 Python SDK
 
 1. From **`krabby-research`**, install dependencies: `pip install -r firmware/requirements.txt`.
 2. Ensure **`firmware/interfaces/`** is importable (e.g. run **`python -m firmware`** from **`krabby-research`** as in §3).
