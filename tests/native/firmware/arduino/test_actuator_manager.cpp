@@ -11,7 +11,7 @@ std::vector<Event> events;
 }
 Print Serial;
 FakeEEPROM EEPROM;
-uint32_t hallHwGetEdgeCount(uint8_t slot) { return 100 + slot; }
+int32_t hallHwGetEdgeCount(uint8_t slot) { return 100 + slot; }
 
 using namespace fakeArduino;
 
