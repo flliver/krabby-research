@@ -11,8 +11,15 @@
 #   make -C firmware flash-remote REMOTE=user@orin PORT=/dev/ttyACM0
 #   make -C firmware flash-remote REMOTE=orin PORT=/dev/ttyACM0 PIN_REV=1
 # PORT is the serial device *on REMOTE*; the remote needs avrdude installed
-# (apt install avrdude) and permission on the port (dialout group). Flash boards
-# one at a time, passing each board's PORT.
+# (apt install avrdude) and permission on the port (dialout group).
+#
+# To flash every board on REMOTE in one shot (compile + copy once, then loop):
+#   make -C firmware flash-remote-all REMOTE=orin1
+#   make -C firmware flash-remote-all REMOTE=orin1 PORTS="/dev/ttyUSB0 /dev/ttyUSB2"
+# With no PORTS, the boards are discovered on REMOTE by USB VID:PID (the same
+# ID set firmware/mcu_port.py's MEGA_USB_IDS defines), not a bare /dev/ttyUSB* glob, so
+# unrelated USB-serial devices are skipped. The same hex goes on every board —
+# roles live in EEPROM, not the firmware.
 #
 # To push the host-side Python (the menu / SDK / CLI / TCP bridge in this dir) to
 # a bench host over ssh, e.g. for `python -m firmware.gui --remote krabby-orin`:
@@ -39,6 +46,10 @@ REMOTE      ?=
 RSYNC       ?= rsync
 REMOTE_DIR  ?= ~/krabby-fw-bench/firmware/
 AVRDUDE     ?= avrdude
+# The avrdude args live in one variable so the two flash recipes can't drift;
+# -c wiring talks to the stock Arduino Mega bootloader, same as cmd_update's
+# _flash() in firmware/cli.py.
+AVRDUDE_FLASH = $(AVRDUDE) -p m2560 -c wiring -b 115200 -D
 SSH         ?= ssh
 SCP         ?= scp
 BUILD_DIR   := $(CURDIR)/build
@@ -50,6 +61,12 @@ GCOVR       ?= gcovr
 GCOV        ?= gcov
 HEX         := $(BUILD_DIR)/arduino.ino.hex
 REMOTE_HEX  ?= /tmp/krabby-firmware.hex
+
+# flash-remote-all: explicit board list overrides discovery; otherwise the boards
+# are found on REMOTE by USB VID:PID via this self-contained detector (run on
+# REMOTE with the script piped over stdin — nothing to scp or leave behind).
+PORTS       ?=
+LISTER      := $(CURDIR)/scripts/list_mcu_ports.py
 
 ifeq ($(OS),Windows_NT)
 PYTHON ?= python
@@ -84,7 +101,7 @@ endif
 $(info Using PORT=$(PORT))
 endif
 
-.PHONY: arduino-core fetch-libs compile-firmware upload-firmware flash-remote sync-remote test-native test-native-coverage test-firmware
+.PHONY: arduino-core fetch-libs compile-firmware upload-firmware flash-remote flash-remote-all sync-remote test-native test-native-coverage test-firmware
 
 test-native:
 	$(CMAKE) -S "$(NATIVE_TEST_SOURCE)" -B "$(NATIVE_TEST_BUILD)"
@@ -158,7 +175,27 @@ flash-remote: compile-firmware
 	@test -n "$(REMOTE)" || { echo "ERROR: set REMOTE=user@host (the machine the boards are plugged into)"; exit 1; }
 	@test -n "$(strip $(PORT))" || { echo "ERROR: set PORT=/dev/ttyACMx (the board's serial device on $(REMOTE))"; exit 1; }
 	$(SCP) "$(HEX)" "$(REMOTE):$(REMOTE_HEX)"
-	$(SSH) "$(REMOTE)" "$(AVRDUDE) -p m2560 -c wiring -P '$(PORT)' -b 115200 -D -U flash:w:$(REMOTE_HEX):i"
+	$(SSH) "$(REMOTE)" "$(AVRDUDE_FLASH) -P '$(PORT)' -U flash:w:$(REMOTE_HEX):i"
+
+# Flash every board on REMOTE: compile + copy the hex once, discover the boards
+# by USB VID:PID on REMOTE (unless PORTS is given), then flash each in turn. The
+# same hex goes on all of them — the board's role lives in EEPROM, not firmware.
+#
+# Assumes you can ssh into the Jetson REMOTE, and that all shields are
+# connected to that Jetson via a USB hub. Primarily used in bench testing.
+flash-remote-all: compile-firmware
+	@test -n "$(REMOTE)" || { echo "ERROR: set REMOTE=user@host (the machine the boards are plugged into)"; exit 1; }
+	$(SCP) "$(HEX)" "$(REMOTE):$(REMOTE_HEX)"
+	@ports="$(PORTS)"; \
+	if [ -z "$$ports" ]; then \
+		ports=`$(SSH) "$(REMOTE)" "$(PYTHON) -" < "$(LISTER)"`; \
+	fi; \
+	if [ -z "$$ports" ]; then echo "ERROR: no boards found on $(REMOTE) (pass PORTS=\"/dev/ttyUSB0 ...\" to override)"; exit 1; fi; \
+	echo "Flashing boards on $(REMOTE): $$ports"; \
+	for p in $$ports; do \
+		echo "==> $$p"; \
+		$(SSH) "$(REMOTE)" "$(AVRDUDE_FLASH) -P '$$p' -U flash:w:$(REMOTE_HEX):i" || exit 1; \
+	done
 
 # Push this firmware/ tree (host-side Python: the interactive menu, SDK, CLI,
 # serial/TCP bridge) to REMOTE for bench use, without touching any board's

@@ -6,7 +6,9 @@ from __future__ import annotations
 
 import os
 
-# USB VID/PID pairs for boards we drive. Shared with firmware.cli port scanning.
+# USB VID/PID pairs for boards we drive — the canonical table; firmware/cli.py
+# imports it and firmware/scripts/list_mcu_ports.py duplicates it (that script
+# must stand alone on a remote flash host).
 MEGA_USB_IDS = {
     ("2341", "0042"), ("2341", "0010"), ("2341", "0110"),  # Arduino Mega native USB
     ("1a86", "7523"), ("1a86", "5523"),                    # CH340 / CH341 (Krabby-Uno shield)
@@ -18,8 +20,8 @@ def default_port() -> str:
     Best-effort auto-detection of the MCU serial port.
     Priority:
       1) KRABBY_MCU_PORT env var (explicit override)
-      2) USB VID/PID matching a known board (CH340 adapters often report a
-         generic description like "USB Serial" with no manufacturer)
+      2) USB VID:PID match (exact; CH340s often enumerate with a bare
+         "USB Serial" description that keyword matching misses)
       3) USB description/manufacturer containing common board identifiers
       4) OS-specific fallback
     """
@@ -44,7 +46,7 @@ def default_port() -> str:
         "usb serial",
     )
 
-    ports = list_ports.comports()
+    ports = list(list_ports.comports())
 
     for p in ports:
         vid = f"{p.vid:04x}" if p.vid else ""
