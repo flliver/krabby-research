@@ -1,0 +1,41 @@
+# Shared Krabby fleet settings (non-secret). Committed for CI, docs, CLI, enroll.
+# After FleetServiceStack deploy, fill [cognito] from stack outputs or SSM:
+#   aws cloudformation describe-stacks --stack-name FleetServiceStack \
+#     --query "Stacks[0].Outputs[?starts_with(OutputKey,'FleetCognito')].[OutputKey,OutputValue]" --output table
+# Secrets (CI operator password) stay in GitHub Actions secrets only.
+
+[aws]
+region = "us-east-2"
+
+[fleet]
+domain = "fleet.krabbyco.com"
+# portal_url and service_url default from domain if omitted:
+# portal_url = "https://fleet.krabbyco.com"
+# service_url = "https://fleet.krabbyco.com/api"
+
+[cognito]
+user_pool_id = "us-east-2_cJP9fpG4N"
+client_id = "31po2basitdvq1cs2dh99dblep"
+
+[iot]
+thing_type = "Krab"
+device_policy = "KrabDevicePolicy"
+
+[bench]
+thing_name = "bench-krabby-ci"
+
+[ci]
+# Cognito sign-in alias for the persistent CI operator (email). Not a secret.
+operator_username = "ci-fleet-operator@krabbyco.com"
+# FleetServiceStack output FleetGitHubActionsRoleArn (krabby-fleet-ci OIDC role).
+github_actions_role_arn = "arn:aws:iam::632914961627:role/krabby-fleet-ci"
+
+# Non-secret CDK context for fleet-deploy.yml (and local deploy scripts).
+# domainName comes from [fleet].domain above.
+[deploy]
+hosted_zone_name = "krabbyco.com"
+github_owner = "flliver"
+github_repo = "krabby-research"
+github_branch = "main"
+github_oidc_provider_arn = "arn:aws:iam::632914961627:oidc-provider/token.actions.githubusercontent.com"
+cdk_bootstrap_qualifier = "hnb659fds"

@@ -1,0 +1,135 @@
+# Fleet CI: portal unit tests, fleet service unit tests, bench E2E against deployed fleet.
+# Assumes krabby-fleet-ci IAM role via GitHub OIDC (no stored AWS credentials).
+
+# Advisory validation: failures show as warnings and do not block merge or push.
+# Do not add these jobs to branch protection required checks.
+
+name: Fleet CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types:
+      - opened
+      - synchronize
+    branches:
+      - main
+
+concurrency:
+  group: fleet-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: fleet/portal/package-lock.json
+
+      - name: Portal unit tests
+        working-directory: fleet/portal
+        run: |
+          npm ci
+          npm test
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Load fleet config
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e fleet/config
+          python -m krabby_fleet_config.github_actions
+
+      - name: Fleet config + service unit tests
+        run: |
+          pip install -e "fleet/service[dev]"
+          pytest fleet/config/tests fleet/service/tests -q
+
+  bench-e2e:
+    name: Bench E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    needs: unit
+    continue-on-error: true
+    # Same-repo PRs and pushes only — fork PRs cannot assume the fleet OIDC role.
+    if: >-
+      github.event_name == 'push'
+      || github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      BENCH_E2E: "1"
+      TUNNEL_E2E_DEBUG: "1"
+      COGNITO_CI_PASSWORD: ${{ secrets.COGNITO_CI_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Load fleet config
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e fleet/config
+          python -m krabby_fleet_config.github_actions
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.FLEET_CI_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR Public
+        run: aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws
+
+      - name: Install localproxy (source mode, amd64)
+        run: |
+          docker pull public.ecr.aws/aws-iot-securetunneling-localproxy/ubuntu-bin:amd64-latest
+          docker create --name krabby-lp public.ecr.aws/aws-iot-securetunneling-localproxy/ubuntu-bin:amd64-latest
+          docker cp krabby-lp:/root/bin/localproxy /usr/local/bin/localproxy
+          docker rm krabby-lp
+          sudo chmod 755 /usr/local/bin/localproxy
+          localproxy --help >/dev/null
+
+      - name: Install Python E2E deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e fleet/config -e "fleet/service[e2e]" -e fleet/cli
+          pip install -r fleet/infra/tests_e2e/requirements.txt
+          playwright install --with-deps chromium
+
+      - name: Install bench CI SSH key
+        env:
+          BENCH_CI_SSH_PRIVATE_KEY: ${{ secrets.BENCH_CI_SSH_PRIVATE_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          if [ -z "$BENCH_CI_SSH_PRIVATE_KEY" ]; then
+            echo "::warning::BENCH_CI_SSH_PRIVATE_KEY not set; test_krabby_fleet_ssh_runs_command_end_to_end will fail auth"
+            exit 0
+          fi
+          printf '%s\n' "$BENCH_CI_SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+
+      - name: Control-plane bench E2E (Task 1)
+        run: pytest fleet/infra/tests_e2e -q
+
+      - name: Fleet service bench E2E (Task 2 + 3)
+        run: pytest fleet/service/tests_e2e -q

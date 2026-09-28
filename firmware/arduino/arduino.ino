@@ -7,10 +7,18 @@
 
 #include <Arduino.h>
 #include <EEPROM.h>
+#include <math.h>
+#include "src/imu/imu_calibrator.h"
+#include "src/imu/lsm6dso_adapter.h"
+#include "src/display/ssd1306_adapter.h"
+#include "src/display/display_renderer.h"
+#include "src/display/display_frame_model.h"
 #include "board_pins.h"
 #include "command.h"
 #include "eeprom_layout.h"
 #include "actuator_manager.h"
+#include "src/imu/imu_constants.h"
+#include "src/telemetry.h"
 #include "version.h"
 
 // --- Serial: left follower = Serial1 (TX1/RX1 on Krabby-Uno v0.1 shield), right follower = Serial2 ---
@@ -18,7 +26,9 @@
 #define SERIAL_RIGHT Serial2   // pins 16 (TX2), 17 (RX2) — Krabby-Uno v0.1 shield Serial2 connector
 #define SERIAL_LEFT_RX  19    // RX1 — pulled up so a disconnected uplink idles high, not noise
 #define SERIAL_RIGHT_RX 17    // RX2 — same
-#define BAUD_RATE 115200
+// Exact on the Mega's 16 MHz clock, with headroom for the leader to transmit
+// joint data from all three controller boards plus I2C sensor data.
+#define BAUD_RATE 250000
 
 // Max input lines drained from a board's main channel per loop() pass. Bounds the
 // drain so a flooded/noisy uplink (e.g. a disconnected follower RX picking up EMI)
@@ -35,17 +45,15 @@ constexpr int RX_DRAIN_BUDGET = 16;
 EepromLayout g_config;
 BoardRole currentRole = ROLE_UNKNOWN;
 
-static const char* roleName(BoardRole r)
-{
-    switch (r)
-    {
-        case ROLE_UNKNOWN: return "UNKWN";
-        case ROLE_FRONT:   return "FRONT";
-        case ROLE_LEFT:   return "LEFT ";
-        case ROLE_RIGHT:  return "RIGHT";
-        default:          return "UNKWN";
-    }
-}
+ControllerFreshnessTracker controllerFreshnessTrackers[BOARD_ROLE_COUNT];
+ActuatorStatus latestActuatorStatus[ActuatorId::ActuatorCount];
+ImuMeasurement latestImuMeasurement;
+Ssd1306Adapter oledDisplay;
+DisplayRenderer<Ssd1306Adapter> oledRenderer(oledDisplay);
+unsigned long lastOledDrawMilliseconds = 0;
+constexpr unsigned long OLED_REDRAW_INTERVAL_MILLISECONDS = 250;
+
+static_assert(JOINTCAL_BASE_ADDR + sizeof(JointCalBlock) <= EEPROM_IMU_CAL_ADDR, "JointCalBlock overlaps IMU cal");
 
 // --- All 18 actuators (names fixed; each board uses the same physical pins for its 6) ---
 // Pin numbers from board_pins.h (KRABBY_PIN_REV 1 = legacy, 2 = MOTOR_HEADER_PINOUT).
@@ -94,8 +102,92 @@ const LinearActuator::ControlConfig ACTUATOR_CONFIG = {
 const size_t CMD_BUF_SIZE = 18;
 Command cmdBuf[CMD_BUF_SIZE];
 
-const int TELEMETRY_INTERVAL_MS = 50;
 unsigned long lastTelemetry = 0;
+// Schedules blocking OLED writes after telemetry.
+bool wasTelemetryEmittedOnPreviousLoop = false;
+
+// --- I2C sensor cluster — leader board only ---
+// The LSM6DSO IMU rides the leader's telemetry tick; followers never touch the bus.
+Lsm6dsoAdapter imuSensor;
+static_assert(
+    sizeof(ImuCalibrationRecord) == EEPROM_IMU_CAL_SIZE,
+    "update EEPROM_IMU_CAL_SIZE in src/imu/imu_constants.h");
+
+// EEPROM binding for ImuCalibrator. Kept out of src/imu/ because it needs
+// <EEPROM.h> and that directory compiles on the host.
+class EepromImuCalibrationStorage
+{
+public:
+    void load(ImuCalibrationRecord &record)
+    {
+        EEPROM.get(EEPROM_IMU_CAL_ADDR, record);
+    }
+
+    void writeRecord(const ImuCalibrationRecord &record)
+    {
+        EEPROM.put(EEPROM_IMU_CAL_ADDR, record);
+    }
+
+    void updateMagic(uint8_t magic)
+    {
+        EEPROM.update(EEPROM_IMU_CAL_ADDR, magic);
+    }
+};
+
+static void logImuInitFailure(Lsm6dsoInitializationResult result)
+{
+    if (result == Lsm6dsoInitializationResult::NotDetected)
+    {
+        Serial.println(F("IMU CAL: LSM6DSO not detected at configured addresses; shipping valid=0."));
+        return;
+    }
+
+    if (result == Lsm6dsoInitializationResult::ConfigurationFailed)
+    {
+        Serial.println(F("IMU CAL: LSM6DSO detected but register configuration failed; shipping valid=0."));
+        return;
+    }
+
+    Serial.println(F("IMU CAL: unexpected initialization result; shipping valid=0."));
+}
+
+static void logImuCalibrationResult(ImuCalibrationResult result)
+{
+    switch (result)
+    {
+        case ImuCalibrationResult::Loaded:
+            Serial.println(F("IMU CAL: loaded from EEPROM."));
+            break;
+        case ImuCalibrationResult::Captured:
+            Serial.println(F("IMU CAL: gyro bias captured and saved to EEPROM."));
+            break;
+        case ImuCalibrationResult::ReadFailed:
+            Serial.println(F("IMU CAL: sensor read failed; bias left at zero, not saved."));
+            break;
+        case ImuCalibrationResult::MotionDetected:
+            Serial.println(F("IMU CAL: motion detected; bias left at zero, not saved."));
+            break;
+        case ImuCalibrationResult::VerificationFailed:
+            Serial.println(F("IMU CAL: EEPROM verification failed; bias left at zero."));
+            break;
+    }
+}
+
+static void imuSetup()
+{
+    const Lsm6dsoInitializationResult initResult =
+        imuSensor.initialize();
+    if (initResult != Lsm6dsoInitializationResult::Ok)
+    {
+        logImuInitFailure(initResult);
+        return;
+    }
+
+    EepromImuCalibrationStorage storage;
+    logImuCalibrationResult(imuSensor.calibrate(storage, delay));
+
+    Serial.println(F("IMU CAL: LSM6DSO online."));
+}
 
 // One line = "ROLE; " + ACT_COUNT segments; allow ~55 chars per segment to avoid truncation.
 #define TELEMETRY_LINE_MAX (8 + (ACT_COUNT * 55))
@@ -104,6 +196,20 @@ static char leftPartial[TELEMETRY_LINE_MAX];
 static char rightPartial[TELEMETRY_LINE_MAX];
 static size_t leftPartialPos = 0;
 static size_t rightPartialPos = 0;
+
+void updateActuatorStatusFromTelemetry(
+    const char *line,
+    BoardRole boardRole)
+{
+    ActuatorStatus status[CONTROLLER_ACTUATOR_COUNT];
+    if (!parseActuatorStatus(line, boardRole, status))
+        return;
+
+    controllerFreshnessTrackers[boardRole] =
+        ControllerFreshnessTracker::seenAt(millis());
+    for (const ActuatorStatus &actuatorStatus : status)
+        latestActuatorStatus[actuatorStatus.actuatorId] = actuatorStatus;
+}
 
 // Forward only complete lines (up to and including \n) from follower serial to mainSerial.
 // Drain is BOUNDED per call: on a bench with no followers these RX lines idle on a weak
@@ -120,7 +226,13 @@ static bool lineIsPrintable(const char* s, size_t len)
     return true;
 }
 
-void forwardFullLines(HardwareSerial* from, HardwareSerial* to, char* partial, size_t cap, size_t* partialPos)
+void forwardFullLines(
+    HardwareSerial* from,
+    HardwareSerial* to,
+    char* partial,
+    size_t cap,
+    size_t* partialPos,
+    BoardRole boardRole)
 {
     if (!from || !to || !partial || !partialPos) return;
     int budget = FWD_DRAIN_BUDGET;
@@ -137,7 +249,10 @@ void forwardFullLines(HardwareSerial* from, HardwareSerial* to, char* partial, s
             // stopped later and later as the junk backlog grew). Real follower
             // lines (telemetry/VER/GET replies) are pure printable ASCII.
             if (*partialPos > 0 && lineIsPrintable(partial, *partialPos))
+            {
                 to->println(partial);
+                updateActuatorStatusFromTelemetry(partial, boardRole);
+            }
             *partialPos = 0;
             continue;
         }
@@ -225,7 +340,7 @@ void setup()
     pinMode(SERIAL_RIGHT_RX, INPUT_PULLUP);
     pinMode(LED_BUILTIN, OUTPUT);
 
-    eepromLoad(g_config);          // invalid/blank EEPROM → g_config.role == ROLE_UNKNOWN
+    eepromLoad(g_config);          // invalid/blank EEPROM → g_config.role == ROLE_UNKNOWN; wait for SET role
     applyRole(g_config.role);
     hallHwInit();
 
@@ -233,6 +348,15 @@ void setup()
     // probed on its own.
     Serial.print("ROLE_HINT: ");
     Serial.println(roleConfigName(currentRole));
+
+    if (currentRole == ROLE_FRONT || currentRole == ROLE_UNKNOWN)
+    {
+        pinMode(STATUS_LED_PIN, OUTPUT);
+        digitalWrite(STATUS_LED_PIN, LOW);
+        imuSetup();
+        if (!oledRenderer.initialize())
+            Serial.println(F("OLED: initialization failed at 0x3D."));
+    }
 
     Serial.print("Krabby Ready ");
     Serial.print(boardPinRevisionLabel());
@@ -433,38 +557,27 @@ void loop()
         else if (cmdType == 'B')
         {
             mainSerial->read();
-            while (mainSerial->available() && mainSerial->peek() == ' ')
-                mainSerial->read();
-            if(leftSerial) leftSerial->print("B ");
-            if(rightSerial) rightSerial->print("B ");
+            // Read the whole line first; token-by-token reads could spin forever on a truncated line.
+            String payload = mainSerial->readStringUntil('\n');
+            int i = 0;
+            const int len = payload.length();
             while (true)
             {
-                String name = mainSerial->readStringUntil(' ');
-                int pwm = mainSerial->readStringUntil(' ').toInt();
-
-                if (actuatorManager) actuatorManager->handleJog(name, pwm);
-                if (leftSerial)  {
-                    leftSerial->print(name);
-                    leftSerial->print(" ");
-                    leftSerial->print(pwm);
-                    leftSerial->print(" ");
-                }
-                if (rightSerial) {
-                    rightSerial->print(name);
-                    rightSerial->print(" ");
-                    rightSerial->print(pwm);
-                    rightSerial->print(" ");
-                }
-                if(mainSerial->peek() == '\n') { mainSerial->readStringUntil('\n'); break; }
+                String name = nextTok(payload, i, len);
+                String pwm = nextTok(payload, i, len);
+                if (name.length() == 0 || pwm.length() == 0)
+                    break;
+                if (actuatorManager) actuatorManager->handleJog(name, pwm.toInt());
             }
-            if (leftSerial)  { leftSerial->println(); }
-            if (rightSerial) { rightSerial->println(); }
+            if (leftSerial)  { leftSerial->print("B ");  leftSerial->println(payload); }
+            if (rightSerial) { rightSerial->print("B "); rightSerial->println(payload); }
         }
         else if (cmdType == 'J')
         {
+            // Host format is J<name> <pwm> (no space after J). Skip any spaces so a
+            // legacy "J <name> <pwm>" forward still parses instead of yielding an
+            // empty name / pwm 0 (which left followers dead while FRONT still jogged).
             mainSerial->read();
-            // Tolerate spaces after the J (like the B branch): "J FLHY 100" from a
-            // serial monitor or older leader must not parse as an empty joint name.
             while (mainSerial->available() && mainSerial->peek() == ' ')
                 mainSerial->read();
             String name = mainSerial->readStringUntil(' ');
@@ -574,24 +687,73 @@ void loop()
 
     // Drain follower serial so RX buffers don't overflow (64-byte default drops middle of ~200-byte lines).
     // Only flush once after both drains so we don't block in flush() twice per loop (~35 ms each at 115200).
-    forwardFullLines(leftSerial, mainSerial, leftPartial, TELEMETRY_LINE_MAX, &leftPartialPos);
-    forwardFullLines(rightSerial, mainSerial, rightPartial, TELEMETRY_LINE_MAX, &rightPartialPos);
+    forwardFullLines(leftSerial, mainSerial, leftPartial, TELEMETRY_LINE_MAX, &leftPartialPos, ROLE_LEFT);
+    forwardFullLines(rightSerial, mainSerial, rightPartial, TELEMETRY_LINE_MAX, &rightPartialPos, ROLE_RIGHT);
 
     if (actuatorManager) actuatorManager->updateAll();
 
+    if (currentRole == ROLE_FRONT || currentRole == ROLE_UNKNOWN)
+    {
+        const uint32_t nowMilliseconds = millis();
+        // UNKNOWN drives no actuators, so there is no local status to report.
+        if (currentRole == ROLE_FRONT)
+        {
+            for (LinearActuator *actuator : ACT_LIST_FRONT)
+            {
+                const ActuatorStatus status = actuator->getStatus();
+                latestActuatorStatus[status.actuatorId] = status;
+            }
+            controllerFreshnessTrackers[ROLE_FRONT] =
+                ControllerFreshnessTracker::seenAt(nowMilliseconds);
+        }
+
+        DisplayFrame displayFrame = buildDisplayFrame(
+            currentRole,
+            controllerFreshnessTrackers,
+            latestActuatorStatus,
+            latestImuMeasurement,
+            nowMilliseconds,
+            ACTUATOR_CONFIG.pwmDeadband
+        );
+
+        const bool isActuatorDisconnected = hasDisconnectedActuator(displayFrame);
+        digitalWrite(STATUS_LED_PIN, isActuatorDisconnected ? HIGH : LOW);
+
+        // A full OLED transfer takes ~29 ms; start it after telemetry.
+        if (wasTelemetryEmittedOnPreviousLoop &&
+            nowMilliseconds - lastOledDrawMilliseconds >= OLED_REDRAW_INTERVAL_MILLISECONDS)
+        {
+            lastOledDrawMilliseconds = nowMilliseconds;
+            oledRenderer.render(displayFrame);
+        }
+    }
+
     // Drain again in case bytes arrived during updateAll()
-    forwardFullLines(leftSerial, mainSerial, leftPartial, TELEMETRY_LINE_MAX, &leftPartialPos);
-    forwardFullLines(rightSerial, mainSerial, rightPartial, TELEMETRY_LINE_MAX, &rightPartialPos);
+    forwardFullLines(leftSerial, mainSerial, leftPartial, TELEMETRY_LINE_MAX, &leftPartialPos, ROLE_LEFT);
+    forwardFullLines(rightSerial, mainSerial, rightPartial, TELEMETRY_LINE_MAX, &rightPartialPos, ROLE_RIGHT);
     mainSerial->flush();
 
     // ROLE_UNKNOWN drives nothing and has no actuators, so it emits no telemetry
     // stream — it still answers V and GET so the operator can identify and assign it.
-    if (actuatorManager && millis() - lastTelemetry >= TELEMETRY_INTERVAL_MS)
+    wasTelemetryEmittedOnPreviousLoop = false;
+    const unsigned long telemetryNowMilliseconds = millis();
+    if (actuatorManager && telemetryNowMilliseconds - lastTelemetry >= TELEMETRY_INTERVAL_MS)
     {
-        lastTelemetry = millis();
-        mainSerial->print(roleName(currentRole));
-        mainSerial->print("; ");
+        wasTelemetryEmittedOnPreviousLoop = true;
+        lastTelemetry = telemetryNowMilliseconds;
+        mainSerial->print(boardTelemetryRoleLabel(currentRole));
+        mainSerial->print(TELEMETRY_SEGMENT_DELIMITER);
+        mainSerial->print(TELEMETRY_FIELD_SEPARATOR);
         actuatorManager->printTelemetry(*mainSerial);
+        // Leader appends its sensor segments to its own line only; forwarded
+        // LEFT/RIGHT lines pass through forwardFullLines() untouched.
+        if (currentRole == ROLE_FRONT || currentRole == ROLE_UNKNOWN)
+        {
+            const ImuMeasurement measurement = imuSensor.measure();
+            latestImuMeasurement = measurement;
+            appendImuMeasurement(*mainSerial, measurement);
+        }
+        mainSerial->println();
         mainSerial->flush();  // ensure full line is sent before next loop (avoids two "LEFT;" in one buffer on host)
     }
 }

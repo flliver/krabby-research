@@ -1,0 +1,98 @@
+# Monthly (and on-demand) rotation of the persistent CI Cognito operator
+# password. Updates Cognito via the fleet OIDC role, then writes the new value
+# to GitHub secret COGNITO_CI_PASSWORD so fleet-ci.yml keeps working.
+#
+# Requires repo secret FLEET_CI_SECRETS_PAT: a fine-grained PAT (or classic
+# repo-scoped token) with permission to create/update Actions secrets. The
+# default GITHUB_TOKEN cannot update repository secrets.
+
+name: Fleet CI Cognito rotate
+
+on:
+  schedule:
+    # 14:00 UTC on the 1st of each month.
+    - cron: "0 14 1 * *"
+  workflow_dispatch:
+
+concurrency:
+  group: fleet-ci-cognito-rotate
+  cancel-in-progress: false
+
+jobs:
+  rotate:
+    name: Rotate COGNITO_CI_PASSWORD
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      COGNITO_CI_PASSWORD: ${{ secrets.COGNITO_CI_PASSWORD }}
+      FLEET_CI_SECRETS_PAT: ${{ secrets.FLEET_CI_SECRETS_PAT }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Load fleet config
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e fleet/config
+          python -m krabby_fleet_config.github_actions
+
+      - name: Require rotation secrets
+        run: |
+          missing=0
+          if [ -z "${COGNITO_CI_PASSWORD:-}" ]; then
+            echo "::error::COGNITO_CI_PASSWORD secret is empty (needed for rollback)"
+            missing=1
+          fi
+          if [ -z "${FLEET_CI_SECRETS_PAT:-}" ]; then
+            echo "::error::FLEET_CI_SECRETS_PAT secret is empty (needed to update GitHub secrets)"
+            missing=1
+          fi
+          if [ -z "${FLEET_CI_ROLE_ARN:-}" ]; then
+            echo "::error::FLEET_CI_ROLE_ARN empty (fleet.toml [ci].github_actions_role_arn)"
+            missing=1
+          fi
+          if [ -z "${COGNITO_CI_USERNAME:-}" ]; then
+            echo "::error::COGNITO_CI_USERNAME empty (fleet.toml [ci].operator_username)"
+            missing=1
+          fi
+          exit "$missing"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.FLEET_CI_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Install rotation deps
+        run: pip install boto3 pycognito
+
+      - name: Rotate Cognito password and update GitHub secret
+        run: |
+          set -euo pipefail
+          NEW_PASSWORD_FILE="$(mktemp)"
+          cleanup() {
+            rm -f "$NEW_PASSWORD_FILE"
+          }
+          trap cleanup EXIT
+          chmod 600 "$NEW_PASSWORD_FILE"
+
+          python -m krabby_fleet_config.rotate_ci_password \
+            --write-password "$NEW_PASSWORD_FILE"
+
+          if ! GH_TOKEN="$FLEET_CI_SECRETS_PAT" gh secret set COGNITO_CI_PASSWORD \
+            --repo "${{ github.repository }}" \
+            < "$NEW_PASSWORD_FILE"
+          then
+            echo "::error::Failed to update COGNITO_CI_PASSWORD; rolling Cognito back"
+            python -m krabby_fleet_config.rotate_ci_password --restore-from-env
+            exit 1
+          fi
+
+          echo "Rotated Cognito password for ${COGNITO_CI_USERNAME} and updated COGNITO_CI_PASSWORD"

@@ -11,7 +11,7 @@
 
 The Isaac Sim HAL server must run in an environment where **Isaac Sim** and **Isaac Lab** are available. Two options:
 
-- **Docker (recommended):** Build the image with `make build-isaacsim-image` (requires `make isaaclab-cache` and `make build-wheels`). Then run the server inside the container (see Launch). The client (`krabby-uno-sim`) runs on the host and connects to the container via TCP. When using Docker, set up GPU access first: run `./scripts/setup-docker-gpu.sh` from the repo root, or see [DOCKER_DEPENDENCIES.md](../../../docs/DOCKER_DEPENDENCIES.md) (GPU Support Setup).
+- **Docker (recommended):** Build the image with `make build-isaacsim-image` (requires `make isaaclab-cache` and `make build-wheels`). Then run the server inside the container (see Launch). The client (`krabby-uno-sim`) runs on the host and connects to the container via TCP. When using Docker, set up GPU access first: run `./scripts/jetson/setup-docker-gpu.sh` from the repo root, or see [DOCKER_DEPENDENCIES.md](../../../docs/DOCKER_DEPENDENCIES.md) (GPU Support Setup).
 - **Native:** Install Isaac Sim and Isaac Lab per [DEVELOPER.md](../../DEVELOPER.md), then run the module with the Isaac Lab Python (e.g. from the Isaac Lab repo: set `PYTHONPATH` to include the krabby-research repo root and run `./isaaclab.sh -p python -m hal.server.isaac.main ...`).
 
 ## Launch

@@ -62,6 +62,15 @@ class ParkourEventsCfg(ParkourTermCfg):
     freeze_terrain_levels: bool = False
     """If True, skip parkour terrain level up/down on episode reset (teacher bridge mode)."""
 
+    move_up_frac: float = 0.8
+    """Terrain-level promotion threshold as a fraction of commanded distance
+    (``cmd_vx * episode_length_s``). Default preserves the historical 0.8. Plants whose
+    achieved/commanded tracking ratio is well below 1.0 need this recalibrated or they
+    can never promote (crab hexapod, tracking ~0.5: use ~0.45)."""
+
+    move_down_frac: float = 0.4
+    """Terrain-level demotion threshold, same units. Historical default 0.4."""
+
     future_goal_poses_visualizer_cfg: VisualizationMarkersCfg \
         = FUTURE_GOAL_MARKER_CFG.replace(prim_path="/Visuals/Command/future_goal_poses")
 

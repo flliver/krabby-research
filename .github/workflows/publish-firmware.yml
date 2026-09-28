@@ -8,6 +8,12 @@ on:
     branches:
       - mainline
       - 'release/**'
+  schedule:
+    # Daily release build at 07:00 UTC. Scheduled runs start on the default
+    # branch, so the "Select newest release branch" step below checks out the
+    # most recent release/* before building. GitHub may delay or skip scheduled
+    # runs under load; pushes still publish per-commit.
+    - cron: '0 7 * * *'
 
 jobs:
   build-and-publish:
@@ -19,6 +25,25 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Scheduled builds need every branch to find the newest release/*.
+          fetch-depth: 0
+
+      - name: Select newest release branch (scheduled builds)
+        if: github.event_name == 'schedule'
+        run: |
+          # Highest version, not most-recently-committed: a hotfix to an old
+          # maintenance branch must not hijack the daily build from a newer release.
+          BRANCH=$(git for-each-ref --sort=-version:refname \
+            --format='%(refname:short)' 'refs/remotes/origin/release/*' | head -1)
+          if [ -z "$BRANCH" ]; then
+            echo "No release/* branch found — nothing to build." >&2
+            exit 1
+          fi
+          LOCAL="${BRANCH#origin/}"
+          echo "Scheduled daily build: checking out ${LOCAL}"
+          # -B makes HEAD a real branch so gen_version_h.py reads the right name.
+          git checkout -B "${LOCAL}" "${BRANCH}"
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -26,7 +51,10 @@ jobs:
           python-version: '3.12'
 
       - name: Install Python deps
-        run: pip install boto3
+        run: pip install boto3 pytest pytest-cov pytest-timeout keyboard pyserial
+
+      - name: Run native and Python firmware tests
+        run: make -C firmware test-firmware
 
       - name: Install arduino-cli 1.1.1
         run: |
@@ -37,13 +65,35 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.arduino15
-          key: arduino-avr-${{ runner.os }}-cli1.1.1-core1.8.7
+          key: arduino-avr-${{ runner.os }}-cli1.1.1-core1.8.8
 
+      # Pinned to the core version the bench-verified hex was built with;
+      # bump together with firmware/Makefile's arduino-core target and the
+      # cache key above.
       - name: Install arduino AVR core
-        run: arduino-cli core install arduino:avr
+        run: arduino-cli core install arduino:avr@1.8.8
 
       - name: Generate version.h
         run: python firmware/scripts/gen_version_h.py
+
+      # The SparkFun LSM6DSO library is not in the Library Manager index, so it
+      # installs from a pinned git commit into the sketchbook.
+      # Guarded: scheduled runs take this workflow file from the default branch
+      # but check out the newest release/*, which may predate the M16 sensor and
+      # need no library, so skip instead of failing.
+      - name: Cache pinned Arduino libraries
+        uses: actions/cache@v4
+        with:
+          path: ~/Arduino/libraries
+          key: arduino-libs-${{ hashFiles('firmware/Makefile') }}
+
+      - name: Fetch pinned Arduino libraries
+        run: |
+          if grep -q '^fetch-libs:' firmware/Makefile; then
+            make -C firmware fetch-libs
+          else
+            echo "No fetch-libs target on this ref (pre-M16 release branch); skipping"
+          fi
 
       - name: Compile firmware
         run: |

@@ -1,4 +1,4 @@
-"""Regression test for the front<->follower comms bug (M17 Task 1 §2.1).
+"""Regression test for the front<->follower serial comms bug.
 
 Root cause: the leader Mega forwards ~200-byte telemetry lines from each follower
 on Serial1/Serial2 while servicing USB + the actuator update. That needs a 256-byte
@@ -17,6 +17,7 @@ assertions fail; post-fix they pass.
 We assert against the *actual* compile command `make` would run (`make -n`), not a
 regex on the Makefile text, so the test tracks real build behavior across edits.
 """
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -36,16 +37,21 @@ def _compile_command(pin_rev: str | None = None) -> str:
     `make -n` prints commands without executing them, so this needs neither
     arduino-cli nor a board attached.
     """
-    cmd = ["make", "-n", "compile-firmware"]
-    if pin_rev is not None:
-        cmd.append(f"PIN_REV={pin_rev}")
-    out = subprocess.run(
-        cmd, cwd=FIRMWARE_DIR, capture_output=True, text=True, check=True
-    ).stdout
+    out = _dry_run(pin_rev)
     for line in out.splitlines():
         if "arduino-cli compile" in line:
             return line
     raise AssertionError(f"no compile line in `make -n compile-firmware` output:\n{out}")
+
+
+def _dry_run(pin_rev: str | None = None) -> str:
+    """Full `make -n compile-firmware` output (commands printed, none run)."""
+    cmd = ["make", "-n", "compile-firmware"]
+    if pin_rev is not None:
+        cmd.append(f"PIN_REV={pin_rev}")
+    return subprocess.run(
+        cmd, cwd=FIRMWARE_DIR, capture_output=True, text=True, check=True
+    ).stdout
 
 
 class TestSerialRxBufferFlag:
@@ -71,3 +77,34 @@ class TestSerialRxBufferFlag:
         # The buffer fix must not drop KRABBY_PIN_REV selection.
         assert "-DKRABBY_PIN_REV=1" in _compile_command(pin_rev="1")
         assert "-DKRABBY_PIN_REV=3" in _compile_command(pin_rev="3")
+
+
+class TestPinnedLibraryFetch:
+    # The SparkFun LSM6DSO library is not in the Library Manager index, so the
+    # build installs it from git. Two properties matter and neither shows up in
+    # the unit suite otherwise: the fetch must run before the compile, and the
+    # ref must be a commit (a tag can be moved upstream, silently changing the
+    # build). A regression in either only surfaces later as a missing header or
+    # an unexplained behaviour change.
+
+    # Asserted against the command `make` would actually run, per this module's
+    # header: a 40-hex fragment on the git URL is a commit, not a movable tag.
+    _COMMIT_RE = r"\.git#([0-9a-f]{40})"
+
+    def test_library_is_pinned_to_a_commit_not_a_tag(self):
+        assert re.search(self._COMMIT_RE, _dry_run())
+
+    def test_fetch_step_precedes_compile(self):
+        # `make -n` proves the ordering without running either command.
+        out = _dry_run()
+        fetch_idx = out.find("lib install")
+        compile_idx = out.find("arduino-cli compile")
+        assert fetch_idx != -1, f"no lib install step in:\n{out}"
+        assert compile_idx != -1
+        assert fetch_idx < compile_idx
+
+    def test_fetch_is_guarded_by_the_installed_pin(self):
+        # Re-fetching on every build would put a third-party host in the path of
+        # each CI run; the guard skips when the stamped pin already matches.
+        out = _dry_run()
+        assert ".krabby-pin" in out

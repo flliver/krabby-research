@@ -1,0 +1,231 @@
+:root {
+  --bg: #0f1419;
+  --surface: #1a222c;
+  --border: #2c3845;
+  --text: #e8eef4;
+  --muted: #8b9aab;
+  --accent: #3d9b7a;
+  --accent-dim: #2a6b54;
+  --danger: #c45c5c;
+  --online: #4caf82;
+  --offline: #9a7b4f;
+  --font: "IBM Plex Sans", "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+button,
+.button {
+  font: inherit;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  padding: 0.45rem 0.85rem;
+  border-radius: 4px;
+}
+
+button.primary,
+.button.primary {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.shell {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem 3rem;
+}
+
+.topbar {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.75rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.brand {
+  font-size: 1.15rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.brand:hover {
+  text-decoration: none;
+  color: var(--accent);
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.mono {
+  font-family: var(--mono);
+  font-size: 0.92em;
+}
+
+table.devices {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+table.devices th,
+table.devices td {
+  text-align: left;
+  padding: 0.65rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+table.devices th {
+  color: var(--muted);
+  font-weight: 500;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.1rem 0.45rem;
+  border-radius: 3px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.badge.online {
+  background: color-mix(in srgb, var(--online) 25%, transparent);
+  color: var(--online);
+}
+
+.badge.offline {
+  background: color-mix(in srgb, var(--offline) 25%, transparent);
+  color: var(--offline);
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 1rem 1.1rem;
+  margin-top: 1rem;
+}
+
+.panel h2 {
+  margin: 0 0 0.75rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.kv {
+  display: grid;
+  grid-template-columns: 10rem 1fr;
+  gap: 0.35rem 0.75rem;
+  margin: 0;
+}
+
+.kv dt {
+  color: var(--muted);
+}
+
+.kv dd {
+  margin: 0;
+  word-break: break-word;
+}
+
+.flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.flag {
+  background: color-mix(in srgb, var(--danger) 20%, transparent);
+  color: #e8a0a0;
+  padding: 0.15rem 0.4rem;
+  border-radius: 3px;
+  font-size: 0.85rem;
+  font-family: var(--mono);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin: 1rem 0;
+}
+
+.pre {
+  background: #0a0e12;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.75rem;
+  overflow-x: auto;
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.error {
+  color: #e8a0a0;
+  margin-top: 0.75rem;
+}
+
+.login-card {
+  max-width: 28rem;
+  margin: 4rem auto;
+  padding: 2rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.login-card h1 {
+  margin: 0 0 0.5rem;
+  font-size: 1.4rem;
+}
+
+.login-card p {
+  margin: 0 0 1.25rem;
+  color: var(--muted);
+}

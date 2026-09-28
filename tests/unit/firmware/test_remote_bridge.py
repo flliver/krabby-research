@@ -129,7 +129,7 @@ def test_probe_deferred_until_listening_banner(monkeypatch):
 
 def test_probe_fires_once_banner_seen(monkeypatch, capsys):
     proc = StubProc(returncode=None,
-                    stdout=b"[bridge] serial /dev/ttyUSB0@115200 open\n"
+                    stdout=b"[bridge] serial /dev/ttyUSB0@250000 open\n"
                            b"[bridge] listening on 0.0.0.0:5331 (one client at a time)\n")
     monkeypatch.setattr(remote.subprocess, "Popen", lambda *a, **k: proc)
     monkeypatch.setattr(RemoteBridge, "_probe", lambda self: True)

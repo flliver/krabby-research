@@ -5,10 +5,14 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 
 from aiortc import RTCPeerConnection, RTCSessionDescription
 
+from teleop.edge.ice_util import rtc_configuration_from_ice_servers
+from teleop.edge.qos import TeleopQosController
+from teleop.edge.qos_monitor import run_qos_stats_loop
+from teleop.edge.telemetry import TELEMETRY_CHANNEL_LABEL
 from teleop.edge.sdp_util import (
     count_video_m_lines,
     offer_has_h264_video,
@@ -16,6 +20,31 @@ from teleop.edge.sdp_util import (
 )
 
 logger = logging.getLogger(__name__)
+
+TelemetryGetter = Callable[[], Optional[dict[str, Any]]]
+
+
+async def _telemetry_send_loop(
+    pc: RTCPeerConnection,
+    channel: Any,
+    telemetry_getter: TelemetryGetter,
+    hz: float,
+) -> None:
+    """Push JSON telemetry to the browser until the peer connection closes."""
+    interval_s = 1.0 / max(hz, 1e-3)
+    while pc.connectionState not in ("closed", "failed"):
+        if getattr(channel, "readyState", "") == "open":
+            try:
+                payload = telemetry_getter()
+            except Exception:
+                logger.debug("teleop telemetry getter failed", exc_info=True)
+                payload = None
+            if payload is not None:
+                try:
+                    channel.send(json.dumps(payload))
+                except Exception:
+                    logger.debug("teleop telemetry send failed", exc_info=True)
+        await asyncio.sleep(interval_s)
 
 
 async def wait_for_gathering_complete(pc: RTCPeerConnection, timeout_s: float = 10.0) -> None:
@@ -41,8 +70,12 @@ async def wait_for_gathering_complete(pc: RTCPeerConnection, timeout_s: float = 
 async def create_answer_for_offer(
     offer_sdp: str,
     *,
+    ice_servers: list[dict[str, Any]] | None = None,
     video_track_factory: Callable[[int], Any] | None = None,
     control_message_handler: Callable[[dict[str, Any]], None] | None = None,
+    telemetry_getter: TelemetryGetter | None = None,
+    telemetry_hz: float = 20.0,
+    qos_controller: TeleopQosController | None = None,
 ) -> tuple[str, RTCPeerConnection]:
     """Apply remote offer, attach one video track per ``m=video`` line, return (answer_sdp, pc).
 
@@ -51,13 +84,23 @@ async def create_answer_for_offer(
     no built-in synthetic source in production code.
     """
     offer = RTCSessionDescription(sdp=offer_sdp, type="offer")
-    pc = RTCPeerConnection()
+    rtc_cfg = rtc_configuration_from_ice_servers(ice_servers)
+    pc = RTCPeerConnection(configuration=rtc_cfg) if rtc_cfg is not None else RTCPeerConnection()
     await pc.setRemoteDescription(offer)
     n_video = count_video_m_lines(offer_sdp)
     assert video_track_factory is not None or n_video == 0
+    if qos_controller is not None and n_video > 0:
+        qos_controller.configure_streams(n_video)
     for i in range(n_video):
         track: Any = video_track_factory(i)
         pc.addTrack(track)
+
+    if qos_controller is not None and n_video > 0 and qos_controller.enabled:
+        asyncio.create_task(run_qos_stats_loop(pc, qos_controller))
+
+    telemetry_channel = None
+    if telemetry_getter is not None:
+        telemetry_channel = pc.createDataChannel(TELEMETRY_CHANNEL_LABEL, ordered=True)
 
     @pc.on("datachannel")
     def _on_datachannel(channel: Any) -> None:
@@ -84,6 +127,10 @@ async def create_answer_for_offer(
     answer = await pc.createAnswer()
     await pc.setLocalDescription(answer)
     await wait_for_gathering_complete(pc)
+    if telemetry_channel is not None and telemetry_getter is not None:
+        asyncio.create_task(
+            _telemetry_send_loop(pc, telemetry_channel, telemetry_getter, telemetry_hz)
+        )
     local = pc.localDescription
     assert local is not None
     return local.sdp, pc
@@ -92,9 +139,13 @@ async def create_answer_for_offer(
 async def handle_first_offer_message(
     payload: dict[str, Any],
     *,
+    ice_servers: list[dict[str, Any]] | None = None,
     video_track_factory: Callable[[int], Any] | None = None,
     max_video_m_lines: int | None = None,
     control_message_handler: Callable[[dict[str, Any]], None] | None = None,
+    telemetry_getter: TelemetryGetter | None = None,
+    telemetry_hz: float = 20.0,
+    qos_controller: TeleopQosController | None = None,
 ) -> tuple[str | None, str | None, RTCPeerConnection | None]:
     """Parse offer JSON. Returns (error_json, answer_sdp, pc) — only one of error or answer set."""
     if payload.get("type") != "offer":
@@ -134,7 +185,7 @@ async def handle_first_offer_message(
                     "type": "error",
                     "message": (
                         "video requires HAL camera tracks (run krabby-hal-server-jetson with "
-                        "--teleop and robot teleop settings in teleop.edge.robot_settings)"
+                        "--teleop-ip and teleop/edge/robot_settings for ICE/STUN)"
                     ),
                 }
             ),
@@ -143,7 +194,11 @@ async def handle_first_offer_message(
         )
     ans_sdp, pc = await create_answer_for_offer(
         sdp,
+        ice_servers=ice_servers,
         video_track_factory=video_track_factory,
         control_message_handler=control_message_handler,
+        telemetry_getter=telemetry_getter,
+        telemetry_hz=telemetry_hz,
+        qos_controller=qos_controller,
     )
     return None, ans_sdp, pc

@@ -43,6 +43,7 @@ def default_port() -> str:
         "ch340",
         "cp210",
         "usb-serial",
+        "usb serial",
     )
 
     ports = list(list_ports.comports())

@@ -7,6 +7,15 @@
 
 """Launch Isaac Sim Simulator first."""
 
+# NOTE(windows): import h5py before AppLauncher boots Kit so h5py's bundled
+# hdf5.dll is mapped into the process first. Isaac Sim's sensor extension
+# ships a different hdf5.dll under isaacsim/.../generic_model_output/ and
+# loads it during Kit startup; if h5py is imported afterwards (transitively
+# via isaaclab.utils.datasets), its _errors.pyd fails to link with
+# "DLL load failed while importing _errors: The specified procedure could
+# not be found." Importing it first sidesteps the collision. No-op on Linux.
+import h5py  # noqa: F401
+
 import argparse
 
 from isaaclab.app import AppLauncher

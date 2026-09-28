@@ -202,7 +202,9 @@ def test_ws_rejects_offer_from_pre_offer_validator() -> None:
 def test_ws_hello_ack_includes_available_catalog_ids() -> None:
     async def _run() -> None:
         app = _signaling_app(
-            hello_ack_payload_builder=lambda: {"available_catalog_ids": ["front_rgbd", "side_rgbd"]}
+            hello_ack_payload_builder=lambda: {
+                "available_catalog_ids": ["front_rgbd", "side_right_rgbd", "side_left_rgbd"]
+            }
         )
         runner = web.AppRunner(app)
         await runner.setup()
@@ -218,7 +220,11 @@ def test_ws_hello_ack_includes_available_catalog_ids() -> None:
                     assert msg.type == aiohttp.WSMsgType.TEXT
                     data = json.loads(msg.data)
                     assert data["type"] == "hello_ack"
-                    assert data.get("available_catalog_ids") == ["front_rgbd", "side_rgbd"]
+                    assert data.get("available_catalog_ids") == [
+                        "front_rgbd",
+                        "side_right_rgbd",
+                        "side_left_rgbd",
+                    ]
         finally:
             await runner.cleanup()
 

@@ -87,6 +87,8 @@ COPY parkour/dist/*.whl /tmp/wheels/
 COPY data_collection/dist/*.whl /tmp/wheels/
 COPY teleop/edge/dist/*.whl /tmp/wheels/
 COPY teleop/portal/dist/*.whl /tmp/wheels/
+COPY krabby/dist/*.whl /tmp/wheels/
+COPY bench/dist/*.whl /tmp/wheels/
 # Note: krabby-hal-tools is excluded by default (only install when needed for debugging)
 # Install wheels into venv since that's where production code runs
 RUN . /workspace/testenv/bin/activate && \
@@ -103,6 +105,7 @@ RUN . /workspace/testenv/bin/activate && \
 COPY compute/ /workspace/compute/
 COPY controller/ /workspace/controller/
 COPY firmware/ /workspace/firmware/
+COPY data_collection/ /workspace/data_collection/
 
 # Copy tests/ (test scenarios)
 COPY tests/ /workspace/tests/

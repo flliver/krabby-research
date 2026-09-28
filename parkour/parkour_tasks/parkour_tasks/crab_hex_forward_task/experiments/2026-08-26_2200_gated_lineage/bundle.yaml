@@ -1,0 +1,70 @@
+campaign: 2026-08-26_2200_gated_lineage
+era: B
+dates: 2026-08-26..2026-08-31
+question: Which PLAN F curriculum elements can be added to the crab-hex flat-walk
+  baseline core without breaking gait formation, and at what iteration (round-based
+  sequential accumulation with per-round controls, 5k rounds, 20k cap)?
+verdict: 'GRADUATED (user decision, 2026-08-31; REPORT.md GRADUATED block): seed-3
+  schedule-replay confirmation head model_19996 is the reference of record; schedule
+  of record = 7 elements @5k, 3 @10k; speed_band + episode40 FAILED.'
+plant: legacy_golden
+aliases: []
+records:
+- REPORT.md
+- CHANGELOG.md
+- state.json
+- state_v2.json
+head:
+  role: flat_walk
+  task: Isaac-Crab-Hex-Flat-Walk-v0
+  source: parkour/logs/rsl_rl/crab_hex_flat_walk/2026-08-31_10-46-19/model_19996.pt
+  sha256: 54206c6580f77479f6ba559a016e1cab51d3d884c7fb861246c4007bfb7bff55
+  dest: head/model_19996.pt
+  why: Seed-3 schedule replay (20k) confirmed the primary C4 bake and was named reference
+    of record at graduation (flat canary PASS, all-obstacle-light PASS, recal-terrain
+    and failure-tail gates waived).
+  metrics:
+    flat_canary: tripod 0.606 / completion 0.990 / tracking 0.433
+    all_obstacle_light: completion 0.64 / tripod 0.577
+    recal_terrain: 0.480 (WAIVED)
+    primary_bake_C4_canary: 0.436 / 0.990 / 0.495
+  env:
+    KRABBY_APEX_W: '1.0'
+    KRABBY_CLEARANCE_W: '0.9'
+    KRABBY_CLOCK_W: '1.0'
+    KRABBY_COLLISION_W: '-2.0'
+    KRABBY_DR_COM: '0.01'
+    KRABBY_DR_MASS: -0.5:1.5
+    KRABBY_DR_PUSH: '0.5'
+    KRABBY_EDGE_W: '-0.3'
+    KRABBY_FLAT_TERRAIN_CURRICULUM: '1'
+    KRABBY_FLAT_TERRAIN_DIFF: 0.20:0.70
+    KRABBY_FLAT_TERRAIN_FLAT_FRAC: '0.5'
+    KRABBY_FLAT_TERRAIN_GEOM: recal2b2
+    KRABBY_FLAT_TERRAIN_MODE: light
+    KRABBY_FOOT_CLEAR_FLAT: '1'
+    KRABBY_FOOT_CLEAR_MIN: '0.03'
+    KRABBY_FOOT_CLEAR_W: '1.0'
+    KRABBY_GOAL_VEL_W: '0.75'
+    KRABBY_HEADING: -1.2:1.2
+    KRABBY_LIN_VEL_X: 0.0:0.35
+    KRABBY_RSI_FRAC: '0.2'
+    KRABBY_STUMBLE_W: '-1.0'
+    KRABBY_SWING_MIN_CLEAR_W: '-0.4'
+    KRABBY_TERRAIN_PROMOTE: 0.45:0.25
+    KRABBY_TRACK_L1_W: '-1.0'
+    KRABBY_TRACK_SIGMA2: '0.1'
+    KRABBY_YAW_W: '0.2'
+evals:
+- source: parkour/logs/rsl_rl/gait_eval/gated_lineage
+  dest: evals/gated_lineage
+- source: parkour/logs/rsl_rl/gait_eval/gated_lineage_obst
+  dest: evals/gated_lineage_obst
+- source: parkour/logs/rsl_rl/gait_eval/graduation
+  dest: evals/graduation
+keep_globs:
+- run_meta.json
+- scenario_metrics.json
+- summary.md
+- gait_diagram_*.png
+paths_note: true

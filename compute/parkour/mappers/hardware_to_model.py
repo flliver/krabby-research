@@ -129,12 +129,13 @@ class HWObservationsToParkourMapper:
         proprioceptive[0:3] = hw_obs.base_ang_vel_b * 0.25
         
         # [3:5] IMU roll, pitch (derived from base quaternion)
-        # Use same conversion as environment: euler_xyz_from_quat + wrap_to_pi
-        # HardwareObservations.base_quat_w is (x, y, z, w); euler_xyz_from_quat
-        # expects (w, x, y, z) — reorder before converting.
-        quat_wxyz = np.ascontiguousarray(hw_obs.base_quat_w[[3, 0, 1, 2]])
-        quat_torch = torch.from_numpy(quat_wxyz).unsqueeze(0)  # Add batch dimension
-        roll, pitch, _ = euler_xyz_from_quat(quat_torch)
+        # HAL ``base_quat_w`` is (x, y, z, w); ``euler_xyz_from_quat`` expects (w, x, y, z).
+        q = hw_obs.base_quat_w
+        quat_wxyz = torch.tensor(
+            [[float(q[3]), float(q[0]), float(q[1]), float(q[2])]],
+            dtype=torch.float32,
+        )
+        roll, pitch, _ = euler_xyz_from_quat(quat_wxyz)
         # Wrap to [-pi, pi] (matching environment)
         roll_wrapped = wrap_to_pi(roll)
         pitch_wrapped = wrap_to_pi(pitch)

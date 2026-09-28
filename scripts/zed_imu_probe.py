@@ -24,7 +24,7 @@ What to check in the output:
 - Timestamps advance between samples.
 
 If the ZedCamera HAL wrapper is importable, the probe also exercises
-ZedCamera.get_imu() end to end and prints one converted (rad/s) sample.
+ZedCamera's grab + get_imu_sample() end to end and prints one converted (rad/s) sample.
 """
 
 import argparse
@@ -145,7 +145,7 @@ def main() -> int:
 
     camera.close()
 
-    print("\nHAL wrapper path (ZedCamera.get_imu):")
+    print("\nHAL wrapper path (ZedCamera.get_imu_sample):")
     try:
         from hal.server.jetson.zed_camera import ZedCamera
     except ImportError as e:
@@ -153,14 +153,14 @@ def main() -> int:
         return 0
     cam = ZedCamera(depth_mode="NEURAL", resolution=(640, 480), fps=30)
     try:
-        sample = cam.get_imu()
+        # The sample is refreshed on each grab (TIME_REFERENCE.IMAGE).
+        cam.get_rgb_image()
+        sample = cam.get_imu_sample()
         if sample is None:
-            print("  get_imu() returned None (fetch failed)")
+            print("  get_imu_sample() returned None (no IMU or fetch failed)")
             return 1
-        print(f"  ang_vel_rad_s        = {sample.ang_vel_rad_s}")
-        print(f"  lin_acc_m_s2         = {sample.lin_acc_m_s2}")
-        print(f"  orientation_quat_xyzw= {sample.orientation_quat_xyzw}")
-        print(f"  timestamp_ns         = {sample.timestamp_ns}")
+        print(f"  base_ang_vel_b (rad/s, sensor frame) = {sample.base_ang_vel_b}")
+        print(f"  base_quat_w (xyzw, sensor frame)     = {sample.base_quat_w}")
     finally:
         cam.close()
     return 0

@@ -16,6 +16,7 @@ from hal.client.data_structures.hardware import (
     RgbdCatalogObservation,
 )
 from hal.server.isaac.isaacsim_mcusdk import IsaacSimMCUSDK
+from hal.server.isaac.primary_zed_base_state import isaac_primary_rgbd_base_state
 from hal.server.isaac.sensor_backend_isaac import IsaacSensorInterface
 from hal.server.sensor_interface import SensorInterface
 
@@ -161,6 +162,29 @@ def _native_rgb_depth_pair(
         return h, w, r, np.zeros((h, w), dtype=np.float32)
 
     return h, w, r, d
+
+
+def _read_catalog_rgbd_pair(
+    camera_sensors: dict,
+    *,
+    rgb_key: str,
+    depth_key: str,
+    posinf_clip_m: float,
+    label: str,
+) -> tuple[Optional[tuple[int, int, np.ndarray, np.ndarray]], Optional[RgbdCatalogObservation]]:
+    """Read one Isaac scene RGB-D pair for ``rgbd_by_catalog_id`` and optional legacy side fields."""
+    pair = _native_rgb_depth_pair(
+        _read_pinhole_rgb(camera_sensors, rgb_key),
+        _read_raycaster_depth(camera_sensors, depth_key),
+        posinf_clip_m=posinf_clip_m,
+        label=label,
+    )
+    if pair is None:
+        return None, None
+    _, _, rgb_u8, depth_f32 = pair
+    if not (np.any(rgb_u8) or np.any(depth_f32)):
+        return pair, None
+    return pair, RgbdCatalogObservation(rgb=rgb_u8, depth=depth_f32)
 
 
 class IsaacSimHalServer(HalServerBase):
@@ -489,7 +513,7 @@ class IsaacSimHalServer(HalServerBase):
         joint_positions = np.zeros(n_joints, dtype=np.float32)
         joint_positions[:len(joint_positions_from_obs)] = joint_positions_from_obs
 
-        # Cameras: front_camera/front_rgb (ZED-like), side_camera/side_rgb (MaixSense-like).
+        # Cameras: front (ZED-like), side_right / side_left (MaixSense-like; Jetson catalog ids).
         depth_raw_front = _read_raycaster_depth(self.camera_sensors, "front_camera")
         rgb_raw_front = _read_pinhole_rgb(self.camera_sensors, "front_rgb")
 
@@ -537,9 +561,6 @@ class IsaacSimHalServer(HalServerBase):
                 rgb_camera_1 = None
                 depth_map = None
 
-        depth_raw_side = _read_raycaster_depth(self.camera_sensors, "side_camera")
-        rgb_raw_side = _read_pinhole_rgb(self.camera_sensors, "side_rgb")
-
         rgbd_by_catalog_id: dict[str, RgbdCatalogObservation] = {}
         if front_pair is not None:
             fh, fw, fr_rgb, fr_d = front_pair
@@ -548,41 +569,35 @@ class IsaacSimHalServer(HalServerBase):
 
         side_camera_rgb = None
         side_camera_depth = None
-        side_pair = _native_rgb_depth_pair(
-            rgb_raw_side,
-            depth_raw_side,
-            posinf_clip_m=_ISAAC_SIDE_RAYCAST_CLIP_M,
-            label="Side: ",
-        )
-        if side_pair is not None:
-            _, _, rgb_s, d_s = side_pair
-            if np.any(rgb_s) or np.any(d_s):
-                rgbd_by_catalog_id["side_rgbd"] = RgbdCatalogObservation(rgb=rgb_s, depth=d_s)
-            side_camera_rgb = rgb_s
-            side_camera_depth = d_s
 
-        # Extract robot state data (always available in Isaac Sim as torch.Tensor)
-        # Use inference_mode to disable autograd and improve performance for all GPU->CPU transfers
+        side_right_pair, side_right_obs = _read_catalog_rgbd_pair(
+            self.camera_sensors,
+            rgb_key="side_right_rgb",
+            depth_key="side_right_camera",
+            posinf_clip_m=_ISAAC_SIDE_RAYCAST_CLIP_M,
+            label="Side right: ",
+        )
+        if side_right_obs is not None:
+            rgbd_by_catalog_id["side_right_rgbd"] = side_right_obs
+        if side_right_pair is not None:
+            _, _, side_camera_rgb, side_camera_depth = side_right_pair
+
+        _, side_left_obs = _read_catalog_rgbd_pair(
+            self.camera_sensors,
+            rgb_key="side_left_rgb",
+            depth_key="side_left_camera",
+            posinf_clip_m=_ISAAC_SIDE_RAYCAST_CLIP_M,
+            label="Side left: ",
+        )
+        if side_left_obs is not None:
+            rgbd_by_catalog_id["side_left_rgbd"] = side_left_obs
+
+        # Base motion: same HAL contract as Jetson primary ZED (xyzw quat, base-frame twist).
         with torch.inference_mode():
-            # Base angular velocity (body frame)
-            ang_vel = self.robot.data.root_ang_vel_b
-            if ang_vel.ndim == 2:
-                ang_vel = ang_vel[0]
-            base_ang_vel_b = ang_vel.detach().cpu().numpy().astype(np.float32)
-            
-            # Base linear velocity (body frame)
-            lin_vel = self.robot.data.root_lin_vel_b
-            if lin_vel.ndim == 2:
-                lin_vel = lin_vel[0]
-            base_lin_vel_b = lin_vel.detach().cpu().numpy().astype(np.float32)
-            
-            # Base quaternion (world frame). IsaacLab's root_quat_w is
-            # (w, x, y, z); HardwareObservations.base_quat_w is (x, y, z, w).
-            quat = self.robot.data.root_quat_w
-            if quat.ndim == 2:
-                quat = quat[0]
-            base_quat_w = quat.detach().cpu().numpy().astype(np.float32)[[1, 2, 3, 0]]
-            
+            base_quat_w, base_ang_vel_b, base_lin_vel_b = isaac_primary_rgbd_base_state(
+                self.robot
+            )
+
             # Use joint velocities extracted from observation manager (ensures exact match).
             # Observation manager already applies * 0.05 scaling. Pad to 12 or 18 joints (hardware format) with zeros if needed.
             joint_velocities = np.zeros(n_joints, dtype=np.float32)

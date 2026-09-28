@@ -1,0 +1,21 @@
+{
+  "app": "python3 app.py",
+  "watch": {
+    "include": ["**"],
+    "exclude": [
+      "README*",
+      "cdk*.json",
+      "requirements*.txt",
+      "source.bat",
+      "**/__pycache__",
+      "**/.venv",
+      "**/venv",
+      "**/.tools",
+      "**/cdk.out"
+    ]
+  },
+  "context": {
+    "@aws-cdk/aws-lambda:recognizeLayerVersion": true,
+    "@aws-cdk/core:checkSecretUsage": true
+  }
+}

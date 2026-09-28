@@ -1,7 +1,10 @@
-"""Simulated ZED (front) + MaixSense-style (right side) RGB-D cameras on a robot link.
+"""Simulated ZED (front) + MaixSense-style side RGB-D cameras on a robot link.
 
 Used by ``hal.server.isaac.main`` to attach sensors to an env scene cfg **without** modifying
 task packages under ``parkour/``. Imports ``CAMERA_CFG`` from ``parkour_tasks.default_cfg`` only.
+
+Scene sensor names match Jetson catalog ids: ``side_right_*`` / ``side_left_*`` →
+``side_right_rgbd`` / ``side_left_rgbd`` in ``IsaacSensorInterface``.
 """
 
 from __future__ import annotations
@@ -45,15 +48,16 @@ def front_raycast_pattern_matching_rgb() -> PinholeCameraPatternCfg:
 
 
 def side_raycast_pattern_matching_rgb() -> PinholeCameraPatternCfg:
-    """Same as ``front_raycast_pattern_matching_rgb``: ``side_rgb`` uses identical pinhole intrinsics/resolution."""
+    """Same pinhole intrinsics/resolution as front RGB for side flank cameras."""
 
     return front_raycast_pattern_matching_rgb()
 
-# Right flank (~ body ``−Y``, ROS ``base_link``: ``X`` forward, ``Y`` left). Side optical axis matches
-# the front camera tilt then is yawed −90° about body ``+Z`` (forward ``+X`` → right ``−Y``). Euler
-# ``(180°, pitch ≈70°, ψ)`` is near gimbal lock, so ``ψ`` barely moves the optic axis; compose a
-# fixed body yaw with the front rotation matrix instead of a second Euler triple.
-_SIDE_POS = (0.0, -0.08, 0.12)
+# Right flank (~ body −Y, ROS base_link: X forward, Y left). Left flank mirrors across Y at +0.08 m.
+# Side optical axis matches the front camera tilt, then yaws ±90° about body +Z (right: +X → −Y;
+# left: +X → +Y). Front Euler (180°, pitch ≈70°, ψ) is near gimbal lock, so ψ barely moves the
+# optic axis; compose a fixed body yaw with the front rotation matrix instead of a second Euler triple.
+_SIDE_RIGHT_POS = (0.0, -0.08, 0.12)
+_SIDE_LEFT_POS = (0.0, 0.08, 0.12)
 
 
 def _ros_offset_rot_from_euler_deg(euler_deg: tuple[float, float, float]) -> tuple[float, ...]:
@@ -110,14 +114,63 @@ def _quat_ros_wxyz_from_rotmat(R: np.ndarray) -> tuple[float, float, float, floa
     return (float(q[0]), float(q[1]), float(q[2]), float(q[3]))
 
 
-def _side_ros_offset_rot_from_front() -> tuple[float, ...]:
+def _side_ros_offset_rot_from_front(*, yaw_deg: float) -> tuple[float, ...]:
     q_front = _ros_offset_rot_from_euler_deg(_FRONT_EULER_DEG)
     r_front = _rotmat_camera_from_quat_ros_wxyz(q_front)
-    yaw = math.radians(-90.0)
+    yaw = math.radians(yaw_deg)
     c, s = math.cos(yaw), math.sin(yaw)
     rz = np.array([[c, -s, 0.0], [s, c, 0.0], [0.0, 0.0, 1.0]], dtype=np.float64)
     r_side = rz @ r_front
     return _quat_ros_wxyz_from_rotmat(r_side)
+
+
+def _side_pinhole_rgb_cfg(
+    *,
+    base: str,
+    prim_suffix: str,
+    pos: tuple[float, float, float],
+    rot: tuple[float, ...],
+    clipping_range: tuple[float, float],
+) -> CameraCfg:
+    return CameraCfg(
+        prim_path=f"{base}/{prim_suffix}",
+        height=_FRONT_RGB_HEIGHT,
+        width=_FRONT_RGB_WIDTH,
+        data_types=["rgb"],
+        spawn=sim_utils.PinholeCameraCfg(
+            focal_length=_FRONT_RGB_FOCAL_LENGTH,
+            focus_distance=400.0,
+            horizontal_aperture=_FRONT_RGB_HORIZONTAL_APERTURE,
+            clipping_range=clipping_range,
+        ),
+        offset=CameraCfg.OffsetCfg(
+            pos=pos,
+            rot=rot,
+            convention="ros",
+        ),
+        colorize_semantic_segmentation=False,
+        colorize_instance_id_segmentation=False,
+        colorize_instance_segmentation=False,
+    )
+
+
+def _side_raycaster_depth_cfg(
+    *,
+    link_prim: str,
+    pos: tuple[float, float, float],
+    rot: tuple[float, ...],
+    max_distance: float,
+) -> RayCasterCameraCfg:
+    return CAMERA_CFG.replace(
+        prim_path=link_prim,
+        offset=RayCasterCameraCfg.OffsetCfg(
+            pos=pos,
+            rot=rot,
+            convention="ros",
+        ),
+        pattern_cfg=side_raycast_pattern_matching_rgb(),
+        max_distance=max_distance,
+    )
 
 
 def sim_rgbd_camera_cfgs_for_robot_link(link_name: str) -> tuple[
@@ -125,8 +178,13 @@ def sim_rgbd_camera_cfgs_for_robot_link(link_name: str) -> tuple[
     CameraCfg,
     RayCasterCameraCfg,
     CameraCfg,
+    RayCasterCameraCfg,
+    CameraCfg,
 ]:
-    """Return ``(front_camera, front_rgb, side_camera, side_rgb)`` for HAL catalog wiring.
+    """Return front + side-right + side-left RGB-D configs for HAL catalog wiring.
+
+    Order: ``front_camera``, ``front_rgb``, ``side_right_camera``, ``side_right_rgb``,
+    ``side_left_camera``, ``side_left_rgb``.
 
     Ray-cast depth sensors **must** use an existing articulation link prim (same pattern as
     ``parkour_tasks.default_cfg.CAMERA_CFG``), not a fictitious ``.../front_camera`` child:
@@ -172,48 +230,60 @@ def sim_rgbd_camera_cfgs_for_robot_link(link_name: str) -> tuple[
         colorize_instance_segmentation=False,
     )
 
-    side_rot = _side_ros_offset_rot_from_front()
+    side_right_rot = _side_ros_offset_rot_from_front(yaw_deg=-90.0)
+    side_left_rot = _side_ros_offset_rot_from_front(yaw_deg=90.0)
 
-    side_camera = CAMERA_CFG.replace(
-        prim_path=link_prim,
-        offset=RayCasterCameraCfg.OffsetCfg(
-            pos=_SIDE_POS,
-            rot=side_rot,
-            convention="ros",
-        ),
-        pattern_cfg=side_raycast_pattern_matching_rgb(),
+    side_right_camera = _side_raycaster_depth_cfg(
+        link_prim=link_prim,
+        pos=_SIDE_RIGHT_POS,
+        rot=side_right_rot,
         max_distance=1.5,
     )
-
-    side_rgb = CameraCfg(
-        prim_path=f"{base}/side_rgb",
-        height=_FRONT_RGB_HEIGHT,
-        width=_FRONT_RGB_WIDTH,
-        data_types=["rgb"],
-        spawn=sim_utils.PinholeCameraCfg(
-            focal_length=_FRONT_RGB_FOCAL_LENGTH,
-            focus_distance=400.0,
-            horizontal_aperture=_FRONT_RGB_HORIZONTAL_APERTURE,
-            clipping_range=(0.15, 4.0),
-        ),
-        offset=CameraCfg.OffsetCfg(
-            pos=_SIDE_POS,
-            rot=side_rot,
-            convention="ros",
-        ),
-        colorize_semantic_segmentation=False,
-        colorize_instance_id_segmentation=False,
-        colorize_instance_segmentation=False,
+    side_right_rgb = _side_pinhole_rgb_cfg(
+        base=base,
+        prim_suffix="side_right_rgb",
+        pos=_SIDE_RIGHT_POS,
+        rot=side_right_rot,
+        clipping_range=(0.15, 4.0),
+    )
+    side_left_camera = _side_raycaster_depth_cfg(
+        link_prim=link_prim,
+        pos=_SIDE_LEFT_POS,
+        rot=side_left_rot,
+        max_distance=1.5,
+    )
+    side_left_rgb = _side_pinhole_rgb_cfg(
+        base=base,
+        prim_suffix="side_left_rgb",
+        pos=_SIDE_LEFT_POS,
+        rot=side_left_rot,
+        clipping_range=(0.15, 4.0),
     )
 
-    return front_camera, front_rgb, side_camera, side_rgb
+    return (
+        front_camera,
+        front_rgb,
+        side_right_camera,
+        side_right_rgb,
+        side_left_camera,
+        side_left_rgb,
+    )
 
 
 def attach_sim_rgbd_sensors_to_scene_cfg(scene_cfg, robot_link: str) -> None:
-    """Mutate ``scene_cfg`` in place with HAL-facing sensor names (``front_rgb``, ``front_camera``, …)."""
+    """Mutate ``scene_cfg`` with HAL-facing sensor names matching Jetson catalog ids."""
 
-    fc, fr, sc, sr = sim_rgbd_camera_cfgs_for_robot_link(robot_link)
+    (
+        fc,
+        fr,
+        src,
+        srr,
+        slc,
+        slr,
+    ) = sim_rgbd_camera_cfgs_for_robot_link(robot_link)
     scene_cfg.front_camera = fc
     scene_cfg.front_rgb = fr
-    scene_cfg.side_camera = sc
-    scene_cfg.side_rgb = sr
+    scene_cfg.side_right_camera = src
+    scene_cfg.side_right_rgb = srr
+    scene_cfg.side_left_camera = slc
+    scene_cfg.side_left_rgb = slr

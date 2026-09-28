@@ -1,0 +1,356 @@
+{
+  "phase": "done",
+  "round": 6,
+  "run_no": 24,
+  "weights": {
+    "reward_clock_schedule": 0.001,
+    "reward_clock_swing_apex": 0.001,
+    "reward_feet_air_time_positive": 0.001,
+    "reward_stride_length": 0.001
+  },
+  "notch_idx": {
+    "reward_clock_schedule": 3,
+    "reward_clock_swing_apex": 2,
+    "reward_feet_air_time_positive": 2,
+    "reward_stride_length": 2
+  },
+  "deferred": [],
+  "accepted_this_round": [],
+  "bake_head": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_flat_walk/2026-09-02_00-42-53/model_29994.pt",
+  "bank": "/home/nickmagus/krabby/krabby-research/sim_fine_tuning/2026-08-31_1414_gait_income_phaseout/rsi_bank_pg_r5.npz",
+  "controls": {
+    "1": {
+      "probe": {
+        "clock_unit": 0.388665,
+        "clock_raw": 0.388665,
+        "track": 0.7981749999999999,
+        "failure": 0.19407000000000002,
+        "eplen": 896.8759999999999,
+        "vloss": 0.0077545,
+        "mean_reward": 36.820065,
+        "fail_trend": 0.007641999999999816
+      },
+      "canary": {
+        "tripod": 0.5992655249432874,
+        "completion": 0.99,
+        "tracking": 0.41326730739807027,
+        "slip": 0.19940715588009267,
+        "tippy": {
+          "mean": 0.22280123828135026,
+          "median": 0.22188955422488355,
+          "n": 100,
+          "p25": 0.20058636914521993,
+          "p75": 0.24157303370786518
+        }
+      }
+    },
+    "2": {
+      "probe": {
+        "clock_unit": 0.4221350000000001,
+        "clock_raw": 0.4221350000000001,
+        "track": 0.8956650000000004,
+        "failure": 0.23091,
+        "eplen": 850.3835000000001,
+        "vloss": 0.024067500000000002,
+        "mean_reward": 25.894515000000006,
+        "fail_trend": -0.033342999999999956
+      },
+      "canary": {
+        "tripod": 0.6073424072628063,
+        "completion": 0.99,
+        "tracking": 0.46676928000034834,
+        "slip": 0.2044570423951425,
+        "tippy": {
+          "mean": 0.2440425735671189,
+          "median": 0.24715578539107952,
+          "n": 100,
+          "p25": 0.22272423025435073,
+          "p75": 0.26436781609195403
+        }
+      }
+    },
+    "3": {
+      "probe": {
+        "clock_unit": 0.38076999999999994,
+        "clock_raw": 0.38076999999999994,
+        "track": 0.8218099999999999,
+        "failure": 0.304345,
+        "eplen": 790.9075,
+        "vloss": 0.020134499999999996,
+        "mean_reward": 23.65508,
+        "fail_trend": 0.007564999999999933
+      },
+      "canary": {
+        "tripod": 0.556079812805568,
+        "completion": 0.98,
+        "tracking": 0.44325705219195877,
+        "slip": 0.20267977905727053,
+        "tippy": {
+          "mean": 0.24303053214922826,
+          "median": 0.24424603174603174,
+          "n": 100,
+          "p25": 0.2257045431752081,
+          "p75": 0.26389415182518633
+        }
+      }
+    },
+    "4": {
+      "probe": {
+        "clock_unit": 0.29980999999999997,
+        "clock_raw": 0.14990499999999998,
+        "track": 0.684455,
+        "failure": 0.5762050000000001,
+        "eplen": 681.6480000000001,
+        "vloss": 0.017903,
+        "mean_reward": 16.619555,
+        "fail_trend": 0.042519000000000085
+      },
+      "canary": {
+        "tripod": 0.5761807161583132,
+        "completion": 0.81,
+        "tracking": 0.4526820718194845,
+        "slip": 0.20126963544165555,
+        "tippy": {
+          "mean": 0.24151141403580378,
+          "median": 0.24411683277962348,
+          "n": 100,
+          "p25": 0.21437060768912775,
+          "p75": 0.2609299516908212
+        }
+      }
+    },
+    "5": {
+      "probe": {
+        "clock_unit": 0.2960249999999999,
+        "clock_raw": 0.05920499999999999,
+        "track": 0.6919000000000002,
+        "failure": 0.44227000000000005,
+        "eplen": 735.1544999999999,
+        "vloss": 0.017641500000000004,
+        "mean_reward": 16.024184999999996,
+        "fail_trend": 0.013721999999999956
+      },
+      "canary": {
+        "tripod": 0.6150027937927212,
+        "completion": 0.91,
+        "tracking": 0.43698526447265695,
+        "slip": 0.2244469445065146,
+        "tippy": {
+          "mean": 0.24069654928021667,
+          "median": 0.23979166666666668,
+          "n": 100,
+          "p25": 0.21371069182389937,
+          "p75": 0.26098055790363484
+        }
+      }
+    }
+  },
+  "history": {
+    "reward_clock_schedule": [
+      [
+        1,
+        1.0,
+        0.5,
+        "EJECTED"
+      ],
+      [
+        2,
+        1.0,
+        0.5,
+        "FAIL"
+      ],
+      [
+        3,
+        1.0,
+        0.5,
+        "BAKED"
+      ],
+      [
+        4,
+        0.5,
+        0.2,
+        "BAKED"
+      ],
+      [
+        5,
+        0.2,
+        0.001,
+        "BAKED"
+      ]
+    ],
+    "reward_clock_swing_apex": [
+      [
+        1,
+        1.0,
+        0.5,
+        "BAKED"
+      ],
+      [
+        2,
+        0.5,
+        0.001,
+        "BAKED"
+      ]
+    ],
+    "reward_feet_air_time_positive": [
+      [
+        1,
+        0.8,
+        0.4,
+        "BAKED"
+      ],
+      [
+        2,
+        0.4,
+        0.001,
+        "BAKED"
+      ]
+    ],
+    "reward_stride_length": [
+      [
+        1,
+        0.5,
+        0.25,
+        "BAKED"
+      ],
+      [
+        2,
+        0.25,
+        0.001,
+        "BAKED"
+      ]
+    ]
+  },
+  "anchor_canary": {
+    "tripod": 0.5946052676788929,
+    "completion": 0.88,
+    "tracking": 0.39697300320233286,
+    "slip": 0.3207306360212961,
+    "tippy": {
+      "mean": 0.3124724828406746,
+      "median": 0.3105590062111801,
+      "n": 100,
+      "p25": 0.2782155982033483,
+      "p75": 0.3359820862396956
+    }
+  },
+  "scout": {
+    "probe": {
+      "clock_unit": 0.32499999999999996,
+      "clock_raw": 0.000325,
+      "track": 0.816775,
+      "failure": 0.367915,
+      "eplen": 774.1594999999999,
+      "vloss": 0.0067230000000000015,
+      "mean_reward": 22.607014999999997,
+      "fail_trend": 0.04061999999999999
+    },
+    "canary": {
+      "tripod": 0.5993661009149255,
+      "completion": 0.48,
+      "tracking": 0.4548432982634908,
+      "slip": 0.2979592452493711,
+      "tippy": {
+        "mean": 0.29669607988464575,
+        "median": 0.29414208558371413,
+        "n": 100,
+        "p25": 0.27240259740259737,
+        "p75": 0.3178830030487805
+      }
+    },
+    "world": "MIDDLE (partial degradation \u2014 notch search discovers per-window income needs)",
+    "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_flat_walk/2026-08-31_14-31-54/model_9998.pt",
+    "watchdogs": []
+  },
+  "queue": [],
+  "queue_round": 5,
+  "ref_probe": null,
+  "ref_canary": null,
+  "costs": {
+    "reward_clock_schedule@0.5": {
+      "clock_ratio": 1.0103737164167348,
+      "fail_delta": 0.011720000000000064
+    },
+    "reward_clock_swing_apex@0.5": {
+      "clock_ratio": 1.0957671812338623,
+      "fail_delta": -0.016585000000000016
+    },
+    "reward_feet_air_time_positive@0.4": {
+      "clock_ratio": 0.9642915334962714,
+      "fail_delta": 0.060260000000000036
+    },
+    "reward_stride_length@0.25": {
+      "clock_ratio": 1.1593662264739528,
+      "fail_delta": -0.13987
+    },
+    "reward_clock_swing_apex@0.001": {
+      "clock_ratio": 0.9838914091463627,
+      "fail_delta": 0.012919999999999932
+    },
+    "reward_feet_air_time_positive@0.001": {
+      "clock_ratio": 0.9886597565820363,
+      "fail_delta": -0.06101999999999996
+    },
+    "reward_stride_length@0.001": {
+      "clock_ratio": 0.9658934550989345,
+      "fail_delta": 0.05476000000000003
+    },
+    "reward_clock_schedule@0.2": {
+      "clock_ratio": 1.0865214635936093,
+      "fail_delta": -0.13478000000000007
+    },
+    "reward_clock_schedule@0.001": {
+      "clock_ratio": 0.9627565239422348,
+      "fail_delta": 0.038380000000000025
+    }
+  },
+  "last_bake_canary": {
+    "tripod": 0.562982041877398,
+    "completion": 0.79,
+    "tracking": 0.4067250587464134,
+    "slip": 0.23445821507449094,
+    "tippy": {
+      "mean": 0.25145687027645713,
+      "median": 0.2529477042585657,
+      "n": 100,
+      "p25": 0.22740714889239924,
+      "p75": 0.27149507119386634
+    }
+  },
+  "max_round": 5,
+  "terminal": {
+    "ext_mid": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_flat_walk/2026-09-02_07-35-22/model_24995.pt",
+    "ext_head": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_flat_walk/2026-09-02_09-51-23/model_29994.pt",
+    "ext_probe": {
+      "clock_unit": 0.321205,
+      "clock_raw": 0.321205,
+      "track": 0.7221850000000001,
+      "failure": 0.5163749999999999,
+      "eplen": 732.0215,
+      "vloss": 0.026373,
+      "mean_reward": 22.132369999999998,
+      "fail_trend": -0.042519000000000085
+    },
+    "ext_canary": {
+      "tripod": 0.614583089596525,
+      "completion": 0.73,
+      "tracking": 0.4595594047196708,
+      "slip": 0.2053627141374158,
+      "tippy": {
+        "mean": 0.23023696305985172,
+        "median": 0.23076923076923078,
+        "n": 100,
+        "p25": 0.20773094829698605,
+        "p75": 0.25
+      }
+    },
+    "ext_obst": {
+      "completion": 0.19,
+      "tripod": 0.5959995052878146
+    },
+    "rsi_off": {
+      "verdict": "WAIVED (user decision 2026-09-02)"
+    },
+    "replay_verdict": "WAIVED (user decision 2026-09-02)"
+  }
+}

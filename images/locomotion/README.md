@@ -4,12 +4,12 @@
 
 ```bash
 pip install krabby-launcher
-krabby install            # pull mainline-latest, set up udev + dialout
+krabby install            # pull release-latest, set up udev + dialout
 krabby firmware show      # verify boards
-krabby run                # start the locomotion stack
+krabby run                # start the full stack (HAL server + gamepad client + controller)
 ```
 
-`krabby run` wires GPU flags, serial + input device passthrough, and ZMQ ports automatically. See [krabby/README.md](../../krabby/README.md) for the full CLI reference.
+`krabby run` starts the HAL server **and** the krabby-uno client/controller together, wiring GPU flags, serial + input device passthrough, and ZMQ ports automatically. See [krabby/README.md](../../krabby/README.md) for the full CLI reference.
 
 ---
 
@@ -43,6 +43,14 @@ docker run --rm --gpus all \
 
 Installs Krabby packages from PyPI with pinned versions. Bundled with `avrdude`, `arduino-cli` (Mega 2560 core, same pin as firmware CI), and `krabby-firmware` so MCU flashing works from inside the container without host-side flash tools.
 
+**Pre-push gate:** [`.github/workflows/publish-locomotion.yml`](../../.github/workflows/publish-locomotion.yml) builds the full [`Dockerfile.release`](Dockerfile.release) (`push: false`), runs `--help` (expects `--teleop-ip`), then builds and pushes to ECR. Reproduce locally:
+
+```bash
+docker buildx build --platform linux/arm64 \
+  -f images/locomotion/Dockerfile.release -t krabby-locomotion-release:ci --load .
+docker run --rm --network host krabby-locomotion-release:ci --help | grep teleop-ip
+```
+
 ### Pulling from ECR Public
 
 No AWS credentials required — ECR Public allows anonymous pulls.
@@ -50,7 +58,10 @@ No AWS credentials required — ECR Public allows anonymous pulls.
 ```bash
 ECR=public.ecr.aws/t7t7b3i3/krabby-locomotion
 
-# Latest mainline build
+# Latest release build — the default channel `krabby install`/`run` pull
+docker pull ${ECR}:release-latest
+
+# Latest mainline (development) build
 docker pull ${ECR}:mainline-latest
 
 # Specific commit
@@ -65,7 +76,7 @@ docker pull ${ECR}:0.2.9
 ```bash
 docker run --rm --gpus all \
     -v /path/to/checkpoints:/workspace/checkpoints \
-    ${ECR}:mainline-latest \
+    ${ECR}:release-latest \
     --checkpoint /workspace/checkpoints/checkpoint.pt
 ```
 
@@ -73,7 +84,7 @@ With MCU flashing:
 ```bash
 docker run --rm --gpus all \
     --device /dev/ttyACM0 \
-    ${ECR}:mainline-latest \
+    ${ECR}:release-latest \
     krabby-firmware show
 ```
 
@@ -84,7 +95,12 @@ docker run --rm --gpus all \
 | `<sha7>` | Every push to a tracked branch |
 | `mainline-latest` | Every push to `mainline` |
 | `release-<x-y-z>-latest` | Every push to `release/x.y.z` |
+| `release-latest` | The newest `release/*` build (most recent push wins); **default channel** for `krabby install`/`run` |
 | `<semver>` (e.g. `0.2.9`) | Push of a `locomotion-v*` tag |
+
+In addition to per-commit pushes, a daily scheduled build (`on: schedule`, 07:30 UTC)
+rebuilds and publishes the newest `release/*` branch, keeping `release-latest` fresh
+even on quiet days. GitHub may delay or skip scheduled runs under load.
 
 ### PyPI Packages
 
@@ -100,7 +116,7 @@ krabby-controller==0.1.2
 krabby-firmware==0.2.9
 ```
 
-`krabby-data-collection` and `krabby-teleop-edge` are not yet published to PyPI and are excluded from the production image.
+`krabby-data-collection` is not yet published to PyPI and is excluded from the production image. Fleet teleop requires **`krabby-teleop-edge`** (pinned in `requirements.release.txt`).
 
 ### Bumping Pins
 

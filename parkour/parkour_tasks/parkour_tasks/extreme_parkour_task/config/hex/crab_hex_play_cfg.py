@@ -10,7 +10,7 @@ from isaaclab.managers import SceneEntityCfg
 from isaaclab.utils import configclass
 
 from parkour_isaaclab.actuators.parkour_actuator_cfg import ParkourDCMotorCfg
-from parkour_tasks.crab_hexapod_task.mdp.observations import CrabHexParkourObservations
+from parkour_tasks.crab_hex_forward_task.mdp.observations import CrabHexParkourObservations
 from parkour_tasks.extreme_parkour_task.config.go2.parkour_teacher_cfg import (
     ParkourTeacherSceneCfg,
     UnitreeGo2TeacherParkourEnvCfg_PLAY,

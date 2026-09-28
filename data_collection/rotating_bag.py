@@ -42,6 +42,22 @@ def _total_bag_bytes(output_dir: Path) -> int:
     return total
 
 
+def compute_max_collector_bytes(
+    *,
+    total: int,
+    free: int,
+    bag_bytes: int,
+    min_free_fraction: float,
+) -> int:
+    """Max bag bytes allowed before deleting oldest segments.
+
+    Treats existing bag data as reclaimable (added to filesystem free space), then
+    reserves ``min_free_fraction`` of ``total`` that must remain free on the volume.
+    """
+    reserved = int(min_free_fraction * total)
+    return max(0, free + bag_bytes - reserved)
+
+
 def enforce_disk_quota(output_dir: Path, max_bytes: int) -> None:
     """Delete oldest bag directories (by ``metadata.yaml`` mtime) until under ``max_bytes``."""
     while _total_bag_bytes(output_dir) > max_bytes:
@@ -67,7 +83,7 @@ class RotatingMcapWriter:
         *,
         rotation_max_bytes: int,
         rotation_max_minutes: float,
-        max_disk_usage_fraction: float,
+        min_free_fraction: float,
         topic_msgtypes: list[tuple[str, str]],
     ) -> None:
         if Writer is None or get_typestore is None:
@@ -78,7 +94,7 @@ class RotatingMcapWriter:
         self._output_dir = Path(output_dir)
         self._rotation_max_bytes = int(rotation_max_bytes)
         self._rotation_max_minutes = float(rotation_max_minutes)
-        self._max_disk_fraction = float(max_disk_usage_fraction)
+        self._min_free_fraction = float(min_free_fraction)
         self._topic_msgtypes = list(topic_msgtypes)
         self._typestore = get_typestore(Stores.LATEST)
         self._writer: Optional[Writer] = None
@@ -93,7 +109,23 @@ class RotatingMcapWriter:
     def _max_collector_bytes(self) -> int:
         self._output_dir.mkdir(parents=True, exist_ok=True)
         usage = shutil.disk_usage(self._output_dir)
-        return int(self._max_disk_fraction * usage.total)
+        bag_bytes = _total_bag_bytes(self._output_dir)
+        max_bytes = compute_max_collector_bytes(
+            total=usage.total,
+            free=usage.free,
+            bag_bytes=bag_bytes,
+            min_free_fraction=self._min_free_fraction,
+        )
+        logger.info(
+            "Bag disk quota: bag_bytes=%s filesystem_free=%s total=%s "
+            "min_free_fraction=%.3f max_bag_bytes=%s",
+            bag_bytes,
+            usage.free,
+            usage.total,
+            self._min_free_fraction,
+            max_bytes,
+        )
+        return max_bytes
 
     def _current_segment_bytes(self) -> int:
         if self._writer is None:

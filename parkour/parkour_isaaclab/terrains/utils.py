@@ -54,7 +54,9 @@ def parkour_field_to_mesh(func: Callable) -> Callable:
         y2 = int((cfg.size[1] * 0.5 + 1) / cfg.horizontal_scale)
         origin_z = np.max(heights[x1:x2, y1:y2]) * cfg.vertical_scale
         origin = np.array([0.5 * cfg.size[0], 0.5 * cfg.size[1], origin_z])
-        return [mesh], origin, goals, goal_heights, x_edge_mask
+        # PLAN H (2026-09-03): the int16 height field (border included) is returned so the
+        # generator can keep it for spawn-spread z lookup / clearance checks.
+        return [mesh], origin, goals, goal_heights, x_edge_mask, heights
 
     return wrapper
 

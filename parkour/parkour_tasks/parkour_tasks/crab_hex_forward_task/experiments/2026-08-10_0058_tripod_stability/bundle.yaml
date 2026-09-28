@@ -1,0 +1,37 @@
+campaign: 2026-08-10_0058_tripod_stability
+era: A
+dates: 2026-08-10..2026-08-12
+question: Can reward shaping (config knobs, then an explicit tripod contact-schedule
+  reward v1-v5, fine-tuned and from scratch) raise flat-walk tripod_score above 0.45
+  without degrading tippy/stride/slip/completion or the +12 deg forward lean?
+verdict: 'RESULTS.md ''Campaign closed'' block, decision 2026-08-12 (d): no bake,
+  no checkpoint adoption; the 2026-08-09_1526_gait_tuned baseline (tripod 0.401) stays
+  the reference and both campaign terms stay at weight 0.0 - documented negative result,
+  tripod >0.45 judged a morphology/CoM problem.'
+plant: hand-authored crab_simple.usda (era A, pre-2026-08-20 rebuild)
+aliases: []
+records:
+- CHANGELOG.md
+- RESULTS.md
+head:
+  role: flat_walk
+  task: Isaac-Crab-Hex-Flat-Walk-v0
+  source: fromscratch_tripod_reward_w0.15/logs/rsl_rl/crab_hex_flat_walk/2026-08-10_20-08-53/model_19999.pt
+  sha256: 57b42c1dabb0c6eba4c3dcb98fa3a1231c0a3ac3d6d8a21a7db2901e60aa294b
+  dest: head/model_19999.pt
+  why: The campaign's 20k from-scratch confirmation run (reward_tripod_schedule w0.15
+    active from start); kept as the documented regression evidence - RESULTS.md adopted
+    no checkpoint and the reference remains the predecessor 2026-08-09_1526_gait_tuned
+    model_19999.
+  metrics:
+    flat_walk_forward: tripod 0.0 / completion 50% (5/10 falls) / stride 0.488 m
+    pitch: pitch_rms 0.260 rad / signed mean pitch 0.243 rad
+    baseline_ref: tripod 0.401 / completion 100% / pitch_rms 0.211 rad
+evals:
+- in_tree: '**/gait_eval*/**'
+keep_globs:
+- run_meta.json
+- scenario_metrics.json
+- summary.md
+- gait_diagram_*.png
+paths_note: true

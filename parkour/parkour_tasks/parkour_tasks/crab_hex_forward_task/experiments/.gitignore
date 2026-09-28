@@ -1,0 +1,30 @@
+# experiments/.gitignore -- the campaign trees live here WHOLE (raw artifacts ~70 GB stay on disk).
+# Git tracks only the keep-set: human records (md/json/csv/py/sh), eval summaries (run_meta.json,
+# scenario_metrics.json, summary.md, gait_diagram_*.png), reference RSI banks / statics at the
+# campaign top level, and ONE checkpoint of record per campaign under <campaign>/head/
+# (tools/bundle_experiment.py). Patterns are relative to this directory.
+
+# RSL-RL run dirs (checkpoints, params, tfevents). A DIRECTORY rule: nothing below it can be
+# re-included, which is why the head of record is a sha-verified COPY at <campaign>/head/.
+# <campaign>/logs/rsl_rl/curriculum_state.json sits one level above and stays tracked.
+**/logs/rsl_rl/*/
+**/outputs/
+**/videos/
+# per-episode dumps inside any gait_eval*/ run dir
+**/raw/
+**/metrics/
+# file classes
+*.pt
+*.log
+*.mp4
+*.pid
+events.out.tfevents.*
+__pycache__/
+# raw probe arrays below a campaign's top level; reference banks at <campaign>/*.npz stay
+*/*/**/*.npz
+!*/statics/statics_*.npz
+# the bundled checkpoint of record (re-inclusion works because head/ itself is not excluded)
+!*/head/model_*.pt
+# the May-2026 stage-baseline bundles (moved here from <task>/runs/ on 2026-09-09): one checkpoint of
+# record + USD snapshot + ONNX export each, tracked as stage releases (README appendices, scenarios_v1)
+!old-runs/**/*.pt

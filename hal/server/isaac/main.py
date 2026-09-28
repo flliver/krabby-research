@@ -15,7 +15,6 @@ import argparse
 import logging
 import os
 import signal
-from dataclasses import replace
 import sys
 import threading
 import time
@@ -31,12 +30,12 @@ from data_collection.config import load_config
 
 logger = logging.getLogger(__name__)
 CONTROL_RATE_HZ = 100.0
-# Sensor catalog ids passed to teleop signaling when HAL introspects RGB-D streams (--teleop).
-TELEOP_BOOTSTRAP_SENSOR_CATALOG_IDS: tuple[str, ...] = ("front_rgbd", "side_rgbd")
-
-# Outbound WebSocket to krabby-teleop-portal ``/ws/robot``. Default for Isaac sim when the portal
-# runs alongside on the same machine (see Docker note in docs / reply when using bridge networks).
-ISAAC_TELEOP_SIGNALING_WS_URL: str = "ws://127.0.0.1:9000/ws/robot"
+# Sensor catalog ids passed to teleop signaling when HAL introspects RGB-D streams (--teleop-ip).
+TELEOP_BOOTSTRAP_SENSOR_CATALOG_IDS: tuple[str, ...] = (
+    "front_rgbd",
+    "side_right_rgbd",
+    "side_left_rgbd",
+)
 
 
 def _sim_rgbd_mount_link(robot: str) -> str | None:
@@ -184,12 +183,15 @@ def main():
         ),
     )
     parser.add_argument(
-        "--teleop",
-        action="store_true",
+        "--teleop-ip",
+        type=str,
+        default=None,
+        metavar="HOST",
         help=(
-            "Outbound WebRTC teleop to the portal: HAL observation poll + signaling. When the viewer enables "
-            "operator_override and sends controller state, the teleop HalClient PUSHes OPERATOR JointCommands "
-            "to command_bind (same socket as inference; operator wins precedence). Signaling ws://127.0.0.1:9000/ws/robot. "
+            "Teleop portal host (IP or hostname). Enables outbound WebRTC teleop to "
+            "ws://HOST:9000/ws/robot: HAL observation poll + signaling and sim RGB-D cameras. "
+            "When the viewer enables operator_override, the teleop HalClient PUSHes OPERATOR "
+            "JointCommands to command_bind (same socket as inference; operator wins precedence). "
             "ICE/STUN from teleop/edge/robot_settings.py. Combine with --joystick for krabby-uno-sim on TCP."
         ),
     )
@@ -208,8 +210,8 @@ def main():
         logger.info("Using --usd: task=%s, robot=hex, KRABBY_HEX_USD_PATH=%s", args.task, args.usd)
     elif args.task is None:
         parser.error("--task required unless --usd is given")
-    if args.teleop and args.robot == "auto":
-        parser.error("--teleop requires --robot go2, quad, or hex (not auto)")
+    if args.teleop_ip and args.robot == "auto":
+        parser.error("--teleop-ip requires --robot go2, quad, or hex (not auto)")
     if args.debug:
         logging.getLogger().setLevel(logging.DEBUG)
         logger.setLevel(logging.DEBUG)
@@ -224,8 +226,10 @@ def main():
     if args.command_bind is None:
         args.command_bind = "tcp://*:5556" if args.joystick else "inproc://hal_commands"
 
-    args.enable_cameras = bool(args.teleop)
-    logger.info("enable_cameras=%s (sim RGB-D sensors only with --teleop)", args.enable_cameras)
+    teleop_enabled = args.teleop_ip is not None
+
+    args.enable_cameras = teleop_enabled
+    logger.info("enable_cameras=%s (sim RGB-D sensors only with --teleop-ip)", args.enable_cameras)
 
     # Launch IsaacLab
     app_launcher = AppLauncher(args)
@@ -313,20 +317,24 @@ def main():
         # One env is enough for joystick control and significantly speeds up startup and step time.
         env_cfg.scene.num_envs = 1
 
-    if args.teleop:
+    if teleop_enabled:
         sim_rgbd_link = _sim_rgbd_mount_link(args.robot)
         if sim_rgbd_link is None:
             raise ValueError(
-                f"Cannot resolve sim RGB-D mount link for --robot {args.robot!r} with --teleop"
+                f"Cannot resolve sim RGB-D mount link for --robot {args.robot!r} with --teleop-ip"
             )
         attach_sim_rgbd_sensors_to_scene_cfg(env_cfg.scene, sim_rgbd_link)
         _sensor_dt = env_cfg.sim.dt * env_cfg.decimation
         env_cfg.scene.front_camera.update_period = _sensor_dt
         env_cfg.scene.front_rgb.update_period = _sensor_dt
-        env_cfg.scene.side_camera.update_period = _sensor_dt
-        env_cfg.scene.side_rgb.update_period = _sensor_dt
+        env_cfg.scene.side_right_camera.update_period = _sensor_dt
+        env_cfg.scene.side_right_rgb.update_period = _sensor_dt
+        env_cfg.scene.side_left_camera.update_period = _sensor_dt
+        env_cfg.scene.side_left_rgb.update_period = _sensor_dt
         logger.info(
-            "HAL sim RGB-D sensors on Robot/%s (front_rgb, front_camera, side_rgb, side_camera)",
+            "HAL sim RGB-D sensors on Robot/%s "
+            "(front_rgb, front_camera, side_right_rgb, side_right_camera, "
+            "side_left_rgb, side_left_camera)",
             sim_rgbd_link,
         )
 
@@ -402,13 +410,8 @@ def main():
     observation_client_endpoint = _zmq_client_connect_url(args.observation_bind)
     command_client_endpoint = _zmq_client_connect_url(args.command_bind)
 
-    if args.teleop:
-        base_teleop = build_teleop_edge_settings()
-        teleop_settings = replace(
-            base_teleop,
-            mode="agent",
-            server_signaling_ws_url=ISAAC_TELEOP_SIGNALING_WS_URL,
-        )
+    if teleop_enabled:
+        teleop_settings = build_teleop_edge_settings(host_or_url=args.teleop_ip)
         bootstrap_ids = list(TELEOP_BOOTSTRAP_SENSOR_CATALOG_IDS)
         teleop_hal_cfg = HalClientConfig(
             observation_endpoint=observation_client_endpoint,
@@ -504,7 +507,7 @@ def main():
             "Joystick: main loop ready, waiting for first command on %s (start krabby-uno-sim on host if not already)",
             args.command_bind,
         )
-        if args.teleop:
+        if teleop_enabled:
             logger.info(
                 "Joystick+teleop: enable operator_override in the portal to drive from the browser controller; "
                 "otherwise krabby-uno-sim (TCP) pushes commands.",

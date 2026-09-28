@@ -2,10 +2,12 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import sys
 import time
+import urllib.error
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -13,14 +15,21 @@ from typing import Optional
 
 from firmware.gui.remote import DEFAULT_SERIAL_DEV, start_bridge
 from firmware.krabby_mcu import (
-    _TELEMETRY_LINE_PREFIXES,
     ALL_JOINT_NAMES,
+    DEFAULT_BAUD,
     KrabbyMCUSDK,
     build_get_line,
     build_set_line,
     parse_ver_reply,
 )
-from firmware.manifest import FirmwareIndex, parse_index, latest_release_branch
+from firmware.manifest import (
+    BranchBuild,
+    FirmwareIndex,
+    latest_release_branch,
+    parse_builds,
+    parse_index,
+)
+from firmware.interfaces.telemetry_frame import TelemetryFrame
 from firmware.mcu_port import MEGA_USB_IDS
 
 BUCKET_BASE = "https://krabby-firmware-public.s3.amazonaws.com"
@@ -69,7 +78,7 @@ def _probe_version(port: str, timeout: float = 6.0) -> tuple[Optional[str], Opti
     try:
         # serial_for_url handles both local devices and the remote bridge's
         # socket://host:port URLs (plain paths fall through to normal Serial).
-        with serial.serial_for_url(port, baudrate=115200, timeout=0.2) as ser:
+        with serial.serial_for_url(port, baudrate=DEFAULT_BAUD, timeout=0.2) as ser:
             # Opening a local port toggles DTR and resets the board, so we wait for
             # its "Krabby Ready" banner before sending V. Over the TCP bridge the
             # banner is unreliable: the board reset when the *bridge* opened the
@@ -100,7 +109,7 @@ def _probe_version(port: str, timeout: float = 6.0) -> tuple[Optional[str], Opti
                     role_hint = line[len("ROLE_HINT: "):].strip().lower()
                 elif ("Krabby Ready" in line
                       or (socket_port and not ready
-                          and line.startswith(_TELEMETRY_LINE_PREFIXES))):
+                          and TelemetryFrame.is_telemetry_line(line))):
                     ready = True
                     ser.write(b"V\n")
                     ser.flush()
@@ -122,9 +131,43 @@ def _fetch_index() -> FirmwareIndex:
     return parse_index(_fetch_json(f"{BUCKET_BASE}/index.json"))
 
 
-# --- --show ---
+def _fetch_builds(branch: str) -> list[BranchBuild]:
+    return parse_builds(_fetch_json(f"{BUCKET_BASE}/{branch}/builds.json"))
 
-def cmd_show(remote: Optional[str] = None, remote_serial: str = DEFAULT_SERIAL_DEV) -> None:
+
+def _page(text: str) -> None:
+    """Write text, routing through a pager when stdout is an interactive TTY.
+
+    Falls back to plain stdout if the pager can't be launched (OSError) or exits
+    non-zero — e.g. `less`/$PAGER missing makes the shell exit 127 — so the build
+    list is never silently swallowed (the locomotion image has no `less`).
+    """
+    if not text.endswith("\n"):
+        text += "\n"
+    if sys.stdout.isatty():
+        pager = os.environ.get("PAGER") or "less -FRX"
+        try:
+            proc = subprocess.Popen(pager, shell=True, stdin=subprocess.PIPE, text=True)
+            proc.communicate(text)
+            if proc.returncode == 0:
+                return
+        except (OSError, BrokenPipeError):
+            pass
+    sys.stdout.write(text)
+
+
+# --- show ---
+
+def cmd_show(
+    branch: Optional[str] = None,
+    remote: Optional[str] = None,
+    remote_serial: str = DEFAULT_SERIAL_DEV,
+) -> None:
+    # `show <branch>` lists that branch's full build history, newest-first and paged.
+    if branch is not None:
+        _show_branch_builds(branch)
+        return
+
     # The S3 index fetch is independent of the board probes and of the
     # multi-second ssh bridge startup — kick it off first so it overlaps both.
     index_executor = ThreadPoolExecutor(max_workers=1)
@@ -174,7 +217,7 @@ def _show_status(ports: list[str], labels: dict[str, str], index_future) -> None
 
         print("Attached boards:")
         if combined:
-            # Annotate with port only when ROLE_HINT is available (firmware >= M14 step 9).
+            # Annotate with port only when ROLE_HINT is available (newer firmware builds).
             role_to_port: dict[str, str] = {}
             for port in ports:
                 _, role_hint = probe_results[port]
@@ -210,10 +253,36 @@ def _show_status(ports: list[str], labels: dict[str, str], index_future) -> None
         print("S3 bucket has no builds yet.")
         return
 
-    print("Available S3 builds:")
+    print("Available S3 builds (latest per branch):")
     for name in sorted(index.branches):
         entry = index.branches[name]
         print(f"  {name:<30}  build {entry.build_key}")
+    print("\nRun `krabby-firmware show <branch>` to list a branch's builds newest-first.")
+
+
+def _show_branch_builds(branch: str) -> None:
+    """List every build for one branch, newest-first, through a pager."""
+    try:
+        builds = _fetch_builds(branch)
+    except urllib.error.HTTPError as exc:
+        # The public bucket grants s3:GetObject but not s3:ListBucket, so a GET of an
+        # absent key returns 403 (Access Denied), not 404 — treat both as "no history".
+        if exc.code in (403, 404):
+            sys.exit(f"No build history for branch '{branch}'. Run `krabby-firmware show` to list branches.")
+        sys.exit(f"Could not fetch builds for '{branch}': {exc}")
+    except Exception as exc:
+        sys.exit(f"Could not fetch builds for '{branch}': {exc}")
+
+    if not builds:
+        print(f"No builds found for branch '{branch}'.")
+        return
+
+    lines = [f"Builds for {branch} (newest first, {len(builds)} total):", ""]
+    for b in builds:
+        ver = b.ver_string or "?"
+        date = b.commit_date or "?"
+        lines.append(f"  {b.build_key:<26}  {date:<12}  {ver}")
+    _page("\n".join(lines) + "\n")
 
 
 # --- set / get (board config) ---

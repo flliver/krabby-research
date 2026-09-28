@@ -1,0 +1,22 @@
+```
+=== crab-hex gait eval ===
+scenario   : flat_walk_slow_v2  (Isaac-Crab-Hex-Flat-Walk-v0)
+checkpoint : logs/rsl_rl/crab_hex_flat_walk/2026-08-21_22-51-25/model_4999.pt
+episodes   : 100  unscored: 0
+terrain    : raycast_mesh
+cmd override max deviation: 0.000e+00
+
+tripod_score      median=0.0  p25=0.0  p75=0.0007141214216163455
+tippy_tap_fraction median=0.23040677966101697
+slip_ratio         median=0.278056585539303
+tracking_ratio     median=0.3988673184853005  (achieved/commanded vx, walking holds; n=94)
+schedule_completion_rate=0.14
+terminations={'fall': 86, 'schedule_complete': 14}
+
+by hold:
+     stand: cmd 0.00 -> achieved 0.035 m/s | tripod median=0.0 (n=100)
+     creep: cmd 0.25 -> achieved 0.092 m/s | tripod median=0.0 (n=94)
+       low: cmd 0.35 -> achieved 0.137 m/s | tripod median=0.0 (n=53)
+
+[WARN] num_prop=75 but observation width is 1127; train and play share this slicing so it is self-consistent, but the 'scan' slice is not the height scan.
+```

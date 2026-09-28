@@ -1,0 +1,32 @@
+campaign: 2026-09-04_1105_morph_x_exposure
+era: B
+dates: 2026-09-04..2026-09-06
+question: Does a formation config that actually trains walking (KRABBY_STAND_FRAC=0.2,
+  then 40-s episodes with 10-s holds and the curriculum equilibrium held) let the
+  wider plants (B, A10-A20, A+B) form robust gaits from scratch and survive obstacle
+  onsets better than the golden plant in training and eval?
+verdict: 'CAMPAIGN COMPLETE 2026-09-06 (REPORT.md CAMPAIGN COMPLETE block): training-side
+  fix and morphology advantage confirmed on two seeds (A15+B canary 0.95-0.96 / step-onset
+  falls 8-23 / obstacle eval 0.73-0.95 vs golden 0.68 / 67 / 0.31); USER DECISION
+  2026-09-06 (CHANGELOG.md): move forward with A15+B (15 deg shims + re-hinge); no
+  checkpoint of record.'
+plant: per-arm variants (A15+B chosen)
+aliases: []
+records:
+- REPORT.md
+- CHANGELOG.md
+- state.json
+- final_decision_table.csv
+head:
+  none: closed with a hardware recommendation (A15+B chosen); no checkpoint of record
+evals:
+- source: parkour/logs/rsl_rl/gait_eval/morph_x_exposure
+  dest: evals/morph_x_exposure
+- source: parkour/logs/rsl_rl/gait_eval/morph_x_exposure_obst
+  dest: evals/morph_x_exposure_obst
+keep_globs:
+- run_meta.json
+- scenario_metrics.json
+- summary.md
+- gait_diagram_*.png
+paths_note: true

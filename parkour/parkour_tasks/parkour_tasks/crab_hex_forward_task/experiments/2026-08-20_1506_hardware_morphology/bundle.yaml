@@ -1,0 +1,42 @@
+campaign: 2026-08-20_1506_hardware_morphology
+era: B
+dates: 2026-08-20..2026-08-22
+question: Can the sim plant be rebuilt from the measured physical robot (dimensions,
+  masses, ROMs, linear-actuator linkages, current-sense obs) so it stands, drives,
+  and survives training as a generated single-source-of-truth USDA?
+verdict: 'RESULTS.md smoke-train verdict: the plant passes the smoke test (stands
+  statically, strong thrust, trains cleanly), the acceleration wheelie is structural
+  and deferred to PLAN B; all pre-2026-08-20 checkpoints invalidated; 2026-08-22 leg-collision
+  fix means all prior training ran with intangible leg shafts.'
+plant: legacy_golden
+aliases: []
+records:
+- RESULTS.md
+- PLAN_A_hip_geometry_fix.md
+- PLAN_B_wheelie_retrain.md
+- static_posture_report.json
+- static_posture_report_chkB.json
+- static_posture_report_chkB2.json
+- static_posture_report_chkB3.json
+- static_posture_report_final.json
+- static_posture_report_final2.json
+- static_posture_report_final3.json
+- static_posture_report_final4.json
+- static_posture_report_platefix.json
+- static_posture_report_platefix2.json
+- static_posture_report_mesh.json
+- static_posture_report_nofootpad.json
+- stance_current_report.json
+- stance_current_report_chkB2.json
+- stance_current_report_chkB3.json
+- stance_current_report_final3.json
+- stance_current_report_final4.json
+- stance_current_report_platefix.json
+head:
+  none: statics / diagnostics only (measured-robot rebuild of the plant); no policy
+keep_globs:
+- run_meta.json
+- scenario_metrics.json
+- summary.md
+- gait_diagram_*.png
+paths_note: true

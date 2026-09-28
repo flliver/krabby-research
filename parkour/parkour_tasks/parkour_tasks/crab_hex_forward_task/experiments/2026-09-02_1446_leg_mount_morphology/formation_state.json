@@ -1,0 +1,268 @@
+{
+ "arms": {
+  "control": {
+   "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_flat_walk/2026-08-31_03-42-16/model_4999.pt",
+   "status": "ok",
+   "evals": {
+    "slow": {
+     "tripod": 0.5946052676788929,
+     "completion": 0.88,
+     "tracking": 0.39697300320233286,
+     "falls": 12,
+     "n": 100,
+     "pitch_fwd_share": 0.05,
+     "pitch_max_abs_p50": 0.13149112688649978,
+     "prefall_tip_p10": null,
+     "walk_tip_p50": 8.967458136136845
+    },
+    "fwd": {
+     "tripod": 0.5577640992214865,
+     "completion": 0.0,
+     "tracking": 0.3910912920781373,
+     "falls": 100,
+     "n": 100,
+     "pitch_fwd_share": 1.0,
+     "pitch_max_abs_p50": 0.4886798731261335,
+     "prefall_tip_p10": null,
+     "walk_tip_p50": 5.764200724575694
+    },
+    "step": {
+     "tripod": 0.5528021877332817,
+     "completion": 0.61,
+     "tracking": 0.3983475198235319,
+     "falls": 39,
+     "n": 100,
+     "pitch_fwd_share": 0.36,
+     "pitch_max_abs_p50": 0.22336603627725315,
+     "prefall_tip_p10": null,
+     "walk_tip_p50": 8.56425225411315
+    }
+   }
+  },
+  "base": {
+   "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_flat_walk/2026-09-02_21-12-20/model_4999.pt",
+   "status": "ok",
+   "evals": {
+    "slow": {
+     "tripod": 0.5370083390168021,
+     "completion": 0.83,
+     "tracking": 0.4264894154009813,
+     "falls": 17,
+     "n": 100,
+     "pitch_fwd_share": 0.17,
+     "pitch_max_abs_p50": 0.15794849540797395,
+     "prefall_tip_p10": null,
+     "walk_tip_p50": 8.46293376148768
+    },
+    "fwd": {
+     "tripod": 0.4647924521936794,
+     "completion": 0.01,
+     "tracking": 0.466416707842953,
+     "falls": 99,
+     "n": 100,
+     "pitch_fwd_share": 0.99,
+     "pitch_max_abs_p50": 0.4885704431295659,
+     "prefall_tip_p10": null,
+     "walk_tip_p50": 6.117153556601345
+    },
+    "step": {
+     "tripod": 0.4627894197243735,
+     "completion": 0.31,
+     "tracking": 0.4381038092422965,
+     "falls": 69,
+     "n": 100,
+     "pitch_fwd_share": 0.6,
+     "pitch_max_abs_p50": 0.4846935852984202,
+     "prefall_tip_p10": null,
+     "walk_tip_p50": 8.567050998198718
+    }
+   },
+   "smoke": {
+    "fail_2k": 0.40467099999999995,
+    "fail_5k": 0.292275,
+    "coll_2k": 0.0,
+    "ep_len_2k": 788.3699999999997
+   }
+  },
+  "B": {
+   "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_flat_walk/2026-09-02_23-43-36/model_4999.pt",
+   "status": "ok",
+   "evals": {
+    "slow": {
+     "tripod": 0.2556732872267352,
+     "completion": 0.31,
+     "tracking": 0.5344512965052494,
+     "falls": 69,
+     "n": 100,
+     "pitch_fwd_share": 0.68,
+     "pitch_max_abs_p50": 0.48909373019421976,
+     "prefall_tip_p10": null,
+     "walk_tip_p50": 7.615579737547737
+    },
+    "fwd": {
+     "tripod": 0.47205528433713406,
+     "completion": 0.0,
+     "tracking": 0.4327250639542592,
+     "falls": 100,
+     "n": 100,
+     "pitch_fwd_share": 1.0,
+     "pitch_max_abs_p50": 0.49080944209171085,
+     "prefall_tip_p10": null,
+     "walk_tip_p50": 5.862237751968168
+    },
+    "step": {
+     "tripod": 0.24669442171728034,
+     "completion": 0.31,
+     "tracking": 0.5242332726432453,
+     "falls": 69,
+     "n": 100,
+     "pitch_fwd_share": 0.66,
+     "pitch_max_abs_p50": 0.4860430937570206,
+     "prefall_tip_p10": null,
+     "walk_tip_p50": 8.069214095214782
+    }
+   },
+   "smoke": {
+    "fail_2k": 0.076946,
+    "fail_5k": 0.13382299999999994,
+    "coll_2k": 0.0,
+    "ep_len_2k": 965.5704000000005
+   }
+  },
+  "A10": {
+   "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_flat_walk/2026-09-03_02-14-33/model_4999.pt",
+   "status": "ok",
+   "evals": {
+    "slow": {
+     "tripod": 0.1451437838996185,
+     "completion": 0.23,
+     "tracking": 0.6849977743037956,
+     "falls": 77,
+     "n": 100,
+     "pitch_fwd_share": 0.74,
+     "pitch_max_abs_p50": 0.48662704639556886,
+     "prefall_tip_p10": null,
+     "walk_tip_p50": 5.938497707000973
+    },
+    "fwd": {
+     "tripod": 0.4622793901426851,
+     "completion": 0.0,
+     "tracking": 0.5852444021048588,
+     "falls": 100,
+     "n": 100,
+     "pitch_fwd_share": 1.0,
+     "pitch_max_abs_p50": 0.49246901773346097,
+     "prefall_tip_p10": null,
+     "walk_tip_p50": 6.8789506881620035
+    },
+    "step": {
+     "tripod": 0.1758564896369334,
+     "completion": 0.1,
+     "tracking": 0.699955321661879,
+     "falls": 90,
+     "n": 100,
+     "pitch_fwd_share": 0.9,
+     "pitch_max_abs_p50": 0.48772995376463935,
+     "prefall_tip_p10": null,
+     "walk_tip_p50": 5.657693930760164
+    }
+   },
+   "smoke": {
+    "fail_2k": 0.13032799999999992,
+    "fail_5k": 0.1261009999999999,
+    "coll_2k": 0.0,
+    "ep_len_2k": 926.7826000000007
+   }
+  },
+  "A15": {
+   "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_flat_walk/2026-09-03_04-53-36/model_4999.pt",
+   "status": "ok",
+   "evals": {
+    "slow": {
+     "tripod": 0.24285448695467526,
+     "completion": 0.46,
+     "tracking": 0.5254677324743946,
+     "falls": 54,
+     "n": 100,
+     "pitch_fwd_share": 0.5,
+     "pitch_max_abs_p50": 0.4810882555247047,
+     "prefall_tip_p10": null,
+     "walk_tip_p50": 6.757000728962243
+    },
+    "fwd": {
+     "tripod": 0.4720401327849709,
+     "completion": 0.0,
+     "tracking": 0.528773586162849,
+     "falls": 100,
+     "n": 100,
+     "pitch_fwd_share": 1.0,
+     "pitch_max_abs_p50": 0.4890002912792373,
+     "prefall_tip_p10": null,
+     "walk_tip_p50": 6.605640162648352
+    },
+    "step": {
+     "tripod": 0.2325213680585581,
+     "completion": 0.32,
+     "tracking": 0.5690048960677567,
+     "falls": 68,
+     "n": 100,
+     "pitch_fwd_share": 0.61,
+     "pitch_max_abs_p50": 0.48467503489309016,
+     "prefall_tip_p10": null,
+     "walk_tip_p50": 6.905798334047942
+    }
+   },
+   "smoke": {
+    "fail_2k": 0.147771,
+    "fail_5k": 0.287256,
+    "coll_2k": 0.0,
+    "ep_len_2k": 933.4351000000001
+   }
+  },
+  "A20": {
+   "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_flat_walk/2026-09-03_07-16-23/model_4999.pt",
+   "status": "ok",
+   "evals": {
+    "slow": {
+     "tripod": 0.3185568617644328,
+     "completion": 0.76,
+     "tracking": 0.7065984543064272,
+     "falls": 24,
+     "n": 100,
+     "pitch_fwd_share": 0.24,
+     "pitch_max_abs_p50": 0.25827619948689207,
+     "prefall_tip_p10": null,
+     "walk_tip_p50": 6.898536883502592
+    },
+    "fwd": {
+     "tripod": 0.4657338198462697,
+     "completion": 0.0,
+     "tracking": 0.578878112110223,
+     "falls": 100,
+     "n": 100,
+     "pitch_fwd_share": 1.0,
+     "pitch_max_abs_p50": 0.4911796419366157,
+     "prefall_tip_p10": null,
+     "walk_tip_p50": 5.583858080268756
+    },
+    "step": {
+     "tripod": 0.27048643888160906,
+     "completion": 0.34,
+     "tracking": 0.7297224339688728,
+     "falls": 66,
+     "n": 100,
+     "pitch_fwd_share": 0.66,
+     "pitch_max_abs_p50": 0.48563576330175984,
+     "prefall_tip_p10": null,
+     "walk_tip_p50": 6.668380177285545
+    }
+   },
+   "smoke": {
+    "fail_2k": 0.16665500000000003,
+    "fail_5k": 0.200261,
+    "coll_2k": 0.0,
+    "ep_len_2k": 916.6799999999996
+   }
+  }
+ }
+}

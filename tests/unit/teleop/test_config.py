@@ -75,3 +75,35 @@ def test_empty_stun_list_falls_back_to_builtin() -> None:
     robot_settings.STUN_TURN_SERVERS = []
     s = build_teleop_edge_settings()
     assert s.stun_turn_servers == robot_settings.BUILTIN_STUN_SERVERS
+
+
+def test_qos_settings_defaults() -> None:
+    s = build_teleop_edge_settings()
+    assert s.qos_enabled is True
+    assert s.qos_kbps_budget_per_stream == 120.0
+
+
+def test_qos_kbps_budget_clamped() -> None:
+    robot_settings.QOS_KBPS_BUDGET_PER_STREAM = 10.0
+    s = build_teleop_edge_settings()
+    assert s.qos_kbps_budget_per_stream == 100.0
+
+
+def test_host_or_url_overrides_module_signaling() -> None:
+    robot_settings.TELEOP_EDGE_MODE = "off"
+    robot_settings.SERVER_SIGNALING_WS_URL = ""
+    s = build_teleop_edge_settings(host_or_url="10.0.0.130")
+    assert s.mode == "agent"
+    assert s.agent_enabled
+    assert s.server_signaling_ws_url == "ws://10.0.0.130:9000/ws/robot"
+
+
+def test_control_echo_enabled_defaults_false() -> None:
+    s = build_teleop_edge_settings()
+    assert s.control_echo_enabled is False
+
+
+def test_control_echo_enabled_passed_through() -> None:
+    """A per-run flag (HAL --teleop-control-echo), not a robot_settings.py constant."""
+    s = build_teleop_edge_settings(control_echo_enabled=True)
+    assert s.control_echo_enabled is True

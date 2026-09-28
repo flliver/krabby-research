@@ -48,9 +48,9 @@ On the assembled robot only FRONT is on USB; LEFT/RIGHT hang off FRONT's Serial1
 
 **Hard-won loop() rule:** never drain a serial port with an unbounded `while (available())` — a dangling/floating RX line picks up EMI and produces an endless byte stream that starves the actuator update and USB handling (root cause #1 in `COMMS_DEBUG.md`, enforced by `test_floating_rx_guard.py`). Keep drains bounded per tick.
 
-### Wire protocol (host ↔ board, 115200 baud, newline-terminated lines)
+### Wire protocol (host ↔ board, 250000 baud, newline-terminated lines)
 
-Commands in: `T <joint> <val>…` (position targets, parsed by `command.h`), `J`/`B` (jog / batch jog, watchdog-guarded), `SET`/`GET` (EEPROM config), `CAL…` (calibration), `V` (version — leader aggregates all three boards into one `VER` reply). Telemetry out: one line per tick, `<ROLE>; <name> <pos> <pot> <current> <enL> <enR> <pwmL> <pwmR> <saf>; …`.
+Commands in: `T <joint> <val>…` (position targets, parsed by `command.h`), `J`/`B` (jog / batch jog, watchdog-guarded), `SET`/`GET` (EEPROM config), `CAL…` (calibration), `V` (version — leader aggregates all three boards into one `VER` reply). Telemetry out: one line per tick, `<ROLE>; <name> <pos> <pot> <current> <enL> <enR> <pwmL> <pwmR> <saf> <connection> <calState>; …` (FRONT appends an `IMU …` segment).
 
 **Two contracts must stay in sync by hand:**
 - Telemetry: `LinearActuator::printTelemetry` in `arduino/actuator_manager.h` ↔ parser `interfaces/joint_telemetry.py`.

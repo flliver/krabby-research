@@ -1,0 +1,27 @@
+[Unit]
+Description=Krabby fleet portal (Next.js standalone)
+Documentation=https://github.com/flliver/krabby-research
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Same unprivileged user as krabby-fleet-service -- outbound HTTPS only,
+# binds 127.0.0.1:3000 (Caddy fronts TLS on 443).
+User=krabby-fleet
+Group=krabby-fleet
+WorkingDirectory=/opt/krabby-fleet-portal
+EnvironmentFile=-/etc/krabby-fleet/portal.env
+Environment=NODE_ENV=production
+Environment=PORT=3000
+Environment=HOSTNAME=127.0.0.1
+# Node is installed under /usr/local by FleetServiceStack UserData.
+ExecStart=/usr/local/bin/node server.js
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=krabby-fleet-portal
+
+[Install]
+WantedBy=multi-user.target

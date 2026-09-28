@@ -2,11 +2,19 @@ import logging
 import math
 import time
 
+import numpy as np
 import pytest
 
 pytest.importorskip("av")
 
-from hal.server.teleop_portal_signaling import _ControlLatencyReporter
+from hal.client.data_structures.hardware import HardwareObservations
+from hal.server.teleop_portal_signaling import (
+    _ControlLatencyReporter,
+    bind_telemetry_slot,
+    merge_last_control_state,
+)
+from teleop.edge.telemetry import TELEMETRY_MESSAGE_TYPE
+from teleop.edge.webrtc_input_controller import RemoteGamepadState, WebRTCInputController
 
 
 def test_control_latency_reporter_logs_window_percentiles(caplog) -> None:
@@ -47,3 +55,75 @@ def test_control_latency_reporter_records_valid_timestamp() -> None:
     assert reporter._total_samples == 1
     assert len(reporter._samples_ms) == 1
     assert 0.0 <= reporter._samples_ms[0] < 1000.0
+
+
+def _sample_observation() -> HardwareObservations:
+    return HardwareObservations(
+        joint_positions=np.zeros(12, dtype=np.float32),
+        camera_height=480,
+        camera_width=640,
+        timestamp_ns=1_500_000_000,
+        base_ang_vel_b=np.array([0.1, 0.2, 0.3], dtype=np.float32),
+        base_lin_vel_b=np.array([1.0, 0.0, 0.0], dtype=np.float32),
+        base_quat_w=np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float32),
+        joint_velocities=np.zeros(12, dtype=np.float32),
+        contact_forces=np.zeros(5, dtype=np.float32),
+        previous_action=np.zeros(12, dtype=np.float32),
+    )
+
+
+def test_bind_telemetry_slot_getter_sees_hal_poll_update() -> None:
+    """WebRTC getter must read telemetry written by the HAL poll path."""
+    record, getter = bind_telemetry_slot()
+    record(_sample_observation())
+    payload = getter()
+    assert payload is not None
+    assert payload["type"] == TELEMETRY_MESSAGE_TYPE
+    assert payload["timestamp_ns"] == 1_500_000_000
+    assert payload["velocity"]["linear_m_s"] == [1.0, 0.0, 0.0]
+
+
+def test_merge_last_control_state_passthrough_without_webrtc_input() -> None:
+    payload = {"type": TELEMETRY_MESSAGE_TYPE}
+    assert merge_last_control_state(payload, None, enabled=True) is payload
+    assert merge_last_control_state(None, None, enabled=True) is None
+
+
+def test_merge_last_control_state_disabled_by_default() -> None:
+    """No operator-facing feature reads `last_control` -- real sessions must
+    see byte-for-byte the same payload unless a caller opts in explicitly."""
+    controller = WebRTCInputController()
+    controller.start()
+    controller.update_from_payload({"RS": True})
+
+    payload = {"type": TELEMETRY_MESSAGE_TYPE}
+    assert merge_last_control_state(payload, controller) is payload
+    assert merge_last_control_state(payload, controller, enabled=False) is payload
+
+
+def test_merge_last_control_state_adds_current_state_when_enabled() -> None:
+    controller = WebRTCInputController()
+    controller.start()
+    controller.update_from_payload({"RS": True, "LX": 0.0, "LY": 0.0, "RX": 0.0, "RY": 0.0})
+
+    payload = {"type": TELEMETRY_MESSAGE_TYPE}
+    merged = merge_last_control_state(payload, controller, enabled=True)
+
+    assert merged is not payload  # original telemetry dict left untouched
+    assert "last_control" not in payload
+    assert merged["last_control"] == {
+        "LT": False, "LB": False, "LS": False, "RS": True,
+        "RT": False, "RB": False, "LX": 0.0, "LY": 0.0, "RX": 0.0, "RY": 0.0,
+    }
+
+
+def test_merge_last_control_state_reflects_default_before_any_control_message() -> None:
+    controller = WebRTCInputController()
+    controller.start()
+
+    merged = merge_last_control_state({"type": TELEMETRY_MESSAGE_TYPE}, controller, enabled=True)
+
+    assert merged["last_control"] == {
+        field: getattr(RemoteGamepadState(), field)
+        for field in ("LT", "LB", "LS", "RS", "RT", "RB", "LX", "LY", "RX", "RY")
+    }

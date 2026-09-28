@@ -1,0 +1,24 @@
+{
+  "stages": {
+    "flat": {
+      "status": "complete",
+      "checkpoint": "/home/nickmagus/krabby/krabby-research/sim_fine_tuning/stride_length_on/logs/rsl_rl/crab_hex_flat_walk/2026-08-08_09-51-01/model_19999.pt",
+      "note": "CAD-derived Whitworth mapping, penalty_motor_direction_reversal=-0.3 AND reward_stride_length=0.5 (power=2.0) both active. mean_reward=41.48, crab_failure=2.86% (baseline/motor_reversal_on flat were both 0.78%), episode_length=1000.0 (perfect), reward_stride_length=0.0003, penalty_motor_direction_reversal=-0.1819. gait_eval (2026-08-08_19-49-17): tripod_score=0.0 (same non-tripod gait), slip_ratio=2.5% (good, comparable to others), tippy_tap_fraction=0.366 (WORSE than baseline 0.135 AND motor_reversal_on 0.310 -- stride-length reward did not reduce tippy-tapping, needs investigation), schedule_completion_rate=0.8 (2 falls/10 -- regression vs both prior flat-walk runs' 100% completion)"
+    },
+    "bridge": {
+      "status": "complete",
+      "checkpoint": "/home/nickmagus/krabby/krabby-research/sim_fine_tuning/stride_length_on/logs/rsl_rl/crab_hex_teacher/2026-08-08_15-50-54/model_20098.pt",
+      "note": "fixed 100 iters from flat. crab_failure=52.4% -- escalating pattern across the 3 runs' bridge stage (baseline 6.3% -> motor_reversal_on 27.6% -> stride_length_on 52.4%). Consistent with flat-walk gait_eval already showing degraded stability; watching if this recovers through 2b1/2b2 like motor_reversal_on's did."
+    },
+    "2b1": {
+      "status": "complete",
+      "checkpoint": "/home/nickmagus/krabby/krabby-research/sim_fine_tuning/stride_length_on/logs/rsl_rl/crab_hex_teacher/2026-08-08_15-54-14/model_20197.pt",
+      "note": "fixed 100 iters from bridge. crab_failure=51.2%, did NOT recover from bridge's 52.4% (motor_reversal_on recovered 27.6%->14.3% at this same stage). Not immediate-collapse pattern though -- Mean reward stayed 3-4.3 (healthy, not near-zero), current_goal_idx 1.2-1.4 (real progress), episode_length grew 384->745 within the batch. Proceeding to 2b2 per fixed-stage convention; watching closely for genuine collapse there."
+    },
+    "2b2": {
+      "status": "complete",
+      "checkpoint": "/home/nickmagus/krabby/krabby-research/sim_fine_tuning/stride_length_on/logs/rsl_rl/crab_hex_teacher/2026-08-08_16-27-00/model_21300.pt",
+      "note": "4 batches (2000 iters, matching baseline/motor_reversal_on budget) from 2b1, ALL on the PRE-v3-redesign reward code (swing+stance hip-yaw diff, no directional gating -- the reward was redesigned mid-run per user request but this comparison run was deliberately allowed to finish on the original code as a documented 'before' data point). Never cleared all 5 gates; best-seen is model_21300 (batch 3, iter21295): obstacle_clearance=0.201(>0.15 ok), episode_length=768.9(>=750-800 ok), current_goal_idx=1.38(>0.7-0.9 ok) all pass; crab_failure=24.2%(fail, >20%) and forward_progress=0.080(fail, <0.15) are the only misses -- worse on both than baseline's final (18.75%/0.121) and motor_reversal_on's final (7.8%/0.126). Accepted as final despite this. This run's whole curriculum (bridge/2b1/2b2) ran consistently worse/noisier than the other two throughout -- escalating bridge crab_failure (6.3%->27.6%->52.4%) and slower 2b2 convergence never fully recovered. gait_eval (2026-08-08_20-58-43): tripod=0.0012, slip_ratio=4.7% (best of the 3 runs), tippy_tap_fraction=0.245 (worst of the 3 runs at 2b2: baseline 0.147, motor_reversal_on 0.222), schedule_completion_rate=0.6 -- 4 FALLS out of 10 episodes, the worst stability result across all three runs (baseline 1 fall, motor_reversal_on 0 falls). Net verdict: the v2 swing+stance hip-yaw-diff reward had a clearly negative effect on overall training stability and gait quality despite producing some genuinely good individual strides (see the MR snap investigation) -- concrete data motivating the v3 stance-only/direction-gated redesign."
+    }
+  }
+}

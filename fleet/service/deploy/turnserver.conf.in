@@ -1,0 +1,19 @@
+# Krabby fleet coturn — STUN/TURN for teleop WebRTC.
+# Deployed to /etc/krabby-fleet/turnserver.conf by deploy-fleet-service.sh
+# (PLACEHOLDERs replaced with Secrets Manager + EIP/domain values).
+
+listening-port=3478
+fingerprint
+lt-cred-mech
+use-auth-secret
+static-auth-secret=__TURN_AUTH_SECRET__
+realm=__TURN_REALM__
+server-name=__TURN_REALM__
+external-ip=__TURN_EXTERNAL_IP__
+min-port=49152
+max-port=65535
+no-multicast-peers
+no-cli
+no-tls
+no-dtls
+listening-ip=0.0.0.0

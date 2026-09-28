@@ -7,6 +7,7 @@ import logging
 import math
 import threading
 import time
+from collections.abc import Callable
 from typing import Any, Optional
 
 import numpy as np
@@ -15,16 +16,80 @@ from zmq.error import ContextTerminated
 
 from hal.client.client import HalClient
 from hal.client.config import HalClientConfig
+from hal.client.data_structures.hardware import HardwareObservations
 from hal.server.robot_definition import RobotDefinition
 from hal.server.sensor_interface import SensorInterface
+from controller.control_loop import ControlLoop, ControlLoopConfig, ControlMode
 from teleop.edge.config import TeleopEdgeSettings
 from teleop.edge.depth_preview import depth_meters_to_rgb24_u8
 from teleop.edge.hal_rgb_track import HalRgbSnapshotVideoTrack
 from teleop.edge.portal_client import portal_client_loop
+from teleop.edge.qos import TeleopDegradationPolicy, TeleopQosController
 from teleop.edge.viewer_catalog import parse_viewer_catalog_ids_from_payload
+from teleop.edge.telemetry import build_telemetry_payload
 from teleop.edge.webrtc_input_controller import WebRTCInputController
 
 logger = logging.getLogger(__name__)
+
+RecordTelemetryFn = Callable[[HardwareObservations], None]
+TelemetryGetterFn = Callable[[], dict[str, Any] | None]
+
+def merge_last_control_state(
+    payload: dict[str, Any] | None,
+    webrtc_input: "WebRTCInputController | None",
+    *,
+    enabled: bool = False,
+) -> dict[str, Any] | None:
+    """Add the input controller's current state as ``last_control`` (read-only echo).
+
+    Only active when `enabled` (see `TeleopEdgeSettings.control_echo_enabled`,
+    set via HAL `--teleop-control-echo`) -- lets the bench E2E harness confirm
+    a control message was actually applied (not just sent) by polling this
+    field on the existing telemetry channel, without adding a new ack message
+    type to the `krabby-control-v1` protocol or changing what real operator
+    sessions see.
+    """
+    if not enabled or payload is None or webrtc_input is None:
+        return payload
+    state = webrtc_input.get_state()
+    merged = dict(payload)
+    merged["last_control"] = {
+        "LT": state.LT,
+        "LB": state.LB,
+        "LS": state.LS,
+        "RS": state.RS,
+        "RT": state.RT,
+        "RB": state.RB,
+        "LX": state.LX,
+        "LY": state.LY,
+        "RX": state.RX,
+        "RY": state.RY,
+    }
+    return merged
+
+
+def bind_telemetry_slot() -> tuple[RecordTelemetryFn, TelemetryGetterFn]:
+    """Shared slot between the HAL poll thread and the WebRTC telemetry sender."""
+    latest_telemetry: dict[str, Any] | None = None
+    lock = threading.Lock()
+
+    def record_observation(obs: HardwareObservations) -> None:
+        nonlocal latest_telemetry
+        with lock:
+            latest_telemetry = build_telemetry_payload(
+                timestamp_ns=int(obs.timestamp_ns),
+                base_quat_w=obs.base_quat_w,
+                base_ang_vel_b=obs.base_ang_vel_b,
+                base_lin_vel_b=obs.base_lin_vel_b,
+            )
+
+    def get_telemetry_copy() -> dict[str, Any] | None:
+        with lock:
+            if latest_telemetry is None:
+                return None
+            return dict(latest_telemetry)
+
+    return record_observation, get_telemetry_copy
 
 
 class _ControlLatencyReporter:
@@ -247,33 +312,29 @@ def start_hal_teleop_signaling_thread(
 
         latest_rgb: dict[str, np.ndarray] = {}
         latest_capture_ns: dict[str, int] = {}
+        record_telemetry, get_telemetry_copy = bind_telemetry_slot()
+        control_echo = settings.control_echo_enabled
         rgb_lock = threading.Lock()
         poll_stop = threading.Event()
         hal_teleop = HalClient(hal_client_config, context=transport_context)
         hal_client_lock = threading.Lock()
-        hal_ready = threading.Event()
         operator_override_gate = _OperatorOverrideGate()
         webrtc_input: Optional[WebRTCInputController] = None
+        control_loop: Optional[ControlLoop] = None
         if send_hal_commands:
-            from controller.mappers.gamepad_to_krabby_hal_mapper import GamepadToKrabbyHALMapper
-
             webrtc_input = WebRTCInputController()
-            gamepad_mapper = GamepadToKrabbyHALMapper(robot_definition=robot_definition)
-
-            def _on_webrtc_state(state: Any) -> None:
-                if not hal_ready.is_set():
-                    return
-                if not operator_override_gate.get():
-                    return
-                try:
-                    cmd = gamepad_mapper.map(state, observation_timestamp_ns=None)
-                    with hal_client_lock:
-                        hal_teleop.put_joint_command(cmd)
-                except Exception:
-                    logger.warning("teleop control: failed to map/send command", exc_info=True)
-
-            webrtc_input.register_callback(_on_webrtc_state)
-            webrtc_input.start(update_rate_hz=50.0)
+            control_loop = ControlLoop(
+                ControlLoopConfig(
+                    mode=ControlMode.INPUT_CONTROLLER_WEBRTC,
+                    webrtc_input_controller=webrtc_input,
+                    hal_client_config=hal_client_config,
+                    hal_transport_context=transport_context,
+                    krabby_gamepad_robot_definition=robot_definition,
+                    input_controller_update_rate_hz=50.0,
+                    command_send_gate=operator_override_gate.get,
+                )
+            )
+            control_loop.start()
 
         def _poll_worker() -> None:
             try:
@@ -291,7 +352,10 @@ def start_hal_teleop_signaling_thread(
                             exc_info=True,
                         )
                         continue
-                    if obs is None or obs.rgbd_by_catalog_id is None:
+                    if obs is None:
+                        continue
+                    record_telemetry(obs)
+                    if obs.rgbd_by_catalog_id is None:
                         continue
                     poll_ids = catalog_state.snapshot_poll_ids()
                     with rgb_lock:
@@ -327,7 +391,6 @@ def start_hal_teleop_signaling_thread(
 
         with hal_client_lock:
             hal_teleop.initialize()
-        hal_ready.set()
         poller = threading.Thread(target=_poll_worker, name="hal-teleop-hal-poll", daemon=True)
         poller.start()
 
@@ -337,6 +400,13 @@ def start_hal_teleop_signaling_thread(
                 if arr is None:
                     return None
                 return np.copy(arr)
+
+        qos_policy = TeleopDegradationPolicy(
+            stream_count=len(bootstrap_sensor_catalog_ids),
+            kbps_budget_per_stream=settings.qos_kbps_budget_per_stream,
+        )
+        qos_controller = TeleopQosController(qos_policy)
+        qos_controller.set_enabled(settings.qos_enabled)
 
         def _make_track_factory():
             def factory(track_index: int) -> HalRgbSnapshotVideoTrack:
@@ -349,6 +419,8 @@ def start_hal_teleop_signaling_thread(
                 return HalRgbSnapshotVideoTrack(
                     frame_getter=lambda c=cid: _rgb_copy(c),
                     catalog_id=cid or None,
+                    track_index=track_index,
+                    qos_controller=qos_controller,
                 )
 
             return factory
@@ -364,7 +436,10 @@ def start_hal_teleop_signaling_thread(
         def _pong_payload() -> dict[str, Any]:
             with rgb_lock:
                 cap = dict(latest_capture_ns)
-            return {"capture_timestamps_ns": cap}
+            return {"capture_timestamps_ns": cap, "qos": qos_controller.snapshot()}
+
+        def _telemetry_getter() -> dict[str, Any] | None:
+            return merge_last_control_state(get_telemetry_copy(), webrtc_input, enabled=control_echo)
 
         def _on_control_message(payload: dict[str, Any]) -> None:
             def _warn_rate_limited(msg: str) -> None:
@@ -402,6 +477,9 @@ def start_hal_teleop_signaling_thread(
                     hello_ack_payload_builder=_hello_ack_payload,
                     pong_payload_builder=_pong_payload,
                     control_message_handler=_on_control_message,
+                    telemetry_getter=_telemetry_getter,
+                    telemetry_hz=20.0,
+                    qos_controller=qos_controller,
                 )
             )
             await asyncio.to_thread(stop_event.wait)
@@ -416,8 +494,8 @@ def start_hal_teleop_signaling_thread(
         except Exception:
             logger.exception("Teleop signaling thread exited with error")
         finally:
-            if webrtc_input is not None:
-                webrtc_input.stop()
+            if control_loop is not None:
+                control_loop.stop()
             poll_stop.set()
             poller.join(timeout=5.0)
             if poller.is_alive():

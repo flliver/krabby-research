@@ -1,0 +1,173 @@
+# POLICY OF RECORD for the crab-hexapod forward-walk task -- the head that ships (`current`) and the stage
+# heads it was trained through, in training order. Consumed by experiments/tools/bundle_policy.py (--sync /
+# --check) and tests/unit/test_policy_of_record.py. Changes only on a user bake decision: edit here, --sync, commit.
+# sha256 / evals were sourced from the producing campaigns' state.json when this file was created (2026-09-09).
+task: crab_hex_forward_task
+plant: A15+B
+current: 3a_student
+baked: '2026-09-09 (user decision: bake 3a as the phase-3 head and stop there)'
+assets:
+- dir: rsi
+  file: rsi_bank_P0_null.npz
+  source: parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/experiments/2026-08-26_2200_gated_lineage/rsi_bank_P0_null.npz
+  sha256: 31a53e658a43e6cd9bde631d49406a6dc255b3f0931bac9f18e60a6f0a4e3e2d
+  what: RSI reference-state bank (full joint state, root height/orientation/velocity, gait-clock phase per frame),
+    2051 frames harvested on the legacy golden plant by experiments/2026-08-22_1200_gait_formation_v2/harvest_rsi_bank.py
+    from rollouts of the PLAN F gated-lineage P0_null rung checkpoint (crab_hex_flat_walk/2026-08-26_21-41-53/model_26899.pt)
+  used_by: every preset (1a, 2a, 2b, 2c, 3a, 3b) via KRABBY_RSI_FRAC=0.2 -- 20 % of resets start from a bank frame;
+    the presets still read it from its experiments/ source path (config/crab_hex/crab_hex_phases.py FORMATION)
+  notes: harvested on the golden plant, i.e. the bank's foot placements are rotated relative to the A15+B plant
+    the shipped lineage was trained on (toe height is invariant to the mount transform)
+stages:
+- dir: 1a_formation
+  phase: 1a
+  task: Isaac-Crab-Hex-Flat-Walk-v0
+  kind: rl
+  window: 0
+  iterations: 0k -> 5k
+  resume_from: scratch
+  source: parkour/logs/rsl_rl/crab_hex_flat_walk/2026-09-06_21-32-46/model_4999.pt
+  file: model_4999.pt
+  sha256: 7027db8e633602d690e7321282eae7fee95bccc63315d61117dcb4eda4383a63
+  trained_in: experiments/2026-09-06_2130_a15b_lineage (window 0, tag `windows_w0_001_A15pB`, driver run_lineage.py;
+    the `KRABBY_PHASE=1a` preset is pinned to this window's recorded config by tests/integration/test_crab_hex_phase_configs.py)
+  what: 'formation: full gait income, walking slots (STAND_FRAC 0.2), 40 s episodes / 10 s holds, P0-null RSI 0.2,
+    light shallow tiles 80 % flat, frozen'
+  evals:
+    slow:
+      completion: 0.86
+      falls: 14
+      tripod: 0.539
+      n: 100
+    step:
+      completion: 0.69
+      falls: 31
+      tripod: 0.51
+      n: 100
+    obst:
+      completion: 0.68
+      falls: 32
+      tripod: 0.523
+      n: 100
+- dir: 2a_elements
+  phase: 2a
+  task: Isaac-Crab-Hex-Teacher-v0
+  kind: rl
+  window: 1
+  iterations: 5k -> 10k
+  resume_from: '`1a_formation/`'
+  source: parkour/logs/rsl_rl/crab_hex_flat_walk/2026-09-06_23-59-54/model_9998.pt
+  file: model_9998.pt
+  sha256: 4d544a65393d74f4ca7fe5f8abbb3863f1de9fdb3cdeff76cc92706ff9f7a6a0
+  trained_in: experiments/2026-09-06_2130_a15b_lineage (window 1, tag `windows_w1_002_A15pB`, driver run_lineage.py;
+    the `KRABBY_PHASE=2a` preset is pinned to this window's recorded config by tests/integration/test_crab_hex_phase_configs.py)
+  what: + elements @5k (yaw, edge, stumble, collision, DR push/mass/CoM), recal2b2w 50/50 with curriculum, promotion
+    0.225:0.125; ramps apex 1->0.5, airtime 0.8->0.4, stride 0.5->0.25
+  evals:
+    slow:
+      completion: 0.92
+      falls: 8
+      tripod: 0.513
+      n: 100
+    step:
+      completion: 0.74
+      falls: 26
+      tripod: 0.419
+      n: 100
+    obst:
+      completion: 0.56
+      falls: 44
+      tripod: 0.429
+      n: 100
+- dir: 2b_clearance
+  phase: 2b
+  task: Isaac-Crab-Hex-Teacher-v0
+  kind: rl
+  window: 2
+  iterations: 10k -> 15k
+  resume_from: '`2a_elements/`'
+  source: parkour/logs/rsl_rl/crab_hex_flat_walk/2026-09-07_02-19-49/model_14997.pt
+  file: model_14997.pt
+  sha256: 71cd06ca5c47d46d059d439bf5e1100193fd0c3d240d54493934124f890d126e
+  trained_in: experiments/2026-09-06_2130_a15b_lineage (window 2, tag `windows_w2_003_A15pB`, driver run_lineage.py;
+    the `KRABBY_PHASE=2b` preset is pinned to this window's recorded config by tests/integration/test_crab_hex_phase_configs.py)
+  what: + elements @10k (clearance terms, foot-clear, heading +-1.2, goal-vel 0.75); apex / airtime / stride ->
+    epsilon
+  evals:
+    slow:
+      completion: 0.85
+      falls: 15
+      tripod: 0.507
+      n: 100
+    step:
+      completion: 0.63
+      falls: 37
+      tripod: 0.398
+      n: 100
+    obst:
+      completion: 0.58
+      falls: 42
+      tripod: 0.388
+      n: 100
+- dir: 2c_teacher
+  phase: 2c
+  task: Isaac-Crab-Hex-Teacher-v0
+  kind: rl
+  window: 3
+  iterations: 15k -> 20k
+  resume_from: '`2b_clearance/`'
+  source: parkour/logs/rsl_rl/crab_hex_flat_walk/2026-09-07_04-38-50/model_19996.pt
+  file: model_19996.pt
+  sha256: ed43a09d3165b87dd651b718ce8ba01d866cf115f59239357677dbe0ad913018
+  trained_in: experiments/2026-09-06_2130_a15b_lineage (window 3, tag `windows_w3_004_A15pB`, driver run_lineage.py;
+    the `KRABBY_PHASE=2c` preset is pinned to this window's recorded config by tests/integration/test_crab_hex_phase_configs.py)
+  what: clock 1.0 -> 0.5; the privileged TEACHER head of record (A15+B reference of record)
+  evals:
+    slow:
+      completion: 0.81
+      falls: 19
+      tripod: 0.5
+      n: 100
+    step:
+      completion: 0.68
+      falls: 32
+      tripod: 0.479
+      n: 100
+    obst:
+      completion: 0.66
+      falls: 34
+      tripod: 0.49
+      n: 100
+- dir: 3a_student
+  phase: 3a
+  task: Isaac-Crab-Hex-Student-v0
+  kind: distill
+  iterations: 20k -> 25k (5000 distillation iterations)
+  resume_from: '`2c_teacher/` (teacher + init)'
+  source: parkour/logs/rsl_rl/crab_hex_student/2026-09-08_05-54-01/model_24995.pt
+  file: model_24995.pt
+  sha256: e79c4a908ab01359bede3618cc3347d150e7e62975dd91a9d1728cb5ca57e384
+  trained_in: experiments/2026-09-07_1330_phase_pipeline (tag `seed3_3a_003_A15pB`, driver experiments/tools/run_phases.py;
+    bundled there as head/model_24995.pt)
+  what: depth student distilled from the 2c teacher on the 2c MDP (terrain band 0.20-0.70, walking slots, 40 s episodes,
+    DR, plant); the head that SHIPS
+  notes: 'student runner clip_actions = 1.0 is load-bearing (the first 3a run without it fell 100 %); 3b (band 0.70-0.90,
+    model_29994) was equivalent on every eval and is not baked; the flat canary 0.79 / 21 was measured with the
+    pre-2026-09-09 morph manifest (slow__A15pB then carried an env: block) -- on the current manifest (no block) the
+    same head scores 0.75 / 25, see task README section 4.1b'
+  evals:
+    slow:
+      completion: 0.79
+      falls: 21
+      tripod: 0.512
+      n: 100
+    step:
+      completion: 0.71
+      falls: 29
+      tripod: 0.476
+      n: 100
+    obst:
+      completion: 0.64
+      falls: 36
+      tripod: 0.49
+      n: 100

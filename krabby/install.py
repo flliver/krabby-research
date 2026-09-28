@@ -8,10 +8,10 @@ from krabby._host import run_host_setup
 from krabby._state import resolve_image_ref, save_state
 
 
-def cmd_install(image_ref: Optional[str] = None) -> None:
+def cmd_install(image_ref: Optional[str] = None, launch_on_startup: bool = True) -> None:
     ref = resolve_image_ref(image_ref)
     print(f"Installing Krabby locomotion stack from {ref} ...")
-    run_host_setup()
+    run_host_setup(launch_on_startup=launch_on_startup)
     digest = pull(ref)
     save_state(ref, digest)
     print(f"\n[ok]  Installed {ref}")

@@ -12,6 +12,8 @@ from isaaclab.assets import Articulation
 from isaaclab.managers import CommandTerm 
 from isaaclab.markers import VisualizationMarkers
 
+from .command_sampling import sample_slot
+
 if TYPE_CHECKING:
     from parkour_isaaclab.envs import ParkourManagerBasedEnv
     from .parkour_command_cfg import ParkourCommandCfg
@@ -26,6 +28,9 @@ class UniformParkourCommand(CommandTerm):
         self.heading_target = torch.zeros(self.num_envs, device=self.device)
         self.metrics["error_vel_xy"] = torch.zeros(self.num_envs, device=self.device)
         self.metrics["error_vel_yaw"] = torch.zeros(self.num_envs, device=self.device)
+        # PLAN H B0/B1: standing-time fraction of the episode (per-step indicator averaged
+        # over max_episode_length). Always logged so the control reports it too.
+        self.metrics["stand_frac_actual"] = torch.zeros(self.num_envs, device=self.device)
 
     def __str__(self) -> str:
         """Return a string representation of the command generator."""
@@ -52,10 +57,25 @@ class UniformParkourCommand(CommandTerm):
         self.metrics["error_vel_yaw"] += (
             torch.abs(self.vel_command_b[:, 2] - self.robot.data.root_ang_vel_b[:, 2]) / max_command_step
         )
+        self.metrics["stand_frac_actual"] += (self.vel_command_b[:, 0] == 0.0).float() / float(
+            self._env.max_episode_length
+        )
 
     def _resample_command(self, env_ids: Sequence[int]):
         # sample velocity commands
         r = torch.empty(len(env_ids), device=self.device)
+        if self.cfg.stand_frac is not None:
+            # PLAN H B1: explicit Bernoulli standing slots; walking slots never sub-clip.
+            u_vel = torch.rand(len(env_ids), device=self.device)
+            u_stand = torch.rand(len(env_ids), device=self.device)
+            vx, _stand = sample_slot(
+                u_vel, u_stand, self.cfg.stand_frac,
+                self.cfg.ranges.lin_vel_x[0], self.cfg.ranges.lin_vel_x[1], self.cfg.clips.lin_vel_clip,
+            )
+            self.vel_command_b[env_ids, 0] = vx
+            self.vel_command_b[env_ids, 1] = 0.0
+            self.heading_target[env_ids] = r.uniform_(*self.cfg.ranges.heading)
+            return
         # -- linear velocity - x direction
         self.vel_command_b[env_ids, 0] = r.uniform_(*self.cfg.ranges.lin_vel_x)
         # heading target

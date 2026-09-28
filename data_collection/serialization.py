@@ -14,6 +14,15 @@ if TYPE_CHECKING:
 
 IMAGE_MSGTYPE = "sensor_msgs/msg/Image"
 
+JOINTS_STATE_TOPIC = "/joints/state"
+JOINTS_COMMAND_TOPIC = "/joints/command"
+IMU_TOPIC = "/imu"
+JOINT_STATE_MSGTYPE = "sensor_msgs/msg/JointState"
+IMU_MSGTYPE = "sensor_msgs/msg/Imu"
+
+BASE_TWIST_TOPIC = "/base/twist"
+BASE_TWIST_MSGTYPE = "geometry_msgs/msg/TwistStamped"
+
 
 def _split_stamp(ns: int) -> tuple[int, int]:
     sec = int(ns // 1_000_000_000)
@@ -96,7 +105,7 @@ def serialize_joint_state(
     position: np.ndarray,
     velocity: np.ndarray,
 ) -> bytes:
-    JS = ts.types["sensor_msgs/msg/JointState"]
+    JS = ts.types[JOINT_STATE_MSGTYPE]
     n = int(position.size)
     if names and len(names) != n:
         names = tuple(f"joint_{i}" for i in range(n))
@@ -112,7 +121,7 @@ def serialize_joint_state(
         velocity=vel,
         effort=effort,
     )
-    return ts.serialize_cdr(msg, "sensor_msgs/msg/JointState")
+    return ts.serialize_cdr(msg, JOINT_STATE_MSGTYPE)
 
 
 def serialize_imu(ts: "Typestore", stamp_ns: int, frame_id: str, obs: "HardwareObservations") -> bytes:
@@ -120,10 +129,10 @@ def serialize_imu(ts: "Typestore", stamp_ns: int, frame_id: str, obs: "HardwareO
 
     - **Orientation:** ``base_quat_w`` (x, y, z, w), world frame.
     - **Angular velocity:** ``base_ang_vel_b`` (rad/s), base frame.
-    - **Linear acceleration:** zeros (not estimated on this path); ``base_lin_vel_b`` is body-frame
-      linear velocity and is **not** copied into ``Imu`` to avoid mislabeling velocity as acceleration.
+    - **Linear acceleration:** zeros (ZED IMU accel is not on ``HardwareObservations``).
+    - **Linear velocity:** recorded on ``BASE_TWIST_TOPIC`` (``/base/twist``), not in ``Imu``.
     """
-    Imu = ts.types["sensor_msgs/msg/Imu"]
+    Imu = ts.types[IMU_MSGTYPE]
     Q = ts.types["geometry_msgs/msg/Quaternion"]
     V = ts.types["geometry_msgs/msg/Vector3"]
     q = obs.base_quat_w
@@ -141,12 +150,40 @@ def serialize_imu(ts: "Typestore", stamp_ns: int, frame_id: str, obs: "HardwareO
         linear_acceleration=lin,
         linear_acceleration_covariance=cov,
     )
-    return ts.serialize_cdr(msg, "sensor_msgs/msg/Imu")
+    return ts.serialize_cdr(msg, IMU_MSGTYPE)
+
+
+def serialize_base_twist_stamped(
+    ts: "Typestore", stamp_ns: int, frame_id: str, obs: "HardwareObservations"
+) -> bytes:
+    """Body-frame twist: linear ``base_lin_vel_b``, angular ``base_ang_vel_b`` (m/s, rad/s)."""
+    TwistStamped = ts.types[BASE_TWIST_MSGTYPE]
+    Twist = ts.types["geometry_msgs/msg/Twist"]
+    V = ts.types["geometry_msgs/msg/Vector3"]
+    lv = obs.base_lin_vel_b
+    av = obs.base_ang_vel_b
+    twist = Twist(
+        linear=V(x=float(lv[0]), y=float(lv[1]), z=float(lv[2])),
+        angular=V(x=float(av[0]), y=float(av[1]), z=float(av[2])),
+    )
+    msg = TwistStamped(header=_header(ts, stamp_ns, frame_id), twist=twist)
+    return ts.serialize_cdr(msg, BASE_TWIST_MSGTYPE)
 
 
 def catalog_camera_topic(catalog_id: str, stream: str) -> str:
     """ROS topic for one catalog RGB-D stream (``stream`` is ``rgb`` or ``depth``)."""
     return f"/camera/{catalog_id}/{stream}"
+
+
+def catalog_camera_topic_msgtypes(
+    catalog_ids: tuple[str, ...] | list[str],
+) -> list[tuple[str, str]]:
+    """(topic, msgtype) pairs for pre-registering catalog cameras in rosbag2."""
+    return [
+        (catalog_camera_topic(cid, stream), IMAGE_MSGTYPE)
+        for cid in catalog_ids
+        for stream in ("rgb", "depth")
+    ]
 
 
 def is_catalog_camera_topic(topic: str) -> bool:
@@ -170,37 +207,24 @@ def observation_to_writes(
     rgbd = obs.rgbd_by_catalog_id or {}
     for cid in sorted(rgbd.keys()):
         entry = rgbd[cid]
-        frame = f"camera_{cid}"
         rgb_topic = catalog_camera_topic(cid, "rgb")
+        depth_topic = catalog_camera_topic(cid, "depth")
+        # Use the ROS topic as frame_id so MCAP/Foxglove stream names match playback topics
+        # (``camera_{id}`` caused viewers to infer ``/camera/front/rgb`` from ``front_rgbd``).
         if entry.rgb.ndim == 2:
-            out.append(
-                (
-                    rgb_topic,
-                    IMAGE_MSGTYPE,
-                    serialize_image_mono8(ts, t, frame, entry.rgb),
-                )
-            )
+            rgb_bytes = serialize_image_mono8(ts, t, rgb_topic, entry.rgb)
         else:
-            out.append(
-                (
-                    rgb_topic,
-                    IMAGE_MSGTYPE,
-                    serialize_image_rgb8(ts, t, frame, entry.rgb),
-                )
-            )
-        out.append(
-            (
-                catalog_camera_topic(cid, "depth"),
-                IMAGE_MSGTYPE,
-                serialize_image_depth_32fc1(ts, t, frame, entry.depth),
-            )
-        )
+            rgb_bytes = serialize_image_rgb8(ts, t, rgb_topic, entry.rgb)
+        out.append((rgb_topic, IMAGE_MSGTYPE, rgb_bytes))
+
+        depth_bytes = serialize_image_depth_32fc1(ts, t, depth_topic, entry.depth)
+        out.append((depth_topic, IMAGE_MSGTYPE, depth_bytes))
 
     if topics.joints_state:
         out.append(
             (
-                "/joints/state",
-                "sensor_msgs/msg/JointState",
+                JOINTS_STATE_TOPIC,
+                JOINT_STATE_MSGTYPE,
                 serialize_joint_state(
                     ts,
                     t,
@@ -214,8 +238,8 @@ def observation_to_writes(
     if topics.joints_command:
         out.append(
             (
-                "/joints/command",
-                "sensor_msgs/msg/JointState",
+                JOINTS_COMMAND_TOPIC,
+                JOINT_STATE_MSGTYPE,
                 serialize_joint_state(
                     ts,
                     t,
@@ -227,6 +251,14 @@ def observation_to_writes(
             )
         )
     if topics.imu:
-        out.append(("/imu", "sensor_msgs/msg/Imu", serialize_imu(ts, t, "base_link", obs)))
+        out.append((IMU_TOPIC, IMU_MSGTYPE, serialize_imu(ts, t, "base_link", obs)))
+    if topics.base_twist:
+        out.append(
+            (
+                BASE_TWIST_TOPIC,
+                BASE_TWIST_MSGTYPE,
+                serialize_base_twist_stamped(ts, t, "base_link", obs),
+            )
+        )
 
     return out

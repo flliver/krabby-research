@@ -3,7 +3,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import urllib.request
+
+log = logging.getLogger(__name__)
 
 
 def get_digest(repo_uri: str, tag: str) -> str:
@@ -15,6 +18,7 @@ def get_digest(repo_uri: str, tag: str) -> str:
     """
     path = "/".join(repo_uri.split("/")[1:])  # e.g. t7t7b3i3/krabby-locomotion
 
+    log.debug("Fetching ECR token for %s", path)
     token_url = (
         f"https://public.ecr.aws/token"
         f"?service=public.ecr.aws&scope=repository:{path}:pull"
@@ -22,6 +26,7 @@ def get_digest(repo_uri: str, tag: str) -> str:
     with urllib.request.urlopen(token_url) as resp:
         token = json.loads(resp.read())["token"]
 
+    log.debug("Fetching manifest for %s:%s", path, tag)
     manifest_url = f"https://public.ecr.aws/v2/{path}/manifests/{tag}"
     req = urllib.request.Request(manifest_url, headers={
         "Authorization": f"Bearer {token}",
@@ -30,4 +35,6 @@ def get_digest(repo_uri: str, tag: str) -> str:
     with urllib.request.urlopen(req) as resp:
         body = resp.read()
 
-    return "sha256:" + hashlib.sha256(body).hexdigest()
+    digest = "sha256:" + hashlib.sha256(body).hexdigest()
+    log.debug("Resolved digest: %s", digest)
+    return digest

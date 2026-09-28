@@ -1,0 +1,133 @@
+{
+ "label": "C5_termination",
+ "checkpoint": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_flat_walk/2026-09-04_05-18-20/model_24995.pt",
+ "task": "Isaac-Crab-Hex-Flat-Walk-v0",
+ "episode_length_s": 20.0,
+ "resampling_time_range": [
+  6.0,
+  6.0
+ ],
+ "lin_vel_x": [
+  0.0,
+  0.35
+ ],
+ "policy_std_mean": 2.0001144409179688,
+ "env_vars": {
+  "KRABBY_FLAT_TERRAIN_DIFF": "0.20:0.70",
+  "KRABBY_RSI_SPAWN_FIX": "1",
+  "KRABBY_RSI_BANK": "/home/nickmagus/krabby/krabby-research/sim_fine_tuning/2026-08-31_1414_gait_income_phaseout/rsi_bank_pg_r3.npz",
+  "KRABBY_FOOT_CLEAR_MIN": "0.03",
+  "KRABBY_HEADING": "-1.2:1.2",
+  "KRABBY_TRACK_SIGMA2": "0.1",
+  "KRABBY_RSI_FRAC": "0.2",
+  "KRABBY_DR_MASS": "-0.5:1.5",
+  "KRABBY_FOOT_CLEAR_FLAT": "1",
+  "KRABBY_AIRTIME_W": "0.001",
+  "KRABBY_FLAT_TERRAIN_FLAT_FRAC": "0.5",
+  "KRABBY_FLAT_TERRAIN_MODE": "light",
+  "KRABBY_STUMBLE_W": "-1.0",
+  "KRABBY_CLOCK_W": "0.5",
+  "KRABBY_APEX_W": "0.001",
+  "KRABBY_STRIDE_W": "0.001",
+  "KRABBY_FOOT_CLEAR_W": "1.0",
+  "KRABBY_DR_PUSH": "0.5",
+  "KRABBY_GOAL_VEL_W": "0.75",
+  "KRABBY_YAW_W": "0.2",
+  "KRABBY_EDGE_W": "-0.3",
+  "KRABBY_FLAT_TERRAIN_CURRICULUM": "1",
+  "KRABBY_COLLISION_W": "-2.0",
+  "KRABBY_TRACK_L1_W": "-1.0",
+  "KRABBY_SWING_MIN_CLEAR_W": "-0.4",
+  "KRABBY_DR_COM": "0.01",
+  "KRABBY_CLEARANCE_W": "0.9",
+  "KRABBY_TERRAIN_PROMOTE": "0.45:0.25",
+  "KRABBY_FLAT_TERRAIN_GEOM": "recal2b2w",
+  "KRABBY_LIN_VEL_X": "0.0:0.35"
+ },
+ "modes": {
+  "stochastic": {
+   "mode": "stochastic",
+   "steps": 4000,
+   "num_envs": 64,
+   "episodes_pushed": 327,
+   "exposure": {
+    "reach_edge_frac": 0.48175182938575745,
+    "reach_obst_frac": 0.1386861354112625,
+    "field_frac_mean": 0.05564901605248451,
+    "field_steps_mean": 52.72262954711914,
+    "goals_passed_mean": 0.10948905348777771,
+    "obst_coverage_1": 0.1386861354112625,
+    "obst_coverage_2": 0.0,
+    "obst_coverage_3": 0.0,
+    "obst_coverage_4": 0.0,
+    "obst_coverage_5": 0.0,
+    "obst_coverage_6": 0.0,
+    "reach_edge_frac_rsi": 0.1666666716337204,
+    "reach_obst_frac_rsi": 0.0476190485060215,
+    "field_frac_mean_rsi": 0.023733418434858322,
+    "field_steps_mean_rsi": 23.452381134033203,
+    "goals_passed_mean_rsi": 0.02380952425301075,
+    "obst_coverage_1_rsi": 0.0476190485060215,
+    "obst_coverage_2_rsi": 0.0,
+    "obst_coverage_3_rsi": 0.0,
+    "obst_coverage_4_rsi": 0.0,
+    "obst_coverage_5_rsi": 0.0,
+    "obst_coverage_6_rsi": 0.0,
+    "crab_failure_flat": 0.36486485600471497,
+    "crab_failure_obst": 0.6033519506454468,
+    "crab_failure_obst_rsi": 0.6190476417541504,
+    "crab_failure_obst_spread": NaN,
+    "ep_steps_flat": 772.95947265625,
+    "ep_steps_obst": 642.3687133789062,
+    "ep_steps_obst_spread": NaN,
+    "spread_frac_actual": 0.0,
+    "rsi_frac_actual": 0.20489296317100525,
+    "crab_failure_hazard_flat": 0.4720362048877787,
+    "crab_failure_hazard_obst": 0.939261109825495
+   },
+   "timeline": {
+    "walking_frac_all": 0.7458242177963257,
+    "walking_frac_non_rsi": 0.7501289248466492,
+    "cmd_on_frac": 0.3685820400714874,
+    "walking_given_cmd_on": 0.8769142627716064,
+    "walking_given_cmd_off": 0.6693021059036255,
+    "mean_root_vx_walking": 0.1641778200864792,
+    "mean_root_vx_cmd_on": 0.15992110967636108,
+    "motion_profile_bins_s": 6.0,
+    "motion_profile_walking": [
+     0.7457385063171387,
+     0.7528483867645264,
+     0.7496000528335571,
+     0.7661458849906921
+    ],
+    "motion_profile_cmd_on": [
+     0.36127522587776184,
+     0.3673518896102905,
+     0.3660414218902588,
+     0.45345237851142883
+    ],
+    "motion_profile_walking_obst": [
+     0.7525723576545715,
+     0.7684152722358704,
+     0.7644523978233337,
+     0.7783859968185425
+    ],
+    "fast_vx_threshold": 0.12,
+    "fast_frac_non_rsi": 0.4305090308189392,
+    "fast_given_cmd_on": 0.6723613739013672,
+    "fast_given_cmd_off": 0.28092771768569946,
+    "motion_profile_fast": [
+     0.42723602056503296,
+     0.42985662817955017,
+     0.429991215467453,
+     0.4556123614311218
+    ],
+    "late_motion_ratio": 1.0223516594774984,
+    "late_motion_ratio_fast": 1.061964276220769
+   },
+   "terrain_levels_mean": 2.046875,
+   "obst_tile_frac": 0.5,
+   "wall_s": 191.47117614746094
+  }
+ }
+}

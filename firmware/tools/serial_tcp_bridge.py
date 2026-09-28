@@ -178,7 +178,9 @@ def bind_or_evict(srv, port, attempts=10, wait=0.5):
 def main():
     ap = argparse.ArgumentParser(description="Raw TCP<->serial bridge")
     ap.add_argument("--serial", default="/dev/ttyUSB0", help="serial device of the MCU")
-    ap.add_argument("--baud", type=int, default=115200)
+    # Must match the firmware BAUD_RATE (arduino.ino) / krabby_mcu.DEFAULT_BAUD; this
+    # script runs standalone on the remote host, so it cannot import the constant.
+    ap.add_argument("--baud", type=int, default=250000)
     ap.add_argument("--port", type=int, default=5331, help="TCP port to listen on")
     ap.add_argument("--exit-on-stdin-close", action="store_true",
                     help="exit when stdin hits EOF (used by `firmware.gui --remote`; "

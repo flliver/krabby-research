@@ -1,8 +1,14 @@
 #pragma once
+
+#include "src/actuator/actuator_constants.h"
 #include <Arduino.h>
 #include "command.h"
 #include "eeprom_layout.h"
 #include "hall_hw.h"
+#include "src/actuator/actuator_status.h"
+#include "src/actuator/actuator_current_tracker.h"
+#include "src/actuator/actuator_pot_tracker.h"
+#include "src/telemetry.h"
 
 // Linear actuator controller (w/ potentiometer feedback)
 class LinearActuator
@@ -45,10 +51,17 @@ public:
     float avgPot = 0.0;              // Global state variable to track smoothed potentiometer value
     float avgIS = 0.0;               // Global state variable to track smoothed current sense value
 
+    ActuatorPotTracker potTracker;
+    ActuatorCurrentTracker currentTracker;
 
     // TODO: This should accept a name and a 'SlotConfig' struct for pin assignment, so we can reuse the pin config w/ different actuator names (on different leader/follower boards)
     LinearActuator(const char *n, int pR, int pL, int en, int isPin, int pot, int8_t hallIdx = -1)
         : name(n), pinPwmR(pR), pinPwmL(pL), pinEn(en), pinIS(isPin), pinPot(pot), hallSlot(hallIdx) {}
+
+    const char *getName() const
+    {
+        return name;
+    }
     void setControlConfig(const ControlConfig &cfg) { controlConfig = cfg; }
 
     void init()
@@ -70,6 +83,8 @@ public:
         // Initialize averaging
         avgPot = analogRead(pinPot);
         avgIS = analogRead(pinIS);
+        potTracker.reset(avgPot);
+        currentTracker.reset();
         hasTarget = false; // No target until host sends T command
     }
 
@@ -78,22 +93,54 @@ public:
     {
         int rawPot = analogRead(pinPot);
         int rawIS = analogRead(pinIS);
+        const bool isDriving = digitalRead(pinEn) == HIGH;
 
         // Exponential Moving Average
         avgPot = (avgPot * (1.0 - controlConfig.alphaPot)) + (rawPot * controlConfig.alphaPot);
         avgIS = (avgIS * (1.0 - controlConfig.alphaIS)) + (rawIS * controlConfig.alphaIS);
+
+        const uint32_t nowMilliseconds = millis();
+        potTracker.update(
+            avgPot,
+            isDriving,
+            nowMilliseconds,
+            [this]() { return readPotentiometerProbeRise(); });
+
+        currentTracker.update(
+            isDriving,
+            currentPwm,
+            avgIS);
     }
 
-    // Returns normalized position [0.0,1.0], where 0.0 = minStop, 1.0 = maxStop
-    float getPos()
+    // Returns normalized position [0.0,1.0], or NaN when the pot is invalid.
+    float getPos() const
     {
+        if (!potTracker.isValid())
+            return (float)NAN;
         float range = maxStop - minStop;
         if (range == 0)
             return 0.5;
         return ((int)avgPot - minStop) / range;
     }
 
-    int getRawPos() { return (int)avgPot; } // Returns smoothed RAW value
+    float readPotentiometerProbeRise() const
+    {
+        int32_t baselineSum = 0;
+        for (unsigned int sample = 0; sample < POT_PROBE_SAMPLE_COUNT; ++sample)
+            baselineSum += analogRead(pinPot);
+
+        pinMode(pinPot, INPUT_PULLUP);
+        delayMicroseconds(POT_PROBE_SETTLE_US);
+
+        int32_t pullUpSum = 0;
+        for (unsigned int sample = 0; sample < POT_PROBE_SAMPLE_COUNT; ++sample)
+            pullUpSum += analogRead(pinPot);
+
+        pinMode(pinPot, INPUT);
+        return (pullUpSum - baselineSum) / float(POT_PROBE_SAMPLE_COUNT);
+    }
+
+    int getRawPos() const { return (int)avgPot; } // Returns smoothed RAW value
 
     // Set position target (T command only). Only this sets hasTarget = true.
     void setTarget(float val)
@@ -114,7 +161,7 @@ public:
     // Jog: direct PWM. Does not set or clear target; when pwm is 0 we just stop.
     void manualDrive(int pwm)
     {
-        pwm = constrain(pwm, -255, 255);
+        pwm = constrain(pwm, -ACTUATOR_PWM_MAXIMUM_MAGNITUDE, ACTUATOR_PWM_MAXIMUM_MAGNITUDE);
         if (pwm == 0)
         {
             currentPwm = 0;
@@ -142,7 +189,7 @@ public:
             error = 0;
 
         int desiredPwm = (int)(error * controlConfig.Kp);
-        desiredPwm = constrain(desiredPwm, -255, 255);
+        desiredPwm = constrain(desiredPwm, -ACTUATOR_PWM_MAXIMUM_MAGNITUDE, ACTUATOR_PWM_MAXIMUM_MAGNITUDE);
 
         // Ramping Logic
         if (millis() - lastRampTime >= (unsigned long)controlConfig.rampIntervalMs)
@@ -191,8 +238,10 @@ public:
         return false;
     }
 
-    // JT wire format: "<role>; <name> <pos> <pot> <current> <enL> <enR> <pwmL> <pwmR> <hallEdges> <calState>;"
-    // e.g. 'FRONT; FLHY 0.123 0 12 1 1 0 120 0 2; FRHY 0.234 0 13 1 1 0 130 0 0; ...'
+    // Joint segment: "<name> <pos> <pot> <current> <enL> <enR> <pwmL> <pwmR> <hallEdges> <connection> <calState>".
+    // The manager owns separators between segments; the loop owns role prefix,
+    // optional sensor segments, and the one line ending.
+    // connection: 0 unknown / 1 connected / 2 disconnected (see ActuatorConnection).
     // calState: 0 = no stops recorded, 1 = one stop (pos still full-range default,
     // not trustworthy), 2 = both stops recorded and applied.
     // Keep in sync with firmware/interfaces/joint_telemetry.py
@@ -200,28 +249,45 @@ public:
     void printTelemetry(Print& out, uint8_t calState) const
     {
         out.print(name);
-        out.print(' ');
+        out.print(TELEMETRY_FIELD_SEPARATOR);
         out.print(getPos(), 3);
-        out.print(' ');
+        out.print(TELEMETRY_FIELD_SEPARATOR);
         out.print((int)avgPot);
-        out.print(' ');
+        out.print(TELEMETRY_FIELD_SEPARATOR);
         out.print((int)avgIS);
-        out.print(' ');
+        out.print(TELEMETRY_FIELD_SEPARATOR);
         int en = digitalRead(pinEn);
         out.print(en);
-        out.print(' ');
+        out.print(TELEMETRY_FIELD_SEPARATOR);
         out.print(en);
-        out.print(' ');
+        out.print(TELEMETRY_FIELD_SEPARATOR);
         out.print(currentPwm < 0 ? abs(currentPwm) : 0);
-        out.print(' ');
+        out.print(TELEMETRY_FIELD_SEPARATOR);
         out.print(currentPwm > 0 ? currentPwm : 0);
-        out.print(' ');
+        out.print(TELEMETRY_FIELD_SEPARATOR);
         if (hallSlot >= 0 && hallSlot < 6)
             out.print(hallHwGetEdgeCount((uint8_t)hallSlot));
         else
             out.print(0);
-        out.print(' ');
-        out.print(calState);
+
+        out.print(TELEMETRY_FIELD_SEPARATOR);
+        out.print(static_cast<int>(getConnectionState()));
+        out.print(TELEMETRY_FIELD_SEPARATOR);
+        out.print(static_cast<int>(calState));
+    }
+
+    ActuatorConnection getConnectionState() const
+    {
+        return determineActuatorConnectionState(potTracker.isValid(), currentTracker.evidence());
+    }
+
+    ActuatorStatus getStatus() const
+    {
+        ActuatorStatus status;
+        status.actuatorId = parseActuatorId(name);
+        status.connectionState = getConnectionState();
+        status.commandedPwm = static_cast<int16_t>(currentPwm);
+        return status;
     }
 
 private:
@@ -269,7 +335,7 @@ public:
         // TODO: Improve brute force O(N) lookup
         for (size_t i = 0; i < count; i++)
         {
-            if (String(actuators[i]->name) == name)
+            if (String(actuators[i]->getName()) == name)
             {
                 actuators[i]->manualDrive(pwm);
                 return;
@@ -291,7 +357,7 @@ public:
             const auto &cmd = cmds[i];
             for (size_t j = 0; j < count; j++)
             {
-                if (cmd.name == actuators[j]->name)
+                if (cmd.name == actuators[j]->getName())
                 {
                     actuators[j]->setTarget(cmd.val);
                     break;
@@ -312,14 +378,15 @@ public:
         }
     }
 
+    // Prints the joint segments only — no line ending. The caller terminates the
+    // line so the leader can append sensor segments before the newline.
     void printTelemetry(Print& out) const
     {
         for (size_t i = 0; i < count; i++)
         {
-            if (i) out.print(';'); // Only print semicolons between joints, not at the end
+            if (i) out.print(TELEMETRY_SEGMENT_DELIMITER);
             actuators[i]->printTelemetry(out, calState(i));
         }
-        out.println();
     }
 
     // ==================================================

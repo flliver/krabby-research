@@ -24,6 +24,8 @@ def _restore_robot_settings() -> None:
         "SERVER_SIGNALING_WS_URL": robot_settings.SERVER_SIGNALING_WS_URL,
         "SERVER_RECONNECT_S": robot_settings.SERVER_RECONNECT_S,
         "MAX_VIDEO_M_LINES": robot_settings.MAX_VIDEO_M_LINES,
+        "QOS_ENABLED": robot_settings.QOS_ENABLED,
+        "QOS_KBPS_BUDGET_PER_STREAM": robot_settings.QOS_KBPS_BUDGET_PER_STREAM,
         "HTTP_AUTH_TOKEN": robot_settings.HTTP_AUTH_TOKEN,
         "STUN_TURN_SERVERS": copy.deepcopy(robot_settings.STUN_TURN_SERVERS),
     }

@@ -3,6 +3,7 @@
 #include <EEPROM.h>
 #include <stdint.h>
 #include <stddef.h>
+#include "src/controller/board_role.h"
 
 // ============================================================================
 // Persistent board configuration — the single source of truth for everything the
@@ -19,13 +20,6 @@
 constexpr uint16_t EEPROM_MAGIC      = 0x4B17;  // sentinel marking an initialized struct
 constexpr uint8_t  EEPROM_SCHEMA_VER = 1;       // bump when EepromLayout changes
 constexpr int      EEPROM_BASE_ADDR  = 0;       // single struct lives at addr 0
-
-enum BoardRole : uint8_t {
-    ROLE_UNKNOWN = 0,
-    ROLE_FRONT   = 1,
-    ROLE_LEFT    = 2,
-    ROLE_RIGHT   = 3,
-};
 
 constexpr size_t EEPROM_SERIAL_LEN = 16;  // zero-padded ASCII; "" if unset
 
@@ -121,7 +115,7 @@ inline bool jointCalLoad(JointCalBlock& cal) {
 }
 
 // --- role <-> config string (for SET/GET role). Distinct from the fixed-width
-// telemetry roleName() in arduino.ino, which stays as-is for the wire telemetry. ---
+// telemetry label boardTelemetryRoleLabel() in src/telemetry.h. ---
 inline const char* roleConfigName(BoardRole r) {
     switch (r) {
         case ROLE_FRONT: return "FRONT";

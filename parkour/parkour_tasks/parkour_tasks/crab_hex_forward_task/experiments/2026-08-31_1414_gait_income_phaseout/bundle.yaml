@@ -1,0 +1,43 @@
+campaign: 2026-08-31_1414_gait_income_phaseout
+era: B
+dates: 2026-08-31..2026-09-02
+question: Can gait-formation reward income (clock, apex, airtime, stride) be phased
+  out per-term after formation (0-5k) without losing the gait, and does that free
+  capacity for the real objective?
+verdict: 'REPORT.md BAKE block: user baked the combined phase-out schedule (all gait
+  income at eps by 25k) with reference of record 2026-09-02_00-42-53/model_29994.pt
+  (30k); RSI-off and seed-2 verification WAIVED; campaign CLOSED, with a post-bake
+  caveat that the 30k head is a poor obstacle deployment candidate.'
+plant: legacy_golden
+aliases: []
+records:
+- REPORT.md
+- CHANGELOG.md
+- state.json
+head:
+  role: flat_walk
+  task: Isaac-Crab-Hex-Flat-Walk-v0
+  source: parkour/logs/rsl_rl/crab_hex_flat_walk/2026-09-02_00-42-53/model_29994.pt
+  sha256: 619395b0f7dda78e39ed8ca9c641fd8efb0ef67a643b9580f039d8b76330520c
+  dest: head/model_29994.pt
+  why: REPORT.md BAKE block names it REFERENCE OF RECORD (30k, seed-3 lineage, round-5
+    bake PASS); obstacle WIN criterion met vs extended full-income control (0.270
+    vs 0.190).
+  metrics:
+    flat_canary: tripod 0.563 / completion 0.790 / tracking 0.407 / slip 0.234
+    all_obstacle: completion 0.270 / tripod 0.604
+    light_obstacle: completion 0.26 / tripod 0.606
+    vs_full_income_control_30k: obstacle 0.270 vs 0.190; flat 0.790 vs 0.730
+evals:
+- source: parkour/logs/rsl_rl/gait_eval/gait_income_phaseout
+  dest: evals/gait_income_phaseout
+- source: parkour/logs/rsl_rl/gait_eval/gait_income_phaseout_obst
+  dest: evals/gait_income_phaseout_obst
+- source: parkour/logs/rsl_rl/gait_eval/gait_income_phaseout_obst_light
+  dest: evals/gait_income_phaseout_obst_light
+keep_globs:
+- run_meta.json
+- scenario_metrics.json
+- summary.md
+- gait_diagram_*.png
+paths_note: true

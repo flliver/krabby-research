@@ -4,6 +4,7 @@ S3 firmware store manifest parsing.
 Bucket layout:
   index.json                             - all branches + their latest build_key
   <branch>/latest.json                   - pointer to the latest build for one branch
+  <branch>/builds.json                   - per-branch build history (newest-first display)
   <branch>/<build_key>/manifest.json     - full build metadata
   <branch>/<build_key>/firmware.hex      - the HEX file
 
@@ -40,6 +41,16 @@ class FirmwareIndex:
     schema_version: int
     updated: str            # ISO 8601
     branches: dict[str, BranchEntry]
+
+
+@dataclass
+class BranchBuild:
+    build_key: str          # YYYYMMDD-HHMMSS-<sha7>; sorts chronologically
+    commit: str
+    commit_date: str        # YYYY-MM-DD
+    ver_string: str         # e.g. "0.2.9 release/0.2.9 abc1234"
+    hex_url: str
+    manifest_url: str
 
 
 # --- parsers ---
@@ -88,6 +99,24 @@ def parse_index(data: dict) -> FirmwareIndex:
         updated=data["updated"],
         branches=branches,
     )
+
+
+def parse_builds(data: dict) -> list[BranchBuild]:
+    """Parse a <branch>/builds.json dict into builds sorted newest-first."""
+    _require(data, "builds", "schema_version", "branch", "builds")
+    out = []
+    for entry in data["builds"]:
+        _require(entry, "builds.builds[]", "build_key", "hex_url", "manifest_url")
+        out.append(BranchBuild(
+            build_key=entry["build_key"],
+            commit=entry.get("commit", ""),
+            commit_date=entry.get("commit_date", ""),
+            ver_string=entry.get("ver_string", ""),
+            hex_url=entry["hex_url"],
+            manifest_url=entry["manifest_url"],
+        ))
+    out.sort(key=lambda b: b.build_key, reverse=True)
+    return out
 
 
 def latest_release_branch(index: FirmwareIndex) -> Optional[BranchEntry]:

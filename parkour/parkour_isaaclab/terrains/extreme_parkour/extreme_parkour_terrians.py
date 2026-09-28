@@ -274,10 +274,12 @@ def parkour_terrain(
             if i == num_stones - 1:
                 dis_x += last_stone_len // 4
                 heights = np.tile(np.linspace(-last_incline_height, last_incline_height, stone_width), (last_stone_len, 1)) * pos_neg
-                height_field_raw[dis_x-last_stone_len//2:dis_x+last_stone_len//2, dis_y-stone_width//2: dis_y+stone_width//2] = heights.astype(int) + dis_z
+                # PLAN H (2026-09-03): y-slice sized by stone_width columns so odd pixel widths
+                # (e.g. 2.8 m at 0.08 m/px = 35 px) place correctly; even widths are unchanged.
+                height_field_raw[dis_x-last_stone_len//2:dis_x+last_stone_len//2, dis_y-stone_width//2: dis_y-stone_width//2+stone_width] = heights.astype(int) + dis_z
             else:
                 heights = np.tile(np.linspace(-incline_height, incline_height, stone_width), (stone_len, 1)) * pos_neg
-                height_field_raw[dis_x-stone_len//2:dis_x+stone_len//2, dis_y-stone_width//2: dis_y+stone_width//2] = heights.astype(int) + dis_z
+                height_field_raw[dis_x-stone_len//2:dis_x+stone_len//2, dis_y-stone_width//2: dis_y-stone_width//2+stone_width] = heights.astype(int) + dis_z
             
             goals[i+1] = [dis_x, dis_y]
             goal_heights[i+1] = np.mean(heights.astype(int))

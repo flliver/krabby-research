@@ -22,19 +22,19 @@ def test_create_front_unknown_driver_raises():
         )
 
 
-def test_create_front_maixsense_requires_host_env_name():
-    with pytest.raises(ValueError, match="maixsense_host_env"):
+def test_create_front_maixsense_requires_literal_host():
+    with pytest.raises(ValueError, match="maixsense_host"):
         create_front_rgb_depth_camera(
             "maixsense_a075v",
             resolution=(64, 48),
             fps=30,
             depth_mode="NEURAL",
         )
-    with pytest.raises(ValueError, match="maixsense_host_env"):
+    with pytest.raises(ValueError, match="maixsense_host"):
         create_front_rgb_depth_camera(
             "maixsense_a075v",
             resolution=(64, 48),
             fps=30,
             depth_mode="NEURAL",
-            maixsense_host_env="   ",
+            maixsense_host="   ",
         )

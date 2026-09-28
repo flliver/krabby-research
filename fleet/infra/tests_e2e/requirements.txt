@@ -1,0 +1,5 @@
+# Install krabby-fleet-config first: pip install -e ../config (from fleet/infra).
+boto3>=1.34.0
+awsiotsdk>=1.21.0
+cryptography>=42.0.0
+pytest>=8.0.0

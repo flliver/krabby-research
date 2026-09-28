@@ -30,7 +30,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--observation-bind", default=None)
     parser.add_argument("--command-bind", default=None)
     parser.add_argument("--robot", default="hex", choices=["hex", "go2"])
-    parser.add_argument("--teleop", action="store_true")
+    parser.add_argument("--teleop-ip", default=None)
     return parser
 
 

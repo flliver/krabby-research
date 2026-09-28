@@ -48,14 +48,15 @@ class TopicEnable:
     joints_state: bool = True
     joints_command: bool = True
     imu: bool = True
+    base_twist: bool = True
 
 
 @dataclass
 class DataCollectorConfig:
     hal: HalEndpoints
     output_dir: Path
-    max_disk_usage_fraction: float = 0.5
-    rotation_max_bytes: int = 1_073_741_824
+    min_free_fraction: float = 0.10
+    rotation_max_bytes: int = 262_144_000  # 250 MiB
     rotation_max_minutes: float = 30.0
     rates: RecordingRates = field(default_factory=RecordingRates)
     topics: TopicEnable = field(default_factory=TopicEnable)
@@ -80,6 +81,7 @@ class DataCollectorConfig:
             joints_state=bool(topics_raw.get("joints_state", True)),
             joints_command=bool(topics_raw.get("joints_command", True)),
             imu=bool(topics_raw.get("imu", True)),
+            base_twist=bool(topics_raw.get("base_twist", True)),
         )
         jsrc = raw.get("joints_command_source", "previous_action")
         if jsrc != "previous_action":
@@ -92,8 +94,8 @@ class DataCollectorConfig:
         return DataCollectorConfig(
             hal=hal,
             output_dir=Path(raw["output_dir"]).expanduser(),
-            max_disk_usage_fraction=float(raw.get("max_disk_usage_fraction", 0.5)),
-            rotation_max_bytes=int(raw.get("rotation_max_bytes", 1_073_741_824)),
+            min_free_fraction=float(raw.get("min_free_fraction", 0.10)),
+            rotation_max_bytes=int(raw.get("rotation_max_bytes", 262_144_000)),
             rotation_max_minutes=float(raw.get("rotation_max_minutes", 30.0)),
             rates=rates,
             topics=topics,

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "krabby-launcher"
-version = "0.1.8"
+version = "0.1.22"
 description = "CLI for installing, updating, and running the Krabby locomotion stack"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -12,7 +12,20 @@ license = "Apache-2.0"
 authors = [
     {name = "James Childers", email = "james.childers@gmail.com"}
 ]
-dependencies = []
+dependencies = [
+    # enroll: create/find the thing, sign the on-device CSR, resolve the ATS
+    # endpoint. Used once at enroll time; no persisted AWS creds.
+    "boto3>=1.34.0",
+    # enroll: on-device RSA keypair + CSR generation (private key never leaves
+    # the device, never transmitted — only the CSR is).
+    "cryptography>=42.0.0",
+    # enroll (verify-connect) + agent: mTLS MQTT connection to IoT Core and
+    # the Classic Shadow client (awsiotsdk on PyPI, imported as `awscrt`/`awsiot`).
+    "awsiotsdk>=1.21.0",
+    # agent teleop shim: localhost WebSocket loopback for the existing WebRTC
+    # edge agent (`--teleop-ip 127.0.0.1` → ws://127.0.0.1:9000/ws/robot).
+    "aiohttp>=3.9.0",
+]
 
 [project.scripts]
 krabby = "krabby.__main__:main"

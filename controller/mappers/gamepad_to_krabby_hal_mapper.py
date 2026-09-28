@@ -5,6 +5,7 @@ Maps ControllerState plus a HAL :class:`~hal.server.robot_definition.RobotDefini
 """
 
 import logging
+import math
 import time
 from typing import Dict, Optional, Set
 
@@ -41,9 +42,17 @@ LEG_TO_JOINT_INDICES: Dict[LegIdentifier, tuple[int, int, int]] = _leg_joint_ind
     KRABBY_HEX_DEFINITION
 )
 
-DEFAULT_HIP_UP_DOWN_SCALE = 0.3  # radians per unit (max ~0.3 rad = ~17 degrees)
-DEFAULT_KNEE_OUT_IN_SCALE = 0.3
-DEFAULT_HIP_YAW_SCALE = 0.2
+# Output at full stick. The HAL MCU layer jogs at PWM = rad * 255 / 0.5, so 0.5 is full power.
+DEFAULT_HIP_UP_DOWN_SCALE = 0.5
+DEFAULT_KNEE_OUT_IN_SCALE = 0.5
+DEFAULT_HIP_YAW_SCALE = 0.5
+# 1 = linear. Higher keeps joints slow over more of the stick travel; full stick is unchanged.
+DEFAULT_STICK_CURVE_EXPONENT = 4.0
+
+
+def apply_stick_curve(value: float, exponent: float) -> float:
+    """Power curve on stick deflection: sign-preserving |value|^exponent, so ±1 stays ±1."""
+    return math.copysign(abs(value) ** exponent, value)
 
 
 class GamepadToKrabbyHALMapper:
@@ -55,11 +64,13 @@ class GamepadToKrabbyHALMapper:
         knee_out_in_scale: float = DEFAULT_KNEE_OUT_IN_SCALE,
         hip_yaw_scale: float = DEFAULT_HIP_YAW_SCALE,
         *,
+        stick_curve_exponent: float = DEFAULT_STICK_CURVE_EXPONENT,
         robot_definition: Optional[RobotDefinition] = None,
     ):
         self.hip_up_down_scale = hip_up_down_scale
         self.knee_out_in_scale = knee_out_in_scale
         self.hip_yaw_scale = hip_yaw_scale
+        self.stick_curve_exponent = stick_curve_exponent
         self._robot_definition = robot_definition or KRABBY_HEX_DEFINITION
         self._leg_joint_indices = _leg_joint_indices_for(self._robot_definition)
 
@@ -104,9 +115,9 @@ class GamepadToKrabbyHALMapper:
         return legs
 
     def _map_axes(self, state: ControllerState) -> tuple[float, float, float]:
-        hip_up_down = -state.LY
-        knee_out_in = state.LX
-        hip_yaw = state.RY
+        hip_up_down = apply_stick_curve(-state.LY, self.stick_curve_exponent)
+        knee_out_in = apply_stick_curve(state.LX, self.stick_curve_exponent)
+        hip_yaw = apply_stick_curve(state.RY, self.stick_curve_exponent)
         return hip_up_down, knee_out_in, hip_yaw
 
     def map(

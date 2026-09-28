@@ -1,0 +1,241 @@
+{
+  "aggregate": {
+    "n_episodes": 10,
+    "n_unscored_episodes": 0,
+    "schedule_completion_rate": 1.0,
+    "slip_ratio": {
+      "mean": 0.0242783699528678,
+      "median": 0.023354864702986602,
+      "n": 10,
+      "p25": 0.021162776047402458,
+      "p75": 0.025412240668191234
+    },
+    "termination_reasons": {
+      "schedule_complete": 10
+    },
+    "tippy_tap_fraction": {
+      "mean": 0.07265766799388576,
+      "median": 0.07044064084557336,
+      "n": 10,
+      "p25": 0.06535539769227611,
+      "p75": 0.0755862095650828
+    },
+    "tripod_score": {
+      "mean": 0.3941600513083855,
+      "median": 0.4053345906839597,
+      "n": 10,
+      "p25": 0.36933380004081395,
+      "p75": 0.41805015602301554
+    },
+    "tripod_score_by_hold": {
+      "high": {
+        "mean": 0.2728947278390751,
+        "median": 0.27434358547219434,
+        "n": 10,
+        "p25": 0.2569970380220543,
+        "p75": 0.2947217528879191
+      },
+      "low": {
+        "mean": 0.5034931298130794,
+        "median": 0.5191350606261651,
+        "n": 10,
+        "p25": 0.47446773531768727,
+        "p75": 0.5325542585020835
+      },
+      "mid": {
+        "mean": 0.4060922962730018,
+        "median": 0.418123259745081,
+        "n": 10,
+        "p25": 0.3845419469631774,
+        "p75": 0.43898596263826145
+      }
+    }
+  },
+  "episodes": [
+    {
+      "env_index": 0,
+      "n_steps": 975,
+      "slip_ratio_mean": 0.025910732667122138,
+      "termination_reason": "schedule_complete",
+      "tippy_tap_fraction": 0.05322128851540616,
+      "tripod_score": 0.41158837539002086
+    },
+    {
+      "env_index": 1,
+      "n_steps": 975,
+      "slip_ratio_mean": 0.02015574456994298,
+      "termination_reason": "schedule_complete",
+      "tippy_tap_fraction": 0.06705539358600583,
+      "tripod_score": 0.4049168798490667
+    },
+    {
+      "env_index": 2,
+      "n_steps": 975,
+      "slip_ratio_mean": 0.021193905389430324,
+      "termination_reason": "schedule_complete",
+      "tippy_tap_fraction": 0.09333333333333334,
+      "tripod_score": 0.36758658459567056
+    },
+    {
+      "env_index": 3,
+      "n_steps": 975,
+      "slip_ratio_mean": 0.028744325621142028,
+      "termination_reason": "schedule_complete",
+      "tippy_tap_fraction": 0.07605633802816901,
+      "tripod_score": 0.35275949798153255
+    },
+    {
+      "env_index": 4,
+      "n_steps": 975,
+      "slip_ratio_mean": 0.023084710278402407,
+      "termination_reason": "schedule_complete",
+      "tippy_tap_fraction": 0.09366391184573003,
+      "tripod_score": 0.43215163316083893
+    },
+    {
+      "env_index": 5,
+      "n_steps": 975,
+      "slip_ratio_mean": 0.021152399600059837,
+      "termination_reason": "schedule_complete",
+      "tippy_tap_fraction": 0.07365439093484419,
+      "tripod_score": 0.4205925207591356
+    },
+    {
+      "env_index": 6,
+      "n_steps": 975,
+      "slip_ratio_mean": 0.023916764671398517,
+      "termination_reason": "schedule_complete",
+      "tippy_tap_fraction": 0.06340057636887608,
+      "tripod_score": 0.42020408290068045
+    },
+    {
+      "env_index": 7,
+      "n_steps": 975,
+      "slip_ratio_mean": 0.03435330401513616,
+      "termination_reason": "schedule_complete",
+      "tippy_tap_fraction": 0.07417582417582418,
+      "tripod_score": 0.35147319055181225
+    },
+    {
+      "env_index": 8,
+      "n_steps": 975,
+      "slip_ratio_mean": 0.023625019127570795,
+      "termination_reason": "schedule_complete",
+      "tippy_tap_fraction": 0.0647887323943662,
+      "tripod_score": 0.4057523015188527
+    },
+    {
+      "env_index": 9,
+      "n_steps": 975,
+      "slip_ratio_mean": 0.020646793588472823,
+      "termination_reason": "schedule_complete",
+      "tippy_tap_fraction": 0.06722689075630252,
+      "tripod_score": 0.3745754463762441
+    }
+  ],
+  "run_meta": {
+    "action_dim": 18,
+    "action_joint_names": [
+      "FL_Body_CamShaft_RevoluteJoint",
+      "FR_Body_CamShaft_RevoluteJoint",
+      "ML_Body_CamShaft_RevoluteJoint",
+      "MR_Body_CamShaft_RevoluteJoint",
+      "RL_Body_CamShaft_RevoluteJoint",
+      "RR_Body_CamShaft_RevoluteJoint",
+      "FL_Hip_Femur_RevoluteJoint",
+      "FR_Hip_Femur_RevoluteJoint",
+      "ML_Hip_Femur_RevoluteJoint",
+      "MR_Hip_Femur_RevoluteJoint",
+      "RL_Hip_Femur_RevoluteJoint",
+      "RR_Hip_Femur_RevoluteJoint",
+      "FL_Femur_Tibia_RevoluteJoint",
+      "FR_Femur_Tibia_RevoluteJoint",
+      "ML_Femur_Tibia_RevoluteJoint",
+      "MR_Femur_Tibia_RevoluteJoint",
+      "RL_Femur_Tibia_RevoluteJoint",
+      "RR_Femur_Tibia_RevoluteJoint"
+    ],
+    "checkpoint": "/home/nickmagus/krabby/krabby-research/sim_fine_tuning/2026-08-12_1305_stride_definancing/S1_minphase_0.05/logs/rsl_rl/crab_hex_flat_walk/2026-08-12_12-46-49/model_21000.pt",
+    "checkpoint_sha256": "3c39c7c80e46c49f7e785b4bebbfb75191d024a2262e340333bcaaf56ab93032",
+    "command_override_max_deviation": 0.0,
+    "dt": 0.02,
+    "env_overrides": {
+      "episode_length_s": 24.0,
+      "freeze_terrain_levels": true,
+      "seed": 1
+    },
+    "env_vars": {},
+    "foot_body_ids": [
+      25,
+      26,
+      27,
+      28,
+      29,
+      30
+    ],
+    "foot_body_names": [
+      "FL_Footpad",
+      "FR_Footpad",
+      "ML_Footpad",
+      "MR_Footpad",
+      "RL_Footpad",
+      "RR_Footpad"
+    ],
+    "hold_labels": [
+      "low",
+      "mid",
+      "high"
+    ],
+    "n_steps_per_env": [
+      975,
+      975,
+      975,
+      975,
+      975,
+      975,
+      975,
+      975,
+      975,
+      975
+    ],
+    "n_steps_planned": 975,
+    "notes": "Flat-walk's trained lin_vel_x is (0.30, 0.65), not the teacher stack's (0.45, 0.85).",
+    "num_envs": 10,
+    "num_prop": 75,
+    "obs_dim_actual": 1151,
+    "obs_dim_warning": "num_prop=75 but observation width is 1151; train and play share this slicing so it is self-consistent, but the 'scan' slice is not the height scan.",
+    "policy_sees_command_channel": {
+      "vx": true,
+      "vy": false,
+      "wz": false
+    },
+    "robot_num_joints": 24,
+    "role": "teacher",
+    "scenario_id": "flat_walk_forward",
+    "sensor_foot_ids": [
+      3,
+      8,
+      13,
+      18,
+      23,
+      28
+    ],
+    "started_utc": "2026-08-12T17:23:30.118827+00:00",
+    "task": "Isaac-Crab-Hex-Flat-Walk-v0",
+    "termination_reason": [
+      "schedule_complete",
+      "schedule_complete",
+      "schedule_complete",
+      "schedule_complete",
+      "schedule_complete",
+      "schedule_complete",
+      "schedule_complete",
+      "schedule_complete",
+      "schedule_complete",
+      "schedule_complete"
+    ],
+    "terrain_source": "raycast_mesh",
+    "zero_actions": false
+  },
+  "scenario_id": "flat_walk_forward"
+}

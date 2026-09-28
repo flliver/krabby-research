@@ -14,9 +14,6 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-import boto3
-from botocore.exceptions import ClientError
-
 from firmware.scripts.gen_version_h import _git
 
 BUCKET = "krabby-firmware-public"
@@ -24,6 +21,26 @@ HEX_PATH = Path("firmware/build/arduino.ino.hex")
 HEX_FILENAME = "firmware.hex"
 VERSION_H_PATH = Path("firmware/arduino/version.h")
 BOARD_FQBN = "arduino:avr:mega"
+
+
+HISTORY_CAP = 200
+
+
+def _merge_build(builds_doc: dict, build_entry: dict, cap: int = HISTORY_CAP) -> dict:
+    """Add build_entry to a <branch>/builds.json doc, keeping the newest per commit.
+
+    Drops any existing entry for the same commit before appending. A daily scheduled
+    rebuild of an unchanged release commit produces a fresh (timestamped) build_key
+    but the same commit, so keying dedup on commit — not build_key — stops duplicate
+    rows accumulating and evicting real history via the cap. Mutates and returns the
+    doc. Display order doesn't matter here: `parse_builds` re-sorts by build_key.
+    """
+    builds_doc.setdefault("schema_version", 1)
+    commit = build_entry.get("commit")
+    builds = [b for b in builds_doc.get("builds", []) if b.get("commit") != commit]
+    builds.append(build_entry)
+    builds_doc["builds"] = builds[-cap:]
+    return builds_doc
 
 
 def _read_version_h(path: Path) -> tuple[str, str, str]:
@@ -42,6 +59,9 @@ def _read_version_h(path: Path) -> tuple[str, str, str]:
 
 
 def main() -> None:
+    import boto3
+    from botocore.exceptions import ClientError
+
     if not HEX_PATH.exists():
         sys.exit(f"HEX not found: {HEX_PATH}. Run arduino-cli compile first.")
 
@@ -93,6 +113,33 @@ def main() -> None:
         ContentType="application/json",
     )
     print(f"Updated   {branch}/latest.json")
+
+    # Append to the per-branch build history that powers `krabby-firmware show <branch>`.
+    try:
+        obj = s3.get_object(Bucket=BUCKET, Key=f"{branch}/builds.json")
+        builds_doc = json.loads(obj["Body"].read())
+    except ClientError as e:
+        if e.response["Error"]["Code"] in ("NoSuchKey", "404"):
+            builds_doc = {"schema_version": 1, "branch": branch, "builds": []}
+        else:
+            raise
+
+    builds_doc["branch"] = branch
+    build_entry = {
+        "build_key": build_key,
+        "commit": commit,
+        "commit_date": commit_date,
+        "ver_string": manifest["ver_string"],
+        "hex_url": hex_url,
+        "manifest_url": manifest_url,
+    }
+    _merge_build(builds_doc, build_entry)
+    s3.put_object(
+        Bucket=BUCKET, Key=f"{branch}/builds.json",
+        Body=json.dumps(builds_doc, indent=2).encode(),
+        ContentType="application/json",
+    )
+    print(f"Updated   {branch}/builds.json ({len(builds_doc['builds'])} builds)")
 
     # Patch index.json in place. Not atomic — concurrent pushes from different branches can
     # race on this key. Acceptable for current push volume; use conditional writes if needed.

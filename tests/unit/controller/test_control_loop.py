@@ -29,8 +29,10 @@ Prerequisites:
 
 import numpy as np
 import pytest
+from unittest.mock import MagicMock, patch
 
 from controller.control_loop import ControlLoop, ControlLoopConfig, ControlMode
+from teleop.edge.webrtc_input_controller import WebRTCInputController
 from controller.input.state import ControllerState
 from hal.client.config import HalClientConfig
 from hal.client.data_structures.hardware import JointCommand
@@ -205,6 +207,55 @@ class TestControlLoopErrorHandling:
         with pytest.raises(ValueError, match="isaacsim_robot_definition is required"):
             loop.start()
 
+    def test_start_webrtc_without_webrtc_input_controller_raises(self):
+        config = ControlLoopConfig(
+            mode=ControlMode.INPUT_CONTROLLER_WEBRTC,
+            hal_client_config=HalClientConfig(
+                observation_endpoint="tcp://localhost:6001",
+                command_endpoint="tcp://localhost:6002",
+            ),
+            krabby_gamepad_robot_definition=KRABBY_HEX_DEFINITION,
+        )
+
+        loop = ControlLoop(config)
+
+        with pytest.raises(ValueError, match="webrtc_input_controller is required"):
+            loop.start()
+
+
+class TestControlLoopWebRTCMode:
+    """Tests for INPUT_CONTROLLER_WEBRTC wiring."""
+
+    @patch("controller.control_loop.HalClient")
+    def test_webrtc_mode_respects_command_send_gate(self, mock_hal_client_cls: MagicMock) -> None:
+        mock_hal = MagicMock()
+        mock_hal_client_cls.return_value = mock_hal
+
+        webrtc = WebRTCInputController()
+        gate_open = [False]
+
+        config = ControlLoopConfig(
+            mode=ControlMode.INPUT_CONTROLLER_WEBRTC,
+            webrtc_input_controller=webrtc,
+            hal_client_config=HalClientConfig(
+                observation_endpoint="tcp://localhost:6001",
+                command_endpoint="tcp://localhost:6002",
+            ),
+            krabby_gamepad_robot_definition=KRABBY_HEX_DEFINITION,
+            command_send_gate=lambda: gate_open[0],
+        )
+        loop = ControlLoop(config)
+        loop.start()
+
+        try:
+            webrtc.update_from_payload({"LT": True, "LY": 0.5})
+            mock_hal.put_joint_command.assert_not_called()
+
+            gate_open[0] = True
+            webrtc.update_from_payload({"LT": True, "LY": 0.5})
+            mock_hal.put_joint_command.assert_called_once()
+        finally:
+            loop.stop()
 
 
 class TestControlLoopIsRunning:

@@ -219,8 +219,8 @@ def run_jetson_zed_display() -> int:
         resolution=obs.resolution,
         fps=obs.fps,
         depth_mode=obs.depth_mode,
-        maixsense_host_env=obs.maixsense_host_env,
-        maixsense_port_env=obs.maixsense_port_env,
+        maixsense_host=obs.maixsense_host,
+        maixsense_port=obs.maixsense_port,
     )
     if cam is None:
         logger.error("Front RGB-D camera not available (init failed or no device).")
@@ -340,12 +340,14 @@ def _isaac_interface_from_sim_cfgs(robot_link: str = "base") -> IsaacSensorInter
 
     from hal.server.isaac.sim_rgbd_camera_cfgs import sim_rgbd_camera_cfgs_for_robot_link
 
-    fc, fr, sc, sr = sim_rgbd_camera_cfgs_for_robot_link(robot_link)
+    fc, fr, src, srr, slc, slr = sim_rgbd_camera_cfgs_for_robot_link(robot_link)
     scene_sensors = {
         "front_camera": SimpleNamespace(cfg=fc),
         "front_rgb": SimpleNamespace(cfg=fr),
-        "side_camera": SimpleNamespace(cfg=sc),
-        "side_rgb": SimpleNamespace(cfg=sr),
+        "side_right_camera": SimpleNamespace(cfg=src),
+        "side_right_rgb": SimpleNamespace(cfg=srr),
+        "side_left_camera": SimpleNamespace(cfg=slc),
+        "side_left_rgb": SimpleNamespace(cfg=slr),
     }
     return IsaacSensorInterface(scene_sensors=scene_sensors)
 

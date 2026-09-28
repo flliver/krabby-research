@@ -9,7 +9,7 @@
 
 ## 1. Reset to pristine
 
-Ran `scripts/jetson-reset.sh` as root to uninstall all krabby packages, remove systemd units, config, udev rules, and Docker images. SSH keys and the `krabby` user account were left intact.
+Ran `scripts/jetson/jetson-reset.sh` as root to uninstall all krabby packages, remove systemd units, config, udev rules, and Docker images. SSH keys and the `krabby` user account were left intact.
 
 ---
 

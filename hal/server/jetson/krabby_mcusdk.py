@@ -8,7 +8,7 @@ import logging
 from typing import Optional
 
 from hal.client.data_structures.hardware import JointCommand
-from firmware.krabby_mcu import KrabbyMCUSDK as FirmwareKrabbyMCUSDK
+from firmware.krabby_mcu import DEFAULT_BAUD, KrabbyMCUSDK as FirmwareKrabbyMCUSDK
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +49,7 @@ class KrabbyMCUSDK:
         self,
         mcu_joints: tuple[str, ...],
         port: Optional[str] = None,
-        baud: int = 115200,
+        baud: int = DEFAULT_BAUD,
         auto_connect: bool = True,
     ):
         """Initialize MCU SDK. mcu_joints: joint names for the MCU (e.g. from robot_definition.get_mcu_joints())."""

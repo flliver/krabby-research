@@ -2,7 +2,7 @@
 
 import gymnasium as gym
 
-from parkour_tasks.crab_hexapod_task.config.crab_hex import agents as crab_hex_agents
+from parkour_tasks.crab_hex_forward_task.config.crab_hex import agents as crab_hex_agents
 from parkour_tasks.extreme_parkour_task.config.go2 import agents as go2_agents
 
 gym.register(

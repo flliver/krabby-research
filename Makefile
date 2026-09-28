@@ -126,6 +126,8 @@ build-wheels:
 	@rm -rf parkour/dist && $(PYTHON) scripts/wheel-build/build_parkour_wheel.py
 	@cd teleop/edge && rm -rf dist && $(PYTHON) -m build --wheel
 	@cd teleop/portal && rm -rf dist && $(PYTHON) -m build --wheel
+	@cd krabby && rm -rf dist && $(PYTHON) -m build --wheel
+	@cd bench && rm -rf dist && $(PYTHON) -m build --wheel
 	@echo "Wheels built in dist/ directories"
 
 .PHONY: clean
@@ -140,6 +142,8 @@ clean:
 	rm -rf data_collection/dist data_collection/build data_collection/*.egg-info
 	rm -rf teleop/edge/dist teleop/edge/build teleop/edge/*.egg-info
 	rm -rf teleop/portal/dist teleop/portal/build teleop/portal/*.egg-info
+	rm -rf krabby/dist krabby/build krabby/*.egg-info
+	rm -rf bench/dist bench/build bench/*.egg-info
 	rm -rf controller/dist controller/build controller/*.egg-info
 	find . -type d -name __pycache__ -exec rm -r {} + 2>/dev/null || true
 	find . -type f -name "*.pyc" -delete
@@ -190,7 +194,8 @@ isaaclab-cache:
 .PHONY: build-test-image
 build-test-image: build-wheels isaaclab-cache
 	@echo "Building x86 test Docker image..."
-	$(DOCKER_BUILD) -f images/testing/x86/Dockerfile -t krabby-testing-x86:latest .
+	@echo "      --network=host: Docker bridge DNS often fails during pip installs"
+	$(DOCKER_BUILD) --network=host -f images/testing/x86/Dockerfile -t krabby-testing-x86:latest .
 	@echo "Test image built: krabby-testing-x86:latest"
 
 .PHONY: build-isaacsim-image
@@ -205,7 +210,7 @@ build-locomotion-image: build-wheels
 	@echo "Building locomotion Docker image (for Jetson/ARM64)..."
 	@echo "Note: This target is for building on Jetson hardware (native ARM64)"
 	@echo "      For cross-platform builds from x86_64, use buildx manually"
-	@echo "      --network=host allows the build to access the network during the build"
+	@echo "      --network=host: Docker bridge DNS often fails during pip installs"
 	$(DOCKER_BUILD) --network=host -f images/locomotion/Dockerfile -t krabby-locomotion:latest .
 	@echo "Locomotion image built: krabby-locomotion:latest"
 
@@ -214,7 +219,8 @@ build-test-image-arm: build-wheels
 	@echo "Building ARM test Docker image..."
 	@echo "Note: This target is for building on ARM testing environment (native ARM64)"
 	@echo "      For cross-platform builds from x86_64, use buildx manually"
-	$(DOCKER_BUILD) -f images/testing/arm/Dockerfile -t krabby-testing-arm:latest .
+	@echo "      --network=host: Docker bridge networking can fail on some Jetson kernels"
+	$(DOCKER_BUILD) --network=host -f images/testing/arm/Dockerfile -t krabby-testing-arm:latest .
 	@echo "ARM test image built: krabby-testing-arm:latest"
 
 .PHONY: test

@@ -1,0 +1,168 @@
+# Fleet deploy: after Fleet CI succeeds on main, synth/diff/deploy both CDK
+# stacks via OIDC, push service+portal assets to the EC2 via SSM, restart units.
+# Rollback: checkout prior SHA and re-run this path (or local deploy-*.sh).
+
+name: Fleet Deploy
+
+on:
+  workflow_run:
+    workflows:
+      - Fleet CI
+    types:
+      - completed
+    branches:
+      - main
+
+concurrency:
+  group: fleet-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: CDK deploy + SSM app push
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    if: >-
+      github.event.workflow_run.conclusion == 'success'
+      && github.event.workflow_run.event == 'push'
+      && github.event.workflow_run.head_branch == 'main'
+    permissions:
+      id-token: write
+      contents: write
+      actions: read
+    steps:
+      - name: Checkout merge commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Load fleet config
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e fleet/config
+          python -m krabby_fleet_config.github_actions
+
+      - name: Require deploy CDK context
+        run: |
+          missing=0
+          for var in \
+            FLEET_CI_ROLE_ARN \
+            FLEET_CDK_DOMAIN_NAME \
+            FLEET_CDK_HOSTED_ZONE_NAME \
+            FLEET_CDK_GITHUB_OWNER \
+            FLEET_CDK_GITHUB_REPO \
+            FLEET_CDK_GITHUB_BRANCH \
+            FLEET_CDK_GITHUB_OIDC_PROVIDER_ARN \
+            FLEET_CDK_BOOTSTRAP_QUALIFIER
+          do
+            if [ -z "${!var:-}" ]; then
+              echo "::error::$var is empty (fleet.toml [ci]/[deploy]/[fleet])"
+              missing=1
+            fi
+          done
+          exit "$missing"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.FLEET_CI_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Set CDK account/region
+        run: |
+          echo "CDK_DEFAULT_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)" >> "$GITHUB_ENV"
+          echo "CDK_DEFAULT_REGION=${AWS_REGION}" >> "$GITHUB_ENV"
+
+      - name: Setup fleet infra venv + CDK
+        working-directory: fleet/infra
+        run: ./scripts/setup-venv.sh
+
+      - name: CDK synth
+        working-directory: fleet/infra
+        run: |
+          # shellcheck disable=SC1091
+          source .venv/bin/activate
+          export PATH="$PWD/.tools/node/bin:$PWD/.tools/npm-global/node_modules/.bin:$PATH"
+          cdk synth \
+            -c "domainName=${FLEET_CDK_DOMAIN_NAME}" \
+            -c "hostedZoneName=${FLEET_CDK_HOSTED_ZONE_NAME}" \
+            -c "githubOwner=${FLEET_CDK_GITHUB_OWNER}" \
+            -c "githubRepo=${FLEET_CDK_GITHUB_REPO}" \
+            -c "githubBranch=${FLEET_CDK_GITHUB_BRANCH}" \
+            -c "githubOidcProviderArn=${FLEET_CDK_GITHUB_OIDC_PROVIDER_ARN}" \
+            -c "cdkBootstrapQualifier=${FLEET_CDK_BOOTSTRAP_QUALIFIER}"
+
+      - name: CDK diff
+        working-directory: fleet/infra
+        run: |
+          # shellcheck disable=SC1091
+          source .venv/bin/activate
+          export PATH="$PWD/.tools/node/bin:$PWD/.tools/npm-global/node_modules/.bin:$PATH"
+          set +e
+          cdk diff \
+            -c "domainName=${FLEET_CDK_DOMAIN_NAME}" \
+            -c "hostedZoneName=${FLEET_CDK_HOSTED_ZONE_NAME}" \
+            -c "githubOwner=${FLEET_CDK_GITHUB_OWNER}" \
+            -c "githubRepo=${FLEET_CDK_GITHUB_REPO}" \
+            -c "githubBranch=${FLEET_CDK_GITHUB_BRANCH}" \
+            -c "githubOidcProviderArn=${FLEET_CDK_GITHUB_OIDC_PROVIDER_ARN}" \
+            -c "cdkBootstrapQualifier=${FLEET_CDK_BOOTSTRAP_QUALIFIER}" \
+            ControlPlaneStack FleetServiceStack \
+            > "$GITHUB_WORKSPACE/cdk-diff.txt" 2>&1
+          status=$?
+          set -e
+          # cdk diff exits 1 when there are differences; that is expected.
+          if [ "$status" -gt 1 ]; then
+            echo "cdk diff failed with status $status" >&2
+            cat "$GITHUB_WORKSPACE/cdk-diff.txt" >&2
+            exit "$status"
+          fi
+          cat "$GITHUB_WORKSPACE/cdk-diff.txt"
+
+      - name: Post cdk diff on merge commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMIT_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          {
+            echo "### Fleet CDK diff (\`${COMMIT_SHA:0:7}\`)"
+            echo
+            echo '```'
+            # GitHub commit comments cap body size; keep a useful head.
+            head -c 60000 "$GITHUB_WORKSPACE/cdk-diff.txt"
+            echo
+            echo '```'
+          } > "$GITHUB_WORKSPACE/cdk-diff-comment.md"
+          gh api \
+            --method POST \
+            -H "Accept: application/vnd.github+json" \
+            "/repos/${{ github.repository }}/commits/${COMMIT_SHA}/comments" \
+            -f body="$(cat "$GITHUB_WORKSPACE/cdk-diff-comment.md")"
+
+      - name: CDK deploy
+        working-directory: fleet/infra
+        run: |
+          # shellcheck disable=SC1091
+          source .venv/bin/activate
+          export PATH="$PWD/.tools/node/bin:$PWD/.tools/npm-global/node_modules/.bin:$PATH"
+          cdk deploy ControlPlaneStack FleetServiceStack \
+            --require-approval never \
+            -c "domainName=${FLEET_CDK_DOMAIN_NAME}" \
+            -c "hostedZoneName=${FLEET_CDK_HOSTED_ZONE_NAME}" \
+            -c "githubOwner=${FLEET_CDK_GITHUB_OWNER}" \
+            -c "githubRepo=${FLEET_CDK_GITHUB_REPO}" \
+            -c "githubBranch=${FLEET_CDK_GITHUB_BRANCH}" \
+            -c "githubOidcProviderArn=${FLEET_CDK_GITHUB_OIDC_PROVIDER_ARN}" \
+            -c "cdkBootstrapQualifier=${FLEET_CDK_BOOTSTRAP_QUALIFIER}"
+
+      - name: Push apps via SSM and restart units
+        working-directory: fleet/infra
+        run: |
+          # shellcheck disable=SC1091
+          source .venv/bin/activate
+          ./scripts/push-fleet-apps.sh

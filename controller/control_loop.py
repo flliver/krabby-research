@@ -10,9 +10,12 @@ from __future__ import annotations
 import logging
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
 from typing import TYPE_CHECKING, Optional
+
+import zmq
 
 from controller.input import InputController
 from controller.input.state import ControllerState
@@ -52,6 +55,9 @@ class ControlLoopConfig:
         isaacsim_robot_definition: Required for INPUT_CONTROLLER_ISAACSIM (must match IsaacSim HAL topology).
         krabby_gamepad_robot_definition: Required for INPUT_CONTROLLER_KRABBY and INPUT_CONTROLLER_WEBRTC
             (must match the HAL server topology). Unused for other modes.
+        hal_transport_context: Optional shared ZMQ context for HalClient (e.g. inproc with HAL server).
+        command_send_gate: When set, joint commands are sent only if this callable returns True
+            (portal teleop uses this for operator_override).
     """
     mode: ControlMode
     input_controller_device_id: Optional[int] = None
@@ -63,6 +69,8 @@ class ControlLoopConfig:
     isaacsim_robot_definition: Optional[RobotDefinition] = None
     krabby_gamepad_robot_definition: Optional[RobotDefinition] = None
     webrtc_input_controller: Optional[WebRTCInputController] = None
+    hal_transport_context: Optional[zmq.Context] = None
+    command_send_gate: Optional[Callable[[], bool]] = None
 
 
 class ControlLoop:
@@ -170,7 +178,7 @@ class ControlLoop:
 
         self._hal_client = HalClient(
             config=self.config.hal_client_config,
-            context=None,
+            context=self.config.hal_transport_context,
         )
         self._hal_client.initialize()
 
@@ -210,7 +218,7 @@ class ControlLoop:
 
         self._hal_client = HalClient(
             config=self.config.hal_client_config,
-            context=None,
+            context=self.config.hal_transport_context,
         )
         self._hal_client.initialize()
 
@@ -250,7 +258,7 @@ class ControlLoop:
 
         self._hal_client = HalClient(
             config=self.config.hal_client_config,
-            context=None,
+            context=self.config.hal_transport_context,
         )
         self._hal_client.initialize()
 
@@ -263,6 +271,10 @@ class ControlLoop:
         self._input_controller.register_callback(self._on_gamepad_state_krabby)
         self._input_controller.start(update_rate_hz=self.config.input_controller_update_rate_hz)
         logger.info("INPUT_CONTROLLER_WEBRTC mode initialized")
+
+    def _command_send_allowed(self) -> bool:
+        gate = self.config.command_send_gate
+        return gate() if gate is not None else True
     
     def _on_gamepad_state(self, state: ControllerState) -> None:
         """Callback for gamepad state updates.
@@ -303,6 +315,8 @@ class ControlLoop:
             state: Controller state
         """
         if not self._running:
+            return
+        if not self._command_send_allowed():
             return
         
         try:

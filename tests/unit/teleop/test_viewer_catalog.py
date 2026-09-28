@@ -23,10 +23,10 @@ def test_strings_trimmed_and_capped() -> None:
 
 def test_duplicate_ids_preserve_first_only() -> None:
     got = parse_viewer_catalog_ids_from_payload(
-        {"catalog_ids": ["front_rgbd", "side_rgbd", "front_rgbd"]},
+        {"catalog_ids": ["front_rgbd", "side_right_rgbd", "side_left_rgbd", "front_rgbd"]},
         max_lines=8,
     )
-    assert got == ["front_rgbd", "side_rgbd"]
+    assert got == ["front_rgbd", "side_right_rgbd", "side_left_rgbd"]
 
 
 def test_non_list_returns_none() -> None:

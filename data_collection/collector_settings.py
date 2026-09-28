@@ -22,8 +22,8 @@ from data_collection.config import (
 # Writable bag root (override at runtime with ``--data-collector-output-dir``).
 DEFAULT_OUTPUT_DIR = Path("/data/krabby_bags")
 
-MAX_DISK_USAGE_FRACTION: float = 0.5
-ROTATION_MAX_BYTES: int = 1_073_741_824
+MIN_FREE_FRACTION: float = 0.10
+ROTATION_MAX_BYTES: int = 262_144_000  # 250 MiB
 ROTATION_MAX_MINUTES: float = 30.0
 
 RECORDING_RATES = RecordingRates(images_hz=10.0, joints_imu_hz=50.0)
@@ -48,7 +48,7 @@ def build_data_collector_config(
             command_endpoint=command_endpoint,
         ),
         output_dir=od,
-        max_disk_usage_fraction=MAX_DISK_USAGE_FRACTION,
+        min_free_fraction=MIN_FREE_FRACTION,
         rotation_max_bytes=ROTATION_MAX_BYTES,
         rotation_max_minutes=ROTATION_MAX_MINUTES,
         rates=RECORDING_RATES,

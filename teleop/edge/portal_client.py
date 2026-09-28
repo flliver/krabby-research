@@ -10,6 +10,7 @@ from urllib.parse import quote
 import aiohttp
 
 from teleop.edge.config import TeleopEdgeSettings
+from teleop.edge.qos import TeleopQosController
 from teleop.edge.signaling_session import run_robot_signaling_loop
 
 logger = logging.getLogger(__name__)
@@ -34,6 +35,9 @@ async def portal_client_loop(
     hello_ack_payload_builder: Optional[Callable[[], dict[str, Any]]] = None,
     pong_payload_builder: Optional[Callable[[], dict[str, Any]]] = None,
     control_message_handler: Optional[Callable[[dict[str, Any]], None]] = None,
+    telemetry_getter: Optional[Callable[[], dict[str, Any] | None]] = None,
+    telemetry_hz: float = 20.0,
+    qos_controller: TeleopQosController | None = None,
 ) -> None:
     """Reconnect forever. JSON is the same as the historical on-robot ``/ws`` signaling."""
     session = aiohttp.ClientSession()
@@ -58,6 +62,9 @@ async def portal_client_loop(
                         hello_ack_payload_builder=hello_ack_payload_builder,
                         pong_payload_builder=pong_payload_builder,
                         control_message_handler=control_message_handler,
+                        telemetry_getter=telemetry_getter,
+                        telemetry_hz=telemetry_hz,
+                        qos_controller=qos_controller,
                     )
             except asyncio.CancelledError:
                 break

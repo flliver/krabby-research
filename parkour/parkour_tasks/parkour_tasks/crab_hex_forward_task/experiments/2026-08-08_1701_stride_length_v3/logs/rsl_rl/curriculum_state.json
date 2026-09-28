@@ -1,0 +1,24 @@
+{
+  "stages": {
+    "flat": {
+      "status": "complete",
+      "checkpoint": "/home/nickmagus/krabby/krabby-research/sim_fine_tuning/stride_length_v3/logs/rsl_rl/crab_hex_flat_walk/2026-08-08_17-01-57/model_19999.pt",
+      "note": "CAD-derived Whitworth mapping, penalty_motor_direction_reversal=-0.3 AND reward_stride_length v3 (stance-only, direction-gated body progress, power=2.0) both active. mean_reward=40.95, crab_failure=2.49%. gait_eval (2026-08-09_03-01-36): tripod_score=0.0, slip_ratio=1.7% (BEST of all 4 runs, baseline was 3.0%), tippy_tap_fraction=19.1% (much better than v2's 36.6% and motor_reversal_on's 31.0%, though still above baseline's 13.5%), schedule_completion_rate=1.0 (0 falls). v3 redesign appears to substantially fix the v2 regression without fully returning to baseline's tippy-tap level."
+    },
+    "bridge": {
+      "status": "complete",
+      "checkpoint": "/home/nickmagus/krabby/krabby-research/sim_fine_tuning/stride_length_v3/logs/rsl_rl/crab_hex_teacher/2026-08-08_23-07-29/model_20098.pt",
+      "note": "fixed 100 iters from flat. crab_failure=3.91% -- dramatically better than baseline (6.3%), motor_reversal_on (27.6%), and stride_length_on v2 (52.4%) at this same stage. No sign of the escalating bridge-transition instability seen in v2. Strong early signal the v3 redesign fixed the underlying problem, not just papered over the gait-eval metrics."
+    },
+    "2b1": {
+      "status": "complete",
+      "checkpoint": "/home/nickmagus/krabby/krabby-research/sim_fine_tuning/stride_length_v3/logs/rsl_rl/crab_hex_teacher/2026-08-08_23-10-47/model_20197.pt",
+      "note": "fixed 100 iters from bridge. crab_failure=1.56% -- continues to improve (bridge was 3.91%), dramatically better than baseline (6.3%), motor_reversal_on (14.3%), and stride_length_on v2 (51.2%, did not recover) at this same stage."
+    },
+    "2b2": {
+      "status": "complete",
+      "checkpoint": "/home/nickmagus/krabby/krabby-research/sim_fine_tuning/stride_length_v3/logs/rsl_rl/crab_hex_teacher/2026-08-08_23-55-28/model_21900.pt",
+      "note": "4 batches (2000 iters, matching series budget) from 2b1. By far the strongest and most consistent 2b2 run of the series: multiple checkpoints across batches 3-4 reliably clear 4/5 gates (obstacle_clearance, crab_failure, episode_length, current_goal_idx), with forward_progress_along_command as the sole persistent miss (peaked at 0.1496 in batch 3, essentially at the 0.15 threshold). No checkpoint cleared all 5 simultaneously. Accepted model_21900: obstacle_clearance~0.20-0.27, crab_failure~8%, episode_length~870-900, current_goal_idx~1.43-1.47 all comfortably passing; forward_progress~0.13 the miss. crab_failure throughout 2b2 (6.8-14%) is the best of the whole series (baseline final 18.75%, motor_reversal_on final 7.8%, v2 final 24.2%). gait_eval (2026-08-09_04-10-01): schedule_completion_rate=0.8 (2 falls/10 -- worse than baseline's 1 and motor_reversal_on's 0, better than v2's 4), tripod_score median=0.025 (notably NON-zero and higher than every other run in the series, all ~0-0.004 -- an unexpected, unexplained side effect worth investigating), slip_ratio=3.0% (best 2b2 slip alongside close to others), tippy_tap_fraction=21.0% (close to flat-walk's 19.1%, better than motor_reversal_on's 22.2% and v2's 24.5%), stride length pooled mean=0.162m."
+    }
+  }
+}

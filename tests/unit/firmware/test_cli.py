@@ -6,8 +6,10 @@ from unittest.mock import MagicMock, patch, call
 
 import pytest
 
+import urllib.error
+
 import firmware.cli as cli_mod
-from firmware.manifest import BranchEntry, FirmwareIndex
+from firmware.manifest import BranchBuild, BranchEntry, FirmwareIndex
 
 
 # --- fixtures ---
@@ -123,7 +125,7 @@ class TestCmdShow:
                     cli_mod.cmd_show()
         out = capsys.readouterr().out
         assert "left: 0.2.8" in out
-        assert "primary" not in out
+        assert "front" not in out
 
     def test_role_hint_labels_follower_as_right(self, capsys):
         index = _make_index({"release/0.2.8": "20250101-120000-abc1234"})
@@ -134,7 +136,7 @@ class TestCmdShow:
                     cli_mod.cmd_show()
         out = capsys.readouterr().out
         assert "right: 0.2.8" in out
-        assert "primary" not in out
+        assert "front" not in out
 
     def test_combined_ver_fills_all_three_ports(self, capsys):
         """Leader's combined VER shows all three role slots; port annotation when ROLE_HINT present."""
@@ -202,6 +204,115 @@ class TestCmdShow:
                 cli_mod.cmd_show()
         err = capsys.readouterr().err
         assert "timeout" in err
+
+
+# --- cmd_show <branch> (per-branch build history) ---
+
+class TestCmdShowBranch:
+    def _builds(self):
+        # Intentionally out of order to prove the command sorts newest-first.
+        return [
+            BranchBuild(build_key="20250101-120000-aaa0000", commit="aaa0000",
+                        commit_date="2025-01-01", ver_string="0.2.9 release/0.2.9 aaa0000",
+                        hex_url="h", manifest_url="m"),
+            BranchBuild(build_key="20250301-120000-ccc2222", commit="ccc2222",
+                        commit_date="2025-03-01", ver_string="0.2.9 release/0.2.9 ccc2222",
+                        hex_url="h", manifest_url="m"),
+        ]
+
+    def test_lists_builds_newest_first(self, capsys):
+        # Feed an UNSORTED builds.json through the real _fetch_builds/parse_builds so
+        # this exercises the actual newest-first sort, not a pre-sorted fixture.
+        unsorted_doc = {
+            "schema_version": 1, "branch": "release/0.2.9", "builds": [
+                {"build_key": "20250101-120000-aaa0000", "commit": "aaa0000",
+                 "commit_date": "2025-01-01", "ver_string": "0.2.9 release/0.2.9 aaa0000",
+                 "hex_url": "h", "manifest_url": "m"},
+                {"build_key": "20250301-120000-ccc2222", "commit": "ccc2222",
+                 "commit_date": "2025-03-01", "ver_string": "0.2.9 release/0.2.9 ccc2222",
+                 "hex_url": "h", "manifest_url": "m"},
+            ],
+        }
+        with patch.object(cli_mod, "_fetch_json", return_value=unsorted_doc):
+            cli_mod.cmd_show("release/0.2.9")
+        out = capsys.readouterr().out
+        assert out.index("ccc2222") < out.index("aaa0000")  # sorted by code, not fixture
+        assert "release/0.2.9" in out
+
+    def test_branch_listing_does_not_probe_boards(self):
+        builds = sorted(self._builds(), key=lambda b: b.build_key, reverse=True)
+        with patch.object(cli_mod, "_all_mega_ports") as mock_ports:
+            with patch.object(cli_mod, "_fetch_builds", return_value=builds):
+                cli_mod.cmd_show("release/0.2.9")
+        mock_ports.assert_not_called()
+
+    def test_no_builds_message(self, capsys):
+        with patch.object(cli_mod, "_fetch_builds", return_value=[]):
+            cli_mod.cmd_show("release/0.2.9")
+        assert "No builds found" in capsys.readouterr().out
+
+    @pytest.mark.parametrize("code", [403, 404])
+    def test_missing_branch_exits_with_hint(self, code):
+        # Real public bucket returns 403 for an absent key (no ListBucket); 404 if listable.
+        err = urllib.error.HTTPError("u", code, "no", None, None)
+        with patch.object(cli_mod, "_fetch_builds", side_effect=err):
+            with pytest.raises(SystemExit) as ei:
+                cli_mod.cmd_show("release/9.9.9")
+        assert "No build history" in str(ei.value)  # the friendly hint, not a raw HTTP error
+
+    def test_real_error_uses_generic_message(self):
+        err = urllib.error.HTTPError("u", 500, "boom", None, None)
+        with patch.object(cli_mod, "_fetch_builds", side_effect=err):
+            with pytest.raises(SystemExit) as ei:
+                cli_mod.cmd_show("release/0.2.9")
+        assert "Could not fetch builds" in str(ei.value)
+
+
+class TestPage:
+    class _FakeOut:
+        def __init__(self, tty):
+            self._tty = tty
+            self.written = ""
+
+        def isatty(self):
+            return self._tty
+
+        def write(self, s):
+            self.written += s
+
+    def test_non_tty_writes_plainly(self, monkeypatch):
+        out = self._FakeOut(tty=False)
+        monkeypatch.setattr(cli_mod.sys, "stdout", out)
+        cli_mod._page("hello")
+        assert out.written == "hello\n"
+
+    def test_tty_routes_through_pager(self, monkeypatch):
+        sent = {}
+
+        class FakeProc:
+            returncode = 0
+
+            def communicate(self, text):
+                sent["text"] = text
+
+        monkeypatch.setattr(cli_mod.sys, "stdout", self._FakeOut(tty=True))
+        monkeypatch.setattr(cli_mod.subprocess, "Popen", lambda *a, **k: FakeProc())
+        cli_mod._page("rows\n")
+        assert sent["text"] == "rows\n"
+
+    def test_pager_nonzero_exit_falls_back_to_stdout(self, monkeypatch):
+        out = self._FakeOut(tty=True)
+
+        class FakeProc:
+            returncode = 127  # e.g. PAGER/less missing → shell "command not found"
+
+            def communicate(self, text):
+                pass
+
+        monkeypatch.setattr(cli_mod.sys, "stdout", out)
+        monkeypatch.setattr(cli_mod.subprocess, "Popen", lambda *a, **k: FakeProc())
+        cli_mod._page("rows")
+        assert out.written == "rows\n"  # not silently swallowed
 
 
 # --- cmd_update ---
@@ -281,6 +392,11 @@ class TestCmdUpdate:
 
     def test_multiple_boards_without_port_exits(self, tmp_path, monkeypatch):
         monkeypatch.setattr(cli_mod, "CACHE_DIR", tmp_path)
+        # Force `_flash`'s "no flash tool" branch so this test can NEVER shell out to a
+        # real avrdude/arduino-cli against a connected board. Without this, on a bench
+        # machine that has avrdude installed the test would reset/poke /dev/ttyACM* and
+        # hang. This matches the deterministic CI path (clean runner, no flash tools).
+        monkeypatch.setattr(cli_mod.shutil, "which", lambda _name: None)
         index = self._default_index()
         with patch.object(cli_mod, "_fetch_index", return_value=index):
             with patch.object(cli_mod, "_download_hex"):

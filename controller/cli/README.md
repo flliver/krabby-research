@@ -1,6 +1,28 @@
 # krabby-uno and krabby-uno-sim CLIs
 
-> **Running on a Jetson?** Use `krabby run` to start the locomotion stack — it handles GPU flags, device passthrough, and ZMQ ports automatically. See [images/locomotion/README.md](../../images/locomotion/README.md). The `krabby-uno` client below connects to the server started by `krabby run`.
+These entry points run **`ControlLoop`** as a **separate process** with a **local pygame gamepad** (`InputController`) and ZMQ TCP to the HAL server. They do **not** start WebRTC teleop or read the browser data channel.
+
+> **Running on a Jetson?** Use `krabby run` to start the locomotion stack — it handles GPU flags, device passthrough, and ZMQ ports automatically, and already starts a `krabby-uno` client/controller inside the same container. See [images/locomotion/README.md](../../images/locomotion/README.md). The standalone `krabby-uno` below is for the two-process debug flow (connect a separate client to a server-only run) or running the client on another host.
+
+## ControlLoop modes (what these CLIs use)
+
+| CLI | `ControlLoop` mode | Input | HAL server (typical) |
+|-----|-------------------|-------|----------------------|
+| `krabby-uno` | `INPUT_CONTROLLER_KRABBY` | Pro Controller / gamepad (pygame) | `--control-source gamepad` |
+| `krabby-uno-sim` | `INPUT_CONTROLLER_ISAACSIM` | Pro Controller / gamepad (pygame) | `--joystick` |
+
+## Browser / WebRTC teleop (not these CLIs)
+
+Remote driving from the **teleop portal** uses **`ControlLoop(INPUT_CONTROLLER_WEBRTC)`** inside the HAL process (`hal/server/teleop_portal_signaling.py`), not `krabby-uno` or `krabby-uno-sim`. There is no `--controller webrtc` flag on the CLIs below.
+
+| Goal | Jetson | Isaac Sim |
+|------|--------|-----------|
+| **Browser gamepad → robot** | `krabby-hal-server-jetson --control-source portal --teleop-ip <portal-host>` | Isaac HAL with `--teleop-ip <portal-host>`; in the portal UI enable **operator_override** and drive |
+| **Portal viewer / signaling** | `krabby-teleop-portal --host 0.0.0.0 --port 9000` on the operator host | same |
+
+Chain on the robot: WebRTC `krabby-control-v1` → `WebRTCInputController` → **`ControlLoop` (`INPUT_CONTROLLER_WEBRTC`)** → `GamepadToKrabbyHALMapper` → `HalClient.put_joint_command`. On Isaac, **`operator_override`** gates sends via `ControlLoopConfig.command_send_gate` when local `--joystick` / inference is also active.
+
+See [docs/TELEOP.md](../../docs/TELEOP.md) for protocol, latency, and CLI naming notes.
 
 ## Install
 

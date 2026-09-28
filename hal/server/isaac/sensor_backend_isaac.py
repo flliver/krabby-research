@@ -1,9 +1,9 @@
 """Isaac Sim GStreamer sensor backend.
 
 **Live HAL**: pass ``scene_sensors`` (e.g. ``IsaacSimHalServer.camera_sensors``). When
-``front_rgb`` + ``front_camera`` (and/or ``side_rgb`` + ``side_camera``) exist, each pair
-adds **two** ``SensorInfo`` rows: ``front_rgbd`` / ``side_rgbd`` plus matching
-``*_gray16_depth`` (``camera_driver="isaac_scene"``).
+``front_rgb`` + ``front_camera`` and/or ``side_right_*`` / ``side_left_*`` pairs exist, each
+pair adds **two** ``SensorInfo`` rows: ``front_rgbd`` / ``side_right_rgbd`` / ``side_left_rgbd``
+plus matching ``*_gray16_depth`` (``camera_driver="isaac_scene"``).
 
 **Explicit configuration**: pass ``configured_sensors=(...)`` to supply a fixed
 ``SensorInfo`` list (call-site specific). If set, **scene introspection is skipped**.
@@ -25,87 +25,97 @@ from hal.server.sensor_interface import (
     SensorPose,
 )
 
+_SIDE_RIGHT_POSE = SensorPose(
+    0.0, -0.08, 0.12, 0.0, 0.0, -0.7071067811865476, 0.7071067811865476
+)
+_SIDE_LEFT_POSE = SensorPose(
+    0.0, 0.08, 0.12, 0.0, 0.0, 0.7071067811865476, 0.7071067811865476
+)
+
+
+def _append_rgbd_pair_from_scene(
+    out: list[SensorInfo],
+    scene_sensors: dict,
+    *,
+    rgb_key: str,
+    depth_key: str,
+    catalog_id: str,
+    default_pose: SensorPose | None,
+    depth_range_m: tuple[float, float],
+) -> None:
+    if rgb_key not in scene_sensors or depth_key not in scene_sensors:
+        return
+    rgb_cfg = getattr(scene_sensors[rgb_key], "cfg", None)
+    res, fps = _resolution_and_fps_from_cfg(rgb_cfg, (640, 480), 30)
+    pose = _pose_from_sensor_cfg(rgb_cfg) or default_pose
+    out.append(
+        SensorInfo(
+            id=catalog_id,
+            type="rgbd",
+            modality="rgbd",
+            resolution=res,
+            fps=fps,
+            pose=pose,
+            camera_driver="isaac_scene",
+            extra={
+                "isaac_sensor_rgb": rgb_key,
+                "isaac_sensor_depth": depth_key,
+            },
+        )
+    )
+    out.append(
+        SensorInfo(
+            id=f"{catalog_id}_gray16_depth",
+            type="depth",
+            modality="depth",
+            resolution=res,
+            fps=fps,
+            pose=pose,
+            camera_driver="isaac_scene",
+            extra={
+                "isaac_sensor_depth": depth_key,
+                "depth_range_m": depth_range_m,
+                "gst_depth_source_catalog_id": catalog_id,
+            },
+        )
+    )
+
 
 def _sensor_infos_from_scene_cameras(scene_sensors: dict) -> list[SensorInfo]:
-    """Map scene sensors to Jetson-matching catalog ids (``front_rgbd``, ``side_rgbd``, …).
+    """Map scene sensors to Jetson-matching catalog ids.
 
-    Full scene: **four** rows — ``front_rgbd``, ``front_rgbd_gray16_depth``, ``side_rgbd``,
-    ``side_rgbd_gray16_depth``. Missing RGB or depth prim for a pair skips that pair's rows.
+    Full scene: ``front_rgbd``, ``side_right_rgbd``, ``side_left_rgbd``, plus matching
+    ``*_gray16_depth`` rows. Missing RGB or depth prim for a pair skips that pair's rows.
     """
     out: list[SensorInfo] = []
 
-    if "front_rgb" in scene_sensors and "front_camera" in scene_sensors:
-        rgb_cfg = getattr(scene_sensors["front_rgb"], "cfg", None)
-        res, fps = _resolution_and_fps_from_cfg(rgb_cfg, (640, 480), 30)
-        pose = _pose_from_sensor_cfg(rgb_cfg)
-        out.append(
-            SensorInfo(
-                id="front_rgbd",
-                type="rgbd",
-                modality="rgbd",
-                resolution=res,
-                fps=fps,
-                pose=pose,
-                camera_driver="isaac_scene",
-                extra={
-                    "isaac_sensor_rgb": "front_rgb",
-                    "isaac_sensor_depth": "front_camera",
-                },
-            )
-        )
-        out.append(
-            SensorInfo(
-                id="front_rgbd_gray16_depth",
-                type="depth",
-                modality="depth",
-                resolution=res,
-                fps=fps,
-                pose=pose,
-                camera_driver="isaac_scene",
-                extra={
-                    "isaac_sensor_depth": "front_camera",
-                    # Match RayCaster ``max_distance`` (see ``hal.server.isaac.sim_rgbd_camera_cfgs``): teleop grayscale uses this band.
-                    "depth_range_m": (0.2, 2.0),
-                    "gst_depth_source_catalog_id": "front_rgbd",
-                },
-            )
-        )
-
-    if "side_rgb" in scene_sensors and "side_camera" in scene_sensors:
-        rgb_cfg = getattr(scene_sensors["side_rgb"], "cfg", None)
-        res, fps = _resolution_and_fps_from_cfg(rgb_cfg, (640, 480), 30)
-        pose = _pose_from_sensor_cfg(rgb_cfg)
-        out.append(
-            SensorInfo(
-                id="side_rgbd",
-                type="rgbd",
-                modality="rgbd",
-                resolution=res,
-                fps=fps,
-                pose=pose,
-                camera_driver="isaac_scene",
-                extra={
-                    "isaac_sensor_rgb": "side_rgb",
-                    "isaac_sensor_depth": "side_camera",
-                },
-            )
-        )
-        out.append(
-            SensorInfo(
-                id="side_rgbd_gray16_depth",
-                type="depth",
-                modality="depth",
-                resolution=res,
-                fps=fps,
-                pose=pose,
-                camera_driver="isaac_scene",
-                extra={
-                    "isaac_sensor_depth": "side_camera",
-                    "depth_range_m": (0.15, 1.5),
-                    "gst_depth_source_catalog_id": "side_rgbd",
-                },
-            )
-        )
+    _append_rgbd_pair_from_scene(
+        out,
+        scene_sensors,
+        rgb_key="front_rgb",
+        depth_key="front_camera",
+        catalog_id="front_rgbd",
+        default_pose=SensorPose(0.33, 0.0, 0.08, 0.0, 0.0, 0.0, 1.0),
+        depth_range_m=(0.2, 2.0),
+    )
+    _append_rgbd_pair_from_scene(
+        out,
+        scene_sensors,
+        rgb_key="side_right_rgb",
+        depth_key="side_right_camera",
+        catalog_id="side_right_rgbd",
+        default_pose=_SIDE_RIGHT_POSE,
+        depth_range_m=(0.15, 1.5),
+    )
+    _append_rgbd_pair_from_scene(
+        out,
+        scene_sensors,
+        rgb_key="side_left_rgb",
+        depth_key="side_left_camera",
+        catalog_id="side_left_rgbd",
+        default_pose=_SIDE_LEFT_POSE,
+        depth_range_m=(0.15, 1.5),
+    )
 
     return out
 

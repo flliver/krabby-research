@@ -1,0 +1,6 @@
+{
+  "seed3": {
+    "2b": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_teacher/2026-09-07_13-24-28/model_10197.pt",
+    "3a": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_student/2026-09-07_13-30-34/model_20195.pt"
+  }
+}

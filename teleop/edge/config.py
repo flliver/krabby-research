@@ -20,6 +20,13 @@ class TeleopEdgeSettings:
     max_video_m_lines: int
     stun_turn_servers: list[dict[str, Any]]
     http_auth_token: str = ""
+    qos_enabled: bool = True
+    qos_kbps_budget_per_stream: float = 120.0
+    # Bench/test-only: echoes WebRTCInputController.get_state() onto the
+    # telemetry channel as `last_control` so a test can confirm a control
+    # message was actually applied. No operator-facing feature reads it;
+    # off by default.
+    control_echo_enabled: bool = False
 
     @property
     def agent_enabled(self) -> bool:

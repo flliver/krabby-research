@@ -49,7 +49,7 @@ class MockRobot:
             'joint_pos': torch.zeros((num_envs, 12), dtype=torch.float32),
             'root_ang_vel_b': torch.zeros((num_envs, 3), dtype=torch.float32),
             'root_lin_vel_b': torch.zeros((num_envs, 3), dtype=torch.float32),
-            'root_quat_w': torch.tensor([[0.0, 0.0, 0.0, 1.0]] * num_envs, dtype=torch.float32),
+            'root_quat_w': torch.tensor([[1.0, 0.0, 0.0, 0.0]] * num_envs, dtype=torch.float32),
             'joint_vel': torch.zeros((num_envs, 12), dtype=torch.float32),
         })()
 

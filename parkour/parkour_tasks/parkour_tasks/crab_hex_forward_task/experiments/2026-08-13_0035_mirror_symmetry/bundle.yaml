@@ -1,0 +1,38 @@
+campaign: 2026-08-13_0035_mirror_symmetry
+era: A
+dates: 2026-08-13..2026-08-13
+question: Can enforcing the robot's L/R mirror symmetry (rsl-rl mirror loss) make
+  permanent lead-set handedness impossible and unlock genuine tripod alternation on
+  flat walk?
+verdict: 'User decision 2026-08-13: adopt + bake — mirror loss coef 0.5 alone killed
+  handedness (10/10 episodes balanced) and lifted tripod to 0.517 (CHANGELOG.md adoption
+  record; RESULTS.md ''SYMMETRY SUFFICIENT'' block).'
+plant: hand-authored crab_simple.usda (era A, pre-2026-08-20 rebuild)
+aliases: []
+records:
+- CHANGELOG.md
+- RESULTS.md
+head:
+  role: flat_walk
+  task: Isaac-Crab-Hex-Flat-Walk-v0
+  source: fromscratch_sym_20k/logs/rsl_rl/crab_hex_flat_walk/2026-08-13_00-35-14/model_19999.pt
+  sha256: 9c9c72b6233e11fbf3137b972b87ef630c64557bca67ab10049657eacdf79179
+  dest: head/model_19999.pt
+  why: CHANGELOG.md names it the new reference flat-walk checkpoint (20k from scratch,
+    plain rewards + mirror loss 0.5), superseding 2026-08-09_1526_gait_tuned model_19999;
+    KRABBY_SYM_LOSS_COEF default baked 0.0 -> 0.5.
+  metrics:
+    tripod: 0.5170 (10 eps 0.50-0.53)
+    duty_A_B: 0.356 / 0.339 (10/10 balanced)
+    completion_slip_tippy: 100% / 2.02% / 6.6%
+    signed_pitch: +0.202 (lean unresolved)
+  env:
+    KRABBY_SYM_LOSS_COEF: '0.5'
+evals:
+- in_tree: '**/gait_eval*/**'
+keep_globs:
+- run_meta.json
+- scenario_metrics.json
+- summary.md
+- gait_diagram_*.png
+paths_note: true

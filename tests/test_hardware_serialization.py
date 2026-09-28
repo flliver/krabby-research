@@ -332,10 +332,14 @@ def test_rgbd_by_catalog_id_roundtrip():
             depth=camera_depth.copy(),
             scan_features=scan_f.copy(),
         ),
-        "side_rgbd": RgbdCatalogObservation(
+        "side_right_rgbd": RgbdCatalogObservation(
             rgb=np.random.randint(0, 255, (camera_height, camera_width, 3), dtype=np.uint8),
             depth=np.random.rand(camera_height, camera_width).astype(np.float32),
             scan_features=np.linspace(0.0, 1.0, 64, dtype=np.float32),
+        ),
+        "side_left_rgbd": RgbdCatalogObservation(
+            rgb=np.random.randint(0, 255, (camera_height, camera_width, 3), dtype=np.uint8),
+            depth=np.random.rand(camera_height, camera_width).astype(np.float32),
         ),
     }
 
@@ -357,7 +361,7 @@ def test_rgbd_by_catalog_id_roundtrip():
     )
     out = HardwareObservations.from_bytes(hw.to_bytes())
     assert out.rgbd_by_catalog_id is not None
-    assert set(out.rgbd_by_catalog_id) == {"front_rgbd", "side_rgbd"}
+    assert set(out.rgbd_by_catalog_id) == {"front_rgbd", "side_right_rgbd", "side_left_rgbd"}
     for cid in out.rgbd_by_catalog_id:
         a = rgbd_by_catalog_id[cid]
         b = out.rgbd_by_catalog_id[cid]

@@ -17,8 +17,10 @@ from data_collection.rotating_bag import (
     RotatingMcapWriter,
     _bag_dirs,
     _total_bag_bytes,
+    compute_max_collector_bytes,
     enforce_disk_quota,
 )
+from data_collection.serialization import catalog_camera_topic
 
 
 def test_bag_dirs_empty_nonexistent(tmp_path: Path) -> None:
@@ -52,6 +54,31 @@ def test_total_bag_bytes_counts_files(tmp_path: Path) -> None:
     (b / "metadata.yaml").write_text("x", encoding="utf-8")
     (b / "data.mcap").write_bytes(b"0123456789")
     assert _total_bag_bytes(root) == 11
+
+
+def test_compute_max_collector_bytes_reclaimable_bags_count_as_free() -> None:
+    # free=400, bags=200 reclaimable, reserve 10% of total=100 -> max=500
+    assert (
+        compute_max_collector_bytes(
+            total=1000,
+            free=400,
+            bag_bytes=200,
+            min_free_fraction=0.1,
+        )
+        == 500
+    )
+
+
+def test_compute_max_collector_bytes_clamps_at_zero() -> None:
+    assert (
+        compute_max_collector_bytes(
+            total=1000,
+            free=50,
+            bag_bytes=100,
+            min_free_fraction=0.5,
+        )
+        == 0
+    )
 
 
 def test_enforce_disk_quota_deletes_oldest(tmp_path: Path) -> None:
@@ -96,17 +123,18 @@ def _tiny_rgb_cdr(ts) -> bytes:
 def test_rotating_writer_skips_unknown_connection(tmp_path: Path) -> None:
     ts = get_typestore(Stores.LATEST)
     payload = _tiny_rgb_cdr(ts)
-    specs = [("/camera/front/rgb", "sensor_msgs/msg/Image")]
+    rgb_topic = catalog_camera_topic("front_rgbd", "rgb")
+    specs = [(rgb_topic, "sensor_msgs/msg/Image")]
     w = RotatingMcapWriter(
         tmp_path / "bags",
         rotation_max_bytes=10_000_000,
         rotation_max_minutes=60.0,
-        max_disk_usage_fraction=0.99,
+        min_free_fraction=0.01,
         topic_msgtypes=specs,
     )
     w.write_messages(
         [
-            ("/camera/front/rgb", "sensor_msgs/msg/Image", payload),
+            (rgb_topic, "sensor_msgs/msg/Image", payload),
             ("/unknown/topic", "sensor_msgs/msg/Image", payload),
         ],
         1,
@@ -118,16 +146,17 @@ def test_rotating_writer_rotates_when_max_minutes_zero(tmp_path: Path) -> None:
     ts = get_typestore(Stores.LATEST)
     payload = _tiny_rgb_cdr(ts)
     root = tmp_path / "bags"
-    specs = [("/camera/front/rgb", "sensor_msgs/msg/Image")]
+    rgb_topic = catalog_camera_topic("front_rgbd", "rgb")
+    specs = [(rgb_topic, "sensor_msgs/msg/Image")]
     w = RotatingMcapWriter(
         root,
         rotation_max_bytes=10_000_000,
         rotation_max_minutes=0.0,
-        max_disk_usage_fraction=0.99,
+        min_free_fraction=0.01,
         topic_msgtypes=specs,
     )
-    w.write_messages([("/camera/front/rgb", "sensor_msgs/msg/Image", payload)], 100)
-    w.write_messages([("/camera/front/rgb", "sensor_msgs/msg/Image", payload)], 200)
+    w.write_messages([(rgb_topic, "sensor_msgs/msg/Image", payload)], 100)
+    w.write_messages([(rgb_topic, "sensor_msgs/msg/Image", payload)], 200)
     w.close()
     bag_dirs = [d for d in root.iterdir() if d.is_dir() and (d / "metadata.yaml").is_file()]
     assert len(bag_dirs) >= 2
@@ -136,12 +165,13 @@ def test_rotating_writer_rotates_when_max_minutes_zero(tmp_path: Path) -> None:
 def test_close_segment_oserror_logged(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     import logging
 
-    specs = [("/camera/front/rgb", "sensor_msgs/msg/Image")]
+    rgb_topic = catalog_camera_topic("front_rgbd", "rgb")
+    specs = [(rgb_topic, "sensor_msgs/msg/Image")]
     w = RotatingMcapWriter(
         tmp_path / "bags",
         rotation_max_bytes=10_000_000,
         rotation_max_minutes=60.0,
-        max_disk_usage_fraction=0.99,
+        min_free_fraction=0.01,
         topic_msgtypes=specs,
     )
     w.ensure_started()
@@ -160,8 +190,8 @@ def test_close_idempotent(tmp_path: Path) -> None:
         tmp_path / "bags",
         rotation_max_bytes=10_000_000,
         rotation_max_minutes=60.0,
-        max_disk_usage_fraction=0.99,
-        topic_msgtypes=[("/camera/front/rgb", "sensor_msgs/msg/Image")],
+        min_free_fraction=0.01,
+        topic_msgtypes=[(catalog_camera_topic("front_rgbd", "rgb"), "sensor_msgs/msg/Image")],
     )
     w.close()
     w.close()

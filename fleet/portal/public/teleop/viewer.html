@@ -1,0 +1,1327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Krabby teleop — Operator console</title>
+  <style>
+    :root {
+      --bg-deep: #0c0f14;
+      --bg-panel: #141a22;
+      --bg-elevated: #1c2430;
+      --border: rgba(255, 255, 255, 0.08);
+      --text: #e8ecf1;
+      --text-muted: #8b98a8;
+      --accent: #38bdf8;
+      --accent-dim: rgba(56, 189, 248, 0.15);
+      --success: #34d399;
+      --warning: #fbbf24;
+      --danger: #f87171;
+      --radius: 12px;
+      --radius-sm: 8px;
+      --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      --mono: ui-monospace, "Cascadia Code", "SF Mono", Menlo, Consolas, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: var(--font);
+      font-size: 15px;
+      line-height: 1.5;
+      color: var(--text);
+      background: var(--bg-deep);
+      background-image:
+        radial-gradient(ellipse 120% 80% at 50% -30%, rgba(56, 189, 248, 0.12), transparent 55%),
+        radial-gradient(ellipse 70% 50% at 100% 100%, rgba(52, 211, 153, 0.06), transparent 45%);
+    }
+
+    .app {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 1.25rem 1.5rem 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+      min-height: 100vh;
+    }
+
+    .top-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.875rem;
+    }
+
+    .brand-mark {
+      width: 44px;
+      height: 44px;
+      border-radius: var(--radius-sm);
+      background: linear-gradient(145deg, var(--accent), #0ea5e9);
+      display: grid;
+      place-items: center;
+      font-weight: 800;
+      font-size: 1.1rem;
+      color: var(--bg-deep);
+      letter-spacing: -0.02em;
+      box-shadow: 0 4px 24px rgba(56, 189, 248, 0.35);
+    }
+
+    .brand-text h1 {
+      margin: 0;
+      font-size: 1.25rem;
+      font-weight: 650;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-text .tagline {
+      margin: 0.15rem 0 0;
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+      font-weight: 450;
+    }
+
+    .live-strip {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.65rem 1rem;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.35rem 0.85rem;
+      border-radius: 999px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: var(--text-muted);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--text-muted);
+      flex-shrink: 0;
+    }
+
+    body[data-teleop-phase="live"] .status-dot {
+      background: var(--success);
+      box-shadow: 0 0 10px rgba(52, 211, 153, 0.7);
+    }
+
+    body[data-teleop-phase="connecting"] .status-dot {
+      background: var(--warning);
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+
+    body[data-teleop-phase="error"] .status-dot {
+      background: var(--danger);
+    }
+
+    @keyframes pulse {
+      50% { opacity: 0.45; }
+    }
+
+    #status {
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    .metric {
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+      max-width: 42rem;
+    }
+
+    .metric strong {
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    #latency,
+    #streamStatus {
+      margin: 0;
+    }
+
+    .main-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
+      gap: 1.25rem;
+      align-items: start;
+      flex: 1;
+    }
+
+    @media (max-width: 960px) {
+      .main-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .main-column {
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+      min-width: 0;
+    }
+
+    .stage,
+    .telemetry-section {
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .stage {
+      min-height: min(55vh, 640px);
+    }
+
+    .stage-header {
+      padding: 0.65rem 1rem;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      background: rgba(0, 0, 0, 0.2);
+    }
+
+    .stage-body,
+    .telemetry-body {
+      flex: 1;
+      padding: 1rem;
+      min-height: 0;
+    }
+
+    .cockpit-hud {
+      display: grid;
+      grid-template-columns: minmax(108px, 132px) minmax(108px, 132px) minmax(280px, 1fr) minmax(130px, 170px);
+      grid-template-rows: auto auto auto;
+      gap: 0.75rem;
+      align-items: start;
+    }
+
+    .cockpit-hud[hidden] {
+      display: none !important;
+    }
+
+    .hud-panel {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 0.55rem 0.7rem;
+    }
+
+    .hud-speed {
+      grid-column: 1;
+      grid-row: 1;
+    }
+
+    .hud-speed-label {
+      font-size: 0.65rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin: 0 0 0.15rem;
+    }
+
+    .hud-speed-value {
+      font-family: var(--mono);
+      font-size: 1.65rem;
+      font-weight: 700;
+      line-height: 1.1;
+      color: var(--accent);
+      margin: 0;
+    }
+
+    .hud-speed-unit {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-left: 0.2rem;
+    }
+
+    .hud-compass {
+      grid-column: 2;
+      grid-row: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .hud-compass-wrap {
+      position: relative;
+      width: 100%;
+      max-width: 108px;
+      aspect-ratio: 1;
+    }
+
+    .hud-compass-rose {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      border: 2px solid rgba(255, 255, 255, 0.22);
+      background: radial-gradient(circle at 50% 50%, rgba(30, 58, 95, 0.5) 0%, rgba(10, 14, 20, 0.9) 70%);
+      transition: transform 0.08s linear;
+    }
+
+    .hud-compass-rose::before {
+      content: '';
+      position: absolute;
+      inset: 6%;
+      border-radius: 50%;
+      border: 1px dashed rgba(255, 255, 255, 0.15);
+    }
+
+    .hud-compass-tick {
+      position: absolute;
+      left: 50%;
+      top: 4%;
+      width: 2px;
+      height: 10%;
+      margin-left: -1px;
+      transform-origin: 50% 450%;
+      background: rgba(255, 255, 255, 0.35);
+    }
+
+    .hud-compass-tick.major {
+      height: 14%;
+      width: 3px;
+      margin-left: -1.5px;
+      background: rgba(255, 255, 255, 0.65);
+    }
+
+    .hud-compass-cardinal {
+      position: absolute;
+      font-size: 0.62rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      color: var(--text-muted);
+      transform: translate(-50%, -50%);
+    }
+
+    .hud-compass-cardinal.n {
+      left: 50%;
+      top: 10%;
+      color: #f87171;
+    }
+
+    .hud-compass-cardinal.e { left: 88%; top: 50%; }
+    .hud-compass-cardinal.s { left: 50%; top: 90%; }
+    .hud-compass-cardinal.w { left: 12%; top: 50%; }
+
+    .hud-compass-lubber {
+      position: absolute;
+      left: 50%;
+      top: 2%;
+      width: 0;
+      height: 0;
+      margin-left: -7px;
+      border-left: 7px solid transparent;
+      border-right: 7px solid transparent;
+      border-bottom: 12px solid var(--accent);
+      filter: drop-shadow(0 0 4px rgba(56, 189, 248, 0.6));
+      z-index: 2;
+    }
+
+    .hud-compass-heading {
+      font-family: var(--mono);
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--text);
+      margin: 0;
+      text-align: center;
+    }
+
+    .hud-compass-heading-unit {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .hud-attitude-cluster {
+      grid-column: 3;
+      grid-row: 1 / span 2;
+      width: 100%;
+      max-width: 420px;
+      justify-self: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .hud-attitude-row {
+      display: flex;
+      flex-direction: row;
+      align-items: stretch;
+      justify-content: center;
+      gap: 0.55rem;
+      width: 100%;
+    }
+
+    .hud-attitude-3d {
+      flex: 1 1 0;
+      min-width: 0;
+      max-width: 200px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.25rem;
+    }
+
+    .hud-attitude-3d-label {
+      font-size: 0.62rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin: 0;
+    }
+
+    .hud-attitude-3d-scene {
+      width: 100%;
+      aspect-ratio: 1;
+      position: relative;
+      border-radius: var(--radius-sm);
+      border: 2px solid rgba(255, 255, 255, 0.18);
+      background: radial-gradient(ellipse at 50% 120%, rgba(56, 189, 248, 0.08) 0%, rgba(5, 6, 8, 0.95) 55%);
+      overflow: hidden;
+      perspective: 320px;
+    }
+
+    .hud-attitude-3d-scene::before {
+      content: '';
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 88%;
+      height: 88%;
+      margin: -44% 0 0 -44%;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      pointer-events: none;
+    }
+
+    .hud-attitude-3d-grid {
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+      background-size: 22% 22%;
+      opacity: 0.55;
+      transform: rotateX(72deg) translateZ(-40px);
+      transform-style: preserve-3d;
+    }
+
+    .hud-attitude-3d-pivot {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 0;
+      height: 0;
+      transform-style: preserve-3d;
+      transition: transform 0.08s linear;
+    }
+
+    .hud-attitude-3d-cube {
+      position: absolute;
+      left: -28px;
+      top: -28px;
+      width: 56px;
+      height: 56px;
+      transform-style: preserve-3d;
+    }
+
+    .hud-attitude-3d-face {
+      position: absolute;
+      width: 56px;
+      height: 56px;
+      border: 1px solid rgba(255, 255, 255, 0.35);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.55rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      backface-visibility: visible;
+      opacity: 0.92;
+    }
+
+    .hud-attitude-3d-face.front {
+      background: rgba(56, 189, 248, 0.35);
+      transform: rotateY(0deg) translateZ(28px);
+    }
+
+    .hud-attitude-3d-face.back {
+      background: rgba(100, 116, 139, 0.3);
+      transform: rotateY(180deg) translateZ(28px);
+    }
+
+    .hud-attitude-3d-face.right {
+      background: rgba(34, 197, 94, 0.28);
+      transform: rotateY(90deg) translateZ(28px);
+    }
+
+    .hud-attitude-3d-face.left {
+      background: rgba(234, 179, 8, 0.25);
+      transform: rotateY(-90deg) translateZ(28px);
+    }
+
+    .hud-attitude-3d-face.top {
+      background: rgba(248, 250, 252, 0.2);
+      transform: rotateX(90deg) translateZ(28px);
+    }
+
+    .hud-attitude-3d-face.bottom {
+      background: rgba(15, 23, 42, 0.55);
+      transform: rotateX(-90deg) translateZ(28px);
+    }
+
+    .hud-attitude-3d-nose {
+      position: absolute;
+      left: 50%;
+      top: -14px;
+      width: 0;
+      height: 0;
+      margin-left: -8px;
+      border-left: 8px solid transparent;
+      border-right: 8px solid transparent;
+      border-bottom: 16px solid var(--accent);
+      transform: translateZ(34px);
+      filter: drop-shadow(0 0 6px rgba(56, 189, 248, 0.5));
+    }
+
+    .hud-attitude-2d {
+      flex: 1 1 0;
+      min-width: 0;
+      max-width: 200px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.25rem;
+    }
+
+    .hud-attitude-2d-label {
+      font-size: 0.62rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin: 0;
+    }
+
+    .hud-horizon-wrap {
+      width: 100%;
+      aspect-ratio: 1;
+      border-radius: 50%;
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      overflow: hidden;
+      background: #0a0e14;
+      position: relative;
+    }
+
+    .hud-horizon {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 220%;
+      height: 220%;
+      transform: translate(-50%, -50%);
+      transition: transform 0.08s linear;
+    }
+
+    .hud-horizon-sky,
+    .hud-horizon-ground {
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 50%;
+    }
+
+    .hud-horizon-sky {
+      top: 0;
+      background: linear-gradient(180deg, #1e3a5f 0%, #38bdf8 100%);
+    }
+
+    .hud-horizon-ground {
+      bottom: 0;
+      background: linear-gradient(0deg, #3f2e1b 0%, #78716c 100%);
+    }
+
+    .hud-horizon-line {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 50%;
+      height: 2px;
+      margin-top: -1px;
+      background: rgba(255, 255, 255, 0.85);
+      box-shadow: 0 0 6px rgba(255, 255, 255, 0.5);
+    }
+
+    .hud-horizon-reticle {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 58%;
+      height: 58%;
+      margin: -29% 0 0 -29%;
+      border: 1px solid rgba(255, 255, 255, 0.35);
+      border-radius: 50%;
+      box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25);
+    }
+
+    .hud-euler {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      color: var(--text);
+      text-align: center;
+      margin: 0;
+      line-height: 1.45;
+    }
+
+    .hud-velocity {
+      grid-column: 4;
+      grid-row: 1;
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      line-height: 1.5;
+      color: var(--text-muted);
+    }
+
+    .hud-velocity strong {
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    @media (max-width: 900px) {
+      .cockpit-hud {
+        grid-template-columns: minmax(100px, 1fr) minmax(100px, 1fr);
+        grid-template-rows: auto auto auto auto auto;
+      }
+
+      .hud-speed {
+        grid-column: 1;
+        grid-row: 1;
+      }
+
+      .hud-compass {
+        grid-column: 2;
+        grid-row: 1;
+      }
+
+      .hud-attitude-cluster {
+        grid-column: 1 / -1;
+        grid-row: 2;
+        max-width: none;
+      }
+
+      .hud-velocity {
+        grid-column: 1 / -1;
+        grid-row: 3;
+      }
+
+      .hud-telemetry-status {
+        grid-row: 4;
+      }
+    }
+
+    @media (max-width: 520px) {
+      .hud-attitude-row {
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .hud-attitude-3d,
+      .hud-attitude-2d {
+        max-width: min(200px, 72vw);
+      }
+    }
+
+    .hud-telemetry-status {
+      grid-column: 1 / -1;
+      grid-row: 3;
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      text-align: center;
+      padding: 0.35rem 0.5rem;
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+    }
+
+    .hud-telemetry-status[data-live="true"] {
+      color: var(--success);
+    }
+
+    #videos {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1rem;
+      align-content: start;
+      min-height: 200px;
+    }
+
+    .video-tile {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      min-width: 0;
+    }
+
+    .video-tile-label {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      word-break: break-word;
+    }
+
+    #videos video {
+      width: 100%;
+      border-radius: var(--radius-sm);
+      background: #050608;
+      border: 1px solid var(--border);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+    }
+
+    .metrics-bar {
+      padding: 0.75rem 1rem;
+      border-top: 1px solid var(--border);
+      background: rgba(0, 0, 0, 0.25);
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .metrics-bar p {
+      margin: 0;
+    }
+
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .panel {
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .panel summary {
+      cursor: pointer;
+      padding: 0.85rem 1rem;
+      font-weight: 600;
+      font-size: 0.9rem;
+      list-style: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      user-select: none;
+      background: rgba(0, 0, 0, 0.15);
+    }
+
+    .panel summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .panel summary::after {
+      content: "";
+      width: 0.5rem;
+      height: 0.5rem;
+      border-right: 2px solid var(--text-muted);
+      border-bottom: 2px solid var(--text-muted);
+      transform: rotate(-45deg);
+      transition: transform 0.2s ease;
+      flex-shrink: 0;
+      margin-left: 0.75rem;
+    }
+
+    .panel[open] summary::after {
+      transform: rotate(45deg);
+    }
+
+    .panel-inner {
+      padding: 0 1rem 1rem;
+      border-top: 1px solid var(--border);
+    }
+
+    .panel-inner > p:first-child {
+      margin-top: 0.85rem;
+    }
+
+    .hint {
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+      margin: 0 0 0.75rem;
+      line-height: 1.45;
+    }
+
+    .catalog-list-heading {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 0.5rem;
+    }
+
+    .catalog-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.5rem;
+      padding: 0.35rem 0;
+      font-size: 0.875rem;
+      cursor: pointer;
+      border-radius: 6px;
+    }
+
+    .catalog-row:hover {
+      background: var(--accent-dim);
+    }
+
+    .catalog-row input {
+      margin-top: 0.2rem;
+      accent-color: var(--accent);
+    }
+
+    .operator-override-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      cursor: pointer;
+      margin-bottom: 0.75rem;
+    }
+
+    .operator-override-row input {
+      accent-color: var(--accent);
+    }
+
+    .control-mode-status {
+      margin: 0.75rem 0;
+      padding: 0.7rem 0.8rem;
+      border-radius: var(--radius-sm);
+      border: 1px solid rgba(251, 191, 36, 0.45);
+      background: rgba(251, 191, 36, 0.12);
+      color: #fde68a;
+      font-size: 0.8125rem;
+      font-weight: 650;
+      line-height: 1.35;
+    }
+
+    .control-mode-status[data-enabled="true"] {
+      border-color: rgba(52, 211, 153, 0.5);
+      background: rgba(52, 211, 153, 0.12);
+      color: #bbf7d0;
+    }
+
+    #catalogList {
+      max-height: 220px;
+      overflow-y: auto;
+      padding-right: 0.25rem;
+    }
+
+    button#applyCatalogStreams {
+      margin-top: 1rem;
+      width: 100%;
+      padding: 0.65rem 1rem;
+      border: none;
+      border-radius: var(--radius-sm);
+      background: linear-gradient(180deg, #22d3ee, var(--accent));
+      color: var(--bg-deep);
+      font-weight: 650;
+      font-size: 0.875rem;
+      cursor: pointer;
+      font-family: inherit;
+      box-shadow: 0 4px 16px rgba(56, 189, 248, 0.35);
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    button#applyCatalogStreams:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(56, 189, 248, 0.45);
+    }
+
+    button#applyCatalogStreams:active {
+      transform: translateY(0);
+    }
+
+    #controllerStateMirror {
+      margin: 0.5rem 0 0;
+      padding: 0.65rem 0.75rem;
+      border-radius: var(--radius-sm);
+      background: var(--bg-deep);
+      border: 1px solid var(--border);
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      overflow-x: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .virtual-gamepad {
+      margin-top: 0.85rem;
+      padding: 0.75rem;
+      border-radius: var(--radius-sm);
+      background: rgba(0, 0, 0, 0.18);
+      border: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .virtual-gamepad[data-enabled="false"] {
+      opacity: 0.5;
+    }
+
+    .virtual-gamepad-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.75rem;
+      align-items: start;
+    }
+
+    .virtual-stick-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      min-width: 0;
+    }
+
+    .virtual-stick-label {
+      font-size: 0.75rem;
+      line-height: 1.3;
+      color: var(--text-muted);
+      font-weight: 600;
+      display: block;
+      /* Equal label band so sticks stay aligned when one caption wraps. */
+      min-height: calc(2 * 1.3 * 0.75rem);
+    }
+
+    .virtual-stick {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 1;
+      min-height: 112px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background:
+        linear-gradient(rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01)),
+        var(--bg-deep);
+      touch-action: none;
+      user-select: none;
+      outline: none;
+    }
+
+    .virtual-gamepad[data-enabled="false"] .virtual-stick,
+    .virtual-button:disabled,
+    .virtual-reset:disabled {
+      cursor: not-allowed;
+    }
+
+    .virtual-stick:focus-visible {
+      box-shadow: 0 0 0 2px var(--accent);
+    }
+
+    .virtual-stick::before,
+    .virtual-stick::after {
+      content: "";
+      position: absolute;
+      background: rgba(255, 255, 255, 0.08);
+      pointer-events: none;
+    }
+
+    .virtual-stick::before {
+      left: 50%;
+      top: 12%;
+      bottom: 12%;
+      width: 1px;
+    }
+
+    .virtual-stick::after {
+      top: 50%;
+      left: 12%;
+      right: 12%;
+      height: 1px;
+    }
+
+    .virtual-stick-knob {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 38%;
+      height: 38%;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      background: linear-gradient(180deg, #3b82f6, var(--accent));
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      box-shadow: 0 6px 18px rgba(56, 189, 248, 0.28);
+      pointer-events: none;
+    }
+
+    .virtual-button-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.45rem;
+    }
+
+    .virtual-button,
+    .virtual-reset {
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--bg-elevated);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.75rem;
+      font-weight: 650;
+      padding: 0.42rem 0.5rem;
+      cursor: pointer;
+    }
+
+    .virtual-button[aria-pressed="true"] {
+      background: var(--accent);
+      color: var(--bg-deep);
+      border-color: transparent;
+      box-shadow: 0 0 14px rgba(56, 189, 248, 0.32);
+    }
+
+    .virtual-button:disabled,
+    .virtual-reset:disabled {
+      color: var(--text-muted);
+      box-shadow: none;
+    }
+
+    .virtual-reset {
+      width: 100%;
+      border-radius: var(--radius-sm);
+      color: var(--text-muted);
+    }
+
+    .virtual-gamepad[data-active="false"] {
+      opacity: 0.72;
+    }
+
+    #debugRtc {
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin: 0;
+      padding: 0.65rem 0.75rem;
+      border-radius: var(--radius-sm);
+      background: var(--bg-deep);
+      border: 1px solid var(--border);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .footer-note {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-align: center;
+      opacity: 0.85;
+    }
+
+    .footer-note code {
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      background: var(--bg-elevated);
+      padding: 0.12rem 0.35rem;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+
+    body[data-teleop-phase="idle"] .status-dot {
+      background: var(--text-muted);
+    }
+
+    details.sub-panel {
+      margin-top: 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: rgba(0, 0, 0, 0.2);
+    }
+
+    details.sub-panel > summary {
+      padding: 0.55rem 0.75rem;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      cursor: pointer;
+      list-style: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: var(--text-muted);
+    }
+
+    details.sub-panel > summary::-webkit-details-marker {
+      display: none;
+    }
+
+    details.sub-panel > summary::after {
+      content: "";
+      width: 0.45rem;
+      height: 0.45rem;
+      border-right: 2px solid var(--text-muted);
+      border-bottom: 2px solid var(--text-muted);
+      transform: rotate(-45deg);
+      transition: transform 0.2s ease;
+    }
+
+    details.sub-panel[open] > summary::after {
+      transform: rotate(45deg);
+    }
+
+    details.sub-panel .panel-inner {
+      border-top: 1px solid var(--border);
+      padding-top: 0.5rem;
+    }
+  </style>
+</head>
+<body data-teleop-phase="idle">
+  <div class="app">
+    <header class="top-bar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">K</div>
+        <div class="brand-text">
+          <h1>Krabby teleop</h1>
+          <p class="tagline">Remote operator console · secure browser session</p>
+        </div>
+      </div>
+      <div class="live-strip">
+        <div class="status-pill" title="Session status">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span id="status">Connecting…</span>
+        </div>
+      </div>
+    </header>
+
+    <div class="main-grid">
+      <div class="main-column">
+        <section class="stage" aria-labelledby="live-video-heading">
+          <div class="stage-header" id="live-video-heading">Live video</div>
+          <div class="stage-body">
+            <div id="videos"></div>
+          </div>
+          <div class="metrics-bar" aria-label="Stream metrics">
+            <p id="latency">Signaling RTT: —</p>
+            <p id="streamStatus">Streams: —</p>
+          </div>
+        </section>
+
+        <section class="telemetry-section" aria-labelledby="motion-telemetry-heading">
+          <div class="stage-header" id="motion-telemetry-heading">Motion telemetry</div>
+          <div class="telemetry-body">
+            <div class="cockpit-hud" id="cockpitHud" aria-label="Robot motion telemetry">
+              <div class="hud-panel hud-speed">
+                <p class="hud-speed-label">Ground speed</p>
+                <p class="hud-speed-value"><span id="hudSpeedValue">—</span><span class="hud-speed-unit">m/s</span></p>
+              </div>
+              <div class="hud-panel hud-compass" aria-label="Heading compass">
+                <p class="hud-speed-label">Heading</p>
+                <div class="hud-compass-wrap">
+                  <div class="hud-compass-rose" id="hudCompassRose" aria-hidden="true">
+                    <span class="hud-compass-tick major" style="transform: rotate(0deg)"></span>
+                    <span class="hud-compass-tick" style="transform: rotate(30deg)"></span>
+                    <span class="hud-compass-tick" style="transform: rotate(60deg)"></span>
+                    <span class="hud-compass-tick major" style="transform: rotate(90deg)"></span>
+                    <span class="hud-compass-tick" style="transform: rotate(120deg)"></span>
+                    <span class="hud-compass-tick" style="transform: rotate(150deg)"></span>
+                    <span class="hud-compass-tick major" style="transform: rotate(180deg)"></span>
+                    <span class="hud-compass-tick" style="transform: rotate(210deg)"></span>
+                    <span class="hud-compass-tick" style="transform: rotate(240deg)"></span>
+                    <span class="hud-compass-tick major" style="transform: rotate(270deg)"></span>
+                    <span class="hud-compass-tick" style="transform: rotate(300deg)"></span>
+                    <span class="hud-compass-tick" style="transform: rotate(330deg)"></span>
+                    <span class="hud-compass-cardinal n">N</span>
+                    <span class="hud-compass-cardinal e">E</span>
+                    <span class="hud-compass-cardinal s">S</span>
+                    <span class="hud-compass-cardinal w">W</span>
+                  </div>
+                  <div class="hud-compass-lubber" aria-hidden="true"></div>
+                </div>
+                <p class="hud-compass-heading">
+                  <span id="hudHeadingValue">—</span><span class="hud-compass-heading-unit">°</span>
+                </p>
+              </div>
+              <div class="hud-panel hud-attitude-cluster">
+                <div class="hud-attitude-row">
+                  <div class="hud-attitude-3d">
+                    <p class="hud-attitude-3d-label">3D attitude</p>
+                    <div class="hud-attitude-3d-scene" aria-hidden="true">
+                      <div class="hud-attitude-3d-grid"></div>
+                      <div class="hud-attitude-3d-pivot" id="hudAttitude3dPivot">
+                        <div class="hud-attitude-3d-cube" id="hudAttitude3dCube">
+                          <div class="hud-attitude-3d-face front">F</div>
+                          <div class="hud-attitude-3d-face back">B</div>
+                          <div class="hud-attitude-3d-face right">R</div>
+                          <div class="hud-attitude-3d-face left">L</div>
+                          <div class="hud-attitude-3d-face top">T</div>
+                          <div class="hud-attitude-3d-face bottom"></div>
+                          <div class="hud-attitude-3d-nose"></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="hud-attitude-2d">
+                    <p class="hud-attitude-2d-label">Horizon</p>
+                    <div class="hud-horizon-wrap" aria-hidden="true">
+                      <div class="hud-horizon" id="hudHorizon">
+                        <div class="hud-horizon-sky"></div>
+                        <div class="hud-horizon-ground"></div>
+                        <div class="hud-horizon-line"></div>
+                      </div>
+                      <div class="hud-horizon-reticle"></div>
+                    </div>
+                  </div>
+                </div>
+                <p class="hud-euler" id="hudEuler">Roll — · Pitch — · Yaw —</p>
+              </div>
+              <div class="hud-panel hud-velocity" id="hudVelocity">
+                <div><strong>Vx</strong> <span id="hudVx">—</span> m/s</div>
+                <div><strong>Vy</strong> <span id="hudVy">—</span> m/s</div>
+                <div><strong>Vz</strong> <span id="hudVz">—</span> m/s</div>
+                <div style="margin-top:0.35rem"><strong>ω</strong> <span id="hudOmega">—</span> rad/s</div>
+              </div>
+              <div class="hud-telemetry-status" id="hudTelemetryStatus" data-live="false">
+                Motion telemetry: waiting for robot…
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <aside class="sidebar">
+        <details class="panel" id="sensorSelectionPanel">
+          <summary>Camera &amp; sensors</summary>
+          <div class="panel-inner">
+            <p class="hint">
+              Choose which robot cameras appear as separate video tiles (top to bottom). Use <strong>Apply</strong> after changes.
+            </p>
+            <div id="catalogList">Available sensors: waiting for robot hello...</div>
+            <button type="button" id="applyCatalogStreams">Apply selection</button>
+          </div>
+        </details>
+
+        <details class="panel" id="manualControlPanel">
+          <summary>Manual control</summary>
+          <div class="panel-inner">
+            <p class="hint">
+              Use a physical gamepad or the virtual fallback below. Robot motion is gated by operator override.
+            </p>
+            <label class="operator-override-row">
+              <input type="checkbox" id="teleopOperatorOverride" />
+              <span>Operator override</span>
+            </label>
+            <div class="control-mode-status" id="operatorOverrideStatus" data-enabled="false" role="status" aria-live="polite">
+              Override OFF: joystick controls are disabled and will not move the robot.
+            </div>
+            <div class="virtual-gamepad" id="virtualGamepad" data-active="true" data-enabled="false" aria-label="Virtual controller fallback" aria-disabled="true">
+              <p class="hint" id="virtualGamepadStatus" style="margin: 0;">
+                Enable Operator override to use virtual controls.
+              </p>
+              <div class="virtual-gamepad-grid">
+                <div class="virtual-stick-wrap">
+                  <span class="virtual-stick-label">Left stick: knee / hip pitch</span>
+                  <div class="virtual-stick" data-virtual-stick="left" role="application" tabindex="-1" aria-disabled="true" aria-label="Virtual left stick">
+                    <div class="virtual-stick-knob" data-virtual-knob></div>
+                  </div>
+                </div>
+                <div class="virtual-stick-wrap">
+                  <span class="virtual-stick-label">Right stick: hip yaw</span>
+                  <div class="virtual-stick" data-virtual-stick="right" role="application" tabindex="-1" aria-disabled="true" aria-label="Virtual right stick">
+                    <div class="virtual-stick-knob" data-virtual-knob></div>
+                  </div>
+                </div>
+              </div>
+              <div class="virtual-button-grid" aria-label="Virtual leg buttons">
+                <button type="button" class="virtual-button" data-virtual-button="LT" aria-pressed="false" disabled>L2 / LT / FL</button>
+                <button type="button" class="virtual-button" data-virtual-button="LS" aria-pressed="false" disabled>L3 / LS / ML</button>
+                <button type="button" class="virtual-button" data-virtual-button="RT" aria-pressed="false" disabled>R2 / RT / FR</button>
+                <button type="button" class="virtual-button" data-virtual-button="LB" aria-pressed="false" disabled>L1 / LB / RL</button>
+                <button type="button" class="virtual-button" data-virtual-button="RS" aria-pressed="false" disabled>R3 / RS / MR</button>
+                <button type="button" class="virtual-button" data-virtual-button="RB" aria-pressed="false" disabled>R1 / RB / RR</button>
+              </div>
+              <button type="button" class="virtual-reset" id="virtualGamepadReset" disabled>Center sticks and clear virtual buttons</button>
+            </div>
+          </div>
+        </details>
+
+        <details class="panel">
+          <summary>Technical details &amp; diagnostics</summary>
+          <div class="panel-inner">
+            <p class="hint">
+              WebRTC connection states and operator tooling. Safe to keep closed during demos.
+            </p>
+            <p id="debugRtc"></p>
+            <details class="sub-panel" id="controllerDiagnosticPanel">
+              <summary>Gamepad &amp; control channel</summary>
+              <div class="panel-inner">
+                <p class="hint">
+                  Local gamepad capture uses the browser only. Commands reach the robot when the WebRTC control channel is open.
+                </p>
+                <p class="hint" style="margin-bottom: 0.35rem;"><strong style="color: var(--text);">Browser</strong></p>
+                <p id="controllerStatus" class="hint" style="margin-top: 0;">Controller: checking...</p>
+                <pre id="controllerStateMirror">—</pre>
+                <p class="hint" style="margin-bottom: 0.35rem;"><strong style="color: var(--text);">To robot (WebRTC)</strong></p>
+                <p id="controlChannelStatus" class="hint" style="margin-top: 0;">Control channel: —</p>
+                <p id="controlSendStatus" class="hint" style="margin-bottom: 0;">Relayed to robot: —</p>
+              </div>
+            </details>
+          </div>
+        </details>
+      </aside>
+    </div>
+
+    <p class="footer-note">
+      Signaling via fleet MQTT bridge · ICE from <code>/api/teleop/ice-servers</code> · Media peer-to-peer after handshake
+    </p>
+  </div>
+  <script>
+    (function () {
+      var params = new URLSearchParams(location.search);
+      var thing = params.get('thing') || '';
+      var token = params.get('token') || '';
+      if (thing) {
+        document.title = 'Teleop — ' + thing;
+        var brandTitle = document.querySelector('.brand-text h1');
+        if (brandTitle) {
+          brandTitle.textContent = 'Teleop · ' + thing;
+        }
+      }
+      // Fleet service paths (Caddy strips /api → service). Token via ?token= for WS.
+      window.TELEOP_WS_PATH = '/api/devices/' + encodeURIComponent(thing) + '/teleop/signaling';
+      window.TELEOP_CONFIG_PATH = '/api/teleop/ice-servers';
+      if (token) {
+        window.TELEOP_ACCESS_TOKEN = token;
+      }
+    })();
+  </script>
+  <script src="/teleop/teleop_session.js"></script>
+</body>
+</html>

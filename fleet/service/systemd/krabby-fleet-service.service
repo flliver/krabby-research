@@ -1,0 +1,25 @@
+[Unit]
+Description=Krabby fleet service (REST + teleop signaling bridge over AWS IoT)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# This service needs no special privileges -- outbound HTTPS to AWS APIs,
+# SSM parameter reads via the instance role, and an unprivileged listen port
+# (8080) -- so it runs as a dedicated system user instead of root.
+# Provisioning must create that user first:
+#   useradd --system --no-create-home --shell /usr/sbin/nologin krabby-fleet
+User=krabby-fleet
+# TURN host/secret (and optional Cognito overrides) written by deploy-fleet-service.sh.
+# Leading '-' makes the file optional so local `krabby-fleet-service` still starts.
+EnvironmentFile=-/etc/krabby-fleet/service.env
+ExecStart=/usr/local/bin/krabby-fleet-service
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=krabby-fleet-service
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,1595 @@
+#usda 1.0
+(
+    customLayerData = {
+        dictionary cameraSettings = {
+            dictionary Front = {
+                double3 position = (5, 0, 0)
+                double radius = 5
+            }
+            dictionary Perspective = {
+                double3 position = (7.59322740928944, -5.5307511890275105, 7.849931929740069)
+                double3 target = (-0.000004844810097992536, 0.000008416391422905178, 0.000008098486583563158)
+            }
+            dictionary Right = {
+                double3 position = (0, -5, 0)
+                double radius = 5
+            }
+            dictionary Top = {
+                double3 position = (0, 0, 5)
+                double radius = 5
+            }
+            string boundCamera = "/OmniverseKit_Persp"
+        }
+        dictionary omni_layer = {
+            string authoring_layer = "./crab_simple.usda"
+            dictionary locked = {
+            }
+            dictionary muteness = {
+            }
+        }
+        dictionary renderSettings = {
+        }
+    }
+    defaultPrim = "krabby"
+    endTimeCode = 1000000
+    metersPerUnit = 1
+    startTimeCode = 0
+    timeCodesPerSecond = 60
+    upAxis = "Z"
+)
+
+def Xform "World"
+{
+    def PhysicsScene "PhysicsScene" (
+        prepend apiSchemas = ["PhysxSceneAPI"]
+    )
+    {
+        vector3f physics:gravityDirection = (0, 0, -1)
+        uniform token physxScene:broadphaseType = "GPU"
+        bool physxScene:enableGPUDynamics = 1
+    }
+
+    def Xform "GroundPlane"
+    {
+        quatf xformOp:orient = (1, 0, 0, 0)
+        float3 xformOp:scale = (1, 1, 1)
+        double3 xformOp:translate = (0, 0, 0)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+
+        def Mesh "CollisionMesh"
+        {
+            uniform bool doubleSided = 0
+            int[] faceVertexCounts = [4]
+            int[] faceVertexIndices = [0, 1, 2, 3]
+            normal3f[] normals = [(0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1)]
+            point3f[] points = [(-25, -25, 0), (25, -25, 0), (25, 25, 0), (-25, 25, 0)]
+            color3f[] primvars:displayColor = [(0.5, 0.5, 0.5)]
+            texCoord2f[] primvars:st = [(0, 0), (1, 0), (1, 1), (0, 1)] (
+                interpolation = "varying"
+            )
+            quatf xformOp:orient = (1, 0, 0, 0)
+            float3 xformOp:scale = (1, 1, 1)
+            double3 xformOp:translate = (0, 1.7833524788354762, 0)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+
+        def Plane "CollisionPlane" (
+            prepend apiSchemas = ["PhysicsCollisionAPI"]
+        )
+        {
+            uniform token axis = "Z"
+            uniform token purpose = "guide"
+        }
+    }
+
+    def SphereLight "SphereLight" (
+        prepend apiSchemas = ["ShapingAPI"]
+    )
+    {
+        float3[] extent = [(-50, -50, -50), (50, 50, 50)]
+        color3f inputs:color = (0.5, 1, 0.5)
+        float inputs:intensity = 1000000
+        float inputs:radius = 0.5
+        float inputs:shaping:cone:angle = 45
+        float inputs:shaping:cone:softness = 0.1
+        float inputs:shaping:focus
+        color3f inputs:shaping:focusTint
+        asset inputs:shaping:ies:file
+        quatd xformOp:orient = (1, 0, 0, 0)
+        double3 xformOp:scale = (1, 1, 1)
+        double3 xformOp:translate = (0, 0, 7)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+    }
+
+    def DistantLight "defaultLight" (
+        prepend apiSchemas = ["ShapingAPI"]
+    )
+    {
+        float inputs:angle = 1
+        float inputs:colorTemperature = 6500
+        float inputs:intensity = 300
+        float inputs:shaping:cone:angle = 180
+        float inputs:shaping:cone:softness
+        float inputs:shaping:focus
+        color3f inputs:shaping:focusTint
+        asset inputs:shaping:ies:file
+        quatd xformOp:orient = (0.6532814824381883, 0.2705980500730985, 0.27059805007309845, 0.6532814824381882)
+        double3 xformOp:scale = (1, 1, 1)
+        double3 xformOp:translate = (0, 0, 0)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+    }
+}
+
+def "Render" (
+    hide_in_stage_window = true
+    no_delete = true
+)
+{
+    def "OmniverseKit"
+    {
+        def "HydraTextures" (
+            hide_in_stage_window = true
+            no_delete = true
+        )
+        {
+            def RenderProduct "omni_kit_widget_viewport_ViewportTexture_0" (
+                prepend apiSchemas = ["OmniRtxSettingsCommonAdvancedAPI_1", "OmniRtxSettingsRtAdvancedAPI_1", "OmniRtxSettingsPtAdvancedAPI_1", "OmniRtxPostColorGradingAPI_1", "OmniRtxPostChromaticAberrationAPI_1", "OmniRtxPostBloomPhysicalAPI_1", "OmniRtxPostMatteObjectAPI_1", "OmniRtxPostCompositingAPI_1", "OmniRtxPostDofAPI_1", "OmniRtxPostMotionBlurAPI_1", "OmniRtxPostTvNoiseAPI_1", "OmniRtxPostTonemapIrayReinhardAPI_1", "OmniRtxPostDebugSettingsAPI_1", "OmniRtxDebugSettingsAPI_1"]
+                hide_in_stage_window = true
+                no_delete = true
+            )
+            {
+                rel camera = </OmniverseKit_Persp>
+                token omni:rtx:background:source:texture:textureMode = "repeatMirrored"
+                token omni:rtx:background:source:type = "domeLight"
+                bool omni:rtx:dlss:frameGeneration = 0
+                bool omni:rtx:material:db:nonVisualMaterialCSV:enabled = 0
+                bool omni:rtx:material:db:syncLoads = 1
+                token omni:rtx:post:dlss:execMode = "performance"
+                bool omni:rtx:post:registeredCompositing:invertColorCorrection = 1
+                bool omni:rtx:post:registeredCompositing:invertToneMap = 1
+                bool omni:rtx:pt:lightcache:cached:dontResolveConflicts = 1
+                int omni:rtx:pt:maxSamplesPerLaunch = 2073600
+                int omni:rtx:pt:mgpu:maxPixelsPerRegionExponent = 12
+                token omni:rtx:rendermode
+                color3f omni:rtx:rt:ambientLight:color = (0.1, 0.1, 0.1)
+                bool omni:rtx:rt:demoire = 0
+                bool omni:rtx:rt:ecoMode:enabled
+                bool omni:rtx:rt:lightcache:spatialCache:dontResolveConflicts = 1
+                bool omni:rtx:scene:hydra:materialSyncLoads = 1
+                bool omni:rtx:scene:hydra:mdlMaterialWarmup = 1
+                uint omni:rtx:viewTile:limit = 4294967295
+                rel orderedVars = </Render/Vars/LdrColor>
+                custom bool overrideClipRange = 0
+                uniform int2 resolution = (1280, 720)
+            }
+        }
+    }
+
+    def RenderSettings "OmniverseGlobalRenderSettings" (
+        prepend apiSchemas = ["OmniRtxSettingsGlobalRtAdvancedAPI_1", "OmniRtxSettingsGlobalPtAdvancedAPI_1"]
+        no_delete = true
+    )
+    {
+        rel products = </Render/OmniverseKit/HydraTextures/omni_kit_widget_viewport_ViewportTexture_0>
+    }
+
+    def "Vars"
+    {
+        def RenderVar "LdrColor" (
+            hide_in_stage_window = true
+            no_delete = true
+        )
+        {
+            uniform string sourceName = "LdrColor"
+        }
+    }
+}
+
+def Xform "krabby" (
+    delete apiSchemas = ["PhysicsArticulationRootAPI", "PhysxArticulationAPI"]
+    prepend apiSchemas = ["PhysicsArticulationRootAPI", "PhysxArticulationAPI"]
+)
+{
+    rel proxyPrim = None
+    quatd xformOp:orient = (1, 0, 0, 0)
+    double3 xformOp:scale = (1, 1, 1)
+    double3 xformOp:translate = (0, 0, 1.1)
+    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+
+    def Xform "Leg_FL"
+    {
+        quatd xformOp:orient = (1, 0, 0, 0)
+        double3 xformOp:scale = (1, 1, 1)
+        double3 xformOp:translate = (0, 0, 0)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+
+        def Mesh "FL_Femur" (
+            prepend apiSchemas = ["PhysicsMassAPI", "MaterialBindingAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI", "PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            float physics:mass = 2.066343108
+            point3f physics:centerOfMass = (0, 4.510679612e-18, -3.702346985e-06)
+            float3 physics:diagonalInertia = (0.0945639981, 0.002065781839, 0.09272040325)
+            float3[] extent = [(-0.0127, -0.3556, -0.0635), (0.0127, 0.3556, 0.0635)]
+            int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
+            int[] faceVertexIndices = [35, 1, 0, 35, 2, 1, 35, 3, 2, 35, 4, 3, 35, 5, 4, 35, 6, 5, 35, 7, 6, 35, 8, 7, 35, 9, 8, 35, 10, 9, 35, 11, 10, 35, 12, 11, 35, 13, 12, 35, 14, 13, 35, 15, 14, 35, 16, 15, 35, 17, 16, 35, 18, 17, 35, 19, 18, 35, 20, 19, 35, 21, 20, 35, 22, 21, 35, 23, 22, 23, 25, 24, 23, 26, 25, 23, 27, 26, 23, 28, 27, 23, 29, 28, 23, 30, 29, 23, 31, 30, 23, 32, 31, 23, 33, 32, 23, 34, 33, 23, 35, 34, 71, 36, 37, 71, 37, 38, 71, 38, 39, 71, 39, 40, 71, 40, 41, 71, 41, 42, 71, 42, 43, 71, 43, 44, 71, 44, 45, 71, 45, 46, 71, 46, 47, 71, 47, 48, 71, 48, 49, 71, 49, 50, 71, 50, 51, 71, 51, 52, 71, 52, 53, 71, 53, 54, 71, 54, 55, 71, 55, 56, 71, 56, 57, 71, 57, 58, 71, 58, 59, 59, 60, 61, 59, 61, 62, 59, 62, 63, 59, 63, 64, 59, 64, 65, 59, 65, 66, 59, 66, 67, 59, 67, 68, 59, 68, 69, 59, 69, 70, 59, 70, 71, 0, 36, 37, 1, 1, 37, 38, 2, 2, 38, 39, 3, 3, 39, 40, 4, 4, 40, 41, 5, 5, 41, 42, 6, 6, 42, 43, 7, 7, 43, 44, 8, 8, 44, 45, 9, 9, 45, 46, 10, 10, 46, 47, 11, 11, 47, 48, 12, 12, 48, 49, 13, 13, 49, 50, 14, 14, 50, 51, 15, 15, 51, 52, 16, 16, 52, 53, 17, 17, 53, 54, 18, 18, 54, 55, 19, 19, 55, 56, 20, 20, 56, 57, 21, 21, 57, 58, 22, 22, 58, 59, 23, 23, 59, 60, 24, 24, 60, 61, 25, 25, 61, 62, 26, 26, 62, 63, 27, 27, 63, 64, 28, 28, 64, 65, 29, 29, 65, 66, 30, 30, 66, 67, 31, 31, 67, 68, 32, 32, 68, 69, 33, 33, 69, 70, 34, 34, 70, 71, 35, 35, 71, 36, 0]
+            point3f[] points = [(0.0127, -0.2921, -0.0635), (0.0127, -0.31150306, -0.06100064), (0.0127, -0.32737806, -0.05409184), (0.0127, -0.339725, -0.04365752), (0.0127, -0.34854388, -0.03057398), (0.0127, -0.35383724, -0.01572768), (0.0127, -0.3556, 0), (0.0127, -0.35383724, 0.01572768), (0.0127, -0.34854388, 0.03057398), (0.0127, -0.339725, 0.04365752), (0.0127, -0.32737806, 0.05409184), (0.0127, -0.31150306, 0.06100064), (0.0127, -0.2921, 0.0635), (0.0127, -0.219075, 0.05952998), (0.0127, -0.073025, 0.04205986), (0.0127, 0, 0.03808984), (0.0127, 0.073025, 0.04205986), (0.0127, 0.219075, 0.05952998), (0.0127, 0.2921, 0.0635), (0.0127, 0.31150306, 0.06100064), (0.0127, 0.32737806, 0.05409184), (0.0127, 0.339725, 0.04365752), (0.0127, 0.34854388, 0.03057398), (0.0127, 0.35383724, 0.01572768), (0.0127, 0.3556, 0), (0.0127, 0.35383724, -0.01572768), (0.0127, 0.34854388, -0.03057398), (0.0127, 0.339725, -0.04365752), (0.0127, 0.32737806, -0.05409184), (0.0127, 0.31150306, -0.06100064), (0.0127, 0.2921, -0.0635), (0.0127, 0.219075, -0.05953252), (0.0127, 0.073025, -0.04207764), (0.0127, 0, -0.03811016), (0.0127, -0.073025, -0.04207764), (0.0127, -0.219075, -0.05953252), (-0.0127, -0.2921, -0.0635), (-0.0127, -0.31150306, -0.06100064), (-0.0127, -0.32737806, -0.05409184), (-0.0127, -0.339725, -0.04365752), (-0.0127, -0.34854388, -0.03057398), (-0.0127, -0.35383724, -0.01572768), (-0.0127, -0.3556, 0), (-0.0127, -0.35383724, 0.01572768), (-0.0127, -0.34854388, 0.03057398), (-0.0127, -0.339725, 0.04365752), (-0.0127, -0.32737806, 0.05409184), (-0.0127, -0.31150306, 0.06100064), (-0.0127, -0.2921, 0.0635), (-0.0127, -0.219075, 0.05952998), (-0.0127, -0.073025, 0.04205986), (-0.0127, 0, 0.03808984), (-0.0127, 0.073025, 0.04205986), (-0.0127, 0.219075, 0.05952998), (-0.0127, 0.2921, 0.0635), (-0.0127, 0.31150306, 0.06100064), (-0.0127, 0.32737806, 0.05409184), (-0.0127, 0.339725, 0.04365752), (-0.0127, 0.34854388, 0.03057398), (-0.0127, 0.35383724, 0.01572768), (-0.0127, 0.3556, 0), (-0.0127, 0.35383724, -0.01572768), (-0.0127, 0.34854388, -0.03057398), (-0.0127, 0.339725, -0.04365752), (-0.0127, 0.32737806, -0.05409184), (-0.0127, 0.31150306, -0.06100064), (-0.0127, 0.2921, -0.0635), (-0.0127, 0.219075, -0.05953252), (-0.0127, 0.073025, -0.04207764), (-0.0127, 0, -0.03811016), (-0.0127, -0.073025, -0.04207764), (-0.0127, -0.219075, -0.05953252)]
+            rel material:binding = </krabby/PlyWood> (
+                bindMaterialAs = "weakerThanDescendants"
+            )
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+            bool physics:kinematicEnabled = 0
+            bool physics:rigidBodyEnabled = 1
+            uniform token subdivisionScheme = "none"
+            quatd xformOp:orient = (0.9914448614, 0, 0, -0.1305261922)
+            double3 xformOp:scale = (1, 1, 1)
+            double3 xformOp:translate = (-0.3841360524, -0.9530832238, -0.2413)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+
+        def Mesh "FL_Tibia" (
+            prepend apiSchemas = ["PhysicsMassAPI", "MaterialBindingAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI", "PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            float physics:mass = 2.054537224
+            point3f physics:centerOfMass = (0, 0.0003518140475, 0.05931956492)
+            float3 physics:diagonalInertia = (0.1473070565, 0.1457655458, 0.001762428207)
+            float3[] extent = [(-0.0127, -0.0635, -0.499491), (0.0127, 0.0635, 0.47837598)]
+            int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
+            int[] faceVertexIndices = [23, 1, 0, 1, 3, 2, 23, 3, 1, 23, 4, 3, 23, 5, 4, 23, 6, 5, 23, 7, 6, 23, 8, 7, 23, 9, 8, 23, 10, 9, 23, 11, 10, 23, 12, 11, 23, 13, 12, 23, 14, 13, 23, 15, 14, 23, 16, 15, 23, 17, 16, 23, 18, 17, 23, 19, 18, 23, 20, 19, 23, 21, 20, 21, 23, 22, 47, 24, 25, 25, 26, 27, 47, 25, 27, 47, 27, 28, 47, 28, 29, 47, 29, 30, 47, 30, 31, 47, 31, 32, 47, 32, 33, 47, 33, 34, 47, 34, 35, 47, 35, 36, 47, 36, 37, 47, 37, 38, 47, 38, 39, 47, 39, 40, 47, 40, 41, 47, 41, 42, 47, 42, 43, 47, 43, 44, 47, 44, 45, 45, 46, 47, 0, 24, 25, 1, 1, 25, 26, 2, 2, 26, 27, 3, 3, 27, 28, 4, 4, 28, 29, 5, 5, 29, 30, 6, 6, 30, 31, 7, 7, 31, 32, 8, 8, 32, 33, 9, 9, 33, 34, 10, 10, 34, 35, 11, 11, 35, 36, 12, 12, 36, 37, 13, 13, 37, 38, 14, 14, 38, 39, 15, 15, 39, 40, 16, 16, 40, 41, 17, 17, 41, 42, 18, 18, 42, 43, 19, 19, 43, 44, 20, 20, 44, 45, 21, 21, 45, 46, 22, 22, 46, 47, 23, 23, 47, 24, 0]
+            point3f[] points = [(0.0127, 0.0563372, 0.19611594), (0.0127, 0.03439922, -0.24986742), (0.0127, 0.0254, -0.47287688), (0.0127, 0.02408174, -0.48100488), (0.0127, 0.01682242, -0.49283112), (0.0127, 0.011557, -0.49652936), (0.0127, -0.00056896, -0.499491), (0.0127, -0.01256538, -0.49653698), (0.0127, -0.01767586, -0.49284128), (0.0127, -0.02442972, -0.4810125), (0.0127, -0.0254, -0.47287688), (0.0127, -0.0635, 0.41487598), (0.0127, -0.06100064, 0.43427904), (0.0127, -0.05409184, 0.45015404), (0.0127, -0.04365752, 0.46250098), (0.0127, -0.03057398, 0.47131986), (0.0127, -0.01572768, 0.47661322), (0.0127, 0, 0.47837598), (0.0127, 0.01572768, 0.47661322), (0.0127, 0.03057398, 0.47131986), (0.0127, 0.04365498, 0.46250098), (0.0127, 0.05409184, 0.45015404), (0.0127, 0.06100064, 0.43427904), (0.0127, 0.0635, 0.41487598), (-0.0127, 0.0563372, 0.19611594), (-0.0127, 0.03439922, -0.24986742), (-0.0127, 0.0254, -0.47287688), (-0.0127, 0.02408174, -0.48100488), (-0.0127, 0.01682242, -0.49283112), (-0.0127, 0.011557, -0.49652936), (-0.0127, -0.00056896, -0.499491), (-0.0127, -0.01256538, -0.49653698), (-0.0127, -0.01767586, -0.49284128), (-0.0127, -0.02442972, -0.4810125), (-0.0127, -0.0254, -0.47287688), (-0.0127, -0.0635, 0.41487598), (-0.0127, -0.06100064, 0.43427904), (-0.0127, -0.05409184, 0.45015404), (-0.0127, -0.04365752, 0.46250098), (-0.0127, -0.03057398, 0.47131986), (-0.0127, -0.01572768, 0.47661322), (-0.0127, 0, 0.47837598), (-0.0127, 0.01572768, 0.47661322), (-0.0127, 0.03057398, 0.47131986), (-0.0127, 0.04365498, 0.46250098), (-0.0127, 0.05409184, 0.45015404), (-0.0127, 0.06100064, 0.43427904), (-0.0127, 0.0635, 0.41487598)]
+            rel material:binding = </krabby/PlyWood> (
+                bindMaterialAs = "weakerThanDescendants"
+            )
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+            bool physics:kinematicEnabled = 0
+            bool physics:rigidBodyEnabled = 1
+            uniform token subdivisionScheme = "none"
+            quatd xformOp:orient = (0.9914448614, 0, 0, -0.1305261922)
+            double3 xformOp:scale = (1, 1, 1)
+            double3 xformOp:translate = (-0.4597370955, -1.235230158, -0.567309)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+
+        def Cube "FL_Footpad" (
+            prepend apiSchemas = ["PhysicsMassAPI", "MaterialBindingAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI", "PhysicsCollisionAPI", "PhysxCollisionAPI"]
+        )
+        {
+            float physics:mass = 0.05
+            float3[] extent = [(-0.5, -0.5, -0.5), (0.5, 0.5, 0.5)]
+            rel material:binding = </krabby/PlyWood> (
+                bindMaterialAs = "weakerThanDescendants"
+            )
+            uniform token purpose = "guide"
+            bool physics:collisionEnabled = 1
+            bool physics:kinematicEnabled = 0
+            bool physics:rigidBodyEnabled = 1
+            double size = 1
+            quatd xformOp:orient = (0.9914448614, 0, 0, -0.1305261922)
+            double3 xformOp:scale = (0.06, 0.06, 0.04)
+            double3 xformOp:translate = (-0.4597370955, -1.235230158, -1.0668)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+
+        def Mesh "FL_Hip" (
+            prepend apiSchemas = ["PhysicsMassAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI", "PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysicsMeshCollisionAPI", "MaterialBindingAPI"]
+        )
+        {
+            float physics:mass = 7.413239762
+            point3f physics:centerOfMass = (0, -0.01617762012, -0.01396241445)
+            float3 physics:diagonalInertia = (0.2011753356, 0.1946017063, 0.006765858893)
+            float3[] extent = [(-0.0127, -0.0635, -0.3048127), (0.0127, 0.0635, 0.3047873)]
+            int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
+            int[] faceVertexIndices = [30, 1, 0, 30, 2, 1, 30, 3, 2, 30, 4, 3, 30, 5, 4, 30, 6, 5, 30, 7, 6, 30, 8, 7, 30, 9, 8, 30, 10, 9, 30, 11, 10, 30, 12, 11, 30, 13, 12, 30, 14, 13, 30, 15, 14, 30, 16, 15, 30, 17, 16, 30, 18, 17, 30, 19, 18, 30, 20, 19, 30, 21, 20, 30, 22, 21, 30, 23, 22, 30, 24, 23, 30, 25, 24, 30, 26, 25, 30, 27, 26, 30, 28, 27, 28, 30, 29, 61, 31, 32, 61, 32, 33, 61, 33, 34, 61, 34, 35, 61, 35, 36, 61, 36, 37, 61, 37, 38, 61, 38, 39, 61, 39, 40, 61, 40, 41, 61, 41, 42, 61, 42, 43, 61, 43, 44, 61, 44, 45, 61, 45, 46, 61, 46, 47, 61, 47, 48, 61, 48, 49, 61, 49, 50, 61, 50, 51, 61, 51, 52, 61, 52, 53, 61, 53, 54, 61, 54, 55, 61, 55, 56, 61, 56, 57, 61, 57, 58, 61, 58, 59, 59, 60, 61, 0, 31, 32, 1, 1, 32, 33, 2, 2, 33, 34, 3, 3, 34, 35, 4, 4, 35, 36, 5, 5, 36, 37, 6, 6, 37, 38, 7, 7, 38, 39, 8, 8, 39, 40, 9, 9, 40, 41, 10, 10, 41, 42, 11, 11, 42, 43, 12, 12, 43, 44, 13, 13, 44, 45, 14, 14, 45, 46, 15, 15, 46, 47, 16, 16, 47, 48, 17, 17, 48, 49, 18, 18, 49, 50, 19, 19, 50, 51, 20, 20, 51, 52, 21, 21, 52, 53, 22, 22, 53, 54, 23, 23, 54, 55, 24, 24, 55, 56, 25, 25, 56, 57, 26, 26, 57, 58, 27, 27, 58, 59, 28, 28, 59, 60, 29, 29, 60, 61, 30, 30, 61, 31, 0]
+            point3f[] points = [(0.0127, -0.0635, 0.2412873), (0.0127, -0.06100064, 0.26069036), (0.0127, -0.05409184, 0.27656536), (0.0127, -0.04365752, 0.2889123), (0.0127, -0.03057398, 0.29773118), (0.0127, -0.01572768, 0.30302454), (0.0127, 0, 0.3047873), (0.0127, 0.01572768, 0.30302454), (0.0127, 0.03057398, 0.29773118), (0.0127, 0.04365752, 0.2889123), (0.0127, 0.05409184, 0.27656536), (0.0127, 0.06100064, 0.26069036), (0.0127, 0.0635, 0.2412873), (0.0127, 0.06161786, 0.20107148), (0.0127, 0.04206494, 0.0603123), (0.0127, 0.03809492, -1.27e-05), (0.0127, 0.04206494, -0.0603377), (0.0127, 0.05952998, -0.1809877), (0.0127, 0.0635, -0.2413127), (0.0127, 0.06100064, -0.26071576), (0.0127, 0.05409184, -0.27659076), (0.0127, 0.04365752, -0.2889377), (0.0127, 0.03057398, -0.29775658), (0.0127, 0.01572768, -0.30304994), (0.0127, 0, -0.3048127), (0.0127, -0.01572768, -0.30304994), (0.0127, -0.03057398, -0.29775658), (0.0127, -0.04365752, -0.2889377), (0.0127, -0.05409184, -0.27659076), (0.0127, -0.06100064, -0.26071576), (0.0127, -0.0635, -0.2413127), (-0.0127, -0.0635, 0.2412873), (-0.0127, -0.06100064, 0.26069036), (-0.0127, -0.05409184, 0.27656536), (-0.0127, -0.04365752, 0.2889123), (-0.0127, -0.03057398, 0.29773118), (-0.0127, -0.01572768, 0.30302454), (-0.0127, 0, 0.3047873), (-0.0127, 0.01572768, 0.30302454), (-0.0127, 0.03057398, 0.29773118), (-0.0127, 0.04365752, 0.2889123), (-0.0127, 0.05409184, 0.27656536), (-0.0127, 0.06100064, 0.26069036), (-0.0127, 0.0635, 0.2412873), (-0.0127, 0.06161786, 0.20107148), (-0.0127, 0.04206494, 0.0603123), (-0.0127, 0.03809492, -1.27e-05), (-0.0127, 0.04206494, -0.0603377), (-0.0127, 0.05952998, -0.1809877), (-0.0127, 0.0635, -0.2413127), (-0.0127, 0.06100064, -0.26071576), (-0.0127, 0.05409184, -0.27659076), (-0.0127, 0.04365752, -0.2889377), (-0.0127, 0.03057398, -0.29775658), (-0.0127, 0.01572768, -0.30304994), (-0.0127, 0, -0.3048127), (-0.0127, -0.01572768, -0.30304994), (-0.0127, -0.03057398, -0.29775658), (-0.0127, -0.04365752, -0.2889377), (-0.0127, -0.05409184, -0.27659076), (-0.0127, -0.06100064, -0.26071576), (-0.0127, -0.0635, -0.2413127)]
+            rel material:binding = </krabby/PlyWood> (
+                bindMaterialAs = "weakerThanDescendants"
+            )
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+            bool physics:kinematicEnabled = 0
+            bool physics:rigidBodyEnabled = 1
+            uniform token subdivisionScheme = "none"
+            quatd xformOp:orient = (0.9914448614, 0, 0, -0.1305261922)
+            double3 xformOp:scale = (1, 1, 1)
+            double3 xformOp:translate = (-0.3085350094, -0.67093629, 1.27e-05)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+
+        def Cube "FL_CamShaft" (
+            prepend apiSchemas = ["PhysicsMassAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI"]
+        )
+        {
+            float physics:mass = 0.3
+            float3 physics:diagonalInertia = (0.015, 0.015, 0.015)
+            float3[] extent = [(-0.5, -0.5, -0.5), (0.5, 0.5, 0.5)]
+            bool physics:collisionEnabled = 0
+            bool physics:kinematicEnabled = 0
+            bool physics:rigidBodyEnabled = 1
+            double size = 1
+            quatd xformOp:orient = (0.9914448614, 0, 0, -0.1305261922)
+            double3 xformOp:scale = (0.02, 0.02, 0.02)
+            double3 xformOp:translate = (-0.2921, -0.6096, 1.27e-05)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+    }
+
+    def Xform "Leg_FR"
+    {
+        quatd xformOp:orient = (1, 0, 0, 0)
+        double3 xformOp:scale = (1, 1, 1)
+        double3 xformOp:translate = (0, 0, 0)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+
+        def Mesh "FR_Femur" (
+            prepend apiSchemas = ["PhysicsMassAPI", "MaterialBindingAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI", "PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            float physics:mass = 2.066343108
+            point3f physics:centerOfMass = (0, -4.510679612e-18, -3.702346985e-06)
+            float3 physics:diagonalInertia = (0.0945639981, 0.002065781839, 0.09272040325)
+            float3[] extent = [(-0.0127, -0.3556, -0.0635), (0.0127, 0.3556, 0.0635)]
+            int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
+            int[] faceVertexIndices = [35, 0, 1, 35, 1, 2, 35, 2, 3, 35, 3, 4, 35, 4, 5, 35, 5, 6, 35, 6, 7, 35, 7, 8, 35, 8, 9, 35, 9, 10, 35, 10, 11, 35, 11, 12, 35, 12, 13, 35, 13, 14, 35, 14, 15, 35, 15, 16, 35, 16, 17, 35, 17, 18, 35, 18, 19, 35, 19, 20, 35, 20, 21, 35, 21, 22, 35, 22, 23, 23, 24, 25, 23, 25, 26, 23, 26, 27, 23, 27, 28, 23, 28, 29, 23, 29, 30, 23, 30, 31, 23, 31, 32, 23, 32, 33, 23, 33, 34, 23, 34, 35, 37, 36, 71, 38, 37, 71, 39, 38, 71, 40, 39, 71, 41, 40, 71, 42, 41, 71, 43, 42, 71, 44, 43, 71, 45, 44, 71, 46, 45, 71, 47, 46, 71, 48, 47, 71, 49, 48, 71, 50, 49, 71, 51, 50, 71, 52, 51, 71, 53, 52, 71, 54, 53, 71, 55, 54, 71, 56, 55, 71, 57, 56, 71, 58, 57, 71, 59, 58, 71, 61, 60, 59, 62, 61, 59, 63, 62, 59, 64, 63, 59, 65, 64, 59, 66, 65, 59, 67, 66, 59, 68, 67, 59, 69, 68, 59, 70, 69, 59, 71, 70, 59, 0, 1, 37, 36, 1, 2, 38, 37, 2, 3, 39, 38, 3, 4, 40, 39, 4, 5, 41, 40, 5, 6, 42, 41, 6, 7, 43, 42, 7, 8, 44, 43, 8, 9, 45, 44, 9, 10, 46, 45, 10, 11, 47, 46, 11, 12, 48, 47, 12, 13, 49, 48, 13, 14, 50, 49, 14, 15, 51, 50, 15, 16, 52, 51, 16, 17, 53, 52, 17, 18, 54, 53, 18, 19, 55, 54, 19, 20, 56, 55, 20, 21, 57, 56, 21, 22, 58, 57, 22, 23, 59, 58, 23, 24, 60, 59, 24, 25, 61, 60, 25, 26, 62, 61, 26, 27, 63, 62, 27, 28, 64, 63, 28, 29, 65, 64, 29, 30, 66, 65, 30, 31, 67, 66, 31, 32, 68, 67, 32, 33, 69, 68, 33, 34, 70, 69, 34, 35, 71, 70, 35, 0, 36, 71]
+            point3f[] points = [(0.0127, 0.2921, -0.0635), (0.0127, 0.31150306, -0.06100064), (0.0127, 0.32737806, -0.05409184), (0.0127, 0.339725, -0.04365752), (0.0127, 0.34854388, -0.03057398), (0.0127, 0.35383724, -0.01572768), (0.0127, 0.3556, 0), (0.0127, 0.35383724, 0.01572768), (0.0127, 0.34854388, 0.03057398), (0.0127, 0.339725, 0.04365752), (0.0127, 0.32737806, 0.05409184), (0.0127, 0.31150306, 0.06100064), (0.0127, 0.2921, 0.0635), (0.0127, 0.219075, 0.05952998), (0.0127, 0.073025, 0.04205986), (0.0127, 0, 0.03808984), (0.0127, -0.073025, 0.04205986), (0.0127, -0.219075, 0.05952998), (0.0127, -0.2921, 0.0635), (0.0127, -0.31150306, 0.06100064), (0.0127, -0.32737806, 0.05409184), (0.0127, -0.339725, 0.04365752), (0.0127, -0.34854388, 0.03057398), (0.0127, -0.35383724, 0.01572768), (0.0127, -0.3556, 0), (0.0127, -0.35383724, -0.01572768), (0.0127, -0.34854388, -0.03057398), (0.0127, -0.339725, -0.04365752), (0.0127, -0.32737806, -0.05409184), (0.0127, -0.31150306, -0.06100064), (0.0127, -0.2921, -0.0635), (0.0127, -0.219075, -0.05953252), (0.0127, -0.073025, -0.04207764), (0.0127, 0, -0.03811016), (0.0127, 0.073025, -0.04207764), (0.0127, 0.219075, -0.05953252), (-0.0127, 0.2921, -0.0635), (-0.0127, 0.31150306, -0.06100064), (-0.0127, 0.32737806, -0.05409184), (-0.0127, 0.339725, -0.04365752), (-0.0127, 0.34854388, -0.03057398), (-0.0127, 0.35383724, -0.01572768), (-0.0127, 0.3556, 0), (-0.0127, 0.35383724, 0.01572768), (-0.0127, 0.34854388, 0.03057398), (-0.0127, 0.339725, 0.04365752), (-0.0127, 0.32737806, 0.05409184), (-0.0127, 0.31150306, 0.06100064), (-0.0127, 0.2921, 0.0635), (-0.0127, 0.219075, 0.05952998), (-0.0127, 0.073025, 0.04205986), (-0.0127, 0, 0.03808984), (-0.0127, -0.073025, 0.04205986), (-0.0127, -0.219075, 0.05952998), (-0.0127, -0.2921, 0.0635), (-0.0127, -0.31150306, 0.06100064), (-0.0127, -0.32737806, 0.05409184), (-0.0127, -0.339725, 0.04365752), (-0.0127, -0.34854388, 0.03057398), (-0.0127, -0.35383724, 0.01572768), (-0.0127, -0.3556, 0), (-0.0127, -0.35383724, -0.01572768), (-0.0127, -0.34854388, -0.03057398), (-0.0127, -0.339725, -0.04365752), (-0.0127, -0.32737806, -0.05409184), (-0.0127, -0.31150306, -0.06100064), (-0.0127, -0.2921, -0.0635), (-0.0127, -0.219075, -0.05953252), (-0.0127, -0.073025, -0.04207764), (-0.0127, 0, -0.03811016), (-0.0127, 0.073025, -0.04207764), (-0.0127, 0.219075, -0.05953252)]
+            rel material:binding = </krabby/PlyWood> (
+                bindMaterialAs = "weakerThanDescendants"
+            )
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+            bool physics:kinematicEnabled = 0
+            bool physics:rigidBodyEnabled = 1
+            uniform token subdivisionScheme = "none"
+            quatd xformOp:orient = (0.9914448614, 0, 0, 0.1305261922)
+            double3 xformOp:scale = (1, 1, 1)
+            double3 xformOp:translate = (-0.3841360524, 0.9530832238, -0.2413)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+
+        def Mesh "FR_Tibia" (
+            prepend apiSchemas = ["PhysicsMassAPI", "MaterialBindingAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI", "PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            float physics:mass = 2.054537224
+            point3f physics:centerOfMass = (0, -0.0003518140475, 0.05931956492)
+            float3 physics:diagonalInertia = (0.1473070565, 0.1457655458, 0.001762428207)
+            float3[] extent = [(-0.0127, -0.0635, -0.499491), (0.0127, 0.0635, 0.47837598)]
+            int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
+            int[] faceVertexIndices = [23, 0, 1, 1, 2, 3, 23, 1, 3, 23, 3, 4, 23, 4, 5, 23, 5, 6, 23, 6, 7, 23, 7, 8, 23, 8, 9, 23, 9, 10, 23, 10, 11, 23, 11, 12, 23, 12, 13, 23, 13, 14, 23, 14, 15, 23, 15, 16, 23, 16, 17, 23, 17, 18, 23, 18, 19, 23, 19, 20, 23, 20, 21, 21, 22, 23, 25, 24, 47, 27, 26, 25, 27, 25, 47, 28, 27, 47, 29, 28, 47, 30, 29, 47, 31, 30, 47, 32, 31, 47, 33, 32, 47, 34, 33, 47, 35, 34, 47, 36, 35, 47, 37, 36, 47, 38, 37, 47, 39, 38, 47, 40, 39, 47, 41, 40, 47, 42, 41, 47, 43, 42, 47, 44, 43, 47, 45, 44, 47, 47, 46, 45, 0, 1, 25, 24, 1, 2, 26, 25, 2, 3, 27, 26, 3, 4, 28, 27, 4, 5, 29, 28, 5, 6, 30, 29, 6, 7, 31, 30, 7, 8, 32, 31, 8, 9, 33, 32, 9, 10, 34, 33, 10, 11, 35, 34, 11, 12, 36, 35, 12, 13, 37, 36, 13, 14, 38, 37, 14, 15, 39, 38, 15, 16, 40, 39, 16, 17, 41, 40, 17, 18, 42, 41, 18, 19, 43, 42, 19, 20, 44, 43, 20, 21, 45, 44, 21, 22, 46, 45, 22, 23, 47, 46, 23, 0, 24, 47]
+            point3f[] points = [(0.0127, -0.0563372, 0.19611594), (0.0127, -0.03439922, -0.24986742), (0.0127, -0.0254, -0.47287688), (0.0127, -0.02408174, -0.48100488), (0.0127, -0.01682242, -0.49283112), (0.0127, -0.011557, -0.49652936), (0.0127, 0.00056896, -0.499491), (0.0127, 0.01256538, -0.49653698), (0.0127, 0.01767586, -0.49284128), (0.0127, 0.02442972, -0.4810125), (0.0127, 0.0254, -0.47287688), (0.0127, 0.0635, 0.41487598), (0.0127, 0.06100064, 0.43427904), (0.0127, 0.05409184, 0.45015404), (0.0127, 0.04365752, 0.46250098), (0.0127, 0.03057398, 0.47131986), (0.0127, 0.01572768, 0.47661322), (0.0127, 0, 0.47837598), (0.0127, -0.01572768, 0.47661322), (0.0127, -0.03057398, 0.47131986), (0.0127, -0.04365498, 0.46250098), (0.0127, -0.05409184, 0.45015404), (0.0127, -0.06100064, 0.43427904), (0.0127, -0.0635, 0.41487598), (-0.0127, -0.0563372, 0.19611594), (-0.0127, -0.03439922, -0.24986742), (-0.0127, -0.0254, -0.47287688), (-0.0127, -0.02408174, -0.48100488), (-0.0127, -0.01682242, -0.49283112), (-0.0127, -0.011557, -0.49652936), (-0.0127, 0.00056896, -0.499491), (-0.0127, 0.01256538, -0.49653698), (-0.0127, 0.01767586, -0.49284128), (-0.0127, 0.02442972, -0.4810125), (-0.0127, 0.0254, -0.47287688), (-0.0127, 0.0635, 0.41487598), (-0.0127, 0.06100064, 0.43427904), (-0.0127, 0.05409184, 0.45015404), (-0.0127, 0.04365752, 0.46250098), (-0.0127, 0.03057398, 0.47131986), (-0.0127, 0.01572768, 0.47661322), (-0.0127, 0, 0.47837598), (-0.0127, -0.01572768, 0.47661322), (-0.0127, -0.03057398, 0.47131986), (-0.0127, -0.04365498, 0.46250098), (-0.0127, -0.05409184, 0.45015404), (-0.0127, -0.06100064, 0.43427904), (-0.0127, -0.0635, 0.41487598)]
+            rel material:binding = </krabby/PlyWood> (
+                bindMaterialAs = "weakerThanDescendants"
+            )
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+            bool physics:kinematicEnabled = 0
+            bool physics:rigidBodyEnabled = 1
+            uniform token subdivisionScheme = "none"
+            quatd xformOp:orient = (0.9914448614, 0, 0, 0.1305261922)
+            double3 xformOp:scale = (1, 1, 1)
+            double3 xformOp:translate = (-0.4597370955, 1.235230158, -0.567309)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+
+        def Cube "FR_Footpad" (
+            prepend apiSchemas = ["PhysicsMassAPI", "MaterialBindingAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI", "PhysicsCollisionAPI", "PhysxCollisionAPI"]
+        )
+        {
+            float physics:mass = 0.05
+            float3[] extent = [(-0.5, -0.5, -0.5), (0.5, 0.5, 0.5)]
+            rel material:binding = </krabby/PlyWood> (
+                bindMaterialAs = "weakerThanDescendants"
+            )
+            uniform token purpose = "guide"
+            bool physics:collisionEnabled = 1
+            bool physics:kinematicEnabled = 0
+            bool physics:rigidBodyEnabled = 1
+            double size = 1
+            quatd xformOp:orient = (0.9914448614, 0, 0, 0.1305261922)
+            double3 xformOp:scale = (0.06, 0.06, 0.04)
+            double3 xformOp:translate = (-0.4597370955, 1.235230158, -1.0668)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+
+        def Mesh "FR_Hip" (
+            prepend apiSchemas = ["PhysicsMassAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI", "PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysicsMeshCollisionAPI", "MaterialBindingAPI"]
+        )
+        {
+            float physics:mass = 7.413239762
+            point3f physics:centerOfMass = (0, 0.01617762012, -0.01396241445)
+            float3 physics:diagonalInertia = (0.2011753356, 0.1946017063, 0.006765858893)
+            float3[] extent = [(-0.0127, -0.0635, -0.3048127), (0.0127, 0.0635, 0.3047873)]
+            int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
+            int[] faceVertexIndices = [30, 0, 1, 30, 1, 2, 30, 2, 3, 30, 3, 4, 30, 4, 5, 30, 5, 6, 30, 6, 7, 30, 7, 8, 30, 8, 9, 30, 9, 10, 30, 10, 11, 30, 11, 12, 30, 12, 13, 30, 13, 14, 30, 14, 15, 30, 15, 16, 30, 16, 17, 30, 17, 18, 30, 18, 19, 30, 19, 20, 30, 20, 21, 30, 21, 22, 30, 22, 23, 30, 23, 24, 30, 24, 25, 30, 25, 26, 30, 26, 27, 30, 27, 28, 28, 29, 30, 32, 31, 61, 33, 32, 61, 34, 33, 61, 35, 34, 61, 36, 35, 61, 37, 36, 61, 38, 37, 61, 39, 38, 61, 40, 39, 61, 41, 40, 61, 42, 41, 61, 43, 42, 61, 44, 43, 61, 45, 44, 61, 46, 45, 61, 47, 46, 61, 48, 47, 61, 49, 48, 61, 50, 49, 61, 51, 50, 61, 52, 51, 61, 53, 52, 61, 54, 53, 61, 55, 54, 61, 56, 55, 61, 57, 56, 61, 58, 57, 61, 59, 58, 61, 61, 60, 59, 0, 1, 32, 31, 1, 2, 33, 32, 2, 3, 34, 33, 3, 4, 35, 34, 4, 5, 36, 35, 5, 6, 37, 36, 6, 7, 38, 37, 7, 8, 39, 38, 8, 9, 40, 39, 9, 10, 41, 40, 10, 11, 42, 41, 11, 12, 43, 42, 12, 13, 44, 43, 13, 14, 45, 44, 14, 15, 46, 45, 15, 16, 47, 46, 16, 17, 48, 47, 17, 18, 49, 48, 18, 19, 50, 49, 19, 20, 51, 50, 20, 21, 52, 51, 21, 22, 53, 52, 22, 23, 54, 53, 23, 24, 55, 54, 24, 25, 56, 55, 25, 26, 57, 56, 26, 27, 58, 57, 27, 28, 59, 58, 28, 29, 60, 59, 29, 30, 61, 60, 30, 0, 31, 61]
+            point3f[] points = [(0.0127, 0.0635, 0.2412873), (0.0127, 0.06100064, 0.26069036), (0.0127, 0.05409184, 0.27656536), (0.0127, 0.04365752, 0.2889123), (0.0127, 0.03057398, 0.29773118), (0.0127, 0.01572768, 0.30302454), (0.0127, 0, 0.3047873), (0.0127, -0.01572768, 0.30302454), (0.0127, -0.03057398, 0.29773118), (0.0127, -0.04365752, 0.2889123), (0.0127, -0.05409184, 0.27656536), (0.0127, -0.06100064, 0.26069036), (0.0127, -0.0635, 0.2412873), (0.0127, -0.06161786, 0.20107148), (0.0127, -0.04206494, 0.0603123), (0.0127, -0.03809492, -1.27e-05), (0.0127, -0.04206494, -0.0603377), (0.0127, -0.05952998, -0.1809877), (0.0127, -0.0635, -0.2413127), (0.0127, -0.06100064, -0.26071576), (0.0127, -0.05409184, -0.27659076), (0.0127, -0.04365752, -0.2889377), (0.0127, -0.03057398, -0.29775658), (0.0127, -0.01572768, -0.30304994), (0.0127, 0, -0.3048127), (0.0127, 0.01572768, -0.30304994), (0.0127, 0.03057398, -0.29775658), (0.0127, 0.04365752, -0.2889377), (0.0127, 0.05409184, -0.27659076), (0.0127, 0.06100064, -0.26071576), (0.0127, 0.0635, -0.2413127), (-0.0127, 0.0635, 0.2412873), (-0.0127, 0.06100064, 0.26069036), (-0.0127, 0.05409184, 0.27656536), (-0.0127, 0.04365752, 0.2889123), (-0.0127, 0.03057398, 0.29773118), (-0.0127, 0.01572768, 0.30302454), (-0.0127, 0, 0.3047873), (-0.0127, -0.01572768, 0.30302454), (-0.0127, -0.03057398, 0.29773118), (-0.0127, -0.04365752, 0.2889123), (-0.0127, -0.05409184, 0.27656536), (-0.0127, -0.06100064, 0.26069036), (-0.0127, -0.0635, 0.2412873), (-0.0127, -0.06161786, 0.20107148), (-0.0127, -0.04206494, 0.0603123), (-0.0127, -0.03809492, -1.27e-05), (-0.0127, -0.04206494, -0.0603377), (-0.0127, -0.05952998, -0.1809877), (-0.0127, -0.0635, -0.2413127), (-0.0127, -0.06100064, -0.26071576), (-0.0127, -0.05409184, -0.27659076), (-0.0127, -0.04365752, -0.2889377), (-0.0127, -0.03057398, -0.29775658), (-0.0127, -0.01572768, -0.30304994), (-0.0127, 0, -0.3048127), (-0.0127, 0.01572768, -0.30304994), (-0.0127, 0.03057398, -0.29775658), (-0.0127, 0.04365752, -0.2889377), (-0.0127, 0.05409184, -0.27659076), (-0.0127, 0.06100064, -0.26071576), (-0.0127, 0.0635, -0.2413127)]
+            rel material:binding = </krabby/PlyWood> (
+                bindMaterialAs = "weakerThanDescendants"
+            )
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+            bool physics:kinematicEnabled = 0
+            bool physics:rigidBodyEnabled = 1
+            uniform token subdivisionScheme = "none"
+            quatd xformOp:orient = (0.9914448614, 0, 0, 0.1305261922)
+            double3 xformOp:scale = (1, 1, 1)
+            double3 xformOp:translate = (-0.3085350094, 0.67093629, 1.27e-05)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+
+        def Cube "FR_CamShaft" (
+            prepend apiSchemas = ["PhysicsMassAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI"]
+        )
+        {
+            float physics:mass = 0.3
+            float3 physics:diagonalInertia = (0.015, 0.015, 0.015)
+            float3[] extent = [(-0.5, -0.5, -0.5), (0.5, 0.5, 0.5)]
+            bool physics:collisionEnabled = 0
+            bool physics:kinematicEnabled = 0
+            bool physics:rigidBodyEnabled = 1
+            double size = 1
+            quatd xformOp:orient = (0.9914448614, 0, 0, 0.1305261922)
+            double3 xformOp:scale = (0.02, 0.02, 0.02)
+            double3 xformOp:translate = (-0.2921, 0.6096, 1.27e-05)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+    }
+
+    def Xform "Leg_RL"
+    {
+        quatd xformOp:orient = (1, 0, 0, 0)
+        double3 xformOp:scale = (1, 1, 1)
+        double3 xformOp:translate = (0, 0, 0)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+
+        def Mesh "RL_Femur" (
+            prepend apiSchemas = ["PhysicsMassAPI", "MaterialBindingAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI", "PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            float physics:mass = 2.066343108
+            point3f physics:centerOfMass = (0, 4.510679612e-18, -3.702346985e-06)
+            float3 physics:diagonalInertia = (0.0945639981, 0.002065781839, 0.09272040325)
+            float3[] extent = [(-0.0127, -0.3556, -0.0635), (0.0127, 0.3556, 0.0635)]
+            int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
+            int[] faceVertexIndices = [35, 1, 0, 35, 2, 1, 35, 3, 2, 35, 4, 3, 35, 5, 4, 35, 6, 5, 35, 7, 6, 35, 8, 7, 35, 9, 8, 35, 10, 9, 35, 11, 10, 35, 12, 11, 35, 13, 12, 35, 14, 13, 35, 15, 14, 35, 16, 15, 35, 17, 16, 35, 18, 17, 35, 19, 18, 35, 20, 19, 35, 21, 20, 35, 22, 21, 35, 23, 22, 23, 25, 24, 23, 26, 25, 23, 27, 26, 23, 28, 27, 23, 29, 28, 23, 30, 29, 23, 31, 30, 23, 32, 31, 23, 33, 32, 23, 34, 33, 23, 35, 34, 71, 36, 37, 71, 37, 38, 71, 38, 39, 71, 39, 40, 71, 40, 41, 71, 41, 42, 71, 42, 43, 71, 43, 44, 71, 44, 45, 71, 45, 46, 71, 46, 47, 71, 47, 48, 71, 48, 49, 71, 49, 50, 71, 50, 51, 71, 51, 52, 71, 52, 53, 71, 53, 54, 71, 54, 55, 71, 55, 56, 71, 56, 57, 71, 57, 58, 71, 58, 59, 59, 60, 61, 59, 61, 62, 59, 62, 63, 59, 63, 64, 59, 64, 65, 59, 65, 66, 59, 66, 67, 59, 67, 68, 59, 68, 69, 59, 69, 70, 59, 70, 71, 0, 36, 37, 1, 1, 37, 38, 2, 2, 38, 39, 3, 3, 39, 40, 4, 4, 40, 41, 5, 5, 41, 42, 6, 6, 42, 43, 7, 7, 43, 44, 8, 8, 44, 45, 9, 9, 45, 46, 10, 10, 46, 47, 11, 11, 47, 48, 12, 12, 48, 49, 13, 13, 49, 50, 14, 14, 50, 51, 15, 15, 51, 52, 16, 16, 52, 53, 17, 17, 53, 54, 18, 18, 54, 55, 19, 19, 55, 56, 20, 20, 56, 57, 21, 21, 57, 58, 22, 22, 58, 59, 23, 23, 59, 60, 24, 24, 60, 61, 25, 25, 61, 62, 26, 26, 62, 63, 27, 27, 63, 64, 28, 28, 64, 65, 29, 29, 65, 66, 30, 30, 66, 67, 31, 31, 67, 68, 32, 32, 68, 69, 33, 33, 69, 70, 34, 34, 70, 71, 35, 35, 71, 36, 0]
+            point3f[] points = [(0.0127, -0.2921, -0.0635), (0.0127, -0.31150306, -0.06100064), (0.0127, -0.32737806, -0.05409184), (0.0127, -0.339725, -0.04365752), (0.0127, -0.34854388, -0.03057398), (0.0127, -0.35383724, -0.01572768), (0.0127, -0.3556, 0), (0.0127, -0.35383724, 0.01572768), (0.0127, -0.34854388, 0.03057398), (0.0127, -0.339725, 0.04365752), (0.0127, -0.32737806, 0.05409184), (0.0127, -0.31150306, 0.06100064), (0.0127, -0.2921, 0.0635), (0.0127, -0.219075, 0.05952998), (0.0127, -0.073025, 0.04205986), (0.0127, 0, 0.03808984), (0.0127, 0.073025, 0.04205986), (0.0127, 0.219075, 0.05952998), (0.0127, 0.2921, 0.0635), (0.0127, 0.31150306, 0.06100064), (0.0127, 0.32737806, 0.05409184), (0.0127, 0.339725, 0.04365752), (0.0127, 0.34854388, 0.03057398), (0.0127, 0.35383724, 0.01572768), (0.0127, 0.3556, 0), (0.0127, 0.35383724, -0.01572768), (0.0127, 0.34854388, -0.03057398), (0.0127, 0.339725, -0.04365752), (0.0127, 0.32737806, -0.05409184), (0.0127, 0.31150306, -0.06100064), (0.0127, 0.2921, -0.0635), (0.0127, 0.219075, -0.05953252), (0.0127, 0.073025, -0.04207764), (0.0127, 0, -0.03811016), (0.0127, -0.073025, -0.04207764), (0.0127, -0.219075, -0.05953252), (-0.0127, -0.2921, -0.0635), (-0.0127, -0.31150306, -0.06100064), (-0.0127, -0.32737806, -0.05409184), (-0.0127, -0.339725, -0.04365752), (-0.0127, -0.34854388, -0.03057398), (-0.0127, -0.35383724, -0.01572768), (-0.0127, -0.3556, 0), (-0.0127, -0.35383724, 0.01572768), (-0.0127, -0.34854388, 0.03057398), (-0.0127, -0.339725, 0.04365752), (-0.0127, -0.32737806, 0.05409184), (-0.0127, -0.31150306, 0.06100064), (-0.0127, -0.2921, 0.0635), (-0.0127, -0.219075, 0.05952998), (-0.0127, -0.073025, 0.04205986), (-0.0127, 0, 0.03808984), (-0.0127, 0.073025, 0.04205986), (-0.0127, 0.219075, 0.05952998), (-0.0127, 0.2921, 0.0635), (-0.0127, 0.31150306, 0.06100064), (-0.0127, 0.32737806, 0.05409184), (-0.0127, 0.339725, 0.04365752), (-0.0127, 0.34854388, 0.03057398), (-0.0127, 0.35383724, 0.01572768), (-0.0127, 0.3556, 0), (-0.0127, 0.35383724, -0.01572768), (-0.0127, 0.34854388, -0.03057398), (-0.0127, 0.339725, -0.04365752), (-0.0127, 0.32737806, -0.05409184), (-0.0127, 0.31150306, -0.06100064), (-0.0127, 0.2921, -0.0635), (-0.0127, 0.219075, -0.05953252), (-0.0127, 0.073025, -0.04207764), (-0.0127, 0, -0.03811016), (-0.0127, -0.073025, -0.04207764), (-0.0127, -0.219075, -0.05953252)]
+            rel material:binding = </krabby/PlyWood> (
+                bindMaterialAs = "weakerThanDescendants"
+            )
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+            bool physics:kinematicEnabled = 0
+            bool physics:rigidBodyEnabled = 1
+            uniform token subdivisionScheme = "none"
+            quatd xformOp:orient = (0.9914448614, 0, 0, 0.1305261922)
+            double3 xformOp:scale = (1, 1, 1)
+            double3 xformOp:translate = (0.3841360524, -0.9530832238, -0.2413)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+
+        def Mesh "RL_Tibia" (
+            prepend apiSchemas = ["PhysicsMassAPI", "MaterialBindingAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI", "PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            float physics:mass = 2.054537224
+            point3f physics:centerOfMass = (0, 0.0003518140475, 0.05931956492)
+            float3 physics:diagonalInertia = (0.1473070565, 0.1457655458, 0.001762428207)
+            float3[] extent = [(-0.0127, -0.0635, -0.499491), (0.0127, 0.0635, 0.47837598)]
+            int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
+            int[] faceVertexIndices = [23, 1, 0, 1, 3, 2, 23, 3, 1, 23, 4, 3, 23, 5, 4, 23, 6, 5, 23, 7, 6, 23, 8, 7, 23, 9, 8, 23, 10, 9, 23, 11, 10, 23, 12, 11, 23, 13, 12, 23, 14, 13, 23, 15, 14, 23, 16, 15, 23, 17, 16, 23, 18, 17, 23, 19, 18, 23, 20, 19, 23, 21, 20, 21, 23, 22, 47, 24, 25, 25, 26, 27, 47, 25, 27, 47, 27, 28, 47, 28, 29, 47, 29, 30, 47, 30, 31, 47, 31, 32, 47, 32, 33, 47, 33, 34, 47, 34, 35, 47, 35, 36, 47, 36, 37, 47, 37, 38, 47, 38, 39, 47, 39, 40, 47, 40, 41, 47, 41, 42, 47, 42, 43, 47, 43, 44, 47, 44, 45, 45, 46, 47, 0, 24, 25, 1, 1, 25, 26, 2, 2, 26, 27, 3, 3, 27, 28, 4, 4, 28, 29, 5, 5, 29, 30, 6, 6, 30, 31, 7, 7, 31, 32, 8, 8, 32, 33, 9, 9, 33, 34, 10, 10, 34, 35, 11, 11, 35, 36, 12, 12, 36, 37, 13, 13, 37, 38, 14, 14, 38, 39, 15, 15, 39, 40, 16, 16, 40, 41, 17, 17, 41, 42, 18, 18, 42, 43, 19, 19, 43, 44, 20, 20, 44, 45, 21, 21, 45, 46, 22, 22, 46, 47, 23, 23, 47, 24, 0]
+            point3f[] points = [(0.0127, 0.0563372, 0.19611594), (0.0127, 0.03439922, -0.24986742), (0.0127, 0.0254, -0.47287688), (0.0127, 0.02408174, -0.48100488), (0.0127, 0.01682242, -0.49283112), (0.0127, 0.011557, -0.49652936), (0.0127, -0.00056896, -0.499491), (0.0127, -0.01256538, -0.49653698), (0.0127, -0.01767586, -0.49284128), (0.0127, -0.02442972, -0.4810125), (0.0127, -0.0254, -0.47287688), (0.0127, -0.0635, 0.41487598), (0.0127, -0.06100064, 0.43427904), (0.0127, -0.05409184, 0.45015404), (0.0127, -0.04365752, 0.46250098), (0.0127, -0.03057398, 0.47131986), (0.0127, -0.01572768, 0.47661322), (0.0127, 0, 0.47837598), (0.0127, 0.01572768, 0.47661322), (0.0127, 0.03057398, 0.47131986), (0.0127, 0.04365498, 0.46250098), (0.0127, 0.05409184, 0.45015404), (0.0127, 0.06100064, 0.43427904), (0.0127, 0.0635, 0.41487598), (-0.0127, 0.0563372, 0.19611594), (-0.0127, 0.03439922, -0.24986742), (-0.0127, 0.0254, -0.47287688), (-0.0127, 0.02408174, -0.48100488), (-0.0127, 0.01682242, -0.49283112), (-0.0127, 0.011557, -0.49652936), (-0.0127, -0.00056896, -0.499491), (-0.0127, -0.01256538, -0.49653698), (-0.0127, -0.01767586, -0.49284128), (-0.0127, -0.02442972, -0.4810125), (-0.0127, -0.0254, -0.47287688), (-0.0127, -0.0635, 0.41487598), (-0.0127, -0.06100064, 0.43427904), (-0.0127, -0.05409184, 0.45015404), (-0.0127, -0.04365752, 0.46250098), (-0.0127, -0.03057398, 0.47131986), (-0.0127, -0.01572768, 0.47661322), (-0.0127, 0, 0.47837598), (-0.0127, 0.01572768, 0.47661322), (-0.0127, 0.03057398, 0.47131986), (-0.0127, 0.04365498, 0.46250098), (-0.0127, 0.05409184, 0.45015404), (-0.0127, 0.06100064, 0.43427904), (-0.0127, 0.0635, 0.41487598)]
+            rel material:binding = </krabby/PlyWood> (
+                bindMaterialAs = "weakerThanDescendants"
+            )
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+            bool physics:kinematicEnabled = 0
+            bool physics:rigidBodyEnabled = 1
+            uniform token subdivisionScheme = "none"
+            quatd xformOp:orient = (0.9914448614, 0, 0, 0.1305261922)
+            double3 xformOp:scale = (1, 1, 1)
+            double3 xformOp:translate = (0.4597370955, -1.235230158, -0.567309)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+
+        def Cube "RL_Footpad" (
+            prepend apiSchemas = ["PhysicsMassAPI", "MaterialBindingAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI", "PhysicsCollisionAPI", "PhysxCollisionAPI"]
+        )
+        {
+            float physics:mass = 0.05
+            float3[] extent = [(-0.5, -0.5, -0.5), (0.5, 0.5, 0.5)]
+            rel material:binding = </krabby/PlyWood> (
+                bindMaterialAs = "weakerThanDescendants"
+            )
+            uniform token purpose = "guide"
+            bool physics:collisionEnabled = 1
+            bool physics:kinematicEnabled = 0
+            bool physics:rigidBodyEnabled = 1
+            double size = 1
+            quatd xformOp:orient = (0.9914448614, 0, 0, 0.1305261922)
+            double3 xformOp:scale = (0.06, 0.06, 0.04)
+            double3 xformOp:translate = (0.4597370955, -1.235230158, -1.0668)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+
+        def Mesh "RL_Hip" (
+            prepend apiSchemas = ["PhysicsMassAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI", "PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysicsMeshCollisionAPI", "MaterialBindingAPI"]
+        )
+        {
+            float physics:mass = 7.413239762
+            point3f physics:centerOfMass = (0, -0.01617762012, -0.01396241445)
+            float3 physics:diagonalInertia = (0.2011753356, 0.1946017063, 0.006765858893)
+            float3[] extent = [(-0.0127, -0.0635, -0.3048127), (0.0127, 0.0635, 0.3047873)]
+            int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
+            int[] faceVertexIndices = [30, 1, 0, 30, 2, 1, 30, 3, 2, 30, 4, 3, 30, 5, 4, 30, 6, 5, 30, 7, 6, 30, 8, 7, 30, 9, 8, 30, 10, 9, 30, 11, 10, 30, 12, 11, 30, 13, 12, 30, 14, 13, 30, 15, 14, 30, 16, 15, 30, 17, 16, 30, 18, 17, 30, 19, 18, 30, 20, 19, 30, 21, 20, 30, 22, 21, 30, 23, 22, 30, 24, 23, 30, 25, 24, 30, 26, 25, 30, 27, 26, 30, 28, 27, 28, 30, 29, 61, 31, 32, 61, 32, 33, 61, 33, 34, 61, 34, 35, 61, 35, 36, 61, 36, 37, 61, 37, 38, 61, 38, 39, 61, 39, 40, 61, 40, 41, 61, 41, 42, 61, 42, 43, 61, 43, 44, 61, 44, 45, 61, 45, 46, 61, 46, 47, 61, 47, 48, 61, 48, 49, 61, 49, 50, 61, 50, 51, 61, 51, 52, 61, 52, 53, 61, 53, 54, 61, 54, 55, 61, 55, 56, 61, 56, 57, 61, 57, 58, 61, 58, 59, 59, 60, 61, 0, 31, 32, 1, 1, 32, 33, 2, 2, 33, 34, 3, 3, 34, 35, 4, 4, 35, 36, 5, 5, 36, 37, 6, 6, 37, 38, 7, 7, 38, 39, 8, 8, 39, 40, 9, 9, 40, 41, 10, 10, 41, 42, 11, 11, 42, 43, 12, 12, 43, 44, 13, 13, 44, 45, 14, 14, 45, 46, 15, 15, 46, 47, 16, 16, 47, 48, 17, 17, 48, 49, 18, 18, 49, 50, 19, 19, 50, 51, 20, 20, 51, 52, 21, 21, 52, 53, 22, 22, 53, 54, 23, 23, 54, 55, 24, 24, 55, 56, 25, 25, 56, 57, 26, 26, 57, 58, 27, 27, 58, 59, 28, 28, 59, 60, 29, 29, 60, 61, 30, 30, 61, 31, 0]
+            point3f[] points = [(0.0127, -0.0635, 0.2412873), (0.0127, -0.06100064, 0.26069036), (0.0127, -0.05409184, 0.27656536), (0.0127, -0.04365752, 0.2889123), (0.0127, -0.03057398, 0.29773118), (0.0127, -0.01572768, 0.30302454), (0.0127, 0, 0.3047873), (0.0127, 0.01572768, 0.30302454), (0.0127, 0.03057398, 0.29773118), (0.0127, 0.04365752, 0.2889123), (0.0127, 0.05409184, 0.27656536), (0.0127, 0.06100064, 0.26069036), (0.0127, 0.0635, 0.2412873), (0.0127, 0.06161786, 0.20107148), (0.0127, 0.04206494, 0.0603123), (0.0127, 0.03809492, -1.27e-05), (0.0127, 0.04206494, -0.0603377), (0.0127, 0.05952998, -0.1809877), (0.0127, 0.0635, -0.2413127), (0.0127, 0.06100064, -0.26071576), (0.0127, 0.05409184, -0.27659076), (0.0127, 0.04365752, -0.2889377), (0.0127, 0.03057398, -0.29775658), (0.0127, 0.01572768, -0.30304994), (0.0127, 0, -0.3048127), (0.0127, -0.01572768, -0.30304994), (0.0127, -0.03057398, -0.29775658), (0.0127, -0.04365752, -0.2889377), (0.0127, -0.05409184, -0.27659076), (0.0127, -0.06100064, -0.26071576), (0.0127, -0.0635, -0.2413127), (-0.0127, -0.0635, 0.2412873), (-0.0127, -0.06100064, 0.26069036), (-0.0127, -0.05409184, 0.27656536), (-0.0127, -0.04365752, 0.2889123), (-0.0127, -0.03057398, 0.29773118), (-0.0127, -0.01572768, 0.30302454), (-0.0127, 0, 0.3047873), (-0.0127, 0.01572768, 0.30302454), (-0.0127, 0.03057398, 0.29773118), (-0.0127, 0.04365752, 0.2889123), (-0.0127, 0.05409184, 0.27656536), (-0.0127, 0.06100064, 0.26069036), (-0.0127, 0.0635, 0.2412873), (-0.0127, 0.06161786, 0.20107148), (-0.0127, 0.04206494, 0.0603123), (-0.0127, 0.03809492, -1.27e-05), (-0.0127, 0.04206494, -0.0603377), (-0.0127, 0.05952998, -0.1809877), (-0.0127, 0.0635, -0.2413127), (-0.0127, 0.06100064, -0.26071576), (-0.0127, 0.05409184, -0.27659076), (-0.0127, 0.04365752, -0.2889377), (-0.0127, 0.03057398, -0.29775658), (-0.0127, 0.01572768, -0.30304994), (-0.0127, 0, -0.3048127), (-0.0127, -0.01572768, -0.30304994), (-0.0127, -0.03057398, -0.29775658), (-0.0127, -0.04365752, -0.2889377), (-0.0127, -0.05409184, -0.27659076), (-0.0127, -0.06100064, -0.26071576), (-0.0127, -0.0635, -0.2413127)]
+            rel material:binding = </krabby/PlyWood> (
+                bindMaterialAs = "weakerThanDescendants"
+            )
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+            bool physics:kinematicEnabled = 0
+            bool physics:rigidBodyEnabled = 1
+            uniform token subdivisionScheme = "none"
+            quatd xformOp:orient = (0.9914448614, 0, 0, 0.1305261922)
+            double3 xformOp:scale = (1, 1, 1)
+            double3 xformOp:translate = (0.3085350094, -0.67093629, 1.27e-05)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+
+        def Cube "RL_CamShaft" (
+            prepend apiSchemas = ["PhysicsMassAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI"]
+        )
+        {
+            float physics:mass = 0.3
+            float3 physics:diagonalInertia = (0.015, 0.015, 0.015)
+            float3[] extent = [(-0.5, -0.5, -0.5), (0.5, 0.5, 0.5)]
+            bool physics:collisionEnabled = 0
+            bool physics:kinematicEnabled = 0
+            bool physics:rigidBodyEnabled = 1
+            double size = 1
+            quatd xformOp:orient = (0.9914448614, 0, 0, 0.1305261922)
+            double3 xformOp:scale = (0.02, 0.02, 0.02)
+            double3 xformOp:translate = (0.2921, -0.6096, 1.27e-05)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+    }
+
+    def Xform "Leg_RR"
+    {
+        quatd xformOp:orient = (1, 0, 0, 0)
+        double3 xformOp:scale = (1, 1, 1)
+        double3 xformOp:translate = (0, 0, 0)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+
+        def Mesh "RR_Femur" (
+            prepend apiSchemas = ["PhysicsMassAPI", "MaterialBindingAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI", "PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            float physics:mass = 2.066343108
+            point3f physics:centerOfMass = (0, -4.510679612e-18, -3.702346985e-06)
+            float3 physics:diagonalInertia = (0.0945639981, 0.002065781839, 0.09272040325)
+            float3[] extent = [(-0.0127, -0.3556, -0.0635), (0.0127, 0.3556, 0.0635)]
+            int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
+            int[] faceVertexIndices = [35, 0, 1, 35, 1, 2, 35, 2, 3, 35, 3, 4, 35, 4, 5, 35, 5, 6, 35, 6, 7, 35, 7, 8, 35, 8, 9, 35, 9, 10, 35, 10, 11, 35, 11, 12, 35, 12, 13, 35, 13, 14, 35, 14, 15, 35, 15, 16, 35, 16, 17, 35, 17, 18, 35, 18, 19, 35, 19, 20, 35, 20, 21, 35, 21, 22, 35, 22, 23, 23, 24, 25, 23, 25, 26, 23, 26, 27, 23, 27, 28, 23, 28, 29, 23, 29, 30, 23, 30, 31, 23, 31, 32, 23, 32, 33, 23, 33, 34, 23, 34, 35, 37, 36, 71, 38, 37, 71, 39, 38, 71, 40, 39, 71, 41, 40, 71, 42, 41, 71, 43, 42, 71, 44, 43, 71, 45, 44, 71, 46, 45, 71, 47, 46, 71, 48, 47, 71, 49, 48, 71, 50, 49, 71, 51, 50, 71, 52, 51, 71, 53, 52, 71, 54, 53, 71, 55, 54, 71, 56, 55, 71, 57, 56, 71, 58, 57, 71, 59, 58, 71, 61, 60, 59, 62, 61, 59, 63, 62, 59, 64, 63, 59, 65, 64, 59, 66, 65, 59, 67, 66, 59, 68, 67, 59, 69, 68, 59, 70, 69, 59, 71, 70, 59, 0, 1, 37, 36, 1, 2, 38, 37, 2, 3, 39, 38, 3, 4, 40, 39, 4, 5, 41, 40, 5, 6, 42, 41, 6, 7, 43, 42, 7, 8, 44, 43, 8, 9, 45, 44, 9, 10, 46, 45, 10, 11, 47, 46, 11, 12, 48, 47, 12, 13, 49, 48, 13, 14, 50, 49, 14, 15, 51, 50, 15, 16, 52, 51, 16, 17, 53, 52, 17, 18, 54, 53, 18, 19, 55, 54, 19, 20, 56, 55, 20, 21, 57, 56, 21, 22, 58, 57, 22, 23, 59, 58, 23, 24, 60, 59, 24, 25, 61, 60, 25, 26, 62, 61, 26, 27, 63, 62, 27, 28, 64, 63, 28, 29, 65, 64, 29, 30, 66, 65, 30, 31, 67, 66, 31, 32, 68, 67, 32, 33, 69, 68, 33, 34, 70, 69, 34, 35, 71, 70, 35, 0, 36, 71]
+            point3f[] points = [(0.0127, 0.2921, -0.0635), (0.0127, 0.31150306, -0.06100064), (0.0127, 0.32737806, -0.05409184), (0.0127, 0.339725, -0.04365752), (0.0127, 0.34854388, -0.03057398), (0.0127, 0.35383724, -0.01572768), (0.0127, 0.3556, 0), (0.0127, 0.35383724, 0.01572768), (0.0127, 0.34854388, 0.03057398), (0.0127, 0.339725, 0.04365752), (0.0127, 0.32737806, 0.05409184), (0.0127, 0.31150306, 0.06100064), (0.0127, 0.2921, 0.0635), (0.0127, 0.219075, 0.05952998), (0.0127, 0.073025, 0.04205986), (0.0127, 0, 0.03808984), (0.0127, -0.073025, 0.04205986), (0.0127, -0.219075, 0.05952998), (0.0127, -0.2921, 0.0635), (0.0127, -0.31150306, 0.06100064), (0.0127, -0.32737806, 0.05409184), (0.0127, -0.339725, 0.04365752), (0.0127, -0.34854388, 0.03057398), (0.0127, -0.35383724, 0.01572768), (0.0127, -0.3556, 0), (0.0127, -0.35383724, -0.01572768), (0.0127, -0.34854388, -0.03057398), (0.0127, -0.339725, -0.04365752), (0.0127, -0.32737806, -0.05409184), (0.0127, -0.31150306, -0.06100064), (0.0127, -0.2921, -0.0635), (0.0127, -0.219075, -0.05953252), (0.0127, -0.073025, -0.04207764), (0.0127, 0, -0.03811016), (0.0127, 0.073025, -0.04207764), (0.0127, 0.219075, -0.05953252), (-0.0127, 0.2921, -0.0635), (-0.0127, 0.31150306, -0.06100064), (-0.0127, 0.32737806, -0.05409184), (-0.0127, 0.339725, -0.04365752), (-0.0127, 0.34854388, -0.03057398), (-0.0127, 0.35383724, -0.01572768), (-0.0127, 0.3556, 0), (-0.0127, 0.35383724, 0.01572768), (-0.0127, 0.34854388, 0.03057398), (-0.0127, 0.339725, 0.04365752), (-0.0127, 0.32737806, 0.05409184), (-0.0127, 0.31150306, 0.06100064), (-0.0127, 0.2921, 0.0635), (-0.0127, 0.219075, 0.05952998), (-0.0127, 0.073025, 0.04205986), (-0.0127, 0, 0.03808984), (-0.0127, -0.073025, 0.04205986), (-0.0127, -0.219075, 0.05952998), (-0.0127, -0.2921, 0.0635), (-0.0127, -0.31150306, 0.06100064), (-0.0127, -0.32737806, 0.05409184), (-0.0127, -0.339725, 0.04365752), (-0.0127, -0.34854388, 0.03057398), (-0.0127, -0.35383724, 0.01572768), (-0.0127, -0.3556, 0), (-0.0127, -0.35383724, -0.01572768), (-0.0127, -0.34854388, -0.03057398), (-0.0127, -0.339725, -0.04365752), (-0.0127, -0.32737806, -0.05409184), (-0.0127, -0.31150306, -0.06100064), (-0.0127, -0.2921, -0.0635), (-0.0127, -0.219075, -0.05953252), (-0.0127, -0.073025, -0.04207764), (-0.0127, 0, -0.03811016), (-0.0127, 0.073025, -0.04207764), (-0.0127, 0.219075, -0.05953252)]
+            rel material:binding = </krabby/PlyWood> (
+                bindMaterialAs = "weakerThanDescendants"
+            )
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+            bool physics:kinematicEnabled = 0
+            bool physics:rigidBodyEnabled = 1
+            uniform token subdivisionScheme = "none"
+            quatd xformOp:orient = (0.9914448614, 0, 0, -0.1305261922)
+            double3 xformOp:scale = (1, 1, 1)
+            double3 xformOp:translate = (0.3841360524, 0.9530832238, -0.2413)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+
+        def Mesh "RR_Tibia" (
+            prepend apiSchemas = ["PhysicsMassAPI", "MaterialBindingAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI", "PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            float physics:mass = 2.054537224
+            point3f physics:centerOfMass = (0, -0.0003518140475, 0.05931956492)
+            float3 physics:diagonalInertia = (0.1473070565, 0.1457655458, 0.001762428207)
+            float3[] extent = [(-0.0127, -0.0635, -0.499491), (0.0127, 0.0635, 0.47837598)]
+            int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
+            int[] faceVertexIndices = [23, 0, 1, 1, 2, 3, 23, 1, 3, 23, 3, 4, 23, 4, 5, 23, 5, 6, 23, 6, 7, 23, 7, 8, 23, 8, 9, 23, 9, 10, 23, 10, 11, 23, 11, 12, 23, 12, 13, 23, 13, 14, 23, 14, 15, 23, 15, 16, 23, 16, 17, 23, 17, 18, 23, 18, 19, 23, 19, 20, 23, 20, 21, 21, 22, 23, 25, 24, 47, 27, 26, 25, 27, 25, 47, 28, 27, 47, 29, 28, 47, 30, 29, 47, 31, 30, 47, 32, 31, 47, 33, 32, 47, 34, 33, 47, 35, 34, 47, 36, 35, 47, 37, 36, 47, 38, 37, 47, 39, 38, 47, 40, 39, 47, 41, 40, 47, 42, 41, 47, 43, 42, 47, 44, 43, 47, 45, 44, 47, 47, 46, 45, 0, 1, 25, 24, 1, 2, 26, 25, 2, 3, 27, 26, 3, 4, 28, 27, 4, 5, 29, 28, 5, 6, 30, 29, 6, 7, 31, 30, 7, 8, 32, 31, 8, 9, 33, 32, 9, 10, 34, 33, 10, 11, 35, 34, 11, 12, 36, 35, 12, 13, 37, 36, 13, 14, 38, 37, 14, 15, 39, 38, 15, 16, 40, 39, 16, 17, 41, 40, 17, 18, 42, 41, 18, 19, 43, 42, 19, 20, 44, 43, 20, 21, 45, 44, 21, 22, 46, 45, 22, 23, 47, 46, 23, 0, 24, 47]
+            point3f[] points = [(0.0127, -0.0563372, 0.19611594), (0.0127, -0.03439922, -0.24986742), (0.0127, -0.0254, -0.47287688), (0.0127, -0.02408174, -0.48100488), (0.0127, -0.01682242, -0.49283112), (0.0127, -0.011557, -0.49652936), (0.0127, 0.00056896, -0.499491), (0.0127, 0.01256538, -0.49653698), (0.0127, 0.01767586, -0.49284128), (0.0127, 0.02442972, -0.4810125), (0.0127, 0.0254, -0.47287688), (0.0127, 0.0635, 0.41487598), (0.0127, 0.06100064, 0.43427904), (0.0127, 0.05409184, 0.45015404), (0.0127, 0.04365752, 0.46250098), (0.0127, 0.03057398, 0.47131986), (0.0127, 0.01572768, 0.47661322), (0.0127, 0, 0.47837598), (0.0127, -0.01572768, 0.47661322), (0.0127, -0.03057398, 0.47131986), (0.0127, -0.04365498, 0.46250098), (0.0127, -0.05409184, 0.45015404), (0.0127, -0.06100064, 0.43427904), (0.0127, -0.0635, 0.41487598), (-0.0127, -0.0563372, 0.19611594), (-0.0127, -0.03439922, -0.24986742), (-0.0127, -0.0254, -0.47287688), (-0.0127, -0.02408174, -0.48100488), (-0.0127, -0.01682242, -0.49283112), (-0.0127, -0.011557, -0.49652936), (-0.0127, 0.00056896, -0.499491), (-0.0127, 0.01256538, -0.49653698), (-0.0127, 0.01767586, -0.49284128), (-0.0127, 0.02442972, -0.4810125), (-0.0127, 0.0254, -0.47287688), (-0.0127, 0.0635, 0.41487598), (-0.0127, 0.06100064, 0.43427904), (-0.0127, 0.05409184, 0.45015404), (-0.0127, 0.04365752, 0.46250098), (-0.0127, 0.03057398, 0.47131986), (-0.0127, 0.01572768, 0.47661322), (-0.0127, 0, 0.47837598), (-0.0127, -0.01572768, 0.47661322), (-0.0127, -0.03057398, 0.47131986), (-0.0127, -0.04365498, 0.46250098), (-0.0127, -0.05409184, 0.45015404), (-0.0127, -0.06100064, 0.43427904), (-0.0127, -0.0635, 0.41487598)]
+            rel material:binding = </krabby/PlyWood> (
+                bindMaterialAs = "weakerThanDescendants"
+            )
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+            bool physics:kinematicEnabled = 0
+            bool physics:rigidBodyEnabled = 1
+            uniform token subdivisionScheme = "none"
+            quatd xformOp:orient = (0.9914448614, 0, 0, -0.1305261922)
+            double3 xformOp:scale = (1, 1, 1)
+            double3 xformOp:translate = (0.4597370955, 1.235230158, -0.567309)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+
+        def Cube "RR_Footpad" (
+            prepend apiSchemas = ["PhysicsMassAPI", "MaterialBindingAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI", "PhysicsCollisionAPI", "PhysxCollisionAPI"]
+        )
+        {
+            float physics:mass = 0.05
+            float3[] extent = [(-0.5, -0.5, -0.5), (0.5, 0.5, 0.5)]
+            rel material:binding = </krabby/PlyWood> (
+                bindMaterialAs = "weakerThanDescendants"
+            )
+            uniform token purpose = "guide"
+            bool physics:collisionEnabled = 1
+            bool physics:kinematicEnabled = 0
+            bool physics:rigidBodyEnabled = 1
+            double size = 1
+            quatd xformOp:orient = (0.9914448614, 0, 0, -0.1305261922)
+            double3 xformOp:scale = (0.06, 0.06, 0.04)
+            double3 xformOp:translate = (0.4597370955, 1.235230158, -1.0668)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+
+        def Mesh "RR_Hip" (
+            prepend apiSchemas = ["PhysicsMassAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI", "PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysicsMeshCollisionAPI", "MaterialBindingAPI"]
+        )
+        {
+            float physics:mass = 7.413239762
+            point3f physics:centerOfMass = (0, 0.01617762012, -0.01396241445)
+            float3 physics:diagonalInertia = (0.2011753356, 0.1946017063, 0.006765858893)
+            float3[] extent = [(-0.0127, -0.0635, -0.3048127), (0.0127, 0.0635, 0.3047873)]
+            int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
+            int[] faceVertexIndices = [30, 0, 1, 30, 1, 2, 30, 2, 3, 30, 3, 4, 30, 4, 5, 30, 5, 6, 30, 6, 7, 30, 7, 8, 30, 8, 9, 30, 9, 10, 30, 10, 11, 30, 11, 12, 30, 12, 13, 30, 13, 14, 30, 14, 15, 30, 15, 16, 30, 16, 17, 30, 17, 18, 30, 18, 19, 30, 19, 20, 30, 20, 21, 30, 21, 22, 30, 22, 23, 30, 23, 24, 30, 24, 25, 30, 25, 26, 30, 26, 27, 30, 27, 28, 28, 29, 30, 32, 31, 61, 33, 32, 61, 34, 33, 61, 35, 34, 61, 36, 35, 61, 37, 36, 61, 38, 37, 61, 39, 38, 61, 40, 39, 61, 41, 40, 61, 42, 41, 61, 43, 42, 61, 44, 43, 61, 45, 44, 61, 46, 45, 61, 47, 46, 61, 48, 47, 61, 49, 48, 61, 50, 49, 61, 51, 50, 61, 52, 51, 61, 53, 52, 61, 54, 53, 61, 55, 54, 61, 56, 55, 61, 57, 56, 61, 58, 57, 61, 59, 58, 61, 61, 60, 59, 0, 1, 32, 31, 1, 2, 33, 32, 2, 3, 34, 33, 3, 4, 35, 34, 4, 5, 36, 35, 5, 6, 37, 36, 6, 7, 38, 37, 7, 8, 39, 38, 8, 9, 40, 39, 9, 10, 41, 40, 10, 11, 42, 41, 11, 12, 43, 42, 12, 13, 44, 43, 13, 14, 45, 44, 14, 15, 46, 45, 15, 16, 47, 46, 16, 17, 48, 47, 17, 18, 49, 48, 18, 19, 50, 49, 19, 20, 51, 50, 20, 21, 52, 51, 21, 22, 53, 52, 22, 23, 54, 53, 23, 24, 55, 54, 24, 25, 56, 55, 25, 26, 57, 56, 26, 27, 58, 57, 27, 28, 59, 58, 28, 29, 60, 59, 29, 30, 61, 60, 30, 0, 31, 61]
+            point3f[] points = [(0.0127, 0.0635, 0.2412873), (0.0127, 0.06100064, 0.26069036), (0.0127, 0.05409184, 0.27656536), (0.0127, 0.04365752, 0.2889123), (0.0127, 0.03057398, 0.29773118), (0.0127, 0.01572768, 0.30302454), (0.0127, 0, 0.3047873), (0.0127, -0.01572768, 0.30302454), (0.0127, -0.03057398, 0.29773118), (0.0127, -0.04365752, 0.2889123), (0.0127, -0.05409184, 0.27656536), (0.0127, -0.06100064, 0.26069036), (0.0127, -0.0635, 0.2412873), (0.0127, -0.06161786, 0.20107148), (0.0127, -0.04206494, 0.0603123), (0.0127, -0.03809492, -1.27e-05), (0.0127, -0.04206494, -0.0603377), (0.0127, -0.05952998, -0.1809877), (0.0127, -0.0635, -0.2413127), (0.0127, -0.06100064, -0.26071576), (0.0127, -0.05409184, -0.27659076), (0.0127, -0.04365752, -0.2889377), (0.0127, -0.03057398, -0.29775658), (0.0127, -0.01572768, -0.30304994), (0.0127, 0, -0.3048127), (0.0127, 0.01572768, -0.30304994), (0.0127, 0.03057398, -0.29775658), (0.0127, 0.04365752, -0.2889377), (0.0127, 0.05409184, -0.27659076), (0.0127, 0.06100064, -0.26071576), (0.0127, 0.0635, -0.2413127), (-0.0127, 0.0635, 0.2412873), (-0.0127, 0.06100064, 0.26069036), (-0.0127, 0.05409184, 0.27656536), (-0.0127, 0.04365752, 0.2889123), (-0.0127, 0.03057398, 0.29773118), (-0.0127, 0.01572768, 0.30302454), (-0.0127, 0, 0.3047873), (-0.0127, -0.01572768, 0.30302454), (-0.0127, -0.03057398, 0.29773118), (-0.0127, -0.04365752, 0.2889123), (-0.0127, -0.05409184, 0.27656536), (-0.0127, -0.06100064, 0.26069036), (-0.0127, -0.0635, 0.2412873), (-0.0127, -0.06161786, 0.20107148), (-0.0127, -0.04206494, 0.0603123), (-0.0127, -0.03809492, -1.27e-05), (-0.0127, -0.04206494, -0.0603377), (-0.0127, -0.05952998, -0.1809877), (-0.0127, -0.0635, -0.2413127), (-0.0127, -0.06100064, -0.26071576), (-0.0127, -0.05409184, -0.27659076), (-0.0127, -0.04365752, -0.2889377), (-0.0127, -0.03057398, -0.29775658), (-0.0127, -0.01572768, -0.30304994), (-0.0127, 0, -0.3048127), (-0.0127, 0.01572768, -0.30304994), (-0.0127, 0.03057398, -0.29775658), (-0.0127, 0.04365752, -0.2889377), (-0.0127, 0.05409184, -0.27659076), (-0.0127, 0.06100064, -0.26071576), (-0.0127, 0.0635, -0.2413127)]
+            rel material:binding = </krabby/PlyWood> (
+                bindMaterialAs = "weakerThanDescendants"
+            )
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+            bool physics:kinematicEnabled = 0
+            bool physics:rigidBodyEnabled = 1
+            uniform token subdivisionScheme = "none"
+            quatd xformOp:orient = (0.9914448614, 0, 0, -0.1305261922)
+            double3 xformOp:scale = (1, 1, 1)
+            double3 xformOp:translate = (0.3085350094, 0.67093629, 1.27e-05)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+
+        def Cube "RR_CamShaft" (
+            prepend apiSchemas = ["PhysicsMassAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI"]
+        )
+        {
+            float physics:mass = 0.3
+            float3 physics:diagonalInertia = (0.015, 0.015, 0.015)
+            float3[] extent = [(-0.5, -0.5, -0.5), (0.5, 0.5, 0.5)]
+            bool physics:collisionEnabled = 0
+            bool physics:kinematicEnabled = 0
+            bool physics:rigidBodyEnabled = 1
+            double size = 1
+            quatd xformOp:orient = (0.9914448614, 0, 0, -0.1305261922)
+            double3 xformOp:scale = (0.02, 0.02, 0.02)
+            double3 xformOp:translate = (0.2921, 0.6096, 1.27e-05)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+    }
+
+    def Xform "Leg_ML"
+    {
+        quatd xformOp:orient = (1, 0, 0, 0)
+        double3 xformOp:scale = (1, 1, 1)
+        double3 xformOp:translate = (0, 0, 0)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+
+        def Mesh "ML_Femur" (
+            prepend apiSchemas = ["PhysicsMassAPI", "MaterialBindingAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI", "PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            float physics:mass = 2.066343108
+            point3f physics:centerOfMass = (0, 4.510679612e-18, -3.702346985e-06)
+            float3 physics:diagonalInertia = (0.0945639981, 0.002065781839, 0.09272040325)
+            float3[] extent = [(-0.0127, -0.3556, -0.0635), (0.0127, 0.3556, 0.0635)]
+            int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
+            int[] faceVertexIndices = [35, 1, 0, 35, 2, 1, 35, 3, 2, 35, 4, 3, 35, 5, 4, 35, 6, 5, 35, 7, 6, 35, 8, 7, 35, 9, 8, 35, 10, 9, 35, 11, 10, 35, 12, 11, 35, 13, 12, 35, 14, 13, 35, 15, 14, 35, 16, 15, 35, 17, 16, 35, 18, 17, 35, 19, 18, 35, 20, 19, 35, 21, 20, 35, 22, 21, 35, 23, 22, 23, 25, 24, 23, 26, 25, 23, 27, 26, 23, 28, 27, 23, 29, 28, 23, 30, 29, 23, 31, 30, 23, 32, 31, 23, 33, 32, 23, 34, 33, 23, 35, 34, 71, 36, 37, 71, 37, 38, 71, 38, 39, 71, 39, 40, 71, 40, 41, 71, 41, 42, 71, 42, 43, 71, 43, 44, 71, 44, 45, 71, 45, 46, 71, 46, 47, 71, 47, 48, 71, 48, 49, 71, 49, 50, 71, 50, 51, 71, 51, 52, 71, 52, 53, 71, 53, 54, 71, 54, 55, 71, 55, 56, 71, 56, 57, 71, 57, 58, 71, 58, 59, 59, 60, 61, 59, 61, 62, 59, 62, 63, 59, 63, 64, 59, 64, 65, 59, 65, 66, 59, 66, 67, 59, 67, 68, 59, 68, 69, 59, 69, 70, 59, 70, 71, 0, 36, 37, 1, 1, 37, 38, 2, 2, 38, 39, 3, 3, 39, 40, 4, 4, 40, 41, 5, 5, 41, 42, 6, 6, 42, 43, 7, 7, 43, 44, 8, 8, 44, 45, 9, 9, 45, 46, 10, 10, 46, 47, 11, 11, 47, 48, 12, 12, 48, 49, 13, 13, 49, 50, 14, 14, 50, 51, 15, 15, 51, 52, 16, 16, 52, 53, 17, 17, 53, 54, 18, 18, 54, 55, 19, 19, 55, 56, 20, 20, 56, 57, 21, 21, 57, 58, 22, 22, 58, 59, 23, 23, 59, 60, 24, 24, 60, 61, 25, 25, 61, 62, 26, 26, 62, 63, 27, 27, 63, 64, 28, 28, 64, 65, 29, 29, 65, 66, 30, 30, 66, 67, 31, 31, 67, 68, 32, 32, 68, 69, 33, 33, 69, 70, 34, 34, 70, 71, 35, 35, 71, 36, 0]
+            point3f[] points = [(0.0127, -0.2921, -0.0635), (0.0127, -0.31150306, -0.06100064), (0.0127, -0.32737806, -0.05409184), (0.0127, -0.339725, -0.04365752), (0.0127, -0.34854388, -0.03057398), (0.0127, -0.35383724, -0.01572768), (0.0127, -0.3556, 0), (0.0127, -0.35383724, 0.01572768), (0.0127, -0.34854388, 0.03057398), (0.0127, -0.339725, 0.04365752), (0.0127, -0.32737806, 0.05409184), (0.0127, -0.31150306, 0.06100064), (0.0127, -0.2921, 0.0635), (0.0127, -0.219075, 0.05952998), (0.0127, -0.073025, 0.04205986), (0.0127, 0, 0.03808984), (0.0127, 0.073025, 0.04205986), (0.0127, 0.219075, 0.05952998), (0.0127, 0.2921, 0.0635), (0.0127, 0.31150306, 0.06100064), (0.0127, 0.32737806, 0.05409184), (0.0127, 0.339725, 0.04365752), (0.0127, 0.34854388, 0.03057398), (0.0127, 0.35383724, 0.01572768), (0.0127, 0.3556, 0), (0.0127, 0.35383724, -0.01572768), (0.0127, 0.34854388, -0.03057398), (0.0127, 0.339725, -0.04365752), (0.0127, 0.32737806, -0.05409184), (0.0127, 0.31150306, -0.06100064), (0.0127, 0.2921, -0.0635), (0.0127, 0.219075, -0.05953252), (0.0127, 0.073025, -0.04207764), (0.0127, 0, -0.03811016), (0.0127, -0.073025, -0.04207764), (0.0127, -0.219075, -0.05953252), (-0.0127, -0.2921, -0.0635), (-0.0127, -0.31150306, -0.06100064), (-0.0127, -0.32737806, -0.05409184), (-0.0127, -0.339725, -0.04365752), (-0.0127, -0.34854388, -0.03057398), (-0.0127, -0.35383724, -0.01572768), (-0.0127, -0.3556, 0), (-0.0127, -0.35383724, 0.01572768), (-0.0127, -0.34854388, 0.03057398), (-0.0127, -0.339725, 0.04365752), (-0.0127, -0.32737806, 0.05409184), (-0.0127, -0.31150306, 0.06100064), (-0.0127, -0.2921, 0.0635), (-0.0127, -0.219075, 0.05952998), (-0.0127, -0.073025, 0.04205986), (-0.0127, 0, 0.03808984), (-0.0127, 0.073025, 0.04205986), (-0.0127, 0.219075, 0.05952998), (-0.0127, 0.2921, 0.0635), (-0.0127, 0.31150306, 0.06100064), (-0.0127, 0.32737806, 0.05409184), (-0.0127, 0.339725, 0.04365752), (-0.0127, 0.34854388, 0.03057398), (-0.0127, 0.35383724, 0.01572768), (-0.0127, 0.3556, 0), (-0.0127, 0.35383724, -0.01572768), (-0.0127, 0.34854388, -0.03057398), (-0.0127, 0.339725, -0.04365752), (-0.0127, 0.32737806, -0.05409184), (-0.0127, 0.31150306, -0.06100064), (-0.0127, 0.2921, -0.0635), (-0.0127, 0.219075, -0.05953252), (-0.0127, 0.073025, -0.04207764), (-0.0127, 0, -0.03811016), (-0.0127, -0.073025, -0.04207764), (-0.0127, -0.219075, -0.05953252)]
+            rel material:binding = </krabby/PlyWood> (
+                bindMaterialAs = "weakerThanDescendants"
+            )
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+            bool physics:kinematicEnabled = 0
+            bool physics:rigidBodyEnabled = 1
+            uniform token subdivisionScheme = "none"
+            quatd xformOp:orient = (1, 0, 0, 0)
+            double3 xformOp:scale = (1, 1, 1)
+            double3 xformOp:translate = (0, -0.9652, -0.2413)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+
+        def Mesh "ML_Tibia" (
+            prepend apiSchemas = ["PhysicsMassAPI", "MaterialBindingAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI", "PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            float physics:mass = 2.054537224
+            point3f physics:centerOfMass = (0, 0.0003518140475, 0.05931956492)
+            float3 physics:diagonalInertia = (0.1473070565, 0.1457655458, 0.001762428207)
+            float3[] extent = [(-0.0127, -0.0635, -0.499491), (0.0127, 0.0635, 0.47837598)]
+            int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
+            int[] faceVertexIndices = [23, 1, 0, 1, 3, 2, 23, 3, 1, 23, 4, 3, 23, 5, 4, 23, 6, 5, 23, 7, 6, 23, 8, 7, 23, 9, 8, 23, 10, 9, 23, 11, 10, 23, 12, 11, 23, 13, 12, 23, 14, 13, 23, 15, 14, 23, 16, 15, 23, 17, 16, 23, 18, 17, 23, 19, 18, 23, 20, 19, 23, 21, 20, 21, 23, 22, 47, 24, 25, 25, 26, 27, 47, 25, 27, 47, 27, 28, 47, 28, 29, 47, 29, 30, 47, 30, 31, 47, 31, 32, 47, 32, 33, 47, 33, 34, 47, 34, 35, 47, 35, 36, 47, 36, 37, 47, 37, 38, 47, 38, 39, 47, 39, 40, 47, 40, 41, 47, 41, 42, 47, 42, 43, 47, 43, 44, 47, 44, 45, 45, 46, 47, 0, 24, 25, 1, 1, 25, 26, 2, 2, 26, 27, 3, 3, 27, 28, 4, 4, 28, 29, 5, 5, 29, 30, 6, 6, 30, 31, 7, 7, 31, 32, 8, 8, 32, 33, 9, 9, 33, 34, 10, 10, 34, 35, 11, 11, 35, 36, 12, 12, 36, 37, 13, 13, 37, 38, 14, 14, 38, 39, 15, 15, 39, 40, 16, 16, 40, 41, 17, 17, 41, 42, 18, 18, 42, 43, 19, 19, 43, 44, 20, 20, 44, 45, 21, 21, 45, 46, 22, 22, 46, 47, 23, 23, 47, 24, 0]
+            point3f[] points = [(0.0127, 0.0563372, 0.19611594), (0.0127, 0.03439922, -0.24986742), (0.0127, 0.0254, -0.47287688), (0.0127, 0.02408174, -0.48100488), (0.0127, 0.01682242, -0.49283112), (0.0127, 0.011557, -0.49652936), (0.0127, -0.00056896, -0.499491), (0.0127, -0.01256538, -0.49653698), (0.0127, -0.01767586, -0.49284128), (0.0127, -0.02442972, -0.4810125), (0.0127, -0.0254, -0.47287688), (0.0127, -0.0635, 0.41487598), (0.0127, -0.06100064, 0.43427904), (0.0127, -0.05409184, 0.45015404), (0.0127, -0.04365752, 0.46250098), (0.0127, -0.03057398, 0.47131986), (0.0127, -0.01572768, 0.47661322), (0.0127, 0, 0.47837598), (0.0127, 0.01572768, 0.47661322), (0.0127, 0.03057398, 0.47131986), (0.0127, 0.04365498, 0.46250098), (0.0127, 0.05409184, 0.45015404), (0.0127, 0.06100064, 0.43427904), (0.0127, 0.0635, 0.41487598), (-0.0127, 0.0563372, 0.19611594), (-0.0127, 0.03439922, -0.24986742), (-0.0127, 0.0254, -0.47287688), (-0.0127, 0.02408174, -0.48100488), (-0.0127, 0.01682242, -0.49283112), (-0.0127, 0.011557, -0.49652936), (-0.0127, -0.00056896, -0.499491), (-0.0127, -0.01256538, -0.49653698), (-0.0127, -0.01767586, -0.49284128), (-0.0127, -0.02442972, -0.4810125), (-0.0127, -0.0254, -0.47287688), (-0.0127, -0.0635, 0.41487598), (-0.0127, -0.06100064, 0.43427904), (-0.0127, -0.05409184, 0.45015404), (-0.0127, -0.04365752, 0.46250098), (-0.0127, -0.03057398, 0.47131986), (-0.0127, -0.01572768, 0.47661322), (-0.0127, 0, 0.47837598), (-0.0127, 0.01572768, 0.47661322), (-0.0127, 0.03057398, 0.47131986), (-0.0127, 0.04365498, 0.46250098), (-0.0127, 0.05409184, 0.45015404), (-0.0127, 0.06100064, 0.43427904), (-0.0127, 0.0635, 0.41487598)]
+            rel material:binding = </krabby/PlyWood> (
+                bindMaterialAs = "weakerThanDescendants"
+            )
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+            bool physics:kinematicEnabled = 0
+            bool physics:rigidBodyEnabled = 1
+            uniform token subdivisionScheme = "none"
+            quatd xformOp:orient = (1, 0, 0, 0)
+            double3 xformOp:scale = (1, 1, 1)
+            double3 xformOp:translate = (0, -1.2573, -0.567309)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+
+        def Cube "ML_Footpad" (
+            prepend apiSchemas = ["PhysicsMassAPI", "MaterialBindingAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI", "PhysicsCollisionAPI", "PhysxCollisionAPI"]
+        )
+        {
+            float physics:mass = 0.05
+            float3[] extent = [(-0.5, -0.5, -0.5), (0.5, 0.5, 0.5)]
+            rel material:binding = </krabby/PlyWood> (
+                bindMaterialAs = "weakerThanDescendants"
+            )
+            uniform token purpose = "guide"
+            bool physics:collisionEnabled = 1
+            bool physics:kinematicEnabled = 0
+            bool physics:rigidBodyEnabled = 1
+            double size = 1
+            quatd xformOp:orient = (1, 0, 0, 0)
+            double3 xformOp:scale = (0.06, 0.06, 0.04)
+            double3 xformOp:translate = (0, -1.2573, -1.0668)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+
+        def Mesh "ML_Hip" (
+            prepend apiSchemas = ["PhysicsMassAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI", "PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysicsMeshCollisionAPI", "MaterialBindingAPI"]
+        )
+        {
+            float physics:mass = 7.413239762
+            point3f physics:centerOfMass = (0, -0.01617762012, -0.01396241445)
+            float3 physics:diagonalInertia = (0.2011753356, 0.1946017063, 0.006765858893)
+            float3[] extent = [(-0.0127, -0.0635, -0.3048127), (0.0127, 0.0635, 0.3047873)]
+            int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
+            int[] faceVertexIndices = [30, 1, 0, 30, 2, 1, 30, 3, 2, 30, 4, 3, 30, 5, 4, 30, 6, 5, 30, 7, 6, 30, 8, 7, 30, 9, 8, 30, 10, 9, 30, 11, 10, 30, 12, 11, 30, 13, 12, 30, 14, 13, 30, 15, 14, 30, 16, 15, 30, 17, 16, 30, 18, 17, 30, 19, 18, 30, 20, 19, 30, 21, 20, 30, 22, 21, 30, 23, 22, 30, 24, 23, 30, 25, 24, 30, 26, 25, 30, 27, 26, 30, 28, 27, 28, 30, 29, 61, 31, 32, 61, 32, 33, 61, 33, 34, 61, 34, 35, 61, 35, 36, 61, 36, 37, 61, 37, 38, 61, 38, 39, 61, 39, 40, 61, 40, 41, 61, 41, 42, 61, 42, 43, 61, 43, 44, 61, 44, 45, 61, 45, 46, 61, 46, 47, 61, 47, 48, 61, 48, 49, 61, 49, 50, 61, 50, 51, 61, 51, 52, 61, 52, 53, 61, 53, 54, 61, 54, 55, 61, 55, 56, 61, 56, 57, 61, 57, 58, 61, 58, 59, 59, 60, 61, 0, 31, 32, 1, 1, 32, 33, 2, 2, 33, 34, 3, 3, 34, 35, 4, 4, 35, 36, 5, 5, 36, 37, 6, 6, 37, 38, 7, 7, 38, 39, 8, 8, 39, 40, 9, 9, 40, 41, 10, 10, 41, 42, 11, 11, 42, 43, 12, 12, 43, 44, 13, 13, 44, 45, 14, 14, 45, 46, 15, 15, 46, 47, 16, 16, 47, 48, 17, 17, 48, 49, 18, 18, 49, 50, 19, 19, 50, 51, 20, 20, 51, 52, 21, 21, 52, 53, 22, 22, 53, 54, 23, 23, 54, 55, 24, 24, 55, 56, 25, 25, 56, 57, 26, 26, 57, 58, 27, 27, 58, 59, 28, 28, 59, 60, 29, 29, 60, 61, 30, 30, 61, 31, 0]
+            point3f[] points = [(0.0127, -0.0635, 0.2412873), (0.0127, -0.06100064, 0.26069036), (0.0127, -0.05409184, 0.27656536), (0.0127, -0.04365752, 0.2889123), (0.0127, -0.03057398, 0.29773118), (0.0127, -0.01572768, 0.30302454), (0.0127, 0, 0.3047873), (0.0127, 0.01572768, 0.30302454), (0.0127, 0.03057398, 0.29773118), (0.0127, 0.04365752, 0.2889123), (0.0127, 0.05409184, 0.27656536), (0.0127, 0.06100064, 0.26069036), (0.0127, 0.0635, 0.2412873), (0.0127, 0.06161786, 0.20107148), (0.0127, 0.04206494, 0.0603123), (0.0127, 0.03809492, -1.27e-05), (0.0127, 0.04206494, -0.0603377), (0.0127, 0.05952998, -0.1809877), (0.0127, 0.0635, -0.2413127), (0.0127, 0.06100064, -0.26071576), (0.0127, 0.05409184, -0.27659076), (0.0127, 0.04365752, -0.2889377), (0.0127, 0.03057398, -0.29775658), (0.0127, 0.01572768, -0.30304994), (0.0127, 0, -0.3048127), (0.0127, -0.01572768, -0.30304994), (0.0127, -0.03057398, -0.29775658), (0.0127, -0.04365752, -0.2889377), (0.0127, -0.05409184, -0.27659076), (0.0127, -0.06100064, -0.26071576), (0.0127, -0.0635, -0.2413127), (-0.0127, -0.0635, 0.2412873), (-0.0127, -0.06100064, 0.26069036), (-0.0127, -0.05409184, 0.27656536), (-0.0127, -0.04365752, 0.2889123), (-0.0127, -0.03057398, 0.29773118), (-0.0127, -0.01572768, 0.30302454), (-0.0127, 0, 0.3047873), (-0.0127, 0.01572768, 0.30302454), (-0.0127, 0.03057398, 0.29773118), (-0.0127, 0.04365752, 0.2889123), (-0.0127, 0.05409184, 0.27656536), (-0.0127, 0.06100064, 0.26069036), (-0.0127, 0.0635, 0.2412873), (-0.0127, 0.06161786, 0.20107148), (-0.0127, 0.04206494, 0.0603123), (-0.0127, 0.03809492, -1.27e-05), (-0.0127, 0.04206494, -0.0603377), (-0.0127, 0.05952998, -0.1809877), (-0.0127, 0.0635, -0.2413127), (-0.0127, 0.06100064, -0.26071576), (-0.0127, 0.05409184, -0.27659076), (-0.0127, 0.04365752, -0.2889377), (-0.0127, 0.03057398, -0.29775658), (-0.0127, 0.01572768, -0.30304994), (-0.0127, 0, -0.3048127), (-0.0127, -0.01572768, -0.30304994), (-0.0127, -0.03057398, -0.29775658), (-0.0127, -0.04365752, -0.2889377), (-0.0127, -0.05409184, -0.27659076), (-0.0127, -0.06100064, -0.26071576), (-0.0127, -0.0635, -0.2413127)]
+            rel material:binding = </krabby/PlyWood> (
+                bindMaterialAs = "weakerThanDescendants"
+            )
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+            bool physics:kinematicEnabled = 0
+            bool physics:rigidBodyEnabled = 1
+            uniform token subdivisionScheme = "none"
+            quatd xformOp:orient = (1, 0, 0, 0)
+            double3 xformOp:scale = (1, 1, 1)
+            double3 xformOp:translate = (0, -0.6731, 1.27e-05)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+
+        def Cube "ML_CamShaft" (
+            prepend apiSchemas = ["PhysicsMassAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI"]
+        )
+        {
+            float physics:mass = 0.3
+            float3 physics:diagonalInertia = (0.015, 0.015, 0.015)
+            float3[] extent = [(-0.5, -0.5, -0.5), (0.5, 0.5, 0.5)]
+            bool physics:collisionEnabled = 0
+            bool physics:kinematicEnabled = 0
+            bool physics:rigidBodyEnabled = 1
+            double size = 1
+            quatd xformOp:orient = (1, 0, 0, 0)
+            double3 xformOp:scale = (0.02, 0.02, 0.02)
+            double3 xformOp:translate = (0, -0.6096, 1.27e-05)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+    }
+
+    def Xform "Leg_MR"
+    {
+        quatd xformOp:orient = (1, 0, 0, 0)
+        double3 xformOp:scale = (1, 1, 1)
+        double3 xformOp:translate = (0, 0, 0)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+
+        def Mesh "MR_Femur" (
+            prepend apiSchemas = ["PhysicsMassAPI", "MaterialBindingAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI", "PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            float physics:mass = 2.066343108
+            point3f physics:centerOfMass = (0, -4.510679612e-18, -3.702346985e-06)
+            float3 physics:diagonalInertia = (0.0945639981, 0.002065781839, 0.09272040325)
+            float3[] extent = [(-0.0127, -0.3556, -0.0635), (0.0127, 0.3556, 0.0635)]
+            int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
+            int[] faceVertexIndices = [35, 0, 1, 35, 1, 2, 35, 2, 3, 35, 3, 4, 35, 4, 5, 35, 5, 6, 35, 6, 7, 35, 7, 8, 35, 8, 9, 35, 9, 10, 35, 10, 11, 35, 11, 12, 35, 12, 13, 35, 13, 14, 35, 14, 15, 35, 15, 16, 35, 16, 17, 35, 17, 18, 35, 18, 19, 35, 19, 20, 35, 20, 21, 35, 21, 22, 35, 22, 23, 23, 24, 25, 23, 25, 26, 23, 26, 27, 23, 27, 28, 23, 28, 29, 23, 29, 30, 23, 30, 31, 23, 31, 32, 23, 32, 33, 23, 33, 34, 23, 34, 35, 37, 36, 71, 38, 37, 71, 39, 38, 71, 40, 39, 71, 41, 40, 71, 42, 41, 71, 43, 42, 71, 44, 43, 71, 45, 44, 71, 46, 45, 71, 47, 46, 71, 48, 47, 71, 49, 48, 71, 50, 49, 71, 51, 50, 71, 52, 51, 71, 53, 52, 71, 54, 53, 71, 55, 54, 71, 56, 55, 71, 57, 56, 71, 58, 57, 71, 59, 58, 71, 61, 60, 59, 62, 61, 59, 63, 62, 59, 64, 63, 59, 65, 64, 59, 66, 65, 59, 67, 66, 59, 68, 67, 59, 69, 68, 59, 70, 69, 59, 71, 70, 59, 0, 1, 37, 36, 1, 2, 38, 37, 2, 3, 39, 38, 3, 4, 40, 39, 4, 5, 41, 40, 5, 6, 42, 41, 6, 7, 43, 42, 7, 8, 44, 43, 8, 9, 45, 44, 9, 10, 46, 45, 10, 11, 47, 46, 11, 12, 48, 47, 12, 13, 49, 48, 13, 14, 50, 49, 14, 15, 51, 50, 15, 16, 52, 51, 16, 17, 53, 52, 17, 18, 54, 53, 18, 19, 55, 54, 19, 20, 56, 55, 20, 21, 57, 56, 21, 22, 58, 57, 22, 23, 59, 58, 23, 24, 60, 59, 24, 25, 61, 60, 25, 26, 62, 61, 26, 27, 63, 62, 27, 28, 64, 63, 28, 29, 65, 64, 29, 30, 66, 65, 30, 31, 67, 66, 31, 32, 68, 67, 32, 33, 69, 68, 33, 34, 70, 69, 34, 35, 71, 70, 35, 0, 36, 71]
+            point3f[] points = [(0.0127, 0.2921, -0.0635), (0.0127, 0.31150306, -0.06100064), (0.0127, 0.32737806, -0.05409184), (0.0127, 0.339725, -0.04365752), (0.0127, 0.34854388, -0.03057398), (0.0127, 0.35383724, -0.01572768), (0.0127, 0.3556, 0), (0.0127, 0.35383724, 0.01572768), (0.0127, 0.34854388, 0.03057398), (0.0127, 0.339725, 0.04365752), (0.0127, 0.32737806, 0.05409184), (0.0127, 0.31150306, 0.06100064), (0.0127, 0.2921, 0.0635), (0.0127, 0.219075, 0.05952998), (0.0127, 0.073025, 0.04205986), (0.0127, 0, 0.03808984), (0.0127, -0.073025, 0.04205986), (0.0127, -0.219075, 0.05952998), (0.0127, -0.2921, 0.0635), (0.0127, -0.31150306, 0.06100064), (0.0127, -0.32737806, 0.05409184), (0.0127, -0.339725, 0.04365752), (0.0127, -0.34854388, 0.03057398), (0.0127, -0.35383724, 0.01572768), (0.0127, -0.3556, 0), (0.0127, -0.35383724, -0.01572768), (0.0127, -0.34854388, -0.03057398), (0.0127, -0.339725, -0.04365752), (0.0127, -0.32737806, -0.05409184), (0.0127, -0.31150306, -0.06100064), (0.0127, -0.2921, -0.0635), (0.0127, -0.219075, -0.05953252), (0.0127, -0.073025, -0.04207764), (0.0127, 0, -0.03811016), (0.0127, 0.073025, -0.04207764), (0.0127, 0.219075, -0.05953252), (-0.0127, 0.2921, -0.0635), (-0.0127, 0.31150306, -0.06100064), (-0.0127, 0.32737806, -0.05409184), (-0.0127, 0.339725, -0.04365752), (-0.0127, 0.34854388, -0.03057398), (-0.0127, 0.35383724, -0.01572768), (-0.0127, 0.3556, 0), (-0.0127, 0.35383724, 0.01572768), (-0.0127, 0.34854388, 0.03057398), (-0.0127, 0.339725, 0.04365752), (-0.0127, 0.32737806, 0.05409184), (-0.0127, 0.31150306, 0.06100064), (-0.0127, 0.2921, 0.0635), (-0.0127, 0.219075, 0.05952998), (-0.0127, 0.073025, 0.04205986), (-0.0127, 0, 0.03808984), (-0.0127, -0.073025, 0.04205986), (-0.0127, -0.219075, 0.05952998), (-0.0127, -0.2921, 0.0635), (-0.0127, -0.31150306, 0.06100064), (-0.0127, -0.32737806, 0.05409184), (-0.0127, -0.339725, 0.04365752), (-0.0127, -0.34854388, 0.03057398), (-0.0127, -0.35383724, 0.01572768), (-0.0127, -0.3556, 0), (-0.0127, -0.35383724, -0.01572768), (-0.0127, -0.34854388, -0.03057398), (-0.0127, -0.339725, -0.04365752), (-0.0127, -0.32737806, -0.05409184), (-0.0127, -0.31150306, -0.06100064), (-0.0127, -0.2921, -0.0635), (-0.0127, -0.219075, -0.05953252), (-0.0127, -0.073025, -0.04207764), (-0.0127, 0, -0.03811016), (-0.0127, 0.073025, -0.04207764), (-0.0127, 0.219075, -0.05953252)]
+            rel material:binding = </krabby/PlyWood> (
+                bindMaterialAs = "weakerThanDescendants"
+            )
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+            bool physics:kinematicEnabled = 0
+            bool physics:rigidBodyEnabled = 1
+            uniform token subdivisionScheme = "none"
+            quatd xformOp:orient = (1, 0, 0, 0)
+            double3 xformOp:scale = (1, 1, 1)
+            double3 xformOp:translate = (0, 0.9652, -0.2413)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+
+        def Mesh "MR_Tibia" (
+            prepend apiSchemas = ["PhysicsMassAPI", "MaterialBindingAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI", "PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            float physics:mass = 2.054537224
+            point3f physics:centerOfMass = (0, -0.0003518140475, 0.05931956492)
+            float3 physics:diagonalInertia = (0.1473070565, 0.1457655458, 0.001762428207)
+            float3[] extent = [(-0.0127, -0.0635, -0.499491), (0.0127, 0.0635, 0.47837598)]
+            int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
+            int[] faceVertexIndices = [23, 0, 1, 1, 2, 3, 23, 1, 3, 23, 3, 4, 23, 4, 5, 23, 5, 6, 23, 6, 7, 23, 7, 8, 23, 8, 9, 23, 9, 10, 23, 10, 11, 23, 11, 12, 23, 12, 13, 23, 13, 14, 23, 14, 15, 23, 15, 16, 23, 16, 17, 23, 17, 18, 23, 18, 19, 23, 19, 20, 23, 20, 21, 21, 22, 23, 25, 24, 47, 27, 26, 25, 27, 25, 47, 28, 27, 47, 29, 28, 47, 30, 29, 47, 31, 30, 47, 32, 31, 47, 33, 32, 47, 34, 33, 47, 35, 34, 47, 36, 35, 47, 37, 36, 47, 38, 37, 47, 39, 38, 47, 40, 39, 47, 41, 40, 47, 42, 41, 47, 43, 42, 47, 44, 43, 47, 45, 44, 47, 47, 46, 45, 0, 1, 25, 24, 1, 2, 26, 25, 2, 3, 27, 26, 3, 4, 28, 27, 4, 5, 29, 28, 5, 6, 30, 29, 6, 7, 31, 30, 7, 8, 32, 31, 8, 9, 33, 32, 9, 10, 34, 33, 10, 11, 35, 34, 11, 12, 36, 35, 12, 13, 37, 36, 13, 14, 38, 37, 14, 15, 39, 38, 15, 16, 40, 39, 16, 17, 41, 40, 17, 18, 42, 41, 18, 19, 43, 42, 19, 20, 44, 43, 20, 21, 45, 44, 21, 22, 46, 45, 22, 23, 47, 46, 23, 0, 24, 47]
+            point3f[] points = [(0.0127, -0.0563372, 0.19611594), (0.0127, -0.03439922, -0.24986742), (0.0127, -0.0254, -0.47287688), (0.0127, -0.02408174, -0.48100488), (0.0127, -0.01682242, -0.49283112), (0.0127, -0.011557, -0.49652936), (0.0127, 0.00056896, -0.499491), (0.0127, 0.01256538, -0.49653698), (0.0127, 0.01767586, -0.49284128), (0.0127, 0.02442972, -0.4810125), (0.0127, 0.0254, -0.47287688), (0.0127, 0.0635, 0.41487598), (0.0127, 0.06100064, 0.43427904), (0.0127, 0.05409184, 0.45015404), (0.0127, 0.04365752, 0.46250098), (0.0127, 0.03057398, 0.47131986), (0.0127, 0.01572768, 0.47661322), (0.0127, 0, 0.47837598), (0.0127, -0.01572768, 0.47661322), (0.0127, -0.03057398, 0.47131986), (0.0127, -0.04365498, 0.46250098), (0.0127, -0.05409184, 0.45015404), (0.0127, -0.06100064, 0.43427904), (0.0127, -0.0635, 0.41487598), (-0.0127, -0.0563372, 0.19611594), (-0.0127, -0.03439922, -0.24986742), (-0.0127, -0.0254, -0.47287688), (-0.0127, -0.02408174, -0.48100488), (-0.0127, -0.01682242, -0.49283112), (-0.0127, -0.011557, -0.49652936), (-0.0127, 0.00056896, -0.499491), (-0.0127, 0.01256538, -0.49653698), (-0.0127, 0.01767586, -0.49284128), (-0.0127, 0.02442972, -0.4810125), (-0.0127, 0.0254, -0.47287688), (-0.0127, 0.0635, 0.41487598), (-0.0127, 0.06100064, 0.43427904), (-0.0127, 0.05409184, 0.45015404), (-0.0127, 0.04365752, 0.46250098), (-0.0127, 0.03057398, 0.47131986), (-0.0127, 0.01572768, 0.47661322), (-0.0127, 0, 0.47837598), (-0.0127, -0.01572768, 0.47661322), (-0.0127, -0.03057398, 0.47131986), (-0.0127, -0.04365498, 0.46250098), (-0.0127, -0.05409184, 0.45015404), (-0.0127, -0.06100064, 0.43427904), (-0.0127, -0.0635, 0.41487598)]
+            rel material:binding = </krabby/PlyWood> (
+                bindMaterialAs = "weakerThanDescendants"
+            )
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+            bool physics:kinematicEnabled = 0
+            bool physics:rigidBodyEnabled = 1
+            uniform token subdivisionScheme = "none"
+            quatd xformOp:orient = (1, 0, 0, 0)
+            double3 xformOp:scale = (1, 1, 1)
+            double3 xformOp:translate = (0, 1.2573, -0.567309)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+
+        def Cube "MR_Footpad" (
+            prepend apiSchemas = ["PhysicsMassAPI", "MaterialBindingAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI", "PhysicsCollisionAPI", "PhysxCollisionAPI"]
+        )
+        {
+            float physics:mass = 0.05
+            float3[] extent = [(-0.5, -0.5, -0.5), (0.5, 0.5, 0.5)]
+            rel material:binding = </krabby/PlyWood> (
+                bindMaterialAs = "weakerThanDescendants"
+            )
+            uniform token purpose = "guide"
+            bool physics:collisionEnabled = 1
+            bool physics:kinematicEnabled = 0
+            bool physics:rigidBodyEnabled = 1
+            double size = 1
+            quatd xformOp:orient = (1, 0, 0, 0)
+            double3 xformOp:scale = (0.06, 0.06, 0.04)
+            double3 xformOp:translate = (0, 1.2573, -1.0668)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+
+        def Mesh "MR_Hip" (
+            prepend apiSchemas = ["PhysicsMassAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI", "PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysicsMeshCollisionAPI", "MaterialBindingAPI"]
+        )
+        {
+            float physics:mass = 7.413239762
+            point3f physics:centerOfMass = (0, 0.01617762012, -0.01396241445)
+            float3 physics:diagonalInertia = (0.2011753356, 0.1946017063, 0.006765858893)
+            float3[] extent = [(-0.0127, -0.0635, -0.3048127), (0.0127, 0.0635, 0.3047873)]
+            int[] faceVertexCounts = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
+            int[] faceVertexIndices = [30, 0, 1, 30, 1, 2, 30, 2, 3, 30, 3, 4, 30, 4, 5, 30, 5, 6, 30, 6, 7, 30, 7, 8, 30, 8, 9, 30, 9, 10, 30, 10, 11, 30, 11, 12, 30, 12, 13, 30, 13, 14, 30, 14, 15, 30, 15, 16, 30, 16, 17, 30, 17, 18, 30, 18, 19, 30, 19, 20, 30, 20, 21, 30, 21, 22, 30, 22, 23, 30, 23, 24, 30, 24, 25, 30, 25, 26, 30, 26, 27, 30, 27, 28, 28, 29, 30, 32, 31, 61, 33, 32, 61, 34, 33, 61, 35, 34, 61, 36, 35, 61, 37, 36, 61, 38, 37, 61, 39, 38, 61, 40, 39, 61, 41, 40, 61, 42, 41, 61, 43, 42, 61, 44, 43, 61, 45, 44, 61, 46, 45, 61, 47, 46, 61, 48, 47, 61, 49, 48, 61, 50, 49, 61, 51, 50, 61, 52, 51, 61, 53, 52, 61, 54, 53, 61, 55, 54, 61, 56, 55, 61, 57, 56, 61, 58, 57, 61, 59, 58, 61, 61, 60, 59, 0, 1, 32, 31, 1, 2, 33, 32, 2, 3, 34, 33, 3, 4, 35, 34, 4, 5, 36, 35, 5, 6, 37, 36, 6, 7, 38, 37, 7, 8, 39, 38, 8, 9, 40, 39, 9, 10, 41, 40, 10, 11, 42, 41, 11, 12, 43, 42, 12, 13, 44, 43, 13, 14, 45, 44, 14, 15, 46, 45, 15, 16, 47, 46, 16, 17, 48, 47, 17, 18, 49, 48, 18, 19, 50, 49, 19, 20, 51, 50, 20, 21, 52, 51, 21, 22, 53, 52, 22, 23, 54, 53, 23, 24, 55, 54, 24, 25, 56, 55, 25, 26, 57, 56, 26, 27, 58, 57, 27, 28, 59, 58, 28, 29, 60, 59, 29, 30, 61, 60, 30, 0, 31, 61]
+            point3f[] points = [(0.0127, 0.0635, 0.2412873), (0.0127, 0.06100064, 0.26069036), (0.0127, 0.05409184, 0.27656536), (0.0127, 0.04365752, 0.2889123), (0.0127, 0.03057398, 0.29773118), (0.0127, 0.01572768, 0.30302454), (0.0127, 0, 0.3047873), (0.0127, -0.01572768, 0.30302454), (0.0127, -0.03057398, 0.29773118), (0.0127, -0.04365752, 0.2889123), (0.0127, -0.05409184, 0.27656536), (0.0127, -0.06100064, 0.26069036), (0.0127, -0.0635, 0.2412873), (0.0127, -0.06161786, 0.20107148), (0.0127, -0.04206494, 0.0603123), (0.0127, -0.03809492, -1.27e-05), (0.0127, -0.04206494, -0.0603377), (0.0127, -0.05952998, -0.1809877), (0.0127, -0.0635, -0.2413127), (0.0127, -0.06100064, -0.26071576), (0.0127, -0.05409184, -0.27659076), (0.0127, -0.04365752, -0.2889377), (0.0127, -0.03057398, -0.29775658), (0.0127, -0.01572768, -0.30304994), (0.0127, 0, -0.3048127), (0.0127, 0.01572768, -0.30304994), (0.0127, 0.03057398, -0.29775658), (0.0127, 0.04365752, -0.2889377), (0.0127, 0.05409184, -0.27659076), (0.0127, 0.06100064, -0.26071576), (0.0127, 0.0635, -0.2413127), (-0.0127, 0.0635, 0.2412873), (-0.0127, 0.06100064, 0.26069036), (-0.0127, 0.05409184, 0.27656536), (-0.0127, 0.04365752, 0.2889123), (-0.0127, 0.03057398, 0.29773118), (-0.0127, 0.01572768, 0.30302454), (-0.0127, 0, 0.3047873), (-0.0127, -0.01572768, 0.30302454), (-0.0127, -0.03057398, 0.29773118), (-0.0127, -0.04365752, 0.2889123), (-0.0127, -0.05409184, 0.27656536), (-0.0127, -0.06100064, 0.26069036), (-0.0127, -0.0635, 0.2412873), (-0.0127, -0.06161786, 0.20107148), (-0.0127, -0.04206494, 0.0603123), (-0.0127, -0.03809492, -1.27e-05), (-0.0127, -0.04206494, -0.0603377), (-0.0127, -0.05952998, -0.1809877), (-0.0127, -0.0635, -0.2413127), (-0.0127, -0.06100064, -0.26071576), (-0.0127, -0.05409184, -0.27659076), (-0.0127, -0.04365752, -0.2889377), (-0.0127, -0.03057398, -0.29775658), (-0.0127, -0.01572768, -0.30304994), (-0.0127, 0, -0.3048127), (-0.0127, 0.01572768, -0.30304994), (-0.0127, 0.03057398, -0.29775658), (-0.0127, 0.04365752, -0.2889377), (-0.0127, 0.05409184, -0.27659076), (-0.0127, 0.06100064, -0.26071576), (-0.0127, 0.0635, -0.2413127)]
+            rel material:binding = </krabby/PlyWood> (
+                bindMaterialAs = "weakerThanDescendants"
+            )
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+            bool physics:kinematicEnabled = 0
+            bool physics:rigidBodyEnabled = 1
+            uniform token subdivisionScheme = "none"
+            quatd xformOp:orient = (1, 0, 0, 0)
+            double3 xformOp:scale = (1, 1, 1)
+            double3 xformOp:translate = (0, 0.6731, 1.27e-05)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+
+        def Cube "MR_CamShaft" (
+            prepend apiSchemas = ["PhysicsMassAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI"]
+        )
+        {
+            float physics:mass = 0.3
+            float3 physics:diagonalInertia = (0.015, 0.015, 0.015)
+            float3[] extent = [(-0.5, -0.5, -0.5), (0.5, 0.5, 0.5)]
+            bool physics:collisionEnabled = 0
+            bool physics:kinematicEnabled = 0
+            bool physics:rigidBodyEnabled = 1
+            double size = 1
+            quatd xformOp:orient = (1, 0, 0, 0)
+            double3 xformOp:scale = (0.02, 0.02, 0.02)
+            double3 xformOp:translate = (0, 0.6096, 1.27e-05)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+    }
+
+    def Material "PlyWood" (
+        prepend apiSchemas = ["PhysicsMaterialAPI"]
+    )
+    {
+        float physics:dynamicFriction = 0.35
+        float physics:restitution = 0.1
+        float physics:staticFriction = 0.45
+    }
+
+    def Material "FootRubber" (
+        prepend apiSchemas = ["PhysicsMaterialAPI"]
+    )
+    {
+        float physics:dynamicFriction = 0.75
+        float physics:restitution = 0.15
+        float physics:staticFriction = 0.9
+    }
+
+    def Scope "Joints"
+    {
+        def PhysicsRevoluteJoint "FL_Body_Hip_RevoluteJoint"
+        {
+            uniform token physics:axis = "Z"
+            rel physics:body0 = </krabby/chassis/body>
+            rel physics:body1 = </krabby/Leg_FL/FL_Hip>
+            float physics:breakForce = 3.4028235e38
+            float physics:breakTorque = 3.4028235e38
+            bool physics:collisionEnabled = 1
+            point3f physics:localPos0 = (-0.4107142857, -0.5, 4e-05)
+            point3f physics:localPos1 = (0, 0.0635, 0)
+            quatf physics:localRot0 = (0.9914448614, 0, 0, -0.1305261922)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -28
+            float physics:upperLimit = 28
+        }
+
+        def PhysicsRevoluteJoint "FL_Body_CamShaft_RevoluteJoint" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 50000
+            float drive:angular:physics:stiffness = 800000
+            uniform token physics:axis = "Z"
+            rel physics:body0 = </krabby/chassis/body>
+            rel physics:body1 = </krabby/Leg_FL/FL_CamShaft>
+            float physics:breakForce = 3.4028235e38
+            float physics:breakTorque = 3.4028235e38
+            point3f physics:localPos0 = (-0.4107142857, -0.5, 4e-05)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (0.9914448614, 0, 0, -0.1305261922)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+        }
+
+        def PhysicsRevoluteJoint "FL_Hip_Femur_RevoluteJoint" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 50000
+            float drive:angular:physics:stiffness = 800000
+            uniform token physics:axis = "X"
+            rel physics:body0 = </krabby/Leg_FL/FL_Hip>
+            rel physics:body1 = </krabby/Leg_FL/FL_Femur>
+            float physics:breakForce = 3.4028235e38
+            float physics:breakTorque = 3.4028235e38
+            point3f physics:localPos0 = (0, 0, -0.2413127)
+            point3f physics:localPos1 = (0, 0.2921, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -45
+            float physics:upperLimit = 60
+        }
+
+        def PhysicsRevoluteJoint "FL_Femur_Tibia_RevoluteJoint" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 50000
+            float drive:angular:physics:stiffness = 800000
+            uniform token physics:axis = "X"
+            rel physics:body0 = </krabby/Leg_FL/FL_Femur>
+            rel physics:body1 = </krabby/Leg_FL/FL_Tibia>
+            float physics:breakForce = 3.4028235e38
+            float physics:breakTorque = 3.4028235e38
+            point3f physics:localPos0 = (0, -0.2921, 0)
+            point3f physics:localPos1 = (0, 0, 0.326009)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -50
+            float physics:upperLimit = 85
+        }
+
+        def PhysicsRevoluteJoint "FR_Body_Hip_RevoluteJoint"
+        {
+            uniform token physics:axis = "Z"
+            rel physics:body0 = </krabby/chassis/body>
+            rel physics:body1 = </krabby/Leg_FR/FR_Hip>
+            float physics:breakForce = 3.4028235e38
+            float physics:breakTorque = 3.4028235e38
+            bool physics:collisionEnabled = 1
+            point3f physics:localPos0 = (-0.4107142857, 0.5, 4e-05)
+            point3f physics:localPos1 = (0, -0.0635, 0)
+            quatf physics:localRot0 = (0.9914448614, 0, 0, 0.1305261922)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -28
+            float physics:upperLimit = 28
+        }
+
+        def PhysicsRevoluteJoint "FR_Body_CamShaft_RevoluteJoint" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 50000
+            float drive:angular:physics:stiffness = 800000
+            uniform token physics:axis = "Z"
+            rel physics:body0 = </krabby/chassis/body>
+            rel physics:body1 = </krabby/Leg_FR/FR_CamShaft>
+            float physics:breakForce = 3.4028235e38
+            float physics:breakTorque = 3.4028235e38
+            point3f physics:localPos0 = (-0.4107142857, 0.5, 4e-05)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (0.9914448614, 0, 0, 0.1305261922)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+        }
+
+        def PhysicsRevoluteJoint "FR_Hip_Femur_RevoluteJoint" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 50000
+            float drive:angular:physics:stiffness = 800000
+            uniform token physics:axis = "X"
+            rel physics:body0 = </krabby/Leg_FR/FR_Hip>
+            rel physics:body1 = </krabby/Leg_FR/FR_Femur>
+            float physics:breakForce = 3.4028235e38
+            float physics:breakTorque = 3.4028235e38
+            point3f physics:localPos0 = (0, 0, -0.2413127)
+            point3f physics:localPos1 = (0, -0.2921, 0)
+            quatf physics:localRot0 = (0, 0, 1, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -45
+            float physics:upperLimit = 60
+        }
+
+        def PhysicsRevoluteJoint "FR_Femur_Tibia_RevoluteJoint" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 50000
+            float drive:angular:physics:stiffness = 800000
+            uniform token physics:axis = "X"
+            rel physics:body0 = </krabby/Leg_FR/FR_Femur>
+            rel physics:body1 = </krabby/Leg_FR/FR_Tibia>
+            float physics:breakForce = 3.4028235e38
+            float physics:breakTorque = 3.4028235e38
+            point3f physics:localPos0 = (0, 0.2921, 0)
+            point3f physics:localPos1 = (0, 0, 0.326009)
+            quatf physics:localRot0 = (0, 0, 1, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -85
+            float physics:upperLimit = 50
+        }
+
+        def PhysicsRevoluteJoint "ML_Body_Hip_RevoluteJoint"
+        {
+            uniform token physics:axis = "Z"
+            rel physics:body0 = </krabby/chassis/body>
+            rel physics:body1 = </krabby/Leg_ML/ML_Hip>
+            float physics:breakForce = 3.4028235e38
+            float physics:breakTorque = 3.4028235e38
+            bool physics:collisionEnabled = 1
+            point3f physics:localPos0 = (0, -0.5, 4e-05)
+            point3f physics:localPos1 = (0, 0.0635, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -28
+            float physics:upperLimit = 28
+        }
+
+        def PhysicsRevoluteJoint "ML_Body_CamShaft_RevoluteJoint" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 50000
+            float drive:angular:physics:stiffness = 800000
+            uniform token physics:axis = "Z"
+            rel physics:body0 = </krabby/chassis/body>
+            rel physics:body1 = </krabby/Leg_ML/ML_CamShaft>
+            float physics:breakForce = 3.4028235e38
+            float physics:breakTorque = 3.4028235e38
+            point3f physics:localPos0 = (0, -0.5, 4e-05)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+        }
+
+        def PhysicsRevoluteJoint "ML_Hip_Femur_RevoluteJoint" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 50000
+            float drive:angular:physics:stiffness = 800000
+            uniform token physics:axis = "X"
+            rel physics:body0 = </krabby/Leg_ML/ML_Hip>
+            rel physics:body1 = </krabby/Leg_ML/ML_Femur>
+            float physics:breakForce = 3.4028235e38
+            float physics:breakTorque = 3.4028235e38
+            point3f physics:localPos0 = (0, 0, -0.2413127)
+            point3f physics:localPos1 = (0, 0.2921, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -45
+            float physics:upperLimit = 60
+        }
+
+        def PhysicsRevoluteJoint "ML_Femur_Tibia_RevoluteJoint" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 50000
+            float drive:angular:physics:stiffness = 800000
+            uniform token physics:axis = "X"
+            rel physics:body0 = </krabby/Leg_ML/ML_Femur>
+            rel physics:body1 = </krabby/Leg_ML/ML_Tibia>
+            float physics:breakForce = 3.4028235e38
+            float physics:breakTorque = 3.4028235e38
+            point3f physics:localPos0 = (0, -0.2921, 0)
+            point3f physics:localPos1 = (0, 0, 0.326009)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -50
+            float physics:upperLimit = 85
+        }
+
+        def PhysicsRevoluteJoint "MR_Body_Hip_RevoluteJoint"
+        {
+            uniform token physics:axis = "Z"
+            rel physics:body0 = </krabby/chassis/body>
+            rel physics:body1 = </krabby/Leg_MR/MR_Hip>
+            float physics:breakForce = 3.4028235e38
+            float physics:breakTorque = 3.4028235e38
+            bool physics:collisionEnabled = 1
+            point3f physics:localPos0 = (0, 0.5, 4e-05)
+            point3f physics:localPos1 = (0, -0.0635, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -28
+            float physics:upperLimit = 28
+        }
+
+        def PhysicsRevoluteJoint "MR_Body_CamShaft_RevoluteJoint" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 50000
+            float drive:angular:physics:stiffness = 800000
+            uniform token physics:axis = "Z"
+            rel physics:body0 = </krabby/chassis/body>
+            rel physics:body1 = </krabby/Leg_MR/MR_CamShaft>
+            float physics:breakForce = 3.4028235e38
+            float physics:breakTorque = 3.4028235e38
+            point3f physics:localPos0 = (0, 0.5, 4e-05)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+        }
+
+        def PhysicsRevoluteJoint "MR_Hip_Femur_RevoluteJoint" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 50000
+            float drive:angular:physics:stiffness = 800000
+            uniform token physics:axis = "X"
+            rel physics:body0 = </krabby/Leg_MR/MR_Hip>
+            rel physics:body1 = </krabby/Leg_MR/MR_Femur>
+            float physics:breakForce = 3.4028235e38
+            float physics:breakTorque = 3.4028235e38
+            point3f physics:localPos0 = (0, 0, -0.2413127)
+            point3f physics:localPos1 = (0, -0.2921, 0)
+            quatf physics:localRot0 = (0, 0, 1, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -45
+            float physics:upperLimit = 60
+        }
+
+        def PhysicsRevoluteJoint "MR_Femur_Tibia_RevoluteJoint" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 50000
+            float drive:angular:physics:stiffness = 800000
+            uniform token physics:axis = "X"
+            rel physics:body0 = </krabby/Leg_MR/MR_Femur>
+            rel physics:body1 = </krabby/Leg_MR/MR_Tibia>
+            float physics:breakForce = 3.4028235e38
+            float physics:breakTorque = 3.4028235e38
+            point3f physics:localPos0 = (0, 0.2921, 0)
+            point3f physics:localPos1 = (0, 0, 0.326009)
+            quatf physics:localRot0 = (0, 0, 1, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -85
+            float physics:upperLimit = 50
+        }
+
+        def PhysicsRevoluteJoint "RL_Body_Hip_RevoluteJoint"
+        {
+            uniform token physics:axis = "Z"
+            rel physics:body0 = </krabby/chassis/body>
+            rel physics:body1 = </krabby/Leg_RL/RL_Hip>
+            float physics:breakForce = 3.4028235e38
+            float physics:breakTorque = 3.4028235e38
+            bool physics:collisionEnabled = 1
+            point3f physics:localPos0 = (0.4107142857, -0.5, 4e-05)
+            point3f physics:localPos1 = (0, 0.0635, 0)
+            quatf physics:localRot0 = (0.9914448614, 0, 0, 0.1305261922)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -28
+            float physics:upperLimit = 28
+        }
+
+        def PhysicsRevoluteJoint "RL_Body_CamShaft_RevoluteJoint" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 50000
+            float drive:angular:physics:stiffness = 800000
+            uniform token physics:axis = "Z"
+            rel physics:body0 = </krabby/chassis/body>
+            rel physics:body1 = </krabby/Leg_RL/RL_CamShaft>
+            float physics:breakForce = 3.4028235e38
+            float physics:breakTorque = 3.4028235e38
+            point3f physics:localPos0 = (0.4107142857, -0.5, 4e-05)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (0.9914448614, 0, 0, 0.1305261922)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+        }
+
+        def PhysicsRevoluteJoint "RL_Hip_Femur_RevoluteJoint" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 50000
+            float drive:angular:physics:stiffness = 800000
+            uniform token physics:axis = "X"
+            rel physics:body0 = </krabby/Leg_RL/RL_Hip>
+            rel physics:body1 = </krabby/Leg_RL/RL_Femur>
+            float physics:breakForce = 3.4028235e38
+            float physics:breakTorque = 3.4028235e38
+            point3f physics:localPos0 = (0, 0, -0.2413127)
+            point3f physics:localPos1 = (0, 0.2921, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -45
+            float physics:upperLimit = 60
+        }
+
+        def PhysicsRevoluteJoint "RL_Femur_Tibia_RevoluteJoint" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 50000
+            float drive:angular:physics:stiffness = 800000
+            uniform token physics:axis = "X"
+            rel physics:body0 = </krabby/Leg_RL/RL_Femur>
+            rel physics:body1 = </krabby/Leg_RL/RL_Tibia>
+            float physics:breakForce = 3.4028235e38
+            float physics:breakTorque = 3.4028235e38
+            point3f physics:localPos0 = (0, -0.2921, 0)
+            point3f physics:localPos1 = (0, 0, 0.326009)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -50
+            float physics:upperLimit = 85
+        }
+
+        def PhysicsRevoluteJoint "RR_Body_Hip_RevoluteJoint"
+        {
+            uniform token physics:axis = "Z"
+            rel physics:body0 = </krabby/chassis/body>
+            rel physics:body1 = </krabby/Leg_RR/RR_Hip>
+            float physics:breakForce = 3.4028235e38
+            float physics:breakTorque = 3.4028235e38
+            bool physics:collisionEnabled = 1
+            point3f physics:localPos0 = (0.4107142857, 0.5, 4e-05)
+            point3f physics:localPos1 = (0, -0.0635, 0)
+            quatf physics:localRot0 = (0.9914448614, 0, 0, -0.1305261922)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -28
+            float physics:upperLimit = 28
+        }
+
+        def PhysicsRevoluteJoint "RR_Body_CamShaft_RevoluteJoint" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 50000
+            float drive:angular:physics:stiffness = 800000
+            uniform token physics:axis = "Z"
+            rel physics:body0 = </krabby/chassis/body>
+            rel physics:body1 = </krabby/Leg_RR/RR_CamShaft>
+            float physics:breakForce = 3.4028235e38
+            float physics:breakTorque = 3.4028235e38
+            point3f physics:localPos0 = (0.4107142857, 0.5, 4e-05)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (0.9914448614, 0, 0, -0.1305261922)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+        }
+
+        def PhysicsRevoluteJoint "RR_Hip_Femur_RevoluteJoint" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 50000
+            float drive:angular:physics:stiffness = 800000
+            uniform token physics:axis = "X"
+            rel physics:body0 = </krabby/Leg_RR/RR_Hip>
+            rel physics:body1 = </krabby/Leg_RR/RR_Femur>
+            float physics:breakForce = 3.4028235e38
+            float physics:breakTorque = 3.4028235e38
+            point3f physics:localPos0 = (0, 0, -0.2413127)
+            point3f physics:localPos1 = (0, -0.2921, 0)
+            quatf physics:localRot0 = (0, 0, 1, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -45
+            float physics:upperLimit = 60
+        }
+
+        def PhysicsRevoluteJoint "RR_Femur_Tibia_RevoluteJoint" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular"]
+        )
+        {
+            float drive:angular:physics:damping = 50000
+            float drive:angular:physics:stiffness = 800000
+            uniform token physics:axis = "X"
+            rel physics:body0 = </krabby/Leg_RR/RR_Femur>
+            rel physics:body1 = </krabby/Leg_RR/RR_Tibia>
+            float physics:breakForce = 3.4028235e38
+            float physics:breakTorque = 3.4028235e38
+            point3f physics:localPos0 = (0, 0.2921, 0)
+            point3f physics:localPos1 = (0, 0, 0.326009)
+            quatf physics:localRot0 = (0, 0, 1, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -85
+            float physics:upperLimit = 50
+        }
+
+        def PhysicsFixedJoint "FL_Tibia_Footpad_FixedJoint"
+        {
+            rel physics:body0 = </krabby/Leg_FL/FL_Tibia>
+            rel physics:body1 = </krabby/Leg_FL/FL_Footpad>
+            float physics:breakForce = 3.4028235e38
+            float physics:breakTorque = 3.4028235e38
+            point3f physics:localPos0 = (0, 0, -0.499491)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+        }
+
+        def PhysicsFixedJoint "FR_Tibia_Footpad_FixedJoint"
+        {
+            rel physics:body0 = </krabby/Leg_FR/FR_Tibia>
+            rel physics:body1 = </krabby/Leg_FR/FR_Footpad>
+            float physics:breakForce = 3.4028235e38
+            float physics:breakTorque = 3.4028235e38
+            point3f physics:localPos0 = (0, 0, -0.499491)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+        }
+
+        def PhysicsFixedJoint "ML_Tibia_Footpad_FixedJoint"
+        {
+            rel physics:body0 = </krabby/Leg_ML/ML_Tibia>
+            rel physics:body1 = </krabby/Leg_ML/ML_Footpad>
+            float physics:breakForce = 3.4028235e38
+            float physics:breakTorque = 3.4028235e38
+            point3f physics:localPos0 = (0, 0, -0.499491)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+        }
+
+        def PhysicsFixedJoint "MR_Tibia_Footpad_FixedJoint"
+        {
+            rel physics:body0 = </krabby/Leg_MR/MR_Tibia>
+            rel physics:body1 = </krabby/Leg_MR/MR_Footpad>
+            float physics:breakForce = 3.4028235e38
+            float physics:breakTorque = 3.4028235e38
+            point3f physics:localPos0 = (0, 0, -0.499491)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+        }
+
+        def PhysicsFixedJoint "RL_Tibia_Footpad_FixedJoint"
+        {
+            rel physics:body0 = </krabby/Leg_RL/RL_Tibia>
+            rel physics:body1 = </krabby/Leg_RL/RL_Footpad>
+            float physics:breakForce = 3.4028235e38
+            float physics:breakTorque = 3.4028235e38
+            point3f physics:localPos0 = (0, 0, -0.499491)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+        }
+
+        def PhysicsFixedJoint "RR_Tibia_Footpad_FixedJoint"
+        {
+            rel physics:body0 = </krabby/Leg_RR/RR_Tibia>
+            rel physics:body1 = </krabby/Leg_RR/RR_Footpad>
+            float physics:breakForce = 3.4028235e38
+            float physics:breakTorque = 3.4028235e38
+            point3f physics:localPos0 = (0, 0, -0.499491)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+        }
+    }
+
+    def Xform "chassis"
+    {
+        quatd xformOp:orient = (1, 0, 0, 0)
+        double3 xformOp:scale = (1, 1, 1)
+        double3 xformOp:translate = (0, 0, 0)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+
+        def Cube "body" (
+            prepend apiSchemas = ["PhysicsMassAPI", "PhysicsRigidBodyAPI", "PhysxRigidBodyAPI", "PhysicsCollisionAPI", "PhysxCollisionAPI", "MaterialBindingAPI"]
+        )
+        {
+            float physics:mass = 158.7573295
+            float3[] extent = [(-0.5, -0.5, -0.5), (0.5, 0.5, 0.5)]
+            rel material:binding = </krabby/PlyWood> (
+                bindMaterialAs = "weakerThanDescendants"
+            )
+            bool physics:collisionEnabled = 1
+            bool physics:kinematicEnabled = 0
+            bool physics:rigidBodyEnabled = 1
+            double size = 1
+            quatd xformOp:orient = (1, 0, 0, 0)
+            double3 xformOp:scale = (0.7112, 1.2192, 0.3175)
+            double3 xformOp:translate = (0, 0, 0)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+    }
+
+    def Scope "Graphs"
+    {
+        def OmniGraph "Position_Controller"
+        {
+            token evaluationMode = "Automatic"
+            token evaluator:type = "execution"
+            token fabricCacheBacking = "StageWithoutHistory"
+            int2 fileFormatVersion = (1, 9)
+            token pipelineStage = "pipelineStageSimulation"
+
+            def OmniGraphNode "OnPlaybackTick"
+            {
+                token node:type = "omni.graph.action.OnPlaybackTick"
+                int node:typeVersion = 2
+                custom double outputs:deltaSeconds
+                custom double outputs:frame
+                custom uint outputs:tick (
+                    customData = {
+                        bool isExecution = 1
+                    }
+                )
+                custom double outputs:time
+            }
+
+            def OmniGraphNode "JointCommandArray"
+            {
+                custom int inputs:arraySize = 18
+                custom token inputs:arrayType = "double[]" (
+                    allowedTokens = ["auto", "bool[]", "double[]", "float[]", "half[]", "int[]", "int64[]", "token[]", "uchar[]", "uint[]", "uint64[]", "double[2][]", "double[3][]", "double[4][]", "matrixd[2][]", "matrixd[3][]", "matrixd[4][]", "float[2][]", "float[3][]", "float[4][]", "half[2][]", "half[3][]", "half[4][]", "int[2][]", "int[3][]", "int[4][]", "timecode[]", "frame[4][]", "colord[3][]", "colorf[3][]", "colorh[3][]", "colord[4][]", "colorf[4][]", "colorh[4][]", "normald[3][]", "normalf[3][]", "normalh[3][]", "pointd[3][]", "pointf[3][]", "pointh[3][]", "quatd[4][]", "quatf[4][]", "quath[4][]", "texcoordd[2][]", "texcoordf[2][]", "texcoordh[2][]", "texcoordd[3][]", "texcoordf[3][]", "texcoordh[3][]", "vectord[3][]", "vectorf[3][]", "vectorh[3][]"]
+                )
+                custom token inputs:input0 (
+                    customData = {
+                        dictionary omni = {
+                            dictionary graph = {
+                                double attrValue = 0
+                                string resolvedType = "double"
+                            }
+                        }
+                    }
+                )
+                custom double inputs:input1 = 0
+                custom double inputs:input2 = 0
+                custom double inputs:input3 = 0
+                custom double inputs:input4 = 0
+                custom double inputs:input5 = 0
+                custom double inputs:input6 = 0
+                custom double inputs:input7 = 0
+                custom double inputs:input8 = 0
+                custom double inputs:input9 = 0
+                custom double inputs:input10 = 0
+                custom double inputs:input11 = 0
+                custom double inputs:input12 = 0
+                custom double inputs:input13 = 0
+                custom double inputs:input14 = 0
+                custom double inputs:input15 = 0
+                custom double inputs:input16 = 0
+                custom double inputs:input17 = 0
+                token node:type = "omni.graph.nodes.ConstructArray"
+                int node:typeVersion = 1
+                custom token outputs:array
+            }
+
+            def OmniGraphNode "ArticulationController"
+            {
+                custom double[] inputs:effortCommand
+                custom uint inputs:execIn (
+                    customData = {
+                        bool isExecution = 1
+                    }
+                )
+                prepend uint inputs:execIn.connect = <../OnPlaybackTick.outputs:tick>
+                custom int[] inputs:jointIndices
+                custom token[] inputs:jointNames
+                prepend token[] inputs:jointNames.connect = <../JointNameArray.outputs:array>
+                custom double[] inputs:positionCommand
+                prepend double[] inputs:positionCommand.connect = <../JointCommandArray.outputs:array>
+                custom string inputs:robotPath = ""
+                custom rel inputs:targetPrim = <../../..> (
+                    customData = {
+                        dictionary omni = {
+                            dictionary graph = {
+                                string relType = "target"
+                            }
+                        }
+                    }
+                )
+                custom double[] inputs:velocityCommand
+                token node:type = "isaacsim.core.nodes.IsaacArticulationController"
+                int node:typeVersion = 1
+            }
+
+            def OmniGraphNode "JointNameArray"
+            {
+                custom int inputs:arraySize = 18
+                custom token inputs:arrayType = "token[]" (
+                    allowedTokens = ["auto", "bool[]", "double[]", "float[]", "half[]", "int[]", "int64[]", "token[]", "uchar[]", "uint[]", "uint64[]", "double[2][]", "double[3][]", "double[4][]", "matrixd[2][]", "matrixd[3][]", "matrixd[4][]", "float[2][]", "float[3][]", "float[4][]", "half[2][]", "half[3][]", "half[4][]", "int[2][]", "int[3][]", "int[4][]", "timecode[]", "frame[4][]", "colord[3][]", "colorf[3][]", "colorh[3][]", "colord[4][]", "colorf[4][]", "colorh[4][]", "normald[3][]", "normalf[3][]", "normalh[3][]", "pointd[3][]", "pointf[3][]", "pointh[3][]", "quatd[4][]", "quatf[4][]", "quath[4][]", "texcoordd[2][]", "texcoordf[2][]", "texcoordh[2][]", "texcoordd[3][]", "texcoordf[3][]", "texcoordh[3][]", "vectord[3][]", "vectorf[3][]", "vectorh[3][]"]
+                )
+                custom token inputs:input0 (
+                    customData = {
+                        dictionary omni = {
+                            dictionary graph = {
+                                token attrValue = "FL_Body_Hip_RevoluteJoint"
+                                string resolvedType = "token"
+                            }
+                        }
+                    }
+                )
+                custom token inputs:input1 = "FL_Hip_Femur_RevoluteJoint"
+                custom token inputs:input2 = "FL_Femur_Tibia_RevoluteJoint"
+                custom token inputs:input3 = "FR_Body_Hip_RevoluteJoint"
+                custom token inputs:input4 = "FR_Hip_Femur_RevoluteJoint"
+                custom token inputs:input5 = "FR_Femur_Tibia_RevoluteJoint"
+                custom token inputs:input6 = "ML_Body_Hip_RevoluteJoint"
+                custom token inputs:input7 = "ML_Hip_Femur_RevoluteJoint"
+                custom token inputs:input8 = "ML_Femur_Tibia_RevoluteJoint"
+                custom token inputs:input9 = "MR_Body_Hip_RevoluteJoint"
+                custom token inputs:input10 = "MR_Hip_Femur_RevoluteJoint"
+                custom token inputs:input11 = "MR_Femur_Tibia_RevoluteJoint"
+                custom token inputs:input12 = "RL_Body_Hip_RevoluteJoint"
+                custom token inputs:input13 = "RL_Hip_Femur_RevoluteJoint"
+                custom token inputs:input14 = "RL_Femur_Tibia_RevoluteJoint"
+                custom token inputs:input15 = "RR_Body_Hip_RevoluteJoint"
+                custom token inputs:input16 = "RR_Hip_Femur_RevoluteJoint"
+                custom token inputs:input17 = "RR_Femur_Tibia_RevoluteJoint"
+                token node:type = "omni.graph.nodes.ConstructArray"
+                int node:typeVersion = 1
+                custom token outputs:array
+            }
+        }
+    }
+}

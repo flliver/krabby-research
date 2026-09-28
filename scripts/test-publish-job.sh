@@ -32,6 +32,12 @@ run_one_job() {
       build_self_first=""
       test_path="tests/unit/hal/"
       ;;
+    teleop-edge)
+      path="teleop/edge"
+      deps=""
+      build_self_first=""
+      test_path="tests/unit/teleop/"
+      ;;
     data-collection)
       path="data_collection"
       deps="hal/client"
@@ -76,7 +82,7 @@ run_one_job() {
       ;;
     *)
       echo "Unknown package key: $key"
-      echo "Valid keys: hal-client, hal-server, compute-parkour, controller, hal-tools, hal-server-isaac, hal-server-jetson, data-collection, firmware"
+      echo "Valid keys: hal-client, hal-server, compute-parkour, controller, hal-tools, hal-server-isaac, hal-server-jetson, teleop-edge, data-collection, firmware"
       exit 1
       ;;
   esac
@@ -98,7 +104,7 @@ run_one_job() {
   cd "$ROOT/$path" && python -m build --wheel --no-isolation && cd "$ROOT"
 
   echo "Installing package and test deps..."
-  cd "$ROOT/$path" && pip install dist/*.whl && pip install pytest pytest-cov pytest-timeout keyboard pyserial
+  cd "$ROOT/$path" && pip install dist/*.whl && pip install pytest pytest-cov pytest-timeout pytest-asyncio keyboard pyserial
   if [[ "$key" == hal-server-isaac ]] || [[ "$key" == hal-server-jetson ]] || [[ "$key" == compute-parkour ]] || [[ "$key" == hal-client ]]; then
     pip install torch --index-url https://download.pytorch.org/whl/cpu
     pip install scipy

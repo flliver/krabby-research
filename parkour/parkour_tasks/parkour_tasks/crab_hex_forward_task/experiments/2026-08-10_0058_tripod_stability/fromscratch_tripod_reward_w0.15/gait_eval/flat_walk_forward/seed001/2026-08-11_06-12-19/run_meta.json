@@ -1,0 +1,104 @@
+{
+  "action_dim": 18,
+  "action_joint_names": [
+    "FL_Body_CamShaft_RevoluteJoint",
+    "FR_Body_CamShaft_RevoluteJoint",
+    "ML_Body_CamShaft_RevoluteJoint",
+    "MR_Body_CamShaft_RevoluteJoint",
+    "RL_Body_CamShaft_RevoluteJoint",
+    "RR_Body_CamShaft_RevoluteJoint",
+    "FL_Hip_Femur_RevoluteJoint",
+    "FR_Hip_Femur_RevoluteJoint",
+    "ML_Hip_Femur_RevoluteJoint",
+    "MR_Hip_Femur_RevoluteJoint",
+    "RL_Hip_Femur_RevoluteJoint",
+    "RR_Hip_Femur_RevoluteJoint",
+    "FL_Femur_Tibia_RevoluteJoint",
+    "FR_Femur_Tibia_RevoluteJoint",
+    "ML_Femur_Tibia_RevoluteJoint",
+    "MR_Femur_Tibia_RevoluteJoint",
+    "RL_Femur_Tibia_RevoluteJoint",
+    "RR_Femur_Tibia_RevoluteJoint"
+  ],
+  "checkpoint": "/home/nickmagus/krabby/krabby-research/sim_fine_tuning/2026-08-10_0058_tripod_stability/fromscratch_tripod_reward_w0.15/logs/rsl_rl/crab_hex_flat_walk/2026-08-10_20-08-53/model_19999.pt",
+  "checkpoint_sha256": "57b42c1dabb0c6eba4c3dcb98fa3a1231c0a3ac3d6d8a21a7db2901e60aa294b",
+  "command_override_max_deviation": 0.0,
+  "dt": 0.02,
+  "env_overrides": {
+    "episode_length_s": 24.0,
+    "freeze_terrain_levels": true,
+    "seed": 1
+  },
+  "env_vars": {},
+  "foot_body_ids": [
+    25,
+    26,
+    27,
+    28,
+    29,
+    30
+  ],
+  "foot_body_names": [
+    "FL_Footpad",
+    "FR_Footpad",
+    "ML_Footpad",
+    "MR_Footpad",
+    "RL_Footpad",
+    "RR_Footpad"
+  ],
+  "hold_labels": [
+    "low",
+    "mid",
+    "high"
+  ],
+  "n_steps_per_env": [
+    253,
+    975,
+    975,
+    975,
+    975,
+    339,
+    975,
+    78,
+    325,
+    355
+  ],
+  "n_steps_planned": 975,
+  "notes": "Flat-walk's trained lin_vel_x is (0.30, 0.65), not the teacher stack's (0.45, 0.85).",
+  "num_envs": 10,
+  "num_prop": 75,
+  "obs_dim_actual": 1151,
+  "obs_dim_warning": "num_prop=75 but observation width is 1151; train and play share this slicing so it is self-consistent, but the 'scan' slice is not the height scan.",
+  "policy_sees_command_channel": {
+    "vx": true,
+    "vy": false,
+    "wz": false
+  },
+  "robot_num_joints": 24,
+  "role": "teacher",
+  "scenario_id": "flat_walk_forward",
+  "sensor_foot_ids": [
+    3,
+    8,
+    13,
+    18,
+    23,
+    28
+  ],
+  "started_utc": "2026-08-11T06:12:19.287618+00:00",
+  "task": "Isaac-Crab-Hex-Flat-Walk-v0",
+  "termination_reason": [
+    "fall",
+    "schedule_complete",
+    "schedule_complete",
+    "schedule_complete",
+    "schedule_complete",
+    "fall",
+    "schedule_complete",
+    "fall",
+    "fall",
+    "fall"
+  ],
+  "terrain_source": "raycast_mesh",
+  "zero_actions": false
+}

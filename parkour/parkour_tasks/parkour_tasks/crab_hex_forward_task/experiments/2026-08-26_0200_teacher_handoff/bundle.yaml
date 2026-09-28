@@ -1,0 +1,36 @@
+campaign: 2026-08-26_0200_teacher_handoff
+era: B
+dates: 2026-08-26..2026-08-26
+question: Can the baked M1C flat reference be handed off through the teacher stack
+  (bridge -> 2b1 -> 2b2) on the measured-hardware plant with a rescaled command band?
+verdict: 'Hand-off PAUSED by the user mid chain #6: bridge BANKED at failure 0.25
+  after a critic reset at the boundary (CHANGELOG.md chain #4/#6 rows), 2b1 unsolved
+  (full goal dose = lethal capability gap), 2b2 untouched.'
+plant: legacy_golden
+aliases: []
+records:
+- CHANGELOG.md
+head:
+  role: teacher
+  task: Isaac-Crab-Hex-Teacher-v0
+  source: parkour/logs/rsl_rl/crab_hex_teacher/2026-08-26_12-38-32/model_26899_critic_reset.pt
+  sha256: fd1e36c73184d1e093465351b1bec72fa3bf579d77ddd40df46a5148b7835fbe
+  dest: head/model_26899_critic_reset.pt
+  why: 'The banked bridge winner (chain #4, gated in one chunk at failure 0.25 vs
+    old-plant 0.18) with the critic reset applied for the next stage boundary; the
+    only stage that passed its gate (CHANGELOG.md chain #6 row).'
+  metrics:
+    bridge_failure: '0.25'
+    old_plant_bridge_failure: '0.18'
+    critic_reset_norm: 84.5 -> 17.3
+  env:
+    KRABBY_LIN_VEL_X: 0.20:0.40
+    KRABBY_CLOCK_W: '1.0'
+    KRABBY_MIN_ACTUAL_SPEED: '0.08'
+    KRABBY_HEX_TEACHER_MODE: bridge
+keep_globs:
+- run_meta.json
+- scenario_metrics.json
+- summary.md
+- gait_diagram_*.png
+paths_note: true

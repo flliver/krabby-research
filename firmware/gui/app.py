@@ -1,7 +1,3 @@
-"""
-Krabby MCU test GUI — tkinter app for jogging joints and viewing live telemetry.
-Run: python -m firmware.gui [--port COM5]
-"""
 from __future__ import annotations
 
 import tkinter as tk
@@ -10,12 +6,29 @@ import threading
 import time
 from typing import Dict, Optional
 
-from firmware.krabby_mcu import KrabbyMCUSDK, JOINT_GROUP_NAMES
+from firmware.krabby_mcu import DEFAULT_BAUD, KrabbyMCUSDK, JOINT_GROUP_NAMES
 from firmware.interfaces.joint_telemetry import JointTelemetry
 
 JOG_PWM_DEFAULT = 30
-TELEMETRY_REFRESH_MS = 100
+TELEMETRY_REFRESH_MS = 100  # GUI poll period; decoupled from the firmware's telemetry tick
 JOG_HEARTBEAT_MS = 100  # re-send a held jog faster than the firmware's ~300ms jog watchdog
+ROLE_STALE_S = 1.0  # a board counts as present if its telemetry arrived within this window
+
+# Placeholder for a joint cell before its first telemetry arrives.
+NO_VALUE_TEXT = "---"
+
+# Fonts: (family, size[, style]).
+FONT_STATUS = ("Segoe UI", 10)  # connection status line
+FONT_TABLE_HEADER = ("Segoe UI", 9, "bold")
+FONT_GROUP_LABEL = ("Segoe UI", 9, "italic")  # FRONT/LEFT/RIGHT dividers
+FONT_JOINT_NAME = ("Consolas", 11, "bold")  # monospace so names align
+GROUP_LABEL_COLOR = "#666"  # muted gray for the dividers
+
+FONT_SENSOR_LABEL = FONT_JOINT_NAME  # Consolas 11 bold, col-0 entity label
+FONT_SENSOR_HEADER = FONT_TABLE_HEADER  # Segoe 9 bold caption row
+FONT_SENSOR_VALUE = ("Consolas", 10)  # monospace tabular numbers, anchor e
+STATE_COLOR_OK = "#2e7d32"
+STATE_COLOR_STALE = "#c0392b"
 
 
 def _jog_sign(name: str) -> int:
@@ -36,25 +49,25 @@ class JointRow:
         self._active_dir = 0
         self._jog_after_id = None
 
-        self.lbl_name = ttk.Label(parent, text=name, font=("Consolas", 11, "bold"), width=6)
+        self.lbl_name = ttk.Label(parent, text=name, font=FONT_JOINT_NAME, width=6)
         self.lbl_name.grid(row=row, column=0, padx=4, pady=2, sticky="w")
 
-        self.btn_retract = ttk.Button(parent, text="\u25C0 Retract", width=10)
+        self.btn_retract = ttk.Button(parent, text="\u25c0 Retract", width=10)
         self.btn_retract.grid(row=row, column=1, padx=2, pady=2)
         self.btn_retract.bind("<ButtonPress-1>", lambda e: self._start_jog(-1))
         self.btn_retract.bind("<ButtonRelease-1>", lambda e: self._stop_jog())
 
-        self.btn_extend = ttk.Button(parent, text="Extend \u25B6", width=10)
+        self.btn_extend = ttk.Button(parent, text="Extend \u25b6", width=10)
         self.btn_extend.grid(row=row, column=2, padx=2, pady=2)
         self.btn_extend.bind("<ButtonPress-1>", lambda e: self._start_jog(1))
         self.btn_extend.bind("<ButtonRelease-1>", lambda e: self._stop_jog())
 
-        self.var_pos = tk.StringVar(value="---")
-        self.var_cal = tk.StringVar(value="---")
-        self.var_pot = tk.StringVar(value="---")
-        self.var_cur = tk.StringVar(value="---")
-        self.var_pwm = tk.StringVar(value="---")
-        self.var_hall = tk.StringVar(value="---")
+        self.var_pos = tk.StringVar(value=NO_VALUE_TEXT)
+        self.var_cal = tk.StringVar(value=NO_VALUE_TEXT)
+        self.var_pot = tk.StringVar(value=NO_VALUE_TEXT)
+        self.var_cur = tk.StringVar(value=NO_VALUE_TEXT)
+        self.var_pwm = tk.StringVar(value=NO_VALUE_TEXT)
+        self.var_hall = tk.StringVar(value=NO_VALUE_TEXT)
 
         # Normalized [0,1] position is the canonical operator value; it's colored by
         # calibration state so an unusable (PARTIAL) or uncalibrated (UNCAL) reading —
@@ -62,7 +75,7 @@ class JointRow:
         # FULL, end-stop-anchored one. Raw pot ADC and the Hall edge count stay as debug
         # fields for spotting wiring issues.
         self.lbl_pos = tk.Label(parent, textvariable=self.var_pos, width=7, anchor="e",
-                                font=("Consolas", 11, "bold"))
+                                font=FONT_JOINT_NAME)
         self.lbl_pos.grid(row=row, column=3, padx=4)
         self.lbl_cal = tk.Label(parent, textvariable=self.var_cal, width=8, anchor="center")
         self.lbl_cal.grid(row=row, column=4, padx=4)
@@ -107,7 +120,7 @@ class JointRow:
     def update_from_telemetry(self, jt: Optional[JointTelemetry]):
         if jt is None:
             return
-        self.var_pos.set(f"{jt.pos:.3f}")
+        self.var_pos.set(f"{jt.pos:.3f}" if jt.connected else "DISC")
         self.var_cal.set(jt.cal_state_name)
         color = self._CAL_COLORS.get(jt.cal_state_name, "#000000")
         self.lbl_pos.config(fg=color)
@@ -118,8 +131,82 @@ class JointRow:
         self.var_hall.set(str(jt.saf))
 
 
+class ImuRow:
+    """Global IMU readout in the joint-grid idiom (one per leader board, not per
+    joint -> its own block, not a joint column). Caption row above, monospace
+    anchor-east value cells below, matching the joint table's fonts/alignment."""
+
+    COLS = [
+        "",
+        "roll°",
+        "pitch°",
+        "aX g",
+        "aY",
+        "aZ",
+        "gX °/s",
+        "gY",
+        "gZ",
+        "die°C",
+        "state",
+    ]
+
+    @staticmethod
+    def resolve_state(imu) -> tuple[str, str]:
+        if imu is None:
+            return "—", ""
+        if not imu.valid:
+            return "STALE", STATE_COLOR_STALE
+        return "fresh", STATE_COLOR_OK
+
+    def __init__(self, parent: tk.Widget):
+        ttk.Label(parent, text="IMU", font=FONT_SENSOR_LABEL, width=6, anchor="w").grid(
+            row=1, column=0, padx=4, pady=2, sticky="w"
+        )
+        for c, h in enumerate(self.COLS):
+            if not h:
+                continue
+            ttk.Label(parent, text=h, font=FONT_SENSOR_HEADER, anchor="e").grid(
+                row=0, column=c, padx=4, sticky="e"
+            )
+        self._vars = [tk.StringVar(value="—") for _ in self.COLS]
+        for c in range(1, len(self.COLS)):
+            ttk.Label(
+                parent,
+                textvariable=self._vars[c],
+                font=FONT_SENSOR_VALUE,
+                width=7,
+                anchor="e",
+            ).grid(row=1, column=c, padx=4)
+        self._state_lbl = parent.grid_slaves(row=1, column=len(self.COLS) - 1)[0]
+
+    def update(self, imu):
+        if imu is None:
+            for v in self._vars[1:]:
+                v.set("—")
+            self._state_lbl.configure(foreground="")
+            return
+        ag, gd = imu.accel_g, imu.gyro_dps
+        fmt = [
+            None,
+            f"{imu.roll_from_accel_deg:+.1f}",
+            f"{imu.pitch_from_accel_deg:+.1f}",
+            f"{ag[0]:+.2f}",
+            f"{ag[1]:+.2f}",
+            f"{ag[2]:+.2f}",
+            f"{gd[0]:+.1f}",
+            f"{gd[1]:+.1f}",
+            f"{gd[2]:+.1f}",
+            f"{imu.temp_c:.1f}",
+        ]
+        for c in range(1, 10):
+            self._vars[c].set(fmt[c])
+        s, col = self.resolve_state(imu)
+        self._vars[10].set(s)
+        self._state_lbl.configure(foreground=col)
+
+
 class KrabbyTestGUI(tk.Tk):
-    def __init__(self, port: Optional[str] = None, baud: int = 115200):
+    def __init__(self, port: Optional[str] = None, baud: int = DEFAULT_BAUD):
         super().__init__()
         self.title("Krabby MCU Test")
         self.geometry("960x820")
@@ -139,7 +226,13 @@ class KrabbyTestGUI(tk.Tk):
         top.pack(fill="x")
 
         self._status_var = tk.StringVar(value="Connecting...")
-        ttk.Label(top, textvariable=self._status_var, font=("Segoe UI", 10)).pack(side="left")
+        ttk.Label(top, textvariable=self._status_var, font=FONT_STATUS).pack(
+            side="left"
+        )
+        self._role_var = tk.StringVar(value="Role: ---")
+        ttk.Label(top, textvariable=self._role_var, font=FONT_STATUS).pack(
+            side="left", padx=(16, 0)
+        )
 
         pwm_frame = ttk.LabelFrame(top, text="Jog PWM", padding=(6, 2))
         pwm_frame.pack(side="right", padx=(8, 0))
@@ -160,6 +253,10 @@ class KrabbyTestGUI(tk.Tk):
         ttk.Button(btn_frame, text="Hold All", command=self._hold_all).pack(side="left", padx=4)
         ttk.Button(btn_frame, text="Neutral (0.5)", command=self._neutral).pack(side="left", padx=4)
 
+        imu_frame = ttk.Frame(self, padding=(8, 0))
+        imu_frame.pack(fill="x")
+        self._imu_row = ImuRow(imu_frame)
+
         sep = ttk.Separator(self, orient="horizontal")
         sep.pack(fill="x", pady=4)
 
@@ -167,7 +264,9 @@ class KrabbyTestGUI(tk.Tk):
         scrollbar = ttk.Scrollbar(self, orient="vertical", command=canvas.yview)
         self._grid_frame = ttk.Frame(canvas, padding=8)
 
-        self._grid_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        self._grid_frame.bind(
+            "<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
         canvas.create_window((0, 0), window=self._grid_frame, anchor="nw")
         canvas.configure(yscrollcommand=scrollbar.set)
 
@@ -176,15 +275,17 @@ class KrabbyTestGUI(tk.Tk):
 
         headers = ["Joint", "Retract", "Extend", "Pos", "CAL", "Pot", "Cur", "PWM", "Hall"]
         for c, h in enumerate(headers):
-            ttk.Label(self._grid_frame, text=h, font=("Segoe UI", 9, "bold"), anchor="center").grid(
-                row=0, column=c, padx=4, pady=(0, 4), sticky="ew"
-            )
+            ttk.Label(
+                self._grid_frame, text=h, font=FONT_TABLE_HEADER, anchor="center"
+            ).grid(row=0, column=c, padx=4, pady=(0, 4), sticky="ew")
 
         row = 1
         for group_name, joint_names in JOINT_GROUP_NAMES:
             ttk.Label(
-                self._grid_frame, text=f"── {group_name} ──",
-                font=("Segoe UI", 9, "italic"), foreground="#666"
+                self._grid_frame,
+                text=f"── {group_name} ──",
+                font=FONT_GROUP_LABEL,
+                foreground=GROUP_LABEL_COLOR,
             ).grid(row=row, column=0, columnspan=9, sticky="w", pady=(6, 2))
             row += 1
             for jname in joint_names:
@@ -212,7 +313,9 @@ class KrabbyTestGUI(tk.Tk):
             self._poll_telemetry()
         else:
             self._status_var.set("Connection failed")
-            messagebox.showerror("Connection Error", f"Could not connect to {self._mcu.port}")
+            messagebox.showerror(
+                "Connection Error", f"Could not connect to {self._mcu.port}"
+            )
 
     def _poll_telemetry(self):
         if not self._connected:
@@ -220,6 +323,19 @@ class KrabbyTestGUI(tk.Tk):
         for name, jr in self._joint_rows.items():
             jt = self._mcu.joints.get(name)
             jr.update_from_telemetry(jt)
+
+        self._imu_row.update(self._mcu.imu)
+
+        now = time.time()
+        fresh = {
+            role
+            for role, ts in self._mcu.role_last_seen.items()
+            if now - ts < ROLE_STALE_S
+        }
+        leader = next((r for r in ("FRONT", "UNKWN") if r in fresh), "---")
+        self._role_var.set(
+            f"Role: {leader}  left={'LEFT' in fresh}  right={'RIGHT' in fresh}"
+        )
 
         if self._mcu.last_error:
             self._status_var.set(f"Error: {self._mcu.last_error}")

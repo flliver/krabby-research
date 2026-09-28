@@ -11,6 +11,12 @@ import pytest
 import zmq
 
 from data_collection.collector import HalDataCollector, _topic_msgtype_catalog
+from data_collection.serialization import (
+    BASE_TWIST_TOPIC,
+    IMU_TOPIC,
+    JOINTS_STATE_TOPIC,
+    catalog_camera_topic,
+)
 from data_collection.config import DataCollectorConfig, HalEndpoints, TopicEnable
 from tests.helpers import create_dummy_hw_obs
 
@@ -31,9 +37,15 @@ def test_topic_msgtype_catalog_respects_flags() -> None:
     cfg = DataCollectorConfig(
         hal=HalEndpoints("x", "y"),
         output_dir=Path("/tmp/z"),
-        topics=TopicEnable(joints_state=False, joints_command=False, imu=False),
+        topics=TopicEnable(
+            joints_state=False, joints_command=False, imu=False, base_twist=False
+        ),
     )
-    assert _topic_msgtype_catalog(cfg) == []
+    pairs = _topic_msgtype_catalog(cfg)
+    topics = {p[0] for p in pairs}
+    assert JOINTS_STATE_TOPIC not in topics
+    assert IMU_TOPIC not in topics
+    assert catalog_camera_topic("front_rgbd", "rgb") in topics
 
 
 def test_topic_msgtype_catalog_includes_proprioception() -> None:
@@ -43,8 +55,9 @@ def test_topic_msgtype_catalog_includes_proprioception() -> None:
     )
     pairs = _topic_msgtype_catalog(cfg)
     topics = {p[0] for p in pairs}
-    assert "/joints/state" in topics
-    assert "/imu" in topics
+    assert JOINTS_STATE_TOPIC in topics
+    assert IMU_TOPIC in topics
+    assert BASE_TWIST_TOPIC in topics
 
 
 def test_hal_data_collector_run_no_bag_exits(tmp_path: Path) -> None:

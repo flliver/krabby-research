@@ -1,0 +1,10 @@
+# Bench E2E deps for fleet/service/tests_e2e (SSH + teleop).
+# Install: pip install -e ../config -e ".[e2e]" && playwright install --with-deps chromium
+-e ../config
+pytest>=8.0.0
+requests>=2.31.0
+pycognito>=2024.5.1
+boto3>=1.34.0
+awsiotsdk>=1.21.0
+playwright>=1.40.0
+pytest-playwright>=0.4.0

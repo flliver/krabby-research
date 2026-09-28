@@ -1,6 +1,6 @@
 """Launch the Krabby firmware test GUI.
 
-Local board:         python -m firmware.gui [--port COM5]
+Local board:         python -m firmware.gui [--port COM5] [--debug]
 Remote board (ssh):  python -m firmware.gui --remote krabby-orin [--serial /dev/ttyACM0]
 
 --remote replaces the manual two-terminal bridge dance: it ssh-launches
@@ -9,6 +9,7 @@ tears the whole thing down when the GUI closes — freeing the remote serial por
 for flashing, with no bridge process to hunt down and kill.
 """
 import argparse
+import logging
 
 from firmware.gui.remote import (
     DEFAULT_BRIDGE_PORT,
@@ -16,13 +17,15 @@ from firmware.gui.remote import (
     DEFAULT_SERIAL_DEV,
     start_bridge,
 )
+from firmware.krabby_mcu import DEFAULT_BAUD, logger
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Krabby MCU test GUI")
     parser.add_argument("--port", default=None,
                         help="Serial port override (e.g. COM5 or socket://host:5331)")
-    parser.add_argument("--baud", type=int, default=115200)
+    parser.add_argument("--baud", type=int, default=DEFAULT_BAUD)
+    parser.add_argument("--debug", action="store_true", help="Log every command sent to the MCU")
     parser.add_argument("--remote", metavar="HOST", default=None,
                         help="ssh host the MCU is attached to; auto-starts the serial/TCP "
                              "bridge there and connects through a tunnel")
@@ -40,6 +43,8 @@ def main():
     args = parser.parse_args()
     if args.remote and args.port:
         parser.error("--remote and --port are mutually exclusive (--remote picks the port itself)")
+    if args.debug:
+        logger.setLevel(logging.DEBUG)
 
     # Imported here so parser-only paths (--help, argument errors, unit tests)
     # don't require tkinter/a display.

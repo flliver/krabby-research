@@ -30,9 +30,9 @@ def test_front_observation_camera_catalog_entry():
     assert e.camera_driver in FRONT_RGB_DEPTH_CAMERA_FACTORIES
 
 
-def test_jetson_catalog_has_front_and_side_rgbd_only():
+def test_jetson_catalog_has_front_and_side_rgbd_rows():
     ids = {e.id for e in JETSON_SENSOR_CATALOG}
-    assert ids == {"front_rgbd", "side_rgbd"}
+    assert ids == {"front_rgbd", "side_right_rgbd", "side_left_rgbd"}
     assert all(e.type == "rgbd" for e in JETSON_SENSOR_CATALOG)
     assert not any(e.type == "radar" for e in JETSON_SENSOR_CATALOG)
 
@@ -146,13 +146,40 @@ def test_jetson_depth_gray16_handle_and_sw_pipeline_shape():
 
 def test_jetson_depth_gray16_nvenc_pipeline_shape():
     iface = JetsonSensorInterface(use_nvenc=True)
-    depth = next(s for s in iface.list_sensors() if s.id == "side_rgbd_gray16_depth")
+    depth = next(s for s in iface.list_sensors() if s.id == "side_right_rgbd_gray16_depth")
     handle = iface.get_gstreamer_handle(depth)
     pipe = iface.build_pipeline(handle, encoding="h264", output_element="fakesink")
     assert "format=GRAY16_LE" in pipe
     assert "videoconvert" in pipe
     assert "nvvidconv" in pipe
     assert "nvv4l2h264enc" in pipe
+
+
+def test_isaac_scene_introspection_matches_jetson_side_ids():
+    from types import SimpleNamespace
+
+    # Scene keys mirror hal.server.isaac.main attach_sim_rgbd_sensors_to_scene_cfg naming.
+    # Dummy cfg objects suffice: introspection only needs paired rgb/depth scene entries.
+    dummy_cfg = SimpleNamespace(width=640, height=480)
+    iface = IsaacSensorInterface(
+        scene_sensors={
+            "front_camera": SimpleNamespace(cfg=dummy_cfg),
+            "front_rgb": SimpleNamespace(cfg=dummy_cfg),
+            "side_right_camera": SimpleNamespace(cfg=dummy_cfg),
+            "side_right_rgb": SimpleNamespace(cfg=dummy_cfg),
+            "side_left_camera": SimpleNamespace(cfg=dummy_cfg),
+            "side_left_rgb": SimpleNamespace(cfg=dummy_cfg),
+        }
+    )
+    ids = {s.id for s in iface.list_sensors()}
+    assert ids == {
+        "front_rgbd",
+        "front_rgbd_gray16_depth",
+        "side_right_rgbd",
+        "side_right_rgbd_gray16_depth",
+        "side_left_rgbd",
+        "side_left_rgbd_gray16_depth",
+    }
 
 
 def test_isaac_list_and_handle_and_pipeline_shape():

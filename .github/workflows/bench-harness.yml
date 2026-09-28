@@ -1,0 +1,61 @@
+# Four-stage bench harness on the Orin.
+#
+# STUB: no self-hosted runner is registered yet. The job is gated on repo
+# variable BENCH_RUNNER_ENABLED == 'true' so pushes stay green until an admin:
+#   1. Registers an Orin runner with labels: self-hosted, krabby-bench
+#   2. Sets Actions variable BENCH_RUNNER_ENABLED=true
+#   3. Sets secret DISCORD_WEBHOOK_URL (optional but recommended)
+#
+# See bench/README.md → "CI: self-hosted Orin runner (deferred)".
+# Watches publish branches (mainline / release/**), not default branch `main`.
+
+name: Bench harness
+
+on:
+  push:
+    branches:
+      - mainline
+      - 'release/**'
+  workflow_dispatch:
+
+jobs:
+  harness:
+    name: install → flash → bringup → motion
+    # Skip (success) until an Orin runner exists — avoids a forever-queued job.
+    if: ${{ vars.BENCH_RUNNER_ENABLED == 'true' }}
+    runs-on: [self-hosted, krabby-bench]
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run four-stage harness
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          set -euo pipefail
+          # Dual-use Orin: harness owns ~/.venv-krabby-bench via bench-reset.sh;
+          # never deletes ~/.venv-krabby.
+          python3 -m venv /tmp/ci-bench-venv
+          # shellcheck disable=SC1091
+          source /tmp/ci-bench-venv/bin/activate
+          pip install -U pip
+          pip install -e ./bench
+          SUBJECT="$(git log -1 --pretty=%s || true)"
+          krabby-bench harness \
+            --repo-root "${GITHUB_WORKSPACE}" \
+            --commit "${GITHUB_SHA}" \
+            --commit-subject "${SUBJECT}" \
+            --run-url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+
+  stub-status:
+    name: Runner not enabled (stub)
+    if: ${{ vars.BENCH_RUNNER_ENABLED != 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Explain skip
+        run: |
+          echo "BENCH_RUNNER_ENABLED is not 'true' — bench-harness job skipped."
+          echo "Register a self-hosted Orin runner (labels: self-hosted, krabby-bench),"
+          echo "then set the repo Actions variable BENCH_RUNNER_ENABLED=true."
+          echo "See bench/README.md"

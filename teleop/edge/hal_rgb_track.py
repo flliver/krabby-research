@@ -11,6 +11,8 @@ import av
 import numpy as np
 from aiortc import VideoStreamTrack
 
+from teleop.edge.qos import TeleopQosController
+
 logger = logging.getLogger(__name__)
 
 # When HAL has no frame yet, emit this size (H, W, 3) uint8 black so the peer connection stays up.
@@ -27,12 +29,17 @@ class HalRgbSnapshotVideoTrack(VideoStreamTrack):
         *,
         frame_getter: Callable[[], np.ndarray | None],
         catalog_id: str | None = None,
+        track_index: int = 0,
+        qos_controller: TeleopQosController | None = None,
     ) -> None:
         super().__init__()
         self._frame_getter = frame_getter
         self._catalog_id = (catalog_id or "").strip() or None
+        self._track_index = max(0, int(track_index))
+        self._qos = qos_controller
         self._last: np.ndarray | None = None
         self._last_no_frame_warn_mono: float = 0.0
+        self._last_emit_mono: float = 0.0
 
     def _requested_sensor_label(self) -> str:
         return self._catalog_id if self._catalog_id else "(unset catalog_id)"
@@ -46,8 +53,30 @@ class HalRgbSnapshotVideoTrack(VideoStreamTrack):
             )
             self._last_no_frame_warn_mono = now
 
+    def _target_fps(self) -> float:
+        if self._qos is None:
+            return 30.0
+        return max(1.0, self._qos.get_target_fps(self._track_index))
+
+    async def _wait_for_target_fps(self) -> None:
+        target_fps = self._target_fps()
+        min_interval_s = 1.0 / target_fps
+        now = time.monotonic()
+        elapsed = now - self._last_emit_mono
+        if elapsed < min_interval_s:
+            await asyncio.sleep(min_interval_s - elapsed)
+
     async def recv(self) -> av.VideoFrame:
+        await self._wait_for_target_fps()
         pts, time_base = await self.next_timestamp()
+        self._last_emit_mono = time.monotonic()
+        active = self._qos is None or self._qos.is_track_active(self._track_index)
+        if not active:
+            black = np.zeros(_BLACK_HWC, dtype=np.uint8)
+            frame = av.VideoFrame.from_ndarray(black, format="rgb24")
+            frame.pts = pts
+            frame.time_base = time_base
+            return frame
         arr = self._frame_getter()
         if arr is not None and arr.size > 0:
             self._last = np.ascontiguousarray(arr, dtype=np.uint8)

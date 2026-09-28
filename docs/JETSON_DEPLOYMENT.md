@@ -10,7 +10,7 @@ This guide explains how to build and deploy the parkour policy runtime on Jetson
 - **Architecture**: aarch64 (ARM64)
 - **JetPack**: 6.1/6.2 (L4T 36.4) or later
 - **ZED 2i Camera**: Optional RGB-D (ZED SDK 5.1.1+ for L4T 36.4)
-- **MaixSense-A075V**: Optional RGB-D over USB RNDIS + HTTP (no ZED SDK); see [MaixSense-A075V (optional host bring-up)](#maixsense-a075v-optional-host-bring-up) below
+- **MaixSense-A075V**: Optional RGB-D over USB RNDIS + HTTP; see [MAIXSENSE_A075V_SETUP.md](MAIXSENSE_A075V_SETUP.md)
 - **Model checkpoint file**: `.pt` format (e.g., `unitree_go2_parkour_teacher.pt`)
 
 ### Seeed reComputer Jetson Robotics J401 (reference carrier)
@@ -131,6 +131,11 @@ Scope of this fix:
 
 Docker is required for running the locomotion container.
 
+> **Use the script.** `scripts/jetson/install-docker.sh` performs exactly the
+> steps below (idempotently), and `scripts/jetson/bootstrap.sh` runs it as part
+> of the full bring-up. The manual steps here document what the script does and
+> serve as a fallback — prefer the script so the two don't drift.
+
 ```bash
 # Update package index
 sudo apt-get update
@@ -169,6 +174,10 @@ This is required for the group membership to take effect.
 ### 3. NVIDIA Container Toolkit Installation
 
 Required for GPU access in Docker containers.
+
+> **Use the script.** `scripts/jetson/setup-docker-gpu.sh` performs the steps
+> below (idempotently) and is run by `scripts/jetson/bootstrap.sh`. The manual
+> steps document what it does; prefer the script.
 
 ```bash
 # Install nvidia-container-toolkit
@@ -276,41 +285,14 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 
 Unplug and replug the ZED, then retry.
 
-**Front + side RGB-D:** the repo catalog uses **`front_rgbd`** (primary, **`camera_driver="zed"`**) and **`side_rgbd`** (**`maixsense_a075v`**, `hal_open_rgbd=True`, `policy_scan_slot="side"`). Set **`zed_usb_serial_env`** on the front row (or rely on first detected ZED). For side MaixSense, set **`maixsense_host_env`** / **`maixsense_port_env`** (defaults in catalog: `KRABBY_JETSON_MAIXSENSE_SIDE_HOST` / `KRABBY_JETSON_MAIXSENSE_SIDE_PORT`). To use a second ZED instead of MaixSense on **`side_rgbd`**, change that row’s **`camera_driver`** to **`zed`** and set **`KRABBY_SIDE_ZED_USB_SERIAL`**.
+**Front + side RGB-D:** the repo catalog uses **`front_rgbd`** (primary ZED), **`side_right_rgbd`** (right MaixSense, `policy_scan_slot="side"`), and **`side_left_rgbd`** (left MaixSense). Set optional **`zed_usb_serial`** on a ZED row when deterministic camera selection is needed (otherwise HAL opens the first detected ZED). MaixSense host bring-up: [MAIXSENSE_A075V_SETUP.md](MAIXSENSE_A075V_SETUP.md).
 
 **Container requirements for ZED on Jetson:** ZED uses USB/libusb access, so run the locomotion container with `-v /dev:/dev` and `--privileged` (using only `--device /dev/video0` is insufficient).
 
-### MaixSense-A075V (optional host bring-up)
-
-Optional RGB-D over **HTTP** (no Stereolabs SDK). Use as the primary `front_rgbd` driver or as extra `rgbd` catalog rows. Official docs: [MaixSense-A075V – Sipeed Wiki](https://wiki.sipeed.com/hardware/en/maixsense/maixsense-a075v/maixsense-a075v.html).
-
-1. **USB / link**: Often **`0525:a4a2`** (Linux RNDIS). The module is **`192.168.233.1`** on the USB Ethernet link by default.
-2. **Jetson IP / routing pitfall**: If multiple host interfaces are attached to **`192.168.233.0/24`**, routing to the MaixSense default address **`192.168.233.1`** can become ambiguous and cause intermittent timeouts / unreachable camera behavior.
-3. **Check reachability**: Run `ip route get 192.168.233.1` and confirm that traffic to the camera goes out through the USB network interface used by that camera and uses the expected source IP on that link. Then verify connectivity with `ping -c 3 192.168.233.1` and `curl -sS -o /dev/null -w '%{http_code}\n' http://192.168.233.1/`.
-4. **Host network config**: Ensure the USB network interface for the camera is configured persistently on the host (for example via NetworkManager) with an address in the camera subnet, and that this interface comes up automatically after reboot.
-
-5. **Web UI**: `http://192.168.233.1` (~10–15 s after power-on). Remote browser via Jetson: `ssh -N -L 8080:192.168.233.1:80 USER@JETSON` then open `http://127.0.0.1:8080`.
-6. **If needed (troubleshooting only)**: Driver install notes from Sipeed are available here: [Sipeed install / driver notes](https://wiki.sipeed.com/hardware/en/maixsense/maixsense-a075v/install_drivers.html). For this Jetson production deployment, camera access uses USB networking; use the driver steps only if that USB network path is not detected or reachable.
-
-**HAL wiring**
-
-- Python extras: `pip install "krabby-hal-server-jetson[maixsense]"` (`requests`, `opencv-python-headless`).
-- Catalog: set **`camera_driver="maixsense_a075v"`** on each **`rgbd`** row that uses MaixSense (primary **`front_rgbd`** and/or extra rows with **`hal_open_rgbd=True`**). Each such row must set **`maixsense_host_env`** and **`maixsense_port_env`** (or literal `maixsense_host` + `maixsense_port`) to explicit HTTP endpoint values—**you choose those names** in **`JETSON_SENSOR_CATALOG`** (distinct per module). Deployment passes **one `-e`** host and one **`-e`** port per env-based row.
-- **Policy** uses **`camera_*`** / **`scan_features`** from the primary row; optional **`side_*`** when one row has **`policy_scan_slot="side"`** and the checkpoint uses **`num_side_scan`**. **Collision / extra streams**: read **`HardwareObservations.rgbd_by_catalog_id[id].rgb`** / **`.depth`** (each row’s own resolution). Implementation: `hal/server/jetson/maixsense_a075v.py`, `maixsense_rgb_depth_camera.py`, **`JETSON_SENSOR_CATALOG`** in `sensor_backend_jetson.py`.
-- **Hardware smoke test**: `scripts/run_jetson_maixsense_hal_hw_test.sh` (expects Docker image `krabby-locomotion:latest`, **`--network host`**, and **`KRABBY_MAIXSENSE_LIVE_TEST_HOST`** set to the module IP; optional **`KRABBY_MAIXSENSE_LIVE_TEST_PORT`**).
-
-**Docker**: No ZED-style USB passthrough for HTTP; the container must reach each module’s IP (**`--network host`** on Jetson is typical). For every MaixSense row, the catalog’s **`maixsense_host_env`** / **`maixsense_port_env`** name the variables you set at **`docker run`** (**`-e NAME=value`**, one pair per module)—same pattern as multiple ZED serial envs.
-
-**Runtime example (MaixSense over HTTP):**
-
-```bash
-sudo docker run --rm --runtime=nvidia --network host -v /path/to/checkpoints:/workspace/checkpoints -e KRABBY_JETSON_MAIXSENSE_SIDE_HOST=192.168.233.1 krabby-locomotion:latest --checkpoint /workspace/checkpoints/unitree_go2_parkour_teacher.pt --robot go2
-```
-
-Add more `-e ...` entries (and optional `-e ..._PORT=...`) for each additional MaixSense catalog row.
+**MaixSense-A075V:** Optional RGB-D over HTTP (no ZED SDK). Host bring-up, dual side modules, and persistent routing: [MAIXSENSE_A075V_SETUP.md](MAIXSENSE_A075V_SETUP.md). Complete that setup before starting the locomotion container with MaixSense rows.
 
 **HAL front camera (camera_rgb / camera_depth)**  
-The Jetson HAL fills `HardwareObservations.camera_rgb` and `camera_depth` from the **front RGB-D observation camera** defined in **`JETSON_SENSOR_CATALOG`**: the row with **`id="front_rgbd"`** and **`is_primary=True`** sets **`camera_driver`** (e.g. **`zed`** or **`maixsense_a075v`**), **resolution**, **depth_resolution**, **fps**, and **depth_mode**. **`depth_mode`** applies to **ZED** only. **Policy scan** (`scan_features`, optional **`side_*`**) comes from the configured depth streams; **every opened RGB-D row** also appears under **`rgbd_by_catalog_id`**. GStreamer IDs, ZED install, and MaixSense networking: **SENSOR_INTERFACE.md**, ZED section above, and [MaixSense-A075V (optional host bring-up)](#maixsense-a075v-optional-host-bring-up). Wire format: **HAL_GUIDE.md** and `hal/client/data_structures/hardware.py`.
+The Jetson HAL fills `HardwareObservations.camera_rgb` and `camera_depth` from the **front RGB-D observation camera** defined in **`JETSON_SENSOR_CATALOG`**: the row with **`id="front_rgbd"`** and **`is_primary=True`** sets **`camera_driver`** (e.g. **`zed`** or **`maixsense_a075v`**), **resolution**, **depth_resolution**, **fps**, and **depth_mode**. **`depth_mode`** applies to **ZED** only. **Policy scan** (`scan_features`, optional **`side_*`**) comes from the configured depth streams; **every opened RGB-D row** also appears under **`rgbd_by_catalog_id`**. GStreamer IDs and ZED install: **SENSOR_INTERFACE.md** and ZED section above. MaixSense: [MAIXSENSE_A075V_SETUP.md](MAIXSENSE_A075V_SETUP.md). Wire format: **HAL_GUIDE.md** and `hal/client/data_structures/hardware.py`.
 
 ## Obtaining the Docker Image
 

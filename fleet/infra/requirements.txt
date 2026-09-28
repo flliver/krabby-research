@@ -1,0 +1,4 @@
+# Python deps for ControlPlaneStack / FleetServiceStack (CDK).
+# Create/activate the project venv first: ./scripts/setup-venv.sh && source .venv/bin/activate
+aws-cdk-lib>=2.160.0,<3
+constructs>=10.0.0,<11

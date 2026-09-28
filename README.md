@@ -32,7 +32,7 @@ pip install krabby-launcher
 sudo krabby install
 ```
 
-This pulls `mainline-latest` from ECR, writes the udev rule for the Mega 2560 boards, and adds you to the `dialout` group. Replug USB after this step.
+This pulls `release-latest` from ECR (the stable release channel), writes the udev rule for the Mega 2560 boards, adds you to the `dialout` group, and installs a systemd unit so the stack starts on boot. Replug USB after this step. (Pass `--no-launch-on-startup` to skip the boot autostart; see [krabby/README.md](krabby/README.md#start-on-boot).)
 
 ### 3. Verify the boards
 
@@ -40,7 +40,7 @@ This pulls `mainline-latest` from ECR, writes the udev rule for the Mega 2560 bo
 krabby firmware show
 ```
 
-All three boards should appear with their role (`primary`, `left`, `right`) and version.
+All three boards should appear with their role (`front`, `left`, `right`) and version.
 
 ### 4. Flash all three boards (first time or after a firmware update)
 
@@ -54,31 +54,25 @@ Run once per board — replug USB between boards. Boards are auto-detected from 
 
 Connect all three Megas to the Jetson via the powered USB hub.
 
-### 6. Start the locomotion stack
+### 6. Drive with a gamepad
 
-For gamepad-only control (no checkpoint required):
+Pair a Pro Controller over Bluetooth ([CONNECT_PRO_CONTROLLER.md](controller/scripts/jetson/CONNECT_PRO_CONTROLLER.md)) **before** starting the stack, then:
 
 ```bash
-krabby run --gamepad-only
+krabby run
 ```
 
-For inference mode (requires a trained checkpoint):
+`krabby run` starts the whole gamepad stack — HAL server, `krabby-uno` client, and controller — in one container, so the paired controller drives the robot immediately. No second command. The container starts with GPU, serial, and input device passthrough; logs stream to stdout and Ctrl+C stops it.
+
+To drive from a *separate* client instead (e.g. a second terminal, or another host against a server-only run), use the `krabby-uno` console script from the controller package (`pip install krabby-controller`). See [controller/scripts/jetson/E2E_GAMEPAD_KRABBY.md](controller/scripts/jetson/E2E_GAMEPAD_KRABBY.md) for the full E2E and debug guide.
+
+### 7. Inference mode (optional)
+
+To run a trained policy instead of the gamepad:
 
 ```bash
 krabby run -- --checkpoint /path/to/checkpoint.pt
 ```
-
-The container starts with GPU, serial, and input device passthrough. Logs stream to stdout; Ctrl+C stops it.
-
-### 7. Drive with a gamepad (optional)
-
-Pair a Pro Controller over Bluetooth ([CONNECT_PRO_CONTROLLER.md](controller/scripts/jetson/CONNECT_PRO_CONTROLLER.md)), then from a second terminal:
-
-```bash
-krabby uno
-```
-
-See [controller/scripts/jetson/E2E_GAMEPAD_KRABBY.md](controller/scripts/jetson/E2E_GAMEPAD_KRABBY.md) for the full E2E guide.
 
 ---
 
@@ -105,3 +99,7 @@ See [bench/README.md](bench/README.md) for config reference and forced-failure t
 | [krabby/README.md](krabby/README.md) | Full `krabby` CLI reference |
 | [controller/scripts/jetson/E2E_GAMEPAD_KRABBY.md](controller/scripts/jetson/E2E_GAMEPAD_KRABBY.md) | Gamepad E2E guide |
 | [bench/README.md](bench/README.md) | Bench watchdog setup and alerter config |
+| [docs/crab-hexapod-plant.md](docs/crab-hexapod-plant.md) | Simulation training plant: generated `assets/crab.usda` (A15+B), plant selection, provenance |
+| [docs/crab-hex-forward-policy-config.md](docs/crab-hex-forward-policy-config.md) | Forward-walk policy/MDP configuration, KRABBY_* env vars, phase presets |
+| [docs/FOLDER_LAYOUT.md](docs/FOLDER_LAYOUT.md) | Repository map (task package, experiments/ keep-set, policy of record) |
+| [parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/README.md](parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/README.md) | Crab-hex forward-walk RL task: phases, training, evaluation |

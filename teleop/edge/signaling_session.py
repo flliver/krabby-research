@@ -10,6 +10,7 @@ from typing import Any, Callable
 from aiohttp import WSMsgType
 
 from teleop.edge.config import TeleopEdgeSettings
+from teleop.edge.qos import TeleopQosController
 from teleop.edge.rtc_session import handle_first_offer_message
 from teleop.edge.sdp_util import count_video_m_lines
 
@@ -26,6 +27,9 @@ async def run_robot_signaling_loop(
     hello_ack_payload_builder: Callable[[], dict[str, Any]] | None = None,
     pong_payload_builder: Callable[[], dict[str, Any]] | None = None,
     control_message_handler: Callable[[dict[str, Any]], None] | None = None,
+    telemetry_getter: Callable[[], dict[str, Any] | None] | None = None,
+    telemetry_hz: float = 20.0,
+    qos_controller: TeleopQosController | None = None,
 ) -> None:
     """Handle ping/hello/offer on a signaling WebSocket until close or error.
 
@@ -107,9 +111,13 @@ async def run_robot_signaling_loop(
             try:
                 err_json, ans_sdp, pc = await handle_first_offer_message(
                     payload,
+                    ice_servers=teleop_settings.stun_turn_servers,
                     video_track_factory=video_track_factory,
                     max_video_m_lines=teleop_settings.max_video_m_lines,
                     control_message_handler=control_message_handler,
+                    telemetry_getter=telemetry_getter,
+                    telemetry_hz=telemetry_hz,
+                    qos_controller=qos_controller,
                 )
             except Exception as e:
                 logger.warning(

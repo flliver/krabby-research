@@ -17,6 +17,7 @@ on:
       - 'hal-tools-v*'
       - 'hal-server-isaac-v*'
       - 'hal-server-jetson-v*'
+      - 'teleop-edge-v*'
       - 'krabby-v*'
       - 'bench-v*'
 
@@ -60,6 +61,12 @@ jobs:
             echo "path=hal/server/jetson" >> $GITHUB_OUTPUT
             echo "deps=hal/client hal/server compute/parkour firmware" >> $GITHUB_OUTPUT
             echo "test_path=tests/unit/hal/server/jetson/" >> $GITHUB_OUTPUT
+            echo "build_self_first=" >> $GITHUB_OUTPUT
+          elif [[ "$TAG" == teleop-edge-v* ]]; then
+            echo "pkg_key=teleop-edge" >> $GITHUB_OUTPUT
+            echo "path=teleop/edge" >> $GITHUB_OUTPUT
+            echo "deps=" >> $GITHUB_OUTPUT
+            echo "test_path=tests/unit/teleop/" >> $GITHUB_OUTPUT
             echo "build_self_first=" >> $GITHUB_OUTPUT
           elif [[ "$TAG" == hal-client-v* ]]; then
             echo "pkg_key=hal-client" >> $GITHUB_OUTPUT
@@ -142,7 +149,7 @@ jobs:
         run: |
           cd "${{ steps.pkg.outputs.path }}"
           pip install dist/*.whl
-          pip install pytest pytest-cov pytest-timeout keyboard pyserial
+          pip install pytest pytest-cov pytest-timeout pytest-asyncio keyboard pyserial
           PKG_KEY="${{ steps.pkg.outputs.pkg_key }}"
           if [[ "$PKG_KEY" == hal-server-isaac ]] || [[ "$PKG_KEY" == hal-server-jetson ]] || [[ "$PKG_KEY" == compute-parkour ]] || [[ "$PKG_KEY" == hal-client ]] || [[ "$PKG_KEY" == controller ]]; then
             pip install torch --index-url https://download.pytorch.org/whl/cpu
@@ -155,6 +162,9 @@ jobs:
       - name: Run tests
         if: steps.pkg.outputs.test_path != ''
         run: |
+          if [[ "${{ steps.pkg.outputs.pkg_key }}" == "firmware" ]]; then
+            make -C firmware test-native
+          fi
           pytest ${{ steps.pkg.outputs.test_path }} -v --timeout=60 --timeout-method=thread
 
       - name: Publish to PyPI

@@ -1,20 +1,26 @@
 from dataclasses import dataclass
+from enum import IntEnum
+import math
 from typing import Tuple, Optional
 
-# Wire format: must match firmware (actuator_manager.h + arduino.ino).
-# Line starts with a role prefix "FRONT; ", "UNKNOWN; ", "LEFT; ", or "RIGHT; " then semicolon-separated segments.
-# Forwarded lines from left/right already include their role (LEFT; / RIGHT; ).
-# Example: "FRONT; FLHY 0.123 0 512 1 0 0 128 0 2;FLHL ...;..."
-# Segment format: <name> <pos> <pot> <current> <enL> <enR> <pwmL> <pwmR> <saf> [<cal_state>]
+# Must match actuator_manager.h telemetry output.
+# Segment format: <name> <pos> <pot> <current> <enL> <enR> <pwmL> <pwmR> <saf> [<connection> [<cal_state>]]
 # saf: cumulative HallA edge count since boot (pins depend on KRABBY_PIN_REV in board_pins.h).
-# cal_state (optional 10th token, older firmware omits it): 0=UNCAL (no end-stops recorded),
+# connection: locally composed state, 0 unknown / 1 connected / 2 disconnected.
+# cal_state (11th token, older firmware omits it): 0=UNCAL (no end-stops recorded),
 # 1=PARTIAL (one stop recorded, or degenerate range — pos still uses full-range defaults, so
 # it is not trustworthy), 2=FULL (both stops recorded and applied).
 
 CAL_STATE_NAMES = {0: "UNCAL", 1: "PARTIAL", 2: "FULL"}
 
 
-@dataclass
+class ActuatorConnection(IntEnum):
+    UNKNOWN = 0
+    CONNECTED = 1
+    DISCONNECTED = 2
+
+
+@dataclass(frozen=True, slots=True)
 class JointTelemetry:
     name: str
     pos: float
@@ -23,54 +29,55 @@ class JointTelemetry:
     en: Tuple[int, int]
     pwm: Tuple[int, int]
     saf: int
+    connection_state: ActuatorConnection = ActuatorConnection.UNKNOWN
     cal_state: int = 0  # 0=UNCAL, 1=PARTIAL, 2=FULL (default for pre-cal-state firmware)
-
-    # Role prefix (first segment of a line); not a joint.
-    ROLE_PREFIXES = ("JT", "FRONT", "UNKNOWN", "LEFT", "RIGHT")
 
     @classmethod
     def from_tokens(cls, tokens) -> Optional["JointTelemetry"]:
         if not tokens:
             return None
-        if tokens[0] in cls.ROLE_PREFIXES:
-            tokens = tokens[1:] if tokens[0] == "JT" else None
-        # 9 tokens (legacy) or 10 (with cal_state). Anything else is a corrupt segment.
-        if not tokens or len(tokens) not in (9, 10):
+        # 9 tokens (legacy), 10 (+connection) or 11 (+cal_state). Anything else is corrupt.
+        if not tokens or len(tokens) not in (9, 10, 11):
             return None
-        cal_state = tokens[9] if len(tokens) == 10 else "0"
         name, pos, pot, cur, enL, enR, pwmL, pwmR, saf = tokens[:9]
         try:
+            position = float(pos)
+            connection_state = (
+                ActuatorConnection(int(tokens[9]))
+                if len(tokens) >= 10
+                else ActuatorConnection.UNKNOWN
+            )
+            # A non-finite position was the legacy disconnection encoding.
+            if not math.isfinite(position):
+                connection_state = ActuatorConnection.DISCONNECTED
             return cls(
                 name=name,
-                pos=float(pos),
+                pos=position,
                 pot=int(pot),
                 current=int(cur),
                 en=(int(enL), int(enR)),
                 pwm=(int(pwmL), int(pwmR)),
                 saf=int(saf),
-                cal_state=int(cal_state),
+                connection_state=connection_state,
+                cal_state=int(tokens[10]) if len(tokens) == 11 else 0,
             )
         except ValueError:
             return None
 
     @property
+    def connected(self) -> bool:
+        return (
+            math.isfinite(self.pos)
+            and self.connection_state is not ActuatorConnection.DISCONNECTED
+        )
+
+    @property
     def cal_state_name(self) -> str:
         return CAL_STATE_NAMES.get(self.cal_state, "?")
 
-    @classmethod
-    def parse_line(cls, line: str):
-        joints = []
-        for seg in line.strip().split(";"):
-            seg = seg.strip()
-            if not seg:
-                continue
-            tokens = seg.split()
-            jt = cls.from_tokens(tokens)
-            if jt:
-                joints.append(jt)
-        return joints
-
     def format_compact(self, target: Optional[float] = None) -> str:
+        if not self.connected:
+            return f"{self.name}:DISC,{self.pot},{self.current}"
         pos_part = f"{self.pos:.3f}"
         if target is not None:
             pos_part = f"{pos_part}/{target:.3f}"

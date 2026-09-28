@@ -8,35 +8,28 @@ Two-process E2E on Jetson Orin: **Pro Controller** → **ControlLoop (INPUT_CONT
 
 ```bash
 pip install krabby-launcher
-krabby install              # pull mainline-latest, set up udev + dialout
+krabby install              # pull release-latest, set up udev + dialout
 krabby firmware show        # verify all three boards are visible
-krabby run --gamepad-only   # start the locomotion stack in gamepad mode
+krabby run                  # start the FULL gamepad stack (server + client + controller)
 ```
 
-`krabby run --gamepad-only` starts the container with `--privileged -v /dev:/dev`, which passes through the MCU serial ports (`/dev/ttyACM*`, `/dev/ttyUSB*`) **and** all input devices (`/dev/input/*`) in a single flag — no separate `--device` arguments needed.
-
-With the container running, start the control-loop client on the host (or inside the container):
-
-```bash
-# host (pip-installed client)
-pip install krabby-controller
-krabby-uno
-
-# or, if running from the repo
-python controller/scripts/jetson/run_gamepad_to_krabby_client.py
-```
+`krabby run` starts the container with `--privileged -v /dev:/dev`, which passes through the MCU serial ports (`/dev/ttyACM*`, `/dev/ttyUSB*`) **and** all input devices (`/dev/input/*`) in a single flag — no separate `--device` arguments needed. It launches the HAL server **and** the `krabby-uno` client/controller together in one container, so a paired gamepad drives the robot immediately — no second command. (`krabby run --gamepad-only` is an explicit alias for the same behavior.)
 
 Pair the Pro Controller over Bluetooth before starting the container (see [CONNECT_PRO_CONTROLLER.md](CONNECT_PRO_CONTROLLER.md)). The paired `/dev/input/js0` is available inside the container automatically because of `-v /dev:/dev`.
 
-### Testing without a checkpoint (gamepad-only mode)
+---
 
-**Terminal 1 — HAL server in container (gamepad-only):**
+## Two-process / debug path (server and client separately)
+
+For debugging you can split the stack into the server and a separately-launched client. Start the server alone with the helper script, then connect a client.
+
+**Terminal 1 — HAL server only, in the container:**
 
 ```bash
-krabby run --gamepad-only
+./controller/scripts/jetson/helper/run_gamepad_hal_server_only_in_container.sh
 ```
 
-Wait for: `HAL server started in gamepad-only mode ... Run \`krabby uno\` to connect.`
+Wait for: ``Gamepad mode active: HAL bound at ... to connect a separate client, run `krabby-uno`.``
 
 **Terminal 2 — control-loop client on host:**
 
@@ -67,15 +60,17 @@ It is recommended to use a Python virtual environment to isolate dependencies: c
 
 ## Steps
 
-### Terminal 1: HAL server
+### Terminal 1: HAL server (server only)
+
+This debug flow runs the server on its own. `krabby run` would start the client too, so use the server-only helper (or the raw command) here:
 
 ```bash
-krabby run --gamepad-only
+./controller/scripts/jetson/helper/run_gamepad_hal_server_only_in_container.sh
 ```
 
 Custom bind ports: `krabby-hal-server-jetson --control-source gamepad --observation-bind tcp://*:6001 --command-bind tcp://*:6002`
 
-Wait for: `HAL server started in gamepad-only mode ... Run \`krabby uno\` to connect.`
+Wait for: ``Gamepad mode active: HAL bound at ... to connect a separate client, run `krabby-uno`.``
 
 ### Terminal 2: Control-loop client
 

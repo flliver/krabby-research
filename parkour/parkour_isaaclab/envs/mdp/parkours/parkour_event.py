@@ -10,6 +10,14 @@ from isaaclab.markers import VisualizationMarkers
 from isaaclab.utils.math import wrap_to_pi
 from parkour_isaaclab.managers import ParkourTerm
 from parkour_isaaclab.terrains import ParkourTerrainGeneratorCfg, ParkourTerrainImporter, ParkourTerrainGenerator
+from .exposure_stats import (
+    SPAWN_PLATFORM,
+    SPAWN_SPREAD,
+    ExposureLedger,
+    episode_exposure,
+    next_goal_index,
+    platform_edge_rel,
+)
 
 if TYPE_CHECKING:
     from parkour_isaaclab.envs import ParkourManagerBasedRLEnv
@@ -75,6 +83,28 @@ class ParkourEvent(ParkourTerm):
         self.env_per_terrain_name = self.total_terrain_names[numpy_terrain_levels, numpy_terrain_types]
         self._reset_offset = self.env.event_manager.get_term_cfg('reset_root_state').params['offset']
 
+        # PLAN H B0 (2026-09-03) exposure telemetry -- always on, telemetry only.
+        # Per-env episode state (origin-relative x), spawn bookkeeping written by the reset
+        # events via note_spawn(), and a ring ledger of finished episodes whose means are
+        # emitted as Metrics/<term>/<key> (see exposure_stats.ExposureLedger group rules).
+        self.n_obst = self.num_goals - 2
+        _tgc = self.terrain.cfg.terrain_generator
+        _platform_len = max(
+            [float(getattr(sc, "platform_len", 0.0)) for sc in _tgc.sub_terrains.values()] or [2.5]
+        )
+        self.edge_x_rel = platform_edge_rel(_platform_len, _tgc.size[0], _tgc.horizontal_scale)
+        self.ep_max_x = torch.full((self.num_envs,), -1.0e6, device=self.device)
+        self.ep_field_steps = torch.zeros(self.num_envs, device=self.device)
+        self.ep_steps = torch.zeros(self.num_envs, device=self.device)
+        self.spawn_kind = torch.full((self.num_envs,), SPAWN_PLATFORM, dtype=torch.long, device=self.device)
+        self.spawn_goal_idx = torch.zeros(self.num_envs, dtype=torch.long, device=self.device)
+        self.spawn_xy_w = self._platform_start_xy(slice(None))
+        self.is_obst_tile = self._obstacle_tile_mask()
+        self.exposure = ExposureLedger(self.n_obst, capacity=int(getattr(cfg, "exposure_window", 1024)), device="cpu")
+        self._exposure_means: dict[str, float] = {}
+        for key in ExposureLedger.emit_keys(self.n_obst):
+            self.metrics[key] = torch.zeros(self.num_envs, device='cpu')
+
         robot_root_pos_w = self.robot.data.root_pos_w[:, :2] - self.env_origins[:, :2]
         self.target_pos_rel = self.cur_goals[:, :2] - robot_root_pos_w
         self.next_target_pos_rel = self.next_goals[:, :2] - robot_root_pos_w
@@ -98,6 +128,89 @@ class ParkourEvent(ParkourTerm):
         msg += f"\tCommand dimension: {tuple(self.command.shape[1:])}\n"
         return msg
     
+    # ------------------------------------------------------------------
+    # PLAN H B0 exposure helpers
+    # ------------------------------------------------------------------
+    def _platform_start_xy(self, env_ids) -> torch.Tensor:
+        """World xy where reset_root_state spawns env_ids (origin - (size_y + offset, 0))."""
+        return self.env_origins[env_ids, :2] - torch.tensor(
+            (self.terrain.cfg.terrain_generator.size[1] + self._reset_offset, 0)
+        ).to(self.device)
+
+    def _obstacle_tile_mask(self) -> torch.Tensor:
+        names = np.asarray(self.env_per_terrain_name).reshape(-1)
+        return torch.from_numpy(names != "parkour_flat").to(self.device)
+
+    def _goal_x_rel(self, env_ids) -> torch.Tensor:
+        """(n, num_goals) origin-relative goal x for env_ids (future-goal padding dropped)."""
+        return self.env_goals[env_ids, : self.num_goals, 0]
+
+    def _failure_flags(self, env_ids: torch.Tensor) -> torch.Tensor:
+        try:
+            return self.env.termination_manager.get_term("crab_failure")[env_ids].float()
+        except (AttributeError, KeyError, ValueError):
+            return torch.zeros(len(env_ids), device=self.device)
+
+    def _finalize_episodes(self, env_ids) -> None:
+        """Push the exposure record of every finished episode in env_ids into the ledger."""
+        ids = torch.as_tensor(env_ids, device=self.device, dtype=torch.long).reshape(-1)
+        ids = ids[self.ep_steps[ids] > 0]
+        if ids.numel() == 0:
+            return
+        per_ep = episode_exposure(
+            self.ep_max_x[ids], self._goal_x_rel(ids), self.edge_x_rel, self.spawn_goal_idx[ids],
+            self.cur_goal_idx[ids], self.ep_field_steps[ids], self.ep_steps[ids],
+        )
+        self.exposure.push_episodes(
+            {k: v.cpu() for k, v in per_ep.items()},
+            self.spawn_kind[ids].cpu(), self.is_obst_tile[ids].cpu(),
+            self._failure_flags(ids).cpu(), self.ep_steps[ids].cpu(),
+        )
+        self._exposure_means = self.exposure.means()
+
+    def _begin_episodes(self, env_ids) -> None:
+        """Default spawn bookkeeping for a new episode (events overwrite via note_spawn)."""
+        self.ep_max_x[env_ids] = -1.0e6
+        self.ep_field_steps[env_ids] = 0.0
+        self.ep_steps[env_ids] = 0.0
+        self.spawn_kind[env_ids] = SPAWN_PLATFORM
+        self.spawn_goal_idx[env_ids] = 0
+        self.spawn_xy_w[env_ids] = self._platform_start_xy(env_ids)
+
+    def note_spawn(self, env_ids, x_w: torch.Tensor, kind) -> None:
+        """Called by the reset events after placing env_ids at world x ``x_w``.
+
+        ``kind`` is a spawn-kind int or an (n,) long tensor (exposure_stats.SPAWN_*).
+        Spread spawns re-target the goal index to the first goal ahead of the robot so the
+        goal machinery never points backwards and goals_passed is credited from there.
+        """
+        ids = torch.as_tensor(env_ids, device=self.device, dtype=torch.long).reshape(-1)
+        if ids.numel() == 0:
+            return
+        kind_t = torch.as_tensor(kind, device=self.device, dtype=torch.long)
+        if kind_t.dim() == 0:
+            kind_t = kind_t.expand(ids.numel())
+        x_w = x_w.to(self.device).reshape(-1)
+        x_rel = x_w - self.env_origins[ids, 0]
+        self.ep_max_x[ids] = x_rel
+        self.spawn_kind[ids] = kind_t
+        self.spawn_xy_w[ids, 0] = x_w
+        spread = kind_t == SPAWN_SPREAD
+        if bool(spread.any()):
+            sid = ids[spread]
+            gi = next_goal_index(self._goal_x_rel(sid), x_rel[spread], margin=0.3)
+            self.cur_goal_idx[sid] = gi
+            self.spawn_goal_idx[sid] = gi
+            self.reach_goal_timer[sid] = 0
+            self.cur_goals = self._gather_cur_goals()
+            self.next_goals = self._gather_cur_goals(future=1)
+
+    def _accumulate_exposure(self) -> None:
+        x_rel = self.robot.data.root_pos_w[:, 0] - self.env_origins[:, 0]
+        self.ep_max_x = torch.maximum(self.ep_max_x, x_rel)
+        self.ep_field_steps += (x_rel > self.edge_x_rel).float()
+        self.ep_steps += 1.0
+
     def _update_command(self):
         """Re-target the current goal position to the current root state."""
         next_flag = self.reach_goal_timer > self.reach_goal_delay / self.simulation_time
@@ -129,19 +242,31 @@ class ParkourEvent(ParkourTerm):
                                   self._reset_offset, 0)).to(self.device)
 
         self.dis_to_start_pos = torch.norm(start_pos - self.robot.data.root_pos_w[:, :2], dim=1)
+        self._accumulate_exposure()
 
     def _resample_command(self, env_ids: Sequence[int]):
         ## we are use reset_root_state events for initalize robot position in a subterrain
         ## original robot root init position is (0,0) in the subterrain axis, so we subtracted off from current robot position 
+        # PLAN H B0: close the finished episodes' exposure records BEFORE the tile
+        # bookkeeping below moves env_ids to their next tile.
+        self._finalize_episodes(env_ids)
 
         start_pos = self.env_origins[env_ids,:2] - \
                     torch.tensor((self.terrain.cfg.terrain_generator.size[1] + \
                                   self._reset_offset, 0)).to(self.device)
+        # PLAN H B3: spread-spawned episodes measure promotion distance from where they
+        # actually spawned (otherwise every spread episode promotes for free). Platform and
+        # RSI spawns keep the historical platform-start reference (bit-identical unarmed).
+        spread = self.spawn_kind[env_ids] == SPAWN_SPREAD
+        if bool(spread.any()):
+            start_pos = torch.where(spread.unsqueeze(1), self.spawn_xy_w[env_ids], start_pos)
 
         self.dis_to_start_pos = torch.norm(start_pos - self.robot.data.root_pos_w[env_ids, :2], dim=1)
         threshold = self.env.command_manager.get_command("base_velocity")[env_ids, 0] * self.episode_length_s
-        move_up = self.dis_to_start_pos > 0.8*threshold
-        move_down = self.dis_to_start_pos < 0.4*threshold
+        # Promotion fractions are cfg-driven (defaults 0.8/0.4 preserve historical behavior;
+        # slow-tracking plants recalibrate via cfg — see ParkourEventCfg.move_up_frac).
+        move_up = self.dis_to_start_pos > self.cfg.move_up_frac * threshold
+        move_down = self.dis_to_start_pos < self.cfg.move_down_frac * threshold
 
         if not self.cfg.freeze_terrain_levels:
             self.terrain.terrain_levels[env_ids] += 1 * move_up - 1 * move_down
@@ -175,6 +300,9 @@ class ParkourEvent(ParkourTerm):
 
         self.reach_goal_timer[env_ids] = 0
         self.cur_goal_idx[env_ids] = 0
+        # PLAN H B0: tile class of the NEW episode + default spawn bookkeeping.
+        self.is_obst_tile = self._obstacle_tile_mask()
+        self._begin_episodes(env_ids)
 
         if self.debug_vis:
             self.future_goal_idx[env_ids, 0] = False
@@ -188,6 +316,10 @@ class ParkourEvent(ParkourTerm):
         self.metrics["far_from_current_goal"] = (torch.norm(self.cur_goals[:, :2] - robot_root_pos_w,dim =-1) - self.next_goal_threshold).to(device = 'cpu')
         self.metrics["current_goal_idx"] = self.cur_goal_idx.to(device='cpu', dtype=float)
         self.metrics["how_far_from_start_point"] = self.dis_to_start_pos.to(device = 'cpu')
+        # PLAN H B0: ring-ledger means broadcast to every env (the manager logs the
+        # population mean at reset). NaN (empty group) is emitted as 0.0.
+        for key, val in self._exposure_means.items():
+            self.metrics[key][:] = 0.0 if val != val else val
         
     def _set_debug_vis_impl(self, debug_vis: bool):
         # create markers if necessary for the first tome

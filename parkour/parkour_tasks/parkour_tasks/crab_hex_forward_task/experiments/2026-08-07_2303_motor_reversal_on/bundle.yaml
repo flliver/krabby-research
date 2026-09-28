@@ -1,0 +1,37 @@
+campaign: 2026-08-07_2303_motor_reversal_on
+era: A
+dates: 2026-08-07..2026-08-08
+question: Does restoring penalty_motor_direction_reversal (weight 0.0 -> -0.3) over
+  the 2026-08-07_1441_baseline cut camshaft direction reversals without degrading
+  flat/2b2 training and gait-eval metrics?
+verdict: 'Kept (CHANGELOG.md Verdict block): reversal count down 48% flat / 65% 2b2
+  with a more stable, longer-striding 2b2 policy; tippy-tap increase flagged for follow-up,
+  not reverted.'
+plant: hand-authored crab_simple.usda (era A, pre-2026-08-20 rebuild)
+aliases:
+- sim_fine_tuning/motor_reversal_on
+records:
+- CHANGELOG.md
+- logs/rsl_rl/curriculum_state.json
+head:
+  role: flat_walk
+  task: Isaac-Crab-Hex-Flat-Walk-v0
+  source: logs/rsl_rl/crab_hex_flat_walk/2026-08-07_23-03-37/model_19999.pt
+  sha256: 740fdffd282589472b74f03ce49df68a58494484696ddd931ec9a1806083aedc
+  dest: head/model_19999.pt
+  why: Flat-stage checkpoint recorded as the 'complete' flat checkpoint in curriculum_state.json
+    (20000-iter from-scratch run with the reversal penalty active), the root of the
+    kept bridge -> 2b1 -> 2b2 chain.
+  metrics:
+    flat_mean_reward: '40.85'
+    flat_crab_failure: 0.78%
+    flat_reversal_count: 561 (baseline 1070, -48%)
+    flat_gait_eval: completion 100% / slip 2.5% / tippy_tap 0.31 / stride 0.180 m
+evals:
+- in_tree: '**/gait_eval*/**'
+keep_globs:
+- run_meta.json
+- scenario_metrics.json
+- summary.md
+- gait_diagram_*.png
+paths_note: true

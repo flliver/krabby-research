@@ -7,6 +7,7 @@ from firmware.manifest import (
     parse_manifest,
     parse_latest,
     parse_index,
+    parse_builds,
     latest_release_branch,
 )
 
@@ -179,3 +180,57 @@ class TestLatestReleaseBranch:
         }}
         idx = parse_index(data)
         assert latest_release_branch(idx).branch == "release/0.3.0"
+
+
+BUILDS_DATA = {
+    "schema_version": 1,
+    "branch": "release/0.2.0",
+    "builds": [
+        {"build_key": "20260401-090000-aaa0001", "commit": "aaa0001",
+         "commit_date": "2026-04-01", "ver_string": "0.2.0 release/0.2.0 aaa0001",
+         "hex_url": "https://example.com/a.hex", "manifest_url": "https://example.com/a.json"},
+        {"build_key": "20260512-120000-ccc2222", "commit": "ccc2222",
+         "commit_date": "2026-05-12", "ver_string": "0.2.0 release/0.2.0 ccc2222",
+         "hex_url": "https://example.com/c.hex", "manifest_url": "https://example.com/c.json"},
+    ],
+}
+
+
+class TestParseBuilds:
+    def test_sorts_newest_first(self):
+        builds = parse_builds(BUILDS_DATA)
+        assert [b.build_key for b in builds] == [
+            "20260512-120000-ccc2222",
+            "20260401-090000-aaa0001",
+        ]
+
+    def test_fields_populated(self):
+        newest = parse_builds(BUILDS_DATA)[0]
+        assert newest.commit == "ccc2222"
+        assert newest.commit_date == "2026-05-12"
+        assert newest.ver_string == "0.2.0 release/0.2.0 ccc2222"
+        assert newest.hex_url.endswith("c.hex")
+
+    def test_empty_builds_list(self):
+        data = {"schema_version": 1, "branch": "release/0.2.0", "builds": []}
+        assert parse_builds(data) == []
+
+    def test_missing_required_field_raises(self):
+        with pytest.raises(ValueError):
+            parse_builds({"schema_version": 1, "branch": "release/0.2.0"})
+
+    def test_missing_per_entry_field_raises(self):
+        data = {"schema_version": 1, "branch": "release/0.2.0", "builds": [
+            {"build_key": "20260101-000000-aaa0001", "hex_url": "h"},  # no manifest_url
+        ]}
+        with pytest.raises(ValueError, match="manifest_url"):
+            parse_builds(data)
+
+    def test_optional_fields_default_to_empty(self):
+        data = {"schema_version": 1, "branch": "mainline", "builds": [
+            {"build_key": "20260101-000000-aaa0001",
+             "hex_url": "h", "manifest_url": "m"},
+        ]}
+        b = parse_builds(data)[0]
+        assert b.commit == ""
+        assert b.ver_string == ""

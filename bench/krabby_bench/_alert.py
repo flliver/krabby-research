@@ -35,18 +35,23 @@ def send_alert(
     title = f"[krabby-bench] Smoke failure: {result.step} ({digest[:16]})"
 
     if config_alert.mode in ("email", "both"):
-        if config_smtp.host:
+        if config_smtp.host and config_smtp.to_addr:
             try:
                 _send_smtp(config_smtp, title, body)
                 log.info("Alert email sent to %s", config_smtp.to_addr)
             except Exception:
                 log.error("SMTP alert failed", exc_info=True)
+        else:
+            log.warning("SMTP alert skipped: host or to_addr not configured")
     if config_alert.mode in ("github", "both"):
-        try:
-            _open_github_issue(config_github, title, body)
-            log.info("GitHub issue opened in %s", config_github.repo)
-        except Exception:
-            log.error("GitHub alert failed", exc_info=True)
+        if config_github.repo and config_github.token:
+            try:
+                _open_github_issue(config_github, title, body)
+                log.info("GitHub issue opened in %s", config_github.repo)
+            except Exception:
+                log.error("GitHub alert failed", exc_info=True)
+        else:
+            log.warning("GitHub alert skipped: repo or token not configured")
 
 
 def _format_body(digest: str, result: SmokeResult) -> str:

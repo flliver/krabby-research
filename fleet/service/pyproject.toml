@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "krabby-fleet-service"
+version = "0.1.0"
+description = "Krabby fleet service: Cognito-authenticated REST API over AWS IoT"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+dependencies = [
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.29.0",
+    "boto3>=1.34.0",
+    "pyjwt[crypto]>=2.8.0",
+    # Teleop signaling bridge: SigV4 MQTT over websockets to IoT Core
+    # (instance-role credentials; imported as awscrt / awsiot).
+    "awsiotsdk>=1.21.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "httpx>=0.27.0",
+    "httpx2>=2.0.0",
+    "requests>=2.31.0",
+    "pycognito>=2024.5.1",
+]
+e2e = [
+    "pytest>=8.0.0",
+    "requests>=2.31.0",
+    "pycognito>=2024.5.1",
+    "boto3>=1.34.0",
+    "awsiotsdk>=1.21.0",
+    "playwright>=1.40.0",
+    "pytest-playwright>=0.4.0",
+]
+
+[project.scripts]
+krabby-fleet-service = "krabby_fleet_service.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["krabby_fleet_service*"]
