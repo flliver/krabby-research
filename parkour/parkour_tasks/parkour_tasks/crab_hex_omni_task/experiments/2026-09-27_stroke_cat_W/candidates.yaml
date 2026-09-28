@@ -21,7 +21,7 @@
 # never through the ordinary queue (there is nothing in that queue to run). No seed is pinned on the
 # reference: the plan launches seed 3 first, then seed 2, both by hand at Phase B step 7.
 #
-# DOSES ON c6y_scat ARE PROVISIONAL (replay scale, not training scale). They are read verbatim from
+# DOSES ON c6y_scat ARE FINAL (training scale, WINDOW0.md 2026-09-28). The smoke ran at the replay-scale table from
 # replay_gate/REPLAY_GATE_CAT.md's W-economy table (the offline replay gate, step 4, STOP-and-ask
 # resolved "proceed" by the user 2026-09-28):
 #   KRABBY_OMNI_STROKE_W     = 0.08646779396708197
@@ -243,7 +243,7 @@ chains:
   c6y_scat:
     notes: >-
       c6y (W extended by 4000 its of C1d's c6 overlay with K held) plus the per-category stroke term
-      KRABBY_OMNI_STROKE_W / KRABBY_OMNI_STROKE_CAT_W, at PROVISIONAL replay-scale doses from the
+      KRABBY_OMNI_STROKE_W / KRABBY_OMNI_STROKE_CAT_W, at FINAL training-scale doses (WINDOW0.md) rescaled from the
       offline replay gate (replay_gate/REPLAY_GATE_CAT.md, W economy). Step 6's dose smoke rescales
       fwd/back/side/diag by 1/r_c (turn and move_turn are replay-set / held at m = 1, decision 7)
       before the first `--reference-chain S_cat` launch, editing this overlay in place.
@@ -268,10 +268,11 @@ chains:
           # posture knob held at eps (P is out of scope here) -- identical to c6y's above
           KRABBY_OMNI_CENTRING_W: "0.001"
           KRABBY_OMNI_REWARD_SPLIT: "1"
-          # PROVISIONAL smoke-scale (replay-scale) doses -- replay_gate/REPLAY_GATE_CAT.md, W economy.
-          # Step 6 rescales these to training scale (1/r_c) before the first reference launch.
-          KRABBY_OMNI_STROKE_W: "0.08646779396708197"
-          KRABBY_OMNI_STROKE_CAT_W: "fwd:1.0,back:1.0,side:7.109225977086123,diag:1.8426117426622708,turn:1.7727771075114038,move_turn:1.0"
+          # FINAL training-scale doses (WINDOW0.md, 2026-09-28): the replay table rescaled by the W dose smoke's
+          # r_c (fwd 0.685, side 1.663, diag 0.960); back tied to fwd; turn replay-set; move_turn m = 1.
+          # Effective: fwd = back = move_turn 0.1262, side 0.3697, diag 0.1660, turn 0.1533.
+          KRABBY_OMNI_STROKE_W: "0.126240"
+          KRABBY_OMNI_STROKE_CAT_W: "fwd:1.000000,back:1.000000,side:2.928327,diag:1.314741,turn:1.214263,move_turn:1.000000"
         eval: [suite]
         categories: [back, diag, fwd, move_turn, side, stand, turn]
         floor:
