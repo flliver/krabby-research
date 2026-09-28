@@ -1673,6 +1673,64 @@ def _reward_split_ok(txt: str, value) -> bool:
     return got == "true" if on else got in (None, "false")
 
 
+def _dict_entries(txt: str, key: str, indent: int) -> dict[str, str] | None:
+    """The raw ``{sub_key: value}`` strings of a ``<indent spaces><key>:`` mapping block (one level
+    deeper, ``indent + 2``), or ``None`` if ``key`` is absent at that indent. See ``_yaml_block``'s
+    own docstring for why a bare search would find the wrong term's field."""
+    block = _yaml_block(txt, key, indent=indent)
+    if not block:
+        return None
+    pad = " " * (indent + 2)
+    return {m.group(1): m.group(2)
+            for m in re.finditer(rf"^{pad}(\w+):\s*(.+?)\s*$", block, re.M)}
+
+
+def _stroke_cat_w_ok(txt: str, value) -> bool:
+    """``KRABBY_OMNI_STROKE_CAT_W`` (per-category stroke plan, 2026-09-27): off has no ``cat_scale``
+    key under ``reward_stride_length.params``; on, the term's func is ``RewardFootStroke`` (the SAME
+    ``KRABBY_OMNI_STROKE_W`` swap) and ``params.cat_scale`` carries EXACTLY the six parsed-and-
+    defaulted keys -- no ``stand`` -- each within 1e-9 of the knob's own table.
+
+    ``params`` keys sit at indent 6 and a param's own dict entries at indent 8 in the real dump (a
+    ``RewardTermCfg``'s ``params:`` block, itself at indent 4 under the term): read a ``params/
+    env.yaml`` with ``RewardFootStroke`` armed to see the shape before changing this.
+    """
+    table = _stroke().parse_stroke_cat_w(value)
+    term_block = _yaml_block(txt, _stroke().STROKE_TERM)  # indent=2: the whole term (func/params/weight)
+    entries = _dict_entries(term_block, "cat_scale", indent=6)
+    if table is None:
+        return entries is None
+    if entries is None or "stand" in entries or set(entries) != set(_stroke().STROKE_CAT_KEYS):
+        return False
+    if not _func_swapped_ok(txt, _stroke().STROKE_TERM, "RewardFootStroke"):
+        return False
+    for key, want in table.items():
+        got = _num(entries.get(key))
+        if got is None or abs(got - float(want)) > 1e-9:
+            return False
+    return True
+
+
+def _check_stroke_cat_w_composition(env: dict, where: str, reasons: list) -> None:
+    """``KRABBY_OMNI_STROKE_CAT_W`` needs a non-zero ``KRABBY_OMNI_STROKE_W`` in the SAME composed
+    stage env (per-category stroke plan, 2026-09-27): the applier itself refuses this at config
+    build (``stroke_knobs._apply_stroke_cat_w_knob``), but only once Kit starts -- catching it here,
+    at ``--dry-run``, is the point. A malformed value is left to ``_check_knob``'s own parser check
+    at the stage that actually sets it; this rule only looks at whether the two knobs compose.
+    """
+    cat_raw = env.get(_stroke().STROKE_CAT_W_VAR)
+    if cat_raw is None or not str(cat_raw).strip():
+        return
+    try:
+        w = _stroke().parse_stroke_w(env.get(_stroke().STROKE_W_VAR))
+    except Exception:                                                   # noqa: BLE001
+        return
+    if w is None or w == 0.0:
+        reasons.append(f"{where}: {_stroke().STROKE_CAT_W_VAR}={cat_raw!r} is set but "
+                       f"{_stroke().STROKE_W_VAR} is unset, blank or 0.0 in this composed stage -- "
+                       "there is no RewardFootStroke term to scale")
+
+
 #: Overlay keys audited against ``params/agent.yaml`` (the RUNNER cfg) instead of ``env.yaml``.
 AGENT_DUMP_KEYS = frozenset({"KRABBY_ACTION_STD_MAX", "KRABBY_ACTION_STD_RESET", "KRABBY_ENTROPY_COEF"})
 
@@ -1743,6 +1801,8 @@ OVERLAY_DUMP_CHECKS = {
     "KRABBY_OMNI_STROKE_W": _stroke_w_ok,
     "KRABBY_OMNI_CENTRING_W": _centring_w_ok,
     "KRABBY_OMNI_REWARD_SPLIT": _reward_split_ok,
+    # ---- per-category stroke knob (2026-09-27).
+    "KRABBY_OMNI_STROKE_CAT_W": _stroke_cat_w_ok,
 }
 
 
@@ -2207,6 +2267,7 @@ def validate_candidates(cands: dict, *, strict: bool = True, check_replay: bool 
             _check_pool_overlay(overlay, where, r, stage_env_)
             _check_cap_rules(stage_env_, where, chain.get("notes") or "", r)
             _check_require_env(stage_env_, where, require_env, r)
+            _check_stroke_cat_w_composition(stage_env_, where, r)
         if screen_iters and total != screen_iters and name not in ref_only:
             r.append(f"chain {name} totals {total} iterations; every screen is {screen_iters} "
                      "(equal compute is what makes the screens comparable)")
@@ -2435,6 +2496,7 @@ def validate_candidates(cands: dict, *, strict: bool = True, check_replay: bool 
             # covers the baseline, every twin and every candidate at once).
             for sname, _iters, senv in composed:
                 _check_require_env(senv, f"{cid} on {chain_name} stage {sname}", require_env, r)
+                _check_stroke_cat_w_composition(senv, f"{cid} on {chain_name} stage {sname}", r)
         r = list(dict.fromkeys(r))          # one reason per distinct message, in order
         verdicts.append({"id": cid, "ok": not r, "deferred": deferred, "reasons": r, "notes": n})
 

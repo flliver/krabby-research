@@ -242,6 +242,56 @@ def test_a_step_without_both_terms_is_never_saved_as_a_complete_row(tmp_path):
     assert (dump["b"][:3] == 0.0).all()
 
 
+# =========================================================== per-category (cat/cat_scale), 2026-09-27
+def test_record_stroke_without_cat_scale_never_writes_cat_columns(tmp_path):
+    """Knob off: ``RewardFootStroke`` passes ``cat=None, cat_scale=None`` (the defaults) every step
+    -- exactly what ``_build_dump``'s driver already does -- so the dump must carry neither new key,
+    byte-identical to a dump saved before this knob existed."""
+    dump_path = _build_dump(tmp_path, num_envs=3, reset_at={})
+    with np.load(dump_path) as z:
+        keys = set(z.files)
+    assert "cat" not in keys
+    assert "cat_scale" not in keys
+
+
+def test_record_stroke_with_cat_scale_writes_both_new_columns(tmp_path):
+    """Armed: ``cat`` ((steps, envs) int8, this step's TELEMETRY_CATEGORIES index) and ``cat_scale``
+    ((7,) float, the resolved table) both land in the saved dump."""
+    num_envs, num_steps = 4, 6
+    dump_path = tmp_path / "cat_dump.npz"
+    rec = P.ParityRecorder(str(dump_path), num_envs, num_steps)
+    # stand, fwd, side, back, diag, turn, move_turn (TELEMETRY_CATEGORIES order) -- side multiplied 4.8x
+    cat_scale = torch.tensor([1.0, 1.0, 4.8, 1.0, 1.2, 1.0, 1.0])
+    for s, inp in enumerate(_synthetic_steps(num_envs, num_steps, {})):
+        stt = SM.init_stroke_state(num_envs, NUM_FEET)
+        R, _stt, pay = SM.foot_stroke_step(
+            inp["force"], inp["foot_pos_w"], inp["root_pos_w"], inp["heading"], inp["cmd"], inp["stand"],
+            inp["root_lin_vel_b_xy"], inp["root_ang_vel_b_z"], stt, DT, TURN_R, inp["turning"], inp["resampled"])
+        cat = torch.full((num_envs,), 2, dtype=torch.int64)  # every env reads as 'side' this step
+        rec.record_stroke(
+            s, force=inp["force"], foot_pos_w=inp["foot_pos_w"], root_pos_w=inp["root_pos_w"],
+            heading=inp["heading"], cmd=inp["cmd"], stand=inp["stand"],
+            root_lin_vel_b_xy=inp["root_lin_vel_b_xy"], root_ang_vel_b_z=inp["root_ang_vel_b_z"],
+            turning=inp["turning"], resampled=inp["resampled"], reward=R, pay=pay, dt=DT, turn_radius=TURN_R,
+            cat=cat, cat_scale=cat_scale)
+        cst = SM.init_centring_state(num_envs)
+        b, _cst, o = SM.body_centring_step(
+            inp["foot_pos_w"], inp["root_pos_w"], inp["heading"], inp["cmd"], inp["stand"],
+            inp["root_lin_vel_b_xy"], cst, DT, inp["lat_share"], inp["resampled"])
+        rec.record_centring(
+            s, foot_pos_w=inp["foot_pos_w"], root_pos_w=inp["root_pos_w"], heading=inp["heading"],
+            cmd=inp["cmd"], stand=inp["stand"], lat_share=inp["lat_share"], resampled=inp["resampled"],
+            b=b, o=o, dt=DT)
+    rec.close()
+    with np.load(dump_path) as z:
+        dump = {k: z[k] for k in z.files}
+    assert dump["cat"].shape == (num_steps, num_envs)
+    assert dump["cat"].dtype == np.int8
+    assert (dump["cat"] == 2).all()
+    assert dump["cat_scale"].shape == (7,)
+    assert np.allclose(dump["cat_scale"], cat_scale.numpy())
+
+
 # =============================================================================== corruption
 def test_a_corrupted_dump_fails_the_tools_parity_check(tmp_path):
     dump_path = _build_dump(tmp_path)

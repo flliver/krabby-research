@@ -6,9 +6,13 @@ contract). Covered here:
 
 * the pure knob module (``config/crab_hex/stroke_knobs.py``): module purity, parsers, the applier
   on a stand-in cfg (func swap, added term, the split flag), every refusal, and its re-export
-  through ``omni_knobs``;
-* :func:`crab_hex_omni_stroke_rewards._assert_foot_order` / ``_resolved_body_names``, lifted out of
-  the Isaac-importing wrapper module with ``ast`` and exec'd against plain stand-ins;
+  through ``omni_knobs`` -- including ``KRABBY_OMNI_STROKE_CAT_W`` (per-category stroke plan,
+  2026-09-27): grammar, the mirror-tie and composition (needs a non-zero STROKE_W) refusals, and
+  the ``cat_scale`` write onto the SAME term ``STROKE_W`` swapped in;
+* :func:`crab_hex_omni_stroke_rewards._assert_foot_order` / ``_resolved_body_names`` /
+  ``_resolve_cat_scale``, lifted out of the Isaac-importing wrapper module with ``ast`` and exec'd
+  against plain stand-ins (``_resolve_cat_scale`` also needs a bare ``import torch``, which needs
+  no Isaac/GPU to build a CPU tensor);
 * a static text check that neither the forward nor the sideways task's config modules import
   ``stroke_knobs`` (the terms it names, ``RewardFootStroke`` / ``RewardBodyCentring``, do not exist
   on their rewards cfgs).
@@ -38,7 +42,8 @@ STROKE_REWARDS_PY = OMNI / "mdp/crab_hex_omni_stroke_rewards.py"
 FORWARD_CFG = TASKS / "crab_hex_forward_task"
 SIDEWAYS_CFG = TASKS / "crab_hex_sideways_task"
 
-ALL_KNOBS = ("KRABBY_OMNI_STROKE_W", "KRABBY_OMNI_CENTRING_W", "KRABBY_OMNI_REWARD_SPLIT")
+ALL_KNOBS = ("KRABBY_OMNI_STROKE_W", "KRABBY_OMNI_CENTRING_W", "KRABBY_OMNI_REWARD_SPLIT",
+             "KRABBY_OMNI_STROKE_CAT_W")
 
 
 def _load(path: Path, name: str):
@@ -109,6 +114,44 @@ def test_parse_reward_split():
     for bad in ("2", "true", "on"):
         with pytest.raises(ValueError, match="KRABBY_OMNI_REWARD_SPLIT"):
             sk.parse_reward_split(bad)
+
+
+def test_parse_stroke_cat_w_grammar():
+    assert sk.parse_stroke_cat_w("") is None
+    assert sk.parse_stroke_cat_w(None) is None
+    assert sk.parse_stroke_cat_w("  ") is None
+    assert sk.parse_stroke_cat_w("side:4.8,diag:1.2,fwd:1,back:1") == {
+        "fwd": 1.0, "back": 1.0, "side": 4.8, "diag": 1.2, "turn": 1.0, "move_turn": 1.0,
+    }
+    # unlisted keys default to 1.0, so 'fwd:2,back:2' alone is a legal, self-describing table
+    assert sk.parse_stroke_cat_w("fwd:2,back:2") == {
+        "fwd": 2.0, "back": 2.0, "side": 1.0, "diag": 1.0, "turn": 1.0, "move_turn": 1.0,
+    }
+    assert sk.parse_stroke_cat_w("side:0")["side"] == 0.0     # 0 switches the category off
+    # no epsilon floor here (unlike KRABBY_OMNI_STROKE_W): the manager weight stays w_S
+    assert sk.parse_stroke_cat_w("side:0.0001")["side"] == 0.0001
+
+
+def test_parse_stroke_cat_w_refusals():
+    with pytest.raises(ValueError, match="unknown category"):
+        sk.parse_stroke_cat_w("front:2")
+    with pytest.raises(ValueError, match="duplicate key"):
+        sk.parse_stroke_cat_w("side:2,side:3")
+    for bad in (",", "side:2,", "side:2,,diag:1"):
+        with pytest.raises(ValueError, match="non-empty"):
+            sk.parse_stroke_cat_w(bad)
+    with pytest.raises(ValueError, match="non-negative"):
+        sk.parse_stroke_cat_w("side:-1")
+    for bad in ("side:nan", "side:inf", "side:-inf"):
+        with pytest.raises(ValueError, match="finite"):
+            sk.parse_stroke_cat_w(bad)
+    with pytest.raises(ValueError, match="'stand'"):
+        sk.parse_stroke_cat_w("stand:2")
+    with pytest.raises(ValueError, match="fwd == back"):
+        sk.parse_stroke_cat_w("fwd:2")                # back defaults to 1.0 != 2.0
+    with pytest.raises(ValueError, match="fwd == back"):
+        sk.parse_stroke_cat_w("fwd:2,back:1")
+    assert sk.parse_stroke_cat_w("fwd:2,back:2") is not None      # the tie satisfied -> accepted
 
 
 def test_phaseout_names_is_a_light_grammar_check():
@@ -235,6 +278,50 @@ def test_stroke_w_injectable_stock_func_matches_the_real_default():
     assert "from parkour_isaaclab.envs.mdp.rewards import RewardStrideLength as stock_func" in src
 
 
+def test_apply_stroke_knobs_applies_cat_w_right_after_stroke_w():
+    src = STROKE_KNOBS_PY.read_text()
+    body = src[src.index("def apply_stroke_knobs"):]
+    assert (body.index("_apply_stroke_w_knob(") < body.index("_apply_stroke_cat_w_knob(")
+            < body.index("_apply_centring_w_knob("))
+
+
+def test_stroke_cat_w_requires_armed_stroke_w():
+    """The composition refusal (``no RewardFootStroke to scale``): unset/blank/0.0 STROKE_W all
+    refuse CAT_W. Through the PUBLIC entry point for the unset/blank cases (stroke_w stays ``None``,
+    so ``_apply_stroke_w_knob`` -- which would otherwise reach for the real Isaac stock func -- is
+    never called); directly against the applier for ``0.0`` (a legitimate ablation that WOULD reach
+    it, so it is exercised with the parsed value alone, the same way ``_apply_stroke`` sidesteps it).
+    """
+    cat_w_spec = "side:2,back:1,fwd:1"
+    with pytest.raises(RuntimeError, match="KRABBY_OMNI_STROKE_CAT_W"):
+        _apply(_cfg(), {"KRABBY_OMNI_STROKE_CAT_W": cat_w_spec})                          # unset
+    with pytest.raises(RuntimeError, match="KRABBY_OMNI_STROKE_CAT_W"):
+        _apply(_cfg(), {"KRABBY_OMNI_STROKE_W": "", "KRABBY_OMNI_STROKE_CAT_W": cat_w_spec})  # blank
+    table = sk.parse_stroke_cat_w(cat_w_spec)
+    with pytest.raises(RuntimeError, match="KRABBY_OMNI_STROKE_CAT_W"):
+        sk._apply_stroke_cat_w_knob(_cfg(), None, table)
+    with pytest.raises(RuntimeError, match="KRABBY_OMNI_STROKE_CAT_W"):
+        sk._apply_stroke_cat_w_knob(_cfg(), 0.0, table)                                   # exactly 0.0
+
+
+def test_stroke_cat_w_writes_cat_scale_onto_the_swapped_term_and_leaves_weight_func_alone():
+    cfg = _cfg()
+    _apply_stroke(cfg, {}, 0.117)          # arms STROKE_W (stand-in stock func, per _apply_stroke)
+    table = sk.parse_stroke_cat_w("side:4.8,diag:1.2,fwd:1,back:1")
+    sk._apply_stroke_cat_w_knob(cfg, 0.117, table)
+    term = cfg.rewards.reward_stride_length
+    assert term.func == "func:stroke" and term.weight == 0.117       # untouched by the cat_w knob
+    assert term.params == {"p": "stroke", "cat_scale": {
+        "fwd": 1.0, "back": 1.0, "side": 4.8, "diag": 1.2, "turn": 1.0, "move_turn": 1.0}}
+
+
+def test_stroke_cat_w_refuses_a_cfg_without_the_term():
+    no_term = _Bag()
+    no_term.rewards = _Bag()
+    with pytest.raises(RuntimeError, match="reward_stride_length"):
+        sk._apply_stroke_cat_w_knob(no_term, 0.117, sk.parse_stroke_cat_w("side:2,back:1,fwd:1"))
+
+
 def test_centring_w_adds_the_term_and_refuses_a_double_add():
     cfg = _cfg()
     _apply(cfg, {"KRABBY_OMNI_CENTRING_W": "0.01"})
@@ -281,13 +368,16 @@ def test_omni_knobs_re_exports_the_stroke_variables_and_parsers():
     for var in ALL_KNOBS:
         assert getattr(ok, {"KRABBY_OMNI_STROKE_W": "STROKE_W_VAR",
                             "KRABBY_OMNI_CENTRING_W": "CENTRING_W_VAR",
-                            "KRABBY_OMNI_REWARD_SPLIT": "REWARD_SPLIT_VAR"}[var]) == var
+                            "KRABBY_OMNI_REWARD_SPLIT": "REWARD_SPLIT_VAR",
+                            "KRABBY_OMNI_STROKE_CAT_W": "STROKE_CAT_W_VAR"}[var]) == var
     assert ok.parse_stroke_w("0.02") == 0.02
     assert ok.parse_centring_w("0.01") == 0.01
     assert ok.parse_reward_split("1") is True
+    assert ok.parse_stroke_cat_w("side:2,back:1,fwd:1")["side"] == 2.0
     assert set(ok.STROKE_KNOB_PARSERS) == set(ALL_KNOBS)
     for name in ("STROKE_W_VAR", "CENTRING_W_VAR", "REWARD_SPLIT_VAR", "STROKE_TERM", "CENTRING_TERM",
-                "parse_stroke_w", "parse_centring_w", "parse_reward_split", "STROKE_KNOB_PARSERS"):
+                "parse_stroke_w", "parse_centring_w", "parse_reward_split", "STROKE_KNOB_PARSERS",
+                "STROKE_CAT_W_VAR", "parse_stroke_cat_w"):
         assert name in ok.__all__
 
 
@@ -301,11 +391,13 @@ def test_apply_omni_knobs_calls_apply_stroke_knobs_last():
 
 
 # ================================================================= the Isaac wrapper (ast-lifted)
-def _exec_pure(names: tuple[str, ...]) -> dict:
+def _exec_pure(names: tuple[str, ...], *, imports: str = "") -> dict:
     """Lift the given top-level defs out of the Isaac-importing wrapper module and exec them
-    against nothing but ``__future__`` annotations -- neither function touches an isaaclab type by
-    name in its body, only duck-typed ``.body_names`` / ``.body_ids`` attributes."""
-    src = "from __future__ import annotations\n\n" + "\n\n".join(
+    against nothing but ``__future__`` annotations (plus ``imports``, for a def that needs a plain
+    library -- ``torch`` needs no Isaac/GPU to build a CPU tensor). Neither function otherwise
+    touches an isaaclab type by name in its body, only duck-typed ``.body_names`` / ``.body_ids``
+    attributes."""
+    src = "from __future__ import annotations\n\n" + imports + "\n\n".join(
         _source_of(STROKE_REWARDS_PY, n) for n in names)
     ns: dict = {}
     exec(compile(src, str(STROKE_REWARDS_PY), "exec"), ns)  # noqa: S102
@@ -315,6 +407,9 @@ def _exec_pure(names: tuple[str, ...]) -> dict:
 _wrap = _exec_pure(("_resolved_body_names", "_assert_foot_order"))
 FOOT_ORDER = ("FL", "FR", "ML", "MR", "RL", "RR")
 _wrap["FOOT_ORDER"] = FOOT_ORDER
+
+_cat = _exec_pure(("_resolve_cat_scale",), imports="import torch\n\n")
+TELEMETRY_CATEGORIES = ("stand", "fwd", "side", "back", "diag", "turn", "move_turn")
 
 
 class _Entity:
@@ -354,6 +449,43 @@ def test_assert_foot_order_refuses_a_mismatched_or_short_pairing():
     with pytest.raises(RuntimeError, match="must match element for element"):
         _wrap["_assert_foot_order"](_Entity(swapped), _CfgIds(list(range(6))), _Entity(swapped),
                                     _CfgIds(list(range(6))))
+
+
+# ============================================== _resolve_cat_scale (ast-lifted, pure torch)
+def test_resolve_cat_scale_defaults_unlisted_names_to_one_including_stand():
+    vec = _cat["_resolve_cat_scale"]({"side": 4.8, "diag": 1.2, "fwd": 1.0, "back": 1.0},
+                                     TELEMETRY_CATEGORIES)
+    got = {name: pytest.approx(vec[i].item()) for i, name in enumerate(TELEMETRY_CATEGORIES)}
+    assert got == {"stand": 1.0, "fwd": 1.0, "back": 1.0, "side": 4.8, "diag": 1.2,
+                   "turn": 1.0, "move_turn": 1.0}
+
+
+def test_resolve_cat_scale_all_ones_is_the_identity_vector():
+    vec = _cat["_resolve_cat_scale"]({}, TELEMETRY_CATEGORIES)
+    assert (vec == 1.0).all()
+
+
+def test_resolve_cat_scale_refuses_unknown_names():
+    with pytest.raises(RuntimeError, match="unknown categor"):
+        _cat["_resolve_cat_scale"]({"sideways": 2.0}, TELEMETRY_CATEGORIES)
+
+
+def test_resolve_cat_scale_refuses_a_stand_key():
+    """``stand`` IS one of ``TELEMETRY_CATEGORIES``, so the unknown-name check alone would let it
+    through and silently resolve into a multiplier on a term that pays exactly 0 on a stand step --
+    this needs its own refusal, mirroring ``stroke_knobs.parse_stroke_cat_w``'s."""
+    with pytest.raises(RuntimeError, match="refuses the key 'stand'"):
+        _cat["_resolve_cat_scale"]({"stand": 2.0}, TELEMETRY_CATEGORIES)
+    with pytest.raises(RuntimeError, match="refuses the key 'stand'"):
+        _cat["_resolve_cat_scale"]({"stand": 1.0, "side": 4.8, "fwd": 1.0, "back": 1.0}, TELEMETRY_CATEGORIES)
+
+
+def test_resolve_cat_scale_refuses_fwd_back_asymmetry():
+    """Defence in depth: the knob that builds ``cat_scale`` already refuses this, so only a
+    hand-edited cfg (a stand-in dict here, mimicking one) reaches this check."""
+    with pytest.raises(RuntimeError, match="fwd == back"):
+        _cat["_resolve_cat_scale"]({"fwd": 2.0, "back": 1.0}, TELEMETRY_CATEGORIES)
+    _cat["_resolve_cat_scale"]({"fwd": 2.0, "back": 2.0}, TELEMETRY_CATEGORIES)  # tie satisfied
 
 
 # ================================================================= forward/sideways isolation

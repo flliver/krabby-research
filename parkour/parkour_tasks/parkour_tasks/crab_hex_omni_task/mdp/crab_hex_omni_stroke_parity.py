@@ -13,6 +13,12 @@ DUMP FORMAT"), then saves it once both terms have a full row for every step, or 
 fewer. **Unset or blank, every method below is a single ``if`` and returns -- zero cost, no state, no
 import-time allocation.**
 
+Two columns are conditional on a DIFFERENT knob (per-category stroke plan, 2026-09-27):
+``record_stroke``'s optional ``cat`` ((N,) int, this step's TELEMETRY_CATEGORIES index) and
+``cat_scale`` ((7,) float, the resolved per-category table) are written to the dump only when
+``RewardFootStroke`` is itself armed with ``cat_scale`` (``KRABBY_OMNI_STROKE_CAT_W``); an unarmed
+term passes ``None`` for both and the dump carries neither key, exactly as before this knob existed.
+
 WHY ONE SHARED SINGLETON. The two wrappers are separate ``ManagerTermBase`` instances with no
 reference to each other, but the parity dump is keyed by ENV STEP (``env.common_step_counter``, the
 same integer ``_OncePerStep`` in ``crab_hex_omni_stroke_rewards.py`` uses to catch a double call) --
@@ -63,6 +69,9 @@ _DTYPES: dict[str, np.dtype] = {
     "cmd": np.float32, "stand": np.bool_, "root_lin_vel_b_xy": np.float32, "root_ang_vel_b_z": np.float32,
     "turning": np.bool_, "lat_share": np.float32, "resampled": np.bool_, "reward": np.float32,
     "b": np.float32, "reset": np.bool_, "pay": np.float32, "o": np.float32,
+    # per-category stroke plan (2026-09-27): recorded only when RewardFootStroke is armed with
+    # cat_scale -- see record_stroke's cat/cat_scale kwargs.
+    "cat": np.int8,
 }
 
 
@@ -89,6 +98,11 @@ class ParityRecorder:
         self._n_slots = 0
         self._pending_reset: set[int] = set()
         self._saved = False
+        #: The armed ``cat_scale`` vector ([7], per-category stroke plan) -- process-wide, like
+        #: ``dt``/``turn_radius``, but shaped, so it is kept apart from ``_scalars`` rather than
+        #: forced through ``np.asarray(..., dtype=float64)`` on a plain float. ``None`` (the
+        #: overwhelming common case) means the dump carries no ``cat_scale`` key at all.
+        self._cat_scale: np.ndarray | None = None
         if self.enabled:
             self._stroke_written = np.zeros(self.m, dtype=bool)
             self._centring_written = np.zeros(self.m, dtype=bool)
@@ -125,8 +139,16 @@ class ParityRecorder:
     def record_stroke(
         self, step: int, *, force, foot_pos_w, root_pos_w, heading, cmd, stand, root_lin_vel_b_xy,
         root_ang_vel_b_z, turning, resampled, reward, pay, dt: float, turn_radius: float,
+        cat=None, cat_scale=None,
     ) -> None:
-        """One env step of ``RewardFootStroke``'s own inputs and output. No-op unless recording."""
+        """One env step of ``RewardFootStroke``'s own inputs and output. No-op unless recording.
+
+        ``cat`` ((N,) int, this step's TELEMETRY_CATEGORIES index) and ``cat_scale`` ((7,) float,
+        the resolved per-category table) are per-category stroke plan (2026-09-27) additions,
+        recorded ONLY when the caller passes both (i.e. the term is armed with ``cat_scale`` --
+        ``RewardFootStroke`` passes ``None`` for both when its own ``self._cat_scale`` is ``None``).
+        An old caller that never passes them keeps dumping exactly today's keys.
+        """
         slot = self._slot_for(step)
         if slot is None:
             return
@@ -137,6 +159,9 @@ class ParityRecorder:
             ("reward", reward), ("pay", pay),
         ):
             self._put(name, slot, value)
+        if cat is not None and cat_scale is not None:
+            self._put("cat", slot, cat)
+            self._cat_scale = _to_numpy(cat_scale).astype(np.float64, copy=False)
         self._scalars["dt"] = float(dt)
         self._scalars["turn_radius"] = float(turn_radius)
         self._stroke_written[slot] = True
@@ -202,6 +227,8 @@ class ParityRecorder:
         n = self._n_slots
         data = {name: arr[:n] for name, arr in self._store.items()}
         data.update({name: np.asarray(value, dtype=np.float64) for name, value in self._scalars.items()})
+        if self._cat_scale is not None:
+            data["cat_scale"] = self._cat_scale
         self.path.parent.mkdir(parents=True, exist_ok=True)
         np.savez(self.path, **data)
 

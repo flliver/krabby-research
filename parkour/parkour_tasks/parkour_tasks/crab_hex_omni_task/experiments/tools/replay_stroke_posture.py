@@ -24,16 +24,27 @@ SUBCOMMANDS
     / ``--seed-b`` (a same-stage seed pair, e.g. B's two seeds) add the seed band. ``--validate``
     checks the step-6 reproduction targets (:data:`VALIDATION_OMNI` on an omni stamp,
     :data:`VALIDATION_SIDE` on the sideways head) and exits 1 naming every hard target that missed.
-``income <run_dir> --w-stroke W --w-centring W [--params k=v ...] [--econ-env-yaml P]``
+``income <run_dir> --w-stroke W --w-centring W [--stroke-cat-w SPEC] [--params k=v ...] [--econ-env-yaml P]``
     Per category: term income/s at w = 1, tracking income/s, the DELIVERED (post-clip) pay in the
     manager's units, the absorbed share, the clip-bind fraction shift, and the stances each gate
-    rejects or trims.
+    rejects or trims. ``--stroke-cat-w`` (the per-category stroke plan, 2026-09-27) is
+    ``KRABBY_OMNI_STROKE_CAT_W``'s own spec, parsed by the knob's own parser
+    (:data:`SK` ``.parse_stroke_cat_w``): nominal, delivered, absorbed, clip-bind and ``stroke_dose``
+    are then priced at the effective weight ``w_stroke * m_c`` of each step's category
+    (:func:`scale_rows`); ``S/s@1`` (``stroke_per_s``) stays at w = 1, unscaled.
 ``gate --config <json> --out <dir>``
     Plan step 7's R1-R9 and P1-P4, written to ``replay_gate.json`` and ``REPLAY_GATE.md``. Every
     criterion is printed PASS / FAIL / N/A with its numbers; nothing is hidden (:func:`run_gate`).
+    Optional config keys (per-category stroke plan): ``stroke_cat_w`` (a knob spec: the table every
+    weighted criterion prices) and ``dose_targets`` (``{category: delivered share}``) with ``tie``
+    (default ``[["fwd", "back"]]``) -- R4 then SOLVES the table per category (:func:`_dose_per_cat`;
+    ``dose_hand_min``, REQUIRED with ``dose_targets``: ``true`` binds side / turn / move_turn by their
+    lower hand -- what reproduces the plan's 2026-09-27 W and X08:t3 tables -- ``false`` pools the
+    hands). Neither key: the single-weight path, bit for bit as before.
 ``parity <dump.npz> [--tol 1e-5]``
     Recompute both terms from a per-step dump of the Isaac wrapper's own inputs and outputs and
-    assert agreement (:func:`parity_check`; the dump format is below).
+    assert agreement (:func:`parity_check`; the dump format is below). A dump carrying ``cat`` and
+    ``cat_scale`` is checked as ``reward == cat_scale[cat] * sum(pay) / dt``.
 ``pooled <arm_s3> <base_s3> <arm_s2> <base_s2> [--bar cat.key=value ...] [--json P]``
     A POOLED two-seed readout (:func:`pooled_readout`): per category/hand row and key, the MEAN of the
     two seed-matched paired deltas (``arm_s3`` vs ``base_s3``, ``arm_s2`` vs ``base_s2``), a POOLED mde
@@ -59,12 +70,14 @@ REPLAY CONVENTIONS (pinned by ``tests/unit/test_crab_hex_omni_replay_stroke_post
   MOVE; turn -> TURN; move_turn -> MOVE_TURN; the settle hold and the prologue (segment -1) -> STAND.
   ``turning`` = TURN / MOVE_TURN. ``lat_share = |sin(wrap(hold_dir - hold_face))|`` on MOVE holds,
   0 elsewhere (the wrapper's ``|sin(travel_dir_w - heading_target)|``). ``resampled`` = the segment id
-  changed.
+  changed. ``cat_step`` (the per-category weight's key) = the hold's category index into
+  :data:`CATEGORIES` (= the command term's ``TELEMETRY_CATEGORIES``), settle / prologue -> stand.
 * **The sideways-task head** (``side_phases/.../slow__side``, ``step__side``): ``run_meta.travel_yaw``
   must be ~pi/2; ``cmd[:, :2]`` is rotated by ``+travel_yaw`` (``wz`` kept), every episode is
-  category ``side`` (hand ``l``), slot MOVE, ``lat_share`` 1; its own hold is every moving hold
-  (``creep`` and ``low``); the rotated command's direction must agree with the achieved velocity
-  (cos > 0.9 pooled). The math computes ``v_clk`` itself. Its episodes are 31.5 s long.
+  category ``side`` (hand ``l``, ``cat_step`` side on every step), slot MOVE, ``lat_share`` 1; its
+  own hold is every moving hold (``creep`` and ``low``); the rotated command's direction must agree
+  with the achieved velocity (cos > 0.9 pooled). The math computes ``v_clk`` itself. Its episodes are
+  31.5 s long.
 * **Inputs.** contact force = ``foot_force_norm``; foot positions = ``foot_pos_w``, both in FOOT_ORDER
   FL, FR, ML, MR, RL, RR (``run_meta.foot_body_names`` is checked); ``turn_radius`` =
   ``omni_clock_turn_radius`` from the head's ``params/env.yaml`` when present (else 1.2).
@@ -97,6 +110,28 @@ the per-episode values unless stated)
 * ``track_per_s`` -- kernel tracking income per second on the same steps, in the economy's weights:
   translation ``track_lin_vel_xy_exp``; turn ``track_ang_vel_z_exp + reward_yaw_progress``;
   move_turn all three.
+
+The per-category stroke plan's mechanism keys (2026-09-27; every one a MEAN key -- the category value
+is the mean of the per-episode values, :data:`MEAN_KEYS`, like ``stride_along``):
+
+* ``achieved_speed`` -- mean over the ``body_offset`` steps (own hold, ``||cmd_xy|| > 0.12``) of the
+  body-frame velocity projected on the commanded direction, ``root_lin_vel_b[:2] . cmd/|cmd|``, state
+  rows post-shifted (row ``s + 1`` for env step ``s``). ``nan`` where nothing is commanded (stand,
+  turn).
+* ``stride_per_speed`` -- the episode's ``stride_along`` / its ``achieved_speed`` (s: metres per
+  metre-per-second). An episode whose achieved speed is <= :data:`SPS_MIN_SPEED_M_S` (0.03 m/s) is
+  EXCLUDED (``nan``) and counted in the row's ``n_sps_excluded``: a near-stalled walker's ratio is
+  unbounded and would dominate a mean.
+* ``touchdown_hz`` -- per-foot touchdown rate (Hz per foot): ``gait_eval``'s STEP count
+  (:func:`gait_eval.metrics.step_tap_runs`, loaded = force > ``MOTION_TOUCH_REF_N`` 50 N, a step an
+  unloaded run of >= ``RIGIDITY_STEP_MIN_STEPS`` steps begun at a liftoff inside the window) over the
+  six feet, / (6 x window seconds) -- the eval's own ``step_rate_hz / 6``.
+* ``taps_per_s`` -- ``step_tap_runs``' TAPS (unloaded runs of 1 .. ``RIGIDITY_STEP_MIN_STEPS`` - 1
+  steps), summed over the six feet, per window second.
+
+The two contact keys run over the steady own-hold window (``Stamp.own``, one contiguous block per
+hold, each block its own ``step_tap_runs`` window) at the raw-row indexing ``gait_eval/report.py``
+uses -- as the UNISON keys do.
 
 THE ECONOMY (``income`` / ``gate``). :func:`load_economy` reads the dump's own ``reward_clock_schedule``
 / ``reward_clock_swing_apex`` weights and calls ``replay_clock_economy.economy_from_env_yaml`` with
@@ -133,12 +168,17 @@ key                    shape / dtype      meaning (as the wrapper sees it, this 
 ``b``                  [S, N] f32         ``RewardBodyCentring.__call__``'s return
 ``reset``              [S, N] bool        optional: the env was reset before this call
 ``pay`` / ``o``        [S,N,6] / [S,N]    optional: the wrappers' ``self.pay`` / ``self.o``
+``cat``                [S, N] int8        optional, ``KRABBY_OMNI_STROKE_CAT_W`` armed only: the
+                                          step's ``telemetry_category()`` index
+``cat_scale``          [7] f64            optional, with ``cat``: the resolved multiplier table
 ``dt``, ``turn_radius`` scalar            ``env.step_dt``, ``env.cfg.omni_clock_turn_radius``
 =====================  =================  ==============================================
 
 plus any :class:`StrokeParams` field as a scalar when the run overrode it. The check compares the
 per-step stance income in the manager's units (``reward * dt`` = sum of per-foot pay) and ``b``;
-``R`` itself (= pay / dt) is also reported, but it magnifies float32 rounding by 1 / dt.
+``R`` itself (= pay / dt) is also reported, but it magnifies float32 rounding by 1 / dt. With ``cat``
+/ ``cat_scale`` the recomputed ``R`` is multiplied by ``cat_scale[cat]`` (float32, as the wrapper
+does) before the comparison; ``pay`` is compared UNSCALED (the wrapper keeps ``self.pay`` at w = 1).
 """
 
 from __future__ import annotations
@@ -167,6 +207,14 @@ RMT_PY = TOOLS / "replay_motion_terms.py"
 REC_PY = OMNI / "experiments" / "2026-09-23_clock_deprecation" / "replay_clock_economy.py"
 EC_PY = OMNI / "eval_categories.py"
 RES_PY = TOOLS / "resolution.py"
+#: ``KRABBY_OMNI_STROKE_CAT_W``'s own parser (pure at module scope): ONE grammar for the knob and
+#: the replay, so a table the replay prices is exactly a table training would accept.
+STROKE_KNOBS_PY = OMNI / "config" / "crab_hex" / "stroke_knobs.py"
+#: the candidate-ladder driver's own regex read of a training dump's ``params/env.yaml``
+#: (``_yaml_block`` / ``_dict_entries`` / ``_grep_scalar`` / ``_func_swapped_ok`` / ``_num``): reused
+#: by :func:`train_log_crosscheck`'s weight guard rather than re-deriving the same indent-sensitive
+#: parse a second time (module docstring, "PARITY DUMP FORMAT" neighbour: one dump shape, one reader).
+RUN_CANDIDATES_PY = TOOLS / "run_candidates.py"
 
 #: W, the omni head of record (2026-09-25): its training dump is the ONE economy.
 W_ENV_YAML = Path("/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/"
@@ -188,8 +236,13 @@ SM = _load(STROKE_MATH_PY, "stroke_posture_replay__stroke_math")   # a PRIVATE i
 RMT = _load(RMT_PY, "stroke_posture_replay__rmt")
 REC = _load(REC_PY, "stroke_posture_replay__rec")
 EC = _load(EC_PY, "stroke_posture_replay__eval_categories")
+SK = _load(STROKE_KNOBS_PY, "stroke_posture_replay__stroke_knobs")
+if set(SK.STROKE_CAT_KEYS) | {"stand"} != set(EC.CATEGORIES):
+    raise ImportError(f"stroke_knobs.STROKE_CAT_KEYS {SK.STROKE_CAT_KEYS} + stand != eval_categories.CATEGORIES "
+                      f"{EC.CATEGORIES}: the knob's categories and the replay's no longer name the same rows")
 _RES = None
 _GM = None
+_RC = None
 
 
 def res():
@@ -206,6 +259,19 @@ def gait_metrics():
     if _GM is None:
         _GM = RMT.gait_metrics()
     return _GM
+
+
+def run_candidates():
+    """``run_candidates.py`` (its ``params/env.yaml`` regex readers), loaded on first use. Its own
+    module-level work is path-loading ``run_phases.py`` / ``ledger_cli.py`` (stdlib only, no
+    ``isaaclab``) -- nothing here launches a subprocess or touches the GPU. NOT named ``rc`` --
+    ``train_log_crosscheck`` below already binds that name locally (``rs, rc = row.get(...)``), and a
+    same-named module function would silently become unreachable (``UnboundLocalError``) anywhere in
+    that function's scope."""
+    global _RC
+    if _RC is None:
+        _RC = _load(RUN_CANDIDATES_PY, "stroke_posture_replay__run_candidates")
+    return _RC
 
 
 CATEGORIES = tuple(EC.CATEGORIES)
@@ -247,10 +313,15 @@ STROKE_SHARE_FWD_OVER_SIDE = 1.5
 PREMISE_OFFSET_MIN = 0.15
 PREMISE_STRIDE_RATIO_MAX = 0.6
 
+#: The per-category stroke plan's mechanism keys (module docstring): what a stride change is made of.
+MECHANISM_KEYS = ("achieved_speed", "stride_per_speed", "touchdown_hz", "taps_per_s")
 READOUT_KEYS = ("body_offset", "lead_y", "trail_y", "lead_trail_asym", "stride_along", "stance_stroke",
                 "stroke_share", "slip_ratio", "lead_scuff_frac", "knee_cap_lead", "knee_cap_trail",
-                "stroke_per_s", "centring_per_s", "track_per_s")
-MEAN_KEYS = ("stride_along",)
+                "stroke_per_s", "centring_per_s", "track_per_s") + MECHANISM_KEYS
+MEAN_KEYS = ("stride_along",) + MECHANISM_KEYS
+#: ``stride_per_speed`` leaves out an episode whose achieved along-command speed is at or below this
+#: (m/s) -- counted in the row's ``n_sps_excluded`` (plan step 2 / audit note 5).
+SPS_MIN_SPEED_M_S = 0.03
 
 
 # ============================================================================ parameters
@@ -372,6 +443,10 @@ class Stamp:
     action_clip: float | None = None
     notes: list[str] = field(default_factory=list)
     guard_max: float | None = None
+    #: [N, T] int -- env step ``s``'s category, an index into :data:`CATEGORIES` (module docstring);
+    #: ``None`` only on a Stamp built by hand (e.g. a calibration stand-in), which then cannot be
+    #: priced with a per-category table (:func:`scale_rows` refuses).
+    cat_step: np.ndarray | None = None
 
     @property
     def N(self) -> int:
@@ -484,6 +559,7 @@ def load_stamp(run_dir: Path | str, *, limit: int | None = None, heading_guard: 
     stand = np.zeros((N, T), dtype=bool)
     turning = np.zeros((N, T), dtype=bool)
     lat = np.zeros((N, T), dtype=np.float64)
+    cat_step = np.full((N, T), CATEGORIES.index("stand"), dtype=np.int64)
     if kind == "omni":
         seg_cat = {-1: None}
         for i, lab in enumerate(labels):
@@ -492,6 +568,7 @@ def load_stamp(run_dir: Path | str, *, limit: int | None = None, heading_guard: 
             m = seg == sid
             st, tu = _hold_slot(cat)
             stand[m], turning[m] = st, tu
+            cat_step[m] = CATEGORIES.index(cat or "stand")
             if cat in TRANSLATION:
                 lat[m] = abs(math.sin(float(wrap(dirs[sid] - faces[sid]))))
         unknown = ~np.isin(seg, list(seg_cat))
@@ -499,6 +576,7 @@ def load_stamp(run_dir: Path | str, *, limit: int | None = None, heading_guard: 
             raise SystemExit(f"{run_dir}: segment ids {sorted(set(seg[unknown].tolist()))} are not in hold_labels")
     else:
         lat[:] = 1.0
+        cat_step[:] = CATEGORIES.index("side")
         cmd = arr["cmd_applied"].astype(np.float64)
         cmd[..., :2] = rotate_xy(cmd[..., :2], float(meta["travel_yaw"]))
         arr["cmd_applied"] = cmd.astype(np.float32)
@@ -553,7 +631,54 @@ def load_stamp(run_dir: Path | str, *, limit: int | None = None, heading_guard: 
     return Stamp(run_dir=str(run_dir), kind=kind, meta=meta, dt=dt, turn_radius=turn_radius,
                  params_source=src, episodes=ents, arr=arr, psi=psi, S=S, own=own, stand=stand,
                  turning=turning, lat_share=lat, resampled=resampled, knee_idx=knee_idx,
-                 json_eps=json_eps, raw_paths=raw_paths, notes=notes, guard_max=guard_max)
+                 json_eps=json_eps, raw_paths=raw_paths, notes=notes, guard_max=guard_max, cat_step=cat_step)
+
+
+# ============================================================================ per-category stroke weights
+def parse_cat_w(spec) -> dict[str, float] | None:
+    """A per-category multiplier table (``KRABBY_OMNI_STROKE_CAT_W``'s grammar, per-category stroke
+    plan 2026-09-27) -> ``{fwd, back, side, diag, turn, move_turn: m}`` with every key filled, or
+    ``None`` for ``None`` / blank. ``spec`` is the knob's own string, or a ``{category: m}`` dict,
+    which is written back as a spec (:func:`format_cat_w`) and parsed the same way -- so every
+    refusal the knob makes (unknown / duplicate key, ``stand``, ``fwd != back``, a negative or
+    non-finite value) the replay makes too, by the knob's own code (:data:`SK`)."""
+    if spec is None:
+        return None
+    text = format_cat_w(spec) if isinstance(spec, dict) else spec
+    try:
+        table = SK.parse_stroke_cat_w(text)
+    except ValueError as exc:
+        raise SystemExit(f"stroke_cat_w: {exc}") from None
+    return None if table is None else {k: table[k] for k in SK.STROKE_CAT_KEYS}
+
+
+def format_cat_w(table: dict) -> str:
+    """``{category: m}`` -> the knob's spec string, in :data:`SK` ``.STROKE_CAT_KEYS`` order first
+    (``repr`` floats: the spec round-trips exactly). Unknown names are written through, so
+    :func:`parse_cat_w` refuses them by name."""
+    order = [k for k in SK.STROKE_CAT_KEYS if k in table] + [k for k in table if k not in SK.STROKE_CAT_KEYS]
+    return ",".join(f"{k}:{float(table[k])!r}" for k in order)
+
+
+def cat_scale_vector(table: dict[str, float] | None) -> np.ndarray:
+    """``[len(CATEGORIES)]`` float64 multipliers in :data:`CATEGORIES` order (stand 1.0: it pays 0
+    whatever it is scaled by -- the wrapper's ``_resolve_cat_scale`` default); all ones for ``None``."""
+    vec = np.ones(len(CATEGORIES), dtype=np.float64)
+    for name, m in (table or {}).items():
+        vec[CATEGORIES.index(name)] = float(m)
+    return vec
+
+
+def scale_rows(st: Stamp, table: dict[str, float] | None) -> np.ndarray:
+    """[N, T] float64: each env step's multiplier ``m_c`` by its category (``st.cat_step``); all ones
+    when ``table`` is None. A table on a Stamp without ``cat_step`` is refused, never guessed."""
+    T = st.arr["segment_id"].shape[1]
+    if table is None:
+        return np.ones((st.N, T), dtype=np.float64)
+    if st.cat_step is None:
+        raise SystemExit(f"{st.run_dir}: this stamp carries no per-step category (cat_step): a per-category "
+                         "stroke table cannot be priced on it")
+    return cat_scale_vector(table)[st.cat_step]
 
 
 # ============================================================================ the replay
@@ -732,9 +857,11 @@ def episode_values(st: Stamp, rp: Replay, econ=None) -> dict[str, np.ndarray]:
     absy = np.abs(r[..., 1])
     loaded = force >= LOADED_N
     track = tracking_rate(st, econ) if econ is not None else None
+    along_speed = np.einsum("ntk,ntk->nt", post(st.arr["root_lin_vel_b"])[..., :2].astype(np.float64), vhat)
 
     vals = {k: np.full(N, np.nan) for k in READOUT_KEYS}
     vals["n_gated"] = np.zeros(N)
+    vals["sps_excluded"] = np.zeros(N)
     sd = rp.stances
     sc = sd["payable"] & st.own[sd["env"], sd["step"]] if sd["env"].size else np.zeros(0, dtype=bool)
     for i in range(N):
@@ -774,7 +901,38 @@ def episode_values(st: Stamp, rp: Replay, econ=None) -> dict[str, np.ndarray]:
         pa = ((j or {}).get("stride") or {}).get("pooled_along_command") or {}
         if pa.get("mean") is not None:
             vals["stride_along"][i] = float(pa["mean"])
+        # ---- mechanism keys (per-category stroke plan): speed x stride-per-speed x cadence
+        if m.any():
+            vals["achieved_speed"][i] = float(along_speed[i][m].mean())
+        sa, spd = vals["stride_along"][i], vals["achieved_speed"][i]
+        if math.isfinite(sa) and math.isfinite(spd):
+            if spd > SPS_MIN_SPEED_M_S:
+                vals["stride_per_speed"][i] = sa / spd
+            else:
+                vals["sps_excluded"][i] = 1.0
+        td, taps = episode_step_rates(st, i)
+        vals["touchdown_hz"][i], vals["taps_per_s"][i] = td, taps
     return vals
+
+
+def episode_step_rates(st: Stamp, i: int) -> tuple[float, float]:
+    """Episode ``i``'s ``(touchdown_hz, taps_per_s)`` (module docstring): ``gait_eval``'s own
+    :func:`step_tap_runs` over each contiguous block of the steady own-hold window, raw rows, loaded =
+    force > ``MOTION_TOUCH_REF_N``. ``touchdown_hz`` = steps / (6 x seconds) (Hz per foot); ``taps_per_s``
+    = taps / seconds (six feet summed). ``nan`` on an empty window."""
+    m = st.own[i]
+    if not m.any():
+        return float("nan"), float("nan")
+    gm = gait_metrics()
+    loaded = st.arr["foot_force_norm"][i] > float(gm.MOTION_TOUCH_REF_N)
+    n_steps = n_taps = n_rows = 0
+    for a, b in gm.contiguous_runs(m):
+        steps, taps, _censored = gm.step_tap_runs(loaded[a:b], min_step_steps=int(gm.RIGIDITY_STEP_MIN_STEPS))
+        n_steps += len(steps)
+        n_taps += len(taps)
+        n_rows += b - a
+    secs = n_rows * st.dt
+    return float(n_steps / (len(FOOT_ORDER) * secs)), float(n_taps / secs)
 
 
 def _row_masks(st: Stamp) -> list[tuple[str, np.ndarray]]:
@@ -803,6 +961,8 @@ def readout_table(st: Stamp, vals: dict[str, np.ndarray]) -> dict[str, dict]:
     out = {}
     for name, m in _row_masks(st):
         out[name] = {"n": int(m.sum()), **{k: aggregate(vals, m, k) for k in READOUT_KEYS}}
+        if "sps_excluded" in vals:
+            out[name]["n_sps_excluded"] = int(vals["sps_excluded"][m].sum())
     return out
 
 
@@ -1068,6 +1228,14 @@ def pooled_delta(st_arm_a: Stamp, va_a: dict, st_base_a: Stamp, vb_a: dict,
     return out
 
 
+def _sps_excluded(st: Stamp, vals: dict | None) -> dict[str, int]:
+    """Per readout row, the episodes ``stride_per_speed`` left out (achieved speed <=
+    :data:`SPS_MIN_SPEED_M_S`); empty when ``vals`` carries no such count."""
+    if not isinstance(vals, dict) or "sps_excluded" not in vals:
+        return {}
+    return {name: int(vals["sps_excluded"][m].sum()) for name, m in _row_masks(st)}
+
+
 def pooled_readout(arm_s3: str, base_s3: str, arm_s2: str, base_s2: str, *,
                    keys: Sequence[str] = READOUT_KEYS, bars: dict[str, dict[str, float]] | None = None,
                    limit: int | None = None) -> dict:
@@ -1090,12 +1258,18 @@ def pooled_readout(arm_s3: str, base_s3: str, arm_s2: str, base_s2: str, *,
     sb2, vb2 = _vals(base_s2)
     pooled = pooled_delta(sa3, va3, sb3, vb3, sa2, va2, sb2, vb2, keys=keys)
     seed_delta = paired_bootstrap(sb2, vb2, sb3, vb3, keys=keys)   # the baselines' own seed-pair delta
+    # stride_per_speed's excluded episodes (v_cmd <= SPS_MIN_SPEED_M_S), per run: reported beside the key
+    excl = ({lab: _sps_excluded(s, v) for lab, s, v in (("arm_s3", sa3, va3), ("base_s3", sb3, vb3),
+                                                         ("arm_s2", sa2, va2), ("base_s2", sb2, vb2))}
+            if "stride_per_speed" in keys else None)
     rows: dict[str, dict] = {}
     for name, prow in pooled.items():
         cat = name.split("/", 1)[0]
         row_bars = bars.get(cat) or {}
         seed_row = seed_delta.get(name)
         orow: dict[str, Any] = {"n_pairs_s3": prow["n_pairs_a"], "n_pairs_s2": prow["n_pairs_b"]}
+        if excl is not None:
+            orow["n_sps_excluded"] = {lab: e.get(name) for lab, e in excl.items()}
         for key in keys:
             v = prow[key]
             base_seed = abs(seed_row[key]["delta"]) if seed_row else float("nan")
@@ -1298,11 +1472,20 @@ def delivered(x: np.ndarray, ctx: np.ndarray) -> np.ndarray:
 
 
 def income_table(st: Stamp, rp: Replay, *, w_stroke: float, w_centring: float, econ=None,
-                 ctx: np.ndarray | None = None) -> dict[str, dict]:
-    """``income`` subcommand's per-category rows (over gated moving own-hold steps)."""
+                 ctx: np.ndarray | None = None, cat_w: dict[str, float] | None = None) -> dict[str, dict]:
+    """``income`` subcommand's per-category rows (over gated moving own-hold steps).
+
+    ``cat_w`` (a :func:`parse_cat_w` table, per-category stroke plan): every stroke number priced in
+    the manager's units -- nominal, delivered, absorbed, clip-bind, ``stroke_dose``, and the
+    centring term's context -- is at ``w_stroke * m_c`` by each step's category (:func:`scale_rows`),
+    and each row gains ``w_stroke_eff``. ``stroke_per_s`` stays at w = 1, unscaled. ``None``: every
+    number and key exactly as before the table existed."""
     dt = st.dt
     track = tracking_rate(st, econ) if econ is not None else None
-    stroke_x = w_stroke * rp.pay.sum(axis=-1).astype(np.float64)       # manager units per step
+    pay_sum = rp.pay.sum(axis=-1).astype(np.float64)
+    if cat_w is not None:
+        pay_sum = pay_sum * scale_rows(st, cat_w)
+    stroke_x = w_stroke * pay_sum       # manager units per step
     cent_x = w_centring * rp.b.astype(np.float64) * dt
     rows = {}
     sd = rp.stances
@@ -1312,6 +1495,8 @@ def income_table(st: Stamp, rp: Replay, *, w_stroke: float, w_centring: float, e
         g = own & (rp.gate if cat != "stand" else True)
         n = int(g.sum())
         row: dict[str, Any] = {"n_ep": int(m_ep.sum()), "n_steps": n}
+        if cat_w is not None:
+            row["w_stroke_eff"] = w_stroke * float(cat_scale_vector(cat_w)[CATEGORIES.index(cat)])
         if n == 0:
             rows[name] = row
             continue
@@ -1385,19 +1570,86 @@ def _log_last_means(log_dir: Path, tags: Iterable[str], n: int = 200) -> dict[st
     return out
 
 
-def train_log_crosscheck(st: Stamp, rp: Replay, rows: dict, econ_yaml: Path, log_dir: Path) -> dict | None:
+def _train_log_stroke_weight_check(log_dir: Path, *, w_stroke: float, cat_w: dict[str, float] | None) -> None:
+    """Refuse a ``train_log_crosscheck`` whose ``--w-stroke`` / ``--stroke-cat-w`` do not match the
+    weight the run ACTUALLY trained with (hardening, 2026-09-28).
+
+    ``rows`` (the replay's own nominal-per-second numbers) is priced at ``w_stroke * m_c`` by
+    :func:`income_table`, using the CLI's ``--w-stroke`` / ``--stroke-cat-w``. The ``r = log / replay``
+    the caller prints only means what it says when the run's own ``params/env.yaml`` shows the SAME
+    price: ``reward_stride_length``'s ``weight`` times its (optional) ``params.cat_scale[c]``. Passing
+    a stale or wrong ``--w-stroke`` would otherwise silently rescale every ``r`` and read as a training
+    drift that is really a CLI mismatch.
+
+    Reads the dump with :func:`run_candidates`'s own ``_yaml_block`` / ``_dict_entries`` /
+    ``_grep_scalar`` -- the SAME indent-sensitive regex read the candidate-ladder audit uses on this
+    exact dump shape (term at indent 2, ``params`` block at 4, a param key such as ``cat_scale`` at 6,
+    that dict's own entries at 8) -- rather than a second, independently-drifting parser.
+
+    Two cases keep TODAY's behaviour (no check, just a one-line note): no ``params/env.yaml`` under
+    ``log_dir`` at all, and a ``reward_stride_length`` term that never swapped to ``RewardFootStroke``
+    (a stock run, or one whose stroke knob was off) -- this cross-check does not apply to either.
+    Anything else either matches to 1e-9 relative or raises ``SystemExit``, including the dump
+    carrying a ``cat_scale`` table while the CLI was given no ``--stroke-cat-w`` at all: an unpriced
+    table is not "close enough", it means this call is pricing every category as if uniform while the
+    run itself scaled them.
+    """
+    env_yaml = Path(log_dir) / "params" / "env.yaml"
+    if not env_yaml.is_file():
+        print(f"[income] {env_yaml}: no params/env.yaml; train-log weight cross-check skipped")
+        return
+    txt = env_yaml.read_text()
+    R = run_candidates()
+    if not R._func_swapped_ok(txt, EVENT_TERM, "RewardFootStroke"):
+        print(f"[income] {env_yaml}: {EVENT_TERM}.func is not RewardFootStroke; train-log weight cross-check skipped")
+        return
+    term_block = R._yaml_block(txt, EVENT_TERM)
+    weight = R._num(R._grep_scalar(term_block, "weight", indent=r"\s{4}"))
+    if weight is None:
+        raise SystemExit(f"{env_yaml}: {EVENT_TERM}.weight is missing or unreadable; cannot cross-check "
+                         "--w-stroke against the run that produced this log")
+    cat_entries = R._dict_entries(term_block, "cat_scale", indent=6)
+    if cat_entries is not None and cat_w is None:
+        raise SystemExit(f"{env_yaml}: {EVENT_TERM} carries a params.cat_scale table but this call was given "
+                         "no --stroke-cat-w -- pass the run's own table (or --stroke-cat-w matching it) so "
+                         "the log and the replay are priced at the same per-category weight")
+    mismatches = []
+    for c in SK.STROKE_CAT_KEYS:
+        m_logged = 1.0
+        if cat_entries is not None and c in cat_entries:
+            m_logged = R._num(cat_entries[c])
+            if m_logged is None:
+                raise SystemExit(f"{env_yaml}: {EVENT_TERM}.params.cat_scale.{c} is unreadable "
+                                 f"({cat_entries[c]!r})")
+        logged = weight * m_logged
+        eff = w_stroke * (float(cat_w[c]) if cat_w is not None else 1.0)
+        if abs(eff - logged) > 1e-9 * max(abs(eff), abs(logged), 1e-30):
+            mismatches.append(f"{c}: tool {eff!r} != log {logged!r}")
+    if mismatches:
+        raise SystemExit(f"{env_yaml}: {EVENT_TERM} weight x cat_scale != this call's --w-stroke x "
+                         "--stroke-cat-w for " + "; ".join(mismatches))
+
+
+def train_log_crosscheck(st: Stamp, rp: Replay, rows: dict, econ_yaml: Path, log_dir: Path, *,
+                         w_stroke: float, cat_w: dict[str, float] | None = None) -> dict | None:
     """The dose smoke's ``r`` (plan step 12(ii)): training telemetry vs this replay.
 
     * Stock tracking rows through ``replay_motion_terms.train_log_crosscheck`` (its keys this tool
       does not replay are NaN).
     * Per category: ``Episode_RewardCat/<c>/reward_stride_length`` and ``/reward_body_centring`` (per
       second, weight included, over the category's dwell) against this replay's nominal per-second
-      pay, their ratio ``r``, and ``/clip_absorbed_event`` / ``/clip_bind_frac`` against the replayed
+      pay, their ratio ``r`` (``rows`` priced with the run's own ``--stroke-cat-w`` table when it had
+      one -- :func:`income_table` -- so the logged ``w_S * m_c`` income is divided by a replay nominal
+      at the same ``w_S * m_c``, like for like), and ``/clip_absorbed_event`` / ``/clip_bind_frac`` against the replayed
       absorbed share / clip-bind fraction. Training draws slots from its pool and samples actions,
       so this is the ratio the SA0 rule reads, not an equality.
+    * ``w_stroke`` / ``cat_w`` -- the SAME ``--w-stroke`` / ``--stroke-cat-w`` ``rows`` was priced at
+      (hardening, 2026-09-28) -- are cross-checked against ``log_dir``'s own ``params/env.yaml``
+      before any of the above is computed: see :func:`_train_log_stroke_weight_check`.
     """
     if log_dir is None or not Path(log_dir).is_dir():
         return None
+    _train_log_stroke_weight_check(log_dir, w_stroke=w_stroke, cat_w=cat_w)
     env_d = RMT._yaml_load_tolerant(Path(econ_yaml))
     tp = RMT.train_params_from_dumps(env_d, None, f"env: {econ_yaml}")
     herr = None
@@ -1473,17 +1725,22 @@ _READOUT_COLS = (("body_offset", "{:+.3f}"), ("lead_y", "{:.3f}"), ("trail_y", "
                  ("lead_trail_asym", "{:+.3f}"), ("stride_along", "{:.3f}"), ("stance_stroke", "{:.4f}"),
                  ("stroke_share", "{:.3f}"), ("slip_ratio", "{:.2f}"), ("lead_scuff_frac", "{:.3f}"),
                  ("knee_cap_lead", "{:.3f}"), ("knee_cap_trail", "{:.3f}"), ("stroke_per_s", "{:.4f}"),
-                 ("centring_per_s", "{:.3f}"), ("track_per_s", "{:.3f}"))
+                 ("centring_per_s", "{:.3f}"), ("track_per_s", "{:.3f}"), ("achieved_speed", "{:.3f}"),
+                 ("stride_per_speed", "{:.3f}"), ("touchdown_hz", "{:.3f}"), ("taps_per_s", "{:.3f}"))
 _SHORT = {"body_offset": "offset", "lead_y": "lead|y|", "trail_y": "trail|y|", "lead_trail_asym": "asym",
           "stride_along": "stride", "stance_stroke": "stroke_B", "stroke_share": "share", "slip_ratio": "rho",
           "lead_scuff_frac": "scuff", "knee_cap_lead": "kneeL", "knee_cap_trail": "kneeT",
-          "stroke_per_s": "S/s", "centring_per_s": "P/s", "track_per_s": "trk/s"}
+          "stroke_per_s": "S/s", "centring_per_s": "P/s", "track_per_s": "trk/s", "achieved_speed": "v_cmd",
+          "stride_per_speed": "stride/v", "touchdown_hz": "td_hz/ft", "taps_per_s": "taps/s"}
 
 
 def render_readout(name: str, st: Stamp, table: dict, boot: dict | None = None) -> str:
     head = ["row", "n"] + [_SHORT[k] for k, _ in _READOUT_COLS]
     rows = [[r, str(v["n"])] + [_fmt(v[k], f) for k, f in _READOUT_COLS] for r, v in table.items()]
     parts = [f"== readout {name} ({st.kind}, {st.N} episodes)", print_table(rows, head)]
+    excl = {r: v["n_sps_excluded"] for r, v in table.items() if v.get("n_sps_excluded")}
+    parts.append(f"stride/v leaves out episodes with v_cmd <= {SPS_MIN_SPEED_M_S:g} m/s: "
+                 + (", ".join(f"{r} {n}" for r, n in excl.items()) if excl else "none"))
     if boot:
         head = ["row", "pairs"] + [_SHORT[k] for k, _ in _READOUT_COLS]
         rows = []
@@ -1520,15 +1777,19 @@ def render_unison(flags: list[dict]) -> str:
     return "\n".join(parts)
 
 
-def render_income(name: str, rows: dict, *, w_stroke: float, w_centring: float) -> str:
-    head = ["row", "n_ep", "S/s@1", "P/s@1", "trk/s", "S_del/s", "S_dose", "S_abs%", "P_del/s", "P_dose",
-            "P_abs%", "clip0%", "clip1%", "dpp"]
+def render_income(name: str, rows: dict, *, w_stroke: float, w_centring: float,
+                  cat_w: dict[str, float] | None = None) -> str:
+    tabled = cat_w is not None
+    head = ["row", "n_ep"] + (["w_S*m"] if tabled else []) + [
+        "S/s@1", "P/s@1", "trk/s", "S_del/s", "S_dose", "S_abs%", "P_del/s", "P_dose",
+        "P_abs%", "clip0%", "clip1%", "dpp"]
     t1 = []
     for r, v in rows.items():
+        lead = [r, str(v["n_ep"])] + ([_fmt(v.get("w_stroke_eff"), "{:.4g}")] if tabled else [])
         if v.get("n_steps", 0) == 0:
-            t1.append([r, str(v["n_ep"])] + ["--"] * (len(head) - 2))
+            t1.append(lead + ["--"] * (len(head) - len(lead)))
             continue
-        t1.append([r, str(v["n_ep"]), _fmt(v["stroke_per_s"], "{:.4f}"), _fmt(v["centring_per_s"]),
+        t1.append(lead + [_fmt(v["stroke_per_s"], "{:.4f}"), _fmt(v["centring_per_s"]),
                    _fmt(v.get("track_per_s")), _fmt(v.get("stroke_delivered_per_s", v.get("stroke_nominal_per_s")),
                                                     "{:.4f}"),
                    _fmt(v.get("stroke_dose"), "{:.3f}"), _fmt(_pc(v.get("stroke_absorbed")), "{:.1f}"),
@@ -1548,8 +1809,11 @@ def render_income(name: str, rows: dict, *, w_stroke: float, w_centring: float) 
                    s["prog_binds"], s["prog_zero"], _fmt(100 * s["lost_anchor"] / U, "{:.1f}"),
                    _fmt(100 * s["lost_slip"] / U, "{:.1f}"), _fmt(100 * s["lost_prog"] / U, "{:.1f}"),
                    _fmt(s["kept"])])
+    table_line = ([f"== per-category stroke weights (KRABBY_OMNI_STROKE_CAT_W {format_cat_w(cat_w)}): effective "
+                   "w_S x m_c = " + ", ".join(f"{c} {w_stroke * m:.4g} (x{m:g})" for c, m in cat_w.items())]
+                  if tabled else [])
     return "\n".join([f"== income {name} (w_stroke {w_stroke:g}, w_centring {w_centring:g}; per second over gated "
-                      "moving own-hold steps; S = stroke, P = centring)", print_table(t1, head),
+                      "moving own-hold steps; S = stroke, P = centring)", *table_line, print_table(t1, head),
                       "== stances per gate (closed in the window; binds = the gate trimmed a scored stance; lost "
                       "% of ungated credit)", print_table([[str(c) for c in r] for r in t2], head2)])
 
@@ -1561,6 +1825,51 @@ def _pc(x):
 # ============================================================================ parity
 PARITY_KEYS = ("force", "foot_pos_w", "root_pos_w", "heading", "cmd", "stand", "root_lin_vel_b_xy",
                "root_ang_vel_b_z", "turning", "lat_share", "resampled", "reward", "b")
+
+#: bearing-bucket edges (``crab_hex_omni_command_math.telemetry_category``'s ``_FWD_MAX_DEG`` /
+#: ``_SIDE_LO_DEG``, 22.5 / 67.5 deg), restated in ``sin(|bearing|)`` terms -- the SAME quantity the
+#: dump's own ``lat_share`` already is (module docstring: ``lat_share`` [S, N] f32, "the centring
+#: wrapper's lat_share" = ``|sin(travel_dir_w - heading_target)|`` on a MOVE slot, 0 elsewhere) -- so
+#: :func:`_cat_column_mismatches` buckets it directly, with no per-row inverse trig. The ``1e-4`` slack
+#: matches ``telemetry_category``'s own ``_BEARING_TOL_DEG``-derived boundary tolerance.
+_SIDE_LAT_MIN = math.sin(math.radians(67.5)) - 1e-4
+_FWD_BACK_LAT_MAX = math.sin(math.radians(22.5)) + 1e-4
+
+
+def _cat_column_mismatches(cats: np.ndarray, stand: np.ndarray, turning: np.ndarray,
+                           lat_share: np.ndarray) -> int:
+    """Cross-check a parity dump's ``cat`` (the wrapper's own ``telemetry_category()`` index) against
+    its OTHER, independently-recorded columns, instead of trusting ``cat`` on its own: the numeric
+    recompute in :func:`parity_check` re-derives the reward FROM ``cat`` (``scale_vec[CAT[s]]``), so a
+    ``cat`` that was mislabelled at the SOURCE (the wrapper's own ``telemetry_category()`` call, or a
+    hand-edited dump) would still recompute to the same wrong number and pass silently.
+
+    * ``stand``: must equal ``cat == CATEGORIES.index("stand")`` (``crab_hex_omni_stroke_rewards.py``:
+      both ``stand`` and ``cat``'s STAND bucket come from the same ``cmd_term.stand_mask()`` /
+      ``slot_id``, so they can never legitimately disagree).
+    * ``turning``: must equal ``cat in {turn, move_turn}`` (``turning = slot_id >= SLOT_TURN``, which
+      is exactly TURN or MOVE_TURN).
+    * on the remaining rows (neither ``stand`` nor ``turning`` -- i.e. a MOVE slot), ``lat_share``
+      buckets the SAME way ``telemetry_category`` buckets bearing: >= ``sin(67.5 deg)`` must be
+      ``side``; <= ``sin(22.5 deg)`` must be ``fwd`` OR ``back`` (``lat_share`` cannot tell the two
+      apart -- both bearings sit near 0 deg / 180 deg, where ``sin`` is ~0, so this only checks "one of
+      the pair", never which one); anything in between must be ``diag``.
+
+    Returns the mismatch count (0 = every row's ``cat`` is consistent with its own dump's other
+    columns).
+    """
+    stand_i = CATEGORIES.index("stand")
+    turn_i, move_turn_i = CATEGORIES.index("turn"), CATEGORIES.index("move_turn")
+    side_i, fwd_i, back_i, diag_i = (CATEGORIES.index(c) for c in ("side", "fwd", "back", "diag"))
+    n = int((stand != (cats == stand_i)).sum())
+    n += int((turning != np.isin(cats, (turn_i, move_turn_i))).sum())
+    move = ~stand & ~turning
+    side_ok = lat_share >= _SIDE_LAT_MIN
+    fwdback_ok = lat_share <= _FWD_BACK_LAT_MAX
+    diag_ok = ~side_ok & ~fwdback_ok
+    move_mismatch = (side_ok & (cats != side_i)) | (fwdback_ok & ~np.isin(cats, (fwd_i, back_i))) \
+        | (diag_ok & (cats != diag_i))
+    return n + int((move & move_mismatch).sum())
 
 
 def parity_check(dump: dict, *, tol: float = 1e-5, params: StrokeParams | None = None) -> dict:
@@ -1580,6 +1889,27 @@ def parity_check(dump: dict, *, tol: float = 1e-5, params: StrokeParams | None =
     cst = SM.init_centring_state(N)
     reset = np.asarray(dump["reset"], dtype=bool) if "reset" in dump else np.zeros((S, N), dtype=bool)
     worst = {"pay_sum": 0.0, "b": 0.0, "R": 0.0, "pay": 0.0, "o": 0.0}
+    # per-category stroke plan: an armed wrapper dumps BOTH cat and cat_scale; one alone is a broken dump
+    if ("cat" in dump) != ("cat_scale" in dump):
+        raise SystemExit(f"parity dump carries {'cat' if 'cat' in dump else 'cat_scale'} without "
+                         f"{'cat_scale' if 'cat' in dump else 'cat'}: an armed KRABBY_OMNI_STROKE_CAT_W dump has both")
+    scale_vec = None
+    cat_mismatches = None
+    if "cat" in dump:
+        scale_vec = torch.as_tensor(np.asarray(dump["cat_scale"], dtype=np.float64).astype(np.float32))
+        cats = np.asarray(dump["cat"]).astype(np.int64)
+        if scale_vec.shape != (len(CATEGORIES),):
+            raise SystemExit(f"parity dump cat_scale has shape {tuple(scale_vec.shape)}, not ({len(CATEGORIES)},) "
+                             f"-- one multiplier per {CATEGORIES}")
+        if cats.shape != (S, N) or cats.min() < 0 or cats.max() >= len(CATEGORIES):
+            raise SystemExit(f"parity dump cat must be [S, N] = {(S, N)} indices into {CATEGORIES}")
+        CAT = torch.as_tensor(cats)
+        # cat vs the dump's OWN independent stand/turning/lat_share columns (module docstring:
+        # PARITY_KEYS already requires all three unconditionally, so a dump with cat but missing any
+        # of them was already refused above, by the same message every other missing column gets).
+        cat_mismatches = _cat_column_mismatches(
+            cats, np.asarray(dump["stand"], dtype=bool), np.asarray(dump["turning"], dtype=bool),
+            np.asarray(dump["lat_share"], dtype=np.float64))
     with patched_math(params):
         for s in range(S):
             if reset[s].any():
@@ -1594,6 +1924,8 @@ def parity_check(dump: dict, *, tol: float = 1e-5, params: StrokeParams | None =
                 t("foot_pos_w")[s], t("root_pos_w")[s], t("heading")[s], t("cmd")[s], t("stand")[s].bool(),
                 t("root_lin_vel_b_xy")[s], cst, dt, t("lat_share")[s], t("resampled")[s].bool(),
                 **params.centring_kwargs())
+            if scale_vec is not None:
+                R = R * scale_vec[CAT[s]]          # the wrapper's own float32 op; pay stays unscaled
             ref_R = np.asarray(dump["reward"][s], dtype=np.float64)
             worst["R"] = max(worst["R"], float(np.max(np.abs(R.double().numpy() - ref_R))))
             worst["pay_sum"] = max(worst["pay_sum"], float(np.max(np.abs(R.double().numpy() - ref_R))) * dt)
@@ -1603,8 +1935,13 @@ def parity_check(dump: dict, *, tol: float = 1e-5, params: StrokeParams | None =
             if "o" in dump:
                 worst["o"] = max(worst["o"], float(np.max(np.abs(o.double().numpy() - np.asarray(dump["o"][s])))))
     checked = ["pay_sum", "b"] + [k for k in ("pay", "o") if k in dump]
-    ok = all(worst[k] < tol for k in checked)
-    return {"ok": ok, "tol": tol, "steps": S, "envs": N, "max_abs": worst, "checked": checked}
+    ok = all(worst[k] < tol for k in checked) and (cat_mismatches in (None, 0))
+    out = {"ok": ok, "tol": tol, "steps": S, "envs": N, "max_abs": worst, "checked": checked}
+    if scale_vec is not None:
+        out["cat_scale"] = dict(zip(CATEGORIES, scale_vec.double().tolist()))
+        out["cat_steps"] = {c: int((cats == k).sum()) for k, c in enumerate(CATEGORIES)}
+        out["cat_mismatches"] = cat_mismatches
+    return out
 
 
 # ============================================================================ the gate (plan step 7)
@@ -1670,7 +2007,57 @@ def _load_config(path: Path) -> dict:
     cfg.setdefault("primary", next(iter(cfg["healthy"])))
     if cfg["primary"] not in cfg["healthy"]:
         raise SystemExit(f"primary {cfg['primary']!r} is not a healthy run")
+    _check_cat_config(cfg)
     return cfg
+
+
+def _spec_keys(spec) -> list[str]:
+    """The category names a ``stroke_cat_w`` spec (string or dict) lists EXPLICITLY."""
+    if spec is None:
+        return []
+    if isinstance(spec, dict):
+        return [str(k) for k in spec]
+    return [e.partition(":")[0].strip() for e in str(spec).split(",") if e.strip()]
+
+
+def _check_cat_config(cfg: dict) -> None:
+    """The per-category stroke plan's gate keys (module docstring): ``stroke_cat_w`` parses with the
+    knob's own parser; ``dose_targets`` names knob categories with shares in (0, 1]; each ``tie``
+    group names knob categories, a category in at most one group; and no category is BOTH solved
+    (targeted, or tied to a targeted one) and listed in ``stroke_cat_w`` -- a silent override either
+    way. Neither key: nothing to check (and nothing in the config changes)."""
+    parse_cat_w(cfg.get("stroke_cat_w"))
+    for key in ("tie", "dose_hand_min"):
+        if key in cfg and "dose_targets" not in cfg:
+            raise SystemExit(f"gate config: {key!r} only applies with 'dose_targets'")
+    targets = cfg.get("dose_targets")
+    if targets is None:
+        return
+    if not isinstance(targets, dict) or not targets:
+        raise SystemExit(f"gate config: dose_targets must be a non-empty {{category: share}} map, got {targets!r}")
+    # pooled vs lower-hand moves turn's dose 1-9 % (W / t3): the config must say which, never a default
+    if not isinstance(cfg.get("dose_hand_min"), bool):
+        raise SystemExit("gate config: dose_targets needs an explicit dose_hand_min (true: side/turn/move_turn "
+                         "bound by their lower hand -- the plan's 2026-09-27 tables; false: the hands pooled)")
+    for c, v in targets.items():
+        if c not in SK.STROKE_CAT_KEYS:
+            raise SystemExit(f"gate config: dose_targets names {c!r}, not one of {SK.STROKE_CAT_KEYS}")
+        if not (isinstance(v, (int, float)) and 0.0 < float(v) <= 1.0):
+            raise SystemExit(f"gate config: dose_targets.{c} must be a share in (0, 1], got {v!r}")
+    tie = cfg.get("tie", [list(g) for g in DEFAULT_DOSE_TIE])
+    seen: set = set()
+    for group in tie:
+        if not isinstance(group, (list, tuple)) or len(group) < 2:
+            raise SystemExit(f"gate config: each tie group lists >= 2 categories, got {group!r}")
+        for c in group:
+            if c not in SK.STROKE_CAT_KEYS or c in seen:
+                raise SystemExit(f"gate config: tie member {c!r} is unknown or in two groups ({tie!r})")
+            seen.add(c)
+    solved = set(targets) | {c for g in tie if set(g) & set(targets) for c in g}
+    clash = sorted(solved & set(_spec_keys(cfg.get("stroke_cat_w"))))
+    if clash:
+        raise SystemExit(f"gate config: {clash} are solved by dose_targets (or their tie) and also listed in "
+                         "stroke_cat_w -- list only the categories the solver leaves alone")
 
 
 def _stance_sel(gr: GateRun, cats: Iterable[str], rp: Replay | None = None) -> np.ndarray:
@@ -1789,11 +2176,15 @@ def _r123(runs: dict[str, GateRun], replays: dict[str, Replay], params: StrokePa
     return out
 
 
-def _dose(gr: GateRun, rp: Replay, econ, cats=R4_CATEGORIES, w_hi: float = 10.0) -> dict:
-    """R4: the largest w with every ``cats`` share of delivered pay / tracking <= 10 %."""
+def _dose(gr: GateRun, rp: Replay, econ, cats=R4_CATEGORIES, w_hi: float = 10.0,
+          scale: np.ndarray | None = None) -> dict:
+    """R4: the largest w with every ``cats`` share of delivered pay / tracking <= 10 %. ``scale``
+    ([N, T], :func:`scale_rows`): the per-category table the swept ``w`` (= ``w_S``) multiplies."""
     st = gr.st
     track = tracking_rate(st, econ)
     x1 = rp.pay.sum(axis=-1).astype(np.float64)
+    if scale is not None:
+        x1 = x1 * scale
     base = st.dt * gr.ctx
 
     def shares(w):
@@ -1823,6 +2214,96 @@ def _dose(gr: GateRun, rp: Replay, econ, cats=R4_CATEGORIES, w_hi: float = 10.0)
     s = shares(w)
     binding = max(cats, key=lambda c: s.get(c) or 0.0)
     return {"w_S": w, "shares": s, "binding": binding}
+
+
+#: The per-category solver's mirror tie (``KRABBY_OMNI_STROKE_CAT_W`` refuses ``fwd != back``).
+DEFAULT_DOSE_TIE = (("fwd", "back"),)
+
+
+def _dose_per_cat(gr: GateRun, rp: Replay, econ, targets: dict[str, float], w_hi: float = 10.0,
+                  hand_min: bool = False) -> dict:
+    """R4, per category (per-category stroke plan, 2026-09-27): for each ``targets`` category ``c``,
+    the largest ``w_c`` whose DELIVERED stroke pay over ``c``'s gated own-hold steps is <=
+    ``targets[c]`` x ``c``'s tracking income. A category's steps are its own (an own hold is one
+    category) and :func:`delivered` is elementwise, so each category is bisected alone and the answer
+    is exact -- no cross-category coupling. ``reached`` is False when even ``w_hi`` stays under the
+    target (``w`` is then ``w_hi``); ``w`` is None when the stamp has no gated step of ``c``.
+
+    ``hand_min`` (config ``dose_hand_min``): a PAIRED category (side, turn, move_turn) is instead
+    bound by its LOWER hand -- each hand bisected on its own share, ``w_c`` the smaller -- so neither
+    hand exceeds the target (the weight cannot tell the hands apart). Default: the hands pooled."""
+    st = gr.st
+    track = tracking_rate(st, econ)
+    x1 = rp.pay.sum(axis=-1).astype(np.float64)
+    base = st.dt * gr.ctx
+
+    def solve(g, target):
+        den = float(track[g].sum() * st.dt) if g.any() else 0.0
+        if den <= 0:
+            return {"w": None, "share": None, "target": target, "reached": False, "n_steps": int(g.sum())}
+        xs, bs = x1[g], base[g]
+
+        def share(w):
+            return float(delivered(w * xs, bs).sum() / den)
+
+        lo, hi = 0.0, w_hi
+        if share(hi) <= target:
+            w, reached = hi, False
+        else:
+            for _ in range(60):
+                mid = 0.5 * (lo + hi)
+                lo, hi = (mid, hi) if share(mid) <= target else (lo, mid)
+            w, reached = lo, True
+        return {"w": w, "share": share(w), "target": target, "reached": reached, "n_steps": int(g.sum())}
+
+    out: dict[str, dict] = {}
+    for c, target in targets.items():
+        m_ep = np.array([e["category"] == c for e in st.episodes])
+        row = solve(st.own & m_ep[:, None] & rp.gate, target)
+        if hand_min and c in PAIRED:
+            hands = {h: solve(st.own & (m_ep & np.array([str(e["hand"]) == h for e in st.episodes]))[:, None]
+                              & rp.gate, target) for h in EC.HANDS}
+            got = {h: r for h, r in hands.items() if r["w"] is not None}
+            if got:
+                low = min(got, key=lambda h: got[h]["w"])
+                row = {**got[low], "pooled": row, "hands": hands, "bound_by_hand": low}
+        out[c] = row
+    return out
+
+
+def _solve_cat_table(per_run: dict[str, dict], targets: dict[str, float], tie, base_table: dict | None) -> dict:
+    """The per-category table from :func:`_dose_per_cat` on every dose run: each category's ``w_c`` is
+    its minimum over the runs; each ``tie`` group is then bound by its LOWER-weight targeted member
+    (every member, targeted or not, takes that weight -- the mirror tie ``fwd == back``); ``w_S`` =
+    ``w_fwd`` (``KRABBY_OMNI_STROKE_W`` carries it), ``m_c = w_c / w_S`` for every solved category,
+    ``base_table``'s multiplier (``stroke_cat_w``, default 1) for every other. The table is re-parsed by
+    the knob's own parser, so a table training would refuse is refused here."""
+    w: dict[str, float] = {}
+    for c in targets:
+        vals = [r[c]["w"] for r in per_run.values()]
+        if any(v is None for v in vals):
+            missing = [n for n, r in per_run.items() if r[c]["w"] is None]
+            raise SystemExit(f"dose_targets.{c}: no gated {c} step on dose run(s) {missing} -- nothing to dose")
+        w[c] = min(vals)
+    bound = {}
+    for group in tie:
+        solved = [c for c in group if c in w]
+        if not solved:
+            continue
+        lowest = min(solved, key=lambda c: w[c])
+        for c in group:
+            w[c] = w[lowest]
+        bound[",".join(group)] = lowest
+    if "fwd" not in w:
+        raise SystemExit("dose_targets must fix fwd (directly or through its tie): KRABBY_OMNI_STROKE_W carries w_fwd")
+    w_S = w["fwd"]
+    if not w_S > 0.0:
+        raise SystemExit(f"dose_targets: the solved w_fwd is {w_S!r}; the multipliers m_c = w_c / w_fwd are undefined")
+    base = cat_scale_vector(base_table)
+    table = {c: (w[c] / w_S if c in w else float(base[CATEGORIES.index(c)])) for c in SK.STROKE_CAT_KEYS}
+    table = parse_cat_w(table)
+    return {"w_S": w_S, "w_c": w, "table": table, "tie_bound_by": bound,
+            "w_eff": {c: w_S * m for c, m in table.items()}, "spec": format_cat_w(table)}
 
 
 def _hand_gap(a: float | None, b: float | None) -> float | None:
@@ -1880,12 +2361,32 @@ def run_gate(cfg: dict, out_dir: Path, *, log=print) -> dict:
     crit.update(_r123(runs, replays, base))
 
     # ---- R4 dose (primary, own-hold over gated moving steps)
+    # Per-category stroke plan (2026-09-27): `dose_targets` SOLVES the table per category
+    # (_dose_per_cat, tie groups bound by their lower-weight member); `stroke_cat_w` alone is a FIXED
+    # table the single swept w_S multiplies. Neither key: `table` is None and every line below runs
+    # exactly as before the table existed.
     dose_runs = cfg.get("dose_runs") or [cfg["primary"]]
-    doses = {n: _dose(runs[n], runs[n].rp, econ) for n in dose_runs}
-    w_S = min(d["w_S"] for d in doses.values())
+    table = parse_cat_w(cfg.get("stroke_cat_w"))
+    cat_solve = None
+    if cfg.get("dose_targets") is not None:
+        targets = {c: float(v) for c, v in cfg["dose_targets"].items()}
+        tie = [tuple(g) for g in cfg.get("tie", DEFAULT_DOSE_TIE)]
+        hand_min = cfg["dose_hand_min"]
+        per_cat = {n: _dose_per_cat(runs[n], runs[n].rp, econ, targets, hand_min=hand_min) for n in dose_runs}
+        cat_solve = _solve_cat_table(per_cat, targets, tie, table)
+        cat_solve.update(targets=targets, tie=[list(g) for g in tie], per_run=per_cat, hand_min=hand_min)
+        table = cat_solve["table"]
+        w_S = cat_solve["w_S"]
+        doses = {n: {c: d["w"] for c, d in pc.items()} for n, pc in per_cat.items()}
+    else:
+        doses = {n: _dose(runs[n], runs[n].rp, econ,
+                          scale=(scale_rows(runs[n].st, table) if table is not None else None))
+                 for n in dose_runs}
+        w_S = min(d["w_S"] for d in doses.values())
+    scales = {n: (scale_rows(g.st, table) if table is not None else None) for n, g in runs.items()}
     stand_pay = {n: float(g.rp.pay.sum(axis=-1)[g.st.own & np.array(
         [e["category"] == "stand" for e in g.st.episodes])[:, None]].sum()) for n, g in healthy.items()}
-    at_w = {n: _dose_shares_at(runs[n], econ, w_S) for n in healthy}
+    at_w = {n: _dose_shares_at(runs[n], econ, w_S, scale=scales[n]) for n in healthy}
     fwd_ok = all((at_w[n].get("fwd") or 0.0) >= R4_MIN_FWD_SHARE for n in dose_runs)
     turn_ok = all((cat_income(g, "turn") or 0.0) > 0 for g in healthy.values())
     mt_ok = all((cat_income(g, "move_turn") or 0.0) > 0 for g in healthy.values())
@@ -1895,17 +2396,33 @@ def run_gate(cfg: dict, out_dir: Path, *, log=print) -> dict:
         track = tracking_rate(g.st, econ)
         m = g.st.own & g.rp.gate
         den = track[m].sum() * g.st.dt
-        sw_share[n] = float(w_S * g.rp.pay.sum(axis=-1)[m].sum() / den) if den > 0 else None
+        # float32 like the unscaled sum (and the wrapper's own float32 multiply): an all-ones table
+        # then reproduces the untabled number bit for bit
+        x = g.rp.pay.sum(axis=-1) if scales[n] is None else g.rp.pay.sum(axis=-1) * scales[n].astype(np.float32)
+        sw_share[n] = float(w_S * x[m].sum() / den) if den > 0 else None
     crit["R4"] = {"pass": bool(fwd_ok and turn_ok and mt_ok and stand_ok), "w_S": w_S, "per_run": doses,
                   "shares_at_w_S": at_w, "stand_pay": stand_pay, "sideways_side_share_nominal": sw_share,
                   "clauses": {"fwd>=5%": fwd_ok, "stand==0": stand_ok, "turn>0": turn_ok, "move_turn>0": mt_ok},
                   "note": "diag and side are reported, not gated (R4 names fwd, back, turn, move_turn); "
                           "the sideways head is not priced in W's omni economy (nominal share)."}
+    if table is not None:
+        crit["R4"]["stroke_cat_w"] = {"table": table, "spec": format_cat_w(table),
+                                      "w_eff": {c: w_S * m for c, m in table.items()}}
+    if cat_solve is not None:
+        # every targeted category must have reached its share below the bisection cap; the untied
+        # member of a tie group sits BELOW its target by construction (reported, not a failure)
+        reached = {c: all(pc[c]["reached"] for pc in cat_solve["per_run"].values()) for c in cat_solve["targets"]}
+        crit["R4"]["clauses"]["dose targets reached"] = all(reached.values())
+        crit["R4"]["pass"] = crit["R4"]["pass"] and all(reached.values())
+        crit["R4"]["per_category_solve"] = {**cat_solve, "reached": reached}
+        crit["R4"]["note"] += (" Per-category solve: each dose_targets category bisected on its own delivered "
+                               "share; tie groups bound by their lower-weight member; shares_at_w_S are at "
+                               "the solved table.")
 
     # ---- R5 ordering (base vs base + w_S stroke) + term-alone
-    for g in runs.values():
+    for n, g in runs.items():
         if g.prims is not None:
-            _attach_rows(g)
+            _attach_rows(g, scale=scales[n])
     econ_base = econ
     econ_s = dataclasses.replace(econ, extra=econ.extra + (("stroke", w_S),))
     heads_h = {n: _scored(g) for n, g in runs.items() if g.role in ("healthy", "posture")}
@@ -1957,7 +2474,7 @@ def run_gate(cfg: dict, out_dir: Path, *, log=print) -> dict:
     r7 = {}
     ok7 = True
     for n, g in healthy.items():
-        rows = income_table(g.st, g.rp, w_stroke=w_S, w_centring=0.0, econ=econ, ctx=g.ctx)
+        rows = income_table(g.st, g.rp, w_stroke=w_S, w_centring=0.0, econ=econ, ctx=g.ctx, cat_w=table)
         for c in MOVING:
             v = rows.get(c) or {}
             if not v.get("n_steps"):
@@ -2008,6 +2525,9 @@ def run_gate(cfg: dict, out_dir: Path, *, log=print) -> dict:
     rep["criteria"] = crit
     rep["w_S"] = w_S
     rep["w_P"] = crit["P2"].get("w_P")
+    if table is not None:
+        # the knob values a training run arms: KRABBY_OMNI_STROKE_W = w_S, KRABBY_OMNI_STROKE_CAT_W = spec
+        rep["stroke_cat_w"] = crit["R4"]["stroke_cat_w"]
     (out_dir / "replay_gate.json").write_text(json.dumps(_jsonable(rep), indent=2, sort_keys=True))
     md = render_gate_md(rep)
     (out_dir / "REPLAY_GATE.md").write_text(md)
@@ -2015,10 +2535,15 @@ def run_gate(cfg: dict, out_dir: Path, *, log=print) -> dict:
     return rep
 
 
-def _dose_shares_at(gr: GateRun, econ, w: float) -> dict:
+def _dose_shares_at(gr: GateRun, econ, w: float, scale: np.ndarray | None = None) -> dict:
+    """Every category's delivered stroke share of its tracking income at ``w`` (x ``scale``, the
+    per-category table's [N, T] multipliers, when given)."""
     st, rp = gr.st, gr.rp
     track = tracking_rate(st, econ)
-    x = w * rp.pay.sum(axis=-1).astype(np.float64)
+    x1 = rp.pay.sum(axis=-1).astype(np.float64)
+    if scale is not None:
+        x1 = x1 * scale
+    x = w * x1
     d = delivered(x, st.dt * gr.ctx) if gr.ctx is not None else x
     out = {}
     for c in CATEGORIES:
@@ -2030,11 +2555,14 @@ def _dose_shares_at(gr: GateRun, econ, w: float) -> dict:
     return out
 
 
-def _attach_rows(g: GateRun) -> None:
-    """Put the stroke R and the centring b of env step ``s`` on primitive row ``s + 1``."""
+def _attach_rows(g: GateRun, scale: np.ndarray | None = None) -> None:
+    """Put the stroke R and the centring b of env step ``s`` on primitive row ``s + 1``. ``scale``
+    (the per-category table's [N, T] multipliers): the stroke row is ``R * scale``, so R5's
+    ``("stroke", w_S)`` prices the WEIGHTED term, ``w_S * m_c * R``."""
+    stroke = g.rp.R if scale is None else g.rp.R * scale
     for i, p in enumerate(g.prims):
         n = p["T"]
-        for key, src in (("stroke", g.rp.R), ("centring", g.rp.b)):
+        for key, src in (("stroke", stroke), ("centring", g.rp.b)):
             a = np.zeros(n)
             a[1:] = src[i, :n - 1]
             p[key] = a
@@ -2189,6 +2717,12 @@ def _headline(k: str, v: dict) -> str:
         if k == "R3":
             return (_hl("max short share", _extreme(v["short_share"]), "{:.4f}") + "; "
                     + _hl("max Spearman", _extreme(v["spearman_switch"], "rho")))
+        if k == "R4" and "per_category_solve" in v:
+            s = v["shares_at_w_S"]
+            pcs = v["per_category_solve"]
+            return (f"w_S {v['w_S']:.4g}; table {pcs['spec']}; tie bound by {pcs['tie_bound_by']}; shares "
+                    + "; ".join(f"{n} " + ", ".join(f"{c} {_fmt(x)}" for c, x in s[n].items() if c != "stand")
+                                for n in s))
         if k == "R4":
             s = v["shares_at_w_S"]
             return (f"w_S {v['w_S']:.4g}; binding " + ", ".join(f"{n}:{d['binding']}" for n, d in v["per_run"].items())
@@ -2241,8 +2775,14 @@ def render_gate_md(rep: dict) -> str:
     L = ["# REPLAY_GATE -- stroke/posture plan step 7", "",
          f"Economy: `{rep['economy']['source']}` (clock {rep['economy']['clock']}, tibia weight "
          f"{rep['economy']['tibia_weight']}). Parameters: `{json.dumps(rep['params'])}`.", "",
-         f"**w_S = {rep['w_S']:.4g}**, **w_P = {_fmt(rep['w_P'], '{:.4g}')}**", "",
-         "| Id | Verdict | Clauses | Deciding numbers |", "|---|---|---|---|"]
+         f"**w_S = {rep['w_S']:.4g}**, **w_P = {_fmt(rep['w_P'], '{:.4g}')}**", ""]
+    if rep.get("stroke_cat_w"):
+        sc = rep["stroke_cat_w"]
+        L += [f"Per-category stroke table: `KRABBY_OMNI_STROKE_W={rep['w_S']!r}` "
+              f"`KRABBY_OMNI_STROKE_CAT_W={sc['spec']}` -- effective w_S x m_c: "
+              + ", ".join(f"{c} {w:.4g}" for c, w in sc["w_eff"].items())
+              + ". P1-P4 still price the stroke prize at w_S (unscaled).", ""]
+    L += ["| Id | Verdict | Clauses | Deciding numbers |", "|---|---|---|---|"]
     for k in ("R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R9", "P1", "P2", "P3", "P4"):
         v = c.get(k) or {}
         cl = "; ".join(f"{a}: {_verdict(b)}" for a, b in (v.get("clauses") or {}).items())
@@ -2309,6 +2849,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     b.add_argument("run_dir")
     b.add_argument("--w-stroke", type=float, required=True)
     b.add_argument("--w-centring", type=float, required=True)
+    b.add_argument("--stroke-cat-w", default=None, metavar="SPEC",
+                   help="KRABBY_OMNI_STROKE_CAT_W's spec (fwd:m,back:m,side:m,...; the knob's own parser): "
+                        "price the stroke at w_stroke x m_c per category; stroke_per_s stays at w = 1")
     b.add_argument("--params", nargs="*", default=[])
     b.add_argument("--econ-env-yaml", default=str(W_ENV_YAML))
     b.add_argument("--action-clip", type=float, default=None)
@@ -2352,6 +2895,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         r = parity_check(dump, tol=args.tol)
         print(f"[parity] {r['steps']} steps x {r['envs']} envs; max |diff| " +
               ", ".join(f"{k} {v:.3g}" for k, v in r["max_abs"].items()) + f"; checked {r['checked']} < {r['tol']}")
+        if "cat_scale" in r:
+            print("[parity] per-category: reward checked as cat_scale[cat] * sum(pay) / dt; cat_scale "
+                  + ", ".join(f"{c} {m:g}" for c, m in r["cat_scale"].items()) + "; steps per cat "
+                  + ", ".join(f"{c} {n}" for c, n in r["cat_steps"].items()))
+            print(f"[parity] cat vs stand/turning/lat_share: {r['cat_mismatches']} mismatch"
+                  + ("" if r["cat_mismatches"] == 1 else "es"))
         print("[parity] PASS" if r["ok"] else "[parity] FAIL")
         return 0 if r["ok"] else 1
     if args.cmd == "gate":
@@ -2418,19 +2967,23 @@ def main(argv: Sequence[str] | None = None) -> int:
                          f"--econ-env-yaml {own[1]} (or --allow-econ-mismatch to price it under the other economy)")
     if args.action_clip is not None:
         st.action_clip = float(args.action_clip)
+    cat_w = parse_cat_w(args.stroke_cat_w)
     rp = replay(st, params)
     prims = econ_primitives(st, econ, econ_info)
     ctx = context_rows(st, prims, econ)
-    rows = income_table(st, rp, w_stroke=args.w_stroke, w_centring=args.w_centring, econ=econ, ctx=ctx)
+    rows = income_table(st, rp, w_stroke=args.w_stroke, w_centring=args.w_centring, econ=econ, ctx=ctx,
+                        cat_w=cat_w)
     print(f"[income] economy {econ_info['source']} clock {econ_info['clock']} (dump {econ_info['dump_clock']})")
     for n in econ_info["notes"]:
         print(f"[income] economy note: {n}")
     if ctx is None:
         print("[income] the sideways head is not priced in the omni economy: delivered = nominal, no clip rows")
-    print(render_income(Path(args.run_dir).name, rows, w_stroke=args.w_stroke, w_centring=args.w_centring))
+    print(render_income(Path(args.run_dir).name, rows, w_stroke=args.w_stroke, w_centring=args.w_centring,
+                        cat_w=cat_w))
     xlog = None
     if args.train_log_dir:
-        xlog = train_log_crosscheck(st, rp, rows, Path(econ_info["source"]), Path(args.train_log_dir))
+        xlog = train_log_crosscheck(st, rp, rows, Path(econ_info["source"]), Path(args.train_log_dir),
+                                    w_stroke=args.w_stroke, cat_w=cat_w)
         if xlog is None:
             print(f"[income] --train-log-dir {args.train_log_dir}: not a directory; no cross-check")
         else:
@@ -2446,7 +2999,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                 print(f"[income] stock {name}: log {_fmt(d['log_per_s'])}/s replay {_fmt(d['replay_per_s'])}/s")
     if args.json:
         Path(args.json).write_text(json.dumps(_jsonable({"rows": rows, "economy": econ_info, "params": params,
-                                                         "train_log": xlog}), indent=2))
+                                                         "train_log": xlog,
+                                                         **({"stroke_cat_w": cat_w} if cat_w is not None else {})}),
+                                              indent=2))
     return 0
 
 

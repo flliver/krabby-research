@@ -90,12 +90,14 @@ five things the forward block cannot know about:
     no preset) -- ``stroke_knobs.py``, path-loaded and re-exported here the same way.
     ``KRABBY_OMNI_STROKE_W`` swaps ``rewards.reward_stride_length``'s func for the new
     ``RewardFootStroke`` (the old name, so the driver's dump audit and every ``KRABBY_STRIDE_W``/
-    ``KRABBY_PHASEOUT`` reference keep resolving); ``KRABBY_OMNI_CENTRING_W`` ADDS
-    ``rewards.reward_body_centring``; ``KRABBY_OMNI_REWARD_SPLIT=1`` sets
-    ``reward_category_split`` on the env cfg. Applied by :func:`apply_omni_knobs`
-    (``stroke_knobs.apply_stroke_knobs``) LAST of all -- after the motion knobs -- so the swap and
-    the added term see the otherwise-final cfg. Forward and sideways cfg modules must never import
-    this module.
+    ``KRABBY_PHASEOUT`` reference keep resolving); ``KRABBY_OMNI_STROKE_CAT_W`` (per-category
+    stroke plan, 2026-09-27) writes per-category MULTIPLIERS onto that same term's
+    ``params["cat_scale"]``, requiring ``KRABBY_OMNI_STROKE_W`` to already be armed;
+    ``KRABBY_OMNI_CENTRING_W`` ADDS ``rewards.reward_body_centring``;
+    ``KRABBY_OMNI_REWARD_SPLIT=1`` sets ``reward_category_split`` on the env cfg. Applied by
+    :func:`apply_omni_knobs` (``stroke_knobs.apply_stroke_knobs``) LAST of all -- after the motion
+    knobs -- so the swap and the added term see the otherwise-final cfg. Forward and sideways cfg
+    modules must never import this module.
 
 Every parser is pure and lives at module scope with no Isaac import (the Isaac-touching bits
 are lazy imports inside :func:`apply_omni_knobs`), so this module can be path-loaded and
@@ -198,6 +200,9 @@ parse_stroke_w = _sk.parse_stroke_w
 parse_centring_w = _sk.parse_centring_w
 parse_reward_split = _sk.parse_reward_split
 STROKE_KNOB_PARSERS = _sk.STROKE_KNOB_PARSERS
+# NOTE(per-category stroke plan, 2026-09-27): re-exported for the same whitelist reason.
+STROKE_CAT_W_VAR = _sk.STROKE_CAT_W_VAR
+parse_stroke_cat_w = _sk.parse_stroke_cat_w
 
 __all__ = [
     "SLOTS_VAR",
@@ -252,6 +257,8 @@ __all__ = [
     # stroke/posture knobs (stroke_knobs.py)
     "STROKE_W_VAR", "CENTRING_W_VAR", "REWARD_SPLIT_VAR", "STROKE_TERM", "CENTRING_TERM",
     "parse_stroke_w", "parse_centring_w", "parse_reward_split", "STROKE_KNOB_PARSERS",
+    # per-category stroke knob (stroke_knobs.py, 2026-09-27)
+    "STROKE_CAT_W_VAR", "parse_stroke_cat_w",
 ]
 
 SLOTS_VAR = "KRABBY_OMNI_SLOTS"

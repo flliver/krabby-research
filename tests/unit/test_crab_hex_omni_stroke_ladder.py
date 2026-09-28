@@ -4,6 +4,11 @@ knobs' registration in ``run_candidates.py`` (``knob_parsers``, ``OVERLAY_DUMP_C
 ``require_env`` key -- checked against every composed run's stage env (baseline chain, and every
 candidate's own composed chain, which is also what a seed-2 twin trains under).
 
+Also covers the per-category stroke knob (``KRABBY_OMNI_STROKE_CAT_W``, 2026-09-27): the same
+whitelist/parser/``OVERLAY_DUMP_CHECKS`` wiring, plus its own composition rule --
+``_check_stroke_cat_w_composition`` refuses a composed stage that sets CAT_W without a non-zero
+``KRABBY_OMNI_STROKE_W`` in the SAME composed env.
+
 Pure Python; ``run_candidates.py`` is loaded by path (the ``test_crab_hex_omni_motion_ladder.py`` /
 ``test_crab_hex_omni_clock_ladder.py`` pattern) and exercised against the existing
 ``tests/unit/fixtures/candidates_v2_2026-09-22.yaml`` fixture -- no Isaac, no subprocess, no real
@@ -66,7 +71,7 @@ def test_the_fixture_still_validates_before_any_of_this(rc, cands):
 
 def test_stroke_knob_names_are_visible_through_knobs_and_the_whitelist(rc, k):
     whitelist = rc.knob_whitelist()
-    for var in (k.STROKE_W_VAR, k.CENTRING_W_VAR, k.REWARD_SPLIT_VAR):
+    for var in (k.STROKE_W_VAR, k.CENTRING_W_VAR, k.REWARD_SPLIT_VAR, k.STROKE_CAT_W_VAR):
         assert var in whitelist, var
 
 
@@ -75,10 +80,50 @@ def test_stroke_knob_parsers_are_registered(rc, k):
     assert parsers[k.STROKE_W_VAR]("0.02") == 0.02
     assert parsers[k.CENTRING_W_VAR]("0.0") == 0.0
     assert parsers[k.REWARD_SPLIT_VAR]("1") is True
+    assert parsers[k.STROKE_CAT_W_VAR]("side:4.8,diag:1.2,fwd:1,back:1")["side"] == 4.8
     with pytest.raises(ValueError):
         parsers[k.STROKE_W_VAR]("-1")
     with pytest.raises(ValueError):
         parsers[k.REWARD_SPLIT_VAR]("2")
+    with pytest.raises(ValueError):
+        parsers[k.STROKE_CAT_W_VAR]("fwd:2")          # fwd != back after defaults
+
+
+# ---- per-category stroke knob (2026-09-27): its own composition rule (needs a non-zero STROKE_W
+# in the SAME composed stage env), on top of the ordinary whitelist/parser/dump-check gates above.
+def test_stroke_cat_w_without_stroke_w_is_refused_at_dry_run(rc, cands, k):
+    doc = copy.deepcopy(cands)
+    stage = doc["chains"]["scratch_1c"]["stages"][0]
+    stage["overlay"][k.STROKE_CAT_W_VAR] = "side:4.8,diag:1.2,fwd:1,back:1"    # no STROKE_W set
+    reasons = _refusals(rc, doc, "chain:scratch_1c")
+    assert any(k.STROKE_CAT_W_VAR in r and k.STROKE_W_VAR in r for r in reasons), reasons
+
+
+def test_stroke_cat_w_with_stroke_w_composes_cleanly(rc, cands, k):
+    doc = copy.deepcopy(cands)
+    stage = doc["chains"]["scratch_1c"]["stages"][0]
+    stage["overlay"].update({k.STROKE_W_VAR: "0.117",
+                             k.STROKE_CAT_W_VAR: "side:4.8,diag:1.2,fwd:1,back:1"})
+    reasons = _refusals(rc, doc, "chain:scratch_1c")
+    assert not any(k.STROKE_CAT_W_VAR in r for r in reasons), reasons
+
+
+def test_check_stroke_cat_w_composition_directly(rc, k):
+    reasons: list[str] = []
+    rc._check_stroke_cat_w_composition({k.STROKE_CAT_W_VAR: "side:2,back:1,fwd:1"}, "where", reasons)
+    assert len(reasons) == 1 and "where" in reasons[0] and k.STROKE_W_VAR in reasons[0]
+    for env in ({k.STROKE_CAT_W_VAR: "side:2,back:1,fwd:1", k.STROKE_W_VAR: "0.0"},
+                {k.STROKE_CAT_W_VAR: "side:2,back:1,fwd:1", k.STROKE_W_VAR: ""}):
+        r2: list[str] = []
+        rc._check_stroke_cat_w_composition(env, "where", r2)
+        assert len(r2) == 1
+    r3: list[str] = []
+    rc._check_stroke_cat_w_composition({k.STROKE_CAT_W_VAR: "side:2,back:1,fwd:1", k.STROKE_W_VAR: "0.117"},
+                                       "where", r3)
+    assert r3 == []
+    r4: list[str] = []
+    rc._check_stroke_cat_w_composition({}, "where", r4)          # CAT_W absent: nothing to check
+    assert r4 == []
 
 
 def test_len_is_a_recognised_rule_v2_block(rc):
@@ -135,6 +180,54 @@ rewards:
       sigma: 0.2
 reward_category_split: true
 """
+
+#: ``cat_scale`` holds MULTIPLIERS (``parse_stroke_cat_w``'s own table), never weights -- fwd/back/
+#: turn/move_turn at their default 1.0, side and diag raised. Indent matches the real dump (a
+#: ``params/env.yaml`` with ``RewardFootStroke`` armed): params keys at indent 6, a param's own
+#: dict entries (here, cat_scale's six categories) at indent 8.
+STROKE_CAT_DUMP = """
+rewards:
+  reward_stride_length:
+    func: parkour_tasks.crab_hex_omni_task.mdp.crab_hex_omni_stroke_rewards:RewardFootStroke
+    weight: 0.117
+    params:
+      rho0: 0.5
+      cat_scale:
+        fwd: 1.0
+        back: 1.0
+        side: 4.8
+        diag: 1.2
+        turn: 1.0
+        move_turn: 1.0
+"""
+
+STROKE_CAT_DUMP_STRAY_STAND = """
+rewards:
+  reward_stride_length:
+    func: parkour_tasks.crab_hex_omni_task.mdp.crab_hex_omni_stroke_rewards:RewardFootStroke
+    weight: 0.117
+    params:
+      cat_scale:
+        stand: 1.0
+        fwd: 1.0
+        back: 1.0
+        side: 4.8
+        diag: 1.2
+        turn: 1.0
+        move_turn: 1.0
+"""
+
+
+def test_stroke_cat_w_dump_check(rc):
+    check = rc.OVERLAY_DUMP_CHECKS["KRABBY_OMNI_STROKE_CAT_W"]
+    assert check(STOCK_DUMP, "")                              # off: no swap, no cat_scale
+    assert check(STROKE_DUMP, "")                             # STROKE_W armed alone; CAT_W off
+    assert not check(STOCK_DUMP, "side:4.8")                  # armed but no swap and no cat_scale
+    assert not check(STROKE_DUMP, "side:4.8")                 # armed but STROKE_DUMP has no cat_scale
+    assert check(STROKE_CAT_DUMP, "side:4.8,diag:1.2")        # armed, exact table match
+    assert not check(STROKE_CAT_DUMP, "side:5.0,diag:1.2")    # side value differs from the dump
+    assert not check(STROKE_CAT_DUMP, "diag:1.2")             # side defaults to 1.0; dump has 4.8
+    assert not check(STROKE_CAT_DUMP_STRAY_STAND, "side:4.8,diag:1.2")  # a stray stand key fails
 
 
 def test_stroke_w_dump_check(rc):

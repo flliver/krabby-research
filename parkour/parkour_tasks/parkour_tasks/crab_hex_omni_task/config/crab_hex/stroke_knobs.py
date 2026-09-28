@@ -18,6 +18,11 @@ variable                        what it writes when armed
 ``KRABBY_OMNI_REWARD_SPLIT=1``  ``reward_category_split = True`` on the env cfg (the
                                 ``motion_knobs``/``omni_stand_park`` precedent: the attribute is
                                 written ONLY when the knob is on).
+``KRABBY_OMNI_STROKE_CAT_W=..`` per-category MULTIPLIERS on top of ``KRABBY_OMNI_STROKE_W``:
+                                writes ``rewards.reward_stride_length.params["cat_scale"]`` (the
+                                per-category stroke plan, 2026-09-27). Requires
+                                ``KRABBY_OMNI_STROKE_W`` to be armed (non-zero) first -- see its
+                                own docstring below.
 ==============================  ===============================================================
 
 WHY A FUNC SWAP UNDER THE OLD NAME, NOT A NEW ONE. ``reward_stride_length`` is dead bit for bit
@@ -46,6 +51,28 @@ own name:
 ``KRABBY_OMNI_CENTRING_W`` refuses ``w < 0`` and ``0 < w < 0.001`` the same way, and refuses to
 ADD the term twice (a rewards cfg that already carries ``reward_body_centring``).
 
+``KRABBY_OMNI_STROKE_CAT_W="fwd:m,back:m,side:m,diag:m,turn:m,move_turn:m"`` (per-category stroke
+plan, 2026-09-27) holds MULTIPLIERS on top of ``KRABBY_OMNI_STROKE_W``'s weight ``w_S``: the
+effective per-category weight is ``w_S * m_c``. Grammar: comma-separated ``cat:float`` pairs.
+
+* Allowed keys: ``fwd``, ``back``, ``side``, ``diag``, ``turn``, ``move_turn``. Unlisted keys
+  default to ``1.0``, so ``fwd:2,back:2`` alone is a legal, self-describing table.
+* Values must be finite and ``>= 0``. Unlike ``KRABBY_OMNI_STROKE_W`` there is NO epsilon floor
+  here: the manager weight stays ``w_S``, so a multiplier strictly between ``0`` and
+  :data:`EPS_W` cannot look armed-but-silent the way a raw weight can.
+* **Refused:** an unknown key, a duplicate key, an empty spec (including a bare ``,``), the key
+  ``stand`` (it pays exactly 0, so a stand multiplier would look armed and do nothing), and
+  ``fwd != back`` after defaults are filled (the mirror tie -- see ``mirror_constraints`` in the
+  scoping spec; ``fwd:2`` alone is refused and must be spelled ``fwd:2,back:2``).
+* **Composition refusal:** ``KRABBY_OMNI_STROKE_CAT_W`` set while ``KRABBY_OMNI_STROKE_W`` is
+  unset, blank or exactly ``0.0`` -- there is then no :class:`RewardFootStroke` term to carry
+  ``cat_scale`` (the stock ``RewardStrideLength`` has no such param).
+* **Where it is written.** ``params["cat_scale"]`` on the SAME ``reward_stride_length`` term
+  ``KRABBY_OMNI_STROKE_W`` just swapped in, with all six keys written explicitly (defaults
+  filled), so the env.yaml dump is self-describing. Applied AFTER the weight knob, in the same
+  call to :func:`apply_stroke_knobs`.
+* Unset or blank writes nothing, exactly like the other three knobs.
+
 Pure at module scope (no Isaac, no torch): the appliers import ``RewTerm`` / ``SceneEntityCfg`` /
 the reward classes lazily, and every parser runs in a bare interpreter -- see
 ``tests/unit/test_crab_hex_omni_stroke_knobs.py``. Path-loaded and re-exported by ``omni_knobs.py``
@@ -63,6 +90,12 @@ import os
 STROKE_W_VAR = "KRABBY_OMNI_STROKE_W"
 CENTRING_W_VAR = "KRABBY_OMNI_CENTRING_W"
 REWARD_SPLIT_VAR = "KRABBY_OMNI_REWARD_SPLIT"
+STROKE_CAT_W_VAR = "KRABBY_OMNI_STROKE_CAT_W"
+
+#: The six category keys :func:`parse_stroke_cat_w` accepts, in the order a table is always
+#: written back (NOT :data:`TELEMETRY_CATEGORIES`'s own order, which also carries ``stand`` --
+#: the refused key -- first). ``fwd``/``back`` first because they are the mirror-tied pair.
+STROKE_CAT_KEYS = ("fwd", "back", "side", "diag", "turn", "move_turn")
 
 #: The names the two knobs write onto ``cfg.rewards`` -- the func swap keeps the OLD name (so the
 #: driver's dump audit and every ``KRABBY_STRIDE_W``/``KRABBY_PHASEOUT`` reference still resolve);
@@ -83,9 +116,10 @@ EPS_W = 0.001
 _REWARDS_MOD = "parkour_tasks.crab_hex_omni_task.mdp.crab_hex_omni_stroke_rewards"
 
 __all__ = [
-    "STROKE_W_VAR", "CENTRING_W_VAR", "REWARD_SPLIT_VAR", "STROKE_TERM", "CENTRING_TERM", "EPS_W",
-    "parse_stroke_w", "parse_centring_w", "parse_reward_split", "STROKE_KNOB_PARSERS",
-    "apply_stroke_knobs",
+    "STROKE_W_VAR", "CENTRING_W_VAR", "REWARD_SPLIT_VAR", "STROKE_CAT_W_VAR", "STROKE_TERM",
+    "CENTRING_TERM", "EPS_W", "STROKE_CAT_KEYS",
+    "parse_stroke_w", "parse_centring_w", "parse_reward_split", "parse_stroke_cat_w",
+    "STROKE_KNOB_PARSERS", "apply_stroke_knobs",
 ]
 
 
@@ -143,11 +177,68 @@ def parse_reward_split(text) -> bool:
     raise ValueError(f"{REWARD_SPLIT_VAR} must be '0' or '1', got {text!r}")
 
 
+def parse_stroke_cat_w(text) -> dict[str, float] | None:
+    """``KRABBY_OMNI_STROKE_CAT_W`` -> ``{fwd,back,side,diag,turn,move_turn: multiplier}`` with
+    every key filled (defaults applied), or ``None`` for unset/blank (no-op).
+
+    Grammar: comma-separated ``cat:float``. See the module docstring for the full refusal list
+    (unknown/duplicate/empty/``stand``/``fwd != back``); this is its one implementation.
+    """
+    if _blank(text):
+        return None
+    spec = str(text).strip()
+    table: dict[str, float] = {}
+    for entry in spec.split(","):
+        entry = entry.strip()
+        if not entry:
+            raise ValueError(
+                f"{STROKE_CAT_W_VAR} entries must be non-empty 'cat:weight' pairs, got {text!r}"
+            )
+        key, sep, raw_value = entry.partition(":")
+        key = key.strip()
+        if not sep:
+            raise ValueError(
+                f"{STROKE_CAT_W_VAR} entries must be 'cat:weight', got {entry!r} in {text!r}"
+            )
+        if key == "stand":
+            raise ValueError(
+                f"{STROKE_CAT_W_VAR} refuses the key 'stand': it pays exactly 0 (a stance that "
+                f"closes on a STAND step scores nothing), so a stand multiplier would look armed "
+                f"and do nothing, got {text!r}"
+            )
+        if key not in STROKE_CAT_KEYS:
+            raise ValueError(
+                f"{STROKE_CAT_W_VAR} unknown category {key!r} (allowed: {STROKE_CAT_KEYS}), "
+                f"got {text!r}"
+            )
+        if key in table:
+            raise ValueError(f"{STROKE_CAT_W_VAR} duplicate key {key!r}, got {text!r}")
+        value = _float(STROKE_CAT_W_VAR, raw_value)
+        if value < 0.0:
+            raise ValueError(
+                f"{STROKE_CAT_W_VAR} multipliers must be non-negative, got {raw_value!r} for "
+                f"{key!r} in {text!r}"
+            )
+        table[key] = value
+    if not table:
+        raise ValueError(f"{STROKE_CAT_W_VAR} must not be empty, got {text!r}")
+    for key in STROKE_CAT_KEYS:
+        table.setdefault(key, 1.0)
+    if table["fwd"] != table["back"]:
+        raise ValueError(
+            f"{STROKE_CAT_W_VAR} requires fwd == back (the mirror tie forced by the mirror loss "
+            f"-- write both explicitly), got fwd={table['fwd']!r} back={table['back']!r} in "
+            f"{text!r}"
+        )
+    return table
+
+
 #: ``{variable: parser}`` for every knob this module owns (the ladder's round-trip check).
 STROKE_KNOB_PARSERS = {
     STROKE_W_VAR: parse_stroke_w,
     CENTRING_W_VAR: parse_centring_w,
     REWARD_SPLIT_VAR: parse_reward_split,
+    STROKE_CAT_W_VAR: parse_stroke_cat_w,
 }
 
 
@@ -237,6 +328,27 @@ def _apply_stroke_w_knob(cfg, env, weight: float, *, term_cls=None, builders=Non
     setattr(rewards, STROKE_TERM, term_cls(func=func, weight=weight, params=dict(params)))
 
 
+def _apply_stroke_cat_w_knob(cfg, stroke_w: float | None, table: dict[str, float]) -> None:
+    """``KRABBY_OMNI_STROKE_CAT_W``: write ``cat_scale`` onto the SAME term ``KRABBY_OMNI_STROKE_W``
+    just swapped in. Refuses when there is no armed :class:`RewardFootStroke` to carry it -- see
+    the module docstring's composition refusal.
+    """
+    if stroke_w is None or stroke_w == 0.0:
+        raise RuntimeError(
+            f"{STROKE_CAT_W_VAR} is set but {STROKE_W_VAR} is unset, blank or 0.0: there is no "
+            f"RewardFootStroke term to scale (a 0.0-weight term is skipped by the reward manager "
+            f"entirely). Set {STROKE_W_VAR} to a non-zero weight to arm {STROKE_CAT_W_VAR}."
+        )
+    rewards = _rewards(cfg, STROKE_CAT_W_VAR)
+    term = getattr(rewards, STROKE_TERM, None)
+    if term is None or not hasattr(term, "params"):
+        raise RuntimeError(
+            f"{STROKE_CAT_W_VAR} is set but this env's rewards cfg has no {STROKE_TERM} term to "
+            "carry cat_scale, so the knob would be silently ignored."
+        )
+    term.params["cat_scale"] = {key: table[key] for key in STROKE_CAT_KEYS}
+
+
 def _apply_centring_w_knob(cfg, weight: float, *, term_cls=None, builders=None) -> None:
     """``KRABBY_OMNI_CENTRING_W``'s ADD: refuses a rewards cfg that already carries the term."""
     rewards = _rewards(cfg, CENTRING_W_VAR)
@@ -251,16 +363,22 @@ def _apply_centring_w_knob(cfg, weight: float, *, term_cls=None, builders=None) 
 
 
 def apply_stroke_knobs(cfg, env=os.environ, *, term_cls=None, builders=None) -> None:
-    """Apply the three stroke/posture knobs to a built omni env cfg (no-op for each one that is
+    """Apply the four stroke/posture knobs to a built omni env cfg (no-op for each one that is
     off). Called by ``omni_knobs.apply_omni_knobs`` LAST, so the func swap and the added term see
     the otherwise-final cfg. ``term_cls`` / ``builders`` let a unit test pass stand-ins for
     ``RewTerm`` and the reward classes (the ``motion_knobs`` pattern; the real ones need Isaac).
+    ``KRABBY_OMNI_STROKE_CAT_W`` is applied right after ``KRABBY_OMNI_STROKE_W`` (before
+    centring/split), so it sees the just-swapped term and reads ``stroke_w`` as already parsed.
     """
     get = env.get
 
     stroke_w = parse_stroke_w(get(STROKE_W_VAR))
     if stroke_w is not None:
         _apply_stroke_w_knob(cfg, env, stroke_w, term_cls=term_cls, builders=builders)
+
+    cat_w = parse_stroke_cat_w(get(STROKE_CAT_W_VAR))
+    if cat_w is not None:
+        _apply_stroke_cat_w_knob(cfg, stroke_w, cat_w)
 
     centring_w = parse_centring_w(get(CENTRING_W_VAR))
     if centring_w is not None:

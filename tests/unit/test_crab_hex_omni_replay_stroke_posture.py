@@ -518,6 +518,61 @@ def test_income_refuses_a_clock_held_stamp_priced_under_a_clock_free_economy(tmp
     assert t.stamp_clock(t.load_stamp(run)) is None                    # no own dump: nothing to compare
 
 
+# ---------------------------------------------------------------- train-log stroke weight guard
+def _log_dir_with_stroke_dump(tmp_path, *, weight: float, cat_scale: dict[str, float] | None = None,
+                              func: str = "parkour_tasks.crab_hex_omni_task.mdp.crab_hex_omni_stroke_rewards"
+                                          ":RewardFootStroke") -> Path:
+    """A ``log_dir`` whose ``params/env.yaml`` carries ``reward_stride_length`` at ``weight`` -- the
+    real block-YAML shape (``test_crab_hex_omni_stroke_ladder.py``'s ``STROKE_CAT_DUMP``: ``params`` at
+    indent 4, a param key such as ``cat_scale`` at 6, its own entries at 8)."""
+    log_dir = tmp_path / f"log_{weight}_{len(cat_scale or {})}_{abs(hash(func)) % 997}"
+    (log_dir / "params").mkdir(parents=True)
+    lines = ["rewards:", "  reward_stride_length:", f"    func: {func}", f"    weight: {weight}"]
+    if cat_scale is not None:
+        lines += ["    params:", "      cat_scale:"] + [f"        {k}: {v}" for k, v in cat_scale.items()]
+    (log_dir / "params" / "env.yaml").write_text("\n".join(lines) + "\n")
+    return log_dir
+
+
+def test_train_log_weight_check_accepts_a_matching_table(tmp_path):
+    table = t.parse_cat_w("side:4.8,diag:1.2")
+    log_dir = _log_dir_with_stroke_dump(tmp_path, weight=0.1, cat_scale={c: table[c] for c in t.SK.STROKE_CAT_KEYS})
+    t._train_log_stroke_weight_check(log_dir, w_stroke=0.1, cat_w=table)          # no SystemExit
+    # the untabled path also accepts a matching plain weight
+    plain = _log_dir_with_stroke_dump(tmp_path, weight=0.1)
+    t._train_log_stroke_weight_check(plain, w_stroke=0.1, cat_w=None)
+
+
+def test_train_log_weight_check_refuses_a_mismatched_table(tmp_path):
+    table = t.parse_cat_w("side:4.8,diag:1.2")
+    log_dir = _log_dir_with_stroke_dump(tmp_path, weight=0.1, cat_scale={c: table[c] for c in t.SK.STROKE_CAT_KEYS})
+    with pytest.raises(SystemExit, match="reward_stride_length"):
+        t._train_log_stroke_weight_check(log_dir, w_stroke=0.1, cat_w=t.parse_cat_w("side:5.0,diag:1.2"))
+    with pytest.raises(SystemExit):                                              # the base weight itself differs
+        t._train_log_stroke_weight_check(log_dir, w_stroke=0.2, cat_w=table)
+    plain = _log_dir_with_stroke_dump(tmp_path, weight=0.1)
+    with pytest.raises(SystemExit):
+        t._train_log_stroke_weight_check(plain, w_stroke=0.2, cat_w=None)
+
+
+def test_train_log_weight_check_refuses_a_dumped_cat_scale_with_no_cli_stroke_cat_w(tmp_path):
+    table = t.parse_cat_w("side:4.8,diag:1.2")
+    log_dir = _log_dir_with_stroke_dump(tmp_path, weight=0.1, cat_scale={c: table[c] for c in t.SK.STROKE_CAT_KEYS})
+    with pytest.raises(SystemExit, match="no --stroke-cat-w"):
+        t._train_log_stroke_weight_check(log_dir, w_stroke=0.1, cat_w=None)
+
+
+def test_train_log_weight_check_skips_with_a_note_when_not_applicable(tmp_path, capsys):
+    no_params = tmp_path / "no_params"
+    no_params.mkdir()
+    t._train_log_stroke_weight_check(no_params, w_stroke=0.1, cat_w=None)         # no params/env.yaml at all
+    assert "no params/env.yaml" in capsys.readouterr().out
+    stock = _log_dir_with_stroke_dump(tmp_path, weight=0.5,
+                                      func="parkour_isaaclab.envs.mdp.rewards:RewardStrideLength")
+    t._train_log_stroke_weight_check(stock, w_stroke=999.0, cat_w=None)           # would mismatch -- skipped instead
+    assert "RewardFootStroke" in capsys.readouterr().out
+
+
 # ============================================================================ bootstrap / validate
 def test_paired_bootstrap_of_a_run_against_itself_is_zero_with_a_finite_mde(tmp_path):
     run = omni_stamp(tmp_path, labels=("fwd", "lat_l", "lat_r"), per=5, T=260)
@@ -891,3 +946,342 @@ def test_pooled_cli_prints_json_and_writes_the_same_json_to_file(tmp_path, capsy
     assert rc2 == 0
     printed2 = json.loads(capsys.readouterr().out)
     assert printed2["rows"]["side"]["body_offset"]["verdict"] == "TIE"     # an unreachable bar
+
+
+# ============================================================================ per-category stroke plan (2026-09-27)
+# income (cat_w), the R4 per-category dose solver, parity's cat/cat_scale keys, and the new
+# mechanism readout keys (achieved_speed, stride_per_speed, touchdown_hz, taps_per_s).
+def test_income_table_all_ones_cat_w_matches_the_untabled_call_bitwise(tmp_path):
+    run = omni_stamp(tmp_path, labels=("fwd", "lat_l", "turn_l90"), per=2, T=260)
+    st = t.load_stamp(run)
+    rp = t.replay(st)
+    econ, _info = t.load_economy(Path(st.meta["checkpoint"]).parent / "params" / "env.yaml")
+    ctx = np.full((st.N, st.arr["segment_id"].shape[1]), 5.0)
+    plain = t.income_table(st, rp, w_stroke=0.117, w_centring=0.0, econ=econ, ctx=ctx)
+    ones = t.parse_cat_w("fwd:1,back:1,side:1,diag:1,turn:1,move_turn:1")
+    tabled = t.income_table(st, rp, w_stroke=0.117, w_centring=0.0, econ=econ, ctx=ctx, cat_w=ones)
+    assert set(plain) == set(tabled)
+    for name, row in plain.items():
+        trow = dict(tabled[name])
+        eff = trow.pop("w_stroke_eff", None)          # the only key cat_w adds
+        assert trow == row, name
+        if "n_steps" in row and row["n_steps"] > 0:
+            assert eff == pytest.approx(0.117)
+
+
+def test_income_table_cat_w_scales_only_the_named_categorys_stroke_numbers(tmp_path):
+    run = omni_stamp(tmp_path, labels=("fwd", "lat_l", "turn_l90"), per=2, T=260)
+    st = t.load_stamp(run)
+    rp = t.replay(st)
+    econ, _info = t.load_economy(Path(st.meta["checkpoint"]).parent / "params" / "env.yaml")
+    ctx = np.full((st.N, st.arr["segment_id"].shape[1]), 5.0)
+    plain = t.income_table(st, rp, w_stroke=0.117, w_centring=0.0, econ=econ, ctx=ctx)
+    table = t.parse_cat_w("side:3.7")
+    scaled = t.income_table(st, rp, w_stroke=0.117, w_centring=0.0, econ=econ, ctx=ctx, cat_w=table)
+    for key in ("stroke_nominal_per_s", "stroke_delivered_per_s"):
+        assert scaled["side"][key] == pytest.approx(3.7 * plain["side"][key], rel=1e-9)
+        for cat in ("fwd", "turn"):
+            assert scaled[cat][key] == pytest.approx(plain[cat][key], rel=1e-9)
+    # stroke_per_s stays at w=1, unscaled, for every row (module docstring)
+    for name in plain:
+        assert scaled[name].get("stroke_per_s") == plain[name].get("stroke_per_s")
+    assert scaled["side"]["w_stroke_eff"] == pytest.approx(0.117 * 3.7)
+    assert scaled["fwd"]["w_stroke_eff"] == pytest.approx(0.117)
+
+
+def test_scale_rows_all_ones_is_bitwise_ones_and_none_table_matches(tmp_path):
+    run = omni_stamp(tmp_path, labels=("fwd", "lat_l"), per=1, T=100)
+    st = t.load_stamp(run)
+    assert st.cat_step is not None
+    T = st.arr["segment_id"].shape[1]
+    assert (t.scale_rows(st, None) == 1.0).all()
+    assert t.scale_rows(st, None).shape == (st.N, T)
+    ones = t.parse_cat_w("side:1")  # every key defaults to 1.0
+    assert np.array_equal(t.scale_rows(st, ones), t.scale_rows(st, None))
+    table = t.parse_cat_w("side:4.8")
+    scaled = t.scale_rows(st, table)
+    side_ep = np.array([e["category"] == "side" for e in st.episodes])
+    own_side = st.own & side_ep[:, None]
+    own_other = st.own & ~side_ep[:, None]
+    assert own_side.any() and own_other.any()
+    assert (scaled[own_side] == 4.8).all()
+    assert (scaled[own_other] == 1.0).all()
+    assert (scaled[:, :PRO] == 1.0).all()  # the prologue segment (-1) always maps to 'stand'
+
+
+def test_format_cat_w_round_trips_through_parse_cat_w(tmp_path):
+    table = {"fwd": 2.0, "back": 2.0, "side": 4.8, "diag": 1.2, "turn": 0.7, "move_turn": 1.9}
+    spec = t.format_cat_w(table)
+    assert t.parse_cat_w(spec) == t.parse_cat_w(table)
+    assert t.parse_cat_w(table) == table
+
+
+def test_parse_cat_w_refuses_exactly_as_the_knob_does():
+    with pytest.raises(SystemExit, match="fwd == back"):
+        t.parse_cat_w("fwd:2")
+    with pytest.raises(SystemExit, match="unknown category"):
+        t.parse_cat_w("front:2")
+    assert t.parse_cat_w(None) is None
+
+
+# ---------------------------------------------------------------------- R4 per-category dose solver
+def test_dose_per_cat_solver_hits_its_targets_with_the_fwd_back_tie(tmp_path):
+    labels = ("stand", "fwd", "lat_l", "lat_r", "back", "diag", "turn_l90", "turn_r90", "move_turn",
+             "move_turn_r")
+    healthy = omni_stamp(tmp_path, labels=labels, per=2, T=260, name="healthy")
+    degen = omni_stamp(tmp_path, labels=labels, per=2, T=260, name="degen", speed_scale=0.3)
+    targets = {"fwd": 0.08, "side": 0.08, "turn": 0.08}
+    cfg = {"primary": "H", "healthy": {"H": str(healthy)}, "degenerate": {"D": str(degen)},
+           "dose_targets": targets, "dose_hand_min": True}
+    cfg_path = tmp_path / "cfg.json"
+    cfg_path.write_text(json.dumps(cfg))
+    out = tmp_path / "gate"
+    t.main(["gate", "--config", str(cfg_path), "--out", str(out)])
+    rep = json.loads((out / "replay_gate.json").read_text())
+    r4 = rep["criteria"]["R4"]
+    pcs = r4["per_category_solve"]
+    # the mirror tie: fwd and back always land on the SAME solved weight, so fwd's own multiplier
+    # (w_S = w_fwd) is exactly 1 and back's equals it
+    assert pcs["table"]["fwd"] == pytest.approx(1.0) and pcs["table"]["back"] == pytest.approx(1.0)
+    assert pcs["tie_bound_by"]["fwd,back"] == "fwd"
+    for cat in targets:
+        assert pcs["reached"][cat], (cat, pcs["per_run"])
+    shares = r4["shares_at_w_S"]["H"]
+    for cat, target in targets.items():
+        assert shares[cat] == pytest.approx(target, abs=2e-3), cat
+    assert r4["clauses"]["dose targets reached"] is True
+    # re-parsing the solved table must not itself be refused (the knob would accept it)
+    assert t.parse_cat_w(pcs["table"]) == pcs["table"]
+
+
+def test_dose_per_cat_pooled_vs_hand_min_can_differ_on_a_paired_category(tmp_path):
+    """``dose_hand_min`` (config docstring): pooling side's two hands vs binding by the lower hand
+    give different solved weights whenever the two hands' own delivered shares differ -- exactly the
+    W/t3 turn gap the plan's notes flag (+1 % / +9 %). Built here with an asymmetric side pair (lat_l
+    walks faster than lat_r, so its stroke-per-tracking share differs by hand)."""
+    labels = ("stand", "fwd", "lat_l", "lat_r", "back")
+    run = root = tmp_path
+    healthy = root / "healthy" / "suite__omni/seed001/2026-01-01_00-00-00"
+    # build directly (not through omni_stamp's uniform per-label speed) so the two side hands differ
+    (healthy / "raw").mkdir(parents=True)
+    (healthy / "metrics").mkdir()
+    head = _head(root)
+    emap, idx = [], 0
+    specs = [("stand", None, 0.0, 0.0), ("fwd", None, 0.25, 0.0), ("back", None, 0.22, math.pi),
+             ("lat_l", "l", 0.30, math.pi / 2), ("lat_r", "r", 0.15, -math.pi / 2)]
+    for label, hand, speed, dir_w in specs:
+        cat = "stand" if label == "stand" else ("back" if label == "back" else ("fwd" if label == "fwd" else "side"))
+        hid = LABELS.index(label)
+        for _e in range(2):
+            z = walker(260, speed=speed, dir_w=dir_w, wz=0.0, seed=idx)
+            psi = z.pop("psi")
+            seg = np.full(260, hid, dtype=np.int16)
+            seg[:PRO] = -1
+            seg[PRO:PRO + SETTLE] = 0
+            vw = np.where((np.arange(260) > PRO + SETTLE)[:, None],
+                          speed * np.array([math.cos(dir_w), math.sin(dir_w)])[None, :], 0.0)
+            c, s = np.cos(psi), np.sin(psi)
+            cmd = np.stack([c * vw[:, 0] + s * vw[:, 1], -s * vw[:, 0] + c * vw[:, 1], 0 * c], axis=1)
+            steady = np.zeros(260, dtype=bool)
+            steady[PRO + SETTLE + 10:] = True
+            z.update({"cmd_applied": cmd.astype(np.float32), "segment_id": seg, "steady_mask": steady,
+                      "done": np.zeros(260, dtype=bool), "heading_err": np.zeros(260, dtype=np.float32),
+                      "travel_yaw": np.full(260, 0.123, dtype=np.float32), "dt": np.float64(DT)})
+            np.savez(healthy / "raw" / f"episode_{idx:02d}.npz", **z)
+            (healthy / "metrics" / f"episode_{idx:02d}.json").write_text(json.dumps(
+                {"category": cat, "stride": {"pooled_along_command": {"mean": 0.1}}}))
+            emap.append({"category": cat, "env": _e, "env_index": idx, "hand": hand, "label": label, "wave": 0})
+            idx += 1
+    meta = {"checkpoint": str(head / "model_0.pt"), "scenario_id": "suite__omni", "dt": DT, "joint_names": JOINTS,
+            "foot_body_names": [f"{leg}_Footpad" for leg in FOOT_ORDER], "hold_labels": LABELS,
+            "hold_dirs": [0.0] + [HOLD[x][3] for x in LABELS[1:]],
+            "hold_faces": [0.0] + [HOLD[x][4] for x in LABELS[1:]], "env_index_map": emap,
+            "episodes_total": idx, "n_steps_per_env": [260] * idx, "travel_yaw": 0.0,
+            "suite": {"hold_s": {x: (260 - PRO - SETTLE) * DT for x in LABELS[1:]}}}
+    (healthy / "run_meta.json").write_text(json.dumps(meta))
+    (healthy / "complete.json").write_text(json.dumps({"episodes_total": idx}))
+    st = t.load_stamp(healthy)
+    rp = t.replay(st)
+    econ, _info = t.load_economy(head / "params" / "env.yaml")
+    zero_ctx = np.zeros((st.N, st.arr["segment_id"].shape[1]))  # a neutral context: delivered() == nominal
+    gr = t.GateRun(name="healthy", role="healthy", st=st, rp=rp, ctx=zero_ctx)
+    targets = {"fwd": 0.10, "side": 0.10}
+    per_cat_pooled = t._dose_per_cat(gr, rp, econ, targets, hand_min=False)
+    per_cat_hand = t._dose_per_cat(gr, rp, econ, targets, hand_min=True)
+    assert per_cat_hand["side"]["w"] <= per_cat_pooled["side"]["w"] + 1e-9
+    assert set(per_cat_hand["side"]["hands"]) == {"l", "r"}
+    assert per_cat_hand["side"]["bound_by_hand"] in ("l", "r")
+
+
+# ---------------------------------------------------------------------- parity with cat / cat_scale
+def _make_dump_cat(tmp_path, table: dict[str, float] | None, *, corrupt_scale: bool = False) -> Path:
+    """A wrapper-style parity dump (the ``_make_dump`` pattern) with ``cat`` / ``cat_scale`` written
+    the way an armed ``KRABBY_OMNI_STROKE_CAT_W`` wrapper would: ``cat`` from the stamp's own
+    per-step category, ``reward`` pre-multiplied by ``cat_scale[cat]`` (the wrapper's own op)."""
+    run = omni_stamp(tmp_path, labels=("fwd", "lat_l", "turn_l90"), per=1, T=200)
+    st = t.load_stamp(run)
+    S = int(st.S.min())
+    a = st.arr
+    N = st.N
+    stt, cst = SM.init_stroke_state(N, 6), SM.init_centring_state(N)
+    rows = {k: [] for k in t.PARITY_KEYS + ("reset", "pay", "o")}
+    cat_scale = t.cat_scale_vector(table).astype(np.float32)
+    for s in range(S):
+        inp = {"force": a["foot_force_norm"][:, s + 1], "foot_pos_w": a["foot_pos_w"][:, s + 1],
+               "root_pos_w": a["root_pos_w"][:, s + 1], "heading": st.psi[:, s + 1].astype(np.float32),
+               "cmd": a["cmd_applied"][:, s], "stand": st.stand[:, s],
+               "root_lin_vel_b_xy": a["root_lin_vel_b"][:, s + 1, :2],
+               "root_ang_vel_b_z": a["root_ang_vel_b"][:, s + 1, 2], "turning": st.turning[:, s],
+               "lat_share": st.lat_share[:, s].astype(np.float32), "resampled": st.resampled[:, s]}
+        tt = {k: torch.as_tensor(np.ascontiguousarray(v)) for k, v in inp.items()}
+        R, stt, pay = SM.foot_stroke_step(tt["force"], tt["foot_pos_w"], tt["root_pos_w"], tt["heading"], tt["cmd"],
+                                          tt["stand"], tt["root_lin_vel_b_xy"], tt["root_ang_vel_b_z"], stt, DT,
+                                          1.2, tt["turning"])
+        b, cst, o = SM.body_centring_step(tt["foot_pos_w"], tt["root_pos_w"], tt["heading"], tt["cmd"], tt["stand"],
+                                          tt["root_lin_vel_b_xy"], cst, DT, tt["lat_share"], tt["resampled"])
+        cat = st.cat_step[:, s].astype(np.int64)
+        scaled_reward = (R.numpy().astype(np.float32) * cat_scale[cat]).astype(np.float32)
+        for k, v in inp.items():
+            rows[k].append(v)
+        rows["reward"].append(scaled_reward)
+        rows["b"].append(b.numpy())
+        rows["reset"].append(np.zeros(N, dtype=bool))
+        rows["pay"].append(pay.numpy())
+        rows["o"].append(o.numpy())
+        rows.setdefault("cat", []).append(cat.astype(np.int8))
+    dump = {k: np.stack(v) for k, v in rows.items()}
+    dump.update(dt=np.float64(DT), turn_radius=np.float64(1.2), cat_scale=cat_scale.astype(np.float64))
+    if corrupt_scale:
+        dump["cat_scale"] = dump["cat_scale"] * 1.01
+    path = tmp_path / "cat_dump.npz"
+    np.savez(path, **dump)
+    return path
+
+
+def test_parity_check_passes_a_consistent_cat_scaled_dump_and_fails_a_mismatched_one(tmp_path):
+    table = t.parse_cat_w("side:4.8,turn:0.6")
+    good = _make_dump_cat(tmp_path / "g", table)
+    r = t.parity_check(dict(np.load(good)))
+    assert r["ok"], r
+    want = {c: float(t.cat_scale_vector(table)[i]) for i, c in enumerate(t.CATEGORIES)}
+    assert r["cat_scale"] == pytest.approx(want)
+    assert sum(r["cat_steps"].values()) == r["steps"] * r["envs"]
+
+    bad = _make_dump_cat(tmp_path / "b", table, corrupt_scale=True)
+    r_bad = t.parity_check(dict(np.load(bad)))
+    assert not r_bad["ok"]
+    assert r_bad["max_abs"]["pay_sum"] > 1e-3
+
+
+def test_parity_check_refuses_cat_without_cat_scale_and_vice_versa(tmp_path):
+    good = _make_dump_cat(tmp_path / "g", t.parse_cat_w("side:2,back:1,fwd:1"))
+    d = dict(np.load(good))
+    d.pop("cat_scale")
+    with pytest.raises(SystemExit, match="without"):
+        t.parity_check(d)
+    d2 = dict(np.load(good))
+    d2.pop("cat")
+    with pytest.raises(SystemExit, match="without"):
+        t.parity_check(d2)
+
+
+def test_parity_check_old_dumps_without_cat_keys_still_pass(tmp_path):
+    """A dump saved before this knob existed (no ``cat`` / ``cat_scale`` at all) keeps passing --
+    :func:`_make_dump` (no cat_w) is exactly that shape."""
+    good = _make_dump(tmp_path / "g")
+    d = dict(np.load(good))
+    assert "cat" not in d and "cat_scale" not in d
+    r = t.parity_check(d)
+    assert r["ok"] and "cat_scale" not in r
+
+
+def test_parity_check_cat_cross_check_catches_a_mislabel_the_numbers_alone_would_miss(tmp_path):
+    """``side`` and ``diag`` given the SAME multiplier: relabelling a ``side`` row's ``cat`` as
+    ``diag`` leaves the recomputed reward (``scale_vec[cat]`` unchanged either way) matching to ``tol``
+    -- the pre-existing numeric recompute alone would pass this dump -- so only the independent
+    stand/turning/lat_share cross-check (:func:`_cat_column_mismatches`) catches the mislabel."""
+    table = t.parse_cat_w("side:4.8,diag:4.8")
+    good = _make_dump_cat(tmp_path / "g", table)
+    d = dict(np.load(good))
+    r_good = t.parity_check(d)
+    assert r_good["ok"] and r_good["cat_mismatches"] == 0
+
+    side_i, diag_i = t.CATEGORIES.index("side"), t.CATEGORIES.index("diag")
+    assert (d["cat"] == side_i).any(), "fixture must carry at least one side row"
+    bad = dict(d)
+    cats = d["cat"].copy()
+    cats[cats == side_i] = diag_i
+    bad["cat"] = cats
+    r_bad = t.parity_check(bad)
+    assert r_bad["max_abs"]["pay_sum"] < 1e-9          # the numeric recompute is UNCHANGED (same scale)
+    assert not r_bad["ok"]
+    assert r_bad["cat_mismatches"] > 0
+
+
+def test_parity_check_refuses_a_cat_dump_missing_lat_share_rather_than_skipping_the_cross_check(tmp_path):
+    """``lat_share`` (like ``stand`` / ``turning``) is already in ``PARITY_KEYS`` -- unconditionally
+    required -- so a dump missing it fails with the existing clear message, even with ``cat`` present,
+    rather than silently skipping the new cross-check."""
+    good = _make_dump_cat(tmp_path / "g", t.parse_cat_w("side:4.8"))
+    d = dict(np.load(good))
+    del d["lat_share"]
+    with pytest.raises(SystemExit, match="lacks"):
+        t.parity_check(d)
+
+
+# ---------------------------------------------------------------------- mechanism readout keys
+def test_mechanism_keys_reproduce_hand_computed_values_on_a_synthetic_stamp(tmp_path):
+    run = omni_stamp(tmp_path, labels=("fwd",), per=3, T=400)
+    st, _rp, vals, table = _readout(run)
+    fwd_row = table["fwd"]
+    # achieved_speed: the walker tracks the command exactly once past the hold start, so the
+    # own-hold mean of the along-command body speed is the commanded 0.25 m/s, up to the finite
+    # difference used for velocity in the synthetic fixture (walker() differentiates positions).
+    assert fwd_row["achieved_speed"] == pytest.approx(0.25, abs=0.01)
+    # stride_per_speed = stride_along (from the per-episode json, 0.1 + 0.01*e) / achieved_speed,
+    # averaged (a MEAN key) over the 3 fwd episodes (e = 0, 1, 2)
+    hand = np.mean([(0.1 + 0.01 * e) / 0.25 for e in range(3)])
+    assert fwd_row["stride_per_speed"] == pytest.approx(hand, rel=0.05)
+    assert fwd_row.get("n_sps_excluded", 0) == 0
+    # touchdown_hz / taps_per_s: independently recomputed straight off the raw force trace via the
+    # SAME gait_eval primitive episode_step_rates calls, over the stamp's own steady own-hold window
+    gm = t.gait_metrics()
+    hand_td, hand_taps = [], []
+    for i in range(st.N):
+        m = st.own[i]
+        loaded = st.arr["foot_force_norm"][i] > float(gm.MOTION_TOUCH_REF_N)
+        n_steps = n_taps = n_rows = 0
+        for a, b in gm.contiguous_runs(m):
+            steps, taps, _c = gm.step_tap_runs(loaded[a:b], min_step_steps=int(gm.RIGIDITY_STEP_MIN_STEPS))
+            n_steps += len(steps)
+            n_taps += len(taps)
+            n_rows += b - a
+        secs = n_rows * st.dt
+        hand_td.append(n_steps / (6 * secs))
+        hand_taps.append(n_taps / secs)
+    assert fwd_row["touchdown_hz"] == pytest.approx(float(np.mean(hand_td)), rel=1e-9)
+    assert fwd_row["taps_per_s"] == pytest.approx(float(np.mean(hand_taps)), rel=1e-9)
+    assert fwd_row["touchdown_hz"] > 0
+    # the planted walker's swings (PERIOD // 2 = 30 steps) are all well above the tap ceiling
+    # (RIGIDITY_STEP_MIN_STEPS - 1), so every swing counts as a STEP and taps_per_s is exactly 0
+    assert fwd_row["taps_per_s"] == pytest.approx(0.0, abs=1e-9)
+
+
+def test_stride_per_speed_excludes_near_stalled_episodes_and_counts_them(tmp_path):
+    """An episode whose achieved speed is <= SPS_MIN_SPEED_M_S (0.03 m/s) is excluded from the MEAN
+    and counted in ``n_sps_excluded`` (module docstring). Built by zeroing ``root_lin_vel_b`` on an
+    otherwise ordinary ``fwd`` hold: the command still says 0.25 m/s (so the row is still 'moving',
+    OFFSET_MIN_CMD 0.12 > SPS_MIN_SPEED_M_S 0.03 -- a slower command would never even reach the
+    moving gate), but the body never actually moves -- a stuck walker, not merely a slow one."""
+    run = omni_stamp(tmp_path, labels=("fwd",), per=1, T=400)
+    p = run / "raw" / "episode_00.npz"
+    z = dict(np.load(p))
+    z["root_lin_vel_b"][:] = 0.0
+    np.savez(p, **z)
+    _st, _rp, vals, table = _readout(run)
+    row = table["fwd"]
+    assert row["n"] == 1
+    assert vals["achieved_speed"][0] == pytest.approx(0.0, abs=1e-9)
+    assert row.get("n_sps_excluded", 0) == 1
+    assert math.isnan(vals["stride_per_speed"][0])
+    assert math.isnan(row["stride_per_speed"])  # nanmean of an all-nan column is nan

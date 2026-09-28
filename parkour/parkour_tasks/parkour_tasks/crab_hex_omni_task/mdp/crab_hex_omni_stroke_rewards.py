@@ -104,6 +104,42 @@ def _omni_command_term(env: ParkourManagerBasedRLEnv, command_name: str):
     return term
 
 
+def _resolve_cat_scale(cat_scale: dict, categories: Sequence[str], device=None) -> torch.Tensor:
+    """``{category_name: multiplier}`` -> the resolved ``[len(categories)]`` float tensor (per-
+    category stroke plan, 2026-09-27). Unlisted names -- always including ``stand`` -- default to
+    ``1.0`` (irrelevant for ``stand``, which pays 0). Pure: only ``torch``, no Isaac, so it is
+    unit-tested by lifting it out of this module (``test_crab_hex_omni_stroke_knobs.py``).
+
+    Refuses a name outside ``categories``, an explicit ``stand`` key, and a ``fwd``/``back``
+    asymmetry -- defence in depth: the knob that builds ``cat_scale``
+    (``stroke_knobs.parse_stroke_cat_w``) already refuses all three, so only a hand-edited cfg
+    reaches any check here. ``stand`` needs its OWN check rather than falling out of the unknown-name
+    one: unlike a typo, ``"stand"`` IS one of ``categories`` (``TELEMETRY_CATEGORIES``), so it would
+    otherwise resolve silently -- into a multiplier on a term that pays exactly 0 on a stand step.
+    """
+    if "stand" in cat_scale:
+        raise RuntimeError(
+            "RewardFootStroke: cat_scale refuses the key 'stand': it pays exactly 0 (a stance that "
+            "closes on a STAND step scores nothing), so a stand multiplier would look armed and do "
+            f"nothing, got {cat_scale!r}."
+        )
+    unknown = sorted(set(cat_scale) - set(categories))
+    if unknown:
+        raise RuntimeError(
+            f"RewardFootStroke: cat_scale names unknown categor{'y' if len(unknown) == 1 else 'ies'} "
+            f"{unknown} (allowed: {tuple(categories)})."
+        )
+    if float(cat_scale.get("fwd", 1.0)) != float(cat_scale.get("back", 1.0)):
+        raise RuntimeError(
+            f"RewardFootStroke: cat_scale requires fwd == back (the mirror tie), got "
+            f"fwd={cat_scale.get('fwd', 1.0)!r} back={cat_scale.get('back', 1.0)!r}."
+        )
+    vec = torch.ones(len(categories), device=device)
+    for name, value in cat_scale.items():
+        vec[categories.index(name)] = float(value)
+    return vec
+
+
 class _OncePerStep:
     """Stateful terms must advance exactly once per env step: raise if called twice in the same step.
 
@@ -144,6 +180,13 @@ class RewardFootStroke(ManagerTermBase, _OncePerStep):
 
     Only TURN / MOVE_TURN slots keep the command's yaw rate in the projection. On MOVE slots it is only
     the facing relay's P-control, so the math's ``turning`` mask drops it.
+
+    ``cat_scale`` (per-category stroke plan, 2026-09-27): an optional ``{category_name: multiplier}``
+    dict -- ``config/crab_hex/stroke_knobs.py``'s ``KRABBY_OMNI_STROKE_CAT_W`` is what writes it, never
+    a shipped cfg by hand. When present it is resolved ONCE, in :meth:`__init__`, into a
+    ``[len(TELEMETRY_CATEGORIES)]`` float tensor (unlisted names, always including ``stand``, default
+    to ``1.0``) and applied to the RETURNED reward only, by close-step category, in :meth:`__call__`.
+    ``self.pay`` (the per-foot telemetry / replay-parity pay) stays unscaled either way.
     """
 
     def __init__(self, cfg: RewardTermCfg, env: ParkourManagerBasedRLEnv):
@@ -162,6 +205,16 @@ class RewardFootStroke(ManagerTermBase, _OncePerStep):
         #: Last per-foot stance pay (0 except on a stance's close step) -- telemetry / replay parity.
         self.pay = torch.zeros(env.num_envs, num_feet, device=self.device)
         self._parity = _get_parity_recorder()
+        #: ``[len(TELEMETRY_CATEGORIES)]`` float tensor or ``None`` (knob off) -- see the ``cat_scale``
+        #: paragraph above. Resolved here, once, from ``cfg.params["cat_scale"]`` (written only when
+        #: ``KRABBY_OMNI_STROKE_CAT_W`` is armed), so ``__call__`` never re-parses the dict or
+        #: re-asserts names.
+        cat_scale = cfg.params.get("cat_scale")
+        self._cat_scale = None
+        if cat_scale is not None:
+            command_name: str = cfg.params.get("command_name", "base_velocity")
+            cmd_term = _omni_command_term(env, command_name)
+            self._cat_scale = _resolve_cat_scale(cat_scale, cmd_term.TELEMETRY_CATEGORIES, device=self.device)
 
     def reset(self, env_ids: Sequence[int] | None = None) -> None:
         idx = slice(None) if env_ids is None else env_ids
@@ -183,6 +236,8 @@ class RewardFootStroke(ManagerTermBase, _OncePerStep):
         prog_tau: float = PROG_TAU_S,
         prog_lo: float = PROG_LO,
         prog_width: float = PROG_WIDTH,
+        cat_scale: dict[str, float] | None = None,  # noqa: ARG002 -- resolved once in __init__ (self._cat_scale);
+        # accepted here only so IsaacLab's cfg.params signature check passes when the knob writes it.
     ) -> torch.Tensor:
         self._check_once(env)
         asset: Articulation = env.scene[asset_cfg.name]
@@ -203,11 +258,20 @@ class RewardFootStroke(ManagerTermBase, _OncePerStep):
             self.state, env.step_dt, self.turn_radius, turning, resampled,
             rho0, drho, power, c_max, prog_tau, prog_lo, prog_width,
         )
+        # Per-category stroke plan (2026-09-27): the ONLY place cat_scale touches the term -- the
+        # RETURNED reward, by the CLOSE-step category (the same step foot_stroke_step just paid at).
+        # self.pay stays unscaled (per-foot pay=1 telemetry/replay-parity meaning). Knob off
+        # (self._cat_scale is None) never calls telemetry_category(), so the op sequence is identical.
+        cat = None
+        if self._cat_scale is not None:
+            cat = cmd_term.telemetry_category()
+            reward = reward * self._cat_scale[cat]
         self._parity.record_stroke(
             int(env.common_step_counter), force=force, foot_pos_w=foot_pos_w, root_pos_w=root_pos_w,
             heading=heading, cmd=cmd, stand=stand, root_lin_vel_b_xy=root_lin_vel_b_xy,
             root_ang_vel_b_z=root_ang_vel_b_z, turning=turning, resampled=resampled, reward=reward,
             pay=self.pay, dt=env.step_dt, turn_radius=self.turn_radius,
+            cat=cat, cat_scale=self._cat_scale,
         )
         return reward
 
