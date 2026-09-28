@@ -31,6 +31,17 @@ bool parseActuatorStatus(
 
 const char *boardTelemetryRoleLabel(BoardRole role);
 
+// ERR channel (M17 Task 1 §5): "ERR <token> <errorcode>" on its own line,
+// fire-and-forget. The leader relays follower ERR lines upstream unchanged.
+template <typename Output>
+void printErr(Output &output, const char *token, const char *code)
+{
+    output.print("ERR ");
+    output.print(token);
+    output.print(TELEMETRY_FIELD_SEPARATOR);
+    output.println(code);
+}
+
 template <typename Output>
 void appendImuMeasurement(
     Output &output,

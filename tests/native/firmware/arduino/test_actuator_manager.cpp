@@ -443,6 +443,31 @@ static void test_directional_calibration_states_and_persistence()
     TEST_ASSERT_EQUAL_INT(1023, acts[1]->maxStop);
 }
 
+static void test_invalid_pot_reports_one_err_per_fault_event()
+{
+    auto actuator = makeActuator();
+    LinearActuator *acts[] = {&actuator};
+    ActuatorManager manager(acts, 1);
+    manager.initAll();
+    Print out;
+    manager.reportFaults(out);
+    TEST_ASSERT_TRUE(out.output.empty());
+
+    analog[FLHY_POT_PIN] = 0;  // railed low: invalid after a few samples
+    for (int i = 0; i < 40; ++i) actuator.updateSensors();
+    manager.reportFaults(out);
+    manager.reportFaults(out);  // still faulted: no repeat
+    TEST_ASSERT_EQUAL_STRING("ERR FLHY pot_value_invalid\n", out.output.c_str());
+
+    analog[FLHY_POT_PIN] = 500;  // recovers, then faults again: re-armed
+    actuator.init();
+    manager.reportFaults(out);
+    analog[FLHY_POT_PIN] = 0;
+    for (int i = 0; i < 40; ++i) actuator.updateSensors();
+    manager.reportFaults(out);
+    TEST_ASSERT_EQUAL_STRING("ERR FLHY pot_value_invalid\nERR FLHY pot_value_invalid\n", out.output.c_str());
+}
+
 int main()
 {
     UNITY_BEGIN();
@@ -461,5 +486,6 @@ int main()
     RUN_TEST(test_telemetry_fields_and_hall_bounds);
     RUN_TEST(test_manager_dispatch_hold_and_telemetry);
     RUN_TEST(test_directional_calibration_states_and_persistence);
+    RUN_TEST(test_invalid_pot_reports_one_err_per_fault_event);
     return UNITY_END();
 }

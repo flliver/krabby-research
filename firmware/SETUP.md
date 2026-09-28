@@ -84,7 +84,8 @@ Telemetry is sent as **newline-terminated lines** over serial. The Python side p
 - **Line format:** `<ROLE>; <name> <pos> <pot> <current> <enL> <enR> <pwmL> <pwmR> <saf>; <name> ...; ...`
 - **Role prefix:** One of `FRONT`, `UNKNOWN`, `LEFT`, `RIGHT` (no semicolon inside the role).
 - **Segment format:** Each joint segment is 11 space-separated values: joint name, position (0–1), pot raw, current raw, enable L/R, PWM L/R, safety, composed connection state (`0` unknown, `1` connected, `2` disconnected), and calibration state (`0` = no end-stops recorded, `1` = one stop, `2` = both stops recorded and applied). The host parser also accepts the older 9- and 10-value forms.
-- **Example:** `FRONT; FLHY 0.723 740 694 0 0 0 0 0 1;FLHL 0.723 740 691 ...`
+- **Example:** `FRONT; FLHY 0.723 740 694 0 0 0 0 0 1 2;FLHL 0.723 740 691 ...`
+- **Errors:** faults are reported on their own line as `ERR <joint> <code>` (e.g. `ERR RLKL pot_value_invalid`), once per fault event and re-armed when it clears; the leader relays follower ERR lines unchanged. Codes are the Task 1 §5 vocabulary; the SDK records them in `KrabbyMCUSDK.errors`, logs each with its fix instruction, and `KrabbyMCUSDK.explain_failures()` translates `(joint, code)` pairs.
 
 On the Arduino side, telemetry is built in **telemetry_manager.h** (struct `JointTelemetry`, `appendTo()`). The old standalone `joint_telemetry.h` was removed; all telemetry formatting and collection lives in `telemetry_manager.h` and `actuator_manager.h`.
 
