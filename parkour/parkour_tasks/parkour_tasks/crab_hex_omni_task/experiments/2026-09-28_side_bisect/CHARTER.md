@@ -352,3 +352,9 @@ scope under the decision defaults.)
 
 **Step 3: full omni with the fa mirror.** Only if step 2 reads FAST/SLOW. It must gate fwd and turn as well, since M_y
 carries the forward tripod-set handedness constraint. It is designed after step 2.
+- 2026-09-29 19:18: **C_mo_s1 = FAST.** feet_ss 0.184 at 0.22 and 0.185 at 0.25 (n 96/98); lean_abs 0.065/0.074;
+  sweep 0.069–0.076.
+  - **C_mo's 3-seed majority is FAST** (s3 INTERMEDIATE by 0.002, s2 FAST, s1 FAST): the one-direction pair alone is
+    sufficient.
+  - Per the rule, C_nb and C_nr are skipped.
+  - The runner applied `candidates_v7.yaml` and launched LRfa at 19:18 (X10).
