@@ -286,3 +286,10 @@ scope under the decision defaults.)
   and stopped, and the follow-up would then have skipped C_rsi and C_s2. Both runners were killed and replaced by
   `phaseB/queue_now.sh`, which retries a refused launch every 60 s, up to 40 times. It applied `candidates_v3.yaml`
   and launched C_rsi at 12:09 (X06). Queue: C_rsi → C_s2 → C_mo_s2. GPU idle for about 2 min.
+- 2026-09-29 13:22: **C_rsi s3 = SLOW** (RSI off alone). feet_ss 0.069 at 0.22 and 0.077 at 0.25 (n 96/99); lean_lvl
+  0.05; sweep 0.035.
+  - Bimodal: 34–35 % of episodes barely move (feet_ss < 0.03; p25 0.015–0.017). The rest walk at a median of
+    0.079/0.086, i.e. the O-like slow speed.
+  - So removing the fast-gait seeding alone gives no speed, and it adds a stall mode.
+  - The low median lean is diluted by the stalled episodes; it does not mean a non-leaning walk.
+  - C_s2 launched at 13:22.
