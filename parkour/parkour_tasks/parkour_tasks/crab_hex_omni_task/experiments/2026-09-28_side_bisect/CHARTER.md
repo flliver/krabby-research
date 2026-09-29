@@ -245,3 +245,10 @@ scope under the decision defaults.)
   **Minor, fixed:** GPU-0's recipe now runs with W's full recorded eval env; the eval_sha log line
   corrected; per-arm launch commands and the expected-False RSI-bank check recorded (Launching);
   the validator-only placement of the "scalar requires fa" refusal recorded.
+- 2026-09-29 00:15–00:40: Phase B checks all PASS ([CHECKS.md](CHECKS.md)): knob smokes C/R/RC (overlay_checks 4/4, 4/4,
+  8/8; C's eval path through the driver with every run_meta assertion); W harness 0.096 at 0.22 (target 0.095 ± 0.01);
+  sideways FAST pin at model_3000 0.196/0.193 (s3) and 0.201/0.202 (s2), so no re-threshold; GPU-0: W flat at
+  0.09–0.11 m/s from a 0.15 to a 0.35 command, lean grows 0.19 → 0.28.
+- 2026-09-29 00:40: arm O launched (unit `cands-2026-09-28_side_bisect-1790656807`, run dir
+  `crab_hex_omni_flat_walk/2026-09-29_00-40-18_seed3_X01_s1_A15pB`). Hazard: every reference's run tag is
+  `seed3_X01_s1_A15pB`-shaped and the knob smokes left `seed3_X01_1b_A15pB` run dirs; never stop an arm mid-training.
