@@ -1,0 +1,367 @@
+# Side-speed bisection campaign (side-speed-bisection.md, plan step 4).
+#
+# THE SHAPE. This campaign runs NO candidate queue -- it is reference-only, the same shape as
+# ../2026-09-27_stroke_cat_t3/candidates.yaml's `S_cat_f` (a chain reached ONLY through
+# `references:`, never through `screen`/`baseline`/the ordinary queue). `screen`, `baseline`,
+# `require_env` and `decision_rule` are carried ONLY so the file type-checks (`validate_candidates`
+# needs a screen/baseline chain that exists and a `decision_rule` that expands at the full category
+# set, plan CHARTER.md's own convention) -- chain `O` doubles as both the (never-queued) screen/
+# baseline chain AND the first arm's own reference chain, so nothing here is a fiction pointing at
+# an unrelated run.
+#
+# THE FOUR ARMS run as `references: {O, C, R, RC}`, each a `--reference-chain <name> --seed 3`
+# launch (plan Arms table, CHARTER.md): base preset `1b` (side_l only, DIR_BAND pi/2:pi/2, SLOTS
+# 0.2:0.8:0:0), from scratch, 3000 iterations, eval row `side22_25` (this dir's parent eval
+# manifest, `../eval/scenarios_omni.yaml`, plan step 3). RC is launched only if both C and R read
+# SLOW (plan interpretation table); it is declared here as a fourth reference so the file need not
+# be re-validated mid-campaign, but the driver command for it is not issued until that condition is
+# met (CHARTER.md Steps).
+#
+# `categories: [side, stand]` on every stage: base 1b's composed env trains ONLY `stand` (slot 0,
+# decisive) and `side` (slot 1, one hand only -- side_l -- so `watch`, never `decisive`); none of
+# the C/R/RC overlays touch KRABBY_OMNI_SLOTS/DIR_BAND/CMD_POOL, so the trained-category set is
+# identical across all four arms (`sorted(decisive | watch)` = `[side, stand]`,
+# `_check_stage_categories`, run_candidates.py). `floor: {kind: none}` (plan step 4): the campaign's
+# own STOP rules (DEAD wins over SLOW, "Left for implementation" item 1) are read by hand off
+# `feet_ss`, not by the driver's own category-survival floor.
+#
+# absolute_units is NOT declared on any of these: the per-candidate absolute_units check
+# (run_candidates.py, ABSOLUTE_UNITS_KEYS) only fires inside the `candidates:` loop, never for a
+# chain reached solely through `references:` -- so C's `KRABBY_OMNI_SPEED_ELLIPSE` overlay (an
+# ABSOLUTE_UNITS_KEYS member) needs no absolute_units flag here. The campaign's own gate reads
+# `feet_ss` (m/s) directly off the raw npz (gate_stats.py), never the driver's ratio-system blocks.
+#
+# EVERY path is written relative to the repository root. No driver may contain a dated path.
+schema: 1
+
+plant: A15+B
+seeds: {screen: 3, confirm: 2}
+
+#: Carried only so chain O (also this campaign's first reference) type-checks as a screen/baseline
+#: chain. Never queued: this campaign has no `candidates:`.
+screen: {chain: O, eval: [side22_25], iters: 3000}
+
+promotion: {enabled: false}
+
+#: Carried for the same reason as `screen`. O is the plan's control arm (nothing changes from the
+#: 1b preset) -- it is also literally this campaign's baseline reading, read by hand against the
+#: gate (plan Gate table), not composed against by any candidate.
+baseline: {id: O, chain: O}
+
+# ---------------------------------------------------------------------------- the decision rule
+# Carried only so this file validates on its own (CHARTER.md: "Carried so this file validates on
+# its own; the ACTUAL gate is read by hand off feet_ss, never by this rule" -- t3f_scat's own
+# convention). `rule_version: 2` expands at the FULL category set (`eval_categories.CATEGORIES`),
+# independent of any one chain's own trained categories, so this generic ratio-system rule (F/T/LEN
+# + guards, the same shape as ../2026-09-27_stroke_cat_t3/candidates.yaml's verbatim `decision_rule`
+# minus its per-category doses) type-checks even though O/C/R/RC each train only side+stand.
+decision_rule:
+  rule_version: 2
+  pair_on: [always]
+  steps_guard_flag: false
+  text: >-
+    SIDE-SPEED BISECTION: RECORD ONLY, carried for validation parity. The campaign's real gate is
+    feet_ss (the feet-centroid speed over hold-relative [4, 10) s of each side22_25 lat_l hold,
+    gate_stats.py) against the plan's pre-registered class thresholds (side-speed-bisection.md,
+    Gate) -- read by hand, never by this decision_rule's own blocks/guards. O, C, R and RC are each
+    launched as a `--reference-chain <name> --seed 3` run outside the ordinary candidate queue
+    (there is nothing to screen here); a second seed is added only per the plan's Gate ("Two
+    seeds") when a class reads INTERMEDIATE or the interpretation table calls for it.
+  per_category:
+    blocks:
+      F: {level: 0.95, units: ratio, members: {turn: [facing_closed, yaw_progress]}}
+      T: {level: 0.95, units: ratio,
+          members: {fwd: [ratio], side: [ratio], back: [ratio], diag: [ratio]}}
+      LEN: {level: 0.95, units: ratio, members: {side: [steps_per_m], diag: [steps_per_m]}}
+    guards:
+      level: 0.99
+      members:
+        stand: [survival, steps_per_s]
+        fwd: [survival, ratio, foot_slip, steps_per_m]
+        side: [survival, ratio, foot_slip, steps_per_m]
+        back: [survival, ratio, foot_slip, steps_per_m]
+        diag: [survival, ratio, foot_slip, steps_per_m]
+        turn: [survival, foot_slip, steps_per_rad]
+        move_turn: [survival, ratio]
+    watch:
+      members:
+        stand: [drift_speed, support_feet, gait_hz, clock_hz, cadence_ratio, six_down_frac,
+                settle_six_down_s, action_jitter, action_fft_freq, joint_speed_mean, rod_speed_mean,
+                contact_switch_hz, foot_slip, wz_active_frac, clock_restarts, foot_disp_end,
+                work_per_s]
+        fwd: [tripod, support_feet, gait_hz, clock_hz, cadence_ratio, hz_speed_slope, offset_R, step_rate_hz,
+              taps_per_m, swing_apex, slip_per_m, action_jitter, swings_per_m, work_per_m,
+              cam_work_per_m, direction_error, cross_track_ratio, heading_final]
+        side: [tripod, support_feet, gait_hz, clock_hz, cadence_ratio, hz_speed_slope, offset_R, step_rate_hz,
+               taps_per_m, swing_apex, slip_per_m, action_jitter, swings_per_m, work_per_m,
+               cam_work_per_m, direction_error, cross_track_ratio, heading_final]
+        back: [tripod, support_feet, gait_hz, clock_hz, cadence_ratio, hz_speed_slope, offset_R, step_rate_hz,
+               taps_per_m, swing_apex, slip_per_m, action_jitter, swings_per_m, work_per_m,
+               cam_work_per_m, direction_error, cross_track_ratio, heading_final]
+        diag: [tripod, support_feet, gait_hz, clock_hz, cadence_ratio, hz_speed_slope, offset_R, step_rate_hz,
+               taps_per_m, swing_apex, slip_per_m, action_jitter, swings_per_m, work_per_m,
+               cam_work_per_m, direction_error, cross_track_ratio, heading_final]
+        turn: [support_feet, steps_per_rad_pre, steps_per_rad_post, taps_per_rad, swing_apex, gait_hz, clock_hz,
+               cadence_ratio, offset_R, step_rate_hz, action_jitter, swings_per_rad, slip_per_rad,
+               work_per_rad, cam_work_per_rad, settle_s, heading_final]
+        move_turn: [tripod, steps_per_rad, support_feet, taps_per_rad, swing_apex, foot_slip, gait_hz,
+                    clock_hz, cadence_ratio, offset_R, step_rate_hz, action_jitter, swings_per_rad,
+                    slip_per_rad, work_per_rad, cam_work_per_rad, direction_error,
+                    cross_track_ratio, settle_s]
+      hands: true
+      legacy: {completion: legacy, tripod_walking_dir: legacy, track_ratio_tail: legacy,
+               track_ratio_move_tail: legacy, turn_survival_l90: N/A (suite),
+               turn_survival_r90: N/A (suite)}
+    demoted: {}
+  charter_floors: {completion: 0.10, tripod_walking_dir: 0.056}
+  bootstrap: {B: 2000, paired_on: env_index, rng_seed: 20260928}
+  control_head: X08-c6
+
+# ---------------------------------------------------------------------------- chains
+chains:
+  #: Arm O (control, plan Arms table): nothing changes from the 1b preset -- DIR_BAND, SLOTS and
+  #: RSI_SOURCE stay exactly as the 1b preset states them (run_phases.STAGE_DIR_BAND["1b"],
+  #: STAGE_RSI_SOURCE["1b"]), so this stage's overlay is empty. Tests whether side-only omni FORMS
+  #: the attractor from scratch at all (1b itself was only a 1000-it fork of fwd 1a).
+  O:
+    notes: 1b from scratch, no overlay (the control arm).
+    stages:
+      - stage: s1
+        base: "1b"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay: {}
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
+  #: Arm C (plan Arms table): the sideways task's command/obs/mirror/RSI/band bundle -- the fore-
+  #: aft-only mirror (KRABBY_OMNI_MIRROR_IMAGES=fa), the direction-blind scalar command obs
+  #: (KRABBY_OMNI_CMD_OBS=scalar), RSI off (KRABBY_RSI_FRAC=0 -- KRABBY_OMNI_RSI_SOURCE is DROPPED
+  #: here, per the plan: at RSI_FRAC 0 the term is not built, so RSI_SOURCE would be a no-op) and
+  #: the widened lateral ellipse matching sideways 1a's own band (KRABBY_OMNI_SPEED_ELLIPSE, U[0.21,
+  #: 0.25] -> U[0.21, 0.35]). Tests: is the first genuinely one-direction omni run (C's fa mirror
+  #: does not train the -y branch the way O's 4-image mirror does) the factor?
+  C:
+    notes: 1b from scratch + the sideways command/obs/mirror/RSI/band bundle.
+    stages:
+      - stage: s1
+        base: "1b"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_OMNI_CMD_OBS: scalar
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
+  #: Arm R (plan Arms table, kept as its own arm by user decision 2): the sideways reward economy
+  #: from scratch -- sum clock combine, track std sqrt(0.1) (KRABBY_TRACK_SIGMA2=0.1), L1 weight -1
+  #: and the omni-only yaw_progress term zeroed. Prior: slow (1b, a fwd fork, already leaned under
+  #: the first three of these knobs -- scoping note, plan Context).
+  R:
+    notes: 1b from scratch + the sideways reward economy.
+    stages:
+      - stage: s1
+        base: "1b"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_CLOCK_COMBINE: sum
+          KRABBY_TRACK_SIGMA2: "0.1"
+          KRABBY_TRACK_L1_W: "-1.0"
+          KRABBY_YAW_PROGRESS_W: "0"
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
+  #: Arm RC (conditional, plan Arms table): C's overlay plus R's, exactly union'd (no interaction
+  #: term of its own). Runs ONLY if both C and R read SLOW (plan Gate/Interpretation). Declared here
+  #: so the campaign spec is complete from the start; the driver command is not issued until that
+  #: condition is met (CHARTER.md Steps).
+  RC:
+    notes: C's overlay plus R's, from scratch -- runs only if both C and R read SLOW.
+    stages:
+      - stage: s1
+        base: "1b"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_OMNI_CMD_OBS: scalar
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_OMNI_CLOCK_COMBINE: sum
+          KRABBY_TRACK_SIGMA2: "0.1"
+          KRABBY_TRACK_L1_W: "-1.0"
+          KRABBY_YAW_PROGRESS_W: "0"
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
+# ---------------------------------------------------------------------------- references
+# Each launched as `run_candidates.py --campaign-dir <this dir> --reference-chain <name> --seed 3`
+# (plan Arms: "seed 3" on every arm; a second seed is added only per the Gate's "Two seeds" rule).
+# O doubles as the (never-queued) screen/baseline chain above and this campaign's control reference.
+  C_mo:
+    notes: "C split (2026-09-29, C FAST at s3) -- the fore-aft-only mirror + scalar command obs alone."
+    stages:
+      - stage: s1
+        base: "1b"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_OMNI_CMD_OBS: scalar
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
+  C_band:
+    notes: "C split -- the wider lateral speed band alone (U[0.21, 0.35])."
+    stages:
+      - stage: s1
+        base: "1b"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
+  C_rsi:
+    notes: "C split -- RSI off alone."
+    stages:
+      - stage: s1
+        base: "1b"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_RSI_FRAC: "0"
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
+  C_fa:
+    notes: "Level 2 (2026-09-29): the fore-aft-only mirror alone, command direction VISIBLE -- mirror coupling vs direction blindness."
+    stages:
+      - stage: s1
+        base: "1b"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
+  C_nb:
+    notes: "Level 2: C minus the band (mirror + scalar obs + RSI off) -- does RSI-off complete C's speed with the pair?"
+    stages:
+      - stage: s1
+        base: "1b"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_OMNI_CMD_OBS: scalar
+          KRABBY_RSI_FRAC: "0"
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
+  C_nr:
+    notes: "Level 2: C minus RSI-off (mirror + scalar obs + wider band, RSI on) -- does the band complete C's speed with the pair?"
+    stages:
+      - stage: s1
+        base: "1b"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_OMNI_CMD_OBS: scalar
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
+  LR4:
+    notes: "Two-direction step (2026-09-29): 1b with BOTH side directions really sampled, direction visible, default 4-image mirror (the control)."
+    stages:
+      - stage: s1
+        base: "1b"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.2,side_l:0.4,side_r:0.4"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_SLOTS: "0.2:0.8:0:0"
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
+  LRfa:
+    notes: "Two-direction step: as LR4 with the fore-aft-only mirror (no left-right tie), direction visible."
+    stages:
+      - stage: s1
+        base: "1b"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.2,side_l:0.4,side_r:0.4"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_SLOTS: "0.2:0.8:0:0"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
+references:
+  O: {chain: O, seed: 3}
+  C: {chain: C, seed: 3}
+  R: {chain: R, seed: 3}
+  RC: {chain: RC, seed: 3}
+  # added 2026-09-29 after C read FAST at s3 (decision defaults: split C one level; seed-2 entries for
+  # INTERMEDIATE / tie-break / "either suffices" cases -- a reference pins one seed)
+  C_mo: {chain: C_mo, seed: 3}
+  C_band: {chain: C_band, seed: 3}
+  C_rsi: {chain: C_rsi, seed: 3}
+  O_s2: {chain: O, seed: 2}
+  C_s2: {chain: C, seed: 2}
+  R_s2: {chain: R, seed: 2}
+  # added 2026-09-29 11:00: C_mo read INTERMEDIATE at s3 (0.162/0.173) -> gate rule: seed 2
+  C_mo_s2: {chain: C_mo, seed: 2}
+  # added 2026-09-29 14:40: level-2 discriminators (C_s2 replicated FAST; queue after C_mo_s2)
+  C_fa: {chain: C_fa, seed: 3}
+  C_nb: {chain: C_nb, seed: 3}
+  C_nr: {chain: C_nr, seed: 3}
+  # added 2026-09-29 18:20 (user: 'run the next steps'): the seed-1 tie-break and the two-direction side test
+  C_mo_s1: {chain: C_mo, seed: 1}
+  LR4: {chain: LR4, seed: 3}
+  LRfa: {chain: LRfa, seed: 3}
+  LR4_s2: {chain: LR4, seed: 2}
+  LRfa_s2: {chain: LRfa, seed: 2}
+
+# ---------------------------------------------------------------------------- ranked candidates
+# Empty by design (header comment): every arm here runs through `references:`, never the ordinary
+# candidate queue (the same shape as ../2026-09-27_stroke_cat_t3/candidates.yaml's `S_cat_f`).
+candidates: []
+
+# ---------------------------------------------------------------------------- milestones
+milestones: []

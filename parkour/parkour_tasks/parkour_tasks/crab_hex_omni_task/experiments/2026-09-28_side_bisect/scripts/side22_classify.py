@@ -145,6 +145,8 @@ def main():
         L = res["labels"]
         if "lat_l_022" in L and "lat_l_025" in L:
             res["class"] = classify(L["lat_l_022"]["feet_ss"], L["lat_l_025"]["feet_ss"], gate)
+        if "lat_r_022" in L and "lat_r_025" in L:   # two-direction row (scenarios_side_lr.yaml)
+            res["class_r"] = classify(L["lat_r_022"]["feet_ss"], L["lat_r_025"]["feet_ss"], gate)
         out[name] = res
         print(f"== {name}  {d}")
         print(f"   ckpt {meta.get('checkpoint')}")
@@ -152,9 +154,11 @@ def main():
             f = lambda x: "  nan" if x is None else f"{x:+.3f}"
             print(f"   {l:10s} n {r['n']:3d} excl {r['excluded']}  feet_ss {f(r['feet_ss'])} "
                   f"[{f(r['feet_ss_q25'])},{f(r['feet_ss_q75'])}]  body_ss {f(r['body_ss'])}  "
-                  f"lean04 {f(r['lean04'])}  lean_lvl {f(r['lean_lvl'])}  sweep {f(r['sweep'])}")
+                  f"lean04 {f(r['lean04'])}  lean_abs {f(r['lean_abs'])}  sweep {f(r['sweep'])}")
         if "class" in res:
             print(f"   CLASS {res['class']}  (gate {gate})")
+        if "class_r" in res:
+            print(f"   CLASS_R {res['class_r']}")
     if a.json:
         Path(a.json).write_text(json.dumps(out, indent=1))
 

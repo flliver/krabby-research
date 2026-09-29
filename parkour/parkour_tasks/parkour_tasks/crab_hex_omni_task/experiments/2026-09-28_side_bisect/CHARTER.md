@@ -320,3 +320,35 @@ scope under the decision defaults.)
     - skipping the seed-1 tie-break is a recorded deviation;
     - C_fa is low-information in 1b;
     - the portable test is a two-direction side run (fa vs 4-image mirror).
+
+## Next steps (user, 2026-09-29 ~18:00: "run the next steps") — pre-registered before any result
+
+**Step 1: C_mo seed-1 tie-break** (reference `C_mo_s1`). Launched 18:09 (X09).
+- C_mo's class is the majority of its three seeds. With no majority, it is INCONCLUSIVE.
+- If the class is INTERMEDIATE (or INCONCLUSIVE), queue C_nb and C_nr (one seed each) to attribute the C_mo → C gap.
+  If FAST, skip them.
+
+**Step 2: two-direction side test** (chains `LR4` and `LRfa`, seed 3, queued after C_mo_s1).
+- Both arms are 1b from scratch with `KRABBY_OMNI_CMD_POOL=stand:0.2,side_l:0.4,side_r:0.4`, `KRABBY_OMNI_DIR_BAND=''`
+  and `KRABBY_OMNI_SLOTS=0.2:0.8:0:0`, with the command direction visible.
+- LR4 keeps the 4-image mirror. LRfa uses the fore-aft-only mirror.
+- **Eval.**
+  - The driver's `side22_25` covers lat_l only.
+  - A by-hand run of `scenarios_side_lr.yaml` (`side22_25lr__omni`: lat_l and lat_r at 0.22 and 0.25) covers both
+    hands. It uses the exact env_vars of the arm's own driver eval.
+- **Class per hand**, with the same thresholds as the gate. An arm's class is the class both hands share. If the
+  hands differ, or either is INTERMEDIATE, add seed 2 for that arm (`LR4_s2` / `LRfa_s2`).
+- **Reading:**
+
+  | LRfa | LR4 | Reading |
+  |---|---|---|
+  | FAST | SLOW | The left-right mirror tie itself forms the slow gait, even with −y really sampled → step 3 is warranted |
+  | SLOW | SLOW | Two-direction training forms the attractor whatever the mirror; the one-direction benefit does not port → stop |
+  | FAST | FAST | Sampling both directions for real removes it, so the 1b attractor came from phantom −y rows with no real −y data. Report; step 3 not needed on this evidence |
+  | SLOW | FAST | Unexpected; report |
+
+- **Known asymmetry, shared by both arms.** RSI stays at 0.2 from the source-1 bank, whose frames are all +y. So RSI
+  seeds only left-walking starts. The per-hand read shows whether that matters.
+
+**Step 3: full omni with the fa mirror.** Only if step 2 reads FAST/SLOW. It must gate fwd and turn as well, since M_y
+carries the forward tripod-set handedness constraint. It is designed after step 2.
