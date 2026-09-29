@@ -252,3 +252,17 @@ scope under the decision defaults.)
 - 2026-09-29 00:40: arm O launched (unit `cands-2026-09-28_side_bisect-1790656807`, run dir
   `crab_hex_omni_flat_walk/2026-09-29_00-40-18_seed3_X01_s1_A15pB`). Hazard: every reference's run tag is
   `seed3_X01_s1_A15pB`-shaped and the knob smokes left `seed3_X01_1b_A15pB` run dirs; never stop an arm mid-training.
+- 2026-09-29 01:52: **O s3 = SLOW.** feet_ss 0.084 at 0.22 and 0.094 at 0.25 (n 98/96); lean_lvl 0.27/0.05; sweep 0.04.
+  Early read 0.564 (C not held); final track_ratio 0.568. Side-only omni FROM SCRATCH forms the slow attractor, so the
+  premise holds. The chain auto-launched C (unit `...-1790661165`).
+- 2026-09-29 03:03: **C s3 = FAST.** feet_ss 0.215 at 0.22 and 0.214 at 0.25 (n 90/93); lean 0.05–0.075; sweep 0.085 (the
+  sideways gait; the sideways model_3000 references read 0.196–0.202). Early read 0.671, final track_ratio 0.798. Eval
+  run_meta assertions hold: CMD_OBS=scalar carried, no mirror knob, override warning 0.25, schedule deviation 0.
+- **Process miss, 03:03–08:28: the GPU sat idle about 5.4 h.** Nothing chained C → R, and the watcher on the O chain
+  never fired (`pgrep -f` matched its own command line). R was launched at 08:28 (unit `...-1790684899`). Since then a
+  detached queue runner (`phaseB/queue_runner.sh`, log `parkour/outputs/omni_plan/side_bisect/queue.log`) owns the
+  sequencing:
+  - it classifies R, applies `phaseB/candidates_v2.yaml` (C_mo / C_band / C_rsi, plus seed-2 references) after R's
+    driver exits, and runs the decision-default queue;
+  - R SLOW → C_mo, C_band, C_rsi, then C_s2 (replicates the headline);
+  - R FAST → O_s2, then a stop.
