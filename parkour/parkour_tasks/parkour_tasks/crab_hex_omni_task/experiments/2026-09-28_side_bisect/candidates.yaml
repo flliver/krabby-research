@@ -266,6 +266,8 @@ references:
   O_s2: {chain: O, seed: 2}
   C_s2: {chain: C, seed: 2}
   R_s2: {chain: R, seed: 2}
+  # added 2026-09-29 11:00: C_mo read INTERMEDIATE at s3 (0.162/0.173) -> gate rule: seed 2
+  C_mo_s2: {chain: C_mo, seed: 2}
 
 # ---------------------------------------------------------------------------- ranked candidates
 # Empty by design (header comment): every arm here runs through `references:`, never the ordinary

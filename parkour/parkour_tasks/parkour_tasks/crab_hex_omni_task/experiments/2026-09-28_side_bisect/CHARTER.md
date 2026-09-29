@@ -279,3 +279,10 @@ scope under the decision defaults.)
     (`phaseB/queue_more.sh`). It starts after the main queue (C_band running as X05, then C_rsi, then C_s2).
   - Mechanism note from the code read: 'fa' also drops the M_y (left-right) equivariance, which carries the
     tripod-set balance and left-right symmetric standing. It is untested whether the lean depends on that pair.
+- 2026-09-29 12:07: **C_band s3 = SLOW** (wider band alone). feet_ss 0.093 at 0.22 and 0.100 at 0.25 (n 96/95); lean
+  0.16–0.22; sweep 0.05. The band's cadence and tracking-economy changes alone do not break the attractor.
+- 12:07: the C_rsi launch was refused ("another campaign driver is already running"). Nothing of ours was running;
+  most likely another session briefly ran a driver command. The runner would have treated it as a missing run dir
+  and stopped, and the follow-up would then have skipped C_rsi and C_s2. Both runners were killed and replaced by
+  `phaseB/queue_now.sh`, which retries a refused launch every 60 s, up to 40 times. It applied `candidates_v3.yaml`
+  and launched C_rsi at 12:09 (X06). Queue: C_rsi → C_s2 → C_mo_s2. GPU idle for about 2 min.
