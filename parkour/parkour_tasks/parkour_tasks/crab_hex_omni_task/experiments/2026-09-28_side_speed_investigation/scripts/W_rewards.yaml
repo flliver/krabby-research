@@ -1,0 +1,1286 @@
+rewards:
+  track_lin_vel_xy_exp:
+    func: isaaclab.envs.mdp.rewards:track_lin_vel_xy_exp
+    params:
+      command_name: base_velocity
+      std: 0.2
+    weight: 1.25
+  track_ang_vel_z_exp:
+    func: isaaclab.envs.mdp.rewards:track_ang_vel_z_exp
+    params:
+      command_name: base_velocity
+      std: 0.5
+    weight: 1.0
+  penalty_lin_vel_y:
+    func: parkour_tasks.crab_hex_omni_task.mdp.crab_hex_omni_rewards:penalty_cross_command_vel_l2
+    params:
+      command_name: base_velocity
+      asset_cfg:
+        name: robot
+        joint_names: null
+        joint_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        fixed_tendon_names: null
+        fixed_tendon_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        body_names: null
+        body_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        object_collection_names: null
+        object_collection_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        preserve_order: false
+    weight: -3.0
+  reward_forward_progress_along_command:
+    func: parkour_isaaclab.envs.mdp.rewards:reward_forward_progress_along_command
+    params:
+      command_name: base_velocity
+      asset_cfg:
+        name: robot
+        joint_names: null
+        joint_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        fixed_tendon_names: null
+        fixed_tendon_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        body_names: null
+        body_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        object_collection_names: null
+        object_collection_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        preserve_order: false
+      min_cmd_norm: 0.12
+      max_speed_scale: 1.05
+    weight: 0.6
+  reward_orientation:
+    func: parkour_isaaclab.envs.mdp.rewards:reward_orientation
+    params:
+      asset_cfg:
+        name: robot
+        joint_names: null
+        joint_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        fixed_tendon_names: null
+        fixed_tendon_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        body_names: null
+        body_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        object_collection_names: null
+        object_collection_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        preserve_order: false
+      parkour_name: base_parkour
+    weight: -0.7
+  penalty_base_pitch_forward_linear:
+    func: parkour_isaaclab.envs.mdp.rewards:penalty_base_pitch_forward_linear
+    params:
+      command_name: base_velocity
+      asset_cfg:
+        name: robot
+        joint_names: null
+        joint_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        fixed_tendon_names: null
+        fixed_tendon_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        body_names: null
+        body_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        object_collection_names: null
+        object_collection_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        preserve_order: false
+      min_forward_speed_cmd: 0.12
+    weight: 0.0
+  reward_clock_schedule:
+    func: parkour_isaaclab.envs.mdp.rewards:RewardClockContactSchedule
+    params:
+      asset_cfg:
+        name: robot
+        joint_names: null
+        joint_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        fixed_tendon_names: null
+        fixed_tendon_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        body_names: null
+        body_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        object_collection_names: null
+        object_collection_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        preserve_order: false
+      sensor_cfg:
+        name: contact_forces
+        joint_names: null
+        joint_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        fixed_tendon_names: null
+        fixed_tendon_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        body_names:
+        - FL_Footpad
+        - FR_Footpad
+        - ML_Footpad
+        - MR_Footpad
+        - RL_Footpad
+        - RR_Footpad
+        body_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        object_collection_names: null
+        object_collection_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        preserve_order: true
+      command_name: base_velocity
+      force_ref: 100.0
+      vel_ref: 0.1
+      min_upright_gz: 0.9
+      combine: product
+    weight: 0.001
+  reward_clock_swing_apex:
+    func: parkour_isaaclab.envs.mdp.rewards:RewardClockSwingApex
+    params:
+      asset_cfg:
+        name: robot
+        joint_names: null
+        joint_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        fixed_tendon_names: null
+        fixed_tendon_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        body_names: null
+        body_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        object_collection_names: null
+        object_collection_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        preserve_order: false
+      command_name: base_velocity
+      apex_m: 0.08
+      sigma_m: 0.03
+      ground_offset_from_root_m: -1.05
+      min_upright_gz: 0.9
+    weight: 0.001
+  reward_tripod_schedule:
+    func: parkour_isaaclab.envs.mdp.rewards:RewardTripodSchedule
+    params:
+      sensor_cfg:
+        name: contact_forces
+        joint_names: null
+        joint_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        fixed_tendon_names: null
+        fixed_tendon_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        body_names:
+        - FL_Footpad
+        - FR_Footpad
+        - ML_Footpad
+        - MR_Footpad
+        - RL_Footpad
+        - RR_Footpad
+        body_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        object_collection_names: null
+        object_collection_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        preserve_order: true
+      command_name: base_velocity
+      min_cmd_norm: 0.12
+      ema_tau: 0.06
+      corr_tau: 0.7
+      min_period: 0.3
+      max_period: 1.4
+      min_amp: 0.15
+      var_min: 0.01
+      credit_scale: 1.0
+    weight: 0.0
+  reward_lin_vel_z:
+    func: parkour_isaaclab.envs.mdp.rewards:reward_lin_vel_z
+    params:
+      asset_cfg:
+        name: robot
+        joint_names: null
+        joint_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        fixed_tendon_names: null
+        fixed_tendon_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        body_names: null
+        body_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        object_collection_names: null
+        object_collection_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        preserve_order: false
+      parkour_name: base_parkour
+    weight: -0.15
+  reward_ang_vel_xy:
+    func: parkour_isaaclab.envs.mdp.rewards:reward_ang_vel_xy
+    params:
+      asset_cfg:
+        name: robot
+        joint_names: null
+        joint_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        fixed_tendon_names: null
+        fixed_tendon_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        body_names: null
+        body_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        object_collection_names: null
+        object_collection_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        preserve_order: false
+    weight: 0.0
+  reward_dof_error:
+    func: parkour_isaaclab.envs.mdp.rewards:reward_dof_error
+    params:
+      asset_cfg:
+        name: robot
+        joint_names:
+        - .*_Hip_Femur_RevoluteJoint
+        - .*_Femur_Tibia_RevoluteJoint
+        joint_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        fixed_tendon_names: null
+        fixed_tendon_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        body_names: null
+        body_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        object_collection_names: null
+        object_collection_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        preserve_order: false
+    weight: 0.0
+  reward_feet_air_time_positive:
+    func: parkour_isaaclab.envs.mdp.rewards:reward_feet_air_time_positive
+    params:
+      command_name: base_velocity
+      sensor_cfg:
+        name: contact_forces
+        joint_names: null
+        joint_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        fixed_tendon_names: null
+        fixed_tendon_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        body_names: .*_Footpad
+        body_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        object_collection_names: null
+        object_collection_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        preserve_order: false
+      threshold: 0.38
+    weight: 0.8
+  reward_stride_length:
+    func: parkour_isaaclab.envs.mdp.rewards:RewardStrideLength
+    params:
+      asset_cfg:
+        name: robot
+        joint_names: null
+        joint_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        fixed_tendon_names: null
+        fixed_tendon_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        body_names: null
+        body_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        object_collection_names: null
+        object_collection_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        preserve_order: false
+      sensor_cfg:
+        name: contact_forces
+        joint_names: null
+        joint_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        fixed_tendon_names: null
+        fixed_tendon_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        body_names:
+        - FL_Footpad
+        - FR_Footpad
+        - ML_Footpad
+        - MR_Footpad
+        - RL_Footpad
+        - RR_Footpad
+        body_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        object_collection_names: null
+        object_collection_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        preserve_order: true
+      command_name: base_velocity
+      power: 2.0
+      min_phase_duration: 0.1
+      min_cmd_norm: 0.12
+    weight: 0.5
+  penalty_tibia_deviation_in_stance:
+    func: parkour_isaaclab.envs.mdp.rewards:penalty_joint_deviation_when_in_contact
+    params:
+      asset_cfg:
+        name: robot
+        joint_names:
+        - FL_Femur_Tibia_RevoluteJoint
+        - FR_Femur_Tibia_RevoluteJoint
+        - ML_Femur_Tibia_RevoluteJoint
+        - MR_Femur_Tibia_RevoluteJoint
+        - RL_Femur_Tibia_RevoluteJoint
+        - RR_Femur_Tibia_RevoluteJoint
+        joint_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        fixed_tendon_names: null
+        fixed_tendon_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        body_names: null
+        body_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        object_collection_names: null
+        object_collection_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        preserve_order: true
+      sensor_cfg:
+        name: contact_forces
+        joint_names: null
+        joint_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        fixed_tendon_names: null
+        fixed_tendon_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        body_names:
+        - FL_Footpad
+        - FR_Footpad
+        - ML_Footpad
+        - MR_Footpad
+        - RL_Footpad
+        - RR_Footpad
+        body_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        object_collection_names: null
+        object_collection_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        preserve_order: true
+      contact_force_threshold: 0.1
+    weight: -0.28
+  penalty_foot_idle_when_forward:
+    func: parkour_isaaclab.envs.mdp.rewards:PenaltyFootIdleWhenForward
+    params:
+      command_name: base_velocity
+      sensor_cfg:
+        name: contact_forces
+        joint_names: null
+        joint_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        fixed_tendon_names: null
+        fixed_tendon_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        body_names:
+        - FL_Footpad
+        - FR_Footpad
+        - ML_Footpad
+        - MR_Footpad
+        - RL_Footpad
+        - RR_Footpad
+        body_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        object_collection_names: null
+        object_collection_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        preserve_order: true
+      max_idle_steps: 90
+      contact_force_threshold: 0.1
+      min_forward_speed_cmd: 0.12
+    weight: -0.12
+  penalty_excess_feet_contact_forward:
+    func: parkour_isaaclab.envs.mdp.rewards:penalty_excess_feet_in_contact_forward
+    params:
+      command_name: base_velocity
+      sensor_cfg:
+        name: contact_forces
+        joint_names: null
+        joint_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        fixed_tendon_names: null
+        fixed_tendon_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        body_names: .*_Footpad
+        body_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        object_collection_names: null
+        object_collection_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        preserve_order: false
+      max_feet_on_ground: 4
+      contact_force_threshold: 0.1
+      min_forward_speed_cmd: 0.12
+    weight: -0.2
+  reward_stance_support_feet_when_forward:
+    func: parkour_isaaclab.envs.mdp.rewards:reward_stance_support_feet_when_forward
+    params:
+      command_name: base_velocity
+      sensor_cfg:
+        name: contact_forces
+        joint_names: null
+        joint_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        fixed_tendon_names: null
+        fixed_tendon_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        body_names: .*_Footpad
+        body_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        object_collection_names: null
+        object_collection_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        preserve_order: false
+      min_feet_loaded: 3
+      contact_force_threshold: 0.1
+      min_forward_speed_cmd: 0.12
+    weight: 0.0
+  feet_slide:
+    func: isaaclab_tasks.manager_based.locomotion.velocity.mdp.rewards:feet_slide
+    params:
+      sensor_cfg:
+        name: contact_forces
+        joint_names: null
+        joint_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        fixed_tendon_names: null
+        fixed_tendon_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        body_names: .*_Footpad
+        body_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        object_collection_names: null
+        object_collection_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        preserve_order: false
+      asset_cfg:
+        name: robot
+        joint_names: null
+        joint_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        fixed_tendon_names: null
+        fixed_tendon_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        body_names: .*_Footpad
+        body_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        object_collection_names: null
+        object_collection_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        preserve_order: false
+    weight: 0.0
+  reward_collision:
+    func: parkour_isaaclab.envs.mdp.rewards:reward_collision
+    params:
+      sensor_cfg:
+        name: contact_forces
+        joint_names: null
+        joint_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        fixed_tendon_names: null
+        fixed_tendon_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        body_names:
+        - body
+        - .*_Hip
+        - .*_Femur
+        body_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        object_collection_names: null
+        object_collection_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        preserve_order: false
+    weight: 0.0
+  reward_tracking_goal_vel:
+    func: parkour_tasks.crab_hex_omni_task.mdp.crab_hex_omni_rewards:reward_tracking_command_vel_on_obstacle
+    params:
+      asset_cfg:
+        name: robot
+        joint_names: null
+        joint_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        fixed_tendon_names: null
+        fixed_tendon_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        body_names: null
+        body_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        object_collection_names: null
+        object_collection_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        preserve_order: false
+      parkour_name: base_parkour
+      command_name: base_velocity
+    weight: 0.0
+  reward_tracking_yaw:
+    func: parkour_tasks.crab_hex_omni_task.mdp.crab_hex_omni_rewards:reward_facing_exp
+    params:
+      asset_cfg:
+        name: robot
+        joint_names: null
+        joint_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        fixed_tendon_names: null
+        fixed_tendon_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        body_names: null
+        body_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        object_collection_names: null
+        object_collection_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        preserve_order: false
+      parkour_name: base_parkour
+      command_name: base_velocity
+    weight: 0.2
+  reward_feet_edge:
+    func: parkour_isaaclab.envs.mdp.rewards:reward_feet_edge
+    params:
+      asset_cfg:
+        name: robot
+        joint_names: null
+        joint_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        fixed_tendon_names: null
+        fixed_tendon_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        body_names: .*_Footpad
+        body_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        object_collection_names: null
+        object_collection_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        preserve_order: false
+      sensor_cfg:
+        name: contact_forces
+        joint_names: null
+        joint_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        fixed_tendon_names: null
+        fixed_tendon_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        body_names: .*_Footpad
+        body_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        object_collection_names: null
+        object_collection_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        preserve_order: false
+      parkour_name: base_parkour
+    weight: 0.0
+  reward_feet_stumble:
+    func: parkour_isaaclab.envs.mdp.rewards:reward_feet_stumble
+    params:
+      sensor_cfg:
+        name: contact_forces
+        joint_names: null
+        joint_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        fixed_tendon_names: null
+        fixed_tendon_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        body_names: .*_Footpad
+        body_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        object_collection_names: null
+        object_collection_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        preserve_order: false
+    weight: 0.0
+  penalty_motor_direction_reversal:
+    func: parkour_isaaclab.envs.mdp.rewards:PenaltyMotorDirectionReversal
+    params:
+      asset_cfg:
+        name: robot
+        joint_names:
+        - .*_Body_CamShaft_RevoluteJoint
+        joint_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        fixed_tendon_names: null
+        fixed_tendon_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        body_names: null
+        body_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        object_collection_names: null
+        object_collection_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        preserve_order: false
+    weight: 0.0
+  reward_action_rate:
+    func: parkour_isaaclab.envs.mdp.rewards:reward_action_rate
+    params:
+      asset_cfg:
+        name: robot
+        joint_names: null
+        joint_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        fixed_tendon_names: null
+        fixed_tendon_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        body_names: null
+        body_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        object_collection_names: null
+        object_collection_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        preserve_order: false
+    weight: -0.3
+  reward_delta_torques:
+    func: parkour_isaaclab.envs.mdp.rewards:reward_delta_torques
+    params:
+      asset_cfg:
+        name: robot
+        joint_names: null
+        joint_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        fixed_tendon_names: null
+        fixed_tendon_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        body_names: null
+        body_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        object_collection_names: null
+        object_collection_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        preserve_order: false
+    weight: -1.0e-06
+  reward_one_direction_spin:
+    func: parkour_isaaclab.envs.mdp.rewards:RewardOneDirectionSpin
+    params:
+      asset_cfg:
+        name: robot
+        joint_names:
+        - .*_Body_CamShaft_RevoluteJoint
+        joint_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        fixed_tendon_names: null
+        fixed_tendon_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        body_names: null
+        body_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        object_collection_names: null
+        object_collection_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        preserve_order: false
+      command_name: base_velocity
+      speed_ref: 2.8
+    weight: 0.0
+  penalty_cam_contact_schedule:
+    func: parkour_isaaclab.envs.mdp.rewards:PenaltyCamContactSchedule
+    params:
+      asset_cfg:
+        name: robot
+        joint_names: null
+        joint_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        fixed_tendon_names: null
+        fixed_tendon_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        body_names: null
+        body_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        object_collection_names: null
+        object_collection_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        preserve_order: false
+      sensor_cfg:
+        name: contact_forces
+        joint_names: null
+        joint_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        fixed_tendon_names: null
+        fixed_tendon_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        body_names: .*_Footpad
+        body_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        object_collection_names: null
+        object_collection_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        preserve_order: false
+    weight: 0.0
+  reward_cam_phase_lock:
+    func: parkour_isaaclab.envs.mdp.rewards:RewardCamPhaseLock
+    params:
+      asset_cfg:
+        name: robot
+        joint_names: null
+        joint_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        fixed_tendon_names: null
+        fixed_tendon_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        body_names: null
+        body_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        object_collection_names: null
+        object_collection_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        preserve_order: false
+      speed_ref: 2.8
+    weight: 0.0
+  penalty_mechanical_power:
+    func: parkour_isaaclab.envs.mdp.rewards:penalty_mechanical_power
+    params:
+      asset_cfg:
+        name: robot
+        joint_names: null
+        joint_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        fixed_tendon_names: null
+        fixed_tendon_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        body_names: null
+        body_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        object_collection_names: null
+        object_collection_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        preserve_order: false
+    weight: 0.0
+  penalty_tracking_error_l1:
+    func: parkour_isaaclab.envs.mdp.rewards:penalty_tracking_error_l1
+    params:
+      command_name: base_velocity
+      asset_cfg:
+        name: robot
+        joint_names: null
+        joint_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        fixed_tendon_names: null
+        fixed_tendon_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        body_names: null
+        body_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        object_collection_names: null
+        object_collection_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        preserve_order: false
+    weight: -2.0
+  reward_obstacle_clearance:
+    func: parkour_tasks.crab_hex_omni_task.mdp.crab_hex_omni_rewards:reward_obstacle_clearance_omni
+    params:
+      asset_cfg:
+        name: robot
+        joint_names: null
+        joint_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        fixed_tendon_names: null
+        fixed_tendon_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        body_names: null
+        body_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        object_collection_names: null
+        object_collection_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        preserve_order: false
+      sensor_cfg:
+        name: contact_forces
+        joint_names: null
+        joint_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        fixed_tendon_names: null
+        fixed_tendon_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        body_names: .*_Footpad
+        body_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        object_collection_names: null
+        object_collection_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        preserve_order: false
+      parkour_name: base_parkour
+      command_name: base_velocity
+      min_goal_progress: 0.05
+      min_forward_speed: 0.1
+      min_forward_speed_cmd: 0.12
+      max_tilt_gravity_xy_sq: 0.02
+    weight: 0.0
+  reward_foot_clearance:
+    func: parkour_isaaclab.envs.mdp.rewards:reward_foot_clearance
+    params:
+      asset_cfg:
+        name: robot
+        joint_names: null
+        joint_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        fixed_tendon_names: null
+        fixed_tendon_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        body_names: .*_Footpad
+        body_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        object_collection_names: null
+        object_collection_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        preserve_order: false
+      sensor_cfg:
+        name: contact_forces
+        joint_names: null
+        joint_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        fixed_tendon_names: null
+        fixed_tendon_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        body_names: .*_Footpad
+        body_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        object_collection_names: null
+        object_collection_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        preserve_order: false
+      command_name: base_velocity
+      contact_force_threshold: 0.1
+      min_clearance_m: 0.07
+      max_clearance_m: 0.26
+      min_forward_speed_cmd: 0.12
+      ground_offset_from_root_m: -1.05
+      parkour_name: base_parkour
+    weight: 0.0
+  penalty_swing_min_clearance:
+    func: parkour_isaaclab.envs.mdp.rewards:penalty_swing_min_clearance
+    params:
+      asset_cfg:
+        name: robot
+        joint_names: null
+        joint_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        fixed_tendon_names: null
+        fixed_tendon_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        body_names: .*_Footpad
+        body_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        object_collection_names: null
+        object_collection_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        preserve_order: false
+      sensor_cfg:
+        name: contact_forces
+        joint_names: null
+        joint_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        fixed_tendon_names: null
+        fixed_tendon_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        body_names: .*_Footpad
+        body_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        object_collection_names: null
+        object_collection_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        preserve_order: false
+      command_name: base_velocity
+      contact_force_threshold: 0.1
+      min_clearance_m: 0.04
+      min_forward_speed_cmd: 0.12
+      ground_offset_from_root_m: -1.05
+      parkour_name: base_parkour
+    weight: 0.0
+  reward_yaw_progress:
+    func: parkour_tasks.crab_hex_omni_task.mdp.crab_hex_omni_rewards:reward_yaw_progress
+    params:
+      command_name: base_velocity
+      asset_cfg:
+        name: robot
+        joint_names: null
+        joint_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        fixed_tendon_names: null
+        fixed_tendon_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        body_names: null
+        body_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        object_collection_names: null
+        object_collection_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        preserve_order: false
+      clip: null
+    weight: 1.0
+  reward_facing_turn:
+    func: parkour_tasks.crab_hex_omni_task.mdp.crab_hex_omni_rewards:reward_facing_exp_turn_slot
+    params:
+      asset_cfg:
+        name: robot
+        joint_names: null
+        joint_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        fixed_tendon_names: null
+        fixed_tendon_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        body_names: null
+        body_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        object_collection_names: null
+        object_collection_ids: !!python/object/apply:builtins.slice
+        - null
+        - null
+        - null
+        preserve_order: false
+      parkour_name: base_parkour
+      command_name: base_velocity
+    weight: 0.0
