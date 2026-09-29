@@ -293,3 +293,12 @@ scope under the decision defaults.)
   - So removing the fast-gait seeding alone gives no speed, and it adds a stall mode.
   - The low median lean is diluted by the stalled episodes; it does not mean a non-leaning walk.
   - C_s2 launched at 13:22.
+- 2026-09-29 14:35: **C_s2 = FAST, so the headline replicates.** feet_ss 0.194 at 0.22 and 0.209 at 0.25 (n 90/95);
+  lean 0.02–0.04; sweep 0.082–0.090. C_mo_s2 launched at 14:36 (X08).
+- 14:37: the level-2 discriminators are queued behind C_mo_s2 (`phaseB/candidates_v4.yaml`, runner
+  `phaseB/queue_after.sh`), under the autonomy rule, to avoid idle GPU while GATE.md is written:
+  - **C_fa**: the fore-aft mirror alone, command direction visible. It separates the mirror's left-right coupling from
+    direction blindness, and bears on portability, since full omni must see direction.
+  - **C_nb**: C minus the band (mirror + scalar obs + RSI off).
+  - **C_nr**: C minus RSI-off (mirror + scalar obs + band, RSI on).
+  - C_nb and C_nr explain which knob completes C's speed with the pair (C_mo ≈ 0.17 against C ≈ 0.21).
