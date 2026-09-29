@@ -210,11 +210,62 @@ chains:
 # Each launched as `run_candidates.py --campaign-dir <this dir> --reference-chain <name> --seed 3`
 # (plan Arms: "seed 3" on every arm; a second seed is added only per the Gate's "Two seeds" rule).
 # O doubles as the (never-queued) screen/baseline chain above and this campaign's control reference.
+  C_mo:
+    notes: "C split (2026-09-29, C FAST at s3) -- the fore-aft-only mirror + scalar command obs alone."
+    stages:
+      - stage: s1
+        base: "1b"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_OMNI_CMD_OBS: scalar
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
+  C_band:
+    notes: "C split -- the wider lateral speed band alone (U[0.21, 0.35])."
+    stages:
+      - stage: s1
+        base: "1b"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
+  C_rsi:
+    notes: "C split -- RSI off alone."
+    stages:
+      - stage: s1
+        base: "1b"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_RSI_FRAC: "0"
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
 references:
   O: {chain: O, seed: 3}
   C: {chain: C, seed: 3}
   R: {chain: R, seed: 3}
   RC: {chain: RC, seed: 3}
+  # added 2026-09-29 after C read FAST at s3 (decision defaults: split C one level; seed-2 entries for
+  # INTERMEDIATE / tie-break / "either suffices" cases -- a reference pins one seed)
+  C_mo: {chain: C_mo, seed: 3}
+  C_band: {chain: C_band, seed: 3}
+  C_rsi: {chain: C_rsi, seed: 3}
+  O_s2: {chain: O, seed: 2}
+  C_s2: {chain: C, seed: 2}
+  R_s2: {chain: R, seed: 2}
 
 # ---------------------------------------------------------------------------- ranked candidates
 # Empty by design (header comment): every arm here runs through `references:`, never the ordinary

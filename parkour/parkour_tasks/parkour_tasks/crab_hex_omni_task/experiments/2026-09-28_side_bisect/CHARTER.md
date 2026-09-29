@@ -266,3 +266,8 @@ scope under the decision defaults.)
     driver exits, and runs the decision-default queue;
   - R SLOW → C_mo, C_band, C_rsi, then C_s2 (replicates the headline);
   - R FAST → O_s2, then a stop.
+- 2026-09-29 09:39: **R s3 = SLOW.** feet_ss 0.075 at 0.22 and 0.078 at 0.25 (n 97/95); lean 0.14–0.18; sweep 0.023.
+  **Interpretation row: O SLOW, C FAST, R SLOW → the factor is in C's bundle.** RC is not run (it needs C and R both
+  SLOW). The runner applied `candidates_v2.yaml`: chains C_mo, C_band and C_rsi, plus references O_s2, C_s2 and R_s2
+  (`--accept-candidates-change` on C_mo's launch). It launched C_mo (unit `...-1790689151`, run
+  `seed3_X04_s1_A15pB`). The queue is C_mo → C_band → C_rsi → C_s2.
