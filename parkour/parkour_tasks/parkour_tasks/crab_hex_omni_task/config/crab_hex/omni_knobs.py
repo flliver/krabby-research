@@ -99,6 +99,21 @@ five things the forward block cannot know about:
     knobs -- so the swap and the added term see the otherwise-final cfg. Forward and sideways cfg
     modules must never import this module.
 
+14. **the side-speed-bisection knobs** (2026-09-28, step 1; both DEFAULT OFF, set by no preset).
+    ``KRABBY_OMNI_MIRROR_IMAGES=fa`` is RUNNER-side: it is applied by
+    ``agents/rsl_rl_ppo_cfg._repoint_symmetry``, not by :func:`apply_omni_knobs`, because the
+    symmetry loss's ``data_augmentation_func`` lives on the PPO runner cfg, not this env cfg --
+    the ``*_VAR`` and parser are defined here anyway, for the same whitelist reason as the
+    sibling knob modules. ``KRABBY_OMNI_CMD_OBS=scalar`` IS env-side (:func:`_apply_cmd_obs_knob`,
+    with the other observation knobs): it zeroes obs slots 8-9 only, keeping slot 10 and the
+    facing/yaw-rate slots 5-7. The two compose (arm C of the plan sets both): under the
+    four-image mirror, ``M_y`` / ``R_z(pi)`` map a +y command onto a -y command the scalar
+    encoding cannot see, so "scalar requires the fa mirror" is enforced by the DRIVER
+    (``run_candidates._check_cmd_obs_mirror_composition``, on a composed TRAINING stage), never
+    here -- an eval process carries only ``KRABBY_OMNI_CMD_OBS`` (``run_phases.EVAL_CARRY``;
+    ``KRABBY_OMNI_MIRROR_IMAGES`` has no eval-carry entry, the mirror loss does not run in an
+    eval) and must still build.
+
 Every parser is pure and lives at module scope with no Isaac import (the Isaac-touching bits
 are lazy imports inside :func:`apply_omni_knobs`), so this module can be path-loaded and
 unit-tested without booting Kit -- see ``tests/unit/test_crab_hex_omni_phases.py``.
@@ -227,6 +242,14 @@ __all__ = [
     "PROGRESS_W_VAR",
     "FACING_OBS_ENCODING_VAR",
     "FACING_OBS_ENCODINGS",
+    # side-speed-bisection plan step 1 (2026-09-28)
+    "MIRROR_IMAGES_VAR",
+    "MIRROR_IMAGES_MODES",
+    "parse_mirror_images",
+    "CMD_OBS_VAR",
+    "CMD_OBS_MODES",
+    "CMD_OBS_OFF_SPELLINGS",
+    "parse_cmd_obs",
     "parse_slots",
     "parse_dir_band",
     "parse_speed_ellipse",
@@ -362,6 +385,30 @@ PROGRESS_W_VAR = "KRABBY_OMNI_PROGRESS_W"
 FACING_OBS_ENCODING_VAR = "KRABBY_OMNI_FACING_OBS_ENCODING"
 FACING_OBS_ENCODINGS = ("raw", "sincos")
 """The only two spellings :func:`parse_facing_obs_encoding` accepts."""
+
+#: The symmetry loss's ``data_augmentation_func`` (side-speed-bisection plan step 1a,
+#: 2026-09-28, DEFAULT OFF). ``"fa"`` is the only recognised mode -- it re-points the RUNNER cfg
+#: (``rsl_rl_ppo_cfg._repoint_symmetry``, not this module's :func:`apply_omni_knobs`) at
+#: ``crab_hex_omni_mirror.crab_hex_omni_symmetry_augmentation_fa``, the two-image ``[I, M_x]``
+#: mirror, instead of the shipped four-image one. Unset is off; there is no other mode today, so
+#: (unlike :data:`CMD_OBS_VAR`) this knob has no explicit off spelling and does not need one --
+#: it is never carried into an eval (the mirror loss does not run there).
+MIRROR_IMAGES_VAR = "KRABBY_OMNI_MIRROR_IMAGES"
+MIRROR_IMAGES_MODES = ("fa",)
+"""The only mode :func:`parse_mirror_images` accepts."""
+
+#: Obs slots 8-9 (the command's body-frame x/y) under the "scalar" command encoding (side-speed-
+#: bisection plan step 1b, 2026-09-28, DEFAULT OFF): ``params["cmd_obs_scalar"] = True`` on the
+#: omni obs term (``CrabHexOmniParkourObservations._command_channels``) zeroes ONLY those two
+#: slots -- slot 10 (``||cmd_xy||``) still carries the command's magnitude, and slots 5-7
+#: (yaw-rate command, facing error) are untouched. Carried into every eval
+#: (``run_phases.EVAL_CARRY``), so a head trained direction-blind is scored direction-blind.
+CMD_OBS_VAR = "KRABBY_OMNI_CMD_OBS"
+CMD_OBS_MODES = ("scalar",)
+#: Explicit off spellings, case-insensitive -- the same vocabulary as :data:`CMD_POOL_VAR`, so
+#: ``run_phases.EVAL_CARRY_DEFAULTS`` can carry a literal off value into every eval that does not
+#: set this knob, the way every other :data:`run_phases.EVAL_CARRY` key does.
+CMD_OBS_OFF_SPELLINGS = ("", "0", "off", "none")
 
 CLOCK_TURN_MIN_SPEED = 0.25
 """Smallest ``omni_clock_turn_radius x ang_vel_max`` a config may ship, m/s.
@@ -572,6 +619,41 @@ def parse_facing_obs_encoding(text: str) -> str:
     if token not in FACING_OBS_ENCODINGS:
         raise ValueError(
             f"{FACING_OBS_ENCODING_VAR} must be one of {FACING_OBS_ENCODINGS}, got {text!r}"
+        )
+    return token
+
+
+def parse_mirror_images(text: str) -> str:
+    """``KRABBY_OMNI_MIRROR_IMAGES`` -> ``"fa"``, the only recognised mode.
+
+    Validated here rather than left to fall through in ``_repoint_symmetry``: a typo'd value
+    that is silently ignored would leave the four-image mirror armed while the launcher believed
+    the fore-aft-only run had started -- the two look identical in every training curve until the
+    side-speed bisection's own gate reads the -y branch a from-scratch +y-only sampler should
+    never have trained.
+    """
+    token = str(text).strip().lower()
+    if token not in MIRROR_IMAGES_MODES:
+        raise ValueError(
+            f"{MIRROR_IMAGES_VAR} must be one of {MIRROR_IMAGES_MODES}, got {text!r}"
+        )
+    return token
+
+
+def parse_cmd_obs(text: str) -> str | None:
+    """``KRABBY_OMNI_CMD_OBS`` -> ``"scalar"`` or ``None`` (off, one of :data:`CMD_OBS_OFF_SPELLINGS`).
+
+    Validated here rather than left to the observation term: a typo'd value that silently kept
+    the two-axis command would leave obs slots 8-9 carrying the travel DIRECTION while the
+    launcher believed arm C's direction-blind observation had trained -- the exact confound the
+    side-speed bisection's C arm exists to remove.
+    """
+    token = str(text).strip().lower()
+    if token in CMD_OBS_OFF_SPELLINGS:
+        return None
+    if token not in CMD_OBS_MODES:
+        raise ValueError(
+            f"{CMD_OBS_VAR} must be 'scalar' or one of {CMD_OBS_OFF_SPELLINGS} (off), got {text!r}"
         )
     return token
 
@@ -1022,6 +1104,30 @@ def _apply_facing_obs_encoding_knob(cfg, env) -> None:
         term.params["facing_obs_encoding"] = encoding
 
 
+def _apply_cmd_obs_knob(cfg, env) -> None:
+    """``KRABBY_OMNI_CMD_OBS=scalar`` -> ``params["cmd_obs_scalar"] = True`` on the omni obs term.
+
+    Unset or an explicit off spelling (:data:`CMD_OBS_OFF_SPELLINGS`) is a no-op: the class
+    default ``cmd_obs_scalar = False`` survives, so every shipped preset is byte-identical.
+    Unlike :func:`_apply_facing_obs_encoding_knob`, the term does not need to ALREADY declare the
+    key -- ``cmd_obs_scalar`` is a plain optional keyword on
+    ``CrabHexOmniParkourObservations.__call__`` (like ``stand_obs`` / ``lpf_obs``), not a value
+    with several spellings a leaked forward term might already carry under a different name.
+    """
+    raw = env.get(CMD_OBS_VAR)
+    if raw is None:
+        return
+    if parse_cmd_obs(raw) != "scalar":
+        return
+    terms = _omni_obs_terms(cfg)
+    if not terms:
+        raise RuntimeError(f"{CMD_OBS_VAR} is set but no omni observation term is installed")
+    for _g, _t, term in terms:
+        if term.params is None:
+            term.params = {}
+        term.params["cmd_obs_scalar"] = True
+
+
 def _check_clock_radius_rule(cfg) -> None:
     """Refuse a config whose gait clock would STOP on every commanded turn.
 
@@ -1173,6 +1279,9 @@ def apply_omni_knobs(cfg, environ=None) -> None:
     _apply_clock_combine_knob(cfg, env)
     _apply_facing_obs_clip_knob(cfg, env)
     _apply_facing_obs_encoding_knob(cfg, env)
+    # NOTE(side-speed-bisection plan step 1b, 2026-09-28): the scalar command-observation knob,
+    # default off. With the other obs-param knobs, for the same reason.
+    _apply_cmd_obs_knob(cfg, env)
     # NOTE(clock-deprecation step 2, 2026-09-23): the clock-hide knobs, default off (unset writes
     # nothing). With the other obs-param knobs; before the motion and stroke/posture knobs.
     _ck.apply_clock_knobs(cfg, env)

@@ -1302,6 +1302,149 @@ def test_facing_obs_encoding_knob_refuses_a_leaked_forward_obs(knobs):
         knobs._apply_facing_obs_encoding_knob(cfg, {"KRABBY_OMNI_FACING_OBS_ENCODING": "sincos"})
 
 
+# --------------------------------------------- the side-speed-bisection knobs (2026-09-28)
+def test_parse_mirror_images(knobs):
+    assert knobs.parse_mirror_images("fa") == "fa"
+    assert knobs.parse_mirror_images(" FA ") == "fa"
+    assert knobs.MIRROR_IMAGES_MODES == ("fa",)
+    for bad in ("", "lr", "four", "1", "none"):
+        with pytest.raises(ValueError, match="KRABBY_OMNI_MIRROR_IMAGES"):
+            knobs.parse_mirror_images(bad)
+
+
+def test_parse_cmd_obs(knobs):
+    assert knobs.parse_cmd_obs("scalar") == "scalar"
+    assert knobs.parse_cmd_obs(" Scalar ") == "scalar"
+    assert knobs.CMD_OBS_MODES == ("scalar",)
+    assert knobs.CMD_OBS_OFF_SPELLINGS == ("", "0", "off", "none")
+    for off in knobs.CMD_OBS_OFF_SPELLINGS:
+        assert knobs.parse_cmd_obs(off) is None
+    assert knobs.parse_cmd_obs(" OFF ") is None                # case/space tolerated like the on value
+    for bad in ("vector", "1", "xy", "raw"):
+        with pytest.raises(ValueError, match="KRABBY_OMNI_CMD_OBS"):
+            knobs.parse_cmd_obs(bad)
+
+
+def test_cmd_obs_knob_absent_or_off_is_a_no_op(knobs):
+    """Unset, and every explicit off spelling, must leave the term's params byte-identical --
+    the knob-off-identity claim, at the config-apply layer (the observation-class layer is
+    ``test_crab_hex_omni_observations.py``)."""
+    cfg = _FakeObsCfg(_FakeObsFunc)
+    before = dict(cfg.observations.policy.proprio.params)
+    knobs._apply_cmd_obs_knob(cfg, {})
+    assert cfg.observations.policy.proprio.params == before
+    for off in knobs.CMD_OBS_OFF_SPELLINGS:
+        knobs._apply_cmd_obs_knob(cfg, {"KRABBY_OMNI_CMD_OBS": off})
+        assert cfg.observations.policy.proprio.params == before
+
+
+def test_cmd_obs_knob_writes_cmd_obs_scalar_true(knobs):
+    cfg = _FakeObsCfg(_FakeObsFunc)
+    knobs._apply_cmd_obs_knob(cfg, {"KRABBY_OMNI_CMD_OBS": "scalar"})
+    assert cfg.observations.policy.proprio.params["cmd_obs_scalar"] is True
+    assert cfg.observations.policy.proprio.params["asset_cfg"] == "robot"     # untouched
+
+
+def test_cmd_obs_knob_builds_a_params_dict_when_the_term_has_none(knobs):
+    """Unlike ``_apply_facing_obs_encoding_knob``, the term need NOT already declare the key
+    (``cmd_obs_scalar`` is a plain optional ``__call__`` kwarg, per the applier's docstring)."""
+    cfg = _FakeObsCfg(_FakeObsFunc)
+    cfg.observations.policy.proprio.params = None
+    knobs._apply_cmd_obs_knob(cfg, {"KRABBY_OMNI_CMD_OBS": "scalar"})
+    assert cfg.observations.policy.proprio.params == {"cmd_obs_scalar": True}
+
+
+def test_cmd_obs_knob_refuses_a_leaked_forward_obs(knobs):
+    cfg = _FakeObsCfg(_FakeForwardObsFunc)
+    with pytest.raises(RuntimeError, match="no omni observation term"):
+        knobs._apply_cmd_obs_knob(cfg, {"KRABBY_OMNI_CMD_OBS": "scalar"})
+
+
+def test_cmd_obs_knob_rejects_a_bad_value_before_touching_the_term(knobs):
+    cfg = _FakeObsCfg(_FakeObsFunc)
+    before = dict(cfg.observations.policy.proprio.params)
+    with pytest.raises(ValueError, match="KRABBY_OMNI_CMD_OBS"):
+        knobs._apply_cmd_obs_knob(cfg, {"KRABBY_OMNI_CMD_OBS": "vector"})
+    assert cfg.observations.policy.proprio.params == before
+
+
+# ---- the symmetry-loss repoint (``agents/rsl_rl_ppo_cfg.py``): runner-side, KNOB-OFF IDENTITY.
+# The module imports isaaclab at load time, so ``_repoint_symmetry`` is lifted out with ``ast``
+# (the ``_load_play_episode_fn`` precedent below) rather than imported, and run against a stand-in
+# cfg and the REAL, pure ``omni_knobs`` module for ``MIRROR_IMAGES_VAR`` / ``parse_mirror_images``.
+AGENT_PY = OMNI / "config/crab_hex/agents/rsl_rl_ppo_cfg.py"
+
+
+def _load_repoint_symmetry(knobs):
+    import ast
+    import os
+
+    src = AGENT_PY.read_text()
+    tree = ast.parse(src, str(AGENT_PY))
+    ns: dict = {"os": os, "_knobs": knobs}
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and any(
+            getattr(t, "id", "") in ("OMNI_MIRROR", "FA_MIRROR") for t in node.targets
+        ):
+            exec(compile(ast.Module([node], []), str(AGENT_PY), "exec"), ns)
+        if isinstance(node, ast.FunctionDef) and node.name == "_repoint_symmetry":
+            exec(compile(ast.Module([node], []), str(AGENT_PY), "exec"), ns)
+    return ns["_repoint_symmetry"], ns["OMNI_MIRROR"], ns["FA_MIRROR"]
+
+
+def _sym_cfg(func: str | None):
+    return types.SimpleNamespace(
+        algorithm=types.SimpleNamespace(symmetry_cfg=(
+            None if func is None else types.SimpleNamespace(data_augmentation_func=func)
+        ))
+    )
+
+
+def test_repoint_symmetry_is_a_no_op_when_symmetry_is_off(knobs, monkeypatch):
+    """``symmetry_cfg is None`` (``KRABBY_SYM_LOSS_COEF=0``): unchanged, whatever the knob says."""
+    monkeypatch.delenv("KRABBY_OMNI_MIRROR_IMAGES", raising=False)
+    repoint, _omni_mirror, _fa_mirror = _load_repoint_symmetry(knobs)
+    cfg = _sym_cfg(None)
+    repoint(cfg)
+    assert cfg.algorithm.symmetry_cfg is None
+    monkeypatch.setenv("KRABBY_OMNI_MIRROR_IMAGES", "fa")
+    repoint(cfg)
+    assert cfg.algorithm.symmetry_cfg is None
+
+
+def test_repoint_symmetry_knob_off_is_the_four_image_path_byte_identical(knobs, monkeypatch):
+    """Unset, blank, and an explicit already-armed four-image path are all the SAME repoint --
+    the whole knob-off-identity claim (2026-09-28, plan step 1a)."""
+    monkeypatch.delenv("KRABBY_OMNI_MIRROR_IMAGES", raising=False)
+    repoint, omni_mirror, fa_mirror = _load_repoint_symmetry(knobs)
+    for placeholder in ("stale", omni_mirror, fa_mirror):        # even a stale/wrong prior value
+        cfg = _sym_cfg(placeholder)
+        repoint(cfg)
+        assert cfg.algorithm.symmetry_cfg.data_augmentation_func == omni_mirror
+    monkeypatch.setenv("KRABBY_OMNI_MIRROR_IMAGES", "")
+    cfg = _sym_cfg("stale")
+    repoint(cfg)
+    assert cfg.algorithm.symmetry_cfg.data_augmentation_func == omni_mirror
+
+
+def test_repoint_symmetry_fa_mode_swaps_the_func(knobs, monkeypatch):
+    repoint, omni_mirror, fa_mirror = _load_repoint_symmetry(knobs)
+    assert omni_mirror != fa_mirror
+    assert omni_mirror.endswith(":crab_hex_omni_symmetry_augmentation")
+    assert fa_mirror.endswith(":crab_hex_omni_symmetry_augmentation_fa")
+    monkeypatch.setenv("KRABBY_OMNI_MIRROR_IMAGES", "fa")
+    cfg = _sym_cfg("stale")
+    repoint(cfg)
+    assert cfg.algorithm.symmetry_cfg.data_augmentation_func == fa_mirror
+
+
+def test_repoint_symmetry_rejects_a_bad_mode(knobs, monkeypatch):
+    repoint, _omni_mirror, _fa_mirror = _load_repoint_symmetry(knobs)
+    monkeypatch.setenv("KRABBY_OMNI_MIRROR_IMAGES", "lr")
+    with pytest.raises(ValueError, match="KRABBY_OMNI_MIRROR_IMAGES"):
+        repoint(_sym_cfg("stale"))
+
+
 # -------------------------------------------------------------------- the clock-radius rule
 def _clock_cfg(radius, ang_vel_max):
     return types.SimpleNamespace(

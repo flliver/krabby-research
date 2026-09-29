@@ -741,7 +741,11 @@ def test_every_motion_knob_is_registered_with_the_ladder(rc):
     whitelist, parsers = rc.knob_whitelist(), rc.knob_parsers()
     for var in ALL_KNOBS + ("KRABBY_POWER_W", "KRABBY_ACTION_RATE_W", "KRABBY_AIRTIME_W"):
         assert var in whitelist and var in parsers and var in rc.OVERLAY_DUMP_CHECKS, var
-    assert rc.AGENT_DUMP_KEYS == set(mk.AGENT_KNOBS)
+    # KRABBY_OMNI_MIRROR_IMAGES (side-speed-bisection plan step 1a, 2026-09-28) is the first
+    # AGENT_DUMP_KEYS member that is NOT a motion-quality knob: the symmetry loss's
+    # data_augmentation_func lives on the runner cfg for a reason unrelated to motion_knobs.py, so
+    # it is asserted here explicitly rather than folded into mk.AGENT_KNOBS.
+    assert rc.AGENT_DUMP_KEYS == set(mk.AGENT_KNOBS) | {"KRABBY_OMNI_MIRROR_IMAGES"}
     reasons = []
     rc._check_knob("KRABBY_JOINT_VEL_W", "0.1", "t", whitelist, parsers, reasons, set())
     assert reasons and "round-trip" in reasons[0]

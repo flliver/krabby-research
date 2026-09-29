@@ -271,3 +271,43 @@ scenarios:
       Per-category suite (plan D1): seven categories, ten holds, one hold per wave, 100 envs per
       wave. turn_r90 is a right 90 deg turn from face 0 and move_turn_r the mirror of move_turn
       (face -pi/2) -- both differ from the same labels on the rows above.
+
+  # Side-speed bisection campaign (side-speed-bisection.md, plan step 3): the pre-registered gate
+  # row, read on lat_l ONLY (the trained hand -- every arm's base preset 1b is side_l-only,
+  # DIR_BAND pi/2:pi/2). The stand wave is there because the driver passes every stage's trained
+  # categories (1b: stand,side) as --trained-categories, and suite_cli_args refuses a name the row
+  # lacks; the gate never reads it. Two gate waves, both lat_l, at 0.22 and 0.25 m/s; a 2-s
+  # settle then a 12-s hold, category_suite protocol matching suite__omni. feet_ss (the
+  # feet-centroid speed over hold-relative [4, 10) s, gate_stats.py) is read from each hold's raw
+  # episode npz; the class rule (plan "Gate") needs BOTH speeds to agree. No env block (flat
+  # terrain, same convention as suite__omni). lat_l_022 and lat_l_025 are a SINGLETON category (no
+  # `hand:` on either hold): both travel dir +pi/2, only the speed differs, so this is not an l/r
+  # mirror pair -- the validator refuses an unbalanced hand count on a paired category
+  # (schedule._validate_suite), so `hand` is left unset here.
+  - id: side22_25__omni
+    kind: category_suite
+    role: teacher
+    task: Isaac-Crab-Hex-Omni-Walk-Play-v0
+    terrain_label: flat
+    checkpoint: SUPPLIED-PER-RUN--pass---checkpoint
+    episodes: 100
+    waves: 3
+    env_seed: 1
+    episode_length_s: 18.0
+    spawn_yaw: first_face
+    settle: {hold_s: 2.0, label: settle}
+    hold_s: 12.0
+    categories:
+      - name: stand
+        kind: stand
+        holds:
+          - {label: stand, speed: 0.00, dir: 0.0000000, face: 0.0000000}
+      - name: side
+        kind: translate
+        holds:
+          - {label: lat_l_022, speed: 0.22, dir: 1.5707963, face: 0.0000000}
+          - {label: lat_l_025, speed: 0.25, dir: 1.5707963, face: 0.0000000}
+    notes: >-
+      Side-speed bisection campaign gate row: lat_l at 0.22 and 0.25 m/s (the trained hand only),
+      2-s settle, 12-s holds, matching suite__omni's category_suite protocol. Scored by feet_ss
+      over hold-relative [4, 10) s (gate_stats.py), not by the suite's own decision-rule blocks.

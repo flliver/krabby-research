@@ -92,6 +92,18 @@ output is ``cat([x, M_y x, M_x x, M_x M_y x])`` along the batch dim. The fork de
 rows POSITIONALLY -- ``mse(mean_actions[B:], augmented_action_means[B:])`` -- so the two
 outputs must list the images in the same order. Either input may be None; an actions-only
 call requires a previous obs call on the same env (the maps are sized from the live obs dim).
+
+A SECOND, FORE-AFT-ONLY ENTRY POINT (side-speed-bisection plan step 1a, 2026-09-28, DEFAULT
+OFF). ``crab_hex_omni_symmetry_augmentation_fa`` returns ``cat([x, M_x x])`` -- rows 0 and 2
+of the four-image function above, dropping the two L/R images (``M_y``, ``M_x M_y``).
+Selected by ``KRABBY_OMNI_MIRROR_IMAGES=fa`` (``rsl_rl_ppo_cfg._repoint_symmetry``). WHY: the
+omni sampler can be +y-only (``DIR_BAND`` pinned to lateral), but the shipped four-image
+mirror's ``M_y`` and ``R_z(pi)`` images still map every +y state onto a -y-COMMAND state and
+train the -y branch through the shared weights (the scoping workflow's finding: 1b, a
++y-only-sampled fork, was never actually one-direction). The fore-aft-only mirror is the
+first genuinely one-direction omni run: it keeps the ``M_x`` image (which ties forward travel
+to backward travel and removes the lead-row preference) and drops both images that touch the
+handedness the sampler is trying not to train.
 """
 
 from __future__ import annotations
@@ -383,4 +395,47 @@ def crab_hex_omni_symmetry_augmentation(obs=None, actions=None, env=None, obs_ty
         obs_out = four_images_obs(obs, lr, fa)
     if actions is not None:
         act_out = four_images_actions(actions, lr, fa)
+    return obs_out, act_out
+
+
+def two_images_obs(obs: torch.Tensor, fa) -> torch.Tensor:
+    """``cat([x, M_x x])`` along the batch dim -- rows 0 and 2 of :func:`four_images_obs`."""
+    m_x = fa.mirror_obs(obs)
+    return torch.cat([obs, m_x], dim=0)
+
+
+def two_images_actions(actions: torch.Tensor, fa) -> torch.Tensor:
+    """``cat([a, M_x a])`` -- the SAME image order as :func:`two_images_obs`."""
+    m_x = fa.mirror_actions(actions)
+    return torch.cat([actions, m_x], dim=0)
+
+
+def crab_hex_omni_symmetry_augmentation_fa(obs=None, actions=None, env=None, obs_type="policy"):
+    """rsl-rl symmetry entry point, fore-aft-only: ``cat([x, M_x x])`` of obs and/or actions.
+
+    ``KRABBY_OMNI_MIRROR_IMAGES=fa`` selects this (``rsl_rl_ppo_cfg._repoint_symmetry``) in
+    place of :func:`crab_hex_omni_symmetry_augmentation`. Reuses the SAME ``build_mirrors`` /
+    ``_get_mirrors`` cache -- both the ``lr`` and ``fa`` maps are built exactly as they are for
+    the four-image entry point, and this one simply drops ``lr`` on the floor -- so a run that
+    switches between the two entry points mid-campaign never sees a different head-sign
+    derivation, only a different image count. See the module docstring's "SECOND, FORE-AFT-ONLY
+    ENTRY POINT" note for why this exists.
+    """
+    if obs is None and id(env) not in _CACHE:
+        raise RuntimeError(
+            "the symmetry augmentation entry point must see an obs batch before an "
+            "actions-only call (the mirrors are sized from the live obs dim)"
+        )
+    _lr, fa = _get_mirrors(env, obs.shape[-1] if obs is not None else 0)
+    obs_out = None
+    act_out = None
+    if obs is not None:
+        if obs.shape[-1] != fa.obs_dim:
+            raise ValueError(
+                f"symmetry augmentation: {obs_type} obs dim {obs.shape[-1]} != policy dim "
+                f"{fa.obs_dim}; extend the map before using a distinct critic space"
+            )
+        obs_out = two_images_obs(obs, fa)
+    if actions is not None:
+        act_out = two_images_actions(actions, fa)
     return obs_out, act_out

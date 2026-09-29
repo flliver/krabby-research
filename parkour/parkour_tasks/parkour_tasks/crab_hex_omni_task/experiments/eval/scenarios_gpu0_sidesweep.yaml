@@ -1,0 +1,145 @@
+# GPU-0 side-speed sweep (side-speed-bisection.md plan step 6, "Left for implementation" item 8):
+# W (the clock-free head of record) on side holds at 0.15, 0.22, 0.30 and 0.35 m/s. Report only --
+# it gates nothing (plan step 6). A SEPARATE file from scenarios_omni.yaml, not four new rows
+# there, for two reasons: scenarios_omni.yaml's manifest SHAPE is frozen (adding/removing an env:
+# block on an EXISTING row flips same-seed evals between two repeatable outcomes -- process-state
+# sensitivity, not noise; see that file's header), and 0.30/0.35 need a wider row-level
+# speed_ellipse than any row there carries, which would move eval_sha for every existing row in
+# that file. No row here carries an env: block (plan instruction, process-state sensitivity).
+#
+# Each row's speed_ellipse (row-level, plan item 8) widens the LATERAL semi-axis to 0.35 so 0.30
+# and 0.35 are not clamped by the default 0.25 band -- this is the validator's own cap check
+# only. It does NOT widen what the RUNNING PROCESS accepts: the command term re-caps |v| to
+# KRABBY_OMNI_SPEED_ELLIPSE in the process env at eval launch time, so the launcher must also set
+# KRABBY_OMNI_SPEED_ELLIPSE=0.35:0.35:0.25 (fwd:lat:back) alongside `--manifest` here, or a
+# 0.30/0.35 command is silently re-clamped to 0.25 m/s by the env's own default -- "Verify
+# cmd_applied" (plan step 6) means checking the eval stamp's run_meta / command telemetry confirms
+# the commanded speed was actually issued, not just that the manifest validator accepted it.
+#
+# Run (from krabby-research/parkour), one speed per launch, with W's OWN recorded eval env (plan
+# item 6; the env_vars of W's suite__omni stamp, clock_deprecation_w2/seed3_X03_c6x_A15pB,
+# 2026-09-25_20-31-29) and ONLY the ellipse widened. Class defaults differ from W's carry on
+# several keys (facing-obs clip, clock turn radius, plant), so never run on defaults:
+#   env KRABBY_ACTION_LPF_HZ=0 KRABBY_ACTION_LPF_OBS=0 KRABBY_APEX_W=1.0 KRABBY_CLOCK_W=1.0 \
+#     KRABBY_FLAT_TERRAIN_GEOM=ring KRABBY_LIN_VEL_X=0.0:0.35 KRABBY_OMNI_ANG_VEL_CLIP=0.2 \
+#     KRABBY_OMNI_ANG_VEL_MAX=0.3 KRABBY_OMNI_CLOCK_HIDE=1 KRABBY_OMNI_CLOCK_TURN_R=1.2 \
+#     KRABBY_OMNI_FACING_OBS_CLIP=0.6 KRABBY_OMNI_FACING_OBS_ENCODING=raw KRABBY_OMNI_RELAY_HYST=0 \
+#     KRABBY_OMNI_SPEED_ELLIPSE=0.35:0.35:0.25 KRABBY_OMNI_STAND_HOLD=0 KRABBY_OMNI_STAND_OBS=0 \
+#     KRABBY_OMNI_STAND_PARK=0 KRABBY_OMNI_YAW_RANGE=-3.14159:3.14159 KRABBY_PLANT=A15+B \
+#     KRABBY_PLAY_DEBUG_VIS=0 KRABBY_RSI_FRAC=0 KRABBY_TRACK_L1_W=-1.0 KRABBY_TRACK_SIGMA2=0.1 \
+#     <isaac_venv python> parkour_tasks/parkour_tasks/crab_hex_forward_task/scripts/eval_crab_hex_gait.py \
+#     --headless --manifest parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/eval/scenarios_gpu0_sidesweep.yaml \
+#     --scenario sidesweep015__omni --checkpoint <W: crab_hex_omni_task/policy/5_c6x_clockfree/model_11995.pt>
+# Then check each stamp's applied command (run_meta / command telemetry) reads the row's speed.
+#
+# Adapted from scout 2's dry-run-validated draft
+# (side-speed-bisection.evidence/scope_bisect/campaign/scenarios_sidesweep.yaml): same four rows,
+# same speed_ellipse/hold shape, retitled to this file's home under experiments/eval/.
+
+manifest_version: 2
+
+speed_ellipse: {fwd: 0.35, lat: 0.25, back: 0.25}
+ang_vel_max: 0.3
+
+defaults:
+  prologue_s: 1.5
+  settle_s: 1.0
+  min_window_s: 1.0
+  fall_exclusion_s: 0.5
+  contact_force_threshold: 1.0
+  slip_speed_threshold: 0.02
+  min_cycles: 2
+  lin_vel_clip: 0.2
+
+scenarios:
+  - id: sidesweep015__omni
+    kind: category_suite
+    role: teacher
+    task: Isaac-Crab-Hex-Omni-Walk-Play-v0
+    terrain_label: flat
+    checkpoint: SUPPLIED-PER-RUN--pass---checkpoint
+    episodes: 100
+    waves: 2
+    env_seed: 1
+    episode_length_s: 20.0
+    spawn_yaw: first_face
+    speed_ellipse: {fwd: 0.35, lat: 0.35, back: 0.25}
+    defaults: {lin_vel_clip: 0.1}
+    settle: {hold_s: 2.0, label: settle}
+    hold_s: 16.0
+    categories:
+      - name: side
+        kind: translate
+        holds:
+          - {label: lat_l, speed: 0.15, dir: 1.5707963, face: 0.0000000, hand: l}
+          - {label: lat_r, speed: 0.15, dir: -1.5707963, face: 0.0000000, hand: r}
+    notes: GPU-0 side speed sweep at 0.15 m/s (suite protocol, side only, 16-s holds).
+
+  - id: sidesweep022__omni
+    kind: category_suite
+    role: teacher
+    task: Isaac-Crab-Hex-Omni-Walk-Play-v0
+    terrain_label: flat
+    checkpoint: SUPPLIED-PER-RUN--pass---checkpoint
+    episodes: 100
+    waves: 2
+    env_seed: 1
+    episode_length_s: 20.0
+    spawn_yaw: first_face
+    speed_ellipse: {fwd: 0.35, lat: 0.35, back: 0.25}
+    defaults: {lin_vel_clip: 0.1}
+    settle: {hold_s: 2.0, label: settle}
+    hold_s: 16.0
+    categories:
+      - name: side
+        kind: translate
+        holds:
+          - {label: lat_l, speed: 0.22, dir: 1.5707963, face: 0.0000000, hand: l}
+          - {label: lat_r, speed: 0.22, dir: -1.5707963, face: 0.0000000, hand: r}
+    notes: GPU-0 side speed sweep at 0.22 m/s (suite protocol, side only, 16-s holds).
+
+  - id: sidesweep030__omni
+    kind: category_suite
+    role: teacher
+    task: Isaac-Crab-Hex-Omni-Walk-Play-v0
+    terrain_label: flat
+    checkpoint: SUPPLIED-PER-RUN--pass---checkpoint
+    episodes: 100
+    waves: 2
+    env_seed: 1
+    episode_length_s: 20.0
+    spawn_yaw: first_face
+    speed_ellipse: {fwd: 0.35, lat: 0.35, back: 0.25}
+    defaults: {lin_vel_clip: 0.1}
+    settle: {hold_s: 2.0, label: settle}
+    hold_s: 16.0
+    categories:
+      - name: side
+        kind: translate
+        holds:
+          - {label: lat_l, speed: 0.30, dir: 1.5707963, face: 0.0000000, hand: l}
+          - {label: lat_r, speed: 0.30, dir: -1.5707963, face: 0.0000000, hand: r}
+    notes: GPU-0 side speed sweep at 0.30 m/s (suite protocol, side only, 16-s holds).
+
+  - id: sidesweep035__omni
+    kind: category_suite
+    role: teacher
+    task: Isaac-Crab-Hex-Omni-Walk-Play-v0
+    terrain_label: flat
+    checkpoint: SUPPLIED-PER-RUN--pass---checkpoint
+    episodes: 100
+    waves: 2
+    env_seed: 1
+    episode_length_s: 20.0
+    spawn_yaw: first_face
+    speed_ellipse: {fwd: 0.35, lat: 0.35, back: 0.25}
+    defaults: {lin_vel_clip: 0.1}
+    settle: {hold_s: 2.0, label: settle}
+    hold_s: 16.0
+    categories:
+      - name: side
+        kind: translate
+        holds:
+          - {label: lat_l, speed: 0.35, dir: 1.5707963, face: 0.0000000, hand: l}
+          - {label: lat_r, speed: 0.35, dir: -1.5707963, face: 0.0000000, hand: r}
+    notes: GPU-0 side speed sweep at 0.35 m/s (suite protocol, side only, 16-s holds).

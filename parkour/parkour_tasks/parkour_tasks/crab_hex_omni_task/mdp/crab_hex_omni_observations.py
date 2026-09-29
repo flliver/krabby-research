@@ -42,6 +42,28 @@ per-step proprio head right after the clock (dims 17+), in this order:
 head tables to match (the stand bit is invariant under both planes; the rod channels are leg
 scalars, permuted with the plane's leg swap and never negated).
 
+THE SCALAR COMMAND OBSERVATION (``cmd_obs_scalar``, knob ``KRABBY_OMNI_CMD_OBS=scalar``;
+side-speed-bisection plan step 1b, 2026-09-28, DEFAULT OFF, WIDTH-PRESERVING). Zeroes ONLY obs
+slots 8-9 -- the two dead-reckoned components of :meth:`_command_channels`'s ``cmd_xy`` -- so the
+command's travel DIRECTION never reaches the policy; slot 10 (``||cmd_xy||``) keeps the command's
+MAGNITUDE, and slots 5-7 (the yaw-rate command, the facing error) are untouched (kept on purpose:
+they carry no travel direction, and zeroing them would make the policy heading-blind under the
+world-held relay, a confound the sideways head this plan compares against never had -- plan audit
+pass 1). This is arm C's "direction-blind" observation: paired with
+``KRABBY_OMNI_MIRROR_IMAGES=fa`` (a from-scratch, +y-only-sampled run), the policy has no channel
+left from which to infer -y even indirectly through the mirror loss.
+
+THE HISTORY BUFFER NEEDS NO SEPARATE PATCH (unlike slot 5, see below). ``_command_channels`` is
+one of the hooks ``super().__call__`` folds into ``obs_buf`` BEFORE ``obs_buf`` is pushed onto
+``_obs_history_buffer`` (the ``torch.stack`` / ``torch.cat`` near the end of that method) -- so a
+hook's own output is what both the CURRENT step's ``observations`` and every future history row
+carry, with no extra step. Zeroing slots 8-9 inside :meth:`_command_channels` therefore zeroes
+them in the live observation and in the history it seeds, consistently, by construction. (Slot 5
+needed its own post-hoc patch of both ``observations`` and ``_obs_history_buffer`` -- see "SLOT 5
+AND WHY THIS CLASS OVERRIDES ``__call__``" below -- precisely because the forward ``__call__``
+writes it inline as ``0 * delta_yaw``, an expression no hook's return value can reach; slots 8-9
+have no such problem, since the whole 3-wide command block IS a hook's return value.)
+
 THE CLOCK-HIDE KNOB (clock-deprecation plan step 2, 2026-09-23; DEFAULT OFF, WIDTH-PRESERVING).
 ``params["clock_hide"]`` (``KRABBY_OMNI_CLOCK_HIDE=1``) makes :meth:`_clock_channels` return
 (0, 0) on every row -- the deployment value, mirror-invariant, so a formed head keeps loading
@@ -199,6 +221,13 @@ class CrabHexOmniParkourObservations(CrabHexParkourObservations):
     #: selects ``head_signs(encoding)`` accordingly -- never a default.
     facing_obs_encoding: str = "raw"
 
+    #: True zeroes obs slots 8-9 (the command's body-frame x/y) while keeping slot 10
+    #: (``||cmd_xy||``); slots 5-7 are unaffected. Set through the obs term's
+    #: ``params["cmd_obs_scalar"]`` (knob ``KRABBY_OMNI_CMD_OBS=scalar``). Does not change the
+    #: observation WIDTH, so -- unlike ``stand_obs`` / ``lpf_obs`` -- it is not construction-locked
+    #: and may vary call to call, like ``facing_obs_clip`` / ``facing_obs_encoding``.
+    cmd_obs_scalar: bool = False
+
     #: NOTE(clock-deprecation step 2, 2026-09-23): the training-log key the clock-hide knob
     #: writes at every reset -- the fraction of rows whose clock channels read (0, 0).
     CLOCK_HIDDEN_FRAC_KEY = "Metrics/clock_hidden_frac"
@@ -237,6 +266,7 @@ class CrabHexOmniParkourObservations(CrabHexParkourObservations):
             encoding = _check_facing_obs_encoding(params["facing_obs_encoding"])
         self.facing_obs_clip = clip
         self.facing_obs_encoding = encoding
+        self.cmd_obs_scalar = bool(params.get("cmd_obs_scalar", False)) if isinstance(params, dict) else False
         # Read BEFORE super().__init__: the forward __init__ sizes the history buffer from
         # ``_extra_head_dim()``, which reads these two.
         self.stand_obs = bool(params.get("stand_obs", False)) if isinstance(params, dict) else False
@@ -353,14 +383,24 @@ class CrabHexOmniParkourObservations(CrabHexParkourObservations):
         return facing_err, facing_err
 
     def _command_channels(self, commands: torch.Tensor) -> torch.Tensor:
-        """Obs dims 8-10: ``[cmd_vx_b, cmd_vy_b, ||cmd_xy||]``.
+        """Obs dims 8-10: ``[cmd_vx_b, cmd_vy_b, ||cmd_xy||]`` -- or, under ``cmd_obs_scalar``,
+        ``[0, 0, ||cmd_xy||]``.
 
         The norm is redundant with the pair but cheap, and it is the one command channel
         that is invariant under BOTH mirror planes -- a scalar the policy can read without
-        first undoing a reflection.
+        first undoing a reflection. ``cmd_obs_scalar`` (side-speed-bisection plan step 1b) keeps
+        exactly that invariant channel and drops the pair: the norm is computed from the REAL
+        command either way, so a masked run is still driven by the same speed the un-masked one
+        is, just without the direction.
+
+        ``getattr(self, ...)``, not ``self.cmd_obs_scalar``: the existing unit test calls this
+        hook unbound with ``self=None`` (it is otherwise a pure function of ``commands``, like the
+        forward class's own version), and the off default must keep that working.
         """
         cmd_xy = commands[:, 0:2]
         speed = torch.linalg.norm(cmd_xy, dim=-1, keepdim=True)
+        if getattr(self, "cmd_obs_scalar", False):
+            cmd_xy = torch.zeros_like(cmd_xy)
         return torch.cat([cmd_xy, speed], dim=-1)
 
     # ------------------------------------------------------- slot 5 (no forward hook)
@@ -382,6 +422,7 @@ class CrabHexOmniParkourObservations(CrabHexParkourObservations):
         lpf_obs: bool = False,
         clock_hide: bool = False,
         clock_hide_ramp: tuple[int, int] | None = None,
+        cmd_obs_scalar: bool = False,
     ) -> torch.Tensor:
         # The observation manager validates the term's ``params`` against THIS signature and
         # passes them as keyword arguments, so the clip must be an optional parameter here
@@ -397,6 +438,9 @@ class CrabHexOmniParkourObservations(CrabHexParkourObservations):
         # so the manager passes it here on every step.
         if facing_obs_encoding is not None:
             self.facing_obs_encoding = _check_facing_obs_encoding(facing_obs_encoding)
+        # Same contract, and the same reason: the manager passes it here on every step, and
+        # unlike stand_obs/lpf_obs it does not fix the observation WIDTH, so it may vary freely.
+        self.cmd_obs_scalar = bool(cmd_obs_scalar)
         # The two head extensions fix the WIDTH, so they cannot change after construction.
         if bool(stand_obs) != self.stand_obs or bool(lpf_obs) != self.lpf_obs:
             raise ValueError(

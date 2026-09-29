@@ -65,6 +65,9 @@ obs_contract:
       KRABBY_ACTION_LPF_HZ: '0'
       KRABBY_ACTION_LPF_OBS: '0'
       KRABBY_OMNI_STAND_OBS: '0'
+      # added 2026-09-29 (side-speed bisection): EVAL_CARRY gained KRABBY_OMNI_CMD_OBS; every stage here
+      # trained with it unset, whose carried off spelling is '0' (EVAL_CARRY_DEFAULTS) -- not in W's run_meta
+      KRABBY_OMNI_CMD_OBS: '0'
     fixed:
       KRABBY_FLAT_TERRAIN_GEOM: ring
       KRABBY_RSI_FRAC: '0'

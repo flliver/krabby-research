@@ -87,3 +87,31 @@ scenarios:
     notes: >-
       The row the driver's eval_obst injects the obstacle env (recal2b2w @ 0.20-0.70) into; no
       env block here (frozen shape -- see the header note above).
+
+  # Side-speed bisection campaign (side-speed-bisection.md, plan step 3): the speed-matched
+  # sideways 1a reference row, for the plan's "Left for implementation" item 3 FAST pin (each
+  # model_3000 stamp must read at least threshold + 0.017 at both 0.22 and 0.25 m/s). vx here is
+  # speed along the travel axis (body +y), the sideways task's own convention (see the header note
+  # above) -- there is no dir/face/lat_l on this task, so this is a plain schedule row, not a
+  # category_suite (that kind's holds are world rows only, schedule.py CATEGORY_HOLD_KEYS). A 2-s
+  # stand settle, then the two omni gate speeds (0.22, 0.25 m/s) held 12 s each -- matching the
+  # omni side22_25 row's settle/hold durations so feet_ss (gate_stats.py) is read the same way on
+  # both manifests. No env block (frozen-shape convention, see the header note above -- this is a
+  # NEW row so it may carry one if it ever needs one, but it doesn't).
+  - id: side22_25__side
+    role: teacher
+    task: Isaac-Crab-Hex-Side-Walk-v0
+    terrain_label: flat
+    checkpoint: SUPPLIED-PER-RUN--pass---checkpoint
+    episodes: 100
+    env_seed: 1
+    episode_length_s: 27.5
+    schedule:
+      - {vx: 0.0, hold_s: 2.0, label: stand}
+      - {vx: 0.22, hold_s: 12.0, label: lat_l_022}
+      - {vx: 0.25, hold_s: 12.0, label: lat_l_025}
+    notes: >-
+      Side-speed bisection campaign speed-matched reference: 2-s stand settle then 0.22 and
+      0.25 m/s holds (12 s each), the sideways 1a FAST pin against the omni side22_25 gate row
+      (plan item 3, "Left for implementation"). Labels match the omni row's lat_l_022/lat_l_025
+      so gate_stats.py-style readers key the same way on both manifests.

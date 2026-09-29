@@ -1521,6 +1521,111 @@ def _func_swapped_ok(txt: str, term: str, needle: str) -> bool:
     return got.strip().strip("'\"").rsplit(":", 1)[-1].rsplit(".", 1)[-1] == str(needle).strip()
 
 
+# ---- the side-speed-bisection knobs (plan step 1, 2026-09-28). Both DEFAULT OFF.
+def _mirror_images_ok(txt: str, value) -> bool:
+    """``KRABBY_OMNI_MIRROR_IMAGES``: runner side (``params/agent.yaml``).
+
+    ``'fa'`` swaps ``symmetry_cfg.data_augmentation_func`` to the fore-aft-only, two-image
+    augmentation; there is no other mode today (:data:`knobs().MIRROR_IMAGES_MODES
+    <parkour_tasks.crab_hex_omni_task.config.crab_hex.omni_knobs.MIRROR_IMAGES_MODES>` is
+    ``('fa',)``, and the parser raises on anything else), so this only ever checks the swap.
+    """
+    mode = knobs().parse_mirror_images(value)
+    got = _grep_scalar(txt, "data_augmentation_func")
+    if got is None:
+        return False
+    got = got.strip().strip("'\"").rsplit(":", 1)[-1].rsplit(".", 1)[-1]
+    want = ("crab_hex_omni_symmetry_augmentation_fa" if mode == "fa"
+            else "crab_hex_omni_symmetry_augmentation")
+    return got == want
+
+
+def _cmd_obs_ok(txt: str, value) -> bool:
+    """``KRABBY_OMNI_CMD_OBS``: env side (``params/env.yaml``).
+
+    ``'scalar'`` means ``cmd_obs_scalar: true`` on the omni obs term; an explicit off spelling
+    (:data:`knobs().CMD_OBS_OFF_SPELLINGS
+    <parkour_tasks.crab_hex_omni_task.config.crab_hex.omni_knobs.CMD_OBS_OFF_SPELLINGS>`) means
+    absent (or ``false``) -- a MODE string, not a plain flag, so this is its own check rather than
+    :func:`_flag_dump_ok`.
+    """
+    mode = knobs().parse_cmd_obs(value)
+    got = _grep_scalar(txt, "cmd_obs_scalar")
+    return got == "true" if mode == "scalar" else got in (None, "false")
+
+
+def _check_cmd_obs_mirror_composition(env: dict, where: str, reasons: list) -> None:
+    """``KRABBY_OMNI_CMD_OBS=scalar`` needs ``KRABBY_OMNI_MIRROR_IMAGES=fa`` in the SAME composed
+    stage env (side-speed-bisection plan step 1b): under the four-image mirror, ``M_y`` and
+    ``R_z(pi) = M_x M_y`` map a +y command onto a -y command the scalar encoding cannot see (obs
+    slots 8-9 read 0 either way), so the mirror loss would train the -y branch as though every
+    command it ever saw were the SAME +y one -- silent, since nothing about it shows in a training
+    curve. This is a TRAINING-side rule only, checked here rather than in the env/runner code: an
+    eval process carries just ``run_phases.EVAL_CARRY``, which has ``KRABBY_OMNI_CMD_OBS`` but
+    (deliberately) no entry for the runner-only ``KRABBY_OMNI_MIRROR_IMAGES`` (the mirror loss
+    does not run in an eval), and a refusal living in the env/obs code would stop that eval
+    process from building at all.
+    """
+    obs_raw = env.get(knobs().CMD_OBS_VAR)
+    if obs_raw is None:
+        return
+    try:
+        mode = knobs().parse_cmd_obs(obs_raw)
+    except Exception:                                                   # noqa: BLE001
+        return                            # a bad value is left to _check_knob's own parser check
+    if mode != "scalar":
+        return
+    mirror_raw = env.get(knobs().MIRROR_IMAGES_VAR)
+    try:
+        mirror_mode = knobs().parse_mirror_images(mirror_raw) if mirror_raw else None
+    except Exception:                                                   # noqa: BLE001
+        mirror_mode = None
+    if mirror_mode != "fa":
+        reasons.append(
+            f"{where}: {knobs().CMD_OBS_VAR}={obs_raw!r} is set but "
+            f"{knobs().MIRROR_IMAGES_VAR}={mirror_raw!r} is not 'fa' in this composed stage -- "
+            "the four-image mirror would train a -y command through a scalar observation that "
+            "cannot see the sign"
+        )
+
+
+# ---- dump checks for EXISTING knobs the side-speed-bisection arms overlay (plan step 1c,
+# 2026-09-28): the applier and parser already exist (R's four knobs were live in the pre-Revision-4
+# 1b preset); only the driver-side audit entries were missing.
+def _clock_combine_ok(txt: str, value) -> bool:
+    """``KRABBY_OMNI_CLOCK_COMBINE``: ``combine`` in the ``reward_clock_schedule`` block."""
+    mode = knobs().parse_clock_combine(value)
+    got = _grep_scalar(_yaml_block(txt, "reward_clock_schedule"), "combine", indent=r"\s{6}")
+    return got is not None and got.strip().strip("'\"") == mode
+
+
+def _track_sigma2_ok(txt: str, value) -> bool:
+    """``KRABBY_TRACK_SIGMA2``: the dump stores ``std = sqrt(sigma2)`` on ``track_lin_vel_xy_exp``.
+
+    The TERM key stays ``track_lin_vel_xy_exp`` whatever its ``func`` is (a facing-coupled swap
+    keeps the same std param), so the block lookup does not need to know which func is live.
+    """
+    return _scalar_num_ok(_yaml_block(txt, "track_lin_vel_xy_exp"), "std", math.sqrt(float(value)))
+
+
+def _track_l1_w_ok(txt: str, value) -> bool:
+    """``KRABBY_TRACK_L1_W``: the weight of ``penalty_tracking_error_l1``."""
+    return _weight_ok(txt, "penalty_tracking_error_l1", value)
+
+
+def _rsi_frac_ok(txt: str, value) -> bool:
+    """``KRABBY_RSI_FRAC``: 0 (or unset) means ``events.rsi_reference_reset`` is ABSENT -- the
+    forward knob block (``crab_hex_env_cfg.py``) only builds the term for a fraction > 0.0, and
+    the omni re-point (``_repoint_rsi``) is a no-op when the term was never built. Nonzero means
+    the term's ``fraction`` param carries that value.
+    """
+    frac = float(value)
+    block = _yaml_block(txt, "rsi_reference_reset")
+    if frac <= 0.0:
+        return block == ""
+    return _scalar_num_ok(block, "fraction", frac, indent=r"\s{6}")
+
+
 # ---- the motion-quality knobs (gait-stabilisation plan step 2, 2026-09-22). Every one is DEFAULT
 # OFF and writes NOTHING into the cfg when off, so "off" is audited as ABSENCE of the field/term.
 def _motion():
@@ -1732,7 +1837,10 @@ def _check_stroke_cat_w_composition(env: dict, where: str, reasons: list) -> Non
 
 
 #: Overlay keys audited against ``params/agent.yaml`` (the RUNNER cfg) instead of ``env.yaml``.
-AGENT_DUMP_KEYS = frozenset({"KRABBY_ACTION_STD_MAX", "KRABBY_ACTION_STD_RESET", "KRABBY_ENTROPY_COEF"})
+AGENT_DUMP_KEYS = frozenset({"KRABBY_ACTION_STD_MAX", "KRABBY_ACTION_STD_RESET", "KRABBY_ENTROPY_COEF",
+                            # side-speed-bisection plan step 1a (2026-09-28): the symmetry loss's
+                            # data_augmentation_func lives on the runner cfg.
+                            "KRABBY_OMNI_MIRROR_IMAGES"})
 
 
 #: ``KRABBY_*`` -> what the config DUMP must show for it. Every overlay key a recipe may carry needs
@@ -1803,6 +1911,14 @@ OVERLAY_DUMP_CHECKS = {
     "KRABBY_OMNI_REWARD_SPLIT": _reward_split_ok,
     # ---- per-category stroke knob (2026-09-27).
     "KRABBY_OMNI_STROKE_CAT_W": _stroke_cat_w_ok,
+    # ---- side-speed-bisection knobs (plan step 1, 2026-09-28). Both default off.
+    "KRABBY_OMNI_MIRROR_IMAGES": _mirror_images_ok,
+    "KRABBY_OMNI_CMD_OBS": _cmd_obs_ok,
+    # ---- dump checks for EXISTING knobs the arms overlay (plan step 1c, 2026-09-28).
+    "KRABBY_OMNI_CLOCK_COMBINE": _clock_combine_ok,
+    "KRABBY_TRACK_SIGMA2": _track_sigma2_ok,
+    "KRABBY_TRACK_L1_W": _track_l1_w_ok,
+    "KRABBY_RSI_FRAC": _rsi_frac_ok,
 }
 
 
@@ -1873,6 +1989,11 @@ def knob_parsers() -> dict:
         k.TRACK_FACING_SIGMA_VAR: k.parse_track_facing_sigma, k.PROGRESS_W_VAR: k.parse_progress_w,
         k.FACING_OBS_ENCODING_VAR: k.parse_facing_obs_encoding,
         k.FACING_OBS_CLIP_VAR: float, k.YAW_PROGRESS_W_VAR: float, "KRABBY_YAW_W": float,
+        # side-speed-bisection knobs (plan step 1, 2026-09-28): the two new knobs' own parsers,
+        # plus the existing knobs R and C overlay that had no parser entry (KRABBY_OMNI_CLOCK_COMBINE
+        # already does, above).
+        k.MIRROR_IMAGES_VAR: k.parse_mirror_images, k.CMD_OBS_VAR: k.parse_cmd_obs,
+        k.RSI_FRAC_VAR: float, "KRABBY_TRACK_SIGMA2": float, "KRABBY_TRACK_L1_W": float,
         # motion-quality knobs (step 2): their own parsers, plus the three reused forward weights
         **k.MOTION_KNOB_PARSERS,
         k.POWER_W_VAR: float, k.ACTION_RATE_W_VAR: float, k.AIRTIME_W_VAR: float,
@@ -2268,6 +2389,7 @@ def validate_candidates(cands: dict, *, strict: bool = True, check_replay: bool 
             _check_cap_rules(stage_env_, where, chain.get("notes") or "", r)
             _check_require_env(stage_env_, where, require_env, r)
             _check_stroke_cat_w_composition(stage_env_, where, r)
+            _check_cmd_obs_mirror_composition(stage_env_, where, r)
         if screen_iters and total != screen_iters and name not in ref_only:
             r.append(f"chain {name} totals {total} iterations; every screen is {screen_iters} "
                      "(equal compute is what makes the screens comparable)")
@@ -2497,6 +2619,7 @@ def validate_candidates(cands: dict, *, strict: bool = True, check_replay: bool 
             for sname, _iters, senv in composed:
                 _check_require_env(senv, f"{cid} on {chain_name} stage {sname}", require_env, r)
                 _check_stroke_cat_w_composition(senv, f"{cid} on {chain_name} stage {sname}", r)
+                _check_cmd_obs_mirror_composition(senv, f"{cid} on {chain_name} stage {sname}", r)
         r = list(dict.fromkeys(r))          # one reason per distinct message, in order
         verdicts.append({"id": cid, "ok": not r, "deferred": deferred, "reasons": r, "notes": n})
 
@@ -2967,6 +3090,29 @@ def _known_eval_row(row: str) -> bool:
     return _eval_row_kind(row) is not None
 
 
+def _check_suite_rows_cover_trained(stage: dict, tc, where: str, reasons: list) -> None:
+    """Every suite eval row must hold every category the stage's eval passes as
+    ``--trained-categories`` (:func:`_trained_csv`), or the harness refuses the row at eval time
+    (``schedule.suite_cli_args``) and the driver halts ``eval_infra`` after its retry wait -- 3000
+    trained iterations with no score. Side-speed bisection review, 2026-09-29: the first
+    ``side22_25`` row had no ``stand`` category and every 1b stage trains ``stand,side``."""
+    csv = _trained_csv(tc.to_dict())
+    if not csv:
+        return
+    S = rp._gait_schedule()
+    for row in stage.get("eval") or []:
+        if _eval_row_kind(str(row)) != "category_suite":
+            continue
+        scenarios, _defaults = S.load_manifest(rp.OMNI_MANIFEST)
+        sc = next((x for x in scenarios if x.id == _sid_for(str(row))), None)
+        if sc is None:
+            continue
+        try:
+            S.suite_cli_args(sc, trained_categories=csv)
+        except S.ManifestError as exc:
+            reasons.append(f"{where}: eval row {row!r} cannot score this stage ({exc})")
+
+
 def _check_resolution_input(item: dict, reasons: list, notes: list) -> None:
     """A ``resolution_inputs`` entry is ``run_dir`` XOR ``checkpoint + eval_dir + preset`` (plan D9).
 
@@ -3091,6 +3237,7 @@ def _check_stage_categories(stage: dict, env: dict, where: str, reasons: list) -
             if got != want:
                 reasons.append(f"{where}: categories {got} but the stage's composed env trains "
                                f"{want} (decisive {sorted(tc.decisive)}, watch {dict(tc.watch)})")
+            _check_suite_rows_cover_trained(stage, tc, where, reasons)
     if kind == "category_survival":
         row = str(floor.get("row"))
         if row not in [str(x) for x in (stage.get("eval") or [])]:

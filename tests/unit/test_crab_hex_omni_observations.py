@@ -383,6 +383,116 @@ def test_command_channels_are_the_two_axes_and_their_norm():
     assert got[3, 2] == pytest.approx(math.hypot(0.2, 0.2))
 
 
+# --------------------------------- the scalar command observation (side-speed-bisection plan
+# step 1b, 2026-09-28): KRABBY_OMNI_CMD_OBS=scalar -> params["cmd_obs_scalar"]=True.
+def test_command_channels_scalar_zeroes_only_the_direction_pair():
+    """Unbound with ``self=None`` (the existing test's own calling convention, load-bearing per
+    the hook's docstring): the getattr default keeps this working with no ``cmd_obs_scalar``
+    attribute at all, and the norm survives the zeroing bitwise (computed from the REAL cmd)."""
+    cmd = torch.tensor([[0.3, 0.0, 0.1, 0.0], [0.0, -0.25, 0.0, 0.0], [0.0, 0.0, 0.2, 0.0],
+                        [-0.2, 0.2, 0.0, 0.0]])
+    off = OmniObs._command_channels(None, cmd)               # no cmd_obs_scalar attr -> False
+    assert torch.equal(off[:, 0:2], cmd[:, 0:2])
+
+    class _Scalar:
+        cmd_obs_scalar = True
+
+    on = OmniObs._command_channels(_Scalar(), cmd)
+    assert torch.equal(on[:, 0:2], torch.zeros(4, 2))
+    assert torch.equal(on[:, 2], off[:, 2])                   # the norm is bitwise unchanged
+
+    class _Off:
+        cmd_obs_scalar = False
+
+    assert torch.equal(OmniObs._command_channels(_Off(), cmd), off)
+
+
+def test_cmd_obs_scalar_defaults_to_false_and_is_bitwise_todays_observation(monkeypatch):
+    """No param at all, and an explicit ``cmd_obs_scalar=False``, must be byte-identical to the
+    observation every shipped preset has trained on -- the whole knob-off-identity claim."""
+    monkeypatch.delenv("KRABBY_HEADING", raising=False)
+    assert OmniObs.cmd_obs_scalar is False
+    plain, env, cmd = _make()
+    explicit = OmniObs(_ParamCfg(cmd_obs_scalar=False), env)
+    assert plain.cmd_obs_scalar is explicit.cmd_obs_scalar is False
+    obs_a = plain(env, None, None, "base_parkour", HISTORY)
+    obs_b = explicit(env, None, None, "base_parkour", HISTORY)
+    assert torch.equal(obs_a, obs_b)
+    assert torch.equal(obs_a[:, 8:10], cmd[:, 0:2])
+    assert torch.equal(obs_a[:, 10], torch.linalg.norm(cmd[:, 0:2], dim=-1))
+
+
+def test_cmd_obs_scalar_zeroes_slots_8_9_keeps_5_7_and_10_and_the_width(monkeypatch):
+    """Two SEPARATE term instances on the SAME env (the ``facing_obs_encoding`` precedent, not
+    one term called twice -- a term's history buffer is stateful across calls, so a single term
+    called on/then off would compare two DIFFERENT episode steps, not the same one under the
+    knob's two settings)."""
+    monkeypatch.delenv("KRABBY_HEADING", raising=False)
+    on_term, env, cmd = _make()
+    off_term = OmniObs(None, env)
+    err = _facing_error(on_term, env)
+    obs = on_term(env, None, None, "base_parkour", HISTORY, cmd_obs_scalar=True)
+    off = off_term(env, None, None, "base_parkour", HISTORY, cmd_obs_scalar=False)
+    assert on_term.cmd_obs_scalar is True and off_term.cmd_obs_scalar is False
+    assert obs.shape == off.shape == (N, OBS_DIM) == (N, 1149)   # width-preserving
+    assert torch.equal(obs[:, 8:10], torch.zeros(N, 2))       # the direction pair: zeroed
+    assert torch.equal(obs[:, 10], torch.linalg.norm(cmd[:, 0:2], dim=-1))   # the norm: kept
+    assert torch.equal(obs[:, 5], cmd[:, 2])                  # yaw-rate command: untouched
+    assert torch.equal(obs[:, 6], err) and torch.equal(obs[:, 7], err)      # facing error: untouched
+    # off is exactly the shipped (knob-absent) observation, and the two differ at 8-9 alone
+    assert torch.equal(off[:, 8:10], cmd[:, 0:2])
+    changed = [c for c in range(N_PROP) if not torch.equal(obs[:, c], off[:, c])]
+    assert set(changed) == {8, 9}
+    assert torch.equal(obs[:, N_PROP:], off[:, N_PROP:])      # scan + priv are untouched...
+    # ... and the INTERNAL history buffer this call just pushed (index -1) already carries the
+    # zeros, seeded from the same (already-zeroed) obs_buf -- no separate patch needed, per the
+    # module docstring (unlike slot 5, whose write is a post-hoc patch of this same buffer).
+    # This is the buffer the NEXT call's RETURNED observation will read its history block from
+    # (the base class concatenates the history block BEFORE pushing this step's own row -- see
+    # test_the_returned_history_block_is_the_patched_buffer, which is why that check needs a
+    # second call and this one reads the attribute directly instead).
+    assert torch.equal(on_term._obs_history_buffer[:, -1, 8:10], torch.zeros(N, 2))
+    assert torch.equal(off_term._obs_history_buffer[:, -1, 8:10], cmd[:, 0:2])
+    assert torch.equal(on_term._obs_history_buffer[:, -1, 10],
+                       torch.linalg.norm(cmd[:, 0:2], dim=-1))
+
+
+def test_a_second_call_returns_an_observation_whose_history_carries_the_zeroed_command(monkeypatch):
+    """The RETURNED observation's history block is one step stale (the base class concatenates it
+    before pushing this step's row), so seeing ``cmd_obs_scalar``'s effect IN THE RETURNED
+    observation needs a second call -- the same two-call shape as
+    ``test_the_returned_history_block_is_the_patched_buffer``."""
+    monkeypatch.delenv("KRABBY_HEADING", raising=False)
+    term, env, cmd = _make()
+    term(env, None, None, "base_parkour", HISTORY, cmd_obs_scalar=True)
+    obs = term(env, None, None, "base_parkour", HISTORY, cmd_obs_scalar=True)
+    hist_base = N_PROP + NSCAN + 9 + 5 + 2 * NJ
+    newest = hist_base + (HISTORY - 1) * N_PROP
+    assert torch.equal(obs[:, newest + 8:newest + 10], torch.zeros(N, 2))
+    assert torch.equal(obs[:, newest + 10], torch.linalg.norm(cmd[:, 0:2], dim=-1))
+
+
+def test_cmd_obs_scalar_is_construction_time_free_unlike_stand_lpf(monkeypatch):
+    """Unlike ``stand_obs``/``lpf_obs`` (width-changing, construction-locked), the doc claims
+    ``cmd_obs_scalar`` may vary call to call -- like ``facing_obs_clip``/``facing_obs_encoding``."""
+    monkeypatch.delenv("KRABBY_HEADING", raising=False)
+    term, env, _ = _make()
+    assert term.cmd_obs_scalar is False
+    term(env, None, None, "base_parkour", HISTORY, cmd_obs_scalar=True)
+    assert term.cmd_obs_scalar is True                        # no ValueError, unlike stand_obs/lpf_obs
+    term(env, None, None, "base_parkour", HISTORY, cmd_obs_scalar=False)
+    assert term.cmd_obs_scalar is False
+
+
+def test_cmd_obs_scalar_read_at_construction_from_params(monkeypatch):
+    monkeypatch.delenv("KRABBY_HEADING", raising=False)
+    env = _Env(N, torch.zeros(N, 4), torch.zeros(N))
+    on = OmniObs(_ParamCfg(cmd_obs_scalar=True), env)
+    assert on.cmd_obs_scalar is True
+    none_params = OmniObs(None, env)
+    assert none_params.cmd_obs_scalar is False
+
+
 # --------------------------------------------------------------------------- the history
 def test_history_keeps_the_facing_error_and_the_yaw_rate(monkeypatch):
     """Two steps mid-episode: the row just pushed carries slots 5, 6, 7 -- unlike forward."""

@@ -24,6 +24,13 @@ exploration knobs -- ``KRABBY_ACTION_STD_MAX`` (``policy.action_std_max``),
 nothing, so the runner cfg (and ``params/agent.yaml``) is unchanged; set, the effective value is
 on the cfg ``train.py`` dumps, which is where the campaign ladder's agent-side audit reads it.
 
+A FOURTH, DEFAULT-OFF delta (side-speed-bisection plan step 1a, 2026-09-28):
+``KRABBY_OMNI_MIRROR_IMAGES=fa`` re-points an already-armed symmetry loss's
+``data_augmentation_func`` at the fore-aft-only, two-image mirror
+(``crab_hex_omni_mirror.crab_hex_omni_symmetry_augmentation_fa``) instead of the shipped
+four-image one. Unset, ``_repoint_symmetry`` writes the same ``OMNI_MIRROR`` path it always
+has, so every existing run is byte-identical.
+
 Neither forward RL runner's ``__post_init__`` calls its own ``super()``:
 ``super().__post_init__()`` from the classes below therefore lands on the forward body and
 runs exactly it, once.
@@ -34,17 +41,26 @@ pass per PPO update roughly doubles. Expect omni windows to be somewhat slower t
 forward ones at the same iteration count.
 """
 
+import os
+
 from isaaclab.utils import configclass
 
 from parkour_tasks.crab_hex_forward_task.config.crab_hex.agents.rsl_rl_ppo_cfg import (
     CrabHexFlatWalkPPORunnerCfg,
     CrabHexTeacherPPORunnerCfg,
 )
+from parkour_tasks.crab_hex_omni_task.config.crab_hex import omni_knobs as _knobs
 
 #: ``mdp/crab_hex_omni_mirror.py``: the composed L/R x fore-aft four-image augmentation.
 OMNI_MIRROR = (
     "parkour_tasks.crab_hex_omni_task.mdp.crab_hex_omni_mirror:"
     "crab_hex_omni_symmetry_augmentation"
+)
+#: The fore-aft-only, two-image augmentation (``KRABBY_OMNI_MIRROR_IMAGES=fa``; side-speed-
+#: bisection plan step 1a, default OFF).
+FA_MIRROR = (
+    "parkour_tasks.crab_hex_omni_task.mdp.crab_hex_omni_mirror:"
+    "crab_hex_omni_symmetry_augmentation_fa"
 )
 
 
@@ -58,10 +74,19 @@ def _apply_exploration_knobs(cfg) -> None:
 
 
 def _repoint_symmetry(cfg) -> None:
-    """Point an already-armed symmetry loss at the omni mirror (no-op when it is off)."""
+    """Point an already-armed symmetry loss at the omni mirror (no-op when it is off).
+
+    ``KRABBY_OMNI_MIRROR_IMAGES=fa`` (side-speed-bisection plan step 1a, default OFF) swaps the
+    four-image mirror for the two-image fore-aft-only one instead. Unset or blank, this reads
+    nothing and the repoint below is exactly what it always was -- byte-identical to before the
+    knob existed.
+    """
     sym = cfg.algorithm.symmetry_cfg
-    if sym is not None:
-        sym.data_augmentation_func = OMNI_MIRROR
+    if sym is None:
+        return
+    raw_mode = os.environ.get(_knobs.MIRROR_IMAGES_VAR)
+    mode = _knobs.parse_mirror_images(raw_mode) if raw_mode and str(raw_mode).strip() else None
+    sym.data_augmentation_func = FA_MIRROR if mode == "fa" else OMNI_MIRROR
 
 
 @configclass

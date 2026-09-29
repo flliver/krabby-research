@@ -568,6 +568,8 @@ def test_eval_carry_names_the_obs_and_command_knobs(drv):
         "KRABBY_OMNI_STAND_OBS",            # + the stand bit, zeroed clock
         # clock-deprecation plan step 2 (2026-09-23), default off:
         "KRABBY_OMNI_CLOCK_HIDE",           # the clock's sin/cos (dims 15-16 + history) read (0, 0)
+        # side-speed-bisection plan step 1b (2026-09-28), default off:
+        "KRABBY_OMNI_CMD_OBS",              # obs slots 8-9 (command xy) read 0; slot 10 and 5-7 kept
     }
     # The hide RAMP is keyed on the env step counter, which restarts at 0 in an eval process: carried,
     # it would show the clock on every eval episode, so it is never carried.
@@ -578,9 +580,13 @@ def test_eval_carry_names_the_obs_and_command_knobs(drv):
     # stage re-weights a reward. KRABBY_OMNI_CMD_POOL is the newest member of that list and the
     # easiest to get wrong -- it looks like a command knob and is a SAMPLER knob: it chooses which
     # command types a TRAINING window draws, and no eval row ever runs the sampler.
+    # KRABBY_OMNI_MIRROR_IMAGES (side-speed-bisection plan step 1a) is the runner-only sibling of
+    # KRABBY_OMNI_CMD_OBS: the symmetry loss does not run in an eval process at all, so there is
+    # nothing for it to carry (see the CMD_OBS note in the block above).
     for banned in ("KRABBY_OMNI_SLOTS", "KRABBY_OMNI_DIR_BAND", "KRABBY_OMNI_FACING",
                    "KRABBY_OMNI_RSI_SOURCE", "KRABBY_YAW_W", "KRABBY_YAW_PROGRESS_W",
-                   "KRABBY_STAND_FRAC", "KRABBY_RESAMPLE_S", "KRABBY_OMNI_CMD_POOL"):
+                   "KRABBY_STAND_FRAC", "KRABBY_RESAMPLE_S", "KRABBY_OMNI_CMD_POOL",
+                   "KRABBY_OMNI_MIRROR_IMAGES"):
         assert banned not in drv.EVAL_CARRY
         assert banned not in drv.EVAL_CARRY_DEFAULTS
 
@@ -621,7 +627,10 @@ def test_eval_carry_defaults_stand_in_only_for_keys_no_preset_sets(drv):
                                        "KRABBY_OMNI_RELAY_HYST": "0", "KRABBY_OMNI_STAND_HOLD": "0",
                                        "KRABBY_OMNI_STAND_PARK": "0", "KRABBY_ACTION_LPF_HZ": "0",
                                        "KRABBY_ACTION_LPF_OBS": "0", "KRABBY_OMNI_STAND_OBS": "0",
-                                       "KRABBY_OMNI_CLOCK_HIDE": "0"}
+                                       "KRABBY_OMNI_CLOCK_HIDE": "0",
+                                       # side-speed-bisection plan step 1b: "0" is one of
+                                       # omni_knobs.CMD_OBS_OFF_SPELLINGS.
+                                       "KRABBY_OMNI_CMD_OBS": "0"}
     # The five keys the presets DO set keep the preset's value, bitwise -- the defaults changed
     # nothing about the rows that already ran.
     ev = _eval_envs(drv)["canary"]

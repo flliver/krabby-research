@@ -1540,6 +1540,45 @@
   ],
   "n_steps": 1575
  },
+ "scenarios_side.yaml::side22_25__side": {
+  "arrays": {
+   "cmd": {
+    "dtype": "float32",
+    "sha256": "2a6c56bcbcb8d4f4bdde19e35dc6769eb264817094b9805d7f7a125657fbd3a8",
+    "shape": [
+     1375,
+     100,
+     3
+    ]
+   },
+   "delta_yaw": null,
+   "segment_id": {
+    "dtype": "int16",
+    "sha256": "0c9cbd72b17c561edc6c0cb8e3b696ce509a0c9655968a2e1fa0feccad83363d",
+    "shape": [
+     1375,
+     100
+    ]
+   },
+   "steady_mask": {
+    "dtype": "bool",
+    "sha256": "19da398b4dbd153a043dda947541b73bf19f54bcacf01638b6d0dc0138bd3fa1",
+    "shape": [
+     1375,
+     100
+    ]
+   },
+   "world_dir": null,
+   "world_face": null,
+   "world_speed": null
+  },
+  "hold_labels": [
+   "stand",
+   "lat_l_022",
+   "lat_l_025"
+  ],
+  "n_steps": 1375
+ },
  "scenarios_side.yaml::slow__side": {
   "arrays": {
    "cmd": {

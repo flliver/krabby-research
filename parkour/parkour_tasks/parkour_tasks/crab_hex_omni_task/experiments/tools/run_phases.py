@@ -146,12 +146,21 @@ CANARY_KEEP = ("KRABBY_LIN_VEL_X", "KRABBY_TRACK_SIGMA2", "KRABBY_TRACK_L1_W", "
 #       policy OBSERVES, so a head trained clock-hidden is only scored honestly clock-hidden.
 #       KRABBY_OMNI_CLOCK_HIDE_RAMP is NEVER carried: the ramp is keyed on ``common_step_counter``,
 #       which restarts at 0 in the eval process, so it would show the clock on every eval episode.
+#   KRABBY_OMNI_CMD_OBS (side-speed-bisection plan step 1b, 2026-09-28; DEFAULT OFF,
+#       ``config/crab_hex/omni_knobs.py``) -- ``params["cmd_obs_scalar"]`` on the omni observation
+#       term: obs slots 8-9 (the command's body-frame x/y) read 0, keeping slot 10
+#       (``||cmd_xy||``) and slots 5-7 (yaw-rate command, facing error). It changes what the policy
+#       OBSERVES, so a head trained direction-blind is only scored honestly direction-blind.
+#       ``KRABBY_OMNI_MIRROR_IMAGES`` (the SAME plan's runner-only mirror-selection knob) is
+#       deliberately NOT here: the symmetry loss does not run in an eval process at all, so there
+#       is nothing for it to carry.
 #
 # NOT carried, deliberately: KRABBY_OMNI_SLOTS / _DIR_BAND / _FACING / _RSI_SOURCE, KRABBY_RSI_*,
-# KRABBY_YAW_W, KRABBY_YAW_PROGRESS_W, KRABBY_STAND_FRAC, KRABBY_RESAMPLE_S and the
-# KRABBY_FLAT_TERRAIN_* block. Those drive SAMPLING, REWARD and TERRAIN -- the canary is a minimal
-# flat eval whose commands come from the manifest schedule override (the sampler never runs) and
-# whose verdict must not move when a stage re-weights a reward.
+# KRABBY_YAW_W, KRABBY_YAW_PROGRESS_W, KRABBY_STAND_FRAC, KRABBY_RESAMPLE_S, KRABBY_OMNI_MIRROR_IMAGES
+# (see the CMD_OBS note above) and the KRABBY_FLAT_TERRAIN_* block. Those drive SAMPLING, REWARD,
+# TERRAIN or the TRAINER'S OWN LOSS -- the canary is a minimal flat eval whose commands come from
+# the manifest schedule override (the sampler never runs) and whose verdict must not move when a
+# stage re-weights a reward.
 #
 # heading_control_stiffness is NOT here and needs no knob: ``apply_flat_walk_knobs`` sets it to 1.5
 # unconditionally (crab_hex_env_cfg.py:563) in every crab-hex env, training and Play alike; the
@@ -164,7 +173,10 @@ EVAL_CARRY = ("KRABBY_OMNI_FACING_OBS_CLIP", "KRABBY_OMNI_SPEED_ELLIPSE", "KRABB
               "KRABBY_OMNI_RELAY_HYST", "KRABBY_OMNI_STAND_HOLD", "KRABBY_OMNI_STAND_PARK",
               "KRABBY_ACTION_LPF_HZ", "KRABBY_ACTION_LPF_OBS", "KRABBY_OMNI_STAND_OBS",
               # clock-deprecation plan step 2 (default off; the ramp is never carried)
-              "KRABBY_OMNI_CLOCK_HIDE")
+              "KRABBY_OMNI_CLOCK_HIDE",
+              # side-speed-bisection plan step 1b (default off; KRABBY_OMNI_MIRROR_IMAGES is the
+              # runner-only sibling and is NOT carried, see the block above)
+              "KRABBY_OMNI_CMD_OBS")
 #: The value an eval carries for an :data:`EVAL_CARRY` key the phase's preset does not set.
 #:
 #: A preset that never mentions a knob trains on the config's CLASS DEFAULT, and an eval that also
@@ -188,7 +200,9 @@ EVAL_CARRY_DEFAULTS = {"KRABBY_OMNI_FACING_OBS_ENCODING": "raw", "KRABBY_OMNI_AN
                        "KRABBY_OMNI_RELAY_HYST": "0", "KRABBY_OMNI_STAND_HOLD": "0",
                        "KRABBY_OMNI_STAND_PARK": "0", "KRABBY_ACTION_LPF_HZ": "0",
                        "KRABBY_ACTION_LPF_OBS": "0", "KRABBY_OMNI_STAND_OBS": "0",
-                       "KRABBY_OMNI_CLOCK_HIDE": "0"}
+                       "KRABBY_OMNI_CLOCK_HIDE": "0",
+                       # side-speed-bisection plan step 1b: "0" is one of omni_knobs.CMD_OBS_OFF_SPELLINGS.
+                       "KRABBY_OMNI_CMD_OBS": "0"}
 # Evals never carry RSI resets: set explicitly (not merely omitted) so a preset that later grows a
 # different default, or a leaked parent value, cannot re-arm reference-state resets inside an eval.
 # apply_omni_knobs / the forward knob block build events.rsi_reference_reset only for RSI_FRAC > 0.

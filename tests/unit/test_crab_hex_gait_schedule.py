@@ -521,7 +521,8 @@ def test_committed_omni_manifest_parses():
     `turn_l90`/`turn_r90` x 12 s -- step-16 review decision, 2026-09-17), the ring env on
     light__omni only, and every validator rule satisfied as committed. Plus the Part A6
     curriculum-chain telemetry row `curriculum__omni` (10 holds, 2026-09-18) and the per-category
-    suite `suite__omni` (plan D1, 2026-09-21)."""
+    suites `suite__omni` (plan D1, 2026-09-21) and `side22_25__omni` (the side-speed bisection
+    campaign's gate row, side-speed-bisection.md plan step 3, 2026-09-28)."""
     manifest = (
         SCRIPTS_DIR.parents[1]
         / "crab_hex_omni_task"
@@ -531,7 +532,10 @@ def test_committed_omni_manifest_parses():
     )
     scenarios, _ = S.load_manifest(manifest)
     by_id = {s.id: s for s in scenarios}
-    assert set(by_id) == {"slow__omni", "light__omni", "ring__omni", "curriculum__omni", "suite__omni"}
+    assert set(by_id) == {
+        "slow__omni", "light__omni", "ring__omni", "curriculum__omni", "suite__omni",
+        "side22_25__omni",
+    }
 
     slow = by_id["slow__omni"]
     assert slow.task == "Isaac-Crab-Hex-Omni-Walk-Play-v0"
@@ -935,7 +939,7 @@ def test_only_a_suite_row_takes_the_wave_path():
                 suite_rows.append(sc.id)
             else:
                 assert sc.kind == "schedule" and sc.suite is None and sc.waves == 1, sc.id
-    assert suite_rows == ["suite__omni"]
+    assert suite_rows == ["suite__omni", "side22_25__omni"]
     # And the harness only calls env.seed / env.reset / re-installs the override under the suite
     # branch: every such call site sits inside an ``if`` whose test reads ``suite_mode``.
     import ast  # noqa: PLC0415
@@ -1116,7 +1120,7 @@ def test_legacy_rows_compile_byte_identically():
             }
     # The same row set (the four legacy omni rows included) and the same bytes, row by row.
     assert set(current) == set(snapshot)
-    assert len(snapshot) == 49
+    assert len(snapshot) == 50
     assert {k for k in snapshot if k.startswith("scenarios_omni.yaml::")} == {
         "scenarios_omni.yaml::slow__omni", "scenarios_omni.yaml::light__omni",
         "scenarios_omni.yaml::ring__omni", "scenarios_omni.yaml::curriculum__omni",

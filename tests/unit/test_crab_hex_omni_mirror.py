@@ -421,6 +421,74 @@ def test_wrong_obs_width_is_refused():
         omni.crab_hex_omni_symmetry_augmentation(obs=torch.randn(2, OBS_DIM - 1), env=env)
 
 
+# ------------------------------------------- fore-aft-only entry point (side-speed-bisection
+# plan step 1a, 2026-09-28): ``crab_hex_omni_symmetry_augmentation_fa`` -- rows 0 and 2 of the
+# four-image function above, on the SAME cache and the SAME real-shaped (1149-wide) obs batch.
+def test_two_images_are_rows_0_and_2_of_the_four_image_set(mirrors):
+    """``two_images_obs`` / ``two_images_actions`` are exactly ``[identity, M_x]``: the pure
+    helpers underneath the two entry points, so the equality holds independent of caching."""
+    lr, fa = mirrors
+    b = 6
+    obs = torch.randn(b, OBS_DIM)
+    act = torch.randn(b, 18)
+    four_obs = omni.four_images_obs(obs, lr, fa)
+    four_act = omni.four_images_actions(act, lr, fa)
+    two_obs = omni.two_images_obs(obs, fa)
+    two_act = omni.two_images_actions(act, fa)
+    assert two_obs.shape == (2 * b, OBS_DIM) and two_act.shape == (2 * b, 18)
+    assert torch.equal(two_obs[:b], four_obs[:b]) and torch.equal(two_obs[b:], four_obs[2 * b:3 * b])
+    assert torch.equal(two_act[:b], four_act[:b]) and torch.equal(two_act[b:], four_act[2 * b:3 * b])
+    # the dropped images (M_y, M_x M_y = rows 1 and 3) are NOT the identity or M_x on a random
+    # batch, so this is not a vacuous pass
+    assert not torch.equal(four_obs[b:2 * b], obs) and not torch.equal(four_obs[3 * b:], fa.mirror_obs(obs))
+
+
+def test_fa_entry_point_matches_two_images_on_the_real_env_and_cache(mirrors):
+    """The entry point ``crab_hex_omni_symmetry_augmentation_fa`` -- through the shared
+    ``_get_mirrors``/``_CACHE`` (the same cache the four-image entry point uses) and a real,
+    1149-wide, real-shaped obs batch, exactly like ``test_four_image_ordering_is_identical_for_obs_and_actions``
+    for the four-image entry point.
+    """
+    lr, fa = mirrors
+    env = _Env()
+    omni._CACHE.pop(id(env), None)
+    b = 5
+    obs = torch.randn(b, OBS_DIM)
+    act = torch.randn(b, 18)
+    obs_out, act_out = omni.crab_hex_omni_symmetry_augmentation_fa(
+        obs=obs, actions=act, env=env, obs_type="policy"
+    )
+    assert obs_out.shape == (2 * b, OBS_DIM)
+    assert act_out.shape == (2 * b, 18)
+    # the cache holds the SAME (lr, fa) pair the four-image entry point would build -- dropping
+    # lr on the floor changes nothing about how fa itself is derived
+    cached_lr, cached_fa = omni._CACHE[id(env)]
+    assert torch.equal(cached_lr.obs_sign, lr.obs_sign) and torch.equal(cached_fa.obs_sign, fa.obs_sign)
+    assert torch.equal(obs_out[:b], obs) and torch.equal(obs_out[b:], fa.mirror_obs(obs))
+    assert torch.equal(act_out[:b], act) and torch.equal(act_out[b:], fa.mirror_actions(act))
+    # against the four-image function on the SAME env/cache: rows 0 and 2
+    four_obs, four_act = omni.crab_hex_omni_symmetry_augmentation(obs=obs, actions=act, env=env)
+    assert torch.equal(obs_out[:b], four_obs[:b]) and torch.equal(obs_out[b:], four_obs[2 * b:3 * b])
+    assert torch.equal(act_out[:b], four_act[:b]) and torch.equal(act_out[b:], four_act[2 * b:3 * b])
+
+
+def test_fa_entry_point_actions_only_call_and_wrong_width():
+    """Same two guards as the four-image entry point: an actions-only call needs a prior obs
+    call, and the obs dim is checked against the CACHED map's own ``obs_dim``."""
+    env = _Env()
+    omni._CACHE.pop(id(env), None)
+    with pytest.raises(RuntimeError):
+        omni.crab_hex_omni_symmetry_augmentation_fa(obs=None, actions=torch.randn(2, 18), env=env)
+    obs = torch.randn(3, OBS_DIM)
+    omni.crab_hex_omni_symmetry_augmentation_fa(obs=obs, actions=None, env=env)
+    act = torch.randn(3, 18)
+    none_obs, act_out = omni.crab_hex_omni_symmetry_augmentation_fa(obs=None, actions=act, env=env)
+    assert none_obs is None and act_out.shape == (6, 18)
+    omni.crab_hex_omni_symmetry_augmentation_fa(obs=torch.randn(2, OBS_DIM), env=env)
+    with pytest.raises(ValueError):
+        omni.crab_hex_omni_symmetry_augmentation_fa(obs=torch.randn(2, OBS_DIM - 1), env=env)
+
+
 # --------------------------------------------------------------------------- kinematics
 def _quat_to_matrix(q: np.ndarray) -> np.ndarray:
     w, x, y, z = q
