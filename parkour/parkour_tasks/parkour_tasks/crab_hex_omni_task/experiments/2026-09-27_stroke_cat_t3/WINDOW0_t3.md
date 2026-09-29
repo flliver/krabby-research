@@ -61,3 +61,15 @@ Script: `~/.claude/plans/per-category-stroke-weights.evidence/window0_t3.sh`.
 - **The decisive reuse control** runs at launch: the reference run's own `params/env.yaml` against B_f's.
 - **Hazard.** The reference run's tag will be `seed3_X01_t3_A15pB`, the same as B_f s3's in stroke_formation. Never stop
   it mid-training.
+
+## Launch (plan step 9), S_cat_f s3
+
+- **Launch.** `feat/crab-hex-omni-task` fast-forwarded to `64c314fa` (local). Launched 16:40 as unit
+  `cands-2026-09-27_stroke_cat_t3-1790628047`.
+  - Run dir: `parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-09-28_16-40-58_seed3_X01_t3_A15pB`.
+- **Reuse control, dump half: PASS.** The run's `params/env.yaml` against B_f s3's (`2026-09-26_17-42-44_seed3_X01_t3_A15pB`)
+  differs in 7 leaves, all in `reward_stride_length`:
+  - `weight` 0.001 → 0.112339;
+  - `params.cat_scale` added: back 1, diag 1.599056, fwd 1, move_turn 1, side 3.460881, turn 2.115884.
+
+  `agent.yaml` is identical.

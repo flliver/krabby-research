@@ -83,3 +83,26 @@ Script: `~/.claude/plans/per-category-stroke-weights.evidence/window0_dumps_W.sh
   - `KRABBY_OMNI_STROKE_W=0.126240`: **True**.
 
   There was no `config_mismatch` halt. The reference run's post-training overlay audit is exercised.
+
+## Launch checks (plan step 7), S_cat s3
+
+- **Launch.** Landed as `feat/crab-hex-omni-task` → `84ff2588` (fast-forward, local). Launched 08:11 from the main
+  checkout as unit `cands-2026-09-27_stroke_cat_W-1790597477` (`--reference-chain S_cat --seed 3`).
+  - Run dir: `parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-09-28_08-11-28_seed3_X01_c6y_A15pB`.
+- **Reuse control, dump half: PASS.** The run's own `params/env.yaml` against old B s3's
+  (`2026-09-26_03-01-22_seed3_X01_c6y_A15pB`) differs in 7 leaves, all in `reward_stride_length`:
+  - `weight` 0.001 → 0.12624;
+  - `params.cat_scale` added: back 1, diag 1.314741, fwd 1, move_turn 1, side 2.928327, turn 1.214263.
+
+  `agent.yaml` is identical.
+- **Hazard.** The reference run's tag is `seed3_X01_c6y_A15pB`, the same as old B s3's run in the stroke_posture
+  campaign. `prepare_resume` finds run dirs by tag across the experiment dir, so a stop before this run's first
+  checkpoint could resume from B's checkpoint. Do not stop it mid-training.
+- **Iteration-~500 overdose stop: ok.** Ratio of means over its 12446–12546 of logged stroke ÷ logged
+  track_lin_vel_xy_exp:
+
+  | fwd | side | back | diag |
+  |---|---|---|---|
+  | 12.4 % | 8.6 % | 10.1 % | 9.4 % |
+
+  All are ≤ 15 %. Side's delivered share is about 3 × the single-weight screens' 2.2–3.5 %.

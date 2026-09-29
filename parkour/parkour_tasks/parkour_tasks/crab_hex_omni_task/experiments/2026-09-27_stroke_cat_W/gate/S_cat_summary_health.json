@@ -1,0 +1,222 @@
+{
+ "S_cat_s3": {
+  "stamp": "parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-27_stroke_cat_W/seed3_X01_c6y_A15pB/suite__omni/seed001/2026-09-28_13-53-35",
+  "categories": {
+   "stand": {
+    "survival": 1.0,
+    "ratio": null,
+    "achieved": 0.001,
+    "tripod": 0.684,
+    "cadence_ratio": 5.103
+   },
+   "fwd": {
+    "survival": 0.88,
+    "ratio": 0.711,
+    "achieved": 0.178,
+    "tripod": 0.455,
+    "cadence_ratio": 1.128
+   },
+   "side": {
+    "survival": 0.995,
+    "ratio": 0.49,
+    "achieved": 0.108,
+    "tripod": 0.463,
+    "cadence_ratio": 1.418
+   },
+   "back": {
+    "survival": 0.94,
+    "ratio": 0.752,
+    "achieved": 0.165,
+    "tripod": 0.534,
+    "cadence_ratio": 1.288
+   },
+   "diag": {
+    "survival": 0.7,
+    "ratio": 0.611,
+    "achieved": 0.153,
+    "tripod": 0.345,
+    "cadence_ratio": 1.048
+   },
+   "turn": {
+    "survival": 0.99,
+    "ratio": null,
+    "achieved": 0.0,
+    "tripod": 0.487,
+    "cadence_ratio": 0.842
+   },
+   "move_turn": {
+    "survival": 0.735,
+    "ratio": 0.478,
+    "achieved": 0.105,
+    "tripod": 0.417,
+    "cadence_ratio": 0.891
+   }
+  },
+  "schedule_completion_rate": 0.896
+ },
+ "B_s3": {
+  "stamp": "parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-26_stroke_posture/seed3_X01_c6y_A15pB/suite__omni/seed001/2026-09-26_08-39-30",
+  "categories": {
+   "stand": {
+    "survival": 0.99,
+    "ratio": null,
+    "achieved": -0.001,
+    "tripod": 0.715,
+    "cadence_ratio": 4.075
+   },
+   "fwd": {
+    "survival": 0.99,
+    "ratio": 0.861,
+    "achieved": 0.215,
+    "tripod": 0.584,
+    "cadence_ratio": 1.155
+   },
+   "side": {
+    "survival": 0.99,
+    "ratio": 0.536,
+    "achieved": 0.118,
+    "tripod": 0.479,
+    "cadence_ratio": 1.34
+   },
+   "back": {
+    "survival": 0.98,
+    "ratio": 0.872,
+    "achieved": 0.192,
+    "tripod": 0.613,
+    "cadence_ratio": 1.312
+   },
+   "diag": {
+    "survival": 0.56,
+    "ratio": 0.695,
+    "achieved": 0.174,
+    "tripod": 0.363,
+    "cadence_ratio": 1.033
+   },
+   "turn": {
+    "survival": 0.995,
+    "ratio": null,
+    "achieved": -0.001,
+    "tripod": 0.528,
+    "cadence_ratio": 0.781
+   },
+   "move_turn": {
+    "survival": 0.585,
+    "ratio": 0.587,
+    "achieved": 0.129,
+    "tripod": 0.461,
+    "cadence_ratio": 0.842
+   }
+  },
+  "schedule_completion_rate": 0.865
+ },
+ "S_cat_s2": {
+  "stamp": "parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-27_stroke_cat_W/seed2_X02_c6y_A15pB/suite__omni/seed001/2026-09-28_20-18-06",
+  "categories": {
+   "stand": {
+    "survival": 1.0,
+    "ratio": null,
+    "achieved": 0.003,
+    "tripod": 0.709,
+    "cadence_ratio": 4.115
+   },
+   "fwd": {
+    "survival": 0.96,
+    "ratio": 0.773,
+    "achieved": 0.193,
+    "tripod": 0.608,
+    "cadence_ratio": 1.179
+   },
+   "side": {
+    "survival": 1.0,
+    "ratio": 0.545,
+    "achieved": 0.12,
+    "tripod": 0.455,
+    "cadence_ratio": 1.361
+   },
+   "back": {
+    "survival": 0.98,
+    "ratio": 0.767,
+    "achieved": 0.169,
+    "tripod": 0.634,
+    "cadence_ratio": 1.302
+   },
+   "diag": {
+    "survival": 0.84,
+    "ratio": 0.651,
+    "achieved": 0.163,
+    "tripod": 0.421,
+    "cadence_ratio": 1.104
+   },
+   "turn": {
+    "survival": 0.985,
+    "ratio": null,
+    "achieved": -0.002,
+    "tripod": 0.489,
+    "cadence_ratio": 0.793
+   },
+   "move_turn": {
+    "survival": 0.66,
+    "ratio": 0.526,
+    "achieved": 0.116,
+    "tripod": 0.483,
+    "cadence_ratio": 0.854
+   }
+  },
+  "schedule_completion_rate": 0.907
+ },
+ "B_s2": {
+  "stamp": "parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-26_stroke_posture/seed2_X02_c6y_A15pB/suite__omni/seed001/2026-09-26_10-25-08",
+  "categories": {
+   "stand": {
+    "survival": 1.0,
+    "ratio": null,
+    "achieved": 0.0,
+    "tripod": 0.72,
+    "cadence_ratio": 5.537
+   },
+   "fwd": {
+    "survival": 0.97,
+    "ratio": 0.793,
+    "achieved": 0.198,
+    "tripod": 0.578,
+    "cadence_ratio": 1.204
+   },
+   "side": {
+    "survival": 0.995,
+    "ratio": 0.52,
+    "achieved": 0.115,
+    "tripod": 0.479,
+    "cadence_ratio": 1.413
+   },
+   "back": {
+    "survival": 0.97,
+    "ratio": 0.784,
+    "achieved": 0.173,
+    "tripod": 0.585,
+    "cadence_ratio": 1.37
+   },
+   "diag": {
+    "survival": 0.64,
+    "ratio": 0.632,
+    "achieved": 0.158,
+    "tripod": 0.341,
+    "cadence_ratio": 1.075
+   },
+   "turn": {
+    "survival": 0.995,
+    "ratio": null,
+    "achieved": 0.0,
+    "tripod": 0.489,
+    "cadence_ratio": 0.83
+   },
+   "move_turn": {
+    "survival": 0.525,
+    "ratio": 0.518,
+    "achieved": 0.114,
+    "tripod": 0.442,
+    "cadence_ratio": 0.879
+   }
+  },
+  "schedule_completion_rate": 0.861
+ }
+}
