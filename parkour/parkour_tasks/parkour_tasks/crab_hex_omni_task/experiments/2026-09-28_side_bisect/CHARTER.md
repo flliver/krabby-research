@@ -271,3 +271,11 @@ scope under the decision defaults.)
   SLOW). The runner applied `candidates_v2.yaml`: chains C_mo, C_band and C_rsi, plus references O_s2, C_s2 and R_s2
   (`--accept-candidates-change` on C_mo's launch). It launched C_mo (unit `...-1790689151`, run
   `seed3_X04_s1_A15pB`). The queue is C_mo → C_band → C_rsi → C_s2.
+- 2026-09-29 10:52: **C_mo s3 = INTERMEDIATE** (fore-aft mirror + scalar command obs alone). feet_ss 0.162 at 0.22 and
+  0.173 at 0.25 (n 100/100); FAST needs ≥ 0.175 at 0.25, so it misses by 0.002. The lean is gone (lean_lvl −0.04,
+  lean04 ≈ 0) and the sweep is 0.056, between O's 0.04 and C's 0.085. So the one-direction mirror+obs pair alone
+  removes the attractor and recovers most of the speed.
+  - Gate rule (INTERMEDIATE → seed 2): reference `C_mo_s2` (`phaseB/candidates_v3.yaml`) goes to a follow-up runner
+    (`phaseB/queue_more.sh`). It starts after the main queue (C_band running as X05, then C_rsi, then C_s2).
+  - Mechanism note from the code read: 'fa' also drops the M_y (left-right) equivariance, which carries the
+    tripod-set balance and left-right symmetric standing. It is untested whether the lean depends on that pair.
