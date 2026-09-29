@@ -1,0 +1,119 @@
+# ladder dry run — /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/side_bisect/yaml_v2_check
+campaign-dir /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/side_bisect/yaml_v2_check
+candidates   /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/side_bisect/yaml_v2_check/candidates.yaml (sha256 656f0bd9afc889f3)
+plant A15+B  seeds screen=3 confirm=2  baseline O on chain O
+code_sha 07a0037ed5d9b6bcccfd7b7c21a722cc74647593e58e6c34d98eb05174fb24a3
+  pathspecs:
+    - parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/mdp
+    - parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/config
+    - parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/config
+    - parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/mdp
+    - parkour/scripts
+    - parkour/parkour_isaaclab
+  fnmatch drops: ['*.md', '*/experiments/20*', '*/tests/*', 'tests/*']
+  tracked code files hashed: 128
+eval_sha 933c9d8ff52a999fef1fecbcda3ab5f2fb6e8d4cae1853339b3cc143c53c4539 (recorded none: the campaign predates it)
+  pathspecs:
+    - parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/scripts/gait_eval
+    - parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/scripts/eval_crab_hex_gait.py
+    - parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/eval/scenarios_omni.yaml
+    - parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/tools/run_phases.py
+    - parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/eval_categories.py
+  dirty (code + eval): clean
+tools_sha e6f77a3bad237488f3a5d9d5dfc5d555f894535206de6c8158bf771a58330190 over ['run_candidates.py', 'ledger_cli.py', 'resolution.py'] + the replay script
+
+## validator
+  ok      <campaign>
+  ok      chain:O
+  ok      chain:C
+  ok      chain:R
+  ok      chain:RC
+  ok      chain:C_mo
+  ok      chain:C_band
+  ok      chain:C_rsi
+  ok      chain:C_fa
+  ok      chain:C_nb
+  ok      chain:C_nr
+  ok      <overlays>
+
+## the derived queue (every decision resolved as a clear REJECT: the no-adoption path)
+  O s3                   baseline        chain O recipe 68fc3b494f5f
+      why: the baseline recipe has no ok s3 screen
+  O s2                   baseline        chain O recipe 68fc3b494f5f
+      why: the baseline recipe has no ok s2 screen
+  done                   done            chain None recipe None
+      why: no work left
+
+## the derived queue (every decision resolved as a clear ADOPT: the adoption path)
+  O s3                   baseline        chain O recipe 68fc3b494f5f stages ['s1']
+  O s2                   baseline        chain O recipe 68fc3b494f5f stages ['s1']
+  done                   done            chain None recipe None stages None
+
+## stage env of every recipe on the queue (no preset, plant or other-task variable)
+  baseline: chain O recipe 68fc3b494f5f adopted [] eval_carry []
+      s1   {}
+      2a   {}
+      2b   {}
+
+## references (run one with --reference-chain <name> [--seed N]; judged by hand)
+  O: chain O seed 3 recipe 07e591f6b17f -- recorded head: none yet under this code_sha
+      s1    3000 its from scratch eval ['side22_25'] {}
+  C: chain C seed 3 recipe 0cf93df3875c -- recorded head: none yet under this code_sha
+      s1    3000 its from scratch eval ['side22_25'] {'KRABBY_OMNI_MIRROR_IMAGES': 'fa', 'KRABBY_OMNI_CMD_OBS': 'scalar', 'KRABBY_RSI_FRAC': '0', 'KRABBY_OMNI_SPEED_ELLIPSE': '0.35:0.35:0.25'}
+  R: chain R seed 3 recipe fdab6c96a82c -- recorded head: none yet under this code_sha
+      s1    3000 its from scratch eval ['side22_25'] {'KRABBY_OMNI_CLOCK_COMBINE': 'sum', 'KRABBY_TRACK_SIGMA2': '0.1', 'KRABBY_TRACK_L1_W': '-1.0', 'KRABBY_YAW_PROGRESS_W': '0'}
+  RC: chain RC seed 3 recipe f8eb6a883d30 -- recorded head: none yet under this code_sha
+      s1    3000 its from scratch eval ['side22_25'] {'KRABBY_OMNI_MIRROR_IMAGES': 'fa', 'KRABBY_OMNI_CMD_OBS': 'scalar', 'KRABBY_RSI_FRAC': '0', 'KRABBY_OMNI_SPEED_ELLIPSE': '0.35:0.35:0.25', 'KRABBY_OMNI_CLOCK_COMBINE': 'sum', 'KRABBY_TRACK_SIGMA2': '0.1', 'KRABBY_TRACK_L1_W': '-1.0', 'KRABBY_YAW_PROGRESS_W': '0'}
+  C_mo: chain C_mo seed 3 recipe 5bda941458b0 -- recorded head: none yet under this code_sha
+      s1    3000 its from scratch eval ['side22_25'] {'KRABBY_OMNI_MIRROR_IMAGES': 'fa', 'KRABBY_OMNI_CMD_OBS': 'scalar'}
+  C_band: chain C_band seed 3 recipe 5a29d7966a75 -- recorded head: none yet under this code_sha
+      s1    3000 its from scratch eval ['side22_25'] {'KRABBY_OMNI_SPEED_ELLIPSE': '0.35:0.35:0.25'}
+  C_rsi: chain C_rsi seed 3 recipe f1d1152db439 -- recorded head: none yet under this code_sha
+      s1    3000 its from scratch eval ['side22_25'] {'KRABBY_RSI_FRAC': '0'}
+  O_s2: chain O seed 2 recipe d6f1b1ace1c3 -- recorded head: none yet under this code_sha
+      s1    3000 its from scratch eval ['side22_25'] {}
+  C_s2: chain C seed 2 recipe c82d3b2b0da8 -- recorded head: none yet under this code_sha
+      s1    3000 its from scratch eval ['side22_25'] {'KRABBY_OMNI_MIRROR_IMAGES': 'fa', 'KRABBY_OMNI_CMD_OBS': 'scalar', 'KRABBY_RSI_FRAC': '0', 'KRABBY_OMNI_SPEED_ELLIPSE': '0.35:0.35:0.25'}
+  R_s2: chain R seed 2 recipe 0ae3ff55a718 -- recorded head: none yet under this code_sha
+      s1    3000 its from scratch eval ['side22_25'] {'KRABBY_OMNI_CLOCK_COMBINE': 'sum', 'KRABBY_TRACK_SIGMA2': '0.1', 'KRABBY_TRACK_L1_W': '-1.0', 'KRABBY_YAW_PROGRESS_W': '0'}
+  C_mo_s2: chain C_mo seed 2 recipe 8fd9f081001c -- recorded head: none yet under this code_sha
+      s1    3000 its from scratch eval ['side22_25'] {'KRABBY_OMNI_MIRROR_IMAGES': 'fa', 'KRABBY_OMNI_CMD_OBS': 'scalar'}
+  C_fa: chain C_fa seed 3 recipe c52c591a47f3 -- recorded head: none yet under this code_sha
+      s1    3000 its from scratch eval ['side22_25'] {'KRABBY_OMNI_MIRROR_IMAGES': 'fa'}
+  C_nb: chain C_nb seed 3 recipe fef891046bb8 -- recorded head: none yet under this code_sha
+      s1    3000 its from scratch eval ['side22_25'] {'KRABBY_OMNI_MIRROR_IMAGES': 'fa', 'KRABBY_OMNI_CMD_OBS': 'scalar', 'KRABBY_RSI_FRAC': '0'}
+  C_nr: chain C_nr seed 3 recipe 1d2db3b62ac1 -- recorded head: none yet under this code_sha
+      s1    3000 its from scratch eval ['side22_25'] {'KRABBY_OMNI_MIRROR_IMAGES': 'fa', 'KRABBY_OMNI_CMD_OBS': 'scalar', 'KRABBY_OMNI_SPEED_ELLIPSE': '0.35:0.35:0.25'}
+
+## D00 (the decision rule the resolution is measured for)
+  rule_version 2 expanded at decisive(B0) ['stand'] (both unit systems):
+  block F @0.95: []
+  block T @0.95: []
+  block LEN @0.95: []
+  guards @0.99: ['cat.stand.survival', 'cat.stand.steps_per_s']
+  WATCH (never scored): ['cat.turn.facing_closed', 'cat.turn.yaw_progress', 'cat.fwd.ratio', 'cat.side.ratio', 'cat.back.ratio', 'cat.diag.ratio', 'cat.side.steps_per_m', 'cat.diag.steps_per_m', 'cat.fwd.survival', 'cat.fwd.foot_slip', 'cat.fwd.steps_per_m', 'cat.side.survival', 'cat.side.foot_slip', 'cat.back.survival', 'cat.back.foot_slip', 'cat.back.steps_per_m', 'cat.diag.survival', 'cat.diag.foot_slip', 'cat.turn.survival', 'cat.turn.foot_slip', 'cat.turn.steps_per_rad', 'cat.move_turn.survival', 'cat.move_turn.ratio', 'cat.stand.drift_speed', 'cat.stand.support_feet', 'cat.stand.gait_hz', 'cat.stand.clock_hz', 'cat.stand.cadence_ratio', 'cat.stand.six_down_frac', 'cat.stand.settle_six_down_s', 'cat.stand.action_jitter', 'cat.stand.action_fft_freq', 'cat.stand.joint_speed_mean', 'cat.stand.rod_speed_mean', 'cat.stand.contact_switch_hz', 'cat.stand.foot_slip', 'cat.stand.wz_active_frac', 'cat.stand.clock_restarts', 'cat.stand.foot_disp_end', 'cat.stand.work_per_s', 'cat.side.by_hand.l.ratio', 'cat.side.by_hand.l.steps_per_m', 'cat.side.by_hand.l.survival', 'cat.side.by_hand.l.foot_slip', 'cat.side.by_hand.r.ratio', 'cat.side.by_hand.r.steps_per_m', 'cat.side.by_hand.r.survival', 'cat.side.by_hand.r.foot_slip', 'cat.turn.by_hand.l.facing_closed', 'cat.turn.by_hand.l.yaw_progress', 'cat.turn.by_hand.l.survival', 'cat.turn.by_hand.l.foot_slip', 'cat.turn.by_hand.l.steps_per_rad', 'cat.turn.by_hand.r.facing_closed', 'cat.turn.by_hand.r.yaw_progress', 'cat.turn.by_hand.r.survival', 'cat.turn.by_hand.r.foot_slip', 'cat.turn.by_hand.r.steps_per_rad', 'cat.move_turn.by_hand.l.survival', 'cat.move_turn.by_hand.l.ratio', 'cat.move_turn.by_hand.r.survival', 'cat.move_turn.by_hand.r.ratio', 'completion', 'tripod_walking_dir', 'track_ratio_tail', 'track_ratio_move_tail', 'turn_survival_l90', 'turn_survival_r90']
+  WATCH gate_1c: the written formation gate, on a final chain stage's suite row (its legacy per-hand keys; slow on a pre-suite record) — rendered on the stage report and on every DECISION / MILESTONE line, read by nothing
+  WATCH gate_facing: the 2a/2b turn gate, on a promotion stage's suite row (slow on a pre-suite record) — rendered on the stage report and on every DECISION / MILESTONE line, read by nothing
+    gate_1c floors: tripod >= 0.4, completion >= 0.7, yaw-progress >= 0.05 rad/s on each turn hold, speed_ratio >= 0.3 on ['lat_l', 'diag', 'back', 'move_turn'], track_ratio >= 0.6
+    gate_facing floors: yaw-progress >= 0.05 rad/s on each turn hold (facing precision 0.3 rad is WATCHED, demoted 2026-09-18)
+  bootstrap {'B': 2000, 'paired_on': 'env_index', 'rng_seed': 20260928}  charter floors {'completion': 0.1, 'tripod_walking_dir': 0.056}
+  D00s record /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/side_bisect/yaml_v2_check/resolution.933c9d8ff52a.json: absent -- a migration queue item computes it in process (resolve() with the recorded reeval stamps; plan D9 item 3); startup never does
+  D00 (pre-suite) record /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/side_bisect/yaml_v2_check/resolution.json: absent -- D00s then carries no light/ring by_row copy
+
+## resolution inputs (0)
+
+## migration (the REAL migration_item derivation and find_inflight order on this campaign dir's records -- eval outcomes simulated in memory, nothing written, no GPU)
+  simulated relaunch: lad.eval_sha <- 933c9d8ff52a (recorded: none -- pre-suite); code_sha unchanged
+  launch reconcile: squashes nothing (no candidate entry)
+   1. D00s                     D00s at eval_sha 933c9d8ff52a, file resolution.933c9d8ff52a.json
+      why: no D00s entry and resolution file at eval_sha 933c9d8ff52a
+  after the migration (simulated: every rescore PASSES, every decision is a clear REJECT):
+   2. O s3                     baseline   -- the baseline recipe has no ok s3 screen
+   3. O s2                     baseline   -- the baseline recipe has no ok s2 screen
+   4. done
+
+## notification contract: tags ['RESOLUTION', 'DECISION', 'CONFIRM', 'SELF-OVERRULE', 'OVERRIDE-APPLIED', 'SQUASH', 'MILESTONE', 'RETENTION', 'INFRA', 'HALT', 'DONE', 'RELAUNCH', 'AWAIT', 'MIGRATION', 'REFERENCE']
+  DECISION D08 | X09 C2-reward {KRABBY_YAW_PROGRESS_W=3.0} on recipe abc s3 | chosen ADOPT (clear, decided) alt REJECT | confirm: /home/nickmagus/krabby/isaac_venv/bin/python /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/tools/ledger_cli.py --campaign-dir /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/side_bisect/yaml_v2_check confirm D08
+
+## the launcher
+  /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/tools/launch_candidates.sh --campaign-dir /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/side_bisect/yaml_v2_check

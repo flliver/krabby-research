@@ -302,3 +302,21 @@ scope under the decision defaults.)
   - **C_nb**: C minus the band (mirror + scalar obs + RSI off).
   - **C_nr**: C minus RSI-off (mirror + scalar obs + band, RSI on).
   - C_nb and C_nr explain which knob completes C's speed with the pair (C_mo ≈ 0.17 against C ≈ 0.21).
+- 2026-09-29 14:44: **User: "stop after C_mo_s2 and write up."** The level-2 runner (C_fa, C_nb, C_nr) was killed
+  before any launch; `candidates_v4.yaml` was not applied.
+- 2026-09-29 15:48: **C_mo_s2 = FAST.** feet_ss 0.203 at 0.22 and 0.210 at 0.25 (n 95/98); sweep 0.086–0.087; lean
+  in 20–33 % of episodes; early read 0.700, final track_ratio 0.870.
+  - **C_mo's seeds disagree** (s3 INTERMEDIATE, s2 FAST). The decision-default seed-1 tie-break was not run because
+    of the user's stop.
+  - The queue ended (DONE). Total ≈ 9.9 GPU-h: 8 arms plus checks, over the 8.5 cap; reported, not stopped, per the
+    autonomy rule. Write-up: [GATE.md](GATE.md).
+- 2026-09-29 16:30: **GATE.md written** and checked independently (fable·high recompute plus an opus·high skeptic;
+  every number and class reproduces).
+  - **Correction adopted:** lean_lvl subtracts a hold-start offset of about ±0.15 m on these from-scratch arms, so the
+    10:52 note "the lean is gone" (C_mo s3) was an artifact. By the absolute offset, C_mo s3 halves the lean (0.11 m).
+    Every SLOW arm leans (0.16–0.21 m) and no FAST run does (≤ 0.056 m).
+  - **Also adopted from the check:**
+    - the C_mo → C gap is unresolved at n = 2;
+    - skipping the seed-1 tie-break is a recorded deviation;
+    - C_fa is low-information in 1b;
+    - the portable test is a two-direction side run (fa vs 4-image mirror).
