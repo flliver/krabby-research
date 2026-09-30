@@ -476,3 +476,15 @@ all parts of phase 1 or after proposing next steps."
   evals show the fwd and turn cost.
 - With 10-s training episodes, the side eval's 12-s holds after a 2-s settle run 4 s past any training episode.
 - Terrain promotion is per-episode, so shorter episodes change the terrain curriculum pace.
+- 2026-09-30 00:45: **Independent check of the decision-tree chains (opus·high).**
+  - **No chain defects.** Every new stage composes to the record plus only the intended knobs.
+  - **Runner bug fixed before any launch:** the c6x head was chosen by an alphabetical sort (it would have picked
+    model_9900 over model_11995). Now `sort -V`.
+  - **Rule change:** a DEAD hand in C_lr_10 now triggers seed 2 before a fail. This matches the campaign default for
+    DEAD.
+  - **Corrections to the tree's risk notes:**
+    - **Terrain promotion is not a risk.** The light flat mode freezes terrain levels. What 10-s episodes do change is
+      ring and obstacle exposure: 10-s walks barely reach the 2-m clear radius.
+    - **The policy manifest does have a c5 suite stamp**; P1 has no c5 eval, as in the ladder record.
+    - **The _10 variants never train a command switch**, while the evals switch from settle to hold at 3.5 s. This
+      also confounds P1_C_lr_10's move_turn survival against W.

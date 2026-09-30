@@ -83,6 +83,8 @@ gate_arm() {  # REF (single-stage side-only arm) -> sets VERDICT
   st=$(any_stamp_of $rd); [ -z "$st" ] && { say "STOP $ref: no complete eval stamp"; exit 6; }
   lr_eval $ref $rd/model_2999.pt $st
   VERDICT=$(decide $LRL $LRR)
+  # campaign default for DEAD: diagnose + seed 2 -> treat a DEAD hand as ambiguous so the tree runs the seed-2 arm
+  if [ "$LRL" = DEAD ] || [ "$LRR" = DEAD ]; then [ "$VERDICT" = FAIL ] && VERDICT=AMBIG; fi
   say "EVENT $ref VERDICT $VERDICT"
 }
 
@@ -123,7 +125,7 @@ say "EVENT FB_$CFG VERDICT $(decide $LRL $LRR)"
 launch P1_$CFG
 wait_unit $UNIT; tail -3 $C/orchestrator.log | cut -c1-300 >> $LOG
 rd=$(newest_run_after $T0 _c6x_); [ -z "$rd" ] && { say "STOP P1_$CFG: no c6x run dir"; exit 6; }
-ck=$(ls $rd/model_*.pt | sort -t_ -k2 -n | tail -1)
+ck=$(ls $rd/model_*.pt | sort -V | tail -1)   # version sort: model_11995 > model_9900
 st=$(any_stamp_of $rd); [ -z "$st" ] && { say "STOP P1_$CFG: no c6x suite stamp"; exit 6; }
 say "P1_$CFG c6x head $ck"
 lr_eval P1_$CFG $ck $st
