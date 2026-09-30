@@ -745,3 +745,33 @@ using the new banks". At the question, the user chose **"C in both directions"**
 - **Reported per step:** class and feet_ss per hand, lean_abs, sweep, early read (its 800–1000), and falls.
 - Runner: `scripts/queue_eplen.sh`. Cost is about 1.5 GPU-h per arm: about 7.5 GPU-h for the five, plus about 1.5 per
   seed-2 arm.
+- 2026-09-30 19:52: **Ladder review** (read-only workflow: 4 reviewers, 2 refuters per medium+ finding, and a
+  completeness critic; 11 agents; raw result in the session's workflow journal `wf_904a9186-b4e`). Nothing
+  invalidates the ladder. Recorded before any rung's verdict:
+  - **Eval is identical for every rung.** The both-hands eval runs its own 18-s episode (15.5-s scenario) and never
+    receives `KRABBY_EPISODE_S` or `KRABBY_RESAMPLE_S`. The earlier 10-s arms were not truncated: their episodes end only
+    at schedule completion or a fall. C_lr_10_rsi's left DEAD (0.042) is steady slow walking, not an artifact.
+  - **Confound: obstacle exposure grows with E.** 1b is 80 % flat / 20 % ring tiles, with blocks 2.0–4.5 m from the
+    spawn. At E = 10 the robots never reached the ring (r_max about 0.8 m). X24 (E = 20) already reaches blocks, with
+    falls higher on ring spawns. Each rung is "longer episodes plus more obstacle contact". For each rung,
+    crab_failure_obst / flat, reach_obst_frac, block_steps_mean and r_max_mean at its 2900–3000 go next to the class.
+    From E ≈ 30, robots can leave the spawn tile, so those are lower bounds. A pure-flat control
+    (`KRABBY_FLAT_TERRAIN_FLAT_FRAC=1.0`) was not run (the user's call).
+  - **Correction to the 19:09 text:** the 40-s rung is not a single-factor contrast with C_lr_rsi. It also carries
+    about 3× the staged-RSI-command share (0.20 against 0.07) and no in-episode reversals.
+  - RSI 0.2 lowers the actual stand share to 0.16: staged rows are forced to move. The same holds on every rung. Staged
+    commands are the frame's own bearing and speed, up to 20° off the lateral axis, and in single-command episodes they
+    last the whole episode.
+  - **Early reads are not comparable across rungs.** The ratio window spans more iterations, and the start-up transient
+    weighs less, as E grows. Only the both-hands eval compares rungs.
+  - **Direction hole in the gate (critic).** feet_ss is measured along each episode's own displacement, so a wrong-way
+    walker scores fast. LR4_dwell, the closest precedent (40-s holds), had 36–44 wrong-way episodes per hold.
+    **Added reading rule, pre-registered now:** a hand counts as FAST only if its along-command class is also FAST.
+    That class uses `scripts/along_cmd.py`, with static episodes scored 0. The seed-2 trigger stays as registered:
+    feet_ss FAST on either hand. `along_cmd.py` reproduces feet_ss within 0.004 on C_fa and C_mo_s2.
+  - **Single-seed resolution:** hand-to-hand and seed-to-seed spread is 0.03–0.04 m/s. Only FAST vs not-FAST is read
+    per rung; no trend inside the SLOW band is read as an episode-length effect.
+  - **Runner handoff:** `queue_eplen.sh` (v1) was stopped at 19:52 while C_lr_20_rsi trained; the training unit was
+    untouched. `queue_eplen2.sh` adopted the unit and continues the same plan. It adds the review's runner fixes: run
+    dir by run name, head from state.json (follows an infra retry), unit death detected early with the journal logged,
+    drivers_idle before each launch, the X17 eval-env fallback, and the along-command check logged per arm.
