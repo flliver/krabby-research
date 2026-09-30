@@ -702,3 +702,18 @@ using the new banks". At the question, the user chose **"C in both directions"**
     0.11. C_40 falls instead. So the lower lateral rate here produces a different failure, and, with the moving-share
     confound above, it neither supports nor excludes (ii) as C_lr's mechanism.
   - By rule, DEAD → **C_40_s2 launched 17:41**.
+- 2026-09-30 18:58: **C_40_s2 (X23) = DEAD.** feet_ss 0.006 at both speeds, body_ss 0.012–0.022; only 2–4 episodes
+  die in the hold; lean_abs 0.30 m; sweep 0.017–0.023 (`outputs/.../arms/C_40_s2.json`). Early read 0.180. The ratio
+  peaks at 0.23 near it 1500 and falls back to 0.16 by it 2950. Falls stay at 0.03–0.09 of episode endings. This
+  seed stands and leans instead of falling: a stand attractor.
+- **Controls closed (runner "DONE controls").** Cost about 3.7 GPU-h (three arms).
+  - **C_fa: FAST** (1 seed; the prediction held, and the early read was the campaign's highest). A visible direction
+    slot is harmless in a one-direction run.
+  - **C_40: DEAD on both seeds**, with two phenotypes: falls on seed 3, standing on seed 2. Neither is the stable
+    shuffle C_lr walks at the same +y share. At a 0.4 moving share with RSI off, a one-hand arm forms no lateral gait
+    in 3000 its.
+  - **What it means for the root cause.** C_lr walks, just slowly: its stepping and carrier form from the pooled
+    0.8 of moving experience, and only the direction-flipped stroke is missing. That matches ROOT_CAUSE.md 1 and 2.4.
+    But C_40 does not separate candidate (i) from (ii). Its failure is upstream of the stroke, as expected under the
+    moving-share confound recorded at 16:55. The mechanism question stays open. The fix (canonical training, a policy
+    switch, or distillation) is the same under every candidate. Nothing queued; waiting for the user on the next step.

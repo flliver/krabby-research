@@ -393,7 +393,7 @@ is intact in every slow run, i.e. slow gaits are the fast stepping minus the str
 | P2 | C_lr_10_rsi33 is SLOW or DEAD | training now (X20, launched 13:46) |
 | P3 | Canonical two-direction training (C_lr_canon) is FAST on both hands, with odd RMS ≥ 1.4 | not run |
 | P4 | A two-direction arm given the interaction as an input feature is FAST while its additive control is SLOW (test T2) | not run |
-| P10 | C_40 (one hand at a 40 % share) is FAST by it ~600 under candidate (i); late or SLOW under (ii) | not run |
+| P10 | C_40 (one hand at a 40 % share) is FAST by it ~600 under candidate (i); late or SLOW under (ii) | **Inconclusive, 2026-09-30:** DEAD on both seeds (s3 falls, feet_ss 0.035 / 0.031; s2 stands, 0.006). Not the shuffle. C_40 also halves the total moving share, so it fails upstream of the stroke and does not separate (i) from (ii). |
 | P5 | In C_lr the odd stroke *never* forms: odd RMS stays ≤ about 0.9 at every checkpoint, with the static carrier present from the first moving checkpoint. C's odd RMS climbs past 1.4 between its 400 and 1000 (test T1). | not run |
 | P6 | C_fa (+y only, fa mirror, direction visible) is FAST, ≈ C_mo | **Confirmed 2026-09-30 16:26** (X21): FAST, feet_ss 0.211 / 0.206, lean_abs 0.028 / 0.068, early read 0.794 (CHARTER). |
 | P7 | A no-mirror +y arm (5c) is FAST | not run |
@@ -410,6 +410,19 @@ is intact in every slow run, i.e. slow gaits are the fast stepping minus the str
   (ii) it forms late or not at all. The overlay is `KRABBY_OMNI_CMD_POOL=stand:0.6,side_l:0.4`,
   `KRABBY_OMNI_DIR_BAND=''` and `KRABBY_OMNI_SLOTS=0.6:0.4:0:0` (the pool's projection; the dry run refuses a
   mismatch), on C's other knobs.
+
+**Control results (2026-09-30, CHARTER 15:15–18:58).**
+- **C_fa is FAST** (X21, seed 3): feet_ss 0.211 / 0.206, lean_abs 0.028 / 0.068, early read 0.794. P6 is confirmed.
+  A visible direction slot does not reform the shuffle, so the direction-visible two-direction arms are interpretable.
+- **C_40 is DEAD on both seeds.** Seed 3 (X22) falls: falls end 0.75 of episodes late in training. Seed 2 (X23)
+  stands, with feet_ss 0.006.
+  - Neither is the stable shuffle C_lr walks at the same +y share. C_40 fails upstream of the stroke.
+  - C_40 also halves the total moving share (0.4 against 0.8), so it cannot split (i) from (ii). This confound was
+    recorded before the verdict.
+  - What it does show: C_lr's stepping and carrier are supported by the pooled experience of both hands. That fits
+    section 2.4's "stepping intact, stroke missing".
+- The mechanism question is unchanged. The next discriminating tests are T1 and T2. A clean rate test would need the
+  moving share held at 0.8 with +y at 0.4, which forces a second command, so none is designed.
 
 ### T1: checkpoint-series eval, formation vs collapse (zero code, about 0.5 GPU-h)
 
