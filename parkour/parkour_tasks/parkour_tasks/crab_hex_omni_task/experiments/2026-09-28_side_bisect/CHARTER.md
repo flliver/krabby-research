@@ -611,3 +611,11 @@ using the new banks". At the question, the user chose **"C in both directions"**
   - **C_lr_rsi33** = C_lr_rsi, then **C_lr_10_rsi33** = C_lr_10_rsi. Seed 3 each, run sequentially.
 - **Gate:** the same both-hands rule. FAST on both hands is a success; SLOW is a fail; ambiguous or DEAD gets seed 2.
 - Runner: `scripts/queue_rsi33.sh`.
+- 2026-09-30 11:50: **C_lr_10_rsi s3: left DEAD, right SLOW.** Left 0.042 at both speeds; right 0.078 and 0.081;
+  sweep 0.043–0.046; early read 0.545.
+  - The verdict is ambiguous, because a DEAD hand triggers seed 2. C_lr_10_rsi_s2 launched at 11:50 (X18), with early
+    read 0.535.
+- 12:22: **The user stopped seed 2** ("kill the seed 2 training and move on to the C_lr_rsi33").
+  - X18 was stopped gracefully at about it 1300. Don't resume X13 or X18.
+  - The retry runs directly: `scripts/queue_rsi33_now.sh`, the pre-registered retry without its trigger check. That is
+    bank B harvest → C_lr_rsi33 → C_lr_10_rsi33, with the same gate and seed-2 rule.
