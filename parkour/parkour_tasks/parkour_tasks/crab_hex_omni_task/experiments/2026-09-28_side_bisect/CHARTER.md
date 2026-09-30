@@ -586,3 +586,15 @@ using the new banks". At the question, the user chose **"C in both directions"**
   - Caveat: about a third of the bank's candidate pool came from C's degraded 0.35 holds.
   - The user's instruction chain is complete: canonical eval WORKS; bank harvested; C_lr_rsi SLOW. **Waiting for the
     user.**
+
+## C_lr_10_rsi (user, 2026-09-30: "lets try C_lr_10_rsi") — pre-registered before any result
+
+- **The arm.** C_lr_10 (both directions, direction visible, fa mirror, band 0.35, `KRABBY_EPISODE_S=10`,
+  `KRABBY_RESAMPLE_S=20:20`) plus RSI 0.2 from `rsi_bank_side_lr.npz`, source all (`scripts/candidates_v13.yaml`).
+  - It differs from C_lr_10 only in the three RSI knobs, and from C_lr_rsi only in the episode structure.
+  - With one command per 10-s episode, an RSI-seeded episode walks the frame's direction and speed for its whole
+    length.
+- **Eval, gate and rule** are the same as for C_lr_rsi:
+  - FAST on both hands: single-command episodes plus fast-gait seeding together rescue two-direction training.
+  - SLOW: they don't.
+  - Ambiguous or DEAD: seed 2 (`C_lr_10_rsi_s2`).
