@@ -488,3 +488,7 @@ all parts of phase 1 or after proposing next steps."
     - **The policy manifest does have a c5 suite stamp**; P1 has no c5 eval, as in the ladder record.
     - **The _10 variants never train a command switch**, while the evals switch from settle to hold at 3.5 s. This
       also confounds P1_C_lr_10's move_turn survival against W.
+- 2026-09-30 01:15: **C_lr = SLOW on both hands.** Left 0.072 at 0.22 and 0.077 at 0.25; right 0.063 and 0.073;
+  lean_abs 0.19–0.22; sweep 0.033–0.039; early read 0.524.
+  - With both side directions trained, C's fa mirror + RSI off + band 0.35 still forms the slow shuffle.
+  - Tree verdict FAIL → C_lr_10 launched automatically at 01:15 (unit `...-1790745322`).
