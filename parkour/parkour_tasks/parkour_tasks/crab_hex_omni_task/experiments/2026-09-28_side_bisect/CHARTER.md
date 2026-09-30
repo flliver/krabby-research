@@ -503,3 +503,44 @@ all parts of phase 1 or after proposing next steps."
     validating the lever, the O→C_mo M_x-weight confound, step 5b promoted, a 5c no-mirror arm, and a penalty-replay
     side item.
   - Scripts: `scripts/analysis/`. Nothing launched. **Waiting for the user** (per their tree).
+
+## Mirror canonicalization → two-direction RSI banks → C_lr + RSI (user, 2026-09-30) — pre-registered before any result
+
+The user's words: "Let's try the Mirror canonicalization test. If that works in the eval use the same method to harvest
+new RSI banks for both directions of walking, then test training with the same configuration as C but with RSI on and
+using the new banks". At the question, the user chose **"C in both directions"** for the training arm.
+
+**Step A: canonical eval.**
+- The hook: `eval_crab_hex_gait.py --canon {wave,cmd}` (ANALYSIS.md step 1). For a −y command, the policy gets M_y(obs)
+  and its action is mapped back with M_y.
+- Heads (each with its own driver-eval env): C (X02), C_s2 (X07), C_mo_s2 (X08), C_mo_s1 (X09).
+- Evals:
+  - `scenarios_side_lr.yaml`, both hands, in both wave and cmd mode;
+  - `scenarios_side_reversal.yaml` (rev_direct, rev_pause) in cmd mode.
+- **"Works"** means, for each head, in wave mode: lat_r class FAST at both speeds, and |lat_r − lat_l| ≤ 0.03 at each
+  speed.
+  - It must hold on at least 3 of the 4 heads, and cmd mode must agree with wave on those heads.
+  - Reversals are reported (falls, stalls, post-reversal speed from the raw series), not gated. The pause holds have no
+    scored window.
+
+**Step B: harvest, only if A works.**
+- Run the canonical eval harness (wave mode) with the best canonical head whose training band covers 0.35, preferring C
+  or C_s2.
+- The manifest has lat_l and lat_r holds across the band.
+- Convert the raw npz frames into a bank using the existing bank's filters (`2026-09-16_1805_omni_formation/RSI_BANK.md`):
+  - upright > 0.95, speed along the travel axis > 0.15, |wz| < 0.3;
+  - episode step ≥ 100, thinned every 3rd step;
+  - travel angle within ±20° of ±y, |v| in 0.15–0.5;
+  - the same array fields and meta.
+- The bank covers +y and −y, balanced by direction.
+
+**Step C: training.**
+- **C_lr_rsi** is the C_lr overlay (both directions, direction visible, fa mirror, band 0.35) plus `KRABBY_RSI_FRAC=0.2`
+  and `KRABBY_RSI_BANK=<new bank>`, source selection covering both directions. 1b from scratch, 3000 its, seed 3.
+- Eval: the driver's side22_25, plus the both-hands side eval. Same per-hand gate.
+- **Reading:**
+  - FAST on both hands: two-direction seeding of the fast gait rescues two-direction training (C_lr was SLOW with RSI
+    off).
+  - SLOW: seeding does not change the formed gait.
+  - Ambiguous: seed 2.
+- **Note:** the harness change moves the omni `eval_sha`, so this campaign's next launch needs `--accept-eval-change`.

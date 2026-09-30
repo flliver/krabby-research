@@ -114,6 +114,23 @@ parser.add_argument(
          "or a ladder decision.",
 )
 parser.add_argument(
+    "--canon",
+    choices=["off", "wave", "cmd"],
+    default="off",
+    help="Omni tasks only (side-bisect ANALYSIS step 1): EVAL-TIME mirror canonicalization. When an "
+         "env's flag is on, the policy is fed the exact left-right mirrored observation M_y(obs) and "
+         "its action is mapped back with M_y (an involution). 'wave' = flag fixed per hold from the "
+         "SCHEDULED body-lateral direction (a zero-lateral hold such as a settle takes the next "
+         "lateral hold's flag); 'cmd' = flag from the live command's body vy with hysteresis "
+         "--canon-hyst. 'off' (default) is the unchanged harness. Teacher (non-student) heads only.",
+)
+parser.add_argument(
+    "--canon-hyst",
+    type=float,
+    default=0.08,
+    help="--canon cmd only: flag turns on when vy < -h, off when vy > +h, else holds (m/s, default 0.08).",
+)
+parser.add_argument(
     "--allow-checkpoint-sha-mismatch",
     action="store_true",
     help="Proceed even if the checkpoint sha256 differs from the manifest's pin.",
@@ -475,8 +492,106 @@ def _joint_groups(names) -> dict[str, list[int]]:
     return {k: v for k, v in groups.items() if v}
 
 
+# --------------------------------------------------------------------------------------------
+# Mirror canonicalization (--canon; side-bisect ANALYSIS.md section 4 step 1). Pure torch/numpy
+# helpers, kept free of Isaac and of module globals so the unit suite can lift them out of this
+# file with ``ast`` (tests/unit/test_crab_hex_omni_canon_eval.py).
+# --------------------------------------------------------------------------------------------
+#: Substring every omni gym id carries (``Isaac-Crab-Hex-Omni-Walk-Play-v0``, ...).
+CANON_TASK_TOKEN = "-Omni-"
+CANON_MODES = ("off", "wave", "cmd")
+#: |scheduled body-lateral speed| at or below this is "no lateral direction" (stand, fwd, back).
+CANON_WAVE_EPS = 1.0e-6
+
+
+def _canon_check_args(mode: str, hyst: float, task: str, *, zero_actions: bool) -> None:
+    """Refuse a --canon run the hook cannot serve exactly (SystemExit with the reason)."""
+    if mode not in CANON_MODES:
+        raise SystemExit(f"--canon {mode!r}: expected one of {CANON_MODES}")
+    if mode == "off":
+        return
+    if CANON_TASK_TOKEN not in str(task):
+        raise SystemExit(
+            f"--canon {mode} needs an omni task (id containing {CANON_TASK_TOKEN!r}); got {task!r}. "
+            "The L/R canonicalization maps are the omni observation's (crab_hex_omni_mirror.build_mirrors)."
+        )
+    if zero_actions:
+        raise SystemExit("--canon applies to the policy branch only; it is meaningless with --zero-actions")
+    if not (float(hyst) >= 0.0):
+        raise SystemExit(f"--canon-hyst must be >= 0 m/s, got {hyst!r}")
+
+
+def _canon_hyst_update(prev, vy, hyst: float):
+    """Per-env canonicalization flag from the live body-frame vy command, with hysteresis.
+
+    ``prev is None`` (first step of an episode/wave) initializes from the command's sign: on iff
+    ``vy < 0``. Afterwards: on when ``vy < -hyst``, off when ``vy > +hyst``, otherwise ``prev``.
+    """
+    if prev is None:
+        return vy < 0.0
+    on = torch.ones_like(prev)
+    off = torch.zeros_like(prev)
+    return torch.where(vy < -hyst, on, torch.where(vy > hyst, off, prev))
+
+
+def _canon_lateral(compiled) -> "np.ndarray":
+    """(T, E) scheduled BODY-lateral speed: ``speed * sin(dir - face)`` on world rows, cmd vy on body rows."""
+    if getattr(compiled, "world_dir", None) is not None:
+        return np.asarray(compiled.world_speed, dtype=np.float64) * np.sin(
+            np.asarray(compiled.world_dir, dtype=np.float64) - np.asarray(compiled.world_face, dtype=np.float64)
+        )
+    return np.asarray(compiled.cmd, dtype=np.float64)[..., 1]
+
+
+def _canon_wave_flags(lateral, eps: float = CANON_WAVE_EPS) -> "np.ndarray":
+    """(T, E) bool 'wave' flags from the scheduled lateral speed.
+
+    A step whose |lateral| > eps is decided by its sign (on iff lateral < 0, i.e. commanded -y).
+    An undecided step (a stand / settle / fore-aft hold) takes the NEXT decided step's flag -- so
+    a settle is mirrored exactly like the hold it precedes -- else the previous decided step's,
+    else off. Holds are constant, so the result is constant per hold.
+    """
+    lat = np.asarray(lateral, dtype=np.float64)
+    n_t, n_e = lat.shape
+    decided = np.abs(lat) > eps
+    val = lat < 0.0
+    t_idx = np.broadcast_to(np.arange(n_t)[:, None], (n_t, n_e))
+    nxt = np.where(decided, t_idx, n_t)
+    nxt = np.minimum.accumulate(nxt[::-1], axis=0)[::-1]
+    prv = np.maximum.accumulate(np.where(decided, t_idx, -1), axis=0)
+    src = np.where(nxt < n_t, nxt, prv)
+    cols = np.broadcast_to(np.arange(n_e)[None, :], (n_t, n_e))
+    return np.where(src >= 0, val[np.clip(src, 0, max(n_t - 1, 0)), cols], False)
+
+
+def _canon_policy_step(obs, flag, lr, estimator, policy, priv_start: int, priv_end: int, num_prop: int):
+    """One canonicalized teacher step: ``M_y`` in, policy + estimator, ``M_y`` out, per env.
+
+    ``obs`` (the RAW observation) is never written; every recorder keeps reading it. Rows whose
+    flag is off see exactly the uncanonicalized computation.
+    """
+    m = flag.reshape(-1, 1)
+    obs_c = torch.where(m, lr.mirror_obs(obs), obs)
+    obs_c[:, priv_start:priv_end] = estimator.inference(obs_c[:, :num_prop])
+    a = policy(obs_c, hist_encoding=True)
+    return torch.where(m, lr.mirror_actions(a), a)
+
+
+def _canon_flips(flags, n_steps) -> list:
+    """Per-episode count of flag changes over each episode's recorded steps. ``flags`` is (T, E)."""
+    f = np.asarray(flags, dtype=bool)
+    out = []
+    for e, n in enumerate(n_steps):
+        col = f[: int(n), e]
+        out.append(int(np.count_nonzero(col[1:] != col[:-1])) if col.size > 1 else 0)
+    return out
+
+
 def main() -> None:
     scenario = _resolve_scenario()
+    canon_mode = args_cli.canon
+    canon_on = canon_mode != "off"
+    _canon_check_args(canon_mode, args_cli.canon_hyst, scenario.task, zero_actions=bool(args_cli.zero_actions))
     # --waves / --trained-categories exist for category-suite rows only; on any other row either
     # flag is an error, so a legacy invocation's run_meta key set can never change.
     try:
@@ -603,6 +718,9 @@ def main() -> None:
         if args_cli.policy_role != "auto":
             is_student = args_cli.policy_role == "student"
             print(f"[INFO] policy role forced to {args_cli.policy_role}", flush=True)
+        if canon_on and is_student:
+            raise SystemExit("--canon is implemented for the teacher (estimator + policy) branch only; "
+                             "this run resolved to the depth student (pass --policy-role teacher or drop --canon)")
         if is_student:
             policy = runner.get_inference_depth_policy(device=device)
             depth_encoder = runner.get_depth_encoder_inference_policy(device=device)
@@ -718,6 +836,13 @@ def main() -> None:
     if _record_clock:
         buf["clock_phase"] = torch.zeros(T, num_envs, device=device)
         buf["clock_obs"] = torch.zeros(T, num_envs, 2, device=device)
+    # --canon only (so a canon-off npz key set is unchanged): the per-step canonicalization flag.
+    canon_lr = None
+    canon_flag = None
+    canon_wave = None
+    canon_mirror_files: dict[str, str] = {}
+    if canon_on:
+        buf["canon_flag"] = torch.zeros(T, num_envs, dtype=torch.bool, device=device)
 
     alive = torch.ones(num_envs, dtype=torch.bool, device=device)
     n_steps_env = torch.zeros(num_envs, dtype=torch.long, device=device)
@@ -782,6 +907,25 @@ def main() -> None:
             # obs[:, 10] necessarily lags one step behind vel_command_b (the policy acts on last
             # step's observation).
             obs_reflects_cmd = cmd_term.vel_command_b.clone() if world_frame else cmd_tensor[0].clone()
+
+        if canon_on:
+            if canon_lr is None:
+                from parkour_tasks.crab_hex_omni_task.mdp import crab_hex_omni_mirror as _omni_mirror  # noqa: PLC0415
+
+                canon_lr, _ = _omni_mirror.build_mirrors(unwrapped, int(obs.shape[1]))
+                if int(canon_lr.obs_dim) != int(obs.shape[1]):
+                    raise SystemExit(f"--canon: mirror obs_dim {canon_lr.obs_dim} != observation width {obs.shape[1]}")
+                for _mod in (_omni_mirror, _omni_mirror._fwd, _omni_mirror._side):
+                    _mp = Path(_mod.__file__).resolve()
+                    canon_mirror_files[str(_mp)] = _sha256(_mp)
+            # Per wave (or the single pass): 'wave' flags come from THIS wave's compiled schedule;
+            # 'cmd' re-initializes from the wave's first command.
+            canon_flag = None
+            canon_wave = (
+                torch.from_numpy(_canon_wave_flags(_canon_lateral(compiled))).to(device)
+                if canon_mode == "wave"
+                else None
+            )
 
         with torch.inference_mode():
             for t in range(T):
@@ -853,6 +997,27 @@ def main() -> None:
                     if delta_yaw_tensor is not None:
                         obs[:, OBS_IDX_DELTA_NEXT_YAW] = delta_yaw_tensor[t]
                     actions = policy(obs, hist_encoding=True, scandots_latent=depth_latent)
+                elif canon_on:
+                    # Mirror canonicalization: the flag NEVER comes from the observation (C / C_mo
+                    # heads zero the command slots 8-9). 'cmd' reads the live body command -- on
+                    # world rows exactly the value this step's obs was built from.
+                    if canon_mode == "cmd":
+                        canon_flag = _canon_hyst_update(
+                            canon_flag, cmd_term.vel_command_b[:, 1], float(args_cli.canon_hyst)
+                        )
+                    else:
+                        canon_flag = canon_wave[min(t, canon_wave.shape[0] - 1)]
+                    actions = _canon_policy_step(
+                        obs,
+                        canon_flag,
+                        canon_lr,
+                        estimator,
+                        policy,
+                        num_prop + num_scan,
+                        num_prop + num_scan + num_priv_explicit,
+                        num_prop,
+                    )
+                    buf["canon_flag"][t] = canon_flag
                 else:
                     obs[:, num_prop + num_scan : num_prop + num_scan + num_priv_explicit] = estimator.inference(
                         obs[:, :num_prop]
@@ -1023,6 +1188,29 @@ def main() -> None:
         # Only when set, so a normal run's run_meta key set is unchanged.
         run_meta["sample_actions"] = True
         run_meta["sample_actions_std"] = sample_actions_std
+    if canon_on:
+        # Only when set, so a canon-off run's run_meta key set is unchanged.
+        _flips = _canon_flips(host["canon_flag"], n_steps_list)
+        run_meta["canon"] = {
+            "mode": canon_mode,
+            "hyst": float(args_cli.canon_hyst),
+            "map": "M_y (crab_hex_omni_mirror.build_mirrors(env, obs_dim)[0]): obs_c = M_y(obs), actions = M_y(policy(obs_c))",
+            "flag_rule": (
+                "cmd: on iff vel_command_b[:,1] < -hyst, off iff > +hyst, else hold; initialized on "
+                "vy < 0 at each wave's first step"
+                if canon_mode == "cmd"
+                else "wave: sign of scheduled speed*sin(dir - face) per hold (on iff < 0); a "
+                "zero-lateral hold takes the next lateral hold's flag, else the previous, else off"
+            ),
+            "flips_per_episode": _flips,
+            "flips_total": int(sum(_flips)),
+            "episodes_flag_on_at_start": int(sum(bool(host["canon_flag"][0, e]) for e in range(len(_flips)))),
+            # the omni module (first) + the two sibling modules it path-loads its constants from
+            "mirror_module": next(iter(canon_mirror_files), None),
+            "mirror_sha256": next(iter(canon_mirror_files.values()), None),
+            "mirror_modules": dict(canon_mirror_files),
+            "raw_series": "canon_flag",
+        }
     if world_frame:
         # World-row provenance: what was commanded, how it became a body command, and where the
         # per-step series live. The (T, E) travel_yaw/heading_err arrays go in the raw npz, not
