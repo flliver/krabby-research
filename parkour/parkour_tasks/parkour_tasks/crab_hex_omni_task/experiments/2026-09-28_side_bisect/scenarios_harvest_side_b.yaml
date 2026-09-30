@@ -1,0 +1,50 @@
+# Two-direction RSI bank harvest B (2026-09-30, user: 'rsi harvest at 0.22-0.28 only'; CHARTER "RSI retry"): run with the eval harness's --canon wave on a
+# fast one-direction head, so lat_r is walked by the mirrored +y policy. lat_l / lat_r at 0.22, 0.25 and 0.28 m/s (the range where
+# canonical C walks FAST; its 0.35 gait degrades), 100 episodes per hold, 2-s settle then 12-s holds. The lateral speed_ellipse is widened to 0.35 so
+# the validator accepts 0.28 / 0.35; the process env must also carry KRABBY_OMNI_SPEED_ELLIPSE=0.35:0.35:0.25 (C's eval env does).
+# Frames are converted to a bank by scripts/harvest_canon_bank.py (the 2026-09-16 bank's filters).
+manifest_version: 2
+
+speed_ellipse: {fwd: 0.35, lat: 0.35, back: 0.25}
+ang_vel_max: 0.3
+
+defaults:
+  prologue_s: 1.5
+  settle_s: 1.0
+  min_window_s: 1.0
+  fall_exclusion_s: 0.5
+  contact_force_threshold: 1.0
+  slip_speed_threshold: 0.02
+  min_cycles: 2
+  lin_vel_clip: 0.2
+
+scenarios:
+  - id: harvest_side_lr_b__omni
+    kind: category_suite
+    role: teacher
+    task: Isaac-Crab-Hex-Omni-Walk-Play-v0
+    terrain_label: flat
+    checkpoint: SUPPLIED-PER-RUN--pass---checkpoint
+    episodes: 100
+    waves: 7
+    env_seed: 1
+    episode_length_s: 18.0
+    spawn_yaw: first_face
+    settle: {hold_s: 2.0, label: settle}
+    hold_s: 12.0
+    categories:
+      - name: stand
+        kind: stand
+        holds:
+          - {label: stand, speed: 0.00, dir: 0.0000000, face: 0.0000000}
+      - name: side
+        kind: translate
+        holds:
+          - {label: lat_l_022, speed: 0.22, dir: 1.5707963, face: 0.0000000, hand: l}
+          - {label: lat_r_022, speed: 0.22, dir: -1.5707963, face: 0.0000000, hand: r}
+          - {label: lat_l_025, speed: 0.25, dir: 1.5707963, face: 0.0000000, hand: l}
+          - {label: lat_r_025, speed: 0.25, dir: -1.5707963, face: 0.0000000, hand: r}
+          - {label: lat_l_028, speed: 0.28, dir: 1.5707963, face: 0.0000000, hand: l}
+          - {label: lat_r_028, speed: 0.28, dir: -1.5707963, face: 0.0000000, hand: r}
+    notes: >-
+      Harvest row B: lat_l and lat_r at 0.22 / 0.25 / 0.28 m/s, 12-s holds, 100 episodes per hold.

@@ -598,3 +598,16 @@ using the new banks". At the question, the user chose **"C in both directions"**
   - FAST on both hands: single-command episodes plus fast-gait seeding together rescue two-direction training.
   - SLOW: they don't.
   - Ambiguous or DEAD: seed 2 (`C_lr_10_rsi_s2`).
+
+## RSI retry (user, 2026-09-30: "if C_lr_10_rsi fails as well as C_lr_rsi, retry both with an rsi harvest at 0.22–0.28 only and a 33% RSI ratio") — pre-registered
+
+- **Trigger:** C_lr_10_rsi fails, meaning SLOW or DEAD on both hands at s3, or ambiguous at s3 with a FAIL at s2.
+  C_lr_rsi has already failed. If C_lr_10_rsi does not fail, nothing runs and the result is reported.
+- **Bank B:** canonical C (wave mode) on `scenarios_harvest_side_b.yaml` (lat_l / lat_r at 0.22, 0.25, 0.28 only,
+  where canonical C is FAST; its 0.35 gait degrades), converted with `scripts/harvest_canon_bank.py` →
+  `rsi_bank_side_lr_b.npz`, 2000 frames per direction.
+- **Arms** (`scripts/candidates_v14.yaml`), each differing from its original only in `KRABBY_RSI_BANK` (bank B) and
+  `KRABBY_RSI_FRAC` 0.33:
+  - **C_lr_rsi33** = C_lr_rsi, then **C_lr_10_rsi33** = C_lr_10_rsi. Seed 3 each, run sequentially.
+- **Gate:** the same both-hands rule. FAST on both hands is a success; SLOW is a fail; ambiguous or DEAD gets seed 2.
+- Runner: `scripts/queue_rsi33.sh`.
