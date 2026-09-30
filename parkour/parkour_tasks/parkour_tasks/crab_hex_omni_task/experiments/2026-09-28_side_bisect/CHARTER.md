@@ -619,3 +619,9 @@ using the new banks". At the question, the user chose **"C in both directions"**
   - X18 was stopped gracefully at about it 1300. Don't resume X13 or X18.
   - The retry runs directly: `scripts/queue_rsi33_now.sh`, the pre-registered retry without its trigger check. That is
     bank B harvest → C_lr_rsi33 → C_lr_10_rsi33, with the same gate and seed-2 rule.
+- 12:27: **Bank B.**
+  - Canonical C at 0.22 / 0.25 / 0.28 is FAST on both hands: feet_ss 0.207–0.217, lean 0.03–0.07, sweep 0.079–0.086
+    (`gate/harvest_b_C.json`).
+  - `rsi_bank_side_lr_b.npz` (sha256 `743f7dd6…`; `gate/harvest_bank_b.json`): 2000 frames of +y and 2000 of −y,
+    median speed 0.28.
+  - **C_lr_rsi33 launched 12:27 (X19).**

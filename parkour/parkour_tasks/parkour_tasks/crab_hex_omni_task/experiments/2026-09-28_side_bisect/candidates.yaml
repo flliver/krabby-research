@@ -645,6 +645,74 @@ chains:
         categories: [side, stand]
         floor: {kind: none}
 
+  C_lr_10_rsi:
+    notes: "C_lr_10 (two-direction C, 10-s single-command episodes) + RSI 0.2 from the canonical two-direction bank (user 2026-09-30)."
+    stages:
+      - stage: s1
+        base: "1b"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.2,side_l:0.4,side_r:0.4"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_SLOTS: "0.2:0.8:0:0"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_EPISODE_S: "10"
+          KRABBY_RESAMPLE_S: "20:20"
+          KRABBY_RSI_FRAC: "0.2"
+          KRABBY_RSI_BANK: "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-09-28_side_bisect/rsi_bank_side_lr.npz"
+          KRABBY_OMNI_RSI_SOURCE: all
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
+  C_lr_rsi33:
+    notes: "Retry of C_lr_rsi (user 2026-09-30): bank B harvested at 0.22-0.28 only, RSI 0.33."
+    stages:
+      - stage: s1
+        base: "1b"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.2,side_l:0.4,side_r:0.4"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_SLOTS: "0.2:0.8:0:0"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_RSI_FRAC: "0.33"
+          KRABBY_RSI_BANK: "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-09-28_side_bisect/rsi_bank_side_lr_b.npz"
+          KRABBY_OMNI_RSI_SOURCE: all
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
+  C_lr_10_rsi33:
+    notes: "Retry of C_lr_10_rsi (user 2026-09-30): bank B harvested at 0.22-0.28 only, RSI 0.33."
+    stages:
+      - stage: s1
+        base: "1b"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.2,side_l:0.4,side_r:0.4"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_SLOTS: "0.2:0.8:0:0"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_EPISODE_S: "10"
+          KRABBY_RESAMPLE_S: "20:20"
+          KRABBY_RSI_FRAC: "0.33"
+          KRABBY_RSI_BANK: "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-09-28_side_bisect/rsi_bank_side_lr_b.npz"
+          KRABBY_OMNI_RSI_SOURCE: all
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
+
 references:
   O: {chain: O, seed: 3}
   C: {chain: C, seed: 3}
@@ -685,6 +753,14 @@ references:
   # added 2026-09-30 (user: canonical harvest -> C in both directions with RSI from the new banks)
   C_lr_rsi: {chain: C_lr_rsi, seed: 3}
   C_lr_rsi_s2: {chain: C_lr_rsi, seed: 2}
+  # added 2026-09-30 (user: 'lets try C_lr_10_rsi')
+  C_lr_10_rsi: {chain: C_lr_10_rsi, seed: 3}
+  C_lr_10_rsi_s2: {chain: C_lr_10_rsi, seed: 2}
+  # added 2026-09-30 (user: retry both with a 0.22-0.28 harvest and 33% RSI if C_lr_10_rsi also fails)
+  C_lr_rsi33: {chain: C_lr_rsi33, seed: 3}
+  C_lr_rsi33_s2: {chain: C_lr_rsi33, seed: 2}
+  C_lr_10_rsi33: {chain: C_lr_10_rsi33, seed: 3}
+  C_lr_10_rsi33_s2: {chain: C_lr_10_rsi33, seed: 2}
 
 # ---------------------------------------------------------------------------- ranked candidates
 # Empty by design (header comment): every arm here runs through `references:`, never the ordinary
