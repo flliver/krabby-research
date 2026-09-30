@@ -640,3 +640,7 @@ using the new banks". At the question, the user chose **"C in both directions"**
   - Not established: why PPO misses it. Three candidates: the direction × phase interaction barrier; rate × early
     saturation lock-in; the loss/RL conflict (phantom arms only).
   - Controls named: C_fa and C_40 (zero code), T1 checkpoint series, T2 with its additive control. Nothing launched.
+- 2026-09-30 15:05: **C_lr_10_rsi33 = SLOW on both hands.** Left 0.080 / 0.082, right 0.080 / 0.081 (lean 0.15–0.17,
+  sweep 0.037–0.058, early read 0.540). The RSI retry queue is done: bank B at RSI 0.33 rescues neither the 40-s nor
+  the 10-s single-command variant. **Every RSI-seeded two-direction arm (4 of 4) is SLOW.** Nothing running; waiting
+  for the user on the ROOT_CAUSE.md controls.
