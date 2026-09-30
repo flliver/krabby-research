@@ -497,3 +497,9 @@ all parts of phase 1 or after proposing next steps."
   - Right 0.067 and 0.073; lean_abs about 0 (!); sweep 0.039–0.041.
   - **Tree result: BOTH_FAIL.** The runner stopped (DONE p1-queue). Next, per the user: an analysis of all the sideways
     tests and proposed next steps, then wait for the user.
+- 2026-09-30 03:20: **Analysis of all sideways tests: [ANALYSIS.md](ANALYSIS.md).**
+  - Workflow: four analysts (evidence table, mechanisms, training dynamics, structural options), then a synthesis, then an
+    independent fable·high critique. The critique found 1 blocking and 16 minor issues, all applied: step 3 reframed as
+    validating the lever, the O→C_mo M_x-weight confound, step 5b promoted, a 5c no-mirror arm, and a penalty-replay
+    side item.
+  - Scripts: `scripts/analysis/`. Nothing launched. **Waiting for the user** (per their tree).

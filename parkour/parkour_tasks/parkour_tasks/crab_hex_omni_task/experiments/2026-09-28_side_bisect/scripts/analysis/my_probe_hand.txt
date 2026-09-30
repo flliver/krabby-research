@@ -1,0 +1,48 @@
+== LR4
+  stand      n100 sat cam 0.97 hip 1.00 knee 0.96 med|a| 6.71
+  lat_l_022  n 88 sat cam 0.97 hip 0.96 knee 0.94 med|a| 6.16
+  lat_r_022  n 97 sat cam 0.97 hip 0.96 knee 0.94 med|a| 6.16
+  lat_l_025  n 99 sat cam 0.97 hip 0.96 knee 0.94 med|a| 6.05
+  lat_r_025  n 95 sat cam 0.97 hip 0.96 knee 0.94 med|a| 6.09
+  [022] clipped-mean dist: R vs L(agnostic) 1.38 | R vs M_y L(handed) 0.12 | |L| 1.49
+  [022] rod coord-matrix dist: R vs L 1.87 | R vs M_y L 0.36 | L split-half noise 0.37
+  [022] joint-mean dist: R vs L 0.644 | R vs M_y L 0.330
+  [025] clipped-mean dist: R vs L(agnostic) 1.48 | R vs M_y L(handed) 0.20 | |L| 1.57
+  [025] rod coord-matrix dist: R vs L 2.11 | R vs M_y L 0.43 | L split-half noise 0.33
+  [025] joint-mean dist: R vs L 1.156 | R vs M_y L 0.415
+== C
+  stand      n 82 sat cam 0.96 hip 0.94 knee 0.91 med|a| 5.14
+  lat_l_022  n 87 sat cam 0.96 hip 0.95 knee 0.93 med|a| 6.46
+  lat_l_025  n 93 sat cam 0.97 hip 0.95 knee 0.93 med|a| 6.70
+== C_mo_s2
+  stand      n 97 sat cam 0.97 hip 0.98 knee 0.92 med|a| 6.09
+  lat_l_022  n 95 sat cam 0.96 hip 0.97 knee 0.91 med|a| 6.28
+  lat_l_025  n 97 sat cam 0.96 hip 0.96 knee 0.92 med|a| 6.29
+== O
+  stand      n100 sat cam 0.96 hip 0.96 knee 0.99 med|a| 6.60
+  lat_l_022  n 96 sat cam 0.96 hip 0.96 knee 0.97 med|a| 7.01
+  lat_l_025  n 96 sat cam 0.96 hip 0.96 knee 0.98 med|a| 7.33
+== C_lr_10
+  stand      n 88 sat cam 0.97 hip 0.97 knee 0.94 med|a| 6.67
+  lat_l_022  n 79 sat cam 0.96 hip 0.96 knee 0.94 med|a| 6.52
+  lat_r_022  n 92 sat cam 0.96 hip 0.96 knee 0.94 med|a| 6.52
+  lat_l_025  n 81 sat cam 0.96 hip 0.96 knee 0.95 med|a| 6.75
+  lat_r_025  n 88 sat cam 0.96 hip 0.96 knee 0.94 med|a| 6.56
+  [022] clipped-mean dist: R vs L(agnostic) 0.85 | R vs M_y L(handed) 1.75 | |L| 1.03
+  [022] rod coord-matrix dist: R vs L 1.23 | R vs M_y L 4.63 | L split-half noise 0.33
+  [022] joint-mean dist: R vs L 0.945 | R vs M_y L 1.163
+  [025] clipped-mean dist: R vs L(agnostic) 0.89 | R vs M_y L(handed) 1.78 | |L| 1.14
+  [025] rod coord-matrix dist: R vs L 1.26 | R vs M_y L 4.66 | L split-half noise 0.31
+  [025] joint-mean dist: R vs L 0.729 | R vs M_y L 0.989
+== LRfa
+  stand      n 98 sat cam 0.97 hip 0.95 knee 0.97 med|a| 6.33
+  lat_l_022  n 98 sat cam 0.96 hip 0.96 knee 0.98 med|a| 7.20
+  lat_r_022  n 99 sat cam 0.96 hip 0.95 knee 0.96 med|a| 6.43
+  lat_l_025  n 96 sat cam 0.96 hip 0.96 knee 0.98 med|a| 7.37
+  lat_r_025  n 93 sat cam 0.96 hip 0.95 knee 0.96 med|a| 6.62
+  [022] clipped-mean dist: R vs L(agnostic) 3.90 | R vs M_y L(handed) 1.34 | |L| 2.11
+  [022] rod coord-matrix dist: R vs L 2.33 | R vs M_y L 3.79 | L split-half noise 0.39
+  [022] joint-mean dist: R vs L 1.178 | R vs M_y L 0.948
+  [025] clipped-mean dist: R vs L(agnostic) 4.04 | R vs M_y L(handed) 1.34 | |L| 2.13
+  [025] rod coord-matrix dist: R vs L 2.13 | R vs M_y L 3.63 | L split-half noise 0.53
+  [025] joint-mean dist: R vs L 1.185 | R vs M_y L 0.970

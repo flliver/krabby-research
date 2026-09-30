@@ -350,6 +350,280 @@ chains:
         floor: {kind: none}
 
 
+  C_lr:
+    notes: "Two-direction C (user 2026-09-30): C's fa mirror + RSI off + band 0.35 with BOTH side directions sampled and the command direction visible (C's scalar obs cannot tell left from right)."
+    stages:
+      - stage: s1
+        base: "1b"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.2,side_l:0.4,side_r:0.4"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_SLOTS: "0.2:0.8:0:0"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
+  C_lr_10:
+    notes: "Two-direction C with 10-s episodes and ONE command per episode (user 2026-09-30)."
+    stages:
+      - stage: s1
+        base: "1b"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.2,side_l:0.4,side_r:0.4"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_SLOTS: "0.2:0.8:0:0"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_EPISODE_S: "10"
+          KRABBY_RESAMPLE_S: "20:20"
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
+  FB_C_lr:
+    notes: "C_lr config + fwd/back added (user 2026-09-30, if C_lr succeeds)."
+    stages:
+      - stage: s1
+        base: "1b"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.2,fwd:0.2,side_l:0.2,side_r:0.2,back:0.2"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_SLOTS: "0.2:0.8:0:0"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+        eval: [suite]
+        categories: [back, fwd, side, stand]
+        floor: {kind: none}
+
+  FB_C_lr_10:
+    notes: "C_lr_10 config + fwd/back added (user 2026-09-30, if C_lr_10 succeeds)."
+    stages:
+      - stage: s1
+        base: "1b"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.2,fwd:0.2,side_l:0.2,side_r:0.2,back:0.2"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_SLOTS: "0.2:0.8:0:0"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_EPISODE_S: "10"
+          KRABBY_RESAMPLE_S: "20:20"
+        eval: [suite]
+        categories: [back, fwd, side, stand]
+        floor: {kind: none}
+
+  P1_C_lr:
+    notes: "Phase 1 of record (C1d t3->c4->c5->c6, then c6x clock cut) with the C_lr side config on every stage (user 2026-09-30)."
+    stages:
+      - stage: t3
+        base: "1a"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.15,fwd:0.25,side_l:0.16,side_r:0.16,back:0.08,turn:0.2"
+          KRABBY_OMNI_SLOTS: "0.15:0.65:0.2:0"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_FACING: "0.2:0.6"
+          KRABBY_YAW_W: "0.2"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+        eval: [suite]
+        categories: [back, fwd, side, stand, turn]
+        floor: {kind: none}
+      - stage: c4
+        base: "1a"
+        iters: 1500
+        from_scratch: false
+        resume_from: previous_stage
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.15,fwd:0.22,side_l:0.14,side_r:0.14,back:0.1,turn:0.15,fwd_turn:0.05,side_l_turn:0.025,side_r_turn:0.025"
+          KRABBY_OMNI_SLOTS: "0.15:0.6:0.15:0.1"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_FACING: "0.2:0.6"
+          KRABBY_YAW_W: "0.2"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+        eval: [suite]
+        categories: [back, fwd, move_turn, side, stand, turn]
+        floor: {kind: none}
+      - stage: c5
+        base: "1a"
+        iters: 1500
+        from_scratch: false
+        resume_from: previous_stage
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.15,fwd:0.15,side_l:0.1,side_r:0.1,back:0.1,omni:0.15,turn:0.1,fwd_turn:0.07,side_l_turn:0.04,side_r_turn:0.04"
+          KRABBY_OMNI_SLOTS: "0.15:0.6:0.1:0.15"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_FACING: "0.2:0.6"
+          KRABBY_YAW_W: "0.2"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+        eval: []
+        categories: [back, diag, fwd, move_turn, side, stand, turn]
+        floor: {kind: none}
+      - stage: c6
+        base: "1a"
+        iters: 2000
+        from_scratch: false
+        resume_from: previous_stage
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07"
+          KRABBY_OMNI_SLOTS: "0.15:0.55:0.1:0.2"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_FACING: "0.2:0.6"
+          KRABBY_YAW_W: "0.2"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+        eval: [suite]
+        categories: [back, diag, fwd, move_turn, side, stand, turn]
+        floor: {kind: none}
+      - stage: c6x
+        base: "1a"
+        iters: 4000
+        from_scratch: false
+        resume_from: previous_stage
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07"
+          KRABBY_OMNI_SLOTS: "0.15:0.55:0.1:0.2"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_FACING: "0.2:0.6"
+          KRABBY_YAW_W: "0.2"
+          KRABBY_CLOCK_W: "0.001"
+          KRABBY_APEX_W: "0.001"
+          KRABBY_OMNI_CLOCK_HIDE: "1"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+        eval: [suite]
+        categories: [back, diag, fwd, move_turn, side, stand, turn]
+        floor: {kind: none}
+
+  P1_C_lr_10:
+    notes: "Phase 1 of record (C1d t3->c4->c5->c6, then c6x clock cut) with the C_lr_10 side config on every stage (user 2026-09-30)."
+    stages:
+      - stage: t3
+        base: "1a"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.15,fwd:0.25,side_l:0.16,side_r:0.16,back:0.08,turn:0.2"
+          KRABBY_OMNI_SLOTS: "0.15:0.65:0.2:0"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_FACING: "0.2:0.6"
+          KRABBY_YAW_W: "0.2"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_EPISODE_S: "10"
+          KRABBY_RESAMPLE_S: "20:20"
+        eval: [suite]
+        categories: [back, fwd, side, stand, turn]
+        floor: {kind: none}
+      - stage: c4
+        base: "1a"
+        iters: 1500
+        from_scratch: false
+        resume_from: previous_stage
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.15,fwd:0.22,side_l:0.14,side_r:0.14,back:0.1,turn:0.15,fwd_turn:0.05,side_l_turn:0.025,side_r_turn:0.025"
+          KRABBY_OMNI_SLOTS: "0.15:0.6:0.15:0.1"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_FACING: "0.2:0.6"
+          KRABBY_YAW_W: "0.2"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_EPISODE_S: "10"
+          KRABBY_RESAMPLE_S: "20:20"
+        eval: [suite]
+        categories: [back, fwd, move_turn, side, stand, turn]
+        floor: {kind: none}
+      - stage: c5
+        base: "1a"
+        iters: 1500
+        from_scratch: false
+        resume_from: previous_stage
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.15,fwd:0.15,side_l:0.1,side_r:0.1,back:0.1,omni:0.15,turn:0.1,fwd_turn:0.07,side_l_turn:0.04,side_r_turn:0.04"
+          KRABBY_OMNI_SLOTS: "0.15:0.6:0.1:0.15"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_FACING: "0.2:0.6"
+          KRABBY_YAW_W: "0.2"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_EPISODE_S: "10"
+          KRABBY_RESAMPLE_S: "20:20"
+        eval: []
+        categories: [back, diag, fwd, move_turn, side, stand, turn]
+        floor: {kind: none}
+      - stage: c6
+        base: "1a"
+        iters: 2000
+        from_scratch: false
+        resume_from: previous_stage
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07"
+          KRABBY_OMNI_SLOTS: "0.15:0.55:0.1:0.2"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_FACING: "0.2:0.6"
+          KRABBY_YAW_W: "0.2"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_EPISODE_S: "10"
+          KRABBY_RESAMPLE_S: "20:20"
+        eval: [suite]
+        categories: [back, diag, fwd, move_turn, side, stand, turn]
+        floor: {kind: none}
+      - stage: c6x
+        base: "1a"
+        iters: 4000
+        from_scratch: false
+        resume_from: previous_stage
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07"
+          KRABBY_OMNI_SLOTS: "0.15:0.55:0.1:0.2"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_FACING: "0.2:0.6"
+          KRABBY_YAW_W: "0.2"
+          KRABBY_CLOCK_W: "0.001"
+          KRABBY_APEX_W: "0.001"
+          KRABBY_OMNI_CLOCK_HIDE: "1"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_EPISODE_S: "10"
+          KRABBY_RESAMPLE_S: "20:20"
+        eval: [suite]
+        categories: [back, diag, fwd, move_turn, side, stand, turn]
+        floor: {kind: none}
+
 references:
   O: {chain: O, seed: 3}
   C: {chain: C, seed: 3}
@@ -377,6 +651,16 @@ references:
   LRfa_s2: {chain: LRfa, seed: 2}
   LR4_dwell: {chain: LR4_dwell, seed: 3}
   LR4_dwell_s2: {chain: LR4_dwell, seed: 2}
+  # added 2026-09-30 (user: 'Lets run two-direction C')
+  C_lr: {chain: C_lr, seed: 3}
+  C_lr_s2: {chain: C_lr, seed: 2}
+  # added 2026-09-30 (user's decision tree: C_lr_10 if C_lr fails; +fwd/back and full phase 1 for a success)
+  C_lr_10: {chain: C_lr_10, seed: 3}
+  C_lr_10_s2: {chain: C_lr_10, seed: 2}
+  FB_C_lr: {chain: FB_C_lr, seed: 3}
+  FB_C_lr_10: {chain: FB_C_lr_10, seed: 3}
+  P1_C_lr: {chain: P1_C_lr, seed: 3}
+  P1_C_lr_10: {chain: P1_C_lr_10, seed: 3}
 
 # ---------------------------------------------------------------------------- ranked candidates
 # Empty by design (header comment): every arm here runs through `references:`, never the ordinary
