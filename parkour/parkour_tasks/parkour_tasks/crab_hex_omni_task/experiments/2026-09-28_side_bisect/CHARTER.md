@@ -644,3 +644,32 @@ using the new banks". At the question, the user chose **"C in both directions"**
   sweep 0.037–0.058, early read 0.540). The RSI retry queue is done: bank B at RSI 0.33 rescues neither the 40-s nor
   the 10-s single-command variant. **Every RSI-seeded two-direction arm (4 of 4) is SLOW.** Nothing running; waiting
   for the user on the ROOT_CAUSE.md controls.
+
+### 2026-09-30 15:40 — the two ROOT_CAUSE.md controls (user: "Run those two controls")
+
+- **Arms** (`scripts/candidates_v15.yaml`, dry run `scripts/candidates_v15_dryrun.txt`). Each is 1b (side_l only) from
+  scratch, 3000 its, seed 3, scored on the driver's `side22_25` row (lat_l) with the usual gate. Both train only +y,
+  so there is no both-hands eval. Run serially: C_fa, then C_40.
+  - **C_fa** = O + `KRABBY_OMNI_MIRROR_IMAGES=fa` (so C_mo minus the scalar obs). RSI 0.2 and band 0.25 as in 1b.
+  - **C_40** = C with `KRABBY_OMNI_CMD_POOL=stand:0.6,side_l:0.4`, `KRABBY_OMNI_DIR_BAND=''`,
+    `KRABBY_OMNI_SLOTS=0.6:0.4:0:0`. That is one hand at C_lr's per-hand share; direction hidden (scalar obs), fa
+    mirror, RSI off, band 0.35. The composed env differs from C in those three keys only.
+- **Timing reference** (training `track_ratio_move_mean`, its 400 / 600 / 800 / 1000). Fast one-hand runs (C, C_s2,
+  C_mo ×3) are 0.48–0.56 / 0.56–0.69 / 0.63–0.75 / 0.67–0.78. Slow runs (O, R, LRfa, C_lr) are 0.47–0.55 / 0.51–0.56
+  / 0.49–0.57 / 0.47–0.56. `track_ratio_mean` equals the moving-only ratio at every one of these points, so C_40's
+  larger stand share (0.6) does not dilute the read. The bands are a guide, not a gate.
+- **Pre-registered reading, C_fa** (P6, predicted FAST ≈ C_mo):
+  - FAST: a visible direction slot does not by itself reform the shuffle in a one-direction run. Two-direction arms
+    with the direction visible are interpretable, and C_mo's scalar obs is not needed.
+  - SLOW: the visible slot alone reforms it. C_lr's slowness is then confounded with the visible slot, and the next
+    step is a two-direction arm with the direction hidden only from the actor's clock-coupled path (not designed).
+- **Pre-registered reading, C_40** (P10):
+  - FAST, moving ratio ≥ 0.58 by it 800: halving the +y rate does not delay formation. That rules out rate × lock-in
+    (ii) as the sufficient cause and leaves (i) the interaction barrier (or (iii) in phantom arms).
+  - FAST but late (≥ 0.58 only after it 800): rate slows formation, so (ii) contributes. (i) is still needed for
+    C_lr never forming.
+  - SLOW: the halved rate alone reproduces the shuffle with no second direction. (ii) is then sufficient, and the fix
+    ranking changes: a per-direction rate lever (longer training, a higher side share, a slower early std/LR schedule)
+    becomes a first test before any structural fix.
+- **Rules:** INTERMEDIATE or DEAD → that arm's seed 2 (C_fa_s2, C_40_s2 are defined), run after both seed-3 arms.
+  Cost about 2.5 GPU-h (5 GPU-h with both seed 2s). Runner: `scripts/queue_controls.sh`.
