@@ -1919,6 +1919,9 @@ OVERLAY_DUMP_CHECKS = {
     "KRABBY_TRACK_SIGMA2": _track_sigma2_ok,
     "KRABBY_TRACK_L1_W": _track_l1_w_ok,
     "KRABBY_RSI_FRAC": _rsi_frac_ok,
+    # ---- side-bisect reversal test (2026-09-29): "lo:hi" seconds -> commands.base_velocity.resampling_time_range
+    # (crab_hex_env_cfg.py; the only resampling_time_range in an omni env.yaml).
+    "KRABBY_RESAMPLE_S": lambda txt, v: _tuple_ok(txt, "resampling_time_range", v, 2),
 }
 
 

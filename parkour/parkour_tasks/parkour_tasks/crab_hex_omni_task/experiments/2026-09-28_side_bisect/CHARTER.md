@@ -371,3 +371,22 @@ carries the forward tripod-set handedness constraint. It is designed after step 
   - The queue ended (DONE lr-queue). Write-up: the GATE.md addendum.
   - The next discriminator (LR4_dwell, whole-episode command hold) is drafted in `scripts/candidates_v8.yaml`, not run.
     It needs a `KRABBY_RESAMPLE_S` dump check first.
+
+## Reversal test (user, 2026-09-29 ~22:15: "run the dwell test") — pre-registered before any result
+
+- **LR4_dwell** is LR4 plus `KRABBY_RESAMPLE_S=40:40`. The command is drawn once per 40-s episode, so there are no
+  left↔right reversals inside an episode. 1b from scratch, 3000 its, seed 3; the 4-image mirror; direction visible.
+- **Driver addition first:** an `OVERLAY_DUMP_CHECKS` entry for `KRABBY_RESAMPLE_S`, with a unit test against a real
+  dump. `tools_sha` moves; `code_sha` is unchanged.
+- **Eval:** the driver's `side22_25` (lat_l), plus the both-hands `scenarios_side_lr.yaml` with the arm's own eval env.
+  Same per-hand classes as the gate.
+- **Reading:**
+
+  | LR4_dwell | Reading |
+  |---|---|
+  | FAST on both hands | Reversals inside an episode form the shuffle. Levers for full omni: longer side dwell, fewer or gentler reversals, a reversal-onset curriculum |
+  | SLOW on both hands | Training two directions at all is the cause, not reversals. Lever: direction-specific policy structure |
+  | Hands disagree or INTERMEDIATE | Seed 2 (`LR4_dwell_s2`) |
+
+- **Caveat.** At 40:40 each episode is 20 % stand, 40 % left or 40 % right, so stand is now per episode rather than per
+  segment. The RSI bank still seeds only +y starts.

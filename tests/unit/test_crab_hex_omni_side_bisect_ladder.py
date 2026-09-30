@@ -371,3 +371,22 @@ def test_a_suite_row_missing_a_trained_category_is_refused_at_dry_run(rc):
     reasons = []
     rc._check_suite_rows_cover_trained({"eval": ["suite"]}, _TC(), "chain:X/s0", reasons)
     assert reasons == []
+
+
+# ================================================================== KRABBY_RESAMPLE_S dump check (reversal test)
+_RESAMPLE_DUMP = """commands:
+  base_velocity:
+    class_type: parkour_tasks.crab_hex_omni_task.mdp.crab_hex_omni_command:CrabHexOmniCommand
+    resampling_time_range: !!python/tuple
+    - 40.0
+    - 40.0
+    debug_vis: false
+"""
+
+
+def test_resample_s_dump_check(rc):
+    check = rc.OVERLAY_DUMP_CHECKS["KRABBY_RESAMPLE_S"]
+    assert check(_RESAMPLE_DUMP, "40:40")
+    assert check(_RESAMPLE_DUMP, "40.0:40")
+    assert not check(_RESAMPLE_DUMP, "10:10")
+    assert not check(_RESAMPLE_DUMP.replace("resampling_time_range", "other_range"), "40:40")
