@@ -440,3 +440,39 @@ RSI is on (0.2, source 1) in O, R, C_band, C_mo, LRfa, LR4 and LR4_dwell; it is 
   | Hands disagree or INTERMEDIATE | Seed 2 (`C_lr_s2`) |
 
 - **A single-seed caveat applies**, as in the seed-lottery discussion. The O_s2 and LR4_s2 checks are still unrun.
+
+## Decision tree after C_lr (user, 2026-09-30 ~00:25) — pre-registered before C_lr's result
+
+The user's words: "one more test to run if C_lr fails is a configuration of C_lr but with 10 second episodes with a
+single command (resetting between episodes). If either C_lr or C_lr_10 succeed, then test adding back in the forward
+and backward movement to the successful configuration and train through all parts of phase 1. If both C_lr and C_lr_10
+fail, then run an analysis on all the sideways tests so far and propose next steps. Wait for me either after training
+all parts of phase 1 or after proposing next steps."
+
+**Success and failure** are judged on the both-hands side eval.
+- **Success:** FAST on both hands.
+- **Fail:** SLOW or DEAD on both hands.
+- **Ambiguous:** anything else. That triggers a seed-2 run; if still ambiguous, a manual decision under the decision
+  defaults.
+
+**The branches** (`scripts/candidates_v11.yaml`, dry run clean; runner `scripts/queue_p1.sh`):
+- **C_lr_10:** C_lr plus `KRABBY_EPISODE_S=10` and `KRABBY_RESAMPLE_S=20:20`, i.e. one command per 10-s episode with a
+  reset between. 1b from scratch, 3000 its, seed 3. A dump check for `KRABBY_EPISODE_S` was added to the driver.
+- **FB_\<cfg\>:** the successful config with fwd and back added. Pool `stand:0.2,fwd:0.2,side_l:0.2,side_r:0.2,back:0.2`,
+  1b from scratch, 3000 its.
+  - The driver runs the `suite` eval (fwd and back readable there); the both-hands side eval is the side gate.
+  - It is reported, not a stop: the user asked to go on through phase 1.
+- **P1_\<cfg\>:** the phase-1 record trained with the config on every stage.
+  - Stages: C1d t3 3000 → c4 1500 → c5 1500 → c6 2000 → c6x 4000, with the clock removal set K on c6x only;
+    12000 its, seed 3.
+  - Pools, slots, facing and yaw weight are verbatim from the record. RSI_SOURCE is dropped, since it is inert with
+    RSI off.
+  - Evals: `suite` at t3, c4, c6 and c6x (c5 none), matching the record's stage evals in the policy manifest. Then the
+    both-hands side eval of the c6x head, and of W as the comparison.
+- **Both fail:** analyse all the sideways tests so far and propose next steps, then wait for the user.
+
+**Known design risks** (to report, not gates):
+- The fa mirror drops M_y, which in full omni carries the forward gait's tripod-set handedness constraint. P1's suite
+  evals show the fwd and turn cost.
+- With 10-s training episodes, the side eval's 12-s holds after a 2-s settle run 4 s past any training episode.
+- Terrain promotion is per-episode, so shorter episodes change the terrain curriculum pace.

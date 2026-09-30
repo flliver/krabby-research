@@ -390,3 +390,11 @@ def test_resample_s_dump_check(rc):
     assert check(_RESAMPLE_DUMP, "40.0:40")
     assert not check(_RESAMPLE_DUMP, "10:10")
     assert not check(_RESAMPLE_DUMP.replace("resampling_time_range", "other_range"), "40:40")
+
+
+def test_episode_s_dump_check(rc):
+    check = rc.OVERLAY_DUMP_CHECKS["KRABBY_EPISODE_S"]
+    txt = "decimation: 4\nepisode_length_s: 10.0\nscene:\n  episode_length_s: 99.0\n"
+    assert check(txt, "10")
+    assert not check(txt, "40")
+    assert not check("scene:\n  episode_length_s: 10.0\n", "10")   # only the top-level key counts

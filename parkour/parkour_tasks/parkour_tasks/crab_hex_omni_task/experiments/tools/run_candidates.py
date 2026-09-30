@@ -1922,6 +1922,8 @@ OVERLAY_DUMP_CHECKS = {
     # ---- side-bisect reversal test (2026-09-29): "lo:hi" seconds -> commands.base_velocity.resampling_time_range
     # (crab_hex_env_cfg.py; the only resampling_time_range in an omni env.yaml).
     "KRABBY_RESAMPLE_S": lambda txt, v: _tuple_ok(txt, "resampling_time_range", v, 2),
+    # ---- side-bisect short-episode test (2026-09-30): the top-level episode_length_s (crab_hex_env_cfg.py PLAN F).
+    "KRABBY_EPISODE_S": lambda txt, v: _scalar_num_ok(txt, "episode_length_s", v, indent=""),
 }
 
 
