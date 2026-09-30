@@ -645,7 +645,7 @@ using the new banks". At the question, the user chose **"C in both directions"**
   the 10-s single-command variant. **Every RSI-seeded two-direction arm (4 of 4) is SLOW.** Nothing running; waiting
   for the user on the ROOT_CAUSE.md controls.
 
-### 2026-09-30 15:40 — the two ROOT_CAUSE.md controls (user: "Run those two controls")
+### 2026-09-30 15:15 — the two ROOT_CAUSE.md controls (user: "Run those two controls")
 
 - **Arms** (`scripts/candidates_v15.yaml`, dry run `scripts/candidates_v15_dryrun.txt`). Each is 1b (side_l only) from
   scratch, 3000 its, seed 3, scored on the driver's `side22_25` row (lat_l) with the usual gate. Both train only +y,
@@ -673,3 +673,11 @@ using the new banks". At the question, the user chose **"C in both directions"**
     becomes a first test before any structural fix.
 - **Rules:** INTERMEDIATE or DEAD → that arm's seed 2 (C_fa_s2, C_40_s2 are defined), run after both seed-3 arms.
   Cost about 2.5 GPU-h (5 GPU-h with both seed 2s). Runner: `scripts/queue_controls.sh`.
+- 2026-09-30 16:26: **C_fa s3 (X21) = FAST.** feet_ss 0.211 at 0.22 and 0.206 at 0.25; lean_abs 0.028 / 0.068; sweep
+  0.084 / 0.066 (`outputs/.../arms/C_fa.json`). Early read 0.794, the highest of the campaign (it 600 0.673, it 800
+  0.771), on the fast schedule.
+  - Reading (pre-registered): a visible direction slot does not reform the shuffle in a one-direction run. The scalar
+    obs in C / C_mo is not needed, and the fa mirror alone moves O to FAST. Two-direction arms with the direction
+    visible (C_lr and its variants) are interpretable as run.
+  - lean_abs 0.068 at 0.25 is a little above the 0.056 ceiling seen in earlier fast runs; a label only.
+  - C_40 launched 16:26 (X22); composed env checked against the design.

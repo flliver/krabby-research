@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ROOT_CAUSE.md controls (CHARTER 2026-09-30 15:40; user "Run those two controls"): C_fa then C_40, serially.
+# ROOT_CAUSE.md controls (CHARTER 2026-09-30 15:15; user "Run those two controls"): C_fa then C_40, serially.
 # Each arm is +y only, scored on the driver's side22_25 stamp (lat_l). INTERMEDIATE / DEAD -> that arm's _s2,
 # run after both seed-3 arms. Log lines: "EARLY <ref>" at it >= 1050, "EVENT <ref> CLASS <c>", then "DONE controls".
 set -u

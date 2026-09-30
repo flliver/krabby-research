@@ -395,7 +395,7 @@ is intact in every slow run, i.e. slow gaits are the fast stepping minus the str
 | P4 | A two-direction arm given the interaction as an input feature is FAST while its additive control is SLOW (test T2) | not run |
 | P10 | C_40 (one hand at a 40 % share) is FAST by it ~600 under candidate (i); late or SLOW under (ii) | not run |
 | P5 | In C_lr the odd stroke *never* forms: odd RMS stays ≤ about 0.9 at every checkpoint, with the static carrier present from the first moving checkpoint. C's odd RMS climbs past 1.4 between its 400 and 1000 (test T1). | not run |
-| P6 | C_fa (+y only, fa mirror, direction visible) is FAST, ≈ C_mo | not run (drafted in `scripts/candidates_v4.yaml:256-268`) |
+| P6 | C_fa (+y only, fa mirror, direction visible) is FAST, ≈ C_mo | **Confirmed 2026-09-30 16:26** (X21): FAST, feet_ss 0.211 / 0.206, lean_abs 0.028 / 0.068, early read 0.794 (CHARTER). |
 | P7 | A no-mirror +y arm (5c) is FAST | not run |
 | P8 | The additive ±1 sign slot (5b) alone is SLOW. A weak prediction: the working student does not gate on the command either. | not run |
 | P9 | The distilled two-hand student stays FAST under ~1000 its of two-direction PPO, i.e. the barrier is formation. The root cause holds either way; this prediction only decides whether a bare-network fix can be kept by PPO. | not run |
