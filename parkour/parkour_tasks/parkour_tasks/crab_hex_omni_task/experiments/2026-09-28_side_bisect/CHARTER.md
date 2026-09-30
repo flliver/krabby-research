@@ -390,3 +390,32 @@ carries the forward tripod-set handedness constraint. It is designed after step 
 
 - **Caveat.** At 40:40 each episode is 20 % stand, 40 % left or 40 % right, so stand is now per episode rather than per
   segment. The RSI bank still seeds only +y starts.
+
+## Seed-lottery check (user question, 2026-09-29 ~23:45: "is it possible all of this is caused by the seed lottery?")
+
+The single-seed negatives rest on seed 3: O, R, C_band, C_rsi, LRfa, LR4 and LR4_dwell. The weakest link is the control
+O. Queued behind LR4_dwell_s2 (runner `phaseB/queue_lottery.sh`, ≈ 2.4 GPU-h), using the existing references:
+- **O_s2:** O at seed 2. FAST or INTERMEDIATE would mean the one-direction fast gait can form under O's config by
+  luck. "The pair is the factor" would then weaken to "the pair makes it reliable", and more O seeds would be needed.
+  SLOW gives O slow at 2 seeds, plus the historical 1b run.
+- **LR4_s2:** LR4 at seed 2, with the both-hands eval. FAST on either hand would make two-direction slowness
+  seed-dependent. SLOW is consistent with the 18+ earlier two-direction omni stamps.
+
+RSI is on (0.2, source 1) in O, R, C_band, C_mo, LRfa, LR4 and LR4_dwell; it is off only in C, C_s2 and C_rsi.
+- 2026-09-29 23:30: **LR4_dwell s3 = DEAD on both hands** (X12).
+  - Left 0.047 at 0.22 and 0.058 at 0.25; right 0.055 and 0.028.
+  - 42–51 % of the included episodes stall (< 0.03), and 6–14 % more are excluded as static.
+  - The episodes that walk move at 0.067–0.070, leaning 0.16–0.21 m, with a 0.026–0.030 sweep.
+  - The harness is clean: schedule deviation 0, no override warning, eval env consistent, the dump shows the 40-s
+    resample. The track ratio sits at 0.47–0.51 throughout.
+  - Provisional reading: removing within-episode reversals does not give the fast gait and adds a stall mode, so
+    reversals are not the cause (pending seed 2).
+  - The pre-registered table had no DEAD row. The campaign decision default for DEAD is "diagnose the harness, then
+    seed 2", which was followed.
+- 23:31: LR4_dwell_s2 launched (X13). 23:40: O_s2 and LR4_s2 queued behind it (seed-lottery check).
+- **23:43: PAUSED by the user** ("Pause these tests for now. I'd like to work on a single test plan").
+  - Both runners were killed. LR4_dwell_s2 was stopped gracefully at about iteration 400/3000; the driver parked at
+    `await_user:stop`.
+  - **Do not resume X13.** A resume restarts PPO counters, and the run tags collide. If it is needed, rerun from
+    scratch.
+  - O_s2 and LR4_s2 never launched. The campaign file is `candidates_v9.yaml`.

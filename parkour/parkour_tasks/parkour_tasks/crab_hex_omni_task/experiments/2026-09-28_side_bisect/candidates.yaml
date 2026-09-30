@@ -332,6 +332,24 @@ chains:
         categories: [side, stand]
         floor: {kind: none}
 
+  LR4_dwell:
+    notes: "Reversal test (drafted 2026-09-29): LR4 with the command held for the whole 40-s episode (no left-right switches inside an episode)."
+    stages:
+      - stage: s1
+        base: "1b"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.2,side_l:0.4,side_r:0.4"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_SLOTS: "0.2:0.8:0:0"
+          KRABBY_RESAMPLE_S: "40:40"
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
+
 references:
   O: {chain: O, seed: 3}
   C: {chain: C, seed: 3}
@@ -357,6 +375,8 @@ references:
   LRfa: {chain: LRfa, seed: 3}
   LR4_s2: {chain: LR4, seed: 2}
   LRfa_s2: {chain: LRfa, seed: 2}
+  LR4_dwell: {chain: LR4_dwell, seed: 3}
+  LR4_dwell_s2: {chain: LR4_dwell, seed: 2}
 
 # ---------------------------------------------------------------------------- ranked candidates
 # Empty by design (header comment): every arm here runs through `references:`, never the ordinary
