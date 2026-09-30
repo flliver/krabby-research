@@ -577,3 +577,12 @@ using the new banks". At the question, the user chose **"C in both directions"**
     - About 32 % of the candidate pool came from the 0.35 holds, the partly leaned gait. This is a caveat for the
       reading; it was pre-registered as "across the band", so it was not re-harvested.
   - **C_lr_rsi launched 09:05 (X16).** Its env.yaml carries `bank_path` = the new bank, `fraction` 0.2 and `source` all.
+- 2026-09-30 10:22: **C_lr_rsi = SLOW on both hands.**
+  - Left 0.085 at 0.22 and 0.085 at 0.25; lean_abs 0.26–0.27 (the largest of any run); sweep 0.035.
+  - Right 0.069 and 0.075; lean_abs 0.21; sweep 0.034–0.037.
+  - Early read 0.512.
+  - Seeding 20 % of starts from the fast canonical gait in BOTH directions does not stop two-direction training from
+    forming the short-stroke shuffle (C_lr, with RSI off, was 0.063–0.077).
+  - Caveat: about a third of the bank's candidate pool came from C's degraded 0.35 holds.
+  - The user's instruction chain is complete: canonical eval WORKS; bank harvested; C_lr_rsi SLOW. **Waiting for the
+    user.**

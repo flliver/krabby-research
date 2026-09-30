@@ -311,3 +311,34 @@ Two CPU-only side items cost nothing:
 - **Don't judge the gait on lean alone.** Use feet_ss plus sweep, since C_lr_10's right hand is slow with no lean. Don't compare track_ratio across different episode lengths (C_lr_10).
 - **Don't reuse the sideways task's head for omni.** It uses the forward obs term, walks +y only and looks 0.6 m ahead. It would need step 1's canonicalizer anyway.
 - **Don't kill arms on the early read.** It separated perfectly here, but it stays a progress signal (CHARTER.md:89-91).
+---
+
+## Update 2026-09-30: step 1 run, then the user's harvest + training test
+
+**Step 1, canonical eval: WORKS on 4 of 4 fast heads, with no training** (CHARTER log, `gate/canon_lr.json`).
+
+| Head | lat_l, 0.22 / 0.25 | lat_r via M_y, 0.22 / 0.25 |
+|---|---|---|
+| C | 0.215 / 0.217 | 0.211 / 0.216 |
+| C_mo_s2 | 0.203 / 0.211 | 0.199 / 0.209 |
+| C_s2 | 0.194 / 0.208 | 0.190 / 0.203 |
+| C_mo_s1 | 0.184 / 0.185 | 0.182 / 0.191 |
+
+- Every head is FAST on both hands, with |L−R| ≤ 0.006 and a long sweep on both hands. cmd mode agrees.
+- Reversals (left → right → left, with and without a pause) keep speed, with no stall mode. Falls track each head's
+  baseline rate.
+- So the M_y maps and the sim are exact at deployment, and **a working two-direction fast side controller exists now:
+  any C / C_mo head behind the canonicalizer.**
+
+**The user's follow-up: a canonical harvest → a two-direction RSI bank → C_lr_rsi (C in both directions + RSI 0.2 from
+the bank).**
+- The bank: 2000 +y and 2000 −y frames from canonical C, median 0.28 m/s. Canonical C degrades at 0.35 m/s (0.15, lean
+  0.15), and about a third of the pool came from those holds.
+- **C_lr_rsi is SLOW on both hands:** L 0.085 / 0.085, R 0.069 / 0.075, lean 0.21–0.27, sweep 0.035.
+- **Reading.** Fast-gait seeding in both directions does not change what two-direction training converges to. This fits
+  H1: the network sharing both handednesses forms the shuffle regardless of its start states.
+
+**Where this leaves the lever.** The fix has to be structural. Canonicalization works at deploy time. Canonical TRAINING
+(step 3) is the remaining test of whether it also works as a training method, where the network never sees −y states.
+After that come canonical FB and then full phase 1 (step 4). Distillation, and a policy switch (W for non-side commands,
+the canonical head for side), are the fallbacks.
