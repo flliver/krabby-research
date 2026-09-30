@@ -681,3 +681,15 @@ using the new banks". At the question, the user chose **"C in both directions"**
     visible (C_lr and its variants) are interpretable as run.
   - lean_abs 0.068 at 0.25 is a little above the 0.056 ceiling seen in earlier fast runs; a label only.
   - C_40 launched 16:26 (X22); composed env checked against the design.
+- 2026-09-30 16:55: **C_40 early read 0.325, written before its verdict.** It is below every earlier arm, slow ones
+  included (it 400 / 600 / 800 / 1000: 0.171 / 0.241 / 0.295 / 0.355, still rising).
+  - The stand share does not dilute this number. Each episode's ratio is along-command distance over commanded
+    distance, and stand rows add to neither.
+  - Other training signals: the progress reward is 0.009–0.018 against 0.05–0.09 for C and C_fa; tracking reward is
+    about 0.6, carried by the stand rows; episode length falls from about 1960 at it 200 to about 1460 at it 600.
+    The arm learns to stand first and walks late.
+  - **Confound, noted before the verdict:** C_40 halves the total moving share (0.4 against 0.8), not only the +y
+    share. A SLOW or DEAD verdict therefore cannot separate a per-direction rate effect (candidate ii) from a slower
+    or stand-dominated start. The pre-registered reading "SLOW → (ii) sufficient" is weakened to "rate of lateral
+    experience can reproduce the shuffle". A clean (ii) test keeps the moving share at 0.8 with +y at 0.4 and the other
+    0.4 on a command that needs no lateral stroke flip. None of those is free of a second command, so none is designed.
