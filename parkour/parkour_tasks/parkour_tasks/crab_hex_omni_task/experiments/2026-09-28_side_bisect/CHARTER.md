@@ -544,3 +544,26 @@ using the new banks". At the question, the user chose **"C in both directions"**
   - SLOW: seeding does not change the formed gait.
   - Ambiguous: seed 2.
 - **Note:** the harness change moves the omni `eval_sha`, so this campaign's next launch needs `--accept-eval-change`.
+- 2026-09-30 09:00: **Step A (canonical eval) WORKS: 4 of 4 heads.** Wave mode, lat_l → lat_r at 0.22 / 0.25
+  (`gate/canon_lr.json`):
+
+  | Head | lat_l | lat_r (mirrored) | Class |
+  |---|---|---|---|
+  | C_mo_s2 | 0.203 / 0.211 | 0.199 / 0.209 | FAST / FAST |
+  | C | 0.215 / 0.217 | 0.211 / 0.216 | FAST / FAST |
+  | C_s2 | 0.194 / 0.208 | 0.190 / 0.203 | FAST / FAST |
+  | C_mo_s1 | 0.184 / 0.185 | 0.182 / 0.191 | FAST / FAST |
+
+  - |L−R| ≤ 0.006 at every speed, and cmd mode agrees (lat_r 0.180–0.212). The sweep is long on both hands
+    (0.073–0.086).
+  - **Reversals** (cmd mode, rev_direct / rev_pause): the post-reversal lat_r and the return lat_l hold the pre-reversal
+    speed on every head, with no stall mode. Falls per 8-s hold track each head's baseline: C_mo_s1 1–2 %, C_mo_s2 3–9 %,
+    C / C_s2 7–19 %.
+  - This is the first omni policy that walks FAST in both side directions, with no training.
+- 09:05: **Step B + C queued** (runner `scripts/queue_rsi.sh`):
+  - harvest with C (s3; its band covers 0.35) on `scenarios_harvest_side.yaml` (lat_l / lat_r at 0.22, 0.28, 0.35,
+    canon wave);
+  - `scripts/harvest_canon_bank.py` → `rsi_bank_side_lr.npz`, 2000 frames per direction, tags 1 = +y and 2 = −y, with
+    the 2026-09-16 filters;
+  - then **C_lr_rsi** (`candidates_v12.yaml`): C_lr + RSI 0.2 from the new bank, source all, with the both-hands eval.
+  - Driver additions: an `OVERLAY_DUMP_CHECKS` entry for `KRABBY_RSI_BANK`, plus a test fix.

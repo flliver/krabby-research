@@ -1499,6 +1499,16 @@ def _pool_ok(txt: str, value) -> bool:
         return False
 
 
+def _rsi_bank_ok(txt: str, value) -> bool:
+    """``KRABBY_RSI_BANK``: the omni reset event's ``bank_path`` param names the same file (absent term -> False)."""
+    block = _yaml_block(txt, "rsi_reference_reset")
+    got = _grep_scalar(block, "bank_path", indent=r"\s{6}")
+    if got is None:
+        return False
+    import os as _os
+    return _os.path.realpath(got.strip().strip("'\"")) == _os.path.realpath(str(value).strip())
+
+
 def _rsi_source_ok(txt: str, value) -> bool:
     block = _yaml_block(txt, "rsi_reference_reset")
     got = _grep_scalar(block, "source", indent=r"\s{6}")
@@ -1924,6 +1934,8 @@ OVERLAY_DUMP_CHECKS = {
     "KRABBY_RESAMPLE_S": lambda txt, v: _tuple_ok(txt, "resampling_time_range", v, 2),
     # ---- side-bisect short-episode test (2026-09-30): the top-level episode_length_s (crab_hex_env_cfg.py PLAN F).
     "KRABBY_EPISODE_S": lambda txt, v: _scalar_num_ok(txt, "episode_length_s", v, indent=""),
+    # ---- side-bisect two-direction RSI bank (2026-09-30): the reset event's bank_path (compared as real paths).
+    "KRABBY_RSI_BANK": _rsi_bank_ok,
 }
 
 

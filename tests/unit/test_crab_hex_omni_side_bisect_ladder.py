@@ -354,6 +354,8 @@ def test_every_1b_stage_trained_set_is_scoreable_on_side22_25(rc):
     row = next(x for x in scenarios if x.id == "side22_25__omni")
     for name, chain in doc["chains"].items():
         for stage in chain["stages"]:
+            if "side22_25" not in (stage.get("eval") or []):
+                continue                     # suite-scored stages (FB_*, P1_*) are covered by the dry-run guard
             env = rc._effective_stage_cfg(doc, stage, stage.get("overlay") or {})
             csv = rc._trained_csv(rc.eval_categories().trained_categories(env).to_dict())
             assert csv, name
@@ -398,3 +400,12 @@ def test_episode_s_dump_check(rc):
     assert check(txt, "10")
     assert not check(txt, "40")
     assert not check("scene:\n  episode_length_s: 10.0\n", "10")   # only the top-level key counts
+
+
+def test_rsi_bank_dump_check(rc):
+    check = rc.OVERLAY_DUMP_CHECKS["KRABBY_RSI_BANK"]
+    txt = ("events:\n  rsi_reference_reset:\n    func: x\n    params:\n      bank_path: /a/b/bank.npz\n"
+           "      fraction: 0.2\n")
+    assert check(txt, "/a/b/bank.npz")
+    assert not check(txt, "/a/b/other.npz")
+    assert not check("events:\n  reset_base:\n    func: y\n", "/a/b/bank.npz")   # RSI off -> no term
