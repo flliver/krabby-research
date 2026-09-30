@@ -717,3 +717,31 @@ using the new banks". At the question, the user chose **"C in both directions"**
     But C_40 does not separate candidate (i) from (ii). Its failure is upstream of the stroke, as expected under the
     moving-share confound recorded at 16:55. The mechanism question stays open. The fix (canonical training, a policy
     switch, or distillation) is the same under every candidate. Nothing queued; waiting for the user on the next step.
+
+### 2026-09-30 19:09 — episode-length ladder on C_lr_10_rsi (user)
+
+- **Request (verbatim):** "Lets try increasing the duration of the C_lr_rsi_10 configuration. 5 steps up of 10
+  seconds each up to a max of 60 seconds. If any are fast confirm with a second seed. run all 5 steps regardless of
+  the results". "C_lr_rsi_10" is read as the chain **C_lr_10_rsi** (bank A, RSI 0.2, 10-s single-command episodes).
+- **Arms** (`scripts/candidates_v16.yaml`, dry run `scripts/candidates_v16_dryrun.txt`): **C_lr_20_rsi, C_lr_30_rsi,
+  C_lr_40_rsi, C_lr_50_rsi, C_lr_60_rsi**, seed 3, 3000 its from scratch, run in that order.
+  - Each sets `KRABBY_EPISODE_S` = E and `KRABBY_RESAMPLE_S` = E+10 : E+10. The resample time is longer than the
+    episode, so each episode holds one command, as in C_lr_10_rsi (10 / 20:20).
+  - The composed env of each differs from C_lr_10_rsi in those two keys only.
+  - The 40-s rung is C_lr_rsi (40-s episodes, a new command every 10 s) with one command per episode.
+  - RSI acts at reset, so seeded starts per unit time fall as 1/E. That is inherent to the request.
+- **Gate:** the both-hands `side22_25lr__omni` eval (`scenarios_side_lr.yaml`) on model_2999, classed per hand as usual.
+  A step **succeeds** if it is FAST on both hands.
+- **Seed-2 rule (the user's; it replaces the campaign default):** a step that is FAST on either hand gets its `_s2`
+  arm. The seed-2 arms run after all five steps, in step order. SLOW, INTERMEDIATE or DEAD steps get no seed 2 (a
+  user-directed deviation from the "DEAD → seed 2" default). A success is confirmed only if the seed-2 arm is FAST on
+  both hands too.
+- **Prediction (ROOT_CAUSE.md):** SLOW or DEAD at every length.
+  - Every network trained on both hands has lacked the direction-flipped stroke, whatever the episode structure: 10 s
+    (C_lr_10, C_lr_10_rsi, C_lr_10_rsi33), 40 s with 10-s commands (C_lr, C_lr_rsi, C_lr_rsi33), and 40-s holds
+    (LR4_dwell, 4-image mirror, RSI off).
+  - A FAST step would put the episode structure back in play as a lever, and would contradict ROOT_CAUSE.md's
+    "every two-hand network" claim for that configuration.
+- **Reported per step:** class and feet_ss per hand, lean_abs, sweep, early read (its 800–1000), and falls.
+- Runner: `scripts/queue_eplen.sh`. Cost is about 1.5 GPU-h per arm: about 7.5 GPU-h for the five, plus about 1.5 per
+  seed-2 arm.
