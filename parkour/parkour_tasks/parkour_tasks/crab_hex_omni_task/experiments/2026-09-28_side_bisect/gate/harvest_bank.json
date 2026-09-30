@@ -1,0 +1,37 @@
+{
+ "out": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-09-28_side_bisect/rsi_bank_side_lr.npz",
+ "sha256": "fd6704ae32dfe81cd7080f706ca81d9007ae563f6274c1f0f23073f195ccb6db",
+ "stats": {
+  "l": {
+   "pool": 22619,
+   "sampled": 2000,
+   "speed_p10_50_90": [
+    0.191,
+    0.282,
+    0.398
+   ],
+   "angle_p10_50_90": [
+    75.7,
+    90.0,
+    104.1
+   ],
+   "root_z_median": 1.0686343908309937
+  },
+  "r": {
+   "pool": 22152,
+   "sampled": 2000,
+   "speed_p10_50_90": [
+    0.189,
+    0.282,
+    0.402
+   ],
+   "angle_p10_50_90": [
+    -103.5,
+    -89.5,
+    -76.2
+   ],
+   "root_z_median": 1.0690529346466064
+  }
+ },
+ "n_total": 4000
+}

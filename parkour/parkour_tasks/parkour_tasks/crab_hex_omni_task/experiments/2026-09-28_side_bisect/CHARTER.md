@@ -567,3 +567,13 @@ using the new banks". At the question, the user chose **"C in both directions"**
     the 2026-09-16 filters;
   - then **C_lr_rsi** (`candidates_v12.yaml`): C_lr + RSI 0.2 from the new bank, source all, with the both-hands eval.
   - Driver additions: an `OVERLAY_DUMP_CHECKS` entry for `KRABBY_RSI_BANK`, plus a test fix.
+- 2026-09-30 09:05: **Harvest + bank.**
+  - C head canonicalized, wave mode (`gate/harvest_C.json`). feet_ss, left / right:
+    - 0.22: 0.215 / 0.211;
+    - 0.28: 0.207 / 0.199;
+    - **0.35: 0.156 / 0.145, with lean 0.15 and sweep 0.05.** C degrades toward the slow gait at the top of its band.
+  - Bank `rsi_bank_side_lr.npz` (sha256 `fd6704ae…`; `gate/harvest_bank.json`): 2000 frames of tag 1 (+y) and 2000 of
+    tag 2 (−y). Speed p10/50/90 is 0.19 / 0.28 / 0.40, angle within ±14° of ±90, root_z 1.07.
+    - About 32 % of the candidate pool came from the 0.35 holds, the partly leaned gait. This is a caveat for the
+      reading; it was pre-registered as "across the band", so it was not re-harvested.
+  - **C_lr_rsi launched 09:05 (X16).** Its env.yaml carries `bank_path` = the new bank, `fraction` 0.2 and `source` all.

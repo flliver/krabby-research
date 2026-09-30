@@ -624,6 +624,27 @@ chains:
         categories: [back, diag, fwd, move_turn, side, stand, turn]
         floor: {kind: none}
 
+  C_lr_rsi:
+    notes: "Two-direction C with RSI on from the new two-direction canonical bank (user 2026-09-30): C_lr overlay + RSI 0.2 from rsi_bank_side_lr.npz (+y and -y frames of the canonicalized C head), source all."
+    stages:
+      - stage: s1
+        base: "1b"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.2,side_l:0.4,side_r:0.4"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_SLOTS: "0.2:0.8:0:0"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_RSI_FRAC: "0.2"
+          KRABBY_RSI_BANK: "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-09-28_side_bisect/rsi_bank_side_lr.npz"
+          KRABBY_OMNI_RSI_SOURCE: all
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
 references:
   O: {chain: O, seed: 3}
   C: {chain: C, seed: 3}
@@ -661,6 +682,9 @@ references:
   FB_C_lr_10: {chain: FB_C_lr_10, seed: 3}
   P1_C_lr: {chain: P1_C_lr, seed: 3}
   P1_C_lr_10: {chain: P1_C_lr_10, seed: 3}
+  # added 2026-09-30 (user: canonical harvest -> C in both directions with RSI from the new banks)
+  C_lr_rsi: {chain: C_lr_rsi, seed: 3}
+  C_lr_rsi_s2: {chain: C_lr_rsi, seed: 2}
 
 # ---------------------------------------------------------------------------- ranked candidates
 # Empty by design (header comment): every arm here runs through `references:`, never the ordinary
