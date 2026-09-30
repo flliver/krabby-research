@@ -693,3 +693,12 @@ using the new banks". At the question, the user chose **"C in both directions"**
     or stand-dominated start. The pre-registered reading "SLOW → (ii) sufficient" is weakened to "rate of lateral
     experience can reproduce the shuffle". A clean (ii) test keeps the moving share at 0.8 with +y at 0.4 and the other
     0.4 on a command that needs no lateral stroke flip. None of those is free of a second command, so none is designed.
+- 2026-09-30 17:41: **C_40 s3 (X22) = DEAD.** feet_ss 0.035 at 0.22 and 0.031 at 0.25. 38 and 46 of 100 episodes die
+  inside the hold ("short"); lean_abs 0.38–0.40 m; sweep 0.043–0.050 (`outputs/.../arms/C_40.json`).
+  - Training: the ratio reaches only about 0.52 by it 2500–2950, and the progress reward stays at 0.016–0.019. Falls
+    end 0.75 of episodes from it 2000 on, against 0.02–0.11 in O, C, C_fa and C_lr. Noise std reaches 2.0 as in every
+    arm, so that is not the cause.
+  - **Not the shuffle phenotype.** C_lr has the same +y share (0.4) but walks a stable slow shuffle with falls at about
+    0.11. C_40 falls instead. So the lower lateral rate here produces a different failure, and, with the moving-share
+    confound above, it neither supports nor excludes (ii) as C_lr's mechanism.
+  - By rule, DEAD → **C_40_s2 launched 17:41**.
