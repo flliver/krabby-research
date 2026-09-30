@@ -625,3 +625,8 @@ using the new banks". At the question, the user chose **"C in both directions"**
   - `rsi_bank_side_lr_b.npz` (sha256 `743f7dd6…`; `gate/harvest_bank_b.json`): 2000 frames of +y and 2000 of −y,
     median speed 0.28.
   - **C_lr_rsi33 launched 12:27 (X19).**
+- 2026-09-30 13:46: **C_lr_rsi33 = SLOW on both hands.** Left 0.094 at 0.22 and 0.103 at 0.25 (lean 0.21–0.22, sweep
+  0.027); right 0.069 and 0.072 (lean 0.18, sweep 0.05). Early read 0.522.
+  - Bank B (0.22–0.28 only) at RSI 0.33 changes nothing: seeding a third of the starts in the fast gait, in both
+    directions, still yields the shuffle.
+  - **C_lr_10_rsi33 launched 13:46** (X20), per the user's retry instruction.
