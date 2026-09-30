@@ -358,3 +358,10 @@ carries the forward tripod-set handedness constraint. It is designed after step 
     sufficient.
   - Per the rule, C_nb and C_nr are skipped.
   - The runner applied `candidates_v7.yaml` and launched LRfa at 19:18 (X10).
+- 2026-09-29 20:33: **LRfa = SLOW on both hands.** Both-hands eval:
+  - left: 0.061 at 0.22, 0.065 at 0.25; lean_abs 0.25–0.26; sweep 0.036–0.038;
+  - right: 0.087 at 0.22, 0.088 at 0.25; lean_abs 0.16–0.18; sweep 0.033–0.034.
+  - The driver's lat_l eval agrees (0.061/0.064).
+  - The hands agree, so no seed 2. With both side directions really sampled, the fore-aft mirror does not stop the
+    slow gait; the left hand, the one the RSI bank seeds, is even slower than O.
+  - LR4 launched at 20:33 (X11).
