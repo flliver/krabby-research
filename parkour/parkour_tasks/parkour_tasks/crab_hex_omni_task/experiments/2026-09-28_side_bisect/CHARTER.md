@@ -419,3 +419,24 @@ RSI is on (0.2, source 1) in O, R, C_band, C_mo, LRfa, LR4 and LR4_dwell; it is 
   - **Do not resume X13.** A resume restarts PPO counters, and the run tags collide. If it is needed, rerun from
     scratch.
   - O_s2 and LR4_s2 never launched. The campaign file is `candidates_v9.yaml`.
+
+## Two-direction C (user, 2026-09-30: "Lets run two-direction C") — pre-registered before any result
+
+- **C_lr** is 1b from scratch, 3000 its, seed 3. Overlay: `KRABBY_OMNI_CMD_POOL=stand:0.2,side_l:0.4,side_r:0.4`,
+  `KRABBY_OMNI_DIR_BAND=''`, `KRABBY_OMNI_SLOTS=0.2:0.8:0:0`, `KRABBY_OMNI_MIRROR_IMAGES=fa`, `KRABBY_RSI_FRAC=0`,
+  `KRABBY_OMNI_SPEED_ELLIPSE=0.35:0.35:0.25`.
+- This is C with both side directions. The command direction must be visible, because C's scalar obs cannot tell left
+  from right.
+- It differs from LRfa only in RSI off (LRfa: 0.2, left-walking starts only) and the band (0.35 vs 0.25).
+- **Eval:** the driver's `side22_25` (lat_l), plus the both-hands `scenarios_side_lr.yaml` with the arm's own eval env.
+  Same per-hand classes as the gate.
+- **Reading:**
+
+  | C_lr | Reading |
+  |---|---|
+  | FAST on both hands | RSI-off and/or the wider band matter once both directions are trained. Next: split them (two arms) |
+  | SLOW on both hands | Nothing in C's bundle carries over to two-direction training |
+  | DEAD | Diagnose the harness, then seed 2 |
+  | Hands disagree or INTERMEDIATE | Seed 2 (`C_lr_s2`) |
+
+- **A single-seed caveat applies**, as in the seed-lottery discussion. The O_s2 and LR4_s2 checks are still unrun.
