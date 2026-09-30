@@ -492,3 +492,8 @@ all parts of phase 1 or after proposing next steps."
   lean_abs 0.19–0.22; sweep 0.033–0.039; early read 0.524.
   - With both side directions trained, C's fa mirror + RSI off + band 0.35 still forms the slow shuffle.
   - Tree verdict FAIL → C_lr_10 launched automatically at 01:15 (unit `...-1790745322`).
+- 2026-09-30 02:30: **C_lr_10 = SLOW on both hands.**
+  - Left 0.085 at 0.22 and 0.085 at 0.25; lean_abs 0.15; sweep 0.051–0.054; 18 % of episodes short.
+  - Right 0.067 and 0.073; lean_abs about 0 (!); sweep 0.039–0.041.
+  - **Tree result: BOTH_FAIL.** The runner stopped (DONE p1-queue). Next, per the user: an analysis of all the sideways
+    tests and proposed next steps, then wait for the user.
