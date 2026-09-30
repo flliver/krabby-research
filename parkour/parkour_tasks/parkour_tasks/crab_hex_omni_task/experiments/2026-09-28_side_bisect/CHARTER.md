@@ -630,3 +630,13 @@ using the new banks". At the question, the user chose **"C in both directions"**
   - Bank B (0.22–0.28 only) at RSI 0.33 changes nothing: seeding a third of the starts in the fast gait, in both
     directions, still yields the shuffle.
   - **C_lr_10_rsi33 launched 13:46** (X20), per the user's retry instruction.
+- 2026-09-30 14:10: **Root-cause analysis: [ROOT_CAUSE.md](ROOT_CAUSE.md)** (user: "aim for the root cause of the slow
+  gaits"). Four probes (symmetry decomposition, representation, dynamics, actuation), a synthesis and a fable·high
+  check, all at zero GPU. Scripts in `scripts/rootcause/`.
+  - Established: every network trained on both hands lacks the consistent direction-flipped, phase-locked rod stroke
+    (pooled odd RMS ≤ 0.93 vs ≥ 1.50 in every fast gait); the stepping is intact and the direction rides a static
+    carrier. One-direction nets form the stroke by it ~600. Capacity, reward, input strength, RSI, band, episode
+    structure and mirror type are ruled out.
+  - Not established: why PPO misses it. Three candidates: the direction × phase interaction barrier; rate × early
+    saturation lock-in; the loss/RL conflict (phantom arms only).
+  - Controls named: C_fa and C_40 (zero code), T1 checkpoint series, T2 with its additive control. Nothing launched.
