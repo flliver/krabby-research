@@ -316,3 +316,120 @@ Driver: `parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/tool
 
 >>> ENTRY X08:s1
 
+### X09:s1 — ref:C_mo_s1 s1 (reference) — 2026-09-29T19:18:05
+
+- recipe `95742856ac77` on chain `C_mo`, base `95742856ac77`, code_sha `07a0037ed5d9`
+- overlay `{'KRABBY_OMNI_MIRROR_IMAGES': 'fa', 'KRABBY_OMNI_CMD_OBS': 'scalar'}`
+- status **ok** | checkpoint `2026-09-29_18-09-45_seed1_X09_s1_A15pB/model_2999.pt` | resume `scratch (--from-scratch)` | 3000 its | wall 1.10 h
+- smoke fail@2k 0.029 fail@end 0.005 coll@2k 0.000 ep_len@2k 1973.891
+- training translation floor: track_ratio_mean (last 500 its) 0.858 (gate floor 0.6)
+- exposure (ring): reach_edge 0.994 | reach_obst 0.676 | field_frac 0.661 (steps 1319.112) | goals_passed 1.124
+- terrain-promotion telemetry: track_ratio_mean 0.853 (move rows only 0.853) | heading_err_rms_mean 0.059 | block_steps_mean 134.637 | r_max_mean 6.337
+- failure share flat 0.013 | obst 0.014 | campaign-wide 0.011
+- slot fractions (logged): stand 0.224 | move 0.776 | turn 0.000 | move_turn 0.000 | rsi_frac_actual 0.196 | terrain_levels 1.020 | mean ep len 1995.880 | prints 3000
+- slow canary (omni manifest): walking-hold tripod None (gated; by hold: n/a; episode None) | completion None | tracking None | falls None/None | pitch-fwd share None
+- per-direction speed_ratio: fwd None / lat_l None / diag None / back None
+- check PASS: plant is A15+B (params/env.yaml usd path)
+- check PASS: episode_length_s 40 in params
+- check PASS: experiment crab_hex_omni_flat_walk
+- check PASS: exposure telemetry logged (Metrics/base_parkour/reach_obst_frac)
+- check PASS: gait income telemetry logged (Episode_Reward/reward_clock_schedule)
+- check PASS: mirror-symmetry loss active (Loss/symmetry or mirror)
+- check PASS: terrain-promotion telemetry logged (Metrics/base_parkour/track_ratio_mean)
+- check PASS: yaw-progress reward logged (Episode_Reward/reward_yaw_progress)
+- check PASS: yaw-progress telemetry logged (Metrics/base_velocity/yaw_progress)
+- check PASS: omni parkour class (OmniParkourEvent) in params/env.yaml
+- check PASS: omni reset func (reset_root_state_ring) in params/env.yaml
+- check PASS: omni command class (CrabHexOmniCommand) in params/env.yaml
+- check PASS: omni obs func (CrabHexOmniParkourObservations) in params/env.yaml
+- check PASS: ring generator installed (omni_ring_sparse/dense sub-terrain) in params/env.yaml
+- check PASS: omni RSI bank path (rsi_bank_omni.npz) in params/env.yaml
+- side22_25 trained categories: decisive stand; watch side (one hand)
+- side22_25 stand: n 100 surv 0.980 drift 0.109 [decisive]
+- side22_25 side: n 200 surv 0.965 ratio 0.755 tripod 0.626 [WATCH: one hand]
+- WATCH gate_1c: n/a (no slow row on this stage)
+- overlay PASS: overlay KRABBY_OMNI_CMD_OBS=scalar in params/env.yaml
+- overlay PASS: overlay KRABBY_OMNI_MIRROR_IMAGES=fa in params/agent.yaml
+- floor PASS: no floor at this stage
+
+>>> ENTRY X09:s1
+
+### X10:s1 — ref:LRfa s3 (reference) — 2026-09-29T20:29:13
+
+- recipe `a1b143765879` on chain `LRfa`, base `a1b143765879`, code_sha `07a0037ed5d9`
+- overlay `{'KRABBY_OMNI_CMD_POOL': 'stand:0.2,side_l:0.4,side_r:0.4', 'KRABBY_OMNI_DIR_BAND': '', 'KRABBY_OMNI_SLOTS': '0.2:0.8:0:0', 'KRABBY_OMNI_MIRROR_IMAGES': 'fa'}`
+- status **ok** | checkpoint `2026-09-29_19-18-51_seed3_X10_s1_A15pB/model_2999.pt` | resume `scratch (--from-scratch)` | 3000 its | wall 1.13 h
+- smoke fail@2k 0.073 fail@end 0.113 coll@2k 0.000 ep_len@2k 1951.538
+- training translation floor: track_ratio_mean (last 500 its) 0.524 (gate floor 0.6)
+- exposure (ring): reach_edge 0.215 | reach_obst 0.184 | field_frac 0.044 (steps 86.224) | goals_passed 0.231
+- terrain-promotion telemetry: track_ratio_mean 0.524 (move rows only 0.524) | heading_err_rms_mean 0.076 | block_steps_mean 34.587 | r_max_mean 1.559
+- failure share flat 0.079 | obst 0.105 | campaign-wide 0.114
+- slot fractions (logged): stand 0.203 | move 0.753 | turn 0.000 | move_turn 0.000 | rsi_frac_actual 0.213 | terrain_levels 0.973 | mean ep len 1916.957 | prints 3000
+- slow canary (omni manifest): walking-hold tripod None (gated; by hold: n/a; episode None) | completion None | tracking None | falls None/None | pitch-fwd share None
+- per-direction speed_ratio: fwd None / lat_l None / diag None / back None
+- check PASS: plant is A15+B (params/env.yaml usd path)
+- check PASS: episode_length_s 40 in params
+- check PASS: experiment crab_hex_omni_flat_walk
+- check PASS: exposure telemetry logged (Metrics/base_parkour/reach_obst_frac)
+- check PASS: gait income telemetry logged (Episode_Reward/reward_clock_schedule)
+- check PASS: mirror-symmetry loss active (Loss/symmetry or mirror)
+- check PASS: terrain-promotion telemetry logged (Metrics/base_parkour/track_ratio_mean)
+- check PASS: yaw-progress reward logged (Episode_Reward/reward_yaw_progress)
+- check PASS: yaw-progress telemetry logged (Metrics/base_velocity/yaw_progress)
+- check PASS: omni parkour class (OmniParkourEvent) in params/env.yaml
+- check PASS: omni reset func (reset_root_state_ring) in params/env.yaml
+- check PASS: omni command class (CrabHexOmniCommand) in params/env.yaml
+- check PASS: omni obs func (CrabHexOmniParkourObservations) in params/env.yaml
+- check PASS: ring generator installed (omni_ring_sparse/dense sub-terrain) in params/env.yaml
+- check PASS: omni RSI bank path (rsi_bank_omni.npz) in params/env.yaml
+- side22_25 trained categories: decisive stand, side
+- side22_25 stand: n 100 surv 0.970 drift 0.096 [decisive]
+- side22_25 side: n 200 surv 0.990 ratio 0.329 tripod 0.447 [decisive]
+- WATCH gate_1c: n/a (no slow row on this stage)
+- overlay PASS: overlay KRABBY_OMNI_CMD_POOL=stand:0.2,side_l:0.4,side_r:0.4 in params/env.yaml
+- overlay PASS: overlay KRABBY_OMNI_DIR_BAND= in params/env.yaml
+- overlay PASS: overlay KRABBY_OMNI_MIRROR_IMAGES=fa in params/agent.yaml
+- overlay PASS: overlay KRABBY_OMNI_SLOTS=0.2:0.8:0:0 in params/env.yaml
+- floor PASS: no floor at this stage
+
+>>> ENTRY X10:s1
+
+### X11:s1 — ref:LR4 s3 (reference) — 2026-09-29T21:44:03
+
+- recipe `72dd0ba585f8` on chain `LR4`, base `72dd0ba585f8`, code_sha `07a0037ed5d9`
+- overlay `{'KRABBY_OMNI_CMD_POOL': 'stand:0.2,side_l:0.4,side_r:0.4', 'KRABBY_OMNI_DIR_BAND': '', 'KRABBY_OMNI_SLOTS': '0.2:0.8:0:0'}`
+- status **ok** | checkpoint `2026-09-29_20-33-42_seed3_X11_s1_A15pB/model_2999.pt` | resume `scratch (--from-scratch)` | 3000 its | wall 1.13 h
+- smoke fail@2k 0.160 fail@end 0.107 coll@2k 0.000 ep_len@2k 1808.853
+- training translation floor: track_ratio_mean (last 500 its) 0.592 (gate floor 0.6)
+- exposure (ring): reach_edge 0.408 | reach_obst 0.206 | field_frac 0.094 (steps 184.673) | goals_passed 0.439
+- terrain-promotion telemetry: track_ratio_mean 0.598 (move rows only 0.598) | heading_err_rms_mean 0.069 | block_steps_mean 45.104 | r_max_mean 1.975
+- failure share flat 0.144 | obst 0.167 | campaign-wide 0.106
+- slot fractions (logged): stand 0.123 | move 0.803 | turn 0.000 | move_turn 0.000 | rsi_frac_actual 0.206 | terrain_levels 0.973 | mean ep len 1907.641 | prints 3000
+- slow canary (omni manifest): walking-hold tripod None (gated; by hold: n/a; episode None) | completion None | tracking None | falls None/None | pitch-fwd share None
+- per-direction speed_ratio: fwd None / lat_l None / diag None / back None
+- check PASS: plant is A15+B (params/env.yaml usd path)
+- check PASS: episode_length_s 40 in params
+- check PASS: experiment crab_hex_omni_flat_walk
+- check PASS: exposure telemetry logged (Metrics/base_parkour/reach_obst_frac)
+- check PASS: gait income telemetry logged (Episode_Reward/reward_clock_schedule)
+- check PASS: mirror-symmetry loss active (Loss/symmetry or mirror)
+- check PASS: terrain-promotion telemetry logged (Metrics/base_parkour/track_ratio_mean)
+- check PASS: yaw-progress reward logged (Episode_Reward/reward_yaw_progress)
+- check PASS: yaw-progress telemetry logged (Metrics/base_velocity/yaw_progress)
+- check PASS: omni parkour class (OmniParkourEvent) in params/env.yaml
+- check PASS: omni reset func (reset_root_state_ring) in params/env.yaml
+- check PASS: omni command class (CrabHexOmniCommand) in params/env.yaml
+- check PASS: omni obs func (CrabHexOmniParkourObservations) in params/env.yaml
+- check PASS: ring generator installed (omni_ring_sparse/dense sub-terrain) in params/env.yaml
+- check PASS: omni RSI bank path (rsi_bank_omni.npz) in params/env.yaml
+- side22_25 trained categories: decisive stand, side
+- side22_25 stand: n 100 surv 1.000 drift 0.091 [decisive]
+- side22_25 side: n 200 surv 0.870 ratio 0.386 tripod 0.390 [decisive]
+- WATCH gate_1c: n/a (no slow row on this stage)
+- overlay PASS: overlay KRABBY_OMNI_CMD_POOL=stand:0.2,side_l:0.4,side_r:0.4 in params/env.yaml
+- overlay PASS: overlay KRABBY_OMNI_DIR_BAND= in params/env.yaml
+- overlay PASS: overlay KRABBY_OMNI_SLOTS=0.2:0.8:0:0 in params/env.yaml
+- floor PASS: no floor at this stage
+
+>>> ENTRY X11:s1
+

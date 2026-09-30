@@ -196,3 +196,74 @@ replicates at seed 2.
    - So that test must gate forward and turning (tripod balance, the fwd rows), not only side speed.
 4. **Housekeeping.** Commits are local on `feat/crab-hex-omni-task`; nothing is pushed. `aa2fed42` moved `code_sha`
    and `eval_sha`, so other omni campaigns' next relaunch needs `--accept-code-change` / `--accept-eval-change`.
+
+---
+
+# Addendum: next steps (user, 2026-09-29 evening: "run the next steps")
+
+The rules were pre-registered in [CHARTER.md](CHARTER.md) "Next steps" before any result. Per-arm outputs:
+`parkour/outputs/omni_plan/side_bisect/arms/{C_mo_s1,LRfa,LRfa_lr,LR4,LR4_lr}.json`. The both-hands eval row is
+[scenarios_side_lr.yaml](scenarios_side_lr.yaml), run with each arm's own driver-eval env.
+
+## Results
+
+| Arm | Setup (1b from scratch, 3000 its) | Seed | Left 0.22 / 0.25 | Right 0.22 / 0.25 | Class (L / R) |
+|---|---|---|---|---|---|
+| C_mo_s1 | fa mirror + scalar cmd obs, +y only | 1 | 0.184 / 0.185 | — | **FAST** |
+| LRfa | pool side_l + side_r, direction visible, fa mirror | 3 | 0.061 / 0.065 | 0.087 / 0.088 | **SLOW / SLOW** |
+| LR4 | pool side_l + side_r, direction visible, 4-image mirror | 3 | 0.085 / 0.091 | 0.082 / 0.096 | **SLOW / SLOW** |
+
+The driver's own lat_l eval agrees: LRfa 0.061/0.064, LR4 0.085/0.092. The n are 90–100 per hold.
+
+| Arm | Lean (m), L / R | Episodes > 0.15 m | Sweep (m) | Cadence (Hz) | Early read | Final track_ratio |
+|---|---|---|---|---|---|---|
+| C_mo_s1 | 0.065 / 0.074 (lat_l at 0.22 / 0.25) | 0–1 % | 0.069–0.076 | 0.81–0.89 | 0.765 | 0.853 |
+| LRfa | 0.25–0.26 / 0.16–0.18 | 100 % / 70–85 % | 0.033–0.038 | 0.93–1.11 | 0.536 | 0.523 |
+| LR4 | 0.12–0.13 / 0.11–0.13 | 7–23 % / 6–12 % | 0.033–0.035 | 1.01–1.11 | 0.571 | 0.598 |
+
+## Reading
+
+**The tie-break is resolved: C_mo's 3-seed majority is FAST.** The seeds read s3 INTERMEDIATE by 0.002, s2 FAST and
+s1 FAST. In one-direction 1b, the fore-aft mirror + scalar cmd obs pair is enough on its own to form the fast
+sideways gait at 2 of 3 seeds (the third is INTERMEDIATE by 0.002). Per the rule, C_nb and C_nr were skipped.
+
+**Two-direction test: LRfa SLOW, LR4 SLOW (both hands).** This is the pre-registered row "two-direction training forms
+the attractor whatever the mirror; the one-direction benefit does not port → stop". Step 3 (full omni with the fa
+mirror) is therefore not warranted, and was not run.
+- **The pair works in 1b because it makes the run truly one-directional.** It removes the phantom −y rows under a +y-only
+  sampler.
+- **Once −y is really sampled, both mirror settings are slow.** Dropping the left-right mirror tie (LRfa) did not help;
+  if anything LRfa's left hand is worse (0.06, heavy lean).
+- **So the fast gait in this setup needs the policy to be asked to walk only one way.**
+
+**Amendment: the short stroke is the invariant, not the lean.** LR4 is slow with only a moderate lean (0.11–0.13 m).
+Like R, it runs a short stroke (0.033 m) at a high cadence (1.0–1.1 Hz). Across all 11 runs, the SLOW ones share a
+stance sweep ≤ 0.053 m (max 0.052, C_band at 0.25). The one INTERMEDIATE run is at 0.056, and every FAST run is at
+≥ 0.069. The heavy lean appears in most of them, but not all. This corrects the main gate's "every SLOW
+arm leans" line.
+
+**LRfa's left/right asymmetry.** The left hand is slower and leans more (0.06, 0.25 m) than the right (0.09, 0.17 m).
+The left is also the hand the +y-only RSI bank seeds. The cause is untested.
+
+## Hypothesis and next discriminator (drafted, NOT run)
+
+The investigation saw the lean re-form at every left↔right switch. A two-direction run with 10-s resamples in 40-s
+episodes reverses often.
+
+**Hypothesis:** frequent reversals favour a direction-agnostic short-stroke shuffle over the handed sideways gait,
+which needs a directional leading/trailing leg posture.
+
+**Discriminator, LR4_dwell:** LR4 with the command held for the whole 40-s episode (`KRABBY_RESAMPLE_S=40:40`), so
+there are no reversals inside an episode. One arm, about 1.2 GPU-h, drafted in `scripts/candidates_v8.yaml`.
+- It needs one driver addition first: an `OVERLAY_DUMP_CHECKS` entry for `KRABBY_RESAMPLE_S`. The dry run refuses the
+  knob without one (`scripts/candidates_v8_dryrun.txt`).
+- **FAST:** reversals are the cause. Levers for full omni would be longer side dwell, fewer or gentler side reversals, or
+  a reversal-onset curriculum.
+- **SLOW:** training two directions at all is the cause. Levers would be direction-specific policy structure
+  (e.g. separate ±y heads or a direction-conditioned mixture), not sampling.
+
+## Cost
+
+About 3.5 GPU-h for C_mo_s1, LRfa and LR4 (measured: 3.34 h of training plus the driver evals), plus 0.12 h of
+both-hands evals. The campaign total is about 13.6 GPU-h. Independently recomputed by fable·high: nothing blocking,
+and these three wording fixes are applied.

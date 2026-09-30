@@ -253,6 +253,85 @@ chains:
         categories: [side, stand]
         floor: {kind: none}
 
+  C_fa:
+    notes: "Level 2 (2026-09-29): the fore-aft-only mirror alone, command direction VISIBLE -- mirror coupling vs direction blindness."
+    stages:
+      - stage: s1
+        base: "1b"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
+  C_nb:
+    notes: "Level 2: C minus the band (mirror + scalar obs + RSI off) -- does RSI-off complete C's speed with the pair?"
+    stages:
+      - stage: s1
+        base: "1b"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_OMNI_CMD_OBS: scalar
+          KRABBY_RSI_FRAC: "0"
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
+  C_nr:
+    notes: "Level 2: C minus RSI-off (mirror + scalar obs + wider band, RSI on) -- does the band complete C's speed with the pair?"
+    stages:
+      - stage: s1
+        base: "1b"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_OMNI_CMD_OBS: scalar
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
+  LR4:
+    notes: "Two-direction step (2026-09-29): 1b with BOTH side directions really sampled, direction visible, default 4-image mirror (the control)."
+    stages:
+      - stage: s1
+        base: "1b"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.2,side_l:0.4,side_r:0.4"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_SLOTS: "0.2:0.8:0:0"
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
+  LRfa:
+    notes: "Two-direction step: as LR4 with the fore-aft-only mirror (no left-right tie), direction visible."
+    stages:
+      - stage: s1
+        base: "1b"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.2,side_l:0.4,side_r:0.4"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_SLOTS: "0.2:0.8:0:0"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
 references:
   O: {chain: O, seed: 3}
   C: {chain: C, seed: 3}
@@ -268,6 +347,16 @@ references:
   R_s2: {chain: R, seed: 2}
   # added 2026-09-29 11:00: C_mo read INTERMEDIATE at s3 (0.162/0.173) -> gate rule: seed 2
   C_mo_s2: {chain: C_mo, seed: 2}
+  # added 2026-09-29 14:40: level-2 discriminators (C_s2 replicated FAST; queue after C_mo_s2)
+  C_fa: {chain: C_fa, seed: 3}
+  C_nb: {chain: C_nb, seed: 3}
+  C_nr: {chain: C_nr, seed: 3}
+  # added 2026-09-29 18:20 (user: 'run the next steps'): the seed-1 tie-break and the two-direction side test
+  C_mo_s1: {chain: C_mo, seed: 1}
+  LR4: {chain: LR4, seed: 3}
+  LRfa: {chain: LRfa, seed: 3}
+  LR4_s2: {chain: LR4, seed: 2}
+  LRfa_s2: {chain: LRfa, seed: 2}
 
 # ---------------------------------------------------------------------------- ranked candidates
 # Empty by design (header comment): every arm here runs through `references:`, never the ordinary

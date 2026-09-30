@@ -365,3 +365,9 @@ carries the forward tripod-set handedness constraint. It is designed after step 
   - The hands agree, so no seed 2. With both side directions really sampled, the fore-aft mirror does not stop the
     slow gait; the left hand, the one the RSI bank seeds, is even slower than O.
   - LR4 launched at 20:33 (X11).
+- 2026-09-29 21:48: **LR4 = SLOW on both hands.** Left 0.085 at 0.22, 0.091 at 0.25; right 0.082 and 0.096; lean
+  0.11–0.13; sweep 0.033; cadence 1.0–1.1 Hz. The hands agree, so no seed 2.
+  - **Pre-registered row LRfa SLOW + LR4 SLOW:** the one-direction benefit does not port → STOP. Step 3 is not run.
+  - The queue ended (DONE lr-queue). Write-up: the GATE.md addendum.
+  - The next discriminator (LR4_dwell, whole-episode command hold) is drafted in `scripts/candidates_v8.yaml`, not run.
+    It needs a `KRABBY_RESAMPLE_S` dump check first.
