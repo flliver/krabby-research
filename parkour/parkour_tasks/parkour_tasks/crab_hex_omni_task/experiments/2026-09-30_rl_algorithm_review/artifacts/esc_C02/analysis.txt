@@ -1,0 +1,67 @@
+files 618 errors []
+classes Counter({'PPOWithExtractor': 603, 'DistillationWithExtractor': 15})
+no agent.yaml 0 ppo with no lr tag 1
+dup-step runs 0 schedules Counter({'adaptive': 602})
+  NOT IN CENSUS: crab_hex_omni_flat_walk/2026-09-30_13-46-50_seed3_X20_s1_A15pB/events.out.tfevents.1790790416.fractal-ubuntu.108606.0 2306
+
+== MAIN census-truncated: runs 437 iters 1091016
+  floor(<=1e-5) 0.6294  <=3.4e-5 0.9536  >1e-4 0.00839  mean 1.687e-05  median 1.00e-05
+  first-logged-at-floor 396/437;  first step==0: 204 runs, at floor 200;  first step>0 (resume): 233, at floor 196
+   resume runs' first step dist sample [(100, 1), (400, 1), (999, 3), (1998, 3), (1999, 4), (2997, 2), (2999, 13), (3028, 1)]
+  lr_cfg 0.0003: runs 382 iters 1038649 per-run-median-floor 0.560 iterwt-floor 0.613 mean-lr 1.72e-05 median-lr 1e-05 p90 3.4e-05 first-at-floor 355 resume Counter({'false': 204, 'true': 178})
+  lr_cfg 0.0002: runs 4 iters 2000 per-run-median-floor 1.000 iterwt-floor 1.000 mean-lr 1e-05 median-lr 1e-05 p90 1e-05 first-at-floor 4 resume Counter({'true': 4})
+  lr_cfg 0.0001: runs 22 iters 13500 per-run-median-floor 0.788 iterwt-floor 0.841 mean-lr 1.12e-05 median-lr 1e-05 p90 1.5e-05 first-at-floor 13 resume Counter({'true': 22})
+  lr_cfg 3e-05: runs 29 iters 36867 per-run-median-floor 0.997 iterwt-floor 0.989 mean-lr 1.01e-05 median-lr 1e-05 p90 1e-05 first-at-floor 24 resume Counter({'true': 29})
+    cfg0.0001 resume=true: runs 22 iters 13500 floor 0.841 mean 1.12e-05 first-at-floor 13
+    cfg0.0002 resume=true: runs 4 iters 2000 floor 1.000 mean 1e-05 first-at-floor 4
+    cfg0.0003 resume=false: runs 204 iters 492331 floor 0.489 mean 2.19e-05 first-at-floor 200
+    cfg0.0003 resume=true: runs 178 iters 546318 floor 0.725 mean 1.29e-05 first-at-floor 155
+    cfg3e-05 resume=true: runs 29 iters 36867 floor 0.989 mean 1.01e-05 first-at-floor 24
+  top values [(1e-05, 686670), (1.5e-05, 152768), (2.25e-05, 124612), (3.375e-05, 76328), (5.0625e-05, 30680), (7.59375e-05, 10757)]
+
+== MAIN now: runs 438 iters 1093322
+  floor(<=1e-5) 0.6287  <=3.4e-5 0.9532  >1e-4 0.00847  mean 1.691e-05  median 1.00e-05
+  first-logged-at-floor 397/438;  first step==0: 205 runs, at floor 201;  first step>0 (resume): 233, at floor 196
+   resume runs' first step dist sample [(100, 1), (400, 1), (999, 3), (1998, 3), (1999, 4), (2997, 2), (2999, 13), (3028, 1)]
+  lr_cfg 0.0003: runs 383 iters 1040955 per-run-median-floor 0.560 iterwt-floor 0.613 mean-lr 1.72e-05 median-lr 1e-05 p90 3.4e-05 first-at-floor 356 resume Counter({'false': 205, 'true': 178})
+  lr_cfg 0.0002: runs 4 iters 2000 per-run-median-floor 1.000 iterwt-floor 1.000 mean-lr 1e-05 median-lr 1e-05 p90 1e-05 first-at-floor 4 resume Counter({'true': 4})
+  lr_cfg 0.0001: runs 22 iters 13500 per-run-median-floor 0.788 iterwt-floor 0.841 mean-lr 1.12e-05 median-lr 1e-05 p90 1.5e-05 first-at-floor 13 resume Counter({'true': 22})
+  lr_cfg 3e-05: runs 29 iters 36867 per-run-median-floor 0.997 iterwt-floor 0.989 mean-lr 1.01e-05 median-lr 1e-05 p90 1e-05 first-at-floor 24 resume Counter({'true': 29})
+    cfg0.0001 resume=true: runs 22 iters 13500 floor 0.841 mean 1.12e-05 first-at-floor 13
+    cfg0.0002 resume=true: runs 4 iters 2000 floor 1.000 mean 1e-05 first-at-floor 4
+    cfg0.0003 resume=false: runs 205 iters 494637 floor 0.488 mean 2.2e-05 first-at-floor 201
+    cfg0.0003 resume=true: runs 178 iters 546318 floor 0.725 mean 1.29e-05 first-at-floor 155
+    cfg3e-05 resume=true: runs 29 iters 36867 floor 0.989 mean 1.01e-05 first-at-floor 24
+  top values [(1e-05, 687398), (1.5e-05, 153032), (2.25e-05, 124948), (3.375e-05, 76741), (5.0625e-05, 31013), (7.59375e-05, 10887)]
+
+== CAMPAIGN copies (forward_task/experiments): runs 164 iters 541518
+  floor(<=1e-5) 0.5479  <=3.4e-5 0.9281  >1e-4 0.01438  mean 1.960e-05  median 1.00e-05
+  first-logged-at-floor 149/164;  first step==0: 49 runs, at floor 39;  first step>0 (resume): 115, at floor 110
+   resume runs' first step dist sample [(2999, 14), (4999, 1), (5998, 7), (8997, 1), (11996, 1), (14995, 1), (17994, 1), (19999, 47)]
+  lr_cfg 0.0003: runs 116 iters 524718 per-run-median-floor 0.463 iterwt-floor 0.536 mean-lr 1.99e-05 median-lr 1e-05 p90 3.4e-05 first-at-floor 106 resume Counter({'true': 67, 'false': 49})
+  lr_cfg 0.0001: runs 30 iters 15000 per-run-median-floor 0.990 iterwt-floor 0.937 mean-lr 1.04e-05 median-lr 1e-05 p90 1e-05 first-at-floor 28 resume Counter({'true': 30})
+  lr_cfg 3e-05: runs 18 iters 1800 per-run-median-floor 0.815 iterwt-floor 0.743 mean-lr 1.22e-05 median-lr 1e-05 p90 1.5e-05 first-at-floor 15 resume Counter({'true': 18})
+    cfg0.0001 resume=true: runs 30 iters 15000 floor 0.937 mean 1.04e-05 first-at-floor 28
+    cfg0.0003 resume=false: runs 49 iters 363718 floor 0.546 mean 2.16e-05 first-at-floor 39
+    cfg0.0003 resume=true: runs 67 iters 161000 floor 0.514 mean 1.59e-05 first-at-floor 67
+    cfg3e-05 resume=true: runs 18 iters 1800 floor 0.743 mean 1.22e-05 first-at-floor 15
+  top values [(1e-05, 296717), (1.5e-05, 81131), (2.25e-05, 72896), (3.375e-05, 51846), (5.0625e-05, 21941), (7.59375e-05, 9177)]
+
+== ALL (main + campaign): runs 602 iters 1634840
+  floor(<=1e-5) 0.6020  <=3.4e-5 0.9449  >1e-4 0.01043  mean 1.780e-05  median 1.00e-05
+  first-logged-at-floor 546/602;  first step==0: 254 runs, at floor 240;  first step>0 (resume): 348, at floor 306
+   resume runs' first step dist sample [(100, 1), (400, 1), (999, 3), (1998, 3), (1999, 4), (2997, 2), (2999, 27), (3028, 1)]
+  lr_cfg 0.0003: runs 499 iters 1565673 per-run-median-floor 0.519 iterwt-floor 0.587 mean-lr 1.81e-05 median-lr 1e-05 p90 3.4e-05 first-at-floor 462 resume Counter({'false': 254, 'true': 245})
+  lr_cfg 0.0002: runs 4 iters 2000 per-run-median-floor 1.000 iterwt-floor 1.000 mean-lr 1e-05 median-lr 1e-05 p90 1e-05 first-at-floor 4 resume Counter({'true': 4})
+  lr_cfg 0.0001: runs 52 iters 28500 per-run-median-floor 0.860 iterwt-floor 0.892 mean-lr 1.08e-05 median-lr 1e-05 p90 1.5e-05 first-at-floor 41 resume Counter({'true': 52})
+  lr_cfg 3e-05: runs 47 iters 38667 per-run-median-floor 0.930 iterwt-floor 0.977 mean-lr 1.02e-05 median-lr 1e-05 p90 1e-05 first-at-floor 39 resume Counter({'true': 47})
+    cfg0.0001 resume=true: runs 52 iters 28500 floor 0.892 mean 1.08e-05 first-at-floor 41
+    cfg0.0002 resume=true: runs 4 iters 2000 floor 1.000 mean 1e-05 first-at-floor 4
+    cfg0.0003 resume=false: runs 254 iters 858355 floor 0.512 mean 2.18e-05 first-at-floor 240
+    cfg0.0003 resume=true: runs 245 iters 707318 floor 0.677 mean 1.36e-05 first-at-floor 222
+    cfg3e-05 resume=true: runs 47 iters 38667 floor 0.977 mean 1.02e-05 first-at-floor 39
+  top values [(1e-05, 984115), (1.5e-05, 234163), (2.25e-05, 197844), (3.375e-05, 128587), (5.0625e-05, 52954), (7.59375e-05, 20064)]
+
+fresh runs step0 value by cfg:
+  cfg 0.0003: n 254 at floor at step0 240; step0 values [(1e-05, 240), (0.0002, 6), (8.9e-05, 1), (0.00038, 1), (0.00058, 1)]
+halvings 3e-4->1e-5: 8.388384878619028  1e-4: 5.6788735872675735  3e-5: 2.709511291351455  2e-4: 7.388384878619028

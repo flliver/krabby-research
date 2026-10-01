@@ -1,0 +1,7 @@
+tuple len 4
+archived files 168 with sigma 164
+end>=1.99 134
+iterfrac 0.6370148360719311 over 541518
+below start>0.01 0 max sigma 2.0009164810180664
+drawdown>0.05: [(0.161, '2026-08-13_2000_onedir_spin/screen_r4_synthesis/logs/rsl_rl/crab_hex_flat_walk/2026-08-14_15-24-00'), (0.158, '2026-08-13_2000_onedir_spin/lottery_seed6/logs/rsl_rl/crab_hex_flat_walk/2026-08-15_04-39-19'), (0.125, '2026-08-13_2000_onedir_spin/lottery_seed2/logs/rsl_rl/crab_hex_flat_walk/2026-08-14_21-51-46'), (0.094, '2026-08-13_2000_onedir_spin/fromscratch_w0.3_20k/logs/rsl_rl/crab_hex_flat_walk/2026-08-14_08-41-28'), (0.083, '2026-08-13_2000_onedir_spin/screen_w1.0/logs/rsl_rl/crab_hex_flat_walk/2026-08-13_23-44-02')]
+archived pinned 134 min after first 1.99 1.9898474216461182

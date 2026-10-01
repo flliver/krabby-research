@@ -1,0 +1,313 @@
+clock-deprecation-campaign-active.md:13:self-contained, and its audit trail plus its "Left for implementation" list (19 checks) are at the top.
+clock-deprecation-campaign-active.md:22:- Land the PPO resume fix 716d511c first. Then test removal at the C1d stage boundaries (3000/4500/6000). If those
+clock-deprecation-campaign-active.md:24:- Decisive block RIG: debounced `steps_per_m` / `steps_per_rad` + `support_feet`, with the **balanced rule** (both
+clock-deprecation-campaign-active.md:27:- Budget ~47 GPU-h. The formation-seed-2 confirm is budgeted. One never-clocked from-scratch arm Z.
+clock-deprecation-campaign-active.md:37:  [[ppo-counter-reset-on-resume]] and [[notify-on-input-needed]].
+clock-deprecation-campaign-active.md:40:**State (2026-09-23 evening):** steps 1–8 are DONE. Local commits, nothing pushed:
+clock-deprecation-campaign-active.md:41:- eabe7324: PPO fix;
+clock-deprecation-campaign-active.md:51:- Smoke checks: counter 3150 → priv_reg 0.0383; resume continuous (3182); HIDE weights 0.001 and hidden_frac 1.0;
+clock-deprecation-campaign-active.md:76:- D00bs: F R_seed 1.28 and RIG R_seed 0.786 are seed-dominated.
+clock-deprecation-campaign-active.md:84:- RIG TIE (z +0.39 vs R 0.79); support_feet unchanged at ~3.1–3.6, turn steps/rad −21%;
+clock-deprecation-campaign-active.md:86:- offset_R falls to the null; the policy picks a faster cadence of its own.
+clock-deprecation-campaign-active.md:89:bang-bang mean.
+clock-deprecation-campaign-active.md:94:**Z moved into wave 1 with a seed-2 pair (user, 2026-09-24).** The references are `scratch_free` (s3) and the new
+clock-deprecation-campaign-active.md:100:  after A4500's (X04) seed-3 DECISION. The driver stands down and STOP is left in place. The user then reboots.
+clock-deprecation-campaign-active.md:108:    - it exits at phase `done` (end of wave 1 = S4, which stays the user's).
+clock-deprecation-campaign-active.md:124:**RESUMED 2026-09-24 23:21 (user said "resume" after the reboot).** Pre-flight was clean: no new commits, no dirty
+clock-deprecation-campaign-active.md:130:- Z s3 (X05) is done. Its t3 formation FAILED (fwd/back/move_turn survival 0), with partial recovery by c6
+clock-deprecation-campaign-active.md:139:vs X0 s2 0.95/0.92/0.74/0.98). Two seeds show the clock is needed for formation within C1d's budget. The autopilot
+clock-deprecation-campaign-active.md:145:- Every arm is BREAK. A4500 is the best: RIG steps +0.64 and support +0.34, F/F_mt/T BETTER; it fails only the
+clock-deprecation-campaign-active.md:147:- Z fails to form at both seeds.
+clock-deprecation-campaign-active.md:150:- ~21 of ~49.5 GPU-h spent.
+clock-deprecation-campaign-active.md:152:  - (A) overrule A4500 + seed-2 confirm;
+clock-deprecation-campaign-active.md:161:recommended a **cut** (K from iteration 0) over **4000 its** (c6x, forked from X01:c6), twin X0x at s3/s2, W at s3
+clock-deprecation-campaign-active.md:163:diagnostic eval, and the frozen rule unchanged. ~5.6 GPU-h expected, 7.7 worst. Likely outcome: the same side/turn
+clock-deprecation-campaign-active.md:167:**WAVE 2 LAUNCHED 2026-09-25 11:25** (user chose: cut, 4000 its, E10 first, rule frozen, 1-pass audit, accept and
+clock-deprecation-campaign-active.md:193:- Replay-clip bug FIXED in 3714934c by the other session. The tool now reads `clip_actions` from agent.yaml.
+clock-deprecation-campaign-active.md:195:  - Addendum at the end of STEP0_READOUT.md, plus STEP0_REPLAY_2026-09-25_runner_clip.json.
+clock-deprecation-campaign-active.md:200:- The formation-seed-2 confirm was WAIVED.
+clock-deprecation-campaign-active.md:201:- Bake = records + policy folder ONLY. The user declined KRABBY_OMNI_PHASE presets, so code_sha does not move.
+clock-deprecation-campaign-active.md:205:- Source: `crab_hex_omni_flat_walk/2026-09-25_14-53-27_seed3_X03_c6x_A15pB`.
+clock-deprecation-campaign-active.md:206:- Recipe: C1d t3 3000 → c4 1500 → c5 1500 → c6 2000 (clock held), then c6x 4000 (C1d c6 overlay + K). 12000 its
+clock-deprecation-campaign-active.md:220:- **Clock-free phase-2 presets** are open: omni 2a/2b/2c re-arm the clock.
+clock-deprecation-campaign-active.md:231:session re-based its floors on W's own survival − 0.20.
+gpu-queue-chaining.md:11:On 2026-09-29 the side-speed bisection lost about 5.4 GPU-h overnight. Arm C finished at 03:03 and nothing launched R
+gpu-queue-chaining.md:21:- Put the whole pre-decided queue in ONE detached runner (`setsid nohup`, output to a log). It launches, waits,
+gpu-queue-chaining.md:27:- The same trap bit again on 2026-09-30: a `pgrep -f "...play.py"` check matched its own shell, so the session reported a closed viewer as open for 90 minutes. A later `kill $(pgrep -f ...)` hit the session's own shell. For process checks use `ps -eo pid,args | grep "[p]attern"`, or `pgrep -f` with a pattern the calling command line can't contain.
+never-push-without-pr.md:16:**Why:** the user keeps local main far ahead of origin (129+ commits) deliberately and
+never-push-without-pr.md:19:**How to apply:** commits and local merges on request are fine; treat the remote as
+morph-x-exposure-campaign-active.md:3:description: "COMPLETE 2026-09-06: leg-mount morphology × training-side fixes — wide plants (A15+B, B) beat golden 2–3× on obstacle onsets on two seeds; walking-slot formation + 40-s episodes with scaled promotion validated; hardware decision pending (user)"
+morph-x-exposure-campaign-active.md:9:Two-seed 10k envelopes (40-s episodes, obstacle window on recal2b2w, level ~6): B (re-hinge) canary
+morph-x-exposure-campaign-active.md:11:0.73–0.95; A15 (shims only, 1 seed) 1.00 / 26 / 0.67; golden 0.68 / 67 / 0.31. Findings: walking-slot
+morph-x-exposure-campaign-active.md:14:with 10-s holds is seed-sensitive on wide plants (backward-pitch basin) and the obstacle window
+morph-x-exposure-campaign-active.md:17:Standing recommendation: A15+B strongest on two seeds; B the simpler hardware and still 2–3× golden.
+morph-x-exposure-campaign-active.md:29:→ STOP B (`assemble_final.py`; `--seed2 <cfg>`). Evals per stage: morph manifest `slow__<cfg>`,
+morph-x-exposure-campaign-active.md:33:**Gotchas:** KRABBY_HEX_USD_PATH must be in the subprocess env (import-time read); launcher waits
+a15b-lineage-campaign-active.md:3:description: "CLOSED 2026-09-07 (user): A15+B lineage retrain — BAKED 20k head 2026-09-07_04-38-50/model_19996.pt as the A15+B policy of record (windows 0–3 schedule); 20k–30k clock anneal not baked (late collapse reproduced); seed-2 + anneal-hold variant waived; videos recorded"
+a15b-lineage-campaign-active.md:12:its own record ([[gait-income-phaseout-campaign-active]], 30k `2026-09-02_00-42-53/model_29994.pt`).
+a15b-lineage-campaign-active.md:15:(20k, seed 3; plant `assets/variants/crab_simple__splay15_axis2p5in.usda` via KRABBY_HEX_USD_PATH — the
+a15b-lineage-campaign-active.md:28:trained WITHOUT the gait-income ramps (seed 2 `2026-09-06_18-32-32/model_9998.pt`: canary 0.96 / obst 0.95 /
+a15b-lineage-campaign-active.md:29:8 onset falls; seed 3 `2026-09-05_19-18-29/model_9998.pt`: 0.95 / 0.73). Same-seed training was
+a15b-lineage-campaign-active.md:31:`Isaac-Crab-Hex-Flat-Walk-Play-v0`, `--video --video_length 3000 --num_envs 1`, KRABBY_LIN_VEL_X=0.30:0.30,
+autonomous-reward-iteration.md:15:**How to apply:** For the Milestone 18 tripod campaign: design → offline replay gate ([[offline-reward-replay-gate]]) → short screen → verdict → next version, all autonomous, including reward-function code changes (each version committed separately for revertability). Keep RESULTS.md rows + commits per iteration and PushNotification on each verdict ([[noti
+per-category-stroke-plan.md:11:Plan: `~/.claude/plans/per-category-stroke-weights.md`. Its evidence is in `~/.claude/plans/per-category-stroke-weights.evidence/`
+per-category-stroke-plan.md:16:- To resume, say: "Run the plan at ~/.claude/plans/per-category-stroke-weights.md from its STATUS block". Re-check first
+per-category-stroke-plan.md:33:**Constraint:** the mirror loss forces w_fwd = w_back.
+per-category-stroke-plan.md:39:"longer steps" if anything moves. Budget about 6.8 GPU-h (cap 8).
+per-category-stroke-plan.md:42:- **What ran.** Build commits up to `84ff2588` (landed on `feat/crab-hex-omni-task`, local). Final W table: STROKE_W
+per-category-stroke-plan.md:48:- **Hazard:** the reference run tag `seed3_X01_c6y_A15pB` is shared with old B s3's run.
+hardware-morphology-model.md:39:- Smoke train PASSED plant-wise (2000 iters clean, `logs/rsl_rl/crab_hex_flat_walk/
+hardware-morphology-model.md:43:  command envelope / cam-accel limits / stand-first stage). Same wheelie physics applies
+hardware-morphology-model.md:44:  to the REAL robot (±0.22 m fore-aft support, 0.96 m CoM) — throttle ramping needed on
+leg-mount-morphology-campaign-active.md:15:**State (2026-09-03 11:40): PAUSED by the user** ("pause this plan for now and keep the unmodified robot as the default. I'd like to first explore alterations to the training before further testing on changes to the geometry"). Default plant = golden `assets/crab_simple.usda` (variants opt-in via KRABBY_HEX_USD_PATH only). Done: rungs (i)–(iv) all 8 con
+obstacle-exposure-campaign-active.md:37:  (0.01–0.02); absolute creep line 0.40 sits within noise of the control's 0.43.
+kit-derived-data-cache-corruption.md:12:(block-buffered stdout lost on SIGKILL), no repo change explained it. Kit's own log (`isaac_venv/.../isaacsim/kit/logs/Kit/Isaac-Sim/5.1/`)
+isaac-headless-launch-quirks.md:3:description: "How to launch Isaac Sim scripts non-interactively (venv python, EULA env var, TERM) and the gravity-off reset trap"
+isaac-headless-launch-quirks.md:18:- **Gravity-off trap**: in `Isaac-Crab-Hex-Flat-Walk-Play-v0`, disabling gravity makes the floating robot trip a termination every step — every action is wiped by per-step resets (all-zero action history, joint_vel exactly 0, joint_pos jittering in the `reset_joints_by_scale` 0.95–1.05× band). Joint-drive probes must run `--with_gravity`. See [[perp-mounts-g
+offline-reward-replay-gate.md:11:From the Milestone 18 tripod campaign (v4 post-mortem, 2026-08-12): the v4 event-based swap credit went to a training screen without checking whether the *healthy* gait actually earns it. Offline replay later showed the confirmed-swap detector fires 0–6 times per 195 s even on the healthy baseline — the reward's target event is one the target behavior barely em
+gait-income-phaseout-campaign-active.md:3:description: "CLOSED 2026-09-02: BAKED — reference of record = phase-out 30k head 2026-09-02_00-42-53/model_29994.pt; all gait income at ε by 25k; RSI-off + seed-2 replay WAIVED"
+gait-income-phaseout-campaign-active.md:16:(30k, seed-3 lineage; flat canary 0.563/0.790/0.407, obstacle 0.270/0.604).
+gait-income-phaseout-campaign-active.md:21:term telemetry, `parkour_reward_manager.py:27`). RSI 0.2, mirror loss 0.5, gait
+gait-income-phaseout-campaign-active.md:31:**Caveats on the bake (user-waived):** RSI-off verification and seed-2 replay
+gait-income-phaseout-campaign-active.md:32:NOT run — self-sustaining-without-RSI and cross-seed reproducibility are
+gait-income-phaseout-campaign-active.md:35:single-canary noise). Mirror-loss phase-out never tested (was gated behind
+MEMORY.md:2:- [Repo layout (forward task, 2026-09-09)](repo-layout-forward-task.md) — package `crab_hex_forward_task`; campaigns + `eval/` + `old-runs/` (May stage bundles) + lit reviews under its `experiments/` (keep-set only in git; episode json untracked); main asset `assets/crab.usda` = A15+B, legacy golden = `assets/variants/crab_simple__splay00_axis5p5in.usda`, `crab_simple.usda` = hand-au
+MEMORY.md:3:- [Eval process-state sensitivity](eval-process-state-sensitivity.md) — any env write after Kit startup flips some same-seed student evals between two repeatable outcomes (0.79 vs 0.75); ±0.04 completion = cross-manifest resolution
+MEMORY.md:5:- [GPU queue chaining](gpu-queue-chaining.md) — chain serial GPU arms with one detached queue runner + log-sentinel watcher; never `pgrep -f` a string in the watcher's own cmdline (lost 5.4 GPU-h 2026-09-29)
+MEMORY.md:10:- [Tripod campaign closed](tripod-campaign-closed.md) — reward-shaping campaign ended 2026-08-12 decision (d); superseded by symmetry win
+MEMORY.md:11:- [Parallel GPU runs](parallel-gpu-training-runs.md) — measured: one 256-env run saturates the GPU; train serially, overlap only evals/analysis
+MEMORY.md:12:- [Reference checkpoint: symmetric](reference-checkpoint-symmetric.md) — flat-walk reference is the symmetric model_19999 (tripod 0.517, duty balanced); mirror loss 0.5 baked
+MEMORY.md:13:- [Isaac headless launch quirks](isaac-headless-launch-quirks.md) — venv python + EULA env var + timeout; gravity-off probes silently reset every step
+MEMORY.md:19:- [Gait-income phase-out CLOSED — BAKED](gait-income-phaseout-campaign-active.md) — reference of record: 30k head model_29994 (all gait income at ε by 25k); full-income control degraded more; RSI-off/seed-2 checks waived
+MEMORY.md:22:- [Morphology × exposure campaign COMPLETE](morph-x-exposure-campaign-active.md) — 2026-09-06: A15+B / B beat golden 2–3× on obstacle onsets (two seeds); STAND_FRAC 0.2 + 40-s episodes w/ scaled promotion validated; USER PICKED A15+B 2026-09-06 (15° shims + re-hinge); follow-on scoping pending; dir 2026-09-04_1105_morph_x_exposure
+MEMORY.md:25:- [Phase pipeline CLOSED — BAKED](phase-pipeline-campaign-active.md) — shipped lineage lives at `crab_hex_forward_task/policy/` (1a→2a→2b→2c→3a_student, manifest + bundle_policy.py); 2026-09-09: paradigm restored (KRABBY_PHASE presets 1a→2a/2b/2c→3a, plant A15+B); phase-3 head of record = 3a `crab_hex_student/2026-09-08_05-54-01/model_24995.pt` (depth student ≈ teach
+MEMORY.md:26:- [Sideways task campaign — HEAD NAMED](sideways-task-campaign-active.md) — 2026-09-12: two seeds of 1a->2c done; head of record = seed-2 2a teacher `crab_hex_side_teacher/2026-09-12_03-04-37/model_9998.pt` (bundled, 4 commits, nothing pushed); 2c step-onset regression replicated (~-0.17), 2a is the peak window; phase 3 blocked by the shared random_camera_position frame bug (live 
+MEMORY.md:27:- [Omni task campaign — LADDER NARROWED to the C1 question](omni-task-campaign-active.md) — 2026-09-22 DONE: C1d turn-first curriculum ADOPTED by user overrule of D12 (turning 0.42→0.62, diag tripod cost accepted); head X08:c6 model_7996 (SUPERSEDED 2026-09-25 by the clock-free W head, see clock-deprecation); C1e two-stage REJECTED vs C1d, confirmed by user (D13: slower straight
+MEMORY.md:28:- [Video recording memory hazard](video-recording-memory-hazard.md) — gym RecordVideo buffers all frames (5-min clip ≈ 41 GB, crashed the machine twice 2026-09-17); use play_stream_video.py + systemd-run MemoryMax cap; launch long jobs with setsid nohup
+MEMORY.md:29:- [lit-review skill](lit-review-skill.md) — project skill + saved workflow for verified literature reviews (angles → sweep → cluster → open-every-citation verify → critic → house-style write-up); output goes to <task>/experiments/lit-review-<slug>.md
+MEMORY.md:31:- [PPO counter resets on resume](ppo-counter-reset-on-resume.md) — any resume restarts the priv_reg ramp (+ cosmetic LR reset); short chain stages end with the latent gap open; draft fix on branch claude/ppo-resume-alg-state (unmerged); stop ladders during a stage eval, never mid-training
+MEMORY.md:32:- [Gait motion-quality campaign PAUSED](gait-motion-quality-campaign.md) — paused by user 2026-09-25 (stride-length session first); M1 REJECT, root cause = saturated policy mean (bang-bang); M1b bound-loss plan audited, unapproved; must re-base onto W (clock-free head of record) before resuming
+MEMORY.md:33:- [Omni reward simplification plan](omni-reward-simplification-plan.md) — 2026-09-23, Rev 1 2026-09-25 (head W, clock-free c6x): 38 plannable reward-simplification candidates in crab_hex_omni_task/experiments/2026-09-23_reward_simplification/; "Plan the <name> candidate from the omni reward simplification plan" → plan mode on that candidate only; read its Rev 1 line first
+MEMORY.md:35:- [Clock-deprecation campaign CLOSED — BAKED](clock-deprecation-campaign-active.md) — 2026-09-25: omni phase-1 head of record = W (C1d then c6x: clock reward ε + obs hidden, 4000 its; 12000 total) at `crab_hex_omni_task/policy/5_c6x_clockfree/model_11995.pt`; play/eval NEEDS KRABBY_OMNI_CLOCK_HIDE=1; D05 floor overruled; move_turn follow-up ("nobody actually turns during move_tur
+MEMORY.md:36:- [Stride/posture line CLOSED](stride-posture-plan.md) — 2026-09-26: new per-foot stroke term alive + command-general (old stride dead: float32 edge bug); S (stroke) and P (centring) both REJECT, neither moved the side gait at planned doses; nothing adopted, knobs default-off; record experiments/2026-09-26_stroke_posture/CLOSE.md; MQ relaunch needs --accept-code-change; FORMATION FO
+gait-formation-campaign-active.md:22:eval scenarios. Hand-off lessons baked into the process: gates before promotion, critic
+gait-formation-campaign-active.md:23:reset on income switches, dose ladders vs capability gaps.
+gait-formation-campaign-active.md:47:`KRABBY_LIN_VEL_X=0.0:0.35 KRABBY_TRACK_L1_W=-1.0 KRABBY_TRACK_SIGMA2=0.25`.
+gait-formation-campaign-active.md:50:seed1-10k 0.92 completion did NOT reproduce (seed2 0.38) and scale deepens the creep.
+gait-formation-campaign-active.md:60:gradient-dead at the creep (income ≤15/1000 iters); wave 2 found dense airtime is the
+gait-formation-campaign-active.md:62:anyway); 5k promote wave found σ²=0.1 speed pressure produces first real walking
+gait-formation-campaign-active.md:64:on its raws proved NO anti-phase alternation exists (band-widening changes nothing).
+gait-formation-campaign-active.md:66:base: tripod 0.3 + sigma2 0.1). Ranking: tripod + tracking_ratio, completion as
+gait-formation-campaign-active.md:67:constraint; 2-seed reproduction before winner call.
+gait-formation-campaign-active.md:78:if clock route fails): CPG omega>=0 cam action space. Mirror kept + E5 ablation arm;
+gait-formation-campaign-active.md:90:sin/cos dims 15-16 (head 15→17, mirror signs -1/-1, _CRAB_EXTRA_BASE_DIM=4). RSI:
+gait-formation-campaign-active.md:109:`KRABBY_TRACK_SIGMA2=0.1` + `KRABBY_TRACK_L1_W=-1.0` + `KRABBY_LIN_VEL_X=0.0:0.35` +
+gait-formation-campaign-active.md:110:mirror loss (re-earned in the E5 ablation) + `KRABBY_RSI_FRAC=0.2` with
+gait-formation-campaign-active.md:111:`rsi_bank_E1.npz` (2330 states harvested from E1-seed1's certified walking).
+gait-formation-campaign-active.md:112:Evidence: seed1 tripod 0.54/ratio 0.56/completion 0.99 (E1, no RSI, run
+gait-formation-campaign-active.md:113:2026-08-22_11-22-17); seed2 0.50/0.45/0.94 (E3b, run 2026-08-23_03-17-24). Plain-clock
+gait-formation-campaign-active.md:114:basin rate was 1/4 seeds; RSI with a HIGH-quality bank closes the lottery (probe-bank
+gait-formation-campaign-active.md:115:RSI + product-mode failed on seed 2 first — reference quality was the whole story).
+stride-posture-plan.md:11:Plan file: `~/.claude/plans/let-s-examine-the-stride-gleaming-dream.md`. Its evidence lives in
+stride-posture-plan.md:21:  - Two adversarial reviews closed six exploits.
+stride-posture-plan.md:23:  - S (0.117): the dose landed, but there was no stroke change beyond the seed band.
+stride-posture-plan.md:25:  - Both LEN TIE; both REJECT on F_mt. That is weak evidence of harm: B s3 was the better seed on move_turn.
+stride-posture-plan.md:26:- **Nothing adopted; the knobs stay default-off.** The shipped presets keep the old, dead stride term; its removal
+stride-posture-plan.md:38:  with abs_tol 1e-8 stop firing about 2 s after each reset, once the float32 sensor timestamp drifts. The same bug
+stride-posture-plan.md:44:- **"Symmetry" = the 4-image mirror loss:** verified correct for A15+B and every command type.
+stride-posture-plan.md:57:**Why:** the user asked whether the stride and symmetry rewards apply to all command types. The answer is no for
+stride-posture-plan.md:58:stride (dead everywhere, mis-specified); symmetry is fine.
+stride-posture-plan.md:67:  2000 its; X08 t3 0.210) and is complete by the end of C1d's t3. C1d's t3 is itself from scratch.
+stride-posture-plan.md:68:- **Design:** a t3 gate — chain `t3f`, from scratch, 3000 its, clock held; B_f / S_f (0.119) / P_f (0.158) × seeds 3 and 2
+stride-posture-plan.md:69:  (final after the t3 dose smoke: r_S 1.13, r_P 1.01); decided on a pooled two-seed readout (P: side body_offset ≤ −0.05; S: dose landed plus a stroke LENGTHENING beyond band).
+stride-posture-plan.md:71:- **Cost:** Stage 1 ≈ 8.3 GPU-h; +~17 per continuing arm.
+stride-posture-plan.md:81:  seed3_X01_t3_A15pB/.../2026-09-26_22-56-51`, side body_offset +0.169), D00s, D03 dead_walker floor 0.403.
+stride-posture-plan.md:84:  of a mid-window continuation that would restart the PPO counters (see [[ppo-counter-reset-on-resume]]).
+stride-posture-plan.md:96:  lengthening beyond band (its side dose was only 2-3 % of side tracking -> weak side test). P_f: pooled side
+stride-posture-plan.md:97:  body_offset +0.022 (bar <= -0.05; s3 -0.026 = seed gap, s2 +0.070) + health FAIL (s2 diag unison; fwd/back survival
+stride-posture-plan.md:98:  0.91/0.97 -> 0.71/0.68; move_turn 0.77 -> 0.055) + turning WORSE both seeds.
+stride-posture-plan.md:100:  0.075-0.081 and side tracking ratio ~0.45 -> the posture->stride hypothesis is NOT supported inside the omni range;
+pause-only-for-irreversible.md:12:me if its an irreversible decision, don't pause for me if it just costs GPU time (it will waste more GPU time just
+pause-only-for-irreversible.md:15:**Why:** idle waits for the user's reply waste more GPU time than a wrong-but-cheap branch would. The user values
+pause-only-for-irreversible.md:20:  the decision and its reasoning into the campaign record (and the plan STATUS), and push-notify it as FYI rather
+pause-only-for-irreversible.md:22:- Extra arms, seeds, re-runs and exceeding a planned GPU cap are cost, not irreversible. Decide and proceed, and
+omni-task-campaign-active.md:14:`feat/crab-hex-sideways-task` (416948e). Nothing pushed; no commits yet (commits are step 17, six commits in Part G).
+omni-task-campaign-active.md:16:**Execution state (2026-09-17 ~04:20): seed 3 in 1c (5000 it, started 00:13 driver clock).** 1a passed the corrected soft gate (fwd tripod 0.452, survival 0.93; the first halt was a gate mis-specification, commit 668411b), 1b passed (lat_l tripod 0.589, survival 0.95; speeds low: lat_l 0.075/0.22, fwd 0.04/0.25 — watched). Unit now `phases-2026-09-16_1805_omni_for
+omni-task-campaign-active.md:19:facing-error obs clip 0.6 in every preset). Unit `phases-2026-09-16_1805_omni_formation-1789614649` runs
+omni-task-campaign-active.md:20:`launch_phases.sh --campaign-dir $CAMP --plant A15+B --phases 1a,1b,1c,2a,2b --seed 3`; heartbeat every 1800 s (scratchpad
+omni-task-campaign-active.md:25:Relaunch `--continue` / `--redo`. After 2b: seed 2 the same way; then 2c and 2c_clockheld as separate launches from each 2b
+omni-task-campaign-active.md:26:head; decision table `$CAMP/decision_table.py`. Budget ≈ 10 h per seed (windows ~2.6–2.9 h + ~0.6 h per short stage; the
+omni-task-campaign-active.md:27:4-image mirror may slow it).
+omni-task-campaign-active.md:32:`KRABBY_OMNI_PHASE`, so the Play env builds on CLASS DEFAULTS — facing-error obs unclipped (1.57 rad on the canary's 90° turns vs
+omni-task-campaign-active.md:33:≤0.6 in training). Same 1c head: driver canary completion 0.00 vs 0.49 with the preset expanded (both clip arms of that A/B were
+omni-task-campaign-active.md:34:identical because the phase var expanded the preset in both). ALL campaign gate verdicts so far (1a/1b/1c) were measured under the
+omni-task-campaign-active.md:36:(FACING_OBS_CLIP, ANG_VEL_MAX, SPEED_ELLIPSE, CLOCK_TURN_R, heading stiffness) carried into every eval + `KRABBY_RSI_FRAC=0`,
+omni-task-campaign-active.md:37:verified by three-way cfg dumps under `parkour/outputs/omni_plan/eval_env_audit/`. Arm C (bare env ± clip only) →
+omni-task-campaign-active.md:38:`parkour/outputs/omni_plan/clip_ab/RESULT_C.md`. Even with the clip the 1c head tracks ~0 speed and turns ~0.03 rad/s: a real
+omni-task-campaign-active.md:40:Arm C: bare 0.00/100 falls (= campaign), bare+clip 0.39/61 falls. CORRECTED RE-EVAL 2026-09-18 (`outputs/omni_plan/reeval_corrected/`):
+omni-task-campaign-active.md:46:offline reward replay then D (from-scratch 1c with TRACK_SIGMA2 0.04, TRACK_L1_W −2, ang-vel std 0.5, clock product) or B (redo 1c from 1b).
+omni-task-campaign-active.md:47:USER CHOSE D (2026-09-18): from-scratch 1c with the reward-economy fix (Revision 4: KRABBY_TRACK_SIGMA2 0.04, KRABBY_TRACK_L1_W −2.0,
+omni-task-campaign-active.md:48:new KRABBY_OMNI_ANG_VEL_STD 0.5, clock combine product via KRABBY_OMNI_CLOCK_COMBINE; driver --from-scratch; gates gain a train-log
+omni-task-campaign-active.md:49:track_ratio_mean ≥ 0.6 floor; dead_walker abort at 1000 it if < 0.5). Prep workflow DONE 2026-09-18: replay says the four values lift the walker's fwd margin +3 % → +16.6 % (target 25 %; the
+omni-task-campaign-active.md:51:(12/12 dumps, 4/4 smokes identical); review GO. Revision 4 committed (see git log after 9110c6e). RESULT 2026-09-18: from-scratch 1c `seed3_1c_004_A15pB` (head in heads.json) WALKS every direction (speed ratios 0.41–0.50,
+omni-task-campaign-active.md:55:Ang-gate lever committed (KRABBY_OMNI_ANG_TURN_ONLY, default off; arming = a preset/env-dict edit, `_subenv` strips exported KRABBY_*).
+omni-task-campaign-active.md:56:After 2b: the decision point (decision table; then seed 2 from scratch the same way; 2c + 2c_clockheld).
+omni-task-campaign-active.md:58:blue = achieved velocity; Play cfg only. Videos of the 1c-004 head in $CAMP/videos/: 60-s markers clip and a 5-min clip with 30-s command windows
+omni-task-campaign-active.md:59:(KRABBY_RESAMPLE_S=30:30 KRABBY_PLAY_EPISODE_S=300 — new PLAY knob, commit 6ea1c75; one fall at 87 s, no other resets). 2a training on unit …-1789738859 (monitor + heartbeat armed). Launched 2026-09-18 as
+omni-task-campaign-active.md:60:`launch_phases.sh --phases 1c,2a,2b --seed 3 --from-scratch` (state/heads backed up as *.pre-D.json). Watch
+omni-task-campaign-active.md:61:`Metrics/base_velocity/yaw_progress` (ang kernel flat at std 0.5 → turning rests on reward_yaw_progress) and the dead_walker
+omni-task-campaign-active.md:68:**PENDING USER REQUEST (2026-09-17):** once 1c completes, record a 5-minute continuous video of the 1c head (no resets unless
+omni-task-campaign-active.md:70:(15000 steps @ 50 Hz, KRABBY_EPISODE_S=300, KRABBY_RSI_FRAC=0, 1c preset); verify frames/duration + spot frames; send with SendUserFile;
+omni-task-campaign-active.md:74:5 = wz cmd; `ang_vel_max` 0.3, `ang_vel_clip` 0.2, `track_ang_vel_z_exp` std 0.15, clock speed `max(‖cmd‖, 1.2·|wz|)`;
+omni-task-campaign-active.md:75:4-image mirror; RSI bank merged from forward 2c teacher + sideways 2a head (`source` tag; `KRABBY_OMNI_RSI_SOURCE` per stage);
+omni-task-campaign-active.md:76:ring terrain `$LIB/terrains/omni/` (disc 2.0, ring to 4.5, 8/16 blocks); presets `KRABBY_OMNI_PHASE` ∈ 1a,1b,1c,2a,2b,2c,2c_clockheld;
+omni-task-campaign-active.md:83:[[parallel-gpu-training-runs]], [[notify-on-input-needed]], [[no-auto-gui-viewer]]; never export a second preset variable in one
+omni-task-campaign-active.md:93:(final ckpt), its three evals must be re-run through the corrected driver path once the fix is verified.
+omni-task-campaign-active.md:98:first step); (cos, sin) facing encoding instead of clipped raw error; from-scratch windows (mirror augmentation assumes zero-mean start).
+omni-task-campaign-active.md:103:`gate_facing_verdict` changed accordingly; RELAUNCHED 2026-09-18 unit `phases-2026-09-16_1805_omni_formation-1789750728` (`--phases 2a,2b --seed 3 --continue`; heartbeat 1800 s armed; gate demotion committed 11e7662). 2b DONE 15:02 (head `crab_hex_omni_teacher/2026-09-18_12-58-58/model_14997.pt`): turn gate PASS 0.079/0.071 rad/s; completion 0.50/0.54/0.54 (2a 0.57
+omni-task-campaign-active.md:108:speed ratios 0.47–0.60). Design: B0 = 1c preset from scratch 8000 it (s3 then s2) as incumbent; candidates C1 (user's additive
+omni-task-campaign-active.md:116:windows). STATE (2026-09-21): LADDER CAMPAIGN PAUSED; a NEW APPROVED PLAN supersedes its evaluation half and must be implemented before any relaunch. PLAN OF RECORD (AUDITED, committed 755d7100 on top of 464be672): `$LAD/PLAN_2026-09-21_per_category_eval.md` (~1150 lines; the user's copy is /home/nickmagus/.claude/plans/the-facing-and-tracking-fancy-breeze.md). AUD
+omni-task-campaign-active.md:117:SHA256SUMS at HEAD 5030872 — the `dumps` fixture needs the dir pre-created); step 1 (Part A1) running as Workflow `wf_16189fe4-919`
+omni-task-campaign-active.md:121:`dumps_ladder_base` byte-identical for fwd/side) → 9 six commits → 10 launch B0 (48 G cap, notify.log Monitor, relay every line as
+omni-task-campaign-active.md:124:**IMPLEMENTED + RELAUNCHED 2026-09-21 18:20:** steps 0-7 done (Part G commits a036003d..81eefe7f on 755d7100; nothing pushed); V1 1663 passed, V2 18/18 dumps byte-identical, V3 suite dry run PASS (1c-004 + X01, 7x10), V4 queue as planned, V6 stop drill PASS; records `parkour/outputs/omni_plan/v3_suite_dryrun/`. Step 8: `ledger_cli unstop` + relaunch unit `cands-202
+omni-task-campaign-active.md:126:**MIGRATION DONE 2026-09-21 19:11 (~51 min, no retrain):** D00s accepted (null all-TIE 0.822 vs 0.783); D00bs accepted, EVERY block seed-dominated (R_seed F 3.19 / F_mt 4.12 / T 1.13 vs R_eval 0.97/0.94/0.54 — F far above caveat 3's ≈1.2 estimate; single-seed MDE turn facing_closed ≈0.145, move_turn ≈0.18; B0 s2 beats s3 on F/F_mt at eval-only R) → expect
+omni-task-campaign-active.md:130:**D09 (2026-09-21 23:29): C1b clear REJECT** — F WORSE z −5.74: turn facing_closed 0.419→0.171, yaw_progress 0.054→0.022; F_mt N/A (move_turn watch, reduced demand — survival guard kept, 0.58→0.62 TIE); T TIE; guards TIE. Both curricula lose in-place turning. C1c SKIP stands; the rank gate released X05 (C2, KRABBY_YAW_PROGRESS_W 3.0) at model_400 (7600 
+omni-task-campaign-active.md:134:**D11 (2026-09-22 05:52): C3a (ANG_VEL_MAX 0.21, CLOCK_TURN_R 1.72; absolute units) speculative ADOPT (uncertain)** — all blocks TIE (F_abs z +0.29; F_mt_abs z +3.38 vs R 4.37: mt facing 0.05→0.18; T_abs TIE); sign(Σ z_b/R_b) = +1.196. Striking WATCH/guard numbers: move_turn survival 0.58→0.98, completion 0.86→0.99, mt tripod 0.43→0.61, formation gate PA
+omni-task-campaign-active.md:138:**D11 pooled (2026-09-22 09:10): C3a driver SELF-OVERRULE → REJECT (disputed)** — seeds disagree in sign(Σ z_b/R_b) (s3 +1.20, s2 −3.53): on s2 F WORSE (turn facing_closed 0.54→0.29, net_yaw 0.074→0.037) and T WORSE; but the move_turn survival gain REPLICATED (s2 0.64→0.995; s3 0.58→0.98) and fwd/back/turn survival rose on both seeds. Incumbent stays
+omni-task-campaign-active.md:140:**SCOPE NARROWED (2026-09-22 11:14, user): the ladder now only resolves the C1 question.** candidates.yaml = C1..C3a (recorded) + C1d; C3b, C4-C12, M1-M3 removed, C2r withdrawn (never loaded; commits 18948abe then ecafd29c, PLAN_AMENDMENTS 37-38). Unit `cands-2026-09-19_facing_tracking_ladder-1790090063`; X08 resumed at its c4 suite eval (no training redone). Ends 
+omni-task-campaign-active.md:142:**D12 (2026-09-22 12:55): C1d clear REJECT — ladder DONE (phase done, unit exited).** The C1 question is answered: ORDER was the cost. C1d F BETTER z +4.94 (R 3.19): turn facing_closed 0.419→0.618 (C1 0.185), F_mt BETTER z +4.98 (mt facing 0.05→0.235), move_turn survival 0.58→0.75, T TIE, all survival guards TIE. The only WORSE unit: cat_tripod_min 0.463→
+omni-task-campaign-active.md:144:**D12 OVERRULED → ADOPT (user, 2026-09-22 13:02): the turn-first curriculum (C1d) is the incumbent.** Recipe fa03ac033e7c (chain curriculum_turnfirst on B0's base 43dce3047225); head of record = X08:c6 `crab_hex_omni_flat_walk/2026-09-22_11-58-07_seed3_X08_c6_A15pB/model_7996.pt` (seed 3 only — clear decisions get no pair). Accepted cost: diag tripod 0.476→0.
+omni-task-campaign-active.md:146:**C1e LAUNCHED (2026-09-22 15:37, user request, audited plan):** two-stage turn-first curriculum — chain `curriculum_twostage` = t3 (C1d's, verbatim) + m2 (C1d's c6 overlay, 5000 its); candidate C1e ranked after C1d; compared against the adopted C1d (recipe 7a8086a9c734 on base fa03ac033e7c, control X08). Running as X09 (unit ...-1790105863). Commit c3df0903, PLA
+omni-task-campaign-active.md:148:**D13 (2026-09-22 19:01): C1e clear REJECT vs C1d; ladder DONE again.** T WORSE (straight speeds fwd 0.748→0.668, back 0.736→0.633) + diag survival 0.79→0.49; move_turn much better (facing 0.235→0.399, survival 0.75→0.90, ratio 0.424→0.556), in-place turn held. Stage-1 reproduction FAILED (X09:t3 ≠ X08:t3; diverged ~iteration 20) — same-seed from-sc
+omni-task-campaign-active.md:150:**D13 CONFIRMED REJECT (user, 2026-09-22 20:06).** C1d stays the incumbent (head X08:c6 model_7996, recipe fa03ac033e7c). Ladder phase done, nothing running, nothing queued. Lesson recorded: introducing every combined form at once (C1e) costs straight speed and diag survival; the c4→c5→c6 staging earns its keep.
+lit-review-skill.md:11:(opus; unopenable/non-supporting refs are dropped to an appendix) → completeness critic + ≤3 gap sweeps → writer (fable xhigh)
+phased-flat-campaign-active.md:13:(C7 lineage batch 3) — on the pinned teacher_2b2_forward eval: completion 0.8,
+phased-flat-campaign-active.md:19:training envelope), student distillation from model_22688, hardware transfer.
+phased-flat-campaign-active.md:28:one-direction ratio ~0.005 vs 0.3 floor: B0 pressure −0.3, B1 critic reset (also cost
+phased-flat-campaign-active.md:32:B3c dose −0.6 (absorbed). Full rows in the campaign CHANGELOG (commits through
+phased-flat-campaign-active.md:42:over 4 batches, learned while plastic); C7 consolidation at 20% (model_20993 in
+phased-flat-campaign-active.md:44:lifting (income 0.023 = 5-6x pre-acquisition) but tripod phasing sits at 0.41 vs the
+phased-flat-campaign-active.md:46:don't score tripod), or more consolidation. Weight norms C7: actor 37.0 critic 57.1.
+phased-flat-campaign-active.md:51:2b1 22.4% failure (2.4-2.6x better than any prior lineage); 2b2 six batches to the
+phased-flat-campaign-active.md:53:climbing)**, goal_idx PASS, failure 0.287 best-seen (batch-3 model_22688) / 0.352
+phased-flat-campaign-active.md:57:frozen-levels decouple vs stop-and-evaluate. Do not launch more 2b2 batches without
+phased-flat-campaign-active.md:66:v3 carry-up record: closed after ceiling batches 5–6 (results in the task1-velocity
+omni-reward-simplification-plan.md:28:3. Check the state of its dependencies: other candidates, the clock-deprecation session, M1b, ladder state.
+omni-reward-simplification-plan.md:33:   - same-length fork controls ([[ppo-counter-reset-on-resume]]);
+omni-reward-simplification-plan.md:40:  height-backstop-tag, removal-knob-batch, gait-gate-decouple.
+omni-reward-simplification-plan.md:54:- The zero clip forgives about 16 % of the late return.
+omni-reward-simplification-plan.md:64:`crab_hex_omni_flat_walk/2026-09-25_14-53-27_seed3_X03_c6x_A15pB/model_11995.pt`.
+omni-reward-simplification-plan.md:65:- Recipe, 12000 its: C1d with the clock held through c6 (X0 s3 under the PPO fix), then c6x, 4000 its clock-free
+omni-reward-simplification-plan.md:69:- Revision 1 status (paused by the user on 2026-09-25): the edits are UNCOMMITTED and the independent check was stopped
+omni-reward-simplification-plan.md:70:  before reporting. On resume: re-run workflow `wf_18d9603d-e5a` with resumeFromRunId, apply its fixes, and commit the
+omni-reward-simplification-plan.md:74:- W's economy: kernels 58.3 % of |income| and 86.5 % of positive income; clip forgiveness 13.6 %.
+omni-reward-simplification-plan.md:75:- Forks come from W with HIDE and clock weights at 0.001, and controls are W-like twins. Scratch chains run 12000 its
+omni-reward-simplification-plan.md:76:  (about 5.4 GPU-h per seed).
+omni-reward-simplification-plan.md:78:  move_turn nose-dive (survival 0.365, forward pitch-over); clockless-tripod-prior is promoted to C;
+omni-reward-simplification-plan.md:81:- OF-tool (`omni_formation/replay_reward_economy.py`) NET margins are suspect: the action-clip bug overstates
+omni-reward-simplification-plan.md:84:**How to apply the revision:** when planning a candidate, read its Rev 1 line first; it supersedes the 2026-09-23
+video-recording-memory-hazard.md:12:each) in memory until the clip closes: 3000 frames (60 s) fits, 15 000 frames (5 min) ≈ 41 GB on top of Kit's ~11 GB baseline
+phase-pipeline-campaign-active.md:3:description: "CLOSED 2026-09-09: BAKED — phase-3 head of record = 3a `crab_hex_student/2026-09-08_05-54-01/model_24995.pt` (depth student ≈ 2c teacher); pipeline of record 1a→2a/2b/2c→3a via KRABBY_PHASE; 3b run, not baked; seed-2 replay waived"
+phase-pipeline-campaign-active.md:12:**POLICY OF RECORD FOLDER (2026-09-09 evening, user-named):** `crab_hex_forward_task/policy/` = shipped lineage `1a_formation/model_4999.pt` → `2a_elements/model_9998.pt` → `2b_clearance/model_14997.pt` → `2c_teacher/model_19996.pt` → `3a_student/model_24995.pt` (current), `policy/manifest.yaml` (sha + evals sourced from the campaigns' state.json), `exp
+phase-pipeline-campaign-active.md:14:**PHASE-3 HEAD OF RECORD: `parkour/logs/rsl_rl/crab_hex_student/2026-09-08_05-54-01/model_24995.pt`** (3a;
+phase-pipeline-campaign-active.md:15:play/eval on `Isaac-Crab-Hex-Student-v0` with `KRABBY_STUDENT_MDP=1` or `KRABBY_PHASE=3a`; flat 0.79/21, step 0.71/29,
+phase-pipeline-campaign-active.md:17:3b run (model_29994) but NOT baked (equivalent to 3a); seed-2 replay WAIVED by the user.
+phase-pipeline-campaign-active.md:24:`Isaac-Crab-Hex-Teacher-v0` modes `2a/2b/2c`, phase 3 on `Isaac-Crab-Hex-Student-v0`;
+phase-pipeline-campaign-active.md:25:3a = distill on the 2c MDP (0.20–0.70), 3b = distill on 0.70–0.90. Clock anneal past 0.5
+phase-pipeline-campaign-active.md:26:(old windows 4–5) is NOT part of the paradigm (legacy presets only).
+phase-pipeline-campaign-active.md:28:**How it works:** `config/crab_hex/crab_hex_phases.py` holds the presets as env-var dicts
+phase-pipeline-campaign-active.md:29:(`PHASES`, `phase_env`, `activate_phase` with setdefault semantics, `is_student_phase`);
+phase-pipeline-campaign-active.md:33:to KRABBY_HEX_TEACHER_MODE); student phase (or `KRABBY_STUDENT_MDP=1`) mirrors the 2c teacher
+phase-pipeline-campaign-active.md:36:train env = only `KRABBY_PHASE` + `KRABBY_PLANT`; evals use explicit keys + `KRABBY_STUDENT_MDP=1`
+phase-pipeline-campaign-active.md:37:+ `--task Isaac-Crab-Hex-Student-v0` for phase-3 heads. Student throughput ≈ 1.9 h / 1k its.
+phase-pipeline-campaign-active.md:39:**Verification done:** unit tests (20, presets == recorded stacks); Isaac config-identity test
+phase-pipeline-campaign-active.md:41:presets reproduce the recorded env.yaml/agent.yaml of the four A15+B lineage windows; preset ==
+phase-pipeline-campaign-active.md:42:legacy raw stack; 3a student mirrors 2c; play == train). Run with
+phase-pipeline-campaign-active.md:45:**Smokes PASSED 2026-09-07:** 2b (Teacher-v0 mode 2b, 200 its from the 10k head; env.yaml
+phase-pipeline-campaign-active.md:46:byte-identical to lineage window 2; reward table + telemetry identical) and 3a (200 its from the
+phase-pipeline-campaign-active.md:50:**PHASE 3a RUN 1 INVALID (2026-09-08 05:35) — ROOT CAUSE FIXED:** the student runner
+phase-pipeline-campaign-active.md:51:(`CrabHexStudentPPORunnerCfg`) had `clip_actions` unset; the vec-env wrapper clips RAW policy
+phase-pipeline-campaign-active.md:52:actions to ±clip before the action term scales them (flat-walk/phase-2 runners: 1.0). On the
+phase-pipeline-campaign-active.md:53:phase-3 MDP (teacher's full action space, raw clip ±4.8) that drove joints at ~5× the trained
+phase-pipeline-campaign-active.md:54:authority: the 2c TEACHER itself fell 100/100 on `Isaac-Crab-Hex-Student-v0`+`KRABBY_STUDENT_MDP=1`
+phase-pipeline-campaign-active.md:55:(harness flag `--policy-role teacher`), and the distilled student never left the falling regime
+phase-pipeline-campaign-active.md:56:(ep len ~165, crab_failure 1.0 for 5000 its while depth losses fell — losses are NOT a health
+phase-pipeline-campaign-active.md:57:signal). Fix `clip_actions = 1.0` → teacher on the student env 0.70 completion / 30 falls.
+phase-pipeline-campaign-active.md:58:Lesson: for distillation always check rollout survival (ep len, crab_failure), not the losses;
+phase-pipeline-campaign-active.md:59:driver now has survival checks + early warning; identity test asserts runner clip parity.
+phase-pipeline-campaign-active.md:60:Old record kept as `3a_invalid_unclipped` in state.json.
+phase-pipeline-campaign-active.md:62:**PHASE 3a DONE 2026-09-08 15:52 — PAUSED before 3b (user go/no-go):** student head
+phase-pipeline-campaign-active.md:63:`parkour/logs/rsl_rl/crab_hex_student/2026-09-08_05-54-01/model_24995.pt` matches the 2c teacher
+repo-layout-forward-task.md:3:description: "Repo layout since the 2026-09-09 cleanup: task package crab_hex_forward_task, campaigns under its experiments/ (keep-set only in git, raw ~70 GB ignored), main asset assets/crab.usda = A15+B, legacy golden = assets/variants/crab_simple__splay00_axis5p5in.usda, crab_simple.usda = hand-authored 2026-08-09 baseline (historical), --plant / KRABBY_PLANT"
+repo-layout-forward-task.md:11:**Layout of record since 2026-09-09 (branch `chore/crab-hex-forward-task-layout`, commits by me; user publishes via PR).**
+repo-layout-forward-task.md:14:  FORWARD-walk task). Gym ids (`Isaac-Crab-Hex-Flat-Walk|Teacher|Student(-Play)-v0`) and RSL-RL experiment dirs
+repo-layout-forward-task.md:15:  (`parkour/logs/rsl_rl/crab_hex_flat_walk|teacher|student`) are UNCHANGED. Sideways sibling to come:
+repo-layout-forward-task.md:16:  `crab_hex_sideways_task` with its own ids.
+repo-layout-forward-task.md:26:  2c_teacher, 3a_student = current), `policy/manifest.yaml` is the source of truth, README generated by
+repo-layout-forward-task.md:30:  markers, rendered by `experiments/tools/policy_summary.py` via `bundle_policy.py --sync` from the presets, the manifest
+repo-layout-forward-task.md:49:  gait harness: `--plant <name>`, `--policy-role auto|teacher|student`; run_meta has `plant`.
+parallel-sessions-shared-tree.md:8:On 2026-09-09 I found unexplained edits (a policy `assets:` section, an RSI bank copied into `policy/rsi/`, tool and
+round-search-campaign-active.md:14:(resume-safe via `state_v2.json`); launcher `launch_round_search.sh` (waits for Isaac
+round-search-campaign-active.md:25:critic reset on income elements).
+round-search-campaign-active.md:32:0.436/0.990/0.495, recal-obst 0.530, light-obst 0.42); CONFIRM (seed 3, RECOMMENDED) =
+round-search-campaign-active.md:62:waits, checkpoint-over-exit-code, eval freshness gates, retries, TimeoutExpired
+tripod-campaign-closed.md:15:**Key conclusions for future work:** tripod >0.45 for this morphology is a posture/CoM/cam-geometry problem, not a reward-shaping one (duty asymmetry 0.14/0.56 and +12° lean immune to all pricing). Gait-eval is fully deterministic per checkpoint. Any new reward term must pass the offline replay gate first ([[offline-reward-replay-gate]]). From-scratch runs sample gait
+sideways-task-campaign-active.md:3:description: "ACTIVE (2026-09-11): building crab_hex_sideways_task (thin sibling of the forward-walk task) per the approved plan; branch feat/crab-hex-sideways-task; first campaign 1a->2c, RSI off, fore-aft mirror, left side leads"
+sideways-task-campaign-active.md:16:- **Decisions (user, 2026-09-11):** left side leads (travel axis body +y, spawn yaw −π/2); fore-aft mirror loss (F↔R legs,
+sideways-task-campaign-active.md:23:  `Isaac-Crab-Hex-Side-{Walk,Teacher,Student}(-Play)-v0`; log dirs `crab_hex_side_{flat_walk,teacher,student}`;
+sideways-task-campaign-active.md:25:  `step__side`, `flat_walk_slow_side`); presets = forward env minus `KRABBY_RSI_FRAC`/`KRABBY_RSI_BANK` (+
+sideways-task-campaign-active.md:26:  `KRABBY_STUDENT_MDP=1` for 3a/3b).
+sideways-task-campaign-active.md:39:(identity 12/12, dumps_pre + sha256, forward 20-iter smoke run `crab_hex_flat_walk/2026-09-11_03-38-31`, 35 reward labels,
+sideways-task-campaign-active.md:40:symmetry tag `Loss/symmetry`); `travel_frame.py` + tests; shared seams (rewards/command/observations), the
+sideways-task-campaign-active.md:41:`_phase_rewards_cfg` hook, the parametrized mirror builder, the harness `travel_yaw` plumbing; 149+ pure tests green.
+sideways-task-campaign-active.md:42:Step 6 done (315 pure tests, identity 12/12, all 7 forward dumps byte-identical to dumps_pre; 3 nits applied: module
+sideways-task-campaign-active.md:44:`crab_hex_side_mirror.py`, 80 tests incl. FK reflection + kinematic head check, mutation-verified). Step 8 done (package registered: `Isaac-Crab-Hex-Side-*` ids, cfg subclasses re-declare every cfg attribute,
+sideways-task-campaign-active.md:51:(`parkour_isaaclab/envs/mdp/events.py`, registered by the Go2 base `parkour_mdp_cfg.py`, kept only by the student cfg)
+sideways-task-campaign-active.md:67:test, PLAY pairs added to the delta test, `list_envs.py` insert, nits. Commit plan revised: commit 0 = the
+sideways-task-campaign-active.md:72:**Step 15 done (2026-09-11):** five commits on `feat/crab-hex-sideways-task`, NOT pushed — 003b4e0 fix(rsl_rl scripts),
+sideways-task-campaign-active.md:75:`phases-2026-09-11_0414_sideways_formation-1789138664`, `--plant A15+B --phases 1a,2a,2b,2c --seed 3`; state.json
+sideways-task-campaign-active.md:76:phase `run`, current tag `seed3_1a_001_A15pB` (5000 iters); heartbeat every 1800 s from this session. ~14 h wall; the
+sideways-task-campaign-active.md:101:`phases-2026-09-11_0414_sideways_formation-1789152590`; 1a record → `ok` + `gate_1a_override`; 2a `seed3_2a_002_A15pB`
+sideways-task-campaign-active.md:114:readiness incl. the camera bug, options incl. bake/3a/extend/second seed) **COMPLETE 2026-09-12** — brief (38k chars,
+sideways-task-campaign-active.md:124:are travel-frame roll (cross-course body pitch), support margin worse. Confounds: no clock-held control, window
+sideways-task-campaign-active.md:126:low draw** (its last-100-iter crab_failure 0.302 vs window mean 0.246, ~1.7 block-sd) — cheapest discriminator is a
+sideways-task-campaign-active.md:128:stand is controlled, drift p50 ~0.10 m vs forward 0.6-1.2 m). H2 partial: |A-B| <= 0.10 always, but duty B exits
+sideways-task-campaign-active.md:129:[0.30,0.55] at the 0.35 hold from 2b (0.566, 0.595) — the fore-aft mirror constrains front<->rear (near-perfect,
+sideways-task-campaign-active.md:132:0.45/0.41 = +-3.3-3.6 rev/episode, MIRROR-FORCED by the CamShaft -1 sign, grows 1a->2c); slip worse at 0.35 (+0.031),
+sideways-task-campaign-active.md:135:3a student** (`crab_hex_student/2026-09-08_05-54-01/params/env.yaml` rot_noise_range pitch +-5, mode startup) so the fix
+sideways-task-campaign-active.md:138:Camera PLACEMENT: the +y placeholder sits inside the middle hip plate's swept volume — hardware decision (between leg
+sideways-task-campaign-active.md:139:stations x ~ +-0.146 / mast above plates / keep +x only = no 3a). **SEED 2 RUN (user decision 2026-09-12): 1a->2c launched 00:30, finished 10:07, 10.4 h, all four phases ok, the 1a gate
+sideways-task-campaign-active.md:140:passed unaided (walk 0.538 / completion 0.79) -> H1 holds on 2 of 2 seeds.** Heads: 1a `crab_hex_side_flat_walk/
+sideways-task-campaign-active.md:142:model_14997.pt`, 2c `.../2026-09-12_07-45-40/model_19996.pt`. Records committed `646d09b` (seed 3 record `81e4731`).
+sideways-task-campaign-active.md:143:Videos of both 2c heads in the campaign `videos/` (gitignored): `side_2c_*.mp4` = seed 3, `side_2c_seed2_*.mp4` = seed 2.
+sideways-task-campaign-active.md:145:**TWO-SEED ANALYSIS (workflow wf_765a7b76-a0f, 21 agents, 16 verdicts / 7 refuted; brief `side_two_seed_brief.md` in the
+sideways-task-campaign-active.md:151:  Failure sets barely overlap across seeds (4 of 30/21) -> diffuse margin loss at the top command, proximate mechanism
+sideways-task-campaign-active.md:152:  UNIDENTIFIED. **2a is the strongest window on both seeds** (obst ordering 2a > 2b > 2c > 1a identically).
+sideways-task-campaign-active.md:153:- **DID NOT REPLICATE (seed-3-specific; my earlier reports of these were wrong):** the flat-canary walking-tripod decline
+sideways-task-campaign-active.md:158:  (forward fails it too), knee saturation above forward (24-31% vs 18-21%), middle-leg duty overload rising, fore-aft
+sideways-task-campaign-active.md:159:  mirror working (|FL-RL| <= 0.037 vs forward 0.058-0.365), |A-B| <= 0.10, H3 creep tracking (s2 0.75-0.88).
+sideways-task-campaign-active.md:160:- **1a quality is ANTI-predictive**: s2's 1a is resolvedly worse than s3's (flat -0.14, step -0.17) and its 2a-2c are
+sideways-task-campaign-active.md:161:  better. Keep the 1a gate as a floor; never rank seeds on it. s2's gate margin was only +0.09 completion.
+sideways-task-campaign-active.md:164:  free-spin, duty in band, trained at the HIGHEST terrain level of its chain). **s2-2b** if phase 3 is next: `PHASES["3a"]
+sideways-task-campaign-active.md:165:  .resume_from == "2c"` and its env is `_student_env(env_2c)` which is byte-identical to `_student_env(2b)`, but 2a lacks
+sideways-task-campaign-active.md:166:  `KRABBY_HEADING=-1.2:1.2` (introduced at 2b), so distilling from 2a queries it off-distribution or needs a preset fork.
+sideways-task-campaign-active.md:169:- **Driver/record defects found (worth fixing):** `run_phases.py` obst eval inherits each phase's own preset, so obst rows
+sideways-task-campaign-active.md:176:  (c) a `2c_hold` control window (~10-line preset addition: window-3 env minus `KRABBY_PHASEOUT`, teacher_mode 2c,
+sideways-task-campaign-active.md:177:  resume_from 2b; ~2.3 h) — the ONLY way to separate the clock halving from "training past 15k on this MDP"; a third seed
+sideways-task-campaign-active.md:178:  is low value for the 2c verdict but the only route to a seed interval. Phase 3 still blocked by the camera-event fix
+sideways-task-campaign-active.md:179:  (must cover the `rot_noise_range` branch live in the shipped forward student, and be proven forward-neutral) and the
+sideways-task-campaign-active.md:181:  no third seed, no 3a until the camera fix lands.
+sideways-task-campaign-active.md:183:**USER DECISION 2026-09-12: neighbour evals, then name the head. HEAD OF RECORD = the seed-2 2a teacher**
+sideways-task-campaign-active.md:184:`crab_hex_side_teacher/2026-09-12_03-04-37/model_9998.pt` (sha256 27a51c2b...). Neighbour evals (~15 min, no
+sideways-task-campaign-active.md:185:training, same canary env as the recorded rows; logs `logs/seed2_{2a_006,2b_007}_A15pB_n{9800,9900,14800,14900}_*`,
+sideways-task-campaign-active.md:190:(`head/model_9998.pt` 12.4 MB + 96 keep-set eval files incl. the neighbour evals). Commits: `81e4731` seed-3 record,
+sideways-task-campaign-active.md:191:`646d09b` seed-2 record, `b5407be` head named, `416948e` bundle + a fix to the sideways `bundle_experiment.py`
+sideways-task-campaign-active.md:195:the window and not to the clock anneal; no third seed; no phase 3 — blocked by the shared `random_camera_position`
+sideways-task-campaign-active.md:196:frame-bug fix (must cover the `rot_noise_range` branch live in the shipped FORWARD student and be proven
+sideways-task-campaign-active.md:198:`2026-09-12_05-24-07/model_14997.pt` (its command distribution matches `_student_env(2c)`); the named 2a head
+plan-audit-meta-analysis.md:11:Plan audits should spend effort only on quiet or costly failures. The user asked for this after the 2026-09-23 meta-analysis of 8 audited plans (A–H: PLAN H, leg-mount, sideways, omni ladder, per-category eval, C1e, gait motion quality, M1b).
+plan-audit-meta-analysis.md:17:- About 19 audit edits were wrong. Most added new mechanisms (C's auto-halt gate, D's rescue arm, G's Gate 1).
+plan-audit-meta-analysis.md:18:- The audits missed 19 costly problems, clustered on:
+plan-audit-meta-analysis.md:19:  - gate semantics: the statistic the code computes vs the calibration, the control's value, the noise margin, reachability, restatement agreement;
+plan-audit-meta-analysis.md:20:  - untested premises: G-M1's saturated mean (probe-able in seconds), B-M1's 5k snapshot unable to rank plants;
+plan-audit-meta-analysis.md:21:  - resume-boundary state: [[ppo-counter-reset-on-resume]].

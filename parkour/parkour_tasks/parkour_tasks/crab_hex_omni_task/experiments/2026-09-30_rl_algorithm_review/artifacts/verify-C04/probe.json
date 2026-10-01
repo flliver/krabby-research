@@ -1,0 +1,29 @@
+[
+ {
+  "lr": 1e-05,
+  "n_mb": 16,
+  "mbs": 384,
+  "adv": "noise",
+  "epochs": 5,
+  "kl_mb_first_epoch_end": 0.004903136286884546,
+  "kl_last": 0.008259137161076069,
+  "kl_mean": 0.0058005116192362035,
+  "frac_gt_0p02": 0.0,
+  "frac_lt_0p005": 0.25,
+  "net_lr_steps": 20,
+  "cens_kl_last": 0.0023478486782214873,
+  "cens_share_last": 0.28427287650415894,
+  "cens_share_last_sig2": 0.28427287650415894,
+  "cens_share_mbmean": 0.2765887549267675,
+  "full_gauss_kl": 0.008286495693027973,
+  "full_gauss_meanonly": 0.008106251247227192,
+  "full_cens_kl": 0.002321370923678069,
+  "full_cens_share": 0.2863679958688811,
+  "stoch_exec_change": 0.004369228591095031,
+  "seed": 0,
+  "sigma_mean": 2.0,
+  "exec_action_change": 0.00393251609057188,
+  "mean_abs_dmu": 0.04681973159313202,
+  "std_param_after": 2.0001795291900635
+ }
+]

@@ -307,7 +307,14 @@ as `C_lr_rsi__*`, identical to X16's definition.
 
 ## 8. Landed code
 
-To be filled in at landing: code_sha, eval_sha and the commit.
+- **Commit** `60532fb9` on `feat/crab-hex-omni-task`, landed 2026-10-01 by fast-forward from worktree
+  branch `claude/ppo-construction`. Local only; nothing pushed.
+- **code_sha** `f7166d558c5d…` (`run_candidates.code_sha()`).
+- **eval_sha** `1d021625844b…` (`run_candidates.eval_sha()`).
+- **Dirty-tree check:** clean.
+- **Driver dry run:** a scratch copy of `candidates.yaml` (v2) validates.
+- **Every run of this campaign uses this code.** A later code change would invalidate the fresh-control
+  rule (§2) and is logged here before use.
 
 ## 9. Log
 
@@ -356,3 +363,4 @@ To be filled in at landing: code_sha, eval_sha and the commit.
     5.4 GB, within 10 GB.
   - **Other sizes:** 512 envs 1.08×; 2,048 envs 1.63×, past the 1.5× stop, so 4,096 was not run.
   - **No failures:** no NaN or OOM; peak RAM 6.1–6.8 GiB. Details in SMOKES.md §5.
+- 2026-10-01: code landed (commit 60532fb9; code_sha f7166d558c5d, eval_sha 1d021625844b). The pilot launches in the CHARTER §3 order: C__C0_s11, C__A_s11, C_lr__C0_s11, C_lr__A_s11, serially via scripts/run_arm.sh. C_lr_rsi will run the `C_lr_rsi__*` chains (rung 0b: staging OFF). 4b is not triggered (rung 1).

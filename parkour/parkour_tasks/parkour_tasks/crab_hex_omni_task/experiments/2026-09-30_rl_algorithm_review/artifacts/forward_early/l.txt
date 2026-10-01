@@ -1,0 +1,11 @@
+2026-09-03_1156_obstacle_exposure/c010_C3_train.log
+2026-09-03_1156_obstacle_exposure/c009_C0_train.log
+2026-09-03_1156_obstacle_exposure/c013_C2_train_ABORTED_spurious.log
+2026-09-03_1156_obstacle_exposure/w016_C1_C4f_train.log
+2026-09-03_1156_obstacle_exposure/s007_smoke_unarmed_train.log
+2026-09-03_1156_obstacle_exposure/c011_C1_train.log
+2026-09-03_1156_obstacle_exposure/c012_C4_train.log
+2026-09-03_1156_obstacle_exposure/c014_C5_train_partial.log
+2026-09-03_1156_obstacle_exposure/s008_smoke_armed_train.log
+2026-09-03_1156_obstacle_exposure/c014_C2_train.log
+2026-09-03_1156_obstacle_exposure/c015_C5_train.log
