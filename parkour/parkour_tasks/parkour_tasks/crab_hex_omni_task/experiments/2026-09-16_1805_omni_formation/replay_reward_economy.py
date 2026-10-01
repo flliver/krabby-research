@@ -96,8 +96,19 @@ AIR_TIME_CMD_GATE = 0.1
 CONTACT_FORCE_THRESHOLD = 0.1
 MAX_IDLE_STEPS = 90
 MAX_FEET_ON_GROUND = 4
-# action clip, per column block (actions = 6 CamShaft, 6 Hip_Femur, 6 Femur_Tibia)
+# The ACTION TERM's own per-joint clip, per column block (actions = 6 CamShaft, 6 Hip_Femur,
+# 6 Femur_Tibia; ``_clip_raw_actions``). It is the SECOND clamp: before the action term sees the
+# policy output, the runner's ``ParkourRslRlVecEnvWrapper`` clamps every column to
+# ``+-clip_actions`` (the head's ``params/agent.yaml``; 1.0 on every omni head). The eval npz
+# stores the PRE-clip mean (median |mu| 5-8 on the saturated heads), so pricing ``action_rate`` on
+# this clip alone overstated it ~3x (fixed 2026-10-01, ppo_construction plan step 2 item 5):
+# :func:`main` now reads each head's ``clip_actions`` (:func:`head_action_clip`, default
+# ``DEFAULT_RUNNER_CLIP`` when the dump is absent) and :func:`episode_primitives` applies both
+# clamps in order. ``episode_primitives(z, n)`` with no ``action_clip`` keeps the old term-only
+# model byte-for-byte (``replay_clock_economy.py`` and its tests call it that way on purpose).
 ACTION_CLIP = np.array([1.0] * 6 + [4.8] * 6 + [4.8] * 6)
+#: ``clip_actions`` assumed for a head whose ``params/agent.yaml`` (or its key) cannot be found.
+DEFAULT_RUNNER_CLIP = 1.0
 
 # 1c window weights (training log reward table, run 2026-09-17_00-13-40)
 WEIGHTS = {
@@ -272,8 +283,12 @@ def _apex_income(phi: np.ndarray, height: np.ndarray, running: np.ndarray) -> np
     return (i_mid * apex_ok).sum(axis=1) / w
 
 
-def episode_primitives(z, n_offsets: int) -> dict:
-    """Every variant-independent per-step quantity for one episode, plus the fitted phase."""
+def episode_primitives(z, n_offsets: int, action_clip: float | None = None) -> dict:
+    """Every variant-independent per-step quantity for one episode, plus the fitted phase.
+
+    ``action_clip`` is the runner's ``+-clip_actions`` clamp (the head's ``params/agent.yaml``),
+    applied BEFORE the action term's per-joint ``ACTION_CLIP``; ``None`` = no runner clamp, the
+    pre-2026-10-01 term-only model (byte-identical; :func:`main` always passes the head's clip)."""
     cmd = z["cmd_applied"].astype(np.float64)
     v_b = z["root_lin_vel_b"].astype(np.float64)
     w_b = z["root_ang_vel_b"].astype(np.float64)
@@ -388,7 +403,8 @@ def episode_primitives(z, n_offsets: int) -> dict:
     excess = np.maximum(contact.sum(axis=1) - MAX_FEET_ON_GROUND, 0.0) * move_gate
 
     # ---- action / torque streams
-    a = np.clip(actions, -ACTION_CLIP, ACTION_CLIP)
+    a = actions if action_clip is None else np.clip(actions, -float(action_clip), float(action_clip))
+    a = np.clip(a, -ACTION_CLIP, ACTION_CLIP)
     arate = np.zeros(T)
     arate[1:] = np.linalg.norm(a[1:] - a[:-1], axis=1)
     dtau = np.zeros(T)
@@ -477,7 +493,37 @@ def term_incomes(p: dict, mask: np.ndarray, t: Terms) -> dict[str, float]:
 
 
 # --------------------------------------------------------------------------- aggregation
-def load_head(raw_glob: str, n_offsets: int, limit: int | None) -> list[dict]:
+def head_action_clip(raw_dir: str) -> tuple[float, str]:
+    """``(clip_actions, source)`` of the head an eval raw dir was rolled out from: the stamp's
+    ``run_meta.json`` (the raw dir's parent) names the checkpoint, whose ``params/agent.yaml``
+    carries ``clip_actions``. Anything missing -> ``DEFAULT_RUNNER_CLIP`` with the reason."""
+    meta_path = os.path.join(os.path.dirname(os.path.normpath(raw_dir)), "run_meta.json")
+    try:
+        with open(meta_path) as fh:
+            ckpt = json.load(fh).get("checkpoint")
+    except (OSError, ValueError):
+        return DEFAULT_RUNNER_CLIP, f"default {DEFAULT_RUNNER_CLIP} (no readable {meta_path})"
+    if not ckpt:
+        return DEFAULT_RUNNER_CLIP, f"default {DEFAULT_RUNNER_CLIP} (run_meta names no checkpoint)"
+    agent = os.path.join(os.path.dirname(ckpt), "params", "agent.yaml")
+    if not os.path.isfile(agent):
+        return DEFAULT_RUNNER_CLIP, f"default {DEFAULT_RUNNER_CLIP} (no {agent})"
+    with open(agent) as fh:
+        for line in fh:
+            # top-level key only (column 0): the dump is a flat ``clip_actions: 1.0`` line
+            if line.startswith("clip_actions:"):
+                val = line.split(":", 1)[1].strip()
+                if val in ("null", "~", ""):
+                    return DEFAULT_RUNNER_CLIP, f"default {DEFAULT_RUNNER_CLIP} ({agent}: clip_actions null)"
+                return float(val), agent
+    return DEFAULT_RUNNER_CLIP, f"default {DEFAULT_RUNNER_CLIP} ({agent} has no clip_actions)"
+
+
+def load_head(raw_glob: str, n_offsets: int, limit: int | None,
+              action_clip: float | None = None) -> list[dict]:
+    """Every episode of the newest raw dir matching ``raw_glob``. ``action_clip`` is passed to
+    :func:`episode_primitives` (``None`` = the legacy term-only clip; :func:`main` passes the
+    head's own ``clip_actions`` from :func:`head_action_clip`)."""
     dirs = sorted(glob.glob(raw_glob))
     if not dirs:
         raise SystemExit(f"no raw dir matched {raw_glob}")
@@ -486,7 +532,7 @@ def load_head(raw_glob: str, n_offsets: int, limit: int | None) -> list[dict]:
         files = files[:limit]
     if not files:
         raise SystemExit(f"no episode_*.npz under {dirs[-1]}")
-    return [episode_primitives(np.load(f), n_offsets) for f in files]
+    return [episode_primitives(np.load(f), n_offsets, action_clip) for f in files]
 
 
 def hold_mask(p: dict, hold: str, upright_only: bool) -> np.ndarray:
@@ -664,8 +710,13 @@ def main() -> int:
     IDLE_KEY = "idle" if args.idle == "carry" else "idle_reset"
 
     heads = {}
+    clips: dict[str, tuple[float, str]] = {}
     for name, g in (("walker(1a)", args.walker), ("mid(1b)", args.mid), ("creeper(1c)", args.creeper)):
-        heads[name] = load_head(g, args.n_offsets, args.limit or None)
+        dirs = sorted(glob.glob(g))
+        if not dirs:
+            raise SystemExit(f"no raw dir matched {g}")
+        clips[name] = head_action_clip(dirs[-1])
+        heads[name] = load_head(g, args.n_offsets, args.limit or None, clips[name][0])
 
     lines: list[str] = []
 
@@ -676,6 +727,8 @@ def main() -> int:
     emit("# Offline reward-economy replay -- omni 1c fix (2026-09-18)")
     emit()
     emit(f"episodes: " + ", ".join(f"{k} n={len(v)}" for k, v in heads.items()))
+    emit("action clip (runner clip_actions, then the action term's per-joint clip): "
+         + "; ".join(f"{k} {c:g} [{src}]" for k, (c, src) in clips.items()))
     emit(f"clock-phase fit: {args.n_offsets} offsets/episode, argmax of OLD clock income (schedule[sum]+apex)")
     emit(f"step mask: steady_mask & segment & pre-termination"
          + (" & upright gate open" if args.upright_only else ""))

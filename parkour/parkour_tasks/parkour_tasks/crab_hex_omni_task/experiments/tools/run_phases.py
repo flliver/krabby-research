@@ -69,6 +69,12 @@ PHASES_PY = PKG / "config/crab_hex/crab_hex_omni_phases.py"
 LOG_ROOT = PARKOUR / "logs/rsl_rl"
 EVAL_ROOT = LOG_ROOT / "gait_eval/omni_phases"
 NUM_ENVS = {"rl": "256"}          # no distill kind for this task
+#: The overlay knob that replaces ``NUM_ENVS[kind]`` for one training window (PPO-construction plan
+#: step 2, 2026-10-01; DEFAULT OFF -- unset or blank, the command line is exactly the stock one).
+#: Read from the stage's composed overlay (``train``'s ``extra_env``), validated as a positive int,
+#: and audited after the window against ``scene.num_envs`` in ``params/env.yaml``
+#: (``run_candidates.OVERLAY_DUMP_CHECKS``). Same spelling as ``motion_knobs.NUM_ENVS_VAR``.
+NUM_ENVS_VAR = "KRABBY_NUM_ENVS"
 CANARY_KEYS = ("KRABBY_LIN_VEL_X", "KRABBY_TRACK_SIGMA2", "KRABBY_TRACK_L1_W", "KRABBY_CLOCK_W", "KRABBY_APEX_W")
 # KRABBY_HEADING / KRABBY_HEADING_STIFFNESS dropped from the forward/sideways CANARY_KEEP list: the
 # omni facing sampler replaces the heading mechanism outright and _check_omni() raises if
@@ -154,6 +160,13 @@ CANARY_KEEP = ("KRABBY_LIN_VEL_X", "KRABBY_TRACK_SIGMA2", "KRABBY_TRACK_L1_W", "
 #       ``KRABBY_OMNI_MIRROR_IMAGES`` (the SAME plan's runner-only mirror-selection knob) is
 #       deliberately NOT here: the symmetry loss does not run in an eval process at all, so there
 #       is nothing for it to carry.
+#   KRABBY_STD_PARAM / KRABBY_INIT_STD (PPO-construction plan step 2, 2026-10-01; DEFAULT OFF,
+#       ``config/crab_hex/motion_knobs.py``) -- RUNNER-side, the only ones carried: an eval rebuilds
+#       the policy from the env knobs and then loads the checkpoint STRICTLY, and ``soft`` changes
+#       the policy's parameter structure (``std_raw`` instead of ``std``), so a soft-std head only
+#       loads in an eval built soft. The init std rides along (it initialises that parameter before
+#       the load overwrites it). Every other PPO-construction knob (bound loss, schedule, LR, KL
+#       stop, history-encoder LR, hand diagnostics) shapes the TRAINER and is not carried.
 #
 # NOT carried, deliberately: KRABBY_OMNI_SLOTS / _DIR_BAND / _FACING / _RSI_SOURCE, KRABBY_RSI_*,
 # KRABBY_YAW_W, KRABBY_YAW_PROGRESS_W, KRABBY_STAND_FRAC, KRABBY_RESAMPLE_S, KRABBY_OMNI_MIRROR_IMAGES
@@ -176,7 +189,9 @@ EVAL_CARRY = ("KRABBY_OMNI_FACING_OBS_CLIP", "KRABBY_OMNI_SPEED_ELLIPSE", "KRABB
               "KRABBY_OMNI_CLOCK_HIDE",
               # side-speed-bisection plan step 1b (default off; KRABBY_OMNI_MIRROR_IMAGES is the
               # runner-only sibling and is NOT carried, see the block above)
-              "KRABBY_OMNI_CMD_OBS")
+              "KRABBY_OMNI_CMD_OBS",
+              # PPO-construction plan step 2 (default off; the policy's std PARAMETER structure)
+              "KRABBY_STD_PARAM", "KRABBY_INIT_STD")
 #: The value an eval carries for an :data:`EVAL_CARRY` key the phase's preset does not set.
 #:
 #: A preset that never mentions a knob trains on the config's CLASS DEFAULT, and an eval that also
@@ -202,7 +217,10 @@ EVAL_CARRY_DEFAULTS = {"KRABBY_OMNI_FACING_OBS_ENCODING": "raw", "KRABBY_OMNI_AN
                        "KRABBY_ACTION_LPF_OBS": "0", "KRABBY_OMNI_STAND_OBS": "0",
                        "KRABBY_OMNI_CLOCK_HIDE": "0",
                        # side-speed-bisection plan step 1b: "0" is one of omni_knobs.CMD_OBS_OFF_SPELLINGS.
-                       "KRABBY_OMNI_CMD_OBS": "0"}
+                       "KRABBY_OMNI_CMD_OBS": "0",
+                       # PPO-construction plan step 2: "0" is each one's off spelling
+                       # (motion_knobs.KNOB_OFF_VALUES; nothing is written into the runner cfg).
+                       "KRABBY_STD_PARAM": "0", "KRABBY_INIT_STD": "0"}
 # Evals never carry RSI resets: set explicitly (not merely omitted) so a preset that later grows a
 # different default, or a leaked parent value, cannot re-arm reference-state resets inside an eval.
 # apply_omni_knobs / the forward knob block build events.rsi_reference_reset only for RSI_FRAC > 0.
@@ -1244,6 +1262,21 @@ def eval_env_for(spec, plant: str, *, keep: tuple[str, ...] = CANARY_KEYS,
 
 
 # ------------------------------------------------------------------ training
+def _train_num_envs(spec, extra_env: dict) -> str:
+    """``--num_envs`` for one training window: :data:`NUM_ENVS_VAR` from the stage's composed
+    overlay when it is set (a positive integer, else ``ValueError``), else ``NUM_ENVS[spec.kind]``."""
+    raw = (extra_env or {}).get(NUM_ENVS_VAR)
+    if raw is None or not str(raw).strip():
+        return NUM_ENVS[spec.kind]
+    try:
+        value = int(str(raw).strip())
+    except ValueError as exc:
+        raise ValueError(f"{NUM_ENVS_VAR} must be a positive integer, got {raw!r}") from exc
+    if value < 1:
+        raise ValueError(f"{NUM_ENVS_VAR} must be a positive integer, got {raw!r}")
+    return str(value)
+
+
 #: Keys a caller's ``extra_env`` may never carry: the first two are this function's own (a window
 #: whose preset or plant came from an overlay is a window whose record lies about what it ran), the
 #: other two raise at config import (one task per process).
@@ -1294,15 +1327,16 @@ def train(c: Campaign, spec, tag: str, iters: int, resume_ckpt: str | None, soun
     global CURRENT_CHILD
     t0 = time.time()
     log_path = c.logs / f"{tag}_train.log"
-    cmd = [PY, str(TRAIN), "--task", spec.task, "--headless", "--num_envs", NUM_ENVS[spec.kind],
+    extra_env = dict(extra_env or {})
+    reserved = [k for k in TRAIN_ENV_RESERVED if k in extra_env]
+    assert not reserved, f"{tag}: extra_env must not set {reserved} (the driver owns them)"
+    num_envs = _train_num_envs(spec, extra_env)
+    cmd = [PY, str(TRAIN), "--task", spec.task, "--headless", "--num_envs", num_envs,
            "--seed", c.seed, "--max_iterations", str(iters)]
     if resume_ckpt:
         cmd += ["--resume", "--checkpoint", resume_ckpt]
     if run_name:
         cmd += ["--run_name", str(run_name)]
-    extra_env = dict(extra_env or {})
-    reserved = [k for k in TRAIN_ENV_RESERVED if k in extra_env]
-    assert not reserved, f"{tag}: extra_env must not set {reserved} (the driver owns them)"
     # PYTHONUNBUFFERED: the poll loop reads the child's stdout FILE, so a buffered child looks
     # stalled for as long as its buffer takes to fill -- which the STALL_S watchdog calls an infra
     # death, and the dead_walker window reads as "no track_ratio prints yet".
@@ -1326,6 +1360,10 @@ def train(c: Campaign, spec, tag: str, iters: int, resume_ckpt: str | None, soun
         c.log(f"{tag}: stop requested before launch — not starting")
         return None, "interrupted", log_path
     with log_path.open("w") as fh:
+        if str(extra_env.get(NUM_ENVS_VAR) or "").strip():
+            # the overlay's env count reached the command line (the child's own output follows)
+            fh.write(f"[KNOB] {NUM_ENVS_VAR}={num_envs} consumed\n")
+            fh.flush()
         proc = subprocess.Popen(cmd, cwd=PARKOUR, env=_subenv(env), stdout=fh, stderr=subprocess.STDOUT)
         # Registered in the SAME statement group as the launch (as in _run_eval): the campaign's
         # SIGTERM handler reaches the live child only through this slot, and any gap between the

@@ -76,7 +76,11 @@ five things the forward block cannot know about:
     ``*_VAR`` names and parsers) so the campaign ladder's whitelist / parser table, which reads
     this module, sees them. :func:`apply_omni_knobs` applies the env-side ones LAST
     (``motion_knobs.apply_motion_knobs``); the runner-side three (std clamp / std reset /
-    entropy) are applied by the omni runner cfgs (``agents/rsl_rl_ppo_cfg.py``).
+    entropy) are applied by the omni runner cfgs (``agents/rsl_rl_ppo_cfg.py``). The
+    PPO-construction knobs (PPO-construction plan step 2, 2026-10-01; all DEFAULT OFF, set by no
+    preset: bound loss / ramp / bound, soft std, init std, step-size schedule, LR, desired KL, KL
+    stop, history-encoder LR, per-hand diagnostics) live there too and are applied by the same
+    runner-side applier; ``KRABBY_NUM_ENVS`` is the omni driver's (``run_phases.train``).
 
 12. **the CLOCK-HIDE knobs** (clock-deprecation plan step 2, 2026-09-23; DEFAULT OFF, set by no
     preset) -- ``clock_knobs.py``, path-loaded and re-exported here exactly like the motion knobs
@@ -195,6 +199,25 @@ POWER_W_VAR = _mk.POWER_W_VAR
 ACTION_RATE_W_VAR = _mk.ACTION_RATE_W_VAR
 AIRTIME_W_VAR = _mk.AIRTIME_W_VAR
 MOTION_KNOB_PARSERS = _mk.MOTION_KNOB_PARSERS
+# NOTE(PPO-construction plan step 2, 2026-10-01): the PPO-construction knobs live in motion_knobs.py
+# (runner side, applied by ``apply_exploration_knobs``; KRABBY_NUM_ENVS by the omni driver) and are
+# re-exported here for the same whitelist reason. Their parsers are in MOTION_KNOB_PARSERS.
+ACTION_BOUND_LOSS_VAR = _mk.ACTION_BOUND_LOSS_VAR
+ACTION_BOUND_RAMP_VAR = _mk.ACTION_BOUND_RAMP_VAR
+ACTION_BOUND_VAR = _mk.ACTION_BOUND_VAR
+STD_PARAM_VAR = _mk.STD_PARAM_VAR
+INIT_STD_VAR = _mk.INIT_STD_VAR
+PPO_SCHEDULE_VAR = _mk.PPO_SCHEDULE_VAR
+PPO_LR_VAR = _mk.PPO_LR_VAR
+PPO_DESIRED_KL_VAR = _mk.PPO_DESIRED_KL_VAR
+PPO_KL_STOP_VAR = _mk.PPO_KL_STOP_VAR
+PPO_HIST_LR_VAR = _mk.PPO_HIST_LR_VAR
+PPO_HAND_DIAG_VAR = _mk.PPO_HAND_DIAG_VAR
+NUM_ENVS_VAR = _mk.NUM_ENVS_VAR
+# NOTE(PPO-construction plan step 4, 2026-10-01): the RSI cam-staging knobs (motion_knobs.py),
+# re-exported for the whitelist; applied by :func:`_repoint_rsi` as event params.
+RSI_CAM_STAGE_VAR = _mk.RSI_CAM_STAGE_VAR
+RSI_CAM_STAGE_DEBUG_VAR = _mk.RSI_CAM_STAGE_DEBUG_VAR
 
 _ck = _clock_knobs()
 # NOTE(clock-deprecation step 2, 2026-09-23): re-exported for the same whitelist reason.
@@ -274,6 +297,12 @@ __all__ = [
     "ACTION_LPF_HZ_VAR", "ACTION_LPF_OBS_VAR", "RELAY_HYST_VAR", "STAND_HOLD_VAR",
     "STAND_PARK_VAR", "STAND_OBS_VAR", "POWER_W_VAR", "ACTION_RATE_W_VAR", "AIRTIME_W_VAR",
     "MOTION_KNOB_PARSERS",
+    # PPO-construction knobs (motion_knobs.py, 2026-10-01)
+    "ACTION_BOUND_LOSS_VAR", "ACTION_BOUND_RAMP_VAR", "ACTION_BOUND_VAR", "STD_PARAM_VAR", "INIT_STD_VAR",
+    "PPO_SCHEDULE_VAR", "PPO_LR_VAR", "PPO_DESIRED_KL_VAR", "PPO_KL_STOP_VAR", "PPO_HIST_LR_VAR",
+    "PPO_HAND_DIAG_VAR", "NUM_ENVS_VAR",
+    # RSI cam-staging knobs (motion_knobs.py, 2026-10-01)
+    "RSI_CAM_STAGE_VAR", "RSI_CAM_STAGE_DEBUG_VAR",
     # clock-hide knobs (clock_knobs.py)
     "CLOCK_HIDE_VAR", "CLOCK_HIDE_RAMP_VAR", "parse_clock_hide", "parse_clock_hide_ramp",
     "CLOCK_KNOB_PARSERS",
@@ -1218,10 +1247,21 @@ def _repoint_rsi(cfg, env, yaw_range) -> None:
     A no-op when the forward knob block did not build the term (``KRABBY_RSI_FRAC`` unset or
     0): RSI-off is a legitimate omni configuration (the eval and the yaw-capability smoke run
     that way), and re-creating the term here would put it back into runs that asked for none.
+
+    The RSI cam-staging flags (``KRABBY_RSI_CAM_STAGE`` / ``_DEBUG``, PPO-construction plan step 4,
+    DEFAULT OFF) are added to the rebuilt params ONLY when armed -- off writes no key, so the
+    knob-off ``params/env.yaml`` is unchanged. Armed with RSI off they have no event to ride on:
+    that is not an error (the rung-0b FRAC-0 rows run exactly that way and must equal their
+    staging-off twins), it is reported on stdout instead of a consumed line.
     """
+    cam_stage = _mk.rsi_cam_stage_params(env)        # parsed even when RSI is off: a typo fails here
     events = getattr(cfg, "events", None)
     term = getattr(events, "rsi_reference_reset", None) if events is not None else None
     if term is None:
+        for var, param in _mk.RSI_CAM_STAGE_PARAMS.items():
+            if param in cam_stage:
+                print(f"[KNOB] {var}={str(env.get(var)).strip()} NOT consumed: RSI is off "
+                      "(no events.rsi_reference_reset; KRABBY_RSI_FRAC unset or 0)", flush=True)
         return
 
     from parkour_tasks.crab_hex_omni_task.mdp import crab_hex_omni_rsi as _rsi  # noqa: PLC0415
@@ -1241,6 +1281,10 @@ def _repoint_rsi(cfg, env, yaw_range) -> None:
         "walk_floor": omni_walk_floor(cfg.commands.base_velocity),
         "source": parse_rsi_source(raw_source) if raw_source else "all",
     }
+    for var, param in _mk.RSI_CAM_STAGE_PARAMS.items():
+        if param in cam_stage:
+            term.params[param] = True
+            _mk._consumed(var, env.get(var))
 
 
 def apply_omni_knobs(cfg, environ=None) -> None:

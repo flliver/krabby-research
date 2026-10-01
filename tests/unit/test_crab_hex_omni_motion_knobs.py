@@ -58,7 +58,16 @@ ALL_KNOBS = ("KRABBY_ACTION_STD_MAX", "KRABBY_ACTION_STD_RESET", "KRABBY_ENTROPY
              "KRABBY_ACTION_RATE_SQ", "KRABBY_ACTION_SMOOTH2_W", "KRABBY_JOINT_VEL_W",
              "KRABBY_FOOT_SLIP_W", "KRABBY_STAND_POSE_W", "KRABBY_ACTION_LPF_HZ",
              "KRABBY_ACTION_LPF_OBS", "KRABBY_OMNI_RELAY_HYST", "KRABBY_OMNI_STAND_HOLD",
-             "KRABBY_OMNI_STAND_PARK", "KRABBY_OMNI_STAND_OBS")
+             "KRABBY_OMNI_STAND_PARK", "KRABBY_OMNI_STAND_OBS",
+             # PPO-construction plan step 2 (2026-10-01): pinned in detail by
+             # tests/unit/test_ppo_construction_knobs.py
+             "KRABBY_ACTION_BOUND_LOSS", "KRABBY_ACTION_BOUND_RAMP", "KRABBY_ACTION_BOUND",
+             "KRABBY_STD_PARAM", "KRABBY_INIT_STD", "KRABBY_PPO_SCHEDULE", "KRABBY_PPO_LR",
+             "KRABBY_PPO_DESIRED_KL", "KRABBY_PPO_KL_STOP", "KRABBY_PPO_HIST_LR", "KRABBY_PPO_HAND_DIAG",
+             "KRABBY_NUM_ENVS",
+             # PPO-construction plan step 4 (2026-10-01): RSI cam staging, env side (event params);
+             # pinned in detail by tests/unit/test_rsi_cam_stage.py
+             "KRABBY_RSI_CAM_STAGE", "KRABBY_RSI_CAM_STAGE_DEBUG")
 
 
 def _load(path: Path, name: str):
@@ -106,7 +115,9 @@ def test_variable_names_are_the_contract():
     got = {getattr(mk, a) for a in dir(mk) if a.endswith("_VAR")}
     assert set(ALL_KNOBS) <= got
     assert set(mk.MOTION_KNOB_PARSERS) == set(ALL_KNOBS)
-    assert set(mk.AGENT_KNOBS) == {"KRABBY_ACTION_STD_MAX", "KRABBY_ACTION_STD_RESET", "KRABBY_ENTROPY_COEF"}
+    assert set(mk.AGENT_KNOBS) == {"KRABBY_ACTION_STD_MAX", "KRABBY_ACTION_STD_RESET", "KRABBY_ENTROPY_COEF",
+                                   # PPO construction (2026-10-01): every one but the driver's NUM_ENVS
+                                   *(set(mk.PPO_CONSTRUCTION_KNOBS) - {"KRABBY_NUM_ENVS"})}
     assert mk.REUSED_WEIGHT_KNOBS == {"KRABBY_POWER_W": "penalty_mechanical_power",
                                       "KRABBY_ACTION_RATE_W": "reward_action_rate",
                                       "KRABBY_AIRTIME_W": "reward_feet_air_time_positive"}
@@ -152,7 +163,7 @@ def test_every_off_value_parses_to_off():
     for var, off in mk.KNOB_OFF_VALUES.items():
         value = mk.MOTION_KNOB_PARSERS[var](off)
         assert value in (None, False, 0.0), (var, value)
-    assert set(mk.KNOB_OFF_VALUES) == set(mk.EVAL_SEMANTIC_KNOBS)
+    assert set(mk.KNOB_OFF_VALUES) == set(mk.EVAL_SEMANTIC_KNOBS) | set(mk.EVAL_STRUCTURE_KNOBS)
 
 
 # ------------------------------------------------------------------- stand-in env cfg

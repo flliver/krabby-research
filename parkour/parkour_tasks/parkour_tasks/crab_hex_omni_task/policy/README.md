@@ -39,6 +39,8 @@ campaigns that produced these heads keep their own records under `experiments/<c
   | `KRABBY_ACTION_LPF_OBS` | `0` |
   | `KRABBY_OMNI_STAND_OBS` | `0` |
   | `KRABBY_OMNI_CMD_OBS` | `0` |
+  | `KRABBY_STD_PARAM` | `0` |
+  | `KRABBY_INIT_STD` | `0` |
   | `KRABBY_OMNI_CLOCK_HIDE` | per stage (above) |
 
 - **Fixed driver eval block** (not policy inputs except the geometry and plant): `KRABBY_FLAT_TERRAIN_GEOM=ring`, `KRABBY_RSI_FRAC=0`, `KRABBY_PLAY_DEBUG_VIS=0`, `KRABBY_PLANT=A15+B`, `KRABBY_LIN_VEL_X=0.0:0.35`, `KRABBY_TRACK_SIGMA2=0.1`, `KRABBY_TRACK_L1_W=-1.0`, `KRABBY_CLOCK_W=1.0`, `KRABBY_APEX_W=1.0`.
@@ -53,6 +55,7 @@ env \
   KRABBY_ACTION_LPF_HZ=0 \
   KRABBY_ACTION_LPF_OBS=0 \
   KRABBY_FLAT_TERRAIN_GEOM=ring \
+  KRABBY_INIT_STD=0 \
   KRABBY_OMNI_ANG_VEL_CLIP=0.2 \
   KRABBY_OMNI_ANG_VEL_MAX=0.3 \
   KRABBY_OMNI_CLOCK_TURN_R=1.2 \
@@ -66,6 +69,7 @@ env \
   KRABBY_OMNI_STAND_PARK=0 \
   KRABBY_OMNI_YAW_RANGE=-3.14159:3.14159 \
   KRABBY_PLANT=A15+B \
+  KRABBY_STD_PARAM=0 \
   python scripts/rsl_rl/play.py --task Isaac-Crab-Hex-Omni-Walk-Play-v0 \
   --num_envs 1 --real-time --checkpoint $PWD/$P/policy/5_c6x_clockfree/model_11995.pt
 ```
@@ -81,6 +85,7 @@ env \
   KRABBY_APEX_W=1.0 \
   KRABBY_CLOCK_W=1.0 \
   KRABBY_FLAT_TERRAIN_GEOM=ring \
+  KRABBY_INIT_STD=0 \
   KRABBY_LIN_VEL_X=0.0:0.35 \
   KRABBY_OMNI_ANG_VEL_CLIP=0.2 \
   KRABBY_OMNI_ANG_VEL_MAX=0.3 \
@@ -97,6 +102,7 @@ env \
   KRABBY_PLANT=A15+B \
   KRABBY_PLAY_DEBUG_VIS=0 \
   KRABBY_RSI_FRAC=0 \
+  KRABBY_STD_PARAM=0 \
   KRABBY_TRACK_L1_W=-1.0 \
   KRABBY_TRACK_SIGMA2=0.1 \
   python parkour_tasks/parkour_tasks/crab_hex_forward_task/scripts/eval_crab_hex_gait.py --headless \

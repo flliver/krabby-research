@@ -537,7 +537,7 @@ def _load_event_class():
         "SLOT_MOVE": omni_math.SLOT_MOVE,
         "wrap_to_pi": omni_math.wrap_to_pi,
     }
-    for name in ("SPAWN_PLATFORM", "OmniExposureLedger", "block_mask_from_height_field",
+    for name in ("OMNI_SPAWN_SPLIT_KEYS", "SPAWN_PLATFORM", "OmniExposureLedger", "block_mask_from_height_field",
                  "episode_exposure_omni", "global_pixel_index", "promotion_mask",
                  "sector_index", "tile_pixel_index", "tracking_ratio"):
         ns[name] = getattr(ox, name)
@@ -594,6 +594,9 @@ def _event(slot_ids, *, cmd_xy=(1.0, 0.0), speed_b=(1.0, 0.0), min_cmd_dist=1.0)
     ev.spawn_kind = torch.zeros(n, dtype=torch.long)
     ev.is_obst_tile = torch.ones(n, dtype=torch.bool)
     ev.exposure = ox.OmniExposureLedger(N_SECT, capacity=64)
+    # the CommandTerm's metric dict (the real term's carries every emit_keys key from __init__;
+    # _finalize_episodes adds the spawn-kind split keys to it once their groups fill)
+    ev.metrics = {}
     return ev
 
 
@@ -671,6 +674,10 @@ def test_finalize_pushes_the_move_ratio_with_its_own_validity_rule():
     # the unrestricted ratio is untouched and keeps its own (all-valid) population
     assert means["track_ratio_mean"] == pytest.approx(0.5)
     assert ev._exposure_means["track_ratio_move_mean"] == pytest.approx(0.625)
+    # PPO-construction plan step 2 (2026-10-01): every row is platform-spawned, so only the non-RSI
+    # half of the spawn-kind split exists -- the RSI metric is ABSENT, not 0.0
+    assert means["track_ratio_move_mean_norsi"] == pytest.approx(0.625)
+    assert "track_ratio_mean_norsi" in ev.metrics and "track_ratio_mean_rsi" not in ev.metrics
 
 
 def test_the_command_term_probe_requires_the_slot_the_gate_reads():

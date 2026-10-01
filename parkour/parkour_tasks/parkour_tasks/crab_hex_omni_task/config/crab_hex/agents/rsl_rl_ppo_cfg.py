@@ -31,6 +31,14 @@ A FOURTH, DEFAULT-OFF delta (side-speed-bisection plan step 1a, 2026-09-28):
 four-image one. Unset, ``_repoint_symmetry`` writes the same ``OMNI_MIRROR`` path it always
 has, so every existing run is byte-identical.
 
+A FIFTH, DEFAULT-OFF delta (PPO-construction plan step 2, 2026-10-01): the PPO-construction knobs --
+``KRABBY_ACTION_BOUND_LOSS`` / ``_BOUND_RAMP`` / ``_BOUND``, ``KRABBY_STD_PARAM``,
+``KRABBY_INIT_STD``, ``KRABBY_PPO_SCHEDULE`` / ``_LR`` / ``_DESIRED_KL`` / ``_KL_STOP`` /
+``_HIST_LR`` / ``_HAND_DIAG`` -- through the SAME ``apply_exploration_knobs`` call below (so both
+runners apply them). Unset, each writes nothing; set, each prints ``[KNOB] <NAME>=<value> consumed``
+and lands on the dumped cfg, and the runner refuses any algorithm / policy key its classes do not
+accept, so none can be dropped silently.
+
 Neither forward RL runner's ``__post_init__`` calls its own ``super()``:
 ``super().__post_init__()`` from the classes below therefore lands on the forward body and
 runs exactly it, once.
@@ -65,7 +73,7 @@ FA_MIRROR = (
 
 
 def _apply_exploration_knobs(cfg) -> None:
-    """The runner-side motion-quality knobs (no-op while all three are unset)."""
+    """The runner-side motion-quality and PPO-construction knobs (no-op while all are unset)."""
     from parkour_tasks.crab_hex_omni_task.config.crab_hex.motion_knobs import (  # noqa: PLC0415
         apply_exploration_knobs,
     )

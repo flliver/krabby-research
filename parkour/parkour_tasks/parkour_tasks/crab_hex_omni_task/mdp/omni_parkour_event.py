@@ -55,6 +55,7 @@ from parkour_isaaclab.envs.mdp.parkours.parkour_events_cfg import ParkourEventsC
 
 from .crab_hex_omni_command_math import SLOT_MOVE, wrap_to_pi
 from .omni_exposure import (
+    OMNI_SPAWN_SPLIT_KEYS,
     SPAWN_PLATFORM,
     OmniExposureLedger,
     block_mask_from_height_field,
@@ -374,6 +375,12 @@ class OmniParkourEvent(ParkourEvent):
             r_max=self.ep_r_max[ids].cpu(),
         )
         self._exposure_means = self.exposure.means()
+        # The spawn-kind split keys (OMNI_SPAWN_SPLIT_KEYS) appear in the means only once their
+        # group is non-empty; the metric is created THEN, seeded with its value, so an empty group
+        # is never logged (rather than logged as 0.0 like the emit_keys rings).
+        for key in OMNI_SPAWN_SPLIT_KEYS:
+            if key in self._exposure_means and key not in self.metrics:
+                self.metrics[key] = torch.full((self.num_envs,), float(self._exposure_means[key]), device="cpu")
 
     # ------------------------------------------------------------------ reset / promote
 

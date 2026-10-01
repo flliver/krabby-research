@@ -43,6 +43,56 @@ except ImportError:
             _STORE_CODE_STATE_WARNED = True
         return []
 
+
+#: Algorithm-cfg keys the isaaclab_rl ``RslRlPpoAlgorithmCfg`` carries that ``PPOWithExtractor`` has
+#: no parameter for: dropped with the "Ignoring unsupported PPO config keys" warning. Every other key
+#: the constructor does not accept raises.
+ALG_CFG_IGNORED_KEYS = ("share_cnn_encoders",)
+#: The algorithm-cfg keys the distillation runner passes to ``DistillationWithExtractor``.
+DISTILLATION_ALG_CFG_KEYS = ("learning_rate", "max_grad_norm")
+
+
+def filter_ppo_alg_cfg(alg_class, alg_cfg: dict) -> dict:
+    """The algorithm-cfg keys ``alg_class.__init__`` accepts; raise on any other unknown key.
+
+    Newer IsaacLab/RSL-RL configs inject algorithm keys this project-local class has no use for;
+    those are allow-listed (:data:`ALG_CFG_IGNORED_KEYS`) and dropped with the "Ignoring unsupported
+    PPO config keys" warning, exactly as before. ANY OTHER unknown key is a typo or a knob this
+    checkout's PPO does not implement (a worktree knob reaching the main checkout's PPO, say) and
+    RAISES (PPO-construction plan fix 5b): a silently dropped knob trains the wrong recipe behind a
+    clean log.
+    """
+    init_params = inspect.signature(alg_class.__init__).parameters
+    unknown_keys = sorted(set(alg_cfg) - set(init_params) - set(ALG_CFG_IGNORED_KEYS))
+    if unknown_keys:
+        raise ValueError(
+            f"Unknown algorithm config keys for {alg_class.__name__}: {', '.join(unknown_keys)} "
+            f"(allow-listed and ignored: {', '.join(ALG_CFG_IGNORED_KEYS)})"
+        )
+    filtered_alg_cfg = {k: v for k, v in alg_cfg.items() if k in init_params}
+    dropped_keys = sorted(set(alg_cfg.keys()) - set(filtered_alg_cfg.keys()))
+    if dropped_keys:
+        logging.getLogger(__name__).warning(
+            "Ignoring unsupported PPO config keys for %s: %s",
+            alg_class.__name__,
+            ", ".join(dropped_keys),
+        )
+    return filtered_alg_cfg
+
+
+def warn_unused_distillation_alg_cfg(alg_class, alg_cfg: dict) -> list[str]:
+    """The distillation algorithm takes only ``learning_rate`` / ``max_grad_norm`` from the shared
+    algorithm cfg; the rest is (and stays) unused -- now said out loud rather than dropped silently."""
+    unused_keys = sorted(set(alg_cfg) - set(DISTILLATION_ALG_CFG_KEYS))
+    if unused_keys:
+        logging.getLogger(__name__).warning(
+            "Ignoring algorithm config keys %s does not use: %s",
+            alg_class.__name__,
+            ", ".join(unused_keys),
+        )
+    return unused_keys
+
+
 class OnPolicyRunnerWithExtractor(OnPolicyRunner):
     def _resolve_policy_class(self, class_name: str):
         return eval(class_name)
@@ -114,6 +164,7 @@ class OnPolicyRunnerWithExtractor(OnPolicyRunner):
         self.learn = self.learn_rl if self.depth_encoder_cfg is None else self.learn_vision
         if self.depth_encoder_cfg is not None:
             alg_class = eval(self.alg_cfg.pop("class_name"))
+            warn_unused_distillation_alg_cfg(alg_class, self.alg_cfg)
             self.alg: DistillationWithExtractor = alg_class(
                                                     policy = policy, 
                                                     estimator= estimator, 
@@ -128,17 +179,7 @@ class OnPolicyRunnerWithExtractor(OnPolicyRunner):
         else:
             self.dagger_update_freq = self.alg_cfg.pop("dagger_update_freq")
             alg_class = eval(self.alg_cfg.pop("class_name"))
-            # Newer IsaacLab/RSL-RL configs may inject extra algorithm keys
-            # (e.g., "optimizer") not accepted by this project-local class.
-            init_params = inspect.signature(alg_class.__init__).parameters
-            filtered_alg_cfg = {k: v for k, v in self.alg_cfg.items() if k in init_params}
-            dropped_keys = sorted(set(self.alg_cfg.keys()) - set(filtered_alg_cfg.keys()))
-            if dropped_keys:
-                logging.getLogger(__name__).warning(
-                    "Ignoring unsupported PPO config keys for %s: %s",
-                    alg_class.__name__,
-                    ", ".join(dropped_keys),
-                )
+            filtered_alg_cfg = filter_ppo_alg_cfg(alg_class, self.alg_cfg)
             self.alg: PPOWithExtractor = alg_class(
                                                     policy, 
                                                     estimator, 
@@ -342,6 +383,7 @@ class OnPolicyRunnerWithExtractor(OnPolicyRunner):
                     self.alg.compute_returns(privileged_obs)
 
             # update policy
+            self.alg.iteration = it          # the per-hand diagnostic's cadence (read-only; no numerics)
             loss_dict = self.alg.update()
             if hist_encoding:
                 print("Updating dagger...")
@@ -541,8 +583,15 @@ class OnPolicyRunnerWithExtractor(OnPolicyRunner):
         for key, value in locs["loss_dict"].items():
             self.writer.add_scalar(f"Loss/{key}", value, locs["it"])
         self.writer.add_scalar("Loss/learning_rate", self.alg.learning_rate, locs["it"])
+        # PPO-construction telemetry (always on, RNG-free; ``PPOWithExtractor.update``).
+        telemetry = dict(getattr(self.alg, "telemetry", None) or {})
+        for key, value in telemetry.items():
+            self.writer.add_scalar(f"PPO/{key}", value, locs["it"])
         policy = self.alg.policy
-        if hasattr(policy, "std"):
+        if getattr(policy, "noise_std_type", None) == "soft":
+            # the soft-std parameter is unconstrained: log the sigma the distribution actually uses
+            action_std = torch.mean(policy.effective_std()).item()
+        elif hasattr(policy, "std"):
             action_std = torch.mean(policy.std).item()
         elif hasattr(policy, "log_std"):
             action_std = torch.mean(torch.exp(policy.log_std)).item()
@@ -576,6 +625,8 @@ class OnPolicyRunnerWithExtractor(OnPolicyRunner):
             log_string += f"""{'Mean reward:':>{pad}} {statistics.mean(locs['rewbuffer']):.4f}\n"""
         for key, value in locs["loss_dict"].items():
             log_string += f"""{f'Mean {key}:':>{pad}} {value:.4f}\n"""
+        for key, value in telemetry.items():
+            log_string += f"""{f'PPO/{key}:':>{pad}} {value:.6g}\n"""
         if len(locs.get("lenbuffer", [])) > 0:
             log_string += f"""{'Mean episode length:':>{pad}} {statistics.mean(locs['lenbuffer']):.2f}\n"""
         log_string += ep_string
@@ -742,6 +793,11 @@ class OnPolicyRunnerWithExtractor(OnPolicyRunner):
             #    history-encoder / depth optimizers); without it every resume restarts them
             if self.cfg.get("resume_alg_state", True):
                 self._load_alg_state(loaded_dict)
+            # -- the schedule's LR into the freshly loaded optimizer(s): a fixed / epoch_kl run
+            #    resuming from ANY checkpoint (an adaptive head's floor LR included) trains at its
+            #    own LR, not the saved one (no-op for the adaptive schedule; PPO-construction fix 5a)
+            if isinstance(self.alg, PPOWithExtractor):
+                self.alg.apply_configured_learning_rates()
         # -- load current learning iteration
         if resumed_training:
             self.current_learning_iteration = loaded_dict["iter"]

@@ -133,6 +133,8 @@ def reset_from_reference_states_omni(
     yaw_range: tuple[float, float] = (-math.pi, math.pi),
     walk_floor: float = 0.21,
     source="all",
+    stage_cam: bool = False,
+    stage_cam_debug: bool = False,
 ) -> None:
     """Seed a Bernoulli(``fraction``) subset of the resetting envs from the omni bank.
 
@@ -148,6 +150,15 @@ def reset_from_reference_states_omni(
             clip): below it the gait clock stalls and the "seeded frame" would be told to
             stand still.
         source: ``0``, ``1`` or ``"all"`` -- which provenance tag to draw frames from.
+        stage_cam: ``KRABBY_RSI_CAM_STAGE`` (default off; the param is absent unless armed).
+            Stage the frame's cam shaft joint velocities (rad/s, in the action term's
+            ``_cam_shaft_joint_ids`` order) on ``action_term.rsi_cam_vel_staged``; the action
+            term's reset -- which runs AFTER this event -- seeds its applied cam target and the
+            cam columns of its action history from them. Writing them here directly would be
+            undone by that reset.
+        stage_cam_debug: ``KRABBY_RSI_CAM_STAGE_DEBUG`` (default off). Also hand the frame's cam
+            velocities to the action term's debug read-out (independent of ``stage_cam``, so a
+            staging-off row reports the unstaged zeros it starts from).
     """
     bank = _load_bank(bank_path, str(env.device))
     pick = torch.rand(len(env_ids), device=env.device) < fraction
@@ -190,6 +201,17 @@ def reset_from_reference_states_omni(
     #    before the action manager's reset), exactly as the forward event does.
     action_term = env.action_manager.get_term("joint_pos")
     action_term.rsi_clock_staged[ids] = bank["clock_phase"][rows]
+
+    # -- cam velocity (KRABBY_RSI_CAM_STAGE, default off): staged like the clock, consumed by
+    #    the action term's reset. The bank's joint arrays are in ASSET joint order.
+    if stage_cam or stage_cam_debug:
+        cam_jv = bank["joint_vel"][rows][:, action_term._cam_shaft_joint_ids]
+        if stage_cam:
+            action_term.rsi_cam_vel_staged[ids] = cam_jv
+            action_term.rsi_cam_stage_pending = True
+        if stage_cam_debug:
+            action_term.rsi_cam_debug_jv[ids] = cam_jv
+            action_term.rsi_cam_debug_pending = True
 
     # -- command: stage the frame's own momentum so the first resample continues it.
     cmd_term = env.command_manager.get_term("base_velocity")

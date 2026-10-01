@@ -91,6 +91,7 @@ __all__ = [
     "SPAWN_PLATFORM",
     "SPAWN_RSI",
     "OMNI_EXTRA_KEYS",
+    "OMNI_SPAWN_SPLIT_KEYS",
     "BLOCK_PAD_QUANTILE",
     "OmniExposureLedger",
     "block_mask_from_height_field",
@@ -135,6 +136,27 @@ Grouping (stated once, because a mixed rule would be a silent trap):
 * ``block_steps_mean`` -- mean over OBSTACLE-TILE episodes of the number of steps with a
   foot over a block pixel (identically zero on flat tiles, so grouping it with
   ``field_frac_mean``'s obstacle-tile rule keeps it independent of the flat proportion).
+"""
+
+OMNI_SPAWN_SPLIT_KEYS = (
+    "track_ratio_mean_rsi",
+    "track_ratio_mean_norsi",
+    "track_ratio_move_mean_rsi",
+    "track_ratio_move_mean_norsi",
+)
+"""The two tracking ratios split by SPAWN KIND (PPO-construction plan step 2, 2026-10-01).
+
+Each is its parent key's mean (same validity rule) over the episodes that STARTED from an RSI
+frame (``spawn_kind == SPAWN_RSI``) or from anything else, on ALL terrain -- flat and obstacle
+tiles alike. That is deliberately NOT the forward ledger's ``*_rsi`` convention (obstacle-tile RSI
+episodes only): the question these answer is "does a seeded fast gait keep tracking", which a
+flat-tile restriction would mostly throw away.
+
+EMPTY GROUPS ARE NOT REPORTED. :meth:`OmniExposureLedger.means` leaves a key out until its ring has
+received an episode (so a run without RSI never shows ``*_rsi``), and the omni parkour term only
+creates the metric when the key first appears -- never a 0.0 that would read as "tracks nothing".
+They are kept OUT of :data:`OMNI_EXTRA_KEYS` / ``emit_keys`` for that reason: those keys are
+emitted from the first iteration on, as 0.0 while empty.
 """
 
 BLOCK_PAD_QUANTILE = 0.5
@@ -398,6 +420,7 @@ class OmniExposureLedger:
         self.n_sectors = int(n_sectors)
         self.base = ExposureLedger(self.n_sectors, capacity=capacity, device=device)
         self._extra: dict[str, RingMean] = {k: RingMean(capacity, device) for k in OMNI_EXTRA_KEYS}
+        self._split: dict[str, RingMean] = {k: RingMean(capacity, device) for k in OMNI_SPAWN_SPLIT_KEYS}
 
     @staticmethod
     def emit_keys(n_sectors: int) -> list[str]:
@@ -430,8 +453,12 @@ class OmniExposureLedger:
         ``track_ratio_move`` without a validity mask counts every episode.
         """
         self.base.push_episodes(per_ep, spawn_kind, is_obst, failed, ep_steps)
+        rsi = spawn_kind == SPAWN_RSI
         valid = track_ratio_valid.bool()
         self._extra["track_ratio_mean"].push(track_ratio[valid])
+        # the spawn-kind split (OMNI_SPAWN_SPLIT_KEYS): all terrain, same validity rule
+        self._split["track_ratio_mean_rsi"].push(track_ratio[valid & rsi])
+        self._split["track_ratio_mean_norsi"].push(track_ratio[valid & ~rsi])
         if track_ratio_move is not None:
             move_valid = (
                 torch.ones_like(track_ratio_move, dtype=torch.bool)
@@ -439,13 +466,18 @@ class OmniExposureLedger:
                 else track_ratio_move_valid.bool()
             )
             self._extra["track_ratio_move_mean"].push(track_ratio_move[move_valid])
+            self._split["track_ratio_move_mean_rsi"].push(track_ratio_move[move_valid & rsi])
+            self._split["track_ratio_move_mean_norsi"].push(track_ratio_move[move_valid & ~rsi])
         self._extra["heading_err_rms_mean"].push(heading_err_rms)
         self._extra["block_steps_mean"].push(block_steps[is_obst.bool()])
         self._extra["r_max_mean"].push(r_max)
 
     def means(self) -> dict[str, float]:
+        """Every :meth:`emit_keys` key (NaN while empty), plus each :data:`OMNI_SPAWN_SPLIT_KEYS`
+        key whose group has received at least one episode (absent, not NaN, before that)."""
         out = self.base.means()
         out.update({k: r.mean() for k, r in self._extra.items()})
+        out.update({k: r.mean() for k, r in self._split.items() if r.n > 0})
         return out
 
 

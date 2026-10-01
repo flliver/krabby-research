@@ -108,6 +108,19 @@ class CrabHexDelayedJointPositionAction(DelayedJointPositionAction):
         # RSI staging (crab_hex_rsi): events run before action-manager reset, so the RSI
         # event stages the reference clock here and reset() consumes it (NaN = not staged).
         self.rsi_clock_staged = torch.full((self.num_envs,), float("nan"), device=self.device)
+        # NOTE(PPO-construction plan step 4, 2026-10-01): RSI CAM STAGING (``KRABBY_RSI_CAM_STAGE``,
+        # DEFAULT OFF). Same staging pattern as the clock: the omni RSI event writes the bank
+        # frame's cam shaft velocities (rad/s, ``_cam_shaft_joint_ids`` order; NaN = not staged)
+        # and raises ``rsi_cam_stage_pending``; reset() seeds the applied cam target and the cam
+        # columns of the action history from them (see ``_apply_rsi_cam_stage``). While the flag
+        # is down -- every run without the knob -- reset() never touches these buffers.
+        n_cam = len(self._cam_action_cols)
+        self.rsi_cam_vel_staged = torch.full((self.num_envs, n_cam), float("nan"), device=self.device)
+        self.rsi_cam_stage_pending = False
+        # ``KRABBY_RSI_CAM_STAGE_DEBUG`` (default off): the frame's cam velocities again, for the
+        # one-line step-0 read-out only (``_report_rsi_cam_stage``); never applied.
+        self.rsi_cam_debug_jv = torch.full((self.num_envs, n_cam), float("nan"), device=self.device)
+        self.rsi_cam_debug_pending = False
 
         # NOTE(hardware-measurements): resolve the pitch linkage joints, leg-aligned. Each
         # index i below refers to the same leg across all four lists/tensors.
@@ -189,6 +202,14 @@ class CrabHexDelayedJointPositionAction(DelayedJointPositionAction):
             env_ids = torch.arange(self.num_envs, device=self.device)
         self._rod_sync_needed[env_ids] = True
         self._cam_vel_applied[env_ids] = 0.0
+        # RSI cam staging (default off): runs after the event that staged it (env reset order:
+        # events, then the action manager) and after the zeroing above, which it overrides for
+        # the staged envs only.
+        cam_staged = self.rsi_cam_stage_pending
+        if cam_staged:
+            self._apply_rsi_cam_stage(env_ids)
+        if self.rsi_cam_debug_pending:
+            self._report_rsi_cam_stage(env_ids, cam_staged)
         # Random initial clock phase: decorrelates the schedule across envs (no batch-wide
         # synchronized swing) and makes the policy phase-invariant. RSI-staged envs instead
         # take the reference phase (see crab_hex_rsi).
@@ -196,6 +217,93 @@ class CrabHexDelayedJointPositionAction(DelayedJointPositionAction):
         staged = self.rsi_clock_staged[env_ids]
         self.clock_phase[env_ids] = torch.where(torch.isfinite(staged), staged, fresh)
         self.rsi_clock_staged[env_ids] = float("nan")
+
+    def _cam_raw_bounds(self, env_ids, like: torch.Tensor):
+        """``(scale, lo, hi)`` shaped like ``like`` (``(k, n_cam)``) for the cam columns of
+        ``env_ids``: rad/s per raw action unit (``CAM_VEL_SCALE`` = pi), and the raw bounds a cam
+        action can take (+-1, narrowed by the term's own clip when it has one)."""
+        cols = self._cam_action_cols
+        if isinstance(self._scale, torch.Tensor):
+            scale = self._scale[env_ids][:, cols]
+        else:
+            scale = torch.full_like(like, float(self._scale))
+        lo = torch.full_like(scale, -1.0)
+        hi = torch.full_like(scale, 1.0)
+        if self.cfg.clip is not None:
+            clip = self._clip[env_ids][:, cols]
+            lo, hi = torch.maximum(lo, clip[..., 0]), torch.minimum(hi, clip[..., 1])
+        return scale, lo, hi
+
+    def _apply_rsi_cam_stage(self, env_ids) -> None:
+        """Seed the RSI-staged envs' cam state from the bank frame (``KRABBY_RSI_CAM_STAGE``).
+
+        For each env whose staged row is finite (``jv``, rad/s):
+
+        * the APPLIED cam velocity target (the acceleration-limited state ``apply_actions`` slews
+          from) = ``clamp(jv, -pi, +pi)`` -- i.e. +-``CAM_VEL_SCALE``, the full-action speed;
+        * the cam columns of EVERY slot of the action history = ``clip(jv / pi, -1, +1)``, the raw
+          action that commands that speed. The history holds CLIPPED raw actions, so this is what a
+          policy already walking at that speed would have left there: the delayed read in
+          ``process_actions`` (``history[:, -1 - delay]``) and the ``last_action`` observation of
+          step 0 (``history[:, -1]``) both see it.
+
+        Rod columns, ``_raw_actions`` (overwritten by the first ``process_actions`` before anything
+        reads it) and every unstaged env are left exactly as the plain reset left them. The staging
+        buffer is then cleared: a staged row is valid for the reset it was staged in only.
+        """
+        staged = self.rsi_cam_vel_staged[env_ids]
+        ok = torch.isfinite(staged).all(dim=1, keepdim=True)
+        jv = torch.nan_to_num(staged, nan=0.0)
+        scale, lo, hi = self._cam_raw_bounds(env_ids, jv)
+        applied = torch.minimum(torch.maximum(jv, lo * scale), hi * scale)
+        raw = torch.minimum(torch.maximum(jv / scale, lo), hi)
+        self._cam_vel_applied[env_ids] = torch.where(ok, applied, self._cam_vel_applied[env_ids])
+        cols = self._cam_action_cols
+        hist = self._action_history_buf[env_ids]
+        cam_hist = hist[:, :, cols]
+        hist[:, :, cols] = torch.where(ok.unsqueeze(1), raw.unsqueeze(1).expand_as(cam_hist), cam_hist)
+        self._action_history_buf[env_ids] = hist
+        self.rsi_cam_vel_staged.fill_(float("nan"))
+        self.rsi_cam_stage_pending = False
+
+    def _report_rsi_cam_stage(self, env_ids, staged: bool) -> None:
+        """``KRABBY_RSI_CAM_STAGE_DEBUG``: one tagged line for the RSI-seeded envs of this reset
+        (the rung-0b step-0 check, parsed by the campaign's ``scripts/rung0b_read.py``)::
+
+            RSI_CAM_STAGE_DEBUG n_rsi=<n> stage=<on|off> target_err=<e> hist_err=<e>
+                target_absmax=<a> hist_absmax=<a> bank_absmax=<a>
+
+        computed PER ENV against the frame's own cam velocities ``jv`` (rad/s):
+
+        * ``target_err`` = max |applied cam target - clamp(jv, lo*scale, hi*scale)| (rad/s);
+        * ``hist_err`` = max over envs, history slots and cam columns of
+          |history cam column - clip(jv/scale, lo, hi)|;
+        * ``*_absmax`` = max |applied target|, |history cam columns|, |bank jv|.
+
+        Staging on: both errors ~0. Staging off: both absmax read 0 while ``bank_absmax`` does not
+        (and the errors are then the size of the frame's speeds)."""
+        jv = self.rsi_cam_debug_jv[env_ids]
+        rows = torch.isfinite(jv).all(dim=1)
+        n = int(rows.sum())
+        if n:
+            jv_r = jv[rows]
+            applied = self._cam_vel_applied[env_ids][rows]
+            cam_hist = self._action_history_buf[env_ids][rows][:, :, self._cam_action_cols]
+            scale, lo, hi = (b[rows] for b in self._cam_raw_bounds(env_ids, jv))
+            want_target = torch.minimum(torch.maximum(jv_r, lo * scale), hi * scale)
+            want_hist = torch.minimum(torch.maximum(jv_r / scale, lo), hi)
+            target_err = float((applied - want_target).abs().max())
+            hist_err = float((cam_hist - want_hist.unsqueeze(1)).abs().max())
+            print(
+                f"RSI_CAM_STAGE_DEBUG n_rsi={n} stage={'on' if staged else 'off'} "
+                f"target_err={target_err:.6g} hist_err={hist_err:.6g} "
+                f"target_absmax={float(applied.abs().max()):.6g} "
+                f"hist_absmax={float(cam_hist.abs().max()):.6g} "
+                f"bank_absmax={float(jv_r.abs().max()):.6g}",
+                flush=True,
+            )
+        self.rsi_cam_debug_jv.fill_(float("nan"))
+        self.rsi_cam_debug_pending = False
 
     def _clip_raw_actions(self, actions: torch.Tensor) -> torch.Tensor:
         if self.cfg.clip is None:

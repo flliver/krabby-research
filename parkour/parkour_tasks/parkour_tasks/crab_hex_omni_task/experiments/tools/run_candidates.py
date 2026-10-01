@@ -1623,6 +1623,17 @@ def _track_l1_w_ok(txt: str, value) -> bool:
     return _weight_ok(txt, "penalty_tracking_error_l1", value)
 
 
+def _rsi_cam_stage_ok(txt: str, value, var: str) -> bool:
+    """``KRABBY_RSI_CAM_STAGE`` / ``_DEBUG`` (PPO-construction plan step 4, 2026-10-01; default off):
+    the omni RSI reset event's ``stage_cam`` / ``stage_cam_debug`` param. Armed: the event EXISTS and
+    carries ``<param>: true`` (staging armed with RSI off has nothing to ride on -- a recipe that
+    says something it does not train). Off: the param is absent (or false); the event may be absent.
+    """
+    param = _motion().RSI_CAM_STAGE_PARAMS[var]
+    got = _grep_scalar(_yaml_block(txt, "rsi_reference_reset"), param, indent=r"\s{6}")
+    return got == "true" if _motion().parse_flag(value, var) else got in (None, "false")
+
+
 def _rsi_frac_ok(txt: str, value) -> bool:
     """``KRABBY_RSI_FRAC``: 0 (or unset) means ``events.rsi_reference_reset`` is ABSENT -- the
     forward knob block (``crab_hex_env_cfg.py``) only builds the term for a fraction > 0.0, and
@@ -1684,6 +1695,76 @@ def _agent_optional_ok(txt: str, key: str, parsed) -> bool:
     if parsed is None:
         return got is None
     return got is not None and _num(got) is not None and abs(_num(got) - float(parsed)) < 1e-9
+
+
+# ---- the PPO-construction knobs (PPO-construction plan step 2, 2026-10-01). All DEFAULT OFF: an
+# optional algorithm field is ABSENT while its knob is off; a field the runner cfg always carries
+# (schedule, learning_rate, desired_kl, init_noise_std, noise_std_type) is checked for presence
+# while off and for the exact value while on. Every read is scoped to its own top-level block.
+def _alg_block(txt: str) -> str:
+    return _yaml_block(txt, "algorithm", indent=0)
+
+
+def _alg_optional_ok(txt: str, key: str, parsed) -> bool:
+    """:func:`_agent_optional_ok` inside the ``algorithm:`` block (2-space keys)."""
+    return _agent_optional_ok(_alg_block(txt), key, parsed)
+
+
+def _present_or_equal(block: str, key: str, parsed) -> bool:
+    """A field the cfg always carries: present while the knob is off, else equal to its value."""
+    got = _grep_scalar(block, key, indent=r"\s{2}")
+    if parsed is None:
+        return got is not None
+    return got is not None and _num(got) is not None and abs(_num(got) - float(parsed)) < 1e-12
+
+
+def _grep_list_n(txt: str, key: str, n: int) -> tuple | None:
+    """``key:`` followed by ``n`` ``- <number>`` lines (a plain YAML list), as floats."""
+    m = re.search(rf"^\s*{re.escape(key)}:\s*\n((?:\s*-\s*[-\d.eE+]+\s*\n){{{n}}})", txt, re.M)
+    if not m:
+        return None
+    try:
+        return tuple(float(v) for v in re.findall(r"-\s*([-\d.eE+]+)", m.group(1))[:n])
+    except ValueError:
+        return None
+
+
+def _bound_ramp_ok(txt: str, value) -> bool:
+    """``KRABBY_ACTION_BOUND_RAMP``: ``action_bound_loss_ramp: [c0, c1, n]`` in the algorithm block."""
+    ramp = _motion().parse_bound_ramp(value)
+    block = _alg_block(txt)
+    if ramp is None:
+        return _grep_scalar(block, "action_bound_loss_ramp") is None
+    got = _grep_list_n(block, "action_bound_loss_ramp", 3)
+    return got is not None and all(abs(a - float(b)) < 1e-12 for a, b in zip(got, ramp))
+
+
+def _std_param_ok(txt: str, value) -> bool:
+    """``KRABBY_STD_PARAM``: ``noise_std_type: soft`` in the policy block; off = anything but soft."""
+    got = _grep_scalar(_yaml_block(txt, "policy", indent=0), "noise_std_type", indent=r"\s{2}")
+    if got is None:
+        return False
+    got = got.strip().strip("'\"")
+    return got == "soft" if _motion().parse_std_param(value) == "soft" else got != "soft"
+
+
+def _ppo_schedule_ok(txt: str, value) -> bool:
+    """``KRABBY_PPO_SCHEDULE``: the algorithm block's ``schedule`` (always present)."""
+    want = _motion().parse_ppo_schedule(value)
+    got = _grep_scalar(_alg_block(txt), "schedule", indent=r"\s{2}")
+    if got is None:
+        return False
+    return want is None or got.strip().strip("'\"") == want
+
+
+def _num_envs_ok(txt: str, value) -> bool:
+    """``KRABBY_NUM_ENVS``: ``scene.num_envs`` in params/env.yaml (the terrain block's own
+    ``num_envs`` sits deeper and is not read); blank = the driver's stock count, any value."""
+    want = _motion().parse_num_envs(value)
+    got = _grep_scalar(_yaml_block(txt, "scene", indent=0), "num_envs", indent=r"\s{2}")
+    if got is None or _num(got) is None:
+        return False
+    return want is None or int(_num(got)) == want
 
 
 # ---- the clock-deprecation knobs (clock-deprecation plan step 4, 2026-09-23). The two clock reward
@@ -1826,6 +1907,33 @@ def _stroke_cat_w_ok(txt: str, value) -> bool:
     return True
 
 
+def _check_rsi_cam_stage_composition(env: dict, where: str, reasons: list) -> None:
+    """``KRABBY_RSI_CAM_STAGE`` / ``_DEBUG`` need a non-zero ``KRABBY_RSI_FRAC`` in the SAME composed
+    stage env (PPO-construction plan step 4, 2026-10-01): the staging rides on the RSI reset event,
+    which the forward knob block only builds for a fraction > 0. Config build tolerates it (a direct
+    rung-0b FRAC-0 row runs that way on purpose) and the dump audit would only catch it after the
+    window has trained; a ladder recipe that arms it on an RSI-off stage is refused here, at
+    ``--dry-run``. A malformed value is left to ``_check_knob``'s parser check.
+    """
+    mk = _motion()
+    armed = []
+    for var in mk.RSI_CAM_STAGE_PARAMS:
+        try:
+            if mk.parse_flag(env.get(var), var):
+                armed.append(var)
+        except ValueError:
+            continue
+    if not armed:
+        return
+    try:
+        frac = float(str(env.get("KRABBY_RSI_FRAC") or "0").strip() or "0")
+    except ValueError:
+        return
+    if frac <= 0.0:
+        reasons.append(f"{where}: {', '.join(armed)} armed but KRABBY_RSI_FRAC is unset or 0 in this "
+                       "composed stage -- there is no RSI reset event to stage the cam velocity on")
+
+
 def _check_stroke_cat_w_composition(env: dict, where: str, reasons: list) -> None:
     """``KRABBY_OMNI_STROKE_CAT_W`` needs a non-zero ``KRABBY_OMNI_STROKE_W`` in the SAME composed
     stage env (per-category stroke plan, 2026-09-27): the applier itself refuses this at config
@@ -1850,7 +1958,13 @@ def _check_stroke_cat_w_composition(env: dict, where: str, reasons: list) -> Non
 AGENT_DUMP_KEYS = frozenset({"KRABBY_ACTION_STD_MAX", "KRABBY_ACTION_STD_RESET", "KRABBY_ENTROPY_COEF",
                             # side-speed-bisection plan step 1a (2026-09-28): the symmetry loss's
                             # data_augmentation_func lives on the runner cfg.
-                            "KRABBY_OMNI_MIRROR_IMAGES"})
+                            "KRABBY_OMNI_MIRROR_IMAGES",
+                            # PPO-construction plan step 2 (2026-10-01): every runner-side knob of
+                            # motion_knobs.PPO_CONSTRUCTION_KNOBS (KRABBY_NUM_ENVS is env-side).
+                            "KRABBY_ACTION_BOUND_LOSS", "KRABBY_ACTION_BOUND_RAMP", "KRABBY_ACTION_BOUND",
+                            "KRABBY_STD_PARAM", "KRABBY_INIT_STD", "KRABBY_PPO_SCHEDULE", "KRABBY_PPO_LR",
+                            "KRABBY_PPO_DESIRED_KL", "KRABBY_PPO_KL_STOP", "KRABBY_PPO_HIST_LR",
+                            "KRABBY_PPO_HAND_DIAG"})
 
 
 #: ``KRABBY_*`` -> what the config DUMP must show for it. Every overlay key a recipe may carry needs
@@ -1936,6 +2050,34 @@ OVERLAY_DUMP_CHECKS = {
     "KRABBY_EPISODE_S": lambda txt, v: _scalar_num_ok(txt, "episode_length_s", v, indent=""),
     # ---- side-bisect two-direction RSI bank (2026-09-30): the reset event's bank_path (compared as real paths).
     "KRABBY_RSI_BANK": _rsi_bank_ok,
+    # ---- PPO-construction knobs (plan step 2, 2026-10-01). Runner side (AGENT_DUMP_KEYS):
+    # params/agent.yaml, every field read inside its own top-level block (``learning_rate`` exists
+    # in BOTH algorithm and estimator). KRABBY_NUM_ENVS is env side: params/env.yaml's scene block.
+    "KRABBY_ACTION_BOUND_LOSS": lambda txt, v: _alg_optional_ok(txt, "action_bound_loss_coef",
+                                                                _motion().parse_bound_loss(v)),
+    "KRABBY_ACTION_BOUND_RAMP": _bound_ramp_ok,
+    "KRABBY_ACTION_BOUND": lambda txt, v: _alg_optional_ok(txt, "action_bound", _motion().parse_action_bound(v)),
+    "KRABBY_STD_PARAM": _std_param_ok,
+    "KRABBY_INIT_STD": lambda txt, v: _present_or_equal(_yaml_block(txt, "policy", indent=0), "init_noise_std",
+                                                        _motion().parse_init_std(v)),
+    "KRABBY_PPO_SCHEDULE": _ppo_schedule_ok,
+    "KRABBY_PPO_LR": lambda txt, v: _present_or_equal(_yaml_block(txt, "algorithm", indent=0), "learning_rate",
+                                                      _motion().parse_positive(v, "KRABBY_PPO_LR")),
+    "KRABBY_PPO_DESIRED_KL": lambda txt, v: _present_or_equal(_yaml_block(txt, "algorithm", indent=0),
+                                                              "desired_kl",
+                                                              _motion().parse_positive(v, "KRABBY_PPO_DESIRED_KL")),
+    "KRABBY_PPO_KL_STOP": lambda txt, v: _alg_optional_ok(txt, "kl_stop",
+                                                          _motion().parse_positive(v, "KRABBY_PPO_KL_STOP")),
+    "KRABBY_PPO_HIST_LR": lambda txt, v: _alg_optional_ok(txt, "hist_encoder_learning_rate",
+                                                          _motion().parse_positive(v, "KRABBY_PPO_HIST_LR")),
+    "KRABBY_PPO_HAND_DIAG": lambda txt, v: _alg_optional_ok(
+        txt, "hand_diag_vy_obs_col",
+        _motion().HAND_DIAG_VY_OBS_COL if _motion().parse_flag(v, "KRABBY_PPO_HAND_DIAG") else None),
+    "KRABBY_NUM_ENVS": _num_envs_ok,
+    # ---- RSI cam staging (PPO-construction plan step 4, 2026-10-01). Env side: params/env.yaml's
+    # events.rsi_reference_reset params, so every C_lr_rsi run (C0 included) proves its staging state.
+    "KRABBY_RSI_CAM_STAGE": lambda txt, v: _rsi_cam_stage_ok(txt, v, "KRABBY_RSI_CAM_STAGE"),
+    "KRABBY_RSI_CAM_STAGE_DEBUG": lambda txt, v: _rsi_cam_stage_ok(txt, v, "KRABBY_RSI_CAM_STAGE_DEBUG"),
 }
 
 
@@ -1949,7 +2091,9 @@ def overlay_checks(rec: dict, env: dict) -> list[tuple[str, bool]]:
     key by key. A FAIL halts the campaign (``halt:<xid> config_mismatch``) rather than deciding.
     The runner-side keys (:data:`AGENT_DUMP_KEYS` -- the exploration knobs) are read from the
     RUNNER dump, ``params/agent.yaml``, instead: that is where ``train.py`` writes the policy's std
-    clamp / reset and PPO's entropy coefficient.
+    clamp / reset and PPO's entropy coefficient. An overlay that arms a PPO-construction knob also
+    gets :func:`construction_log_checks` against the window's TRAINING LOG (2026-10-01): the dump is
+    the cfg, the log is what the algorithm actually consumed.
     """
     ckpt = rec.get("ckpt")
     if not ckpt:
@@ -1978,6 +2122,54 @@ def overlay_checks(rec: dict, env: dict) -> list[tuple[str, bool]]:
             out.append((f"overlay {key}={value} audited ({exc!r})", False))
             continue
         out.append((f"overlay {key}={value} in params/{dump}", ok))
+    out += construction_log_checks(rec, env)
+    return out
+
+
+#: The ``PPOWithExtractor`` constructor fields the PPO-construction knobs add: a training log whose
+#: "Ignoring unsupported PPO config keys" warning names one of them ran a PPO that DROPPED the knob
+#: (a stale checkout's runner -- the M1b import trap), whatever the cfg dump says.
+CONSTRUCTION_ALG_FIELDS = ("action_bound_loss_coef", "action_bound_loss_ramp", "action_bound", "kl_stop",
+                           "hist_encoder_learning_rate", "hand_diag_vy_obs_col")
+
+
+def construction_log_checks(rec: dict, env: dict) -> list[tuple[str, bool]]:
+    """The TRAINING LOG half of the PPO-construction audit (plan step 2, 2026-10-01; M1b spec).
+
+    Empty unless the overlay ARMS a PPO-construction knob (``motion_knobs.PPO_CONSTRUCTION_KNOBS``;
+    off spellings arm nothing). Then the window's training log (``rec["log"]``) must show, for every
+    armed knob, its exact ``[KNOB] <NAME>=<value> consumed`` line (written by ``apply_exploration_knobs`` -- or, for
+    ``KRABBY_NUM_ENVS``, by ``run_phases.train``); NO "Ignoring unsupported PPO config keys" line naming
+    a construction field; and, with the bound loss armed, ``Mean action_bound:`` (the loss ran).
+    The dump audit above cannot see any of that: ``params/agent.yaml`` is the cfg, not the algorithm.
+    """
+    mk = _motion()
+    armed = []
+    for key in getattr(mk, "PPO_CONSTRUCTION_KNOBS", ()):
+        if key not in (env or {}):
+            continue
+        try:
+            parsed = mk.MOTION_KNOB_PARSERS[key](str(env[key]))
+        except Exception:                                               # noqa: BLE001
+            continue                      # a bad value is the parser check's to report, not this one's
+        if parsed not in (None, False):
+            armed.append(key)
+    if not armed:
+        return []
+    log = rec.get("log")
+    if not log or not Path(log).exists():
+        return [(f"training log readable for the PPO-construction wiring audit ({log})", False)]
+    txt = Path(log).read_text(errors="ignore")
+    # the exact consumed line (never "[KNOB] <NAME>=<v> NOT consumed: ..." -- an armed knob nothing used)
+    out = [(f"log: [KNOB] {key} consumed",
+            re.search(rf"^\[KNOB\] {re.escape(key)}=\S+ consumed\s*$", txt, re.M) is not None)
+           for key in armed]
+    dropped = [ln for ln in txt.splitlines() if "Ignoring unsupported PPO config keys" in ln
+               and any(re.search(rf"\b{f}\b", ln) for f in CONSTRUCTION_ALG_FIELDS)]
+    out.append(("log: no PPO-construction field dropped by the runner", not dropped))
+    if mk.ACTION_BOUND_LOSS_VAR in armed:
+        out.append(("log: Mean action_bound printed (the bound loss ran)",
+                    re.search(r"^\s*Mean action_bound:", txt, re.M) is not None))
     return out
 
 
@@ -2407,6 +2599,7 @@ def validate_candidates(cands: dict, *, strict: bool = True, check_replay: bool 
             _check_require_env(stage_env_, where, require_env, r)
             _check_stroke_cat_w_composition(stage_env_, where, r)
             _check_cmd_obs_mirror_composition(stage_env_, where, r)
+            _check_rsi_cam_stage_composition(stage_env_, where, r)
         if screen_iters and total != screen_iters and name not in ref_only:
             r.append(f"chain {name} totals {total} iterations; every screen is {screen_iters} "
                      "(equal compute is what makes the screens comparable)")
@@ -2637,6 +2830,7 @@ def validate_candidates(cands: dict, *, strict: bool = True, check_replay: bool 
                 _check_require_env(senv, f"{cid} on {chain_name} stage {sname}", require_env, r)
                 _check_stroke_cat_w_composition(senv, f"{cid} on {chain_name} stage {sname}", r)
                 _check_cmd_obs_mirror_composition(senv, f"{cid} on {chain_name} stage {sname}", r)
+                _check_rsi_cam_stage_composition(senv, f"{cid} on {chain_name} stage {sname}", r)
         r = list(dict.fromkeys(r))          # one reason per distinct message, in order
         verdicts.append({"id": cid, "ok": not r, "deferred": deferred, "reasons": r, "notes": n})
 

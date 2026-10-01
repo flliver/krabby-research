@@ -6,6 +6,7 @@ USAGE
     <isaac_venv>/bin/python replay_motion_terms.py --run-dir <suite__omni stamp dir> --out <dir>
         [--train-env-yaml P] [--train-agent-yaml P] [--train-log-dir D]
         [--noise-sigmas 0.5,2.0] [--noise-samples 4] [--per-episode] [--limit N]
+        [--noise-tax] [--mu-bound B] [--action-rate-weights -0.3,0] [--checkpoint P]
 
 Reads one ``suite__omni`` eval stamp (``run_meta.json``, ``raw/episode_*.npz``,
 ``metrics/episode_*.json``; ``complete.json`` required), replays every reward term the campaign's
@@ -73,6 +74,25 @@ KNOWN, UNAVOIDABLE MISMATCHES (stated in the report)
   action-only terms are additionally Monte-Carlo'd at ``--noise-sigmas`` (``clip(mu + sigma eps)``)
   so the report shows the exploration-noise floor they would carry in training.
 * The eval's holds are fixed 12-s commands; training draws slots from the C1d c6 pool.
+
+THE PPO-CONSTRUCTION NOISE TAX (``2026-10-01_ppo_construction``, plan step 2 item 5; all opt-in,
+the defaults above are unchanged)
+
+* ``--noise-sigmas`` also takes ``grid`` (= :data:`NOISE_GRID`, incl. 0.8 -- arm A's init sigma --
+  and 1.65 -- the side heads' training sigma) and ``ckpt`` (the PER-DIM sigma of the eval's own
+  checkpoint, :func:`checkpoint_sigma`: ``std`` or ``exp(log_std)`` clamped to [0.05,
+  ``action_std_max``] as ``CrabHexActorCriticRMA`` does, or the soft parameterisation's
+  ``std_raw`` mapped through ``log_std = lo + (hi - lo)(tanh(x) + 1)/2``, lo = ln 0.05, hi = ln 2).
+* ``--mu-bound B`` models a bound loss: every noise sample is ALSO drawn around ``clip(mu, +-B)``
+  (``clip(clip(mu, +-B) + sigma eps, +-clip_actions)``, the SAME eps -- common random numbers), so
+  a bounded mean and the recorded saturated mean are priced side by side. Implies ``--noise-tax``.
+* ``--noise-tax`` adds :func:`noise_tax`: per category, the ``reward_action_rate`` value per
+  second (all scored episodes pooled) for the deterministic mean and every sigma, saturated and
+  bounded, priced at each ``--action-rate-weights`` weight (default -0.3 and 0, side by side) as a
+  cost and as the net task income, against the fast-vs-slow income margin
+  :data:`FAST_SLOW_MARGIN` (+0.29 to +0.32 /s).
+* ``side22_25__omni`` / ``side22_25lr__omni`` stamps are category-suite stamps (stand + side), so
+  they replay like ``suite__omni`` (only the categories they carry are scored).
 * The stand gate is the eval's stand hold, not ``stand_mask()``.
 * ``reward_tracking_yaw`` reads ``heading_err`` of row ``s + 1`` (whose ``heading_target`` equals step
   ``s``'s except on a hold boundary).
@@ -114,6 +134,23 @@ TARGET_SHARE = 0.10
 GATE2_MAX_SHARE = 0.15
 QUARTILE = 0.25
 MOTION_TOUCH_REF_N = 50.0                   # == gait_eval.metrics.MOTION_TOUCH_REF_N (pinned by test)
+
+#: ``--noise-sigmas grid`` (PPO-construction plan step 2 item 5): 0.8 = arm A's init sigma, 1.65 =
+#: the side heads' training sigma, 2.0 = the stock clamp ceiling.
+NOISE_GRID = (0.5, 0.8, 1.0, 1.65, 2.0)
+#: ``--noise-sigmas ckpt``: the label of the checkpoint's own per-dim sigma.
+CKPT_SIGMA = "ckpt"
+#: ``CrabHexActorCriticRMA``'s clamp (``ACTION_STD_MIN`` / stock ``ACTION_STD_MAX``).
+STD_CLAMP_MIN = 0.05
+STD_CLAMP_MAX = 2.0
+#: ``KRABBY_STD_PARAM=soft``: log_std = lo + (hi - lo) * (tanh(x) + 1) / 2 over [ln 0.05, ln 2].
+SOFT_LOG_STD_LO = math.log(0.05)
+SOFT_LOG_STD_HI = math.log(2.0)
+#: The fast-vs-slow income margin the noise tax is read against (RL review section 4.3; side-bisect
+#: HANDOFF_PPO section 7.E: the fast gait out-earns the two-direction nets by +0.29 to +0.32 /s).
+FAST_SLOW_MARGIN = (0.29, 0.32)
+#: ``--action-rate-weights`` default: the stock weight and arm B's ``KRABBY_ACTION_RATE_W=0``.
+ACTION_RATE_WEIGHTS = (-0.3, 0.0)
 
 
 # ============================================================================ training parameters
@@ -269,6 +306,73 @@ def train_params_from_dumps(env: dict | None, agent: dict | None, source: str) -
 def clip_actions(actions: np.ndarray, clip: float | None) -> np.ndarray:
     a = np.asarray(actions, dtype=np.float64)
     return a if clip is None else np.clip(a, -float(clip), float(clip))
+
+
+def soft_std(x) -> np.ndarray:
+    """``KRABBY_STD_PARAM=soft``: sigma from the raw parameter ``x`` (tanh-bounded log-std)."""
+    x = np.asarray(x, dtype=np.float64)
+    return np.exp(SOFT_LOG_STD_LO + 0.5 * (SOFT_LOG_STD_HI - SOFT_LOG_STD_LO) * (np.tanh(x) + 1.0))
+
+
+def sigma_from_state_dict(sd: dict, *, std_max: float = STD_CLAMP_MAX) -> tuple[np.ndarray, str]:
+    """Per-dim sigma from a policy ``model_state_dict``: the soft ``std_raw`` (bounded by
+    construction), else ``log_std`` / ``std`` clamped to ``[STD_CLAMP_MIN, std_max]`` exactly as
+    ``CrabHexActorCriticRMA.update_distribution`` does. Keys are matched on their last dotted
+    component; exactly one std parameter must exist."""
+    found = {}
+    for k, v in sd.items():
+        last = str(k).rsplit(".", 1)[-1]
+        if last in ("std_raw", "log_std", "std"):
+            found.setdefault(last, []).append((k, np.asarray(v.detach().cpu().numpy() if hasattr(v, "detach")
+                                                              else v, dtype=np.float64).reshape(-1)))
+    for kind in ("std_raw", "log_std", "std"):
+        if kind in found:
+            if len(found[kind]) != 1:
+                raise SystemExit(f"checkpoint has {len(found[kind])} '{kind}' parameters: {[k for k, _ in found[kind]]}")
+            key, x = found[kind][0]
+            if kind == "std_raw":
+                return soft_std(x), f"{key} (soft: tanh-bounded log-std)"
+            sig = np.exp(x) if kind == "log_std" else x
+            return np.clip(sig, STD_CLAMP_MIN, std_max), f"{key} (clamped to [{STD_CLAMP_MIN}, {std_max:g}])"
+    raise SystemExit(f"no std / log_std / std_raw parameter in the checkpoint ({sorted(sd)[:8]} ...)")
+
+
+def checkpoint_sigma(ckpt: Path, agent: dict | None = None) -> tuple[np.ndarray, str]:
+    """``(sigma per action dim, source)`` of a checkpoint (CPU load; ``action_std_max`` from the
+    training ``agent.yaml``'s ``policy`` block when present)."""
+    import torch  # noqa: PLC0415
+
+    ck = torch.load(str(ckpt), map_location="cpu", weights_only=False)
+    sd = ck.get("model_state_dict", ck) if isinstance(ck, dict) else ck
+    std_max = ((agent or {}).get("policy") or {}).get("action_std_max")
+    sig, src = sigma_from_state_dict(sd, std_max=STD_CLAMP_MAX if std_max is None else float(std_max))
+    return sig, f"{ckpt}: {src}"
+
+
+def parse_noise_sigmas(spec: str) -> list:
+    """``--noise-sigmas``: comma list of floats, ``grid`` (:data:`NOISE_GRID`) and ``ckpt``
+    (:data:`CKPT_SIGMA`, resolved by :func:`load_run`). Order kept, duplicates dropped."""
+    out: list = []
+    for tok in (t.strip() for t in str(spec).split(",")):
+        if not tok:
+            continue
+        items = list(NOISE_GRID) if tok == "grid" else ([CKPT_SIGMA] if tok == CKPT_SIGMA else [float(tok)])
+        for it in items:
+            if it not in out:
+                out.append(it)
+    return out
+
+
+def sigma_label(sigma) -> str:
+    """The key a noise spec is stored under (floats exactly as before: ``f"{sigma:g}"``)."""
+    return sigma if isinstance(sigma, str) else f"{sigma:g}"
+
+
+def _sig_sort_key(label: str) -> float:
+    try:
+        return float(label)
+    except ValueError:
+        return math.inf
 
 
 def delayed_actions(a: np.ndarray, delay: int) -> np.ndarray:
@@ -626,8 +730,9 @@ def _train_dumps_for(run_meta: dict, env_yaml: Path | None, agent_yaml: Path | N
 
 def replay_episode(z: dict, *, category: str, hold_idx: int, ended_in_fall: bool, hold_s: float | None,
                    p: TrainParams, M, groups: dict, q0: np.ndarray, fall_trim: int,
-                   elapsed_f32: np.ndarray, noise_sigmas: Sequence[float] = (), noise_k: int = 0,
-                   rng: np.random.Generator | None = None) -> dict:
+                   elapsed_f32: np.ndarray, noise_sigmas: Sequence = (), noise_k: int = 0,
+                   rng: np.random.Generator | None = None, mu_bound: float | None = None,
+                   sigma_values: dict | None = None) -> dict:
     """One episode: the own hold's window integrals of every term, the tracking income and the
     step-1 motion metrics (``motion_quality_metrics`` over the same whole-hold window the eval
     report scores -- ``report._window_mask`` with ``steady`` all True)."""
@@ -682,22 +787,48 @@ def replay_episode(z: dict, *, category: str, hold_idx: int, ended_in_fall: bool
     })
     if noise_sigmas and noise_k > 0 and rng is not None:
         mu = np.asarray(z["actions"], dtype=np.float64)
+        # --mu-bound: the same eps around clip(mu, +-B) (common random numbers; the rng stream is
+        # the one the default run draws, so the saturated numbers do not move)
+        mu_b = None if mu_bound is None else np.clip(mu, -float(mu_bound), float(mu_bound))
         noisy: dict[str, dict[str, float]] = {}
+        noisy_b: dict[str, dict[str, float]] = {}
         for sigma in noise_sigmas:
+            lab = sigma_label(sigma)
+            sig = (sigma_values or {}).get(lab, sigma)        # a per-dim vector for CKPT_SIGMA
+            if isinstance(sig, str):
+                raise SystemExit(f"noise sigma {sig!r} was not resolved to a value")
             acc = {k: 0.0 for k in ACTION_TERMS}
+            acc_b = {k: 0.0 for k in ACTION_TERMS}
             for _ in range(noise_k):
-                a = clip_actions(mu + sigma * rng.standard_normal(mu.shape), p.action_clip)
+                eps = rng.standard_normal(mu.shape)
+                a = clip_actions(mu + sig * eps, p.action_clip)
                 s2 = step_series(z, p, rod_idx=groups["rod"], q0=q0, action_override=a)
                 for k in ACTION_TERMS:
                     acc[k] += float(s2[k][step_mask].sum() * p.dt) / noise_k
-            noisy[f"{sigma:g}"] = acc
+                if mu_b is not None:
+                    ab = clip_actions(mu_b + sig * eps, p.action_clip)
+                    s2b = step_series(z, p, rod_idx=groups["rod"], q0=q0, action_override=ab)
+                    for k in ACTION_TERMS:
+                        acc_b[k] += float(s2b[k][step_mask].sum() * p.dt) / noise_k
+            noisy[lab] = acc
+            if mu_b is not None:
+                noisy_b[lab] = acc_b
         rec_out["noise"] = noisy
+        if mu_b is not None:
+            rec_out["noise_bounded"] = noisy_b
+    if mu_bound is not None:
+        # the deterministic bounded mean (identical to the recorded mean's when B >= clip_actions)
+        ab = clip_actions(np.clip(np.asarray(z["actions"], dtype=np.float64), -float(mu_bound),
+                                  float(mu_bound)), p.action_clip)
+        s2b = step_series(z, p, rod_idx=groups["rod"], q0=q0, action_override=ab)
+        rec_out["det_bounded"] = {k: float(s2b[k][step_mask].sum() * p.dt) for k in ACTION_TERMS}
     return rec_out
 
 
 def load_run(run_dir: Path, *, p_override: tuple[Path | None, Path | None] = (None, None),
-             noise_sigmas: Sequence[float] = (0.5, 2.0), noise_k: int = 4, seed: int = 20260923,
-             limit: int | None = None, fall_exclusion_s: float | None = None) -> dict:
+             noise_sigmas: Sequence = (0.5, 2.0), noise_k: int = 4, seed: int = 20260923,
+             limit: int | None = None, fall_exclusion_s: float | None = None,
+             mu_bound: float | None = None, checkpoint: Path | None = None) -> dict:
     """Replay every episode of a suite stamp; returns ``{meta, params, episodes, crosscheck}``."""
     run_dir = Path(run_dir)
     if not (run_dir / "complete.json").is_file():
@@ -715,6 +846,19 @@ def load_run(run_dir: Path, *, p_override: tuple[Path | None, Path | None] = (No
                        "the training value is used")
     if abs(float(meta.get("dt", p.dt)) - p.dt) > 1e-12:
         raise SystemExit(f"eval dt {meta.get('dt')} != training dt {p.dt}")
+    if mu_bound is not None and not float(mu_bound) > 0.0:
+        raise SystemExit(f"--mu-bound must be > 0, got {mu_bound!r}")
+    sigma_values: dict = {}
+    sigma_sources: dict = {}
+    if CKPT_SIGMA in list(noise_sigmas):
+        ck = checkpoint or (Path(meta["checkpoint"]) if meta.get("checkpoint") else None)
+        if ck is None or not Path(ck).is_file():
+            raise SystemExit(f"--noise-sigmas {CKPT_SIGMA}: no checkpoint to read sigma from ({ck}); pass --checkpoint")
+        sig, src = checkpoint_sigma(Path(ck), agent_d)
+        if sig.shape[0] != int(np.asarray(meta.get("action_dim", sig.shape[0]))):
+            raise SystemExit(f"checkpoint sigma has {sig.shape[0]} dims, the stamp's action_dim is {meta.get('action_dim')}")
+        sigma_values[CKPT_SIGMA] = sig
+        sigma_sources[CKPT_SIGMA] = {"source": src, "sigma": [float(x) for x in sig]}
     joint_names = list(meta["joint_names"])
     g = M.motion_joint_groups(joint_names)
     groups = {
@@ -756,7 +900,8 @@ def load_run(run_dir: Path, *, p_override: tuple[Path | None, Path | None] = (No
         rec = replay_episode(z, category=cat, hold_idx=hold_labels.index(label),
                              ended_in_fall=reason in ("fall", "hard_fall"), hold_s=hold_s.get(label),
                              p=p, M=M, groups=groups, q0=q0, fall_trim=fall_trim, elapsed_f32=elapsed,
-                             noise_sigmas=noise_sigmas, noise_k=noise_k, rng=rng)
+                             noise_sigmas=noise_sigmas, noise_k=noise_k, rng=rng, mu_bound=mu_bound,
+                             sigma_values=sigma_values)
         rec.update({"env_index": idx, "category": cat, "hold": label, "hand": ent.get("hand"),
                     "termination_reason": reason})
         stored = ((ep_json.get("holds") or {}).get(label) or {}).get("quality") if ep_json else None
@@ -768,10 +913,15 @@ def load_run(run_dir: Path, *, p_override: tuple[Path | None, Path | None] = (No
                     d = abs(float(a) - float(b))
                     xcheck["max_abs_diff"][k] = max(xcheck["max_abs_diff"].get(k, 0.0), d)
         episodes.append(rec)
-    return {"run_dir": str(run_dir), "meta": {k: meta.get(k) for k in (
+    out = {"run_dir": str(run_dir), "meta": {k: meta.get(k) for k in (
         "checkpoint", "checkpoint_sha256", "scenario_id", "episodes_total", "dt", "eval_sha", "plant",
         "started_utc", "action_clip")}, "params": p, "episodes": episodes, "crosscheck": xcheck,
             "fall_trim_steps": fall_trim, "has_fields": sorted(z.keys()) if episodes else []}
+    if sigma_sources:
+        out["sigma_sources"] = sigma_sources
+    if mu_bound is not None:
+        out["mu_bound"] = float(mu_bound)
+    return out
 
 
 # ============================================================================ the gates
@@ -994,6 +1144,90 @@ def m3_alternative(g2: dict, p: TrainParams) -> dict:
         "KRABBY_ACTION_SMOOTH2_W": sig2(s2 / 2.0) if s2 is not None else None,
         "KRABBY_JOINT_VEL_W": sig2(jv / 2.0) if jv is not None else None,
     }
+
+
+def noise_tax(episodes: list[dict], *, weights: Sequence[float] = ACTION_RATE_WEIGHTS,
+              margin: tuple[float, float] = FAST_SLOW_MARGIN) -> dict:
+    """The PPO-construction offline gate (plan step 2 item 5): what exploration noise costs through
+    ``reward_action_rate`` for a saturated vs a bounded mean, per category, at each weight.
+
+    Per category every scored episode is pooled (``sum`` of window integrals / ``sum`` of window
+    seconds, so a long hold weighs by its length). ``rate_per_s`` is the UNWEIGHTED per-second value
+    of ``||r_s - r_{s-1}||``; at weight ``w`` the cost is ``|w| rate``, the net task income is
+    ``income + w rate`` and the noise tax is ``|w| (rate_sigma - rate_mean)`` -- the part the policy
+    mean cannot remove. ``vs_margin`` = tax / the fast-vs-slow income margin (low, high)."""
+    out: dict[str, Any] = {"weights": [float(w) for w in weights], "margin_per_s": list(margin), "categories": {}}
+    for c in CATEGORIES:
+        eps = [e for e in episodes if e["category"] == c and "sums" in e]
+        if not eps:
+            continue
+        dur = float(sum(e["duration_s"] for e in eps))
+        if dur <= 0.0:
+            continue
+        income = float(sum(e["income"] for e in eps)) / dur
+        det = float(sum(e["sums"]["action_rate"] for e in eps)) / dur
+        det_b = (float(sum(e["det_bounded"]["action_rate"] for e in eps)) / dur
+                 if all("det_bounded" in e for e in eps) else None)
+        rows = []
+
+        def row(mode, sigma, rate, ref):
+            r = {"mode": mode, "sigma": sigma, "rate_per_s": rate, "by_weight": {}}
+            for w in weights:
+                tax = abs(w) * (rate - ref) if ref is not None else None
+                r["by_weight"][f"{w:g}"] = {
+                    "cost_per_s": abs(w) * rate, "net_income_per_s": income + w * rate,
+                    "noise_tax_per_s": tax,
+                    "tax_vs_margin": ([tax / margin[0], tax / margin[1]] if tax is not None else None)}
+            return r
+
+        rows.append(row("saturated", "0 (mean)", det, det))
+        if det_b is not None:
+            rows.append(row("bounded", "0 (mean)", det_b, det_b))
+        labels = []
+        for e in eps[:1]:
+            labels = sorted((e.get("noise") or {}), key=_sig_sort_key)
+        for lab in labels:
+            if all("noise" in e and lab in e["noise"] for e in eps):
+                rows.append(row("saturated", lab, float(sum(e["noise"][lab]["action_rate"] for e in eps)) / dur, det))
+            if all("noise_bounded" in e and lab in e["noise_bounded"] for e in eps):
+                rows.append(row("bounded", lab,
+                                float(sum(e["noise_bounded"][lab]["action_rate"] for e in eps)) / dur, det_b))
+        out["categories"][c] = {"n": len(eps), "seconds": dur, "income_per_s": income, "rows": rows}
+    return out
+
+
+def render_noise_tax(nt: dict, *, mu_bound: float | None, sigma_sources: dict | None) -> list[str]:
+    L: list[str] = []
+    A = L.append
+    ws = nt["weights"]
+    A("## Action-rate noise tax: bounded vs saturated mean (PPO-construction offline gate)")
+    A("")
+    A("`reward_action_rate` per second for the recorded (saturated) mean and for "
+      + (f"`clip(mu, +-{mu_bound:g})` (a bound loss's mean) " if mu_bound is not None else "")
+      + "under `clip(mu + sigma eps, +-clip_actions)` (same eps for both means), all scored episodes "
+      "pooled per category. The noise tax is the cost ABOVE the deterministic mean's at that weight; "
+      f"read it against the fast-vs-slow income margin (+{nt['margin_per_s'][0]:.2f} to "
+      f"+{nt['margin_per_s'][1]:.2f} /s).")
+    if sigma_sources:
+        for lab, d in sigma_sources.items():
+            A(f"- sigma `{lab}`: {d['source']}; per dim {', '.join(f'{x:.3f}' for x in d['sigma'])}")
+    A("")
+    head = "| category | mean | sigma | rate /s | " + " | ".join(
+        f"cost at w {w:g} | net income at w {w:g} | noise tax at w {w:g} (x margin)" for w in ws) + " |"
+    A(head)
+    A("|---|---|---|---|" + "---|---|---|" * len(ws))
+    for c, d in nt["categories"].items():
+        for r in d["rows"]:
+            cells = []
+            for w in ws:
+                b = r["by_weight"][f"{w:g}"]
+                vm = b.get("tax_vs_margin")
+                cells.append(f"{_f(b['cost_per_s'])} | {_f(b['net_income_per_s'])} | {_f(b['noise_tax_per_s'])}"
+                             + (f" ({vm[1]:.2f}-{vm[0]:.2f}x)" if vm else ""))
+            A(f"| {c} (income {d['income_per_s']:.3f}/s, n {d['n']}) | {r['mode']} | {r['sigma']} | "
+              f"{_f(r['rate_per_s'])} | " + " | ".join(cells) + " |")
+    A("")
+    return L
 
 
 def train_log_crosscheck(run: dict, log_dir: Path | None) -> dict | None:
@@ -1328,7 +1562,7 @@ def render(run: dict, res: dict, *, title: str, log_x: dict | None) -> str:
 
     # ---------------------------------------------------------------- noise floor
     sigs = sorted({s for t in ACTION_TERMS for r in g2["terms"][t]["rows"].values()
-                   for s in (r.get("median_ratio_q_noise") or {})}, key=float)
+                   for s in (r.get("median_ratio_q_noise") or {})}, key=_sig_sort_key)
     if sigs:
         A("### Exploration-noise floor of the action terms (training samples, the eval does not)")
         A("")
@@ -1347,6 +1581,10 @@ def render(run: dict, res: dict, *, title: str, log_x: dict | None) -> str:
                 A(f"| {key} | {_g(s2.get('weight_evaluated'))} | {c} | {_pct(r.get('share_at_weight'))} | "
                   + " | ".join(_pct(sn.get(s)) for s in sigs) + " |")
         A("")
+
+    if res.get("noise_tax"):
+        L.extend(render_noise_tax(res["noise_tax"], mu_bound=run.get("mu_bound"),
+                                  sigma_sources=run.get("sigma_sources")))
 
     # ---------------------------------------------------------------- screens
     A("## Screen totals (median over the best-tracking quartile, share of income)")
@@ -1448,7 +1686,7 @@ def render(run: dict, res: dict, *, title: str, log_x: dict | None) -> str:
             if r.get("replay_alt_per_s") is not None:
                 note = f"exact-timing replay {r['replay_alt_per_s']:+.4f}"
             if r.get("replay_noise_per_s"):
-                note = "; ".join(f"sigma {s}: {v:+.3f}" for s, v in sorted(r["replay_noise_per_s"].items(), key=lambda kv: float(kv[0])))
+                note = "; ".join(f"sigma {s}: {v:+.3f}" for s, v in sorted(r["replay_noise_per_s"].items(), key=lambda kv: _sig_sort_key(kv[0])))
             A(f"| {name} | {_f(r['log_per_s'], '{:+.4f}')} | {_f(r['replay_per_s'], '{:+.4f}')} | {note} |")
         A("")
 
@@ -1503,6 +1741,10 @@ def to_json(run: dict, res: dict, log_x: dict | None, *, per_episode: bool) -> d
         "screen_totals_m3_alternative": res["screen_totals_m3_alternative"],
         "context": res["context"], "train_log_crosscheck": log_x,
     }
+    if res.get("noise_tax"):
+        out["noise_tax"] = res["noise_tax"]
+        out["mu_bound"] = run.get("mu_bound")
+        out["sigma_sources"] = run.get("sigma_sources")
     if per_episode:
         out["episodes"] = run["episodes"]
     return out
@@ -1517,8 +1759,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     ap.add_argument("--train-agent-yaml", type=Path, default=None)
     ap.add_argument("--train-log-dir", type=Path, default=None,
                     help="training tfevents dir for the transcription cross-check (default: the checkpoint's dir)")
-    ap.add_argument("--noise-sigmas", default="0.5,2.0", help="comma list; '' disables the noise Monte Carlo")
+    ap.add_argument("--noise-sigmas", default="0.5,2.0",
+                    help="comma list of sigmas; 'grid' = %s; 'ckpt' = the checkpoint's own per-dim sigma; "
+                         "'' disables the noise Monte Carlo" % ",".join(f"{x:g}" for x in NOISE_GRID))
     ap.add_argument("--noise-samples", type=int, default=4)
+    ap.add_argument("--mu-bound", type=float, default=None,
+                    help="also price every noise sample around clip(mu, +-B) (a bound loss's mean); implies --noise-tax")
+    ap.add_argument("--noise-tax", action="store_true",
+                    help="add the action-rate noise-tax table (saturated vs bounded mean, per weight)")
+    ap.add_argument("--action-rate-weights", default=",".join(f"{w:g}" for w in ACTION_RATE_WEIGHTS),
+                    help="--noise-tax: reward_action_rate weights priced side by side")
+    ap.add_argument("--checkpoint", type=Path, default=None,
+                    help="--noise-sigmas ckpt: read sigma from this checkpoint (default: run_meta's)")
     ap.add_argument("--seed", type=int, default=20260923)
     ap.add_argument("--limit", type=int, default=None, help="first N episodes only (development)")
     ap.add_argument("--per-episode", action="store_true", help="also write replay_episodes.json")
@@ -1527,10 +1779,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     ap.add_argument("--json-name", default="replay_gate.json")
     args = ap.parse_args(argv)
 
-    sigmas = [float(s) for s in args.noise_sigmas.split(",") if s.strip()]
+    sigmas = parse_noise_sigmas(args.noise_sigmas)
     run = load_run(args.run_dir, p_override=(args.train_env_yaml, args.train_agent_yaml),
-                   noise_sigmas=sigmas, noise_k=args.noise_samples, seed=args.seed, limit=args.limit)
+                   noise_sigmas=sigmas, noise_k=args.noise_samples, seed=args.seed, limit=args.limit,
+                   mu_bound=args.mu_bound, checkpoint=args.checkpoint)
     res = analyse(run)
+    if args.noise_tax or args.mu_bound is not None:
+        weights = [float(w) for w in args.action_rate_weights.split(",") if w.strip()]
+        res["noise_tax"] = noise_tax(run["episodes"], weights=weights)
     log_dir = args.train_log_dir
     if log_dir is None and run["meta"].get("checkpoint"):
         log_dir = Path(run["meta"]["checkpoint"]).parent

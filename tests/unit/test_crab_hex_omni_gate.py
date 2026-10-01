@@ -570,6 +570,9 @@ def test_eval_carry_names_the_obs_and_command_knobs(drv):
         "KRABBY_OMNI_CLOCK_HIDE",           # the clock's sin/cos (dims 15-16 + history) read (0, 0)
         # side-speed-bisection plan step 1b (2026-09-28), default off:
         "KRABBY_OMNI_CMD_OBS",              # obs slots 8-9 (command xy) read 0; slot 10 and 5-7 kept
+        # PPO-construction plan step 2 (2026-10-01), default off -- RUNNER side, but structural:
+        "KRABBY_STD_PARAM",                 # soft std: the policy's std PARAMETER (std_raw vs std)
+        "KRABBY_INIT_STD",                  # ... and the init it is built from
     }
     # The hide RAMP is keyed on the env step counter, which restarts at 0 in an eval process: carried,
     # it would show the clock on every eval episode, so it is never carried.
@@ -630,7 +633,9 @@ def test_eval_carry_defaults_stand_in_only_for_keys_no_preset_sets(drv):
                                        "KRABBY_OMNI_CLOCK_HIDE": "0",
                                        # side-speed-bisection plan step 1b: "0" is one of
                                        # omni_knobs.CMD_OBS_OFF_SPELLINGS.
-                                       "KRABBY_OMNI_CMD_OBS": "0"}
+                                       "KRABBY_OMNI_CMD_OBS": "0",
+                                       # PPO-construction plan step 2: each knob's off spelling
+                                       "KRABBY_STD_PARAM": "0", "KRABBY_INIT_STD": "0"}
     # The five keys the presets DO set keep the preset's value, bitwise -- the defaults changed
     # nothing about the rows that already ran.
     ev = _eval_envs(drv)["canary"]
@@ -1591,6 +1596,31 @@ def test_train_without_the_new_kwargs_names_no_run_and_carries_no_overlay(drv, t
                                                      "FAKE_MARK", "FAKE_SLEEP"}
 
 
+def test_train_num_envs_comes_from_the_overlay_only_when_set(drv, tmp_path, monkeypatch, child):
+    """``KRABBY_NUM_ENVS`` (PPO-construction plan step 2, DEFAULT OFF): the training command's
+    ``--num_envs`` is the stage overlay's value when the knob is set, and the stock ``"256"``
+    otherwise -- with no ``[KNOB]`` line in the log, so a knob-off window's log is unchanged."""
+    _patch_subprocess_layer(drv, monkeypatch, tmp_path)
+    monkeypatch.setattr(drv, "TRAIN", child.script)
+    monkeypatch.setenv("FAKE_SLEEP", "0.05")
+    spec = drv.ph.PHASES["1a"]
+    assert drv.NUM_ENVS == {"rl": "256"} and drv.NUM_ENVS_VAR == "KRABBY_NUM_ENVS"
+    c = _campaign(drv, tmp_path)
+    _ck, _st, log = drv.train(c, spec, "off", 10, None, False, extra_env={"KRABBY_OMNI_SLOTS": "0.2:0.8:0:0"})
+    argv = child.argv
+    assert argv[argv.index("--num_envs") + 1] == "256"
+    assert "[KNOB]" not in log.read_text()
+    _ck, _st, log = drv.train(c, spec, "on", 10, None, False, extra_env={"KRABBY_NUM_ENVS": "1024"})
+    argv = child.argv
+    assert argv[argv.index("--num_envs") + 1] == "1024"
+    assert log.read_text().splitlines()[0] == "[KNOB] KRABBY_NUM_ENVS=1024 consumed"
+    assert child.env["KRABBY_NUM_ENVS"] == "1024"          # carried (inert) like any overlay key
+    assert drv._train_num_envs(spec, {"KRABBY_NUM_ENVS": " "}) == "256"
+    for bad in ("0", "-4", "1.5", "lots"):
+        with pytest.raises(ValueError):
+            drv._train_num_envs(spec, {"KRABBY_NUM_ENVS": bad})
+
+
 def test_train_never_lets_an_overlay_unbuffer_the_child(drv, tmp_path, monkeypatch, child):
     """``PYTHONUNBUFFERED`` is set AFTER the overlay merge, so it is not an overlay's to change.
 
@@ -2467,11 +2497,18 @@ def test_train_system_exit_in_the_poll_loop_also_stops_the_child(drv, tmp_path, 
 #: constants they read. A training-relevant edit must bump :data:`TRAINING_SEAM_SHA256` AND be
 #: declared at relaunch with ``--accept-code-change`` (the recorded caveat 4 of the plan).
 TRAINING_SEAM = ("train", "train_retry", "_subenv", "with_plant", "latest_run_ckpt", "_ckpt_iter", "set_seed",
-                 "series", "tail_mean", "track_ratio_series", "dead_walker", "Campaign")
+                 "series", "tail_mean", "track_ratio_series", "dead_walker", "Campaign",
+                 # PPO-construction plan step 2 (2026-10-01): the --num_envs resolver train() calls
+                 "_train_num_envs")
 #: ``_training_seam_pin`` over the UNEDITED run_phases.py -- ``git show 464be672:<path>`` executed
 #: with ``__file__`` at its real path -- computed ONCE when the pin was written (per-category plan
 #: step 3), never over the edited file: that would prove nothing.
-TRAINING_SEAM_SHA256 = "17d0bdb15cd674fbe1317222fa1e8622e4a7b3973c0385a4bdd39455fb0daf00"
+#: BUMPED 2026-10-01 (PPO-construction plan step 2): a DELIBERATE training-seam change --
+#: ``train`` takes ``--num_envs`` from the stage overlay's ``KRABBY_NUM_ENVS`` (``_train_num_envs``,
+#: added to :data:`TRAINING_SEAM`) and writes a ``[KNOB]`` line when it is set. The old value
+#: (17d0bdb1...) was re-verified against the unedited file before the edit; this one is computed over
+#: the edited file at that change. Relaunching a campaign on it needs ``--accept-code-change``.
+TRAINING_SEAM_SHA256 = "ac00c8fe1ca8210fda5550564884fe5bc2ea721cf896db7e6501f376cae90231"
 
 
 def _seam_functions(obj) -> list:

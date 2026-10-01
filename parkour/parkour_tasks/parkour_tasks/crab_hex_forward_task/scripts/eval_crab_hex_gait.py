@@ -737,9 +737,14 @@ def main() -> None:
             # ``act`` = update_distribution (the training std, clamped exactly as in training by the
             # crab actor-critic) + a Normal sample. Diagnostic only; see the flag's help.
             policy = lambda _obs, hist_encoding=True: _pol_module.act(_obs, hist_encoding=hist_encoding)  # noqa: E731
-            _std = getattr(_pol_module, "std", None)
-            if _std is None and getattr(_pol_module, "log_std", None) is not None:
-                _std = torch.exp(_pol_module.log_std)
+            if getattr(_pol_module, "noise_std_type", None) == "soft":
+                # KRABBY_STD_PARAM=soft (PPO-construction plan): the parameter is unconstrained;
+                # record the sigma the distribution actually samples with.
+                _std = _pol_module.effective_std()
+            else:
+                _std = getattr(_pol_module, "std", None)
+                if _std is None and getattr(_pol_module, "log_std", None) is not None:
+                    _std = torch.exp(_pol_module.log_std)
             sample_actions_std = [float(v) for v in _std.detach().cpu().reshape(-1)] if _std is not None else None
             print(f"[WARN] --sample-actions: SAMPLED rollout at the training std {sample_actions_std} "
                   "(diagnostic only, never a gate)", flush=True)

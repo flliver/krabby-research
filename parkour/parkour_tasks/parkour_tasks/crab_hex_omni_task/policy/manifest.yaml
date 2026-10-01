@@ -68,6 +68,11 @@ obs_contract:
       # added 2026-09-29 (side-speed bisection): EVAL_CARRY gained KRABBY_OMNI_CMD_OBS; every stage here
       # trained with it unset, whose carried off spelling is '0' (EVAL_CARRY_DEFAULTS) -- not in W's run_meta
       KRABBY_OMNI_CMD_OBS: '0'
+      # added 2026-10-01 (PPO-construction plan step 2): EVAL_CARRY gained the policy-structure knobs
+      # KRABBY_STD_PARAM / KRABBY_INIT_STD; every stage here trained with both unset (scalar std), whose
+      # carried off spelling is '0' (EVAL_CARRY_DEFAULTS) -- not in W's run_meta
+      KRABBY_STD_PARAM: '0'
+      KRABBY_INIT_STD: '0'
     fixed:
       KRABBY_FLAT_TERRAIN_GEOM: ring
       KRABBY_RSI_FRAC: '0'

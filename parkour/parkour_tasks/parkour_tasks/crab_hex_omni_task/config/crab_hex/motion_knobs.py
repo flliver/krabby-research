@@ -44,7 +44,43 @@ variable                        what it writes when armed
                                 the next touchdown, all six legs stance, no swing/apex income
 ``KRABBY_OMNI_STAND_OBS=1``     omni obs term ``params["stand_obs"] = True`` -- the STAND bit
                                 as an extra head channel, clock sin/cos zeroed while it is set
+**PPO construction (runner cfg; ``apply_exploration_knobs``; PPO-construction plan, 2026-10-01)**
+``KRABBY_ACTION_BOUND_LOSS``    ``algorithm.action_bound_loss_coef`` -- the FINAL coefficient c1
+                                of the rl_games bound loss on the raw mean (blank / ``0`` = off)
+``KRABBY_ACTION_BOUND_RAMP``    ``algorithm.action_bound_loss_ramp = [c0, c1, n]`` -- linear
+                                c0 -> c1 over the first n PPO updates (``alg.counter``); needs
+                                ``KRABBY_ACTION_BOUND_LOSS`` = c1
+``KRABBY_ACTION_BOUND``         ``algorithm.action_bound`` (PPO default 1.1); needs the loss
+``KRABBY_STD_PARAM=soft``       ``policy.noise_std_type = "soft"`` -- tanh-bounded log-std in
+                                [ln 0.05, ln 2], no hard clamp (``CrabHexActorCriticRMA``)
+``KRABBY_INIT_STD``             ``policy.init_noise_std`` (blank / ``0`` = the runner's own)
+``KRABBY_PPO_SCHEDULE``         ``algorithm.schedule``: adaptive (stock) | fixed | epoch_kl
+``KRABBY_PPO_LR``               ``algorithm.learning_rate``
+``KRABBY_PPO_DESIRED_KL``       ``algorithm.desired_kl`` (adaptive / epoch_kl only)
+``KRABBY_PPO_KL_STOP``          ``algorithm.kl_stop`` -- the ``fixed`` schedule's early stop
+``KRABBY_PPO_HIST_LR``          ``algorithm.hist_encoder_learning_rate`` -- the history
+                                encoder's own Adam LR (stock: the configured learning_rate)
+``KRABBY_PPO_HAND_DIAG=1``      ``algorithm.hand_diag_vy_obs_col = 9`` -- per-hand surrogate-
+                                gradient diagnostics every 25 updates (``PPO/hand_*``)
+**RSI cam staging (env cfg; ``events.rsi_reference_reset`` params, applied by ``omni_knobs._repoint_rsi``)**
+``KRABBY_RSI_CAM_STAGE=1``      ``params["stage_cam"] = True`` -- an RSI-seeded env starts with the
+                                bank frame's cam shaft velocity as the applied cam target
+                                (``clamp(jv, +-pi)`` rad/s) and in the cam columns of every
+                                action-history slot (``clip(jv / pi, +-1)``); rods unchanged
+``KRABBY_RSI_CAM_STAGE_DEBUG``  ``=1``: ``params["stage_cam_debug"] = True`` -- one stdout line per reset
+                                that seeded RSI envs: count, mean |applied cam target|, mean
+                                |history cam columns|, mean |bank cam jv| (the rung-0b step-0 read;
+                                with staging off it reads the unstaged zeros)
+**driver** (``run_phases.train``; never reaches a cfg)
+``KRABBY_NUM_ENVS``             the training command's ``--num_envs`` (stock "256"); audited
+                                against ``scene.num_envs`` in ``params/env.yaml``
 ==============================  ===========================================================
+
+The PPO-construction knobs print ``[KNOB] <NAME>=<value> consumed`` when applied, so a training
+log proves its wiring; the algorithm itself prints a ``[PPO] construction:`` line when one of its
+knobs arrives. ``KRABBY_STD_PARAM`` and ``KRABBY_INIT_STD`` are the only runner-side knobs an eval
+CARRIES (``run_phases.EVAL_CARRY``): ``soft`` changes the policy's PARAMETER STRUCTURE
+(``std_raw`` instead of ``std``), so an eval must rebuild the same policy to load the checkpoint.
 
 Three knobs the plan names ALREADY EXIST in the forward rewards cfg's ``_overrides`` table and
 are reused, not duplicated (they reach the omni flat-walk / teacher rewards because
@@ -92,17 +128,58 @@ REUSED_WEIGHT_KNOBS = {
     ACTION_RATE_W_VAR: "reward_action_rate",
     AIRTIME_W_VAR: "reward_feet_air_time_positive",
 }
+# -- PPO construction (PPO-construction plan step 2, 2026-10-01; all DEFAULT OFF, set by no preset)
+ACTION_BOUND_LOSS_VAR = "KRABBY_ACTION_BOUND_LOSS"
+ACTION_BOUND_RAMP_VAR = "KRABBY_ACTION_BOUND_RAMP"
+ACTION_BOUND_VAR = "KRABBY_ACTION_BOUND"
+STD_PARAM_VAR = "KRABBY_STD_PARAM"
+INIT_STD_VAR = "KRABBY_INIT_STD"
+PPO_SCHEDULE_VAR = "KRABBY_PPO_SCHEDULE"
+PPO_LR_VAR = "KRABBY_PPO_LR"
+PPO_DESIRED_KL_VAR = "KRABBY_PPO_DESIRED_KL"
+PPO_KL_STOP_VAR = "KRABBY_PPO_KL_STOP"
+PPO_HIST_LR_VAR = "KRABBY_PPO_HIST_LR"
+PPO_HAND_DIAG_VAR = "KRABBY_PPO_HAND_DIAG"
+#: Driver-side: the omni ``run_phases.train`` command's ``--num_envs`` (applied there, not here).
+NUM_ENVS_VAR = "KRABBY_NUM_ENVS"
+# -- RSI cam staging (PPO-construction plan step 4, 2026-10-01; DEFAULT OFF, set by no preset). Env
+# side: written into the omni RSI reset event's params by ``omni_knobs._repoint_rsi`` (only when the
+# event exists, i.e. KRABBY_RSI_FRAC > 0), consumed by the action term's reset.
+RSI_CAM_STAGE_VAR = "KRABBY_RSI_CAM_STAGE"
+RSI_CAM_STAGE_DEBUG_VAR = "KRABBY_RSI_CAM_STAGE_DEBUG"
+#: ``{variable: event param}`` -- each a flag, written as ``True`` when armed and ABSENT when off.
+RSI_CAM_STAGE_PARAMS = {RSI_CAM_STAGE_VAR: "stage_cam", RSI_CAM_STAGE_DEBUG_VAR: "stage_cam_debug"}
+#: The PPO-construction knobs in ONE tuple (the ladder tests and the dump audit iterate it).
+PPO_CONSTRUCTION_KNOBS = (ACTION_BOUND_LOSS_VAR, ACTION_BOUND_RAMP_VAR, ACTION_BOUND_VAR, STD_PARAM_VAR,
+                          INIT_STD_VAR, PPO_SCHEDULE_VAR, PPO_LR_VAR, PPO_DESIRED_KL_VAR, PPO_KL_STOP_VAR,
+                          PPO_HIST_LR_VAR, PPO_HAND_DIAG_VAR, NUM_ENVS_VAR)
 
 #: Runner-side knobs (``params/agent.yaml``), everything else is env-side (``params/env.yaml``).
-AGENT_KNOBS = (ACTION_STD_MAX_VAR, ACTION_STD_RESET_VAR, ENTROPY_COEF_VAR)
+AGENT_KNOBS = (ACTION_STD_MAX_VAR, ACTION_STD_RESET_VAR, ENTROPY_COEF_VAR,
+               ACTION_BOUND_LOSS_VAR, ACTION_BOUND_RAMP_VAR, ACTION_BOUND_VAR, STD_PARAM_VAR, INIT_STD_VAR,
+               PPO_SCHEDULE_VAR, PPO_LR_VAR, PPO_DESIRED_KL_VAR, PPO_KL_STOP_VAR, PPO_HIST_LR_VAR,
+               PPO_HAND_DIAG_VAR)
 
 #: The env-side knobs that change command, clock, action-path or observation SEMANTICS: an eval
 #: of a policy trained with one of them must be built with it too (``run_phases.EVAL_CARRY``).
 EVAL_SEMANTIC_KNOBS = (RELAY_HYST_VAR, STAND_HOLD_VAR, STAND_PARK_VAR, ACTION_LPF_HZ_VAR,
                        ACTION_LPF_OBS_VAR, STAND_OBS_VAR)
+#: The RUNNER-side knobs an eval must carry too: they change the policy's PARAMETER STRUCTURE
+#: (``soft`` std: ``std_raw`` instead of ``std``), and an eval rebuilds the policy from the env
+#: knobs before it loads the checkpoint (strictly). ``KRABBY_INIT_STD`` is carried with it (the
+#: soft parameter is initialised through it; the load then overwrites it).
+EVAL_STRUCTURE_KNOBS = (STD_PARAM_VAR, INIT_STD_VAR)
 #: ... and the value each one takes when OFF (what ``EVAL_CARRY_DEFAULTS`` restates).
 KNOB_OFF_VALUES = {RELAY_HYST_VAR: "0", STAND_HOLD_VAR: "0", STAND_PARK_VAR: "0",
-                   ACTION_LPF_HZ_VAR: "0", ACTION_LPF_OBS_VAR: "0", STAND_OBS_VAR: "0"}
+                   ACTION_LPF_HZ_VAR: "0", ACTION_LPF_OBS_VAR: "0", STAND_OBS_VAR: "0",
+                   STD_PARAM_VAR: "0", INIT_STD_VAR: "0"}
+#: The omni POLICY observation column of the body-frame lateral (vy) command:
+#: ``CrabHexOmniParkourObservations.OBSERVED_COMMAND_SLOTS`` maps slot 9 -> command index 1, and the
+#: current step's proprio head opens the policy observation (pinned by the unit tests).
+HAND_DIAG_VY_OBS_COL = 9
+PPO_SCHEDULES = ("adaptive", "fixed", "epoch_kl")
+STD_PARAM_MODES = ("soft",)
+STD_PARAM_OFF_SPELLINGS = ("0", "off")
 
 #: ``(engage, release)`` rad of facing error for ``KRABBY_OMNI_RELAY_HYST=1``.
 RELAY_HYST_DEFAULT = (0.25, 0.05)
@@ -133,6 +210,15 @@ __all__ = [
     "RELAY_HYST_DEFAULT", "parse_flag", "parse_std_max", "parse_std_reset",
     "parse_entropy_coef", "parse_penalty_w", "parse_lpf_hz", "parse_relay_hyst",
     "MOTION_KNOB_PARSERS", "apply_motion_knobs", "apply_exploration_knobs",
+    # PPO construction (2026-10-01)
+    "ACTION_BOUND_LOSS_VAR", "ACTION_BOUND_RAMP_VAR", "ACTION_BOUND_VAR", "STD_PARAM_VAR", "INIT_STD_VAR",
+    "PPO_SCHEDULE_VAR", "PPO_LR_VAR", "PPO_DESIRED_KL_VAR", "PPO_KL_STOP_VAR", "PPO_HIST_LR_VAR",
+    "PPO_HAND_DIAG_VAR", "NUM_ENVS_VAR", "PPO_CONSTRUCTION_KNOBS", "EVAL_STRUCTURE_KNOBS",
+    "HAND_DIAG_VY_OBS_COL", "PPO_SCHEDULES", "STD_PARAM_MODES", "STD_PARAM_OFF_SPELLINGS",
+    "parse_bound_loss", "parse_bound_ramp", "parse_action_bound", "parse_std_param", "parse_init_std",
+    "parse_ppo_schedule", "parse_positive", "parse_num_envs",
+    # RSI cam staging (2026-10-01)
+    "RSI_CAM_STAGE_VAR", "RSI_CAM_STAGE_DEBUG_VAR", "RSI_CAM_STAGE_PARAMS", "rsi_cam_stage_params",
 ]
 
 
@@ -242,6 +328,109 @@ def parse_relay_hyst(text) -> tuple[float, float] | None:
     return (engage, release)
 
 
+# -- PPO construction (2026-10-01)
+def parse_bound_loss(text) -> float | None:
+    """``KRABBY_ACTION_BOUND_LOSS`` -> the bound loss's (final) coefficient, or None for OFF.
+
+    Blank / ``0`` = off (nothing written, the loss is never built); negative values are refused.
+    """
+    if _blank(text):
+        return None
+    value = _float(ACTION_BOUND_LOSS_VAR, text)
+    if value < 0.0:
+        raise ValueError(f"{ACTION_BOUND_LOSS_VAR} must be >= 0 (0 = off), got {text!r}")
+    return None if value == 0.0 else value
+
+
+def parse_bound_ramp(text) -> tuple[float, float, int] | None:
+    """``KRABBY_ACTION_BOUND_RAMP`` -> ``(c0, c1, n)``, or None (blank = constant coefficient).
+
+    ``"c0:c1:n"``: linear from ``c0`` to ``c1`` over the first ``n`` PPO updates, ``c0 >= 0``,
+    ``c1 > 0``, ``n`` a positive integer.
+    """
+    if _blank(text):
+        return None
+    parts = str(text).strip().split(":")
+    if len(parts) != 3:
+        raise ValueError(f"{ACTION_BOUND_RAMP_VAR} must be 'c0:c1:n', got {text!r}")
+    c0, c1 = _float(ACTION_BOUND_RAMP_VAR, parts[0]), _float(ACTION_BOUND_RAMP_VAR, parts[1])
+    try:
+        n = int(parts[2].strip())
+    except ValueError as exc:
+        raise ValueError(f"{ACTION_BOUND_RAMP_VAR}: n must be a positive integer, got {text!r}") from exc
+    if not (c0 >= 0.0 and c1 > 0.0 and n >= 1):
+        raise ValueError(f"{ACTION_BOUND_RAMP_VAR} needs c0 >= 0, c1 > 0 and n >= 1, got {text!r}")
+    return (c0, c1, n)
+
+
+def parse_action_bound(text) -> float | None:
+    """``KRABBY_ACTION_BOUND`` -> the hinge's bound on the raw mean (> 0), or None (blank = 1.1)."""
+    if _blank(text):
+        return None
+    value = _float(ACTION_BOUND_VAR, text)
+    if not value > 0.0:
+        raise ValueError(f"{ACTION_BOUND_VAR} must be > 0, got {text!r}")
+    return value
+
+
+def parse_std_param(text) -> str | None:
+    """``KRABBY_STD_PARAM`` -> ``"soft"``, or None for OFF (blank / ``0`` / ``off``)."""
+    if _blank(text):
+        return None
+    token = str(text).strip().lower()
+    if token in STD_PARAM_OFF_SPELLINGS:
+        return None
+    if token in STD_PARAM_MODES:
+        return token
+    raise ValueError(f"{STD_PARAM_VAR} must be one of {STD_PARAM_MODES} or off ({STD_PARAM_OFF_SPELLINGS}), "
+                     f"got {text!r}")
+
+
+def parse_init_std(text) -> float | None:
+    """``KRABBY_INIT_STD`` -> ``policy.init_noise_std`` (> the 0.05 floor), or None (blank / ``0``)."""
+    if _blank(text):
+        return None
+    value = _float(INIT_STD_VAR, text)
+    if value == 0.0:
+        return None
+    if not value > ACTION_STD_MIN:
+        raise ValueError(f"{INIT_STD_VAR} must exceed the std floor {ACTION_STD_MIN} (0 = off), got {text!r}")
+    return value
+
+
+def parse_ppo_schedule(text) -> str | None:
+    """``KRABBY_PPO_SCHEDULE`` -> one of :data:`PPO_SCHEDULES`, or None (blank = the cfg's own)."""
+    if _blank(text):
+        return None
+    token = str(text).strip()
+    if token not in PPO_SCHEDULES:
+        raise ValueError(f"{PPO_SCHEDULE_VAR} must be one of {PPO_SCHEDULES}, got {text!r}")
+    return token
+
+
+def parse_positive(text, var: str = "value") -> float | None:
+    """A strictly positive, finite number, or None (blank) -- the LR / KL knobs."""
+    if _blank(text):
+        return None
+    value = _float(var, text)
+    if not value > 0.0:
+        raise ValueError(f"{var} must be > 0, got {text!r}")
+    return value
+
+
+def parse_num_envs(text) -> int | None:
+    """``KRABBY_NUM_ENVS`` -> a positive int, or None (blank = the driver's stock 256)."""
+    if _blank(text):
+        return None
+    try:
+        value = int(str(text).strip())
+    except ValueError as exc:
+        raise ValueError(f"{NUM_ENVS_VAR} must be a positive integer, got {text!r}") from exc
+    if value < 1:
+        raise ValueError(f"{NUM_ENVS_VAR} must be a positive integer, got {text!r}")
+    return value
+
+
 #: ``{variable: parser}`` for every knob this module owns (the ladder's round-trip check).
 MOTION_KNOB_PARSERS = {
     ACTION_STD_MAX_VAR: parse_std_max,
@@ -258,7 +447,32 @@ MOTION_KNOB_PARSERS = {
     STAND_HOLD_VAR: lambda t: parse_flag(t, STAND_HOLD_VAR),
     STAND_PARK_VAR: lambda t: parse_flag(t, STAND_PARK_VAR),
     STAND_OBS_VAR: lambda t: parse_flag(t, STAND_OBS_VAR),
+    # PPO construction (2026-10-01)
+    ACTION_BOUND_LOSS_VAR: parse_bound_loss,
+    ACTION_BOUND_RAMP_VAR: parse_bound_ramp,
+    ACTION_BOUND_VAR: parse_action_bound,
+    STD_PARAM_VAR: parse_std_param,
+    INIT_STD_VAR: parse_init_std,
+    PPO_SCHEDULE_VAR: parse_ppo_schedule,
+    PPO_LR_VAR: lambda t: parse_positive(t, PPO_LR_VAR),
+    PPO_DESIRED_KL_VAR: lambda t: parse_positive(t, PPO_DESIRED_KL_VAR),
+    PPO_KL_STOP_VAR: lambda t: parse_positive(t, PPO_KL_STOP_VAR),
+    PPO_HIST_LR_VAR: lambda t: parse_positive(t, PPO_HIST_LR_VAR),
+    PPO_HAND_DIAG_VAR: lambda t: parse_flag(t, PPO_HAND_DIAG_VAR),
+    NUM_ENVS_VAR: parse_num_envs,
+    # RSI cam staging (2026-10-01)
+    RSI_CAM_STAGE_VAR: lambda t: parse_flag(t, RSI_CAM_STAGE_VAR),
+    RSI_CAM_STAGE_DEBUG_VAR: lambda t: parse_flag(t, RSI_CAM_STAGE_DEBUG_VAR),
 }
+
+
+def rsi_cam_stage_params(environ) -> dict:
+    """The RSI reset event's cam-staging params: ``{param: True}`` for each ARMED flag, else ``{}``.
+
+    Off (unset, blank or ``"0"``) adds nothing, so a knob-off ``params/env.yaml`` is byte-identical
+    to one built before the knob existed. A bad spelling raises (``parse_flag``), at config build.
+    """
+    return {param: True for var, param in RSI_CAM_STAGE_PARAMS.items() if parse_flag(environ.get(var), var)}
 
 
 # ------------------------------------------------------------------------------ application
@@ -389,13 +603,22 @@ def apply_motion_knobs(cfg, environ=None, *, term_cls=None, builders=None) -> No
         cfg.commands.base_velocity.eval_slot_latch = True
 
 
+def _consumed(var: str, raw) -> None:
+    """The wiring line a training log greps for: the knob reached the runner cfg."""
+    print(f"[KNOB] {var}={str(raw).strip()} consumed", flush=True)
+
+
 def apply_exploration_knobs(agent_cfg, environ=None) -> None:
-    """The three RUNNER-side knobs onto an omni PPO runner cfg (no-op for each one unset).
+    """The RUNNER-side knobs onto an omni PPO runner cfg (no-op for each one unset).
 
     The values land on the cfg that ``train.py`` dumps to ``params/agent.yaml`` (the ladder's
-    agent-side audit reads them back from there): ``policy.action_std_max`` and
-    ``policy.action_std_reset`` are consumed by ``CrabHexActorCriticRMA`` (its constructor pops
-    them), ``algorithm.entropy_coef`` by PPO.
+    agent-side audit reads them back from there): ``policy.action_std_max``,
+    ``policy.action_std_reset``, ``policy.noise_std_type`` / ``init_noise_std`` are consumed by
+    ``CrabHexActorCriticRMA``, every ``algorithm.*`` field by ``PPOWithExtractor`` (whose runner now
+    REFUSES an algorithm key the class does not accept, so a field written here can never be
+    dropped silently). Cross-knob rules are enforced HERE, before anything is written: a knob that
+    would have no effect (a ramp without its loss, a KL stop without the fixed schedule, ...) is a
+    recipe that says something it does not train, so it is refused rather than ignored.
     """
     env = os.environ if environ is None else environ
     std_max = parse_std_max(env.get(ACTION_STD_MAX_VAR))
@@ -406,9 +629,82 @@ def apply_exploration_knobs(agent_cfg, environ=None) -> None:
         raise ValueError(f"{ACTION_STD_RESET_VAR}={std_reset} exceeds the std clamp ceiling {ceiling} "
                          f"({ACTION_STD_MAX_VAR}): the reset value would be clamped away on the "
                          "first rollout")
+    # -- PPO construction (2026-10-01): parse and cross-check everything before writing anything
+    bound_c1 = parse_bound_loss(env.get(ACTION_BOUND_LOSS_VAR))
+    ramp = parse_bound_ramp(env.get(ACTION_BOUND_RAMP_VAR))
+    bound = parse_action_bound(env.get(ACTION_BOUND_VAR))
+    std_param = parse_std_param(env.get(STD_PARAM_VAR))
+    init_std = parse_init_std(env.get(INIT_STD_VAR))
+    schedule = parse_ppo_schedule(env.get(PPO_SCHEDULE_VAR))
+    lr = parse_positive(env.get(PPO_LR_VAR), PPO_LR_VAR)
+    desired_kl = parse_positive(env.get(PPO_DESIRED_KL_VAR), PPO_DESIRED_KL_VAR)
+    kl_stop = parse_positive(env.get(PPO_KL_STOP_VAR), PPO_KL_STOP_VAR)
+    hist_lr = parse_positive(env.get(PPO_HIST_LR_VAR), PPO_HIST_LR_VAR)
+    hand_diag = parse_flag(env.get(PPO_HAND_DIAG_VAR), PPO_HAND_DIAG_VAR)
+    if ramp is not None and (bound_c1 is None or ramp[1] != bound_c1):
+        raise ValueError(f"{ACTION_BOUND_RAMP_VAR}={env.get(ACTION_BOUND_RAMP_VAR)!r} ramps TO its c1, which must "
+                         f"equal {ACTION_BOUND_LOSS_VAR} (got {env.get(ACTION_BOUND_LOSS_VAR)!r}): the loss "
+                         "knob is the final coefficient")
+    if bound is not None and bound_c1 is None:
+        raise ValueError(f"{ACTION_BOUND_VAR} is set but {ACTION_BOUND_LOSS_VAR} is off: the bound has no "
+                         "effect without the loss")
+    if std_param == "soft":
+        if std_max is not None or std_reset is not None:
+            raise ValueError(f"{STD_PARAM_VAR}=soft has a fixed (0.05, 2.0) band and no clamp: "
+                             f"{ACTION_STD_MAX_VAR} / {ACTION_STD_RESET_VAR} do not apply to it")
+        if init_std is not None and not init_std < STOCK_ACTION_STD_MAX:
+            raise ValueError(f"{INIT_STD_VAR}={init_std} must lie strictly inside the soft band "
+                             f"({ACTION_STD_MIN}, {STOCK_ACTION_STD_MAX})")
+    elif init_std is not None and init_std > ceiling:
+        raise ValueError(f"{INIT_STD_VAR}={init_std} exceeds the std clamp ceiling {ceiling}: the initial "
+                         "std would be clamped away on the first rollout")
+    if kl_stop is not None or desired_kl is not None:
+        effective = schedule if schedule is not None else getattr(agent_cfg.algorithm, "schedule", None)
+        if kl_stop is not None and effective != "fixed":
+            raise ValueError(f"{PPO_KL_STOP_VAR} is the 'fixed' schedule's early stop, but the schedule is "
+                             f"{effective!r} (set {PPO_SCHEDULE_VAR}=fixed)")
+        if desired_kl is not None and effective == "fixed":
+            raise ValueError(f"{PPO_DESIRED_KL_VAR} has no effect under the 'fixed' schedule "
+                             f"(use {PPO_KL_STOP_VAR} for its early stop)")
     if std_max is not None:
         agent_cfg.policy.action_std_max = std_max
+        _consumed(ACTION_STD_MAX_VAR, env.get(ACTION_STD_MAX_VAR))
     if std_reset is not None:
         agent_cfg.policy.action_std_reset = std_reset
+        _consumed(ACTION_STD_RESET_VAR, env.get(ACTION_STD_RESET_VAR))
     if entropy is not None:
         agent_cfg.algorithm.entropy_coef = entropy
+        _consumed(ENTROPY_COEF_VAR, env.get(ENTROPY_COEF_VAR))
+    if bound_c1 is not None:
+        agent_cfg.algorithm.action_bound_loss_coef = bound_c1
+        _consumed(ACTION_BOUND_LOSS_VAR, env.get(ACTION_BOUND_LOSS_VAR))
+    if ramp is not None:
+        agent_cfg.algorithm.action_bound_loss_ramp = [ramp[0], ramp[1], ramp[2]]
+        _consumed(ACTION_BOUND_RAMP_VAR, env.get(ACTION_BOUND_RAMP_VAR))
+    if bound is not None:
+        agent_cfg.algorithm.action_bound = bound
+        _consumed(ACTION_BOUND_VAR, env.get(ACTION_BOUND_VAR))
+    if std_param is not None:
+        agent_cfg.policy.noise_std_type = std_param
+        _consumed(STD_PARAM_VAR, env.get(STD_PARAM_VAR))
+    if init_std is not None:
+        agent_cfg.policy.init_noise_std = init_std
+        _consumed(INIT_STD_VAR, env.get(INIT_STD_VAR))
+    if schedule is not None:
+        agent_cfg.algorithm.schedule = schedule
+        _consumed(PPO_SCHEDULE_VAR, env.get(PPO_SCHEDULE_VAR))
+    if lr is not None:
+        agent_cfg.algorithm.learning_rate = lr
+        _consumed(PPO_LR_VAR, env.get(PPO_LR_VAR))
+    if desired_kl is not None:
+        agent_cfg.algorithm.desired_kl = desired_kl
+        _consumed(PPO_DESIRED_KL_VAR, env.get(PPO_DESIRED_KL_VAR))
+    if kl_stop is not None:
+        agent_cfg.algorithm.kl_stop = kl_stop
+        _consumed(PPO_KL_STOP_VAR, env.get(PPO_KL_STOP_VAR))
+    if hist_lr is not None:
+        agent_cfg.algorithm.hist_encoder_learning_rate = hist_lr
+        _consumed(PPO_HIST_LR_VAR, env.get(PPO_HIST_LR_VAR))
+    if hand_diag:
+        agent_cfg.algorithm.hand_diag_vy_obs_col = HAND_DIAG_VY_OBS_COL
+        _consumed(PPO_HAND_DIAG_VAR, env.get(PPO_HAND_DIAG_VAR))
