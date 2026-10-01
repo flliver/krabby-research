@@ -1,0 +1,60 @@
+<!-- revision log -->
+Applied (each re-checked against its source):
+- **Resume commands.** The commands that resume X13 and X18 are the `_s2` chain names. Checked against state.json headers, `_reference_inflight` and `reference_seed`; the three stop notices are at OL:52, :72 and :100.
+- **Notifications.** All 22 reference_done notices and the 3 stop notices are unacknowledged; nothing records an acknowledgement (ledger_cli ack-flag covers only ledger flags, user_choice {}, overrides []).
+- **Surrogate and σ600 split FAST from the two-direction arms.** Recomputed from tfevents: AUC 0.97 / 1.00 / 1.00 at its 300 / 400 / 600, 0.75 against all slow arms. X18 sits in the fast range.
+- **Value loss reclassified as sorting by command pool.** At it 300, AUC FAST vs 4-image = 0.62 and two-direction vs 4-image = 1.00. It separates FAST from the 4-image arms only by it 1000, and overlaps at 2950 (LR4 .0085 > C_s2 .0077).
+- **DOS:717 and the episode-length claims.**
+  - LR4_dwell is a 40-s single-command arm, DEAD.
+  - X12's env.yaml shows RSI 0.2, source 1, `rsi_bank_omni.npz`, so CH:742's "RSI off" is wrong.
+  - §2 and §4.3 now say the question is deprioritised, not closed.
+- **Small corrections:**
+  - b48e7ee6 dropped from the post-snapshot commits (17:42; already cited at RR:7).
+  - RR:7 instead of RR:5; STOP also matches QL:29 and :55.
+  - Row 14 narrowed to C_40_s2.
+  - RC citations: :36-37 and :147.
+  - DOS:593 moved to the X20 item; DOS:568's SLOW sub-range becomes 0.052–0.103.
+  - LR4_dwell R added to the DEAD-rule dependents.
+  - Record sources for O, C and R fixed (CH:255-260; GA:166-167).
+  - §3.4 caption fixed.
+  - Glob now `2026-09-{29,30}`.
+  - Full CANON path given.
+  - *.log files are gitignored, not untracked; CHANGELOG.md and REPORT.md are modified.
+- **§2 speed range and σ crossings.** The FAST range is 0.184–0.215, with C_mo at 0.162 / 0.173. σ ≥ 1.99 first at 1264 and 2.0 first at 1594.
+- **RSI least-supported step** attributed correctly to RC; RR §4.5's cam braking described as an alternative to be tested by rung 0b.
+- **§7.B along-command rule** attributed to CH:769-770, not AN.
+- **lean04** instead of lean_abs for W (CK:57-62).
+- **Other line and value fixes:** `_canon_policy_step` at :567-577; it-300 sat range 0.59–0.88; R_s2 added to the unfired seed arms (candidates.yaml:863).
+- **Claims softened:**
+  - "Half the data" moved out of Ruled out.
+  - The RSI row now says "as implemented".
+  - Item 11 (state-driven student) moved to §4.2 (i) as an inference; "open loop" added to every capacity claim.
+  - Phantom-row readings marked as confounded with H6.
+  - T1 does not split (i)/(ii); T2's readings shown for both candidates.
+  - Item 5 now says stroke onset is unmeasured; the C_40 clause is restated.
+  - Saturation shown with its off-distribution caveat and RC's two readings.
+  - "Identical at every iteration" → "overlapping".
+  - The fix is a prediction (P3), with AN:212's note about its shrinking value.
+- **Additions:**
+  - C_lr_bound's one-way read: action_rate −0.3 is the default (X14 env.yaml:1774), and RR §4.3 gives the noise tax.
+  - Per-hold reversal fall counts from the canon logs (C 22/87 and C_s2 17/88 in the paused post-reversal hold; direct reversals at baseline).
+  - C_40 recorded reading as an inference.
+  - Track-ratio gap footnote (.005; .007 among 40-s arms).
+- **Receiver issues:**
+  - Approval-status line, and ownership reworded.
+  - Comparator options (a) and (b) with RR:175/:177.
+  - Canon-trained-head eval note.
+  - queue_eplen2.sh's edits needed before reuse, and the along-command rule applied by hand.
+  - The wrapper must not reuse the policy/estimator calls (train_with_estimated_states, ppo:189-198).
+  - Masked mirror landing, plus the t3 gate labelled as cross-recipe with no tripod value (manifest.yaml:95-118).
+  - RR rows for :47, :175, :272/:328 and :24/:298-302, with the budget line.
+  - Plumbing file:line locations.
+  - canon_evals.sh:14 pgrep.
+  - RC history cbf8ad06.
+  - One-direction comparators exist at s2 and s1.
+
+Rejected or modified:
+- **X25 "tfevents end at 1922 for every scalar": partly rejected.** EventAccumulator shows 94 Metrics tags end at 1923 and 21 Loss/Policy tags at 1922. The text now says so, and the telemetry window is "1800–1923".
+- **Value-loss AUC 0.646 at it 300.** My recomputation gives 0.62; I used 0.62.
+- **"Full 1,149-dim obs"** in the round-trip test. I kept the test but dropped the dimension count, which I could not verify (the agent.yaml slice sizes do not sum to 1,149).
+- **"Move §3.1/§3.5/§3.8/§4.1/§4.3 and the stale-line list to an appendix": rejected.** The reviser brief says to keep the structure. The sections are short, cited and easy to skip, and §4.3 now carries corrected "not ruled out" content that the receiver needs.

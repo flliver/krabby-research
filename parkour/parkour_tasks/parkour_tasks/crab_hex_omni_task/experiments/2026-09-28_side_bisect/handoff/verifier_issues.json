@@ -1,0 +1,466 @@
+[
+ {
+  "lens": "numbers",
+  "location": "\u00a77.J Resume hazard (and \u00a71 notifications)",
+  "problem": "The draft says `--reference-chain LR4_dwell --seed 2` or `C_lr_10_rsi --seed 2` would resume X13 or X18. They would not. In state.json, X13's header has candidate LR4_dwell_s2 and X18's has C_lr_10_rsi_s2. reference_loop only resumes a header whose candidate equals the --reference-chain name (run_candidates.py `_reference_inflight`). LR4_dwell and C_lr_10_rsi both pin seed 3 (candidates.yaml references), so `--seed 2` raises SystemExit in reference_seed. The commands that would actually resume X13/X18 are the ones the orchestrator printed and the draft never mentions.",
+  "correction": "Replace with: `--reference-chain LR4_dwell_s2 [--seed 2]` resumes X13; `--reference-chain C_lr_10_rsi_s2 [--seed 2]` resumes X18; `--reference-chain C_lr_30_rsi [--seed 3]` resumes X25. Also list the X13 and X18 await_user:stop notices (OL:52, OL:72), which print those exact resume commands, beside the X25 one.",
+  "severity": "major",
+  "source": "state.json ladder.experiments X13/X18 (candidate, seed, status running, inflight); candidates.yaml references (LR4_dwell seed 3, LR4_dwell_s2 seed 2, C_lr_10_rsi seed 3, C_lr_10_rsi_s2 seed 2); run_candidates.py reference_seed/_reference_inflight (~11908-11955, 12204-12207); orchestrator.log:52, :72"
+ },
+ {
+  "lens": "numbers",
+  "location": "\u00a75.4 surrogate row; \u00a72 'Only outcome signals separate the classes'; \u00a75.5",
+  "problem": "The surrogate row reads 'Overlap', AUC .70\u2013.75, but the row's own ranges do not overlap: FAST \u2212.0129 to \u2212.0112 against two-direction \u2212.0149 to \u2212.0132. Recomputed from tfevents ([c\u221250,c+50)):\n- surrogate vs the 10 two-direction arms: AUC 1.00 at it 400 and 600, 0.97 at it 300;\n- vs all 16 SLOW/DEAD arms: AUC 0.75 (only the phantom and C_40 arms overlap).\nThat is the same pattern the draft reports as new for value loss. \u03c3 at it 600 also separates FAST from the two-direction arms (1.664\u20131.700 vs 1.703\u20131.787). So 'only outcome signals (plus value loss partly)' is wrong for the two-direction family.",
+  "correction": "Change the surrogate verdict to 'separates FAST from the 10 two-direction arms from it ~300\u2013400 (AUC 0.97\u20131.0); overlaps the phantom arms; X18 (\u2212.0128) falls in the fast range', and give the overall AUC as .75. In \u00a72 and \u00a75.5, say that value loss, surrogate and \u03c3600 all split FAST from two-direction arms but not from the phantom arms.",
+  "severity": "major",
+  "source": "computed from X01\u2013X25 tfevents Loss/surrogate, Loss/value_function, Policy/mean_noise_std (windows 300/400/600)"
+ },
+ {
+  "lens": "numbers",
+  "location": "\u00a71.1 'Stale lines in DOSSIER.md', DOS:717 bullet",
+  "problem": "The correction says '10-s (3 arms) and 20-s (1 arm) single-command episodes are SLOW. 30\u201360 s is untested.' But a 40-s single-command arm has run: LR4_dwell (X12; env.yaml episode_length_s 40, resampling 40:40) is DEAD/DEAD. The draft's own \u00a72 ('10 s, 20 s and 40 s with a single command are all SLOW or DEAD') and \u00a74.3 say so. Also, C_lr_10_rsi's L hand is DEAD, so the 10-s arms are 'SLOW or DEAD', not 'SLOW'.",
+  "correction": "Say: single-command episodes at 10 s (3 arms; C_lr_10_rsi L DEAD), 20 s (X24) and 40 s (LR4_dwell, 4-image mirror, DEAD) are all SLOW or DEAD; 30, 50 and 60 s are untested, and the C_lr-family 40-s rung is untested.",
+  "severity": "major",
+  "source": "X12 params/env.yaml; arms/LR4_dwell_lr.json (class DEAD/DEAD); arms/C_lr_10_rsi_lr.json (class DEAD, class_r SLOW); draft \u00a72, \u00a74.3"
+ },
+ {
+  "lens": "numbers",
+  "location": "\u00a71 'Commits after RR's 18:44 snapshot'",
+  "problem": "b48e7ee6 is dated 2026-09-30 17:42:44, before 18:44, and RR:7 itself cites it ('C_40 s3 DEAD \u2026; b48e7ee6'). The commits after the snapshot are 67b20d8d (19:00), a0b9ce72 (19:10), f533e356 (19:53), 47686f1e (20:25) and 675868f0 (21:09).",
+  "correction": "Drop b48e7ee6 from the list, or list it separately as already cited by RR:7.",
+  "severity": "minor",
+  "source": "git show -s b48e7ee6 (17:42:44); RR REPORT.md:7"
+ },
+ {
+  "lens": "numbers",
+  "location": "\u00a71.1 row 14",
+  "problem": "The row says RR \u00a72.2/\u00a76 does not mention 'the C_40 negative'. RR mentions C_40 s3 DEAD at RR:7, and RR \u00a76.3 has a 'C_40 branch' paragraph (RR:249-250: 'C_40 s3 is DEAD with a fall phenotype \u2026'). What RR lacks is C_40_s2's final DEAD result (row 1), T1/T2, the episode-length rungs, the flat control and the along-command rule.",
+  "correction": "Remove 'the C_40 negative' from the omitted list, or narrow it to 'the C_40 two-seed DEAD result (C_40_s2)'.",
+  "severity": "minor",
+  "source": "RR REPORT.md:7, :249-250; grep for T1/T2/episode length in RR returns nothing"
+ },
+ {
+  "lens": "numbers",
+  "location": "\u00a71 X25 bullet; \u00a73.3 row 25; \u00a73.7 telemetry row",
+  "problem": "The draft says 'the tfevents end at 1923' and 'stopped at it 1922\u20131923'. The last tfevents step is 1922 for every scalar (1923 events, 0..1922), the same as the train log's last 'Learning iteration 1922/3000'. The telemetry window 'its 1800\u20131924' therefore covers 1800\u20131922.",
+  "correction": "Say the tfevents and the train log both end at it 1922. Write the window as its 1800\u20131922 (values unchanged: r_max 2.554, reach 0.423, block 78.0, flat 0.132, obst 0.196, all 0.154).",
+  "severity": "minor",
+  "source": "X25 tfevents (max step 1922 for Policy/mean_noise_std and all tags with step \u2264 3000); SB/logs/seed3_X25_s1_A15pB_train.log last line"
+ },
+ {
+  "lens": "numbers",
+  "location": "\u00a75.5 C_40 bullet ('cap reached at it 1264 / 1392'); \u00a72 ('\u03c3 cap (2.0) is first reached at it 1264 or later')",
+  "problem": "1264 and 1392 are the first crossings of \u03c3 \u2265 1.99. The 2.0 cap is first reached at 1594 (C_40) and 1603 (C_40_s2), and 1594 is the earliest \u2265 2.0 crossing of any arm.",
+  "correction": "Say '\u03c3 \u2265 1.99 at it 1264 / 1392; cap 2.0 at 1594 / 1603'. In \u00a72, say 'the 2.0 cap is first reached at it 1594 or later (\u03c3 \u2265 1.99 from it 1264)'.",
+  "severity": "minor",
+  "source": "computed first crossings from tfevents Policy/mean_noise_std (the draft's own \u00a75.1 columns)"
+ },
+ {
+  "lens": "numbers",
+  "location": "\u00a76 stale lines: 'RC:41-42's two-direction list predates X20 and X24'",
+  "problem": "RC:41-42 is the '4 of 5 runs FAST' / '4 of 4 heads' text. The two-direction list is at RC:36-37 (and is repeated at RC:147).",
+  "correction": "Cite RC:36-37 and RC:147.",
+  "severity": "minor",
+  "source": "ROOT_CAUSE.md:36-37, :40-43, :147"
+ },
+ {
+  "lens": "numbers",
+  "location": "\u00a71.1 'Stale lines in DOSSIER.md': DOS:587, :593 and :950 bullet",
+  "problem": "DOS:593 is not about C_fa/C_40. It reads 'All two-direction and phantom negatives are seed 3 only. X20 (C_lr_10_rsi33) was still training at compile time.' It is stale because X20 finished, not because the controls ran.",
+  "correction": "Move DOS:593 to the X20 bullet (DOS:66, :968): 'X20 finished SLOW/SLOW'.",
+  "severity": "minor",
+  "source": "DOSSIER.md:593"
+ },
+ {
+  "lens": "numbers",
+  "location": "\u00a71.1 'Stale lines in DOSSIER.md': DOS:568-569 bullet",
+  "problem": "The draft says the 0.028\u20130.103 range is unchanged, which is true. But DOS:568 also says 'The SLOW rows span 0.061-0.103', and X24's R hand (.054/.052, SLOW) moves the SLOW lower bound to 0.052.",
+  "correction": "Add: the SLOW sub-range at DOS:568 becomes 0.052\u20130.103 (X24 R).",
+  "severity": "minor",
+  "source": "DOSSIER.md:568; arms/C_lr_20_rsi_lr.json lat_r 0.054/0.052, class_r SLOW"
+ },
+ {
+  "lens": "numbers",
+  "location": "\u00a71 'One notification contradicts this\u2026 also unacknowledged'",
+  "problem": "Singling out five reference_done notices implies the earlier ones were acknowledged. Nothing records acknowledgements of AWAIT notices: ledger_cli ack-flag acks ledger flags only, user_choice is {}, applied_overrides is []. All 22 reference_done AWAITs (OL:4 through OL:96) and three await_user:stop notices (OL:52 X13, OL:72 X18, OL:100 X25) are equally unacknowledged. The X13 and X18 notices also say 'relaunch \u2026 to resume it', which contradicts CH:419 and CH:619.",
+  "correction": "Say no AWAIT notice in OL has ever been acknowledged (there is no ack path for them). List all three stop notices with their resume instructions, each overridden by CH:419, CH:619 and CH:789-790.",
+  "severity": "minor",
+  "source": "orchestrator.log:4-100; state.json ladder.user_choice / applied_overrides; tools/ledger_cli.py:17, 271-280"
+ },
+ {
+  "lens": "numbers",
+  "location": "\u00a76 'The DEAD rule's wording differs from the code'",
+  "problem": "The draft lists LR4_dwell L (.047/.058) and X24 R along-command (.049/.051) as depending on the either-speed DEAD rule. LR4_dwell R (.055/.028) also depends on it: it is \u2265 0.05 at 0.22.",
+  "correction": "Add LR4_dwell R (.055/.028).",
+  "severity": "minor",
+  "source": "arms/LR4_dwell_lr.json; scripts/side22_classify.py:112"
+ },
+ {
+  "lens": "numbers",
+  "location": "\u00a76 'Values in no record'",
+  "problem": "The note says 'O and C appear only in chain_O.log and ARMS', but CH:255-260 records O's and C's feet_ss, n, lean, sweep, early read and final ratio. It also says R's early read (.473) comes from tfevents only, but GA:166-167 records it as the low end of 'all four others 0.473\u20130.564'.",
+  "correction": "Say 'O's and C's classifier lines are not in queue.log (they are in chain_O.log, ARMS and CH:255-260)'. Drop R .473 from the tfevents-only list, or cite GA:166-167.",
+  "severity": "minor",
+  "source": "CHARTER.md:255-260; GATE.md:166-167; queue.log starts at R"
+ },
+ {
+  "lens": "numbers",
+  "location": "\u00a73.4 caption 'Cells are lat_l / lat_r at 0.22 and at 0.25'",
+  "problem": "The cells are actually 'lat_l 0.22/0.25 ; lat_r 0.22/0.25'. For example, C_mo_s2 wave '.203/.211 ; .199/.209' is lat_l .203/.211 and lat_r .199/.209. The caption reads as if the first pair were lat_l/lat_r at 0.22, which would make lat_r(0.22) = .211 (it is .199).",
+  "correction": "Recaption as 'lat_l at 0.22/0.25 ; lat_r at 0.22/0.25'.",
+  "severity": "minor",
+  "source": "SB/gate/canon_lr.json (C_mo_s2_wave labels)"
+ },
+ {
+  "lens": "numbers",
+  "location": "\u00a78 Training runs path",
+  "problem": "The glob `2026-09-2{9,30}_*` expands to 2026-09-29 and 2026-09-230. The second directory does not exist, so X14\u2013X25 (the 2026-09-30 runs) are missed.",
+  "correction": "Use `2026-09-{29,30}_*_seed{1,2,3}_X{01..25}_s1_A15pB/`.",
+  "severity": "minor",
+  "source": "ls parkour/logs/rsl_rl/crab_hex_omni_flat_walk/"
+ },
+ {
+  "lens": "numbers",
+  "location": "\u00a73.4 and \u00a78 'canon/*_cmd_rev_*.log'",
+  "problem": "No canon/ directory exists under SB. The reversal logs are at parkour/outputs/omni_plan/side_bisect/canon/*_cmd_rev_*.log.",
+  "correction": "Give the full path parkour/outputs/omni_plan/side_bisect/canon/.",
+  "severity": "minor",
+  "source": "ls parkour/outputs/omni_plan/side_bisect/canon/"
+ },
+ {
+  "lens": "numbers",
+  "location": "\u00a78 'Orchestrator state \u2026 orchestrator.log, notify.log (all untracked)'; \u00a71 tracking status",
+  "problem": "orchestrator.log and notify.log are gitignored (*.log at crab_hex_omni_task/experiments/.gitignore:18), not untracked. \u00a71 also omits that SB/CHANGELOG.md and SB/REPORT.md have uncommitted working-tree changes (git status M), along with candidates.yaml.",
+  "correction": "Say 'state.json, heads.json, ledger.json untracked; *.log gitignored; CHANGELOG.md, REPORT.md and candidates.yaml modified, uncommitted'.",
+  "severity": "minor",
+  "source": "git check-ignore -v; git status --porcelain on SB"
+ },
+ {
+  "lens": "numbers",
+  "location": "\u00a71.1 heading '(RR:5)'; row 7 'STOP also matches the older QL:241'",
+  "problem": "RR's 18:44 timestamp is at RR:7; RR:5 is the shorthand line. A `STOP` sentinel also matches QL:29 and QL:55 (STOP-MANUAL), not just QL:241.",
+  "correction": "Cite RR:7. Say 'STOP also matches QL:29, :55 and :241'.",
+  "severity": "minor",
+  "source": "RR REPORT.md:5, :7; queue.log:29, :55, :241, :343"
+ },
+ {
+  "lens": "numbers",
+  "location": "\u00a72 bullet 'One-direction +y networks at a 0.8 moving share walk at 0.184\u20130.215 (5 FAST, 1 INTERMEDIATE by 0.002)'",
+  "problem": "The INTERMEDIATE run (C_mo s3) walks at .162/.173, outside 0.184\u20130.215.",
+  "correction": "Say 'the five FAST runs walk at 0.184\u20130.215; C_mo s3 is INTERMEDIATE at 0.162/0.173'.",
+  "severity": "minor",
+  "source": "arms/C_mo.json"
+ },
+ {
+  "lens": "numbers",
+  "location": "\u00a75.5 value-loss bullet ('sit below every fast arm from about it 300')",
+  "problem": "The separation does not persist. At it 2950, LR4's value loss (.0085) is above C_s2's (.0077), and the draft's own \u00a75.4 row shows overlapping ranges at 2950.",
+  "correction": "Say 'below every fast arm at its 300 and 1000; overlapping by it 2950'.",
+  "severity": "minor",
+  "source": "computed Loss/value_function windows (X11 .0085, X07 .0077 at 2950)"
+ },
+ {
+  "lens": "numbers",
+  "location": "\u00a74.2 (i) 'RC calls \"RSI inert at init std 1.5\" the least-supported step (RC:213-218)'",
+  "problem": "This misreads RC. RC:213-218 says the RSI-start deficit in fast C_mo is evidence that RSI is inert at init std 1.5. What RC calls 'the least-supported step of the chain' is the step about fast-gait RSI failing to get around the barrier.",
+  "correction": "Say 'RC calls the RSI-decay step of the chain the least-supported; it reads the deficit as evidence that RSI is inert at init std 1.5'.",
+  "severity": "minor",
+  "source": "ROOT_CAUSE.md:213-218"
+ },
+ {
+  "lens": "numbers",
+  "location": "\u00a77.B 'Pre-registered (AN:223-226): \u2026 and the along-command check FAST'",
+  "problem": "AN:223-226 pre-registers FAST on both hands with |L\u2212R| \u2264 0.03, SLOW \u2192 seed 2 plus hand agreement, and early read \u2265 0.60 as a progress note. The along-command requirement comes from CH:769-770 and was added for the ladder rungs, not AN.",
+  "correction": "Attribute the along-command requirement to CH:769-770 (ladder rule), recommended for canon arms.",
+  "severity": "minor",
+  "source": "ANALYSIS.md:223-226; CHARTER.md:767-771"
+ },
+ {
+  "lens": "numbers",
+  "location": "\u00a73.1 pre-arm check row 'W at side commands \u2026 lean_abs over 0\u20134 s grows from 0.19 to 0.28 m'",
+  "problem": "CK:59-62 reports lean04 (lean built over 0\u20134 s), not lean_abs. lean_abs is the hold median of body minus feet (side22_classify.py:49), a different statistic.",
+  "correction": "Call it lean04.",
+  "severity": "minor",
+  "source": "CHECKS.md:57-62; scripts/side22_classify.py:46-49"
+ },
+ {
+  "lens": "numbers",
+  "location": "\u00a77.A and \u00a78 '_canon_policy_step (:568-579)'; \u00a74.2 table '0.59\u20130.89 over 22 arms at it 300'; \u00a73.9 list",
+  "problem": "Small citation and value slips:\n- `_canon_policy_step` is defined at eval_crab_hex_gait.py:567-577.\n- The it-300 saturation maximum is C_40_s2 at 0.8845 (rerun), which rounds to .88, matching the \u00a75.3 table, not .89.\n- \u00a73.9 omits R_s2, a defined seed-2 reference whose trigger never fired.",
+  "correction": "Cite :567-577. Write 0.59\u20130.88. Add R_s2 to the unfired seed arms.",
+  "severity": "minor",
+  "source": "eval_crab_hex_gait.py:567; CPU rerun of probe_sat_mirror logic on X23 model_300; candidates.yaml references"
+ },
+ {
+  "lens": "claims",
+  "location": "\u00a72 'What the PPO evidence shows' (value loss 'partly from about it 300'); \u00a75.4 value-loss row ('Only partial separator', AUC .78/.88/.84); \u00a75.5 bullet 'The value loss is new and untested ... sit below every fast arm from about it 300, before the track ratio separates'",
+  "problem": "At it 300 the value loss sorts arms by command pool, not by class, the same way the draft's symmetry-loss row sorts by mirror type. The ten two-direction arms (.0023-.0031) sit below every one-direction arm, slow phantom arms included (.0033-.0041). Within the one-direction arms, the fast runs (.0037-.0050) overlap the slow phantom runs. The value loss separates fast from phantom-slow only by about it 1000, after the track ratio has already split at it 600, which is what an outcome signal would do. The claim 'below every fast arm' also fails at it 2950 (LR4 .0085 > C_s2 .0077). Handing this to the PPO session as a 'new, unexplained' early separator invites it to chase an artifact of the design.",
+  "correction": "Reclassify the row as 'sorts by command pool at it 300 (two-direction vs one-direction), not by class'. State that it separates fast from phantom-slow one-direction arms only from about it 1000, after the track ratio has split, so it is consistent with an outcome effect: higher returns give a larger unnormalized value MSE. Delete 'before the track ratio separates' and 'below every fast arm'. Remove value loss from the \u00a72 list of class separators.",
+  "severity": "major",
+  "source": "CPU recomputation from the X01-X24 tfevents (Loss/value_function, window [c-50,c+50)). It reproduces the draft's \u00a75.2 values. AUC at it 300: fast+INT vs phantom 0.646, two-direction vs phantom 1.0, fast vs two-direction 1.0. AUC at it 1000: fast vs phantom 1.0. TR split at it 600: draft \u00a75.4; RC:251."
+ },
+ {
+  "lens": "claims",
+  "location": "\u00a72 bullet 'Episode length is not the lever. Episodes of 10 s, 20 s and 40 s with a single command are all SLOW or DEAD'; \u00a74.3 row 'Reversals / episode length'",
+  "problem": "This overclaims. The user's ladder, the pre-registered test of episode length in the C_lr_10_rsi config, ran 1 of 5 rungs (E20). E30 was stopped before eval, and E40/50/60 never ran. The pre-registration says a FAST rung 'would put the episode structure back in play as a lever' (CH:743-744). That question is still open for E\u226530, as the draft itself says at \u00a71.1 ('30\u201360 s is untested'). The '40 s single command' data point is LR4_dwell, which is a different config: 4-image mirror, the +y-only omni RSI bank (X12 params/env.yaml: rsi fraction 0.2, source 1) and band 0.25. CH:742 even miscalls it 'RSI off'. Per the draft's own \u00a74.3, X24 is confounded by obstacle exposure (CH:754-759).",
+  "correction": "Replace with: 'No tested episode length changed the class: 10 s (3 arms) and 20 s (1 arm, obstacle-confounded) in the C_lr family, and 40-s holds only in LR4_dwell's different config (4-image mirror, +y RSI bank). The user stopped the ladder, so E\u226530 in the C_lr_10_rsi config is unevaluated. The question is deprioritised, not closed.' Note that CH:742's 'RSI off' for LR4_dwell is wrong.",
+  "severity": "major",
+  "source": "CH:721-744, :754-759, :772-773, :787-791; X12 params/env.yaml rsi_reference_reset (fraction 0.2, source 1, rsi_bank_omni.npz)"
+ },
+ {
+  "lens": "claims",
+  "location": "\u00a74.3 'Ruled out' row 'Half the data per direction | O has all the +y data and is SLOW (RC:373)'",
+  "problem": "This contradicts the draft's own open candidate (ii), whose mechanism is per-hand sample rate ('a hand-specific stroke gets at most 40 % of samples'). The draft and RC put O's slowness down to phantom \u2212y rows, so O shows only that halving the data is not *necessary* for slowness. It says nothing about whether halving is sufficient in the two-direction arms. The one arm that halved the +y data (C_40) is DEAD and confounded (CH:691-695). The PPO session would read this row as license to prune rate and batch hypotheses.",
+  "correction": "Move the row out of 'Ruled out'. Replace it with 'Half the data per direction: not necessary (O is slow with all the +y data, via phantom rows). Whether it is sufficient is open; that is candidate (ii). C_40 is confounded.'",
+  "severity": "major",
+  "source": "RC:55-57 (ii); RC:373; RC:420-425; CH:691-695, :717-718; draft \u00a74.2 (ii)"
+ },
+ {
+  "lens": "claims",
+  "location": "\u00a74.3 row 'RSI on/off and every bank | 8 RSI-varied arms SLOW or DEAD ... ruled out'",
+  "problem": "RSI starts never 'take' in any arm, including the FAST C_mo (edge reach 0.870 vs 0.980, failure 0.127 vs 0.021). RC reads this as 'RSI is inert at init std 1.5', and RR \u00a74.5 offers a cam-braking-at-reset explanation that rung 0b is meant to test. So the RSI arms show that RSI *as implemented* does not move the class. They do not show that effective fast-gait seeding would not. RR:129 explicitly discounts these negatives pending rung 0b. Calling 'every bank' ruled out understates a live implementation question that belongs to the receiving session.",
+  "correction": "Reword: 'RSI as implemented does not change the class. Its starts underperform in every arm, fast ones included, so fast-gait seeding itself is untested. RR \u00a74.5 proposes cam braking at reset (rung 0b, untested).' Also add 'as implemented' to the bank results in \u00a73.5.",
+  "severity": "major",
+  "source": "RC:213-218, :253-256; RR REPORT.md:126-129; AN:338-339 (earlier reading, superseded by RC)"
+ },
+ {
+  "lens": "claims",
+  "location": "\u00a74.1 item 11 ('So a formed stroke is self-sustaining, and the barrier is at formation'), under 'Established (RC:27-46, high confidence)'; also \u00a72 capacity bullet, \u00a74.1 item 10 and \u00a74.3 capacity row",
+  "problem": "Item 11 comes from RC \u00a72.6, which is labelled 'confidence: medium; inference \u2014 candidate (i)'. It is not part of the high-confidence block. It also contradicts the draft's own open items: AN 1c ('formed then collapses once \u2212y is trained', \u00a74.2), T1's 'formed-then-lost' branch (\u00a77.F) and P9. The distillation is open loop. A bare two-hand network has never been shown to walk closed-loop or to survive PPO (RC:540-541). Fast-gait RSI starts decay to the shuffle within about 2 s in every RSI arm (RC:213-215), which is evidence against 'self-sustaining' under training. The \u00a72 and \u00a74.3 capacity statements also drop 'open loop'.",
+  "correction": "Move item 11 to \u00a74.2 as part of (i), and phrase it as: 'the open-loop distilled student reads direction from the state; whether a formed stroke survives two-direction PPO is open (T1, P9, AN 5a)'. Add 'open loop' to every capacity statement.",
+  "severity": "major",
+  "source": "RC:173, :202-218, :540-541; AN:111-114; RC:401 (P9)"
+ },
+ {
+  "lens": "claims",
+  "location": "\u00a73.6 'Removing the phantom rows is enough in one direction'; \u00a74.1 item 4 'Two mechanisms produce one symptom'; \u00a73.3 'All 14 networks that train \u2212y behaviour'",
+  "problem": "These state the phantom-row explanation as settled. Moving O \u2192 C_fa changes only the mirror to fa, and fa both removes the phantom M_y rows and triples the M_x image's effective weight (H6). No arm separates the two; P7/5c, the no-mirror arm, was never run. The draft's own \u00a74.2 (iii) records this confound, so \u00a73.6 and \u00a74.1 contradict it.",
+  "correction": "\u00a73.6: 'Switching O to the fa mirror, which removes the phantom rows and triples the M_x image weight, is enough in one direction; which change matters is open (H6, P7/5c).' \u00a74.1 item 4: 'the phantom-arm mechanism is confounded with H6'. \u00a73.3: describe the phantom arms as '4-image-mirror +y arms'.",
+  "severity": "major",
+  "source": "GA:139-146, :155; RC:145 ('medium-high; confounded for the phantom arms'), :166-169, :543; AN:17-20, :127, :285-289; CH:679-680"
+ },
+ {
+  "lens": "claims",
+  "location": "\u00a72 last bullet ('The cheapest optimizer-relevant mechanism test is T1'); \u00a77.F; \u00a77.G 'Expected: the feature arm FAST while the control is SLOW'",
+  "problem": "T1 cannot separate (i) from (ii). RC predicts the same 'formation barrier' outcome under both, and T1 only separates a formation barrier from formed-then-lost. The only designed (i)-vs-(ii) discriminator is T2 with its additive control, and its stated precondition (C_fa FAST) is now met, but the handoff never says so. That understates an established enabling result. \u00a77.G also presents (i)'s prediction (P4: FAST/SLOW) as 'Expected', when (ii) predicts SLOW/SLOW with C_fa FAST (RC:474). That tilts the reader toward (i).",
+  "correction": "\u00a72/\u00a77.F: 'T1 separates formation from collapse; it does not split (i) from (ii).' \u00a77.G: 'T2 + additive control is the only designed (i)-vs-(ii) test, and is now interpretable because C_fa is FAST. (i) predicts FAST/SLOW, (ii) predicts SLOW/SLOW (decision table RC:470-476).'",
+  "severity": "major",
+  "source": "RC:395, :424, :441-447, :468-476; CH:676-681"
+ },
+ {
+  "lens": "claims",
+  "location": "\u00a74.1 item 5 ('One-direction nets form the stroke by about it 600 ... At a 0.4 moving share (C_40) they do not'); \u00a72 fix bullet ('where the stroke forms by about it 600')",
+  "problem": "'Forms by about it 600' comes from the track-ratio split, not from a measurement. Odd RMS was computed only at final checkpoints, and the onset prediction (P5/T1) is untested. 'They do not' at a 0.4 share reads C_40 as stroke-rate evidence. In fact C_40 formed no lateral gait at all (falls or stands), and the record says its failure is upstream of the stroke and neither supports nor excludes (ii).",
+  "correction": "Say 'track ratio separates by about it 600; stroke onset is unmeasured (P5/T1)'. Replace the C_40 clause with: 'C_40 (0.4 moving share, RSI off) forms no lateral gait (DEAD: falls on s3, stands on s2), a failure upstream of the stroke and not evidence on (ii).'",
+  "severity": "minor",
+  "source": "RC:191, :397 (P5 not run), :442-444; CH:701-703, :715-718"
+ },
+ {
+  "lens": "claims",
+  "location": "\u00a75.5 'Rod saturation is universal and early ... This fits (ii) without testing it'; \u00a74.2 (ii) table",
+  "problem": "The plain past-clip share at it 300 is measured on early checkpoints run on final-eval states, which are off-distribution. The draft records that caveat only in \u00a76. With \u03c3\u22481.65 a mean just past \u00b11 is not locked: the lock share (|\u03bc|>1+2\u03c3) at it 300 is only 0.00-0.10. RC is internally split. RC:248-252 says 'a lock is present at formation'; RC:290 says saturation at it 300 'cannot select' and only 'plausibly locks' by the end.",
+  "correction": "Report both statistics with the off-distribution caveat, and say RC's two readings disagree. The evidence is compatible with (ii) but does not show lock-in at formation. T1's --sample-actions run is the on-distribution read.",
+  "severity": "minor",
+  "source": "RC:248-252, :290, :536-537; draft \u00a75.3 lock column"
+ },
+ {
+  "lens": "claims",
+  "location": "\u00a74.3 row 'Saturation or \u03c3 as the selector | Identical in both classes at every iteration'",
+  "problem": "'Identical at every iteration' contradicts the draft's own \u00a75.4 verdict ('Overlap'). The C_40 pair has extreme values (cap at it 1264/1392, sat .75/.88 at it 300). Two-direction arms grow \u03c3 marginally faster at it 600, and the lock share at it 2999 spans .56-.85. RC:372 says 'the same' only at it 300/600.",
+  "correction": "Write 'overlapping in both classes at every logged checkpoint; no separation', citing \u00a75.4.",
+  "severity": "minor",
+  "source": "RC:372; draft \u00a75.1, \u00a75.3, \u00a75.4"
+ },
+ {
+  "lens": "claims",
+  "location": "\u00a72 bullet 'The fix is the same under every candidate'",
+  "problem": "This reads as an established fix. In fact it is a prediction (P3, not run). AN pre-registers a SLOW branch (flip and reversal states re-form the shuffle) and notes that once the step-1 reversal manifest passed, C_lr_canon's marginal value as a deploy fix shrinks (the policy-switch fallback exists).",
+  "correction": "Write 'The proposed fix, canonical training, is predicted FAST under every candidate (P3, untested; SLOW branch AN:232-234).'",
+  "severity": "minor",
+  "source": "RC:394, :480-482; AN:207-212, :228-234"
+ },
+ {
+  "lens": "claims",
+  "location": "\u00a74.2 (i) 'Against or unexplained' ('RC calls \"RSI inert at init std 1.5\" the least-supported step ... RR \u00a74.5 attributes the deficit to cam braking instead')",
+  "problem": "This misattributes both sources. RC presents 'RSI inert at init std 1.5' as what the checker's evidence shows. The step it calls least-supported is the chain's claim that fast-gait RSI fails to get around the formation barrier. RR \u00a74.5 offers cam braking as an alternative explanation to be tested by rung 0b, not as an established attribution.",
+  "correction": "Write: 'RC treats the generic RSI deficit as RSI being inert at init std 1.5 and calls the RSI step of the barrier chain its least-supported link. RR \u00a74.5 proposes cam braking at reset as an alternative (rung 0b, untested).'",
+  "severity": "minor",
+  "source": "RC:213-218; RR REPORT.md:128-129, :192"
+ },
+ {
+  "lens": "claims",
+  "location": "\u00a77.E C_lr_bound ('the only designed optimizer-side probe of (ii)')",
+  "problem": "The probe can be read in only one direction. The A head bundles three PPO-side changes: bound loss, tanh log-std at init \u03c3 0.8, and entropy 0.0025. Its action_rate \u22120.3 is already the default (X14 env.yaml:1774). RR \u00a74.3 shows that bounding the mean exposes an action_rate noise tax (+0.27 to +0.99/s), the same size as the fast gait's margin over the two-direction nets (+0.29 to +0.32/s). A SLOW C_lr_bound therefore would not refute (ii); only a FAST result is informative.",
+  "correction": "Add: 'A FAST result supports lock-in. A SLOW result cannot be read against (ii) without an action_rate-0 control (RR arm B).'",
+  "severity": "minor",
+  "source": "RR REPORT.md:114-118, :208-210, :238; X14 params/env.yaml:1774; RC:261-266"
+ },
+ {
+  "lens": "claims",
+  "location": "\u00a76 'Reversal fall rates may be understated' (the 'rough re-count up to about 21 % (C) and 24 % (C_s2)')",
+  "problem": "The figures do not reproduce, and the bullet understates the point. A per-hold count from the alive counts in the logs gives these losses: in rev_pause, the post-reversal lat_r_2 hold loses 22/87 = 25 % (C) and 17/88 = 19 % (C_s2), against 10/98 and 10/99 in the first hold. In rev_direct, the post-reversal hold is at baseline (C 6/88 = 7 %, C_s2 8/89 = 9 %). So the record's 'falls at each head's baseline' (RC:277, AN:328-329, CH:559-561) holds for direct reversals but not for paused ones. That matters for the P1_canon reversal risk (RC:509).",
+  "correction": "Replace the rough figures with the per-hold counts, and state that paused reversals raise the next hold's falls by about 2-2.5\u00d7 for C and C_s2 while direct reversals stay at baseline.",
+  "severity": "minor",
+  "source": "parkour/outputs/omni_plan/side_bisect/canon/{C,C_s2}_cmd_rev_{direct,pause}__omni.log 'facing by hold' n=alive counts and terminations= lines; RC:277, :509; AN:328-329"
+ },
+ {
+  "lens": "claims",
+  "location": "\u00a74.1 item 4 ('Direction rides a static carrier instead ... static odd part is 0.26\u20132.47 in slow rows'); \u00a74.1 item 2 ('only the direction-flipped, phase-locked part pushes')",
+  "problem": "Quoting only the slow-row range implies the static carrier separates the classes. RC's trust table says it does not: static odd rod is 0.07-1.05 in fast rows (C_mo_s1 1.03), so the carrier is 'a symptom'. AN calls it 'a description, not a tested cause'. Separately, RC:30-31 says the static odd part, the lean, also pushes at 0.06-0.10 m/s, which item 2 omits.",
+  "correction": "Add the fast-row static range and the words 'symptom, not separator'. In item 2, add 'the static odd part (lean) also pushes, but only at the slow gaits' 0.06-0.10 m/s'.",
+  "severity": "minor",
+  "source": "RC:28-31, :286, :349; AN:146"
+ },
+ {
+  "lens": "claims",
+  "location": "\u00a75.4 track-ratio row ('Separates from it 600 (gap .005)')",
+  "problem": "The AUC pools 10-s and 20-s arms with 40-s arms, although their track ratios are on different bases (records: 'don't compare track_ratio across episode lengths'). The .005 gap is set by C_lr_10_rsi, an E10 arm (.559). Restricting to 40-s arms the gap is .007 (O .557 vs C_mo .564), so the conclusion holds, but the method breaks a recorded rule and the margin is thin.",
+  "correction": "Compute the separation on equal-episode-length arms, or footnote the E10/E20 inclusion. Call the gap 'thin (0.005-0.007)'.",
+  "severity": "minor",
+  "source": "AN:75, :311; CH:765-766; tfevents recomputation (TR at it 600: C_mo .5643, O .5574, C_lr_10_rsi .5591)"
+ },
+ {
+  "lens": "claims",
+  "location": "\u00a71.1 row 14 ('RR does not mention: the C_40 negative')",
+  "problem": "This is false for RR \u00a76. RR:7 and RR:250 report C_40 s3 DEAD and its moving-share confound. What RR lacks is C_40_s2's DEAD verdict, which row 1 already covers.",
+  "correction": "Change to 'RR does not mention C_40_s2's DEAD verdict, the episode-length rungs, T1/T2/the flat control, or the along-command rule'.",
+  "severity": "minor",
+  "source": "RR REPORT.md:7, :249-252"
+ },
+ {
+  "lens": "claims",
+  "location": "\u00a72 bottom-line numbers ('\u03c3 cap (2.0) is first reached at it 1264'; 'One-direction +y networks ... walk at 0.184\u20130.215 (5 FAST, 1 INTERMEDIATE)')",
+  "problem": "Per the draft's own \u00a75.1, 1264 is the first \u03c3\u22651.99 (C_40); the first \u03c3\u22652.0 is 1594. The quoted speed range covers only the FAST runs; the INTERMEDIATE C_mo walks .162/.173. The sentence also does not say 'fa', while the 4-image +y arms (O, R, C_band, C_rsi) are SLOW.",
+  "correction": "Write: '\u03c3 first reaches 1.99 at it 1264 and 2.0 at it 1594 (C_40)'. And: '+y-only fa networks at a 0.8 moving share: 5 FAST at 0.184-0.215, 1 INTERMEDIATE at 0.162/0.173'.",
+  "severity": "minor",
+  "source": "draft \u00a75.1 table; \u00a73.2 table; AN:16"
+ },
+ {
+  "lens": "claims",
+  "location": "\u00a73.6 / \u00a74.1: the recorded C_40 reading is omitted",
+  "problem": "The record draws one interpretive conclusion from the controls: C_lr's stepping and carrier form from the pooled 0.8 of moving experience, and only the stroke is missing. That reading matters for (i)'s same-signed-gradient account, and the handoff drops it. It is itself an inference from the confounded C_40 (stand share 0.6, RSI off).",
+  "correction": "Carry the reading as an inference: 'Recorded reading: C_lr's stepping and carrier are supported by pooled two-hand experience (CH:715-716). This rests on the confounded C_40.'",
+  "severity": "minor",
+  "source": "CH:715-718; RC:422-423"
+ },
+ {
+  "lens": "receiver",
+  "location": "Draft header ('You now own canonical training, its budget, its kill rules and its seed choices'), \u00a72 last bullets, \u00a77 title 'Open items now yours'",
+  "problem": "The draft never says that none of the \u00a77 items is user-approved. The user never authorized C_lr_canon or the canonical-training path. Per CHARTER, the user's instruction chain ran canonical *eval* \u2192 bank harvest \u2192 C_lr_rsi (CH:509-511, CH:587-588), and every later arm was a user pick (C_lr_10_rsi, RSI retry, controls, ladder). The fix was only proposed in AN/RC, and RR assigned it to the side bisect. The user's request was only to 'summarize ... and pass them of'. A receiver following the 'run approved campaigns without asking' rule could read 'now yours' as approval to start a \u224820 GPU-h path.",
+  "correction": "Add one line: 'Approval status: nothing in \u00a77 has user approval. C_lr_canon/FB_canon/P1_canon, T1, T2 and C_lr_bound are proposals (AN/RC/RR). The user's last decision was to stop the ladder. Ask before launching any of them.' Change 'You now own' to 'The side bisect has no owner; these proposals pass to you for the user's decision'.",
+  "severity": "major",
+  "source": "CHARTER.md:509-511, :587-588, :719, :787-791; user request (harness relay)"
+ },
+ {
+  "lens": "receiver",
+  "location": "\u00a77.B 'Comparator: X14 C_lr s3, SLOW / SLOW'; \u00a71.1 row 9; \u00a77.A 'Landing'",
+  "problem": "The draft names X14 (seed 3, code_sha 07a0037ed5d9, eval_sha 3e2898e2) as C_lr_canon's comparator. It does not reconcile this with the receiver's own rules.\n- RR:177: screens never use s2/s3, and 'historical heads are references, never controls' (C0 retrained fresh at the new code_sha).\n- RR:175: each landing costs a B<k> rerun per live ladder plus re-evaluation of controls.\n- The wrapper landing moves code_sha (RCD:163-170), and the EVAL_CARRY change moves eval_sha (run_phases.py is in EVAL_PATHSPECS, RCD:177-183).\nThe draft's landing section drops RR's B<k> clause entirely and says only that 'you pick the seeds'.",
+  "correction": "State the choice explicitly, with costs.\n(a) Run C_lr_canon at s3 against the reference X14. Justify this with RR \u00a76.0.2's knob-off identity checks (byte-identical dumps, plus identity through it 19 of a 20-it same-seed smoke). This is acceptable because the predicted effect is a class flip (14/14 two-hand networks SLOW/DEAD).\n(b) Follow RR:177: fresh seeds plus a knob-off C_lr control at the new code_sha, \u22481.2 GPU-h per seed.\nAlso state that SB is stale and reference-only, so no SB B<k> is needed if work moves to a new campaign dir, while RR:175's B<k> clause applies to whatever ladder is live then.",
+  "severity": "major",
+  "source": "RR REPORT.md:175, :177; run_candidates.py:159-183; state.json ladder.references.C_lr (code_sha 07a0037e, eval_sha 3e2898e2)"
+ },
+ {
+  "lens": "receiver",
+  "location": "\u00a77 'Common gate procedure' / 'Common runner: queue_eplen2.sh is the hardened template'; \u00a77.A plumbing; \u00a77.B Evals",
+  "problem": "The draft does not specify how a canon-*trained* head is evaluated.\n- **Mode.** eval_crab_hex_gait.py has `--canon {wave,cmd}` (:117-131). Training hysteresis matches `cmd` (h 0.08), not `wave`. The draft names neither.\n- **Double mirroring.** The plan also adds KRABBY_OMNI_CANON to EVAL_CARRY and 'select the wrapper ... in the eval harness'. If the harness honours the carried env knob and `--canon` is also passed, the mirror is applied twice. That is the identity, so the \u2212y hand sees raw obs.\n- **Runner template.** queue_eplen2.sh's lr_eval never passes `--canon` (:94-96). Its FALLBACK_ST is X17's env (:22, :116), which lacks the knob. Run unmodified, it would score the R hand without canonicalization and record a false SLOW/DEAD for the fix.\n- **Hard-coded values.** The template hard-codes SB paths (:12-21), the eplen step list (:147) and a v16 accept string (:61), and its PYTHONPATH points at the main checkout. RR \u00a74.6/\u00a76.0.2 says worktree code needs PYTHONPATH=<worktree>/parkour.",
+  "correction": "Add an 'Evaluating a canon-trained head' note:\n- canonicalize exactly once, through either the env knob or `--canon cmd --canon-hyst 0.08`, never both;\n- assert run_meta.canon is present (as canon_evals.sh:36-37 does for the smoke);\n- the driver's lat_l-only `side22_25` row is the identity under canon, so only the both-hands and reversal evals are at risk.\nSay that queue_eplen2.sh needs its lr_eval, FALLBACK_ST, paths, step list and PYTHONPATH changed before reuse.",
+  "severity": "major",
+  "source": "scripts/queue_eplen2.sh:12-22, :61, :90-104, :116, :147; scripts/canon_evals.sh:23-25, :36-37; eval_crab_hex_gait.py:117-131"
+ },
+ {
+  "lens": "receiver",
+  "location": "\u00a77.J 'Resume hazard'",
+  "problem": "The draft names the wrong commands for X13 and X18.\n- `_reference_inflight` matches on the header's `candidate` field (run_candidates.py:11951-11961). Those fields are 'LR4_dwell_s2' (X13), 'C_lr_10_rsi_s2' (X18) and 'C_lr_30_rsi' (X25) (state.json ladder.experiments).\n- The resuming launches are therefore `--reference-chain LR4_dwell_s2`, `--reference-chain C_lr_10_rsi_s2` and `--reference-chain C_lr_30_rsi`.\n- The draft's `--reference-chain LR4_dwell --seed 2` and `C_lr_10_rsi --seed 2` exit on a seed mismatch, because those references pin seed 3 (reference_seed, :11908-11916).\nA receiver could believe the `_s2` names are safe.",
+  "correction": "Replace the commands with `--reference-chain LR4_dwell_s2`, `--reference-chain C_lr_10_rsi_s2` and `--reference-chain C_lr_30_rsi` (the last also with `--seed 3`, as OL 21:07:45 says). Keep the advice to use a new campaign dir or fresh chain names.",
+  "severity": "minor",
+  "source": "run_candidates.py:11908-11916, :11951-11961; state.json ladder.experiments.X13/X18/X25.candidate"
+ },
+ {
+  "lens": "receiver",
+  "location": "\u00a77 'Common gate procedure' step 3 vs \u00a77.J runner",
+  "problem": "queue_eplen2.sh's VERDICT applies only the feet_ss classes (decide() :29-33, :118). The along-command class is just logged (:102-103). A runner verdict of OK can therefore disagree with the draft's rule that 'FAST requires the along-command class to be FAST as well' (CH:769).",
+  "correction": "Note that the along-command check must be applied by hand, or decide() must be changed to take CLASS_ALONG/CLASS_ALONG_R.",
+  "severity": "minor",
+  "source": "scripts/queue_eplen2.sh:29-33, :99-103, :118; CHARTER.md:769-770"
+ },
+ {
+  "lens": "receiver",
+  "location": "\u00a77.A 'Reusable pieces: _canon_policy_step (:568-579)'",
+  "problem": "`_canon_policy_step` also calls the policy and recomputes the estimator slice (obs_c[:, priv_start:priv_end] = estimator.inference(...)). A training env wrapper must not do either. PPO already substitutes the estimator output during rollouts (train_with_estimated_states: true; ppo_with_extractor.py:189-198; X14 agent.yaml:96). The wrapper also mirrors the true priv slice that trains the estimator and feeds the critic, which the canonical-deploy result never exercised.",
+  "correction": "Say: reuse only `_canon_hyst_update` and `lr.mirror_obs`/`lr.mirror_actions`, not the policy or estimator calls. Add a CPU test that the wrapper's M_y round-trip is exact on the full 1,149-dim obs, including the priv_explicit and scan slices.",
+  "severity": "minor",
+  "source": "eval_crab_hex_gait.py:567-578; ppo_with_extractor.py:121, :189-198; logs/.../X14/params/agent.yaml:96"
+ },
+ {
+  "lens": "receiver",
+  "location": "\u00a77.C FB_canon; \u00a71.1 row 8 ('the canon wrapper lands alone')",
+  "problem": "FB_canon needs a new masked mirror entry in mdp/crab_hex_omni_mirror.py, which is in CODE_PATHSPECS. If the wrapper lands alone, that is a third code_sha move (and B<k>), beyond RR's two landings. RR rung 6 needs the same mask (RR:269).\nThe FB_canon gate also has two problems:\n- **No tripod number.** It cites 'forward tripod no worse than the t3 record', but policy/manifest.yaml:113-115 records no tripod value.\n- **Cross-recipe comparison.** The record is a different recipe: 1a-base C1d t3 with a turn slot, clock visible, at manifest.yaml:95-118. FB_canon is 1b-base with no turn.",
+  "correction": "Recommend landing the default-off masked mirror together with the wrapper, or with RR's second landing. Give the forward-tripod threshold and its source, or drop it. Label the t3 comparison as cross-recipe, a reference rather than a control.",
+  "severity": "minor",
+  "source": "run_candidates.py:163-170; candidates.yaml:393-410; policy/manifest.yaml:95-118; RR REPORT.md:269"
+ },
+ {
+  "lens": "receiver",
+  "location": "\u00a71 'Commits after RR's 18:44 snapshot'",
+  "problem": "b48e7ee6 was committed at 17:42, and RR:7 already cites it for C_40 s3 DEAD. It is not after the snapshot.",
+  "correction": "Remove b48e7ee6. The post-snapshot commits are 67b20d8d (19:00), a0b9ce72, f533e356, 47686f1e and 675868f0. Also, RR read RC as of cbf8ad06 (16:27), not 823722e8; the current line numbers given are correct.",
+  "severity": "minor",
+  "source": "git log (b48e7ee6 17:42; RC history 823722e8 14:12, cbf8ad06 16:27, 67b20d8d 19:00); RR REPORT.md:7"
+ },
+ {
+  "lens": "receiver",
+  "location": "\u00a73.4 table caption",
+  "problem": "The caption 'Cells are lat_l / lat_r at 0.22 and at 0.25' misdescribes the cells. They are 'lat_l 0.22/0.25 ; lat_r 0.22/0.25'. For C_mo_s2 wave, gate/canon_lr.json gives lat_l_022 .203, lat_l_025 .211, lat_r_022 .199, lat_r_025 .209, which matches CH:550-555's layout, not the caption.",
+  "correction": "Change the caption to 'lat_l 0.22 / 0.25 ; lat_r 0.22 / 0.25'.",
+  "severity": "minor",
+  "source": "gate/canon_lr.json (C_mo_s2_wave labels); CHARTER.md:550-555; ANALYSIS.md:320-325"
+ },
+ {
+  "lens": "receiver",
+  "location": "\u00a71.1 'Stale lines in DOSSIER.md' (DOS:587, :593 and :950)",
+  "problem": "DOS:593 does not concern C_fa or C_40. It says X20 'was still training at compile time'. Only DOS:587 and :950 say the C_fa and C_40 controls have not run.",
+  "correction": "Move DOS:593 to the X20-live item, next to DOS:66 and :968.",
+  "severity": "minor",
+  "source": "DOSSIER.md:587, :593, :950"
+ },
+ {
+  "lens": "receiver",
+  "location": "\u00a71.1 correction table (coverage)",
+  "problem": "Four stale RR statements are not corrected.\n- **RR:47.** It says \u03c3, LR, entropy and clipped-rod share 'overlap completely across 17 arms'. Now 22 arms, and the draft's own \u00a75.4 finds value loss partly separates the classes (AUC .78-.88) from about it 300.\n- **RR:175.** The B<k> 'per live ladder' clause.\n- **RR:272.** P1_canon is 'the side bisect's ... lineage'.\n- **RR:328.** \u00a79 says 'in the side bisect'.\nRR:24 and the \u00a76.5 totals (RR:298-300) still exclude canonical training (\u224820 GPU-h plus B<k>), and the draft gives no total.",
+  "correction": "Add rows for RR:47 (22 arms; value loss is the only partial separator, so link it to rung-0 explained-variance telemetry and the rung-5 trigger), RR:175, RR:272 and RR:328. Add one line: the receiver's budget tiers rise by \u224816-20 GPU-h (C_lr_canon 1.2-1.3, FB_canon \u22481.3, P1_canon \u22485.4-5.5, each per seed at s3+s2, plus evals) plus \u2248250 lines and tests for the wrapper (AN:205).",
+  "severity": "minor",
+  "source": "RR REPORT.md:24, :47, :175, :272, :298-302, :328; ANALYSIS.md:205; draft \u00a75.4"
+ },
+ {
+  "lens": "receiver",
+  "location": "\u00a72 bullet 'The \u03c3 cap (2.0) is first reached at it 1264 or later'; \u00a71.1 row 9 'Every side-bisect comparator is seed 3'",
+  "problem": "Two wording slips.\n- 1264 is C_40's first \u03c3 \u2265 1.99. Its first \u03c3 \u2265 2.0 is 1594 (recomputed from X22 tfevents, matching the draft's own \u00a75.1).\n- One-direction comparators exist at s2 and s1 (X07, X08, X09, X23). Only the two-direction and phantom negatives are s3-only.",
+  "correction": "Write '\u03c3 first reaches 1.99 at it 1264 (2.0 at 1594) or later' and 'every two-direction and phantom comparator is seed 3'.",
+  "severity": "minor",
+  "source": "CPU recompute of X22 Policy/mean_noise_std (first \u22651.99 at 1264, \u22652.0 at 1594); state.json references C_s2/C_mo_s2/C_mo_s1/C_40_s2 seeds"
+ },
+ {
+  "lens": "receiver",
+  "location": "\u00a77.A Plumbing",
+  "problem": "The draft gives no locations for 'the omni knobs, EVAL_CARRY and OVERLAY_DUMP_CHECKS'. They are crab_hex_omni_task/config/crab_hex/omni_knobs.py (code_sha), experiments/tools/run_phases.py:169 (EVAL_CARRY; eval_sha) and run_candidates.py:1860 (OVERLAY_DUMP_CHECKS).",
+  "correction": "Give the three file:line locations and say which hash each one moves.",
+  "severity": "minor",
+  "source": "run_phases.py:169; run_candidates.py:1860; config/crab_hex/omni_knobs.py"
+ },
+ {
+  "lens": "receiver",
+  "location": "\u00a77.J 'Other templates ... canon_evals.sh for --canon evals'",
+  "problem": "canon_evals.sh's drivers_idle uses the unanchored `pgrep -f` pattern (:14). The review's F3 fix replaced it in queue_eplen2.sh (:27).",
+  "correction": "Note that the F3 anchored `ps -eo args | grep -qE '^[^ ]*isaac_venv/bin/python ...'` check should be ported before reusing canon_evals.sh.",
+  "severity": "minor",
+  "source": "scripts/canon_evals.sh:14; scripts/queue_eplen2.sh:27; CHARTER.md:774-777"
+ },
+ {
+  "lens": "receiver",
+  "location": "\u00a73.1 pre-arm checks, \u00a73.5 RSI banks, \u00a73.8 cost, \u00a74.1 items 1-11 and \u00a74.3, \u00a76 'Stale lines in the SB records'",
+  "problem": "For this receiver, a large share of the draft repeats material it already has or cannot act on.\n- **Mechanism.** The established mechanism, the ruled-out table and canonical deploy are in DOS:564-593, and RR cites RC directly.\n- **Not decision-relevant.** The pre-arm checks, bank harvest details (C_lr_canon runs with RSI off) and per-group wall-time table do not affect the receiver's decisions.\n- **SB-maintainer content.** The SB stale-line list matters only to whoever edits the SB records.\nThis buries the parts the receiver needs: \u00a71.1, \u00a72, \u00a75 and \u00a77.",
+  "correction": "Make these sections short or move them to an appendix:\n- \u00a74.1 down to the signature table plus the new CPU rows (X24, X20, C_fa, C_40);\n- \u00a74.3 down to a pointer to RC:363-376;\n- \u00a73.1, \u00a73.5, \u00a73.8 and the SB stale-line list into an appendix.\nKeep \u00a75 in full; it is new PPO-facing evidence (22 arms vs DOS's 17).",
+  "severity": "minor",
+  "source": "DOSSIER.md:564-593; ROOT_CAUSE.md:363-376; draft \u00a73-\u00a76"
+ }
+]
