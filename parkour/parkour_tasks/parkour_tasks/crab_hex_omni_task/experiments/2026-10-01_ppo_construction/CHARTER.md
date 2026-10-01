@@ -371,3 +371,22 @@ as `C_lr_rsi__*`, identical to X16's definition.
   - **The killed run is excluded** (§4.2) and must never be resumed (the orchestrator's AWAIT offers to resume it; ignore that).
   - **Rerun:** a fresh reference `C__A_s11_r2` (chain C__A, seed 11) added in candidates v3; its class counts. The pilot continues with C__A_s11_r2, C_lr__C0_s11, C_lr__A_s11.
   - **Written before any affected result was read.** No other run's dose had been read.
+- 2026-10-01 16:18, pilot: **C__A_s11_r2 (X03) = FAST** (feet_ss 0.229 / 0.251, along FAST, 5 / 3 short; lean_abs −0.030 / −0.018; sweep 0.130 / 0.172; rod odd RMS 2.03 / 2.09). Same seed as C__C0_s11 = SLOW (0.083 / 0.092, lean 0.19–0.20, sweep 0.048–0.051, rod odd RMS 0.63 / 0.68). Descriptive (n = 1 per arm, arms not seed-paired). The speed is above every historical side head (max 0.215), and the sweep is about 1.5–2× the historical FAST range (0.076–0.090). Pilot condition met: the dose passed at 1000 under the amended rule (median 0.97 / 1.27), and the 'C__A FAST if C__C0 FAST' clause is vacuous because C0 is SLOW. The pilot continues with C_lr__C0_s11 and C_lr__A_s11.
+- 2026-10-01 17:35, pilot: **C_lr__C0_s11 (X04) = SLOW / SLOW** (both-hands L 0.083 / 0.085, R 0.074 / 0.084; along SLOW; lean_abs 0.196–0.203; sweep 0.032–0.038; model_2500 also SLOW / SLOW). This reproduces the historical two-direction shuffle at a fresh seed. C_lr__A_s11 launched 17:35.
+- 2026-10-01 18:50, pilot: **C_lr__A_s11 (X05) = L SLOW / R INTERMEDIATE**.
+  - **Hands, both-hands eval:** L 0.092 / 0.097 (lean 0.18, rod odd RMS 0.77); R 0.165 / 0.161 (rod odd RMS 1.53 / 1.49).
+  - **model_2500:** also L SLOW / R INTERMEDIATE (hands-averaged feet 0.129 → 0.127; no late rise).
+  - **Dose:** passed at 1000 and at the final window (median 1.11 / 1.26).
+  - **Training track ratio:** still rising at the end (0.536 at 1000 → 0.609 at 2950), against C_lr__C0_s11's flat ~0.48.
+  - **First two-direction network to form the odd stroke on one hand:** the historical two-direction maximum rod odd RMS was 0.93.
+  - **verdict.py so far:** C_lr A PARTIAL (an INTERMEDIATE hand).
+- 2026-10-01 18:55, **pilot read (§3): PASS.** Both A runs passed the iteration-1000 dose read (C__A_s11_r2 and C_lr__A_s11). "C__A FAST if C__C0 FAST" is vacuous (C__C0_s11 SLOW).
+  - **Excluded:** the C__A_s11 dose kill (resolved by the user's 12:30 amendment).
+  - **Flag:** C__A_s11_r2 carries "dose lost late" (rod median 1.52 at the final window); its class counts.
+  - **LR:** A runs sit at the floor 0.59–0.67 vs C0 0.35–0.37; applied LR 1.8–2.1e-5 vs 3.2–3.6e-5, a ratio of about 0.57–0.66, above the ½ trigger. No 4a trigger yet.
+- 2026-10-01 18:57, **block order drawn once** (python random.Random(20261001).shuffle within each block):
+  - block 0 (seed 11 remainder): C_lr__B_s11, C_lr_rsi__A_s11, C_lr_rsi__B_s11, C_lr_rsi__C0_s11;
+  - block 1: C_lr__A_s12, C_lr__C0_s12, C_lr_rsi__C0_s12, C__A_s12, C_lr__B_s12, C__C0_s12, C_lr_rsi__B_s12, C_lr_rsi__A_s12;
+  - block 2: C_lr_rsi__B_s13, C_lr_rsi__C0_s13, C_lr_rsi__A_s13, C_lr__B_s13, C_lr__A_s13, C__A_s13, C__C0_s13, C_lr__C0_s13.
+
+  These 20 runs launch serially in this order.
