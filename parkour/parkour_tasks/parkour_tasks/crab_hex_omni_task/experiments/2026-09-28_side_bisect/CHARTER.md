@@ -775,3 +775,12 @@ using the new banks". At the question, the user chose **"C in both directions"**
     untouched. `queue_eplen2.sh` adopted the unit and continues the same plan. It adds the review's runner fixes: run
     dir by run name, head from state.json (follows an infra retry), unit death detected early with the journal logged,
     drivers_idle before each launch, the X17 eval-env fallback, and the along-command check logged per arm.
+- 2026-09-30 20:23: **C_lr_20_rsi (X24, E = 20) = SLOW on both hands** (verdict FAIL). No seed 2 (not FAST).
+  - feet_ss: L 0.071 / 0.095, R 0.054 / 0.052. Along the command: L 0.069 / 0.091 (SLOW), R 0.049 / 0.051 (DEAD by
+    0.001); no wrong-way or static episodes. Excluded "short" 3–8 per hold. Early read 0.504.
+  - Labels only (single seed): lean_abs 0.016–0.057, low for a slow arm (most leaned 0.12–0.22); sweep 0.079 / 0.089 on
+    the left, in the range of fast gaits, 0.057 / 0.061 on the right. The left hand takes long strokes but moves
+    slowly; cadence was not measured.
+  - Obstacle telemetry at its 2900–3000 (`scripts/eplen_telemetry.py`), X17 (E = 10) → X24: r_max 0.82 → 1.41 m;
+    reach_obst 0.001 → 0.225; block_steps 0.005 → 18.7; falls on ring spawns 0.033 → 0.112, on flat 0.041 → 0.078.
+  - C_lr_30_rsi launched 20:23 (X25).
