@@ -784,3 +784,8 @@ using the new banks". At the question, the user chose **"C in both directions"**
   - Obstacle telemetry at its 2900–3000 (`scripts/eplen_telemetry.py`), X17 (E = 10) → X24: r_max 0.82 → 1.41 m;
     reach_obst 0.001 → 0.225; block_steps 0.005 → 18.7; falls on ring spawns 0.033 → 0.112, on flat 0.041 → 0.078.
   - C_lr_30_rsi launched 20:23 (X25).
+- 2026-09-30 21:07: **Ladder stopped by the user** ("stop this ladder. Summarize the tests and results you have so far
+  and pass them off to the PPO algorithm and hyperparameter session").
+  - Runner v2 was killed; C_lr_30_rsi (X25) was stopped through `systemctl --user stop` (the driver's SIGTERM path, a
+    clean exit) at about it 1900, with an early read of 0.524. Don't resume X25. C_lr_40/50/60_rsi were not run.
+  - Ladder result: one rung, C_lr_20_rsi, SLOW on both hands. The handoff summary is in `HANDOFF_PPO.md`.
