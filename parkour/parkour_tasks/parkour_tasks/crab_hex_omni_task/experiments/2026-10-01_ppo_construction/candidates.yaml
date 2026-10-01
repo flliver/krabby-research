@@ -1132,6 +1132,8 @@ references:
   C__C0_s14: {chain: C__C0, seed: 14}
   C__C0_s15: {chain: C__C0, seed: 15}
   C__A_s11: {chain: C__A, seed: 11}
+  # 2026-10-01 rerun of the dose-killed C__A_s11 (X02) under the amended dose rule (CHARTER 4.3/9); never resume C__A_s11
+  C__A_s11_r2: {chain: C__A, seed: 11}
   C__A_s12: {chain: C__A, seed: 12}
   C__A_s13: {chain: C__A, seed: 13}
   C__A_s14: {chain: C__A, seed: 14}

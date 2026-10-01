@@ -114,9 +114,7 @@ A run is FAST when:
 
 - **Read from:** training telemetry at iteration 1000 (window 950–1050) and at the final window
   (2900–2999).
-- **Thresholds:**
-  - `PPO/mu_med_{cam,rod}` ≤ 1.5;
-  - `PPO/sat15_{cam,rod}` ≤ 0.1.
+- **Thresholds (amended 2026-10-01 12:30, user decision, see §9):** `PPO/mu_med_{cam,rod}` ≤ 1.5. `PPO/sat15_{cam,rod}` (share |μ| > 1.5) is reported but no longer gates. The original rule also required `PPO/sat15_{cam,rod}` ≤ 0.1, a threshold set before any data.
 - **C0 reference:** the same tags in fresh C0.
 - **The |μ| > 1 share is an outcome, not the dose.**
 - **Ramp timing:** the ramp is keyed on the algorithm's update counter, which `update_dagger` (every
@@ -364,3 +362,12 @@ as `C_lr_rsi__*`, identical to X16's definition.
   - **Other sizes:** 512 envs 1.08×; 2,048 envs 1.63×, past the 1.5× stop, so 4,096 was not run.
   - **No failures:** no NaN or OOM; peak RAM 6.1–6.8 GiB. Details in SMOKES.md §5.
 - 2026-10-01: code landed (commit 60532fb9; code_sha f7166d558c5d, eval_sha 1d021625844b). The pilot launches in the CHARTER §3 order: C__C0_s11, C__A_s11, C_lr__C0_s11, C_lr__A_s11, serially via scripts/run_arm.sh. C_lr_rsi will run the `C_lr_rsi__*` chains (rung 0b: staging OFF). 4b is not triggered (rung 1).
+- 2026-10-01 11:41, pilot: **C__C0_s11 = SLOW** (feet_ss 0.083 / 0.092, along SLOW, lean_abs 0.19–0.20, sweep 0.048–0.051 — the lean-and-shuffle phenotype; 0 short). This is the first SLOW one-direction fa run at 0.8 moving share; historical: C s3/s2 FAST, C_mo s1/s2 FAST, s3 INT, C_fa s3 FAST. Read: one-direction formation is itself seed-dependent at fresh seeds. Per §3 the pilot continues unchanged (C__A has no 'must be FAST' bar while C__C0 is not FAST). The C-bed guard (§4.7) will decide at 3 seeds; 'C bed not reliable' becomes likely.
+- 2026-10-01 12:07, **C__A_s11 (X02) dose-killed at iteration ~1,140** under the original §4.3 rule.
+  - **Wiring verified correct:** 6/6 consumed lines, `Loss/action_bound` 8.9, effective σ 0.67.
+  - **The share rule failed:** median |μ| cam 0.97 / rod 1.27 (≤ 1.5, pass), but share |μ| > 1.5 was 0.27 / 0.41 (> 0.1, fail). Fresh C__C0_s11 at the same iteration: median 3.69 / 4.57, share > 1.5 0.88 / 0.88.
+  - **Training reads, descriptive:** track_ratio 0.744 and rising, vs C__C0_s11 0.51 (SLOW). Applied LR 2.0e-5 vs C0 3.8e-5.
+  - **True stop → user decision (12:30):** the dose is median |μ| ≤ 1.5 on cams and rods; sat15 is reported only. verdict.py `dose_at` was updated and its self-test passes (a case for exactly these numbers was added).
+  - **The killed run is excluded** (§4.2) and must never be resumed (the orchestrator's AWAIT offers to resume it; ignore that).
+  - **Rerun:** a fresh reference `C__A_s11_r2` (chain C__A, seed 11) added in candidates v3; its class counts. The pilot continues with C__A_s11_r2, C_lr__C0_s11, C_lr__A_s11.
+  - **Written before any affected result was read.** No other run's dose had been read.

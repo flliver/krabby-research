@@ -225,7 +225,7 @@ def test_consumed_lines_reject_not_consumed(tmp_path):
 # ============================================================ F9: the live candidates file
 def test_live_candidates_is_v2_and_every_c_lr_rsi_chain_states_its_staging():
     live = (CAMPAIGN / "candidates.yaml").read_text()
-    assert live == (SCRIPTS / "candidates_v2.yaml").read_text()
+    assert live == (SCRIPTS / "candidates_v3.yaml").read_text()
     chains = yaml.safe_load(live)["chains"]
     rsi = {n: c for n, c in chains.items() if n.startswith("C_lr_rsi")}
     assert len(rsi) == 8

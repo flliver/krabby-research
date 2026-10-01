@@ -37,7 +37,7 @@ THE RULES (CHARTER 4, verbatim intent; the numbers are the module constants belo
     PPO/effective_std present, Loss/action_bound present for bound arms, PPO/effective_std < 1.0 (window 190-210)
     only for init-0.8 arms that are not bisection arms; the dumped entropy_coef / action_rate weight equal the
     overlay. DEAD at it 1000 (window 950-1050): track_ratio_mean < 0.40 or PPO/effective_std < 0.1.
-  Dose (4.3), bound arms: PPO/mu_med_{cam,rod} <= 1.5 and PPO/sat15_{cam,rod} <= 0.1 at it 1000 (950-1050) and at the
+  Dose (4.3, amended 2026-10-01), bound arms: PPO/mu_med_{cam,rod} <= 1.5 (sat15 reported only) at it 1000 (950-1050) and at the
     final window (2900-2999). A failure at 1000 = kill + wiring check; at the final window only = "dose lost late"
     (the run's class still counts, the flag is reported).
   Two-direction beds (4.5), per non-C0 arm vs the bed's C0, precedence VOID > UNLOCK > PARTIAL > NO-FLIP:
@@ -405,9 +405,10 @@ def dose_at(ser: dict, w) -> dict:
     vals = {k: window(ser.get(k), *w) for k in ("mu_med_cam", "mu_med_rod", "sat15_cam", "sat15_rod")}
     if any(v is None for v in vals.values()):
         return {"ok": None, **vals}
-    ok = (vals["mu_med_cam"] <= DOSE_MU_MED and vals["mu_med_rod"] <= DOSE_MU_MED
-          and vals["sat15_cam"] <= DOSE_SAT15 and vals["sat15_rod"] <= DOSE_SAT15)
-    return {"ok": bool(ok), **vals}
+    # 2026-10-01 user decision (CHARTER 4.3 amendment, 9 log): the dose is median |mu| <= 1.5 on cams and rods;
+    # the share |mu| > 1.5 is reported (sat15_*) but no longer gates. DOSE_SAT15 stays defined for the report only.
+    ok = vals["mu_med_cam"] <= DOSE_MU_MED and vals["mu_med_rod"] <= DOSE_MU_MED
+    return {"ok": bool(ok), "sat15_gate": False, **vals}
 
 
 def lr_reads(ser: dict) -> dict:
@@ -1316,6 +1317,10 @@ def self_test() -> int:
     check("dose read fails on mu_med 1.6", dose_at({"mu_med_cam": (np.array([1000]), np.array([1.6])), "mu_med_rod": (np.array([1000]), np.array([1.4])),
                                                    "sat15_cam": (np.array([1000]), np.array([0.05])), "sat15_rod": (np.array([1000]), np.array([0.1]))},
                                                   W_1000)["ok"], False)
+    check("dose read ok with sat15 0.27/0.41 (amended 4.3: median only; the C__A_s11 kill case)",
+          dose_at({"mu_med_cam": (np.array([1000]), np.array([0.973])), "mu_med_rod": (np.array([1000]), np.array([1.266])),
+                   "sat15_cam": (np.array([1000]), np.array([0.274])), "sat15_rod": (np.array([1000]), np.array([0.411]))},
+                  W_1000)["ok"], True)
 
     print("LR floor / Q / pilot")
     v = evaluate([dict(f) for f in cc0 + _bed("C_lr", "C0", "SSS", lr_mean=1e-4) + _bed("C_lr", "A", "SSS", lr_mean=4e-5)])["beds"]["C_lr"]["A"]
