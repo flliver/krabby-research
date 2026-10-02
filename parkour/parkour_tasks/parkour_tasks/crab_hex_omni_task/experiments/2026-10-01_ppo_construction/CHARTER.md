@@ -405,3 +405,23 @@ as `C_lr_rsi__*`, identical to X16's definition.
 - 2026-10-02 06:08: **C_lr__B_s12 = FAST / FAST**, the first two-direction network ever FAST on both hands: L 0.245 / 0.273 (sweep 0.23–0.26, lean −0.03 to −0.04); R 0.189 / 0.197 (sweep 0.07, lean 0.08); 0 short. **§4.5 extension triggered:** C_lr__B and C_lr__C0 at seeds 14–15. They are queued after block 2 so the drawn order stays undisturbed, together with any extension seed 13 triggers.
 - 2026-10-02 07:15: **C__C0_s12 = FAST** (L 0.185 / 0.201, lean 0.07, sweep 0.08–0.09, rod odd RMS 1.31). The incumbent forms the one-direction stroke at s12 but not at s11. C bed so far: A 2/2 FAST (§4.7 guard passes whatever s13 gives), C0 1/2. The C bed has no §4.5 extension; that rule is for the two-direction beds.
 - 2026-10-02 07:15, **deviation (one Isaac process):** at the user's request, a viewer-only video of C_lr__B_s12 model_2999 (side holds lat_l/lat_r at 0.22 and 0.25, 20 s each) is recorded with `tools/record_categories.py` while C_lr_rsi__B_s12 trains. It runs under a 22 GB MemoryMax scope, 1 env. The recorder is a viewer (no ledger, no gate) and does not touch the training process; only that run's wall-clock is affected. `record_categories.py` gained a default-preserving `--manifest` option so it can load the side bisect's `scenarios_side_lr.yaml`.
+- 2026-10-02 08:30, **incident: C_lr_rsi__B_s12, caused by the 07:15 video deviation.**
+  - **What happened:** attempt 1 died at env creation (Warp CUDA out of memory, 07:17:54) while the recorder rendered on the same 16 GB GPU. The driver's one experiment-level retry trained `seed12_X16_s1_A15pB_e2` from scratch (07:20–08:25, same reference, seed and config). Attempt 1 never trained, so the retry counts as the run.
+  - **What the runner missed:** it followed only the first training line and looked for the stamp under the `_e2` tag. So it made no live wiring, dose or DEAD reads, and it ended with "STOP no complete driver eval stamp". The driver had filed the stamp under `seed12_X16_s1_A15pB`.
+  - **Post-hoc reads (tfevents, the same verdict.py calls):** wiring PASS (σ 0.805 at 200); dose PASS at 1000 (median |μ| cam 0.24 / rod 1.01); not DEAD (track 0.50, σ 0.77).
+  - **Driver stamp:** lat_l FAST (0.224 / 0.246, lean ≈ 0, along FAST). The both-hands evals are pending.
+  - **Runner fix (run_arm.sh):**
+    - the run-dir search takes the latest training line;
+    - the watcher starts without a run dir and follows a retry, its reads restarting there;
+    - the stamp search strips `_e<k>`;
+    - a new `--post <ref> <ckpt>` mode;
+    - 4 new tests (tooling 29/29).
+
+    The running runner keeps its old copy (an atomic replace), so the fix applies from the relaunch.
+  - **Pause and relaunch:** STOP_QUEUE was set at 08:30. The runner exits after C_lr_rsi__A_s12. A gated relaunch then runs, only if C_lr_rsi__A_s12 logs DONE, so a true stop is never overridden:
+    1. `--post C_lr_rsi__B_s12`;
+    2. block 2 in the drawn order;
+    3. the §4.5 C_lr extension: C_lr__B_s14, C_lr__C0_s14, C_lr__B_s15, C_lr__C0_s15.
+
+    Any further extensions (C_lr_rsi from seed 12, seed-13 triggers) are taken from verdict.py after block 2.
+  - **Rule from this:** no rendering or eval process on the GPU while the queue can launch an arm. The video is the only deviation so far.

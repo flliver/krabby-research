@@ -9,6 +9,11 @@
 # Dropped: F4's FALLBACK_ST (an arm with no driver stamp is a STOP, never another run's env).
 #
 # Usage: run_arm.sh <reference> [<reference> ...]       references: names of candidates.yaml (<chain>_s<seed>)
+#        run_arm.sh --post <reference> <checkpoint>       steps 3-6 only, for a finished run (no launch)
+# The driver's one experiment-level retry trains as <tag>_e2 in a new run dir and files its evals under <tag>:
+# the run-dir search takes the LATEST training line since the launch, the watcher follows a retry (its reads
+# restart on the new run dir), and the stamp search strips the _e<k> suffix (2026-10-02 fix: C_lr_rsi__B_s12's
+# retry ran with no wiring/dose reads and reached no stamp).
 # Each reference runs serially:
 #   1. launch_candidates.sh --campaign-dir $C --reference-chain <ref> (first launch: --accept-candidates-change);
 #   2. while it trains: progress notes (early_read.py) and, for construction arms, the pre-registered kills
@@ -88,23 +93,38 @@ print(chain, two, screen, seed)
 PY
 }
 any_stamp_of() {  # RUN_DIR -> newest complete driver stamp of that run (any row)
-  local rd=$1 tag; tag=$(basename "$rd" | cut -d_ -f3-)
+  local rd=$1 tag; tag=$(basename "$rd" | cut -d_ -f3- | sed -E 's/_e[0-9]+$//')  # a retry's evals file under <tag>
   ls -d "$EV/$tag"/*/seed001/*/ 2>/dev/null | while read -r d; do
     grep -q "$(basename "$rd")" "$d/run_meta.json" 2>/dev/null && [ -f "$d/complete.json" ] && echo "$d"; done | tail -1
 }
-orch_run_name_after() {  # "YYYY-MM-DD HH:MM:SS" -> run name of the first training line at/after it
-  python3 - "$1" "$ORCH" <<'PY'
+orch_run_name_after() {  # "YYYY-MM-DD HH:MM:SS" [first|last] -> run name of the first (default) or latest training line at/after it
+  python3 - "$1" "$ORCH" "${2:-first}" <<'PY'
 import re, sys
-t0, path = sys.argv[1], sys.argv[2]
+t0, path, mode = sys.argv[1], sys.argv[2], sys.argv[3]
 try:
     lines = open(path, errors="replace")
 except OSError:
     sys.exit(0)
+hit = None
 for line in lines:
     m = re.match(r"\[(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d)\] (seed\d+_X\d+_\S+?): Isaac-", line)
     if m and m.group(1) >= t0:
-        print(m.group(2)); break
+        hit = m.group(2)
+        if mode == "first":
+            break
+if hit:
+    print(hit)
 PY
+}
+follow_retry() {  # CURRENT_RUN_DIR -> the run dir of the latest training line since the launch ($T0S) when it is
+  # another run and exists (the driver's retry, <tag>_e2); prints nothing otherwise
+  local rn rd
+  rn=$(orch_run_name_after "$T0S" last)
+  [ -n "$rn" ] || return 0
+  [ "$rn" = "$(basename "${1:-}" | cut -d_ -f3-)" ] && return 0
+  rd=$(ls -dt "$RUNS"/*_"$rn" 2>/dev/null | head -1)
+  [ -n "$rd" ] && echo "$rd"
+  return 0
 }
 head_of() {  # REF T0_EPOCH -> ckpt recorded in state.json for REF at/after T0 (follows an infra retry)
   python3 - "$1" "$2" "$C/state.json" <<'PY'
@@ -162,9 +182,17 @@ kill_arm() {  # REF UNIT RC AT REASON
 watch_arm() {  # REF RUN_DIR UNIT CHAIN TRAIN_LOG (background): progress notes + the pre-registered kills
   # A read is LATCHED only once it decided (rc 0 or a kill code); rc 2 (not enough telemetry) retries at the next
   # poll, logged once. verdict.py itself turns telemetry still missing 200 iterations past the window into rc 3.
-  local ref=$1 rd=$2 unit=$3 chain=$4 tl=$5 last out rc w200=0 w1000=0 n200=0 n1000=0 kk
+  local ref=$1 rd=$2 unit=$3 chain=$4 tl=$5 last out rc w200=0 w1000=0 n200=0 n1000=0 kk nrd
   while systemctl --user is-active -q "$unit"; do
     sleep 120
+    if [ -n "${T0S:-}" ]; then
+      nrd=$(follow_retry "$rd")
+      if [ -n "$nrd" ]; then
+        say "note $ref: following the driver's retry -> run dir $nrd (the reads restart there)"
+        rd=$nrd; tl=$C/logs/$(basename "$nrd" | cut -d_ -f3-)_train.log; w200=0; w1000=0; n200=0; n1000=0
+      fi
+    fi
+    [ -n "$rd" ] || continue
     last=$("$PY" "$S/verdict.py" --last-iter "$rd" 2>/dev/null); last=${last:-0}
     if [ "$w200" = 0 ] && [ "$last" -ge 210 ]; then
       out=$("$PY" "$S/verdict.py" --check-run "$rd" --chain "$chain" --at 200 --train-log "$tl" 2>&1); rc=$?
@@ -251,14 +279,14 @@ json.dump(rec, open(os.path.join(arms, f"{ref}.record.json"), "w"), indent=1)
 PY
 }
 run_ref() {  # REF -> 0 DONE, 1 STOP (logged), 2 killed (recorded), 6 launch refused
-  local ref=$1 rn="" tag fl al
+  local ref=$1 rn=""
   RD=""; CK=""; ST=""; LRD_HEAD=""; LRD_2500=""; HANDL=""; HANDR=""; RUNCLS=""; TRAINLOG=""; SEED=""
   read -r CHAIN TWO SCREEN SEED < <(chain_info "$ref") || { say "STOP $ref not a reference of $C/candidates.yaml"; return 1; }
   [ -n "${CHAIN:-}" ] && [ -n "${SEED:-}" ] || { say "STOP $ref not a reference of $C/candidates.yaml"; return 1; }
   rm -f "$ARMS/$ref.killed"
   launch "$ref" || { say "STOP $ref launch refused 40 times"; return 6; }
   for _ in $(seq 90); do
-    rn=$(orch_run_name_after "$T0S")
+    rn=$(orch_run_name_after "$T0S" last)
     if [ -n "$rn" ]; then RD=$(ls -dt "$RUNS"/*_"$rn" 2>/dev/null | head -1); [ -n "$RD" ] && break; fi
     systemctl --user is-active -q "$UNIT" || break
     sleep 10
@@ -267,7 +295,8 @@ run_ref() {  # REF -> 0 DONE, 1 STOP (logged), 2 killed (recorded), 6 launch ref
     say "$ref run dir $RD"
     watch_arm "$ref" "$RD" "$UNIT" "$CHAIN" "$C/logs/${rn}_train.log" &
   elif systemctl --user is-active -q "$UNIT"; then
-    say "note $ref: run dir not found yet (unit alive); kills and early read skipped"
+    say "note $ref: run dir not found yet (unit alive); the watcher keeps looking each poll"
+    watch_arm "$ref" "" "$UNIT" "$CHAIN" "" &
   fi
   wait_unit "$UNIT"
   wait
@@ -279,7 +308,11 @@ run_ref() {  # REF -> 0 DONE, 1 STOP (logged), 2 killed (recorded), 6 launch ref
         "(relaunching this reference would RESUME the stopped run: rerun under a fresh reference name)"
     return 2
   fi
-  CK=$(head_of "$ref" "$T0")
+  post_ref "$ref"
+}
+post_ref() {  # REF -> steps 3-6 for a finished run: CK preset (--post) or the head recorded in state.json
+  local ref=$1 tag fl al
+  [ -n "$CK" ] || CK=$(head_of "$ref" "$T0")
   if [ -z "$CK" ]; then
     say "STOP $ref no head recorded in state.json after launch; unit journal: $(journalctl --user -u "$UNIT" -n 3 --no-pager 2>/dev/null | tr '\n' ' ' | cut -c1-300)"
     return 1
@@ -317,6 +350,14 @@ run_ref() {  # REF -> 0 DONE, 1 STOP (logged), 2 killed (recorded), 6 launch ref
   return 0
 }
 
+if [ "${1:-}" = "--post" ]; then
+  [ $# -eq 3 ] || { echo "usage: $0 --post <reference> <checkpoint>" >&2; exit 2; }
+  RD=""; CK=$3; ST=""; LRD_HEAD=""; LRD_2500=""; HANDL=""; HANDR=""; RUNCLS=""; TRAINLOG=""; UNIT="(post-only)"; T0=0
+  read -r CHAIN TWO SCREEN SEED < <(chain_info "$2") || { echo "not a reference of $C/candidates.yaml: $2" >&2; exit 2; }
+  [ -n "${CHAIN:-}" ] && [ -f "$CK" ] || { echo "no reference $2 or no checkpoint $CK" >&2; exit 2; }
+  say "run_arm post-only: $2 $CK"
+  post_ref "$2"; exit $?
+fi
 [ $# -ge 1 ] || { echo "usage: $0 <reference> [<reference> ...]" >&2; exit 2; }
 say "run_arm start: $* (campaign $C, code root $CODE_ROOT, AUTO_KILL $AUTO_KILL)"
 for ref in "$@"; do

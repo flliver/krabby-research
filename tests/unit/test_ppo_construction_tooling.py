@@ -271,3 +271,75 @@ def test_rung0b_rejects_a_partial_schedule_stamp(tmp_path):
 def test_rung0b_sh_uses_the_reader_completeness_check():
     src = (SCRIPTS / "rung0b.sh").read_text()
     assert "stamp_complete" in src and '[ ! -f "$d/complete.json" ]' not in src
+
+
+# ============================================================ the driver's retry (<tag>_e2), 2026-10-02
+# C_lr_rsi__B_s12's first attempt died at env creation (GPU OOM); the driver's one experiment-level retry
+# trained as seed12_X16_s1_A15pB_e2 and filed its eval under seed12_X16_s1_A15pB. The runner followed only the
+# first training line (no wiring/dose reads) and looked for the stamp under the _e2 tag (a STOP).
+def _orch_env(tmp_path: Path):
+    runs, ev, c = tmp_path / "runs", tmp_path / "ev", tmp_path / "camp"
+    for d in (runs, ev, c / "logs"):
+        d.mkdir(parents=True)
+    orch = c / "orchestrator.log"
+    orch.write_text(
+        "[2026-10-02 07:15:55] seed12_X16_s1_A15pB: Isaac-Crab-Hex-Omni-Walk-v0 | 3000 its | from scratch\n"
+        "[2026-10-02 07:17:54] seed12_X16_s1_A15pB: nan — one experiment-level retry of this stage\n"
+        "[2026-10-02 07:19:54] seed12_X16_s1_A15pB_e2: Isaac-Crab-Hex-Omni-Walk-v0 | 3000 its | from scratch\n")
+    return runs, ev, c, orch
+
+
+def test_run_name_first_and_latest_training_line(tmp_path):
+    _, _, _, orch = _orch_env(tmp_path)
+    fn = _shell_fn("orch_run_name_after")
+    for mode, want in (("", "seed12_X16_s1_A15pB"), ("first", "seed12_X16_s1_A15pB"), ("last", "seed12_X16_s1_A15pB_e2")):
+        r = _bash(f"ORCH={orch}\n" + fn + f'orch_run_name_after "2026-10-02 07:15:52" {mode}\n', tmp_path)
+        assert r.stdout.strip() == want, r.stderr
+    r = _bash(f"ORCH={orch}\n" + fn + 'orch_run_name_after "2026-10-02 08:00:00" last\n', tmp_path)
+    assert r.stdout.strip() == ""
+
+
+def test_a_retry_stamp_is_found_under_the_base_tag(tmp_path):
+    _, ev, _, _ = _orch_env(tmp_path)
+    rd = tmp_path / "runs/2026-10-02_07-20-01_seed12_X16_s1_A15pB_e2"
+    st = ev / "seed12_X16_s1_A15pB/side22_25__omni/seed001/2026-10-02_12-26-03"
+    st.mkdir(parents=True)
+    (st / "run_meta.json").write_text(json.dumps({"checkpoint": f"{rd}/model_2999.pt"}))
+    fn = _shell_fn("any_stamp_of")
+    assert _bash(f"EV={ev}\n" + fn + f"any_stamp_of {rd}\n", tmp_path).stdout.strip() == ""   # not complete
+    (st / "complete.json").write_text("{}")
+    r = _bash(f"EV={ev}\n" + fn + f"any_stamp_of {rd}\n", tmp_path)
+    assert r.stdout.strip().rstrip("/") == str(st), r.stderr
+
+
+def test_the_watcher_starts_without_a_run_dir_and_follows_the_retry(tmp_path):
+    runs, _, c, orch = _orch_env(tmp_path)
+    rd2 = runs / "2026-10-02_07-20-01_seed12_X16_s1_A15pB_e2"
+    rd2.mkdir()
+    out, state = tmp_path / "out", tmp_path / "state"
+    (out / "arms").mkdir(parents=True)
+    state.mkdir()
+    fake = tmp_path / "fakepy"
+    fake.write_text(FAKE_PY)
+    fake.chmod(0o755)
+    script = textwrap.dedent(f"""\
+        set -u
+        OUT={out}; ARMS={out}/arms; LOG={out}/queue.log; S={tmp_path}; PY={fake}; AUTO_KILL=1
+        ORCH={orch}; RUNS={runs}; C={c}; T0S="2026-10-02 07:15:52"
+        export STATE={state} RC_200="0" RC_1000="0" RC_live="0"
+        say() {{ echo "$*" >> "$LOG"; }}
+        sleep() {{ :; }}
+        N=0
+        systemctl() {{ case "$2" in is-active) N=$((N + 1)); [ "$N" -le 3 ] ;; esac; }}
+        """) + _shell_fn("orch_run_name_after") + _shell_fn("follow_retry") + _shell_fn("kill_kind") + \
+        _shell_fn("kill_arm") + _shell_fn("watch_arm") + 'watch_arm REF "" UNIT C_lr__A ""\n'
+    r = _bash(script, tmp_path)
+    assert r.returncode == 0, r.stderr
+    log = (out / "queue.log").read_text()
+    assert log.count("following the driver's retry") == 1 and str(rd2) in log
+    assert (state / "200").read_text().strip() == "1" and (state / "1000").read_text().strip() == "1"
+
+
+def test_post_mode_needs_a_reference_and_a_checkpoint(tmp_path):
+    r = subprocess.run(["bash", str(RUN_ARM), "--post", "C_lr__A_s11"], capture_output=True, text=True, timeout=60)
+    assert r.returncode == 2 and "--post <reference> <checkpoint>" in r.stderr
