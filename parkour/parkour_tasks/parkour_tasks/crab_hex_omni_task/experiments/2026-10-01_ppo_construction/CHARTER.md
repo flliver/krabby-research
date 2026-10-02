@@ -398,3 +398,10 @@ as `C_lr_rsi__*`, identical to X16's definition.
   - C_lr: C0 SLOW/SLOW, A SLOW/INT, B FAST/INT.
   - C_lr_rsi: C0 SLOW/SLOW, A SLOW/FAST, B FAST/INT.
   - Every construction run formed the stroke on at least one hand, and none on both.
+- 2026-10-02 01:14: **C_lr__A_s12 = L FAST / R SLOW** (L 0.175 / 0.180; R 0.084 / 0.090, lean 0.20). The one-hand mode again.
+- 2026-10-02 02:29: **C_lr__C0_s12 = SLOW / SLOW** (L 0.092 / 0.097, R 0.073 / 0.079; lean 0.15).
+- 2026-10-02 03:46: **C_lr_rsi__C0_s12 = SLOW / SLOW** (L 0.076 / 0.088, R 0.057 / 0.065; lean 0.17 / 0.28).
+- 2026-10-02 04:53: **C__A_s12 = FAST** (0.213 / 0.217, lean ≈ 0, sweep 0.13–0.14). C bed so far: A 2/2 FAST, C0 0/1 (C__C0_s12 pending).
+- 2026-10-02 06:08: **C_lr__B_s12 = FAST / FAST**, the first two-direction network ever FAST on both hands: L 0.245 / 0.273 (sweep 0.23–0.26, lean −0.03 to −0.04); R 0.189 / 0.197 (sweep 0.07, lean 0.08); 0 short. **§4.5 extension triggered:** C_lr__B and C_lr__C0 at seeds 14–15. They are queued after block 2 so the drawn order stays undisturbed, together with any extension seed 13 triggers.
+- 2026-10-02 07:15: **C__C0_s12 = FAST** (L 0.185 / 0.201, lean 0.07, sweep 0.08–0.09, rod odd RMS 1.31). The incumbent forms the one-direction stroke at s12 but not at s11. C bed so far: A 2/2 FAST (§4.7 guard passes whatever s13 gives), C0 1/2. The C bed has no §4.5 extension; that rule is for the two-direction beds.
+- 2026-10-02 07:15, **deviation (one Isaac process):** at the user's request, a viewer-only video of C_lr__B_s12 model_2999 (side holds lat_l/lat_r at 0.22 and 0.25, 20 s each) is recorded with `tools/record_categories.py` while C_lr_rsi__B_s12 trains. It runs under a 22 GB MemoryMax scope, 1 env. The recorder is a viewer (no ledger, no gate) and does not touch the training process; only that run's wall-clock is affected. `record_categories.py` gained a default-preserving `--manifest` option so it can load the side bisect's `scenarios_side_lr.yaml`.

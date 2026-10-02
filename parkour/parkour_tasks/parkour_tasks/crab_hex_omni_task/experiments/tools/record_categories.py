@@ -130,6 +130,11 @@ parser.add_argument(
     "--eval-run", type=str, default=str(DEFAULT_EVAL_RUN),
     help="The suite gait_eval run whose env this reproduces: its directory, or its run_meta.json.",
 )
+parser.add_argument(
+    "--manifest", type=str, default=str(MANIFEST),
+    help="Scenario manifest holding the reference run's scenario_id (default the omni manifest; e.g. the "
+         "side bisect's scenarios_side_lr.yaml for a both-hands side22_25lr__omni stamp).",
+)
 parser.add_argument("--label", type=str, default="C1d head (seed3 X08 c6) model_7996", help="Caption title.")
 # The task viewer (eye -4,0.5,1.55 / lookat 0,0,0.35) crops the feet: the root rides ~1.08 m above the
 # ground and the feet sit ~1.2 m out to each side, so the default here is a rear-right 3/4 view from
@@ -386,10 +391,11 @@ def main() -> None:
     print(f"[REC] harness functions extracted from {HARNESS} (sha256 {harness_sha[:16]}...)", flush=True)
 
     # ---- the scenario row, checked against what the reference eval actually ran
-    scenarios, _ = S.load_manifest(MANIFEST)
+    manifest = Path(args_cli.manifest)
+    scenarios, _ = S.load_manifest(manifest)
     matches = [s for s in scenarios if s.id == RUN_META["scenario_id"]]
     if not matches:
-        raise SystemExit(f"{RUN_META['scenario_id']!r} not in {MANIFEST}")
+        raise SystemExit(f"{RUN_META['scenario_id']!r} not in {manifest}")
     scenario = matches[0]
     if scenario.task != RUN_META["task"]:
         raise SystemExit(f"manifest task {scenario.task} != run_meta task {RUN_META['task']}")
