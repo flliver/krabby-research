@@ -390,3 +390,11 @@ as `C_lr_rsi__*`, identical to X16's definition.
   - block 2: C_lr_rsi__B_s13, C_lr_rsi__C0_s13, C_lr_rsi__A_s13, C_lr__B_s13, C_lr__A_s13, C__A_s13, C__C0_s13, C_lr__C0_s13.
 
   These 20 runs launch serially in this order.
+- 2026-10-01 20:09: **C_lr__B_s11 (X06) = L FAST / R INTERMEDIATE**: L 0.227 / 0.243 (sweep 0.110 / 0.145, lean 0.06–0.07); R 0.122 / 0.137 (lean 0.17–0.20). This is the first FAST hand in any two-direction run. Run not FAST (both hands needed).
+- 2026-10-01 21:25: **C_lr_rsi__A_s11 = L SLOW / R FAST**: L 0.087 / 0.091 (lean 0.34, sweep 0.03); R 0.220 / 0.235 (lean 0.04–0.05, sweep 0.095). This is the third construction-arm two-direction run with one hand fast or near-fast and the other a lean-shuffle. Descriptive note: a one-hand mode, not the incumbent's both-hands shuffle.
+- 2026-10-01 22:40: **C_lr_rsi__B_s11 = L FAST / R INTERMEDIATE** (L 0.216 / 0.218, lean 0.07–0.10, sweep 0.10–0.11; R 0.128 / 0.138, lean 0.15–0.16). Four of the four construction-arm two-direction runs so far have one hand FAST or near-FAST and the other slow (descriptive).
+- 2026-10-01 23:57: **C_lr_rsi__C0_s11 = SLOW / SLOW** (L 0.079 / 0.085, R 0.084 / 0.095; lean 0.20–0.22). Block 0 is complete. Seed 11 summary:
+  - C: C0 SLOW, A FAST.
+  - C_lr: C0 SLOW/SLOW, A SLOW/INT, B FAST/INT.
+  - C_lr_rsi: C0 SLOW/SLOW, A SLOW/FAST, B FAST/INT.
+  - Every construction run formed the stroke on at least one hand, and none on both.
