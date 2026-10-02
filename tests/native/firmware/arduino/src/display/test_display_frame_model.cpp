@@ -319,7 +319,7 @@ static void test_controller_freshness_snapshot_disconnect_scan_and_frame_equalit
         ROLE_UNKNOWN,
         trackers,
         latest,
-        ImuMeasurement(), 0, 20);
+        ImuMeasurement(), 0, 20, PowerMonitorMeasurement{}, PowerMonitorMeasurement{}, Volts{});
     TEST_ASSERT_TRUE(frame.controllers[ROLE_LEFT]);
     TEST_ASSERT_EQUAL_INT(
         (int)ActuatorGlyph::Hold,
@@ -382,10 +382,10 @@ static void test_frame_rounds_tilt_to_whole_degrees()
     // Presentation rounds the 5.71-degree IMU result.
     const DisplayFrame positive = buildDisplayFrame(
         ROLE_FRONT, trackers, latest,
-        accelerationSample(0, 0.1f, 1.0f), 0, 20);
+        accelerationSample(0, 0.1f, 1.0f), 0, 20, PowerMonitorMeasurement{}, PowerMonitorMeasurement{}, Volts{});
     const DisplayFrame negative = buildDisplayFrame(
         ROLE_FRONT, trackers, latest,
-        accelerationSample(0, -0.1f, 1.0f), 0, 20);
+        accelerationSample(0, -0.1f, 1.0f), 0, 20, PowerMonitorMeasurement{}, PowerMonitorMeasurement{}, Volts{});
 
     TEST_ASSERT_EQUAL_FLOAT(6.0f, positive.roll.value());
     TEST_ASSERT_EQUAL_FLOAT(-6.0f, negative.roll.value());
@@ -412,18 +412,18 @@ static void test_disconnect_check_ignores_stale_states()
         latest, ROLE_FRONT, ActuatorGlyph::Hold);
 
     DisplayFrame frame = buildDisplayFrame(
-        ROLE_FRONT, trackers, latest, ImuMeasurement(), 0, 20);
+        ROLE_FRONT, trackers, latest, ImuMeasurement(), 0, 20, PowerMonitorMeasurement{}, PowerMonitorMeasurement{}, Volts{});
     TEST_ASSERT_FALSE(hasDisconnectedActuator(frame));
 
     latest[ActuatorId::FLHY].connectionState =
         ActuatorConnection::Disconnected;
     frame = buildDisplayFrame(
-        ROLE_FRONT, trackers, latest, ImuMeasurement(), 0, 20);
+        ROLE_FRONT, trackers, latest, ImuMeasurement(), 0, 20, PowerMonitorMeasurement{}, PowerMonitorMeasurement{}, Volts{});
     TEST_ASSERT_TRUE(hasDisconnectedActuator(frame));
 
     frame = buildDisplayFrame(
         ROLE_FRONT, trackers, latest, ImuMeasurement(),
-        CONTROLLER_DISPLAY_TIMEOUT_MILLISECONDS, 20);
+        CONTROLLER_DISPLAY_TIMEOUT_MILLISECONDS, 20, PowerMonitorMeasurement{}, PowerMonitorMeasurement{}, Volts{});
     TEST_ASSERT_FALSE(hasDisconnectedActuator(frame));
 }
 
@@ -441,7 +441,7 @@ static void test_frame_groups_controllers_by_peer_freshness()
 
     const DisplayFrame frame = buildDisplayFrame(
         ROLE_FRONT, trackers, latest,
-        accelerationSample(0, 0, METERS_PER_SECOND_SQUARED_PER_G), now, 20);
+        accelerationSample(0, 0, METERS_PER_SECOND_SQUARED_PER_G), now, 20, PowerMonitorMeasurement{}, PowerMonitorMeasurement{}, Volts{});
 
     TEST_ASSERT_EQUAL_INT((int)ROLE_FRONT, (int)frame.role);
     TEST_ASSERT_TRUE(frame.controllers[ROLE_FRONT]);
@@ -472,7 +472,7 @@ static void test_frame_masks_front_actuators_when_front_is_missing()
         latest, ROLE_FRONT, ActuatorGlyph::Hold);
 
     const DisplayFrame frame = buildDisplayFrame(
-        ROLE_FRONT, trackers, latest, ImuMeasurement(), 0, 20);
+        ROLE_FRONT, trackers, latest, ImuMeasurement(), 0, 20, PowerMonitorMeasurement{}, PowerMonitorMeasurement{}, Volts{});
 
     TEST_ASSERT_FALSE(frame.controllers[ROLE_FRONT]);
     for (ActuatorId actuatorId = ActuatorId::FLHY;
@@ -502,7 +502,7 @@ static void test_frame_keeps_default_tilt_when_the_sample_is_invalid()
     TEST_ASSERT_FALSE(failed.didSucceed());
 
     const DisplayFrame frame = buildDisplayFrame(
-        ROLE_LEFT, trackers, latest, failed, 0, 20);
+        ROLE_LEFT, trackers, latest, failed, 0, 20, PowerMonitorMeasurement{}, PowerMonitorMeasurement{}, Volts{});
 
     TEST_ASSERT_EQUAL_FLOAT(0.0f, frame.roll.value());
     TEST_ASSERT_EQUAL_FLOAT(0.0f, frame.pitch.value());
@@ -546,9 +546,75 @@ static void test_battery_voltage_conversion_and_missing_readings()
     TEST_ASSERT_FALSE(displayFramesEqual(frame, same));
 }
 
+static void test_power_measurements_keep_independent_validity()
+{
+    ControllerFreshnessTracker trackers[BOARD_ROLE_COUNT]{};
+    ActuatorStatus actuators[ActuatorId::ActuatorCount]{};
+    PowerMonitorMeasurement pack, midpoint;
+    pack.voltage = Volts(26.38f);
+    midpoint.voltage = Volts(13.26f);
+    for (int mask = 0; mask < 4; ++mask)
+    {
+        pack.isValid = (mask & 1) != 0;
+        midpoint.isValid = (mask & 2) != 0;
+        pack.voltage = Volts(pack.isValid ? 26.38f : NAN);
+        midpoint.voltage = Volts(midpoint.isValid ? 13.26f : NAN);
+        const bool valid[2] = {midpoint.isValid,
+            pack.isValid && midpoint.isValid};
+        const DisplayFrame frame = buildDisplayFrame(ROLE_FRONT, trackers, actuators,
+            ImuMeasurement{}, 0, 20, pack, midpoint, pack.voltage - midpoint.voltage);
+        TEST_ASSERT_EQUAL_INT(pack.isValid ? 264 : BATTERY_DECIVOLTS_NO_SIGNAL,
+                              displayPackDecivolts(frame.packVoltage));
+        TEST_ASSERT_EQUAL_INT(valid[0] ? 133 : BATTERY_DECIVOLTS_NO_SIGNAL,
+                              frame.batteryDecivolts[0]);
+        TEST_ASSERT_EQUAL_INT(valid[1] ? 131 : BATTERY_DECIVOLTS_NO_SIGNAL,
+                              frame.batteryDecivolts[1]);
+        TEST_ASSERT_EQUAL_INT(valid[0] ? 14 : 0, batteryFillPixels(frame.batteryLevel[0]));
+        TEST_ASSERT_EQUAL_INT(valid[1] ? 13 : 0, batteryFillPixels(frame.batteryLevel[1]));
+    }
+}
+
+static void test_battery_comparison_uses_visible_resolution()
+{
+    TEST_ASSERT_EQUAL_INT(0, batteryFillPixels(NAN));
+    TEST_ASSERT_EQUAL_INT(0, batteryFillPixels(-0.5f));
+    TEST_ASSERT_EQUAL_INT(SSD1306_BATTERY_FILL_WIDTH, batteryFillPixels(2.0f));
+    DisplayFrame first;
+    const Volts voltage[2] = {Volts(12.7f), Volts(13.3f)};
+    setBatteryVoltages(first, voltage);
+    DisplayFrame second = first;
+    second.batteryLevel[0] += 0.01f;
+    second.packVoltage = Volts(first.packVoltage.value() + 0.01f);
+    TEST_ASSERT_TRUE(displayFramesEqual(first, second));
+    second.batteryLevel[0] += 0.0625f;
+    TEST_ASSERT_FALSE(displayFramesEqual(first, second));
+    const float invalid[] = {NAN, INFINITY, -1.0f, 100.0f};
+    for (float value : invalid)
+        TEST_ASSERT_EQUAL_INT(BATTERY_DECIVOLTS_NO_SIGNAL,
+                              displayPackDecivolts(Volts(value)));
+}
+
+static void test_finite_voltages_remain_visible_after_another_read_fails()
+{
+    ControllerFreshnessTracker trackers[BOARD_ROLE_COUNT]{};
+    ActuatorStatus actuators[ActuatorId::ActuatorCount]{};
+    PowerMonitorMeasurement pack, midpoint;
+    pack.voltage = Volts(26.0f);
+    midpoint.voltage = Volts(13.0f);
+    // Current, power and charge are unread; complete measurements remain invalid.
+    const DisplayFrame frame = buildDisplayFrame(ROLE_FRONT, trackers, actuators,
+        ImuMeasurement{}, 0, 20, pack, midpoint, pack.voltage - midpoint.voltage);
+    TEST_ASSERT_EQUAL_INT(260, displayPackDecivolts(frame.packVoltage));
+    TEST_ASSERT_EQUAL_INT(130, frame.batteryDecivolts[0]);
+    TEST_ASSERT_EQUAL_INT(130, frame.batteryDecivolts[1]);
+}
+
 int main()
 {
     UNITY_BEGIN();
+    RUN_TEST(test_finite_voltages_remain_visible_after_another_read_fails);
+    RUN_TEST(test_power_measurements_keep_independent_validity);
+    RUN_TEST(test_battery_comparison_uses_visible_resolution);
     RUN_TEST(test_battery_voltage_conversion_and_missing_readings);
     RUN_TEST(test_nine_field_segment_reads_as_unverified);
     RUN_TEST(test_actuator_identity_makes_segment_order_irrelevant);

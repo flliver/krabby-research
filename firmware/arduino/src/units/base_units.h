@@ -31,6 +31,15 @@ class LinearUnit : public UnitValue<Representation>
 public:
     using UnitValue<Representation>::UnitValue;
 
+    // The magnitude must fit Representation (signed integer minimum is excluded).
+    // Parentheses keep function-like macros from rewriting this declaration.
+    friend constexpr Unit (abs)(Unit quantity)
+    {
+        return Unit(quantity.value() == Representation(0)
+            ? Representation(0)
+            : quantity.value() < Representation(0) ? -quantity.value() : quantity.value());
+    }
+
     constexpr Unit operator+(Unit other) const
     {
         return Unit(this->value() + other.value());
@@ -54,6 +63,16 @@ public:
     constexpr bool operator<(Unit other) const
     {
         return this->value() < other.value();
+    }
+
+    constexpr bool operator<=(Unit other) const
+    {
+        return this->value() <= other.value();
+    }
+
+    constexpr bool operator>=(Unit other) const
+    {
+        return this->value() >= other.value();
     }
 
     constexpr bool operator>(Unit other) const

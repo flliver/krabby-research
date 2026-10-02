@@ -5,6 +5,8 @@
  */
 
 #include <Arduino.h>
+// Use overloads, including unit-preserving abs, instead of Arduino's macro.
+#undef abs
 #include <EEPROM.h>
 #include <math.h>
 #include "src/imu/imu_calibrator.h"
@@ -13,10 +15,16 @@
 #include "src/display/display_renderer.h"
 #include "src/display/display_frame_model.h"
 #include "board_pins.h"
+#include "eeprom_layout.h"
 #include "command.h"
 #include "actuator_manager.h"
 #include "src/imu/imu_constants.h"
 #include "src/telemetry.h"
+#include "src/power_monitor/ina228_adapter.h"
+#include "src/power_monitor/power_calibration.h"
+#include "src/power_monitor/power_measurement.h"
+#include "src/cli/power_calibration_command.h"
+#include "src/power_monitor/power_monitor_constants.h"
 #include "version.h"
 
 // --- Serial: left follower = Serial1 (TX1/RX1 on Krabby-Uno v0.1 shield), right follower = Serial2 ---
@@ -33,16 +41,13 @@ BoardRole currentRole = ROLE_UNKNOWN;
 
 ControllerFreshnessTracker controllerFreshnessTrackers[BOARD_ROLE_COUNT];
 ActuatorStatus latestActuatorStatus[ActuatorId::ActuatorCount];
-ImuMeasurement latestImuMeasurement;
+ImuMeasurement imuMeasurement;
 Ssd1306Adapter oledDisplay;
 DisplayRenderer<Ssd1306Adapter> oledRenderer(oledDisplay);
 unsigned long lastOledDrawMilliseconds = 0;
 constexpr unsigned long OLED_REDRAW_INTERVAL_MILLISECONDS = 250;
 
-// EEPROM address 32: magic sentinel byte (0xAB); address 33: BoardRole value.
-// Calibration data (CalData) occupies addresses 0–25; gap at 26–31 kept for alignment.
-#define EEPROM_ROLE_ADDR  32
-#define EEPROM_ROLE_MAGIC 0xAB
+static constexpr uint8_t EEPROM_ROLE_MAGIC = 0xAB;
 
 static void saveRole(BoardRole r)
 {
@@ -127,12 +132,24 @@ unsigned long lastTelemetry = 0;
 // Schedules blocking OLED writes after telemetry.
 bool wasTelemetryEmittedOnPreviousLoop = false;
 
-// --- I2C sensor cluster — leader board only ---
+// Leader-only INA228s share the IMU/OLED bus. Pack measures V/I/P/charge
+// using the external shunt; midpoint supplies battery A voltage.
+// Adapter availability is tracked independently at each address.
+Ina228Adapter packPowerMonitor(PACK_POWER_MONITOR_ADDRESS,
+    PACK_SHUNT_RESISTANCE_OHMS, PACK_SHUNT_MAX_CURRENT_AMPS, true);
+Ina228Adapter midpointPowerMonitor(MIDPOINT_POWER_MONITOR_ADDRESS);
+
+// Current power readings shared by telemetry and the deferred OLED render.
+Volts inferredBattBVoltage(NAN);
+PowerMonitorMeasurement packMeasurement;
+PowerMonitorMeasurement midpointMeasurement;
+
+// --- I2C sensor cluster (Milestone 16) — leader board only ---
 // The LSM6DSO IMU rides the leader's telemetry tick; followers never touch the bus.
 Lsm6dsoAdapter imuSensor;
 static_assert(
     sizeof(ImuCalibrationRecord) == EEPROM_IMU_CAL_SIZE,
-    "update EEPROM_IMU_CAL_SIZE in src/imu/imu_constants.h");
+    "update EEPROM_IMU_CAL_SIZE in eeprom_layout.h");
 
 // EEPROM binding for ImuCalibrator. Kept out of src/imu/ because it needs
 // <EEPROM.h> and that directory compiles on the host.
@@ -154,6 +171,27 @@ public:
         EEPROM.update(EEPROM_IMU_CAL_ADDR, magic);
     }
 };
+
+class EepromPowerCalibrationStorage
+{
+public:
+    void load(PowerCalibrationRecord &record)
+    {
+        EEPROM.get(EEPROM_POWER_CAL_ADDR, record);
+    }
+
+    void writeRecord(const PowerCalibrationRecord &record)
+    {
+        EEPROM.put(EEPROM_POWER_CAL_ADDR, record);
+    }
+
+    void updateMagic(uint8_t magic)
+    {
+        EEPROM.update(EEPROM_POWER_CAL_ADDR, magic);
+    }
+};
+
+PowerCalibration powerCalibration;
 
 static void logImuInitFailure(Lsm6dsoInitializationResult result)
 {
@@ -192,6 +230,220 @@ static void logImuCalibrationResult(ImuCalibrationResult result)
             Serial.println(F("IMU CAL: EEPROM verification failed; bias left at zero."));
             break;
     }
+}
+
+static bool readIna228Register(
+    uint8_t address, uint8_t reg, uint8_t *bytes, uint8_t byteCount)
+{
+    Wire.beginTransmission(address);
+    Wire.write(reg);
+    if (Wire.endTransmission(false) != 0 ||
+        Wire.requestFrom(address, byteCount) != byteCount)
+        return false;
+
+    for (uint8_t i = 0; i < byteCount; ++i)
+        bytes[i] = Wire.read();
+    return true;
+}
+
+static void printPowerMonitorDiagnostics(
+    const __FlashStringHelper *label,
+    Ina228Adapter &monitor)
+{
+    static constexpr uint8_t INA228_ADC_CONFIG_REGISTER = 0x01;
+    static constexpr uint8_t INA228_BUS_VOLTAGE_REGISTER = 0x05;
+    uint8_t adcConfig[2];
+    uint8_t vbus[3];
+    const bool didReadAdcConfig = readIna228Register(
+        monitor.address(), INA228_ADC_CONFIG_REGISTER, adcConfig, sizeof(adcConfig));
+    const bool didReadBusVoltage = readIna228Register(
+        monitor.address(), INA228_BUS_VOLTAGE_REGISTER, vbus, sizeof(vbus));
+
+    Serial.print(F("INA228 DIAG: "));
+    Serial.print(label);
+    if (!didReadAdcConfig || !didReadBusVoltage)
+    {
+        Serial.println(F(" register read failed"));
+        return;
+    }
+
+    const uint16_t adcRaw =
+        (static_cast<uint16_t>(adcConfig[0]) << 8) | adcConfig[1];
+    const uint32_t vbusRaw =
+        (static_cast<uint32_t>(vbus[0]) << 16) |
+        (static_cast<uint32_t>(vbus[1]) << 8) |
+        vbus[2];
+    const float decodedVoltage =
+        static_cast<float>(vbusRaw >> 4) * 195.3125f / 1000000.0f;
+
+    Serial.print(F(" adc=0x"));
+    Serial.print(adcRaw, HEX);
+    Serial.print(F(" mode=0x"));
+    Serial.print(adcRaw >> 12, HEX);
+    Serial.print(F(" vbus=0x"));
+    Serial.print(vbusRaw, HEX);
+    Serial.print(F(" decoded="));
+    Serial.print(decodedVoltage, 4);
+    Serial.print(F(" library="));
+    Serial.println(monitor.readBusVoltage().value(), 4);
+}
+
+static void printPowerCalibration()
+{
+    // F() keeps these literals in flash; this bench-only text would otherwise
+    // cost most of a kilobyte of the Mega's 8 KB of SRAM.
+    Serial.print(F("POWER CAL: packVoltageOffset=")); Serial.print(powerCalibration.packVoltageOffset().value(), 4);
+    Serial.print(F(" midpointVoltageOffset="));      Serial.print(powerCalibration.midpointVoltageOffset().value(), 4);
+    Serial.print(F(" packShuntCal="));               Serial.println(powerCalibration.packShuntScale(), 5);
+    printPowerMonitorDiagnostics(F("Pack"), packPowerMonitor);
+    printPowerMonitorDiagnostics(F("Midpoint"), midpointPowerMonitor);
+}
+
+static void printPowerCalibrationUsage()
+{
+    Serial.println(F("POWER CAL usage (leader bench only):"));
+    Serial.println(F("  C PWR_SENSE VOLTAGE <packReferenceVolts> <midpointReferenceVolts>"));
+    Serial.println(F("  C PWR_SENSE CURRENT <knownAmps>"));
+    Serial.println(F("  C PWR_SENSE SHOW"));
+    Serial.println(F("  C PWR_SENSE ?"));
+}
+
+// The leading 'C' has been consumed. Bare C calibrates the board's actuators;
+// C PWR_SENSE calibrates the leader's power monitors without forwarding.
+// Invalid numeric references are rejected before calibration is persisted.
+static void handleCalibrationCommand(const String& line)
+{
+    int idx = 0;
+    const int len = line.length();
+    String tokenStorage[5];
+    const char* tokens[5];
+    size_t tokenCount = 0;
+    while (tokenCount < 5)
+    {
+        tokenStorage[tokenCount] = nextTok(line, idx, len);
+        if (tokenStorage[tokenCount].length() == 0)
+            break;
+        tokens[tokenCount] = tokenStorage[tokenCount].c_str();
+        ++tokenCount;
+    }
+
+    if (isActuatorCalibrationCommand(tokenCount, tokens))
+    {
+        actuatorManager->startAutoCalibration();
+        if (leftSerial) leftSerial->println(CALIBRATION_COMMAND_PREFIX);
+        if (rightSerial) rightSerial->println(CALIBRATION_COMMAND_PREFIX);
+        return;
+    }
+
+    PowerCalibrationCommand command = {
+        PowerCalibrationAction::Invalid, 0.0f, 0.0f};
+    if (!parsePowerCalibrationCommand(tokenCount, tokens, command))
+    {
+        Serial.println(F("POWER CAL: invalid command; no write."));
+        printPowerCalibrationUsage();
+        return;
+    }
+
+    if (command.action == PowerCalibrationAction::ShowCalibration)
+    {
+        printPowerCalibration();
+        return;
+    }
+    if (command.action == PowerCalibrationAction::ShowHelp)
+    {
+        printPowerCalibrationUsage();
+        return;
+    }
+
+    // Pack shunt calibration requires only the pack monitor.
+    if (!packPowerMonitor.isUp())
+    {
+        Serial.println(F("POWER CAL: Pack monitor offline; aborting (no write)."));
+        return;
+    }
+
+    if (command.action == PowerCalibrationAction::CalibrateVoltageOffsets)
+    {
+        if (!midpointPowerMonitor.isUp())
+        {
+            Serial.println(F("POWER CAL: Midpoint offline; voltage calibration needs both; aborting (no write)."));
+            return;
+        }
+        EepromPowerCalibrationStorage storage;
+        const PowerCalibration::SaveResult result =
+            powerCalibration.captureVoltage(
+                storage,
+                packPowerMonitor.readBusVoltage(),
+                midpointPowerMonitor.readBusVoltage(),
+                Volts(command.firstReference),
+                Volts(command.secondReference));
+        if (result == PowerCalibration::SaveResult::InvalidInput)
+        {
+            Serial.println(F("POWER CAL: invalid reference, reading, or solved offset; aborting (no write)."));
+            return;
+        }
+        if (result == PowerCalibration::SaveResult::VerificationFailed)
+        {
+            Serial.println(F("POWER CAL: EEPROM verification failed; prior calibration retained."));
+            return;
+        }
+        Serial.println(F("POWER CAL: voltage offsets saved and applied."));
+        printPowerCalibration();
+        return;
+    }
+
+    if (command.action == PowerCalibrationAction::CalibrateCurrentScale)
+    {
+        // The operator forces a known current through the pack shunt, signed to
+        // match the sensor's convention.
+        const Amps knownCurrent(command.firstReference);
+        const Amps measuredCurrent = packPowerMonitor.readCurrent();
+        EepromPowerCalibrationStorage storage;
+        const PowerCalibration::SaveResult result =
+            powerCalibration.captureCurrent(
+                storage, measuredCurrent, knownCurrent);
+        if (result == PowerCalibration::SaveResult::InvalidInput)
+        {
+            Serial.println(F("POWER CAL: invalid current pair or solved shunt trim; aborting (no write)."));
+            return;
+        }
+        if (result == PowerCalibration::SaveResult::VerificationFailed)
+        {
+            Serial.println(F("POWER CAL: EEPROM verification failed; prior calibration retained."));
+            return;
+        }
+        Serial.println(F("POWER CAL: Pack current calibration saved and applied."));
+        printPowerCalibration();
+        return;
+    }
+}
+
+static void powerMonitorSetup()
+{
+    const bool isPackMonitorUp = packPowerMonitor.begin(&Wire);
+    Serial.print(F("POWER MONITOR: Pack (INA228 0x"));
+    Serial.print(packPowerMonitor.address(), HEX);
+    Serial.println(isPackMonitorUp
+        ? F(") online, external shunt calibrated.")
+        : F(") init FAILED; BATT fields marked invalid."));
+
+    const bool isMidpointMonitorUp = midpointPowerMonitor.begin(&Wire);
+    Serial.print(F("POWER MONITOR: Midpoint (INA228 0x"));
+    Serial.print(midpointPowerMonitor.address(), HEX);
+    Serial.println(isMidpointMonitorUp ? F(") online.") : F(") init FAILED."));
+
+    EepromPowerCalibrationStorage storage;
+    Serial.println(powerCalibration.load(storage)
+        ? F("POWER CAL: loaded from EEPROM.")
+        : F("POWER CAL: none/invalid; running identity trims."));
+}
+
+// Acquire and calibrate both power monitors without writing telemetry.
+static void readPowerMeasurements()
+{
+    packMeasurement = powerCalibration.applyPackCalibration(packPowerMonitor.measure());
+    midpointMeasurement = powerCalibration.applyMidpointCalibration(midpointPowerMonitor.measure());
+    inferredBattBVoltage = packMeasurement.voltage - midpointMeasurement.voltage;
 }
 
 static void imuSetup()
@@ -398,6 +650,7 @@ void setup()
         pinMode(STATUS_LED_PIN, OUTPUT);
         digitalWrite(STATUS_LED_PIN, LOW);
         imuSetup();
+        powerMonitorSetup();
         if (!oledRenderer.initialize())
             Serial.println(F("OLED: initialization failed at 0x3D."));
     }
@@ -497,10 +750,7 @@ void loop()
         else if (cmdType == 'C')
         {
             mainSerial->read();
-            mainSerial->readStringUntil('\n');
-            actuatorManager->startAutoCalibration();
-            if (leftSerial)  leftSerial->println("C");
-            if (rightSerial) rightSerial->println("C");
+            handleCalibrationCommand(mainSerial->readStringUntil('\n'));
         }
         else if (cmdType == 'H')
         {
@@ -584,9 +834,12 @@ void loop()
             currentRole,
             controllerFreshnessTrackers,
             latestActuatorStatus,
-            latestImuMeasurement,
+            imuMeasurement,
             nowMilliseconds,
-            ACTUATOR_CONFIG.pwmDeadband
+            ACTUATOR_CONFIG.pwmDeadband,
+            packMeasurement,
+            midpointMeasurement,
+            inferredBattBVoltage
         );
 
         const bool isActuatorDisconnected = hasDisconnectedActuator(displayFrame);
@@ -608,21 +861,36 @@ void loop()
 
     wasTelemetryEmittedOnPreviousLoop = false;
     const unsigned long telemetryNowMilliseconds = millis();
-    if (telemetryNowMilliseconds - lastTelemetry >= TELEMETRY_INTERVAL_MS)
+    if (isTelemetryPollDue(telemetryNowMilliseconds, lastTelemetry))
     {
         wasTelemetryEmittedOnPreviousLoop = true;
         lastTelemetry = telemetryNowMilliseconds;
+
         mainSerial->print(boardTelemetryRoleLabel(currentRole));
         mainSerial->print(TELEMETRY_SEGMENT_DELIMITER);
         mainSerial->print(TELEMETRY_FIELD_SEPARATOR);
         actuatorManager->printTelemetry(*mainSerial);
+
         // Leader appends its sensor segments to its own line only; forwarded
         // LEFT/RIGHT lines pass through forwardFullLines() untouched.
         if (currentRole == ROLE_FRONT || currentRole == ROLE_UNKNOWN)
         {
-            const ImuMeasurement measurement = imuSensor.measure();
-            latestImuMeasurement = measurement;
-            appendImuMeasurement(*mainSerial, measurement);
+            imuMeasurement = imuSensor.measure();
+            appendImuMeasurement(*mainSerial, imuMeasurement);
+
+            packMeasurement = powerCalibration.applyPackCalibration(packPowerMonitor.measure());
+            midpointMeasurement = powerCalibration.applyMidpointCalibration(midpointPowerMonitor.measure());
+            inferredBattBVoltage = packMeasurement.voltage - midpointMeasurement.voltage;
+
+            // Assume divergence when either battery cannot be read.
+            const bool isDiverged =
+                !isfinite(midpointMeasurement.voltage.value()) ||
+                !isfinite(inferredBattBVoltage.value()) ||
+                abs(midpointMeasurement.voltage - inferredBattBVoltage)
+                    > BATTERY_DIVERGENCE_THRESHOLD;
+
+            appendBatteryTelemetry(*mainSerial, packMeasurement, midpointMeasurement,
+                inferredBattBVoltage, isDiverged, PACK_REGION_NORMAL);
         }
         mainSerial->println();
         mainSerial->flush();  // ensure full line is sent before next loop (avoids two "LEFT;" in one buffer on host)

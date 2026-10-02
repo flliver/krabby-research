@@ -1,5 +1,7 @@
 #pragma once
 
+#include "../power_monitor/power_measurement.h"
+
 #include <stddef.h>
 #include <stdint.h>
 
@@ -38,13 +40,19 @@ struct DisplayFrame
 
 void setBatteryVoltages(DisplayFrame &frame, const Volts (&voltage)[2]);
 
+int8_t batteryFillPixels(float level);
+int16_t displayPackDecivolts(Volts voltage);
+
 DisplayFrame buildDisplayFrame(
     BoardRole role,
     const ControllerFreshnessTracker (&controllerFreshnessTrackers)[BOARD_ROLE_COUNT],
     const ActuatorStatus (&actuatorStatus)[ActuatorId::ActuatorCount],
     const ImuMeasurement &measurement,
     uint32_t nowMilliseconds,
-    int moveThreshold);
+    int moveThreshold,
+    const PowerMonitorMeasurement &packMeasurement,
+    const PowerMonitorMeasurement &midpointMeasurement,
+    Volts inferredBattBVoltage);
 
 ActuatorGlyph selectActuatorGlyph(
     const ActuatorStatus &status,

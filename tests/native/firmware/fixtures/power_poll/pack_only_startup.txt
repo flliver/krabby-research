@@ -1,0 +1,14 @@
+[pack-only-first-sample]
+;BATT 26.50 -12.50 331.2 1200.0 nan nan 1 0 1 0
+events=pack.begin | pack.reset | pack.calibrate | pack.reset-charge | pack.voltage | pack.current | pack.power | pack.charge | millis=1000 | telemetry.begin
+clock-after=1000
+measurement.pack=26.5,-12.5,331.25,1200
+model=26.5,-32768,-32768,0,0
+calibration=0,0,1
+pack.up/bad/begins/shunts/resets=1,0,1,1,1
+mid.up/bad/begins/shunts/resets=0,1,0,0,0
+draw=1
+font 5x7
+fill 98 0 30 8 0
+text 98 0 26.5V
+

@@ -20,7 +20,7 @@ struct SimulatedState
 {
     SimulatedState()
         : role(ROLE_FRONT), rollDegrees(0.0f), pitchDegrees(0.0f),
-          isImuValid(true), batteryVolts{13.3f, 13.3f},
+          isImuValid(true), isBatteryValid(true), batteryVolts{13.3f, 13.3f},
           isFrontPresent(true), isLeftPresent(true), isRightPresent(true), actuators{}
     {
         for (ActuatorId actuatorId = ActuatorId::FLHY;
@@ -33,6 +33,7 @@ struct SimulatedState
     float rollDegrees;
     float pitchDegrees;
     bool isImuValid;
+    bool isBatteryValid;
     float batteryVolts[2];
     bool isFrontPresent;
     bool isLeftPresent;
@@ -100,6 +101,7 @@ bool applyField(SimulatedState &state, const char *key, char *value)
     else if (strcmp(key, "roll") == 0) state.rollDegrees = static_cast<float>(atof(value));
     else if (strcmp(key, "pitch") == 0) state.pitchDegrees = static_cast<float>(atof(value));
     else if (strcmp(key, "imu") == 0) state.isImuValid = atoi(value) != 0;
+    else if (strcmp(key, "battery_valid") == 0) state.isBatteryValid = atoi(value) != 0;
     else if (strcmp(key, "battery") == 0) return parsePair(value, state.batteryVolts);
     else if (strcmp(key, "front") == 0)
         state.isFrontPresent = atoi(value) != 0;
@@ -159,17 +161,22 @@ DisplayFrame buildFrame(const SimulatedState &state)
             : glyph == ActuatorGlyph::Retract ? -MOVE_THRESHOLD : 0;
     }
 
-    DisplayFrame frame = buildDisplayFrame(
+    PowerMonitorMeasurement pack, midpoint;
+    midpoint.voltage = Volts(state.isBatteryValid ? state.batteryVolts[0] : NAN);
+    const Volts batteryB(state.isBatteryValid ? state.batteryVolts[1] : NAN);
+    const bool canDisplayBoth =
+        isfinite(state.batteryVolts[0]) && state.batteryVolts[0] >= 0.0f && state.batteryVolts[0] <= 99.9f &&
+        isfinite(state.batteryVolts[1]) && state.batteryVolts[1] >= 0.0f && state.batteryVolts[1] <= 99.9f;
+    pack.voltage = canDisplayBoth ? midpoint.voltage + batteryB : Volts(NAN);
+    pack.isValid = midpoint.isValid = state.isBatteryValid;
+    return buildDisplayFrame(
         state.role,
         controllerFreshnessTrackers,
         actuators,
         measurementForTilt(state),
         NOW_MILLISECONDS,
-        MOVE_THRESHOLD);
-    const Volts batteryVoltage[2] = {
-        Volts(state.batteryVolts[0]), Volts(state.batteryVolts[1])};
-    setBatteryVoltages(frame, batteryVoltage);
-    return frame;
+        MOVE_THRESHOLD,
+        pack, midpoint, batteryB);
 }
 
 }  // namespace

@@ -24,7 +24,7 @@ FetchContent_Declare(
     unity
     URL https://github.com/ThrowTheSwitch/Unity/archive/refs/tags/v2.6.1.tar.gz
     URL_HASH SHA256=b41a66d45a6b99758fb3202ace6178177014d52fc524bf1f72687d93e9867292
-    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+    DOWNLOAD_EXTRACT_TIMESTAMP FALSE
 )
 FetchContent_MakeAvailable(unity)
 
@@ -46,6 +46,7 @@ function(add_firmware_native_test test_path)
 endfunction()
 
 set(KRABBY_FIRMWARE_NATIVE_TESTS
+    fakes/wire/test_wire
     arduino/test_units
     arduino/test_actuator_manager
     arduino/src/test_telemetry
@@ -61,6 +62,14 @@ set(KRABBY_FIRMWARE_NATIVE_TESTS
     arduino/src/actuator/test_actuator_pot_tracker
     arduino/src/controller/test_board_role
     arduino/src/controller/test_controller_freshness_tracker
+    arduino/src/cli/test_power_calibration_command
+    arduino/src/power_monitor/test_battery_telemetry
+    arduino/src/power_monitor/test_ina228_adapter
+    arduino/src/power_monitor/test_power_calibration
+    arduino/src/power_monitor/test_power_monitor_constants
+    arduino/src/telemetry/test_telemetry_poll
+    arduino/test_eeprom_layout
+    arduino/test_power_poll
 )
 
 # Require every discovered test to appear in the manifest.
@@ -120,3 +129,29 @@ if(MSVC)
 else()
     target_compile_options(oled_trace PRIVATE -Wall -Wextra -Werror)
 endif()
+
+include(cmake/power_poll_characterization.cmake)
+
+# The transport fake has no dependency on Unity or any device driver.
+add_library(wire_native_support STATIC fakes/wire/Wire.cpp)
+target_include_directories(wire_native_support PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/fakes/wire")
+if(MSVC)
+    target_compile_options(wire_native_support PRIVATE /W4 /WX)
+else()
+    target_compile_options(wire_native_support PRIVATE -Wall -Wextra -Werror)
+endif()
+target_link_libraries(test_wire PRIVATE wire_native_support)
+
+include(cmake/sparkfun_libraries.cmake)
+
+# Register-level device fakes that answer the real SparkFun drivers over the TwoWire fake.
+add_library(ina228_native_device STATIC fakes/devices/ina228.cpp)
+target_include_directories(ina228_native_device PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/fakes/devices")
+target_link_libraries(ina228_native_device PUBLIC wire_native_support)
+if(MSVC)
+    target_compile_options(ina228_native_device PRIVATE /W4 /WX)
+else()
+    target_compile_options(ina228_native_device PRIVATE -Wall -Wextra -Werror)
+endif()
+target_link_libraries(test_ina228_adapter PRIVATE ina228_native_device sparkfun_ina2xx_native)
+target_link_libraries(test_power_poll PRIVATE ina228_native_device sparkfun_ina2xx_native)

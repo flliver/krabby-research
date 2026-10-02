@@ -1,0 +1,49 @@
+save-result=0
+[raw-in-range-corrected-out-of-range]
+;BATT 40.50 -12.50 493.8 1200.0 20.50 20.00 0 0 1 1
+events=pack.begin | pack.reset | pack.calibrate | pack.reset-charge | mid.begin | mid.reset | storage.write-pending | storage.magic=200 | pack.voltage | pack.current | pack.power | pack.charge | mid.voltage | mid.current | mid.power | mid.charge | telemetry.begin
+clock-after=1000
+measurement.pack=40.5,-12.5,493.75,1200
+model=40.5,205,200,1,1
+calibration=1,1,1
+pack.up/bad/begins/shunts/resets=1,0,1,1,1
+mid.up/bad/begins/shunts/resets=1,0,1,0,0
+draw=1
+font 5x7
+fill 98 0 30 8 0
+text 98 0 40.5V
+fill 6 11 58 8 0
+text 6 11 A
+rect 12 11 18 7
+fill 30 13 2 3 1
+fill 13 12 16 5 1
+text 34 11 20.5V
+fill 70 11 58 8 0
+text 70 11 B
+rect 76 11 18 7
+fill 94 13 2 3 1
+fill 77 12 16 5 1
+text 98 11 20.0V
+
+[wait]
+;BATT 40.50 -12.50 493.8 1200.0 20.50 20.00 0 0 1 1
+events=pack.voltage | pack.current | pack.power | pack.charge | mid.voltage | mid.current | mid.power | mid.charge | telemetry.begin
+clock-after=1050
+measurement.pack=40.5,-12.5,493.75,1200
+model=40.5,205,200,1,1
+calibration=1,1,1
+pack.up/bad/begins/shunts/resets=1,0,1,1,1
+mid.up/bad/begins/shunts/resets=1,0,1,0,0
+draw=0
+
+[recover]
+;BATT 40.50 -12.50 493.8 1200.0 20.50 20.00 0 0 1 1
+events=pack.voltage | pack.current | pack.power | pack.charge | mid.voltage | mid.current | mid.power | mid.charge | telemetry.begin
+clock-after=1100
+measurement.pack=40.5,-12.5,493.75,1200
+model=40.5,205,200,1,1
+calibration=1,1,1
+pack.up/bad/begins/shunts/resets=1,0,1,1,1
+mid.up/bad/begins/shunts/resets=1,0,1,0,0
+draw=0
+
