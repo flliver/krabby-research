@@ -425,3 +425,16 @@ as `C_lr_rsi__*`, identical to X16's definition.
 
     Any further extensions (C_lr_rsi from seed 12, seed-13 triggers) are taken from verdict.py after block 2.
   - **Rule from this:** no rendering or eval process on the GPU while the queue can launch an arm. The video is the only deviation so far.
+- 2026-10-02 09:45: **C_lr_rsi__A_s12 = SLOW / SLOW** (L 0.090 / 0.103, R 0.095 / 0.089; lean 0.25–0.27, sweep 0.035–0.044). It is the incumbent's lean-and-shuffle phenotype, and model_2500 is also SLOW/SLOW. Wiring and dose PASS (median |μ| at 1000: cam 0.91, rod 1.34). This is the first construction-arm two-direction run with no fast or near-fast hand (descriptive). Block 1 has finished training. The gated relaunch fired at 09:45 (`--post C_lr_rsi__B_s12`, then block 2, then the C_lr extension).
+- 2026-10-02 09:53: **C_lr_rsi__B_s12 (`_e2` retry, `--post`) = L FAST / R INTERMEDIATE.**
+  - **Hands:** L 0.224 / 0.248 (lean ≈ 0, sweep 0.09–0.11); R 0.153 / 0.156 (lean 0.15–0.19, sweep 0.05).
+  - **Rod odd RMS:** L 1.92 / R 1.88, the highest two-direction values so far.
+  - **model_2500:** also FAST / INT.
+  - **Record:** complete. verdict.py reads it as a normal run.
+
+  **Block 1 (seed 12) summary:**
+  - C: C0 FAST, A FAST.
+  - C_lr: C0 SLOW/SLOW, A FAST/SLOW, B FAST/FAST.
+  - C_lr_rsi: C0 SLOW/SLOW, A SLOW/SLOW, B FAST/INT.
+
+  Block 2 launched at 09:53 on the fixed runner.
