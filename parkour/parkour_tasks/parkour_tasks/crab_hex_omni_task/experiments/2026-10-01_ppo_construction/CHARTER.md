@@ -459,3 +459,22 @@ as `C_lr_rsi__*`, identical to X16's definition.
   - **UNLOCK can no longer be reached on any bed.** C_lr__B can reach at most 3/5 after the s14–15 extension, short of 4/5 with C0 0/5, and the same holds for C_lr__A. So 4c cannot trigger.
   - **The extension still runs as pre-registered:** the §4.5 count fixes PARTIAL vs NO-FLIP, and NO-FLIP is never given while an extension is pending.
   - **Step 4 status:** 4b is not triggered (rung 1). 4a is not triggered on present data: A/B LR floor share 0.51–0.65 (the threshold is > 0.9); A/B applied LR 0.55–0.77× the C0 median (the threshold is < 0.5×). The final verdict.py decides 4a.
+- 2026-10-02 16:17: **C_lr__A_s13 = SLOW / SLOW** (L 0.073 / 0.084, R 0.093 / 0.101; lean 0.20–0.24; rod odd RMS 0.65 / 1.14). At model_2500 it was L DEAD / R SLOW (feet below 0.05 on L), so it moved up to the shuffle by 2999. Wiring and dose PASS.
+  - **C_lr__A is complete at 3 seeds:** s11 SLOW/INT, s12 FAST/SLOW, s13 SLOW/SLOW. 0/3 runs FAST, so no A extension.
+  - **The remaining queue is unchanged:** C__A_s13, C__C0_s13, C_lr__C0_s13, then C_lr__B and C_lr__C0 at s14–15. C_lr__C0_s13 FAST would extend A as well (§4.5).
+- 2026-10-02 17:25: **C__A_s13 = FAST** (0.241 / 0.260, lean ≈ 0, sweep 0.21–0.26 — the longest strokes on this bed; rod odd RMS 2.31). Wiring and dose PASS (track ratio 0.76 at 1000).
+  - **C bed A:** 3/3 FAST, so the §4.7 guard passes (A ≥ 2/3) whatever C__C0_s13 gives; verdict.py prints it once C0 has 3 seeds.
+  - **C bed C0:** 1/2 so far.
+- 2026-10-02 18:33: **C__C0_s13 = INTERMEDIATE** (0.147 / 0.154, lean 0.09–0.10, sweep 0.06; rod odd RMS 1.36).
+  - **The C bed is complete:**
+
+    | Arm | s11 | s12 | s13 | FAST |
+    |---|---|---|---|---|
+    | A | FAST | FAST | FAST | 3/3 |
+    | C0 | SLOW | FAST | INT | 1/3 |
+
+  - **Guard:** verdict.py reads PASS ("A FAST 3/3 ≥ 2/3; C0 itself not reliably FAST: noted").
+  - **Discrepancy for the final check:** §4.7's text also lists "C0 ≤ 1/3 → C bed not reliable at fresh seeds; the guard does not decide", and C0 is at 1/3 here. The two readings disagree on whether the guard PASSes or stays UNDEFINED.
+    - verdict.py checks A first. Its reading is that the guard's question is "does A still form the one-direction stroke", and A 3/3 answers it, whatever C0 does.
+    - It changes no run. 4c is already unreachable. It only gates whether a "Q better" result becomes an "adopt for motion quality" proposal to the user (§4.8), which is never an adoption.
+    - It goes to the independent check and to the user as stated; it is not decided here.
