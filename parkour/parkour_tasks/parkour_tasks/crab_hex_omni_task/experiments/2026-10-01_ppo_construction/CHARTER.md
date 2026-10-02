@@ -438,3 +438,19 @@ as `C_lr_rsi__*`, identical to X16's definition.
   - C_lr_rsi: C0 SLOW/SLOW, A SLOW/SLOW, B FAST/INT.
 
   Block 2 launched at 09:53 on the fixed runner.
+- 2026-10-02 11:10: **C_lr_rsi__B_s13 = L SLOW / R FAST.** L 0.127 / 0.140 (lean 0.18, sweep 0.06), just inside the SLOW band. R 0.238 / 0.267 (lean ≈ 0, sweep 0.16–0.20). Rod odd RMS L 1.40 / R 1.99; model_2500 is also SLOW/FAST. Wiring and dose PASS (σ 0.80 at 200; track ratio 0.48 at 1000). C_lr_rsi__B so far: FAST/INT, FAST/INT, SLOW/FAST. Every run has one fast hand, and it is not always the same side.
+- 2026-10-02 12:27: **C_lr_rsi__C0_s13 = SLOW / SLOW** (L 0.067 / 0.070, R 0.065 / 0.070; lean 0.12–0.18; rod odd RMS 0.70 / 0.78; model_2500 is also SLOW/SLOW).
+  - **C_lr_rsi C0 at 3 seeds:** 0/3 FAST, every run SLOW/SLOW, so no C0-triggered extension.
+  - **C_lr_rsi B at 3 seeds:** 0/3 runs FAST, though every run has one FAST hand. This bed's §4.5 extension now depends only on C_lr_rsi__A_s13.
+- 2026-10-02 13:44: **C_lr_rsi__A_s13 = L SLOW / R FAST** (L 0.094 / 0.107, lean 0.20; R 0.228 / 0.226, lean 0.12–0.13, sweep 0.12–0.13; rod odd RMS 0.87 / 1.68; model_2500 is also SLOW/FAST). Wiring and dose PASS.
+  - **The C_lr_rsi bed is complete at 3 seeds:**
+
+    | Arm | s11 | s12 | s13 | Runs FAST |
+    |---|---|---|---|---|
+    | C0 | SLOW/SLOW | SLOW/SLOW | SLOW/SLOW | 0/3 |
+    | A | SLOW/FAST | SLOW/SLOW | SLOW/FAST | 0/3 |
+    | B | FAST/INT | FAST/INT | SLOW/FAST | 0/3 |
+
+    No A/B or C0 run is FAST, so there is no §4.5 extension on this bed.
+  - **Interim verdict.py (`--no-tb`):** C_lr_rsi A and B both PARTIAL (a FAST hand in a run not counted FAST). That reads "inconclusive", not "not the limiter". "Q better" = yes for C_lr_rsi A (descriptive; adopting it is a user proposal, gated by the C guard).
+  - **For the final read:** verdict.py still lists the C__A_s11 dose kill under STOPS. That kill was resolved by the user's 12:30 amendment (rerun as C__A_s11_r2), so the final verdict must mark it as resolved, not as an open stop.
