@@ -618,6 +618,9 @@ def validity(f: dict) -> str | None:
     k = f.get("killed") or {}
     if k.get("kind") == "wiring":
         return f"killed for wiring at it {k.get('at')}: rerun required (a fresh reference, named in CHARTER 9)"
+    if k.get("kind") == "dose" and _dose_superseded(f):
+        return (f"killed for dose at it {k.get('at')} under the pre-amendment rule; passes the amended median rule "
+                "(CHARTER 4.3, 2026-10-01): superseded -- its rerun under a fresh reference counts, not a stop")
     if k.get("kind") == "dose":
         return f"killed for dose at it {k.get('at')}: CHARTER 4.3 stop (check wiring; wiring right = stop and ask)"
     if k.get("kind") not in (None, "dead", "diverged"):
@@ -809,8 +812,17 @@ def lr_confound(arm_runs: list[dict], c0_runs: list[dict]) -> dict:
     return {"c0_lr_applied_median": c0_med, "runs": rows, "triggered_by": trig, "triggers_4a": bool(trig)}
 
 
+def _dose_superseded(r) -> bool:
+    """A dose kill made under the pre-amendment rule (the |mu| > 1.5 share) whose own iteration-1000 read passes the
+    amended median rule (2026-10-01 12:30 user decision, CHARTER 4.3 and 9): the kill is superseded -- the run stays
+    excluded (it has no class; its rerun under a fresh reference counts) but it is NOT a 4.3 stop. Needs the
+    tfevents read: with --no-tb (dose_1000 unread) a dose kill stays a stop (fail closed)."""
+    k = (r or {}).get("killed") or {}
+    return k.get("kind") == "dose" and ((r.get("dose_1000") or {}).get("ok") is True)
+
+
 def _dose_killed(r) -> bool:
-    return bool(r and (r.get("killed") or {}).get("kind") == "dose")
+    return bool(r and (r.get("killed") or {}).get("kind") == "dose" and not _dose_superseded(r))
 
 
 def pilot(by_chain: dict, by_chain_all: dict | None = None) -> dict:
@@ -1398,11 +1410,19 @@ def self_test() -> int:
     res = evaluate([dict(f) for f in cc0 + _bed("C_lr", "C0", "SSS") + dup])
     check("a second valid run of one chain + seed is a re-roll (excluded)",
           (res["beds"]["C_lr"]["A"]["k_arm"], [e["ref"] for e in res["excluded"]]), (0, ["C_lr__A_s11_x"]))
-    pil5 = _bed("C", "C0", "F", two=False) + [_run("C__A_s11", two=False, killed=("dose", 1000))] + \
+    pil5 = _bed("C", "C0", "F", two=False) + [_run("C__A_s11", two=False, killed=("dose", 1000), dose1000=False)] + \
         _bed("C_lr", "C0", "S") + _bed("C_lr", "A", "S")
     res = evaluate([dict(f) for f in pil5])
     check("pilot: a DOSE-killed C__A reads DOSE (not PENDING missing) + a stop", (res["pilot"]["status"], len(res["stops"])),
           ("DOSE", 1))
+    sup = _bed("C", "C0", "S", two=False) + [_run("C__A_s11", two=False, killed=("dose", 1000), dose1000=True),
+                                             _run("C__A_s11_r2", chain="C__A", seed=11, two=False, L="FAST")] + \
+        _bed("C_lr", "C0", "S") + _bed("C_lr", "A", "S")
+    res = evaluate([dict(f) for f in sup])
+    ex = next(e for e in res["excluded"] if e["ref"] == "C__A_s11")
+    check("a dose kill that passes the amended median rule is superseded: excluded, no stop, the pilot reads its rerun",
+          (len(res["stops"]), "superseded" in ex["why"], res["pilot"]["status"] != "DOSE",
+           res["pilot"].get("C__A_fast")), (0, True, True, True))
 
     print("step 4 / INC0")
     s3 = _bed("C_lr", "A", "SSS")

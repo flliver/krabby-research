@@ -478,3 +478,15 @@ as `C_lr_rsi__*`, identical to X16's definition.
     - verdict.py checks A first. Its reading is that the guard's question is "does A still form the one-direction stroke", and A 3/3 answers it, whatever C0 does.
     - It changes no run. 4c is already unreachable. It only gates whether a "Q better" result becomes an "adopt for motion quality" proposal to the user (§4.8), which is never an adoption.
     - It goes to the independent check and to the user as stated; it is not decided here.
+- 2026-10-02 19:50: **C_lr__C0_s13 = SLOW / SLOW** (L 0.063 / 0.077, R 0.074 / 0.072; lean 0.20–0.24; rod odd RMS 0.39 / 0.26; model_2500 is also SLOW/SLOW).
+  - **Block 2 (seed 13) is complete.** C_lr C0 is 0/3 FAST, so there is no A extension.
+  - **Queue:** C_lr__B_s14, C_lr__C0_s14, C_lr__B_s15, C_lr__C0_s15, then the final read.
+- 2026-10-02 20:10, **verdict.py: superseded dose kills.** A dose kill whose own iteration-1000 read passes the amended median rule is now "superseded": the run stays excluded, its rerun counts, and it is neither a 4.3 stop nor a pilot DOSE.
+  - **Only case:** C__A_s11, median |μ| cam 0.97 / rod 1.27 at 1000.
+  - **Fail-closed:** with `--no-tb` the dose read is unread and the kill stays a stop.
+  - **Tests:** self-test PASS (the pilot DOSE case now uses a real dose failure, plus a new superseded case); tooling tests 29/29.
+  - **Full verdict now:** STOPS none; pilot PASS.
+- 2026-10-02 20:10, **finding (descriptive): same-seed training is deterministic here.** The killed C__A_s11 (X02) and its rerun C__A_s11_r2 (X03), same seed and config, match exactly through iteration 1140 on `Loss/surrogate`, `PPO/mu_med_rod` and `Train/mean_reward`.
+  - So a same-seed rerun is a replay, not a new sample (consistent with the D18 re-roll exclusion).
+  - C_lr_rsi__B_s12's `_e2` retry is what the uninterrupted run would have been.
+  - "Same-seed reruns diverge" (D18) does not hold for this training path on this machine.
