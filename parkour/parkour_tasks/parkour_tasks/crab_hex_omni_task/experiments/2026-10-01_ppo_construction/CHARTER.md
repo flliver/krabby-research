@@ -454,3 +454,8 @@ as `C_lr_rsi__*`, identical to X16's definition.
     No A/B or C0 run is FAST, so there is no §4.5 extension on this bed.
   - **Interim verdict.py (`--no-tb`):** C_lr_rsi A and B both PARTIAL (a FAST hand in a run not counted FAST). That reads "inconclusive", not "not the limiter". "Q better" = yes for C_lr_rsi A (descriptive; adopting it is a user proposal, gated by the C guard).
   - **For the final read:** verdict.py still lists the C__A_s11 dose kill under STOPS. That kill was resolved by the user's 12:30 amendment (rerun as C__A_s11_r2), so the final verdict must mark it as resolved, not as an open stop.
+- 2026-10-02 15:00: **C_lr__B_s13 = L FAST / R INTERMEDIATE.** L 0.221 / 0.235 (lean 0.03–0.04, sweep 0.12–0.13); R 0.132 / 0.143 (lean 0.12, sweep 0.11). Rod odd RMS 1.95 / 1.65. At model_2500 it was FAST / SLOW, so R rose late. Wiring and dose PASS.
+  - **C_lr__B is now 1/3 runs FAST** (s11 FAST/INT, s12 FAST/FAST, s13 FAST/INT).
+  - **UNLOCK can no longer be reached on any bed.** C_lr__B can reach at most 3/5 after the s14–15 extension, short of 4/5 with C0 0/5, and the same holds for C_lr__A. So 4c cannot trigger.
+  - **The extension still runs as pre-registered:** the §4.5 count fixes PARTIAL vs NO-FLIP, and NO-FLIP is never given while an extension is pending.
+  - **Step 4 status:** 4b is not triggered (rung 1). 4a is not triggered on present data: A/B LR floor share 0.51–0.65 (the threshold is > 0.9); A/B applied LR 0.55–0.77× the C0 median (the threshold is < 0.5×). The final verdict.py decides 4a.
