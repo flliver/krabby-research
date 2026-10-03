@@ -1,0 +1,4509 @@
+{
+ "meta": {
+  "generated_at": "2026-10-03T01:05:21",
+  "records_dir": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/gate",
+  "script": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/scripts/mechanism_reads.py",
+  "tags": {
+   "hand_grad_cos": "PPO/hand_grad_cos",
+   "hand_adv_l": "PPO/hand_adv_mean_l",
+   "hand_adv_r": "PPO/hand_adv_mean_r",
+   "hand_frac_l": "PPO/hand_frac_l",
+   "hand_frac_r": "PPO/hand_frac_r",
+   "lock_cam": "PPO/lock_cam",
+   "lock_rod": "PPO/lock_rod",
+   "sat1_cam": "PPO/sat1_cam",
+   "sat1_rod": "PPO/sat1_rod",
+   "sat15_cam": "PPO/sat15_cam",
+   "sat15_rod": "PPO/sat15_rod",
+   "mu_med_cam": "PPO/mu_med_cam",
+   "mu_med_rod": "PPO/mu_med_rod",
+   "effective_std": "PPO/effective_std",
+   "exec_change": "PPO/exec_change",
+   "exec_action_rate": "PPO/exec_action_rate",
+   "kl_mean": "PPO/kl_mean",
+   "lr_applied": "PPO/lr_applied",
+   "clip_frac": "PPO/clip_frac",
+   "explained_var": "PPO/explained_var",
+   "grad_clip_share": "PPO/grad_clip_share",
+   "symmetry": "Loss/symmetry",
+   "action_bound": "Loss/action_bound",
+   "track": "Metrics/base_parkour/track_ratio_mean",
+   "track_rsi": "Metrics/base_parkour/track_ratio_mean_rsi",
+   "track_norsi": "Metrics/base_parkour/track_ratio_mean_norsi"
+  },
+  "windows": [
+   {
+    "key": "hand_grad_cos_0_200",
+    "tag": "PPO/hand_grad_cos",
+    "lo": 0,
+    "hi": 200,
+    "lo_exclusive": false
+   },
+   {
+    "key": "hand_grad_cos_0_600",
+    "tag": "PPO/hand_grad_cos",
+    "lo": 0,
+    "hi": 600,
+    "lo_exclusive": false
+   },
+   {
+    "key": "hand_grad_cos_600_3000",
+    "tag": "PPO/hand_grad_cos",
+    "lo": 600,
+    "hi": 3000,
+    "lo_exclusive": true
+   },
+   {
+    "key": "hand_adv_l_0_200",
+    "tag": "PPO/hand_adv_mean_l",
+    "lo": 0,
+    "hi": 200,
+    "lo_exclusive": false
+   },
+   {
+    "key": "hand_adv_r_0_200",
+    "tag": "PPO/hand_adv_mean_r",
+    "lo": 0,
+    "hi": 200,
+    "lo_exclusive": false
+   },
+   {
+    "key": "hand_adv_l_0_600",
+    "tag": "PPO/hand_adv_mean_l",
+    "lo": 0,
+    "hi": 600,
+    "lo_exclusive": false
+   },
+   {
+    "key": "hand_adv_r_0_600",
+    "tag": "PPO/hand_adv_mean_r",
+    "lo": 0,
+    "hi": 600,
+    "lo_exclusive": false
+   },
+   {
+    "key": "hand_adv_l_2500_3000",
+    "tag": "PPO/hand_adv_mean_l",
+    "lo": 2500,
+    "hi": 3000,
+    "lo_exclusive": false
+   },
+   {
+    "key": "hand_adv_r_2500_3000",
+    "tag": "PPO/hand_adv_mean_r",
+    "lo": 2500,
+    "hi": 3000,
+    "lo_exclusive": false
+   },
+   {
+    "key": "hand_frac_l_all",
+    "tag": "PPO/hand_frac_l",
+    "lo": 0,
+    "hi": 3000,
+    "lo_exclusive": false
+   },
+   {
+    "key": "hand_frac_r_all",
+    "tag": "PPO/hand_frac_r",
+    "lo": 0,
+    "hi": 3000,
+    "lo_exclusive": false
+   },
+   {
+    "key": "lock_cam_300_600",
+    "tag": "PPO/lock_cam",
+    "lo": 300,
+    "hi": 600,
+    "lo_exclusive": false
+   },
+   {
+    "key": "lock_rod_300_600",
+    "tag": "PPO/lock_rod",
+    "lo": 300,
+    "hi": 600,
+    "lo_exclusive": false
+   },
+   {
+    "key": "lock_cam_2900_3000",
+    "tag": "PPO/lock_cam",
+    "lo": 2900,
+    "hi": 3000,
+    "lo_exclusive": false
+   },
+   {
+    "key": "lock_rod_2900_3000",
+    "tag": "PPO/lock_rod",
+    "lo": 2900,
+    "hi": 3000,
+    "lo_exclusive": false
+   },
+   {
+    "key": "sat1_cam_900_1000",
+    "tag": "PPO/sat1_cam",
+    "lo": 900,
+    "hi": 1000,
+    "lo_exclusive": false
+   },
+   {
+    "key": "sat1_rod_900_1000",
+    "tag": "PPO/sat1_rod",
+    "lo": 900,
+    "hi": 1000,
+    "lo_exclusive": false
+   },
+   {
+    "key": "sat15_cam_900_1000",
+    "tag": "PPO/sat15_cam",
+    "lo": 900,
+    "hi": 1000,
+    "lo_exclusive": false
+   },
+   {
+    "key": "sat15_rod_900_1000",
+    "tag": "PPO/sat15_rod",
+    "lo": 900,
+    "hi": 1000,
+    "lo_exclusive": false
+   },
+   {
+    "key": "mu_med_cam_900_1000",
+    "tag": "PPO/mu_med_cam",
+    "lo": 900,
+    "hi": 1000,
+    "lo_exclusive": false
+   },
+   {
+    "key": "mu_med_rod_900_1000",
+    "tag": "PPO/mu_med_rod",
+    "lo": 900,
+    "hi": 1000,
+    "lo_exclusive": false
+   },
+   {
+    "key": "sat1_cam_2900_3000",
+    "tag": "PPO/sat1_cam",
+    "lo": 2900,
+    "hi": 3000,
+    "lo_exclusive": false
+   },
+   {
+    "key": "sat1_rod_2900_3000",
+    "tag": "PPO/sat1_rod",
+    "lo": 2900,
+    "hi": 3000,
+    "lo_exclusive": false
+   },
+   {
+    "key": "sat15_cam_2900_3000",
+    "tag": "PPO/sat15_cam",
+    "lo": 2900,
+    "hi": 3000,
+    "lo_exclusive": false
+   },
+   {
+    "key": "sat15_rod_2900_3000",
+    "tag": "PPO/sat15_rod",
+    "lo": 2900,
+    "hi": 3000,
+    "lo_exclusive": false
+   },
+   {
+    "key": "mu_med_cam_2900_3000",
+    "tag": "PPO/mu_med_cam",
+    "lo": 2900,
+    "hi": 3000,
+    "lo_exclusive": false
+   },
+   {
+    "key": "mu_med_rod_2900_3000",
+    "tag": "PPO/mu_med_rod",
+    "lo": 2900,
+    "hi": 3000,
+    "lo_exclusive": false
+   },
+   {
+    "key": "exec_change_1000_3000",
+    "tag": "PPO/exec_change",
+    "lo": 1000,
+    "hi": 3000,
+    "lo_exclusive": false
+   },
+   {
+    "key": "exec_action_rate_1000_3000",
+    "tag": "PPO/exec_action_rate",
+    "lo": 1000,
+    "hi": 3000,
+    "lo_exclusive": false
+   },
+   {
+    "key": "kl_mean_500_3000",
+    "tag": "PPO/kl_mean",
+    "lo": 500,
+    "hi": 3000,
+    "lo_exclusive": false
+   },
+   {
+    "key": "lr_applied_500_3000",
+    "tag": "PPO/lr_applied",
+    "lo": 500,
+    "hi": 3000,
+    "lo_exclusive": false
+   },
+   {
+    "key": "clip_frac_500_3000",
+    "tag": "PPO/clip_frac",
+    "lo": 500,
+    "hi": 3000,
+    "lo_exclusive": false
+   },
+   {
+    "key": "explained_var_500_3000",
+    "tag": "PPO/explained_var",
+    "lo": 500,
+    "hi": 3000,
+    "lo_exclusive": false
+   },
+   {
+    "key": "grad_clip_share_500_3000",
+    "tag": "PPO/grad_clip_share",
+    "lo": 500,
+    "hi": 3000,
+    "lo_exclusive": false
+   },
+   {
+    "key": "symmetry_0_600",
+    "tag": "Loss/symmetry",
+    "lo": 0,
+    "hi": 600,
+    "lo_exclusive": false
+   },
+   {
+    "key": "symmetry_2500_3000",
+    "tag": "Loss/symmetry",
+    "lo": 2500,
+    "hi": 3000,
+    "lo_exclusive": false
+   },
+   {
+    "key": "action_bound_0_600",
+    "tag": "Loss/action_bound",
+    "lo": 0,
+    "hi": 600,
+    "lo_exclusive": false
+   },
+   {
+    "key": "action_bound_2500_3000",
+    "tag": "Loss/action_bound",
+    "lo": 2500,
+    "hi": 3000,
+    "lo_exclusive": false
+   },
+   {
+    "key": "track_2900_3000",
+    "tag": "Metrics/base_parkour/track_ratio_mean",
+    "lo": 2900,
+    "hi": 3000,
+    "lo_exclusive": false
+   },
+   {
+    "key": "track_rsi_2900_3000",
+    "tag": "Metrics/base_parkour/track_ratio_mean_rsi",
+    "lo": 2900,
+    "hi": 3000,
+    "lo_exclusive": false
+   },
+   {
+    "key": "track_norsi_2900_3000",
+    "tag": "Metrics/base_parkour/track_ratio_mean_norsi",
+    "lo": 2900,
+    "hi": 3000,
+    "lo_exclusive": false
+   }
+  ],
+  "points": [
+   {
+    "key": "effective_std_at_0",
+    "tag": "PPO/effective_std",
+    "at": 0
+   },
+   {
+    "key": "effective_std_at_500",
+    "tag": "PPO/effective_std",
+    "at": 500
+   },
+   {
+    "key": "effective_std_at_1000",
+    "tag": "PPO/effective_std",
+    "at": 1000
+   },
+   {
+    "key": "effective_std_at_3000",
+    "tag": "PPO/effective_std",
+    "at": 3000
+   }
+  ],
+  "all_scalar_tags_union": [
+   "Episode_Reward/feet_slide",
+   "Episode_Reward/penalty_base_pitch_forward_linear",
+   "Episode_Reward/penalty_cam_contact_schedule",
+   "Episode_Reward/penalty_excess_feet_contact_forward",
+   "Episode_Reward/penalty_foot_idle_when_forward",
+   "Episode_Reward/penalty_lin_vel_y",
+   "Episode_Reward/penalty_mechanical_power",
+   "Episode_Reward/penalty_motor_direction_reversal",
+   "Episode_Reward/penalty_swing_min_clearance",
+   "Episode_Reward/penalty_tibia_deviation_in_stance",
+   "Episode_Reward/penalty_tracking_error_l1",
+   "Episode_Reward/reward_action_rate",
+   "Episode_Reward/reward_ang_vel_xy",
+   "Episode_Reward/reward_cam_phase_lock",
+   "Episode_Reward/reward_clock_schedule",
+   "Episode_Reward/reward_clock_swing_apex",
+   "Episode_Reward/reward_collision",
+   "Episode_Reward/reward_delta_torques",
+   "Episode_Reward/reward_dof_error",
+   "Episode_Reward/reward_facing_turn",
+   "Episode_Reward/reward_feet_air_time_positive",
+   "Episode_Reward/reward_feet_edge",
+   "Episode_Reward/reward_feet_stumble",
+   "Episode_Reward/reward_foot_clearance",
+   "Episode_Reward/reward_forward_progress_along_command",
+   "Episode_Reward/reward_lin_vel_z",
+   "Episode_Reward/reward_obstacle_clearance",
+   "Episode_Reward/reward_one_direction_spin",
+   "Episode_Reward/reward_orientation",
+   "Episode_Reward/reward_stance_support_feet_when_forward",
+   "Episode_Reward/reward_stride_length",
+   "Episode_Reward/reward_tracking_goal_vel",
+   "Episode_Reward/reward_tracking_yaw",
+   "Episode_Reward/reward_tripod_schedule",
+   "Episode_Reward/reward_yaw_progress",
+   "Episode_Reward/track_ang_vel_z_exp",
+   "Episode_Reward/track_lin_vel_xy_exp",
+   "Episode_Termination/crab_failure",
+   "Episode_Termination/total_terminates",
+   "Loss/action_bound",
+   "Loss/action_bound_coef",
+   "Loss/entropy",
+   "Loss/estimator",
+   "Loss/hist_latent",
+   "Loss/learning_rate",
+   "Loss/priv_reg",
+   "Loss/priv_reg_coef",
+   "Loss/surrogate",
+   "Loss/symmetry",
+   "Loss/value_function",
+   "Metrics/base_parkour/block_steps_mean",
+   "Metrics/base_parkour/crab_failure_flat",
+   "Metrics/base_parkour/crab_failure_hazard_flat",
+   "Metrics/base_parkour/crab_failure_hazard_obst",
+   "Metrics/base_parkour/crab_failure_obst",
+   "Metrics/base_parkour/crab_failure_obst_rsi",
+   "Metrics/base_parkour/crab_failure_obst_spread",
+   "Metrics/base_parkour/current_goal_idx",
+   "Metrics/base_parkour/ep_steps_flat",
+   "Metrics/base_parkour/ep_steps_obst",
+   "Metrics/base_parkour/ep_steps_obst_spread",
+   "Metrics/base_parkour/far_from_current_goal",
+   "Metrics/base_parkour/field_frac_mean",
+   "Metrics/base_parkour/field_frac_mean_rsi",
+   "Metrics/base_parkour/field_steps_mean",
+   "Metrics/base_parkour/field_steps_mean_rsi",
+   "Metrics/base_parkour/goals_passed_mean",
+   "Metrics/base_parkour/goals_passed_mean_rsi",
+   "Metrics/base_parkour/heading_err_rms_mean",
+   "Metrics/base_parkour/how_far_from_start_point",
+   "Metrics/base_parkour/obst_coverage_1",
+   "Metrics/base_parkour/obst_coverage_1_rsi",
+   "Metrics/base_parkour/obst_coverage_2",
+   "Metrics/base_parkour/obst_coverage_2_rsi",
+   "Metrics/base_parkour/obst_coverage_3",
+   "Metrics/base_parkour/obst_coverage_3_rsi",
+   "Metrics/base_parkour/obst_coverage_4",
+   "Metrics/base_parkour/obst_coverage_4_rsi",
+   "Metrics/base_parkour/obst_coverage_5",
+   "Metrics/base_parkour/obst_coverage_5_rsi",
+   "Metrics/base_parkour/obst_coverage_6",
+   "Metrics/base_parkour/obst_coverage_6_rsi",
+   "Metrics/base_parkour/obst_coverage_7",
+   "Metrics/base_parkour/obst_coverage_7_rsi",
+   "Metrics/base_parkour/obst_coverage_8",
+   "Metrics/base_parkour/obst_coverage_8_rsi",
+   "Metrics/base_parkour/r_max_mean",
+   "Metrics/base_parkour/reach_edge_frac",
+   "Metrics/base_parkour/reach_edge_frac_rsi",
+   "Metrics/base_parkour/reach_obst_frac",
+   "Metrics/base_parkour/reach_obst_frac_rsi",
+   "Metrics/base_parkour/rsi_frac_actual",
+   "Metrics/base_parkour/spread_frac_actual",
+   "Metrics/base_parkour/terrain_levels",
+   "Metrics/base_parkour/track_ratio_mean",
+   "Metrics/base_parkour/track_ratio_mean_norsi",
+   "Metrics/base_parkour/track_ratio_mean_rsi",
+   "Metrics/base_parkour/track_ratio_move_mean",
+   "Metrics/base_parkour/track_ratio_move_mean_norsi",
+   "Metrics/base_parkour/track_ratio_move_mean_rsi",
+   "Metrics/base_velocity/error_vel_xy",
+   "Metrics/base_velocity/error_vel_yaw",
+   "Metrics/base_velocity/facing_err_abs",
+   "Metrics/base_velocity/move_frac_actual",
+   "Metrics/base_velocity/move_turn_frac_actual",
+   "Metrics/base_velocity/pool_side_l_draws",
+   "Metrics/base_velocity/pool_side_l_frac",
+   "Metrics/base_velocity/pool_side_r_draws",
+   "Metrics/base_velocity/pool_side_r_frac",
+   "Metrics/base_velocity/pool_stand_draws",
+   "Metrics/base_velocity/pool_stand_frac",
+   "Metrics/base_velocity/recap_frac",
+   "Metrics/base_velocity/stand_frac_actual",
+   "Metrics/base_velocity/turn_frac_actual",
+   "Metrics/base_velocity/yaw_progress",
+   "PPO/clip_frac",
+   "PPO/effective_std",
+   "PPO/exec_action_rate",
+   "PPO/exec_change",
+   "PPO/explained_var",
+   "PPO/grad_clip_share",
+   "PPO/grad_norm",
+   "PPO/hand_adv_mean_l",
+   "PPO/hand_adv_mean_r",
+   "PPO/hand_frac_l",
+   "PPO/hand_frac_r",
+   "PPO/hand_grad_cos",
+   "PPO/kl_mb0",
+   "PPO/kl_mean",
+   "PPO/lock_cam",
+   "PPO/lock_rod",
+   "PPO/lr_applied",
+   "PPO/mu_med_cam",
+   "PPO/mu_med_rod",
+   "PPO/sat15_cam",
+   "PPO/sat15_rod",
+   "PPO/sat1_cam",
+   "PPO/sat1_rod",
+   "PPO/skipped_updates",
+   "Perf/collection time",
+   "Perf/learning_time",
+   "Perf/total_fps",
+   "Policy/mean_noise_std",
+   "Train/mean_episode_length",
+   "Train/mean_episode_length/time",
+   "Train/mean_reward"
+  ],
+  "missing_by_tag": {
+   "Loss/action_bound": [
+    "C__C0_s11",
+    "C__C0_s12",
+    "C__C0_s13",
+    "C_lr__C0_s11",
+    "C_lr__C0_s12",
+    "C_lr__C0_s13",
+    "C_lr__C0_s14",
+    "C_lr__C0_s15",
+    "C_lr_rsi__C0_s11",
+    "C_lr_rsi__C0_s12",
+    "C_lr_rsi__C0_s13"
+   ],
+   "Metrics/base_parkour/track_ratio_mean_rsi": [
+    "C__C0_s11",
+    "C__C0_s12",
+    "C__C0_s13",
+    "C__A_s11_r2",
+    "C__A_s12",
+    "C__A_s13",
+    "C_lr__C0_s11",
+    "C_lr__C0_s12",
+    "C_lr__C0_s13",
+    "C_lr__C0_s14",
+    "C_lr__C0_s15",
+    "C_lr__A_s11",
+    "C_lr__A_s12",
+    "C_lr__A_s13",
+    "C_lr__B_s11",
+    "C_lr__B_s12",
+    "C_lr__B_s13",
+    "C_lr__B_s14",
+    "C_lr__B_s15"
+   ],
+   "PPO/hand_adv_mean_l": [
+    "C__C0_s11",
+    "C__C0_s12",
+    "C__C0_s13",
+    "C__A_s11_r2",
+    "C__A_s12",
+    "C__A_s13"
+   ],
+   "PPO/hand_adv_mean_r": [
+    "C__C0_s11",
+    "C__C0_s12",
+    "C__C0_s13",
+    "C__A_s11_r2",
+    "C__A_s12",
+    "C__A_s13"
+   ],
+   "PPO/hand_frac_l": [
+    "C__C0_s11",
+    "C__C0_s12",
+    "C__C0_s13",
+    "C__A_s11_r2",
+    "C__A_s12",
+    "C__A_s13"
+   ],
+   "PPO/hand_frac_r": [
+    "C__C0_s11",
+    "C__C0_s12",
+    "C__C0_s13",
+    "C__A_s11_r2",
+    "C__A_s12",
+    "C__A_s13"
+   ],
+   "PPO/hand_grad_cos": [
+    "C__C0_s11",
+    "C__C0_s12",
+    "C__C0_s13",
+    "C__A_s11_r2",
+    "C__A_s12",
+    "C__A_s13"
+   ]
+  },
+  "skipped_killed": [
+   {
+    "ref": "C__A_s11",
+    "kind": "dose",
+    "at": 1000,
+    "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-01_11-41-46_seed11_X02_s1_A15pB"
+   }
+  ],
+  "ci": "90 % two-sided t-interval, t with n-1 df, over runs (seeds) in a bed x arm cell"
+ },
+ "runs": [
+  {
+   "ref": "C__C0_s11",
+   "bed": "C",
+   "arm": "C0",
+   "seed": 11,
+   "two_direction": false,
+   "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-01_10-32-08_seed11_X01_s1_A15pB",
+   "last_step": 2999,
+   "missing_tags": [
+    "Loss/action_bound",
+    "Metrics/base_parkour/track_ratio_mean_rsi",
+    "PPO/hand_adv_mean_l",
+    "PPO/hand_adv_mean_r",
+    "PPO/hand_frac_l",
+    "PPO/hand_frac_r",
+    "PPO/hand_grad_cos"
+   ],
+   "hand_grad_cos_0_200": null,
+   "hand_grad_cos_0_600": null,
+   "hand_grad_cos_600_3000": null,
+   "hand_adv_l_0_200": null,
+   "hand_adv_r_0_200": null,
+   "hand_adv_l_0_600": null,
+   "hand_adv_r_0_600": null,
+   "hand_adv_l_2500_3000": null,
+   "hand_adv_r_2500_3000": null,
+   "hand_frac_l_all": null,
+   "hand_frac_r_all": null,
+   "lock_cam_300_600": 0.01434950277250762,
+   "lock_rod_300_600": 0.12719176970793558,
+   "lock_cam_2900_3000": 0.6038690888881684,
+   "lock_rod_2900_3000": 0.8478651338815689,
+   "sat1_cam_900_1000": 0.9315165458339276,
+   "sat1_rod_900_1000": 0.9211944217729097,
+   "sat15_cam_900_1000": 0.8807331500667157,
+   "sat15_rod_900_1000": 0.87784078982797,
+   "mu_med_cam_900_1000": 3.6016658296679505,
+   "mu_med_rod_900_1000": 4.410456303322669,
+   "sat1_cam_2900_3000": 0.9676953184604645,
+   "sat1_rod_2900_3000": 0.9795901197195053,
+   "sat15_cam_2900_3000": 0.9469949054718018,
+   "sat15_rod_2900_3000": 0.9684908097982406,
+   "mu_med_cam_2900_3000": 5.763209266662598,
+   "mu_med_rod_2900_3000": 8.56260745048523,
+   "exec_change_1000_3000": 0.0022405011944356375,
+   "exec_action_rate_1000_3000": 1.2636735415756701,
+   "kl_mean_500_3000": 0.011305038537271321,
+   "lr_applied_500_3000": 3.2397868770567586e-05,
+   "clip_frac_500_3000": 0.15933543432354927,
+   "explained_var_500_3000": 0.936730958557129,
+   "grad_clip_share_500_3000": 1.0,
+   "symmetry_0_600": 0.025939590564174282,
+   "symmetry_2500_3000": 0.026067412167787553,
+   "action_bound_0_600": null,
+   "action_bound_2500_3000": null,
+   "track_2900_3000": 0.5012835907936096,
+   "track_rsi_2900_3000": null,
+   "track_norsi_2900_3000": 0.5012835907936096,
+   "hand_grad_cos_n_0_600": 0,
+   "hand_grad_cos_n_600_3000": 0,
+   "hand_grad_cos_n_0_200": 0,
+   "effective_std_at_0": 1.5,
+   "effective_std_at_0_step": 0,
+   "effective_std_at_500": 1.6787657737731934,
+   "effective_std_at_500_step": 500,
+   "effective_std_at_1000": 1.7746152877807617,
+   "effective_std_at_1000_step": 1000,
+   "effective_std_at_3000": 2.0,
+   "effective_std_at_3000_step": 2999,
+   "lock_300_600": 0.0707706362402216,
+   "lock_2900_3000": 0.7258671113848687,
+   "gate": {
+    "feet_source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/gate/C__C0_s11.json",
+    "odd_source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/gate/C__C0_s11_odd.json",
+    "hands": {
+     "l": {
+      "class": "SLOW",
+      "feet_ss_022": 0.08346325733844553,
+      "feet_ss_025": 0.09176392064717027,
+      "rod_odd_rms": 0.6525467093518748,
+      "joint_odd_rms": 0.0881349130368552
+     }
+    },
+    "rod_odd_max_hand": 0.6525467093518748,
+    "rod_odd_min_hand": 0.6525467093518748
+   },
+   "rod_odd_max_hand": 0.6525467093518748,
+   "rod_odd_min_hand": 0.6525467093518748
+  },
+  {
+   "ref": "C__C0_s12",
+   "bed": "C",
+   "arm": "C0",
+   "seed": 12,
+   "two_direction": false,
+   "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-02_06-08-26_seed12_X15_s1_A15pB",
+   "last_step": 2999,
+   "missing_tags": [
+    "Loss/action_bound",
+    "Metrics/base_parkour/track_ratio_mean_rsi",
+    "PPO/hand_adv_mean_l",
+    "PPO/hand_adv_mean_r",
+    "PPO/hand_frac_l",
+    "PPO/hand_frac_r",
+    "PPO/hand_grad_cos"
+   ],
+   "hand_grad_cos_0_200": null,
+   "hand_grad_cos_0_600": null,
+   "hand_grad_cos_600_3000": null,
+   "hand_adv_l_0_200": null,
+   "hand_adv_r_0_200": null,
+   "hand_adv_l_0_600": null,
+   "hand_adv_r_0_600": null,
+   "hand_adv_l_2500_3000": null,
+   "hand_adv_r_2500_3000": null,
+   "hand_frac_l_all": null,
+   "hand_frac_r_all": null,
+   "lock_cam_300_600": 0.007429210994645431,
+   "lock_rod_300_600": 0.16280313662293544,
+   "lock_cam_2900_3000": 0.34342882186174395,
+   "lock_rod_2900_3000": 0.6790928888320923,
+   "sat1_cam_900_1000": 0.9034250632371053,
+   "sat1_rod_900_1000": 0.8988394371353754,
+   "sat15_cam_900_1000": 0.8359358924450261,
+   "sat15_rod_900_1000": 0.8450820381098455,
+   "mu_med_cam_900_1000": 3.1338797536226783,
+   "mu_med_rod_900_1000": 4.043518682517628,
+   "sat1_cam_2900_3000": 0.9465109670162201,
+   "sat1_rod_2900_3000": 0.9497467809915543,
+   "sat15_cam_2900_3000": 0.909565978050232,
+   "sat15_rod_2900_3000": 0.9231433182954788,
+   "mu_med_cam_2900_3000": 4.155105938911438,
+   "mu_med_rod_2900_3000": 6.901502585411071,
+   "exec_change_1000_3000": 0.0035766544243087993,
+   "exec_action_rate_1000_3000": 1.8048337315917016,
+   "kl_mean_500_3000": 0.011386809094436467,
+   "lr_applied_500_3000": 2.96984779783088e-05,
+   "clip_frac_500_3000": 0.16100616358518602,
+   "explained_var_500_3000": 0.9295029302597045,
+   "grad_clip_share_500_3000": 1.0,
+   "symmetry_0_600": 0.027434624375127715,
+   "symmetry_2500_3000": 0.03188076731562615,
+   "action_bound_0_600": null,
+   "action_bound_2500_3000": null,
+   "track_2900_3000": 0.7280336087942123,
+   "track_rsi_2900_3000": null,
+   "track_norsi_2900_3000": 0.7280336087942123,
+   "hand_grad_cos_n_0_600": 0,
+   "hand_grad_cos_n_600_3000": 0,
+   "hand_grad_cos_n_0_200": 0,
+   "effective_std_at_0": 1.5,
+   "effective_std_at_0_step": 0,
+   "effective_std_at_500": 1.691955804824829,
+   "effective_std_at_500_step": 500,
+   "effective_std_at_1000": 1.787209391593933,
+   "effective_std_at_1000_step": 1000,
+   "effective_std_at_3000": 2.0,
+   "effective_std_at_3000_step": 2999,
+   "lock_300_600": 0.08511617380879044,
+   "lock_2900_3000": 0.5112608553469181,
+   "gate": {
+    "feet_source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/gate/C__C0_s12.json",
+    "odd_source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/gate/C__C0_s12_odd.json",
+    "hands": {
+     "l": {
+      "class": "FAST",
+      "feet_ss_022": 0.1850513878585484,
+      "feet_ss_025": 0.20116635954371972,
+      "rod_odd_rms": 1.309080176921987,
+      "joint_odd_rms": 0.19474818915981953
+     }
+    },
+    "rod_odd_max_hand": 1.309080176921987,
+    "rod_odd_min_hand": 1.309080176921987
+   },
+   "rod_odd_max_hand": 1.309080176921987,
+   "rod_odd_min_hand": 1.309080176921987
+  },
+  {
+   "ref": "C__C0_s13",
+   "bed": "C",
+   "arm": "C0",
+   "seed": 13,
+   "two_direction": false,
+   "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-02_17-24-54_seed13_X24_s1_A15pB",
+   "last_step": 2999,
+   "missing_tags": [
+    "Loss/action_bound",
+    "Metrics/base_parkour/track_ratio_mean_rsi",
+    "PPO/hand_adv_mean_l",
+    "PPO/hand_adv_mean_r",
+    "PPO/hand_frac_l",
+    "PPO/hand_frac_r",
+    "PPO/hand_grad_cos"
+   ],
+   "hand_grad_cos_0_200": null,
+   "hand_grad_cos_0_600": null,
+   "hand_grad_cos_600_3000": null,
+   "hand_adv_l_0_200": null,
+   "hand_adv_r_0_200": null,
+   "hand_adv_l_0_600": null,
+   "hand_adv_r_0_600": null,
+   "hand_adv_l_2500_3000": null,
+   "hand_adv_r_2500_3000": null,
+   "hand_frac_l_all": null,
+   "hand_frac_r_all": null,
+   "lock_cam_300_600": 0.017040366884928673,
+   "lock_rod_300_600": 0.21328878603207313,
+   "lock_cam_2900_3000": 0.5127587917447091,
+   "lock_rod_2900_3000": 0.7112802541255951,
+   "sat1_cam_900_1000": 0.9201144540663992,
+   "sat1_rod_900_1000": 0.9133232348036058,
+   "sat15_cam_900_1000": 0.8630884159909616,
+   "sat15_rod_900_1000": 0.8664914764980278,
+   "mu_med_cam_900_1000": 3.2881274789866834,
+   "mu_med_rod_900_1000": 4.514825896461411,
+   "sat1_cam_2900_3000": 0.9592879301309586,
+   "sat1_rod_2900_3000": 0.9559554100036621,
+   "sat15_cam_2900_3000": 0.9333648073673249,
+   "sat15_rod_2900_3000": 0.932679448723793,
+   "mu_med_cam_2900_3000": 5.077662615776062,
+   "mu_med_rod_2900_3000": 7.140674362182617,
+   "exec_change_1000_3000": 0.003111036466783844,
+   "exec_action_rate_1000_3000": 1.6243143952488899,
+   "kl_mean_500_3000": 0.01142745547220111,
+   "lr_applied_500_3000": 3.056557658746897e-05,
+   "clip_frac_500_3000": 0.16176112447082996,
+   "explained_var_500_3000": 0.9262579040527343,
+   "grad_clip_share_500_3000": 1.0,
+   "symmetry_0_600": 0.026265296175418895,
+   "symmetry_2500_3000": 0.03160912631079554,
+   "action_bound_0_600": null,
+   "action_bound_2500_3000": null,
+   "track_2900_3000": 0.6403702944517136,
+   "track_rsi_2900_3000": null,
+   "track_norsi_2900_3000": 0.6403702944517136,
+   "hand_grad_cos_n_0_600": 0,
+   "hand_grad_cos_n_600_3000": 0,
+   "hand_grad_cos_n_0_200": 0,
+   "effective_std_at_0": 1.5,
+   "effective_std_at_0_step": 0,
+   "effective_std_at_500": 1.6786595582962036,
+   "effective_std_at_500_step": 500,
+   "effective_std_at_1000": 1.7822964191436768,
+   "effective_std_at_1000_step": 1000,
+   "effective_std_at_3000": 2.0,
+   "effective_std_at_3000_step": 2999,
+   "lock_300_600": 0.1151645764585009,
+   "lock_2900_3000": 0.6120195229351522,
+   "gate": {
+    "feet_source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/gate/C__C0_s13.json",
+    "odd_source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/gate/C__C0_s13_odd.json",
+    "hands": {
+     "l": {
+      "class": "INTERMEDIATE",
+      "feet_ss_022": 0.14735949123122494,
+      "feet_ss_025": 0.1538560600236879,
+      "rod_odd_rms": 1.359621804908726,
+      "joint_odd_rms": 0.1625169646234408
+     }
+    },
+    "rod_odd_max_hand": 1.359621804908726,
+    "rod_odd_min_hand": 1.359621804908726
+   },
+   "rod_odd_max_hand": 1.359621804908726,
+   "rod_odd_min_hand": 1.359621804908726
+  },
+  {
+   "ref": "C__A_s11_r2",
+   "bed": "C",
+   "arm": "A",
+   "seed": 11,
+   "two_direction": false,
+   "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-01_15-11-06_seed11_X03_s1_A15pB",
+   "last_step": 2999,
+   "missing_tags": [
+    "Metrics/base_parkour/track_ratio_mean_rsi",
+    "PPO/hand_adv_mean_l",
+    "PPO/hand_adv_mean_r",
+    "PPO/hand_frac_l",
+    "PPO/hand_frac_r",
+    "PPO/hand_grad_cos"
+   ],
+   "hand_grad_cos_0_200": null,
+   "hand_grad_cos_0_600": null,
+   "hand_grad_cos_600_3000": null,
+   "hand_adv_l_0_200": null,
+   "hand_adv_r_0_200": null,
+   "hand_adv_l_0_600": null,
+   "hand_adv_r_0_600": null,
+   "hand_adv_l_2500_3000": null,
+   "hand_adv_r_2500_3000": null,
+   "hand_frac_l_all": null,
+   "hand_frac_r_all": null,
+   "lock_cam_300_600": 0.0001733948203244446,
+   "lock_rod_300_600": 0.03391932520137069,
+   "lock_cam_2900_3000": 0.007827419796958566,
+   "lock_rod_2900_3000": 0.28552341401576997,
+   "sat1_cam_900_1000": 0.4745360550904038,
+   "sat1_rod_900_1000": 0.6008561365675218,
+   "sat15_cam_900_1000": 0.2709230435366678,
+   "sat15_rod_900_1000": 0.4081487404828024,
+   "mu_med_cam_900_1000": 0.9520969207924191,
+   "mu_med_rod_900_1000": 1.2607733388938527,
+   "sat1_cam_2900_3000": 0.49451063603162765,
+   "sat1_rod_2900_3000": 0.6867123794555664,
+   "sat15_cam_2900_3000": 0.17878309652209282,
+   "sat15_rod_2900_3000": 0.5075143840909004,
+   "mu_med_cam_2900_3000": 0.9916376602649689,
+   "mu_med_rod_2900_3000": 1.5197315573692323,
+   "exec_change_1000_3000": 0.007292076067067683,
+   "exec_action_rate_1000_3000": 1.9093593980669976,
+   "kl_mean_500_3000": 0.011614622359722852,
+   "lr_applied_500_3000": 1.835936639799911e-05,
+   "clip_frac_500_3000": 0.16405805166959764,
+   "explained_var_500_3000": 0.9539217545747757,
+   "grad_clip_share_500_3000": 1.0,
+   "symmetry_0_600": 0.019275398171830695,
+   "symmetry_2500_3000": 0.01678100086376071,
+   "action_bound_0_600": 1.6164957212505677,
+   "action_bound_2500_3000": 10.103168481826783,
+   "track_2900_3000": 0.8099281686544418,
+   "track_rsi_2900_3000": null,
+   "track_norsi_2900_3000": 0.8099281686544418,
+   "hand_grad_cos_n_0_600": 0,
+   "hand_grad_cos_n_600_3000": 0,
+   "hand_grad_cos_n_0_200": 0,
+   "effective_std_at_0": 0.7999995350837708,
+   "effective_std_at_0_step": 0,
+   "effective_std_at_500": 0.7118396759033203,
+   "effective_std_at_500_step": 500,
+   "effective_std_at_1000": 0.6710811257362366,
+   "effective_std_at_1000_step": 1000,
+   "effective_std_at_3000": 0.5512657761573792,
+   "effective_std_at_3000_step": 2999,
+   "lock_300_600": 0.01704636001084757,
+   "lock_2900_3000": 0.14667541690636426,
+   "gate": {
+    "feet_source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/gate/C__A_s11_r2.json",
+    "odd_source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/gate/C__A_s11_r2_odd.json",
+    "hands": {
+     "l": {
+      "class": "FAST",
+      "feet_ss_022": 0.2286470771111722,
+      "feet_ss_025": 0.2506876499503009,
+      "rod_odd_rms": 2.062528705650589,
+      "joint_odd_rms": 0.27887256664915283
+     }
+    },
+    "rod_odd_max_hand": 2.062528705650589,
+    "rod_odd_min_hand": 2.062528705650589
+   },
+   "rod_odd_max_hand": 2.062528705650589,
+   "rod_odd_min_hand": 2.062528705650589
+  },
+  {
+   "ref": "C__A_s12",
+   "bed": "C",
+   "arm": "A",
+   "seed": 12,
+   "two_direction": false,
+   "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-02_03-46-08_seed12_X13_s1_A15pB",
+   "last_step": 2999,
+   "missing_tags": [
+    "Metrics/base_parkour/track_ratio_mean_rsi",
+    "PPO/hand_adv_mean_l",
+    "PPO/hand_adv_mean_r",
+    "PPO/hand_frac_l",
+    "PPO/hand_frac_r",
+    "PPO/hand_grad_cos"
+   ],
+   "hand_grad_cos_0_200": null,
+   "hand_grad_cos_0_600": null,
+   "hand_grad_cos_600_3000": null,
+   "hand_adv_l_0_200": null,
+   "hand_adv_r_0_200": null,
+   "hand_adv_l_0_600": null,
+   "hand_adv_r_0_600": null,
+   "hand_adv_l_2500_3000": null,
+   "hand_adv_r_2500_3000": null,
+   "hand_frac_l_all": null,
+   "hand_frac_r_all": null,
+   "lock_cam_300_600": 0.0009452901666619343,
+   "lock_rod_300_600": 0.02371133609891071,
+   "lock_cam_2900_3000": 0.01804172106087208,
+   "lock_rod_2900_3000": 0.28149631261825564,
+   "sat1_cam_900_1000": 0.5233840608950888,
+   "sat1_rod_900_1000": 0.5905505306649916,
+   "sat15_cam_900_1000": 0.2780033900301055,
+   "sat15_rod_900_1000": 0.3689782702096618,
+   "mu_med_cam_900_1000": 1.044033915689676,
+   "mu_med_rod_900_1000": 1.201990512338015,
+   "sat1_cam_2900_3000": 0.43893609195947647,
+   "sat1_rod_2900_3000": 0.666306157708168,
+   "sat15_cam_2900_3000": 0.18513156622648239,
+   "sat15_rod_2900_3000": 0.4653062641620636,
+   "mu_med_cam_2900_3000": 0.8955716383457184,
+   "mu_med_rod_2900_3000": 1.4160659766197206,
+   "exec_change_1000_3000": 0.0062057786253280935,
+   "exec_action_rate_1000_3000": 1.6860201603770255,
+   "kl_mean_500_3000": 0.011712768827378749,
+   "lr_applied_500_3000": 2.0994069559674243e-05,
+   "clip_frac_500_3000": 0.16641516118943692,
+   "explained_var_500_3000": 0.9357288546562195,
+   "grad_clip_share_500_3000": 1.0,
+   "symmetry_0_600": 0.01911455331782434,
+   "symmetry_2500_3000": 0.015223121164366603,
+   "action_bound_0_600": 1.2302605097081756,
+   "action_bound_2500_3000": 8.586094213485717,
+   "track_2900_3000": 0.760714665055275,
+   "track_rsi_2900_3000": null,
+   "track_norsi_2900_3000": 0.760714665055275,
+   "hand_grad_cos_n_0_600": 0,
+   "hand_grad_cos_n_600_3000": 0,
+   "hand_grad_cos_n_0_200": 0,
+   "effective_std_at_0": 0.7999995350837708,
+   "effective_std_at_0_step": 0,
+   "effective_std_at_500": 0.6845427751541138,
+   "effective_std_at_500_step": 500,
+   "effective_std_at_1000": 0.614730715751648,
+   "effective_std_at_1000_step": 1000,
+   "effective_std_at_3000": 0.5044805407524109,
+   "effective_std_at_3000_step": 2999,
+   "lock_300_600": 0.012328313132786322,
+   "lock_2900_3000": 0.14976901683956387,
+   "gate": {
+    "feet_source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/gate/C__A_s12.json",
+    "odd_source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/gate/C__A_s12_odd.json",
+    "hands": {
+     "l": {
+      "class": "FAST",
+      "feet_ss_022": 0.21280385636217372,
+      "feet_ss_025": 0.21742733787260848,
+      "rod_odd_rms": 2.091993656601689,
+      "joint_odd_rms": 0.2513375876706202
+     }
+    },
+    "rod_odd_max_hand": 2.091993656601689,
+    "rod_odd_min_hand": 2.091993656601689
+   },
+   "rod_odd_max_hand": 2.091993656601689,
+   "rod_odd_min_hand": 2.091993656601689
+  },
+  {
+   "ref": "C__A_s13",
+   "bed": "C",
+   "arm": "A",
+   "seed": 13,
+   "two_direction": false,
+   "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-02_16-17-16_seed13_X23_s1_A15pB",
+   "last_step": 2999,
+   "missing_tags": [
+    "Metrics/base_parkour/track_ratio_mean_rsi",
+    "PPO/hand_adv_mean_l",
+    "PPO/hand_adv_mean_r",
+    "PPO/hand_frac_l",
+    "PPO/hand_frac_r",
+    "PPO/hand_grad_cos"
+   ],
+   "hand_grad_cos_0_200": null,
+   "hand_grad_cos_0_600": null,
+   "hand_grad_cos_600_3000": null,
+   "hand_adv_l_0_200": null,
+   "hand_adv_r_0_200": null,
+   "hand_adv_l_0_600": null,
+   "hand_adv_r_0_600": null,
+   "hand_adv_l_2500_3000": null,
+   "hand_adv_r_2500_3000": null,
+   "hand_frac_l_all": null,
+   "hand_frac_r_all": null,
+   "lock_cam_300_600": 1.694294516341583e-05,
+   "lock_rod_300_600": 0.06861861176213305,
+   "lock_cam_2900_3000": 0.004977484887931496,
+   "lock_rod_2900_3000": 0.2839778670668602,
+   "sat1_cam_900_1000": 0.28813106234710995,
+   "sat1_rod_900_1000": 0.629824673185254,
+   "sat15_cam_900_1000": 0.09974393521500106,
+   "sat15_rod_900_1000": 0.43595324146865616,
+   "mu_med_cam_900_1000": 0.6253201200230287,
+   "mu_med_rod_900_1000": 1.3383219537168447,
+   "sat1_cam_2900_3000": 0.38220812022686007,
+   "sat1_rod_2900_3000": 0.720838223695755,
+   "sat15_cam_2900_3000": 0.13119167871773244,
+   "sat15_rod_2900_3000": 0.5498331803083419,
+   "mu_med_cam_2900_3000": 0.7932501995563507,
+   "mu_med_rod_2900_3000": 1.6253386127948761,
+   "exec_change_1000_3000": 0.006475188551004976,
+   "exec_action_rate_1000_3000": 1.7525257914066315,
+   "kl_mean_500_3000": 0.01154802588261664,
+   "lr_applied_500_3000": 1.9490593361479113e-05,
+   "clip_frac_500_3000": 0.16356936680674553,
+   "explained_var_500_3000": 0.9455559919118881,
+   "grad_clip_share_500_3000": 1.0,
+   "symmetry_0_600": 0.01909711345187241,
+   "symmetry_2500_3000": 0.01543862777017057,
+   "action_bound_0_600": 2.0665707300222556,
+   "action_bound_2500_3000": 9.229437858581543,
+   "track_2900_3000": 0.8429289489984513,
+   "track_rsi_2900_3000": null,
+   "track_norsi_2900_3000": 0.8429289489984513,
+   "hand_grad_cos_n_0_600": 0,
+   "hand_grad_cos_n_600_3000": 0,
+   "hand_grad_cos_n_0_200": 0,
+   "effective_std_at_0": 0.7999995350837708,
+   "effective_std_at_0_step": 0,
+   "effective_std_at_500": 0.6900283098220825,
+   "effective_std_at_500_step": 500,
+   "effective_std_at_1000": 0.6414129734039307,
+   "effective_std_at_1000_step": 1000,
+   "effective_std_at_3000": 0.5450822114944458,
+   "effective_std_at_3000_step": 2999,
+   "lock_300_600": 0.03431777735364823,
+   "lock_2900_3000": 0.14447767597739583,
+   "gate": {
+    "feet_source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/gate/C__A_s13.json",
+    "odd_source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/gate/C__A_s13_odd.json",
+    "hands": {
+     "l": {
+      "class": "FAST",
+      "feet_ss_022": 0.24127589854486595,
+      "feet_ss_025": 0.2596475699002508,
+      "rod_odd_rms": 2.311813597701999,
+      "joint_odd_rms": 0.2777367588499916
+     }
+    },
+    "rod_odd_max_hand": 2.311813597701999,
+    "rod_odd_min_hand": 2.311813597701999
+   },
+   "rod_odd_max_hand": 2.311813597701999,
+   "rod_odd_min_hand": 2.311813597701999
+  },
+  {
+   "ref": "C_lr__C0_s11",
+   "bed": "C_lr",
+   "arm": "C0",
+   "seed": 11,
+   "two_direction": true,
+   "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-01_16-18-44_seed11_X04_s1_A15pB",
+   "last_step": 2999,
+   "missing_tags": [
+    "Loss/action_bound",
+    "Metrics/base_parkour/track_ratio_mean_rsi"
+   ],
+   "hand_grad_cos_0_200": -0.04204193295703994,
+   "hand_grad_cos_0_600": -0.03746813207864761,
+   "hand_grad_cos_600_3000": 0.015445371078768451,
+   "hand_adv_l_0_200": -0.10348548615972201,
+   "hand_adv_r_0_200": -0.043089672923088074,
+   "hand_adv_l_0_600": -0.05301791165024042,
+   "hand_adv_r_0_600": 0.013152046464383602,
+   "hand_adv_l_2500_3000": -0.015530360129196197,
+   "hand_adv_r_2500_3000": 0.007795510650612414,
+   "hand_frac_l_all": 0.396038818359375,
+   "hand_frac_r_all": 0.40374959309895836,
+   "lock_cam_300_600": 0.00831853535666983,
+   "lock_rod_300_600": 0.09425049378502606,
+   "lock_cam_2900_3000": 0.5791040116548538,
+   "lock_rod_2900_3000": 0.7058433771133423,
+   "sat1_cam_900_1000": 0.9311260309549841,
+   "sat1_rod_900_1000": 0.8903599168994639,
+   "sat15_cam_900_1000": 0.8809971644146608,
+   "sat15_rod_900_1000": 0.8320080242534675,
+   "mu_med_cam_900_1000": 3.5522673909026796,
+   "mu_med_rod_900_1000": 3.80719001694481,
+   "sat1_cam_2900_3000": 0.9701752454042435,
+   "sat1_rod_2900_3000": 0.9581463015079499,
+   "sat15_cam_2900_3000": 0.9500805753469467,
+   "sat15_rod_2900_3000": 0.9357987540960312,
+   "mu_med_cam_2900_3000": 5.593728008270264,
+   "mu_med_rod_2900_3000": 7.039059753417969,
+   "exec_change_1000_3000": 0.003003116533916909,
+   "exec_action_rate_1000_3000": 1.542120541214943,
+   "kl_mean_500_3000": 0.01176304851770401,
+   "lr_applied_500_3000": 3.557561223205994e-05,
+   "clip_frac_500_3000": 0.16688436676859855,
+   "explained_var_500_3000": 0.9354238971471787,
+   "grad_clip_share_500_3000": 1.0,
+   "symmetry_0_600": 0.02719464247268369,
+   "symmetry_2500_3000": 0.03311149294674397,
+   "action_bound_0_600": null,
+   "action_bound_2500_3000": null,
+   "track_2900_3000": 0.480532753765583,
+   "track_rsi_2900_3000": null,
+   "track_norsi_2900_3000": 0.480532753765583,
+   "hand_grad_cos_n_0_600": 25,
+   "hand_grad_cos_n_600_3000": 95,
+   "hand_grad_cos_n_0_200": 9,
+   "effective_std_at_0": 1.5,
+   "effective_std_at_0_step": 0,
+   "effective_std_at_500": 1.714224934577942,
+   "effective_std_at_500_step": 500,
+   "effective_std_at_1000": 1.8138893842697144,
+   "effective_std_at_1000_step": 1000,
+   "effective_std_at_3000": 1.9997602701187134,
+   "effective_std_at_3000_step": 2999,
+   "lock_300_600": 0.05128451457084795,
+   "lock_2900_3000": 0.6424736943840981,
+   "gate": {
+    "feet_source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/gate/C_lr__C0_s11_lr.json",
+    "odd_source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/gate/C_lr__C0_s11_odd.json",
+    "hands": {
+     "l": {
+      "class": "SLOW",
+      "feet_ss_022": 0.08010430100336172,
+      "feet_ss_025": 0.08842121718085887,
+      "rod_odd_rms": 0.6035254121666953,
+      "joint_odd_rms": 0.10451255699589805
+     },
+     "r": {
+      "class": "SLOW",
+      "feet_ss_022": 0.0767937848569415,
+      "feet_ss_025": 0.08556980637518335,
+      "rod_odd_rms": 0.42479030417404134,
+      "joint_odd_rms": 0.05552429925000741
+     }
+    },
+    "rod_odd_max_hand": 0.6035254121666953,
+    "rod_odd_min_hand": 0.42479030417404134
+   },
+   "rod_odd_max_hand": 0.6035254121666953,
+   "rod_odd_min_hand": 0.42479030417404134
+  },
+  {
+   "ref": "C_lr__C0_s12",
+   "bed": "C_lr",
+   "arm": "C0",
+   "seed": 12,
+   "two_direction": true,
+   "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-02_01-14-31_seed12_X11_s1_A15pB",
+   "last_step": 2999,
+   "missing_tags": [
+    "Loss/action_bound",
+    "Metrics/base_parkour/track_ratio_mean_rsi"
+   ],
+   "hand_grad_cos_0_200": 0.04785393468207783,
+   "hand_grad_cos_0_600": 0.007892090203240514,
+   "hand_grad_cos_600_3000": -0.004998819635703081,
+   "hand_adv_l_0_200": -0.06594892808546622,
+   "hand_adv_r_0_200": -0.08459313275913398,
+   "hand_adv_l_0_600": -0.007441161870956421,
+   "hand_adv_r_0_600": -0.03318119367584586,
+   "hand_adv_l_2500_3000": 0.009671495395014062,
+   "hand_adv_r_2500_3000": -0.013125028891954571,
+   "hand_frac_l_all": 0.40148518880208334,
+   "hand_frac_r_all": 0.403662109375,
+   "lock_cam_300_600": 0.00018096507098933797,
+   "lock_rod_300_600": 0.043844195952901205,
+   "lock_cam_2900_3000": 0.5232487040758133,
+   "lock_rod_2900_3000": 0.6716149950027466,
+   "sat1_cam_900_1000": 0.9160680039094227,
+   "sat1_rod_900_1000": 0.8641177533876778,
+   "sat15_cam_900_1000": 0.8530582413815035,
+   "sat15_rod_900_1000": 0.7937538228412666,
+   "mu_med_cam_900_1000": 2.9412647379506933,
+   "mu_med_rod_900_1000": 3.4652559804444265,
+   "sat1_cam_2900_3000": 0.9702921634912491,
+   "sat1_rod_2900_3000": 0.9452278727293014,
+   "sat15_cam_2900_3000": 0.9493128854036331,
+   "sat15_rod_2900_3000": 0.9168172240257263,
+   "mu_med_cam_2900_3000": 5.135133004188537,
+   "mu_med_rod_2900_3000": 6.863052768707275,
+   "exec_change_1000_3000": 0.0036657060364959763,
+   "exec_action_rate_1000_3000": 1.804439771771431,
+   "kl_mean_500_3000": 0.01189824657589197,
+   "lr_applied_500_3000": 3.888499654676707e-05,
+   "clip_frac_500_3000": 0.16895211432278157,
+   "explained_var_500_3000": 0.9158783916711807,
+   "grad_clip_share_500_3000": 1.0,
+   "symmetry_0_600": 0.02492895097891721,
+   "symmetry_2500_3000": 0.03630592297017574,
+   "action_bound_0_600": null,
+   "action_bound_2500_3000": null,
+   "track_2900_3000": 0.5580215919017791,
+   "track_rsi_2900_3000": null,
+   "track_norsi_2900_3000": 0.5580215919017791,
+   "hand_grad_cos_n_0_600": 25,
+   "hand_grad_cos_n_600_3000": 95,
+   "hand_grad_cos_n_0_200": 9,
+   "effective_std_at_0": 1.5,
+   "effective_std_at_0_step": 0,
+   "effective_std_at_500": 1.781017780303955,
+   "effective_std_at_500_step": 500,
+   "effective_std_at_1000": 1.890027642250061,
+   "effective_std_at_1000_step": 1000,
+   "effective_std_at_3000": 2.0,
+   "effective_std_at_3000_step": 2999,
+   "lock_300_600": 0.02201258051194527,
+   "lock_2900_3000": 0.5974318495392799,
+   "gate": {
+    "feet_source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/gate/C_lr__C0_s12_lr.json",
+    "odd_source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/gate/C_lr__C0_s12_odd.json",
+    "hands": {
+     "l": {
+      "class": "SLOW",
+      "feet_ss_022": 0.09053103032625906,
+      "feet_ss_025": 0.09985895398558127,
+      "rod_odd_rms": 0.6926539729288111,
+      "joint_odd_rms": 0.124291866340658
+     },
+     "r": {
+      "class": "SLOW",
+      "feet_ss_022": 0.07848362640727942,
+      "feet_ss_025": 0.08684426002010587,
+      "rod_odd_rms": 0.5938681531276396,
+      "joint_odd_rms": 0.09119489087436623
+     }
+    },
+    "rod_odd_max_hand": 0.6926539729288111,
+    "rod_odd_min_hand": 0.5938681531276396
+   },
+   "rod_odd_max_hand": 0.6926539729288111,
+   "rod_odd_min_hand": 0.5938681531276396
+  },
+  {
+   "ref": "C_lr__C0_s13",
+   "bed": "C_lr",
+   "arm": "C0",
+   "seed": 13,
+   "two_direction": true,
+   "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-02_18-32-29_seed13_X25_s1_A15pB",
+   "last_step": 2999,
+   "missing_tags": [
+    "Loss/action_bound",
+    "Metrics/base_parkour/track_ratio_mean_rsi"
+   ],
+   "hand_grad_cos_0_200": -0.012229181334583296,
+   "hand_grad_cos_0_600": -0.04894608152098954,
+   "hand_grad_cos_600_3000": -0.0018352744696465762,
+   "hand_adv_l_0_200": -0.02868785284873512,
+   "hand_adv_r_0_200": -0.047850986735688314,
+   "hand_adv_l_0_600": -0.006663248944096267,
+   "hand_adv_r_0_600": -0.004121495545841753,
+   "hand_adv_l_2500_3000": 0.02620695426594466,
+   "hand_adv_r_2500_3000": 0.013359791837865486,
+   "hand_frac_l_all": 0.39755045572916664,
+   "hand_frac_r_all": 0.39718017578125,
+   "lock_cam_300_600": 0.010670360329462699,
+   "lock_rod_300_600": 0.0680763922644117,
+   "lock_cam_2900_3000": 0.5047113758325577,
+   "lock_rod_2900_3000": 0.7934078025817871,
+   "sat1_cam_900_1000": 0.9097923276448013,
+   "sat1_rod_900_1000": 0.922808595223002,
+   "sat15_cam_900_1000": 0.8427111311714248,
+   "sat15_rod_900_1000": 0.8780412886402394,
+   "mu_med_cam_900_1000": 3.024273197249611,
+   "mu_med_rod_900_1000": 4.053871225602556,
+   "sat1_cam_2900_3000": 0.9705512225627899,
+   "sat1_rod_2900_3000": 0.9713292145729064,
+   "sat15_cam_2900_3000": 0.9499411374330521,
+   "sat15_rod_2900_3000": 0.9560533374547958,
+   "mu_med_cam_2900_3000": 5.02944251537323,
+   "mu_med_rod_2900_3000": 7.87625364780426,
+   "exec_change_1000_3000": 0.0022128726434311827,
+   "exec_action_rate_1000_3000": 1.3226584011912346,
+   "kl_mean_500_3000": 0.0117215181235224,
+   "lr_applied_500_3000": 3.6258430693487755e-05,
+   "clip_frac_500_3000": 0.1663466452687979,
+   "explained_var_500_3000": 0.9565793341159821,
+   "grad_clip_share_500_3000": 1.0,
+   "symmetry_0_600": 0.025100441931587288,
+   "symmetry_2500_3000": 0.029756607085466385,
+   "action_bound_0_600": null,
+   "action_bound_2500_3000": null,
+   "track_2900_3000": 0.4819084629416466,
+   "track_rsi_2900_3000": null,
+   "track_norsi_2900_3000": 0.4819084629416466,
+   "hand_grad_cos_n_0_600": 25,
+   "hand_grad_cos_n_600_3000": 95,
+   "hand_grad_cos_n_0_200": 9,
+   "effective_std_at_0": 1.5,
+   "effective_std_at_0_step": 0,
+   "effective_std_at_500": 1.7231298685073853,
+   "effective_std_at_500_step": 500,
+   "effective_std_at_1000": 1.8247666358947754,
+   "effective_std_at_1000_step": 1000,
+   "effective_std_at_3000": 2.0,
+   "effective_std_at_3000_step": 2999,
+   "lock_300_600": 0.0393733762969372,
+   "lock_2900_3000": 0.6490595892071724,
+   "gate": {
+    "feet_source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/gate/C_lr__C0_s13_lr.json",
+    "odd_source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/gate/C_lr__C0_s13_odd.json",
+    "hands": {
+     "l": {
+      "class": "SLOW",
+      "feet_ss_022": 0.06322419675835876,
+      "feet_ss_025": 0.07656813884108196,
+      "rod_odd_rms": 0.38489761311402426,
+      "joint_odd_rms": 0.046285993355378835
+     },
+     "r": {
+      "class": "SLOW",
+      "feet_ss_022": 0.07359589407624528,
+      "feet_ss_025": 0.07243866779437214,
+      "rod_odd_rms": 0.25494687192253485,
+      "joint_odd_rms": 0.05940226117207906
+     }
+    },
+    "rod_odd_max_hand": 0.38489761311402426,
+    "rod_odd_min_hand": 0.25494687192253485
+   },
+   "rod_odd_max_hand": 0.38489761311402426,
+   "rod_odd_min_hand": 0.25494687192253485
+  },
+  {
+   "ref": "C_lr__C0_s14",
+   "bed": "C_lr",
+   "arm": "C0",
+   "seed": 14,
+   "two_direction": true,
+   "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-02_21-04-25_seed14_X27_s1_A15pB",
+   "last_step": 2999,
+   "missing_tags": [
+    "Loss/action_bound",
+    "Metrics/base_parkour/track_ratio_mean_rsi"
+   ],
+   "hand_grad_cos_0_200": -0.01886520886586772,
+   "hand_grad_cos_0_600": 0.018993107443675397,
+   "hand_grad_cos_600_3000": 0.009024895983135425,
+   "hand_adv_l_0_200": 0.03411224404246443,
+   "hand_adv_r_0_200": -0.03908962363170253,
+   "hand_adv_l_0_600": 0.0360263538453728,
+   "hand_adv_r_0_600": -0.01565656850580126,
+   "hand_adv_l_2500_3000": 0.04553945669904351,
+   "hand_adv_r_2500_3000": -0.017123487358912826,
+   "hand_frac_l_all": 0.400750732421875,
+   "hand_frac_r_all": 0.40093994140625,
+   "lock_cam_300_600": 0.0007393612808076935,
+   "lock_rod_300_600": 0.0893752514028866,
+   "lock_cam_2900_3000": 0.5559421199560165,
+   "lock_rod_2900_3000": 0.7740855640172959,
+   "sat1_cam_900_1000": 0.9205406921924931,
+   "sat1_rod_900_1000": 0.8961199150227084,
+   "sat15_cam_900_1000": 0.8599355380133827,
+   "sat15_rod_900_1000": 0.8394384655621973,
+   "mu_med_cam_900_1000": 2.9802053234364725,
+   "mu_med_rod_900_1000": 3.841505985448856,
+   "sat1_cam_2900_3000": 0.9735045093297958,
+   "sat1_rod_2900_3000": 0.9692393720149994,
+   "sat15_cam_2900_3000": 0.9544002324342727,
+   "sat15_rod_2900_3000": 0.9527285516262054,
+   "mu_med_cam_2900_3000": 5.335867609977722,
+   "mu_med_rod_2900_3000": 7.939629540443421,
+   "exec_change_1000_3000": 0.00246245687949704,
+   "exec_action_rate_1000_3000": 1.4120470291376115,
+   "kl_mean_500_3000": 0.0117838877864182,
+   "lr_applied_500_3000": 3.555716679002217e-05,
+   "clip_frac_500_3000": 0.16839910634458066,
+   "explained_var_500_3000": 0.933533832025528,
+   "grad_clip_share_500_3000": 1.0,
+   "symmetry_0_600": 0.027405027724715716,
+   "symmetry_2500_3000": 0.035914249412715434,
+   "action_bound_0_600": null,
+   "action_bound_2500_3000": null,
+   "track_2900_3000": 0.48874837964773177,
+   "track_rsi_2900_3000": null,
+   "track_norsi_2900_3000": 0.48874837964773177,
+   "hand_grad_cos_n_0_600": 25,
+   "hand_grad_cos_n_600_3000": 95,
+   "hand_grad_cos_n_0_200": 9,
+   "effective_std_at_0": 1.5,
+   "effective_std_at_0_step": 0,
+   "effective_std_at_500": 1.7023078203201294,
+   "effective_std_at_500_step": 500,
+   "effective_std_at_1000": 1.8079675436019897,
+   "effective_std_at_1000_step": 1000,
+   "effective_std_at_3000": 2.0,
+   "effective_std_at_3000_step": 2999,
+   "lock_300_600": 0.045057306341847146,
+   "lock_2900_3000": 0.6650138419866563,
+   "gate": {
+    "feet_source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/gate/C_lr__C0_s14_lr.json",
+    "odd_source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/gate/C_lr__C0_s14_odd.json",
+    "hands": {
+     "l": {
+      "class": "SLOW",
+      "feet_ss_022": 0.07867031311436332,
+      "feet_ss_025": 0.08526373762369249,
+      "rod_odd_rms": 0.3966202447028462,
+      "joint_odd_rms": 0.060017337747862415
+     },
+     "r": {
+      "class": "SLOW",
+      "feet_ss_022": 0.07453598643776399,
+      "feet_ss_025": 0.07822292125991191,
+      "rod_odd_rms": 0.29574200074916357,
+      "joint_odd_rms": 0.052851810635600155
+     }
+    },
+    "rod_odd_max_hand": 0.3966202447028462,
+    "rod_odd_min_hand": 0.29574200074916357
+   },
+   "rod_odd_max_hand": 0.3966202447028462,
+   "rod_odd_min_hand": 0.29574200074916357
+  },
+  {
+   "ref": "C_lr__C0_s15",
+   "bed": "C_lr",
+   "arm": "C0",
+   "seed": 15,
+   "two_direction": true,
+   "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-02_23-38-20_seed15_X29_s1_A15pB",
+   "last_step": 2999,
+   "missing_tags": [
+    "Loss/action_bound",
+    "Metrics/base_parkour/track_ratio_mean_rsi"
+   ],
+   "hand_grad_cos_0_200": 0.0275458214390609,
+   "hand_grad_cos_0_600": 0.03415793562307954,
+   "hand_grad_cos_600_3000": -0.0035386904198802718,
+   "hand_adv_l_0_200": -0.033775972150680095,
+   "hand_adv_r_0_200": -0.01330837580220153,
+   "hand_adv_l_0_600": 0.012107243593782187,
+   "hand_adv_r_0_600": -0.02358538457658142,
+   "hand_adv_l_2500_3000": 0.03418261754627565,
+   "hand_adv_r_2500_3000": -0.02530839837854728,
+   "hand_frac_l_all": 0.40559488932291665,
+   "hand_frac_r_all": 0.40255126953125,
+   "lock_cam_300_600": 0.0050830637322713335,
+   "lock_rod_300_600": 0.14848418424889892,
+   "lock_cam_2900_3000": 0.4647740378975868,
+   "lock_rod_2900_3000": 0.7622012031078339,
+   "sat1_cam_900_1000": 0.9052006608188743,
+   "sat1_rod_900_1000": 0.9043526136048949,
+   "sat15_cam_900_1000": 0.8338823212255345,
+   "sat15_rod_900_1000": 0.8517929486709066,
+   "mu_med_cam_900_1000": 2.901803689427895,
+   "mu_med_rod_900_1000": 4.027016989075311,
+   "sat1_cam_2900_3000": 0.9621649920940399,
+   "sat1_rod_2900_3000": 0.9660274314880372,
+   "sat15_cam_2900_3000": 0.9372007983922959,
+   "sat15_rod_2900_3000": 0.9479569590091705,
+   "mu_med_cam_2900_3000": 4.812987012863159,
+   "mu_med_rod_2900_3000": 7.499328541755676,
+   "exec_change_1000_3000": 0.002895628564641811,
+   "exec_action_rate_1000_3000": 1.5328342492580413,
+   "kl_mean_500_3000": 0.01174711424820125,
+   "lr_applied_500_3000": 3.553288487200916e-05,
+   "clip_frac_500_3000": 0.16714290847480298,
+   "explained_var_500_3000": 0.9552172252893448,
+   "grad_clip_share_500_3000": 1.0,
+   "symmetry_0_600": 0.02799396274205353,
+   "symmetry_2500_3000": 0.03369509617984295,
+   "action_bound_0_600": null,
+   "action_bound_2500_3000": null,
+   "track_2900_3000": 0.5288320177793503,
+   "track_rsi_2900_3000": null,
+   "track_norsi_2900_3000": 0.5288320177793503,
+   "hand_grad_cos_n_0_600": 25,
+   "hand_grad_cos_n_600_3000": 95,
+   "hand_grad_cos_n_0_200": 9,
+   "effective_std_at_0": 1.5,
+   "effective_std_at_0_step": 0,
+   "effective_std_at_500": 1.701184630393982,
+   "effective_std_at_500_step": 500,
+   "effective_std_at_1000": 1.8127466440200806,
+   "effective_std_at_1000_step": 1000,
+   "effective_std_at_3000": 2.0,
+   "effective_std_at_3000_step": 2999,
+   "lock_300_600": 0.07678362399058512,
+   "lock_2900_3000": 0.6134876205027103,
+   "gate": {
+    "feet_source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/gate/C_lr__C0_s15_lr.json",
+    "odd_source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/gate/C_lr__C0_s15_odd.json",
+    "hands": {
+     "l": {
+      "class": "SLOW",
+      "feet_ss_022": 0.06431699971135778,
+      "feet_ss_025": 0.07886583798240294,
+      "rod_odd_rms": 0.495913228126155,
+      "joint_odd_rms": 0.06351504015420756
+     },
+     "r": {
+      "class": "SLOW",
+      "feet_ss_022": 0.08972004693132174,
+      "feet_ss_025": 0.09237773226651455,
+      "rod_odd_rms": 0.6965594876568983,
+      "joint_odd_rms": 0.07982904841716724
+     }
+    },
+    "rod_odd_max_hand": 0.6965594876568983,
+    "rod_odd_min_hand": 0.495913228126155
+   },
+   "rod_odd_max_hand": 0.6965594876568983,
+   "rod_odd_min_hand": 0.495913228126155
+  },
+  {
+   "ref": "C_lr__A_s11",
+   "bed": "C_lr",
+   "arm": "A",
+   "seed": 11,
+   "two_direction": true,
+   "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-01_17-35-46_seed11_X05_s1_A15pB",
+   "last_step": 2999,
+   "missing_tags": [
+    "Metrics/base_parkour/track_ratio_mean_rsi"
+   ],
+   "hand_grad_cos_0_200": 0.03709321298326055,
+   "hand_grad_cos_0_600": -0.004112374763935805,
+   "hand_grad_cos_600_3000": 0.012455209168777065,
+   "hand_adv_l_0_200": -0.04805666679102513,
+   "hand_adv_r_0_200": -0.06038793486853441,
+   "hand_adv_l_0_600": -0.028205672418698667,
+   "hand_adv_r_0_600": -0.0360089011490345,
+   "hand_adv_l_2500_3000": 0.007971571106463671,
+   "hand_adv_r_2500_3000": -0.022867669095285238,
+   "hand_frac_l_all": 0.39988810221354165,
+   "hand_frac_r_all": 0.39985555013020835,
+   "lock_cam_300_600": 1.6942945042552746e-05,
+   "lock_rod_300_600": 0.03997714908490347,
+   "lock_cam_2900_3000": 0.06730794351547957,
+   "lock_rod_2900_3000": 0.2246396228671074,
+   "sat1_cam_900_1000": 0.3828549399824426,
+   "sat1_rod_900_1000": 0.5671067149332254,
+   "sat15_cam_900_1000": 0.12642966122320382,
+   "sat15_rod_900_1000": 0.3617080352684059,
+   "mu_med_cam_900_1000": 0.8223872574249117,
+   "mu_med_rod_900_1000": 1.1597865029136734,
+   "sat1_cam_2900_3000": 0.561151807308197,
+   "sat1_rod_2900_3000": 0.6028697460889816,
+   "sat15_cam_2900_3000": 0.28140055626630783,
+   "sat15_rod_2900_3000": 0.40406847089529035,
+   "mu_med_cam_2900_3000": 1.1070902621746064,
+   "mu_med_rod_2900_3000": 1.2558849883079528,
+   "exec_change_1000_3000": 0.006705695748561993,
+   "exec_action_rate_1000_3000": 1.7563623874187468,
+   "kl_mean_500_3000": 0.012019054804742337,
+   "lr_applied_500_3000": 2.092318008399161e-05,
+   "clip_frac_500_3000": 0.17166257013678551,
+   "explained_var_500_3000": 0.9402565684318542,
+   "grad_clip_share_500_3000": 1.0,
+   "symmetry_0_600": 0.02154952952771536,
+   "symmetry_2500_3000": 0.01989769374206662,
+   "action_bound_0_600": 1.6586505596512275,
+   "action_bound_2500_3000": 9.193396366119385,
+   "track_2900_3000": 0.6091083633899689,
+   "track_rsi_2900_3000": null,
+   "track_norsi_2900_3000": 0.6091083633899689,
+   "hand_grad_cos_n_0_600": 25,
+   "hand_grad_cos_n_600_3000": 95,
+   "hand_grad_cos_n_0_200": 9,
+   "effective_std_at_0": 0.7999995350837708,
+   "effective_std_at_0_step": 0,
+   "effective_std_at_500": 0.6889915466308594,
+   "effective_std_at_500_step": 500,
+   "effective_std_at_1000": 0.6299713850021362,
+   "effective_std_at_1000_step": 1000,
+   "effective_std_at_3000": 0.5046596527099609,
+   "effective_std_at_3000_step": 2999,
+   "lock_300_600": 0.01999704601497301,
+   "lock_2900_3000": 0.14597378319129348,
+   "gate": {
+    "feet_source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/gate/C_lr__A_s11_lr.json",
+    "odd_source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/gate/C_lr__A_s11_odd.json",
+    "hands": {
+     "l": {
+      "class": "SLOW",
+      "feet_ss_022": 0.08785148513417901,
+      "feet_ss_025": 0.0954753981363106,
+      "rod_odd_rms": 0.7725398038865505,
+      "joint_odd_rms": 0.14120773275655718
+     },
+     "r": {
+      "class": "INTERMEDIATE",
+      "feet_ss_022": 0.16821313611478267,
+      "feet_ss_025": 0.15842696229399506,
+      "rod_odd_rms": 1.514480533847903,
+      "joint_odd_rms": 0.188318041609352
+     }
+    },
+    "rod_odd_max_hand": 1.514480533847903,
+    "rod_odd_min_hand": 0.7725398038865505
+   },
+   "rod_odd_max_hand": 1.514480533847903,
+   "rod_odd_min_hand": 0.7725398038865505
+  },
+  {
+   "ref": "C_lr__A_s12",
+   "bed": "C_lr",
+   "arm": "A",
+   "seed": 12,
+   "two_direction": true,
+   "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-01_23-57-31_seed12_X10_s1_A15pB",
+   "last_step": 2999,
+   "missing_tags": [
+    "Metrics/base_parkour/track_ratio_mean_rsi"
+   ],
+   "hand_grad_cos_0_200": 0.04117506959786018,
+   "hand_grad_cos_0_600": 0.015488926577963866,
+   "hand_grad_cos_600_3000": 0.002895416060805713,
+   "hand_adv_l_0_200": -0.03549005825900369,
+   "hand_adv_r_0_200": 0.015832667782281835,
+   "hand_adv_l_0_600": -0.011801526844501496,
+   "hand_adv_r_0_600": 0.010499373683705926,
+   "hand_adv_l_2500_3000": -0.03369489864708157,
+   "hand_adv_r_2500_3000": 0.015172216622158886,
+   "hand_frac_l_all": 0.39956461588541664,
+   "hand_frac_r_all": 0.39820760091145835,
+   "lock_cam_300_600": 5.497444979246996e-06,
+   "lock_rod_300_600": 0.013756634886616352,
+   "lock_cam_2900_3000": 0.0709182408824563,
+   "lock_rod_2900_3000": 0.221716445684433,
+   "sat1_cam_900_1000": 0.32601932399343736,
+   "sat1_rod_900_1000": 0.5621654904714906,
+   "sat15_cam_900_1000": 0.08059272811849519,
+   "sat15_rod_900_1000": 0.3654920821732814,
+   "mu_med_cam_900_1000": 0.7604736945416668,
+   "mu_med_rod_900_1000": 1.1502182460067296,
+   "sat1_cam_2900_3000": 0.5170909336209297,
+   "sat1_rod_2900_3000": 0.5910221427679062,
+   "sat15_cam_2900_3000": 0.27056912302970887,
+   "sat15_rod_2900_3000": 0.3911952078342438,
+   "mu_med_cam_2900_3000": 1.0327468782663345,
+   "mu_med_rod_2900_3000": 1.2237084913253784,
+   "exec_change_1000_3000": 0.007073427635943517,
+   "exec_action_rate_1000_3000": 1.789129242181778,
+   "kl_mean_500_3000": 0.01191812272593379,
+   "lr_applied_500_3000": 2.1399230070164776e-05,
+   "clip_frac_500_3000": 0.1692042886197567,
+   "explained_var_500_3000": 0.948992122912407,
+   "grad_clip_share_500_3000": 1.0,
+   "symmetry_0_600": 0.019960393025826497,
+   "symmetry_2500_3000": 0.018136075347661974,
+   "action_bound_0_600": 0.9112211949423252,
+   "action_bound_2500_3000": 8.11809564590454,
+   "track_2900_3000": 0.6497058123350143,
+   "track_rsi_2900_3000": null,
+   "track_norsi_2900_3000": 0.6497058123350143,
+   "hand_grad_cos_n_0_600": 25,
+   "hand_grad_cos_n_600_3000": 95,
+   "hand_grad_cos_n_0_200": 9,
+   "effective_std_at_0": 0.7999995350837708,
+   "effective_std_at_0_step": 0,
+   "effective_std_at_500": 0.6968089938163757,
+   "effective_std_at_500_step": 500,
+   "effective_std_at_1000": 0.6389434337615967,
+   "effective_std_at_1000_step": 1000,
+   "effective_std_at_3000": 0.49429476261138916,
+   "effective_std_at_3000_step": 2999,
+   "lock_300_600": 0.006881066165797799,
+   "lock_2900_3000": 0.14631734328344465,
+   "gate": {
+    "feet_source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/gate/C_lr__A_s12_lr.json",
+    "odd_source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/gate/C_lr__A_s12_odd.json",
+    "hands": {
+     "l": {
+      "class": "FAST",
+      "feet_ss_022": 0.1776185256152482,
+      "feet_ss_025": 0.1869970016507092,
+      "rod_odd_rms": 1.6739544066748704,
+      "joint_odd_rms": 0.21456029342318733
+     },
+     "r": {
+      "class": "SLOW",
+      "feet_ss_022": 0.0855819985946027,
+      "feet_ss_025": 0.08382148420411616,
+      "rod_odd_rms": 0.7940263527910656,
+      "joint_odd_rms": 0.10913068727456529
+     }
+    },
+    "rod_odd_max_hand": 1.6739544066748704,
+    "rod_odd_min_hand": 0.7940263527910656
+   },
+   "rod_odd_max_hand": 1.6739544066748704,
+   "rod_odd_min_hand": 0.7940263527910656
+  },
+  {
+   "ref": "C_lr__A_s13",
+   "bed": "C_lr",
+   "arm": "A",
+   "seed": 13,
+   "two_direction": true,
+   "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-02_15-00-20_seed13_X22_s1_A15pB",
+   "last_step": 2999,
+   "missing_tags": [
+    "Metrics/base_parkour/track_ratio_mean_rsi"
+   ],
+   "hand_grad_cos_0_200": -0.04203003613899151,
+   "hand_grad_cos_0_600": 0.00810514960438013,
+   "hand_grad_cos_600_3000": 0.0012182589620351792,
+   "hand_adv_l_0_200": -0.061693196909295187,
+   "hand_adv_r_0_200": -0.01711336148178412,
+   "hand_adv_l_0_600": -0.03346258655190468,
+   "hand_adv_r_0_600": -0.011836636485531927,
+   "hand_adv_l_2500_3000": -0.015946902288123965,
+   "hand_adv_r_2500_3000": 0.005118439301440958,
+   "hand_frac_l_all": 0.401708984375,
+   "hand_frac_r_all": 0.401678466796875,
+   "lock_cam_300_600": 4.506102377611469e-07,
+   "lock_rod_300_600": 0.02657771292660831,
+   "lock_cam_2900_3000": 0.004493543873541057,
+   "lock_rod_2900_3000": 0.2991767057776451,
+   "sat1_cam_900_1000": 0.3508593569887747,
+   "sat1_rod_900_1000": 0.6296161194839099,
+   "sat15_cam_900_1000": 0.08338248430944906,
+   "sat15_rod_900_1000": 0.43782351011096843,
+   "mu_med_cam_900_1000": 0.7826732355769318,
+   "mu_med_rod_900_1000": 1.3389254902849104,
+   "sat1_cam_2900_3000": 0.31938883930444717,
+   "sat1_rod_2900_3000": 0.7555250424146652,
+   "sat15_cam_2900_3000": 0.06977946057915688,
+   "sat15_rod_2900_3000": 0.5661572331190109,
+   "mu_med_cam_2900_3000": 0.710588607788086,
+   "mu_med_rod_2900_3000": 1.6471774697303772,
+   "exec_change_1000_3000": 0.005835052836220712,
+   "exec_action_rate_1000_3000": 1.5654930085539818,
+   "kl_mean_500_3000": 0.011964805794879794,
+   "lr_applied_500_3000": 2.2283675017024508e-05,
+   "clip_frac_500_3000": 0.17082707525491714,
+   "explained_var_500_3000": 0.9576066060066223,
+   "grad_clip_share_500_3000": 1.0,
+   "symmetry_0_600": 0.020059364077676948,
+   "symmetry_2500_3000": 0.01588819541037083,
+   "action_bound_0_600": 1.3464640126070264,
+   "action_bound_2500_3000": 10.972304656982422,
+   "track_2900_3000": 0.5652016228437424,
+   "track_rsi_2900_3000": null,
+   "track_norsi_2900_3000": 0.5652016228437424,
+   "hand_grad_cos_n_0_600": 25,
+   "hand_grad_cos_n_600_3000": 95,
+   "hand_grad_cos_n_0_200": 9,
+   "effective_std_at_0": 0.7999995350837708,
+   "effective_std_at_0_step": 0,
+   "effective_std_at_500": 0.686447024345398,
+   "effective_std_at_500_step": 500,
+   "effective_std_at_1000": 0.628311276435852,
+   "effective_std_at_1000_step": 1000,
+   "effective_std_at_3000": 0.5134826302528381,
+   "effective_std_at_3000_step": 2999,
+   "lock_300_600": 0.013289081768423036,
+   "lock_2900_3000": 0.15183512482559308,
+   "gate": {
+    "feet_source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/gate/C_lr__A_s13_lr.json",
+    "odd_source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/gate/C_lr__A_s13_odd.json",
+    "hands": {
+     "l": {
+      "class": "SLOW",
+      "feet_ss_022": 0.0727405284779295,
+      "feet_ss_025": 0.08401498609813822,
+      "rod_odd_rms": 0.6537435726931603,
+      "joint_odd_rms": 0.0908284565138749
+     },
+     "r": {
+      "class": "SLOW",
+      "feet_ss_022": 0.09347554324372415,
+      "feet_ss_025": 0.10095175570650629,
+      "rod_odd_rms": 1.1395448400371366,
+      "joint_odd_rms": 0.18627438233672367
+     }
+    },
+    "rod_odd_max_hand": 1.1395448400371366,
+    "rod_odd_min_hand": 0.6537435726931603
+   },
+   "rod_odd_max_hand": 1.1395448400371366,
+   "rod_odd_min_hand": 0.6537435726931603
+  },
+  {
+   "ref": "C_lr__B_s11",
+   "bed": "C_lr",
+   "arm": "B",
+   "seed": 11,
+   "two_direction": true,
+   "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-01_18-52-19_seed11_X06_s1_A15pB",
+   "last_step": 2999,
+   "missing_tags": [
+    "Metrics/base_parkour/track_ratio_mean_rsi"
+   ],
+   "hand_grad_cos_0_200": -0.07253264739281601,
+   "hand_grad_cos_0_600": -0.06477087860926986,
+   "hand_grad_cos_600_3000": -0.008365786067626783,
+   "hand_adv_l_0_200": -0.0020141231620477307,
+   "hand_adv_r_0_200": -0.05539213312375876,
+   "hand_adv_l_0_600": 0.005769655976910144,
+   "hand_adv_r_0_600": -0.026003968550357966,
+   "hand_adv_l_2500_3000": -0.008512074779719114,
+   "hand_adv_r_2500_3000": 0.004297764250077307,
+   "hand_frac_l_all": 0.39705810546875,
+   "hand_frac_r_all": 0.4023356119791667,
+   "lock_cam_300_600": 0.0,
+   "lock_rod_300_600": 0.01925867601209614,
+   "lock_cam_2900_3000": 0.0,
+   "lock_rod_2900_3000": 0.13285400547087192,
+   "sat1_cam_900_1000": 0.014713702949298786,
+   "sat1_rod_900_1000": 0.4578187347638725,
+   "sat15_cam_900_1000": 0.0008500606041112891,
+   "sat15_rod_900_1000": 0.2727957279375284,
+   "mu_med_cam_900_1000": 0.18994992632086916,
+   "mu_med_rod_900_1000": 0.9028246373233229,
+   "sat1_cam_2900_3000": 0.011621365114115179,
+   "sat1_rod_2900_3000": 0.5131114435195923,
+   "sat15_cam_2900_3000": 0.000519748268998228,
+   "sat15_rod_2900_3000": 0.32768975526094435,
+   "mu_med_cam_2900_3000": 0.18227163970470428,
+   "mu_med_rod_2900_3000": 1.031638151407242,
+   "exec_change_1000_3000": 0.012467926025390624,
+   "exec_action_rate_1000_3000": 3.072475968718529,
+   "kl_mean_500_3000": 0.011671506283804775,
+   "lr_applied_500_3000": 2.5858816596883116e-05,
+   "clip_frac_500_3000": 0.1632270228534937,
+   "explained_var_500_3000": 0.9720236442089081,
+   "grad_clip_share_500_3000": 1.0,
+   "symmetry_0_600": 0.01801558604119919,
+   "symmetry_2500_3000": 0.016404821673408152,
+   "action_bound_0_600": 1.1249877150888576,
+   "action_bound_2500_3000": 6.528777862548828,
+   "track_2900_3000": 0.6521310496330261,
+   "track_rsi_2900_3000": null,
+   "track_norsi_2900_3000": 0.6521310496330261,
+   "hand_grad_cos_n_0_600": 25,
+   "hand_grad_cos_n_600_3000": 95,
+   "hand_grad_cos_n_0_200": 9,
+   "effective_std_at_0": 0.7999995350837708,
+   "effective_std_at_0_step": 0,
+   "effective_std_at_500": 0.7978211641311646,
+   "effective_std_at_500_step": 500,
+   "effective_std_at_1000": 0.780120313167572,
+   "effective_std_at_1000_step": 1000,
+   "effective_std_at_3000": 0.748334527015686,
+   "effective_std_at_3000_step": 2999,
+   "lock_300_600": 0.00962933800604807,
+   "lock_2900_3000": 0.06642700273543596,
+   "gate": {
+    "feet_source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/gate/C_lr__B_s11_lr.json",
+    "odd_source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/gate/C_lr__B_s11_odd.json",
+    "hands": {
+     "l": {
+      "class": "FAST",
+      "feet_ss_022": 0.23263639237907796,
+      "feet_ss_025": 0.24702799967654843,
+      "rod_odd_rms": 1.8499219145024646,
+      "joint_odd_rms": 0.26740654259157826
+     },
+     "r": {
+      "class": "INTERMEDIATE",
+      "feet_ss_022": 0.14010380956590127,
+      "feet_ss_025": 0.15772502359449395,
+      "rod_odd_rms": 1.6713740340721648,
+      "joint_odd_rms": 0.2412431966399628
+     }
+    },
+    "rod_odd_max_hand": 1.8499219145024646,
+    "rod_odd_min_hand": 1.6713740340721648
+   },
+   "rod_odd_max_hand": 1.8499219145024646,
+   "rod_odd_min_hand": 1.6713740340721648
+  },
+  {
+   "ref": "C_lr__B_s12",
+   "bed": "C_lr",
+   "arm": "B",
+   "seed": 12,
+   "two_direction": true,
+   "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-02_04-53-45_seed12_X14_s1_A15pB",
+   "last_step": 2999,
+   "missing_tags": [
+    "Metrics/base_parkour/track_ratio_mean_rsi"
+   ],
+   "hand_grad_cos_0_200": 0.01034922773639361,
+   "hand_grad_cos_0_600": 0.03423965242865961,
+   "hand_grad_cos_600_3000": 0.0026190691370222914,
+   "hand_adv_l_0_200": 0.050847521465685636,
+   "hand_adv_r_0_200": -0.10645922790798876,
+   "hand_adv_l_0_600": 0.021248985696583986,
+   "hand_adv_r_0_600": -0.036205485966056584,
+   "hand_adv_l_2500_3000": -0.044843487348407506,
+   "hand_adv_r_2500_3000": 0.009813174977898598,
+   "hand_frac_l_all": 0.40438232421875,
+   "hand_frac_r_all": 0.39825642903645836,
+   "lock_cam_300_600": 0.00012968562692923987,
+   "lock_rod_300_600": 0.015914652386349176,
+   "lock_cam_2900_3000": 8.138020893966313e-07,
+   "lock_rod_2900_3000": 0.07840589821338653,
+   "sat1_cam_900_1000": 0.123596125752619,
+   "sat1_rod_900_1000": 0.4258098575738397,
+   "sat15_cam_900_1000": 0.03247526933503623,
+   "sat15_rod_900_1000": 0.22912973844178833,
+   "mu_med_cam_900_1000": 0.27240228180838105,
+   "mu_med_rod_900_1000": 0.8449315405128026,
+   "sat1_cam_2900_3000": 0.02136420376598835,
+   "sat1_rod_2900_3000": 0.5014110031723976,
+   "sat15_cam_2900_3000": 0.0011070421144540887,
+   "sat15_rod_2900_3000": 0.28880262970924375,
+   "mu_med_cam_2900_3000": 0.24512846574187278,
+   "mu_med_rod_2900_3000": 1.0031978726387023,
+   "exec_change_1000_3000": 0.012979350519366563,
+   "exec_action_rate_1000_3000": 3.1118781312704087,
+   "kl_mean_500_3000": 0.01157395736090839,
+   "lr_applied_500_3000": 2.6065050171746408e-05,
+   "clip_frac_500_3000": 0.16197669733166695,
+   "explained_var_500_3000": 0.9762036116600037,
+   "grad_clip_share_500_3000": 1.0,
+   "symmetry_0_600": 0.018990311785577835,
+   "symmetry_2500_3000": 0.01703101224452257,
+   "action_bound_0_600": 1.2662394006378257,
+   "action_bound_2500_3000": 4.381853519439697,
+   "track_2900_3000": 0.7023260933160782,
+   "track_rsi_2900_3000": null,
+   "track_norsi_2900_3000": 0.7023260933160782,
+   "hand_grad_cos_n_0_600": 25,
+   "hand_grad_cos_n_600_3000": 95,
+   "hand_grad_cos_n_0_200": 9,
+   "effective_std_at_0": 0.7999995350837708,
+   "effective_std_at_0_step": 0,
+   "effective_std_at_500": 0.7981516718864441,
+   "effective_std_at_500_step": 500,
+   "effective_std_at_1000": 0.7818894386291504,
+   "effective_std_at_1000_step": 1000,
+   "effective_std_at_3000": 0.7554008960723877,
+   "effective_std_at_3000_step": 2999,
+   "lock_300_600": 0.008022169006639207,
+   "lock_2900_3000": 0.039203356007737965,
+   "gate": {
+    "feet_source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/gate/C_lr__B_s12_lr.json",
+    "odd_source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/gate/C_lr__B_s12_odd.json",
+    "hands": {
+     "l": {
+      "class": "FAST",
+      "feet_ss_022": 0.24460127705108822,
+      "feet_ss_025": 0.2729991206853973,
+      "rod_odd_rms": 2.321780737715807,
+      "joint_odd_rms": 0.2862995714410273
+     },
+     "r": {
+      "class": "FAST",
+      "feet_ss_022": 0.18895632926910805,
+      "feet_ss_025": 0.19708362017645314,
+      "rod_odd_rms": 1.9619913720839155,
+      "joint_odd_rms": 0.2552400464788766
+     }
+    },
+    "rod_odd_max_hand": 2.321780737715807,
+    "rod_odd_min_hand": 1.9619913720839155
+   },
+   "rod_odd_max_hand": 2.321780737715807,
+   "rod_odd_min_hand": 1.9619913720839155
+  },
+  {
+   "ref": "C_lr__B_s13",
+   "bed": "C_lr",
+   "arm": "B",
+   "seed": 13,
+   "two_direction": true,
+   "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-02_13-43-41_seed13_X21_s1_A15pB",
+   "last_step": 2999,
+   "missing_tags": [
+    "Metrics/base_parkour/track_ratio_mean_rsi"
+   ],
+   "hand_grad_cos_0_200": -0.040111696554554835,
+   "hand_grad_cos_0_600": -0.007008436638861895,
+   "hand_grad_cos_600_3000": 0.002483427078512154,
+   "hand_adv_l_0_200": -0.07130056557555993,
+   "hand_adv_r_0_200": 0.046163414501481585,
+   "hand_adv_l_0_600": -0.03733744155615568,
+   "hand_adv_r_0_600": 0.02640977198956534,
+   "hand_adv_l_2500_3000": -0.007261253893375397,
+   "hand_adv_r_2500_3000": -0.010911766579374671,
+   "hand_frac_l_all": 0.3947062174479167,
+   "hand_frac_r_all": 0.4013142903645833,
+   "lock_cam_300_600": 0.0,
+   "lock_rod_300_600": 0.010626741288058874,
+   "lock_cam_2900_3000": 0.0006011284766645986,
+   "lock_rod_2900_3000": 0.07654649633914232,
+   "sat1_cam_900_1000": 0.19656650899070324,
+   "sat1_rod_900_1000": 0.5347986392455526,
+   "sat15_cam_900_1000": 0.03915784681344976,
+   "sat15_rod_900_1000": 0.3187654738378997,
+   "mu_med_cam_900_1000": 0.3782649249723642,
+   "mu_med_rod_900_1000": 1.077452252406885,
+   "sat1_cam_2900_3000": 0.10118326894938946,
+   "sat1_rod_2900_3000": 0.47557183414697646,
+   "sat15_cam_2900_3000": 0.04864176468923688,
+   "sat15_rod_2900_3000": 0.27566732227802276,
+   "mu_med_cam_2900_3000": 0.3123907899856567,
+   "mu_med_rod_2900_3000": 0.9477622342109681,
+   "exec_change_1000_3000": 0.012114942405838519,
+   "exec_action_rate_1000_3000": 2.948212257742882,
+   "kl_mean_500_3000": 0.011827821253240108,
+   "lr_applied_500_3000": 2.9206240045459707e-05,
+   "clip_frac_500_3000": 0.16555802564024924,
+   "explained_var_500_3000": 0.9633431125164031,
+   "grad_clip_share_500_3000": 1.0,
+   "symmetry_0_600": 0.018678154199757612,
+   "symmetry_2500_3000": 0.01850234437920153,
+   "action_bound_0_600": 1.108534823619173,
+   "action_bound_2500_3000": 5.033712874412537,
+   "track_2900_3000": 0.6477956658601761,
+   "track_rsi_2900_3000": null,
+   "track_norsi_2900_3000": 0.6477956658601761,
+   "hand_grad_cos_n_0_600": 25,
+   "hand_grad_cos_n_600_3000": 95,
+   "hand_grad_cos_n_0_200": 9,
+   "effective_std_at_0": 0.7999995350837708,
+   "effective_std_at_0_step": 0,
+   "effective_std_at_500": 0.7857243418693542,
+   "effective_std_at_500_step": 500,
+   "effective_std_at_1000": 0.775235652923584,
+   "effective_std_at_1000_step": 1000,
+   "effective_std_at_3000": 0.7485960721969604,
+   "effective_std_at_3000_step": 2999,
+   "lock_300_600": 0.005313370644029437,
+   "lock_2900_3000": 0.03857381240790346,
+   "gate": {
+    "feet_source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/gate/C_lr__B_s13_lr.json",
+    "odd_source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/gate/C_lr__B_s13_odd.json",
+    "hands": {
+     "l": {
+      "class": "FAST",
+      "feet_ss_022": 0.2213795312332857,
+      "feet_ss_025": 0.23492362730035693,
+      "rod_odd_rms": 1.9458829241856093,
+      "joint_odd_rms": 0.27936242418035917
+     },
+     "r": {
+      "class": "INTERMEDIATE",
+      "feet_ss_022": 0.13172798638544592,
+      "feet_ss_025": 0.1430451232593194,
+      "rod_odd_rms": 1.644741432440361,
+      "joint_odd_rms": 0.22035306668990437
+     }
+    },
+    "rod_odd_max_hand": 1.9458829241856093,
+    "rod_odd_min_hand": 1.644741432440361
+   },
+   "rod_odd_max_hand": 1.9458829241856093,
+   "rod_odd_min_hand": 1.644741432440361
+  },
+  {
+   "ref": "C_lr__B_s14",
+   "bed": "C_lr",
+   "arm": "B",
+   "seed": 14,
+   "two_direction": true,
+   "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-02_19-49-39_seed14_X26_s1_A15pB",
+   "last_step": 2999,
+   "missing_tags": [
+    "Metrics/base_parkour/track_ratio_mean_rsi"
+   ],
+   "hand_grad_cos_0_200": 0.006125874662150939,
+   "hand_grad_cos_0_600": 0.0399918052367866,
+   "hand_grad_cos_600_3000": -0.0020668883256516174,
+   "hand_adv_l_0_200": 0.020535729515055817,
+   "hand_adv_r_0_200": -0.02140809181663725,
+   "hand_adv_l_0_600": -0.005431361254304648,
+   "hand_adv_r_0_600": -0.00038185939192771914,
+   "hand_adv_l_2500_3000": 0.0213514382019639,
+   "hand_adv_r_2500_3000": -0.046826886653434485,
+   "hand_frac_l_all": 0.40359700520833336,
+   "hand_frac_r_all": 0.3989644368489583,
+   "lock_cam_300_600": 0.0,
+   "lock_rod_300_600": 0.02604410019037979,
+   "lock_cam_2900_3000": 3.526475775288418e-06,
+   "lock_rod_2900_3000": 0.054882677271962166,
+   "sat1_cam_900_1000": 0.0012427268297734812,
+   "sat1_rod_900_1000": 0.4190522113648972,
+   "sat15_cam_900_1000": 5.371630971122874e-06,
+   "sat15_rod_900_1000": 0.24145413994198978,
+   "mu_med_cam_900_1000": 0.15993552086967053,
+   "mu_med_rod_900_1000": 0.823041550593801,
+   "sat1_cam_2900_3000": 0.00891628697514534,
+   "sat1_rod_2900_3000": 0.4334250247478485,
+   "sat15_cam_2900_3000": 0.0007543945402176177,
+   "sat15_rod_2900_3000": 0.2401982980966568,
+   "mu_med_cam_2900_3000": 0.1949142862856388,
+   "mu_med_rod_2900_3000": 0.8607603180408477,
+   "exec_change_1000_3000": 0.01303062839526683,
+   "exec_action_rate_1000_3000": 3.1209310022592542,
+   "kl_mean_500_3000": 0.011597733701206744,
+   "lr_applied_500_3000": 2.342184315966733e-05,
+   "clip_frac_500_3000": 0.16041040838062764,
+   "explained_var_500_3000": 0.9613929804801941,
+   "grad_clip_share_500_3000": 1.0,
+   "symmetry_0_600": 0.018508537736769377,
+   "symmetry_2500_3000": 0.017058353761211037,
+   "action_bound_0_600": 1.5839321117498109,
+   "action_bound_2500_3000": 3.978170795917511,
+   "track_2900_3000": 0.6730421382188797,
+   "track_rsi_2900_3000": null,
+   "track_norsi_2900_3000": 0.6730421382188797,
+   "hand_grad_cos_n_0_600": 25,
+   "hand_grad_cos_n_600_3000": 95,
+   "hand_grad_cos_n_0_200": 9,
+   "effective_std_at_0": 0.7999995350837708,
+   "effective_std_at_0_step": 0,
+   "effective_std_at_500": 0.7847498059272766,
+   "effective_std_at_500_step": 500,
+   "effective_std_at_1000": 0.7782542109489441,
+   "effective_std_at_1000_step": 1000,
+   "effective_std_at_3000": 0.762673020362854,
+   "effective_std_at_3000_step": 2999,
+   "lock_300_600": 0.013022050095189894,
+   "lock_2900_3000": 0.02744310187386873,
+   "gate": {
+    "feet_source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/gate/C_lr__B_s14_lr.json",
+    "odd_source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/gate/C_lr__B_s14_odd.json",
+    "hands": {
+     "l": {
+      "class": "FAST",
+      "feet_ss_022": 0.21846950627934952,
+      "feet_ss_025": 0.24442820874247267,
+      "rod_odd_rms": 1.9506857327046159,
+      "joint_odd_rms": 0.2886348335857254
+     },
+     "r": {
+      "class": "INTERMEDIATE",
+      "feet_ss_022": 0.13770547818531303,
+      "feet_ss_025": 0.15106234845827146,
+      "rod_odd_rms": 1.1239250666214813,
+      "joint_odd_rms": 0.2050443741451486
+     }
+    },
+    "rod_odd_max_hand": 1.9506857327046159,
+    "rod_odd_min_hand": 1.1239250666214813
+   },
+   "rod_odd_max_hand": 1.9506857327046159,
+   "rod_odd_min_hand": 1.1239250666214813
+  },
+  {
+   "ref": "C_lr__B_s15",
+   "bed": "C_lr",
+   "arm": "B",
+   "seed": 15,
+   "two_direction": true,
+   "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-02_22-21-30_seed15_X28_s1_A15pB",
+   "last_step": 2999,
+   "missing_tags": [
+    "Metrics/base_parkour/track_ratio_mean_rsi"
+   ],
+   "hand_grad_cos_0_200": -0.04395014870290955,
+   "hand_grad_cos_0_600": -0.02499300398863852,
+   "hand_grad_cos_600_3000": 0.00820142617326622,
+   "hand_adv_l_0_200": -0.027875776635482907,
+   "hand_adv_r_0_200": -0.009640027872390218,
+   "hand_adv_l_0_600": -0.02535163682885468,
+   "hand_adv_r_0_600": 0.005107192154973746,
+   "hand_adv_l_2500_3000": -0.019783188914880158,
+   "hand_adv_r_2500_3000": 0.01501370735350065,
+   "hand_frac_l_all": 0.399029541015625,
+   "hand_frac_r_all": 0.3974507649739583,
+   "lock_cam_300_600": 0.0,
+   "lock_rod_300_600": 0.012677107979017511,
+   "lock_cam_2900_3000": 1.1664496723824413e-05,
+   "lock_rod_2900_3000": 0.11592922776937485,
+   "sat1_cam_900_1000": 0.07461168550618805,
+   "sat1_rod_900_1000": 0.514238048012894,
+   "sat15_cam_900_1000": 0.013620844627223393,
+   "sat15_rod_900_1000": 0.31573761748795465,
+   "mu_med_cam_900_1000": 0.255956769579708,
+   "mu_med_rod_900_1000": 1.0332216443401752,
+   "sat1_cam_2900_3000": 0.04858534106984735,
+   "sat1_rod_2900_3000": 0.4898343941569328,
+   "sat15_cam_2900_3000": 0.009029134183656425,
+   "sat15_rod_2900_3000": 0.3072607445716858,
+   "mu_med_cam_2900_3000": 0.3062273126840591,
+   "mu_med_rod_2900_3000": 0.976385657787323,
+   "exec_change_1000_3000": 0.012677830860484391,
+   "exec_action_rate_1000_3000": 3.0414685903787615,
+   "kl_mean_500_3000": 0.011678427681699395,
+   "lr_applied_500_3000": 2.5420136339744203e-05,
+   "clip_frac_500_3000": 0.163556749483943,
+   "explained_var_500_3000": 0.9801131596326828,
+   "grad_clip_share_500_3000": 1.0,
+   "symmetry_0_600": 0.019219445879764843,
+   "symmetry_2500_3000": 0.017375916242599487,
+   "action_bound_0_600": 1.2988126482812747,
+   "action_bound_2500_3000": 6.149989056587219,
+   "track_2900_3000": 0.6545731198787689,
+   "track_rsi_2900_3000": null,
+   "track_norsi_2900_3000": 0.6545731198787689,
+   "hand_grad_cos_n_0_600": 25,
+   "hand_grad_cos_n_600_3000": 95,
+   "hand_grad_cos_n_0_200": 9,
+   "effective_std_at_0": 0.7999995350837708,
+   "effective_std_at_0_step": 0,
+   "effective_std_at_500": 0.7877693176269531,
+   "effective_std_at_500_step": 500,
+   "effective_std_at_1000": 0.7718411087989807,
+   "effective_std_at_1000_step": 1000,
+   "effective_std_at_3000": 0.7568210959434509,
+   "effective_std_at_3000_step": 2999,
+   "lock_300_600": 0.0063385539895087556,
+   "lock_2900_3000": 0.05797044613304934,
+   "gate": {
+    "feet_source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/gate/C_lr__B_s15_lr.json",
+    "odd_source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/gate/C_lr__B_s15_odd.json",
+    "hands": {
+     "l": {
+      "class": "INTERMEDIATE",
+      "feet_ss_022": 0.15560019639658282,
+      "feet_ss_025": 0.17356269368813487,
+      "rod_odd_rms": 1.7401416773609433,
+      "joint_odd_rms": 0.22523276787659108
+     },
+     "r": {
+      "class": "FAST",
+      "feet_ss_022": 0.2373852170768349,
+      "feet_ss_025": 0.2582787823013051,
+      "rod_odd_rms": 1.962314380818238,
+      "joint_odd_rms": 0.2621434076394604
+     }
+    },
+    "rod_odd_max_hand": 1.962314380818238,
+    "rod_odd_min_hand": 1.7401416773609433
+   },
+   "rod_odd_max_hand": 1.962314380818238,
+   "rod_odd_min_hand": 1.7401416773609433
+  },
+  {
+   "ref": "C_lr_rsi__C0_s11",
+   "bed": "C_lr_rsi",
+   "arm": "C0",
+   "seed": 11,
+   "two_direction": true,
+   "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-01_22-40-32_seed11_X09_s1_A15pB",
+   "last_step": 2999,
+   "missing_tags": [
+    "Loss/action_bound"
+   ],
+   "hand_grad_cos_0_200": -0.04120771224713988,
+   "hand_grad_cos_0_600": -0.022677565347403287,
+   "hand_grad_cos_600_3000": -0.0035792563962259967,
+   "hand_adv_l_0_200": -0.04357093324263891,
+   "hand_adv_r_0_200": -0.11819980521168974,
+   "hand_adv_l_0_600": 0.010699246134608984,
+   "hand_adv_r_0_600": -0.07052458530291915,
+   "hand_adv_l_2500_3000": 0.007880088599631564,
+   "hand_adv_r_2500_3000": -0.022648725693579765,
+   "hand_frac_l_all": 0.41217447916666666,
+   "hand_frac_r_all": 0.40197957356770836,
+   "lock_cam_300_600": 0.005195085434653292,
+   "lock_rod_300_600": 0.07736793030177141,
+   "lock_cam_2900_3000": 0.5098603013157844,
+   "lock_rod_2900_3000": 0.6903454679250717,
+   "sat1_cam_900_1000": 0.8772807988790002,
+   "sat1_rod_900_1000": 0.8750874299814205,
+   "sat15_cam_900_1000": 0.7908869822426597,
+   "sat15_rod_900_1000": 0.8096517005769333,
+   "mu_med_cam_900_1000": 2.7135246295740107,
+   "mu_med_rod_900_1000": 3.6127272100731878,
+   "sat1_cam_2900_3000": 0.9624791193008423,
+   "sat1_rod_2900_3000": 0.95196642100811,
+   "sat15_cam_2900_3000": 0.9377539104223251,
+   "sat15_rod_2900_3000": 0.9262261348962784,
+   "mu_med_cam_2900_3000": 5.0610990858078,
+   "mu_med_rod_2900_3000": 7.185843019485474,
+   "exec_change_1000_3000": 0.0039408746432745825,
+   "exec_action_rate_1000_3000": 1.8076889600157737,
+   "kl_mean_500_3000": 0.01190524193868041,
+   "lr_applied_500_3000": 3.750625079628662e-05,
+   "clip_frac_500_3000": 0.16860147634148598,
+   "explained_var_500_3000": 0.9475968885421753,
+   "grad_clip_share_500_3000": 1.0,
+   "symmetry_0_600": 0.024417549855201295,
+   "symmetry_2500_3000": 0.03522844032943249,
+   "action_bound_0_600": null,
+   "action_bound_2500_3000": null,
+   "track_2900_3000": 0.5308009111881256,
+   "track_rsi_2900_3000": 0.5219902563095092,
+   "track_norsi_2900_3000": 0.5339108395576477,
+   "hand_grad_cos_n_0_600": 25,
+   "hand_grad_cos_n_600_3000": 95,
+   "hand_grad_cos_n_0_200": 9,
+   "effective_std_at_0": 1.5,
+   "effective_std_at_0_step": 0,
+   "effective_std_at_500": 1.7589662075042725,
+   "effective_std_at_500_step": 500,
+   "effective_std_at_1000": 1.8803094625473022,
+   "effective_std_at_1000_step": 1000,
+   "effective_std_at_3000": 2.0,
+   "effective_std_at_3000_step": 2999,
+   "lock_300_600": 0.04128150786821235,
+   "lock_2900_3000": 0.600102884620428,
+   "gate": {
+    "feet_source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/gate/C_lr_rsi__C0_s11_lr.json",
+    "odd_source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/gate/C_lr_rsi__C0_s11_odd.json",
+    "hands": {
+     "l": {
+      "class": "SLOW",
+      "feet_ss_022": 0.07244723302335661,
+      "feet_ss_025": 0.07797249508508514,
+      "rod_odd_rms": 0.4699653084710679,
+      "joint_odd_rms": 0.06880241595304387
+     },
+     "r": {
+      "class": "SLOW",
+      "feet_ss_022": 0.10191075439101314,
+      "feet_ss_025": 0.10860425865487823,
+      "rod_odd_rms": 1.0640232887512746,
+      "joint_odd_rms": 0.1227705570997316
+     }
+    },
+    "rod_odd_max_hand": 1.0640232887512746,
+    "rod_odd_min_hand": 0.4699653084710679
+   },
+   "rod_odd_max_hand": 1.0640232887512746,
+   "rod_odd_min_hand": 0.4699653084710679
+  },
+  {
+   "ref": "C_lr_rsi__C0_s12",
+   "bed": "C_lr_rsi",
+   "arm": "C0",
+   "seed": 12,
+   "two_direction": true,
+   "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-02_02-29-14_seed12_X12_s1_A15pB",
+   "last_step": 2999,
+   "missing_tags": [
+    "Loss/action_bound"
+   ],
+   "hand_grad_cos_0_200": -0.023685031053092744,
+   "hand_grad_cos_0_600": -0.018737450800836088,
+   "hand_grad_cos_600_3000": -0.013615892092256169,
+   "hand_adv_l_0_200": -0.008668862076269256,
+   "hand_adv_r_0_200": 0.013506279844376776,
+   "hand_adv_l_0_600": 0.015394716709852218,
+   "hand_adv_r_0_600": -0.014389535859227181,
+   "hand_adv_l_2500_3000": 0.024780750286299735,
+   "hand_adv_r_2500_3000": -0.02259162124246359,
+   "hand_frac_l_all": 0.410845947265625,
+   "hand_frac_r_all": 0.40391845703125,
+   "lock_cam_300_600": 0.0028657909938903134,
+   "lock_rod_300_600": 0.09203673594714795,
+   "lock_cam_2900_3000": 0.5903439748287201,
+   "lock_rod_2900_3000": 0.6938533592224121,
+   "sat1_cam_900_1000": 0.9323249772043511,
+   "sat1_rod_900_1000": 0.8752426699836655,
+   "sat15_cam_900_1000": 0.8846643785438916,
+   "sat15_rod_900_1000": 0.8101319228068437,
+   "mu_med_cam_900_1000": 3.438571025829504,
+   "mu_med_rod_900_1000": 3.5631770993223286,
+   "sat1_cam_2900_3000": 0.9678192883729935,
+   "sat1_rod_2900_3000": 0.951805698275566,
+   "sat15_cam_2900_3000": 0.9473988234996795,
+   "sat15_rod_2900_3000": 0.9264736652374268,
+   "mu_med_cam_2900_3000": 5.684402942657471,
+   "mu_med_rod_2900_3000": 7.097505340576172,
+   "exec_change_1000_3000": 0.0035441807828610764,
+   "exec_action_rate_1000_3000": 1.706794109582901,
+   "kl_mean_500_3000": 0.011815012815594673,
+   "lr_applied_500_3000": 3.886055618422688e-05,
+   "clip_frac_500_3000": 0.16681930167078973,
+   "explained_var_500_3000": 0.9454357076883316,
+   "grad_clip_share_500_3000": 1.0,
+   "symmetry_0_600": 0.025006412839929198,
+   "symmetry_2500_3000": 0.03279905125126242,
+   "action_bound_0_600": null,
+   "action_bound_2500_3000": null,
+   "track_2900_3000": 0.4861079815030098,
+   "track_rsi_2900_3000": 0.5067051976919175,
+   "track_norsi_2900_3000": 0.4881269156932831,
+   "hand_grad_cos_n_0_600": 25,
+   "hand_grad_cos_n_600_3000": 95,
+   "hand_grad_cos_n_0_200": 9,
+   "effective_std_at_0": 1.5,
+   "effective_std_at_0_step": 0,
+   "effective_std_at_500": 1.7331786155700684,
+   "effective_std_at_500_step": 500,
+   "effective_std_at_1000": 1.8509892225265503,
+   "effective_std_at_1000_step": 1000,
+   "effective_std_at_3000": 2.0,
+   "effective_std_at_3000_step": 2999,
+   "lock_300_600": 0.04745126347051913,
+   "lock_2900_3000": 0.6420986670255662,
+   "gate": {
+    "feet_source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/gate/C_lr_rsi__C0_s12_lr.json",
+    "odd_source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/gate/C_lr_rsi__C0_s12_odd.json",
+    "hands": {
+     "l": {
+      "class": "SLOW",
+      "feet_ss_022": 0.079202832371481,
+      "feet_ss_025": 0.08708732337583497,
+      "rod_odd_rms": 0.788889010055767,
+      "joint_odd_rms": 0.12740796472353336
+     },
+     "r": {
+      "class": "SLOW",
+      "feet_ss_022": 0.05373860442529972,
+      "feet_ss_025": 0.05937978158619562,
+      "rod_odd_rms": 0.9019925064391037,
+      "joint_odd_rms": 0.05452802515664116
+     }
+    },
+    "rod_odd_max_hand": 0.9019925064391037,
+    "rod_odd_min_hand": 0.788889010055767
+   },
+   "rod_odd_max_hand": 0.9019925064391037,
+   "rod_odd_min_hand": 0.788889010055767
+  },
+  {
+   "ref": "C_lr_rsi__C0_s13",
+   "bed": "C_lr_rsi",
+   "arm": "C0",
+   "seed": 13,
+   "two_direction": true,
+   "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-02_11-09-58_seed13_X19_s1_A15pB",
+   "last_step": 2999,
+   "missing_tags": [
+    "Loss/action_bound"
+   ],
+   "hand_grad_cos_0_200": 0.011736738599008985,
+   "hand_grad_cos_0_600": -0.005730592738837003,
+   "hand_grad_cos_600_3000": 0.0009328130988012019,
+   "hand_adv_l_0_200": -0.02401246988059332,
+   "hand_adv_r_0_200": 0.0013235074778397877,
+   "hand_adv_l_0_600": -0.0045585025427863,
+   "hand_adv_r_0_600": 0.02594944607466459,
+   "hand_adv_l_2500_3000": 0.004704636498354375,
+   "hand_adv_r_2500_3000": 0.028988175559788942,
+   "hand_frac_l_all": 0.40736287434895835,
+   "hand_frac_r_all": 0.406085205078125,
+   "lock_cam_300_600": 0.0008930193688384949,
+   "lock_rod_300_600": 0.08925214467378352,
+   "lock_cam_2900_3000": 0.5802370941638947,
+   "lock_rod_2900_3000": 0.6782350051403045,
+   "sat1_cam_900_1000": 0.9085925752573675,
+   "sat1_rod_900_1000": 0.8679402063388636,
+   "sat15_cam_900_1000": 0.8473103258869435,
+   "sat15_rod_900_1000": 0.7997472197702615,
+   "mu_med_cam_900_1000": 3.172363798217018,
+   "mu_med_rod_900_1000": 3.5574235231569498,
+   "sat1_cam_2900_3000": 0.9641815930604934,
+   "sat1_rod_2900_3000": 0.9436714750528336,
+   "sat15_cam_2900_3000": 0.941847608089447,
+   "sat15_rod_2900_3000": 0.9145830708742142,
+   "mu_med_cam_2900_3000": 5.517515325546265,
+   "mu_med_rod_2900_3000": 7.22476815700531,
+   "exec_change_1000_3000": 0.0039215442395070564,
+   "exec_action_rate_1000_3000": 1.8518242270946503,
+   "kl_mean_500_3000": 0.011866493847593666,
+   "lr_applied_500_3000": 3.7935204045425055e-05,
+   "clip_frac_500_3000": 0.16762197103202342,
+   "explained_var_500_3000": 0.9235846878528595,
+   "grad_clip_share_500_3000": 1.0,
+   "symmetry_0_600": 0.02584315328463639,
+   "symmetry_2500_3000": 0.03809184654057026,
+   "action_bound_0_600": null,
+   "action_bound_2500_3000": null,
+   "track_2900_3000": 0.5863186872005463,
+   "track_rsi_2900_3000": 0.572454943060875,
+   "track_norsi_2900_3000": 0.5848409289121628,
+   "hand_grad_cos_n_0_600": 25,
+   "hand_grad_cos_n_600_3000": 95,
+   "hand_grad_cos_n_0_200": 9,
+   "effective_std_at_0": 1.5,
+   "effective_std_at_0_step": 0,
+   "effective_std_at_500": 1.7283803224563599,
+   "effective_std_at_500_step": 500,
+   "effective_std_at_1000": 1.8578472137451172,
+   "effective_std_at_1000_step": 1000,
+   "effective_std_at_3000": 2.0,
+   "effective_std_at_3000_step": 2999,
+   "lock_300_600": 0.04507258202131101,
+   "lock_2900_3000": 0.6292360496520997,
+   "gate": {
+    "feet_source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/gate/C_lr_rsi__C0_s13_lr.json",
+    "odd_source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/gate/C_lr_rsi__C0_s13_odd.json",
+    "hands": {
+     "l": {
+      "class": "SLOW",
+      "feet_ss_022": 0.06668548780611452,
+      "feet_ss_025": 0.07044057774219525,
+      "rod_odd_rms": 0.6963663422784019,
+      "joint_odd_rms": 0.11621239349235657
+     },
+     "r": {
+      "class": "SLOW",
+      "feet_ss_022": 0.06523744493031379,
+      "feet_ss_025": 0.06963634067596232,
+      "rod_odd_rms": 0.7832840449944406,
+      "joint_odd_rms": 0.060906158174256105
+     }
+    },
+    "rod_odd_max_hand": 0.7832840449944406,
+    "rod_odd_min_hand": 0.6963663422784019
+   },
+   "rod_odd_max_hand": 0.7832840449944406,
+   "rod_odd_min_hand": 0.6963663422784019
+  },
+  {
+   "ref": "C_lr_rsi__A_s11",
+   "bed": "C_lr_rsi",
+   "arm": "A",
+   "seed": 11,
+   "two_direction": true,
+   "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-01_20-09-01_seed11_X07_s1_A15pB",
+   "last_step": 2999,
+   "missing_tags": [],
+   "hand_grad_cos_0_200": 0.022729764692485332,
+   "hand_grad_cos_0_600": -0.01149125061929226,
+   "hand_grad_cos_600_3000": -0.014235014890590193,
+   "hand_adv_l_0_200": -0.01858174239492251,
+   "hand_adv_r_0_200": -0.0539989481266174,
+   "hand_adv_l_0_600": -0.007640076735988259,
+   "hand_adv_r_0_600": -0.016643186728470028,
+   "hand_adv_l_2500_3000": 0.013473557052202522,
+   "hand_adv_r_2500_3000": -0.027586073335260152,
+   "hand_frac_l_all": 0.3993021647135417,
+   "hand_frac_r_all": 0.4122111002604167,
+   "lock_cam_300_600": 5.407322913565305e-07,
+   "lock_rod_300_600": 0.02821473484902188,
+   "lock_cam_2900_3000": 0.004468587271403522,
+   "lock_rod_2900_3000": 0.2056332755088806,
+   "sat1_cam_900_1000": 0.37751983593005944,
+   "sat1_rod_900_1000": 0.5850228543328767,
+   "sat15_cam_900_1000": 0.11136304159270655,
+   "sat15_rod_900_1000": 0.3780488073825836,
+   "mu_med_cam_900_1000": 0.8184306397296415,
+   "mu_med_rod_900_1000": 1.2025014893843395,
+   "sat1_cam_2900_3000": 0.3376123079657555,
+   "sat1_rod_2900_3000": 0.6172022891044616,
+   "sat15_cam_2900_3000": 0.09714599706232548,
+   "sat15_rod_2900_3000": 0.4096348774433136,
+   "mu_med_cam_2900_3000": 0.7467978721857071,
+   "mu_med_rod_2900_3000": 1.284389945268631,
+   "exec_change_1000_3000": 0.007413675922900438,
+   "exec_action_rate_1000_3000": 1.7894628507494927,
+   "kl_mean_500_3000": 0.01183427068889141,
+   "lr_applied_500_3000": 2.070900528742641e-05,
+   "clip_frac_500_3000": 0.16912736162245273,
+   "explained_var_500_3000": 0.9620864275217056,
+   "grad_clip_share_500_3000": 1.0,
+   "symmetry_0_600": 0.020418553450416013,
+   "symmetry_2500_3000": 0.018554664477705957,
+   "action_bound_0_600": 1.3063798262966553,
+   "action_bound_2500_3000": 6.811720818519592,
+   "track_2900_3000": 0.6494749808311462,
+   "track_rsi_2900_3000": 0.5998815643787384,
+   "track_norsi_2900_3000": 0.6512056285142899,
+   "hand_grad_cos_n_0_600": 25,
+   "hand_grad_cos_n_600_3000": 95,
+   "hand_grad_cos_n_0_200": 9,
+   "effective_std_at_0": 0.7999995350837708,
+   "effective_std_at_0_step": 0,
+   "effective_std_at_500": 0.6901829838752747,
+   "effective_std_at_500_step": 500,
+   "effective_std_at_1000": 0.6318308711051941,
+   "effective_std_at_1000_step": 1000,
+   "effective_std_at_3000": 0.5111316442489624,
+   "effective_std_at_3000_step": 2999,
+   "lock_300_600": 0.014107637790656618,
+   "lock_2900_3000": 0.10505093139014207,
+   "gate": {
+    "feet_source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/gate/C_lr_rsi__A_s11_lr.json",
+    "odd_source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/gate/C_lr_rsi__A_s11_odd.json",
+    "hands": {
+     "l": {
+      "class": "SLOW",
+      "feet_ss_022": 0.09041058660285232,
+      "feet_ss_025": 0.09620184801479541,
+      "rod_odd_rms": 0.6080955343616583,
+      "joint_odd_rms": 0.09413566080482776
+     },
+     "r": {
+      "class": "FAST",
+      "feet_ss_022": 0.22283389436682183,
+      "feet_ss_025": 0.23596915436633875,
+      "rod_odd_rms": 2.0701170816946854,
+      "joint_odd_rms": 0.2507381110775454
+     }
+    },
+    "rod_odd_max_hand": 2.0701170816946854,
+    "rod_odd_min_hand": 0.6080955343616583
+   },
+   "rod_odd_max_hand": 2.0701170816946854,
+   "rod_odd_min_hand": 0.6080955343616583
+  },
+  {
+   "ref": "C_lr_rsi__A_s12",
+   "bed": "C_lr_rsi",
+   "arm": "A",
+   "seed": 12,
+   "two_direction": true,
+   "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-02_08-29-02_seed12_X17_s1_A15pB",
+   "last_step": 2999,
+   "missing_tags": [],
+   "hand_grad_cos_0_200": -0.018144493612150352,
+   "hand_grad_cos_0_600": 0.0033205888234078885,
+   "hand_grad_cos_600_3000": 0.0029825917224546796,
+   "hand_adv_l_0_200": -0.02779041427291102,
+   "hand_adv_r_0_200": -0.03938463962792108,
+   "hand_adv_l_0_600": -0.005097024366259575,
+   "hand_adv_r_0_600": -0.02011408081743866,
+   "hand_adv_l_2500_3000": -0.027071313015767373,
+   "hand_adv_r_2500_3000": 0.016726485406979918,
+   "hand_frac_l_all": 0.40950113932291665,
+   "hand_frac_r_all": 0.39947713216145836,
+   "lock_cam_300_600": 0.0007023211179825786,
+   "lock_rod_300_600": 0.02916088099517949,
+   "lock_cam_2900_3000": 0.099383410140872,
+   "lock_rod_2900_3000": 0.28478529512882234,
+   "sat1_cam_900_1000": 0.41408103468394514,
+   "sat1_rod_900_1000": 0.6456297541608905,
+   "sat15_cam_900_1000": 0.11480169101516799,
+   "sat15_rod_900_1000": 0.435968418817709,
+   "mu_med_cam_900_1000": 0.8713651635859272,
+   "mu_med_rod_900_1000": 1.34750234490574,
+   "sat1_cam_2900_3000": 0.5820874083042145,
+   "sat1_rod_2900_3000": 0.6900185894966125,
+   "sat15_cam_2900_3000": 0.3306987869739533,
+   "sat15_rod_2900_3000": 0.4875785356760025,
+   "mu_med_cam_2900_3000": 1.1533050847053528,
+   "mu_med_rod_2900_3000": 1.4704512012004853,
+   "exec_change_1000_3000": 0.005626990235294216,
+   "exec_action_rate_1000_3000": 1.5964054104089738,
+   "kl_mean_500_3000": 0.012019483475759625,
+   "lr_applied_500_3000": 2.4212678739058902e-05,
+   "clip_frac_500_3000": 0.17096246594786643,
+   "explained_var_500_3000": 0.9530737755298615,
+   "grad_clip_share_500_3000": 1.0,
+   "symmetry_0_600": 0.019454821073349424,
+   "symmetry_2500_3000": 0.01866921762563288,
+   "action_bound_0_600": 1.5075163284721385,
+   "action_bound_2500_3000": 10.710761358261108,
+   "track_2900_3000": 0.5349164563417435,
+   "track_rsi_2900_3000": 0.5330672180652618,
+   "track_norsi_2900_3000": 0.5356376940011978,
+   "hand_grad_cos_n_0_600": 25,
+   "hand_grad_cos_n_600_3000": 95,
+   "hand_grad_cos_n_0_200": 9,
+   "effective_std_at_0": 0.7999995350837708,
+   "effective_std_at_0_step": 0,
+   "effective_std_at_500": 0.6928247809410095,
+   "effective_std_at_500_step": 500,
+   "effective_std_at_1000": 0.6341914534568787,
+   "effective_std_at_1000_step": 1000,
+   "effective_std_at_3000": 0.5034133791923523,
+   "effective_std_at_3000_step": 2999,
+   "lock_300_600": 0.014931601056581034,
+   "lock_2900_3000": 0.19208435263484716,
+   "gate": {
+    "feet_source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/gate/C_lr_rsi__A_s12_lr.json",
+    "odd_source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/gate/C_lr_rsi__A_s12_odd.json",
+    "hands": {
+     "l": {
+      "class": "SLOW",
+      "feet_ss_022": 0.09038203527993743,
+      "feet_ss_025": 0.10336361069475318,
+      "rod_odd_rms": 0.35495197610257373,
+      "joint_odd_rms": 0.07563856439925815
+     },
+     "r": {
+      "class": "SLOW",
+      "feet_ss_022": 0.09498895170865178,
+      "feet_ss_025": 0.08924224350131862,
+      "rod_odd_rms": 0.2540925131687929,
+      "joint_odd_rms": 0.0738989666125863
+     }
+    },
+    "rod_odd_max_hand": 0.35495197610257373,
+    "rod_odd_min_hand": 0.2540925131687929
+   },
+   "rod_odd_max_hand": 0.35495197610257373,
+   "rod_odd_min_hand": 0.2540925131687929
+  },
+  {
+   "ref": "C_lr_rsi__A_s13",
+   "bed": "C_lr_rsi",
+   "arm": "A",
+   "seed": 13,
+   "two_direction": true,
+   "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-02_12-26-46_seed13_X20_s1_A15pB",
+   "last_step": 2999,
+   "missing_tags": [],
+   "hand_grad_cos_0_200": 0.04934563467072116,
+   "hand_grad_cos_0_600": -0.000147349638864398,
+   "hand_grad_cos_600_3000": 0.0047868023442692665,
+   "hand_adv_l_0_200": -0.031380508728842765,
+   "hand_adv_r_0_200": -0.03853828087449074,
+   "hand_adv_l_0_600": -0.021057727166917176,
+   "hand_adv_r_0_600": -0.009029581109061838,
+   "hand_adv_l_2500_3000": 0.017057401899364777,
+   "hand_adv_r_2500_3000": 0.012283085682429373,
+   "hand_frac_l_all": 0.4031901041666667,
+   "hand_frac_r_all": 0.40742390950520835,
+   "lock_cam_300_600": 0.0,
+   "lock_rod_300_600": 0.004049273741666154,
+   "lock_cam_2900_3000": 0.00784939244389534,
+   "lock_rod_2900_3000": 0.21817817002534867,
+   "sat1_cam_900_1000": 0.33133240442464845,
+   "sat1_rod_900_1000": 0.5431762373093332,
+   "sat15_cam_900_1000": 0.04467424333538159,
+   "sat15_rod_900_1000": 0.3305618435439497,
+   "mu_med_cam_900_1000": 0.7766099424645452,
+   "mu_med_rod_900_1000": 1.0986827529302918,
+   "sat1_cam_2900_3000": 0.4429589885473251,
+   "sat1_rod_2900_3000": 0.6626822990179062,
+   "sat15_cam_2900_3000": 0.14737169191241264,
+   "sat15_rod_2900_3000": 0.4456146946549416,
+   "mu_med_cam_2900_3000": 0.9138265687227249,
+   "mu_med_rod_2900_3000": 1.3818517816066742,
+   "exec_change_1000_3000": 0.006907631784910336,
+   "exec_action_rate_1000_3000": 1.739151493012905,
+   "kl_mean_500_3000": 0.01228356577642262,
+   "lr_applied_500_3000": 2.4007456060280675e-05,
+   "clip_frac_500_3000": 0.1760931953161955,
+   "explained_var_500_3000": 0.9428418620109558,
+   "grad_clip_share_500_3000": 1.0,
+   "symmetry_0_600": 0.01825187457090061,
+   "symmetry_2500_3000": 0.01799464206583798,
+   "action_bound_0_600": 0.5346560011276675,
+   "action_bound_2500_3000": 7.03820885181427,
+   "track_2900_3000": 0.6660032999515534,
+   "track_rsi_2900_3000": 0.6455709040164948,
+   "track_norsi_2900_3000": 0.6703608512878418,
+   "hand_grad_cos_n_0_600": 25,
+   "hand_grad_cos_n_600_3000": 95,
+   "hand_grad_cos_n_0_200": 9,
+   "effective_std_at_0": 0.7999995350837708,
+   "effective_std_at_0_step": 0,
+   "effective_std_at_500": 0.7175959944725037,
+   "effective_std_at_500_step": 500,
+   "effective_std_at_1000": 0.6296915411949158,
+   "effective_std_at_1000_step": 1000,
+   "effective_std_at_3000": 0.5044984221458435,
+   "effective_std_at_3000_step": 2999,
+   "lock_300_600": 0.002024636870833077,
+   "lock_2900_3000": 0.11301378123462201,
+   "gate": {
+    "feet_source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/gate/C_lr_rsi__A_s13_lr.json",
+    "odd_source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/gate/C_lr_rsi__A_s13_odd.json",
+    "hands": {
+     "l": {
+      "class": "SLOW",
+      "feet_ss_022": 0.09359585627175601,
+      "feet_ss_025": 0.10695614085848054,
+      "rod_odd_rms": 0.8721909145950473,
+      "joint_odd_rms": 0.1359647869336315
+     },
+     "r": {
+      "class": "FAST",
+      "feet_ss_022": 0.2284749053470979,
+      "feet_ss_025": 0.225755551854754,
+      "rod_odd_rms": 1.6781749854735428,
+      "joint_odd_rms": 0.2341149556143546
+     }
+    },
+    "rod_odd_max_hand": 1.6781749854735428,
+    "rod_odd_min_hand": 0.8721909145950473
+   },
+   "rod_odd_max_hand": 1.6781749854735428,
+   "rod_odd_min_hand": 0.8721909145950473
+  },
+  {
+   "ref": "C_lr_rsi__B_s11",
+   "bed": "C_lr_rsi",
+   "arm": "B",
+   "seed": 11,
+   "two_direction": true,
+   "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-01_21-25-53_seed11_X08_s1_A15pB",
+   "last_step": 2999,
+   "missing_tags": [],
+   "hand_grad_cos_0_200": 0.03635540291563504,
+   "hand_grad_cos_0_600": 0.037610792471095916,
+   "hand_grad_cos_600_3000": -0.0017148923965195487,
+   "hand_adv_l_0_200": 0.030704276222321723,
+   "hand_adv_r_0_200": 9.337647093666924e-05,
+   "hand_adv_l_0_600": 0.004244929552078247,
+   "hand_adv_r_0_600": -0.00022471360862255096,
+   "hand_adv_l_2500_3000": 0.010237987028085626,
+   "hand_adv_r_2500_3000": -0.016918723413255066,
+   "hand_frac_l_all": 0.40618693033854164,
+   "hand_frac_r_all": 0.4055887858072917,
+   "lock_cam_300_600": 0.0,
+   "lock_rod_300_600": 0.025812216159157405,
+   "lock_cam_2900_3000": 2.983941085403785e-06,
+   "lock_rod_2900_3000": 0.12067179456353187,
+   "sat1_cam_900_1000": 0.05562350733002814,
+   "sat1_rod_900_1000": 0.4916440286848805,
+   "sat15_cam_900_1000": 0.004311002413010326,
+   "sat15_rod_900_1000": 0.30604088660514,
+   "mu_med_cam_900_1000": 0.24538596254764217,
+   "mu_med_rod_900_1000": 0.9801768524812,
+   "sat1_cam_2900_3000": 0.026858452893793582,
+   "sat1_rod_2900_3000": 0.5039689177274704,
+   "sat15_cam_2900_3000": 0.0009312608572508907,
+   "sat15_rod_2900_3000": 0.3201060685515404,
+   "mu_med_cam_2900_3000": 0.25183520406484605,
+   "mu_med_rod_2900_3000": 1.009568213224411,
+   "exec_change_1000_3000": 0.01226808114349842,
+   "exec_action_rate_1000_3000": 3.018016247153282,
+   "kl_mean_500_3000": 0.011612697956338526,
+   "lr_applied_500_3000": 2.3559654494238204e-05,
+   "clip_frac_500_3000": 0.16229006974995136,
+   "explained_var_500_3000": 0.9646123791456223,
+   "grad_clip_share_500_3000": 1.0,
+   "symmetry_0_600": 0.01777836736353632,
+   "symmetry_2500_3000": 0.016506631644442677,
+   "action_bound_0_600": 1.517413014590347,
+   "action_bound_2500_3000": 6.384460355758667,
+   "track_2900_3000": 0.6688306647539138,
+   "track_rsi_2900_3000": 0.6017709881067276,
+   "track_norsi_2900_3000": 0.670238795876503,
+   "hand_grad_cos_n_0_600": 25,
+   "hand_grad_cos_n_600_3000": 95,
+   "hand_grad_cos_n_0_200": 9,
+   "effective_std_at_0": 0.7999995350837708,
+   "effective_std_at_0_step": 0,
+   "effective_std_at_500": 0.7878988981246948,
+   "effective_std_at_500_step": 500,
+   "effective_std_at_1000": 0.783600926399231,
+   "effective_std_at_1000_step": 1000,
+   "effective_std_at_3000": 0.7420397400856018,
+   "effective_std_at_3000_step": 2999,
+   "lock_300_600": 0.012906108079578702,
+   "lock_2900_3000": 0.06033738925230864,
+   "gate": {
+    "feet_source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/gate/C_lr_rsi__B_s11_lr.json",
+    "odd_source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/gate/C_lr_rsi__B_s11_odd.json",
+    "hands": {
+     "l": {
+      "class": "FAST",
+      "feet_ss_022": 0.2404655469494711,
+      "feet_ss_025": 0.2423267177510984,
+      "rod_odd_rms": 1.8828848689273072,
+      "joint_odd_rms": 0.29005826931140816
+     },
+     "r": {
+      "class": "INTERMEDIATE",
+      "feet_ss_022": 0.14129990390571906,
+      "feet_ss_025": 0.15646047267037344,
+      "rod_odd_rms": 1.4411406486107614,
+      "joint_odd_rms": 0.21700902276955653
+     }
+    },
+    "rod_odd_max_hand": 1.8828848689273072,
+    "rod_odd_min_hand": 1.4411406486107614
+   },
+   "rod_odd_max_hand": 1.8828848689273072,
+   "rod_odd_min_hand": 1.4411406486107614
+  },
+  {
+   "ref": "C_lr_rsi__B_s12",
+   "bed": "C_lr_rsi",
+   "arm": "B",
+   "seed": 12,
+   "two_direction": true,
+   "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-02_07-20-01_seed12_X16_s1_A15pB_e2",
+   "last_step": 2999,
+   "missing_tags": [],
+   "hand_grad_cos_0_200": 0.04020619526919392,
+   "hand_grad_cos_0_600": -0.013074971809983254,
+   "hand_grad_cos_600_3000": -0.013537548834727587,
+   "hand_adv_l_0_200": 0.02535416863651739,
+   "hand_adv_r_0_200": 0.012697417806420062,
+   "hand_adv_l_0_600": 0.006186224240809679,
+   "hand_adv_r_0_600": -0.005887130089104175,
+   "hand_adv_l_2500_3000": -0.002896614043856971,
+   "hand_adv_r_2500_3000": -0.016015830123797058,
+   "hand_frac_l_all": 0.4042154947916667,
+   "hand_frac_r_all": 0.40788167317708335,
+   "lock_cam_300_600": 0.0,
+   "lock_rod_300_600": 0.013362035485542614,
+   "lock_cam_2900_3000": 1.6276041915261885e-05,
+   "lock_rod_2900_3000": 0.10475138403475284,
+   "sat1_cam_900_1000": 0.04767376186307704,
+   "sat1_rod_900_1000": 0.5048629443834324,
+   "sat15_cam_900_1000": 0.00412514400357233,
+   "sat15_rod_900_1000": 0.3086053014981865,
+   "mu_med_cam_900_1000": 0.23849718272686005,
+   "mu_med_rod_900_1000": 1.0118722118953667,
+   "sat1_cam_2900_3000": 0.05405219197273255,
+   "sat1_rod_2900_3000": 0.5062253218889237,
+   "sat15_cam_2900_3000": 0.010364854732761159,
+   "sat15_rod_2900_3000": 0.3079493579268455,
+   "mu_med_cam_2900_3000": 0.27554974824190137,
+   "mu_med_rod_2900_3000": 1.0142051523923874,
+   "exec_change_1000_3000": 0.012393365876283497,
+   "exec_action_rate_1000_3000": 3.060935199022293,
+   "kl_mean_500_3000": 0.01175006778165698,
+   "lr_applied_500_3000": 2.6718802940376918e-05,
+   "clip_frac_500_3000": 0.16465501774847507,
+   "explained_var_500_3000": 0.9781880535364151,
+   "grad_clip_share_500_3000": 1.0,
+   "symmetry_0_600": 0.019007323531375055,
+   "symmetry_2500_3000": 0.016453624727204443,
+   "action_bound_0_600": 1.080965357741641,
+   "action_bound_2500_3000": 4.925253536224365,
+   "track_2900_3000": 0.6365142923593521,
+   "track_rsi_2900_3000": 0.589561949968338,
+   "track_norsi_2900_3000": 0.6380058109760285,
+   "hand_grad_cos_n_0_600": 25,
+   "hand_grad_cos_n_600_3000": 95,
+   "hand_grad_cos_n_0_200": 9,
+   "effective_std_at_0": 0.7999995350837708,
+   "effective_std_at_0_step": 0,
+   "effective_std_at_500": 0.7899386286735535,
+   "effective_std_at_500_step": 500,
+   "effective_std_at_1000": 0.7723711133003235,
+   "effective_std_at_1000_step": 1000,
+   "effective_std_at_3000": 0.7472864985466003,
+   "effective_std_at_3000_step": 2999,
+   "lock_300_600": 0.006681017742771307,
+   "lock_2900_3000": 0.05238383003833405,
+   "gate": {
+    "feet_source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/gate/C_lr_rsi__B_s12_lr.json",
+    "odd_source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/gate/C_lr_rsi__B_s12_odd.json",
+    "hands": {
+     "l": {
+      "class": "FAST",
+      "feet_ss_022": 0.22433851664848947,
+      "feet_ss_025": 0.2477457671358616,
+      "rod_odd_rms": 1.918011710106867,
+      "joint_odd_rms": 0.24443043167322756
+     },
+     "r": {
+      "class": "INTERMEDIATE",
+      "feet_ss_022": 0.15297872259460216,
+      "feet_ss_025": 0.15558620172573645,
+      "rod_odd_rms": 1.8794129822344012,
+      "joint_odd_rms": 0.2283717847033004
+     }
+    },
+    "rod_odd_max_hand": 1.918011710106867,
+    "rod_odd_min_hand": 1.8794129822344012
+   },
+   "rod_odd_max_hand": 1.918011710106867,
+   "rod_odd_min_hand": 1.8794129822344012
+  },
+  {
+   "ref": "C_lr_rsi__B_s13",
+   "bed": "C_lr_rsi",
+   "arm": "B",
+   "seed": 13,
+   "two_direction": true,
+   "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-02_09-53-07_seed13_X18_s1_A15pB",
+   "last_step": 2999,
+   "missing_tags": [],
+   "hand_grad_cos_0_200": -0.007629537747965919,
+   "hand_grad_cos_0_600": 0.0026734676118940117,
+   "hand_grad_cos_600_3000": 0.002746125014106694,
+   "hand_adv_l_0_200": 0.030582063210507233,
+   "hand_adv_r_0_200": -0.008145280182361603,
+   "hand_adv_l_0_600": 0.009272291380912066,
+   "hand_adv_r_0_600": -0.0018279916420578957,
+   "hand_adv_l_2500_3000": 0.02679840278578922,
+   "hand_adv_r_2500_3000": -0.04185381032293663,
+   "hand_frac_l_all": 0.4072957356770833,
+   "hand_frac_r_all": 0.406134033203125,
+   "lock_cam_300_600": 0.0,
+   "lock_rod_300_600": 0.012025795919523633,
+   "lock_cam_2900_3000": 6.971571330723236e-05,
+   "lock_rod_2900_3000": 0.09148654572665692,
+   "sat1_cam_900_1000": 0.03723560877623829,
+   "sat1_rod_900_1000": 0.5646232797367738,
+   "sat15_cam_900_1000": 0.0010678802304892538,
+   "sat15_rod_900_1000": 0.3580016127907404,
+   "mu_med_cam_900_1000": 0.20436232411625363,
+   "mu_med_rod_900_1000": 1.1535956954011823,
+   "sat1_cam_2900_3000": 0.06967990539968014,
+   "sat1_rod_2900_3000": 0.4746610549092293,
+   "sat15_cam_2900_3000": 0.012272135578095913,
+   "sat15_rod_2900_3000": 0.2809170225262642,
+   "mu_med_cam_2900_3000": 0.31552586317062375,
+   "mu_med_rod_2900_3000": 0.9444685673713684,
+   "exec_change_1000_3000": 0.011650536040309816,
+   "exec_action_rate_1000_3000": 2.8982874042987823,
+   "kl_mean_500_3000": 0.01193986404184252,
+   "lr_applied_500_3000": 2.919760217082512e-05,
+   "clip_frac_500_3000": 0.16719164563119412,
+   "explained_var_500_3000": 0.9642076817512513,
+   "grad_clip_share_500_3000": 1.0,
+   "symmetry_0_600": 0.01798118602565045,
+   "symmetry_2500_3000": 0.01830895127169788,
+   "action_bound_0_600": 1.1129506292494735,
+   "action_bound_2500_3000": 5.642245657920838,
+   "track_2900_3000": 0.6456147980690002,
+   "track_rsi_2900_3000": 0.5668925082683564,
+   "track_norsi_2900_3000": 0.6472306847572327,
+   "hand_grad_cos_n_0_600": 25,
+   "hand_grad_cos_n_600_3000": 95,
+   "hand_grad_cos_n_0_200": 9,
+   "effective_std_at_0": 0.7999995350837708,
+   "effective_std_at_0_step": 0,
+   "effective_std_at_500": 0.7842859625816345,
+   "effective_std_at_500_step": 500,
+   "effective_std_at_1000": 0.7651432156562805,
+   "effective_std_at_1000_step": 1000,
+   "effective_std_at_3000": 0.7377238869667053,
+   "effective_std_at_3000_step": 2999,
+   "lock_300_600": 0.006012897959761817,
+   "lock_2900_3000": 0.045778130719982074,
+   "gate": {
+    "feet_source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/gate/C_lr_rsi__B_s13_lr.json",
+    "odd_source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/gate/C_lr_rsi__B_s13_odd.json",
+    "hands": {
+     "l": {
+      "class": "SLOW",
+      "feet_ss_022": 0.1266144537227178,
+      "feet_ss_025": 0.13953724301326623,
+      "rod_odd_rms": 1.3989671772175787,
+      "joint_odd_rms": 0.22360049776004187
+     },
+     "r": {
+      "class": "FAST",
+      "feet_ss_022": 0.23751659601793373,
+      "feet_ss_025": 0.2672484955805723,
+      "rod_odd_rms": 1.9857460174723267,
+      "joint_odd_rms": 0.2916137706835231
+     }
+    },
+    "rod_odd_max_hand": 1.9857460174723267,
+    "rod_odd_min_hand": 1.3989671772175787
+   },
+   "rod_odd_max_hand": 1.9857460174723267,
+   "rod_odd_min_hand": 1.3989671772175787
+  }
+ ],
+ "summary_rows": [
+  {
+   "bed": "C",
+   "arm": "C0",
+   "n_runs": 3,
+   "refs": [
+    "C__C0_s11",
+    "C__C0_s12",
+    "C__C0_s13"
+   ],
+   "reads": {
+    "hand_grad_cos_0_600": {
+     "n": 0,
+     "mean": null,
+     "sd": null,
+     "ci90": null
+    },
+    "lock_300_600": {
+     "n": 3,
+     "mean": 0.09035046216917098,
+     "sd": 0.02265510567191754,
+     "ci90": [
+      0.05215725121118408,
+      0.12854367312715786
+     ]
+    },
+    "lock_cam_300_600": {
+     "n": 3,
+     "mean": 0.01293969355069391,
+     "sd": 0.0049582507921912145,
+     "ci90": [
+      0.0045808043346748095,
+      0.02129858276671301
+     ]
+    },
+    "lock_rod_300_600": {
+     "n": 3,
+     "mean": 0.16776123078764804,
+     "sd": 0.043262120593994466,
+     "ci90": [
+      0.09482759179851476,
+      0.24069486977678134
+     ]
+    },
+    "rod_odd_max_hand": {
+     "n": 3,
+     "mean": 1.1070828970608626,
+     "sd": 0.3944502167481375,
+     "ci90": [
+      0.44209723957352176,
+      1.7720685545482033
+     ]
+    },
+    "rod_odd_min_hand": {
+     "n": 3,
+     "mean": 1.1070828970608626,
+     "sd": 0.3944502167481375,
+     "ci90": [
+      0.44209723957352176,
+      1.7720685545482033
+     ]
+    },
+    "effective_std_at_3000": {
+     "n": 3,
+     "mean": 2.0,
+     "sd": 0.0,
+     "ci90": [
+      2.0,
+      2.0
+     ]
+    },
+    "exec_change_1000_3000": {
+     "n": 3,
+     "mean": 0.0029760640285094266,
+     "sd": 0.0006782252817061795,
+     "ci90": [
+      0.001832674911885116,
+      0.004119453145133737
+     ]
+    },
+    "lr_applied_500_3000": {
+     "n": 3,
+     "mean": 3.088730777878179e-05,
+     "sd": 1.3781548831428749e-06,
+     "ci90": [
+      2.8563939221295803e-05,
+      3.321067633626777e-05
+     ]
+    },
+    "mu_med_cam_2900_3000": {
+     "n": 3,
+     "mean": 4.998659273783367,
+     "sd": 0.8069573868647584,
+     "ci90": [
+      3.6382465634231016,
+      6.359071984143632
+     ]
+    },
+    "mu_med_rod_2900_3000": {
+     "n": 3,
+     "mean": 7.534928132692973,
+     "sd": 0.8979946379931694,
+     "ci90": [
+      6.021039866414529,
+      9.048816398971416
+     ]
+    },
+    "symmetry_2500_3000": {
+     "n": 3,
+     "mean": 0.029852435264736413,
+     "sd": 0.0032807388028009195,
+     "ci90": [
+      0.024321587119157086,
+      0.03538328341031574
+     ]
+    },
+    "track_2900_3000": {
+     "n": 3,
+     "mean": 0.6232291646798451,
+     "sd": 0.11434271473605319,
+     "ci90": [
+      0.43046398897659,
+      0.8159943403831003
+     ]
+    }
+   }
+  },
+  {
+   "bed": "C",
+   "arm": "A",
+   "n_runs": 3,
+   "refs": [
+    "C__A_s11_r2",
+    "C__A_s12",
+    "C__A_s13"
+   ],
+   "reads": {
+    "hand_grad_cos_0_600": {
+     "n": 0,
+     "mean": null,
+     "sd": null,
+     "ci90": null
+    },
+    "lock_300_600": {
+     "n": 3,
+     "mean": 0.021230816832427373,
+     "sd": 0.011576544965959869,
+     "ci90": [
+      0.0017144468603555105,
+      0.040747186804499236
+     ]
+    },
+    "lock_cam_300_600": {
+     "n": 3,
+     "mean": 0.0003785426440499316,
+     "sd": 0.0004970124375712165,
+     "ci90": [
+      -0.00045934799092648305,
+      0.0012164332790263461
+     ]
+    },
+    "lock_rod_300_600": {
+     "n": 3,
+     "mean": 0.04208309102080482,
+     "sd": 0.023540415377369218,
+     "ci90": [
+      0.0023973767466501164,
+      0.08176880529495953
+     ]
+    },
+    "rod_odd_max_hand": {
+     "n": 3,
+     "mean": 2.155445319984759,
+     "sd": 0.13621793032060642,
+     "ci90": [
+      1.9258017145062714,
+      2.3850889254632466
+     ]
+    },
+    "rod_odd_min_hand": {
+     "n": 3,
+     "mean": 2.155445319984759,
+     "sd": 0.13621793032060642,
+     "ci90": [
+      1.9258017145062714,
+      2.3850889254632466
+     ]
+    },
+    "effective_std_at_3000": {
+     "n": 3,
+     "mean": 0.5336095094680786,
+     "sd": 0.025415187030866628,
+     "ci90": [
+      0.4907632030388038,
+      0.5764558158973535
+     ]
+    },
+    "exec_change_1000_3000": {
+     "n": 3,
+     "mean": 0.006657681081133585,
+     "sd": 0.0005656749735024962,
+     "ci90": [
+      0.0057040354036642805,
+      0.007611326758602889
+     ]
+    },
+    "lr_applied_500_3000": {
+     "n": 3,
+     "mean": 1.9614676439717488e-05,
+     "sd": 1.3217271447859682e-06,
+     "ci90": [
+      1.7386436836656064e-05,
+      2.1842916042778912e-05
+     ]
+    },
+    "mu_med_cam_2900_3000": {
+     "n": 3,
+     "mean": 0.8934864993890126,
+     "sd": 0.09921016578433363,
+     "ci90": [
+      0.7262325988400159,
+      1.0607403999380094
+     ]
+    },
+    "mu_med_rod_2900_3000": {
+     "n": 3,
+     "mean": 1.5203787155946096,
+     "sd": 0.10463781903906094,
+     "ci90": [
+      1.3439745815941941,
+      1.696782849595025
+     ]
+    },
+    "symmetry_2500_3000": {
+     "n": 3,
+     "mean": 0.01581424993276596,
+     "sd": 0.000844136420385175,
+     "ci90": [
+      0.014391158782895281,
+      0.01723734108263664
+     ]
+    },
+    "track_2900_3000": {
+     "n": 3,
+     "mean": 0.8045239275693893,
+     "sd": 0.04137271428552074,
+     "ci90": [
+      0.7347755526337509,
+      0.8742723025050276
+     ]
+    }
+   }
+  },
+  {
+   "bed": "C_lr",
+   "arm": "C0",
+   "n_runs": 5,
+   "refs": [
+    "C_lr__C0_s11",
+    "C_lr__C0_s12",
+    "C_lr__C0_s13",
+    "C_lr__C0_s14",
+    "C_lr__C0_s15"
+   ],
+   "reads": {
+    "hand_grad_cos_0_600": {
+     "n": 5,
+     "mean": -0.00507421606592834,
+     "sd": 0.036265097747273614,
+     "ci90": [
+      -0.03964902902612795,
+      0.029500596894271272
+     ]
+    },
+    "lock_300_600": {
+     "n": 5,
+     "mean": 0.04690228034243253,
+     "sd": 0.019947958278308548,
+     "ci90": [
+      0.02788407911719981,
+      0.06592048156766525
+     ]
+    },
+    "lock_cam_300_600": {
+     "n": 5,
+     "mean": 0.004998457154040179,
+     "sd": 0.004597518102293565,
+     "ci90": [
+      0.0006152253873511664,
+      0.00938168892072919
+     ]
+    },
+    "lock_rod_300_600": {
+     "n": 5,
+     "mean": 0.0888061035308249,
+     "sd": 0.03886750794355062,
+     "ci90": [
+      0.05175017645895139,
+      0.1258620306026984
+     ]
+    },
+    "rod_odd_max_hand": {
+     "n": 5,
+     "mean": 0.5548513461138551,
+     "sd": 0.15440310785175299,
+     "ci90": [
+      0.40764483334913415,
+      0.7020578588785761
+     ]
+    },
+    "rod_odd_min_hand": {
+     "n": 5,
+     "mean": 0.4130521116199069,
+     "sd": 0.1400509903498505,
+     "ci90": [
+      0.27952877659454256,
+      0.5465754466452712
+     ]
+    },
+    "effective_std_at_3000": {
+     "n": 5,
+     "mean": 1.9999520540237428,
+     "sd": 0.00010721046215896789,
+     "ci90": [
+      1.9998498405483414,
+      2.000054267499144
+     ]
+    },
+    "exec_change_1000_3000": {
+     "n": 5,
+     "mean": 0.002847956131596584,
+     "sd": 0.0005583464490334973,
+     "ci90": [
+      0.002315633726818946,
+      0.003380278536374222
+     ]
+    },
+    "lr_applied_500_3000": {
+     "n": 5,
+     "mean": 3.636181822686922e-05,
+     "sd": 1.4430724274923695e-06,
+     "ci90": [
+      3.498600615499025e-05,
+      3.773763029874819e-05
+     ]
+    },
+    "mu_med_cam_2900_3000": {
+     "n": 5,
+     "mean": 5.181431630134583,
+     "sd": 0.2978399171789388,
+     "ci90": [
+      4.89747377345633,
+      5.465389486812835
+     ]
+    },
+    "mu_med_rod_2900_3000": {
+     "n": 5,
+     "mean": 7.44346485042572,
+     "sd": 0.48400102320561267,
+     "ci90": [
+      6.982022695588639,
+      7.9049070052628005
+     ]
+    },
+    "symmetry_2500_3000": {
+     "n": 5,
+     "mean": 0.0337566737189889,
+     "sd": 0.0026255660205781435,
+     "ci90": [
+      0.03125348305592307,
+      0.036259864382054724
+     ]
+    },
+    "track_2900_3000": {
+     "n": 5,
+     "mean": 0.5076086412072182,
+     "sd": 0.034428221056936915,
+     "ci90": [
+      0.4747850897062302,
+      0.5404321927082062
+     ]
+    }
+   }
+  },
+  {
+   "bed": "C_lr",
+   "arm": "A",
+   "n_runs": 3,
+   "refs": [
+    "C_lr__A_s11",
+    "C_lr__A_s12",
+    "C_lr__A_s13"
+   ],
+   "reads": {
+    "hand_grad_cos_0_600": {
+     "n": 3,
+     "mean": 0.006493900472802731,
+     "sd": 0.009899487178485366,
+     "ci90": [
+      -0.010195194147155227,
+      0.02318299509276069
+     ]
+    },
+    "lock_300_600": {
+     "n": 3,
+     "mean": 0.013389064649731282,
+     "sd": 0.006558561525472531,
+     "ci90": [
+      0.0023322844452668065,
+      0.024445844854195757
+     ]
+    },
+    "lock_cam_300_600": {
+     "n": 3,
+     "mean": 7.630333419853631e-06,
+     "sd": 8.450513987527038e-06,
+     "ci90": [
+      -6.6160032824779465e-06,
+      2.187667012218521e-05
+     ]
+    },
+    "lock_rod_300_600": {
+     "n": 3,
+     "mean": 0.02677049896604271,
+     "sd": 0.013111320148955049,
+     "ci90": [
+      0.0046667214053194885,
+      0.04887427652676593
+     ]
+    },
+    "rod_odd_max_hand": {
+     "n": 3,
+     "mean": 1.4426599268533034,
+     "sd": 0.27434840243800795,
+     "ci90": [
+      0.9801484487766425,
+      1.9051714049299642
+     ]
+    },
+    "rod_odd_min_hand": {
+     "n": 3,
+     "mean": 0.7401032431235922,
+     "sd": 0.07555734546419779,
+     "ci90": [
+      0.6127245552229347,
+      0.8674819310242498
+     ]
+    },
+    "effective_std_at_3000": {
+     "n": 3,
+     "mean": 0.5041456818580627,
+     "sd": 0.009604253780689673,
+     "ci90": [
+      0.48795430777876997,
+      0.5203370559373555
+     ]
+    },
+    "exec_change_1000_3000": {
+     "n": 3,
+     "mean": 0.0065380587402420745,
+     "sd": 0.0006359792929537595,
+     "ci90": [
+      0.005465890212208969,
+      0.00761022726827518
+     ]
+    },
+    "lr_applied_500_3000": {
+     "n": 3,
+     "mean": 2.1535361723726967e-05,
+     "sd": 6.903879243064943e-07,
+     "ci90": [
+      2.0371468161819213e-05,
+      2.269925528563472e-05
+     ]
+    },
+    "mu_med_cam_2900_3000": {
+     "n": 3,
+     "mean": 0.9501419160763422,
+     "sd": 0.21076307863717367,
+     "ci90": [
+      0.5948260397737877,
+      1.3054577923788968
+     ]
+    },
+    "mu_med_rod_2900_3000": {
+     "n": 3,
+     "mean": 1.3755903164545693,
+     "sd": 0.235750966292527,
+     "ci90": [
+      0.9781484982810666,
+      1.773032134628072
+     ]
+    },
+    "symmetry_2500_3000": {
+     "n": 3,
+     "mean": 0.017973988166699807,
+     "sd": 0.0020096575351641463,
+     "ci90": [
+      0.014585998046266367,
+      0.021361978287133244
+     ]
+    },
+    "track_2900_3000": {
+     "n": 3,
+     "mean": 0.6080052661895752,
+     "sd": 0.042262893038330154,
+     "ci90": [
+      0.5367561794325609,
+      0.6792543529465894
+     ]
+    }
+   }
+  },
+  {
+   "bed": "C_lr",
+   "arm": "B",
+   "n_runs": 5,
+   "refs": [
+    "C_lr__B_s11",
+    "C_lr__B_s12",
+    "C_lr__B_s13",
+    "C_lr__B_s14",
+    "C_lr__B_s15"
+   ],
+   "reads": {
+    "hand_grad_cos_0_600": {
+     "n": 5,
+     "mean": -0.0045081723142648125,
+     "sd": 0.04341403962075743,
+     "ci90": [
+      -0.04589872116084085,
+      0.036882376532311224
+     ]
+    },
+    "lock_300_600": {
+     "n": 5,
+     "mean": 0.008465096348283073,
+     "sd": 0.003032038424790067,
+     "ci90": [
+      0.005574378607610885,
+      0.01135581408895526
+     ]
+    },
+    "lock_cam_300_600": {
+     "n": 5,
+     "mean": 2.5937125385847974e-05,
+     "sd": 5.7997175503691536e-05,
+     "ci90": [
+      -2.935685201452337e-05,
+      8.123110278621932e-05
+     ]
+    },
+    "lock_rod_300_600": {
+     "n": 5,
+     "mean": 0.016904255571180297,
+     "sd": 0.0060690883186822475,
+     "ci90": [
+      0.011118042200966882,
+      0.02269046894139371
+     ]
+    },
+    "rod_odd_max_hand": {
+     "n": 5,
+     "mean": 2.006117137985347,
+     "sd": 0.18211256050350397,
+     "ci90": [
+      1.8324926861503852,
+      2.1797415898203085
+     ]
+    },
+    "rod_odd_min_hand": {
+     "n": 5,
+     "mean": 1.6284347165157733,
+     "sd": 0.3083740295436629,
+     "ci90": [
+      1.3344337333236966,
+      1.92243569970785
+     ]
+    },
+    "effective_std_at_3000": {
+     "n": 5,
+     "mean": 0.7543651223182678,
+     "sd": 0.006036882942426407,
+     "ci90": [
+      0.7486096132596246,
+      0.760120631376911
+     ]
+    },
+    "exec_change_1000_3000": {
+     "n": 5,
+     "mean": 0.012654135641269385,
+     "sd": 0.0003786411032700065,
+     "ci90": [
+      0.012293142671780194,
+      0.013015128610758576
+     ]
+    },
+    "lr_applied_500_3000": {
+     "n": 5,
+     "mean": 2.5994417262700153e-05,
+     "sd": 2.078889020025477e-06,
+     "ci90": [
+      2.4012423458814786e-05,
+      2.797641106658552e-05
+     ]
+    },
+    "mu_med_cam_2900_3000": {
+     "n": 5,
+     "mean": 0.24818649888038635,
+     "sd": 0.060586665044564746,
+     "ci90": [
+      0.19042372580319056,
+      0.30594927195758215
+     ]
+    },
+    "mu_med_rod_2900_3000": {
+     "n": 5,
+     "mean": 0.9639488468170165,
+     "sd": 0.06554937289863898,
+     "ci90": [
+      0.9014546733992927,
+      1.0264430202347403
+     ]
+    },
+    "symmetry_2500_3000": {
+     "n": 5,
+     "mean": 0.017274489660188554,
+     "sd": 0.0007714001796439516,
+     "ci90": [
+      0.016539043774601244,
+      0.018009935545775863
+     ]
+    },
+    "track_2900_3000": {
+     "n": 5,
+     "mean": 0.6659736133813857,
+     "sd": 0.022491623107809198,
+     "ci90": [
+      0.6445303053406052,
+      0.6874169214221663
+     ]
+    }
+   }
+  },
+  {
+   "bed": "C_lr_rsi",
+   "arm": "C0",
+   "n_runs": 3,
+   "refs": [
+    "C_lr_rsi__C0_s11",
+    "C_lr_rsi__C0_s12",
+    "C_lr_rsi__C0_s13"
+   ],
+   "reads": {
+    "hand_grad_cos_0_600": {
+     "n": 3,
+     "mean": -0.015715202962358794,
+     "sd": 0.008868509268572678,
+     "ci90": [
+      -0.030666218873854616,
+      -0.0007641870508629748
+     ]
+    },
+    "lock_300_600": {
+     "n": 3,
+     "mean": 0.0446017844533475,
+     "sd": 0.003111705129113175,
+     "ci90": [
+      0.03935590248058819,
+      0.0498476664261068
+     ]
+    },
+    "lock_cam_300_600": {
+     "n": 3,
+     "mean": 0.0029846319324607,
+     "sd": 0.002153493785727978,
+     "ci90": [
+      -0.0006458451726174376,
+      0.006615109037538838
+     ]
+    },
+    "lock_rod_300_600": {
+     "n": 3,
+     "mean": 0.08621893697423429,
+     "sd": 0.007790617849497636,
+     "ci90": [
+      0.073085089119896,
+      0.09935278482857257
+     ]
+    },
+    "rod_odd_max_hand": {
+     "n": 3,
+     "mean": 0.9164332800616063,
+     "sd": 0.14092562827038255,
+     "ci90": [
+      0.6788531809941631,
+      1.1540133791290494
+     ]
+    },
+    "rod_odd_min_hand": {
+     "n": 3,
+     "mean": 0.6517402202684123,
+     "sd": 0.16407833474398564,
+     "ci90": [
+      0.3751280277117391,
+      0.9283524128250855
+     ]
+    },
+    "effective_std_at_3000": {
+     "n": 3,
+     "mean": 2.0,
+     "sd": 0.0,
+     "ci90": [
+      2.0,
+      2.0
+     ]
+    },
+    "exec_change_1000_3000": {
+     "n": 3,
+     "mean": 0.0038021998885475715,
+     "sd": 0.00022366003286662116,
+     "ci90": [
+      0.0034251416244259494,
+      0.004179258152669193
+     ]
+    },
+    "lr_applied_500_3000": {
+     "n": 3,
+     "mean": 3.8100670341979514e-05,
+     "sd": 6.921488946914461e-07,
+     "ci90": [
+      3.6933808040292867e-05,
+      3.926753264366616e-05
+     ]
+    },
+    "mu_med_cam_2900_3000": {
+     "n": 3,
+     "mean": 5.421005784670513,
+     "sd": 0.32266467594230863,
+     "ci90": [
+      4.87704010137507,
+      5.964971467965955
+     ]
+    },
+    "mu_med_rod_2900_3000": {
+     "n": 3,
+     "mean": 7.169372172355652,
+     "sd": 0.06521060278244348,
+     "ci90": [
+      7.059436586760277,
+      7.279307757951027
+     ]
+    },
+    "symmetry_2500_3000": {
+     "n": 3,
+     "mean": 0.03537311270708839,
+     "sd": 0.0026493618224531484,
+     "ci90": [
+      0.030906674260305148,
+      0.03983955115387164
+     ]
+    },
+    "track_2900_3000": {
+     "n": 3,
+     "mean": 0.5344091932972272,
+     "sd": 0.05020270071354441,
+     "ci90": [
+      0.44977474635267717,
+      0.6190436402417774
+     ]
+    }
+   }
+  },
+  {
+   "bed": "C_lr_rsi",
+   "arm": "A",
+   "n_runs": 3,
+   "refs": [
+    "C_lr_rsi__A_s11",
+    "C_lr_rsi__A_s12",
+    "C_lr_rsi__A_s13"
+   ],
+   "reads": {
+    "hand_grad_cos_0_600": {
+     "n": 3,
+     "mean": -0.00277267047824959,
+     "sd": 0.007747056153879652,
+     "ci90": [
+      -0.015833079653708195,
+      0.010287738697209014
+     ]
+    },
+    "lock_300_600": {
+     "n": 3,
+     "mean": 0.010354625239356909,
+     "sd": 0.007225735847005823,
+     "ci90": [
+      -0.00182691377122776,
+      0.02253616424994158
+     ]
+    },
+    "lock_cam_300_600": {
+     "n": 3,
+     "mean": 0.00023428728342464502,
+     "sd": 0.00040532928072877373,
+     "ci90": [
+      -0.0004490388926043031,
+      0.0009176134594535931
+     ]
+    },
+    "lock_rod_300_600": {
+     "n": 3,
+     "mean": 0.020474963195289173,
+     "sd": 0.014232928498823393,
+     "ci90": [
+      -0.003519682805384051,
+      0.04446960919596239
+     ]
+    },
+    "rod_odd_max_hand": {
+     "n": 3,
+     "mean": 1.3677480144236007,
+     "sd": 0.8987332825297121,
+     "ci90": [
+      -0.1473854990417549,
+      2.8828815278889564
+     ]
+    },
+    "rod_odd_min_hand": {
+     "n": 3,
+     "mean": 0.5781263207084995,
+     "sd": 0.31013710482085866,
+     "ci90": [
+      0.055280299071745365,
+      1.1009723423452535
+     ]
+    },
+    "effective_std_at_3000": {
+     "n": 3,
+     "mean": 0.5063478151957194,
+     "sd": 0.004178288508554562,
+     "ci90": [
+      0.49930382887486235,
+      0.5133918015165764
+     ]
+    },
+    "exec_change_1000_3000": {
+     "n": 3,
+     "mean": 0.006649432647701663,
+     "sd": 0.000920902564018424,
+     "ci90": [
+      0.005096924952144766,
+      0.008201940343258562
+     ]
+    },
+    "lr_applied_500_3000": {
+     "n": 3,
+     "mean": 2.2976380028921995e-05,
+     "sd": 1.966283359729813e-06,
+     "ci90": [
+      1.9661512455630136e-05,
+      2.6291247602213854e-05
+     ]
+    },
+    "mu_med_cam_2900_3000": {
+     "n": 3,
+     "mean": 0.9379765085379282,
+     "sd": 0.20432680478202447,
+     "ci90": [
+      0.5935112532253168,
+      1.2824417638505397
+     ]
+    },
+    "mu_med_rod_2900_3000": {
+     "n": 3,
+     "mean": 1.3788976426919302,
+     "sd": 0.09306579899340284,
+     "ci90": [
+      1.2220022503065109,
+      1.5357930350773494
+     ]
+    },
+    "symmetry_2500_3000": {
+     "n": 3,
+     "mean": 0.01840617472305894,
+     "sd": 0.00036097084632210935,
+     "ci90": [
+      0.017797630411550705,
+      0.019014719034567175
+     ]
+    },
+    "track_2900_3000": {
+     "n": 3,
+     "mean": 0.6167982457081477,
+     "sd": 0.07139164450844122,
+     "ci90": [
+      0.4964423233463115,
+      0.7371541680699838
+     ]
+    }
+   }
+  },
+  {
+   "bed": "C_lr_rsi",
+   "arm": "B",
+   "n_runs": 3,
+   "refs": [
+    "C_lr_rsi__B_s11",
+    "C_lr_rsi__B_s12",
+    "C_lr_rsi__B_s13"
+   ],
+   "reads": {
+    "hand_grad_cos_0_600": {
+     "n": 3,
+     "mean": 0.009069762757668893,
+     "sd": 0.025941205039149158,
+     "ci90": [
+      -0.03466333347735548,
+      0.05280285899269327
+     ]
+    },
+    "lock_300_600": {
+     "n": 3,
+     "mean": 0.008533341260703943,
+     "sd": 0.0038016329715401553,
+     "ci90": [
+      0.0021243413571258186,
+      0.014942341164282067
+     ]
+    },
+    "lock_cam_300_600": {
+     "n": 3,
+     "mean": 0.0,
+     "sd": 0.0,
+     "ci90": [
+      0.0,
+      0.0
+     ]
+    },
+    "lock_rod_300_600": {
+     "n": 3,
+     "mean": 0.017066682521407885,
+     "sd": 0.007603265943080311,
+     "ci90": [
+      0.004248682714251637,
+      0.029884682328564133
+     ]
+    },
+    "rod_odd_max_hand": {
+     "n": 3,
+     "mean": 1.928880865502167,
+     "sd": 0.05228487232704623,
+     "ci90": [
+      1.8407361802547435,
+      2.0170255507495902
+     ]
+    },
+    "rod_odd_min_hand": {
+     "n": 3,
+     "mean": 1.5731736026875804,
+     "sd": 0.2660480569582387,
+     "ci90": [
+      1.1246552990645688,
+      2.021691906310592
+     ]
+    },
+    "effective_std_at_3000": {
+     "n": 3,
+     "mean": 0.7423500418663025,
+     "sd": 0.004788851684205212,
+     "ci90": [
+      0.7342767348921453,
+      0.7504233488404597
+     ]
+    },
+    "exec_change_1000_3000": {
+     "n": 3,
+     "mean": 0.01210399435336391,
+     "sd": 0.0003976712176228704,
+     "ci90": [
+      0.011433578557183504,
+      0.012774410149544314
+     ]
+    },
+    "lr_applied_500_3000": {
+     "n": 3,
+     "mean": 2.6492019868480084e-05,
+     "sd": 2.8258072160459177e-06,
+     "ci90": [
+      2.1728120167812373e-05,
+      3.1255919569147796e-05
+     ]
+    },
+    "mu_med_cam_2900_3000": {
+     "n": 3,
+     "mean": 0.28097027182579043,
+     "sd": 0.032189463668640374,
+     "ci90": [
+      0.22670352090770576,
+      0.3352370227438751
+     ]
+    },
+    "mu_med_rod_2900_3000": {
+     "n": 3,
+     "mean": 0.9894139776627222,
+     "sd": 0.0389928548699051,
+     "ci90": [
+      0.9236776993390908,
+      1.0551502559863537
+     ]
+    },
+    "symmetry_2500_3000": {
+     "n": 3,
+     "mean": 0.017089735881115,
+     "sd": 0.0010562040805613272,
+     "ci90": [
+      0.015309129520334738,
+      0.01887034224189526
+     ]
+    },
+    "track_2900_3000": {
+     "n": 3,
+     "mean": 0.6503199183940888,
+     "sd": 0.016664051102333093,
+     "ci90": [
+      0.6222267535074201,
+      0.6784130832807574
+     ]
+    }
+   }
+  }
+ ],
+ "fast_contrast": {
+  "rows": [
+   {
+    "ref": "C_lr__A_s12",
+    "bed": "C_lr",
+    "arm": "A",
+    "seed": 12,
+    "fast_hand": "l",
+    "other_hand": "r",
+    "other_class": "SLOW",
+    "adv_fast_0_200": -0.03549005825900369,
+    "adv_other_0_200": 0.015832667782281835,
+    "adv_diff_0_200": -0.05132272604128553,
+    "adv_fast_0_600": -0.011801526844501496,
+    "adv_other_0_600": 0.010499373683705926,
+    "adv_diff_0_600": -0.02230090052820742,
+    "adv_fast_2500_3000": -0.03369489864708157,
+    "adv_other_2500_3000": 0.015172216622158886,
+    "adv_diff_2500_3000": -0.04886711526924045,
+    "rod_odd_rms_fast": 1.6739544066748704,
+    "rod_odd_rms_other": 0.7940263527910656,
+    "joint_odd_rms_fast": 0.21456029342318733,
+    "joint_odd_rms_other": 0.10913068727456529,
+    "feet_ss_022_fast": 0.1776185256152482,
+    "feet_ss_022_other": 0.0855819985946027,
+    "feet_ss_025_fast": 0.1869970016507092,
+    "feet_ss_025_other": 0.08382148420411616,
+    "frac_fast": 0.39956461588541664,
+    "frac_other": 0.39820760091145835
+   },
+   {
+    "ref": "C_lr__B_s11",
+    "bed": "C_lr",
+    "arm": "B",
+    "seed": 11,
+    "fast_hand": "l",
+    "other_hand": "r",
+    "other_class": "INTERMEDIATE",
+    "adv_fast_0_200": -0.0020141231620477307,
+    "adv_other_0_200": -0.05539213312375876,
+    "adv_diff_0_200": 0.053378009961711034,
+    "adv_fast_0_600": 0.005769655976910144,
+    "adv_other_0_600": -0.026003968550357966,
+    "adv_diff_0_600": 0.03177362452726811,
+    "adv_fast_2500_3000": -0.008512074779719114,
+    "adv_other_2500_3000": 0.004297764250077307,
+    "adv_diff_2500_3000": -0.01280983902979642,
+    "rod_odd_rms_fast": 1.8499219145024646,
+    "rod_odd_rms_other": 1.6713740340721648,
+    "joint_odd_rms_fast": 0.26740654259157826,
+    "joint_odd_rms_other": 0.2412431966399628,
+    "feet_ss_022_fast": 0.23263639237907796,
+    "feet_ss_022_other": 0.14010380956590127,
+    "feet_ss_025_fast": 0.24702799967654843,
+    "feet_ss_025_other": 0.15772502359449395,
+    "frac_fast": 0.39705810546875,
+    "frac_other": 0.4023356119791667
+   },
+   {
+    "ref": "C_lr__B_s13",
+    "bed": "C_lr",
+    "arm": "B",
+    "seed": 13,
+    "fast_hand": "l",
+    "other_hand": "r",
+    "other_class": "INTERMEDIATE",
+    "adv_fast_0_200": -0.07130056557555993,
+    "adv_other_0_200": 0.046163414501481585,
+    "adv_diff_0_200": -0.11746398007704151,
+    "adv_fast_0_600": -0.03733744155615568,
+    "adv_other_0_600": 0.02640977198956534,
+    "adv_diff_0_600": -0.06374721354572102,
+    "adv_fast_2500_3000": -0.007261253893375397,
+    "adv_other_2500_3000": -0.010911766579374671,
+    "adv_diff_2500_3000": 0.0036505126859992746,
+    "rod_odd_rms_fast": 1.9458829241856093,
+    "rod_odd_rms_other": 1.644741432440361,
+    "joint_odd_rms_fast": 0.27936242418035917,
+    "joint_odd_rms_other": 0.22035306668990437,
+    "feet_ss_022_fast": 0.2213795312332857,
+    "feet_ss_022_other": 0.13172798638544592,
+    "feet_ss_025_fast": 0.23492362730035693,
+    "feet_ss_025_other": 0.1430451232593194,
+    "frac_fast": 0.3947062174479167,
+    "frac_other": 0.4013142903645833
+   },
+   {
+    "ref": "C_lr__B_s14",
+    "bed": "C_lr",
+    "arm": "B",
+    "seed": 14,
+    "fast_hand": "l",
+    "other_hand": "r",
+    "other_class": "INTERMEDIATE",
+    "adv_fast_0_200": 0.020535729515055817,
+    "adv_other_0_200": -0.02140809181663725,
+    "adv_diff_0_200": 0.04194382133169307,
+    "adv_fast_0_600": -0.005431361254304648,
+    "adv_other_0_600": -0.00038185939192771914,
+    "adv_diff_0_600": -0.005049501862376928,
+    "adv_fast_2500_3000": 0.0213514382019639,
+    "adv_other_2500_3000": -0.046826886653434485,
+    "adv_diff_2500_3000": 0.06817832485539839,
+    "rod_odd_rms_fast": 1.9506857327046159,
+    "rod_odd_rms_other": 1.1239250666214813,
+    "joint_odd_rms_fast": 0.2886348335857254,
+    "joint_odd_rms_other": 0.2050443741451486,
+    "feet_ss_022_fast": 0.21846950627934952,
+    "feet_ss_022_other": 0.13770547818531303,
+    "feet_ss_025_fast": 0.24442820874247267,
+    "feet_ss_025_other": 0.15106234845827146,
+    "frac_fast": 0.40359700520833336,
+    "frac_other": 0.3989644368489583
+   },
+   {
+    "ref": "C_lr__B_s15",
+    "bed": "C_lr",
+    "arm": "B",
+    "seed": 15,
+    "fast_hand": "r",
+    "other_hand": "l",
+    "other_class": "INTERMEDIATE",
+    "adv_fast_0_200": -0.009640027872390218,
+    "adv_other_0_200": -0.027875776635482907,
+    "adv_diff_0_200": 0.01823574876309269,
+    "adv_fast_0_600": 0.005107192154973746,
+    "adv_other_0_600": -0.02535163682885468,
+    "adv_diff_0_600": 0.030458828983828425,
+    "adv_fast_2500_3000": 0.01501370735350065,
+    "adv_other_2500_3000": -0.019783188914880158,
+    "adv_diff_2500_3000": 0.03479689626838081,
+    "rod_odd_rms_fast": 1.962314380818238,
+    "rod_odd_rms_other": 1.7401416773609433,
+    "joint_odd_rms_fast": 0.2621434076394604,
+    "joint_odd_rms_other": 0.22523276787659108,
+    "feet_ss_022_fast": 0.2373852170768349,
+    "feet_ss_022_other": 0.15560019639658282,
+    "feet_ss_025_fast": 0.2582787823013051,
+    "feet_ss_025_other": 0.17356269368813487,
+    "frac_fast": 0.3974507649739583,
+    "frac_other": 0.399029541015625
+   },
+   {
+    "ref": "C_lr_rsi__A_s11",
+    "bed": "C_lr_rsi",
+    "arm": "A",
+    "seed": 11,
+    "fast_hand": "r",
+    "other_hand": "l",
+    "other_class": "SLOW",
+    "adv_fast_0_200": -0.0539989481266174,
+    "adv_other_0_200": -0.01858174239492251,
+    "adv_diff_0_200": -0.03541720573169489,
+    "adv_fast_0_600": -0.016643186728470028,
+    "adv_other_0_600": -0.007640076735988259,
+    "adv_diff_0_600": -0.009003109992481769,
+    "adv_fast_2500_3000": -0.027586073335260152,
+    "adv_other_2500_3000": 0.013473557052202522,
+    "adv_diff_2500_3000": -0.04105963038746267,
+    "rod_odd_rms_fast": 2.0701170816946854,
+    "rod_odd_rms_other": 0.6080955343616583,
+    "joint_odd_rms_fast": 0.2507381110775454,
+    "joint_odd_rms_other": 0.09413566080482776,
+    "feet_ss_022_fast": 0.22283389436682183,
+    "feet_ss_022_other": 0.09041058660285232,
+    "feet_ss_025_fast": 0.23596915436633875,
+    "feet_ss_025_other": 0.09620184801479541,
+    "frac_fast": 0.4122111002604167,
+    "frac_other": 0.3993021647135417
+   },
+   {
+    "ref": "C_lr_rsi__A_s13",
+    "bed": "C_lr_rsi",
+    "arm": "A",
+    "seed": 13,
+    "fast_hand": "r",
+    "other_hand": "l",
+    "other_class": "SLOW",
+    "adv_fast_0_200": -0.03853828087449074,
+    "adv_other_0_200": -0.031380508728842765,
+    "adv_diff_0_200": -0.007157772145647973,
+    "adv_fast_0_600": -0.009029581109061838,
+    "adv_other_0_600": -0.021057727166917176,
+    "adv_diff_0_600": 0.012028146057855339,
+    "adv_fast_2500_3000": 0.012283085682429373,
+    "adv_other_2500_3000": 0.017057401899364777,
+    "adv_diff_2500_3000": -0.004774316216935404,
+    "rod_odd_rms_fast": 1.6781749854735428,
+    "rod_odd_rms_other": 0.8721909145950473,
+    "joint_odd_rms_fast": 0.2341149556143546,
+    "joint_odd_rms_other": 0.1359647869336315,
+    "feet_ss_022_fast": 0.2284749053470979,
+    "feet_ss_022_other": 0.09359585627175601,
+    "feet_ss_025_fast": 0.225755551854754,
+    "feet_ss_025_other": 0.10695614085848054,
+    "frac_fast": 0.40742390950520835,
+    "frac_other": 0.4031901041666667
+   },
+   {
+    "ref": "C_lr_rsi__B_s11",
+    "bed": "C_lr_rsi",
+    "arm": "B",
+    "seed": 11,
+    "fast_hand": "l",
+    "other_hand": "r",
+    "other_class": "INTERMEDIATE",
+    "adv_fast_0_200": 0.030704276222321723,
+    "adv_other_0_200": 9.337647093666924e-05,
+    "adv_diff_0_200": 0.030610899751385052,
+    "adv_fast_0_600": 0.004244929552078247,
+    "adv_other_0_600": -0.00022471360862255096,
+    "adv_diff_0_600": 0.004469643160700799,
+    "adv_fast_2500_3000": 0.010237987028085626,
+    "adv_other_2500_3000": -0.016918723413255066,
+    "adv_diff_2500_3000": 0.027156710441340694,
+    "rod_odd_rms_fast": 1.8828848689273072,
+    "rod_odd_rms_other": 1.4411406486107614,
+    "joint_odd_rms_fast": 0.29005826931140816,
+    "joint_odd_rms_other": 0.21700902276955653,
+    "feet_ss_022_fast": 0.2404655469494711,
+    "feet_ss_022_other": 0.14129990390571906,
+    "feet_ss_025_fast": 0.2423267177510984,
+    "feet_ss_025_other": 0.15646047267037344,
+    "frac_fast": 0.40618693033854164,
+    "frac_other": 0.4055887858072917
+   },
+   {
+    "ref": "C_lr_rsi__B_s12",
+    "bed": "C_lr_rsi",
+    "arm": "B",
+    "seed": 12,
+    "fast_hand": "l",
+    "other_hand": "r",
+    "other_class": "INTERMEDIATE",
+    "adv_fast_0_200": 0.02535416863651739,
+    "adv_other_0_200": 0.012697417806420062,
+    "adv_diff_0_200": 0.012656750830097329,
+    "adv_fast_0_600": 0.006186224240809679,
+    "adv_other_0_600": -0.005887130089104175,
+    "adv_diff_0_600": 0.012073354329913855,
+    "adv_fast_2500_3000": -0.002896614043856971,
+    "adv_other_2500_3000": -0.016015830123797058,
+    "adv_diff_2500_3000": 0.013119216079940087,
+    "rod_odd_rms_fast": 1.918011710106867,
+    "rod_odd_rms_other": 1.8794129822344012,
+    "joint_odd_rms_fast": 0.24443043167322756,
+    "joint_odd_rms_other": 0.2283717847033004,
+    "feet_ss_022_fast": 0.22433851664848947,
+    "feet_ss_022_other": 0.15297872259460216,
+    "feet_ss_025_fast": 0.2477457671358616,
+    "feet_ss_025_other": 0.15558620172573645,
+    "frac_fast": 0.4042154947916667,
+    "frac_other": 0.40788167317708335
+   },
+   {
+    "ref": "C_lr_rsi__B_s13",
+    "bed": "C_lr_rsi",
+    "arm": "B",
+    "seed": 13,
+    "fast_hand": "r",
+    "other_hand": "l",
+    "other_class": "SLOW",
+    "adv_fast_0_200": -0.008145280182361603,
+    "adv_other_0_200": 0.030582063210507233,
+    "adv_diff_0_200": -0.03872734339286883,
+    "adv_fast_0_600": -0.0018279916420578957,
+    "adv_other_0_600": 0.009272291380912066,
+    "adv_diff_0_600": -0.011100283022969962,
+    "adv_fast_2500_3000": -0.04185381032293663,
+    "adv_other_2500_3000": 0.02679840278578922,
+    "adv_diff_2500_3000": -0.06865221310872585,
+    "rod_odd_rms_fast": 1.9857460174723267,
+    "rod_odd_rms_other": 1.3989671772175787,
+    "joint_odd_rms_fast": 0.2916137706835231,
+    "joint_odd_rms_other": 0.22360049776004187,
+    "feet_ss_022_fast": 0.23751659601793373,
+    "feet_ss_022_other": 0.1266144537227178,
+    "feet_ss_025_fast": 0.2672484955805723,
+    "feet_ss_025_other": 0.13953724301326623,
+    "frac_fast": 0.406134033203125,
+    "frac_other": 0.4072957356770833
+   }
+  ],
+  "summary": {
+   "adv_diff_0_200": {
+    "n": 10,
+    "mean": -0.009326379675055955,
+    "sd": 0.05207438449959778,
+    "ci90": [
+     -0.03951292176418668,
+     0.02086016241407477
+    ],
+    "n_fast_higher": 5
+   },
+   "adv_diff_0_600": {
+    "n": 10,
+    "mean": -0.0020397411892190574,
+    "sd": 0.027882541472761473,
+    "ci90": [
+     -0.018202726499702143,
+     0.014123244121264027
+    ],
+    "n_fast_higher": 5
+   },
+   "adv_diff_2500_3000": {
+    "n": 10,
+    "mean": -0.0029261453681101537,
+    "sd": 0.041727039377085995,
+    "ci90": [
+     -0.02711452594169044,
+     0.02126223520547013
+    ],
+    "n_fast_higher": 5
+   },
+   "rod_odd_rms_diff": {
+    "n": 10,
+    "mean": 0.5743678202255065,
+    "sd": 0.42931514666828297,
+    "ci90": [
+     0.32550189758548853,
+     0.8232337428655244
+    ],
+    "n_fast_higher": 10
+   },
+   "joint_odd_rms_diff": {
+    "n": 10,
+    "mean": 0.07229771941828392,
+    "sd": 0.04181951378893994,
+    "ci90": [
+     0.0480557331659727,
+     0.09653970567059514
+    ],
+    "n_fast_higher": 10
+   },
+   "feet_ss_022_diff": {
+    "n": 10,
+    "mean": 0.0985499639688117,
+    "sd": 0.02138193680237852,
+    "ci90": [
+     0.08615525702345898,
+     0.11094467091416442
+    ],
+    "n_fast_higher": 10
+   },
+   "feet_ss_025_diff": {
+    "n": 10,
+    "mean": 0.10267427268730293,
+    "sd": 0.019323465329732562,
+    "ci90": [
+     0.0914728229709201,
+     0.11387572240368576
+    ],
+    "n_fast_higher": 10
+   },
+   "fast_hand_counts": {
+    "l": 6,
+    "r": 4
+   }
+  }
+ },
+ "hand_adv_bias_all": {
+  "C0": {
+   "n": 8,
+   "mean": 0.01561300077533815,
+   "sd": 0.04699176576906201,
+   "ci90": [
+    -0.015863714060687963,
+    0.04708971561136426
+   ],
+   "n_l_higher": 5
+  },
+  "A": {
+   "n": 6,
+   "mean": -0.004021933579739803,
+   "sd": 0.016613794464389417,
+   "ci90": [
+    -0.017689106348676938,
+    0.009645239189197333
+   ],
+   "n_l_higher": 3
+  },
+  "B": {
+   "n": 8,
+   "mean": 0.0022019790389458645,
+   "sd": 0.036989756653598466,
+   "ci90": [
+    -0.02257504312619843,
+    0.026979001204090157
+   ],
+   "n_l_higher": 5
+  }
+ }
+}

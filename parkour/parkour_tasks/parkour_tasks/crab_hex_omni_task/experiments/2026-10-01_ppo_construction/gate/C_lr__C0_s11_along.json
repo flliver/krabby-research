@@ -1,0 +1,24 @@
+{
+ "C_lr__C0_s11": {
+  "stamp": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/2026-10-01_ppo_construction/seed11_X04_s1_A15pB/side22_25__omni/seed001/2026-10-01_21-24-45",
+  "labels": {
+   "lat_l_022": {
+    "n_s0": 91,
+    "static": 0,
+    "wrong_way": 0,
+    "short": 9,
+    "along_med_s0": 0.07879671014560417,
+    "along_med_moving": 0.07879671014560417
+   },
+   "lat_l_025": {
+    "n_s0": 93,
+    "static": 0,
+    "wrong_way": 0,
+    "short": 6,
+    "along_med_s0": 0.08286378079399347,
+    "along_med_moving": 0.08286378079399347
+   }
+  },
+  "class_along": "SLOW"
+ }
+}

@@ -744,7 +744,11 @@ def c_guard(runs_by_arm: dict) -> dict:
     # integer arithmetic: k/n >= 2/3 <=> 3k >= 2n; k/n <= 1/3 <=> 3k <= n
     if 3 * kA >= 2 * nA:
         out["guard"] = "PASS"
-        out["why"] = f"A FAST {kA}/{nA} >= 2/3" + (" (C0 itself not reliably FAST: noted)" if 3 * kC <= nC else "")
+        # 2026-10-03 (independent check): when C0 <= 1/3 the 4.7 record string is emitted too; the literal 4.7 reading
+        # (UNDEFINED: "the guard does not decide") is the user's call and only gates the 4.10 MQ proposal.
+        out["why"] = f"A FAST {kA}/{nA} >= 2/3" + (f"; C bed not reliable at fresh seeds (C0 {kC}/{nC}) -- under the "
+                                                   "literal 4.7 reading the guard is UNDEFINED (user's call)"
+                                                   if 3 * kC <= nC else "")
         return out
     if 3 * kC >= 2 * nC and 3 * kA > nA:
         out["guard"] = "UNDEFINED"
@@ -786,6 +790,10 @@ def c_guard(runs_by_arm: dict) -> dict:
 
 
 def q_better(arm_runs: list[dict], c0_runs: list[dict]) -> dict:
+    # CHARTER 4.6 pre-registers 3 v 3 at the screen seeds (one-sided permutation p = 1/20): extension seeds 14-15 are
+    # left out (2026-10-03 implementation review; changes no final line on this screen).
+    arm_runs = [r for r in arm_runs if r.get("seed") in SCREEN_SEEDS]
+    c0_runs = [r for r in c0_runs if r.get("seed") in SCREEN_SEEDS]
     a = [r["jitter"] for r in arm_runs if r.get("jitter") is not None]
     c = [r["jitter"] for r in c0_runs if r.get("jitter") is not None]
     af = [r["fft"] for r in arm_runs if r.get("fft") is not None]
@@ -797,6 +805,9 @@ def q_better(arm_runs: list[dict], c0_runs: list[dict]) -> dict:
         return out
     out["better"] = bool(max(a) < min(c) and _mean(af) <= _mean(cf))
     return out
+
+
+SCREEN_SEEDS = (11, 12, 13)
 
 
 def lr_confound(arm_runs: list[dict], c0_runs: list[dict]) -> dict:
@@ -1059,14 +1070,17 @@ def markdown(res: dict) -> str:
     L = ["# PPO construction -- verdict support (scripts/verdict.py)", ""]
     L += ["## Runs", "",
           "| ref | bed | arm | seed | hand L | hand R | run | fall share | trip thr | tripped | dose 1000 | dose final "
-          "| DEAD | wiring | LR floor share | lr_applied | feet 2500 -> 2999 | jitter | fft | rod odd L/R | flags |",
-          "|" + "---|" * 21]
+          "| sat15 cam/rod 1000 (reported) | DEAD | wiring | LR floor share | lr_applied | feet 2500 -> 2999 | jitter | fft "
+          "| rod odd L/R | flags |",
+          "|" + "---|" * 22]
     for f in sorted(res["runs"], key=lambda r: (r["bed"], r["arm"], r["seed"])):
         d1, dF = f.get("dose_1000") or {}, f.get("dose_final") or {}
         w = f.get("wiring") or {}
         L.append(f"| {f['ref']} | {f['bed']} | {f['arm']} | {f['seed']} | {f['hands'].get('l')} | {f['hands'].get('r', '')} "
                  f"| {'FAST' if f['fast'] else 'not FAST'} | {_f(f.get('fall_share'))} | {_f(f.get('trip_threshold'))} "
-                 f"| {'YES' if f.get('tripped') else ''} | {_f(d1.get('ok'))} | {_f(dF.get('ok'))} "
+                 f"| {'YES' if f.get('tripped') else ''} | {_f(d1.get('ok')) if f.get('bound') else 'ref'} "
+                 f"| {_f(dF.get('ok')) if f.get('bound') else 'ref'} "
+                 f"| {_f(d1.get('sat15_cam'), '{:.2f}')}/{_f(d1.get('sat15_rod'), '{:.2f}')} "
                  f"| {_f((f.get('dead') or {}).get('dead'))} | {_f(w.get('ok'))} | {_f(f.get('floor_share'), '{:.2f}')} "
                  f"| {_f(f.get('lr_applied_mean'), '{:.2e}')} | {_f(f.get('feet_2500'))} -> {_f(f.get('feet_2999'))} "
                  f"| {_f(f.get('jitter'))} | {_f(f.get('fft'), '{:.2f}')} | {_f(f.get('odd_l'), '{:.2f}')}/{_f(f.get('odd_r'), '{:.2f}')} "

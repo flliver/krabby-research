@@ -502,3 +502,39 @@ as `C_lr_rsi__*`, identical to X16's definition.
   - **Checks:** wiring and dose PASS.
   - **C_lr__B is final at 5 seeds: 1/5 runs FAST.** Every run has one FAST hand (L in 4, R in 1), and in 4 of 5 the other hand is INTERMEDIATE.
   - The last run, C_lr__C0_s15, is training.
+- 2026-10-03 00:55: **C_lr__C0_s15 = SLOW / SLOW** (L 0.064 / 0.079, R 0.090 / 0.092; lean 0.19–0.31; rod odd RMS 0.50 / 0.70).
+  - **The queue has ended:** 31 runs in total (C__A_s11 excluded as superseded).
+  - **Final `verdict.py`, with tfevents** (`verdict/verdict.{json,md}`; gate JSONs copied to `gate/`):
+    - C_lr A PARTIAL (0/3 vs C0 0/5);
+    - C_lr B PARTIAL (1/5 vs 0/5);
+    - C_lr_rsi A PARTIAL (0/3 vs 0/3);
+    - C_lr_rsi B PARTIAL (0/3 vs 0/3);
+    - C-bed guard PASS (A 3/3; C0 1/3);
+    - pilot PASS; STOPS none;
+    - UNLOCK none, so 4c is not triggered;
+    - LR-floor 4a trigger none; 4b not triggered (rung 1);
+    - "Q better" + "adopt for motion quality" = yes for C_lr_rsi A only, a proposal to the user (§4.10).
+  - **Step 4 runs nothing.** The final read workflow `wf_594e4e5d-d98` is running:
+    - mechanism telemetry tables;
+    - the independent fable·high re-derivation of the verdicts;
+    - an opus review of verdict.py;
+    - a fable reading of the mechanism data.
+
+    The write-up goes to `RESULTS.md`; the driver regenerates `REPORT.md`.
+- 2026-10-03 02:30, **step 3 closed: final read.**
+  - **Verdicts** (`verdict/verdict.{json,md}`, re-run after the post-result edits below, unchanged):
+    - C_lr A and B PARTIAL;
+    - C_lr_rsi A and B PARTIAL;
+    - C guard PASS, with the 4.7 record "C bed not reliable at fresh seeds (C0 1/3)";
+    - no UNLOCK, no 4a, no 4b, so step 4 runs nothing;
+    - "Q better" and the "adopt for motion quality" proposal for C_lr_rsi A only.
+  - **Independent fable·high check** (`wf_594e4e5d-d98`): it reproduces every line from `gate/` and the tfevents, and no finding changes a verdict. Rulings: guard PASS (UNDEFINED is admissible; the user's call); the C__A_s11 supersede is consistent with the amendment; C_lr_rsi__B_s12 is valid; MQ is a proposal for C_lr_rsi A only.
+  - **Opus·high implementation review:** two confirmed mismatches, the guard precedence (the user's call) and the Q seed set. The Q fix changes no line.
+  - **Post-result verdict.py edits:** the guard record string; Q restricted to the 3 v 3 screen seeds; sat15 reported per run. None changes a verdict.
+  - **Mechanism reads:** `verdict/mechanism_reads.{json,md}` (`scripts/mechanism_reads.py`).
+  - **Write-up and decisions for the user:** `RESULTS.md` (guard reading; MQ proposal, recommended decline; ranked next experiments, outside the approved plan).
+  - **Corrections to this log:**
+    - the 00:55 "31 runs" is 29 records (28 counted + 1 excluded);
+    - C__A_s13 and C_lr__A_s13 also carry "dose lost late" (final rod median 1.625 / 1.647; class counts);
+    - some seed-11 entries (C_lr__A_s11, C_lr_rsi__C0_s11, C_lr_rsi__B_s11) quoted model_2500 speeds; the `RESULTS.md` table, generated from `gate/`, is the record;
+    - "the `_e2` retry is what the uninterrupted run would have been" is an inference: the recorder shared the GPU during its first hour.
