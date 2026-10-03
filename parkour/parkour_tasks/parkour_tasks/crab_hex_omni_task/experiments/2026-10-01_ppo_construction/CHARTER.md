@@ -729,3 +729,19 @@ code-path review (workflow `wf_01145c14-592`).
   - **Other reads:** fall 0.000; dose 0.28 / 1.00; no drop and no artifact.
   - **Candidates so far:** s12, s13, s14.
   - **Next:** fork 4 (the C0 control) launched at 11:42.
+- 2026-10-03 13:10, **x6k fork 4 `C_lr__C0_x6k_s11` (the C0 control): FROZEN.**
+  - **Resume read:** PASS (σ 1.99969 vs 1.99976; priv_reg continues).
+  - **Per-hand feet:**
+
+    | Checkpoint | L | R |
+    |---|---|---|
+    | model_2999 | SLOW 0.084 | SLOW 0.081 |
+    | model_3100 | SLOW 0.085 | SLOW 0.080 |
+    | model_4000 | SLOW 0.086 | SLOW 0.082 |
+    | model_5000 | SLOW 0.086 | SLOW 0.080 |
+    | head | SLOW 0.086 | SLOW 0.082 |
+
+    The rises are +0.001 / +0.001.
+  - **Other reads:** fall 0.025; median |μ| in the last 100 iterations is 6.71 (cam) / 9.77 (rod), more saturated than at 2999. priv_reg at the head is 0.1000.
+  - **Reading:** over 3000 more iterations, including the 0.04 → 0.1 priv_reg ramp, the incumbent did not move. The step-3 freeze reading holds, and its two-direction SLOW is not slowness.
+  - **Next:** fork 5 (s15) launched at 13:10.
