@@ -490,3 +490,15 @@ as `C_lr_rsi__*`, identical to X16's definition.
   - So a same-seed rerun is a replay, not a new sample (consistent with the D18 re-roll exclusion).
   - C_lr_rsi__B_s12's `_e2` retry is what the uninterrupted run would have been.
   - "Same-seed reruns diverge" (D18) does not hold for this training path on this machine.
+- 2026-10-02 21:04: **C_lr__B_s14 = L FAST / R INTERMEDIATE.** L 0.218 / 0.244 (lean ≈ 0, sweep 0.16–0.18); R 0.138 / 0.151 (lean 0.10, sweep 0.04). Rod odd RMS 1.95 / 1.12. At model_2500 it was FAST / SLOW, so R rose late again. Wiring and dose PASS.
+  - **C_lr__B so far:** FAST/INT, FAST/FAST, FAST/INT, FAST/INT, i.e. 1/4 runs FAST.
+  - **Pattern:** in all four runs the left hand is FAST.
+- 2026-10-02 22:21: **C_lr__C0_s14 = SLOW / SLOW** (L 0.079 / 0.085, R 0.075 / 0.078; lean 0.21–0.23; rod odd RMS 0.40 / 0.30; n 89–97 per hold, so a few short episodes; model_2500 is also SLOW/SLOW). C_lr C0 so far: 0/4.
+- 2026-10-02 23:39: **C_lr__B_s15 = L INTERMEDIATE / R FAST.**
+  - **L:** 0.156 / 0.174 (lean 0.12–0.13). It sits right on the FAST bounds (0.155 / 0.175), FAST on the first and just short on the second.
+  - **R:** 0.237 / 0.258 (lean 0.02–0.03).
+  - **Rod odd RMS:** 1.74 / 1.96.
+  - **Late rise:** at model_2500 it was SLOW / FAST, so L rose late.
+  - **Checks:** wiring and dose PASS.
+  - **C_lr__B is final at 5 seeds: 1/5 runs FAST.** Every run has one FAST hand (L in 4, R in 1), and in 4 of 5 the other hand is INTERMEDIATE.
+  - The last run, C_lr__C0_s15, is training.
