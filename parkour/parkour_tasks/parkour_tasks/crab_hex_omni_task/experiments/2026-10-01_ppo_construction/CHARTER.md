@@ -458,6 +458,134 @@ code-path review (workflow `wf_01145c14-592`).
   alg_state and the adaptive LR; model_3100, model_4000 and model_5000 exist (save_interval 100); the head is
   model_5998.
 
+## 11. FB6k + INC0: confirm B on the FB pool at fresh seeds (pre-registered 2026-10-03)
+
+(Placed before the log. The user approved x6k next-option 1 ("Run 1") on 2026-10-03; the design is
+`x6k/next_options.md`, the confirm option of opus·high. Nothing here changes step 3's or x6k's readings.)
+
+### 11.1 Questions
+
+1. **FB6k.** x6k showed B finishing its second side hand by 6000 iterations on C_lr. Does B form both side hands
+   at fresh seeds, from scratch, when fwd/back share the pool (each side hand's weight halves from 0.4 to 0.2), and
+   do fwd/back hold against a matched C0 lineage?
+2. **INC0.** Does `action_rate 0` alone, on the incumbent construction, flip C_lr at 6000? B is the construction
+   plus action_rate 0, and INC0 attributes the flip.
+
+### 11.2 Arms (`scripts/candidates_v5.yaml`; overlays are the named chains verbatim)
+
+| Chain | Overlay | Seeds | Iterations | Driver eval |
+|---|---|---|---|---|
+| `FB6k__B` | `FB_C_lr__B` (+ the RNG-free hand diagnostic) | 16, 17, 18 | 6000 from scratch | `suite` |
+| `FB6k__C0` | `FB_C_lr__C0` (+ hand diagnostic): the C0 lineage | 16, 17, 18 | 6000 from scratch | `suite` |
+| `C_lr6k__INC0` | `C_lr__INC0` (C_lr C0 + `KRABBY_ACTION_RATE_W=0`) | 11, 12, 13 | 6000 from scratch | `side22_25` |
+| `FB6k__{B,C0}_x9k_s{16,17,18}` | the forked chain's, verbatim | the head's | +3000 (fork of model_5999) | `suite` |
+
+- **Pool:** `FB_C_lr` is `stand:0.2,fwd:0.2,side_l:0.2,side_r:0.2,back:0.2`, slots 0.2:0.8:0:0, fa mirror,
+  RSI 0, ellipse 0.35, base 1b, clock visible.
+- **The x9k forks** are pre-declared and run only when 11.4's extension rule fires.
+- **Order:**
+  1. The INC0 block: s11, s12, s13.
+  2. The INC0 gate (11.5).
+  3. The FB6k block in the drawn order (random.Random(20261004), seed-block-major): C0_s16, B_s16, C0_s17,
+     B_s17, B_s18, C0_s18.
+  4. The triggered forks.
+
+### 11.3 Reads (`scripts/fb6k_read.py`, written and self-tested before launch)
+
+- **Classes:** §4.1 (feet AND along-command; FAST 0.155 / 0.175) on the both-hands eval `side22_25lr__omni` of
+  `model_3000`, `model_4500` and the head (`model_5999`). For forks, of `model_6100`, `model_7500` and the head
+  (`model_8998`).
+- **Suite:** the head's driver stamp gives the `fwd`, `back`, `side` and `diag` ratios
+  (`aggregate.suite.by_category.<cat>.ratio.median`) and survival. **diag is descriptive**: it is not trained
+  here, and it is a free diagonal read.
+- **B dose:** median |μ| ≤ 1.5 on cams and rods over the run's own last 100 logged iterations.
+- **Live kills (§4.2):** the from-scratch reads apply as in step 3, for construction arms only (INC0 and C0 are
+  not construction arms). These are the iteration-200 wiring, the iteration-1000 dose and live divergence.
+  - **The DEAD-at-1000 kill is advisory on FB6k** (`ADVISE_DEAD=1`: logged, never stops a run). Its threshold
+    (track 0.40) was calibrated on C_lr, where B's margin was only +0.05, and there is no FB-pool calibration. A
+    false kill would remove a seed from the count.
+  - **The x9k forks** get the resume read (§10.3) instead.
+- **Descriptive:** the Q block (jitter, fft) and rod odd RMS.
+
+### 11.4 FB6k: extension and gate
+
+- **Extension** (revised by the pre-launch review, before any run):
+  - **B:** every run that is not FAST/FAST at model_5999 and has no DEAD hand is forked +3000 (x9k). Its final
+    read is the fork head. x6k shows flat stretches before the second hand crosses (s15: +0.010 over 2999 → 4000,
+    then FAST), so a rise trigger would miss them. The 4500 → 5999 rise is reported, not a trigger.
+  - **C0:** the C0 run of the SAME seed is forked whenever B's is (equal budget per seed). It is also forked if a
+    C0 hand rose ≥ 0.03 from model_4500 and it is not FAST/FAST.
+  - **Resume artifact:** a hand that was FAST at 5999 but is below FAST and −0.03 at model_6100 is a RESUME
+    ARTIFACT. Stop and ask.
+  - **Rationale:** each side hand's weight halves against C_lr, where formation took ≤ 4000 iterations. So 6000
+    is the scaled budget, and the fork covers seeds whose second hand is still rising.
+- **Tripwire (§4.4):** threshold max(0.15, ref + 0.10), where ref is the median fall share of the FB6k C0 final
+  reads (runs above 0.25 excluded). It applies to B.
+- **"B counted FAST/FAST":** at its final read, both hands FAST, untripped, and dose OK. A DEAD or DIVERGED kill
+  is a valid not-FAST run, and it is left out of the fwd/back comparison (n reported). A wiring kill means a
+  rerun under a fresh name. A dose kill is a §4.3 stop.
+- **Missing reads are PENDING, never a decision.** That covers a head; model_4500 for the C0 rise; model_6100
+  for the artifact rule; a B dose read on an otherwise counted run; a suite read.
+- **fwd/back** are compared at model_5999 for both arms (equal budget; the extension targets side only):
+  - **holds:** B's seed-mean ratio ≥ C0's − 0.03;
+  - **clearly inferior:** B's seed-mean < C0's − 0.03 AND B's best seed < C0's worst seed.
+- **Gate** (the first that matches decides):
+  1. **RESUME ARTIFACT:** stop and ask.
+  2. **PENDING:** while a read or a triggered extension is missing.
+  3. **FAIL:** B counted FAST/FAST ≤ 1/3, or fwd or back clearly inferior. The construction does not survive a
+     multi-command pool at this budget. Stop; no P1.
+  4. **PASS:** B ≥ 2/3, C0 0/3, no B run tripped, and fwd and back hold. This is the precondition for P1
+     (x6k option 2), which is the user's call.
+  5. **PARTIAL:** anything else, reported with the numbers. Examples: C0 ≥ 1/3 (the FB pool lets C0 form, so the
+     construction effect is unresolved), or fwd/back short but not clearly inferior. No P1 on a PARTIAL.
+
+### 11.5 INC0 gate (before any FB6k GPU is spent)
+
+INC0 is FAST/FAST at its model_5999 head in:
+- **≥ 2 of 3:** STOP before FB6k. The flip belongs to action_rate 0, not the construction; stop and ask.
+- **1 of 3:** noted. B is labelled "construction + action_rate 0".
+- **0 of 3:** action_rate 0 alone does not flip C_lr by 6000 *continuous* iterations. The construction
+  attribution is read together with FB6k, whose from-scratch B runs test the premise that a fork equals a
+  continuous run. The x6k comparison point (B at seeds 11–13: 3/3 FAST/FAST) was reached as 3000 iterations plus
+  an env-restarting fork, and x6k's check rated that premise open.
+
+These also STOP:
+- fewer than 3 INC0 reads;
+- a dumped `reward_action_rate` weight (`params/env.yaml`) that is not 0, which would mean INC0 is not wired.
+
+### 11.6 Running
+
+- **Command:** `scripts/fb6k_queue.sh`, run detached. It chains the INC0 block, the gate, the FB6k block, the
+  extension decision and the forks, each through `run_arm.sh`. Settings:
+  - `ARMS_DIR=$OUT/arms_fb6k`;
+  - `EXTRA_LR_EVALS="3000 4500"` (forks: `RESUME_READ=1` and `"6100 7500"`).
+- **Process rules:** one Isaac process at a time, and no rendering while the queue can launch.
+- **Budget:**
+
+  | Block | Calculation | GPU-h |
+  |---|---|---|
+  | INC0 | 3 × ≈ 2.7 | ≈ 8 |
+  | FB6k | 6 × ≈ 2.7 | ≈ 16 |
+  | Forks | ≤ 6 × ≈ 1.45 | ≤ 9 |
+  | **Total** | | **≈ 24–33** |
+
+- **At the end:** an independent check, then `fb6k/RESULTS.md`. Adoption, a bake or P1 is the user's call. A PASS
+  says nothing on smoothness: B's jitter is about 1.6–2× C0's (x6k).
+
+**Pre-launch review (2026-10-03, before any run):** a fable·high audit of this section and an opus·high
+code-path review (workflow `wf_5e3c6bef-eb8`).
+- **Opus:** no queue break and no wasted GPU. The hashes, validation, chain_info, the live checks, stamp
+  discovery and checkpoints all hold.
+- **Applied:**
+  - a DEAD-killed seed no longer hangs the gate;
+  - missing reads are PENDING;
+  - every non-FAST/FAST B run is extended, and its seed's C0 with it;
+  - the DEAD-at-1000 kill is advisory on FB6k;
+  - the INC0 0/3 wording is corrected, and the INC0 action_rate dump is checked;
+  - the queue stops on run_arm or reader errors;
+  - the Q block and odd RMS appear in the reader rows.
+- **Tests:** the reader self-test has 28 cases.
+
 ## 9. Log
 
 - 2026-10-01: charter written. Code is being implemented on worktree `claude/ppo-construction`.
@@ -780,3 +908,12 @@ code-path review (workflow `wf_01145c14-592`).
   - **Q block** (CPU): B's jitter at 6000 is 0.117–0.155, against C0 0.065–0.104 and A 0.043–0.066. That is the action_rate 0 cost, and it rose from 3000 in 4/5 seeds.
   - **Write-up and next options:** `x6k/RESULTS.md`, with opus's confirm design in `x6k/next_options.md`. The ranked options are FB6k + INC0 (≈ 26–30 GPU-h), P1 behind it (≈ 42), a head-fork probe (≈ 6), and completing the C0 control (≈ 6).
   - **No adoption and no bake.** 4c stays formally untriggered: this is a result with an amended budget, so it is the user's call.
+- 2026-10-03 (pre-launch), **FB6k + INC0 registered (§11):** the user approved x6k next-option 1 ("Run 1"). Pre-launch it got:
+  - candidates_v5 (dry run clean; the step-3 verdict is unchanged under v5);
+  - `fb6k_read.py` (reader, INC0 gate and extension rule; self-test 28 cases);
+  - `fb6k_queue.sh` (INC0 → gate → FB6k → forks; stops on errors);
+  - run_arm `ADVISE_DEAD`;
+  - 46 tooling tests;
+  - a fable/opus pre-launch review, whose fixes are applied (§11.6).
+
+  The queue launches now; INC0 runs first.

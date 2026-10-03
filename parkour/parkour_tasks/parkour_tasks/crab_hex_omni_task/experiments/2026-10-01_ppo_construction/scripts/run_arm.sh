@@ -243,7 +243,9 @@ watch_arm() {  # REF RUN_DIR UNIT CHAIN TRAIN_LOG (background): progress notes +
         say "CHECK1000 $ref rc $rc :: $(echo "$out" | tail -1 | cut -c1-400)"
         say "EARLY $ref $("$PY" "$S/early_read.py" "$rd" 1000 2>/dev/null | grep EARLY | cut -c1-120) (progress note only)"
         kk=$(kill_kind "$rc")
-        if [ -n "$kk" ]; then kill_arm "$ref" "$unit" "$rc" 1000 "$(echo "$out" | tail -1 | cut -c1-300)"; [ "$AUTO_KILL" = 1 ] && return; fi
+        if [ "$kk" = dead ] && [ "${ADVISE_DEAD:-0}" = 1 ]; then   # CHARTER 11.3 (FB6k): DEAD-at-1000 is uncalibrated
+          say "KILL-ADVISED $ref dead at it 1000 (ADVISE_DEAD=1: not stopped) :: $(echo "$out" | tail -1 | cut -c1-300)"
+        elif [ -n "$kk" ]; then kill_arm "$ref" "$unit" "$rc" 1000 "$(echo "$out" | tail -1 | cut -c1-300)"; [ "$AUTO_KILL" = 1 ] && return; fi
       fi
     fi
     # 4a divergence kills, every poll (an immediate rc 0 "n/a" for every other arm, without reading tfevents)

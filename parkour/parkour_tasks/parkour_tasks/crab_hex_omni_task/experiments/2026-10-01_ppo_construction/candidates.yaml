@@ -1279,6 +1279,215 @@ chains:
         categories: [side, stand]
         floor: {kind: none}
 
+
+  # ======================================================================== FB6k + INC0 (2026-10-03, CHARTER 11)
+  #: The user approved x6k next-option 1 ("Run 1"): B vs a C0 lineage on the FB pool from scratch at the confirm
+  #: seeds 16-18, 6000 iterations, + INC0 (C_lr C0 + action_rate 0) at 6000 for attribution. Overlays are the
+  #: FB_C_lr__B / FB_C_lr__C0 / C_lr__INC0 chains VERBATIM (+ the RNG-free per-hand diagnostic on the FB arms).
+  #: The x9k forks are pre-declared and run ONLY when CHARTER 11.4's extension rule fires.
+  FB6k__B:
+    notes: "FB6k (CHARTER 11): FB_C_lr__B verbatim + hand diag, 6000 its from scratch."
+    stages:
+      - stage: s1
+        base: "1b"
+        iters: 6000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.2,fwd:0.2,side_l:0.2,side_r:0.2,back:0.2"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_SLOTS: "0.2:0.8:0:0"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+          KRABBY_STD_PARAM: soft
+          KRABBY_INIT_STD: "0.8"
+          KRABBY_ENTROPY_COEF: "0.0025"
+          KRABBY_ACTION_RATE_W: "0"
+          KRABBY_PPO_HAND_DIAG: "1"
+        eval: [suite]
+        categories: [back, fwd, side, stand]
+        floor: {kind: none}
+
+  FB6k__C0:
+    notes: "FB6k (CHARTER 11): FB_C_lr__C0 verbatim + hand diag, 6000 its from scratch (the C0 lineage)."
+    stages:
+      - stage: s1
+        base: "1b"
+        iters: 6000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.2,fwd:0.2,side_l:0.2,side_r:0.2,back:0.2"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_SLOTS: "0.2:0.8:0:0"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_PPO_HAND_DIAG: "1"
+        eval: [suite]
+        categories: [back, fwd, side, stand]
+        floor: {kind: none}
+
+  C_lr6k__INC0:
+    notes: "INC0 at 6000 (CHARTER 11): C_lr__INC0 verbatim (C_lr C0 + action_rate 0), 6000 its from scratch."
+    stages:
+      - stage: s1
+        base: "1b"
+        iters: 6000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.2,side_l:0.4,side_r:0.4"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_SLOTS: "0.2:0.8:0:0"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_ACTION_RATE_W: "0"
+          KRABBY_PPO_HAND_DIAG: "1"
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
+  FB6k__B_x9k_s16:
+    notes: "FB6k extension (CHARTER 11.4): FB6k__B_s16's head + 3000 its, overlay verbatim; runs only if the rule fires."
+    stages:
+      - stage: x9k
+        base: "1b"
+        iters: 3000
+        resume_from: {reference: FB6k__B_s16}
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.2,fwd:0.2,side_l:0.2,side_r:0.2,back:0.2"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_SLOTS: "0.2:0.8:0:0"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+          KRABBY_STD_PARAM: soft
+          KRABBY_INIT_STD: "0.8"
+          KRABBY_ENTROPY_COEF: "0.0025"
+          KRABBY_ACTION_RATE_W: "0"
+          KRABBY_PPO_HAND_DIAG: "1"
+        eval: [suite]
+        categories: [back, fwd, side, stand]
+        floor: {kind: none}
+
+  FB6k__B_x9k_s17:
+    notes: "FB6k extension (CHARTER 11.4): FB6k__B_s17's head + 3000 its, overlay verbatim; runs only if the rule fires."
+    stages:
+      - stage: x9k
+        base: "1b"
+        iters: 3000
+        resume_from: {reference: FB6k__B_s17}
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.2,fwd:0.2,side_l:0.2,side_r:0.2,back:0.2"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_SLOTS: "0.2:0.8:0:0"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+          KRABBY_STD_PARAM: soft
+          KRABBY_INIT_STD: "0.8"
+          KRABBY_ENTROPY_COEF: "0.0025"
+          KRABBY_ACTION_RATE_W: "0"
+          KRABBY_PPO_HAND_DIAG: "1"
+        eval: [suite]
+        categories: [back, fwd, side, stand]
+        floor: {kind: none}
+
+  FB6k__B_x9k_s18:
+    notes: "FB6k extension (CHARTER 11.4): FB6k__B_s18's head + 3000 its, overlay verbatim; runs only if the rule fires."
+    stages:
+      - stage: x9k
+        base: "1b"
+        iters: 3000
+        resume_from: {reference: FB6k__B_s18}
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.2,fwd:0.2,side_l:0.2,side_r:0.2,back:0.2"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_SLOTS: "0.2:0.8:0:0"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+          KRABBY_STD_PARAM: soft
+          KRABBY_INIT_STD: "0.8"
+          KRABBY_ENTROPY_COEF: "0.0025"
+          KRABBY_ACTION_RATE_W: "0"
+          KRABBY_PPO_HAND_DIAG: "1"
+        eval: [suite]
+        categories: [back, fwd, side, stand]
+        floor: {kind: none}
+
+  FB6k__C0_x9k_s16:
+    notes: "FB6k extension (CHARTER 11.4): FB6k__C0_s16's head + 3000 its, overlay verbatim; runs only if the rule fires."
+    stages:
+      - stage: x9k
+        base: "1b"
+        iters: 3000
+        resume_from: {reference: FB6k__C0_s16}
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.2,fwd:0.2,side_l:0.2,side_r:0.2,back:0.2"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_SLOTS: "0.2:0.8:0:0"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_PPO_HAND_DIAG: "1"
+        eval: [suite]
+        categories: [back, fwd, side, stand]
+        floor: {kind: none}
+
+  FB6k__C0_x9k_s17:
+    notes: "FB6k extension (CHARTER 11.4): FB6k__C0_s17's head + 3000 its, overlay verbatim; runs only if the rule fires."
+    stages:
+      - stage: x9k
+        base: "1b"
+        iters: 3000
+        resume_from: {reference: FB6k__C0_s17}
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.2,fwd:0.2,side_l:0.2,side_r:0.2,back:0.2"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_SLOTS: "0.2:0.8:0:0"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_PPO_HAND_DIAG: "1"
+        eval: [suite]
+        categories: [back, fwd, side, stand]
+        floor: {kind: none}
+
+  FB6k__C0_x9k_s18:
+    notes: "FB6k extension (CHARTER 11.4): FB6k__C0_s18's head + 3000 its, overlay verbatim; runs only if the rule fires."
+    stages:
+      - stage: x9k
+        base: "1b"
+        iters: 3000
+        resume_from: {reference: FB6k__C0_s18}
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.2,fwd:0.2,side_l:0.2,side_r:0.2,back:0.2"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_SLOTS: "0.2:0.8:0:0"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_PPO_HAND_DIAG: "1"
+        eval: [suite]
+        categories: [back, fwd, side, stand]
+        floor: {kind: none}
+
 references:
   # bed C (screen 11-13; 14-15 extensions; the bisection runs at 11-12)
   C__C0_s11: {chain: C__C0, seed: 11}
@@ -1436,6 +1645,22 @@ references:
   C_lr__B_x6k_s14: {chain: C_lr__B_x6k_s14, seed: 14}
   C_lr__B_x6k_s15: {chain: C_lr__B_x6k_s15, seed: 15}
   C_lr__C0_x6k_s11: {chain: C_lr__C0_x6k_s11, seed: 11}
+  # FB6k + INC0 (CHARTER 11)
+  FB6k__B_s16: {chain: FB6k__B, seed: 16}
+  FB6k__B_s17: {chain: FB6k__B, seed: 17}
+  FB6k__B_s18: {chain: FB6k__B, seed: 18}
+  FB6k__C0_s16: {chain: FB6k__C0, seed: 16}
+  FB6k__C0_s17: {chain: FB6k__C0, seed: 17}
+  FB6k__C0_s18: {chain: FB6k__C0, seed: 18}
+  C_lr6k__INC0_s11: {chain: C_lr6k__INC0, seed: 11}
+  C_lr6k__INC0_s12: {chain: C_lr6k__INC0, seed: 12}
+  C_lr6k__INC0_s13: {chain: C_lr6k__INC0, seed: 13}
+  FB6k__B_x9k_s16: {chain: FB6k__B_x9k_s16, seed: 16}
+  FB6k__B_x9k_s17: {chain: FB6k__B_x9k_s17, seed: 17}
+  FB6k__B_x9k_s18: {chain: FB6k__B_x9k_s18, seed: 18}
+  FB6k__C0_x9k_s16: {chain: FB6k__C0_x9k_s16, seed: 16}
+  FB6k__C0_x9k_s17: {chain: FB6k__C0_x9k_s17, seed: 17}
+  FB6k__C0_x9k_s18: {chain: FB6k__C0_x9k_s18, seed: 18}
 
 # ---------------------------------------------------------------------------- ranked candidates
 # Empty by design (header comment): every arm runs through `references:`, never the ordinary

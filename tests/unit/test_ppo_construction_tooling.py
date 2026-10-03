@@ -93,7 +93,8 @@ echo "EARLY note"
 """
 
 
-def _watch(tmp_path: Path, rc200: str, rc1000: str, rclive: str = "0", polls: int = 6, auto_kill: int = 1) -> dict:
+def _watch(tmp_path: Path, rc200: str, rc1000: str, rclive: str = "0", polls: int = 6, auto_kill: int = 1,
+           extra: str = "") -> dict:
     """Run the real kill_kind/kill_arm/watch_arm with stubs; return the log, the kill file, STOP_QUEUE, stops."""
     out, state = tmp_path / "out", tmp_path / "state"
     (out / "arms").mkdir(parents=True)
@@ -105,6 +106,7 @@ def _watch(tmp_path: Path, rc200: str, rc1000: str, rclive: str = "0", polls: in
         set -u
         OUT={out}; ARMS={out}/arms; LOG={out}/queue.log; S={tmp_path}; PY={fake}; AUTO_KILL={auto_kill}
         export STATE={state} RC_200="{rc200}" RC_1000="{rc1000}" RC_live="{rclive}"
+        {extra}
         say() {{ echo "$*" >> "$LOG"; }}
         sleep() {{ :; }}
         N=0
@@ -223,9 +225,9 @@ def test_consumed_lines_reject_not_consumed(tmp_path):
 
 
 # ============================================================ F9: the live candidates file
-def test_live_candidates_is_v4_and_every_c_lr_rsi_chain_states_its_staging():
+def test_live_candidates_is_v5_and_every_c_lr_rsi_chain_states_its_staging():
     live = (CAMPAIGN / "candidates.yaml").read_text()
-    assert live == (SCRIPTS / "candidates_v4.yaml").read_text()
+    assert live == (SCRIPTS / "candidates_v5.yaml").read_text()
     chains = yaml.safe_load(live)["chains"]
     rsi = {n: c for n, c in chains.items() if n.startswith("C_lr_rsi")}
     assert len(rsi) == 8
@@ -488,3 +490,51 @@ def test_x6k_reader_self_test_passes(capsys):
     """CHARTER 10.4: the pre-registered x6k reading (completes/drops/artifact/precedence, the s15 boundary)."""
     x6k = _load(SCRIPTS / "x6k_read.py", "_ppo_construction_x6k_read")
     assert x6k._self_test() == 0
+
+
+
+# ============================================================ FB6k + INC0 (CHARTER 11, 2026-10-03)
+def test_v5_adds_only_fb6k_inc0_and_their_forks_with_source_overlays_verbatim():
+    v4 = yaml.safe_load((SCRIPTS / "candidates_v4.yaml").read_text())
+    v5 = yaml.safe_load((SCRIPTS / "candidates_v5.yaml").read_text())
+    new = set(v5["chains"]) - set(v4["chains"])
+    forks = {f"FB6k__{a}_x9k_s{s}" for a in ("B", "C0") for s in (16, 17, 18)}
+    assert new == {"FB6k__B", "FB6k__C0", "C_lr6k__INC0"} | forks
+    assert all(v5["chains"][c] == v4["chains"][c] for c in v4["chains"])
+    assert {k: v for k, v in v5["references"].items() if k in v4["references"]} == v4["references"]
+    src = {"FB6k__B": "FB_C_lr__B", "FB6k__C0": "FB_C_lr__C0", "C_lr6k__INC0": "C_lr__INC0"}
+    for name, base in src.items():
+        (st,) = v5["chains"][name]["stages"]
+        want = dict(v4["chains"][base]["stages"][0]["overlay"])
+        if name.startswith("FB6k"):
+            want["KRABBY_PPO_HAND_DIAG"] = "1"
+        assert st["overlay"] == want and int(st["iters"]) == 6000 and st["from_scratch"], name
+    for f in forks:
+        (st,) = v5["chains"][f]["stages"]
+        arm = f.split("__")[1].split("_x9k")[0]
+        assert st["resume_from"] == {"reference": f"FB6k__{arm}_s{f[-2:]}"} and int(st["iters"]) == 3000
+        assert st["overlay"] == v5["chains"][f"FB6k__{arm}"]["stages"][0]["overlay"]
+    seeds = {k: v["seed"] for k, v in v5["references"].items() if k.startswith(("FB6k__", "C_lr6k__"))}
+    assert {seeds[f"FB6k__{a}_s{s}"] for a in ("B", "C0") for s in (16, 17, 18)} == {16, 17, 18}
+    assert {seeds[f"C_lr6k__INC0_s{s}"] for s in (11, 12, 13)} == {11, 12, 13}
+
+
+def test_fb6k_reader_self_test_passes():
+    """CHARTER 11.4 / 11.5: INC0 gate, extension rule, tripwire, fwd/back clauses, gate precedence."""
+    fb = _load(SCRIPTS / "fb6k_read.py", "_ppo_construction_fb6k_read")
+    assert fb._self_test() == 0
+
+
+def test_fb6k_queue_runs_inc0_first_and_gates_before_fb6k():
+    src = (SCRIPTS / "fb6k_queue.sh").read_text()
+    i_inc0, i_gate, i_fb = src.index('bash "$S/run_arm.sh" $INC0'), src.index("--inc0-gate"), src.index('bash "$S/run_arm.sh" $FB')
+    assert i_inc0 < i_gate < i_fb and 'exit 4' in src[i_gate:i_fb]
+    assert 'FB="FB6k__C0_s16 FB6k__B_s16 FB6k__C0_s17 FB6k__B_s17 FB6k__B_s18 FB6k__C0_s18"' in src
+
+
+def test_advise_dead_logs_a_dead_read_and_never_kills_but_dose_still_stops(tmp_path):
+    """CHARTER 11.3 (FB6k): ADVISE_DEAD=1 turns the DEAD-at-1000 kill (rc 5) into a KILL-ADVISED line."""
+    w = _watch(tmp_path / "a", rc200="0", rc1000="5", extra="ADVISE_DEAD=1")
+    assert w["killed"] is None and not w["stop_queue"] and "KILL-ADVISED REF dead at it 1000" in w["log"]
+    w = _watch(tmp_path / "b", rc200="0", rc1000="4", extra="ADVISE_DEAD=1")
+    assert w["killed"].split("\t")[:2] == ["dose", "1000"] and w["stop_queue"]
