@@ -1,0 +1,47 @@
+{
+ "ref": "C_lr__C0_x6k_s11",
+ "chain": "C_lr__C0_x6k_s11",
+ "bed": "C_lr",
+ "arm": "C0_x6k_s11",
+ "seed": 11,
+ "recorded_at": "2026-10-03T13:10:05",
+ "two_direction": true,
+ "screen_chain": false,
+ "unit": "cands-2026-10-01_ppo_construction-1791042156",
+ "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-03_11-42-44_seed11_X33_x6k_A15pB",
+ "checkpoint": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-03_11-42-44_seed11_X33_x6k_A15pB/model_5998.pt",
+ "train_log": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/logs/seed11_X33_x6k_A15pB_train.log",
+ "code_root": "/home/nickmagus/krabby/krabby-research",
+ "driver_stamp": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/2026-10-01_ppo_construction/seed11_X33_x6k_A15pB/side22_25__omni/seed001/2026-10-03_16-50-47",
+ "driver_class_json": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/ppo_construction/arms_x6k/C_lr__C0_x6k_s11.json",
+ "driver_along_json": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/ppo_construction/arms_x6k/C_lr__C0_x6k_s11_along.json",
+ "lr_stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/ppo_construction/lr/C_lr__C0_x6k_s11/side22_25lr__omni/seed001/2026-10-03_16-55-08",
+ "lr_class_json": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/ppo_construction/arms_x6k/C_lr__C0_x6k_s11_lr.json",
+ "lr_along_json": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/ppo_construction/arms_x6k/C_lr__C0_x6k_s11_lr_along.json",
+ "lr2500_stamp": null,
+ "lr2500_class_json": null,
+ "lr2500_along_json": null,
+ "odd_rms_json": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/ppo_construction/arms_x6k/C_lr__C0_x6k_s11_odd.json",
+ "hand_l": "SLOW",
+ "hand_r": "SLOW",
+ "run_class_runner": "NOT-FAST",
+ "note": "run_class_runner is the runner's FAST rule only (feet AND along); verdict.py adds the tripwire.",
+ "extra_lr": {
+  "3100": {
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/ppo_construction/lr/C_lr__C0_x6k_s11_m3100/side22_25lr__omni/seed001/2026-10-03_16-58-53",
+   "class_json": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/ppo_construction/arms_x6k/C_lr__C0_x6k_s11_m3100_lr.json",
+   "along_json": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/ppo_construction/arms_x6k/C_lr__C0_x6k_s11_m3100_lr_along.json"
+  },
+  "4000": {
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/ppo_construction/lr/C_lr__C0_x6k_s11_m4000/side22_25lr__omni/seed001/2026-10-03_17-02-39",
+   "class_json": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/ppo_construction/arms_x6k/C_lr__C0_x6k_s11_m4000_lr.json",
+   "along_json": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/ppo_construction/arms_x6k/C_lr__C0_x6k_s11_m4000_lr_along.json"
+  },
+  "5000": {
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/ppo_construction/lr/C_lr__C0_x6k_s11_m5000/side22_25lr__omni/seed001/2026-10-03_17-06-24",
+   "class_json": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/ppo_construction/arms_x6k/C_lr__C0_x6k_s11_m5000_lr.json",
+   "along_json": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/ppo_construction/arms_x6k/C_lr__C0_x6k_s11_m5000_lr_along.json"
+  }
+ },
+ "resume_read_json": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/ppo_construction/arms_x6k/C_lr__C0_x6k_s11_resume.json"
+}

@@ -761,3 +761,10 @@ code-path review (workflow `wf_01145c14-592`).
   - **Other reads:** fall 0.000; dose 0.31 / 1.07.
   - **Count:** 3 of the 4 one-FAST forks complete, and no B fork has a drop. With one fork left, INTERFERENCE (drops in ≥ 2 of 5) is unreachable. Only a resume artifact in s11 can outrank LATE FORMATION.
   - **Next:** fork 6 (s11) launched at 14:34.
+- 2026-10-03 15:59, **x6k complete: the pre-registered reading is LATE FORMATION** (`x6k/x6k_read.{json,md}`; records copied to `x6k/gate/`).
+  - **Last fork:** fork 6 `C_lr__B_x6k_s11` COMPLETES. R went 0.149 → 0.144 (3100) → 0.222 (4000) → 0.244 (5000) → 0.224 at the head; L stayed FAST throughout (0.237 at the head). Resume read PASS; no artifact.
+  - **One-FAST forks:** all four complete (s11, s13, s14, s15; second-hand rises +0.055 to +0.107), with no drops in any B fork and no resume artifact.
+  - **s12:** STABLE.
+  - **C0 control:** FROZEN.
+  - **Candidates:** all five B forks are two-direction candidates (FAST/FAST at the head, falls 0.000–0.003, dose median |μ| 0.27–0.31 / 1.00–1.07).
+  - **Pending:** the §10.6 independent check (workflow `wf_698962eb-d6d`).
