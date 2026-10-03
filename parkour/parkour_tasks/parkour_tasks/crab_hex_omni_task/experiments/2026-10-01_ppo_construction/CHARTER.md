@@ -768,3 +768,15 @@ code-path review (workflow `wf_01145c14-592`).
   - **C0 control:** FROZEN.
   - **Candidates:** all five B forks are two-direction candidates (FAST/FAST at the head, falls 0.000–0.003, dose median |μ| 0.27–0.31 / 1.00–1.07).
   - **Pending:** the §10.6 independent check (workflow `wf_698962eb-d6d`).
+- 2026-10-03 16:40, **x6k closed.** The §10.6 independent check (fable·high, `x6k/CHECK.md`) PASSES. It reproduces every number and the reading LATE FORMATION; no head is marginal (the smallest margin to a FAST line is +0.050).
+  - **Confound ratings:**
+    - priv_reg ramp: open (not the sole cause; C0 did not move under it);
+    - env restart: weakens;
+    - eval noise: ruled out;
+    - selection: weakens;
+    - from-scratch reproduction: open;
+    - beyond the C_lr bed: serious (scope).
+  - **Correction to §10.5's C0 sentence:** the step-3 freeze onset (iterations 500–1000) was at priv_reg 0, but the step-3 heads at 2999 were at 0.0383. The FROZEN outcome is unaffected.
+  - **Q block** (CPU): B's jitter at 6000 is 0.117–0.155, against C0 0.065–0.104 and A 0.043–0.066. That is the action_rate 0 cost, and it rose from 3000 in 4/5 seeds.
+  - **Write-up and next options:** `x6k/RESULTS.md`, with opus's confirm design in `x6k/next_options.md`. The ranked options are FB6k + INC0 (≈ 26–30 GPU-h), P1 behind it (≈ 42), a head-fork probe (≈ 6), and completing the C0 control (≈ 6).
+  - **No adoption and no bake.** 4c stays formally untriggered: this is a result with an amended budget, so it is the user's call.
