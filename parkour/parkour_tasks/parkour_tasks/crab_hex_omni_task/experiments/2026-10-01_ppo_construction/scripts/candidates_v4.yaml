@@ -1,0 +1,1446 @@
+# PPO-construction campaign (plan /home/nickmagus/.claude/plans/foamy-wondering-ullman.md; CHARTER.md).
+#
+# THE SHAPE. Reference-only, the same shape as ../2026-09-28_side_bisect/candidates.yaml: this file
+# runs NO candidate queue. Every arm is a chain reached ONLY through `references:` (one entry per
+# chain x seed, named `<chain>_s<seed>`), launched by scripts/run_arm.sh as
+# `launch_candidates.sh --campaign-dir <this dir> --reference-chain <chain>_s<seed>`. `screen`,
+# `baseline`, `seeds` and `decision_rule` are carried ONLY so the file type-checks
+# (`validate_candidates` needs a screen/baseline chain that exists and a `decision_rule` that expands
+# at the full category set) -- chain C__C0 doubles as the never-queued screen/baseline chain AND the
+# C bed's control arm, so nothing here points at an unrelated run. A NEW campaign dir: no B<k>, no
+# `--accept-*` debt, and none of the side bisect's resume hazards (HANDOFF_PPO 7.J; fresh names).
+#
+# THE BEDS (CHARTER section 2). Each stage overlay starts with the side-bisect chain's overlay copied
+# VERBATIM (candidates_v16.yaml: C :146-161, C_lr :353-370, C_lr_rsi :627-646) and then adds the
+# arm's knobs. Base `1b`, from scratch, 3000 iterations, 256 envs, eval row `side22_25` (the driver's
+# lat_l-only row; ../eval/scenarios_omni.yaml). The two-direction beds' both-hands eval
+# (../2026-09-28_side_bisect/scenarios_side_lr.yaml, side22_25lr__omni) is run by scripts/run_arm.sh
+# outside the driver, with the arm's own driver-eval env (it is not a driver row: the shared
+# scenarios_omni.yaml and every omni campaign's eval_sha stay put).
+#   C        one direction, SB chain C (FAST historically: X02 s3, X07 s2)
+#   C_lr     two directions, RSI off, SB chain C_lr (X14 SLOW/SLOW)
+#   C_lr_rsi two directions, RSI 0.2 from bank A, source all, SB chain C_lr_rsi (X16 SLOW/SLOW);
+#            its *_st twins add KRABBY_RSI_CAM_STAGE=1 -- rung 0b (CHARTER 5) picks the family.
+#
+# THE ARMS (CHARTER section 2; every knob default-off, registered in motion_knobs/omni_knobs):
+#   C0  no construction knob (the incumbent). Two-direction beds add KRABBY_PPO_HAND_DIAG=1 on EVERY
+#       arm, C0 included (diagnostic only; parameters and RNG bit-identical).
+#   A   KRABBY_ACTION_BOUND_LOSS 0.001 with KRABBY_ACTION_BOUND_RAMP 0.0001:0.001:500 (hinge at
+#       KRABBY_ACTION_BOUND 1.1 on raw mu), KRABBY_STD_PARAM soft, KRABBY_INIT_STD 0.8,
+#       KRABBY_ENTROPY_COEF 0.0025. action_rate stays -0.3; mirror loss 0.5 on raw mu unchanged.
+#   B   A + KRABBY_ACTION_RATE_W 0 (isolates the noise tax a bounded mean exposes).
+# C-bed guard-fail bisection (C__A_ent01, C__A_std15, C__bound_only), step 4a (C_lr__A_fixed,
+# C_lr__A_epochkl), 4b (C_lr__C0_1024, C_lr__A_1024), 4c INC0 (<bed>__INC0) and 4c FB/P1
+# (FB_C_lr__*, P1_C_lr__*) are declared now so this file need not be re-validated mid-campaign; none
+# is launched until its CHARTER trigger fires.
+#
+# `categories: [side, stand]` on every 1b stage: base 1b trains only `stand` (decisive) and `side`
+# (watch); no overlay here touches the category set beyond the SB chain's own (C_lr/C_lr_rsi's pool
+# is stand/side_l/side_r), so `sorted(decisive | watch)` = [side, stand] (`_check_stage_categories`).
+# `floor: {kind: none}`: the campaign's kill rules (wiring at it 200, DEAD at it 1000, the dose read)
+# are read off training telemetry by scripts/verdict.py, not by the driver's category-survival floor.
+# FB/P1 stages are the SB templates' stages verbatim (their own categories, eval [suite]).
+#
+# absolute_units is NOT declared: the per-candidate check only fires inside `candidates:`, never for
+# a chain reached solely through `references:` (KRABBY_OMNI_SPEED_ELLIPSE is an ABSOLUTE_UNITS_KEYS
+# member). The RSI bank stays an ABSOLUTE path into the side-bisect dir (bank A, unchanged).
+#
+# This file is scripts/candidates_v2.yaml; ../candidates.yaml is a byte-identical copy (the live one
+# the driver reads). Any edit is a new scripts/candidates_v<k>.yaml copied over it, logged in CHARTER 9.
+# v2 (2026-10-01, before any run; review F9): the staging-off C_lr_rsi chains (C0/A/B/INC0) carry
+# KRABBY_RSI_CAM_STAGE: "0" explicitly, so the overlay dump audit proves their staging state too
+# (the stage_cam param absent); behaviour is unchanged (parse_flag("0") is off; nothing is written).
+schema: 1
+
+plant: A15+B
+#: Carried for validation (the driver's seeds block). Every arm pins its own seed through its
+#: `references:` name (<chain>_s<seed>): 11-13 screens, 14-15 extensions, 16-20 confirms (CHARTER 2).
+seeds: {screen: 11, confirm: 16}
+
+#: Carried only so the file type-checks: C__C0 is the (never-queued) screen/baseline chain. This
+#: campaign has no `candidates:`.
+screen: {chain: C__C0, eval: [side22_25], iters: 3000}
+
+promotion: {enabled: false}
+
+#: Carried for the same reason as `screen`; C__C0 is literally the C bed's control arm.
+baseline: {id: C__C0, chain: C__C0}
+
+# ---------------------------------------------------------------------------- the decision rule
+# Carried only so this file validates on its own: the side-bisect file's rule, verbatim except its
+# `text`. The ACTUAL gates are CHARTER.md section 4, applied by scripts/verdict.py.
+decision_rule:
+  rule_version: 2
+  pair_on: [always]
+  steps_guard_flag: false
+  text: >-
+    PPO CONSTRUCTION: RECORD ONLY, carried for validation parity. The campaign's real gates are
+    CHARTER.md section 4 (side22_classify.py feet_ss classes AND along_cmd.py along-command classes,
+    the survival tripwire, the dose / wiring / DEAD reads, VOID > UNLOCK > PARTIAL > NO-FLIP), applied
+    by scripts/verdict.py -- never by this decision_rule's own blocks/guards. Every arm is launched as
+    a `--reference-chain <chain>_s<seed>` run outside the ordinary candidate queue.
+  per_category:
+    blocks:
+      F: {level: 0.95, units: ratio, members: {turn: [facing_closed, yaw_progress]}}
+      T: {level: 0.95, units: ratio,
+          members: {fwd: [ratio], side: [ratio], back: [ratio], diag: [ratio]}}
+      LEN: {level: 0.95, units: ratio, members: {side: [steps_per_m], diag: [steps_per_m]}}
+    guards:
+      level: 0.99
+      members:
+        stand: [survival, steps_per_s]
+        fwd: [survival, ratio, foot_slip, steps_per_m]
+        side: [survival, ratio, foot_slip, steps_per_m]
+        back: [survival, ratio, foot_slip, steps_per_m]
+        diag: [survival, ratio, foot_slip, steps_per_m]
+        turn: [survival, foot_slip, steps_per_rad]
+        move_turn: [survival, ratio]
+    watch:
+      members:
+        stand: [drift_speed, support_feet, gait_hz, clock_hz, cadence_ratio, six_down_frac,
+                settle_six_down_s, action_jitter, action_fft_freq, joint_speed_mean, rod_speed_mean,
+                contact_switch_hz, foot_slip, wz_active_frac, clock_restarts, foot_disp_end,
+                work_per_s]
+        fwd: [tripod, support_feet, gait_hz, clock_hz, cadence_ratio, hz_speed_slope, offset_R, step_rate_hz,
+              taps_per_m, swing_apex, slip_per_m, action_jitter, swings_per_m, work_per_m,
+              cam_work_per_m, direction_error, cross_track_ratio, heading_final]
+        side: [tripod, support_feet, gait_hz, clock_hz, cadence_ratio, hz_speed_slope, offset_R, step_rate_hz,
+               taps_per_m, swing_apex, slip_per_m, action_jitter, swings_per_m, work_per_m,
+               cam_work_per_m, direction_error, cross_track_ratio, heading_final]
+        back: [tripod, support_feet, gait_hz, clock_hz, cadence_ratio, hz_speed_slope, offset_R, step_rate_hz,
+               taps_per_m, swing_apex, slip_per_m, action_jitter, swings_per_m, work_per_m,
+               cam_work_per_m, direction_error, cross_track_ratio, heading_final]
+        diag: [tripod, support_feet, gait_hz, clock_hz, cadence_ratio, hz_speed_slope, offset_R, step_rate_hz,
+               taps_per_m, swing_apex, slip_per_m, action_jitter, swings_per_m, work_per_m,
+               cam_work_per_m, direction_error, cross_track_ratio, heading_final]
+        turn: [support_feet, steps_per_rad_pre, steps_per_rad_post, taps_per_rad, swing_apex, gait_hz, clock_hz,
+               cadence_ratio, offset_R, step_rate_hz, action_jitter, swings_per_rad, slip_per_rad,
+               work_per_rad, cam_work_per_rad, settle_s, heading_final]
+        move_turn: [tripod, steps_per_rad, support_feet, taps_per_rad, swing_apex, foot_slip, gait_hz,
+                    clock_hz, cadence_ratio, offset_R, step_rate_hz, action_jitter, swings_per_rad,
+                    slip_per_rad, work_per_rad, cam_work_per_rad, direction_error,
+                    cross_track_ratio, settle_s]
+      hands: true
+      legacy: {completion: legacy, tripod_walking_dir: legacy, track_ratio_tail: legacy,
+               track_ratio_move_tail: legacy, turn_survival_l90: N/A (suite),
+               turn_survival_r90: N/A (suite)}
+    demoted: {}
+  charter_floors: {completion: 0.10, tripod_walking_dir: 0.056}
+  bootstrap: {B: 2000, paired_on: env_index, rng_seed: 20260928}
+  control_head: X08-c6
+
+# ---------------------------------------------------------------------------- chains
+chains:
+  # ======================================================================== bed C (one direction)
+  #: Bed C (CHARTER section 2): SB chain C's overlay VERBATIM (fa mirror, scalar cmd obs, RSI off,
+  #: lateral ellipse 0.35). One direction (side_l): no hand diagnostic. C__C0 is also the
+  #: never-queued screen/baseline chain this file needs to type-check.
+  C__C0:
+    notes: "C bed, arm C0 (incumbent; no knobs): SB chain C's overlay verbatim."
+    stages:
+      - stage: s1
+        base: "1b"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_OMNI_CMD_OBS: scalar
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
+  C__A:
+    notes: "C bed, arm A: bound loss 1e-4->1e-3 over its 0-500 (bound 1.1) + soft sigma init 0.8 + entropy 0.0025."
+    stages:
+      - stage: s1
+        base: "1b"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_OMNI_CMD_OBS: scalar
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+          KRABBY_STD_PARAM: soft
+          KRABBY_INIT_STD: "0.8"
+          KRABBY_ENTROPY_COEF: "0.0025"
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
+  C__B:
+    notes: "C bed, arm B: A + action_rate weight 0 (run only on a C-bed guard failure, CHARTER 4.7)."
+    stages:
+      - stage: s1
+        base: "1b"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_OMNI_CMD_OBS: scalar
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+          KRABBY_STD_PARAM: soft
+          KRABBY_INIT_STD: "0.8"
+          KRABBY_ENTROPY_COEF: "0.0025"
+          KRABBY_ACTION_RATE_W: "0"
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
+  #: C-bed guard-fail bisection (CHARTER 4.7), run in this order at 2 seeds each, stopping at the first
+  #: that recovers C0's class: A with entropy 0.01; A with init sigma 1.5; the bound loss alone.
+  #: Their iteration-200 wiring read checks PPO/effective_std presence only (no < 1.0 check).
+  C__A_ent01:
+    notes: "C-bed bisection 1 (guard failure only): A with entropy 0.01."
+    stages:
+      - stage: s1
+        base: "1b"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_OMNI_CMD_OBS: scalar
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+          KRABBY_STD_PARAM: soft
+          KRABBY_INIT_STD: "0.8"
+          KRABBY_ENTROPY_COEF: "0.01"
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
+  C__A_std15:
+    notes: "C-bed bisection 2 (guard failure only): A with init sigma 1.5."
+    stages:
+      - stage: s1
+        base: "1b"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_OMNI_CMD_OBS: scalar
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+          KRABBY_STD_PARAM: soft
+          KRABBY_INIT_STD: "1.5"
+          KRABBY_ENTROPY_COEF: "0.0025"
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
+  C__bound_only:
+    notes: "C-bed bisection 3 (guard failure only): the bound loss knobs alone (stock clamped sigma 1.5, entropy 0.01)."
+    stages:
+      - stage: s1
+        base: "1b"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_OMNI_CMD_OBS: scalar
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
+  # ======================================================================== bed C_lr (two directions, RSI off)
+  #: Bed C_lr (CHARTER section 2): SB chain C_lr's overlay VERBATIM (both side directions, direction
+  #: visible, fa mirror, RSI off, ellipse 0.35). Every two-direction arm, C0 included, carries
+  #: KRABBY_PPO_HAND_DIAG=1 (diagnostic only; verified bit-identical on parameters and RNG).
+  C_lr__C0:
+    notes: "C_lr bed, arm C0 (incumbent): SB chain C_lr's overlay verbatim + the per-hand diagnostic."
+    stages:
+      - stage: s1
+        base: "1b"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.2,side_l:0.4,side_r:0.4"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_SLOTS: "0.2:0.8:0:0"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_PPO_HAND_DIAG: "1"
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
+  C_lr__A:
+    notes: "C_lr bed, arm A (+ per-hand diagnostic)."
+    stages:
+      - stage: s1
+        base: "1b"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.2,side_l:0.4,side_r:0.4"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_SLOTS: "0.2:0.8:0:0"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+          KRABBY_STD_PARAM: soft
+          KRABBY_INIT_STD: "0.8"
+          KRABBY_ENTROPY_COEF: "0.0025"
+          KRABBY_PPO_HAND_DIAG: "1"
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
+  C_lr__B:
+    notes: "C_lr bed, arm B = A + action_rate weight 0 (+ per-hand diagnostic)."
+    stages:
+      - stage: s1
+        base: "1b"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.2,side_l:0.4,side_r:0.4"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_SLOTS: "0.2:0.8:0:0"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+          KRABBY_STD_PARAM: soft
+          KRABBY_INIT_STD: "0.8"
+          KRABBY_ENTROPY_COEF: "0.0025"
+          KRABBY_ACTION_RATE_W: "0"
+          KRABBY_PPO_HAND_DIAG: "1"
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
+  # ======================================================================== bed C_lr_rsi (two directions, RSI 0.2 bank A)
+  #: Bed C_lr_rsi (CHARTER section 2): SB chain C_lr_rsi's overlay VERBATIM -- RSI 0.2 from the
+  #: two-direction canonical bank A (absolute path into the side-bisect dir), source all.
+  #: Rung 0b (CHARTER section 5) decides cam staging for this bed. Staging OFF (X16's definition): run
+  #: the C_lr_rsi__* chains. Staging ON: run the C_lr_rsi_st__* chains, identical except for
+  #: KRABBY_RSI_CAM_STAGE: "1" (that is where the knob goes) -- the choice is a reference
+  #: selection, never an edit of this file.
+  C_lr_rsi__C0:
+    notes: "C_lr_rsi bed (staging off), arm C0: SB chain C_lr_rsi's overlay verbatim (bank A, RSI 0.2, source all) + the per-hand diagnostic."
+    stages:
+      - stage: s1
+        base: "1b"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.2,side_l:0.4,side_r:0.4"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_SLOTS: "0.2:0.8:0:0"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_RSI_FRAC: "0.2"
+          KRABBY_RSI_BANK: "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-09-28_side_bisect/rsi_bank_side_lr.npz"
+          KRABBY_OMNI_RSI_SOURCE: all
+          KRABBY_RSI_CAM_STAGE: "0"   # explicit OFF: the dump audit proves no stage_cam param (v2); ON = *_st twins
+          KRABBY_PPO_HAND_DIAG: "1"
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
+  C_lr_rsi__A:
+    notes: "C_lr_rsi bed (staging off), arm A (+ per-hand diagnostic)."
+    stages:
+      - stage: s1
+        base: "1b"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.2,side_l:0.4,side_r:0.4"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_SLOTS: "0.2:0.8:0:0"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_RSI_FRAC: "0.2"
+          KRABBY_RSI_BANK: "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-09-28_side_bisect/rsi_bank_side_lr.npz"
+          KRABBY_OMNI_RSI_SOURCE: all
+          KRABBY_RSI_CAM_STAGE: "0"   # explicit OFF: the dump audit proves no stage_cam param (v2); ON = *_st twins
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+          KRABBY_STD_PARAM: soft
+          KRABBY_INIT_STD: "0.8"
+          KRABBY_ENTROPY_COEF: "0.0025"
+          KRABBY_PPO_HAND_DIAG: "1"
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
+  C_lr_rsi__B:
+    notes: "C_lr_rsi bed (staging off), arm B = A + action_rate weight 0 (+ per-hand diagnostic)."
+    stages:
+      - stage: s1
+        base: "1b"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.2,side_l:0.4,side_r:0.4"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_SLOTS: "0.2:0.8:0:0"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_RSI_FRAC: "0.2"
+          KRABBY_RSI_BANK: "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-09-28_side_bisect/rsi_bank_side_lr.npz"
+          KRABBY_OMNI_RSI_SOURCE: all
+          KRABBY_RSI_CAM_STAGE: "0"   # explicit OFF: the dump audit proves no stage_cam param (v2); ON = *_st twins
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+          KRABBY_STD_PARAM: soft
+          KRABBY_INIT_STD: "0.8"
+          KRABBY_ENTROPY_COEF: "0.0025"
+          KRABBY_ACTION_RATE_W: "0"
+          KRABBY_PPO_HAND_DIAG: "1"
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
+  #: The staging-ON twins of the three C_lr_rsi chains (run instead of them only if rung 0b's
+  #: pre-registered rule turns staging on).
+  C_lr_rsi_st__C0:
+    notes: "C_lr_rsi bed WITH cam staging (rung 0b ON), arm C0 (+ per-hand diagnostic)."
+    stages:
+      - stage: s1
+        base: "1b"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.2,side_l:0.4,side_r:0.4"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_SLOTS: "0.2:0.8:0:0"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_RSI_FRAC: "0.2"
+          KRABBY_RSI_BANK: "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-09-28_side_bisect/rsi_bank_side_lr.npz"
+          KRABBY_OMNI_RSI_SOURCE: all
+          KRABBY_RSI_CAM_STAGE: "1"
+          KRABBY_PPO_HAND_DIAG: "1"
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
+  C_lr_rsi_st__A:
+    notes: "C_lr_rsi bed WITH cam staging, arm A (+ per-hand diagnostic)."
+    stages:
+      - stage: s1
+        base: "1b"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.2,side_l:0.4,side_r:0.4"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_SLOTS: "0.2:0.8:0:0"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_RSI_FRAC: "0.2"
+          KRABBY_RSI_BANK: "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-09-28_side_bisect/rsi_bank_side_lr.npz"
+          KRABBY_OMNI_RSI_SOURCE: all
+          KRABBY_RSI_CAM_STAGE: "1"
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+          KRABBY_STD_PARAM: soft
+          KRABBY_INIT_STD: "0.8"
+          KRABBY_ENTROPY_COEF: "0.0025"
+          KRABBY_PPO_HAND_DIAG: "1"
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
+  C_lr_rsi_st__B:
+    notes: "C_lr_rsi bed WITH cam staging, arm B (+ per-hand diagnostic)."
+    stages:
+      - stage: s1
+        base: "1b"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.2,side_l:0.4,side_r:0.4"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_SLOTS: "0.2:0.8:0:0"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_RSI_FRAC: "0.2"
+          KRABBY_RSI_BANK: "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-09-28_side_bisect/rsi_bank_side_lr.npz"
+          KRABBY_OMNI_RSI_SOURCE: all
+          KRABBY_RSI_CAM_STAGE: "1"
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+          KRABBY_STD_PARAM: soft
+          KRABBY_INIT_STD: "0.8"
+          KRABBY_ENTROPY_COEF: "0.0025"
+          KRABBY_ACTION_RATE_W: "0"
+          KRABBY_PPO_HAND_DIAG: "1"
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
+  # ======================================================================== step 4 (conditional, CHARTER section 6)
+  #: 4a step size (trigger: an UNLOCK or the LR-floor confound, CHARTER 4.8). Control = the step-3
+  #: run of the head at the same seeds. Written for the default head (A on C_lr); a different head
+  #: (B, or the C_lr_rsi bed) needs its own pair, added before launch.
+  C_lr__A_fixed:
+    notes: "4a: A on C_lr with a fixed LR 1e-4, per-epoch KL stop 0.02, history-encoder LR pinned 3e-4."
+    stages:
+      - stage: s1
+        base: "1b"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.2,side_l:0.4,side_r:0.4"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_SLOTS: "0.2:0.8:0:0"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+          KRABBY_STD_PARAM: soft
+          KRABBY_INIT_STD: "0.8"
+          KRABBY_ENTROPY_COEF: "0.0025"
+          KRABBY_PPO_SCHEDULE: fixed
+          KRABBY_PPO_LR: "0.0001"
+          KRABBY_PPO_KL_STOP: "0.02"
+          KRABBY_PPO_HIST_LR: "0.0003"
+          KRABBY_PPO_HAND_DIAG: "1"
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
+  C_lr__A_epochkl:
+    notes: "4a: A on C_lr with per-epoch adaptive KL (desired 0.003), history-encoder LR pinned 3e-4."
+    stages:
+      - stage: s1
+        base: "1b"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.2,side_l:0.4,side_r:0.4"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_SLOTS: "0.2:0.8:0:0"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+          KRABBY_STD_PARAM: soft
+          KRABBY_INIT_STD: "0.8"
+          KRABBY_ENTROPY_COEF: "0.0025"
+          KRABBY_PPO_SCHEDULE: epoch_kl
+          KRABBY_PPO_DESIRED_KL: "0.003"
+          KRABBY_PPO_HIST_LR: "0.0003"
+          KRABBY_PPO_HAND_DIAG: "1"
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
+  #: 4b batch (trigger: rung 1). A if any bed UNLOCKed, else C0; control = the 256-env step-3 run.
+  C_lr__C0_1024:
+    notes: "4b: C0 on C_lr at 1024 envs (env count the single factor)."
+    stages:
+      - stage: s1
+        base: "1b"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.2,side_l:0.4,side_r:0.4"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_SLOTS: "0.2:0.8:0:0"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_NUM_ENVS: "1024"
+          KRABBY_PPO_HAND_DIAG: "1"
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
+  C_lr__A_1024:
+    notes: "4b: A on C_lr at 1024 envs."
+    stages:
+      - stage: s1
+        base: "1b"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.2,side_l:0.4,side_r:0.4"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_SLOTS: "0.2:0.8:0:0"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+          KRABBY_STD_PARAM: soft
+          KRABBY_INIT_STD: "0.8"
+          KRABBY_ENTROPY_COEF: "0.0025"
+          KRABBY_NUM_ENVS: "1024"
+          KRABBY_PPO_HAND_DIAG: "1"
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
+  #: 4c (1) INC0, run first when B is the unlocking arm: the incumbent with action_rate 0 on the
+  #: unlocking bed, seeds 11-15.
+  C_lr__INC0:
+    notes: "4c(1) INC0: C_lr C0 + action_rate weight 0 (attributes a B flip)."
+    stages:
+      - stage: s1
+        base: "1b"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.2,side_l:0.4,side_r:0.4"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_SLOTS: "0.2:0.8:0:0"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_ACTION_RATE_W: "0"
+          KRABBY_PPO_HAND_DIAG: "1"
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
+  C_lr_rsi__INC0:
+    notes: "4c(1) INC0 on C_lr_rsi (staging off)."
+    stages:
+      - stage: s1
+        base: "1b"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.2,side_l:0.4,side_r:0.4"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_SLOTS: "0.2:0.8:0:0"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_RSI_FRAC: "0.2"
+          KRABBY_RSI_BANK: "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-09-28_side_bisect/rsi_bank_side_lr.npz"
+          KRABBY_OMNI_RSI_SOURCE: all
+          KRABBY_RSI_CAM_STAGE: "0"   # explicit OFF (v2)
+          KRABBY_ACTION_RATE_W: "0"
+          KRABBY_PPO_HAND_DIAG: "1"
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
+  C_lr_rsi_st__INC0:
+    notes: "4c(1) INC0 on C_lr_rsi with cam staging."
+    stages:
+      - stage: s1
+        base: "1b"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.2,side_l:0.4,side_r:0.4"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_SLOTS: "0.2:0.8:0:0"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_RSI_FRAC: "0.2"
+          KRABBY_RSI_BANK: "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-09-28_side_bisect/rsi_bank_side_lr.npz"
+          KRABBY_OMNI_RSI_SOURCE: all
+          KRABBY_RSI_CAM_STAGE: "1"
+          KRABBY_ACTION_RATE_W: "0"
+          KRABBY_PPO_HAND_DIAG: "1"
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
+  # ======================================================================== step 4c: FB and P1 (UNLOCK only)
+  #: 4c (2) FB: SB chain FB_C_lr's stage verbatim (+fwd/back, pool stand/fwd/side_l/side_r/back) plus
+  #: the arm's knobs; winner vs C0 at seeds 16-18. Its eval stays [suite]: a side22_25 driver row
+  #: cannot score a stage that trains fwd/back (_check_suite_rows_cover_trained refuses it), so the
+  #: side gate (side FAST on both hands) is read from scripts/run_arm.sh's both-hands
+  #: side22_25lr__omni eval + along_cmd + side22_classify, which the runner runs for every
+  #: two-direction chain. Written for the C_lr bed; a C_lr_rsi or 1024-env UNLOCK carries its
+  #: settings into new FB/P1 chains (carry rule, CHARTER 6) added before launch.
+  FB_C_lr__C0:
+    notes: "4c(2) FB, C0 lineage: SB FB_C_lr verbatim."
+    stages:
+      - stage: s1
+        base: "1b"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.2,fwd:0.2,side_l:0.2,side_r:0.2,back:0.2"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_SLOTS: "0.2:0.8:0:0"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+        eval: [suite]
+        categories: [back, fwd, side, stand]
+        floor: {kind: none}
+
+  FB_C_lr__A:
+    notes: "4c(2) FB, arm A."
+    stages:
+      - stage: s1
+        base: "1b"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.2,fwd:0.2,side_l:0.2,side_r:0.2,back:0.2"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_SLOTS: "0.2:0.8:0:0"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+          KRABBY_STD_PARAM: soft
+          KRABBY_INIT_STD: "0.8"
+          KRABBY_ENTROPY_COEF: "0.0025"
+        eval: [suite]
+        categories: [back, fwd, side, stand]
+        floor: {kind: none}
+
+  FB_C_lr__B:
+    notes: "4c(2) FB, arm B (the B package if INC0 says so)."
+    stages:
+      - stage: s1
+        base: "1b"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.2,fwd:0.2,side_l:0.2,side_r:0.2,back:0.2"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_SLOTS: "0.2:0.8:0:0"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+          KRABBY_STD_PARAM: soft
+          KRABBY_INIT_STD: "0.8"
+          KRABBY_ENTROPY_COEF: "0.0025"
+          KRABBY_ACTION_RATE_W: "0"
+        eval: [suite]
+        categories: [back, fwd, side, stand]
+        floor: {kind: none}
+
+  #: 4c (3) P1: SB chain P1_C_lr's five stages verbatim (t3 -> c4 -> c5 -> c6 -> c6x clock hidden), the
+  #: arm's knobs on EVERY stage (the soft-sigma load round-trips and the bound ramp continues across
+  #: stage forks); winner vs a C0 P1 lineage (user decision) at seeds 16-18. Read on side (both hands,
+  #: via run_arm.sh), fwd, back, diag, turn and move_turn; W is a head-vs-head reference only.
+  P1_C_lr__C0:
+    notes: "4c(3) P1, C0 lineage: SB P1_C_lr verbatim."
+    stages:
+      - stage: t3
+        base: "1a"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.15,fwd:0.25,side_l:0.16,side_r:0.16,back:0.08,turn:0.2"
+          KRABBY_OMNI_SLOTS: "0.15:0.65:0.2:0"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_FACING: "0.2:0.6"
+          KRABBY_YAW_W: "0.2"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+        eval: [suite]
+        categories: [back, fwd, side, stand, turn]
+        floor: {kind: none}
+      - stage: c4
+        base: "1a"
+        iters: 1500
+        from_scratch: false
+        resume_from: previous_stage
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.15,fwd:0.22,side_l:0.14,side_r:0.14,back:0.1,turn:0.15,fwd_turn:0.05,side_l_turn:0.025,side_r_turn:0.025"
+          KRABBY_OMNI_SLOTS: "0.15:0.6:0.15:0.1"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_FACING: "0.2:0.6"
+          KRABBY_YAW_W: "0.2"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+        eval: [suite]
+        categories: [back, fwd, move_turn, side, stand, turn]
+        floor: {kind: none}
+      - stage: c5
+        base: "1a"
+        iters: 1500
+        from_scratch: false
+        resume_from: previous_stage
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.15,fwd:0.15,side_l:0.1,side_r:0.1,back:0.1,omni:0.15,turn:0.1,fwd_turn:0.07,side_l_turn:0.04,side_r_turn:0.04"
+          KRABBY_OMNI_SLOTS: "0.15:0.6:0.1:0.15"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_FACING: "0.2:0.6"
+          KRABBY_YAW_W: "0.2"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+        eval: []
+        categories: [back, diag, fwd, move_turn, side, stand, turn]
+        floor: {kind: none}
+      - stage: c6
+        base: "1a"
+        iters: 2000
+        from_scratch: false
+        resume_from: previous_stage
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07"
+          KRABBY_OMNI_SLOTS: "0.15:0.55:0.1:0.2"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_FACING: "0.2:0.6"
+          KRABBY_YAW_W: "0.2"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+        eval: [suite]
+        categories: [back, diag, fwd, move_turn, side, stand, turn]
+        floor: {kind: none}
+      - stage: c6x
+        base: "1a"
+        iters: 4000
+        from_scratch: false
+        resume_from: previous_stage
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07"
+          KRABBY_OMNI_SLOTS: "0.15:0.55:0.1:0.2"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_FACING: "0.2:0.6"
+          KRABBY_YAW_W: "0.2"
+          KRABBY_CLOCK_W: "0.001"
+          KRABBY_APEX_W: "0.001"
+          KRABBY_OMNI_CLOCK_HIDE: "1"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+        eval: [suite]
+        categories: [back, diag, fwd, move_turn, side, stand, turn]
+        floor: {kind: none}
+
+  P1_C_lr__A:
+    notes: "4c(3) P1, arm A on every stage."
+    stages:
+      - stage: t3
+        base: "1a"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.15,fwd:0.25,side_l:0.16,side_r:0.16,back:0.08,turn:0.2"
+          KRABBY_OMNI_SLOTS: "0.15:0.65:0.2:0"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_FACING: "0.2:0.6"
+          KRABBY_YAW_W: "0.2"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+          KRABBY_STD_PARAM: soft
+          KRABBY_INIT_STD: "0.8"
+          KRABBY_ENTROPY_COEF: "0.0025"
+        eval: [suite]
+        categories: [back, fwd, side, stand, turn]
+        floor: {kind: none}
+      - stage: c4
+        base: "1a"
+        iters: 1500
+        from_scratch: false
+        resume_from: previous_stage
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.15,fwd:0.22,side_l:0.14,side_r:0.14,back:0.1,turn:0.15,fwd_turn:0.05,side_l_turn:0.025,side_r_turn:0.025"
+          KRABBY_OMNI_SLOTS: "0.15:0.6:0.15:0.1"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_FACING: "0.2:0.6"
+          KRABBY_YAW_W: "0.2"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+          KRABBY_STD_PARAM: soft
+          KRABBY_INIT_STD: "0.8"
+          KRABBY_ENTROPY_COEF: "0.0025"
+        eval: [suite]
+        categories: [back, fwd, move_turn, side, stand, turn]
+        floor: {kind: none}
+      - stage: c5
+        base: "1a"
+        iters: 1500
+        from_scratch: false
+        resume_from: previous_stage
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.15,fwd:0.15,side_l:0.1,side_r:0.1,back:0.1,omni:0.15,turn:0.1,fwd_turn:0.07,side_l_turn:0.04,side_r_turn:0.04"
+          KRABBY_OMNI_SLOTS: "0.15:0.6:0.1:0.15"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_FACING: "0.2:0.6"
+          KRABBY_YAW_W: "0.2"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+          KRABBY_STD_PARAM: soft
+          KRABBY_INIT_STD: "0.8"
+          KRABBY_ENTROPY_COEF: "0.0025"
+        eval: []
+        categories: [back, diag, fwd, move_turn, side, stand, turn]
+        floor: {kind: none}
+      - stage: c6
+        base: "1a"
+        iters: 2000
+        from_scratch: false
+        resume_from: previous_stage
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07"
+          KRABBY_OMNI_SLOTS: "0.15:0.55:0.1:0.2"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_FACING: "0.2:0.6"
+          KRABBY_YAW_W: "0.2"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+          KRABBY_STD_PARAM: soft
+          KRABBY_INIT_STD: "0.8"
+          KRABBY_ENTROPY_COEF: "0.0025"
+        eval: [suite]
+        categories: [back, diag, fwd, move_turn, side, stand, turn]
+        floor: {kind: none}
+      - stage: c6x
+        base: "1a"
+        iters: 4000
+        from_scratch: false
+        resume_from: previous_stage
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07"
+          KRABBY_OMNI_SLOTS: "0.15:0.55:0.1:0.2"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_FACING: "0.2:0.6"
+          KRABBY_YAW_W: "0.2"
+          KRABBY_CLOCK_W: "0.001"
+          KRABBY_APEX_W: "0.001"
+          KRABBY_OMNI_CLOCK_HIDE: "1"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+          KRABBY_STD_PARAM: soft
+          KRABBY_INIT_STD: "0.8"
+          KRABBY_ENTROPY_COEF: "0.0025"
+        eval: [suite]
+        categories: [back, diag, fwd, move_turn, side, stand, turn]
+        floor: {kind: none}
+
+  P1_C_lr__B:
+    notes: "4c(3) P1, arm B on every stage."
+    stages:
+      - stage: t3
+        base: "1a"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.15,fwd:0.25,side_l:0.16,side_r:0.16,back:0.08,turn:0.2"
+          KRABBY_OMNI_SLOTS: "0.15:0.65:0.2:0"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_FACING: "0.2:0.6"
+          KRABBY_YAW_W: "0.2"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+          KRABBY_STD_PARAM: soft
+          KRABBY_INIT_STD: "0.8"
+          KRABBY_ENTROPY_COEF: "0.0025"
+          KRABBY_ACTION_RATE_W: "0"
+        eval: [suite]
+        categories: [back, fwd, side, stand, turn]
+        floor: {kind: none}
+      - stage: c4
+        base: "1a"
+        iters: 1500
+        from_scratch: false
+        resume_from: previous_stage
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.15,fwd:0.22,side_l:0.14,side_r:0.14,back:0.1,turn:0.15,fwd_turn:0.05,side_l_turn:0.025,side_r_turn:0.025"
+          KRABBY_OMNI_SLOTS: "0.15:0.6:0.15:0.1"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_FACING: "0.2:0.6"
+          KRABBY_YAW_W: "0.2"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+          KRABBY_STD_PARAM: soft
+          KRABBY_INIT_STD: "0.8"
+          KRABBY_ENTROPY_COEF: "0.0025"
+          KRABBY_ACTION_RATE_W: "0"
+        eval: [suite]
+        categories: [back, fwd, move_turn, side, stand, turn]
+        floor: {kind: none}
+      - stage: c5
+        base: "1a"
+        iters: 1500
+        from_scratch: false
+        resume_from: previous_stage
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.15,fwd:0.15,side_l:0.1,side_r:0.1,back:0.1,omni:0.15,turn:0.1,fwd_turn:0.07,side_l_turn:0.04,side_r_turn:0.04"
+          KRABBY_OMNI_SLOTS: "0.15:0.6:0.1:0.15"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_FACING: "0.2:0.6"
+          KRABBY_YAW_W: "0.2"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+          KRABBY_STD_PARAM: soft
+          KRABBY_INIT_STD: "0.8"
+          KRABBY_ENTROPY_COEF: "0.0025"
+          KRABBY_ACTION_RATE_W: "0"
+        eval: []
+        categories: [back, diag, fwd, move_turn, side, stand, turn]
+        floor: {kind: none}
+      - stage: c6
+        base: "1a"
+        iters: 2000
+        from_scratch: false
+        resume_from: previous_stage
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07"
+          KRABBY_OMNI_SLOTS: "0.15:0.55:0.1:0.2"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_FACING: "0.2:0.6"
+          KRABBY_YAW_W: "0.2"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+          KRABBY_STD_PARAM: soft
+          KRABBY_INIT_STD: "0.8"
+          KRABBY_ENTROPY_COEF: "0.0025"
+          KRABBY_ACTION_RATE_W: "0"
+        eval: [suite]
+        categories: [back, diag, fwd, move_turn, side, stand, turn]
+        floor: {kind: none}
+      - stage: c6x
+        base: "1a"
+        iters: 4000
+        from_scratch: false
+        resume_from: previous_stage
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07"
+          KRABBY_OMNI_SLOTS: "0.15:0.55:0.1:0.2"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_FACING: "0.2:0.6"
+          KRABBY_YAW_W: "0.2"
+          KRABBY_CLOCK_W: "0.001"
+          KRABBY_APEX_W: "0.001"
+          KRABBY_OMNI_CLOCK_HIDE: "1"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+          KRABBY_STD_PARAM: soft
+          KRABBY_INIT_STD: "0.8"
+          KRABBY_ENTROPY_COEF: "0.0025"
+          KRABBY_ACTION_RATE_W: "0"
+        eval: [suite]
+        categories: [back, diag, fwd, move_turn, side, stand, turn]
+        floor: {kind: none}
+
+
+  # ======================================================================== x6k: +3000 iterations on the C_lr heads (2026-10-03)
+  #: CHARTER section 10 (the user approved 'the 6000 iteration experiment on B', RESULTS.md next-experiment 1).
+  #: Each chain forks ONE step-3 head (resume_from: {reference: <its references: name>}) for +3000 iterations
+  #: with the forked chain's overlay VERBATIM -- the soft sigma, the bound ramp and alg_state carry through a
+  #: fork (SMOKES.md 'One A-head stage fork as in P1'). One chain per head: the reference is part of the stage.
+  C_lr__B_x6k_s11:
+    notes: "x6k (CHARTER 10): C_lr__B_s11's model_2999 head + 3000 its, C_lr__B's overlay verbatim."
+    stages:
+      - stage: x6k
+        base: "1b"
+        iters: 3000
+        resume_from: {reference: C_lr__B_s11}
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.2,side_l:0.4,side_r:0.4"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_SLOTS: "0.2:0.8:0:0"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+          KRABBY_STD_PARAM: soft
+          KRABBY_INIT_STD: "0.8"
+          KRABBY_ENTROPY_COEF: "0.0025"
+          KRABBY_ACTION_RATE_W: "0"
+          KRABBY_PPO_HAND_DIAG: "1"
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
+  C_lr__B_x6k_s12:
+    notes: "x6k (CHARTER 10): C_lr__B_s12's model_2999 head + 3000 its, C_lr__B's overlay verbatim."
+    stages:
+      - stage: x6k
+        base: "1b"
+        iters: 3000
+        resume_from: {reference: C_lr__B_s12}
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.2,side_l:0.4,side_r:0.4"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_SLOTS: "0.2:0.8:0:0"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+          KRABBY_STD_PARAM: soft
+          KRABBY_INIT_STD: "0.8"
+          KRABBY_ENTROPY_COEF: "0.0025"
+          KRABBY_ACTION_RATE_W: "0"
+          KRABBY_PPO_HAND_DIAG: "1"
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
+  C_lr__B_x6k_s13:
+    notes: "x6k (CHARTER 10): C_lr__B_s13's model_2999 head + 3000 its, C_lr__B's overlay verbatim."
+    stages:
+      - stage: x6k
+        base: "1b"
+        iters: 3000
+        resume_from: {reference: C_lr__B_s13}
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.2,side_l:0.4,side_r:0.4"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_SLOTS: "0.2:0.8:0:0"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+          KRABBY_STD_PARAM: soft
+          KRABBY_INIT_STD: "0.8"
+          KRABBY_ENTROPY_COEF: "0.0025"
+          KRABBY_ACTION_RATE_W: "0"
+          KRABBY_PPO_HAND_DIAG: "1"
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
+  C_lr__B_x6k_s14:
+    notes: "x6k (CHARTER 10): C_lr__B_s14's model_2999 head + 3000 its, C_lr__B's overlay verbatim."
+    stages:
+      - stage: x6k
+        base: "1b"
+        iters: 3000
+        resume_from: {reference: C_lr__B_s14}
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.2,side_l:0.4,side_r:0.4"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_SLOTS: "0.2:0.8:0:0"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+          KRABBY_STD_PARAM: soft
+          KRABBY_INIT_STD: "0.8"
+          KRABBY_ENTROPY_COEF: "0.0025"
+          KRABBY_ACTION_RATE_W: "0"
+          KRABBY_PPO_HAND_DIAG: "1"
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
+  C_lr__B_x6k_s15:
+    notes: "x6k (CHARTER 10): C_lr__B_s15's model_2999 head + 3000 its, C_lr__B's overlay verbatim."
+    stages:
+      - stage: x6k
+        base: "1b"
+        iters: 3000
+        resume_from: {reference: C_lr__B_s15}
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.2,side_l:0.4,side_r:0.4"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_SLOTS: "0.2:0.8:0:0"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+          KRABBY_STD_PARAM: soft
+          KRABBY_INIT_STD: "0.8"
+          KRABBY_ENTROPY_COEF: "0.0025"
+          KRABBY_ACTION_RATE_W: "0"
+          KRABBY_PPO_HAND_DIAG: "1"
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
+  C_lr__C0_x6k_s11:
+    notes: "x6k (CHARTER 10): C_lr__C0_s11's model_2999 head + 3000 its, C_lr__C0's overlay verbatim."
+    stages:
+      - stage: x6k
+        base: "1b"
+        iters: 3000
+        resume_from: {reference: C_lr__C0_s11}
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.2,side_l:0.4,side_r:0.4"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_SLOTS: "0.2:0.8:0:0"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_PPO_HAND_DIAG: "1"
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
+references:
+  # bed C (screen 11-13; 14-15 extensions; the bisection runs at 11-12)
+  C__C0_s11: {chain: C__C0, seed: 11}
+  C__C0_s12: {chain: C__C0, seed: 12}
+  C__C0_s13: {chain: C__C0, seed: 13}
+  C__C0_s14: {chain: C__C0, seed: 14}
+  C__C0_s15: {chain: C__C0, seed: 15}
+  C__A_s11: {chain: C__A, seed: 11}
+  # 2026-10-01 rerun of the dose-killed C__A_s11 (X02) under the amended dose rule (CHARTER 4.3/9); never resume C__A_s11
+  C__A_s11_r2: {chain: C__A, seed: 11}
+  C__A_s12: {chain: C__A, seed: 12}
+  C__A_s13: {chain: C__A, seed: 13}
+  C__A_s14: {chain: C__A, seed: 14}
+  C__A_s15: {chain: C__A, seed: 15}
+  C__B_s11: {chain: C__B, seed: 11}
+  C__B_s12: {chain: C__B, seed: 12}
+  C__B_s13: {chain: C__B, seed: 13}
+  C__B_s14: {chain: C__B, seed: 14}
+  C__B_s15: {chain: C__B, seed: 15}
+  C__A_ent01_s11: {chain: C__A_ent01, seed: 11}
+  C__A_ent01_s12: {chain: C__A_ent01, seed: 12}
+  C__A_ent01_s13: {chain: C__A_ent01, seed: 13}
+  C__A_ent01_s14: {chain: C__A_ent01, seed: 14}
+  C__A_ent01_s15: {chain: C__A_ent01, seed: 15}
+  C__A_std15_s11: {chain: C__A_std15, seed: 11}
+  C__A_std15_s12: {chain: C__A_std15, seed: 12}
+  C__A_std15_s13: {chain: C__A_std15, seed: 13}
+  C__A_std15_s14: {chain: C__A_std15, seed: 14}
+  C__A_std15_s15: {chain: C__A_std15, seed: 15}
+  C__bound_only_s11: {chain: C__bound_only, seed: 11}
+  C__bound_only_s12: {chain: C__bound_only, seed: 12}
+  C__bound_only_s13: {chain: C__bound_only, seed: 13}
+  C__bound_only_s14: {chain: C__bound_only, seed: 14}
+  C__bound_only_s15: {chain: C__bound_only, seed: 15}
+  # bed C_lr
+  C_lr__C0_s11: {chain: C_lr__C0, seed: 11}
+  C_lr__C0_s12: {chain: C_lr__C0, seed: 12}
+  C_lr__C0_s13: {chain: C_lr__C0, seed: 13}
+  C_lr__C0_s14: {chain: C_lr__C0, seed: 14}
+  C_lr__C0_s15: {chain: C_lr__C0, seed: 15}
+  C_lr__A_s11: {chain: C_lr__A, seed: 11}
+  C_lr__A_s12: {chain: C_lr__A, seed: 12}
+  C_lr__A_s13: {chain: C_lr__A, seed: 13}
+  C_lr__A_s14: {chain: C_lr__A, seed: 14}
+  C_lr__A_s15: {chain: C_lr__A, seed: 15}
+  C_lr__B_s11: {chain: C_lr__B, seed: 11}
+  C_lr__B_s12: {chain: C_lr__B, seed: 12}
+  C_lr__B_s13: {chain: C_lr__B, seed: 13}
+  C_lr__B_s14: {chain: C_lr__B, seed: 14}
+  C_lr__B_s15: {chain: C_lr__B, seed: 15}
+  # bed C_lr_rsi, staging off (X16's definition)
+  C_lr_rsi__C0_s11: {chain: C_lr_rsi__C0, seed: 11}
+  C_lr_rsi__C0_s12: {chain: C_lr_rsi__C0, seed: 12}
+  C_lr_rsi__C0_s13: {chain: C_lr_rsi__C0, seed: 13}
+  C_lr_rsi__C0_s14: {chain: C_lr_rsi__C0, seed: 14}
+  C_lr_rsi__C0_s15: {chain: C_lr_rsi__C0, seed: 15}
+  C_lr_rsi__A_s11: {chain: C_lr_rsi__A, seed: 11}
+  C_lr_rsi__A_s12: {chain: C_lr_rsi__A, seed: 12}
+  C_lr_rsi__A_s13: {chain: C_lr_rsi__A, seed: 13}
+  C_lr_rsi__A_s14: {chain: C_lr_rsi__A, seed: 14}
+  C_lr_rsi__A_s15: {chain: C_lr_rsi__A, seed: 15}
+  C_lr_rsi__B_s11: {chain: C_lr_rsi__B, seed: 11}
+  C_lr_rsi__B_s12: {chain: C_lr_rsi__B, seed: 12}
+  C_lr_rsi__B_s13: {chain: C_lr_rsi__B, seed: 13}
+  C_lr_rsi__B_s14: {chain: C_lr_rsi__B, seed: 14}
+  C_lr_rsi__B_s15: {chain: C_lr_rsi__B, seed: 15}
+  # bed C_lr_rsi, staging on (rung 0b ON only)
+  C_lr_rsi_st__C0_s11: {chain: C_lr_rsi_st__C0, seed: 11}
+  C_lr_rsi_st__C0_s12: {chain: C_lr_rsi_st__C0, seed: 12}
+  C_lr_rsi_st__C0_s13: {chain: C_lr_rsi_st__C0, seed: 13}
+  C_lr_rsi_st__C0_s14: {chain: C_lr_rsi_st__C0, seed: 14}
+  C_lr_rsi_st__C0_s15: {chain: C_lr_rsi_st__C0, seed: 15}
+  C_lr_rsi_st__A_s11: {chain: C_lr_rsi_st__A, seed: 11}
+  C_lr_rsi_st__A_s12: {chain: C_lr_rsi_st__A, seed: 12}
+  C_lr_rsi_st__A_s13: {chain: C_lr_rsi_st__A, seed: 13}
+  C_lr_rsi_st__A_s14: {chain: C_lr_rsi_st__A, seed: 14}
+  C_lr_rsi_st__A_s15: {chain: C_lr_rsi_st__A, seed: 15}
+  C_lr_rsi_st__B_s11: {chain: C_lr_rsi_st__B, seed: 11}
+  C_lr_rsi_st__B_s12: {chain: C_lr_rsi_st__B, seed: 12}
+  C_lr_rsi_st__B_s13: {chain: C_lr_rsi_st__B, seed: 13}
+  C_lr_rsi_st__B_s14: {chain: C_lr_rsi_st__B, seed: 14}
+  C_lr_rsi_st__B_s15: {chain: C_lr_rsi_st__B, seed: 15}
+  # step 4a / 4b (seeds 11-13; 14-15 on a FAST where the control was not)
+  C_lr__A_fixed_s11: {chain: C_lr__A_fixed, seed: 11}
+  C_lr__A_fixed_s12: {chain: C_lr__A_fixed, seed: 12}
+  C_lr__A_fixed_s13: {chain: C_lr__A_fixed, seed: 13}
+  C_lr__A_fixed_s14: {chain: C_lr__A_fixed, seed: 14}
+  C_lr__A_fixed_s15: {chain: C_lr__A_fixed, seed: 15}
+  C_lr__A_epochkl_s11: {chain: C_lr__A_epochkl, seed: 11}
+  C_lr__A_epochkl_s12: {chain: C_lr__A_epochkl, seed: 12}
+  C_lr__A_epochkl_s13: {chain: C_lr__A_epochkl, seed: 13}
+  C_lr__A_epochkl_s14: {chain: C_lr__A_epochkl, seed: 14}
+  C_lr__A_epochkl_s15: {chain: C_lr__A_epochkl, seed: 15}
+  C_lr__C0_1024_s11: {chain: C_lr__C0_1024, seed: 11}
+  C_lr__C0_1024_s12: {chain: C_lr__C0_1024, seed: 12}
+  C_lr__C0_1024_s13: {chain: C_lr__C0_1024, seed: 13}
+  C_lr__C0_1024_s14: {chain: C_lr__C0_1024, seed: 14}
+  C_lr__C0_1024_s15: {chain: C_lr__C0_1024, seed: 15}
+  C_lr__A_1024_s11: {chain: C_lr__A_1024, seed: 11}
+  C_lr__A_1024_s12: {chain: C_lr__A_1024, seed: 12}
+  C_lr__A_1024_s13: {chain: C_lr__A_1024, seed: 13}
+  C_lr__A_1024_s14: {chain: C_lr__A_1024, seed: 14}
+  C_lr__A_1024_s15: {chain: C_lr__A_1024, seed: 15}
+  # step 4c (1) INC0 (seeds 11-15)
+  C_lr__INC0_s11: {chain: C_lr__INC0, seed: 11}
+  C_lr__INC0_s12: {chain: C_lr__INC0, seed: 12}
+  C_lr__INC0_s13: {chain: C_lr__INC0, seed: 13}
+  C_lr__INC0_s14: {chain: C_lr__INC0, seed: 14}
+  C_lr__INC0_s15: {chain: C_lr__INC0, seed: 15}
+  C_lr_rsi__INC0_s11: {chain: C_lr_rsi__INC0, seed: 11}
+  C_lr_rsi__INC0_s12: {chain: C_lr_rsi__INC0, seed: 12}
+  C_lr_rsi__INC0_s13: {chain: C_lr_rsi__INC0, seed: 13}
+  C_lr_rsi__INC0_s14: {chain: C_lr_rsi__INC0, seed: 14}
+  C_lr_rsi__INC0_s15: {chain: C_lr_rsi__INC0, seed: 15}
+  C_lr_rsi_st__INC0_s11: {chain: C_lr_rsi_st__INC0, seed: 11}
+  C_lr_rsi_st__INC0_s12: {chain: C_lr_rsi_st__INC0, seed: 12}
+  C_lr_rsi_st__INC0_s13: {chain: C_lr_rsi_st__INC0, seed: 13}
+  C_lr_rsi_st__INC0_s14: {chain: C_lr_rsi_st__INC0, seed: 14}
+  C_lr_rsi_st__INC0_s15: {chain: C_lr_rsi_st__INC0, seed: 15}
+  # step 4c (2) FB and (3) P1 (confirm seeds 16-18; 19-20 spare)
+  FB_C_lr__C0_s16: {chain: FB_C_lr__C0, seed: 16}
+  FB_C_lr__C0_s17: {chain: FB_C_lr__C0, seed: 17}
+  FB_C_lr__C0_s18: {chain: FB_C_lr__C0, seed: 18}
+  FB_C_lr__C0_s19: {chain: FB_C_lr__C0, seed: 19}
+  FB_C_lr__C0_s20: {chain: FB_C_lr__C0, seed: 20}
+  FB_C_lr__A_s16: {chain: FB_C_lr__A, seed: 16}
+  FB_C_lr__A_s17: {chain: FB_C_lr__A, seed: 17}
+  FB_C_lr__A_s18: {chain: FB_C_lr__A, seed: 18}
+  FB_C_lr__A_s19: {chain: FB_C_lr__A, seed: 19}
+  FB_C_lr__A_s20: {chain: FB_C_lr__A, seed: 20}
+  FB_C_lr__B_s16: {chain: FB_C_lr__B, seed: 16}
+  FB_C_lr__B_s17: {chain: FB_C_lr__B, seed: 17}
+  FB_C_lr__B_s18: {chain: FB_C_lr__B, seed: 18}
+  FB_C_lr__B_s19: {chain: FB_C_lr__B, seed: 19}
+  FB_C_lr__B_s20: {chain: FB_C_lr__B, seed: 20}
+  P1_C_lr__C0_s16: {chain: P1_C_lr__C0, seed: 16}
+  P1_C_lr__C0_s17: {chain: P1_C_lr__C0, seed: 17}
+  P1_C_lr__C0_s18: {chain: P1_C_lr__C0, seed: 18}
+  P1_C_lr__C0_s19: {chain: P1_C_lr__C0, seed: 19}
+  P1_C_lr__C0_s20: {chain: P1_C_lr__C0, seed: 20}
+  P1_C_lr__A_s16: {chain: P1_C_lr__A, seed: 16}
+  P1_C_lr__A_s17: {chain: P1_C_lr__A, seed: 17}
+  P1_C_lr__A_s18: {chain: P1_C_lr__A, seed: 18}
+  P1_C_lr__A_s19: {chain: P1_C_lr__A, seed: 19}
+  P1_C_lr__A_s20: {chain: P1_C_lr__A, seed: 20}
+  P1_C_lr__B_s16: {chain: P1_C_lr__B, seed: 16}
+  P1_C_lr__B_s17: {chain: P1_C_lr__B, seed: 17}
+  P1_C_lr__B_s18: {chain: P1_C_lr__B, seed: 18}
+  P1_C_lr__B_s19: {chain: P1_C_lr__B, seed: 19}
+  P1_C_lr__B_s20: {chain: P1_C_lr__B, seed: 20}
+  # x6k forks (CHARTER 10): each at its forked head's own seed
+  C_lr__B_x6k_s11: {chain: C_lr__B_x6k_s11, seed: 11}
+  C_lr__B_x6k_s12: {chain: C_lr__B_x6k_s12, seed: 12}
+  C_lr__B_x6k_s13: {chain: C_lr__B_x6k_s13, seed: 13}
+  C_lr__B_x6k_s14: {chain: C_lr__B_x6k_s14, seed: 14}
+  C_lr__B_x6k_s15: {chain: C_lr__B_x6k_s15, seed: 15}
+  C_lr__C0_x6k_s11: {chain: C_lr__C0_x6k_s11, seed: 11}
+
+# ---------------------------------------------------------------------------- ranked candidates
+# Empty by design (header comment): every arm runs through `references:`, never the ordinary
+# candidate queue.
+candidates: []
+
+# ---------------------------------------------------------------------------- milestones
+milestones: []

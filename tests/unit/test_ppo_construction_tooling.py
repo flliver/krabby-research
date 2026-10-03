@@ -223,9 +223,9 @@ def test_consumed_lines_reject_not_consumed(tmp_path):
 
 
 # ============================================================ F9: the live candidates file
-def test_live_candidates_is_v2_and_every_c_lr_rsi_chain_states_its_staging():
+def test_live_candidates_is_v4_and_every_c_lr_rsi_chain_states_its_staging():
     live = (CAMPAIGN / "candidates.yaml").read_text()
-    assert live == (SCRIPTS / "candidates_v3.yaml").read_text()
+    assert live == (SCRIPTS / "candidates_v4.yaml").read_text()
     chains = yaml.safe_load(live)["chains"]
     rsi = {n: c for n, c in chains.items() if n.startswith("C_lr_rsi")}
     assert len(rsi) == 8
@@ -343,3 +343,142 @@ def test_the_watcher_starts_without_a_run_dir_and_follows_the_retry(tmp_path):
 def test_post_mode_needs_a_reference_and_a_checkpoint(tmp_path):
     r = subprocess.run(["bash", str(RUN_ARM), "--post", "C_lr__A_s11"], capture_output=True, text=True, timeout=60)
     assert r.returncode == 2 and "--post <reference> <checkpoint>" in r.stderr
+
+
+# ============================================================ x6k forks (CHARTER 10, 2026-10-03)
+def test_v4_adds_only_the_x6k_forks_with_their_source_overlays_verbatim():
+    v3 = yaml.safe_load((SCRIPTS / "candidates_v3.yaml").read_text())
+    v4 = yaml.safe_load((SCRIPTS / "candidates_v4.yaml").read_text())
+    new_chains = set(v4["chains"]) - set(v3["chains"])
+    assert new_chains == {f"C_lr__B_x6k_s{s}" for s in (11, 12, 13, 14, 15)} | {"C_lr__C0_x6k_s11"}
+    assert all(v4["chains"][c] == v3["chains"][c] for c in v3["chains"])          # nothing else moved
+    assert {k: v for k, v in v4["references"].items() if k in v3["references"]} == v3["references"]
+    for name in new_chains:
+        (st,) = v4["chains"][name]["stages"]
+        src = name.replace("_x6k", "")
+        assert st["resume_from"] == {"reference": src} and src in v4["references"]
+        assert st["overlay"] == v3["chains"][src.rsplit("_s", 1)[0]]["stages"][0]["overlay"]
+        assert int(st["iters"]) == 3000 and not st.get("from_scratch")
+        assert v4["references"][name] == {"chain": name, "seed": v4["references"][src]["seed"]}
+
+
+@pytest.mark.parametrize("ref, want", [("C_lr__B_s11", "C_lr__B 1 1 11"), ("C_lr__B_x6k_s11", "C_lr__B_x6k_s11 1 0 11"),
+                                       ("C_lr__C0_x6k_s11", "C_lr__C0_x6k_s11 1 0 11"), ("C__A_s12", "C__A 0 1 12")])
+def test_chain_info_never_calls_a_fork_a_screen(ref, want):
+    r = _bash(f"PY={sys.executable}; C={CAMPAIGN}\n" + _shell_fn("chain_info") + f"chain_info {ref}\n", CAMPAIGN)
+    assert r.stdout.strip() == want, r.stderr
+
+
+_FORK_YAML = """\
+chains:
+  C_lr__B_x6k_s11:
+    stages: [{stage: x6k, resume_from: {reference: C_lr__B_s11}}]
+  C_lr__C0_x6k_s11:
+    stages: [{stage: x6k, resume_from: {reference: C_lr__C0_s11}}]
+references:
+  C_lr__B_s11: {chain: C_lr__B, seed: 11}
+  C_lr__B_x6k_s11: {chain: C_lr__B_x6k_s11, seed: 11}
+  C_lr__B_x6k_s11_r2: {chain: C_lr__B_x6k_s11, seed: 11}
+  C_lr__C0_x6k_s11: {chain: C_lr__C0_x6k_s11, seed: 11}
+"""
+
+
+FAKE_RESUME_PY = r"""#!/usr/bin/env bash
+# stand-in for "$PY": resume_read.py (RC_resume sequence), verdict.py --check-run / --last-iter (counted, never expected)
+case "$(basename "$1")" in
+  resume_read.py)
+    n=$(cat "$STATE/resume" 2>/dev/null || echo 0); echo $((n + 1)) > "$STATE/resume"
+    set -- $RC_resume; i=$((n + 1)); [ "$i" -gt $# ] && i=$#; rc=${!i}
+    echo "{\"resume\": $rc}"; exit "$rc" ;;
+esac
+case "$2" in
+  --last-iter) echo 3100; exit 0 ;;
+  --check-run) n=$(cat "$STATE/checks" 2>/dev/null || echo 0); echo $((n + 1)) > "$STATE/checks"; echo '{}'; exit 0 ;;
+esac
+"""
+
+
+def _watch_resume(tmp_path: Path, rc_seq: str, polls: int = 5) -> dict:
+    out, state, src = tmp_path / "out", tmp_path / "state", tmp_path / "src_arms"
+    (out / "arms_x6k").mkdir(parents=True)
+    state.mkdir()
+    src.mkdir()
+    (src / "C_lr__B_s11.record.json").write_text(json.dumps({"run_dir": "/runs/SRC_s11"}))
+    camp = tmp_path / "camp"
+    camp.mkdir()
+    (camp / "candidates.yaml").write_text(_FORK_YAML)
+    fake = tmp_path / "fakepy"
+    fake.write_text(FAKE_RESUME_PY)
+    fake.chmod(0o755)
+    script = textwrap.dedent(f"""\
+        set -u
+        OUT={out}; ARMS={out}/arms_x6k; FORK_SRC_ARMS={src}; LOG={out}/queue.log; S={tmp_path}; PY={fake}; C={camp}
+        AUTO_KILL=1; RESUME_READ=1
+        export STATE={state} RC_resume="{rc_seq}"
+        say() {{ echo "$*" >> "$LOG"; }}
+        sleep() {{ :; }}
+        N=0
+        systemctl() {{
+          case "$2" in
+            is-active) N=$((N + 1)); [ "$N" -le {polls} ] ;;
+            stop) echo "STOPPED $3" >> "$LOG"; N=999 ;;
+          esac
+        }}
+        """) + _shell_fn("fork_source_rd") + _shell_fn("kill_kind") + _shell_fn("kill_arm") + _shell_fn("watch_arm") + \
+        "watch_arm C_lr__B_x6k_s11 /runs/FORK UNIT C_lr__B_x6k_s11 TL\n"
+    r = _bash(script, tmp_path)
+    assert r.returncode == 0, r.stderr
+    log = (out / "queue.log").read_text() if (out / "queue.log").exists() else ""
+    killed = out / "arms_x6k" / "C_lr__B_x6k_s11.killed"
+    calls = {p.name: int(p.read_text()) for p in state.iterdir()}
+    return {"log": log, "killed": killed.read_text() if killed.exists() else None,
+            "stop_queue": (out / "STOP_QUEUE").exists(), "calls": calls}
+
+
+def test_fork_resume_read_fail_is_a_wiring_kill_that_stops_the_queue(tmp_path):
+    w = _watch_resume(tmp_path, "2 3")
+    assert w["killed"].split("\t")[:2] == ["wiring", "resume"] and w["stop_queue"]
+    assert w["calls"].get("checks", 0) == 0                     # no from-scratch read on a fork
+    assert w["log"].count("RESUME C_lr__B_x6k_s11 rc 2") == 1
+
+
+def test_fork_resume_read_pass_latches_once_and_never_runs_the_scratch_reads(tmp_path):
+    w = _watch_resume(tmp_path, "0", polls=5)
+    assert w["killed"] is None and not w["stop_queue"]
+    assert w["calls"]["resume"] == 1 and w["calls"].get("checks", 0) == 0
+
+
+@pytest.mark.parametrize("ref, want", [("C_lr__C0_x6k_s11", "/runs/C0_s11"), ("C_lr__B_x6k_s11", "/runs/B_s11"),
+                                       ("C_lr__B_x6k_s11_r2", "/runs/B_s11")])
+def test_fork_source_run_dir_comes_from_the_chains_resume_reference(tmp_path, ref, want):
+    """A fresh-name rerun (``*_r2``) forks the same reference, so it must find the same source (review 2026-10-03)."""
+    (tmp_path / "C_lr__C0_s11.record.json").write_text(json.dumps({"run_dir": "/runs/C0_s11"}))
+    (tmp_path / "C_lr__B_s11.record.json").write_text(json.dumps({"run_dir": "/runs/B_s11"}))
+    (tmp_path / "candidates.yaml").write_text(_FORK_YAML)
+    r = _bash(f"FORK_SRC_ARMS={tmp_path}; C={tmp_path}\n" + _shell_fn("fork_source_rd") + f"fork_source_rd {ref}\n", tmp_path)
+    assert r.stdout.strip() == want, r.stderr
+
+
+def test_a_resume_reader_crash_is_logged_and_retried_never_a_kill(tmp_path):
+    w = _watch_resume(tmp_path, "1 1 0", polls=5)
+    assert w["killed"] is None and not w["stop_queue"]
+    assert w["log"].count("reader error, not a verdict") == 1 and "RESUME C_lr__B_x6k_s11 rc 0" in w["log"]
+    assert w["calls"]["resume"] == 3
+
+
+def test_follow_retry_follows_an_infra_retry_that_keeps_the_run_name(tmp_path):
+    runs = tmp_path / "runs"
+    runs.mkdir()
+    old, new = runs / "2026-10-03_08-00-00_seed13_X30_x6k_A15pB", runs / "2026-10-03_08-20-00_seed13_X30_x6k_A15pB"
+    old.mkdir()
+    new.mkdir()
+    import os, time
+    os.utime(old, (time.time() - 600, time.time() - 600))
+    orch = tmp_path / "orch.log"
+    orch.write_text("[2026-10-03 08:00:01] seed13_X30_x6k_A15pB: Isaac-Crab-Hex-Omni-Walk-v0 | 3000 its\n"
+                    "[2026-10-03 08:19:59] seed13_X30_x6k_A15pB_r2: Isaac-Crab-Hex-Omni-Walk-v0 | 3000 its\n")
+    fns = _shell_fn("orch_run_name_after") + _shell_fn("follow_retry")
+    r = _bash(f"ORCH={orch}; RUNS={runs}; T0S='2026-10-03 07:59:00'\n" + fns + f"follow_retry {old}\n", tmp_path)
+    assert r.stdout.strip() == str(new), r.stderr
+    r = _bash(f"ORCH={orch}; RUNS={runs}; T0S='2026-10-03 07:59:00'\n" + fns + f"follow_retry {new}\n", tmp_path)
+    assert r.stdout.strip() == "", r.stderr

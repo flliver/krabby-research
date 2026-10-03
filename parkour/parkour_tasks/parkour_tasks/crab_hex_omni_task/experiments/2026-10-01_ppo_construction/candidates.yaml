@@ -1124,6 +1124,161 @@ chains:
         categories: [back, diag, fwd, move_turn, side, stand, turn]
         floor: {kind: none}
 
+
+  # ======================================================================== x6k: +3000 iterations on the C_lr heads (2026-10-03)
+  #: CHARTER section 10 (the user approved 'the 6000 iteration experiment on B', RESULTS.md next-experiment 1).
+  #: Each chain forks ONE step-3 head (resume_from: {reference: <its references: name>}) for +3000 iterations
+  #: with the forked chain's overlay VERBATIM -- the soft sigma, the bound ramp and alg_state carry through a
+  #: fork (SMOKES.md 'One A-head stage fork as in P1'). One chain per head: the reference is part of the stage.
+  C_lr__B_x6k_s11:
+    notes: "x6k (CHARTER 10): C_lr__B_s11's model_2999 head + 3000 its, C_lr__B's overlay verbatim."
+    stages:
+      - stage: x6k
+        base: "1b"
+        iters: 3000
+        resume_from: {reference: C_lr__B_s11}
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.2,side_l:0.4,side_r:0.4"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_SLOTS: "0.2:0.8:0:0"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+          KRABBY_STD_PARAM: soft
+          KRABBY_INIT_STD: "0.8"
+          KRABBY_ENTROPY_COEF: "0.0025"
+          KRABBY_ACTION_RATE_W: "0"
+          KRABBY_PPO_HAND_DIAG: "1"
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
+  C_lr__B_x6k_s12:
+    notes: "x6k (CHARTER 10): C_lr__B_s12's model_2999 head + 3000 its, C_lr__B's overlay verbatim."
+    stages:
+      - stage: x6k
+        base: "1b"
+        iters: 3000
+        resume_from: {reference: C_lr__B_s12}
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.2,side_l:0.4,side_r:0.4"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_SLOTS: "0.2:0.8:0:0"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+          KRABBY_STD_PARAM: soft
+          KRABBY_INIT_STD: "0.8"
+          KRABBY_ENTROPY_COEF: "0.0025"
+          KRABBY_ACTION_RATE_W: "0"
+          KRABBY_PPO_HAND_DIAG: "1"
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
+  C_lr__B_x6k_s13:
+    notes: "x6k (CHARTER 10): C_lr__B_s13's model_2999 head + 3000 its, C_lr__B's overlay verbatim."
+    stages:
+      - stage: x6k
+        base: "1b"
+        iters: 3000
+        resume_from: {reference: C_lr__B_s13}
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.2,side_l:0.4,side_r:0.4"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_SLOTS: "0.2:0.8:0:0"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+          KRABBY_STD_PARAM: soft
+          KRABBY_INIT_STD: "0.8"
+          KRABBY_ENTROPY_COEF: "0.0025"
+          KRABBY_ACTION_RATE_W: "0"
+          KRABBY_PPO_HAND_DIAG: "1"
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
+  C_lr__B_x6k_s14:
+    notes: "x6k (CHARTER 10): C_lr__B_s14's model_2999 head + 3000 its, C_lr__B's overlay verbatim."
+    stages:
+      - stage: x6k
+        base: "1b"
+        iters: 3000
+        resume_from: {reference: C_lr__B_s14}
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.2,side_l:0.4,side_r:0.4"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_SLOTS: "0.2:0.8:0:0"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+          KRABBY_STD_PARAM: soft
+          KRABBY_INIT_STD: "0.8"
+          KRABBY_ENTROPY_COEF: "0.0025"
+          KRABBY_ACTION_RATE_W: "0"
+          KRABBY_PPO_HAND_DIAG: "1"
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
+  C_lr__B_x6k_s15:
+    notes: "x6k (CHARTER 10): C_lr__B_s15's model_2999 head + 3000 its, C_lr__B's overlay verbatim."
+    stages:
+      - stage: x6k
+        base: "1b"
+        iters: 3000
+        resume_from: {reference: C_lr__B_s15}
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.2,side_l:0.4,side_r:0.4"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_SLOTS: "0.2:0.8:0:0"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+          KRABBY_STD_PARAM: soft
+          KRABBY_INIT_STD: "0.8"
+          KRABBY_ENTROPY_COEF: "0.0025"
+          KRABBY_ACTION_RATE_W: "0"
+          KRABBY_PPO_HAND_DIAG: "1"
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
+  C_lr__C0_x6k_s11:
+    notes: "x6k (CHARTER 10): C_lr__C0_s11's model_2999 head + 3000 its, C_lr__C0's overlay verbatim."
+    stages:
+      - stage: x6k
+        base: "1b"
+        iters: 3000
+        resume_from: {reference: C_lr__C0_s11}
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.2,side_l:0.4,side_r:0.4"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_SLOTS: "0.2:0.8:0:0"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_PPO_HAND_DIAG: "1"
+        eval: [side22_25]
+        categories: [side, stand]
+        floor: {kind: none}
+
 references:
   # bed C (screen 11-13; 14-15 extensions; the bisection runs at 11-12)
   C__C0_s11: {chain: C__C0, seed: 11}
@@ -1274,6 +1429,13 @@ references:
   P1_C_lr__B_s18: {chain: P1_C_lr__B, seed: 18}
   P1_C_lr__B_s19: {chain: P1_C_lr__B, seed: 19}
   P1_C_lr__B_s20: {chain: P1_C_lr__B, seed: 20}
+  # x6k forks (CHARTER 10): each at its forked head's own seed
+  C_lr__B_x6k_s11: {chain: C_lr__B_x6k_s11, seed: 11}
+  C_lr__B_x6k_s12: {chain: C_lr__B_x6k_s12, seed: 12}
+  C_lr__B_x6k_s13: {chain: C_lr__B_x6k_s13, seed: 13}
+  C_lr__B_x6k_s14: {chain: C_lr__B_x6k_s14, seed: 14}
+  C_lr__B_x6k_s15: {chain: C_lr__B_x6k_s15, seed: 15}
+  C_lr__C0_x6k_s11: {chain: C_lr__C0_x6k_s11, seed: 11}
 
 # ---------------------------------------------------------------------------- ranked candidates
 # Empty by design (header comment): every arm runs through `references:`, never the ordinary

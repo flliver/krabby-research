@@ -314,6 +314,150 @@ as `C_lr_rsi__*`, identical to X16's definition.
 - **Every run of this campaign uses this code.** A later code change would invalidate the fresh-control
   rule (§2) and is logged here before use.
 
+## 10. x6k: B to 6000 iterations on C_lr (pre-registered 2026-10-03)
+
+(Placed before the log so §9 stays last. The user approved it on 2026-10-03: "Let's run the 6000 iteration
+experiment on B", which is RESULTS.md next-experiment 1. Step 3 is closed, and nothing here changes its verdicts:
+the forks are not step-3 runs, and `verdict.py` reads only `$OUT/arms`.)
+
+### 10.1 Question
+
+Step 3 left two-direction B one hand short. On C_lr, B's second hand was still rising at iteration 3000 (SLOW →
+INT between model_2500 and 2999 in 4 of the 4 one-FAST C_lr B runs). With 3000 more iterations, does that hand:
+
+- **complete:** late formation;
+- **plateau:** the stroke is present but does not convert into speed;
+- **or trade off against the first hand:** interference?
+
+And does C0's lean-and-shuffle stay frozen at 6000?
+
+### 10.2 Arms
+
+Each arm forks a step-3 head's `model_2999` for 3000 more iterations (`resume_from: {reference}`). It keeps the
+forked chain's overlay verbatim and the head's own seed, at code_sha f7166d558c5d (`scripts/candidates_v4.yaml`).
+
+| Fork | Head at model_2999 | Role |
+|---|---|---|
+| `C_lr__B_x6k_s11`, `_s13`, `_s14` | FAST / INT | one-FAST heads: the question |
+| `C_lr__B_x6k_s15` | INT / FAST | one-FAST head: the question |
+| `C_lr__B_x6k_s12` | FAST / FAST | stability, and a control on the resume itself |
+| `C_lr__C0_x6k_s11` | SLOW / SLOW | C0 control: is the freeze permanent? |
+
+- **Order,** drawn once with `random.Random(20261003).shuffle`:
+  1. C_lr__B_x6k_s13
+  2. C_lr__B_x6k_s14
+  3. C_lr__B_x6k_s12
+  4. C_lr__C0_x6k_s11
+  5. C_lr__B_x6k_s15
+  6. C_lr__B_x6k_s11
+- **Numbering:** a fork re-runs index 2999 and ends at `model_5998`, its head (SMOKES.md fork smoke).
+
+### 10.3 Wiring read (kills)
+
+`scripts/resume_read.py` runs once the fork has logged at least 5 iterations. It checks that the fork continues
+its head on four points; any failure means it restarted:
+
+- iteration numbering continues (the first step is 2999 or 3000);
+- `PPO/effective_std` is within 0.02 of the head's last value (B is about 0.748 against an init of 0.8; C0 is 2.0);
+- `Loss/priv_reg_coef` is within 5 % (a restart reads 0);
+- `Loss/action_bound_coef` is within 2 % (a restart reads 1e-4 against the head's 1e-3).
+
+A FAIL (rc 3 only) is a wiring kill and stops the queue: fix the cause, then rerun under a fresh name. If it still
+fails with correct wiring, stop and ask.
+
+- **A rerun is a new chain,** for example `C_lr__B_x6k_s13_r2` with the same `resume_from`, added in a
+  `candidates_v5`. Relaunching the killed name would resume the killed fork. The runner reads each fork's source
+  from its chain's `resume_from.reference`.
+- **A reader crash** (any other non-zero exit) is logged and retried, never a kill.
+
+The from-scratch reads (iteration 200 wiring, 1000 DEAD / dose, live divergence) are off. Their windows do not
+exist in a fork, and their thresholds are calibrated for formation from scratch.
+
+### 10.4 Reads
+
+- **Evals:**
+  - the both-hands eval (`side22_25lr__omni`) of `model_3100`, `model_4000`, `model_5000` and the head
+    (`model_3100` is the resume-artifact read, 10.5);
+  - the driver `side22_25` eval of the head;
+  - classes by §4.1 (feet AND along-command);
+  - the survival tripwire by §4.4 (fall share above 0.15 counts as not FAST);
+  - dose, reported only (median |μ| ≤ 1.5 over the fork's own last 100 logged iterations, 5899–5998);
+  - rod and joint odd RMS.
+- **Definitions:**
+  - The **second hand** of a one-FAST head is the hand that was not FAST in its step-3 record.
+  - A fork **completes** if, at its head:
+    - the second hand is FAST;
+    - the second hand's feet_ss (mean of the 0.22 and 0.25 holds) rose by ≥ 0.03 from model_2999 (the same
+      margin as "drops": s15's second hand is 0.0014 m/s from the FAST line, and a flip without a material rise
+      is not a completion);
+    - the first hand is still FAST;
+    - it is not tripped.
+  - A hand **drops** if it was FAST at model_2999, is below FAST at the head, and its feet_ss (mean of the 0.22
+    and 0.25 holds) fell by at least 0.03.
+- **Reader:** `scripts/x6k_read.py` computes every 10.4 / 10.5 statistic from the `arms_x6k` records, the step-3
+  records (the model_2999 values) and each fork's own tfevents. It is written while fork 1 trains, with a
+  self-test that covers the s15 boundary, and it is committed before the first head is read. verdict.py is not
+  used on forks: its windows are absolute iterations from scratch.
+
+### 10.5 Pre-registered reading
+
+The reading covers the four one-FAST B forks; drops count over all five B forks. Precedence: RESUME ARTIFACT >
+INTERFERENCE > LATE FORMATION > PLATEAU > MIXED. The first rule that matches decides.
+
+- **RESUME ARTIFACT:** a fork restarts the environment (episodes at the spawn pose, an empty rollout buffer); only
+  the algorithm state carries. So a hand that already drops at `model_3100` (below FAST and −0.03 against
+  model_2999) is read as a resume artifact. The response is stop and ask. Such a drop never counts toward
+  INTERFERENCE, in s12 or anywhere else.
+
+- **INTERFERENCE:** a hand drops in ≥ 2 of the 5 B forks.
+- **LATE FORMATION:** ≥ 2 of the 4 one-FAST forks complete.
+- **PLATEAU:** none of the 4 completes, and in ≥ 3 of 4 the second hand's feet_ss rises by < 0.03 from
+  model_2999 to the head.
+- **MIXED:** anything else, reported with the numbers.
+
+Why these thresholds:
+- 0.03 is the materiality convention of §4.5's late-rise clause. It is not the eval's resolution: the measured
+  same-checkpoint spread between manifests is ≤ 0.005.
+- ≥ 2 of 4 is the smallest count that is not a single seed.
+- At n = 4 this reading is descriptive; no p-value is claimed.
+
+The other heads:
+- **s12 (FAST/FAST):** STABLE if it is still FAST/FAST at the head. Otherwise it is reported, and a drop counts
+  toward INTERFERENCE.
+- **C0 control:** FROZEN if it is SLOW/SLOW at the head and each hand's feet_ss rose by < 0.03. Otherwise the
+  reading is "C0 moved under the 0.04 → 0.1 priv_reg ramp". That ramp runs during the extension (update counter
+  3149 → 5000 by about iteration 4760). The step-3 freeze read stands as stated, because it was made at
+  coefficient 0. `Loss/priv_reg_coef` at the head is reported in the C0 row.
+
+**Two-direction candidates:** any B fork that is FAST/FAST at its head, not tripped, with dose median ≤ 1.5. These
+are listed for the user. There is no bake, and no FB/P1 run without the user.
+
+**Intermediate evals** (model_4000 and model_5000) are descriptive: they time the formation.
+
+### 10.6 Running
+
+- **Command:** `scripts/run_arm.sh` in the drawn order, with these settings:
+  - `ARMS_DIR=$OUT/arms_x6k` (fork records stay out of the step-3 arms dir);
+  - `RESUME_READ=1`;
+  - `EXTRA_LR_EVALS="3100 4000 5000"`.
+- **Gate:** fork 1 (`C_lr__B_x6k_s13`) runs alone first. Its resume read and its `model_3100` eval (the RESUME
+  ARTIFACT rule) are read before forks 2–6 launch. One eval of about 3 minutes gates about 7 GPU-h.
+- **Process rules:** one Isaac process at a time, and no rendering while the queue can launch an arm (§9,
+  2026-10-02 08:30).
+- **At the end:** records are copied to `x6k/gate/`, the reading goes into `x6k/RESULTS.md`, and an independent
+  check follows.
+- **Budget:** about 6 × 1.45 ≈ 8.7 GPU-h (1.15–1.25 h of training per fork, plus five evals).
+
+**Pre-launch review (2026-10-03, before any fork ran):** a fable·high audit of this section and an opus·high
+code-path review (workflow `wf_01145c14-592`).
+- **Applied from the audit:** the resume-artifact rule and the model_3100 gate; the ≥ 0.03 rise in "completes";
+  the fork source taken from `resume_from`, plus the rerun sentence; the reader and its windows; the C0 wording.
+- **Applied from the code review:** only rc 3 kills; the runner follows an infra `_r<k>` retry; the records-dir
+  check.
+- **Confirmed by the code review:** every head resolves at code_sha f7166d558c5d; the resume restores Adam,
+  alg_state and the adaptive LR; model_3100, model_4000 and model_5000 exist (save_interval 100); the head is
+  model_5998.
+
 ## 9. Log
 
 - 2026-10-01: charter written. Code is being implemented on worktree `claude/ppo-construction`.
@@ -538,3 +682,4 @@ as `C_lr_rsi__*`, identical to X16's definition.
     - C__A_s13 and C_lr__A_s13 also carry "dose lost late" (final rod median 1.625 / 1.647; class counts);
     - some seed-11 entries (C_lr__A_s11, C_lr_rsi__C0_s11, C_lr_rsi__B_s11) quoted model_2500 speeds; the `RESULTS.md` table, generated from `gate/`, is the record;
     - "the `_e2` retry is what the uninterrupted run would have been" is an inference: the recorder shared the GPU during its first hour.
+- 2026-10-03 (pre-launch), **x6k registered (§10):** the user approved "the 6000 iteration experiment on B". Pre-launch it got: candidates_v4 (six forks; dry run and strict validation clean, every head resolves at code_sha f7166d558c5d), the `resume_read.py` wiring read (self-test, plus real tfevents: a from-scratch start FAILs every check), runner changes (41 tooling tests), and a fable/opus pre-launch review whose fixes are applied (§10.6). The live `candidates.yaml` is now v4; the step-3 verdict is byte-identical under v3 and v4. Fork 1 (`C_lr__B_x6k_s13`) launches alone as the §10.6 gate.

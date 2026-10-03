@@ -10,6 +10,11 @@
 #
 # Usage: run_arm.sh <reference> [<reference> ...]       references: names of candidates.yaml (<chain>_s<seed>)
 #        run_arm.sh --post <reference> <checkpoint>       steps 3-6 only, for a finished run (no launch)
+# x6k forks (CHARTER 10, 2026-10-03): RESUME_READ=1 replaces the from-scratch reads (200 / 1000 / live, whose windows a
+# run that starts at it 2999 never logs) with ONE resume-continuity read (scripts/resume_read.py: iteration numbering,
+# sigma, priv_reg and bound ramps continue the source head; FAIL = a wiring kill + STOP_QUEUE); the source head is the
+# fork reference's name minus "_x6k" in $FORK_SRC_ARMS (default $OUT/arms). EXTRA_LR_EVALS="4000 5000" adds the
+# both-hands eval of those checkpoints. ARMS_DIR keeps fork records out of the step-3 arms dir verdict.py reads.
 # The driver's one experiment-level retry trains as <tag>_e2 in a new run dir and files its evals under <tag>:
 # the run-dir search takes the LATEST training line since the launch, the watcher follows a retry (its reads
 # restart on the new run dir), and the stamp search strips the _e<k> suffix (2026-10-02 fix: C_lr_rsi__B_s12's
@@ -58,7 +63,10 @@ LRMAN=$R/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026
 EV=$R/parkour/logs/rsl_rl/gait_eval/omni_phases/$(basename "$C")
 RUNS=$R/parkour/logs/rsl_rl/crab_hex_omni_flat_walk
 OUT=$R/parkour/outputs/omni_plan/ppo_construction
-ARMS=$OUT/arms
+ARMS=${ARMS_DIR:-$OUT/arms}
+FORK_SRC_ARMS=${FORK_SRC_ARMS:-$OUT/arms}
+RESUME_READ=${RESUME_READ:-0}
+EXTRA_LR_EVALS=${EXTRA_LR_EVALS:-}
 LROUT=$OUT/lr
 SYMCACHE=$OUT/sym_cache
 LOG=$OUT/queue.log
@@ -66,6 +74,7 @@ ORCH=$C/orchestrator.log
 CAP="systemd-run --user --scope -q -p MemoryMax=48G -p MemorySwapMax=0"
 AUTO_KILL=${AUTO_KILL:-1}
 mkdir -p "$ARMS" "$LROUT" "$SYMCACHE"
+[ -d "$ARMS" ] && [ -w "$ARMS" ] || { echo "run_arm.sh: records dir $ARMS missing or not writable (ARMS_DIR=${ARMS_DIR:-})" >&2; exit 2; }
 say() { echo "[$(date -Is)] $*" >> "$LOG"; }
 wait_unit() { until ! systemctl --user is-active -q "$1"; do sleep 30; done; }
 drivers_idle() { while ps -eo args | grep -qE "^[^ ]*isaac_venv/bin/python [^ ]*(run_phases|run_candidates|eval_crab_hex_gait)\.py"; do sleep 30; done; }
@@ -88,7 +97,8 @@ seed = int(ref["seed"])            # the reference's own seed (a rerun's fresh n
 stages = d["chains"][chain]["stages"]
 pool = str((stages[-1].get("overlay") or {}).get("KRABBY_OMNI_CMD_POOL", ""))
 two = int("side_r" in pool)
-screen = int(len(stages) == 1 and int(stages[0]["iters"]) == 3000 and not chain.startswith(("FB_", "P1_")))
+screen = int(len(stages) == 1 and int(stages[0]["iters"]) == 3000 and not chain.startswith(("FB_", "P1_"))
+             and str(stages[0].get("resume_from", "scratch")) == "scratch")   # a fork's run dir has no model_2500
 print(chain, two, screen, seed)
 PY
 }
@@ -116,14 +126,15 @@ if hit:
     print(hit)
 PY
 }
-follow_retry() {  # CURRENT_RUN_DIR -> the run dir of the latest training line since the launch ($T0S) when it is
-  # another run and exists (the driver's retry, <tag>_e2); prints nothing otherwise
+follow_retry() {  # CURRENT_RUN_DIR -> the newest run dir of the latest training line since the launch ($T0S) when it
+  # differs from CURRENT_RUN_DIR: the driver's experiment-level retry trains as <tag>_e2 in a new run dir; an infra
+  # retry logs <tag>_r<k> but keeps the run name (2026-10-03 review), so the _r<k> suffix is stripped before the glob
   local rn rd
   rn=$(orch_run_name_after "$T0S" last)
   [ -n "$rn" ] || return 0
-  [ "$rn" = "$(basename "${1:-}" | cut -d_ -f3-)" ] && return 0
+  rn=$(echo "$rn" | sed -E 's/_r[0-9]+$//')
   rd=$(ls -dt "$RUNS"/*_"$rn" 2>/dev/null | head -1)
-  [ -n "$rd" ] && echo "$rd"
+  [ -n "$rd" ] && [ "$rd" != "${1:-}" ] && echo "$rd"
   return 0
 }
 head_of() {  # REF T0_EPOCH -> ckpt recorded in state.json for REF at/after T0 (follows an infra retry)
@@ -182,7 +193,7 @@ kill_arm() {  # REF UNIT RC AT REASON
 watch_arm() {  # REF RUN_DIR UNIT CHAIN TRAIN_LOG (background): progress notes + the pre-registered kills
   # A read is LATCHED only once it decided (rc 0 or a kill code); rc 2 (not enough telemetry) retries at the next
   # poll, logged once. verdict.py itself turns telemetry still missing 200 iterations past the window into rc 3.
-  local ref=$1 rd=$2 unit=$3 chain=$4 tl=$5 last out rc w200=0 w1000=0 n200=0 n1000=0 kk nrd
+  local ref=$1 rd=$2 unit=$3 chain=$4 tl=$5 last out rc w200=0 w1000=0 n200=0 n1000=0 kk nrd wres=0 nres=0 nerr=0
   while systemctl --user is-active -q "$unit"; do
     sleep 120
     if [ -n "${T0S:-}" ]; then
@@ -193,6 +204,22 @@ watch_arm() {  # REF RUN_DIR UNIT CHAIN TRAIN_LOG (background): progress notes +
       fi
     fi
     [ -n "$rd" ] || continue
+    if [ "${RESUME_READ:-0}" = 1 ]; then     # x6k fork: one resume-continuity read, no from-scratch reads
+      [ "$wres" = 1 ] && continue
+      out=$("$PY" "$S/resume_read.py" --fork "$rd" --source "$(fork_source_rd "$ref")" --json "$ARMS/${ref}_resume.json" 2>&1); rc=$?
+      if [ "$rc" = 2 ]; then
+        [ "$nres" = 0 ] && say "RESUME $ref rc 2 (not enough fork telemetry; retrying each poll) :: $(echo "$out" | tail -1 | cut -c1-300)"
+        nres=1
+      elif [ "$rc" = 0 ] || [ "$rc" = 3 ]; then
+        wres=1
+        say "RESUME $ref rc $rc :: $(echo "$out" | tail -1 | cut -c1-500)"
+        if [ "$rc" = 3 ]; then kill_arm "$ref" "$unit" 3 resume "$(echo "$out" | tail -1 | cut -c1-300)"; [ "$AUTO_KILL" = 1 ] && return; fi
+      else                                    # a reader crash is not a verdict: logged once, retried, never a kill
+        [ "$nerr" = 0 ] && say "NOTIFY RESUME $ref rc $rc: reader error, not a verdict (retrying each poll) :: $(echo "$out" | tail -1 | cut -c1-300)"
+        nerr=1
+      fi
+      continue
+    fi
     last=$("$PY" "$S/verdict.py" --last-iter "$rd" 2>/dev/null); last=${last:-0}
     if [ "$w200" = 0 ] && [ "$last" -ge 210 ]; then
       out=$("$PY" "$S/verdict.py" --check-run "$rd" --chain "$chain" --at 200 --train-log "$tl" 2>&1); rc=$?
@@ -227,6 +254,16 @@ watch_arm() {  # REF RUN_DIR UNIT CHAIN TRAIN_LOG (background): progress notes +
     fi
   done
 }
+fork_source_rd() {  # FORK_REF -> the run dir of the head its chain forks: candidates.yaml's resume_from.reference, then
+  # that reference's record in $FORK_SRC_ARMS (a fresh-name rerun of a fork names the same reference; 2026-10-03 review)
+  python3 - "$C/candidates.yaml" "$1" "$FORK_SRC_ARMS" <<'PY' 2>/dev/null
+import json, sys, yaml
+d = yaml.safe_load(open(sys.argv[1]))
+chain = d["references"][sys.argv[2]].get("chain") or sys.argv[2]
+src = d["chains"][chain]["stages"][0]["resume_from"]["reference"]
+print(json.load(open(f"{sys.argv[3]}/{src}.record.json"))["run_dir"])
+PY
+}
 lr_eval() {  # NAME CHECKPOINT ENV_STAMP -> sets LR_DIR LRL LRR (hand classes, feet AND along)
   local name=$1 ck=$2 st=$3 envs d fl fr al ar
   LR_DIR=""; LRL=""; LRR=""
@@ -249,6 +286,7 @@ write_record() {  # REF [KILLED_FILE] -> $ARMS/REF.record.json (every path verdi
   REF=$1 KILLED_FILE=${2:-} CHAIN=$CHAIN TWO=$TWO SCREEN=$SCREEN SEED=$SEED UNIT=$UNIT RD=$RD CK=$CK ST=$ST \
   LRD=${LRD_HEAD:-} LRD2500=${LRD_2500:-} \
   HANDL=${HANDL:-} HANDR=${HANDR:-} RUNCLS=${RUNCLS:-} ARMS=$ARMS TRAINLOG=$TRAINLOG CODE_ROOT=$CODE_ROOT \
+  EXTRA_DONE=${EXTRA_DONE:-} \
   python3 - <<'PY'
 import datetime, json, os
 e = os.environ
@@ -275,19 +313,27 @@ rec = {
     "hand_l": e["HANDL"] or None, "hand_r": e["HANDR"] or None, "run_class_runner": e["RUNCLS"] or None,
     "note": "run_class_runner is the runner's FAST rule only (feet AND along); verdict.py adds the tripwire.",
 }
+extra = {}
+for item in (e.get("EXTRA_DONE") or "").split():
+    n, _, d = item.partition("=")
+    extra[n] = {"stamp": d, "class_json": p(f"{ref}_m{n}_lr.json"), "along_json": p(f"{ref}_m{n}_lr_along.json")}
+if extra:
+    rec["extra_lr"] = extra
+if p(f"{ref}_resume.json"):
+    rec["resume_read_json"] = p(f"{ref}_resume.json")
 json.dump(rec, open(os.path.join(arms, f"{ref}.record.json"), "w"), indent=1)
 PY
 }
 run_ref() {  # REF -> 0 DONE, 1 STOP (logged), 2 killed (recorded), 6 launch refused
   local ref=$1 rn=""
-  RD=""; CK=""; ST=""; LRD_HEAD=""; LRD_2500=""; HANDL=""; HANDR=""; RUNCLS=""; TRAINLOG=""; SEED=""
+  RD=""; CK=""; ST=""; LRD_HEAD=""; LRD_2500=""; HANDL=""; HANDR=""; RUNCLS=""; TRAINLOG=""; SEED=""; EXTRA_DONE=""
   read -r CHAIN TWO SCREEN SEED < <(chain_info "$ref") || { say "STOP $ref not a reference of $C/candidates.yaml"; return 1; }
   [ -n "${CHAIN:-}" ] && [ -n "${SEED:-}" ] || { say "STOP $ref not a reference of $C/candidates.yaml"; return 1; }
   rm -f "$ARMS/$ref.killed"
   launch "$ref" || { say "STOP $ref launch refused 40 times"; return 6; }
   for _ in $(seq 90); do
     rn=$(orch_run_name_after "$T0S" last)
-    if [ -n "$rn" ]; then RD=$(ls -dt "$RUNS"/*_"$rn" 2>/dev/null | head -1); [ -n "$RD" ] && break; fi
+    if [ -n "$rn" ]; then RD=$(ls -dt "$RUNS"/*_"$(echo "$rn" | sed -E 's/_r[0-9]+$//')" 2>/dev/null | head -1); [ -n "$RD" ] && break; fi
     systemctl --user is-active -q "$UNIT" || break
     sleep 10
   done
@@ -338,6 +384,11 @@ post_ref() {  # REF -> steps 3-6 for a finished run: CK preset (--post) or the h
         say "note $ref: the model_2500 both-hands eval failed or has no checkpoint (the late-rise read is incomplete)"
       fi
     fi
+    EXTRA_DONE=""
+    for n in $EXTRA_LR_EVALS; do
+      if [ -f "$RD/model_$n.pt" ] && lr_eval "${ref}_m$n" "$RD/model_$n.pt" "$ST"; then EXTRA_DONE="$EXTRA_DONE $n=$LR_DIR"
+      else say "note $ref: the model_$n both-hands eval failed or has no checkpoint"; fi
+    done
     if [ "$HANDL" = FAST ] && [ "$HANDR" = FAST ]; then RUNCLS=FAST; else RUNCLS=NOT-FAST; fi
     "$PY" "$S/sym/odd_rms.py" --cache "$SYMCACHE" --json "$ARMS/${ref}_odd.json" "$ref=$LRD_HEAD" 2>&1 | grep HAND | sed "s/^/  [odd] $ref /" >> "$LOG"
   else
@@ -359,7 +410,7 @@ if [ "${1:-}" = "--post" ]; then
   post_ref "$2"; exit $?
 fi
 [ $# -ge 1 ] || { echo "usage: $0 <reference> [<reference> ...]" >&2; exit 2; }
-say "run_arm start: $* (campaign $C, code root $CODE_ROOT, AUTO_KILL $AUTO_KILL)"
+say "run_arm start: $* (campaign $C, code root $CODE_ROOT, AUTO_KILL $AUTO_KILL, ARMS $ARMS, RESUME_READ $RESUME_READ, EXTRA_LR_EVALS '$EXTRA_LR_EVALS')"
 for ref in "$@"; do
   if [ -f "$OUT/STOP_QUEUE" ]; then say "queue stopped by $OUT/STOP_QUEUE before $ref"; exit 4; fi
   run_ref "$ref"; rc=$?
