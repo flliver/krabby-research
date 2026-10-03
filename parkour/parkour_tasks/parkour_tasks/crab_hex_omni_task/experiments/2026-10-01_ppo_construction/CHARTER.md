@@ -685,3 +685,18 @@ code-path review (workflow `wf_01145c14-592`).
 - 2026-10-03 (pre-launch), **x6k registered (§10):** the user approved "the 6000 iteration experiment on B". Pre-launch it got: candidates_v4 (six forks; dry run and strict validation clean, every head resolves at code_sha f7166d558c5d), the `resume_read.py` wiring read (self-test, plus real tfevents: a from-scratch start FAILs every check), runner changes (41 tooling tests), and a fable/opus pre-launch review whose fixes are applied (§10.6). The live `candidates.yaml` is now v4; the step-3 verdict is byte-identical under v3 and v4. Fork 1 (`C_lr__B_x6k_s13`) launches alone as the §10.6 gate.
 - 2026-10-03 07:37, **x6k fork 1 (`C_lr__B_x6k_s13`) resume read PASS:** first step 2999 (= the source's last); σ 0.74852 vs 0.74860; priv_reg 0.03833 vs 0.0383; bound coefficient 1e-3 vs 1e-3. The fork continues its head.
   - **Reader:** `scripts/x6k_read.py` (§10.4) is committed before any head is read. Its self-test covers 15 cases, including the s15 boundary and the precedence; tooling tests are 42/42.
+- 2026-10-03 08:57, **x6k fork 1 `C_lr__B_x6k_s13`: COMPLETES; the §10.6 gate passes.**
+  - **Per-hand feet** (mean of the 0.22 and 0.25 holds):
+
+    | Checkpoint | L | R |
+    |---|---|---|
+    | model_2999 | FAST 0.228 | INT 0.137 |
+    | model_3100 | FAST 0.233 | INT 0.148 |
+    | model_4000 | FAST 0.232 | FAST 0.196 |
+    | model_5000 | FAST 0.231 | FAST 0.236 |
+    | head model_5998 | FAST 0.240 | FAST 0.239 |
+
+    The second hand rose +0.101.
+  - **Other reads:** fall 0.003; dose median |μ| 0.30 / 1.00 over the last 100 iterations; rod odd RMS 2.09 / 2.00; priv_reg at the head 0.1000.
+  - **Gate:** no resume artifact (the first hand is still FAST at model_3100), and the fork is a two-direction candidate by §10.5.
+  - **Queue:** forks 2–6 launched at 08:57 in the drawn order (s14, s12, C0_s11, s15, s11).
