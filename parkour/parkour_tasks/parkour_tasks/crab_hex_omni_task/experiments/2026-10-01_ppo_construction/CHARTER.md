@@ -700,3 +700,18 @@ code-path review (workflow `wf_01145c14-592`).
   - **Other reads:** fall 0.003; dose median |μ| 0.30 / 1.00 over the last 100 iterations; rod odd RMS 2.09 / 2.00; priv_reg at the head 0.1000.
   - **Gate:** no resume artifact (the first hand is still FAST at model_3100), and the fork is a two-direction candidate by §10.5.
   - **Queue:** forks 2–6 launched at 08:57 in the drawn order (s14, s12, C0_s11, s15, s11).
+- 2026-10-03 10:20, **x6k fork 2 `C_lr__B_x6k_s14`: COMPLETES** (a candidate).
+  - **Per-hand feet:**
+
+    | Checkpoint | L | R |
+    |---|---|---|
+    | model_2999 | FAST 0.231 | INT 0.144 |
+    | model_3100 | FAST 0.249 | INT 0.161 |
+    | model_4000 | FAST 0.248 | FAST 0.250 |
+    | model_5000 | FAST 0.261 | FAST 0.255 |
+    | head | FAST 0.266 | FAST 0.251 |
+
+    The rises are +0.035 / +0.107.
+  - **Other reads:** fall 0.000; dose 0.28 / 1.03; no resume artifact.
+  - **Count:** 2 of the 4 one-FAST forks complete, which is the LATE FORMATION count. The reading stays PENDING until all five B forks are read, because a drop in 2 of 5 or an artifact outranks it.
+  - **Fork 3 (s12):** launched at 10:20; resume read PASS (σ 0.75545 vs 0.75540).
