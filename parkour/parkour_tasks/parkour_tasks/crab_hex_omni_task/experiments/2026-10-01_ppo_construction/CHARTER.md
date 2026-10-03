@@ -745,3 +745,19 @@ code-path review (workflow `wf_01145c14-592`).
   - **Other reads:** fall 0.025; median |μ| in the last 100 iterations is 6.71 (cam) / 9.77 (rod), more saturated than at 2999. priv_reg at the head is 0.1000.
   - **Reading:** over 3000 more iterations, including the 0.04 → 0.1 priv_reg ramp, the incumbent did not move. The step-3 freeze reading holds, and its two-direction SLOW is not slowness.
   - **Next:** fork 5 (s15) launched at 13:10.
+- 2026-10-03 14:35, **x6k fork 5 `C_lr__B_x6k_s15`: COMPLETES** (a candidate).
+  - **Resume read:** PASS.
+  - **Per-hand feet:**
+
+    | Checkpoint | L | R |
+    |---|---|---|
+    | model_2999 | INT 0.165 | FAST 0.248 |
+    | model_3100 | INT 0.163 | FAST 0.242 |
+    | model_4000 | FAST 0.174 | FAST 0.262 |
+    | model_5000 | FAST 0.188 | FAST 0.235 |
+    | head | FAST 0.219 | FAST 0.255 |
+
+    The rises are +0.055 / +0.007, so the second hand is a material completion, not a boundary flip.
+  - **Other reads:** fall 0.000; dose 0.31 / 1.07.
+  - **Count:** 3 of the 4 one-FAST forks complete, and no B fork has a drop. With one fork left, INTERFERENCE (drops in ≥ 2 of 5) is unreachable. Only a resume artifact in s11 can outrank LATE FORMATION.
+  - **Next:** fork 6 (s11) launched at 14:34.
