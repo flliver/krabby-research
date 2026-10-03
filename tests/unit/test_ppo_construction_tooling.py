@@ -482,3 +482,9 @@ def test_follow_retry_follows_an_infra_retry_that_keeps_the_run_name(tmp_path):
     assert r.stdout.strip() == str(new), r.stderr
     r = _bash(f"ORCH={orch}; RUNS={runs}; T0S='2026-10-03 07:59:00'\n" + fns + f"follow_retry {new}\n", tmp_path)
     assert r.stdout.strip() == "", r.stderr
+
+
+def test_x6k_reader_self_test_passes(capsys):
+    """CHARTER 10.4: the pre-registered x6k reading (completes/drops/artifact/precedence, the s15 boundary)."""
+    x6k = _load(SCRIPTS / "x6k_read.py", "_ppo_construction_x6k_read")
+    assert x6k._self_test() == 0
