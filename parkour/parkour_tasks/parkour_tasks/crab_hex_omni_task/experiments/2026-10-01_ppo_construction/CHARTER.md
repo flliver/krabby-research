@@ -1062,3 +1062,12 @@ code-path review (workflow `wf_5e3c6bef-eb8`).
   - **Other reads:** dose 0.51 / 0.84 (OK); fall 0.000; jitter 0.157.
   - **Count:** B is 3/3 counted FAST/FAST at 6000 from scratch, so no B extension.
   - **Gate:** the outcome now depends only on FB6k__C0_s18 (running). PASS if it is not FAST/FAST, with no B trip and fwd/back holding.
+- 2026-10-04 15:08, **FB6k complete; the pre-registered §11.4 gate reads PASS** (`fb6k/fb6k_read.{json,md}`; records in `fb6k/gate/`).
+  - **FB6k__C0_s18:** SLOW / SLOW (0.101 / 0.098); suite fwd 0.645, back 0.687, side 0.450, diag 0.582; |μ| 8.34 / 9.42.
+  - **No extensions triggered.** The three B runs ended FAST/FAST at model_5999, and no C0 hand rose ≥ 0.03.
+  - **Counts:** B counted FAST/FAST 3/3 (0.203 / 0.202, 0.203 / 0.198, 0.226 / 0.187); C0 0/3.
+  - **Tripwire:** reference 0.020, threshold 0.15; no trip.
+  - **fwd / back:** B mean 0.966 / 0.935 vs C0 0.638 / 0.669, so both hold.
+  - **diag (descriptive):** B 0.82–0.96 vs C0 0.48–0.58.
+  - **INC0 gate:** 0/3, "ACTION_RATE ALONE INSUFFICIENT".
+  - **Pending:** the §11.6 independent check (workflow `wf_a570110e-2aa`). P1 is the user's call.
