@@ -586,6 +586,154 @@ code-path review (workflow `wf_5e3c6bef-eb8`).
   - the Q block and odd RMS appear in the reader rows.
 - **Tests:** the reader self-test has 28 cases.
 
+## 12. P1-B6: B lineage vs C0 lineage through the phase-1 chain (pre-registered 2026-10-04)
+
+(Placed before the log. The user approved FB6k next-option 1 ("Run 1") on 2026-10-04. The design is
+`fb6k/p1_design.md` by opus·high, written after the FB6k PASS. Nothing here changes steps 3, x6k or FB6k.)
+
+### 12.1 Question
+
+Does the B construction give fast two-hand side walking inside the full phase-1 chain:
+- with turning, move_turn and diag **trained**;
+- with the clock **cut** (c6x, the shipped recipe);
+
+without costing any other category against a matched C0 lineage? W, the shipped clock-free head, is the
+head-to-head reference.
+
+### 12.2 Arms (`scripts/candidates_v6.yaml`)
+
+Every stage overlay is `P1_C_lr__C0` / `P1_C_lr__B` verbatim, plus the RNG-free hand diagnostic.
+
+| Chain | Stages | Iterations | Seeds |
+|---|---|---|---|
+| `P1B6__{C0,B}_t3` | t3 (base 1a; pool stand .15 / fwd .25 / side_l .16 / side_r .16 / back .08 / turn .2; clock visible), from scratch | **6000** (was 3000; re-sized from FB6k's formation timing) | 16, 17, 18 |
+| `P1B6__{C0,B}_tail_s{16,17,18}` | c4 (fork of that seed's t3 head) → c5 → c6 → c6x (`CLOCK_W 0.001`, `APEX_W 0.001`, `KRABBY_OMNI_CLOCK_HIDE=1`, as shipped) | 1500 / 1500 / 2000 / 4000 | its own |
+
+- **Iteration numbering:** t3 runs 0–5999, c4 to 7498, c5 to 8997, c6 to 10996, c6x to 14995 (the head,
+  model_14995).
+- **B:** the B knobs on every stage. The soft σ and the bound ramp carry across stage forks (SMOKES.md).
+- **C0:** the incumbent on every stage.
+- **Order** (random.Random(20261005), seed-block-major): t3 C0_s16, B_s16, C0_s17, B_s17, C0_s18, B_s18; the tails
+  in the same order.
+
+### 12.3 Reads (`scripts/p1_read.py`, written and self-tested before launch)
+
+- **Classes:** §4.1 (feet AND along; FAST 0.155 / 0.175) on the both-hands eval (`side22_25lr__omni`) at:
+
+  | Checkpoint | When | Role |
+  |---|---|---|
+  | `model_4500` | t3 | descriptive |
+  | `model_5999` | t3 head | the t3 gate |
+  | c6 head | pre-cut, clock visible | the clock-cut read |
+  | `model_13000` | 2000 iterations into c6x | the cut transient, descriptive |
+  | `model_14995` | c6x head, clock hidden | the gate |
+
+- **Suite** (the driver `suite__omni` stamps; t3, c4, c6 and c6x heads), read at the c6x head:
+  - fwd, back, diag and side ratio;
+  - turn `facing_closed` and `yaw_progress`;
+  - move_turn ratio and survival;
+  - per-category jitter and fft.
+- **Clock-hidden assertion:** every c6x suite and lr stamp's env must carry `KRABBY_OMNI_CLOCK_HIDE=1`.
+  Otherwise the read is INVALID EVAL (stop and ask).
+- **B dose:** median |μ| ≤ 1.5 over the c6x run's last 100 logged iterations.
+- **Tripwire:** threshold max(0.15, ref + 0.10), where ref is the C0-lineage median fall share at the c6x head
+  (side holds).
+- **Kills:**
+  - **t3:** the §4.2 wiring and dose kills (B); DEAD-at-1000 is advisory (`ADVISE_DEAD=1`, as §11.3).
+  - **Tails:** the §10.3 resume read on the c4 fork of the t3 head (`RESUME_READ=1`).
+  - **Missing reads** are PENDING, never a decision.
+- **W:** re-scored at this code_sha with the env of its own suite stamp (clock hidden): suite and both-hands
+  side.
+
+### 12.4 t3 stop gate (before the ≈ 25 GPU-h of tails)
+
+**STOP and ask** if any of these hold:
+- B has ≥ 1 FAST hand at its t3 head in ≤ 1/3 seeds (formation fails once turning shares the pool);
+- B's weaker hand is below INTERMEDIATE (SLOW or DEAD) at the t3 head in ≥ 2/3 seeds. This is the INC0-like
+  one-hand outcome, where the construction's second hand fails. At the same per-hand exposure, FB6k's second
+  hands were all ≥ INT, so this rule does not false-stop on FB6k's timing;
+- C0 is FAST/FAST at t3 in ≥ 2/3 (the construction effect is unresolved);
+- a t3 read is missing or NA.
+
+Otherwise run the tails. The t3 FAST/FAST counts are descriptive.
+
+### 12.5 Final gate (c6x heads, clock hidden; the first rule that matches decides)
+
+1. **INVALID EVAL:** a c6x eval without the clock hidden. Stop and ask.
+2. **PENDING:** a read is missing.
+3. **CLOCK-CUT LOSS:** B is FAST/FAST by hands at the c6 pre-cut read in ≥ 2/3, but FAST/FAST by hands at c6x in
+   ≤ 1/3. Stop and ask; the next lever is a clock anneal, not the construction. A dose or tripwire loss with the
+   hands still FAST is not a clock-cut loss; it falls through to FAIL.
+4. **FAIL:** B counted FAST/FAST (both hands, untripped, dose OK) ≤ 1/3.
+5. **COST:** B counted FAST/FAST ≥ 2/3, but a gated category is CLEARLY inferior to the C0 lineage: seed-mean <
+   C0's − margin AND B's best seed < C0's worst. The category is named.
+6. **PASS:** B ≥ 2/3, C0 FAST/FAST ≤ 1/3, no B trip, and every gated category holds (seed-mean ≥ C0's − margin).
+7. **PARTIAL:** anything else, reported with the numbers.
+
+**Gated categories and margins:**
+
+| Category | Margin |
+|---|---|
+| fwd, back and diag ratio | 0.03 |
+| turn `facing_closed` | 0.03 |
+| turn `yaw_progress` | 0.01 (≈ 10 % of W's 0.102; 0.03 would allow a 30 % loss of turning rate) |
+
+**move_turn survival and ratio are reported, not gated.** The clock cut alone took W's move_turn survival from
+0.865 to 0.365, an open follow-up the user accepted. B's untrained move_turn already collapsed in FB6k, and the
+ratio is a median over all episodes, so it tracks survival.
+
+**An NA hand class** (a missing feet or along-command read) is PENDING, never a decided not-FAST.
+
+**Reported, not gated:**
+- per-category deltas against the re-scored W;
+- **adoption-candidate flag:** a B seed FAST/FAST at c6x whose side ratio beats W's, with no gated category more
+  than 0.05 below W's;
+- **smoothness flag:** B's seed-mean jitter > 1.5× C0's in any category, or fft > C0's + 0.3. The flag makes a
+  smoothness stage (action_rate restored after formation, ≈ 3 GPU-h) mandatory before any adoption.
+
+Any adoption, bake or push is the user's call.
+
+### 12.6 Running
+
+- **Command:** `scripts/p1_queue.sh`, run detached:
+  1. the t3 block (`ADVISE_DEAD=1`, `EXTRA_LR_EVALS="4500"`);
+  2. the t3 gate;
+  3. the tail block (`RESUME_READ=1`, `FORK_SRC_ARMS=$OUT/arms_p1`, `EXTRA_LR_EVALS="13000"`);
+  4. the c6 pre-cut reads (`run_arm.sh --lr-eval`, using the c6 stage's own suite-stamp env);
+  5. W's re-score (`--lr-eval`, `--row-eval suite__omni`).
+- **Records:** `$OUT/arms_p1`.
+- **Errors:** any error stops the queue with a NOTIFY line. On the tail block, `STOP_ON_REF_STOP=1` makes a per-run
+  STOP inside run_arm.sh end the block.
+- **Process rules:** one Isaac process at a time, and no rendering while the queue can launch.
+- **Budget:**
+
+  | Stage | Calculation | GPU-h |
+  |---|---|---|
+  | t3 | 6 × ≈ 2.7 | ≈ 16 |
+  | Tails | 6 × ≈ 4.0 | ≈ 24 |
+  | Pre-cut reads and W | | ≈ 0.6 |
+  | **Total** | | **≈ 41–45** |
+  | If the t3 stop fires | | ≈ 17 |
+
+- **At the end:** an independent check, then `p1/RESULTS.md`.
+
+**Pre-launch review (2026-10-04, before any run):** a fable·high audit of this section and an opus·high
+code-path review (workflow `wf_0d7bf006-a3d`). Opus found the normal path correct, end to end, against real files.
+- **Applied from the audit:**
+  - CLOCK-CUT LOSS compares hands with hands;
+  - FAIL (no formation) is separated from COST (a category clearly inferior);
+  - move_turn is reported, not gated;
+  - per-metric margins (yaw_progress 0.01);
+  - the t3 second-hand stop rule.
+- **Applied from the code review:**
+  - NA hand classes are PENDING;
+  - `STOP_ON_REF_STOP` on the tail block;
+  - continuation dirs (`_c`, `_w`) are mapped to their stamps in any_stamp_of and p1_read;
+  - t3 model_4500 is reported;
+  - the resume read is pinned to the tail's first stage, and stage changes are logged as such. A test caught and
+    fixed a first-poll case.
+- **Tests:** tooling tests 53/53.
+
 ## 9. Log
 
 - 2026-10-01: charter written. Code is being implemented on worktree `claude/ppo-construction`.
@@ -1082,3 +1230,12 @@ code-path review (workflow `wf_5e3c6bef-eb8`).
   - **INC0:** action_rate 0 drives the first hand (3/3 runs with one FAST hand, against C0 0/16); the construction adds the second hand and cuts jitter from 0.36–0.60 to 0.15.
   - **Write-up and design:** `fb6k/RESULTS.md`; the P1-B6 design by opus·high is in `fb6k/p1_design.md` (≈ 45 GPU-h, with a t3 stop).
   - **P1 is the user's call.**
+- 2026-10-04 (pre-launch), **P1-B6 registered (§12):** the user approved FB6k next-option 1 ("Run 1"). Pre-launch it got:
+  - candidates_v6 (dry run clean; the step-3 verdict is unchanged under v6);
+  - `p1_read.py` (reader, t3 gate, `--c6`; self-test);
+  - `p1_queue.sh`;
+  - run_arm `--lr-eval`, `--row-eval`, `STOP_ON_REF_STOP` and the pinned resume read;
+  - 53 tooling tests;
+  - a fable/opus pre-launch review, whose fixes are applied (§12.6).
+
+  The queue launches now: the t3 block first.

@@ -225,9 +225,9 @@ def test_consumed_lines_reject_not_consumed(tmp_path):
 
 
 # ============================================================ F9: the live candidates file
-def test_live_candidates_is_v5_and_every_c_lr_rsi_chain_states_its_staging():
+def test_live_candidates_is_v6_and_every_c_lr_rsi_chain_states_its_staging():
     live = (CAMPAIGN / "candidates.yaml").read_text()
-    assert live == (SCRIPTS / "candidates_v5.yaml").read_text()
+    assert live == (SCRIPTS / "candidates_v6.yaml").read_text()
     chains = yaml.safe_load(live)["chains"]
     rsi = {n: c for n, c in chains.items() if n.startswith("C_lr_rsi")}
     assert len(rsi) == 8
@@ -538,3 +538,105 @@ def test_advise_dead_logs_a_dead_read_and_never_kills_but_dose_still_stops(tmp_p
     assert w["killed"] is None and not w["stop_queue"] and "KILL-ADVISED REF dead at it 1000" in w["log"]
     w = _watch(tmp_path / "b", rc200="0", rc1000="4", extra="ADVISE_DEAD=1")
     assert w["killed"].split("\t")[:2] == ["dose", "1000"] and w["stop_queue"]
+
+
+
+# ============================================================ P1-B6 (CHARTER 12, 2026-10-04)
+def test_v6_adds_only_p1b6_with_the_p1_overlays_verbatim():
+    v5 = yaml.safe_load((SCRIPTS / "candidates_v5.yaml").read_text())
+    v6 = yaml.safe_load((SCRIPTS / "candidates_v6.yaml").read_text())
+    new = set(v6["chains"]) - set(v5["chains"])
+    assert new == {f"P1B6__{a}_t3" for a in ("C0", "B")} | {f"P1B6__{a}_tail_s{s}" for a in ("C0", "B") for s in (16, 17, 18)}
+    assert all(v6["chains"][c] == v5["chains"][c] for c in v5["chains"])
+    for arm in ("C0", "B"):
+        src = v5["chains"][f"P1_C_lr__{arm}"]["stages"]
+        (t3,) = v6["chains"][f"P1B6__{arm}_t3"]["stages"]
+        assert t3["overlay"] == {**src[0]["overlay"], "KRABBY_PPO_HAND_DIAG": "1"} and t3["iters"] == 6000 and t3["from_scratch"]
+        for s in (16, 17, 18):
+            tl = v6["chains"][f"P1B6__{arm}_tail_s{s}"]["stages"]
+            assert tl[0]["resume_from"] == {"reference": f"P1B6__{arm}_t3_s{s}"}
+            assert [x["resume_from"] for x in tl[1:]] == ["previous_stage"] * 3
+            for a, b in zip(tl, src[1:]):
+                assert a["stage"] == b["stage"] and a["iters"] == b["iters"] and a["eval"] == b["eval"]
+                assert a["overlay"] == {**b["overlay"], "KRABBY_PPO_HAND_DIAG": "1"}
+            assert tl[-1]["overlay"]["KRABBY_OMNI_CLOCK_HIDE"] == "1"
+            assert v6["references"][f"P1B6__{arm}_tail_s{s}"]["seed"] == s
+
+
+def test_p1_reader_self_test_passes():
+    p1 = _load(SCRIPTS / "p1_read.py", "_ppo_construction_p1_read")
+    assert p1._self_test() == 0
+
+
+def test_p1_queue_gates_t3_before_the_tails_and_reads_c6_and_w_after():
+    src = (SCRIPTS / "p1_queue.sh").read_text()
+    i_t3, i_gate, i_tail = src.index('bash "$S/run_arm.sh" $T3'), src.index("--t3-gate"), src.index('bash "$S/run_arm.sh" $TAILS')
+    i_c6, i_w = src.index("--lr-eval \"${ref}_c6\""), src.index("--row-eval W_p1b6")
+    assert i_t3 < i_gate < i_tail < i_c6 < i_w and "exit 4" in src[i_gate:i_tail]
+    assert 'T3="P1B6__C0_t3_s16 P1B6__B_t3_s16 P1B6__C0_t3_s17 P1B6__B_t3_s17 P1B6__C0_t3_s18 P1B6__B_t3_s18"' in src
+
+
+def test_run_arm_eval_modes_check_their_arguments():
+    for args in (["--lr-eval", "x"], ["--row-eval", "x", "y"]):
+        r = subprocess.run(["bash", str(RUN_ARM), *args], capture_output=True, text=True, timeout=60)
+        assert r.returncode == 2 and "usage" in r.stderr
+
+
+def test_a_continuation_run_dir_finds_its_stamp_under_the_base_tag(tmp_path):
+    ev = tmp_path / "ev"
+    rd = tmp_path / "runs/2026-10-04_10-00-00_seed16_X50_t3_A15pB_c"
+    st = ev / "seed16_X50_t3_A15pB/suite__omni/seed001/2026-10-04_14-00-00"
+    st.mkdir(parents=True)
+    (st / "run_meta.json").write_text(json.dumps({"checkpoint": f"{rd}/model_5999.pt"}))
+    (st / "complete.json").write_text("{}")
+    r = _bash(f"EV={ev}\n" + _shell_fn("any_stamp_of") + f"any_stamp_of {rd}\n", tmp_path)
+    assert r.stdout.strip().rstrip("/") == str(st), r.stderr
+
+
+def test_the_resume_read_stays_on_the_first_stage_across_stage_changes(tmp_path):
+    runs = tmp_path / "runs"
+    runs.mkdir()
+    c4, c5 = runs / "2026-10-04_10-00-00_seed16_X50_c4_A15pB", runs / "2026-10-04_10-40-00_seed16_X50_c5_A15pB"
+    c4.mkdir()
+    c5.mkdir()
+    import os, time
+    os.utime(c4, (time.time() - 600, time.time() - 600))
+    camp = tmp_path / "camp"
+    camp.mkdir()
+    (camp / "candidates.yaml").write_text(_FORK_YAML)
+    orch = camp / "orchestrator.log"
+    orch.write_text("[2026-10-04 10:00:01] seed16_X50_c4_A15pB: Isaac-Crab-Hex-Omni-Walk-v0 | 1500 its\n"
+                    "[2026-10-04 10:39:59] seed16_X50_c5_A15pB: Isaac-Crab-Hex-Omni-Walk-v0 | 1500 its\n")
+    out, state, src = tmp_path / "out", tmp_path / "state", tmp_path / "src"
+    (out / "arms").mkdir(parents=True)
+    state.mkdir()
+    src.mkdir()
+    (src / "C_lr__B_s11.record.json").write_text(json.dumps({"run_dir": "/runs/SRC"}))
+    fake = tmp_path / "fakepy"
+    fake.write_text(r"""#!/usr/bin/env bash
+case "$(basename "$1")" in resume_read.py) echo "$3" >> "$STATE/forks"; echo '{}'; exit 2 ;; esac
+case "$2" in --last-iter) echo 7600; exit 0 ;; esac
+""")
+    fake.chmod(0o755)
+    script = textwrap.dedent(f"""\
+        set -u
+        OUT={out}; ARMS={out}/arms; FORK_SRC_ARMS={src}; LOG={out}/queue.log; S={tmp_path}; PY={fake}; C={camp}
+        ORCH={orch}; RUNS={runs}; T0S="2026-10-04 09:59:00"; AUTO_KILL=1; RESUME_READ=1
+        export STATE={state}
+        say() {{ echo "$*" >> "$LOG"; }}
+        sleep() {{ :; }}
+        N=0
+        systemctl() {{ case "$2" in is-active) N=$((N + 1)); [ "$N" -le 3 ] ;; esac; }}
+        """) + _shell_fn("orch_run_name_after") + _shell_fn("follow_retry") + _shell_fn("fork_source_rd") + \
+        _shell_fn("kill_kind") + _shell_fn("kill_arm") + _shell_fn("watch_arm") + f"watch_arm C_lr__B_x6k_s11 {c4} UNIT C_lr__B_x6k_s11 TL\n"
+    r = _bash(script, tmp_path)
+    assert r.returncode == 0, r.stderr
+    log = (out / "queue.log").read_text()
+    assert "stage change" in log and "following the driver's retry" not in log
+    assert set((state / "forks").read_text().split()) == {str(c4)}      # every resume read used the c4 run dir
+
+
+def test_stop_on_ref_stop_is_wired_into_the_main_loop():
+    src = RUN_ARM.read_text()
+    assert 'if [ "$rc" = 1 ] && [ "${STOP_ON_REF_STOP:-0}" = 1 ]' in src and "exit 5" in src
+    assert "STOP_ON_REF_STOP=1" in (SCRIPTS / "p1_queue.sh").read_text()

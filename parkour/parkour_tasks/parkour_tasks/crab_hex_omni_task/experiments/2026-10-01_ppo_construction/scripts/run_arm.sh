@@ -10,6 +10,11 @@
 #
 # Usage: run_arm.sh <reference> [<reference> ...]       references: names of candidates.yaml (<chain>_s<seed>)
 #        run_arm.sh --post <reference> <checkpoint>       steps 3-6 only, for a finished run (no launch)
+#        run_arm.sh --lr-eval <name> <checkpoint> <env_stamp>
+#                   the both-hands eval of any checkpoint with that stamp's env -> $ARMS/<name>_lr{,_along}.json
+#                   (P1-B6, CHARTER 12: the c6 pre-cut read and W's re-score)
+#        run_arm.sh --row-eval <name> <checkpoint> <env_stamp> <manifest> <scenario>
+#                   one eval row of any checkpoint with that stamp's env -> $LROUT/<name>/<scenario>/seed001/<ts>
 # x6k forks (CHARTER 10, 2026-10-03): RESUME_READ=1 replaces the from-scratch reads (200 / 1000 / live, whose windows a
 # run that starts at it 2999 never logs) with ONE resume-continuity read (scripts/resume_read.py: iteration numbering,
 # sigma, priv_reg and bound ramps continue the source head; FAIL = a wiring kill + STOP_QUEUE); the source head is the
@@ -103,7 +108,7 @@ print(chain, two, screen, seed)
 PY
 }
 any_stamp_of() {  # RUN_DIR -> newest complete driver stamp of that run (any row)
-  local rd=$1 tag; tag=$(basename "$rd" | cut -d_ -f3- | sed -E 's/_e[0-9]+$//')  # a retry's evals file under <tag>
+  local rd=$1 tag; tag=$(basename "$rd" | cut -d_ -f3- | sed -E 's/_(e[0-9]+|c|w)$//')  # retry/continuation evals file under <tag>
   ls -d "$EV/$tag"/*/seed001/*/ 2>/dev/null | while read -r d; do
     grep -q "$(basename "$rd")" "$d/run_meta.json" 2>/dev/null && [ -f "$d/complete.json" ] && echo "$d"; done | tail -1
 }
@@ -193,20 +198,27 @@ kill_arm() {  # REF UNIT RC AT REASON
 watch_arm() {  # REF RUN_DIR UNIT CHAIN TRAIN_LOG (background): progress notes + the pre-registered kills
   # A read is LATCHED only once it decided (rc 0 or a kill code); rc 2 (not enough telemetry) retries at the next
   # poll, logged once. verdict.py itself turns telemetry still missing 200 iterations past the window into rc 3.
-  local ref=$1 rd=$2 unit=$3 chain=$4 tl=$5 last out rc w200=0 w1000=0 n200=0 n1000=0 kk nrd wres=0 nres=0 nerr=0
+  local ref=$1 rd=$2 unit=$3 chain=$4 tl=$5 last out rc w200=0 w1000=0 n200=0 n1000=0 kk nrd wres=0 nres=0 nerr=0 rres=""
+  [ -n "$rd" ] && rres=$rd                   # the fork's first-stage run dir, pinned before any stage change
   while systemctl --user is-active -q "$unit"; do
     sleep 120
     if [ -n "${T0S:-}" ]; then
       nrd=$(follow_retry "$rd")
       if [ -n "$nrd" ]; then
-        say "note $ref: following the driver's retry -> run dir $nrd (the reads restart there)"
+        if [ -n "$rd" ] && [ "$(basename "$rd" | cut -d_ -f5)" != "$(basename "$nrd" | cut -d_ -f5)" ]; then
+          say "note $ref: stage change -> run dir $nrd"
+        else
+          say "note $ref: following the driver's retry -> run dir $nrd (the reads restart there)"
+          [ "$(basename "${rres:-x_x_x_x_none}" | cut -d_ -f5)" = "$(basename "$nrd" | cut -d_ -f5)" ] && rres=$nrd
+        fi
         rd=$nrd; tl=$C/logs/$(basename "$nrd" | cut -d_ -f3-)_train.log; w200=0; w1000=0; n200=0; n1000=0
       fi
     fi
     [ -n "$rd" ] || continue
+    [ -n "$rres" ] || rres=$rd                # the resume read stays on the fork's FIRST stage (CHARTER 12 review)
     if [ "${RESUME_READ:-0}" = 1 ]; then     # x6k fork: one resume-continuity read, no from-scratch reads
       [ "$wres" = 1 ] && continue
-      out=$("$PY" "$S/resume_read.py" --fork "$rd" --source "$(fork_source_rd "$ref")" --json "$ARMS/${ref}_resume.json" 2>&1); rc=$?
+      out=$("$PY" "$S/resume_read.py" --fork "$rres" --source "$(fork_source_rd "$ref")" --json "$ARMS/${ref}_resume.json" 2>&1); rc=$?
       if [ "$rc" = 2 ]; then
         [ "$nres" = 0 ] && say "RESUME $ref rc 2 (not enough fork telemetry; retrying each poll) :: $(echo "$out" | tail -1 | cut -c1-300)"
         nres=1
@@ -265,6 +277,18 @@ chain = d["references"][sys.argv[2]].get("chain") or sys.argv[2]
 src = d["chains"][chain]["stages"][0]["resume_from"]["reference"]
 print(json.load(open(f"{sys.argv[3]}/{src}.record.json"))["run_dir"])
 PY
+}
+row_eval() {  # NAME CHECKPOINT ENV_STAMP MANIFEST SCENARIO -> sets ROW_DIR (the complete stamp) or returns 1
+  local name=$1 ck=$2 st=$3 man=$4 sc=$5 envs d
+  ROW_DIR=""
+  envs=$(python3 -c "import json,sys;m=json.load(open(sys.argv[1]));print(' '.join(f'{k}={v}' for k,v in sorted(m['env_vars'].items())))" "$st/run_meta.json")
+  drivers_idle
+  ( cd "$R/parkour" && env OMNI_KIT_ACCEPT_EULA=yes TERM=xterm PYTHONPATH="$PYP" $envs \
+      $CAP timeout 3600 "$PY" "$EVAL" --headless --manifest "$man" --scenario "$sc" \
+      --checkpoint "$ck" --save-raw --no-plot --output-root "$LROUT/$name" ) > "$LROUT/$name.$sc.log" 2>&1
+  d=$(ls -d "$LROUT/$name"/"$sc"/seed001/*/ 2>/dev/null | tail -1)
+  if [ -z "$d" ] || [ ! -f "$d/complete.json" ]; then return 1; fi
+  ROW_DIR=${d%/}
 }
 lr_eval() {  # NAME CHECKPOINT ENV_STAMP -> sets LR_DIR LRL LRR (hand classes, feet AND along)
   local name=$1 ck=$2 st=$3 envs d fl fr al ar
@@ -403,6 +427,20 @@ post_ref() {  # REF -> steps 3-6 for a finished run: CK preset (--post) or the h
   return 0
 }
 
+if [ "${1:-}" = "--lr-eval" ]; then
+  [ $# -eq 4 ] || { echo "usage: $0 --lr-eval <name> <checkpoint> <env_stamp>" >&2; exit 2; }
+  [ -f "$3" ] && [ -f "$4/run_meta.json" ] || { echo "no checkpoint $3 or no stamp $4" >&2; exit 2; }
+  say "run_arm lr-eval: $2 $3 (env $4)"
+  if lr_eval "$2" "$3" "$4"; then exit 0; fi
+  say "STOP lr-eval $2: no complete stamp (log $LROUT/$2.log)"; exit 1
+fi
+if [ "${1:-}" = "--row-eval" ]; then
+  [ $# -eq 6 ] || { echo "usage: $0 --row-eval <name> <checkpoint> <env_stamp> <manifest> <scenario>" >&2; exit 2; }
+  [ -f "$3" ] && [ -f "$4/run_meta.json" ] && [ -f "$5" ] || { echo "missing checkpoint/stamp/manifest" >&2; exit 2; }
+  say "run_arm row-eval: $2 $6 $3 (env $4)"
+  if row_eval "$2" "$3" "$4" "$5" "$6"; then say "EVENT $2 $6 stamp $ROW_DIR"; exit 0; fi
+  say "STOP row-eval $2 $6: no complete stamp (log $LROUT/$2.$6.log)"; exit 1
+fi
 if [ "${1:-}" = "--post" ]; then
   [ $# -eq 3 ] || { echo "usage: $0 --post <reference> <checkpoint>" >&2; exit 2; }
   RD=""; CK=$3; ST=""; LRD_HEAD=""; LRD_2500=""; HANDL=""; HANDR=""; RUNCLS=""; TRAINLOG=""; UNIT="(post-only)"; T0=0
@@ -417,5 +455,6 @@ for ref in "$@"; do
   if [ -f "$OUT/STOP_QUEUE" ]; then say "queue stopped by $OUT/STOP_QUEUE before $ref"; exit 4; fi
   run_ref "$ref"; rc=$?
   [ "$rc" = 6 ] && exit 6
+  if [ "$rc" = 1 ] && [ "${STOP_ON_REF_STOP:-0}" = 1 ]; then say "STOP run_arm: $ref stopped (STOP_ON_REF_STOP=1) -- NOTIFY"; exit 5; fi
 done
 say "run_arm end: $*"
