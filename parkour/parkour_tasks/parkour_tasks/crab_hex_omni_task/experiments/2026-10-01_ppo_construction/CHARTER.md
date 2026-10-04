@@ -945,3 +945,18 @@ code-path review (workflow `wf_5e3c6bef-eb8`).
   - **Other reads:** jitter 0.359 / fft 3.19; rod median |μ| 5.14; dump OK.
   - **Gate:** INC0 FAST/FAST is 0/2, so the §11.5 stop (≥ 2/3) is now unreachable. FB6k will launch after INC0 s13.
   - **Pattern (descriptive):** action_rate 0 on the incumbent forms one hand, and the second stays flat, unlike B's late second hand.
+- 2026-10-03 23:50, **INC0 s13 = L FAST / R INT**, so not FAST/FAST.
+  - **Per-hand feet:**
+
+    | Checkpoint | L | R |
+    |---|---|---|
+    | model_3000 | FAST 0.211 | SLOW 0.094 |
+    | model_4500 | FAST 0.230 | SLOW 0.124 |
+    | head | FAST 0.216 | INT 0.150 |
+
+    Unlike s11 and s12, R is still rising (+0.026 from 4500).
+  - **Other reads:** jitter 0.594 / fft 4.12, the jerkiest run of the campaign; rod |μ| 4.23.
+  - **§11.5 INC0 gate: 0/3 FAST/FAST** → "ACTION_RATE ALONE INSUFFICIENT". action_rate 0 alone does not flip C_lr by 6000 continuous iterations.
+    - It does form one FAST hand in 3/3 runs (C0 at 3000 had 0/16 hands), at 2.4–4× B's jitter.
+    - The construction attribution is read together with FB6k.
+  - **Next:** the FB6k block launched at 23:50 (C0_s16 first).
