@@ -1000,3 +1000,44 @@ code-path review (workflow `wf_5e3c6bef-eb8`).
 
   - **Other reads:** dose median |μ| 0.54 / 0.88 (OK); fall 0.000; jitter 0.152 / fft 1.42; rod odd RMS 1.60 / 1.85.
   - **Live checks:** wiring PASS. track_1000 was 0.451, close to the advisory DEAD line of 0.40, which the §11.3 advisory covers.
+- 2026-10-04 07:29, **FB6k__C0_s17 = SLOW / SLOW.**
+  - **Per-hand feet:**
+
+    | Checkpoint | L | R |
+    |---|---|---|
+    | model_3000 | 0.107 | 0.085 |
+    | model_4500 | 0.108 | 0.080 |
+    | head | 0.106 | 0.085 |
+
+  - **Suite at model_5999** (ratio, survival):
+
+    | Category | Ratio | Survival |
+    |---|---|---|
+    | fwd | 0.579 | 0.80 |
+    | back | 0.605 | 0.84 |
+    | side | 0.443 | 0.93 |
+    | diag | 0.483 | 0.83 |
+
+  - **Other reads:** median |μ| 6.84 / 9.22; jitter 0.106.
+  - **Extension:** no C0 hand rose ≥ 0.03, so this run is extended only if B_s17 is.
+  - **Next:** FB6k__B_s17 is running.
+- 2026-10-04 10:02, **FB6k__B_s17 = FAST / FAST at model_5999** (no extension).
+  - **Per-hand feet:**
+
+    | Checkpoint | L | R |
+    |---|---|---|
+    | model_3000 | INT 0.161 | INT 0.149 |
+    | model_4500 | FAST 0.178 | FAST 0.232 |
+    | head | FAST 0.203 | FAST 0.198 |
+
+  - **Suite at model_5999** (ratio, survival), against C0_s17:
+
+    | Category | B ratio | B survival | C0_s17 ratio |
+    |---|---|---|---|
+    | fwd | 0.933 | 1.00 | 0.579 |
+    | back | 0.917 | 1.00 | 0.605 |
+    | side | 0.859 | 1.00 | 0.443 |
+    | diag | 0.822 | 0.99 | 0.483 |
+
+  - **Other reads:** dose 0.52 / 0.88 (OK); fall 0.000; jitter 0.152.
+  - **Count:** B is 2/2 counted FAST/FAST, so the gate's B criterion (≥ 2/3) is met. PASS still needs C0_s18 not FAST/FAST, no B trip, and fwd/back to hold over three seeds.
