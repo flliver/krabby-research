@@ -917,3 +917,31 @@ code-path review (workflow `wf_5e3c6bef-eb8`).
   - a fable/opus pre-launch review, whose fixes are applied (§11.6).
 
   The queue launches now; INC0 runs first.
+- 2026-10-03 18:57, **INC0 s11 (`C_lr6k__INC0_s11`, C_lr C0 + action_rate 0, 6000 its from scratch) = L FAST / R SLOW**, so not FAST/FAST.
+  - **Per-hand feet:**
+
+    | Checkpoint | L | R |
+    |---|---|---|
+    | model_3000 | FAST 0.183 | SLOW 0.094 |
+    | model_4500 | FAST 0.229 | SLOW 0.106 |
+    | head | FAST 0.230 | SLOW 0.104 |
+
+    The second hand is flat from 3000 to the head: no late formation, unlike B.
+  - **Other reads:** fall 0.003; the dumped action_rate weight is 0 (wiring OK).
+  - **Descriptive:**
+    - This is the first incumbent-construction run ever to form a FAST side hand on C_lr; C0 was 0/16 hands. So the action_rate penalty is part of what holds C0's stroke back.
+    - INC0 pays a large smoothness cost: jitter 0.365 / fft 2.89, against B 0.12–0.15 / 1.07–1.37 and C0 0.065–0.104.
+    - Its rods stay saturated (median |μ| 4.31; cam 0.51).
+- 2026-10-03 21:25, **INC0 s12 = L INT / R FAST**, so not FAST/FAST.
+  - **Per-hand feet:**
+
+    | Checkpoint | L | R |
+    |---|---|---|
+    | model_3000 | SLOW 0.122 | INT 0.160 |
+    | model_4500 | INT 0.137 | FAST 0.180 |
+    | head | INT 0.135 | FAST 0.208 |
+
+    The second hand is flat from 4500 to the head.
+  - **Other reads:** jitter 0.359 / fft 3.19; rod median |μ| 5.14; dump OK.
+  - **Gate:** INC0 FAST/FAST is 0/2, so the §11.5 stop (≥ 2/3) is now unreachable. FB6k will launch after INC0 s13.
+  - **Pattern (descriptive):** action_rate 0 on the incumbent forms one hand, and the second stays flat, unlike B's late second hand.
