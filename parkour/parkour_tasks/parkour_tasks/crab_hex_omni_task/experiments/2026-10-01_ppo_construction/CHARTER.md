@@ -1041,3 +1041,24 @@ code-path review (workflow `wf_5e3c6bef-eb8`).
 
   - **Other reads:** dose 0.52 / 0.88 (OK); fall 0.000; jitter 0.152.
   - **Count:** B is 2/2 counted FAST/FAST, so the gate's B criterion (≥ 2/3) is met. PASS still needs C0_s18 not FAST/FAST, no B trip, and fwd/back to hold over three seeds.
+- 2026-10-04 12:34, **FB6k__B_s18 = FAST / FAST at model_5999** (no extension).
+  - **Per-hand feet:**
+
+    | Checkpoint | L | R |
+    |---|---|---|
+    | model_3000 | FAST 0.181 | SLOW 0.117 |
+    | model_4500 | FAST 0.211 | INT 0.172 |
+    | head | FAST 0.226 | FAST 0.187 |
+
+  - **Suite at model_5999** (ratio, survival 1.00 everywhere):
+
+    | Category | Ratio |
+    |---|---|
+    | fwd | 0.968 |
+    | back | 0.933 |
+    | side | 0.874 |
+    | diag | 0.964 |
+
+  - **Other reads:** dose 0.51 / 0.84 (OK); fall 0.000; jitter 0.157.
+  - **Count:** B is 3/3 counted FAST/FAST at 6000 from scratch, so no B extension.
+  - **Gate:** the outcome now depends only on FB6k__C0_s18 (running). PASS if it is not FAST/FAST, with no B trip and fwd/back holding.
