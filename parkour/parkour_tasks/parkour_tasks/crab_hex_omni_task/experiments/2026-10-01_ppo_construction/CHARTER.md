@@ -1071,3 +1071,14 @@ code-path review (workflow `wf_5e3c6bef-eb8`).
   - **diag (descriptive):** B 0.82–0.96 vs C0 0.48–0.58.
   - **INC0 gate:** 0/3, "ACTION_RATE ALONE INSUFFICIENT".
   - **Pending:** the §11.6 independent check (workflow `wf_a570110e-2aa`). P1 is the user's call.
+- 2026-10-04 16:30, **FB6k + INC0 closed.** The §11.6 independent check (fable·high, `fb6k/CHECK.md`) PASSES. It reproduces every number and both gates (FB6k PASS; INC0 0/3, dump 0.0).
+  - **Caveats carried:**
+    - 3 v 3 is a two-sided Fisher p of 0.10;
+    - B's jitter is 1.4–1.6× C0's (fft equal, so stroke rather than chatter);
+    - clock-visible here, so the clock-free target is untested;
+    - the priv_reg ramp coincides with the second-hand crossings;
+    - B's survival on the untrained move_turn holds collapses (0.00–0.48 vs C0 0.00–0.82).
+  - **diag** is genuine diagonal travel (91–100 % of path windows within 20°).
+  - **INC0:** action_rate 0 drives the first hand (3/3 runs with one FAST hand, against C0 0/16); the construction adds the second hand and cuts jitter from 0.36–0.60 to 0.15.
+  - **Write-up and design:** `fb6k/RESULTS.md`; the P1-B6 design by opus·high is in `fb6k/p1_design.md` (≈ 45 GPU-h, with a t3 stop).
+  - **P1 is the user's call.**
