@@ -960,3 +960,43 @@ code-path review (workflow `wf_5e3c6bef-eb8`).
     - It does form one FAST hand in 3/3 runs (C0 at 3000 had 0/16 hands), at 2.4–4× B's jitter.
     - The construction attribution is read together with FB6k.
   - **Next:** the FB6k block launched at 23:50 (C0_s16 first).
+- 2026-10-04 02:25, **FB6k__C0_s16 = SLOW / SLOW.**
+  - **Per-hand feet:**
+
+    | Checkpoint | L | R |
+    |---|---|---|
+    | model_3000 | 0.096 | 0.101 |
+    | model_4500 | 0.104 | 0.121 |
+    | head | 0.096 | 0.111 |
+
+  - **Suite at model_5999** (ratio, survival):
+
+    | Category | Ratio | Survival |
+    |---|---|---|
+    | fwd | 0.691 | 0.97 |
+    | back | 0.715 | 0.96 |
+    | side | 0.437 | 0.98 |
+    | diag (descriptive) | 0.546 | 0.99 |
+
+  - **Other reads:** median |μ| 7.59 / 9.15; jitter 0.096; fall 0.02. The C0 lineage freezes on the FB pool too.
+  - **Next:** FB6k__B_s16 launched at 02:24.
+- 2026-10-04 04:57, **FB6k__B_s16 = FAST / FAST at model_5999** (no extension).
+  - **Per-hand feet:**
+
+    | Checkpoint | L | R |
+    |---|---|---|
+    | model_3000 | FAST 0.197 | INT 0.131 |
+    | model_4500 | FAST 0.210 | FAST 0.195 |
+    | head | FAST 0.203 | FAST 0.202 |
+
+  - **Suite at model_5999** (ratio, survival), against the same seed's C0:
+
+    | Category | B ratio | B survival | C0_s16 ratio |
+    |---|---|---|---|
+    | fwd | 0.996 | 1.00 | 0.691 |
+    | back | 0.956 | 1.00 | 0.715 |
+    | side | 0.856 | 1.00 | 0.437 |
+    | diag (descriptive, untrained) | 0.917 | 1.00 | 0.546 |
+
+  - **Other reads:** dose median |μ| 0.54 / 0.88 (OK); fall 0.000; jitter 0.152 / fft 1.42; rod odd RMS 1.60 / 1.85.
+  - **Live checks:** wiring PASS. track_1000 was 0.451, close to the advisory DEAD line of 0.40, which the §11.3 advisory covers.
