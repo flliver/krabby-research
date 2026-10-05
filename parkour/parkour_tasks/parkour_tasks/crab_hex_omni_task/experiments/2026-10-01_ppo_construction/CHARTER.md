@@ -1239,3 +1239,33 @@ code-path review (workflow `wf_0d7bf006-a3d`). Opus found the normal path correc
   - a fable/opus pre-launch review, whose fixes are applied (§12.6).
 
   The queue launches now: the t3 block first.
+- 2026-10-04 19:03, **P1B6__C0_t3_s16 = SLOW / SLOW at the t3 head.**
+  - **Feet:** model_4500 0.114 / 0.100; head 0.119 / 0.100; fall 0.033.
+  - **t3 suite** (clock visible; descriptive):
+
+    | Category | Read |
+    |---|---|
+    | fwd | 0.699 |
+    | back | 0.746 |
+    | diag | 0.589 |
+    | side | 0.512 |
+    | turn facing_closed / yaw_progress | 0.388 / 0.050 |
+    | move_turn survival / ratio | 0.465 / 0.453 |
+
+  - **Next:** P1B6__B_t3_s16 is running.
+- 2026-10-04 21:32, **P1B6__B_t3_s16 = L INT / R SLOW at the t3 head**, so no FAST hand.
+  - **Feet:** model_4500 SLOW / SLOW 0.124 / 0.108; head 0.147 / 0.127 (rising); fall 0.000; dose 0.52 / 0.83 (OK); wiring PASS.
+  - **t3 suite against C0_s16:**
+
+    | Category | B | C0_s16 |
+    |---|---|---|
+    | fwd | 0.889 | 0.699 |
+    | back | 0.796 | 0.746 |
+    | diag | 0.676 | 0.589 |
+    | side | 0.632 | 0.512 |
+    | turn facing_closed | **0.038** | 0.388 |
+    | turn yaw_progress | **0.003** | 0.050 |
+    | move_turn survival | 0.09 | 0.465 |
+
+  - **Descriptive reading:** with turn at 0.2 in the t3 pool, B's side stroke had not formed by 6000 at this seed, and B barely turns at all.
+  - **Gate:** the §12.4 gate is read after all six t3 runs. This seed counts toward "weaker hand below INT".
