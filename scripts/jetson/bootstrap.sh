@@ -139,7 +139,8 @@ if [[ "$RUN_KRABBY_INSTALL" == true ]]; then
 else
     echo
     echo "==> Skipping 'krabby install' (--no-krabby-install)"
-    echo "    Run it later with: sudo krabby install"
+    echo "    Run it later with: sudo krabby install  (launcher from step 4 is system-wide)"
+    echo "    If you use a user venv instead, see top-level README Software quick-start."
 fi
 
 # --- 6: krabby-bench (SSM error-reporting watchdog) ----------------------------

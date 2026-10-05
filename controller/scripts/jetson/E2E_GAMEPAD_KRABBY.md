@@ -7,8 +7,9 @@ Two-process E2E on Jetson Orin: **Pro Controller** → **ControlLoop (INPUT_CONT
 ## Canonical path: `krabby` CLI
 
 ```bash
-pip install krabby-launcher
-krabby install              # pull release-latest, set up udev + dialout
+python3 -m venv ~/.venv-krabby && source ~/.venv-krabby/bin/activate
+pip install -U pip && pip install krabby-launcher
+sudo -E env PATH="$PATH" "$(which krabby)" install   # udev + dialout + image pull
 krabby firmware show        # verify all three boards are visible
 krabby run                  # start the FULL gamepad stack (server + client + controller)
 ```

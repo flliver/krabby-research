@@ -14,8 +14,12 @@ from anywhere in the repo, as your normal user (not with `sudo`):
 ./scripts/jetson/bootstrap.sh
 ```
 
-It runs steps 1–2 below, then installs `python3-pip` + `krabby-launcher` and
-runs `sudo krabby install` (udev rules, `dialout` group, boot-autostart unit).
+It runs steps 1–2 below, then installs `python3-pip` + `krabby-launcher`
+**system-wide** (`sudo pip3 install`) and runs `sudo krabby install` (udev
+rules, `dialout` group, boot-autostart unit). That sudo form is correct here
+because the launcher is on root’s PATH. If you install via a user venv instead
+([README](../../README.md) Software quick-start), use
+`sudo -E env PATH="$PATH" "$(which krabby)" install` with the venv activated.
 Re-running is safe; each step self-skips when its work is already done.
 
 Flags: `--skip-docker` (Docker already configured), `--no-krabby-install`
@@ -52,8 +56,9 @@ single step.
 3. **`setup-docker-gpu.sh`** — install the NVIDIA Container Toolkit and wire up
    the `nvidia` Docker runtime for GPU access (section 3). Requires the NVIDIA
    drivers (`nvidia-smi`) to already be present.
-4. Install the launcher: `sudo pip3 install krabby-launcher && sudo krabby
-   install`, then pull/run the locomotion image.
+4. Install the launcher: `sudo pip3 install krabby-launcher && sudo krabby install`
+   (same as bootstrap step 4–5), then pull/run the locomotion image. Venv-based
+   install: [README](../../README.md) §1–2.
 5. _(Optional)_ Install the error-reporting watchdog: `sudo pip3 install
    krabby-bench && sudo BENCH_AWS_KEY_ID=… BENCH_AWS_SECRET_KEY=… krabby-bench
    install --ssm-prefix /krabby/bench`. See

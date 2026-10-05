@@ -6,9 +6,16 @@ PyPI package name is `krabby-launcher` (the `krabby` name was already taken); th
 
 ## Install
 
+On Orin, use a user venv (system `pip install` fails with `PermissionError`):
+
 ```bash
+python3 -m venv ~/.venv-krabby
+source ~/.venv-krabby/bin/activate
+pip install -U pip
 pip install 'krabby-launcher>=0.1.22'
 ```
+
+Host setup (`krabby install`) needs sudo with the venv binary — see [Start on boot](#start-on-boot).
 
 Fleet onboarding and teleop: [`fleet/ENROLL.md`](../fleet/ENROLL.md),
 [`fleet/FIELD-TELEOP.md`](../fleet/FIELD-TELEOP.md).
@@ -100,9 +107,13 @@ against the server's TCP endpoints (`tcp://host:6001` / `:6002`).
 `krabby run` on boot — **enabled by default**. It runs as the invoking user, starts
 after `docker.service`, and retries if the MCU hasn't enumerated yet at boot.
 
+If `krabby-launcher` is in a user venv (recommended on Orin), activate that venv
+before install. Use the venv binary under `sudo` — `PATH="$PATH"` keeps the venv on
+sudo's search path; `"$(which krabby)"` pins the same CLI you just installed:
+
 ```bash
-sudo krabby install                       # enables boot autostart (default)
-sudo krabby install --no-launch-on-startup  # host setup only; no autostart
+sudo -E env PATH="$PATH" "$(which krabby)" install                       # boot autostart (default)
+sudo -E env PATH="$PATH" "$(which krabby)" install --no-launch-on-startup  # host setup only; no autostart
 sudo systemctl disable krabby-locomotion    # turn off later
 journalctl -u krabby-locomotion -f          # service logs
 ```

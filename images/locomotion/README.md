@@ -3,8 +3,9 @@
 ## Canonical install path
 
 ```bash
-pip install krabby-launcher
-krabby install            # pull release-latest, set up udev + dialout
+python3 -m venv ~/.venv-krabby && source ~/.venv-krabby/bin/activate
+pip install -U pip && pip install krabby-launcher
+sudo -E env PATH="$PATH" "$(which krabby)" install   # pull release-latest, udev + dialout
 krabby firmware show      # verify boards
 krabby run                # start the full stack (HAL server + gamepad client + controller)
 ```

@@ -22,14 +22,23 @@ Full robot assembly notes are in the Milestone 12 deliverables. This repo covers
 
 ### 1. Install the CLI
 
+On Orin (and other hosts where system Python is not writable), create a user venv first — bare `pip install` into system Python fails with `PermissionError`:
+
 ```bash
+python3 -m venv ~/.venv-krabby
+source ~/.venv-krabby/bin/activate
+pip install -U pip
 pip install krabby-launcher
 ```
 
+Keep the venv activated for later `krabby` commands in this guide.
+
 ### 2. Pull the locomotion image and set up the host
 
+With the venv still activated, run install via the venv `krabby` — bare `sudo krabby install` often resolves to a different binary and fails with `No such command 'install'`:
+
 ```bash
-sudo krabby install
+sudo -E env PATH="$PATH" "$(which krabby)" install
 ```
 
 This pulls `release-latest` from ECR (the stable release channel), writes the udev rule for the Mega 2560 boards, adds you to the `dialout` group, and installs a systemd unit so the stack starts on boot. Replug USB after this step. (Pass `--no-launch-on-startup` to skip the boot autostart; see [krabby/README.md](krabby/README.md#start-on-boot).)
@@ -80,8 +89,11 @@ krabby run -- --checkpoint /path/to/checkpoint.pt
 
 A systemd service polls ECR every 60 s for a new `mainline-latest` digest. When one appears it runs a firmware smoke test and emails (or opens a GitHub Issue) on failure.
 
+Complete Software quick-start §1–2 first, then:
+
 ```bash
-sudo pip3 install krabby-bench
+source ~/.venv-krabby/bin/activate
+pip install krabby-bench
 sudo BENCH_SMTP_TO=alerts@example.com BENCH_GITHUB_REPO=owner/repo BENCH_GITHUB_TOKEN=ghp_... \
   krabby-bench install
 ```

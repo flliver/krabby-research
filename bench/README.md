@@ -4,12 +4,14 @@ Watches ECR for new locomotion images, updates the stack when one appears, runs 
 
 ## Install
 
-**Prerequisite:** `krabby-launcher` must be installed and `krabby install` run before krabby-bench — the watchdog calls the `krabby` CLI to pull images and flash firmware. See the [top-level README](../README.md) for the full setup sequence.
+**Prerequisite:** `krabby-launcher` must be installed and `krabby install` run before krabby-bench — the watchdog calls the `krabby` CLI to pull images and flash firmware. Follow [top-level README](../README.md) §1–2 (user venv + `sudo -E env PATH="$PATH" "$(which krabby)" install`), then add the bench package:
 
 ```bash
-sudo pip3 install krabby-launcher krabby-bench
-sudo krabby install
+source ~/.venv-krabby/bin/activate
+pip install krabby-bench
 ```
+
+**Alternate (system-wide, matches `scripts/jetson/bootstrap.sh`):** `sudo pip3 install krabby-launcher krabby-bench` then `sudo krabby install`.
 
 Then run the install command as root to configure and start the watchdog service:
 
@@ -223,7 +225,7 @@ krabby-bench harness --skip-install --no-reset --repo-root "$(pwd)"
 
 | Stage | What it does |
 |---|---|
-| **install** | `bench-reset.sh` → create `~/.venv-krabby-bench` → `pip install krabby-launcher` (+ local `./bench`) → `sudo … krabby install --no-launch-on-startup` |
+| **install** | `bench-reset.sh` → create `~/.venv-krabby-bench` → `pip install krabby-launcher` (+ local `./bench`) → `sudo -E env PATH=<venv/bin>:$PATH <venv/bin/krabby> install --no-launch-on-startup` (F2) |
 | **flash** | Existing `run_smoke`: flash all boards, assert versions match S3 |
 | **bringup** | `krabby run --gamepad-only`; wait for container + MCU connected in logs |
 | **motion** | Stop container; jog RLKL, RRKL, FLKL, FRHL, FRKL (override with `--joint …`) via **host** repo `firmware/` (PIN_REV=2 is local-testing only / `dev-local` — not S3; will not be used going forward); assert pot or hall delta per joint |

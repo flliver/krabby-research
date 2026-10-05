@@ -79,8 +79,14 @@ sudo modprobe hid_nintendo
 ```
 
 `krabby install` installs DKMS automatically, but if it was run on a kernel that
-was later updated you may need to re-run `sudo krabby install` so DKMS rebuilds
-the module for the new kernel.
+was later updated you may need to re-run host setup so DKMS rebuilds the module
+for the new kernel. With the launcher venv activated (see [README §2](../../../README.md)):
+
+```bash
+sudo -E env PATH="$PATH" "$(which krabby)" install
+```
+
+If `krabby-launcher` was installed system-wide (e.g. `scripts/jetson/bootstrap.sh`), `sudo krabby install` is fine.
 
 **Controller connects but shows as player 2 / multiple LEDs**
 
