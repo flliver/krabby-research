@@ -1269,3 +1269,33 @@ code-path review (workflow `wf_0d7bf006-a3d`). Opus found the normal path correc
 
   - **Descriptive reading:** with turn at 0.2 in the t3 pool, B's side stroke had not formed by 6000 at this seed, and B barely turns at all.
   - **Gate:** the §12.4 gate is read after all six t3 runs. This seed counts toward "weaker hand below INT".
+- 2026-10-05 00:05, **P1B6__C0_t3_s17 = SLOW / SLOW.**
+  - **Feet:** head 0.108 / 0.071; fall 0.035.
+  - **t3 suite:**
+
+    | Category | Read |
+    |---|---|
+    | fwd | 0.601 |
+    | back | 0.595 |
+    | diag | 0.545 |
+    | side | 0.429 |
+    | turn facing_closed / yaw_progress | 0.546 / 0.072 |
+    | move_turn survival | 0.505 |
+
+  - **Next:** P1B6__B_t3_s17 is running.
+- 2026-10-05 02:33, **P1B6__B_t3_s17 = L SLOW / R INT at the t3 head**, so no FAST hand.
+  - **Feet:** model_4500 0.088 / 0.137; head 0.128 / 0.150; fall 0.000; dose 0.54 / 0.93 (OK).
+  - **t3 suite against C0_s17:**
+
+    | Category | B | C0_s17 |
+    |---|---|---|
+    | fwd | 0.899 | 0.601 |
+    | back | 0.904 | 0.595 |
+    | diag | 0.725 | 0.545 |
+    | side | 0.599 | 0.429 |
+    | turn facing_closed | **0.113** | 0.546 |
+    | turn yaw_progress | 0.015 | 0.072 |
+    | move_turn survival | 0.165 | 0.505 |
+
+  - **The §12.4 t3 gate is now certain to STOP** whatever s18 gives. B has a FAST hand in 0/2 (≤ 1/3 at best), and B's weaker hand is below INT in 2/2 seeds.
+  - **s18 still runs:** the pre-registered gate reads after all six t3 runs, and s18 completes the n = 3 description. The queue will stop before the tails, at about 07:40.
