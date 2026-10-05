@@ -856,6 +856,21 @@ code-path review (workflow `wf_0049130c-e1b`). Both found no queue break and no 
   - p1_read treats t3x records as their own kind, and names adoption candidates by their own ref;
   - the `turn_mid` wording.
 
+### 13.6 User amendment (2026-10-05 15:35): hold before side-first B if the t3x turning fails
+
+The user asked to analyse why B's turning fails before spending the side-first block. So that block now launches only
+when the t3x in-band turn settles.
+
+- **Mechanism:**
+  - `STOP_QUEUE` was set by hand during the last t3x arm (`P1B6__C0_t3x_s16`), which finishes normally.
+    `sf_queue.sh` then stops after the t3x training step.
+  - `scripts/sf_t3x_gate.sh` runs the t3x turn-band reads and the §13.3 t3x rule unchanged.
+- **If the in-band turn settles** (B t3x in-band heading_final mean ≤ C0 t3 mean + 0.05 rad, with a complete
+  read): side-first resumes as pre-registered (`FROM_STEP=c4`). A TAILS CANDIDATE reading is still notified as the
+  user's call.
+- **Otherwise: HOLD.** Nothing launches, the user is notified, and an analysis of the turning failure comes first.
+- **Unchanged:** no rule or threshold changed; only the side-first block's start condition moved.
+
 ## 9. Log
 
 - 2026-10-01: charter written. Code is being implemented on worktree `claude/ppo-construction`.
@@ -1485,3 +1500,9 @@ code-path review (workflow `wf_0049130c-e1b`). Both found no queue break and no 
   - **Correction to `p1/DIAGNOSIS.md`:** B's turn deficit is in-band too. The out-of-band part is the larger share.
   - **Under the pre-registered t3x rule,** the TAILS CANDIDATE reading needs B t3x in-band ≤ 0.148 rad.
   - **No rule changed;** t3x started 09:59.
+- 2026-10-05 15:35, **user amendment (§13.6): side-first B waits for the turning check.**
+  - **t3x side gait:** B t3x heads s16 FAST/FAST, s17 INT/FAST, s18 FAST/FAST. Counted 2/3 (falls 0, dose OK).
+  - **Mechanism:** `STOP_QUEUE` was set by hand during `P1B6__C0_t3x_s16`. `sf_t3x_gate.sh` runs the t3x turn-band
+    reads and the rule.
+  - **Branches:** side-first resumes from c4 only if the in-band turn settles. Otherwise HOLD, and the turning
+    failure is analysed first.
