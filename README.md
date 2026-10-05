@@ -2,6 +2,18 @@
 
 Locomotion stack for the Krabby hexapod robot — firmware, HAL, policy inference, and deployment tooling.
 
+## Start here
+
+| If you want to… | Read in this order |
+| --- | --- |
+| Get a robot running on Orin | [Software quick-start](#software-quick-start) → [firmware/SETUP.md](firmware/SETUP.md) |
+| Pair a Pro Controller and drive | [CONNECT_PRO_CONTROLLER.md](controller/scripts/jetson/CONNECT_PRO_CONTROLLER.md) → [E2E_GAMEPAD_KRABBY.md](controller/scripts/jetson/E2E_GAMEPAD_KRABBY.md) → [Software quick-start §6](#6-drive-with-a-gamepad) (`krabby run`) |
+| Jog joints with the firmware GUI | Needs a `krabby-research` clone (GUI is not on PyPI): install host/CLI via [Software quick-start](#software-quick-start), then from the repo `pip install -r firmware/requirements.txt` and `python -m firmware.gui` |
+| Change code or find where things live | [docs/FOLDER_LAYOUT.md](docs/FOLDER_LAYOUT.md) → [DEVELOPER.md](DEVELOPER.md) → [krabby/README.md](krabby/README.md) |
+| Stand up fleet / AWS (one-time) | [fleet/ENROLL.md](fleet/ENROLL.md) → [fleet/SETUP-FLEET.md](fleet/SETUP-FLEET.md) → [fleet/FIELD-TELEOP.md](fleet/FIELD-TELEOP.md) |
+| Run the continuous bench watchdog | [bench/README.md](bench/README.md) |
+| Train or evaluate policies in sim | [crab-hex forward task](parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/README.md) → [docs/crab-hexapod-plant.md](docs/crab-hexapod-plant.md) |
+
 ## Kit
 
 | Item | Qty |

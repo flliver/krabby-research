@@ -51,8 +51,8 @@ Status: `open` · `in progress` · `done` · `returned` · `out of scope`. `Cumu
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 | F4 | friction | Leader `J` forward / follower parse: LEFT/RIGHT H-bridges silent under GUI jog | was yes for GUI jog | ~1–2 h misdiagnosing UART; every 3-board GUI session on unpatched FW | 4 | 4 | Hardware + Human diagnose; AI assisted fix; Human reflash | 4.0 | done |
 | 2 | F1 | friction | README `pip install` needs venv on Orin | yes | ~5 min; every fresh Orin | 2 | 0.5 | AI docs; Human | 6.0 | done |
-| 3 | F2 | friction | `sudo krabby install` hits wrong/`No such command` binary | yes | ~10 min; every venv + sudo | 1 | 1 | AI docs; Human | 7.0 | done |
-| 4 | K28 | known | No top-level “read this for your intent” routing | yes (findability) | every new reader; cheapest high-impact doc fix | 1 | — | AI; Human | 8.0 | open |
+| 3 | F2 | friction | `sudo krabby install` hits wrong/`No such command` binary | yes | ~10 min; every venv + sudo | 1 | 0.5 | AI docs; Human | 7.0 | done |
+| 4 | K28 | known | No top-level “read this for your intent” routing | yes (findability) | every new reader; cheapest high-impact doc fix | 1 | 0.5 | AI; Human | 8.0 | done |
 | 5 | K29 | known | Spoken `pip install krabby` ≠ `krabby-launcher` | yes (trap) | every new user who guesses the spoken name | 2 | — | AI docs loud; Human | 10.0 | open |
 | 6 | F3 | friction | GUI + Pro pair script not on PyPI; kit path needs clone | yes without clone (GUI/pair) | ~15–30 min; every kit-only bring-up | 2 | — | AI package/docs; Human PyPI/kit | 12.0 | open |
 | 7 | F6 | friction | Boot unit owns `/krabby`; manual `krabby run` conflicts | yes (fresh manual run) | ~2–5 min; every boot + manual run | 2 | — | AI docs/code; Human | 14.0 | open |
