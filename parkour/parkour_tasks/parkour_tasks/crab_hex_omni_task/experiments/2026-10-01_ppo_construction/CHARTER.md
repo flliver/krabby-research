@@ -1329,3 +1329,20 @@ code-path review (workflow `wf_0d7bf006-a3d`). Opus found the normal path correc
   - **B is better on the other categories:** fwd 0.89–0.91, back 0.80–0.90, diag 0.68–0.81 and side ratio 0.60–0.79, against C0's 0.60–0.70, 0.60–0.75, 0.52–0.59 and 0.43–0.53.
   - **Budget:** ≈ 16 GPU-h spent; the ≈ 25 GPU-h of tails are saved.
   - **Stop and ask.** The diagnosis workflow `wf_4c16e6f4-60b` (CPU) is running.
+- 2026-10-05 08:20, **t3-stop diagnosis** (CPU; `p1/DIAGNOSIS.md`, options in `p1/next_options.md`; workflow `wf_4c16e6f4-60b`).
+  - **B's turning works in training:** training yaw_progress is B 0.023–0.028 against C0 0.011–0.019.
+  - **It fails on the eval's out-of-band 90° in-place hold:**
+    - B makes one 0.15–0.19 rad burst, then steps in place: 145–486 steps/rad against C0's 50–70.
+    - The whole P1 chain trains facing offsets of 0.2–0.6 rad only.
+    - C0 generalises to 1.57 rad through saturated ±1 bang-bang.
+  - **What does not explain it:**
+    - not the bound: C0's executed actions lie within ±1;
+    - not exploration: B's σ holds at 0.78–0.81;
+    - not action_rate: B's exec rate is 2× C0's with or without turn in the pool.
+  - **Side formation is slower, not blocked:** all six B hands are rising. It is more than dilution: at equal per-hand exposure, B's t3 hands are 0.15–0.19 against FB6k's 0.21–0.23.
+  - **Recommended queue (fable), the user's call:**
+    1. Eval-only turn diagnostics, ≈ 1 GPU-h: an in-band 0.5 rad turn row and sampled-action suites on the t3 heads.
+    2. Extend the B t3 heads +3000, ≈ 5.4 GPU-h.
+    3. The main bet, ≈ 13.7 GPU-h for B only: side-first, forking the FB6k B heads into the P1 tail with a c4 stop. This reverses the adopted turn-first order.
+    4. A turn-only bed, conditional.
+    5. No knob arms.
