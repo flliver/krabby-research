@@ -1506,3 +1506,13 @@ when the t3x in-band turn settles.
     reads and the rule.
   - **Branches:** side-first resumes from c4 only if the in-band turn settles. Otherwise HOLD, and the turning
     failure is analysed first.
+- 2026-10-05 16:02, **t3x rule: TAILS CANDIDATE** (§13.3; `sf/t3x_read.md`).
+  - **Side gait at 8998:** B FAST/FAST s16, s18 (2/3; s17 INT/FAST, left hand 0.145). Falls 0, dose OK.
+  - **In-band turn settles:** B t3x heading_final 0.124 / 0.134 / 0.131 (mean 0.130, at the 0.133 dead band) against
+    C0 t3 0.098 + 0.05. B's in-band fc is 0.73–0.75, equal to C0 t3x s16's 0.756.
+  - **Out of band, B still fails:**
+    - 1.0 rad fc: B 0.15 / 0.47 / 0.20, C0 t3 0.61–0.81, C0 t3x s16 0.41, W 0.92.
+    - 90° fc: B 0.09 / 0.29 / 0.12.
+  - **C0 t3x s16:** SLOW/SLOW (frozen). Its in-band turn is slightly worse than at t3 (0.125 vs 0.102).
+  - **Per §13.6, side-first B resumed from c4** (`sf_t3x_gate.sh`, 16:02).
+  - **Running the P1 tails from the t3x heads is the user's call** (notified).
