@@ -1523,3 +1523,7 @@ when the t3x in-band turn settles.
     an eval of record.
   - **Resume:** `scripts/sf_resume_c4.sh` runs the remaining c4 arms (s17, s18) with sf_queue's settings, then the
     c4 gate, then `FROM_STEP=rest sf_queue.sh`.
+- 2026-10-05 16:38, **the user cancelled the GUI view.**
+  - `STOP_QUEUE` was cleared before the arm boundary, so the queue continues without a pause. No run or schedule
+    changed.
+  - `sf_resume_c4.sh` stays as an unused helper.
