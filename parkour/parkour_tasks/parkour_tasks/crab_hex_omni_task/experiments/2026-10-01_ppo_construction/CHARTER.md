@@ -1516,3 +1516,10 @@ when the t3x in-band turn settles.
   - **C0 t3x s16:** SLOW/SLOW (frozen). Its in-band turn is slightly worse than at t3 (0.125 vs 0.102).
   - **Per §13.6, side-first B resumed from c4** (`sf_t3x_gate.sh`, 16:02).
   - **Running the P1 tails from the t3x heads is the user's call** (notified).
+- 2026-10-05 16:35, **user pause (a GUI view of B's turning).**
+  - `STOP_QUEUE` was set during `SF__B_c4_s16`, so the queue stops between arms after its evals. No run is cut, and
+    no Isaac process overlaps the queue's.
+  - **Demo:** B t3x s16 on the 0.5 / 1.0 / 1.57 rad in-place turns, one robot per wave. Scratch manifest only; not
+    an eval of record.
+  - **Resume:** `scripts/sf_resume_c4.sh` runs the remaining c4 arms (s17, s18) with sf_queue's settings, then the
+    c4 gate, then `FROM_STEP=rest sf_queue.sh`.
