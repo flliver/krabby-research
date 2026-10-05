@@ -30,9 +30,5 @@ krabby-firmware = "firmware.__main__:main"
 krabby-firmware-gui = "firmware.gui.__main__:main"
 
 [tool.setuptools]
-package-dir = {
-    "firmware" = ".",
-    "firmware.interfaces" = "interfaces",
-    "firmware.gui" = "gui",
-}
+package-dir = {"firmware" = ".", "firmware.interfaces" = "interfaces", "firmware.gui" = "gui"}
 packages = ["firmware", "firmware.interfaces", "firmware.gui"]
