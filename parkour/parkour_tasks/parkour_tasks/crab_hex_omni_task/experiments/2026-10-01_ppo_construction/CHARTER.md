@@ -1477,3 +1477,11 @@ code-path review (workflow `wf_0049130c-e1b`). Both found no queue break and no 
   - a fable/opus pre-launch review, whose fixes are applied (§13.5).
 
   The queue launches now.
+- 2026-10-05 10:00, **turn-band diagnostics done** (§13.2, evals only; `sf/TURNDIAG.md`).
+  - **In-band (0.5 rad):** B t3 ends 0.16–0.23 rad off (mean 0.189), C0 0.08–0.11 (mean 0.098), W 0.071. B's yaw rate
+    is about 0.6× C0's.
+  - **Out of band (1.0 rad):** B fc 0.06–0.26, C0 0.61–0.81, W 0.92.
+  - **Sampled actions:** add +0.03 to +0.07 to B's 90° fc; C0 is unchanged.
+  - **Correction to `p1/DIAGNOSIS.md`:** B's turn deficit is in-band too. The out-of-band part is the larger share.
+  - **Under the pre-registered t3x rule,** the TAILS CANDIDATE reading needs B t3x in-band ≤ 0.148 rad.
+  - **No rule changed;** t3x started 09:59.

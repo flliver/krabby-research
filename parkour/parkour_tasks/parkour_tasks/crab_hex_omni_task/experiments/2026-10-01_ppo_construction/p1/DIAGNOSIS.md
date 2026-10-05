@@ -95,3 +95,14 @@ C0 is flat over the same span (-0.015 to +0.007 per hand).
 - There is no per-category tracking in the training tfevents (only pooled track_ratio_mean and turn-row yaw_progress), and no suite turn eval at model_4500. Whether turn and side strokes compete for the same action structure over training cannot be decided from existing data.
 - Does a cam-driven stroke matter for in-place turning? B uses weak cam drive in place (cam |mu| 0.29-0.40) but strong cam drive on fwd and move_turn (0.68-1.12), and C0 drives its cams at ±1 everywhere. The function of the cam shaft in yaw generation is not established here.
 - Would more t3 iterations close side formation (all six hands rising) without fixing in-place turning? The burst-only turn looks qualitative and not obviously exposure-limited, but that is unmeasured.
+
+## Correction, 2026-10-05 (turn-band diagnostics; `../sf/TURNDIAG.md`)
+
+The deterministic in-band eval (±0.5 rad, inside the trained band) shows B's deficit is **not only out-of-band**:
+- B ends 0.16–0.23 rad off (mean 0.19); C0 ends 0.08–0.11 (mean 0.10).
+- B's yaw rate is about 0.6× C0's.
+
+"B turns in training (yaw_progress ≥ C0's)" was a training-statistic comparison (sampled actions, pooled across
+categories) and does not hold in deterministic evals. The out-of-band failure stands and is the larger part of the
+gap: at 1.0 rad B closes 0.06–0.26, C0 0.61–0.81. Sampling B's noise adds only +0.03 to +0.07 fc, so exploration is
+not the limiter.
