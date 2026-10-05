@@ -12,7 +12,7 @@ On Orin, use a user venv (system `pip install` fails with `PermissionError`):
 python3 -m venv ~/.venv-krabby
 source ~/.venv-krabby/bin/activate
 pip install -U pip
-pip install 'krabby-launcher>=0.1.22'
+pip install 'krabby-launcher>=0.1.23'
 ```
 
 Host setup (`krabby install`) needs sudo with the venv binary — see [Start on boot](#start-on-boot).
@@ -39,6 +39,8 @@ krabby firmware show           # run krabby-firmware show inside the container
 krabby firmware show <branch>  # list a branch's builds newest-first, paged
 krabby firmware update         # run krabby-firmware update inside the container
 krabby firmware <args>         # any krabby-firmware subcommand/flags
+
+krabby pair-pro                # pair Nintendo Switch Pro Controller (Bluetooth; usually under sudo)
 
 krabby enroll                        # one-time fleet onboarding (operator-run, needs sudo + AWS creds)
 krabby enroll --thing-name my-krab   # override the default MAC-derived thing name

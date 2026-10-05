@@ -94,6 +94,12 @@ def main() -> None:
     # agent
     sub.add_parser("agent", help="Run the always-on IoT Core MQTT client (normally started by krabby-agent.service)")
 
+    # pair-pro
+    sub.add_parser(
+        "pair-pro",
+        help="Pair a Nintendo Switch Pro Controller over Bluetooth (runs packaged pairing script)",
+    )
+
     # get telemetry
     p_get = sub.add_parser("get", help="Read local device state")
     p_get_sub = p_get.add_subparsers(dest="get_command", metavar="<resource>")
@@ -135,6 +141,10 @@ def main() -> None:
     elif args.command == "agent":
         from krabby.agent import cmd_agent
         cmd_agent()
+
+    elif args.command == "pair-pro":
+        from krabby.pair_pro import cmd_pair_pro
+        cmd_pair_pro()
 
     elif args.command == "get":
         if args.get_command == "telemetry":

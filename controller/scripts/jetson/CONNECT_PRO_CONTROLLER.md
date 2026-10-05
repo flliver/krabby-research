@@ -11,11 +11,17 @@ for the Pro Controller to appear as a `/dev/input/js*` device.
 Press and hold the **Sync** button (small circular hole near the USB-C port on
 top) for **3–5 seconds** until the four LEDs start **flashing rapidly**.
 
-## 2. Run the pairing script
+## 2. Run the pairing command
+
+With the `krabby-launcher` venv activated (after `krabby install`):
 
 ```bash
-sudo bash scripts/jetson/pair_pro_controller.sh
+sudo -E env PATH="$PATH" "$(which krabby)" pair-pro
 ```
+
+(`krabby pair-pro` ships the pairing script inside `krabby-launcher`. From a
+repo checkout you can still run `sudo bash scripts/jetson/pair_pro_controller.sh`,
+which wraps the same script.)
 
 The script scans for a nearby Pro Controller, pairs it, captures the link key
 (required on L4T because BlueZ's `store_hint=0` would otherwise discard it), and
@@ -58,7 +64,7 @@ jstest /dev/input/js0
 Press the **Home** button. The controller will reconnect automatically; no
 re-pairing is needed. LED 1 will light up when connected.
 
-If it fails to reconnect, re-run `scripts/jetson/pair_pro_controller.sh`.
+If it fails to reconnect, re-run `krabby pair-pro` (same sudo/PATH form as step 2).
 
 ## Troubleshooting
 

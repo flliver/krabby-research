@@ -75,9 +75,9 @@ single step.
   `krabby` containers / `krabby-locomotion`, clears `~/.config/krabby/state.json`,
   removes **`~/.venv-krabby-bench` only** (never `~/.venv-krabby`). Optional
   `--rmi` drops locomotion images.
-- **`pair_pro_controller.sh`** — pair a Nintendo Switch Pro Controller over
-  Bluetooth and persist the link key so it auto-reconnects across Bluetooth
-  restarts. See [CONNECT_PRO_CONTROLLER.md](../../controller/scripts/jetson/CONNECT_PRO_CONTROLLER.md).
+- **`pair_pro_controller.sh`** — thin wrapper around the script shipped in
+  `krabby-launcher` (`krabby pair-pro`). Prefer `krabby pair-pro` on kit hosts.
+  See [CONNECT_PRO_CONTROLLER.md](../../controller/scripts/jetson/CONNECT_PRO_CONTROLLER.md).
 
 ## Notes
 

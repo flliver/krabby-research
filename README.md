@@ -7,8 +7,8 @@ Locomotion stack for the Krabby hexapod robot — firmware, HAL, policy inferenc
 | If you want to… | Read in this order |
 | --- | --- |
 | Get a robot running on Orin | [Software quick-start](#software-quick-start) → [firmware/SETUP.md](firmware/SETUP.md) |
-| Pair a Pro Controller and drive | [CONNECT_PRO_CONTROLLER.md](controller/scripts/jetson/CONNECT_PRO_CONTROLLER.md) → [E2E_GAMEPAD_KRABBY.md](controller/scripts/jetson/E2E_GAMEPAD_KRABBY.md) → [Software quick-start §6](#6-drive-with-a-gamepad) (`krabby run`) |
-| Jog joints with the firmware GUI | Needs a `krabby-research` clone (GUI is not on PyPI): install host/CLI via [Software quick-start](#software-quick-start), then from the repo `pip install -r firmware/requirements.txt` and `python -m firmware.gui` |
+| Pair a Pro Controller and drive | [CONNECT_PRO_CONTROLLER.md](controller/scripts/jetson/CONNECT_PRO_CONTROLLER.md) (`krabby pair-pro`) → [E2E_GAMEPAD_KRABBY.md](controller/scripts/jetson/E2E_GAMEPAD_KRABBY.md) → [Software quick-start §6](#6-drive-with-a-gamepad) (`krabby run`) |
+| Jog joints with the firmware GUI | [Software quick-start](#software-quick-start) + `pip install krabby-firmware`, then `python -m firmware.gui` or `krabby-firmware-gui` (needs `python3-tk` on Orin) |
 | Change code or find where things live | [docs/FOLDER_LAYOUT.md](docs/FOLDER_LAYOUT.md) → [DEVELOPER.md](DEVELOPER.md) → [krabby/README.md](krabby/README.md) |
 | Stand up fleet / AWS (one-time) | [fleet/ENROLL.md](fleet/ENROLL.md) → [fleet/SETUP-FLEET.md](fleet/SETUP-FLEET.md) → [fleet/FIELD-TELEOP.md](fleet/FIELD-TELEOP.md) |
 | Run the continuous bench watchdog | [bench/README.md](bench/README.md) |
@@ -77,9 +77,11 @@ Connect all three Megas to the Jetson via the powered USB hub.
 
 ### 6. Drive with a gamepad
 
-Pair a Pro Controller over Bluetooth ([CONNECT_PRO_CONTROLLER.md](controller/scripts/jetson/CONNECT_PRO_CONTROLLER.md)) **before** starting the stack, then:
+Pair a Pro Controller over Bluetooth **before** starting the stack
+([CONNECT_PRO_CONTROLLER.md](controller/scripts/jetson/CONNECT_PRO_CONTROLLER.md)):
 
 ```bash
+sudo -E env PATH="$PATH" "$(which krabby)" pair-pro
 krabby run
 ```
 

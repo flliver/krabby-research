@@ -131,16 +131,27 @@ This is distinct from `krabby firmware update` (which downloads a **published** 
 
 ## 3. Usage Guide
 
-Run the interactive MCU menu from the **krabby-research** directory:
+### Keyboard menu
 
 ```bash
-# On Linux/Mac, you may need sudo for keyboard access
+# From PyPI or a checkout; on Linux/Mac you may need sudo for keyboard access
 python -m firmware
 ```
 
 For troubleshooting (verbose telemetry):
 ```bash
 python -m firmware --debug
+```
+
+### Joint GUI
+
+Shipped in `krabby-firmware` (PyPI). Needs a display and Tk (`sudo apt install python3-tk` on Orin if missing):
+
+```bash
+pip install 'krabby-firmware>=0.2.17'
+python -m firmware.gui
+# or: krabby-firmware-gui
+# optional: python -m firmware.gui --port /dev/ttyACM0 --debug
 ```
 
 

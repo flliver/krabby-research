@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "krabby-launcher"
-version = "0.1.22"
+version = "0.1.23"
 description = "CLI for installing, updating, and running the Krabby locomotion stack"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -33,3 +33,6 @@ krabby = "krabby.__main__:main"
 [tool.setuptools]
 package-dir = {"krabby" = "."}
 packages = ["krabby"]
+
+[tool.setuptools.package-data]
+krabby = ["scripts/*.sh"]

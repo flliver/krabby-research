@@ -16,7 +16,9 @@ krabby run                  # start the FULL gamepad stack (server + client + co
 
 `krabby run` starts the container with `--privileged -v /dev:/dev`, which passes through the MCU serial ports (`/dev/ttyACM*`, `/dev/ttyUSB*`) **and** all input devices (`/dev/input/*`) in a single flag — no separate `--device` arguments needed. It launches the HAL server **and** the `krabby-uno` client/controller together in one container, so a paired gamepad drives the robot immediately — no second command. (`krabby run --gamepad-only` is an explicit alias for the same behavior.)
 
-Pair the Pro Controller over Bluetooth before starting the container (see [CONNECT_PRO_CONTROLLER.md](CONNECT_PRO_CONTROLLER.md)). The paired `/dev/input/js0` is available inside the container automatically because of `-v /dev:/dev`.
+Pair the Pro Controller over Bluetooth before starting the container
+(`krabby pair-pro` — see [CONNECT_PRO_CONTROLLER.md](CONNECT_PRO_CONTROLLER.md)).
+The paired `/dev/input/js0` is available inside the container automatically because of `-v /dev:/dev`.
 
 ---
 
