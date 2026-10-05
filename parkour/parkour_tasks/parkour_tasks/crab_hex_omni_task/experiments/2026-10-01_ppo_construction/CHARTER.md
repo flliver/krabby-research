@@ -1527,3 +1527,11 @@ when the t3x in-band turn settles.
   - `STOP_QUEUE` was cleared before the arm boundary, so the queue continues without a pause. No run or schedule
     changed.
   - `sf_resume_c4.sh` stays as an unused helper.
+- 2026-10-05 18:27, **side-first c4 gate: CONTINUE** (§13.4; stroke lost in 0/3).
+  - **Per seed:**
+    - s16: FAST/FAST 0.228/0.230, fall 0.0; side 0.96, fwd 0.93, back 0.88, diag 0.84; 90-deg fc 0.23 (FB6k source 0.34); move_turn survival 0.01
+    - s17: FAST/FAST 0.193/0.224, fall 0.0; side 0.89, fwd 0.87, back 0.80, diag 0.85; 90-deg fc -0.05 (FB6k source 0.10); move_turn survival 0.00
+    - s18: FAST/FAST 0.228/0.196, fall 0.0; side 0.91, fwd 0.87, back 0.87, diag 0.90; 90-deg fc -0.08 (FB6k source 0.19); move_turn survival 0.06
+  - **The FB6k side gait survives c4 in 3/3.**
+  - **90° turning is at or below the FB6k sources' level after c4** (descriptive).
+  - **Rest (c5 → c6 → c6x) launched 18:27.**
