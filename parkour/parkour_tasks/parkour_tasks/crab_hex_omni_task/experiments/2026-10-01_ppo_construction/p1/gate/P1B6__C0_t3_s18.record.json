@@ -1,0 +1,36 @@
+{
+ "ref": "P1B6__C0_t3_s18",
+ "chain": "P1B6__C0_t3",
+ "bed": "P1B6",
+ "arm": "C0_t3",
+ "seed": 18,
+ "recorded_at": "2026-10-05T05:04:07",
+ "two_direction": true,
+ "screen_chain": false,
+ "unit": "cands-2026-10-01_ppo_construction-1791181987",
+ "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-05_02-33-17_seed18_X49_t3_A15pB",
+ "checkpoint": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-05_02-33-17_seed18_X49_t3_A15pB/model_5999.pt",
+ "train_log": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/logs/seed18_X49_t3_A15pB_train.log",
+ "code_root": "/home/nickmagus/krabby/krabby-research",
+ "driver_stamp": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/2026-10-01_ppo_construction/seed18_X49_t3_A15pB/suite__omni/seed001/2026-10-05_08-47-21",
+ "driver_class_json": null,
+ "driver_along_json": null,
+ "lr_stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/ppo_construction/lr/P1B6__C0_t3_s18/side22_25lr__omni/seed001/2026-10-05_08-56-48",
+ "lr_class_json": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/ppo_construction/arms_p1/P1B6__C0_t3_s18_lr.json",
+ "lr_along_json": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/ppo_construction/arms_p1/P1B6__C0_t3_s18_lr_along.json",
+ "lr2500_stamp": null,
+ "lr2500_class_json": null,
+ "lr2500_along_json": null,
+ "odd_rms_json": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/ppo_construction/arms_p1/P1B6__C0_t3_s18_odd.json",
+ "hand_l": "SLOW",
+ "hand_r": "SLOW",
+ "run_class_runner": "NOT-FAST",
+ "note": "run_class_runner is the runner's FAST rule only (feet AND along); verdict.py adds the tripwire.",
+ "extra_lr": {
+  "4500": {
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/ppo_construction/lr/P1B6__C0_t3_s18_m4500/side22_25lr__omni/seed001/2026-10-05_09-00-29",
+   "class_json": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/ppo_construction/arms_p1/P1B6__C0_t3_s18_m4500_lr.json",
+   "along_json": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/ppo_construction/arms_p1/P1B6__C0_t3_s18_m4500_lr_along.json"
+  }
+ }
+}

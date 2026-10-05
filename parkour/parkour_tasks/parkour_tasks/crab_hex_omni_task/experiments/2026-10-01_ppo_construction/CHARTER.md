@@ -1299,3 +1299,33 @@ code-path review (workflow `wf_0d7bf006-a3d`). Opus found the normal path correc
 
   - **The §12.4 t3 gate is now certain to STOP** whatever s18 gives. B has a FAST hand in 0/2 (≤ 1/3 at best), and B's weaker hand is below INT in 2/2 seeds.
   - **s18 still runs:** the pre-registered gate reads after all six t3 runs, and s18 completes the n = 3 description. The queue will stop before the tails, at about 07:40.
+- 2026-10-05 05:05, **P1B6__C0_t3_s18 = SLOW / SLOW.**
+  - **Feet:** head 0.108 / 0.121; fall 0.013.
+  - **t3 suite:**
+
+    | Category | Read |
+    |---|---|
+    | fwd | 0.622 |
+    | back | 0.608 |
+    | diag | 0.521 |
+    | side | 0.531 |
+    | turn facing_closed / yaw_progress | 0.470 / 0.061 |
+    | move_turn survival | 0.555 |
+
+  - **Next:** P1B6__B_t3_s18 is the last t3 run.
+- 2026-10-05 07:33, **The P1-B6 t3 gate STOPPED the queue (§12.4), before the tails** (`p1/t3_gate.json`; records in `p1/gate/`).
+  - **P1B6__B_t3_s18 = L FAST / R INT** (0.188 / 0.171).
+  - **Gate counts:** B has a FAST hand in 1/3 seeds and its weaker hand below INT in 2/3, so it stops; C0 is FAST/FAST in 0/3.
+  - **B at the t3 head:**
+
+    | Seed | L | R |
+    |---|---|---|
+    | s16 | INT 0.147 | SLOW 0.127 |
+    | s17 | SLOW 0.128 | INT 0.150 |
+    | s18 | FAST 0.188 | INT 0.171 |
+
+    All are rising from model_4500. C0 is SLOW / SLOW 3/3.
+  - **B's turning is poor:** facing_closed 0.04–0.17 and yaw_progress 0.003–0.021, against C0's 0.39–0.55 and 0.050–0.072. B's move_turn survival is 0.00–0.17, against C0's 0.47–0.56.
+  - **B is better on the other categories:** fwd 0.89–0.91, back 0.80–0.90, diag 0.68–0.81 and side ratio 0.60–0.79, against C0's 0.60–0.70, 0.60–0.75, 0.52–0.59 and 0.43–0.53.
+  - **Budget:** ≈ 16 GPU-h spent; the ≈ 25 GPU-h of tails are saved.
+  - **Stop and ask.** The diagnosis workflow `wf_4c16e6f4-60b` (CPU) is running.
