@@ -15,6 +15,7 @@
 #                   (P1-B6, CHARTER 12: the c6 pre-cut read and W's re-score)
 #        run_arm.sh --row-eval <name> <checkpoint> <env_stamp> <manifest> <scenario>
 #                   one eval row of any checkpoint with that stamp's env -> $LROUT/<name>/<scenario>/seed001/<ts>
+#                   (EVAL_EXTRA_ARGS="--sample-actions" for the diagnostic sampled rollouts; never fed to a gate)
 # x6k forks (CHARTER 10, 2026-10-03): RESUME_READ=1 replaces the from-scratch reads (200 / 1000 / live, whose windows a
 # run that starts at it 2999 never logs) with ONE resume-continuity read (scripts/resume_read.py: iteration numbering,
 # sigma, priv_reg and bound ramps continue the source head; FAIL = a wiring kill + STOP_QUEUE); the source head is the
@@ -285,7 +286,7 @@ row_eval() {  # NAME CHECKPOINT ENV_STAMP MANIFEST SCENARIO -> sets ROW_DIR (the
   drivers_idle
   ( cd "$R/parkour" && env OMNI_KIT_ACCEPT_EULA=yes TERM=xterm PYTHONPATH="$PYP" $envs \
       $CAP timeout 3600 "$PY" "$EVAL" --headless --manifest "$man" --scenario "$sc" \
-      --checkpoint "$ck" --save-raw --no-plot --output-root "$LROUT/$name" ) > "$LROUT/$name.$sc.log" 2>&1
+      --checkpoint "$ck" --save-raw --no-plot --output-root "$LROUT/$name" ${EVAL_EXTRA_ARGS:-} ) > "$LROUT/$name.$sc.log" 2>&1
   d=$(ls -d "$LROUT/$name"/"$sc"/seed001/*/ 2>/dev/null | tail -1)
   if [ -z "$d" ] || [ ! -f "$d/complete.json" ]; then return 1; fi
   ROW_DIR=${d%/}

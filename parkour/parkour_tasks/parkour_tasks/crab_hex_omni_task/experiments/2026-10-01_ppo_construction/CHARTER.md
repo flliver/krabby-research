@@ -734,6 +734,128 @@ code-path review (workflow `wf_0d7bf006-a3d`). Opus found the normal path correc
     fixed a first-poll case.
 - **Tests:** tooling tests 53/53.
 
+## 13. After the P1-B6 t3 stop: turn band, t3x and side-first (pre-registered 2026-10-05)
+
+(Placed before the log. The user approved `p1/next_options.md` steps 1–3 ("Run 1-3") after the §12.4 t3 stop and the
+diagnosis in `p1/DIAGNOSIS.md`: B turns in training but fails the out-of-band 90° suite hold, and its side formation is
+slower, not blocked. Nothing here changes §§4 and 10–12.)
+
+### 13.1 Questions
+
+1. **Turn band.** Does B's t3 turn failure mean B cannot turn, or that it does not extend beyond the trained
+   0.2–0.6 rad facing band?
+2. **t3x.** With turning in the pool, does B's side formation finish given 3000 more t3 iterations?
+3. **Side-first.** Do already-formed two-hand side strokes survive the P1 tail? The tail adds turn, move_turn and
+   diag (c4–c6), then cuts the clock (c6x). The comparison is against a matched C0 lineage, with W as reference.
+
+### 13.2 Turn band (evals only)
+
+- **Row:** `scenarios_turn_band.yaml` row `turn_band__omni`, a campaign-local manifest so the shared eval_sha does not
+  move. It is category_suite with a 2-s settle, 12-s holds and 100 episodes per hold. Categories:
+  - `turn`: ±0.5 rad, inside the trained band; **the read**;
+  - `turn_mid`: ±1.0 rad, 0.4 rad beyond the trained band (the facing observation is clipped at 0.6 rad);
+    descriptive.
+- **Heads it runs on:**
+  - the six P1-B6 t3 heads;
+  - the three FB6k B heads (an untrained-turn reference);
+  - W, which is also re-scored on suite and both-hands lr;
+  - the t3x heads;
+  - the side-first c6 and c6x heads.
+
+  Each uses the env of its own driver suite stamp.
+- **Sampled-action suite** (`--sample-actions`) on the B t3 heads and C0 t3 s16. It is **diagnostic only and never
+  gated**.
+
+### 13.3 t3x (`P1B6__{B}_t3x_s{16,17,18}`, plus `P1B6__C0_t3x_s16` as control)
+
+- **Arms:** the stopped t3 heads (model_5999) forked +3000 on the t3 overlay verbatim. The head is model_8998.
+- **Running:** `RESUME_READ=1` (§10.3), with the both-hands lr at model_6100, model_7500 and the head, and the turn
+  band on the head.
+- **"In-band settles" is in radians:** the B t3x heads' in-band `turn` `heading_final` (median final |heading
+  error|) seed-mean must be ≤ the C0 t3 heads' + 0.05 rad. A relative facing_closed margin would be decided by
+  resting error inside the facing P-control's 0.133 rad dead band. facing_closed and yaw_progress are reported.
+- **Rule** (`sf_read.py --t3x-rule`), first match decides:
+  1. **INCOMPLETE** (notify): a head, dose, fall, in-band or model_6100 read is missing or NA. Missing reads are
+     never a decision.
+  2. **RESUME ARTIFACT** (stop and ask): a hand FAST at 5999 that is below FAST and −0.03 at 6100.
+  3. **TAILS CANDIDATE** (stop and ask): B counted FAST/FAST (untripped at 0.15, dose OK) in ≥ 2/3, AND in-band
+     settles. Running the P1 tails from these heads is the user's call.
+  4. **FORMED, TURN NOT IN-BAND** (stop and ask): counted ≥ 2/3, but in-band does not settle.
+  5. **PLATEAU:** counted ≤ 1/3.
+
+  Every reading except PLATEAU is notified. The rule never stops the side-first block.
+
+### 13.4 Side-first
+
+- **Arms:**
+  - `SF__{arm}_c4_s{16,17,18}` forks the FB6k head (model_5999; both side hands formed, no turn yet) into the P1 c4
+    stage, verbatim.
+  - `SF__{arm}_rest_s*` forks that c4 head into c5 → c6 → c6x, verbatim. c6x is the shipped clock cut.
+  - Numbering: c4 runs to 7498, c5 to 8997, c6 to 10996, c6x to 14995.
+- **Reads:**
+  - c4 head lr and suite;
+  - the c6 pre-cut lr (`run_arm.sh --lr-eval`, c6 stamp env);
+  - the turn band at c6 and c6x;
+  - lr at model_13000;
+  - c6x head lr and suite, with the clock hidden and asserted.
+- **c4 gate** (B; `--c4-gate`): STOP and ask if the stroke is lost (neither hand ≥ INT at the c4 head) in ≥ 2/3, or
+  if a c4 read is missing or NA.
+- **C0 trigger:** the C0 side-first tails run only if B's c6x heads are FAST/FAST by hands in ≥ 2/3. Only then does
+  the COST comparison need a matched lineage.
+- **Final gate:**
+  - **First, on both paths:**
+    - INVALID EVAL if a c6x suite or lr stamp lacks `KRABBY_OMNI_CLOCK_HIDE=1`;
+    - PENDING if a c6 or c6x read is missing or NA.
+
+    `--c0-trigger` exits 2 in either case, and the queue stops and asks.
+  - **Without the C0 tails:** CLOCK-CUT LOSS if B is FAST/FAST (hands) at c6 in ≥ 2/3 and at c6x in ≤ 1/3;
+    otherwise FAIL.
+  - **With them:** §12.5 exactly (`p1_read.evaluate`), with W as reference. Gated: fwd, back and diag ratio, turn
+    facing_closed (0.03), turn yaw_progress (0.01). move_turn is reported only.
+  - **COST (turn, out-of-band):** a COST whose only clearly inferior gated categories are turn ones, while B's c6x
+    in-band `heading_final` is within +0.05 rad of the C0 lineage's, gets this reading. The pre-registered next
+    lever is then the facing-band c6x variant (`KRABBY_OMNI_FACING` widened; config only, labelled off-recipe).
+- **Caveat (the user's call, not decided here):** side-first reverses the adopted turn-first (C1d) order, whose
+  benefit was measured on incumbent nets.
+
+### 13.5 Running
+
+- **Command:** `scripts/sf_queue.sh`, run detached:
+  1. turn band;
+  2. t3x, then its rule;
+  3. side-first c4, then the c4 gate;
+  4. the rest, with the c6 and turn-band reads;
+  5. the C0 trigger, then the conditional C0 tails.
+- **Records:** `$OUT/arms_p1`.
+- **Errors:** any error stops the queue with a NOTIFY line.
+- **Process rules:** one Isaac process at a time.
+- **Budget:**
+
+  | Step | GPU-h |
+  |---|---|
+  | Turn band | ≈ 1.3 |
+  | t3x | ≈ 6 |
+  | Side-first B | ≈ 13 |
+  | **Total, B only** | **≈ 20** |
+  | Conditional C0 tails | + ≈ 13 |
+
+- **Resuming after a stop:** `FROM_STEP=turnband|t3x|c4|rest|c0` skips the earlier steps.
+- **At the end:** `sf_read.py`, an independent check, and the write-up. Any adoption, bake or push is the user's
+  call.
+
+**Pre-launch review (2026-10-05, before any run):** a fable·high audit of this section and an opus·high
+code-path review (workflow `wf_0049130c-e1b`). Both found no queue break and no GPU waste on the normal path.
+- **Applied:**
+  - the t3x rule's missing reads are INCOMPLETE;
+  - in-band settles is read in radians (heading_final, +0.05 rad);
+  - FORMED, TURN NOT IN-BAND is a separate reading;
+  - INVALID EVAL and PENDING apply before the without-C0 final, and the C0 trigger exits 2;
+  - the COST (turn, out-of-band) reading;
+  - `FROM_STEP` for resuming;
+  - non-PLATEAU t3x readings are notified;
+  - p1_read treats t3x records as their own kind, and names adoption candidates by their own ref;
+  - the `turn_mid` wording.
+
 ## 9. Log
 
 - 2026-10-01: charter written. Code is being implemented on worktree `claude/ppo-construction`.
@@ -1346,3 +1468,12 @@ code-path review (workflow `wf_0d7bf006-a3d`). Opus found the normal path correc
     3. The main bet, ≈ 13.7 GPU-h for B only: side-first, forking the FB6k B heads into the P1 tail with a c4 stop. This reverses the adopted turn-first order.
     4. A turn-only bed, conditional.
     5. No knob arms.
+- 2026-10-05 (pre-launch), **turn band + t3x + side-first registered (§13):** the user approved `p1/next_options.md` steps 1–3 ("Run 1-3"). Pre-launch it got:
+  - `scenarios_turn_band.yaml` (validator PASS);
+  - candidates_v7 (16 new chains; dry run clean);
+  - `sf_read.py` (self-test);
+  - `sf_queue.sh`;
+  - run_arm `EVAL_EXTRA_ARGS`;
+  - a fable/opus pre-launch review, whose fixes are applied (§13.5).
+
+  The queue launches now.

@@ -164,7 +164,7 @@ def c6_paths(ref: str, state_path: Path = CAMPAIGN / "state.json") -> tuple[str 
 
 def load_run(rec: dict, arms: Path, with_tb: bool = True) -> dict:
     ref = rec["ref"]
-    kind = "t3" if "_t3_" in ref else "tail"
+    kind = "t3x" if "_t3x_" in ref else ("t3" if "_t3_" in ref else "tail")   # t3x (CHARTER 13) is neither
     arm = "B" if "__B_" in ref else "C0"
     pts = {n: X.read_point(e.get("class_json"), e.get("along_json"), f"{ref}_m{n}")
            for n, e in (rec.get("extra_lr") or {}).items()}
@@ -302,7 +302,7 @@ def evaluate(runs: list[dict], w: dict | None = None) -> dict:
             sv = v["suite"]
             if (sv.get("side_ratio") or 0) > (ws.get("side_ratio") or 9) and all(
                     sv.get(c) is not None and ws.get(c) is not None and sv[c] >= ws[c] - W_MARGIN for c in GATED):
-                cands.append(f"P1B6__B_tail_s{s}")
+                cands.append(tail[("B", s)]["ref"])
         res["adoption_candidates"] = cands
     else:
         res["notes"].append("W re-score missing: vs-W and the adoption-candidate flag are unread")
@@ -322,7 +322,8 @@ def evaluate(runs: list[dict], w: dict | None = None) -> dict:
 
 
 def load_all(arms: Path, with_tb: bool = True) -> tuple[list[dict], dict | None]:
-    runs = [load_run(json.load(open(p)), arms, with_tb) for p in sorted(arms.glob("P1B6__*.record.json"))]
+    runs = [load_run(json.load(open(p)), arms, with_tb) for p in sorted(arms.glob("P1B6__*.record.json"))
+            if "_t3x_" not in p.name]
     w = None
     wst = sorted((OUT / "lr" / W_NAME / "suite__omni" / "seed001").glob("*/"))
     wlr = X.read_point(str(arms / f"{W_NAME}_lr.json"), str(arms / f"{W_NAME}_lr_along.json"), W_NAME)

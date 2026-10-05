@@ -225,9 +225,9 @@ def test_consumed_lines_reject_not_consumed(tmp_path):
 
 
 # ============================================================ F9: the live candidates file
-def test_live_candidates_is_v6_and_every_c_lr_rsi_chain_states_its_staging():
+def test_live_candidates_is_v7_and_every_c_lr_rsi_chain_states_its_staging():
     live = (CAMPAIGN / "candidates.yaml").read_text()
-    assert live == (SCRIPTS / "candidates_v6.yaml").read_text()
+    assert live == (SCRIPTS / "candidates_v7.yaml").read_text()
     chains = yaml.safe_load(live)["chains"]
     rsi = {n: c for n, c in chains.items() if n.startswith("C_lr_rsi")}
     assert len(rsi) == 8
@@ -640,3 +640,52 @@ def test_stop_on_ref_stop_is_wired_into_the_main_loop():
     src = RUN_ARM.read_text()
     assert 'if [ "$rc" = 1 ] && [ "${STOP_ON_REF_STOP:-0}" = 1 ]' in src and "exit 5" in src
     assert "STOP_ON_REF_STOP=1" in (SCRIPTS / "p1_queue.sh").read_text()
+
+
+
+# ============================================================ turn band / t3x / side-first (CHARTER 13, 2026-10-05)
+def test_v7_adds_only_t3x_and_side_first_with_verbatim_overlays():
+    v6 = yaml.safe_load((SCRIPTS / "candidates_v6.yaml").read_text())
+    v7 = yaml.safe_load((SCRIPTS / "candidates_v7.yaml").read_text())
+    new = set(v7["chains"]) - set(v6["chains"])
+    want = {f"P1B6__B_t3x_s{s}" for s in (16, 17, 18)} | {"P1B6__C0_t3x_s16"} | \
+        {f"SF__{a}_{k}_s{s}" for a in ("B", "C0") for k in ("c4", "rest") for s in (16, 17, 18)}
+    assert new == want
+    assert all(v7["chains"][c] == v6["chains"][c] for c in v6["chains"])
+    for a, seeds in (("B", (16, 17, 18)), ("C0", (16,))):
+        for s in seeds:
+            (st,) = v7["chains"][f"P1B6__{a}_t3x_s{s}"]["stages"]
+            assert st["overlay"] == v6["chains"][f"P1B6__{a}_t3"]["stages"][0]["overlay"] and st["iters"] == 3000
+            assert st["resume_from"] == {"reference": f"P1B6__{a}_t3_s{s}"}
+    for a in ("B", "C0"):
+        for s in (16, 17, 18):
+            tail = v6["chains"][f"P1B6__{a}_tail_s{s}"]["stages"]
+            (c4,) = v7["chains"][f"SF__{a}_c4_s{s}"]["stages"]
+            rest = v7["chains"][f"SF__{a}_rest_s{s}"]["stages"]
+            assert c4["resume_from"] == {"reference": f"FB6k__{a}_s{s}"} and c4["overlay"] == tail[0]["overlay"]
+            assert rest[0]["resume_from"] == {"reference": f"SF__{a}_c4_s{s}"}
+            assert [(x["stage"], x["iters"], x["overlay"]) for x in rest] == [(x["stage"], x["iters"], x["overlay"]) for x in tail[1:]]
+
+
+def test_turn_band_manifest_validates():
+    sys.path.insert(0, str(REPO / "parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/scripts"))
+    from gait_eval import schedule as S  # noqa: PLC0415
+    sc, _ = S.load_manifest(CAMPAIGN / "scenarios_turn_band.yaml")
+    (row,) = sc
+    S.validate_scenario(row)
+    faces = {h.label: h.face for c in row.suite.categories for h in c.holds}
+    assert faces == {"stand": 0.0, "turn_l05": 0.5, "turn_r05": -0.5, "turn_l10": 1.0, "turn_r10": -1.0}
+
+
+def test_sf_reader_self_test_passes():
+    sf = _load(SCRIPTS / "sf_read.py", "_ppo_construction_sf_read")
+    assert sf._self_test() == 0
+
+
+def test_sf_queue_order_and_gates():
+    src = (SCRIPTS / "sf_queue.sh").read_text()
+    i = [src.index(k) for k in ("TURNDIAG done", 'bash "$S/run_arm.sh" $T3X', "--t3x-rule", 'bash "$S/run_arm.sh" $SFB4',
+                                "--c4-gate", 'bash "$S/run_arm.sh" $SFBR', "--c0-trigger", 'bash "$S/run_arm.sh" $SFC4')]
+    assert i == sorted(i)
+    assert "--sample-actions" in src and "FORK_SRC_ARMS=$FB" in src
+    assert "${EVAL_EXTRA_ARGS:-}" in RUN_ARM.read_text()

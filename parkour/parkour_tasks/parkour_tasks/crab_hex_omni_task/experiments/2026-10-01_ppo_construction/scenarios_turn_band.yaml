@@ -1,0 +1,54 @@
+# PPO construction, turn-band diagnostic (CHARTER 13.2, 2026-10-05; the user approved "Run 1-3"): in-place turns INSIDE
+# the trained facing band (the P1 chain trains KRABBY_OMNI_FACING 0.2:0.6 rad) and at its edge, to split "B cannot turn"
+# from "B does not extend to the out-of-band 90 deg suite hold" (p1/DIAGNOSIS.md). A separate manifest so the shared
+# scenarios_omni.yaml (and every omni campaign's eval_sha) does not move. Run by hand (run_arm.sh --row-eval) with the
+# env_vars of the evaluated head's own driver suite stamp, exactly as the driver builds it. Same protocol as suite__omni
+# (category_suite, one hold per wave from face 0, 2-s settle, 12-s holds, 100 episodes per hold). The validator's
+# facing rule hold_s >= settle_s + |dface| / ang_vel_max is 1.0 + 1.0/0.3 = 4.3 s at most here.
+manifest_version: 2
+
+speed_ellipse: {fwd: 0.35, lat: 0.25, back: 0.25}
+ang_vel_max: 0.3
+
+defaults:
+  prologue_s: 1.5
+  settle_s: 1.0
+  min_window_s: 1.0
+  fall_exclusion_s: 0.5
+  contact_force_threshold: 1.0
+  slip_speed_threshold: 0.02
+  min_cycles: 2
+  lin_vel_clip: 0.2
+
+scenarios:
+  - id: turn_band__omni
+    kind: category_suite
+    role: teacher
+    task: Isaac-Crab-Hex-Omni-Walk-Play-v0
+    terrain_label: flat
+    checkpoint: SUPPLIED-PER-RUN--pass---checkpoint
+    episodes: 100
+    waves: 5
+    env_seed: 1
+    episode_length_s: 18.0
+    spawn_yaw: first_face
+    settle: {hold_s: 2.0, label: settle}
+    hold_s: 12.0
+    categories:
+      - name: stand
+        kind: stand
+        holds:
+          - {label: stand, speed: 0.00, dir: 0.0000000, face: 0.0000000}
+      - name: turn
+        kind: turn
+        holds:
+          - {label: turn_l05, speed: 0.00, dir: 0.0000000, face: 0.5000000, hand: l}
+          - {label: turn_r05, speed: 0.00, dir: 0.0000000, face: -0.5000000, hand: r}
+      - name: turn_mid
+        kind: turn
+        holds:
+          - {label: turn_l10, speed: 0.00, dir: 0.0000000, face: 1.0000000, hand: l}
+          - {label: turn_r10, speed: 0.00, dir: 0.0000000, face: -1.0000000, hand: r}
+    notes: >-
+      In-band (0.5 rad, inside the trained 0.2-0.6 facing band; the read) and 1.0 rad (0.4 rad beyond the trained band, facing obs clipped at 0.6; descriptive)
+      in-place turns, both hands. Read by category: turn -> facing_closed / yaw_progress / net rotation.
