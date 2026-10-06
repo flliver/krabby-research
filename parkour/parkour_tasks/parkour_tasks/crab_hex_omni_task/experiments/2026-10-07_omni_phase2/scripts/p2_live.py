@@ -230,7 +230,28 @@ def dump_facts(env: dict | None, agent: dict | None, log_text: str | None) -> di
             "dr_events": {e: isinstance(ev.get(e), dict) for e in DR_EVENTS},
             "push_x": list(push.get("x") or []) if isinstance(push, dict) else [],
             "terrain_fns": fns, "num_rows": rows,
-            "dropped_ppo_keys": [ln for ln in (log_text or "").splitlines() if "Ignoring unsupported PPO config keys" in ln]}
+            "dropped_ppo_keys": dropped_ppo_keys(log_text)}
+
+
+#: The runner's documented, deliberately ignored PPO key (the PPO-construction landing allow-list; every B run logs
+#: it). Any OTHER key in an "Ignoring unsupported PPO config keys" line is a dropped knob.
+PPO_KEY_ALLOW = frozenset({"share_cnn_encoders"})
+
+
+def dropped_ppo_keys(log_text: str | None) -> list[str]:
+    """Keys the runner ignored, minus :data:`PPO_KEY_ALLOW` (pure). A line whose key list cannot be parsed counts as
+    dropped (fail closed)."""
+    out = []
+    for ln in (log_text or "").splitlines():
+        if "Ignoring unsupported PPO config keys" not in ln:
+            continue
+        clean = re.sub(r"\x1b\[[0-9;]*m", "", ln)
+        tail = clean.rsplit(":", 1)[-1] if ":" in clean else ""
+        keys = [k.strip() for k in tail.split(",") if k.strip()]
+        bad = [k for k in keys if k not in PPO_KEY_ALLOW]
+        if bad or not keys:
+            out.append(clean.strip())
+    return out
 
 
 def _close(a, b, tol=1e-9):
@@ -682,6 +703,10 @@ def _self_test() -> int:
                         _facts(terrain_fns=["omni_ring_terrain"]), s, F0, audit_ok, None)["rc"], RC_PASS)
     check_("wiring: a dropped PPO key fails", judge_wiring("A1", ov_a1, _facts(dropped_ppo_keys=["Ignoring unsupported "
                                                            "PPO config keys: kl_stop"]), s, F0, audit_ok, None)["rc"], RC_FAIL)
+    _w = "\x1b[33m18:12:10 [on_policy_runner_with_extractor.py] WARNING: Ignoring unsupported PPO config keys for PPOWithExtractor: "
+    check_("dropped keys: the allow-listed share_cnn_encoders alone is not a drop",
+           len(dropped_ppo_keys(_w + "share_cnn_encoders\x1b[0m")), 0)
+    check_("dropped keys: any other key is a drop", len(dropped_ppo_keys(_w + "share_cnn_encoders, kl_stop\x1b[0m")), 1)
     check_("wiring: clock 1.0 (an un-blanked preset) fails", judge_wiring("A1", ov_a1, _facts(weights=dict(
         _facts()["weights"], reward_clock_schedule=1.0)), s, F0, audit_ok, None)["rc"], RC_FAIL)
     check_("wiring: element weight off (airtime 0.4) fails", judge_wiring("A1", ov_a1, _facts(weights=dict(

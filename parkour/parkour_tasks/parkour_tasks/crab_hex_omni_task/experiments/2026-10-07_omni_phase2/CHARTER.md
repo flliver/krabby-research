@@ -472,3 +472,12 @@ recommendation.
   - **Tooling defect found by S5 and fixed:** the harness writes `complete.json` only for category_suite rows, so
     every 8-hold row eval would have been rejected. `run_arm.sh` now writes `p2_complete.json` after a clean exit,
     and the readers accept either marker (tested).
+- 2026-10-06 18:18, **CAL1 false wiring kill at +200, fixed and relaunched.**
+  - **Cause:** the runner's standard warning that it ignores `share_cnn_encoders` (the documented allow-listed key;
+    the baked B c6x log carries the same line) matched the "dropped PPO keys" check.
+  - **Fix:** `p2_live.dropped_ppo_keys` parses the key list and allow-lists only `share_cnn_encoders`; any other key
+    still kills (self-test).
+  - **Every other +200 item passed:**
+    - resume read: σ Δ 4e-5, priv_reg 0.1, bound 0.001;
+    - clock hidden 1.0;
+    - reach_obst 0.77.
