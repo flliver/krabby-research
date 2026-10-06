@@ -3,15 +3,18 @@
 """Per-category follow-cam video of an omni head -- recorded through the eval harness's own path
 (omni task, 2026-09-22).
 
-One episode per COMMAND HOLD of the ``suite__omni`` row on flat ground, reset between episodes,
-composed so that what the video shows is what the per-category eval scored. The suite's ten holds
-(``stand``, ``fwd``, ``lat_l``, ``lat_r``, ``back``, ``diag``, ``turn_l90``, ``turn_r90``,
-``move_turn``, ``move_turn_r``) are recorded in SUITE WAVE ORDER by default -- both hands of each
-paired category (``side``, ``turn``, ``move_turn``), each seeded with that hold's own wave seed::
+Two modes. SUITE MODE (the default): one episode per COMMAND HOLD of the ``suite__omni`` row on
+flat ground, reset between episodes, composed so that what the video shows is what the
+per-category eval scored. The suite's ten holds (``stand``, ``fwd``, ``lat_l``, ``lat_r``,
+``back``, ``diag``, ``turn_l90``, ``turn_r90``, ``move_turn``, ``move_turn_r``) are recorded in
+SUITE WAVE ORDER by default -- both hands of each paired category (``side``, ``turn``,
+``move_turn``), each seeded with that hold's own wave seed. SEQUENCE MODE (``--sequence ROW_ID``,
+see below): one continuous episode that switches through a schedule row's holds WITHOUT resetting::
 
     record_categories.py --headless --enable_cameras
     record_categories.py --headless --enable_cameras --episode-s 6 --categories turn_l90,move_turn_r
     record_categories.py --headless --enable_cameras --checkpoint <pt> --eval-run <gait_eval run dir>
+    record_categories.py --headless --enable_cameras --sequence curriculum__omni --sequence-hold-s 20
 
 Every default reproduces the 2026-09-22 C1d recording (the C1d head and the suite eval it mirrors);
 every path is a default, not a constant. This is a VIEWER, not a scorer: it writes mp4s and a
@@ -28,7 +31,8 @@ WHAT IT GUARANTEES, AND HOW
   resampling off, curriculum off, push off, spawn yaw pinned to the settle face 0). Differences
   from the eval, all deliberate: ``num_envs`` 1, ``render_mode`` rgb_array (+ ``--enable_cameras``),
   ``episode_length_s`` = episode + 2 s, the category hold lengthened so settle + hold = the
-  requested episode length, and the command arrows (below).
+  requested episode length, the command arrows (below), and recording continues after a fall
+  (env auto-reset, command still pinned) where the eval stops once every env has terminated.
 * POLICY = the harness's teacher path: ``make_on_policy_runner`` + ``runner.load``,
   ``get_inference_policy`` + ``get_estimator_inference_policy``, the estimator written into the
   priv-explicit slice every step, ``policy(obs, hist_encoding=True)``, and the wrapper's
@@ -62,6 +66,54 @@ Per hold: ``env.seed(wave_seed)`` (the suite's own per-wave seed for that hold),
 construction reset stands), then ``round(episode_s / dt)`` control steps, one rendered frame per
 step (fps = 1/dt), streamed to the combined mp4 and the hold's own mp4 (CONSTANT MEMORY: gym's
 ``RecordVideo`` buffers every frame and has twice crashed this machine on a 5-minute clip).
+
+SEQUENCE MODE (``--sequence ROW_ID``, 2026-10-06)
+
+One continuous episode of a ``kind: schedule`` WORLD-frame row of ``--manifest`` (e.g.
+``curriculum__omni``, ``slow__omni``): its holds run back to back in row order with NO reset
+between them. Every ``face`` is WORLD-ABSOLUTE, so a hold's turn is relative to where the previous
+hold left the facing target -- on ``curriculum__omni`` ``turn_r90`` faces 0 FROM ``turn_l90``'s
++pi/2 and ``move_turn_r`` turns back to 0 from ``move_turn``'s +pi/2. The row is built and run
+exactly as the harness's SINGLE-PASS (non-suite) path builds and runs it:
+
+* ``S.load_manifest`` (which validates the row as written), ``episodes`` = 1 (num_envs 1), then
+  ``_apply_env_overrides`` -- ``env_cfg.seed`` = the row's ``env_seed``, spawn yaw pinned to the
+  row's ``spawn_yaw`` (``first_face`` = the FIRST hold's face, i.e. the first KEPT hold under
+  ``--sequence-holds``), resampling/curriculum/push off, frozen terrain levels.
+* ``S.compile_schedule`` (NOT ``compile_wave``, which refuses a non-suite row): ``prologue_s``
+  steps holding the FIRST hold's command (``segment_id`` -1, label "prologue"), then hold i for
+  ``round(hold_s / dt)`` steps (``segment_id`` i, ``hold_labels`` = the row's labels in order).
+  ``settle_s`` only opens each hold's steady (scored) window late; it commands nothing different.
+* ``_install_schedule_override_world`` ONCE, ``get_observations`` / ``apply(0)`` /
+  ``get_observations`` outside inference mode, then all T steps through the same loop body as suite
+  mode. Like the harness's single pass and unlike a suite wave there is NO ``env.seed()`` call and
+  NO forced reset: the wrapper's construction reset stands. The only resets are the env's own
+  auto-reset after a termination (respawn at the pinned yaw; the schedule carries on with its
+  absolute targets), which is recorded, attributed to the hold it happened in and captioned.
+
+Deliberate differences from the eval: num_envs 1, rendering + arrows, ``episode_length_s`` =
+prologue + schedule + 2 s (no timeout inside the run), and the two retargets -- ``--sequence-hold-s``
+sets EVERY hold to one length (a turn hold then needs >= ``settle_s + |dface| / ang_vel_max``, 6.24 s
+for 90 deg) and ``--sequence-holds`` keeps a subset in ROW order (faces stay absolute: dropping
+``turn_l90`` makes ``turn_r90`` a stand at face 0). The final row is re-checked with
+``S.validate_scenario``; a failure ABORTS (an unfinished turn would also shift every LATER hold's
+start facing) unless ``--allow-invalid-schedule`` is passed, which downgrades it to a warning
+recorded in the sanity JSON. Like suite mode, the recorder also keeps going after a fall where the
+eval's single pass stops once every env has terminated, so footage after the first fall is footage
+the eval never ran. The KRABBY_* environment is still the
+reference suite eval's (``--eval-run``), but the suite-only checks (scenario_id / categories /
+prologue == run_meta) do not apply: instead the row's task must equal run_meta's task, its
+``terrain_label`` must equal the reference row's (looked up by ``run_meta["scenario_id"]``), and a
+row whose own ``env:`` block disagrees with that environment is refused (the environment is fixed
+before Kit boots, so it could not be honoured). One inherent caveat remains for a row whose ``env:``
+block AGREES: the harness would have written those vars AFTER Kit start (the process-state
+sensitivity class: same-seed outcomes can flip), the recorder has them in place before Kit -- only
+rows with an ``env:`` block are affected (``curriculum__omni`` / ``slow__omni`` carry none). Outputs: ``<prefix>_sequence.mp4`` (same streaming
+writer), stills ``stills/<prefix>_sequence_<NN>_<hold>_{mid,end}.png`` and
+``<prefix>_sequence_sanity.json`` -- one summary per SEGMENT (the prologue and every hold:
+commanded vs applied, achieved displacement and heading change inside the segment up to its first
+fall, falls in it) plus the run meta (checkpoint / harness sha256, env, row id, hold lengths, dt,
+fps, trace sha256). ``--episode-s``, ``--categories`` and ``--hands`` are suite-mode only.
 """
 
 from __future__ import annotations
@@ -70,6 +122,7 @@ import __future__ as _future
 import argparse
 import ast
 import contextlib
+import dataclasses
 import hashlib
 import importlib.util
 import json
@@ -125,7 +178,8 @@ parser.add_argument(
          "are unaffected (default both -- 'left' is the pre-2026-09-22 behaviour).",
 )
 parser.add_argument("--out-dir", type=str, default=str(DEFAULT_OUT), help=f"Output directory (default {DEFAULT_OUT}).")
-parser.add_argument("--prefix", type=str, default="c1d", help="File prefix: <prefix>_categories.mp4, <prefix>_<hold>.mp4.")
+parser.add_argument("--prefix", type=str, default="c1d", help="File prefix: <prefix>_categories.mp4, <prefix>_<hold>.mp4 (suite mode); "
+                         "<prefix>_sequence.mp4 (sequence mode).")
 parser.add_argument(
     "--eval-run", type=str, default=str(DEFAULT_EVAL_RUN),
     help="The suite gait_eval run whose env this reproduces: its directory, or its run_meta.json.",
@@ -133,7 +187,28 @@ parser.add_argument(
 parser.add_argument(
     "--manifest", type=str, default=str(MANIFEST),
     help="Scenario manifest holding the reference run's scenario_id (default the omni manifest; e.g. the "
-         "side bisect's scenarios_side_lr.yaml for a both-hands side22_25lr__omni stamp).",
+         "side bisect's scenarios_side_lr.yaml for a both-hands side22_25lr__omni stamp). In --sequence mode "
+         "it must hold the --sequence row.",
+)
+parser.add_argument(
+    "--sequence", type=str, default=None, metavar="ROW_ID",
+    help="SEQUENCE MODE: record ONE continuous episode of this kind:schedule world-frame row of --manifest "
+         "(e.g. curriculum__omni, slow__omni), its holds back to back with NO reset between them "
+         "(world-absolute dir/face). Without it the recorder runs suite mode exactly as before.",
+)
+parser.add_argument(
+    "--sequence-hold-s", type=float, default=None, metavar="SECONDS",
+    help="Sequence mode: set EVERY hold's hold_s to this (default: keep the row's own hold lengths).",
+)
+parser.add_argument(
+    "--sequence-holds", type=str, default=None, metavar="CSV",
+    help="Sequence mode: hold labels to keep, run in ROW order whatever the order given (default all). "
+         "Faces stay world-absolute, so a subset can change what a hold asks for.",
+)
+parser.add_argument(
+    "--allow-invalid-schedule", action="store_true",
+    help="Sequence mode: record even if the (subset/retargeted) row fails the harness validator "
+         "(default: abort, e.g. a --sequence-hold-s too short to finish a turn).",
 )
 parser.add_argument("--label", type=str, default="C1d head (seed3 X08 c6) model_7996", help="Caption title.")
 # The task viewer (eye -4,0.5,1.55 / lookat 0,0,0.35) crops the feet: the root rides ~1.08 m above the
@@ -164,6 +239,13 @@ if RUN_META_PATH.is_dir():
     RUN_META_PATH = RUN_META_PATH / "run_meta.json"
 if not RUN_META_PATH.is_file():
     raise SystemExit(f"--eval-run {args_cli.eval_run!r}: no run_meta.json at {RUN_META_PATH}")
+SEQUENCE_MODE = args_cli.sequence is not None
+if not SEQUENCE_MODE and (args_cli.sequence_hold_s is not None or args_cli.sequence_holds is not None
+                          or args_cli.allow_invalid_schedule):
+    raise SystemExit("--sequence-hold-s / --sequence-holds / --allow-invalid-schedule apply to --sequence mode only")
+if SEQUENCE_MODE and args_cli.sequence_hold_s is not None and not (
+        math.isfinite(args_cli.sequence_hold_s) and args_cli.sequence_hold_s > 0.0):
+    raise SystemExit(f"--sequence-hold-s must be finite and > 0 (got {args_cli.sequence_hold_s})")
 
 
 def _rss_gb() -> float:
@@ -329,6 +411,111 @@ def _select_holds(suite, spec: str, hands: tuple[str, ...]) -> list[int]:
     return sorted(wanted)
 
 
+def _resolve_sequence_row(scenarios: list, manifest: Path) -> tuple:
+    """``--sequence ROW_ID`` -> the schedule row, built as the harness builds a non-suite row.
+
+    The harness's single-pass path is ``S.load_manifest`` (validates the row) -> CLI overrides ->
+    ``S.validate_scenario``; here the overrides are ``episodes`` 1, the optional hold subset /
+    hold-length retarget, and ``episode_length_s`` = prologue + schedule + 2 s. Returns
+    ``(scenario, info)`` where ``info`` records what was changed and the validator verdict.
+    """
+    by_id = {s.id: s for s in scenarios}
+    row_id = args_cli.sequence
+    if row_id not in by_id:
+        sched_rows = [s.id for s in scenarios if s.kind == S.SCHEDULE_KIND]
+        raise SystemExit(f"--sequence {row_id!r} not in {manifest} (schedule rows: {sched_rows})")
+    scenario = by_id[row_id]
+    if scenario.kind != S.SCHEDULE_KIND:
+        raise SystemExit(f"--sequence {row_id!r} is a {scenario.kind!r} row; sequence mode needs a "
+                         f"{S.SCHEDULE_KIND!r} row (a suite row is recorded by the default suite mode)")
+    if scenario.command_frame != "world":
+        raise SystemExit(f"--sequence {row_id!r} is a body-frame row; this recorder drives the world-frame "
+                         "schedule_hook override only")
+    # ---- env composition stays the reference SUITE eval's; its suite-only checks do not apply.
+    if scenario.task != RUN_META["task"]:
+        raise SystemExit(f"sequence row task {scenario.task} != reference run_meta task {RUN_META['task']}")
+    ref = by_id.get(RUN_META["scenario_id"])
+    ref_src = manifest
+    if ref is None and manifest.resolve() != MANIFEST.resolve():
+        ref = {s.id: s for s in S.load_manifest(MANIFEST)[0]}.get(RUN_META["scenario_id"])
+        ref_src = MANIFEST
+    if ref is None:
+        raise SystemExit(f"reference row {RUN_META['scenario_id']!r} (run_meta scenario_id) is in neither "
+                         f"{manifest} nor {MANIFEST}; cannot check its terrain_label")
+    if scenario.terrain_label != ref.terrain_label:
+        raise SystemExit(f"sequence row terrain_label {scenario.terrain_label!r} != reference row "
+                         f"{ref.id!r} terrain_label {ref.terrain_label!r} ({ref_src})")
+    clash = {k: (v, WANT_ENV.get(k)) for k, v in scenario.env_vars.items() if WANT_ENV.get(k) != str(v)}
+    if clash:
+        raise SystemExit(f"sequence row {row_id!r} carries an env: block that disagrees with the reference "
+                         f"run's env_vars {{key: (row, reference)}} = {clash}; the KRABBY_* env is fixed "
+                         "before Kit boots, so the row's own environment cannot be honoured here")
+    print(f"[REC] SEQUENCE MODE: row {row_id!r} ({manifest}). The suite-only checks (scenario_id / categories / "
+          f"prologue == run_meta) do NOT apply; checked instead: task {scenario.task} == run_meta task, "
+          f"terrain_label {scenario.terrain_label!r} == reference row {ref.id!r}'s ({ref_src}), row env: block "
+          f"{scenario.env_vars or '{}'} consistent with the reference env_vars.", flush=True)
+    if scenario.rotate_holds_by_env:
+        print("[REC][WARN] the row sets rotate_holds_by_env; with num_envs 1 env 0 runs the UNROTATED row order",
+              flush=True)
+
+    manifest_holds = [{"label": h.label, "hold_s": float(h.hold_s)} for h in scenario.schedule]
+    holds = list(scenario.schedule)
+    if args_cli.sequence_holds is not None:
+        want = [t.strip() for t in args_cli.sequence_holds.split(",") if t.strip()]
+        known = [h.label for h in holds]
+        unknown = [t for t in want if t not in known]
+        if unknown or not want:
+            raise SystemExit(f"--sequence-holds {want}: unknown {unknown}; row {row_id!r} holds {known}")
+        holds = [h for h in holds if h.label in set(want)]
+        kept = [h.label for h in holds]
+        if kept != [t for t in want if t in kept]:
+            print(f"[REC] --sequence-holds given as {want}; run in ROW order {kept}", flush=True)
+        if kept != known:
+            print(f"[REC][WARN] hold subset {kept} of {known}: faces are WORLD-ABSOLUTE, so each kept hold now turns "
+                  "from the previous KEPT hold's face (and spawn_yaw first_face pins the first kept hold's face)",
+                  flush=True)
+    if args_cli.sequence_hold_s is not None:
+        holds = [dataclasses.replace(h, hold_s=float(args_cli.sequence_hold_s)) for h in holds]
+    else:
+        holds = [dataclasses.replace(h) for h in holds]
+    scenario.schedule = holds
+    scenario.episodes = 1
+    scenario.episode_length_s = float(scenario.total_duration_s) + 2.0
+    try:
+        S.validate_scenario(scenario)
+        verdict = "pass"
+        print("[REC] sequence row (after subset/retarget) passes the harness validator", flush=True)
+    except S.ManifestError as exc:
+        if not args_cli.allow_invalid_schedule:
+            raise SystemExit(f"sequence row {row_id!r} (after subset/retarget) fails the harness validator: {exc} "
+                             "-- an unfinished turn also shifts every later hold's start facing; lengthen "
+                             "--sequence-hold-s, or pass --allow-invalid-schedule to record it anyway") from exc
+        verdict = f"FAIL (--allow-invalid-schedule): {exc}"
+        print(f"[REC][WARN] sequence row (after subset/retarget) fails the harness validator; recording anyway "
+              f"(--allow-invalid-schedule): {exc}", flush=True)
+    info = {
+        "row_id": row_id, "manifest": str(manifest), "reference_row": ref.id, "reference_row_manifest": str(ref_src),
+        "terrain_label": scenario.terrain_label, "manifest_holds": manifest_holds,
+        "sequence_holds_arg": args_cli.sequence_holds, "sequence_hold_s_arg": args_cli.sequence_hold_s,
+        "allow_invalid_schedule": bool(args_cli.allow_invalid_schedule), "validator": verdict,
+    }
+    return scenario, info
+
+
+def _segment_bounds(compiled) -> tuple[np.ndarray, list[int], list[int]]:
+    """Env 0's ``segment_id`` plus each hold's ``[start, end)`` step (prologue = steps before start[0])."""
+    seg = np.asarray(compiled.segment_id[:, 0]).astype(np.int64)
+    n = len(compiled.hold_labels)
+    starts = []
+    for i in range(n):
+        hit = np.nonzero(seg == i)[0]
+        if hit.size == 0:
+            raise SystemExit(f"compiled schedule has no step for hold {i} {compiled.hold_labels[i]!r}")
+        starts.append(int(hit[0]))
+    ends = starts[1:] + [int(compiled.n_steps)]
+    return seg, starts, ends
+
+
 # ------------------------------------------------------------------ captions
 _CAPTION_BACKEND = None
 if not args_cli.no_captions:
@@ -393,54 +580,63 @@ def main() -> None:
     # ---- the scenario row, checked against what the reference eval actually ran
     manifest = Path(args_cli.manifest)
     scenarios, _ = S.load_manifest(manifest)
-    matches = [s for s in scenarios if s.id == RUN_META["scenario_id"]]
-    if not matches:
-        raise SystemExit(f"{RUN_META['scenario_id']!r} not in {manifest}")
-    scenario = matches[0]
-    if scenario.task != RUN_META["task"]:
-        raise SystemExit(f"manifest task {scenario.task} != run_meta task {RUN_META['task']}")
-    suite = scenario.suite
-    if suite is None:
-        raise SystemExit(f"scenario {scenario.id!r} is not a category_suite row; this recorder needs one")
-    rm_suite = RUN_META["suite"]
-    if suite.categories_meta() != rm_suite["categories"]:
-        raise SystemExit("manifest suite categories differ from the reference run's recorded suite")
-    prologue_s = float(scenario.get_default("prologue_s"))
-    if prologue_s != float(rm_suite["prologue_s"]) or suite.settle_hold_s != float(rm_suite["settle_hold_s"]):
-        raise SystemExit("manifest prologue/settle differ from the reference run's")
-    hands = HANDS[args_cli.hands]
-    waves = _select_holds(suite, args_cli.categories, hands)
+    if SEQUENCE_MODE:
+        # Sequence mode: a schedule row, built as the harness's single pass builds it (see the
+        # module docstring); the suite-only checks below do not apply to it.
+        scenario, seq_info = _resolve_sequence_row(scenarios, manifest)
+        for _o, _v in (("--episode-s", args_cli.episode_s != 30.0), ("--categories", args_cli.categories != "all"),
+                       ("--hands", args_cli.hands != "both")):
+            if _v:
+                print(f"[REC][WARN] {_o} is a suite-mode option; ignored in sequence mode", flush=True)
+    else:
+        matches = [s for s in scenarios if s.id == RUN_META["scenario_id"]]
+        if not matches:
+            raise SystemExit(f"{RUN_META['scenario_id']!r} not in {manifest}")
+        scenario = matches[0]
+        if scenario.task != RUN_META["task"]:
+            raise SystemExit(f"manifest task {scenario.task} != run_meta task {RUN_META['task']}")
+        suite = scenario.suite
+        if suite is None:
+            raise SystemExit(f"scenario {scenario.id!r} is not a category_suite row; this recorder needs one")
+        rm_suite = RUN_META["suite"]
+        if suite.categories_meta() != rm_suite["categories"]:
+            raise SystemExit("manifest suite categories differ from the reference run's recorded suite")
+        prologue_s = float(scenario.get_default("prologue_s"))
+        if prologue_s != float(rm_suite["prologue_s"]) or suite.settle_hold_s != float(rm_suite["settle_hold_s"]):
+            raise SystemExit("manifest prologue/settle differ from the reference run's")
+        hands = HANDS[args_cli.hands]
+        waves = _select_holds(suite, args_cli.categories, hands)
 
-    episode_s = float(args_cli.episode_s)
-    lead_s = prologue_s + float(suite.settle_hold_s)
-    hold_s = episode_s - lead_s
-    if hold_s <= 0.0:
-        raise SystemExit(f"--episode-s {episode_s} leaves no hold after the suite's {lead_s} s settle lead-in")
-    manifest_hold_s = float(suite.hold_s)
-    suite.hold_s = hold_s
-    scenario.schedule = S.suite_schedule(suite)
-    scenario.episodes = 1
-    scenario.episode_length_s = episode_s + 2.0
-    try:
-        S.validate_scenario(scenario)
-        print("[REC] retargeted suite row passes the harness validator", flush=True)
-    except S.ManifestError as exc:
-        print(f"[REC][WARN] retargeted row fails the harness validator (expected only for short smoke "
-              f"episodes): {exc}", flush=True)
-    print(f"[REC] EPISODE SPLIT: {episode_s:.2f} s = prologue {prologue_s:.2f} s (settle cmd: speed 0, face 0) "
-          f"+ settle {suite.settle_hold_s:.2f} s (speed 0, face 0) + hold {hold_s:.2f} s "
-          f"(the suite scores a {manifest_hold_s:.1f} s hold; lengthened here). episode_length_s = "
-          f"{scenario.episode_length_s:.1f} s (no timeout inside an episode).", flush=True)
+        episode_s = float(args_cli.episode_s)
+        lead_s = prologue_s + float(suite.settle_hold_s)
+        hold_s = episode_s - lead_s
+        if hold_s <= 0.0:
+            raise SystemExit(f"--episode-s {episode_s} leaves no hold after the suite's {lead_s} s settle lead-in")
+        manifest_hold_s = float(suite.hold_s)
+        suite.hold_s = hold_s
+        scenario.schedule = S.suite_schedule(suite)
+        scenario.episodes = 1
+        scenario.episode_length_s = episode_s + 2.0
+        try:
+            S.validate_scenario(scenario)
+            print("[REC] retargeted suite row passes the harness validator", flush=True)
+        except S.ManifestError as exc:
+            print(f"[REC][WARN] retargeted row fails the harness validator (expected only for short smoke "
+                  f"episodes): {exc}", flush=True)
+        print(f"[REC] EPISODE SPLIT: {episode_s:.2f} s = prologue {prologue_s:.2f} s (settle cmd: speed 0, face 0) "
+              f"+ settle {suite.settle_hold_s:.2f} s (speed 0, face 0) + hold {hold_s:.2f} s "
+              f"(the suite scores a {manifest_hold_s:.1f} s hold; lengthened here). episode_length_s = "
+              f"{scenario.episode_length_s:.1f} s (no timeout inside an episode).", flush=True)
 
-    all_holds = suite.holds()
-    category_of = suite.category_of_hold()
-    plan = []
-    for wave in waves:
-        hold = all_holds[wave]
-        plan.append((category_of[hold.label], hold, wave))
-        print(f"[REC] plan: {category_of[hold.label]:9s} hold {hold.label:12s} hand {hold.hand or '-'} "
-              f"speed {hold.speed:.2f} dir {_deg(hold.dir):+7.2f} deg face {_deg(hold.face):+7.2f} deg  "
-              f"wave {wave} seed {S.wave_seed(scenario, wave)}", flush=True)
+        all_holds = suite.holds()
+        category_of = suite.category_of_hold()
+        plan = []
+        for wave in waves:
+            hold = all_holds[wave]
+            plan.append((category_of[hold.label], hold, wave))
+            print(f"[REC] plan: {category_of[hold.label]:9s} hold {hold.label:12s} hand {hold.hand or '-'} "
+                  f"speed {hold.speed:.2f} dir {_deg(hold.dir):+7.2f} deg face {_deg(hold.face):+7.2f} deg  "
+                  f"wave {wave} seed {S.wave_seed(scenario, wave)}", flush=True)
 
     # ---- env, composed as the harness composes it
     env_cfg = parse_env_cfg(scenario.task, device=args_cli.device, num_envs=1, use_fabric=not args_cli.disable_fabric)
@@ -555,7 +751,8 @@ def main() -> None:
         return imageio.get_writer(str(path), fps=fps, codec="libx264", quality=args_cli.quality, macro_block_size=None,
                                   ffmpeg_log_level="error")
 
-    combined_path = out_dir / f"{args_cli.prefix}_categories.mp4"
+    # Sequence mode streams its one continuous episode through this same writer.
+    combined_path = out_dir / f"{args_cli.prefix}_{'sequence' if SEQUENCE_MODE else 'categories'}.mp4"
     stills_dir = out_dir / "stills"
     if not args_cli.no_stills:
         stills_dir.mkdir(parents=True, exist_ok=True)
@@ -569,6 +766,23 @@ def main() -> None:
         if f0 is not None and f0.size and float(f0.mean()) > 1.0:
             print(f"[REC] renderer warm after {i + 1} render(s); frame {f0.shape}", flush=True)
             break
+
+    # Everything one control step / one recorded frame needs, shared by both modes so the sequence
+    # episode runs the very loop body the suite holds run.
+    ctx = types.SimpleNamespace(
+        H=H, env=env, unwrapped=unwrapped, robot=robot, cmd_term=cmd_term, device=device, dt=dt, fps=fps,
+        observed_slots=observed_slots, estimator=estimator, policy=policy, num_prop=num_prop,
+        priv_lo=num_prop + num_scan, priv_hi=num_prop + num_scan + num_priv_explicit,
+        render=_render, combined=combined, combined_path=combined_path, stills_dir=stills_dir, out_dir=out_dir,
+        env_cfg=env_cfg, applied_overrides=applied_overrides, resume_path=resume_path, ckpt_sha=ckpt_sha,
+        harness_sha=harness_sha,
+    )
+    if SEQUENCE_MODE:
+        _run_sequence(ctx, scenario, seq_info)
+        if cam is not None:
+            cam._viewport_camera_update_handle = None  # see the suite-mode tail below
+        env.close()
+        return
 
     per_hold_results = []
     total_frames = 0
@@ -607,10 +821,7 @@ def main() -> None:
             hold_writer = _writer(hold_path)
             still_at = {hold_start - 1: "settle_end", hold_start + (T - hold_start) // 2: "hold_mid", T - 1: "end"}
 
-            rec = {key: np.zeros(T, dtype=np.float64) for key in (
-                "row_speed", "row_dir", "row_face", "speed_cmd", "travel_dir_w", "heading_target",
-                "cmd_bx", "cmd_by", "cmd_wz", "heading_pre", "x_pre", "y_pre",
-                "x_post", "y_post", "heading_post", "vx_w", "vy_w", "done", "fail")}
+            rec = _new_rec(T)
             falls: list[dict] = []
             steps_since_reset = int(unwrapped.episode_length_buf[0].item())
             max_cmd_dev = 0.0
@@ -622,53 +833,15 @@ def main() -> None:
             with torch.inference_mode():
                 for t in range(T):
                     # --- the harness's world-frame loop body (eval_crab_hex_gait.py main loop)
-                    override_state["step"] = t + 1
-                    obs_reflects_cmd = cmd_term.vel_command_b.clone()
-                    row_t = override_state["row"](t)
-                    max_sched_dev = max(
-                        max_sched_dev,
-                        (cmd_term.travel_dir_w - row_t.dir).abs().max().item(),
-                        (cmd_term.speed_cmd - row_t.speed).abs().max().item(),
-                        H["_wrap_to_pi"](cmd_term.heading_target - row_t.face).abs().max().item(),
-                    )
-                    for _slot, _channel in observed_slots.items():
-                        max_cmd_dev = max(max_cmd_dev, (obs[:, _slot] - obs_reflects_cmd[:, _channel]).abs().max().item())
-                    obs[:, num_prop + num_scan: num_prop + num_scan + num_priv_explicit] = estimator.inference(
-                        obs[:, :num_prop]
-                    )
-                    actions = policy(obs, hist_encoding=True)
-                    trace.update(obs.detach().cpu().numpy().tobytes())
-                    trace.update(actions.detach().cpu().numpy().tobytes())
-
-                    pre = torch.cat([
-                        cmd_term.speed_cmd[:1], cmd_term.travel_dir_w[:1], cmd_term.heading_target[:1],
-                        cmd_term.vel_command_b[0, :3], robot.data.heading_w[:1], robot.data.root_pos_w[0, :2],
-                    ]).double().cpu().numpy()
-                    obs, _, dones, extras = env.step(actions)
-                    try:
-                        failed = bool(unwrapped.termination_manager.get_term("crab_failure")[0].item())
-                    except (KeyError, AttributeError):
-                        failed = False
-                    done = bool(dones.reshape(-1)[0].item())
-                    post = torch.cat([
-                        robot.data.root_pos_w[0, :2], robot.data.heading_w[:1], robot.data.root_lin_vel_w[0, :2],
-                    ]).double().cpu().numpy()
-                    trace.update(post.tobytes())
-
-                    rec["row_speed"][t], rec["row_dir"][t], rec["row_face"][t] = row_t.speed, row_t.dir, row_t.face
-                    (rec["speed_cmd"][t], rec["travel_dir_w"][t], rec["heading_target"][t], rec["cmd_bx"][t],
-                     rec["cmd_by"][t], rec["cmd_wz"][t], rec["heading_pre"][t], rec["x_pre"][t], rec["y_pre"][t]) = pre
-                    rec["x_post"][t], rec["y_post"][t], rec["heading_post"][t], rec["vx_w"][t], rec["vy_w"][t] = post
-                    rec["done"][t], rec["fail"][t] = float(done), float(failed)
+                    obs, st = _harness_step(ctx, override_state, obs, t, trace)
+                    row_t, post, done, failed = st.row, st.post, st.done, st.failed
+                    max_sched_dev = max(max_sched_dev, st.sched_dev)
+                    max_cmd_dev = max(max_cmd_dev, st.cmd_dev)
+                    _store_step(rec, t, st)
                     steps_since_reset += 1
                     t_s = (t + 1) * dt
                     if done:
-                        if failed:
-                            reason = "fall (crab_failure)"
-                        elif steps_since_reset >= int(unwrapped.max_episode_length) - 1:
-                            reason = "timeout"
-                        else:
-                            reason = "terminated_other (roll/pitch/height cutoff)"
+                        reason = _termination_reason(failed, steps_since_reset, int(unwrapped.max_episode_length))
                         falls.append({"t_s": round(t_s, 3), "step": t, "reason": reason,
                                       "phase": "hold" if seg[t] == hold_seg else "settle"})
                         print(f"[REC] {hold.label}: TERMINATION at t={t_s:.2f} s (step {t}): {reason} -> env auto-reset "
@@ -758,58 +931,396 @@ def main() -> None:
     env.close()
 
 
-def _sanity(cat_name, hold, wave, seed, T, dt, seg, hold_seg, rec, falls, max_cmd_dev, max_sched_dev, path) -> dict:
-    hmask = seg == hold_seg
-    idx = np.nonzero(hmask)[0]
-    first_fall_step = next((f["step"] for f in falls), None)
-    ok_idx = idx if first_fall_step is None else idx[idx < first_fall_step]
+REC_KEYS = ("row_speed", "row_dir", "row_face", "speed_cmd", "travel_dir_w", "heading_target",
+            "cmd_bx", "cmd_by", "cmd_wz", "heading_pre", "x_pre", "y_pre",
+            "x_post", "y_post", "heading_post", "vx_w", "vy_w", "done", "fail")
+
+
+def _new_rec(T: int) -> dict:
+    return {key: np.zeros(T, dtype=np.float64) for key in REC_KEYS}
+
+
+def _harness_step(ctx, override_state: dict, obs, t: int, trace):
+    """ONE control step of the harness's world-frame loop body (eval_crab_hex_gait.py main loop).
+
+    Shared by suite and sequence mode. Advances ``override_state['step']`` (the command term's
+    ``compute`` applies row t+1 inside ``env.step``: one write per step, at the training instant),
+    checks the schedule state and the observed command slots, writes the estimator into the
+    priv-explicit slice, acts, steps, and feeds obs / actions / post-step root state to ``trace``.
+    Returns ``(next_obs, step)``; ``step`` carries the row, the pre/post arrays and the per-step
+    deviations (the caller keeps the running maxima).
+    """
+    cmd_term, robot, H = ctx.cmd_term, ctx.robot, ctx.H
+    override_state["step"] = t + 1
+    obs_reflects_cmd = cmd_term.vel_command_b.clone()
+    row_t = override_state["row"](t)
+    sched_dev = max(
+        (cmd_term.travel_dir_w - row_t.dir).abs().max().item(),
+        (cmd_term.speed_cmd - row_t.speed).abs().max().item(),
+        H["_wrap_to_pi"](cmd_term.heading_target - row_t.face).abs().max().item(),
+    )
+    cmd_dev = 0.0
+    for _slot, _channel in ctx.observed_slots.items():
+        cmd_dev = max(cmd_dev, (obs[:, _slot] - obs_reflects_cmd[:, _channel]).abs().max().item())
+    obs[:, ctx.priv_lo: ctx.priv_hi] = ctx.estimator.inference(obs[:, :ctx.num_prop])
+    actions = ctx.policy(obs, hist_encoding=True)
+    trace.update(obs.detach().cpu().numpy().tobytes())
+    trace.update(actions.detach().cpu().numpy().tobytes())
+
+    pre = torch.cat([
+        cmd_term.speed_cmd[:1], cmd_term.travel_dir_w[:1], cmd_term.heading_target[:1],
+        cmd_term.vel_command_b[0, :3], robot.data.heading_w[:1], robot.data.root_pos_w[0, :2],
+    ]).double().cpu().numpy()
+    obs, _, dones, _extras = ctx.env.step(actions)
+    try:
+        failed = bool(ctx.unwrapped.termination_manager.get_term("crab_failure")[0].item())
+    except (KeyError, AttributeError):
+        failed = False
+    done = bool(dones.reshape(-1)[0].item())
+    post = torch.cat([
+        robot.data.root_pos_w[0, :2], robot.data.heading_w[:1], robot.data.root_lin_vel_w[0, :2],
+    ]).double().cpu().numpy()
+    trace.update(post.tobytes())
+    return obs, types.SimpleNamespace(row=row_t, pre=pre, post=post, done=done, failed=failed,
+                                      sched_dev=sched_dev, cmd_dev=cmd_dev)
+
+
+def _store_step(rec: dict, t: int, st) -> None:
+    row_t, pre, post = st.row, st.pre, st.post
+    rec["row_speed"][t], rec["row_dir"][t], rec["row_face"][t] = row_t.speed, row_t.dir, row_t.face
+    (rec["speed_cmd"][t], rec["travel_dir_w"][t], rec["heading_target"][t], rec["cmd_bx"][t],
+     rec["cmd_by"][t], rec["cmd_wz"][t], rec["heading_pre"][t], rec["x_pre"][t], rec["y_pre"][t]) = pre
+    rec["x_post"][t], rec["y_post"][t], rec["heading_post"][t], rec["vx_w"][t], rec["vy_w"][t] = post
+    rec["done"][t], rec["fail"][t] = float(st.done), float(st.failed)
+
+
+def _termination_reason(failed: bool, steps_since_reset: int, max_episode_length: int) -> str:
+    if failed:
+        return "fall (crab_failure)"
+    if steps_since_reset >= max_episode_length - 1:
+        return "timeout"
+    return "terminated_other (roll/pitch/height cutoff)"
+
+
+def _window_stats(idx, ok_idx, speed, direction, face, dt, rec, until):
+    """Commanded-vs-applied over ``idx`` and achieved motion over ``ok_idx`` (``idx`` up to a fall).
+
+    Returns ``(applied_mean, applied_max_dev, body_cmd_mean, achieved_or_None)`` -- the four blocks
+    the suite sanity record carries per hold and the sequence record per segment.
+    """
     speed_body = np.hypot(rec["cmd_bx"], rec["cmd_by"])
     moving = ok_idx[speed_body[ok_idx] > 1e-6]
     world_dir_of_body_cmd = rec["heading_pre"] + np.arctan2(rec["cmd_by"], rec["cmd_bx"])
-    out = {
-        "category": cat_name, "hold": hold.label, "hand": hold.hand, "wave": wave, "seed": seed,
-        "frames": T, "mp4": str(path),
-        "hold_steps": int(idx.size), "hold_t0_s": float(idx[0] * dt) if idx.size else None,
-        "commanded": {"speed": hold.speed, "dir_deg": _deg(hold.dir), "face_deg": _deg(hold.face)},
-        "applied_mean_hold": {
-            "speed": float(rec["speed_cmd"][idx].mean()),
-            "dir_deg": _deg(_circmean(rec["travel_dir_w"][idx])),
-            "face_deg": _deg(_circmean(rec["heading_target"][idx])),
-        },
-        "applied_max_dev_hold": {
-            "speed": float(np.abs(rec["speed_cmd"][idx] - hold.speed).max()),
-            "dir_rad": float(np.abs(np.arctan2(np.sin(rec["travel_dir_w"][idx] - hold.dir),
-                                                np.cos(rec["travel_dir_w"][idx] - hold.dir))).max()),
-            "face_rad": float(np.abs(np.arctan2(np.sin(rec["heading_target"][idx] - hold.face),
-                                                 np.cos(rec["heading_target"][idx] - hold.face))).max()),
-        },
-        "schedule_state_max_dev_episode": max_sched_dev,
-        "obs_command_slot_max_dev_episode": max_cmd_dev,
-        "body_cmd_mean_hold": {
-            "speed_xy": float(speed_body[idx].mean()),
-            "world_dir_deg": _deg(_circmean(world_dir_of_body_cmd[moving])) if moving.size else None,
-            "wz": float(rec["cmd_wz"][idx].mean()),
-        },
-        "falls": falls,
+    applied_mean = {
+        "speed": float(rec["speed_cmd"][idx].mean()),
+        "dir_deg": _deg(_circmean(rec["travel_dir_w"][idx])),
+        "face_deg": _deg(_circmean(rec["heading_target"][idx])),
     }
+    applied_max_dev = {
+        "speed": float(np.abs(rec["speed_cmd"][idx] - speed).max()),
+        "dir_rad": float(np.abs(np.arctan2(np.sin(rec["travel_dir_w"][idx] - direction),
+                                            np.cos(rec["travel_dir_w"][idx] - direction))).max()),
+        "face_rad": float(np.abs(np.arctan2(np.sin(rec["heading_target"][idx] - face),
+                                             np.cos(rec["heading_target"][idx] - face))).max()),
+    }
+    body_cmd_mean = {
+        "speed_xy": float(speed_body[idx].mean()),
+        "world_dir_deg": _deg(_circmean(world_dir_of_body_cmd[moving])) if moving.size else None,
+        "wz": float(rec["cmd_wz"][idx].mean()),
+    }
+    achieved = None
     if ok_idx.size:
         x0, y0 = rec["x_pre"][ok_idx[0]], rec["y_pre"][ok_idx[0]]
         x1, y1 = rec["x_post"][ok_idx[-1]], rec["y_post"][ok_idx[-1]]
         dx, dy = x1 - x0, y1 - y0
         dur = ok_idx.size * dt
-        along = dx * math.cos(hold.dir) + dy * math.sin(hold.dir)
-        across = -dx * math.sin(hold.dir) + dy * math.cos(hold.dir)
-        out["achieved_hold"] = {
-            "until": "end" if first_fall_step is None else f"first fall t={falls[0]['t_s']}",
+        along = dx * math.cos(direction) + dy * math.sin(direction)
+        across = -dx * math.sin(direction) + dy * math.cos(direction)
+        achieved = {
+            "until": until,
             "duration_s": dur, "dx": dx, "dy": dy, "dist": math.hypot(dx, dy),
             "along_dir": along, "across_dir": across, "mean_speed_along": along / dur,
             "travel_dir_deg": _deg(math.atan2(dy, dx)) if math.hypot(dx, dy) > 0.05 else None,
             "heading_end_deg": _deg(rec["heading_post"][ok_idx[-1]]),
-            "heading_err_end_deg": _deg(_wrap(rec["heading_post"][ok_idx[-1]] - hold.face)),
+            "heading_err_end_deg": _deg(_wrap(rec["heading_post"][ok_idx[-1]] - face)),
         }
+    return applied_mean, applied_max_dev, body_cmd_mean, achieved
+
+
+def _sanity(cat_name, hold, wave, seed, T, dt, seg, hold_seg, rec, falls, max_cmd_dev, max_sched_dev, path) -> dict:
+    hmask = seg == hold_seg
+    idx = np.nonzero(hmask)[0]
+    first_fall_step = next((f["step"] for f in falls), None)
+    ok_idx = idx if first_fall_step is None else idx[idx < first_fall_step]
+    until = "end" if first_fall_step is None else f"first fall t={falls[0]['t_s']}"
+    applied_mean, applied_max_dev, body_cmd_mean, achieved = _window_stats(
+        idx, ok_idx, hold.speed, hold.dir, hold.face, dt, rec, until)
+    out = {
+        "category": cat_name, "hold": hold.label, "hand": hold.hand, "wave": wave, "seed": seed,
+        "frames": T, "mp4": str(path),
+        "hold_steps": int(idx.size), "hold_t0_s": float(idx[0] * dt) if idx.size else None,
+        "commanded": {"speed": hold.speed, "dir_deg": _deg(hold.dir), "face_deg": _deg(hold.face)},
+        "applied_mean_hold": applied_mean,
+        "applied_max_dev_hold": applied_max_dev,
+        "schedule_state_max_dev_episode": max_sched_dev,
+        "obs_command_slot_max_dev_episode": max_cmd_dev,
+        "body_cmd_mean_hold": body_cmd_mean,
+        "falls": falls,
+    }
+    if achieved is not None:
+        out["achieved_hold"] = achieved
     out["heading_final_deg"] = _deg(rec["heading_post"][T - 1])
     out["heading_err_final_deg"] = _deg(_wrap(rec["heading_post"][T - 1] - hold.face))
     return out
+
+
+def _sequence_segment(i, label, idx, cmd, dt, rec, falls, sched_dev, cmd_dev) -> dict:
+    """Sequence-mode summary of ONE segment (``i`` = -1 for the prologue, else the hold index).
+
+    ``cmd`` = the segment's commanded ``(speed, dir, face)`` (the prologue holds the first hold's).
+    Achieved motion runs from the segment's first step to its last, or to the step BEFORE the
+    first fall inside it (a fall's post-step state is already the respawn). A fall in an EARLIER
+    segment does not truncate this one: the env auto-reset and this segment starts from wherever
+    the respawned robot is.
+    """
+    speed, direction, face = cmd
+    falls_in = [f for f in falls if f["segment"] == i]
+    first_fall_step = falls_in[0]["step"] if falls_in else None
+    ok_idx = idx if first_fall_step is None else idx[idx < first_fall_step]
+    until = "end" if first_fall_step is None else f"first fall t={falls_in[0]['t_s']}"
+    applied_mean, applied_max_dev, body_cmd_mean, achieved = _window_stats(
+        idx, ok_idx, speed, direction, face, dt, rec, until)
+    if achieved is not None:
+        h0 = rec["heading_pre"][ok_idx[0]]
+        path = np.concatenate([[h0], rec["heading_post"][ok_idx]])
+        achieved["heading_start_deg"] = _deg(h0)
+        achieved["face_err_start_deg"] = _deg(_wrap(h0 - face))
+        # Unwrapped, signed (+ = CCW): the turn the robot actually made inside the segment.
+        achieved["heading_change_deg"] = _deg(float(np.sum(np.arctan2(np.sin(np.diff(path)), np.cos(np.diff(path))))))
+    end = int(idx[-1]) if idx.size else None
+    return {
+        "segment": i, "hold": label, "start_step": int(idx[0]) if idx.size else None,
+        "end_step_exclusive": end + 1 if end is not None else None, "steps": int(idx.size),
+        "t0_s": float(idx[0] * dt) if idx.size else None, "t1_s": float((end + 1) * dt) if end is not None else None,
+        "commanded": {"speed": float(speed), "dir_deg": _deg(direction), "face_deg": _deg(face)},
+        "applied_mean": applied_mean, "applied_max_dev": applied_max_dev,
+        "schedule_state_max_dev": sched_dev, "obs_command_slot_max_dev": cmd_dev,
+        "body_cmd_mean": body_cmd_mean,
+        "falls": falls_in,
+        "achieved": achieved,
+        "heading_at_end_deg": _deg(rec["heading_post"][end]) if end is not None else None,
+        "heading_err_at_end_deg": _deg(_wrap(rec["heading_post"][end] - face)) if end is not None else None,
+    }
+
+
+def _run_sequence(ctx, scenario, seq_info: dict) -> None:
+    """SEQUENCE MODE: one continuous episode of the schedule row, no forced reset (module docstring)."""
+    import imageio
+
+    env, unwrapped, robot, cmd_term, H, dt, fps = (ctx.env, ctx.unwrapped, ctx.robot, ctx.cmd_term, ctx.H,
+                                                   ctx.dt, ctx.fps)
+    compiled = S.compile_schedule(scenario, dt=dt, num_envs=1)
+    if compiled.world_dir is None:
+        raise SystemExit(f"{scenario.id!r} compiled without world arrays; sequence mode needs a world-frame row")
+    T = int(compiled.n_steps)
+    labels = list(compiled.hold_labels)
+    seg, starts, ends = _segment_bounds(compiled)
+    n_holds = len(labels)
+    prologue_steps = starts[0]
+    cmd_of = {}  # segment -> (speed, dir, face) as COMPILED (the row the override hands the term)
+    for i in [-1] + list(range(n_holds)):
+        s0 = 0 if i < 0 else starts[i]
+        cmd_of[i] = (float(compiled.world_speed[s0, 0]), float(compiled.world_dir[s0, 0]),
+                     float(compiled.world_face[s0, 0]))
+    for i, h in enumerate(scenario.schedule):
+        if cmd_of[i] != h.as_world():
+            raise SystemExit(f"compiled command of hold {i} {h.label!r} {cmd_of[i]} != manifest {h.as_world()}")
+    spawn = scenario.spawn_yaw_rad()
+    print(f"[REC] SEQUENCE {scenario.id}: {T} steps = {T * dt:.2f} s at dt {dt}; prologue steps 0-{prologue_steps - 1} "
+          f"(t 0-{prologue_steps * dt:.2f} s, holds '{labels[0]}' command, segment -1); episode_length_s "
+          f"{scenario.episode_length_s:.2f} (max_episode_length {int(unwrapped.max_episode_length)} steps); spawn yaw "
+          f"pin {'none' if spawn is None else f'{_deg(spawn):+.1f} deg'}; env_cfg.seed {scenario.env_seed}, no "
+          "env.seed() call, no forced reset (the harness's single pass)", flush=True)
+    prev_face = spawn
+    for i, h in enumerate(scenario.schedule):
+        sp, di, fa = cmd_of[i]
+        turn = "" if prev_face is None else f" (facing change {_deg(_wrap(fa - prev_face)):+6.1f} deg from previous)"
+        print(f"[REC] plan: hold {i + 1:2d}/{n_holds} {h.label:12s} speed {sp:.2f} dir {_deg(di):+7.2f} deg face "
+              f"{_deg(fa):+7.2f} deg{turn}  steps {starts[i]}-{ends[i] - 1} (t {starts[i] * dt:6.2f}-{ends[i] * dt:6.2f} s, "
+              f"{h.hold_s:.2f} s)", flush=True)
+        prev_face = fa
+
+    # The harness's single pass: no env.seed(), no reset, no inference mode for the pre-loop reads.
+    override_state = H["_install_schedule_override_world"](cmd_term, compiled, ctx.device, compiled.hold_labels)
+    obs, _extras = env.get_observations()
+    override_state["apply"](0)
+    obs, _extras = env.get_observations()
+    start_state = {
+        "x": float(robot.data.root_pos_w[0, 0].item()), "y": float(robot.data.root_pos_w[0, 1].item()),
+        "z": float(robot.data.root_pos_w[0, 2].item()),
+        "heading_deg": _deg(float(robot.data.heading_w[0].item())),
+        "episode_length_buf": int(unwrapped.episode_length_buf[0].item()),
+    }
+    print(f"[REC] start state after the wrapper construction reset: root ({start_state['x']:+.3f}, "
+          f"{start_state['y']:+.3f}, {start_state['z']:.3f}) m, heading {start_state['heading_deg']:+.2f} deg, "
+          f"episode_length_buf {start_state['episode_length_buf']}", flush=True)
+
+    still_at = {}
+    if not args_cli.no_stills:
+        for i in range(n_holds):
+            still_at[starts[i] + (ends[i] - starts[i]) // 2] = f"{i:02d}_{labels[i]}_mid"
+            still_at[ends[i] - 1] = f"{i:02d}_{labels[i]}_end"
+
+    rec = _new_rec(T)
+    falls: list[dict] = []
+    sched_dev = np.zeros(T)
+    cmd_dev = np.zeros(T)
+    steps_since_reset = int(unwrapped.episode_length_buf[0].item())
+    total_frames = 0
+    trace = hashlib.sha256()
+    t_run = time.time()
+    try:
+        with torch.inference_mode():
+            for t in range(T):
+                obs, st = _harness_step(ctx, override_state, obs, t, trace)
+                sched_dev[t], cmd_dev[t] = st.sched_dev, st.cmd_dev
+                _store_step(rec, t, st)
+                steps_since_reset += 1
+                t_s = (t + 1) * dt
+                i = int(seg[t])
+                lab = labels[i] if i >= 0 else "prologue"
+                if st.done:
+                    reason = _termination_reason(st.failed, steps_since_reset, int(unwrapped.max_episode_length))
+                    falls.append({"t_s": round(t_s, 3), "step": t, "reason": reason, "segment": i, "hold": lab})
+                    print(f"[REC] TERMINATION at t={t_s:.2f} s (step {t}, in '{lab}'): {reason} -> env auto-reset "
+                          "(respawn at the pinned yaw); the schedule continues, the override re-applies this "
+                          "step's row in the same step", flush=True)
+                    steps_since_reset = 0
+
+                frame = ctx.render()
+                if frame is None:
+                    raise SystemExit("render() returned None -- is render_mode rgb_array / --enable_cameras set?")
+                if _CAPTION_BACKEND is not None:
+                    row_t, post = st.row, st.post
+                    if i >= 0:
+                        head = (f"{args_cli.label}  |  SEQUENCE {scenario.id}: hold {i + 1}/{n_holds} "
+                                f"'{lab}'  (no reset between holds)", WHITE)
+                        cmd_line = (f"CMD  speed {row_t.speed:.2f} m/s   dir {_deg(row_t.dir):+.0f} deg   "
+                                    f"face {_deg(row_t.face):+.0f} deg   (world frame)", YELLOW)
+                    else:
+                        head = (f"{args_cli.label}  |  SEQUENCE {scenario.id}: PROLOGUE (holds '{labels[0]}' "
+                                "command)", WHITE)
+                        cmd_line = (f"PROLOGUE CMD  speed {row_t.speed:.2f} m/s   dir {_deg(row_t.dir):+.0f} deg   "
+                                    f"face {_deg(row_t.face):+.0f} deg   (world frame)", CYAN)
+                    nxt = i + 1
+                    if nxt < n_holds:
+                        nxt_line = (f"NEXT  hold {nxt + 1}/{n_holds} '{labels[nxt]}' at t={starts[nxt] * dt:.1f} s",
+                                    CYAN)
+                    else:
+                        nxt_line = (f"LAST hold -- sequence ends at t={T * dt:.1f} s", CYAN)
+                    lines = [head, cmd_line, nxt_line,
+                             (f"t = {t_s:6.2f} / {T * dt:.1f} s    heading {_deg(post[2]):+6.1f} deg    "
+                              f"|v| {math.hypot(post[3], post[4]):.2f} m/s", WHITE)]
+                    if args_cli.arrows:
+                        lines.append((ARROW_LEGEND, CYAN))
+                    if falls:
+                        last = falls[-1]
+                        lines.append((f"FELL at t={last['t_s']:.2f} s in '{last['hold']}' -> auto-reset, schedule "
+                                      "continues" + (f" ({len(falls)} terminations)" if len(falls) > 1 else ""), RED))
+                    frame = _caption(frame, lines)
+                else:
+                    frame = np.ascontiguousarray(frame[:, :, :3])
+                ctx.combined.append_data(frame)
+                total_frames += 1
+                if t in still_at:
+                    imageio.imwrite(str(ctx.stills_dir / f"{args_cli.prefix}_sequence_{still_at[t]}.png"), frame)
+                if (t + 1) % 500 == 0:
+                    el = time.time() - t_run
+                    print(f"[REC] sequence: {t + 1}/{T} frames ('{lab}') in {el:.0f}s "
+                          f"({total_frames / max(el, 1e-9):.1f} fps); RSS {_rss_gb():.2f} GB", flush=True)
+    finally:
+        ctx.combined.close()
+
+    el = time.time() - t_run
+    trace_sha = trace.hexdigest()
+    segments = []
+    for i in [-1] + list(range(n_holds)):
+        idx = np.nonzero(seg == i)[0]
+        if idx.size == 0:
+            continue  # prologue_s 0
+        lab = labels[i] if i >= 0 else "prologue"
+        segments.append(_sequence_segment(i, lab, idx, cmd_of[i], dt, rec, falls,
+                                          float(sched_dev[idx].max()), float(cmd_dev[idx].max())))
+    ru_peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024.0 / 1024.0
+    cg_peak = _cgroup_peak_gb()
+    print(f"[REC] wrote {ctx.combined_path} ({total_frames} frames, {total_frames / fps:.1f} s at {fps} fps) "
+          f"in {el:.0f}s ({total_frames / max(el, 1e-9):.1f} frames/s); trace_sha256 {trace_sha}", flush=True)
+    print(f"[REC] peak RSS (ru_maxrss) {ru_peak:.2f} GB; cgroup memory.peak "
+          f"{'n/a' if cg_peak is None else f'{cg_peak:.2f} GB'}", flush=True)
+    _print_sequence_table(segments, falls)
+    meta = {
+        "mode": "sequence",
+        "checkpoint": str(ctx.resume_path), "checkpoint_sha256": ctx.ckpt_sha,
+        "reference_run_meta": str(RUN_META_PATH), "reference_scenario_id": RUN_META["scenario_id"],
+        "task": scenario.task, **seq_info,
+        "env_vars": WANT_ENV, "env_overrides": ctx.applied_overrides,
+        "harness": str(HARNESS), "harness_sha256": ctx.harness_sha,
+        "env_seed": scenario.env_seed, "env_seed_note": "env_cfg.seed only (the harness's single pass): no env.seed() "
+                                                        "call, no forced reset",
+        "spawn_yaw_pin": ctx.applied_overrides.get("spawn_yaw_pin"),
+        "prologue_s": float(scenario.get_default("prologue_s")), "settle_s": float(scenario.get_default("settle_s")),
+        "holds": [{"segment": i, "label": h.label, "hold_s": float(h.hold_s), "speed": cmd_of[i][0],
+                   "dir_deg": _deg(cmd_of[i][1]), "face_deg": _deg(cmd_of[i][2]), "start_step": starts[i],
+                   "end_step_exclusive": ends[i], "t0_s": starts[i] * dt, "t1_s": ends[i] * dt}
+                  for i, h in enumerate(scenario.schedule)],
+        "hold_s": [float(h.hold_s) for h in scenario.schedule],
+        "n_steps": T, "episode_length_s": scenario.episode_length_s,
+        "max_episode_length": int(unwrapped.max_episode_length), "dt": dt, "fps": fps,
+        "arrows": bool(args_cli.arrows),
+        "camera": {"eye": list(ctx.env_cfg.viewer.eye), "lookat": list(ctx.env_cfg.viewer.lookat),
+                   "origin_type": ctx.env_cfg.viewer.origin_type, "resolution": list(ctx.env_cfg.viewer.resolution)},
+        "captions": _CAPTION_BACKEND, "mp4": str(ctx.combined_path), "frames_total": total_frames,
+        "trace_sha256": trace_sha, "start_state": start_state,
+        "schedule_state_max_dev": float(sched_dev.max()), "obs_command_slot_max_dev": float(cmd_dev.max()),
+        "falls": falls, "peak_rss_gb": ru_peak, "cgroup_peak_gb": cg_peak, "segments": segments,
+    }
+    if args_cli.trace_npz:
+        trace_path = ctx.out_dir / f"{args_cli.prefix}_sequence_trace.npz"
+        np.savez(trace_path, segment_id=seg, sched_dev=sched_dev, cmd_dev=cmd_dev, **rec)
+        meta["trace_npz"] = str(trace_path)
+    sanity_path = ctx.out_dir / f"{args_cli.prefix}_sequence_sanity.json"
+    sanity_path.write_text(json.dumps(meta, indent=1))
+    print(f"[REC] sequence sanity -> {sanity_path}", flush=True)
+
+
+def _print_sequence_table(segments: list[dict], falls: list[dict]) -> None:
+    print("[REC] SEQUENCE SANITY TABLE (cmd = the segment's compiled command; applied = the command term's world "
+          "state over the segment; achieved = segment start -> segment end or its first fall; dhead = signed "
+          "unwrapped heading change inside the segment; err = heading - face at the segment's end)", flush=True)
+    hdr = (f"{'#':>2s} {'hold':12s} {'t0-t1 s':>13s} | {'cmd spd/dir/face':>20s} | {'applied spd/dir/face':>21s} "
+           f"{'maxdev':>7s} | {'body|v| wdir':>12s} | {'dx':>6s} {'dy':>6s} {'along':>6s} {'v_al':>5s} | "
+           f"{'h_start':>7s} {'dhead':>7s} {'h_end':>7s} {'err':>6s} | falls")
+    print(hdr, flush=True)
+    nan = float("nan")
+    for r in segments:
+        c, a, d, b = r["commanded"], r["applied_mean"], r["applied_max_dev"], r["body_cmd_mean"]
+        ach = r.get("achieved") or {}
+        maxdev = max(d["speed"], d["dir_rad"], d["face_rad"], r["schedule_state_max_dev"])
+        wdir = "  --" if b["world_dir_deg"] is None else f"{b['world_dir_deg']:+5.0f}"
+        fl = ",".join(f"{f['t_s']:.2f}s" for f in r["falls"]) or "none"
+        num = "P" if r["segment"] < 0 else str(r["segment"] + 1)
+        print(f"{num:>2s} {r['hold']:12s} {r['t0_s']:6.2f}-{r['t1_s']:6.2f} | "
+              f"{c['speed']:.2f}/{c['dir_deg']:+5.0f}/{c['face_deg']:+5.0f} deg | "
+              f"{a['speed']:.2f}/{a['dir_deg']:+5.0f}/{a['face_deg']:+5.0f} deg {maxdev:7.1e} | "
+              f"{b['speed_xy']:.2f} {wdir} | {ach.get('dx', nan):+6.2f} {ach.get('dy', nan):+6.2f} "
+              f"{ach.get('along_dir', nan):+6.2f} {ach.get('mean_speed_along', nan):+5.2f} | "
+              f"{ach.get('heading_start_deg', nan):+7.1f} {ach.get('heading_change_deg', nan):+7.1f} "
+              f"{ach.get('heading_end_deg', nan):+7.1f} {ach.get('heading_err_end_deg', nan):+6.1f} | {fl}", flush=True)
+    print("[REC] obs-command-slot max dev per segment: "
+          + ", ".join(f"{r['hold']} {r['obs_command_slot_max_dev']:.1e}" for r in segments), flush=True)
+    print(f"[REC] terminations in the run: {len(falls)}"
+          + ("" if not falls else " -- " + "; ".join(f"t={f['t_s']:.2f}s '{f['hold']}' {f['reason']}" for f in falls)),
+          flush=True)
 
 
 def _print_table(rows: list[dict]) -> None:
