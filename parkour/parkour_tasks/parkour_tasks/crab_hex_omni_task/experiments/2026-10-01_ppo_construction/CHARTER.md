@@ -1555,3 +1555,12 @@ when the t3x in-band turn settles.
     - At c6, in-band 0.098–0.120; 1.0 rad fc 0.51 / 0.08 / 0.88.
     - So out-of-band turning is fixed by the end of the chain, mostly within c6x.
   - **C0 trigger rc 0** (checks valid). The C0 side-first tails launched 04:45.
+- 2026-10-06 07:41, **user decisions.**
+  1. **Stop the C0 side-first tails after `SF__C0_rest_s16`.** s17/s18 are not run, so the C0 comparison is n=1 and
+     descriptive, no longer the pre-registered §13.4 final gate. `STOP_QUEUE` stops the queue before s17.
+     `scripts/sf_c0s16_post.sh` then runs s16's c6 lr and turn-band reads, the ones `c6_reads` would have run.
+  2. **Then bake the B recipe and make the best B head the omni phase-1 head of record, replacing W.**
+     - Precedent fb203f7d: records + policy folder only, with no presets or default changes, so code_sha/eval_sha do not move.
+     - Head chosen among `SF__B_rest_s16/17/18` by a rule stated before judging: floors, then whole-task performance,
+       then motion quality and the turn band as tie-breakers.
+     - Preparation is read-only until the GPU is idle (workflow `wf_4f63f738-9fa`).
