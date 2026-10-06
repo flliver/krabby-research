@@ -1535,3 +1535,16 @@ when the t3x in-band turn settles.
   - **The FB6k side gait survives c4 in 3/3.**
   - **90° turning is at or below the FB6k sources' level after c4** (descriptive).
   - **Rest (c5 → c6 → c6x) launched 18:27.**
+- 2026-10-06 04:12, **side-first B block done (descriptive; the gated read comes after the C0 tails).**
+  - **c6x heads (model_14995, clock hidden in every suite stamp): FAST/FAST 3/3, falls 0.** FAST also at the pre-cut
+    13000 checkpoint in 3/3.
+
+    | Seed | Hands (m/s) | Side / fwd / back / diag | 90° fc / yp | move_turn survival |
+    |---|---|---|---|---|
+    | s16 | 0.229 / 0.223 | 0.98 / 1.01 / 1.03 / 0.97 | 0.76 / 0.100 | 0.74 |
+    | s17 | 0.236 / 0.237 | 1.03 / 1.03 / 0.97 / 1.00 | 0.71 / 0.095 | 0.99 |
+    | s18 | 0.240 / 0.245 | 1.05 / 1.04 / 1.03 / 0.96 | 0.80 / 0.104 | 0.95 |
+    | **W** | SLOW / SLOW | 0.47 / 0.79 / 0.78 / 0.58 | 0.79 / 0.102 | 0.37 |
+
+  - **Turning recovered in c5–c6x.** At c4 the 90° fc was −0.08 to 0.23.
+  - **The C0 trigger fires** (B c6x FAST/FAST 3/3); the C0 side-first tails follow the c6 reads.
