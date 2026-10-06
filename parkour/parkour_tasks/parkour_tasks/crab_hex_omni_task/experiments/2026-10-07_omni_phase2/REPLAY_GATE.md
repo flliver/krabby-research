@@ -15,7 +15,7 @@ Headline numbers:
 - **E1, B head, best ρ per category** (rule ≥ +0.5): stand +0.21, fwd +0.01, side +0.06, back +0.27, diag +0.19, turn -0.03, move_turn -0.15. The camshaft share of the 18-joint sum is 0.0 %–0.2 % on B, so the premise holds: E1 prices the rods.
 - **F1**: the statue out-earns every stepping head on every episode pair (AUC B 1.00, W 1.00, C0 1.00). Within a head, the decisive ρ with stand steps/s is B +0.25, W -0.01, C0 -0.03 (rule ≤ −0.5). B's stand income spans only 0.391–0.429/s (p10–p90) across its episodes.
 
-**Per CHARTER §4, a FAIL stops and asks the user.** No arm is dropped automatically, and no rule was tuned to pass. The failing term's weight and magnitude are still recorded, because `p2_live.py --preflight` and the +200 liveness read need them if you overrule. Note that preflight checks only that the magnitude is present and non-zero. It does not read `verdict`.
+**Per CHARTER §4, a FAIL stops and asks the user.** No arm is dropped automatically, and no rule was tuned to pass. The failing term's weight and magnitude are still recorded, because `p2_live.py --preflight` and the +200 liveness read need them if you overrule. Preflight refuses E1 and F1 unless `verdict` is PASS or `replay_gate.json` records a user `overrule` for that term, and it also requires a non-zero magnitude. (This sentence was corrected on 2026-10-06, before any run. The first version said preflight did not read `verdict`, which stopped being true when the overrule rule landed.)
 
 ## Inputs
 

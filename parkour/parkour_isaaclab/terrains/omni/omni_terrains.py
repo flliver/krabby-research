@@ -187,6 +187,20 @@ FIELD_KIND_BAR = 0
 FIELD_KIND_SLAB = 1
 FIELD_KIND_PIT = 2
 
+#: Clear ground pixels kept between any PIT pixel and any RAISED (bar/slab) pixel, in every direction
+#: including the diagonals (Chebyshev pixel distance >= gap + 1). 2026-10-06 (omni phase 2, pre-smoke
+#: fix): with ramp edges (``slope_threshold`` 1.5 -> a wall only above 0.12 m = 24 vertical units) a
+#: raised pixel next to a pit pixel steps block + pit + roughness, which crossed 0.12 m from d ~ 0.31
+#: (0.13 m walls at d >= 0.42) -- ramp mode was not ramp-only. With the gap every step is
+#: block-to-ground or ground-to-pit, each <= one block's own height + roughness. A stand-in cfg may
+#: override it as ``pit_gap_px`` (tests; ``<= 0`` switches the gap off -- the pre-gap behaviour); the shipped cfg
+#: does not carry the field.
+FIELD_PIT_GAP_PX = 2
+#: A pit's keep-out (every raised block grown by the gap, on top of the pad) is larger than any other block's, so
+#: a pit gets this multiple of ``cfg.max_tries`` centre draws: at 1x, 1 % of dense tiles lost a pit
+#: (10 / 1000 seeded tiles, d 0.2-1.0); at 4x, 0 / 1000. Bars and slabs keep ``max_tries``.
+FIELD_PIT_TRIES_MULT = 4
+
 
 def field_kind_counts(n_blocks: int, bar_fraction: float, pit_fraction: float) -> tuple[int, int, int]:
     """``(n_bar, n_slab, n_pit)`` for a tile: deterministic counts, not per-block coin flips.
@@ -213,6 +227,21 @@ def _yawed_half_extents(yaw: float, length: float, width: float) -> tuple[float,
     ``[-H + ex, H - ex]`` keeps every block pixel inside the ``+-H`` square whatever the yaw."""
     c, s = abs(np.cos(yaw)), abs(np.sin(yaw))
     return 0.5 * (c * length + s * width), 0.5 * (s * length + c * width)
+
+
+def _dilate_square(mask: np.ndarray, r: int) -> np.ndarray:
+    """``mask`` grown by ``r`` pixels in every direction (a ``(2r+1) x (2r+1)`` square structuring
+    element, i.e. Chebyshev distance <= r), clipped to the array -- pure numpy, no scipy import."""
+    if r <= 0 or not mask.any():
+        return mask.copy()
+    w, ell = mask.shape
+    padded = np.zeros((w + 2 * r, ell + 2 * r), dtype=bool)
+    padded[r:r + w, r:r + ell] = mask
+    out = np.zeros_like(mask)
+    for i in range(2 * r + 1):
+        for j in range(2 * r + 1):
+            out |= padded[i:i + w, j:j + ell]
+    return out
 
 
 def field_layout(rng, difficulty: float, cfg) -> tuple[np.ndarray, np.ndarray, int]:
@@ -242,14 +271,29 @@ def field_layout(rng, difficulty: float, cfg) -> tuple[np.ndarray, np.ndarray, i
        ``cfg.ring_outer_radius``, ``ex``/``ey`` the yawed box's half-extents);
     3. REJECT the centre if any pixel of the box has ``r < pad_r + hs`` (the clear pad plus one
        pixel, so the rasterised edge can never touch the pad) or -- only when ``cfg.min_gap > 0``
-       -- if the box grown by ``min_gap`` on every side touches an already-stamped block; redraw
-       the CENTRE only (yaw, dims and height are kept, so the size distribution is exactly the
-       ring's rather than skewed towards blocks that fit more easily) up to ``cfg.max_tries``
-       times, then give up on that block (counted as unplaced, never forced in);
+       -- if the box grown by ``min_gap`` on every side touches an already-stamped block, or
+       (the default; off only for a stand-in ``pit_gap_px <= 0``) if it comes within
+       :data:`FIELD_PIT_GAP_PX` pixels of a block of the OPPOSITE sign:
+       a pit pixel needs >= 2 clear pixels (Chebyshev, diagonals included) to every raised pixel
+       and a raised pixel the same to every pit pixel, so in ramp mode no raised-to-pit step
+       exists to cross the 0.12 m wall trigger (2026-10-06); redraw the CENTRE only (yaw, dims and
+       height are kept, so the size distribution is exactly the ring's rather than skewed towards
+       blocks that fit more easily) up to ``cfg.max_tries`` times (a pit: :data:`FIELD_PIT_TRIES_MULT`
+       times that), then give up on that block (counted as unplaced, never forced in);
     4. stamp it: raised blocks union by ``max``; a pit lowers only pixels that are not raised
        (``min`` over pixels with height <= 0), so a pit never cuts a raised block and a raised
        block stamped later over a pit wins -- the result is independent of the order the two
-       kinds overlap in.
+       kinds overlap in. (Since the pit gap, raised and pit pixels can no longer overlap or touch
+       when placed through this function; the stamping rule is kept as the documented fallback.)
+
+    RNG stream (the pit gap, 2026-10-06): bars and slabs are drawn before any pit (the kind order
+    above), so no raised block can be rejected for the gap and every bar/slab draw -- yaw, dims,
+    height, every centre try -- is the pre-gap stream exactly. A pit whose centre lands within the
+    gap of a raised block now draws one more centre pair, so from that pit on the stream shifts:
+    the later pits of the tile, and -- under the production ``numpy.random`` global -- the tile's
+    roughness and every draw after it in the generator. Bar/slab placement of each field tile is
+    unchanged only as long as the global stream reaching the tile is (the first field tile of a
+    seeded generator; any tile when seeded per tile, as the tests do).
     """
     width_pixels, length_pixels = _tile_pixel_dims(cfg)
     raw = np.zeros((width_pixels, length_pixels))
@@ -274,6 +318,11 @@ def field_layout(rng, difficulty: float, cfg) -> tuple[np.ndarray, np.ndarray, i
     pad_keep_out = float(cfg.clear_radius) + hs
     min_gap = float(getattr(cfg, "min_gap", 0.0))
     max_tries = int(getattr(cfg, "max_tries", 64))
+    pit_gap = int(getattr(cfg, "pit_gap_px", FIELD_PIT_GAP_PX))
+    pit_tries = max_tries * (FIELD_PIT_TRIES_MULT if pit_gap > 0 else 1)
+    # pixels within ``pit_gap`` of a raised / pit pixel: where the opposite kind may not go
+    near_raised = np.zeros((width_pixels, length_pixels), dtype=bool)
+    near_pit = np.zeros((width_pixels, length_pixels), dtype=bool)
 
     n_bar, n_slab, n_pit = field_kind_counts(
         int(getattr(cfg, "n_blocks", 0)), float(getattr(cfg, "bar_fraction", 0.4)),
@@ -300,11 +349,13 @@ def field_layout(rng, difficulty: float, cfg) -> tuple[np.ndarray, np.ndarray, i
         ex, ey = _yawed_half_extents(yaw, length, width)
 
         mask = None
-        for _ in range(max_tries):
+        for _ in range(pit_tries if kind == FIELD_KIND_PIT else max_tries):
             bx = rng.uniform(-half + ex, half - ex) if half > ex else 0.0
             by = rng.uniform(-half + ey, half - ey) if half > ey else 0.0
             cand = _oriented_box_mask(dx - bx, dy - by, yaw, length, width)
             if not cand.any() or (r_grid[cand] < pad_keep_out).any():
+                continue
+            if pit_gap > 0 and (cand & (near_pit if value_px > 0 else near_raised)).any():
                 continue
             if min_gap > 0.0 and occupancy.any():
                 grown = _oriented_box_mask(dx - bx, dy - by, yaw, length + 2.0 * min_gap, width + 2.0 * min_gap)
@@ -317,8 +368,12 @@ def field_layout(rng, difficulty: float, cfg) -> tuple[np.ndarray, np.ndarray, i
 
         if value_px > 0:
             raw = np.where(mask, np.maximum(raw, value_px), raw)
+            if pit_gap > 0:
+                near_raised |= _dilate_square(mask, pit_gap)
         else:
             raw = np.where(mask & (raw <= 0), np.minimum(raw, value_px), raw)
+            if pit_gap > 0:
+                near_pit |= _dilate_square(mask, pit_gap)
         occupancy |= mask
         n_placed += 1
 

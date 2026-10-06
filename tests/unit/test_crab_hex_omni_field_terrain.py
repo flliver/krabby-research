@@ -16,6 +16,10 @@ What is pinned (the plan's Verification list for step 2):
   ``test_crab_hex_omni_ring_terrain.py`` and must keep passing alongside this file;
 * the field: pad clear, blocks inside the +-4.80 m square, coverage band, sector balance, heights
   per difficulty, pits <= 0 and never cutting raised blocks, determinism;
+* the pit/raised gap (2026-10-06): every pit >= 2 clear pixels from every raised pixel, so the ramp-mode
+  edge mask of the real decorated function is empty on all 10 shipped curriculum rows (40 seeds per
+  row, roughness on), the kind mix is still fully placed up to d = 1.0, and bars / slabs draw the
+  pre-gap RNG stream;
 * walls: the edge mask equals the block boundary (the low side of every riser), the face and vertex
   counts are unchanged, and ``riser_field=None`` is the original mesh.
 """
@@ -184,8 +188,10 @@ class TestFieldLayout:
 
     def test_pits_are_never_positive_and_never_cut_raised_blocks(self):
         """One slab then one pit (deterministic kind order), overlapping by 0.5 m along x: the
-        overlap keeps the slab's height, the rest of the pit is sunk, nothing else moves."""
-        cfg = make_field_cfg(2, size=REDUCED, bar_fraction=0.0, pit_fraction=0.5)
+        overlap keeps the slab's height, the rest of the pit is sunk, nothing else moves. The
+        stamping fallback, with the pit/raised gap switched off (``pit_gap_px=0``) so the overlap
+        can be placed at all."""
+        cfg = make_field_cfg(2, size=REDUCED, bar_fraction=0.0, pit_fraction=0.5, pit_gap_px=0)
         # slab: yaw, side, centre x, centre y; pit: the same
         rng = _ScriptedRng([0.0, 1.0, 3.0, 0.0, 0.0, 1.0, 3.5, 0.0])
         raw, occ, n = omni.field_layout(rng, 0.5, cfg)
@@ -198,6 +204,43 @@ class TestFieldLayout:
         assert np.all(raw[pit & ~slab] == -pit_px)
         assert np.all(raw[~(slab | pit)] == 0)
         assert np.array_equal(occ, slab | pit)
+
+    def test_pit_near_a_raised_block_is_redrawn_centre_only(self):
+        """A pit centre whose box comes within 2 px of the slab is rejected; yaw / size / depth are kept
+        and the next centre is stamped."""
+        cfg = make_field_cfg(2, size=REDUCED, bar_fraction=0.0, pit_fraction=0.5)
+        # slab: yaw 0, side 1.0, centre (3, 0); pit: yaw 0, side 1.0, centre (4.08, 0) -- edge-to-edge 0.08 m,
+        # i.e. at most one clear pixel -- rejected, then (-3, 0) accepted
+        assert omni.FIELD_PIT_GAP_PX == 2
+        rng = _ScriptedRng([0.0, 1.0, 3.0, 0.0, 0.0, 1.0, 4.08, 0.0, -3.0, 0.0])
+        raw, occ, n = omni.field_layout(rng, 0.5, cfg)
+        assert n == 2 and not rng.values
+        dx, dy = _raw_grid()
+        slab = omni._oriented_box_mask(dx - 3.0, dy, 0.0, 1.0, 1.0)
+        pit = omni._oriented_box_mask(dx + 3.0, dy, 0.0, 1.0, 1.0)
+        assert np.array_equal(occ, slab | pit)
+        assert np.all(raw[pit] < 0) and np.all(raw[slab] > 0)
+
+    def test_the_gap_is_two_clear_pixels_not_more(self):
+        """A pit exactly 2 clear pixels from a slab is accepted; 1 clear pixel is rejected (Chebyshev)."""
+        dx, dy = _raw_grid()
+        slab = omni._oriented_box_mask(dx - 3.0, dy, 0.0, 1.0, 1.0)
+        slab_hi = int(np.where(slab.any(axis=1))[0].max())  # the slab's last pixel row along +x
+        x_of = lambda i: (i + 0.5) * HS - 0.5 * REDUCED[0]  # noqa: E731 -- pixel-centre x
+        for clear, accepted in ((2, True), (1, False)):
+            first_pit_row = slab_hi + clear + 1
+            # a 0.6 m pit whose first pixel row is first_pit_row: centre 0.3 m beyond that pixel's lower edge
+            cx = x_of(first_pit_row) - 0.5 * HS + 0.3 + 1e-6
+            pit = omni._oriented_box_mask(dx - cx, dy, 0.0, 0.6, 0.6)
+            assert int(np.where(pit.any(axis=1))[0].min()) == first_pit_row
+            cfg = make_field_cfg(2, size=REDUCED, bar_fraction=0.0, pit_fraction=0.5, max_tries=1)
+            # with max_tries 1 a pit gets FIELD_PIT_TRIES_MULT tries: the rejected one is followed by tries
+            # inside the pad (rejected for the pad, never placed)
+            rng = _ScriptedRng([0.0, 1.0, 3.0, 0.0, 0.0, 0.6, cx, 0.0]
+                               + [0.0, 0.0] * (omni.FIELD_PIT_TRIES_MULT - 1) * (not accepted))
+            raw, occ, n = omni.field_layout(rng, 0.5, cfg)
+            assert (n == 2) is accepted, clear
+            assert np.array_equal(occ, slab | pit) if accepted else np.array_equal(occ, slab)
 
     def test_pad_rejection_redraws_the_centre_only(self):
         """A centre inside the pad is rejected and redrawn; yaw / size / height are kept."""
@@ -261,6 +304,98 @@ class TestFieldLayout:
         radii = np.linalg.norm(goals - 0.5 * np.array(REDUCED), axis=1)
         assert np.allclose(radii, 0.5 * (PAD_R + HALF))
         assert np.array_equal(gh, np.zeros(8))
+
+
+# ============================================================================== pit / raised gap
+#: the generator's 10 curriculum rows at the shipped difficulty_range (0.20, 0.70) -- d = lo + (hi - lo) * row / 9
+SHIPPED_ROWS = tuple(float(x) for x in np.linspace(0.20, 0.70, 10))
+#: the same 10 rows stretched to d = 1.0 (beyond the shipped range)
+FULL_ROWS = tuple(float(x) for x in np.linspace(0.20, 1.00, 10))
+GAP_SEEDS = range(40)
+
+
+def _stamped_bordered(seed, d, n, **kw):
+    """The pre-roughness stamped heights of the tile ``omni_field_terrain`` builds after ``np.random.seed(seed)``,
+    in the decorator's bordered (126 x 126) frame."""
+    np.random.seed(seed)
+    raw, occ, n_placed = omni.field_layout(np.random, d, make_field_cfg(n, size=REDUCED, **kw))
+    rf = np.zeros((126, 126))
+    rf[1:-1, 1:-1] = raw
+    return rf, n_placed
+
+
+class TestPitRaisedGap:
+    """2026-10-06: ramp mode (``vertical_edges`` false, slope_threshold 1.5 -> a wall only above 0.12 m) must be
+    ramp-only. A raised pixel next to a pit pixel stepped block + pit + roughness, over 0.12 m from d ~ 0.31 (0.13 m
+    walls at d >= 0.42); every pit now keeps 2 clear pixels to every raised pixel."""
+
+    @pytest.mark.parametrize("n", [14, 28])
+    @pytest.mark.parametrize("d", SHIPPED_ROWS, ids=[f"d{d:.3f}" for d in SHIPPED_ROWS])
+    def test_ramp_mode_edge_mask_is_empty_on_every_shipped_row(self, d, n):
+        """The real decorated function, roughness on, 40 seeds per row: no edge pixel on any field tile."""
+        cfg = make_field_cfg(n, apply_roughness=True)
+        for seed in GAP_SEEDS:
+            np.random.seed(seed)
+            out = omni.omni_field_terrain(d, copy.deepcopy(cfg), 8)
+            assert not np.asarray(out[4]).any(), (d, n, seed, int(np.asarray(out[4]).sum()))
+
+    @pytest.mark.parametrize("n", [14, 28])
+    @pytest.mark.parametrize("d", FULL_ROWS, ids=[f"d{d:.3f}" for d in FULL_ROWS])
+    def test_gap_holds_and_pits_are_placed_up_to_d1(self, d, n):
+        """Up to d = 1.0: every block placed (so the 0.4:0.4:0.2 mix is the drawn mix), every pit >= 2 clear px
+        (Chebyshev) from every raised pixel, and no edge pixel touches a raised-to-pit junction. (Beyond the shipped
+        0.70 a single block's own step plus roughness can cross 0.12 m -- a block-to-ground riser, pits or not --
+        which is why the next test pins emptiness only where it holds.)"""
+        cfg = make_field_cfg(n, apply_roughness=True)
+        st = np.ones((5, 5), dtype=bool)
+        n_bar, n_slab, n_pit = omni.field_kind_counts(n, 0.4, 0.2)
+        for seed in GAP_SEEDS:
+            rf, n_placed = _stamped_bordered(seed, d, n)
+            assert n_placed == n, (d, n, seed)
+            raised, pit = rf > 0, rf < 0
+            assert pit.any() and raised.any()
+            assert not (binary_dilation(raised, st) & pit).any(), (d, n, seed)
+            np.random.seed(seed)
+            edge = np.asarray(omni.omni_field_terrain(d, copy.deepcopy(cfg), 8)[4]).astype(bool)
+            near_r, near_p = binary_dilation(raised, np.ones((3, 3), bool)), binary_dilation(pit, np.ones((3, 3), bool))
+            assert not (edge & near_r & near_p).any(), (d, n, seed)
+        assert (n_bar, n_slab, n_pit) == ((6, 5, 3) if n == 14 else (11, 11, 6))
+
+    def test_beyond_the_shipped_range_only_block_to_ground_risers_remain(self):
+        """d 0.8-1.0 with pits switched off shows edges of the same order as with them: the residual risers are the
+        blocks' own steps + roughness, not the gap. Pinned so a later change to either side is seen."""
+        def edges(d, **kw):
+            tot = 0
+            for seed in range(20):
+                np.random.seed(seed)
+                tot += int(np.asarray(omni.omni_field_terrain(d, make_field_cfg(28, apply_roughness=True, **kw), 8)[4]).sum())
+            return tot
+        assert edges(0.75) == 0
+        with_pits, raised_only = edges(1.0), edges(1.0, pit_fraction=0.0)
+        assert with_pits > 0 and raised_only > 0
+
+    @pytest.mark.parametrize("d", [0.2, 0.42, 0.7, 1.0])
+    def test_bars_and_slabs_draw_the_pre_gap_stream(self, d):
+        """Raised blocks are drawn before any pit, so the gap never rejects one: the raised pixels are identical with
+        the gap on and off (same seed); only pits may move."""
+        for seed in range(12):
+            for n in (14, 28):
+                on, _ = _stamped_bordered(seed, d, n)
+                off, _ = _stamped_bordered(seed, d, n, pit_gap_px=0)
+                assert np.array_equal(np.where(on > 0, on, 0), np.where(off > 0, off, 0)), (d, seed, n)
+
+    def test_pit_share_of_the_cover_is_kept(self):
+        """Pits still take their share of the tile: sunken share of the occupied pixels ~ the pre-gap value."""
+        def share(**kw):
+            sunk = occ = 0
+            for seed in range(60):
+                raw, o, _n = _layout(seed, d=0.5, n=28, **kw)
+                sunk += int((raw < 0).sum())
+                occ += int(o.sum())
+            return sunk / occ
+        with_gap, without = share(), share(pit_gap_px=0)
+        assert 0.2 < with_gap < 0.4
+        assert abs(with_gap - without) < 0.03
 
 
 # ============================================================================== decorator

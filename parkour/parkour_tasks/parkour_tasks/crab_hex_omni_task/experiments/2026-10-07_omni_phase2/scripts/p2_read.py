@@ -85,15 +85,35 @@ and stand stepping, turn band) are reported for the judges; the ranking is their
                                          Metrics/base_parkour/track_ratio_obst_p50 over the smoke's last 100 logged
                                          iterations (its tfevents; CHARTER 9 operational definition). A per-episode
                                          DUMP file (.json / .npz) is still accepted in place of RUN_DIR.
+    p2_read.py --smoke-s5 STAMP|NAME     CHARTER 5 S5 (pre-launch audit B1): the field_light__omni stamp of
+                                         run_arm.sh --row-eval <NAME> <s18 head> <s18 env stamp> scenarios_p2.yaml
+                                         field_light__omni 1 --episodes 7 (a NAME resolves to its newest seed001
+                                         stamp): 7 episodes, the s18 head's sha256, ZERO stand-hold falls (a fall
+                                         whose last segment is the prologue or the stand hold; read from the raws,
+                                         fail closed). Exit 0 PASS / 4.
+    p2_read.py --write-smokes-ok --smokes DIR --s5 STAMP|NAME [--no-charter-log]
+                                         writes $OUT/SMOKES_OK only when smokes/<UTC>/smokes.json (scripts/p2_smoke.py)
+                                         has S1-S4 PASS on clean code, S3's toe radius <= 1.6 m and S4's numbers,
+                                         S5 passes, the CAL1 fork smoke's record shows its dump audit PASS, and the
+                                         smokes' and S5's code state equal the LIVE code state. It logs the S3 toe
+                                         radius and the S4 numbers in CHARTER 9 (one appended line). Exit 0 / 4.
+    p2_read.py --smokes-ok-check         the queue's gate before anything runs: SMOKES_OK present, PASS, complete, and
+                                         its code state == the live one. Exit 0 / 4.
+    p2_read.py --cal2-gate               the queue's gate before P2__A1_s18 (pre-launch audit M2): P2__CAL2_s18's
+                                         record is a smoke, not killed, its dump audit PASS, and its PROMOTE == the
+                                         A1 chain's KRABBY_TERRAIN_PROMOTE in candidates.yaml (== CAL2's own). 0 / 4.
+    (--out DIR points those four at another $OUT; P2_OUT in the environment does the same for every read.)
     p2_read.py --self-test
 """
 from __future__ import annotations
 
 import argparse
+import datetime
 import functools
 import importlib.util
 import json
 import math
+import os
 import statistics
 import sys
 from pathlib import Path
@@ -101,7 +121,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 CAMPAIGN = HERE.parent
 R = Path("/home/nickmagus/krabby/krabby-research")
-OUT = R / "parkour/outputs/omni_plan/phase2"
+OUT = Path(os.environ.get("P2_OUT") or R / "parkour/outputs/omni_plan/phase2")
 ARMS = OUT / "arms"
 LROUT = OUT / "lr"
 PREC = R / "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/scripts"
@@ -797,6 +817,240 @@ def calibrate_file(path: Path) -> dict:
                                 f"keys {sorted(d)}"}
 
 
+# ================================================================================================ pre-launch gates
+# Pre-launch audit 2026-10-06: B1 (no anchor eval before the CHARTER 5 smokes S1-S5 and the fork smoke pass: the
+# queue requires $OUT/SMOKES_OK) and M2 (no A1 s18 launch before a passed CAL2 at A1's PROMOTE values).
+SMOKES_DIR = CAMPAIGN / "smokes"
+SMOKES_OK = "SMOKES_OK"
+SMOKE_CHECKS = ("S1", "S2", "S3", "S4")
+S4_KEYS = ("reach_edge_frac", "field_frac_mean", "block_steps_mean", "off_tile_block_steps_mean")
+S5_EPISODES = 7
+S5_NAME = "SMOKE_S5_s18"
+TOE_MAX = 1.6
+CAL1, CAL2, A1_GATE = "P2__CAL1_s18", "P2__CAL2_s18", "P2__A1_s18"
+PROMOTE_KEY = "KRABBY_TERRAIN_PROMOTE"
+CODE_KEYS = ("code_sha", "eval_sha", "dirty")
+
+
+def _placeholder(v) -> bool:
+    import re  # noqa: PLC0415
+    return bool(re.match(r"(?i)^\s*TBD", str(v))) or "PENDING" in str(v).upper()
+
+
+def promote_pair(text) -> tuple[float, float] | None:
+    try:
+        up, down = (float(x) for x in str(text).split(":"))
+    except (TypeError, ValueError):
+        return None
+    return (up, down) if all(math.isfinite(v) for v in (up, down)) else None
+
+
+def chain_overlay_value(cands: dict, chain: str, key: str):
+    for st in reversed(((cands.get("chains") or {}).get(chain) or {}).get("stages") or []):
+        ov = st.get("overlay") or {}
+        if key in ov:
+            return ov[key]
+    return None
+
+
+def audit_of(rec: dict | None) -> dict | None:
+    """The CHARTER 5 dump audit a run_arm.sh smoke record carries (its p2_live.py --smoke-audit JSON line)."""
+    raw = (rec or {}).get("smoke_audit")
+    if isinstance(raw, dict):
+        return raw
+    try:
+        d = json.loads(raw) if raw else None
+    except (TypeError, ValueError):
+        return None
+    return d if isinstance(d, dict) else None
+
+
+def smoke_record_fails(rec: dict | None, chain: str) -> list[str]:
+    if not rec:
+        return [f"no {chain} record"]
+    fails = []
+    if rec.get("chain") != chain:
+        fails.append(f"record chain {rec.get('chain')!r} != {chain}")
+    if not rec.get("smoke"):
+        fails.append("record is not a calibration smoke")
+    if rec.get("killed"):
+        fails.append(f"killed: {rec.get('killed')}")
+    au = audit_of(rec)
+    if not au or au.get("result") != "PASS":
+        fails.append(f"dump audit {(au or {}).get('result')!r} (fails {(au or {}).get('fails')})")
+    return fails
+
+
+def cal2_gate(rec: dict | None, cands: dict) -> dict:
+    """Pre-launch audit M2 (pure): CAL2 passed its dump audit AT the A1 chain's PROMOTE values."""
+    fails = smoke_record_fails(rec, CAL2)
+    au = audit_of(rec) or {}
+    a1 = chain_overlay_value(cands, A1_GATE, PROMOTE_KEY)
+    c2 = chain_overlay_value(cands, CAL2, PROMOTE_KEY)
+    pa1, pc2, pau = promote_pair(a1), promote_pair(c2), promote_pair(au.get("promote"))
+    if a1 is None or _placeholder(a1) or pa1 is None:
+        fails.append(f"A1 {PROMOTE_KEY} not fixed: {a1!r}")
+    if pau is None:
+        fails.append(f"CAL2 audit PROMOTE unreadable: {au.get('promote')!r}")
+    elif pa1 is not None and any(abs(x - y) > 1e-9 for x, y in zip(pau, pa1)):
+        fails.append(f"CAL2 audited PROMOTE {au.get('promote')} != A1 {a1}")
+    if pc2 is None or (pa1 is not None and any(abs(x - y) > 1e-9 for x, y in zip(pc2, pa1))):
+        fails.append(f"CAL2 chain PROMOTE {c2!r} != A1 {a1!r} in candidates.yaml")
+    return {"ok": not fails, "fails": fails, "a1_promote": a1, "cal2_promote": c2, "cal2_audit_promote": au.get("promote"),
+            "cal2_levels_moved": au.get("levels_moved")}
+
+
+def resolve_stamp(arg: str, row: str, seed: int = 1, lrout: Path | None = None) -> str | None:
+    p = Path(arg)
+    if (p / "complete.json").is_file():
+        return str(p)
+    return newest_stamp(arg, row, seed, lrout=lrout or LROUT) if "/" not in arg else None
+
+
+def smoke_s5_read(stamp: str | None, want_sha: str | None) -> dict:
+    """CHARTER 5 S5 (pure IO on one stamp): field_light__omni, 7 episodes, the s18 head, zero stand-hold falls."""
+    if not stamp:
+        return {"ok": False, "fails": ["no S5 stamp"], "stamp": None}
+    import numpy as np  # noqa: PLC0415
+
+    st = Path(stamp)
+    meta = _json(st / "run_meta.json") or {}
+    sm = _json(st / "scenario_metrics.json") or {}
+    fails = []
+    if meta.get("scenario_id") != FL:
+        fails.append(f"scenario {meta.get('scenario_id')!r} != {FL}")
+    eps = sm.get("episodes") or []
+    n = int((sm.get("aggregate") or {}).get("n_episodes") or len(eps))
+    if n != S5_EPISODES or len(eps) != S5_EPISODES:
+        fails.append(f"{n} episodes ({len(eps)} listed), want {S5_EPISODES}")
+    if want_sha and meta.get("checkpoint_sha256") != want_sha:
+        fails.append(f"checkpoint sha256 {str(meta.get('checkpoint_sha256'))[:12]} != the s18 head {want_sha[:12]}")
+    labels = list(meta.get("hold_labels") or [])
+    if "stand" not in labels:
+        fails.append("no stand hold in the row")
+    stand_idx = labels.index("stand") if "stand" in labels else None
+    stand_falls, other_falls, unread = [], [], []
+    for e in eps:
+        if str(e.get("termination_reason")) != "fall":
+            continue
+        idx = int(e.get("env_index"))
+        f = st / "raw" / f"episode_{idx:02d}.npz"
+        try:
+            seg = int(np.load(f)["segment_id"][-1])
+        except (OSError, KeyError, ValueError, IndexError):
+            unread.append(idx)
+            continue
+        (stand_falls if seg in (-1, stand_idx) else other_falls).append(idx)
+    if unread:
+        fails.append(f"fall episodes without a readable raw segment (fail closed): {unread}")
+    if stand_falls:
+        fails.append(f"stand-hold falls (prologue or stand): {stand_falls}")
+    val = stamp_validity(stamp) or {}
+    if not val.get("sidecar"):
+        fails.append("no code-state sidecar")
+    return {"ok": not fails, "fails": fails, "stamp": str(st), "n_episodes": n, "stand_falls": len(stand_falls),
+            "other_falls": len(other_falls), "sidecar": val.get("sidecar"), "env4": val.get("env4")}
+
+
+def smokes_doc_fails(doc: dict | None) -> list[str]:
+    """What keeps a p2_smoke.py smokes.json from counting: S1-S4 PASS, finished, no errors, clean code, the S3 toe
+    radius and the four S4 numbers present."""
+    if not doc:
+        return ["no smokes.json"]
+    fails = []
+    res = doc.get("results") or {}
+    for c in SMOKE_CHECKS:
+        if (res.get(c) or {}).get("result") != "PASS":
+            fails.append(f"{c} {(res.get(c) or {}).get('result', 'not run')}")
+    if not doc.get("finished") or doc.get("errors"):
+        fails.append(f"smoke run unfinished or errored: {doc.get('errors')}")
+    plan = doc.get("plan") or {}
+    if plan.get("reference") != A1_GATE:
+        fails.append(f"smoked reference {plan.get('reference')!r} != {A1_GATE}")
+    cs = plan.get("code_state") or {}
+    if cs.get("dirty") is not False:
+        fails.append(f"smoked on a dirty or unknown tree: {cs.get('dirty_paths')}")
+    toe = (res.get("S3") or {}).get("toe_radius_max_m")
+    if not isinstance(toe, (int, float)) or not toe <= TOE_MAX + 1e-9:
+        fails.append(f"S3 toe radius {toe!r} (want <= {TOE_MAX} m)")
+    for k in S4_KEYS:
+        if not isinstance((res.get("S4") or {}).get(k), (int, float)):
+            fails.append(f"S4 {k} missing")
+    return fails
+
+
+def code_state_fails(have: dict | None, live: dict | None, what: str) -> list[str]:
+    if not have:
+        return [f"{what}: no code state"]
+    if not live or live.get("dirty") is not False:
+        return [f"live code state dirty or unreadable: {(live or {}).get('dirty_paths')}"]
+    return [f"{what} {k} {have.get(k)!r} != live {live.get(k)!r}" for k in CODE_KEYS
+            if (bool(have.get(k)) if k == "dirty" else have.get(k)) != (bool(live.get(k)) if k == "dirty" else live.get(k))]
+
+
+def build_smokes_ok(smokes: Path, s5: dict, cal1: dict | None, live: dict | None) -> tuple[list[str], dict]:
+    doc = _json(Path(smokes) / "smokes.json")
+    fails = smokes_doc_fails(doc)
+    fails += [f"S5: {f}" for f in s5.get("fails") or []] if not s5.get("ok") else []
+    fails += [f"CAL1 fork smoke: {f}" for f in smoke_record_fails(cal1, CAL1)]
+    cs = ((doc or {}).get("plan") or {}).get("code_state")
+    fails += code_state_fails(cs, live, "smokes")
+    sc = s5.get("sidecar")
+    fails += code_state_fails(dict(zip(CODE_KEYS, sc)) if sc else None, live, "S5 sidecar")
+    res = (doc or {}).get("results") or {}
+    payload = {"result": "FAIL" if fails else "PASS", "fails": fails,
+               "written_at": datetime.datetime.now().isoformat(timespec="seconds"), "smokes": str(smokes),
+               "s3_toe_radius_max_m": (res.get("S3") or {}).get("toe_radius_max_m"),
+               "s3_resets": (res.get("S3") or {}).get("resets"),
+               "s4": {k: (res.get("S4") or {}).get(k) for k in S4_KEYS},
+               "s4_toe_radius_max_walking_m": (res.get("S4") or {}).get("toe_radius_max_walking_m"),
+               "s5": {k: s5.get(k) for k in ("stamp", "n_episodes", "stand_falls", "other_falls")},
+               "cal1": {"run_dir": (cal1 or {}).get("run_dir"), "audit": (audit_of(cal1) or {}).get("result")},
+               "code_state": {k: (live or {}).get(k) for k in CODE_KEYS},
+               "smoked_substitutions": ((doc or {}).get("plan") or {}).get("substituted")}
+    return fails, payload
+
+
+def smokes_ok_fails(payload: dict | None, live: dict | None) -> list[str]:
+    if not payload:
+        return ["no SMOKES_OK"]
+    fails = [] if payload.get("result") == "PASS" and not payload.get("fails") else [f"SMOKES_OK says {payload.get('result')}"]
+    toe = payload.get("s3_toe_radius_max_m")
+    if not isinstance(toe, (int, float)) or toe > TOE_MAX + 1e-9:
+        fails.append(f"S3 toe radius {toe!r}")
+    if any(not isinstance((payload.get("s4") or {}).get(k), (int, float)) for k in S4_KEYS):
+        fails.append("S4 numbers missing")
+    if (payload.get("s5") or {}).get("stand_falls") != 0:
+        fails.append("S5 stand falls not 0")
+    fails += code_state_fails(payload.get("code_state"), live, "SMOKES_OK")
+    return fails
+
+
+def charter_line(p: dict) -> str:
+    s4 = p.get("s4") or {}
+    f = lambda v, d=3: "NA" if not isinstance(v, (int, float)) else f"{v:.{d}f}"  # noqa: E731
+    cs = p.get("code_state") or {}
+    return (f"- {datetime.date.today().isoformat()}, **CHARTER 5 smokes passed; `SMOKES_OK` written before any anchor** "
+            f"(`scripts/p2_read.py --write-smokes-ok`).\n"
+            f"  - S1-S4: `{Path(p['smokes']).relative_to(CAMPAIGN) if str(p['smokes']).startswith(str(CAMPAIGN)) else p['smokes']}`.\n"
+            f"  - S3: max toe radius {f(p.get('s3_toe_radius_max_m'))} m (limit {TOE_MAX} m), over {p.get('s3_resets')} "
+            f"resets; walking max (S4) {f(p.get('s4_toe_radius_max_walking_m'))} m.\n"
+            f"  - S4: reach_edge {f(s4.get('reach_edge_frac'))}, field_frac {f(s4.get('field_frac_mean'))}, block steps per "
+            f"obstacle-tile episode {f(s4.get('block_steps_mean'), 1)}, off-tile block steps "
+            f"{f(s4.get('off_tile_block_steps_mean'), 2)}.\n"
+            f"  - S5: `{(p.get('s5') or {}).get('stamp')}`, {(p.get('s5') or {}).get('n_episodes')} episodes, "
+            f"{(p.get('s5') or {}).get('stand_falls')} stand-hold falls.\n"
+            f"  - CAL1 dump audit {(p.get('cal1') or {}).get('audit')}. code_sha {str(cs.get('code_sha'))[:8]}…, "
+            f"eval_sha {str(cs.get('eval_sha'))[:8]}….\n")
+
+
+def _live_code_state(code_root: Path = R) -> dict | None:
+    try:
+        return _load(HERE / "p2_live.py", "_p2_live_for_read").live_code_state(code_root)
+    except Exception as e:  # noqa: BLE001 -- unreadable is a FAIL, never a pass
+        return {"dirty": None, "dirty_paths": f"unreadable: {e.__class__.__name__}: {e}"}
+
+
 # ================================================================================================ loading
 def _anchors_yaml() -> dict:
     import yaml  # noqa: PLC0415
@@ -1158,10 +1412,51 @@ def main() -> int:
     ap.add_argument("--recipe", action="store_true")
     ap.add_argument("--m-screen", metavar="REF")
     ap.add_argument("--calibrate", type=Path)
+    ap.add_argument("--smoke-s5", metavar="STAMP|NAME")
+    ap.add_argument("--write-smokes-ok", action="store_true")
+    ap.add_argument("--smokes", type=Path)
+    ap.add_argument("--s5", metavar="STAMP|NAME")
+    ap.add_argument("--no-charter-log", action="store_true")
+    ap.add_argument("--smokes-ok-check", action="store_true")
+    ap.add_argument("--cal2-gate", action="store_true")
+    ap.add_argument("--out", type=Path, default=None)
+    ap.add_argument("--code-root", type=Path, default=R)
     ap.add_argument("--self-test", action="store_true")
     a = ap.parse_args()
     if a.self_test:
         return _self_test()
+    out = a.out or OUT
+    arms_dir, lr_dir = out / "arms", out / "lr"
+    if a.smoke_s5:
+        r = smoke_s5_read(resolve_stamp(a.smoke_s5, FL, 1, lr_dir), _anchors_yaml()[GATE_SEED]["sha256"])
+        print(json.dumps(r, default=str))
+        return 0 if r["ok"] else 4
+    if a.write_smokes_ok:
+        if not a.smokes or not a.s5:
+            ap.error("--write-smokes-ok needs --smokes DIR and --s5 STAMP|NAME")
+        s5 = smoke_s5_read(resolve_stamp(a.s5, FL, 1, lr_dir), _anchors_yaml()[GATE_SEED]["sha256"])
+        fails, payload = build_smokes_ok(a.smokes, s5, _json(arms_dir / f"{CAL1}.record.json"),
+                                         _live_code_state(a.code_root))
+        if fails:
+            print(json.dumps({"ok": False, "fails": fails}, default=str))
+            return 4
+        out.mkdir(parents=True, exist_ok=True)
+        (out / SMOKES_OK).write_text(json.dumps(payload, indent=1, default=str))
+        if not a.no_charter_log:
+            with open(CAMPAIGN / "CHARTER.md", "a") as fh:
+                fh.write(charter_line(payload))
+        print(json.dumps({"ok": True, "written": str(out / SMOKES_OK), **payload}, default=str))
+        return 0
+    if a.smokes_ok_check:
+        payload = _json(out / SMOKES_OK)
+        fails = smokes_ok_fails(payload, _live_code_state(a.code_root))
+        print(json.dumps({"ok": not fails, "fails": fails, "smokes_ok": str(out / SMOKES_OK)}, default=str))
+        return 0 if not fails else 4
+    if a.cal2_gate:
+        import yaml  # noqa: PLC0415
+        r = cal2_gate(_json(arms_dir / f"{CAL2}.record.json"), yaml.safe_load(open(CAMPAIGN / "candidates.yaml")))
+        print(json.dumps(r, default=str))
+        return 0 if r["ok"] else 4
     if a.calibrate:
         tb = a.calibrate.is_dir() or a.calibrate.name.startswith("events.out.tfevents")
         r = calibrate_run(a.calibrate) if tb else calibrate_file(a.calibrate)

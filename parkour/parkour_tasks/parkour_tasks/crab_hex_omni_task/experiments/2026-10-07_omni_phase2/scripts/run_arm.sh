@@ -10,16 +10,23 @@
 #        run_arm.sh --post <reference> <checkpoint>          the post steps only, for a finished run (no launch)
 #        run_arm.sh --lr-eval <name> <checkpoint> <env_stamp>
 #                   side22_25lr__omni (both hands) with that stamp's env -> $ARMS/<name>_lr{,_along}.json + sidecar
-#        run_arm.sh --row-eval <name> <checkpoint> <env_stamp> <manifest> <scenario> <env_seed>
+#        run_arm.sh --row-eval <name> <checkpoint> <env_stamp> <manifest> <scenario> <env_seed> [--episodes N]
 #                   one eval row at env_seed <k> (the harness's --env-seed; never hard-coded) with that stamp's env
-#                   -> $LROUT/<name>/<scenario>/seed00<k>/<ts> + its code-state sidecar
+#                   -> $LROUT/<name>/<scenario>/seed00<k>/<ts> + its code-state sidecar. --episodes N passes the
+#                   harness's --episodes (the CHARTER 5 S5 smoke: field_light__omni at 7 episodes, under a smoke
+#                   name such as SMOKE_S5_s18 so no anchor read ever picks the stamp up)
 #
 # Each reference runs serially:
 #   0. refusals before anything is launched: the chain carries a placeholder (an overlay value starting "TBD" or
 #      containing "PENDING": CHARTER 4/5 values not fixed yet) -> "STOP <ref> placeholder", exit 7; the fork source's
 #      sha256 differs from anchors.yaml (CHARTER 2) -> exit 7; the live reads' preflight fails (p2_live.py --preflight
 #      against $CODE_ROOT: every arm and CAL2 need the obstacle-tile level / promotion metrics emitted, E1 / F1 a
-#      replay_gate.json magnitude, F1 its stand-only construction) -> exit 7, so no run is launched only to be killed.
+#      replay_gate.json magnitude, F1 its stand-only construction) -> exit 7, so no run is launched only to be killed;
+#      the CODE-STATE GUARD refuses (p2_live.py --code-guard, pre-launch audit M1: parallel sessions share this
+#      checkout) -> exit 7. The guard compares the live code_sha / eval_sha / dirty flag of $CODE_ROOT with the s18
+#      anchor's sidecar once an anchor stamp exists, and before that requires dirty = false. It also runs at the top
+#      of every --row-eval / --lr-eval (exit 7, STOP + NOTIFY). P2_REANCHOR=1 skips only the comparison, for the
+#      first row of a deliberate CHARTER 5 re-anchor.
 #   1. launch_candidates.sh --campaign-dir $C --reference-chain <ref> [--candidates <launch view>]. The driver validates
 #      the WHOLE candidates file, so while ANY chain still carries a placeholder the launch goes through
 #      $C/launch_view.yaml = candidates.yaml minus every placeholder-carrying chain and its references (nothing else
@@ -44,10 +51,12 @@
 # 5 a reference stopped (STOP_ON_REF_STOP=1), 6 launch refused, 7 refused before launch (placeholder / sha).
 #
 # Environment overrides: CODE_ROOT, PYTHONPATH_EVAL, CAMPAIGN_DIR, ACCEPT_WHY, AUTO_KILL (precedent meanings);
-# ARMS_DIR (records dir, default $OUT/arms).
+# ARMS_DIR (records dir, default $OUT/arms); P2_REANCHOR (above); P2_PY / P2_CAP (the python and the eval memory-cap
+# prefix, for tests only).
+# P2_RUN_ARM_LIB=1 + `source` defines the functions and returns before the command line is read (tests only).
 set -u
 R=/home/nickmagus/krabby/krabby-research
-PY=/home/nickmagus/krabby/isaac_venv/bin/python
+PY=${P2_PY:-/home/nickmagus/krabby/isaac_venv/bin/python}
 CODE_ROOT=${CODE_ROOT:-$R}
 S=$(cd "$(dirname "$0")" && pwd)
 C=${CAMPAIGN_DIR:-$(cd "$S/.." && pwd)}
@@ -64,7 +73,7 @@ LROUT=$OUT/lr
 LOG=$OUT/queue.log
 STOPQ=$OUT/STOP_QUEUE
 ORCH=$C/orchestrator.log
-CAP="systemd-run --user --scope -q -p MemoryMax=48G -p MemorySwapMax=0"
+CAP=${P2_CAP-"systemd-run --user --scope -q -p MemoryMax=48G -p MemorySwapMax=0"}
 AUTO_KILL=${AUTO_KILL:-1}
 mkdir -p "$ARMS" "$LROUT"
 [ -d "$ARMS" ] && [ -w "$ARMS" ] || { echo "run_arm.sh: records dir $ARMS missing or not writable" >&2; exit 2; }
@@ -154,6 +163,27 @@ PY
   ) >> "$LOG" 2>&1
   [ -f "$1/code_state.json" ]
 }
+code_guard() {  # WHERE -> 0 when the live code state matches the s18 anchor's sidecar (M1); else STOP + NOTIFY, 7
+  local out rc ra=""
+  [ "${P2_REANCHOR:-0}" = 1 ] && ra=--reanchor
+  out=$(cd "$CODE_ROOT" && PYTHONPATH="$PYP" CUDA_VISIBLE_DEVICES="" "$PY" "$S/p2_live.py" --code-guard \
+        --code-root "$CODE_ROOT" --lrout "$LROUT" $ra 2>&1); rc=$?
+  if [ "$rc" != 0 ]; then
+    say "STOP $1 refused: code-state guard rc $rc (pre-launch audit M1: live code state vs the s18 anchor sidecar) :: $(echo "$out" | tail -1 | cut -c1-600) -- NOTIFY"
+    return 7
+  fi
+  say "$1 code-state guard ok${ra:+ (re-anchor)} :: $(echo "$out" | tail -1 | cut -c1-240)"
+  return 0
+}
+train_log_for() {  # RUN_NAME -> the newest existing training log of that run: <name>_train.log or, after the
+  # driver's own infra retry (run_phases.train_retry: tag <name>_r2, same run name), <name>_r<k>_train.log
+  local n=$1 best="" f
+  for f in "$C/logs/${n}_train.log" "$C/logs/${n}"_r[0-9]*_train.log; do
+    [ -f "$f" ] || continue
+    if [ -z "$best" ] || [ "$f" -nt "$best" ]; then best=$f; fi
+  done
+  echo "${best:-$C/logs/${n}_train.log}"
+}
 any_stamp_of() {  # RUN_DIR -> newest complete driver stamp of that run (any row)
   local rd=$1 tag; tag=$(basename "$rd" | cut -d_ -f3- | sed -E 's/_(e[0-9]+|c|w)$//')
   ls -d "$EV/$tag"/*/seed001/*/ 2>/dev/null | while read -r d; do
@@ -178,13 +208,25 @@ if hit:
     print(hit)
 PY
 }
-follow_retry() {  # CURRENT_RUN_DIR -> the newest run dir of the latest training line since $T0S when it differs
-  local rn rd
-  rn=$(orch_run_name_after "$T0S" last)
-  [ -n "$rn" ] || return 0
-  rn=$(echo "$rn" | sed -E 's/_r[0-9]+$//')
+follow_retry() {  # CURRENT_RUN_DIR -> "<run dir>\t<tag>" of the latest training line since $T0S when the dir differs
+  # The tag keeps its _r<k> suffix (run_phases.train_retry trains the retry as tag <name>_r2 under the SAME run name,
+  # so the run dir drops the suffix while the training log <tag>_train.log keeps it: pre-launch audit M5).
+  local tag rn rd
+  tag=$(orch_run_name_after "$T0S" last)
+  [ -n "$tag" ] || return 0
+  rn=$(echo "$tag" | sed -E 's/_r[0-9]+$//')
   rd=$(ls -dt "$RUNS"/*_"$rn" 2>/dev/null | head -1)
-  [ -n "$rd" ] && [ "$rd" != "${1:-}" ] && echo "$rd"
+  [ -n "$rd" ] && [ "$rd" != "${1:-}" ] && printf '%s\t%s\n' "$rd" "$tag"
+  return 0
+}
+retry_target() {  # CURRENT_RUN_DIR -> 0 and RT_RD / RT_TL (the retry's run dir and ITS training log) when the
+  # driver retried into another run dir since $T0S; 1 otherwise (pre-launch audit M5)
+  local nrd ntag
+  RT_RD=""; RT_TL=""
+  IFS=$'\t' read -r nrd ntag <<< "$(follow_retry "${1:-}")"
+  [ -n "$nrd" ] || return 1
+  RT_RD=$nrd
+  RT_TL=$C/logs/${ntag:-$(basename "$nrd" | cut -d_ -f3-)}_train.log
   return 0
 }
 head_of() {  # REF T0_EPOCH -> ckpt recorded in state.json for REF at/after T0 (follows an infra retry)
@@ -250,16 +292,15 @@ print((Path(sys.argv[3]) / rf["checkpoint"]).parent)
 PY
 }
 watch_arm() {  # REF RUN_DIR UNIT CHAIN TRAIN_LOG (background): the CHARTER 8 live reads, counted from the fork start
-  local ref=$1 rd=$2 unit=$3 chain=$4 tl=$5 out rc it first last nrd src
+  local ref=$1 rd=$2 unit=$3 chain=$4 tl=$5 out rc it first last src
   local wres=0 w200=0 w1000=0 nres=0 n200=0 n1000=0 ncol=0 nerr=0
   src=$(fork_source_rd "$ref")
   while systemctl --user is-active -q "$unit"; do
     sleep 120
     if [ -n "${T0S:-}" ]; then
-      nrd=$(follow_retry "$rd")
-      if [ -n "$nrd" ]; then
-        say "note $ref: following the driver's retry -> run dir $nrd (the reads restart there)"
-        rd=$nrd; tl=$C/logs/$(basename "$nrd" | cut -d_ -f3-)_train.log; wres=0; w200=0; w1000=0
+      if retry_target "$rd"; then
+        rd=$RT_RD; tl=$RT_TL; wres=0; w200=0; w1000=0
+        say "note $ref: following the driver's retry -> run dir $rd, training log $tl (the reads restart there)"
       fi
     fi
     [ -n "$rd" ] || continue
@@ -301,24 +342,28 @@ watch_arm() {  # REF RUN_DIR UNIT CHAIN TRAIN_LOG (background): the CHARTER 8 li
     fi
   done
 }
-row_eval() {  # NAME CHECKPOINT ENV_STAMP MANIFEST SCENARIO ENV_SEED -> sets ROW_DIR (the complete stamp) or returns 1
-  local name=$1 ck=$2 st=$3 man=$4 sc=$5 es=$6 envs d sd
+row_eval() {  # NAME CHECKPOINT ENV_STAMP MANIFEST SCENARIO ENV_SEED [EPISODES] -> sets ROW_DIR (the complete stamp);
+  # returns 1 (no stamp) or 7 (the code-state guard refused: nothing was launched)
+  local name=$1 ck=$2 st=$3 man=$4 sc=$5 es=$6 ne=${7:-} envs d sd ep=()
   ROW_DIR=""
+  code_guard "row-eval $name $sc env_seed $es" || return 7
   case "$es" in ''|*[!0-9]*) say "STOP row-eval $name $sc: env_seed '$es' is not a positive integer"; return 1 ;; esac
+  [ -n "$ne" ] && ep=(--episodes "$ne")
   sd=$(printf 'seed%03d' "$es")
   envs=$(python3 -c "import json,sys;m=json.load(open(sys.argv[1]));print(' '.join(f'{k}={v}' for k,v in sorted(m['env_vars'].items())))" "$st/run_meta.json")
   drivers_idle
   ( cd "$R/parkour" && env OMNI_KIT_ACCEPT_EULA=yes TERM=xterm PYTHONPATH="$PYP" $envs \
       $CAP timeout 3600 "$PY" "$EVAL" --headless --manifest "$man" --scenario "$sc" --env-seed "$es" \
-      --checkpoint "$ck" --save-raw --no-plot --output-root "$LROUT/$name" ${EVAL_EXTRA_ARGS:-} ) > "$LROUT/$name.$sc.$sd.log" 2>&1
+      --checkpoint "$ck" ${ep[@]+"${ep[@]}"} --save-raw --no-plot --output-root "$LROUT/$name" ${EVAL_EXTRA_ARGS:-} ) > "$LROUT/$name.$sc.$sd.log" 2>&1
   d=$(ls -d "$LROUT/$name"/"$sc"/"$sd"/*/ 2>/dev/null | tail -1)
   if [ -z "$d" ] || [ ! -f "$d/complete.json" ]; then return 1; fi
   ROW_DIR=${d%/}
   write_sidecar "$ROW_DIR" || { say "STOP row-eval $name $sc: no code-state sidecar written for $ROW_DIR"; return 1; }
 }
-lr_eval() {  # NAME CHECKPOINT ENV_STAMP -> sets LR_DIR LRL LRR (hand classes, feet AND along)
+lr_eval() {  # NAME CHECKPOINT ENV_STAMP -> sets LR_DIR LRL LRR (hand classes, feet AND along); 1 no stamp, 7 refused
   local name=$1 ck=$2 st=$3 envs d fl fr al ar
   LR_DIR=""; LRL=""; LRR=""
+  code_guard "lr-eval $name" || return 7
   envs=$(python3 -c "import json,sys;m=json.load(open(sys.argv[1]));print(' '.join(f'{k}={v}' for k,v in sorted(m['env_vars'].items())))" "$st/run_meta.json")
   drivers_idle
   ( cd "$R/parkour" && env OMNI_KIT_ACCEPT_EULA=yes TERM=xterm PYTHONPATH="$PYP" $envs \
@@ -371,6 +416,7 @@ run_ref() {  # REF -> 0 DONE, 1 STOP (logged), 2 killed (recorded), 6 launch ref
   msg=$(cd "$CODE_ROOT" && "$PY" "$S/p2_live.py" --preflight --chain "$CHAIN" --code-root "$CODE_ROOT" \
         --candidates "$C/candidates.yaml" 2>&1) || { say "STOP $ref refused: live-read preflight :: $(echo "$msg" | tail -1 | cut -c1-600) -- NOTIFY"; return 7; }
   say "$ref preflight $(echo "$msg" | tail -1 | cut -c1-200)"
+  code_guard "$ref" || return 7
   rm -f "$ARMS/$ref.killed"
   LAUNCH_WHY=""
   launch "$ref" || { say "STOP $ref ${LAUNCH_WHY:-launch failed}"; return 6; }
@@ -391,7 +437,7 @@ run_ref() {  # REF -> 0 DONE, 1 STOP (logged), 2 killed (recorded), 6 launch ref
   wait
   tail -2 "$ORCH" 2>/dev/null | cut -c1-300 >> "$LOG"
   if [ -f "$ARMS/$ref.killed" ]; then
-    [ -n "$rn" ] && TRAINLOG=$C/logs/${rn}_train.log
+    [ -n "$rn" ] && TRAINLOG=$(train_log_for "$(echo "$rn" | sed -E 's/_r[0-9]+$//')")
     write_record "$ref" "$ARMS/$ref.killed"
     say "STOP $ref killed: $(tr '\t' ' ' < "$ARMS/$ref.killed" | cut -c1-300) -- recorded in $ARMS/$ref.record.json" \
         "(relaunching this reference would RESUME the stopped run: rerun under a fresh reference name)"
@@ -407,7 +453,7 @@ post_ref() {  # REF -> the post steps for a finished run: CK preset (--post) or 
     return 1
   fi
   RD=$(dirname "$CK"); tag=$(basename "$RD" | cut -d_ -f3-)
-  TRAINLOG=$C/logs/${tag}_train.log
+  TRAINLOG=$(train_log_for "$tag")
   if [ "$SMOKE" = 1 ]; then
     [ "$CHAIN" = P2__CAL2_s18 ] && req=--require-terrain-move
     out=$(cd "$CODE_ROOT" && PYTHONPATH="$PYP" "$PY" "$S/p2_live.py" --smoke-audit "$RD" --chain "$CHAIN" --train-log "$TRAINLOG" \
@@ -429,19 +475,29 @@ post_ref() {  # REF -> the post steps for a finished run: CK preset (--post) or 
   return 0
 }
 
+if [ "${P2_RUN_ARM_LIB:-0}" = 1 ]; then return 0 2>/dev/null || exit 0; fi   # tests: functions only
 if [ "${1:-}" = "--lr-eval" ]; then
   [ $# -eq 4 ] || { echo "usage: $0 --lr-eval <name> <checkpoint> <env_stamp>" >&2; exit 2; }
   [ -f "$3" ] && [ -f "$4/run_meta.json" ] || { echo "no checkpoint $3 or no stamp $4" >&2; exit 2; }
   say "run_arm lr-eval: $2 $3 (env $4)"
-  if lr_eval "$2" "$3" "$4"; then exit 0; fi
+  lr_eval "$2" "$3" "$4"; rc=$?
+  [ "$rc" = 0 ] && exit 0
+  [ "$rc" = 7 ] && exit 7
   say "STOP lr-eval $2: no complete stamp (log $LROUT/$2.lr.log)"; exit 1
 fi
 if [ "${1:-}" = "--row-eval" ]; then
-  [ $# -eq 7 ] || { echo "usage: $0 --row-eval <name> <checkpoint> <env_stamp> <manifest> <scenario> <env_seed>" >&2; exit 2; }
+  EPN=""
+  if [ $# -eq 9 ] && [ "$8" = "--episodes" ]; then EPN=$9
+  elif [ $# -ne 7 ]; then
+    echo "usage: $0 --row-eval <name> <checkpoint> <env_stamp> <manifest> <scenario> <env_seed> [--episodes N]" >&2; exit 2
+  fi
+  case "$EPN" in *[!0-9]*|0) echo "--episodes must be a positive integer, got '$EPN'" >&2; exit 2 ;; esac
   [ -f "$3" ] && [ -f "$4/run_meta.json" ] && [ -f "$5" ] || { echo "missing checkpoint/stamp/manifest" >&2; exit 2; }
   case "$7" in ''|*[!0-9]*|0) echo "env_seed must be a positive integer, got '$7'" >&2; exit 2 ;; esac
-  say "run_arm row-eval: $2 $6 env_seed $7 $3 (env $4)"
-  if row_eval "$2" "$3" "$4" "$5" "$6" "$7"; then say "EVENT $2 $6 seed$7 stamp $ROW_DIR"; exit 0; fi
+  say "run_arm row-eval: $2 $6 env_seed $7 $3 (env $4)${EPN:+ episodes $EPN}"
+  row_eval "$2" "$3" "$4" "$5" "$6" "$7" "$EPN"; rc=$?
+  if [ "$rc" = 0 ]; then say "EVENT $2 $6 seed$7 stamp $ROW_DIR"; exit 0; fi
+  [ "$rc" = 7 ] && exit 7
   say "STOP row-eval $2 $6 env_seed $7: no complete stamp (log $LROUT/$2.$6.$(printf 'seed%03d' "$7").log)"; exit 1
 fi
 if [ "${1:-}" = "--post" ]; then

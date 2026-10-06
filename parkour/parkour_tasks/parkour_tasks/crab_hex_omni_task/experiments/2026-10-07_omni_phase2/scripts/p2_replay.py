@@ -708,8 +708,9 @@ def render(res: dict) -> str:
     if e1["verdict"] == "FAIL" or f1["verdict"] == "FAIL":
         A("**Per CHARTER §4, a FAIL stops and asks the user.** No arm is dropped automatically, and no rule was tuned "
           "to pass. The failing term's weight and magnitude are still recorded, because `p2_live.py --preflight` and "
-          "the +200 liveness read need them if you overrule. Note that preflight checks only that the magnitude is "
-          "present and non-zero. It does not read `verdict`.")
+          "the +200 liveness read need them if you overrule. Preflight refuses E1 and F1 unless `verdict` is PASS "
+          "or `replay_gate.json` records a user `overrule` for that term, and it also requires a non-zero "
+          "magnitude.")
         A("")
     A("## Inputs")
     A("")

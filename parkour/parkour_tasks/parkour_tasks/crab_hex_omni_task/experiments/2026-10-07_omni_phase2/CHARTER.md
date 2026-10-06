@@ -368,3 +368,98 @@ recommendation.
     `replay_gate.json`; F1 is set to 0.9 in `candidates.yaml` (copied to `scripts/candidates_v2.yaml`).
   - **E1 dropped.** Its chain keeps its placeholder, so it can never launch. The queue's sibling loop is S1 → F1.
   - **Budget:** ≈ 25.5 GPU-h.
+- 2026-10-06, **pre-launch audit applied to the tooling (B1, M1–M5); no run launched, nothing read.** Only
+  `scripts/` and `tests/unit/test_omni_phase2_prelaunch.py` changed, so code_sha and eval_sha did not move.
+  - **B1, smokes before anchors.** `scripts/p2_smoke.py` runs S1–S4 in one headless process. It builds the env the
+    p2a arm trains on, composed by run_candidates' own `reference_recipe` → `stage_env` → `rp._subenv`.
+    - A1's PROMOTE placeholder takes CAL1's launch value 0.45:0.25 for the smoke, and the substitution is recorded.
+    - S5 is `run_arm.sh --row-eval SMOKE_S5_s18 … field_light__omni 1 --episodes 7`, read by
+      `p2_read.py --smoke-s5`.
+    - `p2_read.py --write-smokes-ok` writes `$OUT/SMOKES_OK` only after S1–S5 and the CAL1 fork smoke's dump audit
+      pass on the live code state. It appends the S3 toe radius and the S4 numbers to this log.
+    - `p2_queue.sh` refuses to start, from any step, without a valid SMOKES_OK.
+  - **M1, code-state guard.** `p2_live.py --code-guard` compares the live code_sha, eval_sha and dirty flag with the
+    sidecar of the s18 anchor's suite stamp. Before any anchor stamp exists it requires dirty = false. `run_arm.sh`
+    runs it after preflight in run_ref and at the top of every row eval and lr eval. A refusal exits 7 with STOP +
+    NOTIFY. `P2_REANCHOR=1` skips only the comparison, for the first row of a deliberate re-anchor.
+  - **M2, CAL2 gate.** Before P2__A1_s18, `p2_read.py --cal2-gate` requires P2__CAL2_s18's record to be a smoke that
+    was not killed, with a PASS dump audit and PROMOTE equal to the A1 chain's value.
+  - **M3:** a DR event dumped as `null` now reads as absent.
+  - **M4:** REPLAY_GATE.md's preflight sentence is corrected, and the queue header no longer lists E1.
+  - **M5:** after a driver infra retry, the watcher follows the retry's `<tag>_r<k>_train.log`.
+  - **Readings the plan left open (the builder's):**
+    - **S2:**
+      - "corners populated" means all four corners beyond r 4.5 m populated on ≥ 80 % of field tiles, per tile.
+        The per-corner share is reported beside it.
+      - Coverage is the occupied share of the whole tile.
+      - d is the tile's curriculum-row difficulty.
+      - "pits ≤ 0" means every tile with pits has sunken occupied pixels, and none is deeper than
+        pit_depth(d) + 0.02 m.
+    - **S3:** terrain levels are frozen through the resets (the launch levels). The toe radius is the footpad
+      origin's horizontal distance from the root, over t = 0 and the 1-s zero-action window. The walking maximum from
+      S4 is reported only.
+    - **S4:** block steps are the ledger's `block_steps_mean` (per obstacle-tile episode). The head runs in the A1
+      env. Precondition: STD_PARAM, INIT_STD, CLOCK_HIDE, SPEED_ELLIPSE and FACING_OBS_CLIP equal the anchor stamp's.
+      These were checked on CPU and are equal.
+    - **S5:** a stand fall is a fall whose last segment is the prologue or the stand hold.
+  - **CPU replica of S2, not a smoke result.** It ran the real decorated `omni_field_terrain` over 400 tiles at the
+    generator's 10 difficulty rows (0.20–0.70) with roughness. It predicts that S2, as written, FAILS three
+    sub-checks:
+    - Heights reach formula + 0.031 m. The spline roughness overshoots to ±0.035 m.
+    - Edge-mask pixels appear on 23–37 of 40 tiles per row from d ≈ 0.42. These are risers over 0.12 m where a raised
+      block meets a pit.
+    - All four corners are populated on 34 % of sparse and 81 % of dense tiles. The per-corner share is 78 % and 95 %.
+
+    The pad check is borderline: off-block roughness reaches |h| 0.035 m. No threshold was changed. If the smoke
+    confirms, it stops and asks.
+- 2026-10-06, **pit/raised gap and S2 recalibration (CPU only, before any GPU smoke; nothing launched, nothing
+  read).**
+  - **Pit/raised 2-px gap** (`omni_terrains.field_layout`). Every pit keeps ≥ 2 clear pixels (0.16 m, Chebyshev, so
+    diagonals count) from every raised pixel, and every raised block the same from every pit. A centre that breaks
+    it is redrawn (the centre only), as for the pad.
+    - **Why:** ramp mode must be ramp-only. Where a raised block met a pit, the step was block + pit + roughness.
+      That crossed the 0.12 m wall trigger from d ≈ 0.31 and made 0.13 m walls at d ≥ 0.42 (the CPU replica above:
+      edge pixels on 23–37 of 40 tiles per row).
+    - **After:** 0 edge pixels on 4000 CPU field tiles over the 10 rows. A unit test pins the real decorated
+      function's ramp-mode edge mask EMPTY at all 10 rows × 40 seeds × both densities, roughness on.
+    - **RNG stream:** bars and slabs are drawn before any pit, so their draws are the pre-gap stream exactly (pinned
+      by a test). A pit that lands inside the gap draws more centres. From there, the tile's later pits shift, and
+      under the global `numpy.random` so do its roughness and every later tile.
+    - **Pit retries:** a pit gets 4 × `max_tries` centre draws. At 1×, 1 % of dense tiles lost a pit; at 4×, 0 of
+      1000. The 0.4:0.4:0.2 mix is fully placed up to d = 1.0 (test).
+    - **Beyond the shipped range:** from d ≈ 0.8, one block's own step plus roughness can still cross 0.12 m, with or
+      without pits. Roughness reaches 0.035 m, and neighbour differences reach 0.06 m. This is out of reach at
+      difficulty_range (0.20, 0.70). The tests pin emptiness through d 0.75, and the gap itself up to d 1.0.
+    - The ring and forward goldens are byte-identical (tests pass).
+  - **S2 recalibrated from the real generator on CPU** (`p2_smoke.py --calibrate-s2 40`). That is 40 seeded replicas
+    of the generator × 100 field tiles = 4000 tiles: the real decorated `omni_field_terrain`, roughness on, rows d
+    0.20–0.70. Flat tiles are generated in order, so the global stream advances as in the build. Old → new, with the
+    CPU value:
+    - **Pad:** |h| ≤ 0.035 m → no block occupancy within the pad (exact, from block_masks; CPU 0 px) and |h| ≤
+      0.045 m (CPU max 0.035).
+    - **Heights:** ≤ formula + 0.02 m → formula + 0.050 m (CPU max excess 0.033).
+    - **Pits:** ≥ −(pit_depth + 0.02 m) → −(pit_depth + 0.050 m) (CPU max over-depth 0.0363).
+    - **Corners:** all four on ≥ 80 % of tiles → a per-corner rate, pooled per density, of ≥ 0.70 sparse and ≥ 0.90
+      dense. CPU: 0.818 and 0.984. Per 100-tile replica (one smoke's worth): 0.770–0.885 and 0.965–1.000. All four
+      corners: 0.415 and 0.936, reported only.
+    - **Unchanged:** the coverage band (CPU sparse 0.060–0.116, mean 0.084; dense 0.131–0.207, mean 0.164) and no
+      edge pixels in ramp mode (CPU 0).
+    - **Derivation:** each bound = source + roughness A + rounding steps + 0.005 m. The pad is A + 1 step (the rint).
+      Heights and pits are A + 2 steps (block rounding ≤ ½ step, plus the rint).
+    - **One deviation from the requested numbers:** with the nominal A = 0.02 m, the bounds are 0.030 m and formula
+      ± 0.035 m. But `random_uniform_terrain`'s cubic spline overshoots the ±0.02 m grid to 7 steps: the off-block
+      maximum is 0.035 m on 20 % of tiles and 0.040 m on 1 of 4000. At A = 0.02, the CPU replica fails. The pad hit
+      0.035 m on 80 of 4000 tiles, so ≈ 87 % of 100-tile smokes would fail. Pits went 0.0363 m deep on 6 of 4000,
+      so ≈ 14 % would fail. A is therefore the realised 0.035 m: the pad bound is 0.045 m, and heights and pits are
+      ± 0.050 m.
+    - `--print-plan` prints each threshold next to its CPU value. The thresholds are also in plan.json as
+      `s2_thresholds`.
+  - **code_sha moves:** `omni_terrains.py` is in the code pathspec. code_sha moves once more before the anchors. None
+    exist yet, so no stamp is invalidated.
+- 2026-10-06, **S2 edge check refined** (fable review of the pit-gap change, minor finding 1).
+  - Single-block risers (block step + roughness) still reach the 0.12 m wall threshold on ~0.2 % of d-0.70 dense
+    tiles. The earlier §9 line calling them "out of reach" in the shipped band was too strong.
+  - **Hard check:** no raised-to-pit edge pixel, which is what the 2-px gap exists for.
+  - **Other edge pixels:** the check fails only if more than 2 % of field tiles have any. A hard "== 0" would have
+    failed about 1.3 % of smokes spuriously.
+  - **Pre-existing, recorded:** diagonal-only risers are not in the edge mask.

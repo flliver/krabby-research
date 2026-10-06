@@ -46,13 +46,25 @@ Exit codes (run_arm.sh's contract): 0 pass / not applicable, 2 not enough teleme
                [--candidates F] [--replay F]
     p2_live.py --smoke-audit RUN_DIR --chain CHAIN [--train-log F] [--require-terrain-move]
     p2_live.py --preflight --chain CHAIN [--code-root DIR] [--replay F]
+    p2_live.py --code-guard [--code-root DIR] [--lrout DIR] [--anchor-name ANC_s18] [--reanchor]
     p2_live.py --self-test
+
+  code-guard (pre-launch audit M1, 2026-10-06: parallel sessions share the checkout) the LIVE code state of the code
+                  root -- run_candidates.code_sha() / eval_sha() / a dirty flag on the code + eval pathspecs, the
+                  three fields of the CHARTER 5 code-state sidecar -- against the s18 ANCHOR's sidecar (the newest
+                  complete <lrout>/<anchor>/suite__omni/seed001/<ts>/code_state.json, the first anchor row the queue
+                  runs). Before any anchor stamp exists it requires dirty = false only. A dirty tree, a difference in
+                  any of the three fields, or an anchor stamp without a sidecar REFUSES (exit 7): scripts/run_arm.sh
+                  calls it in run_ref (after the preflight) and at the top of every --row-eval / --lr-eval, and
+                  stops + NOTIFIES. --reanchor (P2_REANCHOR=1 in run_arm.sh, CHARTER 5 "re-anchoring") skips the
+                  comparison and still requires dirty = false, for the first row of a deliberate re-anchor only.
 """
 from __future__ import annotations
 
 import argparse
 import importlib.util
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -63,6 +75,10 @@ R = Path("/home/nickmagus/krabby/krabby-research")
 RC_PATH = R / "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/tools/run_candidates.py"
 
 RC_PASS, RC_WAIT, RC_FAIL = 0, 2, 3
+RC_REFUSE = 7                                     # --code-guard refusal (run_arm.sh's "refused before launch" code)
+#: the code-guard reference: the s18 anchor's first queue row (scripts/p2_queue.sh runs suite__omni env_seed 1 first)
+ANCHOR_REF_ROW, ANCHOR_REF_SEED = "suite__omni", 1
+OUT_DEFAULT = R / "parkour/outputs/omni_plan/phase2"
 W200 = (190, 210)
 W1000 = (950, 1050)
 AT_200, AT_1000, AT_COLLAPSE = 210, 1060, 300     # fork-relative iteration a read first runs at
@@ -167,8 +183,8 @@ def read_tb(run_dir: Path, extra_tags=()) -> dict:
     return {t: [(int(e.step), float(e.value)) for e in ea.Scalars(t)] for t in want if t in have}
 
 
-def load_rc():
-    spec = importlib.util.spec_from_file_location("_p2_run_candidates", RC_PATH)
+def load_rc(path: Path | None = None):
+    spec = importlib.util.spec_from_file_location("_p2_run_candidates", path or RC_PATH)
     mod = importlib.util.module_from_spec(spec)
     sys.modules["_p2_run_candidates"] = mod
     spec.loader.exec_module(mod)
@@ -209,7 +225,9 @@ def dump_facts(env: dict | None, agent: dict | None, log_text: str | None) -> di
     return {"have_env": True, "term_funcs": funcs, "curriculum_null": "curriculum" in env and env.get("curriculum") is None,
             "weights": {t: w(t) for t in list(ELEMENT_WEIGHTS) + ["reward_clock_schedule", "reward_clock_swing_apex",
                                                                     "reward_action_rate"] + list(ARM_TERMS.values())},
-            "dr_events": {e: e in ev for e in DR_EVENTS},
+            # present = a cfg block, not merely the key: a disabled DR event dumps as `name: null` (pre-launch
+            # audit M3, 2026-10-06), and `e in ev` read that as present
+            "dr_events": {e: isinstance(ev.get(e), dict) for e in DR_EVENTS},
             "push_x": list(push.get("x") or []) if isinstance(push, dict) else [],
             "terrain_fns": fns, "num_rows": rows,
             "dropped_ppo_keys": [ln for ln in (log_text or "").splitlines() if "Ignoring unsupported PPO config keys" in ln]}
@@ -540,6 +558,80 @@ def preflight(a) -> tuple[int, dict]:
     return int(res["rc"]), res
 
 
+# ------------------------------------------------------------------------------------------------ code guard (M1)
+CODE_STATE_KEYS = ("code_sha", "eval_sha", "dirty")
+
+
+def anchor_reference_sidecar(lrout: Path, name: str) -> tuple[str, dict | None, str | None]:
+    """The code-guard reference: ``(state, sidecar, stamp)`` of the newest COMPLETE ``<lrout>/<name>/suite__omni/
+    seed001/<ts>`` stamp. ``state`` is ``none`` (no anchor stamp yet), ``missing`` (a stamp with no readable
+    code_state.json -- fails closed) or ``ok``."""
+    d = Path(lrout) / name / ANCHOR_REF_ROW / f"seed{ANCHOR_REF_SEED:03d}"
+    hits = sorted(p for p in d.glob("*/") if (p / "complete.json").is_file()) if d.is_dir() else []
+    if not hits:
+        return "none", None, None
+    st = hits[-1]
+    try:
+        data = json.load(open(st / "code_state.json"))
+    except (OSError, ValueError):
+        return "missing", None, str(st)
+    return ("ok", data, str(st)) if isinstance(data, dict) else ("missing", None, str(st))
+
+
+def judge_code_guard(live: dict, ref_state: str, ref: dict | None, reanchor: bool = False) -> dict:
+    """Pre-launch audit M1 (pure). ``live`` = {code_sha, eval_sha, dirty, dirty_paths} of the code root now; ``ref`` =
+    the s18 anchor's sidecar. Refuses a dirty tree always; with an anchor, any difference in code_sha / eval_sha /
+    dirty; an anchor stamp without a sidecar (never "equal")."""
+    fails, notes = [], []
+    if live.get("dirty") or live.get("dirty") is None:
+        fails.append(f"code/eval pathspecs dirty (or unreadable): {live.get('dirty_paths')}")
+    if reanchor:
+        notes.append("re-anchor: the anchor comparison is skipped (dirty = false still required)")
+    elif ref_state == "none":
+        notes.append("no anchor stamp yet: dirty = false required, nothing to compare")
+    elif ref_state == "missing" or not ref:
+        fails.append("the s18 anchor stamp has no code_state.json sidecar (fail closed)")
+    else:
+        for k in CODE_STATE_KEYS:
+            a, b = live.get(k), ref.get(k)
+            if k == "dirty":
+                a, b = bool(a), bool(b)
+            if a != b:
+                fails.append(f"{k}: live {a!r} != anchor {b!r}")
+    return {"rc": RC_REFUSE if fails else RC_PASS, "result": "REFUSE" if fails else "PASS", "fails": fails,
+            "notes": notes, "ref_state": ref_state, "live": {k: live.get(k) for k in CODE_STATE_KEYS},
+            "anchor": {k: (ref or {}).get(k) for k in CODE_STATE_KEYS} if ref else None}
+
+
+def live_code_state(code_root: Path) -> dict:
+    rc = load_rc(Path(code_root) / RC_PATH.relative_to(R))
+    dirty = rc.dirty_paths(Path(code_root))
+    return {"code_sha": rc.code_sha(Path(code_root)), "eval_sha": rc.eval_sha(Path(code_root)), "dirty": bool(dirty),
+            "dirty_paths": dirty}
+
+
+def _anchor_name(seed: int = 18) -> str:
+    import yaml  # noqa: PLC0415
+
+    try:
+        return str(yaml.safe_load(open(CAMPAIGN / "anchors.yaml"))["anchors"][seed]["name"])
+    except (OSError, KeyError, TypeError, ValueError):
+        return f"ANC_s{seed}"
+
+
+def code_guard(a) -> tuple[int, dict]:
+    lrout = Path(a.lrout) if a.lrout else Path(os.environ.get("P2_OUT") or OUT_DEFAULT) / "lr"
+    name = a.anchor_name or _anchor_name()
+    try:
+        live = live_code_state(Path(a.code_root))
+    except Exception as e:  # noqa: BLE001 -- an unreadable code state refuses, never passes
+        live = {"dirty": None, "dirty_paths": f"code state unreadable: {e.__class__.__name__}: {e}"}
+    state, ref, stamp = anchor_reference_sidecar(lrout, name)
+    res = judge_code_guard(live, state, ref, a.reanchor)
+    res.update(anchor_name=name, anchor_stamp=stamp, code_root=str(a.code_root))
+    return int(res["rc"]), res
+
+
 # ------------------------------------------------------------------------------------------------ self-test
 def _ser(first=14996, n=1100, **const):
     return {tag: [(first + i, v) for i in range(n)] for tag, v in const.items()}
@@ -707,10 +799,18 @@ def main() -> int:
     ap.add_argument("--require-terrain-move", action="store_true")
     ap.add_argument("--preflight", action="store_true")
     ap.add_argument("--code-root", type=Path, default=R)
+    ap.add_argument("--code-guard", action="store_true")
+    ap.add_argument("--lrout", type=Path, default=None)
+    ap.add_argument("--anchor-name", default=None)
+    ap.add_argument("--reanchor", action="store_true")
     ap.add_argument("--self-test", action="store_true")
     a = ap.parse_args()
     if a.self_test:
         return _self_test()
+    if a.code_guard:
+        rc, res = code_guard(a)
+        print(json.dumps(res, default=str))
+        return rc
     if a.iters:
         f, l = first_last(read_tb(a.iters))
         print(f"{f if f is not None else 0} {l if l is not None else 0}")

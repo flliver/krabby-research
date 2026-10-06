@@ -1,17 +1,26 @@
 #!/usr/bin/env bash
-# Omni phase-2 queue (CHARTER 5 / 6 / 8): anchors -> A1 s18 (the gate) -> A0 s18 -> S1 -> E1 -> F1 -> A1 s16, A1 s17
-# -> the recipe read. Serial, one Isaac process at a time (run_arm.sh's anchored idle check before every launch and
-# every eval). Records in $OUT/arms, eval stamps in $OUT/lr. Every stop writes a "STOP p2_queue" / NOTIFY line to
-# $LOG (the watcher push-notifies it) and exits 4; $OUT/STOP_QUEUE stops the queue between steps.
+# Omni phase-2 queue (CHARTER 5 / 6 / 8): anchors -> A1 s18 (the gate) -> A0 s18 -> S1 -> F1 -> A1 s16, A1 s17
+# -> the recipe read. E1 was dropped by the user on 2026-10-06 (CHARTER 4 replay gate FAIL; CHARTER 9): its chain keeps
+# a placeholder and the sibling loop never runs it. Serial, one Isaac process at a time (run_arm.sh's anchored idle
+# check before every launch and every eval). Records in $OUT/arms, eval stamps in $OUT/lr. Every stop writes a
+# "STOP p2_queue" / NOTIFY line to $LOG (the watcher push-notifies it) and exits 4; $OUT/STOP_QUEUE stops the queue
+# between steps.
 #
+#   gates    (pre-launch audit B1 / M2, 2026-10-06) nothing runs without $OUT/SMOKES_OK: at the start, whatever
+#            FROM_STEP, p2_read.py --smokes-ok-check must pass (the sentinel p2_read.py --write-smokes-ok writes only
+#            after the CHARTER 5 smokes S1-S4 (scripts/p2_smoke.py), S5 (field_light at 7 episodes, zero stand-hold
+#            falls) and the CAL1 fork smoke's dump audit passed, on the live code state). Before arm P2__A1_s18,
+#            p2_read.py --cal2-gate must pass (P2__CAL2_s18's record: smoke_audit PASS, not killed, and its PROMOTE ==
+#            the A1 chain's KRABBY_TERRAIN_PROMOTE in candidates.yaml). Either failing is STOP + NOTIFY, exit 4.
+#            Every row-eval / lr-eval / arm launch also passes run_arm.sh's code-state guard (M1; exit 7 -> STOP here).
 #   anchors  the three c6x heads (anchors.yaml) with their own c6x suite-stamp env, every CHARTER 5 row:
 #            suite__omni (s18 also at env_seed 2: the suite band), side22_25lr__omni, slow__omni (the flat completion
 #            ceiling), field_light / field_hard / ring_obst at env_seeds 1 AND 2, field_turn, field_suite -> then
 #            p2_read.py --anchors-check (discrimination + inertness): anything but ok STOPS and asks.
 #   a1s18    P2__A1_s18 -> head reads -> intermediate reads -> p2_read.py --gate: anything but PASS STOPS and asks.
 #   a0       P2__A0_s18 -> head reads -> p2_read.py --field-vs-ring (descriptive, logged; NOTIFY, no stop).
-#   s1|e1|f1 P2__<arm>_s18 -> head reads -> p2_read.py --sibling <arm>: EVERY sibling verdict STOPS and asks (CHARTER
-#            6.4); resume with FROM_STEP=<next>.
+#   s1|f1    P2__<arm>_s18 -> head reads -> p2_read.py --sibling <arm>: EVERY sibling verdict STOPS and asks (CHARTER
+#            6.4); resume with FROM_STEP=<next>. (e1 is still a valid FROM_STEP value; no step runs it.)
 #   a1rep    P2__A1_s16, P2__A1_s17 -> head reads each.
 #   recipe   p2_read.py --recipe (CHARTER 6.2 + the 6.5 p2b trigger): NOTIFY the reading; STOP when p2b triggers or a
 #            seed is still PENDING.
@@ -27,7 +36,7 @@
 C=$(cd "$(dirname "$0")/.." && pwd)
 S=$C/scripts
 R=/home/nickmagus/krabby/krabby-research
-PY=/home/nickmagus/krabby/isaac_venv/bin/python
+PY=${P2_PY:-/home/nickmagus/krabby/isaac_venv/bin/python}
 OUT=${P2_OUT:-$R/parkour/outputs/omni_plan/phase2}
 LOG=$OUT/queue.log
 A=$OUT/arms
@@ -104,6 +113,11 @@ want() { [ "$(step_n "$1")" -ge "$FROM" ]; }
 say "p2_queue start (CHARTER 8) from $FROM_STEP: anchors -> A1 s18 gate -> A0 -> S1 -> F1 -> A1 s16/s17 -> recipe (E1 dropped)"
 stopped && { say "STOP p2_queue: STOP_QUEUE present at start"; exit 4; }
 
+# (0) the CHARTER 5 smokes gate (pre-launch audit B1): no anchor, arm or eval without a valid $OUT/SMOKES_OK
+g=$("$PY" "$READ" --smokes-ok-check --out "$OUT" 2>&1); rc=$?
+say "SMOKES_OK rc $rc :: $(echo "$g" | tail -1 | cut -c1-600)"
+[ "$rc" = 0 ] || { say "STOP p2_queue: no valid $OUT/SMOKES_OK (CHARTER 5 smokes S1-S5 + the CAL1 fork smoke must pass first; scripts/p2_smoke.py, then p2_read.py --smoke-s5 / --write-smokes-ok) -- NOTIFY"; exit 4; }
+
 # (1) anchors (CHARTER 5)
 if want anchors; then
 for s in 18 16 17; do
@@ -121,6 +135,9 @@ fi
 
 # (2) A1 s18, the gate (CHARTER 6.2)
 if want a1s18; then
+g=$("$PY" "$READ" --cal2-gate --out "$OUT" 2>&1); rc=$?
+say "CAL2 GATE rc $rc :: $(echo "$g" | tail -1 | cut -c1-600)"
+[ "$rc" = 0 ] || { say "STOP p2_queue: P2__CAL2_s18 is not a passed calibration smoke at the A1 PROMOTE values (CHARTER 5 step 4; pre-launch audit M2) -- NOTIFY"; exit 4; }
 arm P2__A1_s18
 g=$("$PY" "$READ" --gate 2>&1); rc=$?
 say "GATE A1 s18 rc $rc :: $(echo "$g" | tail -1 | cut -c1-600)"
