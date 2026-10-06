@@ -834,7 +834,8 @@ S4_KEYS = ("reach_edge_frac", "field_frac_mean", "block_steps_mean", "off_tile_b
 S5_EPISODES = 7
 S5_NAME = "SMOKE_S5_s18"
 TOE_MAX = 1.6
-CAL1, CAL2, A1_GATE = "P2__CAL1_s18", "P2__CAL2_s18", "P2__A1_s18"
+#: CAL1 = the fresh re-run P2__CAL1b_s18 (P2__CAL1_s18 was killed twice; CHARTER 9, 2026-10-06)
+CAL1, CAL2, A1_GATE = "P2__CAL1b_s18", "P2__CAL2_s18", "P2__A1_s18"
 PROMOTE_KEY = "KRABBY_TERRAIN_PROMOTE"
 CODE_KEYS = ("code_sha", "eval_sha", "dirty")
 

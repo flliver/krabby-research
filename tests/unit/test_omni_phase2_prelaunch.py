@@ -638,7 +638,7 @@ def _smokes_dir(root: Path, smoke, **res_over) -> Path:
 
 
 def _cal1():
-    return _cal_rec(chain="P2__CAL1_s18", promote="0.45:0.25", run_dir="/runs/cal1")
+    return _cal_rec(chain="P2__CAL1b_s18", promote="0.45:0.25", run_dir="/runs/cal1")
 
 
 def test_smokes_ok_build_and_check(read, smoke, tmp_path):
@@ -672,7 +672,7 @@ def test_smokes_ok_refuses(read, smoke, tmp_path, case):
         doc["errors"] = ["Kit died"]
         (sd / "smokes.json").write_text(json.dumps(doc))
     s5 = read.smoke_s5_read(str(_s5_stamp(tmp_path, {1: 0} if case == "s5" else {})), "s" * 64)
-    cal1 = {"cal1_missing": None, "cal1_fail": _cal_rec(chain="P2__CAL1_s18", result="FAIL")}.get(case, _cal1())
+    cal1 = {"cal1_missing": None, "cal1_fail": _cal_rec(chain="P2__CAL1b_s18", result="FAIL")}.get(case, _cal1())
     lv = {"dirty_live": dict(LIVE, dirty=True), "code_moved": dict(LIVE, eval_sha="0" * 64)}.get(case, dict(LIVE))
     fails, payload = read.build_smokes_ok(sd, s5, cal1, lv)
     assert fails and payload["result"] == "FAIL"
@@ -681,7 +681,7 @@ def test_smokes_ok_refuses(read, smoke, tmp_path, case):
 def test_write_smokes_ok_cli(read, smoke, tmp_path, monkeypatch, capsys):
     out = tmp_path / "out"
     (out / "arms").mkdir(parents=True)
-    (out / "arms" / "P2__CAL1_s18.record.json").write_text(json.dumps(_cal1()))
+    (out / "arms" / "P2__CAL1b_s18.record.json").write_text(json.dumps(_cal1()))
     sd = _smokes_dir(tmp_path, smoke)
     s5 = _s5_stamp(out / "lr", {}, sha=yaml.safe_load(open(CAMP / "anchors.yaml"))["anchors"][18]["sha256"])
     monkeypatch.setattr(read, "_live_code_state", lambda root=None: dict(LIVE))

@@ -1,0 +1,544 @@
+# Omni phase 2 (obstacles) on the side-first B recipe (CHARTER.md is the pre-registration; plan
+# /home/nickmagus/.claude/plans/foamy-wondering-ullman.md).
+#
+# THE SHAPE. Reference-only, the ppo_construction shape (../2026-10-01_ppo_construction/candidates.yaml):
+# this file runs NO candidate queue. Every arm is a chain reached ONLY through `references:` (one entry
+# per chain, named <chain> = P2__<arm>_s<seed>), launched by scripts/run_arm.sh as
+# `launch_candidates.sh --campaign-dir <this dir> --reference-chain <ref>`. `screen`, `baseline`, `seeds`
+# and `decision_rule` are carried ONLY so the file type-checks; P2__CAL1_s18 (the step-1 calibration
+# smoke) doubles as the never-queued screen/baseline chain. The real gates are CHARTER 5-8, applied by
+# scripts/p2_live.py (live kills) and scripts/p2_read.py (verdicts).
+#
+# THE RECIPE (CHARTER 3). Base preset 2a, stage name `p2a` (compose_recipe blanks stages named 2a/2b,
+# run_candidates.py:1064; promotion disabled). Every overlay restates in full:
+#   * the B overlay = ../2026-10-01_ppo_construction/candidates.yaml chain SF__B_rest_s18 stage c6x,
+#     VERBATIM and in its key order, EXCEPT KRABBY_OMNI_FACING 0.2:0.6 -> 0.2:1.2 (CHARTER 3 phase-2
+#     addition: the CHARTER governs);
+#   * the phase-2 additions: KRABBY_PHASEOUT "" (removes the 2a preset's clock / airtime / stride ramps;
+#     airtime 0.8 / stride 0.5 then stand at the preset values B trained with), KRABBY_FLAT_TERRAIN_GEOM
+#     field + the field knobs (pad 1.7 m, 14/28 blocks, bar:slab:pit 0.4:0.4:0.2, ramp edges),
+#     KRABBY_TERRAIN_PROMOTE (CHARTER 5 calibration).
+# Everything else comes from the 2a preset (curriculum on, DIFF 0.20:0.70, FLAT_FRAC 0.5, DR push 0.5 /
+# mass -0.5:1.5 / CoM 0.01, collision -2, edge -0.3, stumble -1, airtime 0.8, stride 0.5, 40-s episodes,
+# STAND_FRAC 0.2). Each sibling changes exactly one thing (CHARTER 8):
+#   A0  KRABBY_FLAT_TERRAIN_GEOM ring, no KRABBY_FIELD_* key (require_omni_geom refuses them under ring)
+#   S1  KRABBY_ACTION_RATE_W -0.05
+#   E1  KRABBY_POWER_W <CHARTER 4 weight> + KRABBY_POWER_JOINTS actuated
+#   F1  KRABBY_STAND_STANCE_W <CHARTER 4 weight>
+#
+# FORKS. `resume_from: {checkpoint: <repo-relative .pt>}` = the c6x head of the arm's own seed
+# (anchors.yaml; scripts/run_arm.sh verifies its sha256 before each launch). Alg state carries over.
+# 5000 iterations per arm (14996 -> 19995). The two calibration smokes are 400 iterations (>= 300).
+#
+# absolute_units: true is declared on every chain: every arm overlays KRABBY_OMNI_SPEED_ELLIPSE
+# 0.35:0.35:0.25 (the 2a preset's is 0.35:0.25:0.25). The validator only checks the key on
+# `candidates:` entries (this file has none), so it is a record here, not a gate.
+#
+# PLACEHOLDERS. Values fixed later are strings starting "TBD_" -- the driver's own placeholder prefix
+# (run_candidates.PLACEHOLDER_PREFIX): validate_candidates refuses them BY NAME, and run_arm.sh refuses to
+# launch a reference whose chain carries one. They are:
+#   TBD_PENDING_CALIBRATION_S5  KRABBY_TERRAIN_PROMOTE "<up>:<down>" = 0.9 r-bar : 0.5 r-bar rounded to 0.05,
+#                               from the P2__CAL1_s18 smoke (scripts/p2_read.py --calibrate)
+#   TBD_PENDING_REPLAY_GATE_S4  the E1 / F1 weights from the CHARTER 4 offline replay gate
+# Because the driver validates the WHOLE file at every launch, a placeholder in any chain blocks every
+# launch from this file. scripts/run_arm.sh therefore launches through a launch view
+# (launch_view.yaml, written next to this file: this file with every placeholder-carrying chain and its
+# references removed, nothing else changed) whenever a placeholder remains anywhere; once none remains
+# it launches this file itself. Filling a value is a new scripts/candidates_v<k>.yaml copied over this
+# file and logged in CHARTER 9 (precedent convention); this file is scripts/candidates_v1.yaml.
+schema: 1
+
+plant: A15+B
+#: Carried for validation. Every arm pins its own seed through `references:` (16 / 17 / 18 = the heads' seeds).
+seeds: {screen: 18, confirm: 16}
+
+#: Carried only so the file type-checks: P2__CAL1_s18 is the (never-queued) screen/baseline chain.
+screen: {chain: P2__CAL1_s18, eval: [suite], iters: 400}
+
+promotion: {enabled: false}
+
+baseline: {id: P2__CAL1_s18, chain: P2__CAL1_s18}
+
+# ---------------------------------------------------------------------------- the decision rule
+# Carried only so this file validates on its own: the ppo_construction file's rule, verbatim except its
+# `text`. The ACTUAL gates are CHARTER.md sections 5-8, applied by scripts/p2_live.py and scripts/p2_read.py.
+decision_rule:
+  rule_version: 2
+  pair_on: [always]
+  steps_guard_flag: false
+  text: >-
+    OMNI PHASE 2: RECORD ONLY, carried for validation parity. The campaign's real gates are CHARTER.md
+    sections 5-8 (noise bands, the per-seed ladder INVALID EVAL > PENDING > HAND LOSS > DOSE > FLAT FAIL >
+    NO GAIN > COST > PASS, the recipe read, sibling recommendations, the p2b trigger, the live kills),
+    applied by scripts/p2_live.py and scripts/p2_read.py -- never by this decision_rule's own
+    blocks/guards. Every arm is launched as a `--reference-chain <ref>` run outside the candidate queue.
+  per_category:
+    blocks:
+      F: {level: 0.95, units: ratio, members: {turn: [facing_closed, yaw_progress]}}
+      T: {level: 0.95, units: ratio,
+          members: {fwd: [ratio], side: [ratio], back: [ratio], diag: [ratio]}}
+      LEN: {level: 0.95, units: ratio, members: {side: [steps_per_m], diag: [steps_per_m]}}
+    guards:
+      level: 0.99
+      members:
+        stand: [survival, steps_per_s]
+        fwd: [survival, ratio, foot_slip, steps_per_m]
+        side: [survival, ratio, foot_slip, steps_per_m]
+        back: [survival, ratio, foot_slip, steps_per_m]
+        diag: [survival, ratio, foot_slip, steps_per_m]
+        turn: [survival, foot_slip, steps_per_rad]
+        move_turn: [survival, ratio]
+    watch:
+      members:
+        stand: [drift_speed, support_feet, gait_hz, clock_hz, cadence_ratio, six_down_frac,
+                settle_six_down_s, action_jitter, action_fft_freq, joint_speed_mean, rod_speed_mean,
+                contact_switch_hz, foot_slip, wz_active_frac, clock_restarts, foot_disp_end,
+                work_per_s]
+        fwd: [tripod, support_feet, gait_hz, clock_hz, cadence_ratio, hz_speed_slope, offset_R, step_rate_hz,
+              taps_per_m, swing_apex, slip_per_m, action_jitter, swings_per_m, work_per_m,
+              cam_work_per_m, direction_error, cross_track_ratio, heading_final]
+        side: [tripod, support_feet, gait_hz, clock_hz, cadence_ratio, hz_speed_slope, offset_R, step_rate_hz,
+               taps_per_m, swing_apex, slip_per_m, action_jitter, swings_per_m, work_per_m,
+               cam_work_per_m, direction_error, cross_track_ratio, heading_final]
+        back: [tripod, support_feet, gait_hz, clock_hz, cadence_ratio, hz_speed_slope, offset_R, step_rate_hz,
+               taps_per_m, swing_apex, slip_per_m, action_jitter, swings_per_m, work_per_m,
+               cam_work_per_m, direction_error, cross_track_ratio, heading_final]
+        diag: [tripod, support_feet, gait_hz, clock_hz, cadence_ratio, hz_speed_slope, offset_R, step_rate_hz,
+               taps_per_m, swing_apex, slip_per_m, action_jitter, swings_per_m, work_per_m,
+               cam_work_per_m, direction_error, cross_track_ratio, heading_final]
+        turn: [support_feet, steps_per_rad_pre, steps_per_rad_post, taps_per_rad, swing_apex, gait_hz, clock_hz,
+               cadence_ratio, offset_R, step_rate_hz, action_jitter, swings_per_rad, slip_per_rad,
+               work_per_rad, cam_work_per_rad, settle_s, heading_final]
+        move_turn: [tripod, steps_per_rad, support_feet, taps_per_rad, swing_apex, foot_slip, gait_hz,
+                    clock_hz, cadence_ratio, offset_R, step_rate_hz, action_jitter, swings_per_rad,
+                    slip_per_rad, work_per_rad, cam_work_per_rad, direction_error,
+                    cross_track_ratio, settle_s]
+      hands: true
+      legacy: {completion: legacy, tripod_walking_dir: legacy, track_ratio_tail: legacy,
+               track_ratio_move_tail: legacy, turn_survival_l90: N/A (suite),
+               turn_survival_r90: N/A (suite)}
+    demoted: {}
+  charter_floors: {completion: 0.10, tripod_walking_dir: 0.056}
+  bootstrap: {B: 2000, paired_on: env_index, rng_seed: 20260928}
+  control_head: X08-c6
+
+
+# ---------------------------------------------------------------------------- chains
+chains:
+  # ======================================================================== calibration smokes (CHARTER 5)
+  P2__CAL1_s18:
+    notes: "CHARTER 5 promotion calibration step 1: >= 300-it fork smoke from s18 at the preset 0.45:0.25 on the field; resume + wiring (+200) + dump audit; per-episode track dump -> r-bar."
+    absolute_units: true
+    stages:
+      - stage: p2a_cal
+        base: "2a"
+        iters: 400
+        from_scratch: false
+        resume_from: {checkpoint: parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-06_02-24-21_seed18_X60_c6x_A15pB/model_14995.pt}
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07"
+          KRABBY_OMNI_SLOTS: "0.15:0.55:0.1:0.2"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_FACING: "0.2:1.2"
+          KRABBY_YAW_W: "0.2"
+          KRABBY_CLOCK_W: "0.001"
+          KRABBY_APEX_W: "0.001"
+          KRABBY_OMNI_CLOCK_HIDE: "1"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+          KRABBY_STD_PARAM: soft
+          KRABBY_INIT_STD: "0.8"
+          KRABBY_ENTROPY_COEF: "0.0025"
+          KRABBY_ACTION_RATE_W: "0"
+          KRABBY_PPO_HAND_DIAG: "1"
+          KRABBY_PHASEOUT: ""
+          KRABBY_FLAT_TERRAIN_GEOM: field
+          KRABBY_FIELD_PAD_R: "1.7"
+          KRABBY_FIELD_BLOCKS: "14:28"
+          KRABBY_FIELD_KINDS: "0.4:0.4:0.2"
+          KRABBY_FIELD_EDGES: ramp
+          KRABBY_TERRAIN_PROMOTE: "0.45:0.25"
+        eval: []
+        categories: [back, diag, fwd, move_turn, side, stand, turn]
+        floor: {kind: none}
+
+  P2__CAL1b_s18:
+    notes: "FRESH RE-RUN of P2__CAL1_s18 (its two attempts were killed: a false +200 wiring kill, then a driver continuation of that killed run; CHARTER 9). CHARTER 5 promotion calibration step 1: >= 300-it fork smoke from s18 at the preset 0.45:0.25 on the field; resume + wiring (+200) + dump audit; per-episode track dump -> r-bar."
+    absolute_units: true
+    stages:
+      - stage: p2a_cal
+        base: "2a"
+        iters: 400
+        from_scratch: false
+        resume_from: {checkpoint: parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-06_02-24-21_seed18_X60_c6x_A15pB/model_14995.pt}
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07"
+          KRABBY_OMNI_SLOTS: "0.15:0.55:0.1:0.2"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_FACING: "0.2:1.2"
+          KRABBY_YAW_W: "0.2"
+          KRABBY_CLOCK_W: "0.001"
+          KRABBY_APEX_W: "0.001"
+          KRABBY_OMNI_CLOCK_HIDE: "1"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+          KRABBY_STD_PARAM: soft
+          KRABBY_INIT_STD: "0.8"
+          KRABBY_ENTROPY_COEF: "0.0025"
+          KRABBY_ACTION_RATE_W: "0"
+          KRABBY_PPO_HAND_DIAG: "1"
+          KRABBY_PHASEOUT: ""
+          KRABBY_FLAT_TERRAIN_GEOM: field
+          KRABBY_FIELD_PAD_R: "1.7"
+          KRABBY_FIELD_BLOCKS: "14:28"
+          KRABBY_FIELD_KINDS: "0.4:0.4:0.2"
+          KRABBY_FIELD_EDGES: ramp
+          KRABBY_TERRAIN_PROMOTE: "0.45:0.25"
+        eval: []
+        categories: [back, diag, fwd, move_turn, side, stand, turn]
+        floor: {kind: none}
+
+  P2__CAL2_s18:
+    notes: "CHARTER 5 promotion calibration step 4: >= 300-it fork smoke at the FINAL values (PROMOTE = 0.9 r-bar : 0.5 r-bar, rounded to 0.05); dump audit with the PROMOTE values realised; terrain levels must move."
+    absolute_units: true
+    stages:
+      - stage: p2a_cal
+        base: "2a"
+        iters: 400
+        from_scratch: false
+        resume_from: {checkpoint: parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-06_02-24-21_seed18_X60_c6x_A15pB/model_14995.pt}
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07"
+          KRABBY_OMNI_SLOTS: "0.15:0.55:0.1:0.2"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_FACING: "0.2:1.2"
+          KRABBY_YAW_W: "0.2"
+          KRABBY_CLOCK_W: "0.001"
+          KRABBY_APEX_W: "0.001"
+          KRABBY_OMNI_CLOCK_HIDE: "1"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+          KRABBY_STD_PARAM: soft
+          KRABBY_INIT_STD: "0.8"
+          KRABBY_ENTROPY_COEF: "0.0025"
+          KRABBY_ACTION_RATE_W: "0"
+          KRABBY_PPO_HAND_DIAG: "1"
+          KRABBY_PHASEOUT: ""
+          KRABBY_FLAT_TERRAIN_GEOM: field
+          KRABBY_FIELD_PAD_R: "1.7"
+          KRABBY_FIELD_BLOCKS: "14:28"
+          KRABBY_FIELD_KINDS: "0.4:0.4:0.2"
+          KRABBY_FIELD_EDGES: ramp
+          KRABBY_TERRAIN_PROMOTE: "TBD_PENDING_CALIBRATION_S5"
+        eval: []
+        categories: [back, diag, fwd, move_turn, side, stand, turn]
+        floor: {kind: none}
+
+  # ======================================================================== A1 field (main), s18 = gate
+  P2__A1_s18:
+    notes: "A1 field (CHARTER 3/8): the B overlay + phase-2 additions, fork of the s18 c6x head (the gate seed)."
+    absolute_units: true
+    stages:
+      - stage: p2a
+        base: "2a"
+        iters: 5000
+        from_scratch: false
+        resume_from: {checkpoint: parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-06_02-24-21_seed18_X60_c6x_A15pB/model_14995.pt}
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07"
+          KRABBY_OMNI_SLOTS: "0.15:0.55:0.1:0.2"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_FACING: "0.2:1.2"
+          KRABBY_YAW_W: "0.2"
+          KRABBY_CLOCK_W: "0.001"
+          KRABBY_APEX_W: "0.001"
+          KRABBY_OMNI_CLOCK_HIDE: "1"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+          KRABBY_STD_PARAM: soft
+          KRABBY_INIT_STD: "0.8"
+          KRABBY_ENTROPY_COEF: "0.0025"
+          KRABBY_ACTION_RATE_W: "0"
+          KRABBY_PPO_HAND_DIAG: "1"
+          KRABBY_PHASEOUT: ""
+          KRABBY_FLAT_TERRAIN_GEOM: field
+          KRABBY_FIELD_PAD_R: "1.7"
+          KRABBY_FIELD_BLOCKS: "14:28"
+          KRABBY_FIELD_KINDS: "0.4:0.4:0.2"
+          KRABBY_FIELD_EDGES: ramp
+          KRABBY_TERRAIN_PROMOTE: "TBD_PENDING_CALIBRATION_S5"
+        eval: [suite]
+        categories: [back, diag, fwd, move_turn, side, stand, turn]
+        floor: {kind: none}
+
+  P2__A1_s16:
+    notes: "A1 field (CHARTER 3/8): the B overlay + phase-2 additions, fork of the s16 c6x head (replicate)."
+    absolute_units: true
+    stages:
+      - stage: p2a
+        base: "2a"
+        iters: 5000
+        from_scratch: false
+        resume_from: {checkpoint: parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-05_19-54-57_seed16_X58_c6x_A15pB/model_14995.pt}
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07"
+          KRABBY_OMNI_SLOTS: "0.15:0.55:0.1:0.2"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_FACING: "0.2:1.2"
+          KRABBY_YAW_W: "0.2"
+          KRABBY_CLOCK_W: "0.001"
+          KRABBY_APEX_W: "0.001"
+          KRABBY_OMNI_CLOCK_HIDE: "1"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+          KRABBY_STD_PARAM: soft
+          KRABBY_INIT_STD: "0.8"
+          KRABBY_ENTROPY_COEF: "0.0025"
+          KRABBY_ACTION_RATE_W: "0"
+          KRABBY_PPO_HAND_DIAG: "1"
+          KRABBY_PHASEOUT: ""
+          KRABBY_FLAT_TERRAIN_GEOM: field
+          KRABBY_FIELD_PAD_R: "1.7"
+          KRABBY_FIELD_BLOCKS: "14:28"
+          KRABBY_FIELD_KINDS: "0.4:0.4:0.2"
+          KRABBY_FIELD_EDGES: ramp
+          KRABBY_TERRAIN_PROMOTE: "TBD_PENDING_CALIBRATION_S5"
+        eval: [suite]
+        categories: [back, diag, fwd, move_turn, side, stand, turn]
+        floor: {kind: none}
+
+  P2__A1_s17:
+    notes: "A1 field (CHARTER 3/8): the B overlay + phase-2 additions, fork of the s17 c6x head (replicate)."
+    absolute_units: true
+    stages:
+      - stage: p2a
+        base: "2a"
+        iters: 5000
+        from_scratch: false
+        resume_from: {checkpoint: parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-05_23-10-39_seed17_X59_c6x_A15pB/model_14995.pt}
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07"
+          KRABBY_OMNI_SLOTS: "0.15:0.55:0.1:0.2"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_FACING: "0.2:1.2"
+          KRABBY_YAW_W: "0.2"
+          KRABBY_CLOCK_W: "0.001"
+          KRABBY_APEX_W: "0.001"
+          KRABBY_OMNI_CLOCK_HIDE: "1"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+          KRABBY_STD_PARAM: soft
+          KRABBY_INIT_STD: "0.8"
+          KRABBY_ENTROPY_COEF: "0.0025"
+          KRABBY_ACTION_RATE_W: "0"
+          KRABBY_PPO_HAND_DIAG: "1"
+          KRABBY_PHASEOUT: ""
+          KRABBY_FLAT_TERRAIN_GEOM: field
+          KRABBY_FIELD_PAD_R: "1.7"
+          KRABBY_FIELD_BLOCKS: "14:28"
+          KRABBY_FIELD_KINDS: "0.4:0.4:0.2"
+          KRABBY_FIELD_EDGES: ramp
+          KRABBY_TERRAIN_PROMOTE: "TBD_PENDING_CALIBRATION_S5"
+        eval: [suite]
+        categories: [back, diag, fwd, move_turn, side, stand, turn]
+        floor: {kind: none}
+
+  # ======================================================================== one-knob siblings at s18 (CHARTER 8)
+  P2__A0_s18:
+    notes: "A0 ring control (CHARTER 8): A1 s18 with KRABBY_FLAT_TERRAIN_GEOM ring (the existing course, no pits); the KRABBY_FIELD_* knobs are absent (require_omni_geom refuses them under ring)."
+    absolute_units: true
+    stages:
+      - stage: p2a
+        base: "2a"
+        iters: 5000
+        from_scratch: false
+        resume_from: {checkpoint: parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-06_02-24-21_seed18_X60_c6x_A15pB/model_14995.pt}
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07"
+          KRABBY_OMNI_SLOTS: "0.15:0.55:0.1:0.2"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_FACING: "0.2:1.2"
+          KRABBY_YAW_W: "0.2"
+          KRABBY_CLOCK_W: "0.001"
+          KRABBY_APEX_W: "0.001"
+          KRABBY_OMNI_CLOCK_HIDE: "1"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+          KRABBY_STD_PARAM: soft
+          KRABBY_INIT_STD: "0.8"
+          KRABBY_ENTROPY_COEF: "0.0025"
+          KRABBY_ACTION_RATE_W: "0"
+          KRABBY_PPO_HAND_DIAG: "1"
+          KRABBY_PHASEOUT: ""
+          KRABBY_FLAT_TERRAIN_GEOM: ring
+          KRABBY_TERRAIN_PROMOTE: "TBD_PENDING_CALIBRATION_S5"
+        eval: [suite]
+        categories: [back, diag, fwd, move_turn, side, stand, turn]
+        floor: {kind: none}
+
+  P2__S1_s18:
+    notes: "S1 smoothness (CHARTER 8): A1 s18 with KRABBY_ACTION_RATE_W -0.05."
+    absolute_units: true
+    stages:
+      - stage: p2a
+        base: "2a"
+        iters: 5000
+        from_scratch: false
+        resume_from: {checkpoint: parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-06_02-24-21_seed18_X60_c6x_A15pB/model_14995.pt}
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07"
+          KRABBY_OMNI_SLOTS: "0.15:0.55:0.1:0.2"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_FACING: "0.2:1.2"
+          KRABBY_YAW_W: "0.2"
+          KRABBY_CLOCK_W: "0.001"
+          KRABBY_APEX_W: "0.001"
+          KRABBY_OMNI_CLOCK_HIDE: "1"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+          KRABBY_STD_PARAM: soft
+          KRABBY_INIT_STD: "0.8"
+          KRABBY_ENTROPY_COEF: "0.0025"
+          KRABBY_ACTION_RATE_W: "-0.05"
+          KRABBY_PPO_HAND_DIAG: "1"
+          KRABBY_PHASEOUT: ""
+          KRABBY_FLAT_TERRAIN_GEOM: field
+          KRABBY_FIELD_PAD_R: "1.7"
+          KRABBY_FIELD_BLOCKS: "14:28"
+          KRABBY_FIELD_KINDS: "0.4:0.4:0.2"
+          KRABBY_FIELD_EDGES: ramp
+          KRABBY_TERRAIN_PROMOTE: "TBD_PENDING_CALIBRATION_S5"
+        eval: [suite]
+        categories: [back, diag, fwd, move_turn, side, stand, turn]
+        floor: {kind: none}
+
+  P2__E1_s18:
+    notes: "E1 energy (CHARTER 4/8): DROPPED by the user 2026-10-06 after the CHARTER 4 replay gate FAIL; kept with its placeholder so it can never launch."
+    absolute_units: true
+    stages:
+      - stage: p2a
+        base: "2a"
+        iters: 5000
+        from_scratch: false
+        resume_from: {checkpoint: parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-06_02-24-21_seed18_X60_c6x_A15pB/model_14995.pt}
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07"
+          KRABBY_OMNI_SLOTS: "0.15:0.55:0.1:0.2"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_FACING: "0.2:1.2"
+          KRABBY_YAW_W: "0.2"
+          KRABBY_CLOCK_W: "0.001"
+          KRABBY_APEX_W: "0.001"
+          KRABBY_OMNI_CLOCK_HIDE: "1"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+          KRABBY_STD_PARAM: soft
+          KRABBY_INIT_STD: "0.8"
+          KRABBY_ENTROPY_COEF: "0.0025"
+          KRABBY_ACTION_RATE_W: "0"
+          KRABBY_PPO_HAND_DIAG: "1"
+          KRABBY_PHASEOUT: ""
+          KRABBY_FLAT_TERRAIN_GEOM: field
+          KRABBY_FIELD_PAD_R: "1.7"
+          KRABBY_FIELD_BLOCKS: "14:28"
+          KRABBY_FIELD_KINDS: "0.4:0.4:0.2"
+          KRABBY_FIELD_EDGES: ramp
+          KRABBY_TERRAIN_PROMOTE: "TBD_PENDING_CALIBRATION_S5"
+          KRABBY_POWER_W: "TBD_PENDING_REPLAY_GATE_S4"
+          KRABBY_POWER_JOINTS: actuated
+        eval: [suite]
+        categories: [back, diag, fwd, move_turn, side, stand, turn]
+        floor: {kind: none}
+
+  P2__F1_s18:
+    notes: "F1 stand fix (CHARTER 4/8): A1 s18 with KRABBY_STAND_STANCE_W at the CHARTER 4 replay-gate weight."
+    absolute_units: true
+    stages:
+      - stage: p2a
+        base: "2a"
+        iters: 5000
+        from_scratch: false
+        resume_from: {checkpoint: parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-06_02-24-21_seed18_X60_c6x_A15pB/model_14995.pt}
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07"
+          KRABBY_OMNI_SLOTS: "0.15:0.55:0.1:0.2"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_FACING: "0.2:1.2"
+          KRABBY_YAW_W: "0.2"
+          KRABBY_CLOCK_W: "0.001"
+          KRABBY_APEX_W: "0.001"
+          KRABBY_OMNI_CLOCK_HIDE: "1"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+          KRABBY_STD_PARAM: soft
+          KRABBY_INIT_STD: "0.8"
+          KRABBY_ENTROPY_COEF: "0.0025"
+          KRABBY_ACTION_RATE_W: "0"
+          KRABBY_PPO_HAND_DIAG: "1"
+          KRABBY_PHASEOUT: ""
+          KRABBY_FLAT_TERRAIN_GEOM: field
+          KRABBY_FIELD_PAD_R: "1.7"
+          KRABBY_FIELD_BLOCKS: "14:28"
+          KRABBY_FIELD_KINDS: "0.4:0.4:0.2"
+          KRABBY_FIELD_EDGES: ramp
+          KRABBY_TERRAIN_PROMOTE: "TBD_PENDING_CALIBRATION_S5"
+          KRABBY_STAND_STANCE_W: "0.9"    # CHARTER 4 weight 0.90 (FAIL overruled by the user 2026-10-06)
+        eval: [suite]
+        categories: [back, diag, fwd, move_turn, side, stand, turn]
+        floor: {kind: none}
+
+references:
+  P2__CAL1_s18: {chain: P2__CAL1_s18, seed: 18}
+  P2__CAL1b_s18: {chain: P2__CAL1b_s18, seed: 18}
+  P2__CAL2_s18: {chain: P2__CAL2_s18, seed: 18}
+  P2__A1_s18: {chain: P2__A1_s18, seed: 18}
+  P2__A1_s16: {chain: P2__A1_s16, seed: 16}
+  P2__A1_s17: {chain: P2__A1_s17, seed: 17}
+  P2__A0_s18: {chain: P2__A0_s18, seed: 18}
+  P2__S1_s18: {chain: P2__S1_s18, seed: 18}
+  P2__E1_s18: {chain: P2__E1_s18, seed: 18}
+  P2__F1_s18: {chain: P2__F1_s18, seed: 18}
+# Empty by design: every arm runs through `references:`, never the ordinary candidate queue.
+candidates: []
+
+milestones: []

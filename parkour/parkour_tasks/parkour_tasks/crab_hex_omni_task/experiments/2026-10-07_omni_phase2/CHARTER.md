@@ -481,3 +481,10 @@ recommendation.
     - resume read: σ Δ 4e-5, priv_reg 0.1, bound 0.001;
     - clock hidden 1.0;
     - reach_obst 0.77.
+- 2026-10-06 18:22, **CAL1 relaunch killed by the resume read** (correctly).
+  - **Cause:** the driver keeps an in-flight record per chain, so relaunching the killed `P2__CAL1_s18` continued that
+    run from its model_15200 (tag `_c`) instead of forking the head's model_14995.
+  - **Fix:** a fresh chain `P2__CAL1b_s18`, identical stage, `candidates_v3`, is now the calibration smoke
+    (`p2_read` CAL1 constant).
+  - **Rule from here:** any relaunch after a kill uses a fresh chain name (`<chain>b`, `<chain>c`, …), recorded in §9.
+    The driver's state is never edited by hand.
