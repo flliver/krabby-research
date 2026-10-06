@@ -26,7 +26,7 @@ seed's phase-1 head on obstacles without losing the flat omni task?
 
 - **Code:**
   - Land one commit before any arm, staging only this campaign's paths. Record code_sha and eval_sha here at landing:
-    code_sha `TBD`, eval_sha `TBD`.
+    code_sha `7b39a86db17e09c4…` (landing commit 345884d6), eval_sha `1d021625844bb372…` (unmoved).
   - eval_sha must not move. Never edit `run_phases.py`, the eval harness, `gait_eval/`, `scenarios_omni.yaml` or
     `eval_categories.py`.
 - **Running:**
@@ -355,3 +355,10 @@ recommendation.
     `track_ratio_obst_p50` over CAL1's last 100 logged iterations, read from its tfevents by
     `p2_read.py --calibrate <CAL1 run_dir>`. On a field run the obstacle tiles are the field tiles. Fewer than 100
     finite logged iterations fail closed. A per-episode dump is still accepted.
+- 2026-10-06, **landed** in 345884d6: code_sha 7b39a86d… (moved once, as planned), eval_sha 1d021625… (unmoved).
+  - **Tests:** 431 passed in the phase-2 and regression suites.
+  - **Replay gate (§4): E1 FAIL and F1 FAIL,** independently rechecked; numbers in REPLAY_GATE.md.
+    - E1 best ρ: stand +0.21, 0/6 moving categories.
+    - F1: the statue beats every head (0.78 vs 0.41/s), but within-head ρ with steps/s is +0.25 for B.
+    - **Stop and ask the user;** neither arm is dropped automatically.
+  - **Preflight now refuses E1/F1 unless `replay_gate.json` shows PASS or a recorded user overrule.**
