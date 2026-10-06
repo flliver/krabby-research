@@ -501,3 +501,4 @@ recommendation.
   - SMOKES_OK written: S1–S5 + CAL1b audit PASS, code_sha dfcc5310. Walking toe radius maximum 1.56 m, inside the
     1.7 m pad.
   - Next: CAL2 (≥ 300 its at 0.75:0.4, levels must move), then the queue.
+- 2026-10-06 18:48, **CAL2 PASS** (PROMOTE 0.75:0.4 realised; obstacle terrain level 1.1 → 4.7 in 400 its, promotions 0.18 → 0.36/window, 0 demotions, track ratio 0.81). **Queue launched** (p2_queue.sh from the anchors).
