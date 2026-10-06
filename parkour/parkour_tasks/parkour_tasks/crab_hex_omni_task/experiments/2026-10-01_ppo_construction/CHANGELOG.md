@@ -262,3 +262,4 @@
 
 ### 2026-10-06 10:19 — reference SF__C0_rest_s16 s16 X64 finished (head /home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-06_08-41-48_seed16_X64_c6x_A15pB/model_14995.pt)
 > NOTIFY: AWAIT await_user:reference_done:SF__C0_rest_s16 | reference SF__C0_rest_s16 s16 recorded (X64, head /home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-06_08-41-48_seed16_X64_c6x_A15pB/model_14995.pt) | judge it by hand; forks name it as resume_from: {reference: SF__C0_rest_s16}
+- 2026-10-06 — bake: side-first B is the omni phase-1 recipe of record; head SF__B_rest_s18 c6x model_14995 (policy/5_c6x_clockfree); W superseded (CHARTER log, REPORT close).

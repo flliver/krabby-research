@@ -50,9 +50,13 @@ def rc(ds):
 
 # ============================================================================ the checkpoint / manifest
 def test_stage_checkpoint_matches_the_manifest_and_the_file_on_disk(ds):
+    # W left policy/ at the 2026-10-06 bake: the fork resolves through the manifest's superseded W entry to
+    # its sha-pinned source run, never to the same-named stage dir of the current (side-first B) lineage
     path, sha = ds._stage_checkpoint("1_t3")
-    assert path == ds.POLICY_DIR / "1_t3" / "model_2999.pt"
-    assert path.is_file(), f"{path}: the baked 1_t3 checkpoint is not on disk"
+    assert path == ds.REPO / "parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-09-22_09-10-29_seed3_X08_t3_A15pB/model_2999.pt"
+    assert sha == "03b87cd3432cc58e9e1cafbbbf36e3a6737034a8cc82a674e8181e9993432035"
+    assert ds.POLICY_DIR not in path.parents
+    assert path.is_file(), f"{path}: W's 1_t3 source run checkpoint is not on disk"
     assert hashlib.sha256(path.read_bytes()).hexdigest() == sha
 
 
@@ -156,7 +160,7 @@ def test_print_env_cli_runs_on_cpu_and_prints_the_composed_env(ds, tmp_path, cap
     rc_code = ds.main(["--print-env", "--out", str(tmp_path)])
     assert rc_code == 0
     printed = json.loads(capsys.readouterr().out)
-    assert printed["fork"].endswith("policy/1_t3/model_2999.pt")
+    assert printed["fork"].endswith("parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-09-22_09-10-29_seed3_X08_t3_A15pB/model_2999.pt")
     assert len(printed["fork_sha256_expected"]) == 64
     assert printed["extra_env"]["KRABBY_FLAT_TERRAIN_GEOM"] == "ring"
     assert "KRABBY_OMNI_CLOCK_HIDE" not in printed["extra_env"]

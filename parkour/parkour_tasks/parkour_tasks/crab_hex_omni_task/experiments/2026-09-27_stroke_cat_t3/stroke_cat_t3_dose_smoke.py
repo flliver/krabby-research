@@ -7,8 +7,10 @@ entry, never ``compose_recipe``, since this campaign runs no candidate either) a
 ``../2026-09-26_stroke_formation/formation_dose_smoke.py`` (the t3 setting's own checks: NO K, the
 README eval-block leak guard, the ``1_t3`` fork).
 
-WHAT IT TRAINS. C1d's own baked t3 head, ``policy/1_t3/model_2999.pt`` (the SAME checkpoint ``t3f``
-forks; its sha256 is CHECKED AGAINST ``policy/manifest.yaml`` at run time, never hardcoded) forked for
+WHAT IT TRAINS. C1d's own t3 head, W's ``1_t3`` stage ``model_2999.pt`` (the SAME checkpoint ``t3f``
+forks; baked in ``policy/1_t3/`` until the 2026-10-06 bake superseded W, and since then resolved through
+``policy/manifest.yaml`` ``superseded[id == "W"]`` to its SOURCE RUN file -- never through ``stages``;
+its sha256 is CHECKED AGAINST that manifest entry at run time, never hardcoded) forked for
 ``--iters`` (300) iterations of the reference chain's composed env -- chain ``t3f_scat``, stage ``t3``:
 C1d's ``curriculum_turnfirst`` t3 overlay verbatim, the clock HELD (no K anywhere -- this is a
 from-scratch, clock-held env, unlike the W leg's clock-FREE fine-tune), the split flag, the posture
@@ -67,6 +69,7 @@ CANDS = HERE / "candidates.yaml"
 MANIFEST = OMNI / "policy" / "manifest.yaml"
 POLICY_DIR = OMNI / "policy"
 FORK_STAGE_DIR = "1_t3"                         # C1d's own baked t3 head -- the SAME checkpoint t3f forks
+FORK_HEAD = "W"                                 # policy/manifest.yaml superseded[id] (2026-10-06 bake)
 REFERENCE = "S_cat_f"
 CHAIN = "t3f_scat"
 STAGE = "t3"
@@ -117,15 +120,20 @@ def _stage_checkpoint(stage_dir: str) -> tuple[Path, str]:
     if not MANIFEST.is_file():
         raise SystemExit(f"{MANIFEST}: not on disk -- cannot find {stage_dir}'s checkpoint / sha256")
     doc = yaml.safe_load(MANIFEST.read_text()) or {}
-    for st in doc.get("stages") or []:
+    # 2026-10-06 bake: FORK_HEAD's stage heads LEFT policy/ (the side-first B lineage replaced them and reuses
+    # some of the same stage dir names), so the fork resolves through the manifest's ``superseded:`` entry for
+    # FORK_HEAD -- never through ``stages`` -- to that stage's sha-pinned SOURCE run (not tracked; the bytes
+    # are also in git history at ``last_commit``).
+    sups = [s for s in doc.get("superseded") or [] if s.get("id") == FORK_HEAD]
+    for st in (sups[0].get("stages") or []) if sups else []:
         if st.get("dir") == stage_dir:
-            file = st.get("file")
+            src = st.get("source")
             sha = st.get("sha256")
-            if not file or not sha:
-                raise SystemExit(f"{MANIFEST}: stage {stage_dir!r} is missing file/sha256")
-            return POLICY_DIR / stage_dir / str(file), str(sha)
-    raise SystemExit(f"{MANIFEST}: no stage with dir {stage_dir!r} (known: "
-                     f"{[st.get('dir') for st in doc.get('stages') or []]})")
+            if not src or not sha:
+                raise SystemExit(f"{MANIFEST}: superseded {FORK_HEAD} stage {stage_dir!r} is missing source/sha256")
+            return REPO / str(src), str(sha)
+    raise SystemExit(f"{MANIFEST}: no stage with dir {stage_dir!r} under superseded {FORK_HEAD} (known: "
+                     f"{[st.get('dir') for st in ((sups[0].get('stages') or []) if sups else [])]})")
 
 
 def compose(rc, parity_dump: Path, parity_envs: int, parity_steps: int) -> dict:
@@ -191,10 +199,10 @@ def main(argv=None) -> int:
         return 0
     _worktree_guard()
     if not fork.is_file():
-        raise SystemExit(f"{fork}: not on disk (policy/manifest.yaml names it as {FORK_STAGE_DIR}'s checkpoint)")
+        raise SystemExit(f"{fork}: not on disk (policy/manifest.yaml superseded {FORK_HEAD} names it as {FORK_STAGE_DIR}'s checkpoint)")
     digest = hashlib.sha256(fork.read_bytes()).hexdigest()
     if digest != expected_sha:
-        raise SystemExit(f"{fork}: sha256 {digest} != policy/manifest.yaml's {expected_sha} for "
+        raise SystemExit(f"{fork}: sha256 {digest} != policy/manifest.yaml superseded {FORK_HEAD}'s {expected_sha} for "
                          f"{FORK_STAGE_DIR}")
     rp = rc.rp
     c = rp.Campaign(out / "campaign_stub" / "2026-09-27_stroke_cat_t3", "A15+B", str(args.seed))

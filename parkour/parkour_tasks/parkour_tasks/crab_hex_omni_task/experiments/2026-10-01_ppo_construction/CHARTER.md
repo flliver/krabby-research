@@ -1576,3 +1576,25 @@ when the t3x in-band turn settles.
     - The side-first recipe lifts C0's move_turn above W's (survival 0.63 vs 0.37) and keeps W-level turning.
     - The construction is what adds the side gait and +0.3–0.5 on fwd, back and diag.
     - The §13.4 final gate was not applied (C0 s17/s18 cancelled by the user).
+- 2026-10-06 11:05, **bake** (the user's decision of 07:41).
+  - **Head of record:** `SF__B_rest_s18` c6x `model_14995` (sha `b40f9a19…`).
+    - Chosen by the stated rule (floors → whole task → motion quality / turn band). The three judges were unanimous;
+      rank-sum 12 vs 18/18.
+    - Record: `sf/HEAD_SELECTION.md`, `sf/HEAD_EVIDENCE.md`.
+  - **Policy folder:** now holds 1_fb6k → 2_c4 → 3_c5 → 4_c6 → 5_c6x_clockfree.
+  - **W's five checkpoints:** removed from the folder. They stay in git history at 850e6361 (local tag
+    `omni-policy-W-2026-09-25`) and in the manifest's `superseded:` block (source runs + sha).
+  - **Also changed:**
+    - closed-campaign dose-smoke launchers repointed to the superseded W;
+    - policy-of-record test rewritten for the B lineage;
+    - omni README, experiments index and FOLDER_LAYOUT updated.
+  - **No preset or default changed;** code_sha/eval_sha unmoved.
+  - **Pre-bake review:** workflow `wf_4f63f738-9fa` (inventory, evidence, 3 judges, design, fable critic: no
+    blocking findings).
+  - **Verified:**
+    - `bundle_policy --check` OK;
+    - `verify_draft` ALL CHECKS PASS;
+    - 48/48 bake tests and 57/57 campaign tooling tests.
+    - The full unit suite's 13 failures are pre-existing or parallel sessions' uncommitted ladder edits. The 3
+      tree-dependent ones were checked in a worktree at 850e6361.
+  - **Campaign CLOSED.**

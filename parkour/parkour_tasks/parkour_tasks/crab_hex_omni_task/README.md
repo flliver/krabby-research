@@ -21,17 +21,26 @@ student (the shared camera-event bug and the +y mount decision stay open).
 
 ## Head of record (phase 1)
 
-**Baked 2026-09-25:** `W`, the hard clock cut (`policy/5_c6x_clockfree/model_11995.pt`) — details
-and every stage's sha256/evals in [`policy/README.md`](policy/README.md) (generated from
-[`policy/manifest.yaml`](policy/manifest.yaml)). Recipe: C1d `t3` (0 → 3000, from scratch) →
-`c4` (3000 → 4500, +move_turn) → `c5` (4500 → 6000, +omni) → `c6` (6000 → 8000, +omni_turn) — all
-four with the clock held — then `c6x` (8000 → 12000), the same c6 overlay with the clock and apex rewards cut
-to ε 0.001 and the clock observation hidden; 12000 iterations total.
+**Baked 2026-10-06:** the side-first **B** head of the PPO-construction campaign, `SF__B_rest_s18`
+(seed 18; `policy/5_c6x_clockfree/model_14995.pt`) — details and every stage's sha256/evals in
+[`policy/README.md`](policy/README.md) (generated from [`policy/manifest.yaml`](policy/manifest.yaml)).
+It replaces `W` (baked 2026-09-25; recorded under `superseded:` in the manifest, its files in git history).
+Recipe (`experiments/2026-10-01_ppo_construction/candidates.yaml`): `s1` from scratch on preset `1b` + the FB
+pool (stand / fwd / side_l / side_r / back, no turn; 0 → 6000) → P1 `c4` (6000 → 7500, +turn / move_turn) →
+`c5` (7500 → 9000, +omni) → `c6` (9000 → 11000, +omni_turn) — all four with the clock held — then `c6x`
+(11000 → 15000), the same c6 overlay with the clock and apex rewards cut to ε 0.001 and the clock observation
+hidden; 15000 iterations total. Every stage also carries the B construction knobs (bound loss on raw μ
+0.001 with ramp 0.0001:0.001:500 at bound 1.1, soft std at init 0.8, entropy 0.0025, action_rate weight 0),
+the fa mirror loss, RSI off and the speed ellipse 0.35:0.35:0.25 — all env overlays, no preset or default
+encodes them. Side-first reverses the C1d turn-first order.
 
 **Observation contract:** the current head was trained with `KRABBY_OMNI_CLOCK_HIDE=1` (clock
 columns zeroed on every frame) — any play, eval or export of it must set `KRABBY_OMNI_CLOCK_HIDE=1`
-too, or it is fed an out-of-distribution live clock. Full contract (width, exact columns, the rest
-of the carried eval env) in `policy/README.md`'s Observation contract section.
+too, or it is fed an out-of-distribution live clock. It was also trained with the soft std parameter:
+without `KRABBY_STD_PARAM=soft` the checkpoint does not load (a loud `RuntimeError`, `std` vs `std_raw`),
+and without `KRABBY_OMNI_SPEED_ELLIPSE=0.35:0.35:0.25` lateral commands are silently capped at 0.25 m/s.
+Full contract (width, exact columns, the rest of the carried eval env) in `policy/README.md`'s Observation
+contract section.
 
 ```bash
 cd parkour  # from krabby-research/; the full carried env -- KRABBY_FLAT_TERRAIN_GEOM=ring is required by
@@ -42,27 +51,34 @@ env \
   KRABBY_ACTION_LPF_HZ=0 \
   KRABBY_ACTION_LPF_OBS=0 \
   KRABBY_FLAT_TERRAIN_GEOM=ring \
+  KRABBY_INIT_STD=0.8 \
   KRABBY_OMNI_ANG_VEL_CLIP=0.2 \
   KRABBY_OMNI_ANG_VEL_MAX=0.3 \
   KRABBY_OMNI_CLOCK_TURN_R=1.2 \
+  KRABBY_OMNI_CMD_OBS=0 \
   KRABBY_OMNI_FACING_OBS_CLIP=0.6 \
   KRABBY_OMNI_FACING_OBS_ENCODING=raw \
   KRABBY_OMNI_RELAY_HYST=0 \
-  KRABBY_OMNI_SPEED_ELLIPSE=0.35:0.25:0.25 \
+  KRABBY_OMNI_SPEED_ELLIPSE=0.35:0.35:0.25 \
   KRABBY_OMNI_STAND_HOLD=0 \
   KRABBY_OMNI_STAND_OBS=0 \
   KRABBY_OMNI_STAND_PARK=0 \
   KRABBY_OMNI_YAW_RANGE=-3.14159:3.14159 \
   KRABBY_PLANT=A15+B \
+  KRABBY_STD_PARAM=soft \
   python scripts/rsl_rl/play.py --task Isaac-Crab-Hex-Omni-Walk-Play-v0 \
-  --num_envs 1 --real-time --checkpoint $PWD/$P/policy/5_c6x_clockfree/model_11995.pt
+  --num_envs 1 --real-time --checkpoint $PWD/$P/policy/5_c6x_clockfree/model_14995.pt
 ```
 
-(Copied from `policy/README.md`, which also has the exact suite-eval command.)
+(Copied from `policy/README.md`, which also has the exact suite-eval command. `play.py` writes
+`exported_teacher/` next to the checkpoint it loads, which breaks the policy-folder layout test: copy the
+checkpoint out of `policy/` before playing it, or delete that folder afterwards.)
 
-**Open follow-up:** `move_turn` — nobody actually turns during move+turn (survival 0.365 vs. the
-clock-held twin's 0.865). See `followups.move_turn` in `policy/manifest.yaml` and
-`policy/README.md`'s "Open follow-ups" section.
+**Open follow-ups:** `move_turn` — nobody actually turns during move+turn: the B head survives it (0.945 vs.
+W's 0.365) but turns at about a quarter of the commanded 0.3 rad/s. `action_jitter` — the B head is about
+1.5–2.5× jerkier than W (action_rate weight 0 in training). `c0_side_first_n1` — the matched C0 side-first
+control is one seed only. See `followups` in `policy/manifest.yaml` and `policy/README.md`'s "Open follow-ups"
+section.
 
 ## Delta from the forward task
 

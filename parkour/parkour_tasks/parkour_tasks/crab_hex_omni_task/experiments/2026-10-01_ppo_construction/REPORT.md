@@ -3956,3 +3956,37 @@ Driver: `parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/tool
 
 >>> ENTRY X64:c6x
 
+
+---
+
+## Close (2026-10-06): side-first B baked; SF__B_rest_s18 is the omni phase-1 head of record
+
+User decision 2026-10-06 07:41. Bake the side-first B recipe and make the best B head the head of record, replacing W.
+The C0 side-first control was stopped after s16.
+
+**Head:** `SF__B_rest_s18`, c6x `model_14995.pt` (sha256 `b40f9a19…d05fa`), installed at
+`crab_hex_omni_task/policy/5_c6x_clockfree/`.
+- **Lineage:** FB6k X43 `model_5999` (preset 1b) → c4 X57 `model_7498` → c5 `model_8997` → c6 `model_10996` → c6x
+  `model_14995`, 15000 iterations.
+- **Selection** (`sf/HEAD_SELECTION.md`, evidence `sf/HEAD_EVIDENCE.md`): rule stated before judging (floors → whole task
+  → motion quality / turn band).
+  - Three independent judges all put s18 first.
+  - Rank-sum 12 vs s16 18 and s17 18; runner-up s16.
+
+| c6x head | lr feet_ss l / r at 0.22 · 0.25 m/s | side | fwd | back | diag | turn fc / yp | move_turn ratio / survival |
+|---|---|---|---|---|---|---|---|
+| **B s18 (head)** | 0.228 / 0.233 · 0.252 / 0.256 | 1.045 | 1.041 | 1.030 | 0.956 | 0.797 / 0.104 | 0.609 / 0.945 |
+| B s16 | 0.215 / 0.220 · 0.243 / 0.227 | 0.976 | 1.011 | 1.025 | 0.966 | 0.763 / 0.100 | 0.650 / 0.740 |
+| B s17 | 0.228 / 0.228 · 0.244 / 0.245 | 1.033 | 1.029 | 0.969 | 0.999 | 0.714 / 0.095 | 0.597 / 0.985 |
+| C0 s16 (side-first control, n=1) | SLOW / SLOW (0.111 / 0.098 mean) | 0.488 | 0.684 | 0.730 | 0.594 | 0.679 / 0.090 | 0.614 / 0.625 |
+| W (superseded) | 0.096 / 0.098 · 0.102 / 0.102 | 0.473 | 0.785 | 0.784 | 0.581 | 0.787 / 0.102 | 0.442 / 0.365 |
+
+**Caveats (manifest `followups`):**
+- C0 side-first is n=1 (s17/s18 cancelled by the user), so §13.4's final gate was not applied.
+- Side-first reverses the adopted turn-first C1d order.
+- B's action jitter is 1.5–2.5× W's: action_rate is 0 in the recipe.
+- move_turn still turns slowly (yp 0.079 against 0.3 commanded).
+
+**Bake scope:** records + policy folder + docs/tests (fb203f7d precedent). No presets, no default flips; code_sha
+`f7166d55` and eval_sha `1d021625` are unmoved. Play/eval of the head needs `KRABBY_OMNI_CLOCK_HIDE=1`,
+`KRABBY_STD_PARAM=soft`, `KRABBY_INIT_STD=0.8` and `KRABBY_OMNI_SPEED_ELLIPSE=0.35:0.35:0.25` (see `policy/README.md`).

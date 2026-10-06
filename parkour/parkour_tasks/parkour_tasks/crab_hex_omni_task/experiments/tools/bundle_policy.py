@@ -2,7 +2,8 @@
 """Sync / check the crab-hex OMNI-walk POLICY OF RECORD: ``<task>/policy/``.
 
 ``policy/`` holds the head that ships for the omnidirectional task plus the stage heads it was
-trained through (t3 formation -> c4 -> c5 -> c6 -> c6x clock-free), one subfolder per stage,
+trained through (in manifest order; since the 2026-10-06 bake the side-first B lineage
+1_fb6k -> c4 -> c5 -> c6 -> c6x clock-free), one subfolder per stage,
 declared in ``policy/manifest.yaml`` (source run, sha256, campaign, overlay reference, per-category
 suite evals, observation contract, open follow-ups), plus the shared training assets the lineage
 depends on (``assets:`` -- the omni RSI reference bank every omni preset seeds resets from). It
@@ -15,7 +16,7 @@ changes ONLY on a bake decision, which is the user's: edit the manifest, run ``-
 
 Adapted from ``crab_hex_forward_task/experiments/tools/bundle_policy.py``. Differences:
 
-* every stage is a phase-1a stage (``KRABBY_OMNI_PHASE=1a``) plus a per-stage OVERLAY from a
+* every stage is a ``KRABBY_OMNI_PHASE`` preset stage (the stage's ``phase``) plus a per-stage OVERLAY from a
   campaign's ``candidates.yaml`` (``stage`` + ``overlay_ref``) -- there are no omni presets for these
   overlays, so there is nothing to pin: no ``--pin-mdp``, no ``mdp_pins.yaml``, no
   ``POLICY_SUMMARY.md`` (the forward tool's generated-summary hooks are dropped);
@@ -377,12 +378,20 @@ def readme_text(m: dict) -> str:
             if a.get("notes"):
                 L.append(f"- **Notes:** {a['notes']}")
             L.append("")
+    ppo = (m.get("construction") or {}).get("ppo") or {}
+    construction = (
+        " Every overlay here also carries the runner-side construction knobs (manifest `construction:`: "
+        + ", ".join(f"`{k}={v}`" for k, v in ppo.items())
+        + "); a fork must keep them -- without `KRABBY_STD_PARAM` as trained the checkpoint does not load "
+        "(strict load, `std` vs `std_raw`)." if ppo else "")
     L += [
         "## Resuming training from a stage head",
         "",
-        "`KRABBY_OMNI_PHASE=1a` + the next stage's overlay (its `overlay_ref`) `... train.py --task "
+        "`KRABBY_OMNI_PHASE=<the next stage's phase>` (the `Preset + overlay` column) + the next stage's overlay "
+        "(its `overlay_ref`, every key) `... train.py --task "
         "Isaac-Crab-Hex-Omni-Walk-v0 --resume --checkpoint <policy path>`, as the campaign drivers "
-        "(`experiments/tools/run_candidates.py`, `checkpoint:` resume kind) do. A fork of the current head keeps "
+        "(`experiments/tools/run_candidates.py`, `checkpoint:` / `reference:` resume kinds) do." + construction
+        + " A fork of the current head keeps "
         f"`{HIDE_VAR}=1` and the eps clock weights unless it deliberately restores the clock.",
         "",
         "## Maintenance",
@@ -391,10 +400,12 @@ def readme_text(m: dict) -> str:
         "`parkour/`; the tool is cwd-independent) -- every stage file present with its manifest sha, no stray "
         "checkpoints, README fresh (run by `tests/unit/test_policy_of_record_omni.py`).",
         "- New bake: add/replace the stage entry in `manifest.yaml` (source run, sha256, campaign, overlay_ref, "
-        "obs_contract, evals), set `current`, run `--sync`, commit.",
+        "obs_contract, evals), set `current`, `git rm` the replaced stage files (`--sync` never deletes; `--check` "
+        "flags them as stray checkpoints), run `--sync`, commit.",
         "- New shared asset (e.g. a re-harvested RSI bank): add an `assets:` entry (dir, file, source, sha256, what, "
         "used_by), run `--sync`, commit.",
-        "- No MDP pins: the omni lineage's stage recipes are overlays on the 1a preset recorded in campaign "
+        "- No MDP pins: the omni lineage's stage recipes are overlays on a `KRABBY_OMNI_PHASE` preset (each "
+        "stage's `phase`) recorded in campaign "
         "`candidates.yaml` files, not presets, so there is no `--pin-mdp` / `POLICY_SUMMARY.md` here (the forward "
         "policy folder has both).",
         "",

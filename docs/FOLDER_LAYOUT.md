@@ -208,7 +208,7 @@ crab_hex_omni_task/
 ├── mdp/                              # crab_hex_omni_command(_math).py; omni observations/rewards/mirror/RSI; omni_parkour_event.py, omni_exposure.py, omni_events.py, omni_terrain_knobs.py
 ├── eval_categories.py                # Per-category eval plan (2026-09-21, D4): trained_categories/expand_rule/composite_guards -- Isaac-free, loaded by path; task-root (outside mdp/config), so it hashes into eval_sha, not code_sha
 ├── policy/                           # POLICY OF RECORD (phase 1): the shipped head + the stage heads it was trained through
-│   ├── manifest.yaml                 #   (1_t3 -> 2_c4 -> 3_c5 -> 4_c6 -> 5_c6x_clockfree, one .pt each, obs_contract + followups blocks); manifest = source of truth, README generated (experiments/tools/bundle_policy.py --sync / --check)
+│   ├── manifest.yaml                 #   (side-first B, baked 2026-10-06: 1_fb6k -> 2_c4 -> 3_c5 -> 4_c6 -> 5_c6x_clockfree, one .pt each; obs_contract, construction, followups, superseded (W) blocks); manifest = source of truth, README generated (experiments/tools/bundle_policy.py --sync / --check)
 │   └── <stage>/model_N.pt
 └── experiments/                      # Campaigns; eval/scenarios_omni.yaml; lit reviews; tools/
     ├── 2026-09-16_1805_omni_formation/   # First training campaign (CLOSED at its 2b decision point): CHARTER.md, RSI_BANK.md, replay_reward_economy.py
@@ -219,17 +219,21 @@ crab_hex_omni_task/
 ### Policy of record
 
 `crab_hex_omni_task/policy/` is the task's shipped phase-1 lineage: the current head
-(`5_c6x_clockfree/model_11995.pt`, the hard clock cut baked 2026-09-25) and the four stage heads it
-was trained through (`1_t3`, `2_c4`, `3_c5`, `4_c6`), each sha-pinned in `policy/manifest.yaml`
-with its source run, overlay (`overlay_ref` into a campaign's `candidates.yaml`, not a
-`KRABBY_OMNI_PHASE` preset -- there is no phase-1c/2 lineage here) and evals. It changes only on a
+(`5_c6x_clockfree/model_14995.pt`, the side-first B head of the PPO-construction campaign, baked
+2026-10-06 and replacing W of 2026-09-25) and the four stage heads it was trained through (`1_fb6k`,
+`2_c4`, `3_c5`, `4_c6`), each sha-pinned in `policy/manifest.yaml` with its source run, preset
+(`phase`: `1b` for `1_fb6k`, `1a` after), overlay (`overlay_ref` into a campaign's `candidates.yaml`,
+not a `KRABBY_OMNI_PHASE` preset of its own -- there is no phase-1c/2 lineage here) and evals. It changes only on a
 user bake decision (edit the manifest, `bundle_policy.py --sync`, commit); campaign records under
 `experiments/<campaign>/` are the provenance. Unlike the forward policy, the manifest also carries
 an `obs_contract` block (the clock observation columns, which stage was trained with
 `KRABBY_OMNI_CLOCK_HIDE` on, and the exact eval-env knobs the heads trained under) and a
-`followups` block (open items recorded at bake time, e.g. `move_turn`). No `--pin-mdp` /
-`POLICY_SUMMARY.md` here: every stage is an overlay on the `1a` preset recorded in a campaign's
-`candidates.yaml`, not its own preset. Guarded by `tests/unit/test_policy_of_record_omni.py`.
+`followups` block (open items recorded at bake time, e.g. `move_turn`), a `construction` block (the
+runner-side PPO knobs every stage trained with; only `KRABBY_STD_PARAM` / `KRABBY_INIT_STD` reach
+eval and play) and a `superseded` block (earlier heads of record whose files left the folder: source
+runs, sha256 and the last commit that holds them). No `--pin-mdp` / `POLICY_SUMMARY.md` here: every
+stage is an overlay on a `KRABBY_OMNI_PHASE` preset recorded in a campaign's `candidates.yaml`, not
+its own preset. Guarded by `tests/unit/test_policy_of_record_omni.py`.
 
 Preset variable: `KRABBY_OMNI_PHASE` (never `KRABBY_PHASE` or `KRABBY_SIDE_PHASE` in the same
 process -- setting any two raises at import). Gym ids: `Isaac-Crab-Hex-Omni-Walk-v0`,
