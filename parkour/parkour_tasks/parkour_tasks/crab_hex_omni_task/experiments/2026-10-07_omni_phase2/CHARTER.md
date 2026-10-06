@@ -488,3 +488,16 @@ recommendation.
     (`p2_read` CAL1 constant).
   - **Rule from here:** any relaunch after a kill uses a fresh chain name (`<chain>b`, `<chain>c`, …), recorded in §9.
     The driver's state is never edited by hand.
+- 2026-10-06, **CHARTER 5 smokes passed; `SMOKES_OK` written before any anchor** (`scripts/p2_read.py --write-smokes-ok`).
+  - S1-S4: `parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-07_omni_phase2/smokes/2026-10-06T22-01-35Z`.
+  - S3: max toe radius 1.070 m (limit 1.6 m), over 256 resets; walking max (S4) 1.556 m.
+  - S4: reach_edge 0.959, field_frac 0.581, block steps per obstacle-tile episode 584.0, off-tile block steps 9.64.
+  - S5: `/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/SMOKE_S5_s18/field_light__omni/seed001/2026-10-06_22-09-32`, 7 episodes, 0 stand-hold falls.
+  - CAL1 dump audit PASS. code_sha dfcc5310…, eval_sha 1d021625….
+- 2026-10-06 18:36, **promotion calibrated** from `P2__CAL1b_s18`: r̄ = mean `track_ratio_obst_p50` over its last 100
+  iterations = 0.824, so PROMOTE = up 0.75 / down 0.40 (`candidates_v4`).
+  - CAL1b at the preset 0.45:0.25 confirmed the premise: obstacle-tile terrain level rose 1.1 → 5.5 in 400 its with
+    0 demotions. crab_failure rose 0.02 → 0.25 and reach_obst to 0.80.
+  - SMOKES_OK written: S1–S5 + CAL1b audit PASS, code_sha dfcc5310. Walking toe radius maximum 1.56 m, inside the
+    1.7 m pad.
+  - Next: CAL2 (≥ 300 its at 0.75:0.4, levels must move), then the queue.
