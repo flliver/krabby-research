@@ -101,7 +101,7 @@ FROM_STEP=${FROM_STEP:-anchors}
 step_n() { case "$1" in anchors) echo 1;; a1s18) echo 2;; a0) echo 3;; s1) echo 4;; e1) echo 5;; f1) echo 6;; a1rep) echo 7;; recipe) echo 8;; *) echo 0;; esac; }
 FROM=$(step_n "$FROM_STEP"); [ "$FROM" -ge 1 ] || { echo "bad FROM_STEP $FROM_STEP" >&2; exit 2; }
 want() { [ "$(step_n "$1")" -ge "$FROM" ]; }
-say "p2_queue start (CHARTER 8) from $FROM_STEP: anchors -> A1 s18 gate -> A0 -> S1 -> E1 -> F1 -> A1 s16/s17 -> recipe"
+say "p2_queue start (CHARTER 8) from $FROM_STEP: anchors -> A1 s18 gate -> A0 -> S1 -> F1 -> A1 s16/s17 -> recipe (E1 dropped)"
 stopped && { say "STOP p2_queue: STOP_QUEUE present at start"; exit 4; }
 
 # (1) anchors (CHARTER 5)
@@ -136,13 +136,13 @@ say "NOTIFY FIELD-VS-RING (descriptive, CHARTER 6.3) :: $(echo "$g" | tail -1 | 
 fi
 
 # (4-6) siblings: every verdict stops and asks (CHARTER 6.4)
-for sib in S1 E1 F1; do
+for sib in S1 F1; do   # E1 dropped by the user 2026-10-06 (CHARTER 4 replay gate FAIL; CHARTER 9)
   step=$(echo "$sib" | tr 'A-Z' 'a-z')
   if want "$step"; then
     arm "P2__${sib}_s18"
     g=$("$PY" "$READ" --sibling "$sib" 2>&1)
     say "SIBLING $sib :: $(echo "$g" | tail -1 | cut -c1-800)"
-    nxt=$(case $sib in S1) echo e1;; E1) echo f1;; F1) echo a1rep;; esac)
+    nxt=$(case $sib in S1) echo f1;; F1) echo a1rep;; esac)
     say "STOP p2_queue: sibling $sib verdict (CHARTER 6.4) -- NOTIFY stop and ask; resume with FROM_STEP=$nxt"
     exit 4
   fi

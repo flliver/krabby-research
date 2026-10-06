@@ -405,7 +405,7 @@ chains:
         floor: {kind: none}
 
   P2__E1_s18:
-    notes: "E1 energy (CHARTER 4/8): A1 s18 with KRABBY_POWER_W at the CHARTER 4 replay-gate weight and KRABBY_POWER_JOINTS actuated."
+    notes: "E1 energy (CHARTER 4/8): DROPPED by the user 2026-10-06 after the CHARTER 4 replay gate FAIL; kept with its placeholder so it can never launch."
     absolute_units: true
     stages:
       - stage: p2a
@@ -482,7 +482,7 @@ chains:
           KRABBY_FIELD_KINDS: "0.4:0.4:0.2"
           KRABBY_FIELD_EDGES: ramp
           KRABBY_TERRAIN_PROMOTE: "TBD_PENDING_CALIBRATION_S5"
-          KRABBY_STAND_STANCE_W: "TBD_PENDING_REPLAY_GATE_S4"
+          KRABBY_STAND_STANCE_W: "0.9"    # CHARTER 4 weight 0.90 (FAIL overruled by the user 2026-10-06)
         eval: [suite]
         categories: [back, diag, fwd, move_turn, side, stand, turn]
         floor: {kind: none}

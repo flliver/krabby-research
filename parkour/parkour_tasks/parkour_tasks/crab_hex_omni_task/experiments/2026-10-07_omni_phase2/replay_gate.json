@@ -1053,6 +1053,11 @@
     },
     "categories_missing": []
    }
+  },
+  "dropped": {
+   "by": "user",
+   "date": "2026-10-06",
+   "note": "E1 dropped after the replay gate FAIL; S1 still tests smoothness"
   }
  },
  "F1": {
@@ -1500,6 +1505,11 @@
     },
     "categories_missing": []
    }
+  },
+  "overrule": {
+   "by": "user",
+   "date": "2026-10-06",
+   "note": "run F1 at 0.90 despite the within-head FAIL (range restriction: every B stand episode marches alike); statue 0.78/s vs head 0.41/s"
   }
  }
 }

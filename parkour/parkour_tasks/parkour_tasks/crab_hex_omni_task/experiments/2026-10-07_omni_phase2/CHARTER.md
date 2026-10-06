@@ -362,3 +362,9 @@ recommendation.
     - F1: the statue beats every head (0.78 vs 0.41/s), but within-head ρ with steps/s is +0.25 for B.
     - **Stop and ask the user;** neither arm is dropped automatically.
   - **Preflight now refuses E1/F1 unless `replay_gate.json` shows PASS or a recorded user overrule.**
+- 2026-10-06, **user decisions on the §4 replay-gate FAILs:**
+  - **F1 overruled:** it runs at weight 0.90. The within-head FAIL is read as range restriction, since every B stand
+    episode marches alike; the statue earns 0.78/s against the head's 0.41/s. Recorded as `overrule` in
+    `replay_gate.json`; F1 is set to 0.9 in `candidates.yaml` (copied to `scripts/candidates_v2.yaml`).
+  - **E1 dropped.** Its chain keeps its placeholder, so it can never launch. The queue's sibling loop is S1 → F1.
+  - **Budget:** ≈ 25.5 GPU-h.
