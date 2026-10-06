@@ -1548,3 +1548,10 @@ when the t3x in-band turn settles.
 
   - **Turning recovered in c5–c6x.** At c4 the 90° fc was −0.08 to 0.23.
   - **The C0 trigger fires** (B c6x FAST/FAST 3/3); the C0 side-first tails follow the c6 reads.
+- 2026-10-06 04:45, **B c6 reads + C0 trigger** (`sf/sfB_read.md`).
+  - **c6 pre-cut lr:** FAST/FAST 3/3.
+  - **Turn band:**
+    - At c6x, in-band heading_final 0.036 / 0.076 / 0.045 and 1.0 rad fc 0.94 / 0.91 / 0.92. W is 0.071 and 0.92.
+    - At c6, in-band 0.098–0.120; 1.0 rad fc 0.51 / 0.08 / 0.88.
+    - So out-of-band turning is fixed by the end of the chain, mostly within c6x.
+  - **C0 trigger rc 0** (checks valid). The C0 side-first tails launched 04:45.
