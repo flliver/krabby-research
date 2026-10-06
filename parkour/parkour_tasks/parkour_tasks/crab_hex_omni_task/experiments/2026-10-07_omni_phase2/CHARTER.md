@@ -26,7 +26,7 @@ seed's phase-1 head on obstacles without losing the flat omni task?
 
 - **Code:**
   - Land one commit before any arm, staging only this campaign's paths. Record code_sha and eval_sha here at landing:
-    code_sha `7b39a86db17e09c4…` (landing commit 345884d6), eval_sha `1d021625844bb372…` (unmoved).
+    code_sha `dfcc53107d66797d…` (163ce038; first landing 345884d6 at 7b39a86d, moved once more by the pit gap before any anchor), eval_sha `1d021625844bb372…` (unmoved).
   - eval_sha must not move. Never edit `run_phases.py`, the eval harness, `gait_eval/`, `scenarios_omni.yaml` or
     `eval_categories.py`.
 - **Running:**
@@ -463,3 +463,4 @@ recommendation.
   - **Other edge pixels:** the check fails only if more than 2 % of field tiles have any. A hard "== 0" would have
     failed about 1.3 % of smokes spuriously.
   - **Pre-existing, recorded:** diagonal-only risers are not in the edge mask.
+- 2026-10-06, **code state for the anchors and arms:** code_sha dfcc5310… (163ce038), eval_sha 1d021625… (unmoved).
