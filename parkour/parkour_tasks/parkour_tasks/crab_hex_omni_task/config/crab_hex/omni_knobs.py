@@ -47,7 +47,9 @@ five things the forward block cannot know about:
    for the turn-gated twin. NO PRESET SETS IT and the rewards class body keeps the stock func,
    so every shipped omni run is bit-identical unless a launcher arms it by hand;
 8. ``apply_omni_ring_knobs`` -- the ring-generator guard and the ``KRABBY_RING_*`` knobs
-   (``mdp/omni_terrain_knobs.py``);
+   (``mdp/omni_terrain_knobs.py``); since 2026-10-06 (omni phase-2 plan step 2) a dispatcher that
+   also accepts ``KRABBY_FLAT_TERRAIN_GEOM=field`` and applies the ``KRABBY_FIELD_*`` knobs to the
+   field generator the env ``__post_init__`` installed first (``install_omni_terrain_generator``);
 9. **six CAPABILITY-CURRICULUM knobs, all DEFAULT-OFF and set by NO preset** (2026-09-18, the
    facing-and-tracking plan, Part A1). Unset or blank, every one of them is a bitwise no-op --
    that is what keeps the shipped 1a/1c windows reproducible while the campaign drives them as
@@ -179,6 +181,23 @@ def _stroke_knobs():
     return mod
 
 
+_TERRAIN_KNOBS_PY = Path(__file__).resolve().parents[2] / "mdp" / "omni_terrain_knobs.py"
+_TERRAIN_KNOBS_NAME = "crab_hex_omni_terrain_knobs"
+
+
+def _terrain_knobs():
+    """``mdp/omni_terrain_knobs.py`` (pure), by path -- the same object for every loader of this
+    module. Path-loaded, not package-imported, so importing this module stays Isaac-free (the
+    package ``__init__`` chain reaches isaaclab)."""
+    mod = sys.modules.get(_TERRAIN_KNOBS_NAME)
+    if mod is None:
+        spec = importlib.util.spec_from_file_location(_TERRAIN_KNOBS_NAME, _TERRAIN_KNOBS_PY)
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules[_TERRAIN_KNOBS_NAME] = mod
+        spec.loader.exec_module(mod)
+    return mod
+
+
 _mk = _motion_knobs()
 # Re-exported so ``dir(omni_knobs)`` -- the ladder's knob whitelist -- names every motion knob.
 ACTION_STD_MAX_VAR = _mk.ACTION_STD_MAX_VAR
@@ -218,6 +237,11 @@ NUM_ENVS_VAR = _mk.NUM_ENVS_VAR
 # re-exported for the whitelist; applied by :func:`_repoint_rsi` as event params.
 RSI_CAM_STAGE_VAR = _mk.RSI_CAM_STAGE_VAR
 RSI_CAM_STAGE_DEBUG_VAR = _mk.RSI_CAM_STAGE_DEBUG_VAR
+# NOTE(omni phase-2 plan step 3, 2026-10-06): the F1 stand-income and E1 power-subset knobs
+# (motion_knobs.py, env side, applied by ``apply_motion_knobs``), re-exported for the whitelist;
+# their parsers are in MOTION_KNOB_PARSERS.
+STAND_STANCE_W_VAR = _mk.STAND_STANCE_W_VAR
+POWER_JOINTS_VAR = _mk.POWER_JOINTS_VAR
 
 _ck = _clock_knobs()
 # NOTE(clock-deprecation step 2, 2026-09-23): re-exported for the same whitelist reason.
@@ -241,6 +265,18 @@ STROKE_KNOB_PARSERS = _sk.STROKE_KNOB_PARSERS
 # NOTE(per-category stroke plan, 2026-09-27): re-exported for the same whitelist reason.
 STROKE_CAT_W_VAR = _sk.STROKE_CAT_W_VAR
 parse_stroke_cat_w = _sk.parse_stroke_cat_w
+
+_tk = _terrain_knobs()
+# NOTE(omni phase-2 plan step 2, 2026-10-06): the field-geometry knobs (mdp/omni_terrain_knobs.py),
+# re-exported for the same whitelist reason; applied by ``apply_omni_ring_knobs`` (field branch)
+# and ``install_omni_terrain_generator``. FIELD_KNOB_PARSERS is for the driver's round-trip table.
+FIELD_PAD_R_VAR = _tk.FIELD_PAD_R_VAR
+FIELD_BLOCKS_VAR = _tk.FIELD_BLOCKS_VAR
+FIELD_KINDS_VAR = _tk.FIELD_KINDS_VAR
+FIELD_EDGES_VAR = _tk.FIELD_EDGES_VAR
+FIELD_MIN_GAP_VAR = _tk.FIELD_MIN_GAP_VAR
+FIELD_SIZE_SCALE_VAR = _tk.FIELD_SIZE_SCALE_VAR
+FIELD_KNOB_PARSERS = _tk.FIELD_KNOB_PARSERS
 
 __all__ = [
     "SLOTS_VAR",
@@ -303,6 +339,8 @@ __all__ = [
     "PPO_HAND_DIAG_VAR", "NUM_ENVS_VAR",
     # RSI cam-staging knobs (motion_knobs.py, 2026-10-01)
     "RSI_CAM_STAGE_VAR", "RSI_CAM_STAGE_DEBUG_VAR",
+    # F1 stand income / E1 power subset (motion_knobs.py, 2026-10-06)
+    "STAND_STANCE_W_VAR", "POWER_JOINTS_VAR",
     # clock-hide knobs (clock_knobs.py)
     "CLOCK_HIDE_VAR", "CLOCK_HIDE_RAMP_VAR", "parse_clock_hide", "parse_clock_hide_ramp",
     "CLOCK_KNOB_PARSERS",
@@ -311,6 +349,9 @@ __all__ = [
     "parse_stroke_w", "parse_centring_w", "parse_reward_split", "STROKE_KNOB_PARSERS",
     # per-category stroke knob (stroke_knobs.py, 2026-09-27)
     "STROKE_CAT_W_VAR", "parse_stroke_cat_w",
+    # field-geometry knobs (mdp/omni_terrain_knobs.py, 2026-10-06)
+    "FIELD_PAD_R_VAR", "FIELD_BLOCKS_VAR", "FIELD_KINDS_VAR", "FIELD_EDGES_VAR",
+    "FIELD_MIN_GAP_VAR", "FIELD_SIZE_SCALE_VAR", "FIELD_KNOB_PARSERS",
 ]
 
 SLOTS_VAR = "KRABBY_OMNI_SLOTS"

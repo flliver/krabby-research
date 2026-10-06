@@ -18,6 +18,7 @@ from parkour_tasks.crab_hex_forward_task.mdp.crab_hex_clock_reward import (
     clock_command_speed,
     clock_schedule_income,
     clock_swing_apex_income,
+    stand_stance_income,
 )
 from parkour_tasks.crab_hex_forward_task.mdp.crab_hex_tripod_reward import (
     RESET_T_SINCE,
@@ -1137,10 +1138,32 @@ def penalty_mechanical_power(
     continuous one-direction spin costs ~738 W vs ~1260-1420 W for shaft-oscillation
     gaits — the saving is in the LEG chain (fewer reversal transients), so this prices
     the oscillation basin ~1.7x harder than spin on physics grounds. Weight scale:
-    ~1e-3 puts the differential at a few percent of locomotion income."""
+    ~1e-3 puts the differential at a few percent of locomotion income.
+
+    NOTE(omni phase-2 plan step 3, 2026-10-06): optional JOINT SUBSET via ``asset_cfg``'s
+    ``joint_names``. Default (``SceneEntityCfg("robot")``, resolved ``joint_ids`` =
+    ``slice(None)``) prices every joint with the original expression, bitwise unchanged. The
+    omni knob ``KRABBY_POWER_JOINTS=actuated`` (``motion_knobs.apply_motion_knobs``) repoints
+    ``asset_cfg`` at the 18 actuated joints (cam shafts + Hip_Femur + Femur_Tibia rods),
+    dropping the six passive ``*_Body_Hip_RevoluteJoint`` that the cam linkage emulator drives:
+    their tau*qdot is the emulator's torque, a sim artefact, and was 24-31 % of the all-joint
+    sum on the X08:c6 replay (2026-09-22_gait_motion_quality/REPLAY_GATE.md, power split). The
+    cam shafts themselves carry ~0 of the sum there, so in practice the subset prices the rods.
+    """
     asset: Articulation = env.scene[asset_cfg.name]
+    # getattr: offline replays (experiments/tools/replay_motion_terms.py and its tests) call this
+    # with a duck-typed ``asset_cfg`` that carries only ``name`` -- that means every joint
+    ids = getattr(asset_cfg, "joint_ids", slice(None))
+    if isinstance(ids, slice) and ids == slice(None):
+        # every joint: the original expression (no indexing), so the default term is bitwise
+        # what it always was. Only the FULL slice takes this branch (review 2026-10-06): a
+        # hand-written partial slice (e.g. ``slice(0, 18)``) falls through to the indexing
+        # branch below and prices just those columns, never silently all 24.
+        return torch.sum(
+            torch.abs(asset.data.applied_torque * asset.data.joint_vel), dim=1
+        )
     return torch.sum(
-        torch.abs(asset.data.applied_torque * asset.data.joint_vel), dim=1
+        torch.abs(asset.data.applied_torque[:, ids] * asset.data.joint_vel[:, ids]), dim=1
     )
 
 
@@ -1236,6 +1259,40 @@ class RewardClockContactSchedule(ManagerTermBase):
         )
         upright = (-asset.data.projected_gravity_b[:, 2] > min_upright_gz).float()
         return income * upright
+
+
+def reward_stand_stance_quality(
+    env: ParkourManagerBasedRLEnv,
+    asset_cfg: SceneEntityCfg,
+    sensor_cfg: SceneEntityCfg,
+    command_name: str = "base_velocity",
+    vel_ref: float = CLOCK_VEL_REF_M_S,
+    min_upright_gz: float = 0.9,
+) -> torch.Tensor:
+    """F1 stand term (omni phase-2 plan step 3, 2026-10-06; ``KRABBY_STAND_STANCE_W``, DEFAULT OFF).
+
+    A STAND-SLOT-gated copy of :class:`RewardClockContactSchedule`'s stopped-clock branch:
+    ``crab_hex_clock_reward.stand_stance_income`` (mean over feet of load x planted-still) times
+    the same upright gate, paid only on the rows whose omni command slot is STAND
+    (``command_term.stand_mask()``, ``slot_id == SLOT_STAND`` -- the predicate the stand hold /
+    park / obs / pose knobs key on). Deliberately NOT gated on "clock stopped": the clock also
+    stops for slow MOVE commands (``clock_command_speed <= CLOCK_CMD_STOP_M_S``), and paying
+    stillness there would fight the walk. Independent of the clock term's weight (0.001 since
+    c6x), so stand stillness gets income again at this term's own weight.
+
+    Forces and foot speeds are read exactly as the clock term reads them (current
+    ``net_forces_w`` norm; planar ``body_lin_vel_w`` norm), through ``sensor_cfg`` /
+    ``asset_cfg`` ``body_ids`` (the six footpads). Not in any shipped rewards cfg:
+    ``motion_knobs.apply_motion_knobs`` adds it only when the knob's weight is non-zero.
+    """
+    asset: Articulation = env.scene[asset_cfg.name]
+    sensor = env.scene.sensors[sensor_cfg.name]
+    force = sensor.data.net_forces_w[:, sensor_cfg.body_ids].norm(dim=-1)
+    speed_xy = asset.data.body_lin_vel_w[:, asset_cfg.body_ids, :2].norm(dim=-1)
+    income = stand_stance_income(force, speed_xy, vel_ref=vel_ref)
+    upright = (-asset.data.projected_gravity_b[:, 2] > min_upright_gz).float()
+    stand = env.command_manager.get_term(command_name).stand_mask().to(income.dtype)
+    return income * upright * stand
 
 
 class RewardClockSwingApex(ManagerTermBase):

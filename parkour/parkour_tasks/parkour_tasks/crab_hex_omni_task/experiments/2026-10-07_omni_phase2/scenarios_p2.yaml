@@ -1,0 +1,219 @@
+# Omni phase 2 (obstacles) -- the campaign-local eval rows (CHARTER 6.0). A separate manifest so the shared
+# ../eval/scenarios_omni.yaml (and every omni campaign's eval_sha) does not move (CHARTER 1a). Run by
+# scripts/run_arm.sh --row-eval with the env_vars of the evaluated head's own suite stamp (an anchor: its c6x
+# driver suite stamp, policy/manifest.yaml; an arm head: the arm's own p2a driver suite stamp), exactly as the
+# precedent campaign ran scenarios_turn_band.yaml. The second env_seed is the harness's --env-seed (the row's
+# env_seed 1 is the default; the stamp lands under seed00<k>), never a second row.
+#
+# The header (speed_ellipse, ang_vel_max, defaults) is scenarios_omni.yaml's VERBATIM, so the validator's
+# speed and facing rules are the ones the omni rows pass.
+#
+# ENV BLOCKS. Every field / ring row carries KRABBY_FLAT_TERRAIN_MODE light + KRABBY_FLAT_TERRAIN_FLAT_FRAC "0.0"
+# (without MODE=light apply_flat_walk_knobs forces every sub-terrain but parkour_flat to proportion 0 and the row
+# would silently build flat ground; FLAT_FRAC 0.0 hands the obstacle sub-terrains the whole share -- run_phases.py
+# OBST_EVAL note), the geometry and the difficulty. The field rows add the field knobs, pad radius included,
+# at the CHARTER 3 training values (pad 1.7 m, 14/28 blocks per tile, bar:slab:pit 0.4:0.4:0.2, ramp edges).
+# ring_obst__omni's block is run_phases.OBST_EVAL VERBATIM (the phase-1 driver's ring obstacle eval env), so it
+# reads the existing ring course (clear disc 2.0 m = OmniRingTerrainCfg.clear_radius default, 8 blocks at
+# n_blocks default; no KRABBY_RING_* knob is set, as in OBST_EVAL) and stays comparable with every ring__omni
+# driver eval on record. A KRABBY_FIELD_* knob under ring is refused by require_omni_geom, so it carries none.
+# The evaluated heads' stamp envs carry KRABBY_FLAT_TERRAIN_GEOM=ring (run_phases.TERRAIN_GEOM_REQUIRED) and no
+# field or ring knob; the row block overrides the geometry before parse_env_cfg.
+#
+# SHAPE IS FROZEN after the first eval (process-state sensitivity, scenarios_omni.yaml header): do not add or remove
+# an env block on any row here once an anchor has been evaluated; a change re-runs the anchors (CHARTER 5).
+#
+# Rows (100 episodes each):
+#   field_light__omni   field, DIFF 0.05:0.2, light__omni's 8-hold schedule
+#   field_hard__omni    field, DIFF 0.20:0.70, the same schedule -- the main read
+#   ring_obst__omni     ring, DIFF 0.20:0.70, ring__omni's schedule with the OBST_EVAL env block (same-shape control)
+#   field_turn__omni    field, DIFF 0.20:0.70: walk out 10 s (fwd 0.25 m/s: 2.5 m, past the 1.7 m pad), stand 8 s,
+#                       turn_l90 / turn_r90 12 s each (turn_r90 faces 0: the turn back, as on the 8-hold rows)
+#   field_suite__omni   suite__omni (category_suite, 10 waves) with the field env at DIFF 0.20:0.70
+# "Completion" (CHARTER 6.0) is the 8-hold rows' schedule_completion_rate pooled over env_seeds 1 and 2.
+manifest_version: 2
+
+speed_ellipse: {fwd: 0.35, lat: 0.25, back: 0.25}
+ang_vel_max: 0.3
+
+defaults:
+  prologue_s: 1.5
+  settle_s: 1.0
+  min_window_s: 1.0
+  fall_exclusion_s: 0.5
+  contact_force_threshold: 1.0
+  slip_speed_threshold: 0.02
+  min_cycles: 2
+  lin_vel_clip: 0.2
+
+scenarios:
+  - id: field_light__omni
+    role: teacher
+    task: Isaac-Crab-Hex-Omni-Walk-Play-v0
+    terrain_label: field_light
+    checkpoint: SUPPLIED-PER-RUN--pass---checkpoint
+    episodes: 100
+    env_seed: 1
+    episode_length_s: 80.0
+    spawn_yaw: first_face
+    schedule:
+      - {speed: 0.00, dir: 0.0000000, face: 0.0000000, hold_s: 8.0, label: stand}
+      - {speed: 0.25, dir: 0.0000000, face: 0.0000000, hold_s: 8.0, label: fwd}
+      - {speed: 0.22, dir: 1.5707963, face: 0.0000000, hold_s: 8.0, label: lat_l}
+      - {speed: 0.25, dir: 0.7853982, face: 0.0000000, hold_s: 8.0, label: diag}
+      - {speed: 0.22, dir: 3.1415927, face: 0.0000000, hold_s: 8.0, label: back}
+      - {speed: 0.00, dir: 0.0000000, face: 1.5707963, hold_s: 12.0, label: turn_l90}
+      - {speed: 0.00, dir: 0.0000000, face: 0.0000000, hold_s: 12.0, label: turn_r90}
+      - {speed: 0.22, dir: 0.0000000, face: 1.5707963, hold_s: 8.0, label: move_turn}
+    env:
+      KRABBY_FLAT_TERRAIN_MODE: "light"
+      KRABBY_FLAT_TERRAIN_FLAT_FRAC: "0.0"
+      KRABBY_FLAT_TERRAIN_GEOM: "field"
+      KRABBY_FLAT_TERRAIN_DIFF: "0.05:0.2"
+      KRABBY_FIELD_PAD_R: "1.7"
+      KRABBY_FIELD_BLOCKS: "14:28"
+      KRABBY_FIELD_KINDS: "0.4:0.4:0.2"
+      KRABBY_FIELD_EDGES: "ramp"
+    notes: Phase-2 field at light difficulty (0.05-0.2), light__omni's 8-hold schedule; pad 1.7 m.
+
+  - id: field_hard__omni
+    role: teacher
+    task: Isaac-Crab-Hex-Omni-Walk-Play-v0
+    terrain_label: field_hard
+    checkpoint: SUPPLIED-PER-RUN--pass---checkpoint
+    episodes: 100
+    env_seed: 1
+    episode_length_s: 80.0
+    spawn_yaw: first_face
+    schedule:
+      - {speed: 0.00, dir: 0.0000000, face: 0.0000000, hold_s: 8.0, label: stand}
+      - {speed: 0.25, dir: 0.0000000, face: 0.0000000, hold_s: 8.0, label: fwd}
+      - {speed: 0.22, dir: 1.5707963, face: 0.0000000, hold_s: 8.0, label: lat_l}
+      - {speed: 0.25, dir: 0.7853982, face: 0.0000000, hold_s: 8.0, label: diag}
+      - {speed: 0.22, dir: 3.1415927, face: 0.0000000, hold_s: 8.0, label: back}
+      - {speed: 0.00, dir: 0.0000000, face: 1.5707963, hold_s: 12.0, label: turn_l90}
+      - {speed: 0.00, dir: 0.0000000, face: 0.0000000, hold_s: 12.0, label: turn_r90}
+      - {speed: 0.22, dir: 0.0000000, face: 1.5707963, hold_s: 8.0, label: move_turn}
+    env:
+      KRABBY_FLAT_TERRAIN_MODE: "light"
+      KRABBY_FLAT_TERRAIN_FLAT_FRAC: "0.0"
+      KRABBY_FLAT_TERRAIN_GEOM: "field"
+      KRABBY_FLAT_TERRAIN_DIFF: "0.20:0.70"
+      KRABBY_FIELD_PAD_R: "1.7"
+      KRABBY_FIELD_BLOCKS: "14:28"
+      KRABBY_FIELD_KINDS: "0.4:0.4:0.2"
+      KRABBY_FIELD_EDGES: "ramp"
+    notes: Phase-2 field at the training difficulty (0.20-0.70) -- the main obstacle read (CHARTER 6.1 gain test).
+
+  - id: ring_obst__omni
+    role: teacher
+    task: Isaac-Crab-Hex-Omni-Walk-Play-v0
+    terrain_label: ring
+    checkpoint: SUPPLIED-PER-RUN--pass---checkpoint
+    episodes: 100
+    env_seed: 1
+    episode_length_s: 80.0
+    spawn_yaw: first_face
+    schedule:
+      - {speed: 0.00, dir: 0.0000000, face: 0.0000000, hold_s: 8.0, label: stand}
+      - {speed: 0.25, dir: 0.0000000, face: 0.0000000, hold_s: 8.0, label: fwd}
+      - {speed: 0.22, dir: 1.5707963, face: 0.0000000, hold_s: 8.0, label: lat_l}
+      - {speed: 0.25, dir: 0.7853982, face: 0.0000000, hold_s: 8.0, label: diag}
+      - {speed: 0.22, dir: 3.1415927, face: 0.0000000, hold_s: 8.0, label: back}
+      - {speed: 0.00, dir: 0.0000000, face: 1.5707963, hold_s: 12.0, label: turn_l90}
+      - {speed: 0.00, dir: 0.0000000, face: 0.0000000, hold_s: 12.0, label: turn_r90}
+      - {speed: 0.22, dir: 0.0000000, face: 1.5707963, hold_s: 8.0, label: move_turn}
+    env:
+      KRABBY_FLAT_TERRAIN_GEOM: "ring"
+      KRABBY_FLAT_TERRAIN_DIFF: "0.20:0.70"
+      KRABBY_FLAT_TERRAIN_MODE: "light"
+      KRABBY_FLAT_TERRAIN_FLAT_FRAC: "0.0"
+    notes: >-
+      ring__omni's schedule with run_phases.OBST_EVAL as an env block (the existing ring course, clear disc 2.0 m,
+      no pits) -- the same-shape control for field_hard__omni.
+
+  - id: field_turn__omni
+    role: teacher
+    task: Isaac-Crab-Hex-Omni-Walk-Play-v0
+    terrain_label: field_hard
+    checkpoint: SUPPLIED-PER-RUN--pass---checkpoint
+    episodes: 100
+    env_seed: 1
+    episode_length_s: 48.0
+    spawn_yaw: first_face
+    schedule:
+      - {speed: 0.25, dir: 0.0000000, face: 0.0000000, hold_s: 10.0, label: fwd}
+      - {speed: 0.00, dir: 0.0000000, face: 0.0000000, hold_s: 8.0, label: stand}
+      - {speed: 0.00, dir: 0.0000000, face: 1.5707963, hold_s: 12.0, label: turn_l90}
+      - {speed: 0.00, dir: 0.0000000, face: 0.0000000, hold_s: 12.0, label: turn_r90}
+    env:
+      KRABBY_FLAT_TERRAIN_MODE: "light"
+      KRABBY_FLAT_TERRAIN_FLAT_FRAC: "0.0"
+      KRABBY_FLAT_TERRAIN_GEOM: "field"
+      KRABBY_FLAT_TERRAIN_DIFF: "0.20:0.70"
+      KRABBY_FIELD_PAD_R: "1.7"
+      KRABBY_FIELD_BLOCKS: "14:28"
+      KRABBY_FIELD_KINDS: "0.4:0.4:0.2"
+      KRABBY_FIELD_EDGES: "ramp"
+    notes: >-
+      Turning on obstacles: walk out 10 s at 0.25 m/s (2.5 m, past the 1.7 m pad), stand 8 s, then turn_l90 and
+      turn_r90 (back to face 0) 12 s each; 42 s of holds + the 1.5 s prologue inside the 48 s episode.
+
+  - id: field_suite__omni
+    kind: category_suite
+    role: teacher
+    task: Isaac-Crab-Hex-Omni-Walk-Play-v0
+    terrain_label: field_hard
+    checkpoint: SUPPLIED-PER-RUN--pass---checkpoint
+    episodes: 100
+    waves: 10
+    env_seed: 1
+    episode_length_s: 18.0
+    spawn_yaw: first_face
+    settle: {hold_s: 2.0, label: settle}
+    hold_s: 12.0
+    categories:
+      - name: stand
+        kind: stand
+        holds:
+          - {label: stand, speed: 0.00, dir: 0.0000000, face: 0.0000000}
+      - name: fwd
+        kind: translate
+        holds:
+          - {label: fwd, speed: 0.25, dir: 0.0000000, face: 0.0000000}
+      - name: side
+        kind: translate
+        holds:
+          - {label: lat_l, speed: 0.22, dir: 1.5707963, face: 0.0000000, hand: l}
+          - {label: lat_r, speed: 0.22, dir: -1.5707963, face: 0.0000000, hand: r}
+      - name: back
+        kind: translate
+        holds:
+          - {label: back, speed: 0.22, dir: 3.1415927, face: 0.0000000}
+      - name: diag
+        kind: translate
+        holds:
+          - {label: diag, speed: 0.25, dir: 0.7853982, face: 0.0000000}
+      - name: turn
+        kind: turn
+        holds:
+          - {label: turn_l90, speed: 0.00, dir: 0.0000000, face: 1.5707963, hand: l}
+          - {label: turn_r90, speed: 0.00, dir: 0.0000000, face: -1.5707963, hand: r}
+      - name: move_turn
+        kind: move_turn
+        holds:
+          - {label: move_turn, speed: 0.22, dir: 0.0000000, face: 1.5707963, hand: l}
+          - {label: move_turn_r, speed: 0.22, dir: 0.0000000, face: -1.5707963, hand: r}
+    env:
+      KRABBY_FLAT_TERRAIN_MODE: "light"
+      KRABBY_FLAT_TERRAIN_FLAT_FRAC: "0.0"
+      KRABBY_FLAT_TERRAIN_GEOM: "field"
+      KRABBY_FLAT_TERRAIN_DIFF: "0.20:0.70"
+      KRABBY_FIELD_PAD_R: "1.7"
+      KRABBY_FIELD_BLOCKS: "14:28"
+      KRABBY_FIELD_KINDS: "0.4:0.4:0.2"
+      KRABBY_FIELD_EDGES: "ramp"
+    notes: >-
+      suite__omni's categories and holds VERBATIM on the phase-2 field at the training difficulty (0.20-0.70). Its
+      move_turn / move_turn_r survival_by_hold is the field rows' move_turn-hold survival of the CHARTER 7 obstacle
+      rank-sum.

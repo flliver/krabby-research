@@ -39,6 +39,20 @@ Frames, stated once because mixing them up is silent:
 * ``spawn_xy_w`` is where the robot ACTUALLY started (tile centre plus the reset event's
   radial jitter). ``dis_to_start_pos`` -- the promotion-era telemetry -- is measured from
   it, exactly as the corridor measures from its platform start.
+
+FIELD MODE (omni phase-2 plan step 2, 2026-10-06): when the installed generator carries
+``OmniFieldTerrainCfg`` sub-terrains (``KRABBY_FLAT_TERRAIN_GEOM=field``) the term switches its
+"foot over a block" lookup to the generator's exact occupancy channel indexed across tile seams,
+and adds the field-only keys of ``omni_exposure.OMNI_FIELD_KEYS``. Detected from the generator's
+classes -- no new cfg field -- so a ring run's config dump and metric list are unchanged. See
+``omni_exposure``'s FIELD MODE section for what the shared keys mean there.
+
+OBSTACLE-TILE CURRICULUM TELEMETRY (omni phase-2 CHARTER 8 / 5, 2026-10-06), ring AND field: the
+``reset`` override adds ``terrain_levels_obst`` / ``promote_count`` / ``demote_count`` to each reset
+call's log, and the ledger reports ``track_ratio_obst_p50`` (the median promotion ratio of its window's
+obstacle-tile episodes). Telemetry only -- no cfg field, so no config dump changes; both geometries
+gain the same four ``Metrics/base_parkour/*`` keys. Definitions: ``omni_exposure``'s
+OBSTACLE-TILE CURRICULUM TELEMETRY section.
 """
 from __future__ import annotations
 
@@ -55,17 +69,22 @@ from parkour_isaaclab.envs.mdp.parkours.parkour_events_cfg import ParkourEventsC
 
 from .crab_hex_omni_command_math import SLOT_MOVE, wrap_to_pi
 from .omni_exposure import (
-    OMNI_SPAWN_SPLIT_KEYS,
     SPAWN_PLATFORM,
     OmniExposureLedger,
     block_mask_from_height_field,
     episode_exposure_omni,
+    feet_block_flags_tiled,
+    global_block_mask,
     global_pixel_index,
+    obstacle_level_mean,
+    obstacle_promotion_counts,
     promotion_mask,
     sector_index,
+    terrain_window_extras,
     tile_pixel_index,
     tracking_ratio,
 )
+from .omni_terrain_knobs import is_field_generator
 
 if TYPE_CHECKING:
     from parkour_isaaclab.envs import ParkourManagerBasedRLEnv
@@ -75,6 +94,16 @@ class OmniParkourEvent(ParkourEvent):
     """Ring-shaped parkour term: no goal advance, radial exposure, ratio promotion."""
 
     cfg: OmniParkourEventsCfg
+
+    #: Field mode (omni phase-2 plan step 2): set in ``__init__`` from the generator's sub-terrain
+    #: classes. The class-level False is the ring, so every ring code path below reads exactly as
+    #: it did before the field existed.
+    field_mode: bool = False
+
+    #: Obstacle-tile promotions / demotions applied since the last ``reset`` log (CHARTER 8 telemetry);
+    #: class-level zeros so a bare test double starts clean, instance attributes once incremented.
+    _win_promote: int = 0
+    _win_demote: int = 0
 
     def __init__(self, cfg: OmniParkourEventsCfg, env: ParkourManagerBasedRLEnv):
         # NOTE: the base __init__ calls self._platform_start_xy(slice(None)) and
@@ -93,6 +122,12 @@ class OmniParkourEvent(ParkourEvent):
             )
         if self.n_sectors <= 0:
             raise ValueError(f"n_sectors must be positive, got {cfg.n_sectors}")
+        # Field mode (omni phase-2 step 2): by the generator's sub-terrain CLASSES, no cfg field.
+        from parkour_isaaclab.terrains.omni.omni_terrains_cfg import OmniFieldTerrainCfg
+
+        self.field_mode = is_field_generator(
+            getattr(self.terrain.cfg.terrain_generator, "sub_terrains", None), OmniFieldTerrainCfg
+        )
 
         n, dev = self.num_envs, self.device
         # -- per-episode accumulators (reset by _begin_episodes, consumed by _finalize_episodes)
@@ -107,6 +142,10 @@ class OmniParkourEvent(ParkourEvent):
         self.ep_track_dist_move = torch.zeros(n, device=dev)
         self.ep_cmd_dist_move = torch.zeros(n, device=dev)
         self.ep_head_err_sq = torch.zeros(n, device=dev)
+        # Field mode only (read only when ``self.field_mode``): steps with a foot off the own tile,
+        # and steps with a foot over a NEIGHBOURING tile's block.
+        self.ep_off_tile_steps = torch.zeros(n, device=dev)
+        self.ep_off_tile_block_steps = torch.zeros(n, device=dev)
         # The base sets this inside _update_command; ours never advances goals, so define it
         # once so any consumer that reads it sees a well-shaped all-false mask.
         self.reached_goal_ids = torch.zeros(n, dtype=torch.bool, device=dev)
@@ -114,15 +153,16 @@ class OmniParkourEvent(ParkourEvent):
 
         # -- ledger over SECTORS (the base sized it over corridor obstacle goals)
         _stale = set(OmniExposureLedger.emit_keys(self.n_obst)) - set(
-            OmniExposureLedger.emit_keys(self.n_sectors)
+            OmniExposureLedger.emit_keys(self.n_sectors, field_mode=self.field_mode)
         )
         self.n_obst = self.n_sectors
         self.exposure = OmniExposureLedger(
-            self.n_sectors, capacity=int(getattr(cfg, "exposure_window", 1024)), device="cpu"
+            self.n_sectors, capacity=int(getattr(cfg, "exposure_window", 1024)), device="cpu",
+            field_mode=self.field_mode,
         )
         for key in _stale:
             self.metrics.pop(key, None)
-        for key in OmniExposureLedger.emit_keys(self.n_sectors):
+        for key in OmniExposureLedger.emit_keys(self.n_sectors, field_mode=self.field_mode):
             if key not in self.metrics:
                 self.metrics[key] = torch.zeros(n, device="cpu")
 
@@ -149,6 +189,15 @@ class OmniParkourEvent(ParkourEvent):
         self._tile_px = (int(gen.height_fields.shape[2]), int(gen.height_fields.shape[3]))
         self._tile_size = (float(tgc.size[0]), float(tgc.size[1]))
         self._hscale = float(tgc.horizontal_scale)
+        self._grid_rc = (int(gen.height_fields.shape[0]), int(gen.height_fields.shape[1]))
+        if self.field_mode:
+            # The generator's EXACT occupancy (blocks and pits), not the median + tol rule: field
+            # pits sit BELOW the median and would never pass it. ``block_masks`` is None when no
+            # tile returned one (an all-flat field run) -> all False.
+            self._block_mask = global_block_mask(
+                getattr(gen, "block_masks", None), tuple(gen.height_fields.shape)
+            ).to(self.device)
+            return
         tol_px = float(self.cfg.block_height_tol_m) / float(tgc.vertical_scale)
         self._block_mask = block_mask_from_height_field(hf, self._tile_px, tol_px).to(self.device)
 
@@ -293,7 +342,13 @@ class OmniParkourEvent(ParkourEvent):
         # A sector counts only from OUTSIDE the disc: pivoting on the spawn sweeps every
         # bearing without covering any ground.
         self.ep_sector_seen[self._env_arange, sec] |= outside
-        self.ep_block_steps += self._feet_over_block().float()
+        if self.field_mode:
+            over, over_off, off = self._feet_field_flags()
+            self.ep_block_steps += over.float()
+            self.ep_off_tile_block_steps += over_off.float()
+            self.ep_off_tile_steps += off.float()
+        else:
+            self.ep_block_steps += self._feet_over_block().float()
 
         cmd_xy = cmd.vel_command_b[:, :2]
         cmd_norm = torch.norm(cmd_xy, dim=1)
@@ -331,6 +386,19 @@ class OmniParkourEvent(ParkourEvent):
         )
         return self._block_mask[gx, gy].any(dim=1)
 
+    def _feet_field_flags(self) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Field mode: ``(over_block, over_block_off_tile, off_tile)``, ``(N,)`` bool each, with
+        feet on neighbouring tiles looked up on THOSE tiles (``omni_exposure.feet_block_flags_tiled``)."""
+        if not self._foot_ids:
+            z = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
+            return z, z, z
+        feet = self.robot.data.body_pos_w[:, self._foot_ids, :2]  # (N, F, 2)
+        return feet_block_flags_tiled(
+            feet[..., 0], feet[..., 1], self.env_origins[:, :2],
+            self.terrain.terrain_levels, self.terrain.terrain_types, self._block_mask,
+            self._tile_size, self._hscale, self._tile_px, self._grid_rc,
+        )
+
     # ------------------------------------------------------------------ episode borders
 
     def _begin_episodes(self, env_ids) -> None:
@@ -344,6 +412,9 @@ class OmniParkourEvent(ParkourEvent):
         self.ep_track_dist_move[env_ids] = 0.0
         self.ep_cmd_dist_move[env_ids] = 0.0
         self.ep_head_err_sq[env_ids] = 0.0
+        if self.field_mode:
+            self.ep_off_tile_steps[env_ids] = 0.0
+            self.ep_off_tile_block_steps[env_ids] = 0.0
 
     def _finalize_episodes(self, env_ids) -> None:
         """Push the finished episodes' exposure records into the omni ledger."""
@@ -352,6 +423,14 @@ class OmniParkourEvent(ParkourEvent):
         if ids.numel() == 0:
             return
         steps = self.ep_steps[ids]
+        field_kw = {}
+        # The LEDGER is the authority on which keys exist (it was built with field_mode in
+        # __init__); a ring ledger has no field rings, so nothing field-only is computed for it.
+        if self.exposure.field_mode:
+            field_kw = {
+                "off_tile_frac": (self.ep_off_tile_steps[ids] / steps.clamp(min=1)).cpu(),
+                "off_tile_block_steps": self.ep_off_tile_block_steps[ids].cpu(),
+            }
         per_ep = episode_exposure_omni(
             self.ep_r_max[ids], self.ep_sector_seen[ids], self.ep_block_steps[ids],
             self.ep_field_steps[ids], steps, self.clear_radius,
@@ -373,12 +452,14 @@ class OmniParkourEvent(ParkourEvent):
             heading_err_rms=torch.sqrt(self.ep_head_err_sq[ids] / steps.clamp(min=1)).cpu(),
             block_steps=self.ep_block_steps[ids].cpu(),
             r_max=self.ep_r_max[ids].cpu(),
+            **field_kw,
         )
         self._exposure_means = self.exposure.means()
-        # The spawn-kind split keys (OMNI_SPAWN_SPLIT_KEYS) appear in the means only once their
-        # group is non-empty; the metric is created THEN, seeded with its value, so an empty group
-        # is never logged (rather than logged as 0.0 like the emit_keys rings).
-        for key in OMNI_SPAWN_SPLIT_KEYS:
+        # The lazy keys (omni_exposure.OMNI_LAZY_KEYS: the spawn-kind split and the obstacle-tile
+        # median ratio) appear in the means only once their group is non-empty; the metric is
+        # created THEN, seeded with its value, so an empty group is never logged (rather than
+        # logged as 0.0 like the emit_keys rings).
+        for key in self.exposure.lazy_keys:
             if key in self._exposure_means and key not in self.metrics:
                 self.metrics[key] = torch.full((self.num_envs,), float(self._exposure_means[key]), device="cpu")
 
@@ -407,6 +488,11 @@ class OmniParkourEvent(ParkourEvent):
         )
 
         if not self.cfg.freeze_terrain_levels:
+            # CHARTER 8 telemetry: the APPLIED decisions on episodes that ended on an obstacle tile
+            # (``is_obst_tile`` still describes the old tile here; it is refreshed below).
+            n_up, n_down = obstacle_promotion_counts(move_up, move_down, self.is_obst_tile[env_ids])
+            self._win_promote += n_up
+            self._win_demote += n_down
             self.terrain.terrain_levels[env_ids] += 1 * move_up - 1 * move_down
             # Robots that solve the last level are sent to a random one
             self.terrain.terrain_levels[env_ids] = torch.where(
@@ -443,6 +529,23 @@ class OmniParkourEvent(ParkourEvent):
             self.env_per_heights = self.total_heights[
                 self.terrain.terrain_levels, self.terrain.terrain_types
             ]
+
+    def reset(self, env_ids: Sequence[int] | None = None) -> dict[str, float]:
+        """The base reset log plus the obstacle-tile curriculum keys of THIS reset call.
+
+        ``ParkourTerm.reset`` logs ``self.metrics`` and only then resamples, so a count written into
+        ``self.metrics`` during the resample would surface one reset call late. Here the obstacle
+        level is read BEFORE the base call (tiles not yet moved: the instant the all-tile
+        ``terrain_levels`` metric describes) and the promotion counts AFTER it (the resample has
+        just applied them), and both go into the same returned dict the command manager prefixes
+        with ``Metrics/<term>/`` -- the path every other key of this term takes.
+        """
+        level_obst = obstacle_level_mean(self.terrain.terrain_levels, self.is_obst_tile)
+        extras = super().reset(env_ids)
+        extras.update(terrain_window_extras(level_obst, self._win_promote, self._win_demote))
+        self._win_promote = 0
+        self._win_demote = 0
+        return extras
 
     # ------------------------------------------------------------- debug visualisation
     #
@@ -548,11 +651,13 @@ class OmniParkourEventsCfg(ParkourEventsCfg):
     clear_radius_m: float = 2.0
     """Radius of the block-free disc the robot spawns in, metres. Must match the terrain's
     ``OmniRingTerrainCfg.clear_radius``; ``reach_edge`` and ``field_frac`` are defined
-    against it."""
+    against it. Under the field geometry the knob layer syncs it to the PAD radius
+    (``OmniFieldTerrainCfg.clear_radius``, 1.7 m), so ``reach_edge`` = "left the pad"."""
 
     ring_outer_radius_m: float = 4.5
     """Outer radius of the block annulus, metres (terrain ``ring_outer_radius``). Used for
-    validation and for reading ``r_max_mean``; the exposure rules only need the disc."""
+    validation and for reading ``r_max_mean``; the exposure rules only need the disc. Under the
+    field geometry it is synced to the field's square HALF-WIDTH (4.80 m)."""
 
     n_sectors: int = 8
     """Number of bearing sectors, centred on the ring's goal anchors. Sets the number of

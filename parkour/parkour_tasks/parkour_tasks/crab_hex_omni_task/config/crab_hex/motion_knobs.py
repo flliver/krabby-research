@@ -29,6 +29,12 @@ variable                        what it writes when armed
                                 of every foot loaded above 50 N, phase-independent
 ``KRABBY_STAND_POSE_W``         ADDS ``rewards.penalty_stand_pose`` -- STAND-slot-gated L1
                                 deviation of the rod joints from the default pose
+``KRABBY_POWER_JOINTS=actuated``  ``rewards.penalty_mechanical_power.params["asset_cfg"]`` ->
+                                the 18 actuated joints only (cam shafts + rods; drops the six
+                                passive Body_Hip emulator joints). Needs ``KRABBY_POWER_W`` != 0
+**incomes (env cfg rewards; weights are the RewTerm weight, >= 0)**
+``KRABBY_STAND_STANCE_W``       ADDS ``rewards.reward_stand_stance_quality`` -- the F1 stand
+                                term: the stopped-clock stance-quality income, STAND slot only
 **action path**
 ``KRABBY_ACTION_LPF_HZ``        ``actions.joint_pos.lpf_hz`` -- first-order low-pass corner
                                 (Hz) on the rod-length command, before the rod slew limiter
@@ -82,6 +88,13 @@ knobs arrives. ``KRABBY_STD_PARAM`` and ``KRABBY_INIT_STD`` are the only runner-
 CARRIES (``run_phases.EVAL_CARRY``): ``soft`` changes the policy's PARAMETER STRUCTURE
 (``std_raw`` instead of ``std``), so an eval must rebuild the same policy to load the checkpoint.
 
+The omni phase-2 plan step 3 (2026-10-06) added the last two env-side knobs above:
+``KRABBY_STAND_STANCE_W`` (F1, an INCOME -- weight >= 0, refused negative) and
+``KRABBY_POWER_JOINTS`` (E1, a joint subset for the reused ``KRABBY_POWER_W`` term -- it rewrites
+that term's ``asset_cfg`` and is refused when the term's weight is 0, since it would then price
+nothing). Both print a ``[KNOB] <NAME>=<value> consumed`` line when armed, like the runner knobs;
+the older env-side penalty knobs (``KRABBY_ACTION_SMOOTH2_W`` and siblings) do not.
+
 Three knobs the plan names ALREADY EXIST in the forward rewards cfg's ``_overrides`` table and
 are reused, not duplicated (they reach the omni flat-walk / teacher rewards because
 ``CrabHexOmniFlatWalkRewardsCfg`` inherits that ``__post_init__``): ``KRABBY_POWER_W``
@@ -118,6 +131,11 @@ RELAY_HYST_VAR = "KRABBY_OMNI_RELAY_HYST"
 STAND_HOLD_VAR = "KRABBY_OMNI_STAND_HOLD"
 STAND_PARK_VAR = "KRABBY_OMNI_STAND_PARK"
 STAND_OBS_VAR = "KRABBY_OMNI_STAND_OBS"
+# -- omni phase-2 plan step 3 (2026-10-06; both DEFAULT OFF, set by no preset)
+#: F1: the STAND-slot stance-quality income (``rewards.reward_stand_stance_quality``).
+STAND_STANCE_W_VAR = "KRABBY_STAND_STANCE_W"
+#: E1: restrict the reused ``penalty_mechanical_power`` (``KRABBY_POWER_W``) to a joint subset.
+POWER_JOINTS_VAR = "KRABBY_POWER_JOINTS"
 #: The three EXISTING forward weight knobs the plan reuses (applied by the forward
 #: ``CrabHexFlatWalkRewardsCfg.__post_init__`` ``_overrides`` table) -> the term they dose.
 POWER_W_VAR = "KRABBY_POWER_W"
@@ -198,6 +216,20 @@ SMOOTH2_TERM = "penalty_action_smooth2"
 JOINT_VEL_TERM = "penalty_joint_vel"
 FOOT_SLIP_TERM = "penalty_foot_slip"
 STAND_POSE_TERM = "penalty_stand_pose"
+#: ... and the INCOME term ``KRABBY_STAND_STANCE_W`` adds (phase-2 plan step 3, F1).
+STAND_STANCE_TERM = "reward_stand_stance_quality"
+#: The EXISTING forward term ``KRABBY_POWER_JOINTS`` re-scopes (``KRABBY_POWER_W`` doses it).
+POWER_TERM = "penalty_mechanical_power"
+#: ``KRABBY_POWER_JOINTS`` spellings: the subsets it can select (``"all"`` / blank = OFF, the stock
+#: every-joint sum). ``actuated`` = the 18 joints of the forward cfg's
+#: ``_CRAB_ACTUATED_JOINT_NAMES`` (6 ``*_Body_CamShaft_`` + 6 ``*_Hip_Femur_`` + 6
+#: ``*_Femur_Tibia_RevoluteJoint``); the 6 ``*_Body_Hip_RevoluteJoint`` are the passive joints the
+#: cam linkage emulator drives (``crab_hex_cam_mapping``), 24-31 % of the all-joint power.
+POWER_JOINT_SETS = ("actuated",)
+POWER_JOINTS_OFF_SPELLINGS = ("all",)
+#: Where the stand term's function lives (the Isaac-side rewards module, next to the clock term
+#: whose stopped branch it copies).
+_LIB_REWARDS_MOD = "parkour_isaaclab.envs.mdp.rewards"
 
 _REWARDS_MOD = "parkour_tasks.crab_hex_omni_task.mdp.crab_hex_omni_motion_rewards"
 
@@ -219,6 +251,9 @@ __all__ = [
     "parse_ppo_schedule", "parse_positive", "parse_num_envs",
     # RSI cam staging (2026-10-01)
     "RSI_CAM_STAGE_VAR", "RSI_CAM_STAGE_DEBUG_VAR", "RSI_CAM_STAGE_PARAMS", "rsi_cam_stage_params",
+    # omni phase-2 plan step 3 (2026-10-06)
+    "STAND_STANCE_W_VAR", "POWER_JOINTS_VAR", "STAND_STANCE_TERM", "POWER_TERM", "POWER_JOINT_SETS",
+    "POWER_JOINTS_OFF_SPELLINGS", "parse_income_w", "parse_power_joints",
 ]
 
 
@@ -291,6 +326,33 @@ def parse_penalty_w(text, var: str = "penalty weight") -> float:
     if value > 0.0:
         raise ValueError(f"{var} is a penalty weight and must be <= 0, got {text!r}")
     return value
+
+
+def parse_income_w(text, var: str = "income weight") -> float:
+    """An INCOME weight: the RewTerm weight, so it must be >= 0 (blank -> 0 = OFF, no term added).
+
+    The mirror of :func:`parse_penalty_w`: a negative value would PENALISE the stillness the term
+    exists to pay for; refused rather than sign-flipped.
+    """
+    if _blank(text):
+        return 0.0
+    value = _float(var, text)
+    if value < 0.0:
+        raise ValueError(f"{var} is an income weight and must be >= 0, got {text!r}")
+    return value
+
+
+def parse_power_joints(text) -> str | None:
+    """``KRABBY_POWER_JOINTS`` -> ``"actuated"``, or None for OFF (blank / ``all`` = every joint)."""
+    if _blank(text):
+        return None
+    token = str(text).strip().lower()
+    if token in POWER_JOINTS_OFF_SPELLINGS:
+        return None
+    if token in POWER_JOINT_SETS:
+        return token
+    raise ValueError(f"{POWER_JOINTS_VAR} must be one of {POWER_JOINT_SETS} or off "
+                     f"({POWER_JOINTS_OFF_SPELLINGS} / blank), got {text!r}")
 
 
 def parse_lpf_hz(text) -> float | None:
@@ -463,6 +525,9 @@ MOTION_KNOB_PARSERS = {
     # RSI cam staging (2026-10-01)
     RSI_CAM_STAGE_VAR: lambda t: parse_flag(t, RSI_CAM_STAGE_VAR),
     RSI_CAM_STAGE_DEBUG_VAR: lambda t: parse_flag(t, RSI_CAM_STAGE_DEBUG_VAR),
+    # omni phase-2 plan step 3 (2026-10-06)
+    STAND_STANCE_W_VAR: lambda t: parse_income_w(t, STAND_STANCE_W_VAR),
+    POWER_JOINTS_VAR: parse_power_joints,
 }
 
 
@@ -508,7 +573,8 @@ def _rewards(cfg, var: str):
 
 
 def _default_term_builders():
-    """``{name: (func, params)}`` for the four ADDED penalty terms (lazy Isaac imports)."""
+    """``{name: (func, params)}`` for the ADDED terms -- the four penalties and (phase-2 plan step 3)
+    the F1 stand income -- with lazy Isaac imports."""
     import importlib  # noqa: PLC0415
 
     from isaaclab.managers import SceneEntityCfg  # noqa: PLC0415
@@ -519,6 +585,7 @@ def _default_term_builders():
     )
 
     rew = importlib.import_module(_REWARDS_MOD)
+    lib_rew = importlib.import_module(_LIB_REWARDS_MOD)
     rods = SceneEntityCfg("robot", joint_names=_CRAB_POSITION_ACTUATED_JOINT_NAMES, preserve_order=True)
     return {
         SMOOTH2_TERM: (rew.penalty_action_second_diff, {"action_name": "joint_pos"}),
@@ -534,15 +601,40 @@ def _default_term_builders():
                                         preserve_order=True),
             "command_name": "base_velocity",
         }),
+        # F1 (phase-2 plan step 3, 2026-10-06): the clock term's stopped-branch inputs (footpad
+        # contact force from the same sensor, planar footpad speed), its vel_ref and upright gate.
+        STAND_STANCE_TERM: (lib_rew.reward_stand_stance_quality, {
+            "asset_cfg": SceneEntityCfg("robot", body_names=_CRAB_FOOT_BODY_NAMES, preserve_order=True),
+            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=_CRAB_FOOT_BODY_NAMES,
+                                         preserve_order=True),
+            "command_name": "base_velocity",
+            "vel_ref": lib_rew.CLOCK_VEL_REF_M_S,
+            "min_upright_gz": 0.9,
+        }),
     }
 
 
-def apply_motion_knobs(cfg, environ=None, *, term_cls=None, builders=None) -> None:
+def _default_power_joint_cfgs():
+    """``{subset: asset_cfg}`` for ``KRABBY_POWER_JOINTS`` (lazy Isaac imports).
+
+    ``actuated`` names the forward cfg's ``_CRAB_ACTUATED_JOINT_NAMES`` regexes (cam shafts +
+    Hip_Femur + Femur_Tibia: 18 of the 24 joints); the order is irrelevant to a sum.
+    """
+    from isaaclab.managers import SceneEntityCfg  # noqa: PLC0415
+
+    from parkour_tasks.crab_hex_forward_task.config.crab_hex.agents.parkour_mdp_cfg import (  # noqa: PLC0415
+        _CRAB_ACTUATED_JOINT_NAMES,
+    )
+
+    return {"actuated": SceneEntityCfg("robot", joint_names=list(_CRAB_ACTUATED_JOINT_NAMES))}
+
+
+def apply_motion_knobs(cfg, environ=None, *, term_cls=None, builders=None, power_joint_cfgs=None) -> None:
     """Apply every ENV-side motion knob to a built omni env cfg (no-op for each one that is off).
 
     Called by ``omni_knobs.apply_omni_knobs`` after everything else, so a term it adds sees the
-    final cfg. ``term_cls`` / ``builders`` let a unit test pass stand-ins for ``RewTerm`` and the
-    reward functions (the real ones need Isaac).
+    final cfg. ``term_cls`` / ``builders`` / ``power_joint_cfgs`` let a unit test pass stand-ins for
+    ``RewTerm``, the reward functions and the ``SceneEntityCfg`` subsets (the real ones need Isaac).
     """
     env = os.environ if environ is None else environ
     get = env.get
@@ -556,6 +648,10 @@ def apply_motion_knobs(cfg, environ=None, *, term_cls=None, builders=None) -> No
     added = [(var, name, parse_penalty_w(get(var), var)) for var, name in (
         (ACTION_SMOOTH2_W_VAR, SMOOTH2_TERM), (JOINT_VEL_W_VAR, JOINT_VEL_TERM),
         (FOOT_SLIP_W_VAR, FOOT_SLIP_TERM), (STAND_POSE_W_VAR, STAND_POSE_TERM))]
+    # F1 (phase-2 plan step 3, 2026-10-06): an INCOME, so its own sign rule; appended last so a
+    # knob-on dump only grows by this one term at the end of the rewards block.
+    added.append((STAND_STANCE_W_VAR, STAND_STANCE_TERM, parse_income_w(get(STAND_STANCE_W_VAR),
+                                                                        STAND_STANCE_W_VAR)))
     added = [a for a in added if a[2] != 0.0]
     if added:
         if term_cls is None:
@@ -567,6 +663,27 @@ def apply_motion_knobs(cfg, environ=None, *, term_cls=None, builders=None) -> No
                 raise RuntimeError(f"{var}: the rewards cfg already carries a {name!r} term")
             func, params = table[name]
             setattr(rewards, name, term_cls(func=func, weight=weight, params=dict(params)))
+            # Only F1 prints the wiring line: the four penalty knobs above predate it (2026-09-22)
+            # and keep their old, silent stdout -- a log grep must not expect ``[KNOB] ...
+            # consumed`` for KRABBY_ACTION_SMOOTH2_W / JOINT_VEL_W / FOOT_SLIP_W / STAND_POSE_W
+            # (review 2026-10-06); their wiring is proven by the env.yaml dump instead.
+            if name == STAND_STANCE_TERM:
+                _consumed(var, get(var))
+
+    # E1 (phase-2 plan step 3, 2026-10-06): re-scope the REUSED power term (its weight is
+    # KRABBY_POWER_W's, applied by the forward rewards cfg's __post_init__ before this runs).
+    power_joints = parse_power_joints(get(POWER_JOINTS_VAR))
+    if power_joints is not None:
+        term = getattr(_rewards(cfg, POWER_JOINTS_VAR), POWER_TERM, None)
+        if term is None or not isinstance(getattr(term, "params", None), dict):
+            raise RuntimeError(f"{POWER_JOINTS_VAR}={power_joints} but the rewards cfg has no {POWER_TERM} term")
+        if not term.weight:
+            raise RuntimeError(f"{POWER_JOINTS_VAR}={power_joints} re-scopes {POWER_TERM}, whose weight is "
+                               f"{term.weight!r}: set {POWER_W_VAR} (a recipe must not name a subset it "
+                               "does not price)")
+        subsets = power_joint_cfgs if power_joint_cfgs is not None else _default_power_joint_cfgs()
+        term.params["asset_cfg"] = subsets[power_joints]
+        _consumed(POWER_JOINTS_VAR, get(POWER_JOINTS_VAR))
 
     # -- action path
     hz = parse_lpf_hz(get(ACTION_LPF_HZ_VAR))

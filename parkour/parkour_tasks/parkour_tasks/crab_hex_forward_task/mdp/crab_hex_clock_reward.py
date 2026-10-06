@@ -153,6 +153,47 @@ def clock_schedule_income(
     return torch.where(clock_running, product, stance_quality)
 
 
+def stand_stance_income(
+    foot_force_n: torch.Tensor,
+    foot_speed_xy: torch.Tensor,
+    *,
+    vel_ref: float = VEL_REF_M_S,
+) -> torch.Tensor:
+    """The STOPPED-clock branch of :func:`clock_schedule_income` on its own, ``[N]`` in [0, 1].
+
+    Omni phase-2 plan step 3 (2026-10-06), the F1 stand term (``KRABBY_STAND_STANCE_W``; omni
+    task only, default OFF; nothing on the forward / sideways path calls this). With the clock
+    stopped every swing window is zero, so both combine modes pay pure stance quality: the mean
+    over feet of ``loaded_i * exp(-(|v_i| / vel_ref)^2)`` -- a foot earns its share only when it
+    carries real load (``TOUCH_REF_N``) AND stays planted. Six still, loaded feet earn ~1; a
+    marching stand (a foot always in the air, the others re-planting) earns visibly less.
+
+    It is computed BY CALLING :func:`clock_schedule_income` with ``clock_running`` all False (the
+    phase is then irrelevant and set to 0), not re-derived, so it is the very arithmetic the
+    clock term pays a stopped clock -- with ``combine="product"`` (``sum(i_stance * ok) / 6`` with
+    ``i_stance == 1.0`` exactly); the ``"sum"`` mode's ``mean`` agrees to float rounding (unit test).
+
+    Why a separate term is needed at all: the clock term only pays this branch where its clock
+    is STOPPED, which is keyed on the commanded speed (``clock_command_speed <= cmd_stop``) --
+    so it also pays slow MOVE commands -- and since the c6x clock deprecation the whole clock
+    term carries weight 0.001, i.e. no stand income survives. The caller
+    (``parkour_isaaclab.envs.mdp.rewards.reward_stand_stance_quality``) gates this on the omni
+    command term's STAND SLOT instead, at its own weight.
+
+    Args:
+        foot_force_n: ``[N, 6]`` contact force magnitude per foot (any foot order: the stance
+            branch is a symmetric mean).
+        foot_speed_xy: ``[N, 6]`` planar foot speed (m/s), same order.
+        vel_ref: the planted-foot speed scale (the clock term's ``vel_ref`` param).
+    """
+    n = foot_force_n.shape[0]
+    stopped = torch.zeros(n, dtype=torch.bool, device=foot_force_n.device)
+    phase = torch.zeros(n, dtype=foot_force_n.dtype, device=foot_force_n.device)
+    return clock_schedule_income(
+        phase, foot_force_n, foot_speed_xy, stopped, vel_ref=vel_ref, combine="product"
+    )
+
+
 # Mid-swing apex window: pay only near the swing's center (sin(phi_i) above this), where
 # the commanded apex should be reached.
 APEX_MID_THRESH = 0.7

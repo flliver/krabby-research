@@ -1800,6 +1800,28 @@ def _clock():
     return knobs()._ck
 
 
+def parse_phaseout_knob(text):
+    """The driver's round trip for ``KRABBY_PHASEOUT``: ``None`` for the BLANK value, else the spec.
+
+    NOTE(omni phase-2 plan step 4, 2026-10-06): an overlay may set ``KRABBY_PHASEOUT: ""`` to blank
+    a preset's ramps -- the phase-2 arms run on the 2a preset, whose PHASEOUT re-arms THREE ramps
+    (apex 1.0 -> 0.5, airtime 0.8 -> 0.4, stride 0.5 -> 0.25) that the side-first B recipe never
+    trained with. ``activate_phase`` is ``setdefault``, so the overlay's empty string wins, and the
+    forward knob block reads it with ``if _phaseout:`` (``crab_hex_env_cfg.py``): the empty string
+    leaves ``cfg.curriculum = None``. Only the EXACT empty string is blank: whitespace is truthy
+    there, reaches ``parse_phaseout_spec`` and kills the build ("parsed to no entries"), so it is
+    refused here by name instead of at Kit start. Anything else parses exactly as before.
+    """
+    raw = str(text)
+    if raw == "":
+        return None
+    if not raw.strip():
+        raise ValueError(f"KRABBY_PHASEOUT={raw!r} is whitespace: the env cfg treats it as SET and its "
+                         "parser refuses it at config build -- use the empty string to blank the "
+                         "preset's ramps")
+    return curriculums().parse_phaseout_spec(raw)
+
+
 def _phaseout_ok(txt: str, value) -> bool:
     """``KRABBY_PHASEOUT``: the dump's ``curriculum`` section holds EXACTLY the ``phaseout_<term>``
     blocks the spec names -- no missing and no extra one -- each with that entry's
@@ -1807,8 +1829,18 @@ def _phaseout_ok(txt: str, value) -> bool:
 
     Exact, not "contains": a stray ``phaseout_*`` block (a preset's ramp the overlay was meant to
     replace) anneals a term the recipe does not claim to, and the dump is the only place it shows.
+
+    BLANK (``""``, :func:`parse_phaseout_knob`; omni phase-2 plan step 4, 2026-10-06): the
+    top-level ``curriculum: null`` -- the curriculum manager was never built -- AND no
+    ``phaseout_<term>`` block anywhere in the dump. Pinned, not "no check": a blank that failed
+    to reach the cfg leaves the 2a preset's three ramps in place, which is exactly the recipe the
+    blank exists to remove.
     """
-    want = {e["term_name"]: e for e in curriculums().parse_phaseout_spec(str(value))}
+    spec = parse_phaseout_knob(value)
+    if spec is None:
+        return (_grep_scalar(txt, "curriculum", indent="") == "null"
+                and re.search(r"^\s*phaseout_\w+:\s*$", txt, re.M) is None)
+    want = {e["term_name"]: e for e in spec}
     section = _yaml_block(txt, "curriculum", indent=0)
     got = re.findall(r"^  (phaseout_\w+):\s*$", section, re.M)
     if sorted(got) != sorted(f"phaseout_{term}" for term in want):
@@ -1954,6 +1986,304 @@ def _check_stroke_cat_w_composition(env: dict, where: str, reasons: list) -> Non
                        "there is no RewardFootStroke term to scale")
 
 
+# ---- the omni phase-2 knobs (omni phase-2 plan step 4, 2026-10-06). The field geometry
+# (``KRABBY_FLAT_TERRAIN_GEOM=field`` + ``KRABBY_FIELD_*``, mdp/omni_terrain_knobs.py), the promotion
+# pair, the reused stride weight and the F1 / E1 terms (motion_knobs.py). Every check below PINS the
+# dumped value: a field knob is read off EVERY field sub-terrain (at least one must exist, so a ring
+# dump never passes a field check), the geometry off the sub-terrains' dumped ``function``, and the
+# off spellings as the ABSENCE / default the applier leaves.
+def _terrain():
+    """``mdp/omni_terrain_knobs`` (the geometry / field parsers), reached through ``omni_knobs``."""
+    return knobs()._tk
+
+
+#: The geometry selector and the promotion pair -- forward-cfg knobs (``apply_flat_walk_knobs`` /
+#: ``crab_hex_env_cfg.py``) the omni presets set in every window (``OMNI_COMMON``).
+TERRAIN_GEOM_VAR = "KRABBY_FLAT_TERRAIN_GEOM"
+TERRAIN_PROMOTE_VAR = "KRABBY_TERRAIN_PROMOTE"
+#: The dumped ``function`` leaf of each omni sub-terrain kind (``parkour_isaaclab/terrains/omni``).
+OMNI_SUB_TERRAIN_KINDS = {"omni_flat_terrain": "flat", "omni_ring_terrain": "ring",
+                          "omni_field_terrain": "field"}
+#: The two generators' obstacle sub-terrain KEYS, in generator order (``config/omni_ring.py`` /
+#: ``config/omni_field.py``; ``tests/unit/test_omni_phase2_tooling.py`` pins them to those files).
+RING_SUB_TERRAIN_KEYS = ("omni_ring_sparse", "omni_ring_dense")
+FIELD_SUB_TERRAIN_KEYS = ("omni_field_sparse", "omni_field_dense")
+#: ``OmniFieldTerrainCfg``'s three size RANGES (``omni_terrains_cfg.py``; pinned by the same test):
+#: what ``KRABBY_FIELD_SIZE_SCALE`` multiplies.
+FIELD_SIZE_RANGES = {"bar_length_range": (1.0, 2.0), "bar_thickness_range": (0.16, 0.32),
+                     "slab_side_range": (0.6, 1.2)}
+#: The forward cfg module that defines ``_CRAB_ACTUATED_JOINT_NAMES`` (``KRABBY_POWER_JOINTS=actuated``).
+_PARKOUR_MDP_CFG = rp.FWD_PKG / "config/crab_hex/agents/parkour_mdp_cfg.py"
+
+
+def parse_terrain_geom(text) -> str:
+    """``KRABBY_FLAT_TERRAIN_GEOM`` -> ``ring`` / ``field`` (read as ``strip().lower()``, like the
+    knob block); anything else is refused -- ``require_omni_geom`` raises on it at config build."""
+    value = str(text).strip().lower()
+    if value not in _terrain().OMNI_GEOMS:
+        raise ValueError(f"{TERRAIN_GEOM_VAR} must be one of {_terrain().OMNI_GEOMS}, got {text!r}")
+    return value
+
+
+def parse_terrain_promote(text) -> tuple[float, float]:
+    """``KRABBY_TERRAIN_PROMOTE`` -> ``(move_up_frac, move_down_frac)``.
+
+    The cfg does ``up, down = (float(x) for x in text.split(":"))`` (``crab_hex_env_cfg.py``), so
+    exactly two numbers or the build dies; on top of that both must be finite and non-negative and
+    ``down < up`` -- an inverted pair would demote an env on the very ratio that promotes it.
+    """
+    parts = str(text).strip().split(":")
+    if len(parts) != 2:
+        raise ValueError(f'{TERRAIN_PROMOTE_VAR} must be "up:down", got {text!r}')
+    try:
+        up, down = (float(p) for p in parts)
+    except ValueError as exc:
+        raise ValueError(f"{TERRAIN_PROMOTE_VAR} entries must be numbers, got {text!r}") from exc
+    if not all(math.isfinite(v) and v >= 0.0 for v in (up, down)):
+        raise ValueError(f"{TERRAIN_PROMOTE_VAR} entries must be finite and >= 0, got {text!r}")
+    if not down < up:
+        raise ValueError(f"{TERRAIN_PROMOTE_VAR} needs down < up, got {text!r}")
+    return up, down
+
+
+_DUMP_LOADER = None
+_DUMP_CACHE: dict = {}
+
+
+def _dump_loader():
+    """A ``yaml.SafeLoader`` that reads the trainer's python tags as PLAIN data.
+
+    ``params/env.yaml`` is written by IsaacLab's ``dump_yaml`` (``yaml.dump`` on the cfg dict), so it
+    carries ``!!python/tuple`` / ``!!python/object/apply:builtins.slice`` tags and ANCHORS for shared
+    objects (``&id001`` ... ``*id001`` -- real omni teacher dumps have them). A regex reads an alias as
+    the literal ``*id001``; this loader resolves it and turns every python-tagged node into the plain
+    list / dict / string it holds, constructing nothing. Used by the terrain and joint-list checks
+    below, whose values are tuples and lists two sub-terrains may share.
+    """
+    global _DUMP_LOADER
+    if _DUMP_LOADER is None:
+        import yaml  # the harness's own dependency
+
+        class Loader(yaml.SafeLoader):
+            pass
+
+        def _plain(loader, _suffix, node):
+            if isinstance(node, yaml.SequenceNode):
+                return loader.construct_sequence(node, deep=True)
+            if isinstance(node, yaml.MappingNode):
+                return loader.construct_mapping(node, deep=True)
+            return loader.construct_scalar(node)
+
+        Loader.add_multi_constructor("tag:yaml.org,2002:python/", _plain)
+        _DUMP_LOADER = Loader
+    return _DUMP_LOADER
+
+
+def _dump_doc(txt: str) -> dict:
+    """``txt`` loaded with :func:`_dump_loader` (``{}`` when it is not a YAML mapping). Memoised on the
+    text: one window's audit runs a dozen checks on the same dump."""
+    key = hashlib.sha256(txt.encode()).hexdigest()
+    if key not in _DUMP_CACHE:
+        import yaml  # noqa: PLC0415
+        try:
+            doc = yaml.load(txt, Loader=_dump_loader())                 # noqa: S506 -- plain-data loader
+        except yaml.YAMLError:
+            doc = None
+        if len(_DUMP_CACHE) > 8:
+            _DUMP_CACHE.clear()
+        _DUMP_CACHE[key] = doc if isinstance(doc, dict) else {}
+    return _DUMP_CACHE[key]
+
+
+def _dig(doc, *keys):
+    for key in keys:
+        if not isinstance(doc, dict) or key not in doc:
+            return None
+        doc = doc[key]
+    return doc
+
+
+def _same(got, want) -> bool:
+    """``got`` (a dumped number) equals ``want`` within 1e-9; a bool / missing value never does."""
+    g = _num(got)
+    return g is not None and abs(g - float(want)) <= 1e-9
+
+
+def _sub_terrains(txt: str) -> dict[str, tuple[str | None, dict]]:
+    """``{key: (kind, cfg)}`` of ``scene.terrain.terrain_generator.sub_terrains``, in DUMP order.
+
+    ``kind`` is ``flat`` / ``ring`` / ``field`` from the sub-terrain's dumped ``function`` leaf
+    (:data:`OMNI_SUB_TERRAIN_KINDS`), ``None`` for any other function. Empty without a generator.
+    """
+    subs = _dig(_dump_doc(txt), "scene", "terrain", "terrain_generator", "sub_terrains")
+    out = {}
+    for key, cfg in (subs.items() if isinstance(subs, dict) else ()):
+        cfg = cfg if isinstance(cfg, dict) else {}
+        func = cfg.get("function")
+        leaf = str(func).strip().rsplit(":", 1)[-1].rsplit(".", 1)[-1] if func else None
+        out[str(key)] = (OMNI_SUB_TERRAIN_KINDS.get(leaf), cfg)
+    return out
+
+
+def dump_terrain_geom(txt: str) -> str | None:
+    """The omni geometry a dump's generator IS: ``ring`` (flat + ring sub-terrains, at least one
+    ring), ``field`` (flat + field, at least one field), else ``None`` (no generator, an unknown
+    sub-terrain function, or ring and field mixed -- neither guard would have built that)."""
+    kinds = [kind for kind, _c in _sub_terrains(txt).values()]
+    if not kinds or None in kinds:
+        return None
+    obstacle = set(kinds) - {"flat"}
+    return obstacle.pop() if len(obstacle) == 1 else None
+
+
+def _field_cfgs(txt: str) -> list[dict]:
+    """The FIELD sub-terrains' cfgs, in generator order (empty on a ring dump)."""
+    return [cfg for kind, cfg in _sub_terrains(txt).values() if kind == "field"]
+
+
+def _parkour_cfg(txt: str) -> dict:
+    """``parkours.base_parkour`` (``{}`` when absent)."""
+    got = _dig(_dump_doc(txt), "parkours", "base_parkour")
+    return got if isinstance(got, dict) else {}
+
+
+def _terrain_geom_ok(txt: str, value) -> bool:
+    """``KRABBY_FLAT_TERRAIN_GEOM``: :func:`dump_terrain_geom` is the knob's value, AND every omni
+    sub-terrain and the parkour term carry ONE pad radius and ONE outer radius (the sync both
+    knob branches perform -- the field's flat tiles share the field's 1.7 / 4.80 so the sector
+    anchors agree; ``reach_edge`` / ``field_frac`` are measured on the term's copy)."""
+    want = parse_terrain_geom(value)
+    if dump_terrain_geom(txt) != want:
+        return False
+    cfgs = [cfg for _kind, cfg in _sub_terrains(txt).values()]
+    parkour = _parkour_cfg(txt)
+    for term_attr, sub_attr in (("clear_radius_m", "clear_radius"), ("ring_outer_radius_m", "ring_outer_radius")):
+        vals = {_num(cfg.get(sub_attr)) for cfg in cfgs}
+        if None in vals or len(vals) != 1 or not _same(parkour.get(term_attr), vals.pop()):
+            return False
+    return True
+
+
+def _field_all(txt: str, ok) -> bool:
+    """``ok(cfg)`` on EVERY field sub-terrain; False when there is none (a ring dump never passes)."""
+    cfgs = _field_cfgs(txt)
+    return bool(cfgs) and all(ok(cfg) for cfg in cfgs)
+
+
+def _field_pad_r_ok(txt: str, value) -> bool:
+    """``KRABBY_FIELD_PAD_R``: ``clear_radius`` on EVERY sub-terrain (field AND flat -- the flat tiles
+    carry the pad so their sector anchors match) and the parkour term's ``clear_radius_m``, all equal
+    to the knob; the dump must be a field dump."""
+    pad = _terrain().parse_field_pad_r(value)
+    if dump_terrain_geom(txt) != "field":
+        return False
+    return (all(_same(cfg.get("clear_radius"), pad) for _kind, cfg in _sub_terrains(txt).values())
+            and _same(_parkour_cfg(txt).get("clear_radius_m"), pad))
+
+
+def _field_blocks_ok(txt: str, value) -> bool:
+    """``KRABBY_FIELD_BLOCKS`` ``sparse:dense``: EXACTLY two field sub-terrains, whose ``n_blocks``
+    are the pair in generator order (the applier's ``zip``), as integers."""
+    pair = _terrain().parse_field_blocks(value)
+    cfgs = _field_cfgs(txt)
+    return len(cfgs) == 2 and all(
+        isinstance(cfg.get("n_blocks"), int) and not isinstance(cfg.get("n_blocks"), bool)
+        and cfg["n_blocks"] == int(want) for cfg, want in zip(cfgs, pair))
+
+
+def _field_kinds_ok(txt: str, value) -> bool:
+    """``KRABBY_FIELD_KINDS`` ``bar:slab:pit``: ``bar_fraction`` and ``pit_fraction`` on every field
+    sub-terrain (slab is the remainder and has no field of its own)."""
+    bar, _slab, pit = _terrain().parse_field_kinds(value)
+    return _field_all(txt, lambda cfg: _same(cfg.get("bar_fraction"), bar) and _same(cfg.get("pit_fraction"), pit))
+
+
+def _field_edges_ok(txt: str, value) -> bool:
+    """``KRABBY_FIELD_EDGES`` ``ramp|wall``: ``vertical_edges: false|true`` on every field sub-terrain."""
+    wall = _terrain().parse_field_edges(value)
+    return _field_all(txt, lambda cfg: cfg.get("vertical_edges") is wall)
+
+
+def _field_min_gap_ok(txt: str, value) -> bool:
+    """``KRABBY_FIELD_MIN_GAP``: ``min_gap`` on every field sub-terrain."""
+    gap = _terrain().parse_field_min_gap(value)
+    return _field_all(txt, lambda cfg: _same(cfg.get("min_gap"), gap))
+
+
+def _field_size_scale_ok(txt: str, value) -> bool:
+    """``KRABBY_FIELD_SIZE_SCALE``: each of the three size ranges on every field sub-terrain is the
+    cfg default (:data:`FIELD_SIZE_RANGES`) times the knob."""
+    scale = _terrain().parse_field_size_scale(value)
+
+    def ok(cfg):
+        for attr, (lo, hi) in FIELD_SIZE_RANGES.items():
+            got = cfg.get(attr)
+            if not (isinstance(got, list) and len(got) == 2 and _same(got[0], lo * scale)
+                    and _same(got[1], hi * scale)):
+                return False
+        return True
+    return _field_all(txt, ok)
+
+
+def _terrain_promote_ok(txt: str, value) -> bool:
+    """``KRABBY_TERRAIN_PROMOTE`` ``up:down``: the parkour term's ``move_up_frac`` / ``move_down_frac``."""
+    up, down = parse_terrain_promote(value)
+    parkour = _parkour_cfg(txt)
+    return _same(parkour.get("move_up_frac"), up) and _same(parkour.get("move_down_frac"), down)
+
+
+def _stand_stance_w_ok(txt: str, value) -> bool:
+    """``KRABBY_STAND_STANCE_W`` (F1, an income): 0 / blank = the term ABSENT; else
+    ``reward_stand_stance_quality`` present with EXACTLY that func and weight."""
+    w = _motion().parse_income_w(value, _motion().STAND_STANCE_W_VAR)
+    term = _motion().STAND_STANCE_TERM
+    if w == 0.0:
+        return _yaml_block(txt, term) == ""
+    return _func_swapped_ok(txt, term, term) and _weight_ok(txt, term, w)
+
+
+def actuated_joint_names() -> list[str]:
+    """``_CRAB_ACTUATED_JOINT_NAMES`` read from the forward cfg's SOURCE (the module itself needs Isaac)."""
+    src = _PARKOUR_MDP_CFG.read_text()
+    m = re.search(r"^_CRAB_ACTUATED_JOINT_NAMES\s*=\s*\[(.*?)\]", src, re.M | re.S)
+    if not m:
+        raise RuntimeError(f"_CRAB_ACTUATED_JOINT_NAMES not found in {_PARKOUR_MDP_CFG}")
+    return re.findall(r"[\"']([^\"']+)[\"']", m.group(1))
+
+
+def _power_joints_ok(txt: str, value) -> bool:
+    """``KRABBY_POWER_JOINTS``: off (blank / ``all``) = ``penalty_mechanical_power``'s
+    ``asset_cfg.joint_names: null`` (every joint, the stock sum); ``actuated`` = EXACTLY the forward
+    cfg's ``_CRAB_ACTUATED_JOINT_NAMES`` list, on a term whose weight is non-zero (the applier refuses
+    a subset it would not price)."""
+    mode = _motion().parse_power_joints(value)
+    term = _dig(_dump_doc(txt), "rewards", _motion().POWER_TERM)
+    asset = _dig(term, "params", "asset_cfg")
+    if not isinstance(asset, dict) or "joint_names" not in asset:
+        return False
+    if mode is None:
+        return asset["joint_names"] is None
+    weight = _num(term.get("weight"))
+    return asset["joint_names"] == actuated_joint_names() and weight is not None and weight != 0.0
+
+
+def _check_field_geom_composition(env: dict, where: str, reasons: list) -> None:
+    """The geometry guard (``require_omni_geom``) on a COMPOSED stage env, at ``--dry-run`` (omni
+    phase-2 plan step 4, 2026-10-06): ``KRABBY_FIELD_*`` under ``ring`` (or ``KRABBY_RING_*`` under
+    ``field``) would apply nothing and raises at config build, i.e. only once Kit has started. Inert
+    unless the composed env names ``field`` or carries a ``KRABBY_FIELD_*`` key, so every ring
+    campaign validates exactly as before; a malformed geometry is left to ``_check_knob``.
+    """
+    tk = _terrain()
+    if str(env.get(TERRAIN_GEOM_VAR) or "").strip().lower() != tk.FIELD_GEOM and not any(
+            str(env.get(var) or "").strip() for var in tk.FIELD_VARS):
+        return
+    try:
+        tk.require_omni_geom(env)
+    except RuntimeError as exc:
+        reasons.append(f"{where}: {exc}")
+
+
 #: Overlay keys audited against ``params/agent.yaml`` (the RUNNER cfg) instead of ``env.yaml``.
 AGENT_DUMP_KEYS = frozenset({"KRABBY_ACTION_STD_MAX", "KRABBY_ACTION_STD_RESET", "KRABBY_ENTROPY_COEF",
                             # side-speed-bisection plan step 1a (2026-09-28): the symmetry loss's
@@ -2078,6 +2408,21 @@ OVERLAY_DUMP_CHECKS = {
     # events.rsi_reference_reset params, so every C_lr_rsi run (C0 included) proves its staging state.
     "KRABBY_RSI_CAM_STAGE": lambda txt, v: _rsi_cam_stage_ok(txt, v, "KRABBY_RSI_CAM_STAGE"),
     "KRABBY_RSI_CAM_STAGE_DEBUG": lambda txt, v: _rsi_cam_stage_ok(txt, v, "KRABBY_RSI_CAM_STAGE_DEBUG"),
+    # ---- omni phase-2 knobs (omni phase-2 plan step 4, 2026-10-06). Env side: params/env.yaml.
+    # The geometry and the field knobs (scene.terrain.terrain_generator.sub_terrains + the parkour
+    # term's radii), the promotion pair (parkours.base_parkour), the reused stride weight, and the F1
+    # / E1 terms. KRABBY_AIRTIME_W / KRABBY_POWER_W were already audited (motion-quality block above).
+    TERRAIN_GEOM_VAR: _terrain_geom_ok,
+    "KRABBY_FIELD_PAD_R": _field_pad_r_ok,
+    "KRABBY_FIELD_BLOCKS": _field_blocks_ok,
+    "KRABBY_FIELD_KINDS": _field_kinds_ok,
+    "KRABBY_FIELD_EDGES": _field_edges_ok,
+    "KRABBY_FIELD_MIN_GAP": _field_min_gap_ok,
+    "KRABBY_FIELD_SIZE_SCALE": _field_size_scale_ok,
+    TERRAIN_PROMOTE_VAR: _terrain_promote_ok,
+    "KRABBY_STRIDE_W": lambda txt, v: _weight_ok(txt, "reward_stride_length", v),
+    "KRABBY_STAND_STANCE_W": _stand_stance_w_ok,
+    "KRABBY_POWER_JOINTS": _power_joints_ok,
 }
 
 
@@ -2210,9 +2555,18 @@ def knob_parsers() -> dict:
         # the two forward clock weights and the forward reward-weight curriculum's spec parser
         **k.CLOCK_KNOB_PARSERS,
         "KRABBY_CLOCK_W": float, "KRABBY_APEX_W": float,
-        "KRABBY_PHASEOUT": lambda text: curriculums().parse_phaseout_spec(str(text)),
+        # NOTE(omni phase-2 plan step 4, 2026-10-06): blank ("") round-trips to None.
+        "KRABBY_PHASEOUT": parse_phaseout_knob,
         # stroke/posture knobs (stride/posture plan step 3, 2026-09-25): their own parsers.
         **k.STROKE_KNOB_PARSERS,
+        # omni phase-2 plan step 4 (2026-10-06): the field-geometry knobs' own parsers (re-exported
+        # by omni_knobs from mdp/omni_terrain_knobs.py), the geometry selector, the promotion pair
+        # and the reused stride weight (the forward ``_overrides`` table's ``float``). The F1 / E1
+        # knobs (KRABBY_STAND_STANCE_W / KRABBY_POWER_JOINTS) come in through MOTION_KNOB_PARSERS.
+        **k.FIELD_KNOB_PARSERS,
+        TERRAIN_GEOM_VAR: parse_terrain_geom,
+        TERRAIN_PROMOTE_VAR: parse_terrain_promote,
+        "KRABBY_STRIDE_W": float,
     }
     _KNOB_PARSERS_CACHE = table
     return table
@@ -2598,6 +2952,7 @@ def validate_candidates(cands: dict, *, strict: bool = True, check_replay: bool 
             _check_cap_rules(stage_env_, where, chain.get("notes") or "", r)
             _check_require_env(stage_env_, where, require_env, r)
             _check_stroke_cat_w_composition(stage_env_, where, r)
+            _check_field_geom_composition(stage_env_, where, r)
             _check_cmd_obs_mirror_composition(stage_env_, where, r)
             _check_rsi_cam_stage_composition(stage_env_, where, r)
         if screen_iters and total != screen_iters and name not in ref_only:
@@ -2829,6 +3184,7 @@ def validate_candidates(cands: dict, *, strict: bool = True, check_replay: bool 
             for sname, _iters, senv in composed:
                 _check_require_env(senv, f"{cid} on {chain_name} stage {sname}", require_env, r)
                 _check_stroke_cat_w_composition(senv, f"{cid} on {chain_name} stage {sname}", r)
+                _check_field_geom_composition(senv, f"{cid} on {chain_name} stage {sname}", r)
                 _check_cmd_obs_mirror_composition(senv, f"{cid} on {chain_name} stage {sname}", r)
                 _check_rsi_cam_stage_composition(senv, f"{cid} on {chain_name} stage {sname}", r)
         r = list(dict.fromkeys(r))          # one reason per distinct message, in order
@@ -7307,13 +7663,60 @@ def _filtered_phase_checks(ctx: Ctx, rec: dict, spec) -> list[tuple[str, bool]]:
     The dropped pair (``dir_band matches stage`` / ``RSI source matches stage``) compares the dump
     against the PRESET's expectation for that stage name, which a ladder overlay deliberately
     changes: the curriculum runs on the ``1a`` preset with no band and the merged bank.
+
+    NOTE(omni phase-2 plan step 4, 2026-10-06): ``rp.phase_checks``' ring check ("ring generator
+    installed (omni_ring_sparse/dense ...)") is GEOMETRY-AWARE here (:func:`geometry_phase_check`):
+    a field window's dump has no ``omni_ring_*`` key by design, so the verbatim check would record a
+    false FAIL on every field record. A ring window keeps the run_phases check unchanged (same name,
+    same test), so every ring record reads exactly as before.
     """
     out = []
     for name, ok in rp.phase_checks(rec, spec, ctx.c):
         if name.startswith("dir_band matches stage") or name.startswith("RSI source matches stage"):
             continue
+        if name.startswith(RP_RING_CHECK_PREFIX):
+            name, ok = geometry_phase_check(rec, spec, (name, ok))
         out.append((name, ok))
     return out
+
+
+#: The prefix of ``run_phases.phase_checks``' ring-generator check (run_phases.py is eval-bearing and
+#: frozen; the swap happens in :func:`_filtered_phase_checks`).
+RP_RING_CHECK_PREFIX = "ring generator installed"
+
+
+def record_terrain_geom(rec: dict, spec) -> str:
+    """The geometry a window was LAUNCHED with: its recorded overlay's ``KRABBY_FLAT_TERRAIN_GEOM``,
+    else its base preset's (``OMNI_COMMON`` sets ``ring`` in every omni preset), ``strip().lower()``.
+    From the launch record, never from the dump the check then reads -- so a field window whose dump
+    shows a ring (the install hook did not run) FAILS instead of being judged as a ring."""
+    raw = (rec.get("overlay") or {}).get(TERRAIN_GEOM_VAR)
+    if raw is None:
+        try:
+            raw = ph.phase_env(str(spec.name)).get(TERRAIN_GEOM_VAR)
+        except KeyError:
+            raw = None
+    return str(raw or "").strip().lower()
+
+
+def geometry_phase_check(rec: dict, spec, ring_check: tuple[str, bool]) -> tuple[str, bool]:
+    """The generator check for the window's OWN geometry (:func:`record_terrain_geom`).
+
+    ``field``: the dump's generator is a field (:func:`dump_terrain_geom` -- flat + ``omni_field_*``
+    sub-terrains, no ring one) and both field keys (:data:`FIELD_SUB_TERRAIN_KEYS`) are present.
+    Anything else (``ring``, or a value the config guard would have refused): ``ring_check``, the
+    run_phases check as it came in.
+    """
+    if record_terrain_geom(rec, spec) != _terrain().FIELD_GEOM:
+        return ring_check
+    ckpt = rec.get("ckpt")
+    envy = Path(ckpt).parent / "params" / "env.yaml" if ckpt else None
+    txt = envy.read_text(errors="ignore") if envy is not None and envy.exists() else ""
+    subs = _sub_terrains(txt)
+    ok = dump_terrain_geom(txt) == "field" and all(
+        subs.get(key, (None, ""))[0] == "field" for key in FIELD_SUB_TERRAIN_KEYS)
+    return (f"field generator installed ({'/'.join(FIELD_SUB_TERRAIN_KEYS)} sub-terrains, no "
+            "omni_ring_*) in params/env.yaml", ok)
 
 
 def _link_pair_run(ctx: Ctx, item: dict, xid: str) -> None:

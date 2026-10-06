@@ -172,6 +172,190 @@ def flat_height_field(difficulty: float, cfg, num_goals: int) -> tuple[np.ndarra
     return height_field_raw, goals * cfg.horizontal_scale, goal_heights
 
 
+# ============================================================================ omni FIELD
+#
+# Omni phase-2 plan, step 2 (2026-10-06): ``KRABBY_FLAT_TERRAIN_GEOM=field``. The ring keeps its
+# blocks inside an annulus (2.0-4.5 m), so a robot that walks past 4.5 m -- or into a tile corner
+# -- is on flat ground again, and a fast omni policy already spends ~51 % of its steps beyond the
+# disc. The field drops the annulus: blocks are scattered uniformly over the whole tile square
+# (to +-``ring_outer_radius`` = 4.80 m, i.e. 0.5 * 9.92 - ``field_margin``), outside a small clear
+# spawn pad, so neighbouring field tiles read as ONE continuous field with ~0.4-0.5 m seams. A
+# third kind, the PIT (a sunken slab), joins bars and slabs. Everything above this banner --
+# ``ring_height_field`` in particular -- is untouched (golden-pinned byte-identical).
+
+FIELD_KIND_BAR = 0
+FIELD_KIND_SLAB = 1
+FIELD_KIND_PIT = 2
+
+
+def field_kind_counts(n_blocks: int, bar_fraction: float, pit_fraction: float) -> tuple[int, int, int]:
+    """``(n_bar, n_slab, n_pit)`` for a tile: deterministic counts, not per-block coin flips.
+
+    ``round()`` per kind with the slab count taking the remainder, exactly as the ring derives
+    ``n_bars = round(n_blocks * bar_fraction)``: a per-block Bernoulli would add a kind-mix
+    variance between tiles of the same difficulty that the terrain curriculum would then read
+    as difficulty. Raises when the fractions leave no room (``bar + pit > 1``) or are negative.
+    """
+    n = int(n_blocks)
+    bf, pf = float(bar_fraction), float(pit_fraction)
+    if n < 0:
+        raise ValueError(f"n_blocks must be non-negative, got {n_blocks}")
+    if bf < 0.0 or pf < 0.0 or bf + pf > 1.0 + 1e-9:
+        raise ValueError(f"bar_fraction={bar_fraction} / pit_fraction={pit_fraction} must be >= 0 and sum to <= 1")
+    n_bar = int(round(n * bf))
+    n_pit = min(int(round(n * pf)), n - n_bar)
+    return n_bar, n - n_bar - n_pit, n_pit
+
+
+def _yawed_half_extents(yaw: float, length: float, width: float) -> tuple[float, float]:
+    """Half-extents (x, y), metres, of the axis-aligned bounding box of a ``length`` x ``width``
+    box rotated by ``yaw`` -- the box's own footprint, so a centre drawn inside
+    ``[-H + ex, H - ex]`` keeps every block pixel inside the ``+-H`` square whatever the yaw."""
+    c, s = abs(np.cos(yaw)), abs(np.sin(yaw))
+    return 0.5 * (c * length + s * width), 0.5 * (s * length + c * width)
+
+
+def field_layout(rng, difficulty: float, cfg) -> tuple[np.ndarray, np.ndarray, int]:
+    """Pure, seed-injected body of the field's block placement (no padding, no roughness).
+
+    Args:
+        rng: anything with ``.uniform(lo, hi)`` -- ``numpy.random`` (the module, production, the
+            same ambient-global convention as the ring) or a ``RandomState`` (tests).
+        difficulty: the tile's difficulty (feeds the three height/depth formulas).
+        cfg: an ``OmniFieldTerrainCfg`` (or a stand-in) whose ``size`` is the decorator's
+            ALREADY-REDUCED tile size (9.92 m at 10 m tiles), as for every terrain body.
+
+    Returns:
+        ``(raw, occupancy, n_placed)``: ``raw`` the stamped heights in vertical-scale units
+        (float, 0 off-block, > 0 bars/slabs, < 0 pits), ``occupancy`` the exact bool "a block
+        or pit covers this pixel" mask (what the field-mode telemetry indexes instead of the
+        ring's median + 0.03 m rule), ``n_placed`` the number of blocks actually stamped.
+
+    Per block, in index order (bars, then slabs, then pits -- :func:`field_kind_counts`):
+
+    1. draw yaw ``U(0, pi)`` and the kind's dimensions -- bars ``cfg.bar_length_range`` x
+       ``cfg.bar_thickness_range`` (the ring's U(1.0, 2.0) x U(0.16, 0.32)), slabs a square of
+       side ``cfg.slab_side_range`` (U(0.6, 1.2)), pits a sunken slab of the same distribution
+       -- and its height: bars ``U(eval(hurdle_height_range))``, slabs ``eval(step_height)``,
+       pits ``eval(pit_depth)`` (all three are the ring's recal2b2 strings + ``0.02 + 0.06*d``);
+    2. draw the centre uniformly in ``[-H + ex, H - ex] x [-H + ey, H - ey]`` (``H`` =
+       ``cfg.ring_outer_radius``, ``ex``/``ey`` the yawed box's half-extents);
+    3. REJECT the centre if any pixel of the box has ``r < pad_r + hs`` (the clear pad plus one
+       pixel, so the rasterised edge can never touch the pad) or -- only when ``cfg.min_gap > 0``
+       -- if the box grown by ``min_gap`` on every side touches an already-stamped block; redraw
+       the CENTRE only (yaw, dims and height are kept, so the size distribution is exactly the
+       ring's rather than skewed towards blocks that fit more easily) up to ``cfg.max_tries``
+       times, then give up on that block (counted as unplaced, never forced in);
+    4. stamp it: raised blocks union by ``max``; a pit lowers only pixels that are not raised
+       (``min`` over pixels with height <= 0), so a pit never cuts a raised block and a raised
+       block stamped later over a pit wins -- the result is independent of the order the two
+       kinds overlap in.
+    """
+    width_pixels, length_pixels = _tile_pixel_dims(cfg)
+    raw = np.zeros((width_pixels, length_pixels))
+    occupancy = np.zeros((width_pixels, length_pixels), dtype=bool)
+
+    hs = cfg.horizontal_scale
+    vs = cfg.vertical_scale
+    cx = 0.5 * cfg.size[0]
+    cy = 0.5 * cfg.size[1]
+    xs = (np.arange(width_pixels) + 0.5) * hs - cx
+    ys = (np.arange(length_pixels) + 0.5) * hs - cy
+    dx, dy = np.meshgrid(xs, ys, indexing="ij")
+    r_grid = np.sqrt(dx * dx + dy * dy)
+
+    half = float(cfg.ring_outer_radius)
+    margin = float(getattr(cfg, "field_margin", 0.0))
+    if half > min(cx, cy) - margin + 1e-9:
+        raise ValueError(
+            f"field half-width ring_outer_radius={half} exceeds the tile's half-size "
+            f"{min(cx, cy):.4f} minus field_margin={margin}"
+        )
+    pad_keep_out = float(cfg.clear_radius) + hs
+    min_gap = float(getattr(cfg, "min_gap", 0.0))
+    max_tries = int(getattr(cfg, "max_tries", 64))
+
+    n_bar, n_slab, n_pit = field_kind_counts(
+        int(getattr(cfg, "n_blocks", 0)), float(getattr(cfg, "bar_fraction", 0.4)),
+        float(getattr(cfg, "pit_fraction", 0.2)),
+    )
+    kinds = [FIELD_KIND_BAR] * n_bar + [FIELD_KIND_SLAB] * n_slab + [FIELD_KIND_PIT] * n_pit
+
+    hurdle_lo, hurdle_hi = eval(cfg.hurdle_height_range, {"difficulty": difficulty})
+    step_height_m = eval(cfg.step_height, {"difficulty": difficulty})
+    pit_depth_m = eval(cfg.pit_depth, {"difficulty": difficulty})
+    bar_len, bar_thk, slab_side = cfg.bar_length_range, cfg.bar_thickness_range, cfg.slab_side_range
+
+    n_placed = 0
+    for kind in kinds:
+        yaw = rng.uniform(0.0, np.pi)
+        if kind == FIELD_KIND_BAR:
+            length = rng.uniform(bar_len[0], bar_len[1])
+            width = rng.uniform(bar_thk[0], bar_thk[1])
+            value_px = round(rng.uniform(hurdle_lo, hurdle_hi) / vs)
+        else:
+            length = rng.uniform(slab_side[0], slab_side[1])
+            width = length
+            value_px = round(step_height_m / vs) if kind == FIELD_KIND_SLAB else -round(pit_depth_m / vs)
+        ex, ey = _yawed_half_extents(yaw, length, width)
+
+        mask = None
+        for _ in range(max_tries):
+            bx = rng.uniform(-half + ex, half - ex) if half > ex else 0.0
+            by = rng.uniform(-half + ey, half - ey) if half > ey else 0.0
+            cand = _oriented_box_mask(dx - bx, dy - by, yaw, length, width)
+            if not cand.any() or (r_grid[cand] < pad_keep_out).any():
+                continue
+            if min_gap > 0.0 and occupancy.any():
+                grown = _oriented_box_mask(dx - bx, dy - by, yaw, length + 2.0 * min_gap, width + 2.0 * min_gap)
+                if (grown & occupancy).any():
+                    continue
+            mask = cand
+            break
+        if mask is None:
+            continue
+
+        if value_px > 0:
+            raw = np.where(mask, np.maximum(raw, value_px), raw)
+        else:
+            raw = np.where(mask & (raw <= 0), np.minimum(raw, value_px), raw)
+        occupancy |= mask
+        n_placed += 1
+
+    return raw, occupancy, n_placed
+
+
+def field_height_field(
+    rng, difficulty: float, cfg: "omni_terrains_cfg.OmniFieldTerrainCfg", num_goals: int
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Pure body of ``omni_field_terrain``: :func:`field_layout`, then padding + roughness
+    exactly as :func:`ring_height_field` applies them, plus the same sector anchors.
+
+    Returns FOUR values -- the ring's three plus the pre-roughness stamped block heights
+    (``int16`` vertical-scale units, the raw body's own pixel frame, zero off-block). The
+    decorator turns that 4th value into (a) the exact block/pit occupancy channel it returns as
+    a 7th value and (b), only when ``cfg.vertical_edges`` is set, the riser field that forces
+    vertical walls on block edges (``convert_height_field_to_mesh(riser_field=...)``). Roughness
+    is added AFTER the copy is taken, so roughness can never mark a pixel as a block or raise a
+    wall.
+    """
+    raw, _occupancy, _n_placed = field_layout(rng, difficulty, cfg)
+    stamped = np.rint(raw).astype(np.int16)
+
+    goals, goal_heights = _sector_anchor_goals(cfg, num_goals)
+
+    height_field_raw = padding_height_field_raw(raw.copy(), cfg)
+    if cfg.apply_roughness:
+        height_field_raw = random_uniform_terrain(difficulty, cfg, height_field_raw)
+
+    return height_field_raw, goals * cfg.horizontal_scale, goal_heights, stamped
+
+
+@parkour_field_to_mesh_xy
+def omni_field_terrain(difficulty: float, cfg: "omni_terrains_cfg.OmniFieldTerrainCfg", num_goals: int):
+    return field_height_field(np.random, difficulty, cfg, num_goals)
+
+
 @parkour_field_to_mesh_xy
 def omni_ring_terrain(difficulty: float, cfg: "omni_terrains_cfg.OmniRingTerrainCfg", num_goals: int):
     return ring_height_field(np.random, difficulty, cfg, num_goals)

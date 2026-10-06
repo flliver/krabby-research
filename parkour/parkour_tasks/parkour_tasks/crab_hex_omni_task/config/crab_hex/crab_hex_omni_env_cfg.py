@@ -74,6 +74,7 @@ from parkour_tasks.crab_hex_omni_task.mdp.crab_hex_omni_rewards import (
 )
 from parkour_tasks.crab_hex_omni_task.mdp.omni_events import reset_root_state_ring
 from parkour_tasks.crab_hex_omni_task.mdp.omni_parkour_event import OmniParkourEventsCfg
+from parkour_tasks.crab_hex_omni_task.mdp.omni_terrain_knobs import install_omni_terrain_generator
 
 #: Gait-clock turn radius (m): the lever arm the clock prices a yaw-rate command at, so that a
 #: turn-in-place command still runs the gait. Knob ``KRABBY_OMNI_CLOCK_TURN_R`` (plan D3).
@@ -294,6 +295,10 @@ class CrabHexOmniTeacherEnvCfg(CrabHexTeacherEnvCfg):
 
     def __post_init__(self):
         _require_phase_teacher_mode(type(self).__name__)
+        # Omni phase-2 plan step 2 (2026-10-06): KRABBY_FLAT_TERRAIN_GEOM=field swaps in the field
+        # generator FIRST, so the forward knob block below (flat fraction, difficulty band,
+        # curriculum) applies to it as it does to the ring. ``ring`` is a no-op.
+        install_omni_terrain_generator(self, os.environ)
         super().__post_init__()
         _install_omni_total_terminates(self)
         apply_omni_knobs(self)
@@ -330,6 +335,9 @@ class CrabHexOmniFlatWalkEnvCfg(CrabHexFlatWalkEnvCfg):
         return CrabHexOmniFlatWalkRewardsCfg()
 
     def __post_init__(self):
+        # Omni phase-2 plan step 2: the field generator, if selected, before anything else (see the
+        # teacher cfg). ``ring`` is a no-op.
+        install_omni_terrain_generator(self, os.environ)
         super().__post_init__()
         apply_omni_knobs(self)
         _check_omni(self)

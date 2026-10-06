@@ -68,6 +68,10 @@ ALL_KNOBS = ("KRABBY_ACTION_STD_MAX", "KRABBY_ACTION_STD_RESET", "KRABBY_ENTROPY
              # PPO-construction plan step 4 (2026-10-01): RSI cam staging, env side (event params);
              # pinned in detail by tests/unit/test_rsi_cam_stage.py
              "KRABBY_RSI_CAM_STAGE", "KRABBY_RSI_CAM_STAGE_DEBUG")
+#: Omni phase-2 plan step 3 (2026-10-06): the F1 stand income and the E1 power subset, pinned in
+#: detail by tests/unit/test_crab_hex_omni_stand_power_knobs.py. Kept OUT of ALL_KNOBS because the
+#: ladder's OVERLAY_DUMP_CHECKS entries for them land with plan step 4 (run_candidates.py).
+PHASE2_KNOBS = ("KRABBY_STAND_STANCE_W", "KRABBY_POWER_JOINTS")
 
 
 def _load(path: Path, name: str):
@@ -114,7 +118,7 @@ def test_motion_knobs_module_is_pure():
 def test_variable_names_are_the_contract():
     got = {getattr(mk, a) for a in dir(mk) if a.endswith("_VAR")}
     assert set(ALL_KNOBS) <= got
-    assert set(mk.MOTION_KNOB_PARSERS) == set(ALL_KNOBS)
+    assert set(mk.MOTION_KNOB_PARSERS) == set(ALL_KNOBS) | set(PHASE2_KNOBS)
     assert set(mk.AGENT_KNOBS) == {"KRABBY_ACTION_STD_MAX", "KRABBY_ACTION_STD_RESET", "KRABBY_ENTROPY_COEF",
                                    # PPO construction (2026-10-01): every one but the driver's NUM_ENVS
                                    *(set(mk.PPO_CONSTRUCTION_KNOBS) - {"KRABBY_NUM_ENVS"})}

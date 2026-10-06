@@ -73,6 +73,48 @@ tasks) -- overwrites EVERY sub-terrain's ``noise_range`` to ``(0.02, 0.02)`` at 
 the class default above is never what actually ships. A future preset that skips that knob
 loop, or a class-level default change, would restore the wider (and difficulty-scaling) band
 and this table would need re-measuring.
+
+FIELD MODE (omni phase-2 plan, step 2, 2026-10-06)
+--------------------------------------------------
+Under ``KRABBY_FLAT_TERRAIN_GEOM=field`` the course is a clear spawn PAD (1.7 m) inside a field
+of bars, slabs and pits that runs to within 0.16 m of every tile edge, so neighbouring field tiles
+form one field. The parkour term detects this from the generator's sub-terrain CLASSES and then,
+and only then, changes three things (ring-mode telemetry and its key list are untouched):
+
+* the keys keep their names, but ``clear_radius`` is the PAD (the knob layer syncs the term's
+  radius to it): ``reach_edge`` = left the pad, ``field_frac`` and the sector coverage are
+  measured beyond the pad;
+* "foot over a block" uses the generator's EXACT occupancy channel (``block_masks``, pits
+  included) instead of the median + 0.03 m rule above, and indexes it with
+  :func:`tiled_pixel_index`, so a foot on a NEIGHBOURING tile reads that tile's blocks (the
+  ring's clamp-into-own-tile lookup would read the own tile's empty border instead);
+* two field-only keys are appended (:data:`OMNI_FIELD_KEYS`): ``off_tile_frac_mean`` and
+  ``off_tile_block_steps_mean``.
+
+OBSTACLE-TILE CURRICULUM TELEMETRY (omni phase-2 CHARTER 8 / 5, 2026-10-06; ring AND field)
+--------------------------------------------------------------------------------------------
+The phase-2 live reads judge the terrain curriculum on OBSTACLE tiles only (``name != parkour_flat``,
+the parkour term's ``is_obst_tile``): an all-tile ``terrain_levels`` mixes in the flat tiles' levels
+and is never accepted in their place. Four keys, logged as ``Metrics/base_parkour/<key>`` on every
+omni run, ring and field alike (telemetry only: no cfg field, so no config dump changes):
+
+``terrain_levels_obst`` (:data:`OMNI_TERRAIN_WINDOW_KEYS`)
+    mean ``terrain_levels`` over the envs whose CURRENT tile is an obstacle tile, read at the reset
+    call before any tile moves (the same instant the base term's all-tile ``terrain_levels`` is
+    read). Left out of that reset's log when no env is on an obstacle tile (an all-flat run).
+``promote_count`` / ``demote_count`` (:data:`OMNI_TERRAIN_WINDOW_KEYS`)
+    the number of ``promotion_mask`` up / down decisions APPLIED in that reset call to episodes that
+    ended on an obstacle tile (``freeze_terrain_levels`` applies none, so 0). Per reset call, i.e.
+    per env step with resets; rsl_rl then averages the reset calls of an iteration, so the logged
+    value is "obstacle-tile promotions per reset step" and is > 0 iff any happened.
+``track_ratio_obst_p50`` (:data:`OMNI_OBST_RATIO_KEY`)
+    the MEDIAN of the per-episode ``ep_track_dist / ep_cmd_dist`` -- exactly the ratio
+    :func:`promotion_mask` gates on -- over the obstacle-tile episodes in the ledger's logging window
+    (the last ``exposure_window`` such episodes, the same rolling window every ledger mean uses),
+    with the promotion rule's own exclusion (``ep_cmd_dist < min_cmd_dist_m`` holds, so it is left
+    out) and non-finite ratios dropped. ABSENT (never 0.0, never NaN) until the window holds one
+    episode, exactly like :data:`OMNI_SPAWN_SPLIT_KEYS`. A per-reset-call median would be a median
+    of the 1-5 episodes one step ends, and its iteration mean would be a MEAN in all but name.
 """
 from __future__ import annotations
 
@@ -103,6 +145,18 @@ __all__ = [
     "sector_index",
     "tile_pixel_index",
     "global_pixel_index",
+    # field mode (omni phase-2 plan step 2)
+    "OMNI_FIELD_KEYS",
+    "tiled_pixel_index",
+    "global_block_mask",
+    "feet_block_flags_tiled",
+    # obstacle-tile curriculum telemetry (omni phase-2 CHARTER 8 / 5)
+    "OMNI_OBST_RATIO_KEY",
+    "OMNI_LAZY_KEYS",
+    "OMNI_TERRAIN_WINDOW_KEYS",
+    "obstacle_level_mean",
+    "obstacle_promotion_counts",
+    "terrain_window_extras",
 ]
 
 TWO_PI = 2.0 * math.pi
@@ -158,6 +212,35 @@ creates the metric when the key first appears -- never a 0.0 that would read as 
 They are kept OUT of :data:`OMNI_EXTRA_KEYS` / ``emit_keys`` for that reason: those keys are
 emitted from the first iteration on, as 0.0 while empty.
 """
+
+OMNI_FIELD_KEYS = (
+    "off_tile_frac_mean",
+    "off_tile_block_steps_mean",
+)
+"""Field-mode-only ledger keys (omni phase-2 plan step 2, 2026-10-06); never emitted on the ring.
+
+* ``off_tile_frac_mean`` -- mean over ALL finished episodes of the share of the episode's steps on
+  which at least one foot stood outside the episode's own tile (on a neighbouring tile, or off
+  the terrain). WATCHED: it says how much of the "one continuous field" the population actually
+  uses across seams.
+* ``off_tile_block_steps_mean`` -- mean over ALL finished episodes of the number of steps with a
+  foot over a block or pit of a NEIGHBOURING tile (the plan's S4 "off-tile block steps > 0").
+
+Both are grouped over all episodes, not the obstacle-tile rule of ``block_steps_mean``: a robot on
+a flat tile next to a field tile can reach that tile's blocks, so a flat-tile episode can score.
+"""
+
+OMNI_OBST_RATIO_KEY = "track_ratio_obst_p50"
+"""Median per-episode promotion ratio over the ledger window's obstacle-tile episodes (module
+docstring, OBSTACLE-TILE CURRICULUM TELEMETRY). The phase-2 calibration's r-bar is read from it."""
+
+OMNI_LAZY_KEYS = OMNI_SPAWN_SPLIT_KEYS + (OMNI_OBST_RATIO_KEY,)
+"""Ledger keys reported only once their group is non-empty (absent, never 0.0 / NaN, before that);
+the parkour term creates each metric when its key first appears in :meth:`OmniExposureLedger.means`."""
+
+OMNI_TERRAIN_WINDOW_KEYS = ("terrain_levels_obst", "promote_count", "demote_count")
+"""Per-reset-call keys the parkour term adds to its ``reset`` log (module docstring). The names are
+the EXACT tags the phase-2 live reads accept (``p2_live.py`` OBST_LEVEL_TAGS / PROMO_TAGS)."""
 
 BLOCK_PAD_QUANTILE = 0.5
 """Per-tile quantile of the height field taken as the tile's "pad" (ground) level.
@@ -314,6 +397,108 @@ def global_pixel_index(
     return r * w + ix, c * ell + iy
 
 
+def tiled_pixel_index(
+    x_w: torch.Tensor,
+    y_w: torch.Tensor,
+    tile_centre_w: torch.Tensor,
+    row: torch.Tensor,
+    col: torch.Tensor,
+    size_xy: tuple[float, float],
+    horizontal_scale: float,
+    tile_px: tuple[int, int],
+    grid_rc: tuple[int, int],
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    """World xy -> (tile row, tile col, tile-local pixel) of whichever tile the point is ON.
+
+    :func:`tile_pixel_index` clamps every point into the episode's OWN tile, which is right for a
+    ring (blocks stop at 4.5 m; the own tile's flat border is what a foot past it stands near) and
+    wrong for the field, whose blocks run to 0.16 m from every edge: a foot across the seam would
+    read the own tile's empty border pixel instead of the neighbour's block. Here the tile offset is
+    ``floor((x - own corner) / size)`` per axis (0 = own tile, +-1 = the neighbour across a seam),
+    and the pixel is taken in THAT tile's frame -- the same ``i * hs`` mapping as
+    :func:`tile_pixel_index`, so on the own tile the two agree exactly.
+
+    Tiles are ``size / hs + 1`` pixels wide but placed ``size`` apart, so a neighbour's pixel 0
+    and the own tile's last pixel sit at the same world coordinate (the stored-126 / spaced-125
+    convention); the floor makes the seam point belong to the neighbour.
+
+    Args:
+        x_w, y_w: world coordinates, ``(n,)`` or ``(n, k)``.
+        tile_centre_w: ``(n, 2)`` world xy of each row's own tile centre (``env_origins``).
+        row, col: ``(n,)`` own tile indices (``terrain_levels`` / ``terrain_types``).
+        size_xy, horizontal_scale, tile_px: as for :func:`tile_pixel_index`.
+        grid_rc: ``(num_rows, num_cols)`` of the terrain grid.
+
+    Returns:
+        ``(row', col', ix, iy, on_terrain, off_tile)`` shaped like ``x_w``: the tile actually
+        under the point (clamped into the grid so it can always index), its pixel, whether that
+        tile EXISTS (False past the outermost tiles -- callers treat it as "no block"), and whether
+        it is not the own tile.
+    """
+    hs = float(horizontal_scale)
+    if not hs > 0.0:
+        raise ValueError(f"horizontal_scale must be positive, got {horizontal_scale}")
+    w, ell = int(tile_px[0]), int(tile_px[1])
+    n_rows, n_cols = int(grid_rc[0]), int(grid_rc[1])
+    sx, sy = float(size_xy[0]), float(size_xy[1])
+    cx = tile_centre_w[..., 0] - 0.5 * sx
+    cy = tile_centre_w[..., 1] - 0.5 * sy
+    r, c = row.long(), col.long()
+    while cx.dim() < x_w.dim():
+        cx, cy = cx.unsqueeze(-1), cy.unsqueeze(-1)
+        r, c = r.unsqueeze(-1), c.unsqueeze(-1)
+    lx, ly = x_w - cx, y_w - cy
+    ox = torch.floor(lx / sx).long()
+    oy = torch.floor(ly / sy).long()
+    nr, nc = r + ox, c + oy
+    on_terrain = (nr >= 0) & (nr < n_rows) & (nc >= 0) & (nc < n_cols)
+    off_tile = (ox != 0) | (oy != 0)
+    ix = torch.clamp(((lx - ox.to(lx.dtype) * sx) / hs).round().long(), 0, w - 1)
+    iy = torch.clamp(((ly - oy.to(ly.dtype) * sy) / hs).round().long(), 0, ell - 1)
+    return nr.clamp(0, n_rows - 1), nc.clamp(0, n_cols - 1), ix, iy, on_terrain, off_tile
+
+
+def global_block_mask(block_masks: torch.Tensor | None, grid_shape: tuple[int, int, int, int]) -> torch.Tensor:
+    """The generator's per-tile exact occupancy ``(rows, cols, W, L)`` -> the global
+    ``(rows*W, cols*L)`` bool mask, assembled exactly like ``exposure_stats.global_height_field``
+    (so :func:`global_pixel_index` indexes it). ``None`` (no tile returned a mask -- e.g. an
+    all-flat field run) gives an all-False mask of ``grid_shape``."""
+    r, c, w, ell = (int(v) for v in grid_shape)
+    if block_masks is None:
+        return torch.zeros(r * w, c * ell, dtype=torch.bool)
+    bm = torch.as_tensor(block_masks).bool()
+    if tuple(bm.shape) != (r, c, w, ell):
+        raise ValueError(f"block_masks shape {tuple(bm.shape)} != height-field grid {(r, c, w, ell)}")
+    return bm.permute(0, 2, 1, 3).reshape(r * w, c * ell)
+
+
+def feet_block_flags_tiled(
+    feet_x: torch.Tensor,
+    feet_y: torch.Tensor,
+    tile_centre_w: torch.Tensor,
+    row: torch.Tensor,
+    col: torch.Tensor,
+    block_mask_global: torch.Tensor,
+    size_xy: tuple[float, float],
+    horizontal_scale: float,
+    tile_px: tuple[int, int],
+    grid_rc: tuple[int, int],
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """Field-mode per-step foot flags, ``(n,)`` bool each (``feet_*`` are ``(n, F)`` world xy):
+
+    ``(over_block, over_block_off_tile, off_tile)`` -- at least one foot over a block/pit pixel
+    of the tile it is ON (own or neighbour), at least one foot over a block/pit of a NEIGHBOURING
+    tile, at least one foot not on the own tile. A foot past the outermost tiles is off-tile and
+    over no block.
+    """
+    nr, nc, ix, iy, on_terrain, off_tile = tiled_pixel_index(
+        feet_x, feet_y, tile_centre_w, row, col, size_xy, horizontal_scale, tile_px, grid_rc
+    )
+    w, ell = int(tile_px[0]), int(tile_px[1])
+    over = block_mask_global[nr * w + ix, nc * ell + iy] & on_terrain
+    return over.any(dim=-1), (over & off_tile).any(dim=-1), off_tile.any(dim=-1)
+
+
 # ------------------------------------------------------------------------- promotion
 
 
@@ -368,6 +553,42 @@ def tracking_ratio(track: torch.Tensor, cmd: torch.Tensor) -> torch.Tensor:
     return track / torch.clamp(cmd, min=1e-6)
 
 
+# ------------------------------------------------------- obstacle-tile curriculum telemetry
+
+
+def obstacle_level_mean(levels: torch.Tensor, is_obst: torch.Tensor) -> float | None:
+    """Mean terrain level over the obstacle-tile envs; ``None`` when there is none (the key is then
+    left out of the log rather than reported as 0.0 or NaN)."""
+    m = is_obst.reshape(-1).bool()
+    if not bool(m.any()):
+        return None
+    return float(levels.reshape(-1)[m.to(levels.device)].float().mean())
+
+
+def obstacle_promotion_counts(
+    move_up: torch.Tensor, move_down: torch.Tensor, is_obst: torch.Tensor
+) -> tuple[int, int]:
+    """``(promotions, demotions)`` among the episodes that ended on an obstacle tile.
+
+    All three are aligned ``(n,)`` masks over the resetting envs; ``is_obst`` is the tile the episode
+    ENDED on (the parkour term reads it before the tile moves)."""
+    if not (move_up.shape == move_down.shape == is_obst.shape):
+        raise ValueError(
+            f"shape mismatch: up {tuple(move_up.shape)}, down {tuple(move_down.shape)}, obst {tuple(is_obst.shape)}"
+        )
+    obst = is_obst.bool().to(move_up.device)
+    return int((move_up.bool() & obst).sum()), int((move_down.bool() & obst).sum())
+
+
+def terrain_window_extras(level_obst: float | None, promote: int, demote: int) -> dict[str, float]:
+    """The :data:`OMNI_TERRAIN_WINDOW_KEYS` entries of one reset call's log (unprefixed: the command
+    manager adds ``Metrics/<term>/``). A ``None`` or non-finite level is left out."""
+    out = {"promote_count": float(promote), "demote_count": float(demote)}
+    if level_obst is not None and math.isfinite(level_obst):
+        out["terrain_levels_obst"] = float(level_obst)
+    return out
+
+
 # --------------------------------------------------------------------- episode record
 
 
@@ -416,16 +637,32 @@ class OmniExposureLedger:
     what lets the same driver parse both campaigns' telemetry.
     """
 
-    def __init__(self, n_sectors: int, capacity: int = 1024, device: str | torch.device = "cpu"):
+    def __init__(
+        self, n_sectors: int, capacity: int = 1024, device: str | torch.device = "cpu", field_mode: bool = False
+    ):
         self.n_sectors = int(n_sectors)
         self.base = ExposureLedger(self.n_sectors, capacity=capacity, device=device)
         self._extra: dict[str, RingMean] = {k: RingMean(capacity, device) for k in OMNI_EXTRA_KEYS}
         self._split: dict[str, RingMean] = {k: RingMean(capacity, device) for k in OMNI_SPAWN_SPLIT_KEYS}
+        # Field mode only (omni phase-2 step 2): the OMNI_FIELD_KEYS rings. Empty dict on the ring,
+        # so a ring ledger's keys and means are exactly what they were.
+        self.field_mode = bool(field_mode)
+        self._field: dict[str, RingMean] = (
+            {k: RingMean(capacity, device) for k in OMNI_FIELD_KEYS} if self.field_mode else {}
+        )
+        # OMNI_OBST_RATIO_KEY: the per-episode promotion ratios of the window's obstacle-tile episodes
+        # (a RingMean is used only as the ring buffer; its median is taken in means()).
+        self._obst_ratio = RingMean(capacity, device)
+
+    #: keys reported only once their group is non-empty (see OMNI_LAZY_KEYS)
+    lazy_keys = OMNI_LAZY_KEYS
 
     @staticmethod
-    def emit_keys(n_sectors: int) -> list[str]:
-        """Every key :meth:`means` reports (forward keys first, then the omni five)."""
-        return ExposureLedger.emit_keys(int(n_sectors)) + list(OMNI_EXTRA_KEYS)
+    def emit_keys(n_sectors: int, field_mode: bool = False) -> list[str]:
+        """Every key :meth:`means` reports (forward keys first, then the omni five, then -- field
+        mode only -- :data:`OMNI_FIELD_KEYS`)."""
+        keys = ExposureLedger.emit_keys(int(n_sectors)) + list(OMNI_EXTRA_KEYS)
+        return keys + list(OMNI_FIELD_KEYS) if field_mode else keys
 
     def push_episodes(
         self,
@@ -441,6 +678,8 @@ class OmniExposureLedger:
         r_max: torch.Tensor,
         track_ratio_move: torch.Tensor | None = None,
         track_ratio_move_valid: torch.Tensor | None = None,
+        off_tile_frac: torch.Tensor | None = None,
+        off_tile_block_steps: torch.Tensor | None = None,
     ) -> None:
         """Push one batch of finished episodes (see :data:`OMNI_EXTRA_KEYS` for grouping).
 
@@ -451,11 +690,19 @@ class OmniExposureLedger:
         the slot-gated pair (a test double, an older term) is not forced to fabricate one, and
         a fabricated zero would be indistinguishable from a policy that tracks nothing.
         ``track_ratio_move`` without a validity mask counts every episode.
+
+        ``off_tile_frac`` / ``off_tile_block_steps`` (field mode): pushed over ALL episodes into the
+        :data:`OMNI_FIELD_KEYS` rings; ignored by a ring-mode ledger (it has none).
         """
         self.base.push_episodes(per_ep, spawn_kind, is_obst, failed, ep_steps)
         rsi = spawn_kind == SPAWN_RSI
         valid = track_ratio_valid.bool()
         self._extra["track_ratio_mean"].push(track_ratio[valid])
+        # OMNI_OBST_RATIO_KEY: the promotion rule's own population (valid = ep_cmd_dist >= min_cmd_dist)
+        # on the tile the episode ENDED on; a non-finite ratio (a NaN from a blown-up sim) is dropped
+        # so the median can never be NaN.
+        obst_r = track_ratio[valid & is_obst.bool()]
+        self._obst_ratio.push(obst_r[torch.isfinite(obst_r)])
         # the spawn-kind split (OMNI_SPAWN_SPLIT_KEYS): all terrain, same validity rule
         self._split["track_ratio_mean_rsi"].push(track_ratio[valid & rsi])
         self._split["track_ratio_mean_norsi"].push(track_ratio[valid & ~rsi])
@@ -471,13 +718,22 @@ class OmniExposureLedger:
         self._extra["heading_err_rms_mean"].push(heading_err_rms)
         self._extra["block_steps_mean"].push(block_steps[is_obst.bool()])
         self._extra["r_max_mean"].push(r_max)
+        if self.field_mode:
+            if off_tile_frac is not None:
+                self._field["off_tile_frac_mean"].push(off_tile_frac)
+            if off_tile_block_steps is not None:
+                self._field["off_tile_block_steps_mean"].push(off_tile_block_steps)
 
     def means(self) -> dict[str, float]:
-        """Every :meth:`emit_keys` key (NaN while empty), plus each :data:`OMNI_SPAWN_SPLIT_KEYS`
-        key whose group has received at least one episode (absent, not NaN, before that)."""
+        """Every :meth:`emit_keys` key (NaN while empty), plus each :data:`OMNI_LAZY_KEYS` key whose
+        group has received at least one episode (absent, not NaN, before that)."""
         out = self.base.means()
         out.update({k: r.mean() for k, r in self._extra.items()})
         out.update({k: r.mean() for k, r in self._split.items() if r.n > 0})
+        out.update({k: r.mean() for k, r in self._field.items()})
+        if self._obst_ratio.n > 0:
+            # true (interpolated) median, the statistic p2_read's calibrate() takes on a dump
+            out[OMNI_OBST_RATIO_KEY] = float(torch.quantile(self._obst_ratio.buf[: self._obst_ratio.n], 0.5))
         return out
 
 
