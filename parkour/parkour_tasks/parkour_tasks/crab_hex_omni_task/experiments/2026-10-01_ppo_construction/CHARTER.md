@@ -1598,3 +1598,18 @@ when the t3x in-band turn settles.
     - The full unit suite's 13 failures are pre-existing or parallel sessions' uncommitted ladder edits. The 3
       tree-dependent ones were checked in a worktree at 850e6361.
   - **Campaign CLOSED.**
+- 2026-10-06 12:40, **follow-up on the head of record: stand stepping** (user question: "is it the facing reward?").
+  `sf/STAND_STEPPING.md`; CPU only; workflow `wf_b65e4956-fa8`, 4 lenses + independent verifiers.
+  - **No, it is not the facing reward:**
+    - wz_cmd is 0 on every stand row, and the heading error is ≤ 0.058 rad, inside the 0.133 dead band.
+    - The facing term pays 0.1977/0.200 either way.
+    - FB6k B, trained with facing weight 0, already stepped (2.33 steps/s).
+  - **The cause is that every trained head, W and C0 included, runs its walking rhythm at zero command** (2.3–3.8 steps/s).
+    - A still stance would earn +0.17/s at c6x and +0.76/s at c4–c6, so the stepping is an optimisation basin, not a
+      reward being chased.
+    - c6x turned pre-cut tapping (one tripod parked) into a 0.48 Hz march. Hiding the clock and the cut of
+      stopped-clock stance income both happened at c6x and are not separated.
+  - **Proposals (not run):**
+    - Checks: D1 a facing-blind stand eval, D2 a c6x fork keeping CLOCK_W, D3 a CPU replay gate.
+    - Fixes: F1 stand-slot stance income through c6x, F2 a stand stillness penalty.
+    - F1/F2 are stand-gated; the user rejected a stand-centric plan on 2026-09-22.
