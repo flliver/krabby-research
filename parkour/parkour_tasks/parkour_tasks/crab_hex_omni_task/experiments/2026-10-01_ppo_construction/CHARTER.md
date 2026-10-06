@@ -1564,3 +1564,15 @@ when the t3x in-band turn settles.
      - Head chosen among `SF__B_rest_s16/17/18` by a rule stated before judging: floors, then whole-task performance,
        then motion quality and the turn band as tie-breakers.
      - Preparation is read-only until the GPU is idle (workflow `wf_4f63f738-9fa`).
+- 2026-10-06 10:39, **C0 side-first s16 done; campaign queue finished by user decision** (`sf/final_read.md`;
+  descriptive, n=1).
+  - **`SF__C0_rest_s16` c6x:** SLOW/SLOW 0.111/0.098 (also SLOW at c6 and 13000).
+  - **Suite:** side 0.49, fwd 0.68, back 0.73, diag 0.59, turn fc 0.68 / yp 0.090, move_turn ratio 0.61 /
+    survival 0.63.
+  - **Turn band at c6x:** in-band 0.076 rad, 1.0 rad fc 0.89.
+  - **Against B s16 (same seed):** side 0.98, fwd 1.01, back 1.03, diag 0.97, turn 0.76 / 0.100, move_turn 0.65 / 0.74.
+  - **Against W:** side 0.47, fwd 0.79, back 0.78, diag 0.58, turn 0.79 / 0.102, move_turn 0.44 / 0.37.
+  - **Reading (n=1, descriptive):**
+    - The side-first recipe lifts C0's move_turn above W's (survival 0.63 vs 0.37) and keeps W-level turning.
+    - The construction is what adds the side gait and +0.3–0.5 on fwd, back and diag.
+    - The §13.4 final gate was not applied (C0 s17/s18 cancelled by the user).
