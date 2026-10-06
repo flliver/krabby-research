@@ -355,8 +355,16 @@ row_eval() {  # NAME CHECKPOINT ENV_STAMP MANIFEST SCENARIO ENV_SEED [EPISODES] 
   ( cd "$R/parkour" && env OMNI_KIT_ACCEPT_EULA=yes TERM=xterm PYTHONPATH="$PYP" $envs \
       $CAP timeout 3600 "$PY" "$EVAL" --headless --manifest "$man" --scenario "$sc" --env-seed "$es" \
       --checkpoint "$ck" ${ep[@]+"${ep[@]}"} --save-raw --no-plot --output-root "$LROUT/$name" ${EVAL_EXTRA_ARGS:-} ) > "$LROUT/$name.$sc.$sd.log" 2>&1
+  local erc=$?
   d=$(ls -d "$LROUT/$name"/"$sc"/"$sd"/*/ 2>/dev/null | tail -1)
-  if [ -z "$d" ] || [ ! -f "$d/complete.json" ]; then return 1; fi
+  # The harness writes complete.json only for category_suite rows (gait_eval/report.py); an 8-hold schedule row
+  # (field_light/field_hard/ring_obst/field_turn) is complete when the eval exited 0 and its outputs exist ->
+  # p2_complete.json (written here, last). Readers accept either marker.
+  if [ -n "$d" ] && [ ! -f "$d/complete.json" ] && [ "$erc" = 0 ] && [ -f "$d/scenario_metrics.json" ] \
+     && [ -f "$d/summary.md" ] && [ -f "$d/run_meta.json" ]; then
+    printf '{"by": "run_arm.sh row_eval", "eval_rc": 0, "reason": "non-suite row: the harness writes complete.json only for category_suite rows"}\n' > "$d/p2_complete.json"
+  fi
+  if [ -z "$d" ] || { [ ! -f "$d/complete.json" ] && [ ! -f "$d/p2_complete.json" ]; }; then return 1; fi
   ROW_DIR=${d%/}
   write_sidecar "$ROW_DIR" || { say "STOP row-eval $name $sc: no code-state sidecar written for $ROW_DIR"; return 1; }
 }

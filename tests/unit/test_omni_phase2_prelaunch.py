@@ -935,3 +935,24 @@ def test_the_queue_header_has_no_e1_step():
     head = QUEUE.read_text().split("\nC=", 1)[0]
     assert "-> E1 ->" not in head and "#   s1|e1|f1 " not in head          # no E1 step (e1 stays a FROM_STEP value)
     assert "E1 was dropped" in head
+
+
+def test_schedule_row_stamps_count_as_complete_with_the_runner_marker(tmp_path):
+    """The harness writes complete.json only for category_suite rows; run_arm.sh marks a clean 8-hold schedule-row
+    eval with p2_complete.json, and the reader must accept either marker (S5 smoke, 2026-10-06)."""
+    import importlib.util
+    p = Path(__file__).resolve().parents[2] / ("parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/"
+                                                "2026-10-07_omni_phase2/scripts/p2_read.py")
+    spec = importlib.util.spec_from_file_location("p2_read_marker", p)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    root = tmp_path / "lr" / "X" / "field_light__omni" / "seed001"
+    a, b, c = root / "2026-10-06_00-00-01", root / "2026-10-06_00-00-02", root / "2026-10-06_00-00-03"
+    for d in (a, b, c):
+        d.mkdir(parents=True)
+    (a / "complete.json").write_text("{}")
+    (b / "p2_complete.json").write_text("{}")
+    assert mod.stamp_complete(a) and mod.stamp_complete(b) and not mod.stamp_complete(c)
+    assert mod.newest_stamp("X", "field_light__omni", 1, lrout=tmp_path / "lr") == str(b)
+    sh = (p.parent / "run_arm.sh").read_text()
+    assert "p2_complete.json" in sh and 'erc" = 0' in sh

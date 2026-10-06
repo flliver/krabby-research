@@ -464,3 +464,11 @@ recommendation.
     failed about 1.3 % of smokes spuriously.
   - **Pre-existing, recorded:** diagonal-only risers are not in the edge mask.
 - 2026-10-06, **code state for the anchors and arms:** code_sha dfcc5310… (163ce038), eval_sha 1d021625… (unmoved).
+- 2026-10-06, **smokes S1–S5 PASS** (stamp `smokes/2026-10-06T22-01-35Z`; S5 = `SMOKE_S5_s18`).
+  - **S3:** max toe radius 1.07 m, under the 1.6 m limit; 256 resets.
+  - **S4:** reach_edge 0.959, field_frac 0.581, 584 block steps per obstacle-tile episode, off-tile block steps 9.6.
+    The head's ring numbers are 0.963 / 0.514 / ≈ 230, so the field gives ≈ 2.5× the block contact.
+  - **S5:** 7 episodes, 0 stand falls (1 fall in another hold).
+  - **Tooling defect found by S5 and fixed:** the harness writes `complete.json` only for category_suite rows, so
+    every 8-hold row eval would have been rejected. `run_arm.sh` now writes `p2_complete.json` after a clean exit,
+    and the readers accept either marker (tested).

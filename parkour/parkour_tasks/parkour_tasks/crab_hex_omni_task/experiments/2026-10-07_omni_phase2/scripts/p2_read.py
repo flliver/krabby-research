@@ -190,8 +190,15 @@ def X():
 # ================================================================================================ stamp reads
 def newest_stamp(name: str, row: str, seed: int = 1, lrout: Path = LROUT) -> str | None:
     d = lrout / name / row / f"seed{seed:03d}"
-    hits = [p for p in sorted(d.glob("*/")) if (p / "complete.json").is_file()]
+    hits = [p for p in sorted(d.glob("*/")) if stamp_complete(p)]
     return str(hits[-1]) if hits else None
+
+
+def stamp_complete(p) -> bool:
+    """A stamp is complete when the harness wrote complete.json (category_suite rows) or run_arm.sh wrote
+    p2_complete.json after a clean exit of a non-suite (8-hold schedule) row."""
+    p = Path(p)
+    return (p / "complete.json").is_file() or (p / "p2_complete.json").is_file()
 
 
 def _json(p):
@@ -902,7 +909,7 @@ def cal2_gate(rec: dict | None, cands: dict) -> dict:
 
 def resolve_stamp(arg: str, row: str, seed: int = 1, lrout: Path | None = None) -> str | None:
     p = Path(arg)
-    if (p / "complete.json").is_file():
+    if stamp_complete(p):
         return str(p)
     return newest_stamp(arg, row, seed, lrout=lrout or LROUT) if "/" not in arg else None
 
