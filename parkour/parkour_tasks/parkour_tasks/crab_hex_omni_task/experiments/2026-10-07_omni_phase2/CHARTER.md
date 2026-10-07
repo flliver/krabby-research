@@ -677,3 +677,5 @@ recommendation.
     - move_turn survival 1.0 for both.
   - **Stand:** steps/s 2.83 vs 3.67; lift clearance 0.135 vs 0.090 m; tripod 0.759 vs 0.765.
   - Against the anchor, S1 reads COST (the same fwd / back overshoot). n = 1, paired with A1 at the same seed.
+- 2026-10-07, **USER: hold the queue** after the S1 verdict, to look at S1 first. The S1 keep decision is open; F1,
+  A1 s16/s17 and the recipe read wait. Resume with `FROM_STEP=f1 scripts/p2_queue.sh`.
