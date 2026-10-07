@@ -41,18 +41,20 @@ echo "[3] Making host discoverable..."
 bt discoverable on
 bt pairable on
 
-echo "[4] Scanning for Pro Controller — hold sync button until LEDs cycle..."
+echo "[4] Scanning for device named \"Pro Controller\"…"
+echo "    Official Pro: hold Sync (pinhole by USB-C) until ALL 4 LEDs flash rapidly (Home ≠ Sync)."
+echo "    Third-party / no Sync: prefer USB, or bluetoothctl (see CONNECT_PRO_CONTROLLER.md)."
 bt scan on &
 SCAN_PID=$!
 
 MAC=""
+FOUND_TOO_QUICKLY=0
 for i in $(seq 1 25); do
     MAC=$(bluetoothctl -- devices | awk '/Pro Controller/{print $2; exit}')
     if [ -n "$MAC" ]; then
         echo "    Found Pro Controller at $MAC after ${i}s"
         if [ "$i" -lt 3 ]; then
-            echo "[warn] Found too quickly — controller is probably reconnecting from cache, not in fresh-pair mode."
-            echo "       Hold the sync button ~3s until ALL 4 LEDs flash rapidly, then re-run."
+            FOUND_TOO_QUICKLY=1
         fi
         break
     fi
@@ -62,8 +64,20 @@ kill $SCAN_PID 2>/dev/null; SCAN_PID=""
 bt scan off
 
 if [ -z "$MAC" ]; then
-    echo "[err] Pro Controller not found — hold sync button until LEDs cycle, then retry"
+    echo "[err] No device named \"Pro Controller\" found."
+    echo "      Official Pro: power off (Home ~10s) → Sync until 4 LEDs flash → re-run pair-pro."
+    echo "      Third-party: name may not be \"Pro Controller\" — use USB or bluetoothctl scan"
+    echo "      (CONNECT_PRO_CONTROLLER.md §A / §C). Do not chase hid_nintendo for a missing name."
     exit 1
+fi
+
+if [ "$FOUND_TOO_QUICKLY" -eq 1 ]; then
+    # Warn only — a pad already in Sync (or a clone advertising) can also appear in <3s.
+    echo "[warn] Found too quickly — often a Home/cache reconnect, not Sync pairing mode."
+    echo "       Home ≠ Sync. If later Paired: no, that is an incomplete bond (not hid_nintendo)."
+    echo "       Official Pro: power off → bluetoothctl remove $MAC → Sync → re-run pair-pro."
+    echo "       Third-party / frequent bench: use USB (ls /dev/input/js*) or bluetoothctl —"
+    echo "       see CONNECT_PRO_CONTROLLER.md. Continuing this attempt anyway…"
 fi
 
 echo "[5] Removing any stale entry for $MAC..."
@@ -102,13 +116,18 @@ if [ $CONNECTED -eq 0 ]; then
 fi
 
 echo "[8] Waiting for pairing to complete..."
+PAIRED=0
 for i in $(seq 1 15); do
     if timeout 5 bluetoothctl -- info "$MAC" | grep -q "Paired: yes"; then
         echo "    Paired after additional ${i}s"
+        PAIRED=1
         break
     fi
     sleep 1
 done
+if [ "$PAIRED" -eq 0 ]; then
+    echo "[warn] Still Paired: no after wait — will report failure at the end (not hid_nintendo)."
+fi
 sleep 0.5
 kill "$BTMON_PID" 2>/dev/null || true; BTMON_PID=""
 echo "[9] Extracting link key from btmon log..."
@@ -137,11 +156,43 @@ fi
 
 echo ""
 echo "[done] Final status:"
-bluetoothctl -- info "$MAC" | grep -E '(Name|Connected|Paired|Trusted)'
+INFO=$(timeout 5 bluetoothctl -- info "$MAC" 2>/dev/null || true)
+echo "$INFO" | grep -E '(Name|Connected|Paired|Trusted)' || true
+PAIRED=0
+echo "$INFO" | grep -q "Paired: yes" && PAIRED=1
+
 JS=""
 for i in $(seq 1 5); do
     JS=$(ls /dev/input/js* 2>/dev/null | tr '\n' ' ')
     [ -n "$JS" ] && break
     sleep 1
 done
-[ -n "$JS" ] && echo "js device: $JS" || echo "[warn] no js device (hid_nintendo may not be loaded)"
+
+if [ "$PAIRED" -eq 0 ]; then
+    echo "[err] Pairing incomplete (Paired: no) — the Bluetooth bond did not finish."
+    echo "      Do not chase hid_nintendo for this."
+    echo "      Official Nintendo Pro:"
+    echo "        1. Power off (Home ~10s)  2. bluetoothctl remove $MAC"
+    echo "        3. Sync (pinhole by USB-C) until ALL 4 LEDs flash  4. re-run pair-pro"
+    echo "      Third-party (no Sync / clones like XB-324): BT often never sticks — prefer USB:"
+    echo "        plug data cable → ls /dev/input/js* → krabby run --gamepad-only"
+    echo "      Or manual BT: bluetoothctl pair/trust/connect (long-Home or maker pair button)."
+    echo "      Full guide: controller/scripts/jetson/CONNECT_PRO_CONTROLLER.md"
+    echo "      Success looks like: Paired: yes, Connected: yes, and /dev/input/js0."
+    exit 1
+fi
+
+if [ -n "$JS" ]; then
+    echo "js device: $JS"
+else
+    if lsmod | grep -q hid_nintendo; then
+        echo "[warn] Paired: yes but no /dev/input/js* yet — wait a few seconds or press Home to reconnect."
+        echo "       hid_nintendo is already loaded; check udev (krabby install) if js* never appears."
+    else
+        echo "[warn] Paired: yes but no js device — hid_nintendo is not loaded."
+        echo "       Try: sudo modprobe hid_nintendo"
+        echo "       Or re-run host setup after a kernel update:"
+        echo "         sudo -E env PATH=\"\$PATH\" \"\$(which krabby)\" install"
+    fi
+    exit 1
+fi

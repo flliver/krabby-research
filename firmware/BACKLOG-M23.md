@@ -55,8 +55,8 @@ Status: `open` · `in progress` · `done` · `returned` · `out of scope`. `Cumu
 | 4 | K28 | known | No top-level “read this for your intent” routing | yes (findability) | every new reader; cheapest high-impact doc fix | 1 | 0.5 | AI; Human | 8.0 | done |
 | 5 | K29 | known | Spoken `pip install krabby` ≠ `krabby-launcher` | yes (trap) | every new user who guesses the spoken name | 2 | — | AI docs loud; Human | 10.0 | open |
 | 6 | F3 | friction | GUI + Pro pair script not on PyPI; kit path needs clone | yes without clone (GUI/pair) | ~15–30 min; every kit-only bring-up | 2 | 3 | AI package/docs; Human PyPI/kit | 12.0 | done |
-| 7 | F6 | friction | Boot unit owns `/krabby`; manual `krabby run` conflicts | was yes for fresh manual run | ~2–5 min; every boot + manual run | 2 | 1 | AI docs/code; Human Orin verify | 14.0 | done |
-| 8 | F5 | friction | Pro Controller `Paired: no` / Sync vs cache; warn blames `hid_nintendo` | yes (gamepad drive) | ~15–30 min; every first BT pair / bad reconnect | 3 | — | AI warn/docs; Human+HW | 17.0 | open |
+| 7 | F6 | friction | Boot unit owns `/krabby`; manual `krabby run` conflicts | was yes for fresh manual run | ~2–5 min; every boot + manual run | 2 | 3 | AI docs/code; Human Orin verify | 14.0 | done |
+| 8 | F5 | friction | Pro Controller `Paired: no` / Sync vs cache; warn blames `hid_nintendo` | was yes for gamepad drive | ~15–30 min; every first BT pair / bad reconnect | 3 | 2 | AI warn/docs; Human+HW Orin verify | 17.0 | done |
 | 9 | F13 | friction | Pro Controller idle power-off → Home wake; HAL / `krabby run` does not reopen joystick | yes for drive after idle sleep | ~1–3 min restart; every Pro idle power-off mid-session | 16 | — | AI reopen/hotplug; Human+HW | 33.0 | open |
 | 10 | F12 | friction | Artifact-health **locomotion-image** stage FAIL | yes (green artifact-health) | ~15–60 min once Actions log read | 4 | — | AI workflow; Human Discord PASS | 37.0 | open |
 | 11 | F11 | friction | `docker/setup-qemu-action@v3` Node 20 deprecation warn | no until Node 20 removal | ~5 min when editing workflow | 4 | — | AI bump; Human CI green | 41.0 | open |

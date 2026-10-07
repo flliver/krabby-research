@@ -12,6 +12,16 @@ def test_pair_pro_script_is_package_data():
         text = Path(path).read_text(encoding="utf-8")
         assert "Pro Controller" in text
         assert "bluetoothctl" in text
+        # F5: warn text must blame incomplete bond / Sync, not hid_nintendo first;
+        # third-party pads get USB / bluetoothctl guidance.
+        assert "Found too quickly" in text
+        assert "Continuing this attempt anyway" in text
+        assert "Paired: no" in text
+        assert "Do not chase hid_nintendo" in text
+        assert "Home ≠ Sync" in text or "Home wake" in text
+        assert "Third-party" in text
+        assert "USB" in text
+        assert "CONNECT_PRO_CONTROLLER.md" in text
 
 
 def test_pair_pro_cmd_importable():
