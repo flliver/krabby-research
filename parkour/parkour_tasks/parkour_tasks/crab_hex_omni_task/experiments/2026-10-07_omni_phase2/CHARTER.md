@@ -744,3 +744,21 @@ recommendation.
   - Push-notified; asked the user.
 - 2026-10-07, **USER: hold the queue** after the F1 verdict. The F1 keep decision is open; the S1 s16 / s17 replicates
   and the recipe read wait. Resume with `FROM_STEP=a1rep scripts/p2_queue.sh` (single-instance lock).
+- 2026-10-07, **F1 vs S1 gait comparison** (user request; descriptive). Suite medians at n = 100 per category, from the
+  driver suite stamps; A1 s18 is the shared parent recipe.
+  - **Walking: S1 has the cleaner gait in every direction.**
+    - Tripod: fwd 0.74 vs 0.60, back 0.73 vs 0.68, diag 0.76 vs 0.71, move_turn 0.71 vs 0.69; side equal (0.75).
+    - Taps/m: fwd 12.3 vs 15.5, diag 11.2 vs 15.9.
+    - Swing apex: fwd 0.139 vs 0.114 m.
+    - Work/m about 12 % lower: fwd 1066 vs 1235, back 1143 vs 1289, diag 1005 vs 1136.
+    - Slip/m lower; jitter about 25 % lower in every category.
+    - F1 also lengthened fwd strides vs A1 (steps/m 10.5; S1 9.6; A1 12.4). F1's side cadence is fast (step rate
+      3.4 vs 2.8 Hz), with overshoot 1.09.
+  - **Turning and move_turn: F1 is worse.**
+    - Turn: fc 0.927 vs 0.958; work/rad 2851 vs 2263; slip 0.121 vs 0.098.
+    - move_turn: ratio 0.725 vs 0.807; facing_closed 0.61 vs 0.75; work/rad 4197 vs 3022.
+  - **Stand: neither stands still.**
+    - Both step about 25 % less often than A1 (2.75 / 2.83 vs 3.67 steps/s), at tripod 0.79 / 0.76 and 0.46–0.47 Hz.
+    - F1 lifts like A1 (0.093 m); S1 lifts higher (0.135 m). S1 is smoother at stand (jitter 0.215 vs 0.309).
+    - Both spend more work standing than A1 (286 / 309 vs 251).
+  - **Caveat:** one run each, forked from the same head; the knob effect and run-to-run divergence are not separable.
