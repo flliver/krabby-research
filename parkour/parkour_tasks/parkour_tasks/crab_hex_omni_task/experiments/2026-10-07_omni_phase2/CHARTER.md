@@ -644,3 +644,23 @@ recommendation.
   | move_turn survival | 0.945 | 1.000 |
 
   - The queue continued to A0 (ring control) as pre-registered; push-notified.
+- 2026-10-07 07:50, **FIELD-VS-RING (§6.3, descriptive): A0 (ring ramps, DIFF 0.20:1.0) ≈ A1 (field walls)** on every
+  read. Pooled n = 200.
+
+  | Metric | ANCW s18 | A1 (field + walls) | A0 (ring ramps) |
+  |---|---|---|---|
+  | field_hard / field_light / ring_obst | 0.500 / 0.830 / 0.805 | 0.745 / 0.995 / 0.995 | 0.715 / 1.000 / 1.000 |
+  | falls per field_hard episode | — | 0.255 | 0.285 |
+  | fwd / back / side / diag \|ratio − 1\| | 0.041 / 0.030 / 0.045 / 0.044 | 0.007 / 0.026 / 0.045 / 0.031 | 0.005 / 0.032 / 0.062 / 0.015 |
+  | turn fc / yp; move_turn survival | 0.797 / 0.104; 0.945 | 0.928 / 0.128; 1.000 | 0.896 / 0.118; 1.000 |
+  | obstacle level start → tail | — | 1.08 → 6.19 | 1.09 → 5.88 |
+
+  - **Exposure in the field_hard eval** (one estimator for both arms):
+    - beyond-pad 0.707 for both;
+    - block steps per episode 1285 (A1) vs 1346 (A0).
+  - **Reading:** the field+walls course buys at most ≈ +0.03 on walls (inside the noise, SE ≈ 0.03 per arm). Most of
+    the phase-2 gain over the anchor (+0.22 to +0.25 on walls, +0.19 on the ring) comes from phase-2 training itself:
+    the obstacle curriculum, the 2a DR and 5000 more iterations. A0 never trained on a vertical riser: ring blocks are
+    at most 0.09 m, below the 0.12 m wall threshold, so they render as ramps.
+  - Not a gate. A0 is not a head-of-record candidate (§7: A1 heads plus kept siblings).
+  - The queue continued to S1.
