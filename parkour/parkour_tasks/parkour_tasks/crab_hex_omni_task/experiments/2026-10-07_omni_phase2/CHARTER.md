@@ -712,3 +712,21 @@ recommendation.
       ADOPTABLE. The user has accepted that trade.
   - **§7 candidates:** the S1 heads at every seed, plus A1 s18, plus any `--kept` sibling.
   - F1 stays a one-knob contrast against A1 s18, as pre-registered.
+- 2026-10-07 ~12:40, **Review of cb53eb37** (workflow wf_b1fbf4b2: 3 lenses, fable adversarial verify; 4 minor confirmed,
+  5 refuted, nothing blocking). Fixed:
+  1. **Verdict table:** `REPLICATED_ARMS = (S1,)`, so the never-queued A1 s16 / s17 no longer show as PENDING. E1 now
+     reads NOT RUN (dropped), not PENDING.
+  2. **CHARTER 7 intermediate replacement:** the rule (n = 200 margin + floors held) was computed but never applied
+     in the judging path, and the queue discarded the m-screen output. This predates cb53eb37.
+     - `p2_read.charter7_candidates` now substitutes a REPLACES HEAD checkpoint (tested).
+     - `--json` / `--md` carry the m-screen read and the candidate list.
+     - The queue logs the n = 100 m-screen and, after any env_seed-2 row, the n = 200 verdict (NOTIFY).
+  3. **Single-instance lock:** `p2_queue.sh` takes a flock on `$OUT/p2_queue.lock` and refuses a second instance
+     (exit 3, tested).
+     - The queue file was replaced atomically again. The running F1 instance holds the old inode and exits at F1's
+       sibling stop.
+     - FROM_STEP=a1rep is launched only after that stop.
+  4. **Correction to the ~12:05 entry:** S1 s18 is COST against its anchor on **err_back only** (+0.057). The fwd
+     overshoot is a loss against A1, not a COST against the anchor (+0.009).
+     - TRADE-OFF therefore needs err_back COST at ≥ 2 of the 3 seeds.
+     - If the replicates show gain without that same cost, the reading is ADOPTABLE (≥ 2/3 PASS) or MIXED.

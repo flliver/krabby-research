@@ -1067,7 +1067,25 @@ def test_the_s1_replicates_are_a1_plus_the_one_s1_knob():
 
 
 def test_the_recipe_read_is_on_the_s1_arm(read):
-    assert read.RECIPE_ARM == "S1" and set(read.REPLICATED_ARMS) == {"A1", "S1"}
+    assert read.RECIPE_ARM == "S1" and tuple(read.REPLICATED_ARMS) == ("S1",)
+    # never-run heads read NOT RUN (E1 dropped), never PENDING; a missing head that should run stays PENDING
+    res = {"anchors": {}, "heads": {"P2__E1_s18": {"name": "P2__E1_s18", "missing": True},
+                                    "P2__S1_s16": {"name": "P2__S1_s16", "missing": True}}}
+    vs = read.verdicts(res)
+    assert vs["P2__E1_s18"]["verdict"] == "NOT RUN" and vs["P2__S1_s16"]["verdict"] == "PENDING"
+
+
+def test_queue_refuses_a_second_instance(tmp_path):
+    import fcntl
+    env = _queue_env(tmp_path, smokes_rc=0, cal2_rc=0)
+    env["FROM_STEP"] = "a1rep"
+    (tmp_path / "out").mkdir(parents=True, exist_ok=True)
+    with open(tmp_path / "out" / "p2_queue.lock", "w") as fh:
+        fcntl.flock(fh, fcntl.LOCK_EX | fcntl.LOCK_NB)                 # another queue holds the lock
+        r = subprocess.run(["bash", str(QUEUE)], env=env, capture_output=True, text=True, timeout=60)
+    assert r.returncode == 3 and "already running" in r.stderr
+    assert not (tmp_path / "run_arm.calls").exists()
+    assert "another p2_queue holds" in (tmp_path / "out" / "queue.log").read_text()
 
 
 def test_queue_replicates_run_the_s1_recipe(tmp_path):
@@ -1077,3 +1095,26 @@ def test_queue_replicates_run_the_s1_recipe(tmp_path):
     assert r.returncode == 4                                       # the stub arm exits 5 -> block_ok stops
     assert (tmp_path / "run_arm.calls").read_text().split() == ["P2__S1_s16"]
     assert "p2_queue replicates: P2__S1_s16, P2__S1_s17" in (tmp_path / "out" / "queue.log").read_text()
+
+
+def test_charter7_candidates_apply_an_intermediate_replacement(read):
+    """Review wf_b1fbf4b2 (2026-10-07): the judging path applies CHARTER 7's REPLACES HEAD, not only the queue's stderr."""
+    anc = {s: read._pt(f"ANCW_s{s}", fh=(0.45, 0.45)) for s in (16, 17)}
+    anc[18] = read._pt("ANCW_s18", fh=(0.45, 0.45), s2=read._pt("x")["suite"])   # s18's es2 suite = the suite bands
+    heads = {"P2__S1_s16": read._pt("P2__S1_s16", fh=(0.50, 0.50)),
+             "P2__S1_s17": read._pt("P2__S1_s17", fh=(0.60, 0.60)),
+             "P2__S1_s18": {"name": "P2__S1_s18", "missing": True},
+             "P2__A1_s18": read._pt("P2__A1_s18", fh=(0.70, 0.70)),
+             "P2__F1_s18": read._pt("P2__F1_s18", fh=(0.62, 0.62))}
+    res = {"anchors": anc, "heads": heads}
+    vs = read.verdicts(res)
+    inter = {"P2__S1_s16_m17500": read._pt("m", fh=(0.66, 0.66))}       # +0.16 at n = 200, floors held
+
+    def load(name):
+        return inter.get(name, {"name": name})                         # every other intermediate: unread
+    cands, cvs, ms = read.charter7_candidates(res, vs, kept=["F1"], load=load)
+    assert set(cands) == {"S1_s16_m17500", "S1_s17", "A1_s18", "F1_s18"}   # S1 s18 missing: dropped
+    assert ms["S1_s16"][17500]["status"] == "REPLACES HEAD" and ms["S1_s17"][17500]["status"] == "PENDING"
+    assert cvs["S1_s16_m17500"]["verdict"] and "S1_s16" not in cvs
+    cands2, _, _ = read.charter7_candidates(res, vs, kept=["S1"], load=lambda n: {"name": n})
+    assert sorted(cands2) == ["A1_s18", "S1_s16", "S1_s17"]                 # --kept S1 adds nothing twice

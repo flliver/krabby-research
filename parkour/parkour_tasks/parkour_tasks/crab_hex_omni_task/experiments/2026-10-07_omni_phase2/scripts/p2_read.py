@@ -166,8 +166,11 @@ SIBLINGS = ("S1", "E1", "F1")
 #: A1 as pre-registered; S1 since the user's decisions of 2026-10-07 (CHARTER 9: S1 kept on its stride metrics, then
 #: "S1 recipe at s16/s17" -- the replicates P2__S1_s16 / _s17 run instead of A1's).
 RECIPE_ARM = "S1"
-#: arms read at all three seeds (load_all); any other arm is read at the gate seed only
-REPLICATED_ARMS = ("A1", RECIPE_ARM)
+#: arms read at all three seeds (load_all); any other arm is read at the gate seed only. A1 is read at s18 only since
+#: its s16 / s17 replicates are not queued (CHARTER 9, 2026-10-07; review wf_b1fbf4b2: no never-run PENDING rows).
+REPLICATED_ARMS = (RECIPE_ARM,)
+#: heads that will never run, reported as NOT RUN (never PENDING) in the verdict table
+NOT_QUEUED = {"P2__E1_s18": "dropped by the user 2026-10-06 (CHARTER 4 replay gate FAIL)"}
 TURN_HOLDS = ("turn_l90", "turn_r90")
 LEVEL_TAGS = {"all": "Metrics/base_parkour/terrain_levels", "obst": "Metrics/base_parkour/terrain_levels_obst"}
 LEVEL_START_N, LEVEL_TAIL = 20, 100
@@ -696,6 +699,36 @@ def anchors_check(anc: dict, s18_manifest: dict | None, shas: dict | None = None
 
 
 # ================================================================================================ 7 (pure)
+def charter7_candidates(res: dict, vs: dict, kept=(), load=None) -> tuple[dict, dict, dict]:
+    """CHARTER 7 candidates ``(cands, cand_vs, ms_reads)``: the recipe arm's heads at every seed it ran, the A1 gate
+    head and any ``kept`` sibling at s18 (CHARTER 9, 2026-10-07: the recipe arm is S1, kept and replicated). An
+    intermediate checkpoint REPLACES its head when :func:`m_screen` says so (n = 200 margin + floors held; review
+    wf_b1fbf4b2: the judging path applies the rule rather than only printing it). ``load`` = :func:`load_point`."""
+    load = load or (lambda name: load_point(name, with_tb=False))
+    cand_refs = [f"{RECIPE_ARM}_s{s}" for s in SEEDS] + [f"A1_s{GATE_SEED}"] + [f"{k}_s18" for k in kept]
+    cands, cand_vs = {}, {}
+    for lab in cand_refs:
+        pt = res["heads"].get(f"P2__{lab}")
+        if pt and not pt.get("missing") and lab not in cands:
+            cands[lab] = pt
+            cand_vs[lab] = vs.get(f"P2__{lab}")
+    ms_reads = {}
+    for lab in list(cands):
+        s = int(lab.rsplit("_s", 1)[1])
+        anc_s = res["anchors"][s]
+        bd_s = bands(anc_s, res["anchors"][GATE_SEED])
+        ms = {it: load(f"P2__{lab}_m{it}") for it in MCKPTS}
+        r = m_screen(cands[lab], ms, anc_s, bd_s)
+        ms_reads[lab] = r
+        repl = [(v["n200"][0], it) for it, v in r.items() if v.get("status") == "REPLACES HEAD"]
+        if repl:
+            _fh, it = max(repl)
+            new = f"{lab}_m{it}"
+            cands[new], cand_vs[new] = ms[it], seed_verdict(ms[it], anc_s, bd_s)
+            del cands[lab], cand_vs[lab]
+    return cands, cand_vs, ms_reads
+
+
 def m_screen(head: dict, ms: dict, anc: dict, bd: dict) -> dict:
     """CHARTER 7 intermediate screen. ms: {iteration: point}. Returns per checkpoint 'needs_seed2' / 'replaces' / ..."""
     out = {}
@@ -1177,6 +1210,9 @@ def verdicts(res: dict) -> dict:
     for ref, pt in res["heads"].items():
         s = int(ref.rsplit("_s", 1)[1])
         if pt.get("missing"):
+            if ref in NOT_QUEUED and not pt.get("killed"):
+                out[ref] = {"name": ref, "verdict": "NOT RUN", "why": [NOT_QUEUED[ref]], "gain": None, "cost": []}
+                continue
             out[ref] = {"name": ref, "verdict": "PENDING", "why": [f"no record ({pt.get('killed') or 'not run'})"],
                         "gain": None, "cost": []}
             continue
@@ -1591,18 +1627,12 @@ def main() -> int:
         print(json.dumps({"recipe_arm": RECIPE_ARM, "recipe": r, "p2b": t}, default=str))
         return 4 if (t["trigger"] or r["reading"] == "PENDING") else 0
     kept = [k for k in a.kept.split(",") if k]
-    # CHARTER 7 candidates: the recipe arm's heads at every seed it ran, the A1 gate head, and any --kept sibling at s18
-    # (CHARTER 9, 2026-10-07: the recipe arm is S1, kept by the user, replicated at s16 / s17)
-    cand_refs = [f"{RECIPE_ARM}_s{s}" for s in SEEDS] + [f"A1_s{GATE_SEED}"] + [f"{k}_s18" for k in kept]
-    cands = {}
-    for lab in cand_refs:
-        pt = res["heads"].get(f"P2__{lab}")
-        if pt and not pt.get("missing") and lab not in cands:
-            cands[lab] = pt
-    rk = rank_inputs(cands, {lab: vs.get(f"P2__{lab}") for lab in cands})
-    md = markdown(res, vs)
+    cands, cand_vs, ms_reads = charter7_candidates(res, vs, kept)
+    rk = rank_inputs(cands, cand_vs)
+    md = markdown(res, vs) + "\n**CHARTER 7 candidates:** " + ", ".join(cands) + "\n\n**m-screen (CHARTER 7):** " + \
+        json.dumps({lab: {it: v.get("status") for it, v in r.items()} for lab, r in ms_reads.items()}) + "\n"
     if a.json:
-        a.json.write_text(json.dumps({"verdicts": vs, "rank_inputs": rk}, indent=1, default=str))
+        a.json.write_text(json.dumps({"verdicts": vs, "rank_inputs": rk, "m_screen": ms_reads}, indent=1, default=str))
     if a.md:
         a.md.write_text(md)
     print(md)

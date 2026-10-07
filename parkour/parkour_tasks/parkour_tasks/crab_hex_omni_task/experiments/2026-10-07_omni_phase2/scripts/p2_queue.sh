@@ -50,6 +50,14 @@ RUN_ARM=${RUN_ARM:-$S/run_arm.sh}
 READ=${READ:-$S/p2_read.py}
 mkdir -p "$A"
 say() { echo "[$(date -Is)] $*" >> "$LOG"; }
+# one queue at a time (review wf_b1fbf4b2, 2026-10-07): a second instance would race run_arm.sh's 30-s idle poll and
+# could put an eval and a training run on the GPU together. The lock is held for this process's lifetime (fd 9).
+exec 9>"$OUT/p2_queue.lock"
+if ! flock -n 9; then
+  say "STOP p2_queue: another p2_queue holds $OUT/p2_queue.lock (FROM_STEP=${FROM_STEP:-anchors} refused) -- NOTIFY"
+  echo "p2_queue already running ($OUT/p2_queue.lock)" >&2
+  exit 3
+fi
 stopped() { [ -f "$OUT/STOP_QUEUE" ]; }
 block_ok() {  # RC NAME -> continue only when the step ended normally (0)
   if [ "$1" != 0 ]; then say "STOP p2_queue: rc $1 in the $2 step -- NOTIFY"; exit 4; fi
@@ -96,11 +104,18 @@ m_reads() {  # REF -> the CHARTER 7 intermediate reads (+ the env_seed-2 field_h
     row "${1}_m$n" "$rd/model_$n.pt" "$st" "$OMNIMAN" suite__omni 1
     row "${1}_m$n" "$rd/model_$n.pt" "$st" "$P2MAN" field_hard__omni 1
   done
-  for m in $("$PY" "$READ" --m-screen "$1" 2>/dev/null); do
+  local need ms_err=$OUT/mscreen_$1.err
+  need=$("$PY" "$READ" --m-screen "$1" 2>"$ms_err")
+  say "M-SCREEN read $1 (n=100) :: $(tail -1 "$ms_err" | cut -c1-600)"
+  for m in $need; do
     n=${m##*_m}
     say "M-SCREEN $m beats the head on field_hard at n=100: env_seed-2 read (CHARTER 7)"
     row "$m" "$rd/model_$n.pt" "$st" "$P2MAN" field_hard__omni 2
   done
+  if [ -n "$need" ]; then        # the n=200 verdict (REPLACES HEAD / NO) once the env_seed-2 rows exist
+    "$PY" "$READ" --m-screen "$1" >/dev/null 2>"$ms_err"
+    say "M-SCREEN n=200 $1 :: $(tail -1 "$ms_err" | cut -c1-600) -- NOTIFY"
+  fi
 }
 arm() {  # REF -> train it (run_arm.sh stops on any kill / refusal) then its reads
   STOP_ON_REF_STOP=1 bash "$RUN_ARM" "$1"
