@@ -632,3 +632,15 @@ recommendation.
   - Reads: resume OK; +200 PASS (reach_obst 0.75); +1000 PASS (obstacle level 1.08 → 5.79, promotions logged); no
     collapse kill.
   - Head reads and intermediate reads are running, then the gate read.
+- 2026-10-07 04:27, **GATE A1 s18: PASS** (gain, no flat loss, no cost). Pooled completion over es1 + es2, n = 200.
+
+  | Metric | ANCW s18 | A1 s18 |
+  |---|---|---|
+  | field_hard completion (walls, 0.70–1.0) | 0.500 | **0.745** (needs ≥ 0.70) |
+  | field_light completion | 0.830 | 0.995 |
+  | ring_obst completion (ring ramps) | 0.805 | 0.995 |
+  | fwd / back / side / diag \|ratio − 1\| | 0.041 / 0.030 / 0.045 / 0.044 | 0.007 / 0.026 / 0.045 / 0.031 |
+  | turn facing_closed / yaw_progress | 0.797 / 0.104 | 0.928 / 0.128 |
+  | move_turn survival | 0.945 | 1.000 |
+
+  - The queue continued to A0 (ring control) as pre-registered; push-notified.
