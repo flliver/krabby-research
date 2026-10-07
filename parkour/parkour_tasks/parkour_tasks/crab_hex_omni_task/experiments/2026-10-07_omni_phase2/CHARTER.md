@@ -730,3 +730,15 @@ recommendation.
      overshoot is a loss against A1, not a COST against the anchor (+0.009).
      - TRADE-OFF therefore needs err_back COST at ≥ 2 of the 3 seeds.
      - If the replicates show gain without that same cost, the reading is ADOPTABLE (≥ 2/3 PASS) or MIXED.
+- 2026-10-07 15:24, **SIBLING F1 (stand-stance income 0.9) vs A1 s18: rule recommends DO NOT KEEP.** Queue stopped
+  (§6.4); resume with FROM_STEP=a1rep.
+  - **Low-tap conditions fail:**
+    - stand clearance 0.093 m (A1 0.090; needs ≤ 0.05);
+    - stand tripod 0.789 (A1 0.765; needs ≤ 0.4).
+    - The march persists: steps/s 3.67 → 2.75 and contact switches 2.19 → 1.81 Hz, but lifts stay full height.
+  - **Losses vs A1:**
+    - err_back +0.051, err_side +0.041; ratios back 1.077, side 1.086;
+    - field_hard 0.695 vs 0.745, field_light 0.985 vs 0.995;
+    - turning and move_turn unchanged (fc 0.927, mt_surv 0.995); jitter unchanged (0.203).
+  - **Against the anchor:** NO GAIN on the queue's read; field_hard 0.695 vs the 0.70 target.
+  - Push-notified; asked the user.
