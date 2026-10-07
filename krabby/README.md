@@ -109,6 +109,19 @@ against the server's TCP endpoints (`tcp://host:6001` / `:6002`).
 `krabby run` on boot — **enabled by default**. It runs as the invoking user, starts
 after `docker.service`, and retries if the MCU hasn't enumerated yet at boot.
 
+**Boot vs manual `krabby run`:** both use the fixed container name `krabby`. The unit
+clears that name in `ExecStartPre`; `krabby run` does the same before `docker run`, so
+a leftover or service-owned container no longer blocks a fresh start with a Docker
+Conflict error. For a **foreground** manual session while autostart is enabled, stop
+the unit first — otherwise `Restart=always` can reclaim the name after you clear it:
+
+```bash
+sudo systemctl stop krabby-locomotion
+krabby run
+# when done, restore boot ownership:
+sudo systemctl start krabby-locomotion
+```
+
 If `krabby-launcher` is in a user venv (recommended on Orin), activate that venv
 before install. Use the venv binary under `sudo` — `PATH="$PATH"` keeps the venv on
 sudo's search path; `"$(which krabby)"` pins the same CLI you just installed:

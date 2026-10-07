@@ -18,6 +18,25 @@ from krabby._docker import fleet_hal_cmd, gamepad_cmd, run_cmd
 from krabby._locomotion_config import build_hal_argv, fleet_enrolled, fleet_volume_mounts, load_config
 from krabby._state import installed_image, resolve_image_ref
 
+# Fixed docker --name for every locomotion path (gamepad / fleet / inference).
+_CONTAINER_NAME = "krabby"
+
+
+def _clear_krabby_container() -> None:
+    """Free ``--name krabby`` before ``docker run`` (same as the boot unit ExecStartPre).
+
+    After ``krabby install``, ``krabby-locomotion.service`` may already own the name;
+    a bare ``docker run --name krabby`` then fails with Conflict. Idempotent when
+    nothing is present. If the boot unit is still *active*, stop it first for a
+    stable manual session — ``Restart=always`` would otherwise reclaim the name.
+    """
+    subprocess.run(
+        ["docker", "rm", "-f", _CONTAINER_NAME],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
+    )
+
 
 def cmd_run(
     image_ref: Optional[str] = None,
@@ -57,5 +76,6 @@ def cmd_run(
     else:
         cmd = gamepad_cmd(ref, extra_args, extra_mounts=extra_mounts)
 
+    _clear_krabby_container()
     result = subprocess.run(cmd)
     sys.exit(result.returncode)
