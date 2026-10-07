@@ -664,3 +664,16 @@ recommendation.
     at most 0.09 m, below the 0.12 m wall threshold, so they render as ramps.
   - Not a gate. A0 is not a head-of-record candidate (§7: A1 heads plus kept siblings).
   - The queue continued to S1.
+- 2026-10-07 11:19, **SIBLING S1 (action_rate −0.05) vs A1 s18: rule recommends DO NOT KEEP.** Queue stopped
+  (§6.4); resume with FROM_STEP=f1.
+  - **Conditions:** both hands FAST ✓; side feet_ss drop −0.006 ✓; jitter 0.150 ≤ 0.75 × 0.203 ✓ (−26 %);
+    **nothing loses ✗**.
+  - **The losses are overshoot.** \|ratio − 1\| worse by 0.043 (fwd) and 0.061 (back). Median tracking ratio is fwd
+    1.050 / back 1.087 for S1 vs 0.993 / 1.026 for A1; side 1.051 vs 1.045; diag 1.015 vs 0.969.
+  - **Otherwise S1 ≥ A1:**
+    - field_hard 0.800 vs 0.745;
+    - turn facing_closed 0.958 vs 0.928, yaw_progress 0.158 vs 0.128;
+    - diag \|ratio − 1\| 0.015 vs 0.031;
+    - move_turn survival 1.0 for both.
+  - **Stand:** steps/s 2.83 vs 3.67; lift clearance 0.135 vs 0.090 m; tripod 0.759 vs 0.765.
+  - Against the anchor, S1 reads COST (the same fwd / back overshoot). n = 1, paired with A1 at the same seed.
