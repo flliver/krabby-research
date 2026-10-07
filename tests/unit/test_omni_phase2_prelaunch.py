@@ -87,12 +87,15 @@ def test_the_smoke_env_is_the_driver_p2a_env_of_the_a1_chain(smoke, rc, cands, a
         if smoke.is_placeholder(v):
             continue
         assert env[k] == v, k
-    # the one placeholder (CHARTER 9 walls re-tune, candidates_v5) is A1's PROMOTE: it launches at the wall-mode CAL1's
-    # value and the substitution is recorded
-    assert smoke.is_placeholder(want["KRABBY_TERRAIN_PROMOTE"])
-    assert env["KRABBY_TERRAIN_PROMOTE"] == "0.45:0.25"
+    # A1's PROMOTE: while it is a placeholder (candidates_v5) the smoke launches at the wall-mode CAL1's value and
+    # records the substitution; once calibrated (v6, CHARTER 9) the smoke runs the chain's own value, unsubstituted
     assert smoke.DEFAULT_FILL == "P2__CALW1_s18"
-    assert plan["substituted"]["KRABBY_TERRAIN_PROMOTE"]["from"] == "P2__CALW1_s18"
+    if smoke.is_placeholder(want["KRABBY_TERRAIN_PROMOTE"]):
+        assert env["KRABBY_TERRAIN_PROMOTE"] == "0.45:0.25"
+        assert plan["substituted"]["KRABBY_TERRAIN_PROMOTE"]["from"] == "P2__CALW1_s18"
+    else:
+        assert env["KRABBY_TERRAIN_PROMOTE"] == want["KRABBY_TERRAIN_PROMOTE"]
+        assert "KRABBY_TERRAIN_PROMOTE" not in (plan["substituted"] or {})
     assert env["KRABBY_FIELD_EDGES"] == "wall" and env["KRABBY_FLAT_TERRAIN_DIFF"] == "0.20:1.0"
     assert smoke.terrain_expect(env) == {"difficulty": (0.20, 1.0), "wall": True}
     assert not any(smoke.is_placeholder(v) for v in env.values())
@@ -112,6 +115,10 @@ def test_the_child_environ_strips_parent_krabby_vars(smoke, rc, cands):
 
 
 def test_a_placeholder_without_a_fill_is_dropped_not_launched(smoke, rc, cands):
+    import copy
+    cands = copy.deepcopy(cands)                    # since v6 A1's PROMOTE is filled: plant a placeholder in a copy
+    ov = cands["chains"]["P2__A1_s18"]["stages"][0]["overlay"]
+    ov["KRABBY_TERRAIN_PROMOTE"] = "TBD_PENDING_CALIBRATION_WALLS"
     plan = smoke.compose_plan(rc, cands, "P2__A1_s18", fill_from=None)
     assert "KRABBY_TERRAIN_PROMOTE" not in plan["child_env_vars"]
     assert plan["dropped"] == ["KRABBY_TERRAIN_PROMOTE"]

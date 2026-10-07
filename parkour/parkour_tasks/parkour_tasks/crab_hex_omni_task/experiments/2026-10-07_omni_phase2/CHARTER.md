@@ -585,3 +585,12 @@ recommendation.
     - code_sha dfcc5310 and eval_sha 1d021625 are unmoved; tool and campaign files only.
   - **Order:** CALW1 → calibrate → v6 (PROMOTE) → smokes S1–S4 (fill from CALW1) → S5W → SMOKES_OK → CALW2 → queue from
     the anchors.
+- 2026-10-06 22:15, **CALW1 (walls) PASS → promotion recalibrated to 0.7:0.4** (`candidates_v6`).
+  - CALW1 ran the wall field at DIFF 0.20:1.0 with the preset 0.45:0.25 (run `2026-10-06_21-59-10_seed18_X04_p2a_cal_A15pB`).
+  - Reads: resume OK (σ Δ 4e-5, priv_reg 0.1); +200 wiring PASS (reach_obst 0.78, clock hidden); dump audit PASS.
+  - r̄ = 0.798 (mean `track_ratio_obst_p50`, last 100 its), so up = 0.9·r̄ → 0.70 and down = 0.5·r̄ → 0.40.
+  - At 0.45:0.25 the obstacle level rose 1.0 → 6.5 with 0 demotions; crab_failure reached 0.29; the edge penalty is
+    live (−0.005 to −0.019).
+  - **Review of 4d0c954b** (fable, read-only): no blocking finding.
+    - Fixed: the code-guard anchor-name lookup now fails closed instead of falling back to `ANC_s*`.
+    - Fixed: the queue's CAL2 messages now name CALW2 (f006ff4d).

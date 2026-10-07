@@ -52,6 +52,7 @@
 # un-run arm trains on KRABBY_FIELD_EDGES wall with KRABBY_FLAT_TERRAIN_DIFF 0.20:1.0 (A0 ring: the same DIFF), and
 # its PROMOTE is TBD_PENDING_CALIBRATION_WALLS until the wall-mode calibration smoke P2__CALW1_s18 fixes it
 # (P2__CALW2_s18 then confirms it). The ramp-mode calibration chains (CAL1 / CAL1b / CAL2) are kept as run.
+# v6 (2026-10-06 22:15): P2__CALW1_s18 r-bar = 0.798 (mean track_ratio_obst_p50, its last 100 its) -> PROMOTE 0.7:0.4.
 schema: 1
 
 plant: A15+B
@@ -329,7 +330,7 @@ chains:
           KRABBY_FIELD_KINDS: "0.4:0.4:0.2"
           KRABBY_FIELD_EDGES: wall
           KRABBY_FLAT_TERRAIN_DIFF: "0.20:1.0"
-          KRABBY_TERRAIN_PROMOTE: "TBD_PENDING_CALIBRATION_WALLS"
+          KRABBY_TERRAIN_PROMOTE: "0.7:0.4"    # CHARTER 9 walls calibration: r-bar 0.798 (P2__CALW1_s18)
         eval: []
         categories: [back, diag, fwd, move_turn, side, stand, turn]
         floor: {kind: none}
@@ -371,7 +372,7 @@ chains:
           KRABBY_FIELD_KINDS: "0.4:0.4:0.2"
           KRABBY_FIELD_EDGES: wall    # CHARTER 9 walls re-tune 2026-10-06
           KRABBY_FLAT_TERRAIN_DIFF: "0.20:1.0"
-          KRABBY_TERRAIN_PROMOTE: "TBD_PENDING_CALIBRATION_WALLS"    # recalibrated on walls (P2__CALW1_s18)
+          KRABBY_TERRAIN_PROMOTE: "0.7:0.4"    # CHARTER 9 walls calibration: r-bar 0.798 (P2__CALW1_s18)
         eval: [suite]
         categories: [back, diag, fwd, move_turn, side, stand, turn]
         floor: {kind: none}
@@ -412,7 +413,7 @@ chains:
           KRABBY_FIELD_KINDS: "0.4:0.4:0.2"
           KRABBY_FIELD_EDGES: wall    # CHARTER 9 walls re-tune 2026-10-06
           KRABBY_FLAT_TERRAIN_DIFF: "0.20:1.0"
-          KRABBY_TERRAIN_PROMOTE: "TBD_PENDING_CALIBRATION_WALLS"    # recalibrated on walls (P2__CALW1_s18)
+          KRABBY_TERRAIN_PROMOTE: "0.7:0.4"    # CHARTER 9 walls calibration: r-bar 0.798 (P2__CALW1_s18)
         eval: [suite]
         categories: [back, diag, fwd, move_turn, side, stand, turn]
         floor: {kind: none}
@@ -453,7 +454,7 @@ chains:
           KRABBY_FIELD_KINDS: "0.4:0.4:0.2"
           KRABBY_FIELD_EDGES: wall    # CHARTER 9 walls re-tune 2026-10-06
           KRABBY_FLAT_TERRAIN_DIFF: "0.20:1.0"
-          KRABBY_TERRAIN_PROMOTE: "TBD_PENDING_CALIBRATION_WALLS"    # recalibrated on walls (P2__CALW1_s18)
+          KRABBY_TERRAIN_PROMOTE: "0.7:0.4"    # CHARTER 9 walls calibration: r-bar 0.798 (P2__CALW1_s18)
         eval: [suite]
         categories: [back, diag, fwd, move_turn, side, stand, turn]
         floor: {kind: none}
@@ -491,7 +492,7 @@ chains:
           KRABBY_PHASEOUT: ""
           KRABBY_FLAT_TERRAIN_GEOM: ring
           KRABBY_FLAT_TERRAIN_DIFF: "0.20:1.0"    # CHARTER 9 walls re-tune (same range as A1)
-          KRABBY_TERRAIN_PROMOTE: "TBD_PENDING_CALIBRATION_WALLS"    # recalibrated on walls (P2__CALW1_s18)
+          KRABBY_TERRAIN_PROMOTE: "0.7:0.4"    # CHARTER 9 walls calibration: r-bar 0.798 (P2__CALW1_s18)
         eval: [suite]
         categories: [back, diag, fwd, move_turn, side, stand, turn]
         floor: {kind: none}
@@ -532,7 +533,7 @@ chains:
           KRABBY_FIELD_KINDS: "0.4:0.4:0.2"
           KRABBY_FIELD_EDGES: wall    # CHARTER 9 walls re-tune 2026-10-06
           KRABBY_FLAT_TERRAIN_DIFF: "0.20:1.0"
-          KRABBY_TERRAIN_PROMOTE: "TBD_PENDING_CALIBRATION_WALLS"    # recalibrated on walls (P2__CALW1_s18)
+          KRABBY_TERRAIN_PROMOTE: "0.7:0.4"    # CHARTER 9 walls calibration: r-bar 0.798 (P2__CALW1_s18)
         eval: [suite]
         categories: [back, diag, fwd, move_turn, side, stand, turn]
         floor: {kind: none}
@@ -573,7 +574,7 @@ chains:
           KRABBY_FIELD_KINDS: "0.4:0.4:0.2"
           KRABBY_FIELD_EDGES: wall    # CHARTER 9 walls re-tune 2026-10-06
           KRABBY_FLAT_TERRAIN_DIFF: "0.20:1.0"
-          KRABBY_TERRAIN_PROMOTE: "TBD_PENDING_CALIBRATION_WALLS"    # recalibrated on walls (P2__CALW1_s18)
+          KRABBY_TERRAIN_PROMOTE: "0.7:0.4"    # CHARTER 9 walls calibration: r-bar 0.798 (P2__CALW1_s18)
           KRABBY_POWER_W: "TBD_PENDING_REPLAY_GATE_S4"
           KRABBY_POWER_JOINTS: actuated
         eval: [suite]
@@ -616,7 +617,7 @@ chains:
           KRABBY_FIELD_KINDS: "0.4:0.4:0.2"
           KRABBY_FIELD_EDGES: wall    # CHARTER 9 walls re-tune 2026-10-06
           KRABBY_FLAT_TERRAIN_DIFF: "0.20:1.0"
-          KRABBY_TERRAIN_PROMOTE: "TBD_PENDING_CALIBRATION_WALLS"    # recalibrated on walls (P2__CALW1_s18)
+          KRABBY_TERRAIN_PROMOTE: "0.7:0.4"    # CHARTER 9 walls calibration: r-bar 0.798 (P2__CALW1_s18)
           KRABBY_STAND_STANCE_W: "0.9"    # CHARTER 4 weight 0.90 (FAIL overruled by the user 2026-10-06)
         eval: [suite]
         categories: [back, diag, fwd, move_turn, side, stand, turn]
