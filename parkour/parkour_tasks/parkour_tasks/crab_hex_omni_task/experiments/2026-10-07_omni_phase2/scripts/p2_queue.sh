@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Omni phase-2 queue (CHARTER 5 / 6 / 8): anchors -> A1 s18 (the gate) -> A0 s18 -> S1 -> F1 -> A1 s16, A1 s17
-# -> the recipe read. E1 was dropped by the user on 2026-10-06 (CHARTER 4 replay gate FAIL; CHARTER 9): its chain keeps
+# Omni phase-2 queue (CHARTER 5 / 6 / 8): anchors -> A1 s18 (the gate) -> A0 s18 -> S1 -> F1 -> the replicates
+# -> the recipe read. Replicates: S1 s16, S1 s17 since the user's 2026-10-07 decisions (CHARTER 9: S1 kept, then "S1
+# recipe at s16/s17"); pre-registered as A1 s16, A1 s17. E1 was dropped by the user on 2026-10-06 (CHARTER 4 replay gate FAIL; CHARTER 9): its chain keeps
 # a placeholder and the sibling loop never runs it. Serial, one Isaac process at a time (run_arm.sh's anchored idle
 # check before every launch and every eval). Records in $OUT/arms, eval stamps in $OUT/lr. Every stop writes a
 # "STOP p2_queue" / NOTIFY line to $LOG (the watcher push-notifies it) and exits 4; $OUT/STOP_QUEUE stops the queue
@@ -21,7 +22,8 @@
 #   a0       P2__A0_s18 -> head reads -> p2_read.py --field-vs-ring (descriptive, logged; NOTIFY, no stop).
 #   s1|f1    P2__<arm>_s18 -> head reads -> p2_read.py --sibling <arm>: EVERY sibling verdict STOPS and asks (CHARTER
 #            6.4); resume with FROM_STEP=<next>. (e1 is still a valid FROM_STEP value; no step runs it.)
-#   a1rep    P2__A1_s16, P2__A1_s17 -> head reads each.
+#   a1rep    the replicates of the recipe arm -> head reads each: P2__S1_s16, P2__S1_s17 (CHARTER 9, 2026-10-07; the step
+#            keeps its pre-registered name so FROM_STEP=a1rep still resumes it).
 #   recipe   p2_read.py --recipe (CHARTER 6.2 + the 6.5 p2b trigger): NOTIFY the reading; STOP when p2b triggers or a
 #            seed is still PENDING.
 # Head reads of an arm head: side22_25lr (lr eval), field_light / field_hard / ring_obst at env_seeds 1 and 2,
@@ -110,7 +112,7 @@ FROM_STEP=${FROM_STEP:-anchors}
 step_n() { case "$1" in anchors) echo 1;; a1s18) echo 2;; a0) echo 3;; s1) echo 4;; e1) echo 5;; f1) echo 6;; a1rep) echo 7;; recipe) echo 8;; *) echo 0;; esac; }
 FROM=$(step_n "$FROM_STEP"); [ "$FROM" -ge 1 ] || { echo "bad FROM_STEP $FROM_STEP" >&2; exit 2; }
 want() { [ "$(step_n "$1")" -ge "$FROM" ]; }
-say "p2_queue start (CHARTER 8) from $FROM_STEP: anchors -> A1 s18 gate -> A0 -> S1 -> F1 -> A1 s16/s17 -> recipe (E1 dropped)"
+say "p2_queue start (CHARTER 8) from $FROM_STEP: anchors -> A1 s18 gate -> A0 -> S1 -> F1 -> S1 s16/s17 -> recipe (E1 dropped)"
 stopped && { say "STOP p2_queue: STOP_QUEUE present at start"; exit 4; }
 
 # (0) the CHARTER 5 smokes gate (pre-launch audit B1): no anchor, arm or eval without a valid $OUT/SMOKES_OK
@@ -165,10 +167,11 @@ for sib in S1 F1; do   # E1 dropped by the user 2026-10-06 (CHARTER 4 replay gat
   fi
 done
 
-# (7) A1 replicates
+# (7) replicates of the recipe arm (S1 since CHARTER 9, 2026-10-07; pre-registered as A1 s16 / s17)
 if want a1rep; then
-arm P2__A1_s16
-arm P2__A1_s17
+say "p2_queue replicates: P2__S1_s16, P2__S1_s17 (the S1 recipe; user decision 2026-10-07, CHARTER 9)"
+arm P2__S1_s16
+arm P2__S1_s17
 fi
 
 # (8) recipe read + p2b trigger

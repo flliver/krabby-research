@@ -53,6 +53,8 @@
 # its PROMOTE is TBD_PENDING_CALIBRATION_WALLS until the wall-mode calibration smoke P2__CALW1_s18 fixes it
 # (P2__CALW2_s18 then confirms it). The ramp-mode calibration chains (CAL1 / CAL1b / CAL2) are kept as run.
 # v6 (2026-10-06 22:15): P2__CALW1_s18 r-bar = 0.798 (mean track_ratio_obst_p50, its last 100 its) -> PROMOTE 0.7:0.4.
+# v7 (2026-10-07, user decisions, CHARTER 9): S1 KEPT; the recipe read replicates the S1 recipe -- P2__S1_s16 / _s17 =
+# A1 s16 / s17 + KRABBY_ACTION_RATE_W -0.05 (the one knob S1 s18 changes). P2__A1_s16 / _s17 stay defined, not queued.
 schema: 1
 
 plant: A15+B
@@ -538,6 +540,88 @@ chains:
         categories: [back, diag, fwd, move_turn, side, stand, turn]
         floor: {kind: none}
 
+  P2__S1_s16:
+    notes: "S1 recipe replicate (user decision 2026-10-07, CHARTER 9): A1 s16 + KRABBY_ACTION_RATE_W -0.05, the ONE knob S1 s18 changes; fork of the s16 c6x head. Replaces A1 s16 in the recipe read."
+    absolute_units: true
+    stages:
+      - stage: p2a
+        base: "2a"
+        iters: 5000
+        from_scratch: false
+        resume_from: {checkpoint: parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-05_19-54-57_seed16_X58_c6x_A15pB/model_14995.pt}
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07"
+          KRABBY_OMNI_SLOTS: "0.15:0.55:0.1:0.2"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_FACING: "0.2:1.2"
+          KRABBY_YAW_W: "0.2"
+          KRABBY_CLOCK_W: "0.001"
+          KRABBY_APEX_W: "0.001"
+          KRABBY_OMNI_CLOCK_HIDE: "1"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+          KRABBY_STD_PARAM: soft
+          KRABBY_INIT_STD: "0.8"
+          KRABBY_ENTROPY_COEF: "0.0025"
+          KRABBY_ACTION_RATE_W: "-0.05"
+          KRABBY_PPO_HAND_DIAG: "1"
+          KRABBY_PHASEOUT: ""
+          KRABBY_FLAT_TERRAIN_GEOM: field
+          KRABBY_FIELD_PAD_R: "1.7"
+          KRABBY_FIELD_BLOCKS: "14:28"
+          KRABBY_FIELD_KINDS: "0.4:0.4:0.2"
+          KRABBY_FIELD_EDGES: wall    # CHARTER 9 walls re-tune 2026-10-06
+          KRABBY_FLAT_TERRAIN_DIFF: "0.20:1.0"
+          KRABBY_TERRAIN_PROMOTE: "0.7:0.4"    # CHARTER 9 walls calibration: r-bar 0.798 (P2__CALW1_s18)
+        eval: [suite]
+        categories: [back, diag, fwd, move_turn, side, stand, turn]
+        floor: {kind: none}
+
+  P2__S1_s17:
+    notes: "S1 recipe replicate (user decision 2026-10-07, CHARTER 9): A1 s17 + KRABBY_ACTION_RATE_W -0.05, the ONE knob S1 s18 changes; fork of the s17 c6x head. Replaces A1 s17 in the recipe read."
+    absolute_units: true
+    stages:
+      - stage: p2a
+        base: "2a"
+        iters: 5000
+        from_scratch: false
+        resume_from: {checkpoint: parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-05_23-10-39_seed17_X59_c6x_A15pB/model_14995.pt}
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07"
+          KRABBY_OMNI_SLOTS: "0.15:0.55:0.1:0.2"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_FACING: "0.2:1.2"
+          KRABBY_YAW_W: "0.2"
+          KRABBY_CLOCK_W: "0.001"
+          KRABBY_APEX_W: "0.001"
+          KRABBY_OMNI_CLOCK_HIDE: "1"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+          KRABBY_STD_PARAM: soft
+          KRABBY_INIT_STD: "0.8"
+          KRABBY_ENTROPY_COEF: "0.0025"
+          KRABBY_ACTION_RATE_W: "-0.05"
+          KRABBY_PPO_HAND_DIAG: "1"
+          KRABBY_PHASEOUT: ""
+          KRABBY_FLAT_TERRAIN_GEOM: field
+          KRABBY_FIELD_PAD_R: "1.7"
+          KRABBY_FIELD_BLOCKS: "14:28"
+          KRABBY_FIELD_KINDS: "0.4:0.4:0.2"
+          KRABBY_FIELD_EDGES: wall    # CHARTER 9 walls re-tune 2026-10-06
+          KRABBY_FLAT_TERRAIN_DIFF: "0.20:1.0"
+          KRABBY_TERRAIN_PROMOTE: "0.7:0.4"    # CHARTER 9 walls calibration: r-bar 0.798 (P2__CALW1_s18)
+        eval: [suite]
+        categories: [back, diag, fwd, move_turn, side, stand, turn]
+        floor: {kind: none}
+
   P2__E1_s18:
     notes: "E1 energy (CHARTER 4/8): DROPPED by the user 2026-10-06 after the CHARTER 4 replay gate FAIL; kept with its placeholder so it can never launch."
     absolute_units: true
@@ -634,6 +718,8 @@ references:
   P2__A1_s17: {chain: P2__A1_s17, seed: 17}
   P2__A0_s18: {chain: P2__A0_s18, seed: 18}
   P2__S1_s18: {chain: P2__S1_s18, seed: 18}
+  P2__S1_s16: {chain: P2__S1_s16, seed: 16}
+  P2__S1_s17: {chain: P2__S1_s17, seed: 17}
   P2__E1_s18: {chain: P2__E1_s18, seed: 18}
   P2__F1_s18: {chain: P2__F1_s18, seed: 18}
 # Empty by design: every arm runs through `references:`, never the ordinary candidate queue.

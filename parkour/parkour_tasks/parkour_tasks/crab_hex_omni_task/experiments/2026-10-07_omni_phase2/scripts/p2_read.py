@@ -162,6 +162,12 @@ MCKPTS = (16000, 17500, 19000)
 PAD_R = 1.7
 BLOCK_DZ = 0.02
 SIBLINGS = ("S1", "E1", "F1")
+#: The arm the CHARTER 6.2 recipe read (3 seeds), the 6.5 p2b trigger and the CHARTER 7 candidate list replicate.
+#: A1 as pre-registered; S1 since the user's decisions of 2026-10-07 (CHARTER 9: S1 kept on its stride metrics, then
+#: "S1 recipe at s16/s17" -- the replicates P2__S1_s16 / _s17 run instead of A1's).
+RECIPE_ARM = "S1"
+#: arms read at all three seeds (load_all); any other arm is read at the gate seed only
+REPLICATED_ARMS = ("A1", RECIPE_ARM)
 TURN_HOLDS = ("turn_l90", "turn_r90")
 LEVEL_TAGS = {"all": "Metrics/base_parkour/terrain_levels", "obst": "Metrics/base_parkour/terrain_levels_obst"}
 LEVEL_START_N, LEVEL_TAIL = 20, 100
@@ -1154,7 +1160,7 @@ def load_all(with_tb: bool = True, with_raw: bool = False, arms=("A1", "A0", "S1
     anc = {int(s): load_point(a["name"], with_tb=False, with_raw=with_raw) for s, a in an.items()}
     heads = {}
     for arm in arms:
-        for s in (SEEDS if arm == "A1" else (GATE_SEED,)):
+        for s in (SEEDS if arm in REPLICATED_ARMS else (GATE_SEED,)):
             ref = f"P2__{arm}_s{s}"
             rec = _rec(ref)
             if rec and not rec.get("killed"):
@@ -1452,10 +1458,12 @@ def markdown(res: dict, vs: dict) -> str:
         L.append(f"| {ref} | **{v['verdict']}** | {v.get('gain')} | {_f((pooled(pt, 'field_hard') or (None,))[0])} | "
                  f"{_f((pooled(pt, 'field_light') or (None,))[0])} | {_f((pooled(pt, 'ring_obst') or (None,))[0])} | "
                  f"{'; '.join(str(x) for x in (v.get('why') or []))[:300]} |")
-    rr = recipe_read({s: vs.get(f"P2__A1_s{s}") for s in SEEDS})
-    L += ["", f"**Recipe read (6.2): {rr['reading']}** {json.dumps({k: v for k, v in rr.items() if k != 'reading'})}"]
-    pts = {s: res["heads"].get(f"P2__A1_s{s}") for s in SEEDS}
-    L += [f"**p2b trigger (6.5):** {json.dumps(p2b_trigger({s: vs.get(f'P2__A1_s{s}') or {} for s in SEEDS}, pts))}"]
+    rr = recipe_read({s: vs.get(f"P2__{RECIPE_ARM}_s{s}") for s in SEEDS})
+    L += ["", f"**Recipe read (6.2) on {RECIPE_ARM}: {rr['reading']}** "
+              f"{json.dumps({k: v for k, v in rr.items() if k != 'reading'})}"]
+    pts = {s: res["heads"].get(f"P2__{RECIPE_ARM}_s{s}") for s in SEEDS}
+    L += [f"**p2b trigger (6.5) on {RECIPE_ARM}:** "
+          f"{json.dumps(p2b_trigger({s: vs.get(f'P2__{RECIPE_ARM}_s{s}') or {} for s in SEEDS}, pts))}"]
     return "\n".join(L) + "\n"
 
 
@@ -1577,14 +1585,20 @@ def main() -> int:
         print(json.dumps(out, default=str))
         return 0
     if a.recipe:
-        r = recipe_read({s: vs.get(f"P2__A1_s{s}") for s in SEEDS})
-        t = p2b_trigger({s: vs.get(f"P2__A1_s{s}") or {} for s in SEEDS},
-                        {s: res["heads"].get(f"P2__A1_s{s}") for s in SEEDS})
-        print(json.dumps({"recipe": r, "p2b": t}, default=str))
+        r = recipe_read({s: vs.get(f"P2__{RECIPE_ARM}_s{s}") for s in SEEDS})
+        t = p2b_trigger({s: vs.get(f"P2__{RECIPE_ARM}_s{s}") or {} for s in SEEDS},
+                        {s: res["heads"].get(f"P2__{RECIPE_ARM}_s{s}") for s in SEEDS})
+        print(json.dumps({"recipe_arm": RECIPE_ARM, "recipe": r, "p2b": t}, default=str))
         return 4 if (t["trigger"] or r["reading"] == "PENDING") else 0
     kept = [k for k in a.kept.split(",") if k]
-    cands = {f"A1_s{s}": res["heads"][f"P2__A1_s{s}"] for s in SEEDS if not res["heads"][f"P2__A1_s{s}"].get("missing")}
-    cands.update({f"{k}_s18": res["heads"][f"P2__{k}_s18"] for k in kept if not res["heads"][f"P2__{k}_s18"].get("missing")})
+    # CHARTER 7 candidates: the recipe arm's heads at every seed it ran, the A1 gate head, and any --kept sibling at s18
+    # (CHARTER 9, 2026-10-07: the recipe arm is S1, kept by the user, replicated at s16 / s17)
+    cand_refs = [f"{RECIPE_ARM}_s{s}" for s in SEEDS] + [f"A1_s{GATE_SEED}"] + [f"{k}_s18" for k in kept]
+    cands = {}
+    for lab in cand_refs:
+        pt = res["heads"].get(f"P2__{lab}")
+        if pt and not pt.get("missing") and lab not in cands:
+            cands[lab] = pt
     rk = rank_inputs(cands, {lab: vs.get(f"P2__{lab}") for lab in cands})
     md = markdown(res, vs)
     if a.json:

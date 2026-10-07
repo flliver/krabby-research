@@ -1044,3 +1044,36 @@ def test_schedule_row_stamps_count_as_complete_with_the_runner_marker(tmp_path):
     assert mod.newest_stamp("X", "field_light__omni", 1, lrout=tmp_path / "lr") == str(b)
     sh = (p.parent / "run_arm.sh").read_text()
     assert "p2_complete.json" in sh and 'erc" = 0' in sh
+
+
+# ===================================================================================== CHARTER 9, 2026-10-07: S1 kept
+def test_the_s1_replicates_are_a1_plus_the_one_s1_knob():
+    """User decisions 2026-10-07: S1 kept; the recipe replicates are P2__S1_s16 / _s17 = A1 s16 / s17 + the ONE knob
+    S1 s18 changes (KRABBY_ACTION_RATE_W -0.05), forked from the same heads."""
+    c = yaml.safe_load(open(CAMP / "candidates.yaml"))["chains"]
+
+    def ov(ch):
+        return c[ch]["stages"][0]["overlay"]
+
+    def diff(a, b):
+        return {k: (ov(a).get(k), ov(b).get(k)) for k in set(ov(a)) | set(ov(b)) if ov(a).get(k) != ov(b).get(k)}
+    assert diff("P2__A1_s18", "P2__S1_s18") == {"KRABBY_ACTION_RATE_W": ("0", "-0.05")}
+    for s in (16, 17):
+        assert diff(f"P2__A1_s{s}", f"P2__S1_s{s}") == {"KRABBY_ACTION_RATE_W": ("0", "-0.05")}
+        a, b = c[f"P2__A1_s{s}"]["stages"][0], c[f"P2__S1_s{s}"]["stages"][0]
+        assert a["resume_from"] == b["resume_from"] and a["iters"] == b["iters"] == 5000 and a["base"] == b["base"]
+    refs = yaml.safe_load(open(CAMP / "candidates.yaml"))["references"]
+    assert refs["P2__S1_s16"] == {"chain": "P2__S1_s16", "seed": 16} and refs["P2__S1_s17"]["seed"] == 17
+
+
+def test_the_recipe_read_is_on_the_s1_arm(read):
+    assert read.RECIPE_ARM == "S1" and set(read.REPLICATED_ARMS) == {"A1", "S1"}
+
+
+def test_queue_replicates_run_the_s1_recipe(tmp_path):
+    env = _queue_env(tmp_path, smokes_rc=0, cal2_rc=0)
+    env["FROM_STEP"] = "a1rep"
+    r = subprocess.run(["bash", str(QUEUE)], env=env, capture_output=True, text=True, timeout=60)
+    assert r.returncode == 4                                       # the stub arm exits 5 -> block_ok stops
+    assert (tmp_path / "run_arm.calls").read_text().split() == ["P2__S1_s16"]
+    assert "p2_queue replicates: P2__S1_s16, P2__S1_s17" in (tmp_path / "out" / "queue.log").read_text()

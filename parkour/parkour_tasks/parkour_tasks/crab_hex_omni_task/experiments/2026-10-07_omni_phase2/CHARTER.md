@@ -699,3 +699,16 @@ recommendation.
     `logs/videos/p2_A1_s18_reset_*` (stand / fwd / lat_l / lat_r / back complete). The wall-field recordings failed on
     a manifest path in the runner script and were not re-run.
   - **Queue resumed:** `FROM_STEP=f1`.
+- 2026-10-07 ~12:05, **USER DECISION: the replicates run the S1 recipe at s16 / s17** (instead of A1). Amends §6.2,
+  §6.5, §7 and §8 before any replicate has run.
+  - **Chains** (`candidates_v7`): `P2__S1_s16` / `P2__S1_s17` = A1 s16 / s17 + `KRABBY_ACTION_RATE_W -0.05`, the one
+    knob S1 s18 changes (tested). They fork the same heads. `P2__A1_s16` / `_s17` stay defined and are not queued.
+  - **Queue:** the `a1rep` step (name kept for FROM_STEP) runs P2__S1_s16 then P2__S1_s17, with the same head reads.
+    `p2_queue.sh` was replaced atomically while F1 ran; the running instance exits at F1's sibling stop.
+  - **§6.2 recipe read and §6.5 p2b trigger:** on S1 at s16 / s17 / s18 (`p2_read.RECIPE_ARM`), with the same
+    per-seed ladder against each seed's ANCW anchor.
+    - Expected reading: S1 s18 is COST against its anchor (the fwd / back overshoot the user accepted). If the
+      replicates repeat that cost, the pre-registered reading is TRADE-OFF (≥ 2/3 gain with the same COST), not
+      ADOPTABLE. The user has accepted that trade.
+  - **§7 candidates:** the S1 heads at every seed, plus A1 s18, plus any `--kept` sibling.
+  - F1 stays a one-knob contrast against A1 s18, as pre-registered.
