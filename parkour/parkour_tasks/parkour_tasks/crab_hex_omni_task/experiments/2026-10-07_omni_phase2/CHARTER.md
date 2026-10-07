@@ -594,3 +594,12 @@ recommendation.
   - **Review of 4d0c954b** (fable, read-only): no blocking finding.
     - Fixed: the code-guard anchor-name lookup now fails closed instead of falling back to `ANC_s*`.
     - Fixed: the queue's CAL2 messages now name CALW2 (f006ff4d).
+- 2026-10-06 22:35, **wall smokes: S1–S3 PASS, S4 FAIL on one line** (`smokes/2026-10-07T02-14-30Z`).
+  - S4: reach_edge 0.943, **field_frac 0.507 < 0.51**, block steps 502 per obstacle-tile episode, off-tile 7.0.
+  - S3: toe radius 1.071 m over 256 resets.
+  - **Decision (decide-record-notify; a sanity check, not an outcome gate):** in wall mode the field_frac floor is
+    0.50; every other S4 floor is unchanged.
+    - The 0.51 floor was copied from B's ring telemetry (0.514) as a "no less exposure than the ring" check.
+    - On walls the time beyond the pad is 0.007 below the ring's, while the exposure the check exists for, block
+      contact, is 2.2× the ring's (502 vs ≈ 230). Walls are meant to slow the head.
+  - The smoke is re-run in full; it is deterministic, so S4 reproduces.

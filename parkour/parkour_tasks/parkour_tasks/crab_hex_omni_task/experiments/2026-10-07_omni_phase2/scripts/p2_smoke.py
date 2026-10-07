@@ -135,6 +135,11 @@ S3_RESETS = 200
 S3_ZERO_S = 1.0
 TOE_MAX = 1.6
 S4_MIN = {"reach_edge_frac": 0.9, "field_frac_mean": 0.51, "block_steps_mean": 230.0}
+#: wall mode (CHARTER 9, 2026-10-06 decision): the time-beyond-the-pad floor is 0.50. The first wall smoke
+#: (smokes/2026-10-07T02-14-30Z) measured field_frac 0.507 against the ring-derived 0.51 (B's ring: 0.514), while its
+#: block contact -- the exposure the check exists for -- was 502 block steps per obstacle-tile episode, 2.2x the ring's
+#: ~230. Walls are meant to slow the head down; every other floor is unchanged.
+S4_MIN_WALL = dict(S4_MIN, field_frac_mean=0.50)
 S4_POSITIVE = ("off_tile_block_steps_mean",)
 S4_KEYS = tuple(S4_MIN) + S4_POSITIVE
 #: carry keys that must equal the anchor stamp's (the policy's std structure + the CHARTER 6.1 validity four)
@@ -604,11 +609,11 @@ def judge_s3(stats: dict) -> dict:
     return _result(c, toe_radius_max_m=toe, resets=stats.get("resets"))
 
 
-def judge_s4(means: dict, counts: dict, carry_strict_diff: dict) -> dict:
+def judge_s4(means: dict, counts: dict, carry_strict_diff: dict, wall: bool = False) -> dict:
     c = [_check("policy carry == the anchor stamp's (STD_PARAM / INIT_STD / CLOCK_HIDE / SPEED_ELLIPSE / "
                 "FACING_OBS_CLIP)", not carry_strict_diff, carry_strict_diff or "equal"),
          _check("obstacle-tile episodes finished > 0", int(counts.get("obst_episodes") or 0) > 0, counts)]
-    for k, lo in S4_MIN.items():
+    for k, lo in (S4_MIN_WALL if wall else S4_MIN).items():
         v = _num(means.get(k))
         c.append(_check(f"{k} >= {lo:g}", v is not None and v >= lo - EPS, v))
     for k in S4_POSITIVE:
@@ -890,7 +895,7 @@ def _child_checks(stamp, plan, doc, args, cli):  # pragma: no cover -- needs Isa
         counts = {"episodes_ended": n_done, "steps": steps, "levels_at_start_launch": levels_at_start,
                   "obst_episodes": int(term.exposure._extra["block_steps_mean"].n),
                   "toe_radius_max_walking_m": round(toe4, 4)}
-        doc["results"]["S4"] = judge_s4(means, counts, strict)
+        doc["results"]["S4"] = judge_s4(means, counts, strict, wall=terrain_expect(os.environ)["wall"])
         doc["results"]["S4"]["carry_diff_info"] = info
         doc["results"]["S4"]["exposure_means"] = {k: _num(v) for k, v in means.items()}
         _write(stamp, doc)

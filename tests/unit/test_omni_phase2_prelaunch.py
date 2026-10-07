@@ -436,6 +436,16 @@ def test_s4_fails_a_carry_difference_or_no_obstacle_episode(smoke):
     assert smoke.judge_s4(_means(), {"obst_episodes": 0}, {})["result"] == "FAIL"
 
 
+def test_s4_wall_mode_field_frac_floor(smoke):
+    """CHARTER 9 (2026-10-06): wall mode lowers only the time-beyond-the-pad floor, to 0.50."""
+    m = _means(field_frac_mean=0.507)
+    assert smoke.judge_s4(m, {"obst_episodes": 250}, {})["result"] == "FAIL"
+    assert smoke.judge_s4(m, {"obst_episodes": 250}, {}, wall=True)["result"] == "PASS"
+    assert smoke.judge_s4(_means(field_frac_mean=0.49), {"obst_episodes": 250}, {}, wall=True)["result"] == "FAIL"
+    assert {k: v for k, v in smoke.S4_MIN_WALL.items() if k != "field_frac_mean"} == \
+        {k: v for k, v in smoke.S4_MIN.items() if k != "field_frac_mean"}
+
+
 def test_carry_diff_reads_defaults_and_numbers(smoke):
     d = {"KRABBY_STD_PARAM": "0"}
     assert smoke.carry_diff({"KRABBY_OMNI_FACING_OBS_CLIP": "0.6"}, {"KRABBY_OMNI_FACING_OBS_CLIP": "0.60"},
