@@ -594,7 +594,7 @@ recommendation.
   - **Review of 4d0c954b** (fable, read-only): no blocking finding.
     - Fixed: the code-guard anchor-name lookup now fails closed instead of falling back to `ANC_s*`.
     - Fixed: the queue's CAL2 messages now name CALW2 (f006ff4d).
-- 2026-10-06 22:35, **wall smokes: S1–S3 PASS, S4 FAIL on one line** (`smokes/2026-10-07T02-14-30Z`).
+- 2026-10-06 22:18, **wall smokes: S1–S3 PASS, S4 FAIL on one line** (`smokes/2026-10-07T02-14-30Z`).
   - S4: reach_edge 0.943, **field_frac 0.507 < 0.51**, block steps 502 per obstacle-tile episode, off-tile 7.0.
   - S3: toe radius 1.071 m over 256 resets.
   - **Decision (decide-record-notify; a sanity check, not an outcome gate):** in wall mode the field_frac floor is
@@ -603,3 +603,18 @@ recommendation.
     - On walls the time beyond the pad is 0.007 below the ring's, while the exposure the check exists for, block
       contact, is 2.2× the ring's (502 vs ≈ 230). Walls are meant to slow the head.
   - The smoke is re-run in full; it is deterministic, so S4 reproduces.
+- 2026-10-06, **CHARTER 5 smokes passed; `SMOKES_OK` written before any anchor** (`scripts/p2_read.py --write-smokes-ok`).
+  - S1-S4: `smokes/2026-10-07T02-18-59Z`.
+  - S3: max toe radius 1.071 m (limit 1.6 m), over 256 resets; walking max (S4) 1.733 m.
+  - S4: reach_edge 0.943, field_frac 0.507, block steps per obstacle-tile episode 502.3, off-tile block steps 6.96.
+  - S5: `/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/SMOKE_S5W_s18/field_light__omni/seed001/2026-10-07_02-23-19`, 7 episodes, 0 stand-hold falls.
+  - CAL1 dump audit PASS. code_sha dfcc5310…, eval_sha 1d021625….
+- 2026-10-06 22:38, **pre-launch gates passed on walls; queue relaunched from the anchors** (`wall_chain`).
+  - S5W (`SMOKE_S5W_s18`): 7 episodes, 0 stand falls, 1 other.
+  - SMOKES_OK was rewritten with `terrain: {difficulty_range [0.2, 1.0], wall: true}`.
+  - CALW2 (`2026-10-06_22-25-50_seed18_X05_p2a_cal_A15pB`):
+    - resume OK; +200 PASS (reach_obst 0.75);
+    - dump audit PASS with PROMOTE 0.7:0.4 realised;
+    - obstacle level 1.0 → 5.9 in 400 its, 0 demotions; crab_failure 0.30.
+  - The CAL2 gate passed (CALW2).
+  - p2_queue started the ANCW anchors at 22:38.
