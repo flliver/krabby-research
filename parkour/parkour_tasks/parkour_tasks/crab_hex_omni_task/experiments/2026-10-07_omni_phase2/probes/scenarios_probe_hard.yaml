@@ -1,0 +1,201 @@
+# Anchor-discrimination probe (CHARTER 9, 2026-10-06 21:10 stop). NOT a pre-registered row set and not used by any
+# gate: three harder variants of field_hard__omni (same schedule and env-block shape) to measure where the c6x
+# anchors fall into CHARTER 5's [0.15, 0.85] band, so the user's re-tune decision rests on numbers.
+manifest_version: 2
+speed_ellipse:
+  fwd: 0.35
+  lat: 0.25
+  back: 0.25
+ang_vel_max: 0.3
+defaults:
+  prologue_s: 1.5
+  settle_s: 1.0
+  min_window_s: 1.0
+  fall_exclusion_s: 0.5
+  contact_force_threshold: 1.0
+  slip_speed_threshold: 0.02
+  min_cycles: 2
+  lin_vel_clip: 0.2
+scenarios:
+- id: probe_ramp_max__omni
+  role: teacher
+  task: Isaac-Crab-Hex-Omni-Walk-Play-v0
+  terrain_label: probe_ramp_max
+  checkpoint: SUPPLIED-PER-RUN--pass---checkpoint
+  episodes: 100
+  env_seed: 1
+  episode_length_s: 80.0
+  spawn_yaw: first_face
+  schedule:
+  - speed: 0.0
+    dir: 0.0
+    face: 0.0
+    hold_s: 8.0
+    label: stand
+  - speed: 0.25
+    dir: 0.0
+    face: 0.0
+    hold_s: 8.0
+    label: fwd
+  - speed: 0.22
+    dir: 1.5707963
+    face: 0.0
+    hold_s: 8.0
+    label: lat_l
+  - speed: 0.25
+    dir: 0.7853982
+    face: 0.0
+    hold_s: 8.0
+    label: diag
+  - speed: 0.22
+    dir: 3.1415927
+    face: 0.0
+    hold_s: 8.0
+    label: back
+  - speed: 0.0
+    dir: 0.0
+    face: 1.5707963
+    hold_s: 12.0
+    label: turn_l90
+  - speed: 0.0
+    dir: 0.0
+    face: 0.0
+    hold_s: 12.0
+    label: turn_r90
+  - speed: 0.22
+    dir: 0.0
+    face: 1.5707963
+    hold_s: 8.0
+    label: move_turn
+  env:
+    KRABBY_FLAT_TERRAIN_MODE: light
+    KRABBY_FLAT_TERRAIN_FLAT_FRAC: '0.0'
+    KRABBY_FLAT_TERRAIN_GEOM: field
+    KRABBY_FLAT_TERRAIN_DIFF: 0.70:1.0
+    KRABBY_FIELD_PAD_R: '1.7'
+    KRABBY_FIELD_BLOCKS: '14:28'
+    KRABBY_FIELD_KINDS: 0.4:0.4:0.2
+    KRABBY_FIELD_EDGES: ramp
+  notes: 'Anchor-discrimination probe (CHARTER 9, 2026-10-06; not a pre-registered row): field ramps at the top of the height
+    formulas (bars <= 0.09 m)'
+- id: probe_wall_hard__omni
+  role: teacher
+  task: Isaac-Crab-Hex-Omni-Walk-Play-v0
+  terrain_label: probe_wall_hard
+  checkpoint: SUPPLIED-PER-RUN--pass---checkpoint
+  episodes: 100
+  env_seed: 1
+  episode_length_s: 80.0
+  spawn_yaw: first_face
+  schedule:
+  - speed: 0.0
+    dir: 0.0
+    face: 0.0
+    hold_s: 8.0
+    label: stand
+  - speed: 0.25
+    dir: 0.0
+    face: 0.0
+    hold_s: 8.0
+    label: fwd
+  - speed: 0.22
+    dir: 1.5707963
+    face: 0.0
+    hold_s: 8.0
+    label: lat_l
+  - speed: 0.25
+    dir: 0.7853982
+    face: 0.0
+    hold_s: 8.0
+    label: diag
+  - speed: 0.22
+    dir: 3.1415927
+    face: 0.0
+    hold_s: 8.0
+    label: back
+  - speed: 0.0
+    dir: 0.0
+    face: 1.5707963
+    hold_s: 12.0
+    label: turn_l90
+  - speed: 0.0
+    dir: 0.0
+    face: 0.0
+    hold_s: 12.0
+    label: turn_r90
+  - speed: 0.22
+    dir: 0.0
+    face: 1.5707963
+    hold_s: 8.0
+    label: move_turn
+  env:
+    KRABBY_FLAT_TERRAIN_MODE: light
+    KRABBY_FLAT_TERRAIN_FLAT_FRAC: '0.0'
+    KRABBY_FLAT_TERRAIN_GEOM: field
+    KRABBY_FLAT_TERRAIN_DIFF: 0.20:0.70
+    KRABBY_FIELD_PAD_R: '1.7'
+    KRABBY_FIELD_BLOCKS: '14:28'
+    KRABBY_FIELD_KINDS: 0.4:0.4:0.2
+    KRABBY_FIELD_EDGES: wall
+  notes: 'Anchor-discrimination probe (CHARTER 9, 2026-10-06; not a pre-registered row): field_hard with vertical risers (KRABBY_FIELD_EDGES=wall)'
+- id: probe_wall_max__omni
+  role: teacher
+  task: Isaac-Crab-Hex-Omni-Walk-Play-v0
+  terrain_label: probe_wall_max
+  checkpoint: SUPPLIED-PER-RUN--pass---checkpoint
+  episodes: 100
+  env_seed: 1
+  episode_length_s: 80.0
+  spawn_yaw: first_face
+  schedule:
+  - speed: 0.0
+    dir: 0.0
+    face: 0.0
+    hold_s: 8.0
+    label: stand
+  - speed: 0.25
+    dir: 0.0
+    face: 0.0
+    hold_s: 8.0
+    label: fwd
+  - speed: 0.22
+    dir: 1.5707963
+    face: 0.0
+    hold_s: 8.0
+    label: lat_l
+  - speed: 0.25
+    dir: 0.7853982
+    face: 0.0
+    hold_s: 8.0
+    label: diag
+  - speed: 0.22
+    dir: 3.1415927
+    face: 0.0
+    hold_s: 8.0
+    label: back
+  - speed: 0.0
+    dir: 0.0
+    face: 1.5707963
+    hold_s: 12.0
+    label: turn_l90
+  - speed: 0.0
+    dir: 0.0
+    face: 0.0
+    hold_s: 12.0
+    label: turn_r90
+  - speed: 0.22
+    dir: 0.0
+    face: 1.5707963
+    hold_s: 8.0
+    label: move_turn
+  env:
+    KRABBY_FLAT_TERRAIN_MODE: light
+    KRABBY_FLAT_TERRAIN_FLAT_FRAC: '0.0'
+    KRABBY_FLAT_TERRAIN_GEOM: field
+    KRABBY_FLAT_TERRAIN_DIFF: 0.70:1.0
+    KRABBY_FIELD_PAD_R: '1.7'
+    KRABBY_FIELD_BLOCKS: '14:28'
+    KRABBY_FIELD_KINDS: 0.4:0.4:0.2
+    KRABBY_FIELD_EDGES: wall
+  notes: 'Anchor-discrimination probe (CHARTER 9, 2026-10-06; not a pre-registered row): field walls at the top of the height
+    formulas'

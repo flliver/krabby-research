@@ -12,7 +12,8 @@
 # (without MODE=light apply_flat_walk_knobs forces every sub-terrain but parkour_flat to proportion 0 and the row
 # would silently build flat ground; FLAT_FRAC 0.0 hands the obstacle sub-terrains the whole share -- run_phases.py
 # OBST_EVAL note), the geometry and the difficulty. The field rows add the field knobs, pad radius included,
-# at the CHARTER 3 training values (pad 1.7 m, 14/28 blocks per tile, bar:slab:pit 0.4:0.4:0.2, ramp edges).
+# at the CHARTER 3 training values (pad 1.7 m, 14/28 blocks per tile, bar:slab:pit 0.4:0.4:0.2; wall edges since the
+# CHARTER 9 walls re-tune).
 # ring_obst__omni's block is run_phases.OBST_EVAL VERBATIM (the phase-1 driver's ring obstacle eval env), so it
 # reads the existing ring course (clear disc 2.0 m = OmniRingTerrainCfg.clear_radius default, 8 blocks at
 # n_blocks default; no KRABBY_RING_* knob is set, as in OBST_EVAL) and stays comparable with every ring__omni
@@ -23,9 +24,15 @@
 # SHAPE IS FROZEN after the first eval (process-state sensitivity, scenarios_omni.yaml header): do not add or remove
 # an env block on any row here once an anchor has been evaluated; a change re-runs the anchors (CHARTER 5).
 #
+# WALLS RE-TUNE (CHARTER 9, 2026-10-06; the user's call after the anchor discrimination stop): every FIELD row carries
+# KRABBY_FIELD_EDGES "wall" (was "ramp": B completed field_hard 0.705 / 0.990 / 0.850 on 3-7 cm ramps, falls almost all in
+# move_turn) and field_hard moves to DIFF 0.70:1.0 (the probe: walls there 0.42 / 0.56 / 0.40, falls in the walking
+# holds). ring_obst__omni is unchanged (ring ramps: the ramp hold-the-line row). Values changed, not the env-block shape;
+# the anchors are re-run on this file as ANCW_s16/17/18 (CHARTER 5 re-anchoring). The ramp-era file is in git history.
+#
 # Rows (100 episodes each):
-#   field_light__omni   field, DIFF 0.05:0.2, light__omni's 8-hold schedule
-#   field_hard__omni    field, DIFF 0.20:0.70, the same schedule -- the main read
+#   field_light__omni   field (walls), DIFF 0.05:0.2, light__omni's 8-hold schedule
+#   field_hard__omni    field (walls), DIFF 0.70:1.0, the same schedule -- the main read
 #   ring_obst__omni     ring, DIFF 0.20:0.70, ring__omni's schedule with the OBST_EVAL env block (same-shape control)
 #   field_turn__omni    field, DIFF 0.20:0.70: walk out 10 s (fwd 0.25 m/s: 2.5 m, past the 1.7 m pad), stand 8 s,
 #                       turn_l90 / turn_r90 12 s each (turn_r90 faces 0: the turn back, as on the 8-hold rows)
@@ -73,7 +80,7 @@ scenarios:
       KRABBY_FIELD_PAD_R: "1.7"
       KRABBY_FIELD_BLOCKS: "14:28"
       KRABBY_FIELD_KINDS: "0.4:0.4:0.2"
-      KRABBY_FIELD_EDGES: "ramp"
+      KRABBY_FIELD_EDGES: "wall"
     notes: Phase-2 field at light difficulty (0.05-0.2), light__omni's 8-hold schedule; pad 1.7 m.
 
   - id: field_hard__omni
@@ -98,12 +105,12 @@ scenarios:
       KRABBY_FLAT_TERRAIN_MODE: "light"
       KRABBY_FLAT_TERRAIN_FLAT_FRAC: "0.0"
       KRABBY_FLAT_TERRAIN_GEOM: "field"
-      KRABBY_FLAT_TERRAIN_DIFF: "0.20:0.70"
+      KRABBY_FLAT_TERRAIN_DIFF: "0.70:1.0"
       KRABBY_FIELD_PAD_R: "1.7"
       KRABBY_FIELD_BLOCKS: "14:28"
       KRABBY_FIELD_KINDS: "0.4:0.4:0.2"
-      KRABBY_FIELD_EDGES: "ramp"
-    notes: Phase-2 field at the training difficulty (0.20-0.70) -- the main obstacle read (CHARTER 6.1 gain test).
+      KRABBY_FIELD_EDGES: "wall"
+    notes: Phase-2 WALL field at the top of the training range (0.70-1.0; CHARTER 9 walls re-tune) -- the main obstacle read (CHARTER 6.1 gain test).
 
   - id: ring_obst__omni
     role: teacher
@@ -154,7 +161,7 @@ scenarios:
       KRABBY_FIELD_PAD_R: "1.7"
       KRABBY_FIELD_BLOCKS: "14:28"
       KRABBY_FIELD_KINDS: "0.4:0.4:0.2"
-      KRABBY_FIELD_EDGES: "ramp"
+      KRABBY_FIELD_EDGES: "wall"
     notes: >-
       Turning on obstacles: walk out 10 s at 0.25 m/s (2.5 m, past the 1.7 m pad), stand 8 s, then turn_l90 and
       turn_r90 (back to face 0) 12 s each; 42 s of holds + the 1.5 s prologue inside the 48 s episode.
@@ -212,7 +219,7 @@ scenarios:
       KRABBY_FIELD_PAD_R: "1.7"
       KRABBY_FIELD_BLOCKS: "14:28"
       KRABBY_FIELD_KINDS: "0.4:0.4:0.2"
-      KRABBY_FIELD_EDGES: "ramp"
+      KRABBY_FIELD_EDGES: "wall"
     notes: >-
       suite__omni's categories and holds VERBATIM on the phase-2 field at the training difficulty (0.20-0.70). Its
       move_turn / move_turn_r survival_by_hold is the field rows' move_turn-hold survival of the CHARTER 7 obstacle

@@ -463,7 +463,7 @@ post_ref() {  # REF -> the post steps for a finished run: CK preset (--post) or 
   RD=$(dirname "$CK"); tag=$(basename "$RD" | cut -d_ -f3-)
   TRAINLOG=$(train_log_for "$tag")
   if [ "$SMOKE" = 1 ]; then
-    [ "$CHAIN" = P2__CAL2_s18 ] && req=--require-terrain-move
+    case "$CHAIN" in P2__CAL2_s18|P2__CALW2_s18) req=--require-terrain-move ;; esac   # the ramp- and wall-mode CAL2
     out=$(cd "$CODE_ROOT" && PYTHONPATH="$PYP" "$PY" "$S/p2_live.py" --smoke-audit "$RD" --chain "$CHAIN" --train-log "$TRAINLOG" \
           --candidates "$C/candidates.yaml" $req 2>&1); rc=$?
     SMOKE_AUDIT=$(echo "$out" | tail -1 | cut -c1-2000)

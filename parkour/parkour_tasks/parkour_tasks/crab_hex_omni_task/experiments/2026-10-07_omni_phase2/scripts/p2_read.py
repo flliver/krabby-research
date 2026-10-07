@@ -4,7 +4,7 @@ read, 6.3 field-vs-ring, 6.4 sibling recommendations, 6.5 p2b trigger, 7 ranking
 
 INPUTS. Records $OUT/arms/<ref>.record.json (scripts/run_arm.sh: run_dir, checkpoint, driver_stamp). Eval stamps
 $OUT/lr/<name>/<row>/seed00<k>/<ts>/ (run_arm.sh --row-eval / --lr-eval), each with its code_state.json sidecar.
-Names: anchors ANC_s16 / ANC_s17 / ANC_s18 (anchors.yaml); arm heads = the reference (P2__A1_s18 ...); intermediate
+Names: anchors ANCW_s16 / ANCW_s17 / ANCW_s18 (anchors.yaml; ANC_s* = the ramp-era set, CHARTER 9); arm heads = the reference (P2__A1_s18 ...); intermediate
 checkpoints <ref>_m16000 / _m17500 / _m19000. Hand classes: <ARMS>/<name>_lr.json + _lr_along.json read through the
 precedent's x6k_read.read_point (feet AND along, fail closed: a missing read is NA, never FAST).
 
@@ -832,10 +832,15 @@ SMOKES_OK = "SMOKES_OK"
 SMOKE_CHECKS = ("S1", "S2", "S3", "S4")
 S4_KEYS = ("reach_edge_frac", "field_frac_mean", "block_steps_mean", "off_tile_block_steps_mean")
 S5_EPISODES = 7
-S5_NAME = "SMOKE_S5_s18"
+#: the wall-mode S5 (CHARTER 9, 2026-10-06 walls re-tune; the ramp-mode S5 was SMOKE_S5_s18)
+S5_NAME = "SMOKE_S5W_s18"
 TOE_MAX = 1.6
-#: CAL1 = the fresh re-run P2__CAL1b_s18 (P2__CAL1_s18 was killed twice; CHARTER 9, 2026-10-06)
-CAL1, CAL2, A1_GATE = "P2__CAL1b_s18", "P2__CAL2_s18", "P2__A1_s18"
+#: CAL1 / CAL2 = the wall-mode calibration smokes (CHARTER 9, 2026-10-06 walls re-tune). The ramp-mode ones were
+#: P2__CAL1b_s18 (a fresh re-run: P2__CAL1_s18 was killed twice) and P2__CAL2_s18.
+CAL1, CAL2, A1_GATE = "P2__CALW1_s18", "P2__CALW2_s18", "P2__A1_s18"
+DIFF_KEY, EDGES_KEY = "KRABBY_FLAT_TERRAIN_DIFF", "KRABBY_FIELD_EDGES"
+#: the 2a preset's values when an overlay does not set them
+DIFF_DEFAULT, EDGES_DEFAULT = "0.20:0.70", "ramp"
 PROMOTE_KEY = "KRABBY_TERRAIN_PROMOTE"
 CODE_KEYS = ("code_sha", "eval_sha", "dirty")
 
@@ -859,6 +864,44 @@ def chain_overlay_value(cands: dict, chain: str, key: str):
         if key in ov:
             return ov[key]
     return None
+
+
+def a1_terrain(cands: dict | None) -> dict | None:
+    """The terrain the A1 gate arm trains on: ``{"difficulty_range": [lo, hi], "wall": bool}`` from its overlay (the
+    2a preset's 0.20:0.70 / ramp when unset). None without a candidates file."""
+    if not cands:
+        return None
+    diff = chain_overlay_value(cands, A1_GATE, DIFF_KEY) or DIFF_DEFAULT
+    edges = chain_overlay_value(cands, A1_GATE, EDGES_KEY) or EDGES_DEFAULT
+    return {"difficulty_range": [float(x) for x in str(diff).split(":")], "wall": str(edges).strip().lower() == "wall"}
+
+
+def smoked_terrain(doc: dict | None) -> dict | None:
+    """The terrain a p2_smoke.py run actually built (its S1 summary), in :func:`a1_terrain`'s shape; None if unread or
+    the field sub-terrains disagree on their edges."""
+    s1 = (doc or {}).get("s1_summary") or {}
+    edges = {v.get("vertical_edges") for k, v in (s1.get("sub_terrains") or {}).items() if str(k).startswith("omni_field")}
+    dr = s1.get("difficulty_range")
+    if len(edges) != 1 or not isinstance(dr, (list, tuple)) or len(dr) != 2:
+        return None
+    wall = edges.pop()
+    return {"difficulty_range": [float(x) for x in dr], "wall": wall} if isinstance(wall, bool) else None
+
+
+def terrain_fails(have: dict | None, want: dict | None, what: str) -> list[str]:
+    """CHARTER 9 (2026-10-06 walls re-tune): smokes count only for the terrain the arms train on."""
+    if want is None:
+        return [f"{what}: the A1 terrain is unread (no candidates)"]
+    if not have:
+        return [f"{what}: smoked terrain unknown (a smoke from before the walls re-tune?)"]
+    out = []
+    if have.get("wall") is not want["wall"]:
+        out.append(f"{what}: smoked edges {'wall' if have.get('wall') else 'ramp'} != A1's "
+                   f"{'wall' if want['wall'] else 'ramp'}")
+    hd, wd = have.get("difficulty_range") or [], want["difficulty_range"]
+    if len(hd) != 2 or any(abs(float(a) - float(b)) > 1e-9 for a, b in zip(hd, wd)):
+        out.append(f"{what}: smoked difficulty_range {hd} != A1's {wd}")
+    return out
 
 
 def audit_of(rec: dict | None) -> dict | None:
@@ -996,9 +1039,16 @@ def code_state_fails(have: dict | None, live: dict | None, what: str) -> list[st
             if (bool(have.get(k)) if k == "dirty" else have.get(k)) != (bool(live.get(k)) if k == "dirty" else live.get(k))]
 
 
-def build_smokes_ok(smokes: Path, s5: dict, cal1: dict | None, live: dict | None) -> tuple[list[str], dict]:
+def build_smokes_ok(smokes: Path, s5: dict, cal1: dict | None, live: dict | None,
+                    cands: dict | None = None) -> tuple[list[str], dict]:
     doc = _json(Path(smokes) / "smokes.json")
     fails = smokes_doc_fails(doc)
+    want = a1_terrain(cands)
+    terrain = smoked_terrain(doc)
+    fails += terrain_fails(terrain, want, "smokes")
+    s5_env = (stamp_validity(s5.get("stamp")) or {}).get("manifest_env") or {}
+    if want is not None and (str(s5_env.get(EDGES_KEY, EDGES_DEFAULT)).strip().lower() == "wall") is not want["wall"]:
+        fails.append(f"S5: row edges {s5_env.get(EDGES_KEY)!r} != A1's {'wall' if want['wall'] else 'ramp'}")
     fails += [f"S5: {f}" for f in s5.get("fails") or []] if not s5.get("ok") else []
     fails += [f"CAL1 fork smoke: {f}" for f in smoke_record_fails(cal1, CAL1)]
     cs = ((doc or {}).get("plan") or {}).get("code_state")
@@ -1015,11 +1065,12 @@ def build_smokes_ok(smokes: Path, s5: dict, cal1: dict | None, live: dict | None
                "s5": {k: s5.get(k) for k in ("stamp", "n_episodes", "stand_falls", "other_falls")},
                "cal1": {"run_dir": (cal1 or {}).get("run_dir"), "audit": (audit_of(cal1) or {}).get("result")},
                "code_state": {k: (live or {}).get(k) for k in CODE_KEYS},
-               "smoked_substitutions": ((doc or {}).get("plan") or {}).get("substituted")}
+               "smoked_substitutions": ((doc or {}).get("plan") or {}).get("substituted"),
+               "terrain": terrain}
     return fails, payload
 
 
-def smokes_ok_fails(payload: dict | None, live: dict | None) -> list[str]:
+def smokes_ok_fails(payload: dict | None, live: dict | None, cands: dict | None = None) -> list[str]:
     if not payload:
         return ["no SMOKES_OK"]
     fails = [] if payload.get("result") == "PASS" and not payload.get("fails") else [f"SMOKES_OK says {payload.get('result')}"]
@@ -1031,6 +1082,7 @@ def smokes_ok_fails(payload: dict | None, live: dict | None) -> list[str]:
     if (payload.get("s5") or {}).get("stand_falls") != 0:
         fails.append("S5 stand falls not 0")
     fails += code_state_fails(payload.get("code_state"), live, "SMOKES_OK")
+    fails += terrain_fails(payload.get("terrain"), a1_terrain(cands), "SMOKES_OK")
     return fails
 
 
@@ -1443,8 +1495,10 @@ def main() -> int:
         if not a.smokes or not a.s5:
             ap.error("--write-smokes-ok needs --smokes DIR and --s5 STAMP|NAME")
         s5 = smoke_s5_read(resolve_stamp(a.s5, FL, 1, lr_dir), _anchors_yaml()[GATE_SEED]["sha256"])
+        import yaml  # noqa: PLC0415
         fails, payload = build_smokes_ok(a.smokes, s5, _json(arms_dir / f"{CAL1}.record.json"),
-                                         _live_code_state(a.code_root))
+                                         _live_code_state(a.code_root),
+                                         yaml.safe_load(open(CAMPAIGN / "candidates.yaml")))
         if fails:
             print(json.dumps({"ok": False, "fails": fails}, default=str))
             return 4
@@ -1456,8 +1510,9 @@ def main() -> int:
         print(json.dumps({"ok": True, "written": str(out / SMOKES_OK), **payload}, default=str))
         return 0
     if a.smokes_ok_check:
+        import yaml  # noqa: PLC0415
         payload = _json(out / SMOKES_OK)
-        fails = smokes_ok_fails(payload, _live_code_state(a.code_root))
+        fails = smokes_ok_fails(payload, _live_code_state(a.code_root), yaml.safe_load(open(CAMPAIGN / "candidates.yaml")))
         print(json.dumps({"ok": not fails, "fails": fails, "smokes_ok": str(out / SMOKES_OK)}, default=str))
         return 0 if not fails else 4
     if a.cal2_gate:

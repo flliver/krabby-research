@@ -502,3 +502,86 @@ recommendation.
     1.7 m pad.
   - Next: CAL2 (≥ 300 its at 0.75:0.4, levels must move), then the queue.
 - 2026-10-06 18:48, **CAL2 PASS** (PROMOTE 0.75:0.4 realised; obstacle terrain level 1.1 → 4.7 in 400 its, promotions 0.18 → 0.36/window, 0 demotions, track ratio 0.81). **Queue launched** (p2_queue.sh from the anchors).
+- 2026-10-06 21:08, **STOP: the §5 anchor discrimination check fails** (queue exit 4, as pre-registered: "stop and ask
+  before any re-tune"). Inertness PASS (the s18 suite reproduces the manifest).
+
+  | Anchor | flat `slow__omni` | field_light (pooled) | field_hard (pooled; es1 / es2) | ring_obst (pooled) |
+  |---|---|---|---|---|
+  | s16 | 0.89 | 0.815 | **0.705** (0.78 / 0.63) | 0.695 |
+  | s17 | 1.00 | 0.995 | **0.990** (0.99 / 0.99) | 0.985 |
+  | s18 | 1.00 | 0.905 | **0.850** (0.86 / 0.84) | 0.805 |
+
+  - **Fails:**
+    - s17 field_hard is above 0.85;
+    - s17 field_light is not ≥ hard + 0.10;
+    - s18 field_light 0.905 is not ≥ 0.85 + 0.10.
+  - **Where the falls are** (fall hold = the last hold with steps):
+    - Of 91 field_hard falls across the three anchors, 86 are in **move_turn**, the last hold, and all are `pitch_fwd`.
+      Only 5 are in the walking holds (s17: 2 diag; s18: 2 back, 1 diag).
+    - Per anchor, move_turn falls are 59/200 (s16), 0/200 (s17) and 27/200 (s18). Flat move_turn falls are 10/100
+      for s16 and 0 for s17 and s18.
+    - ring_obst shows the same pattern: 96 of 103 falls are in move_turn.
+    - So on 3–7 cm ramps the walking holds are already solved. "Completion" here measures move_turn survival on bumps.
+  - **Gain-test reachability (§6 NO GAIN rule):**
+    - s18 needs field_hard ≥ 0.95 (band 0.04): reachable.
+    - s16 needs ≥ 1.005 (band 0.15, from its es1/es2 split of 0.78 vs 0.63): unreachable.
+    - s17 needs ≥ 1.09: unreachable.
+    - So the ≥ 2/3 PASS recipe read cannot be met as built.
+  - **Training headroom:** the height formulas top out at 0.09 m bars / 0.08 m slabs at d = 1.0, all below the 0.12 m
+    ramp threshold, so no training difficulty reaches a vertical step.
+  - **Probe launched while the user decides** (eval-only, not a re-tune, no gate reads it):
+    - `probes/scenarios_probe_hard.yaml` + `probes/run_probe_hard.sh`;
+    - 3 anchors × {walls at DIFF 0.20:0.70, ramps at 0.70:1.0, walls at 0.70:1.0}, 50 episodes, env_seed 1;
+    - stamps under `lr/PROBE_s{16,17,18}/`.
+    - It also serves as the first live smoke of `KRABBY_FIELD_EDGES=wall`, which so far was CPU-tested only.
+- 2026-10-06 21:42, **probe results** (50 episodes, env_seed 1; completion, with falls by hold):
+
+  | Setting | s16 | s17 | s18 |
+  |---|---|---|---|
+  | ramps 0.20:0.70 (the anchors; pooled, n = 200) | 0.705 | 0.990 | 0.850 |
+  | walls 0.20:0.70 | 0.76 | 0.84 | 0.74 |
+  | ramps 0.70:1.0 | 0.68 | 0.94 | 0.76 |
+  | walls 0.70:1.0 | 0.42 | 0.56 | 0.40 |
+
+  - **Ramps at maximum difficulty** stay move_turn-dominated: falls are 15/16 (s16), 2/3 (s17) and 8/12 (s18) in
+    move_turn. s17 stays above 0.85.
+  - **Walls move the falls into the walking holds:**
+    - at 0.20:0.70, s17's falls are lat_l 6, back 1, diag 1;
+    - at 0.70:1.0, falls are mostly diag and back: 13/29 (s16), 17/22 (s17), 22/30 (s18).
+  - **The wall mesh builds and evals cleanly.** This is the first live use of `KRABBY_FIELD_EDGES=wall`.
+  - **Edge penalty on walls:** `reward_feet_edge` (−0.3) indexes the global edge mask. On walls it becomes live for
+    terrain levels > 3, as in the forward task. Diagonal-only risers stay outside the mask (pre-existing).
+  - The decision is the user's (it reverses "ramps now, walls later"); asked with a recommendation.
+- 2026-10-06 ~22:00, **USER DECISION: walls, hardest at the top.** This reverses "ramps now, walls later" in light of
+  the anchor stop and the probe. **Amendments, all made before any arm has run:**
+  - **§3 recipe:** every un-run arm adds `KRABBY_FIELD_EDGES wall` and `KRABBY_FLAT_TERRAIN_DIFF 0.20:1.0` (was the 2a
+    preset's 0.20:0.70).
+    - A0 (ring) takes the same DIFF. A1 and A0 now differ in two things: the course (field vs ring) and walls vs
+      ramps. §6.3 reads A0 as "continue on the phase-1 course" — still descriptive, never a gate.
+    - `reward_feet_edge` (−0.3, terrain levels > 3) is live on walls, as in the forward task.
+  - **§5 calibration:** redone on walls with fresh chains, `P2__CALW1_s18` (preset 0.45:0.25) and then `P2__CALW2_s18`
+    (final values). Every arm's PROMOTE is `TBD_PENDING_CALIBRATION_WALLS` until CALW1 fixes it (`candidates_v5`).
+    The ramp-era CAL1 / CAL1b / CAL2 stay as run.
+  - **§5 smokes:** S1–S4 are re-run in wall mode at 0.20:1.0. S5 is re-run as `SMOKE_S5W_s18` on the wall
+    field_light.
+    - S1 expects the composed env's edges and DIFF.
+    - S2's edge checks invert in wall mode: every field tile has walls, and no wall pixel sits more than 2 px from a
+      block. CPU replica, 10 generators × 100 tiles at 0.20:1.0: PASS, 0 off-block pixels.
+    - A new `SMOKES_OK` guard refuses any sentinel whose smoked terrain (S1 summary), S5 row edges or calibration chain
+      differs from A1's terrain. The ramp-era sentinel therefore no longer opens the queue.
+  - **§6.0 rows** (`scenarios_p2.yaml`):
+    - field_light, field_hard, field_turn and field_suite use walls;
+    - field_hard moves to DIFF 0.70:1.0, the top of the training range (probe: 0.42 / 0.56 / 0.40);
+    - ring_obst stays on ring ramps at 0.20:0.70, as the ramp hold-the-line row;
+    - the env-block shape is unchanged.
+  - **§5 re-anchoring:** anchors re-run on the wall manifest under fresh names `ANCW_s16/17/18` (`anchors.yaml`). The
+    ramp-era `lr/ANC_s*` stamps are kept and no longer read. Discrimination and inertness checks are as pre-registered.
+  - **Tooling:**
+    - `run_candidates.py` gains a parser and a dump check for `KRABBY_FLAT_TERRAIN_DIFF` (the generator's
+      `difficulty_range`);
+    - `p2_smoke.py`, `p2_read.py`, `run_arm.sh` and the phase-2 unit tests are updated;
+    - 203 tooling tests pass. Five failures in other campaigns' tests (facing ladder, motion ladder, resolution,
+      ppo_construction real-dump) touch none of these files.
+    - code_sha dfcc5310 and eval_sha 1d021625 are unmoved; tool and campaign files only.
+  - **Order:** CALW1 → calibrate → v6 (PROMOTE) → smokes S1–S4 (fill from CALW1) → S5W → SMOKES_OK → CALW2 → queue from
+    the anchors.

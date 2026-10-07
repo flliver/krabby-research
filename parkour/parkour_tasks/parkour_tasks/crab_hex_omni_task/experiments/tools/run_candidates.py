@@ -2232,6 +2232,26 @@ def _terrain_promote_ok(txt: str, value) -> bool:
     return _same(parkour.get("move_up_frac"), up) and _same(parkour.get("move_down_frac"), down)
 
 
+def parse_terrain_diff(value) -> tuple[float, float]:
+    """``KRABBY_FLAT_TERRAIN_DIFF`` ``lo:hi`` -> ``(lo, hi)``, read exactly as the env cfg reads it
+    (``float`` of each ``:`` part); refuses anything but two finite values with ``0 <= lo <= hi``."""
+    parts = str(value).strip().split(":")
+    if len(parts) != 2:
+        raise ValueError(f'KRABBY_FLAT_TERRAIN_DIFF must be "lo:hi", got {value!r}')
+    lo, hi = (float(p) for p in parts)
+    if not (math.isfinite(lo) and math.isfinite(hi) and 0.0 <= lo <= hi):
+        raise ValueError(f"KRABBY_FLAT_TERRAIN_DIFF needs finite 0 <= lo <= hi, got {value!r}")
+    return lo, hi
+
+
+def _terrain_diff_ok(txt: str, value) -> bool:
+    """``KRABBY_FLAT_TERRAIN_DIFF`` ``lo:hi``: the terrain generator's ``difficulty_range`` (omni phase 2 walls
+    re-tune, 2026-10-06: the arms widen it past the 2a preset's 0.20:0.70)."""
+    lo, hi = parse_terrain_diff(value)
+    rng = _dig(_dump_doc(txt), "scene", "terrain", "terrain_generator", "difficulty_range")
+    return isinstance(rng, (list, tuple)) and len(rng) == 2 and _same(rng[0], lo) and _same(rng[1], hi)
+
+
 def _stand_stance_w_ok(txt: str, value) -> bool:
     """``KRABBY_STAND_STANCE_W`` (F1, an income): 0 / blank = the term ABSENT; else
     ``reward_stand_stance_quality`` present with EXACTLY that func and weight."""
@@ -2420,6 +2440,7 @@ OVERLAY_DUMP_CHECKS = {
     "KRABBY_FIELD_MIN_GAP": _field_min_gap_ok,
     "KRABBY_FIELD_SIZE_SCALE": _field_size_scale_ok,
     TERRAIN_PROMOTE_VAR: _terrain_promote_ok,
+    "KRABBY_FLAT_TERRAIN_DIFF": _terrain_diff_ok,
     "KRABBY_STRIDE_W": lambda txt, v: _weight_ok(txt, "reward_stride_length", v),
     "KRABBY_STAND_STANCE_W": _stand_stance_w_ok,
     "KRABBY_POWER_JOINTS": _power_joints_ok,
@@ -2567,6 +2588,8 @@ def knob_parsers() -> dict:
         TERRAIN_GEOM_VAR: parse_terrain_geom,
         TERRAIN_PROMOTE_VAR: parse_terrain_promote,
         "KRABBY_STRIDE_W": float,
+        # omni phase-2 walls re-tune (CHARTER 9, 2026-10-06): the arms widen the 2a preset's difficulty range.
+        "KRABBY_FLAT_TERRAIN_DIFF": parse_terrain_diff,
     }
     _KNOB_PARSERS_CACHE = table
     return table

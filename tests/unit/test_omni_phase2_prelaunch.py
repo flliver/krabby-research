@@ -87,10 +87,14 @@ def test_the_smoke_env_is_the_driver_p2a_env_of_the_a1_chain(smoke, rc, cands, a
         if smoke.is_placeholder(v):
             continue
         assert env[k] == v, k
-    # the one placeholder today is A1's PROMOTE: it launches at CAL1's value and the substitution is recorded
+    # the one placeholder (CHARTER 9 walls re-tune, candidates_v5) is A1's PROMOTE: it launches at the wall-mode CAL1's
+    # value and the substitution is recorded
     assert smoke.is_placeholder(want["KRABBY_TERRAIN_PROMOTE"])
     assert env["KRABBY_TERRAIN_PROMOTE"] == "0.45:0.25"
-    assert plan["substituted"]["KRABBY_TERRAIN_PROMOTE"]["from"] == "P2__CAL1_s18"
+    assert smoke.DEFAULT_FILL == "P2__CALW1_s18"
+    assert plan["substituted"]["KRABBY_TERRAIN_PROMOTE"]["from"] == "P2__CALW1_s18"
+    assert env["KRABBY_FIELD_EDGES"] == "wall" and env["KRABBY_FLAT_TERRAIN_DIFF"] == "0.20:1.0"
+    assert smoke.terrain_expect(env) == {"difficulty": (0.20, 1.0), "wall": True}
     assert not any(smoke.is_placeholder(v) for v in env.values())
     assert plan["effective_env"]["KRABBY_HEX_TEACHER_MODE"] == "2a"        # activate_phase's 2a preset
     assert plan["effective_env"]["KRABBY_FLAT_TERRAIN_GEOM"] == "field"
@@ -178,6 +182,45 @@ def test_s1_proportions_are_normalised(smoke):
 ])
 def test_s1_fails_each_charter_value(smoke, path, value):
     assert smoke.judge_s1(_s1_summary(smoke, **{path: value}))["result"] == "FAIL"
+
+
+def test_s1_follows_the_composed_terrain(smoke):
+    """CHARTER 9 walls re-tune: S1 expects the composed env's edges and difficulty range (unset = ramp, 0.20:0.70)."""
+    want = smoke.terrain_expect({"KRABBY_FIELD_EDGES": "wall", "KRABBY_FLAT_TERRAIN_DIFF": "0.20:1.0"})
+    assert want == {"difficulty": (0.2, 1.0), "wall": True}
+    wall = _s1_summary(smoke, **{"difficulty_range": [0.2, 1.0], "sub_terrains.omni_field_sparse.vertical_edges": True,
+                                 "sub_terrains.omni_field_dense.vertical_edges": True})
+    assert smoke.judge_s1(wall, want)["result"] == "PASS"
+    assert smoke.judge_s1(_s1_summary(smoke), want)["result"] == "FAIL"           # a ramp build under a wall arm
+    assert smoke.judge_s1(wall)["result"] == "FAIL"                               # a wall build under the default
+    assert smoke.terrain_expect(None) == {"difficulty": smoke.S1_DIFFICULTY, "wall": False}
+    with pytest.raises(ValueError):
+        smoke.terrain_expect({"KRABBY_FIELD_EDGES": "cliff"})
+
+
+def test_s2_wall_mode_edge_checks(smoke):
+    """Wall mode inverts the edge checks: every field tile walls, and no wall pixel sits off a block."""
+    import numpy as np
+    occ = np.zeros((20, 20), dtype=bool)
+    occ[8:12, 8:12] = True
+    edge = np.zeros_like(occ)
+    edge[7, 8:12] = True                                                              # a riser beside the block
+    h = np.where(occ, 0.05, 0.0)
+    cfg = {"hurdle_height_range": "0.02, 0.06", "step_height": "0.05", "pit_depth": "0.05", "clear_radius": 0.1,
+           "ring_outer_radius": 0.8, "n_blocks": 14, "n_pit": 0}
+    st = smoke.tile_stats(h, occ, edge, 0.08, 0.5, cfg)
+    assert st["edge_px"] == 4 and st["edge_px_off_block"] == 0
+    names = {c[0] for c in smoke.judge_s2([{"key": "omni_field_sparse", "row": 0, "col": 0, "d": 0.5, "stats": st}],
+                                          {"omni_field_sparse": cfg}, wall=True)["checks"]}
+    assert any("walls present" in n for n in names) and not any("ramp mode" in n for n in names)
+    far = edge.copy()
+    far[0, 0] = True                                                                  # a wall pixel far from any block
+    st2 = smoke.tile_stats(h, occ, far, 0.08, 0.5, cfg)
+    assert st2["edge_px_off_block"] == 1
+    r = smoke.judge_s2([{"key": "omni_field_sparse", "row": 0, "col": 0, "d": 0.5, "stats": st2}],
+                       {"omni_field_sparse": cfg}, wall=True)
+    assert not dict((c[0], c[1]) for c in r["checks"])[
+        "every wall pixel within 2 px of a block (wall mode; roughness never walls)"]
 
 
 def test_s1_fails_a_ring_generator(smoke):
@@ -538,12 +581,16 @@ def test_code_guard_end_to_end(live, tmp_path, monkeypatch):
 
 
 # ===================================================================================== M2: the CAL2 gate
-def _cands(a1="0.40:0.20", c2="0.40:0.20"):
-    return {"chains": {"P2__A1_s18": {"stages": [{"overlay": {"KRABBY_TERRAIN_PROMOTE": a1}}]},
-                       "P2__CAL2_s18": {"stages": [{"overlay": {"KRABBY_TERRAIN_PROMOTE": c2}}]}}}
+#: the wall-mode A1 terrain (CHARTER 9 walls re-tune, candidates_v5)
+WALL_OV = {"KRABBY_FIELD_EDGES": "wall", "KRABBY_FLAT_TERRAIN_DIFF": "0.20:1.0"}
 
 
-def _cal_rec(chain="P2__CAL2_s18", result="PASS", promote="0.40:0.20", **over):
+def _cands(a1="0.40:0.20", c2="0.40:0.20", **a1_over):
+    return {"chains": {"P2__A1_s18": {"stages": [{"overlay": dict(WALL_OV, KRABBY_TERRAIN_PROMOTE=a1, **a1_over)}]},
+                       "P2__CALW2_s18": {"stages": [{"overlay": {"KRABBY_TERRAIN_PROMOTE": c2}}]}}}
+
+
+def _cal_rec(chain="P2__CALW2_s18", result="PASS", promote="0.40:0.20", **over):
     r = {"ref": chain, "chain": chain, "smoke": True,
          "smoke_audit": json.dumps({"rc": 0, "result": result, "fails": [], "promote": promote, "levels_moved": True})}
     r.update(over)
@@ -561,6 +608,7 @@ def test_cal2_gate_passes_a_matched_passed_smoke(read):
     (_cal_rec(killed="collapse"), _cands()),
     (_cal_rec(smoke=False), _cands()),
     (_cal_rec(chain="P2__CAL1_s18"), _cands()),
+    (_cal_rec(chain="P2__CAL2_s18"), _cands()),                    # the ramp-era CAL2 no longer counts
     (_cal_rec(promote="0.45:0.25"), _cands()),
     (_cal_rec(), _cands(a1="TBD_PENDING_CALIBRATION_S5")),
     (_cal_rec(), _cands(a1="0.45:0.25", c2="0.40:0.20")),
@@ -578,13 +626,14 @@ def test_cal2_gate_on_the_campaign_file_refuses_today(read):
 
 # ===================================================================================== B1: S5 and SMOKES_OK
 def _s5_stamp(root: Path, falls: dict[int, int], n: int = 7, sha: str = "s" * 64, raw: bool = True,
-              scenario: str = "field_light__omni") -> Path:
+              scenario: str = "field_light__omni", name: str = "SMOKE_S5_s18", edges: str = "wall") -> Path:
     """A field_light stamp: ``falls`` = {env_index: last segment_id} for the fall episodes."""
-    d = _stamp(root, "SMOKE_S5_s18", "field_light__omni", "2026-10-07_03-00-00",
+    d = _stamp(root, name, "field_light__omni", "2026-10-07_03-00-00",
                {"code_sha": "c" * 64, "eval_sha": "e" * 64, "dirty": False})
     labels = ["stand", "fwd", "lat_l", "diag", "back", "turn_l90", "turn_r90", "move_turn"]
     (d / "run_meta.json").write_text(json.dumps({
         "scenario_id": scenario, "checkpoint_sha256": sha, "hold_labels": labels,
+        "env_vars_manifest": {"KRABBY_FIELD_EDGES": edges, "KRABBY_FLAT_TERRAIN_GEOM": "field"},
         "env_vars": {"KRABBY_OMNI_CLOCK_HIDE": "1", "KRABBY_STD_PARAM": "soft",
                      "KRABBY_OMNI_SPEED_ELLIPSE": "0.35:0.35:0.25", "KRABBY_OMNI_FACING_OBS_CLIP": "0.6"}}))
     eps = [{"env_index": i, "termination_reason": "fall" if i in falls else "schedule_complete"} for i in range(n)]
@@ -632,32 +681,46 @@ def _smokes_dir(root: Path, smoke, **res_over) -> Path:
            "S4": dict(smoke.judge_s4(_means(), {"obst_episodes": 9}, {}), toe_radius_max_walking_m=1.5)}
     res.update(res_over)
     doc = {"plan": {"reference": "P2__A1_s18", "code_state": dict(LIVE), "substituted": {}},
-           "results": res, "finished": True, "errors": []}
+           "results": res, "finished": True, "errors": [], "s1_summary": _s1_terrain_summary()}
     (d / "smokes.json").write_text(json.dumps(doc))
     return d
 
 
+def _s1_terrain_summary(wall: bool = True, diff=(0.2, 1.0)) -> dict:
+    """The S1 summary fields the SMOKES_OK terrain guard reads (CHARTER 9 walls re-tune)."""
+    return {"difficulty_range": list(diff),
+            "sub_terrains": {"parkour_flat": {"vertical_edges": None},
+                             "omni_field_sparse": {"vertical_edges": wall}, "omni_field_dense": {"vertical_edges": wall}}}
+
+
 def _cal1():
-    return _cal_rec(chain="P2__CAL1b_s18", promote="0.45:0.25", run_dir="/runs/cal1")
+    return _cal_rec(chain="P2__CALW1_s18", promote="0.45:0.25", run_dir="/runs/cal1")
 
 
 def test_smokes_ok_build_and_check(read, smoke, tmp_path):
     sd = _smokes_dir(tmp_path, smoke)
     s5 = read.smoke_s5_read(str(_s5_stamp(tmp_path, {})), "s" * 64)
-    fails, payload = read.build_smokes_ok(sd, s5, _cal1(), dict(LIVE))
+    fails, payload = read.build_smokes_ok(sd, s5, _cal1(), dict(LIVE), _cands())
     assert not fails, fails
     assert payload["s3_toe_radius_max_m"] == pytest.approx(1.45) and payload["s4"]["block_steps_mean"] == 300.0
-    assert read.smokes_ok_fails(payload, dict(LIVE)) == []
-    assert read.smokes_ok_fails(payload, dict(LIVE, code_sha="9" * 64))           # the code moved since
-    assert read.smokes_ok_fails(payload, dict(LIVE, dirty=True))
-    assert read.smokes_ok_fails(None, dict(LIVE)) == ["no SMOKES_OK"]
+    assert payload["terrain"] == {"difficulty_range": [0.2, 1.0], "wall": True}
+    assert read.smokes_ok_fails(payload, dict(LIVE), _cands()) == []
+    assert read.smokes_ok_fails(payload, dict(LIVE, code_sha="9" * 64), _cands())  # the code moved since
+    assert read.smokes_ok_fails(payload, dict(LIVE, dirty=True), _cands())
+    assert read.smokes_ok_fails(None, dict(LIVE), _cands()) == ["no SMOKES_OK"]
+    # CHARTER 9 walls re-tune: a SMOKES_OK counts only for the terrain A1 trains on
+    assert read.smokes_ok_fails(payload, dict(LIVE), _cands(KRABBY_FIELD_EDGES="ramp"))
+    assert read.smokes_ok_fails(payload, dict(LIVE), _cands(KRABBY_FLAT_TERRAIN_DIFF="0.20:0.70"))
+    assert read.smokes_ok_fails(payload, dict(LIVE), None)                             # no candidates: fail closed
+    assert read.smokes_ok_fails({k: v for k, v in payload.items() if k != "terrain"}, dict(LIVE), _cands())
     line = read.charter_line(payload)
     assert line.startswith("- ") and "max toe radius 1.450 m" in line and "block steps per obstacle-tile episode 300.0" \
         in line and line.endswith("\n")
 
 
 @pytest.mark.parametrize("case", ["s2_fail", "toe", "s4_missing", "s5", "cal1_missing", "cal1_fail", "dirty_live",
-                                  "code_moved", "dirty_smoke", "errors"])
+                                  "code_moved", "dirty_smoke", "errors", "ramp_smoke", "diff_smoke", "s5_ramp",
+                                  "ramp_cal1"])
 def test_smokes_ok_refuses(read, smoke, tmp_path, case):
     over = {"s2_fail": {"S2": {"result": "FAIL"}},
             "toe": {"S3": smoke.judge_s3(_s3(toe_radius_max_m=1.7))},
@@ -671,22 +734,30 @@ def test_smokes_ok_refuses(read, smoke, tmp_path, case):
         doc = json.loads((sd / "smokes.json").read_text())
         doc["errors"] = ["Kit died"]
         (sd / "smokes.json").write_text(json.dumps(doc))
-    s5 = read.smoke_s5_read(str(_s5_stamp(tmp_path, {1: 0} if case == "s5" else {})), "s" * 64)
-    cal1 = {"cal1_missing": None, "cal1_fail": _cal_rec(chain="P2__CAL1b_s18", result="FAIL")}.get(case, _cal1())
+    if case in ("ramp_smoke", "diff_smoke"):
+        doc = json.loads((sd / "smokes.json").read_text())
+        doc["s1_summary"] = (_s1_terrain_summary(wall=False) if case == "ramp_smoke"
+                             else _s1_terrain_summary(diff=(0.2, 0.7)))
+        (sd / "smokes.json").write_text(json.dumps(doc))
+    s5 = read.smoke_s5_read(str(_s5_stamp(tmp_path, {1: 0} if case == "s5" else {},
+                                          edges="ramp" if case == "s5_ramp" else "wall")), "s" * 64)
+    cal1 = {"cal1_missing": None, "cal1_fail": _cal_rec(chain="P2__CALW1_s18", result="FAIL"),
+            "ramp_cal1": _cal_rec(chain="P2__CAL1b_s18", promote="0.45:0.25")}.get(case, _cal1())
     lv = {"dirty_live": dict(LIVE, dirty=True), "code_moved": dict(LIVE, eval_sha="0" * 64)}.get(case, dict(LIVE))
-    fails, payload = read.build_smokes_ok(sd, s5, cal1, lv)
+    fails, payload = read.build_smokes_ok(sd, s5, cal1, lv, _cands())
     assert fails and payload["result"] == "FAIL"
 
 
 def test_write_smokes_ok_cli(read, smoke, tmp_path, monkeypatch, capsys):
     out = tmp_path / "out"
     (out / "arms").mkdir(parents=True)
-    (out / "arms" / "P2__CAL1b_s18.record.json").write_text(json.dumps(_cal1()))
+    (out / "arms" / "P2__CALW1_s18.record.json").write_text(json.dumps(_cal1()))
     sd = _smokes_dir(tmp_path, smoke)
-    s5 = _s5_stamp(out / "lr", {}, sha=yaml.safe_load(open(CAMP / "anchors.yaml"))["anchors"][18]["sha256"])
+    s5 = _s5_stamp(out / "lr", {}, sha=yaml.safe_load(open(CAMP / "anchors.yaml"))["anchors"][18]["sha256"],
+                   name="SMOKE_S5W_s18")
     monkeypatch.setattr(read, "_live_code_state", lambda root=None: dict(LIVE))
     charter = (CAMP / "CHARTER.md").read_text()
-    argv = ["p2_read.py", "--write-smokes-ok", "--smokes", str(sd), "--s5", "SMOKE_S5_s18", "--out", str(out),
+    argv = ["p2_read.py", "--write-smokes-ok", "--smokes", str(sd), "--s5", "SMOKE_S5W_s18", "--out", str(out),
             "--no-charter-log"]
     monkeypatch.setattr(sys, "argv", argv)
     assert read.main() == 0
@@ -918,7 +989,7 @@ def test_queue_anchors_need_the_smokes_gate_first(tmp_path):
     r = subprocess.run(["bash", str(QUEUE)], env=env, capture_output=True, text=True, timeout=60)
     assert r.returncode == 4
     first = (tmp_path / "run_arm.calls").read_text().splitlines()[0]
-    assert first.startswith("--row-eval ANC_s18") and "suite__omni 1" in first
+    assert first.startswith("--row-eval ANCW_s18") and "suite__omni 1" in first     # the wall-era anchor names
     calls = (tmp_path / "read.calls").read_text().splitlines()
     assert calls[0].startswith("--smokes-ok-check")
 

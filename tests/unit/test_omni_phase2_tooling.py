@@ -49,7 +49,7 @@ P2_FIELD = {"KRABBY_PHASEOUT": "", "KRABBY_FLAT_TERRAIN_GEOM": "field", "KRABBY_
 P2_KEYS = ("KRABBY_PHASEOUT", "KRABBY_FLAT_TERRAIN_GEOM", "KRABBY_FIELD_PAD_R", "KRABBY_FIELD_BLOCKS",
            "KRABBY_FIELD_KINDS", "KRABBY_FIELD_EDGES", "KRABBY_FIELD_MIN_GAP", "KRABBY_FIELD_SIZE_SCALE",
            "KRABBY_TERRAIN_PROMOTE", "KRABBY_STRIDE_W", "KRABBY_AIRTIME_W", "KRABBY_POWER_W",
-           "KRABBY_POWER_JOINTS", "KRABBY_STAND_STANCE_W")
+           "KRABBY_POWER_JOINTS", "KRABBY_STAND_STANCE_W", "KRABBY_FLAT_TERRAIN_DIFF")
 
 
 def _load(path: Path, name: str):
@@ -184,6 +184,7 @@ def test_every_phase2_key_is_whitelisted_parsed_and_audited(rc):
     ("KRABBY_STRIDE_W", ["0.5", "0.001"], ["", "x"]),
     ("KRABBY_STAND_STANCE_W", ["0.7", "0", ""], ["-0.5"]),
     ("KRABBY_POWER_JOINTS", ["actuated", "all", ""], ["rods"]),
+    ("KRABBY_FLAT_TERRAIN_DIFF", ["0.20:1.0", "0.05:0.2", "0.7:0.7"], ["0.2", "1.0:0.2", "-0.1:0.5", "a:b", ""]),
 ])
 def test_phase2_knob_round_trips(rc, key, good, bad):
     whitelist, parsers = rc.knob_whitelist(), rc.knob_parsers()
@@ -206,6 +207,16 @@ def test_the_phase2_campaign_file_validates_except_its_named_placeholders(rc):
     reasons = [r for v in verdicts for r in v["reasons"]]
     assert reasons, "the scaffold still carries placeholders; this test expects to see them refused"
     assert all("is a PLACEHOLDER" in r for r in reasons), [r for r in reasons if "PLACEHOLDER" not in r]
+
+
+def test_terrain_diff_dump_check_reads_the_generator_range(rc):
+    """CHARTER 9 walls re-tune: KRABBY_FLAT_TERRAIN_DIFF is audited against the generator's difficulty_range."""
+    ok = _check(rc, "KRABBY_FLAT_TERRAIN_DIFF")
+    txt = ("scene:\n  terrain:\n    terrain_generator:\n      curriculum: true\n"
+           "      difficulty_range: !!python/tuple\n      - 0.2\n      - 1.0\n")
+    assert ok(txt, "0.20:1.0") and ok(txt, "0.2:1")
+    assert not ok(txt, "0.20:0.70") and not ok(txt.replace("- 1.0", "- 0.7"), "0.20:1.0")
+    assert not ok("scene:\n  terrain: {}\n", "0.20:1.0")
 
 
 def test_field_knobs_under_ring_are_refused_at_dry_run(rc):

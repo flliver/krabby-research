@@ -6,23 +6,26 @@
 # sha256: the values recorded in policy/manifest.yaml (s18 = the baked 5_c6x_clockfree head; s16 / s17 = its
 # `replicates:`), re-computed 2026-10-06 from the files on disk -- identical. env_stamp: the head's own c6x driver
 # suite stamp (ppo_construction), whose run_meta env_vars every anchor row-eval reproduces (repo-relative).
+#
+# Names: ANCW_s* since the CHARTER 9 walls re-tune (2026-10-06): the re-anchor on the wall manifest writes fresh stamp
+# trees; the ramp-era anchor stamps stay under lr/ANC_s* (read by nothing from here on).
 anchors:
   18:
-    name: ANC_s18
+    name: ANCW_s18
     role: head of record, the gate seed
     reference: SF__B_rest_s18 (X60)
     checkpoint: parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-06_02-24-21_seed18_X60_c6x_A15pB/model_14995.pt
     sha256: b40f9a193b5f593aa8704e4dfa6eaa3f5c8a527884b58c78e796b1aac55d05fa
     env_stamp: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-10-01_ppo_construction/seed18_X60_c6x_A15pB/suite__omni/seed001/2026-10-06_07-56-23
   16:
-    name: ANC_s16
+    name: ANCW_s16
     role: replicate
     reference: SF__B_rest_s16 (X58)
     checkpoint: parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-05_19-54-57_seed16_X58_c6x_A15pB/model_14995.pt
     sha256: fad452b2006f861bb5dd18d1f484fd6b156b722d09fca15b1d9a6d932f57702b
     env_stamp: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-10-01_ppo_construction/seed16_X58_c6x_A15pB/suite__omni/seed001/2026-10-06_01-25-00
   17:
-    name: ANC_s17
+    name: ANCW_s17
     role: replicate
     reference: SF__B_rest_s17 (X59)
     checkpoint: parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-05_23-10-39_seed17_X59_c6x_A15pB/model_14995.pt

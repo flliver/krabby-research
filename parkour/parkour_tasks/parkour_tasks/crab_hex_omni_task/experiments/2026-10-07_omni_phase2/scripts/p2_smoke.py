@@ -88,7 +88,9 @@ PARKOUR = R / "parkour"
 RC_PATH = R / "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/tools/run_candidates.py"
 PY = "/home/nickmagus/krabby/isaac_venv/bin/python"
 SMOKES = CAMPAIGN / "smokes"
-DEFAULT_REF, DEFAULT_FILL = "P2__A1_s18", "P2__CAL1_s18"
+#: the fill-from default is the wall-mode calibration smoke (CHARTER 9, 2026-10-06 walls re-tune; the ramp-mode one
+#: was P2__CAL1_s18 / P2__CAL1b_s18)
+DEFAULT_REF, DEFAULT_FILL = "P2__A1_s18", "P2__CALW1_s18"
 CHECKS = ("S1", "S2", "S3", "S4")
 EPS = 1e-9
 
@@ -136,6 +138,24 @@ S4_MIN = {"reach_edge_frac": 0.9, "field_frac_mean": 0.51, "block_steps_mean": 2
 S4_POSITIVE = ("off_tile_block_steps_mean",)
 S4_KEYS = tuple(S4_MIN) + S4_POSITIVE
 #: carry keys that must equal the anchor stamp's (the policy's std structure + the CHARTER 6.1 validity four)
+
+
+def terrain_expect(environ=None) -> dict:
+    """What S1 / S2 expect of the built terrain: ``{"difficulty": (lo, hi), "wall": bool}`` from the composed env's
+    ``KRABBY_FLAT_TERRAIN_DIFF`` / ``KRABBY_FIELD_EDGES`` (CHARTER 9, 2026-10-06 walls re-tune: the arms train on
+    walls at 0.20:1.0). Unset = the 2a preset's 0.20:0.70 and ramp edges (``environ=None`` -> those defaults, so the
+    pure judges stay deterministic; the child passes its own ``os.environ``)."""
+    env = environ or {}
+    raw = str(env.get("KRABBY_FLAT_TERRAIN_DIFF") or "").strip()
+    diff = tuple(float(x) for x in raw.split(":")) if raw else S1_DIFFICULTY
+    if len(diff) != 2:
+        raise ValueError(f"KRABBY_FLAT_TERRAIN_DIFF must be lo:hi, got {raw!r}")
+    edges = str(env.get("KRABBY_FIELD_EDGES") or "ramp").strip().lower()
+    if edges not in ("ramp", "wall"):
+        raise ValueError(f"KRABBY_FIELD_EDGES must be ramp|wall, got {edges!r}")
+    return {"difficulty": diff, "wall": edges == "wall"}
+
+
 S4_CARRY_STRICT = ("KRABBY_STD_PARAM", "KRABBY_INIT_STD", "KRABBY_OMNI_CLOCK_HIDE", "KRABBY_OMNI_SPEED_ELLIPSE",
                    "KRABBY_OMNI_FACING_OBS_CLIP")
 #: the anchored Isaac match of run_arm.sh drivers_idle / run_phases._wait_isaac_clear
@@ -266,10 +286,13 @@ def child_environ(rc, plan: dict, parent: dict | None = None) -> dict:
 
 
 # ================================================================================================ pure judges
-def judge_s1(summary: dict) -> dict:
+def judge_s1(summary: dict, expect: dict | None = None) -> dict:
     """``summary`` = {curriculum, difficulty_range, sub_terrains: {key: {class, proportion, noise_range,
     clear_radius, ring_outer_radius, n_blocks, bar_fraction, pit_fraction, vertical_edges}}, parkour: {clear_radius_m,
-    ring_outer_radius_m}} read off the BUILT generator cfg."""
+    ring_outer_radius_m}} read off the BUILT generator cfg. ``expect`` = :func:`terrain_expect` of the composed env
+    (None = ramp edges at 0.20:0.70)."""
+    expect = expect or terrain_expect()
+    want_diff, wall = tuple(expect["difficulty"]), bool(expect["wall"])
     c = []
     subs = summary.get("sub_terrains") or {}
     c.append(_check("sub-terrain keys", set(subs) == set(S1_CLASSES), sorted(subs)))
@@ -289,14 +312,15 @@ def judge_s1(summary: dict) -> dict:
                         abs((_num(v.get("ring_outer_radius")) or -1) - OUTER_R) < 1e-9, v.get("ring_outer_radius")))
     for k in FIELD_KEYS:
         v = subs.get(k) or {}
-        c.append(_check(f"{k} vertical_edges false", v.get("vertical_edges") is False, v.get("vertical_edges")))
+        c.append(_check(f"{k} vertical_edges {str(wall).lower()}", v.get("vertical_edges") is wall,
+                        v.get("vertical_edges")))
         c.append(_check(f"{k} kinds 0.4:0.4:0.2", abs((_num(v.get("bar_fraction")) or -1) - S1_BAR) < 1e-9
                         and abs((_num(v.get("pit_fraction")) or -1) - S1_PIT) < 1e-9,
                         (v.get("bar_fraction"), v.get("pit_fraction"))))
         c.append(_check(f"{k} n_blocks {S1_BLOCKS[k]}", v.get("n_blocks") == S1_BLOCKS[k], v.get("n_blocks")))
     dr = tuple(_num(x) for x in (summary.get("difficulty_range") or ()))
-    c.append(_check(f"difficulty_range {S1_DIFFICULTY}", len(dr) == 2 and all(
-        a is not None and abs(a - b) < 1e-9 for a, b in zip(dr, S1_DIFFICULTY)), dr))
+    c.append(_check(f"difficulty_range {want_diff}", len(dr) == 2 and all(
+        a is not None and abs(a - b) < 1e-9 for a, b in zip(dr, want_diff)), dr))
     c.append(_check("curriculum true", summary.get("curriculum") is True, summary.get("curriculum")))
     pk = summary.get("parkour") or {}
     c.append(_check(f"parkour clear_radius_m {PAD_R}", abs((_num(pk.get("clear_radius_m")) or -1) - PAD_R) < 1e-9,
@@ -339,12 +363,13 @@ def tile_stats(h, occ, edge, hs: float, d: float, cfg: dict) -> dict:
     top = max(float(hh), float(step))
     sunk = occ & (h < 0)
     raised, pitp = occ & (h > 0), occ & (h < 0)
-    near_both = 0
+    near_both = off_block = 0
     if edge.any():
         from scipy.ndimage import binary_dilation  # noqa: PLC0415
 
         st = np.ones((5, 5), dtype=bool)
         near_both = int((edge & binary_dilation(raised, st) & binary_dilation(pitp, st)).sum())
+        off_block = int((edge & ~binary_dilation(occ, st)).sum())     # an edge pixel > 2 px from any block
     return {"pad_abs_max": float(np.abs(h[pad]).max()) if pad.any() else 0.0,
             "pad_occ_px": int(occ[pad].sum()),
             "coverage": float(occ.mean()), "corners": corners,
@@ -352,12 +377,13 @@ def tile_stats(h, occ, edge, hs: float, d: float, cfg: dict) -> dict:
             "min_h": float(h.min()), "pit_depth": float(pit), "pit_over": -float(h.min()) - float(pit),
             "sunken_px": int(sunk.sum()),
             "rough_amp": float(np.abs(h[~occ]).max()) if (~occ).any() else 0.0,
-            "edge_px": int(edge.sum()), "edge_px_block_pit": near_both}
+            "edge_px": int(edge.sum()), "edge_px_block_pit": near_both, "edge_px_off_block": off_block}
 
 
-def judge_s2(tiles: list[dict], cfgs: dict) -> dict:
+def judge_s2(tiles: list[dict], cfgs: dict, wall: bool = False) -> dict:
     """``tiles`` = [{key, row, col, d, stats (tile_stats)}] over every FIELD tile; ``cfgs`` = {key: {n_blocks, n_pit,
-    ...}}."""
+    ...}}. ``wall`` = the arm trains on walls (``KRABBY_FIELD_EDGES=wall``): the edge checks become "every field
+    tile has walls, and every wall pixel sits within 2 px of a block" instead of the ramp-mode "no walls"."""
     c = []
     if not tiles:
         return _result([_check("field tiles present", False, 0)])
@@ -413,11 +439,22 @@ def judge_s2(tiles: list[dict], cfgs: dict) -> dict:
     # step plus roughness (~0.2 % of d-0.70 dense tiles, not gap-related -- review 2026-10-06); a hard "== 0" would
     # spuriously FAIL ~1.3 % of smokes, so they FAIL only above EDGE_TILE_CAP of field tiles.
     bp = sum(s["edge_px_block_pit"] for s in st)
-    c.append(_check("no raised-to-pit edge pixel on field tiles (ramp mode)", bp == 0,
-                    f"raised-to-pit edge px {bp}; all edge px {sum(e for _, e in e_tiles)} on {len(e_tiles)}/{n} tiles "
-                    f"(by row {by_row})"))
-    c.append(_check(f"edge-tile share <= {EDGE_TILE_CAP:.3f} of field tiles (ramp mode; single-block risers, info)",
-                    len(e_tiles) <= EDGE_TILE_CAP * n, f"{len(e_tiles)}/{n} tiles with any edge px"))
+    off = sum(int(s.get("edge_px_off_block") or 0) for s in st)
+    if wall:
+        # Wall mode (CHARTER 9, 2026-10-06): every block is meant to wall, so the ramp-mode "no walls" checks invert.
+        # Raised-to-pit adjacency is info only here (both sides wall anyway).
+        no_wall = [(t["row"], t["col"]) for t, s in zip(tiles, st) if not s["edge_px"]]
+        c.append(_check("walls present: every field tile has edge-mask pixels (wall mode)", not no_wall,
+                        f"{n - len(no_wall)}/{n} tiles with edge px; none on {no_wall[:8]}; raised-to-pit edge px "
+                        f"{bp} (info)"))
+        c.append(_check("every wall pixel within 2 px of a block (wall mode; roughness never walls)", off == 0,
+                        f"off-block edge px {off}; all edge px {sum(e for _, e in e_tiles)}"))
+    else:
+        c.append(_check("no raised-to-pit edge pixel on field tiles (ramp mode)", bp == 0,
+                        f"raised-to-pit edge px {bp}; all edge px {sum(e for _, e in e_tiles)} on {len(e_tiles)}/{n} "
+                        f"tiles (by row {by_row})"))
+        c.append(_check(f"edge-tile share <= {EDGE_TILE_CAP:.3f} of field tiles (ramp mode; single-block risers, info)",
+                        len(e_tiles) <= EDGE_TILE_CAP * n, f"{len(e_tiles)}/{n} tiles with any edge px"))
     cov = {k: [min(v), sum(v) / len(v), max(v)] for k, v in cov_by.items()}
     return _result(c, n_field_tiles=n, corner_rate=corner_rate, all4_share=all4_by,
                    per_corner_share=sum(sum(s["corners"]) for s in st) / (4.0 * n),
@@ -425,7 +462,8 @@ def judge_s2(tiles: list[dict], cfgs: dict) -> dict:
                    pad_occ_px=sum(int(s.get("pad_occ_px") or 0) for s in st),
                    max_excess=max(s["excess"] for s in st), max_pit_over=pit_over,
                    rough_amp_max=max(s["rough_amp"] for s in st), coverage=cov,
-                   edge_px=sum(s["edge_px"] for s in st), edge_px_block_pit=bp)
+                   edge_px=sum(s["edge_px"] for s in st), edge_px_block_pit=bp, edge_px_off_block=off,
+                   edge_tiles=len(e_tiles), wall=bool(wall))
 
 
 #: Single-block risers (block step + roughness) reach the 0.12 m wall threshold on ~0.2 % of d-0.70 dense tiles and
@@ -450,7 +488,7 @@ S2_CPU = {"n_generators": 40, "n_field_tiles": 4000, "pad_abs_max": 0.035, "pad_
           "edge_px": 0}
 
 
-def _field_stand_in(key: str):
+def _field_stand_in(key: str, wall: bool = False):
     """The sub-terrain cfg as ``TerrainGenerator.__init__`` hands it to the function: OMNI_FIELD_TERRAINS_CFG's
     scales / slope threshold, the S1-pinned values and the OmniFieldTerrainCfg / ExtremeParkourRoughTerrainCfg
     defaults (the same stand-in the field-terrain unit tests use)."""
@@ -466,7 +504,7 @@ def _field_stand_in(key: str):
             field_margin=0.16, n_blocks=S1_BLOCKS[key], bar_fraction=S1_BAR, pit_fraction=S1_PIT, min_gap=0.0,
             max_tries=64, bar_length_range=(1.0, 2.0), bar_thickness_range=(0.16, 0.32), slab_side_range=(0.6, 1.2),
             hurdle_height_range="0.02 + 0.05 * difficulty, 0.03 + 0.06 * difficulty",
-            step_height="0.02 + 0.06 * difficulty", pit_depth="0.02 + 0.06 * difficulty", vertical_edges=False)
+            step_height="0.02 + 0.06 * difficulty", pit_depth="0.02 + 0.06 * difficulty", vertical_edges=bool(wall))
     return cfg
 
 
@@ -480,23 +518,26 @@ def gen_column_keys(cols: int = GEN_COLS) -> list[str]:
     return [keys[int(np.min(np.where(i / cols + 0.001 < cum)[0]))] for i in range(cols)]
 
 
-def cpu_s2_calibration(n_generators: int = 4, seed0: int = 0, rows: int = GEN_ROWS, cols: int = GEN_COLS) -> dict:
+def cpu_s2_calibration(n_generators: int = 4, seed0: int = 0, rows: int = GEN_ROWS, cols: int = GEN_COLS,
+                       expect: dict | None = None) -> dict:
     """S2 on a CPU replica of the generator: ``n_generators`` seeded grids, generated in the generator's order
     (column-major, flat columns included, so the module-global ``numpy.random`` stream advances as in the build),
     rows at the curriculum difficulties of S1_DIFFICULTY, every field tile through the REAL decorated
     ``omni_field_terrain`` (roughness on), judged by :func:`judge_s2`. Returns the judge's doc (its measured values
-    are what ``S2_CPU`` records)."""
+    are what ``S2_CPU`` records). ``expect`` = :func:`terrain_expect` (None = ramp edges at S1_DIFFICULTY, the
+    recorded run)."""
     import numpy as np  # noqa: PLC0415
 
+    expect = expect or terrain_expect()
     golden = _load(TERRAIN_LOADER, "_p2_smoke_terrain_loader")
     _u, _f, omni = golden.load_terrain_modules()
     keys = gen_column_keys(cols)
-    cfgs = {k: _field_stand_in(k) for k in set(keys)}
+    cfgs = {k: _field_stand_in(k, expect["wall"]) for k in set(keys)}
     judge_cfgs = {}
     for k in FIELD_KEYS:
         n_bar, _n_slab, n_pit = omni.field_kind_counts(S1_BLOCKS[k], S1_BAR, S1_PIT)
         judge_cfgs[k] = dict(vars(cfgs[k]), n_pit=n_pit) if k in cfgs else {}
-    lo, hi = S1_DIFFICULTY
+    lo, hi = expect["difficulty"]
     tiles = []
     for g in range(int(n_generators)):
         np.random.seed(int(seed0) + g)
@@ -509,7 +550,7 @@ def cpu_s2_calibration(n_generators: int = 4, seed0: int = 0, rows: int = GEN_RO
                 out = omni.omni_field_terrain(d, cfgs[key], 8)
                 stt = tile_stats(np.asarray(out[5], dtype=float) * VS_S2, out[6], out[4], 0.08, d, judge_cfgs[key])
                 tiles.append({"key": key, "row": row, "col": g * cols + col, "d": d, "stats": stt})
-    res = judge_s2(tiles, judge_cfgs)
+    res = judge_s2(tiles, judge_cfgs, wall=expect["wall"])
     res["n_generators"] = int(n_generators)
     return res
 
@@ -535,6 +576,13 @@ def s2_threshold_table(measured: dict | None = None) -> list[dict]:
         rows.append({"check": f"coverage {k} [min, mean, max]",
                      "threshold": f"[{(1 - COVER_BAND) * want:.4f}, {(1 + COVER_BAND) * want:.4f}]",
                      "cpu": (S2_CPU["coverage"] or {}).get(k), "now": (m.get("coverage") or {}).get(k)})
+    if m.get("wall"):
+        # wall mode (CHARTER 9, 2026-10-06): S2_CPU is the ramp-mode record, so the CPU column is n/a here
+        rows.append({"check": "field tiles with edge px (wall mode)", "threshold": "== all field tiles", "cpu": None,
+                     "now": [m.get("edge_tiles"), m.get("n_field_tiles")]})
+        rows.append({"check": "off-block edge px (wall mode)", "threshold": "== 0", "cpu": None,
+                     "now": m.get("edge_px_off_block")})
+        return rows
     rows.append({"check": "raised-to-pit edge px on field tiles (ramp mode)", "threshold": "== 0", "cpu": 0,
                  "now": m.get("edge_px_block_pit")})
     rows.append({"check": "field tiles with any edge px (ramp mode)", "threshold": f"<= {EDGE_TILE_CAP:.3f} share",
@@ -693,7 +741,7 @@ def _child_checks(stamp, plan, doc, args, cli):  # pragma: no cover -- needs Isa
                "parkour": {"clear_radius_m": term.cfg.clear_radius_m, "ring_outer_radius_m": term.cfg.ring_outer_radius_m}}
     doc["s1_summary"] = summary
     if "S1" in want:
-        doc["results"]["S1"] = judge_s1(summary)
+        doc["results"]["S1"] = judge_s1(summary, terrain_expect(os.environ))
         _write(stamp, doc)
 
     # ---------------------------------------------------------------- S2
@@ -721,7 +769,7 @@ def _child_checks(stamp, plan, doc, args, cli):  # pragma: no cover -- needs Isa
                                    bool(getattr(tg, "random_difficulty", False)))
                 stt = tile_stats(hfs[r_, c_], None if occs is None else occs[r_, c_], edges[r_, c_], hs, d, cfgs[key])
                 tiles.append({"key": key, "row": r_, "col": c_, "d": d, "stats": stt})
-        res = judge_s2(tiles, cfgs)
+        res = judge_s2(tiles, cfgs, wall=terrain_expect(os.environ)["wall"])
         if occs is None:
             res["checks"].append(_check("generator block_masks present", False, None))
             res["result"] = "FAIL"
@@ -964,6 +1012,10 @@ def main(argv=None) -> int:
     ap.add_argument("--calibrate-s2", type=int, default=0, metavar="N",
                     help="CPU only: run S2 on N seeded replicas of the generator (real terrain functions) and print "
                          "each threshold beside the recorded and the fresh values; nothing launched, nothing written")
+    ap.add_argument("--s2-edges", choices=("ramp", "wall"), default="ramp",
+                    help="--calibrate-s2 only: the field edge mode of the CPU replica")
+    ap.add_argument("--s2-diff", default="", metavar="LO:HI",
+                    help="--calibrate-s2 only: the replica's difficulty range (default the 2a preset's 0.20:0.70)")
     ap.add_argument("--allow-dirty", action="store_true")
     ap.add_argument("--no-idle-check", action="store_true")
     a = ap.parse_args(argv)
@@ -973,7 +1025,8 @@ def main(argv=None) -> int:
     if a.num_envs < 1 or a.episodes < 1 or a.s3_resets < 1:
         ap.error("--num-envs / --episodes / --s3-resets must be positive")
     if a.calibrate_s2:
-        res = cpu_s2_calibration(a.calibrate_s2)
+        res = cpu_s2_calibration(a.calibrate_s2, expect=terrain_expect(
+            {"KRABBY_FIELD_EDGES": a.s2_edges, "KRABBY_FLAT_TERRAIN_DIFF": a.s2_diff}))
         print(json.dumps({k: v for k, v in res.items() if k != "checks"}, indent=1, default=str))
         for name, ok, detail in res["checks"]:
             print(f"{'PASS' if ok else 'FAIL'} {name} :: {detail}")

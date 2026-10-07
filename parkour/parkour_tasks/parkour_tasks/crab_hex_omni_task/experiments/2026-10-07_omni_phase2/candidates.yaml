@@ -46,6 +46,11 @@
 # references removed, nothing else changed) whenever a placeholder remains anywhere; once none remains
 # it launches this file itself. Filling a value is a new scripts/candidates_v<k>.yaml copied over this
 # file and logged in CHARTER 9 (precedent convention); this file is scripts/candidates_v1.yaml.
+#
+# WALLS RE-TUNE (v5, CHARTER 9, 2026-10-06; the user's call after the CHARTER 5 anchor discrimination stop): every
+# un-run arm trains on KRABBY_FIELD_EDGES wall with KRABBY_FLAT_TERRAIN_DIFF 0.20:1.0 (A0 ring: the same DIFF), and
+# its PROMOTE is TBD_PENDING_CALIBRATION_WALLS until the wall-mode calibration smoke P2__CALW1_s18 fixes it
+# (P2__CALW2_s18 then confirms it). The ramp-mode calibration chains (CAL1 / CAL1b / CAL2) are kept as run.
 schema: 1
 
 plant: A15+B
@@ -246,6 +251,88 @@ chains:
         categories: [back, diag, fwd, move_turn, side, stand, turn]
         floor: {kind: none}
 
+  P2__CALW1_s18:
+    notes: "CHARTER 9 walls re-tune (2026-10-06): CHARTER 5 promotion calibration step 1 on the WALL field at DIFF 0.20:1.0 -- >= 300-it fork smoke from s18 at the preset 0.45:0.25; resume + wiring (+200) + dump audit; r-bar from track_ratio_obst_p50."
+    absolute_units: true
+    stages:
+      - stage: p2a_cal
+        base: "2a"
+        iters: 400
+        from_scratch: false
+        resume_from: {checkpoint: parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-06_02-24-21_seed18_X60_c6x_A15pB/model_14995.pt}
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07"
+          KRABBY_OMNI_SLOTS: "0.15:0.55:0.1:0.2"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_FACING: "0.2:1.2"
+          KRABBY_YAW_W: "0.2"
+          KRABBY_CLOCK_W: "0.001"
+          KRABBY_APEX_W: "0.001"
+          KRABBY_OMNI_CLOCK_HIDE: "1"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+          KRABBY_STD_PARAM: soft
+          KRABBY_INIT_STD: "0.8"
+          KRABBY_ENTROPY_COEF: "0.0025"
+          KRABBY_ACTION_RATE_W: "0"
+          KRABBY_PPO_HAND_DIAG: "1"
+          KRABBY_PHASEOUT: ""
+          KRABBY_FLAT_TERRAIN_GEOM: field
+          KRABBY_FIELD_PAD_R: "1.7"
+          KRABBY_FIELD_BLOCKS: "14:28"
+          KRABBY_FIELD_KINDS: "0.4:0.4:0.2"
+          KRABBY_FIELD_EDGES: wall
+          KRABBY_FLAT_TERRAIN_DIFF: "0.20:1.0"
+          KRABBY_TERRAIN_PROMOTE: "0.45:0.25"
+        eval: []
+        categories: [back, diag, fwd, move_turn, side, stand, turn]
+        floor: {kind: none}
+
+  P2__CALW2_s18:
+    notes: "CHARTER 9 walls re-tune (2026-10-06): CHARTER 5 promotion calibration step 4 on the WALL field at DIFF 0.20:1.0 -- >= 300-it fork smoke at the FINAL values (0.9 r-bar : 0.5 r-bar from P2__CALW1_s18); dump audit with PROMOTE realised; terrain levels must move."
+    absolute_units: true
+    stages:
+      - stage: p2a_cal
+        base: "2a"
+        iters: 400
+        from_scratch: false
+        resume_from: {checkpoint: parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-06_02-24-21_seed18_X60_c6x_A15pB/model_14995.pt}
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07"
+          KRABBY_OMNI_SLOTS: "0.15:0.55:0.1:0.2"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_FACING: "0.2:1.2"
+          KRABBY_YAW_W: "0.2"
+          KRABBY_CLOCK_W: "0.001"
+          KRABBY_APEX_W: "0.001"
+          KRABBY_OMNI_CLOCK_HIDE: "1"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+          KRABBY_STD_PARAM: soft
+          KRABBY_INIT_STD: "0.8"
+          KRABBY_ENTROPY_COEF: "0.0025"
+          KRABBY_ACTION_RATE_W: "0"
+          KRABBY_PPO_HAND_DIAG: "1"
+          KRABBY_PHASEOUT: ""
+          KRABBY_FLAT_TERRAIN_GEOM: field
+          KRABBY_FIELD_PAD_R: "1.7"
+          KRABBY_FIELD_BLOCKS: "14:28"
+          KRABBY_FIELD_KINDS: "0.4:0.4:0.2"
+          KRABBY_FIELD_EDGES: wall
+          KRABBY_FLAT_TERRAIN_DIFF: "0.20:1.0"
+          KRABBY_TERRAIN_PROMOTE: "TBD_PENDING_CALIBRATION_WALLS"
+        eval: []
+        categories: [back, diag, fwd, move_turn, side, stand, turn]
+        floor: {kind: none}
+
   # ======================================================================== A1 field (main), s18 = gate
   P2__A1_s18:
     notes: "A1 field (CHARTER 3/8): the B overlay + phase-2 additions, fork of the s18 c6x head (the gate seed)."
@@ -281,8 +368,9 @@ chains:
           KRABBY_FIELD_PAD_R: "1.7"
           KRABBY_FIELD_BLOCKS: "14:28"
           KRABBY_FIELD_KINDS: "0.4:0.4:0.2"
-          KRABBY_FIELD_EDGES: ramp
-          KRABBY_TERRAIN_PROMOTE: "0.75:0.4"    # CHARTER 5 calibration: r-bar 0.824 (P2__CAL1b_s18)
+          KRABBY_FIELD_EDGES: wall    # CHARTER 9 walls re-tune 2026-10-06
+          KRABBY_FLAT_TERRAIN_DIFF: "0.20:1.0"
+          KRABBY_TERRAIN_PROMOTE: "TBD_PENDING_CALIBRATION_WALLS"    # recalibrated on walls (P2__CALW1_s18)
         eval: [suite]
         categories: [back, diag, fwd, move_turn, side, stand, turn]
         floor: {kind: none}
@@ -321,8 +409,9 @@ chains:
           KRABBY_FIELD_PAD_R: "1.7"
           KRABBY_FIELD_BLOCKS: "14:28"
           KRABBY_FIELD_KINDS: "0.4:0.4:0.2"
-          KRABBY_FIELD_EDGES: ramp
-          KRABBY_TERRAIN_PROMOTE: "0.75:0.4"    # CHARTER 5 calibration: r-bar 0.824 (P2__CAL1b_s18)
+          KRABBY_FIELD_EDGES: wall    # CHARTER 9 walls re-tune 2026-10-06
+          KRABBY_FLAT_TERRAIN_DIFF: "0.20:1.0"
+          KRABBY_TERRAIN_PROMOTE: "TBD_PENDING_CALIBRATION_WALLS"    # recalibrated on walls (P2__CALW1_s18)
         eval: [suite]
         categories: [back, diag, fwd, move_turn, side, stand, turn]
         floor: {kind: none}
@@ -361,8 +450,9 @@ chains:
           KRABBY_FIELD_PAD_R: "1.7"
           KRABBY_FIELD_BLOCKS: "14:28"
           KRABBY_FIELD_KINDS: "0.4:0.4:0.2"
-          KRABBY_FIELD_EDGES: ramp
-          KRABBY_TERRAIN_PROMOTE: "0.75:0.4"    # CHARTER 5 calibration: r-bar 0.824 (P2__CAL1b_s18)
+          KRABBY_FIELD_EDGES: wall    # CHARTER 9 walls re-tune 2026-10-06
+          KRABBY_FLAT_TERRAIN_DIFF: "0.20:1.0"
+          KRABBY_TERRAIN_PROMOTE: "TBD_PENDING_CALIBRATION_WALLS"    # recalibrated on walls (P2__CALW1_s18)
         eval: [suite]
         categories: [back, diag, fwd, move_turn, side, stand, turn]
         floor: {kind: none}
@@ -399,7 +489,8 @@ chains:
           KRABBY_PPO_HAND_DIAG: "1"
           KRABBY_PHASEOUT: ""
           KRABBY_FLAT_TERRAIN_GEOM: ring
-          KRABBY_TERRAIN_PROMOTE: "0.75:0.4"    # CHARTER 5 calibration: r-bar 0.824 (P2__CAL1b_s18)
+          KRABBY_FLAT_TERRAIN_DIFF: "0.20:1.0"    # CHARTER 9 walls re-tune (same range as A1)
+          KRABBY_TERRAIN_PROMOTE: "TBD_PENDING_CALIBRATION_WALLS"    # recalibrated on walls (P2__CALW1_s18)
         eval: [suite]
         categories: [back, diag, fwd, move_turn, side, stand, turn]
         floor: {kind: none}
@@ -438,8 +529,9 @@ chains:
           KRABBY_FIELD_PAD_R: "1.7"
           KRABBY_FIELD_BLOCKS: "14:28"
           KRABBY_FIELD_KINDS: "0.4:0.4:0.2"
-          KRABBY_FIELD_EDGES: ramp
-          KRABBY_TERRAIN_PROMOTE: "0.75:0.4"    # CHARTER 5 calibration: r-bar 0.824 (P2__CAL1b_s18)
+          KRABBY_FIELD_EDGES: wall    # CHARTER 9 walls re-tune 2026-10-06
+          KRABBY_FLAT_TERRAIN_DIFF: "0.20:1.0"
+          KRABBY_TERRAIN_PROMOTE: "TBD_PENDING_CALIBRATION_WALLS"    # recalibrated on walls (P2__CALW1_s18)
         eval: [suite]
         categories: [back, diag, fwd, move_turn, side, stand, turn]
         floor: {kind: none}
@@ -478,8 +570,9 @@ chains:
           KRABBY_FIELD_PAD_R: "1.7"
           KRABBY_FIELD_BLOCKS: "14:28"
           KRABBY_FIELD_KINDS: "0.4:0.4:0.2"
-          KRABBY_FIELD_EDGES: ramp
-          KRABBY_TERRAIN_PROMOTE: "TBD_PENDING_CALIBRATION_S5"
+          KRABBY_FIELD_EDGES: wall    # CHARTER 9 walls re-tune 2026-10-06
+          KRABBY_FLAT_TERRAIN_DIFF: "0.20:1.0"
+          KRABBY_TERRAIN_PROMOTE: "TBD_PENDING_CALIBRATION_WALLS"    # recalibrated on walls (P2__CALW1_s18)
           KRABBY_POWER_W: "TBD_PENDING_REPLAY_GATE_S4"
           KRABBY_POWER_JOINTS: actuated
         eval: [suite]
@@ -520,8 +613,9 @@ chains:
           KRABBY_FIELD_PAD_R: "1.7"
           KRABBY_FIELD_BLOCKS: "14:28"
           KRABBY_FIELD_KINDS: "0.4:0.4:0.2"
-          KRABBY_FIELD_EDGES: ramp
-          KRABBY_TERRAIN_PROMOTE: "0.75:0.4"    # CHARTER 5 calibration: r-bar 0.824 (P2__CAL1b_s18)
+          KRABBY_FIELD_EDGES: wall    # CHARTER 9 walls re-tune 2026-10-06
+          KRABBY_FLAT_TERRAIN_DIFF: "0.20:1.0"
+          KRABBY_TERRAIN_PROMOTE: "TBD_PENDING_CALIBRATION_WALLS"    # recalibrated on walls (P2__CALW1_s18)
           KRABBY_STAND_STANCE_W: "0.9"    # CHARTER 4 weight 0.90 (FAIL overruled by the user 2026-10-06)
         eval: [suite]
         categories: [back, diag, fwd, move_turn, side, stand, turn]
@@ -531,6 +625,8 @@ references:
   P2__CAL1_s18: {chain: P2__CAL1_s18, seed: 18}
   P2__CAL1b_s18: {chain: P2__CAL1b_s18, seed: 18}
   P2__CAL2_s18: {chain: P2__CAL2_s18, seed: 18}
+  P2__CALW1_s18: {chain: P2__CALW1_s18, seed: 18}
+  P2__CALW2_s18: {chain: P2__CALW2_s18, seed: 18}
   P2__A1_s18: {chain: P2__A1_s18, seed: 18}
   P2__A1_s16: {chain: P2__A1_s16, seed: 16}
   P2__A1_s17: {chain: P2__A1_s17, seed: 17}
