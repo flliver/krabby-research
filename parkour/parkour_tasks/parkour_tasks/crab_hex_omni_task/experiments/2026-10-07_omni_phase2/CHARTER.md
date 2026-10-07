@@ -679,3 +679,23 @@ recommendation.
   - Against the anchor, S1 reads COST (the same fwd / back overshoot). n = 1, paired with A1 at the same seed.
 - 2026-10-07, **USER: hold the queue** after the S1 verdict, to look at S1 first. The S1 keep decision is open; F1,
   A1 s16/s17 and the recipe read wait. Resume with `FROM_STEP=f1 scripts/p2_queue.sh`.
+- 2026-10-07 ~11:50, **USER DECISION: KEEP S1** (action_rate −0.05), overruling the rule's DO NOT KEEP. The user judged
+  the stride metrics worth the 5–9 % fwd / back speed overshoot.
+  - **Suite medians, A1 → S1:**
+
+    | Hold | tripod | steps/m | taps/m | swing apex (m) | work/m |
+    |---|---|---|---|---|---|
+    | fwd | 0.53 → 0.74 | 12.4 → 9.6 | 17.5 → 12.3 | 0.091 → 0.139 | 1232 → 1066 |
+    | back | 0.62 → 0.73 | 14.5 → 11.1 | 21.9 → 14.4 | 0.089 → 0.135 | 1287 → 1143 |
+    | side | 0.69 → 0.75 | 15.0 → 12.3 | 12.6 → 7.6 | 0.069 → 0.085 | — |
+    | diag | 0.65 → 0.76 | 13.6 → 11.6 | 17.2 → 11.2 | — | — |
+
+    - move_turn tripod 0.60 → 0.71.
+    - Contact-switch rate is down in every category (e.g. fwd 2.47 → 1.94 Hz). Action jitter is down 23–28 % per
+      category.
+  - **Status:** per §6.4 a kept sibling is a proposal: S1 s18 joins the §7 head-of-record candidates. The p2a recipe is
+    not changed by this alone.
+  - **Videos** (requested, then stopped by the user once the stride metrics decided it): partial A1 suite-mode clips in
+    `logs/videos/p2_A1_s18_reset_*` (stand / fwd / lat_l / lat_r / back complete). The wall-field recordings failed on
+    a manifest path in the runner script and were not re-run.
+  - **Queue resumed:** `FROM_STEP=f1`.
