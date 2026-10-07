@@ -742,3 +742,5 @@ recommendation.
     - turning and move_turn unchanged (fc 0.927, mt_surv 0.995); jitter unchanged (0.203).
   - **Against the anchor:** NO GAIN on the queue's read; field_hard 0.695 vs the 0.70 target.
   - Push-notified; asked the user.
+- 2026-10-07, **USER: hold the queue** after the F1 verdict. The F1 keep decision is open; the S1 s16 / s17 replicates
+  and the recipe read wait. Resume with `FROM_STEP=a1rep scripts/p2_queue.sh` (single-instance lock).
