@@ -762,3 +762,5 @@ recommendation.
     - F1 lifts like A1 (0.093 m); S1 lifts higher (0.135 m). S1 is smoother at stand (jitter 0.215 vs 0.309).
     - Both spend more work standing than A1 (286 / 309 vs 251).
   - **Caveat:** one run each, forked from the same head; the knob effect and run-to-run divergence are not separable.
+- 2026-10-07, **USER DECISION: F1 dropped** (not kept; not a §7 candidate). **Queue resumed:** `FROM_STEP=a1rep`, so
+  the S1 s16 / s17 replicates run, then the recipe read.
