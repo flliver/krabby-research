@@ -636,8 +636,10 @@ def _anchor_name(seed: int = 18) -> str:
 
     try:
         return str(yaml.safe_load(open(CAMPAIGN / "anchors.yaml"))["anchors"][seed]["name"])
-    except (OSError, KeyError, TypeError, ValueError):
-        return f"ANC_s{seed}"
+    except (OSError, KeyError, TypeError, ValueError) as e:
+        # fail closed (review of the CHARTER 9 walls re-tune): a guessed name could resolve to the ramp-era ANC_s*
+        # stamps, which carry today's code state and would PASS against a stale reference
+        raise RuntimeError(f"anchors.yaml unreadable, no code-guard reference: {e.__class__.__name__}: {e}") from e
 
 
 def code_guard(a) -> tuple[int, dict]:

@@ -969,7 +969,7 @@ def test_queue_stops_before_a1_without_a_passed_cal2(tmp_path):
     r = subprocess.run(["bash", str(QUEUE)], env=env, capture_output=True, text=True, timeout=60)
     assert r.returncode == 4
     log = (tmp_path / "out" / "queue.log").read_text()
-    assert "CAL2 GATE rc 4" in log and "STOP p2_queue: P2__CAL2_s18 is not a passed calibration smoke" in log
+    assert "CAL2 GATE rc 4" in log and "STOP p2_queue: the CAL2 smoke (P2__CALW2_s18) is not a passed calibration smoke" in log
     assert not (tmp_path / "run_arm.calls").exists()
 
 

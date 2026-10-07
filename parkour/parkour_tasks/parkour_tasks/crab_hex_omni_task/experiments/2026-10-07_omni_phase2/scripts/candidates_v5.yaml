@@ -38,7 +38,8 @@
 # (run_candidates.PLACEHOLDER_PREFIX): validate_candidates refuses them BY NAME, and run_arm.sh refuses to
 # launch a reference whose chain carries one. They are:
 #   TBD_PENDING_CALIBRATION_S5  KRABBY_TERRAIN_PROMOTE "<up>:<down>" = 0.9 r-bar : 0.5 r-bar rounded to 0.05,
-#                               from the P2__CAL1_s18 smoke (scripts/p2_read.py --calibrate)
+#                               from the P2__CAL1_s18 smoke (scripts/p2_read.py --calibrate); since the walls
+#                               re-tune: TBD_PENDING_CALIBRATION_WALLS, from P2__CALW1_s18 (see WALLS RE-TUNE below)
 #   TBD_PENDING_REPLAY_GATE_S4  the E1 / F1 weights from the CHARTER 4 offline replay gate
 # Because the driver validates the WHOLE file at every launch, a placeholder in any chain blocks every
 # launch from this file. scripts/run_arm.sh therefore launches through a launch view

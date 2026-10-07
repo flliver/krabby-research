@@ -10,7 +10,7 @@
 #            FROM_STEP, p2_read.py --smokes-ok-check must pass (the sentinel p2_read.py --write-smokes-ok writes only
 #            after the CHARTER 5 smokes S1-S4 (scripts/p2_smoke.py), S5 (field_light at 7 episodes, zero stand-hold
 #            falls) and the CAL1 fork smoke's dump audit passed, on the live code state). Before arm P2__A1_s18,
-#            p2_read.py --cal2-gate must pass (P2__CAL2_s18's record: smoke_audit PASS, not killed, and its PROMOTE ==
+#            p2_read.py --cal2-gate must pass (the CAL2 smoke's record -- P2__CALW2_s18 since the CHARTER 9 walls re-tune: smoke_audit PASS, not killed, and its PROMOTE ==
 #            the A1 chain's KRABBY_TERRAIN_PROMOTE in candidates.yaml). Either failing is STOP + NOTIFY, exit 4.
 #            Every row-eval / lr-eval / arm launch also passes run_arm.sh's code-state guard (M1; exit 7 -> STOP here).
 #   anchors  the three c6x heads (anchors.yaml) with their own c6x suite-stamp env, every CHARTER 5 row:
@@ -137,7 +137,7 @@ fi
 if want a1s18; then
 g=$("$PY" "$READ" --cal2-gate --out "$OUT" 2>&1); rc=$?
 say "CAL2 GATE rc $rc :: $(echo "$g" | tail -1 | cut -c1-600)"
-[ "$rc" = 0 ] || { say "STOP p2_queue: P2__CAL2_s18 is not a passed calibration smoke at the A1 PROMOTE values (CHARTER 5 step 4; pre-launch audit M2) -- NOTIFY"; exit 4; }
+[ "$rc" = 0 ] || { say "STOP p2_queue: the CAL2 smoke (P2__CALW2_s18) is not a passed calibration smoke at the A1 PROMOTE values (CHARTER 5 step 4; pre-launch audit M2) -- NOTIFY"; exit 4; }
 arm P2__A1_s18
 g=$("$PY" "$READ" --gate 2>&1); rc=$?
 say "GATE A1 s18 rc $rc :: $(echo "$g" | tail -1 | cut -c1-600)"
