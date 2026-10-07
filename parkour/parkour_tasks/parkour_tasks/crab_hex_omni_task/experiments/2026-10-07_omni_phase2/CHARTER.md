@@ -618,3 +618,17 @@ recommendation.
     - obstacle level 1.0 → 5.9 in 400 its, 0 demotions; crab_failure 0.30.
   - The CAL2 gate passed (CALW2).
   - p2_queue started the ANCW anchors at 22:38.
+- 2026-10-07 00:59, **wall anchors (ANCW) PASS the §5 checks** (discrimination + inertness).
+
+  | Anchor | flat | field_light (es1 / es2) | field_hard (es1 / es2) | ring_obst | gain needs field_hard ≥ |
+  |---|---|---|---|---|---|
+  | s16 | 0.89 | 0.765 (0.81 / 0.72) | **0.435** (0.43 / 0.44) | 0.695 | 0.535 |
+  | s17 | 1.00 | 0.975 (0.96 / 0.99) | **0.560** (0.59 / 0.53) | 0.985 | 0.680 |
+  | s18 | 1.00 | 0.830 (0.79 / 0.87) | **0.500** (0.45 / 0.55) | 0.805 | 0.700 |
+
+  - The gain target is anchor + max(0.10, 2·band). The field_hard band is 0.04 / 0.06 / 0.10.
+  - The queue went on to the CALW2 gate (PASS), then A1 s18.
+- 2026-10-07 03:10, **A1 s18 trained 5000 its** (`2026-10-07_00-59-10_seed18_X06_p2a_A15pB`, head model_19994).
+  - Reads: resume OK; +200 PASS (reach_obst 0.75); +1000 PASS (obstacle level 1.08 → 5.79, promotions logged); no
+    collapse kill.
+  - Head reads and intermediate reads are running, then the gate read.
