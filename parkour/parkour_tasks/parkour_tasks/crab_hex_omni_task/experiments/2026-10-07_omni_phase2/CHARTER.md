@@ -951,3 +951,11 @@ was not re-audited. That file is the pre-registration. Its decisive rules, resta
 - 2026-10-08, **USER DECISION: bake S1 s18** as the omni phase-2 head of record (`policy/6_p2a_field/`, model_19994),
   after the s16-vs-s18 breakdown. Stages 1–5 are unchanged (same s18 lineage). Bake in progress (workflow
   wf_c70ed026, then a fable review).
+- 2026-10-08, **BAKE APPLIED:** omni phase-2 head of record = S1 s18, `policy/6_p2a_field/model_19994.pt` (sha256
+  968cc550…c23c; byte-identical to the X08 run's model_19994).
+  - `manifest.yaml`: `current: 6_p2a_field`; `heads: {phase1: 5_c6x_clockfree, phase2: 6_p2a_field}`; the stage-6
+    recipe by `overlay_ref`, evals of record, selection and replicates.
+  - Follow-ups recorded: move_turn, stand_march (TG lead), p2b_negative, back_overshoot.
+  - README regenerated; `bundle_policy --check` OK. Tests: 390 pass with the .pt staged.
+  - code_sha e3fe70fb and eval_sha 1d021625 unchanged.
+  - Done via workflow wf_c70ed026; fable review found nothing blocking, and its minor notes were applied.

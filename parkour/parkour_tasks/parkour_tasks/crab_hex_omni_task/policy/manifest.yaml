@@ -1,24 +1,42 @@
-# POLICY OF RECORD for the crab-hexapod OMNIDIRECTIONAL walk task (phase 1) -- the head that ships
+# POLICY OF RECORD for the crab-hexapod OMNIDIRECTIONAL walk task (phases 1 + 2) -- the head that ships
 # (`current`) and the stage heads it was trained through, in training order. Consumed by
 # experiments/tools/bundle_policy.py (--sync / --check) and tests/unit/test_policy_of_record_omni.py.
 # Changes only on a user bake decision: edit here, --sync, commit.
 # Schema = the forward task's policy/manifest.yaml adapted: every stage is a KRABBY_OMNI_PHASE preset
-# (`phase`: 1b for the from-scratch side-first stage 1_fb6k, 1a for the rest) plus a per-stage overlay
-# from a campaign's candidates.yaml (`stage`, `overlay_ref`); there are NO omni presets for these
-# overlays -- the bake added none and moved no config / mdp / PPO code (code_sha f7166d558c5d8d9b and
-# eval_sha 1d021625844bb372 are unchanged by it). The B construction knobs are runner-side env
-# overlays, default-off in config/crab_hex/motion_knobs.py (`construction:` below; not rendered by the
-# tool). Evals are the per-category suite (`suite__omni`, 100 episodes per category, paired categories
-# pooled over both hands; read with experiments/tools/run_phases.summarize(
-# json(scenario_metrics.json)["aggregate"])["cat"]). sha256 of every stage file and of every eval
-# stamp's run_meta.checkpoint_sha256 verified read-only on 2026-10-06 when this file was drafted.
+# (`phase`: 1b for the from-scratch side-first stage 1_fb6k, 1a for c4..c6x, 2a for the phase-2 field stage)
+# plus a per-stage overlay from a campaign's candidates.yaml (`stage`, `overlay_ref`); there are NO omni
+# presets for these overlays -- neither bake added one or moved config / mdp / PPO code (2026-10-06: code_sha
+# f7166d558c5d8d9b / eval_sha 1d021625844bb372 unchanged; 2026-10-08: code_sha e3fe70fbdd6445c8 / eval_sha
+# 1d021625844bb372 unchanged). The B construction knobs are runner-side env overlays, default-off in
+# config/crab_hex/motion_knobs.py (`construction:` below; not rendered by the tool). Suite evals are the
+# per-category suite (`suite__omni`, 100 episodes per category, paired categories pooled over both hands;
+# read with experiments/tools/run_phases.summarize(json(scenario_metrics.json)["aggregate"])["cat"]); the
+# phase-2 stage also carries its obstacle rows (`evals.rows`, the campaign's scenarios_p2.yaml 8-hold rows,
+# schedule_completion_rate). sha256 of every stage file and of every eval stamp's
+# run_meta.checkpoint_sha256 verified read-only when each stage was added (stages 1-5 2026-10-06, stage 6
+# 2026-10-08).
 # 2026-10-06 bake: replaces W (baked 2026-09-25, `superseded:` below -- its files left this folder at
 # this bake and stay in git history).
+# 2026-10-08 bake: adds the phase-2 stage 6_p2a_field (P2__S1_s18, same seed-18 lineage) and makes it the
+# head of record; stages 1-5 are unchanged and 5_c6x_clockfree stays the phase-1 head (`heads:`).
 task: crab_hex_omni_task
 plant: A15+B
 seed: 18
-current: 5_c6x_clockfree
-baked: '2026-10-06 (user decision: bake the side-first B recipe of experiments/2026-10-01_ppo_construction
+current: 6_p2a_field
+heads:
+  # data only: the head of record per phase (the tool ships `current`)
+  phase1: 5_c6x_clockfree
+  phase2: 6_p2a_field
+baked: '2026-10-08 (user decision, CHARTER 9 of experiments/2026-10-07_omni_phase2: bake S1 s18 = chain
+  P2__S1_s18 as the omni PHASE-2 head of record, stage 6_p2a_field, after the S1 s16-vs-s18 breakdown; stages
+  1-5 unchanged, same seed-18 lineage. Selection: CHARTER 7 rule stated before judging (floors PASS-or-COST as a
+  gate -> obstacle rank-sum -> phase-1 whole-task rank-sum if within 2 -> jitter / stand stepping -> turn band);
+  three judges + a fable check unanimous S1 s18 > S1 s16 > A1 s18 > S1 s17 (obstacle rank-sum 6.5 / 10.0 / 11.5
+  / 12.0, judging_result.json). Robustness FRAGILE: the lead comes from near-ceiling rows; field_hard ties at
+  n=400 (s18 0.8125 vs s16 0.815) and a tie-aware reading would pick S1 s16 (which would need a stages 1-5
+  re-bake on the weaker s16 phase-1 line); the user chose s18 on gait / move_turn / lineage. p2b (CHARTER 10)
+  closed with no lever adopted, so the candidates stayed the S1 p2a heads). PREVIOUSLY 2026-10-06 (phase 1 --
+  user decision: bake the side-first B recipe of experiments/2026-10-01_ppo_construction
   as the omni phase-1 recipe of record, and make the best side-first B head the head of record, replacing W;
   head = SF__B_rest_s18 (seed 18) chosen among the three B seeds 16 / 17 / 18 by the rule stated before
   judging: floors, then the whole task, then motion quality and the turn band as tie-breakers -- runner-up
@@ -35,11 +53,22 @@ recipe: 'SIDE-FIRST B, 15000 iterations. Stage 1 from scratch on base preset KRA
   KRABBY_RSI_FRAC=0, KRABBY_OMNI_SPEED_ELLIPSE=0.35:0.35:0.25 and KRABBY_PPO_HAND_DIAG=1 (diagnostic only).
   All of it is env overlay recorded in experiments/2026-10-01_ppo_construction/candidates.yaml (==
   scripts/candidates_v7.yaml) -- no preset or default encodes it. The clock reward weights stay at eps 0.001
-  exactly as trained (not 0). Side-first reverses the adopted C1d turn-first order (CHARTER 13.4 caveat).'
+  exactly as trained (not 0). Side-first reverses the adopted C1d turn-first order (CHARTER 13.4 caveat).
+  PHASE 2 (stage 6_p2a_field, 15000 -> 20000): base preset KRABBY_OMNI_PHASE=2a (task
+  Isaac-Crab-Hex-Omni-Teacher-v0; curriculum on, the 2a DR, collision / edge / stumble terms, 40-s episodes) +
+  the P2__S1_s18 p2a overlay verbatim (experiments/2026-10-07_omni_phase2/candidates.yaml), forked by
+  checkpoint from the c6x head: the c6x pool / slots / clock removal set and every B construction knob EXCEPT
+  KRABBY_ACTION_RATE_W=-0.05 (the S1 sibling knob; phase 1 trained 0), plus KRABBY_PHASEOUT="" (no clock /
+  satellite ramps), KRABBY_OMNI_FACING=0.2:1.2 and the wall field: KRABBY_FLAT_TERRAIN_GEOM=field,
+  KRABBY_FIELD_PAD_R=1.7, KRABBY_FIELD_BLOCKS=14:28, KRABBY_FIELD_KINDS=0.4:0.4:0.2 (bar:slab:pit),
+  KRABBY_FIELD_EDGES=wall, KRABBY_FLAT_TERRAIN_DIFF=0.20:1.0, KRABBY_TERRAIN_PROMOTE=0.7:0.4 (calibrated on
+  P2__CALW1_s18, r-bar 0.798).'
 construction:
   # Data only (bundle_policy.py does not read or render it). The B arm (CHARTER 2: A + action_rate 0), identical
-  # in all five stages' overlays and in each run dir's params/agent.yaml. Only STD_PARAM / INIT_STD shape the
-  # POLICY (they are carried into eval / play, obs_contract.eval_env.carry); the rest shape the TRAINER only.
+  # in the five phase-1 stages' overlays and in each run dir's params/agent.yaml; the phase-2 stage carries it
+  # too except the keys in its own `construction_delta` (KRABBY_ACTION_RATE_W -0.05, the S1 knob). Only
+  # STD_PARAM / INIT_STD shape the POLICY (they are carried into eval / play, obs_contract.eval_env.carry); the
+  # rest shape the TRAINER only.
   ppo:
     KRABBY_ACTION_BOUND_LOSS: '0.001'
     KRABBY_ACTION_BOUND_RAMP: '0.0001:0.001:500'
@@ -54,7 +83,8 @@ construction:
     KRABBY_OMNI_SPEED_ELLIPSE: '0.35:0.35:0.25'
     KRABBY_PPO_HAND_DIAG: '1'
   runner_fixed: 'clip_actions 1.0 (runner cfg, not an env knob); 256 envs; the PPO-counter resume fix (eabe7324) on
-    this branch: every resume carries priv_reg (OUT/arms_p1/SF__B_*_s18_resume.json)'
+    this branch: every resume carries priv_reg (OUT/arms_p1/SF__B_*_s18_resume.json; phase 2:
+    parkour/outputs/omni_plan/phase2/arms/P2__S1_s18_resume.json)'
 assets:
 - dir: rsi
   file: rsi_bank_omni.npz
@@ -76,7 +106,9 @@ obs_contract:
     each of the 10 history copies (history_length 10, config/crab_hex/crab_hex_omni_env_cfg.py:108) = 22 columns;
     the critic reads the same obs_buf. Re-verified for this lineage: obs_dim_actual 1149 in every B suite stamp''s
     run_meta, and the B checkpoints'' model_state_dict has the same keys / shapes as W''s except std_raw (18) in
-    place of std (18)'
+    place of std (18). Phase 2 (2026-10-08): the 6_p2a_field checkpoint has exactly the c6x head''s keys and
+    shapes (critic.0.weight 512 x 1149, std_raw only) and obs_dim_actual 1149 in every p2a / REF stamp -- the
+    policy observation contract is unchanged by phase 2 (the 2a teacher task adds no policy input)'
   hide_knob: KRABBY_OMNI_CLOCK_HIDE
   refs: config/crab_hex/clock_knobs.py (KRABBY_OMNI_CLOCK_HIDE=1 -> obs term params["clock_hide"]; width-preserving;
     EVAL_SEMANTIC_KNOBS), mdp/crab_hex_omni_observations.py (CrabHexOmniParkourObservations._clock_channels /
@@ -99,8 +131,9 @@ obs_contract:
     m/s with no error). run_meta.speed_ellipse in an eval stamp is the EVAL MANIFEST''s validator ellipse
     (scenarios_omni.yaml), not this knob -- read run_meta.env_vars.'
   eval_env:
-    # exactly the env_vars of the current head's suite__omni run_meta.json (seed18_X60_c6x_A15pB 2026-10-06_07-56-23)
-    # minus KRABBY_OMNI_CLOCK_HIDE, which is per stage (below). Identical (26 keys) on every suite, turn-band and
+    # exactly the env_vars of the c6x head's suite__omni run_meta.json (seed18_X60_c6x_A15pB 2026-10-06_07-56-23)
+    # minus KRABBY_OMNI_CLOCK_HIDE, which is per stage (below); the phase-2 head's driver suite stamp
+    # (seed18_X08_p2a_A15pB 2026-10-07_13-54-14) carries the SAME 26 keys and values, re-verified 2026-10-08. Identical (26 keys) on every suite, turn-band and
     # side22_25lr stamp of this lineage apart from KRABBY_OMNI_CLOCK_HIDE. EVAL_CARRY keys = the semantics the heads
     # trained under; the rest are the driver's fixed eval block. Differs from W's block in exactly three keys:
     # KRABBY_OMNI_SPEED_ELLIPSE (W 0.35:0.25:0.25), KRABBY_STD_PARAM (W '0' = scalar std), KRABBY_INIT_STD (W '0').
@@ -292,7 +325,8 @@ stages:
     2026-10-06 among the three B seeds)
   overlay_ref: experiments/2026-10-01_ppo_construction/candidates.yaml chains.SF__B_rest_s18 stage c6x
   what: 'c6x, the hard clock cut: the c6 overlay verbatim for 4000 more iterations with the removal set K from
-    iteration 0 (clock reward and apex reward to eps, clock observation zeroed); the head that SHIPS'
+    iteration 0 (clock reward and apex reward to eps, clock observation zeroed); the omni PHASE-1 head of
+    record (baked 2026-10-06), which the phase-2 stage 6_p2a_field forks'
   clock: 'REMOVED: KRABBY_CLOCK_W=0.001, KRABBY_APEX_W=0.001, KRABBY_OMNI_CLOCK_HIDE=1'
   removal_set:
     KRABBY_CLOCK_W: '0.001'
@@ -341,6 +375,157 @@ stages:
       stamp: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-10-01_ppo_construction/seed17_X59_c6x_A15pB/suite__omni/seed001/2026-10-06_04-40-41
       summary: 'third: fwd / side / back / diag ratio 1.029 / 1.033 / 0.969 / 0.999; turn fc 0.714 yp 0.095 (0.074
         below W on 90-deg fc); move_turn survival 0.985 ratio 0.597; most robust (3 suite falls)'
+- dir: 6_p2a_field
+  phase: 2a
+  stage: p2a
+  task: Isaac-Crab-Hex-Omni-Teacher-v0
+  play_task: Isaac-Crab-Hex-Omni-Walk-Play-v0
+  kind: rl
+  iterations: 15000 -> 20000
+  resume_from: '`5_c6x_clockfree/` (by `checkpoint:` its source run model_14995, a fork: alg state carried, env
+    side restarted)'
+  source: parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-07_07-50-10_seed18_X08_p2a_A15pB/model_19994.pt
+  file: model_19994.pt
+  sha256: 968cc550989919cdc3fa36ae047379febabee5659cde0ed4d099195acb13c23c
+  trained_in: experiments/2026-10-07_omni_phase2 (omni phase 2 on the wall field; experiment X08, chain P2__S1_s18
+    stage p2a, arm S1 = A1 + KRABBY_ACTION_RATE_W -0.05, kept by the user 2026-10-07 over the rule's DO NOT KEEP;
+    record parkour/outputs/omni_plan/phase2/arms/P2__S1_s18.record.json, resume read P2__S1_s18_resume.json PASS;
+    trained at code_sha dfcc5310, eval_sha 1d021625; the overlay in candidates.yaml equals the realised overlay
+    in the campaign's state.json key seed18 X08:p2a, re-verified 2026-10-08 -- that state.json was untracked at bake time, 2026-10-08)
+  overlay_ref: experiments/2026-10-07_omni_phase2/candidates.yaml chains.P2__S1_s18 stage p2a
+  what: 'phase 2 (obstacles): 5000 iterations of the 2a teacher preset + the S1 p2a overlay on a
+    direction-agnostic wall field (bars / slabs / pits around a 1.7 m pad, DIFF 0.20:1.0, terrain curriculum),
+    forked from the c6x head with the clock still removed; the head that SHIPS (omni phase-2 head of record)'
+  clock: 'REMOVED (as c6x): KRABBY_CLOCK_W=0.001, KRABBY_APEX_W=0.001, KRABBY_OMNI_CLOCK_HIDE=1, KRABBY_PHASEOUT=""'
+  removal_set:
+    KRABBY_CLOCK_W: '0.001'
+    KRABBY_APEX_W: '0.001'
+    KRABBY_OMNI_CLOCK_HIDE: '1'
+    KRABBY_PHASEOUT: ''
+  construction_delta:
+    # data only: the construction keys this stage trained at a value other than `construction:` (CHARTER 8 S1)
+    KRABBY_ACTION_RATE_W: '-0.05'
+  obs_contract:
+    KRABBY_OMNI_CLOCK_HIDE: '1'
+  notes: 'Policy obs contract and eval env UNCHANGED from 5_c6x_clockfree (same 26 driver eval keys, width 1149,
+    std_raw) -- the training-only phase-2 keys (field geometry, DIFF, PROMOTE, PHASEOUT, FACING, action_rate) are
+    not carried. To VIEW it on the field, add a row env block from experiments/2026-10-07_omni_phase2/scenarios_p2.yaml
+    (`field_env` below: KRABBY_FLAT_TERRAIN_GEOM=field replaces ring, plus the field knobs). The flat suite and the
+    obstacle rows were re-run as REF_S1_s18 on code e3fe70fb (p2b references, 2026-10-08): all nine p2a rows
+    reproduced exactly; field_hard env_seeds 3-4 are new. Selection (CHARTER 7, judged 2026-10-07): unanimous
+    S1 s18 > S1 s16 > A1 s18 > S1 s17, robustness FRAGILE (see `selection` and `baked`). Against its anchor
+    ANCW_s18 (the c6x head on the same rows) the pre-registered read is COST on err_back only (+0.057): gain
+    field_hard 0.500 -> 0.800 (n=200), field_light 0.830 -> 0.995, ring_obst 0.805 -> 1.000. m-screen: no
+    intermediate (16000 / 17500 / 19000) replaces the head. Replicates (not baked): P2__S1_s16, P2__S1_s17
+    (`replicates:` below); recipe read on S1 at 3 seeds ADOPTABLE (2/3 PASS, s18 COST, gain 3/3, no HAND LOSS)'
+  field_env:
+    # the scenarios_p2.yaml row env block shared by field_light / field_hard / field_turn / field_suite (DIFF per row)
+    KRABBY_FLAT_TERRAIN_GEOM: field
+    KRABBY_FLAT_TERRAIN_MODE: light
+    KRABBY_FLAT_TERRAIN_FLAT_FRAC: '0.0'
+    KRABBY_FIELD_PAD_R: '1.7'
+    KRABBY_FIELD_BLOCKS: '14:28'
+    KRABBY_FIELD_KINDS: '0.4:0.4:0.2'
+    KRABBY_FIELD_EDGES: wall
+    KRABBY_FLAT_TERRAIN_DIFF: 'field_hard 0.70:1.0, field_light 0.05:0.2, field_turn / field_suite 0.20:0.70'
+  selection:
+    rule: 'CHARTER 7 (stated before judging): candidates the A1 heads + kept siblings (S1 at s16 / s17 / s18, A1
+      s18); 1. floors (PASS or COST, applied as a gate); 2. obstacle rank-sum (field_hard, field_light, ring_obst
+      completion, field rows'' move_turn-hold survival); 3. phase-1 whole-task rank-sum with |ratio - 1| if within
+      2; 4. jitter and stand stepping; 5. turn band (field_turn turn holds). Three judges.'
+    judging: 'unanimous S1 s18 (3 opus judges + a fable check, workflow wf_7cc1da08; judging_inputs.json,
+      judging_result.json): obstacle rank-sum S1 s18 6.5, S1 s16 10.0, A1 s18 11.5, S1 s17 12.0; step 3 not reached'
+    fragile: 'the lead comes from near-ceiling rows (field_light 0.995 vs 0.980, field_suite move_turn 1.000 vs
+      0.995 -- 1-3 episodes in 200); field_hard ties at n=400 (0.8125 vs S1 s16 0.815); S1 s16 leads phase-1
+      tracking, jitter, stand stepping and turning; a tie-aware reading (or PASS ranked above COST) picks S1 s16,
+      which would re-bake stages 1-5 from the weaker B s16 phase-1 line. The rule has no tie tolerance.'
+    user_decision: '2026-10-08 (CHARTER 9, commit 70c0ce62): bake S1 s18 after the s16-vs-s18 breakdown -- walls
+      tie; s18 better gait (fwd tripod 0.74 vs 0.70, fwd steps/m 9.6 vs 10.5, work/m -14 %) and move_turn (ratio
+      0.81 vs 0.72, fc 0.75 vs 0.64, 5 vs 27 move_turn falls on walls); s16 better flat speed tracking; lineage:
+      s18 adds this stage only. p2b (CHARTER 10) closed with no lever adopted, so no p2b head was a candidate.'
+  evals:
+    row: suite__omni
+    clock_at_eval: hidden (KRABBY_OMNI_CLOCK_HIDE=1, as trained)
+    stamp: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-10-07_omni_phase2/seed18_X08_p2a_A15pB/suite__omni/seed001/2026-10-07_13-54-14
+    reproduced_at_current_code: parkour/outputs/omni_plan/phase2/lr/REF_S1_s18/suite__omni/seed001/2026-10-08_05-11-48
+    categories:
+      stand: {survival: 1.0, n: 100}
+      fwd: {survival: 1.0, ratio: 1.05, n: 100}
+      side: {survival: 1.0, ratio: 1.051, n: 200}
+      back: {survival: 1.0, ratio: 1.087, n: 100}
+      diag: {survival: 1.0, ratio: 1.015, n: 100}
+      turn: {survival: 1.0, facing_closed: 0.958, yaw_progress: 0.158, n: 200}
+      move_turn: {survival: 1.0, ratio: 0.807, n: 200}
+    motion:
+      # suite medians (run_phases.summarize), descriptive
+      move_turn: {facing_closed: 0.747, yaw_progress: 0.097, heading_final: 0.396}
+      stand: {steps_per_s: 2.83, lift_clearance_m: 0.135, action_jitter: 0.215}
+      tripod: {fwd: 0.74, back: 0.733, diag: 0.76, move_turn: 0.714}
+      jitter_mean_moving: 0.150
+    rows:
+      # schedule_completion_rate of the campaign's 8-hold rows (scenarios_p2.yaml), 100 episodes per env_seed
+      field_hard:
+        completion: 0.8125
+        n: 400
+        per_env_seed: [0.79, 0.81, 0.84, 0.81]
+        what: wall field DIFF 0.70:1.0 (the top of the training range), the main obstacle read; REF_S1_s18 at the
+          current code (env_seeds 1-2 = the p2a reads exactly, 0.800 at n=200; 3-4 new). 75 falls / 400 (pit 29,
+          leg strike 23, move_turn 5; by hold diag 40, back 13, move_turn 5); anchor ANCW_s18 0.500 (n=200)
+        stamps: parkour/outputs/omni_plan/phase2/lr/REF_S1_s18/field_hard__omni/seed00{1,2,3,4}
+      field_light:
+        completion: 0.995
+        n: 200
+        per_env_seed: [0.99, 1.0]
+        what: wall field DIFF 0.05:0.2; anchor 0.830
+        stamps: parkour/outputs/omni_plan/phase2/lr/P2__S1_s18/field_light__omni/seed00{1,2} (= REF_S1_s18)
+      ring_obst:
+        completion: 1.0
+        n: 200
+        per_env_seed: [1.0, 1.0]
+        what: the phase-1 ring course (ramps) DIFF 0.20:0.70, the hold-the-line row; anchor 0.805; row env on top of
+          the suite env (GEOM ring) = KRABBY_FLAT_TERRAIN_MODE light, FLAT_FRAC 0.0, DIFF 0.20:0.70 (scenarios_p2.yaml)
+        stamps: parkour/outputs/omni_plan/phase2/lr/P2__S1_s18/ring_obst__omni/seed00{1,2} (= REF_S1_s18)
+      field_turn:
+        completion: 0.99
+        n: 100
+        what: 'walk out 10 s, stand 8 s, turn_l90 / turn_r90 12 s on the wall field (DIFF 0.20:0.70); fall share
+          0.01; turn holds facing_closed 0.945, yaw_progress 0.151 (the CHARTER 7 turn band stand-in)'
+        stamps: parkour/outputs/omni_plan/phase2/lr/P2__S1_s18/field_turn__omni/seed001/2026-10-07_14-26-47
+      field_suite:
+        completion: 0.996
+        n: 1000
+        what: 'suite__omni on the wall field (DIFF 0.20:0.70); move_turn survival 1.000 (ratio 0.768, fc 0.736);
+          fwd / side / back / diag ratio 1.050 / 1.034 / 1.036 / 0.981'
+        stamps: parkour/outputs/omni_plan/phase2/lr/P2__S1_s18/field_suite__omni/seed001/2026-10-07_14-28-59
+    lr:
+      stamp: parkour/outputs/omni_plan/phase2/lr/P2__S1_s18/side22_25lr__omni/seed001/2026-10-07_14-02-00
+      class_json: parkour/outputs/omni_plan/phase2/arms/P2__S1_s18_lr.json
+      hands: FAST/FAST
+      feet_ss: 'lat_l / lat_r 0.243 / 0.226 at 0.22 m/s, 0.260 / 0.244 at 0.25 (along-command FAST/FAST too)'
+  replicates:
+    # data only (not rendered): the S1 recipe at the two sibling seeds, each forked from its own B c6x head (NOT
+    # this lineage's stages 1-5); same eval env and rows. Obstacle rows from their REF re-evals at the current code.
+    - id: P2__S1_s16 (X10)
+      record: parkour/outputs/omni_plan/phase2/arms/P2__S1_s16.record.json
+      source: parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-07_15-34-26_seed16_X10_p2a_A15pB/model_19994.pt
+      sha256: 443bc3b36867f4c3cb7b734bf8ac1fec536f950164db10e15cafad57dcc13fff
+      forked_from: SF__B_rest_s16 c6x model_14995 (stage 5 `replicates:`)
+      stamp: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-10-07_omni_phase2/seed16_X10_p2a_A15pB/suite__omni/seed001/2026-10-07_21-40-30
+      rows_ref: parkour/outputs/omni_plan/phase2/lr/REF_S1_s16
+      summary: 'runner-up (PASS vs ANCW_s16): field_hard 0.815 at n=400 (0.86 / 0.80 / 0.80 / 0.80), field_light
+        0.980, ring_obst 1.000; fwd / side / back / diag ratio 0.996 / 1.039 / 1.041 / 0.947; turn fc 0.963 yp
+        0.161; move_turn survival 0.995, ratio 0.72, fc 0.64 (27 move_turn falls on walls); jitter 0.145; stand
+        2.5 steps/s. Its phase-1 head was the weakest B seed (flat completion 0.89, move_turn survival 0.74)'
+    - id: P2__S1_s17 (X11)
+      record: parkour/outputs/omni_plan/phase2/arms/P2__S1_s17.record.json
+      source: parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-07_19-05-32_seed17_X11_p2a_A15pB/model_19994.pt
+      sha256: c34ac4095bf82dde013461764c854b7f33542989f0e85b28daaa327edcd21ca0
+      forked_from: SF__B_rest_s17 c6x model_14995 (stage 5 `replicates:`)
+      stamp: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-10-07_omni_phase2/seed17_X11_p2a_A15pB/suite__omni/seed001/2026-10-08_01-11-35
+      rows_ref: parkour/outputs/omni_plan/phase2/lr/REF_S1_s17
+      summary: 'fourth of four (PASS vs ANCW_s17): field_hard 0.725 at n=400 (0.69 / 0.77 / 0.71 / 0.73),
+        field_light 0.985, ring_obst 1.000; turn fc 0.948 yp 0.145; move_turn survival 0.990; jitter 0.157; side
+        |ratio - 1| 0.061 (anchor 0.033, within margin)'
 superseded:
 # Data only (bundle_policy.py ignores it; the three closed-campaign dose-smoke launchers resolve W through it,
 # see the bake plan). W's five files LEFT policy/ at the 2026-10-06 bake (git rm); they stay in git history
@@ -375,9 +560,14 @@ superseded:
      source: parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-09-25_14-53-27_seed3_X03_c6x_A15pB/model_11995.pt}
 followups:
 - id: move_turn
-  recorded: '2026-09-25 (W bake); revised 2026-10-06 (B bake)'
+  recorded: '2026-09-25 (W bake); revised 2026-10-06 (B bake); revised 2026-10-08 (phase-2 bake)'
   headline: Nobody actually turns during move_turn.
-  detail: 'Much improved by the B head but not closed. B s18 move_turn survival 0.945 (left hold 0.90, right 0.99;
+  detail: 'STILL OPEN at the phase-2 head (6_p2a_field, S1 s18): move_turn survival 1.000 on the flat suite and on
+    the wall field_suite, ratio 0.807, facing_closed 0.747, yaw_progress 0.097 rad/s, heading_final 0.396 rad --
+    about a third of the commanded 0.3 rad/s while translating; it survives the hold but still mostly
+    translates. Phase 2 lifted it at every seed (S1 survival 0.995 / 0.990 / 1.000 at s16 / s17 / s18 from 0.740
+    / 0.985 / 0.945) without closing the turn rate; the S1 s16 replicate is worse (ratio 0.72, fc 0.64, 27
+    move_turn falls on walls vs 5). Phase-1 (2026-10-06) reading: much improved by the B head but not closed. B s18 move_turn survival 0.945 (left hold 0.90, right 0.99;
     11 falls, all pitch_fwd), ratio 0.609, facing_closed 0.611, yaw_progress 0.079 rad/s, heading_final 0.612 rad;
     W (re-scored at the current eval_sha, W_p1b6) 0.365 / 0.442 / 0.287 / 0.052 / 1.134. The turn rate while
     translating is still about a quarter of the 0.3 rad/s commanded, so the hold is still mostly translation with a
@@ -387,6 +577,7 @@ followups:
   - experiments/2026-09-23_clock_deprecation_w2/MOVE_TURN_MECHANISM.md
   - experiments/2026-10-01_ppo_construction/sf/sfB_read.md
   - experiments/2026-10-01_ppo_construction/REPORT.md
+  - 'experiments/2026-10-07_omni_phase2/CHARTER.md (9: the S1 s16 vs s18 breakdown; RECIPE READ table)'
   levers: 'untested: re-enable / extend the forward-pitch penalty to move-turn commands; a front-pair support term;
     move_turn curriculum / weighting; examine why the turn-rate command is not tracked while translating (command
     math / reward kernels) -- offline replay gate first'
@@ -412,17 +603,69 @@ followups:
 - id: action_jitter
   recorded: '2026-10-06'
   headline: The B head is about 1.5-2.5x jerkier than W.
-  detail: 'Suite action_jitter of the head: stand 0.255, fwd 0.224, side 0.160, back 0.235, diag 0.183, turn 0.202,
+  detail: 'Partly addressed by phase 2: the S1 knob (KRABBY_ACTION_RATE_W -0.05, 6_p2a_field) cut suite jitter
+    23-28 % per category vs the A1 sibling and ~25 % vs the c6x anchor (moving mean 0.198 -> 0.150); the
+    phase-2 head is stand 0.215, fwd 0.143, side 0.131, back 0.166, diag 0.146, turn 0.168, move_turn 0.148 --
+    still about 1.1-1.7x W (0.109-0.127). Phase 1 (c6x) suite action_jitter of the head: stand 0.255, fwd 0.224, side 0.160, back 0.235, diag 0.183, turn 0.202,
     move_turn 0.183, against W 0.109-0.127 in every category; all three B seeds alike, so it belongs to the
     recipe (KRABBY_ACTION_RATE_W=0 drops the action-rate penalty), not to the seed choice. A hardware-wear and
     sim-to-real concern, not a sim performance one.'
   evidence:
   - experiments/2026-10-01_ppo_construction/sf/sfB_read.md
-  levers: 'untested: a small action_rate weight in a c6x-only fork; KRABBY_ACTION_LPF_HZ (an EVAL_CARRY knob --
+  - 'experiments/2026-10-07_omni_phase2/CHARTER.md (9: SIBLING S1, USER DECISION KEEP S1)'
+  levers: 'tested in phase 2: action_rate -0.05 (S1, kept; costs a 5-9 % fwd / back speed overshoot, see
+    back_overshoot). Untested: a larger action_rate weight; KRABBY_ACTION_LPF_HZ (an EVAL_CARRY knob --
     changes what an action does, so it is a new head, not a play-time filter)'
 - id: phase2_clock_free
   recorded: '2026-09-25'
   headline: No clock-free phase-2 presets yet.
-  detail: Omni 2a / 2b / 2c presets resume 1c, re-arm apex via KRABBY_PHASEOUT and show the clock again; forking
-    the head into them needs clock-free phase-2 presets (open). A fork must also carry KRABBY_STD_PARAM=soft (the
-    checkpoint will not load into a scalar-std runner) and decide whether to keep the B construction knobs.
+  detail: 'Worked around by OVERLAY for 2a (2026-10-08 bake): 6_p2a_field ran preset 2a with KRABBY_PHASEOUT=""
+    (no clock / satellite ramps), the clock removal set (CLOCK_W / APEX_W 0.001, CLOCK_HIDE 1), the soft std and
+    the B construction knobs, all from experiments/2026-10-07_omni_phase2/candidates.yaml -- still no preset encodes it. Omni 2b / 2c (and
+    the 2a preset itself) still resume 1c, re-arm apex via KRABBY_PHASEOUT and show the clock unless overlaid the
+    same way. Any fork must carry KRABBY_STD_PARAM=soft (the checkpoint will not load into a scalar-std runner).'
+- id: stand_march
+  recorded: '2026-10-08 (phase-2 bake)'
+  headline: The head still marches in place at stand.
+  detail: 'Stand hold: 2.83 steps/s at 0.135 m lift clearance, tripod 0.76 (suite medians; A1 sibling 3.67 steps/s,
+    0.090 m) -- it never stands still. F1 (a stand-slot stance income, weight 0.9 by user overrule of a replay-gate
+    FAIL) was dropped: lifts stayed full height (0.093 m, tripod 0.79). LEAD: the p2b tilt guard TG
+    (KRABBY_ORIENT_ALL_TILES 1, KRABBY_ORIENT_W -2.3, a p2b fork of this head) cut flat stand stepping 2.83 -> 1.08
+    steps/s (-62 %, clearance 0.104 m) as an UNPLANNED side effect, while giving no wall gain (below); n=1 at s18,
+    not replicated, not adopted.'
+  evidence:
+  - 'experiments/2026-10-07_omni_phase2/CHARTER.md (9: SIBLING F1, F1 vs S1 gait comparison; 10: p2b s18 SCREEN)'
+  - experiments/2026-10-07_omni_phase2/p2b_screen.json
+  - experiments/2026-10-07_omni_phase2/REPLAY_GATE_P2B.md
+  levers: 'untested: TG (orientation-upright on all tiles) as a stand-targeted term, replicated at s16 / s17 and
+    read on stand steps/s; a stand-only TG variant -- offline replay gate first'
+- id: p2b_negative
+  recorded: '2026-10-08 (phase-2 bake)'
+  headline: p2b found no lever that beats continuation on walls.
+  detail: 'Stage p2b (CHARTER 10, s18 screen vs REF_S1_s18 field_hard 0.8125 at n=400; gain needs >= ~0.87): C0
+    continuation 0.785 (move_turn falls 5 -> 28); CL terrain-relative lift (KRABBY_FOOT_CLEAR_TERRAIN 1,
+    FOOT_CLEAR_W 1.0, SWING_MIN_CLEAR_W -0.4) 0.695 -- HURT walls (122 falls vs 75: more pit falls and leg
+    strikes), raised neither wall nor flat apex (flat 0.139 -> 0.112 m), flat tripod 0.74 -> 0.64, though its
+    income was live at 2.8x the replay prediction; TG tilt guard 0.8275 -- no wall gain (+0.015, within noise; vs
+    C0 +0.0425, needed +0.056) but fewest falls (69; pit falls 29 -> 19). The user stopped p2b (no replicates); no
+    lever adopted. Both knobs stay default-off in code.'
+  evidence:
+  - 'experiments/2026-10-07_omni_phase2/CHARTER.md (10)'
+  - experiments/2026-10-07_omni_phase2/P2B_PLAN.md
+  - experiments/2026-10-07_omni_phase2/p2b_screen.json
+  - experiments/2026-10-07_omni_phase2/p2b_mech_screen.json
+  levers: 'closed as run; the wall deficit (field_hard 0.81 < the CHARTER 6.5 0.85 bar) stays open -- diag (40 of
+    75 falls) and back are the wall holds that fail'
+- id: back_overshoot
+  recorded: '2026-10-08 (phase-2 bake)'
+  headline: The phase-2 head overshoots backward speed by about 9 %.
+  detail: 'Suite speed ratio of 6_p2a_field: back 1.087, side 1.051, fwd 1.050, diag 1.015 (the c6x head 1.030 /
+    1.045 / 1.041 / 0.956). It is the S1 sibling''s cost: the CHARTER 6.1 read of S1 s18 vs its anchor is COST on
+    err_back only (+0.057), and vs A1 s18 fwd / back are worse by 0.043 / 0.061 (A1 0.993 / 1.026). The user kept S1
+    for its stride metrics (fwd tripod 0.53 -> 0.74, steps/m 12.4 -> 9.6, taps/m 17.5 -> 12.3, work/m -13 %). Not
+    seed-general: S1 s16 tracks back at 1.041 and fwd at 0.996.'
+  evidence:
+  - 'experiments/2026-10-07_omni_phase2/CHARTER.md (9: SIBLING S1, USER DECISION KEEP S1, Review of cb53eb37 item 4, S1 s16 vs s18 breakdown)'
+  - experiments/2026-10-07_omni_phase2/judging_inputs.md
+  levers: 'untested: a back-speed tracking re-weight or a short fine-tune at a lower action_rate weight -- read
+    against REF_S1_s18'

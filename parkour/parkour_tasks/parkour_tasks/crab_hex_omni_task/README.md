@@ -19,12 +19,25 @@ and the 18-channel action space are the forward recipe (verified by an Isaac con
 see `tests/integration/test_crab_hex_omni_configs.py`). Teacher-only in this plan — no depth
 student (the shared camera-event bug and the +y mount decision stay open).
 
-## Head of record (phase 1)
+## Head of record (phase 2; phase-1 head kept)
 
-**Baked 2026-10-06:** the side-first **B** head of the PPO-construction campaign, `SF__B_rest_s18`
-(seed 18; `policy/5_c6x_clockfree/model_14995.pt`) — details and every stage's sha256/evals in
-[`policy/README.md`](policy/README.md) (generated from [`policy/manifest.yaml`](policy/manifest.yaml)).
-It replaces `W` (baked 2026-09-25; recorded under `superseded:` in the manifest, its files in git history).
+**Baked 2026-10-08 (phase 2):** `P2__S1_s18` of the omni phase-2 campaign
+(`experiments/2026-10-07_omni_phase2/`; seed 18; `policy/6_p2a_field/model_19994.pt`) -- details and every
+stage's sha256/evals in [`policy/README.md`](policy/README.md) (generated from
+[`policy/manifest.yaml`](policy/manifest.yaml)). It forks the phase-1 head of record below (same seed-18 lineage),
+so stages 1-5 are unchanged and `6_p2a_field/` is added. Recipe: preset `2a` (task
+`Isaac-Crab-Hex-Omni-Teacher-v0`) + the `P2__S1_s18` p2a overlay for 5000 iterations (15000 -> 20000): the c6x
+pool and clock removal, the B construction knobs with `KRABBY_ACTION_RATE_W -0.05` (the S1 sibling the user
+kept), `KRABBY_PHASEOUT ""`, and a direction-agnostic wall field (bars / slabs / pits around a 1.7 m pad, DIFF
+0.20:1.0, terrain curriculum, promotion 0.7:0.4). Evals of record: flat suite fwd / side / back / diag ratio
+1.050 / 1.051 / 1.087 / 1.015, turn fc 0.958, move_turn survival 1.000; `field_hard` (walls, DIFF 0.70:1.0)
+completion 0.8125 at n = 400 (anchor, the c6x head: 0.500 at n = 200), `field_light` 0.995, `ring_obst` 1.0; both
+side hands FAST. Chosen by the pre-stated CHARTER 7 rule, unanimous over S1 s16 / A1 s18 / S1 s17, but FRAGILE
+(walls tie with S1 s16 at n = 400; the user chose s18 on gait, move_turn and lineage).
+
+**Phase-1 head of record (baked 2026-10-06, kept):** the side-first **B** head of the PPO-construction campaign,
+`SF__B_rest_s18` (seed 18; `policy/5_c6x_clockfree/model_14995.pt`). It replaced `W` (baked 2026-09-25;
+recorded under `superseded:` in the manifest, its files in git history).
 Recipe (`experiments/2026-10-01_ppo_construction/candidates.yaml`): `s1` from scratch on preset `1b` + the FB
 pool (stand / fwd / side_l / side_r / back, no turn; 0 → 6000) → P1 `c4` (6000 → 7500, +turn / move_turn) →
 `c5` (7500 → 9000, +omni) → `c6` (9000 → 11000, +omni_turn) — all four with the clock held — then `c6x`
@@ -34,13 +47,16 @@ hidden; 15000 iterations total. Every stage also carries the B construction knob
 the fa mirror loss, RSI off and the speed ellipse 0.35:0.35:0.25 — all env overlays, no preset or default
 encodes them. Side-first reverses the C1d turn-first order.
 
-**Observation contract:** the current head was trained with `KRABBY_OMNI_CLOCK_HIDE=1` (clock
-columns zeroed on every frame) — any play, eval or export of it must set `KRABBY_OMNI_CLOCK_HIDE=1`
-too, or it is fed an out-of-distribution live clock. It was also trained with the soft std parameter:
-without `KRABBY_STD_PARAM=soft` the checkpoint does not load (a loud `RuntimeError`, `std` vs `std_raw`),
-and without `KRABBY_OMNI_SPEED_ELLIPSE=0.35:0.35:0.25` lateral commands are silently capped at 0.25 m/s.
-Full contract (width, exact columns, the rest of the carried eval env) in `policy/README.md`'s Observation
-contract section.
+**Observation contract (both heads; phase 2 did not change it):** the heads were trained with
+`KRABBY_OMNI_CLOCK_HIDE=1` (clock columns zeroed on every frame) — any play, eval or export of them must set
+`KRABBY_OMNI_CLOCK_HIDE=1` too, or they are fed an out-of-distribution live clock. They were also trained with the
+soft std parameter: without `KRABBY_STD_PARAM=soft` the checkpoint does not load (a loud `RuntimeError`, `std` vs
+`std_raw`), and without `KRABBY_OMNI_SPEED_ELLIPSE=0.35:0.35:0.25` lateral commands are silently capped at
+0.25 m/s. Full contract (width, exact columns, the rest of the carried eval env) in `policy/README.md`'s
+Observation contract section. The phase-2 training keys (field geometry, DIFF, promotion, PHASEOUT, action_rate)
+are not policy inputs and are not carried; to view the head on the wall field, add the `field_env` block of the
+`6_p2a_field` stage in the manifest (from `experiments/2026-10-07_omni_phase2/scenarios_p2.yaml`) in place of
+`KRABBY_FLAT_TERRAIN_GEOM=ring`.
 
 ```bash
 cd parkour  # from krabby-research/; the full carried env -- KRABBY_FLAT_TERRAIN_GEOM=ring is required by
@@ -67,17 +83,20 @@ env \
   KRABBY_PLANT=A15+B \
   KRABBY_STD_PARAM=soft \
   python scripts/rsl_rl/play.py --task Isaac-Crab-Hex-Omni-Walk-Play-v0 \
-  --num_envs 1 --real-time --checkpoint $PWD/$P/policy/5_c6x_clockfree/model_14995.pt
+  --num_envs 1 --real-time --checkpoint $PWD/$P/policy/6_p2a_field/model_19994.pt
 ```
 
-(Copied from `policy/README.md`, which also has the exact suite-eval command. `play.py` writes
-`exported_teacher/` next to the checkpoint it loads, which breaks the policy-folder layout test: copy the
-checkpoint out of `policy/` before playing it, or delete that folder afterwards.)
+(Copied from `policy/README.md`, which also has the exact suite-eval command; for the phase-1 head use
+`policy/5_c6x_clockfree/model_14995.pt` with the same env. `play.py` writes `exported_teacher/` next to the
+checkpoint it loads, which breaks the policy-folder layout test: copy the checkpoint out of `policy/` before
+playing it, or delete that folder afterwards.)
 
-**Open follow-ups:** `move_turn` — nobody actually turns during move+turn: the B head survives it (0.945 vs.
-W's 0.365) but turns at about a quarter of the commanded 0.3 rad/s. `action_jitter` — the B head is about
-1.5–2.5× jerkier than W (action_rate weight 0 in training). `c0_side_first_n1` — the matched C0 side-first
-control is one seed only. See `followups` in `policy/manifest.yaml` and `policy/README.md`'s "Open follow-ups"
+**Open follow-ups:** `move_turn` — nobody actually turns during move+turn: the phase-2 head survives it (1.000)
+but turns at about a third of the commanded 0.3 rad/s (facing_closed 0.75, ratio 0.81). `stand_march` — the
+head still marches at stand (2.8 steps/s); the p2b tilt guard cut that by 62 % as a side effect (a lead, not
+adopted). `back_overshoot` — backward speed ratio 1.09 (the S1 knob's cost). `p2b_negative` — p2b's
+terrain-relative lift hurt walls and the tilt guard gave no wall gain. Also `action_jitter`, `c0_side_first_n1`
+and `phase2_clock_free`. See `followups` in `policy/manifest.yaml` and `policy/README.md`'s "Open follow-ups"
 section.
 
 ## Delta from the forward task
