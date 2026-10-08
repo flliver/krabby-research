@@ -852,3 +852,27 @@ was not re-audited. That file is the pre-registration. Its decisive rules, resta
   with the recipe reads (§6.2 rules).
 - **Head of record:** §7 unchanged (no tie tolerance). Candidates: the REF heads plus every p2b head reading PASS or
   COST, C0 included. Bake is the user's call.
+- 2026-10-08, **p2b step 1 landed.** Two code knobs, both default off and config-identical when unset:
+  - `KRABBY_ORIENT_ALL_TILES` swaps `reward_orientation` to `reward_orientation_upright`.
+  - `KRABBY_FOOT_CLEAR_TERRAIN` swaps both clearance terms to terrain-relative twins in `mdp/omni_clearance.py`, using
+    the same tile lookup as smoke S3.
+  - Both refuse to arm when every swapped term has weight 0.
+  - **Tooling:**
+    - dump checks for all seven p2b knobs;
+    - run_arm fork verification for p2a heads, plus the `P2_GUARD_REF` code-guard reference;
+    - p2_live p2b liveness/preflight and checkpoints 21000 / 22500 / 24000;
+    - p2_read p2b reads;
+    - p2_mech (the diagnosis method as a tool: pit 35 / leg strike 35 / trailing 16 / block 10 / none 4 % on the S1
+      falls, median onset 1.72 s);
+    - p2b_queue.sh;
+    - candidates_v8 (p2b chains; CL / TG weights TBD until the replay gate).
+  - Implemented via workflow wf_0a765082 and reviewed by fable. Two pre-run blockers were fixed: guard re-pointing and
+    the chains. Minor items were fixed or recorded here. 696 tests pass; self-tests pass.
+  - **Recorded clarifications of §10:**
+    - **Chained ANCW floor:** link 2 is (S1 p2a driver suite − ANCW), the same checkpoint and code as the p2a ladder,
+      because the inertness check compares row evals only.
+    - **TG liveness:** requires `Episode_Reward/reward_orientation` ≥ 2× the seed's p2a tail. The planned 1–5 % band
+      sits ≈ 3–14× above that tail.
+    - **Replay magnitudes for liveness:** signed, in TensorBoard units (`Episode_Reward`: weighted episodic sum /
+      max episode seconds).
+    - **Inertness:** any REF difference stops and asks; the eval process-state flip hazard is noted.

@@ -2287,6 +2287,87 @@ def _power_joints_ok(txt: str, value) -> bool:
     return asset["joint_names"] == actuated_joint_names() and weight is not None and weight != 0.0
 
 
+# ---- omni phase-2 stage p2b knobs (P2B_PLAN step 1, 2026-10-08). The two new flags live in
+# motion_knobs (``ORIENT_ALL_TILES_VAR`` / ``FOOT_CLEAR_TERRAIN_VAR``); named by literal here so the
+# audit does not depend on the import order, and a unit test pins the literals to the module's.
+ORIENT_ALL_TILES_KEY = "KRABBY_ORIENT_ALL_TILES"
+FOOT_CLEAR_TERRAIN_KEY = "KRABBY_FOOT_CLEAR_TERRAIN"
+FOOT_CLEAR_FLAT_KEY = "KRABBY_FOOT_CLEAR_FLAT"
+#: The two lift terms (CL arm) and, per term, the terrain-relative func FOOT_CLEAR_TERRAIN swaps in
+#: (``crab_hex_omni_task/mdp/omni_clearance.py``).
+CLEARANCE_TERRAIN_FUNCS = {"reward_foot_clearance": "reward_foot_clearance_terrain",
+                           "penalty_swing_min_clearance": "penalty_swing_min_clearance_terrain"}
+
+
+def _forward_weight_parser(var: str, sign: int):
+    """A parser for a forward ``_overrides`` reward weight (``float(raw)`` in ``parkour_mdp_cfg``).
+
+    Blank is REFUSED, not read as 0: the cfg's ``float("")`` raises at config build, i.e. only once
+    Kit has started. ``sign`` (+1 income / -1 penalty) refuses a weight that would pay for what the
+    term exists to suppress (or the reverse); 0 is always allowed (the term's default, inert).
+    """
+    def parse(text) -> float:
+        value = float(str(text).strip())
+        if not math.isfinite(value):
+            raise ValueError(f"{var} must be finite, got {text!r}")
+        if value * sign < 0.0:
+            raise ValueError(f"{var} is {'an income' if sign > 0 else 'a penalty'} weight and must be "
+                             f"{'>=' if sign > 0 else '<='} 0, got {text!r}")
+        return value
+    return parse
+
+
+def parse_foot_clear_min(text) -> float:
+    """``KRABBY_FOOT_CLEAR_MIN``: the income floor ``min_clearance_m`` (``float(raw)`` in the forward
+    cfg; blank refused like :func:`_forward_weight_parser`), finite and >= 0."""
+    value = float(str(text).strip())
+    if not (math.isfinite(value) and value >= 0.0):
+        raise ValueError(f"KRABBY_FOOT_CLEAR_MIN must be finite and >= 0, got {text!r}")
+    return value
+
+
+def _foot_clear_min_ok(txt: str, value) -> bool:
+    """``KRABBY_FOOT_CLEAR_MIN``: ``reward_foot_clearance``'s ``params.min_clearance_m`` (the income
+    floor only; the swing-min penalty keeps its own 0.04 m floor)."""
+    got = _dig(_dump_doc(txt), "rewards", "reward_foot_clearance", "params", "min_clearance_m")
+    return _same(got, parse_foot_clear_min(value))
+
+
+def _foot_clear_flat_ok(txt: str, value) -> bool:
+    """``KRABBY_FOOT_CLEAR_FLAT``: ``1`` = ``params.parkour_name: null`` on BOTH clearance terms (the
+    forward cfg lifts the parkour_flat mask, ``parkour_mdp_cfg.py``); off = a named parkour on both
+    (the stock ``base_parkour``). The key must be present either way: an absent one is not a mask.
+    The flag is read as the recipe's INTENT (``parse_flag``), so a value the cfg's ``== "1"`` would
+    not take fails here rather than training the masked recipe under an unmasked name.
+    """
+    on = _motion().parse_flag(value, FOOT_CLEAR_FLAT_KEY)
+    rewards = _dig(_dump_doc(txt), "rewards")
+    for term in CLEARANCE_TERRAIN_FUNCS:
+        params = _dig(rewards, term, "params")
+        if not isinstance(params, dict) or "parkour_name" not in params:
+            return False
+        name = params["parkour_name"]
+        if (name is not None) if on else not (isinstance(name, str) and name.strip()):
+            return False
+    return True
+
+
+def _foot_clear_terrain_ok(txt: str, value) -> bool:
+    """``KRABBY_FOOT_CLEAR_TERRAIN``: on = BOTH clearance terms' func is the terrain-relative variant;
+    off = both keep the stock func (an on dump fails the off check, and the reverse)."""
+    on = _motion().parse_flag(value, FOOT_CLEAR_TERRAIN_KEY)
+    return all(_func_swapped_ok(txt, term, swapped if on else term)
+               for term, swapped in CLEARANCE_TERRAIN_FUNCS.items())
+
+
+def _orient_all_tiles_ok(txt: str, value) -> bool:
+    """``KRABBY_ORIENT_ALL_TILES``: on = ``reward_orientation``'s func is ``reward_orientation_upright``
+    (all tiles); off = the stock, obstacle-tile-zeroed ``reward_orientation``."""
+    on = _motion().parse_flag(value, ORIENT_ALL_TILES_KEY)
+    return _func_swapped_ok(txt, "reward_orientation",
+                            "reward_orientation_upright" if on else "reward_orientation")
+
+
 def _check_field_geom_composition(env: dict, where: str, reasons: list) -> None:
     """The geometry guard (``require_omni_geom``) on a COMPOSED stage env, at ``--dry-run`` (omni
     phase-2 plan step 4, 2026-10-06): ``KRABBY_FIELD_*`` under ``ring`` (or ``KRABBY_RING_*`` under
@@ -2444,6 +2525,15 @@ OVERLAY_DUMP_CHECKS = {
     "KRABBY_STRIDE_W": lambda txt, v: _weight_ok(txt, "reward_stride_length", v),
     "KRABBY_STAND_STANCE_W": _stand_stance_w_ok,
     "KRABBY_POWER_JOINTS": _power_joints_ok,
+    # ---- omni phase-2 stage p2b (P2B_PLAN step 1, 2026-10-08). Env side: params/env.yaml. The CL
+    # arm's four reused forward knobs + the terrain-relative swap, the TG arm's func swap + weight.
+    "KRABBY_FOOT_CLEAR_W": lambda txt, v: _weight_ok(txt, "reward_foot_clearance", v),
+    "KRABBY_SWING_MIN_CLEAR_W": lambda txt, v: _weight_ok(txt, "penalty_swing_min_clearance", v),
+    "KRABBY_FOOT_CLEAR_MIN": _foot_clear_min_ok,
+    FOOT_CLEAR_FLAT_KEY: _foot_clear_flat_ok,
+    FOOT_CLEAR_TERRAIN_KEY: _foot_clear_terrain_ok,
+    "KRABBY_ORIENT_W": lambda txt, v: _weight_ok(txt, "reward_orientation", v),
+    ORIENT_ALL_TILES_KEY: _orient_all_tiles_ok,
 }
 
 
@@ -2590,6 +2680,14 @@ def knob_parsers() -> dict:
         "KRABBY_STRIDE_W": float,
         # omni phase-2 walls re-tune (CHARTER 9, 2026-10-06): the arms widen the 2a preset's difficulty range.
         "KRABBY_FLAT_TERRAIN_DIFF": parse_terrain_diff,
+        # omni phase-2 stage p2b (P2B_PLAN step 1, 2026-10-08): the CL / TG arms' reused forward
+        # knobs (sign-checked; blank refused, as the cfg's float() would raise). The two new flags
+        # (KRABBY_FOOT_CLEAR_TERRAIN / KRABBY_ORIENT_ALL_TILES) come in through MOTION_KNOB_PARSERS.
+        "KRABBY_FOOT_CLEAR_W": _forward_weight_parser("KRABBY_FOOT_CLEAR_W", +1),
+        "KRABBY_SWING_MIN_CLEAR_W": _forward_weight_parser("KRABBY_SWING_MIN_CLEAR_W", -1),
+        "KRABBY_ORIENT_W": _forward_weight_parser("KRABBY_ORIENT_W", -1),
+        "KRABBY_FOOT_CLEAR_MIN": parse_foot_clear_min,
+        FOOT_CLEAR_FLAT_KEY: lambda t: _motion().parse_flag(t, FOOT_CLEAR_FLAT_KEY),
     }
     _KNOB_PARSERS_CACHE = table
     return table
@@ -2622,6 +2720,9 @@ def knob_whitelist() -> set[str]:
             value = getattr(k, attr)
             if isinstance(value, str) and value.startswith("KRABBY_"):
                 names.add(value)
+    # every knob the motion module PARSES is one it owns (omni phase-2 stage p2b, 2026-10-08): a
+    # motion_knobs flag whose *_VAR omni_knobs forgot to re-export must not read as a typo.
+    names.update(key for key in getattr(k, "MOTION_KNOB_PARSERS", {}) if str(key).startswith("KRABBY_"))
     mdp_cfg = rp.FWD_PKG / "config/crab_hex/agents/parkour_mdp_cfg.py"
     if mdp_cfg.exists():
         names.update(re.findall(r"KRABBY_[A-Z_]+", mdp_cfg.read_text(errors="ignore")))

@@ -133,6 +133,11 @@ decision_rule:
 
 
 # ---------------------------------------------------------------------------- chains
+# v8 (2026-10-08, CHARTER 10 / P2B_PLAN.md): the p2b chains -- P2__C0_s18 (continuation), P2__CL_s16/17/18
+# (terrain-relative lift), P2__TG_s16/17/18 (tilt guard); stage p2b, base 2a, each a {checkpoint} fork of its seed's
+# S1 p2a head model_19994 with the S1 overlay verbatim + the lever's knobs. The CL / TG weights are
+# TBD_PENDING_P2B_REPLAY until the step-2 offline replay gate sets them (one weight per term across seeds).
+
 chains:
   # ======================================================================== calibration smokes (CHARTER 5)
   P2__CAL1_s18:
@@ -706,6 +711,315 @@ chains:
         eval: [suite]
         categories: [back, diag, fwd, move_turn, side, stand, turn]
         floor: {kind: none}
+  # ======================================================================== p2b (CHARTER 10 / P2B_PLAN.md)
+  P2__C0_s18:
+    notes: "p2b C0 continuation control (CHARTER 10): the S1 recipe unchanged, 5000 more its from P2__S1_s18 model_19994."
+    absolute_units: true
+    stages:
+      - stage: p2b
+        base: "2a"
+        iters: 5000
+        from_scratch: false
+        resume_from: {checkpoint: parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-07_07-50-10_seed18_X08_p2a_A15pB/model_19994.pt}
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07"
+          KRABBY_OMNI_SLOTS: "0.15:0.55:0.1:0.2"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_FACING: "0.2:1.2"
+          KRABBY_YAW_W: "0.2"
+          KRABBY_CLOCK_W: "0.001"
+          KRABBY_APEX_W: "0.001"
+          KRABBY_OMNI_CLOCK_HIDE: "1"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+          KRABBY_STD_PARAM: soft
+          KRABBY_INIT_STD: "0.8"
+          KRABBY_ENTROPY_COEF: "0.0025"
+          KRABBY_ACTION_RATE_W: "-0.05"
+          KRABBY_PPO_HAND_DIAG: "1"
+          KRABBY_PHASEOUT: ""
+          KRABBY_FLAT_TERRAIN_GEOM: field
+          KRABBY_FIELD_PAD_R: "1.7"
+          KRABBY_FIELD_BLOCKS: "14:28"
+          KRABBY_FIELD_KINDS: "0.4:0.4:0.2"
+          KRABBY_FIELD_EDGES: wall    # CHARTER 9 walls re-tune 2026-10-06
+          KRABBY_FLAT_TERRAIN_DIFF: "0.20:1.0"
+          KRABBY_TERRAIN_PROMOTE: "0.7:0.4"    # CHARTER 9 walls calibration: r-bar 0.798 (P2__CALW1_s18)
+        eval: [suite]
+        categories: [back, diag, fwd, move_turn, side, stand, turn]
+        floor: {kind: none}
+
+  P2__CL_s16:
+    notes: "p2b CL terrain-relative lift (CHARTER 10): S1 + foot-clearance income / swing-min penalty measured above the terrain (KRABBY_FOOT_CLEAR_TERRAIN); weights from the p2b replay gate; fork of P2__S1_s16 model_19994."
+    absolute_units: true
+    stages:
+      - stage: p2b
+        base: "2a"
+        iters: 5000
+        from_scratch: false
+        resume_from: {checkpoint: parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-07_15-34-26_seed16_X10_p2a_A15pB/model_19994.pt}
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07"
+          KRABBY_OMNI_SLOTS: "0.15:0.55:0.1:0.2"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_FACING: "0.2:1.2"
+          KRABBY_YAW_W: "0.2"
+          KRABBY_CLOCK_W: "0.001"
+          KRABBY_APEX_W: "0.001"
+          KRABBY_OMNI_CLOCK_HIDE: "1"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+          KRABBY_STD_PARAM: soft
+          KRABBY_INIT_STD: "0.8"
+          KRABBY_ENTROPY_COEF: "0.0025"
+          KRABBY_ACTION_RATE_W: "-0.05"
+          KRABBY_PPO_HAND_DIAG: "1"
+          KRABBY_PHASEOUT: ""
+          KRABBY_FLAT_TERRAIN_GEOM: field
+          KRABBY_FIELD_PAD_R: "1.7"
+          KRABBY_FIELD_BLOCKS: "14:28"
+          KRABBY_FIELD_KINDS: "0.4:0.4:0.2"
+          KRABBY_FIELD_EDGES: wall    # CHARTER 9 walls re-tune 2026-10-06
+          KRABBY_FLAT_TERRAIN_DIFF: "0.20:1.0"
+          KRABBY_TERRAIN_PROMOTE: "0.7:0.4"    # CHARTER 9 walls calibration: r-bar 0.798 (P2__CALW1_s18)
+          KRABBY_FOOT_CLEAR_W: "TBD_PENDING_P2B_REPLAY"
+          KRABBY_FOOT_CLEAR_MIN: "0.03"
+          KRABBY_FOOT_CLEAR_FLAT: "1"
+          KRABBY_SWING_MIN_CLEAR_W: "TBD_PENDING_P2B_REPLAY"
+          KRABBY_FOOT_CLEAR_TERRAIN: "1"
+        eval: [suite]
+        categories: [back, diag, fwd, move_turn, side, stand, turn]
+        floor: {kind: none}
+
+  P2__CL_s17:
+    notes: "p2b CL terrain-relative lift (CHARTER 10): S1 + foot-clearance income / swing-min penalty measured above the terrain (KRABBY_FOOT_CLEAR_TERRAIN); weights from the p2b replay gate; fork of P2__S1_s17 model_19994."
+    absolute_units: true
+    stages:
+      - stage: p2b
+        base: "2a"
+        iters: 5000
+        from_scratch: false
+        resume_from: {checkpoint: parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-07_19-05-32_seed17_X11_p2a_A15pB/model_19994.pt}
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07"
+          KRABBY_OMNI_SLOTS: "0.15:0.55:0.1:0.2"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_FACING: "0.2:1.2"
+          KRABBY_YAW_W: "0.2"
+          KRABBY_CLOCK_W: "0.001"
+          KRABBY_APEX_W: "0.001"
+          KRABBY_OMNI_CLOCK_HIDE: "1"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+          KRABBY_STD_PARAM: soft
+          KRABBY_INIT_STD: "0.8"
+          KRABBY_ENTROPY_COEF: "0.0025"
+          KRABBY_ACTION_RATE_W: "-0.05"
+          KRABBY_PPO_HAND_DIAG: "1"
+          KRABBY_PHASEOUT: ""
+          KRABBY_FLAT_TERRAIN_GEOM: field
+          KRABBY_FIELD_PAD_R: "1.7"
+          KRABBY_FIELD_BLOCKS: "14:28"
+          KRABBY_FIELD_KINDS: "0.4:0.4:0.2"
+          KRABBY_FIELD_EDGES: wall    # CHARTER 9 walls re-tune 2026-10-06
+          KRABBY_FLAT_TERRAIN_DIFF: "0.20:1.0"
+          KRABBY_TERRAIN_PROMOTE: "0.7:0.4"    # CHARTER 9 walls calibration: r-bar 0.798 (P2__CALW1_s18)
+          KRABBY_FOOT_CLEAR_W: "TBD_PENDING_P2B_REPLAY"
+          KRABBY_FOOT_CLEAR_MIN: "0.03"
+          KRABBY_FOOT_CLEAR_FLAT: "1"
+          KRABBY_SWING_MIN_CLEAR_W: "TBD_PENDING_P2B_REPLAY"
+          KRABBY_FOOT_CLEAR_TERRAIN: "1"
+        eval: [suite]
+        categories: [back, diag, fwd, move_turn, side, stand, turn]
+        floor: {kind: none}
+
+  P2__CL_s18:
+    notes: "p2b CL terrain-relative lift (CHARTER 10): S1 + foot-clearance income / swing-min penalty measured above the terrain (KRABBY_FOOT_CLEAR_TERRAIN); weights from the p2b replay gate; fork of P2__S1_s18 model_19994."
+    absolute_units: true
+    stages:
+      - stage: p2b
+        base: "2a"
+        iters: 5000
+        from_scratch: false
+        resume_from: {checkpoint: parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-07_07-50-10_seed18_X08_p2a_A15pB/model_19994.pt}
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07"
+          KRABBY_OMNI_SLOTS: "0.15:0.55:0.1:0.2"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_FACING: "0.2:1.2"
+          KRABBY_YAW_W: "0.2"
+          KRABBY_CLOCK_W: "0.001"
+          KRABBY_APEX_W: "0.001"
+          KRABBY_OMNI_CLOCK_HIDE: "1"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+          KRABBY_STD_PARAM: soft
+          KRABBY_INIT_STD: "0.8"
+          KRABBY_ENTROPY_COEF: "0.0025"
+          KRABBY_ACTION_RATE_W: "-0.05"
+          KRABBY_PPO_HAND_DIAG: "1"
+          KRABBY_PHASEOUT: ""
+          KRABBY_FLAT_TERRAIN_GEOM: field
+          KRABBY_FIELD_PAD_R: "1.7"
+          KRABBY_FIELD_BLOCKS: "14:28"
+          KRABBY_FIELD_KINDS: "0.4:0.4:0.2"
+          KRABBY_FIELD_EDGES: wall    # CHARTER 9 walls re-tune 2026-10-06
+          KRABBY_FLAT_TERRAIN_DIFF: "0.20:1.0"
+          KRABBY_TERRAIN_PROMOTE: "0.7:0.4"    # CHARTER 9 walls calibration: r-bar 0.798 (P2__CALW1_s18)
+          KRABBY_FOOT_CLEAR_W: "TBD_PENDING_P2B_REPLAY"
+          KRABBY_FOOT_CLEAR_MIN: "0.03"
+          KRABBY_FOOT_CLEAR_FLAT: "1"
+          KRABBY_SWING_MIN_CLEAR_W: "TBD_PENDING_P2B_REPLAY"
+          KRABBY_FOOT_CLEAR_TERRAIN: "1"
+        eval: [suite]
+        categories: [back, diag, fwd, move_turn, side, stand, turn]
+        floor: {kind: none}
+
+  P2__TG_s16:
+    notes: "p2b TG tilt guard (CHARTER 10): S1 + reward_orientation on all tiles (KRABBY_ORIENT_ALL_TILES); weight from the p2b replay gate; fork of P2__S1_s16 model_19994."
+    absolute_units: true
+    stages:
+      - stage: p2b
+        base: "2a"
+        iters: 5000
+        from_scratch: false
+        resume_from: {checkpoint: parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-07_15-34-26_seed16_X10_p2a_A15pB/model_19994.pt}
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07"
+          KRABBY_OMNI_SLOTS: "0.15:0.55:0.1:0.2"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_FACING: "0.2:1.2"
+          KRABBY_YAW_W: "0.2"
+          KRABBY_CLOCK_W: "0.001"
+          KRABBY_APEX_W: "0.001"
+          KRABBY_OMNI_CLOCK_HIDE: "1"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+          KRABBY_STD_PARAM: soft
+          KRABBY_INIT_STD: "0.8"
+          KRABBY_ENTROPY_COEF: "0.0025"
+          KRABBY_ACTION_RATE_W: "-0.05"
+          KRABBY_PPO_HAND_DIAG: "1"
+          KRABBY_PHASEOUT: ""
+          KRABBY_FLAT_TERRAIN_GEOM: field
+          KRABBY_FIELD_PAD_R: "1.7"
+          KRABBY_FIELD_BLOCKS: "14:28"
+          KRABBY_FIELD_KINDS: "0.4:0.4:0.2"
+          KRABBY_FIELD_EDGES: wall    # CHARTER 9 walls re-tune 2026-10-06
+          KRABBY_FLAT_TERRAIN_DIFF: "0.20:1.0"
+          KRABBY_TERRAIN_PROMOTE: "0.7:0.4"    # CHARTER 9 walls calibration: r-bar 0.798 (P2__CALW1_s18)
+          KRABBY_ORIENT_ALL_TILES: "1"
+          KRABBY_ORIENT_W: "TBD_PENDING_P2B_REPLAY"
+        eval: [suite]
+        categories: [back, diag, fwd, move_turn, side, stand, turn]
+        floor: {kind: none}
+
+  P2__TG_s17:
+    notes: "p2b TG tilt guard (CHARTER 10): S1 + reward_orientation on all tiles (KRABBY_ORIENT_ALL_TILES); weight from the p2b replay gate; fork of P2__S1_s17 model_19994."
+    absolute_units: true
+    stages:
+      - stage: p2b
+        base: "2a"
+        iters: 5000
+        from_scratch: false
+        resume_from: {checkpoint: parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-07_19-05-32_seed17_X11_p2a_A15pB/model_19994.pt}
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07"
+          KRABBY_OMNI_SLOTS: "0.15:0.55:0.1:0.2"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_FACING: "0.2:1.2"
+          KRABBY_YAW_W: "0.2"
+          KRABBY_CLOCK_W: "0.001"
+          KRABBY_APEX_W: "0.001"
+          KRABBY_OMNI_CLOCK_HIDE: "1"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+          KRABBY_STD_PARAM: soft
+          KRABBY_INIT_STD: "0.8"
+          KRABBY_ENTROPY_COEF: "0.0025"
+          KRABBY_ACTION_RATE_W: "-0.05"
+          KRABBY_PPO_HAND_DIAG: "1"
+          KRABBY_PHASEOUT: ""
+          KRABBY_FLAT_TERRAIN_GEOM: field
+          KRABBY_FIELD_PAD_R: "1.7"
+          KRABBY_FIELD_BLOCKS: "14:28"
+          KRABBY_FIELD_KINDS: "0.4:0.4:0.2"
+          KRABBY_FIELD_EDGES: wall    # CHARTER 9 walls re-tune 2026-10-06
+          KRABBY_FLAT_TERRAIN_DIFF: "0.20:1.0"
+          KRABBY_TERRAIN_PROMOTE: "0.7:0.4"    # CHARTER 9 walls calibration: r-bar 0.798 (P2__CALW1_s18)
+          KRABBY_ORIENT_ALL_TILES: "1"
+          KRABBY_ORIENT_W: "TBD_PENDING_P2B_REPLAY"
+        eval: [suite]
+        categories: [back, diag, fwd, move_turn, side, stand, turn]
+        floor: {kind: none}
+
+  P2__TG_s18:
+    notes: "p2b TG tilt guard (CHARTER 10): S1 + reward_orientation on all tiles (KRABBY_ORIENT_ALL_TILES); weight from the p2b replay gate; fork of P2__S1_s18 model_19994."
+    absolute_units: true
+    stages:
+      - stage: p2b
+        base: "2a"
+        iters: 5000
+        from_scratch: false
+        resume_from: {checkpoint: parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-07_07-50-10_seed18_X08_p2a_A15pB/model_19994.pt}
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07"
+          KRABBY_OMNI_SLOTS: "0.15:0.55:0.1:0.2"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_FACING: "0.2:1.2"
+          KRABBY_YAW_W: "0.2"
+          KRABBY_CLOCK_W: "0.001"
+          KRABBY_APEX_W: "0.001"
+          KRABBY_OMNI_CLOCK_HIDE: "1"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+          KRABBY_STD_PARAM: soft
+          KRABBY_INIT_STD: "0.8"
+          KRABBY_ENTROPY_COEF: "0.0025"
+          KRABBY_ACTION_RATE_W: "-0.05"
+          KRABBY_PPO_HAND_DIAG: "1"
+          KRABBY_PHASEOUT: ""
+          KRABBY_FLAT_TERRAIN_GEOM: field
+          KRABBY_FIELD_PAD_R: "1.7"
+          KRABBY_FIELD_BLOCKS: "14:28"
+          KRABBY_FIELD_KINDS: "0.4:0.4:0.2"
+          KRABBY_FIELD_EDGES: wall    # CHARTER 9 walls re-tune 2026-10-06
+          KRABBY_FLAT_TERRAIN_DIFF: "0.20:1.0"
+          KRABBY_TERRAIN_PROMOTE: "0.7:0.4"    # CHARTER 9 walls calibration: r-bar 0.798 (P2__CALW1_s18)
+          KRABBY_ORIENT_ALL_TILES: "1"
+          KRABBY_ORIENT_W: "TBD_PENDING_P2B_REPLAY"
+        eval: [suite]
+        categories: [back, diag, fwd, move_turn, side, stand, turn]
+        floor: {kind: none}
+
 
 references:
   P2__CAL1_s18: {chain: P2__CAL1_s18, seed: 18}
@@ -722,6 +1036,13 @@ references:
   P2__S1_s17: {chain: P2__S1_s17, seed: 17}
   P2__E1_s18: {chain: P2__E1_s18, seed: 18}
   P2__F1_s18: {chain: P2__F1_s18, seed: 18}
+  P2__C0_s18: {chain: P2__C0_s18, seed: 18}
+  P2__CL_s16: {chain: P2__CL_s16, seed: 16}
+  P2__CL_s17: {chain: P2__CL_s17, seed: 17}
+  P2__CL_s18: {chain: P2__CL_s18, seed: 18}
+  P2__TG_s16: {chain: P2__TG_s16, seed: 16}
+  P2__TG_s17: {chain: P2__TG_s17, seed: 17}
+  P2__TG_s18: {chain: P2__TG_s18, seed: 18}
 # Empty by design: every arm runs through `references:`, never the ordinary candidate queue.
 candidates: []
 

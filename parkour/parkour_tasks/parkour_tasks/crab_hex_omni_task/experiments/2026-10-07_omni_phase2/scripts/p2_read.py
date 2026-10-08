@@ -103,7 +103,39 @@ and stand stepping, turn band) are reported for the judges; the ranking is their
                                          record is a smoke, not killed, its dump audit PASS, and its PROMOTE == the
                                          A1 chain's KRABBY_TERRAIN_PROMOTE in candidates.yaml (== CAL2's own). 0 / 4.
     (--out DIR points those four at another $OUT; P2_OUT in the environment does the same for every read.)
+    p2_read.py --p2b-inertness           CHARTER 10 / P2B_PLAN step 3: every REF_S1_s<seed> reproduces its S1 p2a head's
+                                         own run_arm row-eval reads EXACTLY (field_hard es1 / es2, field_light and
+                                         ring_obst es1 / es2, field_turn, field_suite, lr; like-for-like, never the
+                                         driver suite stamp), same checkpoint sha256 and row env block. Exit 0 / 4.
+    p2_read.py --p2b-screen              the s18 p2b verdicts (C0 and each lever vs REF_S1_s18) + the attribution
+                                         JSON; exit 0 (the queue stops and asks regardless).
+    p2_read.py --p2b-recipe              CHARTER 6.2 rules per lever over s16 / s17 / s18 (vs REF); exit 4 if any
+                                         lever reads PENDING, else 0.
+    p2_read.py --p2b-md PATH             the p2b verdict table + attribution + recipe reads as markdown (combinable).
+    (P2B_LEVERS in the environment, default "CL TG", names the lever arms read.)
     p2_read.py --self-test
+
+CHARTER 10 (stage p2b, P2B_PLAN.md step 6; pre-registered before any p2b run). Points: REF_S1_s<seed> (the S1 p2a head
+model_19994 re-evaluated on the p2b code: every row by run_arm.sh, field_hard at env_seeds 1-4, s18's suite also at
+env_seed 2) and the heads P2__C0_s18 (control, s18 only), P2__<lever>_s<seed> (suite = the arm's driver_stamp,
+field_hard at env_seeds 1-4). Per head vs its seed's REF, first match decides:
+  INVALID EVAL  CHARTER 6.1's rule against REF's stamps (env4 keys, row env block, code-state sidecar), field_hard es3 /
+                es4 included.
+  PENDING       a needed read missing (field_hard pooled over env_seeds 1-4 on both sides; the ANCW chain's reads).
+  HAND LOSS / DOSE  as CHARTER 6.1.
+  FLAT FAIL     the CHARTER 6.1 list vs REF (REF's bands; REF_S1_s18's suite@2 gives the suite band), OR vs the seed's
+                ANCW anchor through chained deltas computed from values: (p2b - REF) + (the S1 p2a head's own p2a suite
+                read - ANCW), at max(floor, 2 x ANCW's band) -- never through the sidecar rule (ANCW's stamps carry the
+                p2a code_sha); or a translate hold < 0.95.
+  NO GAIN       NOT [field_hard (n = 400) >= REF + max(0.05, 2 SE), SE = sqrt(pR qR / nR + pA qA / nA), AND
+                field_light >= REF - max(0.03, band) AND ring_obst >= REF - max(0.05, band)]. At REF 0.73 2 SE = 0.0602,
+                so +0.06 (316/400) is NO GAIN there and 317/400 the smallest pass; at 0.83 / 0.80 +0.06 clears.
+  COST / PASS   as CHARTER 6.1 vs REF.
+  Every verdict reports field_hard completion (n = 400) and walking-hold tracking (the stamps' tracking_ratio
+  medians, n-weighted) beside REF's. s16 / s17 lever reads are labelled "lever + continuation" (no control there).
+ATTRIBUTION (s18): a lever beats continuation only if its REF verdict is PASS or COST, its field_hard beats C0's by the
+same SE margin rule (both n = 400) and it has no FLAT FAIL vs C0 (the 6.1 list at max(floor, 2 band), REF s18 bands).
+RECIPE per lever at 3 seeds: :func:`recipe_read` (CHARTER 6.2) on the p2b verdicts.
 """
 from __future__ import annotations
 
@@ -395,23 +427,25 @@ def exposure(stamp: str | None) -> dict | None:
 
 # ================================================================================================ points
 def load_point(name: str, *, suite_stamp: str | None = None, run_dir: str | None = None, arms: Path = ARMS,
-               lrout: Path = LROUT, with_tb: bool = True, with_raw: bool = False) -> dict:
-    """Every read of one evaluated checkpoint (an anchor, an arm head or an intermediate)."""
+               lrout: Path = LROUT, with_tb: bool = True, with_raw: bool = False, fh_seeds=(1, 2)) -> dict:
+    """Every read of one evaluated checkpoint (an anchor, an arm head or an intermediate). ``fh_seeds``: the
+    field_hard env_seeds read (p2b: 1-4, CHARTER 10; every other row stays at 1 and 2)."""
     st = {"suite@1": suite_stamp or newest_stamp(name, SUITE, 1, lrout), "suite@2": newest_stamp(name, SUITE, 2, lrout),
           "lr@1": newest_stamp(name, LR, 1, lrout), f"{SLOW}@1": newest_stamp(name, SLOW, 1, lrout),
           f"{FT}@1": newest_stamp(name, FT, 1, lrout), f"{FS}@1": newest_stamp(name, FS, 1, lrout)}
-    for row in COMP_ROWS.values():
-        for s in (1, 2):
+    seeds_of = {k: (tuple(fh_seeds) if k == "field_hard" else (1, 2)) for k in COMP_ROWS}
+    for k, row in COMP_ROWS.items():
+        for s in seeds_of[k]:
             st[f"{row}@{s}"] = newest_stamp(name, row, s, lrout)
     pt = {"name": name, "stamps": st, "valid": {k: stamp_validity(v) for k, v in st.items()},
-          "comp": {k: {s: comp_read(st[f"{row}@{s}"]) for s in (1, 2)} for k, row in COMP_ROWS.items()},
+          "comp": {k: {s: comp_read(st[f"{row}@{s}"]) for s in seeds_of[k]} for k, row in COMP_ROWS.items()},
           "flat_completion": (comp_read(st[f"{SLOW}@1"]) or {}).get("rate"),
           "suite": suite_reads(st["suite@1"]), "suite2": suite_reads(st["suite@2"]),
           "field_suite": suite_reads(st[f"{FS}@1"]), "field_turn": turn_row_reads(st[f"{FT}@1"]),
           "hands": None, "fall": None, "feet_side": None, "dose_ok": None, "dose": None, "run_dir": run_dir}
     p = X().read_point(str(arms / f"{name}_lr.json"), str(arms / f"{name}_lr_along.json"), name)
     if p:
-        pt["hands"], pt["fall"] = p["hands"], p["fall"]
+        pt["hands"], pt["fall"], pt["feet"] = p["hands"], p["fall"], p["feet"]
         f = [p["feet"][h] for h in HANDS]
         pt["feet_side"] = sum(f) / 2 if None not in f else None
     if run_dir and with_tb:
@@ -1220,6 +1254,335 @@ def verdicts(res: dict) -> dict:
     return out
 
 
+# ================================================================================================ 10 p2b (CHARTER 10)
+# P2B_PLAN.md step 6, pre-registered before any p2b run. Every p2b head is read against its seed's REF (the S1 p2a head
+# re-evaluated on the p2b code, so the INVALID EVAL sidecar rule holds); the flat floor is ALSO held against the seed's
+# ANCW anchor through chained suite deltas computed from values (ANCW's stamps carry the p2a code_sha, so the sidecar
+# rule cannot be applied to them).
+P2B_CONTROL = "C0"
+#: lever arms read at every seed; P2B_LEVERS in the environment narrows the list (the user may prune after the screen)
+P2B_LEVERS_DEFAULT = "CL TG"
+REF_ARM = "S1"
+P2B_FH_SEEDS = (1, 2, 3, 4)
+#: CHARTER 10 gain gate: field_hard (n = 400) >= REF + max(P2B_GAIN_FLOOR, P2B_SE_K * SE) (field_light / ring_obst keep
+#: CHARTER 6.1's hold-the-line tolerances HOLD_FL / HOLD_RO with REF's bands)
+P2B_GAIN_FLOOR, P2B_SE_K = 0.05, 2.0
+P2B_NEEDED = NEEDED_STAMPS + tuple(f"{FH}@{s}" for s in P2B_FH_SEEDS[2:])
+P2B_VALIDITY = VALIDITY_STAMPS + tuple(f"{FH}@{s}" for s in P2B_FH_SEEDS[2:])
+#: the step-3 inertness rows: the S1 p2a head's own run_arm row-eval reads (like-for-like; never the driver suite stamp)
+INERT_ROWS = (f"{FH}@1", f"{FH}@2", f"{FL}@1", f"{FL}@2", f"{RO}@1", f"{RO}@2", f"{FT}@1", f"{FS}@1", "lr@1")
+INERT_TOL = 1e-12
+GAIN_VERDICTS = ("PASS", "COST")
+
+
+def p2b_levers(env=None) -> tuple:
+    return tuple((env if env is not None else os.environ).get("P2B_LEVERS", P2B_LEVERS_DEFAULT).split())
+
+
+def ref_name(seed: int) -> str:
+    return f"REF_{REF_ARM}_s{seed}"
+
+
+def p2b_head_names(levers=None) -> list[str]:
+    """Every p2b head that is (or will be) queued: C0 at the gate seed only, each lever at every seed."""
+    levers = p2b_levers() if levers is None else tuple(levers)
+    out = []
+    for s in SEEDS:
+        if s == GATE_SEED:
+            out.append(f"P2__{P2B_CONTROL}_s{s}")
+        out += [f"P2__{lv}_s{s}" for lv in levers]
+    return out
+
+
+def pooled_seeds(pt: dict, key: str, seeds) -> tuple[float, int] | None:
+    """:func:`pooled` over ``seeds`` (all must be read)."""
+    c = (pt.get("comp") or {}).get(key) or {}
+    got = [c.get(s) for s in seeds]
+    if any(not x or not x["n"] for x in got):
+        return None
+    n = sum(x["n"] for x in got)
+    return sum(x["rate"] * x["n"] for x in got) / n, n
+
+
+def fh400(pt: dict) -> tuple[float, int] | None:
+    return pooled_seeds(pt, "field_hard", P2B_FH_SEEDS)
+
+
+def fh_track(pt: dict, seeds=P2B_FH_SEEDS) -> float | None:
+    """field_hard walking-hold tracking: the stamps' tracking_ratio medians, n-weighted over the env_seeds read."""
+    c = ((pt or {}).get("comp") or {}).get("field_hard") or {}
+    got = [c.get(s) for s in seeds]
+    got = [x for x in got if x and x.get("track") is not None and x.get("n")]
+    if not got:
+        return None
+    return sum(x["track"] * x["n"] for x in got) / sum(x["n"] for x in got)
+
+
+def se_need(p_ref: float, n_ref: int, p_new: float, n_new: int) -> dict:
+    """The CHARTER 10 margin: REF + max(0.05, 2 SE), SE = sqrt(pR qR / nR + pA qA / nA)."""
+    se = math.sqrt(max(p_ref * (1 - p_ref), 0.0) / n_ref + max(p_new * (1 - p_new), 0.0) / n_new)
+    margin = max(P2B_GAIN_FLOOR, P2B_SE_K * se)
+    return {"se": se, "margin": margin, "need": p_ref + margin, "ok": p_new >= p_ref + margin - EPS}
+
+
+def p2b_gain_read(pt: dict, ref: dict, bd: dict) -> dict:
+    (fh, nf), (rfh, nr) = fh400(pt), fh400(ref)
+    g = se_need(rfh, nr, fh, nf)
+    fl, ro = pooled(pt, "field_light")[0], pooled(pt, "ring_obst")[0]
+    rfl, rro = pooled(ref, "field_light")[0], pooled(ref, "ring_obst")[0]
+    ok_fl = fl >= rfl - max(HOLD_FL, bd["field_light"]) - EPS
+    ok_ro = ro >= rro - max(HOLD_RO, bd["ring_obst"]) - EPS
+    return {"gain": g["ok"] and ok_fl and ok_ro, "field_hard": [fh, rfh, g["need"]], "n": [nf, nr],
+            "se": g["se"], "margin": g["margin"], "field_hard_ok": g["ok"], "field_light_ok": ok_fl,
+            "ring_obst_ok": ok_ro}
+
+
+def _flat_fails(deltas: dict, bd: dict, what: str) -> list[str]:
+    return [f"{m} worse than {what} by {deltas[m]:.4f} > max({LISTED[m][1]}, 2x{bd[m]:.4f})" for m in LISTED
+            if deltas[m] > max(LISTED[m][1], 2 * bd[m]) + EPS]
+
+
+def chained_ancw(pt: dict, ref: dict, p2a: dict, ancw: dict) -> dict:
+    """CHARTER 10 flat floor vs phase 1, from values: per listed metric (p2b - REF) + (the S1 p2a head's own p2a suite
+    read - ANCW), both links in CHARTER 6.1's worse-is-positive direction. Link 2 is the delta the p2a ladder read."""
+    return {m: {"p2b_vs_ref": worse_by(pt, ref, m), "p2a_vs_ancw": worse_by(p2a, ancw, m),
+                "total": worse_by(pt, ref, m) + worse_by(p2a, ancw, m)} for m in LISTED}
+
+
+def p2b_report(pt: dict, ref: dict) -> dict:
+    """The field_hard completion (n = 400) and walking-hold tracking every p2b verdict carries."""
+    a, r = fh400(pt or {}), fh400(ref or {})
+    return {"field_hard": a and a[0], "field_hard_n": a and a[1], "field_hard_track": fh_track(pt),
+            "ref_field_hard": r and r[0], "ref_field_hard_n": r and r[1], "ref_field_hard_track": fh_track(ref)}
+
+
+def p2b_pending(pt: dict, ref: dict, bd: dict, p2a: dict, ancw: dict, bd_ancw: dict, need_dose: bool) -> list[str]:
+    miss = pending_reasons(pt, ref, bd, need_dose)
+    for k in P2B_NEEDED[len(NEEDED_STAMPS):]:
+        miss += [f"{who['name']} {k}" for who in (pt, ref) if not (who.get("stamps") or {}).get(k)]
+    miss += [f"{who['name']} field_hard pooled over env_seeds {P2B_FH_SEEDS}" for who in (pt, ref) if fh400(who) is None]
+    for who in (p2a, ancw):
+        s = (who or {}).get("suite") or {}
+        miss += [f"{(who or {}).get('name')} suite {m} (ANCW chain)" for m in LISTED if s.get(m) is None]
+    miss += [f"ANCW band {m}" for m in LISTED if (bd_ancw or {}).get(m) is None]
+    return miss
+
+
+def p2b_verdict(pt: dict, ref: dict, bd: dict, p2a: dict, ancw: dict, bd_ancw: dict, need_dose: bool = True) -> dict:
+    """CHARTER 10 ladder for one p2b head vs its seed's REF (pure; first match decides). ``bd`` = bands(REF, REF s18);
+    ``p2a`` = the S1 p2a head's point (its p2a suite read), ``ancw`` = the seed's ANCW anchor, ``bd_ancw`` =
+    bands(ANCW, ANCW s18) -- the CHARTER 6.1 FLAT FAIL list is also held against ANCW through chained deltas."""
+    out = {"name": pt.get("name"), "gain": None, "cost": [], "report": p2b_report(pt, ref)}
+    inv = invalid_reasons(pt, ref, P2B_VALIDITY)
+    if inv:
+        return dict(out, verdict="INVALID EVAL", why=inv)
+    pend = p2b_pending(pt, ref, bd, p2a, ancw, bd_ancw, need_dose)
+    if pend:
+        return dict(out, verdict="PENDING", why=pend)
+    g = p2b_gain_read(pt, ref, bd)
+    out["gain"], out["gain_read"] = g["gain"], g
+    out["deltas"] = {m: worse_by(pt, ref, m) for m in LISTED}
+    out["ancw_chain"] = chained_ancw(pt, ref, p2a, ancw)
+    lost = [h for h in HANDS if pt["hands"][h] != FAST]
+    if lost or pt["fall"] > TRIP + EPS:
+        return dict(out, verdict="HAND LOSS", why=[f"hands {pt['hands']}", f"hold-fall share {pt['fall']:.3f}"])
+    if need_dose and pt["dose_ok"] is False:
+        return dict(out, verdict="DOSE", why=[f"median |mu| {pt.get('dose')} > 1.5"])
+    ff = _flat_fails(out["deltas"], bd, ref["name"])
+    ff += _flat_fails({m: v["total"] for m, v in out["ancw_chain"].items()}, bd_ancw, f"{ancw['name']} (chained)")
+    ff += [f"translate survival {h} {v:.3f} < {TRANSLATE_MIN}" for h, v in pt["suite"]["trans_surv"].items()
+           if v < TRANSLATE_MIN - EPS]
+    if ff:
+        return dict(out, verdict="FLAT FAIL", why=ff)
+    if not g["gain"]:
+        return dict(out, verdict="NO GAIN", why=[
+            f"field_hard {g['field_hard'][0]:.4f} (n={g['n'][0]}) vs need {g['field_hard'][2]:.4f} = REF "
+            f"{g['field_hard'][1]:.4f} + max({P2B_GAIN_FLOOR}, 2 SE {g['se']:.4f}); "
+            f"field_light ok {g['field_light_ok']}; ring_obst ok {g['ring_obst_ok']}"])
+    cost = [m for m in LISTED if out["deltas"][m] > max(LISTED[m][2], bd[m]) + EPS]
+    if cost:
+        return dict(out, verdict="COST", cost=cost, why=[f"{m} worse by {out['deltas'][m]:.4f}" for m in cost])
+    return dict(out, verdict="PASS", why=["gain over REF (SE gate), no flat loss vs REF or ANCW (chained)"])
+
+
+def p2b_attribution(lever: dict | None, c0: dict | None, lever_v: dict | None, bd: dict) -> dict:
+    """CHARTER 10 attribution at s18 (pure): the lever beats continuation only if its REF verdict is a gain (PASS or
+    COST), its field_hard (n = 400) beats C0's by the gain gate's margin rule, and it has no FLAT FAIL vs C0 (the
+    CHARTER 6.1 list at max(floor, 2 band), REF s18's bands). ``bd`` = bands(REF s18, REF s18)."""
+    out = {"lever": (lever or {}).get("name"), "control": (c0 or {}).get("name"), "beats_continuation": None,
+           "lever_verdict": (lever_v or {}).get("verdict")}
+    if not lever or lever.get("missing") or not lever_v or lever_v.get("verdict") in ("INVALID EVAL", "PENDING"):
+        return dict(out, status="PENDING", why=["the lever's REF verdict is not read"])
+    if not c0 or c0.get("missing"):
+        return dict(out, status="PENDING", why=["C0 not recorded"])
+    inv = invalid_reasons(lever, c0, P2B_VALIDITY)
+    if inv:
+        return dict(out, status="INVALID EVAL", why=inv)
+    miss = [f"{w['name']} field_hard pooled over {P2B_FH_SEEDS}" for w in (lever, c0) if fh400(w) is None]
+    miss += [f"{w['name']} suite {m}" for w in (lever, c0) for m in LISTED if (w.get("suite") or {}).get(m) is None]
+    miss += [f"band {m}" for m in LISTED if bd.get(m) is None]
+    if miss:
+        return dict(out, status="PENDING", why=miss)
+    (fl, nl), (fc, nc) = fh400(lever), fh400(c0)
+    g = se_need(fc, nc, fl, nl)
+    ff = _flat_fails({m: worse_by(lever, c0, m) for m in LISTED}, bd, c0["name"])
+    conds = {"REF verdict is a gain (PASS / COST)": lever_v["verdict"] in GAIN_VERDICTS and bool(lever_v.get("gain")),
+             f"field_hard {fl:.4f} >= C0 {fc:.4f} + max({P2B_GAIN_FLOOR}, 2 SE {g['se']:.4f})": g["ok"],
+             "no FLAT FAIL vs C0": not ff}
+    beats = all(conds.values())
+    return dict(out, beats_continuation=beats, status="BEATS CONTINUATION" if beats else "DOES NOT BEAT CONTINUATION",
+                conditions=conds, field_hard=[fl, fc, g["need"]], flat_fails_vs_c0=ff)
+
+
+def inertness_check(refs: dict, p2a: dict, rows=INERT_ROWS) -> dict:
+    """P2B_PLAN step 3 (pure): REF_S1_s<seed> reproduces the S1 p2a head's own run_arm row-eval reads EXACTLY on every
+    row the head has (like-for-like: never the driver suite stamp), on the same checkpoint (stamp sha256) and row env
+    block. A row the head has and REF lacks fails (fail closed); a REF without any S1 head point fails."""
+    fails, out = [], {}
+    for s in SEEDS:
+        r, h = refs.get(s) or {}, p2a.get(s) or {}
+        if not h or not r:
+            fails.append(f"s{s}: {'REF' if not r else 'S1 p2a head'} point missing")
+            continue
+        out[s] = {}
+        shas = {((h.get("valid") or {}).get(k) or {}).get("ckpt_sha") for k in rows if (h.get("stamps") or {}).get(k)}
+        shas.discard(None)
+        if len(shas) != 1:
+            fails.append(f"s{s}: the S1 head's row stamps name {len(shas)} checkpoint sha256s")
+        for k in rows:
+            hs, rs = (h.get("stamps") or {}).get(k), (r.get("stamps") or {}).get(k)
+            if not hs:
+                out[s][k] = "head lacks the row (not compared)"
+                continue
+            if not rs:
+                out[s][k] = "REF row unread"
+                fails.append(f"s{s} {k}: REF row unread")
+                continue
+            vh, vr = (h.get("valid") or {}).get(k) or {}, (r.get("valid") or {}).get(k) or {}
+            diffs = []
+            if vr.get("ckpt_sha") is None or vr.get("ckpt_sha") != vh.get("ckpt_sha"):
+                diffs.append(f"checkpoint {str(vr.get('ckpt_sha'))[:12]} != {str(vh.get('ckpt_sha'))[:12]}")
+            if vr.get("manifest_env") != vh.get("manifest_env"):
+                diffs.append("row env block differs")
+            a, b = _inert_read(h, k), _inert_read(r, k)
+            if a is None or b is None:
+                diffs.append(f"read unreadable (head {a is not None}, REF {b is not None})")
+            else:
+                diffs += _diff(a, b, k)
+            out[s][k] = "equal" if not diffs else diffs
+            fails += [f"s{s} {k}: {d}" for d in diffs]
+    return {"ok": not fails, "fails": fails, "rows": out}
+
+
+def _inert_read(pt: dict, k: str):
+    row, _, seed = k.partition("@")
+    if row == "lr":
+        if pt.get("hands") is None:
+            return None
+        return {"hands": pt.get("hands"), "fall": pt.get("fall"), "feet": pt.get("feet"), "feet_side": pt.get("feet_side")}
+    if row == FT:
+        return pt.get("field_turn")
+    if row == FS:
+        return pt.get("field_suite")
+    key = next(c for c, r in COMP_ROWS.items() if r == row)
+    return ((pt.get("comp") or {}).get(key) or {}).get(int(seed))
+
+
+def _diff(a, b, path: str) -> list[str]:
+    if isinstance(a, dict) and isinstance(b, dict):
+        out = []
+        for k in sorted(set(a) | set(b), key=str):
+            out += _diff(a.get(k), b.get(k), f"{path}.{k}")
+        return out
+    if isinstance(a, (list, tuple)) and isinstance(b, (list, tuple)):
+        if len(a) != len(b):
+            return [f"{path}: length {len(a)} != {len(b)}"]
+        return [d for i, (x, y) in enumerate(zip(a, b)) for d in _diff(x, y, f"{path}[{i}]")]
+    if isinstance(a, (int, float)) and isinstance(b, (int, float)) and not isinstance(a, bool):
+        same = (a == b) or (math.isfinite(a) and math.isfinite(b) and abs(a - b) <= INERT_TOL)
+        return [] if same else [f"{path}: head {a} != REF {b}"]
+    return [] if a == b else [f"{path}: head {a!r} != REF {b!r}"]
+
+
+def load_p2b(with_tb: bool = True, levers=None) -> dict:
+    """REF points (row evals; field_hard at env_seeds 1-4), the S1 p2a heads (their p2a reads), the ANCW anchors and
+    every queued p2b head (suite = the arm's driver_stamp; field_hard pooled over env_seeds 1-4)."""
+    an = _anchors_yaml()
+    res = {"refs": {s: load_point(ref_name(s), with_tb=False, fh_seeds=P2B_FH_SEEDS) for s in SEEDS},
+           "ancw": {int(s): load_point(a["name"], with_tb=False) for s, a in an.items()}, "p2a": {}, "heads": {}}
+    for s in SEEDS:
+        ref = f"P2__{REF_ARM}_s{s}"
+        rec = _rec(ref) or {}
+        res["p2a"][s] = (load_point(ref, suite_stamp=rec.get("driver_stamp"), run_dir=rec.get("run_dir"), with_tb=False)
+                         if rec and not rec.get("killed") else {"name": ref, "missing": True})
+    for ref in p2b_head_names(levers):
+        rec = _rec(ref)
+        if rec and not rec.get("killed"):
+            res["heads"][ref] = load_point(ref, suite_stamp=rec.get("driver_stamp"), run_dir=rec.get("run_dir"),
+                                           with_tb=with_tb, fh_seeds=P2B_FH_SEEDS)
+        else:
+            res["heads"][ref] = {"name": ref, "missing": True, "killed": (rec or {}).get("killed")}
+    return res
+
+
+def p2b_verdicts(res: dict, need_dose: bool = True) -> dict:
+    refs, ancw, p2a = res["refs"], res["ancw"], res["p2a"]
+    out = {}
+    for ref, pt in res["heads"].items():
+        s = int(ref.rsplit("_s", 1)[1])
+        label = "lever + continuation" if s != GATE_SEED and f"__{P2B_CONTROL}_" not in ref else None
+        if pt.get("missing"):
+            out[ref] = {"name": ref, "verdict": "PENDING", "why": [f"no record ({pt.get('killed') or 'not run'})"],
+                        "gain": None, "cost": [], "report": p2b_report({}, refs.get(s) or {}), "label": label}
+            continue
+        if (p2a.get(s) or {}).get("missing"):
+            out[ref] = {"name": ref, "verdict": "PENDING", "why": [f"P2__{REF_ARM}_s{s} (the p2a head) not recorded"],
+                        "gain": None, "cost": [], "report": p2b_report(pt, refs.get(s) or {}), "label": label}
+            continue
+        v = p2b_verdict(pt, refs[s], bands(refs[s], refs[GATE_SEED]), p2a[s], ancw[s], bands(ancw[s], ancw[GATE_SEED]),
+                        need_dose)
+        out[ref] = dict(v, label=label)
+    return out
+
+
+def p2b_attributions(res: dict, vs: dict, levers=None) -> dict:
+    levers = p2b_levers() if levers is None else tuple(levers)
+    r18 = res["refs"][GATE_SEED]
+    bd = bands(r18, r18)
+    c0 = res["heads"].get(f"P2__{P2B_CONTROL}_s{GATE_SEED}")
+    return {lv: p2b_attribution(res["heads"].get(f"P2__{lv}_s{GATE_SEED}"), c0, vs.get(f"P2__{lv}_s{GATE_SEED}"), bd)
+            for lv in levers}
+
+
+def p2b_recipes(vs: dict, levers=None) -> dict:
+    """CHARTER 6.2 rules per lever over s16 / s17 / s18 (vs REF)."""
+    levers = p2b_levers() if levers is None else tuple(levers)
+    return {lv: recipe_read({s: vs.get(f"P2__{lv}_s{s}") for s in SEEDS}) for lv in levers}
+
+
+def p2b_markdown(vs: dict, attr: dict, recipes: dict) -> str:
+    L = ["# Omni phase 2, stage p2b -- the pre-registered reading (CHARTER 10 / P2B_PLAN step 6)", "",
+         "| head | verdict | gain | field_hard n=400 (REF) | need | fh tracking (REF) | ANCW chain worst | label | why |",
+         "|---|---|---|---|---|---|---|---|---|"]
+    for ref, v in vs.items():
+        rp, g = v.get("report") or {}, v.get("gain_read") or {}
+        ch = v.get("ancw_chain") or {}
+        worst = max(ch, key=lambda m: ch[m]["total"], default=None)
+        chain = "--" if worst is None else f"{worst} {ch[worst]['total']:+.3f}"
+        L.append(f"| {ref} | **{v['verdict']}** | {v.get('gain')} | {_f(rp.get('field_hard'))} "
+                 f"({_f(rp.get('ref_field_hard'))}) | {_f((g.get('field_hard') or [None] * 3)[2])} | "
+                 f"{_f(rp.get('field_hard_track'))} ({_f(rp.get('ref_field_hard_track'))}) | "
+                 f"{chain} | "
+                 f"{v.get('label') or ''} | {'; '.join(str(x) for x in (v.get('why') or []))[:300]} |")
+    L += ["", "**Attribution at s18 (vs C0):**"]
+    L += [f"- {lv}: **{a.get('status')}** {json.dumps(a.get('conditions') or a.get('why'), default=str)}"
+          for lv, a in attr.items()]
+    L += ["", "**Recipe read per lever (CHARTER 6.2 rules, vs REF):**"]
+    L += [f"- {lv}: **{r['reading']}** {json.dumps({k: x for k, x in r.items() if k != 'reading'})}"
+          for lv, r in recipes.items()]
+    return "\n".join(L) + "\n"
+
+
 # ================================================================================================ self-test
 def _sc():
     return ("c" * 64, "e" * 64, False)
@@ -1477,6 +1840,129 @@ def _self_test() -> int:
     ri2 = rank_inputs({"a": _pt("a", field_turn=ft), "b": _pt("b", field_turn=dict(ft, turn_fc=0.7, turn_yp=0.1))}, {})
     check("rank inputs: field_turn turn holds give the turn rank-sum (item 5 stand-in)",
           [ri2["a"]["turn_rank_sum"], ri2["b"]["turn_rank_sum"], ri2["a"]["field_turn_completion"]], [2.0, 4.0, 0.9])
+
+    # ---- CHARTER 10 (p2b): the ladder vs REF (n = 400 SE gate), the chained ANCW floor, attribution, the head list
+    def P4(name, fh=0.83, **kw):
+        """A p2b-shaped point: field_hard read at env_seeds 1-4 (n = 400)."""
+        fh4 = fh if isinstance(fh, tuple) else (fh,) * 4
+        pt = _pt(name, fh=fh4[:2], **kw)
+        for i, sd in enumerate(P2B_FH_SEEDS[2:], 2):
+            pt["comp"]["field_hard"][sd] = dict(pt["comp"]["field_hard"][1], rate=fh4[i])
+            pt["stamps"][f"{FH}@{sd}"], pt["valid"][f"{FH}@{sd}"] = "/x", _valid()
+        return pt
+    ANCW = _pt("ANCW_s18", s2=s2)
+    bd_a = bands(ANCW, ANCW)
+    P2A = _pt("P2__S1_s18")
+
+    def pv(arm_fh, ref_fh, **kw):
+        ref = P4("REF_S1_s18", ref_fh, s2=s2)
+        return p2b_verdict(P4("P2__CL_s18", arm_fh, **kw), ref, bands(ref, ref), P2A, ANCW, bd_a)
+    check("p2b SE gate: REF 0.83 + 0.06 -> PASS (the 0.05 floor binds: 2 SE = 0.049)", pv(0.89, 0.83)["verdict"], "PASS")
+    check("p2b SE gate: REF 0.80 + 0.06 -> PASS (2 SE = 0.053)", pv(0.86, 0.80)["verdict"], "PASS")
+    check("p2b SE gate: REF 0.73 + 0.06 -> NO GAIN (2 SE = 0.0602: the bar is just above +0.06 here)",
+          (pv(0.79, 0.73)["verdict"], round(pv(0.79, 0.73)["gain_read"]["margin"], 4)), ("NO GAIN", 0.0602))
+    check("p2b SE gate: REF 0.73 + 0.0625 (317/400, the smallest passing count) -> PASS", pv(0.7925, 0.73)["verdict"],
+          "PASS")
+    check("p2b SE gate: exactly REF + 0.05 where 2 SE < 0.05 -> PASS (>= boundary)", pv(0.88, 0.83)["verdict"], "PASS")
+    check("p2b SE gate: REF 0.83 + 0.04 -> NO GAIN", pv(0.87, 0.83)["verdict"], "NO GAIN")
+    check("p2b SE gate: field_hard pools all four env_seeds (es1/es2 0.95, es3/es4 0.83 -> 0.89 vs REF 0.83)",
+          pv((0.95, 0.95, 0.83, 0.83), 0.83)["gain_read"]["field_hard"][:2], [0.89, 0.83])
+    check("p2b SE gate: field_light 0.04 below REF (band floor 0.04) holds; 0.05 below -> NO GAIN",
+          [pv(0.89, 0.83, fl=(0.76, 0.76))["verdict"], pv(0.89, 0.83, fl=(0.75, 0.75))["verdict"]], ["PASS", "NO GAIN"])
+    no34 = P4("P2__CL_s18", 0.89)
+    del no34["stamps"][f"{FH}@4"], no34["comp"]["field_hard"][4]
+    r83 = P4("REF_S1_s18", 0.83, s2=s2)
+    check("p2b: field_hard read at env_seeds 1-3 only (n = 300) -> PENDING",
+          p2b_verdict(no34, r83, bands(r83, r83), P2A, ANCW, bd_a)["verdict"], "PENDING")
+    check("p2b: an env_seed-3 stamp on other code than REF's -> INVALID EVAL",
+          p2b_verdict(dict(P4("a", 0.89), valid=dict(P4("a")["valid"], **{f"{FH}@3": _valid(sidecar=("d" * 64, "e" * 64,
+                                                                                                     False))})),
+                      r83, bands(r83, r83), P2A, ANCW, bd_a)["verdict"], "INVALID EVAL")
+    rv = pv(0.89, 0.83, track=0.71)
+    check("p2b: every verdict reports field_hard walking-hold tracking beside completion",
+          (round(rv["report"]["field_hard"], 4), rv["report"]["field_hard_n"], rv["report"]["field_hard_track"],
+           rv["report"]["ref_field_hard_n"]), (0.89, 400, 0.71, 400))
+    # chained ANCW floor: the S1 p2a head was 0.08 worse than ANCW on every |ratio - 1| (its REF reproduces it)
+    p2a_bad, ref_bad = _pt("P2__S1_s18", err=0.11), P4("REF_S1_s18", 0.83, err=0.11, s2=s2)
+
+    def pc(err, ancw=ANCW, bda=bd_a):
+        return p2b_verdict(P4("P2__CL_s18", 0.89, err=err), ref_bad, bands(ref_bad, ref_bad), p2a_bad, ancw, bda)
+    check("p2b ANCW chain: +0.04 vs REF (COST range) + 0.08 p2a -> 0.12 > 0.10 vs ANCW -> FLAT FAIL",
+          (pc(0.15)["verdict"], round(pc(0.15)["ancw_chain"]["err_side"]["total"], 4)), ("FLAT FAIL", 0.12))
+    check("p2b ANCW chain: +0.01 vs REF + 0.08 -> 0.09 <= 0.10 -> PASS", pc(0.12)["verdict"], "PASS")
+    check("p2b ANCW chain: exactly 0.10 chained -> not FLAT FAIL; +0.02 vs REF is under the 0.03 COST margin -> PASS",
+          pc(0.13)["verdict"], "PASS")
+    check("p2b ANCW chain: computed from values -- ANCW stamps on the p2a code_sha are not INVALID",
+          pc(0.12, dict(ANCW, valid={k: _valid(sidecar=("a" * 64, "e" * 64, False)) for k in NEEDED_STAMPS}))["verdict"],
+          "PASS")
+    check("p2b ANCW chain: no ANCW s18 suite band -> PENDING", pc(0.12, ANCW, bands(ANCW, _pt("x")))["verdict"],
+          "PENDING")
+    check("p2b ANCW chain: no p2a suite read -> PENDING",
+          p2b_verdict(P4("a", 0.89), r83, bands(r83, r83), dict(P2A, suite=None), ANCW, bd_a)["verdict"], "PENDING")
+    # attribution at s18
+    bd18 = bands(r83, r83)
+    pass_v = {"verdict": "PASS", "gain": True}
+    check("attribution: CL 0.89 PASS vs REF, C0 0.83 -> BEATS CONTINUATION",
+          p2b_attribution(P4("P2__CL_s18", 0.89), P4("P2__C0_s18", 0.83), pass_v, bd18)["status"], "BEATS CONTINUATION")
+    check("attribution: C0 0.86 (CL needs >= 0.91) -> DOES NOT BEAT",
+          p2b_attribution(P4("P2__CL_s18", 0.89), P4("P2__C0_s18", 0.86), pass_v, bd18)["beats_continuation"], False)
+    check("attribution: the lever's REF verdict NO GAIN -> DOES NOT BEAT (needs its own gain)",
+          p2b_attribution(P4("P2__CL_s18", 0.89), P4("P2__C0_s18", 0.70), {"verdict": "NO GAIN", "gain": False},
+                          bd18)["beats_continuation"], False)
+    check("attribution: COST vs REF still counts as a gain",
+          p2b_attribution(P4("P2__CL_s18", 0.89), P4("P2__C0_s18", 0.83), {"verdict": "COST", "gain": True},
+                          bd18)["beats_continuation"], True)
+    check("attribution: |ratio - 1| 0.11 worse than C0 -> FLAT FAIL vs C0 -> DOES NOT BEAT",
+          p2b_attribution(P4("P2__CL_s18", 0.89, err=0.13 + 1e-6), P4("P2__C0_s18", 0.83, err=0.02), pass_v,
+                          bd18)["beats_continuation"], False)
+    check("attribution: C0 not recorded -> PENDING",
+          p2b_attribution(P4("P2__CL_s18", 0.89), {"name": "P2__C0_s18", "missing": True}, pass_v, bd18)["status"],
+          "PENDING")
+    # the head list: C0 at s18 only; P2B_LEVERS narrows the levers
+    check("p2b heads: C0 at s18 only, levers at every seed",
+          p2b_head_names(("CL", "TG")), ["P2__CL_s16", "P2__TG_s16", "P2__CL_s17", "P2__TG_s17", "P2__C0_s18",
+                                         "P2__CL_s18", "P2__TG_s18"])
+    check("p2b heads: P2B_LEVERS (default 'CL TG')", (p2b_levers({}), p2b_levers({"P2B_LEVERS": "TG"})),
+          (("CL", "TG"), ("TG",)))
+    res_m = {"refs": {s: P4(ref_name(s)) for s in SEEDS}, "ancw": {s: _pt(f"ANCW_s{s}") for s in SEEDS},
+             "p2a": {s: _pt(f"P2__S1_s{s}") for s in SEEDS},
+             "heads": {n: {"name": n, "missing": True} for n in p2b_head_names(("CL", "TG"))}}
+    vs_m = p2b_verdicts(res_m)
+    md_m = p2b_markdown(vs_m, p2b_attributions(res_m, vs_m, ("CL", "TG")), p2b_recipes(vs_m, ("CL", "TG")))
+    check("p2b table: C0 listed only at s18, s16/s17 levers labelled 'lever + continuation'",
+          ([ln.split(" | ")[0] for ln in md_m.splitlines() if "P2__C0" in ln], vs_m["P2__CL_s16"]["label"],
+           vs_m["P2__CL_s18"]["label"]), (["| P2__C0_s18"], "lever + continuation", None))
+    check("p2b recipe: every lever PENDING before any run", sorted({r["reading"] for r in p2b_recipes(vs_m).values()}),
+          ["PENDING"])
+    # step-3 inertness: REF reproduces the S1 p2a head's own row-eval reads exactly (like-for-like)
+    ft = {"completion": 0.9, "n": 100, "fall_share": 0.05, "turn_fc": 0.8, "turn_yp": 0.2}
+
+    def ip(name, sha="h" * 64, **kw):
+        pt = (P4 if name.startswith("REF") else _pt)(name, fh=(0.83,) * 4 if name.startswith("REF") else (0.83, 0.83),
+                                                     field_turn=dict(ft), field_suite=dict(_pt("x")["suite"]),
+                                                     feet={"l": 0.23, "r": 0.23}, **kw)
+        pt["stamps"].update({f"{FT}@1": "/x", f"{FS}@1": "/x"})
+        pt["valid"] = {k: dict(_valid(), ckpt_sha=sha) for k in pt["stamps"]}
+        return pt
+    p2a_i = {s: ip(f"P2__S1_s{s}") for s in SEEDS}
+    refs_i = {s: ip(ref_name(s)) for s in SEEDS}
+    check("inertness: identical reads on every row -> ok", inertness_check(refs_i, p2a_i)["ok"], True)
+    fh17 = dict(refs_i[17]["comp"]["field_hard"])
+    fh17[2] = dict(fh17[2], rate=0.84)
+    r_fh = dict(refs_i[17], comp=dict(refs_i[17]["comp"], field_hard=fh17))
+    check("inertness: a field_hard es2 completion 0.84 vs 0.83 -> stop",
+          inertness_check({**refs_i, 17: r_fh}, p2a_i)["ok"], False)
+    check("inertness: a hand class differing -> stop",
+          inertness_check({**refs_i, 16: dict(refs_i[16], hands={"l": "FAST", "r": "SLOW"})}, p2a_i)["ok"], False)
+    no_ft = dict(refs_i[18], stamps={k: v for k, v in refs_i[18]["stamps"].items() if k != f"{FT}@1"})
+    check("inertness: REF missing a row the head has -> stop (fail closed)",
+          inertness_check({**refs_i, 18: no_ft}, p2a_i)["ok"], False)
+    check("inertness: a REF stamp of another checkpoint -> stop",
+          inertness_check({**refs_i, 18: ip(ref_name(18), sha="z" * 64)}, p2a_i)["ok"], False)
+    check("inertness: the driver suite is not compared (a differing suite@1 read is ignored)",
+          inertness_check({**refs_i, 18: dict(refs_i[18], suite=dict(refs_i[18]["suite"], err_back=0.5))}, p2a_i)["ok"],
+          True)
+    check("inertness: no REF point -> stop", inertness_check({16: refs_i[16], 17: refs_i[17]}, p2a_i)["ok"], False)
     print("self-test:", "PASS" if ok else "FAIL")
     return 0 if ok else 1
 
@@ -1525,6 +2011,10 @@ def main() -> int:
     ap.add_argument("--cal2-gate", action="store_true")
     ap.add_argument("--out", type=Path, default=None)
     ap.add_argument("--code-root", type=Path, default=R)
+    ap.add_argument("--p2b-inertness", action="store_true")
+    ap.add_argument("--p2b-screen", action="store_true")
+    ap.add_argument("--p2b-recipe", action="store_true")
+    ap.add_argument("--p2b-md", type=Path, metavar="PATH")
     ap.add_argument("--self-test", action="store_true")
     a = ap.parse_args()
     if a.self_test:
@@ -1588,6 +2078,29 @@ def main() -> int:
             if v["status"] == "NEEDS_SEED2":
                 print(f"{a.m_screen}_m{it}")
         print(json.dumps(r, default=str), file=sys.stderr)
+        return 0
+    if a.p2b_inertness:
+        refs = {s: load_point(ref_name(s), with_tb=False, fh_seeds=P2B_FH_SEEDS) for s in SEEDS}
+        p2a = {s: load_point(f"P2__{REF_ARM}_s{s}", with_tb=False) if _rec(f"P2__{REF_ARM}_s{s}") else {} for s in SEEDS}
+        r = inertness_check(refs, p2a)
+        print(json.dumps(r, default=str))
+        return 0 if r["ok"] else 4
+    if a.p2b_screen or a.p2b_recipe or a.p2b_md:
+        res = load_p2b(with_tb=not a.no_tb)
+        vs = p2b_verdicts(res)
+        attr, recipes = p2b_attributions(res, vs), p2b_recipes(vs)
+        md = p2b_markdown(vs, attr, recipes)
+        if a.p2b_md:
+            a.p2b_md.write_text(md)
+        if a.p2b_screen:
+            print(json.dumps({"verdicts": {k: v for k, v in vs.items() if k.endswith(f"_s{GATE_SEED}")},
+                              "attribution": attr}, default=str))
+            return 0
+        if a.p2b_recipe:
+            print(json.dumps({"levers": list(p2b_levers()), "recipe": recipes,
+                              "verdicts": {k: v["verdict"] for k, v in vs.items()}}, default=str))
+            return 4 if any(r["reading"] == "PENDING" for r in recipes.values()) else 0
+        print(md)
         return 0
     with_raw = bool(a.sibling or a.field_vs_ring or a.json or a.md)
     res = load_all(with_tb=not a.no_tb, with_raw=with_raw)

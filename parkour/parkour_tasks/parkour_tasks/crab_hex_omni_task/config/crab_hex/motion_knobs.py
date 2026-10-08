@@ -35,6 +35,13 @@ variable                        what it writes when armed
 **incomes (env cfg rewards; weights are the RewTerm weight, >= 0)**
 ``KRABBY_STAND_STANCE_W``       ADDS ``rewards.reward_stand_stance_quality`` -- the F1 stand
                                 term: the stopped-clock stance-quality income, STAND slot only
+**func swaps on EXISTING forward terms (stage p2b; weight and params untouched)**
+``KRABBY_ORIENT_ALL_TILES=1``   ``rewards.reward_orientation.func`` -> ``reward_orientation_upright``
+                                (tilt^2 on EVERY tile; the stock func zeroes it off parkour_flat)
+``KRABBY_FOOT_CLEAR_TERRAIN=1`` the ``func`` of ``rewards.reward_foot_clearance`` and of
+                                ``rewards.penalty_swing_min_clearance`` -> their terrain-relative
+                                twins in ``mdp/omni_clearance.py`` (foot height above the height
+                                field under the foot, not above ``root_z + ground_offset``)
 **action path**
 ``KRABBY_ACTION_LPF_HZ``        ``actions.joint_pos.lpf_hz`` -- first-order low-pass corner
                                 (Hz) on the rod-length command, before the rod slew limiter
@@ -95,6 +102,14 @@ that term's ``asset_cfg`` and is refused when the term's weight is 0, since it w
 nothing). Both print a ``[KNOB] <NAME>=<value> consumed`` line when armed, like the runner knobs;
 the older env-side penalty knobs (``KRABBY_ACTION_SMOOTH2_W`` and siblings) do not.
 
+Omni phase-2 stage p2b (``P2B_PLAN.md`` step 1, 2026-10-08) added the two func swaps above, one per
+lever arm: ``KRABBY_ORIENT_ALL_TILES`` (TG, dosed by the forward ``KRABBY_ORIENT_W``) and
+``KRABBY_FOOT_CLEAR_TERRAIN`` (CL, dosed by ``KRABBY_FOOT_CLEAR_W`` / ``KRABBY_SWING_MIN_CLEAR_W``).
+Each swaps the FUNC of a term the forward rewards cfg already declares and passes its params
+through (the terrain-relative twins accept and ignore ``ground_offset_from_root_m``), so the
+weight, ``min_clearance_m`` and the ``KRABBY_FOOT_CLEAR_FLAT`` mask stay the forward knobs' own.
+Both refuse a cfg that lacks the term and print a ``[KNOB] <NAME>=1 consumed`` line when armed.
+
 Three knobs the plan names ALREADY EXIST in the forward rewards cfg's ``_overrides`` table and
 are reused, not duplicated (they reach the omni flat-walk / teacher rewards because
 ``CrabHexOmniFlatWalkRewardsCfg`` inherits that ``__post_init__``): ``KRABBY_POWER_W``
@@ -136,6 +151,11 @@ STAND_OBS_VAR = "KRABBY_OMNI_STAND_OBS"
 STAND_STANCE_W_VAR = "KRABBY_STAND_STANCE_W"
 #: E1: restrict the reused ``penalty_mechanical_power`` (``KRABBY_POWER_W``) to a joint subset.
 POWER_JOINTS_VAR = "KRABBY_POWER_JOINTS"
+# -- omni phase-2 stage p2b (P2B_PLAN step 1, 2026-10-08; both DEFAULT OFF, set by no preset)
+#: TG: ``reward_orientation`` prices tilt on every tile (``reward_orientation_upright``).
+ORIENT_ALL_TILES_VAR = "KRABBY_ORIENT_ALL_TILES"
+#: CL: both lift terms measure foot height above the terrain under the foot (``mdp/omni_clearance``).
+FOOT_CLEAR_TERRAIN_VAR = "KRABBY_FOOT_CLEAR_TERRAIN"
 #: The three EXISTING forward weight knobs the plan reuses (applied by the forward
 #: ``CrabHexFlatWalkRewardsCfg.__post_init__`` ``_overrides`` table) -> the term they dose.
 POWER_W_VAR = "KRABBY_POWER_W"
@@ -227,11 +247,23 @@ POWER_TERM = "penalty_mechanical_power"
 #: cam linkage emulator drives (``crab_hex_cam_mapping``), 24-31 % of the all-joint power.
 POWER_JOINT_SETS = ("actuated",)
 POWER_JOINTS_OFF_SPELLINGS = ("all",)
+#: The EXISTING forward terms the p2b knobs re-point (``rewards.<name>``) ...
+ORIENT_TERM = "reward_orientation"
+FOOT_CLEAR_TERM = "reward_foot_clearance"
+SWING_MIN_CLEAR_TERM = "penalty_swing_min_clearance"
+#: ... and ``{knob: {term: replacement func name}}``: ``reward_orientation_upright`` is the library's
+#: (``_LIB_REWARDS_MOD``), the two lift twins are ``_CLEARANCE_MOD``'s.
+FUNC_SWAPS = {
+    ORIENT_ALL_TILES_VAR: {ORIENT_TERM: "reward_orientation_upright"},
+    FOOT_CLEAR_TERRAIN_VAR: {FOOT_CLEAR_TERM: "reward_foot_clearance_terrain",
+                             SWING_MIN_CLEAR_TERM: "penalty_swing_min_clearance_terrain"},
+}
 #: Where the stand term's function lives (the Isaac-side rewards module, next to the clock term
 #: whose stopped branch it copies).
 _LIB_REWARDS_MOD = "parkour_isaaclab.envs.mdp.rewards"
 
 _REWARDS_MOD = "parkour_tasks.crab_hex_omni_task.mdp.crab_hex_omni_motion_rewards"
+_CLEARANCE_MOD = "parkour_tasks.crab_hex_omni_task.mdp.omni_clearance"
 
 __all__ = [
     "ACTION_STD_MAX_VAR", "ACTION_STD_RESET_VAR", "ENTROPY_COEF_VAR", "ACTION_RATE_SQ_VAR",
@@ -254,6 +286,9 @@ __all__ = [
     # omni phase-2 plan step 3 (2026-10-06)
     "STAND_STANCE_W_VAR", "POWER_JOINTS_VAR", "STAND_STANCE_TERM", "POWER_TERM", "POWER_JOINT_SETS",
     "POWER_JOINTS_OFF_SPELLINGS", "parse_income_w", "parse_power_joints",
+    # omni phase-2 stage p2b (2026-10-08)
+    "ORIENT_ALL_TILES_VAR", "FOOT_CLEAR_TERRAIN_VAR", "ORIENT_TERM", "FOOT_CLEAR_TERM",
+    "SWING_MIN_CLEAR_TERM", "FUNC_SWAPS",
 ]
 
 
@@ -528,6 +563,9 @@ MOTION_KNOB_PARSERS = {
     # omni phase-2 plan step 3 (2026-10-06)
     STAND_STANCE_W_VAR: lambda t: parse_income_w(t, STAND_STANCE_W_VAR),
     POWER_JOINTS_VAR: parse_power_joints,
+    # omni phase-2 stage p2b (2026-10-08)
+    ORIENT_ALL_TILES_VAR: lambda t: parse_flag(t, ORIENT_ALL_TILES_VAR),
+    FOOT_CLEAR_TERRAIN_VAR: lambda t: parse_flag(t, FOOT_CLEAR_TERRAIN_VAR),
 }
 
 
@@ -629,12 +667,22 @@ def _default_power_joint_cfgs():
     return {"actuated": SceneEntityCfg("robot", joint_names=list(_CRAB_ACTUATED_JOINT_NAMES))}
 
 
-def apply_motion_knobs(cfg, environ=None, *, term_cls=None, builders=None, power_joint_cfgs=None) -> None:
+def _default_swap_funcs(var: str) -> dict:
+    """``{term: func}`` for one armed p2b swap knob (:data:`FUNC_SWAPS`), with lazy Isaac imports."""
+    import importlib  # noqa: PLC0415
+
+    mod = importlib.import_module(_LIB_REWARDS_MOD if var == ORIENT_ALL_TILES_VAR else _CLEARANCE_MOD)
+    return {term: getattr(mod, name) for term, name in FUNC_SWAPS[var].items()}
+
+
+def apply_motion_knobs(cfg, environ=None, *, term_cls=None, builders=None, power_joint_cfgs=None,
+                       swap_funcs=None) -> None:
     """Apply every ENV-side motion knob to a built omni env cfg (no-op for each one that is off).
 
     Called by ``omni_knobs.apply_omni_knobs`` after everything else, so a term it adds sees the
-    final cfg. ``term_cls`` / ``builders`` / ``power_joint_cfgs`` let a unit test pass stand-ins for
-    ``RewTerm``, the reward functions and the ``SceneEntityCfg`` subsets (the real ones need Isaac).
+    final cfg. ``term_cls`` / ``builders`` / ``power_joint_cfgs`` / ``swap_funcs`` (``{term: func}``)
+    let a unit test pass stand-ins for ``RewTerm``, the reward functions and the ``SceneEntityCfg``
+    subsets (the real ones need Isaac).
     """
     env = os.environ if environ is None else environ
     get = env.get
@@ -684,6 +732,29 @@ def apply_motion_knobs(cfg, environ=None, *, term_cls=None, builders=None, power
         subsets = power_joint_cfgs if power_joint_cfgs is not None else _default_power_joint_cfgs()
         term.params["asset_cfg"] = subsets[power_joints]
         _consumed(POWER_JOINTS_VAR, get(POWER_JOINTS_VAR))
+
+    # p2b (P2B_PLAN step 1, 2026-10-08): func swaps on EXISTING forward terms. This runs after the
+    # forward rewards cfg's __post_init__, so the weight / min_clearance_m / FOOT_CLEAR_FLAT mask
+    # the forward knobs wrote are already final and are passed through untouched.
+    for var in (ORIENT_ALL_TILES_VAR, FOOT_CLEAR_TERRAIN_VAR):
+        if not parse_flag(get(var), var):
+            continue
+        rewards = _rewards(cfg, var)
+        terms = {}
+        for name in FUNC_SWAPS[var]:
+            term = getattr(rewards, name, None)
+            if term is None or not hasattr(term, "func"):
+                raise RuntimeError(f"{var}=1 swaps the func of {name!r}, but the rewards cfg has no such term")
+            terms[name] = term
+        if all(not float(getattr(t, "weight", 0.0) or 0.0) for t in terms.values()):
+            # a swap whose every term weighs 0 trains nothing (like KRABBY_POWER_JOINTS at weight 0): refuse at
+            # cfg build instead of a launch the +200 liveness read would kill
+            raise RuntimeError(f"{var}=1 swaps {sorted(terms)}, but every one of them has weight 0 -- set the "
+                               "term weights in the same overlay")
+        funcs = swap_funcs if swap_funcs is not None else _default_swap_funcs(var)
+        for name, term in terms.items():
+            term.func = funcs[name]
+        _consumed(var, get(var))
 
     # -- action path
     hz = parse_lpf_hz(get(ACTION_LPF_HZ_VAR))

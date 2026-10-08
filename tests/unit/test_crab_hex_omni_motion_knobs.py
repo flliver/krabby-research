@@ -71,7 +71,8 @@ ALL_KNOBS = ("KRABBY_ACTION_STD_MAX", "KRABBY_ACTION_STD_RESET", "KRABBY_ENTROPY
 #: Omni phase-2 plan step 3 (2026-10-06): the F1 stand income and the E1 power subset, pinned in
 #: detail by tests/unit/test_crab_hex_omni_stand_power_knobs.py. Kept OUT of ALL_KNOBS because the
 #: ladder's OVERLAY_DUMP_CHECKS entries for them land with plan step 4 (run_candidates.py).
-PHASE2_KNOBS = ("KRABBY_STAND_STANCE_W", "KRABBY_POWER_JOINTS")
+PHASE2_KNOBS = ("KRABBY_STAND_STANCE_W", "KRABBY_POWER_JOINTS",
+                "KRABBY_ORIENT_ALL_TILES", "KRABBY_FOOT_CLEAR_TERRAIN")   # + the p2b func swaps (CHARTER 10)
 
 
 def _load(path: Path, name: str):

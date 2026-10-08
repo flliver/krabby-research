@@ -19,7 +19,9 @@
 # Each reference runs serially:
 #   0. refusals before anything is launched: the chain carries a placeholder (an overlay value starting "TBD" or
 #      containing "PENDING": CHARTER 4/5 values not fixed yet) -> "STOP <ref> placeholder", exit 7; the fork source's
-#      sha256 differs from anchors.yaml (CHARTER 2) -> exit 7; the live reads' preflight fails (p2_live.py --preflight
+#      sha256 differs from anchors.yaml (CHARTER 2), OR -- a stage p2b fork of an S1 p2a head (P2B_PLAN.md step 1) --
+#      from that head's newest complete field_hard__omni eval stamp's run_meta.checkpoint_sha256 -> exit 7;
+#      the live reads' preflight fails (p2_live.py --preflight
 #      against $CODE_ROOT: every arm and CAL2 need the obstacle-tile level / promotion metrics emitted, E1 / F1 a
 #      replay_gate.json magnitude, F1 its stand-only construction) -> exit 7, so no run is launched only to be killed;
 #      the CODE-STATE GUARD refuses (p2_live.py --code-guard, pre-launch audit M1: parallel sessions share this
@@ -130,20 +132,52 @@ open(dst, "w").write(head + yaml.safe_dump(d, sort_keys=False, width=200))
 print(dst)
 PY
 }
-verify_head_sha() {  # CHAIN -> 0 when the chain's fork source matches anchors.yaml's sha256 for its seed
-  "$PY" - "$C/candidates.yaml" "$C/anchors.yaml" "$1" "$R" <<'PY'
-import hashlib, sys, yaml
+verify_head_sha() {  # CHAIN -> 0 when the chain's fork source matches anchors.yaml's sha256 for its seed (unchanged
+  # path), OR -- a stage p2b fork of an S1 p2a head (P2B_PLAN.md step 1 / CHARTER 10) -- matches the sha256 the
+  # newest complete field_hard__omni p2a eval stamp of that head's arms/P2__S1_s<seed>.record.json recorded
+  # (run_meta.checkpoint_sha256; p2_complete.json, since field_hard__omni is a schedule row, not a category_suite one).
+  "$PY" - "$C/candidates.yaml" "$C/anchors.yaml" "$1" "$R" "$ARMS" "$OUT" <<'PY'
+import hashlib, json, sys, yaml
 from pathlib import Path
-cands, anchors, chain, repo = yaml.safe_load(open(sys.argv[1])), yaml.safe_load(open(sys.argv[2])), sys.argv[3], Path(sys.argv[4])
+cands, anchors, chain, repo, arms, out = (yaml.safe_load(open(sys.argv[1])), yaml.safe_load(open(sys.argv[2])),
+                                           sys.argv[3], Path(sys.argv[4]), Path(sys.argv[5]), Path(sys.argv[6]))
 rf = cands["chains"][chain]["stages"][0].get("resume_from")
 ck = rf.get("checkpoint") if isinstance(rf, dict) else None
+if not ck:
+    print(f"chain {chain} has no {{checkpoint}} fork"); sys.exit(1)
+ck_path = repo / ck
+h = hashlib.sha256(ck_path.read_bytes()).hexdigest() if ck_path.is_file() else None
 want = {a["checkpoint"]: a["sha256"] for a in anchors["anchors"].values()}
-if ck not in want:
-    print(f"fork source {ck} is not an anchors.yaml head"); sys.exit(1)
-h = hashlib.sha256((repo / ck).read_bytes()).hexdigest() if (repo / ck).is_file() else None
-if h != want[ck]:
-    print(f"sha256 of {ck} is {h}, anchors.yaml records {want[ck]}"); sys.exit(1)
-print(f"sha256 ok {h[:12]}")
+if ck in want:
+    if h != want[ck]:
+        print(f"sha256 of {ck} is {h}, anchors.yaml records {want[ck]}"); sys.exit(1)
+    print(f"sha256 ok {h[:12]} (anchors.yaml)"); sys.exit(0)
+if h is None:
+    print(f"fork source {ck} is not a readable file and is not an anchors.yaml head"); sys.exit(1)
+rec = None
+for p in sorted(Path(arms).glob("P2__S1_s*.record.json")):
+    try:
+        r = json.load(open(p))
+    except (OSError, ValueError):
+        continue
+    rc = r.get("checkpoint")
+    if rc and Path(rc).resolve() == ck_path.resolve():
+        rec = r
+        break
+if rec is None:
+    print(f"fork source {ck} is neither an anchors.yaml head nor a recorded P2__S1_s<seed> checkpoint ({arms})")
+    sys.exit(1)
+seed = rec.get("seed")
+row = Path(out) / "lr" / f"P2__S1_s{seed}" / "field_hard__omni" / "seed001"
+stamps = sorted(p for p in row.glob("*/") if (p / "p2_complete.json").is_file()) if seed is not None and row.is_dir() else []
+if not stamps:
+    print(f"no complete field_hard__omni p2a eval stamp for P2__S1_s{seed} under {row} (p2_complete.json)")
+    sys.exit(1)
+meta = json.load(open(stamps[-1] / "run_meta.json"))
+want_h = meta.get("checkpoint_sha256")
+if h != want_h:
+    print(f"sha256 of {ck} is {h}, P2__S1_s{seed}'s eval stamp {stamps[-1]} records {want_h}"); sys.exit(1)
+print(f"sha256 ok {h[:12]} (P2__S1_s{seed} p2a head, stamp {stamps[-1].name})")
 PY
 }
 write_sidecar() {  # STAMP_DIR -> STAMP_DIR/code_state.json (CHARTER 5 code-state sidecar)
@@ -166,8 +200,10 @@ PY
 code_guard() {  # WHERE -> 0 when the live code state matches the s18 anchor's sidecar (M1); else STOP + NOTIFY, 7
   local out rc ra=""
   [ "${P2_REANCHOR:-0}" = 1 ] && ra=--reanchor
+  # P2_GUARD_REF (CHARTER 10, p2b): the guard's reference stamp name. Unset = anchors.yaml's s18 anchor (p2a). p2b
+  # sets REF_S1_s18 -- the reference re-evaluated on the p2b code -- because the step-1 commit moves code_sha.
   out=$(cd "$CODE_ROOT" && PYTHONPATH="$PYP" CUDA_VISIBLE_DEVICES="" "$PY" "$S/p2_live.py" --code-guard \
-        --code-root "$CODE_ROOT" --lrout "$LROUT" $ra 2>&1); rc=$?
+        --code-root "$CODE_ROOT" --lrout "$LROUT" ${P2_GUARD_REF:+--anchor-name "$P2_GUARD_REF"} $ra 2>&1); rc=$?
   if [ "$rc" != 0 ]; then
     say "STOP $1 refused: code-state guard rc $rc (pre-launch audit M1: live code state vs the s18 anchor sidecar) :: $(echo "$out" | tail -1 | cut -c1-600) -- NOTIFY"
     return 7

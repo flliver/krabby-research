@@ -104,6 +104,18 @@ ARM_TERMS = {"S1": "reward_action_rate", "E1": "penalty_mechanical_power", "F1":
 F1_FUNC = "parkour_isaaclab.envs.mdp.rewards:reward_stand_stance_quality"
 REWARDS_PY = "parkour/parkour_isaaclab/envs/mdp/rewards.py"
 REPLAY_TERMS = ("E1", "F1")
+#: Stage p2b (P2B_PLAN.md step 1 / CHARTER 10): each lever's new term(s), sign-aware -- the sign an income must
+#: carry to count as live (a reward term pays >= 0, a penalty term <= 0). C0 has none (the p2a continuation).
+P2B_ARM_TERMS = {"CL": ("reward_foot_clearance", "penalty_swing_min_clearance"), "TG": ("reward_orientation",)}
+P2B_TERM_SIGN = {"reward_foot_clearance": 1, "penalty_swing_min_clearance": -1, "reward_orientation": -1}
+#: TG's extra floor (P2B_PLAN.md step 1): |Episode_Reward/reward_orientation| at +200 must be >= this multiple of
+#: the seed's S1 p2a training tail (that run's term income, which has no obstacle-tile share -- CHARTER 10).
+P2B_TG_FLOOR_RATIO = 2.0
+#: the p2b intermediate checkpoints' offsets from the fork's first logged iteration (P2B_PLAN.md step 1/4). Round,
+#: unlike the phase-2 MCK offsets (1004/2504/4004), because every p2b fork is the same model_19994 head.
+P2B_MCK_OFFSETS = (1005, 2505, 4005)
+#: TG's floor tail length: the seed's S1 p2a run's last 500 its (P2B_PLAN.md step 1), not the live-read ROLL (200).
+P2B_TAIL_N = 500
 #: F1's "non-zero only in stand-slot envs" from per-slot telemetry, when logged: any of these tags, reading 0 over the
 #: window. None is emitted in the tree (2026-10-06); the stand-only construction check stands in (CHARTER 9).
 F1_NONSTAND_TAGS = ("Metrics/stand_stance/nonstand_income", "Metrics/base_velocity/stand_stance_nonstand")
@@ -127,9 +139,33 @@ TAGS = {"clock_hidden": "Metrics/clock_hidden_frac", "reach_obst": "Metrics/base
 
 # ------------------------------------------------------------------------------------------------ small helpers
 def arm_of(chain: str) -> str:
-    """P2__A1_s18 -> A1; P2__CAL2_s18 -> CAL2."""
+    """P2__A1_s18 -> A1; P2__CAL2_s18 -> CAL2; P2__CL_s16 -> CL; P2__TG_s17 -> TG; P2__C0_s18 -> C0."""
     m = re.match(r"^P2__([A-Z]+[0-9]*)_s\d+$", chain)
     return m.group(1) if m else ""
+
+
+def seed_of(chain: str) -> int | None:
+    """P2__CL_s16 -> 16 (the trailing _s<seed>); None if the chain name carries no seed."""
+    m = re.search(r"_s(\d+)$", chain)
+    return int(m.group(1)) if m else None
+
+
+def p2b_checkpoints(fork_model_n: int) -> list[int]:
+    """The p2b intermediate checkpoint numbers for a fork of ``model_<fork_model_n>.pt`` (P2B_PLAN.md step 1):
+    the fork's first logged iteration (``fork_model_n + 1``) plus each of :data:`P2B_MCK_OFFSETS`."""
+    first = fork_model_n + 1
+    return [first + o for o in P2B_MCK_OFFSETS]
+
+
+def p2b_replay_magnitude(replay: dict | None, arm: str, term: str):
+    """``replay_gate.json``'s ``{"p2b": {arm: {"terms": {term: {"episode_reward": x}}}}}`` entry, or None."""
+    return (((replay or {}).get("p2b") or {}).get(arm) or {}).get("terms", {}).get(term, {}).get("episode_reward")
+
+
+def p2b_replay_verdict_ok(replay: dict | None, arm: str) -> bool:
+    """CHARTER 10 / P2B_PLAN.md step 2: the arm's p2b replay verdict is PASS, or a recorded user overrule."""
+    ent = ((replay or {}).get("p2b") or {}).get(arm) or {}
+    return ent.get("verdict") == "PASS" or (ent.get("overrule") or {}).get("by") == "user"
 
 
 def window(series, lo, hi):
@@ -179,7 +215,8 @@ def read_tb(run_dir: Path, extra_tags=()) -> dict:
     ea.Reload()
     have = set(ea.Tags().get("scalars", []))
     want = set(TAGS.values()) | set(OBST_LEVEL_TAGS) | set(PROMO_TAGS) | set(F1_NONSTAND_TAGS) | set(extra_tags) | \
-        {f"Episode_Reward/{t}" for t in ARM_TERMS.values()}
+        {f"Episode_Reward/{t}" for t in ARM_TERMS.values()} | \
+        {f"Episode_Reward/{t}" for terms in P2B_ARM_TERMS.values() for t in terms}
     return {t: [(int(e.step), float(e.value)) for e in ea.Scalars(t)] for t in want if t in have}
 
 
@@ -202,6 +239,21 @@ def chain_source_ckpt(cands: dict, chain: str) -> str | None:
     st = (((cands.get("chains") or {}).get(chain) or {}).get("stages") or [{}])[0]
     rf = st.get("resume_from")
     return str(rf["checkpoint"]) if isinstance(rf, dict) and rf.get("checkpoint") else None
+
+
+def s1_p2a_tail(arms_dir: Path, seed: int, n: int = P2B_TAIL_N) -> dict:
+    """TG's floor (P2B_PLAN.md step 1): the seed's S1 p2a training run's last ``n`` its of
+    Episode_Reward/reward_orientation (IO; the record's ``run_dir`` comes from scripts/run_arm.sh's write_record).
+    ``{}`` when the record or its run dir is unreadable (judge_wiring then fails closed on the missing floor)."""
+    try:
+        rec = json.load(open(Path(arms_dir) / f"P2__S1_s{seed}.record.json"))
+    except (OSError, ValueError):
+        return {}
+    rd = rec.get("run_dir")
+    if not rd or not Path(rd).is_dir():
+        return {}
+    ser = read_tb(Path(rd), extra_tags=("Episode_Reward/reward_orientation",))
+    return {"reward_orientation": tail_mean(ser.get("Episode_Reward/reward_orientation"), n)}
 
 
 # ------------------------------------------------------------------------------------------------ pure judges
@@ -259,9 +311,10 @@ def _close(a, b, tol=1e-9):
 
 
 def judge_wiring(arm: str, overlay: dict, facts: dict, ser: dict, first: int, audit: list, replay: dict | None,
-                 stand_gate: tuple[bool, str] | None = None) -> dict:
+                 stand_gate: tuple[bool, str] | None = None, ref_tail: dict | None = None) -> dict:
     """CHARTER 8 wiring at +200 (pure). ``audit`` = run_candidates.overlay_checks output [(name, ok)];
-    ``stand_gate`` = :func:`stand_gate_structural` of the code root (F1 only; None = not read = FAIL for F1)."""
+    ``stand_gate`` = :func:`stand_gate_structural` of the code root (F1 only; None = not read = FAIL for F1);
+    ``ref_tail`` = the seed's S1 p2a training tail (TG only; P2B_PLAN.md step 1, e.g. {"reward_orientation": x})."""
     last = max((s for v in ser.values() for s, _ in v), default=None)
     lo, hi = first + W200[0], first + W200[1]
     if last is None or last < hi:
@@ -331,6 +384,32 @@ def judge_wiring(arm: str, overlay: dict, facts: dict, ser: dict, first: int, au
                                  f"({stand_gate[1] if stand_gate else 'not read'})")
                 if func == F1_FUNC and stand_gate and stand_gate[0]:
                     notes.append(f"F1 stand-only by construction (CHARTER 9): {stand_gate[1]}")
+    elif arm in P2B_ARM_TERMS:
+        terms = P2B_ARM_TERMS[arm]
+        live = {"terms": {}}
+        for t in terms:
+            er = window(ser.get(f"Episode_Reward/{t}"), lo, hi)
+            sign = P2B_TERM_SIGN[t]
+            live["terms"][t] = {"episode_reward": er}
+            if er is None or er == 0.0 or (sign > 0 and er < 0) or (sign < 0 and er > 0):
+                fails.append(f"term liveness: Episode_Reward/{t} is {er} (must be "
+                             f"{'non-negative' if sign > 0 else 'non-positive'} and non-zero, arm {arm})")
+                continue
+            exp = p2b_replay_magnitude(replay, arm, t)
+            live["terms"][t]["replay_expected"] = exp
+            if exp in (None, 0, 0.0):
+                fails.append(f"term liveness: no p2b replay magnitude for {arm}/{t} (replay_gate.json)")
+            elif er / exp <= 0 or not (1.0 / LIVE_RATIO - 1e-9 <= er / exp <= LIVE_RATIO + 1e-9):
+                fails.append(f"term liveness: Episode_Reward/{t} {er:.4g} vs replay {exp:.4g} (outside 3x)")
+        if arm == "TG":
+            er = live["terms"].get("reward_orientation", {}).get("episode_reward")
+            tail = (ref_tail or {}).get("reward_orientation")
+            live["ref_tail"] = tail
+            if tail in (None, 0, 0.0):
+                fails.append("term liveness: no seed S1 p2a run tail for TG's floor (reward_orientation)")
+            elif er is not None and abs(er) < P2B_TG_FLOOR_RATIO * abs(tail):
+                fails.append(f"term liveness: TG |Episode_Reward/reward_orientation| {er:.4g} < "
+                             f"{P2B_TG_FLOOR_RATIO}x the seed's S1 p2a tail {tail:.4g}")
     else:
         notes.append(f"arm {arm}: no arm-specific term (liveness n/a)")
     return {"rc": RC_FAIL if fails else RC_PASS, "result": "FAIL" if fails else "PASS", "fails": fails,
@@ -412,6 +491,16 @@ def judge_preflight(arm: str, emitted: dict, replay: dict | None, stand_gate: tu
         ov = ent.get("overrule") or {}
         if ent.get("verdict") != "PASS" and ov.get("by") != "user":
             fails.append(f"CHARTER 4 replay verdict for {arm} is {ent.get('verdict')!r} with no recorded user overrule")
+    if arm in P2B_ARM_TERMS:
+        # CHARTER 10 / P2B_PLAN.md step 2: CL/TG may launch only on a p2b replay-gate PASS or a recorded user
+        # overrule, and only once every one of the arm's terms has its own non-zero magnitude recorded.
+        for t in P2B_ARM_TERMS[arm]:
+            exp = p2b_replay_magnitude(replay, arm, t)
+            if not isinstance(exp, (int, float)) or exp == 0:
+                fails.append(f"no p2b replay magnitude for {arm}/{t} in replay_gate.json ({exp!r})")
+        if not p2b_replay_verdict_ok(replay, arm):
+            ent = ((replay or {}).get("p2b") or {}).get(arm) or {}
+            fails.append(f"p2b replay verdict for {arm} is {ent.get('verdict')!r} with no recorded user overrule")
     if arm == "F1":
         tags = [t for t in F1_NONSTAND_TAGS if (emitted.get(t.rsplit("/", 1)[-1]))]
         if tags:
@@ -539,7 +628,9 @@ def check(a) -> tuple[int, dict]:
         audit = rc_mod.overlay_checks({"ckpt": str(a.check / "model_audit.pt"), "log": a.train_log}, ov)
         replay = json.load(open(a.replay)) if a.replay and Path(a.replay).is_file() else None
         sg = stand_gate_structural(Path(a.code_root) / REWARDS_PY) if arm == "F1" else None
-        res = judge_wiring(arm, ov, dump_facts(env, agent, log), ser, first, audit, replay, sg)
+        seed = seed_of(a.chain)
+        ref_tail = s1_p2a_tail(a.arms, seed) if arm == "TG" and seed is not None else None
+        res = judge_wiring(arm, ov, dump_facts(env, agent, log), ser, first, audit, replay, sg, ref_tail)
     elif a.at == "1000":
         env, _, _ = _gather(a.check, None)
         res = judge_terrain(ser, first, _find_key((env or {}).get("scene") or env or {}, "num_rows"))
@@ -758,6 +849,50 @@ def _self_test() -> int:
     check_("wiring: F1 paying outside the stand slot fails", judge_wiring("F1", ov_a1, _facts(), s_f1c, F0, audit_ok,
                                                                           {"F1": {"episode_reward": 0.04}})["rc"], RC_FAIL)
 
+    # ------------------------------------------------------------------------------------------- stage p2b (CHARTER 10)
+    cl_replay = {"p2b": {"CL": {"terms": {"reward_foot_clearance": {"episode_reward": 0.02},
+                                          "penalty_swing_min_clearance": {"episode_reward": -0.01}}}}}
+    s_cl = _ser(n=215, **dict(base, **{"Episode_Reward/reward_foot_clearance": 0.025,
+                                       "Episode_Reward/penalty_swing_min_clearance": -0.012}))
+    check_("wiring: CL both terms live and within 3x passes",
+           judge_wiring("CL", ov_a1, _facts(), s_cl, F0, audit_ok, cl_replay)["rc"], RC_PASS)
+    check_("wiring: CL with a dead clearance term fails",
+           judge_wiring("CL", ov_a1, _facts(), _ser(n=215, **dict(base, **{"Episode_Reward/reward_foot_clearance": 0.0,
+                        "Episode_Reward/penalty_swing_min_clearance": -0.012})), F0, audit_ok, cl_replay)["rc"], RC_FAIL)
+    check_("wiring: CL with the clearance reward negative (wrong sign) fails",
+           judge_wiring("CL", ov_a1, _facts(), _ser(n=215, **dict(base, **{"Episode_Reward/reward_foot_clearance": -0.02,
+                        "Episode_Reward/penalty_swing_min_clearance": -0.012})), F0, audit_ok, cl_replay)["rc"], RC_FAIL)
+    check_("wiring: CL with the swing penalty positive (wrong sign) fails",
+           judge_wiring("CL", ov_a1, _facts(), _ser(n=215, **dict(base, **{"Episode_Reward/reward_foot_clearance": 0.02,
+                        "Episode_Reward/penalty_swing_min_clearance": 0.012})), F0, audit_ok, cl_replay)["rc"], RC_FAIL)
+    check_("wiring: CL at 3.5x the replay fails",
+           judge_wiring("CL", ov_a1, _facts(), s_cl, F0, audit_ok,
+                        {"p2b": {"CL": {"terms": {"reward_foot_clearance": {"episode_reward": 0.025 / 3.5},
+                                                  "penalty_swing_min_clearance": {"episode_reward": -0.012}}}}})["rc"],
+           RC_FAIL)
+    check_("wiring: CL with no p2b replay record fails closed",
+           judge_wiring("CL", ov_a1, _facts(), s_cl, F0, audit_ok, None)["rc"], RC_FAIL)
+    tg_replay = {"p2b": {"TG": {"terms": {"reward_orientation": {"episode_reward": -0.05}}}}}
+    s_tg = _ser(n=215, **dict(base, **{"Episode_Reward/reward_orientation": -0.045}))
+    check_("wiring: TG live, >= 2x the seed tail and within 3x of the replay passes",
+           judge_wiring("TG", ov_a1, _facts(), s_tg, F0, audit_ok, tg_replay, ref_tail={"reward_orientation": -0.02})["rc"],
+           RC_PASS)
+    check_("wiring: TG under 2x the seed's S1 p2a tail fails",
+           judge_wiring("TG", ov_a1, _facts(), s_tg, F0, audit_ok, tg_replay, ref_tail={"reward_orientation": -0.03})["rc"],
+           RC_FAIL)
+    check_("wiring: TG at exactly 2x the tail passes (boundary)",
+           judge_wiring("TG", ov_a1, _facts(), s_tg, F0, audit_ok, tg_replay, ref_tail={"reward_orientation": -0.0225})["rc"],
+           RC_PASS)
+    check_("wiring: TG with no seed tail fails closed",
+           judge_wiring("TG", ov_a1, _facts(), s_tg, F0, audit_ok, tg_replay, ref_tail=None)["rc"], RC_FAIL)
+    check_("wiring: TG dead term fails", judge_wiring("TG", ov_a1, _facts(), _ser(n=215, **dict(
+        base, **{"Episode_Reward/reward_orientation": 0.0})), F0, audit_ok, tg_replay,
+        ref_tail={"reward_orientation": -0.02})["rc"], RC_FAIL)
+    check_("wiring: C0 has no arm-specific term (no fails from it)",
+           judge_wiring("C0", ov_a1, _facts(), s, F0, audit_ok, None)["rc"], RC_PASS)
+    check_("p2b_checkpoints: a model_19994 fork", p2b_checkpoints(19994), [21000, 22500, 24000])
+    check_("seed_of", [seed_of("P2__CL_s16"), seed_of("P2__TG_s17"), seed_of("ANCW_s18")], [16, 17, 18])
+
     def lv(start, end, n=1100):
         return [(F0 + i, start + (end - start) * i / (n - 1)) for i in range(n)]
     T = OBST_LEVEL_TAGS[0]
@@ -787,7 +922,8 @@ def _self_test() -> int:
     check_("smoke: levels that never move fail", judge_smoke(audit_ok, _facts(), {T: lv(1.0, 1.0)}, {}, True)["rc"], RC_FAIL)
     check_("smoke: PROMOTE not audited fails", judge_smoke([("overlay KRABBY_OMNI_FACING=0.2:1.2", True)], _facts(), {}, {},
                                                            False)["rc"], RC_FAIL)
-    check_("arm_of", [arm_of("P2__A1_s18"), arm_of("P2__CAL2_s18"), arm_of("P2__E1_s18")], ["A1", "CAL2", "E1"])
+    check_("arm_of", [arm_of("P2__A1_s18"), arm_of("P2__CAL2_s18"), arm_of("P2__E1_s18"), arm_of("P2__CL_s16"),
+                      arm_of("P2__TG_s17"), arm_of("P2__C0_s18")], ["A1", "CAL2", "E1", "CL", "TG", "C0"])
     em_ok = {"terrain_levels_obst": ["x.py"], "promote_count": ["x.py"]}
     check_("preflight: A1 with both obstacle metrics emitted passes", judge_preflight("A1", em_ok, None, None)["rc"],
            RC_PASS)
@@ -808,6 +944,29 @@ def _self_test() -> int:
            judge_preflight("F1", em_ok, {"F1": {"episode_reward": 0.04, "verdict": "PASS"}}, gate_ok)["rc"], RC_PASS)
     check_("preflight: F1 with an ungated term is refused",
            judge_preflight("F1", em_ok, {"F1": {"episode_reward": 0.04}}, gate_bad)["rc"], RC_FAIL)
+    check_("preflight: CL without a p2b replay magnitude is refused", judge_preflight("CL", em_ok, None, None)["rc"],
+           RC_FAIL)
+    check_("preflight: CL with both p2b terms + a PASS verdict passes",
+           judge_preflight("CL", em_ok, {"p2b": {"CL": {"verdict": "PASS", "terms": {
+               "reward_foot_clearance": {"episode_reward": 0.02},
+               "penalty_swing_min_clearance": {"episode_reward": -0.01}}}}}, None)["rc"], RC_PASS)
+    check_("preflight: CL missing one p2b term is refused",
+           judge_preflight("CL", em_ok, {"p2b": {"CL": {"verdict": "PASS", "terms": {
+               "reward_foot_clearance": {"episode_reward": 0.02}}}}}, None)["rc"], RC_FAIL)
+    check_("preflight: CL verdict FAIL without a user overrule is refused",
+           judge_preflight("CL", em_ok, {"p2b": {"CL": {"verdict": "FAIL", "terms": {
+               "reward_foot_clearance": {"episode_reward": 0.02},
+               "penalty_swing_min_clearance": {"episode_reward": -0.01}}}}}, None)["rc"], RC_FAIL)
+    check_("preflight: CL verdict FAIL with a recorded user overrule passes",
+           judge_preflight("CL", em_ok, {"p2b": {"CL": {"verdict": "FAIL", "overrule": {"by": "user"}, "terms": {
+               "reward_foot_clearance": {"episode_reward": 0.02},
+               "penalty_swing_min_clearance": {"episode_reward": -0.01}}}}}, None)["rc"], RC_PASS)
+    check_("preflight: TG with its p2b term + a PASS verdict passes",
+           judge_preflight("TG", em_ok, {"p2b": {"TG": {"verdict": "PASS", "terms": {
+               "reward_orientation": {"episode_reward": -0.05}}}}}, None)["rc"], RC_PASS)
+    check_("preflight: TG without a p2b replay magnitude is refused", judge_preflight("TG", em_ok, None, None)["rc"],
+           RC_FAIL)
+    check_("preflight: C0 needs no p2b replay magnitude", judge_preflight("C0", em_ok, None, None)["rc"], RC_PASS)
     print("self-test:", "PASS" if ok else "FAIL")
     return 0 if ok else 1
 
@@ -830,8 +989,18 @@ def main() -> int:
     ap.add_argument("--lrout", type=Path, default=None)
     ap.add_argument("--anchor-name", default=None)
     ap.add_argument("--reanchor", action="store_true")
+    ap.add_argument("--arms", type=Path, default=None,
+                     help="p2b (TG): the arms dir to read the seed's P2__S1_s<seed>.record.json from "
+                          "(default $P2_OUT/arms)")
+    ap.add_argument("--p2b-checkpoints", type=int, default=None, metavar="FORK_MODEL_N",
+                     help="print the p2b intermediate checkpoint numbers for a fork of model_<FORK_MODEL_N>.pt")
     ap.add_argument("--self-test", action="store_true")
     a = ap.parse_args()
+    if a.arms is None:
+        a.arms = Path(os.environ.get("P2_OUT") or OUT_DEFAULT) / "arms"
+    if a.p2b_checkpoints is not None:
+        print(" ".join(str(n) for n in p2b_checkpoints(a.p2b_checkpoints)))
+        return 0
     if a.self_test:
         return _self_test()
     if a.code_guard:
