@@ -802,3 +802,19 @@ recommendation.
   - **§7 judging started** (3 judges + fable check) on candidates S1 s16 / s17 / s18 and A1 s18.
     - Inputs: `judging_inputs.json` / `.md`.
     - Mechanical obstacle rank-sum: S1 s18 6.5, S1 s16 10.0, A1 s18 11.5, S1 s17 12.0.
+- 2026-10-07 ~23:00, **§7 JUDGING: S1 s18, unanimous** (3 opus judges and a fable check; workflow wf_7cc1da08;
+  `judging_result.json`). The check recomputed every input from the stamps: no arithmetic or rule errors.
+  - **Ranking:** S1 s18 > S1 s16 > A1 s18 > S1 s17.
+    - Step 1: all four hold the floor (PASS or COST, applied as a gate).
+    - Step 2: obstacle rank-sum 6.5 / 10.0 / 11.5 / 12.0. The leader is more than 2 ahead, so step 3 does not
+      decide first place.
+  - **Robustness: fragile.** The 3.5-point lead comes from near-ceiling rows: field_light 0.995 vs 0.980 and
+    field_suite move_turn 1.000 vs 0.995, 1–3 episodes in 200.
+    - field_hard, the one obstacle read with real spread, favours S1 s16 (0.83 vs 0.80). That gap is inside the bands
+      and smaller than each head's own es1 / es2 split.
+    - S1 s16 also leads phase-1 tracking (14 vs 18.5), jitter, stand stepping and turning.
+    - A tie-aware reading, or reading PASS as ranking above COST, would pick S1 s16. That needs a stages 1–5
+      re-bake on the s16 lineage.
+  - **Noted for the record:** the §7 rule has no tie tolerance. "Floors (PASS or COST)" was applied as a gate. The
+    field_suite move_turn reading was the pre-registered one (scenarios_p2.yaml notes, 4d0c954b).
+  - Head of record, bake and p2b were put to the user.

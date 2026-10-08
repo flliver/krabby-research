@@ -1,0 +1,191 @@
+{
+  "summary": "CHARTER 7 head-of-record judging for omni phase 2: 3 independent judges + fable check of the majority",
+  "agentCount": 4,
+  "logs": [
+    "judges: {\"S1_s18\":3}"
+  ],
+  "result": {
+    "tally": {
+      "S1_s18": 3
+    },
+    "majority": "S1_s18",
+    "judges": [
+      {
+        "winner": "S1_s18",
+        "ranking": [
+          "S1_s18",
+          "S1_s16",
+          "A1_s18",
+          "S1_s17"
+        ],
+        "rule_trace": "Candidates (amended CHARTER 7, Log ~12:05): S1_s16, S1_s17, S1_s18, A1_s18. The m-screen is NO at 16000/17500/19000 for every candidate, so every head stands.\n\nSTEP 1, floors (\"PASS or COST\"): S1_s16 PASS, S1_s17 PASS, S1_s18 COST (err_back +0.057 vs ANCW_s18), A1_s18 PASS. All four clear the floor and none is eliminated. Read literally, the step treats PASS and COST as equal ways through, not as an order.\n\nSTEP 2, obstacle rank-sum (rank 1 = best; ties take the average rank). I recomputed this from the raw values:\n- field_hard (pooled n=200): S1_s16 0.830 (1), S1_s18 0.800 (2), A1_s18 0.745 (3), S1_s17 0.730 (4).\n- field_light: S1_s18 0.995 and A1_s18 0.995 (1.5 each), S1_s17 0.985 (3), S1_s16 0.980 (4).\n- ring_obst: S1_s16 / S1_s17 / S1_s18 all 1.000 (2 each), A1_s18 0.995 (4).\n- field_mt_surv (field_suite move_turn holds): S1_s18 1.000 (1); S1_s16 / S1_s17 / A1_s18 all 0.995 (3 each).\n- Sums: S1_s18 = 2+1.5+2+1 = 6.5; S1_s16 = 1+4+2+3 = 10.0; A1_s18 = 3+1.5+4+3 = 11.5; S1_s17 = 4+3+2+3 = 12.0. These match judging_inputs.json.\n- Leader S1_s18 (6.5) is 3.5 ahead of S1_s16 (10.0). That is more than 2, so step 3 does not apply to the top spot. Winner: S1_s18.\n\nORDER BELOW THE WINNER (step 3 applies only where sums are within 2): S1_s16 10.0, A1_s18 11.5 and S1_s17 12.0 are within 2 of each other (12.0 - 10.0 = 2, read as inclusive). I recomputed the phase-1 rank-sum over the 7 listed metrics:\n- err_fwd: s16 1, A1 2, s17 3, s18 4.\n- err_back: s17 1, A1 2, s16 3, s18 4.\n- err_side: s16 1, A1 2, s18 3, s17 4.\n- err_diag: s17 1, s18 2, A1 3, s16 4.\n- turn_fc: s16 1, s18 2, s17 3, A1 4.\n- turn_yp: s16 1, s18 2, s17 3, A1 4.\n- mt_surv: s18 and A1 1.5 each, s16 3, s17 4.\n- Sums: S1_s16 14.0, A1_s18 18.5, S1_s18 18.5, S1_s17 19.0 (match the json).\n- This gives S1_s16 > A1_s18 (14 vs 18.5) > S1_s17 (18.5 vs 19.0). The last gap is only 0.5.\n\nSteps 4 and 5 are not needed for any position. For reference only:\n- jitter: s16 0.145, s18 0.150, s17 0.157, A1 0.203.\n- stand steps/s: s16 2.50, s17 2.75, s18 2.83, A1 3.67.\n- turn rank-sum: s16 2, s18 4, s17 6, A1 8.\n\nFinal ranking: S1_s18 > S1_s16 > A1_s18 > S1_s17. The winner is seed 18, so the bake does not re-bake stages 1-5; it adds 6_p2a_field/ on the s18 lineage.",
+        "robustness": "Fragile. The win is mechanically correct under the literal rule, but the margin is not above noise, and two reasonable other readings both change the winner to S1_s16.\n\n(a) Where the margin comes from. The 3.5-point obstacle lead over S1_s16 is made of differences inside noise:\n- field_light 0.995 vs 0.980 (3 episodes in 200);\n- field_mt_surv 1.000 vs 0.995 (1 episode in 100-200);\n- field_hard actually favours S1_s16 (0.830 vs 0.800, under the ±0.04 completion resolution and inside both seeds' field_hard bands: 0.04 for s16, 0.10 for s18).\n\nIf differences inside ±0.04 count as ties:\n- S1_s16 and S1_s18 tie on all four obstacle metrics (A1_s18 and S1_s17 fall behind on field_hard: 0.745 and 0.730 are more than 0.04 below 0.800);\n- step 3 then decides, and S1_s16 wins (phase-1 14.0 vs 18.5);\n- S1_s16 also leads steps 4 and 5 (jitter 0.145, fewest stand steps 2.50, turn rank-sum 2).\n\n(b) If \"floors (PASS or COST)\" is read as an order (PASS above COST) rather than a joint gate:\n- S1_s18 drops to last;\n- among the PASS heads, S1_s16 leads the obstacle sums (10.0 vs 11.5 vs 12.0, all within 2), and phase-1 picks S1_s16 again.\n\nSo the literal rule gives S1_s18. A noise-aware reading or a floors-as-order reading gives S1_s16, which would mean re-baking stages 1-5 from the s16 lineage.\n\nThe bottom order (A1_s18 over S1_s17) rests on a 0.5 phase-1 gap and is equally soft. S1_s17 beats A1_s18 on steps 4 and 5.",
+        "concerns": [
+          "Rank-sums across different seeds treat sub-resolution differences as full rank steps: 1-3 episodes in 200 on field_light / ring_obst / mt_surv. The winner's lead comes almost entirely from these. On field_hard, the CHARTER's main read, S1_s16 is best (0.830 vs 0.800).",
+          "The winner S1_s18 is the only candidate graded COST against its anchor (err_back +0.057; back ratio 1.087). It is also last in phase-1 on err_fwd (0.050) and err_back (0.087), where S1_s16 has fwd 0.004 / back 0.041. The user accepted the s18 overshoot as the cost of the S1 stride gains, but the replicates show the S1 recipe does not need that overshoot (s16 speed ratio fwd 0.996 / back 1.041).",
+          "Picking s18 avoids the stage 1-5 re-bake; picking s16 would require it. The rule as written does not weigh bake cost. The user should know the literal winner and the noise-aware winner differ, and that this difference, not bake convenience, is what decides.",
+          "field_mt_surv takes 'the field rows' move_turn-hold survival' from the field_suite row only; the builder's reading is documented in scenarios_p2.yaml. field_hard and field_light also contain move_turn holds. A literal reading that pools those rows could reorder this component, which currently gives S1_s18 its only outright first place.",
+          "'Within 2' is read as inclusive (12.0 - 10.0 = 2) for the lower cluster. Under either reading the lower order is unchanged here.",
+          "p2b trigger fired (field_hard < 0.85 at all seeds). Every candidate leaves a walls deficit (0.73-0.83), so this head of record may be superseded quickly if p2b runs.",
+          "One run per seed per recipe; A1_s18 and S1_s18 share the seed, the others do not. The cross-seed comparison mixes recipe effect with seed and anchor quality: ANCW_s16 started weakest (field_hard 0.435), and the field_hard bands differ (0.04 / 0.06 / 0.10)."
+        ]
+      },
+      {
+        "winner": "S1_s18",
+        "ranking": [
+          "S1_s18",
+          "S1_s16",
+          "A1_s18",
+          "S1_s17"
+        ],
+        "rule_trace": "I recomputed every input from the stamps on disk with a scratch script (/tmp/claude-1000/-home-nickmagus-krabby-krabby-research/f09fa754-dd17-413f-8553-6b22fdb41cf7/scratchpad/recompute.py). Sources: pooled 8-hold completion from lr/<name>/{field_hard,field_light,ring_obst}__omni/seed00{1,2}; flat list, jitter and stand from each record's driver_stamp suite; field_suite and field_turn at env_seed 1; hold-level falls from the raw npz. Every value matches judging_inputs.json rank_inputs exactly. I also checked the anchor suites: ANCW s16 / s17 / s18 err_back is 0.025 / 0.031 / 0.030. The ratio band is 0.02 (s18 es1 vs es2 differ by 0.002 to 0.005, so the floor applies), and the COST margin is max(0.03, band) = 0.03.\n\nSTEP 1, floors (PASS or COST hold the floor). All four hold it.\n- S1_s16 PASS: worst delta is diag +0.018.\n- S1_s17 PASS: side +0.028, against the 0.03 margin (0.002 headroom).\n- S1_s18 COST: err_back 0.0873 vs 0.030 = +0.057 > 0.03. Fwd is +0.009 and side +0.006, both within margin.\n- A1_s18 PASS.\n- Every translate hold's survival is 1.0. No delta comes near the 0.10 FLAT FAIL limit. Gain holds at all four (field_hard 0.83 ≥ 0.535, 0.73 ≥ 0.68, 0.80 ≥ 0.70, 0.745 ≥ 0.70).\n- I read item 1 as a gate. The parenthetical defines what holding the floor means, and m_screen's \"floors held\" treats COST the same way.\n\nSTEP 2, obstacle rank-sum. Ranks per candidate, ties averaged, higher is better.\n\n| Candidate | field_hard | field_light | ring_obst | field_suite move_turn surv | Rank-sum |\n|---|---|---|---|---|---|\n| S1_s18 | 0.800 (2) | 0.995 (1.5) | 1.000 (2) | 1.000 (1) | 6.5 |\n| S1_s16 | 0.830 (1) | 0.980 (4) | 1.000 (2) | 0.995 (3) | 10.0 |\n| A1_s18 | 0.745 (3) | 0.995 (1.5) | 0.995 (4) | 0.995 (3) | 11.5 |\n| S1_s17 | 0.730 (4) | 0.985 (3) | 1.000 (2) | 0.995 (3) | 12.0 |\n\n- S1_s18 leads S1_s16 by 3.5, which is more than 2, so item 3 does not decide the winner. **Winner: S1_s18.**\n- I also tried the alternate reading of \"the field rows' move_turn-hold survival\": the move_turn hold of the 8-hold field_hard and field_light rows, from the raws, with survival = 1 − falls / episodes that reached the hold.\n  - field_hard: S1_s16 0.938 (11 of 177 fell), S1_s17 0.967, S1_s18 0.982, A1 0.937.\n  - field_light: 0.990 / 1.0 / 1.0 / 1.0 in the same order.\n  - As two separate items, the rank-sums are S1_s18 8.5, S1_s17 13.0, S1_s16 14.0, A1 14.5.\n  - Pooled into one item, they are S1_s18 6.5, S1_s16 11, S1_s17 11, A1 11.5.\n  - S1_s18 leads by 3.5 to 4.5 under every reading.\n\nSTEP 3, phase-1 rank-sum. It applies only below the winner, where S1_s16 (10.0), A1 (11.5) and S1_s17 (12.0) are within 2 of each other.\n- Inputs: |ratio − 1| fwd / back / side / diag, turn facing_closed and yaw_progress, move_turn survival.\n- With four-way ranks: S1_s16 14, A1 18.5, S1_s17 19 (S1_s18 18.5). So S1_s16 is 2nd, then A1 by 0.5 rank over S1_s17.\n- Re-ranked among only those three: S1_s16 12, A1 15, S1_s17 15, a tie. Item 4 then breaks it for S1_s17 over A1:\n  - jitter 0.157 vs 0.203;\n  - stand steps/s 2.75 vs 3.67.\n- With the |ratio − 1| terms alone, S1_s16, S1_s17 and A1 all sum to 9, so item 4 decides again: jitter S1_s16 0.145 < S1_s17 0.157 < A1 0.203.\n\nSTEP 4, jitter and stand steps/s (not needed for the winner).\n- Jitter: S1_s16 0.145, S1_s18 0.150, S1_s17 0.157, A1 0.203.\n- Stand steps/s: 2.50 / 2.83 / 2.75 / 3.67.\n\nSTEP 5, turn band (the field_turn stand-in; not needed). Turn rank-sum: S1_s16 2, S1_s18 4, S1_s17 6, A1 8.\n\n**Final ranking:** S1_s18 > S1_s16 > A1_s18 ≈ S1_s17. Places 3 and 4 swap under the three-way-rank and err-only readings. Because the winner is s18, stages 1–5 are not re-baked.",
+        "robustness": "By the letter of the rule, the winner is S1_s18 under every reading of item 2 I tried: the field_suite move_turn reading the script uses, and the 8-hold field rows' move_turn hold taken as separate or pooled items. The lead is 3.5 to 4.5 rank points.\n\nThat margin is mostly not above noise:\n- On the main read, field_hard, S1_s18 is not best. S1_s16 has 0.830 against 0.800, a 0.03 gap with a binomial SE of about 0.027 per head at n = 200. The CHARTER bands are 0.04 for s16 and 0.10 for s18.\n- S1_s18's lead comes from rows at the ceiling, where the rank-sum turns 1–3 episodes into whole ranks:\n  - field_light: 0.995 vs 0.98, i.e. 1 fall vs 4 in 200.\n  - field_suite move_turn survival: 1.0 vs 0.995, one episode.\n  - ring_obst: 1.0 for all three S1 heads.\n\nOne reasonable reading does change the winner: treating item 1 as a lexicographic tier with PASS above COST. Then S1_s18 (COST on err_back) drops, and among the PASS heads S1_s16 wins:\n- The three-way obstacle rank-sums are S1_s16 7.5, A1 8.0, S1_s17 8.5, all within 2.\n- The three-way phase-1 rank-sums are S1_s16 12, A1 15, S1_s17 15.\n\nS1_s16 also beats S1_s18 on items 3, 4 and 5 and on the main field_hard read, so S1_s16 is the de facto runner-up whenever item 2 is close to a tie.\n\nPlaces 3 and 4 (A1_s18 vs S1_s17) are a coin flip: 0.5 rank apart with four-way ranks, and reversed under three-way or err-only ranks.",
+        "concerns": [
+          "The obstacle rank-sum is dominated by near-ceiling rows (ring_obst 0.995 to 1.0, field_light 0.98 to 0.995, field_suite move_turn 0.995 to 1.0). Rank conversion turns 1–3 episode differences into whole ranks, so S1_s18's step-2 win rests on noise-level gaps. Meanwhile S1_s16 leads on field_hard (0.83 vs 0.80), on the phase-1 rank-sum (14 vs 18.5), on jitter (0.145 vs 0.150) and on the turn band (2 vs 4).",
+          "The floors ambiguity decides the winner. If COST is a lower tier than PASS, the winner is S1_s16, and the bake would re-bake stages 1–5 from the s16 lineage. That anchor is weaker (flat completion 0.89, move_turn survival 0.74). The user should confirm that \"floors (PASS or COST)\" is a gate, as applied here.",
+          "S1_s18 has the worst flat tracking of the four. err_back is 0.087 (the COST, +0.057 over its anchor) and err_fwd is 0.050. Its \"err-only\" phase-1 rank-sum is 13, against 9 for the other three. The user accepted the s18 overshoot when keeping S1. It did not replicate at s16 (back ratio 1.041) or at s17 (err_back 0.017), so baking s18 bakes the one seed that shows it.",
+          "\"The field rows' move_turn-hold survival\" is implemented as field_suite__omni move_turn / move_turn_r survival at env_seed 1. The CHARTER wording more naturally reads as the move_turn hold of the 8-hold field_hard and field_light rows. I recomputed it that way from the raws (field_hard: S1_s16 0.938, S1_s17 0.967, S1_s18 0.982, A1 0.937). The winner is unchanged, but the 2nd to 4th order on item 2 shifts. The ambiguity should be logged in §9.",
+          "S1_s17 PASS is marginal: err_side is +0.028 against the 0.03 COST margin. Had it read COST, the §6.2 recipe read would still have been ADOPTABLE only if s16 and s17 both stayed PASS, so the recipe read is one hair from MIXED.",
+          "Comparing seeds conflates the lineage's starting anchor with the checkpoint's quality. Gains over each head's own anchor rank differently from the absolute values: field_hard +0.395 for s16, +0.30 for s18, +0.17 for s17. The rule as written uses absolute values.",
+          "Every head's field_hard falls are concentrated in the diag and back holds (S1_s18 has 21 diag falls at n = 200; S1_s17 has 27). The p2b trigger fired (field_hard < 0.85 at all seeds), so any head of record baked now is likely to be superseded by p2b. That argues against spending a stages 1–5 re-bake on a near-tie.",
+          "I did not independently re-derive the hand classes (FAST, feet AND along). I only saw feet_ss of 0.22–0.26 m/s at the 0.22 / 0.25 commands for all four heads, which is consistent with FAST, and relied on the verdicts for the rest. The m-screen NO statuses come from judging_inputs.json and were not recomputed."
+        ]
+      },
+      {
+        "winner": "S1_s18",
+        "ranking": [
+          "S1_s18",
+          "S1_s16",
+          "A1_s18",
+          "S1_s17"
+        ],
+        "rule_trace": "I checked judging_inputs.json against p2_read.rank_inputs and recomputed the bands from the anchors (read-only, venv python). All rank sums below match the file.\n\nSTEP 1, floors. S1_s16 PASS, S1_s17 PASS, S1_s18 COST (err_back +0.057 against ANCW_s18; err_back is 0.087), A1_s18 PASS. Read literally, \"floors (PASS or COST)\" admits all four. No head is replaced, because the m-screen is NO everywhere.\n\nSTEP 2, obstacle rank-sum (rank 1 = best, ties averaged).\n- field_hard: S1_s16 0.830 (1), S1_s18 0.800 (2), A1 0.745 (3), S1_s17 0.730 (4).\n- field_light: S1_s18 0.995 and A1 0.995 (1.5 each), S1_s17 0.985 (3), S1_s16 0.980 (4).\n- ring_obst: all three S1 heads 1.000 (2 each), A1 0.995 (4).\n- field-suite move_turn survival: S1_s18 1.000 (1); the other three 0.995 (3 each).\n- Sums: S1_s18 6.5, S1_s16 10, A1 11.5, S1_s17 12.\n- S1_s18 leads the next head by 3.5, which is more than 2, so it ranks first at step 2.\n\nSTEP 3, phase-1 rank-sum over the |ratio - 1| errors, fc, yp and mt_surv. It applies only to heads whose obstacle sums are within 2.\n- Phase-1 sums: S1_s16 14, A1 18.5, S1_s18 18.5, S1_s17 19.\n- S1_s16 (10) against A1 (11.5): 14 beats 18.5, so S1_s16 is second.\n- A1 (11.5) against S1_s17 (12): 18.5 beats 19, so A1 is third, by 0.5.\n- S1_s16 against S1_s17 differ by exactly 2, but S1_s16 is ahead on both steps, so it makes no difference whether \"within 2\" includes 2.\n\nSTEPS 4 and 5 are not needed as written. For the record:\n- Jitter: S1_s16 0.145, S1_s18 0.150, S1_s17 0.157, A1 0.203.\n- Stand steps/s: 2.50, 2.83, 2.75, 3.67 in the same order.\n- Turn rank-sum: S1_s16 2, S1_s18 4, S1_s17 6, A1 8.\n\nResult as written: S1_s18 > S1_s16 > A1_s18 > S1_s17. The winner is seed 18, so stages 1-5 would not need re-baking.",
+        "robustness": "S1_s18 does not survive treating within-noise differences as ties. The S1 recipe beating A1 does survive.\n\nBands from §5:\n- field_hard: 0.04 / 0.06 / 0.10 for s16 / s17 / s18.\n- field_light: 0.09 / 0.04 / 0.08.\n- ring_obst: 0.04 / 0.04 / 0.07.\n- Completion is floored at the ±0.04 resolution.\n- Suite metrics use s18's band: 0.02 for the errors and fc, 0.005 for yp, 0.04 for mt_surv.\n\nWhere S1_s18's 3.5-point obstacle lead over S1_s16 comes from:\n- field_light: +2.5 points from 0.995 vs 0.980, a gap of 0.015 against a band of 0.04 to 0.09.\n- field move_turn survival: +2 points from 1.000 vs 0.995, about one hold-episode against a floor of 0.04.\n- field_hard: -1 point. That is the only obstacle metric with a material spread, and it favours S1_s16 (0.83 vs 0.80, a gap of 0.03, itself inside ±0.04).\nSo the lead is built entirely from differences between 4 and 10 times smaller than the noise floor. ring_obst (≤ 0.005 spread) is also noise and decides nothing.\n\nReading A, ties within ±0.04 on completion and mt_surv:\n- Obstacle sums: S1_s16 = S1_s18 = 9; A1 = S1_s17 = 11.\n- S1_s16 against S1_s18 goes to step 3. Raw phase-1 is 14 vs 18.5. Tie-adjusted with the 0.02 / 0.005 bands, it is 16.5–17.5 vs 18–18.5.\n- S1_s18's overshoot (err_fwd 0.050, err_back 0.087) is the only phase-1 difference clearly above band against the other S1 heads.\n- Result: S1_s16 wins. Steps 4 and 5 also lean to S1_s16 (stand steps/s 2.50 vs 2.83; turn rank-sum 2 vs 4), though those gaps are near noise too.\n\nReading B, ties within each seed's own band (0.10 for any s18 comparison):\n- field_hard ties almost all pairs; the exception is S1_s16 vs S1_s17 (0.10 against a max band of 0.06).\n- If all four tie, tie-adjusted phase-1 is S1_s17 15–16, S1_s16 16.5–17.5, S1_s18 18–18.5, A1 19–19.5. S1_s17 would win, narrowly and itself within noise.\n- If S1_s16 is kept above S1_s17, the order depends on whether \"within 2\" includes 2 and on how non-transitive ties are clustered.\n\nOrder flips:\n- A1 vs S1_s17 is decided by 0.5 phase-1 points. With ties, S1_s17 is ahead on diag error (0.008 vs 0.031), yp (0.145 vs 0.128), jitter (0.157 vs 0.203) and stand stepping (2.75 vs 3.67 steps/s). So A1 drops to last.\n- A1 never wins under any reading.\n\nA PASS-before-COST reading of step 1 also removes S1_s18 from first place.\n\nNet: the rule names S1_s18 only through noise-level rank differences. The best-supported reading with ties is S1_s16 first, S1_s18 and S1_s17 behind it within noise of each other, and A1_s18 last. The margin between the S1 seeds is not above noise.",
+        "concerns": [
+          "S1_s18 is first only because of rank differences inside the noise band: field_light 0.995 vs 0.980/0.985, and field move_turn survival 1.000 vs 0.995 (about one episode). The one obstacle metric with a material spread, field_hard, favours S1_s16 (0.83 vs 0.80). The step-2 rank-sum has no tie tolerance, so 0.005 gaps count as full rank steps. The rule should say whether within-noise values tie.",
+          "S1_s18 is the only candidate with a COST verdict: err_back 0.087 against its anchor, plus err_fwd 0.050 (ratios fwd 1.05 / back 1.09). The S1_s16 replicate did not reproduce this overshoot (fwd 0.996 / back 1.041). §7 step 1 says 'PASS or COST' but does not say whether PASS ranks above COST; if it does, S1_s16 or S1_s17 wins.",
+          "Under the tie readings the winner flips to S1_s16, and in one reading to S1_s17. Both would mean re-baking stages 1-5 from a non-s18 lineage. The s16 c6x lineage is the weaker phase-1 anchor (flat completion 0.89, field_light 0.765, move_turn survival 0.74 at ANCW_s16, against 1.00 / 0.83 / 0.945 at s18). The bake-cost and lineage argument should be put to the user, not decided by noise-level ranks.",
+          "Some step-3 comparisons sit at boundaries. S1_s16 vs S1_s17 obstacle sums differ by exactly 2; A1 vs S1_s17 is decided by 0.5 phase-1 points. 'Within 2' is not defined as inclusive or exclusive, and pairwise application can be non-transitive once ties are introduced.",
+          "The suite metrics (phase-1 list, jitter, stand) are single-env-seed reads that use s18's band for every seed. Cross-seed comparisons of err_side, err_back and err_diag (spreads 0.02 to 0.05) are therefore only roughly resolved.",
+          "Robust conclusions: the S1 recipe beats A1_s18 in every reading (A1 is last or tied-last; it has the worst jitter, stand stepping and turning). No head reaches the 0.85 field_hard target, so the p2b trigger stands regardless of the winner.",
+          "stand_clearance in rank_inputs differs from what load_point returned in my read-only reload (None without raws). The values in judging_inputs.json come from a with-raws run and were not independently reverified."
+        ]
+      }
+    ],
+    "check": {
+      "agrees": true,
+      "winner": "S1_s18",
+      "errors_found": [
+        "No arithmetic errors. I recomputed every rank_inputs value from the stamps on disk (pooled completions from lr/P2__*/{field_hard,field_light,ring_obst}__omni/seed001+seed002 scenario_metrics.json; field_suite move_turn/move_turn_r survival; the driver-suite err/turn/mt_surv/jitter/stand values from arms/<ref>.record.json driver_stamp). All match judging_inputs.json to float precision, and the obstacle (6.5/10.0/11.5/12.0), phase-1 (14.0/19.0/18.5/18.5) and turn (2/6/4/8) rank-sums reproduce with averaged ties.",
+        "Bands reproduce: ANCW es1/es2 splits give field_hard 0.04/0.06/0.10, field_light 0.09/0.04/0.08, ring_obst 0.04/0.04/0.07 for s16/s17/s18; s18 suite bands fall to the floors (err 0.02, yp 0.005, mt_surv 0.04). Judge 2's COST arithmetic (S1_s18 err_back 0.0873 vs ANCW 0.030 = +0.057 > 0.03) and S1_s17's marginal PASS (err_side +0.028 vs 0.03) are correct.",
+        "No rule-application error in the mechanical trace. All three judges apply step 1 as a gate, which is the pre-registered meaning: CHARTER 7's own intermediate-replacement text uses 'floors held' (no HAND LOSS / FLAT FAIL), and p2_read's m_screen implements it that way. The alternative 'PASS ranks above COST' reading that judges 1-3 raise is a post-hoc reinterpretation, not an error in the trace.",
+        "The field_suite reading of 'the field rows' move_turn-hold survival' was documented in scenarios_p2.yaml (notes block, committed 4d0c954b on 2026-10-06, before any judging), so the builder's reading is pre-registered; judge 2's concern is a wording ambiguity, not a misapplication. I did not re-derive judge 2's raw-npz hold-level survival numbers (field_hard 0.938/0.967/0.982/0.937); the 8-hold rows' scenario_metrics.json carry no survival_by_hold, so they come only from raws. By judge 2's own figures the winner is unchanged under that reading.",
+        "Minor: judge 3's Reading B (S1_s17 'would win') relies on an unspecified tie-adjusted phase-1 construction and ties field_hard across pairs with the s18 band (0.10); it is the least supported alternative and should not be weighed. Judge 1's 'within 2' inclusive reading and judge 2's three-way re-ranking are extra readings that do not change any position above 3rd/4th.",
+        "Added observation supporting the judges' noise caveat: the within-head es1/es2 field_hard splits (S1_s16 0.86/0.80, S1_s17 0.69/0.77, S1_s18 0.79/0.81, A1 0.73/0.76) are as large as or larger than the 0.03 S1_s16-vs-S1_s18 gap, so field_hard does not separate the two S1 heads either way."
+      ],
+      "recommendation": "Name S1_s18 (P2__S1_s18 head model, c6x s18 lineage) head of record and bake 6_p2a_field/ on it without re-baking stages 1-5: it is the winner under CHARTER 7 exactly as pre-registered (all four heads hold the floor; obstacle rank-sum 6.5 vs 10.0 is more than 2 ahead, so step 3 never applies to first place), and all three judges plus my independent recompute agree. Be clear-eyed that the margin is not above noise: the 3.5-point lead is built from 1-3 episodes on near-ceiling rows (field_light 0.995 vs 0.980, field_suite move_turn 1.000 vs 0.995), while the one obstacle read with real spread, field_hard, favours S1_s16 (0.83 vs 0.80, inside every band and smaller than the within-head es1/es2 splits), and S1_s16 also leads phase-1 tracking (14 vs 18.5), jitter, stand stepping and turning; a tie-aware reading would pick S1_s16, and only S1_s18 carries the err_back COST (ratio 1.087) that the user already accepted. A noise-level tie should not change the call for two reasons: the rule was stated before judging and gives no tie tolerance, so switching now would be post-hoc, and the only thing a switch buys is a stages 1-5 re-bake onto the weaker s16 anchor (flat completion 0.89, mt_surv 0.74) for a head that the fired p2b trigger (field_hard < 0.85 at every seed) is likely to supersede anyway. Log in CHARTER 9 that the §7 rule lacks a tie tolerance, that 'floors (PASS or COST)' was applied as a gate, and that the field_suite move_turn reading was the pre-registered one; if the user wants the back-speed overshoot removed from the shipped head, the cheaper route is to carry S1_s16's recipe evidence into p2b rather than re-bake now."
+    }
+  },
+  "workflowProgress": [
+    {
+      "type": "workflow_phase",
+      "index": 1,
+      "title": "Judge"
+    },
+    {
+      "type": "workflow_phase",
+      "index": 2,
+      "title": "Check"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 1,
+      "label": "judge-1",
+      "phaseIndex": 1,
+      "phaseTitle": "Judge",
+      "agentId": "ac04c46242113747e",
+      "model": "claude-opus-5-5",
+      "state": "done",
+      "startedAt": 1791427196621,
+      "queuedAt": 1791427196611,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "S1_s18",
+      "promptPreview": "Repo /home/nickmagus/krabby/krabby-research. READ ONLY: do not edit, commit, or launch anything (no GPU).\nCampaign: parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-07_omni_phase2/.\nRead CHARTER.md §7 (head-of-record rule, stated before judging) and the §9 Log entries from 2026-10-07 (user decisions: S1 kept and made the recipe arm; F1 dropped; S1 replicated at s16/s17; t…",
+      "promptFramed": true,
+      "lastProgressAt": 1791427282397,
+      "tokens": 80636,
+      "toolCalls": 10,
+      "durationMs": 85774,
+      "resultPreview": "{\"winner\":\"S1_s18\",\"ranking\":[\"S1_s18\",\"S1_s16\",\"A1_s18\",\"S1_s17\"],\"rule_trace\":\"Candidates (amended CHARTER 7, Log ~12:05): S1_s16, S1_s17, S1_s18, A1_s18. The m-screen is NO at 16000/17500/19000 for every candidate, so every head stands.\\n\\nSTEP 1, floors (\\\"PASS or COST\\\"): S1_s16 PASS, S1_s17 PASS, S1_s18 COST (err_back +0.057 vs ANCW_s18), A1_s18 PASS. All four clear the floor and none is eli…"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 2,
+      "label": "judge-2",
+      "phaseIndex": 1,
+      "phaseTitle": "Judge",
+      "agentId": "a97afa035355ac8b8",
+      "model": "claude-opus-5-5",
+      "state": "done",
+      "startedAt": 1791427196622,
+      "queuedAt": 1791427196611,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "S1_s18",
+      "promptPreview": "Repo /home/nickmagus/krabby/krabby-research. READ ONLY: do not edit, commit, or launch anything (no GPU).\nCampaign: parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-07_omni_phase2/.\nRead CHARTER.md §7 (head-of-record rule, stated before judging) and the §9 Log entries from 2026-10-07 (user decisions: S1 kept and made the recipe arm; F1 dropped; S1 replicated at s16/s17; t…",
+      "promptFramed": true,
+      "lastProgressAt": 1791427398789,
+      "tokens": 128735,
+      "toolCalls": 26,
+      "durationMs": 201559,
+      "resultPreview": "{\"winner\":\"S1_s18\",\"ranking\":[\"S1_s18\",\"S1_s16\",\"A1_s18\",\"S1_s17\"],\"rule_trace\":\"I recomputed every input from the stamps on disk with a scratch script (/tmp/claude-1000/-home-nickmagus-krabby-krabby-research/f09fa754-dd17-413f-8553-6b22fdb41cf7/scratchpad/recompute.py). Sources: pooled 8-hold completion from lr/<name>/{field_hard,field_light,ring_obst}__omni/seed00{1,2}; flat list, jitter and sta…"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 3,
+      "label": "judge-3",
+      "phaseIndex": 1,
+      "phaseTitle": "Judge",
+      "agentId": "a5c172e856e09e233",
+      "model": "claude-opus-5-5",
+      "state": "done",
+      "startedAt": 1791427196622,
+      "queuedAt": 1791427196611,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "S1_s18",
+      "promptPreview": "Repo /home/nickmagus/krabby/krabby-research. READ ONLY: do not edit, commit, or launch anything (no GPU).\nCampaign: parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-07_omni_phase2/.\nRead CHARTER.md §7 (head-of-record rule, stated before judging) and the §9 Log entries from 2026-10-07 (user decisions: S1 kept and made the recipe arm; F1 dropped; S1 replicated at s16/s17; t…",
+      "promptFramed": true,
+      "lastProgressAt": 1791427334111,
+      "tokens": 90797,
+      "toolCalls": 15,
+      "durationMs": 136881,
+      "resultPreview": "{\"winner\":\"S1_s18\",\"ranking\":[\"S1_s18\",\"S1_s16\",\"A1_s18\",\"S1_s17\"],\"rule_trace\":\"I checked judging_inputs.json against p2_read.rank_inputs and recomputed the bands from the anchors (read-only, venv python). All rank sums below match the file.\\n\\nSTEP 1, floors. S1_s16 PASS, S1_s17 PASS, S1_s18 COST (err_back +0.057 against ANCW_s18; err_back is 0.087), A1_s18 PASS. Read literally, \\\"floors (PASS o…"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 4,
+      "label": "fable-check",
+      "phaseIndex": 2,
+      "phaseTitle": "Check",
+      "agentId": "a8f96ea0e27ddef50",
+      "model": "claude-fable-5-1",
+      "state": "done",
+      "startedAt": 1791427400678,
+      "queuedAt": 1791427400669,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "S1_s18",
+      "promptPreview": "Repo /home/nickmagus/krabby/krabby-research. READ ONLY: do not edit, commit, or launch anything (no GPU).\nCampaign: parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-07_omni_phase2/.\nRead CHARTER.md §7 (head-of-record rule, stated before judging) and the §9 Log entries from 2026-10-07 (user decisions: S1 kept and made the recipe arm; F1 dropped; S1 replicated at s16/s17; t…",
+      "promptFramed": true,
+      "lastProgressAt": 1791427597714,
+      "tokens": 113469,
+      "toolCalls": 18,
+      "durationMs": 197036,
+      "resultPreview": "{\"agrees\":true,\"winner\":\"S1_s18\",\"errors_found\":[\"No arithmetic errors. I recomputed every rank_inputs value from the stamps on disk (pooled completions from lr/P2__*/{field_hard,field_light,ring_obst}__omni/seed001+seed002 scenario_metrics.json; field_suite move_turn/move_turn_r survival; the driver-suite err/turn/mt_surv/jitter/stand values from arms/<ref>.record.json driver_stamp). All match ju…"
+    }
+  ],
+  "totalTokens": 413637,
+  "totalToolCalls": 69
+}
