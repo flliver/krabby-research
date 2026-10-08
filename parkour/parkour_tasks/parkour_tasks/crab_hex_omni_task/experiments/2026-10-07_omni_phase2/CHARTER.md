@@ -930,3 +930,21 @@ was not re-audited. That file is the pre-registration. Its decisive rules, resta
   - **§7 candidates:** the REF heads plus p2b heads reading PASS or COST, of which there are none. So the candidates are
     the S1 p2a heads, as already judged (unanimous S1 s18; S1 s16 tie-aware).
   - The bake decision returns to the user.
+- 2026-10-08, **S1 s16 vs S1 s18 breakdown** (user request before the bake decision). Obstacle rows from the REF
+  re-evals on the current code; flat rows from the p2a suite.
+  - **Walls tie at n = 400:** 0.815 vs 0.8125, with per-seed values 0.86 / 0.80 / 0.80 / 0.80 vs 0.79 / 0.81 / 0.84 /
+    0.81. The earlier 0.83 vs 0.80 was n = 200 only. field_light is 0.98 vs 0.995 and ring 1.0 for both.
+  - **Falls on walls** (74 vs 75):
+    - s16: move_turn 27, back 18, diag 16;
+    - s18: diag 40, back 13, move_turn 5.
+  - **Flat speed tracking: s16 is better.** Ratios fwd / side / back / diag 0.996 / 1.039 / 1.041 / 0.947 vs 1.050 /
+    1.051 / 1.087 / 1.015.
+  - **Gait: s18 is better.**
+    - tripod fwd 0.74 vs 0.70, side 0.75 vs 0.71;
+    - fwd steps/m 9.6 vs 10.5;
+    - fwd work/m 1066 vs 1242 (−14 %).
+  - **move_turn: s18 is better.** Ratio 0.81 vs 0.72, facing_closed 0.75 vs 0.64; s16 has 27 move_turn falls on walls.
+  - **Turning ties** (fc 0.96 / 0.96).
+  - **Stand:** 2.5 vs 2.8 steps/s.
+  - **Lineage:** s18 adds `6_p2a_field/` only. s16 re-bakes stages 1–5 from the B s16 line, whose phase-1 head was the
+    weakest: flat completion 0.89, move_turn survival 0.74.
