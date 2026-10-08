@@ -494,3 +494,14 @@ def test_bad_from_step_refuses(tmp_path):
     env["FROM_STEP"] = "nonsense"
     r = _run(env)
     assert r.returncode == 2 and "bad FROM_STEP" in r.stderr
+
+
+def test_p2b_liveness_reads_the_calibrated_expectation_when_present():
+    """CHARTER 10 (2026-10-08): a term with episode_reward_live_expect is read at that value, else at episode_reward."""
+    live = _load(SCRIPTS / "p2_live.py", "_t_p2_live_calib")
+    rg = {"p2b": {"TG": {"terms": {"reward_orientation": {"episode_reward": -0.0112,
+                                                          "episode_reward_live_expect": -0.0241}}},
+                  "CL": {"terms": {"reward_foot_clearance": {"episode_reward": 0.0267}}}}}
+    assert live.p2b_replay_magnitude(rg, "TG", "reward_orientation") == -0.0241
+    assert live.p2b_replay_magnitude(rg, "CL", "reward_foot_clearance") == 0.0267
+    assert live.p2b_replay_magnitude(rg, "CL", "penalty_swing_min_clearance") is None

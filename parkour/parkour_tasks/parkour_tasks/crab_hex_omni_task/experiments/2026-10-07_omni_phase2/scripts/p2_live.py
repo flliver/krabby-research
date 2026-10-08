@@ -158,8 +158,11 @@ def p2b_checkpoints(fork_model_n: int) -> list[int]:
 
 
 def p2b_replay_magnitude(replay: dict | None, arm: str, term: str):
-    """``replay_gate.json``'s ``{"p2b": {arm: {"terms": {term: {"episode_reward": x}}}}}`` entry, or None."""
-    return (((replay or {}).get("p2b") or {}).get(arm) or {}).get("terms", {}).get(term, {}).get("episode_reward")
+    """``replay_gate.json``'s ``{"p2b": {arm: {"terms": {term: {"episode_reward": x}}}}}`` entry, or None. A term that
+    carries ``episode_reward_live_expect`` (the replay value x its measured training/replay calibration, CHARTER 10
+    2026-10-08: TG's tilt runs 1.7-2.9x higher in training than in the eval replay) is read at that value."""
+    ent = (((replay or {}).get("p2b") or {}).get(arm) or {}).get("terms", {}).get(term, {})
+    return ent.get("episode_reward_live_expect", ent.get("episode_reward"))
 
 
 def p2b_replay_verdict_ok(replay: dict | None, arm: str) -> bool:

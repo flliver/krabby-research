@@ -876,3 +876,21 @@ was not re-audited. That file is the pre-registration. Its decisive rules, resta
     - **Replay magnitudes for liveness:** signed, in TensorBoard units (`Episode_Reward`: weighted episodic sum /
       max episode seconds).
     - **Inertness:** any REF difference stops and asks; the eval process-state flip hazard is noted.
+- 2026-10-08, **p2b REPLAY GATE: CL PASS, TG PASS** (`REPLAY_GATE_P2B.md`, `replay_gate.json` p2b; workflow
+  wf_59a05294; a fable check agreed on every check and number).
+  - **Data:** 4200 S1 episodes (field_hard / field_light at env_seeds 1–2, plus the suite), 139 falls.
+  - **Tracking income** (named before reading): 1.25 · track_lin_vel_xy_exp, std 0.2.
+  - **CL (terrain-relative lift):**
+    - income vs terrain-relative apex: ρ +0.97 on pit and ordinary swings, at every seed;
+    - crouch payoff: exactly 0 (the root-relative form paid 100 % of a lift);
+    - foot-clearance share 3.4 %; swing-min share 1.7 %;
+    - weights unchanged: FOOT_CLEAR_W 1.0, SWING_MIN_CLEAR_W −0.4. The clamp is MAX_CLEARANCE_M 0.26.
+  - **TG (tilt guard):**
+    - pre-fall vs walking tilt cost 12–15×;
+    - share at −0.7 was 0.38 %, so it was re-dosed to **ORIENT_W −2.3** (1.0–1.3 %; feasible |w| 2.25–8.57).
+    - It concentrates on move_turn (4–5 % there).
+  - **Liveness expectations** (TensorBoard units): CL +0.0267 / −0.0130.
+    - TG is read at its calibrated value of −0.0241: the replay's −0.0112 × 2.15, the training/replay factor measured
+      on flat-tile tilt, 1.7–2.9× per head.
+    - This was set before any TG launch because the fable check flagged a likely false +200 kill at s18.
+  - `candidates_v9` fills the weights. The p2b queue had started at 01:08 with the REF re-evals, on code e3fe70fb.

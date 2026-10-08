@@ -1511,5 +1511,528 @@
    "date": "2026-10-06",
    "note": "run F1 at 0.90 despite the within-head FAIL (range restriction: every B stand episode marches alike); statue 0.78/s vs head 0.41/s"
   }
+ },
+ "p2b": {
+  "CL": {
+   "verdict": "PASS",
+   "checks": {
+    "a_income_rises_with_apex_incl_pit": {
+     "pass": true,
+     "detail": {
+      "P2__S1_s16": {
+       "pit": {
+        "rho": 0.9752956866548864,
+        "n": 6360,
+        "pass": true
+       },
+       "ordinary": {
+        "rho": 0.9736752059764244,
+        "n": 158920,
+        "pass": true
+       }
+      },
+      "P2__S1_s17": {
+       "pit": {
+        "rho": 0.9708691479618083,
+        "n": 6266,
+        "pass": true
+       },
+       "ordinary": {
+        "rho": 0.9720739846044261,
+        "n": 170665,
+        "pass": true
+       }
+      },
+      "P2__S1_s18": {
+       "pit": {
+        "rho": 0.9746157616185108,
+        "n": 5953,
+        "pass": true
+       },
+       "ordinary": {
+        "rho": 0.974609182172576,
+        "n": 166285,
+        "pass": true
+       }
+      },
+      "pooled": {
+       "pit": {
+        "rho": 0.9736494096531858,
+        "n": 18579,
+        "pass": true
+       },
+       "ordinary": {
+        "rho": 0.9729734123257612,
+        "n": 495870,
+        "pass": true
+       }
+      }
+     }
+    },
+    "b_no_crouch_payoff": {
+     "pass": true,
+     "detail": {
+      "P2__S1_s16": {
+       "reward_foot_clearance": 0.0,
+       "penalty_swing_min_clearance": 0.0
+      },
+      "P2__S1_s17": {
+       "reward_foot_clearance": 0.0,
+       "penalty_swing_min_clearance": 0.0
+      },
+      "P2__S1_s18": {
+       "reward_foot_clearance": 0.0,
+       "penalty_swing_min_clearance": 0.0
+      },
+      "pooled": {
+       "reward_foot_clearance": 0.0,
+       "penalty_swing_min_clearance": 0.0
+      }
+     }
+    },
+    "c_foot_clearance_share_1_10pct": {
+     "pass": true,
+     "weight": 1.0,
+     "start": 1.0,
+     "moved": false,
+     "shares_at_start": {
+      "P2__S1_s16": 0.035389132782512975,
+      "P2__S1_s17": 0.0332408669057215,
+      "P2__S1_s18": 0.03243705960815069
+     },
+     "shares_at_chosen": {
+      "P2__S1_s16": 0.035389132782512975,
+      "P2__S1_s17": 0.0332408669057215,
+      "P2__S1_s18": 0.03243705960815069
+     },
+     "band": [
+      0.01,
+      0.1
+     ],
+     "feasible_abs_interval": [
+      0.3082893493061014,
+      2.825726208510358
+     ]
+    },
+    "d_swing_min_share_le_5pct": {
+     "pass": true,
+     "weight": -0.4,
+     "start": -0.4,
+     "moved": false,
+     "shares_at_start": {
+      "P2__S1_s16": 0.015754002950667933,
+      "P2__S1_s17": 0.016524922502787,
+      "P2__S1_s18": 0.017290996378709123
+     },
+     "shares_at_chosen": {
+      "P2__S1_s16": 0.015754002950667933,
+      "P2__S1_s17": 0.016524922502787,
+      "P2__S1_s18": 0.017290996378709123
+     },
+     "band": [
+      0.0,
+      0.05
+     ],
+     "feasible_abs_interval": [
+      0.0,
+      1.1566713428166897
+     ]
+    }
+   },
+   "fidelity_ok": true,
+   "terms": {
+    "reward_foot_clearance": {
+     "weight": 1.0,
+     "knob": "KRABBY_FOOT_CLEAR_W",
+     "episode_reward": 0.02664894578238009,
+     "episode_reward_per_row": {
+      "field_hard__omni": 0.028729542461205255,
+      "field_light__omni": 0.029586563026725254,
+      "suite__omni": 0.02424268128865733
+     },
+     "episode_reward_per_head": {
+      "P2__S1_s16": 0.02789738088671756,
+      "P2__S1_s17": 0.0264175407270862,
+      "P2__S1_s18": 0.025631915733336515
+     },
+     "start_weight": 1.0,
+     "share_pooled_at_weight": 0.0336924136564989,
+     "shares_at_weight": {
+      "P2__S1_s16": 0.035389132782512975,
+      "P2__S1_s17": 0.0332408669057215,
+      "P2__S1_s18": 0.03243705960815069
+     }
+    },
+    "penalty_swing_min_clearance": {
+     "weight": -0.4,
+     "knob": "KRABBY_SWING_MIN_CLEAR_W",
+     "episode_reward": -0.012981247440899934,
+     "episode_reward_per_row": {
+      "field_hard__omni": -0.014418324013846273,
+      "field_light__omni": -0.014581040617109015,
+      "suite__omni": -0.011482338558713754
+     },
+     "episode_reward_per_head": {
+      "P2__S1_s16": -0.012468149932012663,
+      "P2__S1_s17": -0.01296169586719241,
+      "P2__S1_s18": -0.013513896523494724
+     },
+     "start_weight": -0.4,
+     "share_pooled_at_weight": 0.016522351063847196,
+     "shares_at_weight": {
+      "P2__S1_s16": 0.015754002950667933,
+      "P2__S1_s17": 0.016524922502787,
+      "P2__S1_s18": 0.017290996378709123
+     }
+    }
+   },
+   "knobs": {
+    "KRABBY_FOOT_CLEAR_W": 1.0,
+    "KRABBY_FOOT_CLEAR_MIN": 0.03,
+    "KRABBY_FOOT_CLEAR_FLAT": 1,
+    "KRABBY_SWING_MIN_CLEAR_W": -0.4,
+    "KRABBY_FOOT_CLEAR_TERRAIN": 1
+   },
+   "rule": "CHARTER 10 / P2B_PLAN step 2: (a) income rises with terrain-relative apex incl. pit swings; (b) crouch change <= 10 % of the +1 cm lift payoff; (c) income 1-10 % of tracking; (d) swing-min <= 5 %",
+   "episode_reward_units": "TensorBoard Episode_Reward: per-episode weighted sum / 40 s; eval episodes at their own rate scaled to a 40-s episode (a fall shortens it); rows mixed 0.5 suite + 0.31 field_hard + 0.19 field_light",
+   "generated": "2026-10-08T01:23:25",
+   "report": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-07_omni_phase2/REPLAY_GATE_P2B.md"
+  },
+  "TG": {
+   "verdict": "PASS",
+   "checks": {
+    "f_tilt_share_1_5pct": {
+     "pass": true,
+     "weight": -2.3,
+     "start": -0.7,
+     "moved": true,
+     "shares_at_start": {
+      "P2__S1_s16": 0.004081693486795873,
+      "P2__S1_s17": 0.00407301285908391,
+      "P2__S1_s18": 0.0031136166626328505
+     },
+     "shares_at_chosen": {
+      "P2__S1_s16": 0.013411278599472153,
+      "P2__S1_s17": 0.01338275653698999,
+      "P2__S1_s18": 0.010230454748650794
+     },
+     "band": [
+      0.01,
+      0.05
+     ],
+     "feasible_abs_interval": [
+      2.2481894075171263,
+      8.57487219783252
+     ]
+    },
+    "e_prefall_ge_5x_walking": {
+     "pass": true,
+     "detail": {
+      "P2__S1_s16": {
+       "ratio": 12.301791168512105,
+       "n_falls": 39
+      },
+      "P2__S1_s17": {
+       "ratio": 12.473677647107333,
+       "n_falls": 59
+      },
+      "P2__S1_s18": {
+       "ratio": 15.170546485925321,
+       "n_falls": 41
+      },
+      "pooled": {
+       "ratio": 13.195641250169237,
+       "n_falls": 139
+      }
+     }
+    }
+   },
+   "fidelity_ok": true,
+   "terms": {
+    "reward_orientation": {
+     "weight": -2.3,
+     "knob": "KRABBY_ORIENT_W",
+     "episode_reward": -0.01121710995115071,
+     "episode_reward_per_row": {
+      "field_hard__omni": -0.012556902386630897,
+      "field_light__omni": -0.008728822710688347,
+      "suite__omni": -0.01133198779252869
+     },
+     "episode_reward_per_head": {
+      "P2__S1_s16": -0.012079367106912346,
+      "P2__S1_s17": -0.012597655270966474,
+      "P2__S1_s18": -0.008974307475573307
+     },
+     "start_weight": -0.7,
+     "share_pooled_at_weight": 0.012339820273067757,
+     "shares_at_weight": {
+      "P2__S1_s16": 0.013411278599472153,
+      "P2__S1_s17": 0.01338275653698999,
+      "P2__S1_s18": 0.010230454748650794
+     },
+     "live_calibration_factor": 2.1488,
+     "live_calibration_per_head": {
+      "P2__S1_s16": 1.681,
+      "P2__S1_s17": 1.8853,
+      "P2__S1_s18": 2.88
+     },
+     "episode_reward_live_expect": -0.024103052907753754,
+     "live_calibration_note": "CHARTER 10 (2026-10-08, before any TG launch): training tilt runs 1.7-2.9x the eval replay (flat-tile reward_orientation, p2a TB tail / replay); p2_live's +200 liveness uses episode_reward x the mean factor so a healthy arm is not killed by the replay's low bias (the fable check of the replay read flagged s18)."
+    }
+   },
+   "knobs": {
+    "KRABBY_ORIENT_ALL_TILES": 1,
+    "KRABBY_ORIENT_W": -2.3
+   },
+   "rule": "CHARTER 10 / P2B_PLAN step 2: (e) pre-fall cost >= 5x walking; (f) cost 1-5 % of tracking",
+   "episode_reward_units": "TensorBoard Episode_Reward: per-episode weighted sum / 40 s; eval episodes at their own rate scaled to a 40-s episode (a fall shortens it); rows mixed 0.5 suite + 0.31 field_hard + 0.19 field_light",
+   "generated": "2026-10-08T01:23:25",
+   "report": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-07_omni_phase2/REPLAY_GATE_P2B.md"
+  },
+  "tracking_income": "1.25 * track_lin_vel_xy_exp(std 0.2), the S1 runs' dumped weight/std (named before reading)",
+  "meta": {
+   "generated": "2026-10-08T01:23:25",
+   "script": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-07_omni_phase2/scripts/p2b_replay.py",
+   "code_sha_note": "kernels transcribe commit c5e1b104 (mdp/omni_clearance.py, rewards.py)",
+   "env_yaml": {
+    "P2__S1_s16": "parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-07_15-34-26_seed16_X10_p2a_A15pB/params/env.yaml",
+    "P2__S1_s17": "parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-07_19-05-32_seed17_X11_p2a_A15pB/params/env.yaml",
+    "P2__S1_s18": "parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-07_07-50-10_seed18_X08_p2a_A15pB/params/env.yaml"
+   },
+   "inputs": [
+    {
+     "head": "P2__S1_s16",
+     "row": "field_hard__omni",
+     "seed": 1,
+     "stamp": "parkour/outputs/omni_plan/phase2/lr/P2__S1_s16/field_hard__omni/seed001/2026-10-07_21-59-05",
+     "checkpoint_sha256": "443bc3b36867f4c3cb7b734bf8ac1fec536f950164db10e15cafad57dcc13fff",
+     "n": 100,
+     "terrain_source": "raycast_mesh",
+     "dt": 0.02,
+     "episode_length_s": 80.0
+    },
+    {
+     "head": "P2__S1_s16",
+     "row": "field_hard__omni",
+     "seed": 2,
+     "stamp": "parkour/outputs/omni_plan/phase2/lr/P2__S1_s16/field_hard__omni/seed002/2026-10-07_22-02-45",
+     "checkpoint_sha256": "443bc3b36867f4c3cb7b734bf8ac1fec536f950164db10e15cafad57dcc13fff",
+     "n": 100,
+     "terrain_source": "raycast_mesh",
+     "dt": 0.02,
+     "episode_length_s": 80.0
+    },
+    {
+     "head": "P2__S1_s16",
+     "row": "field_light__omni",
+     "seed": 1,
+     "stamp": "parkour/outputs/omni_plan/phase2/lr/P2__S1_s16/field_light__omni/seed001/2026-10-07_21-52-13",
+     "checkpoint_sha256": "443bc3b36867f4c3cb7b734bf8ac1fec536f950164db10e15cafad57dcc13fff",
+     "n": 100,
+     "terrain_source": "raycast_mesh",
+     "dt": 0.02,
+     "episode_length_s": 80.0
+    },
+    {
+     "head": "P2__S1_s16",
+     "row": "field_light__omni",
+     "seed": 2,
+     "stamp": "parkour/outputs/omni_plan/phase2/lr/P2__S1_s16/field_light__omni/seed002/2026-10-07_21-55-39",
+     "checkpoint_sha256": "443bc3b36867f4c3cb7b734bf8ac1fec536f950164db10e15cafad57dcc13fff",
+     "n": 100,
+     "terrain_source": "raycast_mesh",
+     "dt": 0.02,
+     "episode_length_s": 80.0
+    },
+    {
+     "head": "P2__S1_s16",
+     "row": "suite__omni",
+     "seed": 1,
+     "stamp": "parkour/logs/rsl_rl/gait_eval/omni_phases/2026-10-07_omni_phase2/seed16_X10_p2a_A15pB/suite__omni/seed001/2026-10-07_21-40-30",
+     "checkpoint_sha256": "443bc3b36867f4c3cb7b734bf8ac1fec536f950164db10e15cafad57dcc13fff",
+     "n": 1000,
+     "terrain_source": "raycast_mesh",
+     "dt": 0.02,
+     "episode_length_s": 18.0
+    },
+    {
+     "head": "P2__S1_s17",
+     "row": "field_hard__omni",
+     "seed": 1,
+     "stamp": "parkour/outputs/omni_plan/phase2/lr/P2__S1_s17/field_hard__omni/seed001/2026-10-08_01-30-08",
+     "checkpoint_sha256": "c34ac4095bf82dde013461764c854b7f33542989f0e85b28daaa327edcd21ca0",
+     "n": 100,
+     "terrain_source": "raycast_mesh",
+     "dt": 0.02,
+     "episode_length_s": 80.0
+    },
+    {
+     "head": "P2__S1_s17",
+     "row": "field_hard__omni",
+     "seed": 2,
+     "stamp": "parkour/outputs/omni_plan/phase2/lr/P2__S1_s17/field_hard__omni/seed002/2026-10-08_01-33-46",
+     "checkpoint_sha256": "c34ac4095bf82dde013461764c854b7f33542989f0e85b28daaa327edcd21ca0",
+     "n": 100,
+     "terrain_source": "raycast_mesh",
+     "dt": 0.02,
+     "episode_length_s": 80.0
+    },
+    {
+     "head": "P2__S1_s17",
+     "row": "field_light__omni",
+     "seed": 1,
+     "stamp": "parkour/outputs/omni_plan/phase2/lr/P2__S1_s17/field_light__omni/seed001/2026-10-08_01-23-15",
+     "checkpoint_sha256": "c34ac4095bf82dde013461764c854b7f33542989f0e85b28daaa327edcd21ca0",
+     "n": 100,
+     "terrain_source": "raycast_mesh",
+     "dt": 0.02,
+     "episode_length_s": 80.0
+    },
+    {
+     "head": "P2__S1_s17",
+     "row": "field_light__omni",
+     "seed": 2,
+     "stamp": "parkour/outputs/omni_plan/phase2/lr/P2__S1_s17/field_light__omni/seed002/2026-10-08_01-26-42",
+     "checkpoint_sha256": "c34ac4095bf82dde013461764c854b7f33542989f0e85b28daaa327edcd21ca0",
+     "n": 100,
+     "terrain_source": "raycast_mesh",
+     "dt": 0.02,
+     "episode_length_s": 80.0
+    },
+    {
+     "head": "P2__S1_s17",
+     "row": "suite__omni",
+     "seed": 1,
+     "stamp": "parkour/logs/rsl_rl/gait_eval/omni_phases/2026-10-07_omni_phase2/seed17_X11_p2a_A15pB/suite__omni/seed001/2026-10-08_01-11-35",
+     "checkpoint_sha256": "c34ac4095bf82dde013461764c854b7f33542989f0e85b28daaa327edcd21ca0",
+     "n": 1000,
+     "terrain_source": "raycast_mesh",
+     "dt": 0.02,
+     "episode_length_s": 18.0
+    },
+    {
+     "head": "P2__S1_s18",
+     "row": "field_hard__omni",
+     "seed": 1,
+     "stamp": "parkour/outputs/omni_plan/phase2/lr/P2__S1_s18/field_hard__omni/seed001/2026-10-07_14-12-35",
+     "checkpoint_sha256": "968cc550989919cdc3fa36ae047379febabee5659cde0ed4d099195acb13c23c",
+     "n": 100,
+     "terrain_source": "raycast_mesh",
+     "dt": 0.02,
+     "episode_length_s": 80.0
+    },
+    {
+     "head": "P2__S1_s18",
+     "row": "field_hard__omni",
+     "seed": 2,
+     "stamp": "parkour/outputs/omni_plan/phase2/lr/P2__S1_s18/field_hard__omni/seed002/2026-10-07_14-16-14",
+     "checkpoint_sha256": "968cc550989919cdc3fa36ae047379febabee5659cde0ed4d099195acb13c23c",
+     "n": 100,
+     "terrain_source": "raycast_mesh",
+     "dt": 0.02,
+     "episode_length_s": 80.0
+    },
+    {
+     "head": "P2__S1_s18",
+     "row": "field_light__omni",
+     "seed": 1,
+     "stamp": "parkour/outputs/omni_plan/phase2/lr/P2__S1_s18/field_light__omni/seed001/2026-10-07_14-05-39",
+     "checkpoint_sha256": "968cc550989919cdc3fa36ae047379febabee5659cde0ed4d099195acb13c23c",
+     "n": 100,
+     "terrain_source": "raycast_mesh",
+     "dt": 0.02,
+     "episode_length_s": 80.0
+    },
+    {
+     "head": "P2__S1_s18",
+     "row": "field_light__omni",
+     "seed": 2,
+     "stamp": "parkour/outputs/omni_plan/phase2/lr/P2__S1_s18/field_light__omni/seed002/2026-10-07_14-09-08",
+     "checkpoint_sha256": "968cc550989919cdc3fa36ae047379febabee5659cde0ed4d099195acb13c23c",
+     "n": 100,
+     "terrain_source": "raycast_mesh",
+     "dt": 0.02,
+     "episode_length_s": 80.0
+    },
+    {
+     "head": "P2__S1_s18",
+     "row": "suite__omni",
+     "seed": 1,
+     "stamp": "parkour/logs/rsl_rl/gait_eval/omni_phases/2026-10-07_omni_phase2/seed18_X08_p2a_A15pB/suite__omni/seed001/2026-10-07_13-54-14",
+     "checkpoint_sha256": "968cc550989919cdc3fa36ae047379febabee5659cde0ed4d099195acb13c23c",
+     "n": 1000,
+     "terrain_source": "raycast_mesh",
+     "dt": 0.02,
+     "episode_length_s": 18.0
+    }
+   ],
+   "params_identical_across_seeds": {
+    "dt": true,
+    "episode_length_s": true,
+    "omni_command": true,
+    "turn_r": true,
+    "fc_contact": true,
+    "fc_min": true,
+    "fc_max": true,
+    "fc_gate": true,
+    "fc_parkour_name": true,
+    "sm_contact": true,
+    "sm_min": true,
+    "sm_gate": true,
+    "sm_parkour_name": true,
+    "tg_func": true,
+    "p2a_orient_w": true,
+    "p2a_orient_func": true,
+    "track_lin_w": true,
+    "track_lin_std": true,
+    "track_ang_w": true,
+    "track_ang_std": true,
+    "p2a_fc_min": true,
+    "p2a_fc_parkour_name": true,
+    "p2a_fc_w": true,
+    "p2a_sm_w": true,
+    "ground_offset_from_root_m": true
+   }
+  },
+  "calibration": {
+   "track_lin_vel_xy_exp": {
+    "P2__S1_s16": 1.1178579763522718,
+    "P2__S1_s17": 1.1043944676209159,
+    "P2__S1_s18": 1.1133820475425087
+   },
+   "reward_orientation_p2a_flat_only": {
+    "P2__S1_s16": -0.0019284777550813144,
+    "P2__S1_s17": -0.0020650999083969787,
+    "P2__S1_s18": -0.0011797211113717618
+   },
+   "tb_tail_500": {
+    "P2__S1_s16": {
+     "Episode_Reward/track_lin_vel_xy_exp": 0.9220437849909067,
+     "Episode_Reward/reward_orientation": -0.003241814161592629,
+     "Train/mean_episode_length": 1819.055160888672
+    },
+    "P2__S1_s17": {
+     "Episode_Reward/track_lin_vel_xy_exp": 0.8578250664025545,
+     "Episode_Reward/reward_orientation": -0.003893334351218073,
+     "Train/mean_episode_length": 1726.41772265625
+    },
+    "P2__S1_s18": {
+     "Episode_Reward/track_lin_vel_xy_exp": 0.9544176984429359,
+     "Episode_Reward/reward_orientation": -0.0033976014595100425,
+     "Train/mean_episode_length": 1865.48387890625
+    }
+   }
+  },
+  "fidelity": {
+   "n_steps": 8859,
+   "n_episodes": 3,
+   "max_abs_diff": {
+    "cl": 1.192092893842478e-08,
+    "sm": 1.9868214962137642e-08,
+    "tg": 8.48119763863231e-08
+   },
+   "tolerance": 1e-06,
+   "ok": true
+  }
  }
 }
