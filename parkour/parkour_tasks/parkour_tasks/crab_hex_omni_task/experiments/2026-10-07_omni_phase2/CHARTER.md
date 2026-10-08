@@ -783,3 +783,22 @@ recommendation.
     - speed ratio fwd 0.996 / back 1.041, so the s18 overshoot did not reappear;
     - stand steps/s 3.50 → 2.50.
   - S1 s17 is training; the recipe read follows it.
+- 2026-10-07 22:37, **RECIPE READ (§6.2, on S1): ADOPTABLE.** 2/3 PASS (s16, s17); s18 COST (err_back only); gain at
+  3/3; no HAND LOSS; no shared cost.
+
+  | | ANCW → S1, s16 | ANCW → S1, s17 | ANCW → S1, s18 |
+  |---|---|---|---|
+  | field_hard | 0.435 → 0.830 | 0.560 → 0.730 | 0.500 → 0.800 |
+  | field_light | 0.765 → 0.980 | 0.975 → 0.985 | 0.830 → 0.995 |
+  | ring_obst | 0.695 → 1.000 | 0.985 → 1.000 | 0.805 → 1.000 |
+  | turn fc / yp | 0.763 / 0.100 → 0.963 / 0.161 | 0.714 / 0.095 → 0.948 / 0.145 | 0.797 / 0.104 → 0.958 / 0.158 |
+  | move_turn survival | 0.740 → 0.995 | 0.985 → 0.990 | 0.945 → 1.000 |
+  | jitter | 0.195 → 0.145 | 0.199 → 0.157 | 0.198 → 0.150 |
+
+  - S1 s17's |ratio − 1| is within margin: side 0.061 vs anchor 0.033 (+0.028 < 0.03).
+  - m-screen: no intermediate replaces a head at any seed.
+  - **p2b trigger (§6.5) FIRED:** gain 3/3 and a deficit at 3/3 (field_hard < 0.85 everywhere). The queue stopped
+    to ask, and the user was notified.
+  - **§7 judging started** (3 judges + fable check) on candidates S1 s16 / s17 / s18 and A1 s18.
+    - Inputs: `judging_inputs.json` / `.md`.
+    - Mechanical obstacle rank-sum: S1 s18 6.5, S1 s16 10.0, A1 s18 11.5, S1 s17 12.0.

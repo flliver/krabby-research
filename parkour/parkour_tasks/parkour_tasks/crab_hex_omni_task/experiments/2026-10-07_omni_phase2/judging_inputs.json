@@ -1,0 +1,393 @@
+{
+ "verdicts": {
+  "P2__A1_s18": {
+   "name": "P2__A1_s18",
+   "gain": true,
+   "cost": [],
+   "gain_read": {
+    "gain": true,
+    "field_hard": [
+     0.745,
+     0.5,
+     0.7000000000000001
+    ],
+    "field_light_ok": true,
+    "ring_obst_ok": true,
+    "field_hard_ok": true
+   },
+   "deltas": {
+    "err_fwd": -0.03380061474954266,
+    "err_back": -0.003974474599864886,
+    "err_side": 0.00029256833321977815,
+    "err_diag": -0.01279573812273438,
+    "turn_fc": -0.13150739087776997,
+    "turn_yp": -0.02381361982199559,
+    "mt_surv": -0.05499999999999994
+   },
+   "verdict": "PASS",
+   "why": [
+    "gain, no flat loss"
+   ]
+  },
+  "P2__A0_s18": {
+   "name": "P2__A0_s18",
+   "gain": true,
+   "cost": [],
+   "gain_read": {
+    "gain": true,
+    "field_hard": [
+     0.715,
+     0.5,
+     0.7000000000000001
+    ],
+    "field_light_ok": true,
+    "ring_obst_ok": true,
+    "field_hard_ok": true
+   },
+   "deltas": {
+    "err_fwd": -0.03621819934077686,
+    "err_back": 0.0018339285500885705,
+    "err_side": 0.01684969165188077,
+    "err_diag": -0.029560712035254566,
+    "turn_fc": -0.09871694748242343,
+    "turn_yp": -0.013698797990323489,
+    "mt_surv": -0.05499999999999994
+   },
+   "verdict": "PASS",
+   "why": [
+    "gain, no flat loss"
+   ]
+  },
+  "P2__S1_s16": {
+   "name": "P2__S1_s16",
+   "gain": true,
+   "cost": [],
+   "gain_read": {
+    "gain": true,
+    "field_hard": [
+     0.83,
+     0.435,
+     0.535
+    ],
+    "field_light_ok": true,
+    "ring_obst_ok": true,
+    "field_hard_ok": true
+   },
+   "deltas": {
+    "err_fwd": -0.0064098656677151755,
+    "err_back": 0.016009963101406566,
+    "err_side": 0.015231698637066637,
+    "err_diag": 0.018361947624022212,
+    "turn_fc": -0.20003475645111812,
+    "turn_yp": -0.06092089533367889,
+    "mt_surv": -0.255
+   },
+   "verdict": "PASS",
+   "why": [
+    "gain, no flat loss"
+   ]
+  },
+  "P2__S1_s17": {
+   "name": "P2__S1_s17",
+   "gain": true,
+   "cost": [],
+   "gain_read": {
+    "gain": true,
+    "field_hard": [
+     0.73,
+     0.56,
+     0.6799999999999999
+    ],
+    "field_light_ok": true,
+    "ring_obst_ok": true,
+    "field_hard_ok": true
+   },
+   "deltas": {
+    "err_fwd": -0.02041469431883769,
+    "err_back": -0.01420909437306328,
+    "err_side": 0.027938962820982294,
+    "err_diag": 0.006164868655343714,
+    "turn_fc": -0.23468601836298075,
+    "turn_yp": -0.049868998700084,
+    "mt_surv": -0.0050000000000000044
+   },
+   "verdict": "PASS",
+   "why": [
+    "gain, no flat loss"
+   ]
+  },
+  "P2__S1_s18": {
+   "name": "P2__S1_s18",
+   "gain": true,
+   "cost": [
+    "err_back"
+   ],
+   "gain_read": {
+    "gain": true,
+    "field_hard": [
+     0.8,
+     0.5,
+     0.7000000000000001
+    ],
+    "field_light_ok": true,
+    "ring_obst_ok": true,
+    "field_hard_ok": true
+   },
+   "deltas": {
+    "err_fwd": 0.00867759819881675,
+    "err_back": 0.057316190026315716,
+    "err_side": 0.005855152142458797,
+    "err_diag": -0.02880368557567059,
+    "turn_fc": -0.16151072329367144,
+    "turn_yp": -0.053971810900195566,
+    "mt_surv": -0.05499999999999994
+   },
+   "verdict": "COST",
+   "why": [
+    "err_back worse by 0.0573"
+   ]
+  },
+  "P2__E1_s18": {
+   "name": "P2__E1_s18",
+   "verdict": "NOT RUN",
+   "why": [
+    "dropped by the user 2026-10-06 (CHARTER 4 replay gate FAIL)"
+   ],
+   "gain": null,
+   "cost": []
+  },
+  "P2__F1_s18": {
+   "name": "P2__F1_s18",
+   "gain": false,
+   "cost": [],
+   "gain_read": {
+    "gain": false,
+    "field_hard": [
+     0.695,
+     0.5,
+     0.7000000000000001
+    ],
+    "field_light_ok": true,
+    "ring_obst_ok": true,
+    "field_hard_ok": false
+   },
+   "deltas": {
+    "err_fwd": -0.027183021538322638,
+    "err_back": 0.04702971457763061,
+    "err_side": 0.041047191044722986,
+    "err_diag": 0.00471289837989286,
+    "turn_fc": -0.12995956953867438,
+    "turn_yp": -0.024278226539764997,
+    "mt_surv": -0.04999999999999993
+   },
+   "verdict": "NO GAIN",
+   "why": [
+    "field_hard 0.695 vs need 0.700; field_light ok True; ring_obst ok True"
+   ]
+  }
+ },
+ "rank_inputs": {
+  "S1_s16": {
+   "floors": "PASS",
+   "field_hard": 0.83,
+   "field_light": 0.98,
+   "ring_obst": 1.0,
+   "field_mt_surv": 0.995,
+   "err_fwd": 0.004158188129567142,
+   "err_back": 0.04097558414376401,
+   "err_side": 0.03940175338725327,
+   "err_diag": 0.05285839959622041,
+   "turn_fc": 0.9634250312336285,
+   "turn_yp": 0.16086800183277888,
+   "mt_surv": 0.995,
+   "jitter": 0.1454723895065615,
+   "stand_steps_per_s": 2.5,
+   "stand_clearance": 0.12326513044536111,
+   "field_turn_completion": 0.98,
+   "field_turn_fall_share": 0.02,
+   "field_turn_turn_fc": 0.9512761672085526,
+   "field_turn_turn_yp": 0.15467377608065885,
+   "obstacle_rank_sum": 10.0,
+   "phase1_rank_sum": 14.0,
+   "turn_rank_sum": 2.0
+  },
+  "S1_s17": {
+   "floors": "PASS",
+   "field_hard": 0.73,
+   "field_light": 0.985,
+   "ring_obst": 1.0,
+   "field_mt_surv": 0.995,
+   "err_fwd": 0.009041969063090072,
+   "err_back": 0.017145670952062986,
+   "err_side": 0.061361284231025603,
+   "err_diag": 0.007562373358125818,
+   "turn_fc": 0.9483283031647889,
+   "turn_yp": 0.14503927017156631,
+   "mt_surv": 0.99,
+   "jitter": 0.15655022862814874,
+   "stand_steps_per_s": 2.75,
+   "stand_clearance": 0.1331618946045637,
+   "field_turn_completion": 0.96,
+   "field_turn_fall_share": 0.04,
+   "field_turn_turn_fc": 0.9384254806958151,
+   "field_turn_turn_yp": 0.1446877165566821,
+   "obstacle_rank_sum": 12.0,
+   "phase1_rank_sum": 19.0,
+   "turn_rank_sum": 6.0
+  },
+  "S1_s18": {
+   "floors": "COST",
+   "field_hard": 0.8,
+   "field_light": 0.995,
+   "ring_obst": 1.0,
+   "field_mt_surv": 1.0,
+   "err_fwd": 0.04988039861231419,
+   "err_back": 0.08733711378403441,
+   "err_side": 0.05100761454434899,
+   "err_diag": 0.015353167813918933,
+   "turn_fc": 0.9584625645068752,
+   "turn_yp": 0.1580119506698361,
+   "mt_surv": 1.0,
+   "jitter": 0.15045547227913345,
+   "stand_steps_per_s": 2.8333333333333335,
+   "stand_clearance": 0.13495449051260947,
+   "field_turn_completion": 0.99,
+   "field_turn_fall_share": 0.01,
+   "field_turn_turn_fc": 0.9450004918638815,
+   "field_turn_turn_yp": 0.15092072918656527,
+   "obstacle_rank_sum": 6.5,
+   "phase1_rank_sum": 18.5,
+   "turn_rank_sum": 4.0
+  },
+  "A1_s18": {
+   "floors": "PASS",
+   "field_hard": 0.745,
+   "field_light": 0.995,
+   "ring_obst": 0.995,
+   "field_mt_surv": 0.995,
+   "err_fwd": 0.007402185663954786,
+   "err_back": 0.026046449157853813,
+   "err_side": 0.04544503073510997,
+   "err_diag": 0.031361115266855144,
+   "turn_fc": 0.9284592320909737,
+   "turn_yp": 0.1278537595916361,
+   "mt_surv": 1.0,
+   "jitter": 0.20288111817351387,
+   "stand_steps_per_s": 3.6666666666666665,
+   "stand_clearance": 0.0897908307611942,
+   "field_turn_completion": 0.97,
+   "field_turn_fall_share": 0.03,
+   "field_turn_turn_fc": 0.9365374090486034,
+   "field_turn_turn_yp": 0.1321891044477146,
+   "obstacle_rank_sum": 11.5,
+   "phase1_rank_sum": 18.5,
+   "turn_rank_sum": 8.0
+  }
+ },
+ "m_screen": {
+  "S1_s16": {
+   "16000": {
+    "status": "NO",
+    "n100": [
+     0.77,
+     0.86,
+     0.1
+    ]
+   },
+   "17500": {
+    "status": "NO",
+    "n100": [
+     0.85,
+     0.86,
+     0.1
+    ]
+   },
+   "19000": {
+    "status": "NO",
+    "n100": [
+     0.82,
+     0.86,
+     0.1
+    ]
+   }
+  },
+  "S1_s17": {
+   "16000": {
+    "status": "NO",
+    "n100": [
+     0.67,
+     0.69,
+     0.11999999999999988
+    ]
+   },
+   "17500": {
+    "status": "NO",
+    "n100": [
+     0.69,
+     0.69,
+     0.11999999999999988
+    ]
+   },
+   "19000": {
+    "status": "NO",
+    "n100": [
+     0.77,
+     0.69,
+     0.11999999999999988
+    ]
+   }
+  },
+  "S1_s18": {
+   "16000": {
+    "status": "NO",
+    "n100": [
+     0.86,
+     0.79,
+     0.20000000000000007
+    ]
+   },
+   "17500": {
+    "status": "NO",
+    "n100": [
+     0.75,
+     0.79,
+     0.20000000000000007
+    ]
+   },
+   "19000": {
+    "status": "NO",
+    "n100": [
+     0.8,
+     0.79,
+     0.20000000000000007
+    ]
+   }
+  },
+  "A1_s18": {
+   "16000": {
+    "status": "NO",
+    "n100": [
+     0.58,
+     0.73,
+     0.20000000000000007
+    ]
+   },
+   "17500": {
+    "status": "NO",
+    "n100": [
+     0.56,
+     0.73,
+     0.20000000000000007
+    ]
+   },
+   "19000": {
+    "status": "NO",
+    "n100": [
+     0.8,
+     0.73,
+     0.20000000000000007
+    ]
+   }
+  }
+ }
+}
