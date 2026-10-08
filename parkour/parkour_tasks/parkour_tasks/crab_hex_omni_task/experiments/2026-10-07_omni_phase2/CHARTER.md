@@ -764,3 +764,22 @@ recommendation.
   - **Caveat:** one run each, forked from the same head; the knob effect and run-to-run divergence are not separable.
 - 2026-10-07, **USER DECISION: F1 dropped** (not kept; not a §7 candidate). **Queue resumed:** `FROM_STEP=a1rep`, so
   the S1 s16 / s17 replicates run, then the recipe read.
+- 2026-10-07 ~19:40, **S1 s16 (replicate) reads complete: PASS against ANCW_s16** (gain, no flat loss, no cost; hands
+  FAST, no hold falls).
+
+  | Metric | ANCW s16 | S1 s16 |
+  |---|---|---|
+  | field_hard / field_light / ring_obst | 0.435 / 0.765 / 0.695 | **0.830** / 0.980 / 1.000 (gain needs ≥ 0.535) |
+  | fwd / back / side / diag \|ratio − 1\| | 0.011 / 0.025 / 0.024 / 0.034 | 0.004 / 0.041 / 0.039 / 0.053 (all within 0.03) |
+  | turn facing_closed / yaw_progress | 0.763 / 0.100 | 0.963 / 0.161 |
+  | move_turn survival | 0.740 | 0.995 |
+  | jitter | 0.195 | 0.145 |
+
+  - **m-screen:** no intermediate beats the head (field_hard at n = 100: 0.77 / 0.85 / 0.82 vs head 0.86).
+  - **Gait vs ANCW s16:**
+    - tripod fwd 0.53 → 0.70, back 0.62 → 0.72, diag 0.69 → 0.77, but side 0.79 → 0.71;
+    - fwd steps/m 11.7 → 10.5, taps/m 16.0 → 13.7, swing apex 0.100 → 0.130 m;
+    - fwd work/m 1142 → 1242, unlike s18 where it fell;
+    - speed ratio fwd 0.996 / back 1.041, so the s18 overshoot did not reappear;
+    - stand steps/s 3.50 → 2.50.
+  - S1 s17 is training; the recipe read follows it.
