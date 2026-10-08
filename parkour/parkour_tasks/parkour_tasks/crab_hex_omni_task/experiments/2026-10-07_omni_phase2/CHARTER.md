@@ -818,3 +818,5 @@ recommendation.
   - **Noted for the record:** the §7 rule has no tie tolerance. "Floors (PASS or COST)" was applied as a gate. The
     field_suite move_turn reading was the pre-registered one (scenarios_p2.yaml notes, 4d0c954b).
   - Head of record, bake and p2b were put to the user.
+- 2026-10-07, **USER: don't bake yet; plan p2b first.** No head of record is named for phase 2 yet. The p2b arms
+  (fork heads, overlay, gates) are drafted for review before anything trains.
