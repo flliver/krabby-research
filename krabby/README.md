@@ -64,8 +64,13 @@ enroll: [`fleet/ENROLL.md`](../fleet/ENROLL.md). One-source SSH:
 as a systemd service (`krabby-agent.service`, separate from
 `krabby-locomotion.service`).
 
+Before enroll, set the `krabby-enroll` IAM access key in the shell on the Orin
+as `AWS_*` environment variables (`sudo -E` below keeps them for the command).
+Enroll uses those variables only to provision the device and does not write AWS
+secrets to disk. Full flow: [`fleet/ENROLL.md`](../fleet/ENROLL.md).
+
 ```bash
-export AWS_ACCESS_KEY_ID=... AWS_SECRET_ACCESS_KEY=... AWS_DEFAULT_REGION=<region>  # krabby-enroll keys
+export AWS_ACCESS_KEY_ID=... AWS_SECRET_ACCESS_KEY=... AWS_DEFAULT_REGION=<region>
 sudo -E env PATH="$PATH" krabby enroll --thing-name <thing-name>
 ```
 
