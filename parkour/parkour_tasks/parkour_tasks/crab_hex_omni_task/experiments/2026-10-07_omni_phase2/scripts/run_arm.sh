@@ -284,6 +284,9 @@ ACCEPT_WHY=${ACCEPT_WHY-"omni phase2 run_arm.sh: candidates as of $(date -I)"}
 launch() {  # REF -> UNIT, T0, T0S
   local ref=$1 lout args=() view
   [ "$FIRST_ACC" = 1 ] && [ -n "$ACCEPT_WHY" ] && args=(--accept-candidates-change "$ACCEPT_WHY")
+  # ACCEPT_CODE_WHY (CHARTER 10, p2b): a deliberate code_sha move (the p2b step-1 commit) is accepted ONCE by the
+  # driver, which then records the new code_sha; passing it again with an unchanged code_sha is a no-op.
+  [ -n "${ACCEPT_CODE_WHY:-}" ] && args+=(--accept-code-change "$ACCEPT_CODE_WHY")
   view=$(launch_view) || { say "STOP $ref: launch view could not be written"; LAUNCH_WHY="launch view failed"; return 6; }
   [ -n "$view" ] && args+=(--candidates "$view") && say "note $ref: placeholders remain in candidates.yaml -- launching through $view"
   UNIT=""

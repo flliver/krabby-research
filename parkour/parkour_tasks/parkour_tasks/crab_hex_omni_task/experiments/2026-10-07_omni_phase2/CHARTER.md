@@ -894,3 +894,9 @@ was not re-audited. That file is the pre-registration. Its decisive rules, resta
       on flat-tile tilt, 1.7–2.9× per head.
     - This was set before any TG launch because the fable check flagged a likely false +200 kill at s18.
   - `candidates_v9` fills the weights. The p2b queue had started at 01:08 with the REF re-evals, on code e3fe70fb.
+- 2026-10-08 03:40, **REF re-evals done; INERTNESS PASS.** All 9 read rows of REF_S1_s16 / s17 / s18 equal their p2a
+  reads exactly; field_hard env_seeds 3–4 are new.
+  - The screen's first launch (C0) was refused by the driver's code_sha check (dfcc5310 → e3fe70fb, the intended p2b
+    step-1 move). No driver state changed.
+  - Fix: run_arm.sh passes `--accept-code-change "$ACCEPT_CODE_WHY"` when set. The queue is resumed `FROM_STEP=screen`
+    with it, under the same chain names, since the driver never started.
