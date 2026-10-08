@@ -900,3 +900,27 @@ was not re-audited. That file is the pre-registration. Its decisive rules, resta
     step-1 move). No driver state changed.
   - Fix: run_arm.sh passes `--accept-code-change "$ACCEPT_CODE_WHY"` when set. The queue is resumed `FROM_STEP=screen`
     with it, under the same chain names, since the driver never started.
+- 2026-10-08 14:30, **p2b s18 SCREEN: all three NO GAIN; no lever beats continuation.** Queue stopped as pre-registered
+  (`p2b_screen.json`, `p2b_mech_screen.json`). The read was only seen at 15:20, because the watcher was not re-armed
+  after TG's milestone (operator slip).
+
+  | s18 head | field_hard (n = 400) | falls / 400 (pit, leg strike, move_turn) | stand steps/s, clearance (suite) | fwd tripod, apex |
+  |---|---|---|---|---|
+  | REF_S1_s18 | 0.8125 | 75 (29, 23, 5) | 2.83, 0.135 m | 0.74, 0.139 |
+  | C0 continuation | 0.785 | 86 (43, 33, 28) | 2.67, 0.113 | 0.70, 0.132 |
+  | CL terrain-relative lift | **0.695** | 122 (46, 49, 31) | 1.42, 0.077 | 0.64, 0.112 |
+  | TG tilt guard | 0.8275 | 69 (19, 27, 14) | **1.08**, 0.104 | 0.74, 0.159 |
+
+  - **Gain gate** (REF + max(0.05, 2·SE) ≈ 0.867–0.873): none passes.
+  - **Attribution vs C0:** CL −0.09; TG +0.0425, needing +0.056.
+  - **No FLAT FAIL** anywhere, including the chained ANCW floor.
+  - **CL:**
+    - It raised neither walking apex on walls (diag 0.052 vs 0.058 m) nor flat apex (0.112 vs 0.139).
+    - It added leg strikes and pit falls; flat tripod fell from 0.74 to 0.64.
+    - Training lift income was 2.8× the replay's prediction, so the term was live but did not produce lift where it
+      counts.
+  - **TG:**
+    - pit falls 29 → 19; total falls lowest of the four;
+    - flat stand stepping 2.83 → 1.08 steps/s (−62 %), an unplanned effect on the open stand-march problem;
+    - walls +0.015 vs REF, within noise.
+  - **C0:** continuation alone slightly hurts walls (move_turn falls 5 → 28).
