@@ -948,3 +948,6 @@ was not re-audited. That file is the pre-registration. Its decisive rules, resta
   - **Stand:** 2.5 vs 2.8 steps/s.
   - **Lineage:** s18 adds `6_p2a_field/` only. s16 re-bakes stages 1–5 from the B s16 line, whose phase-1 head was the
     weakest: flat completion 0.89, move_turn survival 0.74.
+- 2026-10-08, **USER DECISION: bake S1 s18** as the omni phase-2 head of record (`policy/6_p2a_field/`, model_19994),
+  after the s16-vs-s18 breakdown. Stages 1–5 are unchanged (same s18 lineage). Bake in progress (workflow
+  wf_c70ed026, then a fable review).
