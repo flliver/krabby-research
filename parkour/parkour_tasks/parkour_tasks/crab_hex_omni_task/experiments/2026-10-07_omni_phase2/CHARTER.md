@@ -959,3 +959,7 @@ was not re-audited. That file is the pre-registration. Its decisive rules, resta
   - README regenerated; `bundle_policy --check` OK. Tests: 390 pass with the .pt staged.
   - code_sha e3fe70fb and eval_sha 1d021625 unchanged.
   - Done via workflow wf_c70ed026; fable review found nothing blocking, and its minor notes were applied.
+- 2026-10-08, **campaign write-up:** `PHASE2_REPORT.md` (workflow wf_376b2642). The fable fact-check found no numeric
+  errors. Its 9 citation, attribution and overstatement notes were applied: §10 citations for the 2026-10-08
+  entries; the E1 and TD drops attributed to the user; the back-overshoot cause hedged (n = 1); C0's drop inside
+  noise. **Phase 2 is closed.**
