@@ -8,7 +8,7 @@ krabby-hal-server==0.1.3
 krabby-hal-server-jetson==0.1.6
 krabby-hal-tools==0.1.0
 krabby-compute-parkour==0.1.1
-krabby-controller==0.1.3
+krabby-controller==0.1.4
 krabby-firmware==0.2.16
 krabby-teleop-edge==0.1.1
 
