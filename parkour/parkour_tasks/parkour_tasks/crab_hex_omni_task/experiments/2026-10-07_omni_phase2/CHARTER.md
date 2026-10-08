@@ -924,3 +924,9 @@ was not re-audited. That file is the pre-registration. Its decisive rules, resta
     - flat stand stepping 2.83 → 1.08 steps/s (−62 %), an unplanned effect on the open stand-march problem;
     - walls +0.015 vs REF, within noise.
   - **C0:** continuation alone slightly hurts walls (move_turn falls 5 → 28).
+- 2026-10-08, **USER: STOP p2b here.** No replicates; p2b is closed with no lever adopted.
+  - CL hurt; TG gave no wall gain at s18. TG's stand-stepping cut (−62 %) is recorded as a lead for the open stand-march
+    problem.
+  - **§7 candidates:** the REF heads plus p2b heads reading PASS or COST, of which there are none. So the candidates are
+    the S1 p2a heads, as already judged (unanimous S1 s18; S1 s16 tie-aware).
+  - The bake decision returns to the user.
