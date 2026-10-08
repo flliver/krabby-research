@@ -820,3 +820,35 @@ recommendation.
   - Head of record, bake and p2b were put to the user.
 - 2026-10-07, **USER: don't bake yet; plan p2b first.** No head of record is named for phase 2 yet. The p2b arms
   (fork heads, overlay, gates) are drafted for review before anything trains.
+
+## 10. Stage p2b (pre-registered 2026-10-08, before any p2b run)
+
+The approved, audited plan is copied verbatim to `P2B_PLAN.md`: 2 audit passes; the last change (terrain-relative lift)
+was not re-audited. That file is the pre-registration. Its decisive rules, restated:
+
+- **Arms** (stage `p2b`, base 2a, 5000 its, each forked from its seed's S1 p2a head model_19994, S1 overlay verbatim):
+  - **C0** (s18 only): no change, a p2a continuation.
+  - **CL** (s16 / 17 / 18): `KRABBY_FOOT_CLEAR_W 1.0`, `_MIN 0.03`, `_FLAT 1`, `KRABBY_SWING_MIN_CLEAR_W −0.4`, plus the new
+    `KRABBY_FOOT_CLEAR_TERRAIN 1` (terrain-relative foot height). The replay gate may re-dose; one weight per term
+    across seeds.
+  - **TG** (s16 / 17 / 18): new `KRABBY_ORIENT_ALL_TILES 1` (`reward_orientation` → `reward_orientation_upright`, all
+    tiles), with `KRABBY_ORIENT_W` from the replay band.
+- **Replay gate (CPU, before training):**
+  - CL: income rises with terrain-relative apex, pit swings included; counterfactual crouch payoff ≤ 10 % of the lift
+    payoff per cm; foot-clearance income 1–10 % of tracking; swing-min penalty ≤ 5 %.
+  - TG: pre-fall cost ≥ 5× walking; mean cost 1–5 % of tracking.
+  - A failure stops and asks.
+- **References `REF_S1_s{16,17,18}`:** the S1 p2a heads re-evaluated on the new code, with field_hard at env_seeds 1–4
+  (n = 400). They must reproduce their p2a reads exactly; otherwise stop and ask.
+- **Ladder per arm and seed vs REF:** INVALID / PENDING / HAND LOSS / DOSE / FLAT FAIL (vs REF, and vs ANCW through
+  chained suite deltas) / NO GAIN / COST / PASS.
+  - **NO GAIN** unless all three hold:
+    - field_hard (n = 400) ≥ REF + max(0.05, 2·SE), with SE = √(p_REF·q_REF/400 + p_arm·q_arm/400);
+    - field_light ≥ REF − max(0.03, band);
+    - ring_obst ≥ REF − max(0.05, band).
+- **Attribution (s18):** a lever beats continuation only if its REF verdict is a gain, it beats C0 by the same SE
+  margin, and it has no FLAT FAIL against C0. s16 / s17 reads are "lever + continuation".
+- **Stops:** after the s18 screen (C0, CL, TG), stop and ask (the user may prune); after the replicates, stop and ask
+  with the recipe reads (§6.2 rules).
+- **Head of record:** §7 unchanged (no tie tolerance). Candidates: the REF heads plus every p2b head reading PASS or
+  COST, C0 included. Bake is the user's call.
