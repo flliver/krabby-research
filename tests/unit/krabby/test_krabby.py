@@ -503,6 +503,13 @@ class TestGamepadCmd:
         script = " ".join(gamepad_cmd("myimage:tag", ["--robot", "bogus"]))
         assert "--control-source gamepad --observation-bind" in script
 
+    def test_local_controller_tree_sets_pythonpath(self, monkeypatch):
+        # Mount clone at /opt/krabby-research so host InputController is used.
+        monkeypatch.setattr("krabby._docker.platform.machine", lambda: "aarch64")
+        script = gamepad_cmd("myimage:tag", [])[gamepad_cmd("myimage:tag", []).index("-c") + 1]
+        assert "/opt/krabby-research/controller" in script
+        assert "PYTHONPATH=" in script
+
 
 from krabby.run import cmd_run
 from krabby import __main__ as krabby_main
@@ -546,7 +553,7 @@ class TestCmdRun:
         return captured
 
     def test_clears_krabby_container_before_docker_run(self, monkeypatch):
-        # F6: boot unit / prior run owns --name krabby; clear like ExecStartPre.
+        # Boot unit / prior run owns --name krabby; clear like ExecStartPre.
         captured = self._run(monkeypatch, image_ref="img:tag")
         assert captured["subprocess_cmds"][0] == ["docker", "rm", "-f", "krabby"]
         assert captured["subprocess_cmds"][1][:2] == ["docker", "run"]

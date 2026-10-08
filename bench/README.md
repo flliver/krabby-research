@@ -225,7 +225,7 @@ krabby-bench harness --skip-install --no-reset --repo-root "$(pwd)"
 
 | Stage | What it does |
 |---|---|
-| **install** | `bench-reset.sh` → create `~/.venv-krabby-bench` → `pip install krabby-launcher` (+ local `./bench`) → `sudo -E env PATH=<venv/bin>:$PATH <venv/bin/krabby> install --no-launch-on-startup` (F2) |
+| **install** | `bench-reset.sh` → create `~/.venv-krabby-bench` → `pip install krabby-launcher` (+ local `./bench`) → `sudo -E env PATH=<venv/bin>:$PATH <venv/bin/krabby> install --no-launch-on-startup` |
 | **flash** | Existing `run_smoke`: flash all boards, assert versions match S3 |
 | **bringup** | `krabby run --gamepad-only`; wait for container + MCU connected in logs |
 | **motion** | Stop container; jog RLKL, RRKL, FLKL, FRHL, FRKL (override with `--joint …`) via **host** repo `firmware/` (PIN_REV=2 is local-testing only / `dev-local` — not S3; will not be used going forward); assert pot or hall delta per joint |

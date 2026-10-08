@@ -55,7 +55,7 @@ echo "==> Dual-use light reset (user=${KIT_USER}, home=${KIT_HOME})"
 echo "    Preserving cold-start venv: ${COLD_VENV}"
 echo "    Removing bench venv:        ${BENCH_VENV}"
 
-echo "==> Stopping locomotion container name races (F6)"
+echo "==> Stopping locomotion container name races"
 if command -v docker >/dev/null 2>&1; then
   docker rm -f krabby 2>/dev/null || true
   # Best-effort: any other container with "krabby" in the name except orphans we keep.

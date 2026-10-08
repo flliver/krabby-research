@@ -177,6 +177,11 @@ def _gamepad_launch_script(server_robot: str) -> str:
         'if [ ! -e "$MCU_PORT" ]; then '
         'echo "warning: MCU device not found at $MCU_PORT — starting without MCU '
         '(mcu_present=false; set KRABBY_MCU_PORT if the board is elsewhere)." >&2; fi; '
+        # Local tree override: mount the clone at /opt/krabby-research
+        # (krabby run --mount "$PWD:/opt/krabby-research").
+        'if [ -d /opt/krabby-research/controller ]; then '
+        'export PYTHONPATH="/opt/krabby-research${PYTHONPATH:+:$PYTHONPATH}"; '
+        'echo "info: using host controller from /opt/krabby-research (PYTHONPATH)"; fi; '
         'krabby-hal-server-jetson --control-source gamepad' + server_robot + ' '
         '--observation-bind "tcp://*:6001" --command-bind "tcp://*:6002" & '
         'server_pid=$!; '

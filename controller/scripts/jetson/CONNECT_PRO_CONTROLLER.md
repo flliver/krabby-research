@@ -248,7 +248,11 @@ sudo -E env PATH="$PATH" "$(which krabby)" install
 
 - Use `krabby run --gamepad-only` on enrolled hosts.
 - Try `-- --device-id 1` if both `js0` and `js1` exist.
-- Idle BT sleep mid-session is a separate issue (F13): restart the stack after Home-wake.
+- After idle BT sleep (LEDs out) or a mid-session unplug: press **Home** (or replug USB) and wait up to ~10s — `InputController` reopens the pad without restarting the stack. Logs show disconnect then reconnect. Only if sticks stay dead after that: `docker rm -f krabby` then `krabby run`, or `sudo systemctl restart krabby-locomotion`.
+- To exercise a **local** (not yet imaged) controller tree: from the clone,
+  `krabby run --gamepad-only --mount "$PWD:/opt/krabby-research"`
+  (launch sets `PYTHONPATH` when that mount is present). Smoke-test reopen only:
+  `python3 controller/scripts/jetson/verify_joystick_reopen.py`
 
 ### Player 2 / multiple LEDs (official Pro)
 
