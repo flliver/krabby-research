@@ -966,12 +966,14 @@ def test_run_arm_p2_eval_and_env_extra_reach_the_eval(tmp_path, which):
 
 
 def test_run_arm_diff_is_only_the_two_hooks():
-    """Everything else in run_arm.sh is unchanged: exactly one EVAL line and two env lines carry the hooks."""
+    """The two hooks (P2_EVAL / P2_ENV_EXTRA) this step added are still exactly where / how many they were: one
+    EVAL= assignment, two env lines. (Later campaign steps -- the p2r step-2 graft branch of verify_head_sha /
+    fork_source_rd, CHARTER 12 -- legitimately add OTHER lines elsewhere in the file, so this no longer pins an
+    exact line NUMBER, only the hooks' own shape.)"""
     s = RUN_ARM.read_text()
     assert s.count("${P2_EVAL:-") == 1 and s.count("${P2_ENV_EXTRA:-}") == 2
-    lines = s.splitlines()
-    assert lines[69] == ("EVAL=${P2_EVAL:-$CODE_ROOT/parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/"
-                         "scripts/eval_crab_hex_gait.py}")
+    assert ("EVAL=${P2_EVAL:-$CODE_ROOT/parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/"
+           "scripts/eval_crab_hex_gait.py}") in s.splitlines()
 
 
 # ===================================================================================== controls (the guards bite)

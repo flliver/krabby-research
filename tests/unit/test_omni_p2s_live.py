@@ -403,4 +403,5 @@ def test_cli_at_p2s_on_a_non_p2s_chain_is_na(live, capsys, monkeypatch):
     monkeypatch.setattr(sys, "argv", ["p2_live.py", "--check", str(rd), "--chain", "P2__C0_s18", "--at", "p2s",
                                       "--arms", str(ARMS)])
     assert live.main() == live.RC_PASS
-    assert "not a p2s arm" in capsys.readouterr().out
+    # P2__C0_s18 is neither a p2s dose arm nor a stage-p2r Z arm (CHARTER 12): the wording grew to cover both
+    assert "not a p2s or p2r Z arm" in capsys.readouterr().out

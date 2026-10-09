@@ -40,9 +40,11 @@
 #        wiring  at +200 (p2_live.py --at 200: incl. the overlay audit and term liveness);
 #        terrain at +1000 (p2_live.py --at 1000);
 #        collapse every poll after +300 (p2_live.py --at collapse);
-#        p2s     a stage-p2s chain (P2__ST<k>[R<j>]_s<seed>, CHARTER 11): every poll after +300 the three p2s guards
-#                (p2_live.py --at p2s --arms $ARMS: episode-length and sigma KILL, rc 3; the crab_failure flag is
-#                NOTIFY-ONLY, rc 5 -> $ARMS/<ref>.p2s_flag + one NOTIFY line, the run continues, the record carries it).
+#        p2s     a stage-p2s chain (P2__ST<k>[R<j>]_s<seed>, CHARTER 11) OR a stage-p2r Z chain (P2__Z<k>[R<j>]_s<seed>,
+#                CHARTER 12 / P2R_STATUE_PLAN.md): every poll after +300 the three guards (p2_live.py --at p2s
+#                --arms $ARMS: episode-length and sigma KILL, rc 3; the crab_failure flag is NOTIFY-ONLY, rc 5 ->
+#                $ARMS/<ref>.p2s_flag + one NOTIFY line, the run continues, the record carries it). A Z chain has no
+#                stand-slot terms, so only these three guards run for it (no dose / term-liveness read).
 #      rc 2 = not enough telemetry (retried next poll, logged once); rc 3 = KILL: `systemctl --user stop` (never
 #      SIGKILL), touch $OUT/STOP_QUEUE, a NOTIFY line -- EVERY phase-2 kill stops the queue and asks. A reader crash
 #      (any other rc) is logged once and retried, never a kill. AUTO_KILL=0 only advises.
@@ -139,6 +141,15 @@ verify_head_sha() {  # CHAIN -> 0 when the chain's fork source matches anchors.y
   # path), OR -- a stage p2b fork of an S1 p2a head (P2B_PLAN.md step 1 / CHARTER 10) -- matches the sha256 the
   # newest complete field_hard__omni p2a eval stamp of that head's arms/P2__S1_s<seed>.record.json recorded
   # (run_meta.checkpoint_sha256; p2_complete.json, since field_hard__omni is a schedule row, not a category_suite one).
+  # STAGE p2r GRAFT BRANCH (P2R_STATUE_PLAN.md step 1 "tooling" / "Left for implementation"): a fork checkpoint with
+  # a sibling <ck>.json carrying "graft_sha256" is a graft (scripts/p2r_graft.py), not a bare training checkpoint.
+  # It is verified in two stages: (a) the FILE on disk must equal graft.json's own graft_sha256 (the file was not
+  # swapped since the graft tool wrote it), AND graft.json must carry identity_cpu true with a non-empty
+  # identity_gpu_stamps (the CPU identity check passed AND at least one GPU identity/inertness stamp exists -- a
+  # graft with identity_cpu alone is not enough to launch, only enough to BUILD the chain); (b) graft.json's OWN
+  # source_sha256 then stands in for "h" below, so the REST of this function (reused verbatim, branch-2 logic) asks
+  # the same question it always has -- is the UNDERLYING head (the graft's source, before the column-15 zeroing) a
+  # recognised anchors.yaml / P2__S1_s<seed> head -- just one more hop away from the file actually launched.
   "$PY" - "$C/candidates.yaml" "$C/anchors.yaml" "$1" "$R" "$ARMS" "$OUT" <<'PY'
 import hashlib, json, sys, yaml
 from pathlib import Path
@@ -150,11 +161,36 @@ if not ck:
     print(f"chain {chain} has no {{checkpoint}} fork"); sys.exit(1)
 ck_path = repo / ck
 h = hashlib.sha256(ck_path.read_bytes()).hexdigest() if ck_path.is_file() else None
+graft_json = ck_path.with_suffix(".json")
+via_graft = None
+if graft_json.is_file():
+    try:
+        gj = json.load(open(graft_json))
+    except (OSError, ValueError) as e:
+        print(f"fork {ck} has a graft sidecar {graft_json} that is unreadable ({e.__class__.__name__})"); sys.exit(1)
+    if "graft_sha256" in gj:
+        if h != gj.get("graft_sha256"):
+            print(f"sha256 of {ck} is {h}, its graft.json records graft_sha256 {gj.get('graft_sha256')}"); sys.exit(1)
+        if gj.get("identity_cpu") is not True:
+            print(f"fork {ck}'s graft.json identity_cpu is {gj.get('identity_cpu')!r}, not true (CPU identity "
+                 "check not passed)"); sys.exit(1)
+        if not gj.get("identity_gpu_stamps"):
+            print(f"fork {ck}'s graft.json identity_gpu_stamps is empty (no GPU identity/inertness stamp yet)")
+            sys.exit(1)
+        src_sha = gj.get("source_sha256")
+        if not src_sha:
+            print(f"fork {ck}'s graft.json has no source_sha256"); sys.exit(1)
+        via_graft = ck
+        ck, h = gj.get("source_path") or ck, src_sha
+        ck_path = repo / ck
+if h is None:
+    print(f"fork source {ck} is not a readable file" + (" (graft source)" if via_graft else "") + " and is not an "
+         "anchors.yaml head"); sys.exit(1)
 want = {a["checkpoint"]: a["sha256"] for a in anchors["anchors"].values()}
 if ck in want:
     if h != want[ck]:
         print(f"sha256 of {ck} is {h}, anchors.yaml records {want[ck]}"); sys.exit(1)
-    print(f"sha256 ok {h[:12]} (anchors.yaml)"); sys.exit(0)
+    print(f"sha256 ok {h[:12]} (anchors.yaml)" + (f" via graft {via_graft}" if via_graft else "")); sys.exit(0)
 if h is None:
     print(f"fork source {ck} is not a readable file and is not an anchors.yaml head"); sys.exit(1)
 rec = None
@@ -180,7 +216,7 @@ meta = json.load(open(stamps[-1] / "run_meta.json"))
 want_h = meta.get("checkpoint_sha256")
 if h != want_h:
     print(f"sha256 of {ck} is {h}, P2__S1_s{seed}'s eval stamp {stamps[-1]} records {want_h}"); sys.exit(1)
-print(f"sha256 ok {h[:12]} (P2__S1_s{seed} p2a head, stamp {stamps[-1].name})")
+print(f"sha256 ok {h[:12]} (P2__S1_s{seed} p2a head, stamp {stamps[-1].name})" + (f" via graft {via_graft}" if via_graft else ""))
 PY
 }
 write_sidecar() {  # STAMP_DIR -> STAMP_DIR/code_state.json (CHARTER 5 code-state sidecar)
@@ -323,14 +359,29 @@ live_read() {  # REF UNIT KIND AT RC OUT -> 0 continue, 1 killed (the watcher re
     *) return 0 ;;
   esac
 }
-fork_source_rd() {  # REF -> the run dir of the head its chain forks (resume_from: {checkpoint: <repo-relative .pt>})
+fork_source_rd() {  # REF -> the run dir of the head its chain forks (resume_from: {checkpoint: <repo-relative .pt>});
+  # a GRAFT fork (P2R_STATUE_PLAN.md step 1 "tooling": "fork_source_rd resolves a graft fork to the S1 run dir")
+  # resolves through its sidecar <ck>.json's "source_path" instead -- resume_read.py needs a real RSL-RL run
+  # directory (tensorboard logs, params/) to compare against, never the graft's own output-only directory.
   python3 - "$C/candidates.yaml" "$1" "$R" <<'PY' 2>/dev/null
-import sys, yaml
+import json, sys, yaml
 from pathlib import Path
 d = yaml.safe_load(open(sys.argv[1]))
 chain = d["references"][sys.argv[2]].get("chain") or sys.argv[2]
 rf = d["chains"][chain]["stages"][0]["resume_from"]
-print((Path(sys.argv[3]) / rf["checkpoint"]).parent)
+repo = Path(sys.argv[3])
+ck_path = repo / rf["checkpoint"]
+gj_path = ck_path.with_suffix(".json")
+if gj_path.is_file():
+    try:
+        gj = json.load(open(gj_path))
+    except (OSError, ValueError):
+        gj = {}
+    src = gj.get("source_path")
+    if src:
+        print((repo / src).parent)
+        sys.exit(0)
+print(ck_path.parent)
 PY
 }
 watch_arm() {  # REF RUN_DIR UNIT CHAIN TRAIN_LOG (background): the CHARTER 8 live reads, counted from the fork start
@@ -384,9 +435,13 @@ watch_arm() {  # REF RUN_DIR UNIT CHAIN TRAIN_LOG (background): the CHARTER 8 li
     fi
     # stage p2s (CHARTER 11 / P2S_PLAN.md step 6): the three p2s guards every poll after +300 -- rc 3 (episode-length
     # or sigma KILL) kills like any CHARTER 8 read; rc 5 (the rolling-500 crab_failure flag) is NOTIFY-ONLY: written
-    # once to $ARMS/<ref>.p2s_flag and push-notified, the run continues (scripts/p2s_queue.sh asks after the arm)
+    # once to $ARMS/<ref>.p2s_flag and push-notified, the run continues (scripts/p2s_queue.sh asks after the arm).
+    # Stage p2r's Z arms (P2R_STATUE_PLAN.md step 1, "Left for implementation": "p2_live p2s mode ... Z arms have
+    # no stand terms: wire only the sigma, episode-length and crab_failure guards") keep the SAME three guards,
+    # read against the SAME reference (p2_live.py's p2s_reference() already resolves P2__C0_s18 at seed 18 with no
+    # Z-specific change needed) -- only the dose/term-liveness half of --at p2s is skipped for them, in p2_live.py.
     case "$chain" in
-      P2__ST[0-9]*_s*)
+      P2__ST[0-9]*_s*|P2__Z[0-9]*_s*)
         if [ "$last" -ge $((first + 300)) ]; then
           out=$("$PY" "$S/p2_live.py" --check "$rd" --chain "$chain" --at p2s --candidates "$C/candidates.yaml" --arms "$ARMS" 2>&1); rc=$?
           if [ "$rc" = 3 ]; then

@@ -62,6 +62,10 @@ variable                        what it writes when armed
                                 the next touchdown, all six legs stance, no swing/apex income
 ``KRABBY_OMNI_STAND_OBS=1``     omni obs term ``params["stand_obs"] = True`` -- the STAND bit
                                 as an extra head channel, clock sin/cos zeroed while it is set
+``KRABBY_OMNI_STAND_OBS=clock`` omni obs term ``params["stand_bit_clock"] = True`` (no
+                                ``stand_obs``) -- the STAND bit written into the CURRENT step's
+                                hidden clock column 15 only (never the history); needs
+                                ``KRABBY_OMNI_CLOCK_HIDE=1`` with no ramp; width unchanged (p2r)
 **PPO construction (runner cfg; ``apply_exploration_knobs``; PPO-construction plan, 2026-10-01)**
 ``KRABBY_ACTION_BOUND_LOSS``    ``algorithm.action_bound_loss_coef`` -- the FINAL coefficient c1
                                 of the rl_games bound loss on the raw mean (blank / ``0`` = off)
@@ -80,6 +84,16 @@ variable                        what it writes when armed
                                 encoder's own Adam LR (stock: the configured learning_rate)
 ``KRABBY_PPO_HAND_DIAG=1``      ``algorithm.hand_diag_vy_obs_col = 9`` -- per-hand surrogate-
                                 gradient diagnostics every 25 updates (``PPO/hand_*``)
+**statue distillation (runner cfg; ``apply_exploration_knobs``; p2r statue plan, 2026-10-09)**
+``KRABBY_ANCHOR_W``             ``algorithm.anchor_coef`` -- the walking anchor's weight (>= 0;
+                                blank / ``0`` = off): 1/2 sum_d ((mu - mu_A) / sigma_A,d)^2 on
+                                the bit-0 rows, summed / B
+``KRABBY_ANCHOR_CKPT``          ``algorithm.anchor_ckpt`` -- the frozen anchor checkpoint (its
+                                ``actor.*`` weights give mu_A, its soft std sigma_A)
+``KRABBY_STAND_PRIOR_W``        ``algorithm.stand_prior_coef`` -- the statue prior's weight
+                                (>= 0): 1/2 sum_d (mu / sigma_A,d)^2 on the bit-1 rows, summed / B
+                                (any of the three armed also writes ``algorithm.stand_mask_col =
+                                15``; all need ``KRABBY_OMNI_STAND_OBS=clock`` and the checkpoint)
 **RSI cam staging (env cfg; ``events.rsi_reference_reset`` params, applied by ``omni_knobs._repoint_rsi``)**
 ``KRABBY_RSI_CAM_STAGE=1``      ``params["stage_cam"] = True`` -- an RSI-seeded env starts with the
                                 bank frame's cam shaft velocity as the applied cam target
@@ -129,9 +143,22 @@ are reused, not duplicated (they reach the omni flat-walk / teacher rewards beca
 (``reward_action_rate``) and ``KRABBY_AIRTIME_W`` (``reward_feet_air_time_positive`` -- the
 plan's "AIR_TIME_W"). :data:`REUSED_WEIGHT_KNOBS` names them for the ladder's dump audit.
 
-Both obs-changing knobs (``KRABBY_ACTION_LPF_OBS``, ``KRABBY_OMNI_STAND_OBS``) change the
+Both obs-changing knobs (``KRABBY_ACTION_LPF_OBS``, ``KRABBY_OMNI_STAND_OBS=1``) change the
 observation WIDTH: a checkpoint trained without them cannot load with them (from-scratch runs
 only), and ``crab_hex_omni_mirror.build_mirrors`` grows its head tables from the same params.
+
+Omni phase-2 stage p2r (``P2R_STATUE_PLAN.md`` step 1, 2026-10-09) added the value ``clock`` to
+``KRABBY_OMNI_STAND_OBS`` (:func:`parse_stand_obs`: ``0`` / ``1`` / ``clock``): the stand bit goes into
+the hidden clock column 15 of the current step (``params["stand_bit_clock"]``), WIDTH-PRESERVING, so
+a clock-free head (S1) loads with it -- the grafted head's col-15 weights start at zero. It reuses
+the knob already in the eval-locked ``EVAL_CARRY`` (a new name would be dropped from evals), arms the
+eval slot latch like ``1``, and is refused without ``KRABBY_OMNI_CLOCK_HIDE=1`` (no ramp) on the obs
+term. The same stage added three RUNNER-side knobs (:data:`STATUE_KNOBS`; not carried into evals):
+``KRABBY_ANCHOR_W`` / ``KRABBY_ANCHOR_CKPT`` / ``KRABBY_STAND_PRIOR_W`` -> ``PPOWithExtractor``'s
+two masked action-mean losses. They are refused unless ``KRABBY_OMNI_STAND_OBS=clock`` (the mask
+column would carry no stand bit), with a negative weight, with a weight but no checkpoint (sigma_A
+and mu_A come from it), or with a checkpoint but no weight (a recipe naming a loss it does not
+train). Each prints ``[KNOB] <NAME>=<value> consumed`` when applied.
 
 Pure at module scope (no Isaac, no torch): the appliers import ``RewTerm`` / ``SceneEntityCfg`` /
 the reward functions lazily, and every parser runs in a bare interpreter -- see
@@ -142,6 +169,7 @@ from __future__ import annotations
 
 import math
 import os
+from pathlib import Path
 
 # ------------------------------------------------------------------------------ variables
 ACTION_STD_MAX_VAR = "KRABBY_ACTION_STD_MAX"
@@ -205,6 +233,18 @@ RSI_CAM_STAGE_DEBUG_VAR = "KRABBY_RSI_CAM_STAGE_DEBUG"
 #: ``{variable: event param}`` -- each a flag, written as ``True`` when armed and ABSENT when off.
 RSI_CAM_STAGE_PARAMS = {RSI_CAM_STAGE_VAR: "stage_cam", RSI_CAM_STAGE_DEBUG_VAR: "stage_cam_debug"}
 #: The PPO-construction knobs in ONE tuple (the ladder tests and the dump audit iterate it).
+# -- p2r statue distillation (P2R_STATUE_PLAN step 1, 2026-10-09; all DEFAULT OFF, set by no preset)
+ANCHOR_W_VAR = "KRABBY_ANCHOR_W"
+ANCHOR_CKPT_VAR = "KRABBY_ANCHOR_CKPT"
+STAND_PRIOR_W_VAR = "KRABBY_STAND_PRIOR_W"
+#: The three runner-side statue knobs (``algorithm.anchor_coef`` / ``anchor_ckpt`` / ``stand_prior_coef``).
+STATUE_KNOBS = (ANCHOR_W_VAR, ANCHOR_CKPT_VAR, STAND_PRIOR_W_VAR)
+#: ``KRABBY_OMNI_STAND_OBS`` values (blank / ``0`` = off): ``1`` the appended head bit, ``clock`` the bit in
+#: the hidden clock column (p2r).
+STAND_OBS_MODES = ("1", "clock")
+#: The policy observation column ``clock`` mode writes the stand bit into, and ``PPOWithExtractor`` masks on
+#: (``CrabHexOmniParkourObservations.STAND_BIT_CLOCK_COL``; pinned by the unit tests).
+STAND_BIT_OBS_COL = 15
 PPO_CONSTRUCTION_KNOBS = (ACTION_BOUND_LOSS_VAR, ACTION_BOUND_RAMP_VAR, ACTION_BOUND_VAR, STD_PARAM_VAR,
                           INIT_STD_VAR, PPO_SCHEDULE_VAR, PPO_LR_VAR, PPO_DESIRED_KL_VAR, PPO_KL_STOP_VAR,
                           PPO_HIST_LR_VAR, PPO_HAND_DIAG_VAR, NUM_ENVS_VAR)
@@ -213,7 +253,7 @@ PPO_CONSTRUCTION_KNOBS = (ACTION_BOUND_LOSS_VAR, ACTION_BOUND_RAMP_VAR, ACTION_B
 AGENT_KNOBS = (ACTION_STD_MAX_VAR, ACTION_STD_RESET_VAR, ENTROPY_COEF_VAR,
                ACTION_BOUND_LOSS_VAR, ACTION_BOUND_RAMP_VAR, ACTION_BOUND_VAR, STD_PARAM_VAR, INIT_STD_VAR,
                PPO_SCHEDULE_VAR, PPO_LR_VAR, PPO_DESIRED_KL_VAR, PPO_KL_STOP_VAR, PPO_HIST_LR_VAR,
-               PPO_HAND_DIAG_VAR)
+               PPO_HAND_DIAG_VAR, *STATUE_KNOBS)
 
 #: The env-side knobs that change command, clock, action-path or observation SEMANTICS: an eval
 #: of a policy trained with one of them must be built with it too (``run_phases.EVAL_CARRY``).
@@ -316,6 +356,9 @@ __all__ = [
     # omni phase-2 stage p2s (2026-10-08)
     "STAND_SUPPORT_W_VAR", "STAND_SLIDE_W_VAR", "STAND_SUPPORT_TERM", "STAND_SLIDE_TERM",
     "STAND_LOAD_REF_N", "STAND_UPRIGHT_MIN",
+    # omni phase-2 stage p2r (2026-10-09)
+    "ANCHOR_W_VAR", "ANCHOR_CKPT_VAR", "STAND_PRIOR_W_VAR", "STATUE_KNOBS", "STAND_OBS_MODES",
+    "STAND_BIT_OBS_COL", "parse_stand_obs", "parse_statue_w", "parse_anchor_ckpt",
 ]
 
 
@@ -344,6 +387,47 @@ def parse_flag(text, var: str = "flag") -> bool:
     if token == "0":
         return False
     raise ValueError(f"{var} must be '0' or '1', got {text!r}")
+
+
+def parse_stand_obs(text) -> str | None:
+    """``KRABBY_OMNI_STAND_OBS`` -> ``"1"`` / ``"clock"``, or None for OFF (blank / ``0``); anything else raises."""
+    if _blank(text):
+        return None
+    token = str(text).strip().lower()
+    if token == "0":
+        return None
+    if token in STAND_OBS_MODES:
+        return token
+    raise ValueError(f"{STAND_OBS_VAR} must be '0', '1' or 'clock', got {text!r}")
+
+
+def parse_statue_w(text, var: str = "statue weight") -> float | None:
+    """``KRABBY_ANCHOR_W`` / ``KRABBY_STAND_PRIOR_W`` -> a weight > 0, or None for OFF (blank / ``0``).
+
+    Negative values are refused (a negative quadratic would PAY the mean for leaving the anchor / the statue).
+    """
+    if _blank(text):
+        return None
+    value = _float(var, text)
+    if value < 0.0:
+        raise ValueError(f"{var} must be >= 0 (0 = off), got {text!r}")
+    return None if value == 0.0 else value
+
+
+def parse_anchor_ckpt(text) -> str | None:
+    """``KRABBY_ANCHOR_CKPT`` -> the checkpoint path (stripped), or None (blank). Existence is checked at
+    application (:func:`apply_exploration_knobs`), not here: the ladder round-trips values at dry run."""
+    if _blank(text):
+        return None
+    return str(text).strip()
+
+
+def resolve_anchor_ckpt(path: str) -> str:
+    """A repo-relative ``KRABBY_ANCHOR_CKPT`` (as candidates.yaml carries it) resolved against the repo root, so the
+    training child (launched with cwd=parkour/) finds it (fable review 2026-10-09); absolute paths pass through."""
+    if os.path.isabs(path):
+        return path
+    return str(Path(__file__).resolve().parents[6] / path)
 
 
 def parse_std_max(text) -> float | None:
@@ -570,7 +654,7 @@ MOTION_KNOB_PARSERS = {
     RELAY_HYST_VAR: parse_relay_hyst,
     STAND_HOLD_VAR: lambda t: parse_flag(t, STAND_HOLD_VAR),
     STAND_PARK_VAR: lambda t: parse_flag(t, STAND_PARK_VAR),
-    STAND_OBS_VAR: lambda t: parse_flag(t, STAND_OBS_VAR),
+    STAND_OBS_VAR: parse_stand_obs,
     # PPO construction (2026-10-01)
     ACTION_BOUND_LOSS_VAR: parse_bound_loss,
     ACTION_BOUND_RAMP_VAR: parse_bound_ramp,
@@ -596,6 +680,10 @@ MOTION_KNOB_PARSERS = {
     # omni phase-2 stage p2s (2026-10-08)
     STAND_SUPPORT_W_VAR: lambda t: parse_income_w(t, STAND_SUPPORT_W_VAR),
     STAND_SLIDE_W_VAR: lambda t: parse_penalty_w(t, STAND_SLIDE_W_VAR),
+    # omni phase-2 stage p2r (2026-10-09): runner side
+    ANCHOR_W_VAR: lambda t: parse_statue_w(t, ANCHOR_W_VAR),
+    ANCHOR_CKPT_VAR: parse_anchor_ckpt,
+    STAND_PRIOR_W_VAR: lambda t: parse_statue_w(t, STAND_PRIOR_W_VAR),
 }
 
 
@@ -834,13 +922,24 @@ def apply_motion_knobs(cfg, environ=None, *, term_cls=None, builders=None, power
     stand_park = parse_flag(get(STAND_PARK_VAR), STAND_PARK_VAR)
     if stand_park:
         cfg.omni_stand_park = True
-    stand_obs = parse_flag(get(STAND_OBS_VAR), STAND_OBS_VAR)
-    if stand_obs:
+    stand_obs = parse_stand_obs(get(STAND_OBS_VAR))
+    if stand_obs == "1":
         _set_obs_param(cfg, STAND_OBS_VAR, "stand_obs")
+    elif stand_obs == "clock":
+        # p2r (2026-10-09): the bit in the hidden clock column -- free only while the clock is hidden
+        # on EVERY row. The clock knobs are applied before this block (omni_knobs.apply_omni_knobs).
+        for _g, _t, term in _omni_obs_terms(cfg):
+            params = term.params or {}
+            if params.get("clock_hide") is not True or params.get("clock_hide_ramp") is not None:
+                raise RuntimeError(f"{STAND_OBS_VAR}=clock writes the stand bit into the hidden clock column, "
+                                   "which needs KRABBY_OMNI_CLOCK_HIDE=1 and no KRABBY_OMNI_CLOCK_HIDE_RAMP "
+                                   f"(the obs term carries clock_hide={params.get('clock_hide')!r}, "
+                                   f"clock_hide_ramp={params.get('clock_hide_ramp')!r})")
+        _set_obs_param(cfg, STAND_OBS_VAR, "stand_bit_clock")
     # Every STAND-keyed knob the eval carries also latches the eval hook's slot per hold
     # (``CrabHexOmniCommand.schedule_hook``): otherwise an eval stand hold that drifts past the
     # facing dead band re-derives as "turn" and escapes the very knob it is scoring.
-    if stand_hold or stand_park or stand_obs:
+    if stand_hold or stand_park or stand_obs is not None:
         cfg.commands.base_velocity.eval_slot_latch = True
 
 
@@ -882,6 +981,11 @@ def apply_exploration_knobs(agent_cfg, environ=None) -> None:
     kl_stop = parse_positive(env.get(PPO_KL_STOP_VAR), PPO_KL_STOP_VAR)
     hist_lr = parse_positive(env.get(PPO_HIST_LR_VAR), PPO_HIST_LR_VAR)
     hand_diag = parse_flag(env.get(PPO_HAND_DIAG_VAR), PPO_HAND_DIAG_VAR)
+    # -- p2r statue distillation (2026-10-09)
+    anchor_w = parse_statue_w(env.get(ANCHOR_W_VAR), ANCHOR_W_VAR)
+    anchor_ckpt = parse_anchor_ckpt(env.get(ANCHOR_CKPT_VAR))
+    prior_w = parse_statue_w(env.get(STAND_PRIOR_W_VAR), STAND_PRIOR_W_VAR)
+    _check_statue_knobs(env, anchor_w, anchor_ckpt, prior_w)
     if ramp is not None and (bound_c1 is None or ramp[1] != bound_c1):
         raise ValueError(f"{ACTION_BOUND_RAMP_VAR}={env.get(ACTION_BOUND_RAMP_VAR)!r} ramps TO its c1, which must "
                          f"equal {ACTION_BOUND_LOSS_VAR} (got {env.get(ACTION_BOUND_LOSS_VAR)!r}): the loss "
@@ -949,3 +1053,32 @@ def apply_exploration_knobs(agent_cfg, environ=None) -> None:
     if hand_diag:
         agent_cfg.algorithm.hand_diag_vy_obs_col = HAND_DIAG_VY_OBS_COL
         _consumed(PPO_HAND_DIAG_VAR, env.get(PPO_HAND_DIAG_VAR))
+    if anchor_w is not None:
+        agent_cfg.algorithm.anchor_coef = anchor_w
+        _consumed(ANCHOR_W_VAR, env.get(ANCHOR_W_VAR))
+    if anchor_ckpt is not None:
+        agent_cfg.algorithm.anchor_ckpt = resolve_anchor_ckpt(anchor_ckpt)
+        _consumed(ANCHOR_CKPT_VAR, env.get(ANCHOR_CKPT_VAR))
+    if prior_w is not None:
+        agent_cfg.algorithm.stand_prior_coef = prior_w
+        _consumed(STAND_PRIOR_W_VAR, env.get(STAND_PRIOR_W_VAR))
+    if anchor_w is not None or prior_w is not None:
+        agent_cfg.algorithm.stand_mask_col = STAND_BIT_OBS_COL
+
+
+def _check_statue_knobs(env, anchor_w, anchor_ckpt, prior_w) -> None:
+    """The p2r statue knobs' cross rules (before anything is written); all off -> nothing to check."""
+    if anchor_w is None and anchor_ckpt is None and prior_w is None:
+        return
+    armed = ", ".join(f"{v}={env.get(v)!r}" for v in STATUE_KNOBS if not _blank(env.get(v)))
+    if parse_stand_obs(env.get(STAND_OBS_VAR)) != "clock":
+        raise ValueError(f"{armed}: the statue losses mask on the stand bit in obs column {STAND_BIT_OBS_COL}, "
+                         f"which only {STAND_OBS_VAR}=clock writes (got {env.get(STAND_OBS_VAR)!r})")
+    if anchor_ckpt is None:
+        raise ValueError(f"{armed}: {ANCHOR_W_VAR} / {STAND_PRIOR_W_VAR} need {ANCHOR_CKPT_VAR} (the frozen "
+                         "anchor's mean and the fixed sigma_A both come from that checkpoint)")
+    if anchor_w is None and prior_w is None:
+        raise ValueError(f"{ANCHOR_CKPT_VAR} is set but {ANCHOR_W_VAR} and {STAND_PRIOR_W_VAR} are both off: "
+                         "the checkpoint would train nothing")
+    if not os.path.isfile(resolve_anchor_ckpt(anchor_ckpt)):
+        raise ValueError(f"{ANCHOR_CKPT_VAR}={anchor_ckpt!r} is not a file (resolved {resolve_anchor_ckpt(anchor_ckpt)!r})")

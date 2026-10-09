@@ -1237,3 +1237,24 @@ stop rules, verdicts and budget are the pre-registration. This section logs the 
   - **Early checks** at +500 / +1000 (notify-only): walking drift ≤ ½ C0's; statue formation against its fork value;
     residual plateau.
   - **Budget:** ≈ 4.4 GPU-h.
+- 2026-10-09, **statue step 1 code landed** (workflow wf_f53039e0; code_sha moves once).
+  - `KRABBY_OMNI_STAND_OBS=clock` writes the latched stand bit into the current obs column 15, never history.
+    - It is refused without clock_hide, with a ramp, or with STAND_OBS=1.
+    - Mirror +1. The latch re-derives on reset.
+  - Two masked μ losses in `ppo_with_extractor.py` (sum ÷ B): anchor (bit 0, frozen graft actor, `hist_encoding=False`)
+    and statue prior (bit 1). σ_A is fixed. Grad-norm split every 50 iterations.
+  - Knobs `KRABBY_ANCHOR_W` / `KRABBY_ANCHOR_CKPT` / `KRABBY_STAND_PRIOR_W`, with run_candidates dump checks.
+  - The post-run clock check is narrowed (col 16 ≡ 0, col 15 = the stand label, with the one-step lag).
+  - **Graft built:** `parkour/outputs/omni_plan/phase2/graft/S1_s18_c15/model_19994.pt`. Exactly 9 leaves differ
+    (3 weights + 6 Adam moments, col 15 only). The CPU identity check passes.
+  - **Tooling:** `run_arm` graft branch; Z-arm `p2_live` preflight and +200 wiring; `p2r_early.py`; `p2_read --p2r-z`;
+    candidates v12 chain `P2__Z1_s18`.
+  - **Fable review:** one blocker, fixed. The repo-relative `KRABBY_ANCHOR_CKPT` failed from the training cwd
+    (`parkour/`); it now resolves against the repo root, and the dump check matches.
+  - Also fixed:
+    - the Z read's raw-bit INVALID rule now uses the driver's label check, so plain Z evals are checked;
+    - the +500 early check fires from the orchestrator's sentinel on model_20500.
+  - **Note:** the latch re-derive on reset also changes eval wave boundaries for runs using STAND_HOLD / PARK /
+    OBS=1. No head of record uses them, and the inertness bridge runs with them off.
+  - **Tests:** 396 related tests pass and the 4 tool self-tests pass. The remaining unrelated failures predate this
+    work, or sit in files other sessions are editing.

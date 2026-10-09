@@ -39,7 +39,9 @@ def cands():
 
 
 def test_v10_copy_is_the_live_file():
-    assert (SCRIPTS / "candidates_v11.yaml").read_bytes() == (CAMP / "candidates.yaml").read_bytes()
+    # v12 (CHARTER 12 / P2R_STATUE_PLAN.md step 1) is the newest snapshot: it adds P2__Z1_s18 on top of v11's six
+    # p2s chains, so it -- not v11 -- is now the one that must equal the live file.
+    assert (SCRIPTS / "candidates_v12.yaml").read_bytes() == (CAMP / "candidates.yaml").read_bytes()
 
 
 @pytest.mark.parametrize("chain", P2S_CHAINS)
@@ -71,9 +73,12 @@ def test_p2s_overlay_equals_the_p2b_continuation_plus_the_knobs(cands):
 
 
 def test_earlier_chains_are_untouched(cands):
+    # v12 (CHARTER 12 / P2R_STATUE_PLAN.md step 1) adds exactly one new chain, P2__Z1_s18, on top of v11's six
+    # p2s chains -- excluded here the same way the p2s chains themselves are, since v9 predates both.
+    excl = P2S_CHAINS + ("P2__Z1_s18",)
     v9 = yaml.safe_load((SCRIPTS / "candidates_v9.yaml").read_text())
-    assert {k: v for k, v in cands["chains"].items() if k not in P2S_CHAINS} == v9["chains"]
-    assert {k: v for k, v in cands["references"].items() if k not in P2S_CHAINS} == v9["references"]
+    assert {k: v for k, v in cands["chains"].items() if k not in excl} == v9["chains"]
+    assert {k: v for k, v in cands["references"].items() if k not in excl} == v9["references"]
 
 
 # ===================================================================================== the queue (stubs)
@@ -331,7 +336,9 @@ def test_stop_queue_file_stops_at_start(tmp_path):
 # ===================================================================================== run_arm.sh p2s plumbing
 def test_run_arm_p2s_watcher_block_and_preflight_arms():
     src = RUN_ARM.read_text()
-    assert "P2__ST[0-9]*_s*)" in src and "--at p2s" in src and '--arms "$ARMS"' in src
+    # the case pattern grew to also match stage-p2r Z arms (CHARTER 12 / P2R_STATUE_PLAN.md step 1: Z arms share
+    # the same three guards, read against the same reference)
+    assert "P2__ST[0-9]*_s*|P2__Z[0-9]*_s*)" in src and "--at p2s" in src and '--arms "$ARMS"' in src
     assert '"$rc" = 5' in src and ".p2s_flag" in src
     assert src.count("--preflight --chain") == 1 and "--candidates \"$C/candidates.yaml\" --arms \"$ARMS\" 2>&1) ||" in src
     assert subprocess.run(["bash", "-n", str(RUN_ARM)], capture_output=True).returncode == 0

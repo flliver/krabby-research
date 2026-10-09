@@ -1710,6 +1710,45 @@ def _alg_optional_ok(txt: str, key: str, parsed) -> bool:
     return _agent_optional_ok(_alg_block(txt), key, parsed)
 
 
+def _stand_obs_ok(txt: str, value) -> bool:
+    """``KRABBY_OMNI_STAND_OBS`` (``0`` / ``1`` / ``clock``; p2r 2026-10-09). ``1``: ``stand_obs: true`` and no
+    ``stand_bit_clock``. ``clock``: ``stand_bit_clock: true``, NO ``stand_obs``, the eval slot latch armed and
+    the clock hidden (``clock_hide: true``). Off: neither param (each absent or false)."""
+    mode = _motion().parse_stand_obs(value)
+    stand_obs = _grep_scalar(txt, "stand_obs")
+    clock_bit = _grep_scalar(txt, "stand_bit_clock")
+    if mode is None:
+        return stand_obs in (None, "false") and clock_bit in (None, "false")
+    if mode == "1":
+        return stand_obs == "true" and clock_bit in (None, "false")
+    return (clock_bit == "true" and stand_obs in (None, "false")
+            and _grep_scalar(txt, "eval_slot_latch") == "true" and _grep_scalar(txt, "clock_hide") == "true")
+
+
+def _statue_w_ok(txt: str, key: str, value, var: str) -> bool:
+    """A p2r statue weight: absent while off (blank / ``0``), else equal in the algorithm block AND
+    ``stand_mask_col`` equal to ``motion_knobs.STAND_BIT_OBS_COL`` there."""
+    parsed = _motion().parse_statue_w(value, var)
+    if not _alg_optional_ok(txt, key, parsed):
+        return False
+    if parsed is None:
+        return True
+    col = _num(_grep_scalar(_alg_block(txt), "stand_mask_col"))
+    return col is not None and int(col) == int(_motion().STAND_BIT_OBS_COL)
+
+
+def _anchor_ckpt_ok(txt: str, value) -> bool:
+    """``KRABBY_ANCHOR_CKPT``: absent while blank, else the algorithm block's ``anchor_ckpt`` names the same
+    file (compared as real paths)."""
+    want = _motion().parse_anchor_ckpt(value)
+    got = _grep_scalar(_alg_block(txt), "anchor_ckpt")
+    if want is None:
+        return got is None or got.strip().strip("'\"") in ("null", "None")
+    if got is None:
+        return False
+    return os.path.realpath(got.strip().strip("'\"")) == os.path.realpath(_motion().resolve_anchor_ckpt(want))
+
+
 def _present_or_equal(block: str, key: str, parsed) -> bool:
     """A field the cfg always carries: present while the knob is off, else equal to its value."""
     got = _grep_scalar(block, key, indent=r"\s{2}")
@@ -2429,7 +2468,10 @@ AGENT_DUMP_KEYS = frozenset({"KRABBY_ACTION_STD_MAX", "KRABBY_ACTION_STD_RESET",
                             "KRABBY_ACTION_BOUND_LOSS", "KRABBY_ACTION_BOUND_RAMP", "KRABBY_ACTION_BOUND",
                             "KRABBY_STD_PARAM", "KRABBY_INIT_STD", "KRABBY_PPO_SCHEDULE", "KRABBY_PPO_LR",
                             "KRABBY_PPO_DESIRED_KL", "KRABBY_PPO_KL_STOP", "KRABBY_PPO_HIST_LR",
-                            "KRABBY_PPO_HAND_DIAG"})
+                            "KRABBY_PPO_HAND_DIAG",
+                            # omni phase-2 stage p2r (P2R_STATUE_PLAN step 1, 2026-10-09): the statue
+                            # distillation's three runner-side knobs (motion_knobs.STATUE_KNOBS).
+                            "KRABBY_ANCHOR_W", "KRABBY_ANCHOR_CKPT", "KRABBY_STAND_PRIOR_W"})
 
 
 #: ``KRABBY_*`` -> what the config DUMP must show for it. Every overlay key a recipe may carry needs
@@ -2478,7 +2520,7 @@ OVERLAY_DUMP_CHECKS = {
     "KRABBY_OMNI_RELAY_HYST": _relay_hyst_ok,
     "KRABBY_OMNI_STAND_HOLD": lambda txt, v: _flag_dump_ok(txt, "stand_hold", v),
     "KRABBY_OMNI_STAND_PARK": lambda txt, v: _flag_dump_ok(txt, "omni_stand_park", v, indent=""),
-    "KRABBY_OMNI_STAND_OBS": lambda txt, v: _flag_dump_ok(txt, "stand_obs", v),
+    "KRABBY_OMNI_STAND_OBS": lambda txt, v: _stand_obs_ok(txt, v),
     # Runner side (AGENT_DUMP_KEYS): params/agent.yaml.
     "KRABBY_ACTION_STD_MAX": lambda txt, v: _agent_optional_ok(txt, "action_std_max",
                                                                _motion().parse_std_max(v)),
@@ -2572,6 +2614,11 @@ OVERLAY_DUMP_CHECKS = {
     # stand-slot terms: T1 audited like F1 plus its params, T2 like the other added penalties.
     "KRABBY_STAND_SUPPORT_W": _stand_support_w_ok,
     "KRABBY_STAND_SLIDE_W": lambda txt, v: _added_term_ok(txt, "penalty_stand_slide", v),
+    # ---- omni phase-2 stage p2r (P2R_STATUE_PLAN step 1, 2026-10-09). Runner side (AGENT_DUMP_KEYS):
+    # params/agent.yaml's algorithm block; KRABBY_OMNI_STAND_OBS=clock is audited above (_stand_obs_ok).
+    "KRABBY_ANCHOR_W": lambda txt, v: _statue_w_ok(txt, "anchor_coef", v, "KRABBY_ANCHOR_W"),
+    "KRABBY_STAND_PRIOR_W": lambda txt, v: _statue_w_ok(txt, "stand_prior_coef", v, "KRABBY_STAND_PRIOR_W"),
+    "KRABBY_ANCHOR_CKPT": lambda txt, v: _anchor_ckpt_ok(txt, v),
 }
 
 
@@ -2617,6 +2664,7 @@ def overlay_checks(rec: dict, env: dict) -> list[tuple[str, bool]]:
             continue
         out.append((f"overlay {key}={value} in params/{dump}", ok))
     out += construction_log_checks(rec, env)
+    out += statue_log_checks(rec, env)
     return out
 
 
@@ -2664,6 +2712,50 @@ def construction_log_checks(rec: dict, env: dict) -> list[tuple[str, bool]]:
     if mk.ACTION_BOUND_LOSS_VAR in armed:
         out.append(("log: Mean action_bound printed (the bound loss ran)",
                     re.search(r"^\s*Mean action_bound:", txt, re.M) is not None))
+    return out
+
+
+#: The ``PPOWithExtractor`` fields the p2r statue knobs write (``algorithm.*``), and the loss the runner
+#: prints (``Mean <key>:``) for each armed weight.
+STATUE_ALG_FIELDS = ("anchor_coef", "anchor_ckpt", "stand_prior_coef", "stand_mask_col")
+STATUE_LOSS_KEYS = {"KRABBY_ANCHOR_W": "anchor", "KRABBY_STAND_PRIOR_W": "stand_prior"}
+
+
+def statue_log_checks(rec: dict, env: dict) -> list[tuple[str, bool]]:
+    """The TRAINING LOG half of the p2r statue audit (P2R_STATUE_PLAN step 1, 2026-10-09).
+
+    Empty unless the overlay arms a statue knob (``motion_knobs.STATUE_KNOBS``). Then: each armed knob's
+    ``[KNOB] <NAME>=<value> consumed`` line, no runner warning dropping a statue field, and ``Mean anchor:``
+    / ``Mean stand_prior:`` printed for each armed weight (the loss ran).
+    """
+    mk = _motion()
+    armed = []
+    for key in getattr(mk, "STATUE_KNOBS", ()):
+        if key not in (env or {}):
+            continue
+        try:
+            parsed = mk.MOTION_KNOB_PARSERS[key](str(env[key]))
+        except Exception:                                               # noqa: BLE001
+            continue
+        if parsed is not None:
+            armed.append(key)
+    if not armed:
+        return []
+    log = rec.get("log")
+    if not log or not Path(log).exists():
+        return [(f"training log readable for the statue wiring audit ({log})", False)]
+    txt = Path(log).read_text(errors="ignore")
+    out = [(f"log: [KNOB] {key} consumed",
+            re.search(rf"^\[KNOB\] {re.escape(key)}=\S+ consumed\s*$", txt, re.M) is not None)
+           for key in armed]
+    dropped = [ln for ln in txt.splitlines() if "Ignoring unsupported PPO config keys" in ln
+               and any(re.search(rf"\b{f}\b", ln) for f in STATUE_ALG_FIELDS)]
+    out.append(("log: no statue field dropped by the runner", not dropped))
+    for key in armed:
+        loss_key = STATUE_LOSS_KEYS.get(key)
+        if loss_key is not None:
+            out.append((f"log: Mean {loss_key} printed (the {key} loss ran)",
+                        re.search(rf"^\s*Mean {loss_key}:", txt, re.M) is not None))
     return out
 
 
@@ -9875,6 +9967,88 @@ def _npz_clock_obs_zero(run_dir) -> tuple[bool, str]:
     return worst == 0.0, f"max |clock_obs| {worst:g} over {len(files)} episodes"
 
 
+#: The hold labels whose steps carry the p2r stand bit (``KRABBY_OMNI_STAND_OBS=clock``): the suite's settle
+#: (its ``run_meta.suite.settle_label``) and every ``stand`` hold.
+STAND_BIT_HOLD_LABELS = ("stand", "settle")
+
+
+def stand_bit_matches_labels(bit, seg, labels: list, stand_labels) -> tuple[int, int]:
+    """``(mismatches, checked)`` of a per-step raw stand bit against the hold labels (pure; numpy arrays).
+
+    ``seg`` is the episode's ``segment_id`` (``-1`` = prologue, not checked), ``labels`` the run's
+    ``hold_labels``. A step whose bit differs from its own label is allowed when it equals a NEIGHBOUR's
+    label (the one-step command-to-obs lag at a hold boundary; a prologue neighbour allows either value).
+    """
+    import numpy as np  # noqa: PLC0415
+    bit = np.asarray(bit, dtype=float).reshape(-1)
+    seg = np.asarray(seg).reshape(-1)[:bit.size]
+    lab = np.full(bit.size, np.nan)
+    for i, name in enumerate(labels):
+        lab[seg == i] = 1.0 if name in stand_labels else 0.0
+    bad = 0
+    checked = 0
+    for t in range(bit.size):
+        if np.isnan(lab[t]):
+            continue
+        checked += 1
+        if bit[t] == lab[t]:
+            continue
+        nbrs = [lab[u] for u in (t - 1, t + 1) if 0 <= u < bit.size]
+        if any(np.isnan(x) or bit[t] == x for x in nbrs):
+            continue
+        bad += 1
+    return bad, checked
+
+
+def _npz_clock_obs_stand_bit(run_dir) -> tuple[bool, str]:
+    """The NARROWED clock-removal check for chains with ``KRABBY_OMNI_STAND_OBS=clock`` (p2r, 2026-10-09):
+    ``clock_obs[:, 1]`` (col 16) identically 0 and ``clock_obs[:, 0]`` (col 15, the stand bit) in {0, 1} and
+    equal to the stand label of every recorded step (``STAND_BIT_HOLD_LABELS`` + the suite's settle label; the
+    one-step lag at hold boundaries allowed; the prologue unchecked). A row it cannot read FAILS."""
+    import numpy as np  # noqa: PLC0415
+    raw = Path(str(run_dir)) / "raw"
+    files = sorted(raw.glob("episode_*.npz")) if raw.is_dir() else []
+    if not files:
+        return False, f"no raw/episode_*.npz under {run_dir}"
+    meta_path = Path(str(run_dir)) / "run_meta.json"
+    try:
+        meta = json.loads(meta_path.read_text())
+    except Exception as exc:                                            # noqa: BLE001
+        return False, f"run_meta.json unreadable ({type(exc).__name__})"
+    labels = list(meta.get("hold_labels") or [])
+    stand_labels = set(STAND_BIT_HOLD_LABELS)
+    settle = (meta.get("suite") or {}).get("settle_label") if isinstance(meta.get("suite"), dict) else None
+    if settle:
+        stand_labels.add(str(settle))
+    worst16, bad_vals, bad_lab, checked = 0.0, 0, 0, 0
+    for f in files:
+        try:
+            with np.load(f, allow_pickle=False) as z:
+                if "clock_obs" not in z.files or "segment_id" not in z.files:
+                    return False, f"{f.name} carries no clock_obs / segment_id"
+                arr = np.asarray(z["clock_obs"], dtype=float).reshape(-1, 2)
+                seg = np.asarray(z["segment_id"])
+        except Exception as exc:                                        # noqa: BLE001
+            return False, f"{f.name} unreadable ({type(exc).__name__})"
+        if arr.size:
+            worst16 = max(worst16, float(np.max(np.abs(arr[:, 1]))))
+        bad_vals += int(np.sum((arr[:, 0] != 0.0) & (arr[:, 0] != 1.0)))
+        b, c = stand_bit_matches_labels(arr[:, 0], seg, labels, stand_labels)
+        bad_lab += b
+        checked += c
+    ok = worst16 == 0.0 and bad_vals == 0 and bad_lab == 0 and checked > 0
+    return ok, (f"max |col16| {worst16:g}, col15 not in {{0,1}} on {bad_vals} steps, "
+                f"{bad_lab}/{checked} labelled steps off the stand label over {len(files)} episodes")
+
+
+def _stand_bit_clock_stage(env: dict) -> bool:
+    """The composed stage env sets ``KRABBY_OMNI_STAND_OBS=clock`` (a bad spelling reads as no)."""
+    try:
+        return _motion().parse_stand_obs(env.get("KRABBY_OMNI_STAND_OBS")) == "clock"
+    except ValueError:
+        return False
+
+
 def removal_verification(ctx: Ctx, header: dict) -> dict:
     """The driver's own K-stage checks on ONE finished run (clock-deprecation plan step 4, "Removal
     verification"): ``{xid, applies, ok, checks: [{stage, check, ok, detail}]}``.
@@ -9905,7 +10079,9 @@ def removal_verification(ctx: Ctx, header: dict) -> dict:
         if stage is None or not _touches_clock(overlay):
             continue
         iters = int(stage.get("iters") or 0)
-        st = clock_stage_state(_effective_stage_cfg(ctx.cands, stage, overlay), iters)
+        stage_env = _effective_stage_cfg(ctx.cands, stage, overlay)
+        st = clock_stage_state(stage_env, iters)
+        stand_bit = _stand_bit_clock_stage(stage_env)
         removed = [t for t in CLOCK_TERM_KNOBS if st["end_w"][t] <= CLOCK_EPS_W + 1e-12]
         if not removed and not st["hide"]:
             continue
@@ -9947,8 +10123,13 @@ def removal_verification(ctx: Ctx, header: dict) -> dict:
                 if not run_dir:
                     add(sname, f"{row}: clock_obs == 0", False, "the row recorded no run dir")
                     continue
-                ok, detail = _npz_clock_obs_zero(run_dir)
-                add(sname, f"{row}: clock_obs == 0", ok, detail)
+                if stand_bit:
+                    # p2r: column 15 carries the stand bit by design (KRABBY_OMNI_STAND_OBS=clock)
+                    ok, detail = _npz_clock_obs_stand_bit(run_dir)
+                    add(sname, f"{row}: clock_obs col 16 == 0, col 15 == stand label", ok, detail)
+                else:
+                    ok, detail = _npz_clock_obs_zero(run_dir)
+                    add(sname, f"{row}: clock_obs == 0", ok, detail)
                 meta = Path(run_dir) / "run_meta.json"
                 carried = ((json.loads(meta.read_text()) or {}).get("env_vars") or {}).get(
                     _clock().CLOCK_HIDE_VAR) if meta.exists() else None

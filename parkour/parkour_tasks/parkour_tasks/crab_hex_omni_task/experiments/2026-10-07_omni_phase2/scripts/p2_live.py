@@ -72,6 +72,28 @@ relaunch name P2__ST<k>R<j>_s<seed>):
                   (the replay finalises the doses), the stand share is the pinned 0.15, the stand-only construction
                   reads true in the code root, and the guard's reference run is readable with all three tags.
 
+STAGE p2r's Z arms (CHARTER 12 / P2R_STATUE_PLAN.md step 1, "learn the statue in-network": the grafted stand bit +
+two masked PPO losses on the action mean -- a walking anchor on non-stand rows, a statue prior on stand rows -- NO
+stand-slot REWARD terms at all, unlike the p2s dose arms; chains P2__Z<k>_s<seed> or a fresh relaunch name
+P2__Z<k>R<j>_s<seed>):
+  wiring (+200)   on top of every CHARTER 8 read above: the three agent knobs (KRABBY_ANCHOR_W, KRABBY_ANCHOR_CKPT,
+                  KRABBY_STAND_PRIOR_W) present with the first two weights positive; Loss/anchor_rows in [0.8, 0.95]
+                  and Loss/prior_rows in [0.05, 0.2] (the window mean); Loss/anchor_mb0 reads EXACTLY 0 at the fork's
+                  first logged iteration (fork exactness: both terms are computed on the identical minibatch before
+                  masking, so the very first logged value can never be anything else); Loss/anchor and
+                  Loss/stand_prior both finite and > 0 (the window mean); the REALISED DOSE -- Loss/stand_prior at
+                  the first logged iteration -- in [1.2, 4.6] (P2R_STATUE_PLAN.md step 1's "fork values: statue ~
+                  2.3, anchor exactly 0").
+  p2s guards      Z arms keep the SAME three guards as a p2s dose arm (termination KILL, sigma KILL, crab_failure
+                  NOTIFY-ONLY flag; run_arm.sh --at p2s), read against the SAME reference (p2s_reference() already
+                  resolves P2__C0_s18 at seed 18 with no Z-specific change) -- only the dose / term-liveness half of
+                  a p2s arm's --at p2s read (judge_p2s_liveness / judge_p2s_construction) does not apply, since a Z
+                  arm has no stand-slot reward term to read.
+  preflight       a Z arm refuses to launch unless its fork checkpoint's graft.json (scripts/p2r_graft.py) reads
+                  identity_cpu true with a non-empty identity_gpu_stamps, and the three agent knobs are present
+                  (the first two weights positive, KRABBY_ANCHOR_CKPT equal to the chain's own fork checkpoint) --
+                  it does NOT need a p2s replay-gate verdict, a sampled magnitude or a stand share (no stand terms).
+
 Exit codes (run_arm.sh's contract): 0 pass / not applicable, 2 not enough telemetry yet (retry next poll), 3 FAIL
 (kill + stop the queue), 5 NOTIFY-ONLY (p2s termination flag: notify, never kill). The last stdout line is one JSON
 object.
@@ -100,6 +122,7 @@ import argparse
 import ast
 import importlib.util
 import json
+import math
 import os
 import re
 import sys
@@ -184,6 +207,18 @@ P2S_REF_TAIL_N = 500
 #: the s18 reference run's arms record (the C0 continuation, X12)
 P2S_REF_S18 = "P2__C0_s18"
 P2S_GATE_SEED = 18
+#: Stage p2r's Z arms (CHARTER 12 / P2R_STATUE_PLAN.md step 1 "tooling" / "+200 wiring"): the grafted stand bit +
+#: two masked PPO losses, NO stand-slot reward terms -- a Z arm is never a P2S_ARMS member and never reads
+#: judge_p2s_liveness / judge_p2s_construction, but DOES share the p2s GUARDS (judge_p2s_guards) via run_arm.sh.
+Z_ARM_RE = re.compile(r"^Z[0-9]+$")
+P2R_ANCHOR_W, P2R_ANCHOR_CKPT, P2R_STAND_PRIOR_W = "KRABBY_ANCHOR_W", "KRABBY_ANCHOR_CKPT", "KRABBY_STAND_PRIOR_W"
+P2R_LOSS_ANCHOR, P2R_LOSS_PRIOR = "Loss/anchor", "Loss/stand_prior"
+P2R_ANCHOR_ROWS_TAG, P2R_PRIOR_ROWS_TAG = "Loss/anchor_rows", "Loss/prior_rows"
+P2R_ANCHOR_MB0_TAG = "Loss/anchor_mb0"
+#: the +200 wiring bands (P2R_STATUE_PLAN.md step 1/4): anchor_rows ~ 0.88, prior_rows ~ 0.12 (the stand share)
+P2R_ANCHOR_ROWS_BAND, P2R_PRIOR_ROWS_BAND = (0.8, 0.95), (0.05, 0.2)
+#: the REALISED DOSE band: the first-update Loss/stand_prior (fork value ~ 2.3 at weight 1.0, KL units)
+P2R_STAND_PRIOR_DOSE_BAND = (1.2, 4.6)
 #: F1's "non-zero only in stand-slot envs" from per-slot telemetry, when logged: any of these tags, reading 0 over the
 #: window. None is emitted in the tree (2026-10-06); the stand-only construction check stands in (CHARTER 9).
 F1_NONSTAND_TAGS = ("Metrics/stand_stance/nonstand_income", "Metrics/base_velocity/stand_stance_nonstand")
@@ -244,6 +279,96 @@ def p2s_arm(chain: str) -> str:
     and weights are keyed by); anything else -> ''."""
     m = re.match(r"^P2__(ST[0-9]+)(?:R[0-9]+)?_s\d+$", chain)
     return m.group(1) if m and m.group(1) in P2S_ARMS else ""
+
+
+def z_arm(chain: str) -> str:
+    """P2__Z1_s18 -> Z1; a fresh relaunch name after a kill, P2__Z1R2_s16 -> Z1; anything else -> '' (the p2r
+    equivalent of :func:`p2s_arm`, used by the p2s GUARDS -- a Z arm shares them -- never by the dose/term-liveness
+    half of --at p2s, which Z arms skip: they have no stand-slot reward term)."""
+    m = re.match(r"^P2__(Z[0-9]+)(?:R[0-9]+)?_s\d+$", chain)
+    return m.group(1) if m else ""
+
+
+def point_at(series, step):
+    """The value logged at EXACTLY iteration ``step`` (never a window mean) -- Loss/anchor_mb0's "read at the
+    first logged iteration" and the realised-dose "first-update Loss/stand_prior" (P2R_STATUE_PLAN.md step 1/4)."""
+    for s, v in series or []:
+        if s == step:
+            return v
+    return None
+
+
+def judge_p2r_liveness(overlay: dict, ser: dict, lo: int, hi: int, first: int) -> tuple[list, list, dict]:
+    """Stage p2r's Z-arm +200 wiring (pure; P2R_STATUE_PLAN.md step 1/4): the graft + two masked PPO losses, no
+    stand-slot reward terms at all. ``(fails, notes, live)``."""
+    fails: list = []
+    notes: list = []
+    live: dict = {}
+    for knob in (P2R_ANCHOR_W, P2R_STAND_PRIOR_W):
+        try:
+            v = float(str((overlay or {}).get(knob, "")).strip())
+        except ValueError:
+            v = None
+        live[knob] = v
+        if v is None or not v > 0:
+            fails.append(f"term liveness: {knob}={(overlay or {}).get(knob)!r} is not a positive weight")
+    ckpt = str((overlay or {}).get(P2R_ANCHOR_CKPT, "")).strip()
+    live[P2R_ANCHOR_CKPT] = ckpt or None
+    if not ckpt:
+        fails.append(f"term liveness: {P2R_ANCHOR_CKPT} is not set")
+    ar, pr = window(ser.get(P2R_ANCHOR_ROWS_TAG), lo, hi), window(ser.get(P2R_PRIOR_ROWS_TAG), lo, hi)
+    live["anchor_rows"], live["prior_rows"] = ar, pr
+    lo_a, hi_a = P2R_ANCHOR_ROWS_BAND
+    lo_p, hi_p = P2R_PRIOR_ROWS_BAND
+    if ar is None or not (lo_a - 1e-9 <= ar <= hi_a + 1e-9):
+        fails.append(f"term liveness: Loss/anchor_rows {ar} outside [{lo_a}, {hi_a}]")
+    if pr is None or not (lo_p - 1e-9 <= pr <= hi_p + 1e-9):
+        fails.append(f"term liveness: Loss/prior_rows {pr} outside [{lo_p}, {hi_p}]")
+    mb0 = point_at(ser.get(P2R_ANCHOR_MB0_TAG), first)
+    live["anchor_mb0_at_first"] = mb0
+    if mb0 is None or mb0 != 0.0:
+        fails.append(f"term liveness: Loss/anchor_mb0 at the first logged iteration ({first}) is {mb0}, "
+                     "want exactly 0 (fork exactness: both losses share the same minibatch before masking)")
+    la, lp = window(ser.get(P2R_LOSS_ANCHOR), lo, hi), window(ser.get(P2R_LOSS_PRIOR), lo, hi)
+    live["loss_anchor"], live["loss_stand_prior"] = la, lp
+    if la is None or not math.isfinite(la) or not la > 0:
+        fails.append(f"term liveness: Loss/anchor {la} is not finite and > 0")
+    if lp is None or not math.isfinite(lp) or not lp > 0:
+        fails.append(f"term liveness: Loss/stand_prior {lp} is not finite and > 0")
+    dose = point_at(ser.get(P2R_LOSS_PRIOR), first)
+    live["stand_prior_first_update"] = dose
+    lo_d, hi_d = P2R_STAND_PRIOR_DOSE_BAND
+    if dose is None or not (lo_d - 1e-9 <= dose <= hi_d + 1e-9):
+        fails.append(f"term liveness: realised dose (first-update Loss/stand_prior) {dose} outside [{lo_d}, {hi_d}]")
+    return fails, notes, live
+
+
+def judge_p2r_preflight(overlay: dict, graft: dict | None, fork_ckpt: str | None) -> list:
+    """Stage p2r's Z-arm preflight (pure; P2R_STATUE_PLAN.md step 1 "Left for implementation": "preflight must NOT
+    require the p2s replay gate's solved stand weights"): the graft's identity (CPU AND at least one GPU stamp) and
+    the three agent knobs, nothing about a stand-slot dose. Returns a ``fails`` list."""
+    fails = []
+    if not graft:
+        fails.append("no readable graft.json for this chain's fork checkpoint")
+    else:
+        if graft.get("identity_cpu") is not True:
+            fails.append(f"graft.json identity_cpu is {graft.get('identity_cpu')!r}, not true")
+        if not graft.get("identity_gpu_stamps"):
+            fails.append("graft.json identity_gpu_stamps is empty (no GPU identity/inertness stamp yet)")
+    ov = overlay or {}
+    for knob in (P2R_ANCHOR_W, P2R_STAND_PRIOR_W):
+        try:
+            v = float(str(ov.get(knob, "")).strip())
+        except ValueError:
+            v = None
+        if v is None or not v > 0:
+            fails.append(f"{knob}={ov.get(knob)!r} is not a positive weight")
+    ck = str(ov.get(P2R_ANCHOR_CKPT, "")).strip()
+    if not ck:
+        fails.append(f"{P2R_ANCHOR_CKPT} is not set")
+    elif fork_ckpt and ck != str(fork_ckpt):
+        fails.append(f"{P2R_ANCHOR_CKPT}={ck!r} != the chain's own fork checkpoint {fork_ckpt!r}")
+    return fails
 
 
 def p2s_replay_magnitude(replay: dict | None, arm: str, term: str):
@@ -346,7 +471,8 @@ def read_tb(run_dir: Path, extra_tags=()) -> dict:
     want = set(TAGS.values()) | set(OBST_LEVEL_TAGS) | set(PROMO_TAGS) | set(F1_NONSTAND_TAGS) | set(extra_tags) | \
         {f"Episode_Reward/{t}" for t in ARM_TERMS.values()} | \
         {f"Episode_Reward/{t}" for terms in P2B_ARM_TERMS.values() for t in terms} | \
-        {f"Episode_Reward/{t}" for t in P2S_TERMS} | {P2S_STAND_FRAC_TAG}
+        {f"Episode_Reward/{t}" for t in P2S_TERMS} | {P2S_STAND_FRAC_TAG} | \
+        {P2R_LOSS_ANCHOR, P2R_LOSS_PRIOR, P2R_ANCHOR_ROWS_TAG, P2R_PRIOR_ROWS_TAG, P2R_ANCHOR_MB0_TAG}
     return {t: [(int(e.step), float(e.value)) for e in ea.Scalars(t)] for t in want if t in have}
 
 
@@ -597,6 +723,10 @@ def judge_wiring(arm: str, overlay: dict, facts: dict, ser: dict, first: int, au
         f3, n3 = judge_p2s_construction(facts, p2s_gate)
         fails += f3
         notes += n3
+    elif Z_ARM_RE.match(arm):
+        f2, n2, live = judge_p2r_liveness(overlay, ser, lo, hi, first)
+        fails += f2
+        notes += n2
     else:
         notes.append(f"arm {arm}: no arm-specific term (liveness n/a)")
     return {"rc": RC_FAIL if fails else RC_PASS, "result": "FAIL" if fails else "PASS", "fails": fails,
@@ -775,10 +905,14 @@ def emitted_metric_keys(code_root: Path, keys) -> dict:
 
 def judge_preflight(arm: str, emitted: dict, replay: dict | None, stand_gate: tuple[bool, str] | None,
                     overlay: dict | None = None, p2s_gate: dict | None = None,
-                    p2s_ref: tuple[bool, str] | None = None) -> dict:
+                    p2s_ref: tuple[bool, str] | None = None, p2r_graft: dict | None = None,
+                    fork_ckpt: str | None = None) -> dict:
     """What the live reads need before a launch (pure). ``emitted`` = :func:`emitted_metric_keys` output; for a p2s
     arm also the chain ``overlay``, ``p2s_gate`` (:func:`p2s_gate_structural`) and ``p2s_ref`` = ``(readable, why)``
-    of the guards' reference run (:func:`p2s_reference_ok`)."""
+    of the guards' reference run (:func:`p2s_reference_ok`); for a Z arm, ``overlay``, ``p2r_graft`` (the fork
+    checkpoint's graft.json, or None) and ``fork_ckpt`` (the chain's own fork checkpoint path, for the
+    KRABBY_ANCHOR_CKPT == fork check) -- :func:`judge_p2r_preflight`, NOT a p2s replay-gate verdict (no stand
+    terms, P2R_STATUE_PLAN.md step 1 "Left for implementation")."""
     fails, notes = [], []
     if arm != "CAL1":                                 # every arm (+1000 terrain read) and CAL2 (levels must move)
         for tag in OBST_LEVEL_TAGS + PROMO_TAGS:
@@ -840,6 +974,8 @@ def judge_preflight(arm: str, emitted: dict, replay: dict | None, stand_gate: tu
             fails.append(f"p2s guard reference unreadable ({p2s_ref[1] if p2s_ref else 'not read'})")
         else:
             notes.append(f"p2s guard reference: {p2s_ref[1]}")
+    if Z_ARM_RE.match(arm):
+        fails += judge_p2r_preflight(overlay or {}, p2r_graft, fork_ckpt)
     if arm == "F1":
         tags = [t for t in F1_NONSTAND_TAGS if (emitted.get(t.rsplit("/", 1)[-1]))]
         if tags:
@@ -1032,10 +1168,12 @@ def check(a) -> tuple[int, dict]:
         pg = p2s_gate_structural(Path(a.code_root) / MOTION_REWARDS_PY) if arm in P2S_ARMS else None
         res = judge_wiring(arm, ov, dump_facts(env, agent, log), ser, first, audit, replay, sg, ref_tail, pg)
     elif a.at == "p2s":
-        if arm not in P2S_ARMS:
-            res = {"rc": RC_PASS, "result": f"n/a (chain {a.chain} is not a p2s arm)"}
-        else:
+        # a p2s dose arm OR a stage-p2r Z arm (P2R_STATUE_PLAN.md step 1 "Left for implementation": Z arms share
+        # the three guards, read against the same reference, but have no dose/term-liveness to read here).
+        if arm in P2S_ARMS or z_arm(a.chain):
             res = judge_p2s_guards(ser, first, load_p2s_reference(p2s_reference(a.arms, seed_of(a.chain))))
+        else:
+            res = {"rc": RC_PASS, "result": f"n/a (chain {a.chain} is not a p2s or p2r Z arm)"}
     elif a.at == "1000":
         env, _, _ = _gather(a.check, None)
         res = judge_terrain(ser, first, _find_key((env or {}).get("scene") or env or {}, "num_rows"))
@@ -1070,11 +1208,21 @@ def preflight(a) -> tuple[int, dict]:
     emitted = emitted_metric_keys(Path(a.code_root), keys)
     replay = json.load(open(a.replay)) if a.replay and Path(a.replay).is_file() else None
     sg = stand_gate_structural(Path(a.code_root) / REWARDS_PY) if arm == "F1" else None
-    pg = pref = None
+    pg = pref = p2r_graft = fork_ckpt = None
     if arm in P2S_ARMS:
         pg = p2s_gate_structural(Path(a.code_root) / MOTION_REWARDS_PY)
         pref = p2s_reference_ok(load_p2s_reference(p2s_reference(a.arms, seed_of(a.chain))))
-    res = judge_preflight(arm, emitted, replay, sg, chain_overlay(cands, a.chain), pg, pref)
+    if Z_ARM_RE.match(arm):
+        fork_ckpt = chain_source_ckpt(cands, a.chain)
+        if fork_ckpt:
+            gj_path = (R / fork_ckpt).with_suffix(".json")
+            if gj_path.is_file():
+                try:
+                    p2r_graft = json.load(open(gj_path))
+                except (OSError, ValueError):
+                    p2r_graft = None
+    res = judge_preflight(arm, emitted, replay, sg, chain_overlay(cands, a.chain), pg, pref,
+                          p2r_graft=p2r_graft, fork_ckpt=fork_ckpt)
     res.update(chain=a.chain, emitted={k: v for k, v in emitted.items() if v})
     return int(res["rc"]), res
 
@@ -1433,6 +1581,60 @@ def _self_test() -> int:
     check_("p2s_arm: doses and fresh relaunch names", [p2s_arm("P2__ST2_s18"), p2s_arm("P2__ST1R2_s16"),
                                                        p2s_arm("P2__ST3_s18"), p2s_arm("P2__CL_s18")],
            ["ST2", "ST1", "", ""])
+
+    # ------------------------------------------------------------------------------------------- stage p2r Z arms (CHARTER 12)
+    check_("z_arm: doses and fresh relaunch names", [z_arm("P2__Z1_s18"), z_arm("P2__Z1R2_s16"),
+                                                     z_arm("P2__ST2_s18"), z_arm("P2__CL_s18")],
+           ["Z1", "Z1", "", ""])
+    check_("arm_of reads a Z chain as Z1", arm_of("P2__Z1_s18"), "Z1")
+    ov_z1 = dict(ov_s1, KRABBY_OMNI_STAND_OBS="clock", KRABBY_ANCHOR_W="1.0", KRABBY_STAND_PRIOR_W="1.0",
+                KRABBY_ANCHOR_CKPT="parkour/outputs/omni_plan/phase2/graft/S1_s18_c15/model_19994.pt")
+
+    def s_z1(anchor_rows=0.88, prior_rows=0.12, mb0_first=0.0, loss_anchor=0.01, loss_prior=2.3, n=215):
+        extra = {P2R_ANCHOR_ROWS_TAG: anchor_rows, P2R_PRIOR_ROWS_TAG: prior_rows, P2R_LOSS_ANCHOR: loss_anchor,
+                P2R_LOSS_PRIOR: loss_prior}
+        s = _ser(n=n, **dict(base, **{"Episode_Reward/reward_action_rate": -0.004}, **extra))
+        s[P2R_ANCHOR_MB0_TAG] = [(F0 + i, mb0_first if i == 0 else 0.05) for i in range(n)]
+        return s
+    check_("p2r wiring: a clean Z1 (fork values) passes",
+           judge_wiring("Z1", ov_z1, _facts(weights=w_s1), s_z1(), F0, audit_ok, None)["rc"], RC_PASS)
+    check_("p2r wiring: anchor_rows outside [0.8, 0.95] fails",
+           judge_wiring("Z1", ov_z1, _facts(weights=w_s1), s_z1(anchor_rows=0.5), F0, audit_ok, None)["rc"], RC_FAIL)
+    check_("p2r wiring: prior_rows outside [0.05, 0.2] fails",
+           judge_wiring("Z1", ov_z1, _facts(weights=w_s1), s_z1(prior_rows=0.5), F0, audit_ok, None)["rc"], RC_FAIL)
+    check_("p2r wiring: anchor_mb0 != 0 at the first logged iteration fails",
+           judge_wiring("Z1", ov_z1, _facts(weights=w_s1), s_z1(mb0_first=0.3), F0, audit_ok, None)["rc"], RC_FAIL)
+    check_("p2r wiring: a dead anchor loss fails",
+           judge_wiring("Z1", ov_z1, _facts(weights=w_s1), s_z1(loss_anchor=0.0), F0, audit_ok, None)["rc"], RC_FAIL)
+    check_("p2r wiring: realised dose (first-update stand_prior) 0.5 (< 1.2) fails",
+           judge_wiring("Z1", ov_z1, _facts(weights=w_s1), s_z1(loss_prior=0.5), F0, audit_ok, None)["rc"], RC_FAIL)
+    check_("p2r wiring: realised dose at exactly 1.2 passes (boundary)",
+           judge_wiring("Z1", ov_z1, _facts(weights=w_s1), s_z1(loss_prior=1.2), F0, audit_ok, None)["rc"], RC_PASS)
+    check_("p2r wiring: KRABBY_ANCHOR_W=0 fails",
+           judge_wiring("Z1", dict(ov_z1, KRABBY_ANCHOR_W="0"), _facts(weights=w_s1), s_z1(), F0, audit_ok,
+                        None)["rc"], RC_FAIL)
+    check_("p2r wiring: no KRABBY_ANCHOR_CKPT fails",
+           judge_wiring("Z1", {k: v for k, v in ov_z1.items() if k != "KRABBY_ANCHOR_CKPT"}, _facts(weights=w_s1),
+                        s_z1(), F0, audit_ok, None)["rc"], RC_FAIL)
+    graft_ok = {"identity_cpu": True, "identity_gpu_stamps": ["GRAFT_S1_s18/suite__omni/seed001/20260101"]}
+    check_("p2r preflight: a readable graft + matching knobs passes",
+           judge_preflight("Z1", em_ok, None, None, ov_z1, p2r_graft=graft_ok,
+                           fork_ckpt=ov_z1["KRABBY_ANCHOR_CKPT"])["rc"], RC_PASS)
+    check_("p2r preflight: no graft.json is refused",
+           judge_preflight("Z1", em_ok, None, None, ov_z1, p2r_graft=None,
+                           fork_ckpt=ov_z1["KRABBY_ANCHOR_CKPT"])["rc"], RC_FAIL)
+    check_("p2r preflight: identity_cpu false is refused",
+           judge_preflight("Z1", em_ok, None, None, ov_z1, p2r_graft=dict(graft_ok, identity_cpu=False),
+                           fork_ckpt=ov_z1["KRABBY_ANCHOR_CKPT"])["rc"], RC_FAIL)
+    check_("p2r preflight: empty identity_gpu_stamps is refused",
+           judge_preflight("Z1", em_ok, None, None, ov_z1, p2r_graft=dict(graft_ok, identity_gpu_stamps=[]),
+                           fork_ckpt=ov_z1["KRABBY_ANCHOR_CKPT"])["rc"], RC_FAIL)
+    check_("p2r preflight: KRABBY_ANCHOR_CKPT not matching the chain's fork is refused",
+           judge_preflight("Z1", em_ok, None, None, ov_z1, p2r_graft=graft_ok, fork_ckpt="some/other/head.pt")["rc"],
+           RC_FAIL)
+    check_("p2r preflight: no p2s replay-gate verdict needed (never checked for a Z arm)",
+           judge_preflight("Z1", em_ok, None, None, ov_z1, p2r_graft=graft_ok,
+                           fork_ckpt=ov_z1["KRABBY_ANCHOR_CKPT"])["rc"], RC_PASS)
     pref_ok = (True, "ref ok")
     check_("p2s preflight: PASS verdict + magnitudes + matching weights + gate + reference passes",
            judge_preflight("ST2", em_ok, rp_st2, None, ov_st2, pg_ok, pref_ok)["rc"], RC_PASS)

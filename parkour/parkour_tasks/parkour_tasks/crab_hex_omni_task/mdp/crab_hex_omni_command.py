@@ -472,6 +472,8 @@ class CrabHexOmniCommand(UniformParkourCommand):
         self._slot_latch = bool(getattr(cfg, "eval_slot_latch", False))
         if self._slot_latch:
             self._hook_turning = torch.zeros(n, dtype=torch.bool, device=dev)
+            # NOTE(p2r statue, 2026-10-09): rows reset since the last hook call -- see :meth:`reset`.
+            self._latch_rearm = torch.zeros(n, dtype=torch.bool, device=dev)
         # ``stand_frac_actual`` already exists (base class); the rest are new.
         for key in ("move_frac_actual", "turn_frac_actual", "move_turn_frac_actual",
                     "facing_err_abs", "recap_frac", "yaw_progress"):
@@ -644,6 +646,28 @@ class CrabHexOmniCommand(UniformParkourCommand):
     def _update_command(self):
         """Re-project the held world command into the CURRENT body frame (every step)."""
         self._write_command(slice(None))
+
+    def reset(self, env_ids: Sequence[int] | None = None) -> dict[str, float]:
+        """The base reset; with the eval slot latch armed, the reset rows' latch is re-derived.
+
+        NOTE(p2r statue, 2026-10-09; ``P2R_PLAN.md`` "Left for implementation"): an episode reset is
+        a FRESH command, but :meth:`schedule_hook` re-latches the turning bit only where the facing
+        target changed -- and a suite wave's reset re-spawns at the pinned yaw, where a non-turning
+        resample's ``psi = yaw`` equals the wave's first face, so ~62 % of the move_turn wave's
+        settle inherited the turn wave's latch. Here the reset rows' ``_hook_turning`` is cleared and
+        they are flagged, so the next :meth:`schedule_hook` re-derives their turning bit from the raw
+        relay output exactly as for a fresh target (the step-1 launcher's rule). Rebinding, never an
+        in-place write: the latch buffers may be inference tensors after an eval step. Latch off (every
+        training run without a stand-keyed knob): the base reset, bitwise.
+        """
+        extras = super().reset(env_ids)
+        if getattr(self, "_slot_latch", False) and getattr(self, "_hook_turning", None) is not None:
+            rows = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
+            rows[slice(None) if env_ids is None else env_ids] = True
+            self._hook_turning = torch.where(rows, torch.zeros_like(self._hook_turning), self._hook_turning)
+            rearm = getattr(self, "_latch_rearm", None)
+            self._latch_rearm = rows if rearm is None else (rearm | rows)
+        return extras
 
     def stand_mask(self) -> torch.Tensor:
         """``(N,)`` bool: the rows whose command regime is the STAND slot (by ``slot_id``).
@@ -941,7 +965,13 @@ class CrabHexOmniCommand(UniformParkourCommand):
         moving = self.speed_cmd > 0.0
         turning = self.vel_command_b[:, 2] != 0.0
         if self._slot_latch:
-            self._hook_turning = torch.where(fresh, turning, self._hook_turning)
+            # A reset since the last hook call is a fresh command too (:meth:`reset`). ``getattr``: the
+            # step-1 launcher arms the latch at runtime without the rearm buffer.
+            rearm = getattr(self, "_latch_rearm", None)
+            relatch = fresh if rearm is None else (fresh | rearm)
+            self._hook_turning = torch.where(relatch, turning, self._hook_turning)
+            if rearm is not None:
+                self._latch_rearm = torch.zeros_like(rearm)
             turning = self._hook_turning
         self.slot_id[:] = moving.long() + 2 * turning.long()
         if self._stand_hold:

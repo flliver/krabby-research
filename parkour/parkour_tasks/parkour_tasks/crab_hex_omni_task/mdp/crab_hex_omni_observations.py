@@ -75,6 +75,18 @@ per EPISODE instead: :meth:`reset` latches ``hidden ~ Bernoulli(p(t))`` once per
 ``Metrics/clock_hidden_frac`` into ``env.extras["log"]`` at each reset (1.0 without a ramp),
 which the campaign's removal verification reads. It composes with ``stand_obs`` (both zero).
 
+THE STAND BIT IN THE HIDDEN CLOCK COLUMN (``params["stand_bit_clock"]``, ``KRABBY_OMNI_STAND_OBS=clock``;
+omni phase-2 stage p2r, ``P2R_STATUE_PLAN.md`` step 1, 2026-10-09; DEFAULT OFF, WIDTH-PRESERVING). Under
+the clock-hide knob dims 15-16 read (0, 0) on every row, so a head trained clock-free (S1) has an unused
+input column. This param writes ``command.stand_mask()`` (the command term's LATCHED stand slot) into
+column :attr:`CrabHexOmniParkourObservations.STAND_BIT_CLOCK_COL` (15) of the CURRENT step's
+observation only -- after ``super().__call__`` has pushed this step's row onto the history buffer, so
+history column 15 stays 0 exactly as in S1 (the slot-5 history re-patch is deliberately NOT copied).
+Construction-time only, and refused unless ``clock_hide`` is set with no ramp (a visible or ramped
+clock would share the column) and unless ``stand_obs`` is off (the two are alternative stand bits).
+The single observation group feeds both actor and critic, so the critic sees the same current-step
+bit. ``crab_hex_omni_mirror.build_mirrors`` reads the same param and makes column 15 mirror-invariant.
+
 ``ZERO_STEERING_HISTORY = False``: the forward task blanks dims 6-7 in the history copy so
 the policy cannot read the goal heading out of its own past (it is supposed to steer from
 what it sees). Here those dims ARE the command -- a facing error the policy must integrate
@@ -232,6 +244,14 @@ class CrabHexOmniParkourObservations(CrabHexParkourObservations):
     #: writes at every reset -- the fraction of rows whose clock channels read (0, 0).
     CLOCK_HIDDEN_FRAC_KEY = "Metrics/clock_hidden_frac"
 
+    #: NOTE(p2r statue, 2026-10-09): the column ``stand_bit_clock`` writes the stand bit into -- the
+    #: clock-sin channel, which reads 0 under ``clock_hide``. A class attribute (not a module
+    #: constant) so the unit tests that exec this class from source need no extra name.
+    STAND_BIT_CLOCK_COL = 15
+
+    #: Off unless ``params["stand_bit_clock"]`` (``KRABBY_OMNI_STAND_OBS=clock``); see the module docstring.
+    stand_bit_clock: bool = False
+
     @staticmethod
     def _check_clock_hide_ramp(ramp, clock_hide: bool) -> tuple[int, int] | None:
         """``None`` or ``(t0, t1)`` env steps, ``0 <= t0 < t1``; a ramp without the hide flag raises.
@@ -252,6 +272,19 @@ class CrabHexOmniParkourObservations(CrabHexParkourObservations):
         if int(t0) != t0 or int(t1) != t1 or not 0 <= int(t0) < int(t1):
             raise ValueError(f"clock_hide_ramp needs integer env steps 0 <= t0 < t1, got {ramp!r}")
         return (int(t0), int(t1))
+
+    @staticmethod
+    def _check_stand_bit_clock(stand_bit_clock: bool, clock_hide: bool, ramp, stand_obs: bool) -> None:
+        """``stand_bit_clock`` needs the clock hidden on EVERY row (``clock_hide``, no ramp) and no
+        ``stand_obs``; the knob parser refuses the same at config build, this guards the built cfg."""
+        if not stand_bit_clock:
+            return
+        if not clock_hide or ramp is not None:
+            raise ValueError("stand_bit_clock writes the stand bit into the clock column, which is free only "
+                             f"while the clock is hidden on every row (clock_hide=True, no ramp); got "
+                             f"clock_hide={clock_hide}, clock_hide_ramp={ramp}")
+        if stand_obs:
+            raise ValueError("stand_bit_clock and stand_obs are two alternative stand bits; set one")
 
     def __init__(self, cfg, env: ParkourManagerBasedRLEnv):
         _check_omni()
@@ -277,6 +310,9 @@ class CrabHexOmniParkourObservations(CrabHexParkourObservations):
         self.clock_hide_ramp = (
             None if ramp is None else self._check_clock_hide_ramp(ramp, self.clock_hide)
         )
+        # NOTE(p2r statue, 2026-10-09): the stand bit in the hidden clock column (width unchanged).
+        self.stand_bit_clock = bool(params.get("stand_bit_clock", False)) if isinstance(params, dict) else False
+        self._check_stand_bit_clock(self.stand_bit_clock, self.clock_hide, self.clock_hide_ramp, self.stand_obs)
         super().__init__(cfg, env)
         # The per-episode latch (ramp mode). All-False before the first reset is the draw at
         # t = 0, where p(0) = 0 for every legal t0 >= 0; rows are forced hidden from t1 on anyway.
@@ -423,6 +459,7 @@ class CrabHexOmniParkourObservations(CrabHexParkourObservations):
         clock_hide: bool = False,
         clock_hide_ramp: tuple[int, int] | None = None,
         cmd_obs_scalar: bool = False,
+        stand_bit_clock: bool = False,
     ) -> torch.Tensor:
         # The observation manager validates the term's ``params`` against THIS signature and
         # passes them as keyword arguments, so the clip must be an optional parameter here
@@ -459,6 +496,11 @@ class CrabHexOmniParkourObservations(CrabHexParkourObservations):
                 f"(built {self.clock_hide}/{self.clock_hide_ramp}, called {clock_hide}/"
                 f"{clock_hide_ramp}); they are construction-time only"
             )
+        if bool(stand_bit_clock) != self.stand_bit_clock:
+            raise ValueError(
+                "stand_bit_clock changed after the observation term was built (built "
+                f"{self.stand_bit_clock}, called {stand_bit_clock}); it is construction-time only"
+            )
         observations = super().__call__(
             env, asset_cfg, sensor_cfg, parkour_name, history_length
         )
@@ -475,4 +517,9 @@ class CrabHexOmniParkourObservations(CrabHexParkourObservations):
         fresh = env.episode_length_buf <= 1
         if bool(fresh.any()):
             self._obs_history_buffer[fresh, :, slot] = wz[fresh].unsqueeze(-1)
+        if self.stand_bit_clock:
+            # NOTE(p2r statue, 2026-10-09): the CURRENT step's column 15 only. The row
+            # ``super().__call__`` just pushed onto the history carries the hidden clock's 0 there,
+            # and nothing here touches ``_obs_history_buffer`` -- unlike slot 5 above, on purpose.
+            observations[:, self.STAND_BIT_CLOCK_COL] = self._stand_bit(env)
         return observations

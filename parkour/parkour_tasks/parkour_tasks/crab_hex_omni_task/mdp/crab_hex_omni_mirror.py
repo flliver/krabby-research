@@ -85,6 +85,11 @@ rod LENGTH, frame-free, so it is +1 too and is only PERMUTED with the plane's le
 observation term's own params -- the same contract as the facing encoding -- so the mirror and the
 observation can never disagree on the width.
 
+THE STAND BIT IN THE CLOCK COLUMN (omni phase-2 stage p2r, 2026-10-09; DEFAULT OFF). Under
+``params["stand_bit_clock"]`` (``KRABBY_OMNI_STAND_OBS=clock``) head slot 15 -- the clock sine, whose
+L/R sign is -1 -- carries the stand bit instead, a scalar: :func:`extend_head` sets slot 15 to +1 in
+BOTH plane tables (the fore-aft table already has +1 there). Slot 16 keeps its signs (it reads 0).
+
 ENTRY POINT. ``crab_hex_omni_symmetry_augmentation`` is the rsl-rl ``data_augmentation_func``
 (``PPOWithExtractor``): ``f(obs, actions, env, obs_type) -> (obs_aug, act_aug)`` where each
 output is ``cat([x, M_y x, M_x x, M_x M_y x])`` along the batch dim. The fork derives
@@ -194,6 +199,9 @@ OBS_ENCODING_PARAM = "facing_obs_encoding"
 #: The two optional head-extension params and their widths (``crab_hex_omni_observations``).
 OBS_STAND_PARAM = "stand_obs"
 OBS_LPF_PARAM = "lpf_obs"
+#: The p2r stand bit in the hidden clock column (``crab_hex_omni_observations``), and that column.
+OBS_STAND_CLOCK_PARAM = "stand_bit_clock"
+STAND_BIT_CLOCK_SLOT = 15
 STAND_OBS_DIM = 1
 LPF_OBS_DIM = 12
 
@@ -232,16 +240,22 @@ def extend_head(
     stand_obs: bool = False,
     lpf_obs: bool = False,
     rod_leg_names: list[str] | None = None,
+    stand_bit_clock: bool = False,
 ) -> tuple[list, list, list | None, list | None]:
     """Grow the two 17-slot head tables by the optional extensions.
 
     Returns ``(lr_signs, fa_signs, lr_perm, fa_perm)``; the perms are ``None`` (identity) when no
     rod block is present, so a head without extensions builds exactly the shipped mirror.
     ``rod_leg_names``: the six leg-ordered names (e.g. ``"FL_Hip_Femur_RevoluteJoint"``) the rod
-    block is laid out in -- the hip and knee halves share this leg order.
+    block is laid out in -- the hip and knee halves share this leg order. ``stand_bit_clock`` (p2r,
+    width unchanged): slot :data:`STAND_BIT_CLOCK_SLOT` carries the stand bit, a scalar, so it is +1
+    in both tables.
     """
     lr = list(lr_signs)
     fa = list(fa_signs)
+    if stand_bit_clock:
+        lr[STAND_BIT_CLOCK_SLOT] = 1.0
+        fa[STAND_BIT_CLOCK_SLOT] = 1.0
     lr_perm: list[int] | None = None
     fa_perm: list[int] | None = None
     if stand_obs:
@@ -326,6 +340,7 @@ def build_mirrors(env, obs_dim: int) -> tuple[object, object]:
     lr_signs, fa_signs, lr_perm, fa_perm = extend_head(
         lr_signs, fa_signs, stand_obs=stand_obs, lpf_obs=lpf_obs,
         rod_leg_names=_rod_leg_names(env) if lpf_obs else None,
+        stand_bit_clock=bool(params.get(OBS_STAND_CLOCK_PARAM, False)),
     )
     layout = _fwd._resolve_layout(env, obs_dim, n_head=len(lr_signs))
     lr = _fwd.CrabHexMirror(

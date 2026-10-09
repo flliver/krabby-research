@@ -2330,6 +2330,165 @@ def p2s_c0r_clauses(c0r: dict | None) -> dict:
     return {s: (PS().still_clauses(su.get(s)) if su.get(s) else None) for s in (1, 2)}
 
 
+#: Stage p2r's Z arms (CHARTER 12 / P2R_STATUE_PLAN.md step 5): one network learns the statue in place of ST2's
+#: stand-slot reward terms, so Z is read with the SAME full p2s read set and the SAME verdict rules (STILL / no
+#: OBSTACLE LOSS / no FLAT FAIL / no COST / attribution LEVER against C0R -- CHARTER 12's "Adoption-grade" list
+#: restates P2S_PLAN's exactly), plus one EXTRA invalid rule the grafted bit needs: the stand label every stamp
+#: was evaluated under must actually have been the latched clock bit, not a silently-dropped knob.
+P2R_HOLD_NAME = "P2R_HOLD_s18"
+
+
+def z_name(seed: int = 18, env=None) -> str:
+    """The Z head's name (a fresh relaunch name after a kill comes in through the environment, the p2s_queue.sh
+    convention: P2R_Z_S<seed>)."""
+    e = os.environ if env is None else env
+    return e.get(f"P2R_Z_S{seed}", f"P2__Z1_s{seed}")
+
+
+def z_clock_invalid_reasons(pt: dict) -> list[str]:
+    """The Z-arm INVALID rule (P2R_STATUE_PLAN.md step 5): every stamp's ``run_meta.env_vars`` must carry
+    ``KRABBY_OMNI_STAND_OBS=clock`` -- fail closed: a stamp missing the key, or carrying any other value
+    (``0`` / ``1`` / unset), is INVALID. Reading a Z head without the grafted bit armed would silently score the
+    frozen-S1 behaviour the walking anchor targets, not the statue the arm is meant to test."""
+    out = []
+    for k, stamp in sorted((pt.get("stamps") or {}).items()):
+        if not stamp:
+            continue
+        env = (_json(Path(stamp) / "run_meta.json") or {}).get("env_vars") or {}
+        v = str(env.get("KRABBY_OMNI_STAND_OBS", "")).strip().lower()
+        if v != "clock":
+            out.append(f"{pt.get('name')} {k}: KRABBY_OMNI_STAND_OBS={env.get('KRABBY_OMNI_STAND_OBS')!r}, "
+                       "want 'clock'")
+    return out
+
+
+def _run_candidates_mod():
+    """The driver module (experiments/tools/run_candidates.py), loaded by path once: its narrowed stand-bit clock
+    check is the single implementation of the raw-bit rule (fable review 2026-10-09)."""
+    global _RC_MOD
+    try:
+        return _RC_MOD
+    except NameError:
+        pass
+    path = Path(__file__).resolve().parents[2] / "tools" / "run_candidates.py"
+    spec = importlib.util.spec_from_file_location("_p2r_run_candidates", path)
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules["_p2r_run_candidates"] = mod
+    spec.loader.exec_module(mod)
+    _RC_MOD = mod
+    return mod
+
+
+def z_raw_bit_reasons(pt: dict, lag: int = 1) -> tuple[list[str], int]:
+    """P2R_STATUE_PLAN.md step 5's INVALID clause: every Z stamp's RAW stand bit (``clock_obs[:, 0]`` = obs column
+    15) must equal the stand label of every recorded step (settle/stand -> 1, every other hold incl. settled turns
+    -> 0; col 16 identically 0; the one-step command-to-obs lag at hold boundaries allowed; the prologue
+    unchecked). Ground truth = ``segment_id`` + ``run_meta.hold_labels`` (+ the suite's settle label), checked by
+    the driver's ``_npz_clock_obs_stand_bit`` -- so a plain Z policy eval IS checked (the first version only ran on
+    step-1 launcher stamps). Returns ``(fails, n_stamps_checked)``; ``lag`` is fixed at 1 by the driver's rule."""
+    rc = _run_candidates_mod()
+    fails, checked = [], 0
+    for k, stamp in sorted((pt.get("stamps") or {}).items()):
+        if not stamp:
+            continue
+        ok, why = rc._npz_clock_obs_stand_bit(stamp)
+        checked += 1
+        if not ok:
+            fails.append(f"{pt.get('name')} {k}: raw stand bit vs labels -- {why}")
+    return fails, checked
+
+
+def load_p2r_z(seed: int = 18, with_tb: bool = True, env=None) -> dict:
+    """Z1_s<seed> loaded with the FULL p2s read set against REFS_S1_s<seed> (C0R the PARTIAL comparator) --
+    P2R_STATUE_PLAN.md step 5. Reuses :func:`load_p2s` verbatim for refs / ancw / p2a / c0r (identical machinery:
+    the Z verdict rules are the SAME as a p2s dose arm's), with the Z head inserted into ``heads`` the same way a
+    p2s head would be."""
+    res = load_p2s(with_tb=with_tb, seeds=[seed])
+    name = z_name(seed, env)
+    rec = _rec(name) or {}
+    if rec and not rec.get("killed"):
+        pt = load_p2s_point(name, suite_stamp=rec.get("driver_stamp"), run_dir=rec.get("run_dir"), with_tb=with_tb)
+    else:
+        pt = {"name": name, "missing": True, "killed": (rec or {}).get("killed")}
+    res["heads"] = {name: pt}
+    return res
+
+
+def p2r_z_verdicts(res: dict) -> dict:
+    """:func:`p2s_verdicts` (``need_dose=False``: a Z arm has no stand-slot dose to validate) with the p2r
+    clock-bit INVALID rule (:func:`z_clock_invalid_reasons`) folded in on top of whatever verdict
+    :func:`p2s_verdict` already read -- an INVALID clock bit overrides any other verdict, including a STILL /
+    PASS read on numbers that were never actually scored under the grafted bit."""
+    out = p2s_verdicts(res, need_dose=False)
+    for name, pt in (res.get("heads") or {}).items():
+        v = out.get(name)
+        if not v or pt.get("missing") or v.get("verdict") == "PENDING":
+            continue
+        clock_fails = z_clock_invalid_reasons(pt)
+        if clock_fails:
+            out[name] = dict(v, verdict="INVALID EVAL", why=clock_fails + list(v.get("why") or []))
+    return out
+
+
+def p2r_z_fidelity(z_pt: dict | None, hold_name: str = P2R_HOLD_NAME) -> dict:
+    """Z's stand clauses beside P2R_HOLD_s18's (suite and walkstop: steps/s, taps/s -- P2R_STATUE_PLAN.md step 5's
+    "fidelity to the hold controller (reported)"). ``P2R_HOLD_s18`` reads p2s-style (``p2s_stand.head_summary`` /
+    ``walkstop_read`` act on raws alone, independent of whether the stamp came from the p2r-mode launcher), so it
+    is loaded through the SAME :func:`load_p2s_point` as any other head."""
+    hold_rec = _rec(hold_name) or {}
+    hold_pt = (load_p2s_point(hold_name, suite_stamp=hold_rec.get("driver_stamp"), run_dir=hold_rec.get("run_dir"),
+                              with_tb=False) if hold_rec and not hold_rec.get("killed") else None)
+
+    def clauses(pt):
+        p = (pt or {}).get("p2s") or {}
+        su, ws = p.get("suite") or {}, p.get("walkstop") or {}
+        return {"suite": {s: {"steps_per_s": (su.get(s) or {}).get("steps_per_s"),
+                              "taps_per_s": (su.get(s) or {}).get("taps_per_s")} for s in (1, 2)},
+               "walkstop": {s: {"steps_per_s": ((ws.get(s) or {}).get("pooled") or {}).get("steps_per_s"),
+                                "taps_per_s": ((ws.get(s) or {}).get("pooled") or {}).get("taps_per_s")}
+                           for s in P2S_WS_SEEDS}}
+    return {"z": clauses(z_pt), "hold": clauses(hold_pt), "hold_name": hold_name, "hold_missing": hold_pt is None}
+
+
+def p2r_z_report(seed: int = 18, with_tb: bool = True, env=None, early_json: dict | None = None,
+                 lag: int = 1) -> dict:
+    """The whole ``--p2r-z`` read (P2R_STATUE_PLAN.md step 5): verdict + attribution + fidelity + the walking-drift
+    D (from ``p2r_early.py``'s own output, when given) + the best-effort raw-bit cross-check."""
+    res = load_p2r_z(seed, with_tb=with_tb, env=env)
+    name = z_name(seed, env)
+    verdicts = p2r_z_verdicts(res)
+    v = verdicts.get(name) or {"name": name, "verdict": "PENDING", "why": ["no record"]}
+    pt = (res.get("heads") or {}).get(name) or {}
+    attr = p2s_attribution(pt if not pt.get("missing") else None, res.get("c0r"), v, bands(res["refs"][seed],
+                                                                                          res["refs"][seed]))
+    raw_fails, raw_checked = z_raw_bit_reasons(pt) if not pt.get("missing") else ([], 0)
+    return {"name": name, "seed": seed, "verdict": v, "attribution": attr,
+           "fidelity": p2r_z_fidelity(pt if not pt.get("missing") else None),
+           "walking_drift": early_json or {"note": "no --p2r-early-json given"},
+           "raw_bit_check": {"fails": raw_fails, "n_checked": raw_checked,
+                             "note": "0 checked is expected for a plain policy eval (module docstring)"}}
+
+
+def p2r_z_markdown(out: dict) -> str:
+    v, fid = out["verdict"], out["fidelity"]
+    L = [f"# Omni phase 2, stage p2r -- {out['name']} (CHARTER 12 / P2R_STATUE_PLAN.md step 5)", "",
+        f"**Verdict: {v.get('verdict')}**", "", "Why:"] + [f"- {w}" for w in v.get("why") or ["(none)"]] + ["",
+        f"**Attribution (vs {out['attribution'].get('control')}): {out['attribution'].get('status')}**", "",
+        "## Fidelity to the hold controller", "", f"| row | seed | Z steps/s | Z taps/s | {fid['hold_name']} "
+        f"steps/s | {fid['hold_name']} taps/s |", "|---|---|---|---|---|---|"]
+    for s in (1, 2):
+        zz, hh = fid["z"]["suite"][s], fid["hold"]["suite"][s]
+        L.append(f"| suite | es{s} | {zz.get('steps_per_s')} | {zz.get('taps_per_s')} | {hh.get('steps_per_s')} | "
+                f"{hh.get('taps_per_s')} |")
+    for s in P2S_WS_SEEDS:
+        zz, hh = fid["z"]["walkstop"][s], fid["hold"]["walkstop"][s]
+        L.append(f"| walkstop | es{s} | {zz.get('steps_per_s')} | {zz.get('taps_per_s')} | {hh.get('steps_per_s')} "
+                f"| {hh.get('taps_per_s')} |")
+    L += ["", "## Walking drift (p2r_early.py)", "", f"```\n{json.dumps(out['walking_drift'], indent=1)}\n```", "",
+         "## Raw-bit cross-check (best-effort)", "", f"```\n{json.dumps(out['raw_bit_check'], indent=1)}\n```"]
+    return "\n".join(L)
+
+
 def p2s_reported(pt: dict, c0r: dict | None) -> dict:
     """The reported-only items (P2S_PLAN): sigma, steps_per_rad_post, walking vs C0R, the stand clip share."""
     p = pt.get("p2s") or {}
@@ -3470,6 +3629,8 @@ def main() -> int:
     ap.add_argument("--p2r-step1", action="store_true")
     ap.add_argument("--p2r-drift-json", type=Path, metavar="PATH")
     ap.add_argument("--p2r-md", type=Path, metavar="PATH")
+    ap.add_argument("--p2r-z", action="store_true")
+    ap.add_argument("--p2r-early-json", type=Path, metavar="PATH")
     ap.add_argument("--self-test", action="store_true")
     a = ap.parse_args()
     if a.self_test:
@@ -3531,6 +3692,13 @@ def main() -> int:
             a.p2r_md.write_text(p2r_step1_markdown(out))
         print(json.dumps(out, default=str))
         return 0
+    if a.p2r_z:
+        early = json.loads(a.p2r_early_json.read_text()) if a.p2r_early_json else None
+        out = p2r_z_report(early_json=early)
+        if a.p2r_md:
+            a.p2r_md.write_text(p2r_z_markdown(out))
+        print(json.dumps(out, default=str))
+        return 0 if out["verdict"].get("verdict") not in ("INVALID EVAL",) else 4
     if a.p2s_inertness:
         seeds = tuple(int(x) for x in a.p2s_seeds.split(",") if x.strip())
         r = p2s_inertness_check(load_p2s_inertness(seeds))

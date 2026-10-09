@@ -1,6 +1,7 @@
 
 from __future__ import annotations
 
+import copy
 import math
 
 import torch
@@ -17,6 +18,7 @@ from rsl_rl.utils import resolve_callable, resolve_optimizer
 from parkour_isaaclab.utils.nonfinite_logging import warn_if_nonfinite
 
 from .actor_critic_with_encoder import ActorCriticRMA
+from .crab_actor_critic_with_encoder import ACTION_STD_MAX, ACTION_STD_MIN, soft_std
 
 # ------------------------------------------------------------------ PPO construction (2026-10-01)
 # PPO-construction plan step 2 (``~/.claude/plans/foamy-wondering-ullman.md``): always-on telemetry
@@ -49,6 +51,35 @@ CRAB_CAM_DIMS = 6
 #: dead zone. Without an iteration (a bare algorithm, as in the unit tests) the counter keys it.
 HAND_DIAG_EVERY = 25
 HAND_DIAG_DEADZONE = 0.05
+#: p2r statue distillation (``P2R_STATUE_PLAN.md`` step 1, 2026-10-09): the gradient-norm split
+#: (``Loss/grad_norm_statue`` / ``_anchor`` / ``_rest``) runs on the first minibatch of every
+#: ``STATUE_GRAD_SPLIT_EVERY``-th iteration (same iteration/counter keying as the hand diagnostics).
+STATUE_GRAD_SPLIT_EVERY = 50
+#: A row is a STAND row when its mask column exceeds this (the bit is exactly 0.0 or 1.0).
+STAND_BIT_THRESHOLD = 0.5
+
+
+def anchor_sigma_from_state(state: dict) -> torch.Tensor:
+    """The fixed ``sigma_A`` of a checkpoint's ``model_state_dict``: the std its policy samples with.
+
+    ``std_raw`` (the ``soft`` type, every head of record since c6x) -> :func:`soft_std`; ``std`` (scalar)
+    -> clamped to the stock [0.05, 2.0] band; ``log_std`` -> ``exp`` clamped the same way.
+    """
+    if "std_raw" in state:
+        sigma = soft_std(state["std_raw"].float())
+    elif "std" in state:
+        sigma = state["std"].float().clamp(ACTION_STD_MIN, ACTION_STD_MAX)
+    elif "log_std" in state:
+        sigma = torch.exp(state["log_std"].float()).clamp(ACTION_STD_MIN, ACTION_STD_MAX)
+    else:
+        raise ValueError("anchor checkpoint: model_state_dict carries no std_raw / std / log_std")
+    return sigma.detach().reshape(-1).clone()
+
+
+def statue_row_losses(mu: torch.Tensor, sigma_a: torch.Tensor, mu_a: torch.Tensor | None = None) -> torch.Tensor:
+    """Per row ``0.5 * sum_d ((mu - mu_a) / sigma_a,d)^2`` (``mu_a`` None -> the statue target 0)."""
+    diff = mu if mu_a is None else mu - mu_a
+    return 0.5 * (diff / sigma_a.reshape(1, -1)).square().sum(dim=-1)
 
 
 def _safe_advantage_normalize(adv: torch.Tensor) -> torch.Tensor:
@@ -147,8 +178,12 @@ class PPOWithExtractor:
         kl_stop: float | None = None,
         hist_encoder_learning_rate: float | None = None,
         hand_diag_vy_obs_col: int | None = None,
+        anchor_coef: float = 0.0,
+        anchor_ckpt: str | None = None,
+        stand_prior_coef: float = 0.0,
+        stand_mask_col: int | None = None,
     ) -> None:
-        """The six trailing keywords are the PPO-construction knobs (2026-10-01), all DEFAULT OFF:
+        """The six keywords after ``optimizer`` are the PPO-construction knobs (2026-10-01), all DEFAULT OFF:
 
         ``action_bound_loss_coef`` / ``action_bound`` / ``action_bound_loss_ramp``
             :func:`action_bound_loss` on the minibatch mean, weighted by :meth:`action_bound_coef`
@@ -164,6 +199,23 @@ class PPOWithExtractor:
         ``hand_diag_vy_obs_col``
             per-hand diagnostics (``KRABBY_PPO_HAND_DIAG=1``): the POLICY observation column of the
             body-frame lateral command (9 on the omni term); ``None`` = off.
+
+        The last four are the p2r statue distillation (``P2R_STATUE_PLAN.md`` step 1, 2026-10-09), all
+        DEFAULT OFF (``KRABBY_ANCHOR_W`` / ``KRABBY_ANCHOR_CKPT`` / ``KRABBY_STAND_PRIOR_W``):
+
+        ``anchor_coef`` / ``stand_prior_coef``
+            weights of two masked losses on the minibatch's action MEAN (never the std), split by the
+            stand bit ``obs[:B, stand_mask_col] > 0.5``: the walking anchor on bit-0 rows,
+            ``0.5 * sum_d ((mu - mu_A) / sigma_A,d)^2`` with ``mu_A`` a frozen copy of the actor loaded
+            from ``anchor_ckpt`` (``hist_encoding=False``, forwarded on the same minibatch tensor); the
+            statue prior on bit-1 rows, ``0.5 * sum_d (mu / sigma_A,d)^2``. Each is the SUM over its
+            rows divided by the minibatch size B. ``sigma_A`` is the checkpoint's own std, fixed.
+            Both 0 -> nothing is built or computed and the update is bitwise the old one.
+        ``anchor_ckpt``
+            the checkpoint (``model_state_dict``: ``actor.*`` and the std parameter); required when
+            either weight is > 0.
+        ``stand_mask_col``
+            the POLICY observation column carrying the stand bit (15: ``KRABBY_OMNI_STAND_OBS=clock``).
         """
         if schedule not in SCHEDULES:
             raise ValueError(f"PPOWithExtractor: schedule must be one of {SCHEDULES}, got {schedule!r}")
@@ -196,6 +248,20 @@ class PPOWithExtractor:
         if hist_encoder_learning_rate is not None and not float(hist_encoder_learning_rate) > 0.0:
             raise ValueError(f"PPOWithExtractor: hist_encoder_learning_rate must be > 0, got "
                              f"{hist_encoder_learning_rate!r}")
+        anchor_coef, stand_prior_coef = float(anchor_coef), float(stand_prior_coef)
+        for name, coef in (("anchor_coef", anchor_coef), ("stand_prior_coef", stand_prior_coef)):
+            if not (math.isfinite(coef) and coef >= 0.0):
+                raise ValueError(f"PPOWithExtractor: {name} must be >= 0, got {coef!r}")
+        statue_armed = anchor_coef > 0.0 or stand_prior_coef > 0.0
+        if statue_armed:
+            if not anchor_ckpt:
+                raise ValueError("PPOWithExtractor: anchor_coef / stand_prior_coef need anchor_ckpt (sigma_A and "
+                                 "mu_A come from it)")
+            if stand_mask_col is None or int(stand_mask_col) < 0:
+                raise ValueError(f"PPOWithExtractor: anchor_coef / stand_prior_coef need a stand_mask_col >= 0, "
+                                 f"got {stand_mask_col!r}")
+        elif anchor_ckpt is not None:
+            raise ValueError("PPOWithExtractor: anchor_ckpt is set but anchor_coef and stand_prior_coef are both 0")
         self.device = device
         self.is_multi_gpu = multi_gpu_cfg is not None
         if multi_gpu_cfg is not None:
@@ -274,6 +340,16 @@ class PPOWithExtractor:
         self.action_bound_loss_ramp = action_bound_loss_ramp
         self.kl_stop = None if kl_stop is None else float(kl_stop)
         self.hand_diag_vy_obs_col = None if hand_diag_vy_obs_col is None else int(hand_diag_vy_obs_col)
+        # -- p2r statue distillation (default off; see the constructor docstring)
+        self.anchor_coef = anchor_coef
+        self.stand_prior_coef = stand_prior_coef
+        self.anchor_ckpt = None if anchor_ckpt is None else str(anchor_ckpt)
+        self.stand_mask_col = None if stand_mask_col is None else int(stand_mask_col)
+        #: The frozen anchor actor (``anchor_coef > 0`` only) and the fixed ``sigma_A`` (either weight > 0).
+        self.anchor_actor: nn.Module | None = None
+        self.anchor_sigma: torch.Tensor | None = None
+        if statue_armed:
+            self._build_anchor()
         #: The runner's training iteration of the coming :meth:`update` (set by the runner; read only by
         #: the per-hand diagnostic cadence). ``None`` = not driven by a runner.
         self.iteration: int | None = None
@@ -292,6 +368,10 @@ class PPOWithExtractor:
                 ("kl_stop", self.kl_stop),
                 ("hist_encoder_learning_rate", self.hist_encoder_learning_rate),
                 ("hand_diag_vy_obs_col", self.hand_diag_vy_obs_col),
+                ("anchor_coef", anchor_coef or None),
+                ("stand_prior_coef", stand_prior_coef or None),
+                ("anchor_ckpt", self.anchor_ckpt),
+                ("stand_mask_col", self.stand_mask_col if statue_armed else None),
             ) if v is not None
         }
         if armed:
@@ -299,6 +379,62 @@ class PPOWithExtractor:
             # proves the knobs reached the ALGORITHM object, not merely the cfg dump.
             print("[PPO] construction: " + ", ".join(f"{k}={v}" for k, v in armed.items())
                   + f", learning_rate={self.learning_rate}, desired_kl={self.desired_kl}", flush=True)
+
+    # ------------------------------------------------------------------ p2r statue distillation
+    def _build_anchor(self) -> None:
+        """Load ``anchor_ckpt``: ``sigma_A`` always; with ``anchor_coef > 0`` also the frozen anchor actor.
+
+        The anchor is a DEEP COPY of this policy's whole actor module (priv / scan / history encoders
+        included) with the checkpoint's ``actor.*`` weights loaded strictly, every parameter
+        ``requires_grad=False``, in ``eval()``. It is not a submodule of the policy, so it is in no
+        optimizer, no ``state_dict`` and no checkpoint this run writes.
+        """
+        loaded = torch.load(self.anchor_ckpt, map_location=self.device, weights_only=False)
+        state = loaded["model_state_dict"] if isinstance(loaded, dict) and "model_state_dict" in loaded else loaded
+        self.anchor_sigma = anchor_sigma_from_state(state).to(self.device)
+        n_act = int(self.policy.actor.num_actions) if hasattr(self.policy.actor, "num_actions") else None
+        if n_act is not None and self.anchor_sigma.numel() != n_act:
+            raise ValueError(f"anchor checkpoint: sigma_A has {self.anchor_sigma.numel()} dims, the policy {n_act}")
+        if self.anchor_coef > 0.0:
+            actor_state = {k[len("actor."):]: v for k, v in state.items() if k.startswith("actor.")}
+            if not actor_state:
+                raise ValueError(f"anchor checkpoint {self.anchor_ckpt}: no actor.* weights")
+            anchor = copy.deepcopy(self.policy.actor)
+            anchor.load_state_dict(actor_state, strict=True)
+            for p in anchor.parameters():
+                p.requires_grad_(False)
+            self.anchor_actor = anchor.to(self.device).eval()
+
+    def _statue_losses(self, obs_batch: torch.Tensor, mu_batch: torch.Tensor, batch_size: int) -> dict:
+        """The two masked losses on one minibatch (call only when a statue weight is > 0).
+
+        ``obs_batch`` is the FULL tensor the policy forward ran on (augmented rows included);
+        ``mu_batch`` its first ``batch_size`` rows' means. The anchor forwards on that same full
+        tensor and is sliced afterwards, so at the fork it reproduces ``mu_batch`` bit for bit.
+        Returns ``{"bit", "anchor", "prior"}`` (a loss is None while its weight is 0).
+        """
+        col = self.stand_mask_col
+        if col >= obs_batch.shape[-1]:
+            raise ValueError(f"stand_mask_col {col} is outside the policy obs width {obs_batch.shape[-1]}")
+        bit = obs_batch[:batch_size, col] > STAND_BIT_THRESHOLD
+        out = {"bit": bit, "anchor": None, "prior": None}
+        zero = mu_batch.new_zeros(())
+        if self.anchor_coef > 0.0:
+            with torch.no_grad():
+                mu_a = self.anchor_actor(obs_batch, False)[:batch_size]
+            k_anchor = statue_row_losses(mu_batch, self.anchor_sigma, mu_a.detach())
+            out["anchor"] = torch.where(~bit, k_anchor, zero).sum() / batch_size
+        if self.stand_prior_coef > 0.0:
+            k_prior = statue_row_losses(mu_batch, self.anchor_sigma)
+            out["prior"] = torch.where(bit, k_prior, zero).sum() / batch_size
+        return out
+
+    def _actor_grad_norm(self, term: torch.Tensor) -> float:
+        """``||d term / d actor params||`` (logging only: ``autograd.grad``, graph retained, no ``.grad``)."""
+        params = [p for p in self.policy.actor.parameters() if p.requires_grad]
+        grads = torch.autograd.grad(term, params, retain_graph=True, allow_unused=True)
+        sq = sum(float(g.detach().square().sum()) for g in grads if g is not None)
+        return math.sqrt(sq)
 
     # ------------------------------------------------------------------ construction knobs
     def action_bound_coef(self) -> float:
@@ -625,6 +761,13 @@ class PPOWithExtractor:
         diag_step = self.counter if self.iteration is None else self.iteration
         if self.hand_diag_vy_obs_col is not None and diag_step % HAND_DIAG_EVERY == 0:
             self._hand_diag(telemetry)
+        # -- p2r statue distillation (default off: nothing below runs and the loss is untouched)
+        statue_armed = self.anchor_coef > 0.0 or self.stand_prior_coef > 0.0
+        statue_split = statue_armed and diag_step % STATUE_GRAD_SPLIT_EVERY == 0
+        st_anchor_sum = st_prior_sum = st_anchor_rows = st_prior_rows = 0.0
+        st_n = 0
+        st_anchor_mb0 = None
+        st_split: dict[str, float] = {}
 
         if self.policy.is_recurrent:
             generator = self.storage.recurrent_mini_batch_generator(
@@ -786,6 +929,21 @@ class PPOWithExtractor:
                 if bound_coef > 0.0:
                     loss = loss + bound_coef * bound_loss
 
+            # -- p2r statue distillation (KRABBY_ANCHOR_W / KRABBY_STAND_PRIOR_W): after the bound loss
+            #    and BEFORE the symmetry block reassigns ``obs_batch``, on the full minibatch, then masked
+            #    by the stand bit. Each term is added only while its weight is > 0.
+            statue = None
+            statue_part = None
+            if statue_armed:
+                statue = self._statue_losses(obs_batch, mu_batch, original_batch_size)
+                for coef, term in ((self.anchor_coef, statue["anchor"]), (self.stand_prior_coef, statue["prior"])):
+                    if term is not None and coef > 0.0:
+                        statue_part = coef * term if statue_part is None else statue_part + coef * term
+                if statue_part is not None:
+                    loss = loss + statue_part
+                if statue["anchor"] is not None and st_anchor_mb0 is None:
+                    st_anchor_mb0 = float(statue["anchor"])   # the iteration's first minibatch (fork: 0)
+
             symmetry_loss = None
             if self.symmetry:
                 if not self.symmetry["use_data_augmentation"]:
@@ -821,6 +979,15 @@ class PPOWithExtractor:
                 target_embedding = self.rnd.target(rnd_state).detach()
                 rnd_loss = torch.nn.functional.mse_loss(predicted_embedding, target_embedding)
 
+            if statue_split and not st_split and statue_part is not None and torch.isfinite(loss).all():
+                # logging only (autograd.grad, graph retained): the WEIGHTED terms' actor-gradient norms,
+                # on the iteration's first minibatch -- the dominance read of P2R_STATUE_PLAN step 4
+                if statue["prior"] is not None:
+                    st_split["grad_norm_statue"] = self._actor_grad_norm(self.stand_prior_coef * statue["prior"])
+                if statue["anchor"] is not None:
+                    st_split["grad_norm_anchor"] = self._actor_grad_norm(self.anchor_coef * statue["anchor"])
+                st_split["grad_norm_rest"] = self._actor_grad_norm(loss - statue_part)
+
             self.optimizer.zero_grad()
             if torch.isfinite(loss).all():
                 loss.backward()
@@ -850,6 +1017,16 @@ class PPOWithExtractor:
                 mean_priv_reg_loss += priv_reg_loss.mean().item()
                 if bound_loss is not None:
                     mean_bound_loss += bound_loss.item()
+                if statue is not None:
+                    n_rows = float(statue["bit"].numel())
+                    n_stand = float(statue["bit"].sum())
+                    st_prior_rows += n_stand / n_rows
+                    st_anchor_rows += (n_rows - n_stand) / n_rows
+                    if statue["anchor"] is not None:
+                        st_anchor_sum += statue["anchor"].item()
+                    if statue["prior"] is not None:
+                        st_prior_sum += statue["prior"].item()
+                    st_n += 1
             else:
                 self.optimizer.zero_grad(set_to_none=True)
                 n_skipped += 1
@@ -928,6 +1105,18 @@ class PPOWithExtractor:
         if bound_armed:
             loss_dict["action_bound"] = mean_bound_loss / num_updates
             loss_dict["action_bound_coef"] = float(bound_coef)
+        if statue_armed:
+            # ``Loss/<key>`` in the runner's log: means over the minibatches that took a step
+            n = max(st_n, 1)
+            if self.anchor_coef > 0.0:
+                loss_dict["anchor"] = st_anchor_sum / n
+                if st_anchor_mb0 is not None:
+                    loss_dict["anchor_mb0"] = st_anchor_mb0
+            if self.stand_prior_coef > 0.0:
+                loss_dict["stand_prior"] = st_prior_sum / n
+            loss_dict["anchor_rows"] = st_anchor_rows / n
+            loss_dict["prior_rows"] = st_prior_rows / n
+            loss_dict.update(st_split)
         return loss_dict
 
     def priv_reg_coef(self) -> float:

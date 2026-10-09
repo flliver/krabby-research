@@ -2289,7 +2289,13 @@ def test_a_pooled_term_still_consumes_rsi_staging_exactly_once():
 #: sampler's rule. With every knob off the hook is behaviourally the pre-change one (pinned by
 #: ``test_with_every_motion_knob_off_the_hook_is_the_legacy_hook``).
 #: Previous digest: d74b2fa38a0ad1f62a27c9d9ec281995d7350d1e4266343781cf7dc809b618bf.
-SCHEDULE_HOOK_SOURCE_SHA256 = "320d3d82056ebdc0a6619479734699b408ed68efb247adb6b181c2e170dcfea1"
+#:
+#: RE-PINNED 2026-10-09 (omni p2r statue plan step 1, a TRAINING-side change that moves ``code_sha`` on
+#: purpose): with the eval slot latch armed, a row reset since the last hook call (``reset`` sets
+#: ``_latch_rearm``) re-latches its turning bit like a fresh facing target -- the suite-wave carry-over
+#: fix. Latch off: untouched. Pinned by ``tests/unit/test_omni_p2r_statue_core.py``.
+#: Previous digest: 320d3d82056ebdc0a6619479734699b408ed68efb247adb6b181c2e170dcfea1.
+SCHEDULE_HOOK_SOURCE_SHA256 = "f4242a13feaebdb1a4a43578ab0659330abcbc092126c0874b1ce075e3222f57"
 
 
 def test_schedule_hook_is_untouched_by_the_suite():
