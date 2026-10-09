@@ -35,6 +35,11 @@ variable                        what it writes when armed
 **incomes (env cfg rewards; weights are the RewTerm weight, >= 0)**
 ``KRABBY_STAND_STANCE_W``       ADDS ``rewards.reward_stand_stance_quality`` -- the F1 stand
                                 term: the stopped-clock stance-quality income, STAND slot only
+``KRABBY_STAND_SUPPORT_W``      ADDS ``rewards.reward_stand_support`` -- p2s T1: supported feet
+                                beyond a tripod (sum of clamp(|F|/50 N) - 3), STAND slot, upright
+**stand-slot penalty (env cfg rewards; weight <= 0)**
+``KRABBY_STAND_SLIDE_W``        ADDS ``rewards.penalty_stand_slide`` -- p2s T2: load-weighted 3-D
+                                footpad speed (unsquared), STAND slot, upright
 **func swaps on EXISTING forward terms (stage p2b; weight and params untouched)**
 ``KRABBY_ORIENT_ALL_TILES=1``   ``rewards.reward_orientation.func`` -> ``reward_orientation_upright``
                                 (tilt^2 on EVERY tile; the stock func zeroes it off parkour_flat)
@@ -110,6 +115,13 @@ through (the terrain-relative twins accept and ignore ``ground_offset_from_root_
 weight, ``min_clearance_m`` and the ``KRABBY_FOOT_CLEAR_FLAT`` mask stay the forward knobs' own.
 Both refuse a cfg that lacks the term and print a ``[KNOB] <NAME>=1 consumed`` line when armed.
 
+Omni phase-2 stage p2s (``P2S_PLAN.md`` step 3, 2026-10-08) added the stand-slot pair, wired exactly
+like F1: ``KRABBY_STAND_SUPPORT_W`` (T1, an INCOME -- weight >= 0, refused negative) and
+``KRABBY_STAND_SLIDE_W`` (T2, a PENALTY -- weight <= 0, refused positive) each ADD one term from
+``mdp/crab_hex_omni_motion_rewards.py`` (gate: the STAND command slot x upright), appended after F1,
+and print a ``[KNOB] <NAME>=<value> consumed`` line when armed. They are reward weights, not eval
+semantics (an eval never carries them), and they arm no stand slot latch.
+
 Three knobs the plan names ALREADY EXIST in the forward rewards cfg's ``_overrides`` table and
 are reused, not duplicated (they reach the omni flat-walk / teacher rewards because
 ``CrabHexOmniFlatWalkRewardsCfg`` inherits that ``__post_init__``): ``KRABBY_POWER_W``
@@ -156,6 +168,11 @@ POWER_JOINTS_VAR = "KRABBY_POWER_JOINTS"
 ORIENT_ALL_TILES_VAR = "KRABBY_ORIENT_ALL_TILES"
 #: CL: both lift terms measure foot height above the terrain under the foot (``mdp/omni_clearance``).
 FOOT_CLEAR_TERRAIN_VAR = "KRABBY_FOOT_CLEAR_TERRAIN"
+# -- omni phase-2 stage p2s (P2S_PLAN step 3, 2026-10-08; both DEFAULT OFF, set by no preset)
+#: T1: the STAND-slot support income (``rewards.reward_stand_support``, weight >= 0).
+STAND_SUPPORT_W_VAR = "KRABBY_STAND_SUPPORT_W"
+#: T2: the STAND-slot loaded-foot slide penalty (``rewards.penalty_stand_slide``, weight <= 0).
+STAND_SLIDE_W_VAR = "KRABBY_STAND_SLIDE_W"
 #: The three EXISTING forward weight knobs the plan reuses (applied by the forward
 #: ``CrabHexFlatWalkRewardsCfg.__post_init__`` ``_overrides`` table) -> the term they dose.
 POWER_W_VAR = "KRABBY_POWER_W"
@@ -238,6 +255,13 @@ FOOT_SLIP_TERM = "penalty_foot_slip"
 STAND_POSE_TERM = "penalty_stand_pose"
 #: ... and the INCOME term ``KRABBY_STAND_STANCE_W`` adds (phase-2 plan step 3, F1).
 STAND_STANCE_TERM = "reward_stand_stance_quality"
+#: ... and the p2s stand-slot pair (P2S_PLAN step 3, 2026-10-08): T1 an INCOME, T2 a penalty.
+STAND_SUPPORT_TERM = "reward_stand_support"
+STAND_SLIDE_TERM = "penalty_stand_slide"
+#: Their shared params: the per-foot support saturates at the eval's 50 N "loaded" line, and the
+#: upright gate is F1's (``-g_z > 0.9``).
+STAND_LOAD_REF_N = 50.0
+STAND_UPRIGHT_MIN = 0.9
 #: The EXISTING forward term ``KRABBY_POWER_JOINTS`` re-scopes (``KRABBY_POWER_W`` doses it).
 POWER_TERM = "penalty_mechanical_power"
 #: ``KRABBY_POWER_JOINTS`` spellings: the subsets it can select (``"all"`` / blank = OFF, the stock
@@ -289,6 +313,9 @@ __all__ = [
     # omni phase-2 stage p2b (2026-10-08)
     "ORIENT_ALL_TILES_VAR", "FOOT_CLEAR_TERRAIN_VAR", "ORIENT_TERM", "FOOT_CLEAR_TERM",
     "SWING_MIN_CLEAR_TERM", "FUNC_SWAPS",
+    # omni phase-2 stage p2s (2026-10-08)
+    "STAND_SUPPORT_W_VAR", "STAND_SLIDE_W_VAR", "STAND_SUPPORT_TERM", "STAND_SLIDE_TERM",
+    "STAND_LOAD_REF_N", "STAND_UPRIGHT_MIN",
 ]
 
 
@@ -566,6 +593,9 @@ MOTION_KNOB_PARSERS = {
     # omni phase-2 stage p2b (2026-10-08)
     ORIENT_ALL_TILES_VAR: lambda t: parse_flag(t, ORIENT_ALL_TILES_VAR),
     FOOT_CLEAR_TERRAIN_VAR: lambda t: parse_flag(t, FOOT_CLEAR_TERRAIN_VAR),
+    # omni phase-2 stage p2s (2026-10-08)
+    STAND_SUPPORT_W_VAR: lambda t: parse_income_w(t, STAND_SUPPORT_W_VAR),
+    STAND_SLIDE_W_VAR: lambda t: parse_penalty_w(t, STAND_SLIDE_W_VAR),
 }
 
 
@@ -611,8 +641,9 @@ def _rewards(cfg, var: str):
 
 
 def _default_term_builders():
-    """``{name: (func, params)}`` for the ADDED terms -- the four penalties and (phase-2 plan step 3)
-    the F1 stand income -- with lazy Isaac imports."""
+    """``{name: (func, params)}`` for the ADDED terms -- the four penalties, (phase-2 plan step 3)
+    the F1 stand income and (stage p2s) the stand-slot support / slide pair -- with lazy Isaac
+    imports."""
     import importlib  # noqa: PLC0415
 
     from isaaclab.managers import SceneEntityCfg  # noqa: PLC0415
@@ -649,6 +680,22 @@ def _default_term_builders():
             "vel_ref": lib_rew.CLOCK_VEL_REF_M_S,
             "min_upright_gz": 0.9,
         }),
+        # p2s (P2S_PLAN step 3, 2026-10-08): both terms take the same params -- the six footpads'
+        # current contact force (sensor) and 3-D speed (robot), the robot's projected gravity for the
+        # upright gate, the 50 N support saturation and F1's 0.9 upright line.
+        STAND_SUPPORT_TERM: (rew.reward_stand_support, _stand_slot_params(SceneEntityCfg, _CRAB_FOOT_BODY_NAMES)),
+        STAND_SLIDE_TERM: (rew.penalty_stand_slide, _stand_slot_params(SceneEntityCfg, _CRAB_FOOT_BODY_NAMES)),
+    }
+
+
+def _stand_slot_params(entity_cls, foot_names) -> dict:
+    """The p2s pair's params (``entity_cls`` is ``SceneEntityCfg``, ``foot_names`` the six footpads)."""
+    return {
+        "sensor_cfg": entity_cls("contact_forces", body_names=foot_names, preserve_order=True),
+        "asset_cfg": entity_cls("robot", body_names=foot_names, preserve_order=True),
+        "command_name": "base_velocity",
+        "load_ref_n": STAND_LOAD_REF_N,
+        "upright_min": STAND_UPRIGHT_MIN,
     }
 
 
@@ -700,6 +747,12 @@ def apply_motion_knobs(cfg, environ=None, *, term_cls=None, builders=None, power
     # knob-on dump only grows by this one term at the end of the rewards block.
     added.append((STAND_STANCE_W_VAR, STAND_STANCE_TERM, parse_income_w(get(STAND_STANCE_W_VAR),
                                                                         STAND_STANCE_W_VAR)))
+    # p2s (P2S_PLAN step 3, 2026-10-08): the stand-slot pair, each with its own sign rule, appended
+    # after F1 for the same reason. Rewards only: neither arms the eval slot latch below.
+    added.append((STAND_SUPPORT_W_VAR, STAND_SUPPORT_TERM, parse_income_w(get(STAND_SUPPORT_W_VAR),
+                                                                          STAND_SUPPORT_W_VAR)))
+    added.append((STAND_SLIDE_W_VAR, STAND_SLIDE_TERM, parse_penalty_w(get(STAND_SLIDE_W_VAR),
+                                                                       STAND_SLIDE_W_VAR)))
     added = [a for a in added if a[2] != 0.0]
     if added:
         if term_cls is None:
@@ -711,11 +764,11 @@ def apply_motion_knobs(cfg, environ=None, *, term_cls=None, builders=None, power
                 raise RuntimeError(f"{var}: the rewards cfg already carries a {name!r} term")
             func, params = table[name]
             setattr(rewards, name, term_cls(func=func, weight=weight, params=dict(params)))
-            # Only F1 prints the wiring line: the four penalty knobs above predate it (2026-09-22)
-            # and keep their old, silent stdout -- a log grep must not expect ``[KNOB] ...
-            # consumed`` for KRABBY_ACTION_SMOOTH2_W / JOINT_VEL_W / FOOT_SLIP_W / STAND_POSE_W
-            # (review 2026-10-06); their wiring is proven by the env.yaml dump instead.
-            if name == STAND_STANCE_TERM:
+            # Only F1 and the p2s pair print the wiring line: the four penalty knobs above predate
+            # it (2026-09-22) and keep their old, silent stdout -- a log grep must not expect
+            # ``[KNOB] ... consumed`` for KRABBY_ACTION_SMOOTH2_W / JOINT_VEL_W / FOOT_SLIP_W /
+            # STAND_POSE_W (review 2026-10-06); their wiring is proven by the env.yaml dump instead.
+            if name in (STAND_STANCE_TERM, STAND_SUPPORT_TERM, STAND_SLIDE_TERM):
                 _consumed(var, get(var))
 
     # E1 (phase-2 plan step 3, 2026-10-06): re-scope the REUSED power term (its weight is

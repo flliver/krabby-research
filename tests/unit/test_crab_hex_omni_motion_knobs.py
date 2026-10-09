@@ -72,7 +72,9 @@ ALL_KNOBS = ("KRABBY_ACTION_STD_MAX", "KRABBY_ACTION_STD_RESET", "KRABBY_ENTROPY
 #: detail by tests/unit/test_crab_hex_omni_stand_power_knobs.py. Kept OUT of ALL_KNOBS because the
 #: ladder's OVERLAY_DUMP_CHECKS entries for them land with plan step 4 (run_candidates.py).
 PHASE2_KNOBS = ("KRABBY_STAND_STANCE_W", "KRABBY_POWER_JOINTS",
-                "KRABBY_ORIENT_ALL_TILES", "KRABBY_FOOT_CLEAR_TERRAIN")   # + the p2b func swaps (CHARTER 10)
+                "KRABBY_ORIENT_ALL_TILES", "KRABBY_FOOT_CLEAR_TERRAIN",   # + the p2b func swaps (CHARTER 10)
+                # + the p2s stand-slot pair (CHARTER 11), pinned by test_crab_hex_omni_stand_support_knobs.py
+                "KRABBY_STAND_SUPPORT_W", "KRABBY_STAND_SLIDE_W")
 
 
 def _load(path: Path, name: str):

@@ -2262,6 +2262,40 @@ def _stand_stance_w_ok(txt: str, value) -> bool:
     return _func_swapped_ok(txt, term, term) and _weight_ok(txt, term, w)
 
 
+def foot_body_names() -> list[str]:
+    """``_CRAB_FOOT_BODY_NAMES`` read from the forward cfg's SOURCE (the module itself needs Isaac)."""
+    src = _PARKOUR_MDP_CFG.read_text()
+    m = re.search(r"^_CRAB_FOOT_BODY_NAMES\s*=\s*\[(.*?)\]", src, re.M | re.S)
+    if not m:
+        raise RuntimeError(f"_CRAB_FOOT_BODY_NAMES not found in {_PARKOUR_MDP_CFG}")
+    return re.findall(r"[\"']([^\"']+)[\"']", m.group(1))
+
+
+def _stand_support_w_ok(txt: str, value) -> bool:
+    """``KRABBY_STAND_SUPPORT_W`` (p2s T1, an income; P2S_PLAN step 3, 2026-10-08): 0 / blank = the
+    term ABSENT; else ``reward_stand_support`` present with EXACTLY the motion-rewards func, that
+    weight and the builder's params (the six footpads on ``contact_forces`` / ``robot``, the
+    ``base_velocity`` slot, 50 N support saturation, 0.9 upright line -- and nothing else)."""
+    mk = _motion()
+    w = mk.parse_income_w(value, mk.STAND_SUPPORT_W_VAR)
+    term = mk.STAND_SUPPORT_TERM
+    if w == 0.0:
+        return _yaml_block(txt, term) == ""
+    doc = _dig(_dump_doc(txt), "rewards", term)
+    params = _dig(doc, "params")
+    if not isinstance(params, dict) or set(params) != {"sensor_cfg", "asset_cfg", "command_name", "load_ref_n",
+                                                       "upright_min"}:
+        return False
+    feet = foot_body_names()
+    return (str(doc.get("func", "")).strip() == f"{mk._REWARDS_MOD}:{term}" and _weight_ok(txt, term, w)
+            and _dig(params, "sensor_cfg", "name") == "contact_forces"
+            and _dig(params, "sensor_cfg", "body_names") == feet
+            and _dig(params, "asset_cfg", "name") == "robot" and _dig(params, "asset_cfg", "body_names") == feet
+            and params["command_name"] == "base_velocity"
+            and _same(params["load_ref_n"], mk.STAND_LOAD_REF_N)
+            and _same(params["upright_min"], mk.STAND_UPRIGHT_MIN))
+
+
 def actuated_joint_names() -> list[str]:
     """``_CRAB_ACTUATED_JOINT_NAMES`` read from the forward cfg's SOURCE (the module itself needs Isaac)."""
     src = _PARKOUR_MDP_CFG.read_text()
@@ -2534,6 +2568,10 @@ OVERLAY_DUMP_CHECKS = {
     FOOT_CLEAR_TERRAIN_KEY: _foot_clear_terrain_ok,
     "KRABBY_ORIENT_W": lambda txt, v: _weight_ok(txt, "reward_orientation", v),
     ORIENT_ALL_TILES_KEY: _orient_all_tiles_ok,
+    # ---- omni phase-2 stage p2s (P2S_PLAN step 3, 2026-10-08). Env side: params/env.yaml. The two
+    # stand-slot terms: T1 audited like F1 plus its params, T2 like the other added penalties.
+    "KRABBY_STAND_SUPPORT_W": _stand_support_w_ok,
+    "KRABBY_STAND_SLIDE_W": lambda txt, v: _added_term_ok(txt, "penalty_stand_slide", v),
 }
 
 
