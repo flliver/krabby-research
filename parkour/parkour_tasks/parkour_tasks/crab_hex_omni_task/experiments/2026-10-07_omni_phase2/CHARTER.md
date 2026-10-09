@@ -1104,3 +1104,36 @@ verdict rules, replay gate, guards and budget are the pre-registration. This sec
   - Training checks: RESUME, +200 (implied Σs_f 3.51) and +1000 (curriculum 1.1 → 5.7) all PASS. The support income
     has risen steadily, to an implied Σs_f ≈ 4.9 at +2300.
   - The flag is for the user at the s18 screen stop.
+- 2026-10-09 04:36, **s18 screen read** (`p2s_screen.json/.md`, `p2s_mech_screen.json`). ST2 (P2__ST2_s18,
+  model_24993) = **OBSTACLE LOSS**.
+
+  **Stand outcome: PARTIAL.**
+  - Suite es1 / es2: steps/s 0.17 / 0.17 (REFS 2.83); clearance 0.005 m (0.135); off-ground 0 (0.34); hover 0;
+    KS 0.40 (1.72); loaded feet 5.5 (3.3); six-down 0.59 (0.008); body height 1.060 (1.068); falls 0. The user's
+    target (≤ 0.5 steps/s, ≤ 5 cm) is met.
+  - The taps clause fails: 16.1 / 15.3 taps/s against ≤ 1.0. This is **force chatter, not lifting**. Foot z stays
+    within ±2 mm while one foot's force swings 0 ↔ 500–900 N between 20-ms steps.
+  - Action jitter at stand is 0.355 against REFS 0.215 (+65 %); contact switches 5.4 Hz against 1.9.
+  - **The march became a planted buzz.**
+
+  **Walls: field_hard (n = 400) 0.6175 against REFS 0.8125** (and C0R 0.785). The margin was max(0.05, 2·SE 0.062).
+  - Falls 153 against 75 (C0R 86): diag 53, move_turn 45, back 29, turn_l90 18. Only 20 fall in a hold's first 1.5 s,
+    so this is not onset.
+  - **Mechanism: the stand term bled into the walking gait.**
+    - Swing apex fell in every hold: ordinary 0.039 m against C0R 0.077, pit 0.044 against 0.084, diag 0.047 against
+      0.086, lat 0.048 against 0.093, turns 0.039 against 0.10–0.115.
+    - Swings rose to 208 k against 139 k: shorter, more frequent steps.
+    - Pit falls 61 against 43, leg strikes 53 against 33.
+  - Training shows it from +500: `penalty_excess_feet_contact_forward` (5–6 feet down while moving or turning) is 2×
+    C0's (−0.0073 vs −0.0042), as the support income rose. The curriculum level matched C0 throughout.
+
+  **Other reads:**
+  - **Onset** (walkstop median): 0.72 s against REFS 0.14 (+0.58 s, over the 0.3-s COST floor).
+  - **Flat tracking improved:** err_fwd −0.042, err_back −0.066, err_side −0.041. No FLAT FAIL.
+  - field_light 0.96 (REFS 0.995), ring 0.995 (1.0). lr hands FAST / FAST.
+  - Notify-only fall flag at +3264, as logged above.
+  - **Attribution: NOT ATTRIBUTED** (the walls are below C0R − margin).
+
+  **Consequences:**
+  - ST1 is not run: ST2 does not read STILL, per the pre-registered rule.
+  - The queue stopped. **STOP and ask** (P2S_PLAN step 6).
