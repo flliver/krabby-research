@@ -67,7 +67,7 @@ S=$(cd "$(dirname "$0")" && pwd)
 C=${CAMPAIGN_DIR:-$(cd "$S/.." && pwd)}
 PREC=$R/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/scripts
 L=$CODE_ROOT/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/tools/launch_candidates.sh
-EVAL=$CODE_ROOT/parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/scripts/eval_crab_hex_gait.py
+EVAL=${P2_EVAL:-$CODE_ROOT/parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/scripts/eval_crab_hex_gait.py}
 PYP=${PYTHONPATH_EVAL:-$CODE_ROOT/parkour/parkour_tasks:$CODE_ROOT/parkour}
 LRMAN=$R/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-09-28_side_bisect/scenarios_side_lr.yaml
 EV=$R/parkour/logs/rsl_rl/gait_eval/omni_phases/$(basename "$C")
@@ -414,7 +414,7 @@ row_eval() {  # NAME CHECKPOINT ENV_STAMP MANIFEST SCENARIO ENV_SEED [EPISODES] 
   sd=$(printf 'seed%03d' "$es")
   envs=$(python3 -c "import json,sys;m=json.load(open(sys.argv[1]));print(' '.join(f'{k}={v}' for k,v in sorted(m['env_vars'].items())))" "$st/run_meta.json")
   drivers_idle
-  ( cd "$R/parkour" && env OMNI_KIT_ACCEPT_EULA=yes TERM=xterm PYTHONPATH="$PYP" $envs \
+  ( cd "$R/parkour" && env OMNI_KIT_ACCEPT_EULA=yes TERM=xterm PYTHONPATH="$PYP" $envs ${P2_ENV_EXTRA:-} \
       $CAP timeout 3600 "$PY" "$EVAL" --headless --manifest "$man" --scenario "$sc" --env-seed "$es" \
       --checkpoint "$ck" ${ep[@]+"${ep[@]}"} --save-raw --no-plot --output-root "$LROUT/$name" ${EVAL_EXTRA_ARGS:-} ) > "$LROUT/$name.$sc.$sd.log" 2>&1
   local erc=$?
@@ -436,7 +436,7 @@ lr_eval() {  # NAME CHECKPOINT ENV_STAMP -> sets LR_DIR LRL LRR (hand classes, f
   code_guard "lr-eval $name" || return 7
   envs=$(python3 -c "import json,sys;m=json.load(open(sys.argv[1]));print(' '.join(f'{k}={v}' for k,v in sorted(m['env_vars'].items())))" "$st/run_meta.json")
   drivers_idle
-  ( cd "$R/parkour" && env OMNI_KIT_ACCEPT_EULA=yes TERM=xterm PYTHONPATH="$PYP" $envs \
+  ( cd "$R/parkour" && env OMNI_KIT_ACCEPT_EULA=yes TERM=xterm PYTHONPATH="$PYP" $envs ${P2_ENV_EXTRA:-} \
       $CAP timeout 3600 "$PY" "$EVAL" --headless --manifest "$LRMAN" --scenario side22_25lr__omni --env-seed 1 \
       --checkpoint "$ck" --save-raw --no-plot --output-root "$LROUT/$name" ) > "$LROUT/$name.lr.log" 2>&1
   d=$(ls -d "$LROUT/$name"/side22_25lr__omni/seed001/*/ 2>/dev/null | tail -1)

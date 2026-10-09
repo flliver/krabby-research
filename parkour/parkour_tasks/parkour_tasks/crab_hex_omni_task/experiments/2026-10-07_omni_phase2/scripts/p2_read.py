@@ -127,6 +127,23 @@ and stand stepping, turn band) are reported for the judges; the ranking is their
     p2_read.py --p2s-self-test           synthetic STILL / PARTIAL / GAMED / COST / NO EFFECT (and ladder) cases.
     (P2S_ST2_S18 / P2S_ST1_S18 / P2S_DOSE / P2S_REP_S16 / P2S_REP_S17 in the environment name the p2s heads -- fresh
     names after a kill; the defaults are P2__ST2_s18, P2__ST1_s18, ST2, P2__<dose>_s16, P2__<dose>_s17.)
+    p2_read.py --p2r-probe               CHARTER 12 / P2R_PLAN.md step 1's launcher-inertness check:
+                                         P2R_PROBE_s18's three stamps (suite es1, field_hard es1, walkstop es1)
+                                         must reproduce REFS_S1_s18 bitwise, raw actions included; plus, when
+                                         P2R_HOLD_s18 exists, its swap-live proofs (zero actions on every
+                                         p2r_stand_mode step, stand-mode share > 0, pre-entry actions == REFS).
+                                         Exit 0 / 4.
+    p2_read.py --p2r-step1 [--p2r-drift-json DRIFT.json] [--p2r-md PATH]
+                                         CHARTER 12 / P2R_PLAN.md step 1's read: P2R_HOLD_s18 and P2R_ST2M_s18
+                                         through their own tier-1 ladder vs REFS_S1_s18 (HAND LOSS / DOSE / ring_obst
+                                         skipped outright -- tier 1 never reads them; field_light compared at
+                                         matched n, es1 only), "survives tier 1" per head, the stand-mode /
+                                         handover-fall / turn-heading reads, and the step-3 drift premise (STOP if
+                                         D(C0 +506) > 0.5 x D(ST2 +506)). --p2r-drift-json takes scripts/p2r_drift.py's
+                                         own JSON output (the CPU-scored C0 model_20500 / model_21000). Exit 0
+                                         always (CHARTER 12: every verdict stops and asks regardless).
+    (P2R_PROBE_S18 / P2R_HOLD_S18 / P2R_ST2M_S18 in the environment name the p2r heads -- fresh names after a kill;
+    defaults P2R_PROBE_s18 / P2R_HOLD_s18 / P2R_ST2M_s18.)
     p2_read.py --self-test
 
 CHARTER 11 (stage p2s, P2S_PLAN.md "Pre-registered verdicts"; pre-registered before any p2s run). Points:
@@ -2373,6 +2390,460 @@ def p2s_screen(res: dict, vs: dict) -> dict:
             "st2_reads_still": p2s_reads_still(vs.get(n["ST2_s18"]))}
 
 
+# ================================================================================================ p2r (CHARTER 12 /
+# P2R_PLAN.md step 1 -- a controller-level stand mode; eval only, code_sha does not move). Points: REFS_S1_s18
+# (unchanged from p2s), P2R_PROBE_s18 / P2R_HOLD_s18 / P2R_ST2M_s18 (the three step-1 runs). "Tier 1" is what those
+# three runs actually feed: suite es1 (+es2 for HOLD / ST2M), walkstop es1+es2, field_hard es1-4 (n=400), field_turn
+# es1, field_light es1 ONLY (no es2) -- never ring_obst, lr or a training log (no run_dir exists for an eval-only
+# launch). :func:`p2r_tier1_verdict` is therefore its own ladder (not :func:`p2s_verdict` with extra flags): it skips
+# HAND LOSS and DOSE outright (there is no lr row and no training log to read them from -- a tier-1 point that lacks
+# them is not PENDING, it was never going to have them) and drops ring_obst from OBSTACLE LOSS, comparing field_light
+# at MATCHED n (es1 vs REFS es1, never REFS's es1+es2 pooled n=200 -- :func:`pooled` would return None for a tier-1
+# point's field_light and crash the comparison, since tier 1 never reads es2 at all).
+import re as _p2r_re  # noqa: PLC0415  (kept local, as this file's own numpy imports are, to match its style)
+
+P2R_VARIANT_OF_TAG = {"HOLD": "hold", "ST2M": "st2", "PROBE": "probe"}
+P2R_NAME_RE = _p2r_re.compile(r"^P2R_(HOLD|ST2M|PROBE)_s(\d+)$")
+#: every stamp a tier-1 run (HOLD / ST2M) can actually produce (P2R_PLAN.md step 1's run table)
+P2R_TIER1_STAMPS = ("suite@1", "suite@2", f"{WS}@1", f"{WS}@2") + tuple(f"{FH}@{s}" for s in P2B_FH_SEEDS) + \
+    (f"{FT}@1", f"{FL}@1")
+#: the three stamps P2R_PROBE_s18 reads (step 1's run table); the launcher-inertness check (--p2r-probe)
+P2R_PROBE_STAMPS = ("suite@1", f"{FH}@1", f"{WS}@1")
+P2R_NEEDED_TIER1 = ("suite@1", "suite@2", f"{WS}@1", f"{WS}@2", f"{FH}@1", f"{FT}@1", f"{FL}@1")
+#: rungs tier 1 cannot feed, reported for the record (not silently dropped) beside every --p2r-step1 verdict
+P2R_TIER1_SKIPPED_RUNGS = ("HAND LOSS (no lr row in tier 1)", "DOSE (no training log in tier 1)",
+                           "ring_obst (not read in tier 1)", "field_light es2 (not read in tier 1)")
+#: the names the GPU harness's +500 sentinel writes drift for (P2R_PLAN.md step 1(probe) / step 3)
+P2R_ST2_ITS = {506: "ST2_m20500", 1006: "ST2_m21000", 5000: "ST2_m24993"}
+P2R_C0R_NAME = "C0R_m24993"
+
+
+def p2r_names(env=None) -> dict:
+    e = os.environ if env is None else env
+    return {"probe": e.get("P2R_PROBE_S18", "P2R_PROBE_s18"), "hold": e.get("P2R_HOLD_S18", "P2R_HOLD_s18"),
+            "st2m": e.get("P2R_ST2M_S18", "P2R_ST2M_s18")}
+
+
+def p2r_name_tag(name: str) -> str | None:
+    m = P2R_NAME_RE.match(name or "")
+    return m.group(1) if m else None
+
+
+def p2r_mode_of(stamp: str | None) -> dict | None:
+    """One stamp's ``run_meta.p2r_mode`` (the shared-contract record: variant, checkpoint sha, channels, N,
+    switches per episode, stand_mode_share, settle_mode_share_by_wave) -- None if the stamp lacks it entirely
+    (a pre-p2r stamp, or one the launcher never wrote the key into)."""
+    return (_json(Path(stamp) / "run_meta.json") or {}).get("p2r_mode") if stamp else None
+
+
+def p2r_mode_fails(pt: dict, tag: str | None, ref_sha: str | None, stamps=P2R_TIER1_STAMPS) -> list[str]:
+    """P2R_PLAN.md step 1 (i): every stamp this point has (of ``stamps``) must carry ``run_meta.p2r_mode`` with
+    ``variant`` matching the head's own tag (HOLD -> hold, ST2M -> st2, PROBE -> probe) and
+    ``s1_checkpoint_sha256`` equal to REFS's own checkpoint -- the mode wrapper must be driving the SAME S1
+    checkpoint the ladder compares against. This is deliberately NOT the stamp's own top-level
+    ``checkpoint_sha256``: for ST2M that field is legitimately ST2's sha (the acting policy), never S1's. Fail
+    closed: a stamp with no ``p2r_mode`` at all is INVALID, never silently equal."""
+    want = P2R_VARIANT_OF_TAG.get(tag)
+    out = []
+    for k in stamps:
+        stamp = (pt.get("stamps") or {}).get(k)
+        if not stamp:
+            continue                                      # a missing stamp is PENDING's business, not this rung's
+        mode = p2r_mode_of(stamp)
+        if not mode:
+            out.append(f"{pt.get('name')} {k}: no run_meta.p2r_mode")
+            continue
+        if mode.get("variant") != want:
+            out.append(f"{pt.get('name')} {k}: p2r_mode.variant {mode.get('variant')!r} != {want!r}")
+        ck = mode.get("s1_checkpoint_sha256")
+        if ref_sha and ck != ref_sha:
+            out.append(f"{pt.get('name')} {k}: p2r_mode.s1_checkpoint_sha256 {str(ck)[:12]} != REFS "
+                       f"{str(ref_sha)[:12]}")
+    return out
+
+
+def p2r_tier1_pending(pt: dict, refs: dict, sbd: dict) -> list[str]:
+    """Only the reads tier 1 actually feeds (:data:`P2R_NEEDED_TIER1` / the suite+walkstop stand raws); never lr,
+    ring_obst, field_suite or a dose read -- those are skipped outright (:data:`P2R_TIER1_SKIPPED_RUNGS`), not
+    PENDING."""
+    miss = []
+    for who in (pt, refs):
+        miss += [f"{who.get('name')} {k}" for k in P2R_NEEDED_TIER1 if not (who.get("stamps") or {}).get(k)]
+        if "p2s" not in who:
+            miss.append(f"{who.get('name')} p2s stand reads (raws not read)")
+            continue
+        miss += [f"{who.get('name')} suite es{s} stand summary" for s in (1, 2)
+                 if not (who["p2s"].get("suite") or {}).get(s)]
+        miss += [f"{who.get('name')} walkstop es{s} read" for s in P2S_WS_SEEDS
+                 if not (who["p2s"].get("walkstop") or {}).get(s)]
+        if (who.get("field_turn") or {}).get("completion") is None:
+            miss.append(f"{who.get('name')} field_turn completion")
+    for who in (pt, refs):
+        s = who.get("suite") or {}
+        miss += [f"{who.get('name')} suite {m}" for m in LISTED if s.get(m) is None]
+    ts = (pt.get("suite") or {}).get("trans_surv") or {}
+    miss += [f"{pt.get('name')} survival {h}" for h in TRANSLATE_HOLDS if ts.get(h) is None]
+    miss += [f"stand band {k}" for k, v in sbd.items() if v is None]
+    return miss
+
+
+def p2r_tier1_stand_falls(pt: dict) -> tuple[int, int] | None:
+    """Pooled stand-hold falls over tier 1's OWN rows only: suite es1+es2, walkstop es1+es2, field_hard's opening
+    stand at es1-4, field_light's opening stand at es1 (no es2 in tier 1), field_turn's stand. None (PENDING) when
+    a needed part is missing -- :func:`p2s_stand_falls` is not reused here because it requires field_light es2,
+    which tier 1 never reads."""
+    p = (pt or {}).get("p2s") or {}
+    parts = [(p.get("suite") or {}).get(s) for s in (1, 2)]
+    parts += [(p.get("field") or {}).get(f"{FH}@{s}") for s in P2B_FH_SEEDS]
+    parts += [(p.get("field") or {}).get(f"{FL}@1"), p.get("turn")]
+    if any(x is None for x in parts):
+        return None
+    falls, n = sum(int(x.get("falls") or 0) for x in parts), sum(int(x.get("n") or 0) for x in parts)
+    for s in P2S_WS_SEEDS:
+        w = (p.get("walkstop") or {}).get(s)
+        if w is None:
+            return None
+        falls, n = falls + int(w["falls"]), n + int(w["stand_reached"])
+    return (falls, n) if n else None
+
+
+def p2r_tier1_verdict(pt: dict, refs: dict, cmp: dict, bd: dict, sbd: dict) -> dict:
+    """P2R_PLAN.md step 1's tier-1 ladder for one head (HOLD or ST2M) vs REFS_S1_s18 (first match decides). The
+    stand outcome and the (field_hard / field_light) obstacle reads are ALWAYS attached, whatever rung matched
+    first, so :func:`p2r_survives_tier1` never has to re-parse ``why`` strings."""
+    tag = p2r_name_tag(pt.get("name") or "")
+    out = {"name": pt.get("name"), "tag": tag, "comparator": (cmp or {}).get("name"),
+           "skipped_rungs": list(P2R_TIER1_SKIPPED_RUNGS)}
+    ref_sha = ((refs.get("valid") or {}).get("suite@1") or {}).get("ckpt_sha")
+    inv = (invalid_reasons(pt, refs, P2R_TIER1_STAMPS) + p2r_mode_fails(pt, tag, ref_sha) +
+           walkstop_flat_fails(pt) + walkstop_flat_fails(refs))
+    if inv:
+        return dict(out, verdict="INVALID EVAL", why=inv)
+    pend = p2r_tier1_pending(pt, refs, sbd)
+    if pend:
+        return dict(out, verdict="PENDING", why=pend)
+    deltas = {m: worse_by(pt, refs, m) for m in LISTED}
+    out["deltas"] = deltas
+    ff = [f"{m} worse by {deltas[m]:.4f} > max({LISTED[m][1]}, 2x{bd[m]:.4f})" for m in LISTED
+          if deltas[m] > max(LISTED[m][1], 2 * bd[m]) + EPS]
+    ff += [f"translate survival {h} {v:.3f} < {TRANSLATE_MIN}" for h, v in pt["suite"]["trans_surv"].items()
+           if v < TRANSLATE_MIN - EPS]
+    (fh, nf), (rfh, nr) = fh400(pt), fh400(refs)
+    g = se_need(rfh, nr, fh, nf)
+    ok_fh = fh >= rfh - max(P2S_OBST_FH, P2B_SE_K * g["se"]) - EPS
+    (fl, nfl), (rfl, nrfl) = pooled_seeds(pt, "field_light", (1,)), pooled_seeds(refs, "field_light", (1,))
+    ok_fl = fl >= rfl - max(P2S_OBST_FL, bd["field_light"]) - EPS
+    out["obstacle"] = {"field_hard": [fh, rfh, g["se"], ok_fh, nf, nr],
+                       "field_light": [fl, rfl, bd["field_light"], ok_fl, nfl, nrfl],
+                       "ring_obst": "not read in tier 1"}
+    arm_su = ((pt.get("p2s") or {}).get("suite")) or {}
+    cmp_su = (((cmp or {}).get("p2s") or {}).get("suite")) or {}
+    stand = p2s_stand_outcome(arm_su, cmp_su, sbd)
+    out["stand"], out["stand_bands"] = stand, sbd
+    if ff:
+        return dict(out, verdict="FLAT FAIL", why=ff)
+    obst_why = []
+    if not ok_fh:
+        obst_why.append(f"field_hard {fh:.4f} (n={nf}) < REFS {rfh:.4f} - max({P2S_OBST_FH}, 2 SE {2 * g['se']:.4f})")
+    if not ok_fl:
+        obst_why.append(f"field_light {fl:.4f} (n={nfl}, matched) < REFS {rfl:.4f} - "
+                        f"max({P2S_OBST_FL}, band {bd['field_light']:.4f})")
+    if obst_why:
+        return dict(out, verdict="OBSTACLE LOSS", why=obst_why)
+    oc = stand.get("outcome")
+    out["gain"] = (oc in P2S_STAND_GAIN) if oc else None
+    if oc is None:
+        return dict(out, verdict="PENDING", why=[f"stand outcome: {w}" for w in stand.get("why") or []])
+    if oc not in P2S_STAND_GAIN:
+        return dict(out, verdict=oc, why=[f"stand {oc}" + (" (a flag: never adopts)" if oc == GAMED else "")])
+    falls, rfalls = p2r_tier1_stand_falls(pt), p2r_tier1_stand_falls(refs)
+    if falls is None or rfalls is None:
+        return dict(out, verdict="PENDING", why=["tier-1 pooled stand-hold falls"])
+    (fa, na), (fr, nrr) = falls, rfalls
+    pa, pr = fa / na, fr / nrr
+    se = math.sqrt(max(pa * (1 - pa), 0.0) / na + max(pr * (1 - pr), 0.0) / nrr)
+    need = pr + max(P2S_FALL_FLOOR, 2 * se)
+    cost_falls = pa > need + EPS
+    out["stand_falls"] = {"arm": [fa, na], "ref": [fr, nrr], "need": need, "cost": cost_falls}
+    if cost_falls:
+        return dict(out, verdict="COST", cost=["stand_falls"],
+                    why=[f"pooled tier-1 stand-hold falls {fa}/{na}={pa:.4f} > REFS {fr}/{nrr}={pr:.4f} + "
+                         f"max({P2S_FALL_FLOOR}, 2 SE {2 * se:.4f})"])
+    return dict(out, verdict=oc, why=[f"stand {oc}, no tier-1 COST"])
+
+
+def p2r_survives_tier1(v: dict) -> bool | None:
+    """P2R_PLAN.md step 1 (iii): no stand-hold-falls COST, no OBSTACLE LOSS on field_hard (n=400), no FLAT FAIL.
+    Read off the verdict's own attached ``obstacle`` / ``cost`` data (never off ``why`` strings) so a verdict that
+    matched OBSTACLE LOSS on field_light ALONE (field_hard itself still ok) still reads as surviving tier 1, per
+    the plan's literal field_hard-only wording. None (unknown) on INVALID EVAL / PENDING -- fail closed, never
+    silently True."""
+    verdict = v.get("verdict")
+    if verdict in ("INVALID EVAL", "PENDING"):
+        return None
+    if verdict == "FLAT FAIL":
+        return False
+    fh_ok = ((v.get("obstacle") or {}).get("field_hard") or [None, None, None, None])[3]
+    if fh_ok is False:
+        return False
+    if verdict == "COST" and "stand_falls" in (v.get("cost") or []):
+        return False
+    return True
+
+
+def _p2r_dir_episodes(stamp: str) -> dict:
+    return {int(f.stem.split("_")[1]): f for f in (Path(stamp) / "raw").glob("episode_*.npz")}
+
+
+def p2r_bitwise_diff(refs_stamp: str, probe_stamp: str) -> list[str]:
+    """Every raw key the REFS npz has, bitwise-compared episode by episode against the probe's own
+    (``np.array_equal`` -- a probe run must be bit-identical, not merely numerically close). The first mismatch
+    per episode is kept (P2R_PLAN.md: "report the first mismatch"); empty = bitwise equal on every shared key and
+    episode."""
+    import numpy as np  # noqa: PLC0415
+
+    fa, fb = _p2r_dir_episodes(refs_stamp), _p2r_dir_episodes(probe_stamp)
+    out = []
+    for ep in sorted(set(fa) & set(fb)):
+        da, db = np.load(fa[ep]), np.load(fb[ep])
+        for k in da.files:
+            if k not in db.files:
+                out.append(f"episode_{ep}: key {k!r} (in REFS) missing from the probe stamp")
+                continue
+            va, vb = da[k], db[k]
+            if va.shape != vb.shape or not np.array_equal(va, vb):
+                out.append(f"episode_{ep} {k}: not bitwise equal to REFS (shapes {va.shape} vs {vb.shape})")
+    missing = sorted(set(fa) - set(fb))
+    if missing:
+        out.append(f"episodes in REFS but not the probe stamp: {missing}")
+    return out
+
+
+def p2r_launcher_inertness(refs_stamps: dict, probe_stamps: dict, rows=P2R_PROBE_STAMPS) -> dict:
+    """P2R_PLAN.md step 1's launcher-inertness check (--p2r-probe): P2R_PROBE_s18's three stamps must reproduce
+    REFS_S1_s18 bitwise, raw actions included."""
+    fails = {}
+    for k in rows:
+        a, b = refs_stamps.get(k), probe_stamps.get(k)
+        if not a or not b:
+            fails[k] = f"stamp missing (REFS {bool(a)}, probe {bool(b)})"
+            continue
+        d = p2r_bitwise_diff(a, b)
+        if d:
+            fails[k] = d[0]
+    return {"ok": not fails, "fails": fails}
+
+
+def p2r_hold_swap_live(refs_suite_stamp: str | None, hold_suite_stamp: str | None) -> dict:
+    """P2R_PLAN.md "Left for implementation" -- the HOLD variant's swap-live proofs, read from one stamp's raws
+    (the suite stamp, which carries every stand hold the plant visits): (a) applied actions are exactly 0 on
+    every ``p2r_stand_mode`` step; (b) stand-mode share is > 0 (the stamp has a stand hold at all); (c) actions
+    BEFORE each episode's first stand entry equal REFS bitwise on the same row/seed (same episode index)."""
+    import numpy as np  # noqa: PLC0415
+
+    out = {"zero_actions_on_stand": None, "stand_mode_share": None, "pre_entry_matches_refs": None, "fails": []}
+    if not hold_suite_stamp:
+        return dict(out, fails=["no HOLD suite stamp"])
+    files = _p2r_dir_episodes(hold_suite_stamp)
+    ref_files = _p2r_dir_episodes(refs_suite_stamp) if refs_suite_stamp else {}
+    zero_ok, shares, pre_ok = True, [], True
+    for ep, f in sorted(files.items()):
+        d = np.load(f)
+        if "p2r_stand_mode" not in d.files:
+            out["fails"].append(f"episode_{ep}: no p2r_stand_mode in the raws")
+            continue
+        mode = np.asarray(d["p2r_stand_mode"]).astype(bool)
+        shares.append(float(mode.mean()))
+        acts = np.asarray(d["actions"])
+        if mode.any() and not np.array_equal(acts[mode], np.zeros_like(acts[mode])):
+            zero_ok = False
+            out["fails"].append(f"episode_{ep}: a nonzero action on a p2r_stand_mode step")
+        first_on = int(np.argmax(mode)) if mode.any() else 0
+        if first_on and ep in ref_files:
+            ra = np.asarray(np.load(ref_files[ep])["actions"])
+            n = min(first_on, acts.shape[0], ra.shape[0])
+            if n and not np.array_equal(acts[:n], ra[:n]):
+                pre_ok = False
+                out["fails"].append(f"episode_{ep}: pre-entry actions (steps 0:{n}) differ from REFS")
+    out["zero_actions_on_stand"], out["pre_entry_matches_refs"] = zero_ok, pre_ok
+    out["stand_mode_share"] = float(np.mean(shares)) if shares else None
+    if out["stand_mode_share"] is not None and out["stand_mode_share"] <= 0:
+        out["fails"].append("stand-mode share is not > 0 on a stamp with a stand hold")
+    return out
+
+
+def p2r_settle_share(stamp: str | None) -> list | None:
+    """``run_meta.p2r_mode.settle_mode_share_by_wave`` (the shared contract: suite stamps only, else None) --
+    surfaced verbatim, never recomputed (the GPU harness is the one that knows the suite's category waves)."""
+    mode = p2r_mode_of(stamp)
+    return (mode or {}).get("settle_mode_share_by_wave") if mode else None
+
+
+def p2r_hold_reads(stamp: str | None) -> dict | None:
+    """P2R_PLAN.md step 1's "Reported per head" (the raw side): stand-mode share per hold label, and -- at every
+    handover OUT of stand mode (the riskier direction: a fall right after the controller hands back to the shared
+    gait is exactly the "bleed into walking" risk this step probes) -- whether a fall landed within 2 s (100 steps
+    at dt = 0.02 s) of it, bucketed by the entry gait phase (how many of the six feet were unloaded, < 50 N, at the
+    exit step). Also: falls whose step is itself inside a stand-mode segment. None if the stamp carries no
+    ``p2r_stand_mode`` raw at all (a pre-p2r / REFS stamp)."""
+    import numpy as np  # noqa: PLC0415
+
+    if not stamp:
+        return None
+    meta = _json(Path(stamp) / "run_meta.json") or {}
+    labels, dt = meta.get("hold_labels") or [], float(meta.get("dt", 0.02))
+    handover_steps = max(1, int(round(2.0 / dt)))
+    share_by_label: dict = {}
+    falls_in_stand = 0
+    handover_falls_by_phase: dict = {}
+    n_eps = 0
+    for _meta, _labels, _e, d in _raw_episodes(stamp, lambda e: True):
+        if "p2r_stand_mode" not in d.files:
+            continue
+        n_eps += 1
+        mode = np.asarray(d["p2r_stand_mode"]).astype(bool)
+        seg = np.asarray(d["segment_id"])
+        cf = np.asarray(d["crab_failure"]).astype(bool)
+        force = np.asarray(d["foot_force_norm"]) if "foot_force_norm" in d.files else None
+        for i, lab in enumerate(labels):
+            m = seg == i
+            if m.any():
+                share_by_label.setdefault(lab, []).append(float(mode[m].mean()))
+        if mode.any() and cf[mode].any():
+            falls_in_stand += 1
+        exits = np.flatnonzero((~mode[1:]) & mode[:-1]) + 1 if mode.size > 1 else np.array([], dtype=int)
+        for t0 in exits:
+            phase = int((force[t0] < 50.0).sum()) if force is not None else None
+            window = cf[t0:t0 + handover_steps]
+            if window.any():
+                handover_falls_by_phase[phase] = handover_falls_by_phase.get(phase, 0) + 1
+    return {"n_episodes": n_eps,
+           "stand_mode_share_by_label": {lab: (sum(v) / len(v) if v else None) for lab, v in share_by_label.items()},
+           "falls_in_stand_mode": falls_in_stand,
+           "handover_falls_by_entry_phase": handover_falls_by_phase}
+
+
+def p2r_turn_final_heading(stamp: str | None) -> dict | None:
+    """``|heading_err|`` at the LAST step of each turn hold (turn_l90 / turn_r90) of a field_turn__omni stamp --
+    median over episodes, per hold label. None if the stamp has neither turn hold (not a field_turn stamp, or not
+    read yet)."""
+    import numpy as np  # noqa: PLC0415
+
+    if not stamp:
+        return None
+    meta = _json(Path(stamp) / "run_meta.json") or {}
+    labels = meta.get("hold_labels") or []
+    out = {}
+    for lab in TURN_HOLDS:
+        if lab not in labels:
+            continue
+        idx = labels.index(lab)
+        vals = []
+        for _m, _l, _e, d in _raw_episodes(stamp, lambda e: True):
+            rows = np.flatnonzero(np.asarray(d["segment_id"]) == idx)
+            if rows.size:
+                vals.append(abs(float(np.asarray(d["heading_err"])[rows[-1]])))
+        out[lab] = round(statistics.median(vals), 5) if vals else None
+    return out if out else None
+
+
+def p2r_dmu_series(stamp: str | None, name: str) -> dict | None:
+    """One probe stamp's ``p2r_dmu_<name>`` raw, split by :data:`p2r_stand_mode` into non-stand (the step-2
+    bit-0 domain: every hold that is not stand or settle, settled turns included) and stand steps. None if the
+    stamp lacks either raw key everywhere."""
+    import numpy as np  # noqa: PLC0415
+
+    if not stamp:
+        return None
+    key = f"p2r_dmu_{name}"
+    non_stand, stand = [], []
+    for _m, _l, _e, d in _raw_episodes(stamp, lambda e: True):
+        if key not in d.files or "p2r_stand_mode" not in d.files:
+            continue
+        dmu = np.asarray(d[key])
+        mode = np.asarray(d["p2r_stand_mode"]).astype(bool)
+        non_stand.append(dmu[~mode])
+        stand.append(dmu[mode])
+    if not non_stand and not stand:
+        return None
+    ns = np.concatenate(non_stand) if non_stand else np.array([])
+    st = np.concatenate(stand) if stand else np.array([])
+    return {"non_stand_mean": float(ns.mean()) if ns.size else None, "non_stand_n": int(ns.size),
+           "stand_mean": float(st.mean()) if st.size else None, "stand_n": int(st.size)}
+
+
+def _p2r_pool_dmu(stamps: list, name: str) -> dict | None:
+    parts = [p for p in (p2r_dmu_series(s, name) for s in stamps if s) if p]
+    if not parts:
+        return None
+    nsn = sum(p["non_stand_n"] for p in parts)
+    stn = sum(p["stand_n"] for p in parts)
+    ns_vals = [p["non_stand_mean"] * p["non_stand_n"] for p in parts if p["non_stand_n"]]
+    st_vals = [p["stand_mean"] * p["stand_n"] for p in parts if p["stand_n"]]
+    return {"non_stand": (sum(ns_vals) / nsn) if nsn else None, "n_non_stand": nsn,
+           "stand": (sum(st_vals) / stn) if stn else None, "n_stand": stn}
+
+
+def p2r_drift_premise(probe_stamps: list, drift_json: dict | None = None,
+                      its: dict = P2R_ST2_ITS) -> dict:
+    """P2R_PLAN.md step 3's drift premise: D(ST2 +506 / +1006 / +5000) and D(C0R +5000), pooled over the probe
+    stamps' own raw ``p2r_dmu_*`` series (live-eval-computed, during P2R_PROBE_s18 itself); plus, when
+    ``drift_json`` (``p2r_drift.py``'s own JSON output, keyed ``C0_m20500`` / ``C0_m21000``) is given, the
+    CPU-scored C0 checkpoints at the matched iterations. ``D_ref`` = D(ST2 +506); **stop** if D(C0 +506) >
+    0.5 x D(ST2 +506) (matched iterations) -- the anchor could not tell harmless continuation from harmful drift.
+    The +1006 pair is reported, never gates; D(C0R +5000) vs D(ST2 +5000) is context only."""
+    st2 = {it: _p2r_pool_dmu(probe_stamps, name) for it, name in its.items()}
+    c0r = {5000: _p2r_pool_dmu(probe_stamps, P2R_C0R_NAME)}
+    c0_bank = {}
+    if drift_json:
+        for it, key in ((506, "C0_m20500"), (1006, "C0_m21000")):
+            v = (drift_json.get("ckpts") or drift_json).get(key)
+            if isinstance(v, dict):
+                c0_bank[it] = v.get("D")
+            elif v is not None:
+                c0_bank[it] = v
+    d_ref = (st2.get(506) or {}).get("non_stand")
+    d_c0_506 = c0_bank.get(506)
+    stop = bool(d_ref is not None and d_c0_506 is not None and d_c0_506 > 0.5 * d_ref + EPS)
+    return {"st2": st2, "c0r": c0r, "c0_bank": c0_bank, "d_ref_506": d_ref, "d_c0_506": d_c0_506, "stop": stop,
+           "note": "+1006 pair reported only; D(C0R +5000) vs D(ST2 +5000) is context only"}
+
+
+def load_p2r_step1(names: dict | None = None, lrout: Path | None = None) -> dict:
+    """REFS_S1_s18 (p2s reads: suite es1+es2, walkstop es1+es2, field_hard es1-4, field_turn, field_light es1+es2)
+    and the tier-1 heads (HOLD, ST2M -- each read the same way, their unused rows simply absent)."""
+    lrout = lrout or LROUT
+    n = names or p2r_names()
+    out = {"names": n, "refs": load_p2s_point(refs_name(GATE_SEED), with_tb=False, lrout=lrout), "heads": {}}
+    for key in ("hold", "st2m"):
+        nm = n[key]
+        rec = _rec(nm)
+        if rec and rec.get("killed"):
+            out["heads"][nm] = {"name": nm, "missing": True, "killed": rec.get("killed")}
+            continue
+        # P2R mode heads are --row-eval only (no training, no record.json): read their row stamps by name
+        # (fable review 2026-10-09); a head with no stamps at all is missing
+        pt = load_p2s_point(nm, suite_stamp=(rec or {}).get("driver_stamp"), run_dir=(rec or {}).get("run_dir"),
+                            with_tb=False, lrout=lrout)
+        out["heads"][nm] = pt if (pt.get("stamps") or {}) else {"name": nm, "missing": True, "killed": None}
+    return out
+
+
+def p2r_step1_markdown(out: dict) -> str:
+    L = ["# Omni phase 2, stage p2r -- step 1 (controller-level stand mode; CHARTER 12 / P2R_PLAN.md)", "",
+        "| head | verdict | stand | survives tier 1 | field_hard n (REFS) | why |", "|---|---|---|---|---|---|"]
+    for nm, v in out.get("heads", {}).items():
+        st = (v.get("stand") or {}).get("outcome")
+        obst = v.get("obstacle") or {}
+        fh = obst.get("field_hard") or [None, None]
+        L.append(f"| {nm} | **{v.get('verdict')}** | {st} | {v.get('survives_tier1')} | "
+                f"{_f(fh[0])} ({_f(fh[1])}) | {'; '.join(str(x) for x in (v.get('why') or []))[:300]} |")
+    dp = out.get("drift_premise") or {}
+    L += ["", f"**Drift premise:** D_ref (ST2 +506) = {_f(dp.get('d_ref_506'))}, D(C0 +506) = "
+             f"{_f(dp.get('d_c0_506'))}, **stop = {dp.get('stop')}**"]
+    return "\n".join(L) + "\n"
+
+
 # ================================================================================================ self-test
 def _sc():
     return ("c" * 64, "e" * 64, False)
@@ -2995,12 +3466,71 @@ def main() -> int:
     ap.add_argument("--p2s-recipe", action="store_true")
     ap.add_argument("--p2s-md", type=Path, metavar="PATH")
     ap.add_argument("--p2s-self-test", action="store_true")
+    ap.add_argument("--p2r-probe", action="store_true")
+    ap.add_argument("--p2r-step1", action="store_true")
+    ap.add_argument("--p2r-drift-json", type=Path, metavar="PATH")
+    ap.add_argument("--p2r-md", type=Path, metavar="PATH")
     ap.add_argument("--self-test", action="store_true")
     a = ap.parse_args()
     if a.self_test:
         return _self_test()
     if a.p2s_self_test:
         return _p2s_self_test()
+    if a.p2r_probe:
+        n = p2r_names()
+        refs = load_p2s_point(refs_name(GATE_SEED), with_tb=False)
+        # P2R heads are --row-eval only (no record.json): read stamps by name (fable review 2026-10-09)
+        probe = load_p2s_point(n["probe"], with_tb=False)
+        if not (probe.get("stamps") or {}):
+            probe = {"name": n["probe"], "missing": True}
+        inert = p2r_launcher_inertness(refs.get("stamps") or {}, probe.get("stamps") or {})
+        hold_suite = newest_stamp(n["hold"], SUITE, 1, LROUT)
+        swap = p2r_hold_swap_live(refs.get("stamps", {}).get("suite@1"), hold_suite) if hold_suite else None
+        # the suite opens every wave with settle (= stand), so its pre-entry proof is vacuous; walkstop (walk, then
+        # stand) carries the real "actions before the first stand entry equal REFS" proof
+        hold_ws = newest_stamp(n["hold"], WS, 1, LROUT)
+        swap_ws = (p2r_hold_swap_live(refs.get("stamps", {}).get(f"{WS}@1"), hold_ws) if hold_ws else None)
+        out = {"inertness": inert, "hold_swap_live": swap, "hold_swap_live_walkstop": swap_ws}
+        print(json.dumps(out, default=str))
+        def _ok(sw):
+            return sw is None or (sw["zero_actions_on_stand"] and sw["pre_entry_matches_refs"] and
+                                  (sw["stand_mode_share"] or 0) > 0)
+        return 0 if inert["ok"] and _ok(swap) and _ok(swap_ws) else 4
+    if a.p2r_step1:
+        res = load_p2r_step1()
+        refs = res["refs"]
+        bd = bands(refs, refs)
+        sbd = p2s_stand_bands(refs)
+        c0r_rec = _rec(P2S_C0_SOURCE)
+        c0r = load_p2s_point(C0R, with_tb=False) if c0r_rec else None
+        drift_extra = json.loads(a.p2r_drift_json.read_text()) if a.p2r_drift_json else None
+        out = {"refs": refs.get("name"), "heads": {}}
+        for key in ("hold", "st2m"):
+            nm = res["names"][key]
+            pt = res["heads"].get(nm) or {"name": nm, "missing": True}
+            if pt.get("missing"):
+                out["heads"][nm] = {"name": nm, "verdict": "PENDING",
+                                    "why": [f"no record ({pt.get('killed') or 'not run'})"], "survives_tier1": None}
+                continue
+            cmp = c0r if c0r else refs
+            v = p2r_tier1_verdict(pt, refs, cmp, bd, sbd)
+            v["survives_tier1"] = p2r_survives_tier1(v)
+            v["hold_reads"] = p2r_hold_reads(pt.get("stamps", {}).get("suite@1"))
+            v["settle_mode_share_by_wave"] = p2r_settle_share(pt.get("stamps", {}).get("suite@1"))
+            v["turn_final_heading"] = p2r_turn_final_heading(pt.get("stamps", {}).get(f"{FT}@1"))
+            v["turn_final_heading_ref"] = p2r_turn_final_heading(refs.get("stamps", {}).get(f"{FT}@1"))
+            out["heads"][nm] = v
+        probe_rec = _rec(res["names"]["probe"])
+        probe_stamps = []
+        if probe_rec:
+            probe_pt = load_point(res["names"]["probe"], suite_stamp=probe_rec.get("driver_stamp"), with_tb=False)
+            probe_stamps = [probe_pt.get("stamps", {}).get(k) for k in P2R_PROBE_STAMPS]
+        out["drift_premise"] = (p2r_drift_premise(probe_stamps, drift_json=drift_extra) if probe_stamps
+                                else {"missing": f"no {res['names']['probe']} record"})
+        if a.p2r_md:
+            a.p2r_md.write_text(p2r_step1_markdown(out))
+        print(json.dumps(out, default=str))
+        return 0
     if a.p2s_inertness:
         seeds = tuple(int(x) for x in a.p2s_seeds.split(",") if x.strip())
         r = p2s_inertness_check(load_p2s_inertness(seeds))

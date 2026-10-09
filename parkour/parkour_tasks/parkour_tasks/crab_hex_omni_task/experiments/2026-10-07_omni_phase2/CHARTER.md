@@ -1184,3 +1184,18 @@ stop rules, verdicts and budget are the pre-registration. This section logs the 
 - **Unchanged:** target "mostly still"; no walking or wall cost beyond noise; the p2s ladder and estimators.
 
 ### 12.1 Log
+- 2026-10-09, **step 1 code landed** (campaign tool files only; code_sha ae892cec and eval_sha 1d021625 unchanged;
+  workflow wf_e005a4f5).
+  - `scripts/p2r_mode_eval_crab_hex_gait.py`: the stand-mode launcher.
+    - It patches `g["main"].__globals__` of the locked harness and closes the app itself.
+    - Extra runners are built on a stand-in env, with all RNG state saved and restored.
+    - The latched stand slot is armed at runtime and re-derived on reset (the suite-wave carry-over).
+    - True priv columns are captured before the harness overwrites them in place.
+    - It writes the `run_meta.p2r_mode` block, `p2r_stand_mode` / `p2r_dmu_*` raws and `p2r_bank.npz`.
+  - `run_arm.sh`: `P2_EVAL` and `P2_ENV_EXTRA`.
+  - `p2_read.py`: `--p2r-probe` / `--p2r-step1`.
+  - `scripts/p2r_drift.py`: CPU drift scorer.
+  - Tests: 46 + 26 unit tests; drift self-test PASS.
+  - Fable review: nothing blocking in the launcher. Two read fixes were applied: a probe-name typo, and mode heads
+    are now read by stamp name since they have no record. The hold swap-live proof also runs on walkstop, where it
+    is non-vacuous.
