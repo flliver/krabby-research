@@ -1045,3 +1045,43 @@ verdict rules, replay gate, guards and budget are the pre-registration. This sec
   - 269 related tests pass.
   - 13 failures elsewhere (`test_crab_hex_omni_gate`, the dose-smoke tests, `test_crab_hex_omni_motion_ladder`, one
     ppo_construction dump test) reproduce on the unchanged HEAD. They predate this change.
+- 2026-10-08, **step 4 replay gate: PASS** (`REPLAY_GATE_P2S.md`, `replay_gate.json` "p2s"; workflow wf_a076c5b0;
+  fable check CONFIRMs it, re-derived by hand).
+  - **Fidelity:** the landed kernels equal `p2s_stand`'s T1/T2 to 2e-7.
+  - **B** (the existing-term still-minus-march gap, S1 weights, named before the solve) = **+0.304/s**.
+  - **G1:** AUC 1.000 for T1; ≥ 0.967 for T2 (worst TG).
+  - **G2:** TG −0.909 / CL −0.532 (CL at the line).
+  - **G3:** passes at both doses. ST2: hover 2.31 (needs ≥ 1.25), shuffle 0.654 (needs ≥ 0.625), crouch 0.
+  - **G4:** 0 non-zero values on 2.6 M non-stand steps.
+  - **G5:** finite on the wall stands; 3–4 % of feet over pits in `field_turn` stands.
+  - **Anti-termination** (net stand-slot reward):
+    - ST2: REF det +2.13 / +2.15, REF sampled +1.87;
+    - field_turn walls: REF +2.07, C0 +2.01, TG +1.95.
+  - **Final doses** (pooled means): **ST2 (1.1, −1.25)**, **ST1 (0.33, −0.5)**, giving realised margins 2.56 / 1.00.
+    These are carried in candidates v11.
+  - **Reported finding: T2 reverses under sampling** (+0.123/s for the march at ST2). T1 carries the sampled margin.
+    - **f at the final weights is 0.298 (ST2) / 0.272 (ST1) on pooled means, under the 0.33 line.** On step 2's median
+      convention it is 0.330 / 0.301. f with T1 alone is 0.387.
+    - Step 2's rule passed at 0.332 on the median convention. The drop is the convention switch plus rounding, not new
+      evidence. Because it sits under the line on one convention, **the ST2 launch waits for the user** (the plan's
+      "stop and ask" applies). The references run meanwhile (`UNTIL_STEP=inertness`).
+- 2026-10-08, **step 3 tooling landed** (workflow wf_a076c5b0, fable code review: nothing blocking):
+  - `scenarios_p2s.yaml` `walkstop__omni`: flat, fwd → stand → lat_l → stand → back → stand, giving 3 stands and
+    2 onset pairs (the last stand ends the episode).
+  - candidates v10 → **v11** (replay doses).
+  - `p2_live.py` p2s:
+    - liveness against the sampled replay magnitudes;
+    - the stand-only AST check;
+    - σ guard (kill at 0.8×);
+    - termination: episode length kills at 0.9× against C0, and 0.85× against the s16/s17 constant source tail
+      (review fix: a pure continuation dips to 0.925 there); crab_failure +0.08 is notify-only;
+    - preflight: replay PASS plus the exact solved weights.
+  - `p2_read.py` `--p2s-*`: the ladder, attribution, inertness and recipe.
+  - `p2s_queue.sh`: `UNTIL_STEP` added. The ST1 branch now STOPs on a non-final STILL read; previously a reader error
+    silently skipped ST1 (review fix).
+  - `run_arm.sh` hooks, with its own CHECKP2S error flag.
+  - The implied Σs_f liveness reads the realised `stand_frac_actual` when logged (review fix: the pinned 0.15
+    compressed the band).
+  - Tests: 478 pass (p2s, p2b and phase-2 tooling).
+  - Sibling-pair replay on the real logs: 0 kills on 12 pairs (min length ratio 0.920); the notify flag fires on 5 of
+    12.

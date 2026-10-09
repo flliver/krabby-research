@@ -38,14 +38,49 @@ THE QUEUE and asks (scripts/run_arm.sh: kill with `systemctl --user stop`, touch
   collapse (after +300, every poll) rolling-200 Train/mean_episode_length < 0.5 x the SOURCE run's last-200 mean, or
                   rolling-200 Episode_Termination/crab_failure > 0.6.
 
+STAGE p2s (CHARTER 11 / P2S_PLAN.md steps 3 and 6; the dose arms ST1 / ST2, chains P2__ST<k>_s<seed> or a fresh
+relaunch name P2__ST<k>R<j>_s<seed>):
+  wiring (+200)   on top of every read above: TERM LIVENESS of both stand-slot terms -- Episode_Reward/
+                  reward_stand_support and Episode_Reward/penalty_stand_slide each non-zero (CHARTER 8's requirement,
+                  kept beside the band because a dead T1 implies sum s_f = 3, inside it); the slide term <= 0 and
+                  within 3x of its replay magnitude CALIBRATED ON THE SAMPLED probe (replay_gate.json "p2s".<ST1|ST2>
+                  .terms.<term>: episode_reward_sampled, or episode_reward when "p2s".episode_reward_units names the
+                  SAMPLED REF -- scripts/p2s_replay.py's record; absent -> FAIL, fail closed: never the deterministic
+                  episode_reward_det_ref); the support term's IMPLIED mean
+                  sum_f s_f = 3 + Episode_Reward / (w_support x share) inside [2.5, 6], with share = the stand-slot
+                  share PINNED at 0.15 and read from the chain env (KRABBY_OMNI_SLOTS' first field; any other value
+                  FAILS); the support term's ratio to its sampled replay magnitude is reported, not gated (P2S_PLAN
+                  step 3: the slide term is held at 3x, the support term at the sum-s_f band). STAND-ONLY BY
+                  CONSTRUCTION, F1's AST read generalised to the motion-rewards module: both dumped funcs are
+                  parkour_tasks.crab_hex_omni_task.mdp.crab_hex_omni_motion_rewards:<term> and every return of both
+                  functions is multiplied by a name bound to a stand_mask() call or to a module helper that gates on
+                  stand_mask() (_stand_gate).
+  p2s guards (every poll, run_arm.sh --at p2s), iterations counted from the fork start, against the REFERENCE run's
+                  SAME fork-relative window -- at s18 the C0 continuation (arms/P2__C0_s18.record.json run_dir, the
+                  X12 run); at s16 / s17 (no same-seed C0) a CONSTANT, the seed's own S1 p2a source run's mean over its
+                  last 500 its (arms/P2__S1_s<seed>.record.json run_dir; a cross-seed C0 would trip at once):
+                    termination KILL  rolling-200 Train/mean_episode_length < 0.9 x the reference's (from +300);
+                    sigma KILL        rolling-200 PPO/effective_std < 0.8 x the reference's (from +1000);
+                    termination FLAG  rolling-500 Episode_Termination/crab_failure > the reference's + 0.08 (from
+                                      +500): NOTIFY-ONLY -- exit 5, never a kill (run_arm.sh writes
+                                      $ARMS/<ref>.p2s_flag, push-notifies, and the run continues; scripts/
+                                      p2s_queue.sh stops and asks after that arm). Sibling noise reaches +0.116.
+                  The CHARTER 8 collapse guard (rolling-200 crab_failure > 0.6) stays the hard backstop.
+  preflight       a p2s arm refuses to launch unless replay_gate.json "p2s" has verdict PASS (or a recorded user
+                  overrule {"overrule": {"by": "user", ...}}), both terms carry a non-zero sampled magnitude for the
+                  arm's dose, "p2s".<dose>.knobs equals the chain's KRABBY_STAND_SUPPORT_W / KRABBY_STAND_SLIDE_W
+                  (the replay finalises the doses), the stand share is the pinned 0.15, the stand-only construction
+                  reads true in the code root, and the guard's reference run is readable with all three tags.
+
 Exit codes (run_arm.sh's contract): 0 pass / not applicable, 2 not enough telemetry yet (retry next poll), 3 FAIL
-(kill + stop the queue). The last stdout line is one JSON object.
+(kill + stop the queue), 5 NOTIFY-ONLY (p2s termination flag: notify, never kill). The last stdout line is one JSON
+object.
 
     p2_live.py --iters RUN_DIR                                   -> "<first> <last>" logged iterations
-    p2_live.py --check RUN_DIR --chain CHAIN --at 200|1000|collapse [--train-log F] [--source RUN_DIR]
-               [--candidates F] [--replay F]
+    p2_live.py --check RUN_DIR --chain CHAIN --at 200|1000|collapse|p2s [--train-log F] [--source RUN_DIR]
+               [--candidates F] [--replay F] [--arms DIR]
     p2_live.py --smoke-audit RUN_DIR --chain CHAIN [--train-log F] [--require-terrain-move]
-    p2_live.py --preflight --chain CHAIN [--code-root DIR] [--replay F]
+    p2_live.py --preflight --chain CHAIN [--code-root DIR] [--replay F] [--arms DIR]
     p2_live.py --code-guard [--code-root DIR] [--lrout DIR] [--anchor-name ANC_s18] [--reanchor]
     p2_live.py --self-test
 
@@ -62,6 +97,7 @@ Exit codes (run_arm.sh's contract): 0 pass / not applicable, 2 not enough teleme
 from __future__ import annotations
 
 import argparse
+import ast
 import importlib.util
 import json
 import os
@@ -75,6 +111,7 @@ R = Path("/home/nickmagus/krabby/krabby-research")
 RC_PATH = R / "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/tools/run_candidates.py"
 
 RC_PASS, RC_WAIT, RC_FAIL = 0, 2, 3
+RC_NOTIFY = 5                                     # p2s termination flag: notify-only, run_arm.sh never kills on it
 RC_REFUSE = 7                                     # --code-guard refusal (run_arm.sh's "refused before launch" code)
 #: the code-guard reference: the s18 anchor's first queue row (scripts/p2_queue.sh runs suite__omni env_seed 1 first)
 ANCHOR_REF_ROW, ANCHOR_REF_SEED = "suite__omni", 1
@@ -116,6 +153,37 @@ P2B_TG_FLOOR_RATIO = 2.0
 P2B_MCK_OFFSETS = (1005, 2505, 4005)
 #: TG's floor tail length: the seed's S1 p2a run's last 500 its (P2B_PLAN.md step 1), not the live-read ROLL (200).
 P2B_TAIL_N = 500
+#: Stage p2s (P2S_PLAN.md step 3 / CHARTER 11): the dose arms and their two stand-slot terms (= motion_knobs.
+#: STAND_SUPPORT_TERM / STAND_SLIDE_TERM, pinned by tests/unit/test_omni_p2s_live.py), the term -> weight-knob map, and
+#: the dumped func's module (= motion_knobs._REWARDS_MOD).
+P2S_ARMS = ("ST1", "ST2")
+P2S_SUPPORT, P2S_SLIDE = "reward_stand_support", "penalty_stand_slide"
+P2S_TERMS = (P2S_SUPPORT, P2S_SLIDE)
+P2S_WEIGHT_KNOBS = {P2S_SUPPORT: "KRABBY_STAND_SUPPORT_W", P2S_SLIDE: "KRABBY_STAND_SLIDE_W"}
+P2S_FUNC_MOD = "parkour_tasks.crab_hex_omni_task.mdp.crab_hex_omni_motion_rewards"
+MOTION_REWARDS_PY = "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/mdp/crab_hex_omni_motion_rewards.py"
+#: the stand-slot share the implied-sum-s_f read divides by, PINNED (P2S_PLAN "left for implementation"): the chain
+#: env's KRABBY_OMNI_SLOTS first field must equal it (the logged Metrics/base_velocity/stand_frac_actual runs ~0.10 on
+#: the S1 recipe; the band [2.5, 6] absorbs that, and a share mismatch in the env itself FAILS)
+P2S_STAND_SHARE = 0.15
+P2S_SUPPORT_SUM_BAND = (2.5, 6.0)
+#: the realised stand-slot share (fable review 2026-10-08): the implied sum s_f is read against it when logged (the
+#: pinned 0.15 compresses implied - 3 by ~0.67 at the S1 recipe's ~0.10 realised share); the pinned value is reported
+P2S_STAND_FRAC_TAG = "Metrics/base_velocity/stand_frac_actual"
+P2S_TRIPOD = 3.0                                  # reward_stand_support's offset (STAND_SUPPORT_TRIPOD)
+#: the p2s guards (P2S_PLAN step 6): termination KILL (episode length), sigma KILL, termination NOTIFY-ONLY flag
+P2S_LEN_FRAC, P2S_LEN_ROLL, P2S_LEN_AT = 0.9, 200, AT_COLLAPSE
+#: the s16 / s17 episode-length kill line against the CONSTANT source tail (fable review 2026-10-08): a pure
+#: continuation's rolling-200 vs its source's last-500 dips to 0.925 at s18 (CL 0.919), 0.02 above 0.9 -- so the
+#: tail reference kills only below 0.85; the run-vs-run s18 line stays 0.9 (sibling minimum 0.920-0.936)
+P2S_LEN_FRAC_TAIL = 0.85
+P2S_STD_FRAC, P2S_STD_ROLL, P2S_STD_AT = 0.8, 200, 1000
+P2S_CF_MARGIN, P2S_CF_ROLL, P2S_CF_AT = 0.08, 500, 500
+#: the s16 / s17 constant reference: the seed's S1 p2a source run's last 500 its (P2S_PLAN "left for implementation")
+P2S_REF_TAIL_N = 500
+#: the s18 reference run's arms record (the C0 continuation, X12)
+P2S_REF_S18 = "P2__C0_s18"
+P2S_GATE_SEED = 18
 #: F1's "non-zero only in stand-slot envs" from per-slot telemetry, when logged: any of these tags, reading 0 over the
 #: window. None is emitted in the tree (2026-10-06); the stand-only construction check stands in (CHARTER 9).
 F1_NONSTAND_TAGS = ("Metrics/stand_stance/nonstand_income", "Metrics/base_velocity/stand_stance_nonstand")
@@ -171,6 +239,64 @@ def p2b_replay_verdict_ok(replay: dict | None, arm: str) -> bool:
     return ent.get("verdict") == "PASS" or (ent.get("overrule") or {}).get("by") == "user"
 
 
+def p2s_arm(chain: str) -> str:
+    """P2__ST2_s18 -> ST2; a fresh relaunch name after a kill, P2__ST2R1_s18 -> ST2 (the dose its replay magnitudes
+    and weights are keyed by); anything else -> ''."""
+    m = re.match(r"^P2__(ST[0-9]+)(?:R[0-9]+)?_s\d+$", chain)
+    return m.group(1) if m and m.group(1) in P2S_ARMS else ""
+
+
+def p2s_replay_magnitude(replay: dict | None, arm: str, term: str):
+    """The p2s replay magnitude CALIBRATED ON THE SAMPLED probe (P2S_PLAN step 2 / 4; TensorBoard units), or None:
+    ``replay_gate.json`` ``"p2s".<arm>.terms.<term>.episode_reward_sampled`` when written, else that term's
+    ``episode_reward`` ONLY when the record declares it sampled-calibrated (``"p2s".episode_reward_units`` names the
+    SAMPLED REF, as scripts/p2s_replay.py writes it: weight x stand share 0.15 x the sampled REF per-stand-row mean).
+    Never a deterministic value (``episode_reward_det_ref``; fail closed: the deterministic margin is ~3x the
+    training-time one)."""
+    p2s = (replay or {}).get("p2s") or {}
+    ent = (((p2s.get(arm) or {}).get("terms") or {}).get(term)) or {}
+    v = ent.get("episode_reward_sampled")
+    if v is None and "SAMPLED" in str(p2s.get("episode_reward_units", "")).upper():
+        v = ent.get("episode_reward")
+    return v if isinstance(v, (int, float)) and not isinstance(v, bool) else None
+
+
+def p2s_replay_weights(replay: dict | None, arm: str) -> dict:
+    """The replay gate's solved dose for ``arm``: ``"p2s".<arm>.knobs`` (scripts/p2s_replay.py) or ``.weights``."""
+    ent = ((replay or {}).get("p2s") or {}).get(arm) or {}
+    return dict(ent.get("knobs") or ent.get("weights") or {})
+
+
+def p2s_replay_verdict_ok(replay: dict | None) -> bool:
+    """CHARTER 11 / P2S_PLAN step 4: the p2s replay gate's verdict is PASS, or a recorded user overrule."""
+    ent = (replay or {}).get("p2s") or {}
+    return ent.get("verdict") == "PASS" or (ent.get("overrule") or {}).get("by") == "user"
+
+
+def p2s_stand_share(overlay: dict) -> tuple[float | None, str | None]:
+    """``(share, why)``: the chain env's stand-slot share (KRABBY_OMNI_SLOTS' first field), which must equal the
+    pinned :data:`P2S_STAND_SHARE`; ``why`` is a failure reason or None."""
+    raw = str((overlay or {}).get("KRABBY_OMNI_SLOTS", "")).strip()
+    try:
+        share = float(raw.split(":")[0])
+    except ValueError:
+        return None, f"KRABBY_OMNI_SLOTS {raw!r} unreadable: no stand-slot share"
+    if abs(share - P2S_STAND_SHARE) > 1e-9:
+        return share, f"stand-slot share {share} (KRABBY_OMNI_SLOTS first field) != the pinned {P2S_STAND_SHARE}"
+    return share, None
+
+
+def p2s_weights(overlay: dict) -> dict:
+    """``{term: float weight or None}`` from the chain env's two lever knobs."""
+    out = {}
+    for t, k in P2S_WEIGHT_KNOBS.items():
+        try:
+            out[t] = float(str((overlay or {}).get(k, "")).strip())
+        except ValueError:
+            out[t] = None
+    return out
+
+
 def window(series, lo, hi):
     """Mean of [(step, value)] over lo..hi inclusive, or None."""
     vals = [v for s, v in (series or []) if lo <= s <= hi]
@@ -219,7 +345,8 @@ def read_tb(run_dir: Path, extra_tags=()) -> dict:
     have = set(ea.Tags().get("scalars", []))
     want = set(TAGS.values()) | set(OBST_LEVEL_TAGS) | set(PROMO_TAGS) | set(F1_NONSTAND_TAGS) | set(extra_tags) | \
         {f"Episode_Reward/{t}" for t in ARM_TERMS.values()} | \
-        {f"Episode_Reward/{t}" for terms in P2B_ARM_TERMS.values() for t in terms}
+        {f"Episode_Reward/{t}" for terms in P2B_ARM_TERMS.values() for t in terms} | \
+        {f"Episode_Reward/{t}" for t in P2S_TERMS} | {P2S_STAND_FRAC_TAG}
     return {t: [(int(e.step), float(e.value)) for e in ea.Scalars(t)] for t in want if t in have}
 
 
@@ -259,6 +386,54 @@ def s1_p2a_tail(arms_dir: Path, seed: int, n: int = P2B_TAIL_N) -> dict:
     return {"reward_orientation": tail_mean(ser.get("Episode_Reward/reward_orientation"), n)}
 
 
+P2S_GUARD_TAGS = (TAGS["ep_len"], TAGS["crab_failure"], TAGS["std"])
+
+
+def p2s_reference(arms_dir: Path, seed: int | None) -> dict:
+    """The p2s guards' reference (P2S_PLAN step 6 / "left for implementation"; IO, records only): at s18 the C0
+    continuation's run (``P2__C0_s18.record.json``, the X12 run) read window for window; at s16 / s17 the seed's own S1
+    p2a source run (``P2__S1_s<seed>.record.json``) as a constant tail. ``{"error": why}`` when unresolvable."""
+    if seed is None:
+        return {"error": "the chain name carries no seed"}
+    name = P2S_REF_S18 if seed == P2S_GATE_SEED else f"P2__S1_s{seed}"
+    try:
+        rec = json.load(open(Path(arms_dir) / f"{name}.record.json"))
+    except (OSError, ValueError):
+        return {"error": f"no readable {name}.record.json in {arms_dir}", "name": name}
+    if rec.get("killed"):
+        return {"error": f"{name} was killed ({rec.get('killed')})", "name": name}
+    rd = rec.get("run_dir")
+    if not rd or not Path(rd).is_dir():
+        return {"error": f"{name}'s run_dir {rd!r} is not a directory", "name": name}
+    return {"kind": "run" if seed == P2S_GATE_SEED else "tail", "name": name, "run_dir": str(rd)}
+
+
+def load_p2s_reference(ref: dict, reader=None) -> dict:
+    """:func:`p2s_reference` + its telemetry (IO): ``"run"`` -> ``ser`` (the three guard tags) and ``first`` (its first
+    logged iteration); ``"tail"`` -> ``tail`` = the mean of each tag over the run's last :data:`P2S_REF_TAIL_N` its.
+    A missing tag is an ``error`` (the guards would otherwise run against nothing)."""
+    if not ref or ref.get("error"):
+        return ref or {"error": "no reference"}
+    ser = (reader or read_tb)(Path(ref["run_dir"]))
+    missing = [t for t in P2S_GUARD_TAGS if not ser.get(t)]
+    if missing:
+        return dict(ref, error=f"{ref['name']}'s run lacks {missing}")
+    if ref["kind"] == "tail":
+        return dict(ref, tail={t: tail_mean(ser[t], P2S_REF_TAIL_N) for t in P2S_GUARD_TAGS})
+    first, _ = first_last({t: ser[t] for t in P2S_GUARD_TAGS})
+    return dict(ref, ser={t: ser[t] for t in P2S_GUARD_TAGS}, first=first)
+
+
+def p2s_reference_ok(ref: dict) -> tuple[bool, str]:
+    """``(readable, why)`` of a :func:`load_p2s_reference` result, for the preflight."""
+    if not ref or ref.get("error"):
+        return False, (ref or {}).get("error", "no reference")
+    if ref["kind"] == "tail":
+        return True, (f"{ref['name']} constant tail (last {P2S_REF_TAIL_N} its): "
+                      + ", ".join(f"{t.rsplit('/', 1)[-1]} {v:.4g}" for t, v in ref["tail"].items()))
+    return True, f"{ref['name']} run {Path(ref['run_dir']).name} window for window (first it {ref['first']})"
+
+
 # ------------------------------------------------------------------------------------------------ pure judges
 def dump_facts(env: dict | None, agent: dict | None, log_text: str | None) -> dict:
     """The dump-side facts of the wiring read, from the parsed params/env.yaml (+ the training log)."""
@@ -276,7 +451,7 @@ def dump_facts(env: dict | None, agent: dict | None, log_text: str | None) -> di
     fns = sorted({str((v or {}).get("function", "")).rsplit(":", 1)[-1] for v in subs.values() if isinstance(v, dict)})
     rows = _find_key(env.get("scene") or env, "num_rows")
     funcs = {t: str((rew.get(t) or {}).get("func")) if isinstance(rew.get(t), dict) else None
-             for t in ARM_TERMS.values()}
+             for t in tuple(ARM_TERMS.values()) + P2S_TERMS}
     return {"have_env": True, "term_funcs": funcs, "curriculum_null": "curriculum" in env and env.get("curriculum") is None,
             "weights": {t: w(t) for t in list(ELEMENT_WEIGHTS) + ["reward_clock_schedule", "reward_clock_swing_apex",
                                                                     "reward_action_rate"] + list(ARM_TERMS.values())},
@@ -314,10 +489,12 @@ def _close(a, b, tol=1e-9):
 
 
 def judge_wiring(arm: str, overlay: dict, facts: dict, ser: dict, first: int, audit: list, replay: dict | None,
-                 stand_gate: tuple[bool, str] | None = None, ref_tail: dict | None = None) -> dict:
+                 stand_gate: tuple[bool, str] | None = None, ref_tail: dict | None = None,
+                 p2s_gate: dict | None = None) -> dict:
     """CHARTER 8 wiring at +200 (pure). ``audit`` = run_candidates.overlay_checks output [(name, ok)];
     ``stand_gate`` = :func:`stand_gate_structural` of the code root (F1 only; None = not read = FAIL for F1);
-    ``ref_tail`` = the seed's S1 p2a training tail (TG only; P2B_PLAN.md step 1, e.g. {"reward_orientation": x})."""
+    ``ref_tail`` = the seed's S1 p2a training tail (TG only; P2B_PLAN.md step 1, e.g. {"reward_orientation": x});
+    ``p2s_gate`` = :func:`p2s_gate_structural` of the code root (ST1 / ST2 only; None = not read = FAIL)."""
     last = max((s for v in ser.values() for s, _ in v), default=None)
     lo, hi = first + W200[0], first + W200[1]
     if last is None or last < hi:
@@ -413,29 +590,73 @@ def judge_wiring(arm: str, overlay: dict, facts: dict, ser: dict, first: int, au
             elif er is not None and abs(er) < P2B_TG_FLOOR_RATIO * abs(tail):
                 fails.append(f"term liveness: TG |Episode_Reward/reward_orientation| {er:.4g} < "
                              f"{P2B_TG_FLOOR_RATIO}x the seed's S1 p2a tail {tail:.4g}")
+    elif arm in P2S_ARMS:
+        f2, n2, live = judge_p2s_liveness(arm, overlay, ser, lo, hi, replay)
+        fails += f2
+        notes += n2
+        f3, n3 = judge_p2s_construction(facts, p2s_gate)
+        fails += f3
+        notes += n3
     else:
         notes.append(f"arm {arm}: no arm-specific term (liveness n/a)")
     return {"rc": RC_FAIL if fails else RC_PASS, "result": "FAIL" if fails else "PASS", "fails": fails,
             "notes": notes, "reach_obst": ro, "clock_hidden": ch, "liveness": live, "window": [lo, hi]}
 
 
-def stand_gate_structural(rewards_py: Path) -> tuple[bool, str]:
-    """F1's stand-only construction, read from source (CPU, no import): in ``reward_stand_stance_quality`` a name is
-    bound to an expression calling ``.stand_mask()`` and every ``return`` is a product with that name as a factor."""
-    import ast  # noqa: PLC0415
+def _calls_stand_mask(node) -> bool:
+    return any(isinstance(c, ast.Call) and isinstance(c.func, ast.Attribute) and c.func.attr == "stand_mask"
+               for c in ast.walk(node))
 
+
+def _gating_helpers(tree) -> set[str]:
+    """Module-level functions that GATE on the stand mask: a name in them is bound to a ``.stand_mask()`` call and every
+    ``return`` keeps that name as a conjunct -- a factor of ``*`` / ``&``, through ``.to(...)`` / ``.float()`` /
+    ``.type(...)`` / ``.bool()`` casts (``_stand_gate``: ``return (stand & upright).to(dtype)``)."""
+    out = set()
+    for fn in tree.body:
+        if not isinstance(fn, ast.FunctionDef):
+            continue
+        gates = {t.id for n in ast.walk(fn) if isinstance(n, ast.Assign) and _calls_stand_mask(n.value)
+                 for t in n.targets if isinstance(t, ast.Name)}
+        rets = [n for n in ast.walk(fn) if isinstance(n, ast.Return)]
+        if not gates or not rets:
+            continue
+
+        def conj(e):
+            if isinstance(e, ast.BinOp) and isinstance(e.op, (ast.Mult, ast.BitAnd)):
+                return conj(e.left) + conj(e.right)
+            if isinstance(e, ast.Call) and isinstance(e.func, ast.Attribute) and e.func.attr in ("to", "float", "type",
+                                                                                                "bool"):
+                return conj(e.func.value)
+            return [e]
+        if all(r.value is not None and {f.id for f in conj(r.value) if isinstance(f, ast.Name)} & gates for r in rets):
+            out.add(fn.name)
+    return out
+
+
+def stand_gate_structural(rewards_py: Path, func_name: str | None = None) -> tuple[bool, str]:
+    """A stand-only construction, read from source (CPU, no import): in ``func_name`` (default F1's
+    ``reward_stand_stance_quality``) a name is bound to an expression calling ``.stand_mask()`` -- or calling a
+    module-level helper that itself gates on it (:func:`_gating_helpers`; the p2s pair's ``_stand_gate``, P2S_PLAN step
+    3: "generalise F1's stand-only AST check to the motion-rewards module") -- and every ``return`` is a product with
+    that name as a factor."""
+    func_name = func_name or ARM_TERMS["F1"]
     try:
         tree = ast.parse(Path(rewards_py).read_text())
     except (OSError, SyntaxError) as e:
         return False, f"{rewards_py} unreadable ({e.__class__.__name__})"
-    fn = next((n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name == ARM_TERMS["F1"]), None)
+    fn = next((n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name == func_name), None)
     if fn is None:
-        return False, f"no def {ARM_TERMS['F1']} in {rewards_py}"
-    gates = {t.id for n in ast.walk(fn) if isinstance(n, ast.Assign)
-             and any(isinstance(c, ast.Call) and isinstance(c.func, ast.Attribute) and c.func.attr == "stand_mask"
-                     for c in ast.walk(n.value)) for t in n.targets if isinstance(t, ast.Name)}
+        return False, f"no def {func_name} in {rewards_py}"
+    helpers = _gating_helpers(tree) - {func_name}
+
+    def gate_value(v) -> bool:
+        return _calls_stand_mask(v) or any(isinstance(c, ast.Call) and isinstance(c.func, ast.Name)
+                                           and c.func.id in helpers for c in ast.walk(v))
+    gates = {t.id for n in ast.walk(fn) if isinstance(n, ast.Assign) and gate_value(n.value)
+             for t in n.targets if isinstance(t, ast.Name)}
     if not gates:
-        return False, "no name bound to a stand_mask() call"
+        return False, "no name bound to a stand_mask() call (or to a stand-mask gating helper)"
 
     def factors(e):
         if isinstance(e, ast.BinOp) and isinstance(e.op, ast.Mult):
@@ -448,7 +669,84 @@ def stand_gate_structural(rewards_py: Path) -> tuple[bool, str]:
         names = {f.id for f in factors(r.value) if isinstance(f, ast.Name)} if r.value is not None else set()
         if not names & gates:
             return False, f"a return (line {r.lineno}) is not multiplied by the stand mask {sorted(gates)}"
-    return True, f"every return of {fn.name} is multiplied by {sorted(gates)} (= stand_mask())"
+    via = sorted(helpers & {c.func.id for c in ast.walk(fn) if isinstance(c, ast.Call) and isinstance(c.func, ast.Name)})
+    return True, (f"every return of {fn.name} is multiplied by {sorted(gates)} (= stand_mask()"
+                  + (f" via {via}" if via else "") + ")")
+
+
+def p2s_gate_structural(motion_rewards_py: Path) -> dict:
+    """``{term: (ok, why)}`` -- :func:`stand_gate_structural` of both p2s terms in the motion-rewards module."""
+    return {t: stand_gate_structural(motion_rewards_py, t) for t in P2S_TERMS}
+
+
+def judge_p2s_construction(facts: dict, p2s_gate: dict | None) -> tuple[list, list]:
+    """Stand-only by construction (P2S_PLAN step 3): both dumped funcs are the motion-rewards module's and both
+    functions gate every return on the stand mask. ``(fails, notes)``."""
+    fails, notes = [], []
+    funcs = facts.get("term_funcs") or {}
+    for t in P2S_TERMS:
+        want = f"{P2S_FUNC_MOD}:{t}"
+        if funcs.get(t) != want:
+            fails.append(f"term liveness: {t} dumped func {funcs.get(t)!r} != {want} (stand-only construction unshown)")
+        g = (p2s_gate or {}).get(t)
+        if not g or not g[0]:
+            fails.append(f"term liveness: {t} stand-only construction not shown ({g[1] if g else 'not read'})")
+        elif funcs.get(t) == want:
+            notes.append(f"{t} stand-only by construction: {g[1]}")
+    return fails, notes
+
+
+def judge_p2s_liveness(arm: str, overlay: dict, ser: dict, lo: int, hi: int, replay: dict | None) -> tuple[list, list,
+                                                                                                         dict]:
+    """P2S_PLAN step 3 term liveness over the +200 window (pure). ``(fails, notes, live)``."""
+    fails, notes = [], []
+    live: dict = {"terms": {}}
+    share, why = p2s_stand_share(overlay)
+    live["stand_share"] = share
+    if why:
+        fails.append(f"term liveness: {why}")
+    w = p2s_weights(overlay)
+    for t in P2S_TERMS:
+        er = window(ser.get(f"Episode_Reward/{t}"), lo, hi)
+        exp = p2s_replay_magnitude(replay, arm, t)
+        live["terms"][t] = {"episode_reward": er, "replay_sampled": exp, "weight": w.get(t)}
+        if er is None or er == 0.0:
+            fails.append(f"term liveness: Episode_Reward/{t} is {er} (must be non-zero, arm {arm})")
+        if exp in (None, 0, 0.0):
+            fails.append(f"term liveness: no sampled-probe replay magnitude for p2s {arm}/{t} (replay_gate.json "
+                         "\"p2s\": none recorded or not declared sampled-calibrated; fail closed)")
+    er, exp = live["terms"][P2S_SLIDE]["episode_reward"], live["terms"][P2S_SLIDE]["replay_sampled"]
+    if er is not None and er > 0:
+        fails.append(f"term liveness: Episode_Reward/{P2S_SLIDE} {er:.4g} > 0 (a penalty must be non-positive)")
+    elif er not in (None, 0.0) and exp not in (None, 0, 0.0):
+        r = er / exp
+        live["terms"][P2S_SLIDE]["ratio"] = r
+        if r <= 0 or not (1.0 / LIVE_RATIO - 1e-9 <= r <= LIVE_RATIO + 1e-9):
+            fails.append(f"term liveness: Episode_Reward/{P2S_SLIDE} {er:.4g} vs sampled replay {exp:.4g} "
+                         f"(outside {LIVE_RATIO:g}x)")
+    er, exp = live["terms"][P2S_SUPPORT]["episode_reward"], live["terms"][P2S_SUPPORT]["replay_sampled"]
+    ws = w.get(P2S_SUPPORT)
+    if er not in (None, 0.0) and exp not in (None, 0, 0.0):
+        live["terms"][P2S_SUPPORT]["ratio_reported"] = er / exp
+    if ws is None or not ws > 0:
+        fails.append(f"term liveness: KRABBY_STAND_SUPPORT_W {overlay.get('KRABBY_STAND_SUPPORT_W')!r} is not a "
+                     "positive weight (the implied sum s_f needs it)")
+    elif er is not None and share is not None and share > 0:
+        realised = window(ser.get(P2S_STAND_FRAC_TAG), lo, hi)
+        live["implied_sum_s_f_pinned"] = P2S_TRIPOD + er / (ws * share)
+        live["stand_share_realised"] = realised
+        use = realised if realised is not None and realised > 0 else share
+        implied = P2S_TRIPOD + er / (ws * use)
+        live["implied_sum_s_f"] = implied
+        lo_b, hi_b = P2S_SUPPORT_SUM_BAND
+        src = "realised" if use is realised else "pinned"
+        if not (lo_b - 1e-9 <= implied <= hi_b + 1e-9):
+            fails.append(f"term liveness: implied mean sum s_f {implied:.3f} = 3 + {er:.4g} / ({ws:g} x {use:g} {src}) "
+                         f"outside [{lo_b}, {hi_b}]")
+        else:
+            notes.append(f"p2s implied mean sum s_f {implied:.3f} in [{lo_b}, {hi_b}] (share {use:g} {src}; pinned "
+                         f"{share:g} gives {live['implied_sum_s_f_pinned']:.3f})")
+    return fails, notes, live
 
 
 def emitted_metric_keys(code_root: Path, keys) -> dict:
@@ -475,8 +773,12 @@ def emitted_metric_keys(code_root: Path, keys) -> dict:
     return found
 
 
-def judge_preflight(arm: str, emitted: dict, replay: dict | None, stand_gate: tuple[bool, str] | None) -> dict:
-    """What the live reads need before a launch (pure). ``emitted`` = :func:`emitted_metric_keys` output."""
+def judge_preflight(arm: str, emitted: dict, replay: dict | None, stand_gate: tuple[bool, str] | None,
+                    overlay: dict | None = None, p2s_gate: dict | None = None,
+                    p2s_ref: tuple[bool, str] | None = None) -> dict:
+    """What the live reads need before a launch (pure). ``emitted`` = :func:`emitted_metric_keys` output; for a p2s
+    arm also the chain ``overlay``, ``p2s_gate`` (:func:`p2s_gate_structural`) and ``p2s_ref`` = ``(readable, why)``
+    of the guards' reference run (:func:`p2s_reference_ok`)."""
     fails, notes = [], []
     if arm != "CAL1":                                 # every arm (+1000 terrain read) and CAL2 (levels must move)
         for tag in OBST_LEVEL_TAGS + PROMO_TAGS:
@@ -504,6 +806,40 @@ def judge_preflight(arm: str, emitted: dict, replay: dict | None, stand_gate: tu
         if not p2b_replay_verdict_ok(replay, arm):
             ent = ((replay or {}).get("p2b") or {}).get(arm) or {}
             fails.append(f"p2b replay verdict for {arm} is {ent.get('verdict')!r} with no recorded user overrule")
+    if arm in P2S_ARMS:
+        # CHARTER 11 / P2S_PLAN.md step 4: a p2s arm launches only on a p2s replay-gate PASS (or a recorded user
+        # overrule), with both terms' sampled-probe magnitudes recorded for its dose and the replay's solved weights
+        # in the chain (the planning doses of candidates v10 are not the final ones).
+        if not p2s_replay_verdict_ok(replay):
+            ent = (replay or {}).get("p2s") or {}
+            fails.append(f"p2s replay verdict is {ent.get('verdict')!r} with no recorded user overrule "
+                         "(replay_gate.json \"p2s\")")
+        for t in P2S_TERMS:
+            if p2s_replay_magnitude(replay, arm, t) in (None, 0, 0.0):
+                fails.append(f"no sampled-probe replay magnitude for p2s {arm}/{t} in replay_gate.json "
+                             "(\"p2s\".<dose>.terms.<term>: episode_reward_sampled, or episode_reward under "
+                             "episode_reward_units naming the SAMPLED REF)")
+        rw = p2s_replay_weights(replay, arm)
+        cw = p2s_weights(overlay or {})
+        for t, k in P2S_WEIGHT_KNOBS.items():
+            try:
+                got = float(rw.get(k))
+            except (TypeError, ValueError):
+                got = None
+            if got is None or cw.get(t) is None or abs(got - cw[t]) > 1e-9:
+                fails.append(f"chain {k}={(overlay or {}).get(k)!r} != replay_gate.json \"p2s\".{arm}.knobs.{k}="
+                             f"{rw.get(k)!r} (the replay gate's solved dose)")
+        _share, why = p2s_stand_share(overlay or {})
+        if why:
+            fails.append(why)
+        for t in P2S_TERMS:
+            g = (p2s_gate or {}).get(t)
+            if not g or not g[0]:
+                fails.append(f"{t} stand-only construction not shown ({g[1] if g else 'not read'})")
+        if not p2s_ref or not p2s_ref[0]:
+            fails.append(f"p2s guard reference unreadable ({p2s_ref[1] if p2s_ref else 'not read'})")
+        else:
+            notes.append(f"p2s guard reference: {p2s_ref[1]}")
     if arm == "F1":
         tags = [t for t in F1_NONSTAND_TAGS if (emitted.get(t.rsplit("/", 1)[-1]))]
         if tags:
@@ -578,6 +914,66 @@ def judge_collapse(ser: dict, first: int, source_tail_len) -> dict:
             "ep_len_roll": r_len, "crab_failure_roll": r_cf, "source_tail": source_tail_len}
 
 
+def judge_p2s_guards(ser: dict, first: int, ref: dict | None) -> dict:
+    """P2S_PLAN step 6, the three p2s guards (pure), at the run's newest logged iteration ``last`` (fork-relative
+    offset ``d = last - first``), each a rolling window ending at ``last`` against the reference's SAME fork-relative
+    window (``ref["kind"] == "run"``: its own series from its own first logged iteration) or its constant source tail
+    (``"tail"``):
+      * KILL (rc 3) if rolling-200 Train/mean_episode_length < 0.9 x the reference's (from +300);
+      * KILL (rc 3) if rolling-200 PPO/effective_std < 0.8 x the reference's (from +1000);
+      * NOTIFY-ONLY (rc 5, never a kill) if rolling-500 Episode_Termination/crab_failure > the reference's + 0.08
+        (from +500 -- the rolling-500 window is undefined before it).
+    A kill outranks the flag. A reference window that is not there yet is WAIT (rc 2) for that clause only."""
+    last = max((s for v in ser.values() for s, _ in v), default=None)
+    if last is None:
+        return {"rc": RC_WAIT, "why": "no telemetry"}
+    d = last - first
+    if d < P2S_LEN_AT:
+        return {"rc": RC_PASS, "result": f"n/a (before +{P2S_LEN_AT})", "d": d}
+    if not ref or ref.get("error"):
+        return {"rc": RC_WAIT, "why": f"p2s guard reference unreadable: {(ref or {}).get('error', 'none')}", "d": d}
+
+    def arm_roll(tag, n):
+        return window([(s, v) for s, v in ser.get(tag) or [] if s >= first], last - n + 1, last)
+
+    def ref_roll(tag, n):
+        if ref.get("kind") == "tail":
+            return (ref.get("tail") or {}).get(tag)
+        rf = ref.get("first")
+        return None if rf is None else window((ref.get("ser") or {}).get(tag), rf + d - n + 1, rf + d)
+    kills, flags, waits, read = [], [], [], {"d": d, "reference": ref.get("name"), "reference_kind": ref.get("kind")}
+    el, rel = arm_roll(TAGS["ep_len"], P2S_LEN_ROLL), ref_roll(TAGS["ep_len"], P2S_LEN_ROLL)
+    read.update(ep_len=el, ref_ep_len=rel)
+    if el is None or rel is None:
+        waits.append("episode length (arm or reference window missing)")
+    elif el < (frac := P2S_LEN_FRAC_TAIL if ref.get("kind") == "tail" else P2S_LEN_FRAC) * rel:
+        kills.append(f"termination: rolling-{P2S_LEN_ROLL} episode length {el:.1f} < {frac} x the reference's "
+                     f"{rel:.1f} (+{d})")
+    if d >= P2S_STD_AT:
+        sd, rsd = arm_roll(TAGS["std"], P2S_STD_ROLL), ref_roll(TAGS["std"], P2S_STD_ROLL)
+        read.update(std=sd, ref_std=rsd)
+        if sd is None or rsd is None:
+            waits.append("effective_std (arm or reference window missing)")
+        elif sd < P2S_STD_FRAC * rsd:
+            kills.append(f"sigma: rolling-{P2S_STD_ROLL} PPO/effective_std {sd:.4f} < {P2S_STD_FRAC} x the reference's "
+                         f"{rsd:.4f} (+{d})")
+    if d >= P2S_CF_AT:
+        cf, rcf = arm_roll(TAGS["crab_failure"], P2S_CF_ROLL), ref_roll(TAGS["crab_failure"], P2S_CF_ROLL)
+        read.update(crab_failure=cf, ref_crab_failure=rcf)
+        if cf is None or rcf is None:
+            waits.append("crab_failure (arm or reference window missing)")
+        elif cf > rcf + P2S_CF_MARGIN:
+            flags.append(f"termination flag (notify-only): rolling-{P2S_CF_ROLL} crab_failure {cf:.3f} > the "
+                         f"reference's {rcf:.3f} + {P2S_CF_MARGIN} (+{d})")
+    if kills:
+        return dict(read, rc=RC_FAIL, result="FAIL", fails=kills, flags=flags, waits=waits)
+    if flags:
+        return dict(read, rc=RC_NOTIFY, result="NOTIFY", fails=[], flags=flags, waits=waits)
+    if waits:
+        return dict(read, rc=RC_WAIT, why="; ".join(waits), fails=[], flags=[])
+    return dict(read, rc=RC_PASS, result="PASS", fails=[], flags=[])
+
+
 def judge_smoke(audit: list, facts: dict, ser: dict, overlay: dict, require_move: bool) -> dict:
     """CHARTER 5 calibration-smoke dump audit (pure): every overlay key realised (PROMOTE included), no dropped PPO
     key; with ``require_move`` the obstacle-tile terrain levels must move (max != min over the run)."""
@@ -617,7 +1013,7 @@ def check(a) -> tuple[int, dict]:
     cands = yaml.safe_load(open(a.candidates))
     if a.chain not in (cands.get("chains") or {}):
         return RC_WAIT, {"why": f"chain {a.chain} not in {a.candidates}"}
-    arm = arm_of(a.chain)
+    arm = p2s_arm(a.chain) or arm_of(a.chain)
     ov = chain_overlay(cands, a.chain)
     ser = read_tb(a.check)
     first, last = first_last(ser)
@@ -633,7 +1029,13 @@ def check(a) -> tuple[int, dict]:
         sg = stand_gate_structural(Path(a.code_root) / REWARDS_PY) if arm == "F1" else None
         seed = seed_of(a.chain)
         ref_tail = s1_p2a_tail(a.arms, seed) if arm == "TG" and seed is not None else None
-        res = judge_wiring(arm, ov, dump_facts(env, agent, log), ser, first, audit, replay, sg, ref_tail)
+        pg = p2s_gate_structural(Path(a.code_root) / MOTION_REWARDS_PY) if arm in P2S_ARMS else None
+        res = judge_wiring(arm, ov, dump_facts(env, agent, log), ser, first, audit, replay, sg, ref_tail, pg)
+    elif a.at == "p2s":
+        if arm not in P2S_ARMS:
+            res = {"rc": RC_PASS, "result": f"n/a (chain {a.chain} is not a p2s arm)"}
+        else:
+            res = judge_p2s_guards(ser, first, load_p2s_reference(p2s_reference(a.arms, seed_of(a.chain))))
     elif a.at == "1000":
         env, _, _ = _gather(a.check, None)
         res = judge_terrain(ser, first, _find_key((env or {}).get("scene") or env or {}, "num_rows"))
@@ -663,12 +1065,16 @@ def preflight(a) -> tuple[int, dict]:
     cands = yaml.safe_load(open(a.candidates))
     if a.chain not in (cands.get("chains") or {}):
         return RC_FAIL, {"result": "FAIL", "fails": [f"chain {a.chain} not in {a.candidates}"]}
-    arm = arm_of(a.chain)
+    arm = p2s_arm(a.chain) or arm_of(a.chain)
     keys = [t[len(METRIC_PREFIX):] for t in OBST_LEVEL_TAGS + PROMO_TAGS] + [t.rsplit("/", 1)[-1] for t in F1_NONSTAND_TAGS]
     emitted = emitted_metric_keys(Path(a.code_root), keys)
     replay = json.load(open(a.replay)) if a.replay and Path(a.replay).is_file() else None
     sg = stand_gate_structural(Path(a.code_root) / REWARDS_PY) if arm == "F1" else None
-    res = judge_preflight(arm, emitted, replay, sg)
+    pg = pref = None
+    if arm in P2S_ARMS:
+        pg = p2s_gate_structural(Path(a.code_root) / MOTION_REWARDS_PY)
+        pref = p2s_reference_ok(load_p2s_reference(p2s_reference(a.arms, seed_of(a.chain))))
+    res = judge_preflight(arm, emitted, replay, sg, chain_overlay(cands, a.chain), pg, pref)
     res.update(chain=a.chain, emitted={k: v for k, v in emitted.items() if v})
     return int(res["rc"]), res
 
@@ -970,6 +1376,116 @@ def _self_test() -> int:
     check_("preflight: TG without a p2b replay magnitude is refused", judge_preflight("TG", em_ok, None, None)["rc"],
            RC_FAIL)
     check_("preflight: C0 needs no p2b replay magnitude", judge_preflight("C0", em_ok, None, None)["rc"], RC_PASS)
+
+    # ------------------------------------------------------------------------------------------- stage p2s (CHARTER 11)
+    ov_st2 = dict(ov_s1, KRABBY_OMNI_SLOTS="0.15:0.55:0.1:0.2", KRABBY_STAND_SUPPORT_W="1.12",
+                  KRABBY_STAND_SLIDE_W="-1.25")
+    rp_st2 = {"p2s": {"verdict": "PASS", "ST2": {
+        "knobs": {"KRABBY_STAND_SUPPORT_W": 1.12, "KRABBY_STAND_SLIDE_W": -1.25},
+        "terms": {P2S_SUPPORT: {"episode_reward": 0.05, "episode_reward_sampled": 0.02},
+                  P2S_SLIDE: {"episode_reward": -0.05, "episode_reward_sampled": -0.04}}}}}
+    f_p2s = _facts(weights=w_s1, term_funcs={P2S_SUPPORT: f"{P2S_FUNC_MOD}:{P2S_SUPPORT}",
+                                             P2S_SLIDE: f"{P2S_FUNC_MOD}:{P2S_SLIDE}"})
+    pg_ok = {t: (True, "gated") for t in P2S_TERMS}
+
+    def s_p2s(sup, sli):
+        return _ser(n=215, **dict(base, **{"Episode_Reward/reward_action_rate": -0.004,
+                                           f"Episode_Reward/{P2S_SUPPORT}": sup, f"Episode_Reward/{P2S_SLIDE}": sli}))
+    # implied sum s_f = 3 + ER / (1.12 x 0.15): ER 0.168 -> 4.0; ER -0.084 -> 2.5 (boundary); ER -0.1 -> 2.405
+    check_("p2s wiring: both terms live, slide within 3x, implied sum s_f 4.0 passes",
+           judge_wiring("ST2", ov_st2, f_p2s, s_p2s(0.168, -0.05), F0, audit_ok, rp_st2, p2s_gate=pg_ok)["rc"], RC_PASS)
+    check_("p2s wiring: implied sum s_f exactly 2.5 passes (boundary)",
+           judge_wiring("ST2", ov_st2, f_p2s, s_p2s(-0.084, -0.05), F0, audit_ok, rp_st2, p2s_gate=pg_ok)["rc"], RC_PASS)
+    check_("p2s wiring: implied sum s_f 2.405 (< 2.5: feet lifted) fails",
+           judge_wiring("ST2", ov_st2, f_p2s, s_p2s(-0.1, -0.05), F0, audit_ok, rp_st2, p2s_gate=pg_ok)["rc"], RC_FAIL)
+    check_("p2s wiring: a dead support term fails (sum s_f would read 3, inside the band)",
+           judge_wiring("ST2", ov_st2, f_p2s, s_p2s(0.0, -0.05), F0, audit_ok, rp_st2, p2s_gate=pg_ok)["rc"], RC_FAIL)
+    check_("p2s wiring: a dead slide term fails",
+           judge_wiring("ST2", ov_st2, f_p2s, s_p2s(0.168, 0.0), F0, audit_ok, rp_st2, p2s_gate=pg_ok)["rc"], RC_FAIL)
+    check_("p2s wiring: a positive slide penalty fails",
+           judge_wiring("ST2", ov_st2, f_p2s, s_p2s(0.168, 0.05), F0, audit_ok, rp_st2, p2s_gate=pg_ok)["rc"], RC_FAIL)
+    check_("p2s wiring: slide at 3.5x the sampled replay fails",
+           judge_wiring("ST2", ov_st2, f_p2s, s_p2s(0.168, -0.14), F0, audit_ok, rp_st2, p2s_gate=pg_ok)["rc"], RC_FAIL)
+    check_("p2s wiring: no sampled-probe magnitude (a deterministic one only) fails closed",
+           judge_wiring("ST2", ov_st2, f_p2s, s_p2s(0.168, -0.05), F0, audit_ok,
+                        {"p2s": {"verdict": "PASS", "ST2": {"terms": {P2S_SUPPORT: {"episode_reward": 0.05},
+                                                                      P2S_SLIDE: {"episode_reward": -0.05}}}}},
+                        p2s_gate=pg_ok)["rc"], RC_FAIL)
+    rp_units = {"p2s": {"verdict": "PASS", "episode_reward_units": "weight x stand_share 0.15 x the SAMPLED REF mean",
+                        "ST2": {"terms": {P2S_SUPPORT: {"episode_reward": 0.02, "episode_reward_det_ref": 0.05},
+                                          P2S_SLIDE: {"episode_reward": -0.04, "episode_reward_det_ref": -0.05}}}}}
+    check_("p2s wiring: episode_reward declared sampled-calibrated (scripts/p2s_replay.py's record) is read",
+           judge_wiring("ST2", ov_st2, f_p2s, s_p2s(0.168, -0.05), F0, audit_ok, rp_units, p2s_gate=pg_ok)["rc"], RC_PASS)
+    check_("p2s wiring: ... and without that declaration fails closed",
+           judge_wiring("ST2", ov_st2, f_p2s, s_p2s(0.168, -0.05), F0, audit_ok,
+                        {"p2s": {k: v for k, v in rp_units["p2s"].items() if k != "episode_reward_units"}},
+                        p2s_gate=pg_ok)["rc"], RC_FAIL)
+    check_("p2s wiring: a stand share other than the pinned 0.15 fails",
+           judge_wiring("ST2", dict(ov_st2, KRABBY_OMNI_SLOTS="0.2:0.5:0.1:0.2"), f_p2s, s_p2s(0.168, -0.05), F0,
+                        audit_ok, rp_st2, p2s_gate=pg_ok)["rc"], RC_FAIL)
+    check_("p2s wiring: an ungated term source fails",
+           judge_wiring("ST2", ov_st2, f_p2s, s_p2s(0.168, -0.05), F0, audit_ok, rp_st2,
+                        p2s_gate=dict(pg_ok, **{P2S_SLIDE: (False, "ungated")}))["rc"], RC_FAIL)
+    check_("p2s wiring: a dumped func from another module fails",
+           judge_wiring("ST2", ov_st2, _facts(weights=w_s1, term_funcs={P2S_SUPPORT: "x:reward_stand_support",
+                                                                       P2S_SLIDE: f"{P2S_FUNC_MOD}:{P2S_SLIDE}"}),
+                        s_p2s(0.168, -0.05), F0, audit_ok, rp_st2, p2s_gate=pg_ok)["rc"], RC_FAIL)
+    check_("p2s_arm: doses and fresh relaunch names", [p2s_arm("P2__ST2_s18"), p2s_arm("P2__ST1R2_s16"),
+                                                       p2s_arm("P2__ST3_s18"), p2s_arm("P2__CL_s18")],
+           ["ST2", "ST1", "", ""])
+    pref_ok = (True, "ref ok")
+    check_("p2s preflight: PASS verdict + magnitudes + matching weights + gate + reference passes",
+           judge_preflight("ST2", em_ok, rp_st2, None, ov_st2, pg_ok, pref_ok)["rc"], RC_PASS)
+    check_("p2s preflight: no p2s replay record is refused",
+           judge_preflight("ST2", em_ok, None, None, ov_st2, pg_ok, pref_ok)["rc"], RC_FAIL)
+    check_("p2s preflight: a FAIL verdict without a user overrule is refused",
+           judge_preflight("ST2", em_ok, {"p2s": dict(rp_st2["p2s"], verdict="FAIL")}, None, ov_st2, pg_ok,
+                           pref_ok)["rc"], RC_FAIL)
+    check_("p2s preflight: a FAIL verdict with a recorded user overrule passes",
+           judge_preflight("ST2", em_ok, {"p2s": dict(rp_st2["p2s"], verdict="FAIL", overrule={"by": "user"})}, None,
+                           ov_st2, pg_ok, pref_ok)["rc"], RC_PASS)
+    check_("p2s preflight: chain weights other than the replay's solved dose are refused",
+           judge_preflight("ST2", em_ok, rp_st2, None, dict(ov_st2, KRABBY_STAND_SUPPORT_W="1.0"), pg_ok,
+                           pref_ok)["rc"], RC_FAIL)
+    check_("p2s preflight: an unreadable guard reference is refused",
+           judge_preflight("ST2", em_ok, rp_st2, None, ov_st2, pg_ok, (False, "no record"))["rc"], RC_FAIL)
+    EL2, CF2, SD2 = TAGS["ep_len"], TAGS["crab_failure"], TAGS["std"]
+
+    def run_ref(el=1800.0, cf=0.2, sd=0.82, n=5000, first=19994):
+        return {"kind": "run", "name": "P2__C0_s18", "first": first,
+                "ser": {t: [(first + i, v) for i in range(n)] for t, v in ((EL2, el), (CF2, cf), (SD2, sd))}}
+
+    def arm_ser(n, el=1800.0, cf=0.2, sd=0.82, first=19994):
+        return {t: [(first + i, v) for i in range(n)] for t, v in ((EL2, el), (CF2, cf), (SD2, sd))}
+    check_("p2s guards: before +300 is n/a", judge_p2s_guards(arm_ser(250, el=100.0), 19994, run_ref())["rc"], RC_PASS)
+    check_("p2s guards: a healthy arm passes", judge_p2s_guards(arm_ser(1200), 19994, run_ref())["rc"], RC_PASS)
+    check_("p2s guards: episode length 0.89 x C0's kills",
+           judge_p2s_guards(arm_ser(400, el=1602.0), 19994, run_ref())["rc"], RC_FAIL)
+    check_("p2s guards: episode length exactly 0.9 x C0's passes (boundary)",
+           judge_p2s_guards(arm_ser(400, el=1620.0), 19994, run_ref())["rc"], RC_PASS)
+    check_("p2s guards: sigma 0.79 x C0's at +1000 kills",
+           judge_p2s_guards(arm_ser(1100, sd=0.6478), 19994, run_ref())["rc"], RC_FAIL)
+    check_("p2s guards: sigma 0.79 x before +1000 is not read",
+           judge_p2s_guards(arm_ser(900, sd=0.6478), 19994, run_ref())["rc"], RC_PASS)
+    check_("p2s guards: crab_failure +0.09 over C0's from +500 is NOTIFY-ONLY (rc 5, never a kill)",
+           judge_p2s_guards(arm_ser(600, cf=0.29), 19994, run_ref())["rc"], RC_NOTIFY)
+    check_("p2s guards: crab_failure +0.09 before +500 is not read",
+           judge_p2s_guards(arm_ser(450, cf=0.29), 19994, run_ref())["rc"], RC_PASS)
+    check_("p2s guards: a kill outranks the flag",
+           judge_p2s_guards(arm_ser(600, el=1500.0, cf=0.29), 19994, run_ref())["rc"], RC_FAIL)
+    check_("p2s guards: the SAME fork-relative window (the reference drops late: no kill early)",
+           judge_p2s_guards(arm_ser(400, el=1700.0), 19994,
+                            dict(run_ref(), ser={EL2: [(19994 + i, 1800.0 if i < 1000 else 1000.0) for i in range(5000)],
+                                                 CF2: [(19994 + i, 0.2) for i in range(5000)],
+                                                 SD2: [(19994 + i, 0.82) for i in range(5000)]}))["rc"], RC_PASS)
+    tail_ref = {"kind": "tail", "name": "P2__S1_s17", "tail": {EL2: 1726.0, CF2: 0.29, SD2: 0.81}}
+    check_("p2s guards: s16 / s17 against the seed's constant source tail (kill line 0.85 there, not 0.9)",
+           [judge_p2s_guards(arm_ser(600, el=1700.0, cf=0.30, sd=0.81), 19994, tail_ref)["rc"],
+            judge_p2s_guards(arm_ser(600, el=1500.0, cf=0.30, sd=0.81), 19994, tail_ref)["rc"],
+            judge_p2s_guards(arm_ser(600, el=1400.0, cf=0.30, sd=0.81), 19994, tail_ref)["rc"]],
+           [RC_PASS, RC_PASS, RC_FAIL])
+    check_("p2s guards: an unreadable reference waits (the preflight refuses it before launch)",
+           judge_p2s_guards(arm_ser(600), 19994, {"error": "no record"})["rc"], RC_WAIT)
     print("self-test:", "PASS" if ok else "FAIL")
     return 0 if ok else 1
 
@@ -980,7 +1496,7 @@ def main() -> int:
     ap.add_argument("--check", type=Path)
     ap.add_argument("--smoke-audit", type=Path)
     ap.add_argument("--chain")
-    ap.add_argument("--at", choices=("200", "1000", "collapse"))
+    ap.add_argument("--at", choices=("200", "1000", "collapse", "p2s"))
     ap.add_argument("--train-log", default=None)
     ap.add_argument("--source", type=Path, default=None)
     ap.add_argument("--candidates", type=Path, default=CAMPAIGN / "candidates.yaml")
@@ -993,7 +1509,7 @@ def main() -> int:
     ap.add_argument("--anchor-name", default=None)
     ap.add_argument("--reanchor", action="store_true")
     ap.add_argument("--arms", type=Path, default=None,
-                     help="p2b (TG): the arms dir to read the seed's P2__S1_s<seed>.record.json from "
+                     help="p2b (TG) / p2s (the guards' reference): the arms dir to read the records from "
                           "(default $P2_OUT/arms)")
     ap.add_argument("--p2b-checkpoints", type=int, default=None, metavar="FORK_MODEL_N",
                      help="print the p2b intermediate checkpoint numbers for a fork of model_<FORK_MODEL_N>.pt")

@@ -39,7 +39,10 @@
 #                `resume_from: {checkpoint}`): rc 3 = kill;
 #        wiring  at +200 (p2_live.py --at 200: incl. the overlay audit and term liveness);
 #        terrain at +1000 (p2_live.py --at 1000);
-#        collapse every poll after +300 (p2_live.py --at collapse).
+#        collapse every poll after +300 (p2_live.py --at collapse);
+#        p2s     a stage-p2s chain (P2__ST<k>[R<j>]_s<seed>, CHARTER 11): every poll after +300 the three p2s guards
+#                (p2_live.py --at p2s --arms $ARMS: episode-length and sigma KILL, rc 3; the crab_failure flag is
+#                NOTIFY-ONLY, rc 5 -> $ARMS/<ref>.p2s_flag + one NOTIFY line, the run continues, the record carries it).
 #      rc 2 = not enough telemetry (retried next poll, logged once); rc 3 = KILL: `systemctl --user stop` (never
 #      SIGKILL), touch $OUT/STOP_QUEUE, a NOTIFY line -- EVERY phase-2 kill stops the queue and asks. A reader crash
 #      (any other rc) is logged once and retried, never a kill. AUTO_KILL=0 only advises.
@@ -332,7 +335,7 @@ PY
 }
 watch_arm() {  # REF RUN_DIR UNIT CHAIN TRAIN_LOG (background): the CHARTER 8 live reads, counted from the fork start
   local ref=$1 rd=$2 unit=$3 chain=$4 tl=$5 out rc it first last src
-  local wres=0 w200=0 w1000=0 nres=0 n200=0 n1000=0 ncol=0 nerr=0
+  local wres=0 w200=0 w1000=0 nres=0 n200=0 n1000=0 ncol=0 nerr=0 nerrp=0 np2s=0 np2w=0
   src=$(fork_source_rd "$ref")
   while systemctl --user is-active -q "$unit"; do
     sleep 120
@@ -379,6 +382,26 @@ watch_arm() {  # REF RUN_DIR UNIT CHAIN TRAIN_LOG (background): the CHARTER 8 li
         live_read "$ref" "$unit" collapse "+$((last - first))" "$rc" "$out" || return 0
       elif [ "$rc" = 2 ] && [ "$ncol" = 0 ]; then say "CHECKCOLLAPSE $ref rc 2 (retrying each poll)"; ncol=1; fi
     fi
+    # stage p2s (CHARTER 11 / P2S_PLAN.md step 6): the three p2s guards every poll after +300 -- rc 3 (episode-length
+    # or sigma KILL) kills like any CHARTER 8 read; rc 5 (the rolling-500 crab_failure flag) is NOTIFY-ONLY: written
+    # once to $ARMS/<ref>.p2s_flag and push-notified, the run continues (scripts/p2s_queue.sh asks after the arm)
+    case "$chain" in
+      P2__ST[0-9]*_s*)
+        if [ "$last" -ge $((first + 300)) ]; then
+          out=$("$PY" "$S/p2_live.py" --check "$rd" --chain "$chain" --at p2s --candidates "$C/candidates.yaml" --arms "$ARMS" 2>&1); rc=$?
+          if [ "$rc" = 3 ]; then
+            say "CHECKP2S $ref rc 3 :: $(echo "$out" | tail -1 | cut -c1-400)"
+            live_read "$ref" "$unit" p2s-guard "+$((last - first))" "$rc" "$out" || return 0
+          elif [ "$rc" = 5 ]; then
+            if [ "$np2s" = 0 ]; then
+              printf '%s\t%s\n' "+$((last - first))" "$(echo "$out" | tail -1 | cut -c1-600)" > "$ARMS/$ref.p2s_flag"
+              say "NOTIFY $ref p2s termination flag at +$((last - first)) (notify-only, the run continues; CHARTER 11 / P2S_PLAN step 6) :: $(echo "$out" | tail -1 | cut -c1-400)"
+              np2s=1
+            fi
+          elif [ "$rc" = 2 ]; then [ "$np2w" = 0 ] && say "CHECKP2S $ref rc 2 (retrying each poll) :: $(echo "$out" | tail -1 | cut -c1-300)"; np2w=1
+          elif [ "$rc" != 0 ]; then [ "$nerrp" = 0 ] && say "NOTIFY CHECKP2S $ref rc $rc: reader error (retrying) :: $(echo "$out" | tail -1 | cut -c1-300)"; nerrp=1; fi
+        fi ;;
+    esac
   done
 }
 row_eval() {  # NAME CHECKPOINT ENV_STAMP MANIFEST SCENARIO ENV_SEED [EPISODES] -> sets ROW_DIR (the complete stamp);
@@ -445,6 +468,9 @@ rec = {"ref": ref, "chain": chain, "arm": chain.split("__", 1)[-1].rsplit("_s", 
        "unit": e["UNIT"], "run_dir": e["RD"] or None, "checkpoint": e["CK"] or None, "train_log": e["TRAINLOG"] or None,
        "code_root": e["CODE_ROOT"], "driver_stamp": e["ST"] or None,
        "resume_read_json": p(f"{ref}_resume.json"), "smoke_audit": e.get("SMOKE_AUDIT") or None}
+if p(f"{ref}.p2s_flag"):                       # stage p2s: the notify-only termination flag (CHARTER 11), when set
+    at, why = (open(p(f"{ref}.p2s_flag")).read().rstrip("\n").split("\t", 1) + ["", ""])[:2]
+    rec["p2s_flag"] = {"at": at or None, "why": why or None}
 json.dump(rec, open(os.path.join(arms, f"{ref}.record.json"), "w"), indent=1)
 PY
 }
@@ -461,10 +487,10 @@ run_ref() {  # REF -> 0 DONE, 1 STOP (logged), 2 killed (recorded), 6 launch ref
   msg=$(verify_head_sha "$CHAIN" 2>&1) || { say "STOP $ref refused: $msg (CHARTER 2) -- NOTIFY"; return 7; }
   say "$ref fork source $msg"
   msg=$(cd "$CODE_ROOT" && "$PY" "$S/p2_live.py" --preflight --chain "$CHAIN" --code-root "$CODE_ROOT" \
-        --candidates "$C/candidates.yaml" 2>&1) || { say "STOP $ref refused: live-read preflight :: $(echo "$msg" | tail -1 | cut -c1-600) -- NOTIFY"; return 7; }
+        --candidates "$C/candidates.yaml" --arms "$ARMS" 2>&1) || { say "STOP $ref refused: live-read preflight :: $(echo "$msg" | tail -1 | cut -c1-600) -- NOTIFY"; return 7; }
   say "$ref preflight $(echo "$msg" | tail -1 | cut -c1-200)"
   code_guard "$ref" || return 7
-  rm -f "$ARMS/$ref.killed"
+  rm -f "$ARMS/$ref.killed" "$ARMS/$ref.p2s_flag"
   LAUNCH_WHY=""
   launch "$ref" || { say "STOP $ref ${LAUNCH_WHY:-launch failed}"; return 6; }
   for _ in $(seq 90); do

@@ -113,7 +113,52 @@ and stand stepping, turn band) are reported for the judges; the ranking is their
                                          lever reads PENDING, else 0.
     p2_read.py --p2b-md PATH             the p2b verdict table + attribution + recipe reads as markdown (combinable).
     (P2B_LEVERS in the environment, default "CL TG", names the lever arms read.)
+    p2_read.py --p2s-inertness [--p2s-seeds 18|16,17]
+                                         CHARTER 11 / P2S_PLAN step 5: REFS_S1_s<seed> (and, at 18, C0R_s18) reproduce
+                                         the p2b stamps' reads (REF_S1_s<seed> / P2__C0_s18) EXACTLY on every row they
+                                         share (suite es1 / es2 included; never a driver suite stamp). Exit 0 / 4.
+    p2_read.py --p2s-is-still NAME       exit 0 iff NAME reads STILL (with or without COST), else 4 (the queue's ST1
+                                         condition, P2S_PLAN step 6).
+    p2_read.py --p2s-screen              the s18 p2s verdicts (C0R, ST2, ST1 vs REFS_S1_s18), attribution vs C0R, C0R's
+                                         own clause values and the reported-only items as JSON; exit 0.
+    p2_read.py --p2s-recipe              the step-7 recipe read of the kept dose (P2S_DOSE) over s16 / s17 / s18, the
+                                         STILL / PARTIAL / COST -> CHARTER 6.2 mapping spelt out; exit 4 if PENDING.
+    p2_read.py --p2s-md PATH             the p2s verdict table + attribution + recipe as markdown (combinable).
+    p2_read.py --p2s-self-test           synthetic STILL / PARTIAL / GAMED / COST / NO EFFECT (and ladder) cases.
+    (P2S_ST2_S18 / P2S_ST1_S18 / P2S_DOSE / P2S_REP_S16 / P2S_REP_S17 in the environment name the p2s heads -- fresh
+    names after a kill; the defaults are P2__ST2_s18, P2__ST1_s18, ST2, P2__<dose>_s16, P2__<dose>_s17.)
     p2_read.py --self-test
+
+CHARTER 11 (stage p2s, P2S_PLAN.md "Pre-registered verdicts"; pre-registered before any p2s run). Points:
+REFS_S1_s<seed> (the S1 p2a head model_19994 re-evaluated on the p2s code: every p2b row, suite at env_seeds 1 and 2,
+walkstop__omni at 1 and 2), C0R_s18 (the p2b C0 head re-evaluated the same way), the p2s heads (suite@1 = the arm's
+driver stamp; every other row by run_arm.sh). The stand reads come from scripts/p2s_stand.py (the ONE estimator set):
+the suite's stand wave (head_summary), the field rows' opening stands, field_turn's stand and the walkstop stands
+(every hold labelled "stand", each with episode_stand_metrics; onset stand -> moving hold with episode_onset_latency).
+Per head vs REFS_S1 of its seed, first match decides:
+  INVALID EVAL / PENDING / HAND LOSS / DOSE  as CHARTER 10 (stamps incl. suite@2 and walkstop@1/@2; a walkstop stamp
+                with a row env block or KRABBY_FLAT_TERRAIN_MODE in its env is INVALID -- not the flat row).
+  FLAT FAIL     as CHARTER 10: vs REFS, and vs ANCW through chained deltas.
+  OBSTACLE LOSS field_hard (n = 400) < REFS - max(0.05, 2 SE); field_light < REFS - max(0.03, band); ring_obst < REFS -
+                max(0.05, band).
+  STAND OUTCOME on suite es1 AND es2: STILL (p2s_stand.still_clauses on both: steps/s <= 0.5, clearance <= 0.05 m,
+                off-ground <= 0.10, hover <= 5/100, taps/s <= 1.0, KS <= 0.5 m/s) > PARTIAL (both seeds: off-ground and
+                steps/s each <= 0.5 x the comparator's, hover <= comparator + 5, KS <= comparator + band; the comparator
+                is C0R at s18, REFS at s16 / s17) > GAMED (steps/s <= 0.5 on both, a PARTIAL off-ground / hover / KS
+                clause fails; a flag, never adopts) > NO EFFECT. Stand bands: REFS es1 vs es2, floors off-ground 0.02,
+                steps/s 0.25, taps/s 0.25, KS 0.10 m/s, onset 0.1 s.
+  COST          on STILL / PARTIAL: a CHARTER 6.1 COST margin vs REFS; pooled stand-hold falls (suite es1+es2,
+                walkstop es1+es2, the field rows' opening stands, field_turn's stand) > REFS + max(0.03, 2 SE); walkstop
+                MEDIAN onset (es1+es2 pooled) > REFS + max(0.3 s, band); suite stand body height > 0.03 m off REFS;
+                field_turn completion < REFS - max(0.05, band) (band = max(binomial SE, 0.04): field_turn has one seed).
+  Always shown: the stand outcome (even when an earlier rung matched), the onset delta, C0R's own clause values, and a
+  note when PARTIAL comes from the clearance clause alone. Reported only: sigma (cam / rod) at the fork, +1000 and the
+  end; steps_per_rad_post; walking tripod / steps-per-m / apex vs C0R; the share of stand actions at the clip.
+ATTRIBUTION (s18): ST reads STILL or PARTIAL; C0R reads NO EFFECT, implemented as "C0R is not STILL"; no FLAT FAIL vs
+  C0R; field_hard >= C0R - max(0.05, 2 SE).
+RECIPE (step 7, CHARTER 6.2 rules on the kept dose at 3 seeds): STILL -> PASS, COST -> COST (same metric names), PARTIAL
+  -> a gain that is not a PASS; gain = the stand outcome is STILL or PARTIAL (read before the HAND LOSS rung, as CHARTER
+  6.1's gain is); INVALID / PENDING -> PENDING.
 
 CHARTER 10 (stage p2b, P2B_PLAN.md step 6; pre-registered before any p2b run). Points: REF_S1_s<seed> (the S1 p2a head
 model_19994 re-evaluated on the p2b code: every row by run_arm.sh, field_hard at env_seeds 1-4, s18's suite also at
@@ -1583,6 +1628,751 @@ def p2b_markdown(vs: dict, attr: dict, recipes: dict) -> str:
     return "\n".join(L) + "\n"
 
 
+# ================================================================================================ 11 p2s (CHARTER 11)
+# P2S_PLAN.md "Pre-registered verdicts", pre-registered before any p2s run. Every p2s head is read against its seed's
+# REFS_S1 (the S1 p2a head re-evaluated on the p2s code; the stand bands come from its suite es1 vs es2); the PARTIAL
+# rung compares with C0R_s18 (the p2b C0 continuation re-evaluated on the p2s code) at s18 and with REFS at s16 / s17
+# (no same-seed control there: "lever + continuation"). The stand reads are scripts/p2s_stand.py's, never redefined here.
+WS = "walkstop__omni"
+P2S_MANIFEST = CAMPAIGN / "scenarios_p2s.yaml"
+P2S_WS_SEEDS = (1, 2)
+C0R = "C0R_s18"
+P2S_C0_SOURCE = "P2__C0_s18"                    # the p2b head C0R re-evaluates (its record: checkpoint, run_dir, stamp)
+STILL, PARTIAL, GAMED, NO_EFFECT = "STILL", "PARTIAL", "GAMED", "NO EFFECT"
+P2S_STAND_GAIN = (STILL, PARTIAL)
+P2S_NEEDED_EXTRA = ("suite@2", f"{FT}@1", f"{WS}@1", f"{WS}@2")
+P2S_VALIDITY = P2B_VALIDITY + ("suite@2", f"{WS}@1", f"{WS}@2")
+#: the stand bands' floors (P2S_PLAN rung 4: REFS es1 vs es2)
+P2S_BAND_FLOOR = {"off_ground_share": 0.02, "steps_per_s": 0.25, "taps_per_s": 0.25, "ks_m_s": 0.10, "onset_s": 0.1}
+P2S_PARTIAL_FRAC, P2S_HOVER_PLUS = 0.5, 5.0
+P2S_STEPS_LOW = 0.5                              # GAMED's "steps/s <= 0.5" (the STILL steps clause)
+P2S_OBST_FH, P2S_OBST_FL, P2S_OBST_RO = 0.05, 0.03, 0.05
+P2S_FALL_FLOOR, P2S_ONSET_FLOOR, P2S_HEIGHT_TOL, P2S_FT_FLOOR = 0.03, 0.3, 0.03, 0.05
+P2S_CLIP = 1.0                                   # agent.yaml clip_actions (the teacher runner's)
+P2S_SIGMA_AT = 1000                              # the "+1000" sigma read: the saved checkpoint nearest fork + 1000
+P2S_SIGMA_NEAR = 100
+WS_WINDOW_NOTE = ("steps/s and taps/s on the FULL stand hold (fall-trimmed); clearance, off-ground, KS, loaded count and "
+                  "body height on the STEADY window (the hold minus its first settle_s 1.0 s); falls on the untrimmed "
+                  "hold; onset = stand -> moving hold, 5-step trailing mean reaching 0.5 x |cmd| and holding 0.5 s "
+                  "(p2s_stand.episode_onset_latency), censored episodes excluded")
+P2S_RECIPE_MAP = {"STILL": "PASS", "COST": "COST", "PARTIAL": "PARTIAL (a gain, not a PASS)",
+                  "gain": "the stand outcome is STILL or PARTIAL (read before the HAND LOSS rung, as CHARTER 6.1's gain)",
+                  "INVALID EVAL / PENDING": "PENDING"}
+
+
+@functools.lru_cache(maxsize=1)
+def PS():
+    """scripts/p2s_stand.py -- the ONE stand-estimator set (P2S_PLAN step 1)."""
+    return _load(HERE / "p2s_stand.py", "_p2_p2s_stand")
+
+
+def refs_name(seed: int) -> str:
+    return f"REFS_{REF_ARM}_s{seed}"
+
+
+def p2s_names(env=None) -> dict:
+    """The p2s head names (fresh names after a kill come in through the environment, as scripts/p2s_queue.sh's)."""
+    e = os.environ if env is None else env
+    dose = e.get("P2S_DOSE", "ST2")
+    return {"ST2_s18": e.get("P2S_ST2_S18", "P2__ST2_s18"), "ST1_s18": e.get("P2S_ST1_S18", "P2__ST1_s18"),
+            "dose": dose, "rep_s16": e.get("P2S_REP_S16", f"P2__{dose}_s16"),
+            "rep_s17": e.get("P2S_REP_S17", f"P2__{dose}_s17")}
+
+
+def p2s_head_names(env=None) -> list[str]:
+    n = p2s_names(env)
+    return [n["ST2_s18"], n["ST1_s18"], n["rep_s16"], n["rep_s17"]]
+
+
+def p2s_dose_of(name: str) -> str | None:
+    """P2__ST2_s18 / P2__ST2R1_s18 -> ST2 (the p2_live.p2s_arm convention); else None."""
+    import re  # noqa: PLC0415
+    m = re.match(r"^P2__(ST[0-9]+)(?:R[0-9]+)?_s\d+$", str(name))
+    return m.group(1) if m else None
+
+
+@functools.lru_cache(maxsize=256)
+def p2s_summary(stamp: str | None) -> dict | None:
+    """p2s_stand.head_summary (the stand hold of a suite / field / field_turn stamp), cached per stamp."""
+    return PS().head_summary(stamp) if stamp else None
+
+
+def _seed_of_stamp(stamp: str) -> int | None:
+    try:
+        return int(Path(stamp).parent.name.replace("seed", ""))
+    except ValueError:
+        return None
+
+
+@functools.lru_cache(maxsize=64)
+def walkstop_read(stamp: str | None) -> dict | None:
+    """Every "stand" hold of a walkstop__omni stamp (three per episode) through p2s_stand's per-episode estimators, and
+    every stand -> moving-hold onset (p2s_stand.stand_onset_pairs: stand -> lat_l, stand -> back). Pooled medians over
+    the reached stand holds, per-stand medians, stand-hold falls / reached holds, onset medians (per pair and pooled;
+    the per-episode values are kept so env_seeds can be pooled). The window, episode count and env_seed are stated."""
+    if not stamp:
+        return None
+    S = PS()
+    meta = _json(Path(stamp) / "run_meta.json") or {}
+    labels, speeds, dt = meta.get("hold_labels") or [], meta.get("hold_speeds") or [], float(meta.get("dt", 0.02))
+    stands = [i for i, lab in enumerate(labels) if lab == "stand"]
+    if not stands:
+        return None
+    pairs = S.stand_onset_pairs(labels, speeds) if speeds else []
+    per, falls, reached, n_ep, censored = [], 0, 0, 0, 0
+    onset = {lab: [] for _s, _m, lab in pairs}
+    for _m, _l, _e, d in S._raw_episodes(stamp, lambda e: True):
+        n_ep += 1
+        for i in stands:
+            m = S.episode_stand_metrics(d, i, dt)
+            if m["n_full"] or m["fall"]:
+                reached += 1
+                falls += int(bool(m["fall"]))
+                per.append(dict(m, hold_idx=i))
+        for _s, mi, lab in pairs:
+            v = S.episode_onset_latency(d, dt, mi)
+            if v is None:
+                censored += 1
+            else:
+                onset[lab].append(v)
+    if not n_ep:
+        return None
+    keys = ("steps_per_s", "taps_per_s", "clearance_m", "off_ground_share", "ks_m_s", "loaded_count", "body_height_m",
+            "t1_per_s", "t2_per_s")
+
+    def med(rows, k):
+        vals = [r[k] for r in rows if r.get(k) is not None]
+        return round(statistics.median(vals), 5) if vals else None
+    vals = [v for lab in onset for v in onset[lab]]
+    return {"stamp": stamp, "env_seed": _seed_of_stamp(stamp), "n_episodes": n_ep, "window": WS_WINDOW_NOTE,
+            "stand_holds": stands, "onset_pairs": [[s, m, lab] for s, m, lab in pairs],
+            "stand_reached": reached, "falls": falls, "hover_holds": sum(1 for r in per if r.get("hover")),
+            "pooled": {k: med(per, k) for k in keys},
+            "by_stand": {str(i): {k: med([r for r in per if r["hold_idx"] == i], k) for k in keys} for i in stands},
+            "onset": {lab: {"median_s": round(statistics.median(v), 4) if v else None, "n": len(v)}
+                      for lab, v in onset.items()},
+            "onset_values": vals, "onset_median_s": round(statistics.median(vals), 4) if vals else None,
+            "onset_censored": censored}
+
+
+@functools.lru_cache(maxsize=64)
+def stand_clip_share(stamp: str | None) -> float | None:
+    """Reported only (P2S_PLAN risk 3): the share of stand-hold action samples at the clip (|a| >= clip_actions 1.0)
+    over the steady window of the suite's stand episodes."""
+    if not stamp:
+        return None
+    import numpy as np  # noqa: PLC0415
+
+    S = PS()
+    meta = _json(Path(stamp) / "run_meta.json") or {}
+    dt = float(meta.get("dt", 0.02))
+    hit = tot = 0
+    for _labels, hold_idx, d in S.iter_stand_episodes(stamp):
+        _full, steady = S.hold_masks(d, hold_idx, dt)
+        a = np.abs(np.asarray(d["actions"])[steady])
+        hit += int((a >= P2S_CLIP - 1e-6).sum())
+        tot += int(a.size)
+    return hit / tot if tot else None
+
+
+def p2s_walking_reads(stamp: str | None) -> dict | None:
+    """Reported only: walking tripod / steps-per-m / swing apex per translate category, and the turn category's
+    steps_per_rad_post (stepping after a turn closes) -- the suite stamp's by_category medians."""
+    if not stamp:
+        return None
+    by = (((_json(Path(stamp) / "scenario_metrics.json") or {}).get("aggregate") or {}).get("suite") or {}).get(
+        "by_category") or {}
+    if not by:
+        return None
+    return {"walking": {c: {k: _med(by, c, k) for k in ("tripod", "steps_per_m", "swing_apex")}
+                        for c in ("fwd", "side", "back", "diag")},
+            "steps_per_rad_post": _med(by, "turn", "steps_per_rad_post")}
+
+
+def p2s_raw(stamps: dict) -> dict:
+    """Every p2s stand read of one point (IO, raws)."""
+    st = stamps or {}
+    return {"suite": {s: p2s_summary(st.get(f"suite@{s}")) for s in (1, 2)},
+            "walkstop": {s: walkstop_read(st.get(f"{WS}@{s}")) for s in P2S_WS_SEEDS},
+            "field": {k: p2s_summary(st.get(k)) for k in [f"{FH}@{s}" for s in P2B_FH_SEEDS] + [f"{FL}@1", f"{FL}@2"]},
+            "turn": p2s_summary(st.get(f"{FT}@1")),
+            "clip_share": {s: stand_clip_share(st.get(f"suite@{s}")) for s in (1, 2)},
+            "field_onset": {k: (PS().onset_summary(st[k]) if st.get(k) else None) for k in (f"{FH}@1", f"{FL}@1")}}
+
+
+def load_p2s_point(name: str, *, suite_stamp: str | None = None, run_dir: str | None = None, with_tb: bool = True,
+                   with_raw: bool = True, lrout: Path | None = None) -> dict:
+    """:func:`load_point` with field_hard at env_seeds 1-4, plus the walkstop stamps (validity + their env), the
+    reported walking reads and (``with_raw``) every p2s stand read."""
+    lrout = lrout or LROUT
+    pt = load_point(name, suite_stamp=suite_stamp, run_dir=run_dir, lrout=lrout, with_tb=with_tb,
+                    fh_seeds=P2B_FH_SEEDS)
+    pt["ws_env"] = {}
+    for s in P2S_WS_SEEDS:
+        stamp = newest_stamp(name, WS, s, lrout)
+        pt["stamps"][f"{WS}@{s}"] = stamp
+        pt["valid"][f"{WS}@{s}"] = stamp_validity(stamp)
+        pt["ws_env"][s] = dict(((_json(Path(stamp) / "run_meta.json") or {}).get("env_vars") or {})) if stamp else None
+    pt["walking"] = p2s_walking_reads(pt["stamps"].get("suite@1"))
+    if with_raw:
+        pt["p2s"] = p2s_raw(pt["stamps"])
+    return pt
+
+
+# ------------------------------------------------------------------------------------------------ p2s pure reads
+def walkstop_flat_fails(pt: dict) -> list[str]:
+    """INVALID EVAL: a walkstop stamp must be the flat row scenarios_p2s.yaml defines (no row env block, no
+    KRABBY_FLAT_TERRAIN_MODE in its env -- MODE=light is what puts obstacles on the ground)."""
+    out = []
+    for s in P2S_WS_SEEDS:
+        k = f"{WS}@{s}"
+        v = (pt.get("valid") or {}).get(k)
+        if v is None:
+            continue
+        if v.get("manifest_env"):
+            out.append(f"{pt.get('name')} {k}: walkstop carries a row env block {v['manifest_env']} (not the flat row)")
+        if "KRABBY_FLAT_TERRAIN_MODE" in ((pt.get("ws_env") or {}).get(s) or {}):
+            out.append(f"{pt.get('name')} {k}: walkstop env sets KRABBY_FLAT_TERRAIN_MODE (not flat ground)")
+    return out
+
+
+def p2s_stand_bands(refs: dict) -> dict:
+    """P2S_PLAN rung 4: |REFS es1 - es2| per stand metric (the suite stand) and for the walkstop MEDIAN onset, floored
+    at :data:`P2S_BAND_FLOOR`. A band that cannot be computed is None (-> PENDING)."""
+    p = (refs or {}).get("p2s") or {}
+    a, b = (p.get("suite") or {}).get(1), (p.get("suite") or {}).get(2)
+    out = {}
+    for k, floor in P2S_BAND_FLOOR.items():
+        if k == "onset_s":
+            w1, w2 = (p.get("walkstop") or {}).get(1), (p.get("walkstop") or {}).get(2)
+            x, y = (w1 or {}).get("onset_median_s"), (w2 or {}).get("onset_median_s")
+        else:
+            x, y = (a or {}).get(k), (b or {}).get(k)
+        out[k] = None if x is None or y is None else max(abs(x - y), floor)
+    return out
+
+
+def _clause(v, lim) -> tuple:
+    return (v, lim, v is not None and lim is not None and v <= lim + EPS)
+
+
+def p2s_stand_outcome(arm: dict, cmp: dict, sbd: dict) -> dict:
+    """P2S_PLAN rung 4 (pure): ``arm`` / ``cmp`` = {1: head_summary(suite es1), 2: ...(es2)} of the head and of its
+    comparator (C0R at s18, REFS at s16 / s17); ``sbd`` = :func:`p2s_stand_bands` of REFS. STILL > PARTIAL > GAMED >
+    NO EFFECT; ``outcome`` None when a summary or the KS band is missing (PENDING)."""
+    S = PS()
+    out = {"clauses": {s: S.still_clauses((arm or {}).get(s)) for s in (1, 2)}, "partial": {}, "note": None}
+    miss = [f"{who} suite es{s} stand summary" for who, d in (("head", arm), ("comparator", cmp)) for s in (1, 2)
+            if not (d or {}).get(s)]
+    if sbd.get("ks_m_s") is None:
+        miss.append("REFS KS band (suite es1 vs es2)")
+    if miss:
+        return dict(out, outcome=None, why=miss)
+    still = all(ok for s in (1, 2) for _v, _t, ok in out["clauses"][s].values())
+    for s in (1, 2):
+        a, c = arm[s], cmp[s]
+        out["partial"][s] = {
+            "off_ground_share": _clause(a.get("off_ground_share"), None if c.get("off_ground_share") is None
+                                        else P2S_PARTIAL_FRAC * c["off_ground_share"]),
+            "steps_per_s": _clause(a.get("steps_per_s"), None if c.get("steps_per_s") is None
+                                   else P2S_PARTIAL_FRAC * c["steps_per_s"]),
+            "hover_episodes_per_100": _clause(a.get("hover_episodes_per_100"),
+                                              None if c.get("hover_episodes_per_100") is None
+                                              else c["hover_episodes_per_100"] + P2S_HOVER_PLUS),
+            "ks_m_s": _clause(a.get("ks_m_s"), None if c.get("ks_m_s") is None else c["ks_m_s"] + sbd["ks_m_s"])}
+    partial = all(ok for s in (1, 2) for _v, _t, ok in out["partial"][s].values())
+    steps_low = all(arm[s].get("steps_per_s") is not None and arm[s]["steps_per_s"] <= P2S_STEPS_LOW + EPS
+                    for s in (1, 2))
+    gamed = steps_low and any(not out["partial"][s][k][2] for s in (1, 2)
+                              for k in ("off_ground_share", "hover_episodes_per_100", "ks_m_s"))
+    outcome = STILL if still else PARTIAL if partial else GAMED if gamed else NO_EFFECT
+    if outcome == PARTIAL and all(ok for s in (1, 2) for k, (_v, _t, ok) in out["clauses"][s].items()
+                                  if k != "clearance_m"):
+        out["note"] = ("PARTIAL from the clearance clause alone: a median-over-feet clause binds before steps/s when "
+                       "3+ feet each take one full-height step (P2S_PLAN 'left for implementation')")
+    return dict(out, outcome=outcome)
+
+
+def is_still(pt: dict) -> bool | None:
+    """Every STILL clause on both suite seeds (absolute; no comparator) -- None when a summary is missing."""
+    su = ((pt or {}).get("p2s") or {}).get("suite") or {}
+    if not su.get(1) or not su.get(2):
+        return None
+    S = PS()
+    return all(ok for s in (1, 2) for _v, _t, ok in S.still_clauses(su[s]).values())
+
+
+def p2s_stand_falls(pt: dict) -> tuple[int, int] | None:
+    """Pooled stand-hold falls / stand holds (suite es1 + es2, walkstop es1 + es2, the field rows' opening stands at
+    every env_seed read, field_turn's stand). None when any part is missing (PENDING)."""
+    p = (pt or {}).get("p2s") or {}
+    parts = [(p.get("suite") or {}).get(s) for s in (1, 2)] + list((p.get("field") or {}).values()) + [p.get("turn")]
+    if any(x is None for x in parts) or not p.get("field"):
+        return None
+    falls, n = sum(int(x.get("falls") or 0) for x in parts), sum(int(x.get("n") or 0) for x in parts)
+    for s in P2S_WS_SEEDS:
+        w = (p.get("walkstop") or {}).get(s)
+        if w is None:
+            return None
+        falls, n = falls + int(w["falls"]), n + int(w["stand_reached"])
+    return (falls, n) if n else None
+
+
+def p2s_onset(pt: dict) -> float | None:
+    """The walkstop MEDIAN onset latency, episodes pooled over env_seeds 1 and 2 (P2S_PLAN: the median; p90 is
+    noisy)."""
+    w = ((pt or {}).get("p2s") or {}).get("walkstop") or {}
+    if any(w.get(s) is None for s in P2S_WS_SEEDS):
+        return None
+    vals = [v for s in P2S_WS_SEEDS for v in (w[s].get("onset_values") or [])]
+    return statistics.median(vals) if vals else None
+
+
+def p2s_body_height(pt: dict) -> float | None:
+    su = ((pt or {}).get("p2s") or {}).get("suite") or {}
+    v = [(su.get(s) or {}).get("body_height_m") for s in (1, 2)]
+    return None if None in v else sum(v) / 2
+
+
+def p2s_pending(pt: dict, refs: dict, cmp: dict, sbd: dict) -> list[str]:
+    miss = []
+    for who in (pt, refs):
+        miss += [f"{who.get('name')} {k}" for k in P2S_NEEDED_EXTRA if not (who.get("stamps") or {}).get(k)]
+        if "p2s" not in who:
+            miss.append(f"{who.get('name')} p2s stand reads (raws not read)")
+            continue
+        miss += [f"{who.get('name')} suite es{s} stand summary" for s in (1, 2)
+                 if not (who["p2s"].get("suite") or {}).get(s)]
+        miss += [f"{who.get('name')} walkstop es{s} read" for s in P2S_WS_SEEDS
+                 if not (who["p2s"].get("walkstop") or {}).get(s)]
+        if p2s_stand_falls(who) is None:
+            miss.append(f"{who.get('name')} pooled stand-hold falls")
+        if p2s_onset(who) is None:
+            miss.append(f"{who.get('name')} walkstop onset")
+        if (who.get("field_turn") or {}).get("completion") is None:
+            miss.append(f"{who.get('name')} field_turn completion")
+    if cmp is not refs:
+        if "p2s" not in (cmp or {}):
+            miss.append(f"{(cmp or {}).get('name')} (comparator) p2s stand reads")
+        else:
+            miss += [f"{cmp.get('name')} (comparator) suite es{s} stand summary" for s in (1, 2)
+                     if not (cmp["p2s"].get("suite") or {}).get(s)]
+    miss += [f"stand band {k}" for k, v in sbd.items() if v is None]
+    return miss
+
+
+def p2s_cost(pt: dict, refs: dict, bd: dict, sbd: dict) -> tuple[list[str], list[str], dict]:
+    """P2S_PLAN rung 5 (pure): ``(cost metric names, why lines, the reads)``."""
+    cost, why = [], []
+    deltas = {m: worse_by(pt, refs, m) for m in LISTED}
+    for m in LISTED:
+        if deltas[m] > max(LISTED[m][2], bd[m]) + EPS:
+            cost.append(m)
+            why.append(f"{m} worse than REFS by {deltas[m]:.4f} > max({LISTED[m][2]}, {bd[m]:.4f})")
+    (fa, na), (fr, nr) = p2s_stand_falls(pt), p2s_stand_falls(refs)
+    pa, pr = fa / na, fr / nr
+    se = math.sqrt(max(pa * (1 - pa), 0.0) / na + max(pr * (1 - pr), 0.0) / nr)
+    need = pr + max(P2S_FALL_FLOOR, 2 * se)
+    if pa > need + EPS:
+        cost.append("stand_falls")
+        why.append(f"pooled stand-hold falls {fa}/{na} = {pa:.4f} > REFS {fr}/{nr} = {pr:.4f} + max({P2S_FALL_FLOOR}, "
+                   f"2 SE {2 * se:.4f})")
+    oa, orf = p2s_onset(pt), p2s_onset(refs)
+    if oa > orf + max(P2S_ONSET_FLOOR, sbd["onset_s"]) + EPS:
+        cost.append("onset")
+        why.append(f"walkstop median onset {oa:.3f} s > REFS {orf:.3f} + max({P2S_ONSET_FLOOR}, band {sbd['onset_s']:.3f})")
+    ha, hr = p2s_body_height(pt), p2s_body_height(refs)
+    if ha is not None and hr is not None and abs(ha - hr) > P2S_HEIGHT_TOL + EPS:
+        cost.append("stand_body_height")
+        why.append(f"suite stand body height {ha:.4f} m is {ha - hr:+.4f} off REFS {hr:.4f} (> {P2S_HEIGHT_TOL})")
+    fta, ftr = pt["field_turn"]["completion"], refs["field_turn"]["completion"]
+    band_ft = max(binom_se(ftr, int(refs["field_turn"].get("n") or 100)), COMP_BAND_FLOOR)
+    if fta < ftr - max(P2S_FT_FLOOR, band_ft) - EPS:
+        cost.append("field_turn_completion")
+        why.append(f"field_turn completion {fta:.3f} < REFS {ftr:.3f} - max({P2S_FT_FLOOR}, band {band_ft:.3f})")
+    reads = {"deltas": deltas, "stand_falls": [fa, na, fr, nr], "onset": [oa, orf], "body_height": [ha, hr],
+             "field_turn": [fta, ftr, band_ft]}
+    return cost, why, reads
+
+
+def p2s_report(pt: dict, refs: dict) -> dict:
+    """What every p2s verdict shows, whatever rung matched: field_hard (n = 400) beside REFS, the onset delta."""
+    r = p2b_report(pt, refs)
+    oa, orf = p2s_onset(pt), p2s_onset(refs)
+    r.update(onset_s=oa, ref_onset_s=orf, onset_delta_s=(oa - orf) if oa is not None and orf is not None else None)
+    return r
+
+
+def p2s_verdict(pt: dict, refs: dict, cmp: dict, bd: dict, p2a: dict, ancw: dict, bd_ancw: dict,
+                need_dose: bool = True) -> dict:
+    """P2S_PLAN "Pre-registered verdicts" for one head vs its seed's REFS (pure; first match decides). ``cmp`` = the
+    PARTIAL comparator (C0R at s18, ``refs`` itself at s16 / s17); ``bd`` = bands(REFS, REFS s18); ``p2a`` / ``ancw`` /
+    ``bd_ancw`` = the CHARTER 10 chained flat floor's links. The stand outcome is ALWAYS computed and shown."""
+    sbd = p2s_stand_bands(refs)
+    arm_su = ((pt.get("p2s") or {}).get("suite")) or {}
+    cmp_su = (((cmp or {}).get("p2s") or {}).get("suite")) or {}
+    stand = p2s_stand_outcome(arm_su, cmp_su, sbd)
+    out = {"name": pt.get("name"), "dose": p2s_dose_of(pt.get("name") or ""), "comparator": (cmp or {}).get("name"),
+           "gain": (stand.get("outcome") in P2S_STAND_GAIN) if stand.get("outcome") else None, "cost": [],
+           "stand": stand, "stand_bands": sbd, "report": p2s_report(pt, refs)}
+    inv = invalid_reasons(pt, refs, P2S_VALIDITY) + walkstop_flat_fails(pt) + walkstop_flat_fails(refs)
+    if cmp is not refs and cmp is not None:
+        inv += walkstop_flat_fails(cmp)
+    if inv:
+        return dict(out, verdict="INVALID EVAL", why=inv)
+    pend = p2b_pending(pt, refs, bd, p2a, ancw, bd_ancw, need_dose) + p2s_pending(pt, refs, cmp or {}, sbd)
+    if stand.get("outcome") is None:
+        pend += [f"stand outcome: {w}" for w in stand.get("why") or []]
+    if pend:
+        return dict(out, verdict="PENDING", why=pend)
+    out["deltas"] = {m: worse_by(pt, refs, m) for m in LISTED}
+    out["ancw_chain"] = chained_ancw(pt, refs, p2a, ancw)
+    if [h for h in HANDS if pt["hands"][h] != FAST] or pt["fall"] > TRIP + EPS:
+        return dict(out, verdict="HAND LOSS", why=[f"hands {pt['hands']}", f"hold-fall share {pt['fall']:.3f}"])
+    if need_dose and pt["dose_ok"] is False:
+        return dict(out, verdict="DOSE", why=[f"median |mu| {pt.get('dose')} > 1.5"])
+    ff = _flat_fails(out["deltas"], bd, refs["name"])
+    ff += _flat_fails({m: v["total"] for m, v in out["ancw_chain"].items()}, bd_ancw, f"{ancw['name']} (chained)")
+    ff += [f"translate survival {h} {v:.3f} < {TRANSLATE_MIN}" for h, v in pt["suite"]["trans_surv"].items()
+           if v < TRANSLATE_MIN - EPS]
+    if ff:
+        return dict(out, verdict="FLAT FAIL", why=ff)
+    (fh, nf), (rfh, nr) = fh400(pt), fh400(refs)
+    g = se_need(rfh, nr, fh, nf)
+    fl, ro = pooled(pt, "field_light")[0], pooled(pt, "ring_obst")[0]
+    rfl, rro = pooled(refs, "field_light")[0], pooled(refs, "ring_obst")[0]
+    obst = []
+    if fh < rfh - max(P2S_OBST_FH, P2B_SE_K * g["se"]) - EPS:
+        obst.append(f"field_hard {fh:.4f} (n={nf}) < REFS {rfh:.4f} - max({P2S_OBST_FH}, 2 SE {2 * g['se']:.4f})")
+    if fl < rfl - max(P2S_OBST_FL, bd["field_light"]) - EPS:
+        obst.append(f"field_light {fl:.4f} < REFS {rfl:.4f} - max({P2S_OBST_FL}, band {bd['field_light']:.4f})")
+    if ro < rro - max(P2S_OBST_RO, bd["ring_obst"]) - EPS:
+        obst.append(f"ring_obst {ro:.4f} < REFS {rro:.4f} - max({P2S_OBST_RO}, band {bd['ring_obst']:.4f})")
+    out["obstacle"] = {"field_hard": [fh, rfh, g["se"]], "field_light": [fl, rfl], "ring_obst": [ro, rro]}
+    if obst:
+        return dict(out, verdict="OBSTACLE LOSS", why=obst)
+    oc = stand["outcome"]
+    if oc in P2S_STAND_GAIN:
+        cost, why, reads = p2s_cost(pt, refs, bd, sbd)
+        out["cost_reads"] = reads
+        if cost:
+            return dict(out, verdict="COST", cost=cost, why=[f"stand {oc}, with COST"] + why)
+        return dict(out, verdict=oc, why=[f"stand {oc}, no COST"] + ([stand["note"]] if stand.get("note") else []))
+    return dict(out, verdict=oc, why=[f"stand {oc}" + (" (a flag: never adopts)" if oc == GAMED else "")])
+
+
+def p2s_reads_still(v: dict | None) -> bool:
+    """The queue's ST1 condition (P2S_PLAN step 6): the head reads STILL, with or without COST."""
+    return bool(v) and v.get("verdict") in (STILL, "COST") and (v.get("stand") or {}).get("outcome") == STILL
+
+
+def p2s_attribution(st: dict | None, c0r: dict | None, st_v: dict | None, bd: dict) -> dict:
+    """P2S_PLAN attribution at s18 (pure): the effect belongs to the lever if ST reads STILL or PARTIAL (COST
+    included), C0R reads NO EFFECT -- implemented as "C0R is not STILL" (P2S_PLAN 'left for implementation') --, there
+    is no FLAT FAIL vs C0R (the CHARTER 6.1 list at max(floor, 2 band), REFS s18 bands), and field_hard (n = 400) >=
+    C0R - max(0.05, 2 SE)."""
+    out = {"head": (st or {}).get("name"), "control": (c0r or {}).get("name"), "lever": None,
+           "head_verdict": (st_v or {}).get("verdict")}
+    if not st or st.get("missing") or not st_v or st_v.get("verdict") in ("INVALID EVAL", "PENDING"):
+        return dict(out, status="PENDING", why=["the head's verdict is not read"])
+    if not c0r or c0r.get("missing"):
+        return dict(out, status="PENDING", why=["C0R not read"])
+    inv = invalid_reasons(st, c0r, P2S_VALIDITY)
+    if inv:
+        return dict(out, status="INVALID EVAL", why=inv)
+    c0r_still = is_still(c0r)
+    miss = [f"{w['name']} field_hard pooled over {P2B_FH_SEEDS}" for w in (st, c0r) if fh400(w) is None]
+    miss += [f"{w['name']} suite {m}" for w in (st, c0r) for m in LISTED if (w.get("suite") or {}).get(m) is None]
+    miss += [f"band {m}" for m in LISTED if bd.get(m) is None]
+    if c0r_still is None:
+        miss.append("C0R suite stand summaries")
+    if miss:
+        return dict(out, status="PENDING", why=miss)
+    (fl, nl), (fc, nc) = fh400(st), fh400(c0r)
+    g = se_need(fc, nc, fl, nl)
+    ff = _flat_fails({m: worse_by(st, c0r, m) for m in LISTED}, bd, c0r["name"])
+    conds = {"head reads STILL or PARTIAL (COST included)": st_v.get("verdict") in (STILL, PARTIAL, "COST")
+             and (st_v.get("stand") or {}).get("outcome") in P2S_STAND_GAIN,
+             "C0R reads NO EFFECT (implemented: C0R is not STILL)": not c0r_still,
+             "no FLAT FAIL vs C0R": not ff,
+             f"field_hard {fl:.4f} >= C0R {fc:.4f} - max({P2S_OBST_FH}, 2 SE {2 * g['se']:.4f})":
+                 fl >= fc - max(P2S_OBST_FH, P2B_SE_K * g["se"]) - EPS}
+    lever = all(conds.values())
+    return dict(out, lever=lever, status="LEVER" if lever else "NOT ATTRIBUTED", conditions=conds,
+                field_hard=[fl, fc], flat_fails_vs_c0r=ff)
+
+
+def p2s_recipe(vs: dict, names: dict | None = None) -> dict:
+    """P2S_PLAN step 7: the CHARTER 6.2 rules (:func:`recipe_read`) on the kept dose at s16 / s17 / s18, with STILL /
+    PARTIAL / COST mapped explicitly (:data:`P2S_RECIPE_MAP`)."""
+    n = names or p2s_names()
+    dose = n["dose"]
+    per = {16: n["rep_s16"], 17: n["rep_s17"], 18: n[f"{dose}_s18"] if f"{dose}_s18" in n else f"P2__{dose}_s18"}
+    mapped = {}
+    for s, ref in per.items():
+        v = vs.get(ref)
+        if not v:
+            mapped[s] = None
+            continue
+        lab = {STILL: "PASS", "COST": "COST"}.get(v["verdict"], v["verdict"])
+        mapped[s] = {"verdict": lab, "gain": v.get("gain"), "cost": list(v.get("cost") or []), "p2s_verdict": v["verdict"],
+                     "stand": (v.get("stand") or {}).get("outcome")}
+    r = recipe_read(mapped)
+    return dict(r, dose=dose, heads=per, mapped={s: m and {k: m[k] for k in ("p2s_verdict", "verdict", "gain", "cost")}
+                                                 for s, m in mapped.items()}, mapping=P2S_RECIPE_MAP)
+
+
+# ------------------------------------------------------------------------------------------------ p2s inertness / IO
+P2S_INERT_ROWS = INERT_ROWS + ("suite@1", "suite@2")
+
+
+def _p2s_inert_read(pt: dict, k: str):
+    if k == "suite@1":
+        return pt.get("suite")
+    if k == "suite@2":
+        return pt.get("suite2")
+    return _inert_read(pt, k)
+
+
+def p2s_inertness_check(pairs: dict, rows=P2S_INERT_ROWS) -> dict:
+    """P2S_PLAN step 5 (pure): each ``pairs[label] = (new, old)`` -- the p2s-code point (REFS_S1_s<seed> / C0R_s18)
+    and the p2b point of the same checkpoint (REF_S1_s<seed> / P2__C0_s18) -- reads EXACTLY the same on every row the
+    old point has (its run_arm row evals only; a driver suite stamp is never compared), on the same checkpoint sha256
+    and row env block. A row the old point has and the new lacks fails (fail closed); any difference = STOP."""
+    fails, out = [], {}
+    for lab, (new, old) in pairs.items():
+        if not new or not old or old.get("missing"):
+            fails.append(f"{lab}: {'p2s point' if not new else 'p2b point'} missing")
+            continue
+        out[lab] = {}
+        for k in rows:
+            hs, rs = (old.get("stamps") or {}).get(k), (new.get("stamps") or {}).get(k)
+            if not hs:
+                out[lab][k] = "p2b point lacks the row (not compared)"
+                continue
+            if not rs:
+                out[lab][k] = "p2s row unread"
+                fails.append(f"{lab} {k}: p2s row unread")
+                continue
+            vo, vn = (old.get("valid") or {}).get(k) or {}, (new.get("valid") or {}).get(k) or {}
+            diffs = []
+            if vn.get("ckpt_sha") is None or vn.get("ckpt_sha") != vo.get("ckpt_sha"):
+                diffs.append(f"checkpoint {str(vn.get('ckpt_sha'))[:12]} != {str(vo.get('ckpt_sha'))[:12]}")
+            if vn.get("manifest_env") != vo.get("manifest_env"):
+                diffs.append("row env block differs")
+            a, b = _p2s_inert_read(old, k), _p2s_inert_read(new, k)
+            if a is None or b is None:
+                diffs.append(f"read unreadable (p2b {a is not None}, p2s {b is not None})")
+            else:
+                diffs += _diff(a, b, k)
+            out[lab][k] = "equal" if not diffs else diffs
+            fails += [f"{lab} {k}: {d}" for d in diffs]
+    return {"ok": not fails, "fails": fails, "rows": out}
+
+
+def load_p2s_inertness(seeds) -> dict:
+    """The step-5 pairs: REFS_S1_s<seed> vs REF_S1_s<seed> per seed, and C0R_s18 vs P2__C0_s18 when 18 is read."""
+    pairs = {}
+    for s in seeds:
+        pairs[f"s{s} {refs_name(s)} vs {ref_name(s)}"] = (
+            load_point(refs_name(s), with_tb=False, fh_seeds=P2B_FH_SEEDS),
+            load_point(ref_name(s), with_tb=False, fh_seeds=P2B_FH_SEEDS))
+    if GATE_SEED in seeds:
+        old = load_point(P2S_C0_SOURCE, with_tb=False, fh_seeds=P2B_FH_SEEDS) if _rec(P2S_C0_SOURCE) else \
+            {"name": P2S_C0_SOURCE, "missing": True}
+        pairs[f"s{GATE_SEED} {C0R} vs {P2S_C0_SOURCE}"] = (load_point(C0R, with_tb=False, fh_seeds=P2B_FH_SEEDS), old)
+    return pairs
+
+
+def _sigma_of(ckpt: Path | None, cams: list[bool]) -> dict | None:
+    """Reported only: mean sigma over the cam / rod action dims of one checkpoint (the soft / log / scalar std param)."""
+    if not ckpt or not Path(ckpt).is_file():
+        return None
+    try:
+        import numpy as np  # noqa: PLC0415
+        import torch  # noqa: PLC0415
+        sd = torch.load(str(ckpt), map_location="cpu", weights_only=False).get("model_state_dict") or {}
+    except Exception:  # noqa: BLE001 -- reported only; an unreadable checkpoint reads None
+        return None
+    raw = {str(k).rsplit(".", 1)[-1]: v.detach().cpu().numpy().astype("float64").reshape(-1) for k, v in sd.items()
+           if str(k).rsplit(".", 1)[-1] in ("std_raw", "log_std", "std")}
+    if "std_raw" in raw:
+        lo, hi = math.log(0.05), math.log(2.0)
+        sig = np.exp(lo + 0.5 * (hi - lo) * (np.tanh(raw["std_raw"]) + 1.0))
+    elif "log_std" in raw:
+        sig = np.exp(raw["log_std"])
+    elif "std" in raw:
+        sig = raw["std"]
+    else:
+        return None
+    if len(cams) != len(sig):
+        return {"all": float(np.mean(sig))}
+    cam = [x for x, c in zip(sig, cams) if c]
+    rod = [x for x, c in zip(sig, cams) if not c]
+    return {"cam": float(np.mean(cam)) if cam else None, "rod": float(np.mean(rod)) if rod else None}
+
+
+def p2s_sigma_report(fork: Path | None, run_dir: str | None, head: str | None, stamp: str | None) -> dict:
+    """Reported only (P2S_PLAN): sigma per cam and rod at the fork, at the saved checkpoint nearest fork + 1000 (within
+    100 its) and at the end (the head)."""
+    names = (_json(Path(stamp) / "run_meta.json") or {}).get("action_joint_names") or [] if stamp else []
+    cams = ["CamShaft" in n for n in names]
+    out = {"fork": _sigma_of(fork, cams), "+1000": None, "end": _sigma_of(Path(head) if head else None, cams)}
+    try:
+        fork_n = int(Path(fork).stem.split("_")[1]) if fork else None
+    except (IndexError, ValueError):
+        fork_n = None
+    if run_dir and fork_n is not None and Path(run_dir).is_dir():
+        best = None
+        for p in Path(run_dir).glob("model_*.pt"):
+            try:
+                it = int(p.stem.split("_")[1])
+            except (IndexError, ValueError):
+                continue
+            dd = abs(it - (fork_n + P2S_SIGMA_AT))
+            if dd <= P2S_SIGMA_NEAR and (best is None or dd < best[0]):
+                best = (dd, p)
+        if best:
+            out["+1000"] = dict(_sigma_of(best[1], cams) or {}, checkpoint=best[1].name)
+    return out
+
+
+def _chain_fork(ref: str) -> Path | None:
+    try:
+        import yaml  # noqa: PLC0415
+        d = yaml.safe_load(open(CAMPAIGN / "candidates.yaml"))
+        chain = ((d.get("references") or {}).get(ref) or {}).get("chain") or ref
+        rf = d["chains"][chain]["stages"][0]["resume_from"]
+        return R / rf["checkpoint"]
+    except (OSError, KeyError, TypeError, ValueError, IndexError):
+        return None
+
+
+def load_p2s(with_tb: bool = True, seeds=SEEDS, names: dict | None = None) -> dict:
+    """REFS (row evals; field_hard 1-4; suite and walkstop at 1 and 2), C0R_s18, the S1 p2a heads (their p2a reads),
+    the ANCW anchors and every p2s head of ``seeds`` (suite@1 = the arm's driver_stamp)."""
+    n = names or p2s_names()
+    an = _anchors_yaml()
+    # REFS s18 always: its suite es1 / es2 give every seed's flat (suite) bands, as in CHARTER 10
+    res = {"names": n, "refs": {s: load_p2s_point(refs_name(s), with_tb=False) for s in sorted(set(seeds) | {GATE_SEED})},
+           "ancw": {int(s): load_point(a["name"], with_tb=False) for s, a in an.items()},
+           "p2a": {}, "heads": {}, "c0r": None}
+    for s in seeds:
+        ref = f"P2__{REF_ARM}_s{s}"
+        rec = _rec(ref) or {}
+        res["p2a"][s] = (load_point(ref, suite_stamp=rec.get("driver_stamp"), run_dir=rec.get("run_dir"), with_tb=False)
+                         if rec and not rec.get("killed") else {"name": ref, "missing": True})
+    if GATE_SEED in seeds:
+        c0 = _rec(P2S_C0_SOURCE) or {}
+        res["c0r"] = load_p2s_point(C0R, run_dir=c0.get("run_dir"), with_tb=with_tb)
+    for ref in (n["ST2_s18"], n["ST1_s18"], n["rep_s16"], n["rep_s17"]):
+        s = int(ref.rsplit("_s", 1)[1])
+        if s not in seeds:
+            continue
+        rec = _rec(ref)
+        if rec and not rec.get("killed"):
+            pt = load_p2s_point(ref, suite_stamp=rec.get("driver_stamp"), run_dir=rec.get("run_dir"), with_tb=with_tb)
+            if with_tb:
+                pt["sigma"] = p2s_sigma_report(_chain_fork(ref), rec.get("run_dir"), rec.get("checkpoint"),
+                                               rec.get("driver_stamp"))
+            res["heads"][ref] = pt
+        else:
+            res["heads"][ref] = {"name": ref, "missing": True, "killed": (rec or {}).get("killed")}
+    return res
+
+
+def p2s_verdicts(res: dict, need_dose: bool = True) -> dict:
+    """Every p2s head (and C0R at s18) vs REFS of its seed; ST heads at s18 take C0R as the PARTIAL comparator."""
+    refs, ancw, p2a, c0r = res["refs"], res["ancw"], res["p2a"], res.get("c0r")
+    out = {}
+    items = list(res["heads"].items())
+    if c0r is not None:
+        items = [(C0R, c0r)] + items
+    for ref, pt in items:
+        s = int(ref.rsplit("_s", 1)[1])
+        label = "lever + continuation" if s != GATE_SEED else None
+        rs = refs.get(s) or {"name": refs_name(s)}
+        if pt.get("missing"):
+            out[ref] = {"name": ref, "verdict": "PENDING", "why": [f"no record ({pt.get('killed') or 'not run'})"],
+                        "gain": None, "cost": [], "stand": {}, "report": {}, "label": label}
+            continue
+        if (p2a.get(s) or {}).get("missing"):
+            out[ref] = {"name": ref, "verdict": "PENDING", "why": [f"P2__{REF_ARM}_s{s} (the p2a head) not recorded"],
+                        "gain": None, "cost": [], "stand": {}, "report": {}, "label": label}
+            continue
+        cmp = c0r if (s == GATE_SEED and ref != C0R and c0r is not None) else rs
+        v = p2s_verdict(pt, rs, cmp, bands(rs, refs.get(GATE_SEED) or rs), p2a[s], ancw[s],
+                        bands(ancw[s], ancw[GATE_SEED]) if GATE_SEED in ancw else {}, need_dose)
+        out[ref] = dict(v, label=label)
+    return out
+
+
+def p2s_c0r_clauses(c0r: dict | None) -> dict:
+    """C0R's own STILL-clause values on both suite seeds (shown beside every arm's, P2S_PLAN step-6 note)."""
+    su = ((c0r or {}).get("p2s") or {}).get("suite") or {}
+    return {s: (PS().still_clauses(su.get(s)) if su.get(s) else None) for s in (1, 2)}
+
+
+def p2s_reported(pt: dict, c0r: dict | None) -> dict:
+    """The reported-only items (P2S_PLAN): sigma, steps_per_rad_post, walking vs C0R, the stand clip share."""
+    p = pt.get("p2s") or {}
+    return {"sigma": pt.get("sigma"), "steps_per_rad_post": (pt.get("walking") or {}).get("steps_per_rad_post"),
+            "c0r_steps_per_rad_post": ((c0r or {}).get("walking") or {}).get("steps_per_rad_post"),
+            "walking": (pt.get("walking") or {}).get("walking"),
+            "c0r_walking": ((c0r or {}).get("walking") or {}).get("walking"),
+            "stand_clip_share": p.get("clip_share"), "field_onset": p.get("field_onset"),
+            "walkstop": {s: (w and {k: w.get(k) for k in ("env_seed", "n_episodes", "window", "stand_reached", "falls",
+                                                         "hover_holds", "pooled", "onset", "onset_median_s",
+                                                         "onset_censored")})
+                         for s, w in (p.get("walkstop") or {}).items()}}
+
+
+def p2s_markdown(vs: dict, attr: dict, recipe: dict | None, c0r_cl: dict) -> str:
+    def cl(c):
+        if not c:
+            return "--"
+        return ", ".join(f"{k.split('_')[0]} {_f(v, '{:.3g}')}{'' if ok else '!'}" for k, (v, _t, ok) in c.items())
+    L = ["# Omni phase 2, stage p2s -- the pre-registered reading (CHARTER 11 / P2S_PLAN.md)", "",
+         "| head | verdict | stand | gain | onset (delta vs REFS) | field_hard n=400 (REFS) | cost | label | why |",
+         "|---|---|---|---|---|---|---|---|---|"]
+    for ref, v in vs.items():
+        rp, st = v.get("report") or {}, v.get("stand") or {}
+        on = rp.get("onset_s")
+        L.append(f"| {ref} | **{v['verdict']}** | {st.get('outcome')} | {v.get('gain')} | "
+                 f"{_f(on)} ({_f(rp.get('onset_delta_s'), '{:+.3f}')}) | {_f(rp.get('field_hard'))} "
+                 f"({_f(rp.get('ref_field_hard'))}) | {', '.join(v.get('cost') or []) or '--'} | {v.get('label') or ''} | "
+                 f"{'; '.join(str(x) for x in (v.get('why') or []))[:300]} |")
+    L += ["", "**STILL clauses (suite stand, value; '!' = fails), each head beside C0R's own:**",
+          f"- C0R_s18: es1 {cl(c0r_cl.get(1))} | es2 {cl(c0r_cl.get(2))}"]
+    for ref, v in vs.items():
+        if ref == C0R:
+            continue
+        c = (v.get("stand") or {}).get("clauses") or {}
+        note = (v.get("stand") or {}).get("note")
+        L.append(f"- {ref}: es1 {cl(c.get(1))} | es2 {cl(c.get(2))}" + (f" -- {note}" if note else ""))
+    L += ["", "**Attribution at s18 (vs C0R):**"]
+    L += [f"- {h}: **{a.get('status')}** {json.dumps(a.get('conditions') or a.get('why'), default=str)}"
+          for h, a in attr.items()]
+    if recipe:
+        L += ["", f"**Recipe read ({recipe.get('dose')}, CHARTER 6.2 rules, STILL -> PASS / PARTIAL -> gain / COST -> "
+                  f"COST):** **{recipe['reading']}** "
+                  f"{json.dumps({k: x for k, x in recipe.items() if k not in ('reading', 'mapping')}, default=str)}"]
+    return "\n".join(L) + "\n"
+
+
+def p2s_screen(res: dict, vs: dict) -> dict:
+    n = res["names"]
+    c0r = res.get("c0r")
+    heads18 = [h for h in (n["ST2_s18"], n["ST1_s18"]) if h in res["heads"]]
+    r18 = res["refs"].get(GATE_SEED) or {}
+    bd = bands(r18, r18)
+    attr = {h: p2s_attribution(res["heads"].get(h), c0r, vs.get(h), bd) for h in heads18}
+    return {"verdicts": {k: v for k, v in vs.items() if k.endswith(f"_s{GATE_SEED}")}, "attribution": attr,
+            "c0r_clauses": p2s_c0r_clauses(c0r),
+            "reported": {h: p2s_reported(res["heads"][h], c0r) for h in heads18 if not res["heads"][h].get("missing")},
+            "st2_reads_still": p2s_reads_still(vs.get(n["ST2_s18"]))}
+
+
 # ================================================================================================ self-test
 def _sc():
     return ("c" * 64, "e" * 64, False)
@@ -1967,6 +2757,189 @@ def _self_test() -> int:
     return 0 if ok else 1
 
 
+# ------------------------------------------------------------------------------------------------ p2s self-test
+def _p2s_summ(steps=2.83, taps=2.83, clear=0.135, og=0.34, hover=0.0, ks=1.72, height=1.068, falls=0, n=100) -> dict:
+    """A p2s_stand.head_summary-shaped stand summary (REF's suite stand by default, P2S_PLAN step 1 baselines)."""
+    return {"n": n, "steps_per_s": steps, "taps_per_s": taps, "clearance_m": clear, "off_ground_share": og,
+            "hover_episodes": int(round(hover * n / 100)), "hover_episodes_per_100": hover, "ks_m_s": ks,
+            "body_height_m": height, "falls": falls}
+
+
+def _p2s_ws(onset=0.16, falls=0, reached=300, n=100) -> dict:
+    return {"n_episodes": n, "stand_reached": reached, "falls": falls, "onset_values": [onset] * n,
+            "onset_median_s": onset, "env_seed": 1}
+
+
+def _p2s_pt(name, fh=0.81, s1=None, s2=None, ws=(0.16, 0.16), ws_falls=0, field_falls=0, ft=0.9, flat_s2=None,
+            **kw) -> dict:
+    """A p2s-shaped point: :func:`_pt` + field_hard at env_seeds 1-4, suite@2, field_turn and walkstop at 1 / 2, and
+    the ``p2s`` stand reads (summaries, walkstop reads) set directly."""
+    pt = _pt(name, fh=(fh, fh), field_turn={"completion": ft, "n": 100, "fall_share": 0.0, "turn_fc": 0.8,
+                                            "turn_yp": 0.2}, s2=flat_s2, **kw)
+    for sd in P2B_FH_SEEDS[2:]:
+        pt["comp"]["field_hard"][sd] = dict(pt["comp"]["field_hard"][1])
+    for k in [f"{FH}@{sd}" for sd in P2B_FH_SEEDS[2:]] + list(P2S_NEEDED_EXTRA):
+        pt["stamps"][k], pt["valid"][k] = "/x", _valid()
+    pt["ws_env"] = {1: {}, 2: {}}
+    s1 = s1 or _p2s_summ()
+    pt["p2s"] = {"suite": {1: s1, 2: s2 or s1},
+                 "walkstop": {1: _p2s_ws(ws[0], ws_falls), 2: _p2s_ws(ws[1], ws_falls)},
+                 "field": {k: _p2s_summ(falls=field_falls) for k in [f"{FH}@{sd}" for sd in P2B_FH_SEEDS]
+                           + [f"{FL}@1", f"{FL}@2"]},
+                 "turn": _p2s_summ()}
+    return pt
+
+
+def _p2s_self_test() -> int:
+    ok = True
+
+    def check(name, got, want):
+        nonlocal ok
+        good = got == want
+        ok &= good
+        print(f"  [{'ok' if good else 'FAIL'}] {name}: {got}")
+
+    s2 = {"err_fwd": 0.03, "err_back": 0.03, "err_side": 0.03, "err_diag": 0.03, "turn_fc": 0.80, "turn_yp": 0.10,
+          "mt_surv": 0.90}
+    refs = _p2s_pt("REFS_S1_s18", s2=_p2s_summ(steps=2.75), flat_s2=s2)
+    c0r = _p2s_pt("C0R_s18", s1=_p2s_summ(steps=2.67, clear=0.113, og=0.341), flat_s2=s2)
+    p2a, ancw = _pt("P2__S1_s18"), _pt("ANCW_s18", s2=s2)
+    bd, bd_a = bands(refs, refs), bands(ancw, ancw)
+    sbd = p2s_stand_bands(refs)
+    check("stand bands: |es1 - es2| over the floor (steps 0.08 -> 0.25), KS / onset at their floors",
+          (sbd["steps_per_s"], sbd["ks_m_s"], sbd["onset_s"], sbd["off_ground_share"]), (0.25, 0.10, 0.1, 0.02))
+
+    def V(pt, cmp=c0r, need_dose=True):
+        return p2s_verdict(pt, refs, cmp, bd, p2a, ancw, bd_a, need_dose)
+    still = _p2s_summ(steps=0.2, taps=0.3, clear=0.02, og=0.03, hover=0.0, ks=0.3)
+    v = V(_p2s_pt("P2__ST2_s18", s1=still))
+    check("STILL: every clause on both suite seeds, no COST", (v["verdict"], v["stand"]["outcome"], v["gain"]),
+          ("STILL", "STILL", True))
+    check("STILL: the queue's ST1 condition reads true", p2s_reads_still(v), True)
+    part = _p2s_summ(steps=1.0, taps=1.2, clear=0.08, og=0.15, hover=2.0, ks=1.5)
+    v = V(_p2s_pt("P2__ST2_s18", s1=part))
+    check("PARTIAL: off-ground / steps <= 0.5 x C0R's, hover <= C0R + 5, KS <= C0R + band",
+          (v["verdict"], v["stand"]["note"]), ("PARTIAL", None))
+    check("PARTIAL is not the ST1 condition", p2s_reads_still(v), False)
+    clr = _p2s_summ(steps=0.3, taps=0.5, clear=0.07, og=0.08, hover=0.0, ks=0.4)
+    v = V(_p2s_pt("P2__ST2_s18", s1=clr))
+    check("PARTIAL from the clearance clause alone carries the note",
+          (v["verdict"], bool(v["stand"]["note"] and "clearance clause alone" in v["stand"]["note"])), ("PARTIAL", True))
+    gam = _p2s_summ(steps=0.3, taps=0.4, clear=0.10, og=0.40, hover=18.0, ks=0.9)
+    v = V(_p2s_pt("P2__ST2_s18", s1=gam))
+    check("GAMED: steps/s <= 0.5 but off-ground / hover over the PARTIAL clauses (a flag)", (v["verdict"], v["gain"]),
+          ("GAMED", False))
+    v = V(_p2s_pt("P2__ST2_s18", s1=_p2s_summ(steps=2.5, og=0.33)))
+    check("NO EFFECT: stepping on", (v["verdict"], v["gain"]), ("NO EFFECT", False))
+    v = V(_p2s_pt("P2__ST2_s18", s1=still, s2=_p2s_summ(steps=0.6, taps=0.6, clear=0.03, og=0.05, ks=0.4)))
+    check("STILL needs BOTH suite seeds (es2 at 0.6 steps/s -> PARTIAL)", v["stand"]["outcome"], "PARTIAL")
+    v = V(_p2s_pt("P2__ST2_s18", s1=still, ws=(0.60, 0.60)))
+    check("COST: walkstop median onset 0.60 s > REFS 0.16 + max(0.3, band 0.1)", (v["verdict"], v["cost"],
+                                                                                 v["stand"]["outcome"]),
+          ("COST", ["onset"], "STILL"))
+    check("COST with STILL is still the ST1 condition", p2s_reads_still(v), True)
+    check("COST: the onset delta is shown", round(v["report"]["onset_delta_s"], 3), 0.44)
+    v = V(_p2s_pt("P2__ST2_s18", s1=still, ws=(0.45, 0.45)))
+    check("onset +0.29 s (< 0.3 floor) is no COST", v["verdict"], "STILL")
+    v = V(_p2s_pt("P2__ST2_s18", s1=still, field_falls=10))
+    check("COST: pooled stand-hold falls 60/1500 = 0.04 vs REFS 0/1500 (> 0 + max(0.03, 2 SE))", v["cost"], ["stand_falls"])
+    v = V(_p2s_pt("P2__ST2_s18", s1=dict(still, body_height_m=1.03)))
+    check("COST: suite stand body height 0.038 m below REFS (> 0.03)", v["cost"], ["stand_body_height"])
+    v = V(_p2s_pt("P2__ST2_s18", s1=dict(still, body_height_m=1.04)))
+    check("body height 0.028 m below REFS is no COST", v["verdict"], "STILL")
+    v = V(_p2s_pt("P2__ST2_s18", s1=still, ft=0.84))
+    check("COST: field_turn completion 0.84 < REFS 0.90 - max(0.05, band 0.04)", v["cost"], ["field_turn_completion"])
+    v = V(_p2s_pt("P2__ST2_s18", s1=still, err=0.07))
+    check("COST: a CHARTER 6.1 margin (|ratio - 1| +0.04 > max(0.03, band))", v["cost"], ["err_fwd", "err_back",
+                                                                                        "err_side", "err_diag"])
+    v = V(_p2s_pt("P2__ST2_s18", s1=_p2s_summ(steps=2.5, og=0.33), ws=(0.9, 0.9)))
+    check("COST applies on STILL / PARTIAL only (NO EFFECT with a slow onset stays NO EFFECT)", v["verdict"],
+          "NO EFFECT")
+    v = V(_p2s_pt("P2__ST2_s18", s1=still, fh=0.70))
+    check("OBSTACLE LOSS: field_hard 0.70 < REFS 0.81 - max(0.05, 2 SE); the stand outcome still shows",
+          (v["verdict"], v["stand"]["outcome"]), ("OBSTACLE LOSS", "STILL"))
+    v = V(_p2s_pt("P2__ST2_s18", s1=still, fh=0.77))
+    check("field_hard 0.04 below REFS (inside max(0.05, 2 SE)) is no OBSTACLE LOSS", v["verdict"], "STILL")
+    v = V(_p2s_pt("P2__ST2_s18", s1=still, fl=(0.75, 0.75)))
+    check("OBSTACLE LOSS: field_light 0.05 below REFS (> max(0.03, band 0.04))", v["verdict"], "OBSTACLE LOSS")
+    v = V(_p2s_pt("P2__ST2_s18", s1=still, trans=0.90))
+    check("FLAT FAIL outranks OBSTACLE LOSS / the stand rung; the stand outcome still shows",
+          (v["verdict"], v["stand"]["outcome"]), ("FLAT FAIL", "STILL"))
+    bad_ws = _p2s_pt("P2__ST2_s18", s1=still)
+    bad_ws["valid"][f"{WS}@1"] = _valid({"KRABBY_FLAT_TERRAIN_MODE": "light"})
+    check("INVALID EVAL: a walkstop stamp with a row env block (not the flat row)", V(bad_ws)["verdict"], "INVALID EVAL")
+    mode_ws = _p2s_pt("P2__ST2_s18", s1=still)
+    mode_ws["ws_env"][2] = {"KRABBY_FLAT_TERRAIN_MODE": "light"}
+    check("INVALID EVAL: a walkstop env carrying KRABBY_FLAT_TERRAIN_MODE", V(mode_ws)["verdict"], "INVALID EVAL")
+    no_ws2 = _p2s_pt("P2__ST2_s18", s1=still)
+    del no_ws2["stamps"][f"{WS}@2"]
+    no_ws2["p2s"]["walkstop"][2] = None
+    check("PENDING: the walkstop es2 stamp is required", V(no_ws2)["verdict"], "PENDING")
+    no_s2 = _p2s_pt("P2__ST2_s18", s1=still)
+    no_s2["p2s"]["suite"][2] = None
+    check("PENDING: the suite es2 stand read is required (and the stand outcome reads None)",
+          (V(no_s2)["verdict"], V(no_s2)["stand"]["outcome"]), ("PENDING", None))
+    check("PENDING: --no-tb (no dose read)", V(_p2s_pt("P2__ST2_s18", s1=still, dose=None))["verdict"], "PENDING")
+    check("HAND LOSS outranks the stand rung", V(_p2s_pt("P2__ST2_s18", s1=still, hands=("FAST", "SLOW")))["verdict"],
+          "HAND LOSS")
+    # s16 / s17: PARTIAL against REFS (no same-seed C0R)
+    v = p2s_verdict(_p2s_pt("P2__ST2_s16", s1=part), refs, refs, bd, p2a, ancw, bd_a)
+    check("s16 / s17: PARTIAL reads against REFS", (v["verdict"], v["comparator"]), ("PARTIAL", "REFS_S1_s18"))
+    # attribution at s18
+    st_pt = _p2s_pt("P2__ST2_s18", s1=still)
+    st_v = V(st_pt)
+    check("attribution: STILL, C0R not STILL, no FLAT FAIL, field_hard held -> LEVER",
+          p2s_attribution(st_pt, c0r, st_v, bd)["status"], "LEVER")
+    check("attribution: C0R itself STILL -> NOT ATTRIBUTED (C0R does not read NO EFFECT)",
+          p2s_attribution(st_pt, _p2s_pt("C0R_s18", s1=still), st_v, bd)["lever"], False)
+    check("attribution: field_hard 0.10 under C0R -> NOT ATTRIBUTED",
+          p2s_attribution(st_pt, _p2s_pt("C0R_s18", fh=0.91, s1=_p2s_summ(steps=2.67)), st_v, bd)["lever"], False)
+    check("attribution: NO EFFECT head -> NOT ATTRIBUTED",
+          p2s_attribution(st_pt, c0r, dict(st_v, verdict="NO EFFECT", stand={"outcome": "NO EFFECT"}), bd)["lever"],
+          False)
+    check("attribution: C0R not read -> PENDING", p2s_attribution(st_pt, None, st_v, bd)["status"], "PENDING")
+    # the step-7 recipe read (CHARTER 6.2 on the kept dose)
+    names = p2s_names({})
+
+    def rv(*vv):
+        return p2s_recipe({"P2__ST2_s16": vv[0], "P2__ST2_s17": vv[1], "P2__ST2_s18": vv[2]}, names)["reading"]
+    S_, P_, N_ = ({"verdict": "STILL", "gain": True, "cost": []}, {"verdict": "PARTIAL", "gain": True, "cost": []},
+                  {"verdict": "NO EFFECT", "gain": False, "cost": []})
+    C_ = {"verdict": "COST", "gain": True, "cost": ["onset"]}
+    check("recipe: STILL at 3 seeds -> ADOPTABLE (STILL = PASS)", rv(S_, S_, S_), "ADOPTABLE")
+    check("recipe: COST on the same metric at 2 seeds -> TRADE-OFF", rv(C_, C_, S_), "TRADE-OFF")
+    check("recipe: PARTIAL at 3 seeds -> MIXED (a gain, never a PASS)", rv(P_, P_, P_), "MIXED")
+    check("recipe: NO EFFECT at 2 seeds -> NOT ADOPTABLE", rv(N_, N_, S_), "NOT ADOPTABLE")
+    check("recipe: a missing replicate -> PENDING", p2s_recipe({"P2__ST2_s18": S_}, names)["reading"], "PENDING")
+    check("recipe: the kept dose follows P2S_DOSE",
+          p2s_recipe({}, p2s_names({"P2S_DOSE": "ST1"}))["heads"], {16: "P2__ST1_s16", 17: "P2__ST1_s17",
+                                                                   18: "P2__ST1_s18"})
+    check("p2s heads: fresh names through the environment", p2s_head_names({"P2S_ST2_S18": "P2__ST2R1_s18"}),
+          ["P2__ST2R1_s18", "P2__ST1_s18", "P2__ST2_s16", "P2__ST2_s17"])
+    check("p2s dose of a relaunch name", [p2s_dose_of("P2__ST2R1_s18"), p2s_dose_of("P2__ST1_s16"),
+                                          p2s_dose_of("REFS_S1_s18")], ["ST2", "ST1", None])
+    # the step-5 inertness check (like-for-like row evals, suite es1 / es2 included)
+    old, new = _p2s_pt("REF_S1_s18", flat_s2=s2), _p2s_pt("REFS_S1_s18", flat_s2=s2)
+    for p in (old, new):
+        p["valid"] = {k: dict(_valid(), ckpt_sha="h" * 64) for k in p["stamps"]}
+        p["stamps"].update({f"{FT}@1": "/x", f"{FS}@1": "/x"})
+        p["valid"].update({f"{FT}@1": dict(_valid(), ckpt_sha="h" * 64), f"{FS}@1": dict(_valid(), ckpt_sha="h" * 64)})
+        p["feet"] = {"l": 0.23, "r": 0.23}
+    check("inertness: identical reads -> ok", p2s_inertness_check({"s18": (new, old)})["ok"], True)
+    check("inertness: a suite es2 read differing -> stop",
+          p2s_inertness_check({"s18": (dict(new, suite2=dict(s2, err_fwd=0.031)), dict(old, suite2=s2))})["ok"], False)
+    check("inertness: a new row (walkstop) is not compared",
+          p2s_inertness_check({"s18": (new, dict(old, stamps={k: v for k, v in old["stamps"].items()
+                                                                if not k.startswith(WS)}))})["ok"], True)
+    check("inertness: the p2s point lacking a p2b row -> stop",
+          p2s_inertness_check({"s18": (dict(new, stamps={k: v for k, v in new["stamps"].items() if k != f"{FL}@2"}),
+                                       old)})["ok"], False)
+    check("inertness: no p2b point (C0 not recorded) -> stop",
+          p2s_inertness_check({"c0r": (new, {"name": "P2__C0_s18", "missing": True})})["ok"], False)
+    print("p2s self-test:", "PASS" if ok else "FAIL")
+    return 0 if ok else 1
+
+
 # ================================================================================================ CLI
 def _f(x, fmt="{:.3f}"):
     return "--" if x is None else fmt.format(x)
@@ -2015,10 +2988,54 @@ def main() -> int:
     ap.add_argument("--p2b-screen", action="store_true")
     ap.add_argument("--p2b-recipe", action="store_true")
     ap.add_argument("--p2b-md", type=Path, metavar="PATH")
+    ap.add_argument("--p2s-inertness", action="store_true")
+    ap.add_argument("--p2s-seeds", default=str(GATE_SEED), metavar="18|16,17")
+    ap.add_argument("--p2s-is-still", metavar="NAME")
+    ap.add_argument("--p2s-screen", action="store_true")
+    ap.add_argument("--p2s-recipe", action="store_true")
+    ap.add_argument("--p2s-md", type=Path, metavar="PATH")
+    ap.add_argument("--p2s-self-test", action="store_true")
     ap.add_argument("--self-test", action="store_true")
     a = ap.parse_args()
     if a.self_test:
         return _self_test()
+    if a.p2s_self_test:
+        return _p2s_self_test()
+    if a.p2s_inertness:
+        seeds = tuple(int(x) for x in a.p2s_seeds.split(",") if x.strip())
+        r = p2s_inertness_check(load_p2s_inertness(seeds))
+        print(json.dumps(r, default=str))
+        return 0 if r["ok"] else 4
+    if a.p2s_is_still or a.p2s_screen or a.p2s_recipe or a.p2s_md:
+        names = p2s_names()
+        seeds = SEEDS if (a.p2s_recipe or a.p2s_md) else (GATE_SEED,)
+        if a.p2s_is_still and not (a.p2s_screen or a.p2s_recipe or a.p2s_md):
+            try:
+                seeds = (int(a.p2s_is_still.rsplit("_s", 1)[1]),)
+            except (IndexError, ValueError):
+                print(json.dumps({"name": a.p2s_is_still, "still": False, "why": "no _s<seed> in the name"}))
+                return 4
+        res = load_p2s(with_tb=not a.no_tb, seeds=seeds, names=names)
+        vs = p2s_verdicts(res)
+        if a.p2s_is_still and not (a.p2s_screen or a.p2s_recipe or a.p2s_md):
+            v = vs.get(a.p2s_is_still)
+            still = p2s_reads_still(v)
+            print(json.dumps({"name": a.p2s_is_still, "still": still, "verdict": (v or {}).get("verdict"),
+                              "stand": ((v or {}).get("stand") or {}).get("outcome")}, default=str))
+            return 0 if still else 4
+        scr = p2s_screen(res, vs) if GATE_SEED in seeds else {"attribution": {}, "c0r_clauses": {}}
+        recipe = p2s_recipe(vs, names) if set(SEEDS) <= set(seeds) else None
+        if a.p2s_md:
+            a.p2s_md.write_text(p2s_markdown(vs, scr["attribution"], recipe, scr["c0r_clauses"]))
+        if a.p2s_screen:
+            print(json.dumps(scr, default=str))
+            return 0
+        if a.p2s_recipe:
+            print(json.dumps({"dose": names["dose"], "recipe": recipe,
+                              "verdicts": {k: v["verdict"] for k, v in vs.items()}}, default=str))
+            return 4 if recipe["reading"] == "PENDING" else 0
+        print(p2s_markdown(vs, scr["attribution"], recipe, scr["c0r_clauses"]))
+        return 0
     out = a.out or OUT
     arms_dir, lr_dir = out / "arms", out / "lr"
     if a.smoke_s5:

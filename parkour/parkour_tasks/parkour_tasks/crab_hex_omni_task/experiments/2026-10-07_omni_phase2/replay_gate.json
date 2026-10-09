@@ -2034,5 +2034,1262 @@
    "tolerance": 1e-06,
    "ok": true
   }
+ },
+ "p2s": {
+  "verdict": "PASS",
+  "reasons": [],
+  "ST1": {
+   "M": 1.0,
+   "knobs": {
+    "KRABBY_STAND_SUPPORT_W": 0.33,
+    "KRABBY_STAND_SLIDE_W": -0.5
+   },
+   "w_support_exact": 0.3295522371423132,
+   "w_slide_exact": -0.5,
+   "realised_margin_det": 1.0008363692582352,
+   "realised_margin_per_ref_seed": {
+    "REF_es1": 1.001494546949144,
+    "REF_es2": 1.0001781915673293
+   },
+   "terms": {
+    "reward_stand_support": {
+     "weight": 0.33,
+     "knob": "KRABBY_STAND_SUPPORT_W",
+     "episode_reward": 0.006499313361471848,
+     "per_stand_row_mean": 0.1312992598277141,
+     "episode_reward_x_len": 0.0060621821498928604,
+     "episode_reward_det_ref": 0.014359427782473013
+    },
+    "penalty_stand_slide": {
+     "weight": -0.5,
+     "knob": "KRABBY_STAND_SLIDE_W",
+     "episode_reward": -0.016767118111847015,
+     "per_stand_row_mean": 0.22356157482462688,
+     "episode_reward_x_len": -0.015639394266683804,
+     "episode_reward_det_ref": -0.01953323691110504
+    }
+   },
+   "implied_sum_s_f": 3.1312992598277143,
+   "anti_termination": {
+    "gated": {
+     "REF_es1": 2.110449137648766,
+     "REF_es2": 2.111765493030581,
+     "REF_samp": 1.9315477659151299
+    },
+    "walls_reported": {
+     "REF_field_turn": 2.0606375232705623,
+     "REF_field_hard_es1": 2.1194389513774254,
+     "REF_field_hard_es2": 2.119267521169917,
+     "C0_field_turn": 2.0510816955135427,
+     "C0_field_hard_es1": 2.099578375576548,
+     "C0_field_hard_es2": 2.096542407625726,
+     "TG_field_turn": 2.051214823206006,
+     "TG_field_hard_es1": 2.1339682265418,
+     "TG_field_hard_es2": 2.127622989894843
+    },
+    "info": {
+     "C0": 2.0990659673640644,
+     "CL": 2.0889337390881644,
+     "TG": 2.1215106997667927,
+     "A1": 2.1438248747234665,
+     "F1": 2.119602098129658,
+     "statue": 3.1119436845979105,
+     "noisy_statue_samp": 1.1438586229457557
+    },
+    "threshold": 0.5,
+    "pass": true
+   },
+   "G3": {
+    "n_rows": 55000,
+    "statue": {
+     "rate": 0.6626573054236042,
+     "t1": 2.1579738534173964,
+     "t2": 0.09894813240827324
+    },
+    "hover": {
+     "per_tripod": {
+      "A (FL, MR, RL)": {
+       "rate": -0.025332690246574967,
+       "t1": 0.0,
+       "t2": 0.050665380493149934,
+       "cost_vs_statue": 0.6879899956701792
+      },
+      "B (FR, ML, RR)": {
+       "rate": -0.02630020684497101,
+       "t1": 0.0,
+       "t2": 0.05260041368994202,
+       "cost_vs_statue": 0.6889575122685753
+      }
+     },
+     "cost": 0.6879899956701792,
+     "threshold": 0.5,
+     "pass": true
+    },
+    "shuffle": {
+     "still_six_down": {
+      "rate": 0.938367102908454,
+      "t1": 3.0,
+      "t2": 0.10326579418309192
+     },
+     "shuffle": {
+      "rate": 0.6766805179316226,
+      "t1": 3.0,
+      "t2": 0.6266389641367547
+     },
+     "cost": 0.2616865849768314,
+     "ideal_cost": 0.30000000000000004,
+     "threshold": 0.25,
+     "pass": true
+    },
+    "crouch": {
+     "max_abs_delta": 0.0,
+     "tol": 1e-12,
+     "pass": true
+    },
+    "pass": true
+   },
+   "sampled": {
+    "t1_margin": 0.2387197262733984,
+    "t2_margin": -0.049191692438054005,
+    "t1_plus_t2": 0.1895280338353444,
+    "f_median_step2_convention": 0.300951169648623,
+    "det_t1_plus_t2": 0.6971493662811513,
+    "f": 0.27186144462320316,
+    "f_t1_only": 0.3872793780248763,
+    "total_with_existing": -0.7876891429693744
+   }
+  },
+  "ST2": {
+   "M": 2.5,
+   "knobs": {
+    "KRABBY_STAND_SUPPORT_W": 1.1,
+    "KRABBY_STAND_SLIDE_W": -1.25
+   },
+   "w_support_exact": 1.0677556975833697,
+   "w_slide_exact": -1.25,
+   "realised_margin_det": 2.5602286295782295,
+   "realised_margin_per_ref_seed": {
+    "REF_es1": 2.566376744407018,
+    "REF_es2": 2.5540805147494448
+   },
+   "terms": {
+    "reward_stand_support": {
+     "weight": 1.1,
+     "knob": "KRABBY_STAND_SUPPORT_W",
+     "episode_reward": 0.021664377871572826,
+     "per_stand_row_mean": 0.1312992598277141,
+     "episode_reward_x_len": 0.020207273832976203,
+     "episode_reward_det_ref": 0.04786475927491004
+    },
+    "penalty_stand_slide": {
+     "weight": -1.25,
+     "knob": "KRABBY_STAND_SLIDE_W",
+     "episode_reward": -0.04191779527961754,
+     "per_stand_row_mean": 0.22356157482462688,
+     "episode_reward_x_len": -0.03909848566670951,
+     "episode_reward_det_ref": -0.048833092277762606
+    }
+   },
+   "implied_sum_s_f": 3.1312992598277143,
+   "anti_termination": {
+    "gated": {
+     "REF_es1": 2.1329957080160837,
+     "REF_es2": 2.1452919376736563,
+     "REF_samp": 1.864977014864
+    },
+    "walls_reported": {
+     "REF_field_turn": 2.073805515739887,
+     "REF_field_hard_es1": 2.1752044745292283,
+     "REF_field_hard_es2": 2.1712557442333402,
+     "C0_field_turn": 2.00873543871673,
+     "C0_field_hard_es1": 2.0414749492917097,
+     "C0_field_hard_es2": 2.0386017491572694,
+     "TG_field_turn": 1.9482476593958655,
+     "TG_field_hard_es1": 2.0262616191050857,
+     "TG_field_hard_es2": 2.0200215617158217
+    },
+    "info": {
+     "C0": 2.0638121508945657,
+     "CL": 1.961673279938501,
+     "TG": 2.0368137663581622,
+     "A1": 2.166866267500942,
+     "F1": 2.126395345220615,
+     "statue": 4.699372452423102,
+     "noisy_statue_samp": 1.560513027875474
+    },
+    "threshold": 0.5,
+    "pass": true
+   },
+   "G3": {
+    "n_rows": 55000,
+    "statue": {
+     "rate": 2.2500860732487946,
+     "t1": 2.1579738534173964,
+     "t2": 0.09894813240827324
+    },
+    "hover": {
+     "per_tripod": {
+      "A (FL, MR, RL)": {
+       "rate": -0.06333172561643742,
+       "t1": 0.0,
+       "t2": 0.050665380493149934,
+       "cost_vs_statue": 2.313417798865232
+      },
+      "B (FR, ML, RR)": {
+       "rate": -0.06575051711242752,
+       "t1": 0.0,
+       "t2": 0.05260041368994202,
+       "cost_vs_statue": 2.315836590361222
+      }
+     },
+     "cost": 2.313417798865232,
+     "threshold": 1.25,
+     "pass": true
+    },
+    "shuffle": {
+     "still_six_down": {
+      "rate": 3.1709177572711353,
+      "t1": 3.0,
+      "t2": 0.10326579418309192
+     },
+     "shuffle": {
+      "rate": 2.516701294829057,
+      "t1": 3.0,
+      "t2": 0.6266389641367547
+     },
+     "cost": 0.6542164624420783,
+     "ideal_cost": 0.75,
+     "threshold": 0.625,
+     "pass": true
+    },
+    "crouch": {
+     "max_abs_delta": 0.0,
+     "tol": 1e-12,
+     "pass": true
+    },
+    "pass": true
+   },
+   "sampled": {
+    "t1_margin": 0.7957324209113281,
+    "t2_margin": -0.122979231095135,
+    "t1_plus_t2": 0.6727531898161931,
+    "f_median_step2_convention": 0.33004426921253704,
+    "det_t1_plus_t2": 2.2565416266011455,
+    "f": 0.2981346241901637,
+    "f_t1_only": 0.3872793780248764,
+    "total_with_existing": -0.3044639869885257
+   }
+  },
+  "B": {
+   "value": 0.30368700297708395,
+   "statue_income": 2.449286379174306,
+   "ref_income": 2.145599376197222,
+   "per_term": {
+    "track_lin_vel_xy_exp": 0.0451644436171339,
+    "track_ang_vel_z_exp": 0.0182141163606927,
+    "reward_tracking_yaw": 0.005506674681859086,
+    "reward_yaw_progress": -4.248462786728686e-06,
+    "reward_action_rate": 0.055298569400785834,
+    "reward_feet_air_time_positive": 0.0,
+    "penalty_foot_idle_when_forward": 0.0,
+    "penalty_tracking_error_l1": 0.06711525390079529,
+    "penalty_lin_vel_y": 0.0,
+    "reward_forward_progress_along_command": 0.0,
+    "reward_orientation": 6.659659150267523e-05,
+    "reward_lin_vel_z": 0.0027482860295790015,
+    "reward_delta_torques": 0.10457177102770379,
+    "penalty_tibia_deviation_in_stance": 0.004581602054357845,
+    "penalty_excess_feet_contact_forward": 1.2727272727272728e-05,
+    "reward_collision": 0.0,
+    "reward_clock_schedule": 0.0004113320378944589,
+    "reward_clock_swing_apex": -1.2153516066605822e-07
+   },
+   "statue_per_term": {
+    "track_lin_vel_xy_exp": 1.2499954054063662,
+    "track_ang_vel_z_exp": 0.9999978591283473,
+    "reward_tracking_yaw": 0.19990530152773345,
+    "reward_yaw_progress": 0.0,
+    "reward_action_rate": 0.0,
+    "reward_feet_air_time_positive": 0.0,
+    "penalty_foot_idle_when_forward": 0.0,
+    "penalty_tracking_error_l1": -0.0006300659918107603,
+    "penalty_lin_vel_y": 0.0,
+    "reward_forward_progress_along_command": 0.0,
+    "reward_orientation": -0.000100278138761613,
+    "reward_lin_vel_z": -1.8810213453957467e-09,
+    "reward_delta_torques": -0.000303173323184061,
+    "penalty_tibia_deviation_in_stance": -0.0003758478864951517,
+    "penalty_excess_feet_contact_forward": 0.0,
+    "reward_collision": 0.0,
+    "reward_clock_schedule": 0.0007971803331322531,
+    "reward_clock_swing_apex": 0.0
+   },
+   "ref_per_term": {
+    "track_lin_vel_xy_exp": 1.2048309617892323,
+    "track_ang_vel_z_exp": 0.9817837427676546,
+    "reward_tracking_yaw": 0.19439862684587436,
+    "reward_yaw_progress": 4.248462786728686e-06,
+    "reward_action_rate": -0.055298569400785834,
+    "reward_feet_air_time_positive": 0.0,
+    "penalty_foot_idle_when_forward": 0.0,
+    "penalty_tracking_error_l1": -0.06774531989260604,
+    "penalty_lin_vel_y": 0.0,
+    "reward_forward_progress_along_command": 0.0,
+    "reward_orientation": -0.00016687473026428824,
+    "reward_lin_vel_z": -0.0027482879106003467,
+    "reward_delta_torques": -0.10487494435088786,
+    "penalty_tibia_deviation_in_stance": -0.004957449940852997,
+    "penalty_excess_feet_contact_forward": -1.2727272727272728e-05,
+    "reward_collision": 0.0,
+    "reward_clock_schedule": 0.0003858482952377942,
+    "reward_clock_swing_apex": 1.2153516066605822e-07
+   },
+   "per_ref_seed": {
+    "REF_es1": 0.3022886172544381,
+    "REF_es2": 0.30508538869973245
+   },
+   "not_replayed": {
+    "reward_stride_length": "gated off at ||cmd|| <= min_cmd_norm 0.12 (0 on every stand row)",
+    "reward_feet_edge": "x-edge mask x contact on terrain_levels > 3; the suite stand is the flat ring (no edges)",
+    "reward_feet_stumble": "needs |F_xy| > 4 |F_z|; the raws keep only the force norm (a still stand on flat ground carries ~vertical loads)"
+   },
+   "definition": "existing S1-weight term income/s on suite stand gate rows (steady window), fresh statue minus REF (deterministic, es1 + es2 pooled); computed before the dose solve"
+  },
+  "dT1": 1.867884403266427,
+  "dT2": 0.16149502640646068,
+  "T": {
+   "t1_statue": 2.157973853417397,
+   "t2_statue": 0.09894813240827321,
+   "t1_ref": 0.29008945015096993,
+   "t2_ref": 0.2604431588147339,
+   "dT1": 1.867884403266427,
+   "dT2": 0.16149502640646068,
+   "t1_statue_median": 2.0,
+   "t2_statue_median": 0.09514938574588508,
+   "t1_ref_median": 0.2878828038086946,
+   "t2_ref_median": 0.2598140547427012
+  },
+  "sensitivity": {
+   "median_solve": {
+    "dT1": 1.7121171961913055,
+    "dT2": 0.16466466899681612,
+    "doses": {
+     "ST1": {
+      "w_support": 0.36,
+      "w_slide": -0.5,
+      "w_support_exact": 0.3586090157206178
+     },
+     "ST2": {
+      "w_support": 1.2,
+      "w_slide": -1.25,
+      "w_support_exact": 1.1625852279299733
+     }
+    }
+   },
+   "strict_cmd_zero_gate": {
+    "B": 0.30359568730071196,
+    "dT1": 1.86801450801649,
+    "dT2": 0.1614548244580707,
+    "doses": {
+     "ST1": {
+      "w_support": 0.33,
+      "w_slide": -0.5,
+      "w_support_exact": 0.32958892868770895
+     },
+     "ST2": {
+      "w_support": 1.1,
+      "w_slide": -1.25,
+      "w_support_exact": 1.0677571151439325
+     }
+    },
+    "rows_dropped": {
+     "REF_es1": 0,
+     "REF_es2": 28,
+     "C0": 0,
+     "CL": 0,
+     "TG": 0,
+     "A1": 0,
+     "F1": 0,
+     "statue": 0,
+     "E6_statue": 0,
+     "REF_samp": 32,
+     "noisy_statue_samp": 4108,
+     "REF_field_turn": 97,
+     "REF_field_hard_es1": 0,
+     "REF_field_hard_es2": 0,
+     "C0_field_turn": 208,
+     "C0_field_hard_es1": 0,
+     "C0_field_hard_es2": 0,
+     "TG_field_turn": 170,
+     "TG_field_hard_es1": 0,
+     "TG_field_hard_es2": 0
+    },
+    "sampled": {
+     "ST1": {
+      "t1_margin": 0.2402893031571401,
+      "t2_margin": -0.04834446301072852
+     },
+     "ST2": {
+      "t1_margin": 0.8009643438571337,
+      "t2_margin": -0.1208611575268213
+     }
+    },
+    "anti_termination_min": {
+     "ST1": 1.9316113426112265,
+     "ST2": 1.8650952168797983
+    }
+   },
+   "note": "info only; the doses of record are the slot gate on pooled means"
+  },
+  "gates": {
+   "fidelity": {
+    "episodes_compared": 1100,
+    "episodes_skipped_not_upright": 0,
+    "max_abs_diff_vs_p2s_stand": 2.0228299257851745e-07,
+    "max_abs_step_diff_vs_numpy_mirror": 1.7763568394002505e-15,
+    "float32_max_abs_step_dev": 7.772115768744925e-07,
+    "n_steps": 3540470,
+    "tolerance": 1e-06,
+    "ok": true
+   },
+   "G1": {
+    "per_head": {
+     "REF_es1": {
+      "auc_t1": 1.0,
+      "auc_t2": 0.9905,
+      "pass": true
+     },
+     "REF_es2": {
+      "auc_t1": 1.0,
+      "auc_t2": 0.9908,
+      "pass": true
+     },
+     "C0": {
+      "auc_t1": 1.0,
+      "auc_t2": 0.9905,
+      "pass": true
+     },
+     "CL": {
+      "auc_t1": 1.0,
+      "auc_t2": 0.976,
+      "pass": true
+     },
+     "TG": {
+      "auc_t1": 1.0,
+      "auc_t2": 0.9674,
+      "pass": true
+     },
+     "A1": {
+      "auc_t1": 1.0,
+      "auc_t2": 0.984,
+      "pass": true
+     },
+     "F1": {
+      "auc_t1": 1.0,
+      "auc_t2": 0.9887,
+      "pass": true
+     }
+    },
+    "threshold": 0.95,
+    "pass": true,
+    "info_E6_statue": {
+     "REF_es1": {
+      "auc_t1": 1.0,
+      "auc_t2": 0.9905
+     },
+     "REF_es2": {
+      "auc_t1": 1.0,
+      "auc_t2": 0.9908
+     },
+     "C0": {
+      "auc_t1": 1.0,
+      "auc_t2": 0.9905
+     },
+     "CL": {
+      "auc_t1": 1.0,
+      "auc_t2": 0.976
+     },
+     "TG": {
+      "auc_t1": 1.0,
+      "auc_t2": 0.9674
+     },
+     "A1": {
+      "auc_t1": 1.0,
+      "auc_t2": 0.984
+     },
+     "F1": {
+      "auc_t1": 1.0,
+      "auc_t2": 0.9887
+     }
+    }
+   },
+   "G2": {
+    "per_head": {
+     "REF_es1": {
+      "rho": -0.7486818336687642,
+      "n": 100
+     },
+     "REF_es2": {
+      "rho": -0.6693533709862387,
+      "n": 100
+     },
+     "C0": {
+      "rho": -0.7677858824277849,
+      "n": 100
+     },
+     "CL": {
+      "rho": -0.5321807803335953,
+      "n": 100,
+      "decisive": true,
+      "pass": true
+     },
+     "TG": {
+      "rho": -0.9092431133241583,
+      "n": 100,
+      "decisive": true,
+      "pass": true
+     },
+     "A1": {
+      "rho": -0.8570879928097236,
+      "n": 100
+     },
+     "F1": {
+      "rho": -0.6931912306887392,
+      "n": 100
+     }
+    },
+    "threshold": -0.5,
+    "decisive": [
+     "TG",
+     "CL"
+    ],
+    "pass": true,
+    "population": "suite stands, steady window, per-episode T1/s vs p2s_stand off-ground share"
+   },
+   "G3": {
+    "pass": true
+   },
+   "G4": {
+    "data": {
+     "rows": 2605572,
+     "nonzero": 0,
+     "finite": true,
+     "cmd_zero_rows": 649553,
+     "open_gate_t1_abs_sum": 714043.532713416,
+     "open_gate_t2_sum": 792642.7043215225,
+     "stand_episode_off_gate_nonzero": 0,
+     "sources": [
+      "REF_es1",
+      "TG",
+      "REF_samp",
+      "REF_field_turn",
+      "REF_field_hard_es1"
+     ],
+     "pass": true
+    },
+    "ast": {
+     "reward_stand_support": {
+      "gate_from__stand_gate": true,
+      "returns_times_gate": true,
+      "pass": true
+     },
+     "penalty_stand_slide": {
+      "gate_from__stand_gate": true,
+      "returns_times_gate": true,
+      "pass": true
+     },
+     "_stand_gate": {
+      "reads_stand_mask": true,
+      "stand_and_upright": true,
+      "pass": true
+     },
+     "pass": true
+    },
+    "emulation": {
+     "mask_off_zero": true,
+     "tipped_zero": true,
+     "on_nonzero": true,
+     "pass": true
+    },
+    "pass": true
+   },
+   "G5": {
+    "per_stand": {
+     "REF_field_turn": {
+      "finite": true,
+      "n_gate_steps": 35000,
+      "t1": 0.293009190230534,
+      "t2": 0.2832654453442487,
+      "pits": {
+       "share_feet_over_pit": 0.03691428571428571,
+       "share_loaded_feet_over_pit": 0.026246513249651326,
+       "share_rows_any_foot_over_pit": 0.14665714285714285
+      },
+      "falls": 0,
+      "n_episodes": 100
+     },
+     "REF_field_hard_es1": {
+      "finite": true,
+      "n_gate_steps": 35000,
+      "t1": 0.32124712030095265,
+      "t2": 0.25545967930657404,
+      "pits": {
+       "share_feet_over_pit": 0.0,
+       "share_loaded_feet_over_pit": 0.0,
+       "share_rows_any_foot_over_pit": 0.0
+      },
+      "falls": 0,
+      "n_episodes": 100
+     },
+     "REF_field_hard_es2": {
+      "finite": true,
+      "n_gate_steps": 35000,
+      "t1": 0.3102554106139168,
+      "t2": 0.2492112574790567,
+      "pits": {
+       "share_feet_over_pit": 0.0,
+       "share_loaded_feet_over_pit": 0.0,
+       "share_rows_any_foot_over_pit": 0.0
+      },
+      "falls": 0,
+      "n_episodes": 100
+     },
+     "C0_field_turn": {
+      "finite": true,
+      "n_gate_steps": 34650,
+      "t1": 0.20933818585005667,
+      "t2": 0.2713822132018081,
+      "pits": {
+       "share_feet_over_pit": 0.038619528619528616,
+       "share_loaded_feet_over_pit": 0.031127490831571913,
+       "share_rows_any_foot_over_pit": 0.1497835497835498
+      },
+      "falls": 1,
+      "n_episodes": 100
+     },
+     "C0_field_hard_es1": {
+      "finite": true,
+      "n_gate_steps": 35000,
+      "t1": 0.15160362309336606,
+      "t2": 0.23311762142230602,
+      "pits": {
+       "share_feet_over_pit": 0.0,
+       "share_loaded_feet_over_pit": 0.0,
+       "share_rows_any_foot_over_pit": 0.0
+      },
+      "falls": 0,
+      "n_episodes": 100
+     },
+     "C0_field_hard_es2": {
+      "finite": true,
+      "n_gate_steps": 35000,
+      "t1": 0.15538769712860884,
+      "t2": 0.23678558034331385,
+      "pits": {
+       "share_feet_over_pit": 0.0,
+       "share_loaded_feet_over_pit": 0.0,
+       "share_rows_any_foot_over_pit": 0.0
+      },
+      "falls": 0,
+      "n_episodes": 100
+     },
+     "TG_field_turn": {
+      "finite": true,
+      "n_gate_steps": 35000,
+      "t1": 0.0886602283942832,
+      "t2": 0.22831405289831733,
+      "pits": {
+       "share_feet_over_pit": 0.03282857142857143,
+       "share_loaded_feet_over_pit": 0.026975631023830948,
+       "share_rows_any_foot_over_pit": 0.1258857142857143
+      },
+      "falls": 0,
+      "n_episodes": 100
+     },
+     "TG_field_hard_es1": {
+      "finite": true,
+      "n_gate_steps": 35000,
+      "t1": 0.022196379689974455,
+      "t2": 0.16639709306399217,
+      "pits": {
+       "share_feet_over_pit": 0.0,
+       "share_loaded_feet_over_pit": 0.0,
+       "share_rows_any_foot_over_pit": 0.0
+      },
+      "falls": 0,
+      "n_episodes": 100
+     },
+     "TG_field_hard_es2": {
+      "finite": true,
+      "n_gate_steps": 35000,
+      "t1": 0.02064656163777198,
+      "t2": 0.16466570752014154,
+      "pits": {
+       "share_feet_over_pit": 0.0,
+       "share_loaded_feet_over_pit": 0.0,
+       "share_rows_any_foot_over_pit": 0.0
+      },
+      "falls": 0,
+      "n_episodes": 100
+     }
+    },
+    "pass": true,
+    "pit_definition": "terrain_z under the foot more than 0.05 m below the row's pad level (median over loaded feet of foot_z minus the p2s_stand pooled stance offset), over gate rows",
+    "flat_control": {
+     "REF_es1": {
+      "share_feet_over_pit": 0.0,
+      "share_loaded_feet_over_pit": 0.0,
+      "share_rows_any_foot_over_pit": 0.0
+     },
+     "statue": {
+      "share_feet_over_pit": 0.0,
+      "share_loaded_feet_over_pit": 0.0,
+      "share_rows_any_foot_over_pit": 0.0
+     }
+    }
+   },
+   "anti_termination": {
+    "pass": true,
+    "threshold": 0.5,
+    "walls_note": "field rows priced with the flat-tile forms of reward_orientation / reward_lin_vel_z (the off-flat forms zero / halve them, so this is the conservative side for a floor)"
+   }
+  },
+  "sampled": {
+   "B_sampled": -0.9772171768047189,
+   "t1_noisy_statue": 0.8546923697471032,
+   "t1_ref_samp": 0.1312992598277141,
+   "t2_noisy_statue": 0.3219449597007349,
+   "t2_ref_samp": 0.22356157482462688,
+   "t2_reverses": true
+  },
+  "liveness": {
+   "stand_share": 0.15,
+   "len_factor": 0.932741939453125,
+   "len_factor_source": "replay_gate.json p2b.calibration.tb_tail_500.P2__S1_s18 mean_episode_length 1865.5 / 2000",
+   "relation": "implied mean sum_f s_f on stand rows = 3 + ER(reward_stand_support) / (stand_share x w_support); a dead T1 reads ER = 0 -> 3 (keep the non-zero requirement beside the [2.5, 6] band)",
+   "statistic": "SAMPLED REF (DIAG_REFSAMP_s18) suite stand gate rows, steady window"
+  },
+  "heads": {
+   "REF_es1": {
+    "stamp": "parkour/outputs/omni_plan/phase2/lr/REF_S1_s18/suite__omni/seed001/2026-10-08_05-11-48",
+    "kind": "det",
+    "n_episodes": 100,
+    "n_gate_steps": 55000,
+    "t1": 0.2813436609962529,
+    "t2": 0.2587840647997301,
+    "t1_median_ep": 0.279625526267832,
+    "t2_median_ep": 0.2582879425559922,
+    "existing_total": 2.146997761919868,
+    "off_ground_median": 0.3381818181818182,
+    "hover_episodes": 0,
+    "drift_median": 0.0337273795157671,
+    "falls": 0,
+    "n_not_upright": 0,
+    "n_hold_xy_nonzero": 0,
+    "n_hold_wz_nonzero": 0,
+    "finite": true,
+    "off_gate_nonzero": 0,
+    "pits": {
+     "share_feet_over_pit": 0.0,
+     "share_loaded_feet_over_pit": 0.0,
+     "share_rows_any_foot_over_pit": 0.0
+    }
+   },
+   "REF_es2": {
+    "stamp": "parkour/outputs/omni_plan/phase2/lr/REF_S1_s18/suite__omni/seed002/2026-10-08_05-18-53",
+    "kind": "det",
+    "n_episodes": 100,
+    "n_gate_steps": 55000,
+    "t1": 0.29883523930568645,
+    "t2": 0.26210225282973787,
+    "t1_median_ep": 0.2986370423381979,
+    "t2_median_ep": 0.26077659865030145,
+    "existing_total": 2.1442009904745736,
+    "off_ground_median": 0.33424242424242423,
+    "hover_episodes": 0,
+    "drift_median": 0.03382081165909767,
+    "falls": 0,
+    "n_not_upright": 0,
+    "n_hold_xy_nonzero": 0,
+    "n_hold_wz_nonzero": 28,
+    "finite": true,
+    "off_gate_nonzero": 0,
+    "pits": {
+     "share_feet_over_pit": 0.0,
+     "share_loaded_feet_over_pit": 0.0,
+     "share_rows_any_foot_over_pit": 0.0
+    }
+   },
+   "C0": {
+    "stamp": "parkour/logs/rsl_rl/gait_eval/omni_phases/2026-10-07_omni_phase2/seed18_X12_p2b_A15pB/suite__omni/seed001/2026-10-08_09-45-58",
+    "kind": "det",
+    "n_episodes": 100,
+    "n_gate_steps": 55000,
+    "t1": 0.2008006858084432,
+    "t2": 0.25316045938933396,
+    "t1_median_ep": 0.19311719449650158,
+    "t2_median_ep": 0.24956402870940422,
+    "existing_total": 2.1593819707419453,
+    "off_ground_median": 0.3409090909090909,
+    "hover_episodes": 0,
+    "drift_median": 0.03518086113035679,
+    "falls": 0,
+    "n_not_upright": 0,
+    "n_hold_xy_nonzero": 0,
+    "n_hold_wz_nonzero": 0,
+    "finite": true,
+    "off_gate_nonzero": 0,
+    "pits": {
+     "share_feet_over_pit": 0.0,
+     "share_loaded_feet_over_pit": 0.0,
+     "share_rows_any_foot_over_pit": 0.0
+    }
+   },
+   "CL": {
+    "stamp": "parkour/logs/rsl_rl/gait_eval/omni_phases/2026-10-07_omni_phase2/seed18_X13_p2b_A15pB/suite__omni/seed001/2026-10-08_13-26-17",
+    "kind": "det",
+    "n_episodes": 100,
+    "n_gate_steps": 55000,
+    "t1": 0.014332185717690394,
+    "t2": 0.18439498953637998,
+    "t1_median_ep": 0.013849116058783096,
+    "t2_median_ep": 0.1794609642179039,
+    "existing_total": 2.1764016125695167,
+    "off_ground_median": 0.3522727272727273,
+    "hover_episodes": 4,
+    "drift_median": 0.03578304313123226,
+    "falls": 0,
+    "n_not_upright": 0,
+    "n_hold_xy_nonzero": 0,
+    "n_hold_wz_nonzero": 0,
+    "finite": true,
+    "off_gate_nonzero": 0,
+    "pits": {
+     "share_feet_over_pit": 0.0,
+     "share_loaded_feet_over_pit": 0.0,
+     "share_rows_any_foot_over_pit": 0.0
+    }
+   },
+   "TG": {
+    "stamp": "parkour/logs/rsl_rl/gait_eval/omni_phases/2026-10-07_omni_phase2/seed18_X14_p2b_A15pB/suite__omni/seed001/2026-10-08_17-01-27",
+    "kind": "det",
+    "n_episodes": 100,
+    "n_gate_steps": 55000,
+    "t1": 0.08885096770507768,
+    "t2": 0.20414957138872053,
+    "t1_median_ep": 0.05851129936088215,
+    "t2_median_ep": 0.18936511841933118,
+    "existing_total": 2.1942646661184773,
+    "off_ground_median": 0.40121212121212124,
+    "hover_episodes": 18,
+    "drift_median": 0.03130856528878212,
+    "falls": 0,
+    "n_not_upright": 0,
+    "n_hold_xy_nonzero": 0,
+    "n_hold_wz_nonzero": 0,
+    "finite": true,
+    "off_gate_nonzero": 0,
+    "pits": {
+     "share_feet_over_pit": 0.0,
+     "share_loaded_feet_over_pit": 0.0,
+     "share_rows_any_foot_over_pit": 0.0
+    }
+   },
+   "A1": {
+    "stamp": "parkour/logs/rsl_rl/gait_eval/omni_phases/2026-10-07_omni_phase2/seed18_X06_p2a_A15pB/suite__omni/seed001/2026-10-07_07-03-14",
+    "kind": "det",
+    "n_episodes": 100,
+    "n_gate_steps": 55000,
+    "t1": 0.21938942880822046,
+    "t2": 0.19451795653980536,
+    "t1_median_ep": 0.21107337833859702,
+    "t2_median_ep": 0.19379180640574234,
+    "existing_total": 2.1686853414866563,
+    "off_ground_median": 0.2704545454545455,
+    "hover_episodes": 0,
+    "drift_median": 0.029691661708056927,
+    "falls": 0,
+    "n_not_upright": 0,
+    "n_hold_xy_nonzero": 0,
+    "n_hold_wz_nonzero": 0,
+    "finite": true,
+    "off_gate_nonzero": 0,
+    "pits": {
+     "share_feet_over_pit": 0.0,
+     "share_loaded_feet_over_pit": 0.0,
+     "share_rows_any_foot_over_pit": 0.0
+    }
+   },
+   "F1": {
+    "stamp": "parkour/logs/rsl_rl/gait_eval/omni_phases/2026-10-07_omni_phase2/seed18_X09_p2a_A15pB/suite__omni/seed001/2026-10-07_17-58-23",
+    "kind": "det",
+    "n_episodes": 100,
+    "n_gate_steps": 55000,
+    "t1": 0.22443240494709396,
+    "t2": 0.22135960629107468,
+    "t1_median_ep": 0.21949941740686243,
+    "t2_median_ep": 0.22091714369372595,
+    "existing_total": 2.1562192076426547,
+    "off_ground_median": 0.34712121212121216,
+    "hover_episodes": 0,
+    "drift_median": 0.030877666547894478,
+    "falls": 0,
+    "n_not_upright": 0,
+    "n_hold_xy_nonzero": 0,
+    "n_hold_wz_nonzero": 0,
+    "finite": true,
+    "off_gate_nonzero": 0,
+    "pits": {
+     "share_feet_over_pit": 0.0,
+     "share_loaded_feet_over_pit": 0.0,
+     "share_rows_any_foot_over_pit": 0.0
+    }
+   },
+   "statue": {
+    "stamp": "parkour/outputs/omni_plan/phase2/lr/DIAG_STATUE_s18/suite__omni/seed001/2026-10-09_01-41-59",
+    "kind": "statue",
+    "n_episodes": 100,
+    "n_gate_steps": 55000,
+    "t1": 2.157973853417397,
+    "t2": 0.09894813240827321,
+    "t1_median_ep": 2.0,
+    "t2_median_ep": 0.09514938574588508,
+    "existing_total": 2.449286379174306,
+    "off_ground_median": 0.0,
+    "hover_episodes": 0,
+    "drift_median": 0.0002846082643372938,
+    "falls": 0,
+    "n_not_upright": 0,
+    "n_hold_xy_nonzero": 0,
+    "n_hold_wz_nonzero": 0,
+    "finite": true,
+    "off_gate_nonzero": 0,
+    "pits": {
+     "share_feet_over_pit": 0.0,
+     "share_loaded_feet_over_pit": 0.0,
+     "share_rows_any_foot_over_pit": 0.0
+    }
+   },
+   "E6_statue": {
+    "stamp": "parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-23_clock_deprecation/step0_E6_statue/suite__omni/seed001/2026-09-23_21-59-41",
+    "kind": "statue_old",
+    "n_episodes": 100,
+    "n_gate_steps": 55000,
+    "t1": 2.157973853417397,
+    "t2": 0.09894813240827321,
+    "t1_median_ep": 2.0,
+    "t2_median_ep": 0.09514938574588508,
+    "existing_total": 2.449286379174306,
+    "off_ground_median": 0.0,
+    "hover_episodes": 0,
+    "drift_median": 0.0002846082643372938,
+    "falls": 0,
+    "n_not_upright": 0,
+    "n_hold_xy_nonzero": 0,
+    "n_hold_wz_nonzero": 0,
+    "finite": true,
+    "off_gate_nonzero": 0,
+    "pits": {
+     "share_feet_over_pit": 0.0,
+     "share_loaded_feet_over_pit": 0.0,
+     "share_rows_any_foot_over_pit": 0.0
+    }
+   },
+   "REF_samp": {
+    "stamp": "parkour/outputs/omni_plan/phase2/lr/DIAG_REFSAMP_s18/suite__omni/seed001/2026-10-09_01-49-08",
+    "kind": "samp",
+    "n_episodes": 100,
+    "n_gate_steps": 55000,
+    "t1": 0.1312992598277141,
+    "t2": 0.22356157482462688,
+    "t1_median_ep": 0.13111956236362457,
+    "t2_median_ep": 0.22274732939030528,
+    "existing_total": 1.9999997975842978,
+    "off_ground_median": 0.3418181818181818,
+    "hover_episodes": 0,
+    "drift_median": 0.04063890501856804,
+    "falls": 0,
+    "n_not_upright": 0,
+    "n_hold_xy_nonzero": 0,
+    "n_hold_wz_nonzero": 32,
+    "finite": true,
+    "off_gate_nonzero": 0,
+    "pits": {
+     "share_feet_over_pit": 0.0,
+     "share_loaded_feet_over_pit": 0.0,
+     "share_rows_any_foot_over_pit": 0.0
+    }
+   },
+   "noisy_statue_samp": {
+    "stamp": "parkour/outputs/omni_plan/phase2/lr/DIAG_NOISYSTATUE_s18/suite__omni/seed001/2026-10-09_01-56-31",
+    "kind": "samp",
+    "n_episodes": 100,
+    "n_gate_steps": 54510,
+    "t1": 0.8546923697471032,
+    "t2": 0.3219449597007349,
+    "t1_median_ep": 0.8706460407638414,
+    "t2_median_ep": 0.3200239169794604,
+    "existing_total": 1.022782620779579,
+    "off_ground_median": 0.03,
+    "hover_episodes": 0,
+    "drift_median": 0.15016600489616394,
+    "falls": 2,
+    "n_not_upright": 0,
+    "n_hold_xy_nonzero": 0,
+    "n_hold_wz_nonzero": 4108,
+    "finite": true,
+    "off_gate_nonzero": 0,
+    "pits": {
+     "share_feet_over_pit": 0.0,
+     "share_loaded_feet_over_pit": 0.0,
+     "share_rows_any_foot_over_pit": 0.0
+    }
+   },
+   "REF_field_turn": {
+    "stamp": "parkour/outputs/omni_plan/phase2/lr/REF_S1_s18/field_turn__omni/seed001/2026-10-08_05-54-46",
+    "kind": "wall",
+    "n_episodes": 100,
+    "n_gate_steps": 35000,
+    "t1": 0.293009190230534,
+    "t2": 0.2832654453442487,
+    "t1_median_ep": 0.3178316227572305,
+    "t2_median_ep": 0.2789903980444775,
+    "existing_total": 2.1055772131666104,
+    "off_ground_median": 0.3538095238095238,
+    "hover_episodes": 0,
+    "drift_median": 0.03727275878190994,
+    "falls": 0,
+    "n_not_upright": 0,
+    "n_hold_xy_nonzero": 0,
+    "n_hold_wz_nonzero": 97,
+    "finite": true,
+    "off_gate_nonzero": 0,
+    "pits": {
+     "share_feet_over_pit": 0.03691428571428571,
+     "share_loaded_feet_over_pit": 0.026246513249651326,
+     "share_rows_any_foot_over_pit": 0.14665714285714285
+    }
+   },
+   "REF_field_hard_es1": {
+    "stamp": "parkour/outputs/omni_plan/phase2/lr/REF_S1_s18/field_hard__omni/seed001/2026-10-08_05-39-53",
+    "kind": "wall",
+    "n_episodes": 100,
+    "n_gate_steps": 35000,
+    "t1": 0.32124712030095265,
+    "t2": 0.25545967930657404,
+    "t1_median_ep": 0.32039582757949825,
+    "t2_median_ep": 0.2559503987415206,
+    "existing_total": 2.1411572413313977,
+    "off_ground_median": 0.3357142857142857,
+    "hover_episodes": 0,
+    "drift_median": 0.03449138253927231,
+    "falls": 0,
+    "n_not_upright": 0,
+    "n_hold_xy_nonzero": 0,
+    "n_hold_wz_nonzero": 0,
+    "finite": true,
+    "off_gate_nonzero": 0,
+    "pits": {
+     "share_feet_over_pit": 0.0,
+     "share_loaded_feet_over_pit": 0.0,
+     "share_rows_any_foot_over_pit": 0.0
+    }
+   },
+   "REF_field_hard_es2": {
+    "stamp": "parkour/outputs/omni_plan/phase2/lr/REF_S1_s18/field_hard__omni/seed002/2026-10-08_05-43-30",
+    "kind": "wall",
+    "n_episodes": 100,
+    "n_gate_steps": 35000,
+    "t1": 0.3102554106139168,
+    "t2": 0.2492112574790567,
+    "t1_median_ep": 0.30547686843190874,
+    "t2_median_ep": 0.24751528547655066,
+    "existing_total": 2.1414888644068526,
+    "off_ground_median": 0.3361904761904762,
+    "hover_episodes": 0,
+    "drift_median": 0.03411626257002354,
+    "falls": 0,
+    "n_not_upright": 0,
+    "n_hold_xy_nonzero": 0,
+    "n_hold_wz_nonzero": 0,
+    "finite": true,
+    "off_gate_nonzero": 0,
+    "pits": {
+     "share_feet_over_pit": 0.0,
+     "share_loaded_feet_over_pit": 0.0,
+     "share_rows_any_foot_over_pit": 0.0
+    }
+   },
+   "C0_field_turn": {
+    "stamp": "parkour/outputs/omni_plan/phase2/lr/P2__C0_s18/field_turn__omni/seed001/2026-10-08_10-27-26",
+    "kind": "wall",
+    "n_episodes": 100,
+    "n_gate_steps": 34650,
+    "t1": 0.20933818585005667,
+    "t2": 0.2713822132018081,
+    "t1_median_ep": 0.178596779026304,
+    "t2_median_ep": 0.2651184153190751,
+    "existing_total": 2.117691200783928,
+    "off_ground_median": 0.36857142857142855,
+    "hover_episodes": 0,
+    "drift_median": 0.038599465042352676,
+    "falls": 1,
+    "n_not_upright": 0,
+    "n_hold_xy_nonzero": 0,
+    "n_hold_wz_nonzero": 208,
+    "finite": true,
+    "off_gate_nonzero": 0,
+    "pits": {
+     "share_feet_over_pit": 0.038619528619528616,
+     "share_loaded_feet_over_pit": 0.031127490831571913,
+     "share_rows_any_foot_over_pit": 0.1497835497835498
+    }
+   },
+   "C0_field_hard_es1": {
+    "stamp": "parkour/outputs/omni_plan/phase2/lr/P2__C0_s18/field_hard__omni/seed001/2026-10-08_10-12-44",
+    "kind": "wall",
+    "n_episodes": 100,
+    "n_gate_steps": 35000,
+    "t1": 0.15160362309336606,
+    "t2": 0.23311762142230602,
+    "t1_median_ep": 0.14330509970528738,
+    "t2_median_ep": 0.23453925860658123,
+    "existing_total": 2.1661079906668896,
+    "off_ground_median": 0.36523809523809525,
+    "hover_episodes": 0,
+    "drift_median": 0.0356293860822916,
+    "falls": 0,
+    "n_not_upright": 0,
+    "n_hold_xy_nonzero": 0,
+    "n_hold_wz_nonzero": 0,
+    "finite": true,
+    "off_gate_nonzero": 0,
+    "pits": {
+     "share_feet_over_pit": 0.0,
+     "share_loaded_feet_over_pit": 0.0,
+     "share_rows_any_foot_over_pit": 0.0
+    }
+   },
+   "C0_field_hard_es2": {
+    "stamp": "parkour/outputs/omni_plan/phase2/lr/P2__C0_s18/field_hard__omni/seed002/2026-10-08_10-16-26",
+    "kind": "wall",
+    "n_episodes": 100,
+    "n_gate_steps": 35000,
+    "t1": 0.15538769712860884,
+    "t2": 0.23678558034331385,
+    "t1_median_ep": 0.15126459148270743,
+    "t2_median_ep": 0.23733727094070833,
+    "existing_total": 2.163657257744942,
+    "off_ground_median": 0.3645238095238095,
+    "hover_episodes": 0,
+    "drift_median": 0.036018092185258865,
+    "falls": 0,
+    "n_not_upright": 0,
+    "n_hold_xy_nonzero": 0,
+    "n_hold_wz_nonzero": 0,
+    "finite": true,
+    "off_gate_nonzero": 0,
+    "pits": {
+     "share_feet_over_pit": 0.0,
+     "share_loaded_feet_over_pit": 0.0,
+     "share_rows_any_foot_over_pit": 0.0
+    }
+   },
+   "TG_field_turn": {
+    "stamp": "parkour/outputs/omni_plan/phase2/lr/P2__TG_s18/field_turn__omni/seed001/2026-10-08_17-39-38",
+    "kind": "wall",
+    "n_episodes": 100,
+    "n_gate_steps": 35000,
+    "t1": 0.0886602283942832,
+    "t2": 0.22831405289831733,
+    "t1_median_ep": 0.008377139636448452,
+    "t2_median_ep": 0.20056374261040205,
+    "existing_total": 2.136113974285051,
+    "off_ground_median": 0.4326190476190476,
+    "hover_episodes": 58,
+    "drift_median": 0.03609955310821533,
+    "falls": 0,
+    "n_not_upright": 0,
+    "n_hold_xy_nonzero": 0,
+    "n_hold_wz_nonzero": 170,
+    "finite": true,
+    "off_gate_nonzero": 0,
+    "pits": {
+     "share_feet_over_pit": 0.03282857142857143,
+     "share_loaded_feet_over_pit": 0.026975631023830948,
+     "share_rows_any_foot_over_pit": 0.1258857142857143
+    }
+   },
+   "TG_field_hard_es1": {
+    "stamp": "parkour/outputs/omni_plan/phase2/lr/P2__TG_s18/field_hard__omni/seed001/2026-10-08_17-25-38",
+    "kind": "wall",
+    "n_episodes": 100,
+    "n_gate_steps": 35000,
+    "t1": 0.022196379689974455,
+    "t2": 0.16639709306399217,
+    "t1_median_ep": -0.0008457923344203401,
+    "t2_median_ep": 0.16011313860303122,
+    "existing_total": 2.209841967776104,
+    "off_ground_median": 0.44166666666666665,
+    "hover_episodes": 49,
+    "drift_median": 0.03117222897708416,
+    "falls": 0,
+    "n_not_upright": 0,
+    "n_hold_xy_nonzero": 0,
+    "n_hold_wz_nonzero": 0,
+    "finite": true,
+    "off_gate_nonzero": 0,
+    "pits": {
+     "share_feet_over_pit": 0.0,
+     "share_loaded_feet_over_pit": 0.0,
+     "share_rows_any_foot_over_pit": 0.0
+    }
+   },
+   "TG_field_hard_es2": {
+    "stamp": "parkour/outputs/omni_plan/phase2/lr/P2__TG_s18/field_hard__omni/seed002/2026-10-08_17-29-13",
+    "kind": "wall",
+    "n_episodes": 100,
+    "n_gate_steps": 35000,
+    "t1": 0.02064656163777198,
+    "t2": 0.16466570752014154,
+    "t1_median_ep": -0.008071642930167062,
+    "t2_median_ep": 0.1584916663323549,
+    "existing_total": 2.203142478314449,
+    "off_ground_median": 0.419047619047619,
+    "hover_episodes": 58,
+    "drift_median": 0.03272620588541031,
+    "falls": 0,
+    "n_not_upright": 0,
+    "n_hold_xy_nonzero": 0,
+    "n_hold_wz_nonzero": 0,
+    "finite": true,
+    "off_gate_nonzero": 0,
+    "pits": {
+     "share_feet_over_pit": 0.0,
+     "share_loaded_feet_over_pit": 0.0,
+     "share_rows_any_foot_over_pit": 0.0
+    }
+   }
+  },
+  "rule": "P2S_PLAN step 4: fidelity; G1 AUC >= 0.95 both terms vs every head; G2 rho(T1, off-ground) <= -0.5 on TG and CL; G3 hover >= 0.5 M, shuffle >= 0.25 M, crouch 0; G4 exactly 0 off the stand slot; G5 finite on wall stands; anti-termination net >= +0.5/s (det REF es1/es2 and sampled REF) at both doses",
+  "episode_reward_units": "TensorBoard Episode_Reward/<term> = weight x mean over all env-steps = weight x stand_share 0.15 x the SAMPLED REF per-stand-row mean",
+  "generated": "2026-10-08T22:25:17",
+  "report": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-07_omni_phase2/REPLAY_GATE_P2S.md",
+  "meta": {
+   "script": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-07_omni_phase2/scripts/p2s_replay.py",
+   "kernels": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/mdp/crab_hex_omni_motion_rewards.py (landed e1a08baf)",
+   "env_yaml": "parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-07_07-50-10_seed18_X08_p2a_A15pB/params/env.yaml",
+   "param_checks": {
+    "stand slot share 0.15 (S1 dump cmd_pool)": true,
+    "kernel load_ref_n 50 N = gait_eval MOTION_TOUCH_REF_N": true,
+    "kernel upright_min 0.9": true,
+    "tripod offset 3": true,
+    "tibia joints FL..RR in foot order": true,
+    "dt 0.02": true,
+    "clock combine product": true,
+    "replay_motion_terms notes empty": true
+   },
+   "cmd_pool": "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07"
+  }
  }
 }
