@@ -1095,3 +1095,12 @@ verdict rules, replay gate, guards and budget are the pre-registration. This sec
   - Took ≈ 2.0 GPU-h (23:16 → 01:17).
   - New walkstop baselines: REFS 2.83 steps/s, 0.133 m after walking. The march persists after a stop too.
   - **ST2 (P2__ST2_s18) launched 01:18** through the chain (FROM_STEP=st2). Fork sha 968cc550 verified.
+- 2026-10-09 02:43, **ST2 notify-only termination flag at +3264** (the run continues, as pre-registered).
+  - ST2's rolling-500 crab_failure is 0.277 against C0's 0.191 in the same window: +0.086, over the +0.08 flag line.
+    Sibling noise reaches +0.116.
+  - Episode length is 1685 against 1802 (0.935×, above the 0.9 kill).
+  - σ is 0.837 against 0.828.
+  - Earlier windows (+0 to +1166) tracked C0 within noise.
+  - Training checks: RESUME, +200 (implied Σs_f 3.51) and +1000 (curriculum 1.1 → 5.7) all PASS. The support income
+    has risen steadily, to an implied Σs_f ≈ 4.9 at +2300.
+  - The flag is for the user at the s18 screen stop.
