@@ -1137,3 +1137,7 @@ verdict rules, replay gate, guards and budget are the pre-registration. This sec
   **Consequences:**
   - ST1 is not run: ST2 does not read STILL, per the pre-registered rule.
   - The queue stopped. **STOP and ask** (P2S_PLAN step 6).
+- 2026-10-09 ~04:45, **USER DECISION: read ST2's early checkpoints.** model_20500 (+506) and model_21000 (+1006) get
+  suite es1, field_hard at es1–4 (n = 400) and walkstop es1, about 1.5 GPU-h, evals only.
+  - The question: does an early point keep most of the stillness without the wall loss?
+  - Names: `P2__ST2_s18_m20500` and `_m21000`, with the arm's driver-stamp env.
