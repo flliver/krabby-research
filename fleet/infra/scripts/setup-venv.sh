@@ -22,7 +22,8 @@ python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 
 # Portable Node for jsii + CDK CLI (stays under fleet/infra/.tools).
-NODE_VERSION="${NODE_VERSION:-v20.18.1}"
+# Keep in sync with fleet_service_stack._NODE_VERSION (Node 20 is EOL for CDK/jsii).
+NODE_VERSION="${NODE_VERSION:-v22.14.0}"
 TOOLS_DIR="$INFRA_DIR/.tools"
 NODE_HOME="$TOOLS_DIR/node"
 case "$(uname -s)-$(uname -m)" in
@@ -36,7 +37,15 @@ case "$(uname -s)-$(uname -m)" in
     ;;
 esac
 
+NEED_NODE=0
 if [[ ! -x "$NODE_HOME/bin/node" ]]; then
+  NEED_NODE=1
+elif [[ "$("$NODE_HOME/bin/node" -v 2>/dev/null || true)" != "$NODE_VERSION" ]]; then
+  echo "Portable Node under .tools is $("$NODE_HOME/bin/node" -v); want ${NODE_VERSION} — reinstalling ..."
+  NEED_NODE=1
+fi
+
+if [[ "$NEED_NODE" -eq 1 ]]; then
   echo "Downloading portable Node ${NODE_VERSION} into .tools/ ..."
   mkdir -p "$TOOLS_DIR"
   TMP_TGZ="$(mktemp)"
