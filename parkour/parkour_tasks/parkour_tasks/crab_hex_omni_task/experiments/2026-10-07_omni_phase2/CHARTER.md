@@ -1089,3 +1089,9 @@ verdict rules, replay gate, guards and budget are the pre-registration. This sec
   and 0.330 on medians against the 0.33 line, with the T2 reversal under sampling. ST2 launches automatically when the
   references and their inertness read finish clean (the chained launcher, `FROM_STEP=st2`). Any other stop blocks
   it.
+- 2026-10-09 01:17, **step 5 references on the new code (ae892cec): inertness PASS.** REFS_S1_s18 and C0R_s18
+  reproduce REF_S1_s18 and P2__C0_s18 exactly on every shared row: field_hard at es1–4, field_light, ring_obst,
+  field_turn, field_suite, lr, and suite at es1 and es2.
+  - Took ≈ 2.0 GPU-h (23:16 → 01:17).
+  - New walkstop baselines: REFS 2.83 steps/s, 0.133 m after walking. The march persists after a stop too.
+  - **ST2 (P2__ST2_s18) launched 01:18** through the chain (FROM_STEP=st2). Fork sha 968cc550 verified.
