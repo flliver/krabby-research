@@ -1221,3 +1221,8 @@ stop rules, verdicts and budget are the pre-registration. This section logs the 
     - **STOP FIRES:** D(C0 +506) 1.35–1.42 > 0.5·D(ST2 +506) = 1.14. Continuation alone moves the walking means
       about 60 % as far as the stand lever, so an action-mean anchor cannot single out the harmful drift.
   - **STOP and ask** (P2R_PLAN step 3). Step 2 is not started.
+- 2026-10-09 ~15:00, **USER DECISION at the step-3 stop: learn the statue in-network.**
+  - A new step-2 variant replaces G2/G1: the grafted stand bit plus a stand-side prior toward zero action (the
+    statue), instead of ST2's stand terms. The goal is no runtime mode switch.
+  - It gets its own plan and audit, as an amendment to P2R_PLAN.
+  - The hold mode stays on record as the working controller-level fallback.
