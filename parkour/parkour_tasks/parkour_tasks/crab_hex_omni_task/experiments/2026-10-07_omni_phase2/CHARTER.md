@@ -963,3 +963,39 @@ was not re-audited. That file is the pre-registration. Its decisive rules, resta
   errors. Its 9 citation, attribution and overstatement notes were applied: §10 citations for the 2026-10-08
   entries; the E1 and TD drops attributed to the user; the back-overshoot cause hedged (n = 1); C0's drop inside
   noise. **Phase 2 is closed.**
+
+## 11. Stage p2s: stop the head stepping at rest (pre-registered 2026-10-08, before any p2s run)
+
+The plan of record is `P2S_PLAN.md`: audited in 2 passes (the cap) and approved by the user on 2026-10-08. Its
+verdict rules, replay gate, guards and budget are the pre-registration. This section logs the run.
+
+**User decisions (2026-10-08):**
+- **Target "mostly still"** on the suite stand at both env_seeds: median ≤ 0.5 steps/s and lifts ≤ 5 cm
+  (`stand_clearance`, median over feet).
+- **Lever:** a stand-slot-only term pair:
+  - T1 `reward_stand_support` = g·(Σ clamp(F/50 N) − 3);
+  - T2 `penalty_stand_slide` = g·Σ s_f·|v_f|.
+  - Two doses at s18 (ST2 first), then replicates. TG replicates are not run.
+- **Cost: none beyond noise.** Flat ladder against REFS and chained against ANCW; walls non-inferior.
+- **Walkstop** (stands after walking) is a COST guard only, not part of STILL.
+- **Home:** this campaign, §11.
+
+### 11.1 Log
+
+- 2026-10-08, **TG stand "lead" reclassified as a hover artefact** (verified on the saved suite raws, X14 TG
+  `suite__omni/seed001`).
+  - All 9 of TG's zero-step stand episodes hold 3 feet unloaded for > 95 % of the 12-s hold. It is the same tripod
+    (FR/ML/RR), lifted during the settle. The harness counts a step only on a lift-off inside the window, so these
+    episodes read 0 steps/s.
+  - TG's unloaded-foot share (< 50 N) is 0.487, against REF 0.455 and C0 0.468.
+  - TG's median T1 is ≈ +0.06 (about 3 loaded feet), against REF ≈ +0.28.
+  - Under the p2s definition (unloaded AND > 3 cm above the pooled loaded-foot stance offset, > 95 % of the hold),
+    TG has 18 hover episodes, CL 4, and REF / C0 / A1 / F1 0.
+  - **Consequence:** stand steps/s alone can be gamed by hovering. The p2s read needs off-ground share, a hover count
+    and taps. The manifest `stand_march` lead and the PHASE2_REPORT lead line are corrected in a separate record
+    commit, with the user's nod.
+- 2026-10-08, **implementation note:** the p2s rows (`stand_only`, `walkstop`) go in a new campaign manifest,
+  `scenarios_p2s.yaml`, so that `scenarios_p2.yaml` stays byte-identical for the REFS / C0R inertness check.
+  - Step 2's noise probe uses the shared `suite__omni` row instead of a new stand-only row. Its stand wave is the
+    same 100 × 12-s hold, and REF's deterministic suite es1 stamp (`lr/REF_S1_s18/suite__omni/seed001/
+    2026-10-08_05-11-48`) is then the same-row, same-window f denominator.
