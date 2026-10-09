@@ -1,0 +1,116 @@
+{
+ "what": "P2S_PLAN step 2 noise premise probe (diagnostic only; feeds the f stop rule, never a verdict). suite__omni stand wave, env_seed 1, current code e3fe70fb.",
+ "heads": {
+  "statue_det": {
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/DIAG_STATUE_s18/suite__omni/seed001/2026-10-09_01-41-59",
+   "n": 100,
+   "steps_per_s": 0.0,
+   "taps_per_s": 0.0,
+   "stance_offset_m": 0.03451,
+   "clearance_m": 1e-05,
+   "clearance_max_m": 2e-05,
+   "off_ground_share": 0.0,
+   "ks_m_s": 0.09809,
+   "loaded_count": 5.0,
+   "body_height_m": 1.06478,
+   "drift_m_s": 0.00028,
+   "facing_err_rms": 0.00037,
+   "t1_per_s": 2.0,
+   "t2_per_s": 0.09515,
+   "hover_episodes": 0,
+   "hover_episodes_per_100": 0.0,
+   "falls": 0
+  },
+  "ref_det": {
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/REF_S1_s18/suite__omni/seed001/2026-10-08_05-11-48",
+   "n": 100,
+   "steps_per_s": 2.83333,
+   "taps_per_s": 2.83333,
+   "stance_offset_m": 0.03208,
+   "clearance_m": 0.13495,
+   "clearance_max_m": 0.18442,
+   "off_ground_share": 0.33818,
+   "ks_m_s": 1.7185,
+   "loaded_count": 3.26273,
+   "body_height_m": 1.06799,
+   "drift_m_s": 0.03373,
+   "facing_err_rms": 0.02448,
+   "t1_per_s": 0.27963,
+   "t2_per_s": 0.25829,
+   "hover_episodes": 0,
+   "hover_episodes_per_100": 0.0,
+   "falls": 0
+  },
+  "noisystatue_samp": {
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/DIAG_NOISYSTATUE_s18/suite__omni/seed001/2026-10-09_01-56-31",
+   "n": 100,
+   "steps_per_s": 4.41667,
+   "taps_per_s": 19.125,
+   "stance_offset_m": 0.0337,
+   "clearance_m": 0.02598,
+   "clearance_max_m": 0.04299,
+   "off_ground_share": 0.03,
+   "ks_m_s": 1.31359,
+   "loaded_count": 3.81818,
+   "body_height_m": 1.06459,
+   "drift_m_s": 0.15017,
+   "facing_err_rms": 0.0599,
+   "t1_per_s": 0.87065,
+   "t2_per_s": 0.32002,
+   "hover_episodes": 0,
+   "hover_episodes_per_100": 0.0,
+   "falls": 2
+  },
+  "ref_samp": {
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/DIAG_REFSAMP_s18/suite__omni/seed001/2026-10-09_01-49-08",
+   "n": 100,
+   "steps_per_s": 2.58333,
+   "taps_per_s": 3.25,
+   "stance_offset_m": 0.03212,
+   "clearance_m": 0.10327,
+   "clearance_max_m": 0.12938,
+   "off_ground_share": 0.34182,
+   "ks_m_s": 1.67774,
+   "loaded_count": 3.11545,
+   "body_height_m": 1.07203,
+   "drift_m_s": 0.04064,
+   "facing_err_rms": 0.03851,
+   "t1_per_s": 0.13112,
+   "t2_per_s": 0.22275,
+   "hover_episodes": 0,
+   "hover_episodes_per_100": 0.0,
+   "falls": 0
+  }
+ },
+ "zeromean_checkpoint": "parkour/outputs/omni_plan/phase2/diag/model_19994_zeromean.pt (actor.actor_backbone.6 weight+bias zeroed)",
+ "f": {
+  "weights": {
+   "ST1": [
+    0.38,
+    -0.5
+   ],
+   "ST2": [
+    1.12,
+    -1.25
+   ]
+  },
+  "ST1": {
+   "det_margin": 0.735,
+   "sampled_margin": 0.232,
+   "f": 0.316
+  },
+  "ST2": {
+   "det_margin": 2.131,
+   "sampled_margin": 0.707,
+   "f": 0.332
+  },
+  "decisive": "ST2 planning dose (P2S_PLAN left-for-implementation)",
+  "rule": "stop and ask if f < 0.33",
+  "verdict": "PASS (0.332, marginal)",
+  "notes": [
+   "open-loop noisy statue: f is a lower bound (2/100 falls, loaded 3.82 vs 5.0 det)",
+   "T2 reverses under sampling: noisy statue 0.320 > REF sampled 0.223 -> slide term favours the march by ~0.12/s at ST2; T1 alone f = 0.43",
+   "sampled std per action dim (cams ~1.0-1.3, rods ~0.6-0.75) from run_meta.sample_actions_std"
+  ]
+ }
+}

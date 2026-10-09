@@ -1,0 +1,588 @@
+{
+ "suite": {
+  "REF_es1": {
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/REF_S1_s18/suite__omni/seed001/2026-10-08_05-11-48",
+   "n": 100,
+   "hold_labels": [
+    "settle",
+    "stand",
+    "fwd",
+    "lat_l",
+    "lat_r",
+    "back",
+    "diag",
+    "turn_l90",
+    "turn_r90",
+    "move_turn",
+    "move_turn_r"
+   ],
+   "steps_per_s": 2.83333,
+   "taps_per_s": 2.83333,
+   "stance_offset_m": 0.03208,
+   "clearance_m": 0.13495,
+   "clearance_max_m": 0.18442,
+   "off_ground_share": 0.33818,
+   "ks_m_s": 1.7185,
+   "loaded_count": 3.26273,
+   "body_height_m": 1.06799,
+   "drift_m_s": 0.03373,
+   "facing_err_rms": 0.02448,
+   "t1_per_s": 0.27963,
+   "t2_per_s": 0.25829,
+   "hover_episodes": 0,
+   "hover_episodes_per_100": 0.0,
+   "falls": 0
+  },
+  "REF_es2": {
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/REF_S1_s18/suite__omni/seed002/2026-10-08_05-18-53",
+   "n": 100,
+   "hold_labels": [
+    "settle",
+    "stand",
+    "fwd",
+    "lat_l",
+    "lat_r",
+    "back",
+    "diag",
+    "turn_l90",
+    "turn_r90",
+    "move_turn",
+    "move_turn_r"
+   ],
+   "steps_per_s": 2.83333,
+   "taps_per_s": 2.66667,
+   "stance_offset_m": 0.03223,
+   "clearance_m": 0.13313,
+   "clearance_max_m": 0.18161,
+   "off_ground_share": 0.33424,
+   "ks_m_s": 1.71643,
+   "loaded_count": 3.28182,
+   "body_height_m": 1.06684,
+   "drift_m_s": 0.03382,
+   "facing_err_rms": 0.02875,
+   "t1_per_s": 0.29864,
+   "t2_per_s": 0.26078,
+   "hover_episodes": 0,
+   "hover_episodes_per_100": 0.0,
+   "falls": 0
+  },
+  "C0": {
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/2026-10-07_omni_phase2/seed18_X12_p2b_A15pB/suite__omni/seed001/2026-10-08_09-45-58",
+   "n": 100,
+   "hold_labels": [
+    "settle",
+    "stand",
+    "fwd",
+    "lat_l",
+    "lat_r",
+    "back",
+    "diag",
+    "turn_l90",
+    "turn_r90",
+    "move_turn",
+    "move_turn_r"
+   ],
+   "steps_per_s": 2.66667,
+   "taps_per_s": 2.08333,
+   "stance_offset_m": 0.0318,
+   "clearance_m": 0.11263,
+   "clearance_max_m": 0.16116,
+   "off_ground_share": 0.34091,
+   "ks_m_s": 1.65381,
+   "loaded_count": 3.18182,
+   "body_height_m": 1.07309,
+   "drift_m_s": 0.03518,
+   "facing_err_rms": 0.01884,
+   "t1_per_s": 0.19312,
+   "t2_per_s": 0.24956,
+   "hover_episodes": 0,
+   "hover_episodes_per_100": 0.0,
+   "falls": 0
+  },
+  "CL": {
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/2026-10-07_omni_phase2/seed18_X13_p2b_A15pB/suite__omni/seed001/2026-10-08_13-26-17",
+   "n": 100,
+   "hold_labels": [
+    "settle",
+    "stand",
+    "fwd",
+    "lat_l",
+    "lat_r",
+    "back",
+    "diag",
+    "turn_l90",
+    "turn_r90",
+    "move_turn",
+    "move_turn_r"
+   ],
+   "steps_per_s": 1.41667,
+   "taps_per_s": 2.5,
+   "stance_offset_m": 0.03183,
+   "clearance_m": 0.07714,
+   "clearance_max_m": 0.10312,
+   "off_ground_share": 0.35227,
+   "ks_m_s": 1.69178,
+   "loaded_count": 3.00273,
+   "body_height_m": 1.06313,
+   "drift_m_s": 0.03578,
+   "facing_err_rms": 0.01573,
+   "t1_per_s": 0.01385,
+   "t2_per_s": 0.17946,
+   "hover_episodes": 4,
+   "hover_episodes_per_100": 4.0,
+   "falls": 0
+  },
+  "TG": {
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/2026-10-07_omni_phase2/seed18_X14_p2b_A15pB/suite__omni/seed001/2026-10-08_17-01-27",
+   "n": 100,
+   "hold_labels": [
+    "settle",
+    "stand",
+    "fwd",
+    "lat_l",
+    "lat_r",
+    "back",
+    "diag",
+    "turn_l90",
+    "turn_r90",
+    "move_turn",
+    "move_turn_r"
+   ],
+   "steps_per_s": 1.08333,
+   "taps_per_s": 1.95833,
+   "stance_offset_m": 0.03281,
+   "clearance_m": 0.10441,
+   "clearance_max_m": 0.15271,
+   "off_ground_share": 0.40121,
+   "ks_m_s": 1.68145,
+   "loaded_count": 3.04818,
+   "body_height_m": 1.07534,
+   "drift_m_s": 0.03131,
+   "facing_err_rms": 0.01804,
+   "t1_per_s": 0.05851,
+   "t2_per_s": 0.18937,
+   "hover_episodes": 18,
+   "hover_episodes_per_100": 18.0,
+   "falls": 0
+  },
+  "A1": {
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/2026-10-07_omni_phase2/seed18_X06_p2a_A15pB/suite__omni/seed001/2026-10-07_07-03-14",
+   "n": 100,
+   "hold_labels": [
+    "settle",
+    "stand",
+    "fwd",
+    "lat_l",
+    "lat_r",
+    "back",
+    "diag",
+    "turn_l90",
+    "turn_r90",
+    "move_turn",
+    "move_turn_r"
+   ],
+   "steps_per_s": 3.66667,
+   "taps_per_s": 2.83333,
+   "stance_offset_m": 0.03237,
+   "clearance_m": 0.08979,
+   "clearance_max_m": 0.14466,
+   "off_ground_share": 0.27045,
+   "ks_m_s": 1.53685,
+   "loaded_count": 3.19455,
+   "body_height_m": 1.05714,
+   "drift_m_s": 0.02969,
+   "facing_err_rms": 0.01714,
+   "t1_per_s": 0.21107,
+   "t2_per_s": 0.19379,
+   "hover_episodes": 0,
+   "hover_episodes_per_100": 0.0,
+   "falls": 0
+  },
+  "F1": {
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/2026-10-07_omni_phase2/seed18_X09_p2a_A15pB/suite__omni/seed001/2026-10-07_17-58-23",
+   "n": 100,
+   "hold_labels": [
+    "settle",
+    "stand",
+    "fwd",
+    "lat_l",
+    "lat_r",
+    "back",
+    "diag",
+    "turn_l90",
+    "turn_r90",
+    "move_turn",
+    "move_turn_r"
+   ],
+   "steps_per_s": 2.75,
+   "taps_per_s": 2.58333,
+   "stance_offset_m": 0.03156,
+   "clearance_m": 0.09304,
+   "clearance_max_m": 0.17502,
+   "off_ground_share": 0.34712,
+   "ks_m_s": 1.57361,
+   "loaded_count": 3.20727,
+   "body_height_m": 1.08049,
+   "drift_m_s": 0.03088,
+   "facing_err_rms": 0.02141,
+   "t1_per_s": 0.2195,
+   "t2_per_s": 0.22092,
+   "hover_episodes": 0,
+   "hover_episodes_per_100": 0.0,
+   "falls": 0
+  },
+  "E6_statue": {
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-23_clock_deprecation/step0_E6_statue/suite__omni/seed001/2026-09-23_21-59-41",
+   "n": 100,
+   "hold_labels": [
+    "settle",
+    "stand",
+    "fwd",
+    "lat_l",
+    "lat_r",
+    "back",
+    "diag",
+    "turn_l90",
+    "turn_r90",
+    "move_turn",
+    "move_turn_r"
+   ],
+   "steps_per_s": 0.0,
+   "taps_per_s": 0.0,
+   "stance_offset_m": 0.03451,
+   "clearance_m": 1e-05,
+   "clearance_max_m": 2e-05,
+   "off_ground_share": 0.0,
+   "ks_m_s": 0.09809,
+   "loaded_count": 5.0,
+   "body_height_m": 1.06478,
+   "drift_m_s": 0.00028,
+   "facing_err_rms": 0.00037,
+   "t1_per_s": 2.0,
+   "t2_per_s": 0.09515,
+   "hover_episodes": 0,
+   "hover_episodes_per_100": 0.0,
+   "falls": 0
+  }
+ },
+ "field": {
+  "REF": {
+   "field_hard__omni": {
+    "stand": {
+     "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/REF_S1_s18/field_hard__omni/seed001/2026-10-08_05-39-53",
+     "n": 100,
+     "hold_labels": [
+      "stand",
+      "fwd",
+      "lat_l",
+      "diag",
+      "back",
+      "turn_l90",
+      "turn_r90",
+      "move_turn"
+     ],
+     "steps_per_s": 2.75,
+     "taps_per_s": 2.6875,
+     "stance_offset_m": 0.03157,
+     "clearance_m": 0.1306,
+     "clearance_max_m": 0.18221,
+     "off_ground_share": 0.33571,
+     "ks_m_s": 1.66916,
+     "loaded_count": 3.30429,
+     "body_height_m": 1.0835,
+     "drift_m_s": 0.03449,
+     "facing_err_rms": 0.02221,
+     "t1_per_s": 0.3204,
+     "t2_per_s": 0.25595,
+     "hover_episodes": 0,
+     "hover_episodes_per_100": 0.0,
+     "falls": 0
+    },
+    "onset": {
+     "fwd": {
+      "onset_median_s": 0.16,
+      "n": 100
+     }
+    }
+   },
+   "field_light__omni": {
+    "stand": {
+     "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/REF_S1_s18/field_light__omni/seed001/2026-10-08_05-26-01",
+     "n": 100,
+     "hold_labels": [
+      "stand",
+      "fwd",
+      "lat_l",
+      "diag",
+      "back",
+      "turn_l90",
+      "turn_r90",
+      "move_turn"
+     ],
+     "steps_per_s": 2.75,
+     "taps_per_s": 2.625,
+     "stance_offset_m": 0.03168,
+     "clearance_m": 0.13002,
+     "clearance_max_m": 0.18348,
+     "off_ground_share": 0.33667,
+     "ks_m_s": 1.67301,
+     "loaded_count": 3.30571,
+     "body_height_m": 1.08542,
+     "drift_m_s": 0.03444,
+     "facing_err_rms": 0.01814,
+     "t1_per_s": 0.31878,
+     "t2_per_s": 0.25759,
+     "hover_episodes": 0,
+     "hover_episodes_per_100": 0.0,
+     "falls": 0
+    },
+    "onset": {
+     "fwd": {
+      "onset_median_s": 0.15,
+      "n": 100
+     }
+    }
+   },
+   "field_turn__omni": {
+    "stand": {
+     "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/REF_S1_s18/field_turn__omni/seed001/2026-10-08_05-54-46",
+     "n": 100,
+     "hold_labels": [
+      "fwd",
+      "stand",
+      "turn_l90",
+      "turn_r90"
+     ],
+     "steps_per_s": 2.75,
+     "taps_per_s": 2.5,
+     "stance_offset_m": 0.03149,
+     "clearance_m": 0.13423,
+     "clearance_max_m": 0.18878,
+     "off_ground_share": 0.35381,
+     "ks_m_s": 1.72161,
+     "loaded_count": 3.29857,
+     "body_height_m": 1.08172,
+     "drift_m_s": 0.03727,
+     "facing_err_rms": 0.04096,
+     "t1_per_s": 0.31783,
+     "t2_per_s": 0.27899,
+     "hover_episodes": 0,
+     "hover_episodes_per_100": 0.0,
+     "falls": 0
+    }
+   }
+  },
+  "C0": {
+   "field_hard__omni": {
+    "stand": {
+     "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/P2__C0_s18/field_hard__omni/seed001/2026-10-08_10-12-44",
+     "n": 100,
+     "hold_labels": [
+      "stand",
+      "fwd",
+      "lat_l",
+      "diag",
+      "back",
+      "turn_l90",
+      "turn_r90",
+      "move_turn"
+     ],
+     "steps_per_s": 2.375,
+     "taps_per_s": 1.75,
+     "stance_offset_m": 0.03054,
+     "clearance_m": 0.12076,
+     "clearance_max_m": 0.1681,
+     "off_ground_share": 0.36524,
+     "ks_m_s": 1.63892,
+     "loaded_count": 3.13286,
+     "body_height_m": 1.08875,
+     "drift_m_s": 0.03563,
+     "facing_err_rms": 0.01599,
+     "t1_per_s": 0.14331,
+     "t2_per_s": 0.23454,
+     "hover_episodes": 0,
+     "hover_episodes_per_100": 0.0,
+     "falls": 0
+    },
+    "onset": {
+     "fwd": {
+      "onset_median_s": 0.16,
+      "n": 100
+     }
+    }
+   },
+   "field_light__omni": {
+    "stand": {
+     "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/P2__C0_s18/field_light__omni/seed001/2026-10-08_09-58-57",
+     "n": 100,
+     "hold_labels": [
+      "stand",
+      "fwd",
+      "lat_l",
+      "diag",
+      "back",
+      "turn_l90",
+      "turn_r90",
+      "move_turn"
+     ],
+     "steps_per_s": 2.375,
+     "taps_per_s": 1.75,
+     "stance_offset_m": 0.03059,
+     "clearance_m": 0.11932,
+     "clearance_max_m": 0.16798,
+     "off_ground_share": 0.3681,
+     "ks_m_s": 1.63825,
+     "loaded_count": 3.14286,
+     "body_height_m": 1.08857,
+     "drift_m_s": 0.03542,
+     "facing_err_rms": 0.01578,
+     "t1_per_s": 0.15445,
+     "t2_per_s": 0.2342,
+     "hover_episodes": 0,
+     "hover_episodes_per_100": 0.0,
+     "falls": 0
+    },
+    "onset": {
+     "fwd": {
+      "onset_median_s": 0.16,
+      "n": 100
+     }
+    }
+   },
+   "field_turn__omni": {
+    "stand": {
+     "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/P2__C0_s18/field_turn__omni/seed001/2026-10-08_10-27-26",
+     "n": 100,
+     "hold_labels": [
+      "fwd",
+      "stand",
+      "turn_l90",
+      "turn_r90"
+     ],
+     "steps_per_s": 2.5,
+     "taps_per_s": 2.25,
+     "stance_offset_m": 0.03084,
+     "clearance_m": 0.12387,
+     "clearance_max_m": 0.16967,
+     "off_ground_share": 0.36857,
+     "ks_m_s": 1.67229,
+     "loaded_count": 3.16286,
+     "body_height_m": 1.09136,
+     "drift_m_s": 0.0386,
+     "facing_err_rms": 0.03398,
+     "t1_per_s": 0.1786,
+     "t2_per_s": 0.26512,
+     "hover_episodes": 0,
+     "hover_episodes_per_100": 0.0,
+     "falls": 1
+    }
+   }
+  },
+  "TG": {
+   "field_hard__omni": {
+    "stand": {
+     "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/P2__TG_s18/field_hard__omni/seed001/2026-10-08_17-25-38",
+     "n": 100,
+     "hold_labels": [
+      "stand",
+      "fwd",
+      "lat_l",
+      "diag",
+      "back",
+      "turn_l90",
+      "turn_r90",
+      "move_turn"
+     ],
+     "steps_per_s": 0.6875,
+     "taps_per_s": 1.375,
+     "stance_offset_m": 0.03108,
+     "clearance_m": 0.04316,
+     "clearance_max_m": 0.10281,
+     "off_ground_share": 0.44167,
+     "ks_m_s": 1.65127,
+     "loaded_count": 2.99143,
+     "body_height_m": 1.10176,
+     "drift_m_s": 0.03117,
+     "facing_err_rms": 0.01299,
+     "t1_per_s": -0.00085,
+     "t2_per_s": 0.16011,
+     "hover_episodes": 49,
+     "hover_episodes_per_100": 49.0,
+     "falls": 0
+    },
+    "onset": {
+     "fwd": {
+      "onset_median_s": 0.16,
+      "n": 100
+     }
+    }
+   },
+   "field_light__omni": {
+    "stand": {
+     "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/P2__TG_s18/field_light__omni/seed001/2026-10-08_17-12-16",
+     "n": 100,
+     "hold_labels": [
+      "stand",
+      "fwd",
+      "lat_l",
+      "diag",
+      "back",
+      "turn_l90",
+      "turn_r90",
+      "move_turn"
+     ],
+     "steps_per_s": 0.375,
+     "taps_per_s": 1.125,
+     "stance_offset_m": 0.03144,
+     "clearance_m": 0.04124,
+     "clearance_max_m": 0.09836,
+     "off_ground_share": 0.44095,
+     "ks_m_s": 1.64854,
+     "loaded_count": 2.99143,
+     "body_height_m": 1.10293,
+     "drift_m_s": 0.03241,
+     "facing_err_rms": 0.01244,
+     "t1_per_s": -0.00276,
+     "t2_per_s": 0.15876,
+     "hover_episodes": 56,
+     "hover_episodes_per_100": 56.0,
+     "falls": 0
+    },
+    "onset": {
+     "fwd": {
+      "onset_median_s": 0.16,
+      "n": 100
+     }
+    }
+   },
+   "field_turn__omni": {
+    "stand": {
+     "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/P2__TG_s18/field_turn__omni/seed001/2026-10-08_17-39-38",
+     "n": 100,
+     "hold_labels": [
+      "fwd",
+      "stand",
+      "turn_l90",
+      "turn_r90"
+     ],
+     "steps_per_s": 0.625,
+     "taps_per_s": 1.25,
+     "stance_offset_m": 0.03124,
+     "clearance_m": 0.04874,
+     "clearance_max_m": 0.11754,
+     "off_ground_share": 0.43262,
+     "ks_m_s": 1.707,
+     "loaded_count": 3.00571,
+     "body_height_m": 1.09523,
+     "drift_m_s": 0.0361,
+     "facing_err_rms": 0.03132,
+     "t1_per_s": 0.00838,
+     "t2_per_s": 0.20056,
+     "hover_episodes": 58,
+     "hover_episodes_per_100": 58.0,
+     "falls": 0
+    }
+   }
+  }
+ }
+}

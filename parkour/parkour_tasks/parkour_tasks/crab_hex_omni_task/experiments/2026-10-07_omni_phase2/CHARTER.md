@@ -999,3 +999,49 @@ verdict rules, replay gate, guards and budget are the pre-registration. This sec
   - Step 2's noise probe uses the shared `suite__omni` row instead of a new stand-only row. Its stand wave is the
     same 100 × 12-s hold, and REF's deterministic suite es1 stamp (`lr/REF_S1_s18/suite__omni/seed001/
     2026-10-08_05-11-48`) is then the same-row, same-window f denominator.
+- 2026-10-08 21:41–22:04, **step 2 noise premise probe** (≈ 0.4 GPU-h, code e3fe70fb, `suite__omni` es1;
+  `p2s_noise_probe.json`). Runs:
+  - fresh zero-action statue (`DIAG_STATUE_s18`): STILL on every clause;
+  - REF with `--sample-actions` (`DIAG_REFSAMP_s18`);
+  - the noisy statue, a model_19994 copy with the actor output zeroed, sampled (`DIAG_NOISYSTATUE_s18`).
+
+  Sampled σ: cams 1.0–1.3, rods 0.6–0.75.
+
+  | stand (median) | steps/s | taps/s | clearance | off-ground | loaded feet | T1 | T2 | falls |
+  |---|---|---|---|---|---|---|---|---|
+  | statue (det) | 0 | 0 | 0.000 | 0.00 | 5.0 | 2.00 | 0.095 | 0 |
+  | REF (det) | 2.83 | 2.83 | 0.135 | 0.34 | 3.26 | 0.28 | 0.258 | 0 |
+  | noisy statue (sampled) | 4.42 | 19.1 | 0.026 | 0.03 | 3.82 | 0.87 | 0.320 | 2 |
+  | REF (sampled) | 2.58 | 3.25 | 0.103 | 0.34 | 3.12 | 0.13 | 0.223 | 0 |
+
+  - **f at ST2's planning dose (1.12, −1.25) = 0.707 / 2.131 = 0.332.** The rule stops only below 0.33, so this is a
+    **marginal PASS**. ST1's dose gives 0.316.
+  - f is a lower bound: the open-loop statue cannot correct its own noise.
+  - **The slide term T2 reverses under noise.** The noisy still stance moves its loaded feet more than the noisy
+    march, so at ST2 T2 favours the march by ≈ 0.12/s. T1 alone keeps f = 0.43.
+  - Proceeding per the rule. The T2 reversal is flagged for the step-4 replay and the step-6 read.
+- 2026-10-08, **step 1 landed:** `scripts/p2s_stand.py`, the one stand-estimator set, with 20 unit tests, and
+  `p2s_baseline.json`.
+  - Self-check PASS: the E6 statue reads STILL on every clause; TG has 18 hover episodes; steps/s reproduces the
+    harness exactly.
+  - Suite stand baselines (steps/s, clearance, off-ground, hover):
+
+    | head | steps/s | clearance | off-ground | hover |
+    |---|---|---|---|---|
+    | REF es1 | 2.833 | 0.135 | 0.338 | 0 |
+    | REF es2 | 2.833 | 0.133 | 0.334 | 0 |
+    | C0 | 2.667 | 0.113 | 0.341 | 0 |
+    | CL | 1.417 | 0.077 | 0.352 | 4 |
+    | TG | 1.083 | 0.104 | 0.401 | 18 |
+    | A1 | 3.667 | 0.090 | 0.270 | 0 |
+    | F1 | 2.750 | 0.093 | 0.347 | 0 |
+
+  - Field-row opening stands: REF 2.75 steps/s, 0.13 m; C0 2.4, 0.12 m; TG 0.4–0.7, 0.04 m.
+  - Onset medians: 0.15–0.16 s for REF, C0 and TG.
+- 2026-10-08, **step 3 code landed (e1a08baf, code_sha moves):** `reward_stand_support` and `penalty_stand_slide` in
+  `mdp/crab_hex_omni_motion_rewards.py`; knobs `KRABBY_STAND_SUPPORT_W` (≥ 0) and `KRABBY_STAND_SLIDE_W` (≤ 0) in
+  `motion_knobs.py`; dump checks; 45 unit tests.
+  - Unset, the config is byte-identical.
+  - 269 related tests pass.
+  - 13 failures elsewhere (`test_crab_hex_omni_gate`, the dose-smoke tests, `test_crab_hex_omni_motion_ladder`, one
+    ppo_construction dump test) reproduce on the unchanged HEAD. They predate this change.
