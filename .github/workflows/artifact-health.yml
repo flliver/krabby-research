@@ -56,19 +56,31 @@ jobs:
         with:
           platforms: arm64
 
-      - name: Pull and smoke-start channel tags
+      - name: Pull and smoke-start release-latest
         run: |
           set -euo pipefail
+          # Operator default (`krabby install`). Skip mainline-latest — that ECR
+          # channel is stale and will likely be deprecated.
           ECR=public.ecr.aws/t7t7b3i3/krabby-locomotion
-          for TAG in mainline-latest release-latest; do
-            echo "=== ${ECR}:${TAG} ==="
-            # Published image is linux/arm64 only. Match publish-locomotion smoke.
-            docker pull --platform linux/arm64 "${ECR}:${TAG}"
-            docker image inspect "${ECR}:${TAG}" --format '{{.Id}} {{.Architecture}} {{.Os}}'
-            docker run --rm --platform linux/arm64 --network host "${ECR}:${TAG}" --help \
-              | grep -q -- '--teleop-ip'
-            echo "OK ${TAG}"
-          done
+          TAG=release-latest
+          echo "=== ${ECR}:${TAG} ==="
+          docker pull --platform linux/arm64 "${ECR}:${TAG}"
+          docker image inspect "${ECR}:${TAG}" --format '{{.Id}} {{.Architecture}} {{.Os}}'
+          set +e
+          HELP="$(docker run --rm --platform linux/arm64 --network host "${ECR}:${TAG}" --help 2>&1)"
+          RC=$?
+          set -e
+          if [ "$RC" -ne 0 ]; then
+            echo "FAIL ${TAG}: docker run --help exited ${RC}"
+            echo "$HELP" | head -60
+            exit 1
+          fi
+          if ! echo "$HELP" | grep -q -- '--teleop-ip'; then
+            echo "FAIL ${TAG}: --help missing --teleop-ip"
+            echo "$HELP" | head -60
+            exit 1
+          fi
+          echo "OK ${TAG} (--teleop-ip)"
 
   firmware-artifact:
     name: Firmware artifact (S3 latest + manifest)

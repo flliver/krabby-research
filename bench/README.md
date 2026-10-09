@@ -256,7 +256,7 @@ Runs on push to `mainline` / `release/**` (and `workflow_dispatch`). No Orin req
 | Job | Check |
 |---|---|
 | packages | `pip install` + import for `krabby-launcher`, `krabby-firmware`, `krabby-bench` |
-| locomotion-image | pull `mainline-latest` + `release-latest`, `docker run … --help` (arm64 via QEMU) |
+| locomotion-image | pull `release-latest`, `docker run … --help` must show `--teleop-ip` (arm64 via QEMU); `mainline-latest` not checked (stale; will likely be deprecated) |
 | firmware-artifact | S3 `latest.json` + manifest `ver_string` + HEX HEAD for `release/0.2.15` |
 | notify | Discord summary (skipped if `DISCORD_WEBHOOK_URL` secret unset) |
 
