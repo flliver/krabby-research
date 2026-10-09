@@ -1166,3 +1166,21 @@ verdict rules, replay gate, guards and budget are the pre-registration. This sec
   - **(2) The TG correction is committed** to `policy/manifest.yaml` (`stand_march`: the hover artefact, the p2s
     result, the new lever) and the PHASE2_REPORT lead line. The policy README was regenerated (`bundle_policy --sync`);
     `test_policy_of_record_omni` passes.
+
+## 12. Stage p2r: a stand regime (pre-registered 2026-10-09, before any p2r run)
+
+The plan of record is `P2R_PLAN.md`: audited in 2 passes (the cap) and approved by the user on 2026-10-09. Its steps,
+stop rules, verdicts and budget are the pre-registration. This section logs the run.
+
+**User decisions (2026-10-09):**
+- **A stand regime** instead of more stand-only reward on the shared gait.
+- **Probe both, cheap first:**
+  - **step 1** (eval only): a controller-level stand mode, (a) a zero-action hold and (b) ST2 as a stand specialist,
+    keyed on the latched stand slot, plus a drift probe;
+  - **STOP and ask**;
+  - **step 2**: graft a stand bit into S1's hidden clock column 15 (`KRABBY_OMNI_STAND_OBS=clock`) + the p2s stand
+    terms at the ST2 dose + a walking anchor loss to frozen S1 on non-stand rows. G2 (bit + anchor) first, then G1
+    (bit only), with the early anchor-strength check (CPU drift at +500 / +1000 against ST2).
+- **Unchanged:** target "mostly still"; no walking or wall cost beyond noise; the p2s ladder and estimators.
+
+### 12.1 Log
