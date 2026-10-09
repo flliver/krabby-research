@@ -569,9 +569,22 @@ def invalid_reasons(pt: dict, ref: dict, keys=VALIDITY_STAMPS) -> list[str]:
             out.append(f"{k}: row env block differs from {ref['name']}'s")
         if va["sidecar"] is None or vr["sidecar"] is None:
             out.append(f"{k}: code-state sidecar missing ({pt['name'] if va['sidecar'] is None else ref['name']})")
-        elif va["sidecar"] != vr["sidecar"]:
+        elif va["sidecar"] != vr["sidecar"] and not _bridged(va["sidecar"], vr["sidecar"]):
             out.append(f"{k}: code_sha / eval_sha / dirty differ from {ref['name']}'s ({va['sidecar']} vs {vr['sidecar']})")
     return out
+
+
+def _bridged(sa, sb) -> bool:
+    """True iff two clean sidecars with the same eval_sha differ only by a code_sha pair the campaign's
+    ``inertness_bridge.json`` records as verified bitwise-inert (P2R_STATUE_PLAN step 2: REFB on the new code ==
+    REFS on ae892cec on every raw key of the bridge rows). Any other difference stays INVALID."""
+    if not sa or not sb or sa[1] != sb[1] or sa[2] or sb[2]:
+        return False
+    br = _json(HERE.parent / "inertness_bridge.json") or {}
+    for pr in br.get("pairs") or []:
+        if pr.get("ok") and pr.get("eval_sha") == sa[1] and {sa[0], sb[0]} == {pr.get("from_code_sha"), pr.get("to_code_sha")}:
+            return True
+    return False
 
 
 def pending_reasons(pt: dict, anc: dict, bd: dict, need_dose: bool = True) -> list[str]:

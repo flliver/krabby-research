@@ -1,0 +1,57 @@
+{
+ "what": "P2R_STATUE_PLAN step 2 inertness bridge: REFB_S1_s18 (new code, every statue knob off) is BITWISE equal to REFS_S1_s18 (ae892cec) on every raw key of these rows; the ladder may compare stamps across this code_sha pair (same eval_sha, both clean).",
+ "pairs": [
+  {
+   "from_code_sha": "ae892cec7f2b782b94202b31dab35816c38337e16427bca0aa9f51065a4c6214",
+   "to_code_sha": "d9f0022fcbeb09a6b3a99367de8c8d5870ef94dc8e9844ee129163bf73bdcd7d",
+   "eval_sha": "1d021625844bb372556c26389fdb0ce610e42e1bfeae2dcd15e7ebc0ffabb7ff",
+   "rows": [
+    {
+     "row": "suite__omni",
+     "env_seed": 1,
+     "refb": "parkour/outputs/omni_plan/phase2/lr/REFB_S1_s18/suite__omni/seed001/2026-10-09_21-31-48",
+     "refs": "parkour/outputs/omni_plan/phase2/lr/REFS_S1_s18/suite__omni/seed001/2026-10-09_03-20-24"
+    },
+    {
+     "row": "field_hard__omni",
+     "env_seed": 1,
+     "refb": "parkour/outputs/omni_plan/phase2/lr/REFB_S1_s18/field_hard__omni/seed001/2026-10-09_21-38-49",
+     "refs": "parkour/outputs/omni_plan/phase2/lr/REFS_S1_s18/field_hard__omni/seed001/2026-10-09_03-47-57"
+    },
+    {
+     "row": "field_hard__omni",
+     "env_seed": 2,
+     "refb": "parkour/outputs/omni_plan/phase2/lr/REFB_S1_s18/field_hard__omni/seed002/2026-10-09_21-42-28",
+     "refs": "parkour/outputs/omni_plan/phase2/lr/REFS_S1_s18/field_hard__omni/seed002/2026-10-09_03-51-29"
+    },
+    {
+     "row": "field_hard__omni",
+     "env_seed": 3,
+     "refb": "parkour/outputs/omni_plan/phase2/lr/REFB_S1_s18/field_hard__omni/seed003/2026-10-09_21-46-06",
+     "refs": "parkour/outputs/omni_plan/phase2/lr/REFS_S1_s18/field_hard__omni/seed003/2026-10-09_03-55-03"
+    },
+    {
+     "row": "field_hard__omni",
+     "env_seed": 4,
+     "refb": "parkour/outputs/omni_plan/phase2/lr/REFB_S1_s18/field_hard__omni/seed004/2026-10-09_21-49-47",
+     "refs": "parkour/outputs/omni_plan/phase2/lr/REFS_S1_s18/field_hard__omni/seed004/2026-10-09_03-58-35"
+    },
+    {
+     "row": "walkstop__omni",
+     "env_seed": 1,
+     "refb": "parkour/outputs/omni_plan/phase2/lr/REFB_S1_s18/walkstop__omni/seed001/2026-10-09_21-53-27",
+     "refs": "parkour/outputs/omni_plan/phase2/lr/REFS_S1_s18/walkstop__omni/seed001/2026-10-09_04-11-22"
+    },
+    {
+     "row": "field_turn__omni",
+     "env_seed": 1,
+     "refb": "parkour/outputs/omni_plan/phase2/lr/REFB_S1_s18/field_turn__omni/seed001/2026-10-09_21-56-03",
+     "refs": "parkour/outputs/omni_plan/phase2/lr/REFS_S1_s18/field_turn__omni/seed001/2026-10-09_04-02-09"
+    }
+   ],
+   "check": "scratchpad bitwise_cmp.py: every raw key equal, every episode",
+   "ok": true,
+   "verified_at": "2026-10-09"
+  }
+ ]
+}

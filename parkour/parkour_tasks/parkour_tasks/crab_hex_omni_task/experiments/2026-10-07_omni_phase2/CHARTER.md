@@ -1258,3 +1258,14 @@ stop rules, verdicts and budget are the pre-registration. This section logs the 
     OBS=1. No head of record uses them, and the inertness bridge runs with them off.
   - **Tests:** 396 related tests pass and the 4 tool self-tests pass. The remaining unrelated failures predate this
     work, or sit in files other sessions are editing.
+- 2026-10-09 17:31–18:10, **statue step 2: identity + inertness PASS** (≈ 0.65 GPU-h; new code_sha d9f0022f).
+  - **Inertness bridge:** REFB_S1_s18 (new code, knobs off) is bitwise equal to REFS_S1_s18 (ae892cec) on every raw
+    key of suite es1, field_hard es1–4, walkstop es1 and field_turn es1.
+    - Recorded in `inertness_bridge.json`. `p2_read`'s INVALID rule now accepts exactly that code_sha pair (same
+      eval_sha, clean trees).
+  - **Graft GPU identity:** GRAFT_S1_s18 with `STAND_OBS=clock` is bitwise equal to REFS on every raw key except
+    `clock_obs`, on suite, field_turn and walkstop.
+    - `clock_obs[:,0]` equals the stand label on 1,179,914 labelled steps (0 off); col 16 is 0.
+    - The GPU stamps are written to graft.json.
+  - **Step 3:** doses 1.0 / 1.0 (KL units, sum ÷ B). Expected first-update `Loss/stand_prior` ≈ 2.3; anchor 0.
+  - Validator dry run: `P2__Z1_s18` ok. `p2_live --preflight` PASS. **Z1 launches.**
