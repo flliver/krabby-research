@@ -1085,3 +1085,7 @@ verdict rules, replay gate, guards and budget are the pre-registration. This sec
   - Tests: 478 pass (p2s, p2b and phase-2 tooling).
   - Sibling-pair replay on the real logs: 0 kills on 12 pairs (min length ratio 0.920); the notify flag fires on 5 of
     12.
+- 2026-10-08 ~23:20, **USER DECISION: train ST2 as solved** (1.1, −1.25) at s18, after the f question: 0.298 on means
+  and 0.330 on medians against the 0.33 line, with the T2 reversal under sampling. ST2 launches automatically when the
+  references and their inertness read finish clean (the chained launcher, `FROM_STEP=st2`). Any other stop blocks
+  it.
