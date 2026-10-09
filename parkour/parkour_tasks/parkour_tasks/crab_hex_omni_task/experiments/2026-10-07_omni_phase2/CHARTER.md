@@ -1141,3 +1141,21 @@ verdict rules, replay gate, guards and budget are the pre-registration. This sec
   suite es1, field_hard at es1–4 (n = 400) and walkstop es1, about 1.5 GPU-h, evals only.
   - The question: does an early point keep most of the stillness without the wall loss?
   - Names: `P2__ST2_s18_m20500` and `_m21000`, with the arm's driver-stamp env.
+- 2026-10-09 08:37, **ST2 early-checkpoint reads**: suite es1, field_hard at es1–4 (n = 400), walkstop es1; code
+  ae892cec; ≈ 0.8 GPU-h.
+
+  | head | its | stand steps/s | taps/s | clearance | loaded feet | body height | field_hard n=400 | back onset |
+  |---|---|---|---|---|---|---|---|---|
+  | REFS_S1_s18 | 0 | 2.83 | 2.8 | 0.135 | 3.26 | 1.068 | 0.8125 | 0.14 |
+  | C0R_s18 | +5000, no lever | 2.67 | 2.1 | 0.113 | 3.18 | 1.073 | 0.785 | 0.16 |
+  | ST2 m20500 | +506 | 1.50 | 11.2 | 0.010 | 4.65 | 1.006 | **0.725** | 0.14 |
+  | ST2 m21000 | +1006 | 0.83 | 11.1 | 0.009 | 4.76 | 1.033 | **0.700** | 0.36 |
+  | ST2 model_24993 | +5000 | 0.17 | 16.1 | 0.005 | 5.51 | 1.060 | **0.6175** | 0.99 |
+
+  - **No sweet spot.** Stand stillness and the wall loss grow together from the start.
+  - At +506, with the stand only half fixed, walls had already lost 0.09, past the ≈ 0.06 margin. That point also
+    crouches 6 cm.
+  - Tap chatter (11–16/s) is present at every point.
+  - **Reading:** the stand-only reward reshapes the shared gait (low lift, many loaded feet) at any exposure. A
+    lower dose (ST1) is expected to sit on the same curve.
+  - STOP and ask.
