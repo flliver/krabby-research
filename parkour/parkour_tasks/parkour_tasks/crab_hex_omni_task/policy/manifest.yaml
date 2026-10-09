@@ -629,16 +629,27 @@ followups:
   headline: The head still marches in place at stand.
   detail: 'Stand hold: 2.83 steps/s at 0.135 m lift clearance, tripod 0.76 (suite medians; A1 sibling 3.67 steps/s,
     0.090 m) -- it never stands still. F1 (a stand-slot stance income, weight 0.9 by user overrule of a replay-gate
-    FAIL) was dropped: lifts stayed full height (0.093 m, tripod 0.79). LEAD: the p2b tilt guard TG
-    (KRABBY_ORIENT_ALL_TILES 1, KRABBY_ORIENT_W -2.3, a p2b fork of this head) cut flat stand stepping 2.83 -> 1.08
-    steps/s (-62 %, clearance 0.104 m) as an UNPLANNED side effect, while giving no wall gain (below); n=1 at s18,
-    not replicated, not adopted.'
+    FAIL) was dropped: lifts stayed full height (0.093 m, tripod 0.79). CORRECTED 2026-10-09 (p2s, CHARTER 11): the
+    p2b tilt guard TG''s apparent stand cut (2.83 -> 1.08 steps/s) was a HOVER ARTEFACT -- its 9 zero-step episodes
+    hold one tripod up all hold (the harness counts no step for a foot lifted before the window); TG''s feet were off
+    the ground MORE than REF''s (unloaded share 0.487 vs 0.455; 18 unloaded-and-raised hover episodes). Stage p2s
+    (stand-slot support income + loaded-foot slide penalty, ST2 1.1 / -1.25, 5000 its at s18) stopped the march (0.17
+    steps/s, 5 mm lifts, 5.5 feet loaded, but 16 taps/s force chatter) and BLED INTO THE WALKING GAIT: swing apex
+    roughly halved in every hold, field_hard 0.8125 -> 0.6175 (n=400), back onset 0.14 -> 0.99 s; the early
+    checkpoints (+506 / +1006) trade stand for walls on the same curve (walls 0.725 / 0.700 at 1.50 / 0.83 steps/s).
+    Not adopted.'
   evidence:
   - 'experiments/2026-10-07_omni_phase2/CHARTER.md (9: SIBLING F1, F1 vs S1 gait comparison; 10: p2b s18 SCREEN)'
   - experiments/2026-10-07_omni_phase2/p2b_screen.json
   - experiments/2026-10-07_omni_phase2/REPLAY_GATE_P2B.md
-  levers: 'untested: TG (orientation-upright on all tiles) as a stand-targeted term, replicated at s16 / s17 and
-    read on stand steps/s; a stand-only TG variant -- offline replay gate first'
+  - 'experiments/2026-10-07_omni_phase2/CHARTER.md (11: p2s stand stage; P2S_PLAN.md, REPLAY_GATE_P2S.md)'
+  - experiments/2026-10-07_omni_phase2/p2s_screen.json
+  - experiments/2026-10-07_omni_phase2/p2s_mech_screen.json
+  levers: 'a stand-only reward on the shared gait reshapes walking (low lift) at any exposure -- the user chose to plan
+    a STAND-REGIME route next (2026-10-09: a stand mode the policy can separate from walking, e.g. a stand bit in the
+    observation + stand-gated terms; retrains from phase 1). TG (orientation-upright on all tiles) is NOT a stand
+    lever (hover artefact). Stand reads must use p2s_stand.py (off-ground share, unloaded-and-raised hover, taps),
+    never steps/s alone.'
 - id: p2b_negative
   recorded: '2026-10-08 (phase-2 bake)'
   headline: p2b found no lever that beats continuation on walls.

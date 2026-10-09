@@ -1159,3 +1159,10 @@ verdict rules, replay gate, guards and budget are the pre-registration. This sec
   - **Reading:** the stand-only reward reshapes the shared gait (low lift, many loaded feet) at any exposure. A
     lower dose (ST1) is expected to sit on the same curve.
   - STOP and ask.
+- 2026-10-09, **USER DECISIONS:**
+  - **(1) p2s ends without adoption.** The next step is to **plan a stand-regime route**: a stand mode the policy can
+    separate from walking. It gets a new plan, in plan mode with an audit. The head of record stays S1 s18; the p2s
+    knobs stay default-off.
+  - **(2) The TG correction is committed** to `policy/manifest.yaml` (`stand_march`: the hover artefact, the p2s
+    result, the new lever) and the PHASE2_REPORT lead line. The policy README was regenerated (`bundle_policy --sync`);
+    `test_policy_of_record_omni` passes.

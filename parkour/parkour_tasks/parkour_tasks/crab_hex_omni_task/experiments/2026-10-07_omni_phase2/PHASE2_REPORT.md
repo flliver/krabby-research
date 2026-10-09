@@ -146,7 +146,7 @@ Other findings:
 
 - **CL hurt.** It raised no apex where it counts (walking diag 0.052 vs 0.058 m), even though its training income was
   2.8× the replay's prediction.
-- **TG** had the fewest falls and fewest pit falls, and **cut stand stepping by 62 %**. Against C0 it gained +0.0425,
+- **TG** had the fewest falls and fewest pit falls, and **cut stand stepping by 62 %** (a hover artefact, CHARTER §11). Against C0 it gained +0.0425,
   where +0.056 was needed.
 
 **The user stopped p2b.** No replicates ran and no lever was adopted. Both knobs stay default-off.
@@ -187,8 +187,9 @@ Other findings:
 - **The robot marches at stand.**
   - It takes 2.83 steps/s at 0.135 m clearance.
   - F1 was dropped. S1 and F1 each cut stepping by about 25 % but kept full-height lifts.
-  - **Lead:** TG's 2.83 → 1.08 steps/s (n = 1, unplanned). Untested levers: TG replicated and read on stand, and a
-    stand-only TG, each through the replay gate first.
+  - ~~**Lead:** TG's 2.83 → 1.08 steps/s~~ **Corrected 2026-10-09 (CHARTER §11):** TG's cut was a hover artefact.
+    Its zero-step episodes hold a tripod up all hold, and its feet were off the ground more than REF's. Stage p2s then
+    tried a stand-slot support income: it stopped the march but halved walking lift (field_hard 0.81 → 0.62).
 - **Back overshoot** of 1.087 at s18. Untested levers: a back-speed tracking re-weight, or a short fine-tune at a lower
   action_rate weight.
 - **The wall deficit remains.**
