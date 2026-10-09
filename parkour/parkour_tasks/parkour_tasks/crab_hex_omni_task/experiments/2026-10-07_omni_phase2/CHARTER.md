@@ -1199,3 +1199,25 @@ stop rules, verdicts and budget are the pre-registration. This section logs the 
   - Fable review: nothing blocking in the launcher. Two read fixes were applied: a probe-name typo, and mode heads
     are now read by stamp name since they have no record. The hold swap-live proof also runs on walkstop, where it
     is non-vacuous.
+- 2026-10-09 13:15–14:50, **step 1 runs** (≈ 1.6 GPU-h, code ae892cec; `p2r_step1.md/.json`, `p2r_drift/`).
+  - **Launcher inertness: PASS.** P2R_PROBE_s18 (suite, field_hard, walkstop at es1) is bitwise equal to REFS_S1_s18
+    on every raw key, actions included, over 1000 episodes on the suite.
+  - Stand mode is exactly the latched slot: share 1.0 on settle and stand holds in every wave, 0 elsewhere.
+  - **HOLD swap-live: PASS.** Actions are exactly 0 on every stand-mode step, and pre-entry actions equal REFS on
+    suite and walkstop.
+
+  | head | stand (suite es1 / es2) | field_hard n=400 (REFS 0.8125) | walkstop onset | field_turn stand on walls | verdict |
+  |---|---|---|---|---|---|
+  | **P2R_HOLD_s18** (zero-action hold) | 0 steps, 0 taps, 0 clearance, 5.0 loaded / same | 0.810 (76 falls vs 75, none in stand) | 0.12 s (REFS 0.14) | 0.5 steps/s, 0.4 taps/s, 4.1 loaded, completion 0.99 | **STILL**, no tier-1 COST |
+  | P2R_ST2M_s18 (ST2 specialist) | 0.17 steps, **16.1 / 15.3 taps**, 5 mm | 0.835 | 0.14 s | 0.75 steps/s, 12 taps/s, 5.2 loaded, 0.98 | **PARTIAL** (taps) |
+
+  - **HOLD:**
+    - flat deltas against REFS are all ≤ 0.009; turn facing_closed 0.956;
+    - field_light 0.99 (= REFS); 0 falls in stand mode, no handover falls;
+    - the stand does not correct heading drift: stand-hold facing_closed −0.002 against REFS 0.377.
+  - **Drift premise (CPU, three 20k banks of non-stand states, anchor path):**
+    - D(ST2) at +506 / +1006 / +5000 is 2.28–2.29 / 3.64–3.82 / 4.52–5.05.
+    - D(C0) at +506 / +1006 is 1.35–1.42 / 1.63–2.02; D(C0R +5000) is 2.74–3.25.
+    - **STOP FIRES:** D(C0 +506) 1.35–1.42 > 0.5·D(ST2 +506) = 1.14. Continuation alone moves the walking means
+      about 60 % as far as the stand lever, so an action-mean anchor cannot single out the harmful drift.
+  - **STOP and ask** (P2R_PLAN step 3). Step 2 is not started.
