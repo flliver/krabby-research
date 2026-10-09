@@ -1226,3 +1226,14 @@ stop rules, verdicts and budget are the pre-registration. This section logs the 
     statue), instead of ST2's stand terms. The goal is no runtime mode switch.
   - It gets its own plan and audit, as an amendment to P2R_PLAN.
   - The hold mode stays on record as the working controller-level fallback.
+- 2026-10-09, **step-2 amendment approved: learn the statue in-network** (`P2R_STATUE_PLAN.md`; 1-pass audit, opus +
+  fable, blocking fixes applied; user-approved).
+  - **Design:** distil the step-1 hold controller into one network, using two masked μ losses in PPO, each a sum over
+    its masked rows ÷ B, in KL units at weight 1.
+    - On stand rows (bit = 1): a statue prior ½Σ(μ/σ_A)².
+    - On walking rows (bit = 0): a walking anchor ½Σ((μ − μ_S1)/σ_A)².
+    - The grafted stand bit (`KRABBY_OMNI_STAND_OBS=clock`, col 15) separates the two.
+  - **Arm:** one, `P2__Z1_s18` (S1 overlay verbatim, no ST2 terms, 5000 its).
+  - **Early checks** at +500 / +1000 (notify-only): walking drift ≤ ½ C0's; statue formation against its fork value;
+    residual plateau.
+  - **Budget:** ≈ 4.4 GPU-h.
