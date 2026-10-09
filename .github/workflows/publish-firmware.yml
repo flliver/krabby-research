@@ -24,7 +24,7 @@ jobs:
       contents: read
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           # Scheduled builds need every branch to find the newest release/*.
           fetch-depth: 0
@@ -46,7 +46,7 @@ jobs:
           git checkout -B "${LOCAL}" "${BRANCH}"
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.12'
 
@@ -62,7 +62,7 @@ jobs:
             | tar -xz -C /usr/local/bin arduino-cli
 
       - name: Cache arduino AVR core
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.arduino15
           key: arduino-avr-${{ runner.os }}-cli1.1.1-core1.8.8
@@ -82,7 +82,7 @@ jobs:
       # but check out the newest release/*, which may predate the M16 sensor and
       # need no library, so skip instead of failing.
       - name: Cache pinned Arduino libraries
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/Arduino/libraries
           key: arduino-libs-${{ hashFiles('firmware/Makefile') }}
@@ -105,7 +105,7 @@ jobs:
             firmware/arduino
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: arn:aws:iam::632914961627:role/krabby-firmware-ci
           aws-region: us-east-1

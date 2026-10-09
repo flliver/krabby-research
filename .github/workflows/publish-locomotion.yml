@@ -32,7 +32,7 @@ jobs:
       contents: read
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           # Scheduled builds need every branch to find the newest release/*.
           fetch-depth: 0
@@ -58,10 +58,10 @@ jobs:
           platforms: arm64
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Pre-push smoke (build full Dockerfile.release, no ECR push)
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: images/locomotion/Dockerfile.release
@@ -78,7 +78,7 @@ jobs:
           docker run --rm --network host krabby-locomotion-release:ci --help | grep -q -- '--teleop-ip'
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: arn:aws:iam::632914961627:role/krabby-locomotion-ci
           aws-region: us-east-1
@@ -127,7 +127,7 @@ jobs:
           echo "sha_tag=${SHA_TAG}" >> $GITHUB_OUTPUT
 
       - name: Build and push production image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: images/locomotion/Dockerfile.release
