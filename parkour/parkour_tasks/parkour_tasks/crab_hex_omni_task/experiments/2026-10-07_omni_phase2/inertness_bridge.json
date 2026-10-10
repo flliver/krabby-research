@@ -105,6 +105,35 @@
      "refs": "parkour/outputs/omni_plan/phase2/lr/REFS_S1_s18/field_turn__omni/seed001/2026-10-09_04-02-09"
     }
    ]
+  },
+  {
+   "from_code_sha": "ae892cec7f2b782b94202b31dab35816c38337e16427bca0aa9f51065a4c6214",
+   "to_code_sha": "fa4ce645db6e88eeaf5a12f61d2afec75a4e7e0f953f4238197f05e3780a7cb7",
+   "eval_sha": "1d021625844bb372556c26389fdb0ce610e42e1bfeae2dcd15e7ebc0ffabb7ff",
+   "what": "P2R_Z2 probe R fix (d5aa8c2e: R support rule; R is never loaded knob-off): REFD_S1_s18 (every Z2 knob off) is BITWISE equal to REFS_S1_s18 (ae892cec) on every raw key of these 3 rows",
+   "check": "scratchpad bitwise_cmp.py: every raw key equal, every episode",
+   "ok": true,
+   "verified_at": "2026-10-10",
+   "rows": [
+    {
+     "row": "suite__omni",
+     "env_seed": 1,
+     "refd": "parkour/outputs/omni_plan/phase2/lr/REFD_S1_s18/suite__omni/seed001/2026-10-10_06-42-06",
+     "refs": "parkour/outputs/omni_plan/phase2/lr/REFS_S1_s18/suite__omni/seed001/2026-10-09_03-20-24"
+    },
+    {
+     "row": "field_hard__omni",
+     "env_seed": 1,
+     "refd": "parkour/outputs/omni_plan/phase2/lr/REFD_S1_s18/field_hard__omni/seed001/2026-10-10_06-49-08",
+     "refs": "parkour/outputs/omni_plan/phase2/lr/REFS_S1_s18/field_hard__omni/seed001/2026-10-09_03-47-57"
+    },
+    {
+     "row": "walkstop__omni",
+     "env_seed": 1,
+     "refd": "parkour/outputs/omni_plan/phase2/lr/REFD_S1_s18/walkstop__omni/seed001/2026-10-10_06-52-48",
+     "refs": "parkour/outputs/omni_plan/phase2/lr/REFS_S1_s18/walkstop__omni/seed001/2026-10-09_04-11-22"
+    }
+   ]
   }
  ]
 }
