@@ -1,0 +1,172 @@
+{
+ "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-10_19-01-45_seed18_X18_p2r_A15pB",
+ "fork_first_iteration": 19994,
+ "checkpoints": {
+  "model_20500.pt": {
+   "checkpoint": "model_20500.pt",
+   "mode": "z2",
+   "cosine_delta_mu_vs_st2": 0.3573078513145447,
+   "drift": {
+    "rc": 0,
+    "D_Z": 0.020598456263542175,
+    "D_C0": 1.347259521484375,
+    "line": 0.6736297607421875,
+    "why": "the walking anchor is holding"
+   },
+   "formation": {
+    "first_update_value": 2.1481716632843018,
+    "rolling20_at_500": 0.09117884486913681,
+    "line": 0.5370429158210754,
+    "rc": 0,
+    "why": "formed"
+   },
+   "stand_fidelity": {
+    "hold_cam_residual_signed_by_leg": {
+     "FL": -0.01014292768911351,
+     "FR": 0.0074867745911686035,
+     "ML": 0.0013893076754471685,
+     "MR": -0.011102496680899437,
+     "RL": 0.0045500172994052965,
+     "RR": -0.021607285475680717
+    },
+    "hold_cam_residual_max_abs": 0.021607285475680717,
+    "line": 0.015,
+    "why": "max over legs |mean HOLD mu_cam - R_cam| 0.02161 > 0.015",
+    "by_branch_cam_abs_mean": {
+     "hold": 0.014517828087123099,
+     "wait": 0.13893763277897497,
+     "lift": 0.15014389125048924,
+     "home": 0.4142642557782206,
+     "seat": 0.17176453381404622
+    },
+    "prior_per_row": {
+     "n": 100000,
+     "mean": 0.10290419529012143,
+     "median": 0.005006629042327404,
+     "p90": 0.43397623896598875
+    },
+    "rc": 5
+   },
+   "residual_reported": {
+    "baseline_min_200_500": 0.09869487211108208,
+    "at": {
+     "500": {
+      "rolling50": 0.09869487211108208,
+      "prior_rows": 0.13218424454331398,
+      "per_stand_row": 0.7466462622082154
+     },
+     "1000": {
+      "rolling50": 0.11728226870298386,
+      "prior_rows": 0.1624283856153488,
+      "per_stand_row": 0.7220552507412299
+     }
+    },
+    "rc": 0,
+    "why": "within 2x of the +200..+500 minimum"
+   },
+   "reported": {
+    "PPO/kl_mean": null,
+    "PPO/lr_applied": null,
+    "PPO/grad_norm": null,
+    "Loss/value_function": null,
+    "Loss/grad_norm_statue": null,
+    "Loss/grad_norm_anchor": null,
+    "Loss/grad_norm_rest": null
+   },
+   "rc": 5,
+   "score": {
+    "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-10_19-01-45_seed18_X18_p2r_A15pB/model_20500.pt",
+    "exists": true,
+    "c0_ckpt_exists": true,
+    "st2_ckpt_exists": true,
+    "D_Z": 0.020598456263542175,
+    "D_C0": 1.347259521484375,
+    "cosine_delta_mu_vs_st2": 0.3573078513145447
+   }
+  },
+  "model_21000.pt": {
+   "checkpoint": "model_21000.pt",
+   "mode": "z2",
+   "cosine_delta_mu_vs_st2": -0.28945356607437134,
+   "drift": {
+    "rc": 0,
+    "D_Z": 0.01928080804646015,
+    "D_C0": 1.9268115758895874,
+    "line": 0.9634057879447937,
+    "why": "the walking anchor is holding"
+   },
+   "formation": {
+    "first_update_value": 2.1481716632843018,
+    "rolling20_at_500": 0.09117884486913681,
+    "line": 0.5370429158210754,
+    "rc": 0,
+    "why": "formed"
+   },
+   "stand_fidelity": {
+    "hold_cam_residual_signed_by_leg": {
+     "FL": -0.009970110902432725,
+     "FR": 0.003276719477431022,
+     "ML": 0.001644024450185361,
+     "MR": -0.022621488395134875,
+     "RL": 0.0002497651816226559,
+     "RR": -0.02405571206485315
+    },
+    "hold_cam_residual_max_abs": 0.02405571206485315,
+    "line": 0.015,
+    "why": "max over legs |mean HOLD mu_cam - R_cam| 0.02406 > 0.015",
+    "by_branch_cam_abs_mean": {
+     "hold": 0.015493103532459184,
+     "wait": 0.13712865219303852,
+     "lift": 0.15054539266778347,
+     "home": 0.38520312545147695,
+     "seat": 0.16483777546208167
+    },
+    "prior_per_row": {
+     "n": 100000,
+     "mean": 0.0814544557437813,
+     "median": 0.003582491772249341,
+     "p90": 0.32571685314178467
+    },
+    "rc": 5
+   },
+   "residual_reported": {
+    "baseline_min_200_500": 0.09869487211108208,
+    "at": {
+     "500": {
+      "rolling50": 0.09869487211108208,
+      "prior_rows": 0.13218424454331398,
+      "per_stand_row": 0.7466462622082154
+     },
+     "1000": {
+      "rolling50": 0.11728226870298386,
+      "prior_rows": 0.1624283856153488,
+      "per_stand_row": 0.7220552507412299
+     }
+    },
+    "rc": 0,
+    "why": "within 2x of the +200..+500 minimum"
+   },
+   "reported": {
+    "PPO/kl_mean": null,
+    "PPO/lr_applied": null,
+    "PPO/grad_norm": null,
+    "Loss/value_function": null,
+    "Loss/grad_norm_statue": null,
+    "Loss/grad_norm_anchor": null,
+    "Loss/grad_norm_rest": null
+   },
+   "rc": 5,
+   "score": {
+    "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-10_19-01-45_seed18_X18_p2r_A15pB/model_21000.pt",
+    "exists": true,
+    "c0_ckpt_exists": true,
+    "st2_ckpt_exists": true,
+    "D_Z": 0.01928080804646015,
+    "D_C0": 1.9268115758895874,
+    "cosine_delta_mu_vs_st2": -0.28945356607437134
+   }
+  }
+ },
+ "mode": "z2",
+ "rc": 5
+}

@@ -1717,3 +1717,23 @@ stop rules, verdicts and budget are the pre-registration. This section logs the 
     (`eps_step=0.3, trim=0.1, k_h=1`) + `KRABBY_BC_W 1.0`, `KRABBY_BC_BATCH 2048`, `KRABBY_BC_BANK` = the RSTg
     walkstop / suite / field_turn / field_hard es1 + RSTresg walkstop / suite es1 banks. RSTg walkstop es2 is held out
     as the gate bank; suite es2 is not trained on either.
+- 2026-10-10 19:01, **Z2c step 5: P2__Z2c_s18 launched** (X18 `2026-10-10_19-01-45_seed18_X18_p2r_A15pB`, fork GRAFT,
+  5000 its; guard REFG_S1_s18; code-change accepted for af2eabd8). Fork resume check PASS.
+- 2026-10-10 19:08–19:31, **Z2c early checks: all PASS. The fidelity gate PASSES; the run continues.**
+  - **+200 wiring: PASS.**
+    - `Loss/bc_mb0` first update 7.41 against the dose file's 7.57 (×0.98, band [0.52, 2]).
+    - `Loss/bc` fell to 0.047 per row by +1150, with `grad_norm_bc` about 1.5–2.
+    - The statue prior's own first-update mb0 is 2.22.
+  - **model_20500 FIDELITY GATE: PASS** (`p2r_z2c_gate.json`).
+    - Held-out RSTg walkstop es2, 71,707 all-HOLD rows, eval path, R recomputed with the run's constants.
+    - Max per-leg |mean μ − R|: **hip 0.020, cam 0.016** against the 0.05 lines.
+    - For comparison: Z2 0.13–0.18; GRAFT 0.53; the offline-fit control 0.009.
+    - The train path reads the same (hip 0.020, cam 0.016, knee 0.019).
+  - **Early checks** (`p2r_z2c_early.json`, notify-only):
+    - drift D 0.021 / 0.019 against lines 0.67 / 0.96 (anchor holding);
+    - formation: formed.
+    - Stand fidelity NOTIFY: max HOLD-branch cam residual 0.022 → 0.024, against Z2's 0.015 line. That line was set
+      for the ±0.03 trim; the new trim is ±0.1. Z2 read 0.092 → 0.065 here.
+  - **+1000 terrain check: PASS** (obstacle levels 1.08 → 5.58).
+  - The first monitor filter ended in `cut` (block-buffered), so these events were read by hand at 19:32. No action
+    was delayed: the gate is run_arm's.
