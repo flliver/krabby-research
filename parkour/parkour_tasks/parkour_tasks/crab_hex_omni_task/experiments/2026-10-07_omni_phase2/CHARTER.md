@@ -1327,3 +1327,41 @@ stop rules, verdicts and budget are the pre-registration. This section logs the 
     - **DOSE rung:** skipped by the Z read, but it would pass (median |μ| cam 0.73 / rod 0.87; stand clip share 0 vs
       REFS 0.325).
     - The bridge accept rule is per code_sha pair. It was verified on 7 rows and extrapolated to the others.
+- 2026-10-09 22:00–23:11, **Z1 videos** (flat, field_light, field_medium, field_heavy, speed_oob, walkstop; then a
+  10-min randomised heavy-walls run). The 10-min run had 49 commands of 5–20 s each (13 stands; speeds 0.04–0.32
+  inside the ellipse; any direction or facing).
+  - Falls in the 10-min run: 3, all while walking (35 s at move 0.14, 111 s at move 0.22, 265 s at move 0.28). There
+    were 0 falls in stands or turns.
+  - Videos are in `parkour/logs/videos/p2z1_*` (not committed).
+  - **Findings that motivated Z2** (measured on Z1's walkstop raws, 300 stands):
+    - **Five feet.** In 55 % of stands a foot carries < 10 N; the gap is a median 6.8 mm. This is the
+      static-indeterminacy lottery, not the policy.
+    - **Cams not homed.** Cams are velocity-commanded, so μ = 0 freezes them wherever walking left them. Hip yaw is
+      4.9–8.7° on average, against a default fan of 0.
+- 2026-10-10, **user decision: plan Z2, "all six feet planted and cams homed"**. The plan is `P2R_Z2_PLAN.md`, audited
+  2 passes (the cap) and approved; it amends `P2R_STATUE_PLAN.md`.
+  - **Design.**
+    - **Controller R.** A memoryless scripted stand controller R re-steps one tripod at a time (lift, home the cams in
+      the air, seat). It seats each leg on the policy's current-sense contact proxy.
+    - **Held proxy.** That proxy becomes a sample-and-hold observation on stand rows (`KRABBY_OMNI_STAND_PROXY=hold`):
+      a parked rod reads exactly −0.5, so a still stand is otherwise blind.
+    - **Probe, then distil.** R is proven at controller level on S1 (`P2R_RST_s18`), then distilled into one network
+      by setting Z1's statue-prior target to R(obs) (`KRABBY_STAND_PRIOR_TARGET=restance`).
+  - **User decisions:**
+    - re-step by tripod, not homing in place;
+    - current-sense load sensing, which carries over to hardware (not the sim-only joint sag, not cams-only);
+    - fork from the graft like Z1;
+    - a loaded cam inside the home band gets a ±0.03 restoring trim, cancelling Z1's |μ_cam| ≈ 0.019 residual,
+      which otherwise drifts out of the band in about 1.6 s;
+    - a residual-injection probe pass, plus a CPU stand-fidelity check during training;
+    - every R lift and press moves the knee too, so all proxy readings sit on the one knee-inclusive scale.
+  - **Pre-registered Z2 gates** (step 5):
+    - STILL on the suite;
+    - **six down:** ≥ 90 % of stands six-down ≥ 0.90 of the window. Baselines: Z1 walkstop 22–24 %, HOLD 34–35 %,
+      REFS 0 %;
+    - **homed:** ≥ 90 % of walkstop stands. Z1, HOLD and REFS: 0 %;
+    - **settle:** ≥ 95 % of stands settle; median within the probe's + 1 s;
+    - post-settle stillness;
+    - stand falls;
+    - the full p2s ladder.
+  - **Budget:** ≈ 5.6–6.1 GPU-h.
