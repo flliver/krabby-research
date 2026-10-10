@@ -1476,3 +1476,34 @@ stop rules, verdicts and budget are the pre-registration. This section logs the 
     - All other gates stand: STILL on the suite; homed ≥ 90 % of walkstop stands at both seeds; settle;
       post-settle stillness; falls; the p2s ladder; the field rows and body height in the probe's premise gate.
     - A code change, a short bridge, and a fresh probe (calibration + up to 3 tuning passes) come before training.
+- 2026-10-10, **Z2 cams-only code landed** (416f6658; code_sha 7ad542de).
+  - **The kinematic R:**
+    - phase from the hip-pitch position: down ≥ 0.4 × 0.25 × lift, up ≤ 0.6 × 0.25 × lift;
+    - a tripod steps only while the other is all down;
+    - a cam homes only while up; the ±0.03 trim applies when down and in band;
+    - all targets are absolute;
+    - mirror-equivariant to 0 error in both planes.
+  - **Plumbing:**
+    - the held proxy is refused in the probe and the reads;
+    - the dose obs come from cams + hip positions, bitwise against recorded obs on 5000 rows;
+    - the dose file must carry the chain's own R constants;
+    - settle = homed held 0.5 s; six-down is reported.
+  - **Fable review:** nothing blocking. 636 targeted tests pass.
+  - **Short bridge REFE PASS:** bitwise = REFS on suite, field_hard es1 and walkstop.
+- 2026-10-10 10:26–10:36, **kinematic calibration pass P2R_RSTk0_s18** (seed constants: lift −0.5, ρ 1, up 0.6,
+  down 0.4). **Every premise clause on es1 passes, so no tuning is needed.**
+
+  | | walkstop es1 (300 stands after walking) | suite es1 (from spawn) |
+  |---|---|---|
+  | homed | **97.3 %** (Z1 / HOLD 0 %) | 100 % |
+  | settled | 97.3 %, median 3.06 s | 100 % |
+  | post-settle steps / taps / KS | 0.11 / 0 / 0.14 | 0 / 0 / 0.10 (STILL, every clause) |
+  | stand falls | 1 / 300 | 0 |
+  | body height | 1.062 (REFS 1.068) | 1.065 |
+  | six-down ≥ 0.9 (reported) | 35 % (Z1 22 %) | 29 % (= HOLD) |
+  | mean stopped hip yaw | 0.28° (Z1 ~6°) | 0.09° |
+
+  - Of 300 stands, 292 end with every leg in HOLD and 7 with a waiting leg. The re-step takes a median 7 foot lifts.
+  - **Constants fixed = the seeds.** Next: the full set as `P2R_RST_s18` (suite and walkstop at es1 / es2,
+    field_hard es1, field_turn, stand bank on), then the residual pass `P2R_RSTres_s18`. The residual is Z1's walkstop
+    mean stand action, `p2r_z1_residual.json`: cam ≤ 0.019, rod ≤ 0.038.
