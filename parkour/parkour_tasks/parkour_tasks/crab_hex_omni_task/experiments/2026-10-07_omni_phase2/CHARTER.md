@@ -1610,3 +1610,10 @@ stop rules, verdicts and budget are the pre-registration. This section logs the 
       residual fell 0.015 → 0.010 from +500 to +1000.
   - The sentinel's saved line was truncated (multi-line JSON, as with Z1). The full record is `p2r_z2_early.json`,
     re-run by hand.
+- 2026-10-10 ~12:45, **Z2 +1006 early checks.**
+  - Drift D(Z2) 0.020: the anchor is holding.
+  - Formation: formed.
+  - **Stand fidelity: NOTIFY.** The max loaded-leg cam residual is 0.065, down from 0.092. The per-leg signs flipped
+    since +506, which looks like fit noise rather than a fixed bias.
+  - Mean prior per bank row 0.40; training residual per stand row 0.66 (Z1 0.010 at +1000).
+  - R's target fits much less tightly than Z1's zero. Notify-only; the run continues to its step-5 reads.
