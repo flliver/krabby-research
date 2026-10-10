@@ -1590,3 +1590,10 @@ stop rules, verdicts and budget are the pre-registration. This section logs the 
     rows, home branch 0.17.
     - On the noise banks, stand-row tilt exceeds 0.10 rad on 0–0.9 % of rows, so the dose rebuild leaving out roll and
       pitch is negligible.
+- 2026-10-10 12:18, **Z2 training launched** (`P2__Z2_s18`, candidates v15; code_sha d6ce86990a9e; fork = GRAFT_S1_s18,
+  sha ok via the graft). Preflight PASS (dose file matches the chain's R constants); code guard ok against REFF.
+  - **Fidelity dry run** on GRAFT_S1 against the P2R_RSTf stand bank (20,000 rows, hist_encoding = True, own-estimator
+    priv): the scorer works. S1 marching sits 0.51 off R's loaded cams, so it would notify, as expected before
+    training.
+  - The early-check sentinel (`p2r_early --mode z2`) is armed on the new run dir. It covers drift on the P2R_PROBE
+    bank, formation at 0.25×, and fidelity on the P2R_RSTf stand bank, at model_20500 and model_21000.
