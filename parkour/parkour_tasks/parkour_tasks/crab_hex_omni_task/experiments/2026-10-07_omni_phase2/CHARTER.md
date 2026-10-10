@@ -1365,3 +1365,42 @@ stop rules, verdicts and budget are the pre-registration. This section logs the 
     - stand falls;
     - the full p2s ladder.
   - **Budget:** ≈ 5.6–6.1 GPU-h.
+- 2026-10-10 ~01:50, **Z2 step 1: code landed** (ad89ba23; code_sha 4d4d833d; eval_sha 1d021625 unchanged; workflow
+  wf_f1b12efc). Three opus implementers plus a fable review.
+  - **What landed:**
+    - `mdp/crab_hex_omni_restance.py`: controller R, mirror-equivariant to 0 error in both planes on random states;
+    - `KRABBY_OMNI_STAND_PROXY=hold`: the held proxy, updated only on a full **knee** gate (the one-scale decision);
+    - `KRABBY_STAND_PRIOR_TARGET=restance` + `KRABBY_RESTANCE`;
+    - `--p2r-mode restance` (+ `--p2r-residual`, `--p2r-stand-bank`);
+    - `p2r_z2_dose.py` and `p2r_z2_fidelity.py`, and `p2r_early --mode z2`;
+    - the reads: `p2s_stand` per-stand Z2 estimators over all three walkstop stands, `p2_read --p2r-rst` / `--p2r-z2`,
+      and `p2_live` Z2 +200 wiring;
+    - candidates v13 (`P2__Z2_s18`, with `KRABBY_RESTANCE: default` until the probe fixes the constants).
+  - **Tests:** 151 new tests pass. On the related suites, 3419 pass and 5 fail, all environmental: one fails on a clean
+    HEAD worktree too; three read files another session is editing; one reads Z1's on-disk agent.yaml.
+  - **Real baselines** on the new per-stand statistics (es1 / es2):
+
+    | | six-down ≥ 0.9 share | homed |
+    |---|---|---|
+    | Z1 walkstop | 21.7 / 24.3 % | 0 % |
+    | HOLD walkstop | 34.7 / 33.7 % | 0 % |
+    | REFS walkstop | 0 % | 0 % |
+    | Z1 suite | 9 / 11 % | 0 % |
+    | HOLD suite | 29 / 20 % | 100 % (spawn) |
+
+  - **Decide-record (fable review; two pre-registered numbers the measured data contradicts):**
+    1. **The +200 held = live line.**
+       - The plan's ≥ 0.99 predates the knee-only validity rule. On the training-noise bank (DIAG_REFSAMP_s18,
+         60,000 stand rows) the knee gate is full on 97.6 % of steps, and held = live on 97.95 %.
+       - The line is now the dose file's `proxy_live_min` = bank share − 0.02. As written, 0.99 would have killed Z2
+         at +200.
+    2. **The dose band.**
+       - It cannot exclude target-0 at any small R, because S1's marching μ dominates both priors at the fork: 16.57
+         (R) vs 16.09 (0) per stand row, a paired Δ of 0.48.
+       - Exclusion is reported, not required. The band stays as the +200 range check, and the wiring proof is
+         `Loss/restance_nonzero` ≥ 0.5 plus the branch shares.
+       - On the bank, R's branch shares are hold 0.14, wait 0.36, lift 0.03, home 0.41, seat 0.06.
+    3. **Z2's episode-length guard is notify-only**, per the plan's "Left for implementation": R re-steps through most
+       noisy training stands.
+  - **Dose-script cross-check:** the proxy rebuild matches recorded obs within 4.8e-7 and the cams bitwise. DIAG
+    stamps record SAMPLED actions; on REFSAMP the noise term is subtracted (σ_sample = σ_A).
