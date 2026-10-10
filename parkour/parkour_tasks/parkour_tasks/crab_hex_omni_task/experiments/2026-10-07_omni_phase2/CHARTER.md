@@ -1653,3 +1653,17 @@ stop rules, verdicts and budget are the pre-registration. This section logs the 
     almost never sit in the clean all-homed, all-down state. LIFT / HOME / SEAT rows dominate, and the network
     averages those branches into the clean states the eval visits.
   - The dead band, trim and cam weighting do not address this rod bias.
+- 2026-10-10 15:35, **Z2 full read** (`p2_read --p2r-z2 P2__Z2_s18`; `p2r_z2_read.json`).
+  - **Stand: NO EFFECT** (not STILL). Attribution: NOT ATTRIBUTED. **Not adoption-grade.**
+  - **Walking intact:** field_hard 0.84 against REFS 0.8125 (n = 400); field_light 0.99, ring 1.0; onset 0.14 s
+    (= REFS); flat deltas ≤ 0.021, no FLAT FAIL. The anchor held walking; only the stand failed.
+- 2026-10-10 ~16:00, **user decision: Z2c**, adding clean-state cloning (CHARTER entry above).
+  - The plan of record is `P2R_Z2C_PLAN.md`, audited in 1 pass (the cap) and approved.
+  - **Premise probe** (offline BC on the RSTf banks): the network fits R on held-out clean walkstop states to 0.007–0.012
+    hip / cam bias (Z2: 0.13–0.18), **provided BC cannot move the priv-encoder latent**.
+    - That latent's input is constant on every row, so BC uses it as a free bias. Trainable, the eval path reads
+      0.20–0.25.
+    - BC's priv latent is detached.
+  - **Audit fix:** the fidelity gate scores held-out **walkstop es2** alone. Suite es2 is a near-duplicate of the
+    trained suite es1 bank.
+  - **Budget:** about 5.1 GPU-h.
