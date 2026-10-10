@@ -19,6 +19,5 @@
   0.016219493001699448,
   0.00533680897206068
  ],
- "source": "parkour/outputs/omni_plan/phase2/lr/P2__Z1_s18/walkstop__omni/seed001/2026-10-10_01-20-45/",
- "what": "Z1 (P2__Z1_s18) walkstop es1 mean action over the last 5 s of every stand (300 stands): the per-channel stand residual R must tolerate (P2R_Z2_PLAN step 3 residual pass)"
+ "source": "parkour/outputs/omni_plan/phase2/lr/P2__Z1_s18/walkstop__omni/seed001/2026-10-10_01-20-45/ :: Z1 (P2__Z1_s18) walkstop es1 mean action over the last 5 s of every stand (300 stands): the per-channel stand residual R must tolerate (P2R_Z2_PLAN step 3 residual pass)"
 }

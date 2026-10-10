@@ -1507,3 +1507,27 @@ stop rules, verdicts and budget are the pre-registration. This section logs the 
   - **Constants fixed = the seeds.** Next: the full set as `P2R_RST_s18` (suite and walkstop at es1 / es2,
     field_hard es1, field_turn, stand bank on), then the residual pass `P2R_RSTres_s18`. The residual is Z1's walkstop
     mean stand action, `p2r_z1_residual.json`: cam ≤ 0.019, rod ≤ 0.038.
+- 2026-10-10 10:37–11:03, **probe full set P2R_RST_s18** (seed constants, stand bank on). `p2_read --p2r-rst`:
+  **FAIL**.
+
+  | | es1 (tuning seed) | es2 (held out) |
+  |---|---|---|
+  | suite STILL | PASS (0 steps, 0 taps, KS 0.10) | PASS (KS 0.11) |
+  | homed | 97.3 % | 95.6 % |
+  | settled | 97.3 %, 3.06 s | 95.6 %, 3.10 s |
+  | post-settle steps / taps / KS | 0.11 / 0 / 0.14 | 0.13 / 0 / 0.14 |
+  | stand falls | 1 / 300 | **4 / 296** (line 1) |
+  | body height vs REFS | within 0.007 | within 0.006 |
+  | six-down (reported) | 35 % suite 29 % | 30 % suite 20 % |
+
+  - **Field rows (es1):**
+    - field_hard: 0 stand falls, completion 0.76 (HOLD line 0.71), PASS;
+    - **field_turn: 8 / 100 stand falls, completion 0.90** (HOLD 0 falls, 0.97+), FAIL.
+  - **Fall pattern (12 falls traced):** while one tripod is in the air homing its cams (HOME holds for 0.8–2 s), the
+    body tips steadily to ±25° on the other tripod. That tripod's feet sit where walking left them, and one of them is
+    often not yet planted: "down" allowed the hip within 40 % of the lift, about 3 cm above the ground.
+  - **Residual pass:** aborted at launch. The residual JSON carried an extra `what` key, which the loader refuses by
+    design. The file is fixed (`what` folded into `source`); the pass reruns on the final constants.
+  - **Tuning pass 1 (k1):** down_frac 0.4 → 0.25 (support fully planted), up_frac 0.6 → 0.4 and lift −0.5 → −0.4
+    (shorter air time). Rows: walkstop es1 + field_turn es1. The suite is skipped because R from spawn is the statue,
+    unaffected by these constants; es2 stays held out.
