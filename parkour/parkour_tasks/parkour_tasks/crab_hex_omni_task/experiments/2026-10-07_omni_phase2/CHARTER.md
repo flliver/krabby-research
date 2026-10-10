@@ -1462,3 +1462,17 @@ stop rules, verdicts and budget are the pre-registration. This section logs the 
   - **What works:** the cam homing itself (suite 100 %, walkstop 50 % and limited only by the deadlock) and the
     support rule (falls 50 → 4).
   - **NOTIFY + ask the user** (the fallbacks are theirs).
+- 2026-10-10 ~03:15, **user decision: Z2 continues CAMS-ONLY with a KINEMATIC re-step** (no load sensing).
+  - **The new R:**
+    - **Phase from the hip position:** a leg is "down" when its hip-pitch is near default and "up" near the lift
+      target.
+    - **Stepping:** a tripod steps only while the other tripod is entirely down.
+    - **Cams:** a cam homes only while its leg is up; a down leg in band gets the ±0.03 trim.
+    - **Rods:** every target is absolute (lift or 0).
+  - **Six-foot loading** stays the static-indeterminacy lottery (Z1 22–24 %, HOLD 34–35 %).
+  - **Amendment to P2R_Z2_PLAN** (recorded here and in the plan file's amendment note):
+    - The held proxy (`KRABBY_OMNI_STAND_PROXY`) is no longer used by R or Z2. It stays in the code, default off.
+    - The six-down gate becomes REPORTED. Settle = homed, held 0.5 s.
+    - All other gates stand: STILL on the suite; homed ≥ 90 % of walkstop stands at both seeds; settle;
+      post-settle stillness; falls; the p2s ladder; the field rows and body height in the probe's premise gate.
+    - A code change, a short bridge, and a fresh probe (calibration + up to 3 tuning passes) come before training.

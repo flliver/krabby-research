@@ -271,3 +271,22 @@ Steps 1 and 6 are CPU only.
 - Replicates and the bake.
 - Hardware runtime code for the sample-and-hold.
 - Push-recovery evals.
+
+## Amendment 2026-10-10 (user decision after the step-3 premise STOP; CHARTER 12.1)
+
+The current-sense seat law failed the premise:
+- stale holds deadlocked 116 / 294 walkstop stands;
+- the press chattered at 37 taps/s on the suite.
+
+**Z2 is now CAMS-ONLY with a kinematic re-step.**
+- **R drops load sensing.**
+  - The leg phase comes from the hip-pitch position: down near default, up near the lift target.
+  - A tripod steps only while the other tripod is all down.
+  - Cams home only while their leg is up; the in-band trim applies when down.
+  - All targets are absolute.
+- **`KRABBY_OMNI_STAND_PROXY` is not used** (it stays off).
+- **Gates:**
+  - six-down is REPORTED, not gated;
+  - settle = homed held 0.5 s;
+  - every other gate, the premise gate and the ladder are unchanged.
+- **Before training:** a fresh probe (calibration + up to 3 tuning passes) and a short bridge for the code move.
