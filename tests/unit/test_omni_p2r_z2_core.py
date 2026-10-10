@@ -598,7 +598,8 @@ def rc():
 
 #: NOTE(p2r Z2 cams-only, 2026-10-10): the v14 Z2 chain's two knobs (no proxy); the held proxy stays a registered,
 #: independent ladder knob (PROXY_KNOB) the Z2 chain does not carry.
-Z2_KNOBS = {"KRABBY_STAND_PRIOR_TARGET": "restance", "KRABBY_RESTANCE": "default"}
+Z2_KNOBS = {"KRABBY_STAND_PRIOR_TARGET": "restance",  # v15: the final probe's constants
+            "KRABBY_RESTANCE": "lift=-0.5,rho=1,up_frac=0.5,down_frac=0.4,k_c=2,k_h=0.3,trim=0.03,eps_c=0.1,eps_air=0.05,tilt_max=0.1"}
 PROXY_KNOB = {"KRABBY_OMNI_STAND_PROXY": "hold"}
 LADDER_KNOBS = {**PROXY_KNOB, **Z2_KNOBS}
 
@@ -671,7 +672,7 @@ def test_dump_checks_on_the_real_s1_dump(rc, tmp_path):
     env_on, agent_on = SC._armed_dumps(env_txt, agent_txt, str(SC.GRAFT))
     assert checks["KRABBY_OMNI_STAND_PROXY"](env_on, "0") and not checks["KRABBY_OMNI_STAND_PROXY"](env_on, "hold")
     block = yaml.dump({"algorithm": {"stand_prior_target": "restance",
-                                     "restance": RST.RestanceParams().to_dict()}},
+                                     "restance": RST.parse_restance(Z2_KNOBS["KRABBY_RESTANCE"]).to_dict()}},
                       default_flow_style=False, sort_keys=False).split("\n", 1)[1]
     agent_on = agent_on.replace("  stand_mask_col: 15\n", "  stand_mask_col: 15\n" + block, 1)
     for key, value in Z2_KNOBS.items():
@@ -696,7 +697,8 @@ def test_dump_checks_on_the_real_s1_dump(rc, tmp_path):
     for drop, name in (("   Mean restance_nonzero: 1.0000\n",
                         "log: Mean restance_nonzero printed (the KRABBY_STAND_PRIOR_TARGET loss ran)"),
                        ("stand_prior_target=restance, ", "log: [PPO] construction names stand_prior_target=restance"),
-                       ("[KNOB] KRABBY_RESTANCE=default consumed\n", "log: [KNOB] KRABBY_RESTANCE consumed")):
+                       (f"[KNOB] KRABBY_RESTANCE={Z2_KNOBS['KRABBY_RESTANCE']} consumed\n",
+                        "log: [KNOB] KRABBY_RESTANCE consumed")):
         rec = SC._run_dir(tmp_path / f"drop{abs(hash(drop))}", env_on, agent_on, log.replace(drop, ""))
         assert dict(rc.overlay_checks(rec, armed))[name] is False, name
     # Z1's dumps fail the Z2 claims
@@ -746,7 +748,7 @@ def test_candidates_v14_z2_chain_is_z1_verbatim_plus_the_two_knobs():
     d = yaml.safe_load(open(CAMP / "candidates.yaml"))
     v12 = yaml.safe_load(open(CAMP / "scripts/candidates_v12.yaml"))
     v13 = yaml.safe_load(open(CAMP / "scripts/candidates_v13.yaml"))
-    assert (CAMP / "candidates.yaml").read_bytes() == (CAMP / "scripts/candidates_v14.yaml").read_bytes()
+    assert (CAMP / "candidates.yaml").read_bytes() == (CAMP / "scripts/candidates_v15.yaml").read_bytes()
     assert d["chains"]["P2__Z1_s18"] == v12["chains"]["P2__Z1_s18"]           # v12's Z1 untouched
     assert d["references"]["P2__Z2_s18"] == {"chain": "P2__Z2_s18", "seed": 18}
     z1, z2 = d["chains"]["P2__Z1_s18"], d["chains"]["P2__Z2_s18"]
@@ -761,9 +763,11 @@ def test_candidates_v14_z2_chain_is_z1_verbatim_plus_the_two_knobs():
     assert list(s2["overlay"])[-2:] == list(Z2_KNOBS)                         # the new block last
     assert {k: v for k, v in z2.items() if k not in ("stages", "notes")} == \
         {k: v for k, v in z1.items() if k not in ("stages", "notes")}
-    # v13's Z2 differed exactly by the proxy knob
+    # v13's Z2 differed exactly by the proxy knob -- and v15's by the final R constants ('default' -> the probe's)
     v13_ov = dict(v13["chains"]["P2__Z2_s18"]["stages"][0]["overlay"])
-    assert v13_ov.pop("KRABBY_OMNI_STAND_PROXY") == "hold" and v13_ov == s2["overlay"]
+    assert v13_ov.pop("KRABBY_OMNI_STAND_PROXY") == "hold" and v13_ov.pop("KRABBY_RESTANCE") == "default"
+    s2_ov = dict(s2["overlay"])
+    assert s2_ov.pop("KRABBY_RESTANCE") == Z2_KNOBS["KRABBY_RESTANCE"] and v13_ov == s2_ov
     # everything else in the file is v13's (and so v12's)
     rest = {k: v for k, v in d.items() if k not in ("chains", "references")}
     assert rest == {k: v for k, v in v13.items() if k not in ("chains", "references")}

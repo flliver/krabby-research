@@ -3073,7 +3073,10 @@ STAND_PROXY_OFF = ("", "0")
 P2R_RST_VARIANT = "restance"
 #: the Z2 stand gates (P2R_Z2_PLAN.md step 5): shares of STANDS, per seed. NOTE(p2r Z2 cams-only, 2026-10-10): the
 #: six-down line is REPORTED against Z2_SIXDOWN_STANDS (``reported``), no longer a gate clause.
-Z2_SIXDOWN_STANDS, Z2_HOMED_STANDS, Z2_SETTLED_STANDS = 0.90, 0.90, 0.95
+#: NOTE(p2r Z2, 2026-10-10, USER DECISION after the final probe -- CHARTER 12.1): under the cams-only amendment
+#: "settled" = homed held 0.5 s, the same event as the homed gate, so its line matches the homed line (was 0.95; the
+#: final probe's es2 read 0.9467, one stand short, 0.26 SE).
+Z2_SIXDOWN_STANDS, Z2_HOMED_STANDS, Z2_SETTLED_STANDS = 0.90, 0.90, 0.90
 Z2_SETTLE_PLUS_S = 1.0                           # median settle <= the probe's median + 1 s (same seed)
 Z2_POST = {"post_settle_steps_per_s": 0.5, "post_settle_taps_per_s": 1.0, "post_settle_ks_m_s": 0.5}
 Z2_FALLS_FLOOR = 1.0                             # walkstop stand falls <= max(1, Z1's) per 300 stands
@@ -3162,7 +3165,7 @@ def z2_stand_gates(z2: dict, still: dict, z1_z2: dict | None, probe_z2: dict | N
                    relative: bool = True) -> dict:
     """The Z2 stand gates (P2R_Z2_PLAN.md step 5 + its 2026-10-10 amendment, pure), per seed in ``seeds``: STILL on
     the suite (all six clauses); homed >= 90 % of walkstop stands;
-    walkstop stand falls <= max(1, Z1's) per 300 (over all three stands); >= 95 % of walkstop stands settled;
+    walkstop stand falls <= max(1, Z1's) per 300 (over all three stands); >= 90 % of walkstop stands settled;
     (``relative``) the walkstop median settle <= the probe's same-seed median + 1 s; post-settle steps <= 0.5/s,
     taps <= 1/s, KS <= 0.5 (fail-closed medians: an unsettled stand fails them). ``z2`` = :func:`z2_reads` of the
     head, ``still`` = {seed: p2s head_summary of suite es<seed>}, ``z1_z2`` / ``probe_z2`` = the same reads of Z1

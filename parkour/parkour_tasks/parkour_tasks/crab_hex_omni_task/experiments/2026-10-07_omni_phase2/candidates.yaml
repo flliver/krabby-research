@@ -157,6 +157,8 @@ decision_rule:
 # KRABBY_OMNI_STAND_PROXY (it stays off: the obs is Z1's). P2__Z2_s18 = the P2__Z1_s18 chain VERBATIM +
 # KRABBY_STAND_PRIOR_TARGET restance + KRABBY_RESTANCE default (the fresh probe's final constants replace "default"
 # in a later copy). Every other chain is unchanged.
+# v15 (2026-10-10, CHARTER 12.1, after the final probe P2R_RSTf_s18 and the user's go): P2__Z2_s18's KRABBY_RESTANCE
+# = the probe's final constants (tuning passes k1-k3 + the tilt guard, e6c82ab2). Every other chain is unchanged.
 
 chains:
   # ======================================================================== calibration smokes (CHARTER 5)
@@ -1239,7 +1241,7 @@ chains:
           # chain's two new knobs live (no KRABBY_OMNI_STAND_PROXY: R reads no proxy); the fresh step-3 probe's
           # final constants replace "default" (a later candidates copy)
           KRABBY_STAND_PRIOR_TARGET: restance
-          KRABBY_RESTANCE: default
+          KRABBY_RESTANCE: lift=-0.5,rho=1,up_frac=0.5,down_frac=0.4,k_c=2,k_h=0.3,trim=0.03,eps_c=0.1,eps_air=0.05,tilt_max=0.1
         eval: [suite]
         categories: [back, diag, fwd, move_turn, side, stand, turn]
         floor: {kind: none}

@@ -359,7 +359,7 @@ def test_z2_stand_gates_pass_and_each_failure(read):
     g = read.z2_stand_gates(_z2(), still, z1, probe)
     assert g["verdict"] == "PASS", g["failed"]
     for kw, frag in ((dict(homed_share=0.5), "homed walkstop es1"),
-                     (dict(settled_share=0.94), "settled walkstop es1"),
+                     (dict(settled_share=0.89), "settled walkstop es1"),     # line 0.90 (user decision 2026-10-10)
                      (dict(settle_median_s=2.6), "median settle walkstop es1"),
                      (dict(post_settle_steps_per_s=0.6), "post_settle_steps_per_s walkstop es1"),
                      (dict(post_settle_taps_per_s=1.1), "post_settle_taps_per_s walkstop es1"),

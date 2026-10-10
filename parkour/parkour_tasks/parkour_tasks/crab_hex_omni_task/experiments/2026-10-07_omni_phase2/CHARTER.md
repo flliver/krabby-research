@@ -1580,3 +1580,13 @@ stop rules, verdicts and budget are the pre-registration. This section logs the 
   - **Under the amendment, settled = homed held 0.5 s**, so the 95 % settle clause tests the same event as the 90 %
     homed gate with a stricter line. The es2 miss is 0.26 SE (n = 300). Tuning passes are exhausted, so per step 3:
     **STOP and ask.**
+- 2026-10-10 ~12:20, **user decision: train Z2; the settled line = the homed line (90 %)** for the probe and for
+  Z2's step-5 read. Under the cams-only amendment settled = homed held 0.5 s, so the two clauses test the same event.
+  The median-settle clause (≤ probe + 1 s) stays.
+  - Re-read: `p2_read --p2r-rst P2R_RSTf_s18` → **PASS** ("every evaluated clause holds").
+  - **candidates v15:** `P2__Z2_s18` carries `KRABBY_RESTANCE=lift=-0.5,rho=1,up_frac=0.5,down_frac=0.4,k_c=2,`
+    `k_h=0.3,trim=0.03,eps_c=0.1,eps_air=0.05,tilt_max=0.1`.
+  - **Dose** (`p2r_z2_dose.json`, those constants): rc 0, band [1.047, 5.369], R ≠ 0 on 99.9 % of training stand
+    rows, home branch 0.17.
+    - On the noise banks, stand-row tilt exceeds 0.10 rad on 0–0.9 % of rows, so the dose rebuild leaving out roll and
+      pitch is negligible.

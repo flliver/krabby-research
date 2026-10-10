@@ -1,0 +1,202 @@
+{
+ "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/DIAG_REFSAMP_s18/suite__omni/seed001/2026-10-09_01-49-08",
+ "checkpoint": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/graft/S1_s18_c15/model_19994.pt",
+ "labels": [
+  "stand"
+ ],
+ "actions": "sampled",
+ "debias_c": 9.0,
+ "sigma_A": [
+  1.255490779876709,
+  1.2851413488388062,
+  1.0208244323730469,
+  1.0235955715179443,
+  1.0960005521774292,
+  1.1667640209197998,
+  0.711197018623352,
+  0.7534115314483643,
+  0.6633875370025635,
+  0.6503607034683228,
+  0.6371210217475891,
+  0.6723113656044006,
+  0.6726819276809692,
+  0.644262969493866,
+  0.6438657641410828,
+  0.6190069317817688,
+  0.6321020722389221,
+  0.6053183674812317
+ ],
+ "sigma_sample": [
+  1.2554908990859985,
+  1.2851412296295166,
+  1.0208244323730469,
+  1.0235954523086548,
+  1.0960005521774292,
+  1.1667640209197998,
+  0.711197018623352,
+  0.753411591053009,
+  0.6633874773979187,
+  0.6503607630729675,
+  0.6371210217475891,
+  0.6723113656044006,
+  0.6726819276809692,
+  0.6442630290985107,
+  0.6438657641410828,
+  0.619006872177124,
+  0.6321020722389221,
+  0.6053183674812317
+ ],
+ "sigma_sample_equals_sigma_A": true,
+ "restance": {
+  "lift": -0.5,
+  "rho": 1.0,
+  "up_frac": 0.5,
+  "down_frac": 0.4,
+  "k_c": 2.0,
+  "k_h": 0.3,
+  "trim": 0.03,
+  "eps_c": 0.1,
+  "eps_air": 0.05,
+  "tilt_max": 0.1
+ },
+ "restance_knob": "lift=-0.5,rho=1,up_frac=0.5,down_frac=0.4,k_c=2,k_h=0.3,trim=0.03,eps_c=0.1,eps_air=0.05,tilt_max=0.1",
+ "episodes": 100,
+ "rows": 60000,
+ "hip_default": [
+  0.027169998735189438,
+  0.027169998735189438,
+  0.027169998735189438,
+  0.027169998735189438,
+  0.027169998735189438,
+  0.027169998735189438
+ ],
+ "hip_default_source": "linkage.hip_default_rad",
+ "per_row": {
+  "restance": {
+   "mean": 16.776758782752356,
+   "se": 0.04219578295988511,
+   "n": 60000
+  },
+  "target0": {
+   "mean": 16.089157474811874,
+   "se": 0.040038089000763534,
+   "n": 60000
+  },
+  "restance_raw_mean": 25.77676010131836,
+  "target0_raw_mean": 25.08915901184082,
+  "restance_minus_target0": {
+   "mean": 0.6876013079365094,
+   "se": 0.01207554098917809,
+   "n": 60000
+  }
+ },
+ "branch_shares": {
+  "hold": 0.11988888888888889,
+  "wait": 0.304275,
+  "lift": 0.02666666666666667,
+  "home": 0.17001666666666668,
+  "seat": 0.3791527777777778
+ },
+ "restance_nonzero_share": 0.9987333416938782,
+ "leg_down_share": 0.4508305490016937,
+ "leg_up_share": 0.4689444303512573,
+ "mean_abs_target": [
+  0.12716861069202423,
+  0.39156678318977356,
+  0.14802874624729156,
+  0.20483607053756714,
+  0.11576368659734726,
+  0.3336443305015564,
+  0.046933334320783615,
+  0.15337499976158142,
+  0.14278332889080048,
+  0.04933333396911621,
+  0.046875,
+  0.15074999630451202,
+  0.046933334320783615,
+  0.15337499976158142,
+  0.14278332889080048,
+  0.04933333396911621,
+  0.046875,
+  0.15074999630451202
+ ],
+ "by_label": {
+  "stand": {
+   "rows": 60000,
+   "restance": {
+    "mean": 16.776758782752356,
+    "se": 0.04219578295988511,
+    "n": 60000
+   },
+   "target0": {
+    "mean": 16.089157474811874,
+    "se": 0.040038089000763534,
+    "n": 60000
+   },
+   "branch_shares": {
+    "hold": 0.11988888888888889,
+    "wait": 0.304275,
+    "lift": 0.02666666666666667,
+    "home": 0.17001666666666668,
+    "seat": 0.3791527777777778
+   }
+  }
+ },
+ "bands": {
+  "by_share": {
+   "0.12": {
+    "expected_restance": 2.0132110539302825,
+    "expected_target0": 1.9306988969774248,
+    "band": [
+     1.046869748043747,
+     4.026422107860565
+    ],
+    "excludes_own_target0": false,
+    "excludes_z1_realised": false
+   },
+   "0.16": {
+    "expected_restance": 2.684281405240377,
+    "expected_target0": 2.5742651959699,
+    "band": [
+     1.395826330724996,
+     5.368562810480754
+    ],
+    "excludes_own_target0": false,
+    "excludes_z1_realised": false
+   }
+  },
+  "union_band": [
+   1.046869748043747,
+   5.368562810480754
+  ],
+  "target0_refs": {
+   "target0@0.12": 1.9306988969774248,
+   "target0@0.16": 2.5742651959699,
+   "z1_realised": 1.99
+  },
+  "union_excludes_every_target0": false,
+  "target0_inside_union": [
+   "target0@0.12",
+   "target0@0.16",
+   "z1_realised"
+  ]
+ },
+ "band_lo": 1.046869748043747,
+ "band_hi": 5.368562810480754,
+ "band_basis": "union [0.52 x E(0.12), 2 x E(0.16)]",
+ "rc": 0,
+ "verdict": "band [1.046869748043747, 5.368562810480754] does not exclude ['target0@0.12', 'target0@0.16', 'z1_realised'] (informational: S1's mu dominates both targets); home branch present",
+ "xcheck": {
+  "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/P2R_PROBE_s18/walkstop__omni/seed001/2026-10-09_17-26-50",
+  "bank_rows": 5000,
+  "matched": 5000,
+  "hip_bitwise_share": 1.0,
+  "hip_max_abs_diff": 0.0,
+  "hip_default_source": "linkage.hip_default_rad",
+  "cams_bitwise": true,
+  "tol": 1e-05,
+  "ok": true
+ },
+ "noisy_statue_stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/DIAG_NOISYSTATUE_s18/suite__omni/seed001/2026-10-09_01-56-31",
+ "probe_branch_shares": null
+}

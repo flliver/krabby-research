@@ -42,7 +42,7 @@ def test_v10_copy_is_the_live_file():
     # v12 (CHARTER 12 / P2R_STATUE_PLAN.md step 1) added P2__Z1_s18 on top of v11's six p2s chains; v13 (P2R_Z2_PLAN.md
     # step 1, 2026-10-10) added P2__Z2_s18; v14 (the cams-only amendment, 2026-10-10: P2__Z2_s18 without the held
     # proxy) is now the newest snapshot, so it is the one that must equal the live file.
-    assert (SCRIPTS / "candidates_v14.yaml").read_bytes() == (CAMP / "candidates.yaml").read_bytes()
+    assert (SCRIPTS / "candidates_v15.yaml").read_bytes() == (CAMP / "candidates.yaml").read_bytes()  # v15 (final R constants)
 
 
 @pytest.mark.parametrize("chain", P2S_CHAINS)
