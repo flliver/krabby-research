@@ -45,6 +45,12 @@
 #                --arms $ARMS: episode-length and sigma KILL, rc 3; the crab_failure flag is NOTIFY-ONLY, rc 5 ->
 #                $ARMS/<ref>.p2s_flag + one NOTIFY line, the run continues, the record carries it). A Z chain has no
 #                stand-slot terms, so only these three guards run for it (no dose / term-liveness read).
+#        z2c     a stage-p2r Z2c chain (P2__Z2c*, P2R_Z2C_PLAN.md step 5; NOTE(p2r Z2c, 2026-10-10)): ONCE, when the
+#                run dir's $P2_Z2C_GATE_CKPT (default model_20500.pt) exists and is >= 60 s old (written whole), the
+#                FIDELITY GATE p2r_z2c_gate.py on CPU under nice against the held-out bank $P2_Z2C_GATE_BANK (a Z2c
+#                chain is REFUSED before launch without that file, or when it is one of the chain's KRABBY_BC_BANK):
+#                rc 3 = KILL (the same path below); rc 0 = PASS, logged; rc 2 (no checkpoint) = retried next poll;
+#                any other rc = one NOTIFY line, the run continues. Full JSON: $ARMS/<ref>_z2c_gate.json.
 #      rc 2 = not enough telemetry (retried next poll, logged once); rc 3 = KILL: `systemctl --user stop` (never
 #      SIGKILL), touch $OUT/STOP_QUEUE, a NOTIFY line -- EVERY phase-2 kill stops the queue and asks. A reader crash
 #      (any other rc) is logged once and retried, never a kill. AUTO_KILL=0 only advises.
@@ -59,7 +65,8 @@
 #
 # Environment overrides: CODE_ROOT, PYTHONPATH_EVAL, CAMPAIGN_DIR, ACCEPT_WHY, AUTO_KILL (precedent meanings);
 # ARMS_DIR (records dir, default $OUT/arms); P2_REANCHOR (above); P2_PY / P2_CAP (the python and the eval memory-cap
-# prefix, for tests only).
+# prefix, for tests only); P2_Z2C_GATE_BANK (required for a Z2c chain) / P2_Z2C_GATE_CKPT / P2_Z2C_GATE_MIN_AGE (s,
+# default 60) for the Z2c fidelity gate.
 # P2_RUN_ARM_LIB=1 + `source` defines the functions and returns before the command line is read (tests only).
 set -u
 R=/home/nickmagus/krabby/krabby-research
@@ -384,15 +391,54 @@ if gj_path.is_file():
 print(ck_path.parent)
 PY
 }
+is_z2c() {  # CHAIN -> 0 for a stage-p2r Z2c chain (P2__Z2c_s<seed>, a relaunch P2__Z2cR<j>_s<seed>)
+  case "$1" in P2__Z2c*) return 0 ;; *) return 1 ;; esac
+}
+z2c_gate_refusal() {  # CHAIN -> prints why a Z2c chain may not launch (nothing = ok): the gate bank (P2R_Z2C_PLAN
+  # step 5, held-out walkstop es2) must be a readable file and NOT one of the chain's KRABBY_BC_BANK banks
+  [ -n "${P2_Z2C_GATE_BANK:-}" ] || { echo "P2_Z2C_GATE_BANK is not set (the held-out walkstop es2 stand bank the model_20500 fidelity gate reads)"; return 0; }
+  [ -f "$P2_Z2C_GATE_BANK" ] || { echo "P2_Z2C_GATE_BANK=$P2_Z2C_GATE_BANK is not a file"; return 0; }
+  "$PY" - "$C/candidates.yaml" "$1" "$P2_Z2C_GATE_BANK" "$R" <<'PY' 2>&1
+import os, sys, yaml
+from pathlib import Path
+d = yaml.safe_load(open(sys.argv[1]))
+ov = {}
+for st in ((d.get("chains") or {}).get(sys.argv[2]) or {}).get("stages") or []:
+    ov.update({str(k): str(v) for k, v in (st.get("overlay") or {}).items()})
+repo = Path(sys.argv[4])
+res = lambda x: str((Path(x) if os.path.isabs(x) else repo / x).resolve())  # noqa: E731
+banks = {res(x.strip()) for x in ov.get("KRABBY_BC_BANK", "").split(",") if x.strip()}
+if res(sys.argv[3]) in banks:
+    print(f"P2_Z2C_GATE_BANK {sys.argv[3]} is one of the chain's KRABBY_BC_BANK banks (the gate must read held-out states)")
+PY
+}
+z2c_gate() {  # REF UNIT RUN_DIR -> 0 continue (PASS / notified), 1 killed, 2 not yet (retry next poll)
+  local ref=$1 unit=$2 rd=$3 ck out rc age
+  ck=$rd/${P2_Z2C_GATE_CKPT:-model_20500.pt}
+  [ -f "$ck" ] || return 2
+  age=$(( $(date +%s) - $(stat -c %Y "$ck" 2>/dev/null || date +%s) ))
+  [ "$age" -ge "${P2_Z2C_GATE_MIN_AGE:-60}" ] || return 2
+  out=$(CUDA_VISIBLE_DEVICES="" nice -n 10 timeout 1800 "$PY" "$S/p2r_z2c_gate.py" --run-dir "$rd" --ckpt "$ck" \
+        --bank "$P2_Z2C_GATE_BANK" --json "$ARMS/${ref}_z2c_gate.json" 2>&1); rc=$?
+  case "$rc" in
+    3) say "Z2CGATE $ref rc 3 FAIL :: $(echo "$out" | tail -1 | cut -c1-500)"
+       live_read "$ref" "$unit" z2c-fidelity-gate "$(basename "$ck")" 3 "$out" || return 1
+       return 0 ;;
+    0) say "Z2CGATE $ref PASS $(basename "$ck") :: $(echo "$out" | tail -1 | cut -c1-500)"; return 0 ;;
+    2) return 2 ;;
+    *) say "NOTIFY Z2CGATE $ref rc $rc: gate error, not a verdict (the run continues; read $ARMS/${ref}_z2c_gate.json) :: $(echo "$out" | tail -1 | cut -c1-300)"
+       return 0 ;;
+  esac
+}
 watch_arm() {  # REF RUN_DIR UNIT CHAIN TRAIN_LOG (background): the CHARTER 8 live reads, counted from the fork start
   local ref=$1 rd=$2 unit=$3 chain=$4 tl=$5 out rc it first last src
-  local wres=0 w200=0 w1000=0 nres=0 n200=0 n1000=0 ncol=0 nerr=0 nerrp=0 np2s=0 np2w=0
+  local wres=0 w200=0 w1000=0 nres=0 n200=0 n1000=0 ncol=0 nerr=0 nerrp=0 np2s=0 np2w=0 wz2c=0
   src=$(fork_source_rd "$ref")
   while systemctl --user is-active -q "$unit"; do
     sleep 120
     if [ -n "${T0S:-}" ]; then
       if retry_target "$rd"; then
-        rd=$RT_RD; tl=$RT_TL; wres=0; w200=0; w1000=0
+        rd=$RT_RD; tl=$RT_TL; wres=0; w200=0; w1000=0; wz2c=0
         say "note $ref: following the driver's retry -> run dir $rd, training log $tl (the reads restart there)"
       fi
     fi
@@ -457,6 +503,11 @@ watch_arm() {  # REF RUN_DIR UNIT CHAIN TRAIN_LOG (background): the CHARTER 8 li
           elif [ "$rc" != 0 ]; then [ "$nerrp" = 0 ] && say "NOTIFY CHECKP2S $ref rc $rc: reader error (retrying) :: $(echo "$out" | tail -1 | cut -c1-300)"; nerrp=1; fi
         fi ;;
     esac
+    # stage p2r Z2c (P2R_Z2C_PLAN.md step 5; NOTE(p2r Z2c, 2026-10-10)): the model_20500 FIDELITY GATE, once
+    if [ "$wz2c" = 0 ] && is_z2c "$chain"; then
+      z2c_gate "$ref" "$unit" "$rd"; rc=$?
+      case "$rc" in 0) wz2c=1 ;; 1) return 0 ;; esac
+    fi
   done
 }
 row_eval() {  # NAME CHECKPOINT ENV_STAMP MANIFEST SCENARIO ENV_SEED [EPISODES] -> sets ROW_DIR (the complete stamp);
@@ -541,6 +592,11 @@ run_ref() {  # REF -> 0 DONE, 1 STOP (logged), 2 killed (recorded), 6 launch ref
   esac
   msg=$(verify_head_sha "$CHAIN" 2>&1) || { say "STOP $ref refused: $msg (CHARTER 2) -- NOTIFY"; return 7; }
   say "$ref fork source $msg"
+  if is_z2c "$CHAIN"; then
+    msg=$(z2c_gate_refusal "$CHAIN")
+    [ -z "$msg" ] || { say "STOP $ref refused: Z2c fidelity gate :: $(echo "$msg" | tail -1 | cut -c1-400) -- NOTIFY"; return 7; }
+    say "$ref Z2c fidelity gate bank $P2_Z2C_GATE_BANK (held out; read once at ${P2_Z2C_GATE_CKPT:-model_20500.pt})"
+  fi
   msg=$(cd "$CODE_ROOT" && "$PY" "$S/p2_live.py" --preflight --chain "$CHAIN" --code-root "$CODE_ROOT" \
         --candidates "$C/candidates.yaml" --arms "$ARMS" 2>&1) || { say "STOP $ref refused: live-read preflight :: $(echo "$msg" | tail -1 | cut -c1-600) -- NOTIFY"; return 7; }
   say "$ref preflight $(echo "$msg" | tail -1 | cut -c1-200)"

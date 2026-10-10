@@ -27,13 +27,33 @@ modules pulls in Isaac. ``--xcheck-stamp`` verifies the replica end to end: a pr
 (true obs) matched to their raw step by joint velocity, the replica's eval-path mu against the RECORDED action of
 the checkpoint that ran the stamp (``--xcheck-ckpt``, default the scored one).
 
+R RECOMPUTED, NOT STORED (NOTE(p2r Z2c, 2026-10-10); P2R_Z2C_PLAN.md "Left for implementation": "Fidelity scorer:
+it must recompute R(obs) with the run's KRABBY_RESTANCE (or refuse a bank whose `restance` differs); today it uses
+the bank's stored target"). The target and branch every number above is read against are ``restance_target(obs, p)``
+on the bank's own obs, with ``p`` = ``--restance K=V,...`` or, else, the scored run's ``params/agent.yaml``
+``algorithm.restance`` (the explicit ``--agent-yaml`` first, then the checkpoint's own run dir); neither -> refused
+(rc 1), never a silent fall-back to the bank's string. ``--stored-target`` keeps the old behaviour (the bank's stored
+``target`` / ``branch``). ``target_vs_stored_max_abs`` reports how far the recomputed R sits from the stored one (a
+residual-pass bank's stored target, or a bank recorded under other constants).
+
+BOTH PATHS + THE ALL-HOLD STATISTIC (NOTE(p2r Z2c, 2026-10-10); P2R_Z2C_PLAN step 1 "Fidelity scorer" / step 5
+"FIDELITY GATE"). ``paths`` scores the bank twice, whatever the primary flags:
+  * ``eval``  -- the harness's action (own-estimator priv_explicit, ``hist_encoding=True``): what the gate judges;
+  * ``train`` -- the PPO / BC training-path forward (true priv columns, ``hist_encoding=False``): reported.
+Each carries the ALL-HOLD statistic: on the rows whose EVERY leg's (recomputed) branch is HOLD (R commands rods 0 and
+the cam trim), the per-leg mean SIGNED ``mu - R`` of the hip (action cols 6..11), knee (12..17) and cam (0..5) dims and
+the max ``|.|`` over legs (``p2r_z2c_gate.py`` holds hip and cam to 0.05; Z2 read hip 0.13-0.18). The primary path's
+own HOLD-branch cam line (below) and every earlier output are unchanged.
+
 Exit codes: 0 = within the line; 3 = NOTIFY (the loaded-leg cam residual line); 2 = the bank has no HOLD-branch row
-(cannot judge); 1 = unreadable input / the replica cross-check failed. ``--dry-run`` (the pre-launch run on GRAFT_S1
-against the bank) computes everything and reports ``would_notify`` but exits 0 unless an input is unreadable.
+(cannot judge); 1 = unreadable input / no R constants / the replica cross-check failed. ``--dry-run`` (the pre-launch
+run on GRAFT_S1 against the bank) computes everything and reports ``would_notify`` but exits 0 unless an input is
+unreadable.
 
 CLI:
     p2r_z2_fidelity.py --bank p2r_stand_bank.npz --ckpt MODEL.pt [--agent-yaml PATH] [--priv estimator|true]
-                       [--no-hist-encoding] [--xcheck-stamp DIR] [--xcheck-ckpt PATH] [--dry-run] [--json OUT]
+                       [--no-hist-encoding] [--restance K=V,... | --stored-target] [--xcheck-stamp DIR]
+                       [--xcheck-ckpt PATH] [--dry-run] [--json OUT]
 """
 from __future__ import annotations
 
@@ -66,6 +86,10 @@ JOINT_VEL_SCALE = np.float32(0.05)
 #: StateHistoryEncoder's conv stack per tsteps: (kernel, stride) per Conv1d (feature_extractors/state_encoder.py)
 HIST_CONV = {10: ((4, 2), (2, 1)), 20: ((6, 2), (4, 2)), 50: ((8, 4), (5, 1), (5, 1))}
 RC_OK, RC_ERROR, RC_NO_ROWS, RC_NOTIFY = 0, 1, 2, 3
+#: NOTE(p2r Z2c, 2026-10-10): the two forwards every bank is scored on -- name: (hist_encoding, priv)
+PATHS = {"eval": (True, "estimator"), "train": (False, "true")}
+#: the obs column carrying the grafted stand bit (KRABBY_OMNI_STAND_OBS=clock; every stand-bank row reads 1)
+STAND_BIT_COL = 15
 
 
 def load_restance(path: Path = RESTANCE_MODULE):
@@ -180,6 +204,100 @@ def score(bank: dict, mu: torch.Tensor, rst, line: float = CAM_LINE) -> dict:
     return out
 
 
+# ================================================================================================ R's constants
+def restance_from_agent_yaml(path: Path, rst):
+    """``algorithm.restance`` of a run's ``params/agent.yaml`` (a dict of R's constants, or a knob string) ->
+    ``RestanceParams``, or None when the file / key is absent."""
+    path = Path(path)
+    if not path.is_file():
+        return None
+    try:
+        cfg = yaml.safe_load(open(path)) or {}
+    except yaml.YAMLError:
+        # a dumped cfg may carry python tags (tuples); read it tolerantly
+        class _L(yaml.SafeLoader):
+            pass
+
+        _L.add_multi_constructor("", lambda ld, suffix, node: None)
+        cfg = yaml.load(open(path), Loader=_L) or {}  # noqa: S506
+    r = (cfg.get("algorithm") or {}).get("restance") if isinstance(cfg, dict) else None
+    if r is None:
+        return None
+    if isinstance(r, dict):
+        return rst.RestanceParams.from_dict(r)
+    return rst.parse_restance(str(r))
+
+
+def resolve_restance(rst, restance: str | None = None, agent_yamls=()) -> tuple:
+    """``(params, source)`` -- NOTE(p2r Z2c, 2026-10-10): ``restance`` (a ``KRABBY_RESTANCE`` string) first, then the
+    first of ``agent_yamls`` carrying ``algorithm.restance``. Neither -> ValueError (the scorer REFUSES rather than
+    read the bank's stored target under unknown constants)."""
+    if restance is not None:
+        p = rst.parse_restance(restance)
+        if p is None:
+            raise ValueError(f"--restance {restance!r} reads OFF (blank / 0): no R constants")
+        return p, "--restance"
+    for ay in agent_yamls:
+        if ay is None:
+            continue
+        p = restance_from_agent_yaml(Path(ay), rst)
+        if p is not None:
+            return p, f"{ay}: algorithm.restance"
+    raise ValueError("no R constants: pass --restance K=V,... or score a checkpoint whose run dir's params/agent.yaml "
+                     "carries algorithm.restance (--stored-target reads the bank's stored target instead)")
+
+
+def recompute_targets(bank: dict, rst, params) -> dict:
+    """``bank`` with ``target`` / ``branch`` replaced by ``restance_target(obs, params)`` (the stored ones kept as
+    ``stored_target`` / ``stored_branch``)."""
+    obs = torch.as_tensor(np.asarray(bank["obs"]), dtype=torch.float32)
+    tgt, br = rst.restance_target(obs, params)
+    out = dict(bank, target=tgt.numpy(), branch=br.numpy())
+    if "target" in bank:
+        out["stored_target"] = bank["target"]
+    if "branch" in bank:
+        out["stored_branch"] = bank["branch"]
+    return out
+
+
+def allhold_bias(mu: torch.Tensor, target, branch, rst) -> dict:
+    """NOTE(p2r Z2c, 2026-10-10): the gate statistic (pure). On ALL-HOLD rows (every leg's branch == HOLD), per leg
+    the mean SIGNED ``mu - target`` of cam / hip / knee, and per joint group the max ``|.|`` over legs."""
+    tgt = torch.as_tensor(np.asarray(target), dtype=torch.float32)
+    br = torch.as_tensor(np.asarray(branch).astype(np.int64))
+    ah = (br == rst.BRANCH_HOLD).all(dim=1)
+    n = int(ah.sum())
+    out = {"rows": int(br.shape[0]), "allhold_rows": n, "allhold_share": (n / br.shape[0] if br.shape[0] else None)}
+    d = (mu - tgt)[ah].double()
+    for name, sl in (("cam", rst.CAM_ACT), ("hip", rst.HIP_ACT), ("knee", rst.KNEE_ACT)):
+        if n == 0:
+            out[f"{name}_by_leg"], out[f"{name}_max_abs"] = None, None
+            continue
+        per = d[:, sl].mean(dim=0)
+        out[f"{name}_by_leg"] = dict(zip(rst.LEGS, (float(v) for v in per)))
+        out[f"{name}_max_abs"] = float(per.abs().max())
+    return out
+
+
+def score_paths(bank: dict, sd: dict, esd: dict, w: dict, rst, paths=tuple(PATHS)) -> dict:
+    """``{path: allhold_bias(...)}`` for each of :data:`PATHS` named in ``paths`` (+ the per-row prior on that path)."""
+    obs = torch.as_tensor(np.asarray(bank["obs"]), dtype=torch.float32)
+    sigma = torch.as_tensor(np.asarray(bank["s1_sigma"]), dtype=torch.float32).clamp_min(1e-9) \
+        if "s1_sigma" in bank else None
+    out = {}
+    for name in paths:
+        he, pv = PATHS[name]
+        with torch.no_grad():
+            mu = eval_mu(obs, sd, esd, w, hist_encoding=he, priv=pv)
+        r = allhold_bias(mu, bank["target"], bank["branch"], rst)
+        r.update(hist_encoding=he, priv=pv)
+        if sigma is not None:
+            tgt = torch.as_tensor(np.asarray(bank["target"]), dtype=torch.float32)
+            r["prior_per_row_mean"] = float((0.5 * ((mu - tgt) / sigma.reshape(1, -1)).square().sum(dim=1)).mean())
+        out[name] = r
+    return out
+
+
 def load_bank(path: Path) -> dict:
     d = np.load(path, allow_pickle=False)
     need = {"obs", "target", "branch", "s1_sigma"}
@@ -217,13 +335,24 @@ def xcheck(stamp: Path, sd: dict, esd: dict, w: dict, max_rows: int = 2000) -> d
 
 
 def run(bank_path: Path, ckpt: Path, agent_yaml: Path | None = None, *, hist_encoding: bool = True,
-        priv: str = "estimator", line: float = CAM_LINE) -> dict:
+        priv: str = "estimator", line: float = CAM_LINE, restance: str | None = None,
+        stored_target: bool = False) -> dict:
+    """The full read. NOTE(p2r Z2c, 2026-10-10): R is RECOMPUTED on the bank's obs with ``restance`` or the run's
+    ``params/agent.yaml`` ``algorithm.restance`` (ValueError when neither: refused), unless ``stored_target``; the
+    ``paths`` block scores both the eval and the training path with the all-HOLD statistic."""
     rst = load_restance()
-    aw = agent_yaml or (ckpt.parent / "params" / "agent.yaml")
+    ckpt = Path(ckpt)
+    run_yaml = ckpt.parent / "params" / "agent.yaml"
+    aw = agent_yaml or run_yaml
     if not Path(aw).is_file():
         aw = S1_AGENT_YAML
     w = widths(aw)
     bank = load_bank(bank_path)
+    if stored_target:
+        params, src = None, "the bank's stored target (--stored-target)"
+    else:
+        params, src = resolve_restance(rst, restance, (agent_yaml, run_yaml))
+        bank = recompute_targets(bank, rst, params)
     sd, esd = load_ckpt(ckpt)
     with torch.no_grad():
         mu = eval_mu(torch.as_tensor(bank["obs"], dtype=torch.float32), sd, esd, w, hist_encoding=hist_encoding,
@@ -232,6 +361,15 @@ def run(bank_path: Path, ckpt: Path, agent_yaml: Path | None = None, *, hist_enc
     out.update(bank=str(bank_path), ckpt=str(ckpt), agent_yaml=str(aw), hist_encoding=hist_encoding, priv=priv,
                restance=(str(bank["restance"]) if "restance" in bank else None),
                bank_has_residual=(bool(bank["has_residual"]) if "has_residual" in bank else None))
+    out["target_source"] = src
+    out["restance_scored"] = None if params is None else rst.format_restance(params)
+    if "stored_target" in bank:
+        out["target_vs_stored_max_abs"] = float(np.abs(np.asarray(bank["target"], dtype=np.float32)
+                                                       - np.asarray(bank["stored_target"], dtype=np.float32)).max())
+        out["branch_vs_stored_share"] = (float((np.asarray(bank["branch"]) != np.asarray(bank["stored_branch"])).mean())
+                                         if "stored_branch" in bank else None)
+    out["allhold"] = allhold_bias(mu, bank["target"], bank["branch"], rst)
+    out["paths"] = score_paths(bank, sd, esd, w, rst)
     return out
 
 
@@ -244,13 +382,21 @@ def main(argv=None) -> int:
     ap.add_argument("--priv", choices=("estimator", "true"), default="estimator")
     ap.add_argument("--no-hist-encoding", action="store_true")
     ap.add_argument("--line", type=float, default=CAM_LINE)
+    ap.add_argument("--restance", default=None,
+                    help="R's constants (KRABBY_RESTANCE spelling); default the run's params/agent.yaml "
+                         "algorithm.restance; neither -> refused")
+    ap.add_argument("--stored-target", action="store_true",
+                    help="read the bank's stored target / branch (the pre-Z2c behaviour) instead of recomputing R")
     ap.add_argument("--xcheck-stamp", type=Path, default=None)
     ap.add_argument("--xcheck-ckpt", type=Path, default=None)
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--json", type=Path)
     a = ap.parse_args(argv)
     try:
-        out = run(a.bank, a.ckpt, a.agent_yaml, hist_encoding=not a.no_hist_encoding, priv=a.priv, line=a.line)
+        if a.stored_target and a.restance is not None:
+            raise ValueError("--stored-target and --restance are exclusive")
+        out = run(a.bank, a.ckpt, a.agent_yaml, hist_encoding=not a.no_hist_encoding, priv=a.priv, line=a.line,
+                  restance=a.restance, stored_target=a.stored_target)
         if a.xcheck_stamp is not None:
             xc_ckpt = a.xcheck_ckpt or a.ckpt
             sd, esd = load_ckpt(xc_ckpt)

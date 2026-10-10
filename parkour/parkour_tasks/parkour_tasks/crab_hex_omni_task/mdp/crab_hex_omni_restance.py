@@ -22,20 +22,26 @@ laws restoring, so it stays bounded under training noise):
     ``p_i`` = hip-pitch angle, obs column ``29 + i`` (``joint_pos - default``, rad).
 * ``down_i = p_i >= down_frac * 0.25 * lift`` (near default; a loaded leg sags ~0.018 rad below its target, inside
   the band), ``up_i = p_i <= up_frac * 0.25 * lift`` (near the lift target; ``0.25`` = the rod action scale).
-* tripods ``A = (FL, MR, RL)``, ``B = (FR, ML, RR)``. A tripod MAY step when it has a DOWN leg with ``|c| > eps_c``
-  and every leg of the OTHER tripod is down; if both may, the one with the larger sum of ``|c|`` over those legs
-  steps (exact tie -> A, a measure-zero break of the left-right symmetry).
+* tripods ``A = (FL, MR, RL)``, ``B = (FR, ML, RR)``. A tripod MAY step when it has a DOWN leg with
+  ``|c| > eps_step`` and every leg of the OTHER tripod is down; if both may, the one with the larger sum of ``|c|``
+  over those legs steps (exact tie -> A, a measure-zero break of the left-right symmetry).
 * branches (``BRANCH_*``):
-    HOLD  down, ``|c| <= eps_c``                            rods 0;    cam: restoring trim ``-clip(k_h c, +-trim)``
-    WAIT  down, ``|c| > eps_c``, its tripod not selected    rods 0;    cam 0
-    LIFT  down, ``|c| > eps_c``, its tripod selected        rods lift; cam 0 (it homes once up)
+    HOLD  down, ``|c| <= eps_step``                         rods 0;    cam: restoring trim ``-clip(k_h c, +-trim)``
+    WAIT  down, ``|c| > eps_step``, its tripod not selected rods 0;    cam 0
+    LIFT  down, ``|c| > eps_step``, its tripod selected     rods lift; cam 0 (it homes once up)
     HOME  not down, ``|c| > eps_air``, the other tripod all down
                                                             rods lift; cam ``-clip(k_c c, +-1)`` once UP, else 0
     SEAT  not down, otherwise (homed in the air, or no support)
                                                             rods 0;    cam ``-clip(k_c c, +-1)`` while UP, else 0
   (``eps_air < eps_c``: a leg homes in the air to a tighter band than the down one, so a cam coast after landing
   stays inside ``eps_c`` and the trim holds it. A cam turns only while its leg is UP or, inside the band, as the
-  +-0.03 trim -- never a large turn with the foot down.)
+  +-trim -- never a large turn with the foot down.)
+* RE-STEP DEAD BAND (NOTE(p2r Z2c, 2026-10-10), ``P2R_Z2C_PLAN.md``): a DOWN leg re-steps only when
+  ``|c| > eps_step`` (``eps_c <= eps_step``); between ``eps_c`` and ``eps_step`` it stays HOLD with the trim, so a
+  small drift cannot start a re-step and the trim (acting on the whole HOLD band) pulls it back inside ``eps_c``.
+  ``eps_c`` keeps only its role as the homed gate's band (the reads) and ``eps_step``'s lower bound: R no longer
+  branches on it. The default ``eps_step = 0.10`` equals the default ``eps_c``, so every knob string written
+  before ``eps_step`` existed (all carry ``eps_c=0.1``) parses to the old R bit for bit.
 * TILT GUARD (NOTE(p2r Z2 probe, 2026-10-10, CHARTER 12.1)): while the body's |roll| or |pitch| (obs columns 3, 4,
   the current step's IMU) exceeds ``tilt_max``, no tripod may step and HOME becomes SEAT -- every lifted leg comes down.
   The full probe set (P2R_RST_s18) fell 4 / 296 walkstop es2 and 8 / 100 field_turn stands by tipping over the support
@@ -100,6 +106,9 @@ class RestanceParams:
     eps_c: float = 0.10       #: down home band, rad (the homed gate's threshold)
     eps_air: float = 0.05     #: in-air home band, rad (tighter, so a landing coast stays in eps_c)
     tilt_max: float = 0.10    #: |roll| or |pitch| (rad) beyond which nothing lifts and lifted legs come down
+    #: NOTE(p2r Z2c, 2026-10-10): the re-step dead band, rad: a DOWN leg steps only beyond it (>= eps_c; the
+    #: default = the default eps_c, i.e. no dead band -- the pre-Z2c R)
+    eps_step: float = 0.10
 
     def __post_init__(self):
         for f in dataclasses.fields(self):
@@ -111,7 +120,7 @@ class RestanceParams:
         if not 0.0 < self.down_frac < self.up_frac < 1.0:
             raise ValueError(f"{RESTANCE_VAR}: need 0 < down_frac < up_frac < 1, got down_frac={self.down_frac}, "
                              f"up_frac={self.up_frac}")
-        for name in ("k_c", "k_h", "trim", "eps_c", "eps_air", "tilt_max"):
+        for name in ("k_c", "k_h", "trim", "eps_c", "eps_air", "tilt_max", "eps_step"):
             if not float(getattr(self, name)) > 0.0:
                 raise ValueError(f"{RESTANCE_VAR}: {name} must be > 0, got {getattr(self, name)}")
         if self.rho < 0.0:
@@ -120,6 +129,9 @@ class RestanceParams:
             raise ValueError(f"{RESTANCE_VAR}: the knee lift rho*|lift|={self.rho * abs(self.lift)} leaves the action clip")
         if not self.eps_air <= self.eps_c:
             raise ValueError(f"{RESTANCE_VAR}: eps_air={self.eps_air} must be <= eps_c={self.eps_c}")
+        if not self.eps_c <= self.eps_step:
+            raise ValueError(f"{RESTANCE_VAR}: eps_c={self.eps_c} must be <= eps_step={self.eps_step} (the re-step "
+                             "dead band starts at the homed band)")
         if self.trim > 1.0:
             raise ValueError(f"{RESTANCE_VAR}: trim={self.trim} exceeds the action clip")
 
@@ -194,7 +206,8 @@ def restance_target(obs: torch.Tensor, p: RestanceParams) -> tuple[torch.Tensor,
     hp = obs[:, list(HIP_POS_OBS_COLS)]
     down = hp >= p.p_down
     up = hp <= p.p_up
-    out_c = c.abs() > p.eps_c          # outside the down home band
+    # NOTE(p2r Z2c, 2026-10-10): a down leg re-steps only beyond the dead band eps_step (>= eps_c); inside it, HOLD
+    out_step = c.abs() > p.eps_step    # outside the re-step dead band (down legs)
     out_air = c.abs() > p.eps_air      # outside the in-air home band
 
     a_idx = torch.tensor(TRIPOD_A, device=dev)
@@ -206,8 +219,8 @@ def restance_target(obs: torch.Tensor, p: RestanceParams) -> tuple[torch.Tensor,
     b_down = down[:, b_idx].all(-1, keepdim=True)
     other_down = torch.where(in_a[None, :], b_down, a_down)
 
-    # ---- tripod selection (down, out-of-band legs step; the other tripod must be all down)
-    want = down & out_c
+    # ---- tripod selection (down legs beyond the dead band step; the other tripod must be all down)
+    want = down & out_step
     mag = torch.where(want, c.abs(), torch.zeros_like(c))
     level = (obs[:, ROLL_OBS_COL].abs() <= p.tilt_max) & (obs[:, PITCH_OBS_COL].abs() <= p.tilt_max)
     a_may = want[:, a_idx].any(-1) & b_down[:, 0] & level
@@ -221,8 +234,8 @@ def restance_target(obs: torch.Tensor, p: RestanceParams) -> tuple[torch.Tensor,
     # ---- branches
     home = ~down & out_air & other_down & level[:, None]
     branch = torch.full(c.shape, BRANCH_HOLD, dtype=torch.long, device=dev)
-    branch = torch.where(down & out_c & ~selected, torch.full_like(branch, BRANCH_WAIT), branch)
-    branch = torch.where(down & out_c & selected, torch.full_like(branch, BRANCH_LIFT), branch)
+    branch = torch.where(down & out_step & ~selected, torch.full_like(branch, BRANCH_WAIT), branch)
+    branch = torch.where(down & out_step & selected, torch.full_like(branch, BRANCH_LIFT), branch)
     branch = torch.where(home, torch.full_like(branch, BRANCH_HOME), branch)
     branch = torch.where(~down & ~home, torch.full_like(branch, BRANCH_SEAT), branch)
 
@@ -230,7 +243,7 @@ def restance_target(obs: torch.Tensor, p: RestanceParams) -> tuple[torch.Tensor,
     zero = torch.zeros_like(c)
     cam_air = -(p.k_c * c).clamp(-1.0, 1.0)
     cam_trim = -(p.k_h * c).clamp(-p.trim, p.trim)
-    cam = torch.where(down, torch.where(out_c, zero, cam_trim), torch.where(up, cam_air, zero))
+    cam = torch.where(down, torch.where(out_step, zero, cam_trim), torch.where(up, cam_air, zero))
 
     # ---- rods (absolute targets)
     lifting = (branch == BRANCH_LIFT) | (branch == BRANCH_HOME)

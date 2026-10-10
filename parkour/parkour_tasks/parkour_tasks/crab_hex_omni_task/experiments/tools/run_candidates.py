@@ -1784,8 +1784,74 @@ def _restance_ok(txt: str, value) -> bool:
     if params is None:
         return got is None
     want = params.to_dict()
+    if got is not None and "eps_step" in want and "eps_step" not in got and want["eps_step"] == want.get("eps_c"):
+        # NOTE(p2r Z2c, 2026-10-10): a dump written before R had eps_step (Z1 / Z2 runs) carries no such key; its R
+        # had no dead band, i.e. eps_step == eps_c -- the same R, so it still audits equal
+        want = {k: v for k, v in want.items() if k != "eps_step"}
     return (got is not None and set(got) == set(want)
             and all(abs(got[k] - float(want[k])) <= 1e-12 for k in want))
+
+
+# ---- p2r Z2c clean-state cloning (P2R_Z2C_PLAN step 1, 2026-10-10): algorithm.bc_coef / bc_bank / bc_batch_size.
+def _bc_bank_dump(txt: str) -> list[str] | None:
+    """The ``algorithm.bc_bank`` list of an agent dump (``  bc_bank:`` then ``  - <path>`` lines; an inline flow list
+    is read too), or None when absent / null."""
+    alg = _alg_block(txt)
+    m = re.search(r"^\s{2}bc_bank:[ \t]*(.*)$", alg, re.M)
+    if m is None:
+        return None
+    inline = m.group(1).strip()
+    if inline in ("null", "None", "~"):
+        return None
+    if inline:
+        if not (inline.startswith("[") and inline.endswith("]")):
+            return []
+        return [x.strip().strip("'\"") for x in inline[1:-1].split(",") if x.strip()]
+    items = []
+    for line in alg[m.end():].lstrip("\n").splitlines():
+        im = re.match(r"^\s{2,4}-\s+(.+?)\s*$", line)
+        if im is None:
+            break
+        items.append(im.group(1).strip().strip("'\""))
+    return items
+
+
+def _bc_w_ok(txt: str, value) -> bool:
+    """``KRABBY_BC_W``: off = no ``bc_coef`` (nor ``bc_bank`` / ``bc_batch_size``) in the algorithm block; armed =
+    ``bc_coef`` equal, with a non-empty ``bc_bank`` and a positive ``bc_batch_size`` beside it."""
+    parsed = _motion().parse_bc_w(value)
+    alg = _alg_block(txt)
+    if not _agent_optional_ok(alg, "bc_coef", parsed):
+        return False
+    batch = _num(_grep_scalar(alg, "bc_batch_size", indent=r"\s{2}"))
+    if parsed is None:
+        return _bc_bank_dump(txt) is None and batch is None
+    return bool(_bc_bank_dump(txt)) and batch is not None and batch >= 1 and batch == int(batch)
+
+
+def _bc_bank_ok(txt: str, value) -> bool:
+    """``KRABBY_BC_BANK``: off = no ``algorithm.bc_bank``; armed = the dumped list names the same files in the
+    same order (compared as real paths after ``motion_knobs.resolve_bc_bank``)."""
+    want = _motion().parse_bc_bank(value)
+    got = _bc_bank_dump(txt)
+    if want is None:
+        return got is None
+    if not got or len(got) != len(want):
+        return False
+    resolved = _motion().resolve_bc_bank(want)
+    return all(os.path.realpath(g) == os.path.realpath(w) for g, w in zip(got, resolved))
+
+
+def _bc_batch_ok(txt: str, value) -> bool:
+    """``KRABBY_BC_BATCH``: blank = ``algorithm.bc_batch_size`` absent, or ``motion_knobs.BC_BATCH_DEFAULT`` beside
+    an armed ``bc_coef``; set = equal."""
+    mk = _motion()
+    parsed = mk.parse_bc_batch(value)
+    alg = _alg_block(txt)
+    got = _num(_grep_scalar(alg, "bc_batch_size", indent=r"\s{2}"))
+    if parsed is None:
+        return got is None or (got == mk.BC_BATCH_DEFAULT and _grep_scalar(alg, "bc_coef") is not None)
+    return got is not None and got == parsed
 
 
 def _anchor_ckpt_ok(txt: str, value) -> bool:
@@ -2514,6 +2580,26 @@ def _check_restance_composition(env: dict, where: str, reasons: list) -> None:
         reasons.append(f"{where}: {exc}")
 
 
+def _check_bc_composition(env: dict, where: str, reasons: list) -> None:
+    """The p2r Z2c BC cross rules (``motion_knobs.check_bc_composition``) on a COMPOSED stage env at ``--dry-run``
+    (2026-10-10): a weight without its bank / target / constants / checkpoint, or a bank / batch without the weight,
+    would otherwise raise only at config build, once Kit has started. Inert while no BC knob is set; a malformed
+    value is left to ``_check_knob``. (The bank files' existence is checked when the trainer applies the knobs.)"""
+    mk = _motion()
+    names = getattr(mk, "BC_KNOBS", ())
+    if not any(str(env.get(var) or "").strip() for var in names):
+        return
+    for var in (*names, mk.STAND_OBS_VAR, mk.STAND_PRIOR_TARGET_VAR, mk.RESTANCE_VAR, mk.ANCHOR_CKPT_VAR):
+        try:
+            mk.MOTION_KNOB_PARSERS[var](env.get(var))
+        except ValueError:
+            return
+    try:
+        mk.check_bc_composition(env)
+    except ValueError as exc:
+        reasons.append(f"{where}: {exc}")
+
+
 def _check_field_geom_composition(env: dict, where: str, reasons: list) -> None:
     """The geometry guard (``require_omni_geom``) on a COMPOSED stage env, at ``--dry-run`` (omni
     phase-2 plan step 4, 2026-10-06): ``KRABBY_FIELD_*`` under ``ring`` (or ``KRABBY_RING_*`` under
@@ -2547,7 +2633,10 @@ AGENT_DUMP_KEYS = frozenset({"KRABBY_ACTION_STD_MAX", "KRABBY_ACTION_STD_RESET",
                             "KRABBY_ANCHOR_W", "KRABBY_ANCHOR_CKPT", "KRABBY_STAND_PRIOR_W",
                             # p2r Z2 (P2R_Z2_PLAN step 1, 2026-10-10): the re-stance prior target and R's
                             # constants (motion_knobs.RESTANCE_KNOBS); KRABBY_OMNI_STAND_PROXY is env side.
-                            "KRABBY_STAND_PRIOR_TARGET", "KRABBY_RESTANCE"})
+                            "KRABBY_STAND_PRIOR_TARGET", "KRABBY_RESTANCE",
+                            # p2r Z2c (P2R_Z2C_PLAN step 1, 2026-10-10): the clean-state cloning term
+                            # (motion_knobs.BC_KNOBS).
+                            "KRABBY_BC_W", "KRABBY_BC_BANK", "KRABBY_BC_BATCH"})
 
 
 #: ``KRABBY_*`` -> what the config DUMP must show for it. Every overlay key a recipe may carry needs
@@ -2700,6 +2789,10 @@ OVERLAY_DUMP_CHECKS = {
     "KRABBY_OMNI_STAND_PROXY": lambda txt, v: _stand_proxy_ok(txt, v),
     "KRABBY_STAND_PRIOR_TARGET": lambda txt, v: _stand_prior_target_ok(txt, v),
     "KRABBY_RESTANCE": lambda txt, v: _restance_ok(txt, v),
+    # ---- p2r Z2c clean-state cloning (P2R_Z2C_PLAN step 1, 2026-10-10). Runner side (AGENT_DUMP_KEYS).
+    "KRABBY_BC_W": lambda txt, v: _bc_w_ok(txt, v),
+    "KRABBY_BC_BANK": lambda txt, v: _bc_bank_ok(txt, v),
+    "KRABBY_BC_BATCH": lambda txt, v: _bc_batch_ok(txt, v),
 }
 
 
@@ -2746,6 +2839,7 @@ def overlay_checks(rec: dict, env: dict) -> list[tuple[str, bool]]:
         out.append((f"overlay {key}={value} in params/{dump}", ok))
     out += construction_log_checks(rec, env)
     out += statue_log_checks(rec, env)
+    out += bc_log_checks(rec, env)
     return out
 
 
@@ -2852,6 +2946,57 @@ def statue_log_checks(rec: dict, env: dict) -> list[tuple[str, bool]]:
         out.append((f"log: [PPO] construction names stand_prior_target={target}",
                     re.search(rf"^\[PPO\] construction:.*\bstand_prior_target={re.escape(str(target))}\b", txt, re.M)
                     is not None))
+    return out
+
+
+#: The ``PPOWithExtractor`` fields the p2r Z2c BC knobs write (``algorithm.*``; ``bc_seed`` stays at its default).
+BC_ALG_FIELDS = ("bc_coef", "bc_bank", "bc_batch_size", "bc_seed")
+
+
+def bc_log_checks(rec: dict, env: dict) -> list[tuple[str, bool]]:
+    """The TRAINING LOG half of the p2r Z2c clean-state cloning audit (P2R_Z2C_PLAN step 1, 2026-10-10).
+
+    Empty unless the overlay arms ``KRABBY_BC_W``. Then: the ``[KNOB] <NAME>=<value> consumed`` line of each BC knob
+    the overlay sets (``KRABBY_BC_BATCH`` only when non-blank), no runner warning dropping a BC field, the algorithm's
+    own ``[PPO] construction:`` line naming ``bc_coef`` (equal to the knob), ``bc_bank_rows`` (> 0) and
+    ``bc_batch_size`` (the knob, or ``motion_knobs.BC_BATCH_DEFAULT``), and ``Mean bc:`` / ``Mean bc_mb0:`` printed
+    (the term ran).
+    """
+    mk = _motion()
+    if not hasattr(mk, "BC_W_VAR") or mk.BC_W_VAR not in (env or {}):
+        return []
+    try:
+        w = mk.parse_bc_w(str(env[mk.BC_W_VAR]))
+        batch = mk.parse_bc_batch(env.get(mk.BC_BATCH_VAR))
+    except Exception:                                                   # noqa: BLE001
+        return []                         # a bad value is the parser check's to report, not this one's
+    if w is None:
+        return []
+    log = rec.get("log")
+    if not log or not Path(log).exists():
+        return [(f"training log readable for the BC wiring audit ({log})", False)]
+    txt = Path(log).read_text(errors="ignore")
+    armed = [key for key in mk.BC_KNOBS if str((env or {}).get(key) or "").strip()]
+    # (KRABBY_BC_BANK's value is a comma list: any non-empty value there)
+    value_re = {key: (r".+?" if key == mk.BC_BANK_VAR else r"\S+") for key in armed}
+    out = [(f"log: [KNOB] {key} consumed",
+            re.search(rf"^\[KNOB\] {re.escape(key)}={value_re[key]} consumed\s*$", txt, re.M) is not None)
+           for key in armed]
+    dropped = [ln for ln in txt.splitlines() if "Ignoring unsupported PPO config keys" in ln
+               and any(re.search(rf"\b{f}\b", ln) for f in BC_ALG_FIELDS)]
+    out.append(("log: no BC field dropped by the runner", not dropped))
+    line = next((ln for ln in txt.splitlines() if ln.startswith("[PPO] construction:")), None)
+    fields = dict(re.findall(r"\b(bc_coef|bc_bank_rows|bc_batch_size)=([^,\s]+)", line or ""))
+    want_batch = mk.BC_BATCH_DEFAULT if batch is None else batch
+    out.append((f"log: [PPO] construction names bc_coef={w}",
+                _num(fields.get("bc_coef")) is not None and abs(_num(fields["bc_coef"]) - w) < 1e-12))
+    out.append(("log: [PPO] construction names bc_bank_rows > 0",
+                _num(fields.get("bc_bank_rows")) is not None and _num(fields["bc_bank_rows"]) > 0))
+    out.append((f"log: [PPO] construction names bc_batch_size={want_batch}",
+                _num(fields.get("bc_batch_size")) == float(want_batch)))
+    for key in ("bc", "bc_mb0"):
+        out.append((f"log: Mean {key} printed (the BC term ran)",
+                    re.search(rf"^\s*Mean {key}:", txt, re.M) is not None))
     return out
 
 
@@ -3306,6 +3451,7 @@ def validate_candidates(cands: dict, *, strict: bool = True, check_replay: bool 
             _check_cmd_obs_mirror_composition(stage_env_, where, r)
             _check_rsi_cam_stage_composition(stage_env_, where, r)
             _check_restance_composition(stage_env_, where, r)
+            _check_bc_composition(stage_env_, where, r)
         if screen_iters and total != screen_iters and name not in ref_only:
             r.append(f"chain {name} totals {total} iterations; every screen is {screen_iters} "
                      "(equal compute is what makes the screens comparable)")

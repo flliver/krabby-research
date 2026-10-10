@@ -795,7 +795,9 @@ def test_fidelity_cli_rc_and_dry_run(FID, RST, tmp_path):
     bank = _fid_bank(RST, n=40)
     np.savez(tmp_path / "p2r_stand_bank.npz", **bank, restance=np.array("default"), has_residual=np.array(False))
     out_json = tmp_path / "fid.json"
-    rc = FID.main(["--bank", str(tmp_path / "p2r_stand_bank.npz"), "--ckpt", str(ck), "--json", str(out_json)])
+    # NOTE(p2r Z2c, 2026-10-10): R is recomputed with the run's constants; the tiny run's agent.yaml carries none
+    rc = FID.main(["--bank", str(tmp_path / "p2r_stand_bank.npz"), "--ckpt", str(ck), "--restance", "default",
+                   "--json", str(out_json)])
     out = json.loads(out_json.read_text())
     assert rc == out["exit"] == out["rc"] and rc in (FID.RC_OK, FID.RC_NOTIFY)
     assert out["hist_encoding"] is True and out["priv"] == "estimator"
@@ -803,7 +805,7 @@ def test_fidelity_cli_rc_and_dry_run(FID, RST, tmp_path):
     # a random tiny actor is far from R: the line fires; --dry-run reports it and exits 0
     assert rc == FID.RC_NOTIFY
     rc2 = FID.main(["--bank", str(tmp_path / "p2r_stand_bank.npz"), "--ckpt", str(ck), "--dry-run",
-                    "--json", str(out_json)])
+                    "--restance", "default", "--json", str(out_json)])
     out2 = json.loads(out_json.read_text())
     assert rc2 == 0 and out2["would_notify"] is True and out2["dry_run"] is True
     assert FID.main(["--bank", str(tmp_path / "nope.npz"), "--ckpt", str(ck)]) == FID.RC_ERROR

@@ -79,7 +79,10 @@ PHASE2_KNOBS = ("KRABBY_STAND_STANCE_W", "KRABBY_POWER_JOINTS",
                 "KRABBY_ANCHOR_W", "KRABBY_ANCHOR_CKPT", "KRABBY_STAND_PRIOR_W",
                 # + the p2r Z2 re-stance knobs (P2R_Z2_PLAN step 1, 2026-10-10: the env-side held proxy, the two
                 # runner-side prior-target knobs), pinned by test_omni_p2r_z2_core.py
-                "KRABBY_OMNI_STAND_PROXY", "KRABBY_STAND_PRIOR_TARGET", "KRABBY_RESTANCE")
+                "KRABBY_OMNI_STAND_PROXY", "KRABBY_STAND_PRIOR_TARGET", "KRABBY_RESTANCE",
+                # + the p2r Z2c clean-state cloning knobs (P2R_Z2C_PLAN step 1, 2026-10-10; runner side), pinned by
+                # test_omni_p2r_z2c_bc.py
+                "KRABBY_BC_W", "KRABBY_BC_BANK", "KRABBY_BC_BATCH")
 
 
 def _load(path: Path, name: str):
@@ -133,7 +136,9 @@ def test_variable_names_are_the_contract():
                                    # p2r statue distillation (2026-10-09)
                                    *mk.STATUE_KNOBS,
                                    # p2r Z2 re-stance prior target (2026-10-10)
-                                   *mk.RESTANCE_KNOBS}
+                                   *mk.RESTANCE_KNOBS,
+                                   # p2r Z2c clean-state cloning (2026-10-10)
+                                   *mk.BC_KNOBS}
     assert mk.REUSED_WEIGHT_KNOBS == {"KRABBY_POWER_W": "penalty_mechanical_power",
                                       "KRABBY_ACTION_RATE_W": "reward_action_rate",
                                       "KRABBY_AIRTIME_W": "reward_feet_air_time_positive"}

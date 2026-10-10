@@ -46,13 +46,24 @@ whether it excludes the target-0 values (both shares) and Z1's realised 1.99; R'
 training-scale stand rows (beside any ``--probe-stamp``'s own); the share of rows whose R is non-zero; the share of
 stand leg-rows DOWN / UP by R's own hip-position thresholds.
 
+THE BC DOSE (NOTE(p2r Z2c, 2026-10-10); P2R_Z2C_PLAN.md step 4 "BC dose"). ``--bc-bank NPZ`` (repeatable: the
+chain's KRABBY_BC_BANK banks) adds the clean-state cloning term's expected FIRST-MINIBATCH value: the fork
+checkpoint's (``--ckpt``, the GRAFT) TRAINING-PATH action mean (true priv columns, ``hist_encoding=False`` -- the
+forward BC runs) on every bank row, against R RECOMPUTED on that row's obs with these constants (``--restance``), per
+row ``0.5 * sum_d ((mu_fork - R(obs)) / sigma_A,d)^2`` (sigma_A as above), averaged over the POOLED rows (the BC
+minibatch draws rows uniformly from the pooled bank). That mean is ``bc_mb0_expected`` (top level); ``p2_live``'s
+Z2c +200 wiring bands the first-update ``Loss/bc_mb0`` at [0.52, 2] x it. Each bank must read the stand bit on every
+row (obs col 15 == 1, as the trainer refuses otherwise); the per-bank means, the banks' resolved paths and the
+recomputed-vs-stored target difference are reported under ``bc``. The actor's widths come from ``--agent-yaml``
+(default: the checkpoint's run dir, else the S1 run's).
+
 Exit codes: 0 = ok; 2 = STOP: R's in-air homing branch ('home') is absent on the bank (P2R_Z2_PLAN step 4);
 (``RC_BAND`` = 3 is reserved; band exclusion is reported, not required -- CHARTER 12.1); 1 = unreadable input /
 rebuild cross-check failed.
 
 CLI:
     p2r_z2_dose.py [--raws STAMP] [--ckpt GRAFT.pt] [--restance K=V,...] [--labels stand] [--xcheck-stamp DIR|none]
-                   [--probe-stamp DIR ...] [--json OUT] [--md OUT]
+                   [--probe-stamp DIR ...] [--bc-bank NPZ ...] [--agent-yaml PATH] [--json OUT] [--md OUT]
 """
 from __future__ import annotations
 
@@ -88,6 +99,9 @@ OBS_JOINT_VEL = slice(41, 65)      # joint_vel * 0.05 (the xcheck match key)
 JOINT_VEL_SCALE = np.float32(0.05)
 XCHECK_TOL = 1e-5
 RC_OK, RC_ERROR, RC_STOP, RC_BAND = 0, 1, 2, 3
+#: NOTE(p2r Z2c, 2026-10-10): the stand-bit obs column every BC bank row must read 1 (the trainer's own refusal)
+STAND_BIT_COL = 15
+BC_CHUNK = 8192
 
 
 # ================================================================================================ by-path loads
@@ -388,6 +402,58 @@ def dose(stamp: Path, ckpt: Path, params, labels=("stand",), rst=None, lk=None,
     return out
 
 
+def bc_dose(bank_paths, ckpt: Path, params, rst=None, agent_yaml: Path | None = None) -> dict:
+    """NOTE(p2r Z2c, 2026-10-10): the BC term's expected first-minibatch value (module docstring "THE BC DOSE")."""
+    import p2r_z2_fidelity as fid  # noqa: PLC0415  (same directory: the actor replica)
+
+    rst = rst or load_restance()
+    ckpt = Path(ckpt)
+    aw = agent_yaml or (ckpt.parent / "params" / "agent.yaml")
+    if not Path(aw).is_file():
+        aw = fid.S1_AGENT_YAML
+    w = fid.widths(aw)
+    sd, esd = fid.load_ckpt(ckpt)
+    sigma = anchor_sigma(sd)
+    banks, rows_all = [], []
+    for bp in bank_paths:
+        bp = Path(bp)
+        d = np.load(bp, allow_pickle=False)
+        if "obs" not in d.files:
+            raise ValueError(f"{bp}: no 'obs' array (not a stand bank)")
+        obs = np.asarray(d["obs"], dtype=np.float32)
+        if obs.ndim != 2 or obs.shape[0] == 0:
+            raise ValueError(f"{bp}: obs has shape {obs.shape}")
+        bad = int((obs[:, STAND_BIT_COL] != 1).sum())
+        if bad:
+            raise ValueError(f"{bp}: {bad} row(s) do not read the stand bit (obs col {STAND_BIT_COL} != 1)")
+        stored = np.asarray(d["target"], dtype=np.float32) if "target" in d.files else None
+        per = []
+        tdiff = 0.0
+        for i in range(0, obs.shape[0], BC_CHUNK):
+            o = torch.as_tensor(obs[i:i + BC_CHUNK])
+            with torch.no_grad():
+                mu = fid.eval_mu(o, sd, esd, w, hist_encoding=False, priv="true")
+                tgt, _br = rst.restance_target(o, params)
+            per.append(row_losses(mu, tgt, sigma))
+            if stored is not None:
+                tdiff = max(tdiff, float((tgt - torch.as_tensor(stored[i:i + BC_CHUNK])).abs().max()))
+        per = torch.cat(per)
+        rows_all.append(per)
+        banks.append({"path": str(bp.resolve()), "rows": int(per.numel()), "obs_width": int(obs.shape[1]),
+                      "per_row": _mean_se(per),
+                      "stored_restance": (str(d["restance"]) if "restance" in d.files else None),
+                      "target_vs_stored_max_abs": (tdiff if stored is not None else None)})
+    if not banks:
+        raise ValueError("no --bc-bank given")
+    pooled = _mean_se(torch.cat(rows_all))
+    exp = pooled["mean"]
+    if exp is None or not math.isfinite(exp) or not exp > 0:
+        raise ValueError(f"the pooled BC loss per row {exp!r} is not a finite positive number")
+    return {"checkpoint": str(ckpt), "agent_yaml": str(aw), "path": "train (true priv, hist_encoding=False)",
+            "restance_knob": rst.format_restance(params), "banks": banks, "rows": int(sum(b["rows"] for b in banks)),
+            "per_row_pooled": pooled, "bc_mb0_expected": exp, "bc_mb0_band": [BAND[0] * exp, BAND[1] * exp]}
+
+
 def markdown(out: dict) -> str:
     b = out["bands"]
     L = ["# p2r Z2 dose (P2R_Z2_PLAN step 4, CPU)", "",
@@ -413,6 +479,17 @@ def markdown(out: dict) -> str:
           f"- R non-zero share {out['restance_nonzero_share']:.4f}; legs DOWN {out['leg_down_share']:.4f} / UP "
           f"{out['leg_up_share']:.4f} (hip default from {out['hip_default_source']})", "",
           f"**rc {out['rc']}: {out['verdict']}**", ""]
+    bc = out.get("bc")
+    if bc:                                         # NOTE(p2r Z2c, 2026-10-10)
+        L += ["## BC dose (Z2c)", "",
+              f"- fork `{bc['checkpoint']}`, training path; R = `{bc['restance_knob']}`; {bc['rows']} pooled rows",
+              f"- **bc_mb0_expected {bc['bc_mb0_expected']:.4f}** (pooled SE {bc['per_row_pooled']['se']}); +200 band "
+              f"[{bc['bc_mb0_band'][0]:.3f}, {bc['bc_mb0_band'][1]:.3f}]", "",
+              "| bank | rows | BC loss per row | SE | R vs stored max abs |", "|---|---|---|---|---|"]
+        for b in bc["banks"]:
+            L.append(f"| `{b['path']}` | {b['rows']} | {b['per_row']['mean']:.4f} | {b['per_row']['se']} | "
+                     f"{b['target_vs_stored_max_abs']} |")
+        L.append("")
     return "\n".join(L)
 
 
@@ -426,6 +503,9 @@ def main(argv=None) -> int:
     ap.add_argument("--xcheck-stamp", default="auto", help=f"'auto' (newest lr/{XCHECK_RUN} walkstop), a dir, or none")
     ap.add_argument("--probe-stamp", type=Path, action="append", default=[])
     ap.add_argument("--max-episodes", type=int, default=None)
+    ap.add_argument("--bc-bank", type=Path, action="append", default=[],
+                    help="a BC training bank (repeatable): adds bc_mb0_expected (NOTE(p2r Z2c, 2026-10-10))")
+    ap.add_argument("--agent-yaml", type=Path, default=None, help="the fork's actor widths for the BC dose")
     ap.add_argument("--json", type=Path)
     ap.add_argument("--md", type=Path)
     a = ap.parse_args(argv)
@@ -460,6 +540,13 @@ def main(argv=None) -> int:
     out["xcheck"] = xc
     out["noisy_statue_stamp"] = (str(newest_stamp(NOISY_RAWS_RUN)) if newest_stamp(NOISY_RAWS_RUN) else None)
     out["probe_branch_shares"] = {str(p): probe_branch_shares(p) for p in a.probe_stamp} or None
+    if a.bc_bank:
+        try:
+            out["bc"] = bc_dose(a.bc_bank, Path(ckpt), params, rst=rst, agent_yaml=a.agent_yaml)
+        except (OSError, KeyError, ValueError) as exc:
+            print(f"p2r_z2_dose: the BC dose fails: {exc.__class__.__name__}: {exc}", file=sys.stderr)
+            return RC_ERROR
+        out["bc_mb0_expected"] = out["bc"]["bc_mb0_expected"]
     text = json.dumps(out, indent=1, default=str)
     if a.json:
         a.json.write_text(text)

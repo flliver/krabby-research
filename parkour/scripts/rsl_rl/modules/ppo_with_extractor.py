@@ -6,6 +6,8 @@ import importlib.util
 import math
 from pathlib import Path
 
+import numpy as np
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -67,6 +69,11 @@ RESTANCE_PY = (Path(__file__).resolve().parents[3]
                / "parkour_tasks/parkour_tasks/crab_hex_omni_task/mdp/crab_hex_omni_restance.py")
 #: A bit-1 row's R target counts as non-zero (``Loss/restance_nonzero``) when any component exceeds this.
 RESTANCE_NONZERO_EPS = 1e-6
+#: NOTE(p2r Z2c, 2026-10-10): the clean-state cloning (BC) bank (``P2R_Z2C_PLAN.md``): the recorded policy
+#: observation width every bank must carry (the omni teacher's, ``p2r_stand_bank.npz`` ``obs``). Only the actor's
+#: training-path columns (``num_prop + num_scan + num_priv_explicit + num_priv_latent`` = 0:257 on the omni actor)
+#: are kept on the device; R is computed once, at load, on the full-width rows (it reads columns 3, 4, 18..34).
+BC_BANK_OBS_WIDTH = 1149
 _RESTANCE_MOD = None
 
 
@@ -102,6 +109,11 @@ def statue_row_losses(mu: torch.Tensor, sigma_a: torch.Tensor, mu_a: torch.Tenso
     """Per row ``0.5 * sum_d ((mu - mu_a) / sigma_a,d)^2`` (``mu_a`` None -> the statue target 0)."""
     diff = mu if mu_a is None else mu - mu_a
     return 0.5 * (diff / sigma_a.reshape(1, -1)).square().sum(dim=-1)
+
+
+def _detach_output(_module, _inputs, output):
+    """A forward hook that returns its module's output detached (BC's priv-encoder latent)."""
+    return output.detach()
 
 
 def _safe_advantage_normalize(adv: torch.Tensor) -> torch.Tensor:
@@ -206,6 +218,10 @@ class PPOWithExtractor:
         stand_mask_col: int | None = None,
         stand_prior_target: str | None = None,
         restance: dict | None = None,
+        bc_coef: float = 0.0,
+        bc_bank: list[str] | tuple[str, ...] | str | None = None,
+        bc_batch_size: int = 2048,
+        bc_seed: int = 0,
     ) -> None:
         """The six keywords after ``optimizer`` are the PPO-construction knobs (2026-10-01), all DEFAULT OFF:
 
@@ -251,6 +267,25 @@ class PPOWithExtractor:
             Z1's path bit for bit.
         ``restance``
             R's constants (``RestanceParams.to_dict()``); given exactly when ``stand_prior_target`` is.
+
+        The last four are the p2r Z2c clean-state cloning (``P2R_Z2C_PLAN.md`` step 1, 2026-10-10), DEFAULT OFF
+        (``KRABBY_BC_W`` / ``KRABBY_BC_BANK`` / ``KRABBY_BC_BATCH``):
+
+        ``bc_coef``
+            weight of ``L_bc = mean_rows 0.5 * sum_d ((mu - R) / sigma_A,d)^2`` on ``bc_batch_size`` rows drawn (with
+            replacement, from a PRIVATE ``torch.Generator`` seeded ``bc_seed``, so the global RNG is never touched)
+            per minibatch from the bank. ``mu`` = ``policy.actor(rows, hist_encoding=False)`` -- the training-path
+            forward PPO uses -- with the PRIV-ENCODER LATENT DETACHED (BC's gradient reaches the scan encoder and the
+            backbone, never the latent the eval-path history encoder must match). ``R`` = ``restance_target`` of the
+            full-width bank rows with this run's constants, computed once at load. Added after the statue terms,
+            inside the global clip and the non-finite skip. Needs ``stand_prior_target="restance"`` (R's constants)
+            and ``anchor_ckpt`` (``sigma_A``). 0 -> nothing is loaded or computed and the update is bitwise the old
+            one.
+        ``bc_bank``
+            the bank ``.npz`` paths (each ``obs`` (N, 1149), stand bit ``obs[:, stand_mask_col] == 1`` on every
+            row); the actor's training-path columns are kept on the device as plain attributes (no ``state_dict``).
+        ``bc_batch_size`` / ``bc_seed``
+            the rows per minibatch and the private generator's seed (its state rides in :meth:`resume_state`).
         """
         if schedule not in SCHEDULES:
             raise ValueError(f"PPOWithExtractor: schedule must be one of {SCHEDULES}, got {schedule!r}")
@@ -312,6 +347,27 @@ class PPOWithExtractor:
         elif restance is not None:
             raise ValueError("PPOWithExtractor: restance is set but stand_prior_target is not: the constants "
                              "would distil nothing")
+        # NOTE(p2r Z2c, 2026-10-10): clean-state cloning (default off; see the docstring)
+        bc_coef = float(bc_coef)
+        if not (math.isfinite(bc_coef) and bc_coef >= 0.0):
+            raise ValueError(f"PPOWithExtractor: bc_coef must be >= 0, got {bc_coef!r}")
+        if isinstance(bc_bank, (str, Path)):
+            bc_bank = [bc_bank]
+        bc_bank = None if bc_bank is None else [str(b) for b in bc_bank]
+        if bc_coef > 0.0:
+            if stand_prior_target != "restance" or restance_params is None:
+                raise ValueError("PPOWithExtractor: bc_coef > 0 needs stand_prior_target='restance' and restance "
+                                 "(the bank's targets are R with this run's constants)")
+            if not anchor_ckpt:
+                raise ValueError("PPOWithExtractor: bc_coef > 0 needs anchor_ckpt (sigma_A comes from it)")
+            if not bc_bank:
+                raise ValueError("PPOWithExtractor: bc_coef > 0 needs bc_bank (one or more .npz paths)")
+            if isinstance(bc_batch_size, bool) or int(bc_batch_size) != bc_batch_size or int(bc_batch_size) < 1:
+                raise ValueError(f"PPOWithExtractor: bc_batch_size must be a positive integer, got {bc_batch_size!r}")
+            if isinstance(bc_seed, bool) or int(bc_seed) != bc_seed:
+                raise ValueError(f"PPOWithExtractor: bc_seed must be an integer, got {bc_seed!r}")
+        elif bc_bank:
+            raise ValueError("PPOWithExtractor: bc_bank is set but bc_coef is 0: the bank would train nothing")
         self.device = device
         self.is_multi_gpu = multi_gpu_cfg is not None
         if multi_gpu_cfg is not None:
@@ -403,6 +459,17 @@ class PPOWithExtractor:
         self.restance_params = restance_params
         if statue_armed:
             self._build_anchor()
+        #: NOTE(p2r Z2c): clean-state cloning. Armed only with ``bc_coef > 0``; the bank rows / targets are PLAIN
+        #: attributes (no buffer, no parameter: in no ``state_dict``) and the generator is private.
+        self.bc_coef = bc_coef
+        self.bc_bank = bc_bank if bc_coef > 0.0 else None
+        self.bc_batch_size = int(bc_batch_size) if bc_coef > 0.0 else None
+        self.bc_seed = int(bc_seed) if bc_coef > 0.0 else None
+        self.bc_obs: torch.Tensor | None = None
+        self.bc_target: torch.Tensor | None = None
+        self.bc_generator: torch.Generator | None = None
+        if bc_coef > 0.0:
+            self._load_bc_bank()
         #: The runner's training iteration of the coming :meth:`update` (set by the runner; read only by
         #: the per-hand diagnostic cadence). ``None`` = not driven by a runner.
         self.iteration: int | None = None
@@ -428,6 +495,10 @@ class PPOWithExtractor:
                 ("stand_prior_target", self.stand_prior_target),
                 ("restance", None if restance_params is None
                  else restance_module().format_restance(restance_params)),
+                ("bc_coef", bc_coef or None),
+                ("bc_bank_rows", None if self.bc_obs is None else int(self.bc_obs.shape[0])),
+                ("bc_batch_size", self.bc_batch_size),
+                ("bc_seed", self.bc_seed),
             ) if v is not None
         }
         if armed:
@@ -494,6 +565,73 @@ class PPOWithExtractor:
                 k_prior = statue_row_losses(mu_batch, self.anchor_sigma, target.detach())
             out["prior"] = torch.where(bit, k_prior, zero).sum() / batch_size
         return out
+
+    # ------------------------------------------------------------------ p2r Z2c clean-state cloning
+    def _load_bc_bank(self) -> None:
+        """Load every ``bc_bank`` file's ``obs``, validate it, compute R once on the full-width rows (this run's
+        constants), keep the actor's training-path columns + the targets on the device, seed the private generator.
+
+        Refused: a file without ``obs``, a width other than :data:`BC_BANK_OBS_WIDTH`, no rows, a non-finite value,
+        or a row whose stand bit (``obs[:, stand_mask_col]``) is not exactly 1 (a bank of stand rows only).
+        """
+        actor = self.policy.actor
+        try:
+            cols = int(actor.num_prop) + int(actor.num_scan) + int(actor.num_priv_explicit) + int(actor.num_priv_latent)
+        except AttributeError as exc:
+            raise ValueError("PPOWithExtractor: bc_coef > 0 needs an Actor with num_prop / num_scan / "
+                             "num_priv_explicit / num_priv_latent (the training-path slice)") from exc
+        col = self.stand_mask_col
+        rst = restance_module()
+        obs_parts, tgt_parts = [], []
+        for path in self.bc_bank:
+            with np.load(path) as data:
+                if "obs" not in data.files:
+                    raise ValueError(f"BC bank {path}: no 'obs' array (has {sorted(data.files)})")
+                obs_np = np.asarray(data["obs"])
+            if obs_np.ndim != 2 or obs_np.shape[1] != BC_BANK_OBS_WIDTH:
+                raise ValueError(f"BC bank {path}: obs must be (N, {BC_BANK_OBS_WIDTH}), got {tuple(obs_np.shape)}")
+            if obs_np.shape[0] == 0:
+                raise ValueError(f"BC bank {path}: no rows")
+            if not (0 <= col < BC_BANK_OBS_WIDTH and cols <= BC_BANK_OBS_WIDTH):
+                raise ValueError(f"BC bank {path}: stand_mask_col {col} / training-path width {cols} outside the "
+                                 f"bank width {BC_BANK_OBS_WIDTH}")
+            obs = torch.from_numpy(obs_np.astype(np.float32, copy=False))
+            if not bool(torch.isfinite(obs).all()):
+                raise ValueError(f"BC bank {path}: obs carries non-finite values")
+            bad = int((obs[:, col] != 1.0).sum())
+            if bad:
+                raise ValueError(f"BC bank {path}: {bad} / {obs.shape[0]} rows have the stand bit "
+                                 f"obs[:, {col}] != 1 (a BC bank holds stand rows only)")
+            with torch.no_grad():
+                target, _branch = rst.restance_target(obs, self.restance_params)
+            obs_parts.append(obs[:, :cols].clone())
+            tgt_parts.append(target.float())
+            del obs, obs_np
+        self.bc_obs = torch.cat(obs_parts).to(self.device)
+        self.bc_target = torch.cat(tgt_parts).to(self.device)
+        n_act = int(self.anchor_sigma.numel())
+        if self.bc_target.shape[1] != n_act:
+            raise ValueError(f"BC: R has {self.bc_target.shape[1]} action dims, sigma_A {n_act}")
+        self.bc_generator = torch.Generator(device=self.device)
+        self.bc_generator.manual_seed(self.bc_seed)
+
+    def _bc_policy_mean(self, obs: torch.Tensor) -> torch.Tensor:
+        """``policy.actor(obs, hist_encoding=False)`` -- the training-path forward PPO runs, through the actor's own
+        ``forward`` -- with the priv encoder's OUTPUT detached by a forward hook held only for this call (the PPO
+        forward is never touched), so no BC gradient reaches the priv encoder."""
+        actor = self.policy.actor
+        handle = actor.priv_encoder.register_forward_hook(_detach_output)
+        try:
+            return actor(obs, False)
+        finally:
+            handle.remove()
+
+    def _bc_loss(self) -> torch.Tensor:
+        """One minibatch's ``L_bc`` (``bc_batch_size`` bank rows drawn from the PRIVATE generator)."""
+        idx = torch.randint(self.bc_obs.shape[0], (self.bc_batch_size,), generator=self.bc_generator,
+                            device=self.bc_obs.device)
+        mu = self._bc_policy_mean(self.bc_obs[idx])
+        return statue_row_losses(mu, self.anchor_sigma, self.bc_target[idx]).mean()
 
     def _actor_grad_norm(self, term: torch.Tensor) -> float:
         """``||d term / d actor params||`` (logging only: ``autograd.grad``, graph retained, no ``.grad``)."""
@@ -838,6 +976,10 @@ class PPOWithExtractor:
         # target, and bit-1 leg-rows per R branch
         rst_rows = rst_nonzero = rst_legs = 0
         rst_branch = [0] * len(restance_module().BRANCH_NAMES) if self.stand_prior_target is not None else []
+        # p2r Z2c clean-state cloning (default off: nothing below runs, no generator is drawn)
+        bc_armed = self.bc_coef > 0.0
+        bc_sum, bc_n, bc_mb0 = 0.0, 0, None
+        st_prior_mb0 = None               # (logged only beside BC: the prior's own pre-step value, P2R_Z2C_PLAN)
 
         if self.policy.is_recurrent:
             generator = self.storage.recurrent_mini_batch_generator(
@@ -1014,6 +1156,19 @@ class PPOWithExtractor:
                 if statue["anchor"] is not None and st_anchor_mb0 is None:
                     st_anchor_mb0 = float(statue["anchor"])   # the iteration's first minibatch (fork: 0)
 
+            # -- p2r Z2c clean-state cloning (KRABBY_BC_W): after the statue terms, inside the global clip and the
+            #    non-finite skip below. Its rows come from the bank (private generator), not from this minibatch.
+            bc_loss = None
+            bc_part = None
+            if bc_armed:
+                bc_loss = self._bc_loss()
+                bc_part = self.bc_coef * bc_loss
+                loss = loss + bc_part
+                if bc_mb0 is None:
+                    bc_mb0 = float(bc_loss)                   # the first minibatch, before any step of this update
+                    if statue is not None and statue["prior"] is not None:
+                        st_prior_mb0 = float(statue["prior"])  # the prior on that minibatch, before BC's first step
+
             symmetry_loss = None
             if self.symmetry:
                 if not self.symmetry["use_data_augmentation"]:
@@ -1056,7 +1211,10 @@ class PPOWithExtractor:
                     st_split["grad_norm_statue"] = self._actor_grad_norm(self.stand_prior_coef * statue["prior"])
                 if statue["anchor"] is not None:
                     st_split["grad_norm_anchor"] = self._actor_grad_norm(self.anchor_coef * statue["anchor"])
-                st_split["grad_norm_rest"] = self._actor_grad_norm(loss - statue_part)
+                if bc_part is not None:
+                    st_split["grad_norm_bc"] = self._actor_grad_norm(bc_part)
+                st_split["grad_norm_rest"] = self._actor_grad_norm(
+                    loss - statue_part if bc_part is None else loss - statue_part - bc_part)
 
             self.optimizer.zero_grad()
             if torch.isfinite(loss).all():
@@ -1107,6 +1265,9 @@ class PPOWithExtractor:
                             counts = torch.bincount(br.reshape(-1), minlength=len(rst_branch)).tolist()
                             rst_branch = [a + b for a, b in zip(rst_branch, counts)]
                     st_n += 1
+                if bc_loss is not None:
+                    bc_sum += bc_loss.item()
+                    bc_n += 1
             else:
                 self.optimizer.zero_grad(set_to_none=True)
                 n_skipped += 1
@@ -1203,6 +1364,16 @@ class PPOWithExtractor:
                 loss_dict["restance_nonzero"] = rst_nonzero / rst_rows if rst_rows else 0.0
                 for k, name in enumerate(names):
                     loss_dict[f"restance_{name}"] = rst_branch[k] / rst_legs if rst_legs else 0.0
+            if bc_armed:
+                # ``Loss/bc`` (mean over the minibatches that took a step) and ``Loss/bc_mb0`` (the update's first
+                # minibatch, before any step: P2R_Z2C_PLAN step 4's +200 dose read)
+                loss_dict["bc"] = bc_sum / max(bc_n, 1)
+                if bc_mb0 is not None:
+                    loss_dict["bc_mb0"] = bc_mb0
+                if st_prior_mb0 is not None:
+                    # ``Loss/stand_prior_mb0``: the statue prior's first-minibatch value (``Loss/stand_prior`` is a
+                    # mean over the update, which BC's pre-fit inside the first update moves)
+                    loss_dict["stand_prior_mb0"] = st_prior_mb0
             loss_dict.update(st_split)
         return loss_dict
 
@@ -1228,12 +1399,16 @@ class PPOWithExtractor:
         optimizer's param groups with it on the first minibatch after a resume; epoch_kl's is
         written by :meth:`apply_configured_learning_rates`, which the runner calls after a load).
         """
-        return {
+        state = {
             "counter": self.counter,
             "learning_rate": self.learning_rate,
             "estimator_optimizer": self.estimator_optimizer.state_dict(),
             "hist_encoder_optimizer": self.hist_encoder_optimizer.state_dict(),
         }
+        if self.bc_generator is not None:
+            # NOTE(p2r Z2c): the private BC generator (armed only), so a resume continues its draw sequence
+            state["bc_generator"] = self.bc_generator.get_state()
+        return state
 
     def load_resume_state(self, state: dict[str, Any]) -> None:
         self.counter = int(state["counter"])
@@ -1243,6 +1418,9 @@ class PPOWithExtractor:
             self.estimator_optimizer.load_state_dict(state["estimator_optimizer"])
         if "hist_encoder_optimizer" in state:
             self.hist_encoder_optimizer.load_state_dict(state["hist_encoder_optimizer"])
+        if self.bc_generator is not None and state.get("bc_generator") is not None:
+            # (a fork from a checkpoint without BC keeps the freshly seeded generator)
+            self.bc_generator.set_state(state["bc_generator"].cpu())
 
     def update_dagger(self) -> float:
         if self.storage is None:

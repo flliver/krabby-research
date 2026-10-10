@@ -17,6 +17,11 @@ Pinned here (pure torch, the module loaded BY PATH exactly as the CPU tools and 
 * ``parse_restance`` / ``format_restance`` round trips and refusals (incl. the removed load-sensing constants);
   every output inside [-1, 1]; only the documented columns are read.
 NOTE(p2r Z2 cams-only, 2026-10-10): rewritten for the kinematic R (the load-sensing seat-law cases are gone).
+NOTE(p2r Z2c, 2026-10-10; ``P2R_Z2C_PLAN.md``): the re-step dead band ``eps_step`` -- a down leg with
+``eps_c < |c| <= eps_step`` stays HOLD with the trim (the trim acts on the whole HOLD band), only ``|c| > eps_step``
+steps, tripod selection sums only legs beyond it; ``eps_c <= eps_step`` is validated; mirror equivariance holds with a
+dead band; and a knob string without ``eps_step`` parses to the pre-Z2c R BITWISE (against that R at the pinned
+commit, on random inputs).
 """
 from __future__ import annotations
 
@@ -24,6 +29,7 @@ import dataclasses
 import importlib.util
 import json
 import math
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -341,9 +347,12 @@ def _random_obs(n: int, seed: int, p=P0) -> torch.Tensor:
     return obs
 
 
+#: NOTE(p2r Z2c): the second set's eps_c 0.15 now needs eps_step >= 0.15 (= no dead band, the old R); the fourth is
+#: the Z2c probe's drift-proof constants (a dead band 0.1 .. 0.3 and trim authority 0.1).
+P_Z2C = R.RestanceParams(eps_step=0.3, trim=0.1, k_h=1.0)
 PARAM_SETS = [P0, R.RestanceParams(lift=-0.7, rho=0.8, up_frac=0.7, down_frac=0.3, k_c=4.0, k_h=0.5, trim=0.05,
-                                   eps_c=0.15, eps_air=0.03),
-              R.RestanceParams(lift=-0.4, rho=2.0)]
+                                   eps_c=0.15, eps_air=0.03, eps_step=0.15),
+              R.RestanceParams(lift=-0.4, rho=2.0), P_Z2C]
 
 
 @pytest.mark.parametrize("plane", ["lr", "fa"])
@@ -443,7 +452,9 @@ def test_parse_format_round_trip():
         assert R.RestanceParams.from_dict(q.to_dict()) == q
         assert all(isinstance(v, float) for v in q.to_dict().values())
     assert set(P0.to_dict()) == {"lift", "rho", "up_frac", "down_frac", "k_c", "k_h", "trim", "eps_c", "eps_air",
-                                 "tilt_max"}
+                                 "tilt_max", "eps_step"}
+    # NOTE(p2r Z2c): the canonical spelling carries eps_step (the dose file and the bank strings compare it)
+    assert R.format_restance(P_Z2C).endswith(",eps_step=0.3") and R.parse_restance(R.format_restance(P_Z2C)) == P_Z2C
     with pytest.raises(dataclasses.FrozenInstanceError):
         P0.lift = -0.9                                              # frozen
 
@@ -453,6 +464,9 @@ def test_parse_format_round_trip():
     ("up_frac=0.3", "down_frac"), ("down_frac=0", "down_frac"), ("up_frac=1.0", "up_frac"),
     ("down_frac=0.6,up_frac=0.6", "down_frac"), ("k_c=0", "k_c"), ("k_h=-1", "k_h"), ("trim=0", "trim"),
     ("eps_c=0", "eps_c"), ("eps_air=0.2", "eps_air"), ("rho=-0.1", "rho"), ("lift=-0.8,rho=1.5", "clip"),
+    # NOTE(p2r Z2c): the dead band starts at the homed band (eps_c <= eps_step), and eps_step > 0
+    ("eps_step=0.05", "eps_step"), ("eps_c=0.15", "eps_step"), ("eps_c=0.2,eps_step=0.19", "eps_step"),
+    ("eps_step=0", "eps_step"), ("eps_step=-0.1", "eps_step"), ("eps_step=nan", "finite"),
     ("trim=1.5", "trim"), ("bogus=1", "unknown"), ("lift=-0.5,lift=-0.6", "twice"), ("lift", "k=v"),
     ("lift=abc", "not a number"), ("lift=nan", "finite"), ("k_c=inf", "finite"),
     # the load-sensing constants are gone with the 2026-10-10 amendment
@@ -497,3 +511,109 @@ def test_tilt_guard_blocks_lifting_and_brings_lifted_legs_down():
     o3[0, R.ROLL_OBS_COL] = P0.tilt_max
     _, b = R.restance_target(o3, P0)
     assert b[0, 0] == LIFT
+
+
+# ===================================================================== NOTE(p2r Z2c, 2026-10-10): the re-step dead band
+def test_eps_step_default_and_validation():
+    assert P0.eps_step == P0.eps_c == 0.10                          # no dead band by default: the pre-Z2c R
+    assert R.RestanceParams(eps_c=0.2, eps_step=0.2).eps_step == 0.2   # equal is allowed
+    assert R.parse_restance("eps_c=0.08").eps_step == 0.10          # a narrower homed band keeps the default step
+    with pytest.raises(ValueError, match="eps_step"):
+        R.RestanceParams(eps_c=0.12)                                 # eps_c beyond the default eps_step
+
+
+def test_dead_band_holds_a_down_leg_with_the_trim():
+    """eps_c < |c| <= eps_step: the down leg stays HOLD (rods 0) and the trim -clip(k_h c, +-trim) acts on it; only
+    |c| > eps_step steps. The same leg under the default (no dead band) steps."""
+    p = P_Z2C
+    for c in (0.11, 0.2, -0.25, 0.3, -0.3):                         # inside the dead band (eps_step inclusive)
+        target, branch = R.restance_target(_obs(1, cam=_legs(FL=c)), p)
+        assert branch[0].tolist() == [HOLD] * 6, c
+        _assert_rods(target[0], [False] * 6, p)
+        assert float(target[0, 0]) == pytest.approx(-max(-p.trim, min(p.trim, p.k_h * c))), c
+        _, b0 = R.restance_target(_obs(1, cam=_legs(FL=c)), P0)    # no dead band: the same leg steps
+        assert int(b0[0, 0]) == LIFT, c
+    # the trim saturates at |c| = trim / k_h = 0.1 and is exactly linear below it, across the whole HOLD band
+    t, _ = R.restance_target(_obs(1, cam=_legs(FL=0.05, FR=0.1, ML=0.2, MR=-0.3)), p)
+    assert t[0, CAM].tolist() == pytest.approx([-0.05, -0.1, -0.1, 0.1, 0.0, 0.0])
+    # beyond eps_step: LIFT (its tripod selected), rods lift, cam 0
+    target, branch = R.restance_target(_obs(1, cam=_legs(FL=0.31)), p)
+    assert branch[0].tolist() == [LIFT, HOLD, HOLD, HOLD, HOLD, HOLD]
+    _assert_rods(target[0], [True] + [False] * 5, p)
+    assert float(target[0, 0]) == 0.0
+    # a loaded sag inside the dead band is still a down HOLD leg
+    _, branch = R.restance_target(_obs(1, cam=_legs(FL=0.2), hip=_hips(FL=P_SAG)), p)
+    assert int(branch[0, 0]) == HOLD
+
+
+def test_dead_band_legs_never_count_toward_the_tripod_sum():
+    """Selection sums |c| over the legs BEYOND eps_step only: A = FL (dead band 0.25, not counted) + MR 0.32 = 0.32
+    loses to B's FR 0.35 -- with FL counted (no dead band) A's 0.57 would win."""
+    p = P_Z2C
+    cam = _legs(FL=0.25, FR=0.35, MR=0.32)
+    target, branch = R.restance_target(_obs(1, cam=cam), p)
+    assert branch[0].tolist() == [HOLD, LIFT, HOLD, WAIT, HOLD, HOLD]
+    assert float(target[0, 0]) == pytest.approx(-p.trim)           # the dead-band leg is trimmed, not waiting
+    assert float(target[0, 3]) == 0.0                               # a WAIT leg's cam waits
+    p_wide = R.RestanceParams(trim=0.1, k_h=1.0)                    # the same constants without the dead band
+    _, branch = R.restance_target(_obs(1, cam=cam), p_wide)
+    assert branch[0].tolist() == [LIFT, WAIT, HOLD, LIFT, HOLD, HOLD]
+    # a tripod whose only off-home legs sit in the dead band does not want to step: nothing lifts
+    _, branch = R.restance_target(_obs(1, cam=_legs(FL=0.2, MR=-0.29, RL=0.15, FR=0.3)), p)
+    assert branch[0].tolist() == [HOLD] * 6
+
+
+@pytest.mark.parametrize("plane", ["lr", "fa"])
+def test_mirror_equivariance_with_a_dead_band_on_the_unit_cases(plane):
+    perm = PLANES[plane][0]
+    for cam in (_legs(FL=0.25, FR=0.35, MR=0.32), _legs(FL=0.2, MR=-0.29, RL=0.15, FR=0.3), _legs(RR=-0.31),
+                _legs(FL=0.11, FR=-0.2, ML=0.3, MR=-0.05, RL=0.29, RR=-0.12)):
+        obs = _obs(1, cam=cam)
+        target, branch = R.restance_target(obs, P_Z2C)
+        m_target, m_branch = R.restance_target(_mirror_obs(obs, plane), P_Z2C)
+        assert torch.equal(m_branch, branch[:, perm])
+        assert torch.allclose(m_target, _mirror_action(target, plane), atol=1e-7)
+
+
+#: The commit whose R had no ``eps_step`` (the Z2 / RSTf R): a knob string without ``eps_step`` must reproduce it.
+PRE_Z2C_SHA = "62e8d736689dc4f07b33bb5ff1283d69e707fd1f"
+#: The knob strings the campaign trained / probed with before Z2c (candidates v14 / v15, the RST probes).
+OLD_KNOBS = ("default",
+             "lift=-0.5,rho=1,up_frac=0.6,down_frac=0.4,k_c=2,k_h=0.3,trim=0.03,eps_c=0.1,eps_air=0.05",
+             "lift=-0.5,rho=1,up_frac=0.5,down_frac=0.4,k_c=2,k_h=0.3,trim=0.03,eps_c=0.1,eps_air=0.05,tilt_max=0.1",
+             "lift=-0.7,rho=0.8,trim=0.05,k_h=0.5,eps_c=0.08,eps_air=0.03")
+
+
+@pytest.fixture(scope="module")
+def pre_z2c_r(tmp_path_factory):
+    try:
+        src = subprocess.run(["git", "-C", str(REPO), "show",
+                              f"{PRE_Z2C_SHA}:{RESTANCE_PY.relative_to(REPO).as_posix()}"],
+                             capture_output=True, text=True, check=True).stdout
+    except (OSError, subprocess.CalledProcessError):
+        pytest.skip(f"git history with {PRE_Z2C_SHA[:8]} unavailable")
+    assert "eps_step" not in src
+    path = tmp_path_factory.mktemp("pre_z2c") / "crab_hex_omni_restance_pre_z2c.py"
+    path.write_text(src)
+    return _load_by_path(path, "_t_restance_pre_z2c")
+
+
+@pytest.mark.parametrize("knob", OLD_KNOBS)
+@pytest.mark.parametrize("seed", [3, 41])
+def test_a_knob_without_eps_step_is_the_pre_z2c_r_bitwise(pre_z2c_r, knob, seed):
+    new_p, old_p = R.parse_restance(knob), pre_z2c_r.parse_restance(knob)
+    assert new_p.eps_step == new_p.eps_c or (knob.endswith("eps_c=0.08,eps_air=0.03") and new_p.eps_step == 0.10)
+    obs = _random_obs(6000, seed=seed, p=new_p)
+    obs[:, list(R.CAM_OBS_COLS)] *= 1.5                             # straddle 0.1 .. 0.3 densely as well
+    t_new, b_new = R.restance_target(obs, new_p)
+    t_old, b_old = pre_z2c_r.restance_target(obs, old_p)
+    if new_p.eps_step == new_p.eps_c:
+        assert torch.equal(t_new, t_old) and torch.equal(b_new, b_old)
+    else:
+        # eps_c 0.08 < the default eps_step 0.10: a dead band of 0.08 .. 0.10 opens, and it moves ONLY the down legs
+        # inside it (HOLD + trim instead of a step)
+        c = obs[:, list(R.CAM_OBS_COLS)].abs()
+        moved = (b_new != b_old).any(-1)
+        band = ((c > new_p.eps_c) & (c <= new_p.eps_step)).any(-1)
+        assert bool(moved.any()) and not bool((moved & ~band).any())
+    assert R.format_restance(new_p).endswith(f",eps_step={new_p.eps_step:g}")

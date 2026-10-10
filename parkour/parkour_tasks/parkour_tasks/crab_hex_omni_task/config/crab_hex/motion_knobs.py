@@ -106,6 +106,13 @@ variable                        what it writes when armed
 ``KRABBY_RESTANCE``             ``algorithm.restance`` -- R's constants (``mdp/crab_hex_omni_restance``
                                 ``RestanceParams.to_dict()``; ``default`` = the seeds); refused in a
                                 training recipe without ``KRABBY_STAND_PRIOR_TARGET``
+**clean-state cloning (runner cfg; ``apply_exploration_knobs``; p2r Z2c, 2026-10-10)**
+``KRABBY_BC_W``                 ``algorithm.bc_coef`` -- the BC term's weight (>= 0; blank / ``0`` =
+                                off): mean over bank rows of 1/2 sum_d ((mu - R) / sigma_A,d)^2
+``KRABBY_BC_BANK``              ``algorithm.bc_bank`` -- the bank ``.npz`` paths (comma list;
+                                repo-relative resolved like ``KRABBY_ANCHOR_CKPT``; must exist)
+``KRABBY_BC_BATCH``             ``algorithm.bc_batch_size`` -- bank rows per minibatch (positive int;
+                                ``2048`` when BC is armed and this is blank)
 **RSI cam staging (env cfg; ``events.rsi_reference_reset`` params, applied by ``omni_knobs._repoint_rsi``)**
 ``KRABBY_RSI_CAM_STAGE=1``      ``params["stage_cam"] = True`` -- an RSI-seeded env starts with the
                                 bank frame's cam shaft velocity as the applied cam target
@@ -187,6 +194,15 @@ it off). ``KRABBY_RESTANCE`` without the target writes nothing
 through here too -- and is refused only where it would be a training recipe that says something it does not
 train: alongside an armed statue knob here (an eval never carries those), and on any chain stage at the
 ladder's dry run (:func:`check_restance_composition`).
+
+Omni phase-2 stage p2r Z2c (``P2R_Z2C_PLAN.md`` step 1, 2026-10-10) added three RUNNER-side knobs
+(:data:`BC_KNOBS`; not carried into evals): ``KRABBY_BC_W`` / ``KRABBY_BC_BANK`` / ``KRABBY_BC_BATCH`` ->
+``PPOWithExtractor``'s clean-state cloning term (``bc_coef`` / ``bc_bank`` / ``bc_batch_size``). The weight is refused
+without the bank and the bank / batch without the weight (a recipe naming a term it does not train), and the
+weight unless ``KRABBY_OMNI_STAND_OBS=clock``, ``KRABBY_STAND_PRIOR_TARGET=restance``, a parseable
+``KRABBY_RESTANCE`` (the bank's targets are R with the chain's constants) and ``KRABBY_ANCHOR_CKPT`` (sigma_A)
+(:func:`check_bc_composition`, pure, also run by the ladder's dry run); the bank files must exist when applied.
+Each prints ``[KNOB] <NAME>=<value> consumed`` when applied.
 
 Pure at module scope (no Isaac, no torch): the appliers import ``RewTerm`` / ``SceneEntityCfg`` /
 the reward functions lazily, and every parser runs in a bare interpreter -- see
@@ -281,6 +297,15 @@ STAND_PROXY_MODES = ("hold",)
 STAND_PRIOR_TARGETS = ("restance",)
 #: The three runner-side statue knobs (``algorithm.anchor_coef`` / ``anchor_ckpt`` / ``stand_prior_coef``).
 STATUE_KNOBS = (ANCHOR_W_VAR, ANCHOR_CKPT_VAR, STAND_PRIOR_W_VAR)
+# -- p2r Z2c clean-state cloning (P2R_Z2C_PLAN step 1, 2026-10-10; all DEFAULT OFF, set by no preset). Runner side:
+# ``algorithm.bc_coef`` / ``bc_bank`` / ``bc_batch_size`` (PPOWithExtractor).
+BC_W_VAR = "KRABBY_BC_W"
+BC_BANK_VAR = "KRABBY_BC_BANK"
+BC_BATCH_VAR = "KRABBY_BC_BATCH"
+#: The three runner-side BC knobs.
+BC_KNOBS = (BC_W_VAR, BC_BANK_VAR, BC_BATCH_VAR)
+#: ``algorithm.bc_batch_size`` when BC is armed and ``KRABBY_BC_BATCH`` is blank (the plan's dose).
+BC_BATCH_DEFAULT = 2048
 #: ``KRABBY_OMNI_STAND_OBS`` values (blank / ``0`` = off): ``1`` the appended head bit, ``clock`` the bit in
 #: the hidden clock column (p2r).
 STAND_OBS_MODES = ("1", "clock")
@@ -295,7 +320,7 @@ PPO_CONSTRUCTION_KNOBS = (ACTION_BOUND_LOSS_VAR, ACTION_BOUND_RAMP_VAR, ACTION_B
 AGENT_KNOBS = (ACTION_STD_MAX_VAR, ACTION_STD_RESET_VAR, ENTROPY_COEF_VAR,
                ACTION_BOUND_LOSS_VAR, ACTION_BOUND_RAMP_VAR, ACTION_BOUND_VAR, STD_PARAM_VAR, INIT_STD_VAR,
                PPO_SCHEDULE_VAR, PPO_LR_VAR, PPO_DESIRED_KL_VAR, PPO_KL_STOP_VAR, PPO_HIST_LR_VAR,
-               PPO_HAND_DIAG_VAR, *STATUE_KNOBS, *RESTANCE_KNOBS)
+               PPO_HAND_DIAG_VAR, *STATUE_KNOBS, *RESTANCE_KNOBS, *BC_KNOBS)
 
 #: The env-side knobs that change command, clock, action-path or observation SEMANTICS: an eval
 #: of a policy trained with one of them must be built with it too (``run_phases.EVAL_CARRY``).
@@ -411,6 +436,9 @@ __all__ = [
     "STAND_PROXY_VAR", "STAND_PRIOR_TARGET_VAR", "RESTANCE_VAR", "RESTANCE_KNOBS", "STAND_PROXY_MODES",
     "STAND_PRIOR_TARGETS", "EVAL_CARRY_EXTERNAL", "parse_stand_proxy", "parse_stand_prior_target", "parse_restance_knob",
     "restance_module", "check_restance_composition",
+    # omni phase-2 stage p2r Z2c (2026-10-10)
+    "BC_W_VAR", "BC_BANK_VAR", "BC_BATCH_VAR", "BC_KNOBS", "BC_BATCH_DEFAULT", "parse_bc_w", "parse_bc_bank",
+    "parse_bc_batch", "check_bc_composition", "resolve_bc_bank",
 ]
 
 
@@ -563,6 +591,72 @@ def resolve_anchor_ckpt(path: str) -> str:
     if os.path.isabs(path):
         return path
     return str(Path(__file__).resolve().parents[6] / path)
+
+
+# NOTE(p2r Z2c, 2026-10-10): the clean-state cloning knobs.
+def parse_bc_w(text) -> float | None:
+    """``KRABBY_BC_W`` -> a weight > 0, or None for OFF (blank / ``0``); negative refused (it would PAY the mean
+    for leaving R on the bank rows)."""
+    return parse_statue_w(text, BC_W_VAR)
+
+
+def parse_bc_bank(text) -> tuple[str, ...] | None:
+    """``KRABBY_BC_BANK`` -> the bank paths (stripped, in order), or None for OFF (blank / ``0``). A comma list;
+    an empty entry and a repeated path are refused. Existence is checked at application
+    (:func:`apply_exploration_knobs`), not here: the ladder round-trips values at dry run."""
+    if _blank(text) or str(text).strip() == "0":
+        return None
+    parts = [part.strip() for part in str(text).split(",")]
+    if any(not part for part in parts):
+        raise ValueError(f"{BC_BANK_VAR} is a comma list of .npz paths with no empty entry, got {text!r}")
+    if len(set(parts)) != len(parts):
+        raise ValueError(f"{BC_BANK_VAR} names a bank twice: {text!r}")
+    return tuple(parts)
+
+
+def parse_bc_batch(text) -> int | None:
+    """``KRABBY_BC_BATCH`` -> a positive int, or None (blank = :data:`BC_BATCH_DEFAULT` when BC is armed)."""
+    if _blank(text):
+        return None
+    try:
+        value = int(str(text).strip())
+    except ValueError as exc:
+        raise ValueError(f"{BC_BATCH_VAR} must be a positive integer, got {text!r}") from exc
+    if value < 1:
+        raise ValueError(f"{BC_BATCH_VAR} must be a positive integer, got {text!r}")
+    return value
+
+
+def resolve_bc_bank(paths) -> list[str]:
+    """Each bank path resolved like :func:`resolve_anchor_ckpt` (repo-relative -> absolute)."""
+    return [resolve_anchor_ckpt(p) for p in paths]
+
+
+def check_bc_composition(env) -> None:
+    """The p2r Z2c BC knobs' cross rules on one environment (a composed stage env, or the process env). Pure (no
+    file is opened). Raises ``ValueError`` naming the rule; all three off -> nothing."""
+    get = env.get
+    w = parse_bc_w(get(BC_W_VAR))
+    bank = parse_bc_bank(get(BC_BANK_VAR))
+    batch = parse_bc_batch(get(BC_BATCH_VAR))
+    if w is None:
+        if bank is not None:
+            raise ValueError(f"{BC_BANK_VAR} is set but {BC_W_VAR} is off: the bank would train nothing")
+        if batch is not None:
+            raise ValueError(f"{BC_BATCH_VAR} is set but {BC_W_VAR} is off: the batch would train nothing")
+        return
+    if bank is None:
+        raise ValueError(f"{BC_W_VAR}={get(BC_W_VAR)!r} needs {BC_BANK_VAR} (the clean stand states it clones)")
+    if parse_stand_obs(get(STAND_OBS_VAR)) != "clock":
+        raise ValueError(f"{BC_W_VAR} clones R on stand-bit rows (obs column {STAND_BIT_OBS_COL}), which only "
+                         f"{STAND_OBS_VAR}=clock writes (got {get(STAND_OBS_VAR)!r})")
+    if parse_stand_prior_target(get(STAND_PRIOR_TARGET_VAR)) != "restance":
+        raise ValueError(f"{BC_W_VAR} needs {STAND_PRIOR_TARGET_VAR}=restance (the bank's targets are R with the "
+                         f"chain's constants; got {get(STAND_PRIOR_TARGET_VAR)!r})")
+    if parse_restance_knob(get(RESTANCE_VAR)) is None:
+        raise ValueError(f"{BC_W_VAR} needs {RESTANCE_VAR} (R's constants)")
+    if parse_anchor_ckpt(get(ANCHOR_CKPT_VAR)) is None:
+        raise ValueError(f"{BC_W_VAR} needs {ANCHOR_CKPT_VAR} (sigma_A comes from that checkpoint)")
 
 
 def parse_std_max(text) -> float | None:
@@ -823,6 +917,10 @@ MOTION_KNOB_PARSERS = {
     STAND_PROXY_VAR: parse_stand_proxy,
     STAND_PRIOR_TARGET_VAR: parse_stand_prior_target,
     RESTANCE_VAR: parse_restance_knob,
+    # omni phase-2 stage p2r Z2c (2026-10-10): runner side
+    BC_W_VAR: parse_bc_w,
+    BC_BANK_VAR: parse_bc_bank,
+    BC_BATCH_VAR: parse_bc_batch,
 }
 
 
@@ -1143,6 +1241,17 @@ def apply_exploration_knobs(agent_cfg, environ=None) -> None:
     restance = parse_restance_knob(env.get(RESTANCE_VAR))
     check_restance_composition(env, training=(anchor_w is not None or anchor_ckpt is not None
                                               or prior_w is not None))
+    # -- p2r Z2c clean-state cloning (2026-10-10): the cross rules, then the bank files (before anything is written)
+    bc_w = parse_bc_w(env.get(BC_W_VAR))
+    bc_bank = parse_bc_bank(env.get(BC_BANK_VAR))
+    bc_batch = parse_bc_batch(env.get(BC_BATCH_VAR))
+    check_bc_composition(env)
+    bc_paths = None
+    if bc_w is not None:
+        bc_paths = resolve_bc_bank(bc_bank)
+        missing = [raw for raw, res in zip(bc_bank, bc_paths) if not os.path.isfile(res)]
+        if missing:
+            raise ValueError(f"{BC_BANK_VAR}: not a file: {missing} (resolved against the repo root)")
     if ramp is not None and (bound_c1 is None or ramp[1] != bound_c1):
         raise ValueError(f"{ACTION_BOUND_RAMP_VAR}={env.get(ACTION_BOUND_RAMP_VAR)!r} ramps TO its c1, which must "
                          f"equal {ACTION_BOUND_LOSS_VAR} (got {env.get(ACTION_BOUND_LOSS_VAR)!r}): the loss "
@@ -1227,6 +1336,15 @@ def apply_exploration_knobs(agent_cfg, environ=None) -> None:
         _consumed(STAND_PRIOR_TARGET_VAR, env.get(STAND_PRIOR_TARGET_VAR))
         agent_cfg.algorithm.restance = restance.to_dict()
         _consumed(RESTANCE_VAR, env.get(RESTANCE_VAR))
+    if bc_w is not None:
+        # NOTE(p2r Z2c): the BC term (the cross rules above guarantee the target, R's constants and sigma_A)
+        agent_cfg.algorithm.bc_coef = bc_w
+        _consumed(BC_W_VAR, env.get(BC_W_VAR))
+        agent_cfg.algorithm.bc_bank = bc_paths
+        _consumed(BC_BANK_VAR, env.get(BC_BANK_VAR))
+        agent_cfg.algorithm.bc_batch_size = BC_BATCH_DEFAULT if bc_batch is None else bc_batch
+        if bc_batch is not None:
+            _consumed(BC_BATCH_VAR, env.get(BC_BATCH_VAR))
 
 
 def _check_statue_knobs(env, anchor_w, anchor_ckpt, prior_w) -> None:
