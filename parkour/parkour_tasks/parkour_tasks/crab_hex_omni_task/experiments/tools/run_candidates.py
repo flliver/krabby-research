@@ -2495,8 +2495,9 @@ def _orient_all_tiles_ok(txt: str, value) -> bool:
 def _check_restance_composition(env: dict, where: str, reasons: list) -> None:
     """The p2r Z2 cross rules (``motion_knobs.check_restance_composition``, as a TRAINING env) on a COMPOSED
     stage env, at ``--dry-run`` (2026-10-10): the held proxy without the clock bit, the re-stance target without
-    its weight / held proxy / constants, or ``KRABBY_RESTANCE`` without the target would otherwise raise only at
-    config build, once Kit has started. Inert while none of the three knobs is set; a malformed value is left to
+    its weight / constants, or ``KRABBY_RESTANCE`` without the target would otherwise raise only at config build,
+    once Kit has started (NOTE(p2r Z2 cams-only, 2026-10-10): the target no longer needs the held proxy -- R reads
+    cams + hip-pitch positions). Inert while none of the three knobs is set; a malformed value is left to
     ``_check_knob``."""
     mk = _motion()
     names = (mk.STAND_PROXY_VAR, *mk.RESTANCE_KNOBS)

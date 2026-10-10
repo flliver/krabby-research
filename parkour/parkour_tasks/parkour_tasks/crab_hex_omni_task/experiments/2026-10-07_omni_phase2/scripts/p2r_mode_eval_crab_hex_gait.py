@@ -26,13 +26,15 @@ suite's cross-wave latch carry-over: the move_turn wave's settle inherited the t
   re-stance controller ``R(obs)`` (``mdp/crab_hex_omni_restance.py``, loaded BY PATH -- the very function the PPO
   statue prior distils) on stand rows, S1's action elsewhere: the ``hold`` branch with ``R(obs)`` in place of zeros.
   ``obs`` is exactly the tensor the harness hands the policy (R reads only the current step's cam columns 18..28 and
-  proxy columns 83..88, both in the proprio head, which the harness's priv_explicit overwrite never touches), so under
-  ``KRABBY_OMNI_STAND_PROXY=hold`` R sees the env's sample-and-hold proxy. R's constants come from the environment's
-  ``KRABBY_RESTANCE`` (refused unset, or without ``KRABBY_OMNI_STAND_OBS=clock`` + ``KRABBY_OMNI_STAND_PROXY=hold``).
+  hip-pitch position columns 29..34, both in the proprio head, which the harness's priv_explicit overwrite never
+  touches). NOTE(p2r Z2 cams-only, 2026-10-10): R reads no load signal any more (the kinematic re-step), so the
+  variant no longer needs ``KRABBY_OMNI_STAND_PROXY=hold`` (Z2's chain runs it off; with it on, R simply ignores the
+  held columns). R's constants come from the environment's ``KRABBY_RESTANCE`` (refused unset, or without
+  ``KRABBY_OMNI_STAND_OBS=clock``).
   ``--p2r-residual JSON`` (``{"mu_bias": [18 floats]}``; the plan's residual pass) adds a fixed per-dim bias to R on
   stand rows, BEFORE the env's own action clip. ``--p2r-stand-bank`` reservoir-samples the stand rows (alive, stand
   mode; <= ``--p2r-bank-max``, a private generator, seed 0) into ``<stamp>/p2r_stand_bank.npz``: the TRUE obs (true
-  priv columns, as the probe bank captures them), R's target and branch, the policy-visible (held) proxy, the hold
+  priv columns, as the probe bank captures them), R's target and branch, the policy-visible proxy columns, the hold
   label and telemetry category, the step / episode index, ``s1_sigma``, R's params and the bias -- the CPU stand
   fidelity check's input (``p2r_z2_fidelity.py``).
 
@@ -74,7 +76,8 @@ ENV FALLBACK (``run_arm.sh``'s ``lr_eval`` passes no extra CLI args): ``P2R_MODE
 ``P2R_PROBES`` (``NAME=PATH`` separated by commas), ``P2R_BANK_MAX``, ``P2R_RESIDUAL`` (the JSON path),
 ``P2R_STAND_BANK`` (``1`` = on), used only when the CLI flag is absent -- set them through ``P2_ENV_EXTRA``. None of
 them is a ``KRABBY_*`` variable, so ``run_meta.env_vars`` is unchanged. (The restance probe's own ``KRABBY_RESTANCE``
-/ ``KRABBY_OMNI_STAND_PROXY`` ARE ``KRABBY_*`` variables: they travel in ``P2_ENV_EXTRA`` too and are recorded.)
+-- and ``KRABBY_OMNI_STAND_PROXY`` when a stamp sets it -- ARE ``KRABBY_*`` variables: they travel in ``P2_ENV_EXTRA``
+too and are recorded.)
 
 Launch exactly as the harness (``run_arm.sh`` with ``P2_EVAL=<this file>`` and the mode args in ``EVAL_EXTRA_ARGS``).
 """
@@ -112,7 +115,8 @@ RAW_DMU_PREFIX = "p2r_dmu_"
 RAW_BRANCH = "p2r_branch"
 RAW_TARGET = "p2r_target"
 RAW_OBS_PROXY = "p2r_obs_proxy"
-#: the env knobs the restance variant needs (the env's own obs term reads them; refused otherwise)
+#: the env knobs the restance variant reads: it needs STAND_OBS=clock (refused otherwise); STAND_PROXY is only
+#: recorded (NOTE(p2r Z2 cams-only, 2026-10-10): R reads no proxy, so the variant no longer requires it)
 STAND_OBS_VAR, STAND_PROXY_VAR = "KRABBY_OMNI_STAND_OBS", "KRABBY_OMNI_STAND_PROXY"
 _PROBE_NAME = re.compile(r"^[A-Za-z0-9_]+$")
 _ENV_KEYS = {"mode": "P2R_MODE", "stand_ckpt": "P2R_STAND_CKPT", "probes": "P2R_PROBES", "bank_max": "P2R_BANK_MAX",
@@ -222,10 +226,14 @@ def _validate_restance(opts: argparse.Namespace, environ) -> None:
         opts.restance = None
         return
     stand_obs = str(environ.get(STAND_OBS_VAR, "")).strip()
-    stand_proxy = str(environ.get(STAND_PROXY_VAR, "")).strip()
-    if stand_obs != "clock" or stand_proxy != "hold":
-        raise SystemExit(f"p2r: --p2r-mode restance needs {STAND_OBS_VAR}=clock and {STAND_PROXY_VAR}=hold in the "
-                         f"environment (got {stand_obs!r} / {stand_proxy!r}): R reads the stand-row held proxy")
+    # NOTE(p2r Z2 cams-only, 2026-10-10): only the stand bit is needed (R reads cams + hip-pitch positions; no proxy)
+    if stand_obs != "clock":
+        raise SystemExit(f"p2r: --p2r-mode restance needs {STAND_OBS_VAR}=clock in the environment (got "
+                         f"{stand_obs!r}): the stand rows are the clock-column stand-bit rows")
+    proxy = str(environ.get("KRABBY_OMNI_STAND_PROXY", "")).strip()
+    if proxy not in ("", "0"):
+        raise SystemExit(f"p2r: --p2r-mode restance (cams-only) needs KRABBY_OMNI_STAND_PROXY off (got {proxy!r}): the "
+                         "Z2 reads mark a stamp with the held proxy on INVALID, so the row would be wasted")
     rst = load_restance()
     try:
         params = rst.parse_restance(environ.get(rst.RESTANCE_VAR))
@@ -796,8 +804,10 @@ def restance_swap_live(refs_stamp, rst_stamp) -> dict:
     twin, ``p2_read.p2r_hold_swap_live``): (a) on every ``p2r_stand_mode`` step the applied action is exactly
     ``p2r_target`` + the stamp's residual bias (float32, bitwise), and ``p2r_branch`` is a code (>= 0); off stand,
     ``p2r_branch`` is -1 and ``p2r_target`` 0; (b) stand-mode share > 0; (c) actions BEFORE each episode's first
-    stand entry equal REFS bitwise on the same episode index (no held-buffer leak into walking rows or history --
-    non-vacuous on walkstop, whose first stand follows walking; the suite enters stand at its settle, step 0)."""
+    stand entry equal REFS bitwise on the same episode index (no stand-row leak into walking rows or history --
+    non-vacuous on walkstop, whose first stand follows walking; the suite enters stand at its settle, step 0).
+    NOTE(p2r Z2 cams-only, 2026-10-10): ``p2r_obs_proxy`` is still recorded but no longer required here (R reads no
+    proxy); a stamp needs only the stand / branch / target series."""
     import json  # noqa: PLC0415
 
     import numpy as np  # noqa: PLC0415
@@ -817,7 +827,7 @@ def restance_swap_live(refs_stamp, rst_stamp) -> dict:
     eq_ok, clean_ok, pre_ok, shares, checked = True, True, True, [], 0
     for f in sorted((rst_stamp / "raw").glob("episode_*.npz")):
         d = np.load(f)
-        if not {RAW_STAND, RAW_BRANCH, RAW_TARGET, RAW_OBS_PROXY} <= set(d.files):
+        if not {RAW_STAND, RAW_BRANCH, RAW_TARGET} <= set(d.files):
             out["fails"].append(f"{f.name}: a restance raw series is missing")
             continue
         mode = np.asarray(d[RAW_STAND]).astype(bool)
@@ -1058,11 +1068,10 @@ def make_write_run(ctx: _Ctx, orig_write_run):
         rst_stats = stand_bank_rel = None
         if mode.variant == "restance":
             env_vars = run_meta.get("env_vars")
-            if env_vars is not None and (env_vars.get(STAND_OBS_VAR) != "clock"
-                                         or env_vars.get(STAND_PROXY_VAR) != "hold"):
-                raise RuntimeError(f"p2r: restance stamp records {STAND_OBS_VAR}={env_vars.get(STAND_OBS_VAR)!r} / "
-                                   f"{STAND_PROXY_VAR}={env_vars.get(STAND_PROXY_VAR)!r}; the env did not run the "
-                                   "held proxy R was validated against")
+            # NOTE(p2r Z2 cams-only, 2026-10-10): the stand bit only (R reads no proxy; STAND_PROXY is not required)
+            if env_vars is not None and env_vars.get(STAND_OBS_VAR) != "clock":
+                raise RuntimeError(f"p2r: restance stamp records {STAND_OBS_VAR}={env_vars.get(STAND_OBS_VAR)!r}; the "
+                                   "env wrote no clock-column stand bit")
             rst_stats = restance_stats(series, run_meta["n_steps_per_env"], mode.restance[0].BRANCH_NAMES)
             if mode.stand_bank:
                 sbank = mode.stand_bank_arrays()

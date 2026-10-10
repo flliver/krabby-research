@@ -69,7 +69,8 @@ variable                        what it writes when armed
 ``KRABBY_OMNI_STAND_PROXY=hold`` omni obs term ``params["stand_proxy_hold"]`` = True -- on the
                                 stand-bit rows the CURRENT step's proxy columns 83-88 read each
                                 leg's last knee-gated value (sample-and-hold; -0.5 after a reset);
-                                needs ``KRABBY_OMNI_STAND_OBS=clock``; width unchanged (p2r Z2)
+                                needs ``KRABBY_OMNI_STAND_OBS=clock``; width unchanged (p2r Z2;
+                                since the 2026-10-10 cams-only amendment read by nothing in R)
 **PPO construction (runner cfg; ``apply_exploration_knobs``; PPO-construction plan, 2026-10-01)**
 ``KRABBY_ACTION_BOUND_LOSS``    ``algorithm.action_bound_loss_coef`` -- the FINAL coefficient c1
                                 of the rl_games bound loss on the raw mean (blank / ``0`` = off)
@@ -100,8 +101,8 @@ variable                        what it writes when armed
                                 15``; all need ``KRABBY_OMNI_STAND_OBS=clock`` and the checkpoint)
 ``KRABBY_STAND_PRIOR_TARGET``   ``algorithm.stand_prior_target = "restance"`` -- the statue prior's
                                 target becomes R(obs) (p2r Z2): 1/2 sum_d ((mu - R) / sigma_A,d)^2;
-                                needs ``KRABBY_STAND_PRIOR_W`` > 0, ``KRABBY_OMNI_STAND_PROXY=hold``
-                                and ``KRABBY_RESTANCE``
+                                needs ``KRABBY_STAND_PRIOR_W`` > 0 and ``KRABBY_RESTANCE`` (R reads
+                                cams + hip-pitch positions only; no proxy knob since 2026-10-10)
 ``KRABBY_RESTANCE``             ``algorithm.restance`` -- R's constants (``mdp/crab_hex_omni_restance``
                                 ``RestanceParams.to_dict()``; ``default`` = the seeds); refused in a
                                 training recipe without ``KRABBY_STAND_PRIOR_TARGET``
@@ -177,7 +178,11 @@ an OBS-SEMANTICS knob in :data:`EVAL_SEMANTIC_KNOBS`, off value ``0``; refused w
 ``KRABBY_STAND_PRIOR_TARGET=restance`` and ``KRABBY_RESTANCE``, which turn the statue prior's target from 0 into
 the scripted re-stance controller R(obs) (``mdp/crab_hex_omni_restance.py``, loaded BY PATH and lazily, so this
 module stays torch-free at import). The target is refused without ``KRABBY_STAND_PRIOR_W`` > 0,
-``KRABBY_OMNI_STAND_PROXY=hold`` and ``KRABBY_RESTANCE``. ``KRABBY_RESTANCE`` without the target writes nothing
+``KRABBY_OMNI_STAND_OBS=clock`` (the statue rule, repeated so the ladder's dry run sees it) and ``KRABBY_RESTANCE``.
+NOTE(p2r Z2 cams-only, 2026-10-10): R no longer reads the held contact proxy (it reads the cam
+angles and the hip-pitch POSITIONS, obs columns 18+2i / 29+i), so the target no longer needs
+``KRABBY_OMNI_STAND_PROXY=hold``; the proxy knob stays a valid, independent, default-off obs knob (Z2's chain runs
+it off). ``KRABBY_RESTANCE`` without the target writes nothing
 -- the controller-level probe reads it from the environment itself, inside an EVAL whose agent cfg passes
 through here too -- and is refused only where it would be a training recipe that says something it does not
 train: alongside an armed statue knob here (an eval never carries those), and on any chain stage at the
@@ -261,7 +266,8 @@ ANCHOR_W_VAR = "KRABBY_ANCHOR_W"
 ANCHOR_CKPT_VAR = "KRABBY_ANCHOR_CKPT"
 STAND_PRIOR_W_VAR = "KRABBY_STAND_PRIOR_W"
 # -- p2r Z2 re-stance (P2R_Z2_PLAN step 1, 2026-10-10; all DEFAULT OFF, set by no preset)
-#: Env side: the sample-and-hold contact proxy on stand rows (``params["stand_proxy_hold"]``).
+#: Env side: the sample-and-hold contact proxy on stand rows (``params["stand_proxy_hold"]``). Independent of
+#: the re-stance target since the 2026-10-10 cams-only amendment (R reads no load signal).
 STAND_PROXY_VAR = "KRABBY_OMNI_STAND_PROXY"
 #: Runner side: the statue prior's target (``algorithm.stand_prior_target``) and R's constants
 #: (``algorithm.restance``; ``crab_hex_omni_restance.RESTANCE_VAR`` -- pinned equal by the unit tests).
@@ -537,9 +543,12 @@ def check_restance_composition(env, *, training: bool) -> None:
         if parse_statue_w(get(STAND_PRIOR_W_VAR), STAND_PRIOR_W_VAR) is None:
             raise ValueError(f"{STAND_PRIOR_TARGET_VAR}={target} sets the statue prior's target, but "
                              f"{STAND_PRIOR_W_VAR} is off (got {get(STAND_PRIOR_W_VAR)!r}): it would train nothing")
-        if proxy != "hold":
-            raise ValueError(f"{STAND_PRIOR_TARGET_VAR}={target} reads the held contact proxy, which needs "
-                             f"{STAND_PROXY_VAR}=hold (got {get(STAND_PROXY_VAR)!r})")
+        # NOTE(p2r Z2 cams-only, 2026-10-10): no proxy rule -- R reads cams + hip-pitch positions only. The stand-bit
+        # rule (the statue knobs' own, repeated here so the ladder's dry run catches it before Kit starts; it used to
+        # ride on the proxy rule) stays.
+        if parse_stand_obs(get(STAND_OBS_VAR)) != "clock":
+            raise ValueError(f"{STAND_PRIOR_TARGET_VAR}={target} distils R on the stand-bit rows, which only "
+                             f"{STAND_OBS_VAR}=clock writes (got {get(STAND_OBS_VAR)!r})")
         if params is None:
             raise ValueError(f"{STAND_PRIOR_TARGET_VAR}={target} needs {RESTANCE_VAR} (R's constants; 'default' = "
                              "the seeds)")

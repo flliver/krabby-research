@@ -86,8 +86,10 @@ above. Per stand (:func:`stand_z2_metrics`), on the fall-trimmed ``full`` rows o
   six-down share     fraction of window rows with all six ``foot_force_norm`` > 50 N; window = the ``steady``
                      window (:func:`hold_masks`) on a category_suite stamp, the last 5 s of the fall-trimmed stand
                      on every schedule row (walkstop, field rows).
-  settle time        seconds from the stand's first row to the first row from which (all six > 50 N AND max|cam|
-                     <= 0.10) holds for 0.5 s running (25 rows); None = never inside the stand (unsettled).
+  settle time        seconds from the stand's first row to the first row from which max|cam| <= 0.10 (HOMED)
+                     holds for 0.5 s running (25 rows); None = never inside the stand (unsettled). NOTE(p2r Z2
+                     cams-only, 2026-10-10): six-down is no longer part of settle (P2R_Z2_PLAN "Amendment
+                     2026-10-10": the six-down share is REPORTED, not gated).
   post-settle        steps/s and taps/s (:func:`gait_eval.metrics.step_tap_runs` on the loaded mask) and KS (mean
                      3-D foot-speed sum) from the settle row to the stand's end; None on an unsettled stand.
   re-stance lifts    steps (:func:`gait_eval.metrics.step_tap_runs`) from the stand's first row to the settle row
@@ -163,7 +165,7 @@ STILL_THRESHOLDS = {
 Z2_LAST_S = 5.0                              #: homed / hip yaw / schedule-row six-down window: the stand's last 5 s
 Z2_HOMED_RAD = 0.10                          #: homed: every cam within 0.10 rad of home (about 1.7 deg of hip yaw)
 Z2_SIXDOWN_SHARE = 0.90                      #: a stand counts as six-down at a window share >= this
-Z2_SETTLE_HOLD_S = 0.5                       #: settle: six-down AND homed held this long running
+Z2_SETTLE_HOLD_S = 0.5                       #: settle: homed held this long running (cams-only, 2026-10-10)
 Z2_FALLS_PER = 300                           #: stand falls are reported per this many stands (walkstop: 100 x 3)
 CAM_JOINT_SUFFIX = "_Body_CamShaft_RevoluteJoint"
 HIP_YAW_JOINT_SUFFIX = "_Body_Hip_RevoluteJoint"
@@ -604,7 +606,8 @@ def stand_z2_metrics(d, hold_idx: int, dt: float, cam_cols: list[int] | None, hi
     if cam_abs is None:                                                  # no cams: settle cannot be read
         return out
     need = max(1, int(round(Z2_SETTLE_HOLD_S / dt)))
-    t0 = _first_run_start(six[idx] & (cam_abs[idx] <= Z2_HOMED_RAD), need)
+    # NOTE(p2r Z2 cams-only, 2026-10-10): settle = HOMED held 0.5 s (six-down removed from settle; reported only)
+    t0 = _first_run_start(cam_abs[idx] <= Z2_HOMED_RAD, need)
     out["settled"] = t0 is not None
     pre = loaded if t0 is None else loaded[:t0]
     out["lifts_before_settle"] = len(M.step_tap_runs(pre, min_step_steps=MIN_STEP_STEPS)[0]) if pre.shape[0] else 0

@@ -1,4 +1,5 @@
-"""Omni phase 2, stage p2r Z2 -- the scripted re-stance controller R (``P2R_Z2_PLAN.md``, 2026-10-10).
+"""Omni phase 2, stage p2r Z2 -- the scripted re-stance controller R (``P2R_Z2_PLAN.md`` + its 2026-10-10
+amendment: CAMS-ONLY, KINEMATIC re-step).
 
 PURE TORCH, NO ISAAC IMPORT: the controller-level probe (``p2r_mode_eval_crab_hex_gait.py --p2r-mode
 restance``), the PPO statue prior (``KRABBY_STAND_PRIOR_TARGET=restance``) and the CPU tools (dose step,
@@ -6,40 +7,42 @@ fidelity scorer) all call the SAME :func:`restance_target`, so the distilled tar
 controller the probe proved. CPU tools load this file by path (``importlib.util.spec_from_file_location``)
 to stay off the task package's Isaac imports.
 
-WHAT R DOES (a memoryless function of the CURRENT step's policy observation; no last-action terms, every
-target restoring and absolute, so it stays bounded under training noise):
+WHY KINEMATIC (CHARTER 12.1, 2026-10-10). The first R seated each leg on the current-sense contact proxy held on
+stand rows. The probe's premise STOP showed that a gated current reading cannot carry a still stand: a parked leg
+cannot refresh it (71 % of the legs stuck "unloaded" at stand end carried a median 494 N; the stale holds deadlocked
+116 / 294 walkstop stands) and a live reading made the press chatter (37 taps/s on the suite). The user chose
+cams-only: R now reads NO load signal; a leg's phase comes from its own hip-pitch POSITION, and six-foot loading is
+left to the static-indeterminacy lottery (as Z1's statue).
 
-* inputs per leg ``i`` (legs in articulation order FL FR ML MR RL RR):
+WHAT R DOES (a memoryless function of the CURRENT step's policy observation; every rod target absolute, the cam
+laws restoring, so it stays bounded under training noise):
+
+* inputs per leg ``i`` (articulation order FL FR ML MR RL RR):
     ``c_i`` = cam angle, obs column ``18 + 2 i`` (``joint_pos - default``, already ``wrap_to_pi``);
-    ``h_i`` = contact proxy, obs column ``83 + i`` -- under ``KRABBY_OMNI_STAND_PROXY=hold`` the
-              sample-and-hold reading on stand rows (the last fully knee-gated value; -0.5 = unknown).
-* ``loaded_i = h_i >= theta_L``.
+    ``p_i`` = hip-pitch angle, obs column ``29 + i`` (``joint_pos - default``, rad).
+* ``down_i = p_i >= down_frac * 0.25 * lift`` (near default; a loaded leg sags ~0.018 rad below its target, inside
+  the band), ``up_i = p_i <= up_frac * 0.25 * lift`` (near the lift target; ``0.25`` = the rod action scale).
+* tripods ``A = (FL, MR, RL)``, ``B = (FR, ML, RR)``. A tripod MAY step when it has a DOWN leg with ``|c| > eps_c``
+  and every leg of the OTHER tripod is down; if both may, the one with the larger sum of ``|c|`` over those legs
+  steps (exact tie -> A, a measure-zero break of the left-right symmetry).
 * branches (``BRANCH_*``):
-    HOLD  loaded, ``|c| <= eps_c``      cam: restoring trim ``-clip(k_h c, +-trim)``; rods: seat law
-    WAIT  loaded, ``|c| > eps_c``, its tripod not selected   cam 0; rods: seat law
-    LIFT  loaded, ``|c| > eps_c``, its tripod selected       cam 0; rods: lift
-    HOME  unloaded, ``|c| > eps_air``, the OTHER tripod fully loaded
-                                                             cam: ``-clip(k_c c, +-1)``; rods: lift
-    SEAT  unloaded, otherwise                                cam: ``-clip(k_c c, +-1)``; rods: seat law
-  (NOTE(p2r Z2 probe, 2026-10-10, CHARTER 12.1): HOME needs the other tripod fully loaded, exactly like LIFT. The
-  plan's first rule lifted ANY unloaded un-homed leg, so a planted-tripod leg that lost load while the stepping
-  tripod was in the air lifted too -- two adjacent legs of different tripods up, a forward pitch-over (probe pass
-  P2R_RSTt1_s18: 50 stand falls in 231 walkstop stands). An unloaded leg without support now SEATS instead.)
-  (``eps_air < eps_c``: a leg homes in the air to a tighter band than the loaded one, so a cam coast after
-  landing stays inside ``eps_c`` and the trim holds it there.)
-* tripods ``A = (FL, MR, RL)``, ``B = (FR, ML, RR)``. A tripod MAY step when it has a loaded leg with
-  ``|c| > eps_c`` and every leg of the other tripod is loaded; if both may, the one with the larger sum of
-  ``|c|`` over those legs steps (exact tie -> A, a measure-zero break of the left-right symmetry).
-* rods: the hip-pitch command ``u`` is ``lift`` (< 0 lifts the foot: body-relative foot height falls with
-  the hip-pitch angle on every leg) or the seat law ``kappa * clamp(theta_S - h, 0, dmax)`` (>= 0 extends a
-  light leg until it reads ``theta_S``). The knee moves WITH the hip in every lift and press,
-  ``knee = -rho * side_i * u`` (``side`` +1 left, -1 right: increasing |knee angle| raises the foot, and the
-  knee's action sign flips across the body -- its left-right mirror sign is -1), so every load reading R makes
-  has the knee rod moving, on the one knee-inclusive proxy scale training sees (user decision 2026-10-10).
+    HOLD  down, ``|c| <= eps_c``                            rods 0;    cam: restoring trim ``-clip(k_h c, +-trim)``
+    WAIT  down, ``|c| > eps_c``, its tripod not selected    rods 0;    cam 0
+    LIFT  down, ``|c| > eps_c``, its tripod selected        rods lift; cam 0 (it homes once up)
+    HOME  not down, ``|c| > eps_air``, the other tripod all down
+                                                            rods lift; cam ``-clip(k_c c, +-1)`` once UP, else 0
+    SEAT  not down, otherwise (homed in the air, or no support)
+                                                            rods 0;    cam ``-clip(k_c c, +-1)`` while UP, else 0
+  (``eps_air < eps_c``: a leg homes in the air to a tighter band than the down one, so a cam coast after landing
+  stays inside ``eps_c`` and the trim holds it. A cam turns only while its leg is UP or, inside the band, as the
+  +-0.03 trim -- never a large turn with the foot down.)
+* knee: ``knee = -rho * side_i * hip`` (``side`` +1 left, -1 right: increasing |knee angle| raises the foot and the
+  knee's action sign flips across the body -- its left-right mirror sign is -1), so a lift raises the foot with both
+  rods and every rest target is 0 on both.
 
-MIRROR. R is equivariant under both planes provided ``lift``/``kappa``/... are the same on every leg (hip-pitch
-mirror sign +1 in both planes) and the knee carries ``side`` (left-right knee sign -1, fore-aft +1); the cam
-law is odd in ``c`` (cam sign -1 in both planes); the proxy is a leg-permuted magnitude. Pinned by the tests.
+MIRROR. R is equivariant under both planes provided its constants are the same on every leg (hip-pitch mirror sign +1
+in both planes, so ``p`` and the hip target are mirror-invariant per leg) and the knee carries ``side`` (left-right
+knee sign -1, fore-aft +1); the cam laws are odd in ``c`` (cam sign -1 in both planes). Pinned by the tests.
 """
 # No ``from __future__ import annotations``: with string annotations ``dataclasses`` looks the module up in
 # ``sys.modules``, which a by-path load (the CPU tools) need not have registered.
@@ -53,9 +56,13 @@ RESTANCE_VAR = "KRABBY_RESTANCE"
 
 #: Policy-observation layout (current step's proprio head; pinned against the obs term by the tests).
 CAM_OBS_COLS = tuple(18 + 2 * i for i in range(6))
+HIP_POS_OBS_COLS = tuple(29 + i for i in range(6))
+#: The contact-proxy columns (no longer read by R since the 2026-10-10 amendment; kept for the CPU tools).
 PROXY_OBS_COLS = tuple(83 + i for i in range(6))
-#: The columns R reads; the obs must be at least this wide.
+#: The columns R reads lie inside the current step's 89-wide proprio head.
 MIN_OBS_WIDTH = 89
+#: The rod action scale (rad per action unit; the hip-pitch target is ``default + ROD_SCALE * a``).
+ROD_SCALE = 0.25
 LEGS = ("FL", "FR", "ML", "MR", "RL", "RR")
 #: +1 left, -1 right (the knee's per-side sign).
 SIDE = (1.0, -1.0, 1.0, -1.0, 1.0, -1.0)
@@ -73,19 +80,17 @@ BRANCH_NAMES = ("hold", "wait", "lift", "home", "seat")
 
 @dataclasses.dataclass(frozen=True)
 class RestanceParams:
-    """R's constants. Seeds (P2R_Z2_PLAN step 1); step 3's calibration pass fixes ``theta_L``/``theta_S``,
-    ``lift`` and ``rho`` -- tuning changes this knob, never code."""
+    """R's constants. Seeds (2026-10-10 amendment); step 3's probe passes tune them -- tuning changes this knob,
+    never code."""
 
     lift: float = -0.5        #: hip-pitch lift command (action units; < 0 lifts)
-    rho: float = 0.5          #: knee-with-hip ratio (knee = -rho * side * hip)
-    theta_L: float = 0.35     #: proxy at/above which a leg counts as loaded
-    theta_S: float = 0.75     #: proxy the seat law extends a light leg towards
-    kappa: float = 0.5        #: seat-law gain (action units per proxy unit)
-    dmax: float = 0.6         #: seat-law clamp on (theta_S - h), proxy units
+    rho: float = 1.0          #: knee-with-hip ratio (knee = -rho * side * hip): lift clearance
+    up_frac: float = 0.6      #: a leg is UP once its hip has travelled this share of the lift
+    down_frac: float = 0.4    #: a leg is DOWN while its hip is within this share of the lift from default
     k_c: float = 2.0          #: in-air cam homing gain (action units per rad)
-    k_h: float = 0.3          #: loaded in-band trim gain
-    trim: float = 0.03        #: loaded in-band trim authority (user decision 2026-10-10)
-    eps_c: float = 0.10       #: loaded home band, rad (the homed gate's threshold)
+    k_h: float = 0.3          #: down in-band trim gain
+    trim: float = 0.03        #: down in-band trim authority (user decision 2026-10-10)
+    eps_c: float = 0.10       #: down home band, rad (the homed gate's threshold)
     eps_air: float = 0.05     #: in-air home band, rad (tighter, so a landing coast stays in eps_c)
 
     def __post_init__(self):
@@ -93,25 +98,32 @@ class RestanceParams:
             v = getattr(self, f.name)
             if not isinstance(v, (int, float)) or not math.isfinite(float(v)):
                 raise ValueError(f"{RESTANCE_VAR}: {f.name}={v!r} is not a finite number")
-        if not self.lift < 0.0:
-            raise ValueError(f"{RESTANCE_VAR}: lift={self.lift} must be < 0 (negative hip-pitch lifts the foot)")
-        if not -1.0 <= self.lift:
-            raise ValueError(f"{RESTANCE_VAR}: lift={self.lift} is outside the action clip [-1, 1]")
-        if not -0.5 <= self.theta_L < self.theta_S <= 1.0:
-            raise ValueError(f"{RESTANCE_VAR}: need -0.5 <= theta_L < theta_S <= 1.0 (the proxy's range), "
-                             f"got theta_L={self.theta_L}, theta_S={self.theta_S}")
-        for name in ("kappa", "dmax", "k_c", "k_h", "trim", "eps_c", "eps_air"):
+        if not -1.0 <= self.lift < 0.0:
+            raise ValueError(f"{RESTANCE_VAR}: lift={self.lift} must be in [-1, 0) (negative hip-pitch lifts the foot)")
+        if not 0.0 < self.down_frac < self.up_frac < 1.0:
+            raise ValueError(f"{RESTANCE_VAR}: need 0 < down_frac < up_frac < 1, got down_frac={self.down_frac}, "
+                             f"up_frac={self.up_frac}")
+        for name in ("k_c", "k_h", "trim", "eps_c", "eps_air"):
             if not float(getattr(self, name)) > 0.0:
                 raise ValueError(f"{RESTANCE_VAR}: {name} must be > 0, got {getattr(self, name)}")
         if self.rho < 0.0:
             raise ValueError(f"{RESTANCE_VAR}: rho={self.rho} must be >= 0 (the knee assists the hip)")
+        if abs(self.lift) * self.rho > 1.0:
+            raise ValueError(f"{RESTANCE_VAR}: the knee lift rho*|lift|={self.rho * abs(self.lift)} leaves the action clip")
         if not self.eps_air <= self.eps_c:
             raise ValueError(f"{RESTANCE_VAR}: eps_air={self.eps_air} must be <= eps_c={self.eps_c}")
-        if self.kappa * self.dmax > 1.0 or abs(self.lift) * max(1.0, self.rho) > 1.0 or self.rho * self.kappa * self.dmax > 1.0:
-            raise ValueError(f"{RESTANCE_VAR}: a rod command would leave the action clip [-1, 1] "
-                             f"(kappa*dmax={self.kappa * self.dmax}, lift={self.lift}, rho={self.rho})")
         if self.trim > 1.0:
             raise ValueError(f"{RESTANCE_VAR}: trim={self.trim} exceeds the action clip")
+
+    @property
+    def p_up(self) -> float:
+        """The hip-pitch angle (obs, rad) at or below which a leg is UP."""
+        return self.up_frac * ROD_SCALE * self.lift
+
+    @property
+    def p_down(self) -> float:
+        """The hip-pitch angle (obs, rad) at or above which a leg is DOWN."""
+        return self.down_frac * ROD_SCALE * self.lift
 
     def to_dict(self) -> dict:
         return {f.name: float(getattr(self, f.name)) for f in dataclasses.fields(self)}
@@ -164,54 +176,56 @@ def _side(device, dtype) -> torch.Tensor:
 def restance_target(obs: torch.Tensor, p: RestanceParams) -> tuple[torch.Tensor, torch.Tensor]:
     """``(target (N, 18), branch (N, 6) int64)`` for the policy observations ``obs`` (N, >= 89).
 
-    Only the current step's columns :data:`CAM_OBS_COLS` / :data:`PROXY_OBS_COLS` are read. ``target`` is
-    an action-mean target inside the clip [-1, 1]; ``branch`` the per-leg ``BRANCH_*`` code.
+    Only the current step's columns :data:`CAM_OBS_COLS` / :data:`HIP_POS_OBS_COLS` are read. ``target`` is an
+    action-mean target inside the clip [-1, 1]; ``branch`` the per-leg ``BRANCH_*`` code.
     """
     if obs.dim() != 2 or obs.shape[-1] < MIN_OBS_WIDTH:
         raise ValueError(f"restance_target: obs must be (N, >= {MIN_OBS_WIDTH}), got {tuple(obs.shape)}")
     dev, dt = obs.device, obs.dtype
     c = obs[:, list(CAM_OBS_COLS)]
-    h = obs[:, list(PROXY_OBS_COLS)]
-    loaded = h >= p.theta_L
-    out_c = c.abs() > p.eps_c          # outside the loaded home band
+    hp = obs[:, list(HIP_POS_OBS_COLS)]
+    down = hp >= p.p_down
+    up = hp <= p.p_up
+    out_c = c.abs() > p.eps_c          # outside the down home band
     out_air = c.abs() > p.eps_air      # outside the in-air home band
 
-    # ---- tripod selection (loaded, out-of-band legs step; the other tripod must be fully loaded)
     a_idx = torch.tensor(TRIPOD_A, device=dev)
     b_idx = torch.tensor(TRIPOD_B, device=dev)
-    want = loaded & out_c
+    in_a = torch.zeros(6, dtype=torch.bool, device=dev)
+    in_a[a_idx] = True
+    # ---- per leg: is every leg of the OTHER tripod down?
+    a_down = down[:, a_idx].all(-1, keepdim=True)
+    b_down = down[:, b_idx].all(-1, keepdim=True)
+    other_down = torch.where(in_a[None, :], b_down, a_down)
+
+    # ---- tripod selection (down, out-of-band legs step; the other tripod must be all down)
+    want = down & out_c
     mag = torch.where(want, c.abs(), torch.zeros_like(c))
-    a_may = want[:, a_idx].any(-1) & loaded[:, b_idx].all(-1)
-    b_may = want[:, b_idx].any(-1) & loaded[:, a_idx].all(-1)
+    a_may = want[:, a_idx].any(-1) & b_down[:, 0]
+    b_may = want[:, b_idx].any(-1) & a_down[:, 0]
     sum_a = mag[:, a_idx].sum(-1)
     sum_b = mag[:, b_idx].sum(-1)
     sel_a = a_may & (~b_may | (sum_a >= sum_b))
     sel_b = b_may & ~sel_a
-    in_a = torch.zeros(6, dtype=torch.bool, device=dev)
-    in_a[a_idx] = True
     selected = (sel_a[:, None] & in_a[None, :]) | (sel_b[:, None] & ~in_a[None, :])
 
     # ---- branches
+    home = ~down & out_air & other_down
     branch = torch.full(c.shape, BRANCH_HOLD, dtype=torch.long, device=dev)
-    branch = torch.where(loaded & out_c & ~selected, torch.full_like(branch, BRANCH_WAIT), branch)
-    branch = torch.where(loaded & out_c & selected, torch.full_like(branch, BRANCH_LIFT), branch)
-    # the support rule: a leg may be (or stay) in the air for homing only while the OTHER tripod is fully loaded
-    other_loaded = torch.where(in_a[None, :], loaded[:, b_idx].all(-1, keepdim=True),
-                               loaded[:, a_idx].all(-1, keepdim=True))
-    home = ~loaded & out_air & other_loaded
+    branch = torch.where(down & out_c & ~selected, torch.full_like(branch, BRANCH_WAIT), branch)
+    branch = torch.where(down & out_c & selected, torch.full_like(branch, BRANCH_LIFT), branch)
     branch = torch.where(home, torch.full_like(branch, BRANCH_HOME), branch)
-    branch = torch.where(~loaded & ~home, torch.full_like(branch, BRANCH_SEAT), branch)
+    branch = torch.where(~down & ~home, torch.full_like(branch, BRANCH_SEAT), branch)
 
     # ---- cam velocity
+    zero = torch.zeros_like(c)
     cam_air = -(p.k_c * c).clamp(-1.0, 1.0)
     cam_trim = -(p.k_h * c).clamp(-p.trim, p.trim)
-    zero = torch.zeros_like(c)
-    cam = torch.where(~loaded, cam_air, torch.where(out_c, zero, cam_trim))
+    cam = torch.where(down, torch.where(out_c, zero, cam_trim), torch.where(up, cam_air, zero))
 
-    # ---- rods
+    # ---- rods (absolute targets)
     lifting = (branch == BRANCH_LIFT) | (branch == BRANCH_HOME)
-    seat = p.kappa * (p.theta_S - h).clamp(0.0, p.dmax)
-    hip = torch.where(lifting, torch.full_like(c, p.lift), seat)
+    hip = torch.where(lifting, torch.full_like(c, p.lift), torch.zeros_like(c))
     knee = -p.rho * _side(dev, dt)[None, :] * hip
 
     target = torch.cat([cam, hip, knee], dim=-1).clamp(-1.0, 1.0)

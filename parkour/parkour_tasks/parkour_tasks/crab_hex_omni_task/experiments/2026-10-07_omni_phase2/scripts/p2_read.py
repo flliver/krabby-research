@@ -150,9 +150,12 @@ and stand stepping, turn band) are reported for the judges; the ranking is their
                                          without the ladder and the relative settle clause, field_turn / field_hard
                                          es1 vs P2R_HOLD_s18 (2 SE), stand body height vs REFS_S1_s18 (0.03 m); es1
                                          and es2 separately, unrun rows NOT RUN. Exit 0 PASS / PASS ON ROWS RUN, 4.
+                                         (Cams-only amendment 2026-10-10: six-down REPORTED, not gated; settle =
+                                         homed held 0.5 s; STAND_PROXY must be off.)
     p2_read.py --p2r-z2 [NAME] [--probe NAME] [--p2r-md PATH]
                                          P2R_Z2_PLAN.md step 5's read of NAME (default P2__Z2_s18): the --p2r-z
-                                         ladder + attribution verbatim, INVALID widened (STAND_PROXY=hold, raw bit),
+                                         ladder + attribution verbatim, INVALID widened (STAND_PROXY off -- the
+                                         cams-only chain, 2026-10-10 -- and the raw bit),
                                          the Z2 stand gates (relative settle vs --probe, default P2R_RST_s18),
                                          adoption_grade, baselines / fidelity / walls vs Z1 / hip yaw. Exit 0 unless
                                          INVALID (4). (P2R_Z2_S18 / P2R_RST_S18 rename the heads.)
@@ -3047,9 +3050,11 @@ def p2r_step1_markdown(out: dict) -> str:
 
 # ================================================================================================ p2r Z2 (CHARTER 12 /
 # P2R_Z2_PLAN.md steps 3 and 5). NOTE(p2r Z2, 2026-10-10): Z2 changes only the stand TARGET (the statue prior pulls
-# toward the re-stance controller R instead of 0) and adds the sample-and-hold proxy, so every Z1 read stays and the
-# new per-stand estimators (p2s_stand.z2_head_summary: six-down / homed / settle / post-settle / lifts, over EVERY
-# walkstop stand) carry the new gates. Two reads:
+# toward the re-stance controller R instead of 0), so every Z1 read stays and the new per-stand estimators
+# (p2s_stand.z2_head_summary: six-down / homed / settle / post-settle / lifts, over EVERY walkstop stand) carry the
+# new gates. NOTE(p2r Z2 cams-only, 2026-10-10; P2R_Z2_PLAN "Amendment 2026-10-10"): R is now KINEMATIC (no load
+# sensing) and Z2 runs with KRABBY_OMNI_STAND_PROXY OFF, so the obs stays Z1's; the six-down share is REPORTED, not
+# gated (``reported`` in z2_stand_gates); settle = homed held 0.5 s (p2s_stand). Two reads:
 #   --p2r-rst NAME  step 3's PREMISE GATE on a controller-probe stamp set (P2R_RST_s18; S1 + R at stand rows, no
 #                   training): the Z2 stand gates except the ladder and the relative settle clause (the probe SETS
 #                   that line), plus field_turn / field_hard es1 stand falls and completion no worse than
@@ -3058,12 +3063,16 @@ def p2r_step1_markdown(out: dict) -> str:
 #                   suite and walkstop stands. es1 (the tuning seed) and es2 are reported separately; a row the
 #                   stamp set never ran (the residual pass runs es1 only) is listed NOT RUN, never silently passed.
 #   --p2r-z2 [NAME] step 5's read: the --p2r-z ladder verbatim (OBSTACLE LOSS / FLAT FAIL / COST, attribution vs
-#                   C0R) with the INVALID rule widened (KRABBY_OMNI_STAND_OBS=clock AND KRABBY_OMNI_STAND_PROXY=hold in
-#                   every stamp env, and the raw stand bit folded in), plus the Z2 stand gates incl. the relative
-#                   settle line against the probe, and the reported baselines / fidelity / walls / hip yaw.
+#                   C0R) with the INVALID rule widened (KRABBY_OMNI_STAND_OBS=clock AND KRABBY_OMNI_STAND_PROXY off --
+#                   absent or 0 -- in every stamp env, and the raw stand bit folded in), plus the Z2 stand gates incl.
+#                   the relative settle line against the probe, and the reported baselines / fidelity / walls / hip
+#                   yaw.
 STAND_PROXY_VAR, STAND_PROXY_ON = "KRABBY_OMNI_STAND_PROXY", "hold"
+#: NOTE(p2r Z2 cams-only, 2026-10-10): the STAND_PROXY values a Z2-family stamp may carry (absent / blank / 0 = off)
+STAND_PROXY_OFF = ("", "0")
 P2R_RST_VARIANT = "restance"
-#: the Z2 stand gates (P2R_Z2_PLAN.md step 5): shares of STANDS, per seed
+#: the Z2 stand gates (P2R_Z2_PLAN.md step 5): shares of STANDS, per seed. NOTE(p2r Z2 cams-only, 2026-10-10): the
+#: six-down line is REPORTED against Z2_SIXDOWN_STANDS (``reported``), no longer a gate clause.
 Z2_SIXDOWN_STANDS, Z2_HOMED_STANDS, Z2_SETTLED_STANDS = 0.90, 0.90, 0.95
 Z2_SETTLE_PLUS_S = 1.0                           # median settle <= the probe's median + 1 s (same seed)
 Z2_POST = {"post_settle_steps_per_s": 0.5, "post_settle_taps_per_s": 1.0, "post_settle_ks_m_s": 0.5}
@@ -3103,22 +3112,19 @@ def _stamp_env(stamp: str | None) -> dict | None:
     return dict((_json(Path(stamp) / "run_meta.json") or {}).get("env_vars") or {}) if stamp else None
 
 
-def _proxy_held(stamp: str | None) -> bool:
-    return str((_stamp_env(stamp) or {}).get(STAND_PROXY_VAR, "")).strip().lower() == STAND_PROXY_ON
+def _proxy_off(stamp: str | None) -> bool:
+    """NOTE(p2r Z2 cams-only, 2026-10-10): the stamp's env carries KRABBY_OMNI_STAND_PROXY absent / blank / 0."""
+    return str((_stamp_env(stamp) or {}).get(STAND_PROXY_VAR, "")).strip().lower() in STAND_PROXY_OFF
 
 
 def z2_suite_stamp(name: str, lrout: Path | None = None) -> str | None:
-    """Suite es1 for a Z2-family head: the record's driver stamp, unless that stamp lacks
-    KRABBY_OMNI_STAND_PROXY=hold and a complete lr/<name>/suite__omni/seed001 row-eval carries it -- then the
-    row-eval. The chain's own ladder suite row builds WITHOUT the hold (run_phases.EVAL_CARRY does not carry it:
-    candidates.yaml's P2__Z2_s18 note), so the campaign re-evaluates suite es1 with P2_ENV_EXTRA; without this the
-    INVALID rule would read the driver stamp forever. Z1 (no proxy anywhere) keeps its driver stamp."""
+    """Suite es1 for a Z2-family head: the record's driver stamp (as Z1's), else the newest complete
+    lr/<name>/suite__omni/seed001 row-eval. NOTE(p2r Z2 cams-only, 2026-10-10): the cams-only chain runs with
+    KRABBY_OMNI_STAND_PROXY OFF, so the chain's own ladder suite row (which never carries the proxy:
+    run_phases.EVAL_CARRY) is the right stamp -- the earlier preference for a proxy-carrying lr row-eval is gone."""
     rec = _rec(name) or {}
     drv = rec.get("driver_stamp") if rec and not rec.get("killed") else None
-    lr1 = newest_stamp(name, SUITE, 1, lrout or LROUT)
-    if drv and not _proxy_held(drv) and _proxy_held(lr1):
-        return lr1
-    return drv or lr1
+    return drv or newest_stamp(name, SUITE, 1, lrout or LROUT)
 
 
 def z2_light_point(name: str, lrout: Path | None = None) -> dict:
@@ -3126,7 +3132,7 @@ def z2_light_point(name: str, lrout: Path | None = None) -> dict:
     record's ``driver_stamp`` when there is one -- Z1's lives under gait_eval/omni_phases/.../seed18_X16_p2r_A15pB,
     not lr/ -- every other row the newest complete lr/<name>/<row>/seed00k stamp), with validity, env, the Z2 reads,
     the suite stand summaries (STILL, body height), and the field rows' stand summaries and completions (suite es1:
-    :func:`z2_suite_stamp`, the driver stamp unless only an lr row-eval carries the held proxy). No
+    :func:`z2_suite_stamp`: the driver stamp, else the lr row-eval). No
     training log, no lr row: a light point never reads HAND LOSS / DOSE."""
     lrout = lrout or LROUT
     st = {}
@@ -3154,16 +3160,19 @@ def _le(v, lim) -> tuple:
 
 def z2_stand_gates(z2: dict, still: dict, z1_z2: dict | None, probe_z2: dict | None = None, seeds=Z2_SEEDS,
                    relative: bool = True) -> dict:
-    """The Z2 stand gates (P2R_Z2_PLAN.md step 5, pure), per seed in ``seeds``: STILL on the suite (all six
-    clauses); six-down >= 90 % of stands (suite steady window, walkstop last 5 s); homed >= 90 % of walkstop stands;
+    """The Z2 stand gates (P2R_Z2_PLAN.md step 5 + its 2026-10-10 amendment, pure), per seed in ``seeds``: STILL on
+    the suite (all six clauses); homed >= 90 % of walkstop stands;
     walkstop stand falls <= max(1, Z1's) per 300 (over all three stands); >= 95 % of walkstop stands settled;
     (``relative``) the walkstop median settle <= the probe's same-seed median + 1 s; post-settle steps <= 0.5/s,
     taps <= 1/s, KS <= 0.5 (fail-closed medians: an unsettled stand fails them). ``z2`` = :func:`z2_reads` of the
     head, ``still`` = {seed: p2s head_summary of suite es<seed>}, ``z1_z2`` / ``probe_z2`` = the same reads of Z1
     and of the probe. A missing summary is PENDING (named in ``pending``), a present summary with a None statistic
-    FAILS. ``{"clauses": {name: (value, line, ok)}, "pending": [...], "verdict": PASS / FAIL / PENDING}``."""
+    FAILS. NOTE(p2r Z2 cams-only, 2026-10-10): the six-down share (>= 90 % of stands six-down >= 0.90; suite steady
+    window, walkstop last 5 s) is REPORTED in ``reported`` (same ``(value, line, ok)`` shape), never a clause.
+    ``{"clauses": {name: (value, line, ok)}, "reported": {...}, "pending": [...], "verdict": PASS / FAIL /
+    PENDING}``."""
     S = PS()
-    cl, pend = {}, []
+    cl, rep, pend = {}, {}, []
     for s in seeds:
         su, ws = (z2.get("suite") or {}).get(s), (z2.get("walkstop") or {}).get(s)
         if not still.get(s):
@@ -3175,8 +3184,8 @@ def z2_stand_gates(z2: dict, still: dict, z1_z2: dict | None, probe_z2: dict | N
         if not ws:
             pend.append(f"walkstop es{s} Z2 read")
         su, ws = su or {}, ws or {}
-        cl[f"six-down stands suite es{s} (steady)"] = _ge(su.get("six_down_stand_share"), Z2_SIXDOWN_STANDS)
-        cl[f"six-down stands walkstop es{s} (last 5 s)"] = _ge(ws.get("six_down_stand_share"), Z2_SIXDOWN_STANDS)
+        rep[f"six-down stands suite es{s} (steady)"] = _ge(su.get("six_down_stand_share"), Z2_SIXDOWN_STANDS)
+        rep[f"six-down stands walkstop es{s} (last 5 s)"] = _ge(ws.get("six_down_stand_share"), Z2_SIXDOWN_STANDS)
         cl[f"homed walkstop es{s}"] = _ge(ws.get("homed_share"), Z2_HOMED_STANDS)
         z1w = ((z1_z2 or {}).get("walkstop") or {}).get(s)
         if not z1w:
@@ -3194,14 +3203,16 @@ def z2_stand_gates(z2: dict, still: dict, z1_z2: dict | None, probe_z2: dict | N
         for k, lim in Z2_POST.items():
             cl[f"{k} walkstop es{s}"] = _le(ws.get(k), lim)
     verdict = "PENDING" if pend else ("PASS" if all(ok for _v, _t, ok in cl.values()) else "FAIL")
-    return {"clauses": cl, "pending": pend, "verdict": verdict,
+    return {"clauses": cl, "reported": rep, "pending": pend, "verdict": verdict,
             "failed": [k for k, (_v, _t, ok) in cl.items() if not ok]}
 
 
 def z2_env_reasons(pt: dict, stamps=None) -> list[str]:
-    """The Z2 env INVALID rule (P2R_Z2_PLAN.md "Verification"): every stamp's ``run_meta.env_vars`` must carry
-    ``KRABBY_OMNI_STAND_OBS=clock`` AND ``KRABBY_OMNI_STAND_PROXY=hold`` -- fail closed (missing / any other
-    value is INVALID): a stand read without the held proxy armed scores the blind statue, not R's regime."""
+    """The Z2 env INVALID rule (P2R_Z2_PLAN.md "Verification" + the 2026-10-10 amendment): every stamp's
+    ``run_meta.env_vars`` must carry ``KRABBY_OMNI_STAND_OBS=clock`` (fail closed: missing / any other value is
+    INVALID) and ``KRABBY_OMNI_STAND_PROXY`` OFF (absent / blank / 0). NOTE(p2r Z2 cams-only, 2026-10-10): R reads
+    no load signal and Z2's chain runs the proxy off, so the obs stays Z1's; a stamp with the held proxy armed ran
+    a different observation (the load-sensing R's regime) and is INVALID for the cams-only reads."""
     out = []
     for k, stamp in sorted((pt.get("stamps") or {}).items()):
         if not stamp or (stamps is not None and k not in stamps):
@@ -3209,9 +3220,9 @@ def z2_env_reasons(pt: dict, stamps=None) -> list[str]:
         env = (_json(Path(stamp) / "run_meta.json") or {}).get("env_vars") or {}
         if str(env.get("KRABBY_OMNI_STAND_OBS", "")).strip().lower() != "clock":
             out.append(f"{pt.get('name')} {k}: KRABBY_OMNI_STAND_OBS={env.get('KRABBY_OMNI_STAND_OBS')!r}, want 'clock'")
-        if str(env.get(STAND_PROXY_VAR, "")).strip().lower() != STAND_PROXY_ON:
-            out.append(f"{pt.get('name')} {k}: {STAND_PROXY_VAR}={env.get(STAND_PROXY_VAR)!r}, want "
-                       f"{STAND_PROXY_ON!r}")
+        if str(env.get(STAND_PROXY_VAR, "")).strip().lower() not in STAND_PROXY_OFF:
+            out.append(f"{pt.get('name')} {k}: {STAND_PROXY_VAR}={env.get(STAND_PROXY_VAR)!r}, want it off "
+                       "(absent / 0: the cams-only chain)")
     return out
 
 
@@ -3314,7 +3325,8 @@ def p2r_rst_gate(probe: dict, hold: dict, refs: dict, z1: dict, raw_bit: bool = 
         cl = dict(g["clauses"], **h["clauses"])
         p = g["pending"] + h["pending"]
         bad = [k for k, (_v, _t, ok) in cl.items() if not ok]
-        seeds[s] = {"clauses": cl, "pending": p, "failed": bad, "body_height_m": h["heights"],
+        seeds[s] = {"clauses": cl, "reported": g.get("reported") or {}, "pending": p, "failed": bad,
+                    "body_height_m": h["heights"],
                     "verdict": "FAIL" if bad and not p else "PENDING" if p else "PASS",
                     "role": "tuning seed" if s == 1 else "held-out seed"}
         pend += [f"es{s}: {x}" for x in p]
@@ -3355,7 +3367,8 @@ def _z2_brief(pt: dict | None) -> dict:
 
 def z2_invalid_reasons(pt: dict) -> list[str]:
     """The Z2 head's INVALID additions over :func:`p2r_z_verdicts` (which already requires STAND_OBS=clock):
-    STAND_PROXY=hold on every stamp, and the raw stand bit folded into the verdict (P2R_Z2_PLAN "Verification":
+    STAND_PROXY off on every stamp (the cams-only chain, 2026-10-10), and the raw stand bit folded into the verdict
+    (P2R_Z2_PLAN "Verification":
     the raw bit must match the labels)."""
     return [r for r in z2_env_reasons(pt) if STAND_PROXY_VAR in r] + z_raw_bit_reasons(pt)[0]
 
@@ -3439,6 +3452,12 @@ def _clause_lines(clauses: dict) -> list[str]:
             for k, (v, t, ok) in clauses.items()]
 
 
+def _reported_lines(reported: dict) -> list[str]:
+    """NOTE(p2r Z2 cams-only, 2026-10-10): the reported (ungated) statistics, marked at / below their line."""
+    return [f"| {k} | {_f(v, '{:.4g}')} | {_f(t, '{:.4g}')} | {'at line' if ok else 'below line'} |"
+            for k, (v, t, ok) in reported.items()]
+
+
 def p2r_rst_markdown(out: dict) -> str:
     g = out["gate"]
     L = [f"# Omni phase 2, stage p2r -- Z2 premise gate on {g.get('name')} (P2R_Z2_PLAN.md step 3)", "",
@@ -3447,6 +3466,9 @@ def p2r_rst_markdown(out: dict) -> str:
         L += ["", f"## es{s} ({sv.get('role', '')}): {sv.get('verdict')}", ""]
         if sv.get("clauses"):
             L += ["| clause | value | line | |", "|---|---|---|---|"] + _clause_lines(sv["clauses"])
+        if sv.get("reported"):
+            L += ["", "Reported, not gated (cams-only amendment 2026-10-10):", "",
+                  "| statistic | value | line | |", "|---|---|---|---|"] + _reported_lines(sv["reported"])
     fv = g.get("field") or {}
     if fv.get("clauses"):
         L += ["", "## Field rows vs HOLD", "", "| clause | value | line | |", "|---|---|---|---|"]
@@ -3465,6 +3487,9 @@ def p2r_z2_markdown(out: dict) -> str:
     if g.get("pending"):
         L += [f"- PENDING: {p}" for p in g["pending"]] + [""]
     L += ["| clause | value | line | |", "|---|---|---|---|"] + _clause_lines(g.get("clauses") or {})
+    if g.get("reported"):
+        L += ["", "Reported, not gated (cams-only amendment 2026-10-10):", "",
+              "| statistic | value | line | |", "|---|---|---|---|"] + _reported_lines(g["reported"])
     rep = {k: out[k] for k in ("baselines", "fidelity_to_probe", "walls_vs_z1", "stopped_hip_yaw_deg", "raw_bit_check")}
     L += ["", "## Baselines, fidelity, walls, hip yaw", "", f"```\n{json.dumps(rep, indent=1, default=str)}\n```"]
     return "\n".join(L) + "\n"

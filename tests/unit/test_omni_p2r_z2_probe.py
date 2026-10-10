@@ -1,17 +1,17 @@
 """Stage p2r Z2 (P2R_Z2_PLAN.md step 1 "Probe" / step 4 "Dose" / "Early checks"; CHARTER 12): the PROBE + CPU-tool
 files. CPU only: nothing here starts Isaac/Kit or a GPU.
 
-* ``scripts/p2r_mode_eval_crab_hex_gait.py --p2r-mode restance``: the refusals (env knobs, R's constants, the
-  residual JSON, restance-only flags); on the stub env, stand rows get ``R(obs)`` (+ the residual bias) and walking
+* ``scripts/p2r_mode_eval_crab_hex_gait.py --p2r-mode restance``: the refusals (env knobs -- since the 2026-10-10
+  cams-only amendment only ``STAND_OBS=clock``, no held proxy --, R's constants, the residual JSON, restance-only
+  flags); on the stub env, stand rows get ``R(obs)`` (+ the residual bias) and walking
   rows S1's action untouched; the three raw series; the stand bank; end to end through the fake harness of
   ``test_omni_p2r_launcher.py`` (widened to the real obs layout's 89 proprio columns): pre-entry actions bitwise
   equal to the unpatched run, stand actions == ``p2r_target`` + bias, the record block, the bank file, and
   :func:`restance_swap_live` passing (and failing on a tampered stamp);
-* ``scripts/p2r_z2_dose.py``: the ``_CURRENT_SENSE_*`` constants parsed from source; the proxy rebuild bitwise
-  against the forward task's own ``_get_contact_fill`` SOURCE executed on a synthetic row; the one-step rod-speed
-  lag; isaaclab's ``wrap_to_pi``; the sample-and-hold (knee gate full only, reset to -0.5, stale holds); the dose
-  end to end on a synthetic stamp (mean and sampled actions, the debias constant, the 'home'-absent STOP); the band
-  verdicts; the recorded-obs cross-check;
+* ``scripts/p2r_z2_dose.py`` (NOTE(p2r Z2 cams-only, 2026-10-10): R reads cams + hip-pitch positions, no proxy):
+  the joint layout vs R's obs columns; isaaclab's ``wrap_to_pi``; the hip default (run_meta, else the linkage); the
+  obs rebuild; the dose end to end on a synthetic stamp (mean and sampled actions, the debias constant, the
+  'home'-absent STOP, a recorded default); the band verdicts; the recorded-obs cross-check (cams + hips);
 * ``scripts/p2r_z2_fidelity.py``: the eval-path replica against the REAL ``Actor`` / ``StateHistoryEncoder`` /
   ``DefaultEstimator`` classes (loaded by path, no Isaac); the score and its line on a tiny fake actor; the CLI's
   rc / ``--dry-run``;
@@ -20,12 +20,10 @@ files. CPU only: nothing here starts Isaac/Kit or a GPU.
 """
 from __future__ import annotations
 
-import ast
 import importlib.util
 import json
 import runpy
 import sys
-import textwrap
 import types
 from pathlib import Path
 
@@ -47,7 +45,8 @@ FWD_OBS = TASKS / "crab_hex_forward_task/mdp/observations.py"
 MODULES = REPO / "parkour/scripts/rsl_rl/modules"
 STEP1_TESTS = REPO / "tests/unit/test_omni_p2r_launcher.py"
 LEGS = ("FL", "FR", "ML", "MR", "RL", "RR")
-ENV_OK = {"KRABBY_OMNI_STAND_OBS": "clock", "KRABBY_OMNI_STAND_PROXY": "hold", "KRABBY_RESTANCE": "default"}
+#: NOTE(p2r Z2 cams-only, 2026-10-10): the restance probe needs the stand bit + R's constants only (no held proxy)
+ENV_OK = {"KRABBY_OMNI_STAND_OBS": "clock", "KRABBY_RESTANCE": "default"}
 
 
 def _load(path: Path, name: str):
@@ -128,11 +127,11 @@ def _opts(L, argv, environ=None, check_files=False):
 
 # ===================================================================================== launcher: argv / refusals
 def test_restance_opts_parse_the_knob_the_bias_and_the_bank(L, RST, tmp_path):
-    env = dict(ENV_OK, KRABBY_RESTANCE="lift=-0.6,theta_L=0.3")
+    env = dict(ENV_OK, KRABBY_RESTANCE="lift=-0.6,up_frac=0.7")
     o, rest = _opts(L, ["--p2r-mode", "restance", "--p2r-residual", str(_residual(tmp_path)), "--p2r-stand-bank",
                         "--scenario", "x"], env)
     assert rest == ["--scenario", "x"]
-    assert o.restance.lift == -0.6 and o.restance.theta_L == 0.3 and o.stand_bank is True
+    assert o.restance.lift == -0.6 and o.restance.up_frac == 0.7 and o.stand_bank is True
     assert o.residual["mu_bias"][0] == pytest.approx(-0.09) and len(o.residual["mu_bias"]) == 18
     assert o.residual["sha256"] == L.sha256_file(tmp_path / "residual.json")
     # env fallbacks (run_arm.sh lr_eval passes no extra CLI args)
@@ -146,17 +145,32 @@ def test_restance_opts_parse_the_knob_the_bias_and_the_bank(L, RST, tmp_path):
 @pytest.mark.parametrize("env", [
     {},                                                                    # nothing
     {"KRABBY_OMNI_STAND_PROXY": "hold", "KRABBY_RESTANCE": "default"},     # no stand bit
-    {"KRABBY_OMNI_STAND_OBS": "clock", "KRABBY_RESTANCE": "default"},      # no held proxy
-    {"KRABBY_OMNI_STAND_OBS": "clock", "KRABBY_OMNI_STAND_PROXY": "0", "KRABBY_RESTANCE": "default"},
-    {"KRABBY_OMNI_STAND_OBS": "1", "KRABBY_OMNI_STAND_PROXY": "hold", "KRABBY_RESTANCE": "default"},
-    {"KRABBY_OMNI_STAND_OBS": "clock", "KRABBY_OMNI_STAND_PROXY": "hold"},                       # no R constants
-    {"KRABBY_OMNI_STAND_OBS": "clock", "KRABBY_OMNI_STAND_PROXY": "hold", "KRABBY_RESTANCE": "0"},
-    {"KRABBY_OMNI_STAND_OBS": "clock", "KRABBY_OMNI_STAND_PROXY": "hold", "KRABBY_RESTANCE": "lift=0.5"},
-    {"KRABBY_OMNI_STAND_OBS": "clock", "KRABBY_OMNI_STAND_PROXY": "hold", "KRABBY_RESTANCE": "nope=1"},
+    {"KRABBY_RESTANCE": "default"},                                        # no stand bit
+    {"KRABBY_OMNI_STAND_OBS": "1", "KRABBY_RESTANCE": "default"},          # the appended head bit, not the clock bit
+    {"KRABBY_OMNI_STAND_OBS": "clock"},                                    # no R constants
+    {"KRABBY_OMNI_STAND_OBS": "clock", "KRABBY_RESTANCE": "0"},
+    {"KRABBY_OMNI_STAND_OBS": "clock", "KRABBY_RESTANCE": "lift=0.5"},
+    {"KRABBY_OMNI_STAND_OBS": "clock", "KRABBY_RESTANCE": "nope=1"},
+    {"KRABBY_OMNI_STAND_OBS": "clock", "KRABBY_RESTANCE": "theta_L=0.6"},  # a removed load-sensing constant
 ])
 def test_restance_refused_without_its_environment(L, env):
     with pytest.raises(SystemExit):
         _opts(L, ["--p2r-mode", "restance"], env)
+
+
+@pytest.mark.parametrize("proxy", [None, "0"])
+def test_restance_no_longer_needs_the_held_proxy(L, proxy):
+    """NOTE(p2r Z2 cams-only, 2026-10-10): the kinematic R reads no proxy -- the variant validates with the held proxy
+    absent or off."""
+    env = dict(ENV_OK) if proxy is None else dict(ENV_OK, KRABBY_OMNI_STAND_PROXY=proxy)
+    o, _ = _opts(L, ["--p2r-mode", "restance"], env)
+    assert o.mode == "restance" and o.restance is not None
+
+
+def test_restance_refuses_the_held_proxy_on(L):
+    """... and refuses it ON: the Z2 reads mark such a stamp INVALID, so the GPU row would be wasted."""
+    with pytest.raises(SystemExit, match="KRABBY_OMNI_STAND_PROXY off"):
+        _opts(L, ["--p2r-mode", "restance"], dict(ENV_OK, KRABBY_OMNI_STAND_PROXY="hold"))
 
 
 @pytest.mark.parametrize("payload", [
@@ -415,6 +429,11 @@ def test_swap_live_catches_a_tampered_stamp(L, SB, tmp_path):
     _run_launcher(L, tmp_path, ["--p2r-mode", "restance"] + base + ["--out", str(tmp_path / "rst")], dict(ENV_OK))
     stamp = tmp_path / "rst" / "stamp"
     assert L.restance_swap_live(tmp_path / "ref" / "stamp", stamp)["fails"] == []
+    # NOTE(p2r Z2 cams-only, 2026-10-10): the proxy series is recorded but no longer required (R reads no proxy)
+    for g in sorted((stamp / "raw").glob("episode_*.npz")):
+        d = {k: v for k, v in dict(np.load(g)).items() if k != "p2r_obs_proxy"}
+        np.savez(g, **d)
+    assert L.restance_swap_live(tmp_path / "ref" / "stamp", stamp)["fails"] == []
     f = sorted((stamp / "raw").glob("episode_*.npz"))[0]
     d = dict(np.load(f))
     st = d["p2r_stand_mode"]
@@ -440,7 +459,9 @@ def test_e2e_hold_record_unchanged_by_the_restance_additions(L, SB, tmp_path):
     assert not {"p2r_branch", "p2r_target", "p2r_obs_proxy"} & set(ep)
 
 
-# ===================================================================================== dose: the proxy rebuild
+# ===================================================================================== dose: the obs rebuild
+# NOTE(p2r Z2 cams-only, 2026-10-10): R reads the cams and the hip-pitch POSITIONS (no proxy), so the dose rebuilds
+# those two inputs from the raws' joint_pos; the proxy rebuild / sample-and-hold are gone with the load sensing.
 def _joint_names():
     names = []
     for leg in LEGS:
@@ -450,69 +471,19 @@ def _joint_names():
     return names
 
 
-def test_sense_constants_are_the_forward_literals(D):
-    assert D.sense_constants() == {"_CURRENT_SENSE_NO_LOAD": 0.1, "_CURRENT_SENSE_GATE_FRACTION": 0.3,
-                                   "_CURRENT_SENSE_MAX": 1.5}
-
-
 def test_joint_layout_matches_the_real_articulation_order(D, RST):
     lay = D.JointLayout(_joint_names(), RST.LEGS)
     assert lay.cam == [1, 3, 5, 7, 9, 11] and lay.pitch == list(range(12, 18)) and lay.knee == list(range(18, 24))
+    # the obs columns R reads are those joints' joint_pos_delta columns (the head opens at 17)
+    assert [17 + i for i in lay.cam] == list(RST.CAM_OBS_COLS)
+    assert [17 + i for i in lay.pitch] == list(RST.HIP_POS_OBS_COLS)
     with pytest.raises(ValueError):
         D.JointLayout(_joint_names()[:-1], RST.LEGS)
 
 
-def _forward_contact_fill():
-    """The forward task's ``_get_contact_fill`` compiled from ITS OWN SOURCE (the file imports isaaclab, so the
-    method body is lifted out by AST and executed against a stub ``self``)."""
-    src = FWD_OBS.read_text()
-    tree = ast.parse(src)
-    fn = next(n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name == "_get_contact_fill")
-    return textwrap.dedent(ast.get_source_segment(src, fn))
-
-
-def _synthetic_state(T=40, seed=0, lk=None):
-    g = np.random.default_rng(seed)
-    tau = g.normal(0, 40, (T, 24)).astype(np.float32)
-    jp = np.zeros((T, 24), np.float32)
-    jp[:, 12:18] = (0.11 + g.normal(0, 0.15, (T, 6))).astype(np.float32)
-    jp[:, 18:24] = (np.array([0.23, -0.23] * 3) + g.normal(0, 0.2, (T, 6))).astype(np.float32)
-    jp[:, 1:12:2] = g.uniform(-9, 9, (T, 6)).astype(np.float32)      # cams wind past +-pi
-    hip_full, knee_full = 0.3 * lk.HIP_SPEED_M_S, 0.3 * lk.KNEE_SPEED_M_S
-    rod = np.concatenate([g.uniform(-2, 2, (T, 6)) * hip_full, g.uniform(-2, 2, (T, 6)) * knee_full], 1)
-    return tau, jp, rod.astype(np.float32)
-
-
-def test_proxy_rebuild_is_bitwise_the_forward_formula(D, RST):
-    lk, k = D.load_linkage(), D.sense_constants()
-    tau, jp, rod = _synthetic_state(lk=lk)
-    ns = {"torch": torch, "linkage": lk, **k}
-    exec(compile(_forward_contact_fill(), str(FWD_OBS), "exec"), ns)   # noqa: S102 -- the repo's own source
-    lay = D.JointLayout(_joint_names(), RST.LEGS)
-    term = types.SimpleNamespace(hip_rod_speed=torch.as_tensor(rod[:, :6]), knee_rod_speed=torch.as_tensor(rod[:, 6:]))
-    me = types.SimpleNamespace(
-        contact_sensor=object(), num_envs=tau.shape[0], _num_contact=6, device="cpu",
-        _env=types.SimpleNamespace(action_manager=types.SimpleNamespace(get_term=lambda name: term)),
-        asset=types.SimpleNamespace(data=types.SimpleNamespace(applied_torque=torch.as_tensor(tau),
-                                                               joint_pos=torch.as_tensor(jp))),
-        _pitch_joint_ids=lay.pitch, _knee_joint_ids=lay.knee)
-    want = ns["_get_contact_fill"](me)
-    got, gate_k = D.contact_fill(torch.as_tensor(tau), torch.as_tensor(jp), torch.as_tensor(rod[:, :6]),
-                                 torch.as_tensor(rod[:, 6:]), lay, lk, k)
-    assert torch.equal(got, want)
-    assert ((gate_k >= 1.0) == (torch.as_tensor(rod[:, 6:]).abs() >= 0.3 * lk.KNEE_SPEED_M_S)).all()
-    assert (got >= -0.5).all() and (got <= 1.0).all()
-
-
-def test_episode_proxy_uses_the_previous_steps_rod_speed(D, RST):
-    lk, k = D.load_linkage(), D.sense_constants()
-    tau, jp, rod = _synthetic_state(T=6, lk=lk)
-    lay = D.JointLayout(_joint_names(), RST.LEGS)
-    live, gate_k = D.episode_proxy({"applied_torque": tau, "joint_pos": jp, "rod_speed": rod}, lay, lk, k)
-    one, g1 = D.contact_fill(torch.as_tensor(tau[3:4]), torch.as_tensor(jp[3:4]), torch.as_tensor(rod[2:3, :6]),
-                             torch.as_tensor(rod[2:3, 6:]), lay, lk, k)
-    assert torch.equal(live[3], one[0]) and torch.equal(gate_k[3], g1[0])
-    assert (gate_k[0] == 0).all() and (live[0] == -0.5).all()           # step 0: no previous rod speed
+def test_the_proxy_rebuild_is_gone(D):
+    for name in ("contact_fill", "episode_proxy", "sample_and_hold", "sense_constants", "PROXY_LIVE_MARGIN"):
+        assert not hasattr(D, name), name
 
 
 def test_wrap_to_pi_is_isaaclabs(D):
@@ -523,24 +494,52 @@ def test_wrap_to_pi_is_isaaclabs(D):
     assert (got.abs() <= np.pi + 1e-6).all() and got[1] == pytest.approx(np.pi, abs=1e-6)
 
 
-def test_sample_and_hold_updates_only_on_a_full_knee_gate(D):
-    live = np.array([[0.1, 0.2], [0.3, 0.4], [0.5, 0.6], [0.7, 0.8], [0.9, 1.0]], np.float32)
-    full = np.array([[False, True], [True, False], [False, False], [True, False], [False, True]])
-    held = D.sample_and_hold(live, full)
-    assert held.dtype == np.float32
-    assert held[:, 0].tolist() == pytest.approx([-0.5, 0.3, 0.3, 0.7, 0.7])   # unknown until the first full gate
-    assert held[:, 1].tolist() == pytest.approx([0.2, 0.2, 0.2, 0.2, 1.0])     # stale through the parked steps
-    assert (D.sample_and_hold(live, np.zeros_like(full)) == -0.5).all()
-    # where it updates, held IS the live value (bitwise)
-    assert np.array_equal(held[full], live[full])
+def test_hip_default_from_run_meta_else_the_linkage(D, RST):
+    lk = D.load_linkage()
+    lay = D.JointLayout(_joint_names(), RST.LEGS)
+    hd, src = D.hip_default({}, lay, lk)
+    assert src == "linkage.hip_default_rad" and hd.dtype == np.float32
+    assert np.array_equal(hd, np.full(6, np.float32(lk.hip_default_rad())))
+    assert float(hd[0]) == pytest.approx(0.02717, abs=1e-5)       # the scene cfg's init_state, as the obs subtracts
+    rec = np.arange(24, dtype=np.float32) * 0.01
+    hd, src = D.hip_default({"default_joint_pos": rec.tolist()}, lay, lk)
+    assert src == "run_meta.default_joint_pos" and np.array_equal(hd, rec[12:18])
+    with pytest.raises(ValueError, match="default_joint_pos"):
+        D.hip_default({"default_joint_pos": [0.0] * 23}, lay, lk)
+
+
+def test_obs_inputs_and_policy_obs(D, RST):
+    lay = D.JointLayout(_joint_names(), RST.LEGS)
+    g = np.random.default_rng(0)
+    jp = g.normal(0, 3, (5, 24)).astype(np.float32)
+    hd = np.full(6, np.float32(0.02717))
+    cams, hip = D.obs_inputs(jp, lay, hd)
+    assert torch.equal(cams, D.wrap_to_pi(torch.as_tensor(jp[:, 1:12:2])))
+    assert torch.equal(hip, torch.as_tensor(jp[:, 12:18] - hd[None, :]))       # float32, the obs term's own op
+    obs = D.policy_obs(cams, hip, RST)
+    assert obs.shape == (5, RST.MIN_OBS_WIDTH)
+    assert torch.equal(obs[:, list(RST.CAM_OBS_COLS)], cams) and torch.equal(obs[:, list(RST.HIP_POS_OBS_COLS)], hip)
+    others = torch.ones(RST.MIN_OBS_WIDTH, dtype=torch.bool)
+    others[list(RST.CAM_OBS_COLS) + list(RST.HIP_POS_OBS_COLS)] = False
+    assert not obs[:, others].any()
 
 
 # ===================================================================================== dose: end to end
-def _dose_stamp(tmp, D, lk, *, sampled=False, sigma=None, T=14, seed=0):
+def _synthetic_joints(T=14, seed=0):
+    g = np.random.default_rng(seed)
+    jp = np.zeros((T, 24), np.float32)
+    # hip pitch: default + an offset from a little past default down to past the seed lift (-0.125 rad)
+    jp[:, 12:18] = (np.float32(0.02717) + g.uniform(-0.15, 0.02, (T, 6))).astype(np.float32)
+    jp[:, 18:24] = (np.array([0.31, -0.31] * 3) + g.normal(0, 0.2, (T, 6))).astype(np.float32)
+    jp[:, 1:12:2] = g.uniform(-9, 9, (T, 6)).astype(np.float32)      # cams wind past +-pi
+    return jp
+
+
+def _dose_stamp(tmp, D, *, sampled=False, sigma=None, T=14, seed=0, meta_extra=None):
     stamp = tmp / "stamp"
     (stamp / "raw").mkdir(parents=True)
     meta = {"joint_names": _joint_names(), "hold_labels": ["settle", "stand", "fwd"], "dt": 0.02,
-            "sample_actions": bool(sampled), "zero_actions": False}
+            "sample_actions": bool(sampled), "zero_actions": False, **(meta_extra or {})}
     if sampled:
         meta["sample_actions_std"] = [float(s) for s in sigma]
     (stamp / "run_meta.json").write_text(json.dumps(meta))
@@ -548,10 +547,9 @@ def _dose_stamp(tmp, D, lk, *, sampled=False, sigma=None, T=14, seed=0):
     g = np.random.default_rng(seed)
     segs = [np.array([0] * 4 + [1] * 8 + [2] * (T - 12), np.int16),   # settle, stand, fwd
             np.full(T, 2, np.int16),                                   # never stands: skipped
-            np.array([1] * 6 + [2] * (T - 6), np.int16)]               # stands from step 0 (step 0 dropped)
+            np.array([1] * 6 + [2] * (T - 6), np.int16)]               # stands from step 0 (kept: no proxy lag)
     for e, seg in enumerate(segs):
-        tau, jp, rod = _synthetic_state(T=T, seed=seed + e, lk=lk)
-        np.savez(stamp / "raw" / f"episode_{e:02d}.npz", applied_torque=tau, joint_pos=jp, rod_speed=rod,
+        np.savez(stamp / "raw" / f"episode_{e:02d}.npz", joint_pos=_synthetic_joints(T=T, seed=seed + e),
                  actions=g.normal(0, 0.8, (T, 18)).astype(np.float32), segment_id=seg,
                  joint_vel=g.normal(0, 1, (T, 24)).astype(np.float32))
     return stamp
@@ -564,33 +562,30 @@ def _ckpt(tmp, std_raw=0.0):
 
 
 def test_dose_end_to_end_mean_actions(D, RST, tmp_path):
-    lk, k = D.load_linkage(), D.sense_constants()
-    stamp = _dose_stamp(tmp_path, D, lk)
+    lk = D.load_linkage()
+    stamp = _dose_stamp(tmp_path, D)
     ck = _ckpt(tmp_path)
     p = RST.RestanceParams()
-    out = D.dose(stamp, ck, p, labels=("stand",), rst=RST, lk=lk, k=k)
+    out = D.dose(stamp, ck, p, labels=("stand",), rst=RST, lk=lk)
     assert out["actions"] == "mean" and out["debias_c"] == 0.0
-    assert out["episodes"] == 2 and out["rows"] == 8 + 5 and out["step0_rows_dropped"] == 1
+    assert out["episodes"] == 2 and out["rows"] == 8 + 6
+    assert out["hip_default_source"] == "linkage.hip_default_rad"
+    assert out["hip_default"] == pytest.approx([lk.hip_default_rad()] * 6, abs=1e-7)
+    for gone in ("held_equals_live_share", "proxy_live_min", "knee_gate_full_share", "step0_rows_dropped"):
+        assert gone not in out, gone
     # independent recomputation: explicit loop over the episodes / steps
     sigma = D.anchor_sigma({"std_raw": torch.zeros(18)})
-    lay = D.JointLayout(_joint_names(), RST.LEGS)
-    rows_r, rows_0, shares = [], [], []
+    hd = np.float32(lk.hip_default_rad())
+    rows_r, rows_0, shares, hips = [], [], [], []
     for f in sorted((stamp / "raw").glob("*.npz")):
         z = np.load(f)
-        if not (z["segment_id"] == 1).any():
-            continue
-        held = np.full(6, -0.5, np.float32)
         for t in range(z["segment_id"].shape[0]):
-            prev = z["rod_speed"][t - 1] if t > 0 else np.zeros(12, np.float32)
-            live, gk = D.contact_fill(torch.as_tensor(z["applied_torque"][t:t + 1]),
-                                      torch.as_tensor(z["joint_pos"][t:t + 1]), torch.as_tensor(prev[None, :6]),
-                                      torch.as_tensor(prev[None, 6:]), lay, lk, k)
-            held = np.where(gk.numpy()[0] >= 1.0, live.numpy()[0], held)
-            if t == 0 or z["segment_id"][t] != 1:
+            if z["segment_id"][t] != 1:
                 continue
             obs = torch.zeros(1, 89)
             obs[0, list(RST.CAM_OBS_COLS)] = D.wrap_to_pi(torch.as_tensor(z["joint_pos"][t, 1:12:2]))
-            obs[0, list(RST.PROXY_OBS_COLS)] = torch.as_tensor(held)
+            obs[0, list(RST.HIP_POS_OBS_COLS)] = torch.as_tensor(z["joint_pos"][t, 12:18] - hd)
+            hips.append(obs[0, list(RST.HIP_POS_OBS_COLS)])
             tg, br = RST.restance_target(obs, p)
             a = torch.as_tensor(z["actions"][t:t + 1])
             rows_r.append(float(0.5 * (((a - tg) / sigma) ** 2).sum()))
@@ -599,35 +594,54 @@ def test_dose_end_to_end_mean_actions(D, RST, tmp_path):
     assert out["per_row"]["restance"]["mean"] == pytest.approx(np.mean(rows_r), rel=1e-5)
     assert out["per_row"]["target0"]["mean"] == pytest.approx(np.mean(rows_0), rel=1e-5)
     assert out["branch_shares"] == pytest.approx(RST.branch_shares(torch.stack(shares)))
+    hips = torch.stack(hips)
+    assert out["leg_down_share"] == pytest.approx(float((hips >= p.p_down).float().mean()))
+    assert out["leg_up_share"] == pytest.approx(float((hips <= p.p_up).float().mean()))
+    assert 0 < out["leg_down_share"] < 1 and 0 < out["leg_up_share"] < 1           # the draw straddles both
     b = out["bands"]["by_share"]["0.16"]
     assert b["expected_restance"] == pytest.approx(0.16 * np.mean(rows_r), rel=1e-5)
     assert b["band"] == pytest.approx([0.52 * 0.16 * np.mean(rows_r), 2.0 * 0.16 * np.mean(rows_r)], rel=1e-5)
-    assert set(out["by_label"]) == {"stand"} and out["rc"] in (D.RC_OK, D.RC_BAND, D.RC_STOP)
+    assert set(out["by_label"]) == {"stand"} and out["rc"] in (D.RC_OK, D.RC_STOP)
     assert [out["band_lo"], out["band_hi"]] == out["bands"]["union_band"]
-    assert "| restance |" in D.markdown(dict(out, xcheck=None))
+    md = D.markdown(dict(out, xcheck=None))
+    assert "| restance |" in md and "held == live" not in md and "legs DOWN" in md
+
+
+def test_dose_reads_a_recorded_hip_default(D, RST, tmp_path):
+    rec = [0.0] * 24
+    rec[12:18] = [0.1] * 6                                          # a different default -> different hip inputs
+    out_rec = D.dose(_dose_stamp(tmp_path / "a", D, meta_extra={"default_joint_pos": rec}), _ckpt(tmp_path),
+                     RST.RestanceParams(), rst=RST)
+    out_lk = D.dose(_dose_stamp(tmp_path / "b", D), _ckpt(tmp_path), RST.RestanceParams(), rst=RST)
+    assert out_rec["hip_default_source"] == "run_meta.default_joint_pos"
+    assert out_rec["hip_default"] == pytest.approx([0.1] * 6)
+    assert out_rec["leg_down_share"] < out_lk["leg_down_share"]     # every hip reads 0.073 lower
 
 
 def test_dose_sampled_actions_debias_and_home_stop(D, RST, tmp_path):
-    lk, k = D.load_linkage(), D.sense_constants()
+    lk = D.load_linkage()
     sigma = D.anchor_sigma({"std_raw": torch.zeros(18)}).numpy()
-    stamp = _dose_stamp(tmp_path, D, lk, sampled=True, sigma=sigma)
-    out = D.dose(stamp, _ckpt(tmp_path), RST.RestanceParams(), rst=RST, lk=lk, k=k)
+    stamp = _dose_stamp(tmp_path, D, sampled=True, sigma=sigma)
+    out = D.dose(stamp, _ckpt(tmp_path), RST.RestanceParams(), rst=RST, lk=lk)
     assert out["actions"] == "sampled" and out["debias_c"] == pytest.approx(9.0, rel=1e-6)
     assert out["sigma_sample_equals_sigma_A"] is True
     assert out["per_row"]["restance"]["mean"] == pytest.approx(out["per_row"]["restance_raw_mean"] - 9.0, rel=1e-6)
     pr = out["per_row"]["restance_minus_target0"]["mean"]
     assert pr == pytest.approx(out["per_row"]["restance_raw_mean"] - out["per_row"]["target0_raw_mean"], rel=1e-5)
-    # theta_L at the proxy floor: every leg reads loaded -> no in-air branch at all -> STOP (exit 2)
-    allloaded = RST.RestanceParams(theta_L=-0.5, theta_S=0.75)
-    out2 = D.dose(stamp, _ckpt(tmp_path), allloaded, rst=RST, lk=lk, k=k)
+    assert out["branch_shares"]["home"] > 0 and out["rc"] == D.RC_OK
+    # a DOWN band that swallows every synthetic hip (p_down = 0.7 x 0.25 x -1 = -0.175 < -0.15): every leg reads
+    # down -> no in-air branch at all -> STOP (exit 2)
+    alldown = RST.RestanceParams(lift=-1.0, rho=0.5, down_frac=0.7, up_frac=0.8)
+    out2 = D.dose(stamp, _ckpt(tmp_path), alldown, rst=RST, lk=lk)
+    assert out2["leg_down_share"] == 1.0
     assert out2["branch_shares"]["home"] == 0.0 and out2["rc"] == D.RC_STOP and "STOP" in out2["verdict"]
 
 
 def test_dose_refuses_a_zero_action_stamp_and_missing_labels(D, RST, tmp_path):
     lk = D.load_linkage()
-    stamp = _dose_stamp(tmp_path, D, lk)
+    stamp = _dose_stamp(tmp_path, D)
     with pytest.raises(ValueError, match="hold_labels"):
-        D.collect_stand_rows(stamp, ("nope",), RST, lk, D.sense_constants())
+        D.collect_stand_rows(stamp, ("nope",), RST, lk)
     with pytest.raises(ValueError):
         D.actions_kind({"zero_actions": True})
     with pytest.raises(ValueError):
@@ -648,26 +662,28 @@ def test_band_report_verdicts(D):
 
 
 def test_dose_xcheck_on_recorded_obs(D, RST, tmp_path):
-    lk, k = D.load_linkage(), D.sense_constants()
-    stamp = _dose_stamp(tmp_path, D, lk)
-    lay = D.JointLayout(_joint_names(), RST.LEGS)
+    lk = D.load_linkage()
+    stamp = _dose_stamp(tmp_path, D)
+    hd = np.float32(lk.hip_default_rad())
     rows = []
     for f in sorted((stamp / "raw").glob("*.npz")):
         z = np.load(f)
-        live, _ = D.episode_proxy(z, lay, lk, k)
-        for t in (2, 5, 9):
+        for t in (0, 5, 9):                                          # step 0 too: no proxy lag any more
             o = np.zeros(120, np.float32)
             o[41:65] = (z["joint_vel"][t] * np.float32(0.05)).astype(np.float32)
-            o[83:89] = live.numpy()[t]
             o[list(RST.CAM_OBS_COLS)] = D.wrap_to_pi(torch.as_tensor(z["joint_pos"][t, 1:12:2])).numpy()
+            o[list(RST.HIP_POS_OBS_COLS)] = z["joint_pos"][t, 12:18] - hd
+            o[83:89] = 0.7                                           # the proxy columns are not compared
             rows.append(o)
     np.savez(stamp / "p2r_bank.npz", obs=np.stack(rows))
-    xc = D.xcheck(stamp, RST, lk, k)
-    assert xc["ok"] and xc["matched"] == 9 and xc["proxy_max_abs_diff"] == 0.0 and xc["cams_bitwise"]
-    bad = np.stack(rows)
-    bad[0, 84] += 1e-3
-    np.savez(stamp / "p2r_bank.npz", obs=bad)
-    assert D.xcheck(stamp, RST, lk, k)["ok"] is False
+    xc = D.xcheck(stamp, RST, lk)
+    assert xc["ok"] and xc["matched"] == 9 and xc["hip_max_abs_diff"] == 0.0 and xc["hip_bitwise_share"] == 1.0
+    assert xc["cams_bitwise"] and xc["hip_default_source"] == "linkage.hip_default_rad"
+    for col in (30, 20):                                             # a hip column, a cam column
+        bad = np.stack(rows)
+        bad[0, col] += 1e-3
+        np.savez(stamp / "p2r_bank.npz", obs=bad)
+        assert D.xcheck(stamp, RST, lk)["ok"] is False, col
 
 
 # ===================================================================================== fidelity: the replica

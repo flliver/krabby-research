@@ -19,22 +19,20 @@ and the per-row estimate ``0.5 sum ((a - y) / sigma_A)^2 - c`` with ``c = 0.5 su
 unbiased (``c = 0`` on a deterministic stamp, whose actions ARE the mean). Every number below is that debiased mean
 (the raw mean and ``c`` are reported beside it).
 
-THE OBSERVATION R READS, rebuilt from the raws (the raws hold joint states, not obs):
-  * proxy (obs cols 83..88): the forward task's ``_get_contact_fill`` (``crab_hex_forward_task/mdp/observations.py``)
-    replicated op for op on the recorded ``applied_torque[t]`` / ``joint_pos[t]`` (read before the step = the state
-    obs_t was built from) and ``rod_speed[t-1]`` (recorded AFTER step t-1 = the action term's rod speed when obs_t was
-    built); its three ``_CURRENT_SENSE_*`` constants are parsed from that file's source (it imports isaaclab, so it is
-    never imported), the linkage functions are the module itself (loaded by path). Step 0 of an episode has no
-    rod_speed[-1]: its gate is taken as 0 and the row is never a stand row here (reported).
-  * sample-and-hold (``KRABBY_OMNI_STAND_PROXY=hold``): along each episode, held starts at -0.5 and takes the live
-    value wherever that leg's KNEE gate is full (``knee rod gate >= 1``, the knee-inclusive scale); stand rows see
-    ``held``. (The gate is computed from the recorded rod speed exactly, so WHICH steps update is bitwise; the values
-    are the CPU rebuild of a GPU float32 formula.)
+THE OBSERVATION R READS, rebuilt from the raws (the raws hold joint states, not obs). NOTE(p2r Z2 cams-only,
+2026-10-10): R reads NO load signal any more (the kinematic re-step, P2R_Z2_PLAN "Amendment 2026-10-10"), so the
+held contact proxy is no longer rebuilt and the +200 held == live line is gone; R's two inputs are
   * cams (obs cols 18+2i): isaaclab's ``wrap_to_pi(joint_pos - default)``, cam default 0 (``hip_to_cam_shaft_default
-    (0.0)``).
-  ``--xcheck-stamp`` cross-checks the rebuild on RECORDED obs: a P2R_PROBE_s18 stamp's ``p2r_bank.npz`` rows (true
-  obs) are matched to their raw (episode, step) by the joint-velocity columns (obs 41..64 = joint_vel * 0.05, bitwise)
-  and the rebuilt proxy / cams compared (proxy within ``XCHECK_TOL``, cams bitwise; otherwise rc 1).
+    (0.0)``);
+  * hip-pitch positions (obs cols 29+i): ``joint_pos - default`` of the ``_Hip_Femur_`` joints (float32), the
+    default taken from ``run_meta.default_joint_pos`` when a stamp records it, else the linkage's
+    ``hip_default_rad()`` (0.02717 rad, the scene cfg's init_state; measured as the obs offset on P2R_PROBE_s18's
+    walkstop bank: 0.027169 on all six legs).
+  ``joint_pos[t]`` is read before step t, i.e. the state obs_t was built from, so every row (step 0 included) is
+  rebuilt. ``--xcheck-stamp`` cross-checks the rebuild on RECORDED obs: a P2R_PROBE_s18 stamp's ``p2r_bank.npz``
+  rows (true obs) are matched to their raw (episode, step) by the joint-velocity columns (obs 41..64 = joint_vel *
+  0.05, bitwise) and the rebuilt cams / hip positions compared (cams bitwise, hip within ``XCHECK_TOL``; otherwise
+  rc 1).
 
 sigma_A: the GRAFT checkpoint's (= S1's) soft std, :func:`anchor_sigma` (a replica of
 ``ppo_with_extractor.anchor_sigma_from_state``: std_raw -> soft_std; std / log_std clamped to [0.05, 2.0]).
@@ -45,12 +43,12 @@ OUTPUT: ``--json`` (the campaign's ``p2r_z2_dose.json`` is what ``p2_live``'s Z2
 REPORTED: per stand row, both losses (debiased mean, SE); x the realised stand share at 0.12 and 0.16 (Z1's +200
 measured prior_rows); each share's band [0.52x, 2x] and the union band [0.52 x E(0.12), 2 x E(0.16)], each with
 whether it excludes the target-0 values (both shares) and Z1's realised 1.99; R's branch shares on these
-training-scale stand rows (beside any ``--probe-stamp``'s own); the share of rows whose R is non-zero; held == live
-on stand rows (the +200 wiring's ">= 99 %" statistic, on this sampled bank).
+training-scale stand rows (beside any ``--probe-stamp``'s own); the share of rows whose R is non-zero; the share of
+stand leg-rows DOWN / UP by R's own hip-position thresholds.
 
 Exit codes: 0 = ok; 2 = STOP: R's in-air homing branch ('home') is absent on the bank (P2R_Z2_PLAN step 4);
-3 = the union band does not exclude a target-0 value (stop and ask); 1 = unreadable input / rebuild cross-check
-failed.
+(``RC_BAND`` = 3 is reserved; band exclusion is reported, not required -- CHARTER 12.1); 1 = unreadable input /
+rebuild cross-check failed.
 
 CLI:
     p2r_z2_dose.py [--raws STAMP] [--ckpt GRAFT.pt] [--restance K=V,...] [--labels stand] [--xcheck-stamp DIR|none]
@@ -59,7 +57,6 @@ CLI:
 from __future__ import annotations
 
 import argparse
-import ast
 import importlib.util
 import json
 import math
@@ -77,7 +74,6 @@ if str(HERE) not in sys.path:
 _TASKS = HERE.parents[3]
 RESTANCE_MODULE = _TASKS / "crab_hex_omni_task" / "mdp" / "crab_hex_omni_restance.py"
 FWD_MDP = _TASKS / "crab_hex_forward_task" / "mdp"
-FWD_OBS = FWD_MDP / "observations.py"
 R = Path("/home/nickmagus/krabby/krabby-research")
 LROUT = R / "parkour/outputs/omni_plan/phase2/lr"
 GRAFT_CKPT = R / "parkour/outputs/omni_plan/phase2/graft/S1_s18_c15/model_19994.pt"
@@ -92,9 +88,6 @@ OBS_JOINT_VEL = slice(41, 65)      # joint_vel * 0.05 (the xcheck match key)
 JOINT_VEL_SCALE = np.float32(0.05)
 XCHECK_TOL = 1e-5
 RC_OK, RC_ERROR, RC_STOP, RC_BAND = 0, 1, 2, 3
-#: the +200 held == live line = the bank's own share minus this (see ``proxy_live_min``)
-PROXY_LIVE_MARGIN = 0.02
-_SENSE_NAMES = ("_CURRENT_SENSE_NO_LOAD", "_CURRENT_SENSE_GATE_FRACTION", "_CURRENT_SENSE_MAX")
 
 
 # ================================================================================================ by-path loads
@@ -120,21 +113,6 @@ def load_linkage(mdp: Path = FWD_MDP):
     return _load("_p2r_z2_linkage", mdp / "crab_hex_linkage.py")
 
 
-def sense_constants(path: Path = FWD_OBS) -> dict:
-    """The three ``_CURRENT_SENSE_*`` module constants, parsed from the forward observations' SOURCE (an AST read:
-    the module imports isaaclab). A missing / non-literal one raises."""
-    tree = ast.parse(Path(path).read_text())
-    out = {}
-    for node in tree.body:
-        if isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name):
-            if node.targets[0].id in _SENSE_NAMES:
-                out[node.targets[0].id] = float(ast.literal_eval(node.value))
-    missing = set(_SENSE_NAMES) - set(out)
-    if missing:
-        raise ValueError(f"{path}: constant(s) {sorted(missing)} not found as module-level literals")
-    return out
-
-
 # ================================================================================================ the rebuild
 class JointLayout:
     """Leg-ordered (FL FR ML MR RL RR) joint indices into the raws' 24-joint arrays, from ``run_meta.joint_names``:
@@ -152,6 +130,7 @@ class JointLayout:
                 idx.append(hits[0])
             return idx
 
+        self.names = names
         self.pitch, self.knee, self.cam = pick("_Hip_Femur_"), pick("_Femur_Tibia_"), pick("_Body_CamShaft_")
 
 
@@ -161,49 +140,33 @@ def wrap_to_pi(x: torch.Tensor) -> torch.Tensor:
     return torch.where((w == 0) & (x > 0), torch.pi, w - torch.pi)
 
 
-def contact_fill(tau, jpos, hip_speed, knee_speed, layout: JointLayout, lk, k: dict):
-    """The forward ``_get_contact_fill``, op for op (float32 torch): ``(proxy (N, 6), knee gate (N, 6))``.
-    ``hip_speed`` / ``knee_speed`` are the action term's rod speeds the obs was built with."""
-    theta_h = jpos[:, layout.pitch]
-    theta_k = jpos[:, layout.knee]
-    ma_h = lk.hip_moment_arm(theta_h).clamp_min(1e-4)
-    ma_k = lk.knee_moment_arm(theta_h, theta_k.abs()).clamp_min(1e-4)
-    force_h = tau[:, layout.pitch].abs() / ma_h / lk.HIP_FORCE_N
-    force_k = tau[:, layout.knee].abs() / ma_k / lk.KNEE_FORCE_N
-    gate_h = (hip_speed.abs() / (k["_CURRENT_SENSE_GATE_FRACTION"] * lk.HIP_SPEED_M_S)).clamp(0.0, 1.0)
-    gate_k = (knee_speed.abs() / (k["_CURRENT_SENSE_GATE_FRACTION"] * lk.KNEE_SPEED_M_S)).clamp(0.0, 1.0)
-    current_h = gate_h * (k["_CURRENT_SENSE_NO_LOAD"] + force_h).clamp(0.0, k["_CURRENT_SENSE_MAX"])
-    current_k = gate_k * (k["_CURRENT_SENSE_NO_LOAD"] + force_k).clamp(0.0, k["_CURRENT_SENSE_MAX"])
-    return torch.maximum(current_h, current_k) - 0.5, gate_k
+def hip_default(meta: dict, layout: JointLayout, lk) -> tuple[np.ndarray, str]:
+    """The hip-pitch defaults the obs subtracts (float32, leg order) and their source: ``run_meta.default_joint_pos``
+    (aligned with ``joint_names``) when the stamp records it, else the linkage's ``hip_default_rad()`` on every leg
+    (the scene cfg's init_state; NOTE(p2r Z2 cams-only, 2026-10-10))."""
+    rec = meta.get("default_joint_pos")
+    if rec is not None:
+        rec = np.asarray(rec, dtype=np.float32).reshape(-1)
+        if rec.shape[0] != len(layout.names):
+            raise ValueError(f"run_meta.default_joint_pos has {rec.shape[0]} entries for {len(layout.names)} joints")
+        return rec[layout.pitch].astype(np.float32), "run_meta.default_joint_pos"
+    return np.full(len(layout.pitch), lk.hip_default_rad(), dtype=np.float32), "linkage.hip_default_rad"
 
 
-def episode_proxy(ep: dict, layout: JointLayout, lk, k: dict):
-    """One episode's policy-visible proxy inputs: ``(live (T, 6), knee gate (T, 6))``. obs_t pairs the state read
-    at t with the rod speed recorded after step t-1; step 0 gets rod speed 0 (unknown; never a stand row here)."""
-    tau = torch.as_tensor(np.asarray(ep["applied_torque"]), dtype=torch.float32)
-    jpos = torch.as_tensor(np.asarray(ep["joint_pos"]), dtype=torch.float32)
-    rod = torch.as_tensor(np.asarray(ep["rod_speed"]), dtype=torch.float32)
-    prev = torch.cat([torch.zeros_like(rod[:1]), rod[:-1]], dim=0)
-    return contact_fill(tau, jpos, prev[:, :6], prev[:, 6:], layout, lk, k)
+def obs_inputs(jpos, layout: JointLayout, hip_def) -> tuple[torch.Tensor, torch.Tensor]:
+    """R's two policy-obs inputs rebuilt from joint positions ``jpos`` (N, 24): ``(cams (N, 6), hip (N, 6))`` --
+    ``wrap_to_pi(cam joint_pos - 0)`` and ``hip-pitch joint_pos - default`` (float32, the obs term's own ops)."""
+    jp = torch.as_tensor(np.asarray(jpos), dtype=torch.float32)
+    cams = wrap_to_pi(jp[:, layout.cam])
+    hip = jp[:, layout.pitch] - torch.as_tensor(np.asarray(hip_def, dtype=np.float32)).reshape(1, -1)
+    return cams, hip
 
 
-def sample_and_hold(live: np.ndarray, full: np.ndarray, init: float = -0.5) -> np.ndarray:
-    """The ``KRABBY_OMNI_STAND_PROXY=hold`` buffer along ONE episode (reset to ``init`` at its start): at each step
-    a leg's held value becomes the live value where its knee gate is full, else keeps the last one."""
-    live = np.asarray(live)
-    full = np.asarray(full, dtype=bool)
-    T = live.shape[0]
-    last = np.where(full, np.arange(T)[:, None], -1)
-    last = np.maximum.accumulate(last, axis=0)
-    held = np.take_along_axis(live, np.clip(last, 0, None), axis=0)
-    return np.where(last >= 0, held, np.asarray(init, dtype=live.dtype)).astype(live.dtype)
-
-
-def policy_obs(cams: torch.Tensor, proxy: torch.Tensor, rst) -> torch.Tensor:
-    """An (N, MIN_OBS_WIDTH) obs carrying only the columns R reads (cams, proxy); every other column 0."""
+def policy_obs(cams: torch.Tensor, hip: torch.Tensor, rst) -> torch.Tensor:
+    """An (N, MIN_OBS_WIDTH) obs carrying only the columns R reads (cams, hip-pitch positions); every other col 0."""
     obs = torch.zeros(cams.shape[0], rst.MIN_OBS_WIDTH, dtype=torch.float32)
     obs[:, list(rst.CAM_OBS_COLS)] = cams.float()
-    obs[:, list(rst.PROXY_OBS_COLS)] = proxy.float()
+    obs[:, list(rst.HIP_POS_OBS_COLS)] = hip.float()
     return obs
 
 
@@ -279,18 +242,18 @@ def actions_kind(meta: dict) -> tuple[str, np.ndarray | None]:
     return "mean", None
 
 
-def collect_stand_rows(stamp: Path, labels, rst, lk, k: dict, max_episodes: int | None = None) -> dict:
-    """Every recorded row of ``stamp`` whose hold label is in ``labels`` (step >= 1): the rebuilt cams, live and held
-    proxy, knee gate, the recorded action, and the label. Episodes without such a row are skipped unread past
-    ``segment_id``."""
+def collect_stand_rows(stamp: Path, labels, rst, lk, max_episodes: int | None = None) -> dict:
+    """Every recorded row of ``stamp`` whose hold label is in ``labels``: the rebuilt cams and hip-pitch positions,
+    the recorded action, and the label. Episodes without such a row are skipped unread past ``segment_id``."""
     meta = json.loads((stamp / "run_meta.json").read_text())
     layout = JointLayout(meta["joint_names"], rst.LEGS)
+    hip_def, hip_src = hip_default(meta, layout, lk)
     hold_labels = list(meta["hold_labels"])
     want = [i for i, lab in enumerate(hold_labels) if lab in set(labels)]
     if not want:
         raise ValueError(f"{stamp}: none of {list(labels)} in hold_labels {hold_labels}")
-    acc = {k_: [] for k_ in ("cams", "live", "held", "gate_k", "actions", "label")}
-    episodes = step0 = 0
+    acc = {k_: [] for k_ in ("cams", "hip", "actions", "label")}
+    episodes = 0
     for f in sorted((stamp / "raw").glob("episode_*.npz")):
         z = np.load(f)
         seg = np.asarray(z["segment_id"])
@@ -300,31 +263,23 @@ def collect_stand_rows(stamp: Path, labels, rst, lk, k: dict, max_episodes: int 
         if max_episodes is not None and episodes >= max_episodes:
             break
         episodes += 1
-        ep = {key: z[key] for key in ("applied_torque", "joint_pos", "rod_speed", "actions")}
-        live, gate_k = episode_proxy(ep, layout, lk, k)
-        live_np = live.numpy()
-        held = sample_and_hold(live_np, gate_k.numpy() >= 1.0)
-        step0 += int(m[0])
-        m[0] = False
         idx = np.nonzero(m)[0]
-        jp = torch.as_tensor(np.asarray(ep["joint_pos"])[idx][:, layout.cam], dtype=torch.float32)
-        acc["cams"].append(wrap_to_pi(jp).numpy())
-        acc["live"].append(live_np[idx])
-        acc["held"].append(held[idx])
-        acc["gate_k"].append(gate_k.numpy()[idx])
-        acc["actions"].append(np.asarray(ep["actions"])[idx])
+        cams, hip = obs_inputs(np.asarray(z["joint_pos"])[idx], layout, hip_def)
+        acc["cams"].append(cams.numpy())
+        acc["hip"].append(hip.numpy())
+        acc["actions"].append(np.asarray(z["actions"])[idx])
         acc["label"].append(np.asarray(hold_labels, dtype=object)[seg[idx]])
     if not acc["cams"]:
-        raise ValueError(f"{stamp}: no {list(labels)} row past step 0")
+        raise ValueError(f"{stamp}: no {list(labels)} row")
     out = {k_: np.concatenate(v) for k_, v in acc.items()}
-    out.update(meta=meta, episodes=episodes, step0_rows_dropped=step0)
+    out.update(meta=meta, episodes=episodes, hip_default=[float(v) for v in hip_def], hip_default_source=hip_src)
     return out
 
 
-def xcheck(stamp: Path, rst, lk, k: dict, max_rows: int | None = 5000) -> dict:
+def xcheck(stamp: Path, rst, lk, max_rows: int | None = 5000) -> dict:
     """The rebuild against RECORDED obs: ``stamp``'s ``p2r_bank.npz`` (true obs, knob-off probe) rows matched to
-    their raw (episode, step) by obs 41..64 == joint_vel * 0.05 (bitwise); the rebuilt live proxy vs obs 83..88 and
-    cams vs obs 18+2i. ``ok`` = proxy within :data:`XCHECK_TOL` and cams bitwise on every matched row (step >= 1)."""
+    their raw (episode, step) by obs 41..64 == joint_vel * 0.05 (bitwise); the rebuilt cams vs obs 18+2i and hip-pitch
+    positions vs obs 29..34. ``ok`` = cams bitwise and hip within :data:`XCHECK_TOL` on every matched row."""
     bank = np.load(stamp / "p2r_bank.npz")
     obs = np.asarray(bank["obs"])
     if max_rows is not None:
@@ -332,7 +287,8 @@ def xcheck(stamp: Path, rst, lk, k: dict, max_rows: int | None = 5000) -> dict:
     key = {obs[i, OBS_JOINT_VEL].tobytes(): i for i in range(obs.shape[0])}
     meta = json.loads((stamp / "run_meta.json").read_text())
     layout = JointLayout(meta["joint_names"], rst.LEGS)
-    prox_cols, cam_cols = list(rst.PROXY_OBS_COLS), list(rst.CAM_OBS_COLS)
+    hip_def, hip_src = hip_default(meta, layout, lk)
+    cam_cols, hip_cols = list(rst.CAM_OBS_COLS), list(rst.HIP_POS_OBS_COLS)
     n_match = n_eq = n_cmp = 0
     max_abs = 0.0
     cams_ok = True
@@ -341,26 +297,23 @@ def xcheck(stamp: Path, rst, lk, k: dict, max_rows: int | None = 5000) -> dict:
             break
         z = np.load(f)
         jv = (np.asarray(z["joint_vel"]) * JOINT_VEL_SCALE).astype(np.float32)
-        hits = [(t, key.pop(jv[t].tobytes())) for t in range(1, jv.shape[0]) if jv[t].tobytes() in key]
+        hits = [(t, key.pop(jv[t].tobytes())) for t in range(jv.shape[0]) if jv[t].tobytes() in key]
         if not hits:
             continue
-        ep = {key_: z[key_] for key_ in ("applied_torque", "joint_pos", "rod_speed")}
-        live, _ = episode_proxy(ep, layout, lk, k)
         ts = np.array([t for t, _ in hits])
         rows = np.array([i for _, i in hits])
-        got = live.numpy()[ts]
-        want = obs[rows][:, prox_cols]
+        cams, hip = obs_inputs(np.asarray(z["joint_pos"])[ts], layout, hip_def)
+        got, want = hip.numpy(), obs[rows][:, hip_cols]
         n_match += len(hits)
         n_eq += int((got == want).sum())
         n_cmp += got.size
         max_abs = max(max_abs, float(np.abs(got - want).max()))
-        cams = wrap_to_pi(torch.as_tensor(np.asarray(ep["joint_pos"])[ts][:, layout.cam], dtype=torch.float32))
         if not np.array_equal(cams.numpy(), obs[rows][:, cam_cols]):
             cams_ok = False
     ok = n_match > 0 and max_abs <= XCHECK_TOL and cams_ok
     return {"stamp": str(stamp), "bank_rows": int(obs.shape[0]), "matched": n_match,
-            "proxy_bitwise_share": (n_eq / n_cmp if n_cmp else None), "proxy_max_abs_diff": max_abs,
-            "cams_bitwise": cams_ok, "tol": XCHECK_TOL, "ok": ok}
+            "hip_bitwise_share": (n_eq / n_cmp if n_cmp else None), "hip_max_abs_diff": max_abs,
+            "hip_default_source": hip_src, "cams_bitwise": cams_ok, "tol": XCHECK_TOL, "ok": ok}
 
 
 def probe_branch_shares(stamp: Path) -> dict | None:
@@ -369,21 +322,20 @@ def probe_branch_shares(stamp: Path) -> dict | None:
     return blk.get("branch_shares_on_stand")
 
 
-def dose(stamp: Path, ckpt: Path, params, labels=("stand",), rst=None, lk=None, k=None,
+def dose(stamp: Path, ckpt: Path, params, labels=("stand",), rst=None, lk=None,
          max_episodes: int | None = None) -> dict:
     """The full dose read (see the module docstring)."""
     rst = rst or load_restance()
     lk = lk or load_linkage()
-    k = k or sense_constants()
-    rows = collect_stand_rows(stamp, labels, rst, lk, k, max_episodes=max_episodes)
+    rows = collect_stand_rows(stamp, labels, rst, lk, max_episodes=max_episodes)
     meta = rows["meta"]
     kind, sigma_s = actions_kind(meta)
     sd = torch.load(str(ckpt), map_location="cpu", weights_only=False)["model_state_dict"]
     sigma_a = anchor_sigma(sd)
     c = 0.0 if sigma_s is None else float(0.5 * ((torch.as_tensor(sigma_s) / sigma_a) ** 2).sum())
     cams = torch.as_tensor(rows["cams"])
-    held = torch.as_tensor(rows["held"])
-    obs = policy_obs(cams, held, rst)
+    hip = torch.as_tensor(rows["hip"])
+    obs = policy_obs(cams, hip, rst)
     tgt, branch = rst.restance_target(obs, params)
     a = torch.as_tensor(rows["actions"], dtype=torch.float32)
     raw_r, raw_0 = row_losses(a, tgt, sigma_a), row_losses(a, None, sigma_a)
@@ -395,15 +347,17 @@ def dose(stamp: Path, ckpt: Path, params, labels=("stand",), rst=None, lk=None, 
         "sigma_sample_equals_sigma_A": (None if sigma_s is None
                                         else bool(np.allclose(sigma_s, sigma_a.numpy(), rtol=1e-5, atol=1e-6))),
         "restance": params.to_dict(), "restance_knob": rst.format_restance(params),
-        "episodes": rows["episodes"], "rows": int(a.shape[0]), "step0_rows_dropped": rows["step0_rows_dropped"],
+        "episodes": rows["episodes"], "rows": int(a.shape[0]),
+        "hip_default": rows["hip_default"], "hip_default_source": rows["hip_default_source"],
         "per_row": {"restance": per_r, "target0": per_0, "restance_raw_mean": float(raw_r.mean()),
                     "target0_raw_mean": float(raw_0.mean()),
                     # paired, row by row (c cancels): how far apart the two targets put the fork's prior
                     "restance_minus_target0": _mean_se(raw_r - raw_0)},
         "branch_shares": rst.branch_shares(branch),
         "restance_nonzero_share": float((tgt.abs() > 1e-6).any(dim=-1).float().mean()),
-        "held_equals_live_share": float((rows["held"] == rows["live"]).mean()),
-        "knee_gate_full_share": float((rows["gate_k"] >= 1.0).mean()),
+        # R's own leg phase on these rows (NOTE(p2r Z2 cams-only, 2026-10-10): hip-position DOWN / UP thresholds)
+        "leg_down_share": float((hip >= params.p_down).float().mean()),
+        "leg_up_share": float((hip <= params.p_up).float().mean()),
         "mean_abs_target": [float(v) for v in tgt.abs().mean(dim=0)],
         "by_label": {},
     }
@@ -416,10 +370,7 @@ def dose(stamp: Path, ckpt: Path, params, labels=("stand",), rst=None, lk=None, 
     # the +200 wiring's band (p2_live.z2_dose_band reads band_lo / band_hi): the union band, covering both shares
     out["band_lo"], out["band_hi"] = out["bands"]["union_band"]
     out["band_basis"] = f"union [{BAND[0]:g} x E({min(SHARES):g}), {BAND[1]:g} x E({max(SHARES):g})]"
-    # NOTE(p2r Z2, 2026-10-10, decision recorded in CHARTER 12.1): the +200 held == live line is CALIBRATED here,
-    # on the training-noise bank, not the plan's pre-knee-decision 0.99 (the knee gate alone is full on ~97.6 % of
-    # noisy stand steps): the bank's own share minus PROXY_LIVE_MARGIN.
-    out["proxy_live_min"] = round(out["held_equals_live_share"] - PROXY_LIVE_MARGIN, 4)
+    # NOTE(p2r Z2 cams-only, 2026-10-10): no held == live line any more (R reads no proxy; p2_live dropped it).
     home = out["branch_shares"]["home"]
     if not home:
         out["rc"], out["verdict"] = RC_STOP, "STOP: R's in-air homing branch ('home') is absent on the bank"
@@ -459,8 +410,8 @@ def markdown(out: dict) -> str:
               f"{b['target0_inside_union'] or 'none'}",
           f"- R branch shares (leg-rows): {json.dumps({k: round(v, 4) for k, v in out['branch_shares'].items()})}",
           f"- probe branch shares: {json.dumps(out.get('probe_branch_shares'))}",
-          f"- R non-zero share {out['restance_nonzero_share']:.4f}; held == live {out['held_equals_live_share']:.4f}; "
-          f"knee gate full {out['knee_gate_full_share']:.4f}", "",
+          f"- R non-zero share {out['restance_nonzero_share']:.4f}; legs DOWN {out['leg_down_share']:.4f} / UP "
+          f"{out['leg_up_share']:.4f} (hip default from {out['hip_default_source']})", "",
           f"**rc {out['rc']}: {out['verdict']}**", ""]
     return "\n".join(L)
 
@@ -493,19 +444,19 @@ def main(argv=None) -> int:
     if raws is None or not Path(raws).is_dir():
         print(f"p2r_z2_dose: raws stamp not found ({raws})", file=sys.stderr)
         return RC_ERROR
-    lk, k = load_linkage(), sense_constants()
+    lk = load_linkage()
     xc = None
     if a.xcheck_stamp != "none":
         xs = newest_stamp(XCHECK_RUN, "walkstop__omni") if a.xcheck_stamp == "auto" else Path(a.xcheck_stamp)
         if xs is not None and (Path(xs) / "p2r_bank.npz").is_file():
-            xc = xcheck(Path(xs), rst, lk, k)
+            xc = xcheck(Path(xs), rst, lk)
             if not xc["ok"]:
-                print(f"p2r_z2_dose: the proxy rebuild FAILS its cross-check: {json.dumps(xc)}", file=sys.stderr)
+                print(f"p2r_z2_dose: the obs rebuild FAILS its cross-check: {json.dumps(xc)}", file=sys.stderr)
                 return RC_ERROR
         else:
             xc = {"ok": None, "why": f"no p2r_bank.npz under {xs}"}
     out = dose(Path(raws), Path(ckpt), params, labels=[s for s in a.labels.split(",") if s.strip()], rst=rst, lk=lk,
-               k=k, max_episodes=a.max_episodes)
+               max_episodes=a.max_episodes)
     out["xcheck"] = xc
     out["noisy_statue_stamp"] = (str(newest_stamp(NOISY_RAWS_RUN)) if newest_stamp(NOISY_RAWS_RUN) else None)
     out["probe_branch_shares"] = {str(p): probe_branch_shares(p) for p in a.probe_stamp} or None

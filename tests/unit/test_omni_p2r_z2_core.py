@@ -10,12 +10,13 @@ Pinned here (no Isaac, no GPU):
   ``Metrics/stand_proxy_live_frac`` is the live share of the (stand row, leg) entries since the last log;
 * the knobs: ``KRABBY_OMNI_STAND_PROXY`` (env side, an eval-semantics knob carried outside ``run_phases``),
   ``KRABBY_STAND_PRIOR_TARGET`` / ``KRABBY_RESTANCE`` (runner side) and their cross rules, including an EVAL env
-  that carries ``KRABBY_RESTANCE`` for the probe;
+  that carries ``KRABBY_RESTANCE`` for the probe. NOTE(p2r Z2 cams-only, 2026-10-10): the target no longer needs
+  ``KRABBY_OMNI_STAND_PROXY=hold`` (R reads cams + hip-pitch positions); the proxy stays an independent knob;
 * ``PPOWithExtractor``'s re-stance prior: off -> Z1's update bitwise (and R == 0 reproduces it too); the prior's
   gradient comes only from bit-1 rows and equals the hand formula ``(mu - R) / sigma_A^2 / B``; the
   ``Loss/restance_*`` scalars; construction refusals and the print line;
 * the ladder: dump checks, the training-log audit, the composition refusals, and a validator dry run of the
-  candidates v13 chain ``P2__Z2_s18`` (= ``P2__Z1_s18`` verbatim + the three knobs).
+  candidates v14 chain ``P2__Z2_s18`` (= ``P2__Z1_s18`` verbatim + the TARGET / RESTANCE knobs; no proxy).
 """
 from __future__ import annotations
 
@@ -346,7 +347,7 @@ def _z2_env(tmp_path, **over):
     ckpt = tmp_path / "graft.pt"
     ckpt.write_bytes(b"x")
     env = {"KRABBY_OMNI_STAND_OBS": "clock", "KRABBY_ANCHOR_W": "1.0", "KRABBY_ANCHOR_CKPT": str(ckpt),
-           "KRABBY_STAND_PRIOR_W": "1.0", "KRABBY_OMNI_STAND_PROXY": "hold",
+           "KRABBY_STAND_PRIOR_W": "1.0",
            "KRABBY_STAND_PRIOR_TARGET": "restance", "KRABBY_RESTANCE": "default"}
     env.update(over)
     return {k: v for k, v in env.items() if v is not None}
@@ -364,12 +365,17 @@ def test_runner_knobs_reach_the_algorithm_cfg(tmp_path, capsys):
     assert "[KNOB] KRABBY_STAND_PRIOR_TARGET=restance consumed" in out
     assert "[KNOB] KRABBY_RESTANCE=default consumed" in out
     agent = SC._agent()
-    mk.apply_exploration_knobs(agent, _z2_env(tmp_path, KRABBY_RESTANCE="lift=-0.6,theta_S=0.7"))
-    assert agent.algorithm.restance == RST.RestanceParams(lift=-0.6, theta_S=0.7).to_dict()
+    mk.apply_exploration_knobs(agent, _z2_env(tmp_path, KRABBY_RESTANCE="lift=-0.6,up_frac=0.7"))
+    assert agent.algorithm.restance == RST.RestanceParams(lift=-0.6, up_frac=0.7).to_dict()
+    # NOTE(p2r Z2 cams-only, 2026-10-10): the held proxy is independent of the target -- on or off, same fields
+    for proxy in ("hold", "0"):
+        agent = SC._agent()
+        mk.apply_exploration_knobs(agent, _z2_env(tmp_path, KRABBY_OMNI_STAND_PROXY=proxy))
+        assert agent.algorithm.stand_prior_target == "restance"
+        assert agent.algorithm.restance == RST.RestanceParams().to_dict()
     # Z1's env (no Z2 knob): exactly Z1's fields
     agent = SC._agent()
-    mk.apply_exploration_knobs(agent, _z2_env(tmp_path, KRABBY_OMNI_STAND_PROXY=None,
-                                              KRABBY_STAND_PRIOR_TARGET=None, KRABBY_RESTANCE=None))
+    mk.apply_exploration_knobs(agent, _z2_env(tmp_path, KRABBY_STAND_PRIOR_TARGET=None, KRABBY_RESTANCE=None))
     assert "stand_prior_target" not in vars(agent.algorithm) and "restance" not in vars(agent.algorithm)
 
 
@@ -377,17 +383,19 @@ def test_runner_knob_cross_rules(tmp_path):
     cases = [
         (_z2_env(tmp_path, KRABBY_STAND_PRIOR_W="0"), "KRABBY_STAND_PRIOR_W is off"),
         (_z2_env(tmp_path, KRABBY_STAND_PRIOR_W=None, KRABBY_ANCHOR_W="1.0"), "KRABBY_STAND_PRIOR_W is off"),
-        (_z2_env(tmp_path, KRABBY_OMNI_STAND_PROXY=None), "KRABBY_OMNI_STAND_PROXY=hold"),
-        (_z2_env(tmp_path, KRABBY_OMNI_STAND_PROXY="0"), "KRABBY_OMNI_STAND_PROXY=hold"),
         (_z2_env(tmp_path, KRABBY_RESTANCE=None), "needs KRABBY_RESTANCE"),
         (_z2_env(tmp_path, KRABBY_RESTANCE="0"), "needs KRABBY_RESTANCE"),
         # KRABBY_RESTANCE without the target in a TRAINING recipe (a statue knob armed)
         (_z2_env(tmp_path, KRABBY_STAND_PRIOR_TARGET=None), "never distils"),
         (_z2_env(tmp_path, KRABBY_STAND_PRIOR_TARGET="0"), "never distils"),
-        # the held proxy without the clock bit
+        # the held proxy without the clock bit (an independent knob, still refused there)
         (_z2_env(tmp_path, KRABBY_OMNI_STAND_OBS="1", KRABBY_ANCHOR_W=None, KRABBY_ANCHOR_CKPT=None,
-                 KRABBY_STAND_PRIOR_W=None, KRABBY_STAND_PRIOR_TARGET=None, KRABBY_RESTANCE=None),
+                 KRABBY_STAND_PRIOR_W=None, KRABBY_STAND_PRIOR_TARGET=None, KRABBY_RESTANCE=None,
+                 KRABBY_OMNI_STAND_PROXY="hold"),
          "KRABBY_OMNI_STAND_OBS=clock"),
+        # the statue rules still bind the target (the clock bit is the stand mask)
+        (_z2_env(tmp_path, KRABBY_OMNI_STAND_OBS="0"), "KRABBY_OMNI_STAND_OBS=clock"),
+        (_z2_env(tmp_path, KRABBY_RESTANCE="theta_L=0.6"), "unknown"),
         # malformed values, anywhere
         (_z2_env(tmp_path, KRABBY_RESTANCE="lift=0.2"), "lift"),
         (_z2_env(tmp_path, KRABBY_STAND_PRIOR_TARGET="zero"), "KRABBY_STAND_PRIOR_TARGET"),
@@ -480,7 +488,9 @@ def _minibatch(b=24, seed=3):
     obs, stand = SC._minibatch(None, seed=seed, b=b)
     g = torch.Generator().manual_seed(seed + 100)
     obs[:, list(RST.CAM_OBS_COLS)] = (torch.rand(b, 6, generator=g) - 0.5) * 0.8
-    obs[:, list(RST.PROXY_OBS_COLS)] = torch.rand(b, 6, generator=g) * 1.5 - 0.5
+    # NOTE(p2r Z2 cams-only, 2026-10-10): R's second input is the hip-pitch POSITION (default .. past the lift)
+    obs[:, list(RST.HIP_POS_OBS_COLS)] = torch.rand(b, 6, generator=g) * (2 * RST.ROD_SCALE * RST.RestanceParams().lift)
+    obs[:, list(RST.PROXY_OBS_COLS)] = torch.rand(b, 6, generator=g) * 1.5 - 0.5      # never read by R
     return obs, stand
 
 
@@ -586,24 +596,29 @@ def rc():
     return _load(RUN_CANDIDATES_PY, "run_candidates__p2r_z2_test")
 
 
-Z2_KNOBS = {"KRABBY_OMNI_STAND_PROXY": "hold", "KRABBY_STAND_PRIOR_TARGET": "restance", "KRABBY_RESTANCE": "default"}
+#: NOTE(p2r Z2 cams-only, 2026-10-10): the v14 Z2 chain's two knobs (no proxy); the held proxy stays a registered,
+#: independent ladder knob (PROXY_KNOB) the Z2 chain does not carry.
+Z2_KNOBS = {"KRABBY_STAND_PRIOR_TARGET": "restance", "KRABBY_RESTANCE": "default"}
+PROXY_KNOB = {"KRABBY_OMNI_STAND_PROXY": "hold"}
+LADDER_KNOBS = {**PROXY_KNOB, **Z2_KNOBS}
 
 
 def test_z2_knobs_are_registered_with_the_ladder(rc):
     whitelist, parsers = rc.knob_whitelist(), rc.knob_parsers()
-    for var in Z2_KNOBS:
+    for var in LADDER_KNOBS:
         assert var in whitelist and var in parsers and var in rc.OVERLAY_DUMP_CHECKS, var
         assert parsers[var] is rc.knobs()._mk.MOTION_KNOB_PARSERS[var], var
     assert set(mk.RESTANCE_KNOBS) <= rc.AGENT_DUMP_KEYS and "KRABBY_OMNI_STAND_PROXY" not in rc.AGENT_DUMP_KEYS
     assert {"stand_prior_target", "restance"} <= set(rc.STATUE_ALG_FIELDS)
     reasons = []
-    for var, value in Z2_KNOBS.items():
+    for var, value in LADDER_KNOBS.items():
         rc._check_knob(var, value, "t", whitelist, parsers, reasons, set())
     assert not reasons, reasons
     for var, value in (("KRABBY_OMNI_STAND_PROXY", "on"), ("KRABBY_STAND_PRIOR_TARGET", "zero"),
-                       ("KRABBY_RESTANCE", "lift=0.4"), ("KRABBY_RESTANCE", "gain=1")):
+                       ("KRABBY_RESTANCE", "lift=0.4"), ("KRABBY_RESTANCE", "gain=1"),
+                       ("KRABBY_RESTANCE", "kappa=0.25")):                    # a removed load-sensing constant
         rc._check_knob(var, value, "t", whitelist, parsers, reasons, set())
-    assert len(reasons) == 4, reasons
+    assert len(reasons) == 5, reasons
 
 
 ENV_OFF = "observations:\n  policy:\n    extreme_parkour_observations:\n      params:\n        clock_hide: true\n"
@@ -620,7 +635,8 @@ def _agent_yaml(**alg) -> str:
 
 def test_dump_checks_on_synthetic_dumps(rc):
     checks = rc.OVERLAY_DUMP_CHECKS
-    proxy, target, rst = (checks[k] for k in Z2_KNOBS)
+    proxy, target, rst = (checks[k] for k in ("KRABBY_OMNI_STAND_PROXY", "KRABBY_STAND_PRIOR_TARGET",
+                                              "KRABBY_RESTANCE"))
     assert proxy(ENV_Z2, "hold") and not proxy(ENV_Z2, "0") and not proxy(ENV_Z2, "")
     assert proxy(ENV_Z1, "0") and proxy(ENV_OFF, "") and not proxy(ENV_Z1, "hold")
     assert not proxy(ENV_OFF + "        stand_proxy_hold: true\n", "hold")    # without the clock bit
@@ -630,9 +646,12 @@ def test_dump_checks_on_synthetic_dumps(rc):
     assert target(on, "restance") and not target(on, "0") and target(off, "0") and not target(off, "restance")
     assert rst(on, "default") and not rst(on, "0") and rst(off, "") and not rst(off, "default")
     assert not rst(on, "lift=-0.6")                                         # a different constant
-    tuned = RST.parse_restance("lift=-0.6,theta_L=0.3,theta_S=0.7")
+    tuned = RST.parse_restance("lift=-0.6,up_frac=0.7,down_frac=0.3")
     on2 = _agent_yaml(stand_prior_target="restance", restance=tuned.to_dict())
-    assert rst(on2, RST.format_restance(tuned)) and rst(on2, "lift=-0.6, theta_L=0.3, theta_S=0.7")
+    assert rst(on2, RST.format_restance(tuned)) and rst(on2, "lift=-0.6, up_frac=0.7, down_frac=0.3")
+    # a dump written with the load-sensing R's constants (v13) no longer matches any armed value
+    old = dict(RST.RestanceParams().to_dict(), theta_L=0.35, theta_S=0.75, kappa=0.5, dmax=0.6)
+    assert not rst(_agent_yaml(stand_prior_target="restance", restance=old), "default")
     missing = dict(tuned.to_dict())
     del missing["eps_air"]
     assert not rst(_agent_yaml(stand_prior_target="restance", restance=missing), RST.format_restance(tuned))
@@ -646,11 +665,11 @@ def test_dump_checks_on_the_real_s1_dump(rc, tmp_path):
     for key, value in (("KRABBY_OMNI_STAND_PROXY", "0"), ("KRABBY_STAND_PRIOR_TARGET", ""), ("KRABBY_RESTANCE", "")):
         txt = agent_txt if key in rc.AGENT_DUMP_KEYS else env_txt
         assert checks[key](txt, value), key
-        assert not checks[key](txt, Z2_KNOBS[key]), key
-    # the S1 dump as the trainer would write it with Z1 + the Z2 knobs on (text edits of the real files)
+        assert not checks[key](txt, LADDER_KNOBS[key]), key
+    # the S1 dump as the trainer would write it with Z1 + the Z2 knobs on (text edits of the real files; v14:
+    # no held proxy -- the env dump is Z1's)
     env_on, agent_on = SC._armed_dumps(env_txt, agent_txt, str(SC.GRAFT))
-    env_on = env_on.replace("        stand_bit_clock: true\n",
-                            "        stand_bit_clock: true\n        stand_proxy_hold: true\n", 1)
+    assert checks["KRABBY_OMNI_STAND_PROXY"](env_on, "0") and not checks["KRABBY_OMNI_STAND_PROXY"](env_on, "hold")
     block = yaml.dump({"algorithm": {"stand_prior_target": "restance",
                                      "restance": RST.RestanceParams().to_dict()}},
                       default_flow_style=False, sort_keys=False).split("\n", 1)[1]
@@ -668,7 +687,8 @@ def test_dump_checks_on_the_real_s1_dump(rc, tmp_path):
     got = rc.overlay_checks(rec, armed)
     assert got and all(ok for _n, ok in got), [n for n, ok in got if not ok]
     names = dict(got)
-    for want in ("log: [KNOB] KRABBY_OMNI_STAND_PROXY consumed", "log: [KNOB] KRABBY_STAND_PRIOR_TARGET consumed",
+    assert "log: [KNOB] KRABBY_OMNI_STAND_PROXY consumed" not in names              # not armed in v14
+    for want in ("log: [KNOB] KRABBY_STAND_PRIOR_TARGET consumed",
                  "log: [KNOB] KRABBY_RESTANCE consumed", "log: [PPO] construction names stand_prior_target=restance",
                  "log: Mean restance_nonzero printed (the KRABBY_STAND_PRIOR_TARGET loss ran)"):
         assert names.get(want) is True, want
@@ -682,8 +702,8 @@ def test_dump_checks_on_the_real_s1_dump(rc, tmp_path):
     # Z1's dumps fail the Z2 claims
     env_z1, agent_z1 = SC._armed_dumps(env_txt, agent_txt, str(SC.GRAFT))
     got = dict(rc.overlay_checks(SC._run_dir(tmp_path / "z1", env_z1, agent_z1, log), armed))
-    assert not any(v for k, v in got.items() if k.startswith("overlay KRABBY_OMNI_STAND_PROXY")
-                   or k.startswith("overlay KRABBY_STAND_PRIOR_TARGET") or k.startswith("overlay KRABBY_RESTANCE"))
+    assert not any(v for k, v in got.items() if k.startswith("overlay KRABBY_STAND_PRIOR_TARGET")
+                   or k.startswith("overlay KRABBY_RESTANCE"))
 
 
 def test_composition_check(rc):
@@ -692,19 +712,24 @@ def test_composition_check(rc):
     rc._check_restance_composition(stage, "w", reasons)
     rc._check_restance_composition({}, "w", reasons)
     assert not reasons
+    # NOTE(p2r Z2 cams-only, 2026-10-10): the held proxy is neither required nor refused beside the target
+    rc._check_restance_composition({**stage, **PROXY_KNOB}, "w", reasons)
+    assert not reasons
     for drop, match in (("KRABBY_STAND_PRIOR_TARGET", "never distils"), ("KRABBY_RESTANCE", "needs KRABBY_RESTANCE"),
-                        ("KRABBY_OMNI_STAND_PROXY", "KRABBY_OMNI_STAND_PROXY=hold"),
                         ("KRABBY_STAND_PRIOR_W", "KRABBY_STAND_PRIOR_W is off"),
                         ("KRABBY_OMNI_STAND_OBS", "KRABBY_OMNI_STAND_OBS=clock")):
         reasons = []
         rc._check_restance_composition({k: v for k, v in stage.items() if k != drop}, "w", reasons)
         assert len(reasons) == 1 and match in reasons[0], (drop, reasons)
+    reasons = []                                         # the proxy without the clock bit is still refused
+    rc._check_restance_composition({**PROXY_KNOB, "KRABBY_OMNI_STAND_OBS": "0"}, "w", reasons)
+    assert len(reasons) == 1 and "KRABBY_OMNI_STAND_OBS=clock" in reasons[0], reasons
     reasons = []                                         # a malformed value is _check_knob's to report, once
     rc._check_restance_composition({**stage, "KRABBY_RESTANCE": "lift=0.3"}, "w", reasons)
     assert reasons == []
 
 
-# ===================================================================== candidates v13
+# ===================================================================== candidates v14
 def _launch_view(cands: dict) -> dict:
     """The file minus every placeholder-carrying chain and its references (run_arm.sh's launch view)."""
     view = copy.deepcopy(cands)
@@ -715,10 +740,13 @@ def _launch_view(cands: dict) -> dict:
     return view
 
 
-def test_candidates_v13_z2_chain_is_z1_verbatim_plus_the_three_knobs():
+def test_candidates_v14_z2_chain_is_z1_verbatim_plus_the_two_knobs():
+    """NOTE(p2r Z2 cams-only, 2026-10-10): v14 = v13 with P2__Z2_s18's KRABBY_OMNI_STAND_PROXY removed (the chain is
+    the P2__Z1_s18 chain verbatim + KRABBY_STAND_PRIOR_TARGET + KRABBY_RESTANCE); every other chain is v13's."""
     d = yaml.safe_load(open(CAMP / "candidates.yaml"))
     v12 = yaml.safe_load(open(CAMP / "scripts/candidates_v12.yaml"))
-    assert (CAMP / "candidates.yaml").read_bytes() == (CAMP / "scripts/candidates_v13.yaml").read_bytes()
+    v13 = yaml.safe_load(open(CAMP / "scripts/candidates_v13.yaml"))
+    assert (CAMP / "candidates.yaml").read_bytes() == (CAMP / "scripts/candidates_v14.yaml").read_bytes()
     assert d["chains"]["P2__Z1_s18"] == v12["chains"]["P2__Z1_s18"]           # v12's Z1 untouched
     assert d["references"]["P2__Z2_s18"] == {"chain": "P2__Z2_s18", "seed": 18}
     z1, z2 = d["chains"]["P2__Z1_s18"], d["chains"]["P2__Z2_s18"]
@@ -726,30 +754,38 @@ def test_candidates_v13_z2_chain_is_z1_verbatim_plus_the_three_knobs():
     s1, s2 = z1["stages"][0], z2["stages"][0]
     assert {k: v for k, v in s2.items() if k != "overlay"} == {k: v for k, v in s1.items() if k != "overlay"}
     ov = dict(s2["overlay"])
+    assert "KRABBY_OMNI_STAND_PROXY" not in ov                                # the cams-only chain runs it off
     for k, v in Z2_KNOBS.items():
         assert ov.pop(k) == v, k
     assert ov == s1["overlay"] and list(ov) == list(s1["overlay"])           # verbatim, in key order
-    assert list(s2["overlay"])[-3:] == list(Z2_KNOBS)                         # the new block last
+    assert list(s2["overlay"])[-2:] == list(Z2_KNOBS)                         # the new block last
     assert {k: v for k, v in z2.items() if k not in ("stages", "notes")} == \
         {k: v for k, v in z1.items() if k not in ("stages", "notes")}
-    # everything else in the file is v12's
+    # v13's Z2 differed exactly by the proxy knob
+    v13_ov = dict(v13["chains"]["P2__Z2_s18"]["stages"][0]["overlay"])
+    assert v13_ov.pop("KRABBY_OMNI_STAND_PROXY") == "hold" and v13_ov == s2["overlay"]
+    # everything else in the file is v13's (and so v12's)
     rest = {k: v for k, v in d.items() if k not in ("chains", "references")}
-    assert rest == {k: v for k, v in v12.items() if k not in ("chains", "references")}
-    assert {k: v for k, v in d["chains"].items() if k != "P2__Z2_s18"} == v12["chains"]
-    assert {k: v for k, v in d["references"].items() if k != "P2__Z2_s18"} == v12["references"]
+    assert rest == {k: v for k, v in v13.items() if k not in ("chains", "references")}
+    assert {k: v for k, v in d["chains"].items() if k != "P2__Z2_s18"} == \
+        {k: v for k, v in v13["chains"].items() if k != "P2__Z2_s18"} == v12["chains"]
+    assert d["references"] == v13["references"]
 
 
-def test_candidates_v13_validator_dry_run(rc):
+def test_candidates_v14_validator_dry_run(rc):
     d = yaml.safe_load(open(CAMP / "candidates.yaml"))
     view = _launch_view(d)
     assert "P2__Z2_s18" in view["chains"] and "P2__Z2_s18" in view["references"]
     rc.validate_candidates(view)                                              # raises SystemExit on any reason
-    for drop, match in (("KRABBY_STAND_PRIOR_TARGET", "never distils"),
-                        ("KRABBY_OMNI_STAND_PROXY", "KRABBY_OMNI_STAND_PROXY=hold")):
+    for drop, match in (("KRABBY_STAND_PRIOR_TARGET", "never distils"), ("KRABBY_RESTANCE", "needs KRABBY_RESTANCE")):
         bad = copy.deepcopy(view)
         del bad["chains"]["P2__Z2_s18"]["stages"][0]["overlay"][drop]
         with pytest.raises(SystemExit, match=match):
             rc.validate_candidates(bad)
+    bad = copy.deepcopy(view)
+    bad["chains"]["P2__Z2_s18"]["stages"][0]["overlay"]["KRABBY_RESTANCE"] = "theta_L=0.6"   # a removed constant
+    with pytest.raises(SystemExit, match="KRABBY_RESTANCE"):
+        rc.validate_candidates(bad)
 
 
 def test_statue_log_checks_take_a_spaced_restance_value(rc, tmp_path):

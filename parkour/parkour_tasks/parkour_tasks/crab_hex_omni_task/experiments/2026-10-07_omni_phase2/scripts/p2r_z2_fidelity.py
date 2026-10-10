@@ -5,13 +5,14 @@ NOTE(p2r Z2, 2026-10-10).
 
 WHAT IT READS. A checkpoint's action mean mu on the restance probe's banked stand states
 (``p2r_stand_bank.npz``, written by ``p2r_mode_eval_crab_hex_gait.py --p2r-mode restance --p2r-stand-bank``: the TRUE
-obs, R's target and branch, the held proxy), against R:
+obs, R's target and branch, the policy-visible proxy columns), against R:
   * per branch (``BRANCH_NAMES``; leg-rows in that branch): |mu - R| of that leg's cam / hip / knee dims (mean,
     median, p90);
   * per row: mean |mu - R| over all 18 dims, and the prior ``0.5 sum ((mu - R) / sigma)^2`` (sigma = the bank's
     ``s1_sigma`` = sigma_A);
   * THE LINE: per leg, the mean SIGNED loaded-leg cam residual ``mu_cam - R_cam`` over that leg's HOLD-branch rows
-    (loaded and inside the home band, where R's cam command is the +-0.03 restoring trim); NOTIFY (rc 3) when the max
+    (down and inside the home band -- "loaded" before the 2026-10-10 cams-only amendment, whose kinematic R reads the
+    leg phase from the hip-pitch position --, where R's cam command is the +-0.03 restoring trim); NOTIFY (rc 3) when the max
     over legs of |mean| exceeds 0.015 -- half the trim's authority (P2R_Z2_PLAN step 4; the 0.006 line applied only
     to a hold with no trim).
 

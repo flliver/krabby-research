@@ -4,16 +4,20 @@ starts Isaac/Kit or a GPU, and nothing reads a real eval stamp (the real baselin
 
 * ``scripts/p2s_stand.py``: :func:`iter_stand_holds` over EVERY "stand" hold (walkstop's three; the first-stand
   :func:`stand_hold_index` unchanged), the per-stand Z2 estimators (:func:`stand_z2_metrics`: homed over the last
-  5 s, six-down share on the steady / last-5-s window, settle time, post-settle stillness from each stand's own
+  5 s, six-down share on the steady / last-5-s window, settle time (HOMED held 0.5 s: since the 2026-10-10
+  cams-only amendment six-down is not part of settle), post-settle stillness from each stand's own
   settle, re-stance lifts, body height, hip yaw) on hand-built episodes incl. settled / unsettled stands, and
   :func:`z2_head_summary` (shares, fail-closed post-settle medians, falls per 300, the per-stand breakdown);
-* ``scripts/p2_read.py``: the Z2 stand gates (each clause, PENDING vs FAIL, the relative settle line), the premise
-  gate's field rows vs HOLD (HOLD's own 2 SE) and body height vs REFS, the probe INVALID rule (env, p2r_mode,
-  raw bit), the per-seed / NOT RUN verdict logic, the Z2 INVALID widening, ``adoption_grade``, the bridged
+* ``scripts/p2_read.py``: the Z2 stand gates (each clause, PENDING vs FAIL, the relative settle line; six-down
+  REPORTED, never a clause -- cams-only, 2026-10-10), the premise
+  gate's field rows vs HOLD (HOLD's own 2 SE) and body height vs REFS, the probe INVALID rule (env -- STAND_OBS=clock
+  and STAND_PROXY OFF --, p2r_mode, raw bit), the per-seed / NOT RUN verdict logic, the Z2 INVALID widening (a
+  stamp with the held proxy armed), ``adoption_grade``, the Z2 suite stamp (the driver's), the bridged
   code_sha CHAIN (a new pair appended to inertness_bridge.json links the new code to ae892cec), and ``--p2r-rst``
   end to end on a fabricated ``$OUT`` tree with real raw npz;
 * ``scripts/p2_live.py``: the Z2 +200 wiring (Z1's checks, the dose band from p2r_z2_dose.json -- refused without
-  it --, restance_nonzero, every branch with home > 0, stand_proxy_live_frac), Z1 untouched, the Z2 preflight,
+  it --, restance_nonzero, every branch with home > 0; the STAND_PROXY knob OFF; no stand_proxy_live_frac clause
+  since the cams-only amendment), Z1 untouched, the Z2 preflight,
   the relaunch-name dispatch in ``check()``, and the branch names pinned against the restance module.
 """
 from __future__ import annotations
@@ -38,7 +42,8 @@ N_FEET = 6
 SC = ("c" * 64, "e" * 64, False)
 ENV4 = {"KRABBY_OMNI_CLOCK_HIDE": "1", "KRABBY_STD_PARAM": "soft", "KRABBY_OMNI_SPEED_ELLIPSE": "0.35:0.35:0.25",
         "KRABBY_OMNI_FACING_OBS_CLIP": "0.6"}
-ENV_Z2 = dict(ENV4, KRABBY_OMNI_STAND_OBS="clock", KRABBY_OMNI_STAND_PROXY="hold")
+#: NOTE(p2r Z2 cams-only, 2026-10-10): a Z2-family stamp's env -- the stand bit, the held proxy OFF (absent)
+ENV_Z2 = dict(ENV4, KRABBY_OMNI_STAND_OBS="clock")
 FH, FT, WS, SUITE = "field_hard__omni", "field_turn__omni", "walkstop__omni", "suite__omni"
 REFS_SHA = "a" * 64
 #: the 24 articulation joints in run_meta order (cams at 1, 3, ..., 11; hip yaw at 0, 2, ..., 10)
@@ -179,7 +184,7 @@ def test_settled_stand(P):
     d = _stand_episode(seg, (1, 3, 5), settle_at=50)
     m = P.stand_z2_metrics(d, 1, DT, CAM_COLS, HIP_COLS)
     assert m["reached"] and m["settled"]
-    assert m["settle_s"] == pytest.approx(50 * DT)                # six-down AND homed from row 50 of the stand
+    assert m["settle_s"] == pytest.approx(50 * DT)                # homed from row 50 of the stand
     assert m["homed"] is True and m["cam_max_last_rad"] == 0.0
     assert m["six_down_share"] == 1.0 and m["window_rows"] == 250  # last 5 s
     assert m["lifts_before_settle"] == 0                           # the foot was up from row 0: no liftoff inside
@@ -213,18 +218,38 @@ def test_settle_needs_half_a_second_running(P):
     seg = _walkstop_seg()
     d = _stand_episode(seg, (1, 3, 5), settle_at=50)
     rows = np.flatnonzero(seg == 1)
-    d["foot_force_norm"][rows[70], 0] = 0.0                        # a 1-row tap 20 rows into the settled run
+    d["joint_pos"][rows[70], CAM_COLS[3]] = 0.11                   # a 1-row cam excursion 20 rows into the homed run
     m = P.stand_z2_metrics(d, 1, DT, CAM_COLS, HIP_COLS)
-    assert m["settle_s"] == pytest.approx(71 * DT)                 # the run restarts after the tap
-    assert m["post_settle_taps_per_s"] == 0.0                     # the tap is before the settle row
+    assert m["settle_s"] == pytest.approx(71 * DT)                 # the run restarts after it
+    assert m["post_settle_taps_per_s"] == 0.0
+    # an excursion inside the band (|cam| <= 0.10) does not restart it
+    d["joint_pos"][rows[70], CAM_COLS[3]] = 0.099
+    assert P.stand_z2_metrics(d, 1, DT, CAM_COLS, HIP_COLS)["settle_s"] == pytest.approx(50 * DT)
+
+
+def test_settle_is_homed_only_six_down_is_reported(P):
+    """NOTE(p2r Z2 cams-only, 2026-10-10; P2R_Z2_PLAN "Amendment 2026-10-10"): settle = HOMED held 0.5 s -- a foot
+    that never lands (the static-indeterminacy lottery) no longer blocks it; the six-down share is only reported,
+    and a foot tap after the settle row counts in the post-settle stillness."""
+    seg = _walkstop_seg()
+    d = _stand_episode(seg, (1, 3, 5), settle_at=50)
+    rows = np.flatnonzero(seg == 1)
+    d["foot_force_norm"][rows, 2] = 0.0                            # foot 2 never carries load in this stand
+    m = P.stand_z2_metrics(d, 1, DT, CAM_COLS, HIP_COLS)
+    assert m["settled"] and m["settle_s"] == pytest.approx(50 * DT) and m["homed"] is True
+    assert m["six_down_share"] == 0.0
+    d = _stand_episode(seg, (1, 3, 5), settle_at=50)
+    d["foot_force_norm"][rows[70], 0] = 0.0                        # a 1-row tap 20 rows after the settle row
+    m = P.stand_z2_metrics(d, 1, DT, CAM_COLS, HIP_COLS)
+    assert m["settle_s"] == pytest.approx(50 * DT)                 # six-down is not part of settle
+    assert m["post_settle_taps_per_s"] == pytest.approx(1 / (350 * DT))
 
 
 def test_post_settle_steps_counted_from_each_stands_own_settle(P):
     seg = _walkstop_seg()
     d = _stand_episode(seg, (1, 3, 5), settle_at=50, march_after_settle=True)
     m = P.stand_z2_metrics(d, 1, DT, CAM_COLS, HIP_COLS)
-    # post-settle rows 350: foot 0 lifts for 20 rows at 30..49, 80..99, ... -> the first lift is BEFORE the settle
-    # condition can hold 25 rows, so settle is the first 25-row six-down run (rows 0..29 of the post part)
+    # post-settle rows 350: foot 0 lifts for 20 rows at 30..49, 80..99, ... -- after the homed settle row (50)
     assert m["settled"] and m["settle_s"] == pytest.approx(50 * DT)
     assert m["post_settle_steps_per_s"] == pytest.approx(7 / (350 * DT))
     assert m["six_down_share"] < 0.90
@@ -333,8 +358,7 @@ def test_z2_stand_gates_pass_and_each_failure(read):
     probe = _z2(settle_median_s=1.5)
     g = read.z2_stand_gates(_z2(), still, z1, probe)
     assert g["verdict"] == "PASS", g["failed"]
-    for kw, frag in ((dict(six_down_stand_share=0.89), "six-down stands walkstop es1"),
-                     (dict(homed_share=0.5), "homed walkstop es1"),
+    for kw, frag in ((dict(homed_share=0.5), "homed walkstop es1"),
                      (dict(settled_share=0.94), "settled walkstop es1"),
                      (dict(settle_median_s=2.6), "median settle walkstop es1"),
                      (dict(post_settle_steps_per_s=0.6), "post_settle_steps_per_s walkstop es1"),
@@ -347,10 +371,15 @@ def test_z2_stand_gates_pass_and_each_failure(read):
     # the falls line is max(1, Z1's): 1 fall per 300 passes against Z1's 0; 2 pass against Z1's 3
     assert read.z2_stand_gates(_z2(falls_per_300=1.0), still, z1, probe)["verdict"] == "PASS"
     assert read.z2_stand_gates(_z2(falls_per_300=2.0), still, _z2(falls_per_300=3.0), probe)["verdict"] == "PASS"
-    # the suite six-down clause reads the suite summary
-    z = _z2()
+    # NOTE(p2r Z2 cams-only, 2026-10-10): six-down is REPORTED (``reported``), never a clause -- the Z1-like 22 %
+    # passes every gate, and the reported entry reads it against the 0.90 line
+    z = _z2(six_down_stand_share=0.22)
     z["suite"][2] = _summ(six_down_stand_share=0.5)
-    assert "six-down stands suite es2 (steady)" in read.z2_stand_gates(z, still, z1, probe)["failed"]
+    g = read.z2_stand_gates(z, still, z1, probe)
+    assert g["verdict"] == "PASS" and not any("six-down" in k for k in g["clauses"])
+    assert g["reported"]["six-down stands walkstop es1 (last 5 s)"] == (0.22, 0.90, False)
+    assert g["reported"]["six-down stands suite es2 (steady)"] == (0.5, 0.90, False)
+    assert g["reported"]["six-down stands suite es1 (steady)"][2] is True
     # STILL rides along
     g = read.z2_stand_gates(_z2(), {1: dict(STILL, taps_per_s=1.5), 2: STILL}, z1, probe)
     assert "STILL taps_per_s suite es1" in g["failed"]
@@ -459,10 +488,12 @@ def test_rst_invalid_reasons(read, tmp_path):
         _N[0] += 1
         return {"name": "RST", "stamps": {"suite@1": s}, "valid": {"suite@1": read.stamp_validity(s)}, "ws_env": {}}
     assert read.rst_invalid_reasons(probe(), refs, raw_bit=False) == []
-    assert any("STAND_PROXY" in r for r in read.rst_invalid_reasons(probe(env=dict(ENV_Z2, KRABBY_OMNI_STAND_PROXY="0")),
-                                                                    refs, raw_bit=False))
-    assert any("STAND_OBS" in r for r in read.rst_invalid_reasons(probe(env=dict(ENV4, KRABBY_OMNI_STAND_PROXY="hold")),
-                                                                  refs, raw_bit=False))
+    # NOTE(p2r Z2 cams-only, 2026-10-10): the held proxy must be OFF (absent / blank / 0) -- armed is INVALID
+    for off in ("0", ""):
+        assert read.rst_invalid_reasons(probe(env=dict(ENV_Z2, KRABBY_OMNI_STAND_PROXY=off)), refs, raw_bit=False) == []
+    assert any("STAND_PROXY" in r for r in read.rst_invalid_reasons(
+        probe(env=dict(ENV_Z2, KRABBY_OMNI_STAND_PROXY="hold")), refs, raw_bit=False))
+    assert any("STAND_OBS" in r for r in read.rst_invalid_reasons(probe(env=ENV4), refs, raw_bit=False))
     assert any("variant 'hold'" in r for r in read.rst_invalid_reasons(probe(m=dict(mode, variant="hold")), refs,
                                                                        raw_bit=False))
     assert any("s1_checkpoint" in r for r in read.rst_invalid_reasons(
@@ -472,9 +503,10 @@ def test_rst_invalid_reasons(read, tmp_path):
 
 def test_z2_invalid_widening(read, tmp_path, monkeypatch):
     good = _meta_stamp(tmp_path / "g")
-    bad = _meta_stamp(tmp_path / "b", env=dict(ENV4, KRABBY_OMNI_STAND_OBS="clock"))
+    off0 = _meta_stamp(tmp_path / "o", env=dict(ENV_Z2, KRABBY_OMNI_STAND_PROXY="0"))
+    bad = _meta_stamp(tmp_path / "b", env=dict(ENV_Z2, KRABBY_OMNI_STAND_PROXY="hold"))   # the load-sensing obs
     monkeypatch.setattr(read, "z_raw_bit_reasons", lambda pt, lag=1: ([], 1))
-    assert read.z2_invalid_reasons({"name": "Z2", "stamps": {"suite@1": good}}) == []
+    assert read.z2_invalid_reasons({"name": "Z2", "stamps": {"suite@1": good, f"{WS}@1": off0}}) == []
     r = read.z2_invalid_reasons({"name": "Z2", "stamps": {"suite@1": good, f"{WS}@1": bad}})
     assert len(r) == 1 and "KRABBY_OMNI_STAND_PROXY" in r[0] and WS in r[0]
     # the ladder's verdict is overridden (as the clock rule does), PENDING is left alone
@@ -526,20 +558,24 @@ def test_p2r_z2_report_adoption_grade(read, monkeypatch):
     assert read.p2r_z2_report(with_tb=False, env={})["adoption_grade"] is False
 
 
-def test_z2_suite_stamp_prefers_a_proxy_carrying_row_eval(tmp_path, monkeypatch):
-    """The chain's own driver suite stamp builds without the held proxy (run_phases.EVAL_CARRY): a complete lr suite
-    es1 row-eval that carries it replaces it; otherwise the driver stamp stays (Z1's case)."""
+def test_z2_suite_stamp_is_the_driver_stamp(tmp_path, monkeypatch):
+    """NOTE(p2r Z2 cams-only, 2026-10-10): the cams-only chain runs the held proxy OFF, so its own driver suite stamp
+    is the Z2 read (as Z1's); an lr suite es1 row-eval is used only when there is no driver stamp."""
     out = tmp_path / "out"
-    drv = Path(_meta_stamp(out / "driver" / "suite", env=dict(ENV4, KRABBY_OMNI_STAND_OBS="clock")))
+    drv = Path(_meta_stamp(out / "driver" / "suite", env=ENV_Z2))
     (out / "arms").mkdir(parents=True)
     (out / "arms" / "P2__Z2_s18.record.json").write_text(json.dumps({"driver_stamp": str(drv)}))
     r = _read_at(out, monkeypatch)
     assert r.z2_suite_stamp("P2__Z2_s18") == str(drv)                    # no row-eval yet
     lr1 = out / "lr" / "P2__Z2_s18" / SUITE / "seed001" / "2026-10-11_00-00-00"
-    _meta_stamp(lr1)
+    _meta_stamp(lr1, env=dict(ENV_Z2, KRABBY_OMNI_STAND_PROXY="hold"))
     (lr1 / "complete.json").write_text("{}")
-    assert r.z2_suite_stamp("P2__Z2_s18") == str(lr1)
-    assert r.z2_suite_stamp("P2R_RST_s18") is None                       # no record, no stamp
+    assert r.z2_suite_stamp("P2__Z2_s18") == str(drv)                    # a proxy-carrying row-eval no longer wins
+    lr2 = out / "lr" / "P2R_RST_s18" / SUITE / "seed001" / "2026-10-11_00-00-00"
+    _meta_stamp(lr2)
+    (lr2 / "complete.json").write_text("{}")
+    assert r.z2_suite_stamp("P2R_RST_s18") == str(lr2)                   # no record: the lr row-eval
+    assert r.z2_suite_stamp("P2__Z9_s18") is None                        # no record, no stamp
 
 
 def test_bridged_reads_a_chain_of_appended_pairs(read, tmp_path, monkeypatch):
@@ -570,8 +606,8 @@ def test_the_real_bridge_file_still_accepts_its_pair(read):
 
 # ================================================================================================ --p2r-rst end to end
 def _rst_tree(out: Path, *, probe_settle=30):
-    """A fabricated $OUT for --p2r-rst (the suite stand's steady window is the whole stand here, so a 30-row
-    re-stance keeps its six-down share at 370/400 >= 0.90)."""
+    """A fabricated $OUT for --p2r-rst (the suite stand's steady window is the whole stand here; six-down is only
+    reported since the 2026-10-10 cams-only amendment)."""
     lr = out / "lr"
     mode = {"variant": "restance", "s1_checkpoint_sha256": REFS_SHA}
     seg_ws = _walkstop_seg()
@@ -624,7 +660,8 @@ def test_cli_p2r_rst_end_to_end(tmp_path, monkeypatch, capsys):
     assert g["seeds"]["1"]["verdict"] == "PASS" and g["seeds"]["2"]["verdict"] == "NOT RUN"
     assert j["baselines"]["REFS"]["walkstop"]["1"]["six_down_stand_share"] == 0.0
     assert j["probe"]["walkstop"]["1"]["settle_median_s"] == pytest.approx(0.6)
-    assert "premise gate" in md.read_text()
+    text = md.read_text()
+    assert "premise gate" in text and "Reported, not gated" in text and "six-down stands walkstop es1" in text
 
 
 def test_cli_p2r_rst_fails_an_unsettled_probe(tmp_path, monkeypatch, capsys):
@@ -638,12 +675,14 @@ def test_cli_p2r_rst_fails_an_unsettled_probe(tmp_path, monkeypatch, capsys):
     assert any("homed walkstop es1" in f for f in g["failed"])
 
 
-def test_cli_p2r_rst_invalid_without_the_proxy(tmp_path, monkeypatch, capsys):
+def test_cli_p2r_rst_invalid_with_the_held_proxy_armed(tmp_path, monkeypatch, capsys):
+    """NOTE(p2r Z2 cams-only, 2026-10-10): a probe stamp with KRABBY_OMNI_STAND_PROXY=hold ran the load-sensing
+    regime's observation, not the cams-only one: INVALID."""
     out = tmp_path / "out"
     _rst_tree(out)
     meta_p = next((out / "lr" / "P2R_RST_s18" / WS / "seed001").glob("*/run_meta.json"))
     meta = json.loads(meta_p.read_text())
-    meta["env_vars"] = dict(meta["env_vars"], KRABBY_OMNI_STAND_PROXY="0")
+    meta["env_vars"] = dict(meta["env_vars"], KRABBY_OMNI_STAND_PROXY="hold")
     meta_p.write_text(json.dumps(meta))
     r = _read_at(out, monkeypatch)
     monkeypatch.setattr(sys, "argv", ["p2_read.py", "--p2r-rst"])
@@ -662,21 +701,22 @@ def test_branch_names_pinned_to_the_restance_module(live):
 
 F0 = 14996
 AUDIT_OK = [("overlay KRABBY_TERRAIN_PROMOTE=0.7:0.4 in params/env.yaml", True)]
-DOSE = {"band_lo": 3.0, "band_hi": 9.0, "rc": 0, "proxy_live_min": 0.96}
+#: NOTE(p2r Z2 cams-only, 2026-10-10): no proxy_live_min any more (the held == live clause is gone)
+DOSE = {"band_lo": 3.0, "band_hi": 9.0, "rc": 0, "restance_knob": "lift=-0.5,rho=1,up_frac=0.6,down_frac=0.4,k_c=2,k_h=0.3,trim=0.03,eps_c=0.1,eps_air=0.05"}  # = format_restance(defaults)
 
 
 def _ov(**over):
     ov = {"KRABBY_OMNI_STAND_OBS": "clock", "KRABBY_ANCHOR_W": "1.0", "KRABBY_STAND_PRIOR_W": "1.0",
           "KRABBY_ANCHOR_CKPT": "parkour/outputs/omni_plan/phase2/graft/S1_s18_c15/model_19994.pt",
-          "KRABBY_FLAT_TERRAIN_GEOM": "field", "KRABBY_ACTION_RATE_W": "-0.05", "KRABBY_OMNI_STAND_PROXY": "hold",
+          "KRABBY_FLAT_TERRAIN_GEOM": "field", "KRABBY_ACTION_RATE_W": "-0.05",
           "KRABBY_STAND_PRIOR_TARGET": "restance", "KRABBY_RESTANCE": "default"}
     ov.update(over)
     return {k: v for k, v in ov.items() if v is not None}
 
 
-def _ser(live, *, prior=5.0, nonzero=0.9, shares=(0.6, 0.1, 0.1, 0.05, 0.15), proxy=1.0, drop=(), n=215):
+def _ser(live, *, prior=5.0, nonzero=0.9, shares=(0.6, 0.1, 0.1, 0.05, 0.15), drop=(), n=215):
     s = {live.P2R_ANCHOR_ROWS_TAG: 0.85, live.P2R_PRIOR_ROWS_TAG: 0.15, live.P2R_LOSS_ANCHOR: 0.01,
-         live.P2R_LOSS_PRIOR: prior, live.P2R_RESTANCE_NONZERO_TAG: nonzero, live.P2R_PROXY_LIVE_TAG: proxy,
+         live.P2R_LOSS_PRIOR: prior, live.P2R_RESTANCE_NONZERO_TAG: nonzero,
          live.TAGS["reach_obst"]: 0.3, live.TAGS["clock_hidden"]: 1.0}
     s.update(dict(zip(live.P2R_RESTANCE_BRANCH_TAGS, shares)))
     ser = {t: [(F0 + i, v) for i in range(n)] for t, v in s.items() if t not in drop}
@@ -700,7 +740,13 @@ def test_z2_wiring_clean_passes(live):
     assert v["rc"] == live.RC_PASS, v["fails"]
     lv = v["liveness"]
     assert lv["dose_band"] == [3.0, 9.0] and lv["stand_prior_first_update"] == 5.0
-    assert lv["restance_branch_shares"]["home"] == pytest.approx(0.05) and lv["stand_proxy_live_frac"] == 1.0
+    assert lv["restance_branch_shares"]["home"] == pytest.approx(0.05)
+    assert "stand_proxy_live_frac" not in lv and "stand_proxy_live_min" not in lv     # the clause is gone
+    for name in ("P2R_PROXY_LIVE_TAG", "P2R_PROXY_LIVE_MIN", "z2_proxy_live_min"):
+        assert not hasattr(live, name), name
+    # the held proxy, explicitly off, passes too
+    for off in ("0", ""):
+        assert _wire(live, ov=_ov(KRABBY_OMNI_STAND_PROXY=off))["rc"] == live.RC_PASS
 
 
 @pytest.mark.parametrize("kw,frag", [
@@ -711,11 +757,11 @@ def test_z2_wiring_clean_passes(live):
     (dict(ser="nonzero=0.49"), "restance_nonzero"),
     (dict(ser="home=0"), "restance_home"),
     (dict(ser="drop=lift"), "not logged in the window"),
-    (dict(ser="proxy=0.95"), "stand_proxy_live_frac"),
-    (dict(dose={"band_lo": 3.0, "band_hi": 9.0, "rc": 2, "proxy_live_min": 0.96}), "refuses to run"),
-    (dict(dose={"band_lo": 3.0, "band_hi": 9.0, "rc": 0}), "refuses to run"),
+    (dict(dose={"band_lo": 3.0, "band_hi": 9.0, "rc": 2}), "refuses to run"),
+    (dict(dose={"band_lo": 3.0, "band_hi": 9.0}), "refuses to run"),                # no rc recorded
     (dict(ser="rows"), "prior_rows"),
-    (dict(ov=dict(KRABBY_OMNI_STAND_PROXY=None)), "KRABBY_OMNI_STAND_PROXY"),
+    (dict(ov=dict(KRABBY_OMNI_STAND_PROXY="hold")), "KRABBY_OMNI_STAND_PROXY"),      # cams-only: must be off
+    (dict(ov=dict(KRABBY_RESTANCE="theta_L=0.6")), "KRABBY_RESTANCE"),             # a removed constant
     (dict(ov=dict(KRABBY_STAND_PRIOR_TARGET="0")), "KRABBY_STAND_PRIOR_TARGET"),
     (dict(ov=dict(KRABBY_RESTANCE="0")), "KRABBY_RESTANCE"),
     (dict(ov=dict(KRABBY_RESTANCE="lift=0.5")), "KRABBY_RESTANCE"),
@@ -732,8 +778,6 @@ def test_z2_wiring_each_failure(live, kw, frag):
             ser = _ser(live, shares=(0.6, 0.1, 0.1, 0.0, 0.2))
         elif k == "drop=lift":
             ser = _ser(live, drop=("Loss/restance_lift",))
-        elif k == "proxy=0.95":
-            ser = _ser(live, proxy=0.95)
         elif k == "rows":
             ser = _ser(live)
             ser[live.P2R_PRIOR_ROWS_TAG] = [(F0 + i, 0.5) for i in range(215)]
@@ -744,9 +788,8 @@ def test_z2_wiring_each_failure(live, kw, frag):
 
 def test_z1_wiring_is_unchanged(live):
     """Z1 keeps its constant [1.2, 4.6] band and never reads the Z2 tags, dose file or not."""
-    ser = _ser(live, prior=2.3, drop=("Loss/restance_nonzero",) + live.P2R_RESTANCE_BRANCH_TAGS +
-               (live.P2R_PROXY_LIVE_TAG,))
-    ov = _ov(KRABBY_OMNI_STAND_PROXY=None, KRABBY_STAND_PRIOR_TARGET=None, KRABBY_RESTANCE=None)
+    ser = _ser(live, prior=2.3, drop=("Loss/restance_nonzero",) + live.P2R_RESTANCE_BRANCH_TAGS)
+    ov = _ov(KRABBY_STAND_PRIOR_TARGET=None, KRABBY_RESTANCE=None)
     assert live.judge_wiring("Z1", ov, _facts(live), ser, F0, AUDIT_OK, None)["rc"] == live.RC_PASS
     assert live.judge_wiring("Z1", ov, _facts(live), ser, F0, AUDIT_OK, None, z2_dose=DOSE)["rc"] == live.RC_PASS
     assert live.judge_wiring("Z1", ov, _facts(live), _ser(live, prior=5.0), F0, AUDIT_OK, None)["rc"] == live.RC_FAIL
@@ -762,8 +805,12 @@ def test_z2_preflight(live):
     assert pf()["rc"] == live.RC_PASS
     assert pf(dose=None)["rc"] == live.RC_FAIL
     assert pf(ov=_ov(KRABBY_STAND_PRIOR_TARGET=None))["rc"] == live.RC_FAIL
+    assert pf(ov=_ov(KRABBY_OMNI_STAND_PROXY="hold"))["rc"] == live.RC_FAIL      # cams-only: the proxy stays off
+    # a v13 file (no restance_knob) or one computed for another R is refused: the band must belong to THIS chain's R
+    assert pf(dose={"band_lo": 3.0, "band_hi": 9.0, "rc": 0, "proxy_live_min": 0.96})["rc"] == live.RC_FAIL
+    assert pf(dose=dict(DOSE, restance_knob="lift=-0.3"))["rc"] == live.RC_FAIL
     assert pf(ov=_ov(KRABBY_ANCHOR_W="0"))["rc"] == live.RC_FAIL                 # Z1's checks still run
-    assert pf(arm="Z1", dose=None, ov=_ov(KRABBY_OMNI_STAND_PROXY=None))["rc"] == live.RC_PASS
+    assert pf(arm="Z1", dose=None, ov=_ov(KRABBY_STAND_PRIOR_TARGET=None, KRABBY_RESTANCE=None))["rc"] == live.RC_PASS
 
 
 def test_check_dispatches_a_z2_relaunch_name_and_reads_the_dose_file(live, tmp_path, monkeypatch):

@@ -152,6 +152,11 @@ decision_rule:
 # (same graft fork, S1 overlay, stand bit, anchor and prior weights) + KRABBY_OMNI_STAND_PROXY hold (the
 # sample-and-hold proxy on stand rows) + KRABBY_STAND_PRIOR_TARGET restance + KRABBY_RESTANCE default (the seed
 # constants; the step-3 probe's final constants replace "default" in a later copy). P2__Z1_s18 is unchanged.
+# v14 (2026-10-10, CHARTER 12.1 user decision / P2R_Z2_PLAN.md "Amendment 2026-10-10"): Z2 is CAMS-ONLY with a
+# KINEMATIC re-step -- R reads the cams and the hip-pitch positions, no load signal -- so P2__Z2_s18 drops
+# KRABBY_OMNI_STAND_PROXY (it stays off: the obs is Z1's). P2__Z2_s18 = the P2__Z1_s18 chain VERBATIM +
+# KRABBY_STAND_PRIOR_TARGET restance + KRABBY_RESTANCE default (the fresh probe's final constants replace "default"
+# in a later copy). Every other chain is unchanged.
 
 chains:
   # ======================================================================== calibration smokes (CHARTER 5)
@@ -1182,13 +1187,12 @@ chains:
         floor: {kind: none}
 
   P2__Z2_s18:
-    notes: "p2r Z2 amendment -- a stand with the cams homed and six feet planted (CHARTER 12 / P2R_Z2_PLAN.md step
-      1): the P2__Z1_s18 chain VERBATIM (graft fork, S1 overlay, stand bit, anchor + prior weights) + the
-      sample-and-hold contact proxy on stand rows (KRABBY_OMNI_STAND_PROXY hold) + the statue prior's target
-      R(obs) (KRABBY_STAND_PRIOR_TARGET restance, constants KRABBY_RESTANCE). KRABBY_OMNI_STAND_PROXY is an obs
-      SEMANTICS knob the eval-locked run_phases.EVAL_CARRY does not carry (motion_knobs.EVAL_CARRY_EXTERNAL):
-      this chain's ladder suite row builds WITHOUT the hold; the campaign's reads must carry it themselves
-      (run_arm.sh P2_ENV_EXTRA / the env stamp)."
+    notes: "p2r Z2 amendment -- a stand with the cams homed (CHARTER 12 / P2R_Z2_PLAN.md step 1 + its
+      2026-10-10 amendment: CAMS-ONLY, KINEMATIC re-step): the P2__Z1_s18 chain VERBATIM (graft fork, S1 overlay,
+      stand bit, anchor + prior weights) + the statue prior's target R(obs) (KRABBY_STAND_PRIOR_TARGET restance,
+      constants KRABBY_RESTANCE). R reads the cams and the hip-pitch positions, no load signal, so
+      KRABBY_OMNI_STAND_PROXY stays OFF (the obs is Z1's; p2_live / p2_read refuse a Z2 stamp or overlay that
+      arms it) and this chain's ladder suite row is a valid Z2 read as built."
     absolute_units: true
     stages:
       - stage: p2r
@@ -1231,9 +1235,9 @@ chains:
           KRABBY_ANCHOR_W: "1.0"
           KRABBY_ANCHOR_CKPT: parkour/outputs/omni_plan/phase2/graft/S1_s18_c15/model_19994.pt
           KRABBY_STAND_PRIOR_W: "1.0"
-          # ---- the p2r Z2 re-stance (P2R_Z2_PLAN.md step 1): THE ONE PLACE this chain's three new knobs live; the
-          # step-3 probe's final constants replace "default" (a later candidates copy)
-          KRABBY_OMNI_STAND_PROXY: hold
+          # ---- the p2r Z2 re-stance (P2R_Z2_PLAN.md step 1 + the 2026-10-10 cams-only amendment): THE ONE PLACE this
+          # chain's two new knobs live (no KRABBY_OMNI_STAND_PROXY: R reads no proxy); the fresh step-3 probe's
+          # final constants replace "default" (a later candidates copy)
           KRABBY_STAND_PRIOR_TARGET: restance
           KRABBY_RESTANCE: default
         eval: [suite]

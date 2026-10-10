@@ -100,7 +100,7 @@ stay the raw live proxy (the push happens inside ``super().__call__`` before the
 15), and walking rows are untouched. At each reset the term logs ``Metrics/stand_proxy_live_frac`` into
 ``env.extras["log"]``: the share of (stand row, leg) entries since the last log whose held value equals the live
 one bitwise. Construction-time only; refused without ``stand_bit_clock`` (the stand rows are the bit's) and with
-``lpf_obs`` (the appended head would move the proxy off columns 83-88, which the re-stance controller R reads).
+``lpf_obs`` (the appended head would move the proxy off columns 83-88 (the first, load-sensing R read them; the cams-only R of 2026-10-10 reads none)).
 
 ``ZERO_STEERING_HISTORY = False``: the forward task blanks dims 6-7 in the history copy so
 the policy cannot read the goal heading out of its own past (it is supposed to steer from
