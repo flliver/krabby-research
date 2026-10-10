@@ -1667,3 +1667,21 @@ stop rules, verdicts and budget are the pre-registration. This section logs the 
   - **Audit fix:** the fidelity gate scores held-out **walkstop es2** alone. Suite es2 is a near-duplicate of the
     trained suite es1 bank.
   - **Budget:** about 5.1 GPU-h.
+- 2026-10-10 ~18:00, **Z2c step 1: code landed** (af2eabd8; workflow wf_abbe2730; fable review: nothing blocking).
+  - **What landed:**
+    - the BC term (private generator, priv latent detached by a scoped hook, R recomputed from the bank obs, bank cols
+      0:257 on device, `Loss/bc` / `bc_mb0` / `grad_norm_bc`, `stand_prior_mb0`);
+    - `KRABBY_BC_W` / `BANK` / `BATCH`;
+    - R `eps_step` dead band (default 0.10 = old R);
+    - the fidelity scorer now recomputes R and scores both paths;
+    - `p2r_z2c_gate.py` plus run_arm's Z2c gate, refusing to launch without `P2_Z2C_GATE_BANK` or with a gate bank
+      inside the BC banks, and killing on rc 3 via systemctl + STOP_QUEUE;
+    - the p2_live Z2C wiring;
+    - `bc_mb0_expected` in the dose.
+  - **Tests:** 221 targeted pass; 728 / 729 related pass (the one failure is the known pre-existing dump test).
+  - **Gate on GRAFT** (held-out RSTf walkstop es2, drift-proof constants): FAIL, hip 0.52 and cam 0.54 on 14,004
+    all-HOLD rows, as expected.
+  - **BC dose on GRAFT over the RSTf es1 banks:** 9.83 per row (walkstop 10.1, suite 3.8, field_turn 20.9, field_hard
+    4.5).
+  - **Launched** the REFG bridge, the probe `P2R_RSTg_s18` (k3 + `eps_step 0.3`, `trim 0.1`, `k_h 1`; 100k banks), and
+    the residual pass `P2R_RSTresg_s18` (bias = Z2's cams + Z1's rods, `p2r_z2c_residual.json`).
