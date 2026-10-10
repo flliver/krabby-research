@@ -1617,3 +1617,28 @@ stop rules, verdicts and budget are the pre-registration. This section logs the 
     since +506, which looks like fit noise rather than a fixed bias.
   - Mean prior per bank row 0.40; training residual per stand row 0.66 (Z1 0.010 at +1000).
   - R's target fits much less tightly than Z1's zero. Notify-only; the run continues to its step-5 reads.
+- 2026-10-10 14:40–14:54, **Z2 trained (X17 model_24993) and first reads: Z2's stand FAILS** (step 5 → STOP and ask).
+
+  | | suite es1 | suite es2 | walkstop es1 |
+  |---|---|---|---|
+  | steps / s | 0.92 | 0.92 | 2.08 |
+  | taps / s | 7.4 | 5.0 | 8.3 |
+  | KS | 1.08 | 1.11 | 1.08 |
+  | off-ground | 0.126 | 0.158 | 0.126 |
+  | hover / 100 | 4 | 11 | 1 |
+  | homed | 0 % | 0 % | **0 %** (settled 13 %) |
+  | re-step lifts per stand | — | 11 | 22 |
+  | max cam, last 5 s | 0.23 rad | 0.23 rad | 0.23 rad |
+  | body height | 1.042 | 1.042 | 1.041 (REFS 1.068) |
+
+  - **No STILL clause holds on the suite.** The controller-level probe on the same rows read homed 95 % and STILL;
+    there were no falls.
+  - **Mechanism, from the CPU fidelity read of the final checkpoint on the P2R_RSTf stand bank:**
+    - the loaded-leg cam residual is MR 0.063 and RR 0.044, above the ±0.03 trim authority;
+    - the stepping branches fit loosely: LIFT hip |μ − R| 0.38, HOME cam 0.39; mean prior per row 0.41, against
+      Z1's 0.002.
+    - So the cams drift out of the 0.10 band within about 1 s even from spawn. The network's loose LIFT / HOME then
+      starts re-steps it does not complete: a continuous re-step loop. The scripted R has no bias and never enters
+      it.
+  - Walking was still anchored at the early checks (D 0.020). The remaining reads (walkstop es2, the field rows,
+    field_suite) continue for the record.
