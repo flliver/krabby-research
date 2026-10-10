@@ -3249,11 +3249,23 @@ def rst_invalid_reasons(pt: dict, refs: dict, raw_bit: bool = True) -> list[str]
     return out
 
 
+def pooled_diff_se(xa: float, na: int, xh: float, nh: int) -> float:
+    """The SE of the DIFFERENCE of two binomial rates under the pooled rate: sqrt(p (1 - p) (1/na + 1/nh)),
+    p = (xa + xh) / (na + nh)."""
+    if not na or not nh:
+        return float("nan")
+    p = (xa + xh) / (na + nh)
+    return math.sqrt(max(p * (1.0 - p), 0.0) * (1.0 / na + 1.0 / nh))
+
+
 def z2_field_vs_hold(arm: dict, hold: dict, rows=Z2_FIELD_ROWS) -> dict:
     """Premise clause (pure): on each of ``rows`` the arm's stand-hold fall rate <= HOLD's + 2 SE and its schedule
-    completion >= HOLD's - 2 SE, SE = HOLD's own binomial SE sqrt(p (1 - p) / n) (P2R_Z2_PLAN "Gate rows": against
-    HOLD's 0 falls 2 SE is 0, so one fall lands in the stop-and-ask). A row the arm never ran is ``not_run``; a row
-    HOLD lacks is PENDING."""
+    completion >= HOLD's - 2 SE, SE = the pooled two-sample SE of the DIFFERENCE (:func:`pooled_diff_se`).
+
+    NOTE(p2r Z2 probe, 2026-10-10, decide-record CHARTER 12.1): the first rule used HOLD's own binomial SE, which is
+    exactly 0 at HOLD's 0 field_turn falls -- one fall in 100 then "failed" against 0 in 100, a difference no test
+    resolves (pooled 2 SE = 0.020). The SE of the difference is the statistic the 2-SE rule needs. A row the arm never
+    ran is ``not_run``; a row HOLD lacks is PENDING."""
     cl, pend, not_run = {}, [], []
     for k in rows:
         if not (arm.get("stamps") or {}).get(k):
@@ -3267,10 +3279,15 @@ def z2_field_vs_hold(arm: dict, hold: dict, rows=Z2_FIELD_ROWS) -> dict:
         hf = hs["falls"] / hs["n"] if hs.get("n") else None
         as_, ac = a.get("stand"), a.get("comp")
         af = (as_["falls"] / as_["n"]) if as_ and as_.get("n") else None
-        cl[f"{k} stand-fall rate <= HOLD + {Z2_FIELD_SE_K:g} SE"] = _le(
-            af, None if hf is None else hf + Z2_FIELD_SE_K * binom_se(hf, hs["n"]))
-        cl[f"{k} completion >= HOLD - {Z2_FIELD_SE_K:g} SE"] = _ge(
-            (ac or {}).get("rate"), hc["rate"] - Z2_FIELD_SE_K * binom_se(hc["rate"], hc["n"]))
+        fall_line = None
+        if hf is not None and af is not None:
+            fall_line = hf + Z2_FIELD_SE_K * pooled_diff_se(as_["falls"], as_["n"], hs["falls"], hs["n"])
+        cl[f"{k} stand-fall rate <= HOLD + {Z2_FIELD_SE_K:g} SE(diff)"] = _le(af, fall_line)
+        comp_line = None
+        if (ac or {}).get("rate") is not None and ac.get("n"):
+            comp_line = hc["rate"] - Z2_FIELD_SE_K * pooled_diff_se(ac["rate"] * ac["n"], ac["n"],
+                                                                    hc["rate"] * hc["n"], hc["n"])
+        cl[f"{k} completion >= HOLD - {Z2_FIELD_SE_K:g} SE(diff)"] = _ge((ac or {}).get("rate"), comp_line)
     return {"clauses": cl, "pending": pend, "not_run": not_run}
 
 

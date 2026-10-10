@@ -408,17 +408,20 @@ def _fpt(name, stamps=(f"{FT}@1", f"{FH}@1"), ft=(0, 100, 0.99, 100), fh=(0, 100
     return {"name": name, "stamps": {k: f"/x/{k}" for k in stamps}, "field": field}
 
 
-def test_z2_field_vs_hold_two_hold_se(read):
+def test_z2_field_vs_hold_two_se_of_the_difference(read):
+    """NOTE(p2r Z2 probe, 2026-10-10): 2 SE of the DIFFERENCE (pooled), not HOLD's own SE (0 at HOLD's 0 falls)."""
     hold = _fpt("P2R_HOLD_s18")
     assert all(ok for _v, _t, ok in read.z2_field_vs_hold(_fpt("RST"), hold)["clauses"].values())
-    # against HOLD's 0 falls 2 SE is 0: one fall in field_turn's stand is a fail (the plan's stop-and-ask)
-    r = read.z2_field_vs_hold(_fpt("RST", ft=(1, 100, 0.99, 100)), hold)
-    assert [k for k, (_v, _t, ok) in r["clauses"].items() if not ok] == [f"{FT}@1 stand-fall rate <= HOLD + 2 SE"]
-    # completion: HOLD 0.79 at n=100 -> 2 SE = 0.0815; 0.71 passes, 0.70 fails
-    assert read.z2_field_vs_hold(_fpt("RST", fh=(0, 100, 0.71, 100)), hold)["clauses"][
-        f"{FH}@1 completion >= HOLD - 2 SE"][2] is True
-    assert read.z2_field_vs_hold(_fpt("RST", fh=(0, 100, 0.70, 100)), hold)["clauses"][
-        f"{FH}@1 completion >= HOLD - 2 SE"][2] is False
+    fall = f"{FT}@1 stand-fall rate <= HOLD + 2 SE(diff)"
+    # 1 / 100 against HOLD's 0 / 100: pooled 2 SE = 0.020, a pass; 4 / 100 and 8 / 100 fail
+    assert read.z2_field_vs_hold(_fpt("RST", ft=(1, 100, 0.99, 100)), hold)["clauses"][fall][2] is True
+    assert read.z2_field_vs_hold(_fpt("RST", ft=(4, 100, 0.96, 100)), hold)["clauses"][fall][2] is False
+    assert read.z2_field_vs_hold(_fpt("RST", ft=(8, 100, 0.90, 100)), hold)["clauses"][fall][2] is False
+    # completion: HOLD 0.79 at n=100 -> 0.67 passes (line 0.664), 0.66 fails
+    comp = f"{FH}@1 completion >= HOLD - 2 SE(diff)"
+    assert read.z2_field_vs_hold(_fpt("RST", fh=(0, 100, 0.67, 100)), hold)["clauses"][comp][2] is True
+    assert read.z2_field_vs_hold(_fpt("RST", fh=(0, 100, 0.66, 100)), hold)["clauses"][comp][2] is False
+    assert read.pooled_diff_se(1, 100, 0, 100) == pytest.approx(0.009975, abs=1e-5)
     # a row the probe never ran is NOT RUN, never a pass or a fail
     r = read.z2_field_vs_hold(_fpt("RST", stamps=(f"{FH}@1",)), hold)
     assert r["not_run"] == [f"{FT}@1"] and len(r["clauses"]) == 2
