@@ -312,6 +312,11 @@ def _mirror_obs(obs: torch.Tensor, plane: str) -> torch.Tensor:
     hp = obs[:, list(R.HIP_POS_OBS_COLS)]
     out[:, list(R.CAM_OBS_COLS)] = s_cam * cam[:, perm]
     out[:, list(R.HIP_POS_OBS_COLS)] = s_hip * hp[:, perm]
+    # the IMU: left-right flips roll, fore-aft flips pitch (R reads only their magnitudes)
+    if plane == "lr":
+        out[:, R.ROLL_OBS_COL] = -obs[:, R.ROLL_OBS_COL]
+    else:
+        out[:, R.PITCH_OBS_COL] = -obs[:, R.PITCH_OBS_COL]
     return out
 
 
@@ -331,6 +336,8 @@ def _random_obs(n: int, seed: int, p=P0) -> torch.Tensor:
     down_row = torch.rand(n, 6, generator=g) < 0.6                 # most legs pinned near default (down)
     hp = torch.where(down_row, (torch.rand(n, 6, generator=g) - 0.5) * 0.02, hp)
     obs[:, list(R.HIP_POS_OBS_COLS)] = hp
+    # roll / pitch straddling tilt_max (mostly level, so the stepping branches stay exercised)
+    obs[:, [R.ROLL_OBS_COL, R.PITCH_OBS_COL]] = (torch.rand(n, 2, generator=g) - 0.5) * 2.4 * p.tilt_max
     return obs
 
 
@@ -400,7 +407,7 @@ def test_only_the_documented_columns_are_read():
     obs = _random_obs(64, seed=5)
     target, branch = R.restance_target(obs, P0)
     other = obs.clone()
-    keep = list(R.CAM_OBS_COLS) + list(R.HIP_POS_OBS_COLS)
+    keep = list(R.CAM_OBS_COLS) + list(R.HIP_POS_OBS_COLS) + [R.ROLL_OBS_COL, R.PITCH_OBS_COL]
     mask = torch.ones(W, dtype=torch.bool)
     mask[keep] = False
     other[:, mask] += 7.0                                          # incl. the proxy columns: R reads no load signal
@@ -435,7 +442,8 @@ def test_parse_format_round_trip():
         assert R.parse_restance(text) == q
         assert R.RestanceParams.from_dict(q.to_dict()) == q
         assert all(isinstance(v, float) for v in q.to_dict().values())
-    assert set(P0.to_dict()) == {"lift", "rho", "up_frac", "down_frac", "k_c", "k_h", "trim", "eps_c", "eps_air"}
+    assert set(P0.to_dict()) == {"lift", "rho", "up_frac", "down_frac", "k_c", "k_h", "trim", "eps_c", "eps_air",
+                                 "tilt_max"}
     with pytest.raises(dataclasses.FrozenInstanceError):
         P0.lift = -0.9                                              # frozen
 
@@ -459,3 +467,33 @@ def test_from_dict_refuses_unknown_keys():
     with pytest.raises(ValueError, match="unknown"):
         R.RestanceParams.from_dict({**P0.to_dict(), "gain": 1.0})
     assert math.isclose(R.RestanceParams.from_dict({"lift": "-0.4"}).lift, -0.4)
+
+
+def test_tilt_guard_blocks_lifting_and_brings_lifted_legs_down():
+    """NOTE(p2r Z2 probe, 2026-10-10): beyond tilt_max (|roll| or |pitch|, obs cols 3 / 4) nothing lifts and HOME
+    becomes SEAT (the P2R_RST_s18 tip-overs while a tripod homed in the air)."""
+    cam = torch.tensor([0.8, 0.0, 0.0, 0.0, 0.0, 0.0])            # FL (tripod A) out of band, everything down
+    o = _obs(1, cam=cam)
+    _, b = R.restance_target(o, P0)
+    assert b[0, 0] == LIFT
+    for col in (R.ROLL_OBS_COL, R.PITCH_OBS_COL):
+        for sgn in (1.0, -1.0):
+            ot = o.clone()
+            ot[0, col] = sgn * (P0.tilt_max + 0.01)
+            t, b = R.restance_target(ot, P0)
+            assert b[0, 0] == WAIT and float(t[0, HIP][0]) == 0.0
+    # a leg already up and homing comes down while tilted (SEAT, rods 0), and keeps homing its cam while up
+    hp = torch.zeros(6)
+    hp[0] = P0.p_up - 0.01
+    o2 = _obs(1, cam=cam)
+    o2[0, list(R.HIP_POS_OBS_COLS)] = hp
+    _, b = R.restance_target(o2, P0)
+    assert b[0, 0] == HOME
+    o2[0, R.PITCH_OBS_COL] = -(P0.tilt_max + 0.01)
+    t, b = R.restance_target(o2, P0)
+    assert b[0, 0] == SEAT and float(t[0, HIP][0]) == 0.0 and float(t[0, CAM][0]) < 0.0
+    # exactly at tilt_max is still level
+    o3 = o.clone()
+    o3[0, R.ROLL_OBS_COL] = P0.tilt_max
+    _, b = R.restance_target(o3, P0)
+    assert b[0, 0] == LIFT

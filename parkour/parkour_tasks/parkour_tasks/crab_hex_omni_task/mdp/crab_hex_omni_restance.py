@@ -36,6 +36,11 @@ laws restoring, so it stays bounded under training noise):
   (``eps_air < eps_c``: a leg homes in the air to a tighter band than the down one, so a cam coast after landing
   stays inside ``eps_c`` and the trim holds it. A cam turns only while its leg is UP or, inside the band, as the
   +-0.03 trim -- never a large turn with the foot down.)
+* TILT GUARD (NOTE(p2r Z2 probe, 2026-10-10, CHARTER 12.1)): while the body's |roll| or |pitch| (obs columns 3, 4,
+  the current step's IMU) exceeds ``tilt_max``, no tripod may step and HOME becomes SEAT -- every lifted leg comes down.
+  The full probe set (P2R_RST_s18) fell 4 / 296 walkstop es2 and 8 / 100 field_turn stands by tipping over the support
+  tripod while the other tripod homed in the air; a tighter DOWN band stopped the falls (1 / 100) but the hip sag of
+  loaded legs then read as "not down" and deadlocked the homing (homed 23 %).
 * knee: ``knee = -rho * side_i * hip`` (``side`` +1 left, -1 right: increasing |knee angle| raises the foot and the
   knee's action sign flips across the body -- its left-right mirror sign is -1), so a lift raises the foot with both
   rods and every rest target is 0 on both.
@@ -59,6 +64,8 @@ CAM_OBS_COLS = tuple(18 + 2 * i for i in range(6))
 HIP_POS_OBS_COLS = tuple(29 + i for i in range(6))
 #: The contact-proxy columns (no longer read by R since the 2026-10-10 amendment; kept for the CPU tools).
 PROXY_OBS_COLS = tuple(83 + i for i in range(6))
+#: The IMU roll / pitch columns (``wrap_to_pi`` rad) the tilt guard reads.
+ROLL_OBS_COL, PITCH_OBS_COL = 3, 4
 #: The columns R reads lie inside the current step's 89-wide proprio head.
 MIN_OBS_WIDTH = 89
 #: The rod action scale (rad per action unit; the hip-pitch target is ``default + ROD_SCALE * a``).
@@ -92,6 +99,7 @@ class RestanceParams:
     trim: float = 0.03        #: down in-band trim authority (user decision 2026-10-10)
     eps_c: float = 0.10       #: down home band, rad (the homed gate's threshold)
     eps_air: float = 0.05     #: in-air home band, rad (tighter, so a landing coast stays in eps_c)
+    tilt_max: float = 0.10    #: |roll| or |pitch| (rad) beyond which nothing lifts and lifted legs come down
 
     def __post_init__(self):
         for f in dataclasses.fields(self):
@@ -103,7 +111,7 @@ class RestanceParams:
         if not 0.0 < self.down_frac < self.up_frac < 1.0:
             raise ValueError(f"{RESTANCE_VAR}: need 0 < down_frac < up_frac < 1, got down_frac={self.down_frac}, "
                              f"up_frac={self.up_frac}")
-        for name in ("k_c", "k_h", "trim", "eps_c", "eps_air"):
+        for name in ("k_c", "k_h", "trim", "eps_c", "eps_air", "tilt_max"):
             if not float(getattr(self, name)) > 0.0:
                 raise ValueError(f"{RESTANCE_VAR}: {name} must be > 0, got {getattr(self, name)}")
         if self.rho < 0.0:
@@ -201,8 +209,9 @@ def restance_target(obs: torch.Tensor, p: RestanceParams) -> tuple[torch.Tensor,
     # ---- tripod selection (down, out-of-band legs step; the other tripod must be all down)
     want = down & out_c
     mag = torch.where(want, c.abs(), torch.zeros_like(c))
-    a_may = want[:, a_idx].any(-1) & b_down[:, 0]
-    b_may = want[:, b_idx].any(-1) & a_down[:, 0]
+    level = (obs[:, ROLL_OBS_COL].abs() <= p.tilt_max) & (obs[:, PITCH_OBS_COL].abs() <= p.tilt_max)
+    a_may = want[:, a_idx].any(-1) & b_down[:, 0] & level
+    b_may = want[:, b_idx].any(-1) & a_down[:, 0] & level
     sum_a = mag[:, a_idx].sum(-1)
     sum_b = mag[:, b_idx].sum(-1)
     sel_a = a_may & (~b_may | (sum_a >= sum_b))
@@ -210,7 +219,7 @@ def restance_target(obs: torch.Tensor, p: RestanceParams) -> tuple[torch.Tensor,
     selected = (sel_a[:, None] & in_a[None, :]) | (sel_b[:, None] & ~in_a[None, :])
 
     # ---- branches
-    home = ~down & out_air & other_down
+    home = ~down & out_air & other_down & level[:, None]
     branch = torch.full(c.shape, BRANCH_HOLD, dtype=torch.long, device=dev)
     branch = torch.where(down & out_c & ~selected, torch.full_like(branch, BRANCH_WAIT), branch)
     branch = torch.where(down & out_c & selected, torch.full_like(branch, BRANCH_LIFT), branch)

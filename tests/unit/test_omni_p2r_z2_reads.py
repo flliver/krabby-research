@@ -702,7 +702,7 @@ def test_branch_names_pinned_to_the_restance_module(live):
 F0 = 14996
 AUDIT_OK = [("overlay KRABBY_TERRAIN_PROMOTE=0.7:0.4 in params/env.yaml", True)]
 #: NOTE(p2r Z2 cams-only, 2026-10-10): no proxy_live_min any more (the held == live clause is gone)
-DOSE = {"band_lo": 3.0, "band_hi": 9.0, "rc": 0, "restance_knob": "lift=-0.5,rho=1,up_frac=0.6,down_frac=0.4,k_c=2,k_h=0.3,trim=0.03,eps_c=0.1,eps_air=0.05"}  # = format_restance(defaults)
+DOSE = {"band_lo": 3.0, "band_hi": 9.0, "rc": 0, "restance_knob": "lift=-0.5,rho=1,up_frac=0.6,down_frac=0.4,k_c=2,k_h=0.3,trim=0.03,eps_c=0.1,eps_air=0.05,tilt_max=0.1"}  # = format_restance(defaults)
 
 
 def _ov(**over):
