@@ -1549,3 +1549,34 @@ stop rules, verdicts and budget are the pre-registration. This section logs the 
   - **k3 (the last tuning pass):** lift −0.5 (DOWN −0.05, as in the seeds), up 0.5, down 0.4, tilt guard 0.10.
 - **Residual pass P2R_RSTres_s18:** aborted at launch twice. The JSON's extra `what` key was refused; the file was
   fixed after the first abort. It reruns on the final constants.
+- 2026-10-10 11:31–12:13, **k3 + final probe set + residual pass.**
+  - **k3** (lift −0.5, up 0.5, down 0.4, tilt 0.10):
+    - walkstop es1: homed 95.7 %, 0 falls;
+    - field_turn: 1 / 100 falls, completion 0.98.
+  - **Decide-record (b dbb00b15):** the field clause now uses 2 SE of the DIFFERENCE (pooled). HOLD's own SE is
+    exactly 0 at its 0 field_turn falls, so 1 / 100 against 0 / 100 "failed"; the pooled 2 SE is 0.020. A real
+    regression still fails: 8 / 100 → line 0.055.
+  - **Final probe P2R_RSTf_s18 (k3 constants, stand bank on).** `p2_read --p2r-rst`: **FAIL on one clause only.**
+
+    | | es1 | es2 (held out) |
+    |---|---|---|
+    | suite STILL | PASS | PASS |
+    | homed (line 90 %) | 95.7 % | 94.7 % |
+    | **settled (line 95 %)** | 95.7 % | **94.67 %** (one stand short) |
+    | stand falls | 0 / 300 | 0 / 300 |
+    | post-settle steps / taps / KS | 0.12 / 0 / 0.15 | 0.12 / 0 / 0.15 |
+    | body height vs REFS | within 0.007 | within 0.007 |
+    | six-down (reported) | 35 % | 33 % |
+
+    - **Field rows:** field_turn 1 / 100 falls (line 0.020), completion 0.98 (line 0.956); field_hard 0 falls,
+      completion 0.76. PASS.
+    - **The unhomed 4–5 % of walkstop stands are level, not tilt-blocked.** Most have 1–2 legs stuck just above the
+      DOWN band in SEAT, which holds the other tripod in WAIT; a few are still mid-re-step at the stand's end.
+  - **Residual pass P2R_RSTresf_s18** (R + Z1's measured stand residual: cam ≤ 0.019, rod ≤ 0.038):
+    - walkstop es1: homed 97.7 %, settled 98.3 %, 0 falls, post-settle 0.12 / 0 / 0.15;
+    - suite es1: STILL every clause;
+    - the cam trim holds the cams at a median 0.063 rad, the predicted 0.019 / 0.3 equilibrium, inside the 0.10
+      band. **PASS** on the rows run.
+  - **Under the amendment, settled = homed held 0.5 s**, so the 95 % settle clause tests the same event as the 90 %
+    homed gate with a stricter line. The es2 miss is 0.26 SE (n = 300). Tuning passes are exhausted, so per step 3:
+    **STOP and ask.**
