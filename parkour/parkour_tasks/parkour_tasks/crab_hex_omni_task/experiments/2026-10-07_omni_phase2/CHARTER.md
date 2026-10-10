@@ -1642,3 +1642,14 @@ stop rules, verdicts and budget are the pre-registration. This section logs the 
       it.
   - Walking was still anchored at the early checks (D 0.020). The remaining reads (walkstop es2, the field rows,
     field_suite) continue for the record.
+- 2026-10-10 ~15:05, user chose "Z2b: retry with drift-proof R" (dead band, ±0.1 trim, cam-weighted prior).
+  **Before any Z2b work, the measured bias contradicted that design's premise. Re-asked.**
+  - Measurement: Z2's mean(μ − R) on the 13,960 all-HOLD rows of the P2R_RSTf stand bank (`p2r_z2_residual.json`).
+    - cams: up to +0.062 (the drift seen in the read);
+    - **rods: hip −0.13 to −0.18 on EVERY leg, knee ±0.13–0.17 side-coupled.** That is a partial LIFT (about 30 % of
+      lift −0.5) blended into states where R commands 0.
+  - It explains the read: body 2.6 cm low, taps, and feet off the ground, which then re-trigger stepping.
+  - **Cause: train/eval state mismatch.** Under exploration noise (σ ≈ 0.8, cams ≈ 1.15) the training stand rows
+    almost never sit in the clean all-homed, all-down state. LIFT / HOME / SEAT rows dominate, and the network
+    averages those branches into the clean states the eval visits.
+  - The dead band, trim and cam weighting do not address this rod bias.
