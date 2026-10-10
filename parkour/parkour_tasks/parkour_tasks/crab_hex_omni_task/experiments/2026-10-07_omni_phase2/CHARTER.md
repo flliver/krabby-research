@@ -1531,3 +1531,21 @@ stop rules, verdicts and budget are the pre-registration. This section logs the 
   - **Tuning pass 1 (k1):** down_frac 0.4 → 0.25 (support fully planted), up_frac 0.6 → 0.4 and lift −0.5 → −0.4
     (shorter air time). Rows: walkstop es1 + field_turn es1. The suite is skipped because R from spawn is the statue,
     unaffected by these constants; es2 stays held out.
+- 2026-10-10 11:04–11:31, **kinematic tuning passes 1–2** (walkstop es1 + field_turn es1; es2 held out).
+
+  | pass | constants | walkstop homed | walkstop stand falls | field_turn stand falls / completion |
+  |---|---|---|---|---|
+  | full set (seeds) | lift −0.5, up 0.6, down 0.4 | 97.3 % | 1 / 300 | 8 / 100, 0.90 |
+  | k1 | lift −0.4, up 0.4, **down 0.25** | **23 %** (deadlock) | 0 | 1 / 100, 0.98 |
+  | k2 | lift −0.4, up 0.5, down 0.4, **tilt guard 0.10 rad** (code e6c82ab2, REFF bridge PASS) | 85 % | 0 | **0 / 100, 1.00** |
+
+  - **k1:** a tighter DOWN band stops the falls, but the hip sag of loaded legs reads as "not down" (21 % of planted
+    legs), so the homing deadlocks. Position-based "down" cannot go below the load sag.
+  - **k2:** the **tilt guard** (no lifting while |roll| or |pitch| > 0.10 rad; lifted legs come down) removes the
+    terrain falls. Flat onset tilt has a median of 3° and a p90 of 5°, against a settled 0.5°, so the guard does not
+    block flat homing.
+  - The k2 homing loss is the smaller lift: the absolute DOWN band shrinks to −0.04 rad, and 3.4 % of planted legs
+    read "not down".
+  - **k3 (the last tuning pass):** lift −0.5 (DOWN −0.05, as in the seeds), up 0.5, down 0.4, tilt guard 0.10.
+- **Residual pass P2R_RSTres_s18:** aborted at launch twice. The JSON's extra `what` key was refused; the file was
+  fixed after the first abort. It reruns on the final constants.
